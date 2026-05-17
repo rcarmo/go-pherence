@@ -41,24 +41,34 @@ type Qwen35GPUTransientStat struct {
 
 type qwen35GPUCacheState struct {
 	sync.Mutex
-	requestedBytes  int64
-	budgetBytes     int64
-	clamped         bool
-	usedBytes       int64
-	entries         map[*Qwen35NVFP4Weight]bool
-	transientGPU    *gpu.GPUNVFP4Weight
-	transientByName map[string]Qwen35GPUTransientStat
-	tick            uint64
-	hits            int64
-	misses          int64
-	evictions       int64
-	uploads         int64
-	uploadBytes     int64
-	transient       int64
-	transientBytes  int64
+	requestedBytes    int64
+	budgetBytes       int64
+	clamped           bool
+	usedBytes         int64
+	entries           map[*Qwen35NVFP4Weight]bool
+	transientGPU      *gpu.GPUNVFP4Weight
+	transientByName   map[string]Qwen35GPUTransientStat
+	transientDetailed bool
+	tick              uint64
+	hits              int64
+	misses            int64
+	evictions         int64
+	uploads           int64
+	uploadBytes       int64
+	transient         int64
+	transientBytes    int64
 }
 
 var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, transientByName: map[string]Qwen35GPUTransientStat{}}
+
+func SetQwen35GPUTransientDetail(enabled bool) {
+	qwen35GPUCache.Lock()
+	defer qwen35GPUCache.Unlock()
+	qwen35GPUCache.transientDetailed = enabled
+	if !enabled {
+		qwen35GPUCache.transientByName = map[string]Qwen35GPUTransientStat{}
+	}
+}
 
 func ConfigureQwen35GPUCache(budgetBytes int64) {
 	qwen35GPUCache.Lock()
@@ -160,8 +170,10 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 	qwen35GPUCache.Lock()
 	defer qwen35GPUCache.Unlock()
 	top := make([]Qwen35GPUTransientStat, 0, len(qwen35GPUCache.transientByName))
-	for _, stat := range qwen35GPUCache.transientByName {
-		top = append(top, stat)
+	if qwen35GPUCache.transientDetailed {
+		for _, stat := range qwen35GPUCache.transientByName {
+			top = append(top, stat)
+		}
 	}
 	sort.Slice(top, func(i, j int) bool {
 		if top[i].Bytes == top[j].Bytes {
@@ -239,6 +251,9 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 func qwen35RecordTransientLocked(q *Qwen35NVFP4Weight, need int64) {
 	qwen35GPUCache.transient++
 	qwen35GPUCache.transientBytes += need
+	if !qwen35GPUCache.transientDetailed {
+		return
+	}
 	if qwen35GPUCache.transientByName == nil {
 		qwen35GPUCache.transientByName = map[string]Qwen35GPUTransientStat{}
 	}
