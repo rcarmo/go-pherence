@@ -61,11 +61,12 @@ type rawTensor struct {
 }
 
 type runner struct {
-	bundle *model.Qwen35NativeMTPBundle
-	state  model.Qwen35BaseForwardState
-	emb    rawTensor
-	normW  []float32
-	lm     rawTensor
+	bundle  *model.Qwen35NativeMTPBundle
+	state   model.Qwen35BaseForwardState
+	emb     rawTensor
+	normW   []float32
+	lm      rawTensor
+	mtpHead *model.QwenNativeMTPHead
 }
 
 func main() {
@@ -101,6 +102,10 @@ func main() {
 	check("open tensors", err)
 	defer src.Close()
 	r := runner{bundle: bundle, state: state, emb: mustRaw(src, "model.language_model.embed_tokens.weight"), normW: bf16All(mustRaw(src, "model.language_model.norm.weight")), lm: mustRaw(src, "lm_head.weight")}
+	if *mtp {
+		r.mtpHead, err = model.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)
+		check("load MTP head", err)
+	}
 	ropeMax := meta.MaxPositionEmbeddings
 	if ropeMax <= 0 || ropeMax > 4096 {
 		ropeMax = 4096
@@ -116,7 +121,7 @@ func main() {
 		}
 		sweepReport := SweepReport{ModelDir: *dir, Prompts: prompts, Total: len(prompts)}
 		for _, p := range prompts {
-			run := newRunner(bundle, state, r.emb, r.normW, r.lm)
+			run := newRunner(bundle, state, r.emb, r.normW, r.lm, r.mtpHead)
 			report, err := runPrompt(run, tok, p, *steps, *mtp, *mtpSteps, ropeFreqs, meta, *dir)
 			check("sweep prompt", err)
 			sweepReport.Runs = append(sweepReport.Runs, report)
@@ -238,8 +243,12 @@ func main() {
 }
 
 func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNext int, prefillHidden []float32, prefillToken, prefillPos int, generated []int, preNormHidden []float32, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string, mtpSteps int) {
-	mtpHead, err := model.LoadQwenNativeMTPHeadFromSafetensorsDir(dir, meta)
-	check("load MTP head", err)
+	_ = dir
+	mtpHead := r.mtpHead
+	if mtpHead == nil {
+		fmt.Fprintln(os.Stderr, "MTP diagnostics requested but MTP head is not loaded")
+		os.Exit(2)
+	}
 	if mtpHead.Norm == nil {
 		fmt.Fprintln(os.Stderr, "MTP logits: missing mtp.norm.weight")
 		os.Exit(2)
@@ -317,8 +326,8 @@ func draftMTPIDs(head *model.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, 
 	return ids, nil
 }
 
-func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor) runner {
-	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm}
+func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, mtpHead *model.QwenNativeMTPHead) runner {
+	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, mtpHead: mtpHead}
 }
 
 func loadSweepPrompts(path string) []string {
