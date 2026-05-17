@@ -146,6 +146,8 @@ go run ./cmd/qwenmtpsynth -steps 2
 go run ./cmd/qwenmtpsmoke -model /path/to/qwen3.6-27b-mtp
 
 go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
+# Optional, more expensive seed-variant diagnostic:
+go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -prompt "Hello" -steps 1 -mtp -greedy-seed
 
 go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
 ```

@@ -197,6 +197,9 @@ Use `cmd/qwen36run` for the current CPU correctness smoke against the downloaded
 ```bash
 go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
 
+# Optional, more expensive prefill diagnostic seeded with the base greedy token:
+go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -greedy-seed
+
 # Sweep newline-separated prompts and summarize MTP acceptance:
 go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
 ```
