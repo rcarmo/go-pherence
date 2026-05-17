@@ -87,6 +87,7 @@ type runner struct {
 	emb     rawTensor
 	normW   []float32
 	lm      rawTensor
+	lmGPU   *gpu.Buffer
 	mtpHead *model.QwenNativeMTPHead
 }
 
@@ -121,7 +122,6 @@ func main() {
 	}
 	qwen36UseGPULMHead = *gpuLMHead
 	model.SetQwen35GPUEnabled(*useGPU)
-	model.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
 	model.SetQwen35GPUVerify(*gpuVerify, float32(*gpuVerifyTol))
 	defer model.ResetQwen35GPUCache()
 	data, err := os.ReadFile(filepath.Join(*dir, "config.json"))
@@ -136,6 +136,14 @@ func main() {
 	check("open tensors", err)
 	defer src.Close()
 	r := runner{bundle: bundle, state: state, emb: mustRaw(src, "model.language_model.embed_tokens.weight"), normW: bf16All(mustRaw(src, "model.language_model.norm.weight")), lm: mustRaw(src, "lm_head.weight")}
+	if *gpuLMHead && *useGPU {
+		r.lmGPU, err = gpu.UploadBF16LMHead(r.lm.raw, r.lm.shape[0], r.lm.shape[1])
+		check("upload GPU LM head", err)
+		if r.lmGPU != nil {
+			defer r.lmGPU.Free()
+		}
+	}
+	model.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
 	if *mtp {
 		r.mtpHead, err = model.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)
 		check("load MTP head", err)
@@ -156,7 +164,7 @@ func main() {
 		sweepStart := time.Now()
 		sweepReport := SweepReport{ModelDir: *dir, Prompts: prompts, Total: len(prompts)}
 		for _, p := range prompts {
-			run := newRunner(bundle, state, r.emb, r.normW, r.lm, r.mtpHead)
+			run := newRunner(bundle, state, r.emb, r.normW, r.lm, r.lmGPU, r.mtpHead)
 			report, err := runPrompt(run, tok, p, *steps, *mtp, *mtpSteps, *topK, *greedySeed, ropeFreqs, meta, *dir)
 			check("sweep prompt", err)
 			sweepReport.Runs = append(sweepReport.Runs, report)
@@ -335,8 +343,8 @@ func draftMTPIDs(head *model.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, 
 	return ids, nil
 }
 
-func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, mtpHead *model.QwenNativeMTPHead) runner {
-	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, mtpHead: mtpHead}
+func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, lmGPU *gpu.Buffer, mtpHead *model.QwenNativeMTPHead) runner {
+	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, lmGPU: lmGPU, mtpHead: mtpHead}
 }
 
 func tokensPerSecond(tokens int, durationMS int64) float64 {
@@ -428,7 +436,7 @@ func (r *runner) step(tokenID int, ropeFreqs []float32) (int, float32, []float32
 	preNorm := append([]float32(nil), outs[len(outs)-1]...)
 	h := append([]float32(nil), preNorm...)
 	rmsNorm(h, r.normW, 1e-6)
-	id, val := argmaxLMHead(r.lm, h)
+	id, val := argmaxLMHead(r.lm, r.lmGPU, h)
 	return id, val, h, preNorm, nil
 }
 
@@ -512,10 +520,10 @@ func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
 	return top
 }
 
-func argmaxLMHead(t rawTensor, x []float32) (int, float32) {
-	if qwen36UseGPULMHead && model.Qwen35GPUCacheStatsSnapshot().Enabled && t.dtype == "BF16" && len(t.shape) == 2 {
+func argmaxLMHead(t rawTensor, lmGPU *gpu.Buffer, x []float32) (int, float32) {
+	if qwen36UseGPULMHead && model.Qwen35GPUCacheStatsSnapshot().Enabled && t.dtype == "BF16" && len(t.shape) == 2 && lmGPU != nil {
 		logits := make([]float32, t.shape[0])
-		if err := gpu.BF16LMHead(logits, t.raw, x, t.shape[0], t.shape[1]); err == nil {
+		if err := gpu.BF16LMHeadWithBuffer(logits, lmGPU, x, t.shape[0], t.shape[1]); err == nil {
 			best := -1
 			bestv := float32(math.Inf(-1))
 			for i, v := range logits {

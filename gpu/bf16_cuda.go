@@ -100,20 +100,30 @@ func DevBF16GELUTanhMul(gate, up *Buffer, n int) bool {
 		unsafe.Pointer(&nn)) == nil
 }
 
-func BF16LMHead(logits []float32, weightRaw []byte, x []float32, vocab, h int) error {
+func UploadBF16LMHead(weightRaw []byte, vocab, h int) (*Buffer, error) {
+	if !SgemmReady() {
+		return nil, nil
+	}
+	if vocab <= 0 || h <= 0 || len(weightRaw) < vocab*h*2 {
+		return nil, nil
+	}
+	wBuf, err := Malloc(f32SlotsForBytes(vocab * h * 2))
+	if err != nil {
+		return nil, err
+	}
+	if err := wBuf.UploadBytes(weightRaw[:vocab*h*2]); err != nil {
+		wBuf.Free()
+		return nil, err
+	}
+	return wBuf, nil
+}
+
+func BF16LMHeadWithBuffer(logits []float32, wBuf *Buffer, x []float32, vocab, h int) error {
 	if fnBF16LMHead == 0 || !SgemmReady() {
 		return nil
 	}
-	if vocab <= 0 || h <= 0 || len(weightRaw) < vocab*h*2 || len(x) < h || len(logits) < vocab || !fitsUint32(vocab) || !fitsUint32(h) {
+	if vocab <= 0 || h <= 0 || wBuf == nil || len(x) < h || len(logits) < vocab || !fitsUint32(vocab) || !fitsUint32(h) {
 		return nil
-	}
-	wBuf, err := Malloc(f32SlotsForBytes(len(weightRaw)))
-	if err != nil {
-		return err
-	}
-	defer wBuf.Free()
-	if err := wBuf.UploadBytes(weightRaw[:vocab*h*2]); err != nil {
-		return err
 	}
 	xBuf, err := Malloc(h)
 	if err != nil {
@@ -141,6 +151,15 @@ func BF16LMHead(logits []float32, weightRaw []byte, x []float32, vocab, h int) e
 		return err
 	}
 	return outBuf.Download(logits[:vocab])
+}
+
+func BF16LMHead(logits []float32, weightRaw []byte, x []float32, vocab, h int) error {
+	wBuf, err := UploadBF16LMHead(weightRaw, vocab, h)
+	if err != nil || wBuf == nil {
+		return err
+	}
+	defer wBuf.Free()
+	return BF16LMHeadWithBuffer(logits, wBuf, x, vocab, h)
 }
 
 func validBF16Buffer(b *Buffer, n int) bool {
