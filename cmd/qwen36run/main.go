@@ -18,6 +18,7 @@ import (
 )
 
 var qwen36UseGPULMHead bool
+var qwen36LMHeadLogitsScratch []float32
 
 type TopLogit struct {
 	ID    int     `json:"id"`
@@ -580,7 +581,10 @@ func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
 
 func argmaxLMHead(t rawTensor, lmGPU *gpu.Buffer, x []float32) (int, float32) {
 	if qwen36UseGPULMHead && model.Qwen35GPUCacheStatsSnapshot().Enabled && t.dtype == "BF16" && len(t.shape) == 2 && lmGPU != nil {
-		logits := make([]float32, t.shape[0])
+		if cap(qwen36LMHeadLogitsScratch) < t.shape[0] {
+			qwen36LMHeadLogitsScratch = make([]float32, t.shape[0])
+		}
+		logits := qwen36LMHeadLogitsScratch[:t.shape[0]]
 		if err := gpu.BF16LMHeadWithBuffer(logits, lmGPU, x, t.shape[0], t.shape[1]); err == nil {
 			best := -1
 			bestv := float32(math.Inf(-1))
