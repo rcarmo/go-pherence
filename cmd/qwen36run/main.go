@@ -220,6 +220,9 @@ func main() {
 	cur := next
 	for i := 0; i < *steps; i++ {
 		generated = append(generated, cur)
+		if i == *steps-1 {
+			break
+		}
 		next, logit, h, preNormHidden, err = r.step(cur, ropeFreqs)
 		check("decode", err)
 		cur = next
@@ -407,6 +410,9 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	cur := next
 	for i := 0; i < steps; i++ {
 		generated = append(generated, cur)
+		if i == steps-1 {
+			break
+		}
 		next, logit, h, preNormHidden, err = r.step(cur, ropeFreqs)
 		if err != nil {
 			return Report{}, err
