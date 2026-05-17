@@ -54,6 +54,7 @@ type Report struct {
 	MTPAcceptedPrefix          int                        `json:"mtp_accepted_prefix,omitempty"`
 	GPUCache                   model.Qwen35GPUCacheStats  `json:"gpu_cache,omitempty"`
 	GPUVerify                  model.Qwen35GPUVerifyStats `json:"gpu_verify,omitempty"`
+	GPULMHead                  bool                       `json:"gpu_lm_head,omitempty"`
 	DurationMS                 int64                      `json:"duration_ms"`
 	TokensProcessed            int                        `json:"tokens_processed"`
 	TokensPerSecond            float64                    `json:"tokens_per_second"`
@@ -104,7 +105,7 @@ func main() {
 	gpuCacheMB := flag.Int("gpu-cache-mb", 10240, "GPU cache budget for packed Qwen3.6 NVFP4 weights; 0 disables eviction")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
-	gpuLMHead := flag.Bool("gpu-lm-head", false, "run BF16 LM head on GPU; useful only when cached/longer runs amortize upload")
+	gpuLMHead := flag.Bool("gpu-lm-head", true, "run BF16 LM head on GPU when -gpu is enabled; set -gpu-lm-head=false to disable")
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
 	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
@@ -237,6 +238,7 @@ func main() {
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
+	rep.GPULMHead = r.lmGPU != nil
 	if *mtp {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, *mtpSteps, *greedySeed)
 	}
@@ -417,6 +419,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
+	rep.GPULMHead = r.lmGPU != nil
 	if topK > 0 {
 		rep.BaseTop = topKBF16MatVec(r.lm, h, topK)
 	}
