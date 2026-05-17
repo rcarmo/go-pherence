@@ -601,7 +601,7 @@ func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
 }
 
 func argmaxLMHead(t rawTensor, lmGPU *gpu.Buffer, x []float32) (int, float32) {
-	if qwen36UseGPULMHead && model.Qwen35GPUCacheStatsSnapshot().Enabled && t.dtype == "BF16" && len(t.shape) == 2 && lmGPU != nil {
+	if qwen36UseGPULMHead && t.dtype == "BF16" && len(t.shape) == 2 && lmGPU != nil {
 		if cap(qwen36LMHeadLogitsScratch) < t.shape[0] {
 			qwen36LMHeadLogitsScratch = make([]float32, t.shape[0])
 		}
