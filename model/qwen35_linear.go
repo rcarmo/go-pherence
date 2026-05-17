@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/rcarmo/go-pherence/gpu"
 	"github.com/rcarmo/go-pherence/runtime/quant"
@@ -9,8 +10,34 @@ import (
 )
 
 var qwen35GPUEnabled bool
+var qwen35GPUVerifyRemaining int
+var qwen35GPUVerifyTolerance float32 = 1e-4
+var qwen35GPUVerifyCompared int64
+var qwen35GPUVerifyMismatches int64
+var qwen35GPUVerifyMaxDiff float32
+
+type Qwen35GPUVerifyStats struct {
+	Compared   int64   `json:"compared"`
+	Mismatches int64   `json:"mismatches"`
+	MaxDiff    float32 `json:"max_diff"`
+	Tolerance  float32 `json:"tolerance"`
+}
 
 func SetQwen35GPUEnabled(enabled bool) { qwen35GPUEnabled = enabled }
+
+func SetQwen35GPUVerify(limit int, tolerance float32) {
+	qwen35GPUVerifyRemaining = limit
+	if tolerance > 0 {
+		qwen35GPUVerifyTolerance = tolerance
+	}
+	qwen35GPUVerifyCompared = 0
+	qwen35GPUVerifyMismatches = 0
+	qwen35GPUVerifyMaxDiff = 0
+}
+
+func Qwen35GPUVerifyStatsSnapshot() Qwen35GPUVerifyStats {
+	return Qwen35GPUVerifyStats{Compared: qwen35GPUVerifyCompared, Mismatches: qwen35GPUVerifyMismatches, MaxDiff: qwen35GPUVerifyMaxDiff, Tolerance: qwen35GPUVerifyTolerance}
+}
 
 func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weight, inDim, outDim int, name string) error {
 	if len(out) != outDim || len(x) != inDim {
@@ -33,6 +60,26 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 			}
 			if err := gpu.GemvNVFP4(out, x, gw); err != nil {
 				return fmt.Errorf("%s GPU NVFP4 GEMV: %w", name, err)
+			}
+			if qwen35GPUVerifyRemaining > 0 {
+				qwen35GPUVerifyRemaining--
+				ref := make([]float32, outDim)
+				quant.GemvNVFP4(ref, x, q.W)
+				var maxDiff float32
+				for i := range ref {
+					d := float32(math.Abs(float64(ref[i] - out[i])))
+					if d > maxDiff {
+						maxDiff = d
+					}
+				}
+				qwen35GPUVerifyCompared++
+				if maxDiff > qwen35GPUVerifyMaxDiff {
+					qwen35GPUVerifyMaxDiff = maxDiff
+				}
+				if maxDiff > qwen35GPUVerifyTolerance {
+					qwen35GPUVerifyMismatches++
+					return fmt.Errorf("%s GPU NVFP4 verification max diff=%g exceeds tolerance=%g", name, maxDiff, qwen35GPUVerifyTolerance)
+				}
 			}
 			return nil
 		}
