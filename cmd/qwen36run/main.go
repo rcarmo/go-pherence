@@ -94,6 +94,7 @@ func main() {
 	mtpSteps := flag.Int("mtp-steps", 1, "native MTP draft steps for diagnostics")
 	topK := flag.Int("topk", 0, "include top-K base/MTP logits in reports; 0 disables")
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
+	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
 	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
@@ -109,6 +110,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "mtp-steps must be >= 1")
 		os.Exit(2)
 	}
+	model.SetQwen35GPUEnabled(*useGPU)
 	data, err := os.ReadFile(filepath.Join(*dir, "config.json"))
 	check("config", err)
 	meta, err := loaderconfig.ParseQwenNativeMTPMetadata(data)

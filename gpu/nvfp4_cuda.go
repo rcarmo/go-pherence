@@ -214,8 +214,9 @@ func DequantNVFP4ToF32(w *GPUNVFP4Weight) ([]float32, error) {
 }
 
 // GemvNVFP4 computes dense out[outDim] = W_nvfp4[outDim,inDim] · x[inDim].
-// WARNING: this fallback materializes OutDim*InDim F32 weights per call; native
-// packed GEMV/GEMM kernels can replace this behind the same entry point.
+// It keeps the hot path on-device: packed NVFP4 is dequantized into a transient
+// GPU F32 matrix and multiplied with SGEMM, downloading only the output vector.
+// If any CUDA step fails, callers can fall back to the CPU runtime/quant path.
 func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 	if !validGPUNVFP4Weight(w) {
 		return fmt.Errorf("invalid GPU NVFP4 weight")
@@ -223,11 +224,49 @@ func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 	if len(out) < w.OutDim || len(x) < w.InDim {
 		return fmt.Errorf("invalid NVFP4 GEMV buffers out=%d/%d x=%d/%d", len(out), w.OutDim, len(x), w.InDim)
 	}
+	if SgemmReady() {
+		if err := gemvNVFP4CUDA(out, x, w); err == nil {
+			return nil
+		} else {
+			debugf("[gpu] NVFP4 GEMV CUDA fallback: %v\n", err)
+		}
+	}
 	weights, err := DequantNVFP4ToF32(w)
 	if err != nil {
 		return err
 	}
 	return gemvNVFP4F32(out, x, w.OutDim, w.InDim, weights)
+}
+
+func gemvNVFP4CUDA(out, x []float32, w *GPUNVFP4Weight) error {
+	weights, err := dequantNVFP4ToF32GPU(w)
+	if err != nil {
+		return err
+	}
+	defer weights.Free()
+	xBuf, err := Malloc(w.InDim)
+	if err != nil {
+		return fmt.Errorf("alloc NVFP4 GEMV input: %w", err)
+	}
+	defer xBuf.Free()
+	if err := xBuf.Upload(x[:w.InDim]); err != nil {
+		return fmt.Errorf("upload NVFP4 GEMV input: %w", err)
+	}
+	outBuf, err := Malloc(w.OutDim)
+	if err != nil {
+		return fmt.Errorf("alloc NVFP4 GEMV output: %w", err)
+	}
+	defer outBuf.Free()
+	if err := Sgemm(w.OutDim, 1, w.InDim, 1.0, weights, xBuf, outBuf); err != nil {
+		return fmt.Errorf("NVFP4 GEMV SGEMM: %w", err)
+	}
+	if err := SyncErr(); err != nil {
+		return fmt.Errorf("NVFP4 GEMV sync: %w", err)
+	}
+	if err := outBuf.Download(out[:w.OutDim]); err != nil {
+		return fmt.Errorf("download NVFP4 GEMV output: %w", err)
+	}
+	return nil
 }
 
 func gemvNVFP4F32(out, x []float32, outDim, inDim int, weights []float32) error {
@@ -247,20 +286,33 @@ func gemvNVFP4F32(out, x []float32, outDim, inDim int, weights []float32) error 
 }
 
 func dequantNVFP4ToF32CUDA(w *GPUNVFP4Weight) ([]float32, bool) {
-	if fnNVFP4DequantF32 == 0 || !megaModuleOK {
-		return nil, false
-	}
-	outLen, ok := checkedMulInt(w.OutDim, w.InDim)
-	if !ok || !fitsUint32(outLen) || !fitsUint32(w.InDim) || !fitsUint32(w.GroupSize) {
-		return nil, false
-	}
-	outBuf, err := Malloc(outLen)
+	outBuf, err := dequantNVFP4ToF32GPU(w)
 	if err != nil {
-		debugf("[gpu] NVFP4 CUDA dequant alloc fallback: %v\n", err)
+		debugf("[gpu] NVFP4 CUDA dequant fallback: %v\n", err)
 		return nil, false
 	}
 	defer outBuf.Free()
+	outLen, _ := checkedMulInt(w.OutDim, w.InDim)
+	out := make([]float32, outLen)
+	if err := outBuf.Download(out); err != nil {
+		debugf("[gpu] NVFP4 CUDA dequant download fallback: %v\n", err)
+		return nil, false
+	}
+	return out, true
+}
 
+func dequantNVFP4ToF32GPU(w *GPUNVFP4Weight) (*Buffer, error) {
+	if fnNVFP4DequantF32 == 0 || !megaModuleOK {
+		return nil, fmt.Errorf("NVFP4 dequant kernel not available")
+	}
+	outLen, ok := checkedMulInt(w.OutDim, w.InDim)
+	if !ok || !fitsUint32(outLen) || !fitsUint32(w.InDim) || !fitsUint32(w.GroupSize) {
+		return nil, fmt.Errorf("invalid NVFP4 dequant dims out=%d in=%d group=%d", w.OutDim, w.InDim, w.GroupSize)
+	}
+	outBuf, err := Malloc(outLen)
+	if err != nil {
+		return nil, fmt.Errorf("alloc NVFP4 dequant output: %w", err)
+	}
 	total := uint32(outLen)
 	inDim := uint32(w.InDim)
 	groupSize := uint32(w.GroupSize)
@@ -273,19 +325,10 @@ func dequantNVFP4ToF32CUDA(w *GPUNVFP4Weight) ([]float32, bool) {
 		unsafe.Pointer(&total),
 		unsafe.Pointer(&inDim),
 		unsafe.Pointer(&groupSize)); err != nil {
-		debugf("[gpu] NVFP4 CUDA dequant launch fallback: %v\n", err)
-		return nil, false
+		outBuf.Free()
+		return nil, fmt.Errorf("launch NVFP4 dequant: %w", err)
 	}
-	if err := SyncErr(); err != nil {
-		debugf("[gpu] NVFP4 CUDA dequant sync fallback: %v\n", err)
-		return nil, false
-	}
-	out := make([]float32, outLen)
-	if err := outBuf.Download(out); err != nil {
-		debugf("[gpu] NVFP4 CUDA dequant download fallback: %v\n", err)
-		return nil, false
-	}
-	return out, true
+	return outBuf, nil
 }
 
 func validGPUNVFP4Weight(w *GPUNVFP4Weight) bool {

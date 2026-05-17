@@ -3,6 +3,8 @@ package quant
 import (
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
 )
 
 // NVFP4Weight holds the TensorRT Model Optimizer / NVFP4 safetensors layout
@@ -139,7 +141,32 @@ func GemvNVFP4(out, x []float32, qw *NVFP4Weight) {
 	if err := ValidateNVFP4Weight(qw); err != nil || len(out) < qw.OutDim || len(x) < qw.InDim {
 		return
 	}
-	for row := 0; row < qw.OutDim; row++ {
+	workers := runtime.GOMAXPROCS(0)
+	if qw.OutDim < 512 || workers <= 1 {
+		gemvNVFP4Rows(out, x, qw, 0, qw.OutDim)
+		return
+	}
+	if workers > qw.OutDim {
+		workers = qw.OutDim
+	}
+	rowsPer := (qw.OutDim + workers - 1) / workers
+	var wg sync.WaitGroup
+	for start := 0; start < qw.OutDim; start += rowsPer {
+		end := start + rowsPer
+		if end > qw.OutDim {
+			end = qw.OutDim
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			defer wg.Done()
+			gemvNVFP4Rows(out, x, qw, s, e)
+		}(start, end)
+	}
+	wg.Wait()
+}
+
+func gemvNVFP4Rows(out, x []float32, qw *NVFP4Weight, start, end int) {
+	for row := start; row < end; row++ {
 		sum := float32(0)
 		for col := 0; col < qw.InDim; col++ {
 			sum += nvfp4At(qw, row, col) * x[col]

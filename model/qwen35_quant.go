@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/rcarmo/go-pherence/gpu"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/runtime/quant"
 )
@@ -17,6 +18,14 @@ type Qwen35RawTensorSource interface {
 type Qwen35NVFP4Weight struct {
 	Name string
 	W    *quant.NVFP4Weight
+	GPU  *gpu.GPUNVFP4Weight
+}
+
+func (w *Qwen35NVFP4Weight) FreeGPU() {
+	if w != nil && w.GPU != nil {
+		w.GPU.Free()
+		w.GPU = nil
+	}
 }
 
 func LoadQwen35NVFP4WeightCandidates(src Qwen35RawTensorSource, name string, wantShape []int) (*Qwen35NVFP4Weight, error) {

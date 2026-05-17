@@ -147,6 +147,30 @@ func TestGemvNVFP4F32WithReferenceDequant(t *testing.T) {
 	}
 }
 
+func TestGemvNVFP4CUDAMatchesCPU(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("no GPU")
+	}
+	qw := syntheticNVFP4Weight()
+	gw, err := UploadNVFP4Weight(qw)
+	if err != nil {
+		t.Fatalf("UploadNVFP4Weight: %v", err)
+	}
+	defer gw.Free()
+	x := []float32{1, -1, 2, -2, 0.5, -0.5, 3, -3, 4, -4, 1.5, -1.5, 2.5, -2.5, 0.25, -0.25}
+	want := make([]float32, qw.OutDim)
+	quant.GemvNVFP4(want, x, qw)
+	got := make([]float32, qw.OutDim)
+	if err := GemvNVFP4(got, x, gw); err != nil {
+		t.Fatalf("GemvNVFP4: %v", err)
+	}
+	for i := range want {
+		if math.Abs(float64(got[i]-want[i])) > 1e-5 {
+			t.Fatalf("got[%d]=%v want %v", i, got[i], want[i])
+		}
+	}
+}
+
 func TestDequantNVFP4ToF32CUDAMatchesCPU(t *testing.T) {
 	if !SgemmReady() {
 		t.Skip("no GPU")
