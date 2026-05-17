@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
@@ -41,6 +42,7 @@ type Report struct {
 	MTPDraftIDs          []int   `json:"mtp_draft_ids,omitempty"`
 	MTPVerifierIDs       []int   `json:"mtp_verifier_ids,omitempty"`
 	MTPAcceptedPrefix    int     `json:"mtp_accepted_prefix,omitempty"`
+	DurationMS           int64   `json:"duration_ms"`
 	Passed               bool    `json:"passed"`
 }
 
@@ -52,6 +54,7 @@ type SweepReport struct {
 	Total            int      `json:"total"`
 	AcceptanceRate   float64  `json:"acceptance_rate"`
 	AcceptedPrefixes int      `json:"accepted_prefixes"`
+	DurationMS       int64    `json:"duration_ms"`
 }
 
 type rawTensor struct {
@@ -120,6 +123,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "sweep prompt file is empty")
 			os.Exit(2)
 		}
+		sweepStart := time.Now()
 		sweepReport := SweepReport{ModelDir: *dir, Prompts: prompts, Total: len(prompts)}
 		for _, p := range prompts {
 			run := newRunner(bundle, state, r.emb, r.normW, r.lm, r.mtpHead)
@@ -134,6 +138,7 @@ func main() {
 		if sweepReport.Total > 0 {
 			sweepReport.AcceptanceRate = float64(sweepReport.Accepted) / float64(sweepReport.Total)
 		}
+		sweepReport.DurationMS = time.Since(sweepStart).Milliseconds()
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(sweepReport)
@@ -150,6 +155,7 @@ func main() {
 			os.Exit(2)
 		}
 	}
+	runStart := time.Now()
 	var next int
 	var logit float32
 	var h []float32
@@ -182,10 +188,13 @@ func main() {
 	if tok != nil {
 		decoded = tok.Decode(generated)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *mtp {
-		mtpHead, err := model.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)
-		check("load MTP head", err)
+		mtpHead := r.mtpHead
+		if mtpHead == nil {
+			fmt.Fprintln(os.Stderr, "MTP diagnostics requested but MTP head is not loaded")
+			os.Exit(2)
+		}
 		if mtpHead.Norm == nil {
 			fmt.Fprintln(os.Stderr, "MTP logits: missing mtp.norm.weight")
 			os.Exit(2)
@@ -222,7 +231,7 @@ func main() {
 		rep.MTPBestMinusVerifier = rep.MTPLogit - rep.MTPLogitForVerifier
 		rep.MTPDraftIDs, err = draftMTPIDs(mtpHead, r.emb, r.lm, generated[len(generated)-1], preNormHidden, r.state.Pos-1, ropeFreqs, meta, *mtpSteps)
 		check("MTP draft steps", err)
-		verifier := runner{bundle: r.bundle, state: model.CloneQwen35BaseForwardState(r.state), emb: r.emb, normW: r.normW, lm: r.lm}
+		verifier := runner{bundle: r.bundle, state: model.CloneQwen35BaseForwardState(r.state), emb: r.emb, normW: r.normW, lm: r.lm, mtpHead: r.mtpHead}
 		verifierNext := rep.NextID
 		for _, draftID := range rep.MTPDraftIDs {
 			rep.MTPVerifierIDs = append(rep.MTPVerifierIDs, verifierNext)
@@ -353,6 +362,7 @@ func loadSweepPrompts(path string) []string {
 }
 
 func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp bool, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string) (Report, error) {
+	start := time.Now()
 	ids := tok.Encode(prompt)
 	if len(ids) == 0 {
 		return Report{}, fmt.Errorf("prompt %q encoded to zero tokens", prompt)
@@ -389,7 +399,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 			sum += v
 		}
 	}
-	rep := Report{ModelDir: dir, Prompt: prompt, InputIDs: ids, GeneratedIDs: generated, Decoded: tok.Decode(generated), TokenID: ids[len(ids)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: dir, Prompt: prompt, InputIDs: ids, GeneratedIDs: generated, Decoded: tok.Decode(generated), TokenID: ids[len(ids)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(start).Milliseconds(), Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if mtp {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, dir, mtpSteps)
 	}

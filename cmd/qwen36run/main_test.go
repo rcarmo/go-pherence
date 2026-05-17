@@ -43,7 +43,7 @@ func TestApplySweepLimit(t *testing.T) {
 }
 
 func TestSweepReportJSON(t *testing.T) {
-	report := SweepReport{ModelDir: "m", Prompts: []string{"Hello"}, Runs: []Report{{Prompt: "Hello", Passed: true}}, Accepted: 1, Total: 1, AcceptanceRate: 1, AcceptedPrefixes: 2}
+	report := SweepReport{ModelDir: "m", Prompts: []string{"Hello"}, Runs: []Report{{Prompt: "Hello", DurationMS: 7, Passed: true}}, Accepted: 1, Total: 1, AcceptanceRate: 1, AcceptedPrefixes: 2, DurationMS: 9}
 	data, err := json.Marshal(report)
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
@@ -52,7 +52,7 @@ func TestSweepReportJSON(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if decoded.Accepted != 1 || decoded.Total != 1 || decoded.AcceptanceRate != 1 || decoded.AcceptedPrefixes != 2 || len(decoded.Runs) != 1 {
+	if decoded.Accepted != 1 || decoded.Total != 1 || decoded.AcceptanceRate != 1 || decoded.AcceptedPrefixes != 2 || decoded.DurationMS != 9 || len(decoded.Runs) != 1 || decoded.Runs[0].DurationMS != 7 {
 		t.Fatalf("decoded=%+v", decoded)
 	}
 }
