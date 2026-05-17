@@ -10,6 +10,7 @@ import (
 )
 
 var fnNVFP4DequantF32 CUfunction
+var fnNVFP4GemvF32 CUfunction
 
 // NVFP4KernelKind identifies the packed NVFP4 kernel family a caller wants.
 // The interface is intentionally defined before native dispatch exists so the
@@ -225,6 +226,11 @@ func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 		return fmt.Errorf("invalid NVFP4 GEMV buffers out=%d/%d x=%d/%d", len(out), w.OutDim, len(x), w.InDim)
 	}
 	if SgemmReady() {
+		if err := gemvNVFP4PackedCUDA(out, x, w); err == nil {
+			return nil
+		} else {
+			debugf("[gpu] NVFP4 packed GEMV CUDA fallback: %v\n", err)
+		}
 		if err := gemvNVFP4CUDA(out, x, w); err == nil {
 			return nil
 		} else {
@@ -236,6 +242,46 @@ func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 		return err
 	}
 	return gemvNVFP4F32(out, x, w.OutDim, w.InDim, weights)
+}
+
+func gemvNVFP4PackedCUDA(out, x []float32, w *GPUNVFP4Weight) error {
+	if fnNVFP4GemvF32 == 0 || !megaModuleOK {
+		return fmt.Errorf("NVFP4 packed GEMV kernel not available")
+	}
+	if !fitsUint32(w.OutDim) || !fitsUint32(w.InDim) || !fitsUint32(w.GroupSize) {
+		return fmt.Errorf("NVFP4 packed GEMV dims exceed CUDA u32 interface")
+	}
+	xBuf, err := Malloc(w.InDim)
+	if err != nil {
+		return fmt.Errorf("alloc NVFP4 packed GEMV input: %w", err)
+	}
+	defer xBuf.Free()
+	if err := xBuf.Upload(x[:w.InDim]); err != nil {
+		return fmt.Errorf("upload NVFP4 packed GEMV input: %w", err)
+	}
+	outBuf, err := Malloc(w.OutDim)
+	if err != nil {
+		return fmt.Errorf("alloc NVFP4 packed GEMV output: %w", err)
+	}
+	defer outBuf.Free()
+	outDim := uint32(w.OutDim)
+	inDim := uint32(w.InDim)
+	groupSize := uint32(w.GroupSize)
+	if err := LaunchKernel(fnNVFP4GemvF32, uint32(w.OutDim), 1, 1, 256, 1, 1, 256*4,
+		unsafe.Pointer(&w.Weight.Ptr),
+		unsafe.Pointer(&w.WeightScale.Ptr),
+		unsafe.Pointer(&xBuf.Ptr),
+		unsafe.Pointer(&outBuf.Ptr),
+		unsafe.Pointer(&w.WeightScale2),
+		unsafe.Pointer(&outDim),
+		unsafe.Pointer(&inDim),
+		unsafe.Pointer(&groupSize)); err != nil {
+		return fmt.Errorf("launch NVFP4 packed GEMV: %w", err)
+	}
+	if err := outBuf.Download(out[:w.OutDim]); err != nil {
+		return fmt.Errorf("download NVFP4 packed GEMV output: %w", err)
+	}
+	return nil
 }
 
 func gemvNVFP4CUDA(out, x []float32, w *GPUNVFP4Weight) error {

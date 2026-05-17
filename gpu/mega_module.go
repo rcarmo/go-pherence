@@ -87,6 +87,7 @@ func loadMegaModule() {
 			{"bf16_gelu_tanh_mul", ptx.BF16GELUTanhMulPTX},
 			{"rms_norm_no_scale", ptx.RmsNormNoScalePTX},
 			{"nvfp4_dequant_f32", ptx.NVFP4DequantF32PTX},
+			{"nvfp4_gemv_f32", ptx.NVFP4GemvF32PTX},
 		}
 
 		for _, e := range entries {
@@ -145,6 +146,7 @@ func loadMegaModule() {
 		fnRmsNormNoScale = extractFn("rms_norm_no_scale")
 		fnGELUTanhMul = extractFn("gelu_tanh_mul")
 		fnNVFP4DequantF32 = extractFn("nvfp4_dequant_f32")
+		fnNVFP4GemvF32 = extractFn("nvfp4_gemv_f32")
 
 		if allOK {
 			megaModuleOK = true
