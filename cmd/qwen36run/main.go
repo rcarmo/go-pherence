@@ -57,6 +57,8 @@ type Report struct {
 	GPUCache                   model.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
 	GPUVerify                  model.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
 	LinearStats                model.Qwen35LinearStats     `json:"linear_stats,omitempty"`
+	PrewarmTokensPerSecond     float64                     `json:"prewarm_tokens_per_second,omitempty"`
+	DecodeTokensPerSecond      float64                     `json:"decode_tokens_per_second,omitempty"`
 	GPULMHead                  bool                        `json:"gpu_lm_head,omitempty"`
 	DurationMS                 int64                       `json:"duration_ms"`
 	TokensProcessed            int                         `json:"tokens_processed"`
@@ -260,6 +262,7 @@ func main() {
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = model.Qwen35LinearStatsSnapshot()
+	addThroughputBreakdown(&rep)
 	rep.GPULMHead = r.lmGPU != nil
 	if *mtp {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, *mtpSteps, *greedySeed)
@@ -371,6 +374,18 @@ func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwar
 	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, lmGPU: lmGPU, mtpHead: mtpHead}
 }
 
+func addThroughputBreakdown(rep *Report) {
+	if rep == nil {
+		return
+	}
+	if rep.TokensProcessed > len(rep.InputIDs) && rep.DurationMS > 0 {
+		rep.DecodeTokensPerSecond = float64(rep.TokensProcessed-len(rep.InputIDs)) / (float64(rep.DurationMS) / 1000)
+	}
+	if rep.DurationMS+rep.GPUPrewarmMS > 0 {
+		rep.PrewarmTokensPerSecond = float64(rep.TokensProcessed) / (float64(rep.DurationMS+rep.GPUPrewarmMS) / 1000)
+	}
+}
+
 func tokensPerSecond(tokens int, durationMS int64) float64 {
 	if tokens <= 0 || durationMS <= 0 {
 		return 0
@@ -445,6 +460,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = model.Qwen35LinearStatsSnapshot()
+	addThroughputBreakdown(&rep)
 	rep.GPULMHead = r.lmGPU != nil
 	if topK > 0 {
 		rep.BaseTop = topKBF16MatVec(r.lm, h, topK)

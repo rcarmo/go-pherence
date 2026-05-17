@@ -10,7 +10,10 @@ package gpu
 // These kernels accept BF16 (uint16) buffers directly,
 // halving memory bandwidth vs F32 kernels.
 
-import "unsafe"
+import (
+	"sync"
+	"unsafe"
+)
 
 var fnBF16RMSNorm CUfunction
 var fnBF16RMSNormNoScale CUfunction
@@ -19,6 +22,14 @@ var fnBF16SiLUMul CUfunction
 var fnBF16GELUTanhMul CUfunction
 var fnBF16Gemv CUfunction
 var fnBF16LMHead CUfunction
+
+var bf16LMHeadScratch = struct {
+	sync.Mutex
+	x    *Buffer
+	out  *Buffer
+	xN   int
+	outN int
+}{}
 
 // DevBF16RMSNorm applies RMSNorm on BF16 data: x[i] = BF16(F32(x[i]) * invRMS * F32(w[i]))
 func DevBF16RMSNorm(x, w *Buffer, n int, eps float32) bool {
@@ -125,19 +136,14 @@ func BF16LMHeadWithBuffer(logits []float32, wBuf *Buffer, x []float32, vocab, h 
 	if vocab <= 0 || h <= 0 || wBuf == nil || len(x) < h || len(logits) < vocab || !fitsUint32(vocab) || !fitsUint32(h) {
 		return nil
 	}
-	xBuf, err := Malloc(h)
+	xBuf, outBuf, unlock, err := bf16LMHeadScratchBuffers(h, vocab)
 	if err != nil {
 		return err
 	}
-	defer xBuf.Free()
+	defer unlock()
 	if err := xBuf.Upload(x[:h]); err != nil {
 		return err
 	}
-	outBuf, err := Malloc(vocab)
-	if err != nil {
-		return err
-	}
-	defer outBuf.Free()
 	vv := uint32(vocab)
 	hh := uint32(h)
 	gridX := uint32(vocab)
@@ -151,6 +157,51 @@ func BF16LMHeadWithBuffer(logits []float32, wBuf *Buffer, x []float32, vocab, h 
 		return err
 	}
 	return outBuf.Download(logits[:vocab])
+}
+
+func bf16LMHeadScratchBuffers(h, vocab int) (*Buffer, *Buffer, func(), error) {
+	bf16LMHeadScratch.Lock()
+	unlock := func() { bf16LMHeadScratch.Unlock() }
+	if bf16LMHeadScratch.x == nil || bf16LMHeadScratch.xN < h {
+		if bf16LMHeadScratch.x != nil {
+			bf16LMHeadScratch.x.Free()
+		}
+		buf, err := Malloc(h)
+		if err != nil {
+			unlock()
+			return nil, nil, nil, err
+		}
+		bf16LMHeadScratch.x = buf
+		bf16LMHeadScratch.xN = h
+	}
+	if bf16LMHeadScratch.out == nil || bf16LMHeadScratch.outN < vocab {
+		if bf16LMHeadScratch.out != nil {
+			bf16LMHeadScratch.out.Free()
+		}
+		buf, err := Malloc(vocab)
+		if err != nil {
+			unlock()
+			return nil, nil, nil, err
+		}
+		bf16LMHeadScratch.out = buf
+		bf16LMHeadScratch.outN = vocab
+	}
+	return bf16LMHeadScratch.x, bf16LMHeadScratch.out, unlock, nil
+}
+
+func FreeBF16LMHeadScratch() {
+	bf16LMHeadScratch.Lock()
+	defer bf16LMHeadScratch.Unlock()
+	if bf16LMHeadScratch.x != nil {
+		bf16LMHeadScratch.x.Free()
+		bf16LMHeadScratch.x = nil
+	}
+	if bf16LMHeadScratch.out != nil {
+		bf16LMHeadScratch.out.Free()
+		bf16LMHeadScratch.out = nil
+	}
+	bf16LMHeadScratch.xN = 0
+	bf16LMHeadScratch.outN = 0
 }
 
 func BF16LMHead(logits []float32, weightRaw []byte, x []float32, vocab, h int) error {

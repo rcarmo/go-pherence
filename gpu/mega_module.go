@@ -209,6 +209,7 @@ func freeNVFP4Scratch() {
 
 func shutdownMegaModule() {
 	freeNVFP4Scratch()
+	FreeBF16LMHeadScratch()
 	if megaModule != 0 && cuModuleUnload != nil {
 		EnsureContext()
 		cuModuleUnload(megaModule)
