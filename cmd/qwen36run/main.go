@@ -22,37 +22,39 @@ type TopLogit struct {
 }
 
 type Report struct {
-	ModelDir             string     `json:"model_dir"`
-	Prompt               string     `json:"prompt,omitempty"`
-	InputIDs             []int      `json:"input_ids"`
-	GeneratedIDs         []int      `json:"generated_ids,omitempty"`
-	Decoded              string     `json:"decoded,omitempty"`
-	TokenID              int        `json:"token_id,omitempty"`
-	NextID               int        `json:"next_id"`
-	Logit                float32    `json:"logit"`
-	HiddenAbsSum         float32    `json:"hidden_abs_sum"`
-	MTPOutputLen         int        `json:"mtp_output_len,omitempty"`
-	MTPAbsSum            float32    `json:"mtp_abs_sum,omitempty"`
-	MTPNextID            int        `json:"mtp_next_id,omitempty"`
-	MTPLogit             float32    `json:"mtp_logit,omitempty"`
-	MTPVerifierNextID    int        `json:"mtp_verifier_next_id,omitempty"`
-	MTPAcceptedByGreedy  bool       `json:"mtp_accepted_by_greedy"`
-	PrefillMTPNextID     int        `json:"prefill_mtp_next_id,omitempty"`
-	PrefillMTPLogit      float32    `json:"prefill_mtp_logit,omitempty"`
-	PrefillMTPAccepted   bool       `json:"prefill_mtp_accepted"`
-	VerifierLogitForMTP  float32    `json:"verifier_logit_for_mtp,omitempty"`
-	VerifierBestMinusMTP float32    `json:"verifier_best_minus_mtp,omitempty"`
-	MTPLogitForVerifier  float32    `json:"mtp_logit_for_verifier,omitempty"`
-	MTPBestMinusVerifier float32    `json:"mtp_best_minus_verifier,omitempty"`
-	MTPDraftIDs          []int      `json:"mtp_draft_ids,omitempty"`
-	MTPVerifierIDs       []int      `json:"mtp_verifier_ids,omitempty"`
-	MTPAcceptedPrefix    int        `json:"mtp_accepted_prefix,omitempty"`
-	DurationMS           int64      `json:"duration_ms"`
-	TokensProcessed      int        `json:"tokens_processed"`
-	TokensPerSecond      float64    `json:"tokens_per_second"`
-	BaseTop              []TopLogit `json:"base_top,omitempty"`
-	MTPTop               []TopLogit `json:"mtp_top,omitempty"`
-	Passed               bool       `json:"passed"`
+	ModelDir                   string     `json:"model_dir"`
+	Prompt                     string     `json:"prompt,omitempty"`
+	InputIDs                   []int      `json:"input_ids"`
+	GeneratedIDs               []int      `json:"generated_ids,omitempty"`
+	Decoded                    string     `json:"decoded,omitempty"`
+	TokenID                    int        `json:"token_id,omitempty"`
+	NextID                     int        `json:"next_id"`
+	Logit                      float32    `json:"logit"`
+	HiddenAbsSum               float32    `json:"hidden_abs_sum"`
+	MTPOutputLen               int        `json:"mtp_output_len,omitempty"`
+	MTPAbsSum                  float32    `json:"mtp_abs_sum,omitempty"`
+	MTPNextID                  int        `json:"mtp_next_id,omitempty"`
+	MTPLogit                   float32    `json:"mtp_logit,omitempty"`
+	MTPVerifierNextID          int        `json:"mtp_verifier_next_id,omitempty"`
+	MTPAcceptedByGreedy        bool       `json:"mtp_accepted_by_greedy"`
+	PrefillMTPNextID           int        `json:"prefill_mtp_next_id,omitempty"`
+	PrefillMTPLogit            float32    `json:"prefill_mtp_logit,omitempty"`
+	PrefillMTPAccepted         bool       `json:"prefill_mtp_accepted"`
+	PrefillGreedySeedMTPNextID int        `json:"prefill_greedy_seed_mtp_next_id,omitempty"`
+	PrefillGreedySeedAccepted  bool       `json:"prefill_greedy_seed_accepted"`
+	VerifierLogitForMTP        float32    `json:"verifier_logit_for_mtp,omitempty"`
+	VerifierBestMinusMTP       float32    `json:"verifier_best_minus_mtp,omitempty"`
+	MTPLogitForVerifier        float32    `json:"mtp_logit_for_verifier,omitempty"`
+	MTPBestMinusVerifier       float32    `json:"mtp_best_minus_verifier,omitempty"`
+	MTPDraftIDs                []int      `json:"mtp_draft_ids,omitempty"`
+	MTPVerifierIDs             []int      `json:"mtp_verifier_ids,omitempty"`
+	MTPAcceptedPrefix          int        `json:"mtp_accepted_prefix,omitempty"`
+	DurationMS                 int64      `json:"duration_ms"`
+	TokensProcessed            int        `json:"tokens_processed"`
+	TokensPerSecond            float64    `json:"tokens_per_second"`
+	BaseTop                    []TopLogit `json:"base_top,omitempty"`
+	MTPTop                     []TopLogit `json:"mtp_top,omitempty"`
+	Passed                     bool       `json:"passed"`
 }
 
 type SweepReport struct {
@@ -226,6 +228,13 @@ func main() {
 		rmsNorm(prefillMTPLogitHidden, mtpHead.Norm.Data(), 1e-6)
 		rep.PrefillMTPNextID, rep.PrefillMTPLogit = argmaxBF16MatVec(r.lm, prefillMTPLogitHidden)
 		rep.PrefillMTPAccepted = rep.PrefillMTPNextID == prefillVerifierNext
+		prefillGreedySeedEmbedding := bf16Row(r.emb, prefillVerifierNext)
+		prefillGreedySeedOut, err := mtpHead.ForwardOne(prefillGreedySeedEmbedding, prefillHidden, prefillPos, ropeFreqs, 1e-6, meta)
+		check("prefill greedy-seed MTP forward", err)
+		prefillGreedySeedLogitHidden := append([]float32(nil), prefillGreedySeedOut...)
+		rmsNorm(prefillGreedySeedLogitHidden, mtpHead.Norm.Data(), 1e-6)
+		rep.PrefillGreedySeedMTPNextID, _ = argmaxBF16MatVec(r.lm, prefillGreedySeedLogitHidden)
+		rep.PrefillGreedySeedAccepted = rep.PrefillGreedySeedMTPNextID == prefillVerifierNext
 		mtpEmbedding := bf16Row(r.emb, generated[len(generated)-1])
 		mtpOut, err := mtpHead.ForwardOne(mtpEmbedding, preNormHidden, r.state.Pos-1, ropeFreqs, 1e-6, meta)
 		check("MTP forward", err)
