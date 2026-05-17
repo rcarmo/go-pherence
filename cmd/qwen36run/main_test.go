@@ -19,6 +19,18 @@ func TestLoadSweepPrompts(t *testing.T) {
 	}
 }
 
+func TestTokensPerSecond(t *testing.T) {
+	if got := tokensPerSecond(2, 1000); got != 2 {
+		t.Fatalf("tokensPerSecond=%v", got)
+	}
+	if got := tokensPerSecond(0, 1000); got != 0 {
+		t.Fatalf("zero tokens=%v", got)
+	}
+	if got := tokensPerSecond(1, 0); got != 0 {
+		t.Fatalf("zero duration=%v", got)
+	}
+}
+
 func TestApplySweepLimit(t *testing.T) {
 	prompts := []string{"a", "b", "c"}
 	cases := []struct {
@@ -43,7 +55,7 @@ func TestApplySweepLimit(t *testing.T) {
 }
 
 func TestSweepReportJSON(t *testing.T) {
-	report := SweepReport{ModelDir: "m", Prompts: []string{"Hello"}, Runs: []Report{{Prompt: "Hello", DurationMS: 7, Passed: true}}, Accepted: 1, Total: 1, AcceptanceRate: 1, AcceptedPrefixes: 2, DurationMS: 9}
+	report := SweepReport{ModelDir: "m", Prompts: []string{"Hello"}, Runs: []Report{{Prompt: "Hello", DurationMS: 7, TokensProcessed: 2, TokensPerSecond: 3, Passed: true}}, Accepted: 1, Total: 1, AcceptanceRate: 1, AcceptedPrefixes: 2, DurationMS: 9, TokensProcessed: 2, TokensPerSecond: 4}
 	data, err := json.Marshal(report)
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
@@ -52,7 +64,7 @@ func TestSweepReportJSON(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if decoded.Accepted != 1 || decoded.Total != 1 || decoded.AcceptanceRate != 1 || decoded.AcceptedPrefixes != 2 || decoded.DurationMS != 9 || len(decoded.Runs) != 1 || decoded.Runs[0].DurationMS != 7 {
+	if decoded.Accepted != 1 || decoded.Total != 1 || decoded.AcceptanceRate != 1 || decoded.AcceptedPrefixes != 2 || decoded.DurationMS != 9 || decoded.TokensProcessed != 2 || decoded.TokensPerSecond != 4 || len(decoded.Runs) != 1 || decoded.Runs[0].DurationMS != 7 || decoded.Runs[0].TokensProcessed != 2 {
 		t.Fatalf("decoded=%+v", decoded)
 	}
 }

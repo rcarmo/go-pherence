@@ -43,6 +43,8 @@ type Report struct {
 	MTPVerifierIDs       []int   `json:"mtp_verifier_ids,omitempty"`
 	MTPAcceptedPrefix    int     `json:"mtp_accepted_prefix,omitempty"`
 	DurationMS           int64   `json:"duration_ms"`
+	TokensProcessed      int     `json:"tokens_processed"`
+	TokensPerSecond      float64 `json:"tokens_per_second"`
 	Passed               bool    `json:"passed"`
 }
 
@@ -55,6 +57,8 @@ type SweepReport struct {
 	AcceptanceRate   float64  `json:"acceptance_rate"`
 	AcceptedPrefixes int      `json:"accepted_prefixes"`
 	DurationMS       int64    `json:"duration_ms"`
+	TokensProcessed  int      `json:"tokens_processed"`
+	TokensPerSecond  float64  `json:"tokens_per_second"`
 }
 
 type rawTensor struct {
@@ -138,7 +142,11 @@ func main() {
 		if sweepReport.Total > 0 {
 			sweepReport.AcceptanceRate = float64(sweepReport.Accepted) / float64(sweepReport.Total)
 		}
+		for _, run := range sweepReport.Runs {
+			sweepReport.TokensProcessed += run.TokensProcessed
+		}
 		sweepReport.DurationMS = time.Since(sweepStart).Milliseconds()
+		sweepReport.TokensPerSecond = tokensPerSecond(sweepReport.TokensProcessed, sweepReport.DurationMS)
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(sweepReport)
@@ -188,7 +196,8 @@ func main() {
 	if tok != nil {
 		decoded = tok.Decode(generated)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	if *mtp {
 		mtpHead := r.mtpHead
 		if mtpHead == nil {
@@ -340,6 +349,13 @@ func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwar
 	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, mtpHead: mtpHead}
 }
 
+func tokensPerSecond(tokens int, durationMS int64) float64 {
+	if tokens <= 0 || durationMS <= 0 {
+		return 0
+	}
+	return float64(tokens) * 1000 / float64(durationMS)
+}
+
 func applySweepLimit(prompts []string, limit int) []string {
 	if limit > 0 && limit < len(prompts) {
 		return prompts[:limit]
@@ -399,7 +415,8 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 			sum += v
 		}
 	}
-	rep := Report{ModelDir: dir, Prompt: prompt, InputIDs: ids, GeneratedIDs: generated, Decoded: tok.Decode(generated), TokenID: ids[len(ids)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(start).Milliseconds(), Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: dir, Prompt: prompt, InputIDs: ids, GeneratedIDs: generated, Decoded: tok.Decode(generated), TokenID: ids[len(ids)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(start).Milliseconds(), TokensProcessed: len(ids) + len(generated), Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	if mtp {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, dir, mtpSteps)
 	}
