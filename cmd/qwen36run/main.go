@@ -93,6 +93,7 @@ func main() {
 	mtp := flag.Bool("mtp", false, "also run native MTP head from last base hidden state and generated token")
 	mtpSteps := flag.Int("mtp-steps", 1, "native MTP draft steps for diagnostics")
 	topK := flag.Int("topk", 0, "include top-K base/MTP logits in reports; 0 disables")
+	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
 	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
@@ -141,7 +142,7 @@ func main() {
 		sweepReport := SweepReport{ModelDir: *dir, Prompts: prompts, Total: len(prompts)}
 		for _, p := range prompts {
 			run := newRunner(bundle, state, r.emb, r.normW, r.lm, r.mtpHead)
-			report, err := runPrompt(run, tok, p, *steps, *mtp, *mtpSteps, *topK, ropeFreqs, meta, *dir)
+			report, err := runPrompt(run, tok, p, *steps, *mtp, *mtpSteps, *topK, *greedySeed, ropeFreqs, meta, *dir)
 			check("sweep prompt", err)
 			sweepReport.Runs = append(sweepReport.Runs, report)
 			if report.MTPAcceptedByGreedy || report.PrefillMTPAccepted {
@@ -228,13 +229,15 @@ func main() {
 		rmsNorm(prefillMTPLogitHidden, mtpHead.Norm.Data(), 1e-6)
 		rep.PrefillMTPNextID, rep.PrefillMTPLogit = argmaxBF16MatVec(r.lm, prefillMTPLogitHidden)
 		rep.PrefillMTPAccepted = rep.PrefillMTPNextID == prefillVerifierNext
-		prefillGreedySeedEmbedding := bf16Row(r.emb, prefillVerifierNext)
-		prefillGreedySeedOut, err := mtpHead.ForwardOne(prefillGreedySeedEmbedding, prefillHidden, prefillPos, ropeFreqs, 1e-6, meta)
-		check("prefill greedy-seed MTP forward", err)
-		prefillGreedySeedLogitHidden := append([]float32(nil), prefillGreedySeedOut...)
-		rmsNorm(prefillGreedySeedLogitHidden, mtpHead.Norm.Data(), 1e-6)
-		rep.PrefillGreedySeedMTPNextID, _ = argmaxBF16MatVec(r.lm, prefillGreedySeedLogitHidden)
-		rep.PrefillGreedySeedAccepted = rep.PrefillGreedySeedMTPNextID == prefillVerifierNext
+		if *greedySeed {
+			prefillGreedySeedEmbedding := bf16Row(r.emb, prefillVerifierNext)
+			prefillGreedySeedOut, err := mtpHead.ForwardOne(prefillGreedySeedEmbedding, prefillHidden, prefillPos, ropeFreqs, 1e-6, meta)
+			check("prefill greedy-seed MTP forward", err)
+			prefillGreedySeedLogitHidden := append([]float32(nil), prefillGreedySeedOut...)
+			rmsNorm(prefillGreedySeedLogitHidden, mtpHead.Norm.Data(), 1e-6)
+			rep.PrefillGreedySeedMTPNextID, _ = argmaxBF16MatVec(r.lm, prefillGreedySeedLogitHidden)
+			rep.PrefillGreedySeedAccepted = rep.PrefillGreedySeedMTPNextID == prefillVerifierNext
+		}
 		mtpEmbedding := bf16Row(r.emb, generated[len(generated)-1])
 		mtpOut, err := mtpHead.ForwardOne(mtpEmbedding, preNormHidden, r.state.Pos-1, ropeFreqs, 1e-6, meta)
 		check("MTP forward", err)
@@ -284,7 +287,7 @@ func main() {
 	}
 }
 
-func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNext int, prefillHidden []float32, prefillToken, prefillPos int, generated []int, preNormHidden []float32, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string, mtpSteps int) {
+func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNext int, prefillHidden []float32, prefillToken, prefillPos int, generated []int, preNormHidden []float32, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string, mtpSteps int, greedySeed bool) {
 	_ = dir
 	mtpHead := r.mtpHead
 	if mtpHead == nil {
@@ -400,7 +403,7 @@ func loadSweepPrompts(path string) []string {
 	return out
 }
 
-func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp bool, mtpSteps, topK int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string) (Report, error) {
+func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp bool, mtpSteps, topK int, greedySeed bool, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string) (Report, error) {
 	start := time.Now()
 	ids := tok.Encode(prompt)
 	if len(ids) == 0 {
@@ -444,7 +447,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 		rep.BaseTop = topKBF16MatVec(r.lm, h, topK)
 	}
 	if mtp {
-		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, dir, mtpSteps)
+		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, dir, mtpSteps, greedySeed)
 	}
 	return rep, nil
 }
