@@ -213,71 +213,7 @@ func main() {
 	}
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	if *mtp {
-		mtpHead := r.mtpHead
-		if mtpHead == nil {
-			fmt.Fprintln(os.Stderr, "MTP diagnostics requested but MTP head is not loaded")
-			os.Exit(2)
-		}
-		if mtpHead.Norm == nil {
-			fmt.Fprintln(os.Stderr, "MTP logits: missing mtp.norm.weight")
-			os.Exit(2)
-		}
-		prefillMTPEmbedding := bf16Row(r.emb, prefillToken)
-		prefillMTPOut, err := mtpHead.ForwardOne(prefillMTPEmbedding, prefillHidden, prefillPos, ropeFreqs, 1e-6, meta)
-		check("prefill MTP forward", err)
-		prefillMTPLogitHidden := append([]float32(nil), prefillMTPOut...)
-		rmsNorm(prefillMTPLogitHidden, mtpHead.Norm.Data(), 1e-6)
-		rep.PrefillMTPNextID, rep.PrefillMTPLogit = argmaxBF16MatVec(r.lm, prefillMTPLogitHidden)
-		rep.PrefillMTPAccepted = rep.PrefillMTPNextID == prefillVerifierNext
-		if *greedySeed {
-			prefillGreedySeedEmbedding := bf16Row(r.emb, prefillVerifierNext)
-			prefillGreedySeedOut, err := mtpHead.ForwardOne(prefillGreedySeedEmbedding, prefillHidden, prefillPos, ropeFreqs, 1e-6, meta)
-			check("prefill greedy-seed MTP forward", err)
-			prefillGreedySeedLogitHidden := append([]float32(nil), prefillGreedySeedOut...)
-			rmsNorm(prefillGreedySeedLogitHidden, mtpHead.Norm.Data(), 1e-6)
-			rep.PrefillGreedySeedMTPNextID, _ = argmaxBF16MatVec(r.lm, prefillGreedySeedLogitHidden)
-			rep.PrefillGreedySeedAccepted = rep.PrefillGreedySeedMTPNextID == prefillVerifierNext
-		}
-		mtpEmbedding := bf16Row(r.emb, generated[len(generated)-1])
-		mtpOut, err := mtpHead.ForwardOne(mtpEmbedding, preNormHidden, r.state.Pos-1, ropeFreqs, 1e-6, meta)
-		check("MTP forward", err)
-		rep.MTPOutputLen = len(mtpOut)
-		for _, v := range mtpOut {
-			if v < 0 {
-				rep.MTPAbsSum -= v
-			} else {
-				rep.MTPAbsSum += v
-			}
-		}
-		mtpLogitHidden := append([]float32(nil), mtpOut...)
-		rmsNorm(mtpLogitHidden, mtpHead.Norm.Data(), 1e-6)
-		rep.MTPNextID, rep.MTPLogit = argmaxBF16MatVec(r.lm, mtpLogitHidden)
-		if len(rep.BaseTop) > 0 {
-			rep.MTPTop = topKBF16MatVec(r.lm, mtpLogitHidden, len(rep.BaseTop))
-		}
-		// The MTP head predicts the same next position as the base verifier logits
-		// already computed after the latest base step. Do not feed the draft back
-		// into the verifier here; that would compare against the following token.
-		rep.MTPVerifierNextID = rep.NextID
-		rep.MTPAcceptedByGreedy = rep.MTPVerifierNextID == rep.MTPNextID
-		rep.VerifierLogitForMTP = bf16MatVecRow(r.lm, h, rep.MTPNextID)
-		rep.VerifierBestMinusMTP = rep.Logit - rep.VerifierLogitForMTP
-		rep.MTPLogitForVerifier = bf16MatVecRow(r.lm, mtpLogitHidden, rep.MTPVerifierNextID)
-		rep.MTPBestMinusVerifier = rep.MTPLogit - rep.MTPLogitForVerifier
-		rep.MTPDraftIDs, err = draftMTPIDs(mtpHead, r.emb, r.lm, generated[len(generated)-1], preNormHidden, r.state.Pos-1, ropeFreqs, meta, *mtpSteps)
-		check("MTP draft steps", err)
-		verifier := runner{bundle: r.bundle, state: model.CloneQwen35BaseForwardState(r.state), emb: r.emb, normW: r.normW, lm: r.lm, mtpHead: r.mtpHead}
-		verifierNext := rep.NextID
-		for _, draftID := range rep.MTPDraftIDs {
-			rep.MTPVerifierIDs = append(rep.MTPVerifierIDs, verifierNext)
-			if draftID != verifierNext {
-				break
-			}
-			rep.MTPAcceptedPrefix++
-			verifierNext, _, _, _, err = verifier.step(draftID, ropeFreqs)
-			check("MTP verifier accepted step", err)
-		}
-		rep.Passed = rep.Passed && rep.MTPOutputLen == meta.HiddenSize && rep.MTPNextID >= 0
+		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, *mtpSteps, *greedySeed)
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
@@ -287,8 +223,7 @@ func main() {
 	}
 }
 
-func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNext int, prefillHidden []float32, prefillToken, prefillPos int, generated []int, preNormHidden []float32, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string, mtpSteps int, greedySeed bool) {
-	_ = dir
+func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNext int, prefillHidden []float32, prefillToken, prefillPos int, generated []int, preNormHidden []float32, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, mtpSteps int, greedySeed bool) {
 	mtpHead := r.mtpHead
 	if mtpHead == nil {
 		fmt.Fprintln(os.Stderr, "MTP diagnostics requested but MTP head is not loaded")
@@ -305,6 +240,15 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 	rmsNorm(prefillMTPLogitHidden, mtpHead.Norm.Data(), 1e-6)
 	rep.PrefillMTPNextID, rep.PrefillMTPLogit = argmaxBF16MatVec(r.lm, prefillMTPLogitHidden)
 	rep.PrefillMTPAccepted = rep.PrefillMTPNextID == prefillVerifierNext
+	if greedySeed {
+		prefillGreedySeedEmbedding := bf16Row(r.emb, prefillVerifierNext)
+		prefillGreedySeedOut, err := mtpHead.ForwardOne(prefillGreedySeedEmbedding, prefillHidden, prefillPos, ropeFreqs, 1e-6, meta)
+		check("prefill greedy-seed MTP forward", err)
+		prefillGreedySeedLogitHidden := append([]float32(nil), prefillGreedySeedOut...)
+		rmsNorm(prefillGreedySeedLogitHidden, mtpHead.Norm.Data(), 1e-6)
+		rep.PrefillGreedySeedMTPNextID, _ = argmaxBF16MatVec(r.lm, prefillGreedySeedLogitHidden)
+		rep.PrefillGreedySeedAccepted = rep.PrefillGreedySeedMTPNextID == prefillVerifierNext
+	}
 	mtpEmbedding := bf16Row(r.emb, generated[len(generated)-1])
 	mtpOut, err := mtpHead.ForwardOne(mtpEmbedding, preNormHidden, r.state.Pos-1, ropeFreqs, 1e-6, meta)
 	check("MTP forward", err)
@@ -319,6 +263,9 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 	mtpLogitHidden := append([]float32(nil), mtpOut...)
 	rmsNorm(mtpLogitHidden, mtpHead.Norm.Data(), 1e-6)
 	rep.MTPNextID, rep.MTPLogit = argmaxBF16MatVec(r.lm, mtpLogitHidden)
+	if len(rep.BaseTop) > 0 {
+		rep.MTPTop = topKBF16MatVec(r.lm, mtpLogitHidden, len(rep.BaseTop))
+	}
 	rep.MTPVerifierNextID = rep.NextID
 	rep.MTPAcceptedByGreedy = rep.MTPVerifierNextID == rep.MTPNextID
 	rep.VerifierLogitForMTP = bf16MatVecRow(r.lm, h, rep.MTPNextID)
@@ -447,7 +394,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 		rep.BaseTop = topKBF16MatVec(r.lm, h, topK)
 	}
 	if mtp {
-		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, dir, mtpSteps, greedySeed)
+		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, mtpSteps, greedySeed)
 	}
 	return rep, nil
 }
@@ -484,7 +431,7 @@ func bf16(bits []byte, i int) float32 {
 }
 func bf16Row(t rawTensor, row int) []float32 {
 	if t.dtype != "BF16" || len(t.shape) != 2 {
-		panic("bad BF16 matrix")
+		check("BF16 matrix", fmt.Errorf("dtype=%s shape=%v", t.dtype, t.shape))
 	}
 	cols := t.shape[1]
 	out := make([]float32, cols)
@@ -496,7 +443,7 @@ func bf16Row(t rawTensor, row int) []float32 {
 }
 func bf16All(t rawTensor) []float32 {
 	if t.dtype != "BF16" {
-		panic("bad BF16")
+		check("BF16 tensor", fmt.Errorf("dtype=%s", t.dtype))
 	}
 	n := len(t.raw) / 2
 	out := make([]float32, n)
