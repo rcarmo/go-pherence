@@ -207,22 +207,19 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 		if err := gpu.UploadNVFP4WeightReuse(&qwen35GPUCache.transientGPU, q.W); err != nil {
 			return nil, false, err
 		}
-		qwen35GPUCache.transient++
-		qwen35GPUCache.transientBytes += need
-		if qwen35GPUCache.transientByName == nil {
-			qwen35GPUCache.transientByName = map[string]Qwen35GPUTransientStat{}
-		}
-		stat := qwen35GPUCache.transientByName[q.Name]
-		stat.Name = q.Name
-		stat.Count++
-		stat.Bytes += need
-		qwen35GPUCache.transientByName[q.Name] = stat
+		qwen35RecordTransientLocked(q, need)
 		qwen35GPUCache.uploads++
 		qwen35GPUCache.uploadBytes += need
 		return qwen35GPUCache.transientGPU, false, nil
 	}
 	gw, err := gpu.UploadNVFP4Weight(q.W)
 	if err != nil {
+		if reuseErr := gpu.UploadNVFP4WeightReuse(&qwen35GPUCache.transientGPU, q.W); reuseErr == nil {
+			qwen35RecordTransientLocked(q, need)
+			qwen35GPUCache.uploads++
+			qwen35GPUCache.uploadBytes += need
+			return qwen35GPUCache.transientGPU, false, nil
+		}
 		qwen35GPUCache.evictAllLocked()
 		gw, err = gpu.UploadNVFP4Weight(q.W)
 	}
@@ -237,6 +234,23 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 	qwen35GPUCache.uploads++
 	qwen35GPUCache.uploadBytes += need
 	return gw, false, nil
+}
+
+func qwen35RecordTransientLocked(q *Qwen35NVFP4Weight, need int64) {
+	qwen35GPUCache.transient++
+	qwen35GPUCache.transientBytes += need
+	if qwen35GPUCache.transientByName == nil {
+		qwen35GPUCache.transientByName = map[string]Qwen35GPUTransientStat{}
+	}
+	name := ""
+	if q != nil {
+		name = q.Name
+	}
+	stat := qwen35GPUCache.transientByName[name]
+	stat.Name = name
+	stat.Count++
+	stat.Bytes += need
+	qwen35GPUCache.transientByName[name] = stat
 }
 
 func qwen35GPUWeightBytes(q *Qwen35NVFP4Weight) int64 {
