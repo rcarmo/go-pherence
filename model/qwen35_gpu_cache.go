@@ -60,6 +60,16 @@ type qwen35GPUCacheState struct {
 }
 
 var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, transientByName: map[string]Qwen35GPUTransientStat{}}
+var qwen35GPUCacheHeadroomBytes int64 = 512 * 1024 * 1024
+
+func SetQwen35GPUCacheHeadroom(bytes int64) {
+	if bytes < 0 {
+		bytes = 0
+	}
+	qwen35GPUCache.Lock()
+	defer qwen35GPUCache.Unlock()
+	qwen35GPUCacheHeadroomBytes = bytes
+}
 
 func SetQwen35GPUTransientDetail(enabled bool) {
 	qwen35GPUCache.Lock()
@@ -87,7 +97,7 @@ func qwen35SafeGPUCacheBudget(requested int64) int64 {
 	if free == 0 {
 		return requested
 	}
-	const headroom = int64(512 * 1024 * 1024)
+	headroom := qwen35GPUCacheHeadroomBytes
 	usable := int64(free)
 	if usable > headroom {
 		usable -= headroom

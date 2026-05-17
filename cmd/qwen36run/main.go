@@ -121,6 +121,7 @@ func main() {
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
 	gpuCacheMB := flag.Int("gpu-cache-mb", 12288, "GPU cache budget for packed Qwen3.6 NVFP4 weights; 0 disables eviction; auto-clamped to free VRAM")
+	gpuCacheHeadroomMB := flag.Int("gpu-cache-headroom-mb", 512, "free-VRAM headroom kept when auto-clamping the Qwen3.6 GPU weight cache")
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault safetensors mmap before timed generation")
 	gpuPrewarm := flag.Bool("gpu-prewarm", true, "pre-upload GPU cache before timed generation")
 	gpuTransientDetail := flag.Bool("gpu-transient-detail", false, "include top transient NVFP4 upload tensor names in GPU cache stats")
@@ -144,6 +145,7 @@ func main() {
 	}
 	qwen36UseGPULMHead = *gpuLMHead
 	model.SetQwen35GPUEnabled(*useGPU)
+	model.SetQwen35GPUCacheHeadroom(int64(*gpuCacheHeadroomMB) * 1024 * 1024)
 	model.SetQwen35GPUTransientDetail(*gpuTransientDetail)
 	model.SetQwen35GPUVerify(*gpuVerify, float32(*gpuVerifyTol))
 	model.ResetQwen35LinearStats()
