@@ -19,6 +19,15 @@ import (
 
 var qwen36UseGPULMHead bool
 var qwen36LMHeadLogitsScratch []float32
+var qwen36LMHeadStats Qwen36LMHeadStats
+
+type Qwen36LMHeadStats struct {
+	Calls        int64   `json:"calls,omitempty"`
+	GPUMillis    int64   `json:"gpu_ms,omitempty"`
+	CPUMillis    int64   `json:"cpu_ms,omitempty"`
+	DownloadRows int     `json:"download_rows,omitempty"`
+	AvgMS        float64 `json:"avg_ms,omitempty"`
+}
 
 type TopLogit struct {
 	ID    int     `json:"id"`
@@ -60,6 +69,7 @@ type Report struct {
 	GPUCache                   model.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
 	GPUVerify                  model.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
 	LinearStats                model.Qwen35LinearStats     `json:"linear_stats,omitempty"`
+	LMHeadStats                Qwen36LMHeadStats           `json:"lm_head_stats,omitempty"`
 	PrewarmTokensPerSecond     float64                     `json:"prewarm_tokens_per_second,omitempty"`
 	DecodeTokensPerSecond      float64                     `json:"decode_tokens_per_second,omitempty"`
 	GPULMHead                  bool                        `json:"gpu_lm_head,omitempty"`
@@ -135,6 +145,7 @@ func main() {
 	model.SetQwen35GPUEnabled(*useGPU)
 	model.SetQwen35GPUVerify(*gpuVerify, float32(*gpuVerifyTol))
 	model.ResetQwen35LinearStats()
+	qwen36LMHeadStats = Qwen36LMHeadStats{}
 	defer model.ResetQwen35GPUCache()
 	data, err := os.ReadFile(filepath.Join(*dir, "config.json"))
 	check("config", err)
@@ -276,6 +287,7 @@ func main() {
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = model.Qwen35LinearStatsSnapshot()
+	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()
 	addThroughputBreakdown(&rep)
 	rep.GPULMHead = r.lmGPU != nil
 	if *mtp {
@@ -388,6 +400,14 @@ func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwar
 	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, lmGPU: lmGPU, mtpHead: mtpHead}
 }
 
+func qwen36LMHeadStatsSnapshot() Qwen36LMHeadStats {
+	out := qwen36LMHeadStats
+	if out.Calls > 0 {
+		out.AvgMS = float64(out.GPUMillis+out.CPUMillis) / float64(out.Calls)
+	}
+	return out
+}
+
 func addThroughputBreakdown(rep *Report) {
 	if rep == nil {
 		return
@@ -474,6 +494,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = model.Qwen35LinearStatsSnapshot()
+	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()
 	addThroughputBreakdown(&rep)
 	rep.GPULMHead = r.lmGPU != nil
 	if topK > 0 {
@@ -585,7 +606,11 @@ func argmaxLMHead(t rawTensor, lmGPU *gpu.Buffer, x []float32) (int, float32) {
 			qwen36LMHeadLogitsScratch = make([]float32, t.shape[0])
 		}
 		logits := qwen36LMHeadLogitsScratch[:t.shape[0]]
+		start := time.Now()
 		if err := gpu.BF16LMHeadWithBuffer(logits, lmGPU, x, t.shape[0], t.shape[1]); err == nil {
+			qwen36LMHeadStats.Calls++
+			qwen36LMHeadStats.GPUMillis += time.Since(start).Milliseconds()
+			qwen36LMHeadStats.DownloadRows = t.shape[0]
 			best := -1
 			bestv := float32(math.Inf(-1))
 			for i, v := range logits {
@@ -599,7 +624,11 @@ func argmaxLMHead(t rawTensor, lmGPU *gpu.Buffer, x []float32) (int, float32) {
 			}
 		}
 	}
-	return argmaxBF16MatVec(t, x)
+	start := time.Now()
+	best, bestv := argmaxBF16MatVec(t, x)
+	qwen36LMHeadStats.Calls++
+	qwen36LMHeadStats.CPUMillis += time.Since(start).Milliseconds()
+	return best, bestv
 }
 
 func argmaxBF16MatVec(t rawTensor, x []float32) (int, float32) {
