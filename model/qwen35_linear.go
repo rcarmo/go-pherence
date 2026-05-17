@@ -17,6 +17,7 @@ var qwen35GPUVerifyCompared int64
 var qwen35GPUVerifyMismatches int64
 var qwen35GPUVerifyMaxDiff float32
 var qwen35LinearStats Qwen35LinearStats
+var qwen35LinearTiming bool
 
 type Qwen35LinearStats struct {
 	Calls        int64   `json:"calls"`
@@ -38,6 +39,8 @@ type Qwen35GPUVerifyStats struct {
 }
 
 func SetQwen35GPUEnabled(enabled bool) { qwen35GPUEnabled = enabled }
+
+func SetQwen35LinearTiming(enabled bool) { qwen35LinearTiming = enabled }
 
 func SetQwen35GPUVerify(limit int, tolerance float32) {
 	qwen35GPUVerifyRemaining = limit
@@ -76,25 +79,34 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 		}
 		qwen35LinearStats.Calls++
 		if qwen35GPUEnabled && gpu.SgemmReady() {
-			start := time.Now()
-			uploadStart := start
+			var start time.Time
+			if qwen35LinearTiming {
+				start = time.Now()
+			}
 			gw, transient, err := qwen35CachedGPUWeight(q)
 			if err != nil {
 				return fmt.Errorf("%s upload/cache NVFP4 GPU: %w", name, err)
 			}
-			uploadMS := time.Since(uploadStart).Milliseconds()
+			var uploadMS int64
+			var kernelStart time.Time
+			if qwen35LinearTiming {
+				uploadMS = time.Since(start).Milliseconds()
+				kernelStart = time.Now()
+			}
 			if transient {
 				defer gw.Free()
 			}
-			kernelStart := time.Now()
 			if err := gpu.GemvNVFP4(out, x, gw); err != nil {
-				qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
+				if qwen35LinearTiming {
+					qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
+				}
 				return fmt.Errorf("%s GPU NVFP4 GEMV: %w", name, err)
 			}
-			kernelMS := time.Since(kernelStart).Milliseconds()
-			qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
-			qwen35LinearStats.GPUUploadMS += uploadMS
-			qwen35LinearStats.GPUKernelMS += kernelMS
+			if qwen35LinearTiming {
+				qwen35LinearStats.GPUKernelMS += time.Since(kernelStart).Milliseconds()
+				qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
+				qwen35LinearStats.GPUUploadMS += uploadMS
+			}
 			qwen35LinearStats.GPUCalls++
 			if qwen35GPUVerifyRemaining > 0 {
 				verifyStart := time.Now()
@@ -120,10 +132,15 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 			}
 			return nil
 		}
-		start := time.Now()
+		var start time.Time
+		if qwen35LinearTiming {
+			start = time.Now()
+		}
 		quant.GemvNVFP4(out, x, q.W)
 		qwen35LinearStats.CPUCalls++
-		qwen35LinearStats.CPUMillis += time.Since(start).Milliseconds()
+		if qwen35LinearTiming {
+			qwen35LinearStats.CPUMillis += time.Since(start).Milliseconds()
+		}
 		return nil
 	}
 	if dense == nil {
