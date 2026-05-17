@@ -203,6 +203,8 @@ func freeNVFP4Scratch() {
 	}
 	nvfp4Scratch.xN = 0
 	nvfp4Scratch.outN = 0
+	nvfp4Scratch.xPtr = 0
+	nvfp4Scratch.xLen = 0
 }
 
 func shutdownMegaModule() {

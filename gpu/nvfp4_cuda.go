@@ -19,6 +19,8 @@ var nvfp4Scratch = struct {
 	out  *Buffer
 	xN   int
 	outN int
+	xPtr uintptr
+	xLen int
 }{}
 
 // NVFP4KernelKind identifies the packed NVFP4 kernel family a caller wants.
@@ -263,8 +265,14 @@ func gemvNVFP4PackedCUDA(out, x []float32, w *GPUNVFP4Weight) error {
 		return err
 	}
 	defer unlock()
-	if err := xBuf.Upload(x[:w.InDim]); err != nil {
-		return fmt.Errorf("upload NVFP4 packed GEMV input: %w", err)
+	xSlice := x[:w.InDim]
+	xPtr := uintptr(unsafe.Pointer(unsafe.SliceData(xSlice)))
+	if nvfp4Scratch.xPtr != xPtr || nvfp4Scratch.xLen != w.InDim {
+		if err := xBuf.Upload(xSlice); err != nil {
+			return fmt.Errorf("upload NVFP4 packed GEMV input: %w", err)
+		}
+		nvfp4Scratch.xPtr = xPtr
+		nvfp4Scratch.xLen = w.InDim
 	}
 	outDim := uint32(w.OutDim)
 	inDim := uint32(w.InDim)

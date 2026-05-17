@@ -63,7 +63,7 @@ func qwen35SafeGPUCacheBudget(requested int64) int64 {
 	if free == 0 {
 		return requested
 	}
-	const headroom = int64(1536 * 1024 * 1024)
+	const headroom = int64(512 * 1024 * 1024)
 	usable := int64(free)
 	if usable > headroom {
 		usable -= headroom
