@@ -313,7 +313,6 @@ func LoadQwen35LinearAttentionLayer(src Qwen35TensorSource, meta loaderconfig.Qw
 		{prefix + ".linear_attn.in_proj_gate.weight", &l.GateW, &l.GateWQ, shapes.Gate},
 		{prefix + ".linear_attn.conv1d.weight", &l.Conv1D, nil, []int{shapes.ConvDim, 1, meta.LinearConvKernelDim}},
 		{prefix + ".linear_attn.dt_bias", &l.DTBias, nil, shapes.DTBias},
-		{prefix + ".linear_attn.A", &l.A, nil, shapes.A},
 		{prefix + ".linear_attn.in_proj_ba.weight", &l.BetaW, &l.BetaWQ, shapes.Beta},
 		{prefix + ".linear_attn.in_proj_a.weight", &l.AlphaW, &l.AlphaWQ, shapes.Alpha},
 		{prefix + ".linear_attn.norm.weight", &l.Norm, nil, shapes.Norm},
@@ -326,6 +325,10 @@ func LoadQwen35LinearAttentionLayer(src Qwen35TensorSource, meta loaderconfig.Qw
 		if err := loadQwen35DenseOrNVFP4(src, load.name, load.dst, load.qdst, load.want); err != nil {
 			return nil, err
 		}
+	}
+	l.A, err = loadQwen35DenseA(src, prefix+".linear_attn.A", shapes.A)
+	if err != nil {
+		return nil, err
 	}
 	if err := ValidateQwen35LinearAttentionLayer(l, meta, prefix); err != nil {
 		return nil, err
@@ -467,6 +470,17 @@ func l2NormalizeInPlace(x []float32, eps float32) {
 	for i := range x {
 		x[i] *= scale
 	}
+}
+
+func l2NormalizeHeadsInPlace(x []float32, heads, headDim int, eps float32) error {
+	if heads <= 0 || headDim <= 0 || len(x) != heads*headDim {
+		return fmt.Errorf("invalid Qwen3.5 linear-attention head-normalize dims len=%d heads=%d head_dim=%d", len(x), heads, headDim)
+	}
+	for h := 0; h < heads; h++ {
+		start := h * headDim
+		l2NormalizeInPlace(x[start:start+headDim], eps)
+	}
+	return nil
 }
 
 func siluInPlace(x []float32) {
@@ -634,8 +648,12 @@ func (l *Qwen35LinearAttentionLayer) ForwardWithState(input []float32, state Qwe
 	if err != nil {
 		return nil, state, err
 	}
-	l2NormalizeInPlace(convParts.Q, eps)
-	l2NormalizeInPlace(convParts.K, eps)
+	if err := l2NormalizeHeadsInPlace(convParts.Q, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
+		return nil, state, err
+	}
+	if err := l2NormalizeHeadsInPlace(convParts.K, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
+		return nil, state, err
+	}
 	alpha := make([]float32, meta.LinearNumValueHeads)
 	beta := make([]float32, meta.LinearNumValueHeads)
 	if err := qwen35LinearInto(alpha, cur, l.AlphaW, l.AlphaWQ, meta.HiddenSize, meta.LinearNumValueHeads, "linear_attn.in_proj_a"); err != nil {

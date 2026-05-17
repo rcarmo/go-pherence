@@ -174,6 +174,8 @@ func TestParseQwenNativeMTPMetadata(t *testing.T) {
 			"linear_num_value_heads":16,
 			"linear_value_head_dim":64,
 			"full_attention_interval":4,
+			"attn_output_gate":true,
+			"output_gate_type":"q_proj",
 			"mtp_num_hidden_layers":1,
 			"mtp_use_dedicated_embeddings":false,
 			"layer_types":["linear_attention","linear_attention","linear_attention","full_attention"]
@@ -183,7 +185,7 @@ func TestParseQwenNativeMTPMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseQwenNativeMTPMetadata: %v", err)
 	}
-	if got.ModelType != "qwen3_5_text" || got.Architecture != "Qwen3_5ForConditionalGeneration" || got.HiddenSize != 5120 || got.VocabSize != 151936 || got.IntermediateSize != 17408 || got.NumHiddenLayers != 64 || got.NumAttentionHeads != 24 || got.NumKeyValueHeads != 4 || got.HeadDim != 256 || got.MaxPositionEmbeddings != 262144 || got.RopeTheta != 10000000 || got.PartialRotaryFactor != 0.25 || !got.MRoPEInterleaved || len(got.MRoPESection) != 3 || got.MRoPESection[2] != 10 || got.LinearNumValueHeads != 16 || got.MTPNumHiddenLayers != 1 || !got.HasNativeMTP || !got.HasLinearAttention {
+	if got.ModelType != "qwen3_5_text" || got.Architecture != "Qwen3_5ForConditionalGeneration" || got.HiddenSize != 5120 || got.VocabSize != 151936 || got.IntermediateSize != 17408 || got.NumHiddenLayers != 64 || got.NumAttentionHeads != 24 || got.NumKeyValueHeads != 4 || got.HeadDim != 256 || got.MaxPositionEmbeddings != 262144 || got.RopeTheta != 10000000 || got.PartialRotaryFactor != 0.25 || !got.MRoPEInterleaved || len(got.MRoPESection) != 3 || got.MRoPESection[2] != 10 || got.LinearNumValueHeads != 16 || got.MTPNumHiddenLayers != 1 || !got.AttnOutputGate || got.OutputGateType != "q_proj" || !got.HasNativeMTP || !got.HasLinearAttention {
 		t.Fatalf("metadata=%+v", got)
 	}
 }

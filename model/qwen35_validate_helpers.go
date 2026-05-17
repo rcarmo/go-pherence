@@ -9,7 +9,13 @@ import (
 
 func expectQwen35DenseOrNVFP4Shape(t *tensor.Tensor, q *Qwen35NVFP4Weight, want []int, name string) error {
 	if q != nil {
-		if len(want) != 2 || q.W == nil || !((q.W.OutDim == want[1] && q.W.InDim == want[0]) || (q.W.OutDim == want[0] && q.W.InDim == want[1])) {
+		if len(want) != 2 {
+			return fmt.Errorf("%s NVFP4 expected 2D shape, want %v", name, want)
+		}
+		if q.W == nil {
+			return fmt.Errorf("%s has nil NVFP4 weight", name)
+		}
+		if !((q.W.OutDim == want[1] && q.W.InDim == want[0]) || (q.W.OutDim == want[0] && q.W.InDim == want[1])) {
 			return fmt.Errorf("%s NVFP4 shape out/in=%d/%d want %v", name, q.W.OutDim, q.W.InDim, want)
 		}
 		return nil

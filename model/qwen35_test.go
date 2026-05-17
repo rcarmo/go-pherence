@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -146,6 +147,22 @@ func TestQwen35BaseModelForwardOneFullAttention(t *testing.T) {
 	}
 }
 
+func TestL2NormalizeHeadsInPlace(t *testing.T) {
+	x := []float32{3, 4, 5, 12}
+	if err := l2NormalizeHeadsInPlace(x, 2, 2, 0); err != nil {
+		t.Fatalf("l2NormalizeHeadsInPlace: %v", err)
+	}
+	want := []float32{0.6, 0.8, 5.0 / 13.0, 12.0 / 13.0}
+	for i := range want {
+		if math.Abs(float64(x[i]-want[i])) > 1e-6 {
+			t.Fatalf("head-normalized vector=%v want %v", x, want)
+		}
+	}
+	if err := l2NormalizeHeadsInPlace([]float32{1, 2, 3}, 2, 2, 0); err == nil {
+		t.Fatal("bad head dimensions returned nil error")
+	}
+}
+
 func TestQwen35BaseModelForwardOneLinearAttention(t *testing.T) {
 	meta := testQwen35BaseMeta()
 	meta.NumHiddenLayers = 1
@@ -271,6 +288,21 @@ func TestLoadQwen35LinearAttentionLayer(t *testing.T) {
 	}
 	if l.QKVW == nil || l.OutW == nil {
 		t.Fatalf("loaded layer=%+v", l)
+	}
+}
+
+func TestLoadQwen35LinearAttentionLayerConvertsALog(t *testing.T) {
+	meta := testQwen35BaseMeta()
+	src := linearQwen35LayerSource(meta, "model.language_model.model.layers.1")
+	delete(src, "model.language_model.model.layers.1.linear_attn.A")
+	src["model.language_model.model.layers.1.linear_attn.A_log"] = tensor.FromFloat32([]float32{0, 1}, []int{2})
+	l, err := LoadQwen35LinearAttentionLayer(CandidateQwen35TensorSource{Source: src}, meta, "model.layers.1")
+	if err != nil {
+		t.Fatalf("LoadQwen35LinearAttentionLayer: %v", err)
+	}
+	got := l.A.Data()
+	if math.Abs(float64(got[0]+1)) > 1e-6 || math.Abs(float64(got[1]+float32(math.E))) > 1e-6 {
+		t.Fatalf("converted A=%v, want [-1 -e]", got)
 	}
 }
 

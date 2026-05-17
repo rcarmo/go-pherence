@@ -31,6 +31,8 @@ type QwenNativeMTPMetadata struct {
 	LinearNumValueHeads       int      `json:"linear_num_value_heads,omitempty"`
 	LinearValueHeadDim        int      `json:"linear_value_head_dim,omitempty"`
 	FullAttentionInterval     int      `json:"full_attention_interval,omitempty"`
+	AttnOutputGate            bool     `json:"attn_output_gate,omitempty"`
+	OutputGateType            string   `json:"output_gate_type,omitempty"`
 	HasNativeMTP              bool     `json:"has_native_mtp"`
 	HasLinearAttention        bool     `json:"has_linear_attention"`
 }
@@ -60,12 +62,14 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 				MRoPEInterleaved    bool    `json:"mrope_interleaved"`
 				MRoPESection        []int   `json:"mrope_section"`
 			} `json:"rope_parameters"`
-			LinearConvKernelDim   int `json:"linear_conv_kernel_dim"`
-			LinearKeyHeadDim      int `json:"linear_key_head_dim"`
-			LinearNumKeyHeads     int `json:"linear_num_key_heads"`
-			LinearNumValueHeads   int `json:"linear_num_value_heads"`
-			LinearValueHeadDim    int `json:"linear_value_head_dim"`
-			FullAttentionInterval int `json:"full_attention_interval"`
+			LinearConvKernelDim   int    `json:"linear_conv_kernel_dim"`
+			LinearKeyHeadDim      int    `json:"linear_key_head_dim"`
+			LinearNumKeyHeads     int    `json:"linear_num_key_heads"`
+			LinearNumValueHeads   int    `json:"linear_num_value_heads"`
+			LinearValueHeadDim    int    `json:"linear_value_head_dim"`
+			FullAttentionInterval int    `json:"full_attention_interval"`
+			AttnOutputGate        bool   `json:"attn_output_gate"`
+			OutputGateType        string `json:"output_gate_type"`
 		} `json:"text_config"`
 		HiddenSize                int      `json:"hidden_size"`
 		VocabSize                 int      `json:"vocab_size"`
@@ -86,12 +90,14 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 			MRoPEInterleaved    bool    `json:"mrope_interleaved"`
 			MRoPESection        []int   `json:"mrope_section"`
 		} `json:"rope_parameters"`
-		LinearConvKernelDim   int `json:"linear_conv_kernel_dim"`
-		LinearKeyHeadDim      int `json:"linear_key_head_dim"`
-		LinearNumKeyHeads     int `json:"linear_num_key_heads"`
-		LinearNumValueHeads   int `json:"linear_num_value_heads"`
-		LinearValueHeadDim    int `json:"linear_value_head_dim"`
-		FullAttentionInterval int `json:"full_attention_interval"`
+		LinearConvKernelDim   int    `json:"linear_conv_kernel_dim"`
+		LinearKeyHeadDim      int    `json:"linear_key_head_dim"`
+		LinearNumKeyHeads     int    `json:"linear_num_key_heads"`
+		LinearNumValueHeads   int    `json:"linear_num_value_heads"`
+		LinearValueHeadDim    int    `json:"linear_value_head_dim"`
+		FullAttentionInterval int    `json:"full_attention_interval"`
+		AttnOutputGate        bool   `json:"attn_output_gate"`
+		OutputGateType        string `json:"output_gate_type"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return QwenNativeMTPMetadata{}, err
@@ -131,6 +137,8 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 		meta.LinearNumValueHeads = raw.TextConfig.LinearNumValueHeads
 		meta.LinearValueHeadDim = raw.TextConfig.LinearValueHeadDim
 		meta.FullAttentionInterval = raw.TextConfig.FullAttentionInterval
+		meta.AttnOutputGate = raw.TextConfig.AttnOutputGate
+		meta.OutputGateType = raw.TextConfig.OutputGateType
 	} else {
 		meta.HiddenSize = raw.HiddenSize
 		meta.VocabSize = raw.VocabSize
@@ -159,6 +167,8 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 		meta.LinearNumValueHeads = raw.LinearNumValueHeads
 		meta.LinearValueHeadDim = raw.LinearValueHeadDim
 		meta.FullAttentionInterval = raw.FullAttentionInterval
+		meta.AttnOutputGate = raw.AttnOutputGate
+		meta.OutputGateType = raw.OutputGateType
 	}
 	meta.HasNativeMTP = meta.MTPNumHiddenLayers > 0
 	for _, lt := range meta.LayerTypes {
