@@ -16,36 +16,43 @@ import (
 	"github.com/rcarmo/go-pherence/model"
 )
 
+type TopLogit struct {
+	ID    int     `json:"id"`
+	Logit float32 `json:"logit"`
+}
+
 type Report struct {
-	ModelDir             string  `json:"model_dir"`
-	Prompt               string  `json:"prompt,omitempty"`
-	InputIDs             []int   `json:"input_ids"`
-	GeneratedIDs         []int   `json:"generated_ids,omitempty"`
-	Decoded              string  `json:"decoded,omitempty"`
-	TokenID              int     `json:"token_id,omitempty"`
-	NextID               int     `json:"next_id"`
-	Logit                float32 `json:"logit"`
-	HiddenAbsSum         float32 `json:"hidden_abs_sum"`
-	MTPOutputLen         int     `json:"mtp_output_len,omitempty"`
-	MTPAbsSum            float32 `json:"mtp_abs_sum,omitempty"`
-	MTPNextID            int     `json:"mtp_next_id,omitempty"`
-	MTPLogit             float32 `json:"mtp_logit,omitempty"`
-	MTPVerifierNextID    int     `json:"mtp_verifier_next_id,omitempty"`
-	MTPAcceptedByGreedy  bool    `json:"mtp_accepted_by_greedy"`
-	PrefillMTPNextID     int     `json:"prefill_mtp_next_id,omitempty"`
-	PrefillMTPLogit      float32 `json:"prefill_mtp_logit,omitempty"`
-	PrefillMTPAccepted   bool    `json:"prefill_mtp_accepted"`
-	VerifierLogitForMTP  float32 `json:"verifier_logit_for_mtp,omitempty"`
-	VerifierBestMinusMTP float32 `json:"verifier_best_minus_mtp,omitempty"`
-	MTPLogitForVerifier  float32 `json:"mtp_logit_for_verifier,omitempty"`
-	MTPBestMinusVerifier float32 `json:"mtp_best_minus_verifier,omitempty"`
-	MTPDraftIDs          []int   `json:"mtp_draft_ids,omitempty"`
-	MTPVerifierIDs       []int   `json:"mtp_verifier_ids,omitempty"`
-	MTPAcceptedPrefix    int     `json:"mtp_accepted_prefix,omitempty"`
-	DurationMS           int64   `json:"duration_ms"`
-	TokensProcessed      int     `json:"tokens_processed"`
-	TokensPerSecond      float64 `json:"tokens_per_second"`
-	Passed               bool    `json:"passed"`
+	ModelDir             string     `json:"model_dir"`
+	Prompt               string     `json:"prompt,omitempty"`
+	InputIDs             []int      `json:"input_ids"`
+	GeneratedIDs         []int      `json:"generated_ids,omitempty"`
+	Decoded              string     `json:"decoded,omitempty"`
+	TokenID              int        `json:"token_id,omitempty"`
+	NextID               int        `json:"next_id"`
+	Logit                float32    `json:"logit"`
+	HiddenAbsSum         float32    `json:"hidden_abs_sum"`
+	MTPOutputLen         int        `json:"mtp_output_len,omitempty"`
+	MTPAbsSum            float32    `json:"mtp_abs_sum,omitempty"`
+	MTPNextID            int        `json:"mtp_next_id,omitempty"`
+	MTPLogit             float32    `json:"mtp_logit,omitempty"`
+	MTPVerifierNextID    int        `json:"mtp_verifier_next_id,omitempty"`
+	MTPAcceptedByGreedy  bool       `json:"mtp_accepted_by_greedy"`
+	PrefillMTPNextID     int        `json:"prefill_mtp_next_id,omitempty"`
+	PrefillMTPLogit      float32    `json:"prefill_mtp_logit,omitempty"`
+	PrefillMTPAccepted   bool       `json:"prefill_mtp_accepted"`
+	VerifierLogitForMTP  float32    `json:"verifier_logit_for_mtp,omitempty"`
+	VerifierBestMinusMTP float32    `json:"verifier_best_minus_mtp,omitempty"`
+	MTPLogitForVerifier  float32    `json:"mtp_logit_for_verifier,omitempty"`
+	MTPBestMinusVerifier float32    `json:"mtp_best_minus_verifier,omitempty"`
+	MTPDraftIDs          []int      `json:"mtp_draft_ids,omitempty"`
+	MTPVerifierIDs       []int      `json:"mtp_verifier_ids,omitempty"`
+	MTPAcceptedPrefix    int        `json:"mtp_accepted_prefix,omitempty"`
+	DurationMS           int64      `json:"duration_ms"`
+	TokensProcessed      int        `json:"tokens_processed"`
+	TokensPerSecond      float64    `json:"tokens_per_second"`
+	BaseTop              []TopLogit `json:"base_top,omitempty"`
+	MTPTop               []TopLogit `json:"mtp_top,omitempty"`
+	Passed               bool       `json:"passed"`
 }
 
 type SweepReport struct {
@@ -83,6 +90,7 @@ func main() {
 	steps := flag.Int("steps", 1, "greedy decode steps after prompt/token")
 	mtp := flag.Bool("mtp", false, "also run native MTP head from last base hidden state and generated token")
 	mtpSteps := flag.Int("mtp-steps", 1, "native MTP draft steps for diagnostics")
+	topK := flag.Int("topk", 0, "include top-K base/MTP logits in reports; 0 disables")
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
 	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
@@ -131,7 +139,7 @@ func main() {
 		sweepReport := SweepReport{ModelDir: *dir, Prompts: prompts, Total: len(prompts)}
 		for _, p := range prompts {
 			run := newRunner(bundle, state, r.emb, r.normW, r.lm, r.mtpHead)
-			report, err := runPrompt(run, tok, p, *steps, *mtp, *mtpSteps, ropeFreqs, meta, *dir)
+			report, err := runPrompt(run, tok, p, *steps, *mtp, *mtpSteps, *topK, ropeFreqs, meta, *dir)
 			check("sweep prompt", err)
 			sweepReport.Runs = append(sweepReport.Runs, report)
 			if report.MTPAcceptedByGreedy || report.PrefillMTPAccepted {
@@ -197,6 +205,9 @@ func main() {
 		decoded = tok.Decode(generated)
 	}
 	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), Passed: next >= 0 && len(h) == meta.HiddenSize}
+	if *topK > 0 {
+		rep.BaseTop = topKBF16MatVec(r.lm, h, *topK)
+	}
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	if *mtp {
 		mtpHead := r.mtpHead
@@ -229,6 +240,9 @@ func main() {
 		mtpLogitHidden := append([]float32(nil), mtpOut...)
 		rmsNorm(mtpLogitHidden, mtpHead.Norm.Data(), 1e-6)
 		rep.MTPNextID, rep.MTPLogit = argmaxBF16MatVec(r.lm, mtpLogitHidden)
+		if len(rep.BaseTop) > 0 {
+			rep.MTPTop = topKBF16MatVec(r.lm, mtpLogitHidden, len(rep.BaseTop))
+		}
 		// The MTP head predicts the same next position as the base verifier logits
 		// already computed after the latest base step. Do not feed the draft back
 		// into the verifier here; that would compare against the following token.
@@ -377,7 +391,7 @@ func loadSweepPrompts(path string) []string {
 	return out
 }
 
-func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp bool, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string) (Report, error) {
+func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp bool, mtpSteps, topK int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, dir string) (Report, error) {
 	start := time.Now()
 	ids := tok.Encode(prompt)
 	if len(ids) == 0 {
@@ -417,6 +431,9 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	}
 	rep := Report{ModelDir: dir, Prompt: prompt, InputIDs: ids, GeneratedIDs: generated, Decoded: tok.Decode(generated), TokenID: ids[len(ids)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(start).Milliseconds(), TokensProcessed: len(ids) + len(generated), Passed: next >= 0 && len(h) == meta.HiddenSize}
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
+	if topK > 0 {
+		rep.BaseTop = topKBF16MatVec(r.lm, h, topK)
+	}
 	if mtp {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, dir, mtpSteps)
 	}
@@ -486,6 +503,37 @@ func rmsNorm(x, w []float32, eps float32) {
 		x[i] *= scale * w[i]
 	}
 }
+func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
+	if k <= 0 || len(t.shape) != 2 {
+		return nil
+	}
+	rows := t.shape[0]
+	if k > rows {
+		k = rows
+	}
+	top := make([]TopLogit, 0, k)
+	for row := 0; row < rows; row++ {
+		v := bf16MatVecRow(t, x, row)
+		inserted := false
+		for i := range top {
+			if v > top[i].Logit {
+				top = append(top, TopLogit{})
+				copy(top[i+1:], top[i:])
+				top[i] = TopLogit{ID: row, Logit: v}
+				inserted = true
+				break
+			}
+		}
+		if !inserted && len(top) < k {
+			top = append(top, TopLogit{ID: row, Logit: v})
+		}
+		if len(top) > k {
+			top = top[:k]
+		}
+	}
+	return top
+}
+
 func argmaxBF16MatVec(t rawTensor, x []float32) (int, float32) {
 	rows := t.shape[0]
 	best := -1
