@@ -16,15 +16,18 @@ type Qwen35RawTensorSource interface {
 }
 
 type Qwen35NVFP4Weight struct {
-	Name string
-	W    *quant.NVFP4Weight
-	GPU  *gpu.GPUNVFP4Weight
+	Name     string
+	W        *quant.NVFP4Weight
+	GPU      *gpu.GPUNVFP4Weight
+	GPUBytes int64
+	LastUse  uint64
 }
 
 func (w *Qwen35NVFP4Weight) FreeGPU() {
 	if w != nil && w.GPU != nil {
 		w.GPU.Free()
 		w.GPU = nil
+		w.GPUBytes = 0
 	}
 }
 

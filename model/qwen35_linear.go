@@ -24,11 +24,13 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 			return fmt.Errorf("%s NVFP4 dims out/in=%d/%d want %d/%d", name, q.W.OutDim, q.W.InDim, outDim, inDim)
 		}
 		if qwen35GPUEnabled && gpu.SgemmReady() {
-			gw, err := gpu.UploadNVFP4Weight(q.W)
+			gw, transient, err := qwen35CachedGPUWeight(q)
 			if err != nil {
-				return fmt.Errorf("%s upload NVFP4 GPU: %w", name, err)
+				return fmt.Errorf("%s upload/cache NVFP4 GPU: %w", name, err)
 			}
-			defer gw.Free()
+			if transient {
+				defer gw.Free()
+			}
 			if err := gpu.GemvNVFP4(out, x, gw); err != nil {
 				return fmt.Errorf("%s GPU NVFP4 GEMV: %w", name, err)
 			}
