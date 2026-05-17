@@ -23,6 +23,8 @@ type Qwen35LinearStats struct {
 	GPUCalls     int64   `json:"gpu_calls"`
 	CPUCalls     int64   `json:"cpu_calls"`
 	GPUMillis    int64   `json:"gpu_ms"`
+	GPUUploadMS  int64   `json:"gpu_upload_ms,omitempty"`
+	GPUKernelMS  int64   `json:"gpu_kernel_ms,omitempty"`
 	CPUMillis    int64   `json:"cpu_ms"`
 	VerifyMillis int64   `json:"verify_ms"`
 	AvgGPUCallMS float64 `json:"avg_gpu_call_ms,omitempty"`
@@ -75,18 +77,24 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 		qwen35LinearStats.Calls++
 		if qwen35GPUEnabled && gpu.SgemmReady() {
 			start := time.Now()
+			uploadStart := start
 			gw, transient, err := qwen35CachedGPUWeight(q)
 			if err != nil {
 				return fmt.Errorf("%s upload/cache NVFP4 GPU: %w", name, err)
 			}
+			uploadMS := time.Since(uploadStart).Milliseconds()
 			if transient {
 				defer gw.Free()
 			}
+			kernelStart := time.Now()
 			if err := gpu.GemvNVFP4(out, x, gw); err != nil {
 				qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
 				return fmt.Errorf("%s GPU NVFP4 GEMV: %w", name, err)
 			}
+			kernelMS := time.Since(kernelStart).Milliseconds()
 			qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
+			qwen35LinearStats.GPUUploadMS += uploadMS
+			qwen35LinearStats.GPUKernelMS += kernelMS
 			qwen35LinearStats.GPUCalls++
 			if qwen35GPUVerifyRemaining > 0 {
 				verifyStart := time.Now()
