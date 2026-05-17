@@ -220,7 +220,7 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 			qwen35GPUCache.uploadBytes += need
 			return qwen35GPUCache.transientGPU, false, nil
 		}
-		qwen35GPUCache.evictAllLocked()
+		qwen35GPUCache.evictUntilLocked(need, q)
 		gw, err = gpu.UploadNVFP4Weight(q.W)
 	}
 	if err != nil {
