@@ -9,9 +9,19 @@ import (
 )
 
 type Qwen35NativeMTPBundle struct {
-	Meta loaderconfig.QwenNativeMTPMetadata
-	Base *Qwen35BaseModel
-	MTP  *QwenNativeMTPHead
+	Meta   loaderconfig.QwenNativeMTPMetadata
+	Base   *Qwen35BaseModel
+	MTP    *QwenNativeMTPHead
+	closer qwenNativeMTPClosableTensorSource
+}
+
+func (b *Qwen35NativeMTPBundle) Close() error {
+	if b == nil || b.closer == nil {
+		return nil
+	}
+	err := b.closer.Close()
+	b.closer = nil
+	return err
 }
 
 type Qwen35NativeMTPBundleReadiness struct {
@@ -88,14 +98,20 @@ func LoadQwen35NativeMTPBundleFromDir(dir string) (*Qwen35NativeMTPBundle, error
 	if err != nil {
 		return nil, fmt.Errorf("parse Qwen3.5 config: %w", err)
 	}
-	base, err := LoadQwen35BaseModelLayersFromSafetensorsDir(dir, meta)
+	src, err := OpenQwenNativeMTPSafetensorsSource(dir)
 	if err != nil {
+		return nil, fmt.Errorf("open Qwen3.5 tensors: %w", err)
+	}
+	base, err := LoadQwen35BaseModelLayers(CandidateQwen35TensorSource{Source: src}, meta)
+	if err != nil {
+		_ = src.Close()
 		return nil, fmt.Errorf("load Qwen3.5 base layers: %w", err)
 	}
-	bundle := &Qwen35NativeMTPBundle{Meta: meta, Base: base}
+	bundle := &Qwen35NativeMTPBundle{Meta: meta, Base: base, closer: src}
 	if meta.HasNativeMTP {
-		mtp, err := LoadQwenNativeMTPHeadFromSafetensorsDir(dir, meta)
+		mtp, err := LoadQwenNativeMTPHead(src, meta)
 		if err != nil {
+			_ = src.Close()
 			return nil, fmt.Errorf("load Qwen native MTP head: %w", err)
 		}
 		bundle.MTP = mtp

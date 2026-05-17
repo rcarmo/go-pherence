@@ -78,7 +78,7 @@ func LoadQwen35NVFP4Weight(src Qwen35RawTensorSource, name string, wantShape []i
 		return nil, err
 	}
 	inputScale, inputErr := loadQwen35ScalarF32(src, prefix+".input_scale")
-	qw := &quant.NVFP4Weight{Weight: append([]byte(nil), raw...), WeightScale: append([]byte(nil), scale...), WeightScale2: scale2, OutDim: wantShape[0], InDim: wantShape[1], Groups: groups, GroupSize: 16}
+	qw := &quant.NVFP4Weight{Weight: raw, WeightScale: scale, WeightScale2: scale2, OutDim: wantShape[0], InDim: wantShape[1], Groups: groups, GroupSize: 16}
 	if inputErr == nil {
 		qw.InputScale = inputScale
 		qw.HasInputScale = true

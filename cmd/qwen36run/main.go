@@ -136,6 +136,7 @@ func main() {
 	check("parse config", err)
 	bundle, err := model.LoadQwen35NativeMTPBundleFromDir(*dir)
 	check("load bundle", err)
+	defer bundle.Close()
 	state, err := bundle.NewForwardState()
 	check("state", err)
 	src, err := model.OpenQwenNativeMTPSafetensorsSource(*dir)

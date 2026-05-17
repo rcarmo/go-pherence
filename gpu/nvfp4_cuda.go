@@ -148,25 +148,23 @@ func UploadNVFP4Weight(qw *quant.NVFP4Weight) (*GPUNVFP4Weight, error) {
 		ScaleBytes:    scaleBytes,
 	}
 
-	weightUpload := bytesAsFloat32Padded(qw.Weight[:weightBytes])
-	wb, err := Malloc(len(weightUpload))
+	wb, err := Malloc(f32SlotsForBytes(weightBytes))
 	if err != nil {
 		return nil, fmt.Errorf("alloc NVFP4 weight (%d bytes): %w", weightBytes, err)
 	}
 	w.Weight = wb
-	if err := wb.Upload(weightUpload); err != nil {
+	if err := wb.UploadBytes(qw.Weight[:weightBytes]); err != nil {
 		w.Free()
 		return nil, fmt.Errorf("upload NVFP4 weight: %w", err)
 	}
 
-	scaleUpload := bytesAsFloat32Padded(qw.WeightScale[:scaleBytes])
-	sb, err := Malloc(len(scaleUpload))
+	sb, err := Malloc(f32SlotsForBytes(scaleBytes))
 	if err != nil {
 		w.Free()
 		return nil, fmt.Errorf("alloc NVFP4 weight_scale (%d bytes): %w", scaleBytes, err)
 	}
 	w.WeightScale = sb
-	if err := sb.Upload(scaleUpload); err != nil {
+	if err := sb.UploadBytes(qw.WeightScale[:scaleBytes]); err != nil {
 		w.Free()
 		return nil, fmt.Errorf("upload NVFP4 weight_scale: %w", err)
 	}
