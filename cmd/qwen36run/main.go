@@ -54,6 +54,7 @@ type Report struct {
 	MTPAcceptedPrefix          int                        `json:"mtp_accepted_prefix,omitempty"`
 	GPUCache                   model.Qwen35GPUCacheStats  `json:"gpu_cache,omitempty"`
 	GPUVerify                  model.Qwen35GPUVerifyStats `json:"gpu_verify,omitempty"`
+	LinearStats                model.Qwen35LinearStats    `json:"linear_stats,omitempty"`
 	GPULMHead                  bool                       `json:"gpu_lm_head,omitempty"`
 	DurationMS                 int64                      `json:"duration_ms"`
 	TokensProcessed            int                        `json:"tokens_processed"`
@@ -124,6 +125,7 @@ func main() {
 	qwen36UseGPULMHead = *gpuLMHead
 	model.SetQwen35GPUEnabled(*useGPU)
 	model.SetQwen35GPUVerify(*gpuVerify, float32(*gpuVerifyTol))
+	model.ResetQwen35LinearStats()
 	defer model.ResetQwen35GPUCache()
 	data, err := os.ReadFile(filepath.Join(*dir, "config.json"))
 	check("config", err)
@@ -238,6 +240,7 @@ func main() {
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
+	rep.LinearStats = model.Qwen35LinearStatsSnapshot()
 	rep.GPULMHead = r.lmGPU != nil
 	if *mtp {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, *mtpSteps, *greedySeed)
@@ -419,6 +422,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
+	rep.LinearStats = model.Qwen35LinearStatsSnapshot()
 	rep.GPULMHead = r.lmGPU != nil
 	if topK > 0 {
 		rep.BaseTop = topKBF16MatVec(r.lm, h, topK)

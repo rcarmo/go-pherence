@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/rcarmo/go-pherence/gpu"
 	"github.com/rcarmo/go-pherence/runtime/quant"
@@ -15,6 +16,16 @@ var qwen35GPUVerifyTolerance float32 = 1e-4
 var qwen35GPUVerifyCompared int64
 var qwen35GPUVerifyMismatches int64
 var qwen35GPUVerifyMaxDiff float32
+var qwen35LinearStats Qwen35LinearStats
+
+type Qwen35LinearStats struct {
+	Calls        int64 `json:"calls"`
+	GPUCalls     int64 `json:"gpu_calls"`
+	CPUCalls     int64 `json:"cpu_calls"`
+	GPUMillis    int64 `json:"gpu_ms"`
+	CPUMillis    int64 `json:"cpu_ms"`
+	VerifyMillis int64 `json:"verify_ms"`
+}
 
 type Qwen35GPUVerifyStats struct {
 	Compared   int64   `json:"compared"`
@@ -39,6 +50,10 @@ func Qwen35GPUVerifyStatsSnapshot() Qwen35GPUVerifyStats {
 	return Qwen35GPUVerifyStats{Compared: qwen35GPUVerifyCompared, Mismatches: qwen35GPUVerifyMismatches, MaxDiff: qwen35GPUVerifyMaxDiff, Tolerance: qwen35GPUVerifyTolerance}
 }
 
+func ResetQwen35LinearStats() { qwen35LinearStats = Qwen35LinearStats{} }
+
+func Qwen35LinearStatsSnapshot() Qwen35LinearStats { return qwen35LinearStats }
+
 func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weight, inDim, outDim int, name string) error {
 	if len(out) != outDim || len(x) != inDim {
 		return fmt.Errorf("%s vector dims out/x=%d/%d want %d/%d", name, len(out), len(x), outDim, inDim)
@@ -50,7 +65,9 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 		if q.W.InDim != inDim || q.W.OutDim != outDim {
 			return fmt.Errorf("%s NVFP4 dims out/in=%d/%d want %d/%d", name, q.W.OutDim, q.W.InDim, outDim, inDim)
 		}
+		qwen35LinearStats.Calls++
 		if qwen35GPUEnabled && gpu.SgemmReady() {
+			start := time.Now()
 			gw, transient, err := qwen35CachedGPUWeight(q)
 			if err != nil {
 				return fmt.Errorf("%s upload/cache NVFP4 GPU: %w", name, err)
@@ -59,9 +76,13 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 				defer gw.Free()
 			}
 			if err := gpu.GemvNVFP4(out, x, gw); err != nil {
+				qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
 				return fmt.Errorf("%s GPU NVFP4 GEMV: %w", name, err)
 			}
+			qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
+			qwen35LinearStats.GPUCalls++
 			if qwen35GPUVerifyRemaining > 0 {
+				verifyStart := time.Now()
 				qwen35GPUVerifyRemaining--
 				ref := make([]float32, outDim)
 				quant.GemvNVFP4(ref, x, q.W)
@@ -76,6 +97,7 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 				if maxDiff > qwen35GPUVerifyMaxDiff {
 					qwen35GPUVerifyMaxDiff = maxDiff
 				}
+				qwen35LinearStats.VerifyMillis += time.Since(verifyStart).Milliseconds()
 				if maxDiff > qwen35GPUVerifyTolerance {
 					qwen35GPUVerifyMismatches++
 					return fmt.Errorf("%s GPU NVFP4 verification max diff=%g exceeds tolerance=%g", name, maxDiff, qwen35GPUVerifyTolerance)
@@ -83,7 +105,10 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 			}
 			return nil
 		}
+		start := time.Now()
 		quant.GemvNVFP4(out, x, q.W)
+		qwen35LinearStats.CPUCalls++
+		qwen35LinearStats.CPUMillis += time.Since(start).Milliseconds()
 		return nil
 	}
 	if dense == nil {
