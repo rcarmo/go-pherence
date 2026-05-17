@@ -11,6 +11,7 @@ import (
 )
 
 var qwen35GPUEnabled bool
+var qwen35GPUReady bool
 var qwen35GPUVerifyRemaining int
 var qwen35GPUVerifyTolerance float32 = 1e-4
 var qwen35GPUVerifyCompared int64
@@ -38,7 +39,10 @@ type Qwen35GPUVerifyStats struct {
 	Tolerance  float32 `json:"tolerance"`
 }
 
-func SetQwen35GPUEnabled(enabled bool) { qwen35GPUEnabled = enabled }
+func SetQwen35GPUEnabled(enabled bool) {
+	qwen35GPUEnabled = enabled
+	qwen35GPUReady = enabled && gpu.SgemmReady()
+}
 
 func SetQwen35LinearTiming(enabled bool) { qwen35LinearTiming = enabled }
 
@@ -78,7 +82,7 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 			return fmt.Errorf("%s NVFP4 dims out/in=%d/%d want %d/%d", name, q.W.OutDim, q.W.InDim, outDim, inDim)
 		}
 		qwen35LinearStats.Calls++
-		if qwen35GPUEnabled && gpu.SgemmReady() {
+		if qwen35GPUReady {
 			var start time.Time
 			if qwen35LinearTiming {
 				start = time.Now()

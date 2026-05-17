@@ -90,7 +90,7 @@ func ConfigureQwen35GPUCache(budgetBytes int64) {
 }
 
 func qwen35SafeGPUCacheBudget(requested int64) int64 {
-	if requested <= 0 || !qwen35GPUEnabled || !gpu.SgemmReady() {
+	if requested <= 0 || !qwen35GPUReady {
 		return requested
 	}
 	free, _ := gpu.MemInfo()
@@ -134,7 +134,7 @@ func ResetQwen35GPUCache() {
 
 func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
 	stats := Qwen35GPUPrewarmStats{}
-	if !qwen35GPUEnabled || base == nil || !gpu.SgemmReady() {
+	if !qwen35GPUReady || base == nil {
 		return stats
 	}
 	for _, q := range qwen35BaseNVFP4Weights(base) {
