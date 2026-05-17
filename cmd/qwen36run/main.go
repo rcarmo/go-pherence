@@ -25,43 +25,45 @@ type TopLogit struct {
 }
 
 type Report struct {
-	ModelDir                   string                     `json:"model_dir"`
-	Prompt                     string                     `json:"prompt,omitempty"`
-	InputIDs                   []int                      `json:"input_ids"`
-	GeneratedIDs               []int                      `json:"generated_ids,omitempty"`
-	Decoded                    string                     `json:"decoded,omitempty"`
-	TokenID                    int                        `json:"token_id,omitempty"`
-	NextID                     int                        `json:"next_id"`
-	Logit                      float32                    `json:"logit"`
-	HiddenAbsSum               float32                    `json:"hidden_abs_sum"`
-	MTPOutputLen               int                        `json:"mtp_output_len,omitempty"`
-	MTPAbsSum                  float32                    `json:"mtp_abs_sum,omitempty"`
-	MTPNextID                  int                        `json:"mtp_next_id,omitempty"`
-	MTPLogit                   float32                    `json:"mtp_logit,omitempty"`
-	MTPVerifierNextID          int                        `json:"mtp_verifier_next_id,omitempty"`
-	MTPAcceptedByGreedy        bool                       `json:"mtp_accepted_by_greedy"`
-	PrefillMTPNextID           int                        `json:"prefill_mtp_next_id,omitempty"`
-	PrefillMTPLogit            float32                    `json:"prefill_mtp_logit,omitempty"`
-	PrefillMTPAccepted         bool                       `json:"prefill_mtp_accepted"`
-	PrefillGreedySeedMTPNextID int                        `json:"prefill_greedy_seed_mtp_next_id,omitempty"`
-	PrefillGreedySeedAccepted  bool                       `json:"prefill_greedy_seed_accepted"`
-	VerifierLogitForMTP        float32                    `json:"verifier_logit_for_mtp,omitempty"`
-	VerifierBestMinusMTP       float32                    `json:"verifier_best_minus_mtp,omitempty"`
-	MTPLogitForVerifier        float32                    `json:"mtp_logit_for_verifier,omitempty"`
-	MTPBestMinusVerifier       float32                    `json:"mtp_best_minus_verifier,omitempty"`
-	MTPDraftIDs                []int                      `json:"mtp_draft_ids,omitempty"`
-	MTPVerifierIDs             []int                      `json:"mtp_verifier_ids,omitempty"`
-	MTPAcceptedPrefix          int                        `json:"mtp_accepted_prefix,omitempty"`
-	GPUCache                   model.Qwen35GPUCacheStats  `json:"gpu_cache,omitempty"`
-	GPUVerify                  model.Qwen35GPUVerifyStats `json:"gpu_verify,omitempty"`
-	LinearStats                model.Qwen35LinearStats    `json:"linear_stats,omitempty"`
-	GPULMHead                  bool                       `json:"gpu_lm_head,omitempty"`
-	DurationMS                 int64                      `json:"duration_ms"`
-	TokensProcessed            int                        `json:"tokens_processed"`
-	TokensPerSecond            float64                    `json:"tokens_per_second"`
-	BaseTop                    []TopLogit                 `json:"base_top,omitempty"`
-	MTPTop                     []TopLogit                 `json:"mtp_top,omitempty"`
-	Passed                     bool                       `json:"passed"`
+	ModelDir                   string                      `json:"model_dir"`
+	Prompt                     string                      `json:"prompt,omitempty"`
+	InputIDs                   []int                       `json:"input_ids"`
+	GeneratedIDs               []int                       `json:"generated_ids,omitempty"`
+	Decoded                    string                      `json:"decoded,omitempty"`
+	TokenID                    int                         `json:"token_id,omitempty"`
+	NextID                     int                         `json:"next_id"`
+	Logit                      float32                     `json:"logit"`
+	HiddenAbsSum               float32                     `json:"hidden_abs_sum"`
+	MTPOutputLen               int                         `json:"mtp_output_len,omitempty"`
+	MTPAbsSum                  float32                     `json:"mtp_abs_sum,omitempty"`
+	MTPNextID                  int                         `json:"mtp_next_id,omitempty"`
+	MTPLogit                   float32                     `json:"mtp_logit,omitempty"`
+	MTPVerifierNextID          int                         `json:"mtp_verifier_next_id,omitempty"`
+	MTPAcceptedByGreedy        bool                        `json:"mtp_accepted_by_greedy"`
+	PrefillMTPNextID           int                         `json:"prefill_mtp_next_id,omitempty"`
+	PrefillMTPLogit            float32                     `json:"prefill_mtp_logit,omitempty"`
+	PrefillMTPAccepted         bool                        `json:"prefill_mtp_accepted"`
+	PrefillGreedySeedMTPNextID int                         `json:"prefill_greedy_seed_mtp_next_id,omitempty"`
+	PrefillGreedySeedAccepted  bool                        `json:"prefill_greedy_seed_accepted"`
+	VerifierLogitForMTP        float32                     `json:"verifier_logit_for_mtp,omitempty"`
+	VerifierBestMinusMTP       float32                     `json:"verifier_best_minus_mtp,omitempty"`
+	MTPLogitForVerifier        float32                     `json:"mtp_logit_for_verifier,omitempty"`
+	MTPBestMinusVerifier       float32                     `json:"mtp_best_minus_verifier,omitempty"`
+	MTPDraftIDs                []int                       `json:"mtp_draft_ids,omitempty"`
+	MTPVerifierIDs             []int                       `json:"mtp_verifier_ids,omitempty"`
+	MTPAcceptedPrefix          int                         `json:"mtp_accepted_prefix,omitempty"`
+	GPUPrewarm                 model.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
+	GPUPrewarmMS               int64                       `json:"gpu_prewarm_ms,omitempty"`
+	GPUCache                   model.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
+	GPUVerify                  model.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
+	LinearStats                model.Qwen35LinearStats     `json:"linear_stats,omitempty"`
+	GPULMHead                  bool                        `json:"gpu_lm_head,omitempty"`
+	DurationMS                 int64                       `json:"duration_ms"`
+	TokensProcessed            int                         `json:"tokens_processed"`
+	TokensPerSecond            float64                     `json:"tokens_per_second"`
+	BaseTop                    []TopLogit                  `json:"base_top,omitempty"`
+	MTPTop                     []TopLogit                  `json:"mtp_top,omitempty"`
+	Passed                     bool                        `json:"passed"`
 }
 
 type SweepReport struct {
@@ -104,6 +106,7 @@ func main() {
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
 	gpuCacheMB := flag.Int("gpu-cache-mb", 12288, "GPU cache budget for packed Qwen3.6 NVFP4 weights; 0 disables eviction; auto-clamped to free VRAM")
+	gpuPrewarm := flag.Bool("gpu-prewarm", true, "pre-upload GPU cache before timed generation")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
 	gpuLMHead := flag.Bool("gpu-lm-head", true, "run BF16 LM head on GPU when -gpu is enabled; set -gpu-lm-head=false to disable")
@@ -150,6 +153,13 @@ func main() {
 		}
 	}
 	model.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
+	var prewarmStats model.Qwen35GPUPrewarmStats
+	var prewarmMS int64
+	if *useGPU && *gpuPrewarm {
+		prewarmStart := time.Now()
+		prewarmStats = model.PrewarmQwen35GPUCache(bundle.Base)
+		prewarmMS = time.Since(prewarmStart).Milliseconds()
+	}
 	if *mtp {
 		r.mtpHead, err = model.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)
 		check("load MTP head", err)
@@ -244,6 +254,8 @@ func main() {
 		rep.BaseTop = topKBF16MatVec(r.lm, h, *topK)
 	}
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
+	rep.GPUPrewarm = prewarmStats
+	rep.GPUPrewarmMS = prewarmMS
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = model.Qwen35LinearStatsSnapshot()

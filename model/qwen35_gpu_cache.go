@@ -8,6 +8,13 @@ import (
 	"github.com/rcarmo/go-pherence/gpu"
 )
 
+type Qwen35GPUPrewarmStats struct {
+	Considered int   `json:"considered"`
+	Uploaded   int   `json:"uploaded"`
+	Skipped    int   `json:"skipped"`
+	Bytes      int64 `json:"bytes"`
+}
+
 type Qwen35GPUCacheStats struct {
 	Enabled        bool  `json:"enabled"`
 	RequestedBytes int64 `json:"requested_bytes"`
@@ -82,6 +89,50 @@ func ResetQwen35GPUCache() {
 	qwen35GPUCache.evictions = 0
 	qwen35GPUCache.uploads = 0
 	qwen35GPUCache.transient = 0
+}
+
+func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
+	stats := Qwen35GPUPrewarmStats{}
+	if !qwen35GPUEnabled || base == nil || !gpu.SgemmReady() {
+		return stats
+	}
+	for _, q := range qwen35BaseNVFP4Weights(base) {
+		stats.Considered++
+		if q == nil || q.GPU != nil || q.W == nil {
+			continue
+		}
+		need := qwen35GPUWeightBytes(q)
+		qwen35GPUCache.Lock()
+		fits := qwen35GPUCache.budgetBytes <= 0 || qwen35GPUCache.usedBytes+need <= qwen35GPUCache.budgetBytes
+		qwen35GPUCache.Unlock()
+		if !fits {
+			stats.Skipped++
+			continue
+		}
+		if _, transient, err := qwen35CachedGPUWeight(q); err == nil && !transient {
+			stats.Uploaded++
+			stats.Bytes += need
+		} else {
+			stats.Skipped++
+		}
+	}
+	return stats
+}
+
+func qwen35BaseNVFP4Weights(base *Qwen35BaseModel) []*Qwen35NVFP4Weight {
+	var out []*Qwen35NVFP4Weight
+	for i := range base.Layers {
+		layer := &base.Layers[i]
+		if layer.Full != nil {
+			l := layer.Full
+			out = append(out, l.QWQ, l.KWQ, l.VWQ, l.OWQ, l.GateWQ, l.UpWQ, l.DownWQ)
+		}
+		if layer.Linear != nil {
+			l := layer.Linear
+			out = append(out, l.QKVWQ, l.GateWQ, l.BetaWQ, l.AlphaWQ, l.OutWQ, l.MLPGateWQ, l.MLPUpWQ, l.MLPDownWQ)
+		}
+	}
+	return out
 }
 
 func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
