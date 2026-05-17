@@ -126,6 +126,77 @@ type GPUNVFP4Weight struct {
 // UploadNVFP4Weight uploads the observed NVFP4 packed representation to GPU
 // memory without converting it to MLX/GPTQ. Kernel dispatch is added separately.
 func UploadNVFP4Weight(qw *quant.NVFP4Weight) (*GPUNVFP4Weight, error) {
+	var w *GPUNVFP4Weight
+	if err := UploadNVFP4WeightReuse(&w, qw); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+// UploadNVFP4WeightReuse uploads qw into *dst, reusing sufficiently large
+// device buffers when possible. This is intended for transient streamed weights
+// where dimensions change but allocation churn is more expensive than copies.
+func UploadNVFP4WeightReuse(dst **GPUNVFP4Weight, qw *quant.NVFP4Weight) error {
+	if err := quant.ValidateNVFP4Weight(qw); err != nil {
+		return err
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	EnsureContext()
+
+	weightBytes, scaleBytes, err := nvfp4RequiredBytes(qw.OutDim, qw.InDim, qw.Groups)
+	if err != nil {
+		return err
+	}
+	w := *dst
+	if w == nil {
+		w = &GPUNVFP4Weight{}
+		*dst = w
+	}
+	w.WeightScale2 = qw.WeightScale2
+	w.InputScale = qw.InputScale
+	w.HasInputScale = qw.HasInputScale
+	w.OutDim = qw.OutDim
+	w.InDim = qw.InDim
+	w.Groups = qw.Groups
+	w.GroupSize = qw.GroupSize
+	w.WeightBytes = weightBytes
+	w.ScaleBytes = scaleBytes
+
+	if w.Weight == nil || w.Weight.Size < f32SlotsForBytes(weightBytes)*4 {
+		if w.Weight != nil {
+			w.Weight.Free()
+			w.Weight = nil
+		}
+		wb, err := Malloc(f32SlotsForBytes(weightBytes))
+		if err != nil {
+			return fmt.Errorf("alloc NVFP4 weight (%d bytes): %w", weightBytes, err)
+		}
+		w.Weight = wb
+	}
+	if err := w.Weight.UploadBytes(qw.Weight[:weightBytes]); err != nil {
+		return fmt.Errorf("upload NVFP4 weight: %w", err)
+	}
+
+	if w.WeightScale == nil || w.WeightScale.Size < f32SlotsForBytes(scaleBytes)*4 {
+		if w.WeightScale != nil {
+			w.WeightScale.Free()
+			w.WeightScale = nil
+		}
+		sb, err := Malloc(f32SlotsForBytes(scaleBytes))
+		if err != nil {
+			return fmt.Errorf("alloc NVFP4 weight_scale (%d bytes): %w", scaleBytes, err)
+		}
+		w.WeightScale = sb
+	}
+	if err := w.WeightScale.UploadBytes(qw.WeightScale[:scaleBytes]); err != nil {
+		return fmt.Errorf("upload NVFP4 weight_scale: %w", err)
+	}
+	return nil
+}
+
+func uploadNVFP4WeightFresh(qw *quant.NVFP4Weight) (*GPUNVFP4Weight, error) {
 	if err := quant.ValidateNVFP4Weight(qw); err != nil {
 		return nil, err
 	}

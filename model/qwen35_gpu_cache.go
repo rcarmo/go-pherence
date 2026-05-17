@@ -36,6 +36,7 @@ type qwen35GPUCacheState struct {
 	clamped        bool
 	usedBytes      int64
 	entries        map[*Qwen35NVFP4Weight]bool
+	transientGPU   *gpu.GPUNVFP4Weight
 	tick           uint64
 	hits           int64
 	misses         int64
@@ -82,6 +83,10 @@ func ResetQwen35GPUCache() {
 	for q := range qwen35GPUCache.entries {
 		q.FreeGPU()
 		delete(qwen35GPUCache.entries, q)
+	}
+	if qwen35GPUCache.transientGPU != nil {
+		qwen35GPUCache.transientGPU.Free()
+		qwen35GPUCache.transientGPU = nil
 	}
 	qwen35GPUCache.usedBytes = 0
 	qwen35GPUCache.hits = 0
@@ -167,13 +172,12 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 		return nil, false, fmt.Errorf("%s needs %.1f MB, larger than GPU cache budget %.1f MB", q.Name, float64(need)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
 	}
 	if qwen35GPUCache.budgetBytes > 0 && qwen35GPUCache.usedBytes+need > qwen35GPUCache.budgetBytes {
-		gw, err := gpu.UploadNVFP4Weight(q.W)
-		if err != nil {
+		if err := gpu.UploadNVFP4WeightReuse(&qwen35GPUCache.transientGPU, q.W); err != nil {
 			return nil, false, err
 		}
 		qwen35GPUCache.transient++
 		qwen35GPUCache.uploads++
-		return gw, true, nil
+		return qwen35GPUCache.transientGPU, false, nil
 	}
 	gw, err := gpu.UploadNVFP4Weight(q.W)
 	if err != nil {
