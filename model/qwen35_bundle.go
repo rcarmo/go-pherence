@@ -15,6 +15,16 @@ type Qwen35NativeMTPBundle struct {
 	closer qwenNativeMTPClosableTensorSource
 }
 
+func (b *Qwen35NativeMTPBundle) EagerLoad() (int64, error) {
+	if b == nil || b.closer == nil {
+		return 0, nil
+	}
+	if eager, ok := b.closer.(interface{ EagerLoad() (int64, error) }); ok {
+		return eager.EagerLoad()
+	}
+	return 0, nil
+}
+
 func (b *Qwen35NativeMTPBundle) Close() error {
 	if b == nil || b.closer == nil {
 		return nil

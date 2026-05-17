@@ -52,6 +52,8 @@ type Report struct {
 	MTPDraftIDs                []int                       `json:"mtp_draft_ids,omitempty"`
 	MTPVerifierIDs             []int                       `json:"mtp_verifier_ids,omitempty"`
 	MTPAcceptedPrefix          int                         `json:"mtp_accepted_prefix,omitempty"`
+	MmapEagerBytes             int64                       `json:"mmap_eager_bytes,omitempty"`
+	MmapEagerMS                int64                       `json:"mmap_eager_ms,omitempty"`
 	GPUPrewarm                 model.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
 	GPUPrewarmMS               int64                       `json:"gpu_prewarm_ms,omitempty"`
 	GPUCache                   model.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
@@ -108,6 +110,7 @@ func main() {
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
 	gpuCacheMB := flag.Int("gpu-cache-mb", 12288, "GPU cache budget for packed Qwen3.6 NVFP4 weights; 0 disables eviction; auto-clamped to free VRAM")
+	eagerMmap := flag.Bool("eager-mmap", false, "prefault safetensors mmap before timed generation")
 	gpuPrewarm := flag.Bool("gpu-prewarm", true, "pre-upload GPU cache before timed generation")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
@@ -139,6 +142,14 @@ func main() {
 	bundle, err := model.LoadQwen35NativeMTPBundleFromDir(*dir)
 	check("load bundle", err)
 	defer bundle.Close()
+	var mmapEagerBytes int64
+	var mmapEagerMS int64
+	if *eagerMmap {
+		eagerStart := time.Now()
+		mmapEagerBytes, err = bundle.EagerLoad()
+		check("eager mmap", err)
+		mmapEagerMS = time.Since(eagerStart).Milliseconds()
+	}
 	state, err := bundle.NewForwardState()
 	check("state", err)
 	src, err := model.OpenQwenNativeMTPSafetensorsSource(*dir)
@@ -257,6 +268,8 @@ func main() {
 		rep.BaseTop = topKBF16MatVec(r.lm, h, *topK)
 	}
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
+	rep.MmapEagerBytes = mmapEagerBytes
+	rep.MmapEagerMS = mmapEagerMS
 	rep.GPUPrewarm = prewarmStats
 	rep.GPUPrewarmMS = prewarmMS
 	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
