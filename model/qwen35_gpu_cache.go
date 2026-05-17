@@ -9,28 +9,32 @@ import (
 )
 
 type Qwen35GPUCacheStats struct {
-	Enabled     bool  `json:"enabled"`
-	BudgetBytes int64 `json:"budget_bytes"`
-	UsedBytes   int64 `json:"used_bytes"`
-	Entries     int   `json:"entries"`
-	Hits        int64 `json:"hits"`
-	Misses      int64 `json:"misses"`
-	Evictions   int64 `json:"evictions"`
-	Uploads     int64 `json:"uploads"`
-	Transient   int64 `json:"transient_uploads"`
+	Enabled        bool  `json:"enabled"`
+	RequestedBytes int64 `json:"requested_bytes"`
+	BudgetBytes    int64 `json:"budget_bytes"`
+	Clamped        bool  `json:"clamped"`
+	UsedBytes      int64 `json:"used_bytes"`
+	Entries        int   `json:"entries"`
+	Hits           int64 `json:"hits"`
+	Misses         int64 `json:"misses"`
+	Evictions      int64 `json:"evictions"`
+	Uploads        int64 `json:"uploads"`
+	Transient      int64 `json:"transient_uploads"`
 }
 
 type qwen35GPUCacheState struct {
 	sync.Mutex
-	budgetBytes int64
-	usedBytes   int64
-	entries     map[*Qwen35NVFP4Weight]bool
-	tick        uint64
-	hits        int64
-	misses      int64
-	evictions   int64
-	uploads     int64
-	transient   int64
+	requestedBytes int64
+	budgetBytes    int64
+	clamped        bool
+	usedBytes      int64
+	entries        map[*Qwen35NVFP4Weight]bool
+	tick           uint64
+	hits           int64
+	misses         int64
+	evictions      int64
+	uploads        int64
+	transient      int64
 }
 
 var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}}
@@ -38,8 +42,31 @@ var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}}
 func ConfigureQwen35GPUCache(budgetBytes int64) {
 	qwen35GPUCache.Lock()
 	defer qwen35GPUCache.Unlock()
-	qwen35GPUCache.budgetBytes = budgetBytes
+	qwen35GPUCache.requestedBytes = budgetBytes
+	qwen35GPUCache.budgetBytes = qwen35SafeGPUCacheBudget(budgetBytes)
+	qwen35GPUCache.clamped = qwen35GPUCache.budgetBytes != budgetBytes
 	qwen35GPUCache.evictUntilLocked(0, nil)
+}
+
+func qwen35SafeGPUCacheBudget(requested int64) int64 {
+	if requested <= 0 || !qwen35GPUEnabled || !gpu.SgemmReady() {
+		return requested
+	}
+	free, _ := gpu.MemInfo()
+	if free == 0 {
+		return requested
+	}
+	const headroom = int64(1536 * 1024 * 1024)
+	usable := int64(free)
+	if usable > headroom {
+		usable -= headroom
+	} else {
+		usable = usable / 2
+	}
+	if usable > 0 && requested > usable {
+		return usable
+	}
+	return requested
 }
 
 func ResetQwen35GPUCache() {
@@ -61,15 +88,17 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 	qwen35GPUCache.Lock()
 	defer qwen35GPUCache.Unlock()
 	return Qwen35GPUCacheStats{
-		Enabled:     qwen35GPUEnabled,
-		BudgetBytes: qwen35GPUCache.budgetBytes,
-		UsedBytes:   qwen35GPUCache.usedBytes,
-		Entries:     len(qwen35GPUCache.entries),
-		Hits:        qwen35GPUCache.hits,
-		Misses:      qwen35GPUCache.misses,
-		Evictions:   qwen35GPUCache.evictions,
-		Uploads:     qwen35GPUCache.uploads,
-		Transient:   qwen35GPUCache.transient,
+		Enabled:        qwen35GPUEnabled,
+		RequestedBytes: qwen35GPUCache.requestedBytes,
+		BudgetBytes:    qwen35GPUCache.budgetBytes,
+		Clamped:        qwen35GPUCache.clamped,
+		UsedBytes:      qwen35GPUCache.usedBytes,
+		Entries:        len(qwen35GPUCache.entries),
+		Hits:           qwen35GPUCache.hits,
+		Misses:         qwen35GPUCache.misses,
+		Evictions:      qwen35GPUCache.evictions,
+		Uploads:        qwen35GPUCache.uploads,
+		Transient:      qwen35GPUCache.transient,
 	}
 }
 
