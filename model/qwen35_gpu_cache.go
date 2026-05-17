@@ -26,7 +26,9 @@ type Qwen35GPUCacheStats struct {
 	Misses         int64 `json:"misses"`
 	Evictions      int64 `json:"evictions"`
 	Uploads        int64 `json:"uploads"`
+	UploadBytes    int64 `json:"upload_bytes,omitempty"`
 	Transient      int64 `json:"transient_uploads"`
+	TransientBytes int64 `json:"transient_bytes,omitempty"`
 }
 
 type qwen35GPUCacheState struct {
@@ -42,7 +44,9 @@ type qwen35GPUCacheState struct {
 	misses         int64
 	evictions      int64
 	uploads        int64
+	uploadBytes    int64
 	transient      int64
+	transientBytes int64
 }
 
 var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}}
@@ -93,7 +97,9 @@ func ResetQwen35GPUCache() {
 	qwen35GPUCache.misses = 0
 	qwen35GPUCache.evictions = 0
 	qwen35GPUCache.uploads = 0
+	qwen35GPUCache.uploadBytes = 0
 	qwen35GPUCache.transient = 0
+	qwen35GPUCache.transientBytes = 0
 }
 
 func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
@@ -154,7 +160,9 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		Misses:         qwen35GPUCache.misses,
 		Evictions:      qwen35GPUCache.evictions,
 		Uploads:        qwen35GPUCache.uploads,
+		UploadBytes:    qwen35GPUCache.uploadBytes,
 		Transient:      qwen35GPUCache.transient,
+		TransientBytes: qwen35GPUCache.transientBytes,
 	}
 }
 
@@ -176,7 +184,9 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 			return nil, false, err
 		}
 		qwen35GPUCache.transient++
+		qwen35GPUCache.transientBytes += need
 		qwen35GPUCache.uploads++
+		qwen35GPUCache.uploadBytes += need
 		return qwen35GPUCache.transientGPU, false, nil
 	}
 	gw, err := gpu.UploadNVFP4Weight(q.W)
@@ -193,6 +203,7 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 	qwen35GPUCache.entries[q] = true
 	qwen35GPUCache.usedBytes += need
 	qwen35GPUCache.uploads++
+	qwen35GPUCache.uploadBytes += need
 	return gw, false, nil
 }
 
