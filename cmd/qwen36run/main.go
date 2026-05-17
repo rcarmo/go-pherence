@@ -115,10 +115,7 @@ func main() {
 	if *sweep != "" {
 		tok, err := tokenizer.Load(filepath.Join(*dir, "tokenizer.json"))
 		check("tokenizer", err)
-		prompts := loadSweepPrompts(*sweep)
-		if *sweepLimit > 0 && *sweepLimit < len(prompts) {
-			prompts = prompts[:*sweepLimit]
-		}
+		prompts := applySweepLimit(loadSweepPrompts(*sweep), *sweepLimit)
 		if len(prompts) == 0 {
 			fmt.Fprintln(os.Stderr, "sweep prompt file is empty")
 			os.Exit(2)
@@ -332,6 +329,13 @@ func draftMTPIDs(head *model.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, 
 
 func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, mtpHead *model.QwenNativeMTPHead) runner {
 	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, mtpHead: mtpHead}
+}
+
+func applySweepLimit(prompts []string, limit int) []string {
+	if limit > 0 && limit < len(prompts) {
+		return prompts[:limit]
+	}
+	return prompts
 }
 
 func loadSweepPrompts(path string) []string {

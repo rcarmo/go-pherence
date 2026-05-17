@@ -19,14 +19,26 @@ func TestLoadSweepPrompts(t *testing.T) {
 	}
 }
 
-func TestSweepLimitSlicesPrompts(t *testing.T) {
+func TestApplySweepLimit(t *testing.T) {
 	prompts := []string{"a", "b", "c"}
-	limit := 2
-	if limit > 0 && limit < len(prompts) {
-		prompts = prompts[:limit]
+	cases := []struct {
+		limit int
+		want  int
+	}{
+		{0, 3},
+		{-1, 3},
+		{2, 2},
+		{3, 3},
+		{4, 3},
 	}
-	if len(prompts) != 2 || prompts[1] != "b" {
-		t.Fatalf("prompts=%v", prompts)
+	for _, tc := range cases {
+		got := applySweepLimit(prompts, tc.limit)
+		if len(got) != tc.want {
+			t.Fatalf("limit=%d len=%d want %d", tc.limit, len(got), tc.want)
+		}
+	}
+	if got := applySweepLimit(prompts, 2); got[1] != "b" {
+		t.Fatalf("limited prompts=%v", got)
 	}
 }
 
