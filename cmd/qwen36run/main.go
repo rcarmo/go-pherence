@@ -11,10 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rcarmo/go-pherence/gpu"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model"
 )
+
+var qwen36UseGPULMHead bool
 
 type TopLogit struct {
 	ID    int     `json:"id"`
@@ -100,6 +103,7 @@ func main() {
 	gpuCacheMB := flag.Int("gpu-cache-mb", 10240, "GPU cache budget for packed Qwen3.6 NVFP4 weights; 0 disables eviction")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
+	gpuLMHead := flag.Bool("gpu-lm-head", false, "run BF16 LM head on GPU; useful only when cached/longer runs amortize upload")
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
 	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
@@ -115,6 +119,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "mtp-steps must be >= 1")
 		os.Exit(2)
 	}
+	qwen36UseGPULMHead = *gpuLMHead
 	model.SetQwen35GPUEnabled(*useGPU)
 	model.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
 	model.SetQwen35GPUVerify(*gpuVerify, float32(*gpuVerifyTol))
@@ -423,7 +428,7 @@ func (r *runner) step(tokenID int, ropeFreqs []float32) (int, float32, []float32
 	preNorm := append([]float32(nil), outs[len(outs)-1]...)
 	h := append([]float32(nil), preNorm...)
 	rmsNorm(h, r.normW, 1e-6)
-	id, val := argmaxBF16MatVec(r.lm, h)
+	id, val := argmaxLMHead(r.lm, h)
 	return id, val, h, preNorm, nil
 }
 
@@ -505,6 +510,26 @@ func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
 		}
 	}
 	return top
+}
+
+func argmaxLMHead(t rawTensor, x []float32) (int, float32) {
+	if qwen36UseGPULMHead && model.Qwen35GPUCacheStatsSnapshot().Enabled && t.dtype == "BF16" && len(t.shape) == 2 {
+		logits := make([]float32, t.shape[0])
+		if err := gpu.BF16LMHead(logits, t.raw, x, t.shape[0], t.shape[1]); err == nil {
+			best := -1
+			bestv := float32(math.Inf(-1))
+			for i, v := range logits {
+				if v > bestv {
+					bestv = v
+					best = i
+				}
+			}
+			if best >= 0 {
+				return best, bestv
+			}
+		}
+	}
+	return argmaxBF16MatVec(t, x)
 }
 
 func argmaxBF16MatVec(t rawTensor, x []float32) (int, float32) {

@@ -85,6 +85,7 @@ func loadMegaModule() {
 			{"bf16_vec_add", ptx.BF16VecAddPTX},
 			{"bf16_silu_mul", ptx.BF16SiLUMulPTX},
 			{"bf16_gelu_tanh_mul", ptx.BF16GELUTanhMulPTX},
+			{"bf16_lm_head_gemv", ptx.BF16LMHeadPTX},
 			{"rms_norm_no_scale", ptx.RmsNormNoScalePTX},
 			{"nvfp4_dequant_f32", ptx.NVFP4DequantF32PTX},
 			{"nvfp4_gemv_f32", ptx.NVFP4GemvF32PTX},
@@ -143,6 +144,7 @@ func loadMegaModule() {
 		fnBF16VecAdd = extractFn("bf16_vec_add")
 		fnBF16SiLUMul = extractFn("bf16_silu_mul")
 		fnBF16GELUTanhMul = extractFn("bf16_gelu_tanh_mul")
+		fnBF16LMHead = extractFn("bf16_lm_head_gemv")
 		fnRmsNormNoScale = extractFn("rms_norm_no_scale")
 		fnGELUTanhMul = extractFn("gelu_tanh_mul")
 		fnNVFP4DequantF32 = extractFn("nvfp4_dequant_f32")

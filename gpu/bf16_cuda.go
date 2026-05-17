@@ -18,6 +18,7 @@ var fnBF16VecAdd CUfunction
 var fnBF16SiLUMul CUfunction
 var fnBF16GELUTanhMul CUfunction
 var fnBF16Gemv CUfunction
+var fnBF16LMHead CUfunction
 
 // DevBF16RMSNorm applies RMSNorm on BF16 data: x[i] = BF16(F32(x[i]) * invRMS * F32(w[i]))
 func DevBF16RMSNorm(x, w *Buffer, n int, eps float32) bool {
@@ -97,6 +98,49 @@ func DevBF16GELUTanhMul(gate, up *Buffer, n int) bool {
 		unsafe.Pointer(&gate.Ptr),
 		unsafe.Pointer(&up.Ptr),
 		unsafe.Pointer(&nn)) == nil
+}
+
+func BF16LMHead(logits []float32, weightRaw []byte, x []float32, vocab, h int) error {
+	if fnBF16LMHead == 0 || !SgemmReady() {
+		return nil
+	}
+	if vocab <= 0 || h <= 0 || len(weightRaw) < vocab*h*2 || len(x) < h || len(logits) < vocab || !fitsUint32(vocab) || !fitsUint32(h) {
+		return nil
+	}
+	wBuf, err := Malloc(f32SlotsForBytes(len(weightRaw)))
+	if err != nil {
+		return err
+	}
+	defer wBuf.Free()
+	if err := wBuf.UploadBytes(weightRaw[:vocab*h*2]); err != nil {
+		return err
+	}
+	xBuf, err := Malloc(h)
+	if err != nil {
+		return err
+	}
+	defer xBuf.Free()
+	if err := xBuf.Upload(x[:h]); err != nil {
+		return err
+	}
+	outBuf, err := Malloc(vocab)
+	if err != nil {
+		return err
+	}
+	defer outBuf.Free()
+	vv := uint32(vocab)
+	hh := uint32(h)
+	gridX := uint32(vocab)
+	gridY := uint32(1)
+	if vocab > 65535 {
+		gridX = 65535
+		gridY = uint32((vocab + 65534) / 65535)
+	}
+	if err := LaunchKernel(fnBF16LMHead, gridX, gridY, 1, 128, 1, 1, 128*4,
+		unsafe.Pointer(&wBuf.Ptr), unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&vv), unsafe.Pointer(&hh)); err != nil {
+		return err
+	}
+	return outBuf.Download(logits[:vocab])
 }
 
 func validBF16Buffer(b *Buffer, n int) bool {

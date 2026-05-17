@@ -310,6 +310,30 @@ func (b *Buffer) Upload(data []float32) error {
 	return nil
 }
 
+// UploadBytes copies raw host bytes to GPU. The destination buffer is sized in
+// bytes even though Malloc takes float32-element slots.
+func (b *Buffer) UploadBytes(data []byte) error {
+	if b == nil {
+		return fmt.Errorf("nil GPU buffer")
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	if len(data) > b.Size {
+		return fmt.Errorf("copy size %d exceeds buffer size %d", len(data), b.Size)
+	}
+	EnsureContext()
+	r := cuMemcpyHtoD(b.Ptr, unsafe.Pointer(&data[0]), uint64(len(data)))
+	runtime.KeepAlive(data)
+	if r != CUDA_SUCCESS {
+		return fmt.Errorf("cuMemcpyHtoD: error %d", r)
+	}
+	if gpuStatsEnabled.Load() {
+		gpuStatsHostToDevice.Add(1)
+	}
+	return nil
+}
+
 // UploadUint32 copies host uint32 data to GPU without repacking. The destination
 // buffer is still sized in 4-byte elements, so uint32 and float32 slices have the
 // same byte footprint.
