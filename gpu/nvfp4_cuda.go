@@ -271,7 +271,7 @@ func gemvNVFP4PackedCUDA(out, x []float32, w *GPUNVFP4Weight) error {
 	outDim := uint32(w.OutDim)
 	inDim := uint32(w.InDim)
 	groupSize := uint32(w.GroupSize)
-	if err := LaunchKernel(fnNVFP4GemvF32, uint32(w.OutDim), 1, 1, 256, 1, 1, 256*4,
+	if err := LaunchKernel(fnNVFP4GemvF32, uint32(w.OutDim), 1, 1, 128, 1, 1, 128*4,
 		unsafe.Pointer(&w.Weight.Ptr),
 		unsafe.Pointer(&w.WeightScale.Ptr),
 		unsafe.Pointer(&xBuf.Ptr),

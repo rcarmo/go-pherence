@@ -128,7 +128,7 @@ const NVFP4GemvF32PTX = `.version 7.0
     .reg .u32 %r<64>;
     .reg .u64 %rd<20>;
     .reg .f32 %f<32>;
-    .shared .align 4 .f32 nvfp4_sdata[256];
+    .shared .align 4 .f32 nvfp4_sdata[128];
 
     mov.u32 %r0, %ctaid.x;               // row
     mov.u32 %r1, %tid.x;                 // tid
@@ -226,7 +226,7 @@ reduce_store:
     st.shared.f32 [%rd12], %f10;
     bar.sync 0;
 
-    mov.u32 %r30, 128;
+    mov.u32 %r30, 64;
 red_loop:
     setp.ge.u32 %p8, %r1, %r30;
     @%p8 bra red_skip;
