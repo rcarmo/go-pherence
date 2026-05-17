@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"sync"
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/runtime/quant"
@@ -11,6 +12,14 @@ import (
 
 var fnNVFP4DequantF32 CUfunction
 var fnNVFP4GemvF32 CUfunction
+
+var nvfp4Scratch = struct {
+	sync.Mutex
+	x    *Buffer
+	out  *Buffer
+	xN   int
+	outN int
+}{}
 
 // NVFP4KernelKind identifies the packed NVFP4 kernel family a caller wants.
 // The interface is intentionally defined before native dispatch exists so the
@@ -251,19 +260,14 @@ func gemvNVFP4PackedCUDA(out, x []float32, w *GPUNVFP4Weight) error {
 	if !fitsUint32(w.OutDim) || !fitsUint32(w.InDim) || !fitsUint32(w.GroupSize) {
 		return fmt.Errorf("NVFP4 packed GEMV dims exceed CUDA u32 interface")
 	}
-	xBuf, err := Malloc(w.InDim)
+	xBuf, outBuf, unlock, err := nvfp4ScratchBuffers(w.InDim, w.OutDim)
 	if err != nil {
-		return fmt.Errorf("alloc NVFP4 packed GEMV input: %w", err)
+		return err
 	}
-	defer xBuf.Free()
+	defer unlock()
 	if err := xBuf.Upload(x[:w.InDim]); err != nil {
 		return fmt.Errorf("upload NVFP4 packed GEMV input: %w", err)
 	}
-	outBuf, err := Malloc(w.OutDim)
-	if err != nil {
-		return fmt.Errorf("alloc NVFP4 packed GEMV output: %w", err)
-	}
-	defer outBuf.Free()
 	outDim := uint32(w.OutDim)
 	inDim := uint32(w.InDim)
 	groupSize := uint32(w.GroupSize)
@@ -282,6 +286,36 @@ func gemvNVFP4PackedCUDA(out, x []float32, w *GPUNVFP4Weight) error {
 		return fmt.Errorf("download NVFP4 packed GEMV output: %w", err)
 	}
 	return nil
+}
+
+func nvfp4ScratchBuffers(inDim, outDim int) (*Buffer, *Buffer, func(), error) {
+	nvfp4Scratch.Lock()
+	unlock := func() { nvfp4Scratch.Unlock() }
+	if nvfp4Scratch.x == nil || nvfp4Scratch.xN < inDim {
+		if nvfp4Scratch.x != nil {
+			nvfp4Scratch.x.Free()
+		}
+		buf, err := Malloc(inDim)
+		if err != nil {
+			unlock()
+			return nil, nil, nil, fmt.Errorf("alloc NVFP4 packed GEMV input scratch: %w", err)
+		}
+		nvfp4Scratch.x = buf
+		nvfp4Scratch.xN = inDim
+	}
+	if nvfp4Scratch.out == nil || nvfp4Scratch.outN < outDim {
+		if nvfp4Scratch.out != nil {
+			nvfp4Scratch.out.Free()
+		}
+		buf, err := Malloc(outDim)
+		if err != nil {
+			unlock()
+			return nil, nil, nil, fmt.Errorf("alloc NVFP4 packed GEMV output scratch: %w", err)
+		}
+		nvfp4Scratch.out = buf
+		nvfp4Scratch.outN = outDim
+	}
+	return nvfp4Scratch.x, nvfp4Scratch.out, unlock, nil
 }
 
 func gemvNVFP4CUDA(out, x []float32, w *GPUNVFP4Weight) error {

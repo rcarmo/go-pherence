@@ -188,7 +188,23 @@ func Q4Ready() bool {
 	return q4Ready
 }
 
+func freeNVFP4Scratch() {
+	nvfp4Scratch.Lock()
+	defer nvfp4Scratch.Unlock()
+	if nvfp4Scratch.x != nil {
+		nvfp4Scratch.x.Free()
+		nvfp4Scratch.x = nil
+	}
+	if nvfp4Scratch.out != nil {
+		nvfp4Scratch.out.Free()
+		nvfp4Scratch.out = nil
+	}
+	nvfp4Scratch.xN = 0
+	nvfp4Scratch.outN = 0
+}
+
 func shutdownMegaModule() {
+	freeNVFP4Scratch()
 	if megaModule != 0 && cuModuleUnload != nil {
 		EnsureContext()
 		cuModuleUnload(megaModule)
