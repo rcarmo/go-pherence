@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -16,40 +17,48 @@ type Qwen35GPUPrewarmStats struct {
 }
 
 type Qwen35GPUCacheStats struct {
-	Enabled        bool  `json:"enabled"`
-	RequestedBytes int64 `json:"requested_bytes"`
-	BudgetBytes    int64 `json:"budget_bytes"`
-	Clamped        bool  `json:"clamped"`
-	UsedBytes      int64 `json:"used_bytes"`
-	Entries        int   `json:"entries"`
-	Hits           int64 `json:"hits"`
-	Misses         int64 `json:"misses"`
-	Evictions      int64 `json:"evictions"`
-	Uploads        int64 `json:"uploads"`
-	UploadBytes    int64 `json:"upload_bytes,omitempty"`
-	Transient      int64 `json:"transient_uploads"`
-	TransientBytes int64 `json:"transient_bytes,omitempty"`
+	Enabled        bool                     `json:"enabled"`
+	RequestedBytes int64                    `json:"requested_bytes"`
+	BudgetBytes    int64                    `json:"budget_bytes"`
+	Clamped        bool                     `json:"clamped"`
+	UsedBytes      int64                    `json:"used_bytes"`
+	Entries        int                      `json:"entries"`
+	Hits           int64                    `json:"hits"`
+	Misses         int64                    `json:"misses"`
+	Evictions      int64                    `json:"evictions"`
+	Uploads        int64                    `json:"uploads"`
+	UploadBytes    int64                    `json:"upload_bytes,omitempty"`
+	Transient      int64                    `json:"transient_uploads"`
+	TransientBytes int64                    `json:"transient_bytes,omitempty"`
+	TopTransient   []Qwen35GPUTransientStat `json:"top_transient,omitempty"`
+}
+
+type Qwen35GPUTransientStat struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+	Bytes int64  `json:"bytes"`
 }
 
 type qwen35GPUCacheState struct {
 	sync.Mutex
-	requestedBytes int64
-	budgetBytes    int64
-	clamped        bool
-	usedBytes      int64
-	entries        map[*Qwen35NVFP4Weight]bool
-	transientGPU   *gpu.GPUNVFP4Weight
-	tick           uint64
-	hits           int64
-	misses         int64
-	evictions      int64
-	uploads        int64
-	uploadBytes    int64
-	transient      int64
-	transientBytes int64
+	requestedBytes  int64
+	budgetBytes     int64
+	clamped         bool
+	usedBytes       int64
+	entries         map[*Qwen35NVFP4Weight]bool
+	transientGPU    *gpu.GPUNVFP4Weight
+	transientByName map[string]Qwen35GPUTransientStat
+	tick            uint64
+	hits            int64
+	misses          int64
+	evictions       int64
+	uploads         int64
+	uploadBytes     int64
+	transient       int64
+	transientBytes  int64
 }
 
-var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}}
+var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, transientByName: map[string]Qwen35GPUTransientStat{}}
 
 func ConfigureQwen35GPUCache(budgetBytes int64) {
 	qwen35GPUCache.Lock()
@@ -100,6 +109,7 @@ func ResetQwen35GPUCache() {
 	qwen35GPUCache.uploadBytes = 0
 	qwen35GPUCache.transient = 0
 	qwen35GPUCache.transientBytes = 0
+	qwen35GPUCache.transientByName = map[string]Qwen35GPUTransientStat{}
 }
 
 func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
@@ -149,6 +159,19 @@ func qwen35BaseNVFP4Weights(base *Qwen35BaseModel) []*Qwen35NVFP4Weight {
 func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 	qwen35GPUCache.Lock()
 	defer qwen35GPUCache.Unlock()
+	top := make([]Qwen35GPUTransientStat, 0, len(qwen35GPUCache.transientByName))
+	for _, stat := range qwen35GPUCache.transientByName {
+		top = append(top, stat)
+	}
+	sort.Slice(top, func(i, j int) bool {
+		if top[i].Bytes == top[j].Bytes {
+			return top[i].Name < top[j].Name
+		}
+		return top[i].Bytes > top[j].Bytes
+	})
+	if len(top) > 10 {
+		top = top[:10]
+	}
 	return Qwen35GPUCacheStats{
 		Enabled:        qwen35GPUEnabled,
 		RequestedBytes: qwen35GPUCache.requestedBytes,
@@ -163,6 +186,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		UploadBytes:    qwen35GPUCache.uploadBytes,
 		Transient:      qwen35GPUCache.transient,
 		TransientBytes: qwen35GPUCache.transientBytes,
+		TopTransient:   top,
 	}
 }
 
@@ -185,6 +209,14 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 		}
 		qwen35GPUCache.transient++
 		qwen35GPUCache.transientBytes += need
+		if qwen35GPUCache.transientByName == nil {
+			qwen35GPUCache.transientByName = map[string]Qwen35GPUTransientStat{}
+		}
+		stat := qwen35GPUCache.transientByName[q.Name]
+		stat.Name = q.Name
+		stat.Count++
+		stat.Bytes += need
+		qwen35GPUCache.transientByName[q.Name] = stat
 		qwen35GPUCache.uploads++
 		qwen35GPUCache.uploadBytes += need
 		return qwen35GPUCache.transientGPU, false, nil
