@@ -19,12 +19,13 @@ var qwen35GPUVerifyMaxDiff float32
 var qwen35LinearStats Qwen35LinearStats
 
 type Qwen35LinearStats struct {
-	Calls        int64 `json:"calls"`
-	GPUCalls     int64 `json:"gpu_calls"`
-	CPUCalls     int64 `json:"cpu_calls"`
-	GPUMillis    int64 `json:"gpu_ms"`
-	CPUMillis    int64 `json:"cpu_ms"`
-	VerifyMillis int64 `json:"verify_ms"`
+	Calls        int64   `json:"calls"`
+	GPUCalls     int64   `json:"gpu_calls"`
+	CPUCalls     int64   `json:"cpu_calls"`
+	GPUMillis    int64   `json:"gpu_ms"`
+	CPUMillis    int64   `json:"cpu_ms"`
+	VerifyMillis int64   `json:"verify_ms"`
+	AvgGPUCallMS float64 `json:"avg_gpu_call_ms,omitempty"`
 }
 
 type Qwen35GPUVerifyStats struct {
@@ -52,7 +53,13 @@ func Qwen35GPUVerifyStatsSnapshot() Qwen35GPUVerifyStats {
 
 func ResetQwen35LinearStats() { qwen35LinearStats = Qwen35LinearStats{} }
 
-func Qwen35LinearStatsSnapshot() Qwen35LinearStats { return qwen35LinearStats }
+func Qwen35LinearStatsSnapshot() Qwen35LinearStats {
+	out := qwen35LinearStats
+	if out.GPUCalls > 0 {
+		out.AvgGPUCallMS = float64(out.GPUMillis) / float64(out.GPUCalls)
+	}
+	return out
+}
 
 func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weight, inDim, outDim int, name string) error {
 	if len(out) != outDim || len(x) != inDim {

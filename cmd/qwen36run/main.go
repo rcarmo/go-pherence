@@ -103,7 +103,7 @@ func main() {
 	topK := flag.Int("topk", 0, "include top-K base/MTP logits in reports; 0 disables")
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
-	gpuCacheMB := flag.Int("gpu-cache-mb", 10240, "GPU cache budget for packed Qwen3.6 NVFP4 weights; 0 disables eviction")
+	gpuCacheMB := flag.Int("gpu-cache-mb", 12288, "GPU cache budget for packed Qwen3.6 NVFP4 weights; 0 disables eviction; auto-clamped to free VRAM")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
 	gpuLMHead := flag.Bool("gpu-lm-head", true, "run BF16 LM head on GPU when -gpu is enabled; set -gpu-lm-head=false to disable")
@@ -141,7 +141,10 @@ func main() {
 	r := runner{bundle: bundle, state: state, emb: mustRaw(src, "model.language_model.embed_tokens.weight"), normW: bf16All(mustRaw(src, "model.language_model.norm.weight")), lm: mustRaw(src, "lm_head.weight")}
 	if *gpuLMHead && *useGPU {
 		r.lmGPU, err = gpu.UploadBF16LMHead(r.lm.raw, r.lm.shape[0], r.lm.shape[1])
-		check("upload GPU LM head", err)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "upload GPU LM head failed, falling back to CPU LM head: %v\n", err)
+			r.lmGPU = nil
+		}
 		if r.lmGPU != nil {
 			defer r.lmGPU.Free()
 		}
