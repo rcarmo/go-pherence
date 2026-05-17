@@ -19,6 +19,17 @@ func TestLoadSweepPrompts(t *testing.T) {
 	}
 }
 
+func TestSweepLimitSlicesPrompts(t *testing.T) {
+	prompts := []string{"a", "b", "c"}
+	limit := 2
+	if limit > 0 && limit < len(prompts) {
+		prompts = prompts[:limit]
+	}
+	if len(prompts) != 2 || prompts[1] != "b" {
+		t.Fatalf("prompts=%v", prompts)
+	}
+}
+
 func TestSweepReportJSON(t *testing.T) {
 	report := SweepReport{ModelDir: "m", Prompts: []string{"Hello"}, Runs: []Report{{Prompt: "Hello", Passed: true}}, Accepted: 1, Total: 1, AcceptanceRate: 1, AcceptedPrefixes: 2}
 	data, err := json.Marshal(report)

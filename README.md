@@ -147,7 +147,7 @@ go run ./cmd/qwenmtpsmoke -model /path/to/qwen3.6-27b-mtp
 
 go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
 
-go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -steps 1 -mtp -mtp-steps 2
+go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
 ```
 
 `qwenmtpmeta` inspects Qwen3.5/Qwen3.6 native-MTP config/tensor metadata without entering the full model loader. `qwenmtpsynth` runs a tiny deterministic native-MTP synthetic correctness path while real Qwen3.6 loading remains gated. `qwenmtpsmoke` loads a real native-MTP head from safetensors and runs a synthetic hidden-state forward pass. `qwen36run` is the real-checkpoint CPU smoke runner: it can run token-id or prompt decode, optionally run native-MTP diagnostics, and sweep newline-separated prompt files for acceptance stats.

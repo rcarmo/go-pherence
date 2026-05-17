@@ -198,7 +198,7 @@ Use `cmd/qwen36run` for the current CPU correctness smoke against the downloaded
 go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
 
 # Sweep newline-separated prompts and summarize MTP acceptance:
-go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -sweep prompts.txt -steps 1 -mtp -mtp-steps 2
+go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
 ```
 
 The runner reports base greedy IDs, native-MTP draft IDs, verifier IDs, acceptance prefix length, and rejection margins. It is intentionally a slow CPU smoke path, not the final public generation API.

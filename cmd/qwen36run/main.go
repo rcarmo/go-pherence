@@ -77,6 +77,7 @@ func main() {
 	mtp := flag.Bool("mtp", false, "also run native MTP head from last base hidden state and generated token")
 	mtpSteps := flag.Int("mtp-steps", 1, "native MTP draft steps for diagnostics")
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
+	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
 	if *dir == "" {
 		fmt.Fprintln(os.Stderr, "usage: qwen36run -model <dir> [-token id | -prompt text] [-steps n]")
@@ -115,6 +116,9 @@ func main() {
 		tok, err := tokenizer.Load(filepath.Join(*dir, "tokenizer.json"))
 		check("tokenizer", err)
 		prompts := loadSweepPrompts(*sweep)
+		if *sweepLimit > 0 && *sweepLimit < len(prompts) {
+			prompts = prompts[:*sweepLimit]
+		}
 		if len(prompts) == 0 {
 			fmt.Fprintln(os.Stderr, "sweep prompt file is empty")
 			os.Exit(2)
