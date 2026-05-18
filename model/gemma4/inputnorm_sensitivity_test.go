@@ -10,8 +10,8 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 	"github.com/rcarmo/go-pherence/backends/simd"
-	"github.com/rcarmo/go-pherence/gpu"
 )
 
 func rmsOf(x []float32) float64 {

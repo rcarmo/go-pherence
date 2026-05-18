@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func gqaAttentionScoresScale(q, kCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) []float32 {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/rcarmo/go-pherence/runtime/quant"
 
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 	"github.com/rcarmo/go-pherence/backends/simd"
-	"github.com/rcarmo/go-pherence/gpu"
 )
 
 func uploadExpertNativeToPool(pool *gpu.ExpertPool, layer *LlamaLayer, expertID, poolKey, moeInter, hidden int) *gpu.ExpertEntry {

@@ -12,7 +12,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 // prefillGPU processes all prompt tokens through the model in one batched pass.

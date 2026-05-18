@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func qwen35MLPIntoGPU(out, mlpIn []float32, gateQ, upQ, downQ *Qwen35NVFP4Weight, hidden, inter int) (bool, error) {

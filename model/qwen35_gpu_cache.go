@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 type Qwen35GPUPrewarmStats struct {

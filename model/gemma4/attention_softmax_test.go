@@ -10,7 +10,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func softmaxRowsCPU(scores []float32, nRows, seqLen int) []float32 {

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestMoECPUvsGPUExpert(t *testing.T) {

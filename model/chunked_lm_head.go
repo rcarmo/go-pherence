@@ -12,7 +12,7 @@ package model
 // This trades upload bandwidth for GPU compute speed.
 
 import (
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 // chunkedGPULMHead computes logits using GPU in chunks.

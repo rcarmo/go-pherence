@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 	"github.com/rcarmo/go-pherence/runtime/quant"
 	"github.com/rcarmo/go-pherence/tensor"
 )

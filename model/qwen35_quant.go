@@ -6,7 +6,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/rcarmo/go-pherence/gpu"
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/runtime/quant"
 )

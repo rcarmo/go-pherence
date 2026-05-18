@@ -13,8 +13,8 @@ import (
 
 	"github.com/rcarmo/go-pherence/runtime/quant"
 
+	gpu "github.com/rcarmo/go-pherence/backends/cuda"
 	"github.com/rcarmo/go-pherence/backends/simd"
-	"github.com/rcarmo/go-pherence/gpu"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
