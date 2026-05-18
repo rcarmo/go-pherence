@@ -1470,9 +1470,3 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	}
 	return output
 }
-
-func loaderDebugf(format string, args ...any) {
-	if os.Getenv("GO_PHERENCE_LOAD_DEBUG") != "" {
-		fmt.Printf(format, args...)
-	}
-}
