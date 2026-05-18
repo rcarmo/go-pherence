@@ -201,7 +201,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		Clamped:        qwen35GPUCache.clamped,
 		UsedBytes:      qwen35GPUCache.usedBytes,
 		Entries:        len(qwen35GPUCache.entries),
-		Hits:           qwen35GPUCache.hits,
+		Hits:           atomic.LoadInt64(&qwen35GPUCache.hits),
 		Misses:         qwen35GPUCache.misses,
 		Evictions:      qwen35GPUCache.evictions,
 		Uploads:        qwen35GPUCache.uploads,
@@ -213,6 +213,11 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 }
 
 func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, error) {
+	if q.GPU != nil {
+		q.LastUse = atomic.AddUint64(&qwen35GPUCache.tick, 1)
+		atomic.AddInt64(&qwen35GPUCache.hits, 1)
+		return q.GPU, false, nil
+	}
 	qwen35GPUCache.Lock()
 	defer qwen35GPUCache.Unlock()
 	if q.GPU != nil {
