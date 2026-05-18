@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/rcarmo/go-pherence/gpu"
@@ -19,6 +20,13 @@ var qwen35GPUVerifyMismatches int64
 var qwen35GPUVerifyMaxDiff float32
 var qwen35LinearStats Qwen35LinearStats
 var qwen35LinearTiming bool
+var qwen35GPUMLPEnabled bool
+
+var qwen35MLPGPUScratch = struct {
+	sync.Mutex
+	x, gate, up, out *gpu.Buffer
+	xN, interN, outN int
+}{}
 
 type Qwen35LinearStats struct {
 	Calls        int64   `json:"calls"`
@@ -44,7 +52,8 @@ func SetQwen35GPUEnabled(enabled bool) {
 	qwen35GPUReady = enabled && gpu.SgemmReady()
 }
 
-func SetQwen35LinearTiming(enabled bool) { qwen35LinearTiming = enabled }
+func SetQwen35LinearTiming(enabled bool)  { qwen35LinearTiming = enabled }
+func SetQwen35GPUMLPEnabled(enabled bool) { qwen35GPUMLPEnabled = enabled }
 
 func SetQwen35GPUVerify(limit int, tolerance float32) {
 	qwen35GPUVerifyRemaining = limit

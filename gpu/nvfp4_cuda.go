@@ -324,6 +324,43 @@ func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 	return gemvNVFP4F32(out, x, w.OutDim, w.InDim, weights)
 }
 
+func GemvNVFP4Buffer(outBuf, xBuf *Buffer, w *GPUNVFP4Weight) error {
+	if !validGPUNVFP4Weight(w) || outBuf == nil || xBuf == nil || outBuf.Size < w.OutDim*4 || xBuf.Size < w.InDim*4 {
+		return fmt.Errorf("invalid NVFP4 GEMV device buffers")
+	}
+	if fnNVFP4GemvF32 == 0 || !megaModuleOK {
+		return fmt.Errorf("NVFP4 packed GEMV kernel not available")
+	}
+	if !fitsUint32(w.OutDim) || !fitsUint32(w.InDim) || !fitsUint32(w.GroupSize) {
+		return fmt.Errorf("NVFP4 packed GEMV dims exceed CUDA u32 interface")
+	}
+	outDim := uint32(w.OutDim)
+	inDim := uint32(w.InDim)
+	groupSize := uint32(w.GroupSize)
+	return LaunchKernel(fnNVFP4GemvF32, uint32(w.OutDim), 1, 1, 128, 1, 1, 128*4,
+		unsafe.Pointer(&w.Weight.Ptr),
+		unsafe.Pointer(&w.WeightScale.Ptr),
+		unsafe.Pointer(&xBuf.Ptr),
+		unsafe.Pointer(&outBuf.Ptr),
+		unsafe.Pointer(&w.WeightScale2),
+		unsafe.Pointer(&outDim),
+		unsafe.Pointer(&inDim),
+		unsafe.Pointer(&groupSize))
+}
+
+func F32SiLUMulBuffer(out, a, b *Buffer, n int) error {
+	if fnFusedSiLUMul == 0 || out == nil || a == nil || b == nil || n <= 0 || out.Size < n*4 || a.Size < n*4 || b.Size < n*4 || !fitsUint32(n) {
+		return fmt.Errorf("invalid F32 SiLU*Mul device buffers")
+	}
+	grid, okGrid := grid1DFor(n, 256)
+	if !okGrid {
+		return fmt.Errorf("invalid F32 SiLU*Mul grid")
+	}
+	nn := uint32(n)
+	return LaunchKernel(fnFusedSiLUMul, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&a.Ptr), unsafe.Pointer(&b.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&nn))
+}
+
 func gemvNVFP4PackedCUDA(out, x []float32, w *GPUNVFP4Weight) error {
 	if fnNVFP4GemvF32 == 0 || !megaModuleOK {
 		return fmt.Errorf("NVFP4 packed GEMV kernel not available")

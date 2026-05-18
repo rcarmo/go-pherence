@@ -395,18 +395,22 @@ func (l *Qwen35FullAttentionLayer) ForwardWithKV(input []float32, pos int, ropeF
 	mlpIn := append([]float32(nil), resid...)
 	rmsNormInPlace(mlpIn, l.PostNorm.Data(), eps)
 	inter := meta.IntermediateSize
-	gateMLP := make([]float32, inter)
-	up := make([]float32, inter)
-	if err := qwen35LinearInto(gateMLP, mlpIn, l.GateW, l.GateWQ, h, inter, "mlp.gate_proj"); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := qwen35LinearInto(up, mlpIn, l.UpW, l.UpWQ, h, inter, "mlp.up_proj"); err != nil {
-		return nil, nil, nil, err
-	}
-	simd.VecSiLUMul(gateMLP, gateMLP, up)
 	down := make([]float32, h)
-	if err := qwen35LinearInto(down, gateMLP, l.DownW, l.DownWQ, inter, h, "mlp.down_proj"); err != nil {
+	if ok, err := qwen35MLPIntoGPU(down, mlpIn, l.GateWQ, l.UpWQ, l.DownWQ, h, inter); err != nil {
 		return nil, nil, nil, err
+	} else if !ok {
+		gateMLP := make([]float32, inter)
+		up := make([]float32, inter)
+		if err := qwen35LinearInto(gateMLP, mlpIn, l.GateW, l.GateWQ, h, inter, "mlp.gate_proj"); err != nil {
+			return nil, nil, nil, err
+		}
+		if err := qwen35LinearInto(up, mlpIn, l.UpW, l.UpWQ, h, inter, "mlp.up_proj"); err != nil {
+			return nil, nil, nil, err
+		}
+		simd.VecSiLUMul(gateMLP, gateMLP, up)
+		if err := qwen35LinearInto(down, gateMLP, l.DownW, l.DownWQ, inter, h, "mlp.down_proj"); err != nil {
+			return nil, nil, nil, err
+		}
 	}
 	out = make([]float32, h)
 	simd.VecAdd(out, resid, down)
@@ -685,18 +689,22 @@ func (l *Qwen35LinearAttentionLayer) ForwardWithState(input []float32, state Qwe
 	simd.VecAdd(resid, input, projectedOut)
 	mlpIn := append([]float32(nil), resid...)
 	rmsNormInPlace(mlpIn, l.PostNorm.Data(), eps)
-	gateMLP := make([]float32, meta.IntermediateSize)
-	up := make([]float32, meta.IntermediateSize)
-	if err := qwen35LinearInto(gateMLP, mlpIn, l.MLPGateW, l.MLPGateWQ, meta.HiddenSize, meta.IntermediateSize, "mlp.gate_proj"); err != nil {
-		return nil, state, err
-	}
-	if err := qwen35LinearInto(up, mlpIn, l.MLPUpW, l.MLPUpWQ, meta.HiddenSize, meta.IntermediateSize, "mlp.up_proj"); err != nil {
-		return nil, state, err
-	}
-	simd.VecSiLUMul(gateMLP, gateMLP, up)
 	down := make([]float32, meta.HiddenSize)
-	if err := qwen35LinearInto(down, gateMLP, l.MLPDownW, l.MLPDownWQ, meta.IntermediateSize, meta.HiddenSize, "mlp.down_proj"); err != nil {
+	if ok, err := qwen35MLPIntoGPU(down, mlpIn, l.MLPGateWQ, l.MLPUpWQ, l.MLPDownWQ, meta.HiddenSize, meta.IntermediateSize); err != nil {
 		return nil, state, err
+	} else if !ok {
+		gateMLP := make([]float32, meta.IntermediateSize)
+		up := make([]float32, meta.IntermediateSize)
+		if err := qwen35LinearInto(gateMLP, mlpIn, l.MLPGateW, l.MLPGateWQ, meta.HiddenSize, meta.IntermediateSize, "mlp.gate_proj"); err != nil {
+			return nil, state, err
+		}
+		if err := qwen35LinearInto(up, mlpIn, l.MLPUpW, l.MLPUpWQ, meta.HiddenSize, meta.IntermediateSize, "mlp.up_proj"); err != nil {
+			return nil, state, err
+		}
+		simd.VecSiLUMul(gateMLP, gateMLP, up)
+		if err := qwen35LinearInto(down, gateMLP, l.MLPDownW, l.MLPDownWQ, meta.IntermediateSize, meta.HiddenSize, "mlp.down_proj"); err != nil {
+			return nil, state, err
+		}
 	}
 	out := make([]float32, meta.HiddenSize)
 	simd.VecAdd(out, resid, down)
