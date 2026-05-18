@@ -15,7 +15,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 	"github.com/rcarmo/go-pherence/model"
 )
 
@@ -375,7 +375,7 @@ func main() {
 			g.CPU.Tok = tok
 			srv.gpuModel = g
 			defer g.Close()
-			defer gpu.Shutdown()
+			defer cuda.Shutdown()
 			log.Printf("GPU model ready")
 		}
 	}

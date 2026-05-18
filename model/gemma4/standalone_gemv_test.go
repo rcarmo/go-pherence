@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestGemma4StandaloneMLXGemvVsCPU(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4StandaloneMLXGemvVsCPU(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(gpu.Shutdown)
+	t.Cleanup(cuda.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -55,22 +55,22 @@ func TestGemma4StandaloneMLXGemvVsCPU(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load gemma4 gpu model: %v", err)
 	}
-	mgpu.Tok = tok
+	mcuda.Tok = tok
 	g, err := LoadGPUModel(mgpu)
 	if err != nil {
 		t.Fatalf("LoadGPUModel: %v", err)
 	}
 	t.Cleanup(g.Close)
 
-	checkGemv := func(layerIdx int, op string, in []float32, w *gpu.GPUMLXWeight, want []float32) {
+	checkGemv := func(layerIdx int, op string, in []float32, w *cuda.GPUMLXWeight, want []float32) {
 		if w == nil {
 			t.Logf("standalone layer %d op %-4s paths: weight=nil", layerIdx, op)
 		} else {
 			t.Logf("standalone layer %d op %-4s paths: inDim=%d outDim=%d native=%v gptq=%v correction=%v", layerIdx, op, w.InDim, w.OutDim, w.QWeight != nil, w.AsGPTQ != nil, w.Correction != nil)
 		}
 
-		inBuf := gpu.NewDevBufFrom(append([]float32(nil), in...))
-		outBuf := gpu.NewDevBuf(len(want))
+		inBuf := cuda.NewDevBufFrom(append([]float32(nil), in...))
+		outBuf := cuda.NewDevBuf(len(want))
 		defer inBuf.Free()
 		defer outBuf.Free()
 		if err := inBuf.ToGPU(); err != nil {
@@ -79,11 +79,11 @@ func TestGemma4StandaloneMLXGemvVsCPU(t *testing.T) {
 		if err := outBuf.ToGPU(); err != nil {
 			t.Fatalf("outBuf.ToGPU: %v", err)
 		}
-		gpu.GemvMLXDirect(outBuf, inBuf, w)
+		cuda.GemvMLXDirect(outBuf, inBuf, w)
 		if op == "q" || op == "gate" || op == "up" {
-			gpu.DevToBF16(outBuf, len(want))
+			cuda.DevToBF16(outBuf, len(want))
 		}
-		gpu.Sync()
+		cuda.Sync()
 		got := append([]float32(nil), outBuf.Data()[:len(want)]...)
 		maxAbs, meanAbs := diffStats(want, got)
 		mode := "native"
@@ -93,8 +93,8 @@ func TestGemma4StandaloneMLXGemvVsCPU(t *testing.T) {
 		t.Logf("standalone layer %d op %-4s direct(%s): maxAbs=%.6g meanAbs=%.6g", layerIdx, op, mode, maxAbs, meanAbs)
 
 		if w != nil && w.AsGPTQ != nil {
-			inBuf2 := gpu.NewDevBufFrom(append([]float32(nil), in...))
-			outBuf2 := gpu.NewDevBuf(len(want))
+			inBuf2 := cuda.NewDevBufFrom(append([]float32(nil), in...))
+			outBuf2 := cuda.NewDevBuf(len(want))
 			defer inBuf2.Free()
 			defer outBuf2.Free()
 			if err := inBuf2.ToGPU(); err != nil {
@@ -103,11 +103,11 @@ func TestGemma4StandaloneMLXGemvVsCPU(t *testing.T) {
 			if err := outBuf2.ToGPU(); err != nil {
 				t.Fatalf("outBuf2.ToGPU: %v", err)
 			}
-			gpu.GemvMLX(outBuf2, inBuf2, w)
+			cuda.GemvMLX(outBuf2, inBuf2, w)
 			if op == "q" || op == "gate" || op == "up" {
-				gpu.DevToBF16(outBuf2, len(want))
+				cuda.DevToBF16(outBuf2, len(want))
 			}
-			gpu.Sync()
+			cuda.Sync()
 			got2 := append([]float32(nil), outBuf2.Data()[:len(want)]...)
 			maxAbs2, meanAbs2 := diffStats(want, got2)
 			t.Logf("standalone layer %d op %-4s fast(gptq): maxAbs=%.6g meanAbs=%.6g", layerIdx, op, maxAbs2, meanAbs2)

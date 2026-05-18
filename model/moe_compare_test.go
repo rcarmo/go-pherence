@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestMoECPUvsGPUExpert(t *testing.T) {
@@ -18,10 +18,10 @@ func TestMoECPUvsGPUExpert(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skip("model not found")
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("no GPU")
 	}
-	t.Cleanup(gpu.Shutdown)
+	t.Cleanup(cuda.Shutdown)
 
 	ForceOnTheFly = true
 	defer func() { ForceOnTheFly = false }()
@@ -40,8 +40,8 @@ func TestMoECPUvsGPUExpert(t *testing.T) {
 
 	cpuOut := moeForward(x, layer, cfg)
 
-	pool := gpu.NewExpertPool(200, nil)
-	gpuOut := moeForwardGPU(nil, gpu.NewDevBufFrom(x), layer, cfg, pool, 0, nil)
+	pool := cuda.NewExpertPool(200, nil)
+	gpuOut := moeForwardGPU(nil, cuda.NewDevBufFrom(x), layer, cfg, pool, 0, nil)
 
 	maxAbs := float64(0)
 	for i := range cpuOut {

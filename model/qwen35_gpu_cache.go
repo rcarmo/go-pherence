@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 type Qwen35GPUPrewarmStats struct {
@@ -46,7 +46,7 @@ type qwen35GPUCacheState struct {
 	clamped           bool
 	usedBytes         int64
 	entries           map[*Qwen35NVFP4Weight]bool
-	transientGPU      *gpu.GPUNVFP4Weight
+	transientGPU      *cuda.GPUNVFP4Weight
 	transientByName   map[string]Qwen35GPUTransientStat
 	transientDetailed bool
 	tick              uint64
@@ -93,7 +93,7 @@ func qwen35SafeGPUCacheBudget(requested int64) int64 {
 	if requested <= 0 || !qwen35GPUReady {
 		return requested
 	}
-	free, _ := gpu.MemInfo()
+	free, _ := cuda.MemInfo()
 	if free == 0 {
 		return requested
 	}
@@ -212,7 +212,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 	}
 }
 
-func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, error) {
+func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*cuda.GPUNVFP4Weight, bool, error) {
 	if q.GPU != nil {
 		q.LastUse = atomic.AddUint64(&qwen35GPUCache.tick, 1)
 		atomic.AddInt64(&qwen35GPUCache.hits, 1)
@@ -231,7 +231,7 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 		return nil, false, fmt.Errorf("%s needs %.1f MB, larger than GPU cache budget %.1f MB", q.Name, float64(need)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
 	}
 	if qwen35GPUCache.budgetBytes > 0 && qwen35GPUCache.usedBytes+need > qwen35GPUCache.budgetBytes {
-		if err := gpu.UploadNVFP4WeightReuse(&qwen35GPUCache.transientGPU, q.W); err != nil {
+		if err := cuda.UploadNVFP4WeightReuse(&qwen35GPUCache.transientGPU, q.W); err != nil {
 			return nil, false, err
 		}
 		qwen35RecordTransientLocked(q, need)
@@ -239,16 +239,16 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*gpu.GPUNVFP4Weight, bool, err
 		qwen35GPUCache.uploadBytes += need
 		return qwen35GPUCache.transientGPU, false, nil
 	}
-	gw, err := gpu.UploadNVFP4Weight(q.W)
+	gw, err := cuda.UploadNVFP4Weight(q.W)
 	if err != nil {
-		if reuseErr := gpu.UploadNVFP4WeightReuse(&qwen35GPUCache.transientGPU, q.W); reuseErr == nil {
+		if reuseErr := cuda.UploadNVFP4WeightReuse(&qwen35GPUCache.transientGPU, q.W); reuseErr == nil {
 			qwen35RecordTransientLocked(q, need)
 			qwen35GPUCache.uploads++
 			qwen35GPUCache.uploadBytes += need
 			return qwen35GPUCache.transientGPU, false, nil
 		}
 		qwen35GPUCache.evictUntilLocked(need, q)
-		gw, err = gpu.UploadNVFP4Weight(q.W)
+		gw, err = cuda.UploadNVFP4Weight(q.W)
 	}
 	if err != nil {
 		return nil, false, err

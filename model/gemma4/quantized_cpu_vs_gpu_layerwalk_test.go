@@ -10,7 +10,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestGemma4QuantizedCPUvsGPULayerWalk(t *testing.T) {
@@ -21,10 +21,10 @@ func TestGemma4QuantizedCPUvsGPULayerWalk(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(gpu.Shutdown)
+	t.Cleanup(cuda.Shutdown)
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true
@@ -63,7 +63,7 @@ func TestGemma4QuantizedCPUvsGPULayerWalk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load gemma4 quantized gpu model: %v", err)
 	}
-	mgpu.Tok = tok
+	mcuda.Tok = tok
 	g, err := LoadGPUModel(mgpu)
 	if err != nil {
 		t.Fatalf("LoadGPUModel: %v", err)

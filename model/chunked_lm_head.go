@@ -12,7 +12,7 @@ package model
 // This trades upload bandwidth for GPU compute speed.
 
 import (
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 // chunkedGPULMHead computes logits using GPU in chunks.
@@ -25,7 +25,7 @@ func (g *GPUModel) chunkedGPULMHead(logits, hidden []float32, vocabSize, h int) 
 	if vocabSize > maxInt/h || len(g.lmHead) < vocabSize*h {
 		return false
 	}
-	free, _ := gpu.MemInfo()
+	free, _ := cuda.MemInfo()
 	if free < 64*1024*1024 { // need at least 64MB free
 		return false
 	}
@@ -52,17 +52,17 @@ func (g *GPUModel) chunkedGPULMHead(logits, hidden []float32, vocabSize, h int) 
 	}
 
 	// Allocate GPU buffers for chunk
-	wBuf := gpu.NewDevBuf(chunkElems)
+	wBuf := cuda.NewDevBuf(chunkElems)
 	defer wBuf.Free()
 	if err := wBuf.ToGPU(); err != nil {
 		return false
 	}
-	outBuf := gpu.NewDevBuf(chunkRows)
+	outBuf := cuda.NewDevBuf(chunkRows)
 	defer outBuf.Free()
 	if err := outBuf.ToGPU(); err != nil {
 		return false
 	}
-	inBuf := gpu.NewDevBuf(h)
+	inBuf := cuda.NewDevBuf(h)
 	defer inBuf.Free()
 	copy(inBuf.Data(), hidden[:h])
 	inBuf.MarkDirty()
@@ -88,14 +88,14 @@ func (g *GPUModel) chunkedGPULMHead(logits, hidden []float32, vocabSize, h int) 
 
 		// GPU GEMV: outBuf[rows] = wBuf[rows,h] · inBuf[h]
 		if rows == chunkRows {
-			gpu.DevLMHead(outBuf, inBuf, wBuf, rows, h)
+			cuda.DevLMHead(outBuf, inBuf, wBuf, rows, h)
 		} else {
 			// Last chunk may be smaller
 			outSlice := outBuf.Slice(0, rows)
 			wSlice := wBuf.Slice(0, rows*h)
-			gpu.DevLMHead(outSlice, inBuf, wSlice, rows, h)
+			cuda.DevLMHead(outSlice, inBuf, wSlice, rows, h)
 		}
-		gpu.Sync()
+		cuda.Sync()
 
 		// Download logits
 		outData := outBuf.Data()

@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestGemma4Layer0AttentionKernelVsCPU(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4Layer0AttentionKernelVsCPU(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(gpu.Shutdown)
+	t.Cleanup(cuda.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -87,10 +87,10 @@ func TestGemma4Layer0AttentionKernelVsCPU(t *testing.T) {
 	numHeads := m.Config.NumHeads
 	numKVHeads := m.Config.NumKVHeads
 
-	qBuf := gpu.NewDevBufFrom(append([]float32(nil), finalQ...))
-	kBuf := gpu.NewDevBufFrom(append([]float32(nil), kvK...))
-	vBuf := gpu.NewDevBufFrom(append([]float32(nil), kvV...))
-	outBuf := gpu.NewDevBuf(len(finalAttn))
+	qBuf := cuda.NewDevBufFrom(append([]float32(nil), finalQ...))
+	kBuf := cuda.NewDevBufFrom(append([]float32(nil), kvK...))
+	vBuf := cuda.NewDevBufFrom(append([]float32(nil), kvV...))
+	outBuf := cuda.NewDevBuf(len(finalAttn))
 	if err := qBuf.ToGPU(); err != nil {
 		t.Fatalf("qBuf.ToGPU: %v", err)
 	}
@@ -104,8 +104,8 @@ func TestGemma4Layer0AttentionKernelVsCPU(t *testing.T) {
 		t.Fatalf("outBuf.ToGPU: %v", err)
 	}
 
-	gpu.DevAttention(outBuf, qBuf, kBuf, vBuf, seqLen, numHeads, numKVHeads, headDim, 1.0)
-	gpu.Sync()
+	cuda.DevAttention(outBuf, qBuf, kBuf, vBuf, seqLen, numHeads, numKVHeads, headDim, 1.0)
+	cuda.Sync()
 	got := append([]float32(nil), outBuf.Data()[:len(finalAttn)]...)
 	maxAbs, meanAbs := diffStats(finalAttn, got)
 	t.Logf("layer0 attention kernel vs cpu: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)

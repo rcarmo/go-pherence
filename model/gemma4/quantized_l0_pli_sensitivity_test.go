@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestGemma4QuantizedLayer0PLISensitivity(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4QuantizedLayer0PLISensitivity(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(gpu.Shutdown)
+	t.Cleanup(cuda.Shutdown)
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true
@@ -91,27 +91,27 @@ func TestGemma4QuantizedLayer0PLISensitivity(t *testing.T) {
 	maxAbs, meanAbs = diffStats(hiddenPostPLI, cpuRecon)
 	t.Logf("L0 cpu(PLI from gpu hidden_post_ffn) vs gpu hidden_post_pli: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)
 
-	hidBuf := gpu.NewDevBufFrom(append([]float32(nil), hiddenPostFFN...))
-	pliBuf := gpu.NewDevBufFrom(append([]float32(nil), gpuPLI...))
-	gateBuf := gpu.NewDevBuf(hpl)
-	projBuf := gpu.NewDevBuf(len(hiddenPostFFN))
-	outBuf := gpu.NewDevBuf(len(hiddenPostFFN))
+	hidBuf := cuda.NewDevBufFrom(append([]float32(nil), hiddenPostFFN...))
+	pliBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuPLI...))
+	gateBuf := cuda.NewDevBuf(hpl)
+	projBuf := cuda.NewDevBuf(len(hiddenPostFFN))
+	outBuf := cuda.NewDevBuf(len(hiddenPostFFN))
 	defer hidBuf.Free()
 	defer pliBuf.Free()
 	defer gateBuf.Free()
 	defer projBuf.Free()
 	defer outBuf.Free()
-	for _, b := range []*gpu.DevBuf{hidBuf, pliBuf, gateBuf, projBuf, outBuf} {
+	for _, b := range []*cuda.DevBuf{hidBuf, pliBuf, gateBuf, projBuf, outBuf} {
 		if err := b.ToGPU(); err != nil {
 			t.Fatalf("ToGPU: %v", err)
 		}
 	}
-	gpu.DevGemv(gateBuf, hidBuf, g.Layers[0].PLIGate, hpl, len(hiddenPostFFN))
-	gpu.DevGELUTanhMul(gateBuf, pliBuf, hpl)
-	gpu.DevGemv(projBuf, gateBuf, g.Layers[0].PLIProj, len(hiddenPostFFN), hpl)
-	gpu.DevRMSNorm(projBuf, projBuf, g.Layers[0].PLIPostNorm, float32(m.Config.RMSNormEps))
-	gpu.DevAdd(outBuf, hidBuf, projBuf)
-	gpu.Sync()
+	cuda.DevGemv(gateBuf, hidBuf, g.Layers[0].PLIGate, hpl, len(hiddenPostFFN))
+	cuda.DevGELUTanhMul(gateBuf, pliBuf, hpl)
+	cuda.DevGemv(projBuf, gateBuf, g.Layers[0].PLIProj, len(hiddenPostFFN), hpl)
+	cuda.DevRMSNorm(projBuf, projBuf, g.Layers[0].PLIPostNorm, float32(m.Config.RMSNormEps))
+	cuda.DevAdd(outBuf, hidBuf, projBuf)
+	cuda.Sync()
 	gpuRecon := append([]float32(nil), outBuf.Data()[:len(hiddenPostPLI)]...)
 	maxAbs, meanAbs = diffStats(hiddenPostPLI, gpuRecon)
 	t.Logf("L0 fresh gpu PLI from gpu hidden_post_ffn vs gpu hidden_post_pli: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)

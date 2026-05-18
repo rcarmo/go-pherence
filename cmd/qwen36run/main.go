@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model"
@@ -106,7 +106,7 @@ type runner struct {
 	emb     rawTensor
 	normW   []float32
 	lm      rawTensor
-	lmGPU   *gpu.Buffer
+	lmGPU   *cuda.Buffer
 	mtpHead *model.QwenNativeMTPHead
 }
 
@@ -177,7 +177,7 @@ func main() {
 	defer src.Close()
 	r := runner{bundle: bundle, state: state, emb: mustRaw(src, "model.language_model.embed_tokens.weight"), normW: bf16All(mustRaw(src, "model.language_model.norm.weight")), lm: mustRaw(src, "lm_head.weight")}
 	if *gpuLMHead && *useGPU {
-		r.lmGPU, err = gpu.UploadBF16LMHead(r.lm.raw, r.lm.shape[0], r.lm.shape[1])
+		r.lmGPU, err = cuda.UploadBF16LMHead(r.lm.raw, r.lm.shape[0], r.lm.shape[1])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "upload GPU LM head failed, falling back to CPU LM head: %v\n", err)
 			r.lmGPU = nil
@@ -404,7 +404,7 @@ func draftMTPIDs(head *model.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, 
 	return ids, nil
 }
 
-func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, lmGPU *gpu.Buffer, mtpHead *model.QwenNativeMTPHead) runner {
+func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, lmGPU *cuda.Buffer, mtpHead *model.QwenNativeMTPHead) runner {
 	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, lmGPU: lmGPU, mtpHead: mtpHead}
 }
 
@@ -608,14 +608,14 @@ func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
 	return top
 }
 
-func argmaxLMHead(t rawTensor, lmGPU *gpu.Buffer, x []float32) (int, float32) {
+func argmaxLMHead(t rawTensor, lmGPU *cuda.Buffer, x []float32) (int, float32) {
 	if qwen36UseGPULMHead && t.dtype == "BF16" && len(t.shape) == 2 && lmGPU != nil {
 		if cap(qwen36LMHeadLogitsScratch) < t.shape[0] {
 			qwen36LMHeadLogitsScratch = make([]float32, t.shape[0])
 		}
 		logits := qwen36LMHeadLogitsScratch[:t.shape[0]]
 		start := time.Now()
-		if err := gpu.BF16LMHeadWithBuffer(logits, lmGPU, x, t.shape[0], t.shape[1]); err == nil {
+		if err := cuda.BF16LMHeadWithBuffer(logits, lmGPU, x, t.shape[0], t.shape[1]); err == nil {
 			qwen36LMHeadStats.Calls++
 			qwen36LMHeadStats.GPUMillis += time.Since(start).Milliseconds()
 			qwen36LMHeadStats.DownloadRows = t.shape[0]

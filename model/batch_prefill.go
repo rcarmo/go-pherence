@@ -12,7 +12,7 @@ import (
 	"math"
 	"os"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 // prefillGPU processes all prompt tokens through the model in one batched pass.
@@ -40,7 +40,7 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 		prefillDebugf("[prefill] skip: invalid dims h=%d heads=%d kvHeads=%d intermediate=%d\n", h, numHeads, numKVHeads, cfg.Intermediate)
 		return nil // fall back to sequential
 	}
-	if !gpu.BatchGEMMReady() {
+	if !cuda.BatchGEMMReady() {
 		prefillDebugf("[prefill] skip: batch GEMM kernels unavailable\n")
 		return nil
 	}
@@ -61,17 +61,17 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 	prefillDebugf("[prefill] batch=%d tokens, %d layers\n", B, len(g.Layers))
 
 	// Allocate batch buffers: [B × dim]
-	bHidden := gpu.NewDevBuf(B * h)
-	bNormed := gpu.NewDevBuf(B * h)
-	bQ := gpu.NewDevBuf(B * h)
-	bK := gpu.NewDevBuf(B * kvDim)
-	bV := gpu.NewDevBuf(B * kvDim)
-	bAttnOut := gpu.NewDevBuf(B * h)
-	bOOut := gpu.NewDevBuf(B * h)
-	bGate := gpu.NewDevBuf(B * cfg.Intermediate)
-	bUp := gpu.NewDevBuf(B * cfg.Intermediate)
-	bDown := gpu.NewDevBuf(B * h)
-	bResidual := gpu.NewDevBuf(B * h)
+	bHidden := cuda.NewDevBuf(B * h)
+	bNormed := cuda.NewDevBuf(B * h)
+	bQ := cuda.NewDevBuf(B * h)
+	bK := cuda.NewDevBuf(B * kvDim)
+	bV := cuda.NewDevBuf(B * kvDim)
+	bAttnOut := cuda.NewDevBuf(B * h)
+	bOOut := cuda.NewDevBuf(B * h)
+	bGate := cuda.NewDevBuf(B * cfg.Intermediate)
+	bUp := cuda.NewDevBuf(B * cfg.Intermediate)
+	bDown := cuda.NewDevBuf(B * h)
+	bResidual := cuda.NewDevBuf(B * h)
 	defer bHidden.Free()
 	defer bNormed.Free()
 	defer bQ.Free()
@@ -107,27 +107,27 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 
 		// Sync every 20 layers to prevent command queue overflow
 		if l > 0 && l%20 == 0 {
-			gpu.Sync()
+			cuda.Sync()
 		}
 
 		// Save residual: bResidual = bHidden
-		gpu.DevCopy(bResidual, bHidden)
+		cuda.DevCopy(bResidual, bHidden)
 
 		// RMSNorm each row: bNormed[b] = rmsNorm(bHidden[b])
 		// For now, do per-row RMSNorm on GPU (each row independently)
 		for b := 0; b < B; b++ {
 			hSlice := bHidden.Slice(b*h, h)
 			nSlice := bNormed.Slice(b*h, h)
-			gpu.DevRMSNorm(nSlice, hSlice, layer.InputNorm, float32(cfg.RMSNormEps))
+			cuda.DevRMSNorm(nSlice, hSlice, layer.InputNorm, float32(cfg.RMSNormEps))
 		}
 
 		// Batched Q/K/V projections: read weights once for all B tokens
 		if layer.QWg != nil {
-			gpu.PrefetchWeights(layer.OWg, layer.GateWg, layer.UpWg, layer.DownWg)
-			gpu.GemmQ4(bQ, bNormed, layer.QWg, B)
-			gpu.GemmQ4(bK, bNormed, layer.KWg, B)
-			gpu.GemmQ4(bV, bNormed, layer.VWg, B)
-			gpu.WaitPrefetch()
+			cuda.PrefetchWeights(layer.OWg, layer.GateWg, layer.UpWg, layer.DownWg)
+			cuda.GemmQ4(bQ, bNormed, layer.QWg, B)
+			cuda.GemmQ4(bK, bNormed, layer.KWg, B)
+			cuda.GemmQ4(bV, bNormed, layer.VWg, B)
+			cuda.WaitPrefetch()
 		} else {
 			// CPU fallback for this layer — shouldn't happen for 7B
 			return nil
@@ -136,9 +136,9 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 		// Bias (per-row broadcast)
 		if layer.QB != nil {
 			for b := 0; b < B; b++ {
-				gpu.DevAdd(bQ.Slice(b*h, h), bQ.Slice(b*h, h), layer.QB)
-				gpu.DevAdd(bK.Slice(b*kvDim, kvDim), bK.Slice(b*kvDim, kvDim), layer.KB)
-				gpu.DevAdd(bV.Slice(b*kvDim, kvDim), bV.Slice(b*kvDim, kvDim), layer.VB)
+				cuda.DevAdd(bQ.Slice(b*h, h), bQ.Slice(b*h, h), layer.QB)
+				cuda.DevAdd(bK.Slice(b*kvDim, kvDim), bK.Slice(b*kvDim, kvDim), layer.KB)
+				cuda.DevAdd(bV.Slice(b*kvDim, kvDim), bV.Slice(b*kvDim, kvDim), layer.VB)
 			}
 		}
 
@@ -152,17 +152,17 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 			vSlice := bV.Slice(b*kvDim, kvDim)
 
 			// RoPE
-			ropePtr := (*gpu.Buffer)(nil)
+			ropePtr := (*cuda.Buffer)(nil)
 			if g.ropeCosSin != nil {
 				ropePtr = g.ropeCosSin.GPUPtr()
 			}
 			if ropePtr != nil {
-				if !gpu.DevRoPE(qSlice, g.ropeCosSin, pos, numHeads, headDim) {
+				if !cuda.DevRoPE(qSlice, g.ropeCosSin, pos, numHeads, headDim) {
 					qd := qSlice.Data()
 					applyRoPE(qd, m.RopeFreqs, pos, numHeads, headDim)
 					qSlice.MarkDirty()
 				}
-				if !gpu.DevRoPE(kSlice, g.ropeCosSin, pos, numKVHeads, headDim) {
+				if !cuda.DevRoPE(kSlice, g.ropeCosSin, pos, numKVHeads, headDim) {
 					kd := kSlice.Data()
 					applyRoPE(kd, m.RopeFreqs, pos, numKVHeads, headDim)
 					kSlice.MarkDirty()
@@ -177,7 +177,7 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 			}
 
 			// KV cache append
-			var kvKPtr, kvVPtr, kPtr, vPtr *gpu.Buffer
+			var kvKPtr, kvVPtr, kPtr, vPtr *cuda.Buffer
 			if g.kvGPU_K[l] != nil {
 				kvKPtr = g.kvGPU_K[l].GPUPtr()
 			}
@@ -192,10 +192,10 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 				if !ok || !okV || kPtr.Size < int(kvBytes) || vPtr.Size < int(kvBytes) {
 					return nil
 				}
-				if err := gpu.CopyDtoD(kvKPtr.Ptr+kOff, kPtr.Ptr, kvBytes); err != nil {
+				if err := cuda.CopyDtoD(kvKPtr.Ptr+kOff, kPtr.Ptr, kvBytes); err != nil {
 					return nil
 				}
-				if err := gpu.CopyDtoD(kvVPtr.Ptr+kOff, vPtr.Ptr, kvBytes); err != nil {
+				if err := cuda.CopyDtoD(kvVPtr.Ptr+kOff, vPtr.Ptr, kvBytes); err != nil {
 					return nil
 				}
 			}
@@ -203,57 +203,57 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 			// Attention
 			aSlice := bAttnOut.Slice(b*h, h)
 			if g.kvGPU_K[l] != nil {
-				gpu.DevAttention(aSlice, qSlice, g.kvGPU_K[l], g.kvGPU_V[l], seqLen, numHeads, numKVHeads, headDim, defaultScale)
+				cuda.DevAttention(aSlice, qSlice, g.kvGPU_K[l], g.kvGPU_V[l], seqLen, numHeads, numKVHeads, headDim, defaultScale)
 			}
 		}
 
 		// Batched O projection
 		if layer.OWg != nil {
-			gpu.GemmQ4(bOOut, bAttnOut, layer.OWg, B)
+			cuda.GemmQ4(bOOut, bAttnOut, layer.OWg, B)
 		}
 
 		// Residual add: bHidden = bResidual + bOOut
-		gpu.DevAdd(bHidden, bResidual, bOOut)
+		cuda.DevAdd(bHidden, bResidual, bOOut)
 
 		// Post-attention norm (per row)
 		for b := 0; b < B; b++ {
 			hSlice := bHidden.Slice(b*h, h)
 			nSlice := bNormed.Slice(b*h, h)
-			gpu.DevRMSNorm(nSlice, hSlice, layer.PostNorm, float32(cfg.RMSNormEps))
+			cuda.DevRMSNorm(nSlice, hSlice, layer.PostNorm, float32(cfg.RMSNormEps))
 		}
 
 		// Batched MLP
 		if layer.GateWg != nil {
-			gpu.PrefetchWeights(nil) // prefetch next layer if exists
+			cuda.PrefetchWeights(nil) // prefetch next layer if exists
 			if l+1 < len(g.Layers) {
 				next := &g.Layers[l+1]
-				gpu.PrefetchWeights(next.QWg, next.KWg, next.VWg)
+				cuda.PrefetchWeights(next.QWg, next.KWg, next.VWg)
 			}
-			gpu.GemmQ4(bGate, bNormed, layer.GateWg, B)
-			gpu.GemmQ4(bUp, bNormed, layer.UpWg, B)
+			cuda.GemmQ4(bGate, bNormed, layer.GateWg, B)
+			cuda.GemmQ4(bUp, bNormed, layer.UpWg, B)
 		}
 
 		// SiLU(gate) * up (per row)
 		for b := 0; b < B; b++ {
 			gSlice := bGate.Slice(b*cfg.Intermediate, cfg.Intermediate)
 			uSlice := bUp.Slice(b*cfg.Intermediate, cfg.Intermediate)
-			gpu.DevSiLUMul(gSlice, gSlice, uSlice)
+			cuda.DevSiLUMul(gSlice, gSlice, uSlice)
 		}
 
 		// Batched down projection
 		if layer.DownWg != nil {
-			gpu.GemmQ4(bDown, bGate, layer.DownWg, B)
+			cuda.GemmQ4(bDown, bGate, layer.DownWg, B)
 		}
 
 		// Save residual for this stage
-		gpu.DevCopy(bResidual, bHidden)
+		cuda.DevCopy(bResidual, bHidden)
 
 		// Residual add: bHidden = bResidual + bDown
-		gpu.DevAdd(bHidden, bResidual, bDown)
+		cuda.DevAdd(bHidden, bResidual, bDown)
 	}
 
 	// Extract last token's hidden state
-	gpu.Sync()
+	cuda.Sync()
 	hd = bHidden.Data()
 	lastHidden := make([]float32, h)
 	copy(lastHidden, hd[(B-1)*h:B*h])

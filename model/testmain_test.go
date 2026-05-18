@@ -4,11 +4,11 @@ import (
 	"os"
 	"testing"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestMain(m *testing.M) {
 	code := m.Run()
-	gpu.Shutdown()
+	cuda.Shutdown()
 	os.Exit(code)
 }

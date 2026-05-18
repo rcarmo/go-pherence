@@ -9,7 +9,7 @@ import (
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/tensor"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func smolLMPath() string {
@@ -418,10 +418,10 @@ func TestGemma4KVSharingGPU(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	// Do not call gpu.Shutdown from this smoke test: CUDA context teardown and
+	// Do not call cuda.Shutdown from this smoke test: CUDA context teardown and
 	// re-init across multiple model tests can poison the driver in one process.
 	// model.TestMain performs one package-level shutdown.
 
@@ -480,10 +480,10 @@ func TestGemma4PerLayerInputGatingGPUBuffers(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	// Do not call gpu.Shutdown from this smoke test; see TestGemma4KVSharingGPU.
+	// Do not call cuda.Shutdown from this smoke test; see TestGemma4KVSharingGPU.
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true

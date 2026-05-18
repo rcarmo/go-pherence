@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestGemma4StandalonePerLayerProjectionPipelineVsCPU(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4StandalonePerLayerProjectionPipelineVsCPU(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(gpu.Shutdown)
+	t.Cleanup(cuda.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -60,7 +60,7 @@ func TestGemma4StandalonePerLayerProjectionPipelineVsCPU(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load gemma4 gpu model: %v", err)
 	}
-	mgpu.Tok = tok
+	mcuda.Tok = tok
 	g, err := LoadGPUModel(mgpu)
 	if err != nil {
 		t.Fatalf("LoadGPUModel: %v", err)
@@ -76,16 +76,16 @@ func TestGemma4StandalonePerLayerProjectionPipelineVsCPU(t *testing.T) {
 	projCPU := make([]float32, totalDim)
 	gemvNT(projCPU, cpuEmbed, m.PerLayerModelProj, h, totalDim)
 
-	inBuf := gpu.NewDevBufFrom(append([]float32(nil), cpuEmbed...))
-	projBuf := gpu.NewDevBuf(totalDim)
+	inBuf := cuda.NewDevBufFrom(append([]float32(nil), cpuEmbed...))
+	projBuf := cuda.NewDevBuf(totalDim)
 	if err := inBuf.ToGPU(); err != nil {
 		t.Fatalf("inBuf.ToGPU: %v", err)
 	}
 	if err := projBuf.ToGPU(); err != nil {
 		t.Fatalf("projBuf.ToGPU: %v", err)
 	}
-	gpu.DevGemv(projBuf, inBuf, g.perLayerModelProj, totalDim, h)
-	gpu.Sync()
+	cuda.DevGemv(projBuf, inBuf, g.perLayerModelProj, totalDim, h)
+	cuda.Sync()
 	projGPU := append([]float32(nil), projBuf.Data()[:totalDim]...)
 	maxAbs, meanAbs := diffStats(projCPU, projGPU)
 	t.Logf("per-layer proj raw: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)
@@ -93,8 +93,8 @@ func TestGemma4StandalonePerLayerProjectionPipelineVsCPU(t *testing.T) {
 	for i := range projCPU {
 		projCPU[i] *= m.PerLayerProjScale
 	}
-	gpu.DevScale(projBuf, projBuf, m.PerLayerProjScale)
-	gpu.Sync()
+	cuda.DevScale(projBuf, projBuf, m.PerLayerProjScale)
+	cuda.Sync()
 	projGPU = append([]float32(nil), projBuf.Data()[:totalDim]...)
 	maxAbs, meanAbs = diffStats(projCPU, projGPU)
 	t.Logf("per-layer proj scaled: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)
@@ -105,10 +105,10 @@ func TestGemma4StandalonePerLayerProjectionPipelineVsCPU(t *testing.T) {
 	}
 	for l := 0; l < nl; l++ {
 		sl := projBuf.Slice(l*hpl, hpl)
-		gpu.DevRMSNorm(sl, sl, g.perLayerProjNorm, float32(cfg.RMSNormEps))
+		cuda.DevRMSNorm(sl, sl, g.perLayerProjNorm, float32(cfg.RMSNormEps))
 	}
 	projBuf.MarkOnGPU()
-	gpu.Sync()
+	cuda.Sync()
 	projGPU = append([]float32(nil), projBuf.Data()[:totalDim]...)
 	maxAbs, meanAbs = diffStats(projCPU, projGPU)
 	t.Logf("per-layer proj normed: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)
@@ -118,15 +118,15 @@ func TestGemma4StandalonePerLayerProjectionPipelineVsCPU(t *testing.T) {
 		for i := range projCPU {
 			projCPU[i] = (projCPU[i] + embRow[i]*m.EmbedPerLayerScale) * m.PerLayerInputScale
 		}
-		embBuf := gpu.NewDevBufFrom(append([]float32(nil), embRow...))
+		embBuf := cuda.NewDevBufFrom(append([]float32(nil), embRow...))
 		if err := embBuf.ToGPU(); err != nil {
 			t.Fatalf("embBuf.ToGPU: %v", err)
 		}
-		gpu.DevScale(embBuf, embBuf, m.EmbedPerLayerScale)
-		gpu.DevAdd(projBuf, projBuf, embBuf)
-		gpu.DevScale(projBuf, projBuf, m.PerLayerInputScale)
+		cuda.DevScale(embBuf, embBuf, m.EmbedPerLayerScale)
+		cuda.DevAdd(projBuf, projBuf, embBuf)
+		cuda.DevScale(projBuf, projBuf, m.PerLayerInputScale)
 		projBuf.MarkOnGPU()
-		gpu.Sync()
+		cuda.Sync()
 		projGPU = append([]float32(nil), projBuf.Data()[:totalDim]...)
 		maxAbs, meanAbs = diffStats(projCPU, projGPU)
 		t.Logf("per-layer proj final: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)

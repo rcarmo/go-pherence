@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func TestGemma4Layer15PostAttnCopyIsolation(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4Layer15PostAttnCopyIsolation(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(gpu.Shutdown)
+	t.Cleanup(cuda.Shutdown)
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true
@@ -66,19 +66,19 @@ func TestGemma4Layer15PostAttnCopyIsolation(t *testing.T) {
 	wBuf := g.Layers[15].PostNorm
 
 	run := func(name string, useModel bool, doCopy bool) {
-		var residual, oBuf, hidden, normed *gpu.DevBuf
-		var freeList []*gpu.DevBuf
+		var residual, oBuf, hidden, normed *cuda.DevBuf
+		var freeList []*cuda.DevBuf
 		if useModel {
 			residual = g.residual
 			oBuf = g.oOut
 			hidden = g.hidden
 			normed = g.normed
 		} else {
-			residual = gpu.NewDevBufFrom(append([]float32(nil), gpuHiddenIn...))
-			oBuf = gpu.NewDevBufFrom(append([]float32(nil), gpuO...))
-			hidden = gpu.NewDevBuf(len(gpuHiddenIn))
-			normed = gpu.NewDevBuf(len(gpuHiddenIn))
-			freeList = []*gpu.DevBuf{residual, oBuf, hidden, normed}
+			residual = cuda.NewDevBufFrom(append([]float32(nil), gpuHiddenIn...))
+			oBuf = cuda.NewDevBufFrom(append([]float32(nil), gpuO...))
+			hidden = cuda.NewDevBuf(len(gpuHiddenIn))
+			normed = cuda.NewDevBuf(len(gpuHiddenIn))
+			freeList = []*cuda.DevBuf{residual, oBuf, hidden, normed}
 			for _, b := range freeList {
 				if err := b.ToGPU(); err != nil {
 					t.Fatalf("%s ToGPU: %v", name, err)
@@ -89,12 +89,12 @@ func TestGemma4Layer15PostAttnCopyIsolation(t *testing.T) {
 		residual.MarkDirty()
 		copy(oBuf.Data(), gpuO)
 		oBuf.MarkDirty()
-		gpu.DevAdd(hidden, residual, oBuf)
+		cuda.DevAdd(hidden, residual, oBuf)
 		if doCopy {
-			gpu.DevCopy(residual, hidden)
+			cuda.DevCopy(residual, hidden)
 		}
-		gpu.DevRMSNorm(normed, hidden, wBuf, float32(m.Config.RMSNormEps))
-		gpu.Sync()
+		cuda.DevRMSNorm(normed, hidden, wBuf, float32(m.Config.RMSNormEps))
+		cuda.Sync()
 		got := append([]float32(nil), normed.Data()[:len(gpuMLPIn)]...)
 		maxAbs, meanAbs := diffStats(gpuMLPIn, got)
 		t.Logf("%s: maxAbs=%.6g meanAbs=%.6g", name, maxAbs, meanAbs)

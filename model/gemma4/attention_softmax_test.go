@@ -10,7 +10,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 )
 
 func softmaxRowsCPU(scores []float32, nRows, seqLen int) []float32 {
@@ -67,10 +67,10 @@ func TestGemma4Layer0AttentionSoftmaxKernelVsCPU(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !gpu.Available() {
+	if !cuda.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(gpu.Shutdown)
+	t.Cleanup(cuda.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -136,18 +136,18 @@ func TestGemma4Layer0AttentionSoftmaxKernelVsCPU(t *testing.T) {
 	scores := gqaAttentionScoresScale(finalQ, kvK, seqLen, numHeads, numKVHeads, headDim, 1.0)
 	wantWeights := softmaxRowsCPU(scores, numHeads, seqLen)
 
-	scoreBuf := gpu.NewDevBufFrom(append([]float32(nil), scores...))
-	weightBuf := gpu.NewDevBuf(len(wantWeights))
+	scoreBuf := cuda.NewDevBufFrom(append([]float32(nil), scores...))
+	weightBuf := cuda.NewDevBuf(len(wantWeights))
 	if err := scoreBuf.ToGPU(); err != nil {
 		t.Fatalf("scoreBuf.ToGPU: %v", err)
 	}
 	if err := weightBuf.ToGPU(); err != nil {
 		t.Fatalf("weightBuf.ToGPU: %v", err)
 	}
-	if !gpu.DevSoftmaxRows(weightBuf, scoreBuf, numHeads, seqLen) {
+	if !cuda.DevSoftmaxRows(weightBuf, scoreBuf, numHeads, seqLen) {
 		t.Fatal("DevSoftmaxRows unavailable")
 	}
-	gpu.Sync()
+	cuda.Sync()
 	gotWeights := append([]float32(nil), weightBuf.Data()[:len(wantWeights)]...)
 
 	overallMax, overallMean := diffStats(wantWeights, gotWeights)

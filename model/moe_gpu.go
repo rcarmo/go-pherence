@@ -6,26 +6,26 @@ import (
 
 	"github.com/rcarmo/go-pherence/runtime/quant"
 
-	gpu "github.com/rcarmo/go-pherence/backends/cuda"
+	cuda "github.com/rcarmo/go-pherence/backends/cuda"
 	"github.com/rcarmo/go-pherence/backends/simd"
 )
 
-func uploadExpertNativeToPool(pool *gpu.ExpertPool, layer *LlamaLayer, expertID, poolKey, moeInter, hidden int) *gpu.ExpertEntry {
+func uploadExpertNativeToPool(pool *cuda.ExpertPool, layer *LlamaLayer, expertID, poolKey, moeInter, hidden int) *cuda.ExpertEntry {
 	if pool == nil || layer == nil || expertID < 0 || expertID >= len(layer.ExpertGateW) || expertID >= len(layer.ExpertUpW) || expertID >= len(layer.ExpertDownW) {
 		return nil
 	}
 	if layer.ExpertGateW[expertID] == nil || layer.ExpertUpW[expertID] == nil || layer.ExpertDownW[expertID] == nil {
 		return nil
 	}
-	entry := &gpu.ExpertEntry{ExpertID: poolKey}
+	entry := &cuda.ExpertEntry{ExpertID: poolKey}
 	ew := layer.ExpertGateW[expertID]
-	gw, err1 := gpu.UploadMLXWeightNative(ew.Weight, ew.Scales, ew.Biases, ew.InDim, ew.OutDim, ew.GroupSize)
+	gw, err1 := cuda.UploadMLXWeightNative(ew.Weight, ew.Scales, ew.Biases, ew.InDim, ew.OutDim, ew.GroupSize)
 	ew = layer.ExpertUpW[expertID]
-	uw, err2 := gpu.UploadMLXWeightNative(ew.Weight, ew.Scales, ew.Biases, ew.InDim, ew.OutDim, ew.GroupSize)
+	uw, err2 := cuda.UploadMLXWeightNative(ew.Weight, ew.Scales, ew.Biases, ew.InDim, ew.OutDim, ew.GroupSize)
 	ew = layer.ExpertDownW[expertID]
-	dw, err3 := gpu.UploadMLXWeightNative(ew.Weight, ew.Scales, ew.Biases, ew.InDim, ew.OutDim, ew.GroupSize)
+	dw, err3 := cuda.UploadMLXWeightNative(ew.Weight, ew.Scales, ew.Biases, ew.InDim, ew.OutDim, ew.GroupSize)
 	if err1 != nil || err2 != nil || err3 != nil {
-		gpu.FreeExpertEntry(&gpu.ExpertEntry{GateW: gw, UpW: uw, DownW: dw})
+		cuda.FreeExpertEntry(&cuda.ExpertEntry{GateW: gw, UpW: uw, DownW: dw})
 		return nil
 	}
 	entry.GateW = gw
@@ -33,14 +33,14 @@ func uploadExpertNativeToPool(pool *gpu.ExpertPool, layer *LlamaLayer, expertID,
 	entry.DownW = dw
 	entry.SizeBytes = int64(3 * moeInter * hidden / 2)
 	if evicted := pool.Put(entry); evicted != nil {
-		gpu.FreeExpertEntry(evicted)
+		cuda.FreeExpertEntry(evicted)
 	}
 	return entry
 }
 
 // moeForwardGPU runs the MoE forward pass using GPU for hot experts.
 // Falls back to CPU quant.GemvMLQ for cold experts not in the pool.
-func moeForwardGPU(outDev, xDev *gpu.DevBuf, layer *LlamaLayer, cfg LlamaConfig, pool *gpu.ExpertPool, layerIdx int, routerGPU *gpu.GPUMLXWeight) []float32 {
+func moeForwardGPU(outDev, xDev *cuda.DevBuf, layer *LlamaLayer, cfg LlamaConfig, pool *cuda.ExpertPool, layerIdx int, routerGPU *cuda.GPUMLXWeight) []float32 {
 	if layer == nil || xDev == nil || cfg.HiddenSize <= 0 || cfg.NumExperts <= 0 || cfg.MoEIntermediate <= 0 || xDev.Len() < cfg.HiddenSize {
 		return nil
 	}
@@ -67,9 +67,9 @@ func moeForwardGPU(outDev, xDev *gpu.DevBuf, layer *LlamaLayer, cfg LlamaConfig,
 	// Router: compute logits for each expert.
 	routerLogits := make([]float32, numExperts)
 	if routerGPU != nil {
-		routerOut, err := gpu.NewDevBufGPU(numExperts)
+		routerOut, err := cuda.NewDevBufGPU(numExperts)
 		if err == nil && xDev != nil {
-			gpu.GemvMLXDirect(routerOut, xDev, routerGPU)
+			cuda.GemvMLXDirect(routerOut, xDev, routerGPU)
 			copy(routerLogits, routerOut.Data()[:numExperts])
 		} else if layer.RouterW != nil {
 			quant.GemvMLQ(routerLogits, getXCPU(), layer.RouterW)
@@ -144,25 +144,25 @@ func moeForwardGPU(outDev, xDev *gpu.DevBuf, layer *LlamaLayer, cfg LlamaConfig,
 	out := make([]float32, h)
 
 	// Pre-allocate GPU work buffers once (reused across experts)
-	var xBuf, gateBuf, upBuf, downBuf, gpuOutBuf *gpu.DevBuf
+	var xBuf, gateBuf, upBuf, downBuf, gpuOutBuf *cuda.DevBuf
 	hasGPUExperts := pool != nil && pool.Slots() > 0 && len(selected) > 0
 	if hasGPUExperts {
 		xBuf = xDev
 		var err error
-		gateBuf, err = gpu.NewDevBufGPU(moeInter)
+		gateBuf, err = cuda.NewDevBufGPU(moeInter)
 		if err != nil {
 			hasGPUExperts = false
 		}
 		if hasGPUExperts {
-			upBuf, err = gpu.NewDevBufGPU(moeInter)
+			upBuf, err = cuda.NewDevBufGPU(moeInter)
 			hasGPUExperts = err == nil
 		}
 		if hasGPUExperts {
-			downBuf, err = gpu.NewDevBufGPU(h)
+			downBuf, err = cuda.NewDevBufGPU(h)
 			hasGPUExperts = err == nil
 		}
 		if hasGPUExperts {
-			gpuOutBuf, err = gpu.NewDevBufGPU(h)
+			gpuOutBuf, err = cuda.NewDevBufGPU(h)
 			hasGPUExperts = err == nil
 		}
 		if !hasGPUExperts {
@@ -201,7 +201,7 @@ func moeForwardGPU(outDev, xDev *gpu.DevBuf, layer *LlamaLayer, cfg LlamaConfig,
 		}
 
 		poolKey := layerIdx*cfg.NumExperts + eid
-		var gpuEntry *gpu.ExpertEntry
+		var gpuEntry *cuda.ExpertEntry
 		if pool != nil {
 			gpuEntry = pool.Get(poolKey)
 			if gpuEntry == nil && xBuf != nil {
@@ -211,14 +211,14 @@ func moeForwardGPU(outDev, xDev *gpu.DevBuf, layer *LlamaLayer, cfg LlamaConfig,
 
 		if gpuEntry != nil && gpuEntry.GateW != nil && xBuf != nil && gpuOutBuf != nil {
 			// GPU path: reuse pre-allocated buffers
-			gpu.GemvMLXDirect(gateBuf, xBuf, gpuEntry.GateW)
-			gpu.GemvMLXDirect(upBuf, xBuf, gpuEntry.UpW)
-			gpu.DevSiLUMul(gateBuf, gateBuf, upBuf)
-			gpu.GemvMLXDirect(downBuf, gateBuf, gpuEntry.DownW)
+			cuda.GemvMLXDirect(gateBuf, xBuf, gpuEntry.GateW)
+			cuda.GemvMLXDirect(upBuf, xBuf, gpuEntry.UpW)
+			cuda.DevSiLUMul(gateBuf, gateBuf, upBuf)
+			cuda.GemvMLXDirect(downBuf, gateBuf, gpuEntry.DownW)
 			if gpuOutInitialized {
-				gpu.DevAddScaled(gpuOutBuf, gpuOutBuf, downBuf, exp.score)
+				cuda.DevAddScaled(gpuOutBuf, gpuOutBuf, downBuf, exp.score)
 			} else {
-				gpu.DevScale(gpuOutBuf, downBuf, exp.score)
+				cuda.DevScale(gpuOutBuf, downBuf, exp.score)
 				gpuOutInitialized = true
 			}
 		} else {
@@ -249,7 +249,7 @@ func moeForwardGPU(outDev, xDev *gpu.DevBuf, layer *LlamaLayer, cfg LlamaConfig,
 
 	if gpuOutBuf != nil && gpuOutInitialized {
 		if outDev != nil {
-			gpu.DevCopy(outDev, gpuOutBuf)
+			cuda.DevCopy(outDev, gpuOutBuf)
 		} else {
 			gpuOut := gpuOutBuf.Data()
 			for i := range out {
@@ -276,9 +276,9 @@ func moeForwardGPU(outDev, xDev *gpu.DevBuf, layer *LlamaLayer, cfg LlamaConfig,
 	}
 	if outDev != nil && gpuOutInitialized {
 		if cpuFallbackUsed {
-			cpuOut := gpu.NewDevBufFrom(out)
+			cpuOut := cuda.NewDevBufFrom(out)
 			if cpuOut.ToGPU() == nil {
-				gpu.DevAdd(outDev, outDev, cpuOut)
+				cuda.DevAdd(outDev, outDev, cpuOut)
 				cpuOut.Free()
 				return nil
 			}
