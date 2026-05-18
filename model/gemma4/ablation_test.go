@@ -1,7 +1,7 @@
 //go:build diagnostic
 // +build diagnostic
 
-package model
+package gemma4_test
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
+	"github.com/rcarmo/go-pherence/model"
 )
 
 func TestGemma4AblationLayerScalar(t *testing.T) {
@@ -20,7 +21,7 @@ func TestGemma4AblationLayerScalar(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	m, err := LoadLlama(dir)
+	m, err := model.LoadLlama(dir)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -54,4 +55,17 @@ func TestGemma4AblationLayerScalar(t *testing.T) {
 	}
 	fmt.Printf("[gemma4-ablation] %s\n", strings.Join(out, ""))
 	t.Logf("output: %s", strings.Join(out, ""))
+}
+
+func gemma4Path() string {
+	if p := os.Getenv("GEMMA4_PATH"); p != "" {
+		return p
+	}
+	if _, err := os.Stat("models/gemma4-e2b-mlx4/config.json"); err == nil {
+		return "models/gemma4-e2b-mlx4"
+	}
+	if _, err := os.Stat("models/gemma4-e2b-it/config.json"); err == nil {
+		return "models/gemma4-e2b-it"
+	}
+	return "models/gemma4-e2b-mlx4"
 }
