@@ -1,4 +1,4 @@
-package model
+package qwen
 
 import (
 	"strconv"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
+	basemodel "github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -90,7 +91,7 @@ func TestNewQwenNativeMTPPlan(t *testing.T) {
 }
 
 func TestQwenNativeMTPStatsFromAcceptance(t *testing.T) {
-	acc, err := AcceptMTPDraft([]int{1, 2, 3}, []int{1, 2, 9, 8})
+	acc, err := basemodel.AcceptMTPDraft([]int{1, 2, 3}, []int{1, 2, 9, 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,14 +115,14 @@ func TestQwenNativeMTPStatsFromAcceptance(t *testing.T) {
 func TestCommitQwenNativeMTPDraftState(t *testing.T) {
 	initial := QwenNativeMTPDraftState{Pos: 10}
 	states := []QwenNativeMTPDraftState{{Pos: 11}, {Pos: 12}, {Pos: 13}}
-	acc, err := AcceptMTPDraft([]int{1, 2, 3}, []int{1, 9, 8, 7})
+	acc, err := basemodel.AcceptMTPDraft([]int{1, 2, 3}, []int{1, 9, 8, 7})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := CommitQwenNativeMTPDraftState(initial, states, acc); got.Pos != 11 {
 		t.Fatalf("commit rejected Pos=%d want 11", got.Pos)
 	}
-	acc, err = AcceptMTPDraft([]int{1, 2, 3}, []int{1, 2, 3, 7})
+	acc, err = basemodel.AcceptMTPDraft([]int{1, 2, 3}, []int{1, 2, 3, 7})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,9 +494,9 @@ func logitsForVerifierTokens(tokens []int, vocab int) [][]float32 {
 	return rows
 }
 
-func syntheticQwenMTPMainModel(meta loaderconfig.QwenNativeMTPMetadata) *LlamaModel {
-	return &LlamaModel{
-		Config: LlamaConfig{VocabSize: 2, HiddenSize: meta.HiddenSize, RMSNormEps: 1e-6},
+func syntheticQwenMTPMainModel(meta loaderconfig.QwenNativeMTPMetadata) *basemodel.LlamaModel {
+	return &basemodel.LlamaModel{
+		Config: basemodel.LlamaConfig{VocabSize: 2, HiddenSize: meta.HiddenSize, RMSNormEps: 1e-6},
 		EmbedTokens: tensor.FromFloat32([]float32{
 			1, 0, 0, 0,
 			0, 1, 0, 0,

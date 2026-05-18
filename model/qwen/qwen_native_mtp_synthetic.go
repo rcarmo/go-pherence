@@ -1,14 +1,15 @@
-package model
+package qwen
 
 import (
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
+	basemodel "github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
 // NewSyntheticQwenNativeMTPFixture returns a tiny deterministic fixture for
 // command-line correctness harnesses. It is not a model-quality fixture; it only
 // exercises native-MTP plumbing without loading Qwen3.6 weights.
-func NewSyntheticQwenNativeMTPFixture() (*LlamaModel, *QwenNativeMTPHead, loaderconfig.QwenNativeMTPMetadata, QwenNativeMTPDraftState) {
+func NewSyntheticQwenNativeMTPFixture() (*basemodel.LlamaModel, *QwenNativeMTPHead, loaderconfig.QwenNativeMTPMetadata, QwenNativeMTPDraftState) {
 	meta := loaderconfig.QwenNativeMTPMetadata{
 		HiddenSize:         4,
 		IntermediateSize:   6,
@@ -18,8 +19,8 @@ func NewSyntheticQwenNativeMTPFixture() (*LlamaModel, *QwenNativeMTPHead, loader
 		MTPNumHiddenLayers: 1,
 		HasNativeMTP:       true,
 	}
-	m := &LlamaModel{
-		Config: LlamaConfig{VocabSize: 2, HiddenSize: meta.HiddenSize, RMSNormEps: 1e-6},
+	m := &basemodel.LlamaModel{
+		Config: basemodel.LlamaConfig{VocabSize: 2, HiddenSize: meta.HiddenSize, RMSNormEps: 1e-6},
 		EmbedTokens: tensor.FromFloat32([]float32{
 			1, 0, 0, 0,
 			0, 1, 0, 0,

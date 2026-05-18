@@ -14,7 +14,7 @@ import (
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
-	"github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/model/qwen"
 )
 
 var qwen36UseGPULMHead bool
@@ -35,50 +35,50 @@ type TopLogit struct {
 }
 
 type Report struct {
-	ModelDir                   string                      `json:"model_dir"`
-	Prompt                     string                      `json:"prompt,omitempty"`
-	InputIDs                   []int                       `json:"input_ids"`
-	GeneratedIDs               []int                       `json:"generated_ids,omitempty"`
-	Decoded                    string                      `json:"decoded,omitempty"`
-	TokenID                    int                         `json:"token_id,omitempty"`
-	NextID                     int                         `json:"next_id"`
-	Logit                      float32                     `json:"logit"`
-	HiddenAbsSum               float32                     `json:"hidden_abs_sum"`
-	MTPOutputLen               int                         `json:"mtp_output_len,omitempty"`
-	MTPAbsSum                  float32                     `json:"mtp_abs_sum,omitempty"`
-	MTPNextID                  int                         `json:"mtp_next_id,omitempty"`
-	MTPLogit                   float32                     `json:"mtp_logit,omitempty"`
-	MTPVerifierNextID          int                         `json:"mtp_verifier_next_id,omitempty"`
-	MTPAcceptedByGreedy        bool                        `json:"mtp_accepted_by_greedy"`
-	PrefillMTPNextID           int                         `json:"prefill_mtp_next_id,omitempty"`
-	PrefillMTPLogit            float32                     `json:"prefill_mtp_logit,omitempty"`
-	PrefillMTPAccepted         bool                        `json:"prefill_mtp_accepted"`
-	PrefillGreedySeedMTPNextID int                         `json:"prefill_greedy_seed_mtp_next_id,omitempty"`
-	PrefillGreedySeedAccepted  bool                        `json:"prefill_greedy_seed_accepted"`
-	VerifierLogitForMTP        float32                     `json:"verifier_logit_for_mtp,omitempty"`
-	VerifierBestMinusMTP       float32                     `json:"verifier_best_minus_mtp,omitempty"`
-	MTPLogitForVerifier        float32                     `json:"mtp_logit_for_verifier,omitempty"`
-	MTPBestMinusVerifier       float32                     `json:"mtp_best_minus_verifier,omitempty"`
-	MTPDraftIDs                []int                       `json:"mtp_draft_ids,omitempty"`
-	MTPVerifierIDs             []int                       `json:"mtp_verifier_ids,omitempty"`
-	MTPAcceptedPrefix          int                         `json:"mtp_accepted_prefix,omitempty"`
-	MmapEagerBytes             int64                       `json:"mmap_eager_bytes,omitempty"`
-	MmapEagerMS                int64                       `json:"mmap_eager_ms,omitempty"`
-	GPUPrewarm                 model.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
-	GPUPrewarmMS               int64                       `json:"gpu_prewarm_ms,omitempty"`
-	GPUCache                   model.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
-	GPUVerify                  model.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
-	LinearStats                model.Qwen35LinearStats     `json:"linear_stats,omitempty"`
-	LMHeadStats                Qwen36LMHeadStats           `json:"lm_head_stats,omitempty"`
-	PrewarmTokensPerSecond     float64                     `json:"prewarm_tokens_per_second,omitempty"`
-	DecodeTokensPerSecond      float64                     `json:"decode_tokens_per_second,omitempty"`
-	GPULMHead                  bool                        `json:"gpu_lm_head,omitempty"`
-	DurationMS                 int64                       `json:"duration_ms"`
-	TokensProcessed            int                         `json:"tokens_processed"`
-	TokensPerSecond            float64                     `json:"tokens_per_second"`
-	BaseTop                    []TopLogit                  `json:"base_top,omitempty"`
-	MTPTop                     []TopLogit                  `json:"mtp_top,omitempty"`
-	Passed                     bool                        `json:"passed"`
+	ModelDir                   string                     `json:"model_dir"`
+	Prompt                     string                     `json:"prompt,omitempty"`
+	InputIDs                   []int                      `json:"input_ids"`
+	GeneratedIDs               []int                      `json:"generated_ids,omitempty"`
+	Decoded                    string                     `json:"decoded,omitempty"`
+	TokenID                    int                        `json:"token_id,omitempty"`
+	NextID                     int                        `json:"next_id"`
+	Logit                      float32                    `json:"logit"`
+	HiddenAbsSum               float32                    `json:"hidden_abs_sum"`
+	MTPOutputLen               int                        `json:"mtp_output_len,omitempty"`
+	MTPAbsSum                  float32                    `json:"mtp_abs_sum,omitempty"`
+	MTPNextID                  int                        `json:"mtp_next_id,omitempty"`
+	MTPLogit                   float32                    `json:"mtp_logit,omitempty"`
+	MTPVerifierNextID          int                        `json:"mtp_verifier_next_id,omitempty"`
+	MTPAcceptedByGreedy        bool                       `json:"mtp_accepted_by_greedy"`
+	PrefillMTPNextID           int                        `json:"prefill_mtp_next_id,omitempty"`
+	PrefillMTPLogit            float32                    `json:"prefill_mtp_logit,omitempty"`
+	PrefillMTPAccepted         bool                       `json:"prefill_mtp_accepted"`
+	PrefillGreedySeedMTPNextID int                        `json:"prefill_greedy_seed_mtp_next_id,omitempty"`
+	PrefillGreedySeedAccepted  bool                       `json:"prefill_greedy_seed_accepted"`
+	VerifierLogitForMTP        float32                    `json:"verifier_logit_for_mtp,omitempty"`
+	VerifierBestMinusMTP       float32                    `json:"verifier_best_minus_mtp,omitempty"`
+	MTPLogitForVerifier        float32                    `json:"mtp_logit_for_verifier,omitempty"`
+	MTPBestMinusVerifier       float32                    `json:"mtp_best_minus_verifier,omitempty"`
+	MTPDraftIDs                []int                      `json:"mtp_draft_ids,omitempty"`
+	MTPVerifierIDs             []int                      `json:"mtp_verifier_ids,omitempty"`
+	MTPAcceptedPrefix          int                        `json:"mtp_accepted_prefix,omitempty"`
+	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
+	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
+	GPUPrewarm                 qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
+	GPUPrewarmMS               int64                      `json:"gpu_prewarm_ms,omitempty"`
+	GPUCache                   qwen.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
+	GPUVerify                  qwen.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
+	LinearStats                qwen.Qwen35LinearStats     `json:"linear_stats,omitempty"`
+	LMHeadStats                Qwen36LMHeadStats          `json:"lm_head_stats,omitempty"`
+	PrewarmTokensPerSecond     float64                    `json:"prewarm_tokens_per_second,omitempty"`
+	DecodeTokensPerSecond      float64                    `json:"decode_tokens_per_second,omitempty"`
+	GPULMHead                  bool                       `json:"gpu_lm_head,omitempty"`
+	DurationMS                 int64                      `json:"duration_ms"`
+	TokensProcessed            int                        `json:"tokens_processed"`
+	TokensPerSecond            float64                    `json:"tokens_per_second"`
+	BaseTop                    []TopLogit                 `json:"base_top,omitempty"`
+	MTPTop                     []TopLogit                 `json:"mtp_top,omitempty"`
+	Passed                     bool                       `json:"passed"`
 }
 
 type SweepReport struct {
@@ -101,13 +101,13 @@ type rawTensor struct {
 }
 
 type runner struct {
-	bundle  *model.Qwen35NativeMTPBundle
-	state   model.Qwen35BaseForwardState
+	bundle  *qwen.Qwen35NativeMTPBundle
+	state   qwen.Qwen35BaseForwardState
 	emb     rawTensor
 	normW   []float32
 	lm      rawTensor
 	lmGPU   *nvidia.Buffer
-	mtpHead *model.QwenNativeMTPHead
+	mtpHead *qwen.QwenNativeMTPHead
 }
 
 func main() {
@@ -146,20 +146,20 @@ func main() {
 		os.Exit(2)
 	}
 	qwen36UseGPULMHead = *gpuLMHead
-	model.SetQwen35GPUEnabled(*useGPU)
-	model.SetQwen35GPUCacheHeadroom(int64(*gpuCacheHeadroomMB) * 1024 * 1024)
-	model.SetQwen35GPUTransientDetail(*gpuTransientDetail)
-	model.SetQwen35LinearTiming(*gpuTiming)
-	model.SetQwen35GPUMLPEnabled(*gpuMLP)
-	model.SetQwen35GPUVerify(*gpuVerify, float32(*gpuVerifyTol))
-	model.ResetQwen35LinearStats()
+	qwen.SetQwen35GPUEnabled(*useGPU)
+	qwen.SetQwen35GPUCacheHeadroom(int64(*gpuCacheHeadroomMB) * 1024 * 1024)
+	qwen.SetQwen35GPUTransientDetail(*gpuTransientDetail)
+	qwen.SetQwen35LinearTiming(*gpuTiming)
+	qwen.SetQwen35GPUMLPEnabled(*gpuMLP)
+	qwen.SetQwen35GPUVerify(*gpuVerify, float32(*gpuVerifyTol))
+	qwen.ResetQwen35LinearStats()
 	qwen36LMHeadStats = Qwen36LMHeadStats{}
-	defer model.ResetQwen35GPUCache()
+	defer qwen.ResetQwen35GPUCache()
 	data, err := os.ReadFile(filepath.Join(*dir, "config.json"))
 	check("config", err)
 	meta, err := loaderconfig.ParseQwenNativeMTPMetadata(data)
 	check("parse config", err)
-	bundle, err := model.LoadQwen35NativeMTPBundleFromDir(*dir)
+	bundle, err := qwen.LoadQwen35NativeMTPBundleFromDir(*dir)
 	check("load bundle", err)
 	defer bundle.Close()
 	var mmapEagerBytes int64
@@ -172,7 +172,7 @@ func main() {
 	}
 	state, err := bundle.NewForwardState()
 	check("state", err)
-	src, err := model.OpenQwenNativeMTPSafetensorsSource(*dir)
+	src, err := qwen.OpenQwenNativeMTPSafetensorsSource(*dir)
 	check("open tensors", err)
 	defer src.Close()
 	r := runner{bundle: bundle, state: state, emb: mustRaw(src, "model.language_model.embed_tokens.weight"), normW: bf16All(mustRaw(src, "model.language_model.norm.weight")), lm: mustRaw(src, "lm_head.weight")}
@@ -186,23 +186,23 @@ func main() {
 			defer r.lmGPU.Free()
 		}
 	}
-	model.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
-	var prewarmStats model.Qwen35GPUPrewarmStats
+	qwen.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
+	var prewarmStats qwen.Qwen35GPUPrewarmStats
 	var prewarmMS int64
 	if *useGPU && *gpuPrewarm {
 		prewarmStart := time.Now()
-		prewarmStats = model.PrewarmQwen35GPUCache(bundle.Base)
+		prewarmStats = qwen.PrewarmQwen35GPUCache(bundle.Base)
 		prewarmMS = time.Since(prewarmStart).Milliseconds()
 	}
 	if *mtp {
-		r.mtpHead, err = model.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)
+		r.mtpHead, err = qwen.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)
 		check("load MTP head", err)
 	}
 	ropeMax := meta.MaxPositionEmbeddings
 	if ropeMax <= 0 || ropeMax > 4096 {
 		ropeMax = 4096
 	}
-	ropeFreqs := model.NewQwen35RoPEFreqs(meta, ropeMax)
+	ropeFreqs := qwen.NewQwen35RoPEFreqs(meta, ropeMax)
 	if *sweep != "" {
 		tok, err := tokenizer.Load(filepath.Join(*dir, "tokenizer.json"))
 		check("tokenizer", err)
@@ -292,9 +292,9 @@ func main() {
 	rep.MmapEagerMS = mmapEagerMS
 	rep.GPUPrewarm = prewarmStats
 	rep.GPUPrewarmMS = prewarmMS
-	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
-	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
-	rep.LinearStats = model.Qwen35LinearStatsSnapshot()
+	rep.GPUCache = qwen.Qwen35GPUCacheStatsSnapshot()
+	rep.GPUVerify = qwen.Qwen35GPUVerifyStatsSnapshot()
+	rep.LinearStats = qwen.Qwen35LinearStatsSnapshot()
 	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()
 	addThroughputBreakdown(&rep)
 	rep.GPULMHead = r.lmGPU != nil
@@ -360,7 +360,7 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 	rep.MTPBestMinusVerifier = rep.MTPLogit - rep.MTPLogitForVerifier
 	rep.MTPDraftIDs, err = draftMTPIDs(mtpHead, r.emb, r.lm, generated[len(generated)-1], preNormHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps)
 	check("MTP draft steps", err)
-	verifier := runner{bundle: r.bundle, state: model.CloneQwen35BaseForwardState(r.state), emb: r.emb, normW: r.normW, lm: r.lm}
+	verifier := runner{bundle: r.bundle, state: qwen.CloneQwen35BaseForwardState(r.state), emb: r.emb, normW: r.normW, lm: r.lm}
 	verifierNext := rep.NextID
 	for _, draftID := range rep.MTPDraftIDs {
 		rep.MTPVerifierIDs = append(rep.MTPVerifierIDs, verifierNext)
@@ -374,7 +374,7 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 	rep.Passed = rep.Passed && rep.MTPOutputLen == meta.HiddenSize && rep.MTPNextID >= 0
 }
 
-func draftMTPIDs(head *model.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int) ([]int, error) {
+func draftMTPIDs(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int) ([]int, error) {
 	if head == nil || len(head.Layers) == 0 || head.Norm == nil {
 		return nil, fmt.Errorf("incomplete Qwen MTP head")
 	}
@@ -404,8 +404,8 @@ func draftMTPIDs(head *model.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, 
 	return ids, nil
 }
 
-func newRunner(bundle *model.Qwen35NativeMTPBundle, state model.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, lmGPU *nvidia.Buffer, mtpHead *model.QwenNativeMTPHead) runner {
-	return runner{bundle: bundle, state: model.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, lmGPU: lmGPU, mtpHead: mtpHead}
+func newRunner(bundle *qwen.Qwen35NativeMTPBundle, state qwen.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, lmGPU *nvidia.Buffer, mtpHead *qwen.QwenNativeMTPHead) runner {
+	return runner{bundle: bundle, state: qwen.CloneQwen35BaseForwardState(state), emb: emb, normW: normW, lm: lm, lmGPU: lmGPU, mtpHead: mtpHead}
 }
 
 func qwen36LMHeadStatsSnapshot() Qwen36LMHeadStats {
@@ -499,9 +499,9 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	}
 	rep := Report{ModelDir: dir, Prompt: prompt, InputIDs: ids, GeneratedIDs: generated, Decoded: tok.Decode(generated), TokenID: ids[len(ids)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(start).Milliseconds(), TokensProcessed: len(ids) + len(generated), Passed: next >= 0 && len(h) == meta.HiddenSize}
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
-	rep.GPUCache = model.Qwen35GPUCacheStatsSnapshot()
-	rep.GPUVerify = model.Qwen35GPUVerifyStatsSnapshot()
-	rep.LinearStats = model.Qwen35LinearStatsSnapshot()
+	rep.GPUCache = qwen.Qwen35GPUCacheStatsSnapshot()
+	rep.GPUVerify = qwen.Qwen35GPUVerifyStatsSnapshot()
+	rep.LinearStats = qwen.Qwen35LinearStatsSnapshot()
 	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()
 	addThroughputBreakdown(&rep)
 	rep.GPULMHead = r.lmGPU != nil

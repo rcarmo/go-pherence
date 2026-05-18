@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/model/qwen"
 )
 
 func TestQwenMTPSynthReportJSON(t *testing.T) {
 	report := Report{
 		Passed:  true,
 		Drafted: []int{1, 2},
-		Stats:   model.QwenNativeMTPStats{DraftedTokens: 2, AcceptedTokens: 2, BonusTokens: 1, OutputTokens: 3},
+		Stats:   qwen.QwenNativeMTPStats{DraftedTokens: 2, AcceptedTokens: 2, BonusTokens: 1, OutputTokens: 3},
 	}
 	data, err := json.Marshal(report)
 	if err != nil {

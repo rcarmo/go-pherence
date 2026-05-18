@@ -1,4 +1,4 @@
-package model
+package qwen
 
 import (
 	"fmt"

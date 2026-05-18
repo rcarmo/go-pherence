@@ -7,13 +7,14 @@ import (
 	"os"
 
 	"github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/model/qwen"
 )
 
 type Report struct {
-	Passed     bool                     `json:"passed"`
-	Drafted    []int                    `json:"drafted"`
-	Acceptance model.MTPAcceptance      `json:"acceptance"`
-	Stats      model.QwenNativeMTPStats `json:"stats"`
+	Passed     bool                    `json:"passed"`
+	Drafted    []int                   `json:"drafted"`
+	Acceptance model.MTPAcceptance     `json:"acceptance"`
+	Stats      qwen.QwenNativeMTPStats `json:"stats"`
 }
 
 func main() {
@@ -23,8 +24,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "steps must be non-negative")
 		os.Exit(2)
 	}
-	m, head, meta, state := model.NewSyntheticQwenNativeMTPFixture()
-	plan, err := model.NewQwenNativeMTPPlan(0, state, *steps, meta)
+	m, head, meta, state := qwen.NewSyntheticQwenNativeMTPFixture()
+	plan, err := qwen.NewQwenNativeMTPPlan(0, state, *steps, meta)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "plan: %v\n", err)
 		os.Exit(2)
@@ -36,7 +37,7 @@ func main() {
 	}
 	verifier := append([]int(nil), drafted...)
 	verifier = append(verifier, 1)
-	res, err := model.RunQwenNativeMTPPlan(head, m, plan, verifier, 1e-6, meta)
+	res, err := qwen.RunQwenNativeMTPPlan(head, m, plan, verifier, 1e-6, meta)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "run: %v\n", err)
 		os.Exit(2)

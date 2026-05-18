@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
-	"github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/model/qwen"
 )
 
 type Report struct {
@@ -37,7 +37,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "parse config: %v\n", err)
 		os.Exit(2)
 	}
-	head, err := model.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)
+	head, err := qwen.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "load MTP head: %v\n", err)
 		os.Exit(2)
