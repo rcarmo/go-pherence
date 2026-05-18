@@ -1,4 +1,4 @@
-package gpu
+package nv
 
 // NVIDIA GPU direct ioctl interface — pure Go, no libcuda, no CGo.
 //

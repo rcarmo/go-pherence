@@ -1,4 +1,4 @@
-package gpu
+package nv
 
 // NV GPFifo: GPU command submission queue via direct ioctl.
 //

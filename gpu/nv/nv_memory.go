@@ -1,4 +1,4 @@
-package gpu
+package nv
 
 // NV memory management and compute dispatch via direct ioctl.
 // Continues from nv_ioctl.go (device init).

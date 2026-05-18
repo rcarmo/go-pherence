@@ -1,4 +1,4 @@
-package gpu
+package nv
 
 // NV GPU capability queries via RM control ioctls.
 
