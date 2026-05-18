@@ -1,4 +1,4 @@
-package ptx
+package kernels
 
 // Individual PTX kernels for LLM inference.
 // Split into separate modules for reliability.

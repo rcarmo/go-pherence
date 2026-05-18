@@ -1,4 +1,4 @@
-package ptx
+package kernels
 
 // MLXGemvPTX is the optimized MLX GEMV kernel.
 var MLXGemvPTX = `.version 7.0

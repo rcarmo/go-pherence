@@ -1,4 +1,4 @@
-package ptx
+package kernels
 
 // BF16 PTX kernels
 
