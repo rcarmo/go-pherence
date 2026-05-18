@@ -10,7 +10,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4EarlyGPUStageSyncs(t *testing.T) {
@@ -21,10 +21,10 @@ func TestGemma4EarlyGPUStageSyncs(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true
@@ -63,7 +63,7 @@ func TestGemma4EarlyGPUStageSyncs(t *testing.T) {
 	totalDim := nl * hpl
 
 	check := func(stage string) {
-		if err := cuda.SyncErr(); err != nil {
+		if err := nvidia.SyncErr(); err != nil {
 			t.Fatalf("%s: %v", stage, err)
 		}
 	}
@@ -78,18 +78,18 @@ func TestGemma4EarlyGPUStageSyncs(t *testing.T) {
 		hd[i] *= scale
 	}
 	g.hidden.MarkDirty()
-	cuda.DevToBF16(g.hidden, h)
+	nvidia.DevToBF16(g.hidden, h)
 	check("embed_scaled")
 
 	// Model-level per-layer projection
-	cuda.DevGemv(g.perLayerProjBuf, g.hidden, g.perLayerModelProj, totalDim, h)
+	nvidia.DevGemv(g.perLayerProjBuf, g.hidden, g.perLayerModelProj, totalDim, h)
 	check("pli_proj_raw")
-	cuda.DevScale(g.perLayerProjBuf, g.perLayerProjBuf, m.PerLayerProjScale)
+	nvidia.DevScale(g.perLayerProjBuf, g.perLayerProjBuf, m.PerLayerProjScale)
 	check("pli_proj_scaled")
 	for ll := 0; ll < nl; ll++ {
 		sl := g.perLayerProjBuf.Slice(ll*hpl, hpl)
-		cuda.DevRMSNorm(sl, sl, g.perLayerProjNorm, float32(cfg.RMSNormEps))
-		if err := cuda.SyncErr(); err != nil {
+		nvidia.DevRMSNorm(sl, sl, g.perLayerProjNorm, float32(cfg.RMSNormEps))
+		if err := nvidia.SyncErr(); err != nil {
 			t.Fatalf("pli_proj_norm[%d]: %v", ll, err)
 		}
 	}
@@ -98,34 +98,34 @@ func TestGemma4EarlyGPUStageSyncs(t *testing.T) {
 		embRow := m.EmbedPerLayer[traceTokID*totalDim : (traceTokID+1)*totalDim]
 		copy(g.perLayerEmbedBuf.Data(), embRow)
 		g.perLayerEmbedBuf.MarkDirty()
-		cuda.DevScale(g.perLayerEmbedBuf, g.perLayerEmbedBuf, m.EmbedPerLayerScale)
+		nvidia.DevScale(g.perLayerEmbedBuf, g.perLayerEmbedBuf, m.EmbedPerLayerScale)
 		check("pli_embed_scaled")
-		cuda.DevAdd(g.perLayerProjBuf, g.perLayerProjBuf, g.perLayerEmbedBuf)
+		nvidia.DevAdd(g.perLayerProjBuf, g.perLayerProjBuf, g.perLayerEmbedBuf)
 		check("pli_add")
-		cuda.DevScale(g.perLayerProjBuf, g.perLayerProjBuf, m.PerLayerInputScale)
+		nvidia.DevScale(g.perLayerProjBuf, g.perLayerProjBuf, m.PerLayerInputScale)
 		check("pli_input_scaled")
 	}
 
 	// Layer 0 entry
-	cuda.DevCopy(g.residual, g.hidden)
+	nvidia.DevCopy(g.residual, g.hidden)
 	check("layer0_residual_copy")
-	cuda.DevRMSNorm(g.normed, g.hidden, layer0.InputNorm, float32(cfg.RMSNormEps))
+	nvidia.DevRMSNorm(g.normed, g.hidden, layer0.InputNorm, float32(cfg.RMSNormEps))
 	check("layer0_inputnorm")
-	cuda.DevToBF16(g.normed, h)
+	nvidia.DevToBF16(g.normed, h)
 	check("layer0_inputnorm_bf16")
 
 	if layer0.QWmg != nil {
-		cuda.GemvMLXDirect(g.q, g.normed, layer0.QWmg)
+		nvidia.GemvMLXDirect(g.q, g.normed, layer0.QWmg)
 		check("layer0_q_proj")
-		cuda.GemvMLXDirect(g.k, g.normed, layer0.KWmg)
+		nvidia.GemvMLXDirect(g.k, g.normed, layer0.KWmg)
 		check("layer0_k_proj")
-		cuda.GemvMLXDirect(g.v, g.normed, layer0.VWmg)
+		nvidia.GemvMLXDirect(g.v, g.normed, layer0.VWmg)
 		check("layer0_v_proj")
 	} else {
 		t.Skip("layer0 not using MLX quantized GPU weights")
 	}
-	cuda.DevToBF16(g.q, qDim)
-	cuda.DevToBF16(g.k, layerKVDim)
-	cuda.DevToBF16(g.v, layerKVDim)
+	nvidia.DevToBF16(g.q, qDim)
+	nvidia.DevToBF16(g.k, layerKVDim)
+	nvidia.DevToBF16(g.v, layerKVDim)
 	check("layer0_qkv_bf16")
 }

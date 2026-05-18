@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4Layer15PostAttnModelBuffers(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4Layer15PostAttnModelBuffers(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -73,10 +73,10 @@ func TestGemma4Layer15PostAttnModelBuffers(t *testing.T) {
 	g.residual.MarkDirty()
 	copy(g.oOut.Data(), gpuO)
 	g.oOut.MarkDirty()
-	cuda.DevAdd(g.hidden, g.residual, g.oOut)
-	cuda.DevCopy(g.residual, g.hidden)
-	cuda.DevRMSNorm(g.normed, g.hidden, g.Layers[15].PostNorm, float32(m.Config.RMSNormEps))
-	cuda.Sync()
+	nvidia.DevAdd(g.hidden, g.residual, g.oOut)
+	nvidia.DevCopy(g.residual, g.hidden)
+	nvidia.DevRMSNorm(g.normed, g.hidden, g.Layers[15].PostNorm, float32(m.Config.RMSNormEps))
+	nvidia.Sync()
 	got := append([]float32(nil), g.normed.Data()[:len(gpuMLPIn)]...)
 
 	maxAbs, meanAbs := diffStats(gpuMLPIn, got)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 	"github.com/rcarmo/go-pherence/backends/simd"
 )
 
@@ -21,10 +21,10 @@ func TestGemma4PostGenerateInputNormIsolation(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -83,13 +83,13 @@ func TestGemma4PostGenerateInputNormIsolation(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		var inBuf, outBuf *cuda.DevBuf
+		var inBuf, outBuf *nvidia.DevBuf
 		if tc.useModelIn {
 			inBuf = g.hidden
 			copy(inBuf.Data(), cpuHidden)
 			inBuf.MarkDirty()
 		} else {
-			inBuf = cuda.NewDevBufFrom(append([]float32(nil), cpuHidden...))
+			inBuf = nvidia.NewDevBufFrom(append([]float32(nil), cpuHidden...))
 			if err := inBuf.ToGPU(); err != nil {
 				t.Fatalf("%s inBuf.ToGPU: %v", tc.name, err)
 			}
@@ -97,14 +97,14 @@ func TestGemma4PostGenerateInputNormIsolation(t *testing.T) {
 		if tc.useModelOut {
 			outBuf = g.normed
 		} else {
-			outBuf = cuda.NewDevBuf(len(cpuHidden))
+			outBuf = nvidia.NewDevBuf(len(cpuHidden))
 			if err := outBuf.ToGPU(); err != nil {
 				t.Fatalf("%s outBuf.ToGPU: %v", tc.name, err)
 			}
 		}
-		cuda.DevRMSNorm(outBuf, inBuf, weight, float32(m.Config.RMSNormEps))
-		cuda.DevToBF16(outBuf, len(cpuHidden))
-		cuda.Sync()
+		nvidia.DevRMSNorm(outBuf, inBuf, weight, float32(m.Config.RMSNormEps))
+		nvidia.DevToBF16(outBuf, len(cpuHidden))
+		nvidia.Sync()
 		got := append([]float32(nil), outBuf.Data()[:len(cpuHidden)]...)
 		maxAbs, meanAbs := diffStats(want, got)
 		t.Logf("post-generate %s: maxAbs=%.6g meanAbs=%.6g", tc.name, maxAbs, meanAbs)

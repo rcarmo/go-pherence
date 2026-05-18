@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4Layer15DownBufferIsolation(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4Layer15DownBufferIsolation(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -82,13 +82,13 @@ func TestGemma4Layer15DownBufferIsolation(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		var inBuf, outBuf *cuda.DevBuf
+		var inBuf, outBuf *nvidia.DevBuf
 		if tc.useModelIn {
 			inBuf = g.gate
 			copy(inBuf.Data(), gateAct)
 			inBuf.MarkDirty()
 		} else {
-			inBuf = cuda.NewDevBufFrom(append([]float32(nil), gateAct...))
+			inBuf = nvidia.NewDevBufFrom(append([]float32(nil), gateAct...))
 			if err := inBuf.ToGPU(); err != nil {
 				t.Fatalf("%s inBuf.ToGPU: %v", tc.name, err)
 			}
@@ -96,13 +96,13 @@ func TestGemma4Layer15DownBufferIsolation(t *testing.T) {
 		if tc.useModelOut {
 			outBuf = g.down
 		} else {
-			outBuf = cuda.NewDevBuf(len(want))
+			outBuf = nvidia.NewDevBuf(len(want))
 			if err := outBuf.ToGPU(); err != nil {
 				t.Fatalf("%s outBuf.ToGPU: %v", tc.name, err)
 			}
 		}
-		cuda.GemvMLX(outBuf, inBuf, w)
-		cuda.Sync()
+		nvidia.GemvMLX(outBuf, inBuf, w)
+		nvidia.Sync()
 		got := append([]float32(nil), outBuf.Data()[:len(want)]...)
 		maxAbs, meanAbs := diffStats(want, got)
 		t.Logf("%s fast-down: maxAbs=%.6g meanAbs=%.6g", tc.name, maxAbs, meanAbs)

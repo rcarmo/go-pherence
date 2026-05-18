@@ -11,7 +11,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 type opTraceKey struct {
@@ -41,10 +41,10 @@ func TestGemma4CPUvsGPUProjectionTrace(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {

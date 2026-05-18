@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4StandaloneQKNormVsCPU(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4StandaloneQKNormVsCPU(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -49,8 +49,8 @@ func TestGemma4StandaloneQKNormVsCPU(t *testing.T) {
 	_ = m.Generate(tok.Encode("Hello"), 1)
 
 	checkQKNorm := func(layerIdx int, kind string, input, want []float32, weight []float32, numHeads, headDim int) {
-		buf := cuda.NewDevBufFrom(append([]float32(nil), input...))
-		wbuf := cuda.NewDevBufFrom(append([]float32(nil), weight...))
+		buf := nvidia.NewDevBufFrom(append([]float32(nil), input...))
+		wbuf := nvidia.NewDevBufFrom(append([]float32(nil), weight...))
 		if err := buf.ToGPU(); err != nil {
 			t.Fatalf("buf.ToGPU: %v", err)
 		}
@@ -59,10 +59,10 @@ func TestGemma4StandaloneQKNormVsCPU(t *testing.T) {
 		}
 		for head := 0; head < numHeads; head++ {
 			sl := buf.Slice(head*headDim, headDim)
-			cuda.DevRMSNorm(sl, sl, wbuf, float32(m.Config.RMSNormEps))
-			cuda.DevToBF16(sl, headDim)
+			nvidia.DevRMSNorm(sl, sl, wbuf, float32(m.Config.RMSNormEps))
+			nvidia.DevToBF16(sl, headDim)
 		}
-		cuda.Sync()
+		nvidia.Sync()
 		got := append([]float32(nil), buf.Data()[:len(want)]...)
 		maxAbs, meanAbs := diffStats(want, got)
 		t.Logf("standalone layer %d %s_qknorm: maxAbs=%.6g meanAbs=%.6g", layerIdx, kind, maxAbs, meanAbs)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4Layer15PostAttnBlockIsolation(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4Layer15PostAttnBlockIsolation(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -91,10 +91,10 @@ func TestGemma4Layer15PostAttnBlockIsolation(t *testing.T) {
 	bf16Slice(cpuRecon)
 
 	// GPU recompute on fresh buffers using the same captured inputs and the same norm sequence.
-	hidBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuHiddenIn...))
-	oBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuO...))
-	tmpBuf := cuda.NewDevBuf(len(gpuHiddenIn))
-	outBuf := cuda.NewDevBuf(len(gpuHiddenIn))
+	hidBuf := nvidia.NewDevBufFrom(append([]float32(nil), gpuHiddenIn...))
+	oBuf := nvidia.NewDevBufFrom(append([]float32(nil), gpuO...))
+	tmpBuf := nvidia.NewDevBuf(len(gpuHiddenIn))
+	outBuf := nvidia.NewDevBuf(len(gpuHiddenIn))
 	postBuf := g.Layers[15].PostNorm
 	preBuf := g.Layers[15].PreFFNNorm
 	defer hidBuf.Free()
@@ -113,11 +113,11 @@ func TestGemma4Layer15PostAttnBlockIsolation(t *testing.T) {
 	if err := outBuf.ToGPU(); err != nil {
 		t.Fatalf("outBuf.ToGPU: %v", err)
 	}
-	cuda.DevRMSNorm(tmpBuf, oBuf, postBuf, float32(m.Config.RMSNormEps))
-	cuda.DevAdd(outBuf, hidBuf, tmpBuf)
-	cuda.DevRMSNorm(outBuf, outBuf, preBuf, float32(m.Config.RMSNormEps))
-	cuda.DevToBF16(outBuf, len(gpuHiddenIn))
-	cuda.Sync()
+	nvidia.DevRMSNorm(tmpBuf, oBuf, postBuf, float32(m.Config.RMSNormEps))
+	nvidia.DevAdd(outBuf, hidBuf, tmpBuf)
+	nvidia.DevRMSNorm(outBuf, outBuf, preBuf, float32(m.Config.RMSNormEps))
+	nvidia.DevToBF16(outBuf, len(gpuHiddenIn))
+	nvidia.Sync()
 	gpuRecon := append([]float32(nil), outBuf.Data()[:len(gpuMLPIn)]...)
 
 	maxAbs, meanAbs := diffStats(cpuRecon, gpuRecon)

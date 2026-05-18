@@ -13,12 +13,12 @@ import (
 
 	"github.com/rcarmo/go-pherence/runtime/quant"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 	"github.com/rcarmo/go-pherence/backends/simd"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
-func kvCopyByteRange(pos, kvDim, capacityBytes int) (uint64, cuda.CUdeviceptr, bool) {
+func kvCopyByteRange(pos, kvDim, capacityBytes int) (uint64, nvidia.CUdeviceptr, bool) {
 	if pos < 0 || kvDim <= 0 || capacityBytes < 0 {
 		return 0, 0, false
 	}
@@ -42,7 +42,7 @@ func kvCopyByteRange(pos, kvDim, capacityBytes int) (uint64, cuda.CUdeviceptr, b
 	if !ok {
 		return 0, 0, false
 	}
-	return uint64(kvBytesInt), cuda.CUdeviceptr(uint64(offBytes)), true
+	return uint64(kvBytesInt), nvidia.CUdeviceptr(uint64(offBytes)), true
 }
 
 // GPUModel wraps a LlamaModel with GPU-resident weights and buffers.
@@ -54,28 +54,28 @@ type GPUModel struct {
 	Layers []gpuLayerBufs
 
 	// MoE expert pool (nil if not MoE)
-	Experts *cuda.ExpertPool
+	Experts *nvidia.ExpertPool
 
 	// Work buffers (GPU-resident)
-	hidden, residual, normed *cuda.DevBuf
-	q, k, v, attnOut, oOut   *cuda.DevBuf
-	gate, up, down           *cuda.DevBuf
+	hidden, residual, normed *nvidia.DevBuf
+	q, k, v, attnOut, oOut   *nvidia.DevBuf
+	gate, up, down           *nvidia.DevBuf
 	// Gemma4 per-layer input gating buffers
-	perLayerProjBuf   *cuda.DevBuf // [numLayers * hiddenPerLayer]
-	perLayerEmbedBuf  *cuda.DevBuf // scratch row upload, same shape as perLayerProjBuf
-	pliGateBuf        *cuda.DevBuf // [hiddenPerLayer]
-	pliProjBuf        *cuda.DevBuf // [hidden]
-	perLayerModelProj *cuda.DevBuf // [numLayers*hiddenPerLayer, hidden]
-	perLayerProjNorm  *cuda.DevBuf // [hiddenPerLayer]
+	perLayerProjBuf   *nvidia.DevBuf // [numLayers * hiddenPerLayer]
+	perLayerEmbedBuf  *nvidia.DevBuf // scratch row upload, same shape as perLayerProjBuf
+	pliGateBuf        *nvidia.DevBuf // [hiddenPerLayer]
+	pliProjBuf        *nvidia.DevBuf // [hidden]
+	perLayerModelProj *nvidia.DevBuf // [numLayers*hiddenPerLayer, hidden]
+	perLayerProjNorm  *nvidia.DevBuf // [hiddenPerLayer]
 
 	// KV cache (GPU-resident for fast path, CPU for fallback)
-	kvCacheK, kvCacheV [][]float32    // CPU slices
-	kvGPU_K, kvGPU_V   []*cuda.DevBuf // GPU buffers [maxSeq * kvDim] per layer
+	kvCacheK, kvCacheV [][]float32      // CPU slices
+	kvGPU_K, kvGPU_V   []*nvidia.DevBuf // GPU buffers [maxSeq * kvDim] per layer
 
 	// RoPE precomputed cos/sin
-	ropeCosSin     *cuda.DevBuf
-	ropeCosSinSWA  *cuda.DevBuf // Gemma4: SWA RoPE
-	ropeCosSinFull *cuda.DevBuf // Gemma4: full attention RoPE
+	ropeCosSin     *nvidia.DevBuf
+	ropeCosSinSWA  *nvidia.DevBuf // Gemma4: SWA RoPE
+	ropeCosSinFull *nvidia.DevBuf // Gemma4: full attention RoPE
 	ropeHalfSWA    int
 	ropeHalfFull   int
 
@@ -83,11 +83,11 @@ type GPUModel struct {
 	normWeight []float32
 
 	// GPU LM head
-	lmHeadGPU    *cuda.DevBuf       // [vocab × h] F32 on GPU
-	lmHeadMLXGPU *cuda.GPUMLXWeight // optional quantized LM head on GPU
-	normGPU      *cuda.DevBuf       // final norm weights on GPU
-	logitsGPU    *cuda.DevBuf       // [vocab] logits output on GPU
-	lmHead       []float32          // [vocab, h]
+	lmHeadGPU    *nvidia.DevBuf       // [vocab × h] F32 on GPU
+	lmHeadMLXGPU *nvidia.GPUMLXWeight // optional quantized LM head on GPU
+	normGPU      *nvidia.DevBuf       // final norm weights on GPU
+	logitsGPU    *nvidia.DevBuf       // [vocab] logits output on GPU
+	lmHead       []float32            // [vocab, h]
 	vocabSize    int
 }
 
@@ -104,30 +104,30 @@ func shouldUseCompactMLXLMHead(hasMLX bool, lmBytes, freeBytes uint64) bool {
 }
 
 type gpuLayerBufs struct {
-	QW, KW, VW, OW          *cuda.DevBuf
-	QB, KB, VB              *cuda.DevBuf
-	QNorm, KNorm            *cuda.DevBuf // QK-Norm (Qwen3)
-	GateW, UpW, DownW       *cuda.DevBuf
-	InputNorm, PostNorm     *cuda.DevBuf
-	PreFFNNorm, PostFFNNorm *cuda.DevBuf // Gemma3/4
+	QW, KW, VW, OW          *nvidia.DevBuf
+	QB, KB, VB              *nvidia.DevBuf
+	QNorm, KNorm            *nvidia.DevBuf // QK-Norm (Qwen3)
+	GateW, UpW, DownW       *nvidia.DevBuf
+	InputNorm, PostNorm     *nvidia.DevBuf
+	PreFFNNorm, PostFFNNorm *nvidia.DevBuf // Gemma3/4
 	// GPTQ quantized (CPU fallback)
 	QWq, KWq, VWq, OWq   *QuantWeight
 	GateWq, UpWq, DownWq *QuantWeight
 	// GPTQ on GPU
-	QWg, KWg, VWg, OWg   *cuda.GPUQuantWeight
-	GateWg, UpWg, DownWg *cuda.GPUQuantWeight
+	QWg, KWg, VWg, OWg   *nvidia.GPUQuantWeight
+	GateWg, UpWg, DownWg *nvidia.GPUQuantWeight
 	// MLX on GPU
-	QWmg, KWmg, VWmg, OWmg  *cuda.GPUMLXWeight
-	GateWmg, UpWmg, DownWmg *cuda.GPUMLXWeight
-	RouterWmg               *cuda.GPUMLXWeight
+	QWmg, KWmg, VWmg, OWmg  *nvidia.GPUMLXWeight
+	GateWmg, UpWmg, DownWmg *nvidia.GPUMLXWeight
+	RouterWmg               *nvidia.GPUMLXWeight
 	// MLX on CPU
 	QWm, KWm, VWm, OWm   *quant.MLXQuantWeight
 	GateWm, UpWm, DownWm *quant.MLXQuantWeight
 	// Gemma4 per-layer input gating on GPU (raw row-major F32 weights)
-	PLIGate, PLIProj, PLIPostNorm *cuda.DevBuf
+	PLIGate, PLIProj, PLIPostNorm *nvidia.DevBuf
 }
 
-func freeDevBufs(bufs ...*cuda.DevBuf) {
+func freeDevBufs(bufs ...*nvidia.DevBuf) {
 	for _, b := range bufs {
 		if b != nil {
 			b.Free()
@@ -142,12 +142,12 @@ func (gl *gpuLayerBufs) free() {
 	freeDevBufs(gl.QW, gl.KW, gl.VW, gl.OW, gl.QB, gl.KB, gl.VB, gl.QNorm, gl.KNorm,
 		gl.GateW, gl.UpW, gl.DownW, gl.InputNorm, gl.PostNorm, gl.PreFFNNorm, gl.PostFFNNorm,
 		gl.PLIGate, gl.PLIProj, gl.PLIPostNorm)
-	for _, qw := range []*cuda.GPUQuantWeight{gl.QWg, gl.KWg, gl.VWg, gl.OWg, gl.GateWg, gl.UpWg, gl.DownWg} {
+	for _, qw := range []*nvidia.GPUQuantWeight{gl.QWg, gl.KWg, gl.VWg, gl.OWg, gl.GateWg, gl.UpWg, gl.DownWg} {
 		if qw != nil {
 			qw.Free()
 		}
 	}
-	for _, mw := range []*cuda.GPUMLXWeight{gl.QWmg, gl.KWmg, gl.VWmg, gl.OWmg, gl.GateWmg, gl.UpWmg, gl.DownWmg, gl.RouterWmg} {
+	for _, mw := range []*nvidia.GPUMLXWeight{gl.QWmg, gl.KWmg, gl.VWmg, gl.OWmg, gl.GateWmg, gl.UpWmg, gl.DownWmg, gl.RouterWmg} {
 		if mw != nil {
 			mw.Free()
 		}
@@ -230,30 +230,30 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		}
 	}
 
-	g.hidden = cuda.NewDevBuf(h)
-	g.residual = cuda.NewDevBuf(h)
-	g.normed = cuda.NewDevBuf(h)
-	g.q = cuda.NewDevBuf(maxQDim)
-	g.k = cuda.NewDevBuf(maxKVDim)
-	g.v = cuda.NewDevBuf(maxKVDim)
-	g.attnOut = cuda.NewDevBuf(maxQDim)
-	g.oOut = cuda.NewDevBuf(maxQDim)
-	g.gate = cuda.NewDevBuf(maxInter)
-	g.up = cuda.NewDevBuf(maxInter)
-	g.down = cuda.NewDevBuf(h)
+	g.hidden = nvidia.NewDevBuf(h)
+	g.residual = nvidia.NewDevBuf(h)
+	g.normed = nvidia.NewDevBuf(h)
+	g.q = nvidia.NewDevBuf(maxQDim)
+	g.k = nvidia.NewDevBuf(maxKVDim)
+	g.v = nvidia.NewDevBuf(maxKVDim)
+	g.attnOut = nvidia.NewDevBuf(maxQDim)
+	g.oOut = nvidia.NewDevBuf(maxQDim)
+	g.gate = nvidia.NewDevBuf(maxInter)
+	g.up = nvidia.NewDevBuf(maxInter)
+	g.down = nvidia.NewDevBuf(h)
 
 	// Gemma4 per-layer work buffers
 	if cfg.ModelType == "gemma4_text" && cfg.HiddenPerLayer > 0 {
 		totalDim := cfg.NumLayers * cfg.HiddenPerLayer
-		g.perLayerProjBuf = cuda.NewDevBuf(totalDim)
-		g.perLayerEmbedBuf = cuda.NewDevBuf(totalDim)
-		g.pliGateBuf = cuda.NewDevBuf(cfg.HiddenPerLayer)
-		g.pliProjBuf = cuda.NewDevBuf(h)
+		g.perLayerProjBuf = nvidia.NewDevBuf(totalDim)
+		g.perLayerEmbedBuf = nvidia.NewDevBuf(totalDim)
+		g.pliGateBuf = nvidia.NewDevBuf(cfg.HiddenPerLayer)
+		g.pliProjBuf = nvidia.NewDevBuf(h)
 	}
 
 	// Try to move work buffers to GPU
 	useGPU := true
-	for _, buf := range []*cuda.DevBuf{g.hidden, g.residual, g.normed, g.q, g.k, g.v, g.attnOut, g.oOut, g.gate, g.up, g.down, g.perLayerProjBuf, g.perLayerEmbedBuf, g.pliGateBuf, g.pliProjBuf} {
+	for _, buf := range []*nvidia.DevBuf{g.hidden, g.residual, g.normed, g.q, g.k, g.v, g.attnOut, g.oOut, g.gate, g.up, g.down, g.perLayerProjBuf, g.perLayerEmbedBuf, g.pliGateBuf, g.pliProjBuf} {
 		if buf == nil {
 			continue
 		}
@@ -265,7 +265,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 
 	// Upload per-layer weights
 	var uploadErr error
-	uploadDevBuf := func(b *cuda.DevBuf) *cuda.DevBuf {
+	uploadDevBuf := func(b *nvidia.DevBuf) *nvidia.DevBuf {
 		if useGPU && uploadErr == nil {
 			if err := b.ToGPU(); err != nil {
 				uploadErr = err
@@ -273,21 +273,21 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		}
 		return b
 	}
-	wrapTensor := func(t *tensor.Tensor) *cuda.DevBuf {
+	wrapTensor := func(t *tensor.Tensor) *nvidia.DevBuf {
 		if t == nil {
 			return nil
 		}
-		return uploadDevBuf(cuda.NewDevBufFrom(t.Data()))
+		return uploadDevBuf(nvidia.NewDevBufFrom(t.Data()))
 	}
-	wrapSlice := func(x []float32) *cuda.DevBuf {
+	wrapSlice := func(x []float32) *nvidia.DevBuf {
 		if x == nil {
 			return nil
 		}
-		return uploadDevBuf(cuda.NewDevBufFrom(x))
+		return uploadDevBuf(nvidia.NewDevBufFrom(x))
 	}
 
 	g.Layers = make([]gpuLayerBufs, len(m.Layers))
-	cuda.InitAllKernels()
+	nvidia.InitAllKernels()
 
 	// Determine how many layers go on GPU
 	gpuLayerCount := len(m.Layers)
@@ -313,18 +313,18 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 			gl.GateWq = layer.GateWq
 			gl.UpWq = layer.UpWq
 			gl.DownWq = layer.DownWq
-			uq := func(name string, qw *QuantWeight) *cuda.GPUQuantWeight {
+			uq := func(name string, qw *QuantWeight) *nvidia.GPUQuantWeight {
 				if uploadErr != nil || qw == nil {
 					return nil
 				}
-				w, err := cuda.UploadQuantWeight(qw.QWeight, qw.GIdx, qw.Scales, qw.InDim, qw.OutDim)
+				w, err := nvidia.UploadQuantWeight(qw.QWeight, qw.GIdx, qw.Scales, qw.InDim, qw.OutDim)
 				if err != nil {
 					uploadErr = fmt.Errorf("layer %d %s Q4 upload: %w", i, name, err)
 				}
 				return w
 			}
 			gl.QWg = uq("q_proj", layer.QWq)
-			if cuda.Q4Ready() {
+			if nvidia.Q4Ready() {
 				gl.KWg = uq("k_proj", layer.KWq)
 				gl.VWg = uq("v_proj", layer.VWq)
 				gl.OWg = uq("o_proj", layer.OWq)
@@ -341,10 +341,10 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 			gl.GateWm = layer.GateWm
 			gl.UpWm = layer.UpWm
 			gl.DownWm = layer.DownWm
-			if cuda.SgemmReady() {
+			if nvidia.SgemmReady() {
 				wantNativeMLX := cfg.ModelType == "gemma4_text" || cfg.ModelType == "gemma3_text"
-				um := func(qw *quant.MLXQuantWeight) *cuda.GPUMLXWeight {
-					w, err := cuda.UploadMLXWeight(qw.Weight, qw.Scales, qw.Biases, qw.InDim, qw.OutDim, qw.GroupSize, wantNativeMLX)
+				um := func(qw *quant.MLXQuantWeight) *nvidia.GPUMLXWeight {
+					w, err := nvidia.UploadMLXWeight(qw.Weight, qw.Scales, qw.Biases, qw.InDim, qw.OutDim, qw.GroupSize, wantNativeMLX)
 					if err != nil && i == 0 {
 						loaderDebugf("[gpu] MLX upload %dx%d: %v\n", qw.OutDim, qw.InDim, err)
 					}
@@ -370,9 +370,9 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 			gl.DownW = wrapTensor(layer.DownW)
 		}
 
-		if layer.RouterW != nil && cuda.SgemmReady() && uploadErr == nil {
+		if layer.RouterW != nil && nvidia.SgemmReady() && uploadErr == nil {
 			var err error
-			gl.RouterWmg, err = cuda.UploadMLXWeightNative(layer.RouterW.Weight, layer.RouterW.Scales, layer.RouterW.Biases, layer.RouterW.InDim, layer.RouterW.OutDim, layer.RouterW.GroupSize)
+			gl.RouterWmg, err = nvidia.UploadMLXWeightNative(layer.RouterW.Weight, layer.RouterW.Scales, layer.RouterW.Biases, layer.RouterW.InDim, layer.RouterW.OutDim, layer.RouterW.GroupSize)
 			if err != nil {
 				uploadErr = fmt.Errorf("layer %d router MLX upload: %w", i, err)
 			}
@@ -417,8 +417,8 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	}
 
 	// Upload final norm + logits buffer to GPU (small, before weights)
-	if useGPU && cuda.SgemmReady() {
-		g.normGPU = cuda.NewDevBuf(len(g.normWeight))
+	if useGPU && nvidia.SgemmReady() {
+		g.normGPU = nvidia.NewDevBuf(len(g.normWeight))
 		copy(g.normGPU.Data(), g.normWeight)
 		g.normGPU.MarkDirty()
 		if err := g.normGPU.ToGPU(); err != nil {
@@ -426,7 +426,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 			return nil, fmt.Errorf("upload final norm buffer: %w", err)
 		}
 
-		g.logitsGPU = cuda.NewDevBuf(cfg.VocabSize)
+		g.logitsGPU = nvidia.NewDevBuf(cfg.VocabSize)
 		if err := g.logitsGPU.ToGPU(); err != nil {
 			g.Close()
 			return nil, fmt.Errorf("upload logits buffer: %w", err)
@@ -438,13 +438,13 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		g.ropeHalfSWA = m.RopeHalfSWA
 		g.ropeHalfFull = m.RopeHalfFull
 		// Upload SWA table
-		g.ropeCosSinSWA = cuda.NewDevBufFrom(m.RopeFreqsSWA)
+		g.ropeCosSinSWA = nvidia.NewDevBufFrom(m.RopeFreqsSWA)
 		if err := g.ropeCosSinSWA.ToGPU(); err != nil {
 			g.Close()
 			return nil, fmt.Errorf("upload Gemma4 SWA RoPE table: %w", err)
 		}
 		// Upload Full table
-		g.ropeCosSinFull = cuda.NewDevBufFrom(m.RopeFreqsFull)
+		g.ropeCosSinFull = nvidia.NewDevBufFrom(m.RopeFreqsFull)
 		if err := g.ropeCosSinFull.ToGPU(); err != nil {
 			g.Close()
 			return nil, fmt.Errorf("upload Gemma4 full RoPE table: %w", err)
@@ -467,7 +467,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 				csData[p*headDimL+i*2+1] = m.RopeFreqs[srcOff+1] // sin
 			}
 		}
-		g.ropeCosSin = cuda.NewDevBufFrom(csData)
+		g.ropeCosSin = nvidia.NewDevBufFrom(csData)
 		if err := g.ropeCosSin.ToGPU(); err != nil {
 			g.Close()
 			return nil, fmt.Errorf("upload RoPE table: %w", err)
@@ -476,15 +476,15 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 
 	// GPU KV cache: per-layer kvDim
 	maxSeq := 2048
-	g.kvGPU_K = make([]*cuda.DevBuf, len(m.Layers))
-	g.kvGPU_V = make([]*cuda.DevBuf, len(m.Layers))
+	g.kvGPU_K = make([]*nvidia.DevBuf, len(m.Layers))
+	g.kvGPU_V = make([]*nvidia.DevBuf, len(m.Layers))
 	for i := range g.kvGPU_K {
 		lkv := kvDim
 		if m.Layers[i].HeadDimLocal > 0 {
 			lkv = cfg.NumKVHeads * m.Layers[i].HeadDimLocal
 		}
-		g.kvGPU_K[i] = cuda.NewDevBuf(maxSeq * lkv)
-		g.kvGPU_V[i] = cuda.NewDevBuf(maxSeq * lkv)
+		g.kvGPU_K[i] = nvidia.NewDevBuf(maxSeq * lkv)
+		g.kvGPU_V[i] = nvidia.NewDevBuf(maxSeq * lkv)
 		if err := g.kvGPU_K[i].ToGPU(); err != nil {
 			g.Close()
 			return nil, fmt.Errorf("upload GPU KV key buffer layer %d: %w", i, err)
@@ -502,11 +502,11 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	// Upload LM head to GPU. The F32 LM-head kernel is faster for moderate heads,
 	// but very large vocab×hidden matrices are bandwidth-heavy and may not leave
 	// enough VRAM; use compact MLX there when available.
-	if useGPU && cuda.SgemmReady() {
-		free, _ := cuda.MemInfo()
+	if useGPU && nvidia.SgemmReady() {
+		free, _ := nvidia.MemInfo()
 		lmBytes := uint64(len(g.lmHead)) * 4
 		if shouldUseCompactMLXLMHead(m.LMHeadMLX != nil, lmBytes, free) {
-			if w, err := cuda.UploadMLXWeight(m.LMHeadMLX.Weight, m.LMHeadMLX.Scales, m.LMHeadMLX.Biases, m.LMHeadMLX.InDim, m.LMHeadMLX.OutDim, m.LMHeadMLX.GroupSize, false); err == nil {
+			if w, err := nvidia.UploadMLXWeight(m.LMHeadMLX.Weight, m.LMHeadMLX.Scales, m.LMHeadMLX.Biases, m.LMHeadMLX.InDim, m.LMHeadMLX.OutDim, m.LMHeadMLX.GroupSize, false); err == nil {
 				g.lmHeadMLXGPU = w
 				loaderDebugf("[model] MLX LM head on GPU (packed %.0f MB, f32 %.0f MB)\n", float64(uint64(len(m.LMHeadMLX.Weight))*4)/1e6, float64(lmBytes)/1e6)
 			} else {
@@ -515,7 +515,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		}
 		if g.lmHeadMLXGPU == nil {
 			if free > lmBytes+64*1024*1024 { // need LM head + 64MB headroom
-				g.lmHeadGPU = cuda.NewDevBuf(len(g.lmHead))
+				g.lmHeadGPU = nvidia.NewDevBuf(len(g.lmHead))
 				copy(g.lmHeadGPU.Data(), g.lmHead)
 				g.lmHeadGPU.MarkDirty()
 				if err := g.lmHeadGPU.ToGPU(); err == nil {
@@ -524,7 +524,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 					g.lmHeadGPU = nil
 				}
 			} else if m.LMHeadMLX != nil {
-				if w, err := cuda.UploadMLXWeight(m.LMHeadMLX.Weight, m.LMHeadMLX.Scales, m.LMHeadMLX.Biases, m.LMHeadMLX.InDim, m.LMHeadMLX.OutDim, m.LMHeadMLX.GroupSize, false); err == nil {
+				if w, err := nvidia.UploadMLXWeight(m.LMHeadMLX.Weight, m.LMHeadMLX.Scales, m.LMHeadMLX.Biases, m.LMHeadMLX.InDim, m.LMHeadMLX.OutDim, m.LMHeadMLX.GroupSize, false); err == nil {
 					g.lmHeadMLXGPU = w
 					loaderDebugf("[model] MLX LM head on GPU (packed %.0f MB; F32 need %.0f MB, free %.0f MB)\n", float64(uint64(len(m.LMHeadMLX.Weight))*4)/1e6, float64(lmBytes)/1e6, float64(free)/1e6)
 				}
@@ -543,7 +543,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	// Initialize MoE expert pool if model has experts
 	if cfg.NumExperts > 0 {
 		// Estimate expert VRAM budget: use remaining VRAM after attention weights
-		free, _ := cuda.MemInfo()
+		free, _ := nvidia.MemInfo()
 		expertBudgetMB := int64(free) / (1024 * 1024)
 		if expertBudgetMB > 512 {
 			expertBudgetMB -= 256 // reserve headroom
@@ -556,14 +556,14 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		if expertSlots > cfg.NumExperts*cfg.NumLayers {
 			expertSlots = cfg.NumExperts * cfg.NumLayers
 		}
-		g.Experts = cuda.NewExpertPool(expertSlots, nil)
+		g.Experts = nvidia.NewExpertPool(expertSlots, nil)
 		loaderDebugf("[model] Expert pool: %d slots (%.0f MB budget, %.1f KB/expert)\n",
 			expertSlots, float64(expertBudgetMB), float64(expertSizeBytes)/1024)
 	}
 
 	// Print budget summary
 	if cfg.NumExperts > 0 || g.GPULayers > 0 {
-		free2, total := cuda.MemInfo()
+		free2, total := nvidia.MemInfo()
 		loaderDebugf("[budget] GPU VRAM: %.0f/%.0f MB used (%.0f MB free)\n",
 			float64(total-free2)/(1024*1024), float64(total)/(1024*1024), float64(free2)/(1024*1024))
 	}
@@ -571,11 +571,11 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	return g, nil
 }
 
-func (g *GPUModel) gemv(out, x, W *cuda.DevBuf, inDim, outDim int) {
+func (g *GPUModel) gemv(out, x, W *nvidia.DevBuf, inDim, outDim int) {
 	if g.CPU.Large {
-		cuda.DevGemv(out, x, W, outDim, inDim) // W is [outDim, inDim]
+		nvidia.DevGemv(out, x, W, outDim, inDim) // W is [outDim, inDim]
 	} else {
-		cuda.DevGemvNN(out, x, W, inDim, outDim) // W is [inDim, outDim] (pre-transposed)
+		nvidia.DevGemvNN(out, x, W, inDim, outDim) // W is [inDim, outDim] (pre-transposed)
 	}
 }
 
@@ -665,11 +665,11 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 	profileDecode := os.Getenv("GO_PHERENCE_PROFILE_DECODE") != ""
 	var totalLayerTime, totalLogitTime time.Duration
 	logitSteps := 0
-	gpuStatsStart := cuda.Stats{}
+	gpuStatsStart := nvidia.Stats{}
 	if profileDecode {
-		previousStatsEnabled := cuda.SetStatsEnabled(true)
-		defer cuda.SetStatsEnabled(previousStatsEnabled)
-		gpuStatsStart = cuda.StatsSnapshot()
+		previousStatsEnabled := nvidia.SetStatsEnabled(true)
+		defer nvidia.SetStatsEnabled(previousStatsEnabled)
+		gpuStatsStart = nvidia.StatsSnapshot()
 	}
 	var expertStartHits, expertStartMisses, expertStartEvicts uint64
 	var expertDecodeStartHits, expertDecodeStartMisses, expertDecodeStartEvicts uint64
@@ -683,21 +683,21 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 		if !profileDecode {
 			return time.Time{}
 		}
-		cuda.SyncForTiming()
+		nvidia.SyncForTiming()
 		return time.Now()
 	}
 	profileAdd := func(acc *time.Duration, start time.Time) {
 		if !profileDecode || start.IsZero() {
 			return
 		}
-		cuda.SyncForTiming()
+		nvidia.SyncForTiming()
 		*acc += time.Since(start)
 	}
 	checkGPU := func(stage string) {
 		if !syncDebug {
 			return
 		}
-		if err := cuda.SyncErr(); err != nil {
+		if err := nvidia.SyncErr(); err != nil {
 			panic(fmt.Sprintf("gpu sync %s: %v", stage, err))
 		}
 	}
@@ -708,7 +708,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 	// Batched prefill: process all prompt tokens at once
 	prefillStart := 0
-	if len(tokenIDs) > 1 && cuda.BatchGEMMReady() && cfg.ModelType != "gemma4_text" {
+	if len(tokenIDs) > 1 && nvidia.BatchGEMMReady() && cfg.ModelType != "gemma4_text" {
 		if lastHidden := g.prefillGPU(tokenIDs); lastHidden != nil {
 			// Prefill succeeded — skip to decode phase
 			prefillStart = len(tokenIDs) - 1 // skip all but last prompt token
@@ -751,7 +751,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 				g.hidden.MarkDirty()
 				if cfg.ModelType == "gemma4_text" {
-					cuda.DevToBF16(g.hidden, h)
+					nvidia.DevToBF16(g.hidden, h)
 				}
 			}
 			if debugOpHook != nil {
@@ -760,7 +760,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 			// Gemma4: per-layer input gating (GPU path with CPU fallback)
 			var perLayerInputs [][]float32
-			perLayerProjPtr := (*cuda.Buffer)(nil)
+			perLayerProjPtr := (*nvidia.Buffer)(nil)
 			if g.perLayerProjBuf != nil {
 				perLayerProjPtr = g.perLayerProjBuf.GPUPtr()
 			}
@@ -770,12 +770,12 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				nl := cfg.NumLayers
 				totalDim := nl * hpl
 				if usePLIGPU {
-					cuda.DevGemv(g.perLayerProjBuf, g.hidden, g.perLayerModelProj, totalDim, h)
-					cuda.DevScale(g.perLayerProjBuf, g.perLayerProjBuf, m.PerLayerProjScale)
+					nvidia.DevGemv(g.perLayerProjBuf, g.hidden, g.perLayerModelProj, totalDim, h)
+					nvidia.DevScale(g.perLayerProjBuf, g.perLayerProjBuf, m.PerLayerProjScale)
 					allSliceNormsGPU := true
 					for ll := 0; ll < nl; ll++ {
 						sl := g.perLayerProjBuf.Slice(ll*hpl, hpl)
-						if !cuda.DevRMSNormOK(sl, sl, g.perLayerProjNorm, float32(cfg.RMSNormEps)) {
+						if !nvidia.DevRMSNormOK(sl, sl, g.perLayerProjNorm, float32(cfg.RMSNormEps)) {
 							allSliceNormsGPU = false
 						}
 					}
@@ -788,9 +788,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						embRow := m.EmbedPerLayer[tokID*totalDim : (tokID+1)*totalDim]
 						copy(g.perLayerEmbedBuf.Data(), embRow)
 						g.perLayerEmbedBuf.MarkDirty()
-						cuda.DevScale(g.perLayerEmbedBuf, g.perLayerEmbedBuf, m.EmbedPerLayerScale)
-						cuda.DevAdd(g.perLayerProjBuf, g.perLayerProjBuf, g.perLayerEmbedBuf)
-						cuda.DevScale(g.perLayerProjBuf, g.perLayerProjBuf, m.PerLayerInputScale)
+						nvidia.DevScale(g.perLayerEmbedBuf, g.perLayerEmbedBuf, m.EmbedPerLayerScale)
+						nvidia.DevAdd(g.perLayerProjBuf, g.perLayerProjBuf, g.perLayerEmbedBuf)
+						nvidia.DevScale(g.perLayerProjBuf, g.perLayerProjBuf, m.PerLayerInputScale)
 					}
 					g.perLayerProjBuf.MarkOnGPU()
 					checkGPU(fmt.Sprintf("step=%d pli_model_proj", step))
@@ -829,7 +829,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				// Hybrid forward: CPU fallback for layers beyond GPULayers
 				if g.GPULayers > 0 && l >= g.GPULayers {
 					// Download hidden state from GPU
-					cuda.Sync()
+					nvidia.Sync()
 					hidden := append([]float32(nil), g.hidden.Data()[:h]...)
 					// Run remaining layers on CPU
 					for cl := l; cl < len(m.Layers); cl++ {
@@ -860,12 +860,12 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 
 				// Save residual
-				cuda.DevCopy(g.residual, g.hidden)
+				nvidia.DevCopy(g.residual, g.hidden)
 
 				// RMSNorm (GPU kernel with CPU fallback)
-				cuda.DevRMSNorm(g.normed, g.hidden, layer.InputNorm, float32(cfg.RMSNormEps))
+				nvidia.DevRMSNorm(g.normed, g.hidden, layer.InputNorm, float32(cfg.RMSNormEps))
 				if cfg.ModelType == "gemma4_text" {
-					cuda.DevToBF16(g.normed, h)
+					nvidia.DevToBF16(g.normed, h)
 				}
 				checkGPU(fmt.Sprintf("step=%d layer=%d inputnorm", step, l))
 				if debugOpHook != nil {
@@ -873,17 +873,17 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 
 				if l == 0 && step == 0 {
-					// cuda.Sync() — removed, all on GPU
+					// nvidia.Sync() — removed, all on GPU
 				}
 				// Q projection (always)
 				if layer.QWmg != nil {
 					if useDirectMLX {
-						cuda.GemvMLXDirect(g.q, g.normed, layer.QWmg)
+						nvidia.GemvMLXDirect(g.q, g.normed, layer.QWmg)
 					} else {
-						cuda.GemvMLX(g.q, g.normed, layer.QWmg)
+						nvidia.GemvMLX(g.q, g.normed, layer.QWmg)
 					}
 				} else if layer.QWg != nil {
-					cuda.GemvQ4(g.q, g.normed, layer.QWg)
+					nvidia.GemvQ4(g.q, g.normed, layer.QWg)
 				} else if layer.QW != nil {
 					g.gemv(g.q, g.normed, layer.QW, h, qDim)
 				}
@@ -892,18 +892,18 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				if cpuLayer.HasKV {
 					if layer.KWmg != nil {
 						if useDirectMLX {
-							cuda.GemvMLXDirect(g.k, g.normed, layer.KWmg)
+							nvidia.GemvMLXDirect(g.k, g.normed, layer.KWmg)
 						} else {
-							cuda.GemvMLX(g.k, g.normed, layer.KWmg)
+							nvidia.GemvMLX(g.k, g.normed, layer.KWmg)
 						}
 						if useDirectMLX {
-							cuda.GemvMLXDirect(g.v, g.normed, layer.VWmg)
+							nvidia.GemvMLXDirect(g.v, g.normed, layer.VWmg)
 						} else {
-							cuda.GemvMLX(g.v, g.normed, layer.VWmg)
+							nvidia.GemvMLX(g.v, g.normed, layer.VWmg)
 						}
 					} else if layer.KWg != nil {
-						cuda.GemvQ4(g.k, g.normed, layer.KWg)
-						cuda.GemvQ4(g.v, g.normed, layer.VWg)
+						nvidia.GemvQ4(g.k, g.normed, layer.KWg)
+						nvidia.GemvQ4(g.v, g.normed, layer.VWg)
 					} else if layer.KW != nil {
 						g.gemv(g.k, g.normed, layer.KW, h, layerKVDim)
 						g.gemv(g.v, g.normed, layer.VW, h, layerKVDim)
@@ -911,10 +911,10 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 
 				if cfg.ModelType == "gemma4_text" {
-					cuda.DevToBF16(g.q, qDim)
+					nvidia.DevToBF16(g.q, qDim)
 					if cpuLayer.HasKV {
-						cuda.DevToBF16(g.k, layerKVDim)
-						cuda.DevToBF16(g.v, layerKVDim)
+						nvidia.DevToBF16(g.k, layerKVDim)
+						nvidia.DevToBF16(g.v, layerKVDim)
 					}
 				}
 				checkGPU(fmt.Sprintf("step=%d layer=%d qkv_proj", step, l))
@@ -928,10 +928,10 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 				// Bias (Qwen2 only)
 				if layer.QB != nil {
-					cuda.DevAdd(g.q, g.q, layer.QB)
+					nvidia.DevAdd(g.q, g.q, layer.QB)
 					if cpuLayer.HasKV {
-						cuda.DevAdd(g.k, g.k, layer.KB)
-						cuda.DevAdd(g.v, g.v, layer.VB)
+						nvidia.DevAdd(g.k, g.k, layer.KB)
+						nvidia.DevAdd(g.v, g.v, layer.VB)
 					}
 				}
 
@@ -940,7 +940,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					eps := float32(cfg.RMSNormEps)
 					for head := 0; head < numKVHeads; head++ {
 						vSlice := g.v.Slice(head*layerHeadDim, layerHeadDim)
-						cuda.DevRMSNormNoScale(vSlice, vSlice, eps)
+						nvidia.DevRMSNormNoScale(vSlice, vSlice, eps)
 					}
 					g.v.MarkOnGPU()
 				}
@@ -949,18 +949,18 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				if layer.QNorm != nil {
 					for head := 0; head < numHeads; head++ {
 						qSlice := g.q.Slice(head*layerHeadDim, layerHeadDim)
-						cuda.DevRMSNorm(qSlice, qSlice, layer.QNorm, float32(cfg.RMSNormEps))
+						nvidia.DevRMSNorm(qSlice, qSlice, layer.QNorm, float32(cfg.RMSNormEps))
 						if cfg.ModelType == "gemma4_text" {
-							cuda.DevToBF16(qSlice, layerHeadDim)
+							nvidia.DevToBF16(qSlice, layerHeadDim)
 						}
 					}
 					g.q.MarkOnGPU()
 					if cpuLayer.HasKV {
 						for head := 0; head < numKVHeads; head++ {
 							kSlice := g.k.Slice(head*layerHeadDim, layerHeadDim)
-							cuda.DevRMSNorm(kSlice, kSlice, layer.KNorm, float32(cfg.RMSNormEps))
+							nvidia.DevRMSNorm(kSlice, kSlice, layer.KNorm, float32(cfg.RMSNormEps))
 							if cfg.ModelType == "gemma4_text" {
-								cuda.DevToBF16(kSlice, layerHeadDim)
+								nvidia.DevToBF16(kSlice, layerHeadDim)
 							}
 						}
 						g.k.MarkOnGPU()
@@ -982,26 +982,26 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						isSWA = cfg.LayerTypes[l] == "sliding_attention"
 					}
 					if isSWA {
-						if !cuda.DevRoPEPartial(g.q, g.ropeCosSinSWA, pos, numHeads, layerHeadDim, m.RopeHalfSWA) {
+						if !nvidia.DevRoPEPartial(g.q, g.ropeCosSinSWA, pos, numHeads, layerHeadDim, m.RopeHalfSWA) {
 							qd := g.q.Data()
 							applyRoPEPartial(qd, m.RopeFreqsSWA, pos, numHeads, layerHeadDim, m.RopeHalfSWA)
 							g.q.MarkDirty()
 						}
 						if cpuLayer.HasKV {
-							if !cuda.DevRoPEPartial(g.k, g.ropeCosSinSWA, pos, numKVHeads, layerHeadDim, m.RopeHalfSWA) {
+							if !nvidia.DevRoPEPartial(g.k, g.ropeCosSinSWA, pos, numKVHeads, layerHeadDim, m.RopeHalfSWA) {
 								kd3 := g.k.Data()
 								applyRoPEPartial(kd3, m.RopeFreqsSWA, pos, numKVHeads, layerHeadDim, m.RopeHalfSWA)
 								g.k.MarkDirty()
 							}
 						}
 					} else {
-						if !cuda.DevRoPEPartial(g.q, g.ropeCosSinFull, pos, numHeads, layerHeadDim, m.RopeHalfFull) {
+						if !nvidia.DevRoPEPartial(g.q, g.ropeCosSinFull, pos, numHeads, layerHeadDim, m.RopeHalfFull) {
 							qd := g.q.Data()
 							applyRoPEPartial(qd, m.RopeFreqsFull, pos, numHeads, layerHeadDim, m.RopeHalfFull)
 							g.q.MarkDirty()
 						}
 						if cpuLayer.HasKV {
-							if !cuda.DevRoPEPartial(g.k, g.ropeCosSinFull, pos, numKVHeads, layerHeadDim, m.RopeHalfFull) {
+							if !nvidia.DevRoPEPartial(g.k, g.ropeCosSinFull, pos, numKVHeads, layerHeadDim, m.RopeHalfFull) {
 								kd3 := g.k.Data()
 								applyRoPEPartial(kd3, m.RopeFreqsFull, pos, numKVHeads, layerHeadDim, m.RopeHalfFull)
 								g.k.MarkDirty()
@@ -1009,13 +1009,13 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						}
 					}
 				} else if g.ropeCosSin != nil && g.ropeCosSin.GPUPtr() != nil {
-					if !cuda.DevRoPE(g.q, g.ropeCosSin, pos, numHeads, headDim) {
+					if !nvidia.DevRoPE(g.q, g.ropeCosSin, pos, numHeads, headDim) {
 						qd := g.q.Data()
 						applyRoPE(qd, m.RopeFreqs, pos, numHeads, headDim)
 						g.q.MarkDirty()
 					}
 					if cpuLayer.HasKV {
-						if !cuda.DevRoPE(g.k, g.ropeCosSin, pos, numKVHeads, headDim) {
+						if !nvidia.DevRoPE(g.k, g.ropeCosSin, pos, numKVHeads, headDim) {
 							kd2 := g.k.Data()
 							applyRoPE(kd2, m.RopeFreqs, pos, numKVHeads, headDim)
 							g.k.MarkDirty()
@@ -1051,7 +1051,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				if kvLayer >= 0 && kvLayer < len(forceCPUAttnLayers) && forceCPUAttnLayers[kvLayer] {
 					forceLayerCPUAttn = true
 				}
-				var kvKPtr, kvVPtr *cuda.Buffer
+				var kvKPtr, kvVPtr *nvidia.Buffer
 				if !forceLayerCPUAttn && cpuLayer.HasKV && g.kvGPU_K[l] != nil {
 					kvKPtr = g.kvGPU_K[l].GPUPtr()
 				}
@@ -1067,11 +1067,11 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						_, _, okV := kvCopyByteRange(pos, layerKVDim, kvVPtr.Size)
 						if !ok || !okV || kPtr.Size < int(kvBytes) || vPtr.Size < int(kvBytes) {
 							copyOK = false
-						} else if err := cuda.CopyDtoD(kvKPtr.Ptr+kOff, kPtr.Ptr, kvBytes); err != nil {
+						} else if err := nvidia.CopyDtoD(kvKPtr.Ptr+kOff, kPtr.Ptr, kvBytes); err != nil {
 							copyOK = false
 						}
 						if copyOK {
-							if err := cuda.CopyDtoD(kvVPtr.Ptr+kOff, vPtr.Ptr, kvBytes); err != nil {
+							if err := nvidia.CopyDtoD(kvVPtr.Ptr+kOff, vPtr.Ptr, kvBytes); err != nil {
 								copyOK = false
 							}
 						}
@@ -1113,12 +1113,12 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					attnScale = 1.0
 				}
 
-				var attnKVPtr *cuda.Buffer
+				var attnKVPtr *nvidia.Buffer
 				if !forceLayerCPUAttn && g.kvGPU_K[kvLayer] != nil {
 					attnKVPtr = g.kvGPU_K[kvLayer].GPUPtr()
 				}
 				if !forceLayerCPUAttn && attnKVPtr != nil && g.kvGPU_V[kvLayer] != nil && g.kvGPU_V[kvLayer].GPUPtr() != nil {
-					cuda.DevAttention(g.attnOut, g.q, g.kvGPU_K[kvLayer], g.kvGPU_V[kvLayer], seqLen, numHeads, numKVHeads, layerHeadDim, attnScale)
+					nvidia.DevAttention(g.attnOut, g.q, g.kvGPU_K[kvLayer], g.kvGPU_V[kvLayer], seqLen, numHeads, numKVHeads, layerHeadDim, attnScale)
 				} else {
 					qd := g.q.Data()
 					attnCPU := gqaAttentionScale(qd[:qDim], g.kvCacheK[kvLayer], g.kvCacheV[kvLayer], seqLen, numHeads, numKVHeads, layerHeadDim, attnScale)
@@ -1133,13 +1133,13 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				// Output projection
 				if layer.OWmg != nil {
 					if useDirectMLX {
-						cuda.GemvMLXDirect(g.oOut, g.attnOut, layer.OWmg)
+						nvidia.GemvMLXDirect(g.oOut, g.attnOut, layer.OWmg)
 					} else {
-						cuda.GemvMLX(g.oOut, g.attnOut, layer.OWmg)
+						nvidia.GemvMLX(g.oOut, g.attnOut, layer.OWmg)
 					}
 				} else if layer.OWg != nil {
 					g.attnOut.ToGPU()
-					cuda.GemvQ4(g.oOut, g.attnOut, layer.OWg)
+					nvidia.GemvQ4(g.oOut, g.attnOut, layer.OWg)
 				} else if layer.OW != nil {
 					g.gemv(g.oOut, g.attnOut, layer.OW, qDim, h)
 				}
@@ -1151,17 +1151,17 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 				// Gemma3/4: post-attn norm before residual, separate pre-FFN norm
 				if layer.PreFFNNorm != nil {
-					cuda.DevRMSNorm(g.oOut, g.oOut, layer.PostNorm, float32(cfg.RMSNormEps))
-					cuda.DevAdd(g.hidden, g.residual, g.oOut)
-					cuda.DevCopy(g.residual, g.hidden)
-					cuda.DevRMSNorm(g.normed, g.hidden, layer.PreFFNNorm, float32(cfg.RMSNormEps))
+					nvidia.DevRMSNorm(g.oOut, g.oOut, layer.PostNorm, float32(cfg.RMSNormEps))
+					nvidia.DevAdd(g.hidden, g.residual, g.oOut)
+					nvidia.DevCopy(g.residual, g.hidden)
+					nvidia.DevRMSNorm(g.normed, g.hidden, layer.PreFFNNorm, float32(cfg.RMSNormEps))
 					if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
-						cuda.DevToBF16(g.normed, h)
+						nvidia.DevToBF16(g.normed, h)
 					}
 				} else {
-					cuda.DevAdd(g.hidden, g.residual, g.oOut)
-					cuda.DevCopy(g.residual, g.hidden)
-					cuda.DevRMSNorm(g.normed, g.hidden, layer.PostNorm, float32(cfg.RMSNormEps))
+					nvidia.DevAdd(g.hidden, g.residual, g.oOut)
+					nvidia.DevCopy(g.residual, g.hidden)
+					nvidia.DevRMSNorm(g.normed, g.hidden, layer.PostNorm, float32(cfg.RMSNormEps))
 				}
 
 				if debugOpHook != nil {
@@ -1188,18 +1188,18 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				if !cpuLayer.IsMoE {
 					if layer.GateWg != nil {
 						g.normed.ToGPU()
-						cuda.GemvQ4(g.gate, g.normed, layer.GateWg)
-						cuda.GemvQ4(g.up, g.normed, layer.UpWg)
+						nvidia.GemvQ4(g.gate, g.normed, layer.GateWg)
+						nvidia.GemvQ4(g.up, g.normed, layer.UpWg)
 					} else if layer.GateWmg != nil {
 						if useDirectMLX {
-							cuda.GemvMLXDirect(g.gate, g.normed, layer.GateWmg)
+							nvidia.GemvMLXDirect(g.gate, g.normed, layer.GateWmg)
 						} else {
-							cuda.GemvMLX(g.gate, g.normed, layer.GateWmg)
+							nvidia.GemvMLX(g.gate, g.normed, layer.GateWmg)
 						}
 						if useDirectMLX {
-							cuda.GemvMLXDirect(g.up, g.normed, layer.UpWmg)
+							nvidia.GemvMLXDirect(g.up, g.normed, layer.UpWmg)
 						} else {
-							cuda.GemvMLX(g.up, g.normed, layer.UpWmg)
+							nvidia.GemvMLX(g.up, g.normed, layer.UpWmg)
 						}
 					} else if layer.GateWq != nil {
 						nd := g.normed.Data()
@@ -1215,8 +1215,8 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					}
 
 					if cfg.ModelType == "gemma4_text" {
-						cuda.DevToBF16(g.gate, layerInter)
-						cuda.DevToBF16(g.up, layerInter)
+						nvidia.DevToBF16(g.gate, layerInter)
+						nvidia.DevToBF16(g.up, layerInter)
 					}
 					checkGPU(fmt.Sprintf("step=%d layer=%d gate_up_proj", step, l))
 					if debugOpHook != nil {
@@ -1227,12 +1227,12 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					// Activation(gate) * up
 					if cfg.HiddenAct == "gelu_pytorch_tanh" {
 						// GELU (Gemma3/4) — GPU kernel
-						cuda.DevGELUTanhMul(g.gate, g.up, layerInter)
+						nvidia.DevGELUTanhMul(g.gate, g.up, layerInter)
 						if cfg.ModelType == "gemma4_text" {
-							cuda.DevToBF16(g.gate, layerInter)
+							nvidia.DevToBF16(g.gate, layerInter)
 						}
 					} else {
-						cuda.DevSiLUMul(g.gate, g.gate, g.up)
+						nvidia.DevSiLUMul(g.gate, g.gate, g.up)
 					}
 					checkGPU(fmt.Sprintf("step=%d layer=%d gate_act", step, l))
 					if debugOpHook != nil {
@@ -1242,18 +1242,18 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					// Down projection
 					if layer.DownWmg != nil {
 						if useDirectMLX && !forceFastDown {
-							cuda.GemvMLXDirect(g.down, g.gate, layer.DownWmg)
+							nvidia.GemvMLXDirect(g.down, g.gate, layer.DownWmg)
 						} else {
-							cuda.GemvMLX(g.down, g.gate, layer.DownWmg)
+							nvidia.GemvMLX(g.down, g.gate, layer.DownWmg)
 						}
 					} else if layer.DownWg != nil {
 						g.gate.ToGPU()
-						cuda.GemvQ4(g.down, g.gate, layer.DownWg)
+						nvidia.GemvQ4(g.down, g.gate, layer.DownWg)
 					} else if layer.DownWmg != nil {
 						if useDirectMLX {
-							cuda.GemvMLXDirect(g.down, g.gate, layer.DownWmg)
+							nvidia.GemvMLXDirect(g.down, g.gate, layer.DownWmg)
 						} else {
-							cuda.GemvMLX(g.down, g.gate, layer.DownWmg)
+							nvidia.GemvMLX(g.down, g.gate, layer.DownWmg)
 						}
 					} else if layer.DownWq != nil {
 						gd := g.gate.Data()
@@ -1268,7 +1268,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				checkGPU(fmt.Sprintf("step=%d layer=%d down_raw", step, l))
 
 				if cfg.ModelType == "gemma4_text" {
-					cuda.DevToBF16(g.down, h)
+					nvidia.DevToBF16(g.down, h)
 					checkGPU(fmt.Sprintf("step=%d layer=%d down_bf16", step, l))
 				}
 				if debugOpHook != nil {
@@ -1277,9 +1277,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 				// Post-FFN norm (Gemma3/4)
 				if layer.PostFFNNorm != nil {
-					cuda.DevRMSNorm(g.down, g.down, layer.PostFFNNorm, float32(cfg.RMSNormEps))
+					nvidia.DevRMSNorm(g.down, g.down, layer.PostFFNNorm, float32(cfg.RMSNormEps))
 					if cfg.ModelType == "gemma4_text" {
-						cuda.DevToBF16(g.down, h)
+						nvidia.DevToBF16(g.down, h)
 					}
 				}
 				if debugOpHook != nil {
@@ -1287,7 +1287,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 
 				// Residual add
-				cuda.DevAdd(g.hidden, g.residual, g.down)
+				nvidia.DevAdd(g.hidden, g.residual, g.down)
 				if debugOpHook != nil {
 					debugOpHook("gpu", step, l, "hidden_post_ffn", g.hidden.Data()[:h])
 				}
@@ -1296,11 +1296,11 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				if layer.PLIGate != nil && usePLIGPU {
 					hpl := cfg.HiddenPerLayer
 					pliSlice := g.perLayerProjBuf.Slice(l*hpl, hpl)
-					cuda.DevGemv(g.pliGateBuf, g.hidden, layer.PLIGate, hpl, h)
-					cuda.DevGELUTanhMul(g.pliGateBuf, pliSlice, hpl)
-					cuda.DevGemv(g.pliProjBuf, g.pliGateBuf, layer.PLIProj, h, hpl)
-					cuda.DevRMSNorm(g.pliProjBuf, g.pliProjBuf, layer.PLIPostNorm, float32(cfg.RMSNormEps))
-					cuda.DevAdd(g.hidden, g.hidden, g.pliProjBuf)
+					nvidia.DevGemv(g.pliGateBuf, g.hidden, layer.PLIGate, hpl, h)
+					nvidia.DevGELUTanhMul(g.pliGateBuf, pliSlice, hpl)
+					nvidia.DevGemv(g.pliProjBuf, g.pliGateBuf, layer.PLIProj, h, hpl)
+					nvidia.DevRMSNorm(g.pliProjBuf, g.pliProjBuf, layer.PLIPostNorm, float32(cfg.RMSNormEps))
+					nvidia.DevAdd(g.hidden, g.hidden, g.pliProjBuf)
 				} else if cpuLayer.PLIGate != nil && perLayerInputs != nil && l < len(perLayerInputs) {
 					hpl := cfg.HiddenPerLayer
 					pli := perLayerInputs[l]
@@ -1322,10 +1322,10 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 				// Layer scalar (Gemma4) — GPU path
 				if cpuLayer.LayerScalar != 1.0 {
-					cuda.DevScale(g.hidden, g.hidden, cpuLayer.LayerScalar)
+					nvidia.DevScale(g.hidden, g.hidden, cpuLayer.LayerScalar)
 				}
 				if cfg.ModelType == "gemma4_text" {
-					cuda.DevToBF16(g.hidden, h)
+					nvidia.DevToBF16(g.hidden, h)
 				}
 				if debugLayerHook != nil {
 					debugLayerHook("gpu", step, l, g.hidden.Data())
@@ -1342,22 +1342,22 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 		}
 
 		// Sync GPU → CPU for final norm + sampling
-		cuda.Sync() // drain all queued GPU work before readback
+		nvidia.Sync() // drain all queued GPU work before readback
 
 		logitTimer := profileStart()
 		if g.lmHeadMLXGPU != nil || g.lmHeadGPU != nil {
 			// GPU path: RMSNorm + GEMV on GPU, download logits
-			cuda.DevRMSNorm(g.hidden, g.hidden, g.normGPU, float32(cfg.RMSNormEps))
+			nvidia.DevRMSNorm(g.hidden, g.hidden, g.normGPU, float32(cfg.RMSNormEps))
 			if cfg.ModelType == "gemma4_text" {
-				cuda.DevToBF16(g.hidden, h)
+				nvidia.DevToBF16(g.hidden, h)
 			}
 			if g.lmHeadMLXGPU != nil {
-				cuda.GemvMLX(g.logitsGPU, g.hidden, g.lmHeadMLXGPU)
+				nvidia.GemvMLX(g.logitsGPU, g.hidden, g.lmHeadMLXGPU)
 			} else {
 				// logits = lmHead[vocab,h] × hidden[h] → [vocab]
-				cuda.DevLMHead(g.logitsGPU, g.hidden, g.lmHeadGPU, g.vocabSize, h)
+				nvidia.DevLMHead(g.logitsGPU, g.hidden, g.lmHeadGPU, g.vocabSize, h)
 			}
-			cuda.Sync()
+			nvidia.Sync()
 			copy(logits, g.logitsGPU.Data())
 		} else {
 			hd = g.hidden.Data()
@@ -1395,7 +1395,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 			steps = 0
 		}
 		fmt.Printf("[decode-profile] steps=%d logit_steps=%d layers=%s logits=%s total=%s\n", steps, logitSteps, totalLayerTime.Round(time.Millisecond), totalLogitTime.Round(time.Millisecond), (totalLayerTime + totalLogitTime).Round(time.Millisecond))
-		gpuStatsEnd := cuda.StatsSnapshot()
+		gpuStatsEnd := nvidia.StatsSnapshot()
 		fmt.Printf("[decode-profile] gpu_ops kernels=%d h2d=%d d2h=%d d2d=%d syncs=%d\n",
 			gpuStatsEnd.KernelLaunches-gpuStatsStart.KernelLaunches,
 			gpuStatsEnd.HostToDevice-gpuStatsStart.HostToDevice,

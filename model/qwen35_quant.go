@@ -6,7 +6,7 @@ import (
 	"math"
 	"strings"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/runtime/quant"
 )
@@ -18,7 +18,7 @@ type Qwen35RawTensorSource interface {
 type Qwen35NVFP4Weight struct {
 	Name     string
 	W        *quant.NVFP4Weight
-	GPU      *cuda.GPUNVFP4Weight
+	GPU      *nvidia.GPUNVFP4Weight
 	GPUBytes int64
 	LastUse  uint64
 }

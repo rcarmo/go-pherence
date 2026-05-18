@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4QuantizedLayer6PostAttnSensitivity(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4QuantizedLayer6PostAttnSensitivity(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true
@@ -97,24 +97,24 @@ func TestGemma4QuantizedLayer6PostAttnSensitivity(t *testing.T) {
 	maxAbs, meanAbs = diffStats(cpuMLPIn, cpuRecon)
 	t.Logf("L6 cpu(preffn(residual+postnorm(gpuO))) vs cpu mlp_input: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)
 
-	hidBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuHiddenIn...))
-	oBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuO...))
-	tmpBuf := cuda.NewDevBuf(len(gpuHiddenIn))
-	outBuf := cuda.NewDevBuf(len(gpuHiddenIn))
+	hidBuf := nvidia.NewDevBufFrom(append([]float32(nil), gpuHiddenIn...))
+	oBuf := nvidia.NewDevBufFrom(append([]float32(nil), gpuO...))
+	tmpBuf := nvidia.NewDevBuf(len(gpuHiddenIn))
+	outBuf := nvidia.NewDevBuf(len(gpuHiddenIn))
 	defer hidBuf.Free()
 	defer oBuf.Free()
 	defer tmpBuf.Free()
 	defer outBuf.Free()
-	for _, b := range []*cuda.DevBuf{hidBuf, oBuf, tmpBuf, outBuf} {
+	for _, b := range []*nvidia.DevBuf{hidBuf, oBuf, tmpBuf, outBuf} {
 		if err := b.ToGPU(); err != nil {
 			t.Fatalf("ToGPU: %v", err)
 		}
 	}
-	cuda.DevRMSNorm(tmpBuf, oBuf, g.Layers[6].PostNorm, float32(m.Config.RMSNormEps))
-	cuda.DevAdd(outBuf, hidBuf, tmpBuf)
-	cuda.DevRMSNorm(outBuf, outBuf, g.Layers[6].PreFFNNorm, float32(m.Config.RMSNormEps))
-	cuda.DevToBF16(outBuf, len(gpuHiddenIn))
-	cuda.Sync()
+	nvidia.DevRMSNorm(tmpBuf, oBuf, g.Layers[6].PostNorm, float32(m.Config.RMSNormEps))
+	nvidia.DevAdd(outBuf, hidBuf, tmpBuf)
+	nvidia.DevRMSNorm(outBuf, outBuf, g.Layers[6].PreFFNNorm, float32(m.Config.RMSNormEps))
+	nvidia.DevToBF16(outBuf, len(gpuHiddenIn))
+	nvidia.Sync()
 	gpuRecon := append([]float32(nil), outBuf.Data()[:len(gpuMLPIn)]...)
 	maxAbs, meanAbs = diffStats(gpuMLPIn, gpuRecon)
 	t.Logf("L6 fresh gpu(preffn(residual+postnorm(gpuO))) vs gpu mlp_input: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)

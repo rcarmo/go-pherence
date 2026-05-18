@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4QuantizedEarlyNormSensitivity(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4QuantizedEarlyNormSensitivity(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true
@@ -91,16 +91,16 @@ func TestGemma4QuantizedEarlyNormSensitivity(t *testing.T) {
 		maxAbs, meanAbs = diffStats(cpuNormed, cpuRecon)
 		t.Logf("L%d cpu(norm(gpuHidden)) vs cpu normed: maxAbs=%.6g meanAbs=%.6g", layer, maxAbs, meanAbs)
 
-		hidBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuHidden...))
-		outBuf := cuda.NewDevBuf(len(gpuHidden))
+		hidBuf := nvidia.NewDevBufFrom(append([]float32(nil), gpuHidden...))
+		outBuf := nvidia.NewDevBuf(len(gpuHidden))
 		if err := hidBuf.ToGPU(); err != nil {
 			t.Fatalf("L%d hidBuf.ToGPU: %v", layer, err)
 		}
 		if err := outBuf.ToGPU(); err != nil {
 			t.Fatalf("L%d outBuf.ToGPU: %v", layer, err)
 		}
-		cuda.DevRMSNorm(outBuf, hidBuf, g.Layers[layer].InputNorm, float32(m.Config.RMSNormEps))
-		cuda.Sync()
+		nvidia.DevRMSNorm(outBuf, hidBuf, g.Layers[layer].InputNorm, float32(m.Config.RMSNormEps))
+		nvidia.Sync()
 		gpuRecon := append([]float32(nil), outBuf.Data()[:len(gpuNormed)]...)
 		maxAbs, meanAbs = diffStats(gpuNormed, gpuRecon)
 		t.Logf("L%d fresh gpu(norm(gpuHidden)) vs gpu normed: maxAbs=%.6g meanAbs=%.6g", layer, maxAbs, meanAbs)

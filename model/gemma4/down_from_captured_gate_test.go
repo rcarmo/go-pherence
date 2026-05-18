@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4Layer15DownFromCapturedGateAct(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4Layer15DownFromCapturedGateAct(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -81,9 +81,9 @@ func TestGemma4Layer15DownFromCapturedGateAct(t *testing.T) {
 		t.Fatal("missing layer15 DownWmg")
 	}
 
-	run := func(name string, fn func(out, in *cuda.DevBuf, w *cuda.GPUMLXWeight)) {
-		inBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuGate...))
-		outBuf := cuda.NewDevBuf(len(gpuDownTrace))
+	run := func(name string, fn func(out, in *nvidia.DevBuf, w *nvidia.GPUMLXWeight)) {
+		inBuf := nvidia.NewDevBufFrom(append([]float32(nil), gpuGate...))
+		outBuf := nvidia.NewDevBuf(len(gpuDownTrace))
 		defer inBuf.Free()
 		defer outBuf.Free()
 		if err := inBuf.ToGPU(); err != nil {
@@ -93,8 +93,8 @@ func TestGemma4Layer15DownFromCapturedGateAct(t *testing.T) {
 			t.Fatalf("%s outBuf.ToGPU: %v", name, err)
 		}
 		fn(outBuf, inBuf, w)
-		cuda.DevToBF16(outBuf, len(gpuDownTrace))
-		cuda.Sync()
+		nvidia.DevToBF16(outBuf, len(gpuDownTrace))
+		nvidia.Sync()
 		got := append([]float32(nil), outBuf.Data()[:len(gpuDownTrace)]...)
 		maxVsGPU, meanVsGPU := diffStats(gpuDownTrace, got)
 		maxVsCPU, meanVsCPU := diffStats(cpuDown, got)
@@ -102,6 +102,6 @@ func TestGemma4Layer15DownFromCapturedGateAct(t *testing.T) {
 		t.Logf("captured gate -> %s down vs cpuDown : maxAbs=%.6g meanAbs=%.6g", name, maxVsCPU, meanVsCPU)
 	}
 
-	run("native", cuda.GemvMLXDirect)
-	run("fast", cuda.GemvMLX)
+	run("native", nvidia.GemvMLXDirect)
+	run("fast", nvidia.GemvMLX)
 }

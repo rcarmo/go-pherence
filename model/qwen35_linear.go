@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 	"github.com/rcarmo/go-pherence/runtime/quant"
 	"github.com/rcarmo/go-pherence/tensor"
 )
@@ -24,7 +24,7 @@ var qwen35GPUMLPEnabled bool
 
 var qwen35MLPGPUScratch = struct {
 	sync.Mutex
-	x, gate, up, out *cuda.Buffer
+	x, gate, up, out *nvidia.Buffer
 	xN, interN, outN int
 }{}
 
@@ -49,7 +49,7 @@ type Qwen35GPUVerifyStats struct {
 
 func SetQwen35GPUEnabled(enabled bool) {
 	qwen35GPUEnabled = enabled
-	qwen35GPUReady = enabled && cuda.SgemmReady()
+	qwen35GPUReady = enabled && nvidia.SgemmReady()
 }
 
 func SetQwen35LinearTiming(enabled bool)  { qwen35LinearTiming = enabled }
@@ -109,7 +109,7 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 			if transient {
 				defer gw.Free()
 			}
-			if err := cuda.GemvNVFP4(out, x, gw); err != nil {
+			if err := nvidia.GemvNVFP4(out, x, gw); err != nil {
 				if qwen35LinearTiming {
 					qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
 				}

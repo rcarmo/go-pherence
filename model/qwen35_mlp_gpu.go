@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func qwen35MLPIntoGPU(out, mlpIn []float32, gateQ, upQ, downQ *Qwen35NVFP4Weight, hidden, inter int) (bool, error) {
@@ -36,16 +36,16 @@ func qwen35MLPIntoGPU(out, mlpIn []float32, gateQ, upQ, downQ *Qwen35NVFP4Weight
 	if err := xBuf.Upload(mlpIn); err != nil {
 		return false, fmt.Errorf("upload GPU MLP input: %w", err)
 	}
-	if err := cuda.GemvNVFP4Buffer(gateBuf, xBuf, gwGate); err != nil {
+	if err := nvidia.GemvNVFP4Buffer(gateBuf, xBuf, gwGate); err != nil {
 		return false, fmt.Errorf("GPU MLP gate GEMV: %w", err)
 	}
-	if err := cuda.GemvNVFP4Buffer(upBuf, xBuf, gwUp); err != nil {
+	if err := nvidia.GemvNVFP4Buffer(upBuf, xBuf, gwUp); err != nil {
 		return false, fmt.Errorf("GPU MLP up GEMV: %w", err)
 	}
-	if err := cuda.F32SiLUMulBuffer(gateBuf, gateBuf, upBuf, inter); err != nil {
+	if err := nvidia.F32SiLUMulBuffer(gateBuf, gateBuf, upBuf, inter); err != nil {
 		return false, fmt.Errorf("GPU MLP SiLU*up: %w", err)
 	}
-	if err := cuda.GemvNVFP4Buffer(outBuf, gateBuf, gwDown); err != nil {
+	if err := nvidia.GemvNVFP4Buffer(outBuf, gateBuf, gwDown); err != nil {
 		return false, fmt.Errorf("GPU MLP down GEMV: %w", err)
 	}
 	if err := outBuf.Download(out); err != nil {
@@ -54,14 +54,14 @@ func qwen35MLPIntoGPU(out, mlpIn []float32, gateQ, upQ, downQ *Qwen35NVFP4Weight
 	return true, nil
 }
 
-func qwen35MLPScratchBuffers(hidden, inter int) (x, gate, up, out *cuda.Buffer, unlock func(), err error) {
+func qwen35MLPScratchBuffers(hidden, inter int) (x, gate, up, out *nvidia.Buffer, unlock func(), err error) {
 	qwen35MLPGPUScratch.Lock()
 	unlock = func() { qwen35MLPGPUScratch.Unlock() }
 	if qwen35MLPGPUScratch.x == nil || qwen35MLPGPUScratch.xN < hidden {
 		if qwen35MLPGPUScratch.x != nil {
 			qwen35MLPGPUScratch.x.Free()
 		}
-		qwen35MLPGPUScratch.x, err = cuda.Malloc(hidden)
+		qwen35MLPGPUScratch.x, err = nvidia.Malloc(hidden)
 		if err != nil {
 			unlock()
 			return nil, nil, nil, nil, nil, fmt.Errorf("alloc GPU MLP input: %w", err)
@@ -75,12 +75,12 @@ func qwen35MLPScratchBuffers(hidden, inter int) (x, gate, up, out *cuda.Buffer, 
 		if qwen35MLPGPUScratch.up != nil {
 			qwen35MLPGPUScratch.up.Free()
 		}
-		qwen35MLPGPUScratch.gate, err = cuda.Malloc(inter)
+		qwen35MLPGPUScratch.gate, err = nvidia.Malloc(inter)
 		if err != nil {
 			unlock()
 			return nil, nil, nil, nil, nil, fmt.Errorf("alloc GPU MLP gate: %w", err)
 		}
-		qwen35MLPGPUScratch.up, err = cuda.Malloc(inter)
+		qwen35MLPGPUScratch.up, err = nvidia.Malloc(inter)
 		if err != nil {
 			unlock()
 			return nil, nil, nil, nil, nil, fmt.Errorf("alloc GPU MLP up: %w", err)
@@ -91,7 +91,7 @@ func qwen35MLPScratchBuffers(hidden, inter int) (x, gate, up, out *cuda.Buffer, 
 		if qwen35MLPGPUScratch.out != nil {
 			qwen35MLPGPUScratch.out.Free()
 		}
-		qwen35MLPGPUScratch.out, err = cuda.Malloc(hidden)
+		qwen35MLPGPUScratch.out, err = nvidia.Malloc(hidden)
 		if err != nil {
 			unlock()
 			return nil, nil, nil, nil, nil, fmt.Errorf("alloc GPU MLP out: %w", err)

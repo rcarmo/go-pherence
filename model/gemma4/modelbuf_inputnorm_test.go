@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 	"github.com/rcarmo/go-pherence/backends/simd"
 )
 
@@ -21,10 +21,10 @@ func TestGemma4Layer0InputNormOnModelBuffersVsCPU(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	m, err := LoadLlama(dir)
 	if err != nil {
@@ -81,9 +81,9 @@ func TestGemma4Layer0InputNormOnModelBuffersVsCPU(t *testing.T) {
 	check := func(label string, hidden []float32) {
 		copy(g.hidden.Data(), hidden)
 		g.hidden.MarkDirty()
-		cuda.DevRMSNorm(g.normed, g.hidden, g.Layers[0].InputNorm, float32(m.Config.RMSNormEps))
-		cuda.DevToBF16(g.normed, len(hidden))
-		cuda.Sync()
+		nvidia.DevRMSNorm(g.normed, g.hidden, g.Layers[0].InputNorm, float32(m.Config.RMSNormEps))
+		nvidia.DevToBF16(g.normed, len(hidden))
+		nvidia.Sync()
 		got := append([]float32(nil), g.normed.Data()[:len(hidden)]...)
 
 		want := append([]float32(nil), hidden...)

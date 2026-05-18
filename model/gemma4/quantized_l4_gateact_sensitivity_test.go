@@ -9,7 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4QuantizedLayer4GateActSensitivity(t *testing.T) {
@@ -20,10 +20,10 @@ func TestGemma4QuantizedLayer4GateActSensitivity(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true
@@ -76,8 +76,8 @@ func TestGemma4QuantizedLayer4GateActSensitivity(t *testing.T) {
 	maxAbs, meanAbs := diffStats(gpuGateAct, cpuAct)
 	t.Logf("L4 cpu(gate_act from gpu gate_pre/up) vs gpu gate_act: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)
 
-	gateBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuGate...))
-	upBuf := cuda.NewDevBufFrom(append([]float32(nil), gpuUp...))
+	gateBuf := nvidia.NewDevBufFrom(append([]float32(nil), gpuGate...))
+	upBuf := nvidia.NewDevBufFrom(append([]float32(nil), gpuUp...))
 	defer gateBuf.Free()
 	defer upBuf.Free()
 	if err := gateBuf.ToGPU(); err != nil {
@@ -86,9 +86,9 @@ func TestGemma4QuantizedLayer4GateActSensitivity(t *testing.T) {
 	if err := upBuf.ToGPU(); err != nil {
 		t.Fatalf("upBuf.ToGPU: %v", err)
 	}
-	cuda.DevGELUTanhMul(gateBuf, upBuf, len(gpuGate))
-	cuda.DevToBF16(gateBuf, len(gpuGate))
-	cuda.Sync()
+	nvidia.DevGELUTanhMul(gateBuf, upBuf, len(gpuGate))
+	nvidia.DevToBF16(gateBuf, len(gpuGate))
+	nvidia.Sync()
 	freshGPU := append([]float32(nil), gateBuf.Data()[:len(gpuGateAct)]...)
 	maxAbs, meanAbs = diffStats(gpuGateAct, freshGPU)
 	t.Logf("L4 fresh gpu(gate_act from gpu gate_pre/up) vs gpu gate_act: maxAbs=%.6g meanAbs=%.6g", maxAbs, meanAbs)

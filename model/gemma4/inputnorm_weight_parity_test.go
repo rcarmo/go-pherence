@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	cuda "github.com/rcarmo/go-pherence/backends/cuda"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
 )
 
 func TestGemma4GPUInputNormWeightParity(t *testing.T) {
@@ -18,10 +18,10 @@ func TestGemma4GPUInputNormWeightParity(t *testing.T) {
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skipf("model not found: %s", dir)
 	}
-	if !cuda.Available() {
+	if !nvidia.Available() {
 		t.Skip("GPU not available")
 	}
-	t.Cleanup(cuda.Shutdown)
+	t.Cleanup(nvidia.Shutdown)
 
 	oldForce := ForceOnTheFly
 	ForceOnTheFly = true
