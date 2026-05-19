@@ -4,6 +4,12 @@ func GemvSym(out, x []float32, qweight, gIdx []int32, scales []float32, inDim, o
 	if err := ValidateGemvSym(out, x, qweight, gIdx, scales, inDim, outDim); err != nil {
 		return
 	}
+	// Dispatch hook kept explicit so AVX2/NEON kernels can be wired without
+	// changing callers. Scalar remains active until hasGemvSymAsm flips true.
+	gemvSymScalar(out, x, qweight, gIdx, scales, inDim, outDim)
+}
+
+func gemvSymScalar(out, x []float32, qweight, gIdx []int32, scales []float32, inDim, outDim int) {
 	for j := 0; j < outDim; j++ {
 		out[j] = 0
 	}
