@@ -4,7 +4,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/rcarmo/go-pherence/runtime/quant"
+	"github.com/rcarmo/go-pherence/backends/mlx"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -39,7 +39,7 @@ func uploadExpertNativeToPool(pool *nvidia.ExpertPool, layer *LlamaLayer, expert
 }
 
 // moeForwardGPU runs the MoE forward pass using GPU for hot experts.
-// Falls back to CPU quant.GemvMLQ for cold experts not in the pool.
+// Falls back to CPU mlx.Gemv for cold experts not in the pool.
 func moeForwardGPU(outDev, xDev *nvidia.DevBuf, layer *LlamaLayer, cfg LlamaConfig, pool *nvidia.ExpertPool, layerIdx int, routerGPU *nvidia.GPUMLXWeight) []float32 {
 	if layer == nil || xDev == nil || cfg.HiddenSize <= 0 || cfg.NumExperts <= 0 || cfg.MoEIntermediate <= 0 || xDev.Len() < cfg.HiddenSize {
 		return nil
@@ -72,13 +72,13 @@ func moeForwardGPU(outDev, xDev *nvidia.DevBuf, layer *LlamaLayer, cfg LlamaConf
 			nvidia.GemvMLXDirect(routerOut, xDev, routerGPU)
 			copy(routerLogits, routerOut.Data()[:numExperts])
 		} else if layer.RouterW != nil {
-			quant.GemvMLQ(routerLogits, getXCPU(), layer.RouterW)
+			mlx.Gemv(routerLogits, getXCPU(), layer.RouterW)
 		}
 		if routerOut != nil {
 			routerOut.Free()
 		}
 	} else if layer.RouterW != nil {
-		quant.GemvMLQ(routerLogits, getXCPU(), layer.RouterW)
+		mlx.Gemv(routerLogits, getXCPU(), layer.RouterW)
 	}
 
 	// Softmax over router logits
@@ -236,11 +236,11 @@ func moeForwardGPU(outDev, xDev *nvidia.DevBuf, layer *LlamaLayer, cfg LlamaConf
 				defer wg.Done()
 				gate := make([]float32, moeInter)
 				up := make([]float32, moeInter)
-				quant.GemvMLQ(gate, xIn, layer.ExpertGateW[expertID])
-				quant.GemvMLQ(up, xIn, layer.ExpertUpW[expertID])
+				mlx.Gemv(gate, xIn, layer.ExpertGateW[expertID])
+				mlx.Gemv(up, xIn, layer.ExpertUpW[expertID])
 				simd.VecSiLUMul(gate, gate, up)
 				down := make([]float32, h)
-				quant.GemvMLQ(down, gate, layer.ExpertDownW[expertID])
+				mlx.Gemv(down, gate, layer.ExpertDownW[expertID])
 				results[idx] = expertResult{down: down, weight: w}
 			}(si, eid, exp.score, xForCPU)
 		}

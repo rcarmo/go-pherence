@@ -6,6 +6,8 @@ import (
 	"math"
 	"sync"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
+
 	"github.com/rcarmo/go-pherence/runtime/quant"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -173,7 +175,7 @@ func moeForward(x []float32, layer *LlamaLayer, cfg LlamaConfig) []float32 {
 	// Router: compute logits for each expert
 	routerLogits := make([]float32, numExperts)
 	if layer.RouterW != nil {
-		quant.GemvMLQ(routerLogits, x, layer.RouterW)
+		mlx.Gemv(routerLogits, x, layer.RouterW)
 	}
 
 	// Softmax over router logits
@@ -259,11 +261,11 @@ func moeForward(x []float32, layer *LlamaLayer, cfg LlamaConfig) []float32 {
 			// Expert MLP: gate_proj → SiLU × up_proj → down_proj
 			gate := make([]float32, moeInter)
 			up := make([]float32, moeInter)
-			quant.GemvMLQ(gate, x, layer.ExpertGateW[expertID])
-			quant.GemvMLQ(up, x, layer.ExpertUpW[expertID])
+			mlx.Gemv(gate, x, layer.ExpertGateW[expertID])
+			mlx.Gemv(up, x, layer.ExpertUpW[expertID])
 			simd.VecSiLUMul(gate, gate, up)
 			down := make([]float32, h)
-			quant.GemvMLQ(down, gate, layer.ExpertDownW[expertID])
+			mlx.Gemv(down, gate, layer.ExpertDownW[expertID])
 			results[idx] = expertResult{down: down, weight: w}
 		}(si, eid, exp.score)
 	}
