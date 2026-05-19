@@ -21,11 +21,18 @@ import (
 
 // Vulkan kernel cache
 var (
-	vkKernelOnce  sync.Once
-	vkVecAddF32   *VkComputeKernel
-	vkVecAddBF16  *VkComputeKernel
-	vkRMSNormF32  *VkComputeKernel
-	vkRMSNormBF16 *VkComputeKernel
+	vkKernelOnce         sync.Once
+	vkVecAddF32          *VkComputeKernel
+	vkVecAddBF16         *VkComputeKernel
+	vkRMSNormF32         *VkComputeKernel
+	vkRMSNormBF16        *VkComputeKernel
+	vkRMSNormNoScaleF32  *VkComputeKernel
+	vkGemvF32            *VkComputeKernel
+	vkGemvBF16Mixed      *VkComputeKernel
+	vkSiLUMulF32         *VkComputeKernel
+	vkGELUTanhMulF32     *VkComputeKernel
+	vkRoPEPartialF32     *VkComputeKernel
+	vkAttentionScoresF32 *VkComputeKernel
 )
 
 // initVkKernels compiles all Vulkan compute shaders.
@@ -158,3 +165,141 @@ func buildSPIRVBF16VecAdd() []byte {
 // Same structure but x is uint[] (BF16), w is float[] (F32 weights).
 // Mixed precision: BF16 activations × F32 weights → BF16 output.
 // Output: out is uint[] with BF16 in lower 16 bits.
+
+func vkCheckedMulInt(a, b int) (int, bool) {
+	if a < 0 || b < 0 {
+		return 0, false
+	}
+	maxInt := int(^uint(0) >> 1)
+	if b != 0 && a > maxInt/b {
+		return 0, false
+	}
+	return a * b, true
+}
+
+func vkBufHasFloat32s(b *VkBuf, n int) bool {
+	if b == nil || n < 0 {
+		return false
+	}
+	maxInt := int(^uint(0) >> 1)
+	if n > maxInt/4 {
+		return false
+	}
+	return b.size >= uint64(n*4)
+}
+
+func vkUnavailable(name string) error {
+	return fmt.Errorf("vulkan %s not available (SPIR-V pipeline wiring pending)", name)
+}
+
+// VkRMSNormF32 dispatches x[i] = w[i] * x[i] / rms(x) on Vulkan.
+func VkRMSNormF32(x, w *VkBuf, n int, eps float32) error {
+	initVkKernels()
+	if n <= 0 || !vkBufHasFloat32s(x, n) || !vkBufHasFloat32s(w, n) {
+		return fmt.Errorf("invalid vulkan rms_norm_f32 buffers n=%d", n)
+	}
+	if vkRMSNormF32 == nil {
+		return vkUnavailable("rms_norm_f32")
+	}
+	push := struct {
+		N   uint32
+		Eps float32
+	}{uint32(n), eps}
+	return vkRMSNormF32.Dispatch(1, 1, 1, []*VkBuf{x, w}, unsafe.Pointer(&push))
+}
+
+// VkRMSNormNoScaleF32 dispatches x[i] = x[i] / rms(x) on Vulkan.
+func VkRMSNormNoScaleF32(x *VkBuf, n int, eps float32) error {
+	initVkKernels()
+	if n <= 0 || !vkBufHasFloat32s(x, n) {
+		return fmt.Errorf("invalid vulkan rms_norm_no_scale_f32 buffer n=%d", n)
+	}
+	if vkRMSNormNoScaleF32 == nil {
+		return vkUnavailable("rms_norm_no_scale_f32")
+	}
+	push := struct {
+		N   uint32
+		Eps float32
+	}{uint32(n), eps}
+	return vkRMSNormNoScaleF32.Dispatch(1, 1, 1, []*VkBuf{x}, unsafe.Pointer(&push))
+}
+
+// VkGemvF32 dispatches out[outDim] = W[outDim,inDim] · x[inDim] on Vulkan.
+func VkGemvF32(out, x, w *VkBuf, inDim, outDim int) error {
+	initVkKernels()
+	weightLen, ok := vkCheckedMulInt(inDim, outDim)
+	if inDim <= 0 || outDim <= 0 || !ok || !vkBufHasFloat32s(out, outDim) || !vkBufHasFloat32s(x, inDim) || !vkBufHasFloat32s(w, weightLen) {
+		return fmt.Errorf("invalid vulkan gemv_f32 dims in=%d out=%d", inDim, outDim)
+	}
+	if vkGemvF32 == nil {
+		return vkUnavailable("gemv_f32")
+	}
+	push := struct{ InDim, OutDim uint32 }{uint32(inDim), uint32(outDim)}
+	return vkGemvF32.Dispatch(uint32(outDim), 1, 1, []*VkBuf{x, w, out}, unsafe.Pointer(&push))
+}
+
+// VkSiLUMulF32 dispatches dst[i] = silu(gate[i]) * up[i] on Vulkan.
+func VkSiLUMulF32(dst, gate, up *VkBuf, n int) error {
+	initVkKernels()
+	if n <= 0 || !vkBufHasFloat32s(dst, n) || !vkBufHasFloat32s(gate, n) || !vkBufHasFloat32s(up, n) {
+		return fmt.Errorf("invalid vulkan silu_mul_f32 buffers n=%d", n)
+	}
+	if vkSiLUMulF32 == nil {
+		return vkUnavailable("silu_mul_f32")
+	}
+	nn := uint32(n)
+	groups := (nn + 255) / 256
+	return vkSiLUMulF32.Dispatch(groups, 1, 1, []*VkBuf{gate, up, dst}, unsafe.Pointer(&nn))
+}
+
+// VkGELUTanhMulF32 dispatches gate[i] = gelu_tanh(gate[i]) * up[i] on Vulkan.
+func VkGELUTanhMulF32(gate, up *VkBuf, n int) error {
+	initVkKernels()
+	if n <= 0 || !vkBufHasFloat32s(gate, n) || !vkBufHasFloat32s(up, n) {
+		return fmt.Errorf("invalid vulkan gelu_tanh_mul_f32 buffers n=%d", n)
+	}
+	if vkGELUTanhMulF32 == nil {
+		return vkUnavailable("gelu_tanh_mul_f32")
+	}
+	nn := uint32(n)
+	groups := (nn + 255) / 256
+	return vkGELUTanhMulF32.Dispatch(groups, 1, 1, []*VkBuf{gate, up}, unsafe.Pointer(&nn))
+}
+
+// VkRoPEPartialF32 dispatches partial rotary embedding on Vulkan.
+func VkRoPEPartialF32(x, freqs *VkBuf, pos, nHeads, headDim, rotHalf int) error {
+	initVkKernels()
+	total, okTotal := vkCheckedMulInt(nHeads, headDim)
+	pairs, okPairs := vkCheckedMulInt(nHeads, rotHalf)
+	posPairs, okPos := vkCheckedMulInt(pos+1, rotHalf)
+	freqNeed, okFreq := vkCheckedMulInt(posPairs, 2)
+	if pos < 0 || nHeads <= 0 || headDim <= 0 || rotHalf <= 0 || rotHalf > headDim/2 || !okTotal || !okPairs || !okPos || !okFreq || !vkBufHasFloat32s(x, total) || !vkBufHasFloat32s(freqs, freqNeed) {
+		return fmt.Errorf("invalid vulkan rope_partial_f32 dims pos=%d heads=%d headDim=%d rotHalf=%d", pos, nHeads, headDim, rotHalf)
+	}
+	if vkRoPEPartialF32 == nil {
+		return vkUnavailable("rope_partial_f32")
+	}
+	push := struct{ Pos, Heads, HeadDim, RotHalf uint32 }{uint32(pos), uint32(nHeads), uint32(headDim), uint32(rotHalf)}
+	groups := uint32((pairs + 255) / 256)
+	return vkRoPEPartialF32.Dispatch(groups, 1, 1, []*VkBuf{x, freqs}, unsafe.Pointer(&push))
+}
+
+// VkAttentionScoresF32 dispatches GQA attention scores on Vulkan.
+func VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) error {
+	initVkKernels()
+	qLen, okQ := vkCheckedMulInt(nHeads, headDim)
+	kvDim, okKV := vkCheckedMulInt(nKVHeads, headDim)
+	cacheLen, okCache := vkCheckedMulInt(seqLen, kvDim)
+	scoreLen, okScore := vkCheckedMulInt(nHeads, seqLen)
+	if seqLen <= 0 || nHeads <= 0 || nKVHeads <= 0 || headDim <= 0 || !okQ || !okKV || !okCache || !okScore || !vkBufHasFloat32s(out, scoreLen) || !vkBufHasFloat32s(q, qLen) || !vkBufHasFloat32s(kCache, cacheLen) {
+		return fmt.Errorf("invalid vulkan attention_score dims seq=%d heads=%d kvHeads=%d headDim=%d", seqLen, nHeads, nKVHeads, headDim)
+	}
+	if vkAttentionScoresF32 == nil {
+		return vkUnavailable("attention_score_f32")
+	}
+	push := struct {
+		Heads, KVHeads, HeadDim, SeqLen uint32
+		Scale                           float32
+	}{uint32(nHeads), uint32(nKVHeads), uint32(headDim), uint32(seqLen), scale}
+	return vkAttentionScoresF32.Dispatch(uint32(nHeads), 1, 1, []*VkBuf{q, kCache, out}, unsafe.Pointer(&push))
+}

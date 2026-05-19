@@ -33,12 +33,19 @@ Phase 7 tracks what the Vulkan backend already owns versus what still needs safe
 
 ## Exported wrapper status
 
-Implemented public wrappers are limited to:
+Public wrapper functions now exist for:
 
 - `VkVecAddF32(dst, a, b *VkBuf, n int) error`
 - `VkVecAddBF16(dst, a, b *VkBuf, n int) error`
+- `VkRMSNormF32(x, w *VkBuf, n int, eps float32) error`
+- `VkRMSNormNoScaleF32(x *VkBuf, n int, eps float32) error`
+- `VkGemvF32(out, x, w *VkBuf, inDim, outDim int) error`
+- `VkSiLUMulF32(dst, gate, up *VkBuf, n int) error`
+- `VkGELUTanhMulF32(gate, up *VkBuf, n int) error`
+- `VkRoPEPartialF32(x, freqs *VkBuf, pos, nHeads, headDim, rotHalf int) error`
+- `VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) error`
 
-Both currently depend on kernel cache entries that are not populated because `initVkKernels` intentionally logs SPIR-V validation as pending instead of constructing pipelines. This means the backend has assets and generic dispatch scaffolding, but most model-facing Vulkan wrappers are still absent.
+The newly added wrappers validate dimensions, buffer capacities, and product overflow before dispatch, then return a clear "pipeline wiring pending" unsupported error while kernel cache entries remain unpopulated. `VkVecAddF32`/`VkVecAddBF16` predate this validation pass and still depend on kernel cache entries that are not populated because `initVkKernels` intentionally logs SPIR-V validation as pending instead of constructing pipelines.
 
 ## Next Phase 7 steps
 
