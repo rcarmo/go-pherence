@@ -253,6 +253,7 @@ Phase-level validation commands live in [docs/validation-gates.md](docs/validati
 
 ## Documentation
 
+- **[docs/README.md](docs/README.md)** — documentation index
 - **[docs/architecture.md](docs/architecture.md)** — UOp graph, fusion, SIMD dispatch
 - **[docs/backend-layout.md](docs/backend-layout.md)** — current backend/model ownership and package layout
 - **[docs/kernel-coverage.md](docs/kernel-coverage.md)** — kernel and quantization coverage across backends
