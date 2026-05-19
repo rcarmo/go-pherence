@@ -164,7 +164,7 @@ func UploadNVFP4WeightReuse(dst **GPUNVFP4Weight, qw *simdnvfp4.NVFP4Weight) err
 	w.WeightBytes = weightBytes
 	w.ScaleBytes = scaleBytes
 
-	if w.Weight == nil || w.Weight.Size < f32SlotsForBytes(weightBytes)*4 {
+	if w.Weight == nil || !hasPaddedByteCapacity(w.Weight.Size, weightBytes) {
 		if w.Weight != nil {
 			w.Weight.Free()
 			w.Weight = nil
@@ -179,7 +179,7 @@ func UploadNVFP4WeightReuse(dst **GPUNVFP4Weight, qw *simdnvfp4.NVFP4Weight) err
 		return fmt.Errorf("upload NVFP4 weight: %w", err)
 	}
 
-	if w.WeightScale == nil || w.WeightScale.Size < f32SlotsForBytes(scaleBytes)*4 {
+	if w.WeightScale == nil || !hasPaddedByteCapacity(w.WeightScale.Size, scaleBytes) {
 		if w.WeightScale != nil {
 			w.WeightScale.Free()
 			w.WeightScale = nil
@@ -325,8 +325,14 @@ func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 }
 
 func GemvNVFP4Buffer(outBuf, xBuf *Buffer, w *GPUNVFP4Weight) error {
-	if !validGPUNVFP4Weight(w) || outBuf == nil || xBuf == nil || outBuf.Size < w.OutDim*4 || xBuf.Size < w.InDim*4 {
+	if !validGPUNVFP4Weight(w) || outBuf == nil || xBuf == nil {
 		return fmt.Errorf("invalid NVFP4 GEMV device buffers")
+	}
+	if _, err := checkedByteSize(w.OutDim, outBuf.Size); err != nil {
+		return fmt.Errorf("invalid NVFP4 GEMV output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(w.InDim, xBuf.Size); err != nil {
+		return fmt.Errorf("invalid NVFP4 GEMV input buffer: %w", err)
 	}
 	if fnNVFP4GemvF32 == 0 || !megaModuleOK {
 		return fmt.Errorf("NVFP4 packed GEMV kernel not available")
@@ -349,8 +355,17 @@ func GemvNVFP4Buffer(outBuf, xBuf *Buffer, w *GPUNVFP4Weight) error {
 }
 
 func F32SiLUMulBuffer(out, a, b *Buffer, n int) error {
-	if fnFusedSiLUMul == 0 || out == nil || a == nil || b == nil || n <= 0 || out.Size < n*4 || a.Size < n*4 || b.Size < n*4 || !fitsUint32(n) {
+	if fnFusedSiLUMul == 0 || out == nil || a == nil || b == nil || n <= 0 || !fitsUint32(n) {
 		return fmt.Errorf("invalid F32 SiLU*Mul device buffers")
+	}
+	if _, err := checkedByteSize(n, out.Size); err != nil {
+		return fmt.Errorf("invalid F32 SiLU*Mul output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, a.Size); err != nil {
+		return fmt.Errorf("invalid F32 SiLU*Mul input A buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, b.Size); err != nil {
+		return fmt.Errorf("invalid F32 SiLU*Mul input B buffer: %w", err)
 	}
 	grid, okGrid := grid1DFor(n, 256)
 	if !okGrid {

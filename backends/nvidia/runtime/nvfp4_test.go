@@ -117,6 +117,26 @@ func TestGemvNVFP4RejectsInvalidBuffers(t *testing.T) {
 	if err := GemvNVFP4(make([]float32, 2), make([]float32, 7), w); err == nil {
 		t.Fatal("GemvNVFP4 accepted short input")
 	}
+	if err := GemvNVFP4Buffer(&Buffer{Size: 4}, &Buffer{Size: 32}, w); err == nil {
+		t.Fatal("GemvNVFP4Buffer accepted short output buffer")
+	}
+	if err := GemvNVFP4Buffer(&Buffer{Size: 8}, &Buffer{Size: 28}, w); err == nil {
+		t.Fatal("GemvNVFP4Buffer accepted short input buffer")
+	}
+}
+
+func TestF32SiLUMulBufferRejectsOverflowAndShortBuffers(t *testing.T) {
+	oldFn := fnFusedSiLUMul
+	defer func() { fnFusedSiLUMul = oldFn }()
+	fnFusedSiLUMul = 1
+	maxInt := int(^uint(0) >> 1)
+	buf := &Buffer{Size: maxInt}
+	if err := F32SiLUMulBuffer(buf, buf, buf, maxInt/4+1); err == nil {
+		t.Fatal("F32SiLUMulBuffer accepted byte-size overflow")
+	}
+	if err := F32SiLUMulBuffer(&Buffer{Size: 4}, &Buffer{Size: 8}, &Buffer{Size: 8}, 2); err == nil {
+		t.Fatal("F32SiLUMulBuffer accepted short output buffer")
+	}
 }
 
 func TestGemvNVFP4F32RejectsOverflowShape(t *testing.T) {
