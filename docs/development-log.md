@@ -2015,3 +2015,14 @@ Remaining blockers:
 - real native-MTP integration into `LoadLlama` once base support exists;
 - real-checkpoint NVFP4 loading or a non-NVFP4 Qwen3.6 native-MTP artifact;
 - `speccheck -qwen-native-mtp` real-model wiring and golden baseline generation.
+
+## Session 36: Backend coverage closeout documentation
+
+Completed the documentation and acceptance-tracking pass for the backend coverage/refactor plan without running per-change tests:
+
+- Added Vulkan validating wrapper tests and documented the remaining pipeline-cache and CPU-vs-Vulkan parity gap.
+- Refreshed `runtime/quant` as compatibility-only wrappers for the newer backend-owned caller-owned decode/dequant helpers.
+- Documented the Gemma4 diagnostic package boundary and kept diagnostic compile validation deferred to the phase gate.
+- Added backend parity, malformed-input coverage, validation-gate, benchmark snapshot queue, and final acceptance tracker documents.
+- Added a docs index and cross-linked architecture, backend layout, README, kernel coverage, Vulkan, NVIDIA, BF16, NVFP4, benchmark, and validation references.
+- Kept full validation deferred until the planned phase-level gate: `GOTMPDIR=$PWD/.gotmp go test ./...`, `GOTMPDIR=$PWD/.gotmp go vet ./...`, and `make test-cpu`.
