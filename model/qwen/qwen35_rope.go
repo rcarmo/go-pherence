@@ -31,14 +31,15 @@ func Qwen35UseMRoPE(meta loaderconfig.QwenNativeMTPMetadata) bool {
 
 func NewQwen35RoPEFreqs(meta loaderconfig.QwenNativeMTPMetadata, maxSeq int) []float32 {
 	rotHalf := Qwen35RotaryHalf(meta)
-	if maxSeq <= 0 || rotHalf <= 0 {
+	n, ok := checkedRoPEFreqLen(maxSeq, rotHalf)
+	if !ok {
 		return nil
 	}
 	theta := meta.RopeTheta
-	if theta == 0 {
+	if theta <= 0 {
 		theta = 10000
 	}
-	freqs := make([]float32, maxSeq*rotHalf*2)
+	freqs := make([]float32, n)
 	for pos := 0; pos < maxSeq; pos++ {
 		for i := 0; i < rotHalf; i++ {
 			freq := 1.0 / math.Pow(theta, float64(2*i)/float64(meta.HeadDim))
@@ -49,4 +50,19 @@ func NewQwen35RoPEFreqs(meta loaderconfig.QwenNativeMTPMetadata, maxSeq int) []f
 		}
 	}
 	return freqs
+}
+
+func checkedRoPEFreqLen(maxSeq, rotHalf int) (int, bool) {
+	if maxSeq <= 0 || rotHalf <= 0 {
+		return 0, false
+	}
+	maxInt := int(^uint(0) >> 1)
+	if maxSeq > maxInt/rotHalf {
+		return 0, false
+	}
+	n := maxSeq * rotHalf
+	if n > maxInt/2 {
+		return 0, false
+	}
+	return n * 2, true
 }
