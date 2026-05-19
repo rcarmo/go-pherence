@@ -56,7 +56,7 @@ go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 - `Sdot`/`Saxpy` now dispatch through small Go wrappers and fall back to scalar code if AVX2/FMA or NEON is unavailable, or if callers pass mismatched lengths.
 - SGEMM callers continue to check `simd.HasSgemmAsm` before invoking assembly kernels; tensor matmul helpers avoid passing zero-length slice pointers to SIMD entrypoints. `SgemmNTGebp` and `SgemmNTBlockedFMA` now validate dimensions, pointers, strides, and overflow before unsafe slicing/pointer arithmetic.
 - Vector entrypoints (`VecAdd`, `VecMul`, `VecScaleAdd`, `RMSNorm*`, `ToBF16`, BF16 helpers) now dispatch through Go wrappers and fall back to scalar code when runtime SIMD gates are false. Scalar fallbacks bound all participating slices and leave untouched destination tails unchanged on malformed inputs.
-- Activation wrappers (`VecSiLUMul`, `GELUTanhMul`) now route through scalar kernels in `backends/simd/kernels/activation.go`; AVX2/NEON polynomial approximations remain pending.
+- Activation wrappers (`VecSiLUMul`, `GELUTanhMul`) now route through scalar kernels in `backends/simd/kernels/activation.go`; `RuntimeCapabilities().HasActivation` remains false until AVX2/NEON polynomial approximations land and pass the explicit tolerance gate.
 - RoPE wrappers now have explicit runtime dispatch hooks and a `RuntimeCapabilities().HasRoPE` flag. It remains false until AVX2/NEON kernels land and pass scalar parity tests.
 
 ## Baseline snapshot (i7-12700, amd64)

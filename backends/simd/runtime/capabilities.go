@@ -10,16 +10,17 @@ import (
 // It is intentionally conservative: Go fallback paths remain valid when a feature
 // is unavailable at runtime, even on an architecture with assembly files present.
 type Capabilities struct {
-	Arch     string
-	HasAVX2  bool
-	HasFMA   bool
-	HasNEON  bool
-	HasVec   bool
-	HasDot   bool
-	HasSGEMM bool
-	HasBF16  bool
-	HasPack  bool
-	HasRoPE  bool
+	Arch          string
+	HasAVX2       bool
+	HasFMA        bool
+	HasNEON       bool
+	HasVec        bool
+	HasDot        bool
+	HasSGEMM      bool
+	HasBF16       bool
+	HasPack       bool
+	HasRoPE       bool
+	HasActivation bool
 }
 
 // HasDotAsm reports whether Sdot/Saxpy may use architecture-specific assembly.
@@ -43,6 +44,7 @@ func RuntimeCapabilities() Capabilities {
 		c.HasBF16 = c.HasVec
 		c.HasPack = hasAvxPack
 		c.HasRoPE = hasRoPEAsm && c.HasVec
+		c.HasActivation = hasActivationAsm && c.HasVec
 	case "arm64":
 		c.HasNEON = cpu.ARM64.HasASIMD
 		c.HasVec = c.HasNEON
@@ -51,6 +53,7 @@ func RuntimeCapabilities() Capabilities {
 		c.HasBF16 = c.HasNEON
 		c.HasPack = hasNeonPack
 		c.HasRoPE = hasRoPEAsm && c.HasNEON
+		c.HasActivation = hasActivationAsm && c.HasNEON
 	}
 	return c
 }

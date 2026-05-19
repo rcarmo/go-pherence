@@ -13,6 +13,11 @@ import (
 // HasVecAsm is true if vector assembly kernels are available at runtime.
 var HasVecAsm bool
 
+// hasActivationAsm stays false until real AVX2/NEON polynomial activation
+// kernels land. Existing assembly stubs intentionally are not advertised as
+// optimized activations because they just call the Go math path.
+const hasActivationAsm = false
+
 // Go fallback implementations (used by vec_other.go or when assembly not available)
 func snrm2Go(x []float32) float32 {
 	ss := float32(0)
