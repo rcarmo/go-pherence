@@ -24,3 +24,4 @@ This document tracks CPU/reference parity targets for backend wrappers. It compl
 - NVIDIA and Vulkan tests should be availability-gated and skip cleanly when hardware/runtime support is absent.
 - Vulkan wrapper boundary tests may run without a Vulkan device; numeric parity waits for pipeline cache wiring.
 - Public generation behavior is validated by the full phase gate, not by per-change test runs. See [validation-gates.md](validation-gates.md) for the standard phase-level commands.
+- Malformed-input coverage is indexed in [malformed-input-coverage.md](malformed-input-coverage.md).

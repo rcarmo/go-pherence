@@ -1,0 +1,25 @@
+# Malformed-input coverage tracker
+
+This tracker records exported backend/model wrapper malformed-input coverage added during the backend coverage work. It is not a replacement for package-local tests; it is an index for Phase 10 acceptance.
+
+## Covered or staged for validation
+
+| Area | Package/file | Coverage |
+|---|---|---|
+| SIMD RoPE | `backends/simd/kernels/rope_test.go`, `backends/simd/runtime/rope_test.go` | Negative positions, empty/short freqs, zero heads/dims, odd head dims, head/tail preservation, runtime wrapper smoke. |
+| SIMD activations | `backends/simd/kernels/activation_test.go` | Short inputs preserve destination tails; scalar golden tolerance names are explicit. |
+| Q4/GPTQ | `backends/simd/runtime/q4/*_test.go` | ValidateGemvSym malformed inputs, group-index/scale shape errors, scalar GEMV vs dequant reference, caller-owned dequant tail preservation, capability gates disabled until SIMD kernels land. |
+| MLX | `backends/mlx/*_test.go` | Loader dtype/shape checks, in-memory quant validation, caller-owned dequant tail preservation, scalar batched GEMV malformed input rejection, capability gates disabled until SIMD kernels land. |
+| NVFP4 CPU | `backends/simd/runtime/nvfp4/nvfp4_test.go`, `capabilities_test.go` | FP4/F8 decode, malformed weight validation, caller-owned dequant tail preservation, explicit scalar GEMV reference, capability gates disabled until SIMD/native kernels land. |
+| NVIDIA BF16/Q4/NVFP4 | `backends/nvidia/runtime/*_test.go` | BF16 LM-head byte-size overflow/short-buffer checks, Q4 upload and buffer sizing, NVFP4 buffer validation and sizing helpers. |
+| Qwen NVFP4/RoPE | `model/qwen/*_test.go` | NVFP4 packed-shape/group alignment validation; RoPE frequency allocation overflow and bad-theta fallback. |
+| Shared model RoPE | `model/rope_test.go` | RoPE frequency allocation overflow/bad dims/bad theta fallback. |
+| MoE loaders/forward | `model/moe_test.go`, `model/moe_gpu_test.go` | Switch-MLX dtype handling, malformed MoE inputs, incomplete expert weight handling, GPU active-expert clamping. |
+| Vulkan wrappers | `backends/vulkan/vulkan_wrapper_test.go` | Wrapper-level dimension/buffer rejection and pending-pipeline errors without requiring a Vulkan device. |
+
+## Remaining Phase 10 gaps
+
+- Add availability-gated NVIDIA parity tests where hardware is available.
+- Add availability-gated Vulkan CPU-vs-Vulkan numeric tests after pipeline cache wiring lands.
+- Add AVX2/NEON parity tests when actual SIMD kernels land for RoPE, activations, Q4, MLX, and NVFP4.
+- Keep new exported backend wrappers paired with package-local malformed-input tests.
