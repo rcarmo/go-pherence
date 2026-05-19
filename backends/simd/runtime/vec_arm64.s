@@ -429,14 +429,6 @@ bf16_scalar_loop:
 bf16_done:
     RET
 
-// func VecSiLUMul(dst, a, b []float32)
-TEXT ·vecSiLUMulAsm(SB), NOSPLIT, $0-72
-    B       ·vecSiLUMulGo(SB)
-
-// func GELUTanhMul(dst, a, b []float32)
-TEXT ·geluTanhMulAsm(SB), NOSPLIT, $0-72
-    B       ·geluTanhMulGo(SB)
-
 // ============================================================
 // BF16 SIMD operations (ARM64 NEON)
 // Widen: USHLL (zero-extend u16→u32) + SHL $16

@@ -30,12 +30,6 @@ func toBF16Asm(x []float32)
 func rmsNormNoScaleAsm(x []float32, eps float32)
 
 //go:noescape
-func vecSiLUMulAsm(dst, a, b []float32)
-
-//go:noescape
-func geluTanhMulAsm(dst, a, b []float32)
-
-//go:noescape
 func bf16DotAsm(x, y []uint16) float32
 
 //go:noescape

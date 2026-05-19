@@ -563,17 +563,6 @@ bf16_done:
     VZEROUPPER
     RET
 
-// VecSiLUMul is implemented in Go (uses exp which has no simple SIMD form)
-// func VecSiLUMul(dst, a, b []float32)
-TEXT ·vecSiLUMulAsm(SB), NOSPLIT, $0-72
-    JMP ·vecSiLUMulGo(SB)
-
-
-// GELUTanhMul: dst[i] = gelu_tanh(a[i]) * b[i]
-// func GELUTanhMul(dst, a, b []float32)
-TEXT ·geluTanhMulAsm(SB), NOSPLIT, $0-72
-    JMP ·geluTanhMulGo(SB)
-
 // ============================================================
 // BF16 SIMD operations (AVX2)
 // BF16 values are uint16 with the same exponent+sign as F32.
