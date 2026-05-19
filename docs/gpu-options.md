@@ -39,7 +39,7 @@ Portable backend for non-NVIDIA hardware. Vulkan code and shaders now live under
 - **API**: 35 Vulkan functions, device auto-selection, compute queue + command pool
 - **Shaders**: GLSL/SPIR-V coverage for vector add, RMSNorm, GEMV, SiLU, attention score, RMSNormNoScale, RoPEPartial, and GELU paths
 - **BF16**: emulated via uint16 bitshift (no extensions needed)
-- **Status**: init + buffer path, embedded SPIR-V, and validating wrapper stubs are present; Vulkan pipeline cache wiring and CPU-vs-Vulkan tests are still pending. See [vulkan-dispatch-inventory.md](vulkan-dispatch-inventory.md) for the current shader/wrapper inventory.
+- **Status**: init + buffer path, embedded SPIR-V, and validating wrapper stubs are present; Vulkan pipeline cache wiring and CPU-vs-Vulkan tests are still pending. See [vulkan-dispatch-inventory.md](vulkan-dispatch-inventory.md) for the current shader/wrapper inventory and [vulkan-validation-plan.md](vulkan-validation-plan.md) for the validation sequence.
 
 ### Fused-only primitive decisions
 

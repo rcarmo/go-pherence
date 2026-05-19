@@ -50,6 +50,8 @@ The newly added wrappers validate dimensions, buffer capacities, and product ove
 ## Next Phase 7 steps
 
 1. Populate kernel cache from embedded SPIR-V only after validating the generated binaries on available drivers.
-2. Add safe wrapper functions one primitive at a time with dimension/product checks before dispatch.
-3. Keep CPU/software Vulkan opt-in via `GO_PHERENCE_VULKAN_ALLOW_CPU`.
-4. Add CPU-vs-Vulkan tests behind availability/opt-in gates for each wrapper.
+2. Keep CPU/software Vulkan opt-in via `GO_PHERENCE_VULKAN_ALLOW_CPU`.
+3. Add CPU-vs-Vulkan tests behind availability/opt-in gates for each wrapper.
+4. Keep backend selection docs current once dispatch is usable.
+
+See [vulkan-validation-plan.md](vulkan-validation-plan.md) for the validation sequence and parity-test expectations.
