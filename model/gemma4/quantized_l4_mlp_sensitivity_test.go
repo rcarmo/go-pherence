@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rcarmo/go-pherence/runtime/quant"
+	"github.com/rcarmo/go-pherence/backends/mlx"
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 )
@@ -68,8 +68,8 @@ func TestGemma4QuantizedLayer4MLPSensitivity(t *testing.T) {
 	gate := make([]float32, len(gpuGate))
 	up := make([]float32, len(gpuUp))
 	if layer.GateWm != nil {
-		quant.GemvMLQ(gate, mlpIn, layer.GateWm)
-		quant.GemvMLQ(up, mlpIn, layer.UpWm)
+		mlx.Gemv(gate, mlpIn, layer.GateWm)
+		mlx.Gemv(up, mlpIn, layer.UpWm)
 	} else {
 		t.Fatal("expected quantized MLX weights for layer4 gate/up")
 	}
@@ -90,7 +90,7 @@ func TestGemma4QuantizedLayer4MLPSensitivity(t *testing.T) {
 
 	down := make([]float32, len(gpuDown))
 	if layer.DownWm != nil {
-		quant.GemvMLQ(down, gateAct, layer.DownWm)
+		mlx.Gemv(down, gateAct, layer.DownWm)
 	} else {
 		t.Fatal("expected quantized MLX weights for layer4 down")
 	}

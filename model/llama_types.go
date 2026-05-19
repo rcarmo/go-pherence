@@ -1,9 +1,9 @@
 package model
 
 import (
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/runtime/kv"
-	"github.com/rcarmo/go-pherence/runtime/quant"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -81,7 +81,7 @@ type LlamaModel struct {
 	EmbedPerLayerScale float32
 	Norm               *tensor.Tensor
 	LMHead             *tensor.Tensor
-	LMHeadMLX          *quant.MLXQuantWeight
+	LMHeadMLX          *mlx.QuantWeight
 
 	Layers []LlamaLayer
 
@@ -120,16 +120,16 @@ type LlamaLayer struct {
 	QWq, KWq, VWq, OWq   *QuantWeight
 	GateWq, UpWq, DownWq *QuantWeight
 
-	QWm, KWm, VWm, OWm   *quant.MLXQuantWeight
-	GateWm, UpWm, DownWm *quant.MLXQuantWeight
+	QWm, KWm, VWm, OWm   *mlx.QuantWeight
+	GateWm, UpWm, DownWm *mlx.QuantWeight
 
 	GateW, UpW, DownW *tensor.Tensor
 
 	IsMoE       bool
-	RouterW     *quant.MLXQuantWeight
-	ExpertGateW []*quant.MLXQuantWeight
-	ExpertUpW   []*quant.MLXQuantWeight
-	ExpertDownW []*quant.MLXQuantWeight
+	RouterW     *mlx.QuantWeight
+	ExpertGateW []*mlx.QuantWeight
+	ExpertUpW   []*mlx.QuantWeight
+	ExpertDownW []*mlx.QuantWeight
 }
 
 func (c LlamaConfig) HasNativeMTP() bool {
