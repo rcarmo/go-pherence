@@ -17,6 +17,22 @@ Hardware: RTX 3060 12GB (sm_86, Ampere) + i7-12700 6-core + 64GB DDR4
 | Qwen3-0.6B | qwen3 | BF16 | — | — | 7.8 | 129 |
 | Gemma3-1B | gemma3 | BF16 | — | — | 4.9 | 203 |
 
+## CPU hot primitive benchmarks
+
+Synthetic backend-owner benchmarks live in `model/cpu_hotpath_bench_test.go` and can be run with:
+
+```bash
+go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
+```
+
+Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GEMV:
+
+| Primitive | Time | Allocations | Notes |
+|---|---:|---:|---|
+| MLX4 GEMV | ~2.9 ms | 1 alloc | scalar `backends/mlx` path, group x-sum scratch |
+| Q4/GPTQ symmetric GEMV | ~6.4 ms | 0 allocs | scalar `backends/simd/runtime/q4` path |
+| NVFP4 GEMV | ~14.2 ms | 22 allocs | correctness-first `backends/simd/runtime/nvfp4` path, goroutine dispatch |
+
 ## SIMD Microbenchmarks (3584 elements, i7-12700)
 
 | Operation | F32 AVX2 | BF16 AVX2 | BF16 Go scalar |

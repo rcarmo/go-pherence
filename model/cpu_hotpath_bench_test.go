@@ -4,9 +4,10 @@ import (
 	"math"
 	"testing"
 
-	"github.com/rcarmo/go-pherence/runtime/quant"
-
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
+	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
+	simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
+	"github.com/rcarmo/go-pherence/runtime/quant"
 )
 
 func benchSeq(n int) []float32 {
@@ -137,5 +138,60 @@ func BenchmarkCPUHotGemvMLQ1536x2048(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		quant.GemvMLQ(out, x, qw)
+	}
+}
+
+func BenchmarkCPUHotGemvQ4Sym1536x2048(b *testing.B) {
+	inDim := 1536
+	outDim := 2048
+	groups := inDim / 128
+	qweight := make([]int32, (inDim/8)*outDim)
+	gIdx := make([]int32, inDim)
+	scales := make([]float32, groups*outDim)
+	for i := range qweight {
+		qweight[i] = int32(0x76543210)
+	}
+	for i := range gIdx {
+		gIdx[i] = int32(i / 128)
+	}
+	for i := range scales {
+		scales[i] = 0.01
+	}
+	x := benchSeq(inDim)
+	out := make([]float32, outDim)
+	b.ReportAllocs()
+	b.SetBytes(int64(inDim * outDim * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		simdq4.GemvSym(out, x, qweight, gIdx, scales, inDim, outDim)
+	}
+}
+
+func BenchmarkCPUHotGemvNVFP4_1536x2048(b *testing.B) {
+	inDim := 1536
+	outDim := 2048
+	groups := inDim / 16
+	qw := &simdnvfp4.NVFP4Weight{
+		Weight:       make([]byte, outDim*(inDim/2)),
+		WeightScale:  make([]byte, outDim*groups),
+		WeightScale2: 0.5,
+		OutDim:       outDim,
+		InDim:        inDim,
+		Groups:       groups,
+		GroupSize:    16,
+	}
+	for i := range qw.Weight {
+		qw.Weight[i] = 0x76
+	}
+	for i := range qw.WeightScale {
+		qw.WeightScale[i] = 0x38 // E4M3 1.0
+	}
+	x := benchSeq(inDim)
+	out := make([]float32, outDim)
+	b.ReportAllocs()
+	b.SetBytes(int64(inDim * outDim * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		simdnvfp4.GemvNVFP4(out, x, qw)
 	}
 }
