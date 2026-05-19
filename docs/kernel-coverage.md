@@ -9,7 +9,7 @@ Legend: implemented means the package owns the runtime or reference implementati
 | Device buffers / launch | `backends/nvidia/runtime` | — | — | — | `backends/vulkan` | — |
 | SGEMM / F32 GEMV | `backends/nvidia/runtime` | `backends/nvidia/ptx/sgemm.go` | `backends/simd/runtime` | — | partial scaffold | — |
 | Vector add/mul/scale | `backends/nvidia/runtime` | `backends/nvidia/ptx/vector.go` | `backends/simd/runtime` | — | vec-add only | — |
-| Activations (SiLU/GELU fused) | `backends/nvidia/runtime` | `backends/nvidia/ptx/activation.go` | wrappers/fallbacks | `backends/simd/kernels/gelu.go` | partial scaffold | — |
+| Activations (SiLU/GELU fused) | `backends/nvidia/runtime` | `backends/nvidia/ptx/activation.go` | `backends/simd/runtime` wrappers | `backends/simd/kernels/activation.go` and `gelu.go` scalar kernels | partial scaffold | — |
 | Norms | `backends/nvidia/runtime` | `backends/nvidia/ptx/norm.go` | `backends/simd/runtime` | `backends/simd/kernels/layernorm.go` | partial scaffold | — |
 | Softmax | `backends/nvidia/runtime` row softmax | `backends/nvidia/ptx/attention.go` | wrapper via kernels | `backends/simd/kernels/softmax.go` | — | — |
 | RoPE | `backends/nvidia/runtime` | `backends/nvidia/ptx/attention.go` | `backends/simd/runtime` wrappers | `backends/simd/kernels/rope.go` scalar | partial scaffold | — |

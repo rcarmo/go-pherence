@@ -4,7 +4,11 @@ package simd
 // Public entrypoints are implemented by architecture-specific dispatch files
 // plus scalar fallback files. This file holds shared scalar helpers.
 
-import "math"
+import (
+	"math"
+
+	"github.com/rcarmo/go-pherence/backends/simd/kernels"
+)
 
 // HasVecAsm is true if vector assembly kernels are available at runtime.
 var HasVecAsm bool
@@ -49,25 +53,9 @@ func vecScaleGo(dst, a []float32, scale float32) {
 	}
 }
 
-func vecSiLUMulGo(dst, a, b []float32) {
-	n := min3(len(dst), len(a), len(b))
-	for i := 0; i < n; i++ {
-		x := a[i]
-		s := x / (1.0 + float32(math.Exp(float64(-x))))
-		dst[i] = s * b[i]
-	}
-}
+func vecSiLUMulGo(dst, a, b []float32) { kernels.SiLUMul(dst, a, b) }
 
-func geluTanhMulGo(dst, a, b []float32) {
-	n := min3(len(dst), len(a), len(b))
-	for i := 0; i < n; i++ {
-		x := a[i]
-		x3 := x * x * x
-		inner := float32(0.7978845608) * (x + 0.044715*x3)
-		tanh := float32(math.Tanh(float64(inner)))
-		dst[i] = 0.5 * x * (1.0 + tanh) * b[i]
-	}
-}
+func geluTanhMulGo(dst, a, b []float32) { kernels.GELUTanhMul(dst, a, b) }
 
 func rmsNormGo(x, w []float32, eps float32) {
 	n := len(x)

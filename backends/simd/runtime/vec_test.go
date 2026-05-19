@@ -161,20 +161,44 @@ func TestToBF16(t *testing.T) {
 	t.Logf("ToBF16: OK (%.6f → %.6f)", 1.234567, x[0])
 }
 
-func TestVecSiLUMul(t *testing.T) {
-	a := []float32{0, 1, -1, 2, -2, 0.5, 3, -0.5}
-	b := []float32{1, 1, 1, 1, 1, 2, 0.5, 3}
-	dst := make([]float32, len(a))
-	VecSiLUMul(dst, a, b)
+func TestActivationEntrypoints(t *testing.T) {
+	a := []float32{0, 1, -1, 2, -2, 0.5, 3, -0.5, 4}
+	b := []float32{1, 1, 1, 1, 1, 2, 0.5, 3, -2}
+
+	silu := make([]float32, len(a))
+	SiLU(silu, a)
+	siluMul := make([]float32, len(a))
+	SiLUMul(siluMul, a, b)
+	vecSiLUMul := make([]float32, len(a))
+	VecSiLUMul(vecSiLUMul, a, b)
+	gelu := make([]float32, len(a))
+	GELUTanh(gelu, a)
+	geluMul := make([]float32, len(a))
+	GELUTanhMul(geluMul, a, b)
+
 	for i := range a {
 		x := a[i]
-		silu := x / (1.0 + float32(math.Exp(float64(-x))))
-		want := silu * b[i]
-		if math.Abs(float64(dst[i]-want)) > 1e-5 {
-			t.Fatalf("VecSiLUMul[%d]=%f want %f", i, dst[i], want)
+		wantSiLU := x / (1.0 + float32(math.Exp(float64(-x))))
+		x3 := x * x * x
+		inner := float32(0.7978845608) * (x + 0.044715*x3)
+		wantGELU := 0.5 * x * (1.0 + float32(math.Tanh(float64(inner))))
+		if math.Abs(float64(silu[i]-wantSiLU)) > 1e-5 {
+			t.Fatalf("SiLU[%d]=%f want %f", i, silu[i], wantSiLU)
+		}
+		if math.Abs(float64(siluMul[i]-wantSiLU*b[i])) > 1e-5 {
+			t.Fatalf("SiLUMul[%d]=%f want %f", i, siluMul[i], wantSiLU*b[i])
+		}
+		if vecSiLUMul[i] != siluMul[i] {
+			t.Fatalf("VecSiLUMul[%d]=%f want alias %f", i, vecSiLUMul[i], siluMul[i])
+		}
+		if math.Abs(float64(gelu[i]-wantGELU)) > 1e-5 {
+			t.Fatalf("GELUTanh[%d]=%f want %f", i, gelu[i], wantGELU)
+		}
+		if math.Abs(float64(geluMul[i]-wantGELU*b[i])) > 1e-5 {
+			t.Fatalf("GELUTanhMul[%d]=%f want %f", i, geluMul[i], wantGELU*b[i])
 		}
 	}
-	t.Log("VecSiLUMul: OK")
+	t.Log("activation entrypoints: OK")
 }
 
 func BenchmarkRMSNorm(b *testing.B) {
@@ -251,6 +275,26 @@ func TestVecFallbacksBoundMalformedInputs(t *testing.T) {
 	VecScale(dst, []float32{4}, 0.5)
 	if dst[0] != 2 || dst[1] != 99 {
 		t.Fatalf("VecScale bounded result=%v", dst)
+	}
+	dst = []float32{99, 99}
+	SiLU(dst, []float32{0})
+	if dst[0] != 0 || dst[1] != 99 {
+		t.Fatalf("SiLU bounded result=%v", dst)
+	}
+	dst = []float32{99, 99}
+	SiLUMul(dst, []float32{1}, []float32{2, 3})
+	if dst[1] != 99 {
+		t.Fatalf("SiLUMul bounded result=%v", dst)
+	}
+	dst = []float32{99, 99}
+	GELUTanh(dst, []float32{0})
+	if dst[0] != 0 || dst[1] != 99 {
+		t.Fatalf("GELUTanh bounded result=%v", dst)
+	}
+	dst = []float32{99, 99}
+	GELUTanhMul(dst, []float32{0}, []float32{2, 3})
+	if dst[0] != 0 || dst[1] != 99 {
+		t.Fatalf("GELUTanhMul bounded result=%v", dst)
 	}
 	RMSNorm(nil, nil, 1e-6)
 	x := []float32{1, 2}
