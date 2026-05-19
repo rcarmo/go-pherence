@@ -102,7 +102,8 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
   with row-major packed weights, F8 scales, F32 inputs/outputs, batch semantics,
   u32 NVIDIA-interface limits, and group-size/overflow validation before any native dispatch is enabled.
 - Pending: packed/native GEMV/GEMM implementation, LM-head if a checkpoint quantizes it, and
-  full Qwen3 MoE expert-cache/prefetch integration using the new slot estimates.
+  full Qwen3 MoE expert-cache/prefetch integration using the new slot estimates. See
+  [nvidia-quant-boundaries.md](nvidia-quant-boundaries.md) for the explicit GEMV-only/dense-fallback boundary.
 
 ### Memory budgets
 

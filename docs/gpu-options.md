@@ -24,7 +24,7 @@ Loaded as one mega module + optional native BF16 module.
 ### Memory Management
 
 - **DevBuf**: device-agnostic buffers with lazy CPU↔GPU transfer; vector/norm/dense GEMV/LM-head fast paths preflight kernel operands before launching and fall back or no-op safely if upload/allocation fails; GPU-only scratch buffers avoid zero host uploads for temporary MoE workspaces
-- **Quantized dispatch**: Q4/MLX upload paths validate dimensions, packed-weight sizes, scale layouts, and group indices before allocating GPU buffers; native MLX uploads can copy packed `uint32` weights directly when transposed GPTQ-compatible buffers are not needed
+- **Quantized dispatch**: Q4/MLX upload paths validate dimensions, packed-weight sizes, scale layouts, and group indices before allocating GPU buffers; native MLX uploads can copy packed `uint32` weights directly when transposed GPTQ-compatible buffers are not needed; Q4 asymmetric and NVFP4 packed/native boundaries are documented in [nvidia-quant-boundaries.md](nvidia-quant-boundaries.md)
 - **LM-head placement**: F32 LM-head is preferred for moderate heads when it fits; compact MLX LM-head is used for very large heads or low-VRAM-headroom cases
 - **ExpertPool**: LRU cache for MoE expert weights with auto-sized VRAM budget; disabled and replacement cases return GPU resources for explicit release; Qwen-style MoE uses native-only MLX expert uploads, immediate GPU use on cache miss, and device-side expert-output accumulation
 - **BudgetManager**: 4-tier memory tracking (resident/layer/stream/expert), now owned by `backends/placement`
