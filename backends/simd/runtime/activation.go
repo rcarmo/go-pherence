@@ -11,3 +11,6 @@ func SiLUMul(dst, a, b []float32) { VecSiLUMul(dst, a, b) }
 
 // GELUTanh computes dst[i] = gelu_tanh(a[i]).
 func GELUTanh(dst, a []float32) { kernels.GELUTanh(dst, a) }
+
+// GELUTanhScalar computes the tanh-approximation GELU for one value.
+func GELUTanhScalar(x float32) float32 { return kernels.GELUTanhScalar(x) }

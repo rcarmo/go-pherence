@@ -28,18 +28,18 @@ func GELUTanh(dst, a []float32) {
 		n = len(a)
 	}
 	for i := 0; i < n; i++ {
-		dst[i] = geluTanh(a[i])
+		dst[i] = GELUTanhScalar(a[i])
 	}
 }
 
 func GELUTanhMul(dst, a, b []float32) {
 	n := min3(len(dst), len(a), len(b))
 	for i := 0; i < n; i++ {
-		dst[i] = geluTanh(a[i]) * b[i]
+		dst[i] = GELUTanhScalar(a[i]) * b[i]
 	}
 }
 
-func geluTanh(x float32) float32 {
+func GELUTanhScalar(x float32) float32 {
 	x3 := x * x * x
 	inner := float32(0.7978845608) * (x + 0.044715*x3)
 	return 0.5 * x * (1.0 + float32(math.Tanh(float64(inner))))

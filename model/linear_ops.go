@@ -1,7 +1,6 @@
 package model
 
 import (
-	"math"
 	"runtime"
 	"sync"
 	"unsafe"
@@ -80,10 +79,7 @@ func checkedProduct(a, b int) (int, bool) {
 }
 
 func geluTanh(x float32) float32 {
-	// GELU with tanh approximation: 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
-	x3 := x * x * x
-	inner := float32(0.7978845608) * (x + 0.044715*x3) // sqrt(2/pi) ≈ 0.7978845608
-	return 0.5 * x * (1.0 + float32(math.Tanh(float64(inner))))
+	return simd.GELUTanhScalar(x)
 }
 
 // gemvNTParallel is like gemvNT but parallelized across CPU cores.
