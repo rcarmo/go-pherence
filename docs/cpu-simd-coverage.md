@@ -2,7 +2,7 @@
 
 This is the baseline for Phase 4b: making CPU inference hit AVX2/FMA or NEON
 wrappers for every hot decode/prefill primitive, with scalar Go as fallback.
-The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/backends/simd` (package name `simd`).
+The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/backends/simd/runtime` (package name `simd`).
 
 ## Current coverage map
 
@@ -21,8 +21,8 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 | GQA attention scores | `simd.Sdot` per head/token | ✅ | ✅ | Intermediate improvement; still allocates scores per head |
 | GQA attention output | `simd.Saxpy` per cached-token V head | ✅ | ✅ | Caller-owned output/score scratch; full fused attention still future work |
 | F32 GEMV dense | `simd.SgemmNN` when pre-transposed | ✅ | ✅ | `gemvNT` path uses `simd.Sdot` row-wise |
-| MLX4 GEMV | `runtime/quant` scalar unpack/dequant loop with dtype/shape validation | ❌ | ❌ | Biggest CPU gap for quantized models and MoE experts |
-| GPTQ Q4 GEMV | `runtime/quant` scalar unpack/dequant loop with qweight/g_idx/scales/qzeros validation | ❌ | ❌ | Needs AVX2/NEON nibble unpack + FMA |
+| MLX4 GEMV | `backends/mlx` scalar unpack/dequant loop with dtype/shape validation; `runtime/quant` only wraps it | ❌ | ❌ | Biggest CPU gap for quantized models and MoE experts |
+| GPTQ Q4 GEMV | `backends/simd/runtime/q4` scalar unpack/dequant loop with qweight/g_idx/scales/qzeros validation; `runtime/quant` only wraps it | ❌ | ❌ | Needs AVX2/NEON nibble unpack + FMA |
 | MoE CPU experts | parallel goroutines + MLX4 scalar GEMV | partial | partial | Activation now goes through SIMD wrapper; GEMV dominates |
 | BERT/GTE encoder | workspace + SGEMM/SIMD vec ops | ✅ | ✅ | Already comparatively mature |
 | TurboQuant rotation/dequant | scalar matvec + bit unpack | ❌ | ❌ | Needs scratch reuse and SIMD matvec/unpack |
@@ -49,7 +49,7 @@ go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 
 ## Dispatch cleanup status
 
-- `RuntimeCapabilities()` in the `backends/simd` package centralizes architecture/runtime feature reporting.
+- `RuntimeCapabilities()` in the `backends/simd/runtime` package centralizes architecture/runtime feature reporting.
 - `simd.HasSgemmAsm`, `simd.HasDotAsm`, and `simd.HasVecAsm` expose runtime-safe capability gates.
 - `Sdot`/`Saxpy` now dispatch through small Go wrappers and fall back to scalar code if AVX2/FMA or NEON is unavailable, or if callers pass mismatched lengths.
 - SGEMM callers continue to check `simd.HasSgemmAsm` before invoking assembly kernels; tensor matmul helpers avoid passing zero-length slice pointers to SIMD entrypoints. `SgemmNTGebp` and `SgemmNTBlockedFMA` now validate dimensions, pointers, strides, and overflow before unsafe slicing/pointer arithmetic.
@@ -79,4 +79,4 @@ BenchmarkCPUHotGemvMLQ1536x2048         ~10.4 ms/op, 0 allocs
 
 ## Folder reorg note
 
-The current `backends/simd` package keeps architecture-specific files in one package with Go build tags (`*_amd64.go`, `*_arm64.go`, `*_other.go`). Phase 6.6 has started with facade-preserving cleanup: scalar dot/SAXPY fallbacks are now in `scalar.go`, scalar RMSNorm uses precise `math.Sqrt`, BF16 GEMV validates shape-product overflow, and SGEMM/GEBP/gather wrappers validate capability gates and overflow-prone pointer arithmetic. A literal subfolder split would create separate Go packages, so keep `backends/simd` as the public facade and split internals only after wrapper boundaries are explicit. See `docs/simd-folder-reorg.md`.
+The current `backends/simd/runtime` package keeps architecture-specific files in one package with Go build tags (`*_amd64.go`, `*_arm64.go`, `*_other.go`). Phase 6.6 has started with facade-preserving cleanup: scalar dot/SAXPY fallbacks are now in `scalar.go`, scalar RMSNorm uses precise `math.Sqrt`, BF16 GEMV validates shape-product overflow, and SGEMM/GEBP/gather wrappers validate capability gates and overflow-prone pointer arithmetic. A literal subfolder split would create separate Go packages, so keep `backends/simd/runtime` as the public facade and split internals only after wrapper boundaries are explicit. See `docs/simd-folder-reorg.md`.

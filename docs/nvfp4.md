@@ -4,31 +4,31 @@
 
 NVFP4 is now appearing in public NVIDIA Model Optimizer / TensorRT-oriented
 checkpoints for both Gemma and Qwen families. For go-pherence this is relevant
-because the current fastest dense path is MLX4 on CUDA, while Qwen3 MoE remains
+because the current fastest dense path is MLX4 on NVIDIA, while Qwen3 MoE remains
 expert-cache/upload limited. Native NVFP4 could become a better GPU-resident
 format for large dense and MoE models once loader/runtime/kernel support exists.
 
 ## Current repository status
 
 - NVFP4/FP4 is detected early from Hugging Face quantization metadata and still
-  rejected for public model loading/generation. Synthetic CPU-vs-CUDA dequant
+  rejected for public model loading/generation. Synthetic CPU-vs-NVIDIA dequant
   smoke now agrees; real checkpoint logits/tokens remain the enablement gate.
 - `loader/config` owns reusable quantization metadata parsing plus NVFP4 tensor
   role/companion-name helpers for Qwen/Gemma layouts. The parser detects
   ModelOpt and compressed-tensors FP4/NVFP4 across top-level fields, mixed
   `config_groups`, group `format`, `weights.format`, and 4-bit float
   `weights.type` variants with stable FP4 diagnostics regardless of map order.
-- `runtime/quant` has a correctness-first `NVFP4Weight`, FP4 E2M1 and
+- `backends/simd/runtime/nvfp4` owns the correctness-first `NVFP4Weight`, FP4 E2M1 and
   F8_E4M3FN decode helpers, F32 dequantization, direct GEMV fallback, guarded
   unpack/count validation, and golden synthetic logit tests.
-- `gpu` has a separate `GPUNVFP4Weight` upload representation, raw-byte packing,
-  CUDA dequant-to-F32 fallback kernel wiring, hardware capability gating for a
+- `backends/nvidia/runtime` has a separate `GPUNVFP4Weight` upload representation, raw-byte packing,
+  NVIDIA dequant-to-F32 fallback kernel wiring, hardware capability gating for a
   future native tensor-core path, padded byte-capacity/u32 launch guards, a
   packed GEMV/GEMM `NVFP4KernelSpec` contract, and a dense GEMV integration
   point that currently materializes F32 weights per call.
 - Existing 4-bit support remains MLX affine int4 and GPTQ int4. NVFP4 is treated
   as a distinct quantization family, not as an MLX/GPTQ tweak.
-- Vulkan remains a portability track; initial NVFP4 work targets CUDA only.
+- Vulkan remains a portability track; initial NVFP4 work targets NVIDIA only.
 
 ## Public weight availability found
 
@@ -80,17 +80,17 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
 ### CPU fallback
 
 - Done: correctness-first FP4 unpack/dequant and GEMV fallback exists in
-  `runtime/quant`.
+  `runtime/quant` compatibility wrappers (backed by `backends/simd/runtime/nvfp4`).
 - Intended use remains validation and tiny synthetic tests; CPU performance is
   not the primary target for NVFP4.
 - Done: golden tests cover FP4 codebook, F8_E4M3FN scales, dequant, GEMV, and
   tiny synthetic logits against an explicit F32 reference.
 
-### CUDA path
+### NVIDIA path
 
 - Done: `GPUNVFP4Weight` uploads packed FP4 bytes and F8 scale bytes separately
   from MLX/GPTQ structures.
-- Done: CUDA dequant-to-F32 fallback kernel is wired through the mega-module,
+- Done: NVIDIA dequant-to-F32 fallback kernel is wired through the mega-module,
   with CPU-reference fallback if launch/sync/download fails.
 - Done: native NVFP4 tensor-core use is behind a compute-capability gate
   (`>= 10.x`) and has no public dispatch until implemented and validated.
@@ -99,7 +99,7 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
   `OutDim*InDim*4` bytes per call.
 - Done: packed GEMV/GEMM shape/interface contract is defined as `NVFP4KernelSpec`
   with row-major packed weights, F8 scales, F32 inputs/outputs, batch semantics,
-  u32 CUDA-interface limits, and group-size/overflow validation before any native dispatch is enabled.
+  u32 NVIDIA-interface limits, and group-size/overflow validation before any native dispatch is enabled.
 - Pending: packed/native GEMV/GEMM implementation, LM-head if a checkpoint quantizes it, and
   full Qwen3 MoE expert-cache/prefetch integration using the new slot estimates.
 
@@ -119,7 +119,7 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
 2. **Detection** — add loader detection and explicit unsupported-format errors so
    NVFP4 checkpoints fail clearly instead of being mistaken for MLX/GPTQ.
 3. **CPU decode prototype** — correctness-first unpack/dequant tests.
-4. **CUDA prototype** — dequant/GEMV path first; native NVFP4 tensor-core path
+4. **NVIDIA prototype** — dequant/GEMV path first; native NVFP4 tensor-core path
    later and hardware-gated.
 5. **MoE integration** — combine NVFP4 expert weights with expert cache/prefetch
    redesign for Qwen3 MoE.
@@ -129,8 +129,8 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
 ## Validation policy
 
 - Start with synthetic unit tests and metadata-only inspection.
-- Do not make NVFP4 the default for any model until CPU fallback and CUDA smoke
+- Do not make NVFP4 the default for any model until CPU fallback and NVIDIA smoke
   tests agree on logits/tokens for a small prompt. Synthetic dequant parity is
   necessary but not sufficient for public generation.
-- Gate native NVFP4 CUDA kernels by detected hardware capability; provide clear
+- Gate native NVFP4 NVIDIA kernels by detected hardware capability; provide clear
   fallback/unsupported messages elsewhere.

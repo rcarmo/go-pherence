@@ -11,7 +11,7 @@ Definition of done for the first useful milestone:
 - load the native `mtp.*` head metadata/weights;
 - run greedy CPU correctness for at least one short prompt;
 - run `speccheck` normal-vs-native-MTP parity with K=1;
-- only then optimize CUDA/KV reuse.
+- only then optimize NVIDIA/KV reuse.
 
 ## Public checkpoint finding
 
@@ -77,7 +77,7 @@ The inspected safetensors checkpoint is NVFP4:
 quantization_config: compressed-tensors/modelopt-style FP4/NVFP4 groups
 ```
 
-Current go-pherence intentionally rejects public NVFP4 loading/generation until real CPU/CUDA logits/tokens agree. So the fastest route is either:
+Current go-pherence intentionally rejects public NVFP4 loading/generation until real CPU/NVIDIA logits/tokens agree. So the fastest route is either:
 
 1. find a BF16/MLX/GPTQ Qwen3.6 27B MTP safetensors checkpoint, or
 2. finish enough real-checkpoint NVFP4 loading to run this model, or
@@ -300,4 +300,4 @@ This supersedes the prior Orthrus/stock-weight speculative exploration as the ma
    - only optimize after CPU parity is stable.
 6. **Performance path**
    - replace replay verification with KV-reusing verifier block;
-   - then move hot MTP and verifier paths to CUDA.
+   - then move hot MTP and verifier paths to NVIDIA.

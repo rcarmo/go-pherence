@@ -11,7 +11,7 @@ Studied tinygrad's Python source to identify the core abstractions:
 - **Ops enum**: ~60 operations covering movement, ALU, reduce, memory
 - **DType**: data type system with float16/32/64, int types
 - Lazy DAG evaluation with `realize()` triggering execution
-- Backend-agnostic: CPU, CUDA, Metal all use the same graph
+- Backend-agnostic: CPU, NVIDIA, Metal all use the same graph
 
 Key insight for Go port: implement UOp interning + eager interpreter first,
 add fusion and scheduling later.
@@ -157,19 +157,19 @@ Started the blocking source-tree refactor before adding more MTP/backend functio
 - Moved tokenizer code from `model` to `loader/tokenizer`; callers import the new owner directly.
 - Moved root `safetensors` package to `loader/safetensors`.
 - Added `loader/config` for config JSON helpers and `loader/weights` for shared sharded/single-file safetensors opening.
-- Moved root `simd` package to `backends/simd` while keeping package name `simd`.
+- Moved root `simd` package to `backends/simd/runtime` while keeping package name `simd`.
 - Moved the GTE/BERT encoder path from `model` to `models/bert`.
 
 Compatibility wrappers are intentionally avoided; package/API breaks are part of this internal refactor while CLI behavior remains stable.
 
 ## Session 4: Runtime KV/quant extraction and hardening
 
-Continued the Phase 6.5 mechanical refactor by moving shared runtime concerns out of the transitional decoder package:
+Continued the Phase 6.5 mechanical refactor by moving shared runtime concerns out of the decoder package:
 
 - Moved generic TurboQuant state, compressed KV cache, and float/compressed KV staging helpers from `model` to `runtime/kv`.
 - Kept model-specific KV width derivation in `model` so Gemma4 variable/shared KV layout remains architecture-owned.
-- Moved MLX/GPTQ CPU quantization helpers from `model` to `runtime/quant`, including MLX affine weights, GPTQ dequantization, and scalar Q4 GEMV helpers.
-- Updated model loader/forward, MoE, GPU fallback, benchmarks, and diagnostics to import `runtime/kv` and `runtime/quant` directly.
+- Moved MLX/GPTQ CPU quantization helpers from `model` to `runtime/quant` compatibility wrappers, including MLX affine weights, GPTQ dequantization, and scalar Q4 GEMV helpers.
+- Updated model loader/forward, MoE, GPU fallback, benchmarks, and diagnostics to import `runtime/kv` and `runtime/quant` compatibility wrappers directly.
 - Hardened `runtime/quant.LoadMLXWeight` with packed-weight config validation, shape inference, and scale/bias length checks.
 - Converted LLaMA and GTE load-time panics into returned errors, and stopped ignoring GPTQ scale/qzero load failures.
 
@@ -179,9 +179,9 @@ Validation covered the new runtime packages, focused model tests, backend/loader
 
 Continued Phase 6.5 by separating backend-neutral placement policy from GPU device-resource ownership:
 
-- Moved `gpu/budget.go` and `gpu/placement.go` to `backends/placement`.
-- Made placement planning accept caller-supplied available device memory instead of calling CUDA `MemInfo()` directly.
-- Kept `gpu/expert_pool.go` in `gpu` because `ExpertEntry` owns `GPUMLXWeight` resources that must be freed through the GPU backend.
+- Moved `backends/nvidia/runtime/budget.go` and `backends/nvidia/runtime/placement.go` to `backends/placement`.
+- Made placement planning accept caller-supplied available device memory instead of calling NVIDIA `MemInfo()` directly.
+- Kept `backends/nvidia/runtime/expert_pool.go` in `backends/nvidia/runtime` because `ExpertEntry` owns `GPUMLXWeight` resources that must be freed through the GPU backend.
 - Updated expert-pool accounting to depend on `backends/placement.BudgetManager`.
 - Updated Makefile and docs so the fast validation set includes `backends/placement`.
 
@@ -196,10 +196,10 @@ Moved mmap residency policy to a runtime owner:
 
 ## Session 7: Vulkan backend extraction
 
-Started the backend split by moving Vulkan-only scaffolding out of the transitional `gpu` package:
+Started the backend split by moving Vulkan-only scaffolding out of the `backends/nvidia/runtime` package:
 
-- Moved `gpu/vulkan*.go` and `gpu/shaders/` to `backends/vulkan`.
-- Changed the package name to `vulkan`, keeping CUDA/PTX files and GPU expert resources in `gpu`.
+- Moved `backends/nvidia/runtime/vulkan*.go` and `backends/nvidia/runtime/shaders/` to `backends/vulkan`.
+- Changed the package name to `vulkan`, keeping NVIDIA/PTX files and GPU expert resources in `backends/nvidia/runtime`.
 - Updated README, architecture, GPU options, refactor plan, and Makefile validation targets to include `backends/vulkan`.
 
 ## Session 8: Documentation/status audit after backend/runtime moves
@@ -207,7 +207,7 @@ Started the backend split by moving Vulkan-only scaffolding out of the transitio
 Reviewed the public and internal Markdown after the placement, runtime memory, and Vulkan extractions:
 
 - Corrected README/backend docs to avoid over-claiming Vulkan full-forward support; Vulkan is now documented as `backends/vulkan` scaffolding/assets with Phase 3.6 dispatch wiring still pending.
-- Updated kernel inventory wording to avoid stale exact F32/BF16 tables and reflect the current CUDA/Vulkan/SIMD ownership split.
+- Updated kernel inventory wording to avoid stale exact F32/BF16 tables and reflect the current NVIDIA/Vulkan/SIMD ownership split.
 - Clarified CPU SIMD coverage as runtime-gated core hot paths with remaining GEMV/RoPE/GELU gaps, rather than claiming complete coverage.
 - Clarified native BF16 as scaffolding/helpers where the F32-compatible path is still used as needed.
 
@@ -218,12 +218,12 @@ Audited the newly split runtime/backend packages for concrete edge cases and sta
 - Hardened `runtime/memory.MmapAdvisor` so repeated prefetch/evict calls do not skew hot-byte accounting, invalid ranges are ignored safely, cold ranges are not merged into hot ranges, and `madvise` errors propagate to safetensors eager loading.
 - Hardened `backends/placement.BudgetManager` and `PlanLayerPlacement` against negative budgets, huge device-memory values, negative model dimensions, and overflow-prone arithmetic.
 - Hardened `gpu.ExpertPool` for disabled zero-slot pools, nil entries, replacement behavior, and replacement budget accounting.
-- Hardened `runtime/quant` validation: MLX scale/bias tensors must be F32/F16/BF16, GPTQ qweight/g_idx/scales/qzeros are validated before use, and public Q4 GEMV calls validate their slices/dimensions instead of panicking.
+- Hardened `runtime/quant` compatibility wrappers validation: MLX scale/bias tensors must be F32/F16/BF16, GPTQ qweight/g_idx/scales/qzeros are validated before use, and public Q4 GEMV calls validate their slices/dimensions instead of panicking.
 - Updated focused regression tests for each fix and kept the fast validation gate green.
 
 ## Session 10: Diagnostic test quarantine
 
-Reduced accidental test/compile load from the transitional `model` package:
+Reduced accidental test/compile load from the `model` package:
 
 - Added the `diagnostic` build tag to the Gemma4 trace/sensitivity/generation diagnostic test files under `model/`.
 - Kept their existing `GEMMA4_TRACE_TEST=1` runtime guard, so heavy local fixture/GPU diagnostics now require both `-tags diagnostic` and the explicit environment opt-in.
@@ -234,67 +234,67 @@ Reduced accidental test/compile load from the transitional `model` package:
 Removed dead model-local BF16 forward-path experiment scaffolding:
 
 - Deleted the unused `model/BF16Hidden` wrapper and `UseBF16` helper, which had no non-self references and was not part of the active CPU/GPU BF16 paths.
-- Kept the active BF16 conversion/math helpers in `model/bf16.go` and backend SIMD/CUDA BF16 kernels intact.
+- Kept the active BF16 conversion/math helpers in `model/bf16.go` and backend SIMD/NVIDIA BF16 kernels intact.
 - Re-ran the focused model gate, fast package gate, no-test compile sweep, vet, and whitespace checks.
 
-## Session 12: CUDA PTX asset extraction start
+## Session 12: NVIDIA PTX asset extraction start
 
-Started the CUDA backend split with a low-risk asset-only move:
+Started the NVIDIA backend split with a low-risk asset-only move:
 
-- Moved pure PTX source definitions from `backends/cuda/ptx/attn.go` and `backends/cuda/ptx/kernels.go` into `backends/cuda/ptx`.
-- Updated the CUDA mega-module loader to import those backend-owned PTX assets while keeping runtime dispatch, `DevBuf`, GPU quantized weights, and expert resources in the transitional `gpu` package.
-- Left mixed dispatch/source files such as MLX and BF16 PTX in `gpu` for now because they still define CUDA function handles and runtime helpers.
+- Moved pure PTX source definitions from `backends/nvidia/ptx/attn.go` and `backends/nvidia/ptx/kernels.go` into `backends/nvidia/ptx`.
+- Updated the NVIDIA mega-module loader to import those backend-owned PTX assets while keeping runtime dispatch, `DevBuf`, GPU quantized weights, and expert resources in the `backends/nvidia/runtime` package.
+- Left mixed dispatch/source files such as MLX and BF16 PTX in `backends/nvidia/runtime` for now because they still define NVIDIA function handles and runtime helpers.
 
 ## Session 13: LM head PTX asset extraction
 
-Continued the CUDA PTX asset split:
+Continued the NVIDIA PTX asset split:
 
-- Moved the `LMHeadPTX` source string from the GPU dispatch file to `backends/cuda/ptx`.
-- Left `gpu.DevLMHead` and its CUDA function handle in `gpu`, preserving runtime behavior while shrinking mixed source/dispatch files.
+- Moved the `LMHeadPTX` source string from the GPU dispatch file to `backends/nvidia/ptx`.
+- Left `gpu.DevLMHead` and its NVIDIA function handle in `backends/nvidia/runtime`, preserving runtime behavior while shrinking mixed source/dispatch files.
 
 ## Session 14: Q4 PTX asset extraction
 
-Continued separating CUDA source assets from runtime dispatch:
+Continued separating NVIDIA source assets from runtime dispatch:
 
-- Moved the optimized Q4 GEMV PTX source to `backends/cuda/ptx`.
-- Moved the batched Q4 GEMM PTX source to `backends/cuda/ptx`.
-- Kept `gpu.GemmQ4`, `gpu.BatchGEMMReady`, and CUDA function handles in `gpu` because they still own runtime launch semantics.
+- Moved the optimized Q4 GEMV PTX source to `backends/nvidia/ptx`.
+- Moved the batched Q4 GEMM PTX source to `backends/nvidia/ptx`.
+- Kept `gpu.GemmQ4`, `gpu.BatchGEMMReady`, and NVIDIA function handles in `backends/nvidia/runtime` because they still own runtime launch semantics.
 
 ## Session 15: SGEMM PTX asset extraction
 
-Continued the asset-only CUDA backend split:
+Continued the asset-only NVIDIA backend split:
 
-- Moved the standalone `SgemmPTX` source string into `backends/cuda/ptx`.
-- Kept SGEMM launch/runtime state in `gpu`, matching the current `DevBuf` and mega-module ownership boundaries.
+- Moved the standalone `SgemmPTX` source string into `backends/nvidia/ptx`.
+- Kept SGEMM launch/runtime state in `backends/nvidia/runtime`, matching the current `DevBuf` and mega-module ownership boundaries.
 
 ## Session 16: Prefetch PTX asset extraction
 
-Continued CUDA source-asset extraction:
+Continued NVIDIA source-asset extraction:
 
-- Moved `PrefetchPTX` into `backends/cuda/ptx`.
-- Kept CUDA stream/event/graph helpers and the prefetch function handle in `gpu`, since they are runtime orchestration rather than source assets.
+- Moved `PrefetchPTX` into `backends/nvidia/ptx`.
+- Kept NVIDIA stream/event/graph helpers and the prefetch function handle in `backends/nvidia/runtime`, since they are runtime orchestration rather than source assets.
 
 ## Session 17: BF16 PTX asset extraction
 
-Continued CUDA source-asset extraction:
+Continued NVIDIA source-asset extraction:
 
-- Moved emulated BF16 PTX source strings into `backends/cuda/ptx`.
-- Moved native SM86 BF16 PTX source strings into `backends/cuda/ptx`.
-- Kept BF16 launch helpers, function handles, and native module loading in `gpu` because those still belong to CUDA runtime orchestration.
+- Moved emulated BF16 PTX source strings into `backends/nvidia/ptx`.
+- Moved native SM86 BF16 PTX source strings into `backends/nvidia/ptx`.
+- Kept BF16 launch helpers, function handles, and native module loading in `backends/nvidia/runtime` because those still belong to NVIDIA runtime orchestration.
 
 ## Session 18: MLX PTX asset extraction
 
-Finished the current CUDA PTX source-asset sweep:
+Finished the current NVIDIA PTX source-asset sweep:
 
-- Moved MLX GEMV, batched MLX GEMM, and MLX correction PTX source strings into `backends/cuda/ptx`.
-- Kept `GPUMLXWeight`, upload/transposition logic, launch helpers, and function handles in `gpu`, because they still own CUDA resource lifetimes and runtime dispatch.
+- Moved MLX GEMV, batched MLX GEMM, and MLX correction PTX source strings into `backends/nvidia/ptx`.
+- Kept `GPUMLXWeight`, upload/transposition logic, launch helpers, and function handles in `backends/nvidia/runtime`, because they still own NVIDIA resource lifetimes and runtime dispatch.
 
-## Session 19: CUDA helper filename cleanup
+## Session 19: NVIDIA helper filename cleanup
 
 Cleaned up stale file naming after the PTX asset extraction:
 
-- Renamed remaining `gpu/*_ptx.go` files to runtime-oriented names because they now contain launch helpers/function handles, not embedded PTX source strings.
-- Updated stale comments and refactor-plan references so `gpu` is described as runtime dispatch/resource ownership and `backends/cuda/ptx` as PTX source ownership.
+- Renamed remaining `backends/nvidia/runtime/*_ptx.go` files to runtime-oriented names because they now contain launch helpers/function handles, not embedded PTX source strings.
+- Updated stale comments and refactor-plan references so `backends/nvidia/runtime` is described as runtime dispatch/resource ownership and `backends/nvidia/ptx` as PTX source ownership.
 
 ## Session 20: GPU vector-op upload guard audit
 
@@ -312,31 +312,31 @@ Hardened GPU runtime helpers against malformed dimensions and failed uploads:
 - Bounded `DevToBF16`, `DevSoftmax`, `DevGELUTanhMul`, `DevCopy`, and `DevBuf.Slice` to avoid out-of-range slices or overlong GPU launches on malformed inputs.
 - Added regression coverage for mismatched buffer lengths and overlong operation lengths.
 
-## Session 22: Q4/MLX CUDA dispatch guard audit
+## Session 22: Q4/MLX NVIDIA runtime dispatch guard audit
 
-Hardened CUDA quantized dispatch paths found during the GPU runtime audit:
+Hardened NVIDIA quantized dispatch paths found during the GPU runtime audit:
 
 - `UploadQuantWeight` now validates dimensions, packed-weight length, scale layout, and group-index ranges before allocating GPU buffers.
-- Q4 GEMV/GEMM launch helpers now reject nil/malformed weights, undersized input/output buffers, and failed buffer uploads before touching CUDA kernel arguments.
+- Q4 GEMV/GEMM launch helpers now reject nil/malformed weights, undersized input/output buffers, and failed buffer uploads before touching NVIDIA kernel arguments.
 - `UploadMLXWeight` now validates dimensions, packed MLX weight length, and scale/bias lengths before transposition/upload.
 - MLX GEMV/GEMM launch helpers now preflight native/GPTQ weight availability and input/output dimensions before dispatch.
-- Low-level CUDA `Buffer.Upload`/`Download` and integer reinterpret helpers now handle empty slices without indexing `data[0]`.
+- Low-level NVIDIA `Buffer.Upload`/`Download` and integer reinterpret helpers now handle empty slices without indexing `data[0]`.
 
 ## Session 23: GEMV/LM-head dispatch guard audit
 
-Hardened remaining dense CUDA dispatch helpers:
+Hardened remaining dense NVIDIA runtime dispatch helpers:
 
 - `DevGemv`, `DevGemvNN`, and `DevLMHead` now validate nil inputs, dimensions, and backing-buffer lengths before GPU launch or CPU fallback.
 - Dense GEMV and LM-head GPU paths now use the same `tryGPU` preflight as vector and norm helpers, avoiding ignored upload/allocation errors.
 - Added malformed-call regression coverage for GEMV, pre-transposed GEMV, and LM-head dispatch.
 
-## Session 24: CUDA stream/memcpy guard audit
+## Session 24: NVIDIA stream/memcpy guard audit
 
 Hardened stream and device-copy wrappers:
 
-- `PrefetchWeights` now validates quantized weights before touching prefetch kernel arguments and stops if CUDA event setup fails.
-- `LaunchKernelOnStream` now rejects nil functions and zero launch dimensions before calling CUDA, and handles zero-argument launches without indexing an empty slice.
-- `CopyDtoD` now returns an error, treats zero pointers/zero bytes as no-op, and reports CUDA copy failures instead of silently ignoring them.
+- `PrefetchWeights` now validates quantized weights before touching prefetch kernel arguments and stops if NVIDIA event setup fails.
+- `LaunchKernelOnStream` now rejects nil functions and zero launch dimensions before calling NVIDIA, and handles zero-argument launches without indexing an empty slice.
+- `CopyDtoD` now returns an error, treats zero pointers/zero bytes as no-op, and reports NVIDIA copy failures instead of silently ignoring them.
 - Updated GPU forward call sites to explicitly ignore `CopyDtoD` errors where the existing generation path cannot yet surface them.
 
 ## Session 25: GPU pointer call-site audit
@@ -524,7 +524,7 @@ Reviewed and refreshed documentation after the tensor/runtime/backend malformed-
 
 ## Session 47: SIMD BF16 helper bounds audit
 
-Hardened scalar BF16 helper paths in `backends/simd`:
+Hardened scalar BF16 helper paths in `backends/simd/runtime`:
 
 - `BF16Dot` now bounds mismatched input lengths like `BF16DotF32`.
 - `BF16RMSNorm` no-ops on empty inputs or short weights instead of dividing by zero or indexing past weights.
@@ -533,7 +533,7 @@ Hardened scalar BF16 helper paths in `backends/simd`:
 
 ## Session 48: SIMD vector fallback bounds audit
 
-Hardened scalar vector fallback helpers in `backends/simd`:
+Hardened scalar vector fallback helpers in `backends/simd/runtime`:
 
 - F32 vector add/mul/scale/scale-add and activation fallback loops now bound all input/output slices instead of trusting `a` length.
 - F32 RMSNorm fallback no-ops on empty inputs or short weights; no-scale RMSNorm no-ops on empty input.
@@ -541,7 +541,7 @@ Hardened scalar vector fallback helpers in `backends/simd`:
 
 ## Session 49: SIMD GEBP argument validation audit
 
-Hardened GEBP/packed-B helper paths in `backends/simd`:
+Hardened GEBP/packed-B helper paths in `backends/simd/runtime`:
 
 - `ensureGebpBuf` now returns nil for non-positive requests instead of slicing with invalid bounds.
 - `packBNT`/`packBNTScalar` validate strides, block sizes, `k`, packed-buffer size, and B backing length before slicing or taking row pointers.
@@ -611,7 +611,7 @@ Reviewed and refreshed documentation after the latest audit batch:
 
 ## Session 58: MTP/inference helper bounds audit
 
-Hardened transitional `model` helper paths:
+Hardened `model` helper paths:
 
 - MTP acceptance now rejects negative drafted/verifier token IDs and invalid KV keep counts before committing staged KV.
 - Token embedding and LM-head helpers validate positive model dimensions and backing data lengths before slicing.
@@ -619,7 +619,7 @@ Hardened transitional `model` helper paths:
 
 ## Session 59: Chunked GPU LM-head guard audit
 
-Hardened the transitional chunked GPU LM-head helper:
+Hardened the chunked GPU LM-head helper:
 
 - Rejects nil/malformed model inputs, non-positive dimensions, short logits/hidden slices, short LM-head backing data, and overflow-prone `vocabSize*hidden` products before GPU allocation.
 - Checks all chunk/input/output GPU upload errors before dispatching chunked LM-head kernels.
@@ -640,7 +640,7 @@ Hardened the batched GPU prefill fallback entrypoint:
 
 ## Session 62: Model dot helper bounds audit
 
-Hardened the transitional model-local `simdDot` helper:
+Hardened the model-local `simdDot` helper:
 
 - Scalar short-vector fallback now bounds mismatched input slices instead of trusting the first slice length.
 - Added regression coverage for short, nil, and long mismatched dot inputs.
@@ -656,28 +656,28 @@ Hardened model-local low-level math helpers:
 
 ## Session 64: Documentation sweep after model helper hardening
 
-Reviewed and refreshed documentation after the latest transitional `model` audit batch:
+Reviewed and refreshed documentation after the latest `model` audit batch:
 
 - README now records MTP, KV, prefill, chunked LM-head, embedding/LM-head, GEMV, and GQA helper guard coverage.
 - Architecture docs now call out model-helper guard behavior as part of the Phase 6.5 shared hardening baseline.
-- Refactor plan now marks the transitional `model` package helper guards as hardened and clarifies that focused model helper tests remain part of the validation gate.
+- Refactor plan now marks the `model` package helper guards as hardened and clarifies that focused model helper tests remain part of the validation gate.
 
 ## Session 65: GPU DevBuf receiver/upload audit
 
-Hardened GPU `DevBuf` and CUDA allocation helpers:
+Hardened GPU `DevBuf` and NVIDIA allocation helpers:
 
 - `DevBuf` receiver methods now handle nil receivers consistently, returning nil/zero values or errors instead of dereferencing nil.
 - `ToGPU` now propagates upload failures, frees newly allocated GPU memory on upload failure, and no longer marks GPU authoritative after a failed re-upload.
 - `GPUPtr` returns nil if lazy upload fails.
-- `Malloc` rejects `n*4` size overflow before entering CUDA driver code.
+- `Malloc` rejects `n*4` size overflow before entering NVIDIA driver code.
 
-## Session 66: CUDA stream/graph helper audit
+## Session 66: NVIDIA stream/graph helper audit
 
-Hardened CUDA stream/graph helpers:
+Hardened NVIDIA stream/graph helpers:
 
-- `CapturedGraph.Launch` now rejects nil or empty graph executables before entering CUDA driver calls.
+- `CapturedGraph.Launch` now rejects nil or empty graph executables before entering NVIDIA driver calls.
 - `CapturedGraph.Destroy` is nil-safe.
-- `LaunchKernelOnStream` now rejects nil kernel argument pointers before constructing the CUDA argument array.
+- `LaunchKernelOnStream` now rejects nil kernel argument pointers before constructing the NVIDIA argument array.
 
 ## Session 67: GPU Q4 quantized weight validation audit
 
@@ -692,9 +692,9 @@ Hardened GPU Q4 quantized weight helpers:
 
 Reviewed and refreshed documentation after the latest GPU audit batch:
 
-- README and architecture docs now record hardened `DevBuf`, CUDA stream/graph, allocation-size, and Q4 weight-layout validation.
-- Refactor plan now marks transitional `gpu` runtime guards as part of the Phase 6.5 baseline before the CUDA runtime split.
-- GPU options docs now include a DevBuf/dispatch guard-status section so the eventual `backends/cuda` move preserves these checks.
+- README and architecture docs now record hardened `DevBuf`, NVIDIA stream/graph, allocation-size, and Q4 weight-layout validation.
+- Refactor plan now marks `backends/nvidia/runtime` runtime guards as part of the Phase 6.5 baseline before the NVIDIA runtime split.
+- GPU options docs now include a DevBuf/dispatch guard-status section so the eventual `backends/nvidia` move preserves these checks.
 
 ## Session 69: GPU MLX weight validation audit
 
@@ -738,7 +738,7 @@ Hardened remaining experimental direct-NVIDIA helpers:
 
 ## Session 74: GPU SGEMM/LM-head validation audit
 
-Hardened remaining dense CUDA dispatch helpers:
+Hardened remaining dense NVIDIA runtime dispatch helpers:
 
 - `Sgemm` now validates dimensions, non-nil/non-zero buffers, size-product overflow, and backing buffer byte sizes before kernel launch.
 - `SgemmHost` validates host dimensions, slice lengths, and size-products before allocation/upload.
@@ -746,17 +746,17 @@ Hardened remaining dense CUDA dispatch helpers:
 
 ## Session 75: GPU JIT compiler validation audit
 
-Hardened the experimental CUDA JIT compiler helpers:
+Hardened the experimental NVIDIA JIT compiler helpers:
 
 - `Compile` validates nil/empty kernel specs, nil nodes, out-of-range buffer indices, and nil node inputs before cache lookup or PTX generation.
-- `CompiledKernel.Launch` now rejects nil kernels, invalid launch metadata, missing buffers, zero GPU pointers, and undersized buffers before CUDA calls.
+- `CompiledKernel.Launch` now rejects nil kernels, invalid launch metadata, missing buffers, zero GPU pointers, and undersized buffers before NVIDIA calls.
 - Added malformed-spec and no-op launch regression coverage.
 
 ## Session 76: GPU BF16 dispatch validation audit
 
-Hardened BF16 CUDA dispatch helpers:
+Hardened BF16 NVIDIA runtime dispatch helpers:
 
-- Emulated/native BF16 norm, add, SiLU, and GELU launch wrappers now validate nil pointers, positive lengths, byte-size bounds, and length overflow before CUDA calls or fallback dispatch.
+- Emulated/native BF16 norm, add, SiLU, and GELU launch wrappers now validate nil pointers, positive lengths, byte-size bounds, and length overflow before NVIDIA calls or fallback dispatch.
 - Added regression coverage for BF16 buffer validation and malformed dispatch calls.
 
 
@@ -765,14 +765,14 @@ Hardened BF16 CUDA dispatch helpers:
 Reviewed and refreshed documentation after the latest GPU/backend audit batch:
 
 - README and architecture docs now record hardened MLX, expert pool, experimental NV helpers, dense SGEMM/LM-head, JIT, and BF16 dispatch validation.
-- GPU options docs now list the expanded DevBuf/dispatch guard baseline that must move with the future `backends/cuda` split.
-- Refactor plan now reflects the broader transitional GPU guard coverage in Phase 6.5.
+- GPU options docs now list the expanded DevBuf/dispatch guard baseline that must move with the future `backends/nvidia` split.
+- Refactor plan now reflects the broader GPU guard coverage in Phase 6.5.
 
 ## Session 78: Batched Q4 dispatch audit
 
 Hardened batched Q4 dispatch:
 
-- `GemmQ4` now validates the quantized weight before reading dimensions, computes batched input/output size products with overflow checks, and rejects malformed buffers before CUDA dispatch.
+- `GemmQ4` now validates the quantized weight before reading dimensions, computes batched input/output size products with overflow checks, and rejects malformed buffers before NVIDIA runtime dispatch.
 - `GemvQ4OrGemm` no longer prints a misleading sequential fallback message for a fallback path that cannot safely slice batched buffers yet; it delegates to the guarded batched dispatch for `B>1`.
 
 
@@ -782,13 +782,13 @@ Hardened and documented remaining GPU RoPE/attention dispatch wrappers:
 
 - RoPE and partial RoPE validate positions, dimensions, tensor lengths, and size-product overflow before launch.
 - Attention score, softmax-row, and fused GQA attention wrappers validate sequence bounds, head dimensions, cache lengths, and output sizes before launch.
-- Documentation refreshed so the future CUDA backend split preserves these transitional guard expectations.
+- Documentation refreshed so the future NVIDIA backend split preserves these guard expectations.
 
-## Session 80: CUDA launch wrapper validation audit
+## Session 80: NVIDIA launch wrapper validation audit
 
-Hardened the raw CUDA launch wrapper:
+Hardened the raw NVIDIA launch wrapper:
 
-- `LaunchKernel` now returns explicit errors when the CUDA launch symbol is unavailable, the function handle is nil, or grid/block dimensions are zero.
+- `LaunchKernel` now returns explicit errors when the NVIDIA launch symbol is unavailable, the function handle is nil, or grid/block dimensions are zero.
 - Added regression coverage so malformed launches fail safely before purego calls.
 
 ## Session 81: Model/GPU boundary ignored-error audit
@@ -840,7 +840,7 @@ Started Phase 6.5.6 validation gate after the GPU/model/cmd audit batch:
 
 Continued Phase 6.5.6 validation:
 
-- Re-ran the fast shared package gate with full tests for `tensor`, `backends/simd`, `runtime/...`, and `loader/...`.
+- Re-ran the fast shared package gate with full tests for `tensor`, `backends/simd/runtime`, `runtime/...`, and `loader/...`.
 - Re-ran `models/bert` full package tests.
 - Confirmed repository-wide no-run compile gate with `go test ./... -run '^$'`.
 
@@ -853,17 +853,17 @@ Completed the broad Phase 6.5.6 validation gate after the cleanup/hardening batc
 
 ## Session 89: GPU DevBuf RoPE/attention split
 
-Continued Phase 6.5 cleanup by splitting an oversized transitional GPU file:
+Continued Phase 6.5 cleanup by splitting an oversized GPU file:
 
-- Moved RoPE, partial RoPE, softmax-row, and GQA attention dispatch helpers out of `gpu/devbuf.go` into `gpu/rope_attention.go` without semantic changes.
-- Kept the recently added launch-shape guards with the moved dispatch helpers so they remain visible for the future CUDA backend split.
+- Moved RoPE, partial RoPE, softmax-row, and GQA attention dispatch helpers out of `backends/nvidia/runtime/devbuf.go` into `backends/nvidia/runtime/rope_attention.go` without semantic changes.
+- Kept the recently added launch-shape guards with the moved dispatch helpers so they remain visible for the future NVIDIA backend split.
 
 
 ## Session 90: SIMD folder reorg assessment
 
 Started Phase 6.6 SIMD folder reorg work with a layout assessment:
 
-- Documented the current `backends/simd` file split by build tags and CPU family.
+- Documented the current `backends/simd/runtime` file split by build tags and CPU family.
 - Captured the Go package constraint: a literal `amd64/arm64/scalar` folder split is not mechanical because it creates separate packages and requires facade bridge APIs for unexported assembly entrypoints.
 - Added `docs/simd-folder-reorg.md` and linked it from the SIMD coverage notes as the safe migration path.
 
@@ -872,14 +872,14 @@ Started Phase 6.6 SIMD folder reorg work with a layout assessment:
 Continued Phase 6.6 with a facade-preserving mechanical cleanup:
 
 - Moved scalar `Sdot`/`Saxpy` fallback helpers from `backends/simd/simd.go` to `backends/simd/scalar.go`.
-- Kept the public `backends/simd` package and architecture-specific dispatch files unchanged.
+- Kept the public `backends/simd/runtime` package and architecture-specific dispatch files unchanged.
 
 ## Session 92: SIMD empty facade cleanup
 
-Continued Phase 6.6 cleanup after the scalar fallback split:
+Continued recent cleanup after the scalar fallback split:
 
 - Removed the now-empty `backends/simd/simd.go` placeholder after moving scalar fallback helpers to `scalar.go`.
-- Kept the `backends/simd` package facade intact through the remaining implementation files.
+- Kept the `backends/simd/runtime` package facade intact through the remaining implementation files.
 
 ## Session 93: SIMD sqrt fallback audit
 
@@ -1048,7 +1048,7 @@ Finished gating the remaining normal-path model/GPU progress prints:
 
 Gated GPU backend progress and experimental NV ioctl diagnostics:
 
-- CUDA init/module/stream/native-BF16 progress messages and non-fatal module lookup diagnostics now use `GO_PHERENCE_GPU_DEBUG`.
+- NVIDIA init/module/stream/native-BF16 progress messages and non-fatal module lookup diagnostics now use `GO_PHERENCE_GPU_DEBUG`.
 - Experimental direct-NVIDIA ioctl/VA/GPFIFO diagnostics are now opt-in under the same GPU debug gate.
 
 ## Session 117: Vulkan backend debug logging audit
@@ -1089,7 +1089,7 @@ Refreshed documentation after the logging and placement/budget audit batches:
 
 - README, architecture notes, GPU options, weight-budget notes, and refactor plan now document quiet-by-default library diagnostics and the `GO_PHERENCE_*_DEBUG` gates.
 - Placement docs now record guarded budget accounting, invalid-category rejection, nil-safe budget manager methods, saturating estimator math, and odd INT4 packed-size rounding.
-- Refactor notes call out that these guard/logging semantics should be preserved during the later CUDA/model package splits.
+- Refactor notes call out that these guard/logging semantics should be preserved during the later NVIDIA/model package splits.
 
 ## Session 122: Tokenizer merge validation audit
 
@@ -1174,7 +1174,7 @@ Hardened chunked GPU LM-head setup:
 Made the Phase 6.5 exit criteria explicit:
 
 - Replaced the broad definition-of-done section in `docs/refactor-plan.md` with a concrete checklist covering ownership docs, mechanical moves, audit baselines, debug/logging hygiene, documentation alignment, validation gates, and final closeout.
-- Marked completed loader/runtime/backend/tensor/GPU audit work separately from still-pending transitional `model`, CUDA-runtime split, model-package split, command-boundary audit, smoke tests, and final validation.
+- Marked completed loader/runtime/backend/tensor/GPU audit work separately from still-pending `model`, NVIDIA-runtime split, model-package split, command-boundary audit, smoke tests, and final validation.
 - This checklist is now the source of truth for deciding whether Phase 6.5 is done or whether remaining work is deliberately deferred.
 
 ## Session 133: MTP drafter projection arithmetic audit
@@ -1188,7 +1188,7 @@ Hardened Gemma4 MTP drafter helper arithmetic:
 
 ## Session 134: MoE helper edge-case audit
 
-Hardened transitional MoE helpers:
+Hardened MoE helpers:
 
 - Switch-MLX expert loader now validates nil sources, dimensions, divisibility, stride products, and raw tensor byte lengths before slicing per-expert data.
 - CPU MoE forward now rejects nil/empty/malformed configs, clamps active expert count, guards softmax normalization, and verifies all selected expert weight slices before dispatch.
@@ -1196,14 +1196,14 @@ Hardened transitional MoE helpers:
 
 ## Session 135: Inference helper product arithmetic audit
 
-Hardened transitional model inference helpers:
+Hardened model inference helpers:
 
 - Token embedding, Gemma4 per-layer input, and LM-head helpers now use checked product arithmetic for offsets, projection sizes, embedding tables, and LM-head backing data sizes.
 - Added overflow regression coverage for token embedding offsets, per-layer Gemma4 input dimensions, and LM-head output dimensions.
 
 ## Session 136: CPU forward-layer entrypoint audit
 
-Hardened the transitional CPU `ForwardLayer` helper:
+Hardened the CPU `ForwardLayer` helper:
 
 - Rejects nil models, invalid layer indices, negative positions, malformed dimensions, short hidden states, missing norm weights, product-overflowing Q/KV dimensions, and missing KV cache slots before indexing.
 - Added malformed forward-layer regression coverage.
@@ -1240,7 +1240,7 @@ Hardened `llmgen` reporting math:
 
 ## Session 141: Model and command audit documentation sweep
 
-Refreshed documentation after the latest transitional `model` and `cmd` audit batch:
+Refreshed documentation after the latest `model` and `cmd` audit batch:
 
 - README and architecture docs now describe MTP drafter projection guards, MoE helper validation, inference-helper sizing, CPU forward-layer entrypoint checks, and command/request boundary hardening.
 - Refactor plan checklist now distinguishes completed `model` helper and `cmd` boundary audits from the remaining large loader/generation scan or explicit deferral decision.
@@ -1259,9 +1259,9 @@ Completed the Phase 6.5 non-test stdout/stderr/logging scan:
 
 Recorded explicit Phase 6.5 split/defer decisions:
 
-- CUDA runtime split is deferred to Phase 6.7 with a preservation plan for `DevBuf`, upload state, GPU quantized weights, expert resources, and recently added guard/debug behavior.
-- LLaMA/Gemma/Qwen/MoE/MTP model package split is deferred to Phase 6.8 with a plan to move helper tests and preserve MTP/MoE/inference/forward guard semantics.
-- Generation/runtime extraction is deferred to Phase 6.9 until model/backend interfaces stabilize.
+- NVIDIA runtime split has since completed into backends/nvidia/runtime with a preservation plan for `DevBuf`, upload state, GPU quantized weights, expert resources, and recently added guard/debug behavior.
+- Qwen/Gemma4/LLaMA mechanical package moves have since completed where safe with a plan to move helper tests and preserve MTP/MoE/inference/forward guard semantics.
+- Generation/runtime extraction remains future work until model/backend interfaces stabilize.
 - Import-boundary scripting is deferred until follow-up split names stabilize; import rules remain documented and review-enforced for Phase 6.5 closeout.
 
 
@@ -1269,8 +1269,8 @@ Recorded explicit Phase 6.5 split/defer decisions:
 
 Completed the final Phase 6.5 documentation sweep after recording mechanical split deferrals:
 
-- README and architecture docs now state that CUDA runtime, model package, and generation runtime splits are deferred follow-up phases rather than Phase 6.5 blockers.
-- GPU and MTP docs now point at the deferred Phase 6.7/6.8/6.9 split plan and keep MTP/speculative decoding paused until validation closeout is recorded.
+- README and architecture docs now state that NVIDIA runtime, model package, and generation runtime splits are deferred follow-up phases rather than Phase 6.5 blockers.
+- GPU and MTP docs now point at the current backend/model split plan and keep MTP/speculative decoding paused until validation closeout is recorded.
 - The remaining closeout work is validation/smoke testing and the final Phase 6.5 closeout note.
 
 ## Session 145: Phase 6.5 final validation gate
@@ -1288,29 +1288,29 @@ Closed Phase 6.5 as a source-tree ownership/audit phase:
 
 - All Phase 6.5 closeout commits are pushed and the plan sidebar is aligned with completed/deferred items.
 - Final note in `docs/refactor-plan.md` states that MTP/verifier/drafter work may resume under the documented constraints.
-- Deferred package splits remain assigned to follow-up phases: CUDA runtime in Phase 6.7, model packages in Phase 6.8, and generation runtime in Phase 6.9.
+- Deferred package splits remain assigned to follow-up phases: completed NVIDIA/Qwen/Gemma4/LLaMA moves and future generation runtime extraction.
 
 ## Session 147: SIMD bridge API design
 
 Designed the Phase 6.6 SIMD bridge API before any literal subpackage split:
 
-- `backends/simd` remains the only public facade/import path and owns validation, capability gates, fallback policy, and compatibility globals.
+- `backends/simd/runtime` remains the only public facade/import path and owns validation, capability gates, fallback policy, and compatibility globals.
 - Future `scalar`, `amd64`, and `arm64` packages should expose provider-style kernel groups rather than direct public functions consumed by model code.
 - Assembly symbols remain provider-local after the split; the facade calls prevalidated kernels and preserves public malformed-input/no-op behavior.
 - Migration order is facade-internal provider structs first, then scalar split, then amd64/arm64 splits one family at a time.
 
 ## Session 148: SIMD code-smell audit fixes
 
-Audited `backends/simd` for facade and subpackage-split hazards:
+Audited `backends/simd/runtime` for facade and subpackage-split hazards:
 
 - Replaced the shared package-level GEBP scratch buffer with per-call scratch allocation so concurrent `SgemmNTGebp` calls cannot race or alias packed-B tiles.
 - Added a regression check that GEBP scratch allocations are independent.
-- Changed unsupported-architecture `SgemmNT`/`SgemmNN` fallbacks from panics to safe no-ops, preserving the `backends/simd` facade policy that public entrypoints remain defensive even when callers should check `HasSgemmAsm`.
-- Verified native SIMD tests and a non-amd64 compile-only check (`GOARCH=riscv64 go test -c ./backends/simd`).
+- Changed unsupported-architecture `SgemmNT`/`SgemmNN` fallbacks from panics to safe no-ops, preserving the `backends/simd/runtime` facade policy that public entrypoints remain defensive even when callers should check `HasSgemmAsm`.
+- Verified native SIMD tests and a non-amd64 compile-only check (`GOARCH=riscv64 go test -c ./backends/simd/runtime`).
 
 ## Session 149: SIMD empty-slice dispatch audit
 
-Continued the `backends/simd` dispatch audit:
+Continued the `backends/simd/runtime` dispatch audit:
 
 - Guarded assembly dispatch wrappers so zero-length vector/BF16 operations route through scalar fallbacks instead of passing empty slices to assembly stubs.
 - Added regression coverage for empty public vector and BF16 entrypoints.
@@ -1347,7 +1347,7 @@ Reviewed and refreshed project documentation after the latest audit fixes:
 
 - README and architecture docs now mention the Phase 6.6 SIMD guard baseline: empty vector/BF16 calls route to scalar fallbacks, GEBP scratch is per-call, and SGEMM/GEBP/gather byte offsets are checked before unsafe pointer arithmetic.
 - MTP docs now state that work resumed after Phase 6.5 closeout and document model-aware verifier validation plus acceptance consistency checks before KV commit.
-- Refactor and SIMD reorg notes now preserve the updated follow-up constraints for Phase 6.8 model splitting and future SIMD provider/subpackage splits.
+- Refactor and SIMD reorg notes now preserve the updated follow-up constraints for completed model package moves and future SIMD provider/subpackage splits.
 
 ## Session 154: Runtime validation plan reset and MTP verifier plan
 
@@ -1377,8 +1377,8 @@ Continued the aggressive runtime validation plan:
 
 Continued the aggressive runtime validation plan with cross-architecture gates:
 
-- `GOARCH=arm64 go test -c ./backends/simd` passed.
-- `GOARCH=riscv64 go test -c ./backends/simd` passed.
+- `GOARCH=arm64 go test -c ./backends/simd/runtime` passed.
+- `GOARCH=riscv64 go test -c ./backends/simd/runtime` passed.
 - Plain `GOARCH=arm64 go test ./... -run '^$'` compiled test binaries but failed to execute them on the amd64 host with `exec format error`.
 - Compile-focused substitute passed with `GOARCH=arm64 go test -exec /bin/true ./... -run '^$'`.
 
@@ -1397,7 +1397,7 @@ Completed the CPU generation smoke matrix with short budgets:
 
 Completed the GPU/hybrid runtime smoke matrix on the current host:
 
-- CUDA availability probe passed (`nvidia-smi` reports a CUDA-capable NVIDIA driver/device).
+- NVIDIA availability probe passed (`nvidia-smi` reports a NVIDIA-capable NVIDIA driver/device).
 - SmolLM2 GPU smoke passed: `go run ./cmd/llmgen -model models/smollm2-135m -gpu -prompt 'Hello' -tokens 2`.
 - SmolLM2 hybrid smoke passed: `go run ./cmd/llmgen -model models/smollm2-135m -gpu -gpu-layers 4 -prompt 'Hello' -tokens 2`.
 - Gemma4 E2B MLX4 GPU decode smoke passed with a one-token budget: `go run ./cmd/llmgen -model models/gemma4-e2b-mlx4 -gpu -prompt 'Hello' -tokens 1`.
@@ -1451,7 +1451,7 @@ Closed the current aggressive runtime validation batch:
 - Race gates passed for shared runtime/loader/tensor/SIMD and a focused model MTP/KV/inference/forward/MoE subset; the broad model race regex was documented as resource-killed and replaced by the focused safe subset.
 - Cross-arch compile gates passed for SIMD arm64/riscv64 and an all-package arm64 compile substitute; native execution of arm64 tests on this amd64 host was documented as an `exec format error` limitation.
 - CPU smoke matrix passed for SmolLM2, Gemma4 E2B MLX4, Qwen3 0.6B, Qwen3 MoE loader/short-generation, eager-load, and TurboQuant.
-- GPU/hybrid smoke matrix passed with CUDA available: SmolLM2 GPU, SmolLM2 hybrid, Gemma4 GPU decode, and quiet default GPU diagnostics.
+- GPU/hybrid smoke matrix passed with NVIDIA available: SmolLM2 GPU, SmolLM2 hybrid, Gemma4 GPU decode, and quiet default GPU diagnostics.
 - MTP scaffold validation now covers verifier plans, model-aware verifier results, acceptance consistency, float/compressed KV commit chains, and verifier-forward contract validation while keeping speculative CLI disabled.
 - SIMD stress validation covers concurrent GEBP scratch under `-race`, malformed BF16 facade parity, cross-arch SIMD compile gates, and a bounded benchmark pass.
 
@@ -1692,7 +1692,7 @@ Reviewed and refreshed public project docs after the verifier/drafter/speculativ
 - Updated `docs/architecture.md` with the current verifier-forward loop, q-only drafter/external-KV seam, stats, and remaining production gaps.
 - Updated `docs/mtp-speculative.md` to document current CPU verifier constraints, explicit PLI rejection, q-only drafter execution details, internal `RunMTPSpeculativeStep`, stats rollback behavior, and revised implementation-plan status.
 - Updated `docs/turboquant.md` to clarify that TurboQuant commit/rollback helpers exist but the internal verifier-forward loop is still float-KV CPU-only.
-- Updated `docs/refactor-plan.md` status and Phase 6.8 preservation notes to reflect internal MTP verifier/drafter/speculative-step code rather than the older scaffold-only state.
+- Updated `docs/refactor-plan.md` status and model package preservation notes to reflect internal MTP verifier/drafter/speculative-step code rather than the older scaffold-only state.
 
 ## Session 195: Post-MTP audit validation closeout
 
@@ -1850,8 +1850,8 @@ Reviewed and refreshed documentation after the multi-step/multi-draft MTP implem
 Added NVFP4/FP4 to the Gemma/Qwen efficiency roadmap:
 
 - Searched for public Gemma/Qwen NVFP4 checkpoints and found relevant Hugging Face artifacts including `nvidia/Qwen3-8B-NVFP4`, `NVFP4/Qwen3-32B-FP4`, `nvidia/Qwen3-30B-A3B-NVFP4`, `nvidia/Qwen3-235B-A22B-Instruct-2507-NVFP4`, `nvidia/Gemma-4-31B-IT-NVFP4`, and community Gemma4 26B-A4B NVFP4 checkpoints.
-- Added `docs/nvfp4.md` with current repo status, model-weight findings, loader/CPU/CUDA/memory-budget fit gaps, and a staged implementation plan.
-- Updated performance, GPU options, weight-budget, README, and refactor docs to include NVFP4 as a CUDA-focused roadmap format distinct from MLX/GPTQ.
+- Added `docs/nvfp4.md` with current repo status, model-weight findings, loader/CPU/NVIDIA/memory-budget fit gaps, and a staged implementation plan.
+- Updated performance, GPU options, weight-budget, README, and refactor docs to include NVFP4 as a NVIDIA-focused roadmap format distinct from MLX/GPTQ.
 
 ## Session 214: FP4/NVFP4 metadata inspection and early loader guard
 
@@ -1869,10 +1869,10 @@ Added the first end-to-end internal scaffolding for NVIDIA/ModelOpt NVFP4 checkp
 - Added reusable quantization metadata parsing in `loader/config`, including ModelOpt/compressed-tensors FP4/NVFP4 detection and early unsupported-format errors before safetensors weight loading.
 - Metadata-inspected public Qwen3 dense, Qwen3 MoE, and Gemma4 NVFP4 checkpoints without downloading full weight shards; documented tensor prefixes, companion tensors, BF16 router/embedding/LM-head exceptions, and Gemma4 nested `model.language_model` text layout.
 - Added `runtime/quant.NVFP4Weight`, FP4 E2M1 and F8_E4M3FN decode helpers, dequant-to-F32, direct GEMV fallback, and synthetic golden tests including tiny logits vs explicit F32 reference.
-- Added `gpu.GPUNVFP4Weight`, raw byte upload helpers, CUDA dequant-to-F32 fallback PTX, compute-capability gating for future native NVFP4 tensor-core kernels, and a correctness-first dense GEMV integration point that currently materializes F32 weights.
+- Added `gpu.GPUNVFP4Weight`, raw byte upload helpers, NVIDIA dequant-to-F32 fallback PTX, compute-capability gating for future native NVFP4 tensor-core kernels, and a correctness-first dense GEMV integration point that currently materializes F32 weights.
 - Audited and fixed raw-byte slice aliasing, F8_E4M3FN finite-only decode semantics, PTX packed-byte offset arithmetic, metadata role matching, and GEMV fallback validation.
 
-Remaining work: keep public NVFP4 generation disabled until real CPU-vs-CUDA smokes agree, then add packed/native GEMV/GEMM, LM-head support if needed by a checkpoint, MoE expert-cache integration, and placement/budget accounting for NVFP4 scale overhead.
+Remaining work: keep public NVFP4 generation disabled until real CPU-vs-NVIDIA smokes agree, then add packed/native GEMV/GEMM, LM-head support if needed by a checkpoint, MoE expert-cache integration, and placement/budget accounting for NVFP4 scale overhead.
 
 ## Session 215: NVFP4 documentation and audit follow-up
 
@@ -1880,9 +1880,9 @@ Completed the current NVFP4/FP4 follow-up roadmap and refreshed status after rep
 
 - Hardened public NVFP4 rejection coverage across ModelOpt and compressed-tensors variants, including mixed `config_groups`, group `format`, `weights.format`, and 4-bit float `weights.type` metadata. Mixed-group diagnostics now prefer the unsupported FP4 group's bit/group metadata regardless of Go map iteration order.
 - Added metadata-only Qwen3-30B-A3B-NVFP4 placement sizing without downloading shards: about 1188 MB resident, 324 MB for one layer's full expert set, 2.53 MB per expert slot, and roughly 202 expert slots in a 512 MiB cache.
-- Added a packed NVFP4 GEMV/GEMM `NVFP4KernelSpec` contract with row-major packed weights, F8 scales, F32 inputs/outputs, batch semantics, group-size checks, u32 CUDA-interface limits, and overflow guards before native dispatch exists.
-- Validated synthetic CPU-vs-CUDA NVFP4 dequant parity on the local RTX 3060 and fixed PTX pointer arithmetic so the CUDA mega-module loads successfully.
-- Hardened NVFP4 runtime/CUDA helpers against overflow-prone packed-count, padded-byte-capacity, byte-packing, and u32 launch-dimension edge cases.
+- Added a packed NVFP4 GEMV/GEMM `NVFP4KernelSpec` contract with row-major packed weights, F8 scales, F32 inputs/outputs, batch semantics, group-size checks, u32 NVIDIA-interface limits, and overflow guards before native dispatch exists.
+- Validated synthetic CPU-vs-NVIDIA NVFP4 dequant parity on the local RTX 3060 and fixed PTX pointer arithmetic so the NVIDIA mega-module loads successfully.
+- Hardened NVFP4 runtime/NVIDIA runtime helpers against overflow-prone packed-count, padded-byte-capacity, byte-packing, and u32 launch-dimension edge cases.
 
 Public NVFP4 loading/generation remains disabled: synthetic dequant parity is in place, but real checkpoint logits/tokens must agree before enabling user-facing generation.
 
@@ -1898,7 +1898,7 @@ Continued the MLX4 larger-weight performance investigation after NVFP4 detection
 - Diagnosed `qwen3-30b-a3b-mlx4` as MoE-bound, not LM-head-bound. Batched dense prefill is explicitly skipped for MoE with `GO_PHERENCE_PREFILL_DEBUG=1` explaining the fallback.
 - Specialized CPU MLX4 GEMV for 4-bit group layouts, reused input-group sums, and added Qwen MoE gate/down microbenchmarks.
 - Added native-only MLX expert upload for MoE. Cached experts use `GemvMLXDirect`, so uploading the transposed GPTQ-compatible buffers was wasted work.
-- Added direct `uint32` CUDA uploads for packed MLX weights to avoid host-side repacking on expert upload.
+- Added direct `uint32` NVIDIA uploads for packed MLX weights to avoid host-side repacking on expert upload.
 - Changed MoE cache misses to upload selected experts immediately and run them on GPU in the same pass; CPU remains the fallback if upload fails.
 - Removed redundant per-expert sync before downloading outputs, then accumulated GPU expert outputs on device to reduce per-expert downloads.
 - Added GPU-only `DevBuf` scratch allocation and used it for MoE scratch buffers to avoid unnecessary zero uploads.
@@ -1913,13 +1913,13 @@ Representative local short-run results after this pass:
 | `qwen3-30b-a3b-mlx4` cold | 16 | ~5.2 tok/s, ~4.0s total with selected expert uploads |
 | `qwen3-30b-a3b-mlx4` warmed | 16 | ~2.9s total after expert cache warm |
 
-Remaining Qwen3 MoE bottlenecks are mostly CUDA driver/kernel overhead and sequential expert execution once the route set is warm. The next meaningful improvements are likely route-aware/batched MoE prefill, fused selected-expert kernels, or reducing KV/attention launch counts.
+Remaining Qwen3 MoE bottlenecks are mostly NVIDIA driver/kernel overhead and sequential expert execution once the route set is warm. The next meaningful improvements are likely route-aware/batched MoE prefill, fused selected-expert kernels, or reducing KV/attention launch counts.
 
 ### MLX4 MoE follow-up — GPU-resident router/activations and diagnostics
 
 Followed up the Session 213 performance pass with additional Qwen3 MoE audits:
 
-- Added decode-profile GPU operation counters (`kernels`, `h2d`, `d2h`, `d2d`, `syncs`) to make CUDA launch/copy pressure visible alongside layer/logit timing.
+- Added decode-profile GPU operation counters (`kernels`, `h2d`, `d2h`, `d2d`, `syncs`) to make NVIDIA launch/copy pressure visible alongside layer/logit timing.
 - Moved the MoE router to GPU when resident by uploading router weights as native MLX and using `GemvMLXDirect` with CPU fallback.
 - Kept MoE activations resident on GPU across router and expert execution, avoiding the previous download/re-upload of `g.normed` and the final `g.down` copyback in the all-GPU path.
 - Hardened `moeForwardGPU` guards for nil/short inputs, invalid expert/intermediate counts, and `NumExpertsPerTok > NumExperts`; fixed a lazy CPU-fallback input capture race.
@@ -1934,13 +1934,13 @@ Latest local Qwen3-30B-A3B MLX4 16-token repeat profile:
 
 Warm-run GPU counters after removing the pre-sync before direct device copies, counting only model syncs, and fusing MoE add-scaled accumulation are roughly `kernels=123680 h2d=44 d2h=1388 d2d=6720 syncs=32`, so the next major gains require reducing kernel launch and copy count (for example selected-expert fusion, route-aware batched MoE prefill, or attention/KV copy fusion), not more CPU GEMV tuning.
 
-### CUDA/DevBuf hardening follow-up
+### NVIDIA/DevBuf hardening follow-up
 
-A follow-up audit tightened the transitional `gpu`/`model` boundary before deeper MoE fusion work:
+A follow-up audit tightened the `backends/nvidia/runtime`/`model` boundary before deeper MoE fusion work:
 
 - Scoped GPU operation counters to `GO_PHERENCE_PROFILE_DECODE=1`; `StatsSnapshot` is now side-effect-free and generation restores the previous counter state after profiling.
-- Hardened `DevBuf` transfer semantics: failed device copies fall back safely, failed GPU-to-CPU downloads keep GPU contents authoritative, slice views use overflow-safe bounds/byte math, and non-empty copies to zero-sized CUDA buffers are rejected before driver calls.
-- Centralized CUDA byte-size validation across allocation, upload/download, D2D copies, SGEMM/JIT dispatch, and Q4/MLX buffer-capacity checks to avoid unchecked `n*4` arithmetic.
+- Hardened `DevBuf` transfer semantics: failed device copies fall back safely, failed GPU-to-CPU downloads keep GPU contents authoritative, slice views use overflow-safe bounds/byte math, and non-empty copies to zero-sized NVIDIA buffers are rejected before driver calls.
+- Centralized NVIDIA byte-size validation across allocation, upload/download, D2D copies, SGEMM/JIT dispatch, and Q4/MLX buffer-capacity checks to avoid unchecked `n*4` arithmetic.
 - Preserved complete MoE output if adding CPU fallback work back into a GPU accumulator fails; the CPU return path now includes already-computed GPU expert contributions.
 - Hardened GPU model byte-size arithmetic and KV-cache copy failure handling so allocation/copy failures fall back instead of silently marking stale state authoritative.
 

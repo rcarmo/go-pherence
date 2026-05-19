@@ -1,10 +1,10 @@
 # SIMD folder reorg notes
 
-Phase 6.6 tracks the cleanup of `backends/simd` after the package move from the old root `simd` package.
+Phase 6.6 tracks the cleanup of `backends/simd/runtime` after the package move from the old root `simd` package.
 
 ## Current layout
 
-`backends/simd` is intentionally still a single Go package. Go build constraints already split most implementation files by CPU family:
+`backends/simd/runtime` is intentionally still a single Go package. Go build constraints already split most implementation files by CPU family:
 
 - shared facade and scalar fallback:
   - `simd.go`
@@ -28,11 +28,11 @@ Phase 6.6 tracks the cleanup of `backends/simd` after the package move from the 
 
 ## Constraint
 
-A literal folder split (`backends/simd/amd64`, `backends/simd/arm64`, etc.) would create separate Go packages. That is possible, but it is not a purely mechanical move: the public `backends/simd` package would need to become a facade over internal CPU-family packages, and some unexported helper/assembly entrypoints would need explicit bridge APIs.
+A literal folder split (`backends/simd/amd64`, `backends/simd/arm64`, etc.) would create separate Go packages. That is possible, but it is not a purely mechanical move: the public `backends/simd/runtime` package would need to become a facade over internal CPU-family packages, and some unexported helper/assembly entrypoints would need explicit bridge APIs.
 
 Because Phase 6.5/6.6 is still guarding against accidental semantic churn, the safe migration path is:
 
-1. Keep `backends/simd` as the public package boundary.
+1. Keep `backends/simd/runtime` as the public package boundary.
 2. Split oversized mixed-concern files inside that package first.
 3. Move architecture-specific implementations behind narrow internal packages only after wrapper APIs are explicit and tests are stable.
 
@@ -49,7 +49,7 @@ backends/simd/
   internal/cpufeatures/  # runtime detection glue if needed
 ```
 
-The public import path should remain `github.com/rcarmo/go-pherence/backends/simd`.
+The public import path should remain `github.com/rcarmo/go-pherence/backends/simd/runtime`.
 
 ## Safe next mechanical steps
 
@@ -78,7 +78,7 @@ git diff --check
 
 The literal `backends/simd/{amd64,arm64,scalar}` split should not start until the facade has explicit bridge contracts for each implementation family. The bridge should keep the public import path stable and make architecture packages dumb providers of kernels, not owners of shape validation or fallback policy.
 
-### Facade responsibilities that must stay in `backends/simd`
+### Facade responsibilities that must stay in `backends/simd/runtime`
 
 - Export the public API (`Sdot`, `Saxpy`, `Vec*`, `RMSNorm*`, `BF16*`, `Sgemm*`, `Pack*`, GEBP/gather helpers).
 - Own all public input validation, nil/length/stride checks, overflow checks, and scalar fallback selection.
@@ -153,9 +153,9 @@ The facade should select one provider at init/runtime capability time:
 2. Add tests that compare the selected provider against scalar fallbacks for vectors, BF16, SGEMM/GEBP/gather bounds, and malformed input behavior.
 3. Move scalar provider files into `backends/simd/scalar` and keep facade wrappers/tests unchanged.
 4. Move amd64 and arm64 providers one family at a time, preserving build tags and assembly symbol visibility.
-5. Only after all providers are split, remove transitional package-level assembly declarations from the facade.
+5. Only after all providers are split, remove package-level assembly declarations from the facade.
 
-This design keeps `github.com/rcarmo/go-pherence/backends/simd` as the only public import path while giving future subpackages a clear implementation-only contract.
+This design keeps `github.com/rcarmo/go-pherence/backends/simd/runtime` as the only public import path while giving future subpackages a clear implementation-only contract.
 
 
 ## Recent facade guard baseline

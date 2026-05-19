@@ -1,10 +1,10 @@
 # GPU Compute Options
 
-go-pherence currently has a production CUDA backend plus Vulkan backend scaffolding. CUDA/Vulkan use `purego` dlopen (no CGo):
+go-pherence currently has a production NVIDIA backend plus Vulkan backend scaffolding. NVIDIA/Vulkan use `purego` dlopen (no CGo):
 
-## CUDA PTX (NVIDIA)
+## NVIDIA PTX (NVIDIA)
 
-Primary GPU backend. 29 hand-written PTX kernels. Source strings are owned by `backends/cuda/ptx`; runtime loading, launch helpers, `DevBuf`, and GPU-resident resources remain in the transitional `gpu` package:
+Primary GPU backend. 29 hand-written PTX kernels. Source strings are owned by `backends/nvidia/ptx`; runtime loading, launch helpers, `DevBuf`, and GPU-resident resources remain in the `backends/nvidia/runtime` package:
 
 | Category | Kernels | Notes |
 |---|---|---|
@@ -43,16 +43,16 @@ Portable backend for non-NVIDIA hardware. Vulkan code and shaders now live under
 
 ## NVFP4 / FP4 Track
 
-NVFP4 is an experimental/internal CUDA quantization path. Public NVIDIA
+NVFP4 is an experimental/internal NVIDIA quantization path. Public NVIDIA
 ModelOpt and community checkpoints exist for Qwen3 and Gemma4, but go-pherence
-still rejects them during public model loading. Synthetic CPU-vs-CUDA dequant
+still rejects them during public model loading. Synthetic CPU-vs-NVIDIA dequant
 parity now passes; real checkpoint logits/tokens remain the enablement gate:
 
 - loader detection for ModelOpt / compressed-tensors metadata is in place, including mixed `config_groups`, `format`, `weights.format`, and 4-bit float `weights.type` variants
 - Qwen3 dense, Qwen3 MoE, and Gemma4 tensor naming/layout metadata is documented
-- `runtime/quant` has correctness-first FP4/F8 decode, dequant, GEMV, and
+- `backends/simd/runtime/nvfp4` owns correctness-first FP4/F8 decode, dequant, GEMV, and
   synthetic-logit tests
-- `gpu` has `GPUNVFP4Weight`, raw byte upload, CUDA dequant-to-F32 fallback,
+- `backends/nvidia/runtime` has `GPUNVFP4Weight`, raw byte upload, NVIDIA dequant-to-F32 fallback,
   native tensor-core capability gating, dense GEMV fallback via F32 materialization, and a packed GEMV/GEMM `NVFP4KernelSpec` contract with u32/overflow guards
 - packed/native GEMV/GEMM and MoE expert cache integration remain future work
 
@@ -70,7 +70,7 @@ AVX2+FMA (amd64) and NEON (arm64):
 
 ```
 if NVIDIA GPU available:
-    → CUDA PTX (fastest, 29 kernels)
+    → NVIDIA PTX (fastest, 29 kernels)
 elif Vulkan model dispatch is enabled and a non-software Vulkan device is available:
     → backends/vulkan SPIR-V (portable shader path; still being wired)
 else:
@@ -78,13 +78,13 @@ else:
     → Go scalar (universal fallback)
 ```
 
-The current production model path chooses CUDA when requested/available, otherwise CPU SIMD/scalar. Vulkan device/shader scaffolding is present but full forward dispatch remains a Phase 3.6 item.
+The current production model path chooses NVIDIA when requested/available, otherwise CPU SIMD/scalar. Vulkan device/shader scaffolding is present but full forward dispatch remains a Phase 3.6 item.
 
 ### Debug and diagnostics gates
 
 Library/backend progress diagnostics are quiet by default. Opt in when debugging backend discovery or placement:
 
-- `GO_PHERENCE_GPU_DEBUG=1` — CUDA/NV backend init, module, stream, native-BF16, and experimental direct-NVIDIA ioctl diagnostics.
+- `GO_PHERENCE_GPU_DEBUG=1` — NVIDIA backend init, module, stream, native-BF16, and experimental direct-NVIDIA ioctl diagnostics.
 - `GO_PHERENCE_VULKAN_DEBUG=1` — Vulkan discovery, CPU-device rejection, device creation, and pending-SPIR-V diagnostics.
 - `GO_PHERENCE_LOAD_DEBUG=1` — model loader, quantization detection, GPU placement, LM-head, expert-pool, and VRAM budget diagnostics.
 - `GO_PHERENCE_PREFILL_DEBUG=1` — batched-prefill progress diagnostics.
@@ -93,17 +93,17 @@ Library/backend progress diagnostics are quiet by default. Opt in when debugging
 
 ## DevBuf/dispatch guard status
 
-During the Phase 6.5 refactor audit, the transitional `gpu` package has been hardened before the eventual CUDA runtime split:
+The `backends/nvidia/runtime` package is hardened at backend API boundaries:
 
 - `DevBuf` receiver helpers are nil-safe; `ToGPU`/`GPUPtr` propagate upload failures, failed downloads keep GPU contents authoritative, slice views use overflow-safe byte math, and copy helpers fall back instead of marking stale state authoritative.
-- CUDA allocation/upload/download/copy helpers share checked byte-size arithmetic, reject non-empty copies to zero-sized buffers, and validate D2D copies before driver calls.
-- Stream/graph helpers validate nil graph executables, nil kernel arguments, and invalid launch dimensions before CUDA calls.
+- NVIDIA allocation/upload/download/copy helpers share checked byte-size arithmetic, reject non-empty copies to zero-sized buffers, and validate D2D copies before driver calls.
+- Stream/graph helpers validate nil graph executables, nil kernel arguments, and invalid launch dimensions before NVIDIA calls.
 - Q4/MLX quantized weight upload/dispatch validates packed-weight and scale product arithmetic, buffer byte sizes, group consistency/indices, batched dimensions, and download errors in CPU fallback.
 - Expert-pool helpers reject nil pools and invalid expert IDs without leaking caller-owned GPU resources.
 - Experimental direct-NVIDIA ioctl/memory/query/GPFIFO helpers validate nil receivers, size arithmetic, fd/argument state, class-list sizes, and release partially allocated resources on setup failure.
 - Dense SGEMM/LM-head dispatch validates dimensions, buffer byte sizes, and product overflow before kernel launch.
-- CUDA JIT helpers validate kernel specs and launch buffers with the same checked byte-size helper before PTX generation or dispatch.
-- BF16 CUDA wrappers validate nil/undersized buffers and length overflow before emulated/native dispatch.
+- NVIDIA JIT helpers validate kernel specs and launch buffers with the same checked byte-size helper before PTX generation or dispatch.
+- BF16 NVIDIA wrappers validate nil/undersized buffers and length overflow before emulated/native dispatch.
 - RoPE, partial RoPE, softmax-row, and GQA attention wrappers validate dimensions, sequence windows, tensor lengths, and product overflow before launch.
 
-These guards are part of the current backend baseline and should move with the CUDA runtime when `gpu` is split into `backends/cuda` in Phase 6.7.
+These guards are part of the current backend baseline and should stay with the NVIDIA runtime package as it continues to be refined.

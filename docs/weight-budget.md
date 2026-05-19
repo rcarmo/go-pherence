@@ -39,10 +39,10 @@ Tier 3: mmap (disk)       OS page cache, madvise control
 Backend-neutral budget and layer-placement policy now lives in `backends/placement`:
 
 - `BudgetManager` tracks resident/layer/stream/expert budgets and hit/evict counters, with nil-safe methods, invalid-category rejection, allocation-overflow rejection, and free-underflow clamping.
-- `PlanLayerPlacement` estimates per-layer/resident weight sizes from model dimensions and accepts caller-supplied device-memory availability, keeping policy independent from CUDA/Vulkan discovery; invalid dimensions are clamped, estimator arithmetic saturates, and odd INT4 packed sizes round up instead of truncating.
+- `PlanLayerPlacement` estimates per-layer/resident weight sizes from model dimensions and accepts caller-supplied device-memory availability, keeping policy independent from NVIDIA/Vulkan discovery; invalid dimensions are clamped, estimator arithmetic saturates, and odd INT4 packed sizes round up instead of truncating.
 - `runtime/memory.MmapAdvisor` tracks mmap residency ranges and madvise hints with idempotent/saturating hot-byte accounting; malformed tracked ranges are sanitized, and `loader/safetensors` uses it for eager pre-faulting and future streamed weight access.
-- GPU-resident expert cache entries remain in `gpu` because they own `GPUMLXWeight` device resources, but they use `backends/placement.BudgetManager` for accounting and handle disabled/replacement cases explicitly.
-- NVFP4/FP4 is now an experimental/internal format with metadata parsing, CPU reference decode/GEMV, CUDA upload, and dequant-to-F32 fallback. Placement estimates include NVFP4 packed-weight bytes plus F8 scale and scalar `weight_scale_2` overhead, with embeddings/LM-head estimated as BF16 for inspected NVIDIA checkpoints. Placement plans report separate NVFP4 resident, GPU-layer, and per-layer expert-set MB. Qwen3 MoE cache sizing should use `EstimateNVFP4ExpertSlotBytes` / `RecommendNVFP4ExpertSlots` so hot expert slots are budgeted from one expert's gate/up/down projection bytes rather than the full layer estimate; MoE layer estimates count the BF16 router separately and do not accidentally include dense MLP projections.
+- GPU-resident expert cache entries remain in `backends/nvidia/runtime` because they own `GPUMLXWeight` device resources, but they use `backends/placement.BudgetManager` for accounting and handle disabled/replacement cases explicitly.
+- NVFP4/FP4 is now an experimental/internal format with metadata parsing, CPU reference decode/GEMV, NVIDIA upload, and dequant-to-F32 fallback. Placement estimates include NVFP4 packed-weight bytes plus F8 scale and scalar `weight_scale_2` overhead, with embeddings/LM-head estimated as BF16 for inspected NVIDIA checkpoints. Placement plans report separate NVFP4 resident, GPU-layer, and per-layer expert-set MB. Qwen3 MoE cache sizing should use `EstimateNVFP4ExpertSlotBytes` / `RecommendNVFP4ExpertSlots` so hot expert slots are budgeted from one expert's gate/up/down projection bytes rather than the full layer estimate; MoE layer estimates count the BF16 router separately and do not accidentally include dense MLP projections.
 - Metadata-only Qwen3-30B-A3B-NVFP4 sizing (`hidden=2048`, `layers=48`, `experts=128`, `moe_intermediate=768`) estimates about 1188 MB resident, 324 MB for one full layer's expert set, and 2.53 MB per expert slot; a 512 MiB expert cache fits roughly 202 NVFP4 expert slots. Dense per-layer sizing excludes nonexistent MoE MLP projections and counts the BF16 router separately from expert projections.
 
 ## Budget Categories
@@ -76,7 +76,7 @@ Working set for streamed weights — the mmap pages actively touched:
 - Controls `madvise(MADV_WILLNEED)` prefetch for next layer's weights
 - Controls `madvise(MADV_DONTNEED)` eviction for used layer's weights
 - Tracks hit/evict counts per range for budget tuning
-- On CUDA: maps to `cuMemcpyHtoDAsync` from pinned staging buffer
+- On NVIDIA: maps to `cuMemcpyHtoDAsync` from pinned staging buffer
 
 This is the ds4 "hot residency plan" concept, generalized:
 - ds4 uses Metal shared memory (unified) — madvise controls residency
@@ -217,7 +217,7 @@ user can adjust `--resident-mb` / `--expert-slots` based on actual usage.
 | `madvise(DONTNEED/WILLNEED)` | `runtime/memory.MmapAdvisor.Evict()/Prefetch()` |
 | `g_model_stream_hit/evict_count` | `backends/placement.BudgetManager` hit/evict counters |
 | `compact_expert_cache` | `ExpertPool` with LRU |
-| Metal shared memory | CUDA pinned memory + explicit DMA |
+| Metal shared memory | NVIDIA pinned memory + explicit DMA |
 | `split_after_layers=1` (streaming) | Layer-at-a-time GPU forward |
 | `DS4_METAL_RESIDENT_HOT_MB` | `--resident-mb` flag |
 | `hot_plan_add_tensor` | `backends/placement.BudgetManager.Alloc(...)` |

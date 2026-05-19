@@ -2,7 +2,7 @@
 
 ![go-pherence](docs/icon-256.png)
 
-**Run MLX models on any hardware.** A pure Go inference engine for Apple MLX, GPTQ and BF16 model weights — with a production CUDA backend, Vulkan scaffolding, and SIMD assembly CPU paths. Single static binary, no Python, no CGo, no external dependencies.
+**Run MLX models on any hardware.** A pure Go inference engine for Apple MLX, GPTQ and BF16 model weights — with a production NVIDIA backend, Vulkan scaffolding, and SIMD assembly CPU paths. Single static binary, no Python, no CGo, no external dependencies.
 
 > Active development goal: Qwen3.6 27B native MTP support. See [docs/qwen36-mtp.md](docs/qwen36-mtp.md) for checkpoint findings, blockers, and the implementation roadmap.
 
@@ -24,7 +24,7 @@ Apple's [MLX](https://github.com/ml-explore/mlx) ecosystem has the best quantize
 | **Qwen3-30B MoE** | qwen3_moe | MLX 4-bit | **~5.2 cold / ~5.5 warm** | 0.6 |
 
 *RTX 3060 12GB + i7-12700 6-core. Pure Go, zero CGo. Short-run decode rates vary with prompt length, route-set warmth, and VRAM headroom.*
-*MoE: 128 experts/layer, 8 active/token. CUDA runs attention, router, and selected experts via a GPU-resident expert cache; cold route sets pay one-time expert upload cost.*
+*MoE: 128 experts/layer, 8 active/token. NVIDIA backend runs attention, router, and selected experts via a GPU-resident expert cache; cold route sets pay one-time expert upload cost.*
 
 ## Supported Models
 
@@ -58,9 +58,9 @@ go run ./cmd/llmgen -gpu -model models/qwen3-0.6b -tokens 50 -prompt "The meanin
 
 ## Backend Stack
 
-### GPU: CUDA PTX (NVIDIA)
+### GPU: NVIDIA PTX (NVIDIA)
 
-29 hand-written PTX kernels compiled by the driver at runtime via `purego` dlopen. Runtime dispatch/resource ownership remains in `gpu`; embedded PTX source assets live in `backends/cuda/ptx`:
+Hand-written PTX kernels compiled by the driver at runtime via `purego` dlopen. Runtime dispatch/resource ownership lives in `backends/nvidia/runtime`; embedded PTX source assets live in `backends/nvidia/ptx`, with BF16/Q4/MLX/NVFP4 grouped by quantization:
 
 - **Quantized GEMV**: INT4 dequant+multiply with shared memory tiling (GPTQ + MLX)
 - **Batched GEMM**: multi-token prefill, reads weights once for all tokens
@@ -95,7 +95,7 @@ AVX2+FMA (amd64) and NEON (arm64) assembly for the core CPU hot paths:
 | **BF16 Widen** | VPMOVZXWD+VPSLLD | USHLL+SHL | 292ns / 3584 elements |
 | **SiLU×Mul** | Go (exp not SIMD) | Go fallback | |
 
-Public SIMD entrypoints are runtime-gated with scalar fallback. Recent Phase 6.6 cleanup keeps `backends/simd` as the public facade, splits scalar dot/SAXPY fallbacks into `scalar.go`, uses precise scalar sqrt/dimension guards, avoids assembly dispatch for empty vector/BF16 slices, keeps GEBP packing scratch per call, and checks SGEMM/GEBP/gather byte offsets before unsafe pointer arithmetic. Remaining CPU gaps include fused GELU, RoPEPartial, and MLX/GPTQ Q4 GEMV kernels.
+Public SIMD entrypoints are runtime-gated with scalar fallback. Recent recent cleanup keeps `backends/simd/runtime` as the public facade, splits scalar dot/SAXPY fallbacks into `scalar.go`, uses precise scalar sqrt/dimension guards, avoids assembly dispatch for empty vector/BF16 slices, keeps GEBP packing scratch per call, and checks SGEMM/GEBP/gather byte offsets before unsafe pointer arithmetic. Remaining CPU gaps include true AVX2/NEON fused GELU/SiLU polynomial kernels, RoPEPartial kernels, and MLX/GPTQ Q4 assembly kernels.
 
 ### Native BF16
 
@@ -103,7 +103,7 @@ End-to-end BF16 pipeline for models trained in BF16 (Gemma3/4):
 
 - **Safetensors**: `GetBF16()` returns `[]uint16` without F32 conversion
 - **SIMD**: AVX2 and NEON assembly for BF16 dot/norm/add/widen/narrow
-- **CUDA**: native `ld.global.b16` / `cvt.f32.bf16` on Ampere+
+- **NVIDIA**: native `ld.global.b16` / `cvt.f32.bf16` on Ampere+
 - **Vulkan**: BF16 emulated via uint16 bitshift (universal)
 - **Model**: BF16 helper/scaffolding code for native hidden-state paths; public generation still primarily uses the F32-compatible path where required
 
@@ -116,7 +116,7 @@ End-to-end BF16 pipeline for models trained in BF16 (Gemma3/4):
 | **BF16** | safetensors dtype | Direct load | F32 on GPU | Half bandwidth |
 | **F16** | safetensors dtype | F16→F32 at load | F32 on GPU | |
 | **F32** | safetensors dtype | Direct load | Native | |
-| **NVFP4 / FP4** | `quantization_config` ModelOpt/compressed-tensors metadata, including mixed `config_groups` and group/weight format fields | FP4 E2M1 + F8_E4M3FN scale reference path | Upload + dequant-to-F32 fallback kernel | Experimental/internal only; synthetic CPU/CUDA dequant agrees, but public loading rejects NVFP4 until real checkpoint logits/tokens agree |
+| **NVFP4 / FP4** | `quantization_config` ModelOpt/compressed-tensors metadata, including mixed `config_groups` and group/weight format fields | FP4 E2M1 + F8_E4M3FN scale reference path | Upload + dequant-to-F32 fallback kernel | Experimental/internal only; synthetic CPU/NVIDIA dequant agrees, but public loading rejects NVFP4 until real checkpoint logits/tokens agree |
 
 ## Commands
 
@@ -198,19 +198,19 @@ backend; GPU speculative verification is not enabled yet.
 
 ## Architecture Details
 
-Current package ownership is now organized around explicit loader/runtime/backend boundaries, with the remaining large CUDA/model/generation splits explicitly deferred to follow-up phases:
+Current package ownership is organized around explicit loader/runtime/backend boundaries:
 
 - **`loader/`** — `config`, `tokenizer`, `safetensors`, and shared `weights` source opening; tokenizer merge validation and deterministic safetensors name ordering are hardened
 - **`backends/placement/`** — backend-neutral memory budget and layer placement policy with guarded budget accounting and saturating estimator math
 - **`backends/simd/`** — AVX2/FMA and NEON dispatch/kernels with guarded scalar fallbacks and SGEMM/GEBP preflights
-- **`backends/cuda/ptx/`** — pure CUDA PTX source assets used by the transitional `gpu` mega-module loader
+- **`backends/nvidia/ptx/`** — pure NVIDIA PTX source assets used by the `backends/nvidia/runtime` module loader, with quantized kernels grouped into `bf16`, `q4`, `mlx`, and `nvfp4`
 - **`backends/vulkan/`** — Vulkan loader/device/buffer/shader dispatch scaffolding and embedded SPIR-V assets; diagnostics are opt-in via `GO_PHERENCE_VULKAN_DEBUG`
 - **`models/bert/`** — GTE/BERT encoder path
 - **`runtime/kv/`** — TurboQuant state, compressed KV cache, and KV staging/rollback primitives with layout/overflow, accessor, and memory-accounting guards
 - **`runtime/memory/`** — mmap residency advice and range tracking for eager/streamed weights; nil/invalid/malformed ranges are inert or sanitized with saturating accounting
-- **`runtime/quant/`** — MLX/GPTQ CPU quant formats plus experimental NVFP4 layout/decode helpers, dtype/shape validation, checked expected-size arithmetic, dequantization, and guarded on-the-fly Q4/GEMV helpers
-- **`model/`** — transitional LLaMA-family decoder package; Gemma/Qwen/MoE/MTP package splits are deferred to Phase 6.8 and generation extraction to Phase 6.9; MTP, MoE, inference/forward, KV, prefill, LM-head, logging gates, and low-level helper guards are hardened
-- **`gpu/`** — transitional CUDA package plus GPU-resident expert cache pending the Phase 6.7 CUDA backend split; DevBuf, stream/graph, Q4/MLX/NVFP4 fallback dispatch, expert-pool, NV ioctl/memory/query/GPFIFO, dense SGEMM/LM-head, JIT, BF16, RoPE, softmax, attention dispatch guards, and opt-in `GO_PHERENCE_GPU_DEBUG` diagnostics are hardened
+- **`runtime/quant/`** — compatibility wrappers for backend-owned quantization implementations (`backends/mlx`, `backends/simd/runtime/q4`, `backends/simd/runtime/nvfp4`)
+- **`model/`**, **`model/qwen/`**, **`model/gemma4/`**, **`model/llama/`** — shared LLaMA-family decoder package plus focused Qwen, Gemma4 diagnostic, and LLaMA primitive packages; MTP, MoE, inference/forward, KV, prefill, LM-head, logging gates, and low-level helper guards are hardened
+- **`backends/nvidia/runtime/`** — NVIDIA runtime package plus GPU-resident expert cache; DevBuf, stream/graph, Q4/MLX/NVFP4 fallback dispatch, expert-pool, NVIDIA ioctl/memory/query/GPFIFO, dense SGEMM/LM-head, JIT, BF16, RoPE, softmax, attention dispatch guards, and opt-in `GO_PHERENCE_GPU_DEBUG` diagnostics are hardened
 
 - **Lazy tensor DAG** with elementwise fusion, graph rewrites, and explicit malformed-input validation
 - **Pattern matcher + graph rewrite** (tinygrad-style, 16 rules), nil-safe for malformed rule graphs
@@ -239,13 +239,13 @@ Current package ownership is now organized around explicit loader/runtime/backen
 
 ### Validation / Hardening Status
 
-Recent Phase 6.5 audit passes made malformed-input behavior explicit across the shared runtime layers:
+Recent recent audit passes made malformed-input behavior explicit across the shared runtime layers:
 
 - `tensor/` validates shapes, reductions, broadcasting, unsafe float32 views, realization internals, rewrite/fusion graphs, pooled allocations, NN helpers, convenience ops, embeddings, matmul/linear helpers, and module wrappers.
-- `runtime/quant` validates MLX/GPTQ/Q4 tensor layouts, checked shape/expected-size/dequant output arithmetic, NVFP4 unpack/dequant bounds without overflow-prone packed-count multiplication, and no-ops or returns nil on malformed in-memory weights.
+- `runtime/quant` compatibility wrappers validate MLX/GPTQ/Q4 tensor layouts, checked shape/expected-size/dequant output arithmetic, NVFP4 unpack/dequant bounds without overflow-prone packed-count multiplication, and no-ops or returns nil on malformed in-memory weights.
 - `runtime/kv` and `runtime/memory` guard cache dimensions/layouts, compressed-cache accessor/memory accounting, staging rollback arithmetic, TurboQuant sizing/packed-byte calculations, protected-layer helper inputs, mmap range overflow, malformed tracked ranges, and nil advisor receivers.
-- `gpu/` CUDA helpers preflight dimensions, upload/download state, device pointers, stream launches, graph executables, copy wrappers, allocation and byte-size arithmetic, Q4/MLX/NVFP4 weight layouts, expert IDs, experimental NV ioctl/memory/query setup, dense SGEMM/LM-head buffers, JIT/NVFP4 kernel specs, and BF16 buffers before dispatch; failed `DevBuf` transfers preserve authoritative state or fall back safely, and CUDA/NV progress diagnostics are quiet unless `GO_PHERENCE_GPU_DEBUG` is set.
-- `backends/simd` scalar fallbacks bound all input/output slices, BF16 GEMV checks shape-product overflow, scalar RMSNorm uses precise `math.Sqrt`, empty vector/BF16 calls avoid assembly stubs, GEBP scratch is per-call, and SGEMM/GEBP/gather helpers preflight dimensions, pointers, strides, CPU capability gates, checked byte offsets, and overflow before unsafe pointer arithmetic.
+- `backends/nvidia/runtime/` NVIDIA runtime helpers preflight dimensions, upload/download state, device pointers, stream launches, graph executables, copy wrappers, allocation and byte-size arithmetic, Q4/MLX/NVFP4 weight layouts, expert IDs, experimental NV ioctl/memory/query setup, dense SGEMM/LM-head buffers, JIT/NVFP4 kernel specs, and BF16 buffers before dispatch; failed `DevBuf` transfers preserve authoritative state or fall back safely, and NVIDIA progress diagnostics are quiet unless `GO_PHERENCE_GPU_DEBUG` is set.
+- `backends/simd/runtime` scalar fallbacks bound all input/output slices, BF16 GEMV checks shape-product overflow, scalar RMSNorm uses precise `math.Sqrt`, empty vector/BF16 calls avoid assembly stubs, GEBP scratch is per-call, and SGEMM/GEBP/gather helpers preflight dimensions, pointers, strides, CPU capability gates, checked byte offsets, and overflow before unsafe pointer arithmetic.
 - `loader/safetensors` validates dtype byte sizes against shapes/offsets at open time; file/sharded helpers are nil-safe, names are sorted deterministically, partial sharded opens clean up already-open shards, sharded eager-load totals are checked, tokenizer byte maps are initialized with `sync.Once`, and malformed tokenizer BPE merges are rejected.
 - Transitional `model` helpers validate MTP token/KV keep counts, model-aware MTP verifier plan/logit/activation dimensions, shared-KV verifier sources, MTP acceptance consistency before KV commit, alias-safe MTP drafter projection sizing, q-only drafter external-KV/layer dimensions, bounded multi-draft counts, speculative stats overflow/rollback paths, zero-count state copy semantics, CPU decode final norm/LM-head dimensions, CPU generation allocation setup, MoE edge cases, embedding/LM-head/per-layer input backing data, chunked LM-head and batched-prefill dimensions, CPU forward-layer entrypoints, model-specific KV width overflow, and low-level GEMV/GQA product arithmetic; loader/prefill/GPU placement diagnostics are quiet unless `GO_PHERENCE_LOAD_DEBUG` or `GO_PHERENCE_PREFILL_DEBUG` is set.
 
@@ -253,13 +253,15 @@ Fast refactor validation remains focused to avoid accidentally loading large loc
 
 ```bash
 go test ./tensor -count=1
-go test ./gpu ./loader/... ./backends/cuda/ptx ./backends/placement ./backends/simd ./backends/vulkan ./runtime/... ./models/bert ./tensor ./cmd/... -run '^$'
+go test ./backends/... ./loader/... ./runtime/... ./models/bert ./tensor ./cmd/... -run '^$'
 go vet ./...
 ```
 
 ## Documentation
 
 - **[docs/architecture.md](docs/architecture.md)** — UOp graph, fusion, SIMD dispatch
+- **[docs/backend-layout.md](docs/backend-layout.md)** — current backend/model ownership and package layout
+- **[docs/kernel-coverage.md](docs/kernel-coverage.md)** — kernel and quantization coverage across backends
 - **[docs/gemma4-precision.md](docs/gemma4-precision.md)** — Gemma4 GPU correctness & precision
 - **[docs/weight-budget.md](docs/weight-budget.md)** — tiered weight budget manager (ds4-inspired)
 - **[docs/nvfp4.md](docs/nvfp4.md)** — NVFP4/FP4 support track and relevant Gemma/Qwen checkpoint findings
@@ -267,9 +269,9 @@ go vet ./...
 - **[docs/orthrus.md](docs/orthrus.md)** — Orthrus analysis and stock-weight speculative decoding scaffold/benchmark notes
 - **[docs/qwen36-mtp.md](docs/qwen36-mtp.md)** — Qwen3.6 27B native MTP checkpoint findings and shortest implementation path
 - **[docs/performance.md](docs/performance.md)** — benchmarks, kernel timings
-- **[docs/gpu-options.md](docs/gpu-options.md)** — GPU compute paths (CUDA, Vulkan)
+- **[docs/gpu-options.md](docs/gpu-options.md)** — GPU compute paths (NVIDIA, Vulkan)
 - **[docs/development-log.md](docs/development-log.md)** — build process
-- **[docs/refactor-plan.md](docs/refactor-plan.md)** — Phase 6.5 source-tree refactor plan
+- **[docs/refactor-plan.md](docs/refactor-plan.md)** — current source-tree refactor status and remaining cleanup plan
 
 ## License
 

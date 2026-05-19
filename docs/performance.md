@@ -33,15 +33,15 @@ Hardware: RTX 3060 12GB (sm_86, Ampere) + i7-12700 6-core + 64GB DDR4
 | Kernel | Time | Accuracy | Shared mem |
 |---|---|---|---|
 | SGEMM 16×16 | 348 GFLOPS @ 1024² | — | tiled |
-| Q4 GEMV (GPTQ) | ~300µs @ 3584² | 1.7e-6 maxDiff | CUDA tiled + 8× unroll; CPU scalar owner is `runtime/quant` with upfront shape validation |
-| Q4 GEMV (MLX) | ~300µs @ 3584² | 6.7e-6 maxDiff | CUDA 8× unroll; CPU scalar owner is `runtime/quant` with dtype/shape validation |
+| Q4 GEMV (GPTQ) | ~300µs @ 3584² | 1.7e-6 maxDiff | NVIDIA tiled + 8× unroll; CPU scalar owner is `backends/simd/runtime/q4` with `runtime/quant` compatibility wrappers |
+| Q4 GEMV (MLX) | ~300µs @ 3584² | 6.7e-6 maxDiff | NVIDIA 8× unroll; CPU scalar owner is `backends/mlx` with `runtime/quant` compatibility wrappers |
 | LM Head GEMV | F32 path for moderate heads, compact MLX path for very large heads | — | 2D grid or quantized MLX GEMV by policy |
 | RMSNorm | ~2µs @ 3584 | Newton-refined rsqrt | 256-thread reduce |
 | BF16 RMSNorm | ~2µs @ 3584 | native cvt on Ampere+ | 256-thread reduce |
 
 ## Where Time Goes (7B decode, single token)
 
-| Phase | GPU (CUDA) | CPU (AVX2) |
+| Phase | GPU (NVIDIA) | CPU (AVX2) |
 |---|---|---|
 | 28 transformer layers | ~0.17–0.2s per 16-token short run | ~850 ms/token |
 | LM head (152K vocab) | ~1ms total with compact MLX head on short runs | ~60 ms/token (parallel SIMD) |
@@ -93,13 +93,13 @@ Face searches found relevant checkpoints including `nvidia/Qwen3-8B-NVFP4`,
 See [nvfp4.md](nvfp4.md) for the support track.
 
 Implementation priority should be metadata/detection first, then a
-correctness-first CPU dequant path, then CUDA upload/GEMV/GEMM. For Qwen3 MoE,
+correctness-first CPU dequant path, then NVIDIA upload/GEMV/GEMM. For Qwen3 MoE,
 NVFP4 must be evaluated together with expert-cache/prefetch redesign because the
 current bottleneck is cold-miss upload rather than only arithmetic throughput.
 
 ## MLX vs GPTQ on GPU
 
-MLX 4-bit is **faster** than GPTQ 4-bit for the same model in the current CUDA path (roughly 120+ vs 51 tok/s for short 7B runs):
+MLX 4-bit is **faster** than GPTQ 4-bit for the same model in the current NVIDIA path (roughly 120+ vs 51 tok/s for short 7B runs):
 
 - MLX uses `group_size=64` (vs GPTQ's 128) → better cache utilization
 - MLX weights transposed to GPTQ layout at upload → reuses fast tiled kernel
@@ -107,7 +107,7 @@ MLX 4-bit is **faster** than GPTQ 4-bit for the same model in the current CUDA p
 
 ## MoE Performance (Qwen3-30B-A3B)
 
-128 experts per layer, 8 active per token, 48 layers. The current CUDA path keeps the router and selected experts on GPU when possible, uploads cold experts into an LRU expert cache, and accumulates expert outputs on device.
+128 experts per layer, 8 active per token, 48 layers. The current NVIDIA path keeps the router and selected experts on GPU when possible, uploads cold experts into an LRU expert cache, and accumulates expert outputs on device.
 
 | Configuration | tok/s / time | Notes |
 |---|---|---|
