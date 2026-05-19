@@ -41,7 +41,7 @@ New code should prefer backend packages directly unless it deliberately needs th
 | `model` | Shared LLaMA-family model types, loader, generation, GPU fallback orchestration, and backend-owned kernel calls. |
 | `model/llama` | LLaMA-specific inference primitives that can be split from the shared model package without owning `LlamaModel` methods. |
 | `model/qwen` | Qwen3.5/Qwen3.6 base model, native MTP, safetensors source helpers, NVFP4 GPU cache, and Qwen-specific tests. |
-| `model/gemma4` | Gemma4 diagnostic tests and Gemma4-specific investigation assets. |
+| `model/gemma4` | Gemma4 diagnostic tests and Gemma4-specific investigation assets, guarded by the `diagnostic` build tag and importing backend-owned quant helpers directly. |
 
 ## Test entrypoints
 

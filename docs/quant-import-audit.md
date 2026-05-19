@@ -11,7 +11,7 @@
   - `backends/simd/runtime/q4`
   - `backends/simd/runtime/nvfp4`
 - Shared model MLX field types now use `backends/mlx.QuantWeight` directly.
-- Gemma4 diagnostics now use `backends/mlx.Gemv` directly.
+- Gemma4 diagnostics now use `backends/mlx.Gemv` directly and remain guarded by the `diagnostic` build tag.
 
 ## Remaining `runtime/quant` imports
 
