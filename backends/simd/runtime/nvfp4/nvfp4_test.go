@@ -191,6 +191,7 @@ func TestValidateNVFP4WeightObservedLayouts(t *testing.T) {
 }
 
 func TestValidateNVFP4WeightRejectsBadLayout(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
 	cases := []struct {
 		name string
 		qw   *NVFP4Weight
@@ -200,11 +201,16 @@ func TestValidateNVFP4WeightRejectsBadLayout(t *testing.T) {
 		{"bad groups", &NVFP4Weight{Weight: make([]byte, 8), WeightScale: make([]byte, 2), OutDim: 2, InDim: 8, Groups: 2, GroupSize: 8}},
 		{"short weight", &NVFP4Weight{Weight: make([]byte, 7), WeightScale: make([]byte, 2), OutDim: 2, InDim: 8, Groups: 1, GroupSize: 8}},
 		{"short scale", &NVFP4Weight{Weight: make([]byte, 8), WeightScale: make([]byte, 1), OutDim: 2, InDim: 8, Groups: 1, GroupSize: 8}},
+		{"weight overflow", &NVFP4Weight{OutDim: maxInt/2 + 1, InDim: 4, Groups: 1, GroupSize: 4}},
+		{"scale overflow", &NVFP4Weight{OutDim: maxInt/2 + 1, InDim: 2, Groups: 2, GroupSize: 1}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := ValidateNVFP4Weight(tc.qw); err == nil {
 				t.Fatal("ValidateNVFP4Weight succeeded, want error")
+			}
+			if got := DequantNVFP4(tc.qw); got != nil {
+				t.Fatalf("DequantNVFP4 malformed len=%d, want nil", len(got))
 			}
 		})
 	}
