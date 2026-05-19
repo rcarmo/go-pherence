@@ -16,8 +16,8 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 | `ToBF16` | `simd.ToBF16` | ✅ | ✅ | Used for Gemma3/4 truncation semantics |
 | SiLU × Mul | `simd.VecSiLUMul` wrapper | wrapper only | wrapper only | Currently jumps to Go due `exp`; candidate for polynomial SIMD approximation |
 | GELU(tanh) × Mul | `simd.GELUTanhMul` wrapper | wrapper only | wrapper only | Centralized in decoder, `ForwardLayer`, PLI fallback |
-| RoPE | scalar Go | ❌ | ❌ | Needs vectorized pair rotation |
-| RoPEPartial | scalar Go | ❌ | ❌ | High priority for Gemma4 CPU path |
+| RoPE | `backends/simd/runtime.ApplyRoPE` scalar kernel wrapper | ❌ | ❌ | Ownership moved to SIMD; needs vectorized pair rotation |
+| RoPEPartial | `backends/simd/runtime.ApplyRoPEPartial` scalar kernel wrapper | ❌ | ❌ | Ownership moved to SIMD; high priority for Gemma4 CPU path |
 | GQA attention scores | `simd.Sdot` per head/token | ✅ | ✅ | Intermediate improvement; still allocates scores per head |
 | GQA attention output | `simd.Saxpy` per cached-token V head | ✅ | ✅ | Caller-owned output/score scratch; full fused attention still future work |
 | F32 GEMV dense | `simd.SgemmNN` when pre-transposed | ✅ | ✅ | `gemvNT` path uses `simd.Sdot` row-wise |

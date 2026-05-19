@@ -12,7 +12,7 @@ Legend: implemented means the package owns the runtime or reference implementati
 | Activations (SiLU/GELU fused) | `backends/nvidia/runtime` | `backends/nvidia/ptx/activation.go` | wrappers/fallbacks | `backends/simd/kernels/gelu.go` | partial scaffold | — |
 | Norms | `backends/nvidia/runtime` | `backends/nvidia/ptx/norm.go` | `backends/simd/runtime` | `backends/simd/kernels/layernorm.go` | partial scaffold | — |
 | Softmax | `backends/nvidia/runtime` row softmax | `backends/nvidia/ptx/attention.go` | wrapper via kernels | `backends/simd/kernels/softmax.go` | — | — |
-| RoPE | `backends/nvidia/runtime` | `backends/nvidia/ptx/attention.go` | `model/llama` wrapper for CPU | — | partial scaffold | — |
+| RoPE | `backends/nvidia/runtime` | `backends/nvidia/ptx/attention.go` | `backends/simd/runtime` wrappers | `backends/simd/kernels/rope.go` scalar | partial scaffold | — |
 | GQA attention | `backends/nvidia/runtime` | `backends/nvidia/ptx/attention.go` | wrapper via kernels | `backends/simd/kernels/attention.go` | — | — |
 | BF16 | `backends/nvidia/runtime` | `backends/nvidia/ptx/bf16/` | `backends/simd/runtime/bf16` plus runtime facade | — | BF16 vec-add | — |
 | Q4/GPTQ | `backends/nvidia/runtime` | `backends/nvidia/ptx/q4/` | `backends/simd/runtime/q4` | — | — | — |

@@ -3,7 +3,7 @@ package model
 import (
 	"math"
 
-	llamaops "github.com/rcarmo/go-pherence/model/llama"
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 func (m *LlamaModel) precomputeRoPE() {
@@ -36,9 +36,9 @@ func (m *LlamaModel) precomputeRoPE() {
 }
 
 func applyRoPE(x, freqs []float32, pos, numHeads, headDim int) {
-	llamaops.ApplyRoPE(x, freqs, pos, numHeads, headDim)
+	simd.ApplyRoPE(x, freqs, pos, numHeads, headDim)
 }
 
 func applyRoPEPartial(x, freqs []float32, pos, numHeads, headDim, rotHalf int) {
-	llamaops.ApplyRoPEPartial(x, freqs, pos, numHeads, headDim, rotHalf)
+	simd.ApplyRoPEPartial(x, freqs, pos, numHeads, headDim, rotHalf)
 }
