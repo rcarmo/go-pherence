@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/simd"
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // MatMul computes matrix multiplication: C = A @ B.
