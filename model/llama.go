@@ -636,37 +636,17 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 		swaHD := cfg.HeadDim // 256
 		swaHalf := swaHD / 2 // 128 rotated pairs
 		m.RopeHalfSWA = swaHalf
-		m.RopeFreqsSWA = make([]float32, maxSeq*swaHalf*2)
-		swaTheta := 10000.0
-		for pos := 0; pos < maxSeq; pos++ {
-			for i := 0; i < swaHalf; i++ {
-				// exponent denominator uses full head_dim (MLX: arange(0, rotated_dims, 2) / dims)
-				freq := 1.0 / math.Pow(swaTheta, float64(2*i)/float64(swaHD))
-				angle := float64(pos) * freq
-				off := (pos*swaHalf + i) * 2
-				m.RopeFreqsSWA[off] = float32(math.Cos(angle))
-				m.RopeFreqsSWA[off+1] = float32(math.Sin(angle))
-			}
-		}
+		// exponent denominator uses full head_dim (MLX: arange(0, rotated_dims, 2) / dims)
+		m.RopeFreqsSWA = buildRoPEFreqs(maxSeq, swaHalf, swaHD, 10000)
 
 		// Full: head_dim=512, theta=1000000, partial_rotary_factor=0.25
 		fullHD := cfg.GlobalHeadDim                // 512
 		rotatedDims := int(float64(fullHD) * 0.25) // 128
 		fullHalf := rotatedDims / 2                // 64 rotated pairs
 		m.RopeHalfFull = fullHalf
-		m.RopeFreqsFull = make([]float32, maxSeq*fullHalf*2)
-		fullTheta := 1000000.0
 		// Proportional RoPE: inv_freq = 1/(base^(arange(0, 2*rope_angles, 2) / head_dim))
 		// Per HuggingFace modeling_rope_utils.py: denominator is head_dim (512), NOT rotated_dims
-		for pos := 0; pos < maxSeq; pos++ {
-			for i := 0; i < fullHalf; i++ {
-				freq := 1.0 / math.Pow(fullTheta, float64(2*i)/float64(fullHD))
-				angle := float64(pos) * freq
-				off := (pos*fullHalf + i) * 2
-				m.RopeFreqsFull[off] = float32(math.Cos(angle))
-				m.RopeFreqsFull[off+1] = float32(math.Sin(angle))
-			}
-		}
+		m.RopeFreqsFull = buildRoPEFreqs(maxSeq, fullHalf, fullHD, 1000000)
 		loaderDebugf("  RoPE: SWA half=%d (theta=10k), Full half=%d (theta=1M, partial=0.25)\n", swaHalf, fullHalf)
 	}
 
