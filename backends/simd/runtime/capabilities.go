@@ -19,6 +19,7 @@ type Capabilities struct {
 	HasSGEMM bool
 	HasBF16  bool
 	HasPack  bool
+	HasRoPE  bool
 }
 
 // HasDotAsm reports whether Sdot/Saxpy may use architecture-specific assembly.
@@ -41,6 +42,7 @@ func RuntimeCapabilities() Capabilities {
 		c.HasSGEMM = c.HasVec && hasSgemmAsm
 		c.HasBF16 = c.HasVec
 		c.HasPack = hasAvxPack
+		c.HasRoPE = hasRoPEAsm && c.HasVec
 	case "arm64":
 		c.HasNEON = cpu.ARM64.HasASIMD
 		c.HasVec = c.HasNEON
@@ -48,6 +50,7 @@ func RuntimeCapabilities() Capabilities {
 		c.HasSGEMM = c.HasNEON && hasSgemmAsm
 		c.HasBF16 = c.HasNEON
 		c.HasPack = hasNeonPack
+		c.HasRoPE = hasRoPEAsm && c.HasNEON
 	}
 	return c
 }

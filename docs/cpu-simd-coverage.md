@@ -16,8 +16,8 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 | `ToBF16` | `simd.ToBF16` | ✅ | ✅ | Used for Gemma3/4 truncation semantics |
 | SiLU × Mul | `simd.VecSiLUMul` wrapper → `backends/simd/kernels.SiLUMul` scalar kernel | wrapper only | wrapper only | Ownership moved to SIMD kernels; candidate for polynomial SIMD approximation |
 | GELU(tanh) × Mul | `simd.GELUTanhMul` wrapper → `backends/simd/kernels.GELUTanhMul` scalar kernel | wrapper only | wrapper only | Ownership moved to SIMD kernels; AVX2/NEON approximation pending |
-| RoPE | `backends/simd/runtime.ApplyRoPE` scalar kernel wrapper | ❌ | ❌ | Ownership moved to SIMD; needs vectorized pair rotation |
-| RoPEPartial | `backends/simd/runtime.ApplyRoPEPartial` scalar kernel wrapper | ❌ | ❌ | Ownership moved to SIMD; high priority for Gemma4 CPU path |
+| RoPE | `backends/simd/runtime.ApplyRoPE` explicit dispatch hook → scalar kernel | ❌ | ❌ | Ownership moved to SIMD; `HasRoPE=false` until vectorized pair rotation lands |
+| RoPEPartial | `backends/simd/runtime.ApplyRoPEPartial` explicit dispatch hook → scalar kernel | ❌ | ❌ | Ownership moved to SIMD; high priority for Gemma4 CPU path |
 | GQA attention scores | `simd.Sdot` per head/token | ✅ | ✅ | Intermediate improvement; still allocates scores per head |
 | GQA attention output | `simd.Saxpy` per cached-token V head | ✅ | ✅ | Caller-owned output/score scratch; full fused attention still future work |
 | F32 GEMV dense | `simd.SgemmNN` when pre-transposed | ✅ | ✅ | `gemvNT` path uses `simd.Sdot` row-wise |
@@ -57,6 +57,7 @@ go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 - SGEMM callers continue to check `simd.HasSgemmAsm` before invoking assembly kernels; tensor matmul helpers avoid passing zero-length slice pointers to SIMD entrypoints. `SgemmNTGebp` and `SgemmNTBlockedFMA` now validate dimensions, pointers, strides, and overflow before unsafe slicing/pointer arithmetic.
 - Vector entrypoints (`VecAdd`, `VecMul`, `VecScaleAdd`, `RMSNorm*`, `ToBF16`, BF16 helpers) now dispatch through Go wrappers and fall back to scalar code when runtime SIMD gates are false. Scalar fallbacks bound all participating slices and leave untouched destination tails unchanged on malformed inputs.
 - Activation wrappers (`VecSiLUMul`, `GELUTanhMul`) now route through scalar kernels in `backends/simd/kernels/activation.go`; AVX2/NEON polynomial approximations remain pending.
+- RoPE wrappers now have explicit runtime dispatch hooks and a `RuntimeCapabilities().HasRoPE` flag. It remains false until AVX2/NEON kernels land and pass scalar parity tests.
 
 ## Baseline snapshot (i7-12700, amd64)
 
