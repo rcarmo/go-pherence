@@ -10,6 +10,7 @@ package nvidia
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -108,6 +109,10 @@ var (
 // Init attempts to load CUDA and initialize the GPU.
 func Init() bool {
 	gpuOnce.Do(func() {
+		if os.Getenv("GO_PHERENCE_DISABLE_NVIDIA") != "" {
+			debugln("[gpu] NVIDIA backend disabled by GO_PHERENCE_DISABLE_NVIDIA")
+			return
+		}
 		runtime.LockOSThread() // CUDA context is thread-local
 		lib, err := purego.Dlopen("libcuda.so.1", purego.RTLD_LAZY)
 		if err != nil {

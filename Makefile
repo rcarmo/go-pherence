@@ -2,7 +2,7 @@ TMPDIR ?= /workspace/tmp
 GOTMPDIR ?= /workspace/tmp
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test clean server chat gen vet
+.PHONY: all build test test-cpu clean server chat gen vet
 
 all: build
 
@@ -19,6 +19,9 @@ chat:
 
 test:
 	go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
+
+test-cpu:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 
 vet:
 	go vet ./...

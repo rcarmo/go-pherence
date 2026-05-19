@@ -4,7 +4,7 @@ go-pherence currently has a production NVIDIA backend plus Vulkan backend scaffo
 
 ## NVIDIA PTX (NVIDIA)
 
-Primary GPU backend. 29 hand-written PTX kernels. Source strings are owned by `backends/nvidia/ptx`; runtime loading, launch helpers, `DevBuf`, and GPU-resident resources remain in the `backends/nvidia/runtime` package:
+Primary GPU backend. 29 hand-written PTX kernels. Source strings are owned by `backends/nvidia/ptx`; runtime loading, launch helpers, `DevBuf`, and GPU-resident resources remain in the `backends/nvidia/runtime` package. Set `GO_PHERENCE_DISABLE_NVIDIA=1` to force CPU/non-NVIDIA behavior in tests or diagnostics:
 
 | Category | Kernels | Notes |
 |---|---|---|
