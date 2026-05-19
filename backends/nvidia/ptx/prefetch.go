@@ -1,4 +1,4 @@
-package kernels
+package ptx
 
 // Prefetch kernel PTX: reads 1 float per 128B to warm L2
 var PrefetchPTX = `.version 7.0

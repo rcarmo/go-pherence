@@ -16,7 +16,7 @@ package nvidia
 import (
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/nvidia/kernels"
+	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
 )
 
 var (
@@ -27,14 +27,14 @@ var (
 	nativeBF16Ready     bool
 )
 
-// InitNativeBF16 loads native BF16 kernels. Call after mega module init.
+// InitNativeBF16 loads native BF16 ptx. Call after mega module init.
 func InitNativeBF16() {
 	if !sgemmReady {
 		return
 	}
 	EnsureContext()
 
-	body := stripPTXHeader(kernels.NativeBF16RMSNormPTX) + "\n" + stripPTXHeader(kernels.NativeBF16VecAddPTX) + "\n" + stripPTXHeader(kernels.NativeBF16GemvPTX)
+	body := stripPTXHeader(ptx.NativeBF16RMSNormPTX) + "\n" + stripPTXHeader(ptx.NativeBF16VecAddPTX) + "\n" + stripPTXHeader(ptx.NativeBF16GemvPTX)
 	full := ".version 7.8\n.target sm_86\n.address_size 64\n\n" + body
 	fullBytes := append([]byte(full), 0)
 

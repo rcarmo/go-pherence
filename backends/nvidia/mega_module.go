@@ -8,7 +8,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/nvidia/kernels"
+	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
 )
 
 var (
@@ -58,37 +58,37 @@ func loadMegaModule() {
 			name string
 			ptx  string
 		}{
-			{"sgemm_nn", kernels.SgemmPTX},
-			{"vec_add", kernels.VecAddPTX},
-			{"vec_mul", kernels.VecMulPTX},
-			{"vec_scale", kernels.VecScalePTX},
-			{"vec_add_scaled", kernels.VecAddScaledPTX},
-			{"to_bf16_f32", kernels.ToBF16F32PTX},
-			{"vec_silu", kernels.VecSiLUPTX},
-			{"rms_norm", kernels.RmsNormPTX},
-			{"rope_apply", kernels.RoPEPTX},
-			{"rope_partial", kernels.RoPEPartialPTX},
-			{"gqa_attention_scores", kernels.AttentionScoresPTX},
-			{"row_softmax_debug", kernels.SoftmaxRowsPTX},
-			{"gqa_attention", kernels.AttentionPTX},
-			{"gelu_tanh_mul", kernels.GELUTanhMulPTX},
-			{"gemv_q4sym", kernels.GemvQ4OptPTX},
-			{"fused_silu_mul", kernels.FusedSiLUMulPTX},
-			{"prefetch_l2", kernels.PrefetchPTX},
-			{"gemm_q4sym", kernels.GemmQ4PTX},
-			{"lm_head_gemv", kernels.LMHeadPTX},
-			{"mlx_gemv", kernels.MLXGemvPTX},
-			{"mlx_gemm", kernels.MLXGemmPTX},
-			{"mlx_correct", kernels.MLXCorrectPTX},
-			{"bf16_rms_norm", kernels.BF16RMSNormPTX},
-			{"bf16_rms_norm_no_scale", kernels.BF16RMSNormNoScalePTX},
-			{"bf16_vec_add", kernels.BF16VecAddPTX},
-			{"bf16_silu_mul", kernels.BF16SiLUMulPTX},
-			{"bf16_gelu_tanh_mul", kernels.BF16GELUTanhMulPTX},
-			{"bf16_lm_head_gemv", kernels.BF16LMHeadPTX},
-			{"rms_norm_no_scale", kernels.RmsNormNoScalePTX},
-			{"nvfp4_dequant_f32", kernels.NVFP4DequantF32PTX},
-			{"nvfp4_gemv_f32", kernels.NVFP4GemvF32PTX},
+			{"sgemm_nn", ptx.SgemmPTX},
+			{"vec_add", ptx.VecAddPTX},
+			{"vec_mul", ptx.VecMulPTX},
+			{"vec_scale", ptx.VecScalePTX},
+			{"vec_add_scaled", ptx.VecAddScaledPTX},
+			{"to_bf16_f32", ptx.ToBF16F32PTX},
+			{"vec_silu", ptx.VecSiLUPTX},
+			{"rms_norm", ptx.RmsNormPTX},
+			{"rope_apply", ptx.RoPEPTX},
+			{"rope_partial", ptx.RoPEPartialPTX},
+			{"gqa_attention_scores", ptx.AttentionScoresPTX},
+			{"row_softmax_debug", ptx.SoftmaxRowsPTX},
+			{"gqa_attention", ptx.AttentionPTX},
+			{"gelu_tanh_mul", ptx.GELUTanhMulPTX},
+			{"gemv_q4sym", ptx.GemvQ4OptPTX},
+			{"fused_silu_mul", ptx.FusedSiLUMulPTX},
+			{"prefetch_l2", ptx.PrefetchPTX},
+			{"gemm_q4sym", ptx.GemmQ4PTX},
+			{"lm_head_gemv", ptx.LMHeadPTX},
+			{"mlx_gemv", ptx.MLXGemvPTX},
+			{"mlx_gemm", ptx.MLXGemmPTX},
+			{"mlx_correct", ptx.MLXCorrectPTX},
+			{"bf16_rms_norm", ptx.BF16RMSNormPTX},
+			{"bf16_rms_norm_no_scale", ptx.BF16RMSNormNoScalePTX},
+			{"bf16_vec_add", ptx.BF16VecAddPTX},
+			{"bf16_silu_mul", ptx.BF16SiLUMulPTX},
+			{"bf16_gelu_tanh_mul", ptx.BF16GELUTanhMulPTX},
+			{"bf16_lm_head_gemv", ptx.BF16LMHeadPTX},
+			{"rms_norm_no_scale", ptx.RmsNormNoScalePTX},
+			{"nvfp4_dequant_f32", ptx.NVFP4DequantF32PTX},
+			{"nvfp4_gemv_f32", ptx.NVFP4GemvF32PTX},
 		}
 
 		for _, e := range entries {
@@ -173,7 +173,7 @@ func loadMegaModule() {
 	})
 }
 
-// InitAllKernels loads all GPU kernels. Call from the CUDA-owning thread.
+// InitAllKernels loads all GPU ptx. Call from the CUDA-owning thread.
 func InitAllKernels() {
 	loadMegaModule()
 }

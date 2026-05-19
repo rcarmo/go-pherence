@@ -1,4 +1,4 @@
-package kernels
+package ptx
 
 // NVFP4DequantF32PTX materializes ModelOpt/NVFP4 weights to row-major F32.
 // One CUDA thread decodes one logical weight element from packed E2M1 FP4 plus
