@@ -135,27 +135,7 @@ func BenchmarkCPUHotGQAAttentionDecode512(b *testing.B) {
 func BenchmarkCPUHotGemvMLQ1536x2048(b *testing.B) {
 	inDim := 1536
 	outDim := 2048
-	groupSize := 64
-	bits := 4
-	packFactor := 32 / bits
-	groups := inDim / groupSize
-	qw := &mlx.QuantWeight{
-		Weight:    make([]uint32, outDim*(inDim/packFactor)),
-		Scales:    make([]float32, outDim*groups),
-		Biases:    make([]float32, outDim*groups),
-		InDim:     inDim,
-		OutDim:    outDim,
-		Groups:    groups,
-		GroupSize: groupSize,
-		Bits:      bits,
-	}
-	for i := range qw.Weight {
-		qw.Weight[i] = 0x76543210
-	}
-	for i := range qw.Scales {
-		qw.Scales[i] = 0.01
-		qw.Biases[i] = -0.04
-	}
+	qw := benchMLXWeight(inDim, outDim, 64)
 	x := benchSeq(inDim)
 	out := make([]float32, outDim)
 	b.ReportAllocs()
@@ -170,27 +150,7 @@ func BenchmarkCPUHotGemmMLXBatch8_1536x2048(b *testing.B) {
 	inDim := 1536
 	outDim := 2048
 	batch := 8
-	groupSize := 64
-	bits := 4
-	packFactor := 32 / bits
-	groups := inDim / groupSize
-	qw := &mlx.QuantWeight{
-		Weight:    make([]uint32, outDim*(inDim/packFactor)),
-		Scales:    make([]float32, outDim*groups),
-		Biases:    make([]float32, outDim*groups),
-		InDim:     inDim,
-		OutDim:    outDim,
-		Groups:    groups,
-		GroupSize: groupSize,
-		Bits:      bits,
-	}
-	for i := range qw.Weight {
-		qw.Weight[i] = 0x76543210
-	}
-	for i := range qw.Scales {
-		qw.Scales[i] = 0.01
-		qw.Biases[i] = -0.04
-	}
+	qw := benchMLXWeight(inDim, outDim, 64)
 	x := benchSeq(batch * inDim)
 	out := make([]float32, batch*outDim)
 	b.ReportAllocs()
@@ -206,7 +166,48 @@ func BenchmarkCPUHotGemmMLXBatch8_1536x2048(b *testing.B) {
 func BenchmarkCPUHotDequantMLX1536x2048(b *testing.B) {
 	inDim := 1536
 	outDim := 2048
-	groupSize := 64
+	qw := benchMLXWeight(inDim, outDim, 64)
+	out := make([]float32, inDim*outDim)
+	b.ReportAllocs()
+	b.SetBytes(int64(inDim * outDim * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if !mlx.DequantTo(out, qw) {
+			b.Fatal("DequantTo returned false")
+		}
+	}
+}
+
+func BenchmarkCPUHotMoEMLXExperts512x1024Top2(b *testing.B) {
+	hidden := 512
+	inter := 1024
+	numExperts := 8
+	active := 2
+	layer := &LlamaLayer{
+		RouterW:     benchMLXWeight(hidden, numExperts, 64),
+		ExpertGateW: make([]*mlx.QuantWeight, numExperts),
+		ExpertUpW:   make([]*mlx.QuantWeight, numExperts),
+		ExpertDownW: make([]*mlx.QuantWeight, numExperts),
+	}
+	for i := 0; i < numExperts; i++ {
+		layer.ExpertGateW[i] = benchMLXWeight(hidden, inter, 64)
+		layer.ExpertUpW[i] = benchMLXWeight(hidden, inter, 64)
+		layer.ExpertDownW[i] = benchMLXWeight(inter, hidden, 64)
+	}
+	cfg := LlamaConfig{NumExperts: numExperts, NumExpertsPerTok: active, MoEIntermediate: inter, NormTopKProb: true}
+	x := benchSeq(hidden)
+	b.ReportAllocs()
+	b.SetBytes(int64(active * (hidden*inter*2 + inter*hidden) * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		out := moeForward(x, layer, cfg)
+		if len(out) != hidden {
+			b.Fatalf("moe len=%d", len(out))
+		}
+	}
+}
+
+func benchMLXWeight(inDim, outDim, groupSize int) *mlx.QuantWeight {
 	bits := 4
 	packFactor := 32 / bits
 	groups := inDim / groupSize
@@ -227,15 +228,7 @@ func BenchmarkCPUHotDequantMLX1536x2048(b *testing.B) {
 		qw.Scales[i] = 0.01
 		qw.Biases[i] = -0.04
 	}
-	out := make([]float32, inDim*outDim)
-	b.ReportAllocs()
-	b.SetBytes(int64(inDim * outDim * 4))
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if !mlx.DequantTo(out, qw) {
-			b.Fatal("DequantTo returned false")
-		}
-	}
+	return qw
 }
 
 func BenchmarkCPUHotGemvQ4Sym1536x2048(b *testing.B) {

@@ -44,6 +44,7 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 - `BenchmarkCPUHotGemvMLX1536x2048`
 - `BenchmarkCPUHotDequantMLX1536x2048`
 - `BenchmarkCPUHotGemmMLXBatch8_1536x2048`
+- `BenchmarkCPUHotMoEMLXExperts512x1024Top2`
 - `BenchmarkCPUHotGemvQ4Sym1536x2048`
 - `BenchmarkCPUHotDequantQ4Sym1536x2048`
 
@@ -77,6 +78,7 @@ BenchmarkCPUHotGQAAttentionDecode512    ~0.25 ms/op, 0 allocs  (caller-owned scr
 BenchmarkCPUHotGemvMLX1536x2048         ~2.0 ms/op, 0 allocs
 BenchmarkCPUHotDequantMLX1536x2048      snapshot pending after Phase 4 validation, caller-owned output / 0 alloc target
 BenchmarkCPUHotGemmMLXBatch8_1536x2048  snapshot pending after Phase 4 validation, scalar batched GEMV baseline
+BenchmarkCPUHotMoEMLXExperts512x1024Top2 snapshot pending after Phase 4 validation, synthetic MoE expert fallback baseline
 BenchmarkCPUHotGemvQ4Sym1536x2048       snapshot pending after Phase 3 validation
 BenchmarkCPUHotDequantQ4Sym1536x2048    snapshot pending after Phase 3 validation, caller-owned output / 0 alloc target
 ```
