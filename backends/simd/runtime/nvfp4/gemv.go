@@ -12,7 +12,10 @@ func GemvNVFP4(out, x []float32, qw *NVFP4Weight) {
 		return
 	}
 	workers := runtime.GOMAXPROCS(0)
-	if qw.OutDim < 512 || workers <= 1 {
+	// The CPU NVFP4 path is primarily a correctness/reference fallback. Avoid
+	// per-call goroutine allocation overhead for typical dense vectors; only
+	// shard very large row counts where parallelism can amortize that cost.
+	if qw.OutDim < 4096 || workers <= 1 {
 		gemvNVFP4Rows(out, x, qw, 0, qw.OutDim)
 		return
 	}
@@ -36,10 +39,22 @@ func GemvNVFP4(out, x []float32, qw *NVFP4Weight) {
 }
 
 func gemvNVFP4Rows(out, x []float32, qw *NVFP4Weight, start, end int) {
+	packedPerRow := qw.InDim / 2
 	for row := start; row < end; row++ {
+		rowPacked := row * packedPerRow
+		rowScale := row * qw.Groups
 		sum := float32(0)
-		for col := 0; col < qw.InDim; col++ {
-			sum += nvfp4At(qw, row, col) * x[col]
+		for group := 0; group < qw.Groups; group++ {
+			scale := DecodeF8E4M3(qw.WeightScale[rowScale+group]) * qw.WeightScale2
+			groupStart := group * qw.GroupSize
+			groupEnd := groupStart + qw.GroupSize
+			for col := groupStart; col < groupEnd; col += 2 {
+				b := qw.Weight[rowPacked+col/2]
+				sum += DecodeFP4E2M1(b&0x0f) * scale * x[col]
+				if col+1 < groupEnd {
+					sum += DecodeFP4E2M1(b>>4) * scale * x[col+1]
+				}
+			}
 		}
 		out[row] = sum
 	}
