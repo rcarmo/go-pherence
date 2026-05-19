@@ -20,7 +20,7 @@ This document records the completed backend/model source-tree reorganization and
 - Qwen-specific model code lives under `model/qwen`.
 - Gemma4 diagnostic assets live under `model/gemma4`.
 - LLaMA-specific primitive helpers that can be separate without owning `LlamaModel` methods live under `model/llama`.
-- `runtime/quant` is now a compatibility wrapper layer over backend-owned quantization packages.
+- `runtime/quant` is now a legacy/external compatibility wrapper layer over backend-owned quantization packages; repository model/backend code imports owning backend packages directly.
 
 See also:
 
@@ -45,8 +45,8 @@ GOTMPDIR=/workspace/tmp/go-pherence-gotmp go test ./backends/... ./model/... ./r
 
 ## Remaining cleanup direction
 
-1. Keep reducing compatibility wrappers once call sites have moved to backend-owned packages.
+1. Keep `runtime/quant` as legacy re-export wrappers unless a deliberate public API cleanup removes them.
 2. Continue splitting large model files into architecture-owned packages only when Go package boundaries are explicit and tests can move with the code.
-3. Add import-boundary checks once the package names stabilize further.
+3. Preserve import-boundary checks that prevent new backend-owned code from depending on `runtime/quant`.
 4. Expand backend-specific test coverage when adding AVX2/NEON/NVIDIA kernels.
 5. Keep every mechanical move paired with `gofmt` and `go test ./...`.

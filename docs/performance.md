@@ -49,8 +49,8 @@ Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GE
 | Kernel | Time | Accuracy | Shared mem |
 |---|---|---|---|
 | SGEMM 16×16 | 348 GFLOPS @ 1024² | — | tiled |
-| Q4 GEMV (GPTQ) | ~300µs @ 3584² | 1.7e-6 maxDiff | NVIDIA tiled + 8× unroll; CPU scalar owner is `backends/simd/runtime/q4` with `runtime/quant` compatibility wrappers |
-| Q4 GEMV (MLX) | ~300µs @ 3584² | 6.7e-6 maxDiff | NVIDIA 8× unroll; CPU scalar owner is `backends/mlx` with `runtime/quant` compatibility wrappers |
+| Q4 GEMV (GPTQ) | ~300µs @ 3584² | 1.7e-6 maxDiff | NVIDIA tiled + 8× unroll; CPU scalar owner is `backends/simd/runtime/q4`; `runtime/quant` is legacy wrapper-only |
+| Q4 GEMV (MLX) | ~300µs @ 3584² | 6.7e-6 maxDiff | NVIDIA 8× unroll; CPU scalar owner is `backends/mlx`; `runtime/quant` is legacy wrapper-only |
 | LM Head GEMV | F32 path for moderate heads, compact MLX path for very large heads | — | 2D grid or quantized MLX GEMV by policy |
 | RMSNorm | ~2µs @ 3584 | Newton-refined rsqrt | 256-thread reduce |
 | BF16 RMSNorm | ~2µs @ 3584 | native cvt on Ampere+ | 256-thread reduce |

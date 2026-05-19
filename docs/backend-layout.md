@@ -7,7 +7,7 @@ The repository now uses backend-first ownership with operation/quantization subp
 | Path | Purpose |
 |---|---|
 | `backends/nvidia` | NVIDIA backend namespace only. Runtime code is in `runtime`, PTX strings are in `ptx`, direct ioctl experiments are in `ioctl`. |
-| `backends/nvidia/runtime` | NVIDIAIDIA driver loading, device buffers, module loading, stream/stats support, and runtime dispatch wrappers for BF16, Q4/GPTQ, MLX, NVFP4, LM-head, RoPE, attention, and SGEMM. Package name remains `nvidia`. |
+| `backends/nvidia/runtime` | NVIDIA driver loading, device buffers, module loading, stream/stats support, and runtime dispatch wrappers for BF16, Q4/GPTQ, MLX, NVFP4, LM-head, RoPE, attention, and SGEMM. Package name remains `nvidia`. |
 | `backends/nvidia/ptx` | Raw PTX source constants for non-quantized inference primitives. Quantized PTX is grouped below. |
 | `backends/nvidia/ptx/bf16` | BF16 and native-BF16 PTX source constants. |
 | `backends/nvidia/ptx/q4` | Q4/GPTQ PTX source constants. |
@@ -38,7 +38,7 @@ New code should prefer backend packages directly unless it deliberately needs th
 
 | Path | Purpose |
 |---|---|
-| `model` | Shared LLaMA-family model types, loader, generation, and compatibility wrappers. |
+| `model` | Shared LLaMA-family model types, loader, generation, GPU fallback orchestration, and backend-owned kernel calls. |
 | `model/llama` | LLaMA-specific inference primitives that can be split from the shared model package without owning `LlamaModel` methods. |
 | `model/qwen` | Qwen3.5/Qwen3.6 base model, native MTP, safetensors source helpers, NVFP4 GPU cache, and Qwen-specific tests. |
 | `model/gemma4` | Gemma4 diagnostic tests and Gemma4-specific investigation assets. |

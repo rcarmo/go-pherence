@@ -80,7 +80,7 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
 ### CPU fallback
 
 - Done: correctness-first FP4 unpack/dequant and GEMV fallback exists in
-  `runtime/quant` compatibility wrappers (backed by `backends/simd/runtime/nvfp4`).
+  `backends/simd/runtime/nvfp4`; `runtime/quant` only preserves the legacy wrapper API.
 - Intended use remains validation and tiny synthetic tests; CPU performance is
   not the primary target for NVFP4.
 - Done: golden tests cover FP4 codebook, F8_E4M3FN scales, dequant, GEMV, and
