@@ -30,6 +30,14 @@ func TestDequantAsymmetricKnownValues(t *testing.T) {
 	if len(got) != inFeatures*outFeatures {
 		t.Fatalf("len=%d", len(got))
 	}
+	gotTo := make([]float32, len(got)+1)
+	gotTo[len(got)] = 123
+	if !DequantTo(gotTo, qweight, qzeros, gIdx, scales, inFeatures, outFeatures, false) {
+		t.Fatal("DequantTo returned false for valid inputs")
+	}
+	if gotTo[len(got)] != 123 {
+		t.Fatalf("DequantTo mutated tail: %v", gotTo)
+	}
 	for j := 0; j < outFeatures; j++ {
 		for i := 0; i < inFeatures; i++ {
 			g := int(gIdx[i])
@@ -43,6 +51,9 @@ func TestDequantAsymmetricKnownValues(t *testing.T) {
 			want := scales[g*outFeatures+j] * float32(qw-qz)
 			if got[j*inFeatures+i] != want {
 				t.Fatalf("out[%d,%d]=%g want %g", j, i, got[j*inFeatures+i], want)
+			}
+			if gotTo[j*inFeatures+i] != want {
+				t.Fatalf("DequantTo out[%d,%d]=%g want %g", j, i, gotTo[j*inFeatures+i], want)
 			}
 		}
 	}
@@ -70,9 +81,20 @@ func TestGemvSymMatchesDequantSymReference(t *testing.T) {
 	out := []float32{99, 99, 99, 99, 99, 123}
 	GemvSym(out, x, qweight, gIdx, scales, inDim, outDim)
 	deq := DequantSym(qweight, gIdx, scales, inDim, outDim)
+	deqTo := make([]float32, len(deq)+1)
+	deqTo[len(deq)] = 456
+	if !DequantSymTo(deqTo, qweight, gIdx, scales, inDim, outDim) {
+		t.Fatal("DequantSymTo returned false for valid inputs")
+	}
+	if deqTo[len(deq)] != 456 {
+		t.Fatalf("DequantSymTo mutated tail: %v", deqTo)
+	}
 	want := make([]float32, outDim)
 	for j := 0; j < outDim; j++ {
 		for i := 0; i < inDim; i++ {
+			if deqTo[j*inDim+i] != deq[j*inDim+i] {
+				t.Fatalf("DequantSymTo[%d,%d]=%g want %g", j, i, deqTo[j*inDim+i], deq[j*inDim+i])
+			}
 			want[j] += deq[j*inDim+i] * x[i]
 		}
 	}

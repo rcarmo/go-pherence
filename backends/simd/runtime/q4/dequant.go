@@ -28,7 +28,27 @@ func Dequant(qweight, qzeros, gIdx []int32, scales []float32,
 		return nil
 	}
 	out := make([]float32, outLen)
+	dequantTo(out, qweight, qzeros, gIdx, scales, inFeatures, outFeatures, sym)
+	return out
+}
 
+// DequantTo dequantizes into a caller-owned output buffer. The output layout is
+// [outFeatures, inFeatures] row-major. It returns false on malformed inputs.
+func DequantTo(out []float32, qweight, qzeros, gIdx []int32, scales []float32,
+	inFeatures, outFeatures int, sym bool) bool {
+	if err := Validate(qweight, qzeros, gIdx, scales, inFeatures, outFeatures, sym); err != nil {
+		return false
+	}
+	outLen, ok := checkedMulInt(outFeatures, inFeatures)
+	if !ok || len(out) < outLen {
+		return false
+	}
+	dequantTo(out[:outLen], qweight, qzeros, gIdx, scales, inFeatures, outFeatures, sym)
+	return true
+}
+
+func dequantTo(out []float32, qweight, qzeros, gIdx []int32, scales []float32,
+	inFeatures, outFeatures int, sym bool) {
 	for i := 0; i < inFeatures; i++ {
 		g := int(gIdx[i]) // group for this input row
 
@@ -55,8 +75,6 @@ func Dequant(qweight, qzeros, gIdx []int32, scales []float32,
 			out[j*inFeatures+i] = scale * float32(qw-qz)
 		}
 	}
-
-	return out
 }
 
 // DequantGPTQSym is an optimized parallel symmetric dequantization (zero point = 8).
@@ -71,6 +89,30 @@ func DequantSym(qweight, gIdx []int32, scales []float32,
 		return nil
 	}
 	out := make([]float32, outLen)
+	if !DequantSymTo(out, qweight, gIdx, scales, inFeatures, outFeatures) {
+		return nil
+	}
+	return out
+}
+
+// DequantSymTo dequantizes a symmetric GPTQ tensor into caller-owned storage.
+// The output layout is [outFeatures, inFeatures] row-major. It returns false on
+// malformed inputs or undersized output.
+func DequantSymTo(out []float32, qweight, gIdx []int32, scales []float32,
+	inFeatures, outFeatures int) bool {
+	if err := ValidateSym(qweight, gIdx, scales, inFeatures, outFeatures); err != nil {
+		return false
+	}
+	outLen, ok := checkedMulInt(outFeatures, inFeatures)
+	if !ok || len(out) < outLen {
+		return false
+	}
+	dequantSymTo(out[:outLen], qweight, gIdx, scales, inFeatures, outFeatures)
+	return true
+}
+
+func dequantSymTo(out []float32, qweight, gIdx []int32, scales []float32,
+	inFeatures, outFeatures int) {
 	nPacks := inFeatures / 8
 
 	// Parallelize across output rows
@@ -107,6 +149,4 @@ func DequantSym(qweight, gIdx []int32, scales []float32,
 		}(jStart, jEnd)
 	}
 	wg.Wait()
-
-	return out
 }
