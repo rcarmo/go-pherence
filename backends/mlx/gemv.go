@@ -43,7 +43,13 @@ func Gemv(out, x []float32, qw *QuantWeight) {
 func gemv4(out, x []float32, qw *QuantWeight) {
 	packedPerRow := qw.InDim / 8
 	packsPerGroup := qw.GroupSize / 8
-	groupXSums := make([]float32, qw.Groups)
+	var groupXSumsStack [256]float32
+	groupXSums := groupXSumsStack[:]
+	if qw.Groups > len(groupXSumsStack) {
+		groupXSums = make([]float32, qw.Groups)
+	} else {
+		groupXSums = groupXSums[:qw.Groups]
+	}
 	for g := 0; g < qw.Groups; g++ {
 		xBase := g * qw.GroupSize
 		xsum := float32(0)

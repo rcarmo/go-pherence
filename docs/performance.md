@@ -29,7 +29,7 @@ Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GE
 
 | Primitive | Time | Allocations | Notes |
 |---|---:|---:|---|
-| MLX4 GEMV | ~2.9 ms | 1 alloc | scalar `backends/mlx` path, group x-sum scratch |
+| MLX4 GEMV | ~2.0 ms | 0 allocs | scalar `backends/mlx` path with stack group x-sum scratch for common group counts |
 | Q4/GPTQ symmetric GEMV | ~6.4 ms | 0 allocs | scalar `backends/simd/runtime/q4` path |
 | NVFP4 GEMV | ~14.2 ms | 22 allocs | correctness-first `backends/simd/runtime/nvfp4` path, goroutine dispatch |
 
