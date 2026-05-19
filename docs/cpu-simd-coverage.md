@@ -42,6 +42,8 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 - `BenchmarkCPUHotRoPEQwenFull`
 - `BenchmarkCPUHotGQAAttentionDecode512`
 - `BenchmarkCPUHotGemvMLX1536x2048`
+- `BenchmarkCPUHotGemvQ4Sym1536x2048`
+- `BenchmarkCPUHotDequantQ4Sym1536x2048`
 
 Run with:
 
@@ -71,6 +73,8 @@ BenchmarkCPUHotRoPEPartialGemma4Full    ~1.7 µs/op, 0 allocs
 BenchmarkCPUHotRoPEQwenFull             ~6.1 µs/op, 0 allocs
 BenchmarkCPUHotGQAAttentionDecode512    ~0.25 ms/op, 0 allocs  (caller-owned scratch + Sdot/Saxpy)
 BenchmarkCPUHotGemvMLX1536x2048         ~2.0 ms/op, 0 allocs
+BenchmarkCPUHotGemvQ4Sym1536x2048       snapshot pending after Phase 3 validation
+BenchmarkCPUHotDequantQ4Sym1536x2048    snapshot pending after Phase 3 validation
 ```
 
 ## Immediate next steps

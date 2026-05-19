@@ -192,6 +192,33 @@ func BenchmarkCPUHotGemvQ4Sym1536x2048(b *testing.B) {
 	}
 }
 
+func BenchmarkCPUHotDequantQ4Sym1536x2048(b *testing.B) {
+	inDim := 1536
+	outDim := 2048
+	groups := inDim / 128
+	qweight := make([]int32, (inDim/8)*outDim)
+	gIdx := make([]int32, inDim)
+	scales := make([]float32, groups*outDim)
+	for i := range qweight {
+		qweight[i] = int32(0x76543210)
+	}
+	for i := range gIdx {
+		gIdx[i] = int32(i / 128)
+	}
+	for i := range scales {
+		scales[i] = 0.01
+	}
+	b.ReportAllocs()
+	b.SetBytes(int64(inDim * outDim * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		out := simdq4.DequantSym(qweight, gIdx, scales, inDim, outDim)
+		if len(out) != inDim*outDim {
+			b.Fatalf("dequant len=%d", len(out))
+		}
+	}
+}
+
 func BenchmarkCPUHotGemvNVFP4_1536x2048(b *testing.B) {
 	inDim := 1536
 	outDim := 2048
