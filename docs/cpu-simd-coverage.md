@@ -21,7 +21,7 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 | GQA attention scores | `simd.Sdot` per head/token | ✅ | ✅ | Intermediate improvement; still allocates scores per head |
 | GQA attention output | `simd.Saxpy` per cached-token V head | ✅ | ✅ | Caller-owned output/score scratch; full fused attention still future work |
 | F32 GEMV dense | `simd.SgemmNN` when pre-transposed | ✅ | ✅ | `gemvNT` path uses `simd.Sdot` row-wise |
-| MLX4 GEMV | `backends/mlx` scalar unpack/dequant loop with dtype/shape validation; model/backend code imports it directly | ❌ | ❌ | Explicit `HasGemv4=false`/`HasDequant=false` capability gates, scalar dispatch hook, and caller-owned dequant output helper; biggest CPU gap for quantized models and MoE experts |
+| MLX4 GEMV | `backends/mlx` scalar unpack/dequant loop with dtype/shape validation; model/backend code imports it directly | ❌ | ❌ | Explicit `HasGemv4=false`/`HasDequant=false` capability gates, scalar dispatch hook, caller-owned dequant output helper, and scalar batched `Gemm` API; biggest CPU gap for quantized models and MoE experts |
 | GPTQ Q4 GEMV | `backends/simd/runtime/q4` scalar unpack/dequant loop with qweight/g_idx/scales/qzeros validation; model/backend code imports it directly | ❌ | ❌ | Scalar symmetric GEMV now traverses packed rows contiguously, dequant supports caller-owned output, and explicit `HasGemvSym=false`/`HasDequant=false` gates are present; still needs AVX2/NEON nibble unpack + FMA |
 | MoE CPU experts | parallel goroutines + MLX4 scalar GEMV | partial | partial | Activation now goes through SIMD wrapper; GEMV dominates |
 | BERT/GTE encoder | workspace + SGEMM/SIMD vec ops | ✅ | ✅ | Already comparatively mature |

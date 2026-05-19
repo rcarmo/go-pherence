@@ -31,6 +31,7 @@ Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GE
 |---|---:|---:|---|
 | MLX4 GEMV | ~2.0 ms | 0 allocs | scalar `backends/mlx` path with stack group x-sum scratch for common group counts |
 | MLX4 dequant | pending | 0 allocs target | caller-owned `backends/mlx.DequantTo` decode benchmark added; snapshot pending Phase 4 validation |
+| MLX4 batched GEMV | pending | caller-owned | scalar `backends/mlx.Gemm` API added for prefill-oriented future SIMD kernels; snapshot pending once used by a model path |
 | Q4/GPTQ symmetric GEMV | ~6.4 ms | 0 allocs | scalar `backends/simd/runtime/q4` path; row-contiguous traversal benchmark snapshot to refresh at Phase 3 validation |
 | Q4/GPTQ symmetric dequant | pending | 0 allocs target | caller-owned `backends/simd/runtime/q4.DequantSymTo` decode benchmark added; snapshot pending Phase 3 validation |
 | NVFP4 GEMV | ~9.8 ms | 0 allocs | correctness-first `backends/simd/runtime/nvfp4` path with grouped scale decode and odd group-boundary correctness |
