@@ -8,13 +8,11 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 
-	"github.com/rcarmo/go-pherence/runtime/quant"
-
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // LoadSwitchMLXExperts loads a switch_mlp-style 3D packed tensor and
-// slices it into per-expert quant.MLXQuantWeight entries.
+// slices it into per-expert mlx.QuantWeight entries.
 //
 // The safetensors weight has shape [numExperts, outDim, packedInDim] (U32)
 // with matching scales/biases [numExperts, outDim, numGroups] (BF16/F32).
@@ -24,7 +22,7 @@ func LoadSwitchMLXExperts(
 	},
 	baseName string,
 	numExperts, outDim, inDim, groupSize, bits int,
-) ([]*quant.MLXQuantWeight, error) {
+) ([]*mlx.QuantWeight, error) {
 	if f == nil {
 		return nil, fmt.Errorf("nil safetensors source")
 	}
@@ -109,7 +107,7 @@ func LoadSwitchMLXExperts(
 		return nil, fmt.Errorf("%s: raw tensor data shorter than expected expert strides", baseName)
 	}
 
-	experts := make([]*quant.MLXQuantWeight, numExperts)
+	experts := make([]*mlx.QuantWeight, numExperts)
 	for e := 0; e < numExperts; e++ {
 		wSlice := wRaw[e*wStride : (e+1)*wStride]
 		sSlice := sRaw[e*sStride : (e+1)*sStride]
@@ -138,7 +136,7 @@ func LoadSwitchMLXExperts(
 			biases[i] = bf16ToF32(bits16)
 		}
 
-		experts[e] = &quant.MLXQuantWeight{
+		experts[e] = &mlx.QuantWeight{
 			Weight:    weight,
 			Scales:    scales,
 			Biases:    biases,
