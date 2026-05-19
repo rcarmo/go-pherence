@@ -45,7 +45,7 @@ Public wrapper functions now exist for:
 - `VkRoPEPartialF32(x, freqs *VkBuf, pos, nHeads, headDim, rotHalf int) error`
 - `VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) error`
 
-The newly added wrappers validate dimensions, buffer capacities, and product overflow before dispatch, then return a clear "pipeline wiring pending" unsupported error while kernel cache entries remain unpopulated. `VkVecAddF32`/`VkVecAddBF16` predate this validation pass and still depend on kernel cache entries that are not populated because `initVkKernels` intentionally logs SPIR-V validation as pending instead of constructing pipelines.
+The newly added wrappers validate dimensions, buffer capacities, and product overflow before dispatch, then return a clear "pipeline wiring pending" unsupported error while kernel cache entries remain unpopulated. `backends/vulkan/vulkan_wrapper_test.go` covers invalid-input rejection and pending-pipeline errors without requiring a Vulkan device. `VkVecAddF32`/`VkVecAddBF16` predate this validation pass and still depend on kernel cache entries that are not populated because `initVkKernels` intentionally logs SPIR-V validation as pending instead of constructing pipelines.
 
 ## Next Phase 7 steps
 
