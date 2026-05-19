@@ -17,7 +17,7 @@ The repository now uses backend-first ownership with operation/quantization subp
 | `backends/simd` | SIMD backend namespace only. Runtime code is in `runtime`, shared kernel bodies are in `kernels`. |
 | `backends/simd/runtime` | CPU SIMD dispatch facade and assembly/scalar fallback wrappers. Package name remains `simd`. |
 | `backends/simd/runtime/bf16` | BF16 CPU/SIMD quantized operations. |
-| `backends/simd/runtime/q4` | Q4/GPTQ CPU/SIMD validation, dequantization, and GEMV. |
+| `backends/simd/runtime/q4` | Q4/GPTQ CPU/SIMD validation (`validate.go`), dequantization (`dequant.go`), GEMV (`gemv.go`), and F16 helpers (`f16.go`). |
 | `backends/simd/runtime/nvfp4` | NVFP4 CPU reference decode/dequant/GEMV. |
 | `backends/simd/kernels` | Backend-neutral CPU kernel bodies for attention, RoPE, softmax, layernorm, GELU, and shape helpers. |
 | `backends/mlx` | MLX affine quantization format/backend helpers independent of a device backend. NVIDIA execution of MLX tensors remains under `backends/nvidia/runtime`. |
