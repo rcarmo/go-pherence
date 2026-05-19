@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
-
-	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
 )
 
 var (
@@ -54,42 +52,7 @@ func loadMegaModule() {
 		var combined strings.Builder
 		combined.WriteString(".version 7.0\n.target sm_80\n.address_size 64\n\n")
 
-		entries := []struct {
-			name string
-			ptx  string
-		}{
-			{"sgemm_nn", ptx.SgemmPTX},
-			{"vec_add", ptx.VecAddPTX},
-			{"vec_mul", ptx.VecMulPTX},
-			{"vec_scale", ptx.VecScalePTX},
-			{"vec_add_scaled", ptx.VecAddScaledPTX},
-			{"to_bf16_f32", ptx.ToBF16F32PTX},
-			{"vec_silu", ptx.VecSiLUPTX},
-			{"rms_norm", ptx.RmsNormPTX},
-			{"rope_apply", ptx.RoPEPTX},
-			{"rope_partial", ptx.RoPEPartialPTX},
-			{"gqa_attention_scores", ptx.AttentionScoresPTX},
-			{"row_softmax_debug", ptx.SoftmaxRowsPTX},
-			{"gqa_attention", ptx.AttentionPTX},
-			{"gelu_tanh_mul", ptx.GELUTanhMulPTX},
-			{"gemv_q4sym", ptx.GemvQ4OptPTX},
-			{"fused_silu_mul", ptx.FusedSiLUMulPTX},
-			{"prefetch_l2", ptx.PrefetchPTX},
-			{"gemm_q4sym", ptx.GemmQ4PTX},
-			{"lm_head_gemv", ptx.LMHeadPTX},
-			{"mlx_gemv", ptx.MLXGemvPTX},
-			{"mlx_gemm", ptx.MLXGemmPTX},
-			{"mlx_correct", ptx.MLXCorrectPTX},
-			{"bf16_rms_norm", ptx.BF16RMSNormPTX},
-			{"bf16_rms_norm_no_scale", ptx.BF16RMSNormNoScalePTX},
-			{"bf16_vec_add", ptx.BF16VecAddPTX},
-			{"bf16_silu_mul", ptx.BF16SiLUMulPTX},
-			{"bf16_gelu_tanh_mul", ptx.BF16GELUTanhMulPTX},
-			{"bf16_lm_head_gemv", ptx.BF16LMHeadPTX},
-			{"rms_norm_no_scale", ptx.RmsNormNoScalePTX},
-			{"nvfp4_dequant_f32", ptx.NVFP4DequantF32PTX},
-			{"nvfp4_gemv_f32", ptx.NVFP4GemvF32PTX},
-		}
+		entries := megaModuleEntries()
 
 		for _, e := range entries {
 			combined.WriteString(stripPTXHeader(e.ptx))
@@ -107,6 +70,7 @@ func loadMegaModule() {
 
 		// Extract all function handles
 		allOK := true
+		functions := moduleFunctions{}
 		extractFn := func(name string) CUfunction {
 			nameBytes := append([]byte(name), 0)
 			var fn CUfunction
@@ -118,51 +82,13 @@ func loadMegaModule() {
 			return fn
 		}
 
-		sgemmFn = extractFn("sgemm_nn")
-		fnVecAdd = extractFn("vec_add")
-		fnVecMul = extractFn("vec_mul")
-		fnVecScale = extractFn("vec_scale")
-		fnVecAddScaled = extractFn("vec_add_scaled")
-		fnToBF16F32 = extractFn("to_bf16_f32")
-		fnVecSilu = extractFn("vec_silu")
-		fnRmsNorm = extractFn("rms_norm")
-		ropeFn = extractFn("rope_apply")
-		ropePartialFn = extractFn("rope_partial")
-		attnScoreFn = extractFn("gqa_attention_scores")
-		softmaxRowsFn = extractFn("row_softmax_debug")
-		attnFn = extractFn("gqa_attention")
-		q4Fn = extractFn("gemv_q4sym")
-		fnFusedSiLUMul = extractFn("fused_silu_mul")
-		fnPrefetch = extractFn("prefetch_l2")
-		fnGemmQ4 = extractFn("gemm_q4sym")
-		fnLMHead = extractFn("lm_head_gemv")
-		fnMLXGemv = extractFn("mlx_gemv")
-		fnMLXGemm = extractFn("mlx_gemm")
-		fnMLXCorrect = extractFn("mlx_correct")
-		fnBF16RMSNorm = extractFn("bf16_rms_norm")
-		fnBF16RMSNormNoScale = extractFn("bf16_rms_norm_no_scale")
-		fnBF16VecAdd = extractFn("bf16_vec_add")
-		fnBF16SiLUMul = extractFn("bf16_silu_mul")
-		fnBF16GELUTanhMul = extractFn("bf16_gelu_tanh_mul")
-		fnBF16LMHead = extractFn("bf16_lm_head_gemv")
-		fnRmsNormNoScale = extractFn("rms_norm_no_scale")
-		fnGELUTanhMul = extractFn("gelu_tanh_mul")
-		fnNVFP4DequantF32 = extractFn("nvfp4_dequant_f32")
-		fnNVFP4GemvF32 = extractFn("nvfp4_gemv_f32")
+		for _, e := range entries {
+			functions[e.name] = extractFn(e.name)
+		}
+		bindMegaModuleFunctions(functions)
 
 		if allOK {
-			megaModuleOK = true
-			sgemmReady = true
-			sgemmOK = true
-			kernelsLoaded = true
-			ropeReady = true
-			ropePartialReady = true
-			attnScoreReady = true
-			softmaxRowsReady = true
-			attnReady = true
-			q4Ready = true
-			fusedSiLUMulOK = true
-			debugf("[gpu] All %d kernels loaded in 1 module\n", len(entries))
+			markMegaModuleReady(len(entries))
 			// Initialize streams for prefetch overlap
 			if err := initStreams(); err != nil {
 				debugf("[gpu] streams: %v\n", err)
@@ -190,23 +116,6 @@ func Q4Ready() bool {
 	return q4Ready
 }
 
-func freeNVFP4Scratch() {
-	nvfp4Scratch.Lock()
-	defer nvfp4Scratch.Unlock()
-	if nvfp4Scratch.x != nil {
-		nvfp4Scratch.x.Free()
-		nvfp4Scratch.x = nil
-	}
-	if nvfp4Scratch.out != nil {
-		nvfp4Scratch.out.Free()
-		nvfp4Scratch.out = nil
-	}
-	nvfp4Scratch.xN = 0
-	nvfp4Scratch.outN = 0
-	nvfp4Scratch.xPtr = 0
-	nvfp4Scratch.xLen = 0
-}
-
 func shutdownMegaModule() {
 	freeNVFP4Scratch()
 	FreeBF16LMHeadScratch()
@@ -214,18 +123,5 @@ func shutdownMegaModule() {
 		EnsureContext()
 		cuModuleUnload(megaModule)
 	}
-	megaModule = 0
-	megaModuleOK = false
-	megaModuleOnce = sync.Once{}
-	sgemmReady = false
-	sgemmOK = false
-	kernelsLoaded = false
-	ropeReady = false
-	ropePartialReady = false
-	attnScoreReady = false
-	softmaxRowsReady = false
-	attnReady = false
-	q4Ready = false
-	fusedSiLUMulOK = false
-	fnPrefetch = 0
+	resetMegaModuleState()
 }
