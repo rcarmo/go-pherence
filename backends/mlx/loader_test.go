@@ -1,4 +1,4 @@
-package quant
+package mlx
 
 import (
 	"encoding/binary"
@@ -57,17 +57,17 @@ func validMLXSource() fakeMLXSource {
 	}
 }
 
-func TestLoadMLXWeightValidatesAndInfersShape(t *testing.T) {
-	qw, err := LoadMLXWeight(validMLXSource(), "proj", 999, 999, 8, 4)
+func TestLoadWeightValidatesAndInfersShape(t *testing.T) {
+	qw, err := LoadWeight(validMLXSource(), "proj", 999, 999, 8, 4)
 	if err != nil {
-		t.Fatalf("LoadMLXWeight: %v", err)
+		t.Fatalf("LoadWeight: %v", err)
 	}
 	if qw.OutDim != 2 || qw.InDim != 8 || qw.Groups != 1 || len(qw.Weight) != 2 {
 		t.Fatalf("unexpected inferred weight: %+v", qw)
 	}
 }
 
-func TestLoadMLXWeightRejectsBadConfig(t *testing.T) {
+func TestLoadWeightRejectsBadConfig(t *testing.T) {
 	src := validMLXSource()
 	cases := []struct {
 		name      string
@@ -83,7 +83,7 @@ func TestLoadMLXWeightRejectsBadConfig(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := LoadMLXWeight(src, "proj", tc.outDim, tc.inDim, tc.groupSize, tc.bits)
+			_, err := LoadWeight(src, "proj", tc.outDim, tc.inDim, tc.groupSize, tc.bits)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("err=%v, want substring %q", err, tc.want)
 			}
@@ -91,88 +91,88 @@ func TestLoadMLXWeightRejectsBadConfig(t *testing.T) {
 	}
 }
 
-func TestLoadMLXWeightRejectsBadInDimWithoutShape(t *testing.T) {
+func TestLoadWeightRejectsBadInDimWithoutShape(t *testing.T) {
 	src := validMLXSource()
 	w := src["proj.weight"]
 	w.shape = nil
 	src["proj.weight"] = w
-	_, err := LoadMLXWeight(src, "proj", 2, 7, 8, 4)
+	_, err := LoadWeight(src, "proj", 2, 7, 8, 4)
 	if err == nil || !strings.Contains(err.Error(), "inDim") {
 		t.Fatalf("err=%v, want inDim error", err)
 	}
 }
 
-func TestLoadMLXWeightRejectsBadScaleLength(t *testing.T) {
+func TestLoadWeightRejectsBadScaleLength(t *testing.T) {
 	src := validMLXSource()
 	src["proj.scales"] = fakeMLXTensor{raw: packedF32(0.1), dtype: "F32", shape: []int{1, 1}}
-	_, err := LoadMLXWeight(src, "proj", 2, 8, 8, 4)
+	_, err := LoadWeight(src, "proj", 2, 8, 8, 4)
 	if err == nil || !strings.Contains(err.Error(), "length mismatch") {
 		t.Fatalf("err=%v, want length mismatch", err)
 	}
 }
 
-func TestLoadMLXWeightRejectsBadFloatShape(t *testing.T) {
+func TestLoadWeightRejectsBadFloatShape(t *testing.T) {
 	src := validMLXSource()
 	src["proj.biases"] = fakeMLXTensor{raw: packedF32(-0.1, -0.2), dtype: "F32", shape: []int{3, 1}}
-	_, err := LoadMLXWeight(src, "proj", 2, 8, 8, 4)
+	_, err := LoadWeight(src, "proj", 2, 8, 8, 4)
 	if err == nil || !strings.Contains(err.Error(), "shape") {
 		t.Fatalf("err=%v, want shape error", err)
 	}
 }
 
-func TestLoadMLXWeightRejectsIntegerScales(t *testing.T) {
+func TestLoadWeightRejectsIntegerScales(t *testing.T) {
 	src := validMLXSource()
 	src["proj.scales"] = fakeMLXTensor{raw: packedU32(1, 2), dtype: "I32", shape: []int{2, 1}}
-	_, err := LoadMLXWeight(src, "proj", 2, 8, 8, 4)
+	_, err := LoadWeight(src, "proj", 2, 8, 8, 4)
 	if err == nil || !strings.Contains(err.Error(), "unsupported dtype I32") {
 		t.Fatalf("err=%v, want unsupported I32 dtype", err)
 	}
 }
 
-func TestLoadMLXWeightRejectsOverflowingShapes(t *testing.T) {
+func TestLoadWeightRejectsOverflowingShapes(t *testing.T) {
 	maxInt := int(^uint(0) >> 1)
 	src := validMLXSource()
 	w := src["proj.weight"]
 	w.shape = []int{2, maxInt/2 + 1}
 	src["proj.weight"] = w
-	_, err := LoadMLXWeight(src, "proj", 2, 8, 8, 4)
+	_, err := LoadWeight(src, "proj", 2, 8, 8, 4)
 	if err == nil || !strings.Contains(err.Error(), "overflows") {
 		t.Fatalf("err=%v, want overflow error", err)
 	}
 
 	src = validMLXSource()
 	src["proj.scales"] = fakeMLXTensor{raw: packedF32(0.1, 0.2), dtype: "F32", shape: []int{maxInt/2 + 1, 3}}
-	_, err = LoadMLXWeight(src, "proj", 2, 8, 8, 4)
+	_, err = LoadWeight(src, "proj", 2, 8, 8, 4)
 	if err == nil || !strings.Contains(err.Error(), "overflows") {
 		t.Fatalf("err=%v, want scale shape overflow error", err)
 	}
 }
 
-func TestValidateMLXQuantWeightAndMalformedUse(t *testing.T) {
-	if err := ValidateMLXQuantWeight(nil); err == nil {
+func TestValidateQuantWeightAndMalformedUse(t *testing.T) {
+	if err := ValidateQuantWeight(nil); err == nil {
 		t.Fatal("expected nil weight error")
 	}
-	bad := &MLXQuantWeight{Bits: 4, OutDim: 2, InDim: 8, GroupSize: 4, Groups: 2}
-	if err := ValidateMLXQuantWeight(bad); err == nil {
+	bad := &QuantWeight{Bits: 4, OutDim: 2, InDim: 8, GroupSize: 4, Groups: 2}
+	if err := ValidateQuantWeight(bad); err == nil {
 		t.Fatal("expected missing tensor data error")
 	}
-	if got := DequantMLX(bad); got != nil {
-		t.Fatalf("DequantMLX malformed = %v, want nil", got)
+	if got := Dequant(bad); got != nil {
+		t.Fatalf("Dequant malformed = %v, want nil", got)
 	}
 	out := []float32{123}
-	GemvMLQ(out, []float32{1}, bad)
+	Gemv(out, []float32{1}, bad)
 	if out[0] != 123 {
-		t.Fatalf("GemvMLQ malformed changed output to %f", out[0])
+		t.Fatalf("Gemv malformed changed output to %f", out[0])
 	}
-	overflow := &MLXQuantWeight{Weight: []uint32{1}, Scales: []float32{1}, Biases: []float32{0}, OutDim: maxIntForTest(), InDim: 16, Groups: 2, GroupSize: 8, Bits: 4}
-	if err := ValidateMLXQuantWeight(overflow); err == nil || !strings.Contains(err.Error(), "overflows") {
-		t.Fatalf("overflow ValidateMLXQuantWeight err=%v", err)
+	overflow := &QuantWeight{Weight: []uint32{1}, Scales: []float32{1}, Biases: []float32{0}, OutDim: maxIntForTest(), InDim: 16, Groups: 2, GroupSize: 8, Bits: 4}
+	if err := ValidateQuantWeight(overflow); err == nil || !strings.Contains(err.Error(), "overflows") {
+		t.Fatalf("overflow ValidateQuantWeight err=%v", err)
 	}
-	if got := DequantMLX(overflow); got != nil {
-		t.Fatalf("DequantMLX overflow len=%d, want nil", len(got))
+	if got := Dequant(overflow); got != nil {
+		t.Fatalf("Dequant overflow len=%d, want nil", len(got))
 	}
 
-	good := &MLXQuantWeight{
+	good := &QuantWeight{
 		Weight:    []uint32{0x11111111, 0x22222222},
 		Scales:    []float32{1, 1},
 		Biases:    []float32{0, 0},
@@ -182,8 +182,8 @@ func TestValidateMLXQuantWeightAndMalformedUse(t *testing.T) {
 		GroupSize: 8,
 		Bits:      4,
 	}
-	if err := ValidateMLXQuantWeight(good); err != nil {
-		t.Fatalf("ValidateMLXQuantWeight good: %v", err)
+	if err := ValidateQuantWeight(good); err != nil {
+		t.Fatalf("ValidateQuantWeight good: %v", err)
 	}
 }
 

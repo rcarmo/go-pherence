@@ -1,11 +1,11 @@
-package quant
+package mlx
 
 import (
 	"math"
 	"testing"
 )
 
-func TestDequantMLX(t *testing.T) {
+func TestDequant(t *testing.T) {
 	// Test MLX affine 4-bit dequantization
 	// Create a small 4×8 weight matrix with known values
 	outDim, inDim := 4, 8
@@ -34,7 +34,7 @@ func TestDequantMLX(t *testing.T) {
 		biases[i] = -0.5
 	}
 
-	qw := &MLXQuantWeight{
+	qw := &QuantWeight{
 		Weight:    weight,
 		Scales:    scales,
 		Biases:    biases,
@@ -45,7 +45,7 @@ func TestDequantMLX(t *testing.T) {
 		Bits:      bits,
 	}
 
-	out := DequantMLX(qw)
+	out := Dequant(qw)
 
 	// Verify: out[row][col] = val * scale + bias
 	for row := 0; row < outDim; row++ {
@@ -58,10 +58,10 @@ func TestDequantMLX(t *testing.T) {
 			}
 		}
 	}
-	t.Log("DequantMLX: OK")
+	t.Log("Dequant: OK")
 }
 
-func makeBenchMLXWeight(outDim, inDim, groupSize int) *MLXQuantWeight {
+func makeBenchMLXWeight(outDim, inDim, groupSize int) *QuantWeight {
 	weight := make([]uint32, outDim*(inDim/8))
 	for row := 0; row < outDim; row++ {
 		for p := 0; p < inDim/8; p++ {
@@ -80,10 +80,10 @@ func makeBenchMLXWeight(outDim, inDim, groupSize int) *MLXQuantWeight {
 		scales[i] = 0.001 * float32((i%17)+1)
 		biases[i] = -0.01 + 0.001*float32(i%19)
 	}
-	return &MLXQuantWeight{Weight: weight, Scales: scales, Biases: biases, OutDim: outDim, InDim: inDim, Groups: numGroups, GroupSize: groupSize, Bits: 4}
+	return &QuantWeight{Weight: weight, Scales: scales, Biases: biases, OutDim: outDim, InDim: inDim, Groups: numGroups, GroupSize: groupSize, Bits: 4}
 }
 
-func BenchmarkGemvMLQ4QwenMoEGate(b *testing.B) {
+func BenchmarkGemv4QwenMoEGate(b *testing.B) {
 	qw := makeBenchMLXWeight(768, 2048, 64)
 	x := make([]float32, qw.InDim)
 	out := make([]float32, qw.OutDim)
@@ -93,11 +93,11 @@ func BenchmarkGemvMLQ4QwenMoEGate(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GemvMLQ(out, x, qw)
+		Gemv(out, x, qw)
 	}
 }
 
-func BenchmarkGemvMLQ4QwenMoEDown(b *testing.B) {
+func BenchmarkGemv4QwenMoEDown(b *testing.B) {
 	qw := makeBenchMLXWeight(2048, 768, 64)
 	x := make([]float32, qw.InDim)
 	out := make([]float32, qw.OutDim)
@@ -107,11 +107,11 @@ func BenchmarkGemvMLQ4QwenMoEDown(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GemvMLQ(out, x, qw)
+		Gemv(out, x, qw)
 	}
 }
 
-func TestGemvMLQ4FastPathMatchesGeneric(t *testing.T) {
+func TestGemv4FastPathMatchesGeneric(t *testing.T) {
 	outDim, inDim := 3, 16
 	groupSize := 8
 	bits := 4
@@ -134,7 +134,7 @@ func TestGemvMLQ4FastPathMatchesGeneric(t *testing.T) {
 		biases[i] = -0.2 + 0.01*float32(i)
 	}
 	x := []float32{1, -2, 3, -4, 5, -6, 7, -8, 0.5, -0.25, 1.5, -1.25, 2.5, -2.25, 3.5, -3.25}
-	fast := &MLXQuantWeight{Weight: weight, Scales: scales, Biases: biases, OutDim: outDim, InDim: inDim, Groups: numGroups, GroupSize: groupSize, Bits: bits}
+	fast := &QuantWeight{Weight: weight, Scales: scales, Biases: biases, OutDim: outDim, InDim: inDim, Groups: numGroups, GroupSize: groupSize, Bits: bits}
 	generic := *fast
 	generic.GroupSize = 4
 	generic.Groups = inDim / generic.GroupSize
@@ -149,8 +149,8 @@ func TestGemvMLQ4FastPathMatchesGeneric(t *testing.T) {
 	}
 	got := make([]float32, outDim)
 	want := make([]float32, outDim)
-	GemvMLQ(got, x, fast)
-	GemvMLQ(want, x, &generic)
+	Gemv(got, x, fast)
+	Gemv(want, x, &generic)
 	for i := range got {
 		if diff := math.Abs(float64(got[i] - want[i])); diff > 1e-5 {
 			t.Fatalf("row %d: fast=%f generic=%f diff=%g", i, got[i], want[i], diff)
@@ -158,7 +158,7 @@ func TestGemvMLQ4FastPathMatchesGeneric(t *testing.T) {
 	}
 }
 
-func TestGemvMLQ(t *testing.T) {
+func TestGemv(t *testing.T) {
 	// Test MLX on-the-fly GEMV
 	outDim, inDim := 4, 8
 	groupSize := 4
@@ -184,7 +184,7 @@ func TestGemvMLQ(t *testing.T) {
 		biases[i] = -0.5
 	}
 
-	qw := &MLXQuantWeight{
+	qw := &QuantWeight{
 		Weight:    weight,
 		Scales:    scales,
 		Biases:    biases,
@@ -199,7 +199,7 @@ func TestGemvMLQ(t *testing.T) {
 	x := []float32{1, 2, 3, 4, 5, 6, 7, 8}
 
 	// CPU reference: dequant then multiply
-	deq := DequantMLX(qw)
+	deq := Dequant(qw)
 	cpuOut := make([]float32, outDim)
 	for row := 0; row < outDim; row++ {
 		sum := float32(0)
@@ -211,7 +211,7 @@ func TestGemvMLQ(t *testing.T) {
 
 	// On-the-fly GEMV
 	mlqOut := make([]float32, outDim)
-	GemvMLQ(mlqOut, x, qw)
+	Gemv(mlqOut, x, qw)
 
 	// Compare
 	for i := 0; i < outDim; i++ {
@@ -220,5 +220,5 @@ func TestGemvMLQ(t *testing.T) {
 			t.Fatalf("row %d: gemvMLQ=%f, reference=%f, diff=%e", i, mlqOut[i], cpuOut[i], diff)
 		}
 	}
-	t.Logf("GemvMLQ vs dequant reference: max diff OK")
+	t.Logf("Gemv vs dequant reference: max diff OK")
 }
