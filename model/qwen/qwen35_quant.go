@@ -50,6 +50,9 @@ func LoadQwen35NVFP4Weight(src Qwen35RawTensorSource, name string, wantShape []i
 	if len(wantShape) != 2 || wantShape[0] <= 0 || wantShape[1] <= 0 {
 		return nil, fmt.Errorf("invalid Qwen3.5 NVFP4 wanted shape %v", wantShape)
 	}
+	if wantShape[1]%16 != 0 {
+		return nil, fmt.Errorf("invalid Qwen3.5 NVFP4 input dim %d: must be divisible by group size 16", wantShape[1])
+	}
 	actualName := name
 	raw, dtype, shape, err := src.GetRaw(actualName)
 	if err != nil {
@@ -58,7 +61,7 @@ func LoadQwen35NVFP4Weight(src Qwen35RawTensorSource, name string, wantShape []i
 	if dtype != "U8" {
 		return nil, fmt.Errorf("%s dtype=%s, want U8 NVFP4", actualName, dtype)
 	}
-	if len(shape) != 2 || shape[0] != wantShape[0] || shape[1]*2 != wantShape[1] {
+	if len(shape) != 2 || shape[0] <= 0 || shape[1] <= 0 || shape[0] != wantShape[0] || shape[1] != wantShape[1]/2 {
 		return nil, fmt.Errorf("%s packed shape=%v want [%d %d/2]", actualName, shape, wantShape[0], wantShape[1])
 	}
 	prefix := strings.TrimSuffix(actualName, ".weight")
