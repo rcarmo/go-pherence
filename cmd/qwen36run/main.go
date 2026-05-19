@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/qwen"

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/runtime/quant"
 	"github.com/rcarmo/go-pherence/tensor"
 )

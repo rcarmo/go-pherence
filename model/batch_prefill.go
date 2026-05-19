@@ -12,7 +12,7 @@ import (
 	"math"
 	"os"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
 
 // prefillGPU processes all prompt tokens through the model in one batched pass.

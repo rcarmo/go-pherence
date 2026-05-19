@@ -13,7 +13,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/runtime/quant"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/backends/simd"
 	"github.com/rcarmo/go-pherence/tensor"
 )

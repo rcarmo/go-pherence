@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
 
 type Qwen35GPUPrewarmStats struct {

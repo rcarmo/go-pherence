@@ -10,7 +10,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
 
 func gemma4PerLayerInputsForWrappedStep(m *LlamaModel, wrapped []int, step int) [][]float32 {

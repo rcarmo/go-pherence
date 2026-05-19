@@ -3,7 +3,7 @@ package qwen
 import (
 	"fmt"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
 
 func qwen35MLPIntoGPU(out, mlpIn []float32, gateQ, upQ, downQ *Qwen35NVFP4Weight, hidden, inter int) (bool, error) {

@@ -1,6 +1,6 @@
 package model
 
-import nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+import nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 
 // chunkedGPULMHead computes logits using the NVIDIA backend in chunks.
 // Returns true if the backend path was used.

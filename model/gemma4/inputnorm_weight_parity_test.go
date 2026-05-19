@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
 
 func TestGemma4GPUInputNormWeightParity(t *testing.T) {

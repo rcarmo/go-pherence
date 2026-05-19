@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	nvidia "github.com/rcarmo/go-pherence/backends/nvidia"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/runtime/quant"
 )
 
