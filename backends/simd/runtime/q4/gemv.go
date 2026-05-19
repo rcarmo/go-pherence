@@ -5,17 +5,20 @@ func GemvSym(out, x []float32, qweight, gIdx []int32, scales []float32, inDim, o
 		return
 	}
 	for j := 0; j < outDim; j++ {
-		var sum float32
-		for packIdx := 0; packIdx < inDim/8; packIdx++ {
-			packed := qweight[packIdx*outDim+j]
-			for bit := 0; bit < 8; bit++ {
-				i := packIdx*8 + bit
-				qw := (packed >> (uint(bit) * 4)) & 0xF
-				g := int(gIdx[i])
-				scale := scales[g*outDim+j]
-				sum += x[i] * scale * float32(qw-8)
+		out[j] = 0
+	}
+	for packIdx := 0; packIdx < inDim/8; packIdx++ {
+		qrow := qweight[packIdx*outDim : (packIdx+1)*outDim]
+		for bit := 0; bit < 8; bit++ {
+			i := packIdx*8 + bit
+			g := int(gIdx[i])
+			scaleRow := scales[g*outDim : (g+1)*outDim]
+			xi := x[i]
+			shift := uint(bit) * 4
+			for j := 0; j < outDim; j++ {
+				qw := (qrow[j] >> shift) & 0xF
+				out[j] += xi * scaleRow[j] * float32(qw-8)
 			}
 		}
-		out[j] = sum
 	}
 }
