@@ -4,10 +4,10 @@ import (
 	"math"
 	"testing"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
 	simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
-	"github.com/rcarmo/go-pherence/runtime/quant"
 )
 
 func benchSeq(n int) []float32 {
@@ -114,7 +114,7 @@ func BenchmarkCPUHotGemvMLQ1536x2048(b *testing.B) {
 	bits := 4
 	packFactor := 32 / bits
 	groups := inDim / groupSize
-	qw := &quant.MLXQuantWeight{
+	qw := &mlx.QuantWeight{
 		Weight:    make([]uint32, outDim*(inDim/packFactor)),
 		Scales:    make([]float32, outDim*groups),
 		Biases:    make([]float32, outDim*groups),
@@ -137,7 +137,7 @@ func BenchmarkCPUHotGemvMLQ1536x2048(b *testing.B) {
 	b.SetBytes(int64(inDim * outDim * 4))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		quant.GemvMLQ(out, x, qw)
+		mlx.Gemv(out, x, qw)
 	}
 }
 
