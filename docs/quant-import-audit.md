@@ -15,6 +15,10 @@ These are model-level compatibility call sites and should be retired only after 
 - `model/forward_layer.go`, `model/gpu_forward.go`, `model/moe.go`, and `model/moe_gpu.go` operate on those shared fields.
 - `model/cpu_hotpath_bench_test.go`, `model/moe_gpu_test.go`, and `model/gemma4/*` diagnostics follow the same shared model compatibility types.
 
+## Import-boundary check
+
+`runtime/quant/import_boundary_test.go` prevents new backend-owned code from importing `runtime/quant` and keeps the compatibility package limited to its current wrapper files.
+
 ## Next cleanup step
 
 Move shared model quantized field types from `runtime/quant` aliases to owning backend packages (`backends/mlx`, `backends/simd/runtime/q4`, `backends/simd/runtime/nvfp4`) in one coordinated model-API change, then leave `runtime/quant` as legacy re-export wrappers only.
