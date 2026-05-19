@@ -13,7 +13,7 @@ This tracker maps the remaining acceptance criteria for practical backend covera
 | CPU-only test gate passes without GPU present | Previously passed | Re-run `make test-cpu` during final validation gate. |
 | NVIDIA smoke tests pass on available NVIDIA hardware | Pending hardware run | NVIDIA Q4 asymmetric and NVFP4 native packed paths are documented boundaries unless new model paths require them. |
 | Vulkan smoke tests pass or are explicitly opt-in skipped | Pending | Vulkan wrappers are validating stubs; numeric parity waits for pipeline-cache wiring. CPU/software Vulkan remains opt-in. |
-| Documentation reflects final package layout and kernel coverage | In progress | Docs index, layout, coverage, parity, malformed-input, validation, Vulkan, NVIDIA, BF16, NVFP4, and benchmark queue docs are current as of Phase 11. |
+| Documentation reflects final package layout and kernel coverage | Current, pending validation fallout | Docs index, layout, coverage, parity, malformed-input, validation, Vulkan, NVIDIA, BF16, NVFP4, benchmark queue, and development log are current as of Phase 12; revisit after the phase validation gate. |
 
 ## Deferred implementation work
 
