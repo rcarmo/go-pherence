@@ -15,10 +15,10 @@ Legend: implemented means the package owns the runtime or reference implementati
 | RoPE | `backends/nvidia/runtime` | `backends/nvidia/ptx/attention.go` | `backends/simd/runtime` wrappers | `backends/simd/kernels/rope.go` scalar | partial scaffold | — |
 | GQA attention | `backends/nvidia/runtime` | `backends/nvidia/ptx/attention.go` | wrapper via kernels | `backends/simd/kernels/attention.go` | — | — |
 | BF16 | `backends/nvidia/runtime` | `backends/nvidia/ptx/bf16/` | `backends/simd/runtime/bf16` plus runtime facade | — | BF16 vec-add | — |
-
-See [bf16-parity.md](bf16-parity.md) for BF16 no-scale RMSNorm, LM-head, and NVIDIA-vs-CPU parity expectations.
 | Q4/GPTQ | `backends/nvidia/runtime` | `backends/nvidia/ptx/q4/` | `backends/simd/runtime/q4` | — | — | — |
 | MLX affine | NVIDIA execution in `backends/nvidia/runtime` | `backends/nvidia/ptx/mlx/` | — | — | — | format/load/dequant/GEMV and scalar batched GEMV in `backends/mlx`; Switch-MoE expert loader validates U32/I32 packed weights plus BF16/F16/F32 scales/biases |
 | NVFP4 | `backends/nvidia/runtime` | `backends/nvidia/ptx/nvfp4/` | `backends/simd/runtime/nvfp4` with scalar decode/dequant/GEMV, caller-owned dequant helper, and SIMD capability gates; Qwen loader rejects malformed packed shapes and non-16-aligned input dimensions | — | — | — |
+
+See [bf16-parity.md](bf16-parity.md) for BF16 no-scale RMSNorm, LM-head, and NVIDIA-vs-CPU parity expectations.
 
 `runtime/quant` is a legacy compatibility package that delegates to backend-owned quantization packages. Repository model/backend code imports owning backends directly; new code should do the same unless deliberately maintaining external compatibility.
