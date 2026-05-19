@@ -25,7 +25,7 @@ Synthetic backend-owner benchmarks live in `model/cpu_hotpath_bench_test.go` and
 go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 ```
 
-Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GEMV:
+Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GEMV. See [backend-parity-matrix.md](backend-parity-matrix.md) for the corresponding scalar/reference parity targets:
 
 | Primitive | Time | Allocations | Notes |
 |---|---:|---:|---|
