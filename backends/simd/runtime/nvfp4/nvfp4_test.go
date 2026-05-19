@@ -110,9 +110,16 @@ func TestGemvNVFP4MatchesDequantizedReference(t *testing.T) {
 			}
 			got := make([]float32, qw.OutDim)
 			GemvNVFP4(got, x, qw)
+			ref := make([]float32, qw.OutDim)
+			if !GemvNVFP4Reference(ref, x, qw) {
+				t.Fatal("GemvNVFP4Reference returned false for valid weight")
+			}
 			for i := range want {
 				if math.Abs(float64(got[i]-want[i])) > 1e-6 {
 					t.Fatalf("GemvNVFP4[%d]=%v want %v", i, got[i], want[i])
+				}
+				if math.Abs(float64(ref[i]-want[i])) > 1e-6 {
+					t.Fatalf("GemvNVFP4Reference[%d]=%v want %v", i, ref[i], want[i])
 				}
 			}
 		})

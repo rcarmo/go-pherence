@@ -40,6 +40,17 @@ func GemvNVFP4(out, x []float32, qw *NVFP4Weight) {
 	wg.Wait()
 }
 
+// GemvNVFP4Reference is the exact single-thread scalar reference path for
+// parity tests. Future AVX2/NEON/native implementations should compare against
+// this function rather than against another optimized path.
+func GemvNVFP4Reference(out, x []float32, qw *NVFP4Weight) bool {
+	if err := ValidateNVFP4Weight(qw); err != nil || len(out) < qw.OutDim || len(x) < qw.InDim {
+		return false
+	}
+	gemvNVFP4Rows(out, x, qw, 0, qw.OutDim)
+	return true
+}
+
 func gemvNVFP4Rows(out, x []float32, qw *NVFP4Weight, start, end int) {
 	packedPerRow := qw.InDim / 2
 	for row := start; row < end; row++ {

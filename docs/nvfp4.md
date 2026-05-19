@@ -84,7 +84,8 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
 - Intended use remains validation and tiny synthetic tests; CPU performance is
   not the primary target for NVFP4.
 - Done: golden tests cover FP4 codebook, F8_E4M3FN scales, dequant, GEMV, and
-  tiny synthetic logits against an explicit F32 reference.
+  tiny synthetic logits against an explicit F32 reference. `GemvNVFP4Reference`
+  remains the exact single-thread scalar parity target for future SIMD/native paths.
 
 ### NVIDIA path
 
