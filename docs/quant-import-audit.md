@@ -21,6 +21,10 @@ No production/model/backend Go package imports `runtime/quant` directly. The onl
 
 `runtime/quant/import_boundary_test.go` prevents new backend-owned code from importing `runtime/quant` and keeps the compatibility package limited to its current wrapper files.
 
+## Wrapper status
+
+`runtime/quant` is wrapper-only and mirrors the current backend-owned compatibility surface, including caller-owned Q4/MLX/NVFP4 dequant helpers and scalar reference entrypoints where exposed by the backend packages.
+
 ## Next cleanup step
 
 Keep `runtime/quant` as legacy re-export wrappers for external callers. Remove wrapper files only in a deliberate public API cleanup.

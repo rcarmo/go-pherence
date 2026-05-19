@@ -6,8 +6,12 @@ import (
 
 type MLXQuantWeight = mlx.QuantWeight
 
-func DequantMLX(qw *MLXQuantWeight) []float32         { return mlx.Dequant(qw) }
-func GemvMLQ(out, x []float32, qw *MLXQuantWeight)    { mlx.Gemv(out, x, qw) }
+func DequantMLX(qw *MLXQuantWeight) []float32             { return mlx.Dequant(qw) }
+func DequantMLXTo(out []float32, qw *MLXQuantWeight) bool { return mlx.DequantTo(out, qw) }
+func GemvMLQ(out, x []float32, qw *MLXQuantWeight)        { mlx.Gemv(out, x, qw) }
+func GemmMLQ(out, x []float32, batch int, qw *MLXQuantWeight) bool {
+	return mlx.Gemm(out, x, batch, qw)
+}
 func ValidateMLXQuantWeight(qw *MLXQuantWeight) error { return mlx.ValidateQuantWeight(qw) }
 func LoadMLXWeight(f interface {
 	GetFloat32(name string) ([]float32, []int, error)
