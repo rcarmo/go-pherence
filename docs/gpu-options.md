@@ -111,7 +111,7 @@ The `backends/nvidia/runtime` package is hardened at backend API boundaries:
 - Experimental direct-NVIDIA ioctl/memory/query/GPFIFO helpers validate nil receivers, size arithmetic, fd/argument state, class-list sizes, and release partially allocated resources on setup failure.
 - Dense SGEMM/LM-head dispatch validates dimensions, buffer byte sizes, and product overflow before kernel launch.
 - NVIDIA JIT helpers validate kernel specs and launch buffers with the same checked byte-size helper before PTX generation or dispatch.
-- BF16 NVIDIA wrappers validate nil/undersized buffers and length overflow before emulated/native dispatch.
+- BF16 NVIDIA wrappers validate nil/undersized buffers and length overflow before emulated/native dispatch; parity expectations for no-scale RMSNorm and BF16 LM-head are tracked in [bf16-parity.md](bf16-parity.md).
 - RoPE, partial RoPE, softmax-row, and GQA attention wrappers validate dimensions, sequence windows, tensor lengths, and product overflow before launch.
 
 These guards are part of the current backend baseline and should stay with the NVIDIA runtime package as it continues to be refined.
