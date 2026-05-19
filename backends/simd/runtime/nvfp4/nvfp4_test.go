@@ -86,17 +86,25 @@ func TestDequantNVFP4Synthetic(t *testing.T) {
 }
 
 func TestGemvNVFP4MatchesDequantizedReference(t *testing.T) {
-	qw := syntheticNVFP4Weight()
-	x := []float32{1, -1, 2, -2, 0.5, -0.5, 3, -3, 1, 1, 1, 1, -1, -1, -1, -1}
-	wantWeights := DequantNVFP4(qw)
-	want := float32(0)
-	for i, w := range wantWeights {
-		want += w * x[i]
-	}
-	got := []float32{123}
-	GemvNVFP4(got, x, qw)
-	if math.Abs(float64(got[0]-want)) > 1e-6 {
-		t.Fatalf("GemvNVFP4=%v want %v", got[0], want)
+	for _, qw := range []*NVFP4Weight{syntheticNVFP4Weight(), syntheticOddGroupNVFP4Weight()} {
+		t.Run("groupSize", func(t *testing.T) {
+			x := []float32{1, -1, 2, -2, 0.5, -0.5, 3, -3, 1, 1, 1, 1, -1, -1, -1, -1}
+			x = x[:qw.InDim]
+			wantWeights := DequantNVFP4(qw)
+			want := make([]float32, qw.OutDim)
+			for row := 0; row < qw.OutDim; row++ {
+				for col := 0; col < qw.InDim; col++ {
+					want[row] += wantWeights[row*qw.InDim+col] * x[col]
+				}
+			}
+			got := make([]float32, qw.OutDim)
+			GemvNVFP4(got, x, qw)
+			for i := range want {
+				if math.Abs(float64(got[i]-want[i])) > 1e-6 {
+					t.Fatalf("GemvNVFP4[%d]=%v want %v", i, got[i], want[i])
+				}
+			}
+		})
 	}
 }
 
@@ -135,6 +143,20 @@ func syntheticNVFP4Weight() *NVFP4Weight {
 		InDim:        16,
 		Groups:       1,
 		GroupSize:    16,
+	}
+}
+
+func syntheticOddGroupNVFP4Weight() *NVFP4Weight {
+	return &NVFP4Weight{
+		// Six values split into two odd-sized groups. This catches nibble selection
+		// when a group starts on a high nibble rather than a byte boundary.
+		Weight:       []byte{0x10, 0x32, 0x54},
+		WeightScale:  []byte{0x38, 0x40}, // 1.0, 2.0
+		WeightScale2: 0.5,
+		OutDim:       1,
+		InDim:        6,
+		Groups:       2,
+		GroupSize:    3,
 	}
 }
 

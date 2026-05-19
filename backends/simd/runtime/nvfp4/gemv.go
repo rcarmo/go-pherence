@@ -48,12 +48,13 @@ func gemvNVFP4Rows(out, x []float32, qw *NVFP4Weight, start, end int) {
 			scale := DecodeF8E4M3(qw.WeightScale[rowScale+group]) * qw.WeightScale2
 			groupStart := group * qw.GroupSize
 			groupEnd := groupStart + qw.GroupSize
-			for col := groupStart; col < groupEnd; col += 2 {
+			for col := groupStart; col < groupEnd; col++ {
 				b := qw.Weight[rowPacked+col/2]
-				sum += DecodeFP4E2M1(b&0x0f) * scale * x[col]
-				if col+1 < groupEnd {
-					sum += DecodeFP4E2M1(b>>4) * scale * x[col+1]
+				code := b & 0x0f
+				if col%2 == 1 {
+					code = b >> 4
 				}
+				sum += DecodeFP4E2M1(code) * scale * x[col]
 			}
 		}
 		out[row] = sum
