@@ -17,27 +17,35 @@ func TestDecodeFP4E2M1Codebook(t *testing.T) {
 
 func TestDecodeF8E4M3(t *testing.T) {
 	cases := []struct {
+		name string
 		code byte
 		want float32
 	}{
-		{0x00, 0},
-		{0x01, 1.0 / 512},
-		{0x08, 1.0 / 64},
-		{0x38, 1},
-		{0x3c, 1.5},
-		{0x40, 2},
-		{0x78, 256},
-		{0x7e, 448},
-		{0xb8, -1},
+		{name: "positive zero", code: 0x00, want: 0},
+		{name: "negative zero", code: 0x80, want: float32(math.Copysign(0, -1))},
+		{name: "min positive subnormal", code: 0x01, want: 1.0 / 512},
+		{name: "negative subnormal", code: 0x81, want: -1.0 / 512},
+		{name: "largest subnormal", code: 0x07, want: 7.0 / 512},
+		{name: "min normal", code: 0x08, want: 1.0 / 64},
+		{name: "one", code: 0x38, want: 1},
+		{name: "one point five", code: 0x3c, want: 1.5},
+		{name: "two", code: 0x40, want: 2},
+		{name: "large normal", code: 0x78, want: 256},
+		{name: "largest finite", code: 0x7e, want: 448},
+		{name: "negative normal", code: 0xb8, want: -1},
 	}
 	for _, tc := range cases {
-		got := DecodeF8E4M3(tc.code)
-		if math.Abs(float64(got-tc.want)) > 1e-7 {
-			t.Fatalf("DecodeF8E4M3(%#x)=%v want %v", tc.code, got, tc.want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			got := DecodeF8E4M3(tc.code)
+			if math.Abs(float64(got-tc.want)) > 1e-7 || math.Signbit(float64(got)) != math.Signbit(float64(tc.want)) {
+				t.Fatalf("DecodeF8E4M3(%#x)=%v want %v", tc.code, got, tc.want)
+			}
+		})
 	}
-	if got := DecodeF8E4M3(0x7f); !math.IsNaN(float64(got)) {
-		t.Fatalf("DecodeF8E4M3(0x7f)=%v, want NaN", got)
+	for _, code := range []byte{0x7f, 0xff} {
+		if got := DecodeF8E4M3(code); !math.IsNaN(float64(got)) {
+			t.Fatalf("DecodeF8E4M3(%#x)=%v, want NaN", code, got)
+		}
 	}
 }
 
