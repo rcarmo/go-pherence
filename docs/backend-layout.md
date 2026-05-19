@@ -26,13 +26,13 @@ The repository now uses backend-first ownership with operation/quantization subp
 
 ## Compatibility packages
 
-`runtime/quant` is now a compatibility layer for older model call sites. It re-exports or delegates to backend-owned quantization implementations:
+`runtime/quant` is now a compatibility layer for legacy/external call sites. Repository model and backend code import owning backend packages directly. The compatibility package re-exports or delegates to backend-owned quantization implementations:
 
 - MLX → `backends/mlx`
 - Q4/GPTQ → `backends/simd/runtime/q4`
 - NVFP4 → `backends/simd/runtime/nvfp4`
 
-New code should prefer backend packages directly unless it deliberately needs the compatibility API. See `docs/quant-import-audit.md` for the current remaining compatibility imports.
+New code should prefer backend packages directly unless it deliberately needs the legacy compatibility API. See `docs/quant-import-audit.md` for the current import-boundary status.
 
 ## Model layout
 
