@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 
-	"github.com/rcarmo/go-pherence/backends/simd"
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // FinishCPUDecodeStep applies the model's final decode norm, computes LM-head

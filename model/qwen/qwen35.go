@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/rcarmo/go-pherence/backends/simd"
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/tensor"
 )

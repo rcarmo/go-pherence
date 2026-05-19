@@ -8,7 +8,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/runtime/quant"
 
-	"github.com/rcarmo/go-pherence/backends/simd"
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // LoadSwitchMLXExperts loads a switch_mlp-style 3D packed tensor and

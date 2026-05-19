@@ -6,7 +6,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/runtime/quant"
 
-	"github.com/rcarmo/go-pherence/backends/simd"
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 func benchSeq(n int) []float32 {

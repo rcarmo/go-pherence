@@ -15,7 +15,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/rcarmo/go-pherence/backends/simd"
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 

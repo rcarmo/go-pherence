@@ -4,7 +4,7 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/simd"
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"gonum.org/v1/gonum/blas"
 	"gonum.org/v1/gonum/blas/blas32"
 	blasGonum "gonum.org/v1/gonum/blas/gonum"
