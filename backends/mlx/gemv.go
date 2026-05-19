@@ -7,9 +7,15 @@ func Gemv(out, x []float32, qw *QuantWeight) {
 		return
 	}
 	if qw.Bits == 4 && qw.GroupSize%8 == 0 {
-		gemv4(out, x, qw)
+		// Dispatch hook kept explicit so AVX2/NEON MLX4 kernels can be wired
+		// without changing callers. Scalar remains active until hasGemv4Asm flips.
+		gemv4Scalar(out, x, qw)
 		return
 	}
+	gemvScalar(out, x, qw)
+}
+
+func gemvScalar(out, x []float32, qw *QuantWeight) {
 	packFactor := 32 / qw.Bits
 	mask := uint32((1 << qw.Bits) - 1)
 
@@ -40,7 +46,7 @@ func Gemv(out, x []float32, qw *QuantWeight) {
 	}
 }
 
-func gemv4(out, x []float32, qw *QuantWeight) {
+func gemv4Scalar(out, x []float32, qw *QuantWeight) {
 	packedPerRow := qw.InDim / 8
 	packsPerGroup := qw.GroupSize / 8
 	var groupXSumsStack [256]float32
