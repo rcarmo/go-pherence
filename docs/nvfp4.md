@@ -112,19 +112,14 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
 - Done: expert-slot sizing is now based on one NVFP4 expert's gate/up/down projection bytes and exposes a budget-to-slot recommendation helper for Qwen3 MoE cache policy experiments.
 - Done: metadata-only Qwen3-30B-A3B-NVFP4 placement sizing estimates about 1188 MB resident, 324 MB for a full layer expert set, 2.53 MB per expert slot, and about 202 slots in a 512 MiB expert cache, without downloading weight shards.
 
-## Roadmap insertion
+## Roadmap status
 
-1. **Recon** — download or inspect metadata for one Qwen3 dense, one Qwen3 MoE,
-   and one Gemma4 NVFP4 checkpoint; document tensor names/shapes/metadata.
-2. **Detection** — add loader detection and explicit unsupported-format errors so
-   NVFP4 checkpoints fail clearly instead of being mistaken for MLX/GPTQ.
-3. **CPU decode prototype** — correctness-first unpack/dequant tests.
-4. **NVIDIA prototype** — dequant/GEMV path first; native NVFP4 tensor-core path
-   later and hardware-gated.
-5. **MoE integration** — combine NVFP4 expert weights with expert cache/prefetch
-   redesign for Qwen3 MoE.
-6. **Budget integration** — placement/memory reports include NVFP4 tensor class
-   and metadata overhead.
+1. **Recon** — done for representative Qwen3 dense, Qwen3 MoE, and Gemma4 NVFP4 metadata; tensor names/shapes/metadata are documented above.
+2. **Detection** — done: loader/config detects NVFP4/FP4 metadata and public loading fails explicitly instead of treating it as MLX/GPTQ.
+3. **CPU decode prototype** — done: correctness-first unpack/dequant/GEMV paths and synthetic logits tests live under `backends/simd/runtime/nvfp4`.
+4. **NVIDIA prototype** — partial: raw upload, dequant-to-F32, dense GEMV fallback, and native tensor-core capability gates are in place; packed/native kernels remain pending.
+5. **MoE integration** — pending: combine NVFP4 expert weights with expert cache/prefetch redesign for Qwen3 MoE.
+6. **Budget integration** — done: placement/memory reports include NVFP4 tensor class and metadata overhead.
 
 ## Validation policy
 

@@ -95,7 +95,7 @@ AVX2+FMA (amd64) and NEON (arm64) assembly for the core CPU hot paths:
 | **BF16 Widen** | VPMOVZXWD+VPSLLD | USHLL+SHL | 292ns / 3584 elements |
 | **SiLU×Mul** | Go (exp not SIMD) | Go fallback | |
 
-Public SIMD entrypoints are runtime-gated with scalar fallback. Recent recent cleanup keeps `backends/simd/runtime` as the public facade, splits scalar dot/SAXPY fallbacks into `scalar.go`, uses precise scalar sqrt/dimension guards, avoids assembly dispatch for empty vector/BF16 slices, keeps GEBP packing scratch per call, and checks SGEMM/GEBP/gather byte offsets before unsafe pointer arithmetic. Remaining CPU gaps include true AVX2/NEON fused GELU/SiLU polynomial kernels, RoPEPartial kernels, and MLX/GPTQ Q4 assembly kernels.
+Public SIMD entrypoints are runtime-gated with scalar fallback. Recent cleanup keeps `backends/simd/runtime` as the public facade, routes activation/RoPE compatibility helpers through backend-owned kernels, uses precise scalar sqrt/dimension guards, avoids assembly dispatch for empty vector/BF16 slices, keeps GEBP packing scratch per call, and checks SGEMM/GEBP/gather byte offsets before unsafe pointer arithmetic. Remaining CPU gaps include true AVX2/NEON fused GELU/SiLU polynomial kernels, RoPEPartial kernels, and MLX/GPTQ Q4 assembly kernels.
 
 ### Native BF16
 
@@ -239,7 +239,7 @@ Current package ownership is organized around explicit loader/runtime/backend bo
 
 ### Validation / Hardening Status
 
-Recent recent audit passes made malformed-input behavior explicit across the shared runtime layers:
+Recent audit passes made malformed-input behavior explicit across the shared runtime layers:
 
 - `tensor/` validates shapes, reductions, broadcasting, unsafe float32 views, realization internals, rewrite/fusion graphs, pooled allocations, NN helpers, convenience ops, embeddings, matmul/linear helpers, and module wrappers.
 - `runtime/quant` compatibility wrappers validate MLX/GPTQ/Q4 tensor layouts, checked shape/expected-size/dequant output arithmetic, NVFP4 unpack/dequant bounds without overflow-prone packed-count multiplication, and no-ops or returns nil on malformed in-memory weights.

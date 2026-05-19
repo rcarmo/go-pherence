@@ -102,16 +102,16 @@ The expected benefit requires replacing `backend=replay` with a stateful/KV-reus
 
 ## NVFP4 / FP4 watchlist
 
-NVFP4 is now a roadmap item rather than an implemented format. Public Hugging
+NVFP4 is now an experimental/internal format track, not a public generation path. Public Hugging
 Face searches found relevant checkpoints including `nvidia/Qwen3-8B-NVFP4`,
 `NVFP4/Qwen3-32B-FP4`, `nvidia/Qwen3-30B-A3B-NVFP4`,
 `nvidia/Gemma-4-31B-IT-NVFP4`, and community Gemma4 26B-A4B NVFP4 artifacts.
 See [nvfp4.md](nvfp4.md) for the support track.
 
-Implementation priority should be metadata/detection first, then a
-correctness-first CPU dequant path, then NVIDIA upload/GEMV/GEMM. For Qwen3 MoE,
-NVFP4 must be evaluated together with expert-cache/prefetch redesign because the
-current bottleneck is cold-miss upload rather than only arithmetic throughput.
+Metadata detection, correctness-first CPU decode/GEMV, NVIDIA raw upload, and
+NVIDIA dequant-to-F32/GEMV fallback scaffolding are in place. Packed/native
+GEMV/GEMM and Qwen3 MoE expert-cache integration remain future work, and public
+loading stays gated until real checkpoint logits/tokens agree.
 
 ## MLX vs GPTQ on GPU
 
