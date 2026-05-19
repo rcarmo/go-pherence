@@ -115,14 +115,15 @@ func UploadBF16LMHead(weightRaw []byte, vocab, h int) (*Buffer, error) {
 	if !SgemmReady() {
 		return nil, nil
 	}
-	if vocab <= 0 || h <= 0 || len(weightRaw) < vocab*h*2 {
+	weightBytes, ok := checkedBF16MatrixBytes(vocab, h)
+	if !ok || len(weightRaw) < weightBytes {
 		return nil, nil
 	}
-	wBuf, err := Malloc(f32SlotsForBytes(vocab * h * 2))
+	wBuf, err := Malloc(f32SlotsForBytes(weightBytes))
 	if err != nil {
 		return nil, err
 	}
-	if err := wBuf.UploadBytes(weightRaw[:vocab*h*2]); err != nil {
+	if err := wBuf.UploadBytes(weightRaw[:weightBytes]); err != nil {
 		wBuf.Free()
 		return nil, err
 	}
@@ -133,7 +134,8 @@ func BF16LMHeadWithBuffer(logits []float32, wBuf *Buffer, x []float32, vocab, h 
 	if fnBF16LMHead == 0 || !SgemmReady() {
 		return nil
 	}
-	if vocab <= 0 || h <= 0 || wBuf == nil || len(x) < h || len(logits) < vocab || !fitsUint32(vocab) || !fitsUint32(h) {
+	weightBytes, ok := checkedBF16MatrixBytes(vocab, h)
+	if !ok || wBuf == nil || !hasPaddedByteCapacity(wBuf.Size, weightBytes) || len(x) < h || len(logits) < vocab || !fitsUint32(vocab) || !fitsUint32(h) {
 		return nil
 	}
 	xBuf, outBuf, unlock, err := bf16LMHeadScratchBuffers(h, vocab)
@@ -211,6 +213,18 @@ func BF16LMHead(logits []float32, weightRaw []byte, x []float32, vocab, h int) e
 	}
 	defer wBuf.Free()
 	return BF16LMHeadWithBuffer(logits, wBuf, x, vocab, h)
+}
+
+func checkedBF16MatrixBytes(rows, cols int) (int, bool) {
+	elements, ok := checkedMulInt(rows, cols)
+	if rows <= 0 || cols <= 0 || !ok {
+		return 0, false
+	}
+	maxInt := int(^uint(0) >> 1)
+	if elements > maxInt/2 {
+		return 0, false
+	}
+	return elements * 2, true
 }
 
 func validBF16Buffer(b *Buffer, n int) bool {
