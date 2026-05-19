@@ -46,6 +46,14 @@ func TestDequant(t *testing.T) {
 	}
 
 	out := Dequant(qw)
+	outTo := make([]float32, len(out)+1)
+	outTo[len(out)] = 123
+	if !DequantTo(outTo, qw) {
+		t.Fatal("DequantTo returned false for valid weight")
+	}
+	if outTo[len(out)] != 123 {
+		t.Fatalf("DequantTo mutated tail: %v", outTo)
+	}
 
 	// Verify: out[row][col] = val * scale + bias
 	for row := 0; row < outDim; row++ {
@@ -55,6 +63,9 @@ func TestDequant(t *testing.T) {
 			got := out[row*inDim+col]
 			if math.Abs(float64(got-expected)) > 1e-6 {
 				t.Fatalf("row=%d col=%d: got %f, want %f (val=%f)", row, col, got, expected, val)
+			}
+			if math.Abs(float64(outTo[row*inDim+col]-expected)) > 1e-6 {
+				t.Fatalf("DequantTo row=%d col=%d: got %f, want %f", row, col, outTo[row*inDim+col], expected)
 			}
 		}
 	}

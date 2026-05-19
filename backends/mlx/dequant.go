@@ -12,6 +12,28 @@ func Dequant(qw *QuantWeight) []float32 {
 		return nil
 	}
 	out := make([]float32, outLen)
+	if !DequantTo(out, qw) {
+		return nil
+	}
+	return out
+}
+
+// DequantTo dequantizes into caller-owned storage. The output layout is
+// [outDim, inDim] row-major. It returns false on malformed inputs or undersized
+// output.
+func DequantTo(out []float32, qw *QuantWeight) bool {
+	if err := ValidateQuantWeight(qw); err != nil {
+		return false
+	}
+	outLen, ok := checkedMulInt(qw.OutDim, qw.InDim)
+	if !ok || len(out) < outLen {
+		return false
+	}
+	dequantTo(out[:outLen], qw)
+	return true
+}
+
+func dequantTo(out []float32, qw *QuantWeight) {
 	packFactor := 32 / qw.Bits
 	mask := uint32((1 << qw.Bits) - 1)
 
@@ -34,5 +56,4 @@ func Dequant(qw *QuantWeight) []float32 {
 			}
 		}
 	}
-	return out
 }
