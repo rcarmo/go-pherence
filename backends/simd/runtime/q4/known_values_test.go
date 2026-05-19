@@ -48,6 +48,44 @@ func TestDequantAsymmetricKnownValues(t *testing.T) {
 	}
 }
 
+func TestGemvSymMatchesDequantSymReference(t *testing.T) {
+	const inDim, outDim = 16, 5
+	x := []float32{1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16}
+	qweight := make([]int32, (inDim/8)*outDim)
+	for pack := 0; pack < inDim/8; pack++ {
+		for j := 0; j < outDim; j++ {
+			vals := make([]int32, 8)
+			for bit := 0; bit < 8; bit++ {
+				vals[bit] = int32((pack*3 + j*5 + bit) & 0xf)
+			}
+			qweight[pack*outDim+j] = packNibbles(vals...)
+		}
+	}
+	gIdx := []int32{0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 0, 0}
+	scales := []float32{
+		0.25, 0.5, 0.75, 1, 1.25,
+		1.5, 1.75, 2, 2.25, 2.5,
+		-0.5, -0.25, 0.125, 0.375, 0.625,
+	}
+	out := []float32{99, 99, 99, 99, 99, 123}
+	GemvSym(out, x, qweight, gIdx, scales, inDim, outDim)
+	deq := DequantSym(qweight, gIdx, scales, inDim, outDim)
+	want := make([]float32, outDim)
+	for j := 0; j < outDim; j++ {
+		for i := 0; i < inDim; i++ {
+			want[j] += deq[j*inDim+i] * x[i]
+		}
+	}
+	for j := 0; j < outDim; j++ {
+		if out[j] != want[j] {
+			t.Fatalf("out[%d]=%g want %g (all=%v)", j, out[j], want[j], out)
+		}
+	}
+	if out[outDim] != 123 {
+		t.Fatalf("GemvSym mutated tail value: %v", out)
+	}
+}
+
 func TestGemvSymKnownValues(t *testing.T) {
 	const inDim, outDim = 8, 2
 	x := []float32{1, 2, 3, 4, 5, 6, 7, 8}
