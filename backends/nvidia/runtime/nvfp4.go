@@ -7,7 +7,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/runtime/quant"
+	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
 )
 
 var fnNVFP4DequantF32 CUfunction
@@ -125,7 +125,7 @@ type GPUNVFP4Weight struct {
 
 // UploadNVFP4Weight uploads the observed NVFP4 packed representation to GPU
 // memory without converting it to MLX/GPTQ. Kernel dispatch is added separately.
-func UploadNVFP4Weight(qw *quant.NVFP4Weight) (*GPUNVFP4Weight, error) {
+func UploadNVFP4Weight(qw *simdnvfp4.NVFP4Weight) (*GPUNVFP4Weight, error) {
 	var w *GPUNVFP4Weight
 	if err := UploadNVFP4WeightReuse(&w, qw); err != nil {
 		return nil, err
@@ -136,8 +136,8 @@ func UploadNVFP4Weight(qw *quant.NVFP4Weight) (*GPUNVFP4Weight, error) {
 // UploadNVFP4WeightReuse uploads qw into *dst, reusing sufficiently large
 // device buffers when possible. This is intended for transient streamed weights
 // where dimensions change but allocation churn is more expensive than copies.
-func UploadNVFP4WeightReuse(dst **GPUNVFP4Weight, qw *quant.NVFP4Weight) error {
-	if err := quant.ValidateNVFP4Weight(qw); err != nil {
+func UploadNVFP4WeightReuse(dst **GPUNVFP4Weight, qw *simdnvfp4.NVFP4Weight) error {
+	if err := simdnvfp4.ValidateNVFP4Weight(qw); err != nil {
 		return err
 	}
 	if !SgemmReady() {
@@ -196,8 +196,8 @@ func UploadNVFP4WeightReuse(dst **GPUNVFP4Weight, qw *quant.NVFP4Weight) error {
 	return nil
 }
 
-func uploadNVFP4WeightFresh(qw *quant.NVFP4Weight) (*GPUNVFP4Weight, error) {
-	if err := quant.ValidateNVFP4Weight(qw); err != nil {
+func uploadNVFP4WeightFresh(qw *simdnvfp4.NVFP4Weight) (*GPUNVFP4Weight, error) {
+	if err := simdnvfp4.ValidateNVFP4Weight(qw); err != nil {
 		return nil, err
 	}
 	if !SgemmReady() {
@@ -260,7 +260,7 @@ func (w *GPUNVFP4Weight) Free() {
 
 // DequantNVFP4ToF32 materializes a GPU-resident NVFP4 weight as row-major F32.
 // It first tries the CUDA dequant kernel, then falls back to downloading raw
-// buffers and reusing the runtime/quant reference dequantizer.
+// buffers and reusing the SIMD NVFP4 reference dequantizer.
 func DequantNVFP4ToF32(w *GPUNVFP4Weight) ([]float32, error) {
 	if !validGPUNVFP4Weight(w) {
 		return nil, fmt.Errorf("invalid GPU NVFP4 weight")
@@ -276,7 +276,7 @@ func DequantNVFP4ToF32(w *GPUNVFP4Weight) ([]float32, error) {
 	if err := w.WeightScale.Download(scalePacked); err != nil {
 		return nil, fmt.Errorf("download NVFP4 weight_scale: %w", err)
 	}
-	qw := &quant.NVFP4Weight{
+	qw := &simdnvfp4.NVFP4Weight{
 		Weight:        float32PackedAsBytes(weightPacked, w.WeightBytes),
 		WeightScale:   float32PackedAsBytes(scalePacked, w.ScaleBytes),
 		WeightScale2:  w.WeightScale2,
@@ -287,7 +287,7 @@ func DequantNVFP4ToF32(w *GPUNVFP4Weight) ([]float32, error) {
 		Groups:        w.Groups,
 		GroupSize:     w.GroupSize,
 	}
-	out := quant.DequantNVFP4(qw)
+	out := simdnvfp4.DequantNVFP4(qw)
 	if out == nil {
 		return nil, fmt.Errorf("dequantize NVFP4 fallback failed")
 	}
@@ -297,7 +297,7 @@ func DequantNVFP4ToF32(w *GPUNVFP4Weight) ([]float32, error) {
 // GemvNVFP4 computes dense out[outDim] = W_nvfp4[outDim,inDim] · x[inDim].
 // It keeps the hot path on-device: packed NVFP4 is dequantized into a transient
 // GPU F32 matrix and multiplied with SGEMM, downloading only the output vector.
-// If any CUDA step fails, callers can fall back to the CPU runtime/quant path.
+// If any CUDA step fails, callers can fall back to the CPU SIMD NVFP4 path.
 func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 	if !validGPUNVFP4Weight(w) {
 		return fmt.Errorf("invalid GPU NVFP4 weight")

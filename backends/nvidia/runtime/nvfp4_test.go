@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/rcarmo/go-pherence/runtime/quant"
+	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
 )
 
 func TestSupportsNativeNVFP4TensorCore(t *testing.T) {
@@ -128,7 +128,7 @@ func TestGemvNVFP4F32RejectsOverflowShape(t *testing.T) {
 
 func TestGemvNVFP4F32WithReferenceDequant(t *testing.T) {
 	qw := syntheticNVFP4Weight()
-	weights := quant.DequantNVFP4(qw)
+	weights := simdnvfp4.DequantNVFP4(qw)
 	x := []float32{1, -1, 2, -2, 0.5, -0.5, 3, -3, 4, -4, 1.5, -1.5, 2.5, -2.5, 0.25, -0.25}
 	want := make([]float32, 2)
 	for row := 0; row < qw.OutDim; row++ {
@@ -159,7 +159,7 @@ func TestGemvNVFP4CUDAMatchesCPU(t *testing.T) {
 	defer gw.Free()
 	x := []float32{1, -1, 2, -2, 0.5, -0.5, 3, -3, 4, -4, 1.5, -1.5, 2.5, -2.5, 0.25, -0.25}
 	want := make([]float32, qw.OutDim)
-	quant.GemvNVFP4(want, x, qw)
+	simdnvfp4.GemvNVFP4(want, x, qw)
 	got := make([]float32, qw.OutDim)
 	if err := GemvNVFP4(got, x, gw); err != nil {
 		t.Fatalf("GemvNVFP4: %v", err)
@@ -186,7 +186,7 @@ func TestDequantNVFP4ToF32CUDAMatchesCPU(t *testing.T) {
 	if !ok {
 		t.Skip("NVFP4 CUDA dequant kernel unavailable")
 	}
-	want := quant.DequantNVFP4(qw)
+	want := simdnvfp4.DequantNVFP4(qw)
 	if len(got) != len(want) {
 		t.Fatalf("len(got)=%d want %d", len(got), len(want))
 	}
@@ -197,8 +197,8 @@ func TestDequantNVFP4ToF32CUDAMatchesCPU(t *testing.T) {
 	}
 }
 
-func syntheticNVFP4Weight() *quant.NVFP4Weight {
-	return &quant.NVFP4Weight{
+func syntheticNVFP4Weight() *simdnvfp4.NVFP4Weight {
+	return &simdnvfp4.NVFP4Weight{
 		Weight: []byte{
 			0x10, 0x32, 0x54, 0x76, 0x98, 0xba, 0xdc, 0xfe,
 			0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01,

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
-	"github.com/rcarmo/go-pherence/runtime/quant"
+	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -125,7 +125,7 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 				verifyStart := time.Now()
 				qwen35GPUVerifyRemaining--
 				ref := make([]float32, outDim)
-				quant.GemvNVFP4(ref, x, q.W)
+				simdnvfp4.GemvNVFP4(ref, x, q.W)
 				var maxDiff float32
 				for i := range ref {
 					d := float32(math.Abs(float64(ref[i] - out[i])))
@@ -149,7 +149,7 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 		if qwen35LinearTiming {
 			start = time.Now()
 		}
-		quant.GemvNVFP4(out, x, q.W)
+		simdnvfp4.GemvNVFP4(out, x, q.W)
 		qwen35LinearStats.CPUCalls++
 		if qwen35LinearTiming {
 			qwen35LinearStats.CPUMillis += time.Since(start).Milliseconds()

@@ -32,7 +32,7 @@ The repository now uses backend-first ownership with operation/quantization subp
 - Q4/GPTQ → `backends/simd/runtime/q4`
 - NVFP4 → `backends/simd/runtime/nvfp4`
 
-New code should prefer backend packages directly unless it deliberately needs the compatibility API.
+New code should prefer backend packages directly unless it deliberately needs the compatibility API. See `docs/quant-import-audit.md` for the current remaining compatibility imports.
 
 ## Model layout
 

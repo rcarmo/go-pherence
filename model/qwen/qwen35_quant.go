@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
-	"github.com/rcarmo/go-pherence/runtime/quant"
 )
 
 type Qwen35RawTensorSource interface {
@@ -17,7 +17,7 @@ type Qwen35RawTensorSource interface {
 
 type Qwen35NVFP4Weight struct {
 	Name     string
-	W        *quant.NVFP4Weight
+	W        *simdnvfp4.NVFP4Weight
 	GPU      *nvidia.GPUNVFP4Weight
 	GPUBytes int64
 	LastUse  uint64
@@ -78,12 +78,12 @@ func LoadQwen35NVFP4Weight(src Qwen35RawTensorSource, name string, wantShape []i
 		return nil, err
 	}
 	inputScale, inputErr := loadQwen35ScalarF32(src, prefix+".input_scale")
-	qw := &quant.NVFP4Weight{Weight: raw, WeightScale: scale, WeightScale2: scale2, OutDim: wantShape[0], InDim: wantShape[1], Groups: groups, GroupSize: 16}
+	qw := &simdnvfp4.NVFP4Weight{Weight: raw, WeightScale: scale, WeightScale2: scale2, OutDim: wantShape[0], InDim: wantShape[1], Groups: groups, GroupSize: 16}
 	if inputErr == nil {
 		qw.InputScale = inputScale
 		qw.HasInputScale = true
 	}
-	if err := quant.ValidateNVFP4Weight(qw); err != nil {
+	if err := simdnvfp4.ValidateNVFP4Weight(qw); err != nil {
 		return nil, err
 	}
 	return &Qwen35NVFP4Weight{Name: actualName, W: qw}, nil
