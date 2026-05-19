@@ -79,6 +79,34 @@ func TestValidateRejectsMalformedInputs(t *testing.T) {
 	}
 }
 
+func TestDequantKnownValues(t *testing.T) {
+	inFeatures, outFeatures := 8, 2
+	packed0 := uint32(0xFEDCBA98)
+	packed1 := uint32(0x76543210)
+	qweight := []int32{int32(packed0), int32(packed1)}
+	gIdx := make([]int32, inFeatures)
+	scales := []float32{0.5, 2.0}
+	got := DequantSym(qweight, gIdx, scales, inFeatures, outFeatures)
+	if len(got) != inFeatures*outFeatures {
+		t.Fatalf("len=%d", len(got))
+	}
+	// output row 0 uses packed nibbles 8..15 with scale 0.5.
+	for i := 0; i < inFeatures; i++ {
+		want := float32(i) * 0.5
+		if got[i] != want {
+			t.Fatalf("row0[%d]=%g want %g", i, got[i], want)
+		}
+	}
+	// output row 1 uses packed nibbles 0..7 with scale 2.
+	row1 := got[inFeatures:]
+	for i := 0; i < inFeatures; i++ {
+		want := float32(i-8) * 2
+		if row1[i] != want {
+			t.Fatalf("row1[%d]=%g want %g", i, row1[i], want)
+		}
+	}
+}
+
 func TestDequantRejectsMalformedInputsWithoutPanic(t *testing.T) {
 	qw, qz, g, s, _, out := validGPTQInputs()
 	if got := Dequant(qw[:1], qz, g, s, 16, out, false); got != nil {
