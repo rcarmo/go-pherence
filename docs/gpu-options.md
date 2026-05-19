@@ -11,9 +11,9 @@ Primary GPU backend. 29 hand-written PTX kernels. Source strings are owned by `b
 | **Core GEMV** | sgemm_nn, gemv_q4sym, gemm_q4sym | GPTQ tiled + shared mem |
 | **MLX** | mlx_gemv, mlx_gemm, mlx_correct | Transposed layout + bias |
 | **Element-wise** | vec_add, vec_mul, vec_scale, vec_add_scaled, vec_silu | threshold-free |
-| **Fused** | fused_silu_mul, rms_norm, gelu_tanh_mul | reduced launch count |
-| **Norms** | rms_norm_no_scale, to_bf16_f32 | Gemma4 V-norm, BF16 trunc |
-| **Attention** | rope_apply, rope_partial, gqa_attention | precomputed cos/sin, scale param |
+| **Fused** | fused_silu_mul, rms_norm, gelu_tanh_mul | reduced launch count; standalone GELU/LayerNorm are not used by current model hot paths |
+| **Norms** | rms_norm_no_scale, to_bf16_f32 | Gemma4 V-norm, BF16 trunc; RMSNorm is the model-owned norm primitive |
+| **Attention** | rope_apply, rope_partial, row_softmax_debug, gqa_attention | precomputed cos/sin, scale param; standalone last-axis softmax is currently row-softmax only |
 | **Utility** | lm_head_gemv, prefetch_l2, vec_scale | 2D grid, L2 warming |
 | **BF16** | bf16_rms_norm, bf16_vec_add, bf16_silu_mul, bf16_gelu_tanh_mul | emulated (sm_80) |
 | **BF16 native** | native_bf16_rms_norm/vec_add/gemv | ld.b16+cvt (sm_86+) |
@@ -40,6 +40,14 @@ Portable backend for non-NVIDIA hardware. Vulkan code and shaders now live under
 - **Shaders**: GLSL/SPIR-V coverage for vector add, RMSNorm, GEMV, SiLU, attention score, RMSNormNoScale, RoPEPartial, and GELU paths
 - **BF16**: emulated via uint16 bitshift (no extensions needed)
 - **Status**: init + buffer path and embedded SPIR-V are present; Vulkan op dispatch wiring is still pending in Phase 3.6
+
+### Fused-only primitive decisions
+
+Current decoder hot paths do not justify separate NVIDIA LayerNorm or standalone GELU kernels:
+
+- LLaMA/Qwen/Gemma decoder blocks use RMSNorm/RMSNormNoScale, already covered by NVIDIA runtime wrappers.
+- GELU appears as the fused `gelu_tanh_mul` MLP activation path and Gemma4 per-layer-input gating path; no current production call site needs standalone GELU output materialization.
+- Softmax GPU coverage is row-oriented for attention scores (`row_softmax_debug`) plus fused GQA attention. A generic last-axis softmax wrapper remains future work only if a tensor/model path needs it beyond row-softmax.
 
 ## NVFP4 / FP4 Track
 

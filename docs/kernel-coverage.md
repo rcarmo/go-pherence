@@ -9,9 +9,9 @@ Legend: implemented means the package owns the runtime or reference implementati
 | Device buffers / launch | `backends/nvidia/runtime` | — | — | — | `backends/vulkan` | — |
 | SGEMM / F32 GEMV | `backends/nvidia/runtime` | `backends/nvidia/ptx/sgemm.go` | `backends/simd/runtime` | — | partial scaffold | — |
 | Vector add/mul/scale | `backends/nvidia/runtime` | `backends/nvidia/ptx/vector.go` | `backends/simd/runtime` | — | vec-add only | — |
-| Activations (SiLU/GELU fused) | `backends/nvidia/runtime` | `backends/nvidia/ptx/activation.go` | `backends/simd/runtime` wrappers including scalar GELU compatibility | `backends/simd/kernels/activation.go` and `gelu.go` scalar kernels | partial scaffold | — |
-| Norms | `backends/nvidia/runtime` | `backends/nvidia/ptx/norm.go` | `backends/simd/runtime` | `backends/simd/kernels/layernorm.go` | partial scaffold | — |
-| Softmax | `backends/nvidia/runtime` row softmax | `backends/nvidia/ptx/attention.go` | wrapper via kernels | `backends/simd/kernels/softmax.go` | — | — |
+| Activations (SiLU/GELU fused) | `backends/nvidia/runtime`; standalone GELU N/A for current model hot paths | `backends/nvidia/ptx/activation.go` | `backends/simd/runtime` wrappers including scalar GELU compatibility | `backends/simd/kernels/activation.go` and `gelu.go` scalar kernels | partial scaffold | — |
+| Norms | `backends/nvidia/runtime`; standalone LayerNorm N/A for current RMSNorm-based decoder paths | `backends/nvidia/ptx/norm.go` | `backends/simd/runtime` | `backends/simd/kernels/layernorm.go` | partial scaffold | — |
+| Softmax | `backends/nvidia/runtime` row softmax; generic last-axis wrapper N/A until a non-attention model path needs it | `backends/nvidia/ptx/attention.go` | wrapper via kernels | `backends/simd/kernels/softmax.go` | — | — |
 | RoPE | `backends/nvidia/runtime` | `backends/nvidia/ptx/attention.go` | `backends/simd/runtime` wrappers | `backends/simd/kernels/rope.go` scalar | partial scaffold | — |
 | GQA attention | `backends/nvidia/runtime` | `backends/nvidia/ptx/attention.go` | wrapper via kernels | `backends/simd/kernels/attention.go` | — | — |
 | BF16 | `backends/nvidia/runtime` | `backends/nvidia/ptx/bf16/` | `backends/simd/runtime/bf16` plus runtime facade | — | BF16 vec-add | — |
