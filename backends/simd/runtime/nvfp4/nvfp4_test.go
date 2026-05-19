@@ -78,9 +78,20 @@ func TestDequantNVFP4Synthetic(t *testing.T) {
 	if len(got) != len(want) {
 		t.Fatalf("len=%d want %d", len(got), len(want))
 	}
+	gotTo := make([]float32, len(got)+1)
+	gotTo[len(got)] = 123
+	if !DequantNVFP4To(gotTo, qw) {
+		t.Fatal("DequantNVFP4To returned false for valid weight")
+	}
+	if gotTo[len(got)] != 123 {
+		t.Fatalf("DequantNVFP4To mutated tail: %v", gotTo)
+	}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("got[%d]=%v want %v", i, got[i], want[i])
+		}
+		if gotTo[i] != want[i] {
+			t.Fatalf("DequantNVFP4To got[%d]=%v want %v", i, gotTo[i], want[i])
 		}
 	}
 }

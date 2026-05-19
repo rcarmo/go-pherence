@@ -13,10 +13,33 @@ func DequantNVFP4(qw *NVFP4Weight) []float32 {
 		return nil
 	}
 	out := make([]float32, outLen)
+	if !DequantNVFP4To(out, qw) {
+		return nil
+	}
+	return out
+}
+
+// DequantNVFP4To dequantizes into caller-owned storage. The output layout is
+// [outDim, inDim] row-major. It returns false on malformed inputs or undersized
+// output.
+func DequantNVFP4To(out []float32, qw *NVFP4Weight) bool {
+	if err := ValidateNVFP4Weight(qw); err != nil {
+		return false
+	}
+	outLen, ok := checkedMulInt(qw.OutDim, qw.InDim)
+	if !ok || len(out) < outLen {
+		return false
+	}
+	// Dispatch hook kept explicit so AVX2/NEON dequant kernels can be wired
+	// without changing callers. Scalar remains active until hasDequantAsm flips.
+	dequantNVFP4Scalar(out[:outLen], qw)
+	return true
+}
+
+func dequantNVFP4Scalar(out []float32, qw *NVFP4Weight) {
 	for row := 0; row < qw.OutDim; row++ {
 		for col := 0; col < qw.InDim; col++ {
 			out[row*qw.InDim+col] = nvfp4At(qw, row, col)
 		}
 	}
-	return out
 }

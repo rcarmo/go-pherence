@@ -11,6 +11,8 @@ func GemvNVFP4(out, x []float32, qw *NVFP4Weight) {
 	if err := ValidateNVFP4Weight(qw); err != nil || len(out) < qw.OutDim || len(x) < qw.InDim {
 		return
 	}
+	// Dispatch hook kept explicit so AVX2/NEON GEMV kernels can be wired without
+	// changing callers. Scalar/reference path remains active until hasGemvAsm flips.
 	workers := runtime.GOMAXPROCS(0)
 	// The CPU NVFP4 path is primarily a correctness/reference fallback. Avoid
 	// per-call goroutine allocation overhead for typical dense vectors; only
