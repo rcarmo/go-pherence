@@ -45,7 +45,7 @@ New code should prefer backend packages directly unless it deliberately needs th
 
 ## Test entrypoints
 
-`make test` tracks the current backend layout and runs loader, model, BERT, NVIDIA, placement, SIMD, Vulkan, runtime, and tensor packages. `make test-cpu` sets `GO_PHERENCE_DISABLE_NVIDIA=1` and keeps software Vulkan opt-in disabled to exercise CPU-only fallback behavior. Use `GOTMPDIR=$PWD/.gotmp go test ./...` for the full repository sweep in constrained `/tmp` environments.
+`make test` tracks the current backend layout and runs loader, model, BERT, NVIDIA, placement, SIMD, Vulkan, runtime, and tensor packages. `make test-cpu` sets `GO_PHERENCE_DISABLE_NVIDIA=1` and keeps software Vulkan opt-in disabled to exercise CPU-only fallback behavior. Use `GOTMPDIR=$PWD/.gotmp go test ./...` for the full repository sweep in constrained `/tmp` environments. Phase-level validation commands, benchmark refreshes, and hardware smoke-test policy are tracked in [validation-gates.md](validation-gates.md).
 
 ## Naming conventions
 
