@@ -43,6 +43,10 @@ New code should prefer backend packages directly unless it deliberately needs th
 | `model/qwen` | Qwen3.5/Qwen3.6 base model, native MTP, safetensors source helpers, NVFP4 GPU cache, and Qwen-specific tests. |
 | `model/gemma4` | Gemma4 diagnostic tests and Gemma4-specific investigation assets. |
 
+## Test entrypoints
+
+`make test` tracks the current backend layout and runs loader, model, BERT, NVIDIA, placement, SIMD, Vulkan, runtime, and tensor packages. Use `GOTMPDIR=$PWD/.gotmp go test ./...` for the full repository sweep in constrained `/tmp` environments.
+
 ## Naming conventions
 
 - Backend runtime wrappers live in `runtime` subpackages.
