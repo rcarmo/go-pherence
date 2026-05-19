@@ -208,13 +208,13 @@ func BenchmarkCPUHotDequantQ4Sym1536x2048(b *testing.B) {
 	for i := range scales {
 		scales[i] = 0.01
 	}
+	out := make([]float32, inDim*outDim)
 	b.ReportAllocs()
 	b.SetBytes(int64(inDim * outDim * 4))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		out := simdq4.DequantSym(qweight, gIdx, scales, inDim, outDim)
-		if len(out) != inDim*outDim {
-			b.Fatalf("dequant len=%d", len(out))
+		if !simdq4.DequantSymTo(out, qweight, gIdx, scales, inDim, outDim) {
+			b.Fatal("DequantSymTo returned false")
 		}
 	}
 }

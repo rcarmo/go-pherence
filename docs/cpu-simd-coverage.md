@@ -74,7 +74,7 @@ BenchmarkCPUHotRoPEQwenFull             ~6.1 µs/op, 0 allocs
 BenchmarkCPUHotGQAAttentionDecode512    ~0.25 ms/op, 0 allocs  (caller-owned scratch + Sdot/Saxpy)
 BenchmarkCPUHotGemvMLX1536x2048         ~2.0 ms/op, 0 allocs
 BenchmarkCPUHotGemvQ4Sym1536x2048       snapshot pending after Phase 3 validation
-BenchmarkCPUHotDequantQ4Sym1536x2048    snapshot pending after Phase 3 validation
+BenchmarkCPUHotDequantQ4Sym1536x2048    snapshot pending after Phase 3 validation, caller-owned output / 0 alloc target
 ```
 
 ## Immediate next steps
