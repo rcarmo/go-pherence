@@ -6,7 +6,7 @@ Legend: implemented means the package owns the runtime or reference implementati
 
 | Primitive / format | NVIDIA runtime | NVIDIA PTX | SIMD runtime | SIMD kernels | Vulkan | MLX backend |
 |---|---|---|---|---|---|---|
-| Device buffers / launch | `backends/nvidia/runtime` | — | — | — | `backends/vulkan` | — |
+| Device buffers / launch | `backends/nvidia/runtime` | — | — | — | `backends/vulkan`; see `docs/vulkan-dispatch-inventory.md` for shader/wrapper inventory | — |
 | SGEMM / F32 GEMV | `backends/nvidia/runtime` | `backends/nvidia/ptx/sgemm.go` | `backends/simd/runtime` | — | partial scaffold | — |
 | Vector add/mul/scale | `backends/nvidia/runtime` | `backends/nvidia/ptx/vector.go` | `backends/simd/runtime` | — | vec-add only | — |
 | Activations (SiLU/GELU fused) | `backends/nvidia/runtime`; standalone GELU N/A for current model hot paths | `backends/nvidia/ptx/activation.go` | `backends/simd/runtime` wrappers including scalar GELU compatibility | `backends/simd/kernels/activation.go` and `gelu.go` scalar kernels | partial scaffold | — |
