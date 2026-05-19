@@ -68,24 +68,49 @@ func BenchmarkCPUHotVecScale3584(b *testing.B) {
 }
 
 func BenchmarkCPUHotRoPEPartialGemma4SWA(b *testing.B) {
-	numHeads := 8
-	headDim := 256
-	rotHalf := 128
+	benchmarkCPUHotRoPEPartial(b, 8, 256, 128, 2048, 10000)
+}
+
+func BenchmarkCPUHotRoPEPartialGemma4Full(b *testing.B) {
+	benchmarkCPUHotRoPEPartial(b, 8, 512, 64, 2048, 1000000)
+}
+
+func BenchmarkCPUHotRoPEQwenFull(b *testing.B) {
+	numHeads := 32
+	headDim := 128
+	rotHalf := headDim / 2
+	maxSeq := 2048
 	x := benchSeq(numHeads * headDim)
-	freqs := make([]float32, 2048*rotHalf*2)
-	for pos := 0; pos < 2048; pos++ {
-		for i := 0; i < rotHalf; i++ {
-			angle := float64(pos) / math.Pow(10000.0, float64(2*i)/float64(headDim))
-			freqs[(pos*rotHalf+i)*2] = float32(math.Cos(angle))
-			freqs[(pos*rotHalf+i)*2+1] = float32(math.Sin(angle))
-		}
-	}
+	freqs := ropeBenchFreqs(maxSeq, rotHalf, headDim, 1000000)
 	b.ReportAllocs()
 	b.SetBytes(int64(numHeads * rotHalf * 2 * 4))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		applyRoPEPartial(x, freqs, i&2047, numHeads, headDim, rotHalf)
+		applyRoPE(x, freqs, i&(maxSeq-1), numHeads, headDim)
 	}
+}
+
+func benchmarkCPUHotRoPEPartial(b *testing.B, numHeads, headDim, rotHalf, maxSeq int, theta float64) {
+	x := benchSeq(numHeads * headDim)
+	freqs := ropeBenchFreqs(maxSeq, rotHalf, headDim, theta)
+	b.ReportAllocs()
+	b.SetBytes(int64(numHeads * rotHalf * 2 * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		applyRoPEPartial(x, freqs, i&(maxSeq-1), numHeads, headDim, rotHalf)
+	}
+}
+
+func ropeBenchFreqs(maxSeq, rotHalf, headDim int, theta float64) []float32 {
+	freqs := make([]float32, maxSeq*rotHalf*2)
+	for pos := 0; pos < maxSeq; pos++ {
+		for i := 0; i < rotHalf; i++ {
+			angle := float64(pos) / math.Pow(theta, float64(2*i)/float64(headDim))
+			freqs[(pos*rotHalf+i)*2] = float32(math.Cos(angle))
+			freqs[(pos*rotHalf+i)*2+1] = float32(math.Sin(angle))
+		}
+	}
+	return freqs
 }
 
 func BenchmarkCPUHotGQAAttentionDecode512(b *testing.B) {

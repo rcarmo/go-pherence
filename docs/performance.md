@@ -32,6 +32,9 @@ Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GE
 | MLX4 GEMV | ~2.0 ms | 0 allocs | scalar `backends/mlx` path with stack group x-sum scratch for common group counts |
 | Q4/GPTQ symmetric GEMV | ~6.4 ms | 0 allocs | scalar `backends/simd/runtime/q4` path |
 | NVFP4 GEMV | ~9.8 ms | 0 allocs | correctness-first `backends/simd/runtime/nvfp4` path with grouped scale decode and odd group-boundary correctness |
+| Gemma4 SWA RoPEPartial | ~2.6 µs | 0 allocs | scalar `backends/simd/kernels` path, 8 heads × 256 head dim × 128 rotated pairs |
+| Gemma4 full RoPEPartial | ~1.7 µs | 0 allocs | scalar `backends/simd/kernels` path, 8 heads × 512 head dim × 64 rotated pairs |
+| Qwen full RoPE | ~6.1 µs | 0 allocs | scalar `backends/simd/kernels` path, 32 heads × 128 head dim |
 
 ## SIMD Microbenchmarks (3584 elements, i7-12700)
 
