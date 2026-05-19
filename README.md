@@ -275,6 +275,7 @@ Phase-level validation commands live in [docs/validation-gates.md](docs/validati
 - **[docs/development-log.md](docs/development-log.md)** — build process
 - **[docs/refactor-plan.md](docs/refactor-plan.md)** — current source-tree refactor status and remaining cleanup plan
 - **[docs/validation-gates.md](docs/validation-gates.md)** — phase-level validation commands and benchmark refresh policy
+- **[docs/final-coverage-acceptance.md](docs/final-coverage-acceptance.md)** — final backend coverage acceptance tracker
 
 ## License
 
