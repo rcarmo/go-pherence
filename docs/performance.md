@@ -19,7 +19,7 @@ Hardware: RTX 3060 12GB (sm_86, Ampere) + i7-12700 6-core + 64GB DDR4
 
 ## CPU hot primitive benchmarks
 
-Synthetic backend-owner benchmarks live in `model/cpu_hotpath_bench_test.go` and can be run with:
+Synthetic backend-owner benchmarks live in `model/cpu_hotpath_bench_test.go` and should be refreshed at phase validation time (see [validation-gates.md](validation-gates.md)). They can be run with:
 
 ```bash
 go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem

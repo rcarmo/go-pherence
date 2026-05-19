@@ -30,7 +30,7 @@ See also:
 
 ## Current validation gate
 
-Use the workspace temp directory on this container:
+Phase-level validation details live in [validation-gates.md](validation-gates.md). Use the workspace temp directory on this container:
 
 ```sh
 GOTMPDIR=/workspace/tmp/go-pherence-gotmp go test ./...
