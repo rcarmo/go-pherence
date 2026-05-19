@@ -249,29 +249,31 @@ Recent audit passes made malformed-input behavior explicit across the shared run
 - `loader/safetensors` validates dtype byte sizes against shapes/offsets at open time; file/sharded helpers are nil-safe, names are sorted deterministically, partial sharded opens clean up already-open shards, sharded eager-load totals are checked, tokenizer byte maps are initialized with `sync.Once`, and malformed tokenizer BPE merges are rejected.
 - Transitional `model` helpers validate MTP token/KV keep counts, model-aware MTP verifier plan/logit/activation dimensions, shared-KV verifier sources, MTP acceptance consistency before KV commit, alias-safe MTP drafter projection sizing, q-only drafter external-KV/layer dimensions, bounded multi-draft counts, speculative stats overflow/rollback paths, zero-count state copy semantics, CPU decode final norm/LM-head dimensions, CPU generation allocation setup, MoE edge cases, embedding/LM-head/per-layer input backing data, chunked LM-head and batched-prefill dimensions, CPU forward-layer entrypoints, model-specific KV width overflow, and low-level GEMV/GQA product arithmetic; loader/prefill/GPU placement diagnostics are quiet unless `GO_PHERENCE_LOAD_DEBUG` or `GO_PHERENCE_PREFILL_DEBUG` is set.
 
-Fast refactor validation remains focused to avoid accidentally loading large local model fixtures:
-
-```bash
-go test ./tensor -count=1
-go test ./backends/... ./loader/... ./runtime/... ./models/bert ./tensor ./cmd/... -run '^$'
-go vet ./...
-```
+Phase-level validation commands live in [docs/validation-gates.md](docs/validation-gates.md) so backend coverage work can batch tests and benchmark refreshes deliberately.
 
 ## Documentation
 
 - **[docs/architecture.md](docs/architecture.md)** — UOp graph, fusion, SIMD dispatch
 - **[docs/backend-layout.md](docs/backend-layout.md)** — current backend/model ownership and package layout
 - **[docs/kernel-coverage.md](docs/kernel-coverage.md)** — kernel and quantization coverage across backends
+- **[docs/backend-parity-matrix.md](docs/backend-parity-matrix.md)** — scalar/reference parity targets and hardware-gated test policy
+- **[docs/malformed-input-coverage.md](docs/malformed-input-coverage.md)** — malformed-input coverage tracker for exported backend wrappers
 - **[docs/gemma4-precision.md](docs/gemma4-precision.md)** — Gemma4 GPU correctness & precision
 - **[docs/weight-budget.md](docs/weight-budget.md)** — tiered weight budget manager (ds4-inspired)
 - **[docs/nvfp4.md](docs/nvfp4.md)** — NVFP4/FP4 support track and relevant Gemma/Qwen checkpoint findings
+- **[docs/nvidia-quant-boundaries.md](docs/nvidia-quant-boundaries.md)** — NVIDIA Q4/NVFP4 support boundaries and deferred native paths
+- **[docs/bf16-parity.md](docs/bf16-parity.md)** — BF16 CPU/NVIDIA parity expectations
 - **[docs/mtp-speculative.md](docs/mtp-speculative.md)** — Gemma4/Qwen3.6 MTP research plus current internal implementation status
 - **[docs/orthrus.md](docs/orthrus.md)** — Orthrus analysis and stock-weight speculative decoding scaffold/benchmark notes
 - **[docs/qwen36-mtp.md](docs/qwen36-mtp.md)** — Qwen3.6 27B native MTP checkpoint findings and shortest implementation path
 - **[docs/performance.md](docs/performance.md)** — benchmarks, kernel timings
+- **[docs/benchmark-snapshot-queue.md](docs/benchmark-snapshot-queue.md)** — benchmark entrypoints and pending snapshot refresh queue
 - **[docs/gpu-options.md](docs/gpu-options.md)** — GPU compute paths (NVIDIA, Vulkan)
+- **[docs/vulkan-dispatch-inventory.md](docs/vulkan-dispatch-inventory.md)** — Vulkan shader/wrapper inventory
+- **[docs/vulkan-validation-plan.md](docs/vulkan-validation-plan.md)** — Vulkan pipeline wiring and parity-test plan
 - **[docs/development-log.md](docs/development-log.md)** — build process
 - **[docs/refactor-plan.md](docs/refactor-plan.md)** — current source-tree refactor status and remaining cleanup plan
+- **[docs/validation-gates.md](docs/validation-gates.md)** — phase-level validation commands and benchmark refresh policy
 
 ## License
 
