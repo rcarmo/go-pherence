@@ -14,10 +14,10 @@ func TestSiLUAndSiLUMulGolden(t *testing.T) {
 	SiLUMul(mul, a, b)
 	for i, x := range a {
 		want := x / (1 + float32(math.Exp(float64(-x))))
-		if math.Abs(float64(silu[i]-want)) > 1e-6 {
+		if math.Abs(float64(silu[i]-want)) > ActivationReferenceTolerance {
 			t.Fatalf("SiLU[%d]=%g want %g", i, silu[i], want)
 		}
-		if math.Abs(float64(mul[i]-want*b[i])) > 1e-6 {
+		if math.Abs(float64(mul[i]-want*b[i])) > ActivationReferenceTolerance {
 			t.Fatalf("SiLUMul[%d]=%g want %g", i, mul[i], want*b[i])
 		}
 	}
@@ -34,10 +34,10 @@ func TestGELUTanhAndMulGolden(t *testing.T) {
 		x3 := x * x * x
 		inner := float32(0.7978845608) * (x + 0.044715*x3)
 		want := 0.5 * x * (1 + float32(math.Tanh(float64(inner))))
-		if math.Abs(float64(gelu[i]-want)) > 1e-6 {
+		if math.Abs(float64(gelu[i]-want)) > ActivationReferenceTolerance {
 			t.Fatalf("GELUTanh[%d]=%g want %g", i, gelu[i], want)
 		}
-		if math.Abs(float64(mul[i]-want*b[i])) > 1e-6 {
+		if math.Abs(float64(mul[i]-want*b[i])) > ActivationReferenceTolerance {
 			t.Fatalf("GELUTanhMul[%d]=%g want %g", i, mul[i], want*b[i])
 		}
 	}

@@ -2,6 +2,16 @@ package kernels
 
 import "math"
 
+const (
+	// ActivationReferenceTolerance is the scalar/reference tolerance used for
+	// exact Go math paths and golden tests.
+	ActivationReferenceTolerance float64 = 1e-6
+	// ActivationApproxTolerance is the maximum absolute error budget for future
+	// AVX2/NEON polynomial approximations against the scalar reference. Keep this
+	// explicit so optimized paths cannot silently loosen correctness expectations.
+	ActivationApproxTolerance float64 = 1e-4
+)
+
 func SiLU(dst, a []float32) {
 	n := len(dst)
 	if len(a) < n {

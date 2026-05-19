@@ -14,8 +14,8 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 | Residual add | `simd.VecAdd` | ✅ | ✅ | Decoder and `ForwardLayer` use wrapper |
 | Residual + scale | `simd.VecScaleAdd` / `simd.VecScale` | ✅ | ✅ | Gemma4 layer scalar now uses `VecScale` |
 | `ToBF16` | `simd.ToBF16` | ✅ | ✅ | Used for Gemma3/4 truncation semantics |
-| SiLU × Mul | `simd.VecSiLUMul` wrapper → `backends/simd/kernels.SiLUMul` scalar kernel | wrapper only | wrapper only | Ownership moved to SIMD kernels; candidate for polynomial SIMD approximation |
-| GELU(tanh) × Mul | `simd.GELUTanhMul` wrapper → `backends/simd/kernels.GELUTanhMul` scalar kernel | wrapper only | wrapper only | Ownership moved to SIMD kernels; AVX2/NEON approximation pending |
+| SiLU × Mul | `simd.VecSiLUMul` wrapper → `backends/simd/kernels.SiLUMul` scalar kernel | wrapper only | wrapper only | Ownership moved to SIMD kernels; future SIMD approximation tolerance: max abs `1e-4` vs scalar |
+| GELU(tanh) × Mul | `simd.GELUTanhMul` wrapper → `backends/simd/kernels.GELUTanhMul` scalar kernel | wrapper only | wrapper only | Ownership moved to SIMD kernels; future SIMD approximation tolerance: max abs `1e-4` vs scalar |
 | RoPE | `backends/simd/runtime.ApplyRoPE` explicit dispatch hook → scalar kernel | ❌ | ❌ | Ownership moved to SIMD; `HasRoPE=false` until vectorized pair rotation lands |
 | RoPEPartial | `backends/simd/runtime.ApplyRoPEPartial` explicit dispatch hook → scalar kernel | ❌ | ❌ | Ownership moved to SIMD; high priority for Gemma4 CPU path |
 | GQA attention scores | `simd.Sdot` per head/token | ✅ | ✅ | Intermediate improvement; still allocates scores per head |
@@ -63,8 +63,8 @@ go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 
 ```text
 BenchmarkCPUHotRMSNorm3584              ~0.50 µs/op, 0 allocs
-BenchmarkCPUHotGELUTanhMul8192          ~187 µs/op, 0 allocs
-BenchmarkCPUHotSiLUMul8192              ~69 µs/op, 0 allocs
+BenchmarkCPUHotGELUTanhMul8192          ~83 µs/op, 0 allocs
+BenchmarkCPUHotSiLUMul8192              ~55 µs/op, 0 allocs
 BenchmarkCPUHotVecScale3584             ~0.17 µs/op, 0 allocs
 BenchmarkCPUHotRoPEPartialGemma4SWA     ~2.6 µs/op, 0 allocs
 BenchmarkCPUHotRoPEPartialGemma4Full    ~1.7 µs/op, 0 allocs

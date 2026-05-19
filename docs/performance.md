@@ -35,6 +35,8 @@ Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GE
 | Gemma4 SWA RoPEPartial | ~2.6 µs | 0 allocs | scalar `backends/simd/kernels` path, 8 heads × 256 head dim × 128 rotated pairs |
 | Gemma4 full RoPEPartial | ~1.7 µs | 0 allocs | scalar `backends/simd/kernels` path, 8 heads × 512 head dim × 64 rotated pairs |
 | Qwen full RoPE | ~6.1 µs | 0 allocs | scalar `backends/simd/kernels` path, 32 heads × 128 head dim |
+| GELU(tanh) × Mul | ~83 µs | 0 allocs | scalar `backends/simd/kernels` path over 8192 elements; future SIMD approximation tolerance is max abs `1e-4` |
+| SiLU × Mul | ~55 µs | 0 allocs | scalar `backends/simd/kernels` path over 8192 elements; future SIMD approximation tolerance is max abs `1e-4` |
 
 ## SIMD Microbenchmarks (3584 elements, i7-12700)
 
