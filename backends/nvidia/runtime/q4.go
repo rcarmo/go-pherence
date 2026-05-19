@@ -61,9 +61,13 @@ func UploadQuantWeight(qweight, gIdx []int32, scales []float32, inDim, outDim in
 
 	w := &GPUQuantWeight{InDim: inDim, OutDim: outDim, Groups: groups}
 
+	qwBytes, err := checkedByteSize(len(qweight), -1)
+	if err != nil {
+		return nil, fmt.Errorf("qweight byte size overflow: %w", err)
+	}
 	qwBuf, err := Malloc(len(qweight))
 	if err != nil {
-		return nil, fmt.Errorf("alloc qweight (%d): %w", len(qweight)*4, err)
+		return nil, fmt.Errorf("alloc qweight (%d): %w", qwBytes, err)
 	}
 	w.QWeight = qwBuf
 	// Upload int32 as raw bytes
@@ -120,12 +124,26 @@ func validGPUQuantWeight(w *GPUQuantWeight) bool {
 	if w == nil || w.InDim <= 0 || w.OutDim <= 0 || w.Groups <= 0 || w.InDim%8 != 0 || w.QWeight == nil || w.Scales == nil || w.GIdx == nil {
 		return false
 	}
-	qw, okQ := checkedMulInt(w.InDim/8, w.OutDim)
-	sc, okS := checkedMulInt(w.Groups, w.OutDim)
+	qw, sc, gi, ok := q4BufferElementCounts(w)
+	if !ok {
+		return false
+	}
 	qwBytes, errQ := checkedByteSize(qw, -1)
 	scBytes, errS := checkedByteSize(sc, -1)
-	giBytes, errG := checkedByteSize(w.InDim, -1)
-	return okQ && okS && errQ == nil && errS == nil && errG == nil && w.QWeight.Size >= int(qwBytes) && w.Scales.Size >= int(scBytes) && w.GIdx.Size >= int(giBytes)
+	giBytes, errG := checkedByteSize(gi, -1)
+	return errQ == nil && errS == nil && errG == nil && w.QWeight.Size >= int(qwBytes) && w.Scales.Size >= int(scBytes) && w.GIdx.Size >= int(giBytes)
+}
+
+func q4BufferElementCounts(w *GPUQuantWeight) (qweight, scales, gidx int, ok bool) {
+	if w == nil {
+		return 0, 0, 0, false
+	}
+	qw, okQ := checkedMulInt(w.InDim/8, w.OutDim)
+	sc, okS := checkedMulInt(w.Groups, w.OutDim)
+	if !okQ || !okS || w.InDim < 0 {
+		return 0, 0, 0, false
+	}
+	return qw, sc, w.InDim, true
 }
 
 // GemvQ4 computes out[outDim] = x[inDim] @ dequant(W) on GPU.
@@ -172,10 +190,14 @@ func gemvQ4CPU(out, x *DevBuf, w *GPUQuantWeight) {
 	out.ToCPU()
 	xd := x.cpu
 	od := out.cpu
-	// Download weight data from GPU
-	qw := make([]int32, len(float32ToInt32Placeholder(w.QWeight.Size/4)))
-	sc := make([]float32, w.Groups*w.OutDim)
-	gi := make([]int32, w.InDim)
+	// Download only the logical tensor sizes; GPU buffers may be padded.
+	qwN, scN, giN, ok := q4BufferElementCounts(w)
+	if !ok {
+		return
+	}
+	qw := make([]int32, qwN)
+	sc := make([]float32, scN)
+	gi := make([]int32, giN)
 	if err := w.QWeight.Download(int32ToFloat32(qw)); err != nil {
 		return
 	}

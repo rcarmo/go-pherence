@@ -180,6 +180,10 @@ func TestUploadQuantWeightValidation(t *testing.T) {
 	if validGPUQuantWeight(&GPUQuantWeight{InDim: 16, OutDim: maxInt/2 + 1, Groups: 1, QWeight: &Buffer{Size: maxInt}, Scales: &Buffer{Size: maxInt}, GIdx: &Buffer{Size: 64}}) {
 		t.Fatalf("validGPUQuantWeight accepted overflowing dimensions")
 	}
+	qwN, scN, giN, ok := q4BufferElementCounts(&GPUQuantWeight{InDim: 16, OutDim: 8, Groups: 2})
+	if !ok || qwN != 16 || scN != 16 || giN != 16 {
+		t.Fatalf("q4BufferElementCounts=%d,%d,%d,%v want 16,16,16,true", qwN, scN, giN, ok)
+	}
 	if !Q4Ready() {
 		t.Skip("Q4 kernel not ready; dimension validation checked before readiness")
 	}
