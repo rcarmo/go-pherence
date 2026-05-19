@@ -51,7 +51,7 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 - `BenchmarkCPUHotDequantNVFP4_1536x2048`
 - `BenchmarkCPUHotGemvNVFP4_1536x2048`
 
-Run with:
+Run with (see [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) for pending snapshot refreshes):
 
 ```bash
 go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
