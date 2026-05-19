@@ -3,8 +3,8 @@ package model
 import (
 	"testing"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
-	"github.com/rcarmo/go-pherence/runtime/quant"
 )
 
 func TestMoEForwardGPUMalformedInputs(t *testing.T) {
@@ -27,11 +27,11 @@ func TestMoEForwardGPUSkipsIncompleteExpertWeights(t *testing.T) {
 	layer := &LlamaLayer{
 		// Router is nil, so equal probabilities select both experts. Expert 0 is
 		// incomplete and must be skipped instead of panicking on missing up/down.
-		ExpertGateW: make([]*quant.MLXQuantWeight, 2),
-		ExpertUpW:   make([]*quant.MLXQuantWeight, 2),
-		ExpertDownW: make([]*quant.MLXQuantWeight, 2),
+		ExpertGateW: make([]*mlx.QuantWeight, 2),
+		ExpertUpW:   make([]*mlx.QuantWeight, 2),
+		ExpertDownW: make([]*mlx.QuantWeight, 2),
 	}
-	layer.ExpertGateW[0] = &quant.MLXQuantWeight{}
+	layer.ExpertGateW[0] = &mlx.QuantWeight{}
 	got := moeForwardGPU(nil, nvidia.NewDevBuf(4), layer, cfg, nil, 0, nil)
 	if len(got) != cfg.HiddenSize {
 		t.Fatalf("len=%d, want %d", len(got), cfg.HiddenSize)

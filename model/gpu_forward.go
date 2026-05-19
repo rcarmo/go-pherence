@@ -11,7 +11,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/rcarmo/go-pherence/runtime/quant"
+	"github.com/rcarmo/go-pherence/backends/mlx"
+	simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -121,8 +122,8 @@ type gpuLayerBufs struct {
 	GateWmg, UpWmg, DownWmg *nvidia.GPUMLXWeight
 	RouterWmg               *nvidia.GPUMLXWeight
 	// MLX on CPU
-	QWm, KWm, VWm, OWm   *quant.MLXQuantWeight
-	GateWm, UpWm, DownWm *quant.MLXQuantWeight
+	QWm, KWm, VWm, OWm   *mlx.QuantWeight
+	GateWm, UpWm, DownWm *mlx.QuantWeight
 	// Gemma4 per-layer input gating on GPU (raw row-major F32 weights)
 	PLIGate, PLIProj, PLIPostNorm *nvidia.DevBuf
 }
@@ -343,7 +344,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 			gl.DownWm = layer.DownWm
 			if nvidia.SgemmReady() {
 				wantNativeMLX := cfg.ModelType == "gemma4_text" || cfg.ModelType == "gemma3_text"
-				um := func(qw *quant.MLXQuantWeight) *nvidia.GPUMLXWeight {
+				um := func(qw *mlx.QuantWeight) *nvidia.GPUMLXWeight {
 					w, err := nvidia.UploadMLXWeight(qw.Weight, qw.Scales, qw.Biases, qw.InDim, qw.OutDim, qw.GroupSize, wantNativeMLX)
 					if err != nil && i == 0 {
 						loaderDebugf("[gpu] MLX upload %dx%d: %v\n", qw.OutDim, qw.InDim, err)
@@ -1205,8 +1206,8 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						nd := g.normed.Data()
 						gd := g.gate.Data()
 						ud := g.up.Data()
-						quant.GemvQ4Sym(gd, nd, layer.GateWq.QWeight, layer.GateWq.GIdx, layer.GateWq.Scales, layer.GateWq.InDim, layer.GateWq.OutDim)
-						quant.GemvQ4Sym(ud, nd, layer.UpWq.QWeight, layer.UpWq.GIdx, layer.UpWq.Scales, layer.UpWq.InDim, layer.UpWq.OutDim)
+						simdq4.GemvSym(gd, nd, layer.GateWq.QWeight, layer.GateWq.GIdx, layer.GateWq.Scales, layer.GateWq.InDim, layer.GateWq.OutDim)
+						simdq4.GemvSym(ud, nd, layer.UpWq.QWeight, layer.UpWq.GIdx, layer.UpWq.Scales, layer.UpWq.InDim, layer.UpWq.OutDim)
 						g.gate.MarkDirty()
 						g.up.MarkDirty()
 					} else {
@@ -1258,7 +1259,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					} else if layer.DownWq != nil {
 						gd := g.gate.Data()
 						dd := g.down.Data()
-						quant.GemvQ4Sym(dd, gd, layer.DownWq.QWeight, layer.DownWq.GIdx, layer.DownWq.Scales, layer.DownWq.InDim, layer.DownWq.OutDim)
+						simdq4.GemvSym(dd, gd, layer.DownWq.QWeight, layer.DownWq.GIdx, layer.DownWq.Scales, layer.DownWq.InDim, layer.DownWq.OutDim)
 						g.down.MarkDirty()
 					} else {
 						g.gemv(g.down, g.gate, layer.DownW, layerInter, h)
