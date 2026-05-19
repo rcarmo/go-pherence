@@ -20,7 +20,7 @@ The repository now uses backend-first ownership with operation/quantization subp
 | `backends/simd/runtime/q4` | Q4/GPTQ CPU/SIMD validation (`validate.go`), dequantization (`dequant.go`), GEMV (`gemv.go`), and F16 helpers (`f16.go`). |
 | `backends/simd/runtime/nvfp4` | NVFP4 CPU reference decode/dequant/GEMV. |
 | `backends/simd/kernels` | Backend-neutral CPU kernel bodies for attention, RoPE, softmax, layernorm, GELU, and shape helpers. |
-| `backends/mlx` | MLX affine quantization format/backend helpers independent of a device backend. NVIDIA execution of MLX tensors remains under `backends/nvidia/runtime`. |
+| `backends/mlx` | MLX affine quantization format/backend helpers split across types, validation, loading, dequantization, GEMV, and F16 helpers. NVIDIA execution of MLX tensors remains under `backends/nvidia/runtime`. |
 | `backends/vulkan` | Vulkan/SPIR-V scaffolding and buffers. |
 | `backends/placement` | Backend-neutral memory/placement policy helpers. |
 

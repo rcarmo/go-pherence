@@ -49,6 +49,14 @@ func packedF32(vals ...float32) []byte {
 	return out
 }
 
+func packedU16(vals ...uint16) []byte {
+	out := make([]byte, len(vals)*2)
+	for i, v := range vals {
+		binary.LittleEndian.PutUint16(out[i*2:], v)
+	}
+	return out
+}
+
 func validMLXSource() fakeMLXSource {
 	return fakeMLXSource{
 		"proj.weight": {raw: packedU32(0x76543210, 0xfedcba98), dtype: "U32", shape: []int{2, 1}},
@@ -64,6 +72,19 @@ func TestLoadWeightValidatesAndInfersShape(t *testing.T) {
 	}
 	if qw.OutDim != 2 || qw.InDim != 8 || qw.Groups != 1 || len(qw.Weight) != 2 {
 		t.Fatalf("unexpected inferred weight: %+v", qw)
+	}
+}
+
+func TestLoadWeightAcceptsF16AndBF16ScaleBiasDtypes(t *testing.T) {
+	src := validMLXSource()
+	src["proj.scales"] = fakeMLXTensor{raw: packedU16(0x3c00, 0x4000), dtype: "F16", shape: []int{2, 1}}
+	src["proj.biases"] = fakeMLXTensor{raw: packedU16(0xbf80, 0x3f00), dtype: "BF16", shape: []int{2, 1}}
+	qw, err := LoadWeight(src, "proj", 2, 8, 8, 4)
+	if err != nil {
+		t.Fatalf("LoadWeight: %v", err)
+	}
+	if qw.Scales[0] != 1 || qw.Scales[1] != 2 || qw.Biases[0] != -1 || qw.Biases[1] != 0.5 {
+		t.Fatalf("decoded scales/biases = %v / %v", qw.Scales, qw.Biases)
 	}
 }
 
