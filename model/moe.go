@@ -44,10 +44,12 @@ func LoadSwitchMLXExperts(
 	if len(wShape) != 3 || wShape[0] != numExperts {
 		return nil, fmt.Errorf("%s.weight: expected [%d, ?, ?], got %v", baseName, numExperts, wShape)
 	}
-	_ = wDtype // should be U32
+	if wDtype != "U32" && wDtype != "I32" {
+		return nil, fmt.Errorf("%s.weight: unsupported dtype %s (expected U32/I32)", baseName, wDtype)
+	}
 
 	// Load scales
-	sRaw, _, sShape, err := f.GetRaw(baseName + ".scales")
+	sRaw, sDtype, sShape, err := f.GetRaw(baseName + ".scales")
 	if err != nil {
 		return nil, fmt.Errorf("load %s.scales: %w", baseName, err)
 	}
@@ -56,7 +58,7 @@ func LoadSwitchMLXExperts(
 	}
 
 	// Load biases
-	bRaw, _, bShape, err := f.GetRaw(baseName + ".biases")
+	bRaw, bDtype, bShape, err := f.GetRaw(baseName + ".biases")
 	if err != nil {
 		return nil, fmt.Errorf("load %s.biases: %w", baseName, err)
 	}
@@ -86,11 +88,22 @@ func LoadSwitchMLXExperts(
 	if !ok {
 		return nil, fmt.Errorf("%s.weight byte stride overflows", baseName)
 	}
-	sStride, ok := checkedProduct(sbElems, 2) // bytes per expert in scales (BF16)
+	sElemBytes, err := switchMLXFloatElemBytes(sDtype)
+	if err != nil {
+		return nil, fmt.Errorf("%s.scales: %w", baseName, err)
+	}
+	bElemBytes, err := switchMLXFloatElemBytes(bDtype)
+	if err != nil {
+		return nil, fmt.Errorf("%s.biases: %w", baseName, err)
+	}
+	sStride, ok := checkedProduct(sbElems, sElemBytes)
 	if !ok {
 		return nil, fmt.Errorf("%s.scales byte stride overflows", baseName)
 	}
-	bStride := sStride // bytes per expert in biases (BF16)
+	bStride, ok := checkedProduct(sbElems, bElemBytes)
+	if !ok {
+		return nil, fmt.Errorf("%s.biases byte stride overflows", baseName)
+	}
 	wantW, ok := checkedProduct(wStride, numExperts)
 	if !ok {
 		return nil, fmt.Errorf("%s.weight total byte size overflows", baseName)
@@ -120,20 +133,13 @@ func LoadSwitchMLXExperts(
 			weight[i] = binary.LittleEndian.Uint32(wSlice[i*4:])
 		}
 
-		// Parse BF16 scales → float32
-		nS := len(sSlice) / 2
-		scales := make([]float32, nS)
-		for i := 0; i < nS; i++ {
-			bits16 := binary.LittleEndian.Uint16(sSlice[i*2:])
-			scales[i] = bf16ToF32(bits16)
+		scales, err := decodeSwitchMLXFloat(sSlice, sDtype)
+		if err != nil {
+			return nil, fmt.Errorf("%s.scales expert %d: %w", baseName, e, err)
 		}
-
-		// Parse BF16 biases → float32
-		nB := len(bSlice) / 2
-		biases := make([]float32, nB)
-		for i := 0; i < nB; i++ {
-			bits16 := binary.LittleEndian.Uint16(bSlice[i*2:])
-			biases[i] = bf16ToF32(bits16)
+		biases, err := decodeSwitchMLXFloat(bSlice, bDtype)
+		if err != nil {
+			return nil, fmt.Errorf("%s.biases expert %d: %w", baseName, e, err)
 		}
 
 		experts[e] = &mlx.QuantWeight{
@@ -149,6 +155,68 @@ func LoadSwitchMLXExperts(
 	}
 
 	return experts, nil
+}
+
+func switchMLXFloatElemBytes(dtype string) (int, error) {
+	switch dtype {
+	case "BF16", "F16":
+		return 2, nil
+	case "F32":
+		return 4, nil
+	default:
+		return 0, fmt.Errorf("unsupported dtype %s (expected BF16/F16/F32)", dtype)
+	}
+}
+
+func decodeSwitchMLXFloat(raw []byte, dtype string) ([]float32, error) {
+	elemBytes, err := switchMLXFloatElemBytes(dtype)
+	if err != nil {
+		return nil, err
+	}
+	if len(raw)%elemBytes != 0 {
+		return nil, fmt.Errorf("raw byte length %d is not divisible by dtype size %d", len(raw), elemBytes)
+	}
+	out := make([]float32, len(raw)/elemBytes)
+	switch dtype {
+	case "BF16":
+		for i := range out {
+			out[i] = bf16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
+		}
+	case "F16":
+		for i := range out {
+			out[i] = f16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
+		}
+	case "F32":
+		for i := range out {
+			out[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[i*4:]))
+		}
+	}
+	return out, nil
+}
+
+func f16ToF32(h uint16) float32 {
+	sign := float32(1)
+	if h&0x8000 != 0 {
+		sign = -1
+	}
+	exp := int((h >> 10) & 0x1F)
+	frac := int(h & 0x03FF)
+	if exp == 0 {
+		if frac == 0 {
+			if sign < 0 {
+				return math.Float32frombits(0x80000000)
+			}
+			return 0
+		}
+		return sign * float32(math.Ldexp(float64(frac), -24))
+	}
+	if exp == 0x1F {
+		if frac == 0 {
+			return float32(math.Inf(int(sign)))
+		}
+		return float32(math.NaN())
+	}
+	return sign * float32(math.Ldexp(1+float64(frac)/1024, exp-15))
 }
 
 func bf16ToF32(bits uint16) float32 {
