@@ -284,6 +284,36 @@ func BenchmarkCPUHotDequantQ4Sym1536x2048(b *testing.B) {
 	}
 }
 
+func BenchmarkCPUHotDequantNVFP4_1536x2048(b *testing.B) {
+	inDim := 1536
+	outDim := 2048
+	groups := inDim / 16
+	qw := &simdnvfp4.NVFP4Weight{
+		Weight:       make([]byte, outDim*(inDim/2)),
+		WeightScale:  make([]byte, outDim*groups),
+		WeightScale2: 0.5,
+		OutDim:       outDim,
+		InDim:        inDim,
+		Groups:       groups,
+		GroupSize:    16,
+	}
+	for i := range qw.Weight {
+		qw.Weight[i] = 0x76
+	}
+	for i := range qw.WeightScale {
+		qw.WeightScale[i] = 0x38 // E4M3 1.0
+	}
+	out := make([]float32, inDim*outDim)
+	b.ReportAllocs()
+	b.SetBytes(int64(inDim * outDim * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if !simdnvfp4.DequantNVFP4To(out, qw) {
+			b.Fatal("DequantNVFP4To returned false")
+		}
+	}
+}
+
 func BenchmarkCPUHotGemvNVFP4_1536x2048(b *testing.B) {
 	inDim := 1536
 	outDim := 2048
