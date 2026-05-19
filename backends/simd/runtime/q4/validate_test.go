@@ -79,6 +79,18 @@ func TestValidateRejectsMalformedInputs(t *testing.T) {
 	}
 }
 
+func TestFloat16ToFloat32HandlesSubnormalAndSpecials(t *testing.T) {
+	if got := Float16ToFloat32(0x0001); got != float32(1.0/(1<<24)) {
+		t.Fatalf("min subnormal=%g", got)
+	}
+	if got := Float16ToFloat32(0x8001); got != -float32(1.0/(1<<24)) {
+		t.Fatalf("negative min subnormal=%g", got)
+	}
+	if got := Float16ToFloat32(0x3c00); got != 1 {
+		t.Fatalf("one=%g", got)
+	}
+}
+
 func TestDequantKnownValues(t *testing.T) {
 	inFeatures, outFeatures := 8, 2
 	packed0 := uint32(0xFEDCBA98)
