@@ -16,7 +16,7 @@ package nvidia
 import (
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
+	ptxbf16 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16"
 )
 
 var (
@@ -34,7 +34,7 @@ func InitNativeBF16() {
 	}
 	EnsureContext()
 
-	body := stripPTXHeader(ptx.NativeBF16RMSNormPTX) + "\n" + stripPTXHeader(ptx.NativeBF16VecAddPTX) + "\n" + stripPTXHeader(ptx.NativeBF16GemvPTX)
+	body := stripPTXHeader(ptxbf16.NativeBF16RMSNormPTX) + "\n" + stripPTXHeader(ptxbf16.NativeBF16VecAddPTX) + "\n" + stripPTXHeader(ptxbf16.NativeBF16GemvPTX)
 	full := ".version 7.8\n.target sm_86\n.address_size 64\n\n" + body
 	fullBytes := append([]byte(full), 0)
 

@@ -1,4 +1,4 @@
-package ptx
+package bf16
 
 // Native BF16 RMSNorm — uses cvt.f32.bf16 / cvt.rn.bf16.f32
 var NativeBF16RMSNormPTX = `.version 7.8

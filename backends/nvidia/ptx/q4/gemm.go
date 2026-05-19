@@ -1,4 +1,4 @@
-package ptx
+package q4
 
 // GemmQ4PTX: batched INT4 dequant + GEMM kernel.
 // Each block computes one element of the output: out[batch][col].

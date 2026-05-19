@@ -1,4 +1,4 @@
-package ptx
+package q4
 
 // Tiled INT4 dequant+GEMV — cooperative shared memory weight loading.
 //

@@ -1,6 +1,12 @@
 package nvidia
 
-import "github.com/rcarmo/go-pherence/backends/nvidia/ptx"
+import (
+	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
+	ptxbf16 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16"
+	ptxmlx "github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx"
+	ptxnvfp4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4"
+	ptxq4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4"
+)
 
 type moduleEntry struct {
 	name string
@@ -23,22 +29,22 @@ func megaModuleEntries() []moduleEntry {
 		{"row_softmax_debug", ptx.SoftmaxRowsPTX},
 		{"gqa_attention", ptx.AttentionPTX},
 		{"gelu_tanh_mul", ptx.GELUTanhMulPTX},
-		{"gemv_q4sym", ptx.GemvQ4OptPTX},
+		{"gemv_q4sym", ptxq4.GemvQ4OptPTX},
 		{"fused_silu_mul", ptx.FusedSiLUMulPTX},
 		{"prefetch_l2", ptx.PrefetchPTX},
-		{"gemm_q4sym", ptx.GemmQ4PTX},
+		{"gemm_q4sym", ptxq4.GemmQ4PTX},
 		{"lm_head_gemv", ptx.LMHeadPTX},
-		{"mlx_gemv", ptx.MLXGemvPTX},
-		{"mlx_gemm", ptx.MLXGemmPTX},
-		{"mlx_correct", ptx.MLXCorrectPTX},
-		{"bf16_rms_norm", ptx.BF16RMSNormPTX},
-		{"bf16_rms_norm_no_scale", ptx.BF16RMSNormNoScalePTX},
-		{"bf16_vec_add", ptx.BF16VecAddPTX},
-		{"bf16_silu_mul", ptx.BF16SiLUMulPTX},
-		{"bf16_gelu_tanh_mul", ptx.BF16GELUTanhMulPTX},
-		{"bf16_lm_head_gemv", ptx.BF16LMHeadPTX},
+		{"mlx_gemv", ptxmlx.MLXGemvPTX},
+		{"mlx_gemm", ptxmlx.MLXGemmPTX},
+		{"mlx_correct", ptxmlx.MLXCorrectPTX},
+		{"bf16_rms_norm", ptxbf16.BF16RMSNormPTX},
+		{"bf16_rms_norm_no_scale", ptxbf16.BF16RMSNormNoScalePTX},
+		{"bf16_vec_add", ptxbf16.BF16VecAddPTX},
+		{"bf16_silu_mul", ptxbf16.BF16SiLUMulPTX},
+		{"bf16_gelu_tanh_mul", ptxbf16.BF16GELUTanhMulPTX},
+		{"bf16_lm_head_gemv", ptxbf16.BF16LMHeadPTX},
 		{"rms_norm_no_scale", ptx.RmsNormNoScalePTX},
-		{"nvfp4_dequant_f32", ptx.NVFP4DequantF32PTX},
-		{"nvfp4_gemv_f32", ptx.NVFP4GemvF32PTX},
+		{"nvfp4_dequant_f32", ptxnvfp4.NVFP4DequantF32PTX},
+		{"nvfp4_gemv_f32", ptxnvfp4.NVFP4GemvF32PTX},
 	}
 }
