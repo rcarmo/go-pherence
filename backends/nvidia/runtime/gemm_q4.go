@@ -89,13 +89,7 @@ func gemmQ4CPU(out, input *DevBuf, w *GPUQuantWeight, B int) {
 	if err := w.GIdx.Download(int32ToFloat32(gi)); err != nil {
 		return
 	}
-	for b := 0; b < B; b++ {
-		xRow := input.cpu[b*w.InDim : (b+1)*w.InDim]
-		outRow := out.cpu[b*w.OutDim : (b+1)*w.OutDim]
-		if !simdq4.GemvSymTo(outRow, xRow, qw, gi, sc, w.InDim, w.OutDim) {
-			return
-		}
-	}
+	simdq4.GemmSym(out.cpu[:outLen], input.cpu[:inLen], B, qw, gi, sc, w.InDim, w.OutDim)
 }
 
 var fnGemmQ4 CUfunction
