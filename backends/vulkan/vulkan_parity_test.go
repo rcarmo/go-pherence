@@ -4,6 +4,8 @@ import (
 	"math"
 	"strings"
 	"testing"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 func requireVulkanKernel(t *testing.T, name string, ready func() bool) {
@@ -98,10 +100,8 @@ func TestVulkanGemvF32Parity(t *testing.T) {
 		0.25, -0.5, 0.75, -1, 1.25,
 	}
 	want := make([]float32, outDim)
-	for r := 0; r < outDim; r++ {
-		for c := 0; c < inDim; c++ {
-			want[r] += w[r*inDim+c] * x[c]
-		}
+	if !simd.GemvRows(want, x, w, outDim, inDim) {
+		t.Fatal("GemvRows returned false")
 	}
 	xb := uploadVkF32(t, x)
 	wb := uploadVkF32(t, w)
