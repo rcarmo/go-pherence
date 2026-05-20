@@ -3,20 +3,20 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/simd/quant/nvfp4"
+base = root / "backends/simd/vector"
 
-# Batch 14: mechanically split SIMD NVFP4 quant package by concern.
+# Batch 15: mechanically split SIMD vector package by dispatch/provider concern.
 MOVES = {
-    "capabilities.go": ("runtime/capabilities.go", "runtime"),
-    "capabilities_test.go": ("runtime/capabilities_test.go", "runtime"),
-    "types.go": ("format/types.go", "format"),
-    "validate.go": ("format/validate.go", "format"),
-    "helpers.go": ("format/helpers.go", "format"),
-    "decode.go": ("decode/decode.go", "decode"),
-    "dequant.go": ("ops/dequant.go", "ops"),
-    "gemv.go": ("ops/gemv.go", "ops"),
-    "gemm.go": ("ops/gemm.go", "ops"),
-    "nvfp4_test.go": ("ops/nvfp4_test.go", "ops"),
+    "vector.go": ("core/vector.go", "core"),
+    "vector_test.go": ("core/vector_test.go", "core"),
+    "checked.go": ("checked/checked.go", "checked"),
+    "checked_test.go": ("checked/checked_test.go", "checked"),
+    "dispatch_asm.go": ("dispatch/asm.go", "dispatch"),
+    "vector_amd64.go": ("amd64/vector.go", "amd64"),
+    "vector_amd64.s": ("amd64/vector.s", "amd64"),
+    "vector_arm64.go": ("arm64/vector.go", "arm64"),
+    "vector_arm64.s": ("arm64/vector.s", "arm64"),
+    "vector_other.go": ("scalar/vector.go", "scalar"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -36,14 +36,16 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/simd-nvfp4-tree-move-table.md").write_text("""# SIMD NVFP4 tree move table
+(root / "docs/simd-vector-tree-move-table.md").write_text("""# SIMD vector tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 14.
+Applied by `scripts/mass_move_project_tree.py` batch 15.
 
 | Concern | Target |
 |---|---|
-| NVFP4 capability gates | `backends/simd/quant/nvfp4/runtime` |
-| NVFP4 types/validation/helpers | `backends/simd/quant/nvfp4/format` |
-| FP4/F8 decode helpers | `backends/simd/quant/nvfp4/decode` |
-| NVFP4 dequant/GEMV/GEMM ops | `backends/simd/quant/nvfp4/ops` |
+| Core vector wrappers/tests | `backends/simd/vector/core` |
+| Checked vector APIs | `backends/simd/vector/checked` |
+| Dispatch glue | `backends/simd/vector/dispatch` |
+| amd64 assembly/provider | `backends/simd/vector/amd64` |
+| arm64 assembly/provider | `backends/simd/vector/arm64` |
+| Portable scalar fallback | `backends/simd/vector/scalar` |
 """)

@@ -1,4 +1,4 @@
-package vector
+package core
 
 // Vector operations for inference hot paths.
 // Public entrypoints are implemented by architecture-specific dispatch files

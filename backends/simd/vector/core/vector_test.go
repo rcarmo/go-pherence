@@ -1,4 +1,4 @@
-package vector
+package core
 
 import (
 	"math"

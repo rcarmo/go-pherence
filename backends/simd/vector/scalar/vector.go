@@ -1,6 +1,6 @@
 //go:build !amd64 && !arm64
 
-package vector
+package scalar
 
 func Snrm2(x []float32) float32 { return snrm2Go(x) }
 

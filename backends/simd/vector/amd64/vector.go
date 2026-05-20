@@ -1,4 +1,4 @@
-package vector
+package amd64
 
 func init() {
 	HasVecAsm = RuntimeCapabilities().HasVec
