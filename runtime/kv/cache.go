@@ -160,7 +160,10 @@ func (c *CompressedKVCache) GetK() []float32 {
 		c.scratchK = make([]float32, 0, need)
 	}
 	out := c.scratchK[:0]
-	bytesPerHead := (c.headDim*c.tq.Config.KeyBits + 7) / 8
+	bytesPerHead, ok := compressedBytesPerHead(c.headDim, c.tq.Config.KeyBits)
+	if !ok {
+		return c.FullK
+	}
 	for _, entry := range c.CompressedK {
 		if !compressedEntryValid(entry, c.numKVHeads, bytesPerHead) {
 			return c.FullK
@@ -201,7 +204,10 @@ func (c *CompressedKVCache) GetV() []float32 {
 		c.scratchV = make([]float32, 0, need)
 	}
 	out := c.scratchV[:0]
-	bytesPerHead := (c.headDim*c.tq.Config.ValueBits + 7) / 8
+	bytesPerHead, ok := compressedBytesPerHead(c.headDim, c.tq.Config.ValueBits)
+	if !ok {
+		return c.FullV
+	}
 	for _, entry := range c.CompressedV {
 		if !compressedEntryValid(entry, c.numKVHeads, bytesPerHead) {
 			return c.FullV
@@ -256,6 +262,21 @@ func (c *CompressedKVCache) Reset() {
 }
 
 // MemoryBytes returns approximate memory usage (compressed + full, excluding slice headers).
+func compressedBytesPerHead(headDim, bits int) (int, bool) {
+	if headDim <= 0 || bits <= 0 {
+		return 0, false
+	}
+	payloadBits, ok := checkedMulInt(headDim, bits)
+	if !ok {
+		return 0, false
+	}
+	withPadding, ok := checkedAddInt(payloadBits, 7)
+	if !ok {
+		return 0, false
+	}
+	return withPadding / 8, true
+}
+
 func compressedEntryValid(entry compressedEntry, heads, bytesPerHead int) bool {
 	if heads <= 0 || bytesPerHead <= 0 {
 		return false

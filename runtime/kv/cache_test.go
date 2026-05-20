@@ -23,6 +23,12 @@ func TestCompressedKVCacheOverflowGuards(t *testing.T) {
 	if compressedEntryValid(compressedEntry{Packed: []byte{1}}, maxInt/2+1, 4) {
 		t.Fatal("overflowing compressed entry validated")
 	}
+	if _, ok := compressedBytesPerHead(maxInt/2+1, 4); ok {
+		t.Fatal("overflowing bytes-per-head calculation succeeded")
+	}
+	if _, ok := compressedBytesPerHead(128, 0); ok {
+		t.Fatal("zero-bit bytes-per-head calculation succeeded")
+	}
 	if compressedEntryValid(compressedEntry{Packed: make([]byte, 4), HeadVMin: make([]float32, 1), HeadScale: make([]float32, 1)}, 0, 4) {
 		t.Fatal("zero-head compressed entry validated")
 	}
