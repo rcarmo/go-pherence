@@ -67,6 +67,19 @@ func TestForwardGTESmall(t *testing.T) {
 	t.Logf("Norm: %v, non-zero: %d/384", norm, nonZero)
 }
 
+func TestCheckedMulInt(t *testing.T) {
+	if got, ok := checkedMulInt(4, 7); !ok || got != 28 {
+		t.Fatalf("checkedMulInt(4,7)=%d,%v want 28,true", got, ok)
+	}
+	if _, ok := checkedMulInt(-1, 7); ok {
+		t.Fatal("checkedMulInt accepted negative lhs")
+	}
+	maxInt := int(^uint(0) >> 1)
+	if _, ok := checkedMulInt(maxInt/2+1, 3); ok {
+		t.Fatal("checkedMulInt accepted overflow")
+	}
+}
+
 func TestMHAInPlaceMatchesTensorAttention(t *testing.T) {
 	seqLen, heads, headDim := 2, 1, 2
 	q := []float32{1, 0, 0, 1}
