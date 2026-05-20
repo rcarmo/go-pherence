@@ -18,7 +18,8 @@ func TestSIMDKernelImportBoundary(t *testing.T) {
 			if err != nil || d.IsDir() || filepath.Ext(path) != ".go" {
 				return err
 			}
-			if filepath.Base(path) == "vulkan_more_parity_test.go" {
+			base := filepath.Base(path)
+			if base == "vulkan_more_parity_test.go" || base == "import_boundary_test.go" {
 				return nil
 			}
 			data, err := os.ReadFile(path)
@@ -47,6 +48,9 @@ func TestUnsafeSGEMMCallBoundary(t *testing.T) {
 		err := filepath.WalkDir(rootPath, func(path string, d os.DirEntry, err error) error {
 			if err != nil || d.IsDir() || filepath.Ext(path) != ".go" {
 				return err
+			}
+			if filepath.Base(path) == "import_boundary_test.go" {
+				return nil
 			}
 			data, err := os.ReadFile(path)
 			if err != nil {
