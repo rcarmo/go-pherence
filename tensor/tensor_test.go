@@ -250,6 +250,15 @@ func TestSoftmax(t *testing.T) {
 	}
 }
 
+func TestSoftmaxCheckedPathValidation(t *testing.T) {
+	z := Zeros([]int{2, 0})
+	if got := z.Softmax(); got.Numel() != 0 {
+		t.Fatalf("zero-width softmax numel=%d", got.Numel())
+	}
+	bad := &Tensor{uop: &UOp{DType: Float32, buf: &Buffer{Data: float32ToByteSlice([]float32{1}), DType: Float32, Length: 1}}, shape: NewShape([]int{1, 2})}
+	assertPanics(t, func() { _ = bad.Softmax() })
+}
+
 func TestLayerNorm(t *testing.T) {
 	a := FromFloat32([]float32{1, 2, 3, 4, 5, 6}, []int{2, 3})
 	gamma := FromFloat32([]float32{1, 1, 1}, []int{3})
