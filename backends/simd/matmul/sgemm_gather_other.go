@@ -1,6 +1,6 @@
 //go:build !amd64
 
-package sgemm
+package matmul
 
 import "unsafe"
 

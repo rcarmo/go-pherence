@@ -1,4 +1,4 @@
-package gemv
+package matmul
 
 // GemvRows computes out[rows] = W[rows,cols] · x[cols], where W is row-major.
 // It is the backend-owned dense F32 GEMV reference used by CPU fallbacks and

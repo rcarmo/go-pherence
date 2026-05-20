@@ -3,71 +3,66 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/simd/matmul"
+base = root / "model/gemma4"
 
-# Batch 7: mechanically split SIMD matmul internals into operation subpackages.
-# Moves files and rewrites package declarations only.
-MOVES = {
-    "checked.go": ("sgemm/checked.go", "sgemm"),
-    "checked_test.go": ("sgemm/checked_test.go", "sgemm"),
-    "sgemm.go": ("sgemm/sgemm.go", "sgemm"),
-    "sgemm_amd64.go": ("sgemm/sgemm_amd64.go", "sgemm"),
-    "sgemm_amd64.s": ("sgemm/sgemm_amd64.s", "sgemm"),
-    "sgemm_arm64.go": ("sgemm/sgemm_arm64.go", "sgemm"),
-    "sgemm_arm64.s": ("sgemm/sgemm_arm64.s", "sgemm"),
-    "sgemm_blocked.go": ("sgemm/blocked.go", "sgemm"),
-    "sgemm_blocked_amd64.go": ("sgemm/blocked_amd64.go", "sgemm"),
-    "sgemm_blocked_amd64.s": ("sgemm/blocked_amd64.s", "sgemm"),
-    "sgemm_blocked_arm64.go": ("sgemm/blocked_arm64.go", "sgemm"),
-    "sgemm_blocked_arm64.s": ("sgemm/blocked_arm64.s", "sgemm"),
-    "sgemm_blocked_other.go": ("sgemm/blocked_other.go", "sgemm"),
-    "sgemm_gather.go": ("sgemm/gather.go", "sgemm"),
-    "sgemm_gather_amd64.go": ("sgemm/gather_amd64.go", "sgemm"),
-    "sgemm_gather_amd64.s": ("sgemm/gather_amd64.s", "sgemm"),
-    "sgemm_gather_other.go": ("sgemm/gather_other.go", "sgemm"),
-    "gebp.go": ("gebp/gebp.go", "gebp"),
-    "gebp_amd64.go": ("gebp/gebp_amd64.go", "gebp"),
-    "gebp_amd64.s": ("gebp/gebp_amd64.s", "gebp"),
-    "gebp_arm64.go": ("gebp/gebp_arm64.go", "gebp"),
-    "gebp_arm64.s": ("gebp/gebp_arm64.s", "gebp"),
-    "gebp_bounds_test.go": ("gebp/bounds_test.go", "gebp"),
-    "gebp_other.go": ("gebp/gebp_other.go", "gebp"),
-    "pack_amd64.go": ("pack/pack_amd64.go", "pack"),
-    "pack_amd64.s": ("pack/pack_amd64.s", "pack"),
-    "pack_arm64.go": ("pack/pack_arm64.go", "pack"),
-    "pack_arm64.s": ("pack/pack_arm64.s", "pack"),
-    "pack_arm64_flag.go": ("pack/arm64_flag.go", "pack"),
-    "pack_other.go": ("pack/pack_other.go", "pack"),
-    "gemv.go": ("gemv/gemv.go", "gemv"),
-    "gemv_test.go": ("gemv/gemv_test.go", "gemv"),
+# Batch 6: mechanically split Gemma4 diagnostic tests by investigation area.
+# Keep package declarations unchanged (these diagnostics intentionally use
+# package model plus build tags/linkname compatibility glue).
+BUCKETS = {
+    "attention": ["attention_", "attention_test.go", "qknorm"],
+    "inputnorm": ["inputnorm", "norm_values", "ffn_norm", "modelbuf_inputnorm", "postgenerate_inputnorm"],
+    "gpu": ["gpu_", "gpu"],
+    "loader": ["loader_", "loadtime", "encode"],
+    "generation": ["generate", "first_token", "nochat", "nopli", "quant_first_tok", "quant_gen2"],
+    "mlp": ["mlp", "pli", "projection", "standalone_gemv", "down_", "gate"],
+    "quantized": ["quantized_", "quant_", "cpu_quantized", "dequantized", "deq_"],
+    "sensitivity": ["sensitivity"],
+    "trace": ["trace", "optrace", "layerwalk"],
+    "isolation": ["isolation", "corruption", "mv_bug", "stage_fault", "syncdebug", "ablation"],
 }
 
-for src_name, (dst_suffix, pkg) in MOVES.items():
-    src = base / src_name
-    if not src.exists():
-        print(f"skip missing {src.relative_to(root)}")
+explicit = {
+    "compat.go": "support/compat.go",
+    "doc.go": "support/doc.go",
+}
+
+moves = {}
+for path in sorted(base.glob("*.go")):
+    name = path.name
+    if name in explicit:
+        moves[name] = explicit[name]
         continue
+    chosen = "misc"
+    for bucket, needles in BUCKETS.items():
+        if any(name.startswith(n) or n in name for n in needles):
+            chosen = bucket
+            break
+    moves[name] = f"{chosen}/{name}"
+
+for src_name, dst_suffix in moves.items():
+    src = base / src_name
     dst = base / dst_suffix
     dst.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "mv", str(src.relative_to(root)), str(dst.relative_to(root))], cwd=root, check=True)
-    if dst.suffix == ".go":
-        text = dst.read_text()
-        lines = text.splitlines()
-        for i, line in enumerate(lines[:12]):
-            if line.startswith("package "):
-                lines[i] = f"package {pkg}"
-                dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
-                break
 
-(root / "docs/simd-matmul-tree-move-table.md").write_text("""# SIMD matmul tree move table
+(root / "docs/gemma4-tree-move-table.md").write_text("""# Gemma4 diagnostic tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 7.
+Applied by `scripts/mass_move_project_tree.py` batch 6.
+
+Gemma4 diagnostic files were mechanically grouped under `model/gemma4` by filename patterns while preserving existing package declarations and build tags.
 
 | Concern | Target |
 |---|---|
-| Checked/public SGEMM wrappers | `backends/simd/matmul/sgemm` |
-| SGEMM assembly and blocked/gather variants | `backends/simd/matmul/sgemm` |
-| GEBP kernels/tests | `backends/simd/matmul/gebp` |
-| Packing kernels/assembly | `backends/simd/matmul/pack` |
-| GEMV references/tests | `backends/simd/matmul/gemv` |
+| Attention/QK norm diagnostics | `model/gemma4/attention` |
+| Input/norm diagnostics | `model/gemma4/inputnorm` |
+| GPU diagnostics | `model/gemma4/gpu` |
+| Loader/load-time diagnostics | `model/gemma4/loader` |
+| Generation diagnostics | `model/gemma4/generation` |
+| MLP/PLI/projection diagnostics | `model/gemma4/mlp` |
+| Quantized CPU/GPU diagnostics | `model/gemma4/quantized` |
+| Sensitivity probes | `model/gemma4/sensitivity` |
+| Trace/optrace/layerwalk probes | `model/gemma4/trace` |
+| Isolation/corruption/fault probes | `model/gemma4/isolation` |
+| Compatibility/doc support | `model/gemma4/support` |
+| Residual uncategorized probes | `model/gemma4/misc` |
 """)

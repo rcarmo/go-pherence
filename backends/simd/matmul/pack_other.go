@@ -1,6 +1,6 @@
 //go:build !amd64 && !arm64
 
-package pack
+package matmul
 
 const hasNeonPack = false
 const hasAvxPack = false
