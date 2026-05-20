@@ -2,6 +2,14 @@ package model
 
 import "testing"
 
+func TestCPUDecodeStateRejectsMaxSeqOverflow(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{NumKVHeads: 1, HeadDim: 1}, Layers: []LlamaLayer{{HasKV: true}}}
+	maxInt := int(^uint(0) >> 1)
+	if _, err := NewCPUDecodeStateForSpeculative(m, []int{1}, maxInt); err == nil {
+		t.Fatal("NewCPUDecodeStateForSpeculative accepted overflowing prepared+maxTokens")
+	}
+}
+
 func TestCPUDecodeStateVerifierBackendFallback(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{}, Layers: []LlamaLayer{}}
 	st, err := NewCPUDecodeStateForSpeculative(m, []int{1}, 1, "kv")

@@ -53,6 +53,10 @@ func NewCPUDecodeStateForSpeculative(m *LlamaModel, prepared []int, maxTokens in
 		KVDims:   dims,
 		backend:  selectedBackend,
 	}
+	maxInt := int(^uint(0) >> 1)
+	if maxTokens > maxInt-len(prepared) {
+		return nil, fmt.Errorf("KV max sequence overflow: prepared=%d maxTokens=%d", len(prepared), maxTokens)
+	}
 	maxSeq := len(prepared) + maxTokens
 	if maxSeq < 1 {
 		maxSeq = 1
@@ -61,7 +65,7 @@ func NewCPUDecodeStateForSpeculative(m *LlamaModel, prepared []int, maxTokens in
 		if dim <= 0 {
 			continue
 		}
-		if maxSeq > int(^uint(0)>>1)/dim {
+		if maxSeq > maxInt/dim {
 			return nil, fmt.Errorf("layer %d KV capacity overflow: seq=%d dim=%d", i, maxSeq, dim)
 		}
 		st.KVCacheK[i] = make([]float32, 0, maxSeq*dim)
