@@ -531,6 +531,25 @@ func TestFusionValidationRejectsMalformedKernels(t *testing.T) {
 	})
 }
 
+func TestUnsafeSliceConversionValidation(t *testing.T) {
+	if got := byteSliceToFloat32(nil); got != nil {
+		t.Fatalf("byteSliceToFloat32(nil)=%v want nil", got)
+	}
+	if got := float32ToByteSlice(nil); got != nil {
+		t.Fatalf("float32ToByteSlice(nil)=%v want nil", got)
+	}
+	assertPanics(t, func() { _ = byteSliceToFloat32([]byte{1, 2, 3}) })
+	f := []float32{1, 2}
+	b := float32ToByteSlice(f)
+	if len(b) != 8 {
+		t.Fatalf("float32ToByteSlice len=%d want 8", len(b))
+	}
+	back := byteSliceToFloat32(b)
+	if len(back) != 2 || back[0] != 1 || back[1] != 2 {
+		t.Fatalf("round-trip=%v", back)
+	}
+}
+
 func TestEmbeddingValidation(t *testing.T) {
 	assertPanics(t, func() { _ = Embedding(nil, []int{0}) })
 	w := FromFloat32([]float32{1, 2, 3, 4}, []int{2, 2})
