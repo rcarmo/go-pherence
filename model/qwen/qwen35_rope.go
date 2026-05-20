@@ -1,8 +1,7 @@
 package qwen
 
 import (
-	"math"
-
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 )
 
@@ -31,38 +30,5 @@ func Qwen35UseMRoPE(meta loaderconfig.QwenNativeMTPMetadata) bool {
 
 func NewQwen35RoPEFreqs(meta loaderconfig.QwenNativeMTPMetadata, maxSeq int) []float32 {
 	rotHalf := Qwen35RotaryHalf(meta)
-	n, ok := checkedRoPEFreqLen(maxSeq, rotHalf)
-	if !ok {
-		return nil
-	}
-	theta := meta.RopeTheta
-	if theta <= 0 {
-		theta = 10000
-	}
-	freqs := make([]float32, n)
-	for pos := 0; pos < maxSeq; pos++ {
-		for i := 0; i < rotHalf; i++ {
-			freq := 1.0 / math.Pow(theta, float64(2*i)/float64(meta.HeadDim))
-			angle := float64(pos) * freq
-			off := (pos*rotHalf + i) * 2
-			freqs[off] = float32(math.Cos(angle))
-			freqs[off+1] = float32(math.Sin(angle))
-		}
-	}
-	return freqs
-}
-
-func checkedRoPEFreqLen(maxSeq, rotHalf int) (int, bool) {
-	if maxSeq <= 0 || rotHalf <= 0 {
-		return 0, false
-	}
-	maxInt := int(^uint(0) >> 1)
-	if maxSeq > maxInt/rotHalf {
-		return 0, false
-	}
-	n := maxSeq * rotHalf
-	if n > maxInt/2 {
-		return 0, false
-	}
-	return n * 2, true
+	return simd.BuildRoPEFreqs(maxSeq, rotHalf, meta.HeadDim, meta.RopeTheta)
 }
