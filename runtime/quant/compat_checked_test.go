@@ -9,6 +9,12 @@ func TestCheckedCompatibilityWrappersRejectMalformedInputs(t *testing.T) {
 	if GemvQ4SymTo(make([]float32, 1), make([]float32, 1), nil, nil, nil, 8, 8) {
 		t.Fatal("GemvQ4SymTo accepted malformed input")
 	}
+	if GemmQ4(make([]float32, 1), make([]float32, 1), 1, nil, nil, nil, nil, 8, 8, true) {
+		t.Fatal("GemmQ4 accepted malformed input")
+	}
+	if GemmQ4Sym(make([]float32, 1), make([]float32, 1), 1, nil, nil, nil, 8, 8) {
+		t.Fatal("GemmQ4Sym accepted malformed input")
+	}
 	if GemvMLQTo(make([]float32, 1), make([]float32, 1), nil) {
 		t.Fatal("GemvMLQTo accepted malformed input")
 	}
@@ -34,6 +40,12 @@ func TestCheckedCompatibilityWrappersAcceptTinyValidInputs(t *testing.T) {
 	}
 	if !GemvQ4To(q4Out, q4X, q4Weight, nil, q4GIdx, q4Scales, 8, 1, true) {
 		t.Fatal("GemvQ4To rejected valid tiny symmetric input")
+	}
+	if !GemmQ4Sym(make([]float32, 2), append(q4X, q4X...), 2, q4Weight, q4GIdx, q4Scales, 8, 1) {
+		t.Fatal("GemmQ4Sym rejected valid tiny batched input")
+	}
+	if !GemmQ4(make([]float32, 2), append(q4X, q4X...), 2, q4Weight, nil, q4GIdx, q4Scales, 8, 1, true) {
+		t.Fatal("GemmQ4 rejected valid tiny symmetric batched input")
 	}
 
 	mlxWeight := &MLXQuantWeight{
