@@ -387,10 +387,7 @@ func DevSiLU(out, a *DevBuf) {
 	}
 	a.ToCPU()
 	out.ToCPU()
-	for i := 0; i < n; i++ {
-		x := a.cpu[i]
-		out.cpu[i] = x / (1.0 + float32(math.Exp(float64(-x))))
-	}
+	simd.SiLUTo(out.cpu[:n], a.cpu[:n])
 }
 
 // RMSNorm: out = x * weight * rsqrt(mean(x^2) + eps)
@@ -476,21 +473,7 @@ func DevSoftmax(x *DevBuf, n int) {
 		return
 	}
 	x.ToCPU()
-	d := x.cpu[:n]
-	max := d[0]
-	for _, v := range d[1:] {
-		if v > max {
-			max = v
-		}
-	}
-	var sum float32
-	for i, v := range d {
-		d[i] = float32(math.Exp(float64(v - max)))
-		sum += d[i]
-	}
-	for i := range d {
-		d[i] /= sum
-	}
+	simd.SoftmaxInPlace(x.cpu[:n])
 }
 
 // Copy copies src data to dst (same device).
