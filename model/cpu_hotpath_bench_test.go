@@ -287,6 +287,56 @@ func BenchmarkCPUHotGemvQ4Asym1536x2048(b *testing.B) {
 	}
 }
 
+func BenchmarkCPUHotMoEQ4Experts512x1024Top2(b *testing.B) {
+	inDim := 512
+	outDim := 1024
+	topK := 2
+	experts := 4
+	groups := inDim / 128
+	x := benchSeq(inDim)
+	out := make([]float32, outDim)
+	tmp := make([]float32, outDim)
+	expertQW := make([][]int32, experts)
+	expertGIdx := make([][]int32, experts)
+	expertScales := make([][]float32, experts)
+	for e := 0; e < experts; e++ {
+		qweight := make([]int32, (inDim/8)*outDim)
+		gIdx := make([]int32, inDim)
+		scales := make([]float32, groups*outDim)
+		for i := range qweight {
+			qweight[i] = int32(0x76543210 + e)
+		}
+		for i := range gIdx {
+			gIdx[i] = int32(i / 128)
+		}
+		for i := range scales {
+			scales[i] = 0.005 * float32((i+e)%7+1)
+		}
+		expertQW[e] = qweight
+		expertGIdx[e] = gIdx
+		expertScales[e] = scales
+	}
+	weights := []float32{0.6, 0.4}
+	b.ReportAllocs()
+	b.SetBytes(int64(topK * inDim * outDim * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for j := range out {
+			out[j] = 0
+		}
+		for k := 0; k < topK; k++ {
+			expert := (i + k) % experts
+			if !simdq4.GemvSymTo(tmp, x, expertQW[expert], expertGIdx[expert], expertScales[expert], inDim, outDim) {
+				b.Fatal("GemvSymTo returned false")
+			}
+			weight := weights[k]
+			for j := range out {
+				out[j] += weight * tmp[j]
+			}
+		}
+	}
+}
+
 func BenchmarkCPUHotDequantQ4Asym1536x2048(b *testing.B) {
 	inDim := 1536
 	outDim := 2048
