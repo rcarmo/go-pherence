@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"unsafe"
+
+	simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
 )
 
 var (
@@ -208,20 +210,7 @@ func gemvQ4CPU(out, x *DevBuf, w *GPUQuantWeight) {
 		return
 	}
 
-	for j := 0; j < w.OutDim; j++ {
-		sum := float32(0)
-		for packIdx := 0; packIdx < w.InDim/8; packIdx++ {
-			packed := qw[packIdx*w.OutDim+j]
-			for bit := 0; bit < 8; bit++ {
-				i := packIdx*8 + bit
-				qv := (packed >> (uint(bit) * 4)) & 0xF
-				g := int(gi[i])
-				scale := sc[g*w.OutDim+j]
-				sum += xd[i] * scale * float32(qv-8)
-			}
-		}
-		od[j] = sum
-	}
+	simdq4.GemvSym(od[:w.OutDim], xd[:w.InDim], qw, gi, sc, w.InDim, w.OutDim)
 }
 
 // Helpers for int32 <-> float32 reinterpret (same bit pattern, different type)
