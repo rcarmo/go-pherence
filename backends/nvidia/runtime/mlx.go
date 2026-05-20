@@ -12,6 +12,8 @@ package nvidia
 import (
 	"fmt"
 	"unsafe"
+
+	backendmlx "github.com/rcarmo/go-pherence/backends/mlx"
 )
 
 // GPUMLXWeight holds MLX quantized weight data on GPU.
@@ -317,6 +319,7 @@ func GemvMLX(out *DevBuf, x *DevBuf, w *GPUMLXWeight) {
 		return
 	}
 	if fnMLXGemv == 0 || !fitsUint32(w.InDim) || !fitsUint32(w.OutDim) || !fitsUint32(w.Groups) || !fitsUint32(w.GroupSz) || !tryGPU(x, out) {
+		gemvMLXCPU(out, x, w)
 		return
 	}
 	EnsureContext()
@@ -340,17 +343,65 @@ func GemvMLX(out *DevBuf, x *DevBuf, w *GPUMLXWeight) {
 		unsafe.Pointer(&groups),
 		unsafe.Pointer(&groupSz)); err == nil {
 		out.dev = GPU_DEVICE
+		return
 	}
+	gemvMLXCPU(out, x, w)
+}
+
+func downloadMLXWeight(w *GPUMLXWeight) (*backendmlx.QuantWeight, bool) {
+	if w == nil || w.QWeight == nil || w.Scales == nil || w.Biases == nil {
+		return nil, false
+	}
+	packedN, okPacked := checkedMulInt(w.OutDim, w.InDim/8)
+	scaleN, okScale := checkedMulInt(w.OutDim, w.Groups)
+	if !okPacked || !okScale {
+		return nil, false
+	}
+	rawWeight := make([]int32, packedN)
+	scales := make([]float32, scaleN)
+	biases := make([]float32, scaleN)
+	if err := w.QWeight.Download(reinterpretI32asF32(rawWeight)); err != nil {
+		return nil, false
+	}
+	if err := w.Scales.Download(scales); err != nil {
+		return nil, false
+	}
+	if err := w.Biases.Download(biases); err != nil {
+		return nil, false
+	}
+	weight := make([]uint32, len(rawWeight))
+	for i, v := range rawWeight {
+		weight[i] = uint32(v)
+	}
+	qw := &backendmlx.QuantWeight{Weight: weight, Scales: scales, Biases: biases, OutDim: w.OutDim, InDim: w.InDim, Groups: w.Groups, GroupSize: w.GroupSz, Bits: 4}
+	return qw, backendmlx.ValidateQuantWeight(qw) == nil
+}
+
+func gemvMLXCPU(out, x *DevBuf, w *GPUMLXWeight) {
+	if !validGPUMLXWeight(w) || x == nil || out == nil || x.n < w.InDim || out.n < w.OutDim {
+		return
+	}
+	qw, ok := downloadMLXWeight(w)
+	if !ok {
+		return
+	}
+	x.ToCPU()
+	out.ToCPU()
+	backendmlx.GemvTo(out.cpu[:w.OutDim], x.cpu[:w.InDim], qw)
 }
 
 // GemmMLX performs batched GPU GEMM with MLX quantized weights.
 func GemmMLX(out, input *DevBuf, w *GPUMLXWeight, B int) {
-	if !validGPUMLXWeight(w) || input == nil || out == nil || fnMLXGemm == 0 || B <= 0 {
+	if !validGPUMLXWeight(w) || input == nil || out == nil || B <= 0 {
 		return
 	}
 	inNeed, okIn := checkedMulInt(B, w.InDim)
 	outNeed, okOut := checkedMulInt(B, w.OutDim)
-	if !okIn || !okOut || input.n < inNeed || out.n < outNeed || !fitsUint32(w.InDim) || !fitsUint32(w.OutDim) || !fitsUint32(w.Groups) || !fitsUint32(w.GroupSz) || !fitsUint32(B) || !tryGPU(input, out) {
+	if !okIn || !okOut || input.n < inNeed || out.n < outNeed {
+		return
+	}
+	if fnMLXGemm == 0 || !fitsUint32(w.InDim) || !fitsUint32(w.OutDim) || !fitsUint32(w.Groups) || !fitsUint32(w.GroupSz) || !fitsUint32(B) || !tryGPU(input, out) {
+		gemmMLXCPU(out, input, w, B)
 		return
 	}
 	EnsureContext()
@@ -373,7 +424,27 @@ func GemmMLX(out, input *DevBuf, w *GPUMLXWeight, B int) {
 		unsafe.Pointer(&groupSz),
 		unsafe.Pointer(&batchSize)); err == nil {
 		out.dev = GPU_DEVICE
+		return
 	}
+	gemmMLXCPU(out, input, w, B)
+}
+
+func gemmMLXCPU(out, input *DevBuf, w *GPUMLXWeight, B int) {
+	if !validGPUMLXWeight(w) || input == nil || out == nil || B <= 0 {
+		return
+	}
+	inNeed, okIn := checkedMulInt(B, w.InDim)
+	outNeed, okOut := checkedMulInt(B, w.OutDim)
+	if !okIn || !okOut || input.n < inNeed || out.n < outNeed {
+		return
+	}
+	qw, ok := downloadMLXWeight(w)
+	if !ok {
+		return
+	}
+	input.ToCPU()
+	out.ToCPU()
+	backendmlx.Gemm(out.cpu[:outNeed], input.cpu[:inNeed], B, qw)
 }
 
 var fnMLXGemv CUfunction
