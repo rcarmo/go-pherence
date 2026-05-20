@@ -23,6 +23,15 @@ func TestCompressedKVCacheOverflowGuards(t *testing.T) {
 	if compressedEntryValid(compressedEntry{Packed: []byte{1}}, maxInt/2+1, 4) {
 		t.Fatal("overflowing compressed entry validated")
 	}
+	if compressedEntryValid(compressedEntry{Packed: make([]byte, 4), HeadVMin: make([]float32, 1), HeadScale: make([]float32, 1)}, 0, 4) {
+		t.Fatal("zero-head compressed entry validated")
+	}
+	if _, ok := checkedMulInt(-1, 4); ok {
+		t.Fatal("checkedMulInt accepted negative lhs")
+	}
+	if _, ok := checkedAddInt(maxInt, 1); ok {
+		t.Fatal("checkedAddInt accepted overflow")
+	}
 	if got := saturatingAddInt64(maxInt64()-1, 2); got != maxInt64() {
 		t.Fatalf("saturating add=%d", got)
 	}
