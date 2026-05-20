@@ -274,6 +274,15 @@ func TestLayerNorm(t *testing.T) {
 	}
 }
 
+func TestLayerNormCheckedPathValidation(t *testing.T) {
+	z := Zeros([]int{2, 0})
+	if got := z.LayerNorm(nil, nil, 1e-5); got.Numel() != 0 {
+		t.Fatalf("zero-width layernorm numel=%d", got.Numel())
+	}
+	bad := &Tensor{uop: &UOp{DType: Float32, buf: &Buffer{Data: float32ToByteSlice([]float32{1}), DType: Float32, Length: 1}}, shape: NewShape([]int{1, 2})}
+	assertPanics(t, func() { _ = bad.LayerNorm(nil, nil, 1e-5) })
+}
+
 func TestGELU(t *testing.T) {
 	a := FromFloat32([]float32{-1, 0, 1, 2}, []int{4})
 	got := a.GELU().Data()
