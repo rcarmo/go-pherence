@@ -1,4 +1,4 @@
-package graph
+package core
 
 // Ops enumerates all operations in the computation graph.
 type Ops int

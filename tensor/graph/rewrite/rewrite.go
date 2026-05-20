@@ -1,4 +1,4 @@
-package graph
+package rewrite
 
 // RewriteRule pairs a pattern with a rewrite function.
 // The function receives the matched bindings and returns a replacement UOp, or nil to skip.

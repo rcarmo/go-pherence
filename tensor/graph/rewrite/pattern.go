@@ -1,4 +1,4 @@
-package graph
+package rewrite
 
 // UPat is a pattern for matching UOp nodes in graph rewriting.
 type UPat struct {

@@ -1,4 +1,4 @@
-package graph
+package opt
 
 import "math"
 
