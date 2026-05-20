@@ -1,10 +1,6 @@
 package model
 
-import (
-	"unsafe"
-
-	"github.com/rcarmo/go-pherence/backends/simd/runtime"
-)
+import "github.com/rcarmo/go-pherence/backends/simd/runtime"
 
 func rmsNormInPlace(x, weight []float32, eps float32) {
 	simd.RMSNorm(x, weight, eps)
@@ -22,18 +18,10 @@ func gemv(out, x []float32, w []float32, inDim, outDim int) {
 	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
 		return
 	}
-	if len(w) >= weightLen {
-		// Detect layout: if w is [inDim, outDim] (pre-transposed), use NN
-		// If w is [outDim, inDim] (original), use NT (dot per output)
-		// Heuristic: try NN first (pre-transposed path)
-		if simd.HasSgemmAsm {
-			simd.SgemmNN(1, outDim, inDim, 1.0,
-				unsafe.Pointer(&x[0]), unsafe.Pointer(&w[0]), unsafe.Pointer(&out[0]),
-				inDim, outDim, outDim)
-		} else {
-			simd.GemvCols(out[:outDim], x[:inDim], w[:weightLen], inDim, outDim)
-		}
-	}
+	// Detect layout: if w is [inDim, outDim] (pre-transposed), use NN.
+	// If w is [outDim, inDim] (original), use NT (dot per output).
+	// Heuristic: try NN first (pre-transposed path).
+	simd.SgemmNNTo(out[:outDim], x[:inDim], w[:weightLen], 1, outDim, inDim, 1.0, inDim, outDim, outDim)
 }
 
 // gemvNT: out = x @ w^T where w is [outDim, inDim] (original layout)
