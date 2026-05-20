@@ -1,4 +1,4 @@
-package tensor
+package core
 
 func checkedMulInt(a, b int) (int, bool) {
 	if a < 0 || b < 0 {

@@ -1,4 +1,4 @@
-package tensor
+package ops
 
 import "fmt"
 

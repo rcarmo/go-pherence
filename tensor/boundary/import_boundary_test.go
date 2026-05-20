@@ -1,4 +1,4 @@
-package tensor
+package boundary
 
 import (
 	"bytes"

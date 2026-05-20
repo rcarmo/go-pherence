@@ -4,64 +4,31 @@ import subprocess
 
 root = Path(__file__).resolve().parents[1]
 
-# Batch 2: mechanically split the remaining crowded model root into concern
-# subpackages. This script only moves files and rewrites package declarations;
-# semantic import/API repairs are intentionally left to follow-up passes.
+# Batch 3: mechanically split tensor into concern subpackages.
+# This only moves files and rewrites package declarations.
 MOVES = {
-    # Attention / RoPE
-    "model/attention.go": ("model/attention/attention.go", "attention"),
-    "model/attention_test.go": ("model/attention/attention_test.go", "attention"),
-    "model/rope.go": ("model/rope/rope.go", "rope"),
-    "model/rope_test.go": ("model/rope/rope_test.go", "rope"),
-
-    # Linear and dense helpers
-    "model/linear_ops.go": ("model/linear/ops.go", "linear"),
-    "model/gemv_helpers_test.go": ("model/linear/gemv_helpers_test.go", "linear"),
-    "model/bf16.go": ("model/linear/bf16.go", "linear"),
-
-    # MoE
-    "model/moe.go": ("model/moe/moe.go", "moe"),
-    "model/moe_test.go": ("model/moe/moe_test.go", "moe"),
-    "model/moe_compare_test.go": ("model/moe/compare_test.go", "moe"),
-    "model/moe_gpu.go": ("model/moe/gpu.go", "moe"),
-    "model/moe_gpu_test.go": ("model/moe/gpu_test.go", "moe"),
-
-    # GPU/KV staging
-    "model/gpu_forward.go": ("model/gpu/forward.go", "gpu"),
-    "model/gpu_kv_copy_test.go": ("model/gpu/kv_copy_test.go", "gpu"),
-    "model/kv_staging.go": ("model/kv/staging.go", "kv"),
-    "model/kv_staging_test.go": ("model/kv/staging_test.go", "kv"),
-
-    # LM head
-    "model/chunked_lm_head.go": ("model/lmhead/chunked.go", "lmhead"),
-    "model/chunked_lm_head_test.go": ("model/lmhead/chunked_test.go", "lmhead"),
-    "model/lm_head_policy_test.go": ("model/lmhead/policy_test.go", "lmhead"),
-
-    # Decode / prefill / layers
-    "model/cpu_decode_step.go": ("model/decode/cpu_step.go", "decode"),
-    "model/cpu_decode_step_test.go": ("model/decode/cpu_step_test.go", "decode"),
-    "model/batch_prefill.go": ("model/prefill/batch.go", "prefill"),
-    "model/batch_prefill_test.go": ("model/prefill/batch_test.go", "prefill"),
-    "model/forward_layer.go": ("model/layers/forward.go", "layers"),
-    "model/forward_layer_test.go": ("model/layers/forward_test.go", "layers"),
-
-    # Core/shared helpers
-    "model/checked.go": ("model/checks/checked.go", "checks"),
-    "model/checked_test.go": ("model/checks/checked_test.go", "checks"),
-    "model/inference_helpers.go": ("model/inference/helpers.go", "inference"),
-    "model/inference_helpers_test.go": ("model/inference/helpers_test.go", "inference"),
-    "model/debug.go": ("model/debug/debug.go", "debug"),
-    "model/debug_hooks.go": ("model/debug/hooks.go", "debug"),
-
-    # LLaMA shared root types/tests that are no longer root-bound in this cleanup pass
-    "model/llama.go": ("model/core/llama.go", "core"),
-    "model/llama_test.go": ("model/core/llama_test.go", "core"),
-    "model/llama_types.go": ("model/core/types.go", "core"),
-    "model/gemma3_generate_test.go": ("model/core/gemma3_generate_test.go", "core"),
-    "model/testmain_test.go": ("model/core/testmain_test.go", "core"),
-
-    # Benchmark follows hot primitive helpers rather than staying in root.
-    "model/cpu_hotpath_bench_test.go": ("model/bench/cpu_hotpath_bench_test.go", "bench"),
+    "tensor/dtype.go": ("tensor/core/dtype.go", "core"),
+    "tensor/shape.go": ("tensor/core/shape.go", "core"),
+    "tensor/tensor.go": ("tensor/core/tensor.go", "core"),
+    "tensor/tensor_test.go": ("tensor/core/tensor_test.go", "core"),
+    "tensor/unsafe.go": ("tensor/core/unsafe.go", "core"),
+    "tensor/checked.go": ("tensor/core/checked.go", "core"),
+    "tensor/broadcast.go": ("tensor/ops/broadcast.go", "ops"),
+    "tensor/embedding.go": ("tensor/ops/embedding.go", "ops"),
+    "tensor/matmul.go": ("tensor/ops/matmul.go", "ops"),
+    "tensor/nn.go": ("tensor/ops/nn.go", "ops"),
+    "tensor/modules.go": ("tensor/ops/modules.go", "ops"),
+    "tensor/pool.go": ("tensor/ops/pool.go", "ops"),
+    "tensor/reference_test.go": ("tensor/ops/reference_test.go", "ops"),
+    "tensor/fuse.go": ("tensor/graph/fuse.go", "graph"),
+    "tensor/ops.go": ("tensor/graph/ops.go", "graph"),
+    "tensor/pattern.go": ("tensor/graph/pattern.go", "graph"),
+    "tensor/realize.go": ("tensor/graph/realize.go", "graph"),
+    "tensor/rewrite.go": ("tensor/graph/rewrite.go", "graph"),
+    "tensor/rewrite_test.go": ("tensor/graph/rewrite_test.go", "graph"),
+    "tensor/rules.go": ("tensor/graph/rules.go", "graph"),
+    "tensor/uop.go": ("tensor/graph/uop.go", "graph"),
+    "tensor/import_boundary_test.go": ("tensor/boundary/import_boundary_test.go", "boundary"),
 }
 
 for src_rel, (dst_rel, pkg) in MOVES.items():
@@ -81,25 +48,14 @@ for src_rel, (dst_rel, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/model-tree-move-table.md").write_text("""# Model tree move table
+(root / "docs/tensor-tree-move-table.md").write_text("""# Tensor tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 2.
+Applied by `scripts/mass_move_project_tree.py` batch 3.
 
 | Concern | Target |
 |---|---|
-| Attention helpers | `model/attention` |
-| RoPE wrappers | `model/rope` |
-| Linear/BF16/GEMV helpers | `model/linear` |
-| Mixture-of-experts | `model/moe` |
-| GPU forward/KV copy hooks | `model/gpu` |
-| KV staging | `model/kv` |
-| LM-head chunking/policy | `model/lmhead` |
-| CPU decode step | `model/decode` |
-| Batch prefill | `model/prefill` |
-| Layer forward path | `model/layers` |
-| Shared checks | `model/checks` |
-| Inference helpers | `model/inference` |
-| Debug hooks | `model/debug` |
-| LLaMA shared core/types | `model/core` |
-| CPU hot-path benchmark | `model/bench` |
+| Tensor dtype/shape/core storage/checks | `tensor/core` |
+| Tensor math/NN/module operations | `tensor/ops` |
+| UOp graph, rewrite, fuse, pattern, rules | `tensor/graph` |
+| Import boundary policy tests | `tensor/boundary` |
 """)
