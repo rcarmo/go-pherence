@@ -597,7 +597,6 @@ func qwenMTPGroupedAttention(q, kAll, vAll []float32, nHeads, nKVHeads, headDim 
 			kvh = nKVHeads - 1
 		}
 		qBase := h * headDim
-		maxScore := float32(math.Inf(-1))
 		for t := 0; t < seqLen; t++ {
 			kvBase := t*kvDim + kvh*headDim
 			var score float32
@@ -606,20 +605,12 @@ func qwenMTPGroupedAttention(q, kAll, vAll []float32, nHeads, nKVHeads, headDim 
 			}
 			score *= scale
 			scores[t] = score
-			if score > maxScore {
-				maxScore = score
-			}
 		}
-		var sum float32
-		for t := 0; t < seqLen; t++ {
-			scores[t] = float32(math.Exp(float64(scores[t] - maxScore)))
-			sum += scores[t]
-		}
-		if sum == 0 {
+		if !simd.SoftmaxInPlace(scores) {
 			continue
 		}
 		for t := 0; t < seqLen; t++ {
-			w := scores[t] / sum
+			w := scores[t]
 			vBase := t*kvDim + kvh*headDim
 			for i := 0; i < headDim; i++ {
 				out[qBase+i] += w * vAll[vBase+i]
