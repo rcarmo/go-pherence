@@ -2,7 +2,6 @@ package tensor
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -47,23 +46,13 @@ func (t *Tensor) MatMul(other *Tensor) *Tensor {
 		panic("matmul: invalid backing data")
 	}
 	cData := make([]float32, outSize)
+	if outSize == 0 {
+		return FromFloat32(cData, []int{m, n})
+	}
 
-	// Use SIMD GEMM: C = A @ B is sgemm(NoTrans, NoTrans, m, n, k, 1, A, k, B, n, 0, C, n)
-	if simd.HasSgemmAsm && len(aData) > 0 && len(bData) > 0 && len(cData) > 0 {
-		simd.SgemmNN(m, n, k, 1.0,
-			unsafe.Pointer(&aData[0]), unsafe.Pointer(&bData[0]), unsafe.Pointer(&cData[0]),
-			k, n, n)
-	} else {
-		// Scalar fallback
-		for i := 0; i < m; i++ {
-			for j := 0; j < n; j++ {
-				sum := float32(0)
-				for p := 0; p < k; p++ {
-					sum += aData[i*k+p] * bData[p*n+j]
-				}
-				cData[i*n+j] = sum
-			}
-		}
+	// Use checked SIMD GEMM: C = A @ B.
+	if !simd.SgemmNNTo(cData, aData, bData, m, n, k, 1.0, k, n, n) {
+		panic("matmul: checked SGEMM rejected validated tensors")
 	}
 
 	return FromFloat32(cData, []int{m, n})
@@ -107,23 +96,13 @@ func (t *Tensor) MatMulTransposed(other *Tensor) *Tensor {
 		panic("matmul_t: invalid backing data")
 	}
 	cData := make([]float32, outSize)
+	if outSize == 0 {
+		return FromFloat32(cData, []int{m, n})
+	}
 
-	// C = A @ B^T is sgemm(NoTrans, Trans)
-	if simd.HasSgemmAsm && len(aData) > 0 && len(bData) > 0 && len(cData) > 0 {
-		// Use gather on amd64, GEBP on arm64
-		simd.SgemmNT(m, n, k, 1.0,
-			unsafe.Pointer(&aData[0]), unsafe.Pointer(&bData[0]), unsafe.Pointer(&cData[0]),
-			k, k, n)
-	} else {
-		for i := 0; i < m; i++ {
-			for j := 0; j < n; j++ {
-				sum := float32(0)
-				for p := 0; p < k; p++ {
-					sum += aData[i*k+p] * bData[j*k+p]
-				}
-				cData[i*n+j] = sum
-			}
-		}
+	// C = A @ B^T.
+	if !simd.SgemmNTTo(cData, aData, bData, m, n, k, 1.0, k, k, n) {
+		panic("matmul_t: checked SGEMM rejected validated tensors")
 	}
 
 	return FromFloat32(cData, []int{m, n})
