@@ -31,6 +31,15 @@ func TestSoftmaxInPlace(t *testing.T) {
 	}
 }
 
+func TestSoftmaxInPlaceRejectsNaNInfSum(t *testing.T) {
+	if SoftmaxInPlace([]float32{float32(math.Inf(1)), 1}) {
+		t.Fatal("SoftmaxInPlace accepted +Inf input")
+	}
+	if SoftmaxInPlace([]float32{float32(math.NaN()), 1}) {
+		t.Fatal("SoftmaxInPlace accepted NaN input")
+	}
+}
+
 func TestSoftmaxRowsInPlace(t *testing.T) {
 	x := []float32{1, 2, 3, 3, 2, 1, 123}
 	if !SoftmaxRowsInPlace(x[:6], 2, 3) {
