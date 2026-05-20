@@ -3,18 +3,18 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/nvidia/ptx"
+base = root / "loader/config"
 
-# Batch 17: mechanically split root NVIDIA PTX constants by primitive family.
+# Batch 18: mechanically split loader config helpers by model/format concern.
 MOVES = {
-    "activation.go": ("activation/activation.go", "activation"),
-    "attention.go": ("attention/attention.go", "attention"),
-    "conversion.go": ("conversion/conversion.go", "conversion"),
-    "lm_head.go": ("lmhead/lm_head.go", "lmhead"),
-    "norm.go": ("norm/norm.go", "norm"),
-    "prefetch.go": ("prefetch/prefetch.go", "prefetch"),
-    "sgemm.go": ("matmul/sgemm.go", "matmul"),
-    "vector.go": ("vector/vector.go", "vector"),
+    "config.go": ("core/config.go", "core"),
+    "config_test.go": ("core/config_test.go", "core"),
+    "quantization.go": ("quantization/quantization.go", "quantization"),
+    "nvfp4_layout.go": ("quantization/nvfp4_layout.go", "quantization"),
+    "qwen35_names.go": ("qwen/names.go", "qwen"),
+    "qwen35_names_test.go": ("qwen/names_test.go", "qwen"),
+    "qwen35_shapes.go": ("qwen/shapes.go", "qwen"),
+    "qwen_native_mtp.go": ("qwen/native_mtp.go", "qwen"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -34,18 +34,13 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/nvidia-ptx-tree-move-table.md").write_text("""# NVIDIA PTX tree move table
+(root / "docs/loader-config-tree-move-table.md").write_text("""# Loader config tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 17.
+Applied by `scripts/mass_move_project_tree.py` batch 18.
 
 | Concern | Target |
 |---|---|
-| Activation PTX constants | `backends/nvidia/ptx/activation` |
-| Attention PTX constants | `backends/nvidia/ptx/attention` |
-| Conversion PTX constants | `backends/nvidia/ptx/conversion` |
-| LM-head PTX constants | `backends/nvidia/ptx/lmhead` |
-| Norm PTX constants | `backends/nvidia/ptx/norm` |
-| Prefetch PTX constants | `backends/nvidia/ptx/prefetch` |
-| SGEMM PTX constants | `backends/nvidia/ptx/matmul` |
-| Vector PTX constants | `backends/nvidia/ptx/vector` |
+| Generic model config parsing/tests | `loader/config/core` |
+| Quantization config/layout helpers | `loader/config/quantization` |
+| Qwen names/shapes/native-MTP config helpers | `loader/config/qwen` |
 """)
