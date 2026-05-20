@@ -1,4 +1,4 @@
-package matmul
+package pack
 
 //go:noescape
 func packBNTAsm(

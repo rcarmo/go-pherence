@@ -1,4 +1,4 @@
-package matmul
+package gebp
 
 import (
 	"math"

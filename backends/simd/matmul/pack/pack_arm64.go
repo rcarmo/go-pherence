@@ -1,4 +1,4 @@
-package matmul
+package pack
 
 // packBNTAsm packs B[jj:jj+16, 0:k] into bp[k, 16] using NEON.
 // Falls back to Go scalar for partial tiles (nr < 16).

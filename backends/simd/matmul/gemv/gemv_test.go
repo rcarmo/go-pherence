@@ -1,4 +1,4 @@
-package matmul
+package gemv
 
 import "testing"
 

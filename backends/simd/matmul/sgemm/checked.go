@@ -1,4 +1,4 @@
-package matmul
+package sgemm
 
 import "unsafe"
 

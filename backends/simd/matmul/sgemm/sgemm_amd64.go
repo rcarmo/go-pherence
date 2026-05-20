@@ -1,3 +1,3 @@
-package matmul
+package sgemm
 
 const hasSgemmAsm = true
