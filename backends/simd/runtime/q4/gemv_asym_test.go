@@ -31,11 +31,26 @@ func TestGemvAsymMatchesDequantReference(t *testing.T) {
 		}
 	}
 	got := make([]float32, outDim)
-	Gemv(got, x, qweight, qzeros, gIdx, scales, inDim, outDim, false)
+	if !GemvTo(got, x, qweight, qzeros, gIdx, scales, inDim, outDim, false) {
+		t.Fatal("GemvTo returned false for valid asymmetric input")
+	}
 	for i := range got {
 		if got[i] != want[i] {
 			t.Fatalf("out[%d]=%g want %g", i, got[i], want[i])
 		}
+	}
+}
+
+func TestGemvToRejectsMalformedInputs(t *testing.T) {
+	out, x, qw, g, s, inDim, outDim := validGemvQ4Inputs()
+	if !GemvSymTo(out, x, qw, g, s, inDim, outDim) {
+		t.Fatal("GemvSymTo returned false for valid symmetric input")
+	}
+	if GemvSymTo(out[:1], x, qw, g, s, inDim, outDim) {
+		t.Fatal("GemvSymTo accepted short output")
+	}
+	if GemvTo(out[:1], x, qw, nil, g, s, inDim, outDim, true) {
+		t.Fatal("GemvTo accepted short output")
 	}
 }
 

@@ -7,6 +7,10 @@ func GemvQ4(out, x []float32, qweight, qzeros, gIdx []int32, scales []float32, i
 	simdq4.Gemv(out, x, qweight, qzeros, gIdx, scales, inDim, outDim, sym)
 }
 
+func GemvQ4To(out, x []float32, qweight, qzeros, gIdx []int32, scales []float32, inDim, outDim int, sym bool) bool {
+	return simdq4.GemvTo(out, x, qweight, qzeros, gIdx, scales, inDim, outDim, sym)
+}
+
 // GemvQ4Sym computes out = x @ W^T where W is stored as GPTQ INT4 symmetric.
 // This dequantizes on-the-fly during the dot product, avoiding the full F32 expansion.
 //
@@ -17,4 +21,8 @@ func GemvQ4(out, x []float32, qweight, qzeros, gIdx []int32, scales []float32, i
 // out:     [outDim] float32
 func GemvQ4Sym(out, x []float32, qweight, gIdx []int32, scales []float32, inDim, outDim int) {
 	simdq4.GemvSym(out, x, qweight, gIdx, scales, inDim, outDim)
+}
+
+func GemvQ4SymTo(out, x []float32, qweight, gIdx []int32, scales []float32, inDim, outDim int) bool {
+	return simdq4.GemvSymTo(out, x, qweight, gIdx, scales, inDim, outDim)
 }
