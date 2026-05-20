@@ -13,6 +13,15 @@ func GQAAttention(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, hea
 	return GQAAttentionScale(q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, float32(1.0/math.Sqrt(float64(headDim))))
 }
 
+// GQAAttentionChecked allocates output with the standard 1/sqrt(headDim)
+// scale and reports malformed inputs.
+func GQAAttentionChecked(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int) ([]float32, bool) {
+	if headDim <= 0 {
+		return nil, false
+	}
+	return GQAAttentionScaleChecked(q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, float32(1.0/math.Sqrt(float64(headDim))))
+}
+
 func GQAAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) []float32 {
 	return kernels.GQAAttentionScale(q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale, Sdot, Saxpy)
 }
