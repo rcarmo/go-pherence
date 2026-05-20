@@ -25,23 +25,30 @@ Synthetic backend-owner benchmarks live in `model/cpu_hotpath_bench_test.go` and
 go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 ```
 
-Current single-iteration sanity snapshot on i7-12700 for quantized 1536×2048 GEMV. See [backend-parity-matrix.md](backend-parity-matrix.md) for the corresponding scalar/reference parity targets:
+Current refreshed snapshot on i7-12700 (`GOTMPDIR=$PWD/.gotmp go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem`, 2026-05-20). See [backend-parity-matrix.md](backend-parity-matrix.md) for the corresponding scalar/reference parity targets:
 
 | Primitive | Time | Allocations | Notes |
 |---|---:|---:|---|
-| MLX4 GEMV | ~2.0 ms | 0 allocs | scalar `backends/mlx` path with stack group x-sum scratch for common group counts |
-| MLX4 dequant | pending | 0 allocs target | caller-owned `backends/mlx.DequantTo` decode benchmark added; snapshot pending Phase 4 validation |
-| MLX4 batched GEMV | pending | caller-owned | scalar `backends/mlx.Gemm` benchmark added for batch=8 prefill-oriented future SIMD kernels; snapshot pending Phase 4 validation |
-| MLX MoE expert fallback | pending | per-call scratch | synthetic `moeForward` benchmark added for hidden=512, intermediate=1024, top-2 of 8 experts; snapshot pending Phase 4 validation |
-| Q4/GPTQ symmetric GEMV | ~6.4 ms | 0 allocs | scalar `backends/simd/runtime/q4` path; row-contiguous traversal benchmark snapshot to refresh at Phase 3 validation |
-| Q4/GPTQ symmetric dequant | pending | 0 allocs target | caller-owned `backends/simd/runtime/q4.DequantSymTo` decode benchmark added; snapshot pending Phase 3 validation |
-| NVFP4 GEMV | ~9.8 ms | 0 allocs | correctness-first `backends/simd/runtime/nvfp4` path with grouped scale decode and odd group-boundary correctness |
-| NVFP4 dequant | pending | 0 allocs target | caller-owned `backends/simd/runtime/nvfp4.DequantNVFP4To` decode benchmark added; snapshot pending Phase 5 validation |
-| Gemma4 SWA RoPEPartial | ~2.6 µs | 0 allocs | scalar `backends/simd/kernels` path, 8 heads × 256 head dim × 128 rotated pairs |
-| Gemma4 full RoPEPartial | ~1.7 µs | 0 allocs | scalar `backends/simd/kernels` path, 8 heads × 512 head dim × 64 rotated pairs |
-| Qwen full RoPE | ~6.1 µs | 0 allocs | scalar `backends/simd/kernels` path, 32 heads × 128 head dim |
-| GELU(tanh) × Mul | ~83 µs | 0 allocs | scalar `backends/simd/kernels` path over 8192 elements; future SIMD approximation tolerance is max abs `1e-4` |
-| SiLU × Mul | ~55 µs | 0 allocs | scalar `backends/simd/kernels` path over 8192 elements; future SIMD approximation tolerance is max abs `1e-4` |
+| RMSNorm 3584 | 649 ns | 0 allocs | `backends/simd/runtime` RMSNorm path |
+| GELU(tanh) × Mul 8192 | 101 µs | 0 allocs | scalar activation owner path; future SIMD tolerance max abs `1e-4` |
+| SiLU × Mul 8192 | 82.7 µs | 0 allocs | scalar activation owner path; future SIMD tolerance max abs `1e-4` |
+| VecScale 3584 | 154 ns | 0 allocs | SIMD vector runtime path |
+| Gemma4 SWA RoPEPartial | 3.27 µs | 0 allocs | scalar RoPE owner path, 8 heads × 256 head dim × 128 rotated pairs |
+| Gemma4 full RoPEPartial | 1.74 µs | 0 allocs | scalar RoPE owner path, 8 heads × 512 head dim × 64 rotated pairs |
+| Qwen full RoPE | 6.36 µs | 0 allocs | scalar RoPE owner path, 32 heads × 128 head dim |
+| GQA attention decode 512 | 271 µs | 0 allocs | SIMD/runtime GQA attention path |
+| MLX4 GEMV 1536×2048 | 3.74 ms | 0 allocs | scalar `backends/mlx` GEMV path |
+| MLX4 GEMM batch=8 1536×2048 | 5.08 ms | 9 allocs | scalar batched `backends/mlx.Gemm` path |
+| MLX4 dequant 1536×2048 | 1.73 ms | 13 allocs | caller-owned `backends/mlx.DequantTo` decode path |
+| MLX MoE expert fallback | 1.60 ms | 13 allocs | synthetic hidden=512, intermediate=1024, top-2 of 8 experts |
+| Q4/GPTQ symmetric GEMV 1536×2048 | 4.43 ms | 0 allocs | `backends/simd/runtime/q4` symmetric path |
+| Q4/GPTQ asymmetric GEMV 1536×2048 | 8.15 ms | 0 allocs | `backends/simd/runtime/q4` asymmetric path |
+| Q4 MoE expert fallback | 915 µs | 0 allocs | synthetic hidden=512, intermediate=1024, top-2 of 8 experts |
+| Q4 asymmetric dequant 1536×2048 | 1.79 ms | 13 allocs | caller-owned decode path |
+| Q4 symmetric dequant 1536×2048 | 3.77 ms | 13 allocs | caller-owned decode path |
+| NVFP4 dequant 1536×2048 | 1.25 ms | 13 allocs | caller-owned `backends/simd/runtime/nvfp4.DequantNVFP4To` decode path |
+| NVFP4 GEMM batch=4 1536×2048 | 7.11 ms | 10 allocs | scalar batched NVFP4 path |
+| NVFP4 GEMV 1536×2048 | 11.0 ms | 0 allocs | correctness-first packed NVFP4 GEMV path |
 
 ## SIMD Microbenchmarks (3584 elements, i7-12700)
 
