@@ -20,7 +20,7 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 | RoPEPartial | `backends/simd/runtime.ApplyRoPEPartial` explicit dispatch hook → scalar kernel | ❌ | ❌ | Ownership moved to SIMD; high priority for Gemma4 CPU path |
 | GQA attention scores | `simd.Sdot` per head/token | ✅ | ✅ | Intermediate improvement; still allocates scores per head |
 | GQA attention output | `simd.Saxpy` per cached-token V head | ✅ | ✅ | Caller-owned output/score scratch; full fused attention still future work |
-| F32 GEMV dense | `simd.SgemmNN` when pre-transposed | ✅ | ✅ | `gemvNT` path uses `simd.Sdot` row-wise |
+| F32 GEMV dense | checked `simd.SgemmNNTo` / `simd.GemvRows` / `simd.GemvCols` references | ✅ | ✅ | model/tensor/BERT callers use checked runtime entrypoints; unsafe SGEMM calls are boundary-guarded |
 | MLX4 GEMV | `backends/mlx` scalar unpack/dequant loop with dtype/shape validation; model/backend code imports it directly | ❌ | ❌ | Explicit `HasGemv4=false`/`HasDequant=false` capability gates, scalar dispatch hook, caller-owned dequant output helper, and scalar batched `Gemm` API; biggest CPU gap for quantized models and MoE experts |
 | GPTQ Q4 GEMV | `backends/simd/runtime/q4` scalar unpack/dequant loop with qweight/g_idx/scales/qzeros validation; model/backend code imports it directly | ❌ | ❌ | Scalar symmetric GEMV now traverses packed rows contiguously, dequant supports caller-owned output, and explicit `HasGemvSym=false`/`HasDequant=false` gates are present; still needs AVX2/NEON nibble unpack + FMA |
 | NVFP4 GEMV/dequant | `backends/simd/runtime/nvfp4` correctness-first scalar decode/dequant/GEMV | ❌ | ❌ | Explicit `HasDecode=false`/`HasDequant=false`/`HasGemv=false` gates, caller-owned dequant output helper, and `GemvNVFP4Reference` scalar parity target |
@@ -47,14 +47,18 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 - `BenchmarkCPUHotGemmMLXBatch8_1536x2048`
 - `BenchmarkCPUHotMoEMLXExperts512x1024Top2`
 - `BenchmarkCPUHotGemvQ4Sym1536x2048`
+- `BenchmarkCPUHotGemvQ4Asym1536x2048`
+- `BenchmarkCPUHotMoEQ4Experts512x1024Top2`
+- `BenchmarkCPUHotDequantQ4Asym1536x2048`
 - `BenchmarkCPUHotDequantQ4Sym1536x2048`
 - `BenchmarkCPUHotDequantNVFP4_1536x2048`
+- `BenchmarkCPUHotGemmNVFP4Batch4_1536x2048`
 - `BenchmarkCPUHotGemvNVFP4_1536x2048`
 
-Run with (see [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) for pending snapshot refreshes):
+Run with (see [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) for current snapshot status):
 
 ```bash
-go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
+GOTMPDIR=$PWD/.gotmp go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 ```
 
 ## Dispatch cleanup status
@@ -62,7 +66,7 @@ go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 - `RuntimeCapabilities()` in the `backends/simd/runtime` package centralizes architecture/runtime feature reporting.
 - `simd.HasSgemmAsm`, `simd.HasDotAsm`, and `simd.HasVecAsm` expose runtime-safe capability gates.
 - `Sdot`/`Saxpy` now dispatch through small Go wrappers and fall back to scalar code if AVX2/FMA or NEON is unavailable, or if callers pass mismatched lengths.
-- SGEMM callers continue to check `simd.HasSgemmAsm` before invoking assembly kernels; tensor matmul helpers avoid passing zero-length slice pointers to SIMD entrypoints. `SgemmNTGebp` and `SgemmNTBlockedFMA` now validate dimensions, pointers, strides, and overflow before unsafe slicing/pointer arithmetic.
+- Non-SIMD SGEMM callers use checked slice APIs (`SgemmNNTo`/`SgemmNTTo`) that validate dimensions, leading dimensions, backing slices, and stride/product overflow before invoking unsafe assembly or scalar fallback. Boundary tests prevent direct unsafe SGEMM calls outside the SIMD runtime. `SgemmNTGebp` and `SgemmNTBlockedFMA` also validate dimensions, pointers, strides, and overflow before unsafe slicing/pointer arithmetic.
 - Vector entrypoints (`VecAdd`, `VecMul`, `VecScaleAdd`, `RMSNorm*`, `ToBF16`, BF16 helpers) now dispatch through Go wrappers and fall back to scalar code when runtime SIMD gates are false. Scalar fallbacks bound all participating slices and leave untouched destination tails unchanged on malformed inputs.
 - Activation wrappers (`VecSiLUMul`, `GELUTanhMul`) now route through scalar kernels in `backends/simd/kernels/activation.go`; `RuntimeCapabilities().HasActivation` remains false until AVX2/NEON polynomial approximations land and pass the explicit tolerance gate.
 - RoPE wrappers now have explicit runtime dispatch hooks and a `RuntimeCapabilities().HasRoPE` flag. It remains false until AVX2/NEON kernels land and pass scalar parity tests.
@@ -70,22 +74,26 @@ go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 ## Baseline snapshot (i7-12700, amd64)
 
 ```text
-BenchmarkCPUHotRMSNorm3584              ~0.50 µs/op, 0 allocs
-BenchmarkCPUHotGELUTanhMul8192          ~83 µs/op, 0 allocs
-BenchmarkCPUHotSiLUMul8192              ~55 µs/op, 0 allocs
-BenchmarkCPUHotVecScale3584             ~0.17 µs/op, 0 allocs
-BenchmarkCPUHotRoPEPartialGemma4SWA     ~2.6 µs/op, 0 allocs
-BenchmarkCPUHotRoPEPartialGemma4Full    ~1.7 µs/op, 0 allocs
-BenchmarkCPUHotRoPEQwenFull             ~6.1 µs/op, 0 allocs
-BenchmarkCPUHotGQAAttentionDecode512    ~0.25 ms/op, 0 allocs  (caller-owned scratch + Sdot/Saxpy)
-BenchmarkCPUHotGemvMLX1536x2048         ~2.0 ms/op, 0 allocs
-BenchmarkCPUHotDequantMLX1536x2048      snapshot pending after Phase 4 validation, caller-owned output / 0 alloc target
-BenchmarkCPUHotGemmMLXBatch8_1536x2048  snapshot pending after Phase 4 validation, scalar batched GEMV baseline
-BenchmarkCPUHotMoEMLXExperts512x1024Top2 snapshot pending after Phase 4 validation, synthetic MoE expert fallback baseline
-BenchmarkCPUHotGemvQ4Sym1536x2048       snapshot pending after Phase 3 validation
-BenchmarkCPUHotDequantQ4Sym1536x2048    snapshot pending after Phase 3 validation, caller-owned output / 0 alloc target
-BenchmarkCPUHotDequantNVFP4_1536x2048   snapshot pending after Phase 5 validation, caller-owned output / 0 alloc target
-BenchmarkCPUHotGemvNVFP4_1536x2048      ~9.8 ms/op, 0 allocs
+BenchmarkCPUHotRMSNorm3584                  649 ns/op, 0 allocs
+BenchmarkCPUHotGELUTanhMul8192              101 µs/op, 0 allocs
+BenchmarkCPUHotSiLUMul8192                  82.7 µs/op, 0 allocs
+BenchmarkCPUHotVecScale3584                 154 ns/op, 0 allocs
+BenchmarkCPUHotRoPEPartialGemma4SWA         3.27 µs/op, 0 allocs
+BenchmarkCPUHotRoPEPartialGemma4Full        1.74 µs/op, 0 allocs
+BenchmarkCPUHotRoPEQwenFull                 6.36 µs/op, 0 allocs
+BenchmarkCPUHotGQAAttentionDecode512        271 µs/op, 0 allocs
+BenchmarkCPUHotGemvMLQ1536x2048             3.74 ms/op, 0 allocs
+BenchmarkCPUHotGemmMLXBatch8_1536x2048      5.08 ms/op, 9 allocs
+BenchmarkCPUHotDequantMLX1536x2048          1.73 ms/op, 13 allocs
+BenchmarkCPUHotMoEMLXExperts512x1024Top2    1.60 ms/op, 13 allocs
+BenchmarkCPUHotGemvQ4Sym1536x2048           4.43 ms/op, 0 allocs
+BenchmarkCPUHotGemvQ4Asym1536x2048          8.15 ms/op, 0 allocs
+BenchmarkCPUHotMoEQ4Experts512x1024Top2     915 µs/op, 0 allocs
+BenchmarkCPUHotDequantQ4Asym1536x2048       1.79 ms/op, 13 allocs
+BenchmarkCPUHotDequantQ4Sym1536x2048        3.77 ms/op, 13 allocs
+BenchmarkCPUHotDequantNVFP4_1536x2048       1.25 ms/op, 13 allocs
+BenchmarkCPUHotGemmNVFP4Batch4_1536x2048    7.11 ms/op, 10 allocs
+BenchmarkCPUHotGemvNVFP4_1536x2048          11.0 ms/op, 0 allocs
 ```
 
 ## Immediate next steps
