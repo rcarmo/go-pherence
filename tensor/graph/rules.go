@@ -1,4 +1,4 @@
-package rewrite
+package graph
 
 import "math"
 

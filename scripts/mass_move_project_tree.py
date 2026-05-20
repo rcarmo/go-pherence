@@ -3,18 +3,18 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "tensor/graph"
+base = root / "loader/config"
 
-# Batch 19: mechanically split tensor graph internals by concern.
+# Batch 18: mechanically split loader config helpers by model/format concern.
 MOVES = {
-    "uop.go": ("core/uop.go", "core"),
-    "ops.go": ("core/ops.go", "core"),
-    "pattern.go": ("rewrite/pattern.go", "rewrite"),
-    "rewrite.go": ("rewrite/rewrite.go", "rewrite"),
-    "rewrite_test.go": ("rewrite/rewrite_test.go", "rewrite"),
-    "rules.go": ("rewrite/rules.go", "rewrite"),
-    "fuse.go": ("opt/fuse.go", "opt"),
-    "realize.go": ("runtime/realize.go", "runtime"),
+    "config.go": ("core/config.go", "core"),
+    "config_test.go": ("core/config_test.go", "core"),
+    "quantization.go": ("quantization/quantization.go", "quantization"),
+    "nvfp4_layout.go": ("quantization/nvfp4_layout.go", "quantization"),
+    "qwen35_names.go": ("qwen/names.go", "qwen"),
+    "qwen35_names_test.go": ("qwen/names_test.go", "qwen"),
+    "qwen35_shapes.go": ("qwen/shapes.go", "qwen"),
+    "qwen_native_mtp.go": ("qwen/native_mtp.go", "qwen"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -34,14 +34,13 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/tensor-graph-tree-move-table.md").write_text("""# Tensor graph tree move table
+(root / "docs/loader-config-tree-move-table.md").write_text("""# Loader config tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 19.
+Applied by `scripts/mass_move_project_tree.py` batch 18.
 
 | Concern | Target |
 |---|---|
-| UOp and graph op definitions | `tensor/graph/core` |
-| Pattern rewrite engine/rules/tests | `tensor/graph/rewrite` |
-| Graph optimizations/fusion | `tensor/graph/opt` |
-| Realization/runtime lowering | `tensor/graph/runtime` |
+| Generic model config parsing/tests | `loader/config/core` |
+| Quantization config/layout helpers | `loader/config/quantization` |
+| Qwen names/shapes/native-MTP config helpers | `loader/config/qwen` |
 """)
