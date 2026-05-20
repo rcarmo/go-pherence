@@ -180,8 +180,10 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 	return meta, nil
 }
 
+const maxQwenNativeMTPRequiredLayers = 4096
+
 func RequiredQwenNativeMTPTensors(numLayers int) []string {
-	if numLayers <= 0 {
+	if numLayers <= 0 || numLayers > maxQwenNativeMTPRequiredLayers {
 		return nil
 	}
 	base := []string{

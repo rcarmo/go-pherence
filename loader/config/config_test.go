@@ -234,6 +234,12 @@ func TestRequiredAndMissingQwenNativeMTPTensors(t *testing.T) {
 	if got := RequiredQwenNativeMTPTensors(0); got != nil {
 		t.Fatalf("zero layers required=%v want nil", got)
 	}
+	if got := RequiredQwenNativeMTPTensors(maxQwenNativeMTPRequiredLayers + 1); got != nil {
+		t.Fatalf("oversized layer count required len=%d want nil", len(got))
+	}
+	if got := MissingQwenNativeMTPTensors(nil, maxQwenNativeMTPRequiredLayers+1); got != nil {
+		t.Fatalf("oversized layer count missing=%v want nil", got)
+	}
 }
 
 func TestIsOptionalQwenNativeMTPSharedHeadTensorName(t *testing.T) {
