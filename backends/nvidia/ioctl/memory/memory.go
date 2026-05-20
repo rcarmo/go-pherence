@@ -1,4 +1,4 @@
-package nv
+package memory
 
 // NV memory management and compute dispatch via direct ioctl.
 // Continues from nv_ioctl.go (device init).
