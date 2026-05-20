@@ -1,6 +1,6 @@
 # Vulkan validation plan
 
-The Vulkan backend currently has loader/buffer scaffolding, embedded shader assets, generic compute dispatch machinery, and validating wrapper stubs for model-relevant primitives. Pipeline cache wiring and CPU-vs-Vulkan numeric parity remain the Phase 7 gap.
+The Vulkan backend currently has loader/buffer scaffolding, embedded shader assets, generic compute dispatch machinery, validating wrappers for model-relevant F32 primitives, optional embedded-SPIR-V pipeline cache entries, and availability-gated CPU-vs-Vulkan numeric parity tests.
 
 ## Validation gates
 
@@ -10,19 +10,19 @@ The Vulkan backend currently has loader/buffer scaffolding, embedded shader asse
    - Diagnostics: `GO_PHERENCE_VULKAN_DEBUG=1`.
 
 2. **SPIR-V pipeline cache wiring**
-   - Populate `initVkKernels` from embedded SPIR-V only after confirming shader modules create successfully on available drivers.
-   - Keep every pipeline optional: a failed shader/pipeline should disable that operation without disabling the entire backend.
-   - Preserve the existing validating wrappers, which already reject malformed dimensions/buffers before dispatch.
+   - `initVkKernels` populates optional kernels from embedded SPIR-V.
+   - Keep every pipeline optional: a failed shader/pipeline disables that operation without disabling the entire backend.
+   - Preserve validating wrappers, which reject malformed dimensions/buffers before dispatch.
 
 3. **Wrapper parity tests**
    - Use availability-gated tests so normal CPU-only CI skips cleanly when Vulkan is unavailable.
-   - For each wrapper, compare against existing CPU scalar/SIMD owners:
+   - Covered wrappers compare against existing CPU scalar/SIMD owners:
      - RMSNorm/RMSNormNoScale → `backends/simd/runtime`
      - GEMV → dense CPU reference
      - SiLU/GELU fused activations → `backends/simd/kernels`
      - RoPEPartial → `backends/simd/kernels.ApplyRoPEPartial`
      - attention scores → CPU GQA score reference
-   - Tolerances should initially be scalar-level for simple elementwise ops and relaxed only when hardware/driver behavior requires it.
+   - Tolerances should stay scalar-level for simple elementwise ops and relax only when hardware/driver behavior requires it.
 
 ## Current wrapper test coverage
 
@@ -31,10 +31,9 @@ The Vulkan backend currently has loader/buffer scaffolding, embedded shader asse
 - malformed inputs return errors before dispatch,
 - valid fake buffers return explicit pending-pipeline / not-available errors while pipeline cache entries are nil.
 
-These tests are not a replacement for CPU-vs-Vulkan numeric parity; they only lock in API boundary behavior until real pipeline dispatch is enabled.
+These tests complement CPU-vs-Vulkan numeric parity tests in `vulkan_parity_test.go` and `vulkan_more_parity_test.go`.
 
 ## Phase 7 remaining work
 
-- Wire embedded SPIR-V into kernel cache.
-- Add availability-gated CPU-vs-Vulkan numeric tests per wrapper.
-- Keep Vulkan backend selection documentation current once dispatch is usable.
+- Keep BF16 Vulkan wrapper/export parity scoped to a future CPU BF16 owner or model-level need.
+- Keep Vulkan backend selection documentation current as dispatch and placement evolve.

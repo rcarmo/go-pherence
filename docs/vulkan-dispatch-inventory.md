@@ -19,17 +19,17 @@ Phase 7 tracks what the Vulkan backend already owns versus what still needs safe
 
 | Shader | GLSL | SPIR-V | Planned wrapper |
 |---|---:|---:|---|
-| F32 vector add | yes | yes | existing `VkVecAddF32` wrapper, but kernel init still marked pending validation |
-| BF16 vector add | yes | yes | existing `VkVecAddBF16` wrapper, but kernel init still marked pending validation |
-| F32 RMSNorm | yes | yes | pending `VkRMSNormF32` wrapper |
-| BF16 RMSNorm | yes | yes | pending `VkRMSNormBF16` wrapper |
-| F32 RMSNormNoScale | yes | yes | pending `VkRMSNormNoScaleF32` wrapper |
-| F32 GEMV | yes | yes | pending `VkGemvF32` wrapper |
-| BF16 mixed GEMV | yes | yes | pending `VkGemvBF16Mixed` wrapper |
-| F32 SiLU×Mul | yes | yes | pending `VkSiLUMulF32` wrapper |
-| F32 GELU(tanh)×Mul | yes | yes | pending `VkGELUTanhMulF32` wrapper |
-| F32 RoPEPartial | yes | yes | pending `VkRoPEPartialF32` wrapper |
-| Attention scores | yes | yes | pending `VkAttentionScoresF32` wrapper |
+| F32 vector add | yes | yes | `VkVecAddF32` wrapper with pipeline cache entry and parity test |
+| BF16 vector add | yes | yes | `VkVecAddBF16` wrapper with pipeline cache entry; malformed-input coverage present |
+| F32 RMSNorm | yes | yes | `VkRMSNormF32` wrapper with pipeline cache entry and parity test |
+| BF16 RMSNorm | yes | yes | SPIR-V/pipeline cache entry present; exported wrapper pending until a CPU BF16 parity owner is needed |
+| F32 RMSNormNoScale | yes | yes | `VkRMSNormNoScaleF32` wrapper with pipeline cache entry and parity test |
+| F32 GEMV | yes | yes | `VkGemvF32` wrapper with pipeline cache entry and parity test |
+| BF16 mixed GEMV | yes | yes | SPIR-V/pipeline cache entry present; exported wrapper pending until a CPU BF16 parity owner is needed |
+| F32 SiLU×Mul | yes | yes | `VkSiLUMulF32` wrapper with pipeline cache entry and parity test |
+| F32 GELU(tanh)×Mul | yes | yes | `VkGELUTanhMulF32` wrapper with pipeline cache entry and parity test |
+| F32 RoPEPartial | yes | yes | `VkRoPEPartialF32` wrapper with pipeline cache entry and parity test |
+| Attention scores | yes | yes | `VkAttentionScoresF32` wrapper with pipeline cache entry and parity test |
 
 ## Exported wrapper status
 
@@ -45,13 +45,14 @@ Public wrapper functions now exist for:
 - `VkRoPEPartialF32(x, freqs *VkBuf, pos, nHeads, headDim, rotHalf int) error`
 - `VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) error`
 
-The newly added wrappers validate dimensions, buffer capacities, and product overflow before dispatch, then return a clear "pipeline wiring pending" unsupported error while kernel cache entries remain unpopulated. `backends/vulkan/vulkan_wrapper_test.go` covers invalid-input rejection and pending-pipeline errors without requiring a Vulkan device. `VkVecAddF32`/`VkVecAddBF16` predate this validation pass and still depend on kernel cache entries that are not populated because `initVkKernels` intentionally logs SPIR-V validation as pending instead of constructing pipelines.
+The wrappers validate dimensions, buffer capacities, and product overflow before dispatch. `initVkKernels` now attempts to populate optional pipeline cache entries from embedded SPIR-V; a failed shader/pipeline disables only that operation and surfaces a not-available error. `backends/vulkan/vulkan_wrapper_test.go` covers invalid-input rejection and unavailable-pipeline errors without requiring a Vulkan device.
+
+Availability-gated CPU-vs-Vulkan parity tests now cover `VkVecAddF32`, `VkRMSNormF32`, `VkRMSNormNoScaleF32`, `VkGemvF32`, `VkSiLUMulF32`, `VkGELUTanhMulF32`, `VkRoPEPartialF32`, and `VkAttentionScoresF32`.
 
 ## Next Phase 7 steps
 
-1. Populate kernel cache from embedded SPIR-V only after validating the generated binaries on available drivers.
-2. Keep CPU/software Vulkan opt-in via `GO_PHERENCE_VULKAN_ALLOW_CPU`.
-3. Add CPU-vs-Vulkan tests behind availability/opt-in gates for each wrapper.
-4. Keep backend selection docs current once dispatch is usable.
+1. Keep CPU/software Vulkan opt-in via `GO_PHERENCE_VULKAN_ALLOW_CPU`.
+2. Add BF16 Vulkan parity/exported wrapper coverage only when a CPU BF16 owner and model path justify it.
+3. Keep backend selection docs current as model-level Vulkan dispatch evolves.
 
 See [vulkan-validation-plan.md](vulkan-validation-plan.md) for the validation sequence and parity-test expectations.

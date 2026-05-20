@@ -20,6 +20,6 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 ## Remaining Phase 10 gaps
 
 - Add availability-gated NVIDIA parity tests where hardware is available.
-- Add availability-gated Vulkan CPU-vs-Vulkan numeric tests after pipeline cache wiring lands.
+- Extend availability-gated Vulkan CPU-vs-Vulkan numeric tests only when new wrappers land; F32 covered wrappers already have parity tests.
 - Add AVX2/NEON parity tests when actual SIMD kernels land for RoPE, activations, Q4, MLX, and NVFP4.
 - Keep new exported backend wrappers paired with package-local malformed-input tests.
