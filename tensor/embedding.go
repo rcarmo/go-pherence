@@ -1,4 +1,4 @@
-package ops
+package tensor
 
 // Embedding performs token ID → vector lookup.
 // weight is [vocabSize, dim], ids is a flat slice of token IDs.

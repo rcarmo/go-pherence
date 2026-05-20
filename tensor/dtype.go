@@ -1,4 +1,4 @@
-package core
+package tensor
 
 // DType represents an element data type.
 type DType struct {

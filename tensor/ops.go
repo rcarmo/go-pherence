@@ -1,4 +1,4 @@
-package graph
+package tensor
 
 // Ops enumerates all operations in the computation graph.
 type Ops int
@@ -54,7 +54,7 @@ var opNames = map[Ops]string{
 	OpReshape: "RESHAPE", OpPermute: "PERMUTE", OpExpand: "EXPAND", OpPad: "PAD", OpShrink: "SHRINK", OpFlip: "FLIP",
 	OpExp2: "EXP2", OpLog2: "LOG2", OpSin: "SIN", OpSqrt: "SQRT", OpReciprocal: "RECIP", OpNeg: "NEG", OpCast: "CAST",
 	OpAdd: "ADD", OpSub: "SUB", OpMul: "MUL", OpDiv: "DIV", OpMod: "MOD", OpMax: "MAX", OpCmpLt: "CMPLT", OpCmpEq: "CMPEQ",
-	OpWhere:     "WHERE",
+	OpWhere: "WHERE",
 	OpReduceSum: "REDUCE_SUM", OpReduceMax: "REDUCE_MAX",
 	OpSink: "SINK",
 }

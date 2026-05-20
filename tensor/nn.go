@@ -1,4 +1,4 @@
-package ops
+package tensor
 
 import simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 

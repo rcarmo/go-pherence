@@ -1,4 +1,4 @@
-package ops
+package tensor
 
 // Module interface for neural network layers.
 type Module interface {
