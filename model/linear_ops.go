@@ -14,14 +14,13 @@ func gemv(out, x []float32, w []float32, inDim, outDim int) {
 	for i := range out {
 		out[i] = 0
 	}
-	weightLen, ok := checkedProduct(inDim, outDim)
-	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
+	if len(out) < outDim {
 		return
 	}
 	// Detect layout: if w is [inDim, outDim] (pre-transposed), use NN.
 	// If w is [outDim, inDim] (original), use NT (dot per output).
 	// Heuristic: try NN first (pre-transposed path).
-	simd.SgemmNNTo(out[:outDim], x[:inDim], w[:weightLen], 1, outDim, inDim, 1.0, inDim, outDim, outDim)
+	simd.SgemmNNTo(out[:outDim], x, w, 1, outDim, inDim, 1.0, inDim, outDim, outDim)
 }
 
 // gemvNT: out = x @ w^T where w is [outDim, inDim] (original layout)
@@ -29,22 +28,10 @@ func gemvNT(out, x []float32, w []float32, inDim, outDim int) {
 	for i := range out {
 		out[i] = 0
 	}
-	weightLen, ok := checkedProduct(inDim, outDim)
-	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
+	if len(out) < outDim {
 		return
 	}
-	simd.GemvRows(out[:outDim], x[:inDim], w[:weightLen], outDim, inDim)
-}
-
-func checkedProduct(a, b int) (int, bool) {
-	if a < 0 || b < 0 {
-		return 0, false
-	}
-	maxInt := int(^uint(0) >> 1)
-	if b != 0 && a > maxInt/b {
-		return 0, false
-	}
-	return a * b, true
+	simd.GemvRows(out[:outDim], x, w, outDim, inDim)
 }
 
 func geluTanh(x float32) float32 {
@@ -56,9 +43,8 @@ func gemvNTParallel(out, x []float32, w []float32, inDim, outDim int) {
 	for i := range out {
 		out[i] = 0
 	}
-	weightLen, ok := checkedProduct(inDim, outDim)
-	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
+	if len(out) < outDim {
 		return
 	}
-	simd.GemvRows(out[:outDim], x[:inDim], w[:weightLen], outDim, inDim)
+	simd.GemvRows(out[:outDim], x, w, outDim, inDim)
 }
