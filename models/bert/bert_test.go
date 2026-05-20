@@ -65,6 +65,28 @@ func TestForwardGTESmall(t *testing.T) {
 	t.Logf("Norm: %v, non-zero: %d/384", norm, nonZero)
 }
 
+func TestLinearInPlaceUsesCheckedSIMD(t *testing.T) {
+	out := make([]float32, 7)
+	out[6] = 123
+	x := []float32{1, 2, 3, 4}
+	w := []float32{1, 0, 0, 1, 2, 1}
+	bias := []float32{0.5, -1, 2}
+	linearInPlace(out[:6], x, w, bias, 2, 2, 3)
+	want := []float32{3.5, 3, 4, 7.5, 7, 6}
+	for i := range want {
+		if out[i] != want[i] {
+			t.Fatalf("out[%d]=%g want %g", i, out[i], want[i])
+		}
+	}
+	if out[6] != 123 {
+		t.Fatal("linearInPlace mutated tail")
+	}
+	linearInPlace(out[:1], x, w, bias, 2, 2, 3)
+	if out[6] != 123 {
+		t.Fatal("malformed linearInPlace mutated tail")
+	}
+}
+
 func gteSmallPath(tb testing.TB) string {
 	tb.Helper()
 	if path := os.Getenv("SAFETENSORS_PATH"); path != "" {
