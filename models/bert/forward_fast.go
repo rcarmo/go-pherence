@@ -4,16 +4,10 @@ import (
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
-	"gonum.org/v1/gonum/blas"
-	"gonum.org/v1/gonum/blas/blas32"
-	blasGonum "gonum.org/v1/gonum/blas/gonum"
 )
 
 // ForwardFast runs the model with zero allocations in the hot path.
 // Uses pre-allocated workspace buffers and SIMD kernels directly.
-func init() {
-	blas32.Use(blasGonum.Implementation{})
-}
 
 func (m *BertModel) ForwardFast(tokenIDs []int, ws *Workspace) []float32 {
 	cfg := m.Config
@@ -145,19 +139,16 @@ func (m *BertModel) EmbedFast(tokenIDs []int, attnMask []bool) []float32 {
 
 // linearInPlace: out = x @ wT + bias (wT is pre-transposed [inDim, outDim])
 func linearInPlace(out, x, wT, bias []float32, m, inDim, outDim int) {
-	for i := range out[:m*outDim] {
+	total := m * outDim
+	if total <= 0 || len(out) < total {
+		return
+	}
+	for i := range out[:total] {
 		out[i] = 0
 	}
-	// Use gonum BLAS for NN matmul (matches gte-go's gonum path for best cache behavior)
-	blas32.Implementation().Sgemm(
-		blas.NoTrans, blas.NoTrans,
-		m, outDim, inDim,
-		1.0,
-		x, inDim,
-		wT, outDim,
-		0.0,
-		out, outDim,
-	)
+	if !simd.SgemmNNTo(out[:total], x, wT, m, outDim, inDim, 1.0, inDim, outDim, outDim) {
+		return
+	}
 	if bias != nil {
 		for i := 0; i < m; i++ {
 			for j := 0; j < outDim; j++ {
