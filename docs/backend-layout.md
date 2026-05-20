@@ -15,7 +15,7 @@ The repository now uses backend-first ownership with operation/quantization subp
 | `backends/nvidia/ptx/nvfp4` | NVFP4 PTX source constants. |
 | `backends/nvidia/ioctl` | Experimental direct NVIDIA ioctl backend. |
 | `backends/simd` | SIMD backend namespace only. Runtime code is in `runtime`, shared kernel bodies are in `kernels`. |
-| `backends/simd/runtime` | CPU SIMD dispatch facade and assembly/scalar fallback wrappers. Package name remains `simd`. Non-SIMD callers use this facade rather than importing `backends/simd/kernels` or calling unsafe SGEMM assembly directly; import-boundary tests enforce the rule. |
+| `backends/simd/runtime` | Compatibility/public CPU SIMD facade and capability reporting. Package name remains `simd`. Non-SIMD callers use this facade rather than importing `backends/simd/kernels` or calling unsafe SGEMM assembly directly; import-boundary tests enforce the rule. |
 | `backends/simd/quant/bf16` | BF16 CPU/SIMD quantized operations. |
 | `backends/simd/quant/q4` | Q4/GPTQ CPU/SIMD validation (`validate.go`), dequantization (`dequant.go`), GEMV (`gemv.go`), and F16 helpers (`f16.go`). |
 | `backends/simd/quant/nvfp4` | NVFP4 CPU reference types, validation, FP4/F8 decode, dequantization, and GEMV split into focused files. |
