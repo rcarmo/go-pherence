@@ -27,3 +27,17 @@ func SoftmaxInPlace(x []float32) bool {
 	}
 	return true
 }
+
+// SoftmaxRowsInPlace normalizes a row-major [rows, cols] matrix in-place.
+func SoftmaxRowsInPlace(x []float32, rows, cols int) bool {
+	total, ok := checkedMulInt(rows, cols)
+	if rows <= 0 || cols <= 0 || !ok || len(x) < total {
+		return false
+	}
+	for r := 0; r < rows; r++ {
+		if !SoftmaxInPlace(x[r*cols : (r+1)*cols]) {
+			return false
+		}
+	}
+	return true
+}
