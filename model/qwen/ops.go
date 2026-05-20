@@ -21,21 +21,22 @@ func gemvNT(out, x []float32, w []float32, inDim, outDim int) {
 	for i := range out {
 		out[i] = 0
 	}
-	if inDim <= 0 || outDim <= 0 || len(out) < outDim || len(x) < inDim || len(w) < inDim*outDim {
+	weightLen, ok := checkedMulInt(inDim, outDim)
+	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
 		return
 	}
-	for j := 0; j < outDim; j++ {
-		sum := float32(0)
-		row := w[j*inDim : (j+1)*inDim]
-		if inDim >= 8 {
-			sum = simd.Sdot(x, row)
-		} else {
-			for p := 0; p < inDim; p++ {
-				sum += x[p] * row[p]
-			}
-		}
-		out[j] = sum
+	simd.GemvRows(out[:outDim], x[:inDim], w[:weightLen], outDim, inDim)
+}
+
+func checkedMulInt(a, b int) (int, bool) {
+	if a < 0 || b < 0 {
+		return 0, false
 	}
+	maxInt := int(^uint(0) >> 1)
+	if b != 0 && a > maxInt/b {
+		return 0, false
+	}
+	return a * b, true
 }
 
 func applyRoPEPartial(x, freqs []float32, pos, numHeads, headDim, rotHalf int) {
