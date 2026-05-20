@@ -60,6 +60,10 @@ func TestSoftmaxRowsInPlace(t *testing.T) {
 	if SoftmaxRowsInPlace(x[:5], 2, 3) || SoftmaxRowsInPlace(x, 0, 3) || SoftmaxRowsInPlace(x, 2, 0) {
 		t.Fatal("SoftmaxRowsInPlace accepted malformed input")
 	}
+	maxInt := int(^uint(0) >> 1)
+	if SoftmaxRowsInPlace(x, maxInt/2+1, 3) {
+		t.Fatal("SoftmaxRowsInPlace accepted overflowing dimensions")
+	}
 }
 
 func TestSoftmaxInPlaceStableLargeValues(t *testing.T) {
