@@ -21,7 +21,8 @@ This directory contains the durable backend, model, validation, and research not
 
 ## GPU and quantized runtimes
 
-- [gpu-options.md](gpu-options.md) — GPU compute paths and backend selection notes.
+- [gpu-options.md](gpu-options.md) — GPU compute paths and backend overview.
+- [backend-selection.md](backend-selection.md) — backend selection order, gates, Vulkan wrapper status, and fallback rules.
 - [vulkan-dispatch-inventory.md](vulkan-dispatch-inventory.md) — Vulkan shader/wrapper inventory.
 - [vulkan-validation-plan.md](vulkan-validation-plan.md) — Vulkan pipeline-cache and parity-test plan.
 - [nvidia-quant-boundaries.md](nvidia-quant-boundaries.md) — NVIDIA Q4/NVFP4 support boundaries.

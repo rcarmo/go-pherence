@@ -39,7 +39,7 @@ Portable backend for non-NVIDIA hardware. Vulkan code and shaders now live under
 - **API**: 35 Vulkan functions, device auto-selection, compute queue + command pool
 - **Shaders**: GLSL/SPIR-V coverage for vector add, RMSNorm, GEMV, SiLU, attention score, RMSNormNoScale, RoPEPartial, and GELU paths
 - **BF16**: emulated via uint16 bitshift (no extensions needed)
-- **Status**: init + buffer path, embedded SPIR-V, and validating wrapper stubs are present; Vulkan pipeline cache wiring and CPU-vs-Vulkan tests are still pending. See [vulkan-dispatch-inventory.md](vulkan-dispatch-inventory.md) for the current shader/wrapper inventory and [vulkan-validation-plan.md](vulkan-validation-plan.md) for the validation sequence.
+- **Status**: init + buffer path, embedded SPIR-V, pipeline cache wiring, validating dispatch wrappers, and availability-gated CPU-vs-Vulkan parity tests are present for the covered primitives. See [backend-selection.md](backend-selection.md) for selection/fallback policy, [vulkan-dispatch-inventory.md](vulkan-dispatch-inventory.md) for the current shader/wrapper inventory, and [vulkan-validation-plan.md](vulkan-validation-plan.md) for the validation sequence.
 
 ### Fused-only primitive decisions
 
@@ -77,16 +77,16 @@ AVX2+FMA (amd64) and NEON (arm64):
 ## Backend Selection
 
 ```
-if NVIDIA GPU available:
+if NVIDIA GPU available and enabled:
     → NVIDIA PTX (fastest, 29 kernels)
-elif Vulkan model dispatch is enabled and a non-software Vulkan device is available:
-    → backends/vulkan SPIR-V (portable shader path; still being wired)
+elif an explicit Vulkan wrapper is used and a non-software Vulkan device is available:
+    → backends/vulkan SPIR-V for covered primitives
 else:
     → CPU SIMD (AVX2 or NEON assembly)
     → Go scalar (universal fallback)
 ```
 
-The current production model path chooses NVIDIA when requested/available, otherwise CPU SIMD/scalar. Vulkan device/shader scaffolding is present but full forward dispatch remains a Phase 3.6 item.
+The current production model path chooses NVIDIA when requested/available, otherwise CPU SIMD/scalar. Vulkan wrappers are usable for the covered primitive tests and explicit dispatch calls, but model-level Vulkan placement is still intentionally opt-in/experimental. See [backend-selection.md](backend-selection.md) for detailed gates, fallback rules, and wrapper coverage.
 
 ### Debug and diagnostics gates
 
