@@ -1,4 +1,4 @@
-package checked
+package vector
 
 // VecAddTo computes dst = a + b and reports malformed inputs.
 func VecAddTo(dst, a, b []float32) bool {

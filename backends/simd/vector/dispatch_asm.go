@@ -1,6 +1,6 @@
 //go:build amd64 || arm64
 
-package dispatch
+package vector
 
 //go:noescape
 func snrm2Asm(x []float32) float32
