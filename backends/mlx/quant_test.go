@@ -1,0 +1,260 @@
+package mlx
+
+import (
+	"math"
+	"testing"
+)
+
+func TestDequant(t *testing.T) {
+	// Test MLX affine 4-bit dequantization
+	// Create a small 4×8 weight matrix with known values
+	outDim, inDim := 4, 8
+	groupSize := 4
+	bits := 4
+	packFactor := 32 / bits // 8 values per uint32
+
+	// Pack values: for each row, pack 8 values into 1 uint32
+	// Values: row0=[0,1,2,3,4,5,6,7], row1=[8,9,10,11,12,13,14,15] (mod 16)
+	weight := make([]uint32, outDim*(inDim/packFactor))
+	for row := 0; row < outDim; row++ {
+		var packed uint32
+		for i := 0; i < inDim; i++ {
+			val := uint32((row*inDim + i) % 16)
+			packed |= val << (uint(i) * uint(bits))
+		}
+		weight[row] = packed
+	}
+
+	// Scales and biases: 2 groups per row (groupSize=4, inDim=8)
+	numGroups := inDim / groupSize
+	scales := make([]float32, outDim*numGroups)
+	biases := make([]float32, outDim*numGroups)
+	for i := range scales {
+		scales[i] = 0.1
+		biases[i] = -0.5
+	}
+
+	qw := &QuantWeight{
+		Weight:    weight,
+		Scales:    scales,
+		Biases:    biases,
+		OutDim:    outDim,
+		InDim:     inDim,
+		Groups:    numGroups,
+		GroupSize: groupSize,
+		Bits:      bits,
+	}
+
+	out := Dequant(qw)
+	outTo := make([]float32, len(out)+1)
+	outTo[len(out)] = 123
+	if !DequantTo(outTo, qw) {
+		t.Fatal("DequantTo returned false for valid weight")
+	}
+	if outTo[len(out)] != 123 {
+		t.Fatalf("DequantTo mutated tail: %v", outTo)
+	}
+
+	// Verify: out[row][col] = val * scale + bias
+	for row := 0; row < outDim; row++ {
+		for col := 0; col < inDim; col++ {
+			val := float32((row*inDim + col) % 16)
+			expected := val*0.1 + (-0.5)
+			got := out[row*inDim+col]
+			if math.Abs(float64(got-expected)) > 1e-6 {
+				t.Fatalf("row=%d col=%d: got %f, want %f (val=%f)", row, col, got, expected, val)
+			}
+			if math.Abs(float64(outTo[row*inDim+col]-expected)) > 1e-6 {
+				t.Fatalf("DequantTo row=%d col=%d: got %f, want %f", row, col, outTo[row*inDim+col], expected)
+			}
+		}
+	}
+	t.Log("Dequant: OK")
+}
+
+func TestDequantParallelMatchesScalarFormula(t *testing.T) {
+	qw := makeBenchMLXWeight(1024, 16, 8)
+	out := make([]float32, qw.OutDim*qw.InDim+1)
+	out[len(out)-1] = 123
+	if !DequantTo(out, qw) {
+		t.Fatal("DequantTo returned false for valid weight")
+	}
+	for row := 0; row < qw.OutDim; row++ {
+		for col := 0; col < qw.InDim; col++ {
+			packIdx := col / 8
+			bitPos := uint(col%8) * 4
+			val := float32((qw.Weight[row*(qw.InDim/8)+packIdx] >> bitPos) & 0xF)
+			group := col / qw.GroupSize
+			want := val*qw.Scales[row*qw.Groups+group] + qw.Biases[row*qw.Groups+group]
+			got := out[row*qw.InDim+col]
+			if math.Abs(float64(got-want)) > 1e-6 {
+				t.Fatalf("got[%d,%d]=%g want %g", row, col, got, want)
+			}
+		}
+	}
+	if out[len(out)-1] != 123 {
+		t.Fatal("DequantTo mutated tail")
+	}
+}
+
+func makeBenchMLXWeight(outDim, inDim, groupSize int) *QuantWeight {
+	weight := make([]uint32, outDim*(inDim/8))
+	for row := 0; row < outDim; row++ {
+		for p := 0; p < inDim/8; p++ {
+			var packed uint32
+			for i := 0; i < 8; i++ {
+				val := uint32((row*13 + p*7 + i*3) & 0xF)
+				packed |= val << (uint(i) * 4)
+			}
+			weight[row*(inDim/8)+p] = packed
+		}
+	}
+	numGroups := inDim / groupSize
+	scales := make([]float32, outDim*numGroups)
+	biases := make([]float32, outDim*numGroups)
+	for i := range scales {
+		scales[i] = 0.001 * float32((i%17)+1)
+		biases[i] = -0.01 + 0.001*float32(i%19)
+	}
+	return &QuantWeight{Weight: weight, Scales: scales, Biases: biases, OutDim: outDim, InDim: inDim, Groups: numGroups, GroupSize: groupSize, Bits: 4}
+}
+
+func BenchmarkGemv4QwenMoEGate(b *testing.B) {
+	qw := makeBenchMLXWeight(768, 2048, 64)
+	x := make([]float32, qw.InDim)
+	out := make([]float32, qw.OutDim)
+	for i := range x {
+		x[i] = float32((i%31)-15) * 0.01
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Gemv(out, x, qw)
+	}
+}
+
+func BenchmarkGemv4QwenMoEDown(b *testing.B) {
+	qw := makeBenchMLXWeight(2048, 768, 64)
+	x := make([]float32, qw.InDim)
+	out := make([]float32, qw.OutDim)
+	for i := range x {
+		x[i] = float32((i%31)-15) * 0.01
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Gemv(out, x, qw)
+	}
+}
+
+func TestGemv4FastPathMatchesGeneric(t *testing.T) {
+	outDim, inDim := 3, 16
+	groupSize := 8
+	bits := 4
+	weight := make([]uint32, outDim*(inDim/8))
+	for row := 0; row < outDim; row++ {
+		for p := 0; p < inDim/8; p++ {
+			var packed uint32
+			for i := 0; i < 8; i++ {
+				val := uint32((row*11 + p*7 + i*3) & 0xF)
+				packed |= val << (uint(i) * 4)
+			}
+			weight[row*(inDim/8)+p] = packed
+		}
+	}
+	numGroups := inDim / groupSize
+	scales := make([]float32, outDim*numGroups)
+	biases := make([]float32, outDim*numGroups)
+	for i := range scales {
+		scales[i] = 0.03 * float32(i+1)
+		biases[i] = -0.2 + 0.01*float32(i)
+	}
+	x := []float32{1, -2, 3, -4, 5, -6, 7, -8, 0.5, -0.25, 1.5, -1.25, 2.5, -2.25, 3.5, -3.25}
+	fast := &QuantWeight{Weight: weight, Scales: scales, Biases: biases, OutDim: outDim, InDim: inDim, Groups: numGroups, GroupSize: groupSize, Bits: bits}
+	generic := *fast
+	generic.GroupSize = 4
+	generic.Groups = inDim / generic.GroupSize
+	generic.Scales = make([]float32, outDim*generic.Groups)
+	generic.Biases = make([]float32, outDim*generic.Groups)
+	for row := 0; row < outDim; row++ {
+		for g := 0; g < generic.Groups; g++ {
+			src := row*numGroups + g/2
+			generic.Scales[row*generic.Groups+g] = scales[src]
+			generic.Biases[row*generic.Groups+g] = biases[src]
+		}
+	}
+	got := make([]float32, outDim)
+	want := make([]float32, outDim)
+	Gemv(got, x, fast)
+	Gemv(want, x, &generic)
+	for i := range got {
+		if diff := math.Abs(float64(got[i] - want[i])); diff > 1e-5 {
+			t.Fatalf("row %d: fast=%f generic=%f diff=%g", i, got[i], want[i], diff)
+		}
+	}
+}
+
+func TestGemv(t *testing.T) {
+	// Test MLX on-the-fly GEMV
+	outDim, inDim := 4, 8
+	groupSize := 4
+	bits := 4
+	packFactor := 32 / bits
+
+	// Same weight setup as above
+	weight := make([]uint32, outDim*(inDim/packFactor))
+	for row := 0; row < outDim; row++ {
+		var packed uint32
+		for i := 0; i < inDim; i++ {
+			val := uint32((row*inDim + i) % 16)
+			packed |= val << (uint(i) * uint(bits))
+		}
+		weight[row] = packed
+	}
+
+	numGroups := inDim / groupSize
+	scales := make([]float32, outDim*numGroups)
+	biases := make([]float32, outDim*numGroups)
+	for i := range scales {
+		scales[i] = 0.1
+		biases[i] = -0.5
+	}
+
+	qw := &QuantWeight{
+		Weight:    weight,
+		Scales:    scales,
+		Biases:    biases,
+		OutDim:    outDim,
+		InDim:     inDim,
+		Groups:    numGroups,
+		GroupSize: groupSize,
+		Bits:      bits,
+	}
+
+	// Input vector
+	x := []float32{1, 2, 3, 4, 5, 6, 7, 8}
+
+	// CPU reference: dequant then multiply
+	deq := Dequant(qw)
+	cpuOut := make([]float32, outDim)
+	for row := 0; row < outDim; row++ {
+		sum := float32(0)
+		for col := 0; col < inDim; col++ {
+			sum += deq[row*inDim+col] * x[col]
+		}
+		cpuOut[row] = sum
+	}
+
+	// On-the-fly GEMV
+	mlqOut := make([]float32, outDim)
+	Gemv(mlqOut, x, qw)
+
+	// Compare
+	for i := 0; i < outDim; i++ {
+		diff := math.Abs(float64(mlqOut[i] - cpuOut[i]))
+		if diff > 1e-4 {
+			t.Fatalf("row %d: gemvMLQ=%f, reference=%f, diff=%e", i, mlqOut[i], cpuOut[i], diff)
+		}
+	}
+	t.Logf("Gemv vs dequant reference: max diff OK")
+}
