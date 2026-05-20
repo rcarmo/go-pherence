@@ -148,9 +148,7 @@ func addLinearBias(result, bias *Tensor) {
 	if !ok || len(rData) < total || len(bData) < n {
 		panic("linear: invalid backing data")
 	}
-	for i := 0; i < m; i++ {
-		for j := 0; j < n; j++ {
-			rData[i*n+j] += bData[j]
-		}
+	if !simd.AddBiasRowsTo(rData[:total], bData, m, n) {
+		panic("linear: checked SIMD bias rejected validated tensor")
 	}
 }
