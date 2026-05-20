@@ -23,6 +23,9 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 	if !vkReady {
 		return nil, fmt.Errorf("vulkan not initialized")
 	}
+	if sizeBytes <= 0 {
+		return nil, fmt.Errorf("invalid vulkan buffer size=%d", sizeBytes)
+	}
 
 	bufInfo := struct {
 		sType                 uint32

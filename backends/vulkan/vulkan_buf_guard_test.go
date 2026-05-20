@@ -6,6 +6,17 @@ import (
 	"unsafe"
 )
 
+func TestVkBufAllocRejectsMalformedSize(t *testing.T) {
+	oldReady := vkReady
+	vkReady = true
+	t.Cleanup(func() { vkReady = oldReady })
+	for _, size := range []int{0, -1} {
+		if _, err := VkBufAlloc(size); err == nil || !strings.Contains(err.Error(), "invalid") {
+			t.Fatalf("VkBufAlloc(%d) err=%v, want invalid size", size, err)
+		}
+	}
+}
+
 func TestVkBufCheckedTransferRejectsMalformedInputs(t *testing.T) {
 	var nilBuf *VkBuf
 	if err := nilBuf.UploadChecked([]float32{1}); err == nil || !strings.Contains(err.Error(), "not mapped") {
