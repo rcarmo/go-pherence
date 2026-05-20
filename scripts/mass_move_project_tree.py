@@ -3,16 +3,16 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/simd/quant/q4/ops"
+base = root / "tensor/core"
 
-# Batch 25: mechanically split Q4 ops by operation.
+# Batch 26: mechanically split tensor core by storage/type/validation concern.
 MOVES = {
-    "dequant.go": ("dequant/dequant.go", "dequant"),
-    "gemv.go": ("gemv/gemv.go", "gemv"),
-    "gemv_asym_test.go": ("gemv/asym_test.go", "gemv"),
-    "gemv_validate_test.go": ("gemv/validate_test.go", "gemv"),
-    "gemm.go": ("gemm/gemm.go", "gemm"),
-    "gemm_test.go": ("gemm/gemm_test.go", "gemm"),
+    "dtype.go": ("dtype/dtype.go", "dtype"),
+    "shape.go": ("shape/shape.go", "shape"),
+    "tensor.go": ("storage/tensor.go", "storage"),
+    "tensor_test.go": ("storage/tensor_test.go", "storage"),
+    "checked.go": ("checks/checked.go", "checks"),
+    "unsafe.go": ("unsafe/unsafe.go", "unsafe"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -32,13 +32,15 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/simd-q4-ops-tree-move-table.md").write_text("""# SIMD Q4 ops tree move table
+(root / "docs/tensor-core-tree-move-table.md").write_text("""# Tensor core tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 25.
+Applied by `scripts/mass_move_project_tree.py` batch 26.
 
 | Concern | Target |
 |---|---|
-| Q4 dequant ops | `backends/simd/quant/q4/ops/dequant` |
-| Q4 GEMV ops/tests | `backends/simd/quant/q4/ops/gemv` |
-| Q4 GEMM ops/tests | `backends/simd/quant/q4/ops/gemm` |
+| DType definitions | `tensor/core/dtype` |
+| Shape helpers | `tensor/core/shape` |
+| Tensor storage/tests | `tensor/core/storage` |
+| Checked arithmetic/helpers | `tensor/core/checks` |
+| Unsafe conversion helpers | `tensor/core/unsafe` |
 """)
