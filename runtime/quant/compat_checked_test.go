@@ -12,6 +12,9 @@ func TestCheckedCompatibilityWrappersRejectMalformedInputs(t *testing.T) {
 	if GemvMLQTo(make([]float32, 1), make([]float32, 1), nil) {
 		t.Fatal("GemvMLQTo accepted malformed input")
 	}
+	if GemmMLQ(make([]float32, 1), make([]float32, 1), 1, nil) {
+		t.Fatal("GemmMLQ accepted malformed input")
+	}
 	if GemvNVFP4To(make([]float32, 1), make([]float32, 1), nil) {
 		t.Fatal("GemvNVFP4To accepted malformed input")
 	}
@@ -45,6 +48,9 @@ func TestCheckedCompatibilityWrappersAcceptTinyValidInputs(t *testing.T) {
 	}
 	if !GemvMLQTo(make([]float32, 1), q4X, mlxWeight) {
 		t.Fatal("GemvMLQTo rejected valid tiny input")
+	}
+	if !GemmMLQ(make([]float32, 2), append(q4X, q4X...), 2, mlxWeight) {
+		t.Fatal("GemmMLQ rejected valid tiny batched input")
 	}
 
 	nvWeight := &NVFP4Weight{
