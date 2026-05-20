@@ -244,23 +244,9 @@ func moeForward(x []float32, layer *LlamaLayer, cfg LlamaConfig) []float32 {
 		mlx.Gemv(routerLogits, x, layer.RouterW)
 	}
 
-	// Softmax over router logits
-	maxLogit := routerLogits[0]
-	for _, v := range routerLogits[1:] {
-		if v > maxLogit {
-			maxLogit = v
-		}
-	}
-	var expSum float32
-	for i := range routerLogits {
-		routerLogits[i] = float32(math.Exp(float64(routerLogits[i] - maxLogit)))
-		expSum += routerLogits[i]
-	}
-	if expSum <= 0 || math.IsNaN(float64(expSum)) || math.IsInf(float64(expSum), 0) {
+	// Softmax over router logits.
+	if !simd.SoftmaxInPlace(routerLogits) {
 		return nil
-	}
-	for i := range routerLogits {
-		routerLogits[i] /= expSum
 	}
 
 	// Top-k selection
