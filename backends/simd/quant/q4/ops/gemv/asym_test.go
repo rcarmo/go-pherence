@@ -1,4 +1,4 @@
-package ops
+package gemv
 
 import "testing"
 

@@ -1,4 +1,4 @@
-package ops
+package dequant
 
 import (
 	"runtime"
