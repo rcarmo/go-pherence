@@ -1,4 +1,4 @@
-package safetensors
+package mtp
 
 import (
 	"encoding/binary"

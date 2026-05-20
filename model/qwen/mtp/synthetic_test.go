@@ -1,4 +1,4 @@
-package synthetic
+package mtp
 
 import "testing"
 
