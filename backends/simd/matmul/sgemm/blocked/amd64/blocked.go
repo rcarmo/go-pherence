@@ -1,4 +1,4 @@
-package blocked
+package amd64
 
 import "unsafe"
 

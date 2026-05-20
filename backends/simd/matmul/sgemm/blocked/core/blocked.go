@@ -1,4 +1,4 @@
-package blocked
+package core
 
 import "unsafe"
 
