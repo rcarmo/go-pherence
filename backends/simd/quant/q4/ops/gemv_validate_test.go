@@ -1,4 +1,4 @@
-package q4
+package ops
 
 import (
 	"strings"

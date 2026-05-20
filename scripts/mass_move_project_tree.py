@@ -3,27 +3,22 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/simd/matmul/sgemm"
+base = root / "backends/simd/quant/q4"
 
-# Batch 11: mechanically split SIMD SGEMM variants.
+# Batch 12: mechanically split SIMD Q4 quant package by concern.
 MOVES = {
-    "sgemm.go": ("base/sgemm.go", "base"),
-    "sgemm_amd64.go": ("base/sgemm_amd64.go", "base"),
-    "sgemm_amd64.s": ("base/sgemm_amd64.s", "base"),
-    "sgemm_arm64.go": ("base/sgemm_arm64.go", "base"),
-    "sgemm_arm64.s": ("base/sgemm_arm64.s", "base"),
-    "checked.go": ("checked/checked.go", "checked"),
-    "checked_test.go": ("checked/checked_test.go", "checked"),
-    "blocked.go": ("blocked/blocked.go", "blocked"),
-    "blocked_amd64.go": ("blocked/blocked_amd64.go", "blocked"),
-    "blocked_amd64.s": ("blocked/blocked_amd64.s", "blocked"),
-    "blocked_arm64.go": ("blocked/blocked_arm64.go", "blocked"),
-    "blocked_arm64.s": ("blocked/blocked_arm64.s", "blocked"),
-    "blocked_other.go": ("blocked/blocked_other.go", "blocked"),
-    "gather.go": ("gather/gather.go", "gather"),
-    "gather_amd64.go": ("gather/gather_amd64.go", "gather"),
-    "gather_amd64.s": ("gather/gather_amd64.s", "gather"),
-    "gather_other.go": ("gather/gather_other.go", "gather"),
+    "capabilities.go": ("runtime/capabilities.go", "runtime"),
+    "capabilities_test.go": ("runtime/capabilities_test.go", "runtime"),
+    "validate.go": ("format/validate.go", "format"),
+    "validate_test.go": ("format/validate_test.go", "format"),
+    "f16.go": ("format/f16.go", "format"),
+    "known_values_test.go": ("format/known_values_test.go", "format"),
+    "dequant.go": ("ops/dequant.go", "ops"),
+    "gemv.go": ("ops/gemv.go", "ops"),
+    "gemv_asym_test.go": ("ops/gemv_asym_test.go", "ops"),
+    "gemv_validate_test.go": ("ops/gemv_validate_test.go", "ops"),
+    "gemm.go": ("ops/gemm.go", "ops"),
+    "gemm_test.go": ("ops/gemm_test.go", "ops"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -43,14 +38,13 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/simd-sgemm-tree-move-table.md").write_text("""# SIMD SGEMM tree move table
+(root / "docs/simd-q4-tree-move-table.md").write_text("""# SIMD Q4 tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 11.
+Applied by `scripts/mass_move_project_tree.py` batch 12.
 
 | Concern | Target |
 |---|---|
-| Base SGEMM assembly/wrappers | `backends/simd/matmul/sgemm/base` |
-| Checked SGEMM slice APIs | `backends/simd/matmul/sgemm/checked` |
-| Blocked SGEMM variant | `backends/simd/matmul/sgemm/blocked` |
-| Gather SGEMM variant | `backends/simd/matmul/sgemm/gather` |
+| Q4 capability gates | `backends/simd/quant/q4/runtime` |
+| Q4 validation/F16/known values | `backends/simd/quant/q4/format` |
+| Q4 dequant/GEMV/GEMM ops | `backends/simd/quant/q4/ops` |
 """)
