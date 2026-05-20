@@ -2,7 +2,6 @@ package bert
 
 import (
 	"math"
-	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"gonum.org/v1/gonum/blas"
@@ -54,20 +53,8 @@ func (m *BertModel) ForwardFast(tokenIDs []int, ws *Workspace) []float32 {
 		}
 		qkvW := layer.QKVW.Data()
 		qkvB := layer.QKVB.Data()
-		if simd.HasSgemmAsm {
-			simd.SgemmNT(seqLen, 3*h, h, 1.0,
-				unsafe.Pointer(&hidden[0]), unsafe.Pointer(&qkvW[0]), unsafe.Pointer(&qkv[0]),
-				h, h, 3*h)
-		} else {
-			for i := 0; i < seqLen; i++ {
-				for j := 0; j < 3*h; j++ {
-					sum := float32(0)
-					for p := 0; p < h; p++ {
-						sum += hidden[i*h+p] * qkvW[j*h+p]
-					}
-					qkv[i*3*h+j] = sum
-				}
-			}
+		if seqLen > 0 && !simd.SgemmNTTo(qkv, hidden, qkvW, seqLen, 3*h, h, 1.0, h, h, 3*h) {
+			return nil
 		}
 		// Add bias
 		for s := 0; s < seqLen; s++ {
