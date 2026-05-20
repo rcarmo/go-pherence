@@ -26,3 +26,11 @@ func GemvQ4Sym(out, x []float32, qweight, gIdx []int32, scales []float32, inDim,
 func GemvQ4SymTo(out, x []float32, qweight, gIdx []int32, scales []float32, inDim, outDim int) bool {
 	return simdq4.GemvSymTo(out, x, qweight, gIdx, scales, inDim, outDim)
 }
+
+func GemmQ4(out, x []float32, batch int, qweight, qzeros, gIdx []int32, scales []float32, inDim, outDim int, sym bool) bool {
+	return simdq4.Gemm(out, x, batch, qweight, qzeros, gIdx, scales, inDim, outDim, sym)
+}
+
+func GemmQ4Sym(out, x []float32, batch int, qweight, gIdx []int32, scales []float32, inDim, outDim int) bool {
+	return simdq4.GemmSym(out, x, batch, qweight, gIdx, scales, inDim, outDim)
+}
