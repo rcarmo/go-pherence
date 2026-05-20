@@ -327,18 +327,7 @@ func (d *Gemma4MTPDrafter) PostProjectInto(dst, assistantHidden []float32) error
 }
 
 func simdDot(a, b []float32) float32 {
-	if len(a) >= 8 {
-		return simd.Sdot(a, b)
-	}
-	n := len(a)
-	if len(b) < n {
-		n = len(b)
-	}
-	sum := float32(0)
-	for i := 0; i < n; i++ {
-		sum += a[i] * b[i]
-	}
-	return sum
+	return simd.Sdot(a, b)
 }
 
 func validateShape(name string, expected, actual []int, n int) error {
