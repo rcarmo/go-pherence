@@ -11,6 +11,7 @@ func UnpackNVFP4(packed []byte, count int) []float32     { return simdnvfp4.Unpa
 func DequantNVFP4(qw *NVFP4Weight) []float32             { return simdnvfp4.DequantNVFP4(qw) }
 func DequantNVFP4To(out []float32, qw *NVFP4Weight) bool { return simdnvfp4.DequantNVFP4To(out, qw) }
 func GemvNVFP4(out, x []float32, qw *NVFP4Weight)        { simdnvfp4.GemvNVFP4(out, x, qw) }
+func GemvNVFP4To(out, x []float32, qw *NVFP4Weight) bool { return simdnvfp4.GemvNVFP4To(out, x, qw) }
 func GemvNVFP4Reference(out, x []float32, qw *NVFP4Weight) bool {
 	return simdnvfp4.GemvNVFP4Reference(out, x, qw)
 }

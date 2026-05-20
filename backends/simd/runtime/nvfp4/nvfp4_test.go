@@ -109,7 +109,9 @@ func TestGemvNVFP4MatchesDequantizedReference(t *testing.T) {
 				}
 			}
 			got := make([]float32, qw.OutDim)
-			GemvNVFP4(got, x, qw)
+			if !GemvNVFP4To(got, x, qw) {
+				t.Fatal("GemvNVFP4To returned false for valid weight")
+			}
 			ref := make([]float32, qw.OutDim)
 			if !GemvNVFP4Reference(ref, x, qw) {
 				t.Fatal("GemvNVFP4Reference returned false for valid weight")
@@ -156,6 +158,22 @@ func TestDequantNVFP4ParallelMatchesReference(t *testing.T) {
 	}
 	if got[len(got)-1] != 123 {
 		t.Fatalf("DequantNVFP4To mutated tail")
+	}
+}
+
+func TestGemvNVFP4ToRejectsMalformedInputs(t *testing.T) {
+	qw := syntheticNVFP4Weight()
+	if !GemvNVFP4To(make([]float32, qw.OutDim), make([]float32, qw.InDim), qw) {
+		t.Fatal("GemvNVFP4To returned false for valid input")
+	}
+	if GemvNVFP4To(make([]float32, qw.OutDim-1), make([]float32, qw.InDim), qw) {
+		t.Fatal("GemvNVFP4To accepted short output")
+	}
+	if GemvNVFP4To(make([]float32, qw.OutDim), make([]float32, qw.InDim-1), qw) {
+		t.Fatal("GemvNVFP4To accepted short x")
+	}
+	if GemvNVFP4To(make([]float32, qw.OutDim), make([]float32, qw.InDim), nil) {
+		t.Fatal("GemvNVFP4To accepted nil weight")
 	}
 }
 

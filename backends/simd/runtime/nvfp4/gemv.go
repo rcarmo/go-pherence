@@ -7,9 +7,13 @@ import (
 
 // GemvNVFP4 performs a correctness-first matrix-vector multiply directly from
 // packed NVFP4 weights: out[outDim] = W_nvfp4[outDim, inDim] · x[inDim].
-func GemvNVFP4(out, x []float32, qw *NVFP4Weight) {
+func GemvNVFP4(out, x []float32, qw *NVFP4Weight) { _ = GemvNVFP4To(out, x, qw) }
+
+// GemvNVFP4To performs packed NVFP4 GEMV into caller-owned output and reports
+// malformed inputs while preserving GemvNVFP4's no-allocation behavior.
+func GemvNVFP4To(out, x []float32, qw *NVFP4Weight) bool {
 	if err := ValidateNVFP4Weight(qw); err != nil || len(out) < qw.OutDim || len(x) < qw.InDim {
-		return
+		return false
 	}
 	// Dispatch hook kept explicit so AVX2/NEON GEMV kernels can be wired without
 	// changing callers. Scalar/reference path remains active until hasGemvAsm flips.
@@ -19,7 +23,7 @@ func GemvNVFP4(out, x []float32, qw *NVFP4Weight) {
 	// shard very large row counts where parallelism can amortize that cost.
 	if qw.OutDim < 4096 || workers <= 1 {
 		gemvNVFP4Rows(out, x, qw, 0, qw.OutDim)
-		return
+		return true
 	}
 	if workers > qw.OutDim {
 		workers = qw.OutDim
@@ -38,6 +42,7 @@ func GemvNVFP4(out, x []float32, qw *NVFP4Weight) {
 		}(start, end)
 	}
 	wg.Wait()
+	return true
 }
 
 // GemvNVFP4Reference is the exact single-thread scalar reference path for
