@@ -417,14 +417,8 @@ func DevRMSNormOK(out, x, weight *DevBuf, eps float32) bool {
 	x.ToCPU()
 	weight.ToCPU()
 	out.ToCPU()
-	var ss float32
-	for _, v := range x.cpu[:n] {
-		ss += v * v
-	}
-	ss = 1.0 / float32(math.Sqrt(float64(ss/float32(n)+eps)))
-	for i := 0; i < n; i++ {
-		out.cpu[i] = x.cpu[i] * ss * weight.cpu[i]
-	}
+	copy(out.cpu[:n], x.cpu[:n])
+	simd.RMSNormTo(out.cpu[:n], weight.cpu[:n], eps)
 	return false
 }
 
@@ -447,14 +441,8 @@ func DevRMSNormNoScale(out, x *DevBuf, eps float32) {
 	// CPU fallback
 	x.ToCPU()
 	out.ToCPU()
-	var ss float32
-	for _, v := range x.cpu[:n] {
-		ss += v * v
-	}
-	ss = 1.0 / float32(math.Sqrt(float64(ss/float32(n)+eps)))
-	for i := 0; i < n; i++ {
-		out.cpu[i] = x.cpu[i] * ss
-	}
+	copy(out.cpu[:n], x.cpu[:n])
+	simd.RMSNormNoScaleTo(out.cpu[:n], eps)
 }
 
 // Gemv: out[M] = W[M,K] * x[K] (matrix-vector multiply)
