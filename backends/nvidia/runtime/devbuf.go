@@ -6,7 +6,6 @@ package nvidia
 
 import (
 	"fmt"
-	"math"
 	"sync"
 	"unsafe"
 
@@ -238,9 +237,7 @@ func DevAdd(out, a, b *DevBuf) {
 	a.ToCPU()
 	b.ToCPU()
 	out.ToCPU()
-	for i := 0; i < n; i++ {
-		out.cpu[i] = a.cpu[i] + b.cpu[i]
-	}
+	simd.VecAddTo(out.cpu[:n], a.cpu[:n], b.cpu[:n])
 }
 
 // Mul: out = a * b (element-wise)
@@ -269,9 +266,7 @@ func DevMul(out, a, b *DevBuf) {
 	a.ToCPU()
 	b.ToCPU()
 	out.ToCPU()
-	for i := 0; i < n; i++ {
-		out.cpu[i] = a.cpu[i] * b.cpu[i]
-	}
+	simd.VecMulTo(out.cpu[:n], a.cpu[:n], b.cpu[:n])
 }
 
 // Scale: out = a * scalar
@@ -298,9 +293,7 @@ func DevScale(out, a *DevBuf, s float32) {
 	}
 	a.ToCPU()
 	out.ToCPU()
-	for i := 0; i < n; i++ {
-		out.cpu[i] = a.cpu[i] * s
-	}
+	simd.VecScaleTo(out.cpu[:n], a.cpu[:n], s)
 }
 
 // AddScaled: out = a + b * scalar.
@@ -325,9 +318,7 @@ func DevAddScaled(out, a, b *DevBuf, s float32) {
 	a.ToCPU()
 	b.ToCPU()
 	out.ToCPU()
-	for i := 0; i < n; i++ {
-		out.cpu[i] = a.cpu[i] + b.cpu[i]*s
-	}
+	simd.VecScaleAddTo(out.cpu[:n], a.cpu[:n], b.cpu[:n], s)
 }
 
 // ToBF16: truncate float32 values in-place to BF16 precision.
@@ -356,11 +347,7 @@ func DevToBF16(x *DevBuf, n int) {
 		}
 	}
 	x.ToCPU()
-	for i := 0; i < n; i++ {
-		bits := math.Float32bits(x.cpu[i])
-		bits &= 0xFFFF0000
-		x.cpu[i] = math.Float32frombits(bits)
-	}
+	simd.ToBF16(x.cpu[:n])
 }
 
 // SiLU: out = a * sigmoid(a)
