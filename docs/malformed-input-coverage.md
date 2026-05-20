@@ -17,7 +17,7 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 | Shared model RoPE | `model/rope_test.go` | RoPE frequency allocation overflow/bad dims/bad theta fallback. |
 | Shared model/BERT/tensor/loader/KV/ioctl helpers | `model/checked_test.go`, `models/bert/bert_test.go`, `tensor/tensor_test.go`, `loader/safetensors/safetensors_test.go`, `runtime/kv/cache_test.go`, `backends/nvidia/ioctl/helpers_test.go` | Checked product/multiplication/addition/shape helpers reject negative and overflowing dimensions/offsets before allocation/slicing/file-range guards; KV compressed-entry guards reject invalid dimensions. |
 | MoE loaders/forward | `model/moe_test.go`, `model/moe_gpu_test.go` | Switch-MLX dtype handling, malformed MoE inputs, incomplete expert weight handling, GPU active-expert clamping. |
-| Vulkan wrappers | `backends/vulkan/vulkan_wrapper_test.go` | Wrapper-level dimension/buffer rejection and pending-pipeline errors without requiring a Vulkan device. |
+| Vulkan wrappers | `backends/vulkan/vulkan_wrapper_test.go`, `vulkan_kernel_create_test.go`, `vulkan_buf_guard_test.go`, `vulkan_spirv_test.go` | Wrapper-level dimension/buffer rejection, kernel creation guards, buffer transfer guards, SPIR-V loader input validation, and pending-pipeline errors without requiring a Vulkan device. |
 
 ## Remaining Phase 10 gaps
 
