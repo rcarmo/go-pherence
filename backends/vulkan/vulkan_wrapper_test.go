@@ -12,6 +12,9 @@ func TestVulkanWrapperStubsRejectInvalidInputs(t *testing.T) {
 		fn   func() error
 		want string
 	}{
+		{"vec add f32", func() error { return VkVecAddF32(buf, buf, buf, 2) }, "invalid"},
+		{"vec add bf16 odd", func() error { return VkVecAddBF16(&VkBuf{size: 4}, &VkBuf{size: 4}, &VkBuf{size: 4}, 3) }, "invalid"},
+		{"vec add bf16 short", func() error { return VkVecAddBF16(buf, buf, buf, 4) }, "invalid"},
 		{"rmsnorm", func() error { return VkRMSNormF32(buf, buf, 2, 1e-6) }, "invalid"},
 		{"rmsnorm no scale", func() error { return VkRMSNormNoScaleF32(buf, 2, 1e-6) }, "invalid"},
 		{"gemv", func() error { return VkGemvF32(buf, buf, buf, 2, 2) }, "invalid"},
@@ -36,6 +39,8 @@ func TestVulkanWrapperStubsReportPendingWhenBuffersAreValid(t *testing.T) {
 		name string
 		fn   func() error
 	}{
+		{"vec add f32", func() error { return VkVecAddF32(buf, buf, buf, 2) }},
+		{"vec add bf16", func() error { return VkVecAddBF16(buf, buf, buf, 2) }},
 		{"rmsnorm", func() error { return VkRMSNormF32(buf, buf, 2, 1e-6) }},
 		{"rmsnorm no scale", func() error { return VkRMSNormNoScaleF32(buf, 2, 1e-6) }},
 		{"gemv", func() error { return VkGemvF32(buf, buf, buf, 2, 2) }},

@@ -72,6 +72,9 @@ func initVkKernels() {
 // VkVecAddF32 dispatches c[i] = a[i] + b[i] on Vulkan.
 func VkVecAddF32(dst, a, b *VkBuf, n int) error {
 	initVkKernels()
+	if n <= 0 || !vkBufHasFloat32s(dst, n) || !vkBufHasFloat32s(a, n) || !vkBufHasFloat32s(b, n) {
+		return fmt.Errorf("invalid vulkan vec_add_f32 buffers n=%d", n)
+	}
 	if vkVecAddF32 == nil {
 		return fmt.Errorf("vulkan vec_add_f32 not available (SPIR-V needs glslangValidator)")
 	}
@@ -80,9 +83,20 @@ func VkVecAddF32(dst, a, b *VkBuf, n int) error {
 	return vkVecAddF32.Dispatch(groups, 1, 1, []*VkBuf{a, b, dst}, unsafe.Pointer(&nn))
 }
 
+func vkBufHasBytes(b *VkBuf, n int) bool {
+	return b != nil && n >= 0 && b.size >= uint64(n)
+}
+
 // VkVecAddBF16 dispatches c[i] = BF16(F32(a[i]) + F32(b[i])) on Vulkan.
 func VkVecAddBF16(dst, a, b *VkBuf, n int) error {
 	initVkKernels()
+	if n <= 0 || n%2 != 0 {
+		return fmt.Errorf("invalid vulkan vec_add_bf16 element count n=%d", n)
+	}
+	packedBytes := (n / 2) * 4
+	if !vkBufHasBytes(dst, packedBytes) || !vkBufHasBytes(a, packedBytes) || !vkBufHasBytes(b, packedBytes) {
+		return fmt.Errorf("invalid vulkan vec_add_bf16 buffers n=%d", n)
+	}
 	if vkVecAddBF16 == nil {
 		return fmt.Errorf("vulkan vec_add_bf16 not available")
 	}
