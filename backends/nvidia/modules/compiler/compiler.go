@@ -1,4 +1,4 @@
-package modules
+package compiler
 
 // Kernel compiler: generates fused PTX kernels from op sequences.
 //

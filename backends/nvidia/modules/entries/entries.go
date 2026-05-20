@@ -1,4 +1,4 @@
-package modules
+package entries
 
 import (
 	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"

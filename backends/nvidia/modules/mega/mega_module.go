@@ -1,4 +1,4 @@
-package modules
+package mega
 
 // Unified kernel loader: merges ALL PTX entries into one module.
 // Solves the cuModuleLoadData error 201 (can't load multiple modules).

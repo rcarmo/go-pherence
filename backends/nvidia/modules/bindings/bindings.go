@@ -1,4 +1,4 @@
-package modules
+package bindings
 
 type moduleFunctions map[string]CUfunction
 

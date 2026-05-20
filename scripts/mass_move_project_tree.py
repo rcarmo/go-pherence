@@ -3,17 +3,16 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "model/qwen/mtp"
+base = root / "backends/nvidia/modules"
 
-# Batch 21: mechanically split Qwen native MTP helpers by source/harness concern.
+# Batch 22: mechanically split NVIDIA module/compiler helpers.
 MOVES = {
-    "mtp.go": ("core/mtp.go", "core"),
-    "mtp_test.go": ("core/mtp_test.go", "core"),
-    "harness_test.go": ("harness/harness_test.go", "harness"),
-    "safetensors.go": ("safetensors/safetensors.go", "safetensors"),
-    "safetensors_test.go": ("safetensors/safetensors_test.go", "safetensors"),
-    "synthetic.go": ("synthetic/synthetic.go", "synthetic"),
-    "synthetic_test.go": ("synthetic/synthetic_test.go", "synthetic"),
+    "compiler.go": ("compiler/compiler.go", "compiler"),
+    "compiler_test.go": ("compiler/compiler_test.go", "compiler"),
+    "mega_module.go": ("mega/mega_module.go", "mega"),
+    "bindings.go": ("bindings/bindings.go", "bindings"),
+    "entries.go": ("entries/entries.go", "entries"),
+    "state.go": ("state/state.go", "state"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -33,14 +32,15 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/qwen-mtp-tree-move-table.md").write_text("""# Qwen MTP tree move table
+(root / "docs/nvidia-modules-tree-move-table.md").write_text("""# NVIDIA modules tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 21.
+Applied by `scripts/mass_move_project_tree.py` batch 22.
 
 | Concern | Target |
 |---|---|
-| Native MTP core | `model/qwen/mtp/core` |
-| MTP harness tests | `model/qwen/mtp/harness` |
-| Safetensors MTP source helpers | `model/qwen/mtp/safetensors` |
-| Synthetic MTP fixtures | `model/qwen/mtp/synthetic` |
+| PTX compiler helpers/tests | `backends/nvidia/modules/compiler` |
+| Mega-module loader | `backends/nvidia/modules/mega` |
+| Module bindings | `backends/nvidia/modules/bindings` |
+| Module entry metadata | `backends/nvidia/modules/entries` |
+| Module state | `backends/nvidia/modules/state` |
 """)
