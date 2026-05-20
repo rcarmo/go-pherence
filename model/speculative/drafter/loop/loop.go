@@ -1,4 +1,4 @@
-package drafter
+package loop
 
 import "fmt"
 
