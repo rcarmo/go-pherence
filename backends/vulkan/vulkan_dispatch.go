@@ -222,6 +222,21 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 
 // Dispatch executes the compute kernel with given buffers and workgroup dimensions.
 func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkBuf, pushData unsafe.Pointer) error {
+	if k == nil || k.pipeline == 0 || k.pipelineLayout == 0 || k.descSet == 0 || k.cmdBuf == 0 || k.fence == 0 {
+		return fmt.Errorf("vulkan dispatch on uninitialized kernel")
+	}
+	if groupsX == 0 || groupsY == 0 || groupsZ == 0 {
+		return fmt.Errorf("vulkan dispatch has zero workgroups (%d,%d,%d)", groupsX, groupsY, groupsZ)
+	}
+	if len(bufs) != k.numBuffers {
+		return fmt.Errorf("vulkan dispatch buffer count=%d want=%d", len(bufs), k.numBuffers)
+	}
+	for i, buf := range bufs {
+		if buf == nil || buf.buf == 0 || buf.mem == 0 || buf.size == 0 {
+			return fmt.Errorf("vulkan dispatch buffer %d is not initialized", i)
+		}
+	}
+
 	// Update descriptor set with buffer bindings
 	type bufInfo struct {
 		buffer VkBuffer
