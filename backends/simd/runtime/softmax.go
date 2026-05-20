@@ -28,6 +28,16 @@ func SoftmaxInPlace(x []float32) bool {
 	return true
 }
 
+// SoftmaxLastAxisTo writes a row-major last-axis softmax into out.
+func SoftmaxLastAxisTo(out, x []float32, rows, cols int) bool {
+	total, ok := checkedMulInt(rows, cols)
+	if rows <= 0 || cols <= 0 || !ok || len(out) < total || len(x) < total {
+		return false
+	}
+	copy(out[:total], x[:total])
+	return SoftmaxRowsInPlace(out[:total], rows, cols)
+}
+
 // SoftmaxRowsInPlace normalizes a row-major [rows, cols] matrix in-place.
 func SoftmaxRowsInPlace(x []float32, rows, cols int) bool {
 	total, ok := checkedMulInt(rows, cols)

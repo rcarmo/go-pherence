@@ -40,6 +40,33 @@ func TestSoftmaxInPlaceRejectsNaNInfSum(t *testing.T) {
 	}
 }
 
+func TestSoftmaxLastAxisTo(t *testing.T) {
+	x := []float32{1, 2, 3, 3, 2, 1, 99}
+	out := make([]float32, 7)
+	out[6] = 123
+	if !SoftmaxLastAxisTo(out[:6], x[:6], 2, 3) {
+		t.Fatal("SoftmaxLastAxisTo returned false")
+	}
+	if x[0] != 1 || x[6] != 99 {
+		t.Fatalf("SoftmaxLastAxisTo mutated input: %v", x)
+	}
+	for r := 0; r < 2; r++ {
+		sum := float32(0)
+		for _, v := range out[r*3 : (r+1)*3] {
+			sum += v
+		}
+		if math.Abs(float64(sum-1)) > 1e-6 {
+			t.Fatalf("row %d sum=%g", r, sum)
+		}
+	}
+	if out[6] != 123 {
+		t.Fatal("SoftmaxLastAxisTo mutated tail")
+	}
+	if SoftmaxLastAxisTo(out[:5], x, 2, 3) || SoftmaxLastAxisTo(out, x[:5], 2, 3) || SoftmaxLastAxisTo(out, x, 0, 3) {
+		t.Fatal("SoftmaxLastAxisTo accepted malformed input")
+	}
+}
+
 func TestSoftmaxRowsInPlace(t *testing.T) {
 	x := []float32{1, 2, 3, 3, 2, 1, 123}
 	if !SoftmaxRowsInPlace(x[:6], 2, 3) {
