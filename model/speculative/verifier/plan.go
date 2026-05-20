@@ -1,4 +1,4 @@
-package speculative
+package verifier
 
 import "fmt"
 

@@ -1,4 +1,4 @@
-package speculative
+package accept
 
 import (
 	"testing"
