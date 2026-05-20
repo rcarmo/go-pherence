@@ -3,34 +3,43 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "model/speculative"
+base = root / "backends/simd/matmul"
 
-# Batch 8: mechanically split speculative/MTP implementation into subpackages.
+# Batch 7: mechanically split SIMD matmul internals into operation subpackages.
 # Moves files and rewrites package declarations only.
 MOVES = {
-    "drafter.go": ("drafter/drafter.go", "drafter"),
-    "drafter_test.go": ("drafter/drafter_test.go", "drafter"),
-    "drafter_loop.go": ("drafter/loop.go", "drafter"),
-    "drafter_loop_test.go": ("drafter/loop_test.go", "drafter"),
-    "drafter_multi.go": ("drafter/multi.go", "drafter"),
-    "drafter_multi_test.go": ("drafter/multi_test.go", "drafter"),
-    "verifier_forward.go": ("verifier/forward.go", "verifier"),
-    "verifier_forward_test.go": ("verifier/forward_test.go", "verifier"),
-    "verifier_plan.go": ("verifier/plan.go", "verifier"),
-    "verifier_plan_test.go": ("verifier/plan_test.go", "verifier"),
-    "verify.go": ("verifier/verify.go", "verifier"),
-    "verify_test.go": ("verifier/verify_test.go", "verifier"),
-    "mtp_accept.go": ("accept/mtp_accept.go", "accept"),
-    "mtp_accept_test.go": ("accept/mtp_accept_test.go", "accept"),
-    "step.go": ("step/step.go", "step"),
-    "step_test.go": ("step/step_test.go", "step"),
-    "state.go": ("state/state.go", "state"),
-    "state_test.go": ("state/state_test.go", "state"),
-    "stats.go": ("stats/stats.go", "stats"),
-    "stats_test.go": ("stats/stats_test.go", "stats"),
-    "speculative.go": ("core/speculative.go", "core"),
-    "speculative_test.go": ("core/speculative_test.go", "core"),
-    "integration_test.go": ("integration/integration_test.go", "integration"),
+    "checked.go": ("sgemm/checked.go", "sgemm"),
+    "checked_test.go": ("sgemm/checked_test.go", "sgemm"),
+    "sgemm.go": ("sgemm/sgemm.go", "sgemm"),
+    "sgemm_amd64.go": ("sgemm/sgemm_amd64.go", "sgemm"),
+    "sgemm_amd64.s": ("sgemm/sgemm_amd64.s", "sgemm"),
+    "sgemm_arm64.go": ("sgemm/sgemm_arm64.go", "sgemm"),
+    "sgemm_arm64.s": ("sgemm/sgemm_arm64.s", "sgemm"),
+    "sgemm_blocked.go": ("sgemm/blocked.go", "sgemm"),
+    "sgemm_blocked_amd64.go": ("sgemm/blocked_amd64.go", "sgemm"),
+    "sgemm_blocked_amd64.s": ("sgemm/blocked_amd64.s", "sgemm"),
+    "sgemm_blocked_arm64.go": ("sgemm/blocked_arm64.go", "sgemm"),
+    "sgemm_blocked_arm64.s": ("sgemm/blocked_arm64.s", "sgemm"),
+    "sgemm_blocked_other.go": ("sgemm/blocked_other.go", "sgemm"),
+    "sgemm_gather.go": ("sgemm/gather.go", "sgemm"),
+    "sgemm_gather_amd64.go": ("sgemm/gather_amd64.go", "sgemm"),
+    "sgemm_gather_amd64.s": ("sgemm/gather_amd64.s", "sgemm"),
+    "sgemm_gather_other.go": ("sgemm/gather_other.go", "sgemm"),
+    "gebp.go": ("gebp/gebp.go", "gebp"),
+    "gebp_amd64.go": ("gebp/gebp_amd64.go", "gebp"),
+    "gebp_amd64.s": ("gebp/gebp_amd64.s", "gebp"),
+    "gebp_arm64.go": ("gebp/gebp_arm64.go", "gebp"),
+    "gebp_arm64.s": ("gebp/gebp_arm64.s", "gebp"),
+    "gebp_bounds_test.go": ("gebp/bounds_test.go", "gebp"),
+    "gebp_other.go": ("gebp/gebp_other.go", "gebp"),
+    "pack_amd64.go": ("pack/pack_amd64.go", "pack"),
+    "pack_amd64.s": ("pack/pack_amd64.s", "pack"),
+    "pack_arm64.go": ("pack/pack_arm64.go", "pack"),
+    "pack_arm64.s": ("pack/pack_arm64.s", "pack"),
+    "pack_arm64_flag.go": ("pack/arm64_flag.go", "pack"),
+    "pack_other.go": ("pack/pack_other.go", "pack"),
+    "gemv.go": ("gemv/gemv.go", "gemv"),
+    "gemv_test.go": ("gemv/gemv_test.go", "gemv"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -50,18 +59,15 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/speculative-tree-move-table.md").write_text("""# Speculative/MTP tree move table
+(root / "docs/simd-matmul-tree-move-table.md").write_text("""# SIMD matmul tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 8.
+Applied by `scripts/mass_move_project_tree.py` batch 7.
 
 | Concern | Target |
 |---|---|
-| Drafter implementations | `model/speculative/drafter` |
-| Verifier planning/forward/verify | `model/speculative/verifier` |
-| Token acceptance | `model/speculative/accept` |
-| Speculative step | `model/speculative/step` |
-| Speculative state | `model/speculative/state` |
-| Speculative stats | `model/speculative/stats` |
-| Core speculative helpers | `model/speculative/core` |
-| Integration tests | `model/speculative/integration` |
+| Checked/public SGEMM wrappers | `backends/simd/matmul/sgemm` |
+| SGEMM assembly and blocked/gather variants | `backends/simd/matmul/sgemm` |
+| GEBP kernels/tests | `backends/simd/matmul/gebp` |
+| Packing kernels/assembly | `backends/simd/matmul/pack` |
+| GEMV references/tests | `backends/simd/matmul/gemv` |
 """)

@@ -1,4 +1,4 @@
-package stats
+package speculative
 
 import "testing"
 
