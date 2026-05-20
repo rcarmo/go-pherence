@@ -29,7 +29,7 @@ func Gemm(out, x []float32, batch int, qw *QuantWeight) bool {
 		return true
 	}
 
-	workers := runtime.NumCPU()
+	workers := runtime.GOMAXPROCS(0)
 	if workers > batch {
 		workers = batch
 	}
