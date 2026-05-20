@@ -74,6 +74,31 @@ func TestGemmRowsAndCols(t *testing.T) {
 	}
 }
 
+func TestDenseGemvGemmRejectsBadDimensionsAndOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	out := make([]float32, 1)
+	x := make([]float32, 1)
+	w := make([]float32, 1)
+	if GemvRows(out, x, w, 0, 1) || GemvRows(out, x, w, 1, 0) {
+		t.Fatal("GemvRows accepted zero dimensions")
+	}
+	if GemvCols(out, x, w, 0, 1) || GemvCols(out, x, w, 1, 0) {
+		t.Fatal("GemvCols accepted zero dimensions")
+	}
+	if GemmRows(out, x, w, 0, 1, 1) || GemmRows(out, x, w, 1, 0, 1) || GemmRows(out, x, w, 1, 1, 0) {
+		t.Fatal("GemmRows accepted zero dimensions")
+	}
+	if GemmCols(out, x, w, 0, 1, 1) || GemmCols(out, x, w, 1, 0, 1) || GemmCols(out, x, w, 1, 1, 0) {
+		t.Fatal("GemmCols accepted zero dimensions")
+	}
+	if GemvRows(out, x, w, maxInt/2+1, 3) || GemvCols(out, x, w, maxInt/2+1, 3) {
+		t.Fatal("GEMV accepted overflowing weight dimensions")
+	}
+	if GemmRows(out, x, w, maxInt/2+1, 3, 1) || GemmCols(out, x, w, maxInt/2+1, 3, 1) {
+		t.Fatal("GEMM accepted overflowing batch dimensions")
+	}
+}
+
 func TestGemvCols(t *testing.T) {
 	x := []float32{1, -2}
 	w := []float32{
