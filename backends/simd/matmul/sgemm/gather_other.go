@@ -1,6 +1,6 @@
 //go:build !amd64
 
-package gather
+package sgemm
 
 import "unsafe"
 

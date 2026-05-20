@@ -1,4 +1,4 @@
-package gather
+package sgemm
 
 import "unsafe"
 

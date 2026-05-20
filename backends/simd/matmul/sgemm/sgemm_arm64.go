@@ -1,3 +1,3 @@
-package base
+package sgemm
 
 const hasSgemmAsm = true
