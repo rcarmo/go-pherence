@@ -26,6 +26,28 @@ func TestGemmMatchesRepeatedGemv(t *testing.T) {
 	}
 }
 
+func TestGemmParallelMatchesRepeatedGemv(t *testing.T) {
+	qw := makeBenchMLXWeight(16, 64, 32)
+	batch := 5
+	x := make([]float32, batch*qw.InDim)
+	for i := range x {
+		x[i] = float32((i%13)-6) * 0.25
+	}
+	got := make([]float32, batch*qw.OutDim)
+	if !Gemm(got, x, batch, qw) {
+		t.Fatal("Gemm returned false for valid parallel-sized inputs")
+	}
+	want := make([]float32, len(got))
+	for b := 0; b < batch; b++ {
+		Gemv(want[b*qw.OutDim:(b+1)*qw.OutDim], x[b*qw.InDim:(b+1)*qw.InDim], qw)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d]=%g want %g", i, got[i], want[i])
+		}
+	}
+}
+
 func TestGemmRejectsMalformedInputs(t *testing.T) {
 	qw := makeBenchMLXWeight(3, 8, 4)
 	if Gemm(make([]float32, 3), make([]float32, 8), 0, qw) {
