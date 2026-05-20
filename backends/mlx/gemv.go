@@ -2,17 +2,22 @@ package mlx
 
 // Gemv performs matrix-vector multiply with MLX quantized weight.
 // out[outDim] = W_mlx[outDim, inDim] · x[inDim] (dequantized on-the-fly)
-func Gemv(out, x []float32, qw *QuantWeight) {
+func Gemv(out, x []float32, qw *QuantWeight) { _ = GemvTo(out, x, qw) }
+
+// GemvTo performs MLX quantized GEMV into caller-owned output and reports
+// malformed inputs while preserving Gemv's no-allocation behavior.
+func GemvTo(out, x []float32, qw *QuantWeight) bool {
 	if err := ValidateQuantWeight(qw); err != nil || len(out) < qw.OutDim || len(x) < qw.InDim {
-		return
+		return false
 	}
 	if qw.Bits == 4 && qw.GroupSize%8 == 0 {
 		// Dispatch hook kept explicit so AVX2/NEON MLX4 kernels can be wired
 		// without changing callers. Scalar remains active until hasGemv4Asm flips.
 		gemv4Scalar(out, x, qw)
-		return
+		return true
 	}
 	gemvScalar(out, x, qw)
+	return true
 }
 
 func gemvScalar(out, x []float32, qw *QuantWeight) {

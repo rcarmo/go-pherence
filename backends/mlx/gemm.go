@@ -24,7 +24,7 @@ func Gemm(out, x []float32, batch int, qw *QuantWeight) bool {
 		for b := 0; b < batch; b++ {
 			xRow := x[b*qw.InDim : (b+1)*qw.InDim]
 			outRow := out[b*qw.OutDim : (b+1)*qw.OutDim]
-			Gemv(outRow, xRow, qw)
+			GemvTo(outRow, xRow, qw)
 		}
 		return true
 	}
@@ -50,7 +50,7 @@ func Gemm(out, x []float32, batch int, qw *QuantWeight) bool {
 			for b := start; b < end; b++ {
 				xRow := x[b*qw.InDim : (b+1)*qw.InDim]
 				outRow := out[b*qw.OutDim : (b+1)*qw.OutDim]
-				Gemv(outRow, xRow, qw)
+				GemvTo(outRow, xRow, qw)
 			}
 		}(start, end)
 	}

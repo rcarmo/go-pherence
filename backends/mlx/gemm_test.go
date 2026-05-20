@@ -48,6 +48,22 @@ func TestGemmParallelMatchesRepeatedGemv(t *testing.T) {
 	}
 }
 
+func TestGemvToRejectsMalformedInputs(t *testing.T) {
+	qw := makeBenchMLXWeight(3, 8, 4)
+	if !GemvTo(make([]float32, 3), make([]float32, 8), qw) {
+		t.Fatal("GemvTo returned false for valid input")
+	}
+	if GemvTo(make([]float32, 2), make([]float32, 8), qw) {
+		t.Fatal("GemvTo accepted short out")
+	}
+	if GemvTo(make([]float32, 3), make([]float32, 7), qw) {
+		t.Fatal("GemvTo accepted short x")
+	}
+	if GemvTo(make([]float32, 3), make([]float32, 8), nil) {
+		t.Fatal("GemvTo accepted nil weight")
+	}
+}
+
 func TestGemmRejectsMalformedInputs(t *testing.T) {
 	qw := makeBenchMLXWeight(3, 8, 4)
 	if Gemm(make([]float32, 3), make([]float32, 8), 0, qw) {
