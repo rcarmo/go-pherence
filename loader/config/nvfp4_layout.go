@@ -1,4 +1,4 @@
-package quantization
+package config
 
 import "strings"
 

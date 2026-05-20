@@ -1,4 +1,4 @@
-package qwen
+package config
 
 import "testing"
 
