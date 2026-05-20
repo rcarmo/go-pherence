@@ -72,6 +72,31 @@ func TestDequant(t *testing.T) {
 	t.Log("Dequant: OK")
 }
 
+func TestDequantParallelMatchesScalarFormula(t *testing.T) {
+	qw := makeBenchMLXWeight(1024, 16, 8)
+	out := make([]float32, qw.OutDim*qw.InDim+1)
+	out[len(out)-1] = 123
+	if !DequantTo(out, qw) {
+		t.Fatal("DequantTo returned false for valid weight")
+	}
+	for row := 0; row < qw.OutDim; row++ {
+		for col := 0; col < qw.InDim; col++ {
+			packIdx := col / 8
+			bitPos := uint(col%8) * 4
+			val := float32((qw.Weight[row*(qw.InDim/8)+packIdx] >> bitPos) & 0xF)
+			group := col / qw.GroupSize
+			want := val*qw.Scales[row*qw.Groups+group] + qw.Biases[row*qw.Groups+group]
+			got := out[row*qw.InDim+col]
+			if math.Abs(float64(got-want)) > 1e-6 {
+				t.Fatalf("got[%d,%d]=%g want %g", row, col, got, want)
+			}
+		}
+	}
+	if out[len(out)-1] != 123 {
+		t.Fatal("DequantTo mutated tail")
+	}
+}
+
 func makeBenchMLXWeight(outDim, inDim, groupSize int) *QuantWeight {
 	weight := make([]uint32, outDim*(inDim/8))
 	for row := 0; row < outDim; row++ {

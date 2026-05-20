@@ -1,5 +1,10 @@
 package mlx
 
+import (
+	"runtime"
+	"sync"
+)
+
 // Dequant dequantizes an MLX affine quantized weight to F32.
 // weight[outDim, inDim/packFactor] × scales[outDim, numGroups] + biases[outDim, numGroups]
 // Returns [outDim, inDim] float32.
@@ -34,10 +39,35 @@ func DequantTo(out []float32, qw *QuantWeight) bool {
 }
 
 func dequantTo(out []float32, qw *QuantWeight) {
+	workers := runtime.GOMAXPROCS(0)
+	if qw.OutDim < 1024 || workers <= 1 {
+		dequantRows(out, qw, 0, qw.OutDim)
+		return
+	}
+	if workers > qw.OutDim {
+		workers = qw.OutDim
+	}
+	chunk := (qw.OutDim + workers - 1) / workers
+	var wg sync.WaitGroup
+	for start := 0; start < qw.OutDim; start += chunk {
+		end := start + chunk
+		if end > qw.OutDim {
+			end = qw.OutDim
+		}
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			dequantRows(out, qw, start, end)
+		}(start, end)
+	}
+	wg.Wait()
+}
+
+func dequantRows(out []float32, qw *QuantWeight, start, end int) {
 	packFactor := 32 / qw.Bits
 	mask := uint32((1 << qw.Bits) - 1)
 
-	for row := 0; row < qw.OutDim; row++ {
+	for row := start; row < end; row++ {
 		rowOff := row * qw.InDim
 		packedOff := row * (qw.InDim / packFactor)
 		scaleOff := row * qw.Groups
