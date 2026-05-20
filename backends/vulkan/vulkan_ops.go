@@ -35,15 +35,37 @@ var (
 	vkAttentionScoresF32 *VkComputeKernel
 )
 
-// initVkKernels compiles all Vulkan compute shaders.
+// initVkKernels compiles embedded Vulkan compute shaders into optional kernels.
 func initVkKernels() {
 	vkKernelOnce.Do(func() {
 		if !vkReady {
 			return
 		}
-		// Shader compilation may crash on some Vulkan drivers (e.g. llvmpipe)
-		// due to hand-assembled SPIR-V. Non-fatal — skip gracefully.
-		debugln("[vulkan] compute shaders: pending SPIR-V validation (use glslangValidator for production)")
+		create := func(name string, spirv []byte, numBuffers, pushConstantSize int) *VkComputeKernel {
+			if len(spirv) == 0 || len(spirv)%4 != 0 {
+				debugf("[vulkan] %s SPIR-V has invalid length %d\n", name, len(spirv))
+				return nil
+			}
+			k, err := VkKernelCreate(spirv, numBuffers, pushConstantSize)
+			if err != nil {
+				debugf("[vulkan] %s pipeline unavailable: %v\n", name, err)
+				return nil
+			}
+			debugf("[vulkan] %s pipeline ready\n", name)
+			return k
+		}
+
+		vkVecAddF32 = create("vec_add_f32", spirv_vec_add_f32, 3, 4)
+		vkVecAddBF16 = create("vec_add_bf16", spirv_vec_add_bf16, 3, 4)
+		vkRMSNormF32 = create("rms_norm_f32", spirv_rms_norm_f32, 2, 8)
+		vkRMSNormBF16 = create("rms_norm_bf16", spirv_rms_norm_bf16, 2, 8)
+		vkRMSNormNoScaleF32 = create("rms_norm_no_scale_f32", spirv_rms_norm_no_scale_f32, 1, 8)
+		vkGemvF32 = create("gemv_f32", spirv_gemv_f32, 3, 8)
+		vkGemvBF16Mixed = create("gemv_bf16_mixed", spirv_gemv_bf16_mixed, 3, 8)
+		vkSiLUMulF32 = create("silu_mul_f32", spirv_silu_mul_f32, 3, 4)
+		vkGELUTanhMulF32 = create("gelu_tanh_mul_f32", spirv_gelu_tanh_mul_f32, 2, 4)
+		vkRoPEPartialF32 = create("rope_partial_f32", spirv_rope_partial_f32, 2, 16)
+		vkAttentionScoresF32 = create("attention_score", spirv_attention_score, 3, 20)
 	})
 }
 
