@@ -15,7 +15,7 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 | NVIDIA BF16/Q4/NVFP4 | `backends/nvidia/runtime/*_test.go` | BF16 LM-head byte-size overflow/short-buffer checks, Q4 upload and buffer sizing, NVFP4 buffer validation and sizing helpers. |
 | Qwen NVFP4/RoPE | `model/qwen/*_test.go` | NVFP4 packed-shape/group alignment validation; RoPE frequency allocation overflow and bad-theta fallback. |
 | Shared model RoPE | `model/rope_test.go` | RoPE frequency allocation overflow/bad dims/bad theta fallback. |
-| Shared model/BERT/tensor/loader helpers | `model/checked_test.go`, `models/bert/bert_test.go`, `tensor/tensor_test.go`, `loader/safetensors/safetensors_test.go` | Checked product/multiplication/addition/shape helpers reject negative and overflowing dimensions/offsets before allocation/slicing/file-range guards. |
+| Shared model/BERT/tensor/loader/KV/ioctl helpers | `model/checked_test.go`, `models/bert/bert_test.go`, `tensor/tensor_test.go`, `loader/safetensors/safetensors_test.go`, `runtime/kv/cache_test.go`, `backends/nvidia/ioctl/helpers_test.go` | Checked product/multiplication/addition/shape helpers reject negative and overflowing dimensions/offsets before allocation/slicing/file-range guards; KV compressed-entry guards reject invalid dimensions. |
 | MoE loaders/forward | `model/moe_test.go`, `model/moe_gpu_test.go` | Switch-MLX dtype handling, malformed MoE inputs, incomplete expert weight handling, GPU active-expert clamping. |
 | Vulkan wrappers | `backends/vulkan/vulkan_wrapper_test.go` | Wrapper-level dimension/buffer rejection and pending-pipeline errors without requiring a Vulkan device. |
 
