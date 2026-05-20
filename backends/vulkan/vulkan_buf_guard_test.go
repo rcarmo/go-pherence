@@ -40,6 +40,24 @@ func TestVkBufCheckedTransferRejectsMalformedInputs(t *testing.T) {
 	}
 }
 
+func TestVkBufCheckedTransferCopiesWithinCapacity(t *testing.T) {
+	storage := make([]byte, 8)
+	buf := &VkBuf{size: uint64(len(storage)), mapped: unsafe.Pointer(&storage[0])}
+	in := []float32{1.25, -2.5}
+	if err := buf.UploadChecked(in); err != nil {
+		t.Fatalf("UploadChecked: %v", err)
+	}
+	out := make([]float32, len(in))
+	if err := buf.DownloadChecked(out); err != nil {
+		t.Fatalf("DownloadChecked: %v", err)
+	}
+	for i := range in {
+		if out[i] != in[i] {
+			t.Fatalf("out[%d]=%v want %v", i, out[i], in[i])
+		}
+	}
+}
+
 func TestVkBufLegacyTransferNoopsOnMalformedInputs(t *testing.T) {
 	var nilBuf *VkBuf
 	nilBuf.Upload([]float32{1})
