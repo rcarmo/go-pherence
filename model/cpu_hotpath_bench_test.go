@@ -257,6 +257,36 @@ func BenchmarkCPUHotGemvQ4Sym1536x2048(b *testing.B) {
 	}
 }
 
+func BenchmarkCPUHotGemvQ4Asym1536x2048(b *testing.B) {
+	inDim := 1536
+	outDim := 2048
+	groups := inDim / 128
+	qweight := make([]int32, (inDim/8)*outDim)
+	qzeros := make([]int32, groups*(outDim/8))
+	gIdx := make([]int32, inDim)
+	scales := make([]float32, groups*outDim)
+	for i := range qweight {
+		qweight[i] = int32(0x76543210)
+	}
+	for i := range qzeros {
+		qzeros[i] = int32(0x77777777)
+	}
+	for i := range gIdx {
+		gIdx[i] = int32(i / 128)
+	}
+	for i := range scales {
+		scales[i] = 0.01
+	}
+	x := benchSeq(inDim)
+	out := make([]float32, outDim)
+	b.ReportAllocs()
+	b.SetBytes(int64(inDim * outDim * 4))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		simdq4.Gemv(out, x, qweight, qzeros, gIdx, scales, inDim, outDim, false)
+	}
+}
+
 func BenchmarkCPUHotDequantQ4Sym1536x2048(b *testing.B) {
 	inDim := 1536
 	outDim := 2048
