@@ -35,6 +35,19 @@ func TestGQAAttentionScaleToMatchesAllocated(t *testing.T) {
 	}
 }
 
+func TestGQAAttentionScaleChecked(t *testing.T) {
+	seqLen, numHeads, numKVHeads, headDim := 2, 2, 1, 2
+	q := []float32{1, 0, 0, 1}
+	kv := []float32{1, 2, 3, 4}
+	got, ok := GQAAttentionScaleChecked(q, kv, kv, seqLen, numHeads, numKVHeads, headDim, 1)
+	if !ok || len(got) != numHeads*headDim {
+		t.Fatalf("GQAAttentionScaleChecked len=%d ok=%v", len(got), ok)
+	}
+	if got, ok := GQAAttentionScaleChecked(q[:3], kv, kv, seqLen, numHeads, numKVHeads, headDim, 1); ok || got != nil {
+		t.Fatalf("GQAAttentionScaleChecked accepted short q: %v %v", got, ok)
+	}
+}
+
 func TestGQAAttentionScaleToRejectsMalformedInputs(t *testing.T) {
 	seqLen, numHeads, numKVHeads, headDim := 2, 2, 1, 2
 	out := make([]float32, numHeads*headDim)

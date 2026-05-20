@@ -17,6 +17,20 @@ func GQAAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads
 	return kernels.GQAAttentionScale(q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale, Sdot, Saxpy)
 }
 
+// GQAAttentionScaleChecked allocates output and reports malformed inputs.
+func GQAAttentionScaleChecked(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) ([]float32, bool) {
+	h, ok := checkedMulInt(numHeads, headDim)
+	if numHeads <= 0 || headDim <= 0 || !ok {
+		return nil, false
+	}
+	out := make([]float32, h)
+	scores := make([]float32, seqLen)
+	if !GQAAttentionScaleTo(out, scores, q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale) {
+		return nil, false
+	}
+	return out, true
+}
+
 // GQAAttentionScaleInto computes grouped-query attention into caller-owned
 // buffers. It preserves the historical no-op-on-malformed-input behavior.
 func GQAAttentionScaleInto(out, scores, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) {
