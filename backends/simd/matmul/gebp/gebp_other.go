@@ -1,6 +1,6 @@
 //go:build !amd64 && !arm64
 
-package scalar
+package gebp
 
 import "unsafe"
 
