@@ -1,6 +1,9 @@
 package tensor
 
-import "github.com/rcarmo/go-pherence/backends/simd/kernels"
+import (
+	"github.com/rcarmo/go-pherence/backends/simd/kernels"
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+)
 
 // Softmax computes softmax along the last axis.
 func (t *Tensor) Softmax() *Tensor {
@@ -18,7 +21,16 @@ func (t *Tensor) Softmax() *Tensor {
 	if lastDim <= 0 {
 		return FromFloat32(nil, shape)
 	}
-	return FromFloat32(kernels.SoftmaxLastAxis(data, shape), shape)
+	total := shapeSize(shape)
+	if total < 0 || len(data) < total {
+		panic("softmax: invalid backing data")
+	}
+	outer := total / lastDim
+	out := make([]float32, total)
+	if !simd.SoftmaxLastAxisTo(out, data, outer, lastDim) {
+		panic("softmax: checked SIMD softmax rejected validated tensor")
+	}
+	return FromFloat32(out, shape)
 }
 
 // LayerNorm computes layer normalization along the last axis.
