@@ -3,65 +3,66 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
+base = root / "model/gemma4"
 
-# Batch 5: mechanically split Qwen model support into concern subpackages.
-# Moves files and rewrites package declarations only.
-MOVES = {
-    "model/qwen/qwen35.go": ("model/qwen/core/qwen35.go", "core"),
-    "model/qwen/qwen35_test.go": ("model/qwen/core/qwen35_test.go", "core"),
-    "model/qwen/ops.go": ("model/qwen/core/ops.go", "core"),
-    "model/qwen/qwen35_bundle.go": ("model/qwen/bundle/bundle.go", "bundle"),
-    "model/qwen/qwen35_bundle_test.go": ("model/qwen/bundle/bundle_test.go", "bundle"),
-    "model/qwen/qwen35_source.go": ("model/qwen/source/source.go", "source"),
-    "model/qwen/qwen35_source_test.go": ("model/qwen/source/source_test.go", "source"),
-    "model/qwen/qwen35_load_helpers.go": ("model/qwen/load/helpers.go", "load"),
-    "model/qwen/qwen35_validate_helpers.go": ("model/qwen/load/validate_helpers.go", "load"),
-    "model/qwen/qwen35_gpu_cache.go": ("model/qwen/gpu/cache.go", "gpu"),
-    "model/qwen/qwen35_mlp_gpu.go": ("model/qwen/gpu/mlp.go", "gpu"),
-    "model/qwen/qwen35_linear.go": ("model/qwen/linear/linear.go", "linear"),
-    "model/qwen/qwen35_quant.go": ("model/qwen/quant/quant.go", "quant"),
-    "model/qwen/qwen35_quant_test.go": ("model/qwen/quant/quant_test.go", "quant"),
-    "model/qwen/qwen35_rope.go": ("model/qwen/rope/rope.go", "rope"),
-    "model/qwen/qwen35_rope_test.go": ("model/qwen/rope/rope_test.go", "rope"),
-    "model/qwen/qwen_native_mtp.go": ("model/qwen/mtp/mtp.go", "mtp"),
-    "model/qwen/qwen_native_mtp_test.go": ("model/qwen/mtp/mtp_test.go", "mtp"),
-    "model/qwen/qwen_native_mtp_harness_test.go": ("model/qwen/mtp/harness_test.go", "mtp"),
-    "model/qwen/qwen_native_mtp_safetensors.go": ("model/qwen/mtp/safetensors.go", "mtp"),
-    "model/qwen/qwen_native_mtp_safetensors_test.go": ("model/qwen/mtp/safetensors_test.go", "mtp"),
-    "model/qwen/qwen_native_mtp_synthetic.go": ("model/qwen/mtp/synthetic.go", "mtp"),
-    "model/qwen/qwen_native_mtp_synthetic_test.go": ("model/qwen/mtp/synthetic_test.go", "mtp"),
+# Batch 6: mechanically split Gemma4 diagnostic tests by investigation area.
+# Keep package declarations unchanged (these diagnostics intentionally use
+# package model plus build tags/linkname compatibility glue).
+BUCKETS = {
+    "attention": ["attention_", "attention_test.go", "qknorm"],
+    "inputnorm": ["inputnorm", "norm_values", "ffn_norm", "modelbuf_inputnorm", "postgenerate_inputnorm"],
+    "gpu": ["gpu_", "gpu"],
+    "loader": ["loader_", "loadtime", "encode"],
+    "generation": ["generate", "first_token", "nochat", "nopli", "quant_first_tok", "quant_gen2"],
+    "mlp": ["mlp", "pli", "projection", "standalone_gemv", "down_", "gate"],
+    "quantized": ["quantized_", "quant_", "cpu_quantized", "dequantized", "deq_"],
+    "sensitivity": ["sensitivity"],
+    "trace": ["trace", "optrace", "layerwalk"],
+    "isolation": ["isolation", "corruption", "mv_bug", "stage_fault", "syncdebug", "ablation"],
 }
 
-for src_rel, (dst_rel, pkg) in MOVES.items():
-    src = root / src_rel
-    if not src.exists():
-        print(f"skip missing {src_rel}")
+explicit = {
+    "compat.go": "support/compat.go",
+    "doc.go": "support/doc.go",
+}
+
+moves = {}
+for path in sorted(base.glob("*.go")):
+    name = path.name
+    if name in explicit:
+        moves[name] = explicit[name]
         continue
-    dst = root / dst_rel
+    chosen = "misc"
+    for bucket, needles in BUCKETS.items():
+        if any(name.startswith(n) or n in name for n in needles):
+            chosen = bucket
+            break
+    moves[name] = f"{chosen}/{name}"
+
+for src_name, dst_suffix in moves.items():
+    src = base / src_name
+    dst = base / dst_suffix
     dst.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "mv", src_rel, dst_rel], cwd=root, check=True)
-    if dst.suffix == ".go":
-        text = dst.read_text()
-        lines = text.splitlines()
-        for i, line in enumerate(lines[:12]):
-            if line.startswith("package "):
-                lines[i] = f"package {pkg}"
-                dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
-                break
+    subprocess.run(["git", "mv", str(src.relative_to(root)), str(dst.relative_to(root))], cwd=root, check=True)
 
-(root / "docs/qwen-tree-move-table.md").write_text("""# Qwen tree move table
+(root / "docs/gemma4-tree-move-table.md").write_text("""# Gemma4 diagnostic tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 5.
+Applied by `scripts/mass_move_project_tree.py` batch 6.
+
+Gemma4 diagnostic files were mechanically grouped under `model/gemma4` by filename patterns while preserving existing package declarations and build tags.
 
 | Concern | Target |
 |---|---|
-| Qwen core model and shared ops | `model/qwen/core` |
-| Bundle loading | `model/qwen/bundle` |
-| Safetensors/source helpers | `model/qwen/source` |
-| Load/validation helpers | `model/qwen/load` |
-| GPU cache/MLP helpers | `model/qwen/gpu` |
-| Linear helpers | `model/qwen/linear` |
-| Quant helpers | `model/qwen/quant` |
-| RoPE helpers | `model/qwen/rope` |
-| Native MTP support | `model/qwen/mtp` |
+| Attention/QK norm diagnostics | `model/gemma4/attention` |
+| Input/norm diagnostics | `model/gemma4/inputnorm` |
+| GPU diagnostics | `model/gemma4/gpu` |
+| Loader/load-time diagnostics | `model/gemma4/loader` |
+| Generation diagnostics | `model/gemma4/generation` |
+| MLP/PLI/projection diagnostics | `model/gemma4/mlp` |
+| Quantized CPU/GPU diagnostics | `model/gemma4/quantized` |
+| Sensitivity probes | `model/gemma4/sensitivity` |
+| Trace/optrace/layerwalk probes | `model/gemma4/trace` |
+| Isolation/corruption/fault probes | `model/gemma4/isolation` |
+| Compatibility/doc support | `model/gemma4/support` |
+| Residual uncategorized probes | `model/gemma4/misc` |
 """)
