@@ -115,24 +115,48 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 	return &VkBuf{buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped}, nil
 }
 
-// Upload copies float32 data to the buffer.
-func (b *VkBuf) Upload(data []float32) {
+// Upload copies float32 data to the buffer. Invalid inputs are ignored for
+// legacy compatibility; callers that need diagnostics should use UploadChecked.
+func (b *VkBuf) Upload(data []float32) { _ = b.UploadChecked(data) }
+
+// UploadChecked copies float32 data to the buffer and reports malformed input.
+func (b *VkBuf) UploadChecked(data []float32) error {
 	if len(data) == 0 {
-		return
+		return nil
 	}
-	src := unsafe.Slice((*byte)(unsafe.Pointer(&data[0])), len(data)*4)
-	dst := unsafe.Slice((*byte)(b.mapped), len(data)*4)
+	if b == nil || b.mapped == nil {
+		return fmt.Errorf("vulkan buffer is not mapped")
+	}
+	bytes, ok := vkCheckedMulInt(len(data), 4)
+	if !ok || uint64(bytes) > b.size {
+		return fmt.Errorf("vulkan upload size=%d exceeds buffer size=%d", bytes, b.size)
+	}
+	src := unsafe.Slice((*byte)(unsafe.Pointer(&data[0])), bytes)
+	dst := unsafe.Slice((*byte)(b.mapped), bytes)
 	copy(dst, src)
+	return nil
 }
 
-// Download copies float32 data from the buffer.
-func (b *VkBuf) Download(data []float32) {
+// Download copies float32 data from the buffer. Invalid inputs are ignored for
+// legacy compatibility; callers that need diagnostics should use DownloadChecked.
+func (b *VkBuf) Download(data []float32) { _ = b.DownloadChecked(data) }
+
+// DownloadChecked copies float32 data from the buffer and reports malformed input.
+func (b *VkBuf) DownloadChecked(data []float32) error {
 	if len(data) == 0 {
-		return
+		return nil
 	}
-	src := unsafe.Slice((*byte)(b.mapped), len(data)*4)
-	dst := unsafe.Slice((*byte)(unsafe.Pointer(&data[0])), len(data)*4)
+	if b == nil || b.mapped == nil {
+		return fmt.Errorf("vulkan buffer is not mapped")
+	}
+	bytes, ok := vkCheckedMulInt(len(data), 4)
+	if !ok || uint64(bytes) > b.size {
+		return fmt.Errorf("vulkan download size=%d exceeds buffer size=%d", bytes, b.size)
+	}
+	src := unsafe.Slice((*byte)(b.mapped), bytes)
+	dst := unsafe.Slice((*byte)(unsafe.Pointer(&data[0])), bytes)
 	copy(dst, src)
+	return nil
 }
 
 // Free releases the buffer and its memory.
