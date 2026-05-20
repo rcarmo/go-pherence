@@ -51,10 +51,8 @@ func (m *BertModel) ForwardFast(tokenIDs []int, ws *Workspace) []float32 {
 			return nil
 		}
 		// Add bias
-		for s := 0; s < seqLen; s++ {
-			for d := 0; d < 3*h; d++ {
-				qkv[s*3*h+d] += qkvB[d]
-			}
+		if seqLen > 0 && !simd.AddBiasRowsTo(qkv, qkvB, seqLen, 3*h) {
+			return nil
 		}
 
 		// Split Q,K,V: each row has [q(h), k(h), v(h)]
@@ -150,11 +148,7 @@ func linearInPlace(out, x, wT, bias []float32, m, inDim, outDim int) {
 		return
 	}
 	if bias != nil {
-		for i := 0; i < m; i++ {
-			for j := 0; j < outDim; j++ {
-				out[i*outDim+j] += bias[j]
-			}
-		}
+		_ = simd.AddBiasRowsTo(out[:total], bias, m, outDim)
 	}
 }
 

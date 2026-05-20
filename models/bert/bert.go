@@ -187,10 +187,8 @@ func (m *BertModel) Forward(tokenIDs []int) *tensor.Tensor {
 		qkvData := qkv.Data()
 		// Add bias
 		qkvBias := layer.QKVB.Data()
-		for s := 0; s < seqLen; s++ {
-			for d := 0; d < 3*h; d++ {
-				qkvData[s*3*h+d] += qkvBias[d]
-			}
+		if seqLen > 0 && !simd.AddBiasRowsTo(qkvData, qkvBias, seqLen, 3*h) {
+			return tensor.FromFloat32(nil, []int{0, h})
 		}
 		// Split: Q=[0:seqLen*h], K=[seqLen*h:2*seqLen*h], V=[2*seqLen*h:]
 		// Each row s has [q_s(h), k_s(h), v_s(h)] — need to gather into contiguous blocks
