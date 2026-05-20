@@ -11,8 +11,8 @@ This tracker maps the remaining acceptance criteria for practical backend covera
 | `go test ./...` passes | Passed | `GOTMPDIR=$PWD/.gotmp go test ./...` passed again after the SIMD/tensor/BERT boundary cleanup and CPU-only gate refresh on 2026-05-20. |
 | `go vet ./...` passes | Passed | `GOTMPDIR=$PWD/.gotmp go vet ./...` passed on 2026-05-20 and was refreshed cleanly after the SIMD/tensor/BERT checked-boundary cleanup. |
 | CPU-only test gate passes without GPU present | Passed | `make test-cpu` passed on 2026-05-20 and was refreshed cleanly after the SIMD/tensor/BERT boundary cleanup. |
-| NVIDIA smoke tests pass on available NVIDIA hardware | Pending hardware run | NVIDIA Q4 asymmetric and NVFP4 native packed paths are documented boundaries unless new model paths require them. |
-| Vulkan smoke tests pass or are explicitly opt-in skipped | Pending hardware/runtime run | Vulkan wrappers have validating dispatch paths and availability-gated parity coverage; CPU/software Vulkan remains opt-in. |
+| NVIDIA smoke tests pass on available NVIDIA hardware | Pending hardware run; local package gate clean | `GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/...` passes locally with availability-gated tests. Hardware smoke on a CUDA-capable host remains the only open NVIDIA acceptance item. |
+| Vulkan smoke tests pass or are explicitly opt-in skipped | Pending hardware/runtime run; local package gate clean | `GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan` passes locally with validating wrappers and availability-gated parity. CPU/software Vulkan remains opt-in; real-device smoke remains hardware/runtime-dependent. |
 | Documentation reflects final package layout and kernel coverage | Current | Docs index, layout, coverage, parity, malformed-input, validation, Vulkan, NVIDIA, BF16, NVFP4, benchmark queue, and performance snapshots are current after the refreshed full test, vet, CPU-only, diagnostic, and benchmark gates. |
 
 ## Deferred implementation work
