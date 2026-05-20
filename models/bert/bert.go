@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"github.com/rcarmo/go-pherence/tensor"
 )
@@ -291,23 +292,8 @@ func multiHeadAttention(q, k, v *tensor.Tensor, seqLen, heads, headDim int) *ten
 		}
 
 		// Softmax per row
-		for i := 0; i < seqLen; i++ {
-			row := scores[i*seqLen : (i+1)*seqLen]
-			mx := row[0]
-			for _, v := range row[1:] {
-				if v > mx {
-					mx = v
-				}
-			}
-			sum := float32(0)
-			for j := range row {
-				row[j] = float32(math.Exp(float64(row[j] - mx)))
-				sum += row[j]
-			}
-			inv := 1.0 / sum
-			for j := range row {
-				row[j] *= inv
-			}
+		if !simd.SoftmaxRowsInPlace(scores, seqLen, seqLen) {
+			return tensor.FromFloat32(out, []int{seqLen, hidden})
 		}
 
 		// Context: scores @ V (per head)
