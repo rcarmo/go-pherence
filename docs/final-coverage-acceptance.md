@@ -8,7 +8,7 @@ This tracker maps the remaining acceptance criteria for practical backend covera
 |---|---|---|
 | All kernel coverage rows implemented or explicitly N/A with rationale | In progress | Current tables document ownership and several N/A/future paths; final pass still needed after Vulkan and hardware smoke decisions. |
 | No backend-owned implementation remains in `model` or `runtime/quant` except compatibility wrappers | Mostly complete | `runtime/quant` is wrapper-only; model code imports backend-owned quant packages directly. Keep import-boundary tests active. |
-| `go test ./...` passes | Passed | Full gate passed earlier on 2026-05-20; compile-only sweep `GOTMPDIR=$PWD/.gotmp go test ./... -run '^$'` also passed after the SIMD/tensor/BERT boundary cleanup. |
+| `go test ./...` passes | Passed | `GOTMPDIR=$PWD/.gotmp go test ./...` passed again after the SIMD/tensor/BERT boundary cleanup and CPU-only gate refresh on 2026-05-20. |
 | `go vet ./...` passes | Passed | `GOTMPDIR=$PWD/.gotmp go vet ./...` passed on 2026-05-20 and was refreshed cleanly after the SIMD/tensor/BERT checked-boundary cleanup. |
 | CPU-only test gate passes without GPU present | Passed | `make test-cpu` passed on 2026-05-20 and was refreshed cleanly after the SIMD/tensor/BERT boundary cleanup. |
 | NVIDIA smoke tests pass on available NVIDIA hardware | Pending hardware run | NVIDIA Q4 asymmetric and NVFP4 native packed paths are documented boundaries unless new model paths require them. |
