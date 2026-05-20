@@ -1,4 +1,4 @@
-package arm64
+package blocked
 
 import "unsafe"
 
