@@ -113,10 +113,14 @@ func DequantSymTo(out []float32, qweight, gIdx []int32, scales []float32,
 
 func dequantSymTo(out []float32, qweight, gIdx []int32, scales []float32,
 	inFeatures, outFeatures int) {
-	nPacks := inFeatures / 8
-
-	// Parallelize across output rows
-	nWorkers := runtime.NumCPU()
+	// Parallelize across output rows only when row count is large enough to
+	// amortize goroutine overhead. Respect GOMAXPROCS so constrained runtimes do
+	// not oversubscribe logical CPUs.
+	nWorkers := runtime.GOMAXPROCS(0)
+	if outFeatures < 1024 || nWorkers <= 1 {
+		dequantSymRows(out, qweight, gIdx, scales, inFeatures, outFeatures, 0, outFeatures)
+		return
+	}
 	if nWorkers > outFeatures {
 		nWorkers = outFeatures
 	}
@@ -129,24 +133,32 @@ func dequantSymTo(out []float32, qweight, gIdx []int32, scales []float32,
 		if jEnd > outFeatures {
 			jEnd = outFeatures
 		}
+		if jStart >= jEnd {
+			continue
+		}
 		wg.Add(1)
 		go func(jStart, jEnd int) {
 			defer wg.Done()
-			for packIdx := 0; packIdx < nPacks; packIdx++ {
-				qwRow := qweight[packIdx*outFeatures : (packIdx+1)*outFeatures]
-				for bit := 0; bit < 8; bit++ {
-					i := packIdx*8 + bit
-					g := int(gIdx[i])
-					bitIdx := uint(bit) * 4
-					scaleRow := scales[g*outFeatures : (g+1)*outFeatures]
-
-					for j := jStart; j < jEnd; j++ {
-						qw := (qwRow[j] >> bitIdx) & 0xF
-						out[j*inFeatures+i] = scaleRow[j] * float32(qw-8)
-					}
-				}
-			}
+			dequantSymRows(out, qweight, gIdx, scales, inFeatures, outFeatures, jStart, jEnd)
 		}(jStart, jEnd)
 	}
 	wg.Wait()
+}
+
+func dequantSymRows(out []float32, qweight, gIdx []int32, scales []float32, inFeatures, outFeatures, jStart, jEnd int) {
+	nPacks := inFeatures / 8
+	for packIdx := 0; packIdx < nPacks; packIdx++ {
+		qwRow := qweight[packIdx*outFeatures : (packIdx+1)*outFeatures]
+		for bit := 0; bit < 8; bit++ {
+			i := packIdx*8 + bit
+			g := int(gIdx[i])
+			bitIdx := uint(bit) * 4
+			scaleRow := scales[g*outFeatures : (g+1)*outFeatures]
+
+			for j := jStart; j < jEnd; j++ {
+				qw := (qwRow[j] >> bitIdx) & 0xF
+				out[j*inFeatures+i] = scaleRow[j] * float32(qw-8)
+			}
+		}
+	}
 }
