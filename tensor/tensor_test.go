@@ -334,6 +334,19 @@ func TestLinear(t *testing.T) {
 	}
 }
 
+func TestLinearBiasCheckedPath(t *testing.T) {
+	x := FromFloat32([]float32{1, 2, 3, 4}, []int{2, 2})
+	w := FromFloat32([]float32{1, 0, 0, 1, 2, 1}, []int{3, 2})
+	bias := FromFloat32([]float32{0.5, -1, 2}, []int{3})
+	got := x.Linear(w, bias).Data()
+	want := []float32{1.5, 1, 6, 3.5, 3, 12}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d]=%g want %g", i, got[i], want[i])
+		}
+	}
+}
+
 func TestTransformerBlock(t *testing.T) {
 	// Minimal smoke test: build a fake transformer block
 	seqLen, hidden := 4, 8
