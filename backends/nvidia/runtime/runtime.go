@@ -421,6 +421,12 @@ func SyncErr() error {
 var extraModules []CUmodule
 
 func loadPTXModule(ptx string, kernelName string) (CUmodule, CUfunction, error) {
+	if ptx == "" {
+		return 0, 0, fmt.Errorf("empty PTX module")
+	}
+	if kernelName == "" {
+		return 0, 0, fmt.Errorf("empty CUDA kernel name")
+	}
 	ptxBytes := append([]byte(ptx), 0) // null-terminate
 	var mod CUmodule
 	if r := cuModuleLoadData(&mod, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
