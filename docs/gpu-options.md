@@ -58,7 +58,7 @@ parity now passes; real checkpoint logits/tokens remain the enablement gate:
 
 - loader detection for ModelOpt / compressed-tensors metadata is in place, including mixed `config_groups`, `format`, `weights.format`, and 4-bit float `weights.type` variants
 - Qwen3 dense, Qwen3 MoE, and Gemma4 tensor naming/layout metadata is documented
-- `backends/simd/runtime/nvfp4` owns correctness-first FP4/F8 decode, dequant, GEMV, and
+- `backends/simd/quant/nvfp4` owns correctness-first FP4/F8 decode, dequant, GEMV, and
   synthetic-logit tests
 - `backends/nvidia/runtime` has `GPUNVFP4Weight`, raw byte upload, NVIDIA dequant-to-F32 fallback,
   native tensor-core capability gating, dense GEMV fallback via F32 materialization, and a packed GEMV/GEMM `NVFP4KernelSpec` contract with u32/overflow guards

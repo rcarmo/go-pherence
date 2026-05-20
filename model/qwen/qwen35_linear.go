@@ -7,7 +7,7 @@ import (
 	"time"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
-	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
+	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 

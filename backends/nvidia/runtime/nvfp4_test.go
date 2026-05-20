@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
+	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4"
 )
 
 func TestSupportsNativeNVFP4TensorCore(t *testing.T) {

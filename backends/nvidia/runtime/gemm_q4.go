@@ -15,7 +15,7 @@ package nvidia
 import (
 	"unsafe"
 
-	simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
+	simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
 )
 
 // GemmQ4 performs batched matrix multiply: out[B×outDim] = input[B×inDim] × W_q4[inDim×outDim]

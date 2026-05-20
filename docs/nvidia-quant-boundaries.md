@@ -8,7 +8,7 @@ Implemented:
 
 - Symmetric GPTQ/Q4 GPU GEMV and batch-1/mini-batch GEMM paths are owned by `backends/nvidia/runtime` with PTX under `backends/nvidia/ptx/q4`.
 - Upload and dispatch validate dimensions, packed qweight sizes, scale layout, group indices, buffer byte sizes, and product overflow before allocation or launch.
-- CPU fallback logic imports the owning scalar package (`backends/simd/runtime/q4`) rather than `runtime/quant`.
+- CPU fallback logic imports the owning scalar package (`backends/simd/quant/q4`) rather than `runtime/quant`.
 
 Boundary:
 

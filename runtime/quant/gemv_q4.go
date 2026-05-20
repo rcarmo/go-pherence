@@ -1,6 +1,6 @@
 package quant
 
-import simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
+import simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
 
 // GemvQ4 computes out = x @ W^T where W is stored as GPTQ INT4.
 func GemvQ4(out, x []float32, qweight, qzeros, gIdx []int32, scales []float32, inDim, outDim int, sym bool) {

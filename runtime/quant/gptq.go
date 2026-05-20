@@ -1,6 +1,6 @@
 package quant
 
-import simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
+import simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
 
 // DequantGPTQ dequantizes a GPTQ INT4 weight tensor to float32.
 func DequantGPTQ(qweight, qzeros, gIdx []int32, scales []float32, inFeatures, outFeatures int, sym bool) []float32 {

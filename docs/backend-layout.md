@@ -16,9 +16,9 @@ The repository now uses backend-first ownership with operation/quantization subp
 | `backends/nvidia/ioctl` | Experimental direct NVIDIA ioctl backend. |
 | `backends/simd` | SIMD backend namespace only. Runtime code is in `runtime`, shared kernel bodies are in `kernels`. |
 | `backends/simd/runtime` | CPU SIMD dispatch facade and assembly/scalar fallback wrappers. Package name remains `simd`. Non-SIMD callers use this facade rather than importing `backends/simd/kernels` or calling unsafe SGEMM assembly directly; import-boundary tests enforce the rule. |
-| `backends/simd/runtime/bf16` | BF16 CPU/SIMD quantized operations. |
-| `backends/simd/runtime/q4` | Q4/GPTQ CPU/SIMD validation (`validate.go`), dequantization (`dequant.go`), GEMV (`gemv.go`), and F16 helpers (`f16.go`). |
-| `backends/simd/runtime/nvfp4` | NVFP4 CPU reference types, validation, FP4/F8 decode, dequantization, and GEMV split into focused files. |
+| `backends/simd/quant/bf16` | BF16 CPU/SIMD quantized operations. |
+| `backends/simd/quant/q4` | Q4/GPTQ CPU/SIMD validation (`validate.go`), dequantization (`dequant.go`), GEMV (`gemv.go`), and F16 helpers (`f16.go`). |
+| `backends/simd/quant/nvfp4` | NVFP4 CPU reference types, validation, FP4/F8 decode, dequantization, and GEMV split into focused files. |
 | `backends/simd/kernels` | Backend-neutral CPU kernel bodies for attention, RoPE, softmax, layernorm, GELU, and shape helpers. |
 | `backends/mlx` | MLX affine quantization format/backend helpers split across types, validation, loading, dequantization, GEMV, and F16 helpers. NVIDIA execution of MLX tensors remains under `backends/nvidia/runtime`. |
 | `backends/vulkan` | Vulkan/SPIR-V scaffolding and buffers. |
@@ -29,8 +29,8 @@ The repository now uses backend-first ownership with operation/quantization subp
 `runtime/quant` is now a compatibility layer for legacy/external call sites. Repository model and backend code import owning backend packages directly. The compatibility package re-exports or delegates to backend-owned quantization implementations:
 
 - MLX → `backends/mlx`
-- Q4/GPTQ → `backends/simd/runtime/q4`
-- NVFP4 → `backends/simd/runtime/nvfp4`
+- Q4/GPTQ → `backends/simd/quant/q4`
+- NVFP4 → `backends/simd/quant/nvfp4`
 
 New code should prefer backend packages directly unless it deliberately needs the legacy compatibility API. See `docs/quant-import-audit.md` for the current import-boundary status.
 

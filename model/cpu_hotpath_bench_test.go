@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
+	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4"
+	simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
-	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
-	simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
 )
 
 func benchSeq(n int) []float32 {

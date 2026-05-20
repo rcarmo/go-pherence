@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
-	simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
+	simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"

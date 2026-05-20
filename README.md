@@ -208,7 +208,7 @@ Current package ownership is organized around explicit loader/runtime/backend bo
 - **`models/bert/`** — GTE/BERT encoder path
 - **`runtime/kv/`** — TurboQuant state, compressed KV cache, and KV staging/rollback primitives with layout/overflow, accessor, and memory-accounting guards
 - **`runtime/memory/`** — mmap residency advice and range tracking for eager/streamed weights; nil/invalid/malformed ranges are inert or sanitized with saturating accounting
-- **`runtime/quant/`** — compatibility wrappers for backend-owned quantization implementations (`backends/mlx`, `backends/simd/runtime/q4`, `backends/simd/runtime/nvfp4`)
+- **`runtime/quant/`** — compatibility wrappers for backend-owned quantization implementations (`backends/mlx`, `backends/simd/quant/q4`, `backends/simd/quant/nvfp4`)
 - **`model/`**, **`model/qwen/`**, **`model/gemma4/`**, **`model/llama/`** — shared LLaMA-family decoder package plus focused Qwen, Gemma4 diagnostic, and LLaMA primitive packages; MTP, MoE, inference/forward, KV, prefill, LM-head, logging gates, and low-level helper guards are hardened
 - **`backends/nvidia/runtime/`** — NVIDIA runtime package plus GPU-resident expert cache; DevBuf, stream/graph, Q4/MLX/NVFP4 fallback dispatch, expert-pool, NVIDIA ioctl/memory/query/GPFIFO, dense SGEMM/LM-head, JIT, BF16, RoPE, softmax, attention dispatch guards, and opt-in `GO_PHERENCE_GPU_DEBUG` diagnostics are hardened
 

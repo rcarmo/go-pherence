@@ -13,9 +13,9 @@ This document tracks CPU/reference parity targets for backend wrappers. It compl
 | GELU(tanh)×Mul | `backends/simd/kernels.GELUTanhMul` | SIMD runtime scalar wrapper, NVIDIA fused GELU, Vulkan wrapper | Scalar golden/tail tests exist; optimized approximation tolerance is `1e-4`; Vulkan parity is availability-gated; NVIDIA parity pending. |
 | GQA attention scores/output | `backends/simd/kernels` and model CPU references | NVIDIA attention score/fused attention, Vulkan attention-score wrapper | CPU path benchmarked; Vulkan attention-score parity is availability-gated; NVIDIA parity should be hardware-gated. |
 | MLX4 GEMV/dequant | `backends/mlx` | NVIDIA MLX GEMV/GEMM, future AVX2/NEON, scalar Vulkan N/A | Known-value and caller-owned dequant tests exist; NVIDIA parity exists in runtime tests, future SIMD parity pending. |
-| Q4/GPTQ GEMV/dequant | `backends/simd/runtime/q4` | NVIDIA symmetric Q4 GEMV/GEMM, future AVX2/NEON | Scalar-vs-dequant parity test exists; asymmetric qzeros remains CPU/reference only for NVIDIA. |
-| NVFP4 decode/dequant/GEMV | `backends/simd/runtime/nvfp4` including `GemvNVFP4Reference` | NVIDIA dense F32 fallback, future packed/native kernels | Synthetic scalar tests and explicit reference target exist; real checkpoint/hardware smoke pending. |
-| BF16 runtime helpers | `backends/simd/runtime/bf16` where CPU helper exists | NVIDIA emulated/native BF16 wrappers | See `docs/bf16-parity.md`; BF16 no-scale is NVIDIA-only until a CPU BF16 model path needs it. |
+| Q4/GPTQ GEMV/dequant | `backends/simd/quant/q4` | NVIDIA symmetric Q4 GEMV/GEMM, future AVX2/NEON | Scalar-vs-dequant parity test exists; asymmetric qzeros remains CPU/reference only for NVIDIA. |
+| NVFP4 decode/dequant/GEMV | `backends/simd/quant/nvfp4` including `GemvNVFP4Reference` | NVIDIA dense F32 fallback, future packed/native kernels | Synthetic scalar tests and explicit reference target exist; real checkpoint/hardware smoke pending. |
+| BF16 runtime helpers | `backends/simd/quant/bf16` where CPU helper exists | NVIDIA emulated/native BF16 wrappers | See `docs/bf16-parity.md`; BF16 no-scale is NVIDIA-only until a CPU BF16 model path needs it. |
 
 ## Test policy
 

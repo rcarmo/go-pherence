@@ -3,7 +3,7 @@ package simd
 import (
 	"unsafe"
 
-	bf16kernel "github.com/rcarmo/go-pherence/backends/simd/runtime/bf16"
+	bf16kernel "github.com/rcarmo/go-pherence/backends/simd/quant/bf16"
 )
 
 type BF16 = bf16kernel.BF16

@@ -45,7 +45,7 @@ Phase 6.5 has moved the repository toward explicit ownership boundaries. Remaini
 | BERT/GTE | `models/bert` | Encoder path split out of the decoder package |
 | KV runtime | `runtime/kv` | TurboQuant state, compressed KV cache, and staging/rollback helpers with layout, accessor, memory-accounting, protected-layer input, and overflow guards |
 | Memory runtime | `runtime/memory` | mmap residency advice/range tracking used by safetensors eager loading and future streaming; nil advisors are inert and malformed tracked ranges are sanitized with saturating accounting |
-| Quant compatibility | `runtime/quant` compatibility wrappers | Compatibility API that delegates MLX to `backends/mlx`, Q4/GPTQ to `backends/simd/runtime/q4`, and NVFP4 to `backends/simd/runtime/nvfp4`; new backend-owned code should import those packages directly |
+| Quant compatibility | `runtime/quant` compatibility wrappers | Compatibility API that delegates MLX to `backends/mlx`, Q4/GPTQ to `backends/simd/quant/q4`, and NVFP4 to `backends/simd/quant/nvfp4`; new backend-owned code should import those packages directly |
 | Model packages | `model`, `model/qwen`, `model/gemma4`, `model/llama` | Shared LLaMA-family loader/forward and generation scaffolding remain in `model`; Qwen3.5/Qwen3.6 and native MTP live in `model/qwen`; Gemma4 diagnostics live in `model/gemma4`; LLaMA-specific primitives that can be split safely live in `model/llama`; helper guards cover MTP drafter/verifier/acceptance/KV commit edges, speculative proposer/config/stats/checkpoint paths, CPU decode finish/final norm, generation allocation setup, MoE, inference helpers, CPU forward-layer entrypoints, KV sizing, GPU prefill/LM-head, GEMV, GQA arithmetic, and opt-in loader/prefill logging |
 | NVIDIA backend | `backends/nvidia/runtime`, `backends/nvidia/ptx`, `backends/nvidia/ioctl` | NVIDIA runtime dispatch, driver loading, DevBuf/stream/stats/module handling, GPU-resident expert cache, and quantized runtime wrappers live under `runtime`; raw PTX strings live under `ptx` with BF16/Q4/MLX/NVFP4 grouped by quantization; direct ioctl experiments live under `ioctl` |
 | Tensor graph | `tensor` | Lazy tensor DAG/runtime; direct import of `backends/simd/runtime`; malformed-input validation across shapes, unsafe views, broadcasting, realization, rewrite/fusion, NN/convenience helpers, matmul/linear, and modules |
@@ -91,7 +91,7 @@ loader/safetensors + loader/weights (GetFloat32, GetBF16, GetInt32, GetRaw)
     ├─── MLX 4-bit: backends/mlx.LoadWeight validates packed shape + F32/F16/BF16 scales/biases
     │    └─── GPU: transpose → GPTQ kernel + bias correction
     │
-    ├─── GPTQ 4-bit: loader reads qweight/g_idx/scales/qzeros → backends/simd/runtime/q4 validates before dequant or GemvSym
+    ├─── GPTQ 4-bit: loader reads qweight/g_idx/scales/qzeros → backends/simd/quant/q4 validates before dequant or GemvSym
     │    └─── GPU: direct tiled GEMV
     │
     └─── BF16/F16/F32: load → tensor (optional BF16 native path)

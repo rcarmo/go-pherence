@@ -4,12 +4,12 @@
 
 ## Direct backend imports completed
 
-- `model/qwen` imports `backends/simd/runtime/nvfp4` directly for Qwen3.5 NVFP4 weights and CPU verification/fallback.
-- `backends/nvidia/runtime` imports `backends/simd/runtime/nvfp4` directly for NVFP4 upload validation and CPU dequant fallback.
+- `model/qwen` imports `backends/simd/quant/nvfp4` directly for Qwen3.5 NVFP4 weights and CPU verification/fallback.
+- `backends/nvidia/runtime` imports `backends/simd/quant/nvfp4` directly for NVFP4 upload validation and CPU dequant fallback.
 - CPU hot-path benchmarks and model execution/loader paths now call owning Q4/MLX backend packages directly:
   - `backends/mlx`
-  - `backends/simd/runtime/q4`
-  - `backends/simd/runtime/nvfp4`
+  - `backends/simd/quant/q4`
+  - `backends/simd/quant/nvfp4`
 - Shared model MLX field types now use `backends/mlx.QuantWeight` directly.
 - Gemma4 diagnostics now use `backends/mlx.Gemv` directly and remain guarded by the `diagnostic` build tag.
 

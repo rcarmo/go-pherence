@@ -18,7 +18,7 @@ format for large dense and MoE models once loader/runtime/kernel support exists.
   ModelOpt and compressed-tensors FP4/NVFP4 across top-level fields, mixed
   `config_groups`, group `format`, `weights.format`, and 4-bit float
   `weights.type` variants with stable FP4 diagnostics regardless of map order.
-- `backends/simd/runtime/nvfp4` owns the correctness-first `NVFP4Weight`, FP4 E2M1 and
+- `backends/simd/quant/nvfp4` owns the correctness-first `NVFP4Weight`, FP4 E2M1 and
   F8_E4M3FN decode helpers, F32 dequantization, direct GEMV fallback, guarded
   unpack/count validation, and golden synthetic logit tests.
 - `backends/nvidia/runtime` has a separate `GPUNVFP4Weight` upload representation, raw-byte packing,
@@ -80,7 +80,7 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
 ### CPU fallback
 
 - Done: correctness-first FP4 unpack/dequant and GEMV fallback exists in
-  `backends/simd/runtime/nvfp4`; `runtime/quant` only preserves the legacy wrapper API.
+  `backends/simd/quant/nvfp4`; `runtime/quant` only preserves the legacy wrapper API.
 - Intended use remains validation and tiny synthetic tests; CPU performance is
   not the primary target for NVFP4.
 - Done: golden tests cover FP4 codebook, F8_E4M3FN scales, dequant, GEMV, and
@@ -118,7 +118,7 @@ Metadata-only inspection on 2026-05-14 confirmed the common ModelOpt NVFP4 tenso
 
 1. **Recon** — done for representative Qwen3 dense, Qwen3 MoE, and Gemma4 NVFP4 metadata; tensor names/shapes/metadata are documented above.
 2. **Detection** — done: loader/config detects NVFP4/FP4 metadata and public loading fails explicitly instead of treating it as MLX/GPTQ.
-3. **CPU decode prototype** — done: correctness-first unpack/dequant/GEMV paths and synthetic logits tests live under `backends/simd/runtime/nvfp4`.
+3. **CPU decode prototype** — done: correctness-first unpack/dequant/GEMV paths and synthetic logits tests live under `backends/simd/quant/nvfp4`.
 4. **NVIDIA prototype** — partial: raw upload, dequant-to-F32, dense GEMV fallback, and native tensor-core capability gates are in place; packed/native kernels remain pending.
 5. **MoE integration** — pending: combine NVFP4 expert weights with expert cache/prefetch redesign for Qwen3 MoE.
 6. **Budget integration** — done: placement/memory reports include NVFP4 tensor class and metadata overhead.

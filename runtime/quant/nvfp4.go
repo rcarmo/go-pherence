@@ -1,6 +1,6 @@
 package quant
 
-import simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/runtime/nvfp4"
+import simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4"
 
 type NVFP4Weight = simdnvfp4.NVFP4Weight
 

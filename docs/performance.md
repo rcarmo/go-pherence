@@ -41,12 +41,12 @@ Current refreshed snapshot on i7-12700 (`GOTMPDIR=$PWD/.gotmp go test ./model -r
 | MLX4 GEMM batch=8 1536×2048 | 5.08 ms | 9 allocs | scalar batched `backends/mlx.Gemm` path |
 | MLX4 dequant 1536×2048 | 1.73 ms | 13 allocs | caller-owned `backends/mlx.DequantTo` decode path |
 | MLX MoE expert fallback | 1.60 ms | 13 allocs | synthetic hidden=512, intermediate=1024, top-2 of 8 experts |
-| Q4/GPTQ symmetric GEMV 1536×2048 | 4.43 ms | 0 allocs | `backends/simd/runtime/q4` symmetric path |
-| Q4/GPTQ asymmetric GEMV 1536×2048 | 8.15 ms | 0 allocs | `backends/simd/runtime/q4` asymmetric path |
+| Q4/GPTQ symmetric GEMV 1536×2048 | 4.43 ms | 0 allocs | `backends/simd/quant/q4` symmetric path |
+| Q4/GPTQ asymmetric GEMV 1536×2048 | 8.15 ms | 0 allocs | `backends/simd/quant/q4` asymmetric path |
 | Q4 MoE expert fallback | 915 µs | 0 allocs | synthetic hidden=512, intermediate=1024, top-2 of 8 experts |
 | Q4 asymmetric dequant 1536×2048 | 1.79 ms | 13 allocs | caller-owned decode path |
 | Q4 symmetric dequant 1536×2048 | 3.77 ms | 13 allocs | caller-owned decode path |
-| NVFP4 dequant 1536×2048 | 1.25 ms | 13 allocs | caller-owned `backends/simd/runtime/nvfp4.DequantNVFP4To` decode path |
+| NVFP4 dequant 1536×2048 | 1.25 ms | 13 allocs | caller-owned `backends/simd/quant/nvfp4.DequantNVFP4To` decode path |
 | NVFP4 GEMM batch=4 1536×2048 | 7.11 ms | 10 allocs | scalar batched NVFP4 path |
 | NVFP4 GEMV 1536×2048 | 11.0 ms | 0 allocs | correctness-first packed NVFP4 GEMV path |
 
@@ -66,7 +66,7 @@ Current refreshed snapshot on i7-12700 (`GOTMPDIR=$PWD/.gotmp go test ./model -r
 | Kernel | Time | Accuracy | Shared mem |
 |---|---|---|---|
 | SGEMM 16×16 | 348 GFLOPS @ 1024² | — | tiled |
-| Q4 GEMV (GPTQ) | ~300µs @ 3584² | 1.7e-6 maxDiff | NVIDIA tiled + 8× unroll; CPU scalar owner is `backends/simd/runtime/q4`; `runtime/quant` is legacy wrapper-only |
+| Q4 GEMV (GPTQ) | ~300µs @ 3584² | 1.7e-6 maxDiff | NVIDIA tiled + 8× unroll; CPU scalar owner is `backends/simd/quant/q4`; `runtime/quant` is legacy wrapper-only |
 | Q4 GEMV (MLX) | ~300µs @ 3584² | 6.7e-6 maxDiff | NVIDIA 8× unroll; CPU scalar owner is `backends/mlx`; `runtime/quant` is legacy wrapper-only |
 | LM Head GEMV | F32 path for moderate heads, compact MLX path for very large heads | — | 2D grid or quantized MLX GEMV by policy |
 | RMSNorm | ~2µs @ 3584 | Newton-refined rsqrt | 256-thread reduce |
