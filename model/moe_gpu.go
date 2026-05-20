@@ -1,7 +1,6 @@
 package model
 
 import (
-	"math"
 	"sync"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
@@ -81,21 +80,8 @@ func moeForwardGPU(outDev, xDev *nvidia.DevBuf, layer *LlamaLayer, cfg LlamaConf
 		mlx.Gemv(routerLogits, getXCPU(), layer.RouterW)
 	}
 
-	// Softmax over router logits
-	maxLogit := routerLogits[0]
-	for _, v := range routerLogits[1:] {
-		if v > maxLogit {
-			maxLogit = v
-		}
-	}
-	var expSum float32
-	for i := range routerLogits {
-		routerLogits[i] = float32(math.Exp(float64(routerLogits[i] - maxLogit)))
-		expSum += routerLogits[i]
-	}
-	for i := range routerLogits {
-		routerLogits[i] /= expSum
-	}
+	// Softmax over router logits.
+	simd.SoftmaxInPlace(routerLogits)
 
 	// Top-k selection
 	type expertScore struct {
