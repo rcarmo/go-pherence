@@ -462,14 +462,10 @@ func DevGemv(out, x *DevBuf, W *DevBuf, M, K int) {
 	W.ToCPU()
 	out.ToCPU()
 	w := W.cpu
-	xd := x.cpu
+	xd := x.cpu[:K]
 	for j := 0; j < M; j++ {
-		sum := float32(0)
 		row := w[j*K : (j+1)*K]
-		for p := 0; p < K; p++ {
-			sum += xd[p] * row[p]
-		}
-		out.cpu[j] = sum
+		out.cpu[j] = simd.Sdot(xd, row)
 	}
 }
 
