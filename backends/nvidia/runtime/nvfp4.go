@@ -268,24 +268,9 @@ func DequantNVFP4ToF32(w *GPUNVFP4Weight) ([]float32, error) {
 	if out, ok := dequantNVFP4ToF32CUDA(w); ok {
 		return out, nil
 	}
-	weightPacked := make([]float32, f32SlotsForBytes(w.WeightBytes))
-	if err := w.Weight.Download(weightPacked); err != nil {
-		return nil, fmt.Errorf("download NVFP4 weight: %w", err)
-	}
-	scalePacked := make([]float32, f32SlotsForBytes(w.ScaleBytes))
-	if err := w.WeightScale.Download(scalePacked); err != nil {
-		return nil, fmt.Errorf("download NVFP4 weight_scale: %w", err)
-	}
-	qw := &simdnvfp4.NVFP4Weight{
-		Weight:        float32PackedAsBytes(weightPacked, w.WeightBytes),
-		WeightScale:   float32PackedAsBytes(scalePacked, w.ScaleBytes),
-		WeightScale2:  w.WeightScale2,
-		InputScale:    w.InputScale,
-		HasInputScale: w.HasInputScale,
-		OutDim:        w.OutDim,
-		InDim:         w.InDim,
-		Groups:        w.Groups,
-		GroupSize:     w.GroupSize,
+	qw, err := downloadNVFP4Weight(w)
+	if err != nil {
+		return nil, err
 	}
 	out := simdnvfp4.DequantNVFP4(qw)
 	if out == nil {
@@ -317,11 +302,43 @@ func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 			debugf("[gpu] NVFP4 GEMV CUDA fallback: %v\n", err)
 		}
 	}
-	weights, err := DequantNVFP4ToF32(w)
+	qw, err := downloadNVFP4Weight(w)
 	if err != nil {
 		return err
 	}
-	return gemvNVFP4F32(out, x, w.OutDim, w.InDim, weights)
+	if !simdnvfp4.GemvNVFP4To(out[:w.OutDim], x[:w.InDim], qw) {
+		return fmt.Errorf("NVFP4 CPU GEMV fallback failed")
+	}
+	return nil
+}
+
+func downloadNVFP4Weight(w *GPUNVFP4Weight) (*simdnvfp4.NVFP4Weight, error) {
+	if !validGPUNVFP4Weight(w) {
+		return nil, fmt.Errorf("invalid GPU NVFP4 weight")
+	}
+	weightPacked := make([]float32, f32SlotsForBytes(w.WeightBytes))
+	if err := w.Weight.Download(weightPacked); err != nil {
+		return nil, fmt.Errorf("download NVFP4 weight: %w", err)
+	}
+	scalePacked := make([]float32, f32SlotsForBytes(w.ScaleBytes))
+	if err := w.WeightScale.Download(scalePacked); err != nil {
+		return nil, fmt.Errorf("download NVFP4 weight_scale: %w", err)
+	}
+	qw := &simdnvfp4.NVFP4Weight{
+		Weight:        float32PackedAsBytes(weightPacked, w.WeightBytes),
+		WeightScale:   float32PackedAsBytes(scalePacked, w.ScaleBytes),
+		WeightScale2:  w.WeightScale2,
+		InputScale:    w.InputScale,
+		HasInputScale: w.HasInputScale,
+		OutDim:        w.OutDim,
+		InDim:         w.InDim,
+		Groups:        w.Groups,
+		GroupSize:     w.GroupSize,
+	}
+	if err := simdnvfp4.ValidateNVFP4Weight(qw); err != nil {
+		return nil, err
+	}
+	return qw, nil
 }
 
 func GemvNVFP4Buffer(outBuf, xBuf *Buffer, w *GPUNVFP4Weight) error {
