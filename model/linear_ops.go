@@ -33,13 +33,7 @@ func gemv(out, x []float32, w []float32, inDim, outDim int) {
 				unsafe.Pointer(&x[0]), unsafe.Pointer(&w[0]), unsafe.Pointer(&out[0]),
 				inDim, outDim, outDim)
 		} else {
-			for j := 0; j < outDim; j++ {
-				sum := float32(0)
-				for p := 0; p < inDim; p++ {
-					sum += x[p] * w[p*outDim+j]
-				}
-				out[j] = sum
-			}
+			simd.GemvCols(out[:outDim], x[:inDim], w[:weightLen], inDim, outDim)
 		}
 	}
 }
@@ -53,18 +47,7 @@ func gemvNT(out, x []float32, w []float32, inDim, outDim int) {
 	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
 		return
 	}
-	for j := 0; j < outDim; j++ {
-		sum := float32(0)
-		row := w[j*inDim : (j+1)*inDim]
-		if inDim >= 8 {
-			sum = simd.Sdot(x, row)
-		} else {
-			for p := 0; p < inDim; p++ {
-				sum += x[p] * row[p]
-			}
-		}
-		out[j] = sum
-	}
+	simd.GemvRows(out[:outDim], x[:inDim], w[:weightLen], outDim, inDim)
 }
 
 func checkedProduct(a, b int) (int, bool) {
