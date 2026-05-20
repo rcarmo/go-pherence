@@ -1,6 +1,9 @@
 package nvidia
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
 	ptxbf16 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16"
 	ptxmlx "github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx"
@@ -11,6 +14,27 @@ import (
 type moduleEntry struct {
 	name string
 	ptx  string
+}
+
+func validateModuleEntries(entries []moduleEntry) error {
+	if len(entries) == 0 {
+		return fmt.Errorf("empty NVIDIA mega module entry table")
+	}
+	seen := make(map[string]struct{}, len(entries))
+	for i, e := range entries {
+		name := strings.TrimSpace(e.name)
+		if name == "" {
+			return fmt.Errorf("module entry %d has empty kernel name", i)
+		}
+		if strings.TrimSpace(e.ptx) == "" {
+			return fmt.Errorf("module entry %q has empty PTX", name)
+		}
+		if _, ok := seen[name]; ok {
+			return fmt.Errorf("duplicate module entry %q", name)
+		}
+		seen[name] = struct{}{}
+	}
+	return nil
 }
 
 func megaModuleEntries() []moduleEntry {

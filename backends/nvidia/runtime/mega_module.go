@@ -53,6 +53,10 @@ func loadMegaModule() {
 		combined.WriteString(".version 7.0\n.target sm_80\n.address_size 64\n\n")
 
 		entries := megaModuleEntries()
+		if err := validateModuleEntries(entries); err != nil {
+			debugf("[gpu] invalid mega module entries: %v\n", err)
+			return
+		}
 
 		for _, e := range entries {
 			combined.WriteString(stripPTXHeader(e.ptx))
