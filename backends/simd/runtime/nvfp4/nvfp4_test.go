@@ -126,6 +126,39 @@ func TestGemvNVFP4MatchesDequantizedReference(t *testing.T) {
 	}
 }
 
+func TestDequantNVFP4ParallelMatchesReference(t *testing.T) {
+	qw := &NVFP4Weight{
+		OutDim:       1024,
+		InDim:        16,
+		Groups:       1,
+		GroupSize:    16,
+		Weight:       make([]byte, 1024*8),
+		WeightScale:  make([]byte, 1024),
+		WeightScale2: 0.5,
+	}
+	pattern := []byte{0x10, 0x32, 0x54, 0x76, 0x98, 0xba, 0xdc, 0xfe}
+	for row := 0; row < qw.OutDim; row++ {
+		copy(qw.Weight[row*8:(row+1)*8], pattern)
+		qw.WeightScale[row] = 0x38 // 1.0
+	}
+	got := make([]float32, qw.OutDim*qw.InDim+1)
+	got[len(got)-1] = 123
+	if !DequantNVFP4To(got, qw) {
+		t.Fatal("DequantNVFP4To returned false")
+	}
+	for row := 0; row < qw.OutDim; row++ {
+		for col := 0; col < qw.InDim; col++ {
+			want := nvfp4At(qw, row, col)
+			if got[row*qw.InDim+col] != want {
+				t.Fatalf("got[%d,%d]=%v want %v", row, col, got[row*qw.InDim+col], want)
+			}
+		}
+	}
+	if got[len(got)-1] != 123 {
+		t.Fatalf("DequantNVFP4To mutated tail")
+	}
+}
+
 func TestNVFP4TinySyntheticLogitsMatchF32Reference(t *testing.T) {
 	qw := syntheticNVFP4LogitWeight()
 	hidden := []float32{0.25, -0.5, 1.5, -2, 0.75, -1.25, 2.5, -3, 1, 0.5, -0.75, 1.25, -1.5, 2, -2.5, 3}
