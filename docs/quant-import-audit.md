@@ -19,7 +19,7 @@ No production/model/backend Go package imports `runtime/quant` directly. The onl
 
 ## Import-boundary check
 
-`runtime/quant/import_boundary_test.go` prevents new backend-owned code from importing `runtime/quant` and keeps the compatibility package limited to its current wrapper files.
+`runtime/quant/import_boundary_test.go` prevents new backend-owned, model-family, and tensor implementation code from importing `runtime/quant` and keeps the compatibility package limited to its current wrapper files.
 
 ## Wrapper status
 
