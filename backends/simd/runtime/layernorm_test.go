@@ -26,6 +26,22 @@ func TestLayerNormLastAxisTo(t *testing.T) {
 	}
 }
 
+func TestLayerNormLastAxisToAllowsInputOutputAliasing(t *testing.T) {
+	x := []float32{1, 2, 3, 4, 5, 6}
+	want := make([]float32, len(x))
+	if !LayerNormLastAxisTo(want, x, 2, 3, nil, nil, 1e-5) {
+		t.Fatal("LayerNormLastAxisTo returned false for reference")
+	}
+	if !LayerNormLastAxisTo(x, x, 2, 3, nil, nil, 1e-5) {
+		t.Fatal("LayerNormLastAxisTo returned false for aliased input/output")
+	}
+	for i := range want {
+		if math.Abs(float64(x[i]-want[i])) > 1e-6 {
+			t.Fatalf("x[%d]=%g want %g", i, x[i], want[i])
+		}
+	}
+}
+
 func TestLayerNormLastAxisToRejectsMalformedInputs(t *testing.T) {
 	x := make([]float32, 6)
 	out := make([]float32, 6)
