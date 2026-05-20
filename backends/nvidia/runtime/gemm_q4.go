@@ -12,7 +12,11 @@ package nvidia
 // The kernel dequantizes INT4 weights on-the-fly (same as gemv_q4sym)
 // but accumulates B dot products per weight column.
 
-import "unsafe"
+import (
+	"unsafe"
+
+	simdq4 "github.com/rcarmo/go-pherence/backends/simd/runtime/q4"
+)
 
 // GemmQ4 performs batched matrix multiply: out[B×outDim] = input[B×inDim] × W_q4[inDim×outDim]
 // where W is INT4 quantized with group scales.
@@ -22,10 +26,11 @@ func GemmQ4(out, input *DevBuf, w *GPUQuantWeight, B int) {
 	}
 	inLen, okIn := checkedMulInt(B, w.InDim)
 	outLen, okOut := checkedMulInt(B, w.OutDim)
-	if !q4Ready || fnGemmQ4 == 0 || !okIn || !okOut || !fitsUint32(B) || !fitsUint32(w.InDim) || !fitsUint32(w.OutDim) || !fitsUint32(w.Groups) {
+	if !okIn || !okOut || input.n < inLen || out.n < outLen {
 		return
 	}
-	if input.n < inLen || out.n < outLen || !tryGPU(input, out) {
+	if !q4Ready || fnGemmQ4 == 0 || !fitsUint32(B) || !fitsUint32(w.InDim) || !fitsUint32(w.OutDim) || !fitsUint32(w.Groups) || !tryGPU(input, out) {
+		gemmQ4CPU(out, input, w, B)
 		return
 	}
 	EnsureContext()
@@ -52,6 +57,44 @@ func GemmQ4(out, input *DevBuf, w *GPUQuantWeight, B int) {
 		unsafe.Pointer(&batchSize),
 	); err == nil {
 		out.dev = GPU_DEVICE
+		return
+	}
+	gemmQ4CPU(out, input, w, B)
+}
+
+func gemmQ4CPU(out, input *DevBuf, w *GPUQuantWeight, B int) {
+	if !validGPUQuantWeight(w) || input == nil || out == nil || B <= 0 {
+		return
+	}
+	inLen, okIn := checkedMulInt(B, w.InDim)
+	outLen, okOut := checkedMulInt(B, w.OutDim)
+	if !okIn || !okOut || input.n < inLen || out.n < outLen {
+		return
+	}
+	input.ToCPU()
+	out.ToCPU()
+	qwN, scN, giN, ok := q4BufferElementCounts(w)
+	if !ok {
+		return
+	}
+	qw := make([]int32, qwN)
+	sc := make([]float32, scN)
+	gi := make([]int32, giN)
+	if err := w.QWeight.Download(int32ToFloat32(qw)); err != nil {
+		return
+	}
+	if err := w.Scales.Download(sc); err != nil {
+		return
+	}
+	if err := w.GIdx.Download(int32ToFloat32(gi)); err != nil {
+		return
+	}
+	for b := 0; b < B; b++ {
+		xRow := input.cpu[b*w.InDim : (b+1)*w.InDim]
+		outRow := out.cpu[b*w.OutDim : (b+1)*w.OutDim]
+		if !simdq4.GemvSymTo(outRow, xRow, qw, gi, sc, w.InDim, w.OutDim) {
+			return
+		}
 	}
 }
 
