@@ -1,8 +1,6 @@
 package model
 
 import (
-	"runtime"
-	"sync"
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -74,35 +72,5 @@ func gemvNTParallel(out, x []float32, w []float32, inDim, outDim int) {
 	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
 		return
 	}
-	nCPU := runtime.NumCPU()
-	if nCPU > 8 {
-		nCPU = 8
-	} // cap at 8 for cache efficiency
-	chunkSize := (outDim + nCPU - 1) / nCPU
-
-	var wg sync.WaitGroup
-	wg.Add(nCPU)
-	for c := 0; c < nCPU; c++ {
-		start := c * chunkSize
-		end := start + chunkSize
-		if end > outDim {
-			end = outDim
-		}
-		go func(s, e int) {
-			defer wg.Done()
-			for j := s; j < e; j++ {
-				row := w[j*inDim : (j+1)*inDim]
-				if inDim >= 8 {
-					out[j] = simd.Sdot(x, row)
-				} else {
-					sum := float32(0)
-					for p := 0; p < inDim; p++ {
-						sum += x[p] * row[p]
-					}
-					out[j] = sum
-				}
-			}
-		}(start, end)
-	}
-	wg.Wait()
+	simd.GemvRows(out[:outDim], x[:inDim], w[:weightLen], outDim, inDim)
 }
