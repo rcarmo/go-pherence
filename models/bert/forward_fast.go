@@ -168,24 +168,7 @@ func linearInPlace(out, x, wT, bias []float32, m, inDim, outDim int) {
 }
 
 func layerNormInPlace(x, gamma, beta []float32, seqLen, h int, eps float32) {
-	for s := 0; s < seqLen; s++ {
-		off := s * h
-		mean := float32(0)
-		for d := 0; d < h; d++ {
-			mean += x[off+d]
-		}
-		mean /= float32(h)
-		variance := float32(0)
-		for d := 0; d < h; d++ {
-			diff := x[off+d] - mean
-			variance += diff * diff
-		}
-		variance /= float32(h)
-		stdInv := float32(1.0 / math.Sqrt(float64(variance+eps)))
-		for d := 0; d < h; d++ {
-			x[off+d] = gamma[d]*(x[off+d]-mean)*stdInv + beta[d]
-		}
-	}
+	_ = simd.LayerNormLastAxisTo(x, x, seqLen, h, gamma, beta, eps)
 }
 
 func residualLayerNormInPlace(residual, x, gamma, beta []float32, seqLen, h int, eps float32) {
@@ -212,20 +195,7 @@ func residualLayerNormInPlace(residual, x, gamma, beta []float32, seqLen, h int,
 }
 
 func geluInPlace(x []float32) {
-	const c = float32(0.7978845608)
-	for i, v := range x {
-		arg := c * (v + 0.044715*v*v*v)
-		var tanh float32
-		if arg < -5 {
-			tanh = -1
-		} else if arg > 5 {
-			tanh = 1
-		} else {
-			a2 := arg * arg
-			tanh = arg * (135135 + a2*(17325+a2*(378+a2))) / (135135 + a2*(62370+a2*(3150+a2*28)))
-		}
-		x[i] = 0.5 * v * (1 + tanh)
-	}
+	_ = simd.GELUTanhTo(x, x)
 }
 
 func mhaInPlace(out, q, k, v, scoresBuf []float32, seqLen, heads, headDim int) {
@@ -247,24 +217,7 @@ func mhaInPlace(out, q, k, v, scoresBuf []float32, seqLen, heads, headDim int) {
 		}
 
 		// Softmax per row
-		for i := 0; i < seqLen; i++ {
-			row := scores[i*seqLen : (i+1)*seqLen]
-			mx := row[0]
-			for _, v := range row[1:] {
-				if v > mx {
-					mx = v
-				}
-			}
-			sum := float32(0)
-			for j := range row {
-				row[j] = float32(math.Exp(float64(row[j] - mx)))
-				sum += row[j]
-			}
-			inv := 1.0 / sum
-			for j := range row {
-				row[j] *= inv
-			}
-		}
+		simd.SoftmaxRowsInPlace(scores, seqLen, seqLen)
 
 		// Context: scores @ V per head
 		for i := 0; i < seqLen; i++ {
