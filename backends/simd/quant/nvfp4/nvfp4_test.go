@@ -1,4 +1,4 @@
-package ops
+package nvfp4
 
 import (
 	"math"

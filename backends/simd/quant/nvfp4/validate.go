@@ -1,4 +1,4 @@
-package format
+package nvfp4
 
 import "fmt"
 

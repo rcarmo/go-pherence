@@ -1,4 +1,4 @@
-package format
+package nvfp4
 
 // NVFP4Weight holds the TensorRT Model Optimizer / NVFP4 safetensors layout
 // seen in public Qwen3 and Gemma4 checkpoints.
