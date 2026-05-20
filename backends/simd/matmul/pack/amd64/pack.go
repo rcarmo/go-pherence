@@ -1,4 +1,4 @@
-package pack
+package amd64
 
 //go:noescape
 func packBNTAsm(

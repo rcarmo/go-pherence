@@ -1,6 +1,6 @@
 //go:build arm64
 
-package pack
+package arm64
 
 const hasNeonPack = true
 const hasAvxPack = false
