@@ -16,7 +16,7 @@ This directory contains the durable backend, model, validation, and research not
 - [validation-gates.md](validation-gates.md) — phase-level test, vet, CPU-only, and hardware smoke gates.
 - [final-coverage-acceptance.md](final-coverage-acceptance.md) — final backend coverage acceptance tracker.
 - [performance.md](performance.md) — benchmark notes and current snapshots.
-- [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and pending snapshot refreshes.
+- [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and refreshed snapshot status.
 - [cpu-simd-coverage.md](cpu-simd-coverage.md) — CPU/SIMD coverage and benchmark context.
 
 ## GPU and quantized runtimes

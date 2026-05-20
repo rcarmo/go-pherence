@@ -76,7 +76,7 @@ Detailed backend ownership, parity, and validation tracking lives in focused doc
 - [backend-parity-matrix.md](backend-parity-matrix.md) — scalar/reference owners and hardware-gated parity targets.
 - [malformed-input-coverage.md](malformed-input-coverage.md) — exported wrapper malformed-input coverage index.
 - [validation-gates.md](validation-gates.md) — phase-level test, vet, CPU gate, and benchmark commands.
-- [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and pending snapshot refreshes.
+- [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and refreshed snapshot status.
 - [vulkan-dispatch-inventory.md](vulkan-dispatch-inventory.md) and [vulkan-validation-plan.md](vulkan-validation-plan.md) — Vulkan wrapper/pipeline status.
 - [nvidia-quant-boundaries.md](nvidia-quant-boundaries.md), [bf16-parity.md](bf16-parity.md), and [nvfp4.md](nvfp4.md) — NVIDIA/quantized runtime boundaries.
 
