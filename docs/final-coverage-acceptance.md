@@ -23,7 +23,7 @@ These items are intentionally not blockers for documenting current coverage, but
 - Vulkan hardware/runtime smoke refresh for the existing SPIR-V pipeline-cache wiring and availability-gated parity tests.
 - Native NVIDIA NVFP4 tensor-core path behind capability checks.
 - NVIDIA hardware smoke refresh for BF16 LM-head, Q4 symmetric paths, MLX paths, and NVFP4 dense/native boundaries.
-- Benchmark snapshot refresh for Q4, MLX, and NVFP4 additions listed in `benchmark-snapshot-queue.md`.
+- Future benchmark snapshot refreshes after new AVX2/NEON, NVIDIA, or Vulkan hardware paths land. The current Q4, MLX, NVFP4, RoPE, activation, RMSNorm, and GQA CPU-hot snapshots were refreshed on 2026-05-20.
 
 ## Final validation sequence
 
@@ -35,8 +35,10 @@ GOTMPDIR=$PWD/.gotmp go vet ./...
 make test-cpu
 ```
 
-Then refresh benchmark snapshots if the test gate passes:
+Refresh benchmark snapshots after substantive hot-path changes:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
 ```
+
+The CPU-hot matrix was refreshed on 2026-05-20 and recorded in `docs/performance.md`, `docs/cpu-simd-coverage.md`, and `docs/benchmark-snapshot-queue.md`.
