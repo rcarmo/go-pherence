@@ -65,6 +65,27 @@ func TestForwardGTESmall(t *testing.T) {
 	t.Logf("Norm: %v, non-zero: %d/384", norm, nonZero)
 }
 
+func TestMHAInPlaceRejectsMalformedInputs(t *testing.T) {
+	out := []float32{99, 100, 101, 102}
+	q := []float32{1, 0, 0, 1}
+	k := []float32{1, 0, 0, 1}
+	v := []float32{1, 2, 3, 4}
+	scores := make([]float32, 4)
+	mhaInPlace(out, q, k, v, scores, 2, 1, 2)
+	if out[0] == 99 && out[1] == 100 && out[2] == 101 && out[3] == 102 {
+		t.Fatal("mhaInPlace did not write valid output")
+	}
+	out = []float32{99, 100, 101, 102}
+	mhaInPlace(out[:3], q, k, v, scores, 2, 1, 2)
+	if out[0] != 99 || out[3] != 102 {
+		t.Fatalf("malformed mhaInPlace mutated output: %v", out)
+	}
+	mhaInPlace(out, q, k, v, scores[:3], 2, 1, 2)
+	if out[0] != 99 || out[3] != 102 {
+		t.Fatalf("short scores mhaInPlace mutated output: %v", out)
+	}
+}
+
 func TestLinearInPlaceUsesCheckedSIMD(t *testing.T) {
 	out := make([]float32, 7)
 	out[6] = 123

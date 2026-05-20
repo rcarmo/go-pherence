@@ -176,11 +176,20 @@ func geluInPlace(x []float32) {
 }
 
 func mhaInPlace(out, q, k, v, scoresBuf []float32, seqLen, heads, headDim int) {
-	hidden := heads * headDim
+	if seqLen <= 0 || heads <= 0 || headDim <= 0 {
+		return
+	}
+	hidden, okHidden := checkedMulInt(heads, headDim)
+	hiddenTotal, okTotal := checkedMulInt(seqLen, hidden)
+	scoresPerHead, okScoresPerHead := checkedMulInt(seqLen, seqLen)
+	scoresTotal, okScoresTotal := checkedMulInt(heads, scoresPerHead)
+	if !okHidden || !okTotal || !okScoresPerHead || !okScoresTotal || len(out) < hiddenTotal || len(q) < hiddenTotal || len(k) < hiddenTotal || len(v) < hiddenTotal || len(scoresBuf) < scoresTotal {
+		return
+	}
 	scale := float32(1.0 / math.Sqrt(float64(headDim)))
 
 	for h := 0; h < heads; h++ {
-		scores := scoresBuf[h*seqLen*seqLen : (h+1)*seqLen*seqLen]
+		scores := scoresBuf[h*scoresPerHead : (h+1)*scoresPerHead]
 
 		// Q·K^T per head
 		for i := 0; i < seqLen; i++ {
@@ -194,7 +203,9 @@ func mhaInPlace(out, q, k, v, scoresBuf []float32, seqLen, heads, headDim int) {
 		}
 
 		// Softmax per row
-		simd.SoftmaxRowsInPlace(scores, seqLen, seqLen)
+		if !simd.SoftmaxRowsInPlace(scores, seqLen, seqLen) {
+			return
+		}
 
 		// Context: scores @ V per head
 		for i := 0; i < seqLen; i++ {
