@@ -1,4 +1,4 @@
-package matmul
+package ops
 
 import (
 	"fmt"
