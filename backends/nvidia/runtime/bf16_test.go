@@ -63,6 +63,20 @@ func TestBF16DeviceWrappersRejectMalformedInputs(t *testing.T) {
 	}
 }
 
+func TestNativeBF16DeviceWrappersRejectMalformedInputs(t *testing.T) {
+	oldReady := nativeBF16Ready
+	defer func() { nativeBF16Ready = oldReady }()
+	nativeBF16Ready = false
+	short := &Buffer{Ptr: 1, Size: 2}
+	valid := &Buffer{Ptr: 1, Size: 4}
+	if DevNativeBF16RMSNorm(valid, short, 2, 1e-6) {
+		t.Fatal("DevNativeBF16RMSNorm accepted short weight")
+	}
+	if DevNativeBF16VecAdd(valid, valid, short, 2) {
+		t.Fatal("DevNativeBF16VecAdd accepted short input")
+	}
+}
+
 func TestBF16LMHeadWithBufferRejectsShortWeightBuffer(t *testing.T) {
 	logits := make([]float32, 4)
 	x := make([]float32, 8)
