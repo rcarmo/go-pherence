@@ -1,4 +1,4 @@
-package gemv
+package ops
 
 // Gemv computes out = x @ W^T where W is stored as GPTQ INT4. It supports
 // both symmetric and asymmetric qzeros layouts and is scalar/reference-owned;

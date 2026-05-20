@@ -1,4 +1,4 @@
-package gemm
+package ops
 
 import (
 	"runtime"
