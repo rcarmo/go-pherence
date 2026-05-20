@@ -1,4 +1,4 @@
-package gebp
+package core
 
 import (
 	"math"
