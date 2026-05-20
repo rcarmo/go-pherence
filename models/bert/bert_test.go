@@ -4,6 +4,8 @@ import (
 	"math"
 	"os"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/tensor"
 )
 
 func TestLoadGTESmall(t *testing.T) {
@@ -63,6 +65,26 @@ func TestForwardGTESmall(t *testing.T) {
 
 	t.Logf("Embedding[0:5]: %v", emb[:5])
 	t.Logf("Norm: %v, non-zero: %d/384", norm, nonZero)
+}
+
+func TestMHAInPlaceMatchesTensorAttention(t *testing.T) {
+	seqLen, heads, headDim := 2, 1, 2
+	q := []float32{1, 0, 0, 1}
+	k := []float32{1, 0, 0, 1}
+	v := []float32{1, 2, 3, 4}
+	want := multiHeadAttention(
+		tensor.FromFloat32(q, []int{seqLen, heads * headDim}),
+		tensor.FromFloat32(k, []int{seqLen, heads * headDim}),
+		tensor.FromFloat32(v, []int{seqLen, heads * headDim}),
+		seqLen, heads, headDim,
+	).Data()
+	got := make([]float32, len(want))
+	mhaInPlace(got, q, k, v, make([]float32, heads*seqLen*seqLen), seqLen, heads, headDim)
+	for i := range want {
+		if math.Abs(float64(got[i]-want[i])) > 1e-6 {
+			t.Fatalf("got[%d]=%g want %g", i, got[i], want[i])
+		}
+	}
 }
 
 func TestMHAInPlaceRejectsMalformedInputs(t *testing.T) {
