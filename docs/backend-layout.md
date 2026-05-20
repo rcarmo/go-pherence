@@ -42,6 +42,7 @@ New code should prefer backend packages directly unless it deliberately needs th
 | `model/llama` | LLaMA-specific inference primitives that can be split from the shared model package without owning `LlamaModel` methods. |
 | `model/qwen` | Qwen3.5/Qwen3.6 base model, native MTP, safetensors source helpers, NVFP4 GPU cache, and Qwen-specific tests. |
 | `model/gemma4` | Gemma4 diagnostic tests and Gemma4-specific investigation assets, guarded by the `diagnostic` build tag and importing backend-owned quant helpers directly. |
+| `tensor` | Tensor helpers and NN convenience ops. Softmax, LayerNorm, GELU, Linear, and MatMul route through checked SIMD runtime APIs where applicable; package tests guard kernel/unsafe-SGEMM boundaries. |
 | `models/bert` | BERT/GTE implementation. Fast-path dense, bias, softmax, GELU, and LayerNorm helpers use checked SIMD runtime APIs; an import-boundary test prevents reintroducing Gonum BLAS. |
 
 ## Test entrypoints
