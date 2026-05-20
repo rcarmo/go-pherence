@@ -1,4 +1,4 @@
-package kernels
+package softmax
 
 import "math"
 

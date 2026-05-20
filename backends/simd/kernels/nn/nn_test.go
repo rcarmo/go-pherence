@@ -1,4 +1,4 @@
-package kernels
+package nn
 
 import (
 	"math"

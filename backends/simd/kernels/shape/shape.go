@@ -1,4 +1,4 @@
-package kernels
+package shape
 
 func shapeSizeChecked(op string, shape []int) int {
 	total := 1

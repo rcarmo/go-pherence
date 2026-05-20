@@ -1,4 +1,4 @@
-package kernels
+package rope
 
 // ApplyRoPE applies full-half rotary position embedding in-place.
 func ApplyRoPE(x, freqs []float32, pos, numHeads, headDim int) {
