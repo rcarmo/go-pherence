@@ -1,4 +1,4 @@
-package qwen
+package linear
 
 import (
 	"fmt"

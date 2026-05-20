@@ -1,4 +1,4 @@
-package qwen
+package mtp
 
 import "testing"
 

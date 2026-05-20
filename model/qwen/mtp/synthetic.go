@@ -1,4 +1,4 @@
-package qwen
+package mtp
 
 import (
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"

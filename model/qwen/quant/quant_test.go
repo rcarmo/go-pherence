@@ -1,4 +1,4 @@
-package qwen
+package quant
 
 import (
 	"encoding/binary"

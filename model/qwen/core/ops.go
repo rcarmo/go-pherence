@@ -1,4 +1,4 @@
-package qwen
+package core
 
 import "github.com/rcarmo/go-pherence/backends/simd/runtime"
 
