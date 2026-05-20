@@ -1,4 +1,4 @@
-package sgemm
+package blocked
 
 import "unsafe"
 

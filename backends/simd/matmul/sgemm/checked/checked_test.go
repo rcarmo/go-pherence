@@ -1,4 +1,4 @@
-package sgemm
+package checked
 
 import "testing"
 
