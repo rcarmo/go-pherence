@@ -7,6 +7,7 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 | Area | Package/file | Coverage |
 |---|---|---|
 | SIMD RoPE | `backends/simd/kernels/rope_test.go`, `backends/simd/runtime/rope_test.go` | Negative positions, empty/short freqs, zero heads/dims, odd head dims, head/tail preservation, runtime wrapper smoke. |
+| SIMD dense/softmax | `backends/simd/runtime/gemv_test.go`, `softmax_test.go` | Dense GEMV/GEMM zero-dimension, short-buffer, tail-preservation, and overflow guard tests; softmax nil/non-finite/row-shape/overflow guards. |
 | SIMD activations | `backends/simd/kernels/activation_test.go` | Short inputs preserve destination tails; scalar golden tolerance names are explicit. |
 | Q4/GPTQ | `backends/simd/runtime/q4/*_test.go` | ValidateGemvSym malformed inputs, group-index/scale shape errors, scalar GEMV vs dequant reference, caller-owned dequant tail preservation, capability gates disabled until SIMD kernels land. |
 | MLX | `backends/mlx/*_test.go` | Loader dtype/shape checks, in-memory quant validation, caller-owned dequant tail preservation, scalar batched GEMV malformed input rejection, capability gates disabled until SIMD kernels land. |
