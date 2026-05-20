@@ -2026,3 +2026,4 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added backend parity, malformed-input coverage, validation-gate, benchmark snapshot queue, and final acceptance tracker documents.
 - Added a docs index and cross-linked architecture, backend layout, README, kernel coverage, Vulkan, NVIDIA, BF16, NVFP4, benchmark, and validation references.
 - Kept full validation deferred until the planned phase-level gate: `GOTMPDIR=$PWD/.gotmp go test ./...`, `GOTMPDIR=$PWD/.gotmp go vet ./...`, and `make test-cpu`.
+- On 2026-05-20, ran that full phase-level validation gate and all three commands passed.
