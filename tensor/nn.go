@@ -1,9 +1,6 @@
 package tensor
 
-import (
-	"github.com/rcarmo/go-pherence/backends/simd/kernels"
-	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
-)
+import simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 
 // Softmax computes softmax along the last axis.
 func (t *Tensor) Softmax() *Tensor {
@@ -81,5 +78,12 @@ func (t *Tensor) GELU() *Tensor {
 	}
 	t.Realize()
 	data := t.Data()
-	return FromFloat32(kernels.GELU(data), t.Shape())
+	if len(data) == 0 {
+		return FromFloat32(nil, t.Shape())
+	}
+	out, ok := simd.GELUTanhChecked(data)
+	if !ok {
+		panic("gelu: checked SIMD GELU rejected validated tensor")
+	}
+	return FromFloat32(out, t.Shape())
 }

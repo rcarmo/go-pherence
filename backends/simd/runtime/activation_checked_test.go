@@ -16,6 +16,10 @@ func TestCheckedActivationEntrypoints(t *testing.T) {
 	if !GELUTanhTo(dst[:len(a)], a) {
 		t.Fatal("GELUTanhTo returned false for valid input")
 	}
+	got, ok := GELUTanhChecked(a)
+	if !ok || len(got) != len(a) || got[1] != 0 {
+		t.Fatalf("GELUTanhChecked got=%v ok=%v", got, ok)
+	}
 	if !GELUTanhMulTo(dst[:len(a)], a, b) {
 		t.Fatal("GELUTanhMulTo returned false for valid input")
 	}
@@ -30,6 +34,9 @@ func TestCheckedActivationEntrypoints(t *testing.T) {
 	}
 	if GELUTanhTo(nil, a) || GELUTanhTo(make([]float32, 4), a) {
 		t.Fatal("GELUTanhTo accepted malformed input")
+	}
+	if got, ok := GELUTanhChecked(nil); ok || got != nil {
+		t.Fatalf("GELUTanhChecked accepted nil: %v %v", got, ok)
 	}
 	if GELUTanhMulTo(nil, a, b) || GELUTanhMulTo(make([]float32, 4), a, b) || GELUTanhMulTo(make([]float32, 3), a, b[:2]) {
 		t.Fatal("GELUTanhMulTo accepted malformed input")
