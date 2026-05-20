@@ -266,6 +266,19 @@ func TestMallocRejectsSizeOverflow(t *testing.T) {
 	}
 }
 
+func TestDevBufMalformedNegativeLengthDoesNotPanic(t *testing.T) {
+	b := &DevBuf{n: -3, dev: CPU}
+	if got := b.Len(); got != 0 {
+		t.Fatalf("Len=%d want 0", got)
+	}
+	if got := b.Data(); got == nil || len(got) != 0 {
+		t.Fatalf("Data len=%d want 0", len(got))
+	}
+	if b.n != 0 {
+		t.Fatalf("sanitized n=%d want 0", b.n)
+	}
+}
+
 func TestDevLMHeadRejectsOverflowProducts(t *testing.T) {
 	maxInt := int(^uint(0) >> 1)
 	out := NewDevBuf(1)

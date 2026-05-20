@@ -121,6 +121,9 @@ func (b *DevBuf) ToCPU() {
 	if b == nil {
 		return
 	}
+	if b.n < 0 {
+		b.n = 0
+	}
 	if b.cpu == nil {
 		b.cpu = make([]float32, b.n)
 	}
@@ -170,7 +173,7 @@ func (b *DevBuf) GPUPtr() *Buffer {
 
 // Len returns element count.
 func (b *DevBuf) Len() int {
-	if b == nil {
+	if b == nil || b.n < 0 {
 		return 0
 	}
 	return b.n
