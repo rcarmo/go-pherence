@@ -3,16 +3,15 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/simd/matmul/sgemm/blocked"
+base = root / "backends/simd/matmul/sgemm/base"
 
-# Batch 29: mechanically split blocked SGEMM by provider.
+# Batch 30: mechanically split base SGEMM by provider.
 MOVES = {
-    "blocked.go": ("core/blocked.go", "core"),
-    "blocked_amd64.go": ("amd64/blocked.go", "amd64"),
-    "blocked_amd64.s": ("amd64/blocked.s", "amd64"),
-    "blocked_arm64.go": ("arm64/blocked.go", "arm64"),
-    "blocked_arm64.s": ("arm64/blocked.s", "arm64"),
-    "blocked_other.go": ("scalar/blocked.go", "scalar"),
+    "sgemm.go": ("core/sgemm.go", "core"),
+    "sgemm_amd64.go": ("amd64/sgemm.go", "amd64"),
+    "sgemm_amd64.s": ("amd64/sgemm.s", "amd64"),
+    "sgemm_arm64.go": ("arm64/sgemm.go", "arm64"),
+    "sgemm_arm64.s": ("arm64/sgemm.s", "arm64"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -32,14 +31,13 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/simd-blocked-sgemm-tree-move-table.md").write_text("""# SIMD blocked SGEMM tree move table
+(root / "docs/simd-base-sgemm-tree-move-table.md").write_text("""# SIMD base SGEMM tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 29.
+Applied by `scripts/mass_move_project_tree.py` batch 30.
 
 | Concern | Target |
 |---|---|
-| Blocked SGEMM core | `backends/simd/matmul/sgemm/blocked/core` |
-| amd64 blocked SGEMM provider | `backends/simd/matmul/sgemm/blocked/amd64` |
-| arm64 blocked SGEMM provider | `backends/simd/matmul/sgemm/blocked/arm64` |
-| Portable scalar fallback | `backends/simd/matmul/sgemm/blocked/scalar` |
+| Base SGEMM core wrapper | `backends/simd/matmul/sgemm/base/core` |
+| amd64 base SGEMM provider | `backends/simd/matmul/sgemm/base/amd64` |
+| arm64 base SGEMM provider | `backends/simd/matmul/sgemm/base/arm64` |
 """)
