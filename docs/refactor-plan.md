@@ -14,7 +14,7 @@ This document records the completed backend/model source-tree reorganization and
 - SIMD backend is split into:
   - `backends/simd/runtime` for public SIMD dispatch wrappers and assembly/scalar fallback selection.
   - `backends/simd/kernels` for reusable CPU kernel bodies split by inference primitive.
-  - `backends/simd/runtime/{bf16,q4,nvfp4}` for quantization-specific CPU/SIMD operations.
+  - `backends/simd/quant/{bf16,q4,nvfp4}` for quantization-specific CPU/SIMD operations outside the runtime facade.
 - MLX format helpers live in `backends/mlx`; NVIDIA execution of MLX weights remains in `backends/nvidia/runtime`.
 - Vulkan scaffolding lives under `backends/vulkan`.
 - Qwen-specific model code lives under `model/qwen`.
