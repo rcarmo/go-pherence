@@ -1,4 +1,4 @@
-package attention
+package kernels
 
 import "math"
 

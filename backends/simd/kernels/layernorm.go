@@ -1,4 +1,4 @@
-package norm
+package kernels
 
 import "math"
 

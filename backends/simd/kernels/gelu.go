@@ -1,4 +1,4 @@
-package activation
+package kernels
 
 func GELU(data []float32) []float32 {
 	out := make([]float32, len(data))

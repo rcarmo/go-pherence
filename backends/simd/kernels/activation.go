@@ -1,4 +1,4 @@
-package activation
+package kernels
 
 import "math"
 

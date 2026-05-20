@@ -1,4 +1,4 @@
-package rope
+package kernels
 
 import (
 	"math"
