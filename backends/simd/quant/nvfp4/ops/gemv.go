@@ -1,4 +1,4 @@
-package nvfp4
+package ops
 
 import (
 	"runtime"

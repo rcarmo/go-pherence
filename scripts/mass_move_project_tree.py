@@ -3,21 +3,20 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/simd/kernels"
+base = root / "backends/simd/quant/nvfp4"
 
-# Batch 13: mechanically split SIMD scalar kernel bodies by primitive family.
+# Batch 14: mechanically split SIMD NVFP4 quant package by concern.
 MOVES = {
-    "activation.go": ("activation/activation.go", "activation"),
-    "activation_test.go": ("activation/activation_test.go", "activation"),
-    "gelu.go": ("activation/gelu.go", "activation"),
-    "attention.go": ("attention/attention.go", "attention"),
-    "layernorm.go": ("norm/layernorm.go", "norm"),
-    "softmax.go": ("softmax/softmax.go", "softmax"),
-    "rope.go": ("rope/rope.go", "rope"),
-    "rope_test.go": ("rope/rope_test.go", "rope"),
-    "nn.go": ("nn/nn.go", "nn"),
-    "nn_test.go": ("nn/nn_test.go", "nn"),
-    "shape.go": ("shape/shape.go", "shape"),
+    "capabilities.go": ("runtime/capabilities.go", "runtime"),
+    "capabilities_test.go": ("runtime/capabilities_test.go", "runtime"),
+    "types.go": ("format/types.go", "format"),
+    "validate.go": ("format/validate.go", "format"),
+    "helpers.go": ("format/helpers.go", "format"),
+    "decode.go": ("decode/decode.go", "decode"),
+    "dequant.go": ("ops/dequant.go", "ops"),
+    "gemv.go": ("ops/gemv.go", "ops"),
+    "gemm.go": ("ops/gemm.go", "ops"),
+    "nvfp4_test.go": ("ops/nvfp4_test.go", "ops"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -37,17 +36,14 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/simd-kernels-tree-move-table.md").write_text("""# SIMD kernels tree move table
+(root / "docs/simd-nvfp4-tree-move-table.md").write_text("""# SIMD NVFP4 tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 13.
+Applied by `scripts/mass_move_project_tree.py` batch 14.
 
 | Concern | Target |
 |---|---|
-| Activation/GELU scalar kernels | `backends/simd/kernels/activation` |
-| Attention scalar kernels | `backends/simd/kernels/attention` |
-| Norm scalar kernels | `backends/simd/kernels/norm` |
-| Softmax scalar kernels | `backends/simd/kernels/softmax` |
-| RoPE scalar kernels | `backends/simd/kernels/rope` |
-| NN helper kernels | `backends/simd/kernels/nn` |
-| Shape helpers | `backends/simd/kernels/shape` |
+| NVFP4 capability gates | `backends/simd/quant/nvfp4/runtime` |
+| NVFP4 types/validation/helpers | `backends/simd/quant/nvfp4/format` |
+| FP4/F8 decode helpers | `backends/simd/quant/nvfp4/decode` |
+| NVFP4 dequant/GEMV/GEMM ops | `backends/simd/quant/nvfp4/ops` |
 """)
