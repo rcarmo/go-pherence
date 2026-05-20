@@ -1,4 +1,4 @@
-package conversion
+package ptx
 
 const ToBF16F32PTX = `.version 7.0
 .target sm_80

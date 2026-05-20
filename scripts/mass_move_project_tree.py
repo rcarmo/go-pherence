@@ -3,18 +3,20 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/nvidia/ptx"
+base = root / "backends/nvidia/ioctl"
 
-# Batch 17: mechanically split root NVIDIA PTX constants by primitive family.
+# Batch 16: mechanically split NVIDIA ioctl experiment package by concern.
 MOVES = {
-    "activation.go": ("activation/activation.go", "activation"),
-    "attention.go": ("attention/attention.go", "attention"),
-    "conversion.go": ("conversion/conversion.go", "conversion"),
-    "lm_head.go": ("lmhead/lm_head.go", "lmhead"),
-    "norm.go": ("norm/norm.go", "norm"),
-    "prefetch.go": ("prefetch/prefetch.go", "prefetch"),
-    "sgemm.go": ("matmul/sgemm.go", "matmul"),
-    "vector.go": ("vector/vector.go", "vector"),
+    "ioctl.go": ("core/ioctl.go", "core"),
+    "ioctl_test.go": ("core/ioctl_test.go", "core"),
+    "debug.go": ("core/debug.go", "core"),
+    "helpers.go": ("helpers/helpers.go", "helpers"),
+    "helpers_test.go": ("helpers/helpers_test.go", "helpers"),
+    "memory.go": ("memory/memory.go", "memory"),
+    "memory_test.go": ("memory/memory_test.go", "memory"),
+    "gpfifo.go": ("gpfifo/gpfifo.go", "gpfifo"),
+    "query_gpfifo_test.go": ("gpfifo/query_gpfifo_test.go", "gpfifo"),
+    "query.go": ("query/query.go", "query"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -34,18 +36,15 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/nvidia-ptx-tree-move-table.md").write_text("""# NVIDIA PTX tree move table
+(root / "docs/nvidia-ioctl-tree-move-table.md").write_text("""# NVIDIA ioctl tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 17.
+Applied by `scripts/mass_move_project_tree.py` batch 16.
 
 | Concern | Target |
 |---|---|
-| Activation PTX constants | `backends/nvidia/ptx/activation` |
-| Attention PTX constants | `backends/nvidia/ptx/attention` |
-| Conversion PTX constants | `backends/nvidia/ptx/conversion` |
-| LM-head PTX constants | `backends/nvidia/ptx/lmhead` |
-| Norm PTX constants | `backends/nvidia/ptx/norm` |
-| Prefetch PTX constants | `backends/nvidia/ptx/prefetch` |
-| SGEMM PTX constants | `backends/nvidia/ptx/matmul` |
-| Vector PTX constants | `backends/nvidia/ptx/vector` |
+| Core ioctl/debug tests | `backends/nvidia/ioctl/core` |
+| Checked helper functions/tests | `backends/nvidia/ioctl/helpers` |
+| Memory ioctl experiments | `backends/nvidia/ioctl/memory` |
+| GPFIFO experiments/tests | `backends/nvidia/ioctl/gpfifo` |
+| Query helpers | `backends/nvidia/ioctl/query` |
 """)

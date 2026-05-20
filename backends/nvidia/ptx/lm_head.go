@@ -1,4 +1,4 @@
-package lmhead
+package ptx
 
 // LMHeadPTX: each block computes one output element.
 // Block i computes: logits[i] = sum_k(W[i*h + k] * x[k])
