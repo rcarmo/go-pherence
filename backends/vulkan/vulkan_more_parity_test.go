@@ -60,3 +60,60 @@ func TestVulkanGELUTanhMulF32Parity(t *testing.T) {
 	}
 	assertCloseF32(t, downloadVkF32(t, gb, len(gate)), want, 1e-4)
 }
+
+func TestVulkanRoPEPartialF32Parity(t *testing.T) {
+	requireVulkanKernel(t, "rope_partial_f32", func() bool { return vkRoPEPartialF32 != nil })
+	x := []float32{
+		1, 2, 3, 4, 99,
+		-1, -2, -3, -4, -99,
+	}
+	freqs := []float32{
+		1, 0, 0.5, 0.25,
+		0.75, -0.5, -0.25, 0.9,
+	}
+	want := append([]float32(nil), x...)
+	kernels.ApplyRoPEPartial(want, freqs, 1, 2, 5, 2)
+	xb := uploadVkF32(t, x)
+	fb := uploadVkF32(t, freqs)
+	if err := VkRoPEPartialF32(xb, fb, 1, 2, 5, 2); err != nil {
+		t.Fatal(err)
+	}
+	assertCloseF32(t, downloadVkF32(t, xb, len(x)), want, 1e-5)
+}
+
+func TestVulkanAttentionScoresF32Parity(t *testing.T) {
+	requireVulkanKernel(t, "attention_score", func() bool { return vkAttentionScoresF32 != nil })
+	seqLen, nHeads, nKVHeads, headDim := 3, 4, 2, 3
+	scale := float32(0.5)
+	q := []float32{
+		1, 2, 3,
+		-1, 0.5, 2,
+		0.25, -0.5, 1,
+		3, -2, 0.75,
+	}
+	k := []float32{
+		1, 0, -1, 2, 1, 0,
+		0.5, -0.5, 1, -1, 2, 0.25,
+		2, 3, -0.5, 0.75, -1.5, 1,
+	}
+	want := make([]float32, nHeads*seqLen)
+	headsPerKV := nHeads / nKVHeads
+	kvDim := nKVHeads * headDim
+	for h := 0; h < nHeads; h++ {
+		kvHead := h / headsPerKV
+		for t := 0; t < seqLen; t++ {
+			var sum float32
+			for d := 0; d < headDim; d++ {
+				sum += q[h*headDim+d] * k[t*kvDim+kvHead*headDim+d]
+			}
+			want[h*seqLen+t] = sum * scale
+		}
+	}
+	qb := uploadVkF32(t, q)
+	kb := uploadVkF32(t, k)
+	out := uploadVkF32(t, make([]float32, len(want)))
+	if err := VkAttentionScoresF32(out, qb, kb, seqLen, nHeads, nKVHeads, headDim, scale); err != nil {
+		t.Fatal(err)
+	}
+	assertCloseF32(t, downloadVkF32(t, out, len(want)), want, 1e-5)
+}
