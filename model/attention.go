@@ -14,7 +14,11 @@ func gqaAttention(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, hea
 }
 
 func gqaAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) []float32 {
-	return simd.GQAAttentionScale(q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale)
+	out, ok := simd.GQAAttentionScaleChecked(q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale)
+	if !ok {
+		return nil
+	}
+	return out
 }
 
 func gqaAttentionScaleInto(out, scores, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) {

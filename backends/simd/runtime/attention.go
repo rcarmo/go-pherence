@@ -20,10 +20,16 @@ func GQAAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads
 // GQAAttentionScaleChecked allocates output and reports malformed inputs.
 func GQAAttentionScaleChecked(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) ([]float32, bool) {
 	h, ok := checkedMulInt(numHeads, headDim)
-	if numHeads <= 0 || headDim <= 0 || !ok {
+	if seqLen < 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || numHeads%numKVHeads != 0 || !ok {
 		return nil, false
 	}
 	out := make([]float32, h)
+	if seqLen == 0 {
+		return out, true
+	}
+	if len(q) < h {
+		return nil, false
+	}
 	scores := make([]float32, seqLen)
 	if !GQAAttentionScaleTo(out, scores, q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale) {
 		return nil, false

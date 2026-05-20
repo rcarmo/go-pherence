@@ -46,6 +46,10 @@ func TestGQAAttentionScaleChecked(t *testing.T) {
 	if got, ok := GQAAttentionScaleChecked(q[:3], kv, kv, seqLen, numHeads, numKVHeads, headDim, 1); ok || got != nil {
 		t.Fatalf("GQAAttentionScaleChecked accepted short q: %v %v", got, ok)
 	}
+	zero, ok := GQAAttentionScaleChecked(q, nil, nil, 0, numHeads, numKVHeads, headDim, 1)
+	if !ok || len(zero) != numHeads*headDim {
+		t.Fatalf("GQAAttentionScaleChecked zero seq len=%d ok=%v", len(zero), ok)
+	}
 }
 
 func TestGQAAttentionScaleToRejectsMalformedInputs(t *testing.T) {
