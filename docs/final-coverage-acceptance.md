@@ -10,7 +10,7 @@ This tracker maps the remaining acceptance criteria for practical backend covera
 | No backend-owned implementation remains in `model` or `runtime/quant` except compatibility wrappers | Mostly complete | `runtime/quant` is wrapper-only; model code imports backend-owned quant packages directly. Keep import-boundary tests active. |
 | `go test ./...` passes | Passed | Full gate passed earlier on 2026-05-20; compile-only sweep `GOTMPDIR=$PWD/.gotmp go test ./... -run '^$'` also passed after the SIMD/tensor/BERT boundary cleanup. |
 | `go vet ./...` passes | Passed | `GOTMPDIR=$PWD/.gotmp go vet ./...` passed on 2026-05-20 and was refreshed cleanly after the SIMD/tensor/BERT checked-boundary cleanup. |
-| CPU-only test gate passes without GPU present | Passed | `make test-cpu` passed on 2026-05-20. |
+| CPU-only test gate passes without GPU present | Passed | `make test-cpu` passed on 2026-05-20 and was refreshed cleanly after the SIMD/tensor/BERT boundary cleanup. |
 | NVIDIA smoke tests pass on available NVIDIA hardware | Pending hardware run | NVIDIA Q4 asymmetric and NVFP4 native packed paths are documented boundaries unless new model paths require them. |
 | Vulkan smoke tests pass or are explicitly opt-in skipped | Pending hardware/runtime run | Vulkan wrappers have validating dispatch paths and availability-gated parity coverage; CPU/software Vulkan remains opt-in. |
 | Documentation reflects final package layout and kernel coverage | Current, pending validation fallout | Docs index, layout, coverage, parity, malformed-input, validation, Vulkan, NVIDIA, BF16, NVFP4, benchmark queue, and development log are current as of Phase 12; revisit after the phase validation gate. |
