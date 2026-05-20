@@ -36,6 +36,15 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 	if !vkReady {
 		return nil, fmt.Errorf("vulkan not initialized")
 	}
+	if len(spirv) == 0 || len(spirv)%4 != 0 {
+		return nil, fmt.Errorf("invalid SPIR-V length=%d", len(spirv))
+	}
+	if numBuffers <= 0 {
+		return nil, fmt.Errorf("invalid Vulkan descriptor buffer count=%d", numBuffers)
+	}
+	if pushConstantSize < 0 {
+		return nil, fmt.Errorf("invalid Vulkan push constant size=%d", pushConstantSize)
+	}
 
 	// Create shader module
 	moduleInfo := struct {
