@@ -1,4 +1,4 @@
-package mtp
+package harness
 
 import "testing"
 

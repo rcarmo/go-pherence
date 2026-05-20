@@ -1,4 +1,4 @@
-package mtp
+package safetensors
 
 import (
 	"fmt"

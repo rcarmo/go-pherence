@@ -1,4 +1,4 @@
-package mtp
+package synthetic
 
 import (
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
