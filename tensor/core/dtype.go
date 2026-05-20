@@ -1,4 +1,4 @@
-package dtype
+package core
 
 // DType represents an element data type.
 type DType struct {

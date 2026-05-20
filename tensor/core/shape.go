@@ -1,4 +1,4 @@
-package shape
+package core
 
 import "fmt"
 
