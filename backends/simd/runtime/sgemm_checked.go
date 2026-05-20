@@ -58,14 +58,20 @@ func validSgemmSliceArgs(c, a, b []float32, m, n, k, lda, ldb, ldc int, nt bool)
 	} else if ldb < n {
 		return false
 	}
-	aNeed, okA := checkedAddInt((m-1)*lda, k)
+	aBase, okABase := checkedMulInt(m-1, lda)
+	aNeed, okA := checkedAddInt(aBase, k)
 	var bNeed int
 	var okB bool
 	if nt {
-		bNeed, okB = checkedAddInt((n-1)*ldb, k)
+		bBase, okBBase := checkedMulInt(n-1, ldb)
+		bNeed, okB = checkedAddInt(bBase, k)
+		okB = okB && okBBase
 	} else {
-		bNeed, okB = checkedAddInt((k-1)*ldb, n)
+		bBase, okBBase := checkedMulInt(k-1, ldb)
+		bNeed, okB = checkedAddInt(bBase, n)
+		okB = okB && okBBase
 	}
-	cNeed, okC := checkedAddInt((m-1)*ldc, n)
-	return okA && okB && okC && len(a) >= aNeed && len(b) >= bNeed && len(c) >= cNeed
+	cBase, okCBase := checkedMulInt(m-1, ldc)
+	cNeed, okC := checkedAddInt(cBase, n)
+	return okABase && okA && okB && okCBase && okC && len(a) >= aNeed && len(b) >= bNeed && len(c) >= cNeed
 }

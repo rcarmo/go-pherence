@@ -55,4 +55,13 @@ func TestSgemmToRejectsMalformedInputs(t *testing.T) {
 	if SgemmNTTo(c, a, b, maxInt/2+1, 1, 2, 1, 2, 2, 1) || SgemmNNTo(c, a, b, maxInt/2+1, 1, 2, 1, 2, 1, 1) {
 		t.Fatal("accepted overflowing dimensions")
 	}
+	if SgemmNTTo(c, a, b, 2, 1, 1, 1, maxInt, 1, 1) || SgemmNNTo(c, a, b, 2, 1, 1, 1, maxInt, 1, 1) {
+		t.Fatal("accepted overflowing A stride")
+	}
+	if SgemmNTTo(c, a, b, 1, 2, 1, 1, 1, maxInt, 1) || SgemmNNTo(c, a, b, 1, 1, 2, 1, 1, maxInt, 1) {
+		t.Fatal("accepted overflowing B stride")
+	}
+	if SgemmNTTo(c, a, b, 2, 1, 1, 1, 1, 1, maxInt) || SgemmNNTo(c, a, b, 2, 1, 1, 1, 1, 1, maxInt) {
+		t.Fatal("accepted overflowing C stride")
+	}
 }
