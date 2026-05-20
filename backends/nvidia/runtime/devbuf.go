@@ -461,12 +461,7 @@ func DevGemv(out, x *DevBuf, W *DevBuf, M, K int) {
 	x.ToCPU()
 	W.ToCPU()
 	out.ToCPU()
-	w := W.cpu
-	xd := x.cpu[:K]
-	for j := 0; j < M; j++ {
-		row := w[j*K : (j+1)*K]
-		out.cpu[j] = simd.Sdot(xd, row)
-	}
+	simd.GemvRows(out.cpu[:M], x.cpu[:K], W.cpu[:weightLen], M, K)
 }
 
 // Softmax in-place (CPU only for now — sequential reduction)
@@ -566,15 +561,7 @@ func DevGemvNN(out, x *DevBuf, W *DevBuf, K, N int) {
 	x.ToCPU()
 	W.ToCPU()
 	out.ToCPU()
-	xd := x.cpu
-	w := W.cpu
-	for j := 0; j < N; j++ {
-		sum := float32(0)
-		for p := 0; p < K; p++ {
-			sum += xd[p] * w[p*N+j]
-		}
-		out.cpu[j] = sum
-	}
+	simd.GemvCols(out.cpu[:N], x.cpu[:K], W.cpu[:weightLen], K, N)
 }
 
 // CopyDtoD wraps cuMemcpyDtoD for direct GPU→GPU copy.
