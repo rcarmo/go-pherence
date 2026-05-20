@@ -341,6 +341,33 @@ func downloadNVFP4Weight(w *GPUNVFP4Weight) (*simdnvfp4.NVFP4Weight, error) {
 	return qw, nil
 }
 
+// GemmNVFP4 computes dense out[batch,outDim] = x[batch,inDim] @ W_nvfp4^T.
+// Native packed GEMM is not implemented yet; this correctness-first entrypoint
+// uses the packed SIMD NVFP4 reference as the CPU fallback contract future CUDA
+// kernels must match.
+func GemmNVFP4(out, x []float32, batch int, w *GPUNVFP4Weight) error {
+	if !validGPUNVFP4Weight(w) {
+		return fmt.Errorf("invalid GPU NVFP4 weight")
+	}
+	spec := NVFP4KernelSpec{Kind: NVFP4KernelGEMM, OutDim: w.OutDim, InDim: w.InDim, Batch: batch, Groups: w.Groups, GroupSize: w.GroupSize}
+	if err := ValidateNVFP4KernelSpec(spec); err != nil {
+		return err
+	}
+	xLen, okX := checkedMulInt(batch, w.InDim)
+	outLen, okOut := checkedMulInt(batch, w.OutDim)
+	if !okX || !okOut || len(x) < xLen || len(out) < outLen {
+		return fmt.Errorf("invalid NVFP4 GEMM buffers out=%d/%d x=%d/%d", len(out), outLen, len(x), xLen)
+	}
+	qw, err := downloadNVFP4Weight(w)
+	if err != nil {
+		return err
+	}
+	if !simdnvfp4.GemmNVFP4(out[:outLen], x[:xLen], batch, qw) {
+		return fmt.Errorf("NVFP4 CPU GEMM fallback failed")
+	}
+	return nil
+}
+
 func GemvNVFP4Buffer(outBuf, xBuf *Buffer, w *GPUNVFP4Weight) error {
 	if !validGPUNVFP4Weight(w) || outBuf == nil || xBuf == nil {
 		return fmt.Errorf("invalid NVFP4 GEMV device buffers")

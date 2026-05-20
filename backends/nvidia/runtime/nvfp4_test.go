@@ -125,6 +125,31 @@ func TestGemvNVFP4RejectsInvalidBuffers(t *testing.T) {
 	}
 }
 
+func TestGemmNVFP4RejectsInvalidBuffers(t *testing.T) {
+	w := &GPUNVFP4Weight{
+		Weight:      &Buffer{Size: f32SlotsForBytes(16) * 4},
+		WeightScale: &Buffer{Size: f32SlotsForBytes(2) * 4},
+		OutDim:      2,
+		InDim:       16,
+		Groups:      1,
+		GroupSize:   16,
+		WeightBytes: 16,
+		ScaleBytes:  2,
+	}
+	if err := GemmNVFP4(make([]float32, 1), make([]float32, 16), 1, nil); err == nil {
+		t.Fatal("GemmNVFP4 accepted nil weight")
+	}
+	if err := GemmNVFP4(make([]float32, 2), make([]float32, 16), 0, w); err == nil {
+		t.Fatal("GemmNVFP4 accepted zero batch")
+	}
+	if err := GemmNVFP4(make([]float32, 3), make([]float32, 32), 2, w); err == nil {
+		t.Fatal("GemmNVFP4 accepted short output")
+	}
+	if err := GemmNVFP4(make([]float32, 4), make([]float32, 31), 2, w); err == nil {
+		t.Fatal("GemmNVFP4 accepted short input")
+	}
+}
+
 func TestF32SiLUMulBufferRejectsOverflowAndShortBuffers(t *testing.T) {
 	oldFn := fnFusedSiLUMul
 	defer func() { fnFusedSiLUMul = oldFn }()
