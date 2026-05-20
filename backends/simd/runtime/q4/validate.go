@@ -2,15 +2,22 @@ package q4
 
 import "fmt"
 
-func ValidateGemvSym(out, x []float32, qweight, gIdx []int32, scales []float32, inDim, outDim int) error {
-	if err := ValidateSym(qweight, gIdx, scales, inDim, outDim); err != nil {
-		return fmt.Errorf("GemvQ4Sym GPTQ validation: %w", err)
+func ValidateGemv(out, x []float32, qweight, qzeros, gIdx []int32, scales []float32, inDim, outDim int, sym bool) error {
+	if err := Validate(qweight, qzeros, gIdx, scales, inDim, outDim, sym); err != nil {
+		return fmt.Errorf("GemvQ4 GPTQ validation: %w", err)
 	}
 	if len(out) < outDim {
-		return fmt.Errorf("GemvQ4Sym out length=%d, expected at least %d", len(out), outDim)
+		return fmt.Errorf("GemvQ4 out length=%d, expected at least %d", len(out), outDim)
 	}
 	if len(x) < inDim {
-		return fmt.Errorf("GemvQ4Sym x length=%d, expected at least %d", len(x), inDim)
+		return fmt.Errorf("GemvQ4 x length=%d, expected at least %d", len(x), inDim)
+	}
+	return nil
+}
+
+func ValidateGemvSym(out, x []float32, qweight, gIdx []int32, scales []float32, inDim, outDim int) error {
+	if err := ValidateGemv(out, x, qweight, nil, gIdx, scales, inDim, outDim, true); err != nil {
+		return fmt.Errorf("GemvQ4Sym GPTQ validation: %w", err)
 	}
 	return nil
 }
