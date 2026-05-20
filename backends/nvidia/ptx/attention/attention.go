@@ -1,4 +1,4 @@
-package ptx
+package attention
 
 // RoPE and Attention PTX kernels for fully GPU-resident forward pass.
 

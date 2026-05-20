@@ -1,4 +1,4 @@
-package ptx
+package activation
 
 const VecSiLUPTX = `.version 7.0
 .target sm_80

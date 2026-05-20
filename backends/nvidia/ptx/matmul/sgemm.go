@@ -1,4 +1,4 @@
-package ptx
+package matmul
 
 // PTX SGEMM kernel for NVIDIA GPUs (Ampere SM86+).
 // Embedded as a Go string — compiled at runtime by the GPU driver.

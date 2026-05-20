@@ -1,4 +1,4 @@
-package ptx
+package vector
 
 const VecAddPTX = `.version 7.0
 .target sm_80

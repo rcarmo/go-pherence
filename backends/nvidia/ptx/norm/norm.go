@@ -1,4 +1,4 @@
-package ptx
+package norm
 
 const RmsNormPTX = `.version 7.0
 .target sm_80
