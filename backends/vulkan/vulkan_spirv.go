@@ -203,6 +203,12 @@ func buildSPIRVGemvF32() []byte {
 
 // LoadSPIRV creates a Vulkan compute pipeline from SPIR-V bytecode.
 func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
+	if len(spirv) == 0 || len(spirv)%4 != 0 {
+		return nil, fmt.Errorf("invalid SPIR-V bytecode length %d", len(spirv))
+	}
+	if numBuffers <= 0 {
+		return nil, fmt.Errorf("invalid descriptor buffer count %d", numBuffers)
+	}
 	if !vkReady {
 		return nil, fmt.Errorf("vulkan not initialized")
 	}
