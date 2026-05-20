@@ -25,10 +25,6 @@ func buildRoPEFreqs(maxSeq, halfDim, headDim int, theta float64) []float32 {
 	return simd.BuildRoPEFreqs(maxSeq, halfDim, headDim, theta)
 }
 
-func checkedRoPEFreqLen(maxSeq, halfDim int) (int, bool) {
-	return simd.CheckedRoPEFreqLen(maxSeq, halfDim)
-}
-
 func applyRoPE(x, freqs []float32, pos, numHeads, headDim int) {
 	simd.ApplyRoPE(x, freqs, pos, numHeads, headDim)
 }
