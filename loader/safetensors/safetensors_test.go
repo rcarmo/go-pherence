@@ -169,9 +169,25 @@ func TestNamesAreSorted(t *testing.T) {
 	}
 }
 
-func TestShardedEagerLoadOverflow(t *testing.T) {
+func TestCheckedSafetensorsHelpers(t *testing.T) {
+	if got, ok := checkedAddInt64(40, 2); !ok || got != 42 {
+		t.Fatalf("checkedAddInt64(40,2)=%d,%v want 42,true", got, ok)
+	}
+	if _, ok := checkedAddInt64(-1, 1); ok {
+		t.Fatal("checkedAddInt64 accepted negative lhs")
+	}
 	if _, ok := checkedAddInt64(math.MaxInt64, 1); ok {
 		t.Fatal("checkedAddInt64 accepted overflow")
+	}
+	if got, ok := shapeNumel([]int{2, 3, 4}); !ok || got != 24 {
+		t.Fatalf("shapeNumel=%d,%v want 24,true", got, ok)
+	}
+	if _, ok := shapeNumel([]int{-1, 2}); ok {
+		t.Fatal("shapeNumel accepted negative dim")
+	}
+	maxInt := int(^uint(0) >> 1)
+	if _, ok := shapeNumel([]int{maxInt/2 + 1, 3}); ok {
+		t.Fatal("shapeNumel accepted overflow")
 	}
 }
 
