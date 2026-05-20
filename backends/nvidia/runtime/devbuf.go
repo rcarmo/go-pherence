@@ -9,6 +9,8 @@ import (
 	"math"
 	"sync"
 	"unsafe"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // Device represents where data lives.
@@ -635,10 +637,7 @@ func DevSiLUMul(out, a, b *DevBuf) {
 	a.ToCPU()
 	b.ToCPU()
 	out.ToCPU()
-	for i := 0; i < n; i++ {
-		x := a.cpu[i]
-		out.cpu[i] = x / (1.0 + float32(math.Exp(float64(-x)))) * b.cpu[i]
-	}
+	simd.SiLUMulTo(out.cpu[:n], a.cpu[:n], b.cpu[:n])
 }
 
 // DevGELUTanhMul: gate[i] = gelu_tanh(gate[i]) * up[i] in-place
@@ -667,14 +666,7 @@ func DevGELUTanhMul(gate, up *DevBuf, n int) {
 	// CPU fallback
 	gate.ToCPU()
 	up.ToCPU()
-	for i := 0; i < n; i++ {
-		x := gate.cpu[i]
-		// gelu_tanh(x) = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715*x^3)))
-		x3 := x * x * x
-		z := 0.7978845608 * (x + 0.044715*x3)
-		tanh_z := float32(math.Tanh(float64(z)))
-		gate.cpu[i] = 0.5 * x * (1 + tanh_z) * up.cpu[i]
-	}
+	simd.GELUTanhMulTo(gate.cpu[:n], gate.cpu[:n], up.cpu[:n])
 }
 
 var (
