@@ -46,3 +46,19 @@ func TestMoEForwardGPUClampsActiveExperts(t *testing.T) {
 		t.Fatalf("len=%d, want %d", len(got), cfg.HiddenSize)
 	}
 }
+
+func TestUploadExpertNativeToPoolRejectsMalformedSizes(t *testing.T) {
+	layer := &LlamaLayer{
+		ExpertGateW: []*mlx.QuantWeight{{}},
+		ExpertUpW:   []*mlx.QuantWeight{{}},
+		ExpertDownW: []*mlx.QuantWeight{{}},
+	}
+	pool := nvidia.NewExpertPool(1, nil)
+	if got := uploadExpertNativeToPool(pool, layer, 0, 0, 0, 4); got != nil {
+		t.Fatalf("zero moeInter returned %#v, want nil", got)
+	}
+	maxInt := int(^uint(0) >> 1)
+	if got := uploadExpertNativeToPool(pool, layer, 0, 0, maxInt/2+1, 2); got != nil {
+		t.Fatalf("overflowing size returned %#v, want nil", got)
+	}
+}

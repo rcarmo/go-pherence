@@ -16,6 +16,13 @@ func uploadExpertNativeToPool(pool *nvidia.ExpertPool, layer *LlamaLayer, expert
 	if layer.ExpertGateW[expertID] == nil || layer.ExpertUpW[expertID] == nil || layer.ExpertDownW[expertID] == nil {
 		return nil
 	}
+	if moeInter <= 0 || hidden <= 0 {
+		return nil
+	}
+	maxInt := int(^uint(0) >> 1)
+	if moeInter > maxInt/hidden || 3 > maxInt/(moeInter*hidden) {
+		return nil
+	}
 	entry := &nvidia.ExpertEntry{ExpertID: poolKey}
 	ew := layer.ExpertGateW[expertID]
 	gw, err1 := nvidia.UploadMLXWeightNative(ew.Weight, ew.Scales, ew.Biases, ew.InDim, ew.OutDim, ew.GroupSize)
