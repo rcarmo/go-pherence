@@ -284,6 +284,10 @@ func TestLayerNormCheckedPathValidation(t *testing.T) {
 }
 
 func TestGELU(t *testing.T) {
+	z := Zeros([]int{0})
+	if got := z.GELU(); got.Numel() != 0 {
+		t.Fatalf("zero GELU numel=%d", got.Numel())
+	}
 	a := FromFloat32([]float32{-1, 0, 1, 2}, []int{4})
 	got := a.GELU().Data()
 	if got[1] != 0 {
