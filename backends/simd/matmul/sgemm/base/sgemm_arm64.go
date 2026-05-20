@@ -1,3 +1,3 @@
-package arm64
+package base
 
 const hasSgemmAsm = true

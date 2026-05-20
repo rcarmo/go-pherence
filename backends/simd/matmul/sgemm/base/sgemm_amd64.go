@@ -1,3 +1,3 @@
-package amd64
+package base
 
 const hasSgemmAsm = true
