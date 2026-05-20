@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	basemodel "github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/tensor"
@@ -398,7 +399,7 @@ func qwenNativeMTPHeadLogitsInto(head *tensor.Tensor, logits, hidden []float32, 
 	}
 	data := head.Data()
 	for v := 0; v < vocab; v++ {
-		logits[v] = simdDot(hidden, data[v*hiddenSize:(v+1)*hiddenSize])
+		logits[v] = simd.Sdot(hidden, data[v*hiddenSize:(v+1)*hiddenSize])
 	}
 	return nil
 }

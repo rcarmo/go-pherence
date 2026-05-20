@@ -6,17 +6,6 @@ func rmsNormInPlace(x, weight []float32, eps float32) {
 	simd.RMSNorm(x, weight, eps)
 }
 
-func simdDot(a, b []float32) float32 {
-	if len(a) >= 8 {
-		return simd.Sdot(a, b)
-	}
-	var sum float32
-	for i := range a {
-		sum += a[i] * b[i]
-	}
-	return sum
-}
-
 func gemvNT(out, x []float32, w []float32, inDim, outDim int) {
 	for i := range out {
 		out[i] = 0
