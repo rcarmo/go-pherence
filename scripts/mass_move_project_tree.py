@@ -3,20 +3,20 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
-base = root / "backends/nvidia/ioctl"
+base = root / "backends/simd/vector"
 
-# Batch 16: mechanically split NVIDIA ioctl experiment package by concern.
+# Batch 15: mechanically split SIMD vector package by dispatch/provider concern.
 MOVES = {
-    "ioctl.go": ("core/ioctl.go", "core"),
-    "ioctl_test.go": ("core/ioctl_test.go", "core"),
-    "debug.go": ("core/debug.go", "core"),
-    "helpers.go": ("helpers/helpers.go", "helpers"),
-    "helpers_test.go": ("helpers/helpers_test.go", "helpers"),
-    "memory.go": ("memory/memory.go", "memory"),
-    "memory_test.go": ("memory/memory_test.go", "memory"),
-    "gpfifo.go": ("gpfifo/gpfifo.go", "gpfifo"),
-    "query_gpfifo_test.go": ("gpfifo/query_gpfifo_test.go", "gpfifo"),
-    "query.go": ("query/query.go", "query"),
+    "vector.go": ("core/vector.go", "core"),
+    "vector_test.go": ("core/vector_test.go", "core"),
+    "checked.go": ("checked/checked.go", "checked"),
+    "checked_test.go": ("checked/checked_test.go", "checked"),
+    "dispatch_asm.go": ("dispatch/asm.go", "dispatch"),
+    "vector_amd64.go": ("amd64/vector.go", "amd64"),
+    "vector_amd64.s": ("amd64/vector.s", "amd64"),
+    "vector_arm64.go": ("arm64/vector.go", "arm64"),
+    "vector_arm64.s": ("arm64/vector.s", "arm64"),
+    "vector_other.go": ("scalar/vector.go", "scalar"),
 }
 
 for src_name, (dst_suffix, pkg) in MOVES.items():
@@ -36,15 +36,16 @@ for src_name, (dst_suffix, pkg) in MOVES.items():
                 dst.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
                 break
 
-(root / "docs/nvidia-ioctl-tree-move-table.md").write_text("""# NVIDIA ioctl tree move table
+(root / "docs/simd-vector-tree-move-table.md").write_text("""# SIMD vector tree move table
 
-Applied by `scripts/mass_move_project_tree.py` batch 16.
+Applied by `scripts/mass_move_project_tree.py` batch 15.
 
 | Concern | Target |
 |---|---|
-| Core ioctl/debug tests | `backends/nvidia/ioctl/core` |
-| Checked helper functions/tests | `backends/nvidia/ioctl/helpers` |
-| Memory ioctl experiments | `backends/nvidia/ioctl/memory` |
-| GPFIFO experiments/tests | `backends/nvidia/ioctl/gpfifo` |
-| Query helpers | `backends/nvidia/ioctl/query` |
+| Core vector wrappers/tests | `backends/simd/vector/core` |
+| Checked vector APIs | `backends/simd/vector/checked` |
+| Dispatch glue | `backends/simd/vector/dispatch` |
+| amd64 assembly/provider | `backends/simd/vector/amd64` |
+| arm64 assembly/provider | `backends/simd/vector/arm64` |
+| Portable scalar fallback | `backends/simd/vector/scalar` |
 """)

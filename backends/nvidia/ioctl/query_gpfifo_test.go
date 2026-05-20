@@ -1,4 +1,4 @@
-package gpfifo
+package nv
 
 import "testing"
 
