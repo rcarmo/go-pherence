@@ -62,7 +62,16 @@ func (t *Tensor) LayerNorm(gamma, beta *Tensor, eps float32) *Tensor {
 		}
 		b = beta.Data()
 	}
-	return FromFloat32(kernels.LayerNormLastAxis(data, shape, g, b, eps), shape)
+	total := shapeSize(shape)
+	if total < 0 || len(data) < total {
+		panic("layernorm: invalid backing data")
+	}
+	outer := total / lastDim
+	out := make([]float32, total)
+	if !simd.LayerNormLastAxisTo(out, data, outer, lastDim, g, b, eps) {
+		panic("layernorm: checked SIMD layernorm rejected validated tensor")
+	}
+	return FromFloat32(out, shape)
 }
 
 // GELU computes the GELU activation (tanh approximation).
