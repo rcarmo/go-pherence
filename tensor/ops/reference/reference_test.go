@@ -1,4 +1,4 @@
-package ops
+package reference
 
 import (
 	"encoding/json"

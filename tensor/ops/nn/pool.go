@@ -1,4 +1,4 @@
-package ops
+package nn
 
 import (
 	"fmt"

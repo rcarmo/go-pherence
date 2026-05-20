@@ -1,4 +1,4 @@
-package ops
+package nn
 
 import simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 
