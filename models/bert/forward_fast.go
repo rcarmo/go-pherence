@@ -172,26 +172,12 @@ func layerNormInPlace(x, gamma, beta []float32, seqLen, h int, eps float32) {
 }
 
 func residualLayerNormInPlace(residual, x, gamma, beta []float32, seqLen, h int, eps float32) {
-	for s := 0; s < seqLen; s++ {
-		off := s * h
-		mean := float32(0)
-		for d := 0; d < h; d++ {
-			v := x[off+d] + residual[off+d]
-			x[off+d] = v
-			mean += v
-		}
-		mean /= float32(h)
-		variance := float32(0)
-		for d := 0; d < h; d++ {
-			diff := x[off+d] - mean
-			variance += diff * diff
-		}
-		variance /= float32(h)
-		stdInv := float32(1.0 / math.Sqrt(float64(variance+eps)))
-		for d := 0; d < h; d++ {
-			residual[off+d] = gamma[d]*(x[off+d]-mean)*stdInv + beta[d]
-		}
+	total := seqLen * h
+	if total <= 0 || len(residual) < total || len(x) < total {
+		return
 	}
+	_ = simd.VecAddTo(x[:total], x[:total], residual[:total])
+	_ = simd.LayerNormLastAxisTo(residual[:total], x[:total], seqLen, h, gamma, beta, eps)
 }
 
 func geluInPlace(x []float32) {
