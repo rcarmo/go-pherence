@@ -136,6 +136,28 @@ go run ./cmd/llmgen -model models/smollm2-135m -tokens 32 \
 
 Current speculative backend is `replay`, a correctness scaffold that reuses the CPU generator and can be slower. It is useful for measuring proposer acceptance before the planned KV-reusing verifier backend lands. Available proposer choices are `prompt`, `repeat-last`, and `none`; `-speculative-min-proposal` gates tiny proposals.
 
+### gemma4mtpsmoke — Gemma4 MTP drafter smoke
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/gemma4mtpsmoke \
+  -model models/gemma4-31b-it-4bit \
+  -drafter models/gemma4-31b-it-mtp-assistant-4bit
+```
+
+This loads the main Gemma4 model on the on-the-fly 4-bit path, loads the MTP assistant with packed MLX 4-bit weights, builds a minimal external-KV view, runs one q-only drafter step, and prints JSON timing/shape information.
+
+The same experimental runtime smoke is exposed through `llmgen`:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+  -model models/gemma4-31b-it-4bit \
+  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -mtp-smoke \
+  -prompt "Hello"
+```
+
+Full speculative generation wiring is still pending; `-mtp-drafter` without `-mtp-smoke` currently warns and uses the regular generation path.
+
 ### qwenmtpmeta / qwenmtpsynth — Qwen3.6 native MTP triage
 
 ```bash
