@@ -80,7 +80,34 @@ Later HF search found MLX 4-bit native-MTP Qwen3.6 candidates that avoid the ori
 | `stamsam/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-MLX-oQ4-MTP` | ~20.0GB | `qwen3_5_moe` | 2048 | 40 | 1 | MoE; likely more loader/runtime complexity. |
 | `m5max/Huihui-Qwen3.6-35B-A3B-Claude-4.6-Opus-abliterated-mlx-oQ8-mtp` | ~37.7GB | `qwen3_5_moe` | 2048 | 40 | 1 | 8-bit MoE; not suitable for current hardware. |
 
-The recommended Qwen next target is `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`: dense, native MTP, MLX affine 4-bit. It is still much larger than Gemma4 E4B and unlikely to fit fully on the RTX 3060, but it avoids the NVFP4 gate and is a better stress target than the original NVFP4 checkpoint.
+The recommended Qwen next target is `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`: dense, native MTP, MLX affine 4-bit. It is downloaded locally as `models/qwen3.6-27b-mlx4-mtp` (~15GB) and is ignored by git. It is still much larger than Gemma4 E4B and unlikely to fit fully on the RTX 3060, but it avoids the NVFP4 gate and is a better stress target than the original NVFP4 checkpoint.
+
+Local metadata status:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwenmtpmeta \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -strict
+```
+
+This now passes after accepting `language_model.mtp.*` tensor names. The checkpoint has 29 native-MTP tensor entries, including MLX packed triples for projection matrices, and `missing_mtp_tensor_count=0`.
+
+Current loader status:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello" -steps 1 -mtp -mtp-steps 1
+```
+
+The loader reaches the base linear-attention weights and then fails because Qwen3.5/Qwen3.6 base loading still expects BF16/NVFP4 for that path:
+
+```text
+language_model.model.layers.0.linear_attn.in_proj_qkv.weight: safetensors: unsupported dtype "U32"
+NVFP4 fallback: ... dtype=U32, want U8 NVFP4
+```
+
+Next implementation step: add MLX affine 4-bit loading/compute support to the Qwen3.5/Qwen3.6 base linear-attention path and native-MTP head path, reusing the existing `backends/mlx` packed weight representation instead of dequantizing large matrices.
 
 ## Important blocker for the original NVFP4 checkpoint
 

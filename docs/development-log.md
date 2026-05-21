@@ -2075,3 +2075,9 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Reviewed documentation after the README was shortened and detailed content moved to focused docs.
 - Updated Qwen3.6 MTP notes to reflect the newly found MLX 4-bit native-MTP candidates, especially `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`, and clarified that Gemma4 E4B is the fast local MTP development target while Qwen3.6 remains the native-MTP stress target.
 - Updated command, supported-model, validation-gate, and final-acceptance docs so they point to the E4B MTP smoke path first and keep 31B/Qwen as stress paths.
+
+## 2026-05-21 — Qwen3.6 27B MLX MTP local asset
+
+- Downloaded `samwang0041/Qwen3.6-27B-MLX-4bit-MTP` into ignored local directory `models/qwen3.6-27b-mlx4-mtp` (~15GB).
+- Taught Qwen native-MTP metadata recognition to accept nested `language_model.mtp.*` tensor names; `cmd/qwenmtpmeta -strict` now reports `mtp_tensor_complete=true` for the MLX checkpoint.
+- First `cmd/qwen36run` probe reaches base linear-attention weight loading and exposes the next implementation blocker: Qwen3.5/Qwen3.6 base path does not yet load MLX affine U32 packed linear-attention weights (`language_model.model.layers.0.linear_attn.in_proj_qkv.weight`), and its NVFP4 fallback expects U8.

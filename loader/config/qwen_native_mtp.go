@@ -222,6 +222,9 @@ func MissingQwenNativeMTPTensors(names []string, numLayers int) []string {
 	seen := make(map[string]bool, len(names))
 	for _, name := range names {
 		seen[name] = true
+		if stripped, ok := stripQwenNativeMTPPrefix(name); ok {
+			seen[stripped] = true
+		}
 	}
 	var missing []string
 	for _, name := range required {
@@ -294,11 +297,21 @@ func (m QwenNativeMTPMetadata) IsFullAttentionLayer(layer int) bool {
 	return !m.IsLinearAttentionLayer(layer)
 }
 
+func stripQwenNativeMTPPrefix(name string) (string, bool) {
+	const nested = "language_model."
+	if len(name) > len(nested) && name[:len(nested)] == nested {
+		return name[len(nested):], true
+	}
+	return name, false
+}
+
 func IsOptionalQwenNativeMTPSharedHeadTensorName(name string) bool {
+	name, _ = stripQwenNativeMTPPrefix(name)
 	return name == "mtp.shared_head_head.weight" || name == "mtp.shared_head.head.weight" || name == "mtp.lm_head.weight"
 }
 
 func IsQwenNativeMTPTensorName(name string) bool {
+	name, _ = stripQwenNativeMTPPrefix(name)
 	if len(name) < 4 || name[:4] != "mtp." {
 		return false
 	}

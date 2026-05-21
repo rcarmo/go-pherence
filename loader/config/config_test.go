@@ -227,6 +227,14 @@ func TestRequiredAndMissingQwenNativeMTPTensors(t *testing.T) {
 	if len(missing) != 0 {
 		t.Fatalf("missing=%v want none", missing)
 	}
+	nested := make([]string, len(req))
+	for i, name := range req {
+		nested[i] = "language_model." + name
+	}
+	missing = MissingQwenNativeMTPTensors(nested, 1)
+	if len(missing) != 0 {
+		t.Fatalf("nested missing=%v want none", missing)
+	}
 	missing = MissingQwenNativeMTPTensors(req[:len(req)-1], 1)
 	if len(missing) != 1 || missing[0] != req[len(req)-1] {
 		t.Fatalf("missing=%v want %q", missing, req[len(req)-1])
@@ -266,6 +274,8 @@ func TestIsQwenNativeMTPTensorName(t *testing.T) {
 		{"mtp.shared_head.head.weight", true},
 		{"mtp.lm_head.weight", true},
 		{"mtp.layers.0.self_attn.q_proj.weight", true},
+		{"language_model.mtp.fc.weight", true},
+		{"language_model.mtp.layers.0.self_attn.q_proj.weight", true},
 		{"model.layers.0.self_attn.q_proj.weight", false},
 		{"lm_head.weight", false},
 	}
