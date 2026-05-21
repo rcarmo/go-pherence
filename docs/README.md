@@ -32,6 +32,7 @@ This directory contains the durable backend, model, validation, and research not
 ## Model/research notes
 
 - [gemma4-precision.md](gemma4-precision.md) — Gemma4 GPU correctness and precision notes.
+- [gemma4-31b-runbook.md](gemma4-31b-runbook.md) — local Gemma4 31B main/MTP assets and current run strategy.
 - [mtp-speculative.md](mtp-speculative.md) — Gemma4/Qwen3.6 MTP research and implementation status.
 - [qwen36-mtp.md](qwen36-mtp.md) — Qwen3.6 native MTP checkpoint findings.
 - [qwen35-reference-audit.md](qwen35-reference-audit.md) — Qwen3.5 reference audit.

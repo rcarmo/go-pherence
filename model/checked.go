@@ -1,5 +1,12 @@
 package model
 
+func layerKVHeadsForConfig(cfg LlamaConfig, layerIdx int) int {
+	if cfg.NumGlobalKVHeads > 0 && layerIdx >= 0 && layerIdx < len(cfg.LayerTypes) && cfg.LayerTypes[layerIdx] == "full_attention" {
+		return cfg.NumGlobalKVHeads
+	}
+	return cfg.NumKVHeads
+}
+
 func checkedProduct(a, b int) (int, bool) {
 	if a < 0 || b < 0 {
 		return 0, false

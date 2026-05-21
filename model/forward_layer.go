@@ -15,7 +15,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	cfg := m.Config
 	h := cfg.HiddenSize
 	numHeads := cfg.NumHeads
-	numKVHeads := cfg.NumKVHeads
+	numKVHeads := layerKVHeadsForConfig(cfg, layerIdx)
 	if h <= 0 || numHeads <= 0 || numKVHeads <= 0 || len(hidden) < h {
 		return nil
 	}
@@ -63,10 +63,18 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 		v = make([]float32, layerKVDim)
 		if layer.KWm != nil {
 			mlx.Gemv(k, hidden, layer.KWm)
-			mlx.Gemv(v, hidden, layer.VWm)
+			if layer.VWm == layer.KWm && cfg.AttentionKEqV {
+				copy(v, k)
+			} else {
+				mlx.Gemv(v, hidden, layer.VWm)
+			}
 		} else if layer.KW != nil {
 			m.mv(k, hidden, layer.KW.Data(), h, layerKVDim)
-			m.mv(v, hidden, layer.VW.Data(), h, layerKVDim)
+			if layer.VW == layer.KW && cfg.AttentionKEqV {
+				copy(v, k)
+			} else {
+				m.mv(v, hidden, layer.VW.Data(), h, layerKVDim)
+			}
 		}
 	}
 

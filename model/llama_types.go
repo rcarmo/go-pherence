@@ -23,6 +23,7 @@ type LlamaConfig struct {
 	NumLayers             int      `json:"num_hidden_layers"`
 	NumHeads              int      `json:"num_attention_heads"`
 	NumKVHeads            int      `json:"num_key_value_heads"`
+	NumGlobalKVHeads      int      `json:"num_global_key_value_heads"`
 	MaxSeqLen             int      `json:"max_position_embeddings"`
 	RopeTheta             float64  `json:"rope_theta"`
 	RMSNormEps            float64  `json:"rms_norm_eps"`
@@ -47,6 +48,7 @@ type LlamaConfig struct {
 	LinearNumKeyHeads     int      `json:"linear_num_key_heads"`
 	LinearNumValueHeads   int      `json:"linear_num_value_heads"`
 	LinearValueHeadDim    int      `json:"linear_value_head_dim"`
+	AttentionKEqV         bool     `json:"attention_k_eq_v"`
 
 	MTPNumHiddenLayers        int  `json:"mtp_num_hidden_layers"`
 	MTPUseDedicatedEmbeddings bool `json:"mtp_use_dedicated_embeddings"`

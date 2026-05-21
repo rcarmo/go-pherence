@@ -19,8 +19,9 @@ func (m *LlamaModel) LayerKVDim(layerIdx int) (int, error) {
 	if !layer.HasKV {
 		return 0, nil
 	}
-	if m.Config.NumKVHeads <= 0 {
-		return 0, fmt.Errorf("num_key_value_heads=%d", m.Config.NumKVHeads)
+	numKVHeads := layerKVHeadsForConfig(m.Config, layerIdx)
+	if numKVHeads <= 0 {
+		return 0, fmt.Errorf("layer %d num_key_value_heads=%d", layerIdx, numKVHeads)
 	}
 	headDim := m.Config.HeadDim
 	if layer.HeadDimLocal > 0 {
@@ -30,10 +31,10 @@ func (m *LlamaModel) LayerKVDim(layerIdx int) (int, error) {
 		return 0, fmt.Errorf("layer %d head_dim=%d", layerIdx, headDim)
 	}
 	maxInt := int(^uint(0) >> 1)
-	if m.Config.NumKVHeads > maxInt/headDim {
-		return 0, fmt.Errorf("layer %d kv dim overflow: heads=%d head_dim=%d", layerIdx, m.Config.NumKVHeads, headDim)
+	if numKVHeads > maxInt/headDim {
+		return 0, fmt.Errorf("layer %d kv dim overflow: heads=%d head_dim=%d", layerIdx, numKVHeads, headDim)
 	}
-	return m.Config.NumKVHeads * headDim, nil
+	return numKVHeads * headDim, nil
 }
 
 // LayerKVDims returns per-layer K/V widths suitable for FloatKVCheckpoint
