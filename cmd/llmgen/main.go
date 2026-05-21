@@ -97,17 +97,6 @@ func main() {
 	}
 
 	ids := tok.Encode(*prompt)
-	if *mtpSmoke {
-		if err := runGemma4MTPSmoke(m, *mtpDrafter, ids, *mtpSeq, *mtpRealPrompt); err != nil {
-			fmt.Fprintf(os.Stderr, "mtp smoke: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	}
-	if *mtpDrafter != "" {
-		fmt.Fprintln(os.Stderr, "warning: -mtp-drafter is currently only wired for -mtp-smoke; generation uses the regular path")
-	}
-
 	var gpuMod *model.GPUModel
 	if *useGPU {
 		var err error
@@ -115,6 +104,17 @@ func main() {
 		if err != nil {
 			fmt.Printf("GPU model failed: %v (falling back to CPU)\n", err)
 		}
+	}
+
+	if *mtpSmoke {
+		if err := runGemma4MTPSmoke(m, gpuMod, *mtpDrafter, ids, *mtpSeq, *mtpRealPrompt); err != nil {
+			fmt.Fprintf(os.Stderr, "mtp smoke: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if *mtpDrafter != "" {
+		fmt.Fprintln(os.Stderr, "warning: -mtp-drafter is currently only wired for -mtp-smoke; generation uses the regular path")
 	}
 
 	fmt.Printf("Prompt: '%s' (%d tokens)\n", *prompt, len(ids))
@@ -220,7 +220,7 @@ func mapDrafterSourcesByWidth(m *model.LlamaModel, d *model.Gemma4MTPDrafter, se
 	return sources, nil
 }
 
-func runGemma4MTPSmoke(m *model.LlamaModel, drafterDir string, ids []int, seqLen int, realPrompt bool) error {
+func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir string, ids []int, seqLen int, realPrompt bool) error {
 	start := time.Now()
 	d, err := model.LoadGemma4MTPDrafter(drafterDir)
 	if err != nil {
@@ -238,7 +238,11 @@ func runGemma4MTPSmoke(m *model.LlamaModel, drafterDir string, ids []int, seqLen
 	if realPrompt {
 		prefillStart := time.Now()
 		var err error
-		promptCtx, err = m.BuildMTPPromptContext(ids)
+		if gpuMod != nil {
+			promptCtx, err = gpuMod.BuildMTPPromptContext(ids)
+		} else {
+			promptCtx, err = m.BuildMTPPromptContext(ids)
+		}
 		if err != nil {
 			return fmt.Errorf("prompt context: %w", err)
 		}

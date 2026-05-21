@@ -90,6 +90,11 @@ type GPUModel struct {
 	logitsGPU    *nvidia.DevBuf       // [vocab] logits output on GPU
 	lmHead       []float32            // [vocab, h]
 	vocabSize    int
+
+	lastPromptTokens []int
+	lastActivation   []float32
+	lastLogits       []float32
+	lastToken        int
 }
 
 const compactMLXLMHeadThresholdBytes = uint64(1536 * 1024 * 1024)
@@ -475,11 +480,14 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		}
 	}
 
-	// GPU KV cache: per-layer kvDim
+	// GPU KV cache: allocate device-side KV only for GPU-resident layers.
+	// CPU-resident layers keep using the CPU float KV caches above. Allocating
+	// all 60 Gemma4-31B layers here costs ~3.5GiB at seq=2048 and crowds out
+	// transformer layers/compact LM head on 12GB GPUs.
 	maxSeq := 2048
 	g.kvGPU_K = make([]*nvidia.DevBuf, len(m.Layers))
 	g.kvGPU_V = make([]*nvidia.DevBuf, len(m.Layers))
-	for i := range g.kvGPU_K {
+	for i := 0; i < g.GPULayers && i < len(g.kvGPU_K); i++ {
 		lkv := kvDim
 		if m.Layers[i].HeadDimLocal > 0 {
 			lkv = layerKVHeadsForConfig(cfg, i) * m.Layers[i].HeadDimLocal
@@ -1376,6 +1384,8 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 		// Greedy sampling
 		if step >= len(tokenIDs)-1 {
+			g.lastActivation = append(g.lastActivation[:0], g.hidden.Data()[:h]...)
+			g.lastLogits = append(g.lastLogits[:0], logits...)
 			bestID := 0
 			bestVal := logits[0]
 			for j := 1; j < g.vocabSize; j++ {
@@ -1387,9 +1397,11 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 			if debugLogitsHook != nil {
 				debugLogitsHook("gpu", step, g.hidden.Data(), logits)
 			}
+			g.lastToken = bestID
 			output = append(output, bestID)
 		}
 	}
+	g.lastPromptTokens = append(g.lastPromptTokens[:0], tokenIDs...)
 
 	if profileDecode {
 		steps := len(tokenIDs) + maxTokens - 1 - prefillStart
