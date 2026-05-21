@@ -1,6 +1,6 @@
 # Refactor plan
 
-This document records the completed backend/model source-tree reorganization and the remaining cleanup direction.
+This document records the completed backend/model source-tree reorganization, the safe SIMD quant split retained after the 2026-05-20 package-boundary recovery, and the remaining cleanup direction.
 
 ## Completed ownership moves
 
@@ -33,20 +33,20 @@ See also:
 Phase-level validation details live in [validation-gates.md](validation-gates.md). Use the workspace temp directory on this container:
 
 ```sh
-GOTMPDIR=/workspace/tmp/go-pherence-gotmp go test ./...
-GOTMPDIR=/workspace/tmp/go-pherence-gotmp go vet ./...
+GOTMPDIR=$PWD/.gotmp go test ./...
+GOTMPDIR=$PWD/.gotmp go vet ./...
 ```
 
 Focused package checks for reorg work:
 
 ```sh
-GOTMPDIR=/workspace/tmp/go-pherence-gotmp go test ./backends/... ./model/... ./runtime/quant ./tensor
+GOTMPDIR=$PWD/.gotmp go test ./backends/... ./model/... ./runtime/quant ./tensor
 ```
 
 ## Remaining cleanup direction
 
 1. Keep `runtime/quant` as legacy re-export wrappers unless a deliberate public API cleanup removes them.
-2. Continue splitting large model files into architecture-owned packages only when Go package boundaries are explicit and tests can move with the code.
+2. Continue splitting large files inside package boundaries first; move code into new Go packages only when exported bridge APIs are explicit and tests can move with the code.
 3. Preserve import-boundary checks that prevent new backend-owned code from depending on `runtime/quant`.
 4. Expand backend-specific test coverage when adding AVX2/NEON/NVIDIA kernels.
-5. Keep every mechanical move paired with `gofmt` and `go test ./...`.
+5. Keep every mechanical move paired with `gofmt`, `go test ./... -run '^$'`, and a package-boundary review before pushing.

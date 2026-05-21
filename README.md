@@ -268,7 +268,7 @@ Phase-level validation commands live in [docs/validation-gates.md](docs/validati
 - **[docs/orthrus.md](docs/orthrus.md)** — Orthrus analysis and stock-weight speculative decoding scaffold/benchmark notes
 - **[docs/qwen36-mtp.md](docs/qwen36-mtp.md)** — Qwen3.6 27B native MTP checkpoint findings and shortest implementation path
 - **[docs/performance.md](docs/performance.md)** — benchmarks, kernel timings
-- **[docs/benchmark-snapshot-queue.md](docs/benchmark-snapshot-queue.md)** — benchmark entrypoints and pending snapshot refresh queue
+- **[docs/benchmark-snapshot-queue.md](docs/benchmark-snapshot-queue.md)** — benchmark entrypoints and refreshed snapshot status
 - **[docs/gpu-options.md](docs/gpu-options.md)** — GPU compute paths (NVIDIA, Vulkan)
 - **[docs/vulkan-dispatch-inventory.md](docs/vulkan-dispatch-inventory.md)** — Vulkan shader/wrapper inventory
 - **[docs/vulkan-validation-plan.md](docs/vulkan-validation-plan.md)** — Vulkan pipeline wiring and parity-test plan

@@ -7,14 +7,14 @@ Phase 6.6 tracks the cleanup of `backends/simd/runtime` after the package move f
 `backends/simd/runtime` is intentionally still a single Go package. Go build constraints already split most implementation files by CPU family:
 
 - shared facade and scalar fallback:
-  - `simd.go`
-  - `vec.go`
-  - `bf16.go`
-  - `sgemm.go`
-  - `sgemm_blocked.go`
+  - `vec.go` / `vec_checked.go`
+  - `scalar.go`
+  - `bf16.go` / `bf16_checked.go`
+  - `sgemm.go` / `sgemm_checked.go`
+  - `sgemm_blocked.go` / `sgemm_gather.go`
   - `gebp.go`
-  - `pack.go`
-  - `capabilities.go`
+  - `pack_*.go`
+  - `capabilities.go` / `checked.go`
 - amd64-specific implementation:
   - `*_amd64.go`
   - `*_amd64.s`
@@ -30,7 +30,7 @@ Phase 6.6 tracks the cleanup of `backends/simd/runtime` after the package move f
 
 A literal folder split (`backends/simd/amd64`, `backends/simd/arm64`, etc.) would create separate Go packages. That is possible, but it is not a purely mechanical move: the public `backends/simd/runtime` package would need to become a facade over internal CPU-family packages, and some unexported helper/assembly entrypoints would need explicit bridge APIs.
 
-Because Phase 6.5/6.6 is still guarding against accidental semantic churn, the safe migration path is:
+Because the broad mechanical subpackage split on 2026-05-20 was reverted after exposing package-local symbol/assembly boundaries, the safe migration path is:
 
 1. Keep `backends/simd/runtime` as the public package boundary.
 2. Split oversized mixed-concern files inside that package first.
@@ -64,13 +64,13 @@ Before introducing subpackages:
 - keep blocked/GEBP/gather SGEMM pointer arithmetic behind checked shape products and checked float32 byte offsets before `unsafe.Add`;
 - keep GEBP packing scratch per-call rather than package-global so concurrent facade calls cannot alias packed B tiles;
 - route zero-length vector/BF16 entrypoints through scalar fallbacks instead of assembly stubs;
-- run at minimum:
+- run at minimum before committing/pushing package-boundary changes:
 
 ```sh
-go test ./backends/simd -count=1
-go test ./tensor ./backends/simd ./runtime/... ./loader/... -count=1
-go test ./... -run '^$'
-go vet ./...
+GOTMPDIR=$PWD/.gotmp go test ./backends/simd/... -count=1
+GOTMPDIR=$PWD/.gotmp go test ./tensor ./backends/simd/... ./runtime/... ./loader/... -count=1
+GOTMPDIR=$PWD/.gotmp go test ./... -run '^$'
+GOTMPDIR=$PWD/.gotmp go vet ./...
 git diff --check
 ```
 
