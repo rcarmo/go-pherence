@@ -59,7 +59,7 @@ The 31B checkpoint has Gemma4-specific layout differences that should live in a 
 - sliding-attention layers use `num_key_value_heads=16` and `head_dim=256`
 - `attention_k_eq_v=true`; full-attention layers omit `v_proj` and must use/copy K as V
 
-Initial normalization and K=V support are in place, but the next cleanup should extract Gemma4-specific config and weight loading into an explicit loader boundary.
+Initial normalization, per-layer K/V head selection, and K=V support are in place. `model/gemma` now owns Gemma4 nested config normalization and KV-head selection; the next cleanup should move K=V projection and tensor-prefix rules into that explicit loader boundary.
 
 ## Recommended next steps
 

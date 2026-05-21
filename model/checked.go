@@ -1,10 +1,9 @@
 package model
 
+import gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
+
 func layerKVHeadsForConfig(cfg LlamaConfig, layerIdx int) int {
-	if cfg.NumGlobalKVHeads > 0 && layerIdx >= 0 && layerIdx < len(cfg.LayerTypes) && cfg.LayerTypes[layerIdx] == "full_attention" {
-		return cfg.NumGlobalKVHeads
-	}
-	return cfg.NumKVHeads
+	return gemmacfg.LayerKVHeads(cfg, layerIdx)
 }
 
 func checkedProduct(a, b int) (int, bool) {

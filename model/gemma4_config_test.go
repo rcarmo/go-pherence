@@ -2,7 +2,7 @@ package model
 
 import "testing"
 
-func TestNormalizeGemma4TextConfigCarries31BFields(t *testing.T) {
+func TestNormalizeGemma4TextConfigCompatibilityWrapper(t *testing.T) {
 	json := []byte(`{
 		"model_type":"gemma4",
 		"architectures":["Gemma4ForConditionalGeneration"],

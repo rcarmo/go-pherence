@@ -24,8 +24,9 @@ The existing root `model` package should remain a compatibility facade until CLI
 4. Keep tests close to the owning package and run `GOTMPDIR=$PWD/.gotmp go test ./... -run '^$'` after each slice.
 5. Do not repeat broad mechanical subpackage splits; they were reverted because assembly/package-local symbols and unexported model contracts are not yet bridged.
 
-## First completed slice
+## Completed slices
 
-`model/common` now owns the generic `Config` metadata type and its architecture-neutral helper methods. The root `model.LlamaConfig` is a type alias for compatibility.
+1. `model/common` owns the generic `Config` metadata type and its architecture-neutral helper methods. The root `model.LlamaConfig` is a type alias for compatibility.
+2. `model/gemma` owns Gemma4 nested text-config normalization and per-layer K/V head selection. Root helpers remain as compatibility wrappers while `LoadLlama` is still the public entrypoint.
 
-This enables the next safe slice: moving Gemma4 nested config normalization and per-layer KV-head/K=V rules behind a dedicated Gemma loader/config package while keeping root `LoadLlama` as a compatibility entrypoint.
+This enables the next safe slice: moving Gemma4 K=V projection and tensor-prefix rules behind the dedicated Gemma loader/config package while keeping root `LoadLlama` as a compatibility entrypoint.
