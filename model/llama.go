@@ -305,9 +305,12 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 	_ = loadQ
 
 	// Load embeddings — MLX may quantize these
+	var embedMLX *mlx.QuantWeight
 	if cfg.QuantFormat == "mlx" {
-		// Try to load quantized embedding, dequantize for lookup
+		// Try to load quantized embedding, dequantize for lookup, and retain the
+		// packed handle for tied compact LM-head GPU execution.
 		if emb, err := mlx.LoadWeight(f, prefix+"model.embed_tokens", cfg.VocabSize, h, cfg.QuantGroup, cfg.QuantBits); err == nil {
+			embedMLX = emb
 			data := mlx.Dequant(emb)
 			m.EmbedTokens = tensor.FromFloat32(data, []int{cfg.VocabSize, h})
 		} else {
@@ -326,11 +329,17 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 			m.LMHead = tensor.FromFloat32(data, []int{cfg.VocabSize, h})
 		} else {
 			m.LMHead = m.EmbedTokens // tied weights
+			if embedMLX != nil {
+				m.LMHeadMLX = embedMLX
+			}
 		}
 	} else if _, _, err := f.GetFloat32("lm_head.weight"); err == nil {
 		m.LMHead = load("lm_head.weight", []int{cfg.VocabSize, h})
 	} else {
 		m.LMHead = m.EmbedTokens // tied weights
+		if embedMLX != nil {
+			m.LMHeadMLX = embedMLX
+		}
 	}
 
 	kvDim := cfg.HeadDim * cfg.NumKVHeads

@@ -482,7 +482,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	for i := range g.kvGPU_K {
 		lkv := kvDim
 		if m.Layers[i].HeadDimLocal > 0 {
-			lkv = cfg.NumKVHeads * m.Layers[i].HeadDimLocal
+			lkv = layerKVHeadsForConfig(cfg, i) * m.Layers[i].HeadDimLocal
 		}
 		g.kvGPU_K[i] = nvidia.NewDevBuf(maxSeq * lkv)
 		g.kvGPU_V[i] = nvidia.NewDevBuf(maxSeq * lkv)
@@ -507,6 +507,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		free, _ := nvidia.MemInfo()
 		lmBytes := uint64(len(g.lmHead)) * 4
 		if shouldUseCompactMLXLMHead(m.LMHeadMLX != nil, lmBytes, free) {
+			loaderDebugf("[model] trying compact MLX LM head (packed %.0f MB, f32 %.0f MB, free %.0f MB, in=%d out=%d group=%d)\n", float64(uint64(len(m.LMHeadMLX.Weight))*4)/1e6, float64(lmBytes)/1e6, float64(free)/1e6, m.LMHeadMLX.InDim, m.LMHeadMLX.OutDim, m.LMHeadMLX.GroupSize)
 			if w, err := nvidia.UploadMLXWeight(m.LMHeadMLX.Weight, m.LMHeadMLX.Scales, m.LMHeadMLX.Biases, m.LMHeadMLX.InDim, m.LMHeadMLX.OutDim, m.LMHeadMLX.GroupSize, false); err == nil {
 				g.lmHeadMLXGPU = w
 				loaderDebugf("[model] MLX LM head on GPU (packed %.0f MB, f32 %.0f MB)\n", float64(uint64(len(m.LMHeadMLX.Weight))*4)/1e6, float64(lmBytes)/1e6)

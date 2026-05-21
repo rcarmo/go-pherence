@@ -61,6 +61,18 @@ The 31B checkpoint has Gemma4-specific layout differences that should live in a 
 
 Initial normalization, per-layer K/V head selection, and K=V support are in place. `model/gemma` now owns Gemma4 nested config normalization and KV-head selection; the next cleanup should move K=V projection and tensor-prefix rules into that explicit loader boundary.
 
+## Upload-path audit
+
+The first 31B GPU smoke exposed the real bottleneck: the loader kept the tied embedding LM head only as dequantized F32, so `LoadGPUModelWithLayers` uploaded a 5.6 GiB F32 LM head and left too little VRAM for transformer layers. Retaining the packed MLX embedding as `LMHeadMLX` for tied LM-head checkpoints enables the compact MLX LM-head upload path:
+
+```text
+[model] trying compact MLX LM head (packed 705 MB, f32 5637 MB, free 7581 MB, in=5376 out=262144 group=64)
+[model] MLX LM head on GPU (packed 705 MB, f32 5637 MB)
+[budget] GPU VRAM: 5520/11910 MB used (6389 MB free)
+```
+
+So the immediate effective run strategy is mmap/on-the-fly MLX loading plus compact MLX LM head, then incrementally increase `-gpu-layers` until VRAM is saturated. The remaining ~250s wall time for `-tokens 0` is prompt processing/chat-template forward work, not mmap load time; model load is ~15–16s and one-layer GPU upload is ~2.5s after compact LM head.
+
 ## Recommended next steps
 
 1. Add a dedicated Gemma4 loader facade that owns nested config normalization, `language_model.*` prefixing, per-layer KV-head selection, and K=V projection rules.
