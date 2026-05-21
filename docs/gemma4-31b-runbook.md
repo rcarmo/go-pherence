@@ -61,6 +61,27 @@ Latest local result on 2026-05-21:
 
 The main model load for that run was `16.25s`.
 
+A real-prompt smoke is also available. It prefills the prompt through the main model, captures final activation and float KV using the Generate-equivalent Gemma4 per-layer-input path, maps drafter layers onto compatible main-model KV source widths, and feeds that state into the packed MTP assistant:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+  -model models/gemma4-31b-it-4bit \
+  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -mtp-smoke \
+  -mtp-real-prompt \
+  -prompt "Hi"
+```
+
+Latest local result on 2026-05-21:
+
+```text
+MTP prompt prefill: 299.06s (10 tokens, next=100)
+step_seconds: 0.393279808
+wall_seconds: 317.187
+```
+
+This proves the real activation/KV handoff, but also shows that CPU/on-the-fly 31B prompt prefill is the immediate bottleneck. A 72-token complex-prompt benchmark on this path would take tens of minutes; long-prompt MTP benchmarking should wait for GPU/prefill acceleration or a much smaller model.
+
 The compact GPU LM-head smoke also loads successfully:
 
 ```bash
@@ -116,7 +137,7 @@ Current Gemma4 MTP status:
 - Internal tests exercise projection-only, synthetic q-only, real-asset contract, one-step, and multi-step MTP flows.
 - The 31B 4-bit assistant asset is present at `models/gemma4-31b-it-mtp-assistant-4bit` and loads while keeping large matrices packed as MLX 4-bit weights.
 - `PreProjectInto`, q/o projections, MLP projections, `PostProjectInto`, and token embedding lookup dispatch through packed MLX helpers when packed weights are present. The only dequantization in the 31B assistant smoke is row-local embedding dequantization and normal small BF16 norm/scalar tensors.
-- `llmgen -mtp-smoke` validates the runtime-facing seam and prints shape/timing JSON.
+- `llmgen -mtp-smoke` validates the runtime-facing seam and prints shape/timing JSON. With `-mtp-real-prompt`, it first builds real prompt activation/KV via `BuildMTPPromptContext` instead of using zero external KV.
 - Regression coverage: `TestLoadGemma4MTPDrafter31B4BitKeepsPackedWeights`.
 
 ## Recommended next steps

@@ -156,6 +156,8 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
   -prompt "Hello"
 ```
 
+Add `-mtp-real-prompt` to prefill the prompt through the main model, capture real final activation/KV, and feed that into the packed drafter smoke. This is correct but currently slow on CPU/on-the-fly 31B (`~299s` for a 10-token prepared prompt on the local test host), so long-prompt benchmarking should wait for GPU/prefill acceleration.
+
 Full speculative generation wiring is still pending; `-mtp-drafter` without `-mtp-smoke` currently warns and uses the regular generation path.
 
 ### qwenmtpmeta / qwenmtpsynth — Qwen3.6 native MTP triage

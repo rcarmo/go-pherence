@@ -29,7 +29,8 @@ func main() {
 	eagerLoad := flag.Bool("eager-load", false, "pre-fault mmap'd model weights at startup")
 	mtpDrafter := flag.String("mtp-drafter", "", "Gemma4 MTP assistant/drafter directory (experimental)")
 	mtpSmoke := flag.Bool("mtp-smoke", false, "load -mtp-drafter and run one packed 4-bit MTP drafter step instead of generation")
-	mtpSeq := flag.Int("mtp-seq", 1, "external KV sequence length for -mtp-smoke")
+	mtpSeq := flag.Int("mtp-seq", 1, "external KV sequence length for -mtp-smoke when -mtp-real-prompt is false")
+	mtpRealPrompt := flag.Bool("mtp-real-prompt", false, "for -mtp-smoke, prefill the prompt with the main model and feed real activation/KV to the drafter")
 	flag.Parse()
 
 	if *eagerLoad {
@@ -97,7 +98,7 @@ func main() {
 
 	ids := tok.Encode(*prompt)
 	if *mtpSmoke {
-		if err := runGemma4MTPSmoke(m, *mtpDrafter, ids, *mtpSeq); err != nil {
+		if err := runGemma4MTPSmoke(m, *mtpDrafter, ids, *mtpSeq, *mtpRealPrompt); err != nil {
 			fmt.Fprintf(os.Stderr, "mtp smoke: %v\n", err)
 			os.Exit(1)
 		}
@@ -173,10 +174,53 @@ type gemma4MTPSmokeResult struct {
 	LogitsLen          int     `json:"logits_len"`
 	NextActivationLen  int     `json:"next_activation_len"`
 	LoadSeconds        float64 `json:"load_seconds"`
+	PromptTokens       int     `json:"prompt_tokens,omitempty"`
+	PromptSeconds      float64 `json:"prompt_seconds,omitempty"`
+	RealPrompt         bool    `json:"real_prompt"`
 	StepSeconds        float64 `json:"step_seconds"`
 }
 
-func runGemma4MTPSmoke(m *model.LlamaModel, drafterDir string, ids []int, seqLen int) error {
+func mapDrafterSourcesByWidth(m *model.LlamaModel, d *model.Gemma4MTPDrafter, seqLen int) ([]int, error) {
+	if m == nil || d == nil || seqLen <= 0 {
+		return nil, fmt.Errorf("invalid source mapping inputs")
+	}
+	sources := make([]int, d.Config.NumLayers)
+	used := make(map[int]bool)
+	for i := 0; i < d.Config.NumLayers; i++ {
+		headDim := d.Config.HeadDim
+		if i < len(d.Layers) && d.Layers[i].HeadDimLocal > 0 {
+			headDim = d.Layers[i].HeadDimLocal
+		}
+		kvHeads := d.Config.NumKVHeads
+		if i < len(d.Config.LayerTypes) && d.Config.LayerTypes[i] == "full_attention" && d.Config.NumGlobalKVHeads > 0 {
+			kvHeads = d.Config.NumGlobalKVHeads
+		}
+		wantDim := kvHeads * headDim
+		wantLen := seqLen * wantDim
+		best := -1
+		for l := 0; l < len(m.Layers); l++ {
+			if used[l] {
+				continue
+			}
+			dim, err := m.LayerKVDim(l)
+			if err != nil {
+				return nil, err
+			}
+			if dim == wantDim {
+				best = l
+				break
+			}
+		}
+		if best < 0 {
+			return nil, fmt.Errorf("no main KV source for drafter layer %d width=%d len=%d", i, wantDim, wantLen)
+		}
+		sources[i] = best
+		used[best] = true
+	}
+	return sources, nil
+}
+
+func runGemma4MTPSmoke(m *model.LlamaModel, drafterDir string, ids []int, seqLen int, realPrompt bool) error {
 	start := time.Now()
 	d, err := model.LoadGemma4MTPDrafter(drafterDir)
 	if err != nil {
@@ -186,28 +230,53 @@ func runGemma4MTPSmoke(m *model.LlamaModel, drafterDir string, ids []int, seqLen
 	if m.Config.HiddenSize != d.BackboneHiddenSize || m.Config.VocabSize != d.Config.VocabSize {
 		return fmt.Errorf("model/drafter mismatch model h/vocab=%d/%d drafter backbone/vocab=%d/%d", m.Config.HiddenSize, m.Config.VocabSize, d.BackboneHiddenSize, d.Config.VocabSize)
 	}
-	k := make([][]float32, d.Config.NumLayers)
-	v := make([][]float32, d.Config.NumLayers)
-	for i := range d.Layers {
-		headDim := d.Config.HeadDim
-		if d.Layers[i].HeadDimLocal > 0 {
-			headDim = d.Layers[i].HeadDimLocal
-		}
-		kvDim := d.Config.NumKVHeads * headDim
-		k[i] = make([]float32, seqLen*kvDim)
-		v[i] = make([]float32, seqLen*kvDim)
-	}
-	externalKV, err := model.NewMTPDrafterExternalKV(d, k, v, seqLen)
-	if err != nil {
-		return fmt.Errorf("external KV: %w", err)
-	}
+	var promptCtx model.MTPPromptContext
+	var promptSeconds float64
+	var externalKV *model.MTPDrafterExternalKV
+	var state model.MTPDrafterState
 	previousToken := 0
-	if len(ids) > 0 {
-		previousToken = ids[len(ids)-1]
-	}
-	state, err := model.NewMTPDrafterState(previousToken, make([]float32, d.BackboneHiddenSize), d.BackboneHiddenSize)
-	if err != nil {
-		return fmt.Errorf("state: %w", err)
+	if realPrompt {
+		prefillStart := time.Now()
+		var err error
+		promptCtx, err = m.BuildMTPPromptContext(ids)
+		if err != nil {
+			return fmt.Errorf("prompt context: %w", err)
+		}
+		promptSeconds = time.Since(prefillStart).Seconds()
+		sources, err := mapDrafterSourcesByWidth(m, d, promptCtx.SeqLen)
+		if err != nil {
+			return fmt.Errorf("map external KV: %w", err)
+		}
+		externalKV = &model.MTPDrafterExternalKV{K: promptCtx.KVCacheK, V: promptCtx.KVCacheV, SourceLayers: sources, SeqLen: promptCtx.SeqLen}
+		previousToken = promptCtx.PreviousToken
+		state, err = model.NewMTPDrafterState(previousToken, promptCtx.Activation, d.BackboneHiddenSize)
+		if err != nil {
+			return fmt.Errorf("state: %w", err)
+		}
+	} else {
+		k := make([][]float32, d.Config.NumLayers)
+		v := make([][]float32, d.Config.NumLayers)
+		for i := range d.Layers {
+			headDim := d.Config.HeadDim
+			if d.Layers[i].HeadDimLocal > 0 {
+				headDim = d.Layers[i].HeadDimLocal
+			}
+			kvDim := d.Config.NumKVHeads * headDim
+			k[i] = make([]float32, seqLen*kvDim)
+			v[i] = make([]float32, seqLen*kvDim)
+		}
+		var err error
+		externalKV, err = model.NewMTPDrafterExternalKV(d, k, v, seqLen)
+		if err != nil {
+			return fmt.Errorf("external KV: %w", err)
+		}
+		if len(ids) > 0 {
+			previousToken = ids[len(ids)-1]
+		}
+		state, err = model.NewMTPDrafterState(previousToken, make([]float32, d.BackboneHiddenSize), d.BackboneHiddenSize)
+		if err != nil {
+			return fmt.Errorf("state: %w", err)
+		}
 	}
 	stepStart := time.Now()
 	step, err := m.RunMTPDrafterStepWithExternalKV(d, state, externalKV)
@@ -231,7 +300,13 @@ func runGemma4MTPSmoke(m *model.LlamaModel, drafterDir string, ids []int, seqLen
 		LogitsLen:          len(step.Logits),
 		NextActivationLen:  len(step.NextActivation),
 		LoadSeconds:        loadElapsed.Seconds(),
+		PromptTokens:       promptCtx.SeqLen,
+		PromptSeconds:      promptSeconds,
+		RealPrompt:         realPrompt,
 		StepSeconds:        stepElapsed.Seconds(),
+	}
+	if realPrompt {
+		fmt.Printf("MTP prompt prefill: %.2fs (%d tokens, next=%d)\n", promptSeconds, promptCtx.SeqLen, promptCtx.FinalToken)
 	}
 	out, err := json.MarshalIndent(res, "", "  ")
 	if err != nil {

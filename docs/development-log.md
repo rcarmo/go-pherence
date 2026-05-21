@@ -2036,3 +2036,10 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added `cmd/gemma4mtpsmoke` plus `llmgen -mtp-drafter ... -mtp-smoke` as runtime-facing smoke paths. They load the main 31B model on the on-the-fly 4-bit path, load the packed assistant, build minimal external KV, run one q-only drafter step, and emit timing/shape JSON.
 - Local 31B smoke after `go test ./...` and `go vet ./...`: main load `16.25s`, assistant load `0.26s`, drafter step `0.47s`, packed embedding/projection/layer weights all true.
 - Full speculative generation remains pending: capture real verifier activations/KV, run adaptive multi-draft assistant steps, batch verifier candidates, and commit accepted KV prefixes plus the bonus token.
+
+## 2026-05-21 — Real-prompt Gemma4 MTP handoff
+
+- Added `BuildMTPPromptContext`, which runs prompt tokens through the Generate-equivalent CPU path including Gemma4 per-layer inputs, captures final activation, and returns float KV caches for MTP seeding.
+- Added `llmgen -mtp-real-prompt` to feed real prompt activation/KV into the packed 31B MTP assistant instead of using zero external KV.
+- Fixed Gemma4 assistant full-attention KV validation to use `num_global_key_value_heads` for full-attention layers and mapped drafter layers to compatible main-model KV source widths (`[sliding, sliding, sliding, full]` → matching main KV cache widths).
+- Local short-prompt smoke (`prompt="Hi"`) succeeded: 10 prepared prompt tokens, prompt prefill `299.06s`, packed drafter step `0.39s`, wall `317.19s`. This proves the handoff and confirms that CPU/on-the-fly 31B prompt prefill is the next performance bottleneck before complex-prompt MTP benchmarking is useful.
