@@ -86,6 +86,17 @@ Verifier (target batched path):
   Commit only accepted-prefix + bonus KV after acceptance
 ```
 
+### Local fit notes
+
+The Gemma4 E4B MLX pair is currently the best local development target:
+
+- main: `mlx-community/gemma-4-E4B-it-4bit`, ~4.9GiB local, hidden 2560, 42 layers
+- assistant: `mlx-community/gemma-4-E4B-it-assistant-bf16`, ~183MiB local, hidden 256, 4 layers
+- RTX 3060 smoke: all 42/42 main layers resident, compact MLX LM head resident, ~5.0GiB VRAM free
+- real-prompt MTP smoke: 76 prepared prompt tokens prefill in `3.41s`, drafter step `0.10s`
+
+Use E4B for verifier/prefill/MTP algorithm development, then re-run 31B as the stress path.
+
 ### Performance gain
 - Drafter: ~0.5ms per token (tiny model, 4 layers, dim=256)
 - Verifier: ~5ms for K tokens batched (same as single-token decode)
@@ -175,7 +186,7 @@ Implementation implications for go-pherence:
 | Model | Drafter | Layers | Hidden | Disk |
 |---|---|---|---|---|
 | Gemma4-E2B | gemma-4-E2B-it-assistant-bf16 | 4 | 256 | 151 MB |
+| Gemma4-E4B | gemma-4-E4B-it-assistant-bf16 | 4 | 256 | 159 MB |
 | Gemma4-31B | gemma-4-31B-it-assistant-4bit | 4 | 1024 | 283 MB |
-| Gemma4-E4B | gemma-4-E4B-it-assistant | 4 | 256 | ~200 MB |
 | Gemma4-26B MoE | gemma-4-26B-A4B-it-assistant | 4 | 256 | ~200 MB |
 | Qwen3.6-35B | built-in (mtp_num_hidden_layers=1) | 1 | shared | in-model |

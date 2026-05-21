@@ -138,6 +138,15 @@ Current speculative backend is `replay`, a correctness scaffold that reuses the 
 
 ### gemma4mtpsmoke — Gemma4 MTP drafter smoke
 
+Recommended local development pair for MTP work:
+
+```text
+models/gemma4-e4b-it-4bit
+models/gemma4-e4b-mtp-drafter
+```
+
+This E4B pair fully fits on the local RTX 3060 with the current loader (`42/42` layers resident, compact MLX LM head resident, ~5GiB VRAM free) and is much faster than the 31B stress path.
+
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/gemma4mtpsmoke \
   -model models/gemma4-31b-it-4bit \

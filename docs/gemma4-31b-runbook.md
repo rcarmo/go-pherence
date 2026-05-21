@@ -140,6 +140,72 @@ Current Gemma4 MTP status:
 - `llmgen -mtp-smoke` validates the runtime-facing seam and prints shape/timing JSON. With `-mtp-real-prompt`, it first builds real prompt activation/KV via `BuildMTPPromptContext` instead of using zero external KV. With `-gpu`, `GPUModel.BuildMTPPromptContext` uses the hybrid GPU/CPU path and copies GPU-resident KV back into the MTP context. Prompt seeding computes final activation only and intentionally skips the large prompt LM-head projection; `FinalToken` is `-1` in this mode.
 - Regression coverage: `TestLoadGemma4MTPDrafter31B4BitKeepsPackedWeights`.
 
+## E4B MTP development target
+
+For practical MTP iteration on the local RTX 3060, the Gemma4 E4B pair is the best fit:
+
+```text
+models/gemma4-e4b-it-4bit
+models/gemma4-e4b-mtp-drafter
+```
+
+Sources:
+
+```text
+mlx-community/gemma-4-E4B-it-4bit
+mlx-community/gemma-4-E4B-it-assistant-bf16
+```
+
+Local asset sizes:
+
+```text
+models/gemma4-e4b-it-4bit        4.9G
+models/gemma4-e4b-mtp-drafter    183M
+```
+
+The E4B main model is `hidden=2560`, `layers=42`; the assistant is `hidden=256`, `layers=4`, `backbone_hidden_size=2560`. This pair fully fits on the RTX 3060 GPU with the current loader:
+
+```text
+[model] Weights on GPU (42/42 layers, 4.632s)
+[budget] GPU VRAM: 6872/11910 MB used (5037 MB free)
+```
+
+Minimal MTP smoke:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+  -model models/gemma4-e4b-it-4bit \
+  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -mtp-smoke \
+  -prompt "Hi"
+```
+
+Result: main load `6.98s`, assistant load `0.24s`, drafter step `0.12s`.
+
+Real-prompt full-GPU MTP smoke:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+  -gpu -gpu-layers 0 \
+  -model models/gemma4-e4b-it-4bit \
+  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -mtp-smoke -mtp-real-prompt \
+  -prompt "Hi"
+```
+
+Result: 10 prepared prompt tokens, prefill `0.56s`, drafter step `0.10s`, wall `14.11s` including load/upload.
+
+Complex-prompt smoke:
+
+```text
+76 prepared prompt tokens
+prefill: 3.41s
+packed drafter step: 0.10s
+wall: 16.28s including load/upload
+```
+
+This makes E4B the recommended development target for real MTP verifier/prefill work. Keep the 31B path as the stress target after the algorithmic path is correct.
+
 ## Recommended next steps
 
 1. Add a dedicated Gemma4 loader facade that owns nested config normalization, `language_model.*` prefixing, per-layer KV-head selection, and K=V projection rules.

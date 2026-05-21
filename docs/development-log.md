@@ -2059,3 +2059,13 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added `FinishCPUActivation` so MTP prompt seeding can capture final normalized activation without running the full vocabulary LM-head projection.
 - `BuildMTPPromptContext` and `GPUModel.BuildMTPPromptContext` now use activation-only prompt finalization. The GPU helper still requests one internal Generate step because `Generate(..., 0)` intentionally stops before the last prompt position, but it intercepts the final prompt activation before logits and does not append a token.
 - This removes unnecessary verifier-side prompt logits work from MTP seeding; short-prompt timings remain dominated by the 31B transformer layers and vary around `200–205s` for the aggressive local GPU split.
+
+## 2026-05-21 — Gemma4 E4B MTP target
+
+- Downloaded the Gemma4 E4B MLX pair into ignored local model directories:
+  - `models/gemma4-e4b-it-4bit` from `mlx-community/gemma-4-E4B-it-4bit` (~4.9GiB local)
+  - `models/gemma4-e4b-mtp-drafter` from `mlx-community/gemma-4-E4B-it-assistant-bf16` (~183MiB local)
+- Minimal MTP smoke passes: main load `6.98s`, assistant load `0.24s`, drafter step `0.12s`.
+- Full-GPU real-prompt smoke passes on RTX 3060: all `42/42` layers resident, compact MLX LM head resident, VRAM `6872/11910 MB` used, 10-token prepared prompt prefill `0.56s`, drafter step `0.10s`.
+- Complex-prompt E4B real-prompt smoke: 76 prepared prompt tokens, prefill `3.41s`, drafter step `0.10s`, wall `16.28s` including load/upload.
+- E4B is now the recommended local development target for verifier/prefill/MTP algorithm work; 31B remains the stress path.
