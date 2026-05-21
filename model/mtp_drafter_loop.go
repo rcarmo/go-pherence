@@ -1,6 +1,10 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/rcarmo/go-pherence/backends/mlx"
+)
 
 // MTPDrafterState carries the hidden-state-conditioned drafter inputs between
 // speculative iterations. PreviousToken is the last token emitted/accepted by
@@ -145,7 +149,7 @@ func (m *LlamaModel) validateMTPDrafterStepModel(d *Gemma4MTPDrafter, state MTPD
 	if len(state.Activation) != d.BackboneHiddenSize {
 		return fmt.Errorf("state activation len=%d, want %d", len(state.Activation), d.BackboneHiddenSize)
 	}
-	if len(d.PreProjection) == 0 || len(d.PostProjection) == 0 {
+	if (len(d.PreProjection) == 0 && d.PreProjectionMLX == nil) || (len(d.PostProjection) == 0 && d.PostProjectionMLX == nil) {
 		return fmt.Errorf("drafter projection weights are not loaded")
 	}
 	return m.validateMTPDrafterStepModelShell(d, state)
@@ -190,7 +194,11 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	normed := append([]float32(nil), hidden...)
 	drafterRMSNormInPlace(d, normed, layer.InputNorm.Data())
 	q := make([]float32, qDim)
-	gemvNT(q, normed, layer.QW, h, qDim)
+	if layer.QWm != nil {
+		mlx.Gemv(q, normed, layer.QWm)
+	} else {
+		gemvNT(q, normed, layer.QW, h, qDim)
+	}
 	qNorm := layer.QNorm.Data()
 	for head := 0; head < d.Config.NumHeads; head++ {
 		drafterRMSNormInPlace(d, q[head*headDim:(head+1)*headDim], qNorm)
@@ -200,7 +208,11 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 		return nil, fmt.Errorf("drafter layer %d external attention failed", layerIdx)
 	}
 	oOut := make([]float32, h)
-	gemvNT(oOut, attnOut, layer.OW, qDim, h)
+	if layer.OWm != nil {
+		mlx.Gemv(oOut, attnOut, layer.OWm)
+	} else {
+		gemvNT(oOut, attnOut, layer.OW, qDim, h)
+	}
 	if layer.PreFFNNorm != nil {
 		drafterRMSNormInPlace(d, oOut, layer.PostNorm.Data())
 		for i := 0; i < h; i++ {
@@ -221,13 +233,25 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	}
 	gate := make([]float32, d.Config.Intermediate)
 	up := make([]float32, d.Config.Intermediate)
-	gemvNT(gate, mlpInput, layer.GateW, h, d.Config.Intermediate)
-	gemvNT(up, mlpInput, layer.UpW, h, d.Config.Intermediate)
+	if layer.GateWm != nil {
+		mlx.Gemv(gate, mlpInput, layer.GateWm)
+	} else {
+		gemvNT(gate, mlpInput, layer.GateW, h, d.Config.Intermediate)
+	}
+	if layer.UpWm != nil {
+		mlx.Gemv(up, mlpInput, layer.UpWm)
+	} else {
+		gemvNT(up, mlpInput, layer.UpW, h, d.Config.Intermediate)
+	}
 	for i := range gate {
 		gate[i] = geluTanh(gate[i]) * up[i]
 	}
 	down := make([]float32, h)
-	gemvNT(down, gate, layer.DownW, d.Config.Intermediate, h)
+	if layer.DownWm != nil {
+		mlx.Gemv(down, gate, layer.DownWm)
+	} else {
+		gemvNT(down, gate, layer.DownW, d.Config.Intermediate, h)
+	}
 	if layer.PostFFNNorm != nil {
 		drafterRMSNormInPlace(d, down, layer.PostFFNNorm.Data())
 	}
@@ -304,10 +328,10 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 		if len(layer.InputNorm.Data()) < d.Config.HiddenSize || len(layer.PostNorm.Data()) < d.Config.HiddenSize || len(layer.PreFFNNorm.Data()) < d.Config.HiddenSize || len(layer.PostFFNNorm.Data()) < d.Config.HiddenSize || len(layer.QNorm.Data()) < headDim {
 			return fmt.Errorf("drafter layer %d norm dims are too small", i)
 		}
-		if len(layer.QW) != qDim*d.Config.HiddenSize || len(layer.OW) != d.Config.HiddenSize*qDim {
+		if (len(layer.QW) != qDim*d.Config.HiddenSize && layer.QWm == nil) || (len(layer.OW) != d.Config.HiddenSize*qDim && layer.OWm == nil) {
 			return fmt.Errorf("drafter layer %d attention weight dims Q/O=%d/%d, want %d/%d", i, len(layer.QW), len(layer.OW), qDim*d.Config.HiddenSize, d.Config.HiddenSize*qDim)
 		}
-		if len(layer.GateW) != d.Config.Intermediate*d.Config.HiddenSize || len(layer.UpW) != d.Config.Intermediate*d.Config.HiddenSize || len(layer.DownW) != d.Config.HiddenSize*d.Config.Intermediate {
+		if (len(layer.GateW) != d.Config.Intermediate*d.Config.HiddenSize && layer.GateWm == nil) || (len(layer.UpW) != d.Config.Intermediate*d.Config.HiddenSize && layer.UpWm == nil) || (len(layer.DownW) != d.Config.HiddenSize*d.Config.Intermediate && layer.DownWm == nil) {
 			return fmt.Errorf("drafter layer %d MLP weight dims are invalid", i)
 		}
 	}

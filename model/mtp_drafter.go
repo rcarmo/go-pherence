@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/weights"
@@ -23,12 +24,15 @@ type Gemma4MTPDrafter struct {
 	NumCentroids       int
 	UseOrderedEmbeds   bool
 
-	EmbedTokens              *tensor.Tensor // [vocab, hidden]
-	MaskedEmbeddingCentroids *tensor.Tensor // [numCentroids, hidden]
-	MaskedEmbeddingOrdering  []int          // [vocab]
+	EmbedTokens              *tensor.Tensor   // [vocab, hidden]
+	EmbedTokensMLX           *mlx.QuantWeight // packed [vocab, hidden] for 4-bit assistant weights
+	MaskedEmbeddingCentroids *tensor.Tensor   // [numCentroids, hidden]
+	MaskedEmbeddingOrdering  []int            // [vocab]
 
-	PreProjection  []float32 // [hidden, 2*backboneHidden]
-	PostProjection []float32 // [backboneHidden, hidden]
+	PreProjection     []float32        // [hidden, 2*backboneHidden]
+	PreProjectionMLX  *mlx.QuantWeight // packed [hidden, 2*backboneHidden]
+	PostProjection    []float32        // [backboneHidden, hidden]
+	PostProjectionMLX *mlx.QuantWeight // packed [backboneHidden, hidden]
 
 	Norm   *tensor.Tensor // [hidden]
 	Layers []Gemma4MTPDrafterLayer
@@ -46,13 +50,18 @@ type Gemma4MTPDrafterLayer struct {
 	// forward pass must map each layer to external/main-model K/V state.
 	KVSourceLayer int
 
-	QW    []float32 // [numHeads*headDim, hidden]
+	QW    []float32        // [numHeads*headDim, hidden]
+	QWm   *mlx.QuantWeight // packed [numHeads*headDim, hidden]
 	QNorm *tensor.Tensor
-	OW    []float32 // [hidden, numHeads*headDim]
+	OW    []float32        // [hidden, numHeads*headDim]
+	OWm   *mlx.QuantWeight // packed [hidden, numHeads*headDim]
 
-	GateW []float32 // [intermediate, hidden]
-	UpW   []float32 // [intermediate, hidden]
-	DownW []float32 // [hidden, intermediate]
+	GateW  []float32        // [intermediate, hidden]
+	GateWm *mlx.QuantWeight // packed [intermediate, hidden]
+	UpW    []float32        // [intermediate, hidden]
+	UpWm   *mlx.QuantWeight // packed [intermediate, hidden]
+	DownW  []float32        // [hidden, intermediate]
+	DownWm *mlx.QuantWeight // packed [hidden, intermediate]
 }
 
 type gemma4AssistantConfig struct {
@@ -68,7 +77,8 @@ type gemma4AssistantConfig struct {
 // LoadGemma4MTPDrafter loads a local Gemma4 assistant drafter asset.
 func LoadGemma4MTPDrafter(dir string) (*Gemma4MTPDrafter, error) {
 	var acfg gemma4AssistantConfig
-	if _, err := loaderconfig.ReadModelConfig(dir, &acfg); err != nil {
+	cfgData, err := loaderconfig.ReadModelConfig(dir, &acfg)
+	if err != nil {
 		return nil, err
 	}
 	if acfg.ModelType != "gemma4_assistant" {
@@ -100,6 +110,11 @@ func LoadGemma4MTPDrafter(dir string) (*Gemma4MTPDrafter, error) {
 	if cfg.HiddenAct == "" {
 		cfg.HiddenAct = "gelu_pytorch_tanh"
 	}
+	if quantMeta, err := loaderconfig.ParseQuantizationMetadata(cfgData); err == nil && quantMeta.HasConfig && quantMeta.Bits > 0 {
+		cfg.QuantBits = quantMeta.Bits
+		cfg.QuantGroup = quantMeta.GroupSize
+		cfg.QuantFormat = "mlx"
+	}
 
 	f, err := weights.OpenSafetensors(dir)
 	if err != nil {
@@ -127,6 +142,20 @@ func LoadGemma4MTPDrafter(dir string) (*Gemma4MTPDrafter, error) {
 		}
 		return data, nil
 	}
+	loadDataOrMLX := func(name string, shape []int) ([]float32, *mlx.QuantWeight, error) {
+		data, err := loadData(name+".weight", shape)
+		if err == nil {
+			return data, nil, nil
+		}
+		if cfg.QuantFormat != "mlx" || cfg.QuantBits <= 0 || cfg.QuantGroup <= 0 || len(shape) != 2 {
+			return nil, nil, err
+		}
+		qw, qerr := mlx.LoadWeight(f, name, shape[0], shape[1], cfg.QuantGroup, cfg.QuantBits)
+		if qerr != nil {
+			return nil, nil, err
+		}
+		return nil, qw, nil
+	}
 
 	h := cfg.HiddenSize
 	d := &Gemma4MTPDrafter{
@@ -145,22 +174,31 @@ func LoadGemma4MTPDrafter(dir string) (*Gemma4MTPDrafter, error) {
 	}
 
 	if d.EmbedTokens, err = loadTensor("model.embed_tokens.weight", []int{cfg.VocabSize, h}); err != nil {
-		return nil, err
+		if cfg.QuantFormat != "mlx" {
+			return nil, err
+		}
+		emb, qerr := mlx.LoadWeight(f, "model.embed_tokens", cfg.VocabSize, h, cfg.QuantGroup, cfg.QuantBits)
+		if qerr != nil {
+			return nil, err
+		}
+		d.EmbedTokensMLX = emb
 	}
-	if d.MaskedEmbeddingCentroids, err = loadTensor("masked_embedding.centroids.weight", []int{d.NumCentroids, h}); err != nil {
-		return nil, err
-	}
-	if d.MaskedEmbeddingOrdering, err = loadIntTensor(f, "masked_embedding.token_ordering", cfg.VocabSize); err != nil {
-		return nil, err
+	if d.UseOrderedEmbeds {
+		if d.MaskedEmbeddingCentroids, err = loadTensor("masked_embedding.centroids.weight", []int{d.NumCentroids, h}); err != nil {
+			return nil, err
+		}
+		if d.MaskedEmbeddingOrdering, err = loadIntTensor(f, "masked_embedding.token_ordering", cfg.VocabSize); err != nil {
+			return nil, err
+		}
 	}
 	preWidth, ok := checkedProduct(2, d.BackboneHiddenSize)
 	if !ok {
 		return nil, fmt.Errorf("pre_projection width overflows for backbone_hidden_size=%d", d.BackboneHiddenSize)
 	}
-	if d.PreProjection, err = loadData("pre_projection.weight", []int{h, preWidth}); err != nil {
+	if d.PreProjection, d.PreProjectionMLX, err = loadDataOrMLX("pre_projection", []int{h, preWidth}); err != nil {
 		return nil, err
 	}
-	if d.PostProjection, err = loadData("post_projection.weight", []int{d.BackboneHiddenSize, h}); err != nil {
+	if d.PostProjection, d.PostProjectionMLX, err = loadDataOrMLX("post_projection", []int{d.BackboneHiddenSize, h}); err != nil {
 		return nil, err
 	}
 	if d.Norm, err = loadTensor("model.norm.weight", []int{h}); err != nil {
@@ -198,23 +236,23 @@ func LoadGemma4MTPDrafter(dir string) (*Gemma4MTPDrafter, error) {
 			return nil, err
 		}
 
-		if layer.QW, err = loadData(p+".self_attn.q_proj.weight", []int{qDim, h}); err != nil {
+		if layer.QW, layer.QWm, err = loadDataOrMLX(p+".self_attn.q_proj", []int{qDim, h}); err != nil {
 			return nil, err
 		}
 		if layer.QNorm, err = loadTensor(p+".self_attn.q_norm.weight", []int{headDim}); err != nil {
 			return nil, err
 		}
-		if layer.OW, err = loadData(p+".self_attn.o_proj.weight", []int{h, qDim}); err != nil {
+		if layer.OW, layer.OWm, err = loadDataOrMLX(p+".self_attn.o_proj", []int{h, qDim}); err != nil {
 			return nil, err
 		}
 
-		if layer.GateW, err = loadData(p+".mlp.gate_proj.weight", []int{cfg.Intermediate, h}); err != nil {
+		if layer.GateW, layer.GateWm, err = loadDataOrMLX(p+".mlp.gate_proj", []int{cfg.Intermediate, h}); err != nil {
 			return nil, err
 		}
-		if layer.UpW, err = loadData(p+".mlp.up_proj.weight", []int{cfg.Intermediate, h}); err != nil {
+		if layer.UpW, layer.UpWm, err = loadDataOrMLX(p+".mlp.up_proj", []int{cfg.Intermediate, h}); err != nil {
 			return nil, err
 		}
-		if layer.DownW, err = loadData(p+".mlp.down_proj.weight", []int{h, cfg.Intermediate}); err != nil {
+		if layer.DownW, layer.DownWm, err = loadDataOrMLX(p+".mlp.down_proj", []int{h, cfg.Intermediate}); err != nil {
 			return nil, err
 		}
 
@@ -226,7 +264,7 @@ func LoadGemma4MTPDrafter(dir string) (*Gemma4MTPDrafter, error) {
 
 // AssistantTokenEmbeddingInto copies the assistant/drafter embedding row for tokenID.
 func (d *Gemma4MTPDrafter) AssistantTokenEmbeddingInto(dst []float32, tokenID int) error {
-	if d == nil || d.EmbedTokens == nil {
+	if d == nil || (d.EmbedTokens == nil && d.EmbedTokensMLX == nil) {
 		return fmt.Errorf("drafter embeddings are not loaded")
 	}
 	h := d.Config.HiddenSize
@@ -235,6 +273,12 @@ func (d *Gemma4MTPDrafter) AssistantTokenEmbeddingInto(dst []float32, tokenID in
 	}
 	if tokenID < 0 || tokenID >= d.Config.VocabSize {
 		return fmt.Errorf("token id %d out of range [0,%d)", tokenID, d.Config.VocabSize)
+	}
+	if d.EmbedTokensMLX != nil {
+		if !mlx.DequantRowTo(dst, d.EmbedTokensMLX, tokenID) {
+			return fmt.Errorf("assistant MLX embedding row %d dequant failed", tokenID)
+		}
+		return nil
 	}
 	emb := d.EmbedTokens.Data()
 	need := (tokenID + 1) * h
@@ -284,6 +328,15 @@ func (d *Gemma4MTPDrafter) PreProjectInto(dst, backboneTokenEmbedding, activatio
 	if len(activation) != bh {
 		return fmt.Errorf("pre-project activation len=%d, want %d", len(activation), bh)
 	}
+	if d.PreProjectionMLX != nil {
+		in := make([]float32, preWidth)
+		copy(in, backboneTokenEmbedding)
+		copy(in[bh:], activation)
+		if !mlx.GemvTo(dst, in, d.PreProjectionMLX) {
+			return fmt.Errorf("pre_projection MLX GEMV failed")
+		}
+		return nil
+	}
 	if len(d.PreProjection) < want {
 		return fmt.Errorf("pre_projection len=%d, want at least %d", len(d.PreProjection), want)
 	}
@@ -316,6 +369,12 @@ func (d *Gemma4MTPDrafter) PostProjectInto(dst, assistantHidden []float32) error
 	}
 	if len(assistantHidden) != h {
 		return fmt.Errorf("post-project hidden len=%d, want %d", len(assistantHidden), h)
+	}
+	if d.PostProjectionMLX != nil {
+		if !mlx.GemvTo(dst, assistantHidden, d.PostProjectionMLX) {
+			return fmt.Errorf("post_projection MLX GEMV failed")
+		}
+		return nil
 	}
 	if len(d.PostProjection) < want {
 		return fmt.Errorf("post_projection len=%d, want at least %d", len(d.PostProjection), want)

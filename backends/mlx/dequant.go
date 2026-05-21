@@ -63,6 +63,34 @@ func dequantTo(out []float32, qw *QuantWeight) {
 	wg.Wait()
 }
 
+// DequantRowTo dequantizes one row into caller-owned output.
+func DequantRowTo(out []float32, qw *QuantWeight, row int) bool {
+	if err := ValidateQuantWeight(qw); err != nil || row < 0 || row >= qw.OutDim || len(out) < qw.InDim {
+		return false
+	}
+	dequantOneRow(out[:qw.InDim], qw, row)
+	return true
+}
+
+func dequantOneRow(out []float32, qw *QuantWeight, row int) {
+	packFactor := 32 / qw.Bits
+	mask := uint32((1 << qw.Bits) - 1)
+	packedOff := row * (qw.InDim / packFactor)
+	scaleOff := row * qw.Groups
+	for g := 0; g < qw.Groups; g++ {
+		scale := qw.Scales[scaleOff+g]
+		bias := qw.Biases[scaleOff+g]
+		gStart := g * qw.GroupSize
+		for e := 0; e < qw.GroupSize; e++ {
+			idx := gStart + e
+			packIdx := idx / packFactor
+			bitPos := uint(idx%packFactor) * uint(qw.Bits)
+			val := (qw.Weight[packedOff+packIdx] >> bitPos) & mask
+			out[idx] = float32(val)*scale + bias
+		}
+	}
+}
+
 func dequantRows(out []float32, qw *QuantWeight, start, end int) {
 	packFactor := 32 / qw.Bits
 	mask := uint32((1 << qw.Bits) - 1)

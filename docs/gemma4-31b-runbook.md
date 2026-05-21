@@ -81,13 +81,12 @@ Current Gemma4 MTP status:
 
 - `LoadGemma4MTPDrafter` exists and loads the BF16 E2B local asset: `models/gemma4-e2b-mtp-drafter`.
 - Internal tests exercise projection-only, synthetic q-only, real-asset contract, one-step, and multi-step MTP flows.
-- The 31B 4-bit assistant asset is present at `models/gemma4-31b-it-mtp-assistant-4bit`, but the drafter loader currently rejects it because it only loads F32/BF16 tensors and the 31B assistant is MLX 4-bit (`U32` packed weights plus scales/biases).
-- A regression test records this current blocker: `TestLoadGemma4MTPDrafter31B4BitDocumentsCurrentBlocker`.
+- The 31B 4-bit assistant asset is present at `models/gemma4-31b-it-mtp-assistant-4bit` and now loads through `LoadGemma4MTPDrafter` while keeping large matrices packed as MLX 4-bit weights.
+- A regression test records this path: `TestLoadGemma4MTPDrafter31B4BitKeepsPackedWeights`.
 
 ## Recommended next steps
 
 1. Add a dedicated Gemma4 loader facade that owns nested config normalization, `language_model.*` prefixing, per-layer KV-head selection, and K=V projection rules.
-2. Add MLX 4-bit support to `LoadGemma4MTPDrafter` (or a new `LoadGemma4MTPDrafterMLX`) for packed assistant weights: embeddings, pre/post projection, q_proj/o_proj, MLP projections, and norms.
-3. Add a CPU/on-the-fly flag separate from `-gpu`, so huge 4-bit models can load without forcing GPU layer upload.
-4. Probe GPU layer residency incrementally after the compact LM-head path: start with `-gpu-layers 4`, then estimate/upload 8, 12, etc. against RTX 3060 VRAM.
-5. Wire the 31B MTP assistant path only after normal 31B decode is stable and the 4-bit MTP drafter loader has parity smoke coverage.
+2. Add a CPU/on-the-fly flag separate from `-gpu`, so huge 4-bit models can load without forcing GPU layer upload.
+3. Probe GPU layer residency incrementally after the compact LM-head path: start with `-gpu-layers 4`, then estimate/upload 8, 12, etc. against RTX 3060 VRAM.
+4. Wire the 31B MTP assistant path only after normal 31B decode is stable and the 4-bit MTP drafter loader has parity smoke coverage.
