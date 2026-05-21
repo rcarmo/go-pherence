@@ -2069,3 +2069,9 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Full-GPU real-prompt smoke passes on RTX 3060: all `42/42` layers resident, compact MLX LM head resident, VRAM `6872/11910 MB` used, 10-token prepared prompt prefill `0.56s`, drafter step `0.10s`.
 - Complex-prompt E4B real-prompt smoke: 76 prepared prompt tokens, prefill `3.41s`, drafter step `0.10s`, wall `16.28s` including load/upload.
 - E4B is now the recommended local development target for verifier/prefill/MTP algorithm work; 31B remains the stress path.
+
+## 2026-05-21 — Documentation consistency pass after README split
+
+- Reviewed documentation after the README was shortened and detailed content moved to focused docs.
+- Updated Qwen3.6 MTP notes to reflect the newly found MLX 4-bit native-MTP candidates, especially `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`, and clarified that Gemma4 E4B is the fast local MTP development target while Qwen3.6 remains the native-MTP stress target.
+- Updated command, supported-model, validation-gate, and final-acceptance docs so they point to the E4B MTP smoke path first and keep 31B/Qwen as stress paths.

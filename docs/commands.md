@@ -63,6 +63,14 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
 
 ## Qwen3.6 native MTP triage
 
+Recommended next Qwen checkpoint candidate:
+
+```text
+samwang0041/Qwen3.6-27B-MLX-4bit-MTP
+```
+
+It is a dense MLX affine 4-bit native-MTP checkpoint (~15.37GB) and is a better current target than the older NVFP4 public checkpoint because public NVFP4 generation remains gated.
+
 ```bash
 go run ./cmd/qwenmtpmeta -model /path/to/qwen3.6-27b-mtp
 

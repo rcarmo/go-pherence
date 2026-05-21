@@ -38,7 +38,15 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
   -mtp-smoke \
   -prompt "Hello"
 
-# Real-prompt hybrid GPU smoke on the local RTX 3060 profile
+# Recommended real-prompt Gemma4 E4B smoke on the local RTX 3060 profile
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+  -gpu -gpu-layers 0 \
+  -model models/gemma4-e4b-it-4bit \
+  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -mtp-smoke -mtp-real-prompt \
+  -prompt "Hi"
+
+# 31B stress smoke, when VRAM headroom permits
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
   -gpu -gpu-layers 17 -gpu-kv-max-seq 256 \
   -model models/gemma4-31b-it-4bit \

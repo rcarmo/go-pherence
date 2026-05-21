@@ -43,6 +43,27 @@ Any model from [mlx-community](https://huggingface.co/mlx-community) using these
 | **F32** | safetensors dtype | Direct load | Native | Reference path. |
 | **NVFP4 / FP4** | `quantization_config` ModelOpt/compressed-tensors metadata | FP4 E2M1 + F8_E4M3FN scale reference path | Upload + dequant-to-F32 fallback kernel | Experimental/internal only; synthetic CPU/NVIDIA dequant agrees, but public loading rejects NVFP4 until real checkpoint logits/tokens agree. |
 
+## Qwen3.6 MTP candidates
+
+Current recommended Qwen native-MTP stress target:
+
+```text
+samwang0041/Qwen3.6-27B-MLX-4bit-MTP
+```
+
+Summary:
+
+```text
+model_type: qwen3_5
+hidden_size: 5120
+num_hidden_layers: 64
+mtp_num_hidden_layers: 1
+format: MLX affine 4-bit, group_size=64
+size: ~15.37GB safetensors
+```
+
+Alternative similar candidate: `kradih/Qwen3.6-27B-MTP-4bit-MLX`. Larger MoE candidates exist, but they are less attractive for the current loader/runtime work. See [qwen36-mtp.md](qwen36-mtp.md).
+
 ## Gemma4 MTP model pairs
 
 Use [mtp-speculative.md](mtp-speculative.md) and [gemma4-31b-runbook.md](gemma4-31b-runbook.md) for current MTP status.

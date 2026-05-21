@@ -2,7 +2,7 @@
 
 ## Active goal
 
-**Qwen3.6 27B with native MTP is now the active project goal.** Get a Qwen3.6 27B checkpoint with native MTP running in go-pherence as quickly as possible, without confusing it with the separate Gemma4 assistant-drafter MTP or the Orthrus-inspired stock-weight speculative scaffold.
+Qwen3.6 27B native MTP is the main Qwen stress target. Current day-to-day MTP algorithm work should use the Gemma4 E4B pair because it fits fully on the local RTX 3060 and gives second-scale real-prompt smokes; Qwen3.6 remains the native/in-checkpoint MTP path to bring up after the base architecture and quantized loader path are reliable. Keep this separate from the Gemma4 assistant-drafter MTP path and the Orthrus-inspired stock-weight speculative scaffold.
 
 Definition of done for the first useful milestone:
 
@@ -22,7 +22,7 @@ Hugging Face search shows active Qwen3.6 27B MTP artifacts, including:
 - `havenoammo/Qwen3.6-27B-MTP-UD-GGUF`
 - `froggeric/Qwen3.6-27B-MTP-GGUF`
 
-The most relevant safetensors checkpoint inspected so far is `sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP`.
+The originally inspected safetensors checkpoint is `sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP`.
 
 Top-level config:
 
@@ -69,19 +69,28 @@ mtp.norm.weight                            BF16 [5120]
 
 This is not the Gemma4 LiteRT q-only assistant layout. It is an in-model one-layer native MTP head with its own full Q/K/V attention and MLP, plus a fusion/projection matrix over embedding + hidden (`mtp.fc.weight`).
 
-## Important blocker
+## MLX 4-bit candidates
 
-The inspected safetensors checkpoint is NVFP4:
+Later HF search found MLX 4-bit native-MTP Qwen3.6 candidates that avoid the original NVFP4 public-loading blocker:
+
+| Model | Size | Type | Hidden | Layers | MTP layers | Notes |
+|---|---:|---|---:|---:|---:|---|
+| `samwang0041/Qwen3.6-27B-MLX-4bit-MTP` | ~15.37GB | `qwen3_5` | 5120 | 64 | 1 | Best dense Qwen candidate found; MLX affine 4-bit group 64. |
+| `kradih/Qwen3.6-27B-MTP-4bit-MLX` | ~15.37GB | `qwen3_5` | 5120 | 64 | 1 | Similar/duplicate-looking candidate. |
+| `stamsam/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-MLX-oQ4-MTP` | ~20.0GB | `qwen3_5_moe` | 2048 | 40 | 1 | MoE; likely more loader/runtime complexity. |
+| `m5max/Huihui-Qwen3.6-35B-A3B-Claude-4.6-Opus-abliterated-mlx-oQ8-mtp` | ~37.7GB | `qwen3_5_moe` | 2048 | 40 | 1 | 8-bit MoE; not suitable for current hardware. |
+
+The recommended Qwen next target is `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`: dense, native MTP, MLX affine 4-bit. It is still much larger than Gemma4 E4B and unlikely to fit fully on the RTX 3060, but it avoids the NVFP4 gate and is a better stress target than the original NVFP4 checkpoint.
+
+## Important blocker for the original NVFP4 checkpoint
+
+The originally inspected safetensors checkpoint is NVFP4:
 
 ```text
 quantization_config: compressed-tensors/modelopt-style FP4/NVFP4 groups
 ```
 
-Current go-pherence intentionally rejects public NVFP4 loading/generation until real CPU/NVIDIA logits/tokens agree. So the fastest route is either:
-
-1. find a BF16/MLX/GPTQ Qwen3.6 27B MTP safetensors checkpoint, or
-2. finish enough real-checkpoint NVFP4 loading to run this model, or
-3. use GGUF only as a metadata/reference source, not as a direct loader path.
+Current go-pherence intentionally rejects public NVFP4 loading/generation until real CPU/NVIDIA logits/tokens agree. Since MLX 4-bit Qwen3.6 native-MTP checkpoints now exist, the fastest practical route is to try one of those before spending more time on public NVFP4 generation.
 
 
 ## llama.cpp `mtp-clean` reference mapping

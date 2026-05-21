@@ -1,6 +1,6 @@
 # Final backend coverage acceptance tracker
 
-This tracker maps the remaining acceptance criteria for practical backend coverage. Last reviewed on 2026-05-21 after the tree-split recovery, guard sweep, documentation refresh, and Gemma4 31B packed-MTP smoke validation.
+This tracker maps the remaining acceptance criteria for practical backend coverage. Last reviewed on 2026-05-21 after the tree-split recovery, guard sweep, documentation refresh, Gemma4 packed-MTP smoke validation, E4B MTP target validation, and README documentation split.
 
 ## Acceptance criteria
 
@@ -13,7 +13,7 @@ This tracker maps the remaining acceptance criteria for practical backend covera
 | CPU-only test gate passes without GPU present | Passed | `make test-cpu` passed after the Qwen MTP, MoE, KV, and NVIDIA runtime guard sweep. |
 | NVIDIA smoke tests pass on available NVIDIA hardware | Pending hardware run; local package gate clean | `GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/...` passes locally with availability-gated tests. Hardware smoke on a CUDA-capable host remains the only open NVIDIA acceptance item. |
 | Vulkan smoke tests pass or are explicitly opt-in skipped | Pending hardware/runtime run; local package gate clean | `GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan` passes locally with validating wrappers and availability-gated parity. CPU/software Vulkan remains opt-in; real-device smoke remains hardware/runtime-dependent. |
-| Documentation reflects final package layout and kernel coverage | Current | Docs index, layout, coverage, parity, malformed-input, validation, Vulkan, NVIDIA, BF16, NVFP4, benchmark queue, performance snapshots, and Gemma4 MTP runbooks are current after refreshed gates plus Qwen native-MTP, speculative decode sizing, MoE expert-upload, KV compressed sizing, DevBuf, PTX loader, mega-module guard updates, and the 31B packed-MTP smoke. |
+| Documentation reflects final package layout and kernel coverage | Current | Docs index, layout, backend stack, supported models, commands, validation hardening, coverage, parity, malformed-input, Vulkan, NVIDIA, BF16, NVFP4, benchmark queue, performance snapshots, Gemma4 MTP runbooks, and Qwen MTP candidate notes are current after refreshed gates plus Qwen native-MTP, speculative decode sizing, MoE expert-upload, KV compressed sizing, DevBuf, PTX loader, mega-module guard updates, E4B long-prompt smoke, and the 31B packed-MTP smoke. |
 
 ## Deferred implementation work
 
