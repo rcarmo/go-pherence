@@ -5,15 +5,18 @@ This directory contains the durable backend, model, validation, and research not
 ## Backend ownership and coverage
 
 - [architecture.md](architecture.md) — architecture overview and package-boundary rationale.
+- [backend-stack.md](backend-stack.md) — NVIDIA, Vulkan, SIMD, BF16, and package ownership summary.
 - [backend-layout.md](backend-layout.md) — current backend/model ownership and package layout.
 - [kernel-coverage.md](kernel-coverage.md) — kernel and quantization coverage across backends.
 - [backend-parity-matrix.md](backend-parity-matrix.md) — scalar/reference parity targets and hardware-gated test policy.
 - [malformed-input-coverage.md](malformed-input-coverage.md) — exported wrapper malformed-input coverage tracker.
+- [validation-hardening.md](validation-hardening.md) — readable malformed-input and boundary-hardening summary.
 - [quant-import-audit.md](quant-import-audit.md) — `runtime/quant` compatibility boundary audit.
 
 ## Validation and performance
 
 - [validation-gates.md](validation-gates.md) — phase-level test, vet, CPU-only, and hardware smoke gates.
+- [commands.md](commands.md) — CLI usage, MTP smokes, Qwen MTP triage, and benchmark harnesses.
 - [final-coverage-acceptance.md](final-coverage-acceptance.md) — final backend coverage acceptance tracker.
 - [performance.md](performance.md) — benchmark notes and current snapshots.
 - [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and refreshed snapshot status.
@@ -31,6 +34,7 @@ This directory contains the durable backend, model, validation, and research not
 
 ## Model/research notes
 
+- [supported-models.md](supported-models.md) — supported architectures, formats, and performance snapshot.
 - [gemma4-precision.md](gemma4-precision.md) — Gemma4 GPU correctness and precision notes.
 - [gemma4-31b-runbook.md](gemma4-31b-runbook.md) — local Gemma4 31B main/MTP assets and current run strategy.
 - [model-package-refactor.md](model-package-refactor.md) — safe plan for splitting generic model contracts from architecture-specific packages.
