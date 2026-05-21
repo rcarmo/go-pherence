@@ -10,12 +10,15 @@ func (g *GPUModel) BuildMTPPromptContext(tokenIDs []int) (MTPPromptContext, erro
 	if g == nil || g.CPU == nil {
 		return MTPPromptContext{}, fmt.Errorf("nil GPU model")
 	}
-	// GPU Generate skips final LM-head/activation capture when maxTokens=0.
-	// Request one token so the last prompt position is finalized; this helper
-	// only uses the captured prompt state, not the returned generated token.
+	oldCapture := g.capturePromptContext
+	g.capturePromptContext = true
+	defer func() { g.capturePromptContext = oldCapture }()
+	// Generate(..., 0) intentionally stops before the last prompt position.
+	// Request one internal step; capturePromptContext intercepts the final prompt
+	// activation before LM-head logits and prevents token append for this helper.
 	out := g.Generate(tokenIDs, 1)
 	_ = out
-	if len(g.lastPromptTokens) == 0 || len(g.lastActivation) == 0 || len(g.lastLogits) == 0 {
+	if len(g.lastPromptTokens) == 0 || len(g.lastActivation) == 0 {
 		return MTPPromptContext{}, fmt.Errorf("GPU prompt context was not captured")
 	}
 	seqLen := len(g.lastPromptTokens)
@@ -50,13 +53,14 @@ func (g *GPUModel) BuildMTPPromptContext(tokenIDs []int) (MTPPromptContext, erro
 		kvV[l] = append([]float32(nil), g.kvCacheV[l][:want]...)
 	}
 	return MTPPromptContext{
-		Tokens:        append([]int(nil), g.lastPromptTokens...),
-		PreviousToken: g.lastPromptTokens[len(g.lastPromptTokens)-1],
-		Activation:    append([]float32(nil), g.lastActivation...),
-		KVCacheK:      kvK,
-		KVCacheV:      kvV,
-		SeqLen:        seqLen,
-		FinalLogits:   append([]float32(nil), g.lastLogits...),
-		FinalToken:    g.lastToken,
+		Tokens:         append([]int(nil), g.lastPromptTokens...),
+		PreviousToken:  g.lastPromptTokens[len(g.lastPromptTokens)-1],
+		Activation:     append([]float32(nil), g.lastActivation...),
+		KVCacheK:       kvK,
+		KVCacheV:       kvV,
+		SeqLen:         seqLen,
+		FinalLogits:    append([]float32(nil), g.lastLogits...),
+		FinalToken:     g.lastToken,
+		LogitsComputed: len(g.lastLogits) > 0,
 	}, nil
 }

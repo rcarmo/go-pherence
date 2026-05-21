@@ -78,7 +78,7 @@ Latest local results on 2026-05-21:
 |---|---|---:|---:|---:|---|
 | CPU/on-the-fly | none | 299.06s | 0.39s | 317.19s | 10 prepared tokens |
 | Hybrid GPU safe | `-gpu -gpu-layers 17 -gpu-kv-max-seq 256` | 213.76s | 0.41s | 243.23s | ~653MB VRAM free, no GPU LM head |
-| Hybrid GPU aggressive | `-gpu -gpu-layers 18 -gpu-kv-max-seq 64` | 200.32s | 0.39s | 230.66s | ~79MB VRAM free, short prompts only |
+| Hybrid GPU aggressive | `-gpu -gpu-layers 18 -gpu-kv-max-seq 64` | 200–205s | 0.39–0.41s | 230–235s | ~79MB VRAM free, short prompts only; prompt seed now skips LM-head logits |
 
 This proves the real activation/KV handoff, but also shows that CPU/on-the-fly 31B prompt prefill remains the immediate bottleneck. A 72-token complex-prompt benchmark on this path would still take tens of minutes unless more transformer layers fit or a true batched/GPU Gemma4 prefill path lands.
 
@@ -137,7 +137,7 @@ Current Gemma4 MTP status:
 - Internal tests exercise projection-only, synthetic q-only, real-asset contract, one-step, and multi-step MTP flows.
 - The 31B 4-bit assistant asset is present at `models/gemma4-31b-it-mtp-assistant-4bit` and loads while keeping large matrices packed as MLX 4-bit weights.
 - `PreProjectInto`, q/o projections, MLP projections, `PostProjectInto`, and token embedding lookup dispatch through packed MLX helpers when packed weights are present. The only dequantization in the 31B assistant smoke is row-local embedding dequantization and normal small BF16 norm/scalar tensors.
-- `llmgen -mtp-smoke` validates the runtime-facing seam and prints shape/timing JSON. With `-mtp-real-prompt`, it first builds real prompt activation/KV via `BuildMTPPromptContext` instead of using zero external KV. With `-gpu`, `GPUModel.BuildMTPPromptContext` uses the hybrid GPU/CPU path and copies GPU-resident KV back into the MTP context.
+- `llmgen -mtp-smoke` validates the runtime-facing seam and prints shape/timing JSON. With `-mtp-real-prompt`, it first builds real prompt activation/KV via `BuildMTPPromptContext` instead of using zero external KV. With `-gpu`, `GPUModel.BuildMTPPromptContext` uses the hybrid GPU/CPU path and copies GPU-resident KV back into the MTP context. Prompt seeding computes final activation only and intentionally skips the large prompt LM-head projection; `FinalToken` is `-1` in this mode.
 - Regression coverage: `TestLoadGemma4MTPDrafter31B4BitKeepsPackedWeights`.
 
 ## Recommended next steps

@@ -2053,3 +2053,9 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
   - `-gpu-layers 14`: `220.75s` prompt prefill, compact MLX LM head resident.
   - `-gpu-layers 17 -gpu-kv-max-seq 256`: `213.76s` prompt prefill, ~653MB free.
   - `-gpu-layers 18 -gpu-kv-max-seq 64`: `200.32s` prompt prefill, ~79MB free; useful only as an aggressive short-prompt probe.
+
+## 2026-05-21 — Prompt-context LM-head bypass
+
+- Added `FinishCPUActivation` so MTP prompt seeding can capture final normalized activation without running the full vocabulary LM-head projection.
+- `BuildMTPPromptContext` and `GPUModel.BuildMTPPromptContext` now use activation-only prompt finalization. The GPU helper still requests one internal Generate step because `Generate(..., 0)` intentionally stops before the last prompt position, but it intercepts the final prompt activation before logits and does not append a token.
+- This removes unnecessary verifier-side prompt logits work from MTP seeding; short-prompt timings remain dominated by the 31B transformer layers and vary around `200–205s` for the aggressive local GPU split.

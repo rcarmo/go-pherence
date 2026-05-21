@@ -11,14 +11,15 @@ import (
 // MTPPromptContext is the real verifier-side state needed to seed a q-only
 // Gemma4 MTP drafter after prompt prefill.
 type MTPPromptContext struct {
-	Tokens        []int
-	PreviousToken int
-	Activation    []float32
-	KVCacheK      [][]float32
-	KVCacheV      [][]float32
-	SeqLen        int
-	FinalLogits   []float32
-	FinalToken    int
+	Tokens         []int
+	PreviousToken  int
+	Activation     []float32
+	KVCacheK       [][]float32
+	KVCacheV       [][]float32
+	SeqLen         int
+	FinalLogits    []float32
+	FinalToken     int
+	LogitsComputed bool
 }
 
 // BuildMTPPromptContext runs the prompt through the same CPU token/layer path
@@ -62,8 +63,7 @@ func (m *LlamaModel) BuildMTPPromptContext(tokenIDs []int) (MTPPromptContext, er
 	}
 	attnScoresScratch := make([]float32, len(prepared))
 	attnOutScratch := make([]float32, cfg.NumHeads*maxHeadDim)
-	var finalActivation, finalLogits []float32
-	finalToken := -1
+	var finalActivation []float32
 	for step, tokID := range prepared {
 		hidden := make([]float32, h)
 		if err := m.ScaledTokenEmbeddingInto(hidden, tokID); err != nil {
@@ -81,16 +81,14 @@ func (m *LlamaModel) BuildMTPPromptContext(tokenIDs []int) (MTPPromptContext, er
 			}
 		}
 		if step == len(prepared)-1 {
-			activation, logits, tok, err := m.finishCPUDecodeStep(hidden)
+			activation, err := m.FinishCPUActivation(hidden)
 			if err != nil {
-				return MTPPromptContext{}, fmt.Errorf("prompt decode finish: %w", err)
+				return MTPPromptContext{}, fmt.Errorf("prompt activation finish: %w", err)
 			}
 			finalActivation = append([]float32(nil), activation...)
-			finalLogits = logits
-			finalToken = tok
 		}
 	}
-	return MTPPromptContext{Tokens: prepared, PreviousToken: prepared[len(prepared)-1], Activation: finalActivation, KVCacheK: kvCacheK, KVCacheV: kvCacheV, SeqLen: len(prepared), FinalLogits: finalLogits, FinalToken: finalToken}, nil
+	return MTPPromptContext{Tokens: prepared, PreviousToken: prepared[len(prepared)-1], Activation: finalActivation, KVCacheK: kvCacheK, KVCacheV: kvCacheV, SeqLen: len(prepared), FinalToken: -1}, nil
 }
 
 func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]float32, layerIdx, pos int, kvCacheK, kvCacheV [][]float32, attnScoresScratch, attnOutScratch []float32) ([]float32, error) {

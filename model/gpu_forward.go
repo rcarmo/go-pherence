@@ -107,10 +107,11 @@ type GPUModel struct {
 	lmHead       []float32            // [vocab, h]
 	vocabSize    int
 
-	lastPromptTokens []int
-	lastActivation   []float32
-	lastLogits       []float32
-	lastToken        int
+	capturePromptContext bool
+	lastPromptTokens     []int
+	lastActivation       []float32
+	lastLogits           []float32
+	lastToken            int
 }
 
 const compactMLXLMHeadThresholdBytes = uint64(1536 * 1024 * 1024)
@@ -1369,8 +1370,27 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 			continue
 		}
 
-		// Sync GPU → CPU for final norm + sampling
+		// Sync GPU → CPU for final norm + sampling or prompt-context capture.
 		nvidia.Sync() // drain all queued GPU work before readback
+		if g.capturePromptContext && step == len(tokenIDs)-1 {
+			if g.normGPU != nil {
+				nvidia.DevRMSNorm(g.hidden, g.hidden, g.normGPU, float32(cfg.RMSNormEps))
+				if cfg.ModelType == "gemma4_text" {
+					nvidia.DevToBF16(g.hidden, h)
+				}
+				nvidia.Sync()
+			} else {
+				hd = g.hidden.Data()
+				if activation, err := m.FinishCPUActivation(hd); err == nil {
+					copy(hd, activation)
+				}
+			}
+			g.lastActivation = append(g.lastActivation[:0], g.hidden.Data()[:h]...)
+			g.lastPromptTokens = append(g.lastPromptTokens[:0], tokenIDs...)
+			g.lastLogits = g.lastLogits[:0]
+			g.lastToken = -1
+			continue
+		}
 
 		logitTimer := profileStart()
 		if g.lmHeadMLXGPU != nil || g.lmHeadGPU != nil {
