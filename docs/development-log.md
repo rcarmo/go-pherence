@@ -2027,3 +2027,12 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added a docs index and cross-linked architecture, backend layout, README, kernel coverage, Vulkan, NVIDIA, BF16, NVFP4, benchmark, and validation references.
 - Kept full validation deferred until the planned phase-level gate: `GOTMPDIR=$PWD/.gotmp go test ./...`, `GOTMPDIR=$PWD/.gotmp go vet ./...`, and `make test-cpu`.
 - On 2026-05-20, ran that full phase-level validation gate and all three commands passed.
+
+## 2026-05-21 — Gemma4 31B packed MTP smoke
+
+- Added MLX row dequantization for single embedding rows so the 31B MTP assistant can keep its vocabulary embedding table packed and only materialize the requested token row.
+- Extended `LoadGemma4MTPDrafter` to load the 31B assistant checkpoint (`models/gemma4-31b-it-mtp-assistant-4bit`) with packed MLX 4-bit weights for embeddings, pre/post projections, attention projections, and MLP projections.
+- Routed q-only drafter GEMVs through `backends/mlx` when packed weights are present, preserving the BF16/F32 path for the E2B assistant.
+- Added `cmd/gemma4mtpsmoke` plus `llmgen -mtp-drafter ... -mtp-smoke` as runtime-facing smoke paths. They load the main 31B model on the on-the-fly 4-bit path, load the packed assistant, build minimal external KV, run one q-only drafter step, and emit timing/shape JSON.
+- Local 31B smoke after `go test ./...` and `go vet ./...`: main load `16.25s`, assistant load `0.26s`, drafter step `0.47s`, packed embedding/projection/layer weights all true.
+- Full speculative generation remains pending: capture real verifier activations/KV, run adaptive multi-draft assistant steps, batch verifier candidates, and commit accepted KV prefixes plus the bonus token.

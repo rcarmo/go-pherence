@@ -4,7 +4,7 @@
 
 **Run MLX models on any hardware.** A pure Go inference engine for Apple MLX, GPTQ and BF16 model weights — with a production NVIDIA backend, Vulkan scaffolding, and SIMD assembly CPU paths. Single static binary, no Python, no CGo, no external dependencies.
 
-> Active development goal: Qwen3.6 27B native MTP support. See [docs/qwen36-mtp.md](docs/qwen36-mtp.md) for checkpoint findings, blockers, and the implementation roadmap.
+> Active development goal: native MTP/speculative decoding support across Qwen3.6 and Gemma4. See [docs/qwen36-mtp.md](docs/qwen36-mtp.md), [docs/mtp-speculative.md](docs/mtp-speculative.md), and [docs/gemma4-31b-runbook.md](docs/gemma4-31b-runbook.md) for checkpoint findings, packed 4-bit Gemma4 smoke status, blockers, and the implementation roadmap.
 
 ## Why
 
@@ -144,7 +144,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/gemma4mtpsmoke \
   -drafter models/gemma4-31b-it-mtp-assistant-4bit
 ```
 
-This loads the main Gemma4 model on the on-the-fly 4-bit path, loads the MTP assistant with packed MLX 4-bit weights, builds a minimal external-KV view, runs one q-only drafter step, and prints JSON timing/shape information.
+This loads the main Gemma4 model on the on-the-fly 4-bit path, loads the MTP assistant with packed MLX 4-bit weights, builds a minimal external-KV view, runs one q-only drafter step, and prints JSON timing/shape information. The smoke path is intended to prove 4-bit assistant compute stays packed; it is not full speculative generation yet.
 
 The same experimental runtime smoke is exposed through `llmgen`:
 

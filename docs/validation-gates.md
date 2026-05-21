@@ -30,6 +30,13 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
 GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4
+
+# Gemma4 31B packed MTP smoke, when local ignored model assets are present
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+  -model models/gemma4-31b-it-4bit \
+  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -mtp-smoke \
+  -prompt "Hello"
 ```
 
 ## Benchmark snapshots

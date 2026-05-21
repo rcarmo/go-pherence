@@ -15,8 +15,11 @@ a KV-reusing verifier block is implemented.
 
 ## Architecture
 
-### Drafter model (Gemma4-E2B-it-assistant)
-Local asset: `models/gemma4-e2b-mtp-drafter`.
+### Drafter models
+
+Local E2B BF16 asset: `models/gemma4-e2b-mtp-drafter`.
+
+Local 31B MLX 4-bit assistant asset: `models/gemma4-31b-it-mtp-assistant-4bit`.
 
 - Top-level `model_type: gemma4_assistant`, `architectures: [Gemma4AssistantForCausalLM]`
 - Nested text config is `model_type: gemma4_text`
@@ -29,7 +32,7 @@ Local asset: `models/gemma4-e2b-mtp-drafter`.
 - Disk: 151 MB BF16 safetensors + 31 MB tokenizer
 - VRAM estimate: ~50 MB plus runtime buffers
 
-### Special tensors in local safetensors
+### Special tensors in local E2B safetensors
 - `pre_projection.weight`: `[256, 3072]` — maps `embedding(prev_token)[1536] || activation[1536]` into drafter hidden size 256.
 - `post_projection.weight`: `[1536, 256]` — maps drafter hidden/projected state back to the main hidden size for the next drafter step and verifier handoff.
 - `masked_embedding.centroids.weight`: `[2048, 256]` — centroid embedding table.
@@ -39,7 +42,8 @@ Local asset: `models/gemma4-e2b-mtp-drafter`.
 - **No `k_proj`, `v_proj`, `k_norm`, or `v_norm` tensors exist in the drafter**; those must come from shared/base-model KV state.
 
 Current implementation status (after the backend/model reorganization; Qwen-specific code now lives in `model/qwen`, Gemma4 diagnostics in `model/gemma4`, and generation extraction remains future work):
-- `LoadGemma4MTPDrafter` loads the local assistant asset into a dedicated q-only drafter structure, including exact-shape/config validation for `pre_projection`, `post_projection`, masked embedding tensors, and all four q-only layers.
+- `LoadGemma4MTPDrafter` loads the local assistant assets into a dedicated q-only drafter structure, including exact-shape/config validation for `pre_projection`, `post_projection`, optional masked embedding tensors, and all four q-only layers.
+- The 31B assistant path keeps large MLX 4-bit matrices packed (`EmbedTokensMLX`, projection weights, attention weights, and MLP weights) and dispatches q-only drafter GEMVs through `backends/mlx` on-the-fly compute instead of expanding the assistant to F32. Token embedding lookup dequantizes only the requested row.
 - Helper methods cover assistant token row copies, masked embedding ordering lookups, alias-safe `PreProjectInto`, and alias-safe `PostProjectInto`.
 - Main-model helper primitives expose raw/scaled token embeddings, Gemma4 per-layer input preparation, a CPU decode finish helper that returns copied final activations, LM-head logits, and greedy argmax outside `Generate`; `Generate` now uses these shared helpers.
 - `runtime/kv` staged KV helpers can checkpoint, restore, and keep only the accepted prefix plus verifier bonus token for both uncompressed and TurboQuant-backed KV caches.
@@ -50,8 +54,9 @@ Current implementation status (after the backend/model reorganization; Qwen-spec
 - Drafter layers mark `KVSourceLayer=-1` because their K/V source is external. `MTPDrafterExternalKV` is the explicit read-only main-model KV view for q-only drafter layers; validation checks source mapping, source sequence width, q-only projection dimensions, MLP dimensions, and all required norms.
 - `RunMTPDrafterStepWithExternalKV` runs the projection shell plus the current CPU q-only layer path: Gemma-aware BF16/FP32 norms, q projection, q norm, Gemma-scaled external GQA attention, output projection, residual/post-attention handling, pre/post-FFN norms, MLP, layer scalar, final drafter norm, post-projection, main LM-head logits, and next-state construction. Zero-layer projection-only fixtures remain supported.
 - `RunMTPDrafterSteps` runs a bounded internal multi-step drafter-only loop, carrying copied state between draft steps and returning drafted tokens, logits, activations, and final state. The real-asset contract test now loads the local Gemma4 main and MTP drafter assets when present, builds a minimal external-KV view, and proves one q-only drafter step reaches correctly shaped outputs.
+- `cmd/gemma4mtpsmoke` and `cmd/llmgen -mtp-smoke` expose a runtime-facing smoke for the 31B path: load the main model on the on-the-fly 4-bit path, load the packed 4-bit assistant, build minimal external KV, run one q-only drafter step, and print timing/shape JSON. Latest local 31B smoke: main load `16.25s`, assistant load `0.26s`, drafter step `0.47s`, packed embedding/projection/layer weights all true.
 - `MTPSpeculationStats` tracks LiteRT-style drafted/verified/bonus/output counters. `RunMTPSpeculativeStep` provides the compatibility one-token drafter→verifier→stats seam, while `RunMTPMultiDraftSpeculativeStep` drafts multiple tokens before one verifier pass. Both remain internal-only; the multi-draft path checkpoints float KV before verifier forward and restores staged KV on verifier or post-verifier stats errors.
-- Remaining gap: extend the verifier path to full Gemma4 per-layer-input/batched semantics, prove q-only drafter numerical parity against real assistant assets, add adaptive draft-count policy, and run CPU/GPU smokes before exposing any public speculative-decoding CLI flag.
+- Remaining gap: convert the smoke seam into full generation: capture real verifier activation/KV from normal decode, extend the verifier path to full Gemma4 per-layer-input/batched semantics, prove q-only drafter numerical parity against real assistant assets, add adaptive draft-count policy, and wire accepted-KV commit into public speculative generation.
 
 ### Data flow
 
@@ -98,8 +103,9 @@ Verifier (target batched path):
 8. **Verifier-forward contract** ✅ — `RunMTPVerifierForward` validates model/plan/KV-cache contract and rejects unsupported PLI/batched semantics explicitly.
 9. **Initial CPU verifier path** ✅ — run a short sequential CPU forward over `[input_token] + drafted_tokens`, return per-position logits and final activation, and stage candidate float KV updates. The current implementation deliberately reuses `ForwardLayer` plus `finishCPUDecodeStep` rather than extracting a larger shared decode-step helper; a fuller helper should wait until Gemma4 PLI and batched verifier semantics are implemented so the shared boundary matches `Generate` completely.
 10. **Drafter forward loop** ✅/internal — projection-only, synthetic q-only, and local real-asset contract paths now run with explicit external KV, Gemma-aware norms/attention scale, q-only attention, MLP, final norm, post-projection, and main LM-head logits. `RunMTPDrafterSteps` carries state across bounded multi-step drafts. Remaining work is numerical parity against real assistant outputs and adaptive policy.
-11. **End-to-end speculative decode** ✅/internal — `RunMTPSpeculativeStep` integrates one drafter step, verifier forward, and stats without CLI exposure; `RunMTPMultiDraftSpeculativeStep` does the same for multiple drafted tokens in one verifier pass. Remaining work is KV commit policy inside generation, adaptive K, and smoke-validated public wiring.
-12. **Adaptive K** — track acceptance rate by task/prompt class and adjust draft length.
+11. **End-to-end speculative decode** ✅/internal — `RunMTPSpeculativeStep` integrates one drafter step, verifier forward, and stats without CLI exposure; `RunMTPMultiDraftSpeculativeStep` does the same for multiple drafted tokens in one verifier pass. Remaining work is KV commit policy inside generation, adaptive K, and production public wiring.
+12. **31B packed smoke** ✅/experimental CLI — `cmd/gemma4mtpsmoke` and `llmgen -mtp-smoke` validate that the 31B main model and packed 4-bit assistant can execute one drafter step without dequantizing assistant matrices to F32.
+13. **Adaptive K** — track acceptance rate by task/prompt class and adjust draft length.
 
 ## Reference Implementations
 
@@ -167,6 +173,7 @@ Implementation implications for go-pherence:
 | Model | Drafter | Layers | Hidden | Disk |
 |---|---|---|---|---|
 | Gemma4-E2B | gemma-4-E2B-it-assistant-bf16 | 4 | 256 | 151 MB |
+| Gemma4-31B | gemma-4-31B-it-assistant-4bit | 4 | 1024 | 283 MB |
 | Gemma4-E4B | gemma-4-E4B-it-assistant | 4 | 256 | ~200 MB |
 | Gemma4-26B MoE | gemma-4-26B-A4B-it-assistant | 4 | 256 | ~200 MB |
 | Qwen3.6-35B | built-in (mtp_num_hidden_layers=1) | 1 | shared | in-model |
