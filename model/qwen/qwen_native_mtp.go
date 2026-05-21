@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	basemodel "github.com/rcarmo/go-pherence/model"
@@ -15,6 +16,7 @@ import (
 // Gemma4 assistant-drafter structures.
 type QwenNativeMTPHead struct {
 	FC                 *tensor.Tensor
+	FCm                *mlx.QuantWeight
 	PreFCNormEmbedding *tensor.Tensor
 	PreFCNormHidden    *tensor.Tensor
 	Norm               *tensor.Tensor
@@ -41,10 +43,32 @@ type QwenNativeMTPLayer struct {
 	GateW     *tensor.Tensor
 	UpW       *tensor.Tensor
 	DownW     *tensor.Tensor
+	QWm       *mlx.QuantWeight
+	KWm       *mlx.QuantWeight
+	VWm       *mlx.QuantWeight
+	OWm       *mlx.QuantWeight
+	GateWm    *mlx.QuantWeight
+	UpWm      *mlx.QuantWeight
+	DownWm    *mlx.QuantWeight
 }
 
 type QwenNativeMTPTensorSource interface {
 	Get(name string, shape []int) (*tensor.Tensor, error)
+}
+
+func getQwenNativeMTPTensor(src QwenNativeMTPTensorSource, name string, shape []int) (*tensor.Tensor, error) {
+	var last error
+	for _, candidate := range qwen35DirectTensorNameCandidates(name) {
+		t, err := src.Get(candidate, shape)
+		if err == nil {
+			return t, nil
+		}
+		last = err
+	}
+	if last != nil {
+		return nil, last
+	}
+	return nil, fmt.Errorf("missing %s", name)
 }
 
 func LoadOptionalQwenNativeMTPSharedHead(src QwenNativeMTPTensorSource, vocab, hidden int) (*tensor.Tensor, error) {
@@ -79,16 +103,17 @@ func LoadQwenNativeMTPHead(src QwenNativeMTPTensorSource, meta loaderconfig.Qwen
 	inter := meta.IntermediateSize
 	head := &QwenNativeMTPHead{}
 	var err error
-	if head.FC, err = src.Get("mtp.fc.weight", []int{h, 2 * h}); err != nil {
+	quantGroup, quantBits := qwen35QuantParams(meta)
+	if err := loadQwen35DenseOrQuant(src, "mtp.fc.weight", &head.FC, nil, &head.FCm, []int{h, 2 * h}, quantGroup, quantBits); err != nil {
 		return nil, err
 	}
-	if head.PreFCNormEmbedding, err = src.Get("mtp.pre_fc_norm_embedding.weight", []int{h}); err != nil {
+	if head.PreFCNormEmbedding, err = getQwenNativeMTPTensor(src, "mtp.pre_fc_norm_embedding.weight", []int{h}); err != nil {
 		return nil, err
 	}
-	if head.PreFCNormHidden, err = src.Get("mtp.pre_fc_norm_hidden.weight", []int{h}); err != nil {
+	if head.PreFCNormHidden, err = getQwenNativeMTPTensor(src, "mtp.pre_fc_norm_hidden.weight", []int{h}); err != nil {
 		return nil, err
 	}
-	if head.Norm, err = src.Get("mtp.norm.weight", []int{h}); err != nil {
+	if head.Norm, err = getQwenNativeMTPTensor(src, "mtp.norm.weight", []int{h}); err != nil {
 		return nil, err
 	}
 	if meta.VocabSize > 0 {
@@ -107,23 +132,23 @@ func LoadQwenNativeMTPHead(src QwenNativeMTPTensorSource, meta loaderconfig.Qwen
 		loads := []struct {
 			name  string
 			dst   **tensor.Tensor
+			mdst  **mlx.QuantWeight
 			shape []int
 		}{
-			{prefix + ".input_layernorm.weight", &l.InputNorm, []int{h}},
-			{prefix + ".post_attention_layernorm.weight", &l.PostNorm, []int{h}},
-			{prefix + ".self_attn.q_proj.weight", &l.QW, attnShapes.QProj},
-			{prefix + ".self_attn.k_proj.weight", &l.KW, attnShapes.KProj},
-			{prefix + ".self_attn.v_proj.weight", &l.VW, attnShapes.VProj},
-			{prefix + ".self_attn.o_proj.weight", &l.OW, attnShapes.OProj},
-			{prefix + ".self_attn.q_norm.weight", &l.QNorm, attnShapes.QNorm},
-			{prefix + ".self_attn.k_norm.weight", &l.KNorm, attnShapes.KNorm},
-			{prefix + ".mlp.gate_proj.weight", &l.GateW, []int{inter, h}},
-			{prefix + ".mlp.up_proj.weight", &l.UpW, []int{inter, h}},
-			{prefix + ".mlp.down_proj.weight", &l.DownW, []int{h, inter}},
+			{prefix + ".input_layernorm.weight", &l.InputNorm, nil, []int{h}},
+			{prefix + ".post_attention_layernorm.weight", &l.PostNorm, nil, []int{h}},
+			{prefix + ".self_attn.q_proj.weight", &l.QW, &l.QWm, attnShapes.QProj},
+			{prefix + ".self_attn.k_proj.weight", &l.KW, &l.KWm, attnShapes.KProj},
+			{prefix + ".self_attn.v_proj.weight", &l.VW, &l.VWm, attnShapes.VProj},
+			{prefix + ".self_attn.o_proj.weight", &l.OW, &l.OWm, attnShapes.OProj},
+			{prefix + ".self_attn.q_norm.weight", &l.QNorm, nil, attnShapes.QNorm},
+			{prefix + ".self_attn.k_norm.weight", &l.KNorm, nil, attnShapes.KNorm},
+			{prefix + ".mlp.gate_proj.weight", &l.GateW, &l.GateWm, []int{inter, h}},
+			{prefix + ".mlp.up_proj.weight", &l.UpW, &l.UpWm, []int{inter, h}},
+			{prefix + ".mlp.down_proj.weight", &l.DownW, &l.DownWm, []int{h, inter}},
 		}
 		for _, load := range loads {
-			*load.dst, err = src.Get(load.name, load.shape)
-			if err != nil {
+			if err := loadQwen35DenseOrQuant(src, load.name, load.dst, nil, load.mdst, load.shape, quantGroup, quantBits); err != nil {
 				return nil, err
 			}
 		}
@@ -455,6 +480,13 @@ func (l *QwenNativeMTPLayer) ForwardWithKV(input []float32, pos int, ropeFreqs, 
 		GateW:     l.GateW,
 		UpW:       l.UpW,
 		DownW:     l.DownW,
+		QWm:       l.QWm,
+		KWm:       l.KWm,
+		VWm:       l.VWm,
+		OWm:       l.OWm,
+		GateWm:    l.GateWm,
+		UpWm:      l.UpWm,
+		DownWm:    l.DownWm,
 	}
 	out, curK, curV, err = full.ForwardWithKV(input, pos, ropeFreqs, pastK, pastV, eps, meta)
 	if err != nil {
@@ -467,7 +499,7 @@ func (head *QwenNativeMTPHead) PreProject(embedding, hidden []float32, eps float
 	if head == nil {
 		return nil, fmt.Errorf("nil Qwen native MTP head")
 	}
-	if head.FC == nil || head.PreFCNormEmbedding == nil || head.PreFCNormHidden == nil {
+	if (head.FC == nil && head.FCm == nil) || head.PreFCNormEmbedding == nil || head.PreFCNormHidden == nil {
 		return nil, fmt.Errorf("incomplete Qwen native MTP preprojection tensors")
 	}
 	h := len(embedding)
@@ -477,9 +509,15 @@ func (head *QwenNativeMTPHead) PreProject(embedding, hidden []float32, eps float
 	if len(head.PreFCNormEmbedding.Data()) < h || len(head.PreFCNormHidden.Data()) < h {
 		return nil, fmt.Errorf("preprojection norm dims too small")
 	}
-	fcShape := head.FC.Shape()
-	if len(fcShape) != 2 || fcShape[0] != h || fcShape[1] != 2*h {
-		return nil, fmt.Errorf("mtp.fc shape=%v want [%d %d]", fcShape, h, 2*h)
+	if head.FCm != nil {
+		if head.FCm.OutDim != h || head.FCm.InDim != 2*h {
+			return nil, fmt.Errorf("mtp.fc MLX dims out/in=%d/%d want %d/%d", head.FCm.OutDim, head.FCm.InDim, h, 2*h)
+		}
+	} else {
+		fcShape := head.FC.Shape()
+		if len(fcShape) != 2 || fcShape[0] != h || fcShape[1] != 2*h {
+			return nil, fmt.Errorf("mtp.fc shape=%v want [%d %d]", fcShape, h, 2*h)
+		}
 	}
 	e := append([]float32(nil), embedding...)
 	hh := append([]float32(nil), hidden...)
@@ -489,7 +527,13 @@ func (head *QwenNativeMTPHead) PreProject(embedding, hidden []float32, eps float
 	concat = append(concat, e...)
 	concat = append(concat, hh...)
 	out := make([]float32, h)
-	gemvNT(out, concat, head.FC.Data(), 2*h, h)
+	if head.FCm != nil {
+		if !mlx.GemvTo(out, concat, head.FCm) {
+			return nil, fmt.Errorf("mtp.fc MLX GEMV failed")
+		}
+	} else {
+		gemvNT(out, concat, head.FC.Data(), 2*h, h)
+	}
 	return out, nil
 }
 
@@ -507,7 +551,7 @@ func ValidateQwenNativeMTPHead(head *QwenNativeMTPHead, meta loaderconfig.QwenNa
 	if meta.IntermediateSize <= 0 {
 		return fmt.Errorf("invalid intermediate size %d", meta.IntermediateSize)
 	}
-	if err := expectShape(head.FC, []int{h, 2 * h}, "mtp.fc.weight"); err != nil {
+	if err := expectQwen35DenseOrQuantShape(head.FC, nil, head.FCm, []int{h, 2 * h}, "mtp.fc.weight"); err != nil {
 		return err
 	}
 	if err := expectShape(head.PreFCNormEmbedding, []int{h}, "mtp.pre_fc_norm_embedding.weight"); err != nil {
@@ -532,22 +576,23 @@ func ValidateQwenNativeMTPHead(head *QwenNativeMTPHead, meta loaderconfig.QwenNa
 		checks := []struct {
 			name string
 			t    *tensor.Tensor
+			m    *mlx.QuantWeight
 			want []int
 		}{
-			{prefix + ".input_layernorm.weight", l.InputNorm, []int{h}},
-			{prefix + ".post_attention_layernorm.weight", l.PostNorm, []int{h}},
-			{prefix + ".self_attn.q_proj.weight", l.QW, attnShapes.QProj},
-			{prefix + ".self_attn.k_proj.weight", l.KW, attnShapes.KProj},
-			{prefix + ".self_attn.v_proj.weight", l.VW, attnShapes.VProj},
-			{prefix + ".self_attn.o_proj.weight", l.OW, attnShapes.OProj},
-			{prefix + ".self_attn.q_norm.weight", l.QNorm, attnShapes.QNorm},
-			{prefix + ".self_attn.k_norm.weight", l.KNorm, attnShapes.KNorm},
-			{prefix + ".mlp.gate_proj.weight", l.GateW, []int{meta.IntermediateSize, h}},
-			{prefix + ".mlp.up_proj.weight", l.UpW, []int{meta.IntermediateSize, h}},
-			{prefix + ".mlp.down_proj.weight", l.DownW, []int{h, meta.IntermediateSize}},
+			{prefix + ".input_layernorm.weight", l.InputNorm, nil, []int{h}},
+			{prefix + ".post_attention_layernorm.weight", l.PostNorm, nil, []int{h}},
+			{prefix + ".self_attn.q_proj.weight", l.QW, l.QWm, attnShapes.QProj},
+			{prefix + ".self_attn.k_proj.weight", l.KW, l.KWm, attnShapes.KProj},
+			{prefix + ".self_attn.v_proj.weight", l.VW, l.VWm, attnShapes.VProj},
+			{prefix + ".self_attn.o_proj.weight", l.OW, l.OWm, attnShapes.OProj},
+			{prefix + ".self_attn.q_norm.weight", l.QNorm, nil, attnShapes.QNorm},
+			{prefix + ".self_attn.k_norm.weight", l.KNorm, nil, attnShapes.KNorm},
+			{prefix + ".mlp.gate_proj.weight", l.GateW, l.GateWm, []int{meta.IntermediateSize, h}},
+			{prefix + ".mlp.up_proj.weight", l.UpW, l.UpWm, []int{meta.IntermediateSize, h}},
+			{prefix + ".mlp.down_proj.weight", l.DownW, l.DownWm, []int{h, meta.IntermediateSize}},
 		}
 		for _, c := range checks {
-			if err := expectShape(c.t, c.want, c.name); err != nil {
+			if err := expectQwen35DenseOrQuantShape(c.t, nil, c.m, c.want, c.name); err != nil {
 				return err
 			}
 		}

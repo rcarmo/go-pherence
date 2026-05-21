@@ -33,6 +33,8 @@ type QwenNativeMTPMetadata struct {
 	FullAttentionInterval     int      `json:"full_attention_interval,omitempty"`
 	AttnOutputGate            bool     `json:"attn_output_gate,omitempty"`
 	OutputGateType            string   `json:"output_gate_type,omitempty"`
+	QuantBits                 int      `json:"quant_bits,omitempty"`
+	QuantGroup                int      `json:"quant_group,omitempty"`
 	HasNativeMTP              bool     `json:"has_native_mtp"`
 	HasLinearAttention        bool     `json:"has_linear_attention"`
 }
@@ -41,7 +43,15 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 	var raw struct {
 		ModelType     string   `json:"model_type"`
 		Architectures []string `json:"architectures"`
-		TextConfig    *struct {
+		Quantization  struct {
+			Bits      int `json:"bits"`
+			GroupSize int `json:"group_size"`
+		} `json:"quantization"`
+		QuantizationConfig struct {
+			Bits      int `json:"bits"`
+			GroupSize int `json:"group_size"`
+		} `json:"quantization_config"`
+		TextConfig *struct {
 			ModelType                 string   `json:"model_type"`
 			HiddenSize                int      `json:"hidden_size"`
 			VocabSize                 int      `json:"vocab_size"`
@@ -169,6 +179,14 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 		meta.FullAttentionInterval = raw.FullAttentionInterval
 		meta.AttnOutputGate = raw.AttnOutputGate
 		meta.OutputGateType = raw.OutputGateType
+	}
+	if raw.Quantization.Bits > 0 {
+		meta.QuantBits = raw.Quantization.Bits
+		meta.QuantGroup = raw.Quantization.GroupSize
+	}
+	if raw.QuantizationConfig.Bits > 0 {
+		meta.QuantBits = raw.QuantizationConfig.Bits
+		meta.QuantGroup = raw.QuantizationConfig.GroupSize
 	}
 	meta.HasNativeMTP = meta.MTPNumHiddenLayers > 0
 	for _, lt := range meta.LayerTypes {

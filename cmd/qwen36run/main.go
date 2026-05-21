@@ -11,10 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/qwen"
+	"github.com/rcarmo/go-pherence/tensor"
 )
 
 var qwen36UseGPULMHead bool
@@ -98,6 +100,7 @@ type rawTensor struct {
 	raw   []byte
 	dtype string
 	shape []int
+	mlx   *mlx.QuantWeight
 }
 
 type runner struct {
@@ -175,7 +178,7 @@ func main() {
 	src, err := qwen.OpenQwenNativeMTPSafetensorsSource(*dir)
 	check("open tensors", err)
 	defer src.Close()
-	r := runner{bundle: bundle, state: state, emb: mustRaw(src, "model.language_model.embed_tokens.weight"), normW: bf16All(mustRaw(src, "model.language_model.norm.weight")), lm: mustRaw(src, "lm_head.weight")}
+	r := runner{bundle: bundle, state: state, emb: mustEmbedding(src, meta), normW: bf16All(mustRawCandidate(src, "model.language_model.norm.weight", "language_model.model.norm.weight")), lm: mustLMHead(src, meta)}
 	if *gpuLMHead && *useGPU {
 		r.lmGPU, err = nvidia.UploadBF16LMHead(r.lm.raw, r.lm.shape[0], r.lm.shape[1])
 		if err != nil {
@@ -285,7 +288,7 @@ func main() {
 	}
 	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *topK > 0 {
-		rep.BaseTop = topKBF16MatVec(r.lm, h, *topK)
+		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	rep.MmapEagerBytes = mmapEagerBytes
@@ -324,7 +327,7 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 	check("prefill MTP forward", err)
 	prefillMTPLogitHidden := append([]float32(nil), prefillMTPOut...)
 	rmsNorm(prefillMTPLogitHidden, mtpHead.Norm.Data(), 1e-6)
-	rep.PrefillMTPNextID, rep.PrefillMTPLogit = argmaxBF16MatVec(r.lm, prefillMTPLogitHidden)
+	rep.PrefillMTPNextID, rep.PrefillMTPLogit = argmaxLMHead(r.lm, r.lmGPU, prefillMTPLogitHidden)
 	rep.PrefillMTPAccepted = rep.PrefillMTPNextID == prefillVerifierNext
 	if greedySeed {
 		prefillGreedySeedEmbedding := bf16Row(r.emb, prefillVerifierNext)
@@ -332,7 +335,7 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 		check("prefill greedy-seed MTP forward", err)
 		prefillGreedySeedLogitHidden := append([]float32(nil), prefillGreedySeedOut...)
 		rmsNorm(prefillGreedySeedLogitHidden, mtpHead.Norm.Data(), 1e-6)
-		rep.PrefillGreedySeedMTPNextID, _ = argmaxBF16MatVec(r.lm, prefillGreedySeedLogitHidden)
+		rep.PrefillGreedySeedMTPNextID, _ = argmaxLMHead(r.lm, r.lmGPU, prefillGreedySeedLogitHidden)
 		rep.PrefillGreedySeedAccepted = rep.PrefillGreedySeedMTPNextID == prefillVerifierNext
 	}
 	mtpEmbedding := bf16Row(r.emb, generated[len(generated)-1])
@@ -348,15 +351,15 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 	}
 	mtpLogitHidden := append([]float32(nil), mtpOut...)
 	rmsNorm(mtpLogitHidden, mtpHead.Norm.Data(), 1e-6)
-	rep.MTPNextID, rep.MTPLogit = argmaxBF16MatVec(r.lm, mtpLogitHidden)
+	rep.MTPNextID, rep.MTPLogit = argmaxLMHead(r.lm, r.lmGPU, mtpLogitHidden)
 	if len(rep.BaseTop) > 0 {
-		rep.MTPTop = topKBF16MatVec(r.lm, mtpLogitHidden, len(rep.BaseTop))
+		rep.MTPTop = topKMatVec(r.lm, mtpLogitHidden, len(rep.BaseTop))
 	}
 	rep.MTPVerifierNextID = rep.NextID
 	rep.MTPAcceptedByGreedy = rep.MTPVerifierNextID == rep.MTPNextID
-	rep.VerifierLogitForMTP = bf16MatVecRow(r.lm, h, rep.MTPNextID)
+	rep.VerifierLogitForMTP = matVecRow(r.lm, h, rep.MTPNextID)
 	rep.VerifierBestMinusMTP = rep.Logit - rep.VerifierLogitForMTP
-	rep.MTPLogitForVerifier = bf16MatVecRow(r.lm, mtpLogitHidden, rep.MTPVerifierNextID)
+	rep.MTPLogitForVerifier = matVecRow(r.lm, mtpLogitHidden, rep.MTPVerifierNextID)
 	rep.MTPBestMinusVerifier = rep.MTPLogit - rep.MTPLogitForVerifier
 	rep.MTPDraftIDs, err = draftMTPIDs(mtpHead, r.emb, r.lm, generated[len(generated)-1], preNormHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps)
 	check("MTP draft steps", err)
@@ -396,7 +399,7 @@ func draftMTPIDs(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, h
 		pastV = append(pastV, v...)
 		logitHidden := append([]float32(nil), out...)
 		rmsNorm(logitHidden, head.Norm.Data(), 1e-6)
-		next, _ := argmaxBF16MatVec(lm, logitHidden)
+		next, _ := argmaxLMHead(lm, nil, logitHidden)
 		ids = append(ids, next)
 		curToken = next
 		curHidden = out
@@ -506,7 +509,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	addThroughputBreakdown(&rep)
 	rep.GPULMHead = r.lmGPU != nil
 	if topK > 0 {
-		rep.BaseTop = topKBF16MatVec(r.lm, h, topK)
+		rep.BaseTop = topKMatVec(r.lm, h, topK)
 	}
 	if mtp {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, mtpSteps, greedySeed)
@@ -539,12 +542,93 @@ func mustRaw(src interface {
 }, name string) rawTensor {
 	r, d, s, e := src.GetRaw(name)
 	check(name, e)
-	return rawTensor{r, d, s}
+	return rawTensor{raw: r, dtype: d, shape: s}
+}
+
+func mustRawCandidate(src interface {
+	GetRaw(string) ([]byte, string, []int, error)
+}, names ...string) rawTensor {
+	var last error
+	for _, name := range names {
+		r, d, s, e := src.GetRaw(name)
+		if e == nil {
+			return rawTensor{raw: r, dtype: d, shape: s}
+		}
+		last = e
+	}
+	check(strings.Join(names, "|"), last)
+	return rawTensor{}
+}
+
+type qwen36MLXLoader struct {
+	src interface {
+		Get(string, []int) (*tensor.Tensor, error)
+		GetRaw(string) ([]byte, string, []int, error)
+	}
+}
+
+func (l qwen36MLXLoader) GetRaw(name string) ([]byte, string, []int, error) {
+	return l.src.GetRaw(name)
+}
+func (l qwen36MLXLoader) GetFloat32(name string) ([]float32, []int, error) {
+	t, err := l.src.Get(name, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return t.Data(), t.Shape(), nil
+}
+
+func mustEmbedding(src interface {
+	Get(string, []int) (*tensor.Tensor, error)
+	GetRaw(string) ([]byte, string, []int, error)
+}, meta loaderconfig.QwenNativeMTPMetadata) rawTensor {
+	loader := qwen36MLXLoader{src: src}
+	for _, prefix := range []string{"model.language_model.embed_tokens", "language_model.model.embed_tokens"} {
+		qw, err := mlx.LoadWeight(loader, prefix, meta.VocabSize, meta.HiddenSize, qwen35QuantGroup(meta), qwen35QuantBits(meta))
+		if err == nil {
+			return rawTensor{mlx: qw, dtype: "MLX", shape: []int{qw.OutDim, qw.InDim}}
+		}
+	}
+	return mustRawCandidate(src, "model.language_model.embed_tokens.weight", "language_model.model.embed_tokens.weight")
+}
+
+func mustLMHead(src interface {
+	Get(string, []int) (*tensor.Tensor, error)
+	GetRaw(string) ([]byte, string, []int, error)
+}, meta loaderconfig.QwenNativeMTPMetadata) rawTensor {
+	loader := qwen36MLXLoader{src: src}
+	for _, prefix := range []string{"lm_head", "language_model.lm_head"} {
+		qw, err := mlx.LoadWeight(loader, prefix, meta.VocabSize, meta.HiddenSize, qwen35QuantGroup(meta), qwen35QuantBits(meta))
+		if err == nil {
+			return rawTensor{mlx: qw, dtype: "MLX", shape: []int{qw.OutDim, qw.InDim}}
+		}
+	}
+	return mustRawCandidate(src, "lm_head.weight", "language_model.lm_head.weight")
+}
+
+func qwen35QuantGroup(meta loaderconfig.QwenNativeMTPMetadata) int {
+	if meta.QuantGroup > 0 {
+		return meta.QuantGroup
+	}
+	return 64
+}
+func qwen35QuantBits(meta loaderconfig.QwenNativeMTPMetadata) int {
+	if meta.QuantBits > 0 {
+		return meta.QuantBits
+	}
+	return 4
 }
 func bf16(bits []byte, i int) float32 {
 	return math.Float32frombits(uint32(binary.LittleEndian.Uint16(bits[i*2:])) << 16)
 }
 func bf16Row(t rawTensor, row int) []float32 {
+	if t.mlx != nil {
+		out := make([]float32, t.mlx.InDim)
+		if !mlx.DequantRowTo(out, t.mlx, row) {
+			check("MLX row", fmt.Errorf("row=%d shape=%v", row, t.shape))
+		}
+		return out
+	}
 	if t.dtype != "BF16" || len(t.shape) != 2 {
 		check("BF16 matrix", fmt.Errorf("dtype=%s shape=%v", t.dtype, t.shape))
 	}
@@ -577,7 +661,7 @@ func rmsNorm(x, w []float32, eps float32) {
 		x[i] *= scale * w[i]
 	}
 }
-func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
+func topKMatVec(t rawTensor, x []float32, k int) []TopLogit {
 	if k <= 0 || len(t.shape) != 2 {
 		return nil
 	}
@@ -587,7 +671,7 @@ func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
 	}
 	top := make([]TopLogit, 0, k)
 	for row := 0; row < rows; row++ {
-		v := bf16MatVecRow(t, x, row)
+		v := matVecRow(t, x, row)
 		inserted := false
 		for i := range top {
 			if v > top[i].Logit {
@@ -609,6 +693,19 @@ func topKBF16MatVec(t rawTensor, x []float32, k int) []TopLogit {
 }
 
 func argmaxLMHead(t rawTensor, lmGPU *nvidia.Buffer, x []float32) (int, float32) {
+	if t.mlx != nil {
+		logits := make([]float32, t.mlx.OutDim)
+		mlx.Gemv(logits, x, t.mlx)
+		best := -1
+		bestv := float32(math.Inf(-1))
+		for i, v := range logits {
+			if v > bestv {
+				bestv = v
+				best = i
+			}
+		}
+		return best, bestv
+	}
 	if qwen36UseGPULMHead && t.dtype == "BF16" && len(t.shape) == 2 && lmGPU != nil {
 		if cap(qwen36LMHeadLogitsScratch) < t.shape[0] {
 			qwen36LMHeadLogitsScratch = make([]float32, t.shape[0])
@@ -644,7 +741,7 @@ func argmaxBF16MatVec(t rawTensor, x []float32) (int, float32) {
 	best := -1
 	bestv := float32(math.Inf(-1))
 	for r := 0; r < rows; r++ {
-		s := bf16MatVecRow(t, x, r)
+		s := matVecRow(t, x, r)
 		if s > bestv {
 			bestv = s
 			best = r
@@ -653,7 +750,18 @@ func argmaxBF16MatVec(t rawTensor, x []float32) (int, float32) {
 	return best, bestv
 }
 
-func bf16MatVecRow(t rawTensor, x []float32, row int) float32 {
+func matVecRow(t rawTensor, x []float32, row int) float32 {
+	if t.mlx != nil {
+		w := make([]float32, t.mlx.InDim)
+		if !mlx.DequantRowTo(w, t.mlx, row) {
+			return float32(math.Inf(-1))
+		}
+		var sum float32
+		for i := range w {
+			sum += w[i] * x[i]
+		}
+		return sum
+	}
 	if len(t.shape) != 2 || row < 0 || row >= t.shape[0] {
 		return float32(math.Inf(-1))
 	}

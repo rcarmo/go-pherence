@@ -2080,4 +2080,6 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 
 - Downloaded `samwang0041/Qwen3.6-27B-MLX-4bit-MTP` into ignored local directory `models/qwen3.6-27b-mlx4-mtp` (~15GB).
 - Taught Qwen native-MTP metadata recognition to accept nested `language_model.mtp.*` tensor names; `cmd/qwenmtpmeta -strict` now reports `mtp_tensor_complete=true` for the MLX checkpoint.
-- First `cmd/qwen36run` probe reaches base linear-attention weight loading and exposes the next implementation blocker: Qwen3.5/Qwen3.6 base path does not yet load MLX affine U32 packed linear-attention weights (`language_model.model.layers.0.linear_attn.in_proj_qkv.weight`), and its NVFP4 fallback expects U8.
+- First `cmd/qwen36run` probe reached base linear-attention weight loading and exposed the next blocker: Qwen3.5/Qwen3.6 base path did not load MLX affine U32 packed linear-attention weights (`language_model.model.layers.0.linear_attn.in_proj_qkv.weight`), and its NVFP4 fallback expected U8.
+- Added MLX affine packed-weight loading/CPU GEMV to the Qwen3.5/Qwen3.6 base path and native-MTP head, plus MLX packed embedding/LM-head handling in `cmd/qwen36run`.
+- `cmd/qwen36run -model models/qwen3.6-27b-mlx4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 1` now passes on CPU: base greedy `next_id=119`, MTP draft `mtp_next_id=220`, `passed=true`, `duration_ms=30860`. The next performance step is NVIDIA MLX packed-weight caching/GEMV for the Qwen3.5/Qwen3.6 path.

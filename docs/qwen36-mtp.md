@@ -107,7 +107,28 @@ language_model.model.layers.0.linear_attn.in_proj_qkv.weight: safetensors: unsup
 NVFP4 fallback: ... dtype=U32, want U8 NVFP4
 ```
 
-Next implementation step: add MLX affine 4-bit loading/compute support to the Qwen3.5/Qwen3.6 base linear-attention path and native-MTP head path, reusing the existing `backends/mlx` packed weight representation instead of dequantizing large matrices.
+Implemented local smoke step: Qwen3.5/Qwen3.6 base layers and native-MTP head now load MLX affine U32 packed weights through `backends/mlx` instead of requiring BF16/NVFP4. `qwen36run` also handles MLX-packed embeddings and LM head for this checkpoint.
+
+Current CPU smoke:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello" -steps 1 -mtp -mtp-steps 1
+```
+
+Latest local result:
+
+```text
+passed: true
+next_id: 119
+mtp_next_id: 220
+mtp_accepted_by_greedy: false
+duration_ms: 30860
+tokens_per_second: 0.0648
+```
+
+This proves the dense MLX checkpoint can load and run the base+native-MTP diagnostic path on CPU. It is still slow because the Qwen3.5/Qwen3.6 path uses scalar/CPU MLX GEMV and the GPU cache path is currently NVFP4-specific. Next implementation step: add NVIDIA MLX packed-weight caching/GEMV for the Qwen3.5/Qwen3.6 path, then rerun with `-gpu`.
 
 ## Important blocker for the original NVFP4 checkpoint
 

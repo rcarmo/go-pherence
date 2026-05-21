@@ -5,18 +5,38 @@ import (
 	"math"
 	"strings"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
 func loadQwen35DenseOrNVFP4(src Qwen35TensorSource, name string, dense **tensor.Tensor, q **Qwen35NVFP4Weight, want []int) error {
+	return loadQwen35DenseOrQuant(src, name, dense, q, nil, want, 0, 0)
+}
+
+func loadQwen35DenseOrQuant(src Qwen35TensorSource, name string, dense **tensor.Tensor, q **Qwen35NVFP4Weight, m **mlx.QuantWeight, want []int, groupSize, bits int) error {
 	if dense == nil {
 		return fmt.Errorf("nil dense destination for %s", name)
 	}
-	t, err := src.Get(name, want)
-	if err == nil {
-		*dense = t
-		return nil
+	var err error
+	for _, candidate := range qwen35DirectTensorNameCandidates(name) {
+		var t *tensor.Tensor
+		t, err = src.Get(candidate, want)
+		if err == nil {
+			*dense = t
+			return nil
+		}
+	}
+	if m != nil && len(want) == 2 && groupSize > 0 && bits > 0 {
+		if raw, ok := unwrapQwen35RawTensorSource(src); ok {
+			for _, candidate := range qwen35DirectTensorNameCandidates(strings.TrimSuffix(name, ".weight")) {
+				qw, qerr := mlx.LoadWeight(qwen35MLXLoader{raw: raw, src: src}, candidate, want[0], want[1], groupSize, bits)
+				if qerr == nil {
+					*m = qw
+					return nil
+				}
+			}
+		}
 	}
 	if q == nil {
 		return err
@@ -37,6 +57,22 @@ func loadQwen35DenseOrNVFP4(src Qwen35TensorSource, name string, dense **tensor.
 	}
 	*q = qw
 	return nil
+}
+
+type qwen35MLXLoader struct {
+	raw Qwen35RawTensorSource
+	src Qwen35TensorSource
+}
+
+func (l qwen35MLXLoader) GetRaw(name string) ([]byte, string, []int, error) {
+	return l.raw.GetRaw(name)
+}
+func (l qwen35MLXLoader) GetFloat32(name string) ([]float32, []int, error) {
+	t, err := l.src.Get(name, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return t.Data(), t.Shape(), nil
 }
 
 func loadQwen35DenseA(src Qwen35TensorSource, name string, want []int) (*tensor.Tensor, error) {

@@ -20,7 +20,7 @@ func TestLoadSweepPrompts(t *testing.T) {
 }
 
 func TestTopKBF16MatVecInvalid(t *testing.T) {
-	if got := topKBF16MatVec(rawTensor{}, nil, 3); got != nil {
+	if got := topKMatVec(rawTensor{}, nil, 3); got != nil {
 		t.Fatalf("topK invalid=%v", got)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simdnvfp4 "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4"
 	"github.com/rcarmo/go-pherence/tensor"
@@ -79,7 +80,7 @@ func Qwen35LinearStatsSnapshot() Qwen35LinearStats {
 	return out
 }
 
-func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weight, inDim, outDim int, name string) error {
+func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weight, m *mlx.QuantWeight, inDim, outDim int, name string) error {
 	if len(out) != outDim || len(x) != inDim {
 		return fmt.Errorf("%s vector dims out/x=%d/%d want %d/%d", name, len(out), len(x), outDim, inDim)
 	}
@@ -153,6 +154,15 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 		qwen35LinearStats.CPUCalls++
 		if qwen35LinearTiming {
 			qwen35LinearStats.CPUMillis += time.Since(start).Milliseconds()
+		}
+		return nil
+	}
+	if m != nil {
+		if m.InDim != inDim || m.OutDim != outDim {
+			return fmt.Errorf("%s MLX dims out/in=%d/%d want %d/%d", name, m.OutDim, m.InDim, outDim, inDim)
+		}
+		if !mlx.GemvTo(out, x, m) {
+			return fmt.Errorf("%s MLX GEMV failed", name)
 		}
 		return nil
 	}
