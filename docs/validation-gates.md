@@ -37,6 +37,14 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
   -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
   -mtp-smoke \
   -prompt "Hello"
+
+# Real-prompt hybrid GPU smoke on the local RTX 3060 profile
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+  -gpu -gpu-layers 17 -gpu-kv-max-seq 256 \
+  -model models/gemma4-31b-it-4bit \
+  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -mtp-smoke -mtp-real-prompt \
+  -prompt "Hi"
 ```
 
 ## Benchmark snapshots

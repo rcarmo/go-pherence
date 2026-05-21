@@ -72,15 +72,15 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
   -prompt "Hi"
 ```
 
-Latest local result on 2026-05-21:
+Latest local results on 2026-05-21:
 
-```text
-MTP prompt prefill: 299.06s (10 tokens, next=100)
-step_seconds: 0.393279808
-wall_seconds: 317.187
-```
+| Mode | Command extras | Prompt prefill | Step | Wall | Notes |
+|---|---|---:|---:|---:|---|
+| CPU/on-the-fly | none | 299.06s | 0.39s | 317.19s | 10 prepared tokens |
+| Hybrid GPU safe | `-gpu -gpu-layers 17 -gpu-kv-max-seq 256` | 213.76s | 0.41s | 243.23s | ~653MB VRAM free, no GPU LM head |
+| Hybrid GPU aggressive | `-gpu -gpu-layers 18 -gpu-kv-max-seq 64` | 200.32s | 0.39s | 230.66s | ~79MB VRAM free, short prompts only |
 
-This proves the real activation/KV handoff, but also shows that CPU/on-the-fly 31B prompt prefill is the immediate bottleneck. A 72-token complex-prompt benchmark on this path would take tens of minutes; long-prompt MTP benchmarking should wait for GPU/prefill acceleration or a much smaller model.
+This proves the real activation/KV handoff, but also shows that CPU/on-the-fly 31B prompt prefill remains the immediate bottleneck. A 72-token complex-prompt benchmark on this path would still take tens of minutes unless more transformer layers fit or a true batched/GPU Gemma4 prefill path lands.
 
 The compact GPU LM-head smoke also loads successfully:
 
@@ -137,12 +137,12 @@ Current Gemma4 MTP status:
 - Internal tests exercise projection-only, synthetic q-only, real-asset contract, one-step, and multi-step MTP flows.
 - The 31B 4-bit assistant asset is present at `models/gemma4-31b-it-mtp-assistant-4bit` and loads while keeping large matrices packed as MLX 4-bit weights.
 - `PreProjectInto`, q/o projections, MLP projections, `PostProjectInto`, and token embedding lookup dispatch through packed MLX helpers when packed weights are present. The only dequantization in the 31B assistant smoke is row-local embedding dequantization and normal small BF16 norm/scalar tensors.
-- `llmgen -mtp-smoke` validates the runtime-facing seam and prints shape/timing JSON. With `-mtp-real-prompt`, it first builds real prompt activation/KV via `BuildMTPPromptContext` instead of using zero external KV.
+- `llmgen -mtp-smoke` validates the runtime-facing seam and prints shape/timing JSON. With `-mtp-real-prompt`, it first builds real prompt activation/KV via `BuildMTPPromptContext` instead of using zero external KV. With `-gpu`, `GPUModel.BuildMTPPromptContext` uses the hybrid GPU/CPU path and copies GPU-resident KV back into the MTP context.
 - Regression coverage: `TestLoadGemma4MTPDrafter31B4BitKeepsPackedWeights`.
 
 ## Recommended next steps
 
 1. Add a dedicated Gemma4 loader facade that owns nested config normalization, `language_model.*` prefixing, per-layer KV-head selection, and K=V projection rules.
 2. Promote the on-the-fly loader switch from `-gpu`/`-mtp-smoke` side effects to an explicit CLI flag for huge 4-bit CPU/runtime experiments.
-3. Probe GPU layer residency incrementally after the compact LM-head path: start with `-gpu-layers 4`, then estimate/upload 8, 12, etc. against RTX 3060 VRAM.
+3. Implement a true Gemma4 batched prefill path (or reduce CPU fallback layers further). Current hybrid sequential prefill improves with more GPU layers but remains dominated by CPU-resident layers.
 4. Convert the smoke seam into full Gemma4 MTP speculative generation: capture real verifier activations/KV, run adaptive multi-draft assistant steps, batch verifier candidates, and commit only accepted KV prefixes plus the bonus token.

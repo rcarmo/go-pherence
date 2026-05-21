@@ -2043,3 +2043,13 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added `llmgen -mtp-real-prompt` to feed real prompt activation/KV into the packed 31B MTP assistant instead of using zero external KV.
 - Fixed Gemma4 assistant full-attention KV validation to use `num_global_key_value_heads` for full-attention layers and mapped drafter layers to compatible main-model KV source widths (`[sliding, sliding, sliding, full]` → matching main KV cache widths).
 - Local short-prompt smoke (`prompt="Hi"`) succeeded: 10 prepared prompt tokens, prompt prefill `299.06s`, packed drafter step `0.39s`, wall `317.19s`. This proves the handoff and confirms that CPU/on-the-fly 31B prompt prefill is the next performance bottleneck before complex-prompt MTP benchmarking is useful.
+
+## 2026-05-21 — GPU KV horizon tuning for 31B MTP prefill
+
+- Made GPU KV allocation resident-layer-only and configurable via `GO_PHERENCE_GPU_KV_MAX_SEQ` / `llmgen -gpu-kv-max-seq`.
+- `llmgen -mtp-smoke -mtp-real-prompt -gpu` now defaults the GPU KV horizon to 256 positions when no explicit horizon is set, allowing more transformer layers to fit for prompt smokes.
+- Local RTX 3060 split results for the 10-token prepared `Hi` prompt:
+  - CPU/on-the-fly: `299.06s` prompt prefill.
+  - `-gpu-layers 14`: `220.75s` prompt prefill, compact MLX LM head resident.
+  - `-gpu-layers 17 -gpu-kv-max-seq 256`: `213.76s` prompt prefill, ~653MB free.
+  - `-gpu-layers 18 -gpu-kv-max-seq 64`: `200.32s` prompt prefill, ~79MB free; useful only as an aggressive short-prompt probe.

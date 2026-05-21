@@ -18,6 +18,7 @@ func main() {
 	tokens := flag.Int("tokens", 50, "tokens to generate")
 	useGPU := flag.Bool("gpu", false, "use GPU-resident forward pass")
 	gpuLayers := flag.Int("gpu-layers", 0, "number of layers on GPU (0=all)")
+	gpuKVMaxSeq := flag.Int("gpu-kv-max-seq", 0, "GPU KV cache sequence horizon (0=default 2048; lower values fit more layers for prompt smokes)")
 	turboQuant := flag.Bool("turbo-quant", false, "enable TurboQuant KV cache compression on CPU backend")
 	speculative := flag.Bool("speculative", false, "enable opt-in stock-weight speculative decoding path (CPU backend)")
 	specBlock := flag.Int("speculative-block", 8, "speculative proposal block size")
@@ -35,6 +36,12 @@ func main() {
 
 	if *eagerLoad {
 		os.Setenv("GO_PHERENCE_EAGER_LOAD", "1")
+	}
+	if *gpuKVMaxSeq > 0 {
+		os.Setenv("GO_PHERENCE_GPU_KV_MAX_SEQ", fmt.Sprint(*gpuKVMaxSeq))
+	}
+	if *useGPU && *mtpSmoke && *mtpRealPrompt && *gpuKVMaxSeq == 0 && os.Getenv("GO_PHERENCE_GPU_KV_MAX_SEQ") == "" {
+		os.Setenv("GO_PHERENCE_GPU_KV_MAX_SEQ", "256")
 	}
 	if *useGPU || *mtpSmoke {
 		model.ForceOnTheFly = true

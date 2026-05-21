@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
@@ -18,6 +19,21 @@ import (
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/tensor"
 )
+
+func gpuKVMaxSeqFromEnv(defaultMax int) int {
+	if defaultMax <= 0 {
+		defaultMax = 2048
+	}
+	v := os.Getenv("GO_PHERENCE_GPU_KV_MAX_SEQ")
+	if v == "" {
+		return defaultMax
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return defaultMax
+	}
+	return n
+}
 
 func kvCopyByteRange(pos, kvDim, capacityBytes int) (uint64, nvidia.CUdeviceptr, bool) {
 	if pos < 0 || kvDim <= 0 || capacityBytes < 0 {
@@ -483,8 +499,10 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	// GPU KV cache: allocate device-side KV only for GPU-resident layers.
 	// CPU-resident layers keep using the CPU float KV caches above. Allocating
 	// all 60 Gemma4-31B layers here costs ~3.5GiB at seq=2048 and crowds out
-	// transformer layers/compact LM head on 12GB GPUs.
-	maxSeq := 2048
+	// transformer layers/compact LM head on 12GB GPUs. The sequence horizon is
+	// configurable for prompt/prefill smokes where a shorter KV horizon allows
+	// more layers to remain resident.
+	maxSeq := gpuKVMaxSeqFromEnv(2048)
 	g.kvGPU_K = make([]*nvidia.DevBuf, len(m.Layers))
 	g.kvGPU_V = make([]*nvidia.DevBuf, len(m.Layers))
 	for i := 0; i < g.GPULayers && i < len(g.kvGPU_K); i++ {

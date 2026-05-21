@@ -156,7 +156,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
   -prompt "Hello"
 ```
 
-Add `-mtp-real-prompt` to prefill the prompt through the main model, capture real final activation/KV, and feed that into the packed drafter smoke. This is correct but currently slow on CPU/on-the-fly 31B (`~299s` for a 10-token prepared prompt on the local test host), so long-prompt benchmarking should wait for GPU/prefill acceleration.
+Add `-mtp-real-prompt` to prefill the prompt through the main model, capture real final activation/KV, and feed that into the packed drafter smoke. Use `-gpu-kv-max-seq` to shrink the GPU KV horizon for prompt smokes and fit more transformer layers on small GPUs. On the local RTX 3060, `-gpu -gpu-layers 17 -gpu-kv-max-seq 256` is a safer split, while `-gpu-layers 18 -gpu-kv-max-seq 64` is an aggressive short-prompt split that leaves very little VRAM headroom.
 
 Full speculative generation wiring is still pending; `-mtp-drafter` without `-mtp-smoke` currently warns and uses the regular generation path.
 
