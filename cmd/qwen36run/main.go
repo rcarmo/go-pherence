@@ -129,13 +129,17 @@ var qwenPromptStateCache = kv.NewChunkCache(2 << 30)
 var qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
 
 type runner struct {
-	bundle  *qwen.Qwen35NativeMTPBundle
-	state   qwen.Qwen35BaseForwardState
-	emb     rawTensor
-	normW   []float32
-	lm      rawTensor
-	lmGPU   *nvidia.Buffer
-	mtpHead *qwen.QwenNativeMTPHead
+	bundle       *qwen.Qwen35NativeMTPBundle
+	state        qwen.Qwen35BaseForwardState
+	emb          rawTensor
+	normW        []float32
+	lm           rawTensor
+	lmGPU        *nvidia.Buffer
+	mtpHead      *qwen.QwenNativeMTPHead
+	promptTokens []int
+	promptHidden [][]float32
+	mtpPastK     []float32
+	mtpPastV     []float32
 }
 
 func main() {
@@ -330,6 +334,8 @@ func main() {
 			for idx := startAt; idx < len(inputIDs); idx++ {
 				next, logit, h, preNormHidden, err = r.step(inputIDs[idx], ropeFreqs)
 				check("prefill", err)
+				r.promptTokens = append(r.promptTokens, inputIDs[idx])
+				r.promptHidden = append(r.promptHidden, append([]float32(nil), preNormHidden...))
 				if *kvReuse && ((idx+1)%*kvChunkSize == 0 || idx+1 == len(inputIDs)) {
 					qwenStorePromptPrefix(modelID, layout, inputIDs[:idx+1], *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: idx + 1})
 					kvStoredChunks++
@@ -348,6 +354,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "-mtp-generate requires -mtp")
 			os.Exit(2)
 		}
+		check("mtp prompt KV", r.buildMTPPromptKV(ropeFreqs, meta))
 		generated, mtpGeneratedAccepted, next, logit, h, preNormHidden, err = r.generateWithNativeMTP(next, preNormHidden, *steps, *mtpSteps, ropeFreqs, meta)
 		check("mtp generate", err)
 	} else {
@@ -400,6 +407,31 @@ func main() {
 	}
 }
 
+func (r *runner) buildMTPPromptKV(ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata) error {
+	if r == nil || r.mtpHead == nil || len(r.mtpHead.Layers) == 0 {
+		return fmt.Errorf("incomplete native MTP head")
+	}
+	r.mtpPastK, r.mtpPastV = nil, nil
+	// Seed the draft self-attention cache with prompt positions before the last
+	// token. The current/last token is processed by the first draft step so its
+	// logits are produced in the usual way, with prior prompt MTP KV available.
+	limit := len(r.promptTokens) - 1
+	for i := 0; i < limit; i++ {
+		e := bf16Row(r.emb, r.promptTokens[i])
+		pre, err := r.mtpHead.PreProject(e, r.promptHidden[i], 1e-6)
+		if err != nil {
+			return err
+		}
+		_, k, v, err := r.mtpHead.Layers[0].ForwardWithKV(pre, i, ropeFreqs, r.mtpPastK, r.mtpPastV, 1e-6, meta)
+		if err != nil {
+			return err
+		}
+		r.mtpPastK = append(r.mtpPastK, k...)
+		r.mtpPastV = append(r.mtpPastV, v...)
+	}
+	return nil
+}
+
 func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTokens, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata) ([]int, int, int, float32, []float32, []float32, error) {
 	if r == nil || r.mtpHead == nil {
 		return nil, 0, verifierNext, 0, nil, nil, fmt.Errorf("native MTP head is not loaded")
@@ -427,7 +459,7 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 	}
 
 	for len(out) < maxTokens {
-		drafts, err := draftMTPIDs(r.mtpHead, r.emb, r.lm, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps)
+		drafts, err := draftMTPIDsWithPast(r.mtpHead, r.emb, r.lm, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps, r.mtpPastK, r.mtpPastV)
 		if err != nil {
 			return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
 		}
@@ -533,13 +565,18 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 }
 
 func draftMTPIDs(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int) ([]int, error) {
+	return draftMTPIDsWithPast(head, emb, lm, tokenID, hidden, pos, ropeFreqs, meta, steps, nil, nil)
+}
+
+func draftMTPIDsWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int, initialK, initialV []float32) ([]int, error) {
 	if head == nil || len(head.Layers) == 0 || head.Norm == nil {
 		return nil, fmt.Errorf("incomplete Qwen MTP head")
 	}
 	ids := make([]int, 0, steps)
 	curToken := tokenID
 	curHidden := append([]float32(nil), hidden...)
-	var pastK, pastV []float32
+	pastK := append([]float32(nil), initialK...)
+	pastV := append([]float32(nil), initialV...)
 	for i := 0; i < steps; i++ {
 		e := bf16Row(emb, curToken)
 		pre, err := head.PreProject(e, curHidden, 1e-6)
@@ -734,6 +771,10 @@ func (r *runner) prefillLayerStreamed(tokenIDs []int, chunkSize int, ropeFreqs [
 			return 0, 0, nil, nil, err
 		}
 		r.state = nextState
+		for i, out := range outs {
+			r.promptTokens = append(r.promptTokens, tokenIDs[start+i])
+			r.promptHidden = append(r.promptHidden, append([]float32(nil), out...))
+		}
 		if len(outs) > 0 {
 			last = outs[len(outs)-1]
 		}
