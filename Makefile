@@ -1,8 +1,12 @@
 TMPDIR ?= /workspace/tmp
 GOTMPDIR ?= /workspace/tmp
+PYTHON ?= python3
+MODELS_DIR ?= models
+MODEL ?=
+MODEL_DOWNLOAD_FLAGS ?=
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test test-cpu clean server chat gen vet
+.PHONY: all build test test-cpu clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-gemma4 models-download-one
 
 all: build
 
@@ -28,6 +32,25 @@ vet:
 
 clean:
 	rm -rf bin/
+
+models-list:
+	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --dry-run $(MODEL_DOWNLOAD_FLAGS)
+
+models-download:
+	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) $(MODEL_DOWNLOAD_FLAGS)
+
+models-download-small:
+	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group small $(MODEL_DOWNLOAD_FLAGS)
+
+models-download-qwen:
+	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group qwen $(MODEL_DOWNLOAD_FLAGS)
+
+models-download-gemma4:
+	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group gemma4 $(MODEL_DOWNLOAD_FLAGS)
+
+models-download-one:
+	@if [ -z "$(MODEL)" ]; then echo "usage: make models-download-one MODEL=qwen3.6-27b-mlx4-mtp"; exit 2; fi
+	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --only $(MODEL) $(MODEL_DOWNLOAD_FLAGS)
 
 # GPU-heavy tests (require GEMMA4_TRACE_TEST=1 and GPU)
 test-gpu:

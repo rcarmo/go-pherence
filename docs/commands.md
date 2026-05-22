@@ -1,5 +1,37 @@
 # Commands
 
+## Model asset downloads
+
+Downloaded model assets live under `models/`, which is ignored by git except for source packages. Use the helper script directly or via Make targets:
+
+```bash
+make models-list
+make models-download-small
+make models-download-qwen
+make models-download-gemma4
+make models-download-one MODEL=qwen3.6-27b-mlx4-mtp
+```
+
+Forward extra options through `MODEL_DOWNLOAD_FLAGS`:
+
+```bash
+make models-download-one MODEL=qwen3.6-27b-mlx4-mtp MODEL_DOWNLOAD_FLAGS='--force'
+make models-list MODEL_DOWNLOAD_FLAGS='--group qwen'
+python3 scripts/download_models.py --dry-run --group gemma4
+```
+
+The downloader uses `huggingface_hub.snapshot_download`; install it with:
+
+```bash
+python3 -m pip install huggingface_hub
+```
+
+For gated repositories, set `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN`. If an upstream repo is renamed, override it without editing the script:
+
+```bash
+python3 scripts/download_models.py --only gemma4-e4b-it-4bit --repo gemma4-e4b-it-4bit=org/repo
+```
+
 ## `llmgen` — one-shot generation
 
 ```bash
