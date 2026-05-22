@@ -105,6 +105,9 @@ type Report struct {
 	KVCachedDurationMS         int64                      `json:"kv_cached_duration_ms,omitempty"`
 	KVColdDurationMS           int64                      `json:"kv_cold_duration_ms,omitempty"`
 	KVSpeedupVsCold            float64                    `json:"kv_speedup_vs_cold,omitempty"`
+	KVColdNextID               int                        `json:"kv_cold_next_id,omitempty"`
+	KVCachedNextID             int                        `json:"kv_cached_next_id,omitempty"`
+	KVColdMatchesCached        bool                       `json:"kv_cold_matches_cached,omitempty"`
 	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
 	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
 	GPUPrewarm                 qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
@@ -407,6 +410,7 @@ func main() {
 		}
 	}
 	cachedPromptStart = time.Now()
+	var cachedPrefillDurationMS int64
 	for rep := 0; rep < *kvRepeat; rep++ {
 		startAt := 0
 		if *kvReuse {
@@ -453,6 +457,7 @@ func main() {
 			}
 		}
 	}
+	cachedPrefillDurationMS = time.Since(cachedPromptStart).Milliseconds()
 	prefillVerifierNext := next
 	prefillHidden := append([]float32(nil), preNormHidden...)
 	prefillToken := inputIDs[len(inputIDs)-1]
@@ -511,16 +516,24 @@ func main() {
 		kvReuseEfficiency = float64(kvSkippedPrefillTokens) / float64(kvTotalPromptVisits)
 	}
 	cachedDurationMS := time.Since(runStart).Milliseconds()
-	cachedPromptDurationMS := time.Since(cachedPromptStart).Milliseconds()
+	cachedPromptDurationMS := cachedPrefillDurationMS
 	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: cachedDurationMS, TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVLookupAttempts: kvLookupAttempts, KVLookupHits: kvLookupHits, KVLookupMisses: kvLookupAttempts - kvLookupHits, KVStoreAttempts: kvStoreAttempts, KVEvictedStores: kvEvictedStores, KVReusedTokens: kvReusedTokens, KVPrefillTokens: kvPrefillTokens, KVSuffixTokens: kvPrefillTokens, KVSkippedPrefillTokens: kvSkippedPrefillTokens, KVReuseEfficiency: kvReuseEfficiency, KVPrimePrompt: *kvPrimePrompt, KVPrimeTokens: kvPrimeTokens, KVPrimeStoredChunks: kvPrimeStoredChunks, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, KVCacheMaxBytes: qwenPromptStateCache.MaxBytes(), KVCacheUsedBytes: qwenPromptStateCache.UsedBytes(), KVCacheEntries: qwenPromptStateCache.Len(), KVCachedDurationMS: cachedPromptDurationMS, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *kvCompareCold && *kvReuse {
 		coldRunner := newRunner(bundle, state, r.emb, r.normW, r.lm, r.lmGPU, r.mtpHead)
 		coldStart := time.Now()
+		var coldNext int
+		var coldLogit float32
+		var coldH, coldPre []float32
 		for _, id := range inputIDs {
-			_, _, _, _, err = coldRunner.step(id, ropeFreqs)
+			coldNext, coldLogit, coldH, coldPre, err = coldRunner.step(id, ropeFreqs)
 			check("kv cold prefill", err)
 		}
+		_ = coldLogit
+		_ = coldPre
 		rep.KVColdDurationMS = time.Since(coldStart).Milliseconds()
+		rep.KVColdNextID = coldNext
+		rep.KVCachedNextID = prefillVerifierNext
+		rep.KVColdMatchesCached = coldNext == prefillVerifierNext && len(coldH) == len(baselineH)
 		if rep.KVCachedDurationMS > 0 && rep.KVColdDurationMS > 0 {
 			rep.KVSpeedupVsCold = float64(rep.KVColdDurationMS) / float64(rep.KVCachedDurationMS)
 		}
