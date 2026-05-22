@@ -427,6 +427,20 @@ func LoadQwen35LinearAttentionLayer(src Qwen35TensorSource, meta loaderconfig.Qw
 	return l, nil
 }
 
+func splitQwen35FullQGate(qFull []float32, heads, headDim int) (q, gate []float32, err error) {
+	if heads <= 0 || headDim <= 0 || len(qFull) != heads*headDim*2 {
+		return nil, nil, fmt.Errorf("invalid Qwen3.5 full-attention q/gate dims len=%d heads=%d head_dim=%d", len(qFull), heads, headDim)
+	}
+	q = make([]float32, 0, heads*headDim)
+	gate = make([]float32, 0, heads*headDim)
+	for h := 0; h < heads; h++ {
+		base := h * headDim * 2
+		q = append(q, qFull[base:base+headDim]...)
+		gate = append(gate, qFull[base+headDim:base+2*headDim]...)
+	}
+	return q, gate, nil
+}
+
 func qwen35TransposeConv1D(t *tensor.Tensor, convDim, kernel int) *tensor.Tensor {
 	if t == nil || convDim <= 0 || kernel <= 0 || len(t.Data()) != convDim*kernel {
 		return t
@@ -459,9 +473,10 @@ func (l *Qwen35FullAttentionLayer) ForwardWithKV(input []float32, pos int, ropeF
 	if err := qwen35LinearInto(qFull, cur, l.QW, l.QWQ, l.QWm, h, shapes.QProj[0], "q_proj"); err != nil {
 		return nil, nil, nil, err
 	}
-	qDim := shapes.GateSize
-	q := append([]float32(nil), qFull[:qDim]...)
-	gate := qFull[qDim:]
+	q, gate, err := splitQwen35FullQGate(qFull, meta.NumAttentionHeads, meta.HeadDim)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	k := make([]float32, shapes.KProj[0])
 	v := make([]float32, shapes.VProj[0])
 	if err := qwen35LinearInto(k, cur, l.KW, l.KWQ, l.KWm, h, len(k), "k_proj"); err != nil {
@@ -631,6 +646,49 @@ func siluInPlace(x []float32) {
 	}
 }
 
+func repeatQwen35LinearQKToValueHeads(q, k []float32, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, []float32, error) {
+	if meta.LinearNumKeyHeads <= 0 || meta.LinearNumValueHeads <= 0 || meta.LinearKeyHeadDim <= 0 || meta.LinearNumValueHeads%meta.LinearNumKeyHeads != 0 {
+		return nil, nil, fmt.Errorf("invalid Qwen3.5 linear-attention q/k repeat heads value=%d key=%d head_dim=%d", meta.LinearNumValueHeads, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim)
+	}
+	want := meta.LinearNumKeyHeads * meta.LinearKeyHeadDim
+	if len(q) != want || len(k) != want {
+		return nil, nil, fmt.Errorf("Qwen3.5 linear-attention q/k repeat len=%d/%d want %d", len(q), len(k), want)
+	}
+	rep := meta.LinearNumValueHeads / meta.LinearNumKeyHeads
+	expQ := make([]float32, 0, meta.LinearNumValueHeads*meta.LinearKeyHeadDim)
+	expK := make([]float32, 0, meta.LinearNumValueHeads*meta.LinearKeyHeadDim)
+	for kh := 0; kh < meta.LinearNumKeyHeads; kh++ {
+		start := kh * meta.LinearKeyHeadDim
+		qh := q[start : start+meta.LinearKeyHeadDim]
+		khv := k[start : start+meta.LinearKeyHeadDim]
+		for i := 0; i < rep; i++ {
+			expQ = append(expQ, qh...)
+			expK = append(expK, khv...)
+		}
+	}
+	return expQ, expK, nil
+}
+
+func qwen35GatedRMSNormValueHeads(x, gate, weight []float32, heads, headDim int, eps float32) error {
+	if heads <= 0 || headDim <= 0 || len(x) != heads*headDim || len(gate) != len(x) || len(weight) != headDim {
+		return fmt.Errorf("invalid Qwen3.5 gated RMSNorm dims x/gate/weight=%d/%d/%d heads=%d head_dim=%d", len(x), len(gate), len(weight), heads, headDim)
+	}
+	for h := 0; h < heads; h++ {
+		start := h * headDim
+		row := x[start : start+headDim]
+		var ss float32
+		for _, v := range row {
+			ss += v * v
+		}
+		scale := float32(1.0 / math.Sqrt(float64(ss/float32(headDim)+eps)))
+		for i := 0; i < headDim; i++ {
+			g := gate[start+i]
+			row[i] = row[i] * scale * weight[i] * g * sigmoid(g)
+		}
+	}
+	return nil
+}
+
 func applyQwen35LinearDeltaUpdate(ssm, q, k, v, beta, dt, decay []float32, shapes loaderconfig.Qwen35LinearAttentionShapes, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, []float32, error) {
 	stateLen := meta.LinearNumValueHeads * meta.LinearValueHeadDim * meta.LinearKeyHeadDim
 	if len(ssm) != stateLen {
@@ -782,14 +840,18 @@ func (l *Qwen35LinearAttentionLayer) ForwardWithState(input []float32, state Qwe
 		return nil, state, err
 	}
 	siluInPlace(convOut)
-	convParts, err := splitQwen35LinearQKV(convOut, shapes)
+	convParts, err := splitQwen35LinearQKVRaw(convOut, shapes)
 	if err != nil {
 		return nil, state, err
 	}
-	if err := l2NormalizeHeadsInPlace(convParts.Q, meta.LinearNumValueHeads, meta.LinearKeyHeadDim, eps); err != nil {
+	if err := l2NormalizeHeadsInPlace(convParts.Q, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
 		return nil, state, err
 	}
-	if err := l2NormalizeHeadsInPlace(convParts.K, meta.LinearNumValueHeads, meta.LinearKeyHeadDim, eps); err != nil {
+	if err := l2NormalizeHeadsInPlace(convParts.K, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
+		return nil, state, err
+	}
+	convParts.Q, convParts.K, err = repeatQwen35LinearQKToValueHeads(convParts.Q, convParts.K, meta)
+	if err != nil {
 		return nil, state, err
 	}
 	alpha := make([]float32, meta.LinearNumValueHeads)
@@ -811,9 +873,8 @@ func (l *Qwen35LinearAttentionLayer) ForwardWithState(input []float32, state Qwe
 	if err != nil {
 		return nil, state, err
 	}
-	rmsNormInPlace(deltaOut, l.Norm.Data(), eps)
-	for i := range deltaOut {
-		deltaOut[i] *= z[i] * sigmoid(z[i])
+	if err := qwen35GatedRMSNormValueHeads(deltaOut, z, l.Norm.Data(), meta.LinearNumValueHeads, meta.LinearValueHeadDim, eps); err != nil {
+		return nil, state, err
 	}
 	projectedOut := make([]float32, meta.HiddenSize)
 	if err := qwen35LinearInto(projectedOut, deltaOut, l.OutW, l.OutWQ, l.OutWm, shapes.ValueDim, meta.HiddenSize, "linear_attn.out_proj"); err != nil {
