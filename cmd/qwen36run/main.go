@@ -236,7 +236,7 @@ func main() {
 	gpuPrewarm := flag.Bool("gpu-prewarm", true, "pre-upload GPU cache before timed generation")
 	gpuTransientDetail := flag.Bool("gpu-transient-detail", false, "include top transient NVFP4 upload tensor names in GPU cache stats")
 	gpuTiming := flag.Bool("gpu-timing", false, "collect per-linear GPU upload/kernel timing; adds hot-path time.Now overhead")
-	gpuMLP := flag.Bool("gpu-mlp", false, "prototype GPU-resident Qwen3.6 MLP hot path")
+	gpuMLP := flag.Bool("gpu-mlp", true, "use GPU-resident Qwen3.6 MLP hot path when weights are cached")
 	gpuMLXOverflow := flag.Bool("gpu-mlx-overflow", true, "transient-upload MLX weights that do not fit in the resident Qwen GPU cache")
 	kvReuse := flag.Bool("kv-reuse", false, "reuse in-process Qwen prompt state across -kv-repeat runs")
 	kvChunkSize := flag.Int("kv-chunk-size", 32, "token chunk size for Qwen prompt-state reuse")

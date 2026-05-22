@@ -33,8 +33,8 @@ var qwen35MLPGPUScratch = struct {
 
 var qwen35MLXGPUScratch = struct {
 	sync.Mutex
-	x, out   *nvidia.DevBuf
-	xN, outN int
+	x, gate, up, out *nvidia.DevBuf
+	xN, interN, outN int
 }{}
 
 type Qwen35LinearStats struct {

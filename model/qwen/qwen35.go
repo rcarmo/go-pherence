@@ -532,7 +532,11 @@ func (l *Qwen35FullAttentionLayer) ForwardWithKV(input []float32, pos int, ropeF
 	rmsNormInPlace(mlpIn, l.PostNorm.Data(), eps)
 	inter := meta.IntermediateSize
 	down := make([]float32, h)
-	if ok, err := qwen35MLPIntoGPU(down, mlpIn, l.GateWQ, l.UpWQ, l.DownWQ, h, inter); err != nil {
+	if ok, err := qwen35MLXMLPIntoGPU(down, mlpIn, l.GateWm, l.UpWm, l.DownWm, h, inter); err != nil {
+		return nil, nil, nil, err
+	} else if ok {
+		// done
+	} else if ok, err := qwen35MLPIntoGPU(down, mlpIn, l.GateWQ, l.UpWQ, l.DownWQ, h, inter); err != nil {
 		return nil, nil, nil, err
 	} else if !ok {
 		gateMLP := make([]float32, inter)
@@ -901,7 +905,11 @@ func (l *Qwen35LinearAttentionLayer) ForwardWithState(input []float32, state Qwe
 	mlpIn := append([]float32(nil), resid...)
 	rmsNormInPlace(mlpIn, l.PostNorm.Data(), eps)
 	down := make([]float32, meta.HiddenSize)
-	if ok, err := qwen35MLPIntoGPU(down, mlpIn, l.MLPGateWQ, l.MLPUpWQ, l.MLPDownWQ, meta.HiddenSize, meta.IntermediateSize); err != nil {
+	if ok, err := qwen35MLXMLPIntoGPU(down, mlpIn, l.MLPGateWm, l.MLPUpWm, l.MLPDownWm, meta.HiddenSize, meta.IntermediateSize); err != nil {
+		return nil, state, err
+	} else if ok {
+		// done
+	} else if ok, err := qwen35MLPIntoGPU(down, mlpIn, l.MLPGateWQ, l.MLPUpWQ, l.MLPDownWQ, meta.HiddenSize, meta.IntermediateSize); err != nil {
 		return nil, state, err
 	} else if !ok {
 		gateMLP := make([]float32, meta.IntermediateSize)
