@@ -14,8 +14,17 @@ func GemvTo(out, x []float32, qweight, qzeros, gIdx []int32, scales []float32, i
 	if err := ValidateGemv(out, x, qweight, qzeros, gIdx, scales, inDim, outDim, sym); err != nil {
 		return false
 	}
+	caps := RuntimeCapabilities()
 	if sym {
+		if caps.HasGemvSym {
+			gemvSymAccelerated(out, x, qweight, gIdx, scales, inDim, outDim)
+			return true
+		}
 		gemvSymScalar(out, x, qweight, gIdx, scales, inDim, outDim)
+		return true
+	}
+	if caps.HasDequant {
+		gemvAccelerated(out, x, qweight, qzeros, gIdx, scales, inDim, outDim)
 		return true
 	}
 	gemvScalar(out, x, qweight, qzeros, gIdx, scales, inDim, outDim)

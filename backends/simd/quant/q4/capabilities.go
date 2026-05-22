@@ -40,6 +40,7 @@ func RuntimeCapabilities() Capabilities {
 	case "riscv64":
 		c.HasRVV = cpu.RISCV64.HasV
 		c.HasGemvSym = c.HasRVV
+		c.HasDequant = c.HasRVV
 	}
 	return c
 }
