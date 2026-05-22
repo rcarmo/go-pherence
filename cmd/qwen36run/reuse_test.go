@@ -28,9 +28,14 @@ func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
 
 func TestKVSkippedPrefillAccounting(t *testing.T) {
 	inputLen, repeat, prefill := 3, 2, 3
-	skipped := inputLen*repeat - prefill
+	total := inputLen * repeat
+	skipped := total - prefill
 	if skipped != 3 {
 		t.Fatalf("skipped=%d want 3", skipped)
+	}
+	eff := float64(skipped) / float64(total)
+	if eff != 0.5 {
+		t.Fatalf("efficiency=%v want 0.5", eff)
 	}
 }
 

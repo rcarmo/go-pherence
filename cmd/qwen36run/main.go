@@ -115,6 +115,7 @@ type Report struct {
 	KVPrefillTokens            int                        `json:"kv_prefill_tokens,omitempty"`
 	KVSuffixTokens             int                        `json:"kv_suffix_tokens,omitempty"`
 	KVSkippedPrefillTokens     int                        `json:"kv_skipped_prefill_tokens,omitempty"`
+	KVReuseEfficiency          float64                    `json:"kv_reuse_efficiency,omitempty"`
 	KVStoredChunks             int                        `json:"kv_stored_chunks,omitempty"`
 	KVChunkSize                int                        `json:"kv_chunk_size,omitempty"`
 	KVRepeat                   int                        `json:"kv_repeat,omitempty"`
@@ -436,11 +437,16 @@ func main() {
 	}
 	mtpLinearStats := qwen.Qwen35LinearStatsSnapshot()
 	mtpLMHeadStats := qwen36LMHeadStatsSnapshot()
-	kvSkippedPrefillTokens := len(inputIDs)**kvRepeat - kvPrefillTokens
+	kvTotalPromptVisits := len(inputIDs) * *kvRepeat
+	kvSkippedPrefillTokens := kvTotalPromptVisits - kvPrefillTokens
 	if kvSkippedPrefillTokens < 0 {
 		kvSkippedPrefillTokens = 0
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVPrefillTokens: kvPrefillTokens, KVSuffixTokens: kvPrefillTokens, KVSkippedPrefillTokens: kvSkippedPrefillTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, KVCacheMaxBytes: qwenPromptStateCache.MaxBytes(), KVCacheUsedBytes: qwenPromptStateCache.UsedBytes(), KVCacheEntries: qwenPromptStateCache.Len(), LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	kvReuseEfficiency := 0.0
+	if kvTotalPromptVisits > 0 {
+		kvReuseEfficiency = float64(kvSkippedPrefillTokens) / float64(kvTotalPromptVisits)
+	}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVPrefillTokens: kvPrefillTokens, KVSuffixTokens: kvPrefillTokens, KVSkippedPrefillTokens: kvSkippedPrefillTokens, KVReuseEfficiency: kvReuseEfficiency, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, KVCacheMaxBytes: qwenPromptStateCache.MaxBytes(), KVCacheUsedBytes: qwenPromptStateCache.UsedBytes(), KVCacheEntries: qwenPromptStateCache.Len(), LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *compareSequential && *mtpGenerate {
 		seqBaseLinear := mtpLinearStats
 		seqBaseLMHead := mtpLMHeadStats
