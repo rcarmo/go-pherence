@@ -38,12 +38,13 @@ type TopLogit struct {
 }
 
 type mtpGenerateStats struct {
-	Accepted         int
-	Drafted          int
-	Rounds           int
-	BonusTokens      int
-	VerifierChunks   int
-	AdaptiveFallback bool
+	Accepted            int
+	Drafted             int
+	Rounds              int
+	BonusTokens         int
+	VerifierChunks      int
+	VerifierLayerChunks int
+	AdaptiveFallback    bool
 }
 
 type Report struct {
@@ -83,6 +84,7 @@ type Report struct {
 	MTPGeneratedRounds         int                        `json:"mtp_generated_rounds,omitempty"`
 	MTPGeneratedBonusTokens    int                        `json:"mtp_generated_bonus_tokens,omitempty"`
 	MTPVerifierChunks          int                        `json:"mtp_verifier_chunks,omitempty"`
+	MTPVerifierLayerChunks     int                        `json:"mtp_verifier_layer_chunks,omitempty"`
 	MTPGeneratedAcceptanceRate float64                    `json:"mtp_generated_acceptance_rate,omitempty"`
 	MTPAdaptiveFallback        bool                       `json:"mtp_adaptive_fallback,omitempty"`
 	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
@@ -169,6 +171,7 @@ func main() {
 	mtpMinAcceptance := flag.Float64("mtp-min-acceptance", 0.75, "minimum accepted/drafted ratio before -mtp-adaptive falls back after warmup")
 	mtpWarmupRounds := flag.Int("mtp-warmup-rounds", 4, "native-MTP rounds to observe before -mtp-adaptive can fall back")
 	mtpVerifyChunk := flag.Bool("mtp-verify-chunk", false, "experimental: precompute verifier states for each native-MTP draft chunk")
+	mtpVerifyLayerChunk := flag.Bool("mtp-verify-layer-chunk", false, "experimental: compare native-MTP drafts against a layer-streamed verifier chunk")
 	topK := flag.Int("topk", 0, "include top-K base/MTP logits in reports; 0 disables")
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
@@ -374,7 +377,7 @@ func main() {
 			os.Exit(2)
 		}
 		check("mtp prompt KV", r.buildMTPPromptKV(ropeFreqs, meta))
-		generated, mtpGenStats, next, logit, h, preNormHidden, err = r.generateWithNativeMTP(next, preNormHidden, *steps, *mtpSteps, ropeFreqs, meta, *mtpAdaptive, *mtpMinAcceptance, *mtpWarmupRounds, *mtpVerifyChunk)
+		generated, mtpGenStats, next, logit, h, preNormHidden, err = r.generateWithNativeMTP(next, preNormHidden, *steps, *mtpSteps, ropeFreqs, meta, *mtpAdaptive, *mtpMinAcceptance, *mtpWarmupRounds, *mtpVerifyChunk, *mtpVerifyLayerChunk)
 		check("mtp generate", err)
 	} else {
 		cur := next
@@ -404,7 +407,7 @@ func main() {
 	if *mtpGenerate && mtpGenStats.Drafted > 0 {
 		mtpGeneratedAcceptanceRate = float64(mtpGenStats.Accepted) / float64(mtpGenStats.Drafted)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *topK > 0 {
 		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
@@ -474,6 +477,37 @@ type qwenVerifierChunk struct {
 	StepPre   [][]float32
 }
 
+func (r *runner) verifyDraftChunkLayerStreamed(drafts []int, startNext int, ropeFreqs []float32) (qwenVerifierChunk, error) {
+	if len(drafts) == 0 {
+		return qwenVerifierChunk{Next: startNext, State: qwen.CloneQwen35BaseForwardState(r.state)}, nil
+	}
+	inputs := make([][]float32, len(drafts))
+	for i, draft := range drafts {
+		inputs[i] = bf16Row(r.emb, draft)
+	}
+	outs, nextState, err := r.bundle.Base.ForwardChunkLayerStreamed(inputs, qwen.CloneQwen35BaseForwardState(r.state), ropeFreqs, 1e-6, r.bundle.Meta)
+	if err != nil {
+		return qwenVerifierChunk{}, err
+	}
+	out := qwenVerifierChunk{IDs: make([]int, 0, len(drafts)), StepH: make([][]float32, 0, len(drafts)), StepPre: make([][]float32, 0, len(drafts)), State: nextState}
+	next := startNext
+	for _, hidden := range outs {
+		out.IDs = append(out.IDs, next)
+		pre := append([]float32(nil), hidden...)
+		h := append([]float32(nil), pre...)
+		rmsNorm(h, r.normW, 1e-6)
+		next, out.Logit = argmaxLMHead(r.lm, r.lmGPU, h)
+		out.StepH = append(out.StepH, h)
+		out.StepPre = append(out.StepPre, pre)
+	}
+	out.Next = next
+	if len(out.StepH) > 0 {
+		out.Hidden = out.StepH[len(out.StepH)-1]
+		out.PreNorm = out.StepPre[len(out.StepPre)-1]
+	}
+	return out, nil
+}
+
 func (r *runner) verifyDraftChunk(drafts []int, startNext int, ropeFreqs []float32) (qwenVerifierChunk, error) {
 	if len(drafts) == 0 {
 		return qwenVerifierChunk{Next: startNext, State: qwen.CloneQwen35BaseForwardState(r.state)}, nil
@@ -498,7 +532,7 @@ func (r *runner) verifyDraftChunk(drafts []int, startNext int, ropeFreqs []float
 	return out, nil
 }
 
-func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTokens, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, adaptive bool, minAcceptance float64, warmupRounds int, verifyChunk bool) ([]int, mtpGenerateStats, int, float32, []float32, []float32, error) {
+func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTokens, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, adaptive bool, minAcceptance float64, warmupRounds int, verifyChunk, verifyLayerChunk bool) ([]int, mtpGenerateStats, int, float32, []float32, []float32, error) {
 	if r == nil || r.mtpHead == nil {
 		return nil, mtpGenerateStats{}, verifierNext, 0, nil, nil, fmt.Errorf("native MTP head is not loaded")
 	}
@@ -533,12 +567,18 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 		stats.Rounds++
 		stats.Drafted += len(drafts)
 		committedMTPSteps := 0
-		if verifyChunk {
-			verify, err := r.verifyDraftChunk(drafts, curVerifier, ropeFreqs)
+		if verifyChunk || verifyLayerChunk {
+			var verify qwenVerifierChunk
+			if verifyLayerChunk {
+				verify, err = r.verifyDraftChunkLayerStreamed(drafts, curVerifier, ropeFreqs)
+				stats.VerifierLayerChunks++
+			} else {
+				verify, err = r.verifyDraftChunk(drafts, curVerifier, ropeFreqs)
+				stats.VerifierChunks++
+			}
 			if err != nil {
 				return out, stats, curVerifier, logit, lastH, curHidden, err
 			}
-			stats.VerifierChunks++
 			for i, draftID := range drafts {
 				if len(out) >= maxTokens || i >= len(verify.IDs) || draftID != verify.IDs[i] {
 					break
@@ -551,6 +591,11 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 					r.state = qwen.CloneQwen35BaseForwardState(verify.StepState[i])
 					lastH = append([]float32(nil), verify.StepH[i]...)
 					curHidden = append([]float32(nil), verify.StepPre[i]...)
+				} else {
+					curVerifier, logit, lastH, curHidden, err = r.step(draftID, ropeFreqs)
+					if err != nil {
+						return out, stats, curVerifier, logit, lastH, curHidden, err
+					}
 				}
 			}
 			if committedMTPSteps > 0 {
