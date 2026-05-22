@@ -62,3 +62,31 @@ zero:
 	MOVF	0(SP), F0
 	MOVF	F0, ret+48(FP)
 	RET
+
+// RVV encodings for saxpyAsm:
+//   vsetvli a3,a2,e32,m1,ta,ma   0x0d0676d7
+//   vfmacc.vf v1,fa0,v0          0xb20550d7
+//   vse32.v v1,(a1)              0x0205e0a7
+
+// func saxpyAsm(alpha float32, x []float32, y []float32)
+TEXT ·saxpyAsm(SB), NOSPLIT, $0-56
+	MOVF	alpha+0(FP), F10      // fa0 = alpha
+	MOV	x_base+8(FP), X10      // a0 = &x[0]
+	MOV	x_len+16(FP), X12      // a2 = len(x)
+	MOV	y_base+32(FP), X11     // a1 = &y[0]
+	BEQZ	X12, saxpy_done
+
+saxpy_loop:
+	WORD	$0x0d0676d7           // vsetvli a3,a2,e32,m1,ta,ma
+	WORD	$0x02056007           // vle32.v v0,(a0)
+	WORD	$0x0205e087           // vle32.v v1,(a1)
+	WORD	$0xb20550d7           // vfmacc.vf v1,fa0,v0
+	WORD	$0x0205e0a7           // vse32.v v1,(a1)
+	SLLI	$2, X13, X14
+	ADD	X14, X10, X10
+	ADD	X14, X11, X11
+	SUB	X13, X12, X12
+	BNEZ	X12, saxpy_loop
+
+saxpy_done:
+	RET

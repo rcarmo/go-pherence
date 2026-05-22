@@ -9,8 +9,6 @@ import "unsafe"
 // useful work instead of the generic non-SIMD no-op path.
 const hasSgemmAsm = false
 
-func Saxpy(alpha float32, x []float32, y []float32) { saxpyScalar(alpha, x, y) }
-
 // SgemmNT computes C += alpha * A * B^T using a scalar riscv64 fallback.
 func SgemmNT(m, n, k int, alpha float32, a, b, c unsafe.Pointer, lda, ldb, ldc int) {
 	if !validRawSgemmArgs(m, n, k, a, b, c, lda, ldb, ldc, true) {
