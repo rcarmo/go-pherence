@@ -33,17 +33,25 @@ func SgemmNT(m, n, k int, alpha float32, a, b, c unsafe.Pointer, lda, ldb, ldc i
 	}
 }
 
-// SgemmNN computes C += alpha * A * B using a scalar riscv64 fallback.
+// SgemmNN computes C += alpha * A * B. B columns are strided in row-major
+// layout, so each column is packed into contiguous scratch once, then reused
+// across all A rows with the RVV dot-product kernel.
 func SgemmNN(m, n, k int, alpha float32, a, b, c unsafe.Pointer, lda, ldb, ldc int) {
 	if !validRawSgemmArgs(m, n, k, a, b, c, lda, ldb, ldc, false) {
 		return
 	}
-	for i := 0; i < m; i++ {
-		for j := 0; j < n; j++ {
-			sum := float32(0)
-			for p := 0; p < k; p++ {
-				sum += loadF32(a, i*lda+p) * loadF32(b, p*ldb+j)
+	bCol := make([]float32, k)
+	for j := 0; j < n; j++ {
+		for p := 0; p < k; p++ {
+			bCol[p] = loadF32(b, p*ldb+j)
+		}
+		for i := 0; i < m; i++ {
+			aOff, okA := checkedFloat32ByteOffset(i * lda)
+			if !okA {
+				return
 			}
+			aRow := unsafe.Slice((*float32)(unsafe.Add(a, aOff)), k)
+			sum := sdotAsm(aRow, bCol)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
 	}
