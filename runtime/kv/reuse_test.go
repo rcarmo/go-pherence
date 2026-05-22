@@ -12,6 +12,27 @@ func TestHashTokenChunkChainsPrefix(t *testing.T) {
 	}
 }
 
+func TestChunkCacheContainsTracksEviction(t *testing.T) {
+	c := NewChunkCache(8)
+	k1 := ChunkKey{ModelID: "m", TokenHash: 1}
+	k2 := ChunkKey{ModelID: "m", TokenHash: 2}
+	if c.Contains(k1) {
+		t.Fatal("unexpected pre-insert hit")
+	}
+	if err := c.Put(k1, []int{1}, Snapshot{Hidden: []float32{1, 2}}); err != nil {
+		t.Fatal(err)
+	}
+	if !c.Contains(k1) {
+		t.Fatal("missing inserted key")
+	}
+	if err := c.Put(k2, []int{2}, Snapshot{Hidden: []float32{3, 4}}); err != nil {
+		t.Fatal(err)
+	}
+	if c.Contains(k1) == c.Contains(k2) {
+		t.Fatalf("expected exactly one key after eviction, got k1=%v k2=%v", c.Contains(k1), c.Contains(k2))
+	}
+}
+
 func TestChunkCacheCloneAndEvict(t *testing.T) {
 	c := NewChunkCache(64)
 	k1 := ChunkKey{ModelID: "m", TokenHash: 1, EndPos: 2}

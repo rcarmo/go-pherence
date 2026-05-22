@@ -148,6 +148,13 @@ func (c *ChunkCache) Get(key ChunkKey) (ChunkEntry, bool) {
 	return ChunkEntry{Key: ent.Key, Tokens: append([]int(nil), ent.Tokens...), Snap: CloneSnapshot(ent.Snap), Bytes: ent.Bytes, LastUse: ent.LastUse}, true
 }
 
+func (c *ChunkCache) Contains(key ChunkKey) bool {
+	if c == nil {
+		return false
+	}
+	return c.items[key] != nil
+}
+
 func (c *ChunkCache) UsedBytes() int64 {
 	if c == nil {
 		return 0

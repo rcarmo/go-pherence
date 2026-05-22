@@ -903,11 +903,20 @@ func cloneQwenPromptStateSnapshot(s qwenPromptStateSnapshot) qwenPromptStateSnap
 	return qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(s.State), Next: s.Next, Logit: s.Logit, Hidden: append([]float32(nil), s.Hidden...), PreNorm: append([]float32(nil), s.PreNorm...), EndPos: s.EndPos}
 }
 
+func qwenPrunePromptStateSidecar() {
+	for key := range qwenPromptStateSidecar {
+		if !qwenPromptStateCache.Contains(key) {
+			delete(qwenPromptStateSidecar, key)
+		}
+	}
+}
+
 func qwenStorePromptPrefix(modelID, layout string, tokens []int, chunkSize int, snap qwenPromptStateSnapshot) {
 	key := qwenPromptPrefixKey(modelID, layout, tokens, chunkSize)
 	stored := cloneQwenPromptStateSnapshot(snap)
 	_ = qwenPromptStateCache.Put(key, tokens, kv.Snapshot{SeqLen: stored.State.Pos, Hidden: stored.Hidden})
 	qwenPromptStateSidecar[key] = stored
+	qwenPrunePromptStateSidecar()
 }
 
 func qwenFindLongestPromptPrefix(modelID, layout string, tokens []int, chunkSize int) (qwenPromptStateSnapshot, bool) {

@@ -70,6 +70,17 @@ func TestShouldFallbackNativeMTP(t *testing.T) {
 	}
 }
 
+func TestQwenStorePromptPrefixPrunesEvictedSidecar(t *testing.T) {
+	qwenPromptStateCache = kv.NewChunkCache(4)
+	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
+	modelID, layout := "m", "l"
+	qwenStorePromptPrefix(modelID, layout, []int{1}, 1, qwenPromptStateSnapshot{EndPos: 1, State: qwen.Qwen35BaseForwardState{Pos: 1}, Hidden: []float32{1, 2}})
+	qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 1, qwenPromptStateSnapshot{EndPos: 2, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{3, 4}})
+	if len(qwenPromptStateSidecar) != qwenPromptStateCache.Len() {
+		t.Fatalf("sidecar/cache mismatch sidecar=%d cache=%d", len(qwenPromptStateSidecar), qwenPromptStateCache.Len())
+	}
+}
+
 func TestQwenFindLongestPromptPrefix(t *testing.T) {
 	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
 	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
