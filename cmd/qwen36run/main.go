@@ -67,6 +67,9 @@ type Report struct {
 	MTPAcceptedPrefix          int                        `json:"mtp_accepted_prefix,omitempty"`
 	MTPCommittedTokens         []int                      `json:"mtp_committed_tokens,omitempty"`
 	MTPCommitStatePos          int                        `json:"mtp_commit_state_pos,omitempty"`
+	MTPGenerate                bool                       `json:"mtp_generate,omitempty"`
+	MTPGeneratedIDs            []int                      `json:"mtp_generated_ids,omitempty"`
+	MTPGeneratedAccepted       int                        `json:"mtp_generated_accepted,omitempty"`
 	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
 	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
 	GPUPrewarm                 qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
@@ -141,7 +144,8 @@ func main() {
 	prompt := flag.String("prompt", "", "text prompt to encode and run")
 	steps := flag.Int("steps", 1, "greedy decode steps after prompt/token")
 	mtp := flag.Bool("mtp", false, "also run native MTP head from last base hidden state and generated token")
-	mtpSteps := flag.Int("mtp-steps", 1, "native MTP draft steps for diagnostics")
+	mtpSteps := flag.Int("mtp-steps", 1, "native MTP draft steps for diagnostics/generation")
+	mtpGenerate := flag.Bool("mtp-generate", false, "use native MTP draft/verify/commit loop for generation after prompt prefill")
 	topK := flag.Int("topk", 0, "include top-K base/MTP logits in reports; 0 disables")
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
@@ -338,15 +342,25 @@ func main() {
 	prefillToken := inputIDs[len(inputIDs)-1]
 	prefillPos := r.state.Pos - 1
 	generated := make([]int, 0, *steps)
-	cur := next
-	for i := 0; i < *steps; i++ {
-		generated = append(generated, cur)
-		if i == *steps-1 {
-			break
+	mtpGeneratedAccepted := 0
+	if *mtpGenerate {
+		if r.mtpHead == nil {
+			fmt.Fprintln(os.Stderr, "-mtp-generate requires -mtp")
+			os.Exit(2)
 		}
-		next, logit, h, preNormHidden, err = r.step(cur, ropeFreqs)
-		check("decode", err)
-		cur = next
+		generated, mtpGeneratedAccepted, next, logit, h, preNormHidden, err = r.generateWithNativeMTP(next, preNormHidden, *steps, *mtpSteps, ropeFreqs, meta)
+		check("mtp generate", err)
+	} else {
+		cur := next
+		for i := 0; i < *steps; i++ {
+			generated = append(generated, cur)
+			if i == *steps-1 {
+				break
+			}
+			next, logit, h, preNormHidden, err = r.step(cur, ropeFreqs)
+			check("decode", err)
+			cur = next
+		}
 	}
 	var sum float32
 	for _, v := range h {
@@ -360,7 +374,7 @@ func main() {
 	if tok != nil {
 		decoded = tok.Decode(generated)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGeneratedAccepted, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *topK > 0 {
 		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
@@ -384,6 +398,49 @@ func main() {
 	if !rep.Passed {
 		os.Exit(1)
 	}
+}
+
+func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTokens, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata) ([]int, int, int, float32, []float32, []float32, error) {
+	if r == nil || r.mtpHead == nil {
+		return nil, 0, verifierNext, 0, nil, nil, fmt.Errorf("native MTP head is not loaded")
+	}
+	if maxTokens <= 0 {
+		return nil, 0, verifierNext, 0, nil, hidden, nil
+	}
+	out := make([]int, 0, maxTokens)
+	acceptedTotal := 0
+	curVerifier := verifierNext
+	curHidden := append([]float32(nil), hidden...)
+	var lastH []float32
+	var logit float32
+	for len(out) < maxTokens {
+		drafts, err := draftMTPIDs(r.mtpHead, r.emb, r.lm, curVerifier, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps)
+		if err != nil {
+			return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
+		}
+		for _, draftID := range drafts {
+			if len(out) >= maxTokens || draftID != curVerifier {
+				break
+			}
+			out = append(out, draftID)
+			acceptedTotal++
+			curVerifier, logit, lastH, curHidden, err = r.step(draftID, ropeFreqs)
+			if err != nil {
+				return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
+			}
+		}
+		if len(out) >= maxTokens {
+			break
+		}
+		// LiteRT-style bonus token on mismatch/all-accepted completion.
+		bonus := curVerifier
+		out = append(out, bonus)
+		curVerifier, logit, lastH, curHidden, err = r.step(bonus, ropeFreqs)
+		if err != nil {
+			return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
+		}
+	}
+	return out, acceptedTotal, curVerifier, logit, lastH, curHidden, nil
 }
 
 func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNext int, prefillHidden []float32, prefillToken, prefillPos int, generated []int, preNormHidden []float32, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, mtpSteps int, greedySeed bool) {

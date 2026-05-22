@@ -298,6 +298,40 @@ The scheduler processes prompt chunks layer-by-layer: for a chunk, it keeps a la
 
 MTP verifier state and accepted-prefix commit are now combined with the restored/streamed prompt state. `qwen36run` compares drafted IDs with verifier IDs, appends accepted draft tokens, appends the LiteRT-style verifier bonus token, advances a cloned verifier runner through the committed tokens, and then commits the resulting `Qwen35BaseForwardState` back into the main runner. The report exposes `mtp_committed_tokens` and `mtp_commit_state_pos`.
 
+`qwen36run -mtp-generate` now runs a repeated native-MTP generation loop:
+
+1. draft up to `-mtp-steps` tokens from the current verifier hidden state;
+2. verify drafts against the main model;
+3. commit accepted prefix;
+4. commit verifier bonus token on mismatch/all-accepted completion;
+5. repeat until `-steps` output tokens are produced.
+
+Validation command:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
+  -kv-reuse -kv-chunk-size 2 \
+  -layer-streamed-prefill -prefill-chunk-size 4 \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello world again" \
+  -steps 3 -mtp -mtp-generate -mtp-steps 2
+```
+
+Latest smoke:
+
+```text
+passed: true
+mtp_generate: true
+generated_ids: [119, 119, 119]
+mtp_generated_accepted: 0
+next_id: 119
+linear_stats.gpu_calls: 2976
+linear_stats.cpu_calls: 0
+```
+
+The loop is functional, but this prompt/model state currently accepts no draft tokens, so it emits verifier bonus tokens. Acceptance quality is now the next correctness target.
+
 Validation command:
 
 ```bash
