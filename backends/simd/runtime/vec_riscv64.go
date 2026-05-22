@@ -2,20 +2,63 @@
 
 package simd
 
-// RVV assembly is not enabled yet. Keep the public vector API wired to the same
-// Go fallbacks as other non-AVX/NEON architectures, but use a riscv64-specific
-// file so future RVV assembly can replace one function group at a time.
-func Snrm2(x []float32) float32                      { return snrm2Go(x) }
-func VecAdd(dst, a, b []float32)                     { vecAddGo(dst, a, b) }
-func VecMul(dst, a, b []float32)                     { vecMulGo(dst, a, b) }
-func VecScaleAdd(dst, a, b []float32, scale float32) { vecScaleAddGo(dst, a, b, scale) }
-func VecScale(dst, a []float32, scale float32)       { vecScaleGo(dst, a, scale) }
-func VecSiLUMul(dst, a, b []float32)                 { vecSiLUMulGo(dst, a, b) }
-func RMSNorm(x, w []float32, eps float32)            { rmsNormGo(x, w, eps) }
-func RMSNormNoScale(x []float32, eps float32)        { rmsNormNoScaleGo(x, eps) }
-func GELUTanhMul(dst, a, b []float32)                { geluTanhMulGo(dst, a, b) }
-func RMSNormBF16(x, w []float32, eps float32)        { rmsNormBF16Go(x, w, eps) }
-func ToBF16(x []float32)                             { toBF16Go(x) }
+// RVV vector assembly is enabled incrementally. HasVecAsm remains false until
+// the full vector surface (including RMSNorm/BF16) has parity-tested RVV
+// implementations, but the basic elementwise kernels below can use RVV today.
+var hasRVVVecAsm = RuntimeCapabilities().HasRVV
+
+//go:noescape
+func vecAddAsm(dst, a, b []float32)
+
+//go:noescape
+func vecMulAsm(dst, a, b []float32)
+
+//go:noescape
+func vecScaleAddAsm(dst, a, b []float32, scale float32)
+
+//go:noescape
+func vecScaleAsm(dst, a []float32, scale float32)
+
+func Snrm2(x []float32) float32 { return snrm2Go(x) }
+
+func VecAdd(dst, a, b []float32) {
+	if len(a) > 0 && len(dst) == len(a) && len(b) == len(a) && hasRVVVecAsm {
+		vecAddAsm(dst, a, b)
+		return
+	}
+	vecAddGo(dst, a, b)
+}
+
+func VecMul(dst, a, b []float32) {
+	if len(a) > 0 && len(dst) == len(a) && len(b) == len(a) && hasRVVVecAsm {
+		vecMulAsm(dst, a, b)
+		return
+	}
+	vecMulGo(dst, a, b)
+}
+
+func VecScaleAdd(dst, a, b []float32, scale float32) {
+	if len(a) > 0 && len(dst) == len(a) && len(b) == len(a) && hasRVVVecAsm {
+		vecScaleAddAsm(dst, a, b, scale)
+		return
+	}
+	vecScaleAddGo(dst, a, b, scale)
+}
+
+func VecScale(dst, a []float32, scale float32) {
+	if len(a) > 0 && len(dst) == len(a) && hasRVVVecAsm {
+		vecScaleAsm(dst, a, scale)
+		return
+	}
+	vecScaleGo(dst, a, scale)
+}
+
+func VecSiLUMul(dst, a, b []float32)          { vecSiLUMulGo(dst, a, b) }
+func RMSNorm(x, w []float32, eps float32)     { rmsNormGo(x, w, eps) }
+func RMSNormNoScale(x []float32, eps float32) { rmsNormNoScaleGo(x, eps) }
+func GELUTanhMul(dst, a, b []float32)         { geluTanhMulGo(dst, a, b) }
+func RMSNormBF16(x, w []float32, eps float32) { rmsNormBF16Go(x, w, eps) }
+func ToBF16(x []float32)                      { toBF16Go(x) }
 
 func init() { HasVecAsm = false }
 
