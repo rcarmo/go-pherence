@@ -95,14 +95,19 @@ func (c *PromptCache) Store(modelID, layout, dtype string, tokens []int, chunkSi
 }
 
 func (c *PromptCache) FindLongest(modelID, layout, dtype string, tokens []int, chunkSize int) (PromptSnapshot, bool) {
+	snap, _, ok := c.FindLongestWithKey(modelID, layout, dtype, tokens, chunkSize)
+	return snap, ok
+}
+
+func (c *PromptCache) FindLongestWithKey(modelID, layout, dtype string, tokens []int, chunkSize int) (PromptSnapshot, kv.ChunkKey, bool) {
 	if c == nil || c.cache == nil || chunkSize <= 0 {
-		return PromptSnapshot{}, false
+		return PromptSnapshot{}, kv.ChunkKey{}, false
 	}
 	for end := len(tokens); end > 0; {
 		key := PromptPrefixKey(modelID, layout, dtype, tokens[:end], chunkSize)
 		if _, ok := c.cache.Get(key); ok {
 			if snap, ok := c.sidecar[key]; ok {
-				return ClonePromptSnapshot(snap), true
+				return ClonePromptSnapshot(snap), key, true
 			}
 		}
 		if end%chunkSize != 0 {
@@ -111,7 +116,7 @@ func (c *PromptCache) FindLongest(modelID, layout, dtype string, tokens []int, c
 			end -= chunkSize
 		}
 	}
-	return PromptSnapshot{}, false
+	return PromptSnapshot{}, kv.ChunkKey{}, false
 }
 
 func (c *PromptCache) Stats() PromptCacheStats {

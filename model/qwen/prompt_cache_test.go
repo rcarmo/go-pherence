@@ -8,9 +8,9 @@ func TestPromptCacheStoreFindAndStats(t *testing.T) {
 	if !c.Store("m", "l", "mlx4", []int{1, 2}, 2, snap) {
 		t.Fatal("store failed")
 	}
-	got, ok := c.FindLongest("m", "l", "mlx4", []int{1, 2, 3}, 2)
-	if !ok || got.EndPos != 2 || got.Next != 42 || got.State.FullK[0][0] != 1 {
-		t.Fatalf("bad restore got=%+v ok=%v", got, ok)
+	got, key, ok := c.FindLongestWithKey("m", "l", "mlx4", []int{1, 2, 3}, 2)
+	if !ok || got.EndPos != 2 || got.Next != 42 || got.State.FullK[0][0] != 1 || key.EndPos != 2 {
+		t.Fatalf("bad restore got=%+v key=%+v ok=%v", got, key, ok)
 	}
 	got.State.FullK[0][0] = 99
 	got2, ok := c.FindLongest("m", "l", "mlx4", []int{1, 2}, 2)

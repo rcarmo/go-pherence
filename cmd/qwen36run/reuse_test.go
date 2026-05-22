@@ -165,9 +165,9 @@ func TestQwenFindLongestPromptPrefixFromPrimedPrompt(t *testing.T) {
 	if !qwenStorePromptPrefix(modelID, layout, prime, 2, qwen.PromptSnapshot{EndPos: 2, Next: 200, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{1}, PreNorm: []float32{2}}) {
 		t.Fatal("store primed prefix")
 	}
-	got, ok := qwenFindLongestPromptPrefix(modelID, layout, extended, 2)
-	if !ok || got.EndPos != 2 || got.Next != 200 || got.State.Pos != 2 {
-		t.Fatalf("primed prefix not restored: %+v ok=%v", got, ok)
+	got, key, ok := qwenFindLongestPromptPrefixWithKey(modelID, layout, extended, 2)
+	if !ok || got.EndPos != 2 || got.Next != 200 || got.State.Pos != 2 || key.EndPos != 2 {
+		t.Fatalf("primed prefix not restored: %+v key=%+v ok=%v", got, key, ok)
 	}
 	if _, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{10, 99, 30}, 2); ok {
 		t.Fatal("unexpected unrelated prompt hit")
