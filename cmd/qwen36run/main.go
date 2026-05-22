@@ -411,7 +411,7 @@ func main() {
 	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()
 	addThroughputBreakdown(&rep)
 	rep.GPULMHead = r.lmGPU != nil
-	if *mtp {
+	if *mtp && !*mtpGenerate {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, *mtpSteps, *greedySeed)
 	}
 	enc := json.NewEncoder(os.Stdout)
@@ -475,7 +475,7 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 	}
 
 	for len(out) < maxTokens {
-		drafts, stepK, stepV, err := draftMTPIDsDetailedWithPast(r.mtpHead, r.emb, r.lm, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps, r.mtpPastK, r.mtpPastV)
+		drafts, stepK, stepV, err := draftMTPIDsDetailedWithPast(r.mtpHead, r.emb, r.lm, r.lmGPU, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps, r.mtpPastK, r.mtpPastV)
 		if err != nil {
 			return out, stats, curVerifier, logit, lastH, curHidden, err
 		}
@@ -595,16 +595,16 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 }
 
 func draftMTPIDs(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int) ([]int, error) {
-	ids, _, _, err := draftMTPIDsDetailedWithPast(head, emb, lm, tokenID, hidden, pos, ropeFreqs, meta, steps, nil, nil)
+	ids, _, _, err := draftMTPIDsDetailedWithPast(head, emb, lm, nil, tokenID, hidden, pos, ropeFreqs, meta, steps, nil, nil)
 	return ids, err
 }
 
 func draftMTPIDsWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int, initialK, initialV []float32) ([]int, error) {
-	ids, _, _, err := draftMTPIDsDetailedWithPast(head, emb, lm, tokenID, hidden, pos, ropeFreqs, meta, steps, initialK, initialV)
+	ids, _, _, err := draftMTPIDsDetailedWithPast(head, emb, lm, nil, tokenID, hidden, pos, ropeFreqs, meta, steps, initialK, initialV)
 	return ids, err
 }
 
-func draftMTPIDsDetailedWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int, initialK, initialV []float32) ([]int, [][]float32, [][]float32, error) {
+func draftMTPIDsDetailedWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, lmGPU *nvidia.Buffer, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int, initialK, initialV []float32) ([]int, [][]float32, [][]float32, error) {
 	if head == nil || len(head.Layers) == 0 || head.Norm == nil {
 		return nil, nil, nil, fmt.Errorf("incomplete Qwen MTP head")
 	}
@@ -629,7 +629,7 @@ func draftMTPIDsDetailedWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor
 		pastV = append(pastV, v...)
 		logitHidden := append([]float32(nil), out...)
 		rmsNorm(logitHidden, head.Norm.Data(), 1e-6)
-		next, _ := argmaxLMHead(lm, nil, logitHidden)
+		next, _ := argmaxLMHead(lm, lmGPU, logitHidden)
 		ids = append(ids, next)
 		stepK = append(stepK, append([]float32(nil), k...))
 		stepV = append(stepV, append([]float32(nil), v...))
