@@ -477,6 +477,26 @@ type qwenVerifierChunk struct {
 	StepPre   [][]float32
 }
 
+func (r *runner) commitDraftPrefixLayerStreamed(drafts []int, ropeFreqs []float32) (int, float32, []float32, []float32, error) {
+	if len(drafts) == 0 {
+		return 0, 0, nil, nil, fmt.Errorf("empty verifier prefix")
+	}
+	inputs := make([][]float32, len(drafts))
+	for i, draft := range drafts {
+		inputs[i] = bf16Row(r.emb, draft)
+	}
+	outs, nextState, err := r.bundle.Base.ForwardChunkLayerStreamed(inputs, r.state, ropeFreqs, 1e-6, r.bundle.Meta)
+	if err != nil {
+		return 0, 0, nil, nil, err
+	}
+	r.state = nextState
+	pre := append([]float32(nil), outs[len(outs)-1]...)
+	h := append([]float32(nil), pre...)
+	rmsNorm(h, r.normW, 1e-6)
+	next, logit := argmaxLMHead(r.lm, r.lmGPU, h)
+	return next, logit, h, pre, nil
+}
+
 func (r *runner) verifyDraftChunkLayerStreamed(drafts []int, startNext int, ropeFreqs []float32) (qwenVerifierChunk, error) {
 	if len(drafts) == 0 {
 		return qwenVerifierChunk{Next: startNext, State: qwen.CloneQwen35BaseForwardState(r.state)}, nil
@@ -599,20 +619,34 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 				curVerifier = verify.Next
 				logit = verify.Logit
 			} else {
-				for i := 0; i < acceptedThisRound; i++ {
-					draftID := drafts[i]
-					out = append(out, draftID)
-					stats.Accepted++
-					committedMTPSteps++
-					lastToken = draftID
-					if i < len(verify.StepState) {
-						r.state = qwen.CloneQwen35BaseForwardState(verify.StepState[i])
-						lastH = append([]float32(nil), verify.StepH[i]...)
-						curHidden = append([]float32(nil), verify.StepPre[i]...)
-					} else {
-						curVerifier, logit, lastH, curHidden, err = r.step(draftID, ropeFreqs)
-						if err != nil {
-							return out, stats, curVerifier, logit, lastH, curHidden, err
+				if verifyLayerChunk && acceptedThisRound > 0 {
+					for i := 0; i < acceptedThisRound; i++ {
+						draftID := drafts[i]
+						out = append(out, draftID)
+						stats.Accepted++
+						committedMTPSteps++
+						lastToken = draftID
+					}
+					curVerifier, logit, lastH, curHidden, err = r.commitDraftPrefixLayerStreamed(drafts[:acceptedThisRound], ropeFreqs)
+					if err != nil {
+						return out, stats, curVerifier, logit, lastH, curHidden, err
+					}
+				} else {
+					for i := 0; i < acceptedThisRound; i++ {
+						draftID := drafts[i]
+						out = append(out, draftID)
+						stats.Accepted++
+						committedMTPSteps++
+						lastToken = draftID
+						if i < len(verify.StepState) {
+							r.state = qwen.CloneQwen35BaseForwardState(verify.StepState[i])
+							lastH = append([]float32(nil), verify.StepH[i]...)
+							curHidden = append([]float32(nil), verify.StepPre[i]...)
+						} else {
+							curVerifier, logit, lastH, curHidden, err = r.step(draftID, ropeFreqs)
+							if err != nil {
+								return out, stats, curVerifier, logit, lastH, curHidden, err
+							}
 						}
 					}
 				}
