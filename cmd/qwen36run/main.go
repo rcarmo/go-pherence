@@ -411,10 +411,23 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 	acceptedTotal := 0
 	curVerifier := verifierNext
 	curHidden := append([]float32(nil), hidden...)
+	lastToken := -1
 	var lastH []float32
 	var logit float32
+	var err error
+
+	// The verifier token computed from the prompt is a LiteRT-style bonus token:
+	// emit and commit it first, then use that committed token plus its pre-norm
+	// hidden row as the MTP seed for subsequent drafts.
+	out = append(out, curVerifier)
+	lastToken = curVerifier
+	curVerifier, logit, lastH, curHidden, err = r.step(lastToken, ropeFreqs)
+	if err != nil || len(out) >= maxTokens {
+		return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
+	}
+
 	for len(out) < maxTokens {
-		drafts, err := draftMTPIDs(r.mtpHead, r.emb, r.lm, curVerifier, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps)
+		drafts, err := draftMTPIDs(r.mtpHead, r.emb, r.lm, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps)
 		if err != nil {
 			return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
 		}
@@ -424,6 +437,7 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 			}
 			out = append(out, draftID)
 			acceptedTotal++
+			lastToken = draftID
 			curVerifier, logit, lastH, curHidden, err = r.step(draftID, ropeFreqs)
 			if err != nil {
 				return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
@@ -432,9 +446,10 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 		if len(out) >= maxTokens {
 			break
 		}
-		// LiteRT-style bonus token on mismatch/all-accepted completion.
+		// Mismatch/all-accepted completion: emit verifier bonus token and commit it.
 		bonus := curVerifier
 		out = append(out, bonus)
+		lastToken = bonus
 		curVerifier, logit, lastH, curHidden, err = r.step(bonus, ropeFreqs)
 		if err != nil {
 			return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err

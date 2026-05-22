@@ -332,6 +332,13 @@ linear_stats.cpu_calls: 0
 
 The loop is functional, but this prompt/model state currently accepts no draft tokens, so it emits verifier bonus tokens. Acceptance quality is now the next correctness target.
 
+MTP audit notes:
+
+- The generation loop now treats the first verifier token after prompt prefill as a bonus token, commits it first, then seeds MTP with that committed token and its pre-norm hidden row. This matches the LiteRT-style sequence more closely than comparing the first MTP draft directly against the prompt's greedy token.
+- Position `pos` vs `pos+1` was spot-checked for the MTP draft layer and did not change the observed draft IDs on the local smoke.
+- Greedy-seed diagnostic also remains rejected: for `Hello world again`, base verifier token is `119`, prefill MTP predicts `220`, greedy-seed MTP predicts `13`, and post-commit MTP predicts `13` while verifier remains `119`.
+- This points to a deeper numerical/semantic mismatch rather than the outer accept/commit loop: likely MRoPE details, linear-attention recurrent parity, pre-norm hidden semantics, or quantized MLX drift in the native-MTP head.
+
 Validation command:
 
 ```bash
