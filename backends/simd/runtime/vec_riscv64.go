@@ -19,7 +19,15 @@ func vecScaleAddAsm(dst, a, b []float32, scale float32)
 //go:noescape
 func vecScaleAsm(dst, a []float32, scale float32)
 
-func Snrm2(x []float32) float32 { return snrm2Go(x) }
+//go:noescape
+func rmsNormScaleAsm(x, w []float32, scale float32)
+
+func Snrm2(x []float32) float32 {
+	if len(x) > 0 && HasDotAsm {
+		return float32Sqrt(sdotAsm(x, x))
+	}
+	return snrm2Go(x)
+}
 
 func VecAdd(dst, a, b []float32) {
 	if len(a) > 0 && len(dst) == len(a) && len(b) == len(a) && hasRVVVecAsm {
@@ -53,12 +61,23 @@ func VecScale(dst, a []float32, scale float32) {
 	vecScaleGo(dst, a, scale)
 }
 
-func VecSiLUMul(dst, a, b []float32)          { vecSiLUMulGo(dst, a, b) }
-func RMSNorm(x, w []float32, eps float32)     { rmsNormGo(x, w, eps) }
-func RMSNormNoScale(x []float32, eps float32) { rmsNormNoScaleGo(x, eps) }
-func GELUTanhMul(dst, a, b []float32)         { geluTanhMulGo(dst, a, b) }
-func RMSNormBF16(x, w []float32, eps float32) { rmsNormBF16Go(x, w, eps) }
-func ToBF16(x []float32)                      { toBF16Go(x) }
+func VecSiLUMul(dst, a, b []float32)      { vecSiLUMulGo(dst, a, b) }
+func RMSNorm(x, w []float32, eps float32) { rmsNormGo(x, w, eps) }
+func RMSNormNoScale(x []float32, eps float32) {
+	if len(x) > 0 && HasDotAsm && hasRVVVecAsm {
+		ss := sdotAsm(x, x)
+		scale := float32(1.0 / float32Sqrt(ss/float32(len(x))+eps))
+		vecScaleAsm(x, x, scale)
+		return
+	}
+	rmsNormNoScaleGo(x, eps)
+}
+func GELUTanhMul(dst, a, b []float32) { geluTanhMulGo(dst, a, b) }
+func RMSNormBF16(x, w []float32, eps float32) {
+	RMSNorm(x, w, eps)
+	toBF16Go(x)
+}
+func ToBF16(x []float32) { toBF16Go(x) }
 
 func init() { HasVecAsm = false }
 
