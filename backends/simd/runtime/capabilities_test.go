@@ -28,8 +28,8 @@ func TestRuntimeCapabilities(t *testing.T) {
 	if c.HasActivation {
 		t.Fatal("activation asm capability unexpectedly enabled before AVX2/NEON kernels land")
 	}
-	t.Logf("SIMD capabilities: arch=%s avx2=%v fma=%v neon=%v vec=%v dot=%v sgemm=%v bf16=%v pack=%v rope=%v activation=%v",
-		c.Arch, c.HasAVX2, c.HasFMA, c.HasNEON, c.HasVec, c.HasDot, c.HasSGEMM, c.HasBF16, c.HasPack, c.HasRoPE, c.HasActivation)
+	t.Logf("SIMD capabilities: arch=%s avx2=%v fma=%v neon=%v rvv=%v vec=%v dot=%v sgemm=%v bf16=%v pack=%v rope=%v activation=%v",
+		c.Arch, c.HasAVX2, c.HasFMA, c.HasNEON, c.HasRVV, c.HasVec, c.HasDot, c.HasSGEMM, c.HasBF16, c.HasPack, c.HasRoPE, c.HasActivation)
 }
 
 func TestSdotLengthMismatch(t *testing.T) {

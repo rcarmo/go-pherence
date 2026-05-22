@@ -14,6 +14,7 @@ type Capabilities struct {
 	HasAVX2       bool
 	HasFMA        bool
 	HasNEON       bool
+	HasRVV        bool
 	HasVec        bool
 	HasDot        bool
 	HasSGEMM      bool
@@ -54,6 +55,10 @@ func RuntimeCapabilities() Capabilities {
 		c.HasPack = hasNeonPack
 		c.HasRoPE = hasRoPEAsm && c.HasNEON
 		c.HasActivation = hasActivationAsm && c.HasNEON
+	case "riscv64":
+		c.HasRVV = cpu.RISCV64.HasV
+		// RVV hardware may be present, but HasVec/HasDot/HasSGEMM stay false
+		// until the riscv64 assembly kernels are enabled and parity-tested.
 	}
 	return c
 }
