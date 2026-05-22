@@ -181,25 +181,33 @@ func (m *Qwen35BaseModel) ForwardSequence(inputs [][]float32, state Qwen35BaseFo
 // layer's weights are hot/resident, then the scheduler moves to the next layer.
 // This preserves token order inside each layer so full-attention KV and
 // linear-attention recurrent state are updated identically to ForwardSequence.
-func (m *Qwen35BaseModel) ForwardChunkLayerStreamed(inputs [][]float32, state Qwen35BaseForwardState, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([][]float32, Qwen35BaseForwardState, error) {
+func cloneQwen35LinearAttentionState(s Qwen35LinearAttentionState) Qwen35LinearAttentionState {
+	return Qwen35LinearAttentionState{Conv: append([]float32(nil), s.Conv...), SSM: append([]float32(nil), s.SSM...), Pos: s.Pos}
+}
+
+func (m *Qwen35BaseModel) ForwardChunkLayerStreamedDetailed(inputs [][]float32, state Qwen35BaseForwardState, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([][]float32, []Qwen35BaseForwardState, Qwen35BaseForwardState, error) {
 	if m == nil {
-		return nil, state, fmt.Errorf("nil Qwen3.5 base model")
+		return nil, nil, state, fmt.Errorf("nil Qwen3.5 base model")
 	}
 	if len(inputs) == 0 {
-		return nil, CloneQwen35BaseForwardState(state), nil
+		return nil, nil, CloneQwen35BaseForwardState(state), nil
 	}
 	if len(state.FullK) != len(m.Layers) || len(state.FullV) != len(m.Layers) || len(state.Linear) != len(m.Layers) {
-		return nil, state, fmt.Errorf("Qwen3.5 streamed state layer counts K/V/linear=%d/%d/%d want %d", len(state.FullK), len(state.FullV), len(state.Linear), len(m.Layers))
+		return nil, nil, state, fmt.Errorf("Qwen3.5 streamed state layer counts K/V/linear=%d/%d/%d want %d", len(state.FullK), len(state.FullV), len(state.Linear), len(m.Layers))
 	}
 	curState := CloneQwen35BaseForwardState(state)
 	hiddens := make([][]float32, len(inputs))
 	for i, input := range inputs {
 		if len(input) != meta.HiddenSize {
-			return nil, state, fmt.Errorf("Qwen3.5 streamed input %d len=%d want %d", i, len(input), meta.HiddenSize)
+			return nil, nil, state, fmt.Errorf("Qwen3.5 streamed input %d len=%d want %d", i, len(input), meta.HiddenSize)
 		}
 		hiddens[i] = append([]float32(nil), input...)
 	}
 	startPos := curState.Pos
+	prefixStates := make([]Qwen35BaseForwardState, len(inputs))
+	for i := range prefixStates {
+		prefixStates[i] = Qwen35BaseForwardState{Pos: startPos + i + 1, FullK: make([][]float32, len(m.Layers)), FullV: make([][]float32, len(m.Layers)), Linear: make([]Qwen35LinearAttentionState, len(m.Layers))}
+	}
 	for layerIdx := range m.Layers {
 		layer := &m.Layers[layerIdx]
 		for tokIdx := range hiddens {
@@ -208,29 +216,37 @@ func (m *Qwen35BaseModel) ForwardChunkLayerStreamed(inputs [][]float32, state Qw
 			case Qwen35FullAttentionLayerKind:
 				out, curK, curV, err := layer.Full.ForwardWithKV(hiddens[tokIdx], pos, ropeFreqs, curState.FullK[layerIdx], curState.FullV[layerIdx], eps, meta)
 				if err != nil {
-					return nil, state, fmt.Errorf("Qwen3.5 streamed full layer %d token %d: %w", layerIdx, tokIdx, err)
+					return nil, nil, state, fmt.Errorf("Qwen3.5 streamed full layer %d token %d: %w", layerIdx, tokIdx, err)
 				}
 				nextK, nextV, err := appendQwen35FullAttentionKV(curState.FullK[layerIdx], curState.FullV[layerIdx], curK, curV, meta)
 				if err != nil {
-					return nil, state, fmt.Errorf("Qwen3.5 streamed full layer %d token %d cache: %w", layerIdx, tokIdx, err)
+					return nil, nil, state, fmt.Errorf("Qwen3.5 streamed full layer %d token %d cache: %w", layerIdx, tokIdx, err)
 				}
 				curState.FullK[layerIdx] = nextK
 				curState.FullV[layerIdx] = nextV
+				prefixStates[tokIdx].FullK[layerIdx] = append([]float32(nil), nextK...)
+				prefixStates[tokIdx].FullV[layerIdx] = append([]float32(nil), nextV...)
 				hiddens[tokIdx] = out
 			case Qwen35LinearAttentionLayerKind:
 				out, nextLinear, err := layer.Linear.ForwardWithState(hiddens[tokIdx], curState.Linear[layerIdx], eps, meta)
 				if err != nil {
-					return nil, state, fmt.Errorf("Qwen3.5 streamed linear layer %d token %d: %w", layerIdx, tokIdx, err)
+					return nil, nil, state, fmt.Errorf("Qwen3.5 streamed linear layer %d token %d: %w", layerIdx, tokIdx, err)
 				}
 				curState.Linear[layerIdx] = nextLinear
+				prefixStates[tokIdx].Linear[layerIdx] = cloneQwen35LinearAttentionState(nextLinear)
 				hiddens[tokIdx] = out
 			default:
-				return nil, state, fmt.Errorf("Qwen3.5 streamed layer %d has unsupported kind %q", layerIdx, layer.Kind)
+				return nil, nil, state, fmt.Errorf("Qwen3.5 streamed layer %d has unsupported kind %q", layerIdx, layer.Kind)
 			}
 		}
 	}
 	curState.Pos = startPos + len(inputs)
-	return hiddens, curState, nil
+	return hiddens, prefixStates, curState, nil
+}
+
+func (m *Qwen35BaseModel) ForwardChunkLayerStreamed(inputs [][]float32, state Qwen35BaseForwardState, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([][]float32, Qwen35BaseForwardState, error) {
+	hiddens, _, next, err := m.ForwardChunkLayerStreamedDetailed(inputs, state, ropeFreqs, eps, meta)
+	return hiddens, next, err
 }
 
 func (m *Qwen35BaseModel) ForwardOne(input []float32, state Qwen35BaseForwardState, pos int, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, Qwen35BaseForwardState, error) {
