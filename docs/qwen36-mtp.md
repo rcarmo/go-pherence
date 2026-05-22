@@ -343,6 +343,7 @@ MTP audit notes:
 - Full-attention `q_proj` output is now split per head as `[q_head, gate_head]`, matching the Transformers reference. The previous flat `[all_q, all_gate]` split was a major verifier-parity bug and also affected the native-MTP layer.
 - After these fixes, semantic output improves substantially (`The capital of France is` decodes as ` known for its rich history` in the local 5-token smoke), and native-MTP acceptance is no longer stuck at zero. A local `Hello world again` smoke with `-mtp-generate -mtp-steps 2` accepted one draft token and produced `! I'm back again`.
 - The generation loop now keeps the native-MTP self-attention cache current across accepted-prefix/bonus-token commits. It seeds MTP with the full prompt, commits the MTP K/V for the seed token even when a draft is rejected, and commits additional MTP K/V rows for accepted draft steps. A 10-token `Hello world again` smoke produced `! I'm back again with another post about my` with `mtp_generated_accepted=3` and `decode_tokens_per_second≈0.67` on the local RTX 3060 path.
+- Generation reports now include `mtp_generated_drafted`, `mtp_generated_rounds`, `mtp_generated_bonus_tokens`, and `mtp_generated_acceptance_rate` (accepted drafts divided by drafted candidates). A 12-token smoke produced `! I'm back again with another post about my journey into`, with `mtp_generated_accepted=5`, `mtp_generated_drafted=14`, `mtp_generated_rounds=7`, `mtp_generated_bonus_tokens=7`, and acceptance rate ≈35.7%.
 
 Validation command:
 
