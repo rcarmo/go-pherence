@@ -90,6 +90,8 @@ type Report struct {
 	SequentialDecoded          string                     `json:"sequential_decoded,omitempty"`
 	SequentialDurationMS       int64                      `json:"sequential_duration_ms,omitempty"`
 	SequentialDecodeTPS        float64                    `json:"sequential_decode_tokens_per_second,omitempty"`
+	SequentialLinearStats      qwen.Qwen35LinearStats     `json:"sequential_linear_stats,omitempty"`
+	SequentialLMHeadStats      Qwen36LMHeadStats          `json:"sequential_lm_head_stats,omitempty"`
 	MTPSpeedupVsSequential     float64                    `json:"mtp_speedup_vs_sequential,omitempty"`
 	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
 	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
@@ -416,8 +418,12 @@ func main() {
 	if *mtpGenerate && mtpGenStats.Drafted > 0 {
 		mtpGeneratedAcceptanceRate = float64(mtpGenStats.Accepted) / float64(mtpGenStats.Drafted)
 	}
+	mtpLinearStats := qwen.Qwen35LinearStatsSnapshot()
+	mtpLMHeadStats := qwen36LMHeadStatsSnapshot()
 	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *compareSequential && *mtpGenerate {
+		seqBaseLinear := mtpLinearStats
+		seqBaseLMHead := mtpLMHeadStats
 		seqRunner := newRunner(bundle, baselineState, r.emb, r.normW, r.lm, r.lmGPU, r.mtpHead)
 		seqStart := time.Now()
 		seqIDs, seqNext, seqLogit, seqH, seqPre, err := seqRunner.generateSequential(baselineNext, baselineH, baselinePreNorm, *steps, ropeFreqs)
@@ -433,6 +439,10 @@ func main() {
 		if tok != nil {
 			rep.SequentialDecoded = tok.Decode(seqIDs)
 		}
+		seqTotalLinear := qwen.Qwen35LinearStatsSnapshot()
+		seqTotalLMHead := qwen36LMHeadStatsSnapshot()
+		rep.SequentialLinearStats = diffQwen35LinearStats(seqTotalLinear, seqBaseLinear)
+		rep.SequentialLMHeadStats = diffQwen36LMHeadStats(seqTotalLMHead, seqBaseLMHead)
 		rep.Passed = rep.Passed && len(seqIDs) == len(generated) && rep.SequentialDecoded == rep.Decoded
 	}
 	if *topK > 0 {
@@ -445,8 +455,8 @@ func main() {
 	rep.GPUPrewarmMS = prewarmMS
 	rep.GPUCache = qwen.Qwen35GPUCacheStatsSnapshot()
 	rep.GPUVerify = qwen.Qwen35GPUVerifyStatsSnapshot()
-	rep.LinearStats = qwen.Qwen35LinearStatsSnapshot()
-	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()
+	rep.LinearStats = mtpLinearStats
+	rep.LMHeadStats = mtpLMHeadStats
 	addThroughputBreakdown(&rep)
 	if rep.DecodeTokensPerSecond > 0 && rep.SequentialDecodeTPS > 0 {
 		rep.MTPSpeedupVsSequential = rep.DecodeTokensPerSecond / rep.SequentialDecodeTPS
@@ -895,6 +905,21 @@ func newRunner(bundle *qwen.Qwen35NativeMTPBundle, state qwen.Qwen35BaseForwardS
 
 func qwen36LMHeadStatsSnapshot() Qwen36LMHeadStats {
 	out := qwen36LMHeadStats
+	if out.Calls > 0 {
+		out.AvgMS = float64(out.GPUMillis+out.CPUMillis) / float64(out.Calls)
+	}
+	return out
+}
+
+func diffQwen35LinearStats(a, b qwen.Qwen35LinearStats) qwen.Qwen35LinearStats {
+	return qwen.Qwen35LinearStats{Calls: a.Calls - b.Calls, GPUCalls: a.GPUCalls - b.GPUCalls, CPUCalls: a.CPUCalls - b.CPUCalls, GPUFailures: a.GPUFailures - b.GPUFailures, GPUMillis: a.GPUMillis - b.GPUMillis, GPUUploadMS: a.GPUUploadMS - b.GPUUploadMS, GPUKernelMS: a.GPUKernelMS - b.GPUKernelMS, CPUMillis: a.CPUMillis - b.CPUMillis, VerifyMillis: a.VerifyMillis - b.VerifyMillis}
+}
+
+func diffQwen36LMHeadStats(a, b Qwen36LMHeadStats) Qwen36LMHeadStats {
+	out := Qwen36LMHeadStats{Calls: a.Calls - b.Calls, GPUMillis: a.GPUMillis - b.GPUMillis, CPUMillis: a.CPUMillis - b.CPUMillis}
+	if a.DownloadRows != 0 || b.DownloadRows != 0 {
+		out.DownloadRows = a.DownloadRows
+	}
 	if out.Calls > 0 {
 		out.AvgMS = float64(out.GPUMillis+out.CPUMillis) / float64(out.Calls)
 	}
