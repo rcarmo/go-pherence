@@ -16,9 +16,17 @@ func SgemmNT(m, n, k int, alpha float32, a, b, c unsafe.Pointer, lda, ldb, ldc i
 		return
 	}
 	for i := 0; i < m; i++ {
+		aOff, okA := checkedFloat32ByteOffset(i * lda)
+		if !okA {
+			return
+		}
+		aRow := unsafe.Slice((*float32)(unsafe.Add(a, aOff)), k)
 		for j := 0; j < n; j++ {
-			aRow := unsafe.Slice((*float32)(unsafe.Add(a, mustFloat32ByteOffset(i*lda))), k)
-			bRow := unsafe.Slice((*float32)(unsafe.Add(b, mustFloat32ByteOffset(j*ldb))), k)
+			bOff, okB := checkedFloat32ByteOffset(j * ldb)
+			if !okB {
+				return
+			}
+			bRow := unsafe.Slice((*float32)(unsafe.Add(b, bOff)), k)
 			sum := sdotAsm(aRow, bRow)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
@@ -65,12 +73,4 @@ func storeF32(base unsafe.Pointer, idx int, v float32) {
 		return
 	}
 	*(*float32)(unsafe.Add(base, off)) = v
-}
-
-func mustFloat32ByteOffset(index int) uintptr {
-	off, ok := checkedFloat32ByteOffset(index)
-	if !ok {
-		return 0
-	}
-	return off
 }
