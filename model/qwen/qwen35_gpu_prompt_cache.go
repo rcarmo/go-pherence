@@ -168,6 +168,27 @@ func (c *GPUPromptCache) Get(key kv.ChunkKey) (*Qwen35GPUForwardState, bool) {
 	return el.Value.(*GPUPromptCacheEntry).State, true
 }
 
+func (c *GPUPromptCache) Download(key kv.ChunkKey) (Qwen35BaseForwardState, bool, error) {
+	if c == nil {
+		return Qwen35BaseForwardState{}, false, nil
+	}
+	el := c.items[key]
+	if el == nil {
+		return Qwen35BaseForwardState{}, false, nil
+	}
+	c.ll.MoveToFront(el)
+	ent := el.Value.(*GPUPromptCacheEntry)
+	if ent.State != nil {
+		s, err := DownloadQwen35ForwardStateGPU(ent.State)
+		return s, err == nil, err
+	}
+	if ent.StateBF16 != nil {
+		s, err := DownloadQwen35ForwardStateGPUBF16(ent.StateBF16)
+		return s, err == nil, err
+	}
+	return Qwen35BaseForwardState{}, false, nil
+}
+
 func (c *GPUPromptCache) Contains(key kv.ChunkKey) bool {
 	if c == nil {
 		return false
