@@ -579,31 +579,50 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 			if err != nil {
 				return out, stats, curVerifier, logit, lastH, curHidden, err
 			}
+			acceptedThisRound := 0
 			for i, draftID := range drafts {
-				if len(out) >= maxTokens || i >= len(verify.IDs) || draftID != verify.IDs[i] {
+				if len(out)+acceptedThisRound >= maxTokens || i >= len(verify.IDs) || draftID != verify.IDs[i] {
 					break
 				}
-				out = append(out, draftID)
-				stats.Accepted++
-				committedMTPSteps++
-				lastToken = draftID
-				if i < len(verify.StepState) {
-					r.state = qwen.CloneQwen35BaseForwardState(verify.StepState[i])
-					lastH = append([]float32(nil), verify.StepH[i]...)
-					curHidden = append([]float32(nil), verify.StepPre[i]...)
-				} else {
-					curVerifier, logit, lastH, curHidden, err = r.step(draftID, ropeFreqs)
-					if err != nil {
-						return out, stats, curVerifier, logit, lastH, curHidden, err
+				acceptedThisRound++
+			}
+			if verifyLayerChunk && acceptedThisRound == len(drafts) && len(out)+acceptedThisRound <= maxTokens {
+				for _, draftID := range drafts {
+					out = append(out, draftID)
+					stats.Accepted++
+					committedMTPSteps++
+					lastToken = draftID
+				}
+				r.state = qwen.CloneQwen35BaseForwardState(verify.State)
+				lastH = append([]float32(nil), verify.Hidden...)
+				curHidden = append([]float32(nil), verify.PreNorm...)
+				curVerifier = verify.Next
+				logit = verify.Logit
+			} else {
+				for i := 0; i < acceptedThisRound; i++ {
+					draftID := drafts[i]
+					out = append(out, draftID)
+					stats.Accepted++
+					committedMTPSteps++
+					lastToken = draftID
+					if i < len(verify.StepState) {
+						r.state = qwen.CloneQwen35BaseForwardState(verify.StepState[i])
+						lastH = append([]float32(nil), verify.StepH[i]...)
+						curHidden = append([]float32(nil), verify.StepPre[i]...)
+					} else {
+						curVerifier, logit, lastH, curHidden, err = r.step(draftID, ropeFreqs)
+						if err != nil {
+							return out, stats, curVerifier, logit, lastH, curHidden, err
+						}
 					}
 				}
-			}
-			if committedMTPSteps > 0 {
-				if committedMTPSteps < len(verify.IDs) {
-					curVerifier = verify.IDs[committedMTPSteps]
-				} else {
-					curVerifier = verify.Next
-					logit = verify.Logit
+				if committedMTPSteps > 0 {
+					if committedMTPSteps < len(verify.IDs) {
+						curVerifier = verify.IDs[committedMTPSteps]
+					} else {
+						curVerifier = verify.Next
+						logit = verify.Logit
+					}
 				}
 			}
 		} else {
