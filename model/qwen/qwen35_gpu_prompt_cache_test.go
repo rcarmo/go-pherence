@@ -7,6 +7,20 @@ import (
 	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
+func TestGPUPromptCacheBudgetRejectionStats(t *testing.T) {
+	if !nvidia.SgemmReady() {
+		t.Skip("NVIDIA backend not available")
+	}
+	c := NewGPUPromptCache(1)
+	defer c.Free()
+	if c.Put(kv.ChunkKey{ModelID: "m"}, sampleQwen35ForwardState()) {
+		t.Fatal("tiny budget accepted state")
+	}
+	if c.Stats().BudgetRejections == 0 {
+		t.Fatalf("missing budget rejection: %+v", c.Stats())
+	}
+}
+
 func TestGPUPromptCacheDisabled(t *testing.T) {
 	c := NewGPUPromptCache(0)
 	if c.Put(kv.ChunkKey{ModelID: "m"}, sampleQwen35ForwardState()) {

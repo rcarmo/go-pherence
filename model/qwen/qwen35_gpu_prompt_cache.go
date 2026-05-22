@@ -13,16 +13,20 @@ type GPUPromptCacheEntry struct {
 }
 
 type GPUPromptCacheStats struct {
-	MaxBytes  int64 `json:"max_bytes"`
-	UsedBytes int64 `json:"used_bytes"`
-	Entries   int   `json:"entries"`
+	MaxBytes         int64 `json:"max_bytes"`
+	UsedBytes        int64 `json:"used_bytes"`
+	Entries          int   `json:"entries"`
+	UploadFailures   int64 `json:"upload_failures,omitempty"`
+	BudgetRejections int64 `json:"budget_rejections,omitempty"`
 }
 
 type GPUPromptCache struct {
-	maxBytes  int64
-	usedBytes int64
-	ll        *list.List
-	items     map[kv.ChunkKey]*list.Element
+	maxBytes         int64
+	usedBytes        int64
+	uploadFailures   int64
+	budgetRejections int64
+	ll               *list.List
+	items            map[kv.ChunkKey]*list.Element
 }
 
 func NewGPUPromptCache(maxBytes int64) *GPUPromptCache {
@@ -38,9 +42,11 @@ func (c *GPUPromptCache) Put(key kv.ChunkKey, state Qwen35BaseForwardState) bool
 	}
 	g, err := UploadQwen35ForwardStateGPU(state)
 	if err != nil {
+		c.uploadFailures++
 		return false
 	}
 	if g.Bytes > c.maxBytes {
+		c.budgetRejections++
 		g.Free()
 		return false
 	}
@@ -88,7 +94,7 @@ func (c *GPUPromptCache) Stats() GPUPromptCacheStats {
 	if c == nil {
 		return GPUPromptCacheStats{}
 	}
-	return GPUPromptCacheStats{MaxBytes: c.maxBytes, UsedBytes: c.usedBytes, Entries: len(c.items)}
+	return GPUPromptCacheStats{MaxBytes: c.maxBytes, UsedBytes: c.usedBytes, Entries: len(c.items), UploadFailures: c.uploadFailures, BudgetRejections: c.budgetRejections}
 }
 
 func (c *GPUPromptCache) Free() {
