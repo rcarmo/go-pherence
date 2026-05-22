@@ -34,6 +34,12 @@ func bf16NarrowFromF32Asm(dst []uint16, src []float32)
 //go:noescape
 func bf16VecAddAsm(dst, a, b []uint16)
 
+//go:noescape
+func bf16DotAsm(x, y []uint16) float32
+
+//go:noescape
+func bf16RMSNormScaleAsm(x, w []uint16, scale float32)
+
 func Snrm2(x []float32) float32 {
 	if len(x) > 0 && HasDotAsm {
 		return float32Sqrt(sdotAsm(x, x))

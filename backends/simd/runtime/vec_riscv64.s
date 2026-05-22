@@ -233,3 +233,83 @@ bf16_vec_add_loop:
 	BNEZ	X12, bf16_vec_add_loop
 bf16_vec_add_done:
 	RET
+
+// RVV encodings for BF16 dot/RMSNorm:
+//   vle16.v v0,(a0)              0x02055007
+//   vle16.v v1,(a1)              0x0205d087
+//   vfmacc.vv v6,v2,v4           0xb2411357
+//   vfredusum.vs v7,v6,v7        0x066393d7
+//   vse32.v v7,(sp)              0x020163a7
+//   vfmul.vv v6,v2,v4            0x92221357
+//   vfmul.vf v6,v6,fa0           0x92655357
+
+// func bf16DotAsm(x, y []uint16) float32
+TEXT ·bf16DotAsm(SB), NOSPLIT, $16-52
+	MOV	x_base+0(FP), X10
+	MOV	x_len+8(FP), X12
+	MOV	y_base+24(FP), X11
+	BEQZ	X12, bf16_dot_zero
+
+	MOV	$-1, X13
+	WORD	$0x0906f057           // vsetvli zero,a3,e32,m1,tu,ma
+	WORD	$0x5e003357           // vmv.v.i v6,0
+
+bf16_dot_loop:
+	WORD	$0x090676d7           // vsetvli a3,a2,e32,m1,tu,ma
+	WORD	$0x02055007           // vle16.v v0,(a0)
+	WORD	$0x0205d087           // vle16.v v1,(a1)
+	WORD	$0x4a032157           // vzext.vf2 v2,v0
+	WORD	$0x4a132257           // vzext.vf2 v4,v1
+	WORD	$0x96283157           // vsll.vi v2,v2,16
+	WORD	$0x96483257           // vsll.vi v4,v4,16
+	WORD	$0xb2411357           // vfmacc.vv v6,v2,v4
+	SLLI	$1, X13, X14
+	ADD	X14, X10, X10
+	ADD	X14, X11, X11
+	SUB	X13, X12, X12
+	BNEZ	X12, bf16_dot_loop
+
+	MOV	$-1, X13
+	WORD	$0x0906f057           // vsetvli zero,a3,e32,m1,tu,ma
+	WORD	$0x5e0033d7           // vmv.v.i v7,0
+	WORD	$0x066393d7           // vfredusum.vs v7,v6,v7
+	MOV	$1, X13
+	WORD	$0x0906f057           // vsetvli zero,a3,e32,m1,tu,ma
+	WORD	$0x020163a7           // vse32.v v7,(sp)
+	MOVF	0(SP), F0
+	MOVF	F0, ret+48(FP)
+	RET
+
+bf16_dot_zero:
+	MOV	$0, X15
+	MOVW	X15, 0(SP)
+	MOVF	0(SP), F0
+	MOVF	F0, ret+48(FP)
+	RET
+
+// func bf16RMSNormScaleAsm(x, w []uint16, scale float32)
+TEXT ·bf16RMSNormScaleAsm(SB), NOSPLIT, $0-52
+	MOV	x_base+0(FP), X10
+	MOV	x_len+8(FP), X12
+	MOV	w_base+24(FP), X11
+	MOVF	scale+48(FP), F10
+	BEQZ	X12, bf16_rms_norm_done
+bf16_rms_norm_loop:
+	WORD	$0x0d0676d7           // vsetvli a3,a2,e32,m1,ta,ma
+	WORD	$0x02055007           // vle16.v v0,(a0)
+	WORD	$0x0205d087           // vle16.v v1,(a1)
+	WORD	$0x4a032157           // vzext.vf2 v2,v0
+	WORD	$0x4a132257           // vzext.vf2 v4,v1
+	WORD	$0x96283157           // vsll.vi v2,v2,16
+	WORD	$0x96483257           // vsll.vi v4,v4,16
+	WORD	$0x92221357           // vfmul.vv v6,v2,v4
+	WORD	$0x92655357           // vfmul.vf v6,v6,fa0
+	WORD	$0xb2683457           // vnsrl.wi v8,v6,16
+	WORD	$0x02055427           // vse16.v v8,(a0)
+	SLLI	$1, X13, X14
+	ADD	X14, X10, X10
+	ADD	X14, X11, X11
+	SUB	X13, X12, X12
+	BNEZ	X12, bf16_rms_norm_loop
+bf16_rms_norm_done:
+	RET
