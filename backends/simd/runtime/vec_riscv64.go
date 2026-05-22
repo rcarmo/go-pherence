@@ -103,7 +103,7 @@ func ToBF16(x []float32) {
 	toBF16Go(x)
 }
 
-func init() { HasVecAsm = false }
+func init() { HasVecAsm = RuntimeCapabilities().HasVec }
 
 func BF16DotAsm(x, y []uint16) float32           { return BF16Dot(x, y) }
 func BF16RMSNormAsm(x, w []uint16, eps float32)  { BF16RMSNorm(x, w, eps) }
