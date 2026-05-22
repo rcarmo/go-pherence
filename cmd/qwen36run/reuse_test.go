@@ -12,7 +12,9 @@ func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
 	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
 	modelID, layout := "m", "l"
 	state := qwen.Qwen35BaseForwardState{Pos: 2, FullK: [][]float32{{1, 2}}, FullV: [][]float32{{3, 4}}, Linear: []qwen.Qwen35LinearAttentionState{{Conv: []float32{5}, SSM: []float32{6}, Pos: 2}}}
-	qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 20, State: state, Hidden: []float32{7}, PreNorm: []float32{8}})
+	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 20, State: state, Hidden: []float32{7}, PreNorm: []float32{8}}) {
+		t.Fatal("store failed")
+	}
 	got, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{1, 2, 3}, 2)
 	if !ok || got.EndPos != 2 || got.State.Pos != 2 || len(got.State.FullK) != 1 || got.State.FullK[0][0] != 1 || got.State.Linear[0].Conv[0] != 5 {
 		t.Fatalf("stored state not restored: %+v ok=%v", got, ok)
@@ -70,6 +72,17 @@ func TestShouldFallbackNativeMTP(t *testing.T) {
 	}
 }
 
+func TestQwenStorePromptPrefixReportsEvictedStore(t *testing.T) {
+	qwenPromptStateCache = kv.NewChunkCache(4)
+	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
+	if qwenStorePromptPrefix("m", "l", []int{1}, 1, qwenPromptStateSnapshot{EndPos: 1, State: qwen.Qwen35BaseForwardState{Pos: 1}, Hidden: []float32{1, 2}}) {
+		t.Fatal("oversized store reported success")
+	}
+	if len(qwenPromptStateSidecar) != 0 || qwenPromptStateCache.Len() != 0 {
+		t.Fatalf("oversized store left entries sidecar=%d cache=%d", len(qwenPromptStateSidecar), qwenPromptStateCache.Len())
+	}
+}
+
 func TestQwenPromptSnapshotForBudgetIncludesForwardState(t *testing.T) {
 	snap := qwenPromptStateSnapshot{
 		State:   qwen.Qwen35BaseForwardState{Pos: 3, FullK: [][]float32{{1, 2}}, FullV: [][]float32{{3, 4}}, Linear: []qwen.Qwen35LinearAttentionState{{Conv: []float32{5, 6, 7}, SSM: []float32{8, 9}, Pos: 3}}},
@@ -94,8 +107,8 @@ func TestQwenStorePromptPrefixPrunesEvictedSidecar(t *testing.T) {
 	qwenPromptStateCache = kv.NewChunkCache(4)
 	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
 	modelID, layout := "m", "l"
-	qwenStorePromptPrefix(modelID, layout, []int{1}, 1, qwenPromptStateSnapshot{EndPos: 1, State: qwen.Qwen35BaseForwardState{Pos: 1}, Hidden: []float32{1, 2}})
-	qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 1, qwenPromptStateSnapshot{EndPos: 2, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{3, 4}})
+	_ = qwenStorePromptPrefix(modelID, layout, []int{1}, 1, qwenPromptStateSnapshot{EndPos: 1, State: qwen.Qwen35BaseForwardState{Pos: 1}, Hidden: []float32{1, 2}})
+	_ = qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 1, qwenPromptStateSnapshot{EndPos: 2, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{3, 4}})
 	if len(qwenPromptStateSidecar) != qwenPromptStateCache.Len() {
 		t.Fatalf("sidecar/cache mismatch sidecar=%d cache=%d", len(qwenPromptStateSidecar), qwenPromptStateCache.Len())
 	}
@@ -105,8 +118,12 @@ func TestQwenFindLongestPromptPrefix(t *testing.T) {
 	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
 	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
 	modelID, layout := "m", "l"
-	qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 20, State: qwen.Qwen35BaseForwardState{Pos: 2}})
-	qwenStorePromptPrefix(modelID, layout, []int{1, 2, 3, 4}, 2, qwenPromptStateSnapshot{EndPos: 4, Next: 40, State: qwen.Qwen35BaseForwardState{Pos: 4}})
+	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 20, State: qwen.Qwen35BaseForwardState{Pos: 2}}) {
+		t.Fatal("store short prefix")
+	}
+	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2, 3, 4}, 2, qwenPromptStateSnapshot{EndPos: 4, Next: 40, State: qwen.Qwen35BaseForwardState{Pos: 4}}) {
+		t.Fatal("store long prefix")
+	}
 	got, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{1, 2, 3, 4, 5}, 2)
 	if !ok || got.EndPos != 4 || got.Next != 40 {
 		t.Fatalf("longest=%+v ok=%v", got, ok)

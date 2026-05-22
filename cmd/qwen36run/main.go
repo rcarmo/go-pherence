@@ -365,8 +365,9 @@ func main() {
 			next, logit, h, preNormHidden, err = r.prefillLayerStreamed(inputIDs[startAt:], *prefillChunkSize, ropeFreqs)
 			check("streamed prefill", err)
 			if *kvReuse {
-				qwenStorePromptPrefix(modelID, layout, inputIDs, *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: len(inputIDs)})
-				kvStoredChunks++
+				if qwenStorePromptPrefix(modelID, layout, inputIDs, *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: len(inputIDs)}) {
+					kvStoredChunks++
+				}
 			}
 		} else {
 			for idx := startAt; idx < len(inputIDs); idx++ {
@@ -375,8 +376,9 @@ func main() {
 				r.promptTokens = append(r.promptTokens, inputIDs[idx])
 				r.promptHidden = append(r.promptHidden, append([]float32(nil), preNormHidden...))
 				if *kvReuse && ((idx+1)%*kvChunkSize == 0 || idx+1 == len(inputIDs)) {
-					qwenStorePromptPrefix(modelID, layout, inputIDs[:idx+1], *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: idx + 1})
-					kvStoredChunks++
+					if qwenStorePromptPrefix(modelID, layout, inputIDs[:idx+1], *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: idx + 1}) {
+						kvStoredChunks++
+					}
 				}
 			}
 		}
@@ -929,12 +931,21 @@ func qwenPrunePromptStateSidecar() {
 	}
 }
 
-func qwenStorePromptPrefix(modelID, layout string, tokens []int, chunkSize int, snap qwenPromptStateSnapshot) {
+func qwenStorePromptPrefix(modelID, layout string, tokens []int, chunkSize int, snap qwenPromptStateSnapshot) bool {
 	key := qwenPromptPrefixKey(modelID, layout, tokens, chunkSize)
 	stored := cloneQwenPromptStateSnapshot(snap)
-	_ = qwenPromptStateCache.Put(key, tokens, qwenPromptSnapshotForBudget(stored))
+	if err := qwenPromptStateCache.Put(key, tokens, qwenPromptSnapshotForBudget(stored)); err != nil {
+		qwenPrunePromptStateSidecar()
+		return false
+	}
+	if !qwenPromptStateCache.Contains(key) {
+		delete(qwenPromptStateSidecar, key)
+		qwenPrunePromptStateSidecar()
+		return false
+	}
 	qwenPromptStateSidecar[key] = stored
 	qwenPrunePromptStateSidecar()
+	return true
 }
 
 func qwenFindLongestPromptPrefix(modelID, layout string, tokens []int, chunkSize int) (qwenPromptStateSnapshot, bool) {
