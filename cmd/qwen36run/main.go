@@ -452,6 +452,13 @@ func (r *runner) buildMTPPromptKV(ropeFreqs []float32, meta loaderconfig.QwenNat
 	return nil
 }
 
+func shouldFallbackNativeMTP(stats mtpGenerateStats, adaptive bool, minAcceptance float64, warmupRounds int) bool {
+	if !adaptive || stats.Rounds < warmupRounds || stats.Drafted <= 0 {
+		return false
+	}
+	return float64(stats.Accepted)/float64(stats.Drafted) < minAcceptance
+}
+
 func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTokens, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, adaptive bool, minAcceptance float64, warmupRounds int) ([]int, mtpGenerateStats, int, float32, []float32, []float32, error) {
 	if r == nil || r.mtpHead == nil {
 		return nil, mtpGenerateStats{}, verifierNext, 0, nil, nil, fmt.Errorf("native MTP head is not loaded")
@@ -512,7 +519,7 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 		if len(out) >= maxTokens {
 			break
 		}
-		if adaptive && stats.Rounds >= warmupRounds && stats.Drafted > 0 && float64(stats.Accepted)/float64(stats.Drafted) < minAcceptance {
+		if shouldFallbackNativeMTP(stats, adaptive, minAcceptance, warmupRounds) {
 			stats.AdaptiveFallback = true
 			for len(out) < maxTokens {
 				out = append(out, curVerifier)

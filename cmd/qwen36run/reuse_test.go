@@ -24,6 +24,25 @@ func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
 	}
 }
 
+func TestShouldFallbackNativeMTP(t *testing.T) {
+	stats := mtpGenerateStats{Accepted: 2, Drafted: 4, Rounds: 4}
+	if shouldFallbackNativeMTP(stats, false, 0.75, 4) {
+		t.Fatal("disabled adaptive fallback triggered")
+	}
+	if shouldFallbackNativeMTP(stats, true, 0.75, 5) {
+		t.Fatal("fallback triggered before warmup")
+	}
+	if !shouldFallbackNativeMTP(stats, true, 0.75, 4) {
+		t.Fatal("fallback did not trigger below threshold")
+	}
+	if shouldFallbackNativeMTP(mtpGenerateStats{Accepted: 3, Drafted: 4, Rounds: 4}, true, 0.75, 4) {
+		t.Fatal("fallback triggered at threshold")
+	}
+	if shouldFallbackNativeMTP(mtpGenerateStats{Accepted: 0, Drafted: 0, Rounds: 4}, true, 0.75, 4) {
+		t.Fatal("fallback triggered with no drafts")
+	}
+}
+
 func TestQwenFindLongestPromptPrefix(t *testing.T) {
 	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
 	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
