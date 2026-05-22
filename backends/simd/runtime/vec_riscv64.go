@@ -25,6 +25,12 @@ func rmsNormScaleAsm(x, w []float32, scale float32)
 //go:noescape
 func toBF16Asm(x []float32)
 
+//go:noescape
+func bf16WidenToF32Asm(dst []float32, src []uint16)
+
+//go:noescape
+func bf16NarrowFromF32Asm(dst []uint16, src []float32)
+
 func Snrm2(x []float32) float32 {
 	if len(x) > 0 && HasDotAsm {
 		return float32Sqrt(sdotAsm(x, x))
@@ -90,8 +96,14 @@ func ToBF16(x []float32) {
 
 func init() { HasVecAsm = false }
 
-func BF16DotAsm(x, y []uint16) float32              { return BF16Dot(x, y) }
-func BF16RMSNormAsm(x, w []uint16, eps float32)     { BF16RMSNorm(x, w, eps) }
-func BF16VecAddAsm(dst, a, b []uint16)              { BF16VecAdd(dst, a, b) }
-func BF16WidenToF32(dst []float32, src []uint16)    { bf16WidenToF32Go(dst, src) }
-func BF16NarrowFromF32(dst []uint16, src []float32) { bf16NarrowFromF32Go(dst, src) }
+func BF16DotAsm(x, y []uint16) float32           { return BF16Dot(x, y) }
+func BF16RMSNormAsm(x, w []uint16, eps float32)  { BF16RMSNorm(x, w, eps) }
+func BF16VecAddAsm(dst, a, b []uint16)           { BF16VecAdd(dst, a, b) }
+func BF16WidenToF32(dst []float32, src []uint16) { bf16WidenToF32Go(dst, src) }
+func BF16NarrowFromF32(dst []uint16, src []float32) {
+	if len(src) > 0 && len(dst) == len(src) && hasRVVVecAsm {
+		bf16NarrowFromF32Asm(dst, src)
+		return
+	}
+	bf16NarrowFromF32Go(dst, src)
+}

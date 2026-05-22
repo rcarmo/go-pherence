@@ -150,3 +150,51 @@ to_bf16_loop:
 	BNEZ	X12, to_bf16_loop
 to_bf16_done:
 	RET
+
+// RVV encodings for BF16 widen/narrow:
+//   vle16.v v0,(a1)              0x0205d007
+//   vzext.vf2 v2,v0              0x4a032157
+//   vsll.vi v2,v2,16             0x96283157
+//   vnsrl.wi v2,v0,16            0xb2083157
+//   vse16.v v2,(a0)              0x02055127
+
+// func bf16WidenToF32Asm(dst []float32, src []uint16)
+TEXT ·bf16WidenToF32Asm(SB), NOSPLIT, $0-48
+	MOV	dst_base+0(FP), X10
+	MOV	src_base+24(FP), X11
+	MOV	src_len+32(FP), X12
+	BEQZ	X12, bf16_widen_done
+bf16_widen_loop:
+	WORD	$0x0d0676d7           // vsetvli a3,a2,e32,m1,ta,ma
+	WORD	$0x0205d007           // vle16.v v0,(a1)
+	WORD	$0x4a032157           // vzext.vf2 v2,v0
+	WORD	$0x96283157           // vsll.vi v2,v2,16
+	WORD	$0x02056127           // vse32.v v2,(a0)
+	SLLI	$2, X13, X14
+	ADD	X14, X10, X10
+	SLLI	$1, X13, X14
+	ADD	X14, X11, X11
+	SUB	X13, X12, X12
+	BNEZ	X12, bf16_widen_loop
+bf16_widen_done:
+	RET
+
+// func bf16NarrowFromF32Asm(dst []uint16, src []float32)
+TEXT ·bf16NarrowFromF32Asm(SB), NOSPLIT, $0-48
+	MOV	dst_base+0(FP), X10
+	MOV	src_base+24(FP), X11
+	MOV	src_len+32(FP), X12
+	BEQZ	X12, bf16_narrow_done
+bf16_narrow_loop:
+	WORD	$0x0d0676d7           // vsetvli a3,a2,e32,m1,ta,ma
+	WORD	$0x0205e007           // vle32.v v0,(a1)
+	WORD	$0xb2083157           // vnsrl.wi v2,v0,16
+	WORD	$0x02055127           // vse16.v v2,(a0)
+	SLLI	$1, X13, X14
+	ADD	X14, X10, X10
+	SLLI	$2, X13, X14
+	ADD	X14, X11, X11
+	SUB	X13, X12, X12
+	BNEZ	X12, bf16_narrow_loop
+bf16_narrow_done:
+	RET
