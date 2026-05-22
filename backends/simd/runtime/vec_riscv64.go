@@ -105,14 +105,8 @@ func ToBF16(x []float32) {
 
 func init() { HasVecAsm = RuntimeCapabilities().HasVec }
 
-func BF16DotAsm(x, y []uint16) float32           { return BF16Dot(x, y) }
-func BF16RMSNormAsm(x, w []uint16, eps float32)  { BF16RMSNorm(x, w, eps) }
-func BF16VecAddAsm(dst, a, b []uint16)           { BF16VecAdd(dst, a, b) }
-func BF16WidenToF32(dst []float32, src []uint16) { bf16WidenToF32Go(dst, src) }
-func BF16NarrowFromF32(dst []uint16, src []float32) {
-	if len(src) > 0 && len(dst) == len(src) && hasRVVVecAsm {
-		bf16NarrowFromF32Asm(dst, src)
-		return
-	}
-	bf16NarrowFromF32Go(dst, src)
-}
+func BF16DotAsm(x, y []uint16) float32              { return BF16Dot(x, y) }
+func BF16RMSNormAsm(x, w []uint16, eps float32)     { BF16RMSNorm(x, w, eps) }
+func BF16VecAddAsm(dst, a, b []uint16)              { BF16VecAdd(dst, a, b) }
+func BF16WidenToF32(dst []float32, src []uint16)    { bf16WidenToF32Go(dst, src) }
+func BF16NarrowFromF32(dst []uint16, src []float32) { bf16NarrowFromF32Go(dst, src) }
