@@ -296,6 +296,33 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
 
 The scheduler processes prompt chunks layer-by-layer: for a chunk, it keeps a layer's weights hot, runs that layer across every token in the chunk while updating full-attention K/V or linear recurrent state in token order, then moves to the next layer. A comparison against the sequential path for `Hello world again` matched `next_id`, `mtp_next_id`, `hidden_abs_sum`, and `mtp_abs_sum`, validating the layer-streamed state update order.
 
+MTP verifier state and accepted-prefix commit are now combined with the restored/streamed prompt state. `qwen36run` compares drafted IDs with verifier IDs, appends accepted draft tokens, appends the LiteRT-style verifier bonus token, advances a cloned verifier runner through the committed tokens, and then commits the resulting `Qwen35BaseForwardState` back into the main runner. The report exposes `mtp_committed_tokens` and `mtp_commit_state_pos`.
+
+Validation command:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
+  -kv-reuse -kv-repeat 2 -kv-chunk-size 2 \
+  -layer-streamed-prefill -prefill-chunk-size 4 \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello world again" -steps 1 -mtp -mtp-steps 2
+```
+
+Latest smoke:
+
+```text
+passed: true
+kv_cache_hit: true
+kv_reused_tokens: 3
+mtp_draft_ids: [13, 13]
+mtp_verifier_ids: [119]
+mtp_committed_tokens: [119]
+mtp_commit_state_pos: 4
+linear_stats.gpu_calls: 1467
+linear_stats.cpu_calls: 0
+```
+
 ## Important blocker for the original NVFP4 checkpoint
 
 The originally inspected safetensors checkpoint is NVFP4:

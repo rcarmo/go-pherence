@@ -65,6 +65,8 @@ type Report struct {
 	MTPDraftIDs                []int                      `json:"mtp_draft_ids,omitempty"`
 	MTPVerifierIDs             []int                      `json:"mtp_verifier_ids,omitempty"`
 	MTPAcceptedPrefix          int                        `json:"mtp_accepted_prefix,omitempty"`
+	MTPCommittedTokens         []int                      `json:"mtp_committed_tokens,omitempty"`
+	MTPCommitStatePos          int                        `json:"mtp_commit_state_pos,omitempty"`
 	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
 	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
 	GPUPrewarm                 qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
@@ -435,7 +437,7 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 	rep.MTPBestMinusVerifier = rep.MTPLogit - rep.MTPLogitForVerifier
 	rep.MTPDraftIDs, err = draftMTPIDs(mtpHead, r.emb, r.lm, generated[len(generated)-1], preNormHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps)
 	check("MTP draft steps", err)
-	verifier := runner{bundle: r.bundle, state: qwen.CloneQwen35BaseForwardState(r.state), emb: r.emb, normW: r.normW, lm: r.lm}
+	verifier := runner{bundle: r.bundle, state: qwen.CloneQwen35BaseForwardState(r.state), emb: r.emb, normW: r.normW, lm: r.lm, lmGPU: r.lmGPU, mtpHead: r.mtpHead}
 	verifierNext := rep.NextID
 	for _, draftID := range rep.MTPDraftIDs {
 		rep.MTPVerifierIDs = append(rep.MTPVerifierIDs, verifierNext)
@@ -443,10 +445,19 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 			break
 		}
 		rep.MTPAcceptedPrefix++
+		rep.MTPCommittedTokens = append(rep.MTPCommittedTokens, draftID)
 		verifierNext, _, _, _, err = verifier.step(draftID, ropeFreqs)
 		check("MTP verifier accepted step", err)
 	}
-	rep.Passed = rep.Passed && rep.MTPOutputLen == meta.HiddenSize && rep.MTPNextID >= 0
+	// Commit LiteRT-style bonus token as well: on mismatch this is the first
+	// verifier token, and when all drafts match it is the verifier token after
+	// the accepted prefix.
+	rep.MTPCommittedTokens = append(rep.MTPCommittedTokens, verifierNext)
+	_, _, _, _, err = verifier.step(verifierNext, ropeFreqs)
+	check("MTP verifier bonus commit", err)
+	r.state = qwen.CloneQwen35BaseForwardState(verifier.state)
+	rep.MTPCommitStatePos = r.state.Pos
+	rep.Passed = rep.Passed && rep.MTPOutputLen == meta.HiddenSize && rep.MTPNextID >= 0 && rep.MTPCommitStatePos > 0
 }
 
 func draftMTPIDs(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int) ([]int, error) {
