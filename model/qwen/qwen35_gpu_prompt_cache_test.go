@@ -32,6 +32,14 @@ func TestGPUPromptCacheBudgetRejectionStats(t *testing.T) {
 	}
 }
 
+func TestGPUPromptCacheHeadroomStatsDefault(t *testing.T) {
+	c := NewGPUPromptCacheWithHeadroom(1024, 256)
+	st := c.Stats()
+	if st.MaxBytes != 1024 || st.HeadroomBytes != 256 {
+		t.Fatalf("bad stats: %+v", st)
+	}
+}
+
 func TestGPUPromptCacheDisabled(t *testing.T) {
 	c := NewGPUPromptCache(0)
 	if c.Put(kv.ChunkKey{ModelID: "m"}, sampleQwen35ForwardState()) {

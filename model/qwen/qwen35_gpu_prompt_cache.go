@@ -15,17 +15,23 @@ type GPUPromptCacheEntry struct {
 }
 
 type GPUPromptCacheStats struct {
-	MaxBytes           int64 `json:"max_bytes"`
-	UsedBytes          int64 `json:"used_bytes"`
-	Entries            int   `json:"entries"`
-	UploadFailures     int64 `json:"upload_failures,omitempty"`
-	BudgetRejections   int64 `json:"budget_rejections,omitempty"`
-	HeadroomRejections int64 `json:"headroom_rejections,omitempty"`
+	MaxBytes           int64  `json:"max_bytes"`
+	UsedBytes          int64  `json:"used_bytes"`
+	Entries            int    `json:"entries"`
+	HeadroomBytes      uint64 `json:"headroom_bytes,omitempty"`
+	LastEstimateBytes  int64  `json:"last_estimate_bytes,omitempty"`
+	LastFreeBytes      uint64 `json:"last_free_bytes,omitempty"`
+	UploadFailures     int64  `json:"upload_failures,omitempty"`
+	BudgetRejections   int64  `json:"budget_rejections,omitempty"`
+	HeadroomRejections int64  `json:"headroom_rejections,omitempty"`
 }
 
 type GPUPromptCache struct {
 	maxBytes           int64
 	usedBytes          int64
+	headroomBytes      uint64
+	lastEstimateBytes  int64
+	lastFreeBytes      uint64
 	uploadFailures     int64
 	budgetRejections   int64
 	headroomRejections int64
@@ -67,10 +73,14 @@ func EstimateQwen35ForwardStateBytes(s Qwen35BaseForwardState) (int64, error) {
 }
 
 func NewGPUPromptCache(maxBytes int64) *GPUPromptCache {
+	return NewGPUPromptCacheWithHeadroom(maxBytes, 0)
+}
+
+func NewGPUPromptCacheWithHeadroom(maxBytes int64, headroomBytes uint64) *GPUPromptCache {
 	if maxBytes < 0 {
 		maxBytes = 0
 	}
-	return &GPUPromptCache{maxBytes: maxBytes, ll: list.New(), items: map[kv.ChunkKey]*list.Element{}}
+	return &GPUPromptCache{maxBytes: maxBytes, headroomBytes: headroomBytes, ll: list.New(), items: map[kv.ChunkKey]*list.Element{}}
 }
 
 func (c *GPUPromptCache) Put(key kv.ChunkKey, state Qwen35BaseForwardState) bool {
@@ -78,6 +88,7 @@ func (c *GPUPromptCache) Put(key kv.ChunkKey, state Qwen35BaseForwardState) bool
 		return false
 	}
 	estBytes, err := EstimateQwen35ForwardStateBytes(state)
+	c.lastEstimateBytes = estBytes
 	if err != nil {
 		c.uploadFailures++
 		return false
@@ -87,7 +98,8 @@ func (c *GPUPromptCache) Put(key kv.ChunkKey, state Qwen35BaseForwardState) bool
 		return false
 	}
 	free, _ := nvidia.MemInfo()
-	if free > 0 && uint64(estBytes) > free {
+	c.lastFreeBytes = free
+	if free > 0 && uint64(estBytes)+c.headroomBytes > free {
 		c.headroomRejections++
 		return false
 	}
@@ -140,7 +152,7 @@ func (c *GPUPromptCache) Stats() GPUPromptCacheStats {
 	if c == nil {
 		return GPUPromptCacheStats{}
 	}
-	return GPUPromptCacheStats{MaxBytes: c.maxBytes, UsedBytes: c.usedBytes, Entries: len(c.items), UploadFailures: c.uploadFailures, BudgetRejections: c.budgetRejections, HeadroomRejections: c.headroomRejections}
+	return GPUPromptCacheStats{MaxBytes: c.maxBytes, UsedBytes: c.usedBytes, Entries: len(c.items), HeadroomBytes: c.headroomBytes, LastEstimateBytes: c.lastEstimateBytes, LastFreeBytes: c.lastFreeBytes, UploadFailures: c.uploadFailures, BudgetRejections: c.budgetRejections, HeadroomRejections: c.headroomRejections}
 }
 
 func (c *GPUPromptCache) Free() {
