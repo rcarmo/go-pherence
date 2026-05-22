@@ -70,6 +70,7 @@ type Report struct {
 	MTPGenerate                bool                       `json:"mtp_generate,omitempty"`
 	MTPGeneratedIDs            []int                      `json:"mtp_generated_ids,omitempty"`
 	MTPGeneratedAccepted       int                        `json:"mtp_generated_accepted,omitempty"`
+	MTPGeneratedAcceptanceRate float64                    `json:"mtp_generated_acceptance_rate,omitempty"`
 	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
 	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
 	GPUPrewarm                 qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
@@ -381,7 +382,11 @@ func main() {
 	if tok != nil {
 		decoded = tok.Decode(generated)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGeneratedAccepted, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	mtpGeneratedAcceptanceRate := 0.0
+	if *mtpGenerate && len(generated) > 1 {
+		mtpGeneratedAcceptanceRate = float64(mtpGeneratedAccepted) / float64(len(generated)-1)
+	}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGeneratedAccepted, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *topK > 0 {
 		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
@@ -412,10 +417,10 @@ func (r *runner) buildMTPPromptKV(ropeFreqs []float32, meta loaderconfig.QwenNat
 		return fmt.Errorf("incomplete native MTP head")
 	}
 	r.mtpPastK, r.mtpPastV = nil, nil
-	// Seed the draft self-attention cache with prompt positions before the last
-	// token. The current/last token is processed by the first draft step so its
-	// logits are produced in the usual way, with prior prompt MTP KV available.
-	limit := len(r.promptTokens) - 1
+	// Seed the draft self-attention cache with the full prompt. Generation first
+	// commits the prompt verifier token as a bonus, so the first native-MTP seed
+	// is that verifier token; all prompt-token MTP K/V belongs in its past.
+	limit := len(r.promptTokens)
 	for i := 0; i < limit; i++ {
 		e := bf16Row(r.emb, r.promptTokens[i])
 		pre, err := r.mtpHead.PreProject(e, r.promptHidden[i], 1e-6)
@@ -459,21 +464,32 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 	}
 
 	for len(out) < maxTokens {
-		drafts, err := draftMTPIDsWithPast(r.mtpHead, r.emb, r.lm, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps, r.mtpPastK, r.mtpPastV)
+		drafts, stepK, stepV, err := draftMTPIDsDetailedWithPast(r.mtpHead, r.emb, r.lm, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps, r.mtpPastK, r.mtpPastV)
 		if err != nil {
 			return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
 		}
+		committedMTPSteps := 0
 		for _, draftID := range drafts {
 			if len(out) >= maxTokens || draftID != curVerifier {
 				break
 			}
 			out = append(out, draftID)
 			acceptedTotal++
+			committedMTPSteps++
 			lastToken = draftID
 			curVerifier, logit, lastH, curHidden, err = r.step(draftID, ropeFreqs)
 			if err != nil {
 				return out, acceptedTotal, curVerifier, logit, lastH, curHidden, err
 			}
+		}
+		if committedMTPSteps == 0 && len(stepK) > 0 {
+			// Even if the first draft was rejected, the MTP pass for lastToken is
+			// part of the committed context for the next draft round.
+			committedMTPSteps = 1
+		}
+		for i := 0; i < committedMTPSteps && i < len(stepK); i++ {
+			r.mtpPastK = append(r.mtpPastK, stepK[i]...)
+			r.mtpPastV = append(r.mtpPastV, stepV[i]...)
 		}
 		if len(out) >= maxTokens {
 			break
@@ -565,14 +581,22 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 }
 
 func draftMTPIDs(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int) ([]int, error) {
-	return draftMTPIDsWithPast(head, emb, lm, tokenID, hidden, pos, ropeFreqs, meta, steps, nil, nil)
+	ids, _, _, err := draftMTPIDsDetailedWithPast(head, emb, lm, tokenID, hidden, pos, ropeFreqs, meta, steps, nil, nil)
+	return ids, err
 }
 
 func draftMTPIDsWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int, initialK, initialV []float32) ([]int, error) {
+	ids, _, _, err := draftMTPIDsDetailedWithPast(head, emb, lm, tokenID, hidden, pos, ropeFreqs, meta, steps, initialK, initialV)
+	return ids, err
+}
+
+func draftMTPIDsDetailedWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int, initialK, initialV []float32) ([]int, [][]float32, [][]float32, error) {
 	if head == nil || len(head.Layers) == 0 || head.Norm == nil {
-		return nil, fmt.Errorf("incomplete Qwen MTP head")
+		return nil, nil, nil, fmt.Errorf("incomplete Qwen MTP head")
 	}
 	ids := make([]int, 0, steps)
+	stepK := make([][]float32, 0, steps)
+	stepV := make([][]float32, 0, steps)
 	curToken := tokenID
 	curHidden := append([]float32(nil), hidden...)
 	pastK := append([]float32(nil), initialK...)
@@ -581,11 +605,11 @@ func draftMTPIDsWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenI
 		e := bf16Row(emb, curToken)
 		pre, err := head.PreProject(e, curHidden, 1e-6)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 		out, k, v, err := head.Layers[0].ForwardWithKV(pre, pos+i, ropeFreqs, pastK, pastV, 1e-6, meta)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 		pastK = append(pastK, k...)
 		pastV = append(pastV, v...)
@@ -593,10 +617,12 @@ func draftMTPIDsWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenI
 		rmsNorm(logitHidden, head.Norm.Data(), 1e-6)
 		next, _ := argmaxLMHead(lm, nil, logitHidden)
 		ids = append(ids, next)
+		stepK = append(stepK, append([]float32(nil), k...))
+		stepV = append(stepV, append([]float32(nil), v...))
 		curToken = next
 		curHidden = out
 	}
-	return ids, nil
+	return ids, stepK, stepV, nil
 }
 
 func qwenPromptPrefixKey(modelID, layout string, tokens []int, chunkSize int) kv.ChunkKey {
