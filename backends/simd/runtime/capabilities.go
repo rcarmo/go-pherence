@@ -62,7 +62,7 @@ func RuntimeCapabilities() Capabilities {
 		c.HasSGEMM = c.HasRVV && hasSgemmAsm
 		c.HasBF16 = c.HasRVV
 		c.HasPack = false
-		c.HasRoPE = false
+		c.HasRoPE = c.HasRVV
 		c.HasActivation = false
 	}
 	return c
