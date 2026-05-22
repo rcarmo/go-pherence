@@ -32,8 +32,10 @@ func GemvSymTo(out, x []float32, qweight, gIdx []int32, scales []float32, inDim,
 	if err := ValidateGemvSym(out, x, qweight, gIdx, scales, inDim, outDim); err != nil {
 		return false
 	}
-	// Dispatch hook kept explicit so AVX2/NEON kernels can be wired without
-	// changing callers. Scalar remains active until hasGemvSymAsm flips true.
+	if RuntimeCapabilities().HasGemvSym {
+		gemvSymAccelerated(out, x, qweight, gIdx, scales, inDim, outDim)
+		return true
+	}
 	gemvSymScalar(out, x, qweight, gIdx, scales, inDim, outDim)
 	return true
 }
