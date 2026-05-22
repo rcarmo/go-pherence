@@ -130,6 +130,7 @@ func main() {
 	gpuTransientDetail := flag.Bool("gpu-transient-detail", false, "include top transient NVFP4 upload tensor names in GPU cache stats")
 	gpuTiming := flag.Bool("gpu-timing", false, "collect per-linear GPU upload/kernel timing; adds hot-path time.Now overhead")
 	gpuMLP := flag.Bool("gpu-mlp", false, "prototype GPU-resident Qwen3.6 MLP hot path")
+	gpuMLXOverflow := flag.Bool("gpu-mlx-overflow", true, "transient-upload MLX weights that do not fit in the resident Qwen GPU cache")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
 	gpuLMHead := flag.Bool("gpu-lm-head", true, "run BF16 LM head on GPU when -gpu is enabled; set -gpu-lm-head=false to disable")
@@ -154,6 +155,7 @@ func main() {
 	qwen.SetQwen35GPUTransientDetail(*gpuTransientDetail)
 	qwen.SetQwen35LinearTiming(*gpuTiming)
 	qwen.SetQwen35GPUMLPEnabled(*gpuMLP)
+	qwen.SetQwen35GPUMXOverflowEnabled(*gpuMLXOverflow)
 	qwen.SetQwen35GPUVerify(*gpuVerify, float32(*gpuVerifyTol))
 	qwen.ResetQwen35LinearStats()
 	qwen36LMHeadStats = Qwen36LMHeadStats{}

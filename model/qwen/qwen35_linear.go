@@ -23,6 +23,7 @@ var qwen35LinearStats Qwen35LinearStats
 var qwen35LinearFailCounts = map[string]int64{}
 var qwen35LinearTiming bool
 var qwen35GPUMLPEnabled bool
+var qwen35GPUMLXOverflowEnabled bool
 
 var qwen35MLPGPUScratch = struct {
 	sync.Mutex
@@ -62,8 +63,9 @@ func SetQwen35GPUEnabled(enabled bool) {
 	qwen35GPUReady = enabled && nvidia.SgemmReady()
 }
 
-func SetQwen35LinearTiming(enabled bool)  { qwen35LinearTiming = enabled }
-func SetQwen35GPUMLPEnabled(enabled bool) { qwen35GPUMLPEnabled = enabled }
+func SetQwen35LinearTiming(enabled bool)         { qwen35LinearTiming = enabled }
+func SetQwen35GPUMLPEnabled(enabled bool)        { qwen35GPUMLPEnabled = enabled }
+func SetQwen35GPUMXOverflowEnabled(enabled bool) { qwen35GPUMLXOverflowEnabled = enabled }
 
 func SetQwen35GPUVerify(limit int, tolerance float32) {
 	qwen35GPUVerifyRemaining = limit
@@ -184,7 +186,7 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 			start := time.Now()
 			gw, err := qwen35CachedGPUMXWeight(m)
 			transient := false
-			if err != nil {
+			if err != nil && qwen35GPUMLXOverflowEnabled {
 				gw, err = qwen35TransientGPUMXWeight(m)
 				transient = err == nil
 			}

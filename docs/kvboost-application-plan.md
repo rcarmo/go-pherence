@@ -119,6 +119,18 @@ The current Qwen MLX cache already moved to no-evict admission for exactly this 
 
 ### Phase 1 — CPU/GPU-neutral KV snapshot contract
 
+Initial reusable primitives are now present in `runtime/kv/reuse.go`:
+
+- `ChunkKey`
+- `LayerKVSnapshot`
+- `Snapshot`
+- `ChunkCache`
+- `HashTokenChunk`
+- `CloneSnapshot`
+- `EstimateSnapshotBytes`
+
+Unit tests cover prefix-chain hashing, clone isolation, and byte-bounded LRU eviction. These are intentionally backend-neutral so Gemma4, Qwen3.6, CPU, GPU, and future paged/offloaded stores can share the same key/snapshot contracts.
+
 Add a compact snapshot type under `runtime/kv`:
 
 ```go

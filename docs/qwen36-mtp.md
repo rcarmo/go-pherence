@@ -258,7 +258,7 @@ lm_head_stats.gpu_ms: 9
 
 The key placement lesson is that the cache must leave VRAM headroom for transient native MLX uploads. A too-large resident cache (`~11GB`) prevents overflow weights from reaching CUDA and causes CPU fallback. Around `10600MB` keeps a useful resident prefix while leaving enough scratch for transient overflow GEMVs, so all 489 linear calls dispatch through NVIDIA on the local RTX 3060.
 
-Remaining performance gaps are no longer missing NVIDIA plumbing: they are transient upload volume, lack of GPU-side argmax/top-k for logits, and broader layer-streaming/KV reuse policy.
+Remaining performance gaps are no longer missing NVIDIA plumbing: they are transient upload volume, lack of GPU-side argmax/top-k for logits, and broader layer-streaming/KV reuse policy. `qwen36run` exposes `-gpu-mlx-overflow` to control transient native-MLX uploads for overflow weights; on the local RTX 3060 the best current setting keeps it enabled with `-gpu-cache-mb 10600`, yielding no CPU GEMV fallback for the one-step MTP smoke.
 
 ## Important blocker for the original NVFP4 checkpoint
 

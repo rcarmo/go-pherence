@@ -2095,3 +2095,9 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Reviewed KVBoost's public project page and mapped its chunk-hashed KV reuse, prompt prefix reuse, page/offload, and AWQ streaming ideas onto go-pherence.
 - Added `docs/kvboost-application-plan.md` with a phased implementation plan: CPU/GPU-neutral KV snapshots, token chunk hash/LRU cache, Gemma4 prompt-context reuse, Qwen recurrent-state snapshots, and later page/offload tiers.
 - The first recommended slice is Gemma4 E4B `llmgen -mtp-real-prompt` reuse: run a long prompt once to fill chunk snapshots, run it again to skip cached prefix prefill, then port the mechanism to 31B and Qwen3.6.
+
+## 2026-05-22 — Chunked KV primitives and Qwen overflow control
+
+- Added backend-neutral KVBoost primitives in `runtime/kv/reuse.go`: prefix-chain token hashing, KV snapshots, clone/size helpers, and a byte-bounded LRU chunk cache.
+- Added tests for chunk hash prefix isolation, snapshot cloning, and eviction.
+- Added `qwen36run -gpu-mlx-overflow` to explicitly control transient native-MLX uploads for Qwen weights that do not fit the resident cache. The current RTX 3060 sweet spot remains `-gpu-cache-mb 10600 -gpu-mlx-overflow=true`, which keeps Qwen3.6 one-step MTP smoke at about `4.0s` with all 489 linear calls on NVIDIA.
