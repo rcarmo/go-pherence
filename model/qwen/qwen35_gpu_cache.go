@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
 
@@ -39,6 +40,12 @@ type Qwen35GPUTransientStat struct {
 	Bytes int64  `json:"bytes"`
 }
 
+type qwen35GPUMXEntry struct {
+	GPU     *nvidia.GPUMLXWeight
+	Bytes   int64
+	LastUse uint64
+}
+
 type qwen35GPUCacheState struct {
 	sync.Mutex
 	requestedBytes    int64
@@ -46,6 +53,7 @@ type qwen35GPUCacheState struct {
 	clamped           bool
 	usedBytes         int64
 	entries           map[*Qwen35NVFP4Weight]bool
+	mlxEntries        map[*mlx.QuantWeight]*qwen35GPUMXEntry
 	transientGPU      *nvidia.GPUNVFP4Weight
 	transientByName   map[string]Qwen35GPUTransientStat
 	transientDetailed bool
@@ -59,7 +67,7 @@ type qwen35GPUCacheState struct {
 	transientBytes    int64
 }
 
-var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, transientByName: map[string]Qwen35GPUTransientStat{}}
+var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, mlxEntries: map[*mlx.QuantWeight]*qwen35GPUMXEntry{}, transientByName: map[string]Qwen35GPUTransientStat{}}
 var qwen35GPUCacheHeadroomBytes int64 = 512 * 1024 * 1024
 
 func SetQwen35GPUCacheHeadroom(bytes int64) {
@@ -116,6 +124,12 @@ func ResetQwen35GPUCache() {
 	for q := range qwen35GPUCache.entries {
 		q.FreeGPU()
 		delete(qwen35GPUCache.entries, q)
+	}
+	for q, e := range qwen35GPUCache.mlxEntries {
+		if e != nil && e.GPU != nil {
+			e.GPU.Free()
+		}
+		delete(qwen35GPUCache.mlxEntries, q)
 	}
 	if qwen35GPUCache.transientGPU != nil {
 		qwen35GPUCache.transientGPU.Free()
@@ -200,7 +214,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		BudgetBytes:    qwen35GPUCache.budgetBytes,
 		Clamped:        qwen35GPUCache.clamped,
 		UsedBytes:      qwen35GPUCache.usedBytes,
-		Entries:        len(qwen35GPUCache.entries),
+		Entries:        len(qwen35GPUCache.entries) + len(qwen35GPUCache.mlxEntries),
 		Hits:           atomic.LoadInt64(&qwen35GPUCache.hits),
 		Misses:         qwen35GPUCache.misses,
 		Evictions:      qwen35GPUCache.evictions,
@@ -283,6 +297,70 @@ func qwen35RecordTransientLocked(q *Qwen35NVFP4Weight, need int64) {
 	qwen35GPUCache.transientByName[name] = stat
 }
 
+func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
+	if q == nil {
+		return nil, fmt.Errorf("nil Qwen3.5 MLX weight")
+	}
+	qwen35GPUCache.Lock()
+	if e := qwen35GPUCache.mlxEntries[q]; e != nil && e.GPU != nil {
+		e.LastUse = atomic.AddUint64(&qwen35GPUCache.tick, 1)
+		qwen35GPUCache.hits++
+		gw := e.GPU
+		qwen35GPUCache.Unlock()
+		return gw, nil
+	}
+	qwen35GPUCache.misses++
+	need := qwen35MLXGPUWeightBytes(q)
+	if qwen35GPUCache.budgetBytes > 0 && need > qwen35GPUCache.budgetBytes {
+		qwen35GPUCache.Unlock()
+		return nil, fmt.Errorf("MLX weight %dx%d needs %.1f MB, larger than GPU cache budget %.1f MB", q.OutDim, q.InDim, float64(need)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
+	}
+	qwen35GPUCache.evictUntilLocked(need, nil)
+	if qwen35GPUCache.budgetBytes > 0 && qwen35GPUCache.usedBytes+need > qwen35GPUCache.budgetBytes {
+		qwen35GPUCache.transient++
+		qwen35GPUCache.transientBytes += need
+		qwen35GPUCache.Unlock()
+		return nil, fmt.Errorf("MLX weight cache full: need %.1f MB, used %.1f MB, budget %.1f MB", float64(need)/1e6, float64(qwen35GPUCache.usedBytes)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
+	}
+	qwen35GPUCache.Unlock()
+
+	gw, err := nvidia.UploadMLXWeight(q.Weight, q.Scales, q.Biases, q.InDim, q.OutDim, q.GroupSize, false)
+	if err != nil {
+		return nil, err
+	}
+	qwen35GPUCache.Lock()
+	defer qwen35GPUCache.Unlock()
+	if e := qwen35GPUCache.mlxEntries[q]; e != nil && e.GPU != nil {
+		gw.Free()
+		e.LastUse = atomic.AddUint64(&qwen35GPUCache.tick, 1)
+		qwen35GPUCache.hits++
+		return e.GPU, nil
+	}
+	qwen35GPUCache.mlxEntries[q] = &qwen35GPUMXEntry{GPU: gw, Bytes: need, LastUse: atomic.AddUint64(&qwen35GPUCache.tick, 1)}
+	qwen35GPUCache.usedBytes += need
+	qwen35GPUCache.uploads++
+	qwen35GPUCache.uploadBytes += need
+	return gw, nil
+}
+
+func qwen35MLXGPUWeightBytes(q *mlx.QuantWeight) int64 {
+	if q == nil {
+		return 0
+	}
+	// UploadMLXWeight uses the GPTQ-compatible fast path today: transposed
+	// packed weights, transposed scales, g_idx, and correction buffer. Account
+	// for that representation rather than only the compact source MLX arrays so
+	// the cache evicts before CUDA allocation pressure forces broad fallback.
+	weight := int64(len(q.Weight)) * 4
+	scales := int64(len(q.Scales)) * 4
+	biases := int64(len(q.Biases)) * 4
+	gidx := int64(q.InDim) * 4
+	correction := int64(len(q.Scales)) * 4
+	transposed := weight
+	transScales := scales
+	return weight + scales + biases + gidx + correction + transposed + transScales
+}
+
 func qwen35GPUWeightBytes(q *Qwen35NVFP4Weight) int64 {
 	if q == nil || q.W == nil {
 		return 0
@@ -303,20 +381,39 @@ func (c *qwen35GPUCacheState) evictUntilLocked(need int64, keep *Qwen35NVFP4Weig
 	if c.budgetBytes <= 0 {
 		return
 	}
-	for c.usedBytes+need > c.budgetBytes && len(c.entries) > 0 {
+	for c.usedBytes+need > c.budgetBytes && (len(c.entries) > 0 || len(c.mlxEntries) > 0) {
 		var victim *Qwen35NVFP4Weight
+		var victimMLX *mlx.QuantWeight
+		var victimUse uint64
 		for q := range c.entries {
 			if q == keep {
 				continue
 			}
-			if victim == nil || q.LastUse < victim.LastUse {
+			if victim == nil && victimMLX == nil || q.LastUse < victimUse {
 				victim = q
+				victimMLX = nil
+				victimUse = q.LastUse
 			}
 		}
-		if victim == nil {
-			return
+		for q, e := range c.mlxEntries {
+			if e == nil {
+				continue
+			}
+			if victim == nil && victimMLX == nil || e.LastUse < victimUse {
+				victim = nil
+				victimMLX = q
+				victimUse = e.LastUse
+			}
 		}
-		c.freeEntryLocked(victim)
+		if victim != nil {
+			c.freeEntryLocked(victim)
+			continue
+		}
+		if victimMLX != nil {
+			c.freeMLXEntryLocked(victimMLX)
+			continue
+		}
+		return
 	}
 }
 
@@ -324,6 +421,29 @@ func (c *qwen35GPUCacheState) evictAllLocked() {
 	for q := range c.entries {
 		c.freeEntryLocked(q)
 	}
+	for q := range c.mlxEntries {
+		c.freeMLXEntryLocked(q)
+	}
+}
+
+func (c *qwen35GPUCacheState) freeMLXEntryLocked(q *mlx.QuantWeight) {
+	if q == nil {
+		return
+	}
+	e := c.mlxEntries[q]
+	if e == nil {
+		delete(c.mlxEntries, q)
+		return
+	}
+	if e.GPU != nil {
+		e.GPU.Free()
+	}
+	delete(c.mlxEntries, q)
+	c.usedBytes -= e.Bytes
+	if c.usedBytes < 0 {
+		c.usedBytes = 0
+	}
+	c.evictions++
 }
 
 func (c *qwen35GPUCacheState) freeEntryLocked(q *Qwen35NVFP4Weight) {

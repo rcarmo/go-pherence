@@ -151,7 +151,20 @@ linear_stats.cpu_calls: 481
 duration_ms: 39530
 ```
 
-The NVIDIA MLX path is therefore wired and correctness-safe, but it is only a transient upload scaffold: some MLX GEMVs reach CUDA, and most fall back to CPU when upload pressure is too high. It is not faster yet. Next implementation step: add an MLX-specific Qwen GPU weight cache/reuse path, analogous to the existing NVFP4 cache, so packed MLX weights are uploaded once and reused across base/MTP calls.
+The NVIDIA MLX path now uses an MLX-specific LRU GPU weight cache under the existing `-gpu-cache-mb` budget. Latest local cache smoke with `-gpu-cache-mb 4096`:
+
+```text
+passed: true
+linear_stats.calls: 489
+linear_stats.gpu_calls: 8
+linear_stats.cpu_calls: 481
+gpu_cache.entries: 8
+gpu_cache.uploads: 8
+gpu_cache.used_bytes: 479244288
+duration_ms: 39641
+```
+
+This confirms cached NVIDIA MLX dispatch works and accounting is conservative for the current GPTQ-compatible MLX upload representation. It is not faster yet because only the first hot weights fit/reach CUDA cleanly, and the remaining large GEMVs fall back to CPU. Next performance step: make the Qwen path use persistent device input/output scratch and improve MLX upload residency/prewarm so more than the first layer's weights stay resident without per-call allocation pressure.
 
 ## Important blocker for the original NVFP4 checkpoint
 

@@ -164,9 +164,8 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 		qwen35LinearStats.Calls++
 		if qwen35GPUReady {
 			start := time.Now()
-			gw, err := nvidia.UploadMLXWeight(m.Weight, m.Scales, m.Biases, m.InDim, m.OutDim, m.GroupSize, false)
+			gw, err := qwen35CachedGPUMXWeight(m)
 			if err == nil {
-				defer gw.Free()
 				xb := nvidia.NewDevBufFrom(x)
 				ob := nvidia.NewDevBuf(outDim)
 				defer xb.Free()
