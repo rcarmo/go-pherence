@@ -27,8 +27,9 @@ func ApplyRoPETo(x, freqs []float32, pos, numHeads, headDim int) bool {
 
 // ApplyRoPEPartial applies RoPE with partial rotation.
 func ApplyRoPEPartial(x, freqs []float32, pos, numHeads, headDim, rotHalf int) {
-	// See ApplyRoPE: scalar remains the only active path until architecture
-	// kernels land and pass parity gates.
+	if applyRoPEPartialAccel(x, freqs, pos, numHeads, headDim, rotHalf) {
+		return
+	}
 	applyRoPEPartialGo(x, freqs, pos, numHeads, headDim, rotHalf)
 }
 
