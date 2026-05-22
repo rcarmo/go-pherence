@@ -9,9 +9,10 @@ import (
 )
 
 type GPUPromptCacheEntry struct {
-	Key   kv.ChunkKey
-	State *Qwen35GPUForwardState
-	Bytes int64
+	Key       kv.ChunkKey
+	State     *Qwen35GPUForwardState
+	StateBF16 *Qwen35GPUForwardStateBF16
+	Bytes     int64
 }
 
 type GPUPromptCacheStats struct {
@@ -21,6 +22,7 @@ type GPUPromptCacheStats struct {
 	HeadroomBytes      uint64 `json:"headroom_bytes,omitempty"`
 	LastEstimateBytes  int64  `json:"last_estimate_bytes,omitempty"`
 	LastFreeBytes      uint64 `json:"last_free_bytes,omitempty"`
+	Compressed         bool   `json:"compressed,omitempty"`
 	UploadFailures     int64  `json:"upload_failures,omitempty"`
 	BudgetRejections   int64  `json:"budget_rejections,omitempty"`
 	HeadroomRejections int64  `json:"headroom_rejections,omitempty"`
@@ -30,6 +32,7 @@ type GPUPromptCache struct {
 	maxBytes           int64
 	usedBytes          int64
 	headroomBytes      uint64
+	compressed         bool
 	lastEstimateBytes  int64
 	lastFreeBytes      uint64
 	uploadFailures     int64
@@ -77,10 +80,14 @@ func NewGPUPromptCache(maxBytes int64) *GPUPromptCache {
 }
 
 func NewGPUPromptCacheWithHeadroom(maxBytes int64, headroomBytes uint64) *GPUPromptCache {
+	return NewGPUPromptCacheWithOptions(maxBytes, headroomBytes, false)
+}
+
+func NewGPUPromptCacheWithOptions(maxBytes int64, headroomBytes uint64, compressed bool) *GPUPromptCache {
 	if maxBytes < 0 {
 		maxBytes = 0
 	}
-	return &GPUPromptCache{maxBytes: maxBytes, headroomBytes: headroomBytes, ll: list.New(), items: map[kv.ChunkKey]*list.Element{}}
+	return &GPUPromptCache{maxBytes: maxBytes, headroomBytes: headroomBytes, compressed: compressed, ll: list.New(), items: map[kv.ChunkKey]*list.Element{}}
 }
 
 func (c *GPUPromptCache) Put(key kv.ChunkKey, state Qwen35BaseForwardState) bool {
@@ -88,6 +95,9 @@ func (c *GPUPromptCache) Put(key kv.ChunkKey, state Qwen35BaseForwardState) bool
 		return false
 	}
 	estBytes, err := EstimateQwen35ForwardStateBytes(state)
+	if c.compressed {
+		estBytes = (estBytes + 1) / 2
+	}
 	c.lastEstimateBytes = estBytes
 	if err != nil {
 		c.uploadFailures++
@@ -103,25 +113,42 @@ func (c *GPUPromptCache) Put(key kv.ChunkKey, state Qwen35BaseForwardState) bool
 		c.headroomRejections++
 		return false
 	}
-	g, err := UploadQwen35ForwardStateGPU(state)
+	var g *Qwen35GPUForwardState
+	var gb *Qwen35GPUForwardStateBF16
+	if c.compressed {
+		gb, err = UploadQwen35ForwardStateGPUBF16(state)
+	} else {
+		g, err = UploadQwen35ForwardStateGPU(state)
+	}
 	if err != nil {
 		c.uploadFailures++
 		return false
+	}
+	actualBytes := estBytes
+	if g != nil {
+		actualBytes = g.Bytes
+	}
+	if gb != nil {
+		actualBytes = gb.Bytes
 	}
 	if old := c.items[key]; old != nil {
 		ent := old.Value.(*GPUPromptCacheEntry)
 		if ent.State != nil {
 			ent.State.Free()
 		}
+		if ent.StateBF16 != nil {
+			ent.StateBF16.Free()
+		}
 		c.usedBytes -= ent.Bytes
 		ent.State = g
-		ent.Bytes = g.Bytes
-		c.usedBytes += g.Bytes
+		ent.StateBF16 = gb
+		ent.Bytes = actualBytes
+		c.usedBytes += actualBytes
 		c.ll.MoveToFront(old)
 		c.evict()
 		return c.Contains(key)
 	}
-	ent := &GPUPromptCacheEntry{Key: key, State: g, Bytes: g.Bytes}
+	ent := &GPUPromptCacheEntry{Key: key, State: g, StateBF16: gb, Bytes: actualBytes}
 	el := c.ll.PushFront(ent)
 	c.items[key] = el
 	c.usedBytes += ent.Bytes
@@ -152,7 +179,7 @@ func (c *GPUPromptCache) Stats() GPUPromptCacheStats {
 	if c == nil {
 		return GPUPromptCacheStats{}
 	}
-	return GPUPromptCacheStats{MaxBytes: c.maxBytes, UsedBytes: c.usedBytes, Entries: len(c.items), HeadroomBytes: c.headroomBytes, LastEstimateBytes: c.lastEstimateBytes, LastFreeBytes: c.lastFreeBytes, UploadFailures: c.uploadFailures, BudgetRejections: c.budgetRejections, HeadroomRejections: c.headroomRejections}
+	return GPUPromptCacheStats{MaxBytes: c.maxBytes, UsedBytes: c.usedBytes, Entries: len(c.items), HeadroomBytes: c.headroomBytes, LastEstimateBytes: c.lastEstimateBytes, LastFreeBytes: c.lastFreeBytes, Compressed: c.compressed, UploadFailures: c.uploadFailures, BudgetRejections: c.budgetRejections, HeadroomRejections: c.headroomRejections}
 }
 
 func (c *GPUPromptCache) Free() {
@@ -163,6 +190,9 @@ func (c *GPUPromptCache) Free() {
 		ent := el.Value.(*GPUPromptCacheEntry)
 		if ent.State != nil {
 			ent.State.Free()
+		}
+		if ent.StateBF16 != nil {
+			ent.StateBF16.Free()
 		}
 	}
 	c.items = map[kv.ChunkKey]*list.Element{}
@@ -177,6 +207,9 @@ func (c *GPUPromptCache) evict() {
 		delete(c.items, ent.Key)
 		if ent.State != nil {
 			ent.State.Free()
+		}
+		if ent.StateBF16 != nil {
+			ent.StateBF16.Free()
 		}
 		c.usedBytes -= ent.Bytes
 		if c.usedBytes < 0 {

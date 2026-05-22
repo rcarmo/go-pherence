@@ -365,6 +365,29 @@ func (b *Buffer) UploadUint32(data []uint32) error {
 	return nil
 }
 
+// DownloadBytes copies raw GPU bytes to host.
+func (b *Buffer) DownloadBytes(data []byte) error {
+	if b == nil {
+		return fmt.Errorf("nil GPU buffer")
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	if len(data) > b.Size {
+		return fmt.Errorf("copy size %d exceeds buffer size %d", len(data), b.Size)
+	}
+	EnsureContext()
+	r := cuMemcpyDtoH(unsafe.Pointer(&data[0]), b.Ptr, uint64(len(data)))
+	runtime.KeepAlive(data)
+	if r != CUDA_SUCCESS {
+		return fmt.Errorf("cuMemcpyDtoH: error %d", r)
+	}
+	if gpuStatsEnabled.Load() {
+		gpuStatsDeviceToHost.Add(1)
+	}
+	return nil
+}
+
 // Download copies GPU data to host.
 func (b *Buffer) Download(data []float32) error {
 	if b == nil {
