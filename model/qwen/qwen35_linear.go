@@ -20,6 +20,7 @@ var qwen35GPUVerifyCompared int64
 var qwen35GPUVerifyMismatches int64
 var qwen35GPUVerifyMaxDiff float32
 var qwen35LinearStats Qwen35LinearStats
+var qwen35LinearFailCounts = map[string]int64{}
 var qwen35LinearTiming bool
 var qwen35GPUMLPEnabled bool
 
@@ -30,15 +31,17 @@ var qwen35MLPGPUScratch = struct {
 }{}
 
 type Qwen35LinearStats struct {
-	Calls        int64   `json:"calls"`
-	GPUCalls     int64   `json:"gpu_calls"`
-	CPUCalls     int64   `json:"cpu_calls"`
-	GPUMillis    int64   `json:"gpu_ms"`
-	GPUUploadMS  int64   `json:"gpu_upload_ms,omitempty"`
-	GPUKernelMS  int64   `json:"gpu_kernel_ms,omitempty"`
-	CPUMillis    int64   `json:"cpu_ms"`
-	VerifyMillis int64   `json:"verify_ms"`
-	AvgGPUCallMS float64 `json:"avg_gpu_call_ms,omitempty"`
+	Calls        int64    `json:"calls"`
+	GPUCalls     int64    `json:"gpu_calls"`
+	CPUCalls     int64    `json:"cpu_calls"`
+	GPUFailures  int64    `json:"gpu_failures,omitempty"`
+	GPUMillis    int64    `json:"gpu_ms"`
+	GPUUploadMS  int64    `json:"gpu_upload_ms,omitempty"`
+	GPUKernelMS  int64    `json:"gpu_kernel_ms,omitempty"`
+	CPUMillis    int64    `json:"cpu_ms"`
+	VerifyMillis int64    `json:"verify_ms"`
+	AvgGPUCallMS float64  `json:"avg_gpu_call_ms,omitempty"`
+	GPUFailTop   []string `json:"gpu_fail_top,omitempty"`
 }
 
 type Qwen35GPUVerifyStats struct {
@@ -70,12 +73,21 @@ func Qwen35GPUVerifyStatsSnapshot() Qwen35GPUVerifyStats {
 	return Qwen35GPUVerifyStats{Compared: qwen35GPUVerifyCompared, Mismatches: qwen35GPUVerifyMismatches, MaxDiff: qwen35GPUVerifyMaxDiff, Tolerance: qwen35GPUVerifyTolerance}
 }
 
-func ResetQwen35LinearStats() { qwen35LinearStats = Qwen35LinearStats{} }
+func ResetQwen35LinearStats() {
+	qwen35LinearStats = Qwen35LinearStats{}
+	qwen35LinearFailCounts = map[string]int64{}
+}
 
 func Qwen35LinearStatsSnapshot() Qwen35LinearStats {
 	out := qwen35LinearStats
 	if out.GPUCalls > 0 {
 		out.AvgGPUCallMS = float64(out.GPUMillis) / float64(out.GPUCalls)
+	}
+	for name, n := range qwen35LinearFailCounts {
+		out.GPUFailTop = append(out.GPUFailTop, fmt.Sprintf("%s:%d", name, n))
+		if len(out.GPUFailTop) >= 8 {
+			break
+		}
 	}
 	return out
 }
@@ -171,7 +183,7 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 				defer xb.Free()
 				defer ob.Free()
 				if xb.ToGPU() == nil && ob.ToGPU() == nil {
-					nvidia.GemvMLX(ob, xb, gw)
+					nvidia.GemvMLXDirect(ob, xb, gw)
 					nvidia.Sync()
 					copy(out, ob.Data()[:outDim])
 					qwen35LinearStats.GPUCalls++
@@ -180,6 +192,8 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 					}
 					return nil
 				}
+				qwen35LinearStats.GPUFailures++
+				qwen35LinearFailCounts[name]++
 			}
 		}
 		if !mlx.GemvTo(out, x, m) {

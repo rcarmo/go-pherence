@@ -151,20 +151,43 @@ linear_stats.cpu_calls: 481
 duration_ms: 39530
 ```
 
-The NVIDIA MLX path now uses an MLX-specific LRU GPU weight cache under the existing `-gpu-cache-mb` budget. Latest local cache smoke with `-gpu-cache-mb 4096`:
+The NVIDIA MLX path now uses an MLX-specific GPU weight cache under the existing `-gpu-cache-mb` budget. MLX cache admission is intentionally no-evict: the full 27B working set is larger than local VRAM, so evicting resident weights for one-off later-layer uploads caused zero hits on the next token. The cache now preserves the resident prefix and lets overflow weights fall back to CPU.
+
+Latest local one-step MTP cache smoke:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing \
+  -gpu-cache-mb 11000 \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello" -steps 1 -mtp -mtp-steps 1
+```
 
 ```text
 passed: true
+next_id: 119
+mtp_next_id: 220
 linear_stats.calls: 489
-linear_stats.gpu_calls: 8
-linear_stats.cpu_calls: 481
-gpu_cache.entries: 8
-gpu_cache.uploads: 8
-gpu_cache.used_bytes: 479244288
-duration_ms: 39641
+linear_stats.gpu_calls: 144
+linear_stats.cpu_calls: 345
+gpu_cache.entries: 144
+gpu_cache.uploads: 144
+gpu_cache.used_bytes: 11386587136
+duration_ms: 25695
 ```
 
-This confirms cached NVIDIA MLX dispatch works and accounting is conservative for the current GPTQ-compatible MLX upload representation. It is not faster yet because only the first hot weights fit/reach CUDA cleanly, and the remaining large GEMVs fall back to CPU. Next performance step: make the Qwen path use persistent device input/output scratch and improve MLX upload residency/prewarm so more than the first layer's weights stay resident without per-call allocation pressure.
+Two-step cache reuse smoke:
+
+```text
+steps: 2
+linear_stats.calls: 978
+linear_stats.gpu_calls: 288
+linear_stats.cpu_calls: 690
+gpu_cache.hits: 144
+duration_ms: 44566
+```
+
+This is now faster than CPU-only and faster than the transient/thrashing NVIDIA path, but still far from ideal. Next performance steps: persistent device input/output scratch, MLX prewarm/placement policy, and optionally a compact native-MLX-only upload representation to reduce cache footprint.
 
 ## Important blocker for the original NVFP4 checkpoint
 

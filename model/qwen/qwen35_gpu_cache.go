@@ -315,7 +315,10 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 		qwen35GPUCache.Unlock()
 		return nil, fmt.Errorf("MLX weight %dx%d needs %.1f MB, larger than GPU cache budget %.1f MB", q.OutDim, q.InDim, float64(need)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
 	}
-	qwen35GPUCache.evictUntilLocked(need, nil)
+	// For Qwen MLX the full model working set is larger than 12GB VRAM. Do not
+	// evict resident MLX weights for one-off later-layer uploads: that thrashes
+	// and produces zero hits on the next token. Instead, keep the resident prefix
+	// stable and let overflow weights fall back to CPU until placement is smarter.
 	if qwen35GPUCache.budgetBytes > 0 && qwen35GPUCache.usedBytes+need > qwen35GPUCache.budgetBytes {
 		qwen35GPUCache.transient++
 		qwen35GPUCache.transientBytes += need
@@ -324,7 +327,7 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 	}
 	qwen35GPUCache.Unlock()
 
-	gw, err := nvidia.UploadMLXWeight(q.Weight, q.Scales, q.Biases, q.InDim, q.OutDim, q.GroupSize, false)
+	gw, err := nvidia.UploadMLXWeight(q.Weight, q.Scales, q.Biases, q.InDim, q.OutDim, q.GroupSize, true)
 	if err != nil {
 		return nil, err
 	}
@@ -347,10 +350,9 @@ func qwen35MLXGPUWeightBytes(q *mlx.QuantWeight) int64 {
 	if q == nil {
 		return 0
 	}
-	// UploadMLXWeight uses the GPTQ-compatible fast path today: transposed
-	// packed weights, transposed scales, g_idx, and correction buffer. Account
-	// for that representation rather than only the compact source MLX arrays so
-	// the cache evicts before CUDA allocation pressure forces broad fallback.
+	// UploadMLXWeight with wantNative=true keeps both the GPTQ-compatible helper
+	// representation and native MLX buffers. Account for both so the cache evicts
+	// before CUDA allocation pressure forces broad fallback.
 	weight := int64(len(q.Weight)) * 4
 	scales := int64(len(q.Scales)) * 4
 	biases := int64(len(q.Biases)) * 4
@@ -358,7 +360,8 @@ func qwen35MLXGPUWeightBytes(q *mlx.QuantWeight) int64 {
 	correction := int64(len(q.Scales)) * 4
 	transposed := weight
 	transScales := scales
-	return weight + scales + biases + gidx + correction + transposed + transScales
+	native := weight + scales + biases
+	return weight + scales + biases + gidx + correction + transposed + transScales + native
 }
 
 func qwen35GPUWeightBytes(q *Qwen35NVFP4Weight) int64 {
