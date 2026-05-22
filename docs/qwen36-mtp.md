@@ -187,7 +187,49 @@ gpu_cache.hits: 144
 duration_ms: 44566
 ```
 
-This is now faster than CPU-only and faster than the transient/thrashing NVIDIA path, but still far from ideal. Next performance steps: persistent device input/output scratch, MLX prewarm/placement policy, and optionally a compact native-MLX-only upload representation to reduce cache footprint.
+Follow-up improvements landed:
+
+- persistent NVIDIA input/output scratch for Qwen MLX GEMV, avoiding per-call DevBuf allocation;
+- MLX prewarm through the existing `-gpu-prewarm` path;
+- native-only MLX GPU upload for Qwen (`UploadMLXWeightNative`) instead of storing both native and GPTQ-compatible representations.
+
+Latest local one-step MTP smoke with native-only cached MLX:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -gpu -gpu-prewarm=true -gpu-lm-head=false -gpu-timing \
+  -gpu-cache-mb 11000 \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello" -steps 1 -mtp -mtp-steps 1
+```
+
+```text
+passed: true
+next_id: 119
+mtp_next_id: 220
+linear_stats.calls: 489
+linear_stats.gpu_calls: 393
+linear_stats.cpu_calls: 96
+gpu_cache.entries: 393
+gpu_cache.hits: 393
+gpu_cache.used_bytes: 11250892800
+prewarm_ms: 1005
+duration_ms: 9360
+```
+
+Two-step reuse smoke:
+
+```text
+steps: 2
+linear_stats.calls: 978
+linear_stats.gpu_calls: 786
+linear_stats.cpu_calls: 192
+gpu_cache.hits: 786
+duration_ms: 19834
+tokens_per_second: 0.151
+```
+
+This is a substantial improvement over CPU-only (`~30.9s` for the one-step MTP smoke) and over the previous mixed GPU/CPU cache path (`~25.7s`). The remaining gaps are the 96 uncached/CPU GEMVs, MLX LM-head GPU support in `qwen36run`, and broader placement policy for which Qwen weights should occupy the 11GB cache.
 
 ## Important blocker for the original NVFP4 checkpoint
 

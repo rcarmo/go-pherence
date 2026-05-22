@@ -119,6 +119,7 @@ func qwen35SafeGPUCacheBudget(requested int64) int64 {
 }
 
 func ResetQwen35GPUCache() {
+	resetQwen35MLXGPUScratch()
 	qwen35GPUCache.Lock()
 	defer qwen35GPUCache.Unlock()
 	for q := range qwen35GPUCache.entries {
@@ -151,6 +152,26 @@ func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
 	if !qwen35GPUReady || base == nil {
 		return stats
 	}
+	for _, m := range qwen35BaseMLXWeights(base) {
+		stats.Considered++
+		if m == nil {
+			continue
+		}
+		need := qwen35MLXGPUWeightBytes(m)
+		qwen35GPUCache.Lock()
+		fits := qwen35GPUCache.budgetBytes <= 0 || qwen35GPUCache.usedBytes+need <= qwen35GPUCache.budgetBytes
+		qwen35GPUCache.Unlock()
+		if !fits {
+			stats.Skipped++
+			continue
+		}
+		if _, err := qwen35CachedGPUMXWeight(m); err == nil {
+			stats.Uploaded++
+			stats.Bytes += need
+		} else {
+			stats.Skipped++
+		}
+	}
 	for _, q := range qwen35BaseNVFP4Weights(base) {
 		stats.Considered++
 		if q == nil || q.GPU != nil || q.W == nil {
@@ -172,6 +193,22 @@ func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
 		}
 	}
 	return stats
+}
+
+func qwen35BaseMLXWeights(base *Qwen35BaseModel) []*mlx.QuantWeight {
+	var out []*mlx.QuantWeight
+	for i := range base.Layers {
+		layer := &base.Layers[i]
+		if layer.Full != nil {
+			l := layer.Full
+			out = append(out, l.QWm, l.KWm, l.VWm, l.OWm, l.GateWm, l.UpWm, l.DownWm)
+		}
+		if layer.Linear != nil {
+			l := layer.Linear
+			out = append(out, l.QKVWm, l.GateWm, l.BetaWm, l.AlphaWm, l.OutWm, l.MLPGateWm, l.MLPUpWm, l.MLPDownWm)
+		}
+	}
+	return out
 }
 
 func qwen35BaseNVFP4Weights(base *Qwen35BaseModel) []*Qwen35NVFP4Weight {
@@ -327,7 +364,7 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 	}
 	qwen35GPUCache.Unlock()
 
-	gw, err := nvidia.UploadMLXWeight(q.Weight, q.Scales, q.Biases, q.InDim, q.OutDim, q.GroupSize, true)
+	gw, err := nvidia.UploadMLXWeightNative(q.Weight, q.Scales, q.Biases, q.InDim, q.OutDim, q.GroupSize)
 	if err != nil {
 		return nil, err
 	}
@@ -350,18 +387,12 @@ func qwen35MLXGPUWeightBytes(q *mlx.QuantWeight) int64 {
 	if q == nil {
 		return 0
 	}
-	// UploadMLXWeight with wantNative=true keeps both the GPTQ-compatible helper
-	// representation and native MLX buffers. Account for both so the cache evicts
-	// before CUDA allocation pressure forces broad fallback.
+	// Qwen uses GemvMLXDirect, so upload/cache only the native MLX buffers:
+	// packed uint32 weights plus F32 scales and biases.
 	weight := int64(len(q.Weight)) * 4
 	scales := int64(len(q.Scales)) * 4
 	biases := int64(len(q.Biases)) * 4
-	gidx := int64(q.InDim) * 4
-	correction := int64(len(q.Scales)) * 4
-	transposed := weight
-	transScales := scales
-	native := weight + scales + biases
-	return weight + scales + biases + gidx + correction + transposed + transScales + native
+	return weight + scales + biases
 }
 
 func qwen35GPUWeightBytes(q *Qwen35NVFP4Weight) int64 {

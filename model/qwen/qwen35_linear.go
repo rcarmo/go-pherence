@@ -30,6 +30,12 @@ var qwen35MLPGPUScratch = struct {
 	xN, interN, outN int
 }{}
 
+var qwen35MLXGPUScratch = struct {
+	sync.Mutex
+	x, out   *nvidia.DevBuf
+	xN, outN int
+}{}
+
 type Qwen35LinearStats struct {
 	Calls        int64    `json:"calls"`
 	GPUCalls     int64    `json:"gpu_calls"`
@@ -178,14 +184,7 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 			start := time.Now()
 			gw, err := qwen35CachedGPUMXWeight(m)
 			if err == nil {
-				xb := nvidia.NewDevBufFrom(x)
-				ob := nvidia.NewDevBuf(outDim)
-				defer xb.Free()
-				defer ob.Free()
-				if xb.ToGPU() == nil && ob.ToGPU() == nil {
-					nvidia.GemvMLXDirect(ob, xb, gw)
-					nvidia.Sync()
-					copy(out, ob.Data()[:outDim])
+				if qwen35GemvMLXGPU(out, x, gw, inDim, outDim) {
 					qwen35LinearStats.GPUCalls++
 					if qwen35LinearTiming {
 						qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
