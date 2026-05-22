@@ -38,10 +38,11 @@ type TopLogit struct {
 }
 
 type mtpGenerateStats struct {
-	Accepted    int
-	Drafted     int
-	Rounds      int
-	BonusTokens int
+	Accepted         int
+	Drafted          int
+	Rounds           int
+	BonusTokens      int
+	AdaptiveFallback bool
 }
 
 type Report struct {
@@ -81,6 +82,7 @@ type Report struct {
 	MTPGeneratedRounds         int                        `json:"mtp_generated_rounds,omitempty"`
 	MTPGeneratedBonusTokens    int                        `json:"mtp_generated_bonus_tokens,omitempty"`
 	MTPGeneratedAcceptanceRate float64                    `json:"mtp_generated_acceptance_rate,omitempty"`
+	MTPAdaptiveFallback        bool                       `json:"mtp_adaptive_fallback,omitempty"`
 	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
 	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
 	GPUPrewarm                 qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
@@ -161,6 +163,9 @@ func main() {
 	mtp := flag.Bool("mtp", false, "also run native MTP head from last base hidden state and generated token")
 	mtpSteps := flag.Int("mtp-steps", 1, "native MTP draft steps for diagnostics/generation")
 	mtpGenerate := flag.Bool("mtp-generate", false, "use native MTP draft/verify/commit loop for generation after prompt prefill")
+	mtpAdaptive := flag.Bool("mtp-adaptive", false, "fall back to plain verifier decode if native-MTP acceptance is too low")
+	mtpMinAcceptance := flag.Float64("mtp-min-acceptance", 0.75, "minimum accepted/drafted ratio before -mtp-adaptive falls back after warmup")
+	mtpWarmupRounds := flag.Int("mtp-warmup-rounds", 4, "native-MTP rounds to observe before -mtp-adaptive can fall back")
 	topK := flag.Int("topk", 0, "include top-K base/MTP logits in reports; 0 disables")
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
@@ -366,7 +371,7 @@ func main() {
 			os.Exit(2)
 		}
 		check("mtp prompt KV", r.buildMTPPromptKV(ropeFreqs, meta))
-		generated, mtpGenStats, next, logit, h, preNormHidden, err = r.generateWithNativeMTP(next, preNormHidden, *steps, *mtpSteps, ropeFreqs, meta)
+		generated, mtpGenStats, next, logit, h, preNormHidden, err = r.generateWithNativeMTP(next, preNormHidden, *steps, *mtpSteps, ropeFreqs, meta, *mtpAdaptive, *mtpMinAcceptance, *mtpWarmupRounds)
 		check("mtp generate", err)
 	} else {
 		cur := next
@@ -396,7 +401,7 @@ func main() {
 	if *mtpGenerate && mtpGenStats.Drafted > 0 {
 		mtpGeneratedAcceptanceRate = float64(mtpGenStats.Accepted) / float64(mtpGenStats.Drafted)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *topK > 0 {
 		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
@@ -447,7 +452,7 @@ func (r *runner) buildMTPPromptKV(ropeFreqs []float32, meta loaderconfig.QwenNat
 	return nil
 }
 
-func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTokens, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata) ([]int, mtpGenerateStats, int, float32, []float32, []float32, error) {
+func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTokens, mtpSteps int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, adaptive bool, minAcceptance float64, warmupRounds int) ([]int, mtpGenerateStats, int, float32, []float32, []float32, error) {
 	if r == nil || r.mtpHead == nil {
 		return nil, mtpGenerateStats{}, verifierNext, 0, nil, nil, fmt.Errorf("native MTP head is not loaded")
 	}
@@ -505,6 +510,18 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 			r.mtpPastV = append(r.mtpPastV, stepV[i]...)
 		}
 		if len(out) >= maxTokens {
+			break
+		}
+		if adaptive && stats.Rounds >= warmupRounds && stats.Drafted > 0 && float64(stats.Accepted)/float64(stats.Drafted) < minAcceptance {
+			stats.AdaptiveFallback = true
+			for len(out) < maxTokens {
+				out = append(out, curVerifier)
+				lastToken = curVerifier
+				curVerifier, logit, lastH, curHidden, err = r.step(lastToken, ropeFreqs)
+				if err != nil {
+					return out, stats, curVerifier, logit, lastH, curHidden, err
+				}
+			}
 			break
 		}
 		// Mismatch/all-accepted completion: emit verifier bonus token and commit it.
