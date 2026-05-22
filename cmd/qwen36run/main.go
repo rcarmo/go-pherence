@@ -168,6 +168,9 @@ type Report struct {
 	KVGPUVerifyAttempts        int                        `json:"kv_gpu_verify_attempts,omitempty"`
 	KVGPUVerifyMatches         int                        `json:"kv_gpu_verify_matches,omitempty"`
 	KVGPUVerifyFailures        int                        `json:"kv_gpu_verify_failures,omitempty"`
+	KVGPUUsedForRestore        bool                       `json:"kv_gpu_used_for_restore,omitempty"`
+	KVGPUrestoreAttempts       int                        `json:"kv_gpu_restore_attempts,omitempty"`
+	KVGPUrestoreFailures       int                        `json:"kv_gpu_restore_failures,omitempty"`
 	LayerStreamedPrefill       bool                       `json:"layer_streamed_prefill,omitempty"`
 	Passed                     bool                       `json:"passed"`
 }
@@ -241,6 +244,7 @@ func main() {
 	kvGPUHeadroomMB := flag.Int("kv-gpu-headroom-mb", 256, "free VRAM MiB to reserve before accepting Qwen GPU prompt-state cache promotion")
 	kvGPUCompressed := flag.Bool("kv-gpu-compressed", false, "store Qwen GPU prompt-state cache entries as BF16-packed buffers")
 	kvGPUPromoteOnHit := flag.Bool("kv-gpu-promote-on-hit", true, "promote CPU prompt-cache hits into the GPU hot tier when missing")
+	kvGPURestoreOnHit := flag.Bool("kv-gpu-restore-on-hit", false, "experimental: restore CPU state from matching GPU hot-tier entry on cache hits")
 	kvGPUVerify := flag.Bool("kv-gpu-verify", false, "download promoted Qwen GPU prompt-cache entries and compare metadata with CPU snapshots")
 	kvPrimePrompt := flag.String("kv-prime-prompt", "", "prime Qwen prompt-state cache with this prompt before running -prompt")
 	kvPrimePromptFile := flag.String("kv-prime-prompt-file", "", "read Qwen KV prime prompt text from file")
@@ -422,6 +426,9 @@ func main() {
 	kvGPUVerifyAttempts := 0
 	kvGPUVerifyMatches := 0
 	kvGPUVerifyFailures := 0
+	kvGPUUsedForRestore := false
+	kvGPURestoreAttempts := 0
+	kvGPURestoreFailures := 0
 	kvReusedTokens := 0
 	kvStoredChunks := 0
 	kvPrefillTokens := 0
@@ -490,6 +497,15 @@ func main() {
 					if qwenGPUPromptStateCache.Contains(hitKey) {
 						kvGPUHit = true
 						kvGPUHits++
+						if *kvGPURestoreOnHit {
+							kvGPURestoreAttempts++
+							if gpuState, ok, err := qwenGPUPromptStateCache.Download(hitKey); err == nil && ok {
+								snap.State = gpuState
+								kvGPUUsedForRestore = true
+							} else {
+								kvGPURestoreFailures++
+							}
+						}
 					} else {
 						kvGPUMisses++
 						if *kvGPUPromoteOnHit {
@@ -643,7 +659,7 @@ func main() {
 		gpuPromptStats = qwenGPUPromptStateCache.Stats()
 	}
 	cacheStats := qwenPromptStateCache.Stats()
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: cachedDurationMS, TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVLookupAttempts: kvLookupAttempts, KVLookupHits: kvLookupHits, KVLookupMisses: kvLookupAttempts - kvLookupHits, KVStoreAttempts: kvStoreAttempts, KVEvictedStores: kvEvictedStores, KVReusedTokens: kvReusedTokens, KVPrefillTokens: kvPrefillTokens, KVSuffixTokens: kvPrefillTokens, KVSkippedPrefillTokens: kvSkippedPrefillTokens, KVReuseEfficiency: kvReuseEfficiency, KVPrimePrompt: *kvPrimePrompt, KVPrimeTokens: kvPrimeTokens, KVPrimeStoredChunks: kvPrimeStoredChunks, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, KVCacheMaxBytes: cacheStats.MaxBytes, KVCacheUsedBytes: cacheStats.UsedBytes, KVCacheEntries: cacheStats.Entries, KVGPUCacheMaxBytes: gpuPromptStats.MaxBytes, KVGPUCacheUsedBytes: gpuPromptStats.UsedBytes, KVGPUCacheEntries: gpuPromptStats.Entries, KVGPUHeadroomBytes: gpuPromptStats.HeadroomBytes, KVGPUCompressed: gpuPromptStats.Compressed, KVGPUStateEstimateBytes: gpuPromptStats.LastEstimateBytes, KVGPUFreeBytes: gpuPromptStats.LastFreeBytes, KVGPUUploadFailures: gpuPromptStats.UploadFailures, KVGPUBudgetRejections: gpuPromptStats.BudgetRejections, KVGPUHeadroomRejections: gpuPromptStats.HeadroomRejections, KVGPUStoreAttempts: kvGPUStoreAttempts, KVGPUStoredChunks: kvGPUStoredChunks, KVGPUHit: kvGPUHit, KVGPULookupAttempts: kvGPULookupAttempts, KVGPUHits: kvGPUHits, KVGPUHitsMissing: kvGPUMisses, KVGPUHitPromotions: kvGPUHitPromotions, KVGPUHitPromotionFailures: kvGPUHitPromotionFailures, KVGPURejectedStores: kvGPURejectedStores, KVGPUVerifyAttempts: kvGPUVerifyAttempts, KVGPUVerifyMatches: kvGPUVerifyMatches, KVGPUVerifyFailures: kvGPUVerifyFailures, KVCachedDurationMS: cachedPromptDurationMS, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: cachedDurationMS, TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVLookupAttempts: kvLookupAttempts, KVLookupHits: kvLookupHits, KVLookupMisses: kvLookupAttempts - kvLookupHits, KVStoreAttempts: kvStoreAttempts, KVEvictedStores: kvEvictedStores, KVReusedTokens: kvReusedTokens, KVPrefillTokens: kvPrefillTokens, KVSuffixTokens: kvPrefillTokens, KVSkippedPrefillTokens: kvSkippedPrefillTokens, KVReuseEfficiency: kvReuseEfficiency, KVPrimePrompt: *kvPrimePrompt, KVPrimeTokens: kvPrimeTokens, KVPrimeStoredChunks: kvPrimeStoredChunks, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, KVCacheMaxBytes: cacheStats.MaxBytes, KVCacheUsedBytes: cacheStats.UsedBytes, KVCacheEntries: cacheStats.Entries, KVGPUCacheMaxBytes: gpuPromptStats.MaxBytes, KVGPUCacheUsedBytes: gpuPromptStats.UsedBytes, KVGPUCacheEntries: gpuPromptStats.Entries, KVGPUHeadroomBytes: gpuPromptStats.HeadroomBytes, KVGPUCompressed: gpuPromptStats.Compressed, KVGPUStateEstimateBytes: gpuPromptStats.LastEstimateBytes, KVGPUFreeBytes: gpuPromptStats.LastFreeBytes, KVGPUUploadFailures: gpuPromptStats.UploadFailures, KVGPUBudgetRejections: gpuPromptStats.BudgetRejections, KVGPUHeadroomRejections: gpuPromptStats.HeadroomRejections, KVGPUStoreAttempts: kvGPUStoreAttempts, KVGPUStoredChunks: kvGPUStoredChunks, KVGPUHit: kvGPUHit, KVGPULookupAttempts: kvGPULookupAttempts, KVGPUHits: kvGPUHits, KVGPUHitsMissing: kvGPUMisses, KVGPUHitPromotions: kvGPUHitPromotions, KVGPUHitPromotionFailures: kvGPUHitPromotionFailures, KVGPURejectedStores: kvGPURejectedStores, KVGPUVerifyAttempts: kvGPUVerifyAttempts, KVGPUVerifyMatches: kvGPUVerifyMatches, KVGPUVerifyFailures: kvGPUVerifyFailures, KVGPUUsedForRestore: kvGPUUsedForRestore, KVGPUrestoreAttempts: kvGPURestoreAttempts, KVGPUrestoreFailures: kvGPURestoreFailures, KVCachedDurationMS: cachedPromptDurationMS, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *kvCompareCold && *kvReuse {
 		coldRunner := newRunner(bundle, state, r.emb, r.normW, r.lm, r.lmGPU, r.mtpHead)
 		coldStart := time.Now()
