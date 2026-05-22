@@ -25,6 +25,18 @@ func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
 	}
 }
 
+func TestQwenVerifyFloatSamples(t *testing.T) {
+	if !qwenVerifyFloatSamples([]float32{1, 2, 3}, []float32{1, 2.001, 3}, 0.01) {
+		t.Fatal("expected tolerant match")
+	}
+	if qwenVerifyFloatSamples([]float32{1, 2, 3}, []float32{1, 2.1, 3}, 0.01) {
+		t.Fatal("expected mismatch")
+	}
+	if qwenVerifyFloatSamples([]float32{1}, []float32{1, 2}, 0) {
+		t.Fatal("expected length mismatch")
+	}
+}
+
 func TestShouldStoreQwenPromptPrefixPolicy(t *testing.T) {
 	if !shouldStoreQwenPromptPrefix(2, 5, 2, 1, false, 1) {
 		t.Fatal("expected chunk store")

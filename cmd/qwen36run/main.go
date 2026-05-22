@@ -1124,6 +1124,29 @@ func qwenStorePromptPrefixGPU(cache *qwen.GPUPromptCache, modelID, layout string
 	return cache.Put(key, snap.State)
 }
 
+func qwenCloseEnough(a, b, tol float32) bool {
+	if a > b {
+		return a-b <= tol
+	}
+	return b-a <= tol
+}
+
+func qwenVerifyFloatSamples(got, want []float32, tol float32) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	if len(got) == 0 {
+		return true
+	}
+	idxs := []int{0, len(got) / 2, len(got) - 1}
+	for _, idx := range idxs {
+		if !qwenCloseEnough(got[idx], want[idx], tol) {
+			return false
+		}
+	}
+	return true
+}
+
 func qwenVerifyPromptPrefixGPU(cache *qwen.GPUPromptCache, modelID, layout string, tokens []int, chunkSize int, snap qwen.PromptSnapshot) bool {
 	if cache == nil {
 		return false
@@ -1133,7 +1156,29 @@ func qwenVerifyPromptPrefixGPU(cache *qwen.GPUPromptCache, modelID, layout strin
 	if err != nil || !ok {
 		return false
 	}
-	return got.Pos == snap.State.Pos && len(got.FullK) == len(snap.State.FullK) && len(got.FullV) == len(snap.State.FullV) && len(got.Linear) == len(snap.State.Linear)
+	if got.Pos != snap.State.Pos || len(got.FullK) != len(snap.State.FullK) || len(got.FullV) != len(snap.State.FullV) || len(got.Linear) != len(snap.State.Linear) {
+		return false
+	}
+	tol := float32(0)
+	if cache.Stats().Compressed {
+		tol = 1.0 / 128.0
+	}
+	for i := range snap.State.FullK {
+		if !qwenVerifyFloatSamples(got.FullK[i], snap.State.FullK[i], tol) {
+			return false
+		}
+	}
+	for i := range snap.State.FullV {
+		if !qwenVerifyFloatSamples(got.FullV[i], snap.State.FullV[i], tol) {
+			return false
+		}
+	}
+	for i := range snap.State.Linear {
+		if got.Linear[i].Pos != snap.State.Linear[i].Pos || !qwenVerifyFloatSamples(got.Linear[i].Conv, snap.State.Linear[i].Conv, tol) || !qwenVerifyFloatSamples(got.Linear[i].SSM, snap.State.Linear[i].SSM, tol) {
+			return false
+		}
+	}
+	return true
 }
 
 func qwenFindLongestPromptPrefix(modelID, layout string, tokens []int, chunkSize int) (qwen.PromptSnapshot, bool) {
