@@ -164,6 +164,20 @@ Acceptance criteria:
 
 ### Phase 3 — Gemma4 prompt context reuse
 
+Initial status: an in-process exact prompt-context cache is available in `llmgen` for MTP real-prompt smokes:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+  -gpu -gpu-layers 0 \
+  -model models/gemma4-e4b-it-4bit \
+  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -mtp-smoke -mtp-real-prompt \
+  -mtp-kv-reuse -mtp-kv-repeat 2 \
+  -prompt "Hi"
+```
+
+The second context build hits cache (`kv_cache_hit=true`) and reuses the captured real prompt activation/KV. This is not yet chunked cross-process KVBoost, but it validates the core reuse seam: prompt context can be keyed, restored, and fed into the MTP drafter without recomputing prefill.
+
 Integrate reuse with:
 
 - `LlamaModel.BuildMTPPromptContext`;

@@ -231,7 +231,31 @@ tokens_per_second: 0.151
 
 This is a substantial improvement over CPU-only (`~30.9s` for the one-step MTP smoke) and over the previous mixed GPU/CPU cache path (`~25.7s`). Follow-up update: `qwen36run` now uses the GPU cache for MLX LM-head logits when `-gpu-lm-head=true`, and Qwen MLX prewarm uses an explicit decode-hot layer-prefix placement policy rather than size-sorted/checkpoint-order cache churn. Size-only sorting increased resident entry count but scattered layers and was slower; preserving a stable decode prefix gives deterministic cache hits across tokens.
 
-The remaining gaps are the 96 uncached/CPU GEMVs, better per-layer placement under the 11GB cache budget, and possibly a Qwen-specific logits/top-k path that avoids full logits download when only greedy argmax is needed.
+Current validation command:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -gpu -gpu-prewarm=true -gpu-lm-head=true \
+  -gpu-cache-mb 11000 \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello" -steps 1 -mtp -mtp-steps 1
+```
+
+Latest result:
+
+```text
+passed: true
+duration_ms: 9924
+next_id: 119
+mtp_next_id: 220
+linear_stats.gpu_calls: 372
+linear_stats.cpu_calls: 117
+gpu_cache.entries: 373
+gpu_cache.hits: 373
+lm_head_stats.gpu_ms: 9
+```
+
+The remaining gaps are now placement/VRAM constraints rather than missing NVIDIA plumbing: the full 27B MLX working set does not fit in the 11GB cache, so some GEMVs still fall back to CPU. Further gains require either a smarter layer subset under the cache budget, lower-footprint native kernels/buffers, or sharded/layer-streamed execution.
 
 ## Important blocker for the original NVFP4 checkpoint
 

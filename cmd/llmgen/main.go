@@ -32,6 +32,8 @@ func main() {
 	mtpSmoke := flag.Bool("mtp-smoke", false, "load -mtp-drafter and run one packed 4-bit MTP drafter step instead of generation")
 	mtpSeq := flag.Int("mtp-seq", 1, "external KV sequence length for -mtp-smoke when -mtp-real-prompt is false")
 	mtpRealPrompt := flag.Bool("mtp-real-prompt", false, "for -mtp-smoke, prefill the prompt with the main model and feed real activation/KV to the drafter")
+	mtpKVReuse := flag.Bool("mtp-kv-reuse", false, "for -mtp-smoke -mtp-real-prompt, build/reuse an in-process prompt KV context cache")
+	mtpKVRepeat := flag.Int("mtp-kv-repeat", 1, "repeat MTP real-prompt context build N times to validate -mtp-kv-reuse hits")
 	flag.Parse()
 
 	if *eagerLoad {
@@ -114,7 +116,7 @@ func main() {
 	}
 
 	if *mtpSmoke {
-		if err := runGemma4MTPSmoke(m, gpuMod, *mtpDrafter, ids, *mtpSeq, *mtpRealPrompt); err != nil {
+		if err := runGemma4MTPSmoke(m, gpuMod, *mtpDrafter, ids, *mtpSeq, *mtpRealPrompt, *mtpKVReuse, *mtpKVRepeat); err != nil {
 			fmt.Fprintf(os.Stderr, "mtp smoke: %v\n", err)
 			os.Exit(1)
 		}
@@ -166,6 +168,35 @@ func main() {
 	_ = genText
 }
 
+var mtpPromptContextCache = map[string]model.MTPPromptContext{}
+
+func mtpPromptCacheKey(m *model.LlamaModel, ids []int) string {
+	return fmt.Sprintf("%s:%d:%d:%v", m.Config.ModelType, m.Config.HiddenSize, m.Config.NumLayers, ids)
+}
+
+func buildMTPPromptContextCached(m *model.LlamaModel, gpuMod *model.GPUModel, ids []int, enabled bool) (model.MTPPromptContext, bool, error) {
+	key := mtpPromptCacheKey(m, ids)
+	if enabled {
+		if ctx, ok := mtpPromptContextCache[key]; ok {
+			return ctx, true, nil
+		}
+	}
+	var ctx model.MTPPromptContext
+	var err error
+	if gpuMod != nil {
+		ctx, err = gpuMod.BuildMTPPromptContext(ids)
+	} else {
+		ctx, err = m.BuildMTPPromptContext(ids)
+	}
+	if err != nil {
+		return model.MTPPromptContext{}, false, err
+	}
+	if enabled {
+		mtpPromptContextCache[key] = ctx
+	}
+	return ctx, false, nil
+}
+
 type gemma4MTPSmokeResult struct {
 	DrafterDir         string  `json:"drafter_dir"`
 	ModelHidden        int     `json:"model_hidden"`
@@ -184,6 +215,9 @@ type gemma4MTPSmokeResult struct {
 	PromptTokens       int     `json:"prompt_tokens,omitempty"`
 	PromptSeconds      float64 `json:"prompt_seconds,omitempty"`
 	RealPrompt         bool    `json:"real_prompt"`
+	KVReuse            bool    `json:"kv_reuse,omitempty"`
+	KVCacheHit         bool    `json:"kv_cache_hit,omitempty"`
+	KVRepeat           int     `json:"kv_repeat,omitempty"`
 	StepSeconds        float64 `json:"step_seconds"`
 }
 
@@ -227,7 +261,7 @@ func mapDrafterSourcesByWidth(m *model.LlamaModel, d *model.Gemma4MTPDrafter, se
 	return sources, nil
 }
 
-func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir string, ids []int, seqLen int, realPrompt bool) error {
+func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir string, ids []int, seqLen int, realPrompt bool, kvReuse bool, kvRepeat int) error {
 	start := time.Now()
 	d, err := model.LoadGemma4MTPDrafter(drafterDir)
 	if err != nil {
@@ -242,16 +276,20 @@ func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir s
 	var externalKV *model.MTPDrafterExternalKV
 	var state model.MTPDrafterState
 	previousToken := 0
+	cacheHit := false
 	if realPrompt {
-		prefillStart := time.Now()
-		var err error
-		if gpuMod != nil {
-			promptCtx, err = gpuMod.BuildMTPPromptContext(ids)
-		} else {
-			promptCtx, err = m.BuildMTPPromptContext(ids)
+		if kvRepeat < 1 {
+			kvRepeat = 1
 		}
-		if err != nil {
-			return fmt.Errorf("prompt context: %w", err)
+		prefillStart := time.Now()
+		for i := 0; i < kvRepeat; i++ {
+			var hit bool
+			var err error
+			promptCtx, hit, err = buildMTPPromptContextCached(m, gpuMod, ids, kvReuse)
+			if err != nil {
+				return fmt.Errorf("prompt context: %w", err)
+			}
+			cacheHit = cacheHit || hit
 		}
 		promptSeconds = time.Since(prefillStart).Seconds()
 		sources, err := mapDrafterSourcesByWidth(m, d, promptCtx.SeqLen)
@@ -314,6 +352,9 @@ func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir s
 		PromptTokens:       promptCtx.SeqLen,
 		PromptSeconds:      promptSeconds,
 		RealPrompt:         realPrompt,
+		KVReuse:            kvReuse,
+		KVCacheHit:         cacheHit,
+		KVRepeat:           kvRepeat,
 		StepSeconds:        stepElapsed.Seconds(),
 	}
 	if realPrompt {
