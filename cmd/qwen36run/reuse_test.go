@@ -8,11 +8,10 @@ import (
 )
 
 func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
-	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
-	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
+	qwenPromptStateCache = qwen.NewPromptCache(1 << 20)
 	modelID, layout := "m", "l"
 	state := qwen.Qwen35BaseForwardState{Pos: 2, FullK: [][]float32{{1, 2}}, FullV: [][]float32{{3, 4}}, Linear: []qwen.Qwen35LinearAttentionState{{Conv: []float32{5}, SSM: []float32{6}, Pos: 2}}}
-	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 20, State: state, Hidden: []float32{7}, PreNorm: []float32{8}}) {
+	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwen.PromptSnapshot{EndPos: 2, Next: 20, State: state, Hidden: []float32{7}, PreNorm: []float32{8}}) {
 		t.Fatal("store failed")
 	}
 	got, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{1, 2, 3}, 2)
@@ -23,6 +22,27 @@ func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
 	got2, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{1, 2}, 2)
 	if !ok || got2.State.FullK[0][0] != 1 {
 		t.Fatalf("stored state was not isolated: %+v", got2)
+	}
+}
+
+func TestShouldStoreQwenPromptPrefixPolicy(t *testing.T) {
+	if !shouldStoreQwenPromptPrefix(2, 5, 2, 1, false, 1) {
+		t.Fatal("expected chunk store")
+	}
+	if shouldStoreQwenPromptPrefix(2, 5, 2, 2, false, 1) {
+		t.Fatal("store-every should skip chunk 1")
+	}
+	if !shouldStoreQwenPromptPrefix(4, 5, 2, 2, false, 1) {
+		t.Fatal("store-every should store chunk 2")
+	}
+	if shouldStoreQwenPromptPrefix(4, 5, 2, 1, true, 1) {
+		t.Fatal("final-only stored non-final prefix")
+	}
+	if !shouldStoreQwenPromptPrefix(5, 5, 2, 100, true, 1) {
+		t.Fatal("final-only skipped final prefix")
+	}
+	if shouldStoreQwenPromptPrefix(2, 5, 2, 1, false, 3) {
+		t.Fatal("min tokens not enforced")
 	}
 }
 
@@ -86,23 +106,22 @@ func TestShouldFallbackNativeMTP(t *testing.T) {
 }
 
 func TestQwenStorePromptPrefixReportsEvictedStore(t *testing.T) {
-	qwenPromptStateCache = kv.NewChunkCache(4)
-	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
-	if qwenStorePromptPrefix("m", "l", []int{1}, 1, qwenPromptStateSnapshot{EndPos: 1, State: qwen.Qwen35BaseForwardState{Pos: 1}, Hidden: []float32{1, 2}}) {
+	qwenPromptStateCache = qwen.NewPromptCache(4)
+	if qwenStorePromptPrefix("m", "l", []int{1}, 1, qwen.PromptSnapshot{EndPos: 1, State: qwen.Qwen35BaseForwardState{Pos: 1}, Hidden: []float32{1, 2}}) {
 		t.Fatal("oversized store reported success")
 	}
-	if len(qwenPromptStateSidecar) != 0 || qwenPromptStateCache.Len() != 0 {
-		t.Fatalf("oversized store left entries sidecar=%d cache=%d", len(qwenPromptStateSidecar), qwenPromptStateCache.Len())
+	if qwenPromptStateCache.Stats().SidecarEntries != 0 || qwenPromptStateCache.Stats().Entries != 0 {
+		t.Fatalf("oversized store left entries sidecar=%d cache=%d", qwenPromptStateCache.Stats().SidecarEntries, qwenPromptStateCache.Stats().Entries)
 	}
 }
 
 func TestQwenPromptSnapshotForBudgetIncludesForwardState(t *testing.T) {
-	snap := qwenPromptStateSnapshot{
+	snap := qwen.PromptSnapshot{
 		State:   qwen.Qwen35BaseForwardState{Pos: 3, FullK: [][]float32{{1, 2}}, FullV: [][]float32{{3, 4}}, Linear: []qwen.Qwen35LinearAttentionState{{Conv: []float32{5, 6, 7}, SSM: []float32{8, 9}, Pos: 3}}},
 		Hidden:  []float32{10},
 		PreNorm: []float32{11, 12},
 	}
-	budget := qwenPromptSnapshotForBudget(snap)
+	budget := qwen.PromptSnapshotForBudget(snap)
 	if len(budget.Layers) != 2 || len(budget.Layers[0].K) != 2 || len(budget.Layers[0].V) != 2 || len(budget.Layers[1].K) != 3 || len(budget.Layers[1].V) != 2 {
 		t.Fatalf("budget snapshot did not include forward state: %+v", budget)
 	}
@@ -117,23 +136,21 @@ func TestQwenPromptSnapshotForBudgetIncludesForwardState(t *testing.T) {
 }
 
 func TestQwenStorePromptPrefixPrunesEvictedSidecar(t *testing.T) {
-	qwenPromptStateCache = kv.NewChunkCache(4)
-	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
+	qwenPromptStateCache = qwen.NewPromptCache(4)
 	modelID, layout := "m", "l"
-	_ = qwenStorePromptPrefix(modelID, layout, []int{1}, 1, qwenPromptStateSnapshot{EndPos: 1, State: qwen.Qwen35BaseForwardState{Pos: 1}, Hidden: []float32{1, 2}})
-	_ = qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 1, qwenPromptStateSnapshot{EndPos: 2, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{3, 4}})
-	if len(qwenPromptStateSidecar) != qwenPromptStateCache.Len() {
-		t.Fatalf("sidecar/cache mismatch sidecar=%d cache=%d", len(qwenPromptStateSidecar), qwenPromptStateCache.Len())
+	_ = qwenStorePromptPrefix(modelID, layout, []int{1}, 1, qwen.PromptSnapshot{EndPos: 1, State: qwen.Qwen35BaseForwardState{Pos: 1}, Hidden: []float32{1, 2}})
+	_ = qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 1, qwen.PromptSnapshot{EndPos: 2, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{3, 4}})
+	if qwenPromptStateCache.Stats().SidecarEntries != qwenPromptStateCache.Stats().Entries {
+		t.Fatalf("sidecar/cache mismatch sidecar=%d cache=%d", qwenPromptStateCache.Stats().SidecarEntries, qwenPromptStateCache.Stats().Entries)
 	}
 }
 
 func TestQwenFindLongestPromptPrefixFromPrimedPrompt(t *testing.T) {
-	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
-	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
+	qwenPromptStateCache = qwen.NewPromptCache(1 << 20)
 	modelID, layout := "m", "l"
 	prime := []int{10, 20}
 	extended := []int{10, 20, 30}
-	if !qwenStorePromptPrefix(modelID, layout, prime, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 200, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{1}, PreNorm: []float32{2}}) {
+	if !qwenStorePromptPrefix(modelID, layout, prime, 2, qwen.PromptSnapshot{EndPos: 2, Next: 200, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{1}, PreNorm: []float32{2}}) {
 		t.Fatal("store primed prefix")
 	}
 	got, ok := qwenFindLongestPromptPrefix(modelID, layout, extended, 2)
@@ -146,13 +163,12 @@ func TestQwenFindLongestPromptPrefixFromPrimedPrompt(t *testing.T) {
 }
 
 func TestQwenFindLongestPromptPrefix(t *testing.T) {
-	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
-	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
+	qwenPromptStateCache = qwen.NewPromptCache(1 << 20)
 	modelID, layout := "m", "l"
-	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 20, State: qwen.Qwen35BaseForwardState{Pos: 2}}) {
+	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwen.PromptSnapshot{EndPos: 2, Next: 20, State: qwen.Qwen35BaseForwardState{Pos: 2}}) {
 		t.Fatal("store short prefix")
 	}
-	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2, 3, 4}, 2, qwenPromptStateSnapshot{EndPos: 4, Next: 40, State: qwen.Qwen35BaseForwardState{Pos: 4}}) {
+	if !qwenStorePromptPrefix(modelID, layout, []int{1, 2, 3, 4}, 2, qwen.PromptSnapshot{EndPos: 4, Next: 40, State: qwen.Qwen35BaseForwardState{Pos: 4}}) {
 		t.Fatal("store long prefix")
 	}
 	got, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{1, 2, 3, 4, 5}, 2)
