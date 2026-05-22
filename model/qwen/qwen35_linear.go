@@ -183,7 +183,15 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 		if qwen35GPUReady {
 			start := time.Now()
 			gw, err := qwen35CachedGPUMXWeight(m)
+			transient := false
+			if err != nil {
+				gw, err = qwen35TransientGPUMXWeight(m)
+				transient = err == nil
+			}
 			if err == nil {
+				if transient {
+					defer gw.Free()
+				}
 				if qwen35GemvMLXGPU(out, x, gw, inDim, outDim) {
 					qwen35LinearStats.GPUCalls++
 					if qwen35LinearTiming {

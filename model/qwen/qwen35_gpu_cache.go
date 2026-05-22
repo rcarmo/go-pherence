@@ -344,6 +344,23 @@ func CacheQwen35MLXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 	return qwen35CachedGPUMXWeight(q)
 }
 
+func qwen35TransientGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
+	if q == nil {
+		return nil, fmt.Errorf("nil Qwen3.5 MLX weight")
+	}
+	gw, err := nvidia.UploadMLXWeightNative(q.Weight, q.Scales, q.Biases, q.InDim, q.OutDim, q.GroupSize)
+	if err != nil {
+		return nil, err
+	}
+	qwen35GPUCache.Lock()
+	qwen35GPUCache.transient++
+	qwen35GPUCache.transientBytes += qwen35MLXGPUWeightBytes(q)
+	qwen35GPUCache.uploads++
+	qwen35GPUCache.uploadBytes += qwen35MLXGPUWeightBytes(q)
+	qwen35GPUCache.Unlock()
+	return gw, nil
+}
+
 func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 	if q == nil {
 		return nil, fmt.Errorf("nil Qwen3.5 MLX weight")
