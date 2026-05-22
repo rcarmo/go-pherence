@@ -22,6 +22,9 @@ func vecScaleAsm(dst, a []float32, scale float32)
 //go:noescape
 func rmsNormScaleAsm(x, w []float32, scale float32)
 
+//go:noescape
+func toBF16Asm(x []float32)
+
 func Snrm2(x []float32) float32 {
 	if len(x) > 0 && HasDotAsm {
 		return float32Sqrt(sdotAsm(x, x))
@@ -75,9 +78,15 @@ func RMSNormNoScale(x []float32, eps float32) {
 func GELUTanhMul(dst, a, b []float32) { geluTanhMulGo(dst, a, b) }
 func RMSNormBF16(x, w []float32, eps float32) {
 	RMSNorm(x, w, eps)
+	ToBF16(x)
+}
+func ToBF16(x []float32) {
+	if len(x) > 0 && hasRVVVecAsm {
+		toBF16Asm(x)
+		return
+	}
 	toBF16Go(x)
 }
-func ToBF16(x []float32) { toBF16Go(x) }
 
 func init() { HasVecAsm = false }
 

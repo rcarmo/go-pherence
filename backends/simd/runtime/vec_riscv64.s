@@ -127,3 +127,26 @@ rms_norm_scale_loop:
 	BNEZ	X12, rms_norm_scale_loop
 rms_norm_scale_done:
 	RET
+
+// RVV encodings for toBF16Asm:
+//   vsrl.vi v0,v0,16             0xa2083057
+//   vsll.vi v0,v0,16             0x96083057
+//   vse32.v v0,(a0)              0x02056027
+
+// func toBF16Asm(x []float32)
+TEXT ·toBF16Asm(SB), NOSPLIT, $0-24
+	MOV	x_base+0(FP), X10
+	MOV	x_len+8(FP), X12
+	BEQZ	X12, to_bf16_done
+to_bf16_loop:
+	WORD	$0x0d0676d7           // vsetvli a3,a2,e32,m1,ta,ma
+	WORD	$0x02056007           // vle32.v v0,(a0)
+	WORD	$0xa2083057           // vsrl.vi v0,v0,16
+	WORD	$0x96083057           // vsll.vi v0,v0,16
+	WORD	$0x02056027           // vse32.v v0,(a0)
+	SLLI	$2, X13, X14
+	ADD	X14, X10, X10
+	SUB	X13, X12, X12
+	BNEZ	X12, to_bf16_loop
+to_bf16_done:
+	RET
