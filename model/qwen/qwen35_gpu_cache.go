@@ -152,7 +152,13 @@ func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
 	if !qwen35GPUReady || base == nil {
 		return stats
 	}
-	for _, m := range qwen35BaseMLXWeights(base) {
+	mlxWeights := qwen35BaseMLXWeights(base)
+	// Placement policy: preserve a decode-hot layer prefix by default. Qwen3.6
+	// repeats the same projection sequence every token; keeping an intact prefix
+	// resident gives deterministic hits on subsequent decode steps. Size-only
+	// sorting maximizes entry count but was slower because it scattered partial
+	// layers and left large hot projections on CPU.
+	for _, m := range mlxWeights {
 		stats.Considered++
 		if m == nil {
 			continue
@@ -332,6 +338,10 @@ func qwen35RecordTransientLocked(q *Qwen35NVFP4Weight, need int64) {
 	stat.Count++
 	stat.Bytes += need
 	qwen35GPUCache.transientByName[name] = stat
+}
+
+func CacheQwen35MLXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
+	return qwen35CachedGPUMXWeight(q)
 }
 
 func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {

@@ -179,7 +179,8 @@ func main() {
 	check("open tensors", err)
 	defer src.Close()
 	r := runner{bundle: bundle, state: state, emb: mustEmbedding(src, meta), normW: bf16All(mustRawCandidate(src, "model.language_model.norm.weight", "language_model.model.norm.weight")), lm: mustLMHead(src, meta)}
-	if *gpuLMHead && *useGPU {
+	qwen.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
+	if *gpuLMHead && *useGPU && r.lm.mlx == nil {
 		r.lmGPU, err = nvidia.UploadBF16LMHead(r.lm.raw, r.lm.shape[0], r.lm.shape[1])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "upload GPU LM head failed, falling back to CPU LM head: %v\n", err)
@@ -189,7 +190,11 @@ func main() {
 			defer r.lmGPU.Free()
 		}
 	}
-	qwen.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
+	if *gpuLMHead && *useGPU && r.lm.mlx != nil {
+		if _, err := qwen.CacheQwen35MLXWeight(r.lm.mlx); err != nil {
+			fmt.Fprintf(os.Stderr, "cache GPU MLX LM head failed, falling back to CPU LM head: %v\n", err)
+		}
+	}
 	var prewarmStats qwen.Qwen35GPUPrewarmStats
 	var prewarmMS int64
 	if *useGPU && *gpuPrewarm {
@@ -695,7 +700,13 @@ func topKMatVec(t rawTensor, x []float32, k int) []TopLogit {
 func argmaxLMHead(t rawTensor, lmGPU *nvidia.Buffer, x []float32) (int, float32) {
 	if t.mlx != nil {
 		logits := make([]float32, t.mlx.OutDim)
-		mlx.Gemv(logits, x, t.mlx)
+		if qwen36UseGPULMHead && qwen35ArgmaxMLXGPU(logits, t.mlx, x) {
+			qwen36LMHeadStats.Calls++
+			qwen36LMHeadStats.DownloadRows = t.mlx.OutDim
+		} else {
+			mlx.Gemv(logits, x, t.mlx)
+			qwen36LMHeadStats.Calls++
+		}
 		best := -1
 		bestv := float32(math.Inf(-1))
 		for i, v := range logits {

@@ -2086,7 +2086,8 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added an initial NVIDIA MLX GEMV scaffold for Qwen3.5/Qwen3.6 packed weights. `qwen36run -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing` now passes, with `linear_stats.gpu_calls=8` and CPU fallback for the rest; this validates CUDA dispatch.
 - Added an MLX-specific GPU weight cache under the existing Qwen GPU cache budget. Initial LRU admission thrashed because the full 27B MLX working set exceeds local VRAM; switching MLX admission to no-evict preserves a resident prefix and lets overflow weights fall back to CPU.
 - Current `-gpu-cache-mb 11000` Qwen MLX MTP smoke: 144 resident MLX entries, `gpu_calls=144`, `cpu_calls=345`, `duration_ms=25695`, `passed=true`. A two-step decode shows reuse (`gpu_cache.hits=144`) and improves over the thrashing path.
-- Added persistent Qwen MLX GPU scratch buffers, MLX prewarm, and native-only MLX uploads via `UploadMLXWeightNative`. With `-gpu-prewarm=true -gpu-cache-mb 11000`, one-step Qwen MTP smoke improved to `duration_ms=9360`, with 393 resident MLX entries, 393 GPU calls, 96 CPU fallbacks, and `passed=true`; two-step decode reaches 786 GPU calls and `duration_ms=19834`.
+- Added persistent Qwen MLX GPU scratch buffers, MLX prewarm, and native-only MLX uploads via `UploadMLXWeightNative`. With `-gpu-prewarm=true -gpu-cache-mb 11000`, one-step Qwen MTP smoke improved to roughly `9–11s`, with 393 resident MLX entries, 393 GPU calls, 96 CPU fallbacks, and `passed=true`; two-step decode reaches 786 GPU calls and about `19.8s`.
+- Added MLX LM-head GPU support in `qwen36run` and documented the Qwen MLX placement policy: keep a stable decode-hot layer prefix resident instead of size-sorting weights, since size sorting scattered partial layers and was slower despite caching more entries.
 
 ## 2026-05-22 — KVBoost application plan
 
