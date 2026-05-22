@@ -284,6 +284,18 @@ linear_stats.cpu_calls: 0
 
 The cached state includes the full `Qwen35BaseForwardState`, so it covers both full-attention K/V and linear-attention recurrent state. The lookup walks from the full prompt down to earlier chunk boundaries and restores the longest matching prefix. A validation smoke with `-kv-chunk-size 2` reports `kv_reused_tokens=3` and `kv_stored_chunks=2` for a three-token prompt repeated in-process, proving chunk-boundary state storage, cached-prefix restore, and suffix skip are wired. Unit tests verify that stored `Qwen35BaseForwardState` snapshots are cloned/restored without aliasing. Cross-request persistence/page-offload remains future work.
 
+Layer-streamed prompt prefill is now available for Qwen diagnostics:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
+  -layer-streamed-prefill -prefill-chunk-size 4 \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello world again" -steps 1 -mtp -mtp-steps 1
+```
+
+The scheduler processes prompt chunks layer-by-layer: for a chunk, it keeps a layer's weights hot, runs that layer across every token in the chunk while updating full-attention K/V or linear recurrent state in token order, then moves to the next layer. A comparison against the sequential path for `Hello world again` matched `next_id`, `mtp_next_id`, `hidden_abs_sum`, and `mtp_abs_sum`, validating the layer-streamed state update order.
+
 ## Important blocker for the original NVFP4 checkpoint
 
 The originally inspected safetensors checkpoint is NVFP4:

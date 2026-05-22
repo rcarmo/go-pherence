@@ -154,7 +154,8 @@ func main() {
 	kvReuse := flag.Bool("kv-reuse", false, "reuse in-process Qwen prompt state across -kv-repeat runs")
 	kvChunkSize := flag.Int("kv-chunk-size", 32, "token chunk size for Qwen prompt-state reuse")
 	kvRepeat := flag.Int("kv-repeat", 1, "repeat Qwen prompt prefill N times to validate -kv-reuse hits")
-	layerStreamedPrefill := flag.Bool("layer-streamed-prefill", false, "reserved experimental flag for future layer-streamed batched prefill; reports requested mode")
+	layerStreamedPrefill := flag.Bool("layer-streamed-prefill", false, "process prompt prefill chunks layer-by-layer instead of token-by-token")
+	prefillChunkSize := flag.Int("prefill-chunk-size", 16, "prompt chunk size for -layer-streamed-prefill")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
 	gpuLMHead := flag.Bool("gpu-lm-head", true, "run BF16 LM head on GPU when -gpu is enabled; set -gpu-lm-head=false to disable")
@@ -312,12 +313,21 @@ func main() {
 				cacheHit = true
 			}
 		}
-		for idx := startAt; idx < len(inputIDs); idx++ {
-			next, logit, h, preNormHidden, err = r.step(inputIDs[idx], ropeFreqs)
-			check("prefill", err)
-			if *kvReuse && ((idx+1)%*kvChunkSize == 0 || idx+1 == len(inputIDs)) {
-				qwenStorePromptPrefix(modelID, layout, inputIDs[:idx+1], *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: idx + 1})
+		if *layerStreamedPrefill && startAt < len(inputIDs) {
+			next, logit, h, preNormHidden, err = r.prefillLayerStreamed(inputIDs[startAt:], *prefillChunkSize, ropeFreqs)
+			check("streamed prefill", err)
+			if *kvReuse {
+				qwenStorePromptPrefix(modelID, layout, inputIDs, *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: len(inputIDs)})
 				kvStoredChunks++
+			}
+		} else {
+			for idx := startAt; idx < len(inputIDs); idx++ {
+				next, logit, h, preNormHidden, err = r.step(inputIDs[idx], ropeFreqs)
+				check("prefill", err)
+				if *kvReuse && ((idx+1)%*kvChunkSize == 0 || idx+1 == len(inputIDs)) {
+					qwenStorePromptPrefix(modelID, layout, inputIDs[:idx+1], *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: idx + 1})
+					kvStoredChunks++
+				}
 			}
 		}
 	}
@@ -620,6 +630,39 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, mtpSteps, greedySeed)
 	}
 	return rep, nil
+}
+
+func (r *runner) prefillLayerStreamed(tokenIDs []int, chunkSize int, ropeFreqs []float32) (int, float32, []float32, []float32, error) {
+	if chunkSize <= 0 {
+		chunkSize = len(tokenIDs)
+	}
+	var last []float32
+	for start := 0; start < len(tokenIDs); start += chunkSize {
+		end := start + chunkSize
+		if end > len(tokenIDs) {
+			end = len(tokenIDs)
+		}
+		inputs := make([][]float32, end-start)
+		for i, id := range tokenIDs[start:end] {
+			inputs[i] = bf16Row(r.emb, id)
+		}
+		outs, nextState, err := r.bundle.Base.ForwardChunkLayerStreamed(inputs, r.state, ropeFreqs, 1e-6, r.bundle.Meta)
+		if err != nil {
+			return 0, 0, nil, nil, err
+		}
+		r.state = nextState
+		if len(outs) > 0 {
+			last = outs[len(outs)-1]
+		}
+	}
+	if len(last) == 0 {
+		return 0, 0, nil, nil, fmt.Errorf("empty streamed prefill")
+	}
+	preNorm := append([]float32(nil), last...)
+	h := append([]float32(nil), preNorm...)
+	rmsNorm(h, r.normW, 1e-6)
+	id, val := argmaxLMHead(r.lm, r.lmGPU, h)
+	return id, val, h, preNorm, nil
 }
 
 func (r *runner) step(tokenID int, ropeFreqs []float32) (int, float32, []float32, []float32, error) {
