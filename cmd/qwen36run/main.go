@@ -87,6 +87,10 @@ type Report struct {
 	MTPVerifierLayerChunks     int                        `json:"mtp_verifier_layer_chunks,omitempty"`
 	MTPGeneratedAcceptanceRate float64                    `json:"mtp_generated_acceptance_rate,omitempty"`
 	MTPAdaptiveFallback        bool                       `json:"mtp_adaptive_fallback,omitempty"`
+	SequentialDecoded          string                     `json:"sequential_decoded,omitempty"`
+	SequentialDurationMS       int64                      `json:"sequential_duration_ms,omitempty"`
+	SequentialDecodeTPS        float64                    `json:"sequential_decode_tokens_per_second,omitempty"`
+	MTPSpeedupVsSequential     float64                    `json:"mtp_speedup_vs_sequential,omitempty"`
 	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
 	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
 	GPUPrewarm                 qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
@@ -172,6 +176,7 @@ func main() {
 	mtpWarmupRounds := flag.Int("mtp-warmup-rounds", 4, "native-MTP rounds to observe before -mtp-adaptive can fall back")
 	mtpVerifyChunk := flag.Bool("mtp-verify-chunk", false, "experimental: precompute verifier states for each native-MTP draft chunk")
 	mtpVerifyLayerChunk := flag.Bool("mtp-verify-layer-chunk", false, "experimental: compare native-MTP drafts against a layer-streamed verifier chunk")
+	compareSequential := flag.Bool("compare-sequential", false, "after MTP generation, run a sequential decode baseline from the same prefill state")
 	topK := flag.Int("topk", 0, "include top-K base/MTP logits in reports; 0 disables")
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
@@ -369,6 +374,10 @@ func main() {
 	prefillHidden := append([]float32(nil), preNormHidden...)
 	prefillToken := inputIDs[len(inputIDs)-1]
 	prefillPos := r.state.Pos - 1
+	baselineState := qwen.CloneQwen35BaseForwardState(r.state)
+	baselineNext := next
+	baselineH := append([]float32(nil), h...)
+	baselinePreNorm := append([]float32(nil), preNormHidden...)
 	generated := make([]int, 0, *steps)
 	mtpGenStats := mtpGenerateStats{}
 	if *mtpGenerate {
@@ -408,6 +417,24 @@ func main() {
 		mtpGeneratedAcceptanceRate = float64(mtpGenStats.Accepted) / float64(mtpGenStats.Drafted)
 	}
 	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	if *compareSequential && *mtpGenerate {
+		seqRunner := newRunner(bundle, baselineState, r.emb, r.normW, r.lm, r.lmGPU, r.mtpHead)
+		seqStart := time.Now()
+		seqIDs, seqNext, seqLogit, seqH, seqPre, err := seqRunner.generateSequential(baselineNext, baselineH, baselinePreNorm, *steps, ropeFreqs)
+		check("sequential compare", err)
+		_ = seqNext
+		_ = seqLogit
+		_ = seqH
+		_ = seqPre
+		rep.SequentialDurationMS = time.Since(seqStart).Milliseconds()
+		if rep.SequentialDurationMS > 0 {
+			rep.SequentialDecodeTPS = float64(len(seqIDs)) / (float64(rep.SequentialDurationMS) / 1000.0)
+		}
+		if tok != nil {
+			rep.SequentialDecoded = tok.Decode(seqIDs)
+		}
+		rep.Passed = rep.Passed && len(seqIDs) == len(generated) && rep.SequentialDecoded == rep.Decoded
+	}
 	if *topK > 0 {
 		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
@@ -421,6 +448,9 @@ func main() {
 	rep.LinearStats = qwen.Qwen35LinearStatsSnapshot()
 	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()
 	addThroughputBreakdown(&rep)
+	if rep.DecodeTokensPerSecond > 0 && rep.SequentialDecodeTPS > 0 {
+		rep.MTPSpeedupVsSequential = rep.DecodeTokensPerSecond / rep.SequentialDecodeTPS
+	}
 	rep.GPULMHead = r.lmGPU != nil
 	if *mtp && !*mtpGenerate {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, *mtpSteps, *greedySeed)
@@ -981,6 +1011,31 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, mtpSteps, greedySeed)
 	}
 	return rep, nil
+}
+
+func (r *runner) generateSequential(firstNext int, firstHidden, firstPreNorm []float32, steps int, ropeFreqs []float32) ([]int, int, float32, []float32, []float32, error) {
+	if steps <= 0 {
+		return nil, firstNext, 0, firstHidden, firstPreNorm, nil
+	}
+	generated := make([]int, 0, steps)
+	cur := firstNext
+	next := firstNext
+	var logit float32
+	h := append([]float32(nil), firstHidden...)
+	pre := append([]float32(nil), firstPreNorm...)
+	var err error
+	for i := 0; i < steps; i++ {
+		generated = append(generated, cur)
+		if i == steps-1 {
+			break
+		}
+		next, logit, h, pre, err = r.step(cur, ropeFreqs)
+		if err != nil {
+			return generated, next, logit, h, pre, err
+		}
+		cur = next
+	}
+	return generated, next, logit, h, pre, nil
 }
 
 func (r *runner) prefillLayerStreamed(tokenIDs []int, chunkSize int, ropeFreqs []float32) (int, float32, []float32, []float32, error) {
