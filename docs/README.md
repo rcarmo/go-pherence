@@ -43,6 +43,7 @@ This directory contains the durable backend, model, validation, and research not
 - [qwen35-reference-audit.md](qwen35-reference-audit.md) — Qwen3.5 reference audit.
 - [orthrus.md](orthrus.md) — Orthrus/speculative decoding notes.
 - [turboquant.md](turboquant.md) — TurboQuant notes.
+- [kvboost-application-plan.md](kvboost-application-plan.md) — how KVBoost-style chunked KV reuse/page-offload maps to go-pherence.
 - [weight-budget.md](weight-budget.md) — tiered weight budget manager.
 
 ## Project history

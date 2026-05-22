@@ -2087,3 +2087,9 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added an MLX-specific GPU weight cache under the existing Qwen GPU cache budget. Initial LRU admission thrashed because the full 27B MLX working set exceeds local VRAM; switching MLX admission to no-evict preserves a resident prefix and lets overflow weights fall back to CPU.
 - Current `-gpu-cache-mb 11000` Qwen MLX MTP smoke: 144 resident MLX entries, `gpu_calls=144`, `cpu_calls=345`, `duration_ms=25695`, `passed=true`. A two-step decode shows reuse (`gpu_cache.hits=144`) and improves over the thrashing path.
 - Added persistent Qwen MLX GPU scratch buffers, MLX prewarm, and native-only MLX uploads via `UploadMLXWeightNative`. With `-gpu-prewarm=true -gpu-cache-mb 11000`, one-step Qwen MTP smoke improved to `duration_ms=9360`, with 393 resident MLX entries, 393 GPU calls, 96 CPU fallbacks, and `passed=true`; two-step decode reaches 786 GPU calls and `duration_ms=19834`.
+
+## 2026-05-22 — KVBoost application plan
+
+- Reviewed KVBoost's public project page and mapped its chunk-hashed KV reuse, prompt prefix reuse, page/offload, and AWQ streaming ideas onto go-pherence.
+- Added `docs/kvboost-application-plan.md` with a phased implementation plan: CPU/GPU-neutral KV snapshots, token chunk hash/LRU cache, Gemma4 prompt-context reuse, Qwen recurrent-state snapshots, and later page/offload tiers.
+- The first recommended slice is Gemma4 E4B `llmgen -mtp-real-prompt` reuse: run a long prompt once to fill chunk snapshots, run it again to skip cached prefix prefill, then port the mechanism to 31B and Qwen3.6.
