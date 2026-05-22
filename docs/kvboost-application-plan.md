@@ -213,7 +213,19 @@ Benchmarks:
 
 ### Phase 4 — Qwen native-MTP reuse
 
-Qwen state is not just full-attention KV; it also has linear-attention recurrent state. Extend snapshot to include:
+Initial status: `cmd/qwen36run` now supports exact in-process prompt-state reuse:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
+  -kv-reuse -kv-repeat 2 \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello" -steps 1 -mtp -mtp-steps 1
+```
+
+The second prefill pass restores the cached `Qwen35BaseForwardState` and reports `kv_cache_hit=true`. This validates reuse of both full-attention K/V and linear-attention recurrent state for exact prompts.
+
+Qwen state is not just full-attention KV; it also has linear-attention recurrent state. The reusable snapshot needs:
 
 ```go
 type Qwen35StateSnapshot struct {

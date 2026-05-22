@@ -2101,3 +2101,9 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added backend-neutral KVBoost primitives in `runtime/kv/reuse.go`: prefix-chain token hashing, KV snapshots, clone/size helpers, and a byte-bounded LRU chunk cache.
 - Added tests for chunk hash prefix isolation, snapshot cloning, and eviction.
 - Added `qwen36run -gpu-mlx-overflow` to explicitly control transient native-MLX uploads for Qwen weights that do not fit the resident cache. The current RTX 3060 sweet spot remains `-gpu-cache-mb 10600 -gpu-mlx-overflow=true`, which keeps Qwen3.6 one-step MTP smoke at about `4.0s` with all 489 linear calls on NVIDIA.
+
+## 2026-05-22 — Qwen prompt-state reuse smoke
+
+- Added `qwen36run -kv-reuse -kv-repeat N` to validate exact in-process Qwen prompt-state reuse.
+- The cached sidecar stores `Qwen35BaseForwardState` plus final hidden/pre-norm hidden/logit state, so it covers both full-attention K/V and linear-attention recurrent state.
+- Validation command with `-kv-repeat 2` reports `kv_cache_hit=true`, `linear_stats.gpu_calls=489`, `cpu_calls=0`, and `passed=true`; this is the Qwen recurrent-state snapshot seam needed for a KVBoost-style chunked prefix cache.

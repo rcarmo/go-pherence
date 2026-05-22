@@ -16,6 +16,7 @@ import (
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/qwen"
+	"github.com/rcarmo/go-pherence/runtime/kv"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -80,6 +81,10 @@ type Report struct {
 	TokensPerSecond            float64                    `json:"tokens_per_second"`
 	BaseTop                    []TopLogit                 `json:"base_top,omitempty"`
 	MTPTop                     []TopLogit                 `json:"mtp_top,omitempty"`
+	KVReuse                    bool                       `json:"kv_reuse,omitempty"`
+	KVCacheHit                 bool                       `json:"kv_cache_hit,omitempty"`
+	KVRepeat                   int                        `json:"kv_repeat,omitempty"`
+	LayerStreamedPrefill       bool                       `json:"layer_streamed_prefill,omitempty"`
 	Passed                     bool                       `json:"passed"`
 }
 
@@ -102,6 +107,17 @@ type rawTensor struct {
 	shape []int
 	mlx   *mlx.QuantWeight
 }
+
+type qwenPromptStateSnapshot struct {
+	State   qwen.Qwen35BaseForwardState
+	Next    int
+	Logit   float32
+	Hidden  []float32
+	PreNorm []float32
+}
+
+var qwenPromptStateCache = kv.NewChunkCache(2 << 30)
+var qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
 
 type runner struct {
 	bundle  *qwen.Qwen35NativeMTPBundle
@@ -131,6 +147,9 @@ func main() {
 	gpuTiming := flag.Bool("gpu-timing", false, "collect per-linear GPU upload/kernel timing; adds hot-path time.Now overhead")
 	gpuMLP := flag.Bool("gpu-mlp", false, "prototype GPU-resident Qwen3.6 MLP hot path")
 	gpuMLXOverflow := flag.Bool("gpu-mlx-overflow", true, "transient-upload MLX weights that do not fit in the resident Qwen GPU cache")
+	kvReuse := flag.Bool("kv-reuse", false, "reuse exact in-process Qwen prompt state across -kv-repeat runs")
+	kvRepeat := flag.Int("kv-repeat", 1, "repeat Qwen prompt prefill N times to validate -kv-reuse hits")
+	layerStreamedPrefill := flag.Bool("layer-streamed-prefill", false, "reserved experimental flag for future layer-streamed batched prefill; reports requested mode")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
 	gpuLMHead := flag.Bool("gpu-lm-head", true, "run BF16 LM head on GPU when -gpu is enabled; set -gpu-lm-head=false to disable")
@@ -262,9 +281,34 @@ func main() {
 	var logit float32
 	var h []float32
 	var preNormHidden []float32
-	for _, id := range inputIDs {
-		next, logit, h, preNormHidden, err = r.step(id, ropeFreqs)
-		check("prefill", err)
+	cacheHit := false
+	if *kvRepeat < 1 {
+		*kvRepeat = 1
+	}
+	keyHash := kv.HashTokenChunk(0, inputIDs)
+	cacheKey := kv.ChunkKey{ModelID: filepath.Base(*dir), Backend: "qwen36run", DType: "mlx4", LayerLayout: fmt.Sprintf("%d:%d", meta.NumHiddenLayers, meta.HiddenSize), TokenHash: keyHash, ChunkSize: len(inputIDs), EndPos: len(inputIDs)}
+	for rep := 0; rep < *kvRepeat; rep++ {
+		if *kvReuse {
+			if _, ok := qwenPromptStateCache.Get(cacheKey); ok {
+				if snap, ok := qwenPromptStateSidecar[cacheKey]; ok {
+					r.state = qwen.CloneQwen35BaseForwardState(snap.State)
+					next, logit = snap.Next, snap.Logit
+					h = append([]float32(nil), snap.Hidden...)
+					preNormHidden = append([]float32(nil), snap.PreNorm...)
+					cacheHit = true
+					continue
+				}
+			}
+		}
+		for _, id := range inputIDs {
+			next, logit, h, preNormHidden, err = r.step(id, ropeFreqs)
+			check("prefill", err)
+		}
+		if *kvReuse {
+			snap := qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...)}
+			_ = qwenPromptStateCache.Put(cacheKey, inputIDs, kv.Snapshot{SeqLen: r.state.Pos, Hidden: h})
+			qwenPromptStateSidecar[cacheKey] = snap
+		}
 	}
 	prefillVerifierNext := next
 	prefillHidden := append([]float32(nil), preNormHidden...)
@@ -293,7 +337,7 @@ func main() {
 	if tok != nil {
 		decoded = tok.Decode(generated)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *topK > 0 {
 		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
