@@ -115,6 +115,9 @@ type Report struct {
 	KVStoredChunks             int                        `json:"kv_stored_chunks,omitempty"`
 	KVChunkSize                int                        `json:"kv_chunk_size,omitempty"`
 	KVRepeat                   int                        `json:"kv_repeat,omitempty"`
+	KVCacheMaxBytes            int64                      `json:"kv_cache_max_bytes,omitempty"`
+	KVCacheUsedBytes           int64                      `json:"kv_cache_used_bytes,omitempty"`
+	KVCacheEntries             int                        `json:"kv_cache_entries,omitempty"`
 	LayerStreamedPrefill       bool                       `json:"layer_streamed_prefill,omitempty"`
 	Passed                     bool                       `json:"passed"`
 }
@@ -192,6 +195,7 @@ func main() {
 	gpuMLXOverflow := flag.Bool("gpu-mlx-overflow", true, "transient-upload MLX weights that do not fit in the resident Qwen GPU cache")
 	kvReuse := flag.Bool("kv-reuse", false, "reuse in-process Qwen prompt state across -kv-repeat runs")
 	kvChunkSize := flag.Int("kv-chunk-size", 32, "token chunk size for Qwen prompt-state reuse")
+	kvCacheMB := flag.Int("kv-cache-mb", 2048, "in-process Qwen prompt-state cache budget in MiB for -kv-reuse")
 	kvRepeat := flag.Int("kv-repeat", 1, "repeat Qwen prompt prefill N times to validate -kv-reuse hits")
 	layerStreamedPrefill := flag.Bool("layer-streamed-prefill", false, "process prompt prefill chunks layer-by-layer instead of token-by-token")
 	prefillChunkSize := flag.Int("prefill-chunk-size", 16, "prompt chunk size for -layer-streamed-prefill")
@@ -201,6 +205,11 @@ func main() {
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
 	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
+	if *kvCacheMB < 0 {
+		*kvCacheMB = 0
+	}
+	qwenPromptStateCache = kv.NewChunkCache(int64(*kvCacheMB) * 1024 * 1024)
+	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
 	if *dir == "" {
 		fmt.Fprintln(os.Stderr, "usage: qwen36run -model <dir> [-token id | -prompt text] [-steps n]")
 		os.Exit(2)
@@ -420,7 +429,7 @@ func main() {
 	}
 	mtpLinearStats := qwen.Qwen35LinearStatsSnapshot()
 	mtpLMHeadStats := qwen36LMHeadStatsSnapshot()
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, KVCacheMaxBytes: qwenPromptStateCache.MaxBytes(), KVCacheUsedBytes: qwenPromptStateCache.UsedBytes(), KVCacheEntries: qwenPromptStateCache.Len(), LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *compareSequential && *mtpGenerate {
 		seqBaseLinear := mtpLinearStats
 		seqBaseLMHead := mtpLMHeadStats

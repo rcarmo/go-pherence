@@ -24,6 +24,13 @@ func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
 	}
 }
 
+func TestQwenPromptStateCacheBudgetAccessors(t *testing.T) {
+	c := kv.NewChunkCache(1234)
+	if c.MaxBytes() != 1234 || c.UsedBytes() != 0 || c.Len() != 0 {
+		t.Fatalf("unexpected cache accessors max=%d used=%d len=%d", c.MaxBytes(), c.UsedBytes(), c.Len())
+	}
+}
+
 func TestNativeMTPDraftStepsForRemaining(t *testing.T) {
 	cases := []struct {
 		mtpSteps  int

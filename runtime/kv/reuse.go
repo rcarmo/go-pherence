@@ -154,6 +154,14 @@ func (c *ChunkCache) UsedBytes() int64 {
 	}
 	return c.used
 }
+
+func (c *ChunkCache) MaxBytes() int64 {
+	if c == nil {
+		return 0
+	}
+	return c.maxBytes
+}
+
 func (c *ChunkCache) Len() int {
 	if c == nil {
 		return 0
