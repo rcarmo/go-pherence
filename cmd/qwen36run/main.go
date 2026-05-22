@@ -112,6 +112,9 @@ type Report struct {
 	KVReuse                    bool                       `json:"kv_reuse,omitempty"`
 	KVCacheHit                 bool                       `json:"kv_cache_hit,omitempty"`
 	KVReusedTokens             int                        `json:"kv_reused_tokens,omitempty"`
+	KVPrefillTokens            int                        `json:"kv_prefill_tokens,omitempty"`
+	KVSuffixTokens             int                        `json:"kv_suffix_tokens,omitempty"`
+	KVSkippedPrefillTokens     int                        `json:"kv_skipped_prefill_tokens,omitempty"`
 	KVStoredChunks             int                        `json:"kv_stored_chunks,omitempty"`
 	KVChunkSize                int                        `json:"kv_chunk_size,omitempty"`
 	KVRepeat                   int                        `json:"kv_repeat,omitempty"`
@@ -338,6 +341,7 @@ func main() {
 	cacheHit := false
 	kvReusedTokens := 0
 	kvStoredChunks := 0
+	kvPrefillTokens := 0
 	if *kvRepeat < 1 {
 		*kvRepeat = 1
 	}
@@ -361,6 +365,7 @@ func main() {
 				cacheHit = true
 			}
 		}
+		kvPrefillTokens += len(inputIDs) - startAt
 		if *layerStreamedPrefill && startAt < len(inputIDs) {
 			next, logit, h, preNormHidden, err = r.prefillLayerStreamed(inputIDs[startAt:], *prefillChunkSize, ropeFreqs)
 			check("streamed prefill", err)
@@ -431,7 +436,11 @@ func main() {
 	}
 	mtpLinearStats := qwen.Qwen35LinearStatsSnapshot()
 	mtpLMHeadStats := qwen36LMHeadStatsSnapshot()
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, KVCacheMaxBytes: qwenPromptStateCache.MaxBytes(), KVCacheUsedBytes: qwenPromptStateCache.UsedBytes(), KVCacheEntries: qwenPromptStateCache.Len(), LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	kvSkippedPrefillTokens := len(inputIDs)**kvRepeat - kvPrefillTokens
+	if kvSkippedPrefillTokens < 0 {
+		kvSkippedPrefillTokens = 0
+	}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVPrefillTokens: kvPrefillTokens, KVSuffixTokens: kvPrefillTokens, KVSkippedPrefillTokens: kvSkippedPrefillTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, KVCacheMaxBytes: qwenPromptStateCache.MaxBytes(), KVCacheUsedBytes: qwenPromptStateCache.UsedBytes(), KVCacheEntries: qwenPromptStateCache.Len(), LayerStreamedPrefill: *layerStreamedPrefill, MTPGenerate: *mtpGenerate, MTPGeneratedIDs: generated, MTPGeneratedAccepted: mtpGenStats.Accepted, MTPGeneratedDrafted: mtpGenStats.Drafted, MTPGeneratedRounds: mtpGenStats.Rounds, MTPGeneratedBonusTokens: mtpGenStats.BonusTokens, MTPVerifierChunks: mtpGenStats.VerifierChunks, MTPVerifierLayerChunks: mtpGenStats.VerifierLayerChunks, MTPGeneratedAcceptanceRate: mtpGeneratedAcceptanceRate, MTPAdaptiveFallback: mtpGenStats.AdaptiveFallback, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *compareSequential && *mtpGenerate {
 		seqBaseLinear := mtpLinearStats
 		seqBaseLMHead := mtpLMHeadStats

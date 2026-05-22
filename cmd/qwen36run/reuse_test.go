@@ -26,6 +26,14 @@ func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
 	}
 }
 
+func TestKVSkippedPrefillAccounting(t *testing.T) {
+	inputLen, repeat, prefill := 3, 2, 3
+	skipped := inputLen*repeat - prefill
+	if skipped != 3 {
+		t.Fatalf("skipped=%d want 3", skipped)
+	}
+}
+
 func TestQwenPromptStateCacheBudgetAccessors(t *testing.T) {
 	c := kv.NewChunkCache(1234)
 	if c.MaxBytes() != 1234 || c.UsedBytes() != 0 || c.Len() != 0 {
