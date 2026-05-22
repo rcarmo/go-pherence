@@ -128,7 +128,30 @@ duration_ms: 30860
 tokens_per_second: 0.0648
 ```
 
-This proves the dense MLX checkpoint can load and run the base+native-MTP diagnostic path on CPU. It is still slow because the Qwen3.5/Qwen3.6 path uses scalar/CPU MLX GEMV and the GPU cache path is currently NVFP4-specific. Next implementation step: add NVIDIA MLX packed-weight caching/GEMV for the Qwen3.5/Qwen3.6 path, then rerun with `-gpu`.
+This proves the dense MLX checkpoint can load and run the base+native-MTP diagnostic path on CPU.
+
+Initial NVIDIA status:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+  -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing \
+  -model models/qwen3.6-27b-mlx4-mtp \
+  -prompt "Hello" -steps 1 -mtp -mtp-steps 1
+```
+
+Latest local result:
+
+```text
+passed: true
+next_id: 132386
+mtp_output_len: 5120
+linear_stats.calls: 489
+linear_stats.gpu_calls: 8
+linear_stats.cpu_calls: 481
+duration_ms: 39530
+```
+
+The NVIDIA MLX path is therefore wired and correctness-safe, but it is only a transient upload scaffold: some MLX GEMVs reach CUDA, and most fall back to CPU when upload pressure is too high. It is not faster yet. Next implementation step: add an MLX-specific Qwen GPU weight cache/reuse path, analogous to the existing NVFP4 cache, so packed MLX weights are uploaded once and reused across base/MTP calls.
 
 ## Important blocker for the original NVFP4 checkpoint
 

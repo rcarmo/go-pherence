@@ -161,9 +161,32 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 		if m.InDim != inDim || m.OutDim != outDim {
 			return fmt.Errorf("%s MLX dims out/in=%d/%d want %d/%d", name, m.OutDim, m.InDim, outDim, inDim)
 		}
+		qwen35LinearStats.Calls++
+		if qwen35GPUReady {
+			start := time.Now()
+			gw, err := nvidia.UploadMLXWeight(m.Weight, m.Scales, m.Biases, m.InDim, m.OutDim, m.GroupSize, false)
+			if err == nil {
+				defer gw.Free()
+				xb := nvidia.NewDevBufFrom(x)
+				ob := nvidia.NewDevBuf(outDim)
+				defer xb.Free()
+				defer ob.Free()
+				if xb.ToGPU() == nil && ob.ToGPU() == nil {
+					nvidia.GemvMLX(ob, xb, gw)
+					nvidia.Sync()
+					copy(out, ob.Data()[:outDim])
+					qwen35LinearStats.GPUCalls++
+					if qwen35LinearTiming {
+						qwen35LinearStats.GPUMillis += time.Since(start).Milliseconds()
+					}
+					return nil
+				}
+			}
+		}
 		if !mlx.GemvTo(out, x, m) {
 			return fmt.Errorf("%s MLX GEMV failed", name)
 		}
+		qwen35LinearStats.CPUCalls++
 		return nil
 	}
 	if dense == nil {
