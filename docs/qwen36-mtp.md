@@ -236,7 +236,7 @@ Current validation command:
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true \
-  -gpu-cache-mb 11000 \
+  -gpu-cache-mb 10600 \
   -model models/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
@@ -245,17 +245,20 @@ Latest result:
 
 ```text
 passed: true
-duration_ms: 9924
+duration_ms: 4063
 next_id: 119
 mtp_next_id: 220
-linear_stats.gpu_calls: 372
-linear_stats.cpu_calls: 117
-gpu_cache.entries: 373
-gpu_cache.hits: 373
+linear_stats.gpu_calls: 489
+linear_stats.cpu_calls: 0
+gpu_cache.entries: 349
+gpu_cache.hits: 349
+gpu_cache.transient_uploads: 282
 lm_head_stats.gpu_ms: 9
 ```
 
-The remaining gaps are now placement/VRAM constraints rather than missing NVIDIA plumbing: the full 27B MLX working set does not fit in the 11GB cache, so some GEMVs still fall back to CPU. Further gains require either a smarter layer subset under the cache budget, lower-footprint native kernels/buffers, or sharded/layer-streamed execution.
+The key placement lesson is that the cache must leave VRAM headroom for transient native MLX uploads. A too-large resident cache (`~11GB`) prevents overflow weights from reaching CUDA and causes CPU fallback. Around `10600MB` keeps a useful resident prefix while leaving enough scratch for transient overflow GEMVs, so all 489 linear calls dispatch through NVIDIA on the local RTX 3060.
+
+Remaining performance gaps are no longer missing NVIDIA plumbing: they are transient upload volume, lack of GPU-side argmax/top-k for logits, and broader layer-streaming/KV reuse policy.
 
 ## Important blocker for the original NVFP4 checkpoint
 
