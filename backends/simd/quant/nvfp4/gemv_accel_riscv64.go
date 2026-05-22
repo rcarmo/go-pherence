@@ -7,12 +7,12 @@ import simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 func gemvNVFP4Accelerated(out, x []float32, qw *NVFP4Weight) {
 	wrow := make([]float32, qw.InDim)
 	for row := 0; row < qw.OutDim; row++ {
-		dequantNVFP4Row(wrow, qw, row)
+		dequantNVFP4WeightRow(wrow, qw, row)
 		out[row] = simd.Sdot(x[:qw.InDim], wrow)
 	}
 }
 
-func dequantNVFP4Row(out []float32, qw *NVFP4Weight, row int) {
+func dequantNVFP4WeightRow(out []float32, qw *NVFP4Weight, row int) {
 	rowPacked := row * (qw.InDim / 2)
 	rowScale := row * qw.Groups
 	for group := 0; group < qw.Groups; group++ {

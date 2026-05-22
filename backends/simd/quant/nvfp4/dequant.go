@@ -35,8 +35,10 @@ func DequantNVFP4To(out []float32, qw *NVFP4Weight) bool {
 	if !ok || len(out) < outLen {
 		return false
 	}
-	// Dispatch hook kept explicit so AVX2/NEON dequant kernels can be wired
-	// without changing callers. Scalar remains active until hasDequantAsm flips.
+	if RuntimeCapabilities().HasDequant {
+		dequantNVFP4Accelerated(out[:outLen], qw)
+		return true
+	}
 	dequantNVFP4Scalar(out[:outLen], qw)
 	return true
 }
