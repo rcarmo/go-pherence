@@ -260,12 +260,12 @@ The key placement lesson is that the cache must leave VRAM headroom for transien
 
 Remaining performance gaps are no longer missing NVIDIA plumbing: they are transient upload volume, lack of GPU-side argmax/top-k for logits, and broader layer-streaming/KV reuse policy. `qwen36run` exposes `-gpu-mlx-overflow` to control transient native-MLX uploads for overflow weights; on the local RTX 3060 the best current setting keeps it enabled with `-gpu-cache-mb 10600`, yielding no CPU GEMV fallback for the one-step MTP smoke.
 
-Qwen prompt-state reuse is now available in-process:
+Qwen prompt-state reuse is now available in-process and searches for the longest cached prefix, not just exact prompts:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
-  -kv-reuse -kv-repeat 2 \
+  -kv-reuse -kv-repeat 2 -kv-chunk-size 32 \
   -model models/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
@@ -282,7 +282,7 @@ linear_stats.gpu_calls: 489
 linear_stats.cpu_calls: 0
 ```
 
-The cached state includes the full `Qwen35BaseForwardState`, so it covers both full-attention K/V and linear-attention recurrent state. This validates the Qwen side of the KVBoost-style prompt-state reuse seam. It is exact prompt reuse today; chunked partial-prefix reuse is the next layer on top of the same snapshot contract.
+The cached state includes the full `Qwen35BaseForwardState`, so it covers both full-attention K/V and linear-attention recurrent state. The lookup walks from the full prompt down to earlier chunk boundaries and restores the longest matching prefix. A validation smoke with `-kv-chunk-size 2` reports `kv_reused_tokens=3` for a three-token prompt repeated in-process, proving cached-prefix restore and suffix skip are wired. Cross-request persistence/page-offload remains future work.
 
 ## Important blocker for the original NVFP4 checkpoint
 

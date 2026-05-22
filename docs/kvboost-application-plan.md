@@ -213,17 +213,17 @@ Benchmarks:
 
 ### Phase 4 — Qwen native-MTP reuse
 
-Initial status: `cmd/qwen36run` now supports exact in-process prompt-state reuse:
+Initial status: `cmd/qwen36run` now supports in-process prompt-state reuse with longest cached-prefix lookup:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
-  -kv-reuse -kv-repeat 2 \
+  -kv-reuse -kv-repeat 2 -kv-chunk-size 32 \
   -model models/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
 
-The second prefill pass restores the cached `Qwen35BaseForwardState` and reports `kv_cache_hit=true`. This validates reuse of both full-attention K/V and linear-attention recurrent state for exact prompts.
+The second prefill pass restores the cached `Qwen35BaseForwardState` and reports `kv_cache_hit=true`. The lookup checks the exact prompt first and then walks backward to earlier chunk boundaries, so prompts with a cached prefix can resume from the longest matching prefix and prefill only the suffix. This validates reuse of both full-attention K/V and linear-attention recurrent state.
 
 Qwen state is not just full-attention KV; it also has linear-attention recurrent state. The reusable snapshot needs:
 

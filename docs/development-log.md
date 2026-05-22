@@ -2107,3 +2107,4 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added `qwen36run -kv-reuse -kv-repeat N` to validate exact in-process Qwen prompt-state reuse.
 - The cached sidecar stores `Qwen35BaseForwardState` plus final hidden/pre-norm hidden/logit state, so it covers both full-attention K/V and linear-attention recurrent state.
 - Validation command with `-kv-repeat 2` reports `kv_cache_hit=true`, `linear_stats.gpu_calls=489`, `cpu_calls=0`, and `passed=true`; this is the Qwen recurrent-state snapshot seam needed for a KVBoost-style chunked prefix cache.
+- Extended Qwen reuse from exact prompt to longest cached prefix: `qwen36run` now stores prompt state at chunk boundaries and restores the longest matching prefix before prefilling only the suffix. Unit tests cover longest-prefix selection, and a `-kv-chunk-size 2` smoke reports `kv_reused_tokens=3` for a repeated three-token prompt.

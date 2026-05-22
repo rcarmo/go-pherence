@@ -83,6 +83,7 @@ type Report struct {
 	MTPTop                     []TopLogit                 `json:"mtp_top,omitempty"`
 	KVReuse                    bool                       `json:"kv_reuse,omitempty"`
 	KVCacheHit                 bool                       `json:"kv_cache_hit,omitempty"`
+	KVReusedTokens             int                        `json:"kv_reused_tokens,omitempty"`
 	KVRepeat                   int                        `json:"kv_repeat,omitempty"`
 	LayerStreamedPrefill       bool                       `json:"layer_streamed_prefill,omitempty"`
 	Passed                     bool                       `json:"passed"`
@@ -114,6 +115,7 @@ type qwenPromptStateSnapshot struct {
 	Logit   float32
 	Hidden  []float32
 	PreNorm []float32
+	EndPos  int
 }
 
 var qwenPromptStateCache = kv.NewChunkCache(2 << 30)
@@ -147,7 +149,8 @@ func main() {
 	gpuTiming := flag.Bool("gpu-timing", false, "collect per-linear GPU upload/kernel timing; adds hot-path time.Now overhead")
 	gpuMLP := flag.Bool("gpu-mlp", false, "prototype GPU-resident Qwen3.6 MLP hot path")
 	gpuMLXOverflow := flag.Bool("gpu-mlx-overflow", true, "transient-upload MLX weights that do not fit in the resident Qwen GPU cache")
-	kvReuse := flag.Bool("kv-reuse", false, "reuse exact in-process Qwen prompt state across -kv-repeat runs")
+	kvReuse := flag.Bool("kv-reuse", false, "reuse in-process Qwen prompt state across -kv-repeat runs")
+	kvChunkSize := flag.Int("kv-chunk-size", 32, "token chunk size for Qwen prompt-state reuse")
 	kvRepeat := flag.Int("kv-repeat", 1, "repeat Qwen prompt prefill N times to validate -kv-reuse hits")
 	layerStreamedPrefill := flag.Bool("layer-streamed-prefill", false, "reserved experimental flag for future layer-streamed batched prefill; reports requested mode")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
@@ -282,32 +285,36 @@ func main() {
 	var h []float32
 	var preNormHidden []float32
 	cacheHit := false
+	kvReusedTokens := 0
 	if *kvRepeat < 1 {
 		*kvRepeat = 1
 	}
-	keyHash := kv.HashTokenChunk(0, inputIDs)
-	cacheKey := kv.ChunkKey{ModelID: filepath.Base(*dir), Backend: "qwen36run", DType: "mlx4", LayerLayout: fmt.Sprintf("%d:%d", meta.NumHiddenLayers, meta.HiddenSize), TokenHash: keyHash, ChunkSize: len(inputIDs), EndPos: len(inputIDs)}
+	if *kvChunkSize <= 0 {
+		*kvChunkSize = len(inputIDs)
+	}
+	modelID := filepath.Base(*dir)
+	layout := fmt.Sprintf("%d:%d", meta.NumHiddenLayers, meta.HiddenSize)
 	for rep := 0; rep < *kvRepeat; rep++ {
+		startAt := 0
 		if *kvReuse {
-			if _, ok := qwenPromptStateCache.Get(cacheKey); ok {
-				if snap, ok := qwenPromptStateSidecar[cacheKey]; ok {
-					r.state = qwen.CloneQwen35BaseForwardState(snap.State)
-					next, logit = snap.Next, snap.Logit
-					h = append([]float32(nil), snap.Hidden...)
-					preNormHidden = append([]float32(nil), snap.PreNorm...)
-					cacheHit = true
-					continue
+			if snap, ok := qwenFindLongestPromptPrefix(modelID, layout, inputIDs, *kvChunkSize); ok {
+				r.state = qwen.CloneQwen35BaseForwardState(snap.State)
+				next, logit = snap.Next, snap.Logit
+				h = append([]float32(nil), snap.Hidden...)
+				preNormHidden = append([]float32(nil), snap.PreNorm...)
+				startAt = snap.EndPos
+				if startAt > kvReusedTokens {
+					kvReusedTokens = startAt
 				}
+				cacheHit = true
 			}
 		}
-		for _, id := range inputIDs {
-			next, logit, h, preNormHidden, err = r.step(id, ropeFreqs)
+		for idx := startAt; idx < len(inputIDs); idx++ {
+			next, logit, h, preNormHidden, err = r.step(inputIDs[idx], ropeFreqs)
 			check("prefill", err)
-		}
-		if *kvReuse {
-			snap := qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...)}
-			_ = qwenPromptStateCache.Put(cacheKey, inputIDs, kv.Snapshot{SeqLen: r.state.Pos, Hidden: h})
-			qwenPromptStateSidecar[cacheKey] = snap
+			if *kvReuse && ((idx+1)%*kvChunkSize == 0 || idx+1 == len(inputIDs)) {
+				qwenStorePromptPrefix(modelID, layout, inputIDs[:idx+1], *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: idx + 1})
+			}
 		}
 	}
 	prefillVerifierNext := next
@@ -337,7 +344,7 @@ func main() {
 	if tok != nil {
 		decoded = tok.Decode(generated)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *topK > 0 {
 		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
@@ -456,6 +463,44 @@ func draftMTPIDs(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, h
 		curHidden = out
 	}
 	return ids, nil
+}
+
+func qwenPromptPrefixKey(modelID, layout string, tokens []int, chunkSize int) kv.ChunkKey {
+	prev := uint64(0)
+	for start := 0; start < len(tokens); start += chunkSize {
+		end := start + chunkSize
+		if end > len(tokens) {
+			end = len(tokens)
+		}
+		prev = kv.HashTokenChunk(prev, tokens[start:end])
+	}
+	return kv.ChunkKey{ModelID: modelID, Backend: "qwen36run", DType: "mlx4", LayerLayout: layout, TokenHash: prev, ChunkSize: chunkSize, EndPos: len(tokens)}
+}
+
+func qwenStorePromptPrefix(modelID, layout string, tokens []int, chunkSize int, snap qwenPromptStateSnapshot) {
+	key := qwenPromptPrefixKey(modelID, layout, tokens, chunkSize)
+	_ = qwenPromptStateCache.Put(key, tokens, kv.Snapshot{SeqLen: snap.State.Pos, Hidden: snap.Hidden})
+	qwenPromptStateSidecar[key] = snap
+}
+
+func qwenFindLongestPromptPrefix(modelID, layout string, tokens []int, chunkSize int) (qwenPromptStateSnapshot, bool) {
+	if chunkSize <= 0 {
+		return qwenPromptStateSnapshot{}, false
+	}
+	for end := len(tokens); end > 0; {
+		key := qwenPromptPrefixKey(modelID, layout, tokens[:end], chunkSize)
+		if _, ok := qwenPromptStateCache.Get(key); ok {
+			if snap, ok := qwenPromptStateSidecar[key]; ok {
+				return snap, true
+			}
+		}
+		if end%chunkSize != 0 {
+			end = (end / chunkSize) * chunkSize
+		} else {
+			end -= chunkSize
+		}
+	}
+	return qwenPromptStateSnapshot{}, false
 }
 
 func newRunner(bundle *qwen.Qwen35NativeMTPBundle, state qwen.Qwen35BaseForwardState, emb rawTensor, normW []float32, lm rawTensor, lmGPU *nvidia.Buffer, mtpHead *qwen.QwenNativeMTPHead) runner {
