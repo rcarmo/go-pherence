@@ -7,6 +7,17 @@ import (
 	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
+func TestEstimateQwen35ForwardStateBytes(t *testing.T) {
+	got, err := EstimateQwen35ForwardStateBytes(sampleQwen35ForwardState())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sample: FullK 5 + FullV 5 + linear conv 2 + ssm 3 + ssm 1 = 16 floats
+	if got != 16*4 {
+		t.Fatalf("bytes=%d want %d", got, 16*4)
+	}
+}
+
 func TestGPUPromptCacheBudgetRejectionStats(t *testing.T) {
 	if !nvidia.SgemmReady() {
 		t.Skip("NVIDIA backend not available")
