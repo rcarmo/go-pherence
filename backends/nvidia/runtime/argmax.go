@@ -12,7 +12,7 @@ const argmaxF32PTX = `.version 7.0
 .target sm_70
 .address_size 64
 
-.visible .entry argmax_f32(
+.visible .entry argmax_f32_blocks(
     .param .u64 logits,
     .param .u64 outVal,
     .param .u64 outIdx,
@@ -20,8 +20,8 @@ const argmaxF32PTX = `.version 7.0
 )
 {
     .reg .pred %p<6>;
-    .reg .b32 %r<12>;
-    .reg .b64 %rd<12>;
+    .reg .b32 %r<16>;
+    .reg .b64 %rd<16>;
     .reg .f32 %f<8>;
 
     ld.param.u64 %rd1, [logits];
@@ -31,10 +31,13 @@ const argmaxF32PTX = `.version 7.0
 
     mov.u32 %r2, %tid.x;
     mov.u32 %r3, %ntid.x;
+    mov.u32 %r11, %ctaid.x;
+    mov.u32 %r12, %nctaid.x;
+    mad.lo.u32 %r5, %r11, %r3, %r2;
+    mul.lo.u32 %r13, %r3, %r12;
 
-    mov.f32 %f1, 0fFF800000; // -inf
+    mov.f32 %f1, 0fFF800000;
     mov.u32 %r4, 0;
-    mov.u32 %r5, %r2;
 
 LOOP:
     setp.ge.u32 %p1, %r5, %r1;
@@ -51,11 +54,10 @@ LOOP:
     mov.f32 %f1, %f2;
     mov.u32 %r4, %r5;
 SKIP:
-    add.u32 %r5, %r5, %r3;
+    add.u32 %r5, %r5, %r13;
     bra LOOP;
 
 DONE:
-    // shared val[256], idx[256]
     .shared .align 4 .b8 s_val[1024];
     .shared .align 4 .b8 s_idx[1024];
     cvta.shared.u64 %rd6, s_val;
@@ -100,8 +102,11 @@ RED_NEXT:
     @%p1 bra EXIT;
     ld.shared.f32 %f4, [%rd6];
     ld.shared.u32 %r10, [%rd7];
-    st.global.f32 [%rd2], %f4;
-    st.global.u32 [%rd3], %r10;
+    mul.wide.u32 %rd11, %r11, 4;
+    add.u64 %rd12, %rd2, %rd11;
+    st.global.f32 [%rd12], %f4;
+    add.u64 %rd13, %rd3, %rd11;
+    st.global.u32 [%rd13], %r10;
 EXIT:
     ret;
 }`
@@ -113,7 +118,7 @@ func ensureArgmaxF32() error {
 	if !SgemmReady() {
 		return fmt.Errorf("GPU not available")
 	}
-	fn, err := LoadPTX(argmaxF32PTX, "argmax_f32")
+	fn, err := LoadPTX(argmaxF32PTX, "argmax_f32_blocks")
 	if err != nil {
 		return err
 	}
@@ -122,6 +127,7 @@ func ensureArgmaxF32() error {
 }
 
 // ArgmaxF32 returns the max value/index for a GPU-resident float32 buffer.
+// The GPU computes per-block winners, then the host reduces the small partials.
 func ArgmaxF32(buf *Buffer, n int) (int, float32, error) {
 	if buf == nil {
 		return 0, 0, fmt.Errorf("nil GPU buffer")
@@ -135,29 +141,45 @@ func ArgmaxF32(buf *Buffer, n int) (int, float32, error) {
 	if err := ensureArgmaxF32(); err != nil {
 		return 0, 0, err
 	}
-	outVal, err := Malloc(1)
+	blocks := (n + 255) / 256
+	if blocks < 1 {
+		blocks = 1
+	}
+	if blocks > 1024 {
+		blocks = 1024
+	}
+	outVal, err := Malloc(blocks)
 	if err != nil {
 		return 0, 0, err
 	}
 	defer outVal.Free()
-	outIdx, err := Malloc(1)
+	outIdx, err := Malloc(blocks)
 	if err != nil {
 		return 0, 0, err
 	}
 	defer outIdx.Free()
 	nn := uint32(n)
-	if err := LaunchKernel(fnArgmaxF32, 1, 1, 1, 256, 1, 1, 0,
+	if err := LaunchKernel(fnArgmaxF32, uint32(blocks), 1, 1, 256, 1, 1, 0,
 		unsafe.Pointer(&buf.Ptr), unsafe.Pointer(&outVal.Ptr), unsafe.Pointer(&outIdx.Ptr), unsafe.Pointer(&nn)); err != nil {
 		return 0, 0, err
 	}
-	val := []float32{float32(math.Inf(-1))}
-	if err := outVal.Download(val); err != nil {
+	vals := make([]float32, blocks)
+	if err := outVal.Download(vals); err != nil {
 		return 0, 0, err
 	}
-	idxBits := []uint32{0}
+	idxBits := make([]uint32, blocks)
 	EnsureContext()
-	if r := cuMemcpyDtoH(unsafe.Pointer(&idxBits[0]), outIdx.Ptr, 4); r != CUDA_SUCCESS {
+	if r := cuMemcpyDtoH(unsafe.Pointer(&idxBits[0]), outIdx.Ptr, uint64(blocks*4)); r != CUDA_SUCCESS {
 		return 0, 0, fmt.Errorf("cuMemcpyDtoH argmax idx: error %d", r)
 	}
-	return int(idxBits[0]), val[0], nil
+	best := 0
+	bestv := float32(math.Inf(-1))
+	for i, v := range vals {
+		idx := int(idxBits[i])
+		if v > bestv || (v == bestv && idx < best) {
+			bestv = v
+			best = idx
+		}
+	}
+	return best, bestv, nil
 }
