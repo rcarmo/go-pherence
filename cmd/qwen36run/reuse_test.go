@@ -70,6 +70,26 @@ func TestShouldFallbackNativeMTP(t *testing.T) {
 	}
 }
 
+func TestQwenPromptSnapshotForBudgetIncludesForwardState(t *testing.T) {
+	snap := qwenPromptStateSnapshot{
+		State:   qwen.Qwen35BaseForwardState{Pos: 3, FullK: [][]float32{{1, 2}}, FullV: [][]float32{{3, 4}}, Linear: []qwen.Qwen35LinearAttentionState{{Conv: []float32{5, 6, 7}, SSM: []float32{8, 9}, Pos: 3}}},
+		Hidden:  []float32{10},
+		PreNorm: []float32{11, 12},
+	}
+	budget := qwenPromptSnapshotForBudget(snap)
+	if len(budget.Layers) != 2 || len(budget.Layers[0].K) != 2 || len(budget.Layers[0].V) != 2 || len(budget.Layers[1].K) != 3 || len(budget.Layers[1].V) != 2 {
+		t.Fatalf("budget snapshot did not include forward state: %+v", budget)
+	}
+	bytes, err := kv.EstimateSnapshotBytes(budget)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantFloats := 2 + 2 + 3 + 2 + 3
+	if bytes != int64(wantFloats*4) {
+		t.Fatalf("bytes=%d want %d", bytes, wantFloats*4)
+	}
+}
+
 func TestQwenStorePromptPrefixPrunesEvictedSidecar(t *testing.T) {
 	qwenPromptStateCache = kv.NewChunkCache(4)
 	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}

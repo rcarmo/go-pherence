@@ -903,6 +903,24 @@ func cloneQwenPromptStateSnapshot(s qwenPromptStateSnapshot) qwenPromptStateSnap
 	return qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(s.State), Next: s.Next, Logit: s.Logit, Hidden: append([]float32(nil), s.Hidden...), PreNorm: append([]float32(nil), s.PreNorm...), EndPos: s.EndPos}
 }
 
+func qwenPromptSnapshotForBudget(s qwenPromptStateSnapshot) kv.Snapshot {
+	layers := make([]kv.LayerKVSnapshot, 0, len(s.State.FullK)+len(s.State.Linear))
+	for i := range s.State.FullK {
+		var v []float32
+		if i < len(s.State.FullV) {
+			v = s.State.FullV[i]
+		}
+		layers = append(layers, kv.LayerKVSnapshot{K: s.State.FullK[i], V: v, SeqLen: s.State.Pos})
+	}
+	for _, lin := range s.State.Linear {
+		layers = append(layers, kv.LayerKVSnapshot{K: lin.Conv, V: lin.SSM, SeqLen: lin.Pos})
+	}
+	hidden := make([]float32, 0, len(s.Hidden)+len(s.PreNorm))
+	hidden = append(hidden, s.Hidden...)
+	hidden = append(hidden, s.PreNorm...)
+	return kv.Snapshot{SeqLen: s.State.Pos, Hidden: hidden, Layers: layers}
+}
+
 func qwenPrunePromptStateSidecar() {
 	for key := range qwenPromptStateSidecar {
 		if !qwenPromptStateCache.Contains(key) {
@@ -914,7 +932,7 @@ func qwenPrunePromptStateSidecar() {
 func qwenStorePromptPrefix(modelID, layout string, tokens []int, chunkSize int, snap qwenPromptStateSnapshot) {
 	key := qwenPromptPrefixKey(modelID, layout, tokens, chunkSize)
 	stored := cloneQwenPromptStateSnapshot(snap)
-	_ = qwenPromptStateCache.Put(key, tokens, kv.Snapshot{SeqLen: stored.State.Pos, Hidden: stored.Hidden})
+	_ = qwenPromptStateCache.Put(key, tokens, qwenPromptSnapshotForBudget(stored))
 	qwenPromptStateSidecar[key] = stored
 	qwenPrunePromptStateSidecar()
 }
