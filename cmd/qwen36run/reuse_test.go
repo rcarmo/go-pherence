@@ -127,6 +127,24 @@ func TestQwenStorePromptPrefixPrunesEvictedSidecar(t *testing.T) {
 	}
 }
 
+func TestQwenFindLongestPromptPrefixFromPrimedPrompt(t *testing.T) {
+	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
+	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
+	modelID, layout := "m", "l"
+	prime := []int{10, 20}
+	extended := []int{10, 20, 30}
+	if !qwenStorePromptPrefix(modelID, layout, prime, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 200, State: qwen.Qwen35BaseForwardState{Pos: 2}, Hidden: []float32{1}, PreNorm: []float32{2}}) {
+		t.Fatal("store primed prefix")
+	}
+	got, ok := qwenFindLongestPromptPrefix(modelID, layout, extended, 2)
+	if !ok || got.EndPos != 2 || got.Next != 200 || got.State.Pos != 2 {
+		t.Fatalf("primed prefix not restored: %+v ok=%v", got, ok)
+	}
+	if _, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{10, 99, 30}, 2); ok {
+		t.Fatal("unexpected unrelated prompt hit")
+	}
+}
+
 func TestQwenFindLongestPromptPrefix(t *testing.T) {
 	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
 	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
