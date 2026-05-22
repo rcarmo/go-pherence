@@ -7,6 +7,23 @@ import (
 	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
+func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
+	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
+	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}
+	modelID, layout := "m", "l"
+	state := qwen.Qwen35BaseForwardState{Pos: 2, FullK: [][]float32{{1, 2}}, FullV: [][]float32{{3, 4}}, Linear: []qwen.Qwen35LinearAttentionState{{Conv: []float32{5}, SSM: []float32{6}, Pos: 2}}}
+	qwenStorePromptPrefix(modelID, layout, []int{1, 2}, 2, qwenPromptStateSnapshot{EndPos: 2, Next: 20, State: state, Hidden: []float32{7}, PreNorm: []float32{8}})
+	got, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{1, 2, 3}, 2)
+	if !ok || got.EndPos != 2 || got.State.Pos != 2 || len(got.State.FullK) != 1 || got.State.FullK[0][0] != 1 || got.State.Linear[0].Conv[0] != 5 {
+		t.Fatalf("stored state not restored: %+v ok=%v", got, ok)
+	}
+	got.State.FullK[0][0] = 99
+	got2, ok := qwenFindLongestPromptPrefix(modelID, layout, []int{1, 2}, 2)
+	if !ok || got2.State.FullK[0][0] != 1 {
+		t.Fatalf("stored state was not isolated: %+v", got2)
+	}
+}
+
 func TestQwenFindLongestPromptPrefix(t *testing.T) {
 	qwenPromptStateCache = kv.NewChunkCache(1 << 20)
 	qwenPromptStateSidecar = map[kv.ChunkKey]qwenPromptStateSnapshot{}

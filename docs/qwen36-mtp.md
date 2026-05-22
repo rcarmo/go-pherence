@@ -282,7 +282,7 @@ linear_stats.gpu_calls: 489
 linear_stats.cpu_calls: 0
 ```
 
-The cached state includes the full `Qwen35BaseForwardState`, so it covers both full-attention K/V and linear-attention recurrent state. The lookup walks from the full prompt down to earlier chunk boundaries and restores the longest matching prefix. A validation smoke with `-kv-chunk-size 2` reports `kv_reused_tokens=3` for a three-token prompt repeated in-process, proving cached-prefix restore and suffix skip are wired. Cross-request persistence/page-offload remains future work.
+The cached state includes the full `Qwen35BaseForwardState`, so it covers both full-attention K/V and linear-attention recurrent state. The lookup walks from the full prompt down to earlier chunk boundaries and restores the longest matching prefix. A validation smoke with `-kv-chunk-size 2` reports `kv_reused_tokens=3` and `kv_stored_chunks=2` for a three-token prompt repeated in-process, proving chunk-boundary state storage, cached-prefix restore, and suffix skip are wired. Unit tests verify that stored `Qwen35BaseForwardState` snapshots are cloned/restored without aliasing. Cross-request persistence/page-offload remains future work.
 
 ## Important blocker for the original NVFP4 checkpoint
 

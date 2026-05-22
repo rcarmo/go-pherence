@@ -84,6 +84,8 @@ type Report struct {
 	KVReuse                    bool                       `json:"kv_reuse,omitempty"`
 	KVCacheHit                 bool                       `json:"kv_cache_hit,omitempty"`
 	KVReusedTokens             int                        `json:"kv_reused_tokens,omitempty"`
+	KVStoredChunks             int                        `json:"kv_stored_chunks,omitempty"`
+	KVChunkSize                int                        `json:"kv_chunk_size,omitempty"`
 	KVRepeat                   int                        `json:"kv_repeat,omitempty"`
 	LayerStreamedPrefill       bool                       `json:"layer_streamed_prefill,omitempty"`
 	Passed                     bool                       `json:"passed"`
@@ -286,6 +288,7 @@ func main() {
 	var preNormHidden []float32
 	cacheHit := false
 	kvReusedTokens := 0
+	kvStoredChunks := 0
 	if *kvRepeat < 1 {
 		*kvRepeat = 1
 	}
@@ -314,6 +317,7 @@ func main() {
 			check("prefill", err)
 			if *kvReuse && ((idx+1)%*kvChunkSize == 0 || idx+1 == len(inputIDs)) {
 				qwenStorePromptPrefix(modelID, layout, inputIDs[:idx+1], *kvChunkSize, qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(r.state), Next: next, Logit: logit, Hidden: append([]float32(nil), h...), PreNorm: append([]float32(nil), preNormHidden...), EndPos: idx + 1})
+				kvStoredChunks++
 			}
 		}
 	}
@@ -344,7 +348,7 @@ func main() {
 	if tok != nil {
 		decoded = tok.Decode(generated)
 	}
-	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, Passed: next >= 0 && len(h) == meta.HiddenSize}
+	rep := Report{ModelDir: *dir, Prompt: *prompt, InputIDs: inputIDs, GeneratedIDs: generated, Decoded: decoded, TokenID: inputIDs[len(inputIDs)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(runStart).Milliseconds(), TokensProcessed: len(inputIDs) + len(generated), KVReuse: *kvReuse, KVCacheHit: cacheHit, KVReusedTokens: kvReusedTokens, KVStoredChunks: kvStoredChunks, KVChunkSize: *kvChunkSize, KVRepeat: *kvRepeat, LayerStreamedPrefill: *layerStreamedPrefill, Passed: next >= 0 && len(h) == meta.HiddenSize}
 	if *topK > 0 {
 		rep.BaseTop = topKMatVec(r.lm, h, *topK)
 	}
@@ -477,10 +481,15 @@ func qwenPromptPrefixKey(modelID, layout string, tokens []int, chunkSize int) kv
 	return kv.ChunkKey{ModelID: modelID, Backend: "qwen36run", DType: "mlx4", LayerLayout: layout, TokenHash: prev, ChunkSize: chunkSize, EndPos: len(tokens)}
 }
 
+func cloneQwenPromptStateSnapshot(s qwenPromptStateSnapshot) qwenPromptStateSnapshot {
+	return qwenPromptStateSnapshot{State: qwen.CloneQwen35BaseForwardState(s.State), Next: s.Next, Logit: s.Logit, Hidden: append([]float32(nil), s.Hidden...), PreNorm: append([]float32(nil), s.PreNorm...), EndPos: s.EndPos}
+}
+
 func qwenStorePromptPrefix(modelID, layout string, tokens []int, chunkSize int, snap qwenPromptStateSnapshot) {
 	key := qwenPromptPrefixKey(modelID, layout, tokens, chunkSize)
-	_ = qwenPromptStateCache.Put(key, tokens, kv.Snapshot{SeqLen: snap.State.Pos, Hidden: snap.Hidden})
-	qwenPromptStateSidecar[key] = snap
+	stored := cloneQwenPromptStateSnapshot(snap)
+	_ = qwenPromptStateCache.Put(key, tokens, kv.Snapshot{SeqLen: stored.State.Pos, Hidden: stored.Hidden})
+	qwenPromptStateSidecar[key] = stored
 }
 
 func qwenFindLongestPromptPrefix(modelID, layout string, tokens []int, chunkSize int) (qwenPromptStateSnapshot, bool) {
@@ -491,7 +500,7 @@ func qwenFindLongestPromptPrefix(modelID, layout string, tokens []int, chunkSize
 		key := qwenPromptPrefixKey(modelID, layout, tokens[:end], chunkSize)
 		if _, ok := qwenPromptStateCache.Get(key); ok {
 			if snap, ok := qwenPromptStateSidecar[key]; ok {
-				return snap, true
+				return cloneQwenPromptStateSnapshot(snap), true
 			}
 		}
 		if end%chunkSize != 0 {
