@@ -356,6 +356,7 @@ MTP audit notes:
 - `qwen36run -kv-prime-prompt` primes the prompt-state cache with one prompt before running the main prompt, enabling cross-prompt longest-prefix diagnostics. A smoke with `-kv-prime-prompt "Hello world" -prompt "Hello world again" -kv-chunk-size 2` restored the 2-token prefix, prefilling only the 1-token suffix and reporting ~66.7% reuse efficiency. Unit coverage locks primed-prefix restoration for extended prompts and unrelated-prompt misses.
 - `qwen36run -kv-compare-cold` runs a cold prefill/decode comparison for the same main prompt after the cached run and reports `kv_cached_duration_ms`, `kv_cold_duration_ms`, and `kv_speedup_vs_cold`. The `Hello world` → `Hello world again` smoke measured ~2.36× cached-vs-cold speedup for the main prompt path after restoring the 2-token prefix.
 - KV reuse reports now include lookup/store counters: `kv_lookup_attempts`, `kv_lookup_hits`, `kv_lookup_misses`, `kv_store_attempts`, and `kv_evicted_stores`, alongside retained `kv_stored_chunks`. This makes cache-budget effects and actual retained stores explicit in long-running diagnostics.
+- Reports include a compact `summary` object with the headline dashboard fields (`kv_hit`, `kv_reuse_efficiency`, `kv_speedup_vs_cold`, `mtp_acceptance_rate`, `mtp_speedup_vs_sequential`, and `decode_tokens_per_second`) so scripts can consume one stable block instead of recomputing derived values from the detailed counters.
 
 Validation command:
 

@@ -37,6 +37,15 @@ type TopLogit struct {
 	Logit float32 `json:"logit"`
 }
 
+type Qwen36Summary struct {
+	KVHit             bool    `json:"kv_hit,omitempty"`
+	KVReuseEfficiency float64 `json:"kv_reuse_efficiency,omitempty"`
+	KVSpeedupVsCold   float64 `json:"kv_speedup_vs_cold,omitempty"`
+	MTPAcceptanceRate float64 `json:"mtp_acceptance_rate,omitempty"`
+	MTPSpeedupVsSeq   float64 `json:"mtp_speedup_vs_sequential,omitempty"`
+	DecodeTPS         float64 `json:"decode_tokens_per_second,omitempty"`
+}
+
 type mtpGenerateStats struct {
 	Accepted            int
 	Drafted             int
@@ -112,6 +121,7 @@ type Report struct {
 	TokensPerSecond            float64                    `json:"tokens_per_second"`
 	BaseTop                    []TopLogit                 `json:"base_top,omitempty"`
 	MTPTop                     []TopLogit                 `json:"mtp_top,omitempty"`
+	Summary                    Qwen36Summary              `json:"summary,omitempty"`
 	KVReuse                    bool                       `json:"kv_reuse,omitempty"`
 	KVCacheHit                 bool                       `json:"kv_cache_hit,omitempty"`
 	KVLookupAttempts           int                        `json:"kv_lookup_attempts,omitempty"`
@@ -555,6 +565,7 @@ func main() {
 	if rep.DecodeTokensPerSecond > 0 && rep.SequentialDecodeTPS > 0 {
 		rep.MTPSpeedupVsSequential = rep.DecodeTokensPerSecond / rep.SequentialDecodeTPS
 	}
+	rep.Summary = Qwen36Summary{KVHit: rep.KVCacheHit, KVReuseEfficiency: rep.KVReuseEfficiency, KVSpeedupVsCold: rep.KVSpeedupVsCold, MTPAcceptanceRate: rep.MTPGeneratedAcceptanceRate, MTPSpeedupVsSeq: rep.MTPSpeedupVsSequential, DecodeTPS: rep.DecodeTokensPerSecond}
 	rep.GPULMHead = r.lmGPU != nil
 	if *mtp && !*mtpGenerate {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, *mtpSteps, *greedySeed)
