@@ -198,3 +198,38 @@ bf16_narrow_loop:
 	BNEZ	X12, bf16_narrow_loop
 bf16_narrow_done:
 	RET
+
+// RVV encodings for BF16 add:
+//   vle16.v v1,(a2)              0x02065087
+//   vzext.vf2 v4,v1              0x4a132257
+//   vsll.vi v4,v4,16             0x96483257
+//   vfadd.vv v6,v2,v4            0x02221357
+//   vnsrl.wi v8,v6,16            0xb2683457
+//   vse16.v v8,(a0)              0x02055427
+
+// func bf16VecAddAsm(dst, a, b []uint16)
+TEXT ·bf16VecAddAsm(SB), NOSPLIT, $0-72
+	MOV	dst_base+0(FP), X10
+	MOV	a_base+24(FP), X11
+	MOV	a_len+32(FP), X12
+	MOV	b_base+48(FP), X14
+	BEQZ	X12, bf16_vec_add_done
+bf16_vec_add_loop:
+	WORD	$0x0d0676d7           // vsetvli a3,a2,e32,m1,ta,ma
+	WORD	$0x0205d007           // vle16.v v0,(a1)
+	WORD	$0x02075087           // vle16.v v1,(a4)
+	WORD	$0x4a032157           // vzext.vf2 v2,v0
+	WORD	$0x4a132257           // vzext.vf2 v4,v1
+	WORD	$0x96283157           // vsll.vi v2,v2,16
+	WORD	$0x96483257           // vsll.vi v4,v4,16
+	WORD	$0x02221357           // vfadd.vv v6,v2,v4
+	WORD	$0xb2683457           // vnsrl.wi v8,v6,16
+	WORD	$0x02055427           // vse16.v v8,(a0)
+	SLLI	$1, X13, X15
+	ADD	X15, X10, X10
+	ADD	X15, X11, X11
+	ADD	X15, X14, X14
+	SUB	X13, X12, X12
+	BNEZ	X12, bf16_vec_add_loop
+bf16_vec_add_done:
+	RET
