@@ -57,7 +57,7 @@ func NewQwen35LinearAttentionState(meta loaderconfig.QwenNativeMTPMetadata) (Qwe
 		return Qwen35LinearAttentionState{}, err
 	}
 	convLen := shapes.ConvDim * meta.LinearConvKernelDim
-	ssmLen := meta.LinearNumValueHeads * meta.LinearValueHeadDim * meta.LinearNumKeyHeads * meta.LinearKeyHeadDim
+	ssmLen := meta.LinearNumValueHeads * meta.LinearValueHeadDim * meta.LinearKeyHeadDim
 	if convLen < 0 || ssmLen < 0 {
 		return Qwen35LinearAttentionState{}, fmt.Errorf("invalid Qwen3.5 linear-attention state dims conv=%d ssm=%d", convLen, ssmLen)
 	}
@@ -533,7 +533,7 @@ type Qwen35LinearQKV struct {
 	V []float32
 }
 
-func splitQwen35LinearQKV(projected []float32, shapes loaderconfig.Qwen35LinearAttentionShapes) (Qwen35LinearQKV, error) {
+func splitQwen35LinearQKVRaw(projected []float32, shapes loaderconfig.Qwen35LinearAttentionShapes) (Qwen35LinearQKV, error) {
 	qLen := shapes.KeyDim
 	kLen := shapes.KeyDim
 	vLen := shapes.ValueDim
@@ -548,6 +548,39 @@ func splitQwen35LinearQKV(projected []float32, shapes loaderconfig.Qwen35LinearA
 	out.K = append([]float32(nil), projected[off:off+kLen]...)
 	off += kLen
 	out.V = append([]float32(nil), projected[off:off+vLen]...)
+	return out, nil
+}
+
+func splitQwen35LinearQKV(projected []float32, shapes loaderconfig.Qwen35LinearAttentionShapes) (Qwen35LinearQKV, error) {
+	qLen := shapes.KeyDim
+	kLen := shapes.KeyDim
+	vLen := shapes.ValueDim
+	want := qLen + kLen + vLen
+	if len(projected) != want {
+		return Qwen35LinearQKV{}, fmt.Errorf("Qwen3.5 linear-attention QKV len=%d want %d", len(projected), want)
+	}
+	if shapes.HeadVDim <= 0 || qLen%shapes.HeadVDim != 0 || vLen%shapes.HeadVDim != 0 {
+		return Qwen35LinearQKV{}, fmt.Errorf("invalid Qwen3.5 linear-attention split dims q=%d v=%d head=%d", qLen, vLen, shapes.HeadVDim)
+	}
+	keyHeads := qLen / shapes.HeadVDim
+	valueHeads := vLen / shapes.HeadVDim
+	if keyHeads <= 0 || valueHeads%keyHeads != 0 {
+		return Qwen35LinearQKV{}, fmt.Errorf("invalid Qwen3.5 linear-attention head counts value=%d key=%d", valueHeads, keyHeads)
+	}
+	group := valueHeads / keyHeads
+	block := 2*shapes.HeadVDim + group*shapes.HeadVDim
+	out := Qwen35LinearQKV{Q: make([]float32, 0, valueHeads*shapes.HeadVDim), K: make([]float32, 0, valueHeads*shapes.HeadVDim), V: make([]float32, 0, vLen)}
+	for kh := 0; kh < keyHeads; kh++ {
+		base := kh * block
+		qHead := projected[base : base+shapes.HeadVDim]
+		kHead := projected[base+shapes.HeadVDim : base+2*shapes.HeadVDim]
+		vGroup := projected[base+2*shapes.HeadVDim : base+block]
+		for i := 0; i < group; i++ {
+			out.Q = append(out.Q, qHead...)
+			out.K = append(out.K, kHead...)
+		}
+		out.V = append(out.V, vGroup...)
+	}
 	return out, nil
 }
 
@@ -599,37 +632,33 @@ func siluInPlace(x []float32) {
 }
 
 func applyQwen35LinearDeltaUpdate(ssm, q, k, v, beta, dt, decay []float32, shapes loaderconfig.Qwen35LinearAttentionShapes, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, []float32, error) {
-	stateLen := meta.LinearNumValueHeads * meta.LinearValueHeadDim * meta.LinearNumKeyHeads * meta.LinearKeyHeadDim
+	stateLen := meta.LinearNumValueHeads * meta.LinearValueHeadDim * meta.LinearKeyHeadDim
 	if len(ssm) != stateLen {
 		return nil, nil, fmt.Errorf("Qwen3.5 linear-attention SSM state len=%d want %d", len(ssm), stateLen)
 	}
-	if len(q) != shapes.KeyDim || len(k) != shapes.KeyDim || len(v) != shapes.ValueDim {
-		return nil, nil, fmt.Errorf("Qwen3.5 linear-attention delta Q/K/V len=%d/%d/%d want %d/%d/%d", len(q), len(k), len(v), shapes.KeyDim, shapes.KeyDim, shapes.ValueDim)
+	expandedKeyDim := meta.LinearNumValueHeads * meta.LinearKeyHeadDim
+	if len(q) != expandedKeyDim || len(k) != expandedKeyDim || len(v) != shapes.ValueDim {
+		return nil, nil, fmt.Errorf("Qwen3.5 linear-attention delta Q/K/V len=%d/%d/%d want %d/%d/%d", len(q), len(k), len(v), expandedKeyDim, expandedKeyDim, shapes.ValueDim)
 	}
 	rank := meta.LinearNumValueHeads
 	if len(beta) != rank || len(dt) != rank || len(decay) != rank {
 		return nil, nil, fmt.Errorf("Qwen3.5 linear-attention delta rank lens beta/dt/decay=%d/%d/%d want %d", len(beta), len(dt), len(decay), rank)
 	}
-	if meta.LinearNumValueHeads%meta.LinearNumKeyHeads != 0 {
-		return nil, nil, fmt.Errorf("Qwen3.5 linear-attention value heads=%d not divisible by key heads=%d", meta.LinearNumValueHeads, meta.LinearNumKeyHeads)
-	}
 	next := append([]float32(nil), ssm...)
 	out := make([]float32, shapes.ValueDim)
-	keyWidth := meta.LinearKeyHeadDim
+	scale := float32(1.0 / math.Sqrt(float64(meta.LinearKeyHeadDim)))
 	for vh := 0; vh < meta.LinearNumValueHeads; vh++ {
-		kh := vh % meta.LinearNumKeyHeads
 		for vd := 0; vd < meta.LinearValueHeadDim; vd++ {
 			vIdx := vh*meta.LinearValueHeadDim + vd
 			acc := float32(0)
 			for kd := 0; kd < meta.LinearKeyHeadDim; kd++ {
-				kIdx := kh*meta.LinearKeyHeadDim + kd
-				stateIdx := ((vh*meta.LinearValueHeadDim+vd)*meta.LinearNumKeyHeads+kh)*meta.LinearKeyHeadDim + kd
-				next[stateIdx] = next[stateIdx]*decay[vh] + beta[vh]*dt[vh]*v[vIdx]*k[kIdx]
-				acc += next[stateIdx] * q[kIdx]
+				kIdx := vh*meta.LinearKeyHeadDim + kd
+				stateIdx := (vh*meta.LinearValueHeadDim+vd)*meta.LinearKeyHeadDim + kd
+				kvMem := next[stateIdx] * k[kIdx]
+				next[stateIdx] = next[stateIdx]*decay[vh] + beta[vh]*(v[vIdx]-kvMem)*k[kIdx]
+				acc += next[stateIdx] * q[kIdx] * scale
 			}
-			if keyWidth > 0 {
-				out[vIdx] = acc / float32(keyWidth)
-			}
+			out[vIdx] = acc
 		}
 	}
 	return next, out, nil
@@ -732,7 +761,7 @@ func (l *Qwen35LinearAttentionLayer) ForwardWithState(input []float32, state Qwe
 	if err := qwen35LinearInto(projected, cur, l.QKVW, l.QKVWQ, l.QKVWm, meta.HiddenSize, shapes.QKV[1], "linear_attn.in_proj_qkv"); err != nil {
 		return nil, state, err
 	}
-	parts, err := splitQwen35LinearQKV(projected, shapes)
+	parts, err := splitQwen35LinearQKVRaw(projected, shapes)
 	if err != nil {
 		return nil, state, err
 	}
@@ -757,10 +786,10 @@ func (l *Qwen35LinearAttentionLayer) ForwardWithState(input []float32, state Qwe
 	if err != nil {
 		return nil, state, err
 	}
-	if err := l2NormalizeHeadsInPlace(convParts.Q, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
+	if err := l2NormalizeHeadsInPlace(convParts.Q, meta.LinearNumValueHeads, meta.LinearKeyHeadDim, eps); err != nil {
 		return nil, state, err
 	}
-	if err := l2NormalizeHeadsInPlace(convParts.K, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
+	if err := l2NormalizeHeadsInPlace(convParts.K, meta.LinearNumValueHeads, meta.LinearKeyHeadDim, eps); err != nil {
 		return nil, state, err
 	}
 	alpha := make([]float32, meta.LinearNumValueHeads)
