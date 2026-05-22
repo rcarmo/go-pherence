@@ -498,6 +498,16 @@ func (r *runner) buildMTPPromptKV(ropeFreqs []float32, meta loaderconfig.QwenNat
 	return nil
 }
 
+func nativeMTPDraftStepsForRemaining(mtpSteps, remaining int) int {
+	if mtpSteps <= 0 || remaining <= 1 {
+		return 0
+	}
+	if mtpSteps > remaining-1 {
+		return remaining - 1
+	}
+	return mtpSteps
+}
+
 func shouldFallbackNativeMTP(stats mtpGenerateStats, adaptive bool, minAcceptance float64, warmupRounds int) bool {
 	if !adaptive || stats.Rounds < warmupRounds || stats.Drafted <= 0 {
 		return false
@@ -600,7 +610,19 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 	}
 
 	for len(out) < maxTokens {
-		drafts, stepK, stepV, err := draftMTPIDsDetailedWithPast(r.mtpHead, r.emb, r.lm, r.lmGPU, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, mtpSteps, r.mtpPastK, r.mtpPastV)
+		remaining := maxTokens - len(out)
+		if remaining <= 1 {
+			out = append(out, curVerifier)
+			stats.BonusTokens++
+			lastToken = curVerifier
+			curVerifier, logit, lastH, curHidden, err = r.step(lastToken, ropeFreqs)
+			if err != nil {
+				return out, stats, curVerifier, logit, lastH, curHidden, err
+			}
+			break
+		}
+		draftSteps := nativeMTPDraftStepsForRemaining(mtpSteps, remaining)
+		drafts, stepK, stepV, err := draftMTPIDsDetailedWithPast(r.mtpHead, r.emb, r.lm, r.lmGPU, lastToken, curHidden, r.state.Pos-1, ropeFreqs, meta, draftSteps, r.mtpPastK, r.mtpPastV)
 		if err != nil {
 			return out, stats, curVerifier, logit, lastH, curHidden, err
 		}

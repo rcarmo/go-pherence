@@ -24,6 +24,26 @@ func TestQwenStorePromptPrefixStoresForwardState(t *testing.T) {
 	}
 }
 
+func TestNativeMTPDraftStepsForRemaining(t *testing.T) {
+	cases := []struct {
+		mtpSteps  int
+		remaining int
+		want      int
+	}{
+		{2, 0, 0},
+		{2, 1, 0},
+		{2, 2, 1},
+		{2, 3, 2},
+		{4, 3, 2},
+		{0, 3, 0},
+	}
+	for _, tc := range cases {
+		if got := nativeMTPDraftStepsForRemaining(tc.mtpSteps, tc.remaining); got != tc.want {
+			t.Fatalf("steps(%d,%d)=%d want %d", tc.mtpSteps, tc.remaining, got, tc.want)
+		}
+	}
+}
+
 func TestShouldFallbackNativeMTP(t *testing.T) {
 	stats := mtpGenerateStats{Accepted: 2, Drafted: 4, Rounds: 4}
 	if shouldFallbackNativeMTP(stats, false, 0.75, 4) {
