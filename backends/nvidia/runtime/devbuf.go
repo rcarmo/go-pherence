@@ -59,6 +59,15 @@ func NewDevBufFrom(data []float32) *DevBuf {
 	return &DevBuf{cpu: data, n: len(data), dev: CPU}
 }
 
+// GPUBuffer returns the underlying GPU buffer when present. Callers must ensure
+// the DevBuf is GPU-resident before using the returned buffer.
+func (b *DevBuf) GPUBuffer() *Buffer {
+	if b == nil {
+		return nil
+	}
+	return b.gpu
+}
+
 // NewDevBufGPU allocates a GPU-only buffer without uploading zeroed CPU data.
 // Its contents are undefined until overwritten by a GPU operation.
 func NewDevBufGPU(n int) (*DevBuf, error) {

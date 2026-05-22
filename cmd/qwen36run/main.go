@@ -1006,6 +1006,11 @@ func topKMatVec(t rawTensor, x []float32, k int) []TopLogit {
 
 func argmaxLMHead(t rawTensor, lmGPU *nvidia.Buffer, x []float32) (int, float32) {
 	if t.mlx != nil {
+		if qwen36UseGPULMHead {
+			if idx, val, ok := qwen35ArgmaxMLXGPUIndex(t.mlx, x); ok {
+				return idx, val
+			}
+		}
 		logits := make([]float32, t.mlx.OutDim)
 		if qwen36UseGPULMHead && qwen35ArgmaxMLXGPU(logits, t.mlx, x) {
 			qwen36LMHeadStats.Calls++
