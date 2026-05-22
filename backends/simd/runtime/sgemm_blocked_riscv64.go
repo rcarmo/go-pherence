@@ -9,11 +9,18 @@ func sgemmNTTileFMA(iLen, jLen, kLen int, alpha float32, a unsafe.Pointer, lda i
 		return
 	}
 	for i := 0; i < iLen; i++ {
+		aOff, okA := checkedFloat32ByteOffset(i * lda)
+		if !okA {
+			return
+		}
+		aRow := unsafe.Slice((*float32)(unsafe.Add(a, aOff)), kLen)
 		for j := 0; j < jLen; j++ {
-			sum := float32(0)
-			for p := 0; p < kLen; p++ {
-				sum += loadF32(a, i*lda+p) * loadF32(b, j*ldb+p)
+			bOff, okB := checkedFloat32ByteOffset(j * ldb)
+			if !okB {
+				return
 			}
+			bRow := unsafe.Slice((*float32)(unsafe.Add(b, bOff)), kLen)
+			sum := sdotAsm(aRow, bRow)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
 	}

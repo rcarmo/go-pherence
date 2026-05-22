@@ -10,11 +10,18 @@ func gatherMicroKernel6x8(k int, alpha float32, a unsafe.Pointer, lda int, b uns
 	}
 	idx := unsafe.Slice((*int32)(indices), 8)
 	for i := 0; i < 6; i++ {
+		aOff, okA := checkedFloat32ByteOffset(i * lda)
+		if !okA {
+			return
+		}
+		aRow := unsafe.Slice((*float32)(unsafe.Add(a, aOff)), k)
 		for j := 0; j < 8; j++ {
-			sum := float32(0)
-			for p := 0; p < k; p++ {
-				sum += loadF32(a, i*lda+p) * loadF32(b, int(idx[j])+p)
+			bOff, okB := checkedFloat32ByteOffset(int(idx[j]))
+			if !okB {
+				return
 			}
+			bRow := unsafe.Slice((*float32)(unsafe.Add(b, bOff)), k)
+			sum := sdotAsm(aRow, bRow)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
 	}
