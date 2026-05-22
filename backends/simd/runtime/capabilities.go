@@ -58,8 +58,9 @@ func RuntimeCapabilities() Capabilities {
 	case "riscv64":
 		c.HasRVV = cpu.RISCV64.HasV
 		c.HasDot = c.HasRVV
-		// RVV hardware may be present, but HasVec/HasSGEMM stay false
-		// until broader riscv64 vector kernels are enabled and parity-tested.
+		c.HasSGEMM = c.HasRVV && hasSgemmAsm
+		// RVV hardware may be present, but HasVec stays false until the
+		// complete vector surface is enabled and parity-tested.
 	}
 	return c
 }
