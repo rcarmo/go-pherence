@@ -24,6 +24,14 @@ var qwen36UseGPULMHead bool
 var qwen36LMHeadLogitsScratch []float32
 var qwen36LMHeadStats Qwen36LMHeadStats
 
+type QwenGPUWindowEstimate struct {
+	Tokens                   int     `json:"tokens"`
+	TransientBytesPerToken   float64 `json:"transient_bytes_per_token"`
+	TransientUploadsPerToken float64 `json:"transient_uploads_per_token"`
+	ByteReduction            float64 `json:"byte_reduction"`
+	UploadReduction          float64 `json:"upload_reduction"`
+}
+
 type Qwen36LMHeadStats struct {
 	Calls        int64   `json:"calls,omitempty"`
 	GPUMillis    int64   `json:"gpu_ms,omitempty"`
@@ -115,6 +123,7 @@ type Report struct {
 	GPUCache                    qwen.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
 	GPUTransientBytesPerToken   float64                    `json:"gpu_transient_bytes_per_token,omitempty"`
 	GPUTransientUploadsPerToken float64                    `json:"gpu_transient_uploads_per_token,omitempty"`
+	GPUWindowEstimates          []QwenGPUWindowEstimate    `json:"gpu_window_estimates,omitempty"`
 	GPUVerify                   qwen.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
 	LinearStats                 qwen.Qwen35LinearStats     `json:"linear_stats,omitempty"`
 	LMHeadStats                 Qwen36LMHeadStats          `json:"lm_head_stats,omitempty"`
@@ -1300,6 +1309,21 @@ func qwenPopulateTransientPerToken(rep *Report) {
 	n := float64(len(rep.GeneratedIDs))
 	rep.GPUTransientBytesPerToken = float64(rep.GPUCache.TransientBytes) / n
 	rep.GPUTransientUploadsPerToken = float64(rep.GPUCache.Transient) / n
+	if rep.GPUCache.TransientUniqueBytes <= 0 || rep.GPUCache.TransientUniqueWeights <= 0 {
+		return
+	}
+	for _, window := range []int{2, 4, 8} {
+		bytesPerToken := float64(rep.GPUCache.TransientUniqueBytes) / float64(window)
+		uploadsPerToken := float64(rep.GPUCache.TransientUniqueWeights) / float64(window)
+		est := QwenGPUWindowEstimate{Tokens: window, TransientBytesPerToken: bytesPerToken, TransientUploadsPerToken: uploadsPerToken}
+		if rep.GPUTransientBytesPerToken > 0 {
+			est.ByteReduction = rep.GPUTransientBytesPerToken / bytesPerToken
+		}
+		if rep.GPUTransientUploadsPerToken > 0 {
+			est.UploadReduction = rep.GPUTransientUploadsPerToken / uploadsPerToken
+		}
+		rep.GPUWindowEstimates = append(rep.GPUWindowEstimates, est)
+	}
 }
 
 func applySweepLimit(prompts []string, limit int) []string {

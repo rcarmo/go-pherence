@@ -36,6 +36,8 @@ type Qwen35GPUCacheStats struct {
 	TopTransient            []Qwen35GPUTransientStat `json:"top_transient,omitempty"`
 	TransientLayers         []Qwen35GPULayerStat     `json:"transient_layers,omitempty"`
 	TransientCategories     []Qwen35GPUCategoryStat  `json:"transient_categories,omitempty"`
+	TransientUniqueWeights  int                      `json:"transient_unique_weights,omitempty"`
+	TransientUniqueBytes    int64                    `json:"transient_unique_bytes,omitempty"`
 	MLXCompletePrefixLayers int                      `json:"mlx_complete_prefix_layers,omitempty"`
 	MLXLayers               []Qwen35GPULayerStat     `json:"mlx_layers,omitempty"`
 }
@@ -376,7 +378,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		top = top[:10]
 	}
 	layers, completePrefix := qwen35MLXLayerStatsLocked()
-	transientLayers, transientCategories := qwen35TransientBreakdownLocked()
+	transientLayers, transientCategories, transientUniqueWeights, transientUniqueBytes := qwen35TransientBreakdownLocked()
 	return Qwen35GPUCacheStats{
 		Enabled:                 qwen35GPUEnabled,
 		RequestedBytes:          qwen35GPUCache.requestedBytes,
@@ -394,12 +396,14 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		TopTransient:            top,
 		TransientLayers:         transientLayers,
 		TransientCategories:     transientCategories,
+		TransientUniqueWeights:  transientUniqueWeights,
+		TransientUniqueBytes:    transientUniqueBytes,
 		MLXCompletePrefixLayers: completePrefix,
 		MLXLayers:               layers,
 	}
 }
 
-func qwen35TransientBreakdownLocked() ([]Qwen35GPULayerStat, []Qwen35GPUCategoryStat) {
+func qwen35TransientBreakdownLocked() ([]Qwen35GPULayerStat, []Qwen35GPUCategoryStat, int, int64) {
 	byLayer := map[int]Qwen35GPULayerStat{}
 	byCategory := map[string]Qwen35GPUCategoryStat{}
 	for _, stat := range qwen35GPUCache.transientByName {
@@ -436,7 +440,16 @@ func qwen35TransientBreakdownLocked() ([]Qwen35GPULayerStat, []Qwen35GPUCategory
 		}
 		return categories[i].Bytes > categories[j].Bytes
 	})
-	return layers, categories
+	var uniqueBytes int64
+	uniqueWeights := 0
+	for _, stat := range qwen35GPUCache.transientByName {
+		if stat.Count <= 0 {
+			continue
+		}
+		uniqueWeights++
+		uniqueBytes += stat.Bytes / stat.Count
+	}
+	return layers, categories, uniqueWeights, uniqueBytes
 }
 
 func qwen35WeightCategory(name string) string {
