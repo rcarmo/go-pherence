@@ -39,6 +39,7 @@ type Qwen35GPUCacheStats struct {
 	TransientUniqueWeights  int                      `json:"transient_unique_weights,omitempty"`
 	TransientUniqueBytes    int64                    `json:"transient_unique_bytes,omitempty"`
 	MLXCompletePrefixLayers int                      `json:"mlx_complete_prefix_layers,omitempty"`
+	MLXWindowSummaries      []Qwen35GPUWindowSummary `json:"mlx_window_summaries,omitempty"`
 	MLXLayers               []Qwen35GPULayerStat     `json:"mlx_layers,omitempty"`
 }
 
@@ -49,17 +50,27 @@ type Qwen35GPUTransientStat struct {
 }
 
 type Qwen35GPULayerStat struct {
-	Layer    int   `json:"layer"`
-	Resident int   `json:"resident,omitempty"`
-	Total    int   `json:"total,omitempty"`
-	Count    int64 `json:"count,omitempty"`
-	Bytes    int64 `json:"bytes,omitempty"`
+	Layer         int   `json:"layer"`
+	Resident      int   `json:"resident,omitempty"`
+	Total         int   `json:"total,omitempty"`
+	ResidentBytes int64 `json:"resident_bytes,omitempty"`
+	TotalBytes    int64 `json:"total_bytes,omitempty"`
+	Count         int64 `json:"count,omitempty"`
+	Bytes         int64 `json:"bytes,omitempty"`
 }
 
 type Qwen35GPUCategoryStat struct {
 	Category string `json:"category"`
 	Count    int64  `json:"count"`
 	Bytes    int64  `json:"bytes"`
+}
+
+type Qwen35GPUWindowSummary struct {
+	StartLayer    int   `json:"start_layer"`
+	Layers        int   `json:"layers"`
+	MissingBytes  int64 `json:"missing_bytes"`
+	ResidentBytes int64 `json:"resident_bytes"`
+	TotalBytes    int64 `json:"total_bytes"`
 }
 
 type qwen35GPUMXEntry struct {
@@ -399,8 +410,38 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		TransientUniqueWeights:  transientUniqueWeights,
 		TransientUniqueBytes:    transientUniqueBytes,
 		MLXCompletePrefixLayers: completePrefix,
+		MLXWindowSummaries:      qwen35MLXWindowSummaries(layers, completePrefix),
 		MLXLayers:               layers,
 	}
+}
+
+func qwen35MLXWindowSummaries(layers []Qwen35GPULayerStat, start int) []Qwen35GPUWindowSummary {
+	if len(layers) == 0 || start < 0 {
+		return nil
+	}
+	byLayer := map[int]Qwen35GPULayerStat{}
+	for _, layer := range layers {
+		byLayer[layer.Layer] = layer
+	}
+	out := make([]Qwen35GPUWindowSummary, 0, 3)
+	for _, n := range []int{2, 4, 8} {
+		s := Qwen35GPUWindowSummary{StartLayer: start, Layers: n}
+		for layer := start; layer < start+n; layer++ {
+			stat, ok := byLayer[layer]
+			if !ok {
+				continue
+			}
+			s.ResidentBytes += stat.ResidentBytes
+			s.TotalBytes += stat.TotalBytes
+			if stat.TotalBytes > stat.ResidentBytes {
+				s.MissingBytes += stat.TotalBytes - stat.ResidentBytes
+			}
+		}
+		if s.TotalBytes > 0 {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func qwen35TransientBreakdownLocked() ([]Qwen35GPULayerStat, []Qwen35GPUCategoryStat, int, int64) {
@@ -476,14 +517,19 @@ func qwen35WeightCategory(name string) string {
 func qwen35MLXLayerStatsLocked() ([]Qwen35GPULayerStat, int) {
 	total := map[int]int{}
 	resident := map[int]int{}
+	totalBytes := map[int]int64{}
+	residentBytes := map[int]int64{}
 	for w, name := range qwen35GPUCache.mlxNames {
 		layer := qwen35LayerIndexFromName(name)
 		if layer < 0 {
 			continue
 		}
+		bytes := qwen35MLXGPUWeightBytes(w)
 		total[layer]++
+		totalBytes[layer] += bytes
 		if e := qwen35GPUCache.mlxEntries[w]; e != nil && e.GPU != nil {
 			resident[layer]++
+			residentBytes[layer] += bytes
 		}
 	}
 	if len(total) == 0 {
@@ -497,7 +543,7 @@ func qwen35MLXLayerStatsLocked() ([]Qwen35GPULayerStat, int) {
 	out := make([]Qwen35GPULayerStat, 0, len(keys))
 	completePrefix := 0
 	for _, layer := range keys {
-		stat := Qwen35GPULayerStat{Layer: layer, Resident: resident[layer], Total: total[layer]}
+		stat := Qwen35GPULayerStat{Layer: layer, Resident: resident[layer], Total: total[layer], ResidentBytes: residentBytes[layer], TotalBytes: totalBytes[layer]}
 		out = append(out, stat)
 		if layer == completePrefix && stat.Total > 0 && stat.Resident == stat.Total {
 			completePrefix++
