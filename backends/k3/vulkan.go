@@ -2,6 +2,7 @@ package k3
 
 import (
 	"fmt"
+	"os"
 
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 )
@@ -14,6 +15,10 @@ type VulkanBackend struct{}
 
 func (VulkanBackend) Name() string { return TierVulkan.String() }
 
+func allowVulkanHostRoundTrip() bool {
+	return os.Getenv("GO_PHERENCE_VULKAN_HOST_ROUNDTRIP") == "1"
+}
+
 // alloc allocates a VkBuf of the given byte size or returns an error.
 func alloc(sizeBytes int) (*vk.VkBuf, error) {
 	b, err := vk.VkBufAlloc(sizeBytes)
@@ -24,6 +29,12 @@ func alloc(sizeBytes int) (*vk.VkBuf, error) {
 }
 
 func (VulkanBackend) GemvF32(out, x, w []float32, inDim, outDim int) error {
+	// Host round-tripping Vulkan buffers per GEMV is much slower than RVV for TinyLlama.
+	// Use the SIMD hot path until weights can live persistently on the GPU.
+	if !allowVulkanHostRoundTrip() {
+		return (SIMDBackend{}).GemvF32(out, x, w, inDim, outDim)
+	}
+
 	outBuf, err := alloc(len(out) * 4)
 	if err != nil {
 		return err
@@ -52,6 +63,10 @@ func (VulkanBackend) GemvF32(out, x, w []float32, inDim, outDim int) error {
 }
 
 func (VulkanBackend) RMSNormF32(x, w []float32, eps float32) error {
+	if !allowVulkanHostRoundTrip() {
+		return (SIMDBackend{}).RMSNormF32(x, w, eps)
+	}
+
 	xBuf, err := alloc(len(x) * 4)
 	if err != nil {
 		return err
@@ -75,6 +90,10 @@ func (VulkanBackend) RMSNormF32(x, w []float32, eps float32) error {
 }
 
 func (VulkanBackend) RMSNormNoScaleF32(x []float32, eps float32) error {
+	if !allowVulkanHostRoundTrip() {
+		return (SIMDBackend{}).RMSNormNoScaleF32(x, eps)
+	}
+
 	xBuf, err := alloc(len(x) * 4)
 	if err != nil {
 		return err
@@ -90,6 +109,10 @@ func (VulkanBackend) RMSNormNoScaleF32(x []float32, eps float32) error {
 }
 
 func (VulkanBackend) SiLUMulF32(dst, gate, up []float32) error {
+	if !allowVulkanHostRoundTrip() {
+		return (SIMDBackend{}).SiLUMulF32(dst, gate, up)
+	}
+
 	dstBuf, err := alloc(len(dst) * 4)
 	if err != nil {
 		return err
@@ -118,6 +141,10 @@ func (VulkanBackend) SiLUMulF32(dst, gate, up []float32) error {
 }
 
 func (VulkanBackend) GELUTanhMulF32(dst, gate, up []float32) error {
+	if !allowVulkanHostRoundTrip() {
+		return (SIMDBackend{}).GELUTanhMulF32(dst, gate, up)
+	}
+
 	// VkGELUTanhMulF32 mutates gate in-place (gate = gelu(gate)*up).
 	// We use a separate dst → copy back to dst after.
 	gateBuf, err := alloc(len(gate) * 4)
@@ -143,6 +170,10 @@ func (VulkanBackend) GELUTanhMulF32(dst, gate, up []float32) error {
 }
 
 func (VulkanBackend) RoPEPartialF32(x, freqs []float32, pos, nHeads, headDim, rotHalf int) error {
+	if !allowVulkanHostRoundTrip() {
+		return (SIMDBackend{}).RoPEPartialF32(x, freqs, pos, nHeads, headDim, rotHalf)
+	}
+
 	xBuf, err := alloc(len(x) * 4)
 	if err != nil {
 		return err
@@ -166,6 +197,10 @@ func (VulkanBackend) RoPEPartialF32(x, freqs []float32, pos, nHeads, headDim, ro
 }
 
 func (VulkanBackend) AttentionScoresF32(out, q, kCache []float32, seqLen, nHeads, nKVHeads, headDim int, scale float32) error {
+	if !allowVulkanHostRoundTrip() {
+		return (SIMDBackend{}).AttentionScoresF32(out, q, kCache, seqLen, nHeads, nKVHeads, headDim, scale)
+	}
+
 	outBuf, err := alloc(len(out) * 4)
 	if err != nil {
 		return err

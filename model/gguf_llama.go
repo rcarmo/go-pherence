@@ -13,17 +13,17 @@ import (
 
 // GGUFLlamaConfig holds the hyper-parameters extracted from GGUF metadata.
 type GGUFLlamaConfig struct {
-	HiddenSize   int
-	NumLayers    int
-	NumHeads     int    // query heads
-	NumKVHeads   int
-	HeadDim      int
+	HiddenSize    int
+	NumLayers     int
+	NumHeads      int // query heads
+	NumKVHeads    int
+	HeadDim       int
 	FFNHiddenSize int
-	VocabSize    int
-	MaxSeqLen    int
-	RMSNormEps   float32
-	RopeFreqBase float32
-	RopeDimCount int
+	VocabSize     int
+	MaxSeqLen     int
+	RMSNormEps    float32
+	RopeFreqBase  float32
+	RopeDimCount  int
 }
 
 // GGUFLlamaLayer holds per-layer weight matrices.
@@ -41,8 +41,8 @@ type GGUFLlamaLayer struct {
 
 // GGUFLlama is a loaded LLaMA model with all weights dequanted to F32.
 type GGUFLlama struct {
-	Config    GGUFLlamaConfig
-	Layers    []GGUFLlamaLayer
+	Config      GGUFLlamaConfig
+	Layers      []GGUFLlamaLayer
 	EmbedTokens []float32 // [vocab × hidden]
 	OutputNorm  []float32 // [hidden]
 	LMHead      []float32 // [vocab × hidden]
@@ -308,15 +308,25 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 	// RoPE frequencies for this position
 	posFreqs := m.ropeFreqs[step*rotHalf : (step+1)*rotHalf]
 
+	// Reusable per-token scratch buffers. These used to be allocated per layer,
+	// which created hundreds of short-lived slices per generated token.
+	attnIn := make([]float32, h)
+	q := make([]float32, nH*hDim)
+	k := make([]float32, kvDim)
+	v := make([]float32, kvDim)
+	attnOut := make([]float32, nH*hDim)
+	attnScores := make([]float32, cfg.MaxSeqLen)
+	oOut := make([]float32, h)
+	ffnIn := make([]float32, h)
+	gate := make([]float32, ffn)
+	up := make([]float32, ffn)
+	ffnMid := make([]float32, ffn)
+	down := make([]float32, h)
+
 	for i, layer := range m.Layers {
 		// ── attention sub-layer ───────────────────────────────────────────
-		attnIn := make([]float32, h)
 		copy(attnIn, hidden)
 		m.rmsNorm(attnIn, layer.AttnNorm)
-
-		q := make([]float32, nH*hDim)
-		k := make([]float32, kvDim)
-		v := make([]float32, kvDim)
 		m.gemv(q, attnIn, layer.WQ, h, nH*hDim)
 		m.gemv(k, attnIn, layer.WK, h, kvDim)
 		m.gemv(v, attnIn, layer.WV, h, kvDim)
@@ -332,10 +342,9 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 		copy(vCache[step*kvDim:], v)
 
 		// Grouped-query attention: compute attention output
-		attnOut := m.gqaAttention(q, kCache, vCache, step+1, nH, nKV, hDim)
+		m.gqaAttentionInto(attnOut, attnScores, q, kCache, vCache, step+1, nH, nKV, hDim)
 
 		// Output projection
-		oOut := make([]float32, h)
 		m.gemv(oOut, attnOut, layer.WO, nH*hDim, h)
 
 		// Residual add
@@ -344,19 +353,14 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 		}
 
 		// ── FFN sub-layer ─────────────────────────────────────────────────
-		ffnIn := make([]float32, h)
 		copy(ffnIn, hidden)
 		m.rmsNorm(ffnIn, layer.FFNNorm)
 
-		gate := make([]float32, ffn)
-		up := make([]float32, ffn)
 		m.gemv(gate, ffnIn, layer.WGate, h, ffn)
 		m.gemv(up, ffnIn, layer.WUp, h, ffn)
 
-		ffnMid := make([]float32, ffn)
 		m.siluMul(ffnMid, gate, up)
 
-		down := make([]float32, h)
 		m.gemv(down, ffnMid, layer.WDown, ffn, h)
 
 		for j := range hidden {
@@ -374,18 +378,18 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 // gqaAttention computes multi-head attention with GQA.
 // q: [nH × hDim], kCache: [seqLen × kvDim], vCache: [seqLen × kvDim]
 // Returns attention output [nH × hDim].
-func (m *GGUFLlama) gqaAttention(q, kCache, vCache []float32, seqLen, nH, nKV, hDim int) []float32 {
+func (m *GGUFLlama) gqaAttentionInto(out, scores, q, kCache, vCache []float32, seqLen, nH, nKV, hDim int) {
 	scale := float32(1.0 / math.Sqrt(float64(hDim)))
 	groupSize := nH / nKV
 	kvDim := nKV * hDim
-	out := make([]float32, nH*hDim)
-	scores := make([]float32, seqLen)
+	for i := 0; i < nH*hDim; i++ {
+		out[i] = 0
+	}
 
 	for h := 0; h < nH; h++ {
 		kvHead := h / groupSize
 		qRow := q[h*hDim : (h+1)*hDim]
 
-		// Compute attention scores: qRow · kCache[t, kvHead, :]
 		for t := 0; t < seqLen; t++ {
 			kRow := kCache[t*kvDim+kvHead*hDim : t*kvDim+(kvHead+1)*hDim]
 			var dot float32
@@ -396,7 +400,6 @@ func (m *GGUFLlama) gqaAttention(q, kCache, vCache []float32, seqLen, nH, nKV, h
 		}
 		softmaxInplace(scores[:seqLen])
 
-		// Weighted sum over V
 		outRow := out[h*hDim : (h+1)*hDim]
 		for t := 0; t < seqLen; t++ {
 			vRow := vCache[t*kvDim+kvHead*hDim : t*kvDim+(kvHead+1)*hDim]
@@ -406,6 +409,15 @@ func (m *GGUFLlama) gqaAttention(q, kCache, vCache []float32, seqLen, nH, nKV, h
 			}
 		}
 	}
+}
+
+// gqaAttention computes multi-head attention with GQA.
+// q: [nH × hDim], kCache: [seqLen × kvDim], vCache: [seqLen × kvDim]
+// Returns attention output [nH × hDim].
+func (m *GGUFLlama) gqaAttention(q, kCache, vCache []float32, seqLen, nH, nKV, hDim int) []float32 {
+	out := make([]float32, nH*hDim)
+	scores := make([]float32, seqLen)
+	m.gqaAttentionInto(out, scores, q, kCache, vCache, seqLen, nH, nKV, hDim)
 	return out
 }
 

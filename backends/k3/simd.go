@@ -1,6 +1,9 @@
 package k3
 
 import (
+	"runtime"
+	"sync"
+
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
@@ -11,8 +14,35 @@ type SIMDBackend struct{}
 func (SIMDBackend) Name() string { return TierCPU.String() }
 
 // GemvF32: W is [outDim × inDim], GemvRows(out, x, w, rows=outDim, cols=inDim).
+// Large matrices are split across rows so the K3 can use multiple X100 cores;
+// each row still uses the RVV Sdot kernel inside simd.GemvRows.
 func (SIMDBackend) GemvF32(out, x, w []float32, inDim, outDim int) error {
-	simd.GemvRows(out, x, w, outDim, inDim)
+	if outDim < 512 || inDim < 512 {
+		simd.GemvRows(out, x, w, outDim, inDim)
+		return nil
+	}
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 2 {
+		simd.GemvRows(out, x, w, outDim, inDim)
+		return nil
+	}
+	if workers > outDim {
+		workers = outDim
+	}
+	chunk := (outDim + workers - 1) / workers
+	var wg sync.WaitGroup
+	for start := 0; start < outDim; start += chunk {
+		end := start + chunk
+		if end > outDim {
+			end = outDim
+		}
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			simd.GemvRows(out[start:end], x, w[start*inDim:end*inDim], end-start, inDim)
+		}(start, end)
+	}
+	wg.Wait()
 	return nil
 }
 
