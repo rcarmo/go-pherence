@@ -46,6 +46,11 @@ type qwen35GPUMXEntry struct {
 	LastUse uint64
 }
 
+type qwen35NamedMLXWeight struct {
+	Name string
+	W    *mlx.QuantWeight
+}
+
 type qwen35GPUCacheState struct {
 	sync.Mutex
 	requestedBytes    int64
@@ -56,6 +61,7 @@ type qwen35GPUCacheState struct {
 	mlxEntries        map[*mlx.QuantWeight]*qwen35GPUMXEntry
 	transientGPU      *nvidia.GPUNVFP4Weight
 	transientByName   map[string]Qwen35GPUTransientStat
+	mlxNames          map[*mlx.QuantWeight]string
 	transientDetailed bool
 	tick              uint64
 	hits              int64
@@ -67,7 +73,7 @@ type qwen35GPUCacheState struct {
 	transientBytes    int64
 }
 
-var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, mlxEntries: map[*mlx.QuantWeight]*qwen35GPUMXEntry{}, transientByName: map[string]Qwen35GPUTransientStat{}}
+var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, mlxEntries: map[*mlx.QuantWeight]*qwen35GPUMXEntry{}, transientByName: map[string]Qwen35GPUTransientStat{}, mlxNames: map[*mlx.QuantWeight]string{}}
 var qwen35GPUCacheHeadroomBytes int64 = 512 * 1024 * 1024
 
 func SetQwen35GPUCacheHeadroom(bytes int64) {
@@ -145,6 +151,7 @@ func ResetQwen35GPUCache() {
 	qwen35GPUCache.transient = 0
 	qwen35GPUCache.transientBytes = 0
 	qwen35GPUCache.transientByName = map[string]Qwen35GPUTransientStat{}
+	qwen35GPUCache.mlxNames = map[*mlx.QuantWeight]string{}
 }
 
 func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
@@ -153,13 +160,15 @@ func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
 		return stats
 	}
 	mlxWeights := qwen35BaseMLXWeights(base)
+	qwen35RegisterMLXNames(mlxWeights)
 	// Placement policy: preserve a decode-hot layer prefix by default. Qwen3.6
 	// repeats the same projection sequence every token; keeping an intact prefix
 	// resident gives deterministic hits on subsequent decode steps. Size-only
 	// sorting maximizes entry count but was slower because it scattered partial
 	// layers and left large hot projections on CPU.
-	for _, m := range mlxWeights {
+	for _, named := range mlxWeights {
 		stats.Considered++
+		m := named.W
 		if m == nil {
 			continue
 		}
@@ -201,20 +210,48 @@ func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
 	return stats
 }
 
-func qwen35BaseMLXWeights(base *Qwen35BaseModel) []*mlx.QuantWeight {
-	var out []*mlx.QuantWeight
+func qwen35BaseMLXWeights(base *Qwen35BaseModel) []qwen35NamedMLXWeight {
+	var out []qwen35NamedMLXWeight
+	add := func(name string, w *mlx.QuantWeight) { out = append(out, qwen35NamedMLXWeight{Name: name, W: w}) }
 	for i := range base.Layers {
 		layer := &base.Layers[i]
+		prefix := fmt.Sprintf("model.layers.%d", i)
 		if layer.Full != nil {
 			l := layer.Full
-			out = append(out, l.QWm, l.KWm, l.VWm, l.OWm, l.GateWm, l.UpWm, l.DownWm)
+			add(prefix+".self_attn.q_proj", l.QWm)
+			add(prefix+".self_attn.k_proj", l.KWm)
+			add(prefix+".self_attn.v_proj", l.VWm)
+			add(prefix+".self_attn.o_proj", l.OWm)
+			add(prefix+".mlp.gate_proj", l.GateWm)
+			add(prefix+".mlp.up_proj", l.UpWm)
+			add(prefix+".mlp.down_proj", l.DownWm)
 		}
 		if layer.Linear != nil {
 			l := layer.Linear
-			out = append(out, l.QKVWm, l.GateWm, l.BetaWm, l.AlphaWm, l.OutWm, l.MLPGateWm, l.MLPUpWm, l.MLPDownWm)
+			add(prefix+".linear_attn.in_proj_qkv", l.QKVWm)
+			add(prefix+".linear_attn.in_proj_z", l.GateWm)
+			add(prefix+".linear_attn.in_proj_b", l.BetaWm)
+			add(prefix+".linear_attn.in_proj_a", l.AlphaWm)
+			add(prefix+".linear_attn.out_proj", l.OutWm)
+			add(prefix+".mlp.gate_proj", l.MLPGateWm)
+			add(prefix+".mlp.up_proj", l.MLPUpWm)
+			add(prefix+".mlp.down_proj", l.MLPDownWm)
 		}
 	}
 	return out
+}
+
+func qwen35RegisterMLXNames(weights []qwen35NamedMLXWeight) {
+	qwen35GPUCache.Lock()
+	defer qwen35GPUCache.Unlock()
+	if qwen35GPUCache.mlxNames == nil {
+		qwen35GPUCache.mlxNames = map[*mlx.QuantWeight]string{}
+	}
+	for _, named := range weights {
+		if named.W != nil && named.Name != "" {
+			qwen35GPUCache.mlxNames[named.W] = named.Name
+		}
+	}
 }
 
 func qwen35BaseNVFP4Weights(base *Qwen35BaseModel) []*Qwen35NVFP4Weight {
@@ -321,6 +358,22 @@ func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*nvidia.GPUNVFP4Weight, bool, 
 }
 
 func qwen35RecordTransientLocked(q *Qwen35NVFP4Weight, need int64) {
+	name := ""
+	if q != nil {
+		name = q.Name
+	}
+	qwen35RecordTransientNameLocked(name, need)
+}
+
+func qwen35RecordTransientMLXLocked(q *mlx.QuantWeight, need int64) {
+	name := ""
+	if q != nil && qwen35GPUCache.mlxNames != nil {
+		name = qwen35GPUCache.mlxNames[q]
+	}
+	qwen35RecordTransientNameLocked(name, need)
+}
+
+func qwen35RecordTransientNameLocked(name string, need int64) {
 	qwen35GPUCache.transient++
 	qwen35GPUCache.transientBytes += need
 	if !qwen35GPUCache.transientDetailed {
@@ -328,10 +381,6 @@ func qwen35RecordTransientLocked(q *Qwen35NVFP4Weight, need int64) {
 	}
 	if qwen35GPUCache.transientByName == nil {
 		qwen35GPUCache.transientByName = map[string]Qwen35GPUTransientStat{}
-	}
-	name := ""
-	if q != nil {
-		name = q.Name
 	}
 	stat := qwen35GPUCache.transientByName[name]
 	stat.Name = name
@@ -368,10 +417,10 @@ func qwen35TransientGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error
 		return nil, err
 	}
 	qwen35GPUCache.Lock()
-	qwen35GPUCache.transient++
-	qwen35GPUCache.transientBytes += qwen35MLXGPUWeightBytes(q)
+	need := qwen35MLXGPUWeightBytes(q)
+	qwen35RecordTransientMLXLocked(q, need)
 	qwen35GPUCache.uploads++
-	qwen35GPUCache.uploadBytes += qwen35MLXGPUWeightBytes(q)
+	qwen35GPUCache.uploadBytes += need
 	qwen35GPUCache.Unlock()
 	return gw, nil
 }
@@ -397,10 +446,10 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 	// For Qwen MLX the full model working set is larger than 12GB VRAM. Do not
 	// evict resident MLX weights for one-off later-layer uploads: that thrashes
 	// and produces zero hits on the next token. Instead, keep the resident prefix
-	// stable and let overflow weights fall back to CPU until placement is smarter.
+	// stable and let the caller decide whether to use an explicit transient
+	// overflow upload or a CPU fallback. Count actual transient uploads in the
+	// overflow path, not this cache-full probe.
 	if qwen35GPUCache.budgetBytes > 0 && qwen35GPUCache.usedBytes+need > qwen35GPUCache.budgetBytes {
-		qwen35GPUCache.transient++
-		qwen35GPUCache.transientBytes += need
 		qwen35GPUCache.Unlock()
 		return nil, fmt.Errorf("MLX weight cache full: need %.1f MB, used %.1f MB, budget %.1f MB", float64(need)/1e6, float64(qwen35GPUCache.usedBytes)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
 	}
