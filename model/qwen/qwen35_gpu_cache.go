@@ -25,6 +25,9 @@ type Qwen35GPUCacheStats struct {
 	BudgetBytes             int64                    `json:"budget_bytes"`
 	Clamped                 bool                     `json:"clamped"`
 	UsedBytes               int64                    `json:"used_bytes"`
+	WindowBudgetBytes       int64                    `json:"window_budget_bytes,omitempty"`
+	WindowUsedBytes         int64                    `json:"window_used_bytes,omitempty"`
+	WindowEntries           int                      `json:"window_entries,omitempty"`
 	Entries                 int                      `json:"entries"`
 	Hits                    int64                    `json:"hits"`
 	Misses                  int64                    `json:"misses"`
@@ -92,6 +95,9 @@ type qwen35GPUCacheState struct {
 	usedBytes         int64
 	entries           map[*Qwen35NVFP4Weight]bool
 	mlxEntries        map[*mlx.QuantWeight]*qwen35GPUMXEntry
+	windowMLXEntries  map[*mlx.QuantWeight]bool
+	windowBudgetBytes int64
+	windowUsedBytes   int64
 	transientGPU      *nvidia.GPUNVFP4Weight
 	transientByName   map[string]Qwen35GPUTransientStat
 	mlxNames          map[*mlx.QuantWeight]string
@@ -106,9 +112,19 @@ type qwen35GPUCacheState struct {
 	transientBytes    int64
 }
 
-var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, mlxEntries: map[*mlx.QuantWeight]*qwen35GPUMXEntry{}, transientByName: map[string]Qwen35GPUTransientStat{}, mlxNames: map[*mlx.QuantWeight]string{}}
+var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, mlxEntries: map[*mlx.QuantWeight]*qwen35GPUMXEntry{}, windowMLXEntries: map[*mlx.QuantWeight]bool{}, transientByName: map[string]Qwen35GPUTransientStat{}, mlxNames: map[*mlx.QuantWeight]string{}}
 var qwen35GPUCacheHeadroomBytes int64 = 512 * 1024 * 1024
 var qwen35GPUPlacement = "prefix"
+
+func SetQwen35GPUWindowBudget(bytes int64) {
+	if bytes < 0 {
+		bytes = 0
+	}
+	qwen35GPUCache.Lock()
+	defer qwen35GPUCache.Unlock()
+	qwen35GPUCache.windowBudgetBytes = bytes
+	qwen35GPUCache.evictWindowUntilLocked(0)
+}
 
 func SetQwen35GPUPlacement(policy string) {
 	qwen35GPUCache.Lock()
@@ -187,6 +203,8 @@ func ResetQwen35GPUCache() {
 		}
 		delete(qwen35GPUCache.mlxEntries, q)
 	}
+	qwen35GPUCache.windowMLXEntries = map[*mlx.QuantWeight]bool{}
+	qwen35GPUCache.windowUsedBytes = 0
 	if qwen35GPUCache.transientGPU != nil {
 		qwen35GPUCache.transientGPU.Free()
 		qwen35GPUCache.transientGPU = nil
@@ -396,6 +414,9 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		BudgetBytes:             qwen35GPUCache.budgetBytes,
 		Clamped:                 qwen35GPUCache.clamped,
 		UsedBytes:               qwen35GPUCache.usedBytes,
+		WindowBudgetBytes:       qwen35GPUCache.windowBudgetBytes,
+		WindowUsedBytes:         qwen35GPUCache.windowUsedBytes,
+		WindowEntries:           len(qwen35GPUCache.windowMLXEntries),
 		Entries:                 len(qwen35GPUCache.entries) + len(qwen35GPUCache.mlxEntries),
 		Hits:                    atomic.LoadInt64(&qwen35GPUCache.hits),
 		Misses:                  qwen35GPUCache.misses,
@@ -696,8 +717,34 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 	// overflow upload or a CPU fallback. Count actual transient uploads in the
 	// overflow path, not this cache-full probe.
 	if qwen35GPUCache.budgetBytes > 0 && qwen35GPUCache.usedBytes+need > qwen35GPUCache.budgetBytes {
+		if qwen35GPUCache.windowBudgetBytes <= 0 || need > qwen35GPUCache.windowBudgetBytes {
+			qwen35GPUCache.Unlock()
+			return nil, fmt.Errorf("MLX weight cache full: need %.1f MB, used %.1f MB, budget %.1f MB", float64(need)/1e6, float64(qwen35GPUCache.usedBytes)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
+		}
+		qwen35GPUCache.evictWindowUntilLocked(need)
+		if qwen35GPUCache.windowUsedBytes+need > qwen35GPUCache.windowBudgetBytes {
+			qwen35GPUCache.Unlock()
+			return nil, fmt.Errorf("MLX window full: need %.1f MB, used %.1f MB, budget %.1f MB", float64(need)/1e6, float64(qwen35GPUCache.windowUsedBytes)/1e6, float64(qwen35GPUCache.windowBudgetBytes)/1e6)
+		}
 		qwen35GPUCache.Unlock()
-		return nil, fmt.Errorf("MLX weight cache full: need %.1f MB, used %.1f MB, budget %.1f MB", float64(need)/1e6, float64(qwen35GPUCache.usedBytes)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
+		gw, err := nvidia.UploadMLXWeightNative(q.Weight, q.Scales, q.Biases, q.InDim, q.OutDim, q.GroupSize)
+		if err != nil {
+			return nil, err
+		}
+		qwen35GPUCache.Lock()
+		defer qwen35GPUCache.Unlock()
+		if e := qwen35GPUCache.mlxEntries[q]; e != nil && e.GPU != nil {
+			gw.Free()
+			e.LastUse = atomic.AddUint64(&qwen35GPUCache.tick, 1)
+			qwen35GPUCache.hits++
+			return e.GPU, nil
+		}
+		qwen35GPUCache.mlxEntries[q] = &qwen35GPUMXEntry{GPU: gw, Bytes: need, LastUse: atomic.AddUint64(&qwen35GPUCache.tick, 1)}
+		qwen35GPUCache.windowMLXEntries[q] = true
+		qwen35GPUCache.windowUsedBytes += need
+		qwen35GPUCache.uploads++
+		qwen35GPUCache.uploadBytes += need
+		return gw, nil
 	}
 	qwen35GPUCache.Unlock()
 
@@ -746,6 +793,34 @@ func qwen35GPUWeightBytes(q *Qwen35NVFP4Weight) int64 {
 		return ((n + 3) / 4) * 4
 	}
 	return padded(weight) + padded(scale)
+}
+
+func (c *qwen35GPUCacheState) evictWindowUntilLocked(need int64) {
+	if c.windowBudgetBytes <= 0 {
+		for q := range c.windowMLXEntries {
+			c.freeMLXEntryLocked(q)
+		}
+		return
+	}
+	for c.windowUsedBytes+need > c.windowBudgetBytes && len(c.windowMLXEntries) > 0 {
+		var victim *mlx.QuantWeight
+		var victimUse uint64
+		for q := range c.windowMLXEntries {
+			e := c.mlxEntries[q]
+			if e == nil {
+				delete(c.windowMLXEntries, q)
+				continue
+			}
+			if victim == nil || e.LastUse < victimUse {
+				victim = q
+				victimUse = e.LastUse
+			}
+		}
+		if victim == nil {
+			return
+		}
+		c.freeMLXEntryLocked(victim)
+	}
 }
 
 func (c *qwen35GPUCacheState) evictUntilLocked(need int64, keep *Qwen35NVFP4Weight) {
@@ -810,9 +885,17 @@ func (c *qwen35GPUCacheState) freeMLXEntryLocked(q *mlx.QuantWeight) {
 		e.GPU.Free()
 	}
 	delete(c.mlxEntries, q)
-	c.usedBytes -= e.Bytes
-	if c.usedBytes < 0 {
-		c.usedBytes = 0
+	if c.windowMLXEntries[q] {
+		delete(c.windowMLXEntries, q)
+		c.windowUsedBytes -= e.Bytes
+		if c.windowUsedBytes < 0 {
+			c.windowUsedBytes = 0
+		}
+	} else {
+		c.usedBytes -= e.Bytes
+		if c.usedBytes < 0 {
+			c.usedBytes = 0
+		}
 	}
 	c.evictions++
 }

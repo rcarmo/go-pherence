@@ -312,6 +312,7 @@ func main() {
 	qwen36UseGPULMHead = *gpuLMHead
 	qwen.SetQwen35GPUEnabled(*useGPU)
 	qwen.SetQwen35GPUPlacement(*gpuPlacement)
+	qwen.SetQwen35GPUWindowBudget(int64(*gpuWindowReserveMB) * 1024 * 1024)
 	qwen.SetQwen35GPUCacheHeadroom(int64(*gpuCacheHeadroomMB) * 1024 * 1024)
 	qwen.SetQwen35GPUTransientDetail(*gpuTransientDetail)
 	qwen.SetQwen35LinearTiming(*gpuTiming)
