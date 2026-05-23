@@ -2,6 +2,8 @@
 
 package simd
 
+import "github.com/rcarmo/go-pherence/backends/simd/kernels"
+
 // RVV vector assembly is enabled incrementally. HasVecAsm remains false until
 // the full vector surface (including RMSNorm/BF16) has parity-tested RVV
 // implementations, but the basic elementwise kernels below can use RVV today.
@@ -79,7 +81,14 @@ func VecScale(dst, a []float32, scale float32) {
 	vecScaleGo(dst, a, scale)
 }
 
-func VecSiLUMul(dst, a, b []float32)      { vecSiLUMulGo(dst, a, b) }
+func VecSiLUMul(dst, a, b []float32) {
+	if len(a) > 0 && len(dst) == len(a) && len(b) == len(a) && hasRVVVecAsm {
+		kernels.SiLU(dst, a)
+		vecMulAsm(dst, dst, b)
+		return
+	}
+	vecSiLUMulGo(dst, a, b)
+}
 func RMSNorm(x, w []float32, eps float32) { rmsNormGo(x, w, eps) }
 func RMSNormNoScale(x []float32, eps float32) {
 	if len(x) > 0 && HasDotAsm && hasRVVVecAsm {
@@ -90,7 +99,14 @@ func RMSNormNoScale(x []float32, eps float32) {
 	}
 	rmsNormNoScaleGo(x, eps)
 }
-func GELUTanhMul(dst, a, b []float32) { geluTanhMulGo(dst, a, b) }
+func GELUTanhMul(dst, a, b []float32) {
+	if len(a) > 0 && len(dst) == len(a) && len(b) == len(a) && hasRVVVecAsm {
+		kernels.GELUTanh(dst, a)
+		vecMulAsm(dst, dst, b)
+		return
+	}
+	geluTanhMulGo(dst, a, b)
+}
 func RMSNormBF16(x, w []float32, eps float32) {
 	RMSNorm(x, w, eps)
 	ToBF16(x)

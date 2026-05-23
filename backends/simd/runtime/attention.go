@@ -23,7 +23,16 @@ func GQAAttentionChecked(q, kCache, vCache []float32, seqLen, numHeads, numKVHea
 }
 
 func GQAAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) []float32 {
-	return kernels.GQAAttentionScale(q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale, Sdot, Saxpy)
+	if numHeads <= 0 || headDim <= 0 {
+		return nil
+	}
+	out := make([]float32, numHeads*headDim)
+	if seqLen <= 0 {
+		return out
+	}
+	scores := make([]float32, seqLen)
+	GQAAttentionScaleInto(out, scores, q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale)
+	return out
 }
 
 // GQAAttentionScaleChecked allocates output and reports malformed inputs.
@@ -49,7 +58,9 @@ func GQAAttentionScaleChecked(q, kCache, vCache []float32, seqLen, numHeads, num
 // GQAAttentionScaleInto computes grouped-query attention into caller-owned
 // buffers. It preserves the historical no-op-on-malformed-input behavior.
 func GQAAttentionScaleInto(out, scores, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) {
-	kernels.GQAAttentionScaleInto(out, scores, q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale, Sdot, Saxpy)
+	if !gqaAttentionScaleIntoSIMD(out, scores, q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale) {
+		kernels.GQAAttentionScaleInto(out, scores, q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale, Sdot, Saxpy)
+	}
 }
 
 // GQAAttentionScaleTo computes grouped-query attention into caller-owned
@@ -64,6 +75,38 @@ func GQAAttentionScaleTo(out, scores, q, kCache, vCache []float32, seqLen, numHe
 	if !okH || !okKV || !okTotal || len(out) < h || len(scores) < seqLen || len(q) < h || len(kCache) < kvTotal || len(vCache) < kvTotal {
 		return false
 	}
-	kernels.GQAAttentionScaleInto(out[:h], scores[:seqLen], q[:h], kCache[:kvTotal], vCache[:kvTotal], seqLen, numHeads, numKVHeads, headDim, scale, Sdot, Saxpy)
+	return gqaAttentionScaleIntoSIMD(out[:h], scores[:seqLen], q[:h], kCache[:kvTotal], vCache[:kvTotal], seqLen, numHeads, numKVHeads, headDim, scale)
+}
+
+func gqaAttentionScaleIntoSIMD(out, scores, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) bool {
+	if seqLen <= 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || numHeads%numKVHeads != 0 {
+		return false
+	}
+	h, okH := checkedMulInt(numHeads, headDim)
+	kvDim, okKV := checkedMulInt(numKVHeads, headDim)
+	kvTotal, okTotal := checkedMulInt(seqLen, kvDim)
+	if !okH || !okKV || !okTotal || len(out) < h || len(scores) < seqLen || len(q) < h || len(kCache) < kvTotal || len(vCache) < kvTotal {
+		return false
+	}
+	headsPerKV := numHeads / numKVHeads
+	out = out[:h]
+	clear(out)
+	scores = scores[:seqLen]
+	for head := 0; head < numHeads; head++ {
+		kvHead := head / headsPerKV
+		qHead := q[head*headDim : (head+1)*headDim]
+		for t := 0; t < seqLen; t++ {
+			kHead := kCache[t*kvDim+kvHead*headDim : t*kvDim+(kvHead+1)*headDim]
+			scores[t] = Sdot(qHead, kHead) * scale
+		}
+		if !SoftmaxInPlace(scores) {
+			return false
+		}
+		outHead := out[head*headDim : (head+1)*headDim]
+		for t := 0; t < seqLen; t++ {
+			vHead := vCache[t*kvDim+kvHead*headDim : t*kvDim+(kvHead+1)*headDim]
+			VecScaleAdd(outHead, outHead, vHead, scores[t])
+		}
+	}
 	return true
 }
