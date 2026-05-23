@@ -50,9 +50,9 @@ const (
 // TensorInfo holds the index entry for one tensor.
 type TensorInfo struct {
 	Name   string
-	Shape  []uint64   // innermost dimension first
+	Shape  []uint64 // innermost dimension first
 	QType  QuantType
-	Offset uint64     // offset from DataOffset, not from start of file
+	Offset uint64 // offset from DataOffset, not from start of file
 }
 
 // GGUF is an open GGUF file.
@@ -187,11 +187,11 @@ func (g *GGUF) Close() { g.f.Close() }
 
 // DequantF32 reads and dequantizes tensor t to a flat []float32.
 func (g *GGUF) DequantF32(t TensorInfo) ([]float32, error) {
-	n := int(tensorElements(t.Shape))
+	n := int(TensorElements(t.Shape))
 	if n == 0 {
 		return nil, fmt.Errorf("gguf: tensor %q has zero elements", t.Name)
 	}
-	rawSize, err := tensorRawBytes(t.QType, n)
+	rawSize, err := TensorRawBytes(t.QType, n)
 	if err != nil {
 		return nil, fmt.Errorf("gguf: tensor %q: %w", t.Name, err)
 	}
@@ -203,6 +203,26 @@ func (g *GGUF) DequantF32(t TensorInfo) ([]float32, error) {
 		return nil, fmt.Errorf("gguf: tensor %q read: %w", t.Name, err)
 	}
 	return dequantToF32(raw, t.QType, n)
+}
+
+// Raw reads the encoded tensor bytes without dequantizing them.
+func (g *GGUF) Raw(t TensorInfo) ([]byte, error) {
+	n := int(TensorElements(t.Shape))
+	if n == 0 {
+		return nil, fmt.Errorf("gguf: tensor %q has zero elements", t.Name)
+	}
+	rawSize, err := TensorRawBytes(t.QType, n)
+	if err != nil {
+		return nil, fmt.Errorf("gguf: tensor %q: %w", t.Name, err)
+	}
+	if _, err := g.f.Seek(g.DataOffset+int64(t.Offset), io.SeekStart); err != nil {
+		return nil, fmt.Errorf("gguf: tensor %q seek: %w", t.Name, err)
+	}
+	raw := make([]byte, rawSize)
+	if _, err := io.ReadFull(g.f, raw); err != nil {
+		return nil, fmt.Errorf("gguf: tensor %q read: %w", t.Name, err)
+	}
+	return raw, nil
 }
 
 // MetaUint32 returns a uint32 metadata value, ok=false if missing or wrong type.
@@ -258,7 +278,7 @@ func (g *GGUF) TensorByName(name string) (TensorInfo, bool) {
 }
 
 // tensorElements returns the product of all shape dimensions.
-func tensorElements(shape []uint64) uint64 {
+func TensorElements(shape []uint64) uint64 {
 	n := uint64(1)
 	for _, d := range shape {
 		n *= d
@@ -267,7 +287,7 @@ func tensorElements(shape []uint64) uint64 {
 }
 
 // tensorRawBytes returns the number of raw bytes for n elements of the given quant type.
-func tensorRawBytes(qt QuantType, n int) (int, error) {
+func TensorRawBytes(qt QuantType, n int) (int, error) {
 	const qkK = 256
 	switch qt {
 	case QuantF32:
@@ -321,7 +341,7 @@ func (r *reader) u64() (uint64, error) {
 	_, err := io.ReadFull(r.r, buf[:])
 	return binary.LittleEndian.Uint64(buf[:]), err
 }
-func (r *reader) i8() (int8, error)  { v, e := r.u8(); return int8(v), e }
+func (r *reader) i8() (int8, error)   { v, e := r.u8(); return int8(v), e }
 func (r *reader) i16() (int16, error) { v, e := r.u16(); return int16(v), e }
 func (r *reader) i32() (int32, error) { v, e := r.u32(); return int32(v), e }
 func (r *reader) i64() (int64, error) { v, e := r.u64(); return int64(v), e }
