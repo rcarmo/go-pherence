@@ -239,7 +239,7 @@ bf16_vec_add_done:
 //   vle16.v v1,(a1)              0x0205d087
 //   vfmacc.vv v6,v2,v4           0xb2411357
 //   vfredusum.vs v7,v6,v7        0x066393d7
-//   vse32.v v7,(sp)              0x020163a7
+//   vse32.v v7,(t0)              0x0202e3a7
 //   vfmul.vv v6,v2,v4            0x92221357
 //   vfmul.vf v6,v6,fa0           0x92655357
 
@@ -275,15 +275,16 @@ bf16_dot_loop:
 	WORD	$0x066393d7           // vfredusum.vs v7,v6,v7
 	MOV	$1, X13
 	WORD	$0x0906f057           // vsetvli zero,a3,e32,m1,tu,ma
-	WORD	$0x020163a7           // vse32.v v7,(sp)
-	MOVF	0(SP), F0
+	ADDI	$8, X2, X5
+	WORD	$0x0202e3a7           // vse32.v v7,(t0)
+	MOVF	8(SP), F0
 	MOVF	F0, ret+48(FP)
 	RET
 
 bf16_dot_zero:
 	MOV	$0, X15
-	MOVW	X15, 0(SP)
-	MOVF	0(SP), F0
+	MOVW	X15, 8(SP)
+	MOVF	8(SP), F0
 	MOVF	F0, ret+48(FP)
 	RET
 

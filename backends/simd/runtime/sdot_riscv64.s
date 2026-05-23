@@ -16,7 +16,7 @@
 //   vle32.v v1,(a1)              0x0205e087
 //   vfmacc.vv v2,v0,v1           0xb2101157
 //   vfredusum.vs v3,v2,v3        0x062191d7
-//   vse32.v v3,(sp)              0x020161a7
+//   vse32.v v3,(t0)              0x0202e1a7
 
 // func sdotAsm(x, y []float32) float32
 TEXT ·sdotAsm(SB), NOSPLIT, $16-52
@@ -51,15 +51,16 @@ loop:
 	// Store lane 0 only, then return it as float32.
 	MOV	$1, X13
 	WORD	$0x0906f057           // vsetvli zero,a3,e32,m1,tu,ma
-	WORD	$0x020161a7           // vse32.v v3,(sp)
-	MOVF	0(SP), F0
+	ADDI	$8, X2, X5
+	WORD	$0x0202e1a7           // vse32.v v3,(t0)
+	MOVF	8(SP), F0
 	MOVF	F0, ret+48(FP)
 	RET
 
 zero:
 	MOV	$0, X15
-	MOVW	X15, 0(SP)
-	MOVF	0(SP), F0
+	MOVW	X15, 8(SP)
+	MOVF	8(SP), F0
 	MOVF	F0, ret+48(FP)
 	RET
 

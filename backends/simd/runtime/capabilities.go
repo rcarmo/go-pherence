@@ -58,13 +58,8 @@ func RuntimeCapabilities() Capabilities {
 	case "riscv64":
 		c.HasRVV = cpu.RISCV64.HasV
 		c.HasVec = c.HasRVV
-		// RVV dot is still experimental: keep public Sdot/Saxpy and all
-		// dot-backed higher-level dispatches on scalar fallbacks until the
-		// raw kernel passes QEMU/native execution tests.
-		c.HasDot = false
-		// Keep checked SGEMM dispatch disabled until the riscv64 raw kernels
-		// pass native/QEMU execution tests.
-		c.HasSGEMM = false
+		c.HasDot = c.HasRVV
+		c.HasSGEMM = c.HasRVV && hasSgemmAsm
 		c.HasBF16 = c.HasRVV
 		c.HasPack = false
 		c.HasRoPE = c.HasRVV
