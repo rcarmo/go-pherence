@@ -95,6 +95,8 @@ func SetQwen35GPUPlacement(policy string) {
 		qwen35GPUPlacement = "prefix"
 	case "mlp-suffix":
 		qwen35GPUPlacement = "mlp-suffix"
+	case "mlp-first":
+		qwen35GPUPlacement = "mlp-first"
 	default:
 		qwen35GPUPlacement = "prefix"
 	}
@@ -192,14 +194,17 @@ func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
 	qwen35GPUCache.Lock()
 	placement := qwen35GPUPlacement
 	qwen35GPUCache.Unlock()
-	if placement == "mlp-suffix" {
+	if placement == "mlp-suffix" || placement == "mlp-first" {
 		sort.SliceStable(mlxWeights, func(i, j int) bool {
-			ai := qwen35MLXPlacementPriority(mlxWeights[i].Name)
-			aj := qwen35MLXPlacementPriority(mlxWeights[j].Name)
+			ai := qwen35MLXPlacementPriority(mlxWeights[i].Name, placement)
+			aj := qwen35MLXPlacementPriority(mlxWeights[j].Name, placement)
 			if ai != aj {
 				return ai > aj
 			}
-			return mlxWeights[i].Name > mlxWeights[j].Name
+			if placement == "mlp-suffix" {
+				return mlxWeights[i].Name > mlxWeights[j].Name
+			}
+			return mlxWeights[i].Name < mlxWeights[j].Name
 		})
 	}
 	for _, named := range mlxWeights {
@@ -277,7 +282,7 @@ func qwen35BaseMLXWeights(base *Qwen35BaseModel) []qwen35NamedMLXWeight {
 	return out
 }
 
-func qwen35MLXPlacementPriority(name string) int {
+func qwen35MLXPlacementPriority(name, policy string) int {
 	priority := 0
 	if strings.Contains(name, ".mlp.") {
 		priority += 1000
@@ -287,7 +292,11 @@ func qwen35MLXPlacementPriority(name string) int {
 	}
 	layer := qwen35LayerIndexFromName(name)
 	if layer >= 0 {
-		priority += layer
+		if policy == "mlp-suffix" {
+			priority += layer
+		} else {
+			priority -= layer
+		}
 	}
 	return priority
 }

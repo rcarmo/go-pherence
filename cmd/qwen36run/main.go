@@ -231,7 +231,7 @@ func main() {
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
 	gpuCacheMB := flag.Int("gpu-cache-mb", 10600, "GPU cache budget for packed Qwen3.6 weights; tuned below full VRAM to leave transient MLX upload scratch")
-	gpuPlacement := flag.String("gpu-placement", "prefix", "Qwen GPU placement policy: prefix or mlp-suffix")
+	gpuPlacement := flag.String("gpu-placement", "prefix", "Qwen GPU placement policy: prefix, mlp-suffix, or mlp-first")
 	gpuCacheHeadroomMB := flag.Int("gpu-cache-headroom-mb", 512, "free-VRAM headroom kept when auto-clamping the Qwen3.6 GPU weight cache")
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault safetensors mmap before timed generation")
 	gpuPrewarm := flag.Bool("gpu-prewarm", true, "pre-upload GPU cache before timed generation")
