@@ -28,6 +28,9 @@ type Qwen35GPUCacheStats struct {
 	WindowBudgetBytes       int64                    `json:"window_budget_bytes,omitempty"`
 	WindowUsedBytes         int64                    `json:"window_used_bytes,omitempty"`
 	WindowEntries           int                      `json:"window_entries,omitempty"`
+	TotalResidentBytes      int64                    `json:"total_resident_bytes,omitempty"`
+	FreeBytes               uint64                   `json:"free_bytes,omitempty"`
+	TotalBytes              uint64                   `json:"total_bytes,omitempty"`
 	Entries                 int                      `json:"entries"`
 	Hits                    int64                    `json:"hits"`
 	Misses                  int64                    `json:"misses"`
@@ -408,6 +411,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 	}
 	layers, completePrefix := qwen35MLXLayerStatsLocked()
 	transientLayers, transientCategories, transientUniqueWeights, transientUniqueBytes := qwen35TransientBreakdownLocked()
+	freeBytes, totalBytes := nvidia.MemInfo()
 	return Qwen35GPUCacheStats{
 		Enabled:                 qwen35GPUEnabled,
 		RequestedBytes:          qwen35GPUCache.requestedBytes,
@@ -417,6 +421,9 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		WindowBudgetBytes:       qwen35GPUCache.windowBudgetBytes,
 		WindowUsedBytes:         qwen35GPUCache.windowUsedBytes,
 		WindowEntries:           len(qwen35GPUCache.windowMLXEntries),
+		TotalResidentBytes:      qwen35GPUCache.usedBytes + qwen35GPUCache.windowUsedBytes,
+		FreeBytes:               freeBytes,
+		TotalBytes:              totalBytes,
 		Entries:                 len(qwen35GPUCache.entries) + len(qwen35GPUCache.mlxEntries),
 		Hits:                    atomic.LoadInt64(&qwen35GPUCache.hits),
 		Misses:                  qwen35GPUCache.misses,
