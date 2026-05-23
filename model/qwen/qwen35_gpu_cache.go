@@ -35,6 +35,7 @@ type Qwen35GPUCacheStats struct {
 	WindowUploadBytes       int64                    `json:"window_upload_bytes,omitempty"`
 	WindowEvictions         int64                    `json:"window_evictions,omitempty"`
 	WindowSticky            bool                     `json:"window_sticky,omitempty"`
+	WindowCategory          string                   `json:"window_category,omitempty"`
 	TotalResidentBytes      int64                    `json:"total_resident_bytes,omitempty"`
 	FreeBytes               uint64                   `json:"free_bytes,omitempty"`
 	TotalBytes              uint64                   `json:"total_bytes,omitempty"`
@@ -132,6 +133,20 @@ var qwen35GPUCacheHeadroomBytes int64 = 512 * 1024 * 1024
 var qwen35GPUPlacement = "prefix"
 var qwen35GPUWindowMinLayer = -1
 var qwen35GPUWindowSticky = true
+var qwen35GPUWindowCategory = "all"
+
+func SetQwen35GPUWindowCategory(category string) {
+	qwen35GPUCache.Lock()
+	defer qwen35GPUCache.Unlock()
+	switch category {
+	case "", "all":
+		qwen35GPUWindowCategory = "all"
+	case "mlp", "attention", "linear_attention":
+		qwen35GPUWindowCategory = category
+	default:
+		qwen35GPUWindowCategory = "all"
+	}
+}
 
 func SetQwen35GPUWindowSticky(sticky bool) {
 	qwen35GPUCache.Lock()
@@ -459,6 +474,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		WindowUploadBytes:       qwen35GPUCache.windowUploadBytes,
 		WindowEvictions:         qwen35GPUCache.windowEvictions,
 		WindowSticky:            qwen35GPUWindowSticky,
+		WindowCategory:          qwen35GPUWindowCategory,
 		TotalResidentBytes:      qwen35GPUCache.usedBytes + qwen35GPUCache.windowUsedBytes,
 		FreeBytes:               freeBytes,
 		TotalBytes:              totalBytes,
@@ -856,12 +872,25 @@ func qwen35ShouldAdmitMLXWindowLocked(q *mlx.QuantWeight) bool {
 	if q == nil || qwen35GPUCache.windowBudgetBytes <= 0 {
 		return false
 	}
-	if qwen35GPUWindowMinLayer < 0 {
+	name := qwen35GPUCache.mlxNames[q]
+	if qwen35GPUWindowMinLayer >= 0 {
+		layer := qwen35LayerIndexFromName(name)
+		if layer < qwen35GPUWindowMinLayer {
+			return false
+		}
+	}
+	switch qwen35GPUWindowCategory {
+	case "", "all":
+		return true
+	case "mlp":
+		return strings.HasPrefix(qwen35WeightCategory(name), "mlp.")
+	case "attention":
+		return qwen35WeightCategory(name) == "attention"
+	case "linear_attention":
+		return qwen35WeightCategory(name) == "linear_attention"
+	default:
 		return true
 	}
-	name := qwen35GPUCache.mlxNames[q]
-	layer := qwen35LayerIndexFromName(name)
-	return layer >= qwen35GPUWindowMinLayer
 }
 
 func (c *qwen35GPUCacheState) evictWindowUntilLocked(need int64) {
