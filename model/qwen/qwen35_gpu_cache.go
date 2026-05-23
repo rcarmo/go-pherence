@@ -3,6 +3,8 @@ package qwen
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -75,6 +77,20 @@ type qwen35GPUCacheState struct {
 
 var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{}, mlxEntries: map[*mlx.QuantWeight]*qwen35GPUMXEntry{}, transientByName: map[string]Qwen35GPUTransientStat{}, mlxNames: map[*mlx.QuantWeight]string{}}
 var qwen35GPUCacheHeadroomBytes int64 = 512 * 1024 * 1024
+var qwen35GPUPlacement = "prefix"
+
+func SetQwen35GPUPlacement(policy string) {
+	qwen35GPUCache.Lock()
+	defer qwen35GPUCache.Unlock()
+	switch policy {
+	case "", "prefix":
+		qwen35GPUPlacement = "prefix"
+	case "mlp-suffix":
+		qwen35GPUPlacement = "mlp-suffix"
+	default:
+		qwen35GPUPlacement = "prefix"
+	}
+}
 
 func SetQwen35GPUCacheHeadroom(bytes int64) {
 	if bytes < 0 {
@@ -163,9 +179,21 @@ func PrewarmQwen35GPUCache(base *Qwen35BaseModel) Qwen35GPUPrewarmStats {
 	qwen35RegisterMLXNames(mlxWeights)
 	// Placement policy: preserve a decode-hot layer prefix by default. Qwen3.6
 	// repeats the same projection sequence every token; keeping an intact prefix
-	// resident gives deterministic hits on subsequent decode steps. Size-only
-	// sorting maximizes entry count but was slower because it scattered partial
-	// layers and left large hot projections on CPU.
+	// resident gives deterministic hits on subsequent decode steps. Alternative
+	// policies are diagnostic knobs for profiling overflow hotspots.
+	qwen35GPUCache.Lock()
+	placement := qwen35GPUPlacement
+	qwen35GPUCache.Unlock()
+	if placement == "mlp-suffix" {
+		sort.SliceStable(mlxWeights, func(i, j int) bool {
+			ai := qwen35MLXPlacementPriority(mlxWeights[i].Name)
+			aj := qwen35MLXPlacementPriority(mlxWeights[j].Name)
+			if ai != aj {
+				return ai > aj
+			}
+			return mlxWeights[i].Name > mlxWeights[j].Name
+		})
+	}
 	for _, named := range mlxWeights {
 		stats.Considered++
 		m := named.W
@@ -239,6 +267,38 @@ func qwen35BaseMLXWeights(base *Qwen35BaseModel) []qwen35NamedMLXWeight {
 		}
 	}
 	return out
+}
+
+func qwen35MLXPlacementPriority(name string) int {
+	priority := 0
+	if strings.Contains(name, ".mlp.") {
+		priority += 1000
+	}
+	if strings.Contains(name, ".mlp.gate_proj") || strings.Contains(name, ".mlp.up_proj") || strings.Contains(name, ".mlp.down_proj") {
+		priority += 100
+	}
+	layer := qwen35LayerIndexFromName(name)
+	if layer >= 0 {
+		priority += layer
+	}
+	return priority
+}
+
+func qwen35LayerIndexFromName(name string) int {
+	const prefix = "model.layers."
+	if !strings.HasPrefix(name, prefix) {
+		return -1
+	}
+	rest := name[len(prefix):]
+	dot := strings.IndexByte(rest, '.')
+	if dot <= 0 {
+		return -1
+	}
+	n, err := strconv.Atoi(rest[:dot])
+	if err != nil {
+		return -1
+	}
+	return n
 }
 
 func qwen35RegisterMLXNames(weights []qwen35NamedMLXWeight) {
