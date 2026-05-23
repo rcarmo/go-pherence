@@ -10,6 +10,10 @@ package main
 #include <time.h>
 #include <llama.h>
 
+static void quiet_log(enum ggml_log_level level, const char * text, void * user_data) {
+    (void)level; (void)text; (void)user_data;
+}
+
 static double now_s(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -27,10 +31,11 @@ typedef struct {
     char text[4096];
 } bench_result;
 
-static int run_llama_bridge(const char * model_path, const char * prompt, int gen_tokens, int threads, bench_result * res, char * err, size_t errn) {
+static int run_llama_bridge(const char * model_path, const char * prompt, int gen_tokens, int threads, int verbose, int ignore_eos, bench_result * res, char * err, size_t errn) {
     memset(res, 0, sizeof(*res));
     err[0] = 0;
     double t0 = now_s();
+    if (!verbose) llama_log_set(quiet_log, NULL);
     llama_backend_init();
 
     struct llama_model_params mparams = llama_model_default_params();
@@ -63,24 +68,25 @@ static int run_llama_bridge(const char * model_path, const char * prompt, int ge
     res->pp_tps = (float)((double)n_prompt / res->pp_s);
 
     struct llama_sampler * smpl = llama_sampler_init_greedy();
-    int text_len = 0;
+    llama_token * gen = (llama_token*)calloc(gen_tokens > 0 ? gen_tokens : 1, sizeof(llama_token));
     double tg0 = now_s();
     for (int i=0; i<gen_tokens; i++) {
         llama_token tok = llama_sampler_sample(smpl, ctx, -1);
         llama_sampler_accept(smpl, tok);
-        const char * piece = llama_vocab_get_text(vocab, tok);
-        if (piece && text_len < (int)sizeof(res->text)-8) {
-            int n = snprintf(res->text + text_len, sizeof(res->text)-text_len, "%s", piece);
-            if (n > 0) text_len += n;
-        }
-        if (llama_vocab_is_eog(vocab, tok)) { res->gen_tokens = i+1; break; }
+        gen[i] = tok;
+        if (!ignore_eos && llama_vocab_is_eog(vocab, tok)) { res->gen_tokens = i+1; break; }
         struct llama_batch b1 = llama_batch_get_one(&tok, 1);
         if (llama_decode(ctx, b1) != 0) { snprintf(err, errn, "decode token %d failed", i); break; }
         res->gen_tokens = i+1;
     }
     res->tg_s = now_s() - tg0;
     if (res->gen_tokens > 0) res->tg_tps = (float)((double)res->gen_tokens / res->tg_s);
+    if (res->gen_tokens > 0) {
+        int n = llama_detokenize(vocab, gen, res->gen_tokens, res->text, sizeof(res->text)-1, false, false);
+        if (n >= 0 && n < (int)sizeof(res->text)) res->text[n] = 0;
+    }
 
+    free(gen);
     llama_sampler_free(smpl);
     llama_free(ctx);
     llama_model_free(model);
@@ -102,6 +108,8 @@ func main() {
 	prompt := flag.String("prompt", "The capital of France is", "prompt")
 	tokens := flag.Int("tokens", 64, "tokens")
 	threads := flag.Int("threads", 8, "threads")
+	verbose := flag.Bool("verbose", false, "show llama.cpp logs")
+	ignoreEOS := flag.Bool("ignore-eos", false, "continue until -tokens even if EOS/EOG is sampled (benchmark mode)")
 	flag.Parse()
 	if *model == "" {
 		panic("-model required")
@@ -113,7 +121,15 @@ func main() {
 	var res C.bench_result
 	errbuf := (*C.char)(C.calloc(1, 4096))
 	defer C.free(unsafe.Pointer(errbuf))
-	rc := C.run_llama_bridge(cm, cp, C.int(*tokens), C.int(*threads), &res, errbuf, 4096)
+	verboseInt := 0
+	if *verbose {
+		verboseInt = 1
+	}
+	ignoreEOSInt := 0
+	if *ignoreEOS {
+		ignoreEOSInt = 1
+	}
+	rc := C.run_llama_bridge(cm, cp, C.int(*tokens), C.int(*threads), C.int(verboseInt), C.int(ignoreEOSInt), &res, errbuf, 4096)
 	if rc != 0 {
 		panic(fmt.Sprintf("rc=%d err=%s", int(rc), C.GoString(errbuf)))
 	}
