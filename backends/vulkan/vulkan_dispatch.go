@@ -78,9 +78,11 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		}
 	}
 	layoutInfo := struct {
-		sType, pNext, flags uint32
-		bindingCount        uint32
-		pBindings           unsafe.Pointer
+		sType        uint32
+		pNext        uintptr
+		flags        uint32
+		bindingCount uint32
+		pBindings    unsafe.Pointer
 	}{
 		sType:        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		bindingCount: uint32(numBuffers),
@@ -100,10 +102,13 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 
 	// Pipeline layout with push constants
 	plInfo := struct {
-		sType, pNext, flags    uint32
+		sType                  uint32
+		pNext                  uintptr
+		flags                  uint32
 		setLayoutCount         uint32
 		pSetLayouts            unsafe.Pointer
 		pushConstantRangeCount uint32
+		_                      uint32
 		pPushConstantRanges    unsafe.Pointer
 	}{
 		sType:                  VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -124,10 +129,13 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 	// Compute pipeline
 	entryName := append([]byte("main"), 0)
 	type stageCI struct {
-		sType, pNext, flags, stage uint32
-		module                     VkShaderModule
-		pName                      unsafe.Pointer
-		pSpec                      uintptr
+		sType  uint32
+		pNext  uintptr
+		flags  uint32
+		stage  uint32
+		module VkShaderModule
+		pName  unsafe.Pointer
+		pSpec  uintptr
 	}
 	stage := stageCI{
 		sType:  0x12, // PIPELINE_SHADER_STAGE_CREATE_INFO
@@ -136,11 +144,14 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		pName:  unsafe.Pointer(&entryName[0]),
 	}
 	type computePCI struct {
-		sType, pNext, flags uint32
-		stage               stageCI
-		layout              VkPipelineLayout
-		basePH              uintptr
-		basePI              int32
+		sType  uint32
+		pNext  uintptr
+		flags  uint32
+		_      uint32
+		stage  stageCI
+		layout VkPipelineLayout
+		basePH uintptr
+		basePI int32
 	}
 	pci := computePCI{
 		sType:  VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
@@ -158,10 +169,13 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		descCount uint32
 	}{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, uint32(numBuffers)}
 	poolInfo := struct {
-		sType, pNext, flags uint32
-		maxSets             uint32
-		poolSizeCount       uint32
-		pPoolSizes          unsafe.Pointer
+		sType         uint32
+		pNext         uintptr
+		flags         uint32
+		maxSets       uint32
+		poolSizeCount uint32
+		_             uint32
+		pPoolSizes    unsafe.Pointer
 	}{
 		sType:         VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		maxSets:       1,
@@ -175,9 +189,11 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 
 	// Allocate descriptor set
 	allocInfo := struct {
-		sType, pNext   uint32
+		sType          uint32
+		pNext          uintptr
 		descriptorPool VkDescriptorPool
 		descSetCount   uint32
+		_              uint32
 		pSetLayouts    unsafe.Pointer
 	}{
 		sType:          VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -192,7 +208,8 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 
 	// Allocate command buffer
 	cmdAllocInfo := struct {
-		sType, pNext    uint32
+		sType           uint32
+		pNext           uintptr
 		commandPool     VkCommandPool
 		level           uint32
 		commandBufCount uint32
@@ -209,7 +226,9 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 
 	// Create fence
 	fenceInfo := struct {
-		sType, pNext, flags uint32
+		sType uint32
+		pNext uintptr
+		flags uint32
 	}{sType: VK_STRUCTURE_TYPE_FENCE_CREATE_INFO}
 	var fence VkFence
 	if r := vkCreateFence(vkDevice, unsafe.Pointer(&fenceInfo), nil, &fence); r != VK_SUCCESS {
@@ -253,7 +272,8 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 		rng    uint64 // VK_WHOLE_SIZE = 0xFFFFFFFFFFFFFFFF
 	}
 	type writeDS struct {
-		sType, pNext     uint32
+		sType            uint32
+		pNext            uintptr
 		dstSet           VkDescriptorSet
 		dstBinding       uint32
 		dstArrayElement  uint32
@@ -280,7 +300,9 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 
 	// Record command buffer
 	beginInfo := struct {
-		sType, pNext, flags uint32
+		sType uint32
+		pNext uintptr
+		flags uint32
 	}{sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT}
 	if r := vkBeginCommandBuffer(k.cmdBuf, unsafe.Pointer(&beginInfo)); r != VK_SUCCESS {
 		return fmt.Errorf("vkBeginCommandBuffer: %d", r)
@@ -302,13 +324,18 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 
 	// Submit
 	submitInfo := struct {
-		sType, pNext                       uint32
-		waitSemaphoreCount                 uint32
-		pWaitSemaphores, pWaitDstStageMask uintptr
-		commandBufferCount                 uint32
-		pCommandBuffers                    unsafe.Pointer
-		signalSemaphoreCount               uint32
-		pSignalSemaphores                  uintptr
+		sType                uint32
+		pNext                uintptr
+		waitSemaphoreCount   uint32
+		_                    uint32
+		pWaitSemaphores      uintptr
+		pWaitDstStageMask    uintptr
+		commandBufferCount   uint32
+		_2                   uint32
+		pCommandBuffers      unsafe.Pointer
+		signalSemaphoreCount uint32
+		_3                   uint32
+		pSignalSemaphores    uintptr
 	}{
 		sType:              VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		commandBufferCount: 1,
