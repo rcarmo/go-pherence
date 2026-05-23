@@ -58,6 +58,17 @@ func main() {
 		}
 		qAvg := time.Since(qStart) / time.Duration(*iters)
 		fmt.Printf("  quant-rvv: %s/iter\n", qAvg)
+		if qm.QType == gguf.QuantQ2_K || qm.QType == gguf.QuantQ3_K || qm.QType == gguf.QuantQ6_K {
+			outC := make([]float32, qm.OutDim)
+			cStart := time.Now()
+			for i := 0; i < *iters; i++ {
+				if err := model.QuantGemvCgoFused(outC, x, qm); err != nil {
+					panic(err)
+				}
+			}
+			cAvg := time.Since(cStart) / time.Duration(*iters)
+			fmt.Printf("  quant-cgo: %s/iter  first=%+.5f\n", cAvg, outC[0])
+		}
 
 		// F32 baseline: one-time dequant then parallel RVV GEMV.
 		fStartLoad := time.Now()
