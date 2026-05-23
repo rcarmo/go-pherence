@@ -34,6 +34,7 @@ type Qwen35GPUCacheStats struct {
 	WindowUploads           int64                    `json:"window_uploads,omitempty"`
 	WindowUploadBytes       int64                    `json:"window_upload_bytes,omitempty"`
 	WindowEvictions         int64                    `json:"window_evictions,omitempty"`
+	WindowSticky            bool                     `json:"window_sticky,omitempty"`
 	TotalResidentBytes      int64                    `json:"total_resident_bytes,omitempty"`
 	FreeBytes               uint64                   `json:"free_bytes,omitempty"`
 	TotalBytes              uint64                   `json:"total_bytes,omitempty"`
@@ -130,6 +131,13 @@ var qwen35GPUCache = qwen35GPUCacheState{entries: map[*Qwen35NVFP4Weight]bool{},
 var qwen35GPUCacheHeadroomBytes int64 = 512 * 1024 * 1024
 var qwen35GPUPlacement = "prefix"
 var qwen35GPUWindowMinLayer = -1
+var qwen35GPUWindowSticky = true
+
+func SetQwen35GPUWindowSticky(sticky bool) {
+	qwen35GPUCache.Lock()
+	defer qwen35GPUCache.Unlock()
+	qwen35GPUWindowSticky = sticky
+}
 
 func SetQwen35GPUWindowMinLayer(layer int) {
 	qwen35GPUCache.Lock()
@@ -450,6 +458,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		WindowUploads:           qwen35GPUCache.windowUploads,
 		WindowUploadBytes:       qwen35GPUCache.windowUploadBytes,
 		WindowEvictions:         qwen35GPUCache.windowEvictions,
+		WindowSticky:            qwen35GPUWindowSticky,
 		TotalResidentBytes:      qwen35GPUCache.usedBytes + qwen35GPUCache.windowUsedBytes,
 		FreeBytes:               freeBytes,
 		TotalBytes:              totalBytes,
@@ -762,6 +771,10 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 		if !qwen35ShouldAdmitMLXWindowLocked(q) || qwen35GPUCache.windowBudgetBytes <= 0 || need > qwen35GPUCache.windowBudgetBytes {
 			qwen35GPUCache.Unlock()
 			return nil, fmt.Errorf("MLX weight cache full: need %.1f MB, used %.1f MB, budget %.1f MB", float64(need)/1e6, float64(qwen35GPUCache.usedBytes)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
+		}
+		if qwen35GPUWindowSticky && qwen35GPUCache.windowUsedBytes+need > qwen35GPUCache.windowBudgetBytes {
+			qwen35GPUCache.Unlock()
+			return nil, fmt.Errorf("MLX sticky window full: need %.1f MB, used %.1f MB, budget %.1f MB", float64(need)/1e6, float64(qwen35GPUCache.windowUsedBytes)/1e6, float64(qwen35GPUCache.windowBudgetBytes)/1e6)
 		}
 		qwen35GPUCache.evictWindowUntilLocked(need)
 		if qwen35GPUCache.windowUsedBytes+need > qwen35GPUCache.windowBudgetBytes {
