@@ -1,4 +1,4 @@
-//go:build !amd64 && !arm64 && !riscv64
+//go:build riscv64
 
 package simd
 
@@ -21,12 +21,8 @@ func packBNTAsm(
 			if rows[d] == 0 {
 				continue
 			}
-			srcOff, okSrc := checkedFloat32ByteOffset(p)
-			dstOff, okDst := checkedFloat32ByteOffset(p*gebpNR + d)
-			if !okSrc || !okDst {
-				return
-			}
-			*(*float32)(unsafe.Add(out, dstOff)) = *(*float32)(unsafe.Add(unsafe.Pointer(rows[d]), srcOff))
+			v := loadF32(unsafe.Pointer(rows[d]), p)
+			storeF32(out, p*gebpNR+d, v)
 		}
 	}
 }

@@ -17,6 +17,9 @@ func GemmNVFP4(out, x []float32, batch int, qw *NVFP4Weight) bool {
 	if !okX || !okOut || len(x) < xLen || len(out) < outLen {
 		return false
 	}
+	if RuntimeCapabilities().HasGemv {
+		return gemmNVFP4Accelerated(out[:outLen], x[:xLen], batch, qw)
+	}
 	if batch == 1 {
 		return GemvNVFP4To(out[:qw.OutDim], x[:qw.InDim], qw)
 	}

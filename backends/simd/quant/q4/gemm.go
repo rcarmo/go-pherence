@@ -20,6 +20,13 @@ func Gemm(out, x []float32, batch int, qweight, qzeros, gIdx []int32, scales []f
 	if err := Validate(qweight, qzeros, gIdx, scales, inDim, outDim, sym); err != nil {
 		return false
 	}
+	caps := RuntimeCapabilities()
+	if sym && caps.HasGemvSym {
+		return gemmSymAccelerated(out[:outLen], x[:xLen], batch, qweight, gIdx, scales, inDim, outDim)
+	}
+	if !sym && caps.HasDequant {
+		return gemmAccelerated(out[:outLen], x[:xLen], batch, qweight, qzeros, gIdx, scales, inDim, outDim)
+	}
 	if batch == 1 {
 		return GemvTo(out[:outDim], x[:inDim], qweight, qzeros, gIdx, scales, inDim, outDim, sym)
 	}

@@ -2,6 +2,8 @@
 
 package simd
 
+import "github.com/rcarmo/go-pherence/backends/simd/kernels"
+
 //go:noescape
 func snrm2Asm(x []float32) float32
 
@@ -89,14 +91,27 @@ func VecScale(dst, a []float32, scale float32) {
 }
 
 // VecSiLUMul computes dst[i] = silu(a[i]) * b[i] where silu(x) = x/(1+exp(-x)).
-// Dispatch intentionally remains scalar until hasActivationAsm flips true with
-// real AVX2/NEON polynomial kernels and parity coverage.
-func VecSiLUMul(dst, a, b []float32) { vecSiLUMulGo(dst, a, b) }
+// The non-linear SiLU step remains the scalar reference implementation; the
+// fused multiply uses the active SIMD vector backend when available.
+func VecSiLUMul(dst, a, b []float32) {
+	if len(a) > 0 && len(dst) == len(a) && len(b) == len(a) && HasVecAsm {
+		kernels.SiLU(dst, a)
+		vecMulAsm(dst, dst, b)
+		return
+	}
+	vecSiLUMulGo(dst, a, b)
+}
 
-// GELUTanhMul computes dst[i] = gelu_tanh(a[i]) * b[i].
-// Dispatch intentionally remains scalar until hasActivationAsm flips true with
-// real AVX2/NEON polynomial kernels and parity coverage.
-func GELUTanhMul(dst, a, b []float32) { geluTanhMulGo(dst, a, b) }
+// GELUTanhMul computes dst[i] = gelu_tanh(a[i]) * b[i]. The tanh GELU remains
+// scalar-reference; the trailing multiply uses SIMD when available.
+func GELUTanhMul(dst, a, b []float32) {
+	if len(a) > 0 && len(dst) == len(a) && len(b) == len(a) && HasVecAsm {
+		kernels.GELUTanh(dst, a)
+		vecMulAsm(dst, dst, b)
+		return
+	}
+	geluTanhMulGo(dst, a, b)
+}
 
 // RMSNorm computes x[i] = w[i] * x[i] / rms(x) in-place.
 func RMSNorm(x, w []float32, eps float32) {

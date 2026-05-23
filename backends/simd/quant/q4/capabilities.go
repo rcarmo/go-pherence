@@ -14,6 +14,7 @@ type Capabilities struct {
 	HasAVX2    bool
 	HasFMA     bool
 	HasNEON    bool
+	HasRVV     bool
 	HasGemvSym bool
 	HasDequant bool
 }
@@ -36,6 +37,10 @@ func RuntimeCapabilities() Capabilities {
 		c.HasNEON = cpu.ARM64.HasASIMD
 		c.HasGemvSym = hasGemvSymAsm && c.HasNEON
 		c.HasDequant = hasDequantAsm && c.HasNEON
+	case "riscv64":
+		c.HasRVV = cpu.RISCV64.HasV
+		c.HasGemvSym = c.HasRVV
+		c.HasDequant = c.HasRVV
 	}
 	return c
 }

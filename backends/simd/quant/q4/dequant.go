@@ -49,6 +49,15 @@ func DequantTo(out []float32, qweight, qzeros, gIdx []int32, scales []float32,
 
 func dequantTo(out []float32, qweight, qzeros, gIdx []int32, scales []float32,
 	inFeatures, outFeatures int, sym bool) {
+	if RuntimeCapabilities().HasDequant {
+		dequantAccelerated(out, qweight, qzeros, gIdx, scales, inFeatures, outFeatures, sym)
+		return
+	}
+	dequantToScalar(out, qweight, qzeros, gIdx, scales, inFeatures, outFeatures, sym)
+}
+
+func dequantToScalar(out []float32, qweight, qzeros, gIdx []int32, scales []float32,
+	inFeatures, outFeatures int, sym bool) {
 	if sym {
 		dequantSymTo(out, qweight, gIdx, scales, inFeatures, outFeatures)
 		return

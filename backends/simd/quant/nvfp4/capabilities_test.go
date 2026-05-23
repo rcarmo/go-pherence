@@ -8,12 +8,13 @@ func TestRuntimeCapabilities(t *testing.T) {
 		t.Fatal("empty architecture")
 	}
 	if c.HasDecode {
-		t.Fatal("NVFP4 decode asm capability unexpectedly enabled before AVX2/NEON kernels land")
+		t.Fatal("NVFP4 decode asm capability unexpectedly enabled before dedicated decode kernels land")
 	}
-	if c.HasDequant {
-		t.Fatal("NVFP4 dequant asm capability unexpectedly enabled before AVX2/NEON kernels land")
+	wantRVV := c.Arch == "riscv64" && c.HasRVV
+	if c.HasDequant != wantRVV {
+		t.Fatalf("HasDequant=%v want %v arch=%s rvv=%v", c.HasDequant, wantRVV, c.Arch, c.HasRVV)
 	}
-	if c.HasGemv {
-		t.Fatal("NVFP4 GEMV asm capability unexpectedly enabled before AVX2/NEON kernels land")
+	if c.HasGemv != wantRVV {
+		t.Fatalf("HasGemv=%v want %v arch=%s rvv=%v", c.HasGemv, wantRVV, c.Arch, c.HasRVV)
 	}
 }

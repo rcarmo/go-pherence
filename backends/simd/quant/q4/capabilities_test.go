@@ -7,10 +7,11 @@ func TestRuntimeCapabilities(t *testing.T) {
 	if c.Arch == "" {
 		t.Fatal("empty architecture")
 	}
-	if c.HasGemvSym {
-		t.Fatal("Q4 GEMV asm capability unexpectedly enabled before AVX2/NEON kernels land")
+	wantRVV := c.Arch == "riscv64" && c.HasRVV
+	if c.HasGemvSym != wantRVV {
+		t.Fatalf("HasGemvSym=%v want %v arch=%s rvv=%v", c.HasGemvSym, wantRVV, c.Arch, c.HasRVV)
 	}
-	if c.HasDequant {
-		t.Fatal("Q4 dequant asm capability unexpectedly enabled before AVX2/NEON kernels land")
+	if c.HasDequant != wantRVV {
+		t.Fatalf("HasDequant=%v want %v arch=%s rvv=%v", c.HasDequant, wantRVV, c.Arch, c.HasRVV)
 	}
 }

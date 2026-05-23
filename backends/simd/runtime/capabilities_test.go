@@ -16,11 +16,12 @@ func TestRuntimeCapabilities(t *testing.T) {
 	if HasDotAsm != c.HasDot {
 		t.Fatalf("HasDotAsm=%v, RuntimeCapabilities.HasDot=%v", HasDotAsm, c.HasDot)
 	}
-	if c.HasRoPE != (hasRoPEAsm && c.HasVec) {
-		t.Fatalf("HasRoPE=%v, hasRoPEAsm=%v HasVec=%v", c.HasRoPE, hasRoPEAsm, c.HasVec)
+	wantRoPE := hasRoPEAsm && c.HasVec
+	if c.Arch == "riscv64" {
+		wantRoPE = c.HasRVV
 	}
-	if c.HasRoPE {
-		t.Fatal("RoPE asm capability unexpectedly enabled before AVX2/NEON kernels land")
+	if c.HasRoPE != wantRoPE {
+		t.Fatalf("HasRoPE=%v want %v arch=%s hasRoPEAsm=%v HasVec=%v HasRVV=%v", c.HasRoPE, wantRoPE, c.Arch, hasRoPEAsm, c.HasVec, c.HasRVV)
 	}
 	if c.HasActivation != (hasActivationAsm && c.HasVec) {
 		t.Fatalf("HasActivation=%v, hasActivationAsm=%v HasVec=%v", c.HasActivation, hasActivationAsm, c.HasVec)
@@ -28,8 +29,8 @@ func TestRuntimeCapabilities(t *testing.T) {
 	if c.HasActivation {
 		t.Fatal("activation asm capability unexpectedly enabled before AVX2/NEON kernels land")
 	}
-	t.Logf("SIMD capabilities: arch=%s avx2=%v fma=%v neon=%v vec=%v dot=%v sgemm=%v bf16=%v pack=%v rope=%v activation=%v",
-		c.Arch, c.HasAVX2, c.HasFMA, c.HasNEON, c.HasVec, c.HasDot, c.HasSGEMM, c.HasBF16, c.HasPack, c.HasRoPE, c.HasActivation)
+	t.Logf("SIMD capabilities: arch=%s avx2=%v fma=%v neon=%v rvv=%v vec=%v dot=%v sgemm=%v bf16=%v pack=%v rope=%v activation=%v",
+		c.Arch, c.HasAVX2, c.HasFMA, c.HasNEON, c.HasRVV, c.HasVec, c.HasDot, c.HasSGEMM, c.HasBF16, c.HasPack, c.HasRoPE, c.HasActivation)
 }
 
 func TestSdotLengthMismatch(t *testing.T) {

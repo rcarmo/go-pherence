@@ -22,9 +22,7 @@ func SoftmaxInPlace(x []float32) bool {
 		return false
 	}
 	inv := 1 / sum
-	for i := range x {
-		x[i] *= inv
-	}
+	VecScale(x, x, inv)
 	return true
 }
 

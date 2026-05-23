@@ -14,8 +14,17 @@ func GemvTo(out, x []float32, qweight, qzeros, gIdx []int32, scales []float32, i
 	if err := ValidateGemv(out, x, qweight, qzeros, gIdx, scales, inDim, outDim, sym); err != nil {
 		return false
 	}
+	caps := RuntimeCapabilities()
 	if sym {
+		if caps.HasGemvSym {
+			gemvSymAccelerated(out, x, qweight, gIdx, scales, inDim, outDim)
+			return true
+		}
 		gemvSymScalar(out, x, qweight, gIdx, scales, inDim, outDim)
+		return true
+	}
+	if caps.HasDequant {
+		gemvAccelerated(out, x, qweight, qzeros, gIdx, scales, inDim, outDim)
 		return true
 	}
 	gemvScalar(out, x, qweight, qzeros, gIdx, scales, inDim, outDim)
@@ -32,8 +41,10 @@ func GemvSymTo(out, x []float32, qweight, gIdx []int32, scales []float32, inDim,
 	if err := ValidateGemvSym(out, x, qweight, gIdx, scales, inDim, outDim); err != nil {
 		return false
 	}
-	// Dispatch hook kept explicit so AVX2/NEON kernels can be wired without
-	// changing callers. Scalar remains active until hasGemvSymAsm flips true.
+	if RuntimeCapabilities().HasGemvSym {
+		gemvSymAccelerated(out, x, qweight, gIdx, scales, inDim, outDim)
+		return true
+	}
 	gemvSymScalar(out, x, qweight, gIdx, scales, inDim, outDim)
 	return true
 }
