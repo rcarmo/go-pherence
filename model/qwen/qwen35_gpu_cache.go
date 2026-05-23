@@ -20,26 +20,34 @@ type Qwen35GPUPrewarmStats struct {
 }
 
 type Qwen35GPUCacheStats struct {
-	Enabled        bool                     `json:"enabled"`
-	RequestedBytes int64                    `json:"requested_bytes"`
-	BudgetBytes    int64                    `json:"budget_bytes"`
-	Clamped        bool                     `json:"clamped"`
-	UsedBytes      int64                    `json:"used_bytes"`
-	Entries        int                      `json:"entries"`
-	Hits           int64                    `json:"hits"`
-	Misses         int64                    `json:"misses"`
-	Evictions      int64                    `json:"evictions"`
-	Uploads        int64                    `json:"uploads"`
-	UploadBytes    int64                    `json:"upload_bytes,omitempty"`
-	Transient      int64                    `json:"transient_uploads"`
-	TransientBytes int64                    `json:"transient_bytes,omitempty"`
-	TopTransient   []Qwen35GPUTransientStat `json:"top_transient,omitempty"`
+	Enabled                 bool                     `json:"enabled"`
+	RequestedBytes          int64                    `json:"requested_bytes"`
+	BudgetBytes             int64                    `json:"budget_bytes"`
+	Clamped                 bool                     `json:"clamped"`
+	UsedBytes               int64                    `json:"used_bytes"`
+	Entries                 int                      `json:"entries"`
+	Hits                    int64                    `json:"hits"`
+	Misses                  int64                    `json:"misses"`
+	Evictions               int64                    `json:"evictions"`
+	Uploads                 int64                    `json:"uploads"`
+	UploadBytes             int64                    `json:"upload_bytes,omitempty"`
+	Transient               int64                    `json:"transient_uploads"`
+	TransientBytes          int64                    `json:"transient_bytes,omitempty"`
+	TopTransient            []Qwen35GPUTransientStat `json:"top_transient,omitempty"`
+	MLXCompletePrefixLayers int                      `json:"mlx_complete_prefix_layers,omitempty"`
+	MLXLayers               []Qwen35GPULayerStat     `json:"mlx_layers,omitempty"`
 }
 
 type Qwen35GPUTransientStat struct {
 	Name  string `json:"name"`
 	Count int64  `json:"count"`
 	Bytes int64  `json:"bytes"`
+}
+
+type Qwen35GPULayerStat struct {
+	Layer    int `json:"layer"`
+	Resident int `json:"resident"`
+	Total    int `json:"total"`
 }
 
 type qwen35GPUMXEntry struct {
@@ -348,22 +356,58 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 	if len(top) > 10 {
 		top = top[:10]
 	}
+	layers, completePrefix := qwen35MLXLayerStatsLocked()
 	return Qwen35GPUCacheStats{
-		Enabled:        qwen35GPUEnabled,
-		RequestedBytes: qwen35GPUCache.requestedBytes,
-		BudgetBytes:    qwen35GPUCache.budgetBytes,
-		Clamped:        qwen35GPUCache.clamped,
-		UsedBytes:      qwen35GPUCache.usedBytes,
-		Entries:        len(qwen35GPUCache.entries) + len(qwen35GPUCache.mlxEntries),
-		Hits:           atomic.LoadInt64(&qwen35GPUCache.hits),
-		Misses:         qwen35GPUCache.misses,
-		Evictions:      qwen35GPUCache.evictions,
-		Uploads:        qwen35GPUCache.uploads,
-		UploadBytes:    qwen35GPUCache.uploadBytes,
-		Transient:      qwen35GPUCache.transient,
-		TransientBytes: qwen35GPUCache.transientBytes,
-		TopTransient:   top,
+		Enabled:                 qwen35GPUEnabled,
+		RequestedBytes:          qwen35GPUCache.requestedBytes,
+		BudgetBytes:             qwen35GPUCache.budgetBytes,
+		Clamped:                 qwen35GPUCache.clamped,
+		UsedBytes:               qwen35GPUCache.usedBytes,
+		Entries:                 len(qwen35GPUCache.entries) + len(qwen35GPUCache.mlxEntries),
+		Hits:                    atomic.LoadInt64(&qwen35GPUCache.hits),
+		Misses:                  qwen35GPUCache.misses,
+		Evictions:               qwen35GPUCache.evictions,
+		Uploads:                 qwen35GPUCache.uploads,
+		UploadBytes:             qwen35GPUCache.uploadBytes,
+		Transient:               qwen35GPUCache.transient,
+		TransientBytes:          qwen35GPUCache.transientBytes,
+		TopTransient:            top,
+		MLXCompletePrefixLayers: completePrefix,
+		MLXLayers:               layers,
 	}
+}
+
+func qwen35MLXLayerStatsLocked() ([]Qwen35GPULayerStat, int) {
+	total := map[int]int{}
+	resident := map[int]int{}
+	for w, name := range qwen35GPUCache.mlxNames {
+		layer := qwen35LayerIndexFromName(name)
+		if layer < 0 {
+			continue
+		}
+		total[layer]++
+		if e := qwen35GPUCache.mlxEntries[w]; e != nil && e.GPU != nil {
+			resident[layer]++
+		}
+	}
+	if len(total) == 0 {
+		return nil, 0
+	}
+	keys := make([]int, 0, len(total))
+	for layer := range total {
+		keys = append(keys, layer)
+	}
+	sort.Ints(keys)
+	out := make([]Qwen35GPULayerStat, 0, len(keys))
+	completePrefix := 0
+	for _, layer := range keys {
+		stat := Qwen35GPULayerStat{Layer: layer, Resident: resident[layer], Total: total[layer]}
+		out = append(out, stat)
+		if layer == completePrefix && stat.Total > 0 && stat.Resident == stat.Total {
+			completePrefix++
+		}
+	}
+	return out, completePrefix
 }
 
 func qwen35CachedGPUWeight(q *Qwen35NVFP4Weight) (*nvidia.GPUNVFP4Weight, bool, error) {
