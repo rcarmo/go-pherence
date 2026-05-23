@@ -242,6 +242,7 @@ func main() {
 	greedySeed := flag.Bool("greedy-seed", false, "also run the more expensive prefill MTP diagnostic seeded with the base greedy token")
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
 	gpuCacheMB := flag.Int("gpu-cache-mb", 10600, "GPU cache budget for packed Qwen3.6 weights; tuned below full VRAM to leave transient MLX upload scratch")
+	gpuWindowReserveMB := flag.Int("gpu-window-reserve-mb", 0, "MiB to subtract from Qwen resident weight cache for experimental suffix layer-window headroom")
 	gpuPlacement := flag.String("gpu-placement", "prefix", "Qwen GPU placement policy: prefix, mlp-suffix, or mlp-first")
 	gpuCacheHeadroomMB := flag.Int("gpu-cache-headroom-mb", 512, "free-VRAM headroom kept when auto-clamping the Qwen3.6 GPU weight cache")
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault safetensors mmap before timed generation")
@@ -341,7 +342,11 @@ func main() {
 	check("open tensors", err)
 	defer src.Close()
 	r := runner{bundle: bundle, state: state, emb: mustEmbedding(src, meta), normW: bf16All(mustRawCandidate(src, "model.language_model.norm.weight", "language_model.model.norm.weight")), lm: mustLMHead(src, meta)}
-	qwen.ConfigureQwen35GPUCache(int64(*gpuCacheMB) * 1024 * 1024)
+	residentCacheMB := *gpuCacheMB - *gpuWindowReserveMB
+	if residentCacheMB < 0 {
+		residentCacheMB = 0
+	}
+	qwen.ConfigureQwen35GPUCache(int64(residentCacheMB) * 1024 * 1024)
 	if *gpuLMHead && *useGPU && r.lm.mlx == nil {
 		r.lmGPU, err = nvidia.UploadBF16LMHead(r.lm.raw, r.lm.shape[0], r.lm.shape[1])
 		if err != nil {
