@@ -53,18 +53,21 @@ func qwen35MLXMLPIntoGPU(out, mlpIn []float32, gateM, upM, downM *mlx.QuantWeigh
 	if gateM.InDim != hidden || gateM.OutDim != inter || upM.InDim != hidden || upM.OutDim != inter || downM.InDim != inter || downM.OutDim != hidden {
 		return false, nil
 	}
-	gwGate, ok := qwen35CachedGPUMXWeightIfResident(gateM)
+	gwGate, freeGate, ok := qwen35MLXMLPWeightForGPU(gateM)
 	if !ok {
 		return false, nil
 	}
-	gwUp, ok := qwen35CachedGPUMXWeightIfResident(upM)
+	defer freeGate()
+	gwUp, freeUp, ok := qwen35MLXMLPWeightForGPU(upM)
 	if !ok {
 		return false, nil
 	}
-	gwDown, ok := qwen35CachedGPUMXWeightIfResident(downM)
+	defer freeUp()
+	gwDown, freeDown, ok := qwen35MLXMLPWeightForGPU(downM)
 	if !ok {
 		return false, nil
 	}
+	defer freeDown()
 	qwen35MLXGPUScratch.Lock()
 	defer qwen35MLXGPUScratch.Unlock()
 	if qwen35MLXGPUScratch.x == nil || qwen35MLXGPUScratch.xN < hidden {
@@ -122,6 +125,20 @@ func qwen35MLXMLPIntoGPU(out, mlpIn []float32, gateM, upM, downM *mlx.QuantWeigh
 	ob.MarkOnGPU()
 	copy(out[:hidden], ob.Data()[:hidden])
 	return true, nil
+}
+
+func qwen35MLXMLPWeightForGPU(w *mlx.QuantWeight) (*nvidia.GPUMLXWeight, func(), bool) {
+	if gw, ok := qwen35CachedGPUMXWeightIfResident(w); ok {
+		return gw, func() {}, true
+	}
+	if !qwen35GPUMLXOverflowEnabled {
+		return nil, func() {}, false
+	}
+	gw, err := qwen35TransientGPUMXWeight(w)
+	if err != nil {
+		return nil, func() {}, false
+	}
+	return gw, gw.Free, true
 }
 
 func resetQwen35MLXGPUScratch() {
