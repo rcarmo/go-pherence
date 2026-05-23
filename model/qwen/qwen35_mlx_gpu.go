@@ -128,13 +128,14 @@ func qwen35MLXMLPIntoGPU(out, mlpIn []float32, gateM, upM, downM *mlx.QuantWeigh
 }
 
 func qwen35MLXMLPWeightForGPU(w *mlx.QuantWeight) (*nvidia.GPUMLXWeight, func(), bool) {
-	if gw, ok := qwen35CachedGPUMXWeightIfResident(w); ok {
+	gw, err := qwen35CachedGPUMXWeight(w)
+	if err == nil {
 		return gw, func() {}, true
 	}
 	if !qwen35GPUMLXOverflowEnabled {
 		return nil, func() {}, false
 	}
-	gw, err := qwen35TransientGPUMXWeight(w)
+	gw, err = qwen35TransientGPUMXWeight(w)
 	if err != nil {
 		return nil, func() {}, false
 	}

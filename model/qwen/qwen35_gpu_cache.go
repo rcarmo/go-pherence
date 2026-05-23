@@ -29,6 +29,11 @@ type Qwen35GPUCacheStats struct {
 	WindowUsedBytes         int64                    `json:"window_used_bytes,omitempty"`
 	WindowEntries           int                      `json:"window_entries,omitempty"`
 	WindowMinLayer          int                      `json:"window_min_layer,omitempty"`
+	WindowHits              int64                    `json:"window_hits,omitempty"`
+	WindowMisses            int64                    `json:"window_misses,omitempty"`
+	WindowUploads           int64                    `json:"window_uploads,omitempty"`
+	WindowUploadBytes       int64                    `json:"window_upload_bytes,omitempty"`
+	WindowEvictions         int64                    `json:"window_evictions,omitempty"`
 	TotalResidentBytes      int64                    `json:"total_resident_bytes,omitempty"`
 	FreeBytes               uint64                   `json:"free_bytes,omitempty"`
 	TotalBytes              uint64                   `json:"total_bytes,omitempty"`
@@ -102,6 +107,11 @@ type qwen35GPUCacheState struct {
 	windowMLXEntries  map[*mlx.QuantWeight]bool
 	windowBudgetBytes int64
 	windowUsedBytes   int64
+	windowHits        int64
+	windowMisses      int64
+	windowUploads     int64
+	windowUploadBytes int64
+	windowEvictions   int64
 	transientGPU      *nvidia.GPUNVFP4Weight
 	transientByName   map[string]Qwen35GPUTransientStat
 	mlxNames          map[*mlx.QuantWeight]string
@@ -216,6 +226,11 @@ func ResetQwen35GPUCache() {
 	}
 	qwen35GPUCache.windowMLXEntries = map[*mlx.QuantWeight]bool{}
 	qwen35GPUCache.windowUsedBytes = 0
+	qwen35GPUCache.windowHits = 0
+	qwen35GPUCache.windowMisses = 0
+	qwen35GPUCache.windowUploads = 0
+	qwen35GPUCache.windowUploadBytes = 0
+	qwen35GPUCache.windowEvictions = 0
 	if qwen35GPUCache.transientGPU != nil {
 		qwen35GPUCache.transientGPU.Free()
 		qwen35GPUCache.transientGPU = nil
@@ -430,6 +445,11 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		WindowUsedBytes:         qwen35GPUCache.windowUsedBytes,
 		WindowEntries:           len(qwen35GPUCache.windowMLXEntries),
 		WindowMinLayer:          qwen35GPUWindowMinLayer,
+		WindowHits:              qwen35GPUCache.windowHits,
+		WindowMisses:            qwen35GPUCache.windowMisses,
+		WindowUploads:           qwen35GPUCache.windowUploads,
+		WindowUploadBytes:       qwen35GPUCache.windowUploadBytes,
+		WindowEvictions:         qwen35GPUCache.windowEvictions,
 		TotalResidentBytes:      qwen35GPUCache.usedBytes + qwen35GPUCache.windowUsedBytes,
 		FreeBytes:               freeBytes,
 		TotalBytes:              totalBytes,
@@ -716,6 +736,9 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 	if e := qwen35GPUCache.mlxEntries[q]; e != nil && e.GPU != nil {
 		e.LastUse = atomic.AddUint64(&qwen35GPUCache.tick, 1)
 		qwen35GPUCache.hits++
+		if qwen35GPUCache.windowMLXEntries[q] {
+			qwen35GPUCache.windowHits++
+		}
 		gw := e.GPU
 		qwen35GPUCache.Unlock()
 		return gw, nil
@@ -733,6 +756,9 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 	// overflow upload or a CPU fallback. Count actual transient uploads in the
 	// overflow path, not this cache-full probe.
 	if qwen35GPUCache.budgetBytes > 0 && qwen35GPUCache.usedBytes+need > qwen35GPUCache.budgetBytes {
+		if qwen35ShouldAdmitMLXWindowLocked(q) {
+			qwen35GPUCache.windowMisses++
+		}
 		if !qwen35ShouldAdmitMLXWindowLocked(q) || qwen35GPUCache.windowBudgetBytes <= 0 || need > qwen35GPUCache.windowBudgetBytes {
 			qwen35GPUCache.Unlock()
 			return nil, fmt.Errorf("MLX weight cache full: need %.1f MB, used %.1f MB, budget %.1f MB", float64(need)/1e6, float64(qwen35GPUCache.usedBytes)/1e6, float64(qwen35GPUCache.budgetBytes)/1e6)
@@ -758,6 +784,8 @@ func qwen35CachedGPUMXWeight(q *mlx.QuantWeight) (*nvidia.GPUMLXWeight, error) {
 		qwen35GPUCache.mlxEntries[q] = &qwen35GPUMXEntry{GPU: gw, Bytes: need, LastUse: atomic.AddUint64(&qwen35GPUCache.tick, 1)}
 		qwen35GPUCache.windowMLXEntries[q] = true
 		qwen35GPUCache.windowUsedBytes += need
+		qwen35GPUCache.windowUploads++
+		qwen35GPUCache.windowUploadBytes += need
 		qwen35GPUCache.uploads++
 		qwen35GPUCache.uploadBytes += need
 		return gw, nil
@@ -919,6 +947,7 @@ func (c *qwen35GPUCacheState) freeMLXEntryLocked(q *mlx.QuantWeight) {
 		if c.windowUsedBytes < 0 {
 			c.windowUsedBytes = 0
 		}
+		c.windowEvictions++
 	} else {
 		c.usedBytes -= e.Bytes
 		if c.usedBytes < 0 {
