@@ -57,123 +57,125 @@ type mtpGenerateStats struct {
 }
 
 type Report struct {
-	ModelDir                   string                     `json:"model_dir"`
-	Prompt                     string                     `json:"prompt,omitempty"`
-	InputIDs                   []int                      `json:"input_ids"`
-	GeneratedIDs               []int                      `json:"generated_ids,omitempty"`
-	Decoded                    string                     `json:"decoded,omitempty"`
-	TokenID                    int                        `json:"token_id,omitempty"`
-	NextID                     int                        `json:"next_id"`
-	Logit                      float32                    `json:"logit"`
-	HiddenAbsSum               float32                    `json:"hidden_abs_sum"`
-	MTPOutputLen               int                        `json:"mtp_output_len,omitempty"`
-	MTPAbsSum                  float32                    `json:"mtp_abs_sum,omitempty"`
-	MTPNextID                  int                        `json:"mtp_next_id,omitempty"`
-	MTPLogit                   float32                    `json:"mtp_logit,omitempty"`
-	MTPVerifierNextID          int                        `json:"mtp_verifier_next_id,omitempty"`
-	MTPAcceptedByGreedy        bool                       `json:"mtp_accepted_by_greedy"`
-	PrefillMTPNextID           int                        `json:"prefill_mtp_next_id,omitempty"`
-	PrefillMTPLogit            float32                    `json:"prefill_mtp_logit,omitempty"`
-	PrefillMTPAccepted         bool                       `json:"prefill_mtp_accepted"`
-	PrefillGreedySeedMTPNextID int                        `json:"prefill_greedy_seed_mtp_next_id,omitempty"`
-	PrefillGreedySeedAccepted  bool                       `json:"prefill_greedy_seed_accepted"`
-	VerifierLogitForMTP        float32                    `json:"verifier_logit_for_mtp,omitempty"`
-	VerifierBestMinusMTP       float32                    `json:"verifier_best_minus_mtp,omitempty"`
-	MTPLogitForVerifier        float32                    `json:"mtp_logit_for_verifier,omitempty"`
-	MTPBestMinusVerifier       float32                    `json:"mtp_best_minus_verifier,omitempty"`
-	MTPDraftIDs                []int                      `json:"mtp_draft_ids,omitempty"`
-	MTPVerifierIDs             []int                      `json:"mtp_verifier_ids,omitempty"`
-	MTPAcceptedPrefix          int                        `json:"mtp_accepted_prefix,omitempty"`
-	MTPCommittedTokens         []int                      `json:"mtp_committed_tokens,omitempty"`
-	MTPCommitStatePos          int                        `json:"mtp_commit_state_pos,omitempty"`
-	MTPGenerate                bool                       `json:"mtp_generate,omitempty"`
-	MTPGeneratedIDs            []int                      `json:"mtp_generated_ids,omitempty"`
-	MTPGeneratedAccepted       int                        `json:"mtp_generated_accepted,omitempty"`
-	MTPGeneratedDrafted        int                        `json:"mtp_generated_drafted,omitempty"`
-	MTPGeneratedRounds         int                        `json:"mtp_generated_rounds,omitempty"`
-	MTPGeneratedBonusTokens    int                        `json:"mtp_generated_bonus_tokens,omitempty"`
-	MTPVerifierChunks          int                        `json:"mtp_verifier_chunks,omitempty"`
-	MTPVerifierLayerChunks     int                        `json:"mtp_verifier_layer_chunks,omitempty"`
-	MTPGeneratedAcceptanceRate float64                    `json:"mtp_generated_acceptance_rate,omitempty"`
-	MTPAdaptiveFallback        bool                       `json:"mtp_adaptive_fallback,omitempty"`
-	SequentialDecoded          string                     `json:"sequential_decoded,omitempty"`
-	SequentialDurationMS       int64                      `json:"sequential_duration_ms,omitempty"`
-	SequentialDecodeTPS        float64                    `json:"sequential_decode_tokens_per_second,omitempty"`
-	SequentialLinearStats      qwen.Qwen35LinearStats     `json:"sequential_linear_stats,omitempty"`
-	SequentialLMHeadStats      Qwen36LMHeadStats          `json:"sequential_lm_head_stats,omitempty"`
-	MTPSpeedupVsSequential     float64                    `json:"mtp_speedup_vs_sequential,omitempty"`
-	KVCachedDurationMS         int64                      `json:"kv_cached_duration_ms,omitempty"`
-	KVColdDurationMS           int64                      `json:"kv_cold_duration_ms,omitempty"`
-	KVSpeedupVsCold            float64                    `json:"kv_speedup_vs_cold,omitempty"`
-	KVColdNextID               int                        `json:"kv_cold_next_id,omitempty"`
-	KVCachedNextID             int                        `json:"kv_cached_next_id,omitempty"`
-	KVColdMatchesCached        bool                       `json:"kv_cold_matches_cached,omitempty"`
-	MmapEagerBytes             int64                      `json:"mmap_eager_bytes,omitempty"`
-	MmapEagerMS                int64                      `json:"mmap_eager_ms,omitempty"`
-	GPUPrewarm                 qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
-	GPUPrewarmMS               int64                      `json:"gpu_prewarm_ms,omitempty"`
-	GPUCache                   qwen.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
-	GPUVerify                  qwen.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
-	LinearStats                qwen.Qwen35LinearStats     `json:"linear_stats,omitempty"`
-	LMHeadStats                Qwen36LMHeadStats          `json:"lm_head_stats,omitempty"`
-	PrewarmTokensPerSecond     float64                    `json:"prewarm_tokens_per_second,omitempty"`
-	DecodeTokensPerSecond      float64                    `json:"decode_tokens_per_second,omitempty"`
-	GPULMHead                  bool                       `json:"gpu_lm_head,omitempty"`
-	DurationMS                 int64                      `json:"duration_ms"`
-	TokensProcessed            int                        `json:"tokens_processed"`
-	TokensPerSecond            float64                    `json:"tokens_per_second"`
-	BaseTop                    []TopLogit                 `json:"base_top,omitempty"`
-	MTPTop                     []TopLogit                 `json:"mtp_top,omitempty"`
-	Summary                    Qwen36Summary              `json:"summary,omitempty"`
-	KVReuse                    bool                       `json:"kv_reuse,omitempty"`
-	KVCacheHit                 bool                       `json:"kv_cache_hit,omitempty"`
-	KVLookupAttempts           int                        `json:"kv_lookup_attempts,omitempty"`
-	KVLookupHits               int                        `json:"kv_lookup_hits,omitempty"`
-	KVLookupMisses             int                        `json:"kv_lookup_misses,omitempty"`
-	KVStoreAttempts            int                        `json:"kv_store_attempts,omitempty"`
-	KVEvictedStores            int                        `json:"kv_evicted_stores,omitempty"`
-	KVReusedTokens             int                        `json:"kv_reused_tokens,omitempty"`
-	KVPrefillTokens            int                        `json:"kv_prefill_tokens,omitempty"`
-	KVSuffixTokens             int                        `json:"kv_suffix_tokens,omitempty"`
-	KVSkippedPrefillTokens     int                        `json:"kv_skipped_prefill_tokens,omitempty"`
-	KVReuseEfficiency          float64                    `json:"kv_reuse_efficiency,omitempty"`
-	KVPrimePrompt              string                     `json:"kv_prime_prompt,omitempty"`
-	KVPrimeTokens              int                        `json:"kv_prime_tokens,omitempty"`
-	KVPrimeStoredChunks        int                        `json:"kv_prime_stored_chunks,omitempty"`
-	KVStoredChunks             int                        `json:"kv_stored_chunks,omitempty"`
-	KVChunkSize                int                        `json:"kv_chunk_size,omitempty"`
-	KVRepeat                   int                        `json:"kv_repeat,omitempty"`
-	KVCacheMaxBytes            int64                      `json:"kv_cache_max_bytes,omitempty"`
-	KVCacheUsedBytes           int64                      `json:"kv_cache_used_bytes,omitempty"`
-	KVCacheEntries             int                        `json:"kv_cache_entries,omitempty"`
-	KVGPUCacheMaxBytes         int64                      `json:"kv_gpu_cache_max_bytes,omitempty"`
-	KVGPUCacheUsedBytes        int64                      `json:"kv_gpu_cache_used_bytes,omitempty"`
-	KVGPUCacheEntries          int                        `json:"kv_gpu_cache_entries,omitempty"`
-	KVGPUHeadroomBytes         uint64                     `json:"kv_gpu_headroom_bytes,omitempty"`
-	KVGPUCompressed            bool                       `json:"kv_gpu_compressed,omitempty"`
-	KVGPUStateEstimateBytes    int64                      `json:"kv_gpu_state_estimate_bytes,omitempty"`
-	KVGPUFreeBytes             uint64                     `json:"kv_gpu_free_bytes,omitempty"`
-	KVGPUUploadFailures        int64                      `json:"kv_gpu_upload_failures,omitempty"`
-	KVGPUBudgetRejections      int64                      `json:"kv_gpu_budget_rejections,omitempty"`
-	KVGPUHeadroomRejections    int64                      `json:"kv_gpu_headroom_rejections,omitempty"`
-	KVGPUStoreAttempts         int                        `json:"kv_gpu_store_attempts,omitempty"`
-	KVGPUStoredChunks          int                        `json:"kv_gpu_stored_chunks,omitempty"`
-	KVGPUHit                   bool                       `json:"kv_gpu_hit,omitempty"`
-	KVGPULookupAttempts        int                        `json:"kv_gpu_lookup_attempts,omitempty"`
-	KVGPUHits                  int                        `json:"kv_gpu_hits,omitempty"`
-	KVGPUHitsMissing           int                        `json:"kv_gpu_misses,omitempty"`
-	KVGPUHitPromotions         int                        `json:"kv_gpu_hit_promotions,omitempty"`
-	KVGPUHitPromotionFailures  int                        `json:"kv_gpu_hit_promotion_failures,omitempty"`
-	KVGPURejectedStores        int                        `json:"kv_gpu_rejected_stores,omitempty"`
-	KVGPUVerifyAttempts        int                        `json:"kv_gpu_verify_attempts,omitempty"`
-	KVGPUVerifyMatches         int                        `json:"kv_gpu_verify_matches,omitempty"`
-	KVGPUVerifyFailures        int                        `json:"kv_gpu_verify_failures,omitempty"`
-	KVGPUUsedForRestore        bool                       `json:"kv_gpu_used_for_restore,omitempty"`
-	KVGPURestoreAttempts       int                        `json:"kv_gpu_restore_attempts,omitempty"`
-	KVGPURestoreFailures       int                        `json:"kv_gpu_restore_failures,omitempty"`
-	KVGPURestoreMatchesCold    bool                       `json:"kv_gpu_restore_matches_cold,omitempty"`
-	LayerStreamedPrefill       bool                       `json:"layer_streamed_prefill,omitempty"`
-	Passed                     bool                       `json:"passed"`
+	ModelDir                    string                     `json:"model_dir"`
+	Prompt                      string                     `json:"prompt,omitempty"`
+	InputIDs                    []int                      `json:"input_ids"`
+	GeneratedIDs                []int                      `json:"generated_ids,omitempty"`
+	Decoded                     string                     `json:"decoded,omitempty"`
+	TokenID                     int                        `json:"token_id,omitempty"`
+	NextID                      int                        `json:"next_id"`
+	Logit                       float32                    `json:"logit"`
+	HiddenAbsSum                float32                    `json:"hidden_abs_sum"`
+	MTPOutputLen                int                        `json:"mtp_output_len,omitempty"`
+	MTPAbsSum                   float32                    `json:"mtp_abs_sum,omitempty"`
+	MTPNextID                   int                        `json:"mtp_next_id,omitempty"`
+	MTPLogit                    float32                    `json:"mtp_logit,omitempty"`
+	MTPVerifierNextID           int                        `json:"mtp_verifier_next_id,omitempty"`
+	MTPAcceptedByGreedy         bool                       `json:"mtp_accepted_by_greedy"`
+	PrefillMTPNextID            int                        `json:"prefill_mtp_next_id,omitempty"`
+	PrefillMTPLogit             float32                    `json:"prefill_mtp_logit,omitempty"`
+	PrefillMTPAccepted          bool                       `json:"prefill_mtp_accepted"`
+	PrefillGreedySeedMTPNextID  int                        `json:"prefill_greedy_seed_mtp_next_id,omitempty"`
+	PrefillGreedySeedAccepted   bool                       `json:"prefill_greedy_seed_accepted"`
+	VerifierLogitForMTP         float32                    `json:"verifier_logit_for_mtp,omitempty"`
+	VerifierBestMinusMTP        float32                    `json:"verifier_best_minus_mtp,omitempty"`
+	MTPLogitForVerifier         float32                    `json:"mtp_logit_for_verifier,omitempty"`
+	MTPBestMinusVerifier        float32                    `json:"mtp_best_minus_verifier,omitempty"`
+	MTPDraftIDs                 []int                      `json:"mtp_draft_ids,omitempty"`
+	MTPVerifierIDs              []int                      `json:"mtp_verifier_ids,omitempty"`
+	MTPAcceptedPrefix           int                        `json:"mtp_accepted_prefix,omitempty"`
+	MTPCommittedTokens          []int                      `json:"mtp_committed_tokens,omitempty"`
+	MTPCommitStatePos           int                        `json:"mtp_commit_state_pos,omitempty"`
+	MTPGenerate                 bool                       `json:"mtp_generate,omitempty"`
+	MTPGeneratedIDs             []int                      `json:"mtp_generated_ids,omitempty"`
+	MTPGeneratedAccepted        int                        `json:"mtp_generated_accepted,omitempty"`
+	MTPGeneratedDrafted         int                        `json:"mtp_generated_drafted,omitempty"`
+	MTPGeneratedRounds          int                        `json:"mtp_generated_rounds,omitempty"`
+	MTPGeneratedBonusTokens     int                        `json:"mtp_generated_bonus_tokens,omitempty"`
+	MTPVerifierChunks           int                        `json:"mtp_verifier_chunks,omitempty"`
+	MTPVerifierLayerChunks      int                        `json:"mtp_verifier_layer_chunks,omitempty"`
+	MTPGeneratedAcceptanceRate  float64                    `json:"mtp_generated_acceptance_rate,omitempty"`
+	MTPAdaptiveFallback         bool                       `json:"mtp_adaptive_fallback,omitempty"`
+	SequentialDecoded           string                     `json:"sequential_decoded,omitempty"`
+	SequentialDurationMS        int64                      `json:"sequential_duration_ms,omitempty"`
+	SequentialDecodeTPS         float64                    `json:"sequential_decode_tokens_per_second,omitempty"`
+	SequentialLinearStats       qwen.Qwen35LinearStats     `json:"sequential_linear_stats,omitempty"`
+	SequentialLMHeadStats       Qwen36LMHeadStats          `json:"sequential_lm_head_stats,omitempty"`
+	MTPSpeedupVsSequential      float64                    `json:"mtp_speedup_vs_sequential,omitempty"`
+	KVCachedDurationMS          int64                      `json:"kv_cached_duration_ms,omitempty"`
+	KVColdDurationMS            int64                      `json:"kv_cold_duration_ms,omitempty"`
+	KVSpeedupVsCold             float64                    `json:"kv_speedup_vs_cold,omitempty"`
+	KVColdNextID                int                        `json:"kv_cold_next_id,omitempty"`
+	KVCachedNextID              int                        `json:"kv_cached_next_id,omitempty"`
+	KVColdMatchesCached         bool                       `json:"kv_cold_matches_cached,omitempty"`
+	MmapEagerBytes              int64                      `json:"mmap_eager_bytes,omitempty"`
+	MmapEagerMS                 int64                      `json:"mmap_eager_ms,omitempty"`
+	GPUPrewarm                  qwen.Qwen35GPUPrewarmStats `json:"gpu_prewarm,omitempty"`
+	GPUPrewarmMS                int64                      `json:"gpu_prewarm_ms,omitempty"`
+	GPUCache                    qwen.Qwen35GPUCacheStats   `json:"gpu_cache,omitempty"`
+	GPUTransientBytesPerToken   float64                    `json:"gpu_transient_bytes_per_token,omitempty"`
+	GPUTransientUploadsPerToken float64                    `json:"gpu_transient_uploads_per_token,omitempty"`
+	GPUVerify                   qwen.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
+	LinearStats                 qwen.Qwen35LinearStats     `json:"linear_stats,omitempty"`
+	LMHeadStats                 Qwen36LMHeadStats          `json:"lm_head_stats,omitempty"`
+	PrewarmTokensPerSecond      float64                    `json:"prewarm_tokens_per_second,omitempty"`
+	DecodeTokensPerSecond       float64                    `json:"decode_tokens_per_second,omitempty"`
+	GPULMHead                   bool                       `json:"gpu_lm_head,omitempty"`
+	DurationMS                  int64                      `json:"duration_ms"`
+	TokensProcessed             int                        `json:"tokens_processed"`
+	TokensPerSecond             float64                    `json:"tokens_per_second"`
+	BaseTop                     []TopLogit                 `json:"base_top,omitempty"`
+	MTPTop                      []TopLogit                 `json:"mtp_top,omitempty"`
+	Summary                     Qwen36Summary              `json:"summary,omitempty"`
+	KVReuse                     bool                       `json:"kv_reuse,omitempty"`
+	KVCacheHit                  bool                       `json:"kv_cache_hit,omitempty"`
+	KVLookupAttempts            int                        `json:"kv_lookup_attempts,omitempty"`
+	KVLookupHits                int                        `json:"kv_lookup_hits,omitempty"`
+	KVLookupMisses              int                        `json:"kv_lookup_misses,omitempty"`
+	KVStoreAttempts             int                        `json:"kv_store_attempts,omitempty"`
+	KVEvictedStores             int                        `json:"kv_evicted_stores,omitempty"`
+	KVReusedTokens              int                        `json:"kv_reused_tokens,omitempty"`
+	KVPrefillTokens             int                        `json:"kv_prefill_tokens,omitempty"`
+	KVSuffixTokens              int                        `json:"kv_suffix_tokens,omitempty"`
+	KVSkippedPrefillTokens      int                        `json:"kv_skipped_prefill_tokens,omitempty"`
+	KVReuseEfficiency           float64                    `json:"kv_reuse_efficiency,omitempty"`
+	KVPrimePrompt               string                     `json:"kv_prime_prompt,omitempty"`
+	KVPrimeTokens               int                        `json:"kv_prime_tokens,omitempty"`
+	KVPrimeStoredChunks         int                        `json:"kv_prime_stored_chunks,omitempty"`
+	KVStoredChunks              int                        `json:"kv_stored_chunks,omitempty"`
+	KVChunkSize                 int                        `json:"kv_chunk_size,omitempty"`
+	KVRepeat                    int                        `json:"kv_repeat,omitempty"`
+	KVCacheMaxBytes             int64                      `json:"kv_cache_max_bytes,omitempty"`
+	KVCacheUsedBytes            int64                      `json:"kv_cache_used_bytes,omitempty"`
+	KVCacheEntries              int                        `json:"kv_cache_entries,omitempty"`
+	KVGPUCacheMaxBytes          int64                      `json:"kv_gpu_cache_max_bytes,omitempty"`
+	KVGPUCacheUsedBytes         int64                      `json:"kv_gpu_cache_used_bytes,omitempty"`
+	KVGPUCacheEntries           int                        `json:"kv_gpu_cache_entries,omitempty"`
+	KVGPUHeadroomBytes          uint64                     `json:"kv_gpu_headroom_bytes,omitempty"`
+	KVGPUCompressed             bool                       `json:"kv_gpu_compressed,omitempty"`
+	KVGPUStateEstimateBytes     int64                      `json:"kv_gpu_state_estimate_bytes,omitempty"`
+	KVGPUFreeBytes              uint64                     `json:"kv_gpu_free_bytes,omitempty"`
+	KVGPUUploadFailures         int64                      `json:"kv_gpu_upload_failures,omitempty"`
+	KVGPUBudgetRejections       int64                      `json:"kv_gpu_budget_rejections,omitempty"`
+	KVGPUHeadroomRejections     int64                      `json:"kv_gpu_headroom_rejections,omitempty"`
+	KVGPUStoreAttempts          int                        `json:"kv_gpu_store_attempts,omitempty"`
+	KVGPUStoredChunks           int                        `json:"kv_gpu_stored_chunks,omitempty"`
+	KVGPUHit                    bool                       `json:"kv_gpu_hit,omitempty"`
+	KVGPULookupAttempts         int                        `json:"kv_gpu_lookup_attempts,omitempty"`
+	KVGPUHits                   int                        `json:"kv_gpu_hits,omitempty"`
+	KVGPUHitsMissing            int                        `json:"kv_gpu_misses,omitempty"`
+	KVGPUHitPromotions          int                        `json:"kv_gpu_hit_promotions,omitempty"`
+	KVGPUHitPromotionFailures   int                        `json:"kv_gpu_hit_promotion_failures,omitempty"`
+	KVGPURejectedStores         int                        `json:"kv_gpu_rejected_stores,omitempty"`
+	KVGPUVerifyAttempts         int                        `json:"kv_gpu_verify_attempts,omitempty"`
+	KVGPUVerifyMatches          int                        `json:"kv_gpu_verify_matches,omitempty"`
+	KVGPUVerifyFailures         int                        `json:"kv_gpu_verify_failures,omitempty"`
+	KVGPUUsedForRestore         bool                       `json:"kv_gpu_used_for_restore,omitempty"`
+	KVGPURestoreAttempts        int                        `json:"kv_gpu_restore_attempts,omitempty"`
+	KVGPURestoreFailures        int                        `json:"kv_gpu_restore_failures,omitempty"`
+	KVGPURestoreMatchesCold     bool                       `json:"kv_gpu_restore_matches_cold,omitempty"`
+	LayerStreamedPrefill        bool                       `json:"layer_streamed_prefill,omitempty"`
+	Passed                      bool                       `json:"passed"`
 }
 
 type SweepReport struct {
@@ -719,6 +721,7 @@ func main() {
 	rep.GPUPrewarm = prewarmStats
 	rep.GPUPrewarmMS = prewarmMS
 	rep.GPUCache = qwen.Qwen35GPUCacheStatsSnapshot()
+	qwenPopulateTransientPerToken(&rep)
 	rep.GPUVerify = qwen.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = mtpLinearStats
 	rep.LMHeadStats = mtpLMHeadStats
@@ -1290,6 +1293,15 @@ func tokensPerSecond(tokens int, durationMS int64) float64 {
 	return float64(tokens) * 1000 / float64(durationMS)
 }
 
+func qwenPopulateTransientPerToken(rep *Report) {
+	if rep == nil || len(rep.GeneratedIDs) == 0 {
+		return
+	}
+	n := float64(len(rep.GeneratedIDs))
+	rep.GPUTransientBytesPerToken = float64(rep.GPUCache.TransientBytes) / n
+	rep.GPUTransientUploadsPerToken = float64(rep.GPUCache.Transient) / n
+}
+
 func applySweepLimit(prompts []string, limit int) []string {
 	if limit > 0 && limit < len(prompts) {
 		return prompts[:limit]
@@ -1355,6 +1367,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	rep := Report{ModelDir: dir, Prompt: prompt, InputIDs: ids, GeneratedIDs: generated, Decoded: tok.Decode(generated), TokenID: ids[len(ids)-1], NextID: next, Logit: logit, HiddenAbsSum: sum, DurationMS: time.Since(start).Milliseconds(), TokensProcessed: len(ids) + len(generated), Passed: next >= 0 && len(h) == meta.HiddenSize}
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	rep.GPUCache = qwen.Qwen35GPUCacheStatsSnapshot()
+	qwenPopulateTransientPerToken(&rep)
 	rep.GPUVerify = qwen.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = qwen.Qwen35LinearStatsSnapshot()
 	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()

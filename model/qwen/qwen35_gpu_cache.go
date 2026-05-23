@@ -34,6 +34,8 @@ type Qwen35GPUCacheStats struct {
 	Transient               int64                    `json:"transient_uploads"`
 	TransientBytes          int64                    `json:"transient_bytes,omitempty"`
 	TopTransient            []Qwen35GPUTransientStat `json:"top_transient,omitempty"`
+	TransientLayers         []Qwen35GPULayerStat     `json:"transient_layers,omitempty"`
+	TransientCategories     []Qwen35GPUCategoryStat  `json:"transient_categories,omitempty"`
 	MLXCompletePrefixLayers int                      `json:"mlx_complete_prefix_layers,omitempty"`
 	MLXLayers               []Qwen35GPULayerStat     `json:"mlx_layers,omitempty"`
 }
@@ -45,9 +47,17 @@ type Qwen35GPUTransientStat struct {
 }
 
 type Qwen35GPULayerStat struct {
-	Layer    int `json:"layer"`
-	Resident int `json:"resident"`
-	Total    int `json:"total"`
+	Layer    int   `json:"layer"`
+	Resident int   `json:"resident,omitempty"`
+	Total    int   `json:"total,omitempty"`
+	Count    int64 `json:"count,omitempty"`
+	Bytes    int64 `json:"bytes,omitempty"`
+}
+
+type Qwen35GPUCategoryStat struct {
+	Category string `json:"category"`
+	Count    int64  `json:"count"`
+	Bytes    int64  `json:"bytes"`
 }
 
 type qwen35GPUMXEntry struct {
@@ -366,6 +376,7 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		top = top[:10]
 	}
 	layers, completePrefix := qwen35MLXLayerStatsLocked()
+	transientLayers, transientCategories := qwen35TransientBreakdownLocked()
 	return Qwen35GPUCacheStats{
 		Enabled:                 qwen35GPUEnabled,
 		RequestedBytes:          qwen35GPUCache.requestedBytes,
@@ -381,8 +392,71 @@ func Qwen35GPUCacheStatsSnapshot() Qwen35GPUCacheStats {
 		Transient:               qwen35GPUCache.transient,
 		TransientBytes:          qwen35GPUCache.transientBytes,
 		TopTransient:            top,
+		TransientLayers:         transientLayers,
+		TransientCategories:     transientCategories,
 		MLXCompletePrefixLayers: completePrefix,
 		MLXLayers:               layers,
+	}
+}
+
+func qwen35TransientBreakdownLocked() ([]Qwen35GPULayerStat, []Qwen35GPUCategoryStat) {
+	byLayer := map[int]Qwen35GPULayerStat{}
+	byCategory := map[string]Qwen35GPUCategoryStat{}
+	for _, stat := range qwen35GPUCache.transientByName {
+		if stat.Count == 0 && stat.Bytes == 0 {
+			continue
+		}
+		layer := qwen35LayerIndexFromName(stat.Name)
+		if layer >= 0 {
+			cur := byLayer[layer]
+			cur.Layer = layer
+			cur.Count += stat.Count
+			cur.Bytes += stat.Bytes
+			byLayer[layer] = cur
+		}
+		cat := qwen35WeightCategory(stat.Name)
+		cur := byCategory[cat]
+		cur.Category = cat
+		cur.Count += stat.Count
+		cur.Bytes += stat.Bytes
+		byCategory[cat] = cur
+	}
+	layers := make([]Qwen35GPULayerStat, 0, len(byLayer))
+	for _, stat := range byLayer {
+		layers = append(layers, stat)
+	}
+	sort.Slice(layers, func(i, j int) bool { return layers[i].Layer < layers[j].Layer })
+	categories := make([]Qwen35GPUCategoryStat, 0, len(byCategory))
+	for _, stat := range byCategory {
+		categories = append(categories, stat)
+	}
+	sort.Slice(categories, func(i, j int) bool {
+		if categories[i].Bytes == categories[j].Bytes {
+			return categories[i].Category < categories[j].Category
+		}
+		return categories[i].Bytes > categories[j].Bytes
+	})
+	return layers, categories
+}
+
+func qwen35WeightCategory(name string) string {
+	switch {
+	case strings.Contains(name, ".mlp.gate_proj"):
+		return "mlp.gate"
+	case strings.Contains(name, ".mlp.up_proj"):
+		return "mlp.up"
+	case strings.Contains(name, ".mlp.down_proj"):
+		return "mlp.down"
+	case strings.Contains(name, ".mlp."):
+		return "mlp.other"
+	case strings.Contains(name, ".self_attn."):
+		return "attention"
+	case strings.Contains(name, ".linear_attn."):
+		return "linear_attention"
+	case name == "":
+		return "unknown"
+	default:
+		return "other"
 	}
 }
 
