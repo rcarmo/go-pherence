@@ -756,26 +756,27 @@ func applyQwen35LinearDeltaUpdateInPlace(ssm, q, k, v, beta, dt, decay []float32
 	for vh := 0; vh < meta.LinearNumValueHeads; vh++ {
 		decayV := decay[vh]
 		betaV := beta[vh]
+		keyHead := vh
+		if repeatGroup > 1 {
+			keyHead = vh / repeatGroup
+		}
+		keyBase := keyHead * meta.LinearKeyHeadDim
+		qHead := q[keyBase : keyBase+meta.LinearKeyHeadDim]
+		kHead := k[keyBase : keyBase+meta.LinearKeyHeadDim]
+		stateHeadBase := vh * meta.LinearValueHeadDim * meta.LinearKeyHeadDim
+		valueBase := vh * meta.LinearValueHeadDim
 		for vd := 0; vd < meta.LinearValueHeadDim; vd++ {
-			vIdx := vh*meta.LinearValueHeadDim + vd
+			vIdx := valueBase + vd
 			vVal := v[vIdx]
+			stateRow := ssm[stateHeadBase+vd*meta.LinearKeyHeadDim : stateHeadBase+(vd+1)*meta.LinearKeyHeadDim]
 			acc := float32(0)
-			stateBase := (vh*meta.LinearValueHeadDim + vd) * meta.LinearKeyHeadDim
-			keyHead := vh
-			if repeatGroup > 1 {
-				keyHead = vh / repeatGroup
-			}
-			keyBase := keyHead * meta.LinearKeyHeadDim
-			for kd := 0; kd < meta.LinearKeyHeadDim; kd++ {
-				kIdx := keyBase + kd
-				stateIdx := stateBase + kd
-				kVal := k[kIdx]
-				old := ssm[stateIdx]
+			for kd, kVal := range kHead {
+				old := stateRow[kd]
 				updated := old*decayV + betaV*(vVal-old*kVal)*kVal
-				ssm[stateIdx] = updated
-				acc += updated * q[kIdx] * scale
+				stateRow[kd] = updated
+				acc += updated * qHead[kd]
 			}
-			out[vIdx] = acc
+			out[vIdx] = acc * scale
 		}
 	}
 	return out, nil
