@@ -12,6 +12,7 @@ import (
 	"github.com/rcarmo/go-pherence/backends/ggmlquant"
 	"github.com/rcarmo/go-pherence/backends/k3"
 	"github.com/rcarmo/go-pherence/loader/gguf"
+	gograph "github.com/rcarmo/go-pherence/runtime/graph"
 )
 
 // GGUFLlamaConfig holds the hyper-parameters extracted from GGUF metadata.
@@ -59,6 +60,8 @@ type GGUFLlama struct {
 	LMHead       []float32 // [vocab × hidden]
 	LMHeadM      *gguf.QuantMatrix
 	LMHeadGraph  *ggmlgraph.MulMat
+	DecodeGraph  *gograph.Graph
+	DecodePlan   *gograph.Plan
 	UseGGMLQuant bool
 	Backend      k3.OpBackend
 	// precomputed RoPE frequencies [maxSeqLen × rotHalf]
@@ -187,6 +190,12 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		Backend:      backend,
 	}
 	m.precomputeRoPE()
+	if dg, dp, err := m.BuildDecodeGraph(); err == nil {
+		m.DecodeGraph = dg
+		m.DecodePlan = dp
+	} else {
+		return nil, fmt.Errorf("build decode graph: %w", err)
+	}
 	return m, nil
 }
 
