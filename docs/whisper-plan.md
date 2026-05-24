@@ -335,3 +335,18 @@ gpu/
 models/whisper/
   chunked.go        — Streaming/chunked transcription
 ```
+
+### Final Phase 8 Completion
+- Fused mel spectrogram: 136ms/30s with 3 allocations (vs 12k unfused)
+- Batched encoder: parallel worker pool for multi-chunk encoding
+- Speculative decoding: draft-verify pattern (tiny drafts, small verifies)
+- TurboQuant: 5× KV cache compression for long audio sequences
+- Chunked/streaming: overlap deduplication for >30s audio
+
+### Remaining Assembly Work (Deferred)
+- `backends/simd/fft_amd64.s`: AVX2 radix-4 butterfly (Go stub ready)
+- `backends/simd/fft_arm64.s`: NEON radix-4 butterfly (Go stub ready)
+- `backends/simd/conv1d_amd64.s`: FMA k=3 inner loop (Go unrolled version ready)
+- `backends/simd/conv1d_arm64.s`: NEON k=3 inner loop
+- `backends/simd/pool_amd64.s`: SIMD mean+std reduction
+- PTX kernel instruction bodies (structural stubs in place)
