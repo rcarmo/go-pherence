@@ -1,4 +1,4 @@
-//go:build cgo && linux
+//go:build ggml && cgo && linux
 
 package ggmlquant
 

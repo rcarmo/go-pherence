@@ -1,4 +1,4 @@
-//go:build cgo && linux
+//go:build ggml && cgo && linux
 
 // Package ggmlcompute binds directly to the SpacemiT/GGML quantized dot kernels.
 package ggmlcompute

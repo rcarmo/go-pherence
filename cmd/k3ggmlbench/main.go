@@ -89,14 +89,6 @@ func main() {
 			_ = model.QuantGemvRVVBlocks(out, x, qm)
 		}
 		fmt.Printf("  ours scratch+rvv: %s\n", time.Since(start)/time.Duration(*iters))
-		if qm.QType == gguf.QuantQ2_K || qm.QType == gguf.QuantQ3_K || qm.QType == gguf.QuantQ6_K {
-			outC := make([]float32, qm.OutDim)
-			start = time.Now()
-			for i := 0; i < *iters; i++ {
-				_ = model.QuantGemvCgoFused(outC, x, qm)
-			}
-			fmt.Printf("  ours fused-cgo:   %s first=%+.5f\n", time.Since(start)/time.Duration(*iters), outC[0])
-		}
 		w, _ := g.DequantF32(t)
 		outF := make([]float32, qm.OutDim)
 		start = time.Now()
