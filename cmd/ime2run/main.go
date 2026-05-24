@@ -367,7 +367,7 @@ func main() {
 		copy(xnLM, xn)
 		actLM := packAct(xnLM, embdPad)
 		logitsI32 := make([]int32, vocabPad*4)
-		ime2.GemmINT8Packed(vocabPad, 4, embdPad, tokEmbdPacked, actLM, logitsI32)
+		ime2.GemmINT8PackedParallel(vocabPad, 4, embdPad, tokEmbdPacked, actLM, logitsI32, *nThreads)
 		logits := make([]float32, nVocab)
 		for v := 0; v < nVocab; v++ {
 			logits[v] = float32(logitsI32[v*4]) * tokEmbdScale * _actScale
