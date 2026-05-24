@@ -40,6 +40,8 @@ type Config struct {
 	// Per-layer types (length must be >= NLayers)
 	WQType, WKType, WVType, WOType          []int
 	FFNGateType, FFNUpType, FFNDownType     []int
+	// Output dimensions (0 = use default n_embd / n_embd_kv)
+	WQOut, WKOut, WVOut, WOIn []int
 	HasQKNorm bool  // Qwen3+ QK norm
 }
 
@@ -80,13 +82,17 @@ func New(cfg Config) (*Model, error) {
 		wt.ffn_gate[il] = C.int(cfg.FFNGateType[il])
 		wt.ffn_up[il]   = C.int(cfg.FFNUpType[il])
 		wt.ffn_down[il] = C.int(cfg.FFNDownType[il])
+		if cfg.WQOut != nil { wt.wq_out[il] = C.int(cfg.WQOut[il]) }
+		if cfg.WKOut != nil { wt.wk_out[il] = C.int(cfg.WKOut[il]) }
+		if cfg.WVOut != nil { wt.wv_out[il] = C.int(cfg.WVOut[il]) }
+		if cfg.WOIn  != nil { wt.wo_in[il]  = C.int(cfg.WOIn[il])  }
 	}
 
 	cm := C.gpll_init(
 		C.int(cfg.NVocab), C.int(cfg.NEmbd), C.int(cfg.NHeads), C.int(cfg.NHeadsKV),
 		C.int(cfg.NLayers), C.int(cfg.NFF), C.int(cfg.NCtx),
 		C.float(cfg.RopeBase), C.float(cfg.RmsEps), C.int(cfg.RopeDims),
-		C.int(cfg.NThreads), &wt,
+		C.int(cfg.NThreads), C.int(boolToInt(cfg.HasQKNorm)), &wt,
 	)
 	if cm == nil {
 		return nil, fmt.Errorf("gpll_init returned nil")
@@ -113,6 +119,9 @@ func (m *Model) SetTokEmbd(data []byte) {
 func (m *Model) SetOutputNorm(data []byte) {
 	C.gpll_set_output_norm(m.m, cptr(data), C.size_t(len(data)))
 }
+
+// TieOutputEmbeddings makes output share tok_embd memory (tied embeddings).
+func (m *Model) TieOutputEmbeddings() { C.gpll_tie_output_embeddings(m.m) }
 
 // SetOutput loads the LM head weight bytes.
 func (m *Model) SetOutput(data []byte) {
@@ -186,3 +195,6 @@ func (m *Model) Close() {
 		m.m = nil
 	}
 }
+
+func boolToInt(b bool) int { if b { return 1 }; return 0 }
+
