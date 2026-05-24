@@ -13,6 +13,28 @@ const (
 	TokenTimestampBegin = 50364 // <|0.00|>
 )
 
+// IsTimestamp returns true if the token is a timestamp token.
+func IsTimestamp(tok int) bool {
+	return tok >= TokenTimestampBegin
+}
+
+// TimestampToSeconds converts a timestamp token to seconds.
+// Each timestamp token represents 0.02s increments.
+func TimestampToSeconds(tok int) float64 {
+	if tok < TokenTimestampBegin {
+		return 0
+	}
+	return float64(tok-TokenTimestampBegin) * 0.02
+}
+
+// Segment represents a transcribed audio segment with timing.
+type Segment struct {
+	Start  float64 // seconds
+	End    float64 // seconds
+	Text   string
+	Tokens []int
+}
+
 // GreedyDecode performs greedy autoregressive decoding.
 func GreedyDecode(dec *Decoder, state *DecoderState, cfg Config) []int {
 	maxTokens := cfg.MaxDecoderLength
@@ -45,6 +67,61 @@ func GreedyDecode(dec *Decoder, state *DecoderState, cfg Config) []int {
 	}
 
 	return tokens
+}
+
+// GreedyDecodeWithTimestamps performs greedy decoding and returns timed segments.
+func GreedyDecodeWithTimestamps(dec *Decoder, state *DecoderState, cfg Config) []Segment {
+	maxTokens := cfg.MaxDecoderLength
+
+	// Start with SOT + language + task (allow timestamps)
+	prompt := []int{TokenSOT, TokenEnglish, TokenTranscribe}
+	for _, tok := range prompt {
+		dec.ForwardToken(tok, state)
+	}
+
+	var segments []Segment
+	var currentTokens []int
+	var startTime float64
+
+	prevTok := prompt[len(prompt)-1]
+	for i := 0; i < maxTokens; i++ {
+		logits := dec.ForwardToken(prevTok, state)
+		nextTok := argmax(logits)
+
+		if nextTok == TokenEOT {
+			// Flush remaining segment
+			if len(currentTokens) > 0 {
+				segments = append(segments, Segment{
+					Start:  startTime,
+					End:    startTime + 30.0, // end of chunk
+					Text:   TokensToText(currentTokens),
+					Tokens: currentTokens,
+				})
+			}
+			break
+		}
+
+		if IsTimestamp(nextTok) {
+			t := TimestampToSeconds(nextTok)
+			if len(currentTokens) > 0 {
+				// End of a segment
+				segments = append(segments, Segment{
+					Start:  startTime,
+					End:    t,
+					Text:   TokensToText(currentTokens),
+					Tokens: currentTokens,
+				})
+				currentTokens = nil
+			}
+			startTime = t
+		} else {
+			currentTokens = append(currentTokens, nextTok)
+		}
+
+		prevTok = nextTok
+	}
+
+	return segments
 }
 
 // argmax returns the index of the maximum value.

@@ -25,3 +25,5 @@ models/*
 !models/moe/**
 !models/whisper/
 !models/whisper/**
+!models/speaker/
+!models/speaker/**
