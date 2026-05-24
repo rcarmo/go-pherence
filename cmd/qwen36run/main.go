@@ -125,6 +125,7 @@ type Report struct {
 	GPUTransientBytesPerToken   float64                    `json:"gpu_transient_bytes_per_token,omitempty"`
 	GPUTransientUploadsPerToken float64                    `json:"gpu_transient_uploads_per_token,omitempty"`
 	GPUWindowEstimates          []QwenGPUWindowEstimate    `json:"gpu_window_estimates,omitempty"`
+	LayerSchedulePlan           qwen.LayerSchedulePlan     `json:"layer_schedule_plan,omitempty"`
 	GPUVerify                   qwen.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
 	LinearStats                 qwen.Qwen35LinearStats     `json:"linear_stats,omitempty"`
 	LMHeadStats                 Qwen36LMHeadStats          `json:"lm_head_stats,omitempty"`
@@ -755,6 +756,7 @@ func main() {
 	rep.GPUPrewarmMS = prewarmMS
 	rep.GPUCache = qwen.Qwen35GPUCacheStatsSnapshot()
 	qwenPopulateTransientPerToken(&rep)
+	qwenPopulateSchedulePlan(&rep)
 	rep.GPUVerify = qwen.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = mtpLinearStats
 	rep.LMHeadStats = mtpLMHeadStats
@@ -1326,6 +1328,13 @@ func tokensPerSecond(tokens int, durationMS int64) float64 {
 	return float64(tokens) * 1000 / float64(durationMS)
 }
 
+func qwenPopulateSchedulePlan(rep *Report) {
+	if rep == nil {
+		return
+	}
+	rep.LayerSchedulePlan = qwen.BuildLayerSchedulePlan(rep.GPUCache, []int{2, 4, 8})
+}
+
 func qwenPopulateTransientPerToken(rep *Report) {
 	if rep == nil || len(rep.GeneratedIDs) == 0 {
 		return
@@ -1416,6 +1425,7 @@ func runPrompt(r runner, tok *tokenizer.Tokenizer, prompt string, steps int, mtp
 	rep.TokensPerSecond = tokensPerSecond(rep.TokensProcessed, rep.DurationMS)
 	rep.GPUCache = qwen.Qwen35GPUCacheStatsSnapshot()
 	qwenPopulateTransientPerToken(&rep)
+	qwenPopulateSchedulePlan(&rep)
 	rep.GPUVerify = qwen.Qwen35GPUVerifyStatsSnapshot()
 	rep.LinearStats = qwen.Qwen35LinearStatsSnapshot()
 	rep.LMHeadStats = qwen36LMHeadStatsSnapshot()
