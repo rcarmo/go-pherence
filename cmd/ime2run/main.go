@@ -326,9 +326,15 @@ func main() {
 		for i := nEmbd; i < K1; i++ { _xn[i] = 0 }
 		actP := packAct(_xn[:K1], K1)
 		res := _resultI32[:pad4(l.wqRows)*4]
-		ime2.GemmINT8Packed(pad4(l.wqRows), 4, K1, l.wqPacked, actP, res)
-		qOut := _qOut[:pad4(l.wqRows)]
-		for i := range qOut { qOut[i] = float32(res[i*4]) * l.wqScale * _actScale }
+		ime2.GemmINT8Packed(pad4(l.wvRows), 4, K1, l.wvPacked, actP, res)
+		vOut := _qOut[:pad4(l.wvRows)]
+		for i := range vOut { vOut[i] = float32(res[i*4]) * l.wvScale * _actScale }
+		// Replicate KV→Q heads for wo input
+		repFactor := nHeads / nKVHeads
+		for h := 0; h < nHeads; h++ {
+			kvH := h / repFactor
+			copy(_qOut[h*headDim:(h+1)*headDim], vOut[kvH*headDim:(kvH+1)*headDim])
+		}
 		K2 := pad8(l.woCols)
 		for i := l.woCols; i < K2; i++ { _qOut[i] = 0 }
 		actP2 := packAct(_qOut[:K2], K2)
