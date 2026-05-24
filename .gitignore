@@ -23,3 +23,5 @@ models/*
 !models/gemma4/**
 !models/moe/
 !models/moe/**
+!models/whisper/
+!models/whisper/**
