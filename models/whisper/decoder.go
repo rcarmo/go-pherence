@@ -96,8 +96,8 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 	// Pre-compute cross-attention K/V from encoder output (done once)
 	for l := 0; l < numLayers; l++ {
 		layer := &dec.Layers[l]
-		state.CrossK[l] = linearForward(encoderOutput, layer.CrossKWeight, layer.CrossKBias, encLen, dModel, dModel)
-		state.CrossV[l] = linearForward(encoderOutput, layer.CrossVWeight, layer.CrossVBias, encLen, dModel, dModel)
+		state.CrossK[l] = linearForwardOpt(encoderOutput, layer.CrossKWeight, layer.CrossKBias, encLen, dModel, dModel)
+		state.CrossV[l] = linearForwardOpt(encoderOutput, layer.CrossVWeight, layer.CrossVBias, encLen, dModel, dModel)
 	}
 
 	return state
@@ -131,9 +131,9 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		// --- Causal self-attention ---
 		normed := layerNorm(x, layer.SelfAttnLNWeight, layer.SelfAttnLNBias, 1, dModel)
 
-		q := linearForward(normed, layer.SelfQWeight, layer.SelfQBias, 1, dModel, dModel)
-		k := linearForward(normed, layer.SelfKWeight, layer.SelfKBias, 1, dModel, dModel)
-		v := linearForward(normed, layer.SelfVWeight, layer.SelfVBias, 1, dModel, dModel)
+		q := linearForwardOpt(normed, layer.SelfQWeight, layer.SelfQBias, 1, dModel, dModel)
+		k := linearForwardOpt(normed, layer.SelfKWeight, layer.SelfKBias, 1, dModel, dModel)
+		v := linearForwardOpt(normed, layer.SelfVWeight, layer.SelfVBias, 1, dModel, dModel)
 
 		// Append to KV cache
 		state.SelfKCache[l] = append(state.SelfKCache[l], k...)
@@ -143,27 +143,27 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		seqKV := pos + 1
 		selfOut := causalAttentionSingle(q, state.SelfKCache[l], state.SelfVCache[l], seqKV, numHeads, headDim)
 
-		projected := linearForward(selfOut, layer.SelfOWeight, layer.SelfOBias, 1, dModel, dModel)
+		projected := linearForwardOpt(selfOut, layer.SelfOWeight, layer.SelfOBias, 1, dModel, dModel)
 		for d := range x {
 			x[d] += projected[d]
 		}
 
 		// --- Cross-attention ---
 		normed = layerNorm(x, layer.CrossAttnLNWeight, layer.CrossAttnLNBias, 1, dModel)
-		crossQ := linearForward(normed, layer.CrossQWeight, layer.CrossQBias, 1, dModel, dModel)
+		crossQ := linearForwardOpt(normed, layer.CrossQWeight, layer.CrossQBias, 1, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
 		crossOut := fullAttention(crossQ, state.CrossK[l], state.CrossV[l], 1, encLen, numHeads, headDim)
-		crossProjected := linearForward(crossOut, layer.CrossOWeight, layer.CrossOBias, 1, dModel, dModel)
+		crossProjected := linearForwardOpt(crossOut, layer.CrossOWeight, layer.CrossOBias, 1, dModel, dModel)
 		for d := range x {
 			x[d] += crossProjected[d]
 		}
 
 		// --- MLP ---
 		mlpIn := layerNorm(x, layer.MLPLNWeight, layer.MLPLNBias, 1, dModel)
-		hidden := linearForward(mlpIn, layer.FC1Weight, layer.FC1Bias, 1, dModel, cfg.DecoderFFNDim)
+		hidden := linearForwardOpt(mlpIn, layer.FC1Weight, layer.FC1Bias, 1, dModel, cfg.DecoderFFNDim)
 		gelu(hidden)
-		mlpOut := linearForward(hidden, layer.FC2Weight, layer.FC2Bias, 1, cfg.DecoderFFNDim, dModel)
+		mlpOut := linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, 1, cfg.DecoderFFNDim, dModel)
 		for d := range x {
 			x[d] += mlpOut[d]
 		}

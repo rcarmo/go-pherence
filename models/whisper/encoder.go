@@ -97,15 +97,15 @@ func (enc *Encoder) forwardLayer(layer *EncoderLayer, x []float32, seqLen int) [
 	normed := layerNorm(x, layer.AttnLNWeight, layer.AttnLNBias, seqLen, dModel)
 
 	// Q, K, V projections
-	q := linearForward(normed, layer.QWeight, layer.QBias, seqLen, dModel, dModel)
-	k := linearForward(normed, layer.KWeight, layer.KBias, seqLen, dModel, dModel)
-	v := linearForward(normed, layer.VWeight, layer.VBias, seqLen, dModel, dModel)
+	q := linearForwardOpt(normed, layer.QWeight, layer.QBias, seqLen, dModel, dModel)
+	k := linearForwardOpt(normed, layer.KWeight, layer.KBias, seqLen, dModel, dModel)
+	v := linearForwardOpt(normed, layer.VWeight, layer.VBias, seqLen, dModel, dModel)
 
 	// Full (non-causal) multi-head attention
 	attnOut := fullAttention(q, k, v, seqLen, seqLen, numHeads, headDim)
 
 	// Output projection
-	projected := linearForward(attnOut, layer.OWeight, layer.OBias, seqLen, dModel, dModel)
+	projected := linearForwardOpt(attnOut, layer.OWeight, layer.OBias, seqLen, dModel, dModel)
 
 	// Residual
 	for i := range x {
@@ -117,9 +117,9 @@ func (enc *Encoder) forwardLayer(layer *EncoderLayer, x []float32, seqLen int) [
 
 	// MLP: FC1 → GELU → FC2
 	ffnDim := enc.cfg.EncoderFFNDim
-	hidden := linearForward(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
+	hidden := linearForwardOpt(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
 	gelu(hidden)
-	mlpOut := linearForward(hidden, layer.FC2Weight, layer.FC2Bias, seqLen, ffnDim, dModel)
+	mlpOut := linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, seqLen, ffnDim, dModel)
 
 	// Residual
 	for i := range projected {
@@ -233,7 +233,7 @@ func layerNorm(x, weight, bias []float32, seqLen, dim int) []float32 {
 // linearForward computes out = x @ W^T + bias.
 // x: [seqLen, inDim], W: [outDim, inDim], bias: [outDim]
 // Returns [seqLen, outDim].
-func linearForward(x, weight, bias []float32, seqLen, inDim, outDim int) []float32 {
+func linearForwardScalar(x, weight, bias []float32, seqLen, inDim, outDim int) []float32 {
 	out := make([]float32, seqLen*outDim)
 	for t := 0; t < seqLen; t++ {
 		xOff := t * inDim
