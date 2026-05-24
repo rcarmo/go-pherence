@@ -25,6 +25,10 @@ static int has_vecdot(int typ) {
     const struct ggml_type_traits_cpu * tr = ggml_get_type_traits_cpu((enum ggml_type)typ);
     return tr->vec_dot != 0;
 }
+static int nrows_for_type(int typ) {
+    const struct ggml_type_traits_cpu * tr = ggml_get_type_traits_cpu((enum ggml_type)typ);
+    return (int)tr->nrows;
+}
 static int has_from_float(int typ) {
     const struct ggml_type_traits_cpu * tr = ggml_get_type_traits_cpu((enum ggml_type)typ);
     return tr->from_float != 0;
@@ -69,6 +73,7 @@ func TypeName(t int) string     { return C.GoString(C.type_name(C.int(t))) }
 func TypeSize(t int) int        { return int(C.type_size(C.int(t))) }
 func BlockSize(t int) int       { return int(C.blck_size(C.int(t))) }
 func VecDotType(t int) int      { return int(C.vecdot_type(C.int(t))) }
+func NRows(t int) int           { return int(C.nrows_for_type(C.int(t))) }
 func HasVecDot(t int) bool      { return C.has_vecdot(C.int(t)) != 0 }
 func HasFromFloat(t int) bool   { return C.has_from_float(C.int(t)) != 0 }
 func RawBytes(t int, n int) int { return (n / BlockSize(t)) * TypeSize(t) }
