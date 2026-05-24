@@ -101,6 +101,7 @@ func main() {
 	nLayers := metaInt(g, arch+".block_count", 0)
 	nFF := metaInt(g, arch+".feed_forward_length", 0)
 	rmsEps := metaF32(g, arch+".attention.layer_norm_rms_epsilon", 1e-5)
+	ropeBase := metaF32(g, arch+".rope.freq_base", 10000.0)
 	headDim := nEmbd / nHeads
 	nQEmbd := nHeads * headDim
 	nKVEmbd := nKVHeads * headDim
@@ -305,6 +306,17 @@ func main() {
 	}
 	_ = packAct; _ = _resultI32; _ = _xn; _ = _xn2; _ = _qOut; _ = _hidden
 
+
+	// KV cache: [nLayers][nKVHeads * headDim * nCtx] for both K and V
+	nCtx := 512
+	kvSize := nKVHeads * headDim * nCtx
+	kCache := make([][]float32, nLayers)
+	vCache := make([][]float32, nLayers)
+	for il := range kCache {
+		kCache[il] = make([]float32, kvSize)
+		vCache[il] = make([]float32, kvSize)
+	}
+	nPast := 0
 	allTokens := promptTokens
 	t1 := time.Now()
 
@@ -319,28 +331,78 @@ func main() {
 		for il := 0; il < nLayers; il++ {
 			l := &layers[il]
 
-		// === Zero-alloc layer forward pass ===
+		// === Attention with KV cache ===
 		xn := _xn[:nEmbd]
 		inference.RMSNorm(x, l.attnNorm, xn, rmsEps)
 		K1 := pad8(l.wqCols)
 		for i := nEmbd; i < K1; i++ { _xn[i] = 0 }
 		actP := packAct(_xn[:K1], K1)
-		res := _resultI32[:pad4(l.wqRows)*4]
-		ime2.GemmINT8Packed(pad4(l.wvRows), 4, K1, l.wvPacked, actP, res)
-		vOut := _qOut[:pad4(l.wvRows)]
-		for i := range vOut { vOut[i] = float32(res[i*4]) * l.wvScale * _actScale }
-		// Replicate KV→Q heads for wo input
+
+		// Q, K, V projections
+		qRes := _resultI32[:pad4(l.wqRows)*4]
+		ime2.GemmINT8Packed(pad4(l.wqRows), 4, K1, l.wqPacked, actP, qRes)
+		kRes := _resultI32[pad4(l.wqRows)*4 : pad4(l.wqRows)*4+pad4(l.wkRows)*4]
+		ime2.GemmINT8Packed(pad4(l.wkRows), 4, K1, l.wkPacked, actP, kRes)
+		vRes := _resultI32[pad4(l.wqRows)*4+pad4(l.wkRows)*4 : pad4(l.wqRows)*4+pad4(l.wkRows)*4+pad4(l.wvRows)*4]
+		ime2.GemmINT8Packed(pad4(l.wvRows), 4, K1, l.wvPacked, actP, vRes)
+
+		// Dequant + store in KV cache
+		pos := nPast
+		nKVD := nKVHeads * headDim
+		for i := 0; i < nKVD; i++ {
+			kCache[il][pos*nKVD+i] = float32(kRes[i*4]) * l.wkScale * _actScale
+			vCache[il][pos*nKVD+i] = float32(vRes[i*4]) * l.wvScale * _actScale
+		}
+		// Apply RoPE to K at current position
+		for kh := 0; kh < nKVHeads; kh++ {
+			applyRoPE(kCache[il][pos*nKVD+kh*headDim:pos*nKVD+(kh+1)*headDim], headDim, pos, ropeBase)
+		}
+
+		// Attention: Q heads attend over cached K/V
 		repFactor := nHeads / nKVHeads
+		attnOut := _qOut[:nHeads*headDim]
+		invSqrtD := float32(1.0 / math.Sqrt(float64(headDim)))
 		for h := 0; h < nHeads; h++ {
 			kvH := h / repFactor
-			copy(_qOut[h*headDim:(h+1)*headDim], vOut[kvH*headDim:(kvH+1)*headDim])
+			// Dequant Q head + RoPE
+			qHead := make([]float32, headDim)
+			for d := 0; d < headDim; d++ {
+				qHead[d] = float32(qRes[(h*headDim+d)*4]) * l.wqScale * _actScale
+			}
+			applyRoPE(qHead, headDim, pos, ropeBase)
+			// Compute scores over [0..pos]
+			maxScore := float32(-1e30)
+			scores := make([]float32, pos+1)
+			for t := 0; t <= pos; t++ {
+				var dot float32
+				for d := 0; d < headDim; d++ {
+					dot += qHead[d] * kCache[il][t*nKVD+kvH*headDim+d]
+				}
+				scores[t] = dot * invSqrtD
+				if scores[t] > maxScore { maxScore = scores[t] }
+			}
+			// Softmax
+			var sumExp float32
+			for i := range scores { scores[i] = float32(math.Exp(float64(scores[i] - maxScore))); sumExp += scores[i] }
+			for i := range scores { scores[i] /= sumExp }
+			// Weighted V sum
+			for d := 0; d < headDim; d++ {
+				var sum float32
+				for t := 0; t <= pos; t++ {
+					sum += scores[t] * vCache[il][t*nKVD+kvH*headDim+d]
+				}
+				attnOut[h*headDim+d] = sum
+			}
 		}
+
+		// Output projection
 		K2 := pad8(l.woCols)
-		for i := l.woCols; i < K2; i++ { _qOut[i] = 0 }
+		for i := nHeads*headDim; i < K2; i++ { _qOut[i] = 0 }
 		actP2 := packAct(_qOut[:K2], K2)
-		res2 := _resultI32[:pad4(l.woRows)*4]
-		ime2.GemmINT8Packed(pad4(l.woRows), 4, K2, l.woPacked, actP2, res2)
-		for i := 0; i < nEmbd; i++ { x[i] += float32(res2[i*4]) * l.woScale * _actScale }
+		woRes := _resultI32[:pad4(l.woRows)*4]
+		ime2.GemmINT8Packed(pad4(l.woRows), 4, K2, l.woPacked, actP2, woRes)
+		for i := 0; i < nEmbd; i++ { x[i] += float32(woRes[i*4]) * l.woScale * _actScale }
+
 		xn2 := _xn2[:nEmbd]
 		inference.RMSNorm(x, l.ffnNorm, xn2, rmsEps)
 		K3 := pad8(l.gateCols)
@@ -391,6 +453,7 @@ func main() {
 
 		// If in prefill phase, just continue
 		if step < len(promptTokens)-1 {
+			nPast++
 			continue
 		}
 
@@ -403,6 +466,7 @@ func main() {
 			t1 = time.Now()
 		}
 
+		nPast++
 		allTokens = append(allTokens, nextTok)
 	}
 
@@ -425,6 +489,21 @@ func padF32(src []float32, n int) []float32 {
 	dst := make([]float32, n)
 	copy(dst, src)
 	return dst
+}
+
+
+// applyRoPE applies Rotary Position Embedding to a vector of headDim floats.
+func applyRoPE(x []float32, headDim int, pos int, ropeBase float32) {
+	for i := 0; i < headDim/2; i++ {
+		freq := 1.0 / math.Pow(float64(ropeBase), float64(2*i)/float64(headDim))
+		theta := float64(pos) * freq
+		cos_t := float32(math.Cos(theta))
+		sin_t := float32(math.Sin(theta))
+		x0 := x[2*i]
+		x1 := x[2*i+1]
+		x[2*i] = x0*cos_t - x1*sin_t
+		x[2*i+1] = x0*sin_t + x1*cos_t
+	}
 }
 
 func silu(x float32) float32 {
