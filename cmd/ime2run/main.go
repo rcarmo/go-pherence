@@ -134,7 +134,7 @@ func main() {
 	nFF := metaInt(g, arch+".feed_forward_length", 0)
 	rmsEps := metaF32(g, arch+".attention.layer_norm_rms_epsilon", 1e-5)
 	ropeBase := metaF32(g, arch+".rope.freq_base", 10000.0)
-	headDim := nEmbd / nHeads
+	headDim := func() int { t, ok := g.TensorByName("blk.0.attn_q.weight"); if ok { return int(t.Shape[1]) / nHeads }; return nEmbd / nHeads }()
 	nQEmbd := nHeads * headDim
 	nKVEmbd := nKVHeads * headDim
 
@@ -151,6 +151,8 @@ func main() {
 		wqPacked, wkPacked, wvPacked, woPacked       []int8
 		wqRaw, wkRaw, wvRaw, woRaw                   []int8
 		gateRaw, upRaw, downRaw                       []int8
+		wqF32, wkF32, wvF32, woF32                   []float32
+		gateF32, upF32, downF32                       []float32
 		gatePacked, upPacked, downPacked             []int8
 		wqScale, wkScale, wvScale, woScale           float32
 		gateScale, upScale, downScale                float32
@@ -173,7 +175,7 @@ func main() {
 	layers := make([]layerWeights, nLayers)
 	
 	// Helper: extract Q4K nibbles directly to INT8 and pre-pack tiles
-	packWeight := func(name string, rows, cols int) ([]int8, []int8, float32, []float32, []float32) {
+	packWeight := func(name string, rows, cols int) ([]int8, []int8, float32, []float32, []float32, []float32) {
 		t, ok := g.TensorByName(name)
 		if !ok { fatal("tensor %s not found", name) }
 		rowsPad := ((rows + 3) / 4) * 4
@@ -198,7 +200,8 @@ func main() {
 			scale = inference.QuantizeF32ToINT8(f32Pad, i8Pad)
 		}
 		packed := ime2.PackTiles(i8Pad, rowsPad, colsPad)
-		return packed, i8Pad, scale, scales, mins
+		f32ForRef, _ := g.DequantF32(t)
+		return packed, i8Pad, scale, scales, mins, f32ForRef
 	}
 
 	loadNorm := func(name string) []float32 {
@@ -248,13 +251,13 @@ func main() {
 		l.upRows, l.upCols = nFF, nEmbd
 		l.downRows, l.downCols = nEmbd, nFF
 
-		l.wqPacked, l.wqRaw, l.wqScale, l.wqScales, l.wqMins = packWeight(tensorName("wq", il), l.wqRows, l.wqCols)
-		l.wkPacked, l.wkRaw, l.wkScale, l.wkScales, l.wkMins = packWeight(tensorName("wk", il), l.wkRows, l.wkCols)
-		l.wvPacked, l.wvRaw, l.wvScale, l.wvScales, l.wvMins = packWeight(tensorName("wv", il), l.wvRows, l.wvCols)
-		l.woPacked, l.woRaw, l.woScale, l.woScales, l.woMins = packWeight(tensorName("wo", il), l.woRows, l.woCols)
-		l.gatePacked, l.gateRaw, l.gateScale, l.gateScales, l.gateMins = packWeight(tensorName("gate", il), l.gateRows, l.gateCols)
-		l.upPacked, l.upRaw, l.upScale, l.upScales, l.upMins = packWeight(tensorName("up", il), l.upRows, l.upCols)
-		l.downPacked, l.downRaw, l.downScale, l.downScales, l.downMins = packWeight(tensorName("down", il), l.downRows, l.downCols)
+		l.wqPacked, l.wqRaw, l.wqScale, l.wqScales, l.wqMins, l.wqF32 = packWeight(tensorName("wq", il), l.wqRows, l.wqCols)
+		l.wkPacked, l.wkRaw, l.wkScale, l.wkScales, l.wkMins, l.wkF32 = packWeight(tensorName("wk", il), l.wkRows, l.wkCols)
+		l.wvPacked, l.wvRaw, l.wvScale, l.wvScales, l.wvMins, l.wvF32 = packWeight(tensorName("wv", il), l.wvRows, l.wvCols)
+		l.woPacked, l.woRaw, l.woScale, l.woScales, l.woMins, l.woF32 = packWeight(tensorName("wo", il), l.woRows, l.woCols)
+		l.gatePacked, l.gateRaw, l.gateScale, l.gateScales, l.gateMins, l.gateF32 = packWeight(tensorName("gate", il), l.gateRows, l.gateCols)
+		l.upPacked, l.upRaw, l.upScale, l.upScales, l.upMins, l.upF32 = packWeight(tensorName("up", il), l.upRows, l.upCols)
+		l.downPacked, l.downRaw, l.downScale, l.downScales, l.downMins, l.downF32 = packWeight(tensorName("down", il), l.downRows, l.downCols)
 		l.attnNorm = loadNorm(tensorName("attn_norm", il))
 		l.ffnNorm = loadNorm(tensorName("ffn_norm", il))
 		if qn, ok := g.TensorByName(fmt.Sprintf("blk.%d.attn_q_norm.weight", il)); ok {
@@ -355,6 +358,76 @@ func main() {
 		vCache[il] = make([]float32, kvSize)
 	}
 	nPast := 0
+
+	{
+		wqT3, _ := g.TensorByName(tensorName("wq", 0))
+		wqRawBytes, _ := g.Raw(wqT3)
+		l0 := &layers[0]
+		// Compare first 8 nibbles of row 0 and row 1
+		for row := 0; row < 2; row++ {
+			fmt.Fprintf(os.Stderr, "Row %d nibbles (inline vs wRaw):\n", row)
+			blocksPerRow := l0.wqCols / 256
+			for i := 0; i < 8; i++ {
+				// Inline extraction from raw Q4K bytes
+				blkOff := (row*blocksPerRow) * 144
+				qs := wqRawBytes[blkOff+16:]
+				var nibInline int8
+				if i%2 == 0 { nibInline = int8(qs[i/2] & 0xf) } else { nibInline = int8(qs[i/2] >> 4) }
+				// From wRaw (extractQ4KDirect output)
+				nibWRaw := l0.wqRaw[row*l0.wqCols + i]
+				match := "OK"
+				if nibInline != nibWRaw { match = "MISMATCH!" }
+				fmt.Fprintf(os.Stderr, "  [%d]: inline=%d wRaw=%d %s\n", i, nibInline, nibWRaw, match)
+			}
+		}
+	}
+
+	{
+		l0 := &layers[0]
+		wqT4, _ := g.TensorByName(tensorName("wq", 0))
+		wqRawB, _ := g.Raw(wqT4)
+		// Inline scale computation (same as loader)
+		b := wqRawB[0:144] // first block of row 0
+		d := fp16ToFloat(uint16(b[0]) | uint16(b[1])<<8)
+		dmin := fp16ToFloat(uint16(b[2]) | uint16(b[3])<<8)
+		s := b[4:16]
+		var scInline [8]float32
+		var mnInline [8]float32
+		for j := 0; j < 4; j++ { scInline[j] = float32(s[j]&63)*d; mnInline[j] = float32(s[j+4]&63)*dmin }
+		for j := 4; j < 8; j++ { k:=j-4; scInline[j]=float32((s[j+4]&0xF)|((s[k]>>6)<<4))*d; mnInline[j]=float32((s[j+4]>>4)|((s[k+4]>>6)<<4))*dmin }
+		fmt.Fprintf(os.Stderr, "Scale comparison (row 0, block 0):\n")
+		subsPerRow := l0.wqCols / 32
+		for sb := 0; sb < 8; sb++ {
+			wS := l0.wqScales[0*subsPerRow+sb]
+			wM := l0.wqMins[0*subsPerRow+sb]
+			matchS := "OK"; if scInline[sb] != wS { matchS = "MISMATCH!" }
+			matchM := "OK"; if mnInline[sb] != wM { matchM = "MISMATCH!" }
+			fmt.Fprintf(os.Stderr, "  sb%d: scale inline=%.6f stored=%.6f %s | min inline=%.6f stored=%.6f %s\n",
+				sb, scInline[sb], wS, matchS, mnInline[sb], wM, matchM)
+		}
+	}
+
+	// Quick matmul verify: matVecQ4KF32 vs DequantF32 scalar
+	{
+		l0 := &layers[0]
+		testAct := make([]float32, l0.wqCols)
+		for i := range testAct { testAct[i] = 0.01 * float32(i%100-50) }
+		ourOut := make([]float32, l0.wqRows)
+		matVecQ4KF32(l0.wqRows, l0.wqCols, l0.wqRaw, l0.wqScales, l0.wqMins, testAct, ourOut)
+		wqT5, _ := g.TensorByName(tensorName("wq", 0))
+		wqRef, _ := g.DequantF32(wqT5)
+		var maxE, maxR float32
+		for r := 0; r < 4; r++ {
+			var ref float32
+			for k := 0; k < l0.wqCols; k++ { ref += wqRef[r*l0.wqCols+k] * testAct[k] }
+			e := ourOut[r]-ref; if e < 0 { e = -e }
+			if e > maxE { maxE = e }
+			a := ref; if a < 0 { a = -a }; if a > maxR { maxR = a }
+			fmt.Fprintf(os.Stderr, "  matVecQ4KF32 row%d: our=%.6f ref=%.6f\n", r, ourOut[r], ref)
+		}
+		fmt.Fprintf(os.Stderr, "  relErr=%.2f%%\n", maxE/maxR*100)
+	}
+
 	allTokens := promptTokens
 	t1 := time.Now()
 
@@ -465,10 +538,9 @@ func main() {
 		// Output projection
 		K2 := pad8(l.woCols)
 		for i := nHeads*headDim; i < K2; i++ { _qOut[i] = 0 }
-		actP2 := packAct(_qOut[:K2], K2)
-		woRes := _resultI32[:pad4(l.woRows)*4]
-		ime2.GemmINT8Packed(pad4(l.woRows), 4, K2, l.woPacked, actP2, woRes)
-		for i := 0; i < nEmbd; i++ { x[i] += float32(woRes[i*4]) * l.woScale * _actScale }
+		woOut := make([]float32, l.woRows)
+		matVecF32Direct(l.woRows, l.woCols, l.woF32, _qOut[:l.woCols], woOut)
+		for i := 0; i < nEmbd; i++ { x[i] += woOut[i] }
 
 		xn2 := _xn2[:nEmbd]
 		inference.RMSNorm(x, l.ffnNorm, xn2, rmsEps)
@@ -497,14 +569,11 @@ func main() {
 		}
 		K4 := pad8(l.downCols)
 		for i := nFF; i < K4; i++ { _hidden[i] = 0 }
-		actPD := packAct(_hidden[:K4], K4)
 		downF := make([]float32, l.downRows)
 		if l.downScales != nil {
 			matVecQ4KCorrect(l.downRows, l.downCols, l.downRaw, l.downScales, l.downMins, hidden[:l.downCols], downF)
 		} else {
-			dRes := _resultI32[:pad4(l.downRows)*4]
-			ime2.GemmINT8Packed(pad4(l.downRows), 4, K4, l.downPacked, actPD, dRes)
-			for i := range downF { downF[i] = float32(dRes[i*4]) * l.downScale * _actScale }
+			matVecF32Direct(l.downRows, l.downCols, l.downF32, hidden[:l.downCols], downF)
 		}
 		for i := 0; i < nEmbd; i++ { x[i] += downF[i] }
 

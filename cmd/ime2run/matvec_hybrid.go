@@ -110,3 +110,35 @@ func matVecQ4KVmadot(M, K int, wRaw []int8, wScales, wMins []float32, act []floa
 }
 
 // VmadotAccSS4x8 is the public accessor for the assembly function
+
+// matVecQ4KF32 performs out[M] = W_q4k[M×K] · act[K] using direct F32 computation.
+// No activation quantization — maximum precision, slower.
+func matVecQ4KF32(M, K int, wRaw []int8, wScales, wMins []float32, act []float32, out []float32) {
+	subsPerRow := K / 32
+	for row := 0; row < M; row++ {
+		var sum float32
+		for sb := 0; sb < subsPerRow; sb++ {
+			wScale := wScales[row*subsPerRow+sb]
+			wMin := wMins[row*subsPerRow+sb]
+			var dotF, actSum float32
+			for i := 0; i < 32; i++ {
+				nib := float32(wRaw[row*K+sb*32+i])
+				dotF += nib * act[sb*32+i]
+				actSum += act[sb*32+i]
+			}
+			sum += dotF*wScale - actSum*wMin
+		}
+		out[row] = sum
+	}
+}
+
+// matVecF32Direct performs out[M] = W_f32[M×K] · act[K] (pure scalar F32).
+func matVecF32Direct(M, K int, wF32 []float32, act []float32, out []float32) {
+	for row := 0; row < M; row++ {
+		var sum float32
+		for k := 0; k < K; k++ {
+			sum += wF32[row*K+k] * act[k]
+		}
+		out[row] = sum
+	}
+}
