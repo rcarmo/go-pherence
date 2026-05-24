@@ -232,3 +232,94 @@ func BenchmarkGemmINT8Packed_128x128x256(b *testing.B) {
 		GemmINT8Packed(M, N, K, Ap, Bp, C)
 	}
 }
+
+
+func TestGemmINT8PackedParallel(t *testing.T) {
+	M, N, K := 128, 128, 256
+	A := make([]int8, M*K)
+	B := make([]int8, N*K)
+
+	for i := range A {
+		A[i] = int8((i*3 + 7) % 200 - 100)
+	}
+	for i := range B {
+		B[i] = int8((i*11 + 5) % 200 - 100)
+	}
+
+	Ap := PackTiles(A, M, K)
+	Bp := PackTiles(B, N, K)
+	C_par := make([]int32, M*N)
+	C_ref := make([]int32, M*N)
+
+	GemmINT8PackedParallel(M, N, K, Ap, Bp, C_par, 8)
+	refGemm(M, N, K, A, B, C_ref)
+
+	errors := 0
+	for i := 0; i < M*N; i++ {
+		if C_par[i] != C_ref[i] {
+			if errors < 3 {
+				t.Errorf("C[%d]: par=%d ref=%d", i, C_par[i], C_ref[i])
+			}
+			errors++
+		}
+	}
+	if errors == 0 {
+		t.Logf("GemmINT8PackedParallel 128x128x256 (8 threads): all %d elements correct!", M*N)
+	} else {
+		t.Errorf("%d/%d errors", errors, M*N)
+	}
+}
+
+func BenchmarkGemmINT8PackedParallel_128x128x256_8T(b *testing.B) {
+	M, N, K := 128, 128, 256
+	A := make([]int8, M*K)
+	B := make([]int8, N*K)
+	for i := range A { A[i] = int8(i % 127) }
+	for i := range B { B[i] = int8(i % 127) }
+	Ap := PackTiles(A, M, K)
+	Bp := PackTiles(B, N, K)
+	C := make([]int32, M*N)
+
+	ops := int64(M) * int64(N) * int64(K) * 2
+	b.SetBytes(ops)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		GemmINT8PackedParallel(M, N, K, Ap, Bp, C, 8)
+	}
+}
+
+func BenchmarkGemmINT8PackedParallel_256x256x512_8T(b *testing.B) {
+	M, N, K := 256, 256, 512
+	A := make([]int8, M*K)
+	B := make([]int8, N*K)
+	for i := range A { A[i] = int8(i % 127) }
+	for i := range B { B[i] = int8(i % 127) }
+	Ap := PackTiles(A, M, K)
+	Bp := PackTiles(B, N, K)
+	C := make([]int32, M*N)
+
+	ops := int64(M) * int64(N) * int64(K) * 2
+	b.SetBytes(ops)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		GemmINT8PackedParallel(M, N, K, Ap, Bp, C, 8)
+	}
+}
+
+func BenchmarkGemmINT8PackedParallel_1024x1024x1024_8T(b *testing.B) {
+	M, N, K := 1024, 1024, 1024
+	A := make([]int8, M*K)
+	B := make([]int8, N*K)
+	for i := range A { A[i] = int8(i % 127) }
+	for i := range B { B[i] = int8(i % 127) }
+	Ap := PackTiles(A, M, K)
+	Bp := PackTiles(B, N, K)
+	C := make([]int32, M*N)
+
+	ops := int64(M) * int64(N) * int64(K) * 2
+	b.SetBytes(ops)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		GemmINT8PackedParallel(M, N, K, Ap, Bp, C, 8)
+	}
+}
