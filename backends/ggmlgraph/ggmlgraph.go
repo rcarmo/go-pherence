@@ -10,6 +10,7 @@ package ggmlgraph
 #include <string.h>
 #include <ggml.h>
 #include <ggml-cpu.h>
+#include <ggml-alloc.h>
 
 struct gp_graph {
     struct ggml_context * ctx;
@@ -177,6 +178,56 @@ static void gp_mlp_free(struct gp_mlp_graph * g) {
     free(g);
 }
 
+
+
+struct gp_backend_mulmat {
+    struct ggml_context * ctx;
+    ggml_backend_t backend;
+    ggml_backend_buffer_t buffer;
+    struct ggml_cgraph * graph;
+    struct ggml_tensor * w;
+    struct ggml_tensor * x;
+    struct ggml_tensor * y;
+    int in_dim;
+    int out_dim;
+};
+
+static struct gp_backend_mulmat * gp_backend_new_mulmat(int typ, const void * raw, size_t raw_bytes, int in_dim, int out_dim) {
+    struct ggml_init_params params = { 32*1024*1024, NULL, true };
+    struct ggml_context * ctx = ggml_init(params);
+    if (!ctx) return NULL;
+    struct gp_backend_mulmat * g = (struct gp_backend_mulmat *)calloc(1, sizeof(struct gp_backend_mulmat));
+    if (!g) { ggml_free(ctx); return NULL; }
+    g->ctx = ctx; g->in_dim = in_dim; g->out_dim = out_dim;
+    g->backend = ggml_backend_cpu_init();
+    if (!g->backend) { ggml_free(ctx); free(g); return NULL; }
+    g->w = ggml_new_tensor_2d(ctx, (enum ggml_type)typ, in_dim, out_dim);
+    g->x = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, in_dim, 1);
+    g->y = ggml_mul_mat(ctx, g->w, g->x);
+    g->graph = ggml_new_graph(ctx);
+    ggml_build_forward_expand(g->graph, g->y);
+    g->buffer = ggml_backend_alloc_ctx_tensors(ctx, g->backend);
+    if (!g->buffer) { ggml_backend_free(g->backend); ggml_free(ctx); free(g); return NULL; }
+    ggml_backend_tensor_set(g->w, raw, 0, raw_bytes);
+    return g;
+}
+
+static int gp_backend_mulmat_run(struct gp_backend_mulmat * g, const float * x, float * out) {
+    ggml_backend_tensor_set(g->x, x, 0, (size_t)g->in_dim*sizeof(float));
+    enum ggml_status rc = ggml_backend_graph_compute(g->backend, g->graph);
+    if (rc != GGML_STATUS_SUCCESS) return (int)rc;
+    ggml_backend_tensor_get(g->y, out, 0, (size_t)g->out_dim*sizeof(float));
+    return 0;
+}
+
+static void gp_backend_mulmat_free(struct gp_backend_mulmat * g) {
+    if (!g) return;
+    if (g->buffer) ggml_backend_buffer_free(g->buffer);
+    if (g->backend) ggml_backend_free(g->backend);
+    if (g->ctx) ggml_free(g->ctx);
+    free(g);
+}
+
 */
 import "C"
 
@@ -280,6 +331,38 @@ func (g *MLP) Run(x, y []float32) error {
 	rc := C.gp_mlp_run(g.p, (*C.float)(unsafe.Pointer(&x[0])), (*C.float)(unsafe.Pointer(&y[0])))
 	if rc != 0 {
 		return fmt.Errorf("ggml mlp compute rc=%d", int(rc))
+	}
+	return nil
+}
+
+type BackendMulMat struct {
+	p             *C.struct_gp_backend_mulmat
+	inDim, outDim int
+}
+
+func NewBackendMulMat(qtype int, raw []byte, inDim, outDim int) (*BackendMulMat, error) {
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("empty raw")
+	}
+	p := C.gp_backend_new_mulmat(C.int(qtype), unsafe.Pointer(&raw[0]), C.size_t(len(raw)), C.int(inDim), C.int(outDim))
+	if p == nil {
+		return nil, fmt.Errorf("backend mulmat allocation failed")
+	}
+	return &BackendMulMat{p: p, inDim: inDim, outDim: outDim}, nil
+}
+func (m *BackendMulMat) Close() {
+	if m != nil && m.p != nil {
+		C.gp_backend_mulmat_free(m.p)
+		m.p = nil
+	}
+}
+func (m *BackendMulMat) Run(x, out []float32) error {
+	if len(x) < m.inDim || len(out) < m.outDim {
+		return fmt.Errorf("bad BackendMulMat sizes")
+	}
+	rc := C.gp_backend_mulmat_run(m.p, (*C.float)(unsafe.Pointer(&x[0])), (*C.float)(unsafe.Pointer(&out[0])))
+	if rc != 0 {
+		return fmt.Errorf("backend mulmat rc=%d", int(rc))
 	}
 	return nil
 }
