@@ -64,7 +64,8 @@ type DecoderState struct {
 	CrossK [][]float32 // [layer][encLen * dModel]
 	CrossV [][]float32 // [layer][encLen * dModel]
 
-	Pos int // Current token position
+	Pos  int          // Current token position
+	Bufs *decoderBufs // Reusable buffers (nil = allocate per call)
 }
 
 // NewDecoder creates a Decoder with allocated layers.
@@ -85,6 +86,7 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 		SelfVCache: make([][]float32, numLayers),
 		CrossK:     make([][]float32, numLayers),
 		CrossV:     make([][]float32, numLayers),
+		Bufs:       newDecoderBufs(cfg),
 	}
 
 	// Pre-allocate self-attention KV caches
