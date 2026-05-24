@@ -64,8 +64,8 @@ func MelSpectrogram(samples []float32, cfg MelConfig) [][]float32 {
 			frameBuf[i] = samples[offset+i] * window[i]
 		}
 
-		// Power spectrum via reusable FFT
-		power := fft.PowerSpectrum(frameBuf)
+		// Power spectrum via optimized FFT
+		power := fft.PowerSpectrumSIMD(frameBuf)
 
 		// Apply mel filterbank
 		for m := 0; m < cfg.NumMels; m++ {
