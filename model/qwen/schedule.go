@@ -14,6 +14,7 @@ type LayerSchedulePlan struct {
 	TransientBytes       int64                  `json:"transient_bytes,omitempty"`
 	TransientUploads     int64                  `json:"transient_uploads,omitempty"`
 	Recommended          LayerWindowCandidate   `json:"recommended,omitempty"`
+	BestFeasible         LayerWindowCandidate   `json:"best_feasible,omitempty"`
 	Candidates           []LayerWindowCandidate `json:"candidates,omitempty"`
 }
 
@@ -103,6 +104,11 @@ func BuildLayerSchedulePlan(stats Qwen35GPUCacheStats, candidateSizes []int) Lay
 		plan.Candidates = append(plan.Candidates, cand)
 		if plan.Recommended.Layers == 0 || cand.Score > plan.Recommended.Score {
 			plan.Recommended = cand
+		}
+		if cand.FitsWindowBudget || cand.FitsFreeMemory {
+			if plan.BestFeasible.Layers == 0 || cand.Score > plan.BestFeasible.Score {
+				plan.BestFeasible = cand
+			}
 		}
 	}
 	return plan

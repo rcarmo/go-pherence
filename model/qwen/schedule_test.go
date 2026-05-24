@@ -33,4 +33,7 @@ func TestBuildLayerSchedulePlan(t *testing.T) {
 	if plan.Recommended.Layers == 0 {
 		t.Fatalf("missing recommendation: %+v", plan)
 	}
+	if plan.BestFeasible.Layers != 2 {
+		t.Fatalf("bad feasible recommendation: %+v", plan.BestFeasible)
+	}
 }
