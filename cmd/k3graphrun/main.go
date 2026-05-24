@@ -1,4 +1,4 @@
-//go:build cgo && linux
+//go:build ggml && cgo && linux
 
 // cmd/k3graphrun benchmarks the llamagraph full GGML decode-graph backend,
 // wiring go-pherence's own GGUF loader to the new gpll_model executor.
