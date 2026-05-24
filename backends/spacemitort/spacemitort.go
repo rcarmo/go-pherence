@@ -1,4 +1,4 @@
-//go:build cgo && linux
+//go:build spacemitort && cgo && linux
 
 // Package spacemitort wraps SpacemiT's ONNX Runtime Execution Provider.
 package spacemitort

@@ -1,3 +1,5 @@
+//go:build llamacpp && cgo
+
 package main
 
 /*
