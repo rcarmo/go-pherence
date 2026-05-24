@@ -267,3 +267,25 @@ Speaker models (pyannote/wespeaker):
 | Speaker embedding (per segment) | < 50ms | < 10ms |
 | Full transcribe 30s (tiny) | < 3s | < 0.5s |
 | Real-time factor (large-v3, GPU) | < 0.1x | |
+
+## Implementation Status
+
+### Completed
+- [x] Phase 1: Audio frontend (WAV, resample, mel, scalar FFT)
+- [x] Phase 2: Conv1D primitive (scalar + GPU dispatch stub)
+- [x] Phase 3: Whisper encoder (conv stem, sinusoidal PE, full self-attention)
+- [x] Phase 4: Cross-attention + decoder (causal self-attn, cross-attn, KV cache)
+- [x] Phase 5: End-to-end pipeline (weight loader, greedy/timestamp decode)
+- [x] Phase 6: Speaker embeddings (ECAPA-TDNN, attentive stat pool)
+- [x] Phase 7: Diarization pipeline (VAD, clustering, alignment, CLI)
+- [x] GPU dispatch stubs (Conv1D, full attention, cross-attention, mel FFT PTX)
+- [x] Reusable FFT in backends/simd/fft
+- [x] Tensor pooling primitives
+
+### Remaining (Optimization Phase)
+- [ ] SIMD FFT assembly (AVX2, NEON)
+- [ ] SIMD Conv1D assembly
+- [ ] Implement PTX kernel bodies (not just stubs)
+- [ ] Integration test with real whisper-tiny weights
+- [ ] Batched encoder, streaming, speculative decoding
+- [ ] TurboQuant for Whisper KV cache
