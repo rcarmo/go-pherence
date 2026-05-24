@@ -65,3 +65,24 @@ func GemmINT8Packed(M, N, K int, Apacked, Bpacked []int8, C []int32) {
 		}
 	}
 }
+
+// PackTilesInto packs tiles into a pre-allocated destination buffer.
+// dst must have at least rows*K bytes capacity.
+func PackTilesInto(src []int8, rows, K int, dst []int8) []int8 {
+	if rows%4 != 0 || K%8 != 0 {
+		panic("ime2: PackTilesInto requires rows%4==0, K%8==0")
+	}
+	needed := rows * K
+	out := dst[:needed]
+	for rg := 0; rg < rows; rg += 4 {
+		for ki := 0; ki < K; ki += 8 {
+			tileIdx := (rg/4)*(K/8) + ki/8
+			tileBase := tileIdx * 32
+			for r := 0; r < 4; r++ {
+				copy(out[tileBase+r*8:tileBase+r*8+8],
+					src[(rg+r)*K+ki:(rg+r)*K+ki+8])
+			}
+		}
+	}
+	return out
+}
