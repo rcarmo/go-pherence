@@ -135,7 +135,6 @@ func main() {
 	nFF := metaInt(g, arch+".feed_forward_length", 0)
 	rmsEps := metaF32(g, arch+".attention.layer_norm_rms_epsilon", 1e-5)
 	ropeBase := metaF32(g, arch+".rope.freq_base", 10000.0)
-	fmt.Fprintf(os.Stderr, "rmsEps=%.10f ropeBase=%.1f\n", rmsEps, ropeBase)
 	headDim := func() int { t, ok := g.TensorByName("blk.0.attn_q.weight"); if ok { return int(t.Shape[1]) / nHeads }; return nEmbd / nHeads }()
 	nQEmbd := nHeads * headDim
 	nKVEmbd := nKVHeads * headDim
@@ -283,23 +282,17 @@ func main() {
 
 	loadTime := time.Since(t0)
 	fmt.Fprintf(os.Stderr, "Loaded in %.1fs\n", loadTime.Seconds())
-
 	// Create persistent worker pool
 	pool := ime2.NewWorkerPool(*nThreads)
 	defer pool.Close()
-
 	// Tokenize prompt
 	tok, _ := gguf.NewTokenizer(g); tok.SetModelPath(*modelPath)
 	promptTokens, _ := tok.Encode(*prompt)
 	fmt.Fprintf(os.Stderr, "Prompt tokens: %v\n", promptTokens)
-
-
 	// Pre-allocate reusable buffers to avoid per-step allocation
-
 	// --- Decode loop ---
 	// Simplified: no KV cache (recompute attention each time — slow but correct)
 	// This proves the pure Go path works end-to-end.
-
 	// Pre-allocate all decode buffers (zero allocation in hot path)
 	maxK := pad8(nFF) // 3072 padded = 3072
 	maxM := pad4(nFF) // 3072
@@ -311,7 +304,6 @@ func main() {
 	_xn2 := make([]float32, maxK)
 	_qOut := make([]float32, maxM)
 	_hidden := make([]float32, maxK)
-
 	// Helper: quantize+pack activation into pre-allocated buffers (zero alloc)
 	var _actScale float32
 	packAct := func(x []float32, K int) []int8 {
@@ -350,8 +342,6 @@ func main() {
 		return packed
 	}
 	_ = packAct; _ = _resultI32; _ = _xn; _ = _xn2; _ = _qOut; _ = _hidden
-
-
 	// KV cache: [nLayers][nKVHeads * headDim * nCtx] for both K and V
 	nCtx := 512
 	kvSize := nKVHeads * headDim * nCtx
@@ -362,76 +352,6 @@ func main() {
 		vCache[il] = make([]float32, kvSize)
 	}
 	nPast := 0
-
-	{
-		wqT3, _ := g.TensorByName(tensorName("wq", 0))
-		wqRawBytes, _ := g.Raw(wqT3)
-		l0 := &layers[0]
-		// Compare first 8 nibbles of row 0 and row 1
-		for row := 0; row < 2; row++ {
-			fmt.Fprintf(os.Stderr, "Row %d nibbles (inline vs wRaw):\n", row)
-			blocksPerRow := l0.wqCols / 256
-			for i := 0; i < 8; i++ {
-				// Inline extraction from raw Q4K bytes
-				blkOff := (row*blocksPerRow) * 144
-				qs := wqRawBytes[blkOff+16:]
-				var nibInline int8
-				if i%2 == 0 { nibInline = int8(qs[i/2] & 0xf) } else { nibInline = int8(qs[i/2] >> 4) }
-				// From wRaw (extractQ4KDirect output)
-				nibWRaw := l0.wqRaw[row*l0.wqCols + i]
-				match := "OK"
-				if nibInline != nibWRaw { match = "MISMATCH!" }
-				fmt.Fprintf(os.Stderr, "  [%d]: inline=%d wRaw=%d %s\n", i, nibInline, nibWRaw, match)
-			}
-		}
-	}
-
-	{
-		l0 := &layers[0]
-		wqT4, _ := g.TensorByName(tensorName("wq", 0))
-		wqRawB, _ := g.Raw(wqT4)
-		// Inline scale computation (same as loader)
-		b := wqRawB[0:144] // first block of row 0
-		d := fp16ToFloat(uint16(b[0]) | uint16(b[1])<<8)
-		dmin := fp16ToFloat(uint16(b[2]) | uint16(b[3])<<8)
-		s := b[4:16]
-		var scInline [8]float32
-		var mnInline [8]float32
-		for j := 0; j < 4; j++ { scInline[j] = float32(s[j]&63)*d; mnInline[j] = float32(s[j+4]&63)*dmin }
-		for j := 4; j < 8; j++ { k:=j-4; scInline[j]=float32((s[j+4]&0xF)|((s[k]>>6)<<4))*d; mnInline[j]=float32((s[j+4]>>4)|((s[k+4]>>6)<<4))*dmin }
-		fmt.Fprintf(os.Stderr, "Scale comparison (row 0, block 0):\n")
-		subsPerRow := l0.wqCols / 32
-		for sb := 0; sb < 8; sb++ {
-			wS := l0.wqScales[0*subsPerRow+sb]
-			wM := l0.wqMins[0*subsPerRow+sb]
-			matchS := "OK"; if scInline[sb] != wS { matchS = "MISMATCH!" }
-			matchM := "OK"; if mnInline[sb] != wM { matchM = "MISMATCH!" }
-			fmt.Fprintf(os.Stderr, "  sb%d: scale inline=%.6f stored=%.6f %s | min inline=%.6f stored=%.6f %s\n",
-				sb, scInline[sb], wS, matchS, mnInline[sb], wM, matchM)
-		}
-	}
-
-	// Quick matmul verify: matVecQ4KF32 vs DequantF32 scalar
-	{
-		l0 := &layers[0]
-		testAct := make([]float32, l0.wqCols)
-		for i := range testAct { testAct[i] = 0.01 * float32(i%100-50) }
-		ourOut := make([]float32, l0.wqRows)
-		matVecQ4KF32(l0.wqRows, l0.wqCols, l0.wqRaw, l0.wqScales, l0.wqMins, testAct, ourOut)
-		wqT5, _ := g.TensorByName(tensorName("wq", 0))
-		wqRef, _ := g.DequantF32(wqT5)
-		var maxE, maxR float32
-		for r := 0; r < 4; r++ {
-			var ref float32
-			for k := 0; k < l0.wqCols; k++ { ref += wqRef[r*l0.wqCols+k] * testAct[k] }
-			e := ourOut[r]-ref; if e < 0 { e = -e }
-			if e > maxE { maxE = e }
-			a := ref; if a < 0 { a = -a }; if a > maxR { maxR = a }
-			fmt.Fprintf(os.Stderr, "  matVecQ4KF32 row%d: our=%.6f ref=%.6f\n", r, ourOut[r], ref)
-		}
-		fmt.Fprintf(os.Stderr, "  relErr=%.2f%%\n", maxE/maxR*100)
-	}
-
 	allTokens := promptTokens
 	t1 := time.Now()
 
