@@ -801,17 +801,34 @@ func applyQwen35LinearDeltaUpdateInPlace(ssm, q, k, v, beta, dt, decay []float32
 			vIdx := valueBase + vd
 			vVal := v[vIdx]
 			stateRow := ssm[stateHeadBase+vd*meta.LinearKeyHeadDim : stateHeadBase+(vd+1)*meta.LinearKeyHeadDim]
-			acc := float32(0)
-			for kd, kVal := range kHead {
-				old := stateRow[kd]
-				updated := old*decayV + betaV*(vVal-old*kVal)*kVal
-				stateRow[kd] = updated
-				acc += updated * qHead[kd]
-			}
-			out[vIdx] = acc * scale
+			out[vIdx] = qwen35LinearDeltaRowInPlace(stateRow, qHead, kHead, vVal, betaV, decayV, scale)
 		}
 	}
 	return out, nil
+}
+
+func qwen35LinearDeltaRowInPlace(stateRow, qHead, kHead []float32, vVal, betaV, decayV, scale float32) float32 {
+	acc := float32(0)
+	kd := 0
+	limit := len(kHead) &^ 3
+	for ; kd < limit; kd += 4 {
+		k0, k1, k2, k3 := kHead[kd], kHead[kd+1], kHead[kd+2], kHead[kd+3]
+		old0, old1, old2, old3 := stateRow[kd], stateRow[kd+1], stateRow[kd+2], stateRow[kd+3]
+		u0 := old0*decayV + betaV*(vVal-old0*k0)*k0
+		u1 := old1*decayV + betaV*(vVal-old1*k1)*k1
+		u2 := old2*decayV + betaV*(vVal-old2*k2)*k2
+		u3 := old3*decayV + betaV*(vVal-old3*k3)*k3
+		stateRow[kd], stateRow[kd+1], stateRow[kd+2], stateRow[kd+3] = u0, u1, u2, u3
+		acc += u0*qHead[kd] + u1*qHead[kd+1] + u2*qHead[kd+2] + u3*qHead[kd+3]
+	}
+	for ; kd < len(kHead); kd++ {
+		kVal := kHead[kd]
+		old := stateRow[kd]
+		updated := old*decayV + betaV*(vVal-old*kVal)*kVal
+		stateRow[kd] = updated
+		acc += updated * qHead[kd]
+	}
+	return acc * scale
 }
 
 func softplus(x float32) float32 {
