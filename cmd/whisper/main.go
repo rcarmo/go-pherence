@@ -41,6 +41,8 @@ func main() {
 		cfg = whisper.Medium()
 	case "large-v3":
 		cfg = whisper.LargeV3()
+	case "large-v3-turbo", "turbo":
+		cfg = whisper.LargeV3Turbo()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown model size: %s\n", *modelSize)
 		os.Exit(1)

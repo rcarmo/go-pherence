@@ -121,3 +121,24 @@ func LargeV3() Config {
 		HeadDim:          64,
 	}
 }
+
+// LargeV3Turbo returns config for whisper-large-v3-turbo (distilled, ~809M parameters).
+// Same encoder as large-v3 (32 layers) but only 4 decoder layers (distilled).
+// This gives ~8× faster decoding with minimal quality loss.
+func LargeV3Turbo() Config {
+	return Config{
+		NumMelBins:       128,
+		MaxLength:        3000,
+		EncoderLayers:    32,
+		EncoderDModel:    1280,
+		EncoderHeads:     20,
+		EncoderFFNDim:    5120,
+		DecoderLayers:    4, // Distilled: only 4 decoder layers
+		DecoderDModel:    1280,
+		DecoderHeads:     20,
+		DecoderFFNDim:    5120,
+		VocabSize:        51866,
+		MaxDecoderLength: 448,
+		HeadDim:          64,
+	}
+}
