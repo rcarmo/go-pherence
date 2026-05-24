@@ -12,6 +12,11 @@ package ggmlgraph
 #include <ggml-cpu.h>
 #include <ggml-alloc.h>
 
+static void gp_backend_init_all(void) {
+    ggml_backend_load_all();
+    ggml_cpu_init();
+}
+
 struct gp_graph {
     struct ggml_context * ctx;
     struct ggml_cgraph * graph;
@@ -24,6 +29,7 @@ struct gp_graph {
 };
 
 static struct gp_graph * gp_new_mulmat(int typ, const void * raw, size_t raw_bytes, int in_dim, int out_dim, int n_threads) {
+    gp_backend_init_all();
     size_t mem = raw_bytes + (size_t)in_dim*sizeof(float) + (size_t)out_dim*sizeof(float) + 16*1024*1024;
     struct ggml_init_params params = { mem, NULL, false };
     struct ggml_context * ctx = ggml_init(params);
@@ -78,6 +84,7 @@ static struct gp_qkv_graph * gp_new_qkv(int typ_q, const void * raw_q, size_t ra
                                         int typ_k, const void * raw_k, size_t raw_k_bytes,
                                         int typ_v, const void * raw_v, size_t raw_v_bytes,
                                         int in_dim, int q_dim, int kv_dim, int n_threads) {
+    gp_backend_init_all();
     size_t mem = raw_q_bytes + raw_k_bytes + raw_v_bytes + (size_t)(in_dim + q_dim + 2*kv_dim)*sizeof(float) + 64*1024*1024;
     struct ggml_init_params params = { mem, NULL, false };
     struct ggml_context * ctx = ggml_init(params);
@@ -138,6 +145,7 @@ static struct gp_mlp_graph * gp_new_mlp(int typ_g, const void * raw_g, size_t ra
                                         int typ_u, const void * raw_u, size_t raw_u_bytes,
                                         int typ_d, const void * raw_d, size_t raw_d_bytes,
                                         int in_dim, int ffn_dim, int out_dim, int n_threads) {
+    gp_backend_init_all();
     size_t mem = raw_g_bytes + raw_u_bytes + raw_d_bytes + (size_t)(in_dim + 3*ffn_dim + out_dim)*sizeof(float) + 128*1024*1024;
     struct ggml_init_params params = { mem, NULL, false };
     struct ggml_context * ctx = ggml_init(params);
@@ -193,6 +201,7 @@ struct gp_backend_mulmat {
 };
 
 static struct gp_backend_mulmat * gp_backend_new_mulmat(int typ, const void * raw, size_t raw_bytes, int in_dim, int out_dim) {
+    gp_backend_init_all();
     struct ggml_init_params params = { 32*1024*1024, NULL, true };
     struct ggml_context * ctx = ggml_init(params);
     if (!ctx) return NULL;
@@ -224,6 +233,73 @@ static void gp_backend_mulmat_free(struct gp_backend_mulmat * g) {
     if (!g) return;
     if (g->buffer) ggml_backend_buffer_free(g->buffer);
     if (g->backend) ggml_backend_free(g->backend);
+    if (g->ctx) ggml_free(g->ctx);
+    free(g);
+}
+
+
+
+struct gp_ffn_block_graph {
+    struct ggml_context * ctx;
+    struct ggml_cgraph * graph;
+    struct ggml_tensor * norm;
+    struct ggml_tensor * wg;
+    struct ggml_tensor * wu;
+    struct ggml_tensor * wd;
+    struct ggml_tensor * x;
+    struct ggml_tensor * y;
+    int hidden;
+    int ffn;
+    int n_threads;
+};
+
+static struct gp_ffn_block_graph * gp_new_ffn_block(const float * norm_data,
+                                        int typ_g, const void * raw_g, size_t raw_g_bytes,
+                                        int typ_u, const void * raw_u, size_t raw_u_bytes,
+                                        int typ_d, const void * raw_d, size_t raw_d_bytes,
+                                        int hidden, int ffn, float eps, int n_threads) {
+    gp_backend_init_all();
+    size_t mem = raw_g_bytes + raw_u_bytes + raw_d_bytes + (size_t)(hidden*4 + hidden + 4*ffn)*sizeof(float) + 160*1024*1024;
+    struct ggml_init_params params = { mem, NULL, false };
+    struct ggml_context * ctx = ggml_init(params);
+    if (!ctx) return NULL;
+    struct gp_ffn_block_graph * g = (struct gp_ffn_block_graph *)calloc(1, sizeof(struct gp_ffn_block_graph));
+    if (!g) { ggml_free(ctx); return NULL; }
+    g->ctx=ctx; g->hidden=hidden; g->ffn=ffn; g->n_threads=n_threads;
+    g->x = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, hidden, 1);
+    g->norm = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, hidden, 1);
+    g->wg = ggml_new_tensor_2d(ctx, (enum ggml_type)typ_g, hidden, ffn);
+    g->wu = ggml_new_tensor_2d(ctx, (enum ggml_type)typ_u, hidden, ffn);
+    g->wd = ggml_new_tensor_2d(ctx, (enum ggml_type)typ_d, ffn, hidden);
+    if (!g->x || !g->norm || !g->wg || !g->wu || !g->wd) { ggml_free(ctx); free(g); return NULL; }
+    memcpy(ggml_get_data(g->norm), norm_data, (size_t)hidden*sizeof(float));
+    memcpy(ggml_get_data(g->wg), raw_g, raw_g_bytes);
+    memcpy(ggml_get_data(g->wu), raw_u, raw_u_bytes);
+    memcpy(ggml_get_data(g->wd), raw_d, raw_d_bytes);
+    struct ggml_tensor * nx = ggml_rms_norm(ctx, g->x, eps);
+    nx = ggml_mul(ctx, nx, g->norm);
+    struct ggml_tensor * gate = ggml_mul_mat(ctx, g->wg, nx);
+    struct ggml_tensor * up   = ggml_mul_mat(ctx, g->wu, nx);
+    struct ggml_tensor * act  = ggml_silu(ctx, gate);
+    struct ggml_tensor * prod = ggml_mul(ctx, act, up);
+    struct ggml_tensor * down = ggml_mul_mat(ctx, g->wd, prod);
+    g->y = ggml_add(ctx, g->x, down);
+    ggml_set_name(g->y, "ffn_block_y");
+    g->graph = ggml_new_graph(ctx);
+    ggml_build_forward_expand(g->graph, g->y);
+    return g;
+}
+
+static int gp_ffn_block_run(struct gp_ffn_block_graph * g, const float * x, float * y) {
+    memcpy(ggml_get_data(g->x), x, (size_t)g->hidden*sizeof(float));
+    int rc = ggml_graph_compute_with_ctx(g->ctx, g->graph, g->n_threads);
+    if (rc != 0) return rc;
+    memcpy(y, ggml_get_data(g->y), (size_t)g->hidden*sizeof(float));
+    return 0;
+}
+
+static void gp_ffn_block_free(struct gp_ffn_block_graph * g) {
+    if (!g) return;
     if (g->ctx) ggml_free(g->ctx);
     free(g);
 }
@@ -363,6 +439,38 @@ func (m *BackendMulMat) Run(x, out []float32) error {
 	rc := C.gp_backend_mulmat_run(m.p, (*C.float)(unsafe.Pointer(&x[0])), (*C.float)(unsafe.Pointer(&out[0])))
 	if rc != 0 {
 		return fmt.Errorf("backend mulmat rc=%d", int(rc))
+	}
+	return nil
+}
+
+type FFNBlock struct {
+	p      *C.struct_gp_ffn_block_graph
+	hidden int
+}
+
+func NewFFNBlock(norm []float32, wg, wu, wd *gguf.QuantMatrix, eps float32, threads int) (*FFNBlock, error) {
+	if len(norm) == 0 || wg == nil || wu == nil || wd == nil {
+		return nil, fmt.Errorf("bad FFNBlock args")
+	}
+	p := C.gp_new_ffn_block((*C.float)(unsafe.Pointer(&norm[0])), C.int(wg.QType), unsafe.Pointer(&wg.Raw[0]), C.size_t(len(wg.Raw)), C.int(wu.QType), unsafe.Pointer(&wu.Raw[0]), C.size_t(len(wu.Raw)), C.int(wd.QType), unsafe.Pointer(&wd.Raw[0]), C.size_t(len(wd.Raw)), C.int(wg.InDim), C.int(wg.OutDim), C.float(eps), C.int(threads))
+	if p == nil {
+		return nil, fmt.Errorf("ggml ffn block allocation failed")
+	}
+	return &FFNBlock{p: p, hidden: wg.InDim}, nil
+}
+func (g *FFNBlock) Close() {
+	if g != nil && g.p != nil {
+		C.gp_ffn_block_free(g.p)
+		g.p = nil
+	}
+}
+func (g *FFNBlock) Run(x, y []float32) error {
+	if len(x) < g.hidden || len(y) < g.hidden {
+		return fmt.Errorf("bad FFNBlock sizes")
+	}
+	rc := C.gp_ffn_block_run(g.p, (*C.float)(unsafe.Pointer(&x[0])), (*C.float)(unsafe.Pointer(&y[0])))
+	if rc != 0 {
+		return fmt.Errorf("ffn block rc=%d", int(rc))
 	}
 	return nil
 }
