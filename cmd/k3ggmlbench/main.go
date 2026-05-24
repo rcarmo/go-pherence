@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
 	"github.com/rcarmo/go-pherence/backends/ggmlquant"
 	"github.com/rcarmo/go-pherence/backends/k3"
 	"github.com/rcarmo/go-pherence/loader/gguf"
@@ -37,6 +38,22 @@ func main() {
 		}
 		fmt.Printf("\n== %s q=%d/%s shape=[%d,%d] vecdot=%v vecdot_type=%d/%s ==\n", name, qm.QType, ggmlquant.TypeName(int(qm.QType)), qm.InDim, qm.OutDim, ggmlquant.HasVecDot(int(qm.QType)), ggmlquant.VecDotType(int(qm.QType)), ggmlquant.TypeName(ggmlquant.VecDotType(int(qm.QType))))
 		out := make([]float32, qm.OutDim)
+		graph, err := ggmlgraph.NewMulMat(int(qm.QType), qm.Raw, qm.InDim, qm.OutDim, 8)
+		if err == nil {
+			outGraph := make([]float32, qm.OutDim)
+			_ = graph.Run(x, outGraph)
+			graphStart := time.Now()
+			for i := 0; i < *iters; i++ {
+				if err := graph.Run(x, outGraph); err != nil {
+					panic(err)
+				}
+			}
+			fmt.Printf("  ggml graph:       %s first=%+.5f\n", time.Since(graphStart)/time.Duration(*iters), outGraph[0])
+			graph.Close()
+		} else {
+			fmt.Printf("  ggml graph:       ERR %v\n", err)
+		}
+
 		if ggmlquant.HasVecDot(int(qm.QType)) {
 			outG := make([]float32, qm.OutDim)
 			gStart := time.Now()

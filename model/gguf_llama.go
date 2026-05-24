@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
 	"github.com/rcarmo/go-pherence/backends/ggmlquant"
 	"github.com/rcarmo/go-pherence/backends/k3"
 	"github.com/rcarmo/go-pherence/loader/gguf"
@@ -57,6 +58,7 @@ type GGUFLlama struct {
 	OutputNorm   []float32 // [hidden]
 	LMHead       []float32 // [vocab × hidden]
 	LMHeadM      *gguf.QuantMatrix
+	LMHeadGraph  *ggmlgraph.MulMat
 	UseGGMLQuant bool
 	Backend      k3.OpBackend
 	// precomputed RoPE frequencies [maxSeqLen × rotHalf]
@@ -93,6 +95,7 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		return g.MatrixFromTensor(t)
 	}
 	useGGMLQuant := os.Getenv("GO_PHERENCE_GGML_QUANT") == "1"
+	useLMHeadGraph := os.Getenv("GO_PHERENCE_GGML_LMHEAD_GRAPH") == "1"
 
 	embedTokens, err := load("token_embd.weight")
 	if err != nil {
@@ -107,11 +110,19 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		return nil, err
 	}
 	var embedMatrix, lmHeadM *gguf.QuantMatrix
+	var lmHeadGraph *ggmlgraph.MulMat
+	if useGGMLQuant || useLMHeadGraph {
+		if lmHeadM, err = loadMatrix("output.weight"); err != nil {
+			return nil, err
+		}
+	}
 	if useGGMLQuant {
 		if embedMatrix, err = loadMatrix("token_embd.weight"); err != nil {
 			return nil, err
 		}
-		if lmHeadM, err = loadMatrix("output.weight"); err != nil {
+	}
+	if useLMHeadGraph && lmHeadM != nil {
+		if lmHeadGraph, err = ggmlgraph.NewMulMat(int(lmHeadM.QType), lmHeadM.Raw, lmHeadM.InDim, lmHeadM.OutDim, 8); err != nil {
 			return nil, err
 		}
 	}
@@ -171,6 +182,7 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		LMHead:       lmHead,
 		EmbedMatrix:  embedMatrix,
 		LMHeadM:      lmHeadM,
+		LMHeadGraph:  lmHeadGraph,
 		UseGGMLQuant: useGGMLQuant,
 		Backend:      backend,
 	}
@@ -494,7 +506,11 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 	// Final norm + LM head
 	m.rmsNorm(hidden, m.OutputNorm)
 	logits := make([]float32, cfg.VocabSize)
-	m.gemvMaybe(logits, hidden, m.LMHead, m.LMHeadM, h, cfg.VocabSize)
+	if m.LMHeadGraph != nil {
+		_ = m.LMHeadGraph.Run(hidden, logits)
+	} else {
+		m.gemvMaybe(logits, hidden, m.LMHead, m.LMHeadM, h, cfg.VocabSize)
+	}
 	return logits
 }
 
