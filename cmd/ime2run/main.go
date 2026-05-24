@@ -20,6 +20,39 @@ import (
 
 // extractQ4KDirect extracts Q4K 4-bit nibbles to INT8 without F32 intermediate.
 // Values are in range 0-15 (unsigned, stored as signed int8).
+
+// extractQ4KScales extracts per-sub-block scales and mins from Q4K raw data.
+func extractQ4KScales(data []byte, rows, cols int) ([]float32, []float32) {
+	bytesPerBlock := 144
+	blocksPerRow := cols / 256
+	n := rows * blocksPerRow * 8
+	scales := make([]float32, n)
+	mins := make([]float32, n)
+	for row := 0; row < rows; row++ {
+		for blk := 0; blk < blocksPerRow; blk++ {
+			offset := (row*blocksPerRow + blk) * bytesPerBlock
+			b := data[offset : offset+bytesPerBlock]
+			d := fp16ToFloat(uint16(b[0]) | uint16(b[1])<<8)
+			dmin := fp16ToFloat(uint16(b[2]) | uint16(b[3])<<8)
+			var sc, mn [8]float32
+			for i := 0; i < 4; i++ {
+				sc[i] = float32(b[4+i] & 63)
+				mn[i] = float32(b[8+i] & 63)
+			}
+			for i := 0; i < 4; i++ {
+				sc[i+4] = float32((b[4+i]>>6) | ((b[12+i]&0xf)<<2))
+				mn[i+4] = float32((b[8+i]>>6) | ((b[12+i]>>4)<<2))
+			}
+			idx := (row*blocksPerRow + blk) * 8
+			for sb := 0; sb < 8; sb++ {
+				scales[idx+sb] = d * sc[sb]
+				mins[idx+sb] = dmin * mn[sb]
+			}
+		}
+	}
+	return scales, mins
+}
+
 func extractQ4KDirect(data []byte, rows, cols int) []int8 {
 	blockSize := 256
 	bytesPerBlock := 144
@@ -117,9 +150,19 @@ func main() {
 	// This is the naive approach (uses 2× memory) but proves the concept
 	type layerWeights struct {
 		wqPacked, wkPacked, wvPacked, woPacked       []int8
+		wqRaw, wkRaw, wvRaw, woRaw                   []int8
+		gateRaw, upRaw, downRaw                       []int8
 		gatePacked, upPacked, downPacked             []int8
 		wqScale, wkScale, wvScale, woScale           float32
 		gateScale, upScale, downScale                float32
+		// Per-sub-block scales for correct Q4K matmul
+		wqScales, wqMins []float32
+		wkScales, wkMins []float32
+		wvScales, wvMins []float32
+		woScales, woMins []float32
+		gateScales, gateMins []float32
+		upScales, upMins []float32
+		downScales, downMins []float32
 		attnNorm, ffnNorm                            []float32
 		wqRows, wkRows, wvRows, woRows              int
 		wqCols, wkCols, wvCols, woCols              int
@@ -130,20 +173,23 @@ func main() {
 	layers := make([]layerWeights, nLayers)
 	
 	// Helper: extract Q4K nibbles directly to INT8 and pre-pack tiles
-	packWeight := func(name string, rows, cols int) ([]int8, float32) {
+	packWeight := func(name string, rows, cols int) ([]int8, []int8, float32, []float32, []float32) {
 		t, ok := g.TensorByName(name)
 		if !ok { fatal("tensor %s not found", name) }
 		rowsPad := ((rows + 3) / 4) * 4
 		colsPad := ((cols + 7) / 8) * 8
 		var i8Pad []int8
 		var scale float32
+		var scales, mins []float32
 		if t.QType == 12 { // Q4_K direct
 			raw, _ := g.Raw(t)
 			i8 := extractQ4KDirect(raw, rows, cols)
 			i8Pad = make([]int8, rowsPad*colsPad)
 			for r := 0; r < rows; r++ { copy(i8Pad[r*colsPad:r*colsPad+cols], i8[r*cols:(r+1)*cols]) }
 			scale = avgQ4KScale(raw, rows, cols)
+			scales, mins = extractQ4KScales(raw, rows, cols)
 		} else {
+			scales = nil; mins = nil
 			f32, err := g.DequantF32(t)
 			if err != nil { fatal("dequant %s: %v", name, err) }
 			f32Pad := make([]float32, rowsPad*colsPad)
@@ -152,7 +198,7 @@ func main() {
 			scale = inference.QuantizeF32ToINT8(f32Pad, i8Pad)
 		}
 		packed := ime2.PackTiles(i8Pad, rowsPad, colsPad)
-		return packed, scale
+		return packed, i8Pad, scale, scales, mins
 	}
 
 	loadNorm := func(name string) []float32 {
@@ -202,13 +248,13 @@ func main() {
 		l.upRows, l.upCols = nFF, nEmbd
 		l.downRows, l.downCols = nEmbd, nFF
 
-		l.wqPacked, l.wqScale = packWeight(tensorName("wq", il), l.wqRows, l.wqCols)
-		l.wkPacked, l.wkScale = packWeight(tensorName("wk", il), l.wkRows, l.wkCols)
-		l.wvPacked, l.wvScale = packWeight(tensorName("wv", il), l.wvRows, l.wvCols)
-		l.woPacked, l.woScale = packWeight(tensorName("wo", il), l.woRows, l.woCols)
-		l.gatePacked, l.gateScale = packWeight(tensorName("gate", il), l.gateRows, l.gateCols)
-		l.upPacked, l.upScale = packWeight(tensorName("up", il), l.upRows, l.upCols)
-		l.downPacked, l.downScale = packWeight(tensorName("down", il), l.downRows, l.downCols)
+		l.wqPacked, l.wqRaw, l.wqScale, l.wqScales, l.wqMins = packWeight(tensorName("wq", il), l.wqRows, l.wqCols)
+		l.wkPacked, l.wkRaw, l.wkScale, l.wkScales, l.wkMins = packWeight(tensorName("wk", il), l.wkRows, l.wkCols)
+		l.wvPacked, l.wvRaw, l.wvScale, l.wvScales, l.wvMins = packWeight(tensorName("wv", il), l.wvRows, l.wvCols)
+		l.woPacked, l.woRaw, l.woScale, l.woScales, l.woMins = packWeight(tensorName("wo", il), l.woRows, l.woCols)
+		l.gatePacked, l.gateRaw, l.gateScale, l.gateScales, l.gateMins = packWeight(tensorName("gate", il), l.gateRows, l.gateCols)
+		l.upPacked, l.upRaw, l.upScale, l.upScales, l.upMins = packWeight(tensorName("up", il), l.upRows, l.upCols)
+		l.downPacked, l.downRaw, l.downScale, l.downScales, l.downMins = packWeight(tensorName("down", il), l.downRows, l.downCols)
 		l.attnNorm = loadNorm(tensorName("attn_norm", il))
 		l.ffnNorm = loadNorm(tensorName("ffn_norm", il))
 
@@ -338,21 +384,37 @@ func main() {
 		for i := nEmbd; i < K1; i++ { _xn[i] = 0 }
 		actP := packAct(_xn[:K1], K1)
 
-		// Q, K, V projections
-		qRes := _resultI32[:pad4(l.wqRows)*4]
-		ime2.GemmINT8Packed(pad4(l.wqRows), 4, K1, l.wqPacked, actP, qRes)
-		kRes := _resultI32[pad4(l.wqRows)*4 : pad4(l.wqRows)*4+pad4(l.wkRows)*4]
-		ime2.GemmINT8Packed(pad4(l.wkRows), 4, K1, l.wkPacked, actP, kRes)
-		vRes := _resultI32[pad4(l.wqRows)*4+pad4(l.wkRows)*4 : pad4(l.wqRows)*4+pad4(l.wkRows)*4+pad4(l.wvRows)*4]
-		ime2.GemmINT8Packed(pad4(l.wvRows), 4, K1, l.wvPacked, actP, vRes)
+		// Q, K, V projections (per-sub-block scale correction for Q4K)
+		qF := make([]float32, l.wqRows)
+		if l.wqScales != nil {
+			matVecQ4KCorrect(l.wqRows, l.wqCols, l.wqRaw, l.wqScales, l.wqMins, xn[:l.wqCols], qF)
+		} else {
+			qRes := _resultI32[:pad4(l.wqRows)*4]
+			ime2.GemmINT8Packed(pad4(l.wqRows), 4, K1, l.wqPacked, actP, qRes)
+			for i := range qF { qF[i] = float32(qRes[i*4]) * l.wqScale * _actScale }
+		}
+		kF := make([]float32, l.wkRows)
+		if l.wkScales != nil {
+			matVecQ4KCorrect(l.wkRows, l.wkCols, l.wkRaw, l.wkScales, l.wkMins, xn[:l.wkCols], kF)
+		} else {
+			kRes := _resultI32[:pad4(l.wkRows)*4]
+			ime2.GemmINT8Packed(pad4(l.wkRows), 4, K1, l.wkPacked, actP, kRes)
+			for i := range kF { kF[i] = float32(kRes[i*4]) * l.wkScale * _actScale }
+		}
+		vF := make([]float32, l.wvRows)
+		if l.wvScales != nil {
+			matVecQ4KCorrect(l.wvRows, l.wvCols, l.wvRaw, l.wvScales, l.wvMins, xn[:l.wvCols], vF)
+		} else {
+			vRes := _resultI32[:pad4(l.wvRows)*4]
+			ime2.GemmINT8Packed(pad4(l.wvRows), 4, K1, l.wvPacked, actP, vRes)
+			for i := range vF { vF[i] = float32(vRes[i*4]) * l.wvScale * _actScale }
+		}
 
-		// Dequant + store in KV cache
+		// Store K, V in cache (already F32)
 		pos := nPast
 		nKVD := nKVHeads * headDim
-		for i := 0; i < nKVD; i++ {
-			kCache[il][pos*nKVD+i] = float32(kRes[i*4]) * l.wkScale * _actScale
-			vCache[il][pos*nKVD+i] = float32(vRes[i*4]) * l.wvScale * _actScale
-		}
+		copy(kCache[il][pos*nKVD:pos*nKVD+nKVD], kF)
+		copy(vCache[il][pos*nKVD:pos*nKVD+nKVD], vF)
 		// Apply RoPE to K at current position
 		for kh := 0; kh < nKVHeads; kh++ {
 			applyRoPE(kCache[il][pos*nKVD+kh*headDim:pos*nKVD+(kh+1)*headDim], headDim, pos, ropeBase)
@@ -364,11 +426,9 @@ func main() {
 		invSqrtD := float32(1.0 / math.Sqrt(float64(headDim)))
 		for h := 0; h < nHeads; h++ {
 			kvH := h / repFactor
-			// Dequant Q head + RoPE
+			// Q head + RoPE (copy since RoPE modifies in place)
 			qHead := make([]float32, headDim)
-			for d := 0; d < headDim; d++ {
-				qHead[d] = float32(qRes[(h*headDim+d)*4]) * l.wqScale * _actScale
-			}
+			copy(qHead, qF[h*headDim:(h+1)*headDim])
 			applyRoPE(qHead, headDim, pos, ropeBase)
 			// Compute scores over [0..pos]
 			maxScore := float32(-1e30)
@@ -408,21 +468,38 @@ func main() {
 		K3 := pad8(l.gateCols)
 		for i := nEmbd; i < K3; i++ { _xn2[i] = 0 }
 		actPF := packAct(_xn2[:K3], K3)
-		gRes := _resultI32[:pad4(l.gateRows)*4]
-		ime2.GemmINT8Packed(pad4(l.gateRows), 4, K3, l.gatePacked, actPF, gRes)
-		uOff := pad4(l.gateRows) * 4
-		uRes := _resultI32[uOff : uOff+pad4(l.upRows)*4]
-		ime2.GemmINT8Packed(pad4(l.upRows), 4, K3, l.upPacked, actPF, uRes)
+		gateF := make([]float32, l.gateRows)
+		if l.gateScales != nil {
+			matVecQ4KCorrect(l.gateRows, l.gateCols, l.gateRaw, l.gateScales, l.gateMins, xn2[:l.gateCols], gateF)
+		} else {
+			gRes := _resultI32[:pad4(l.gateRows)*4]
+			ime2.GemmINT8Packed(pad4(l.gateRows), 4, K3, l.gatePacked, actPF, gRes)
+			for i := range gateF { gateF[i] = float32(gRes[i*4]) * l.gateScale * _actScale }
+		}
+		upF := make([]float32, l.upRows)
+		if l.upScales != nil {
+			matVecQ4KCorrect(l.upRows, l.upCols, l.upRaw, l.upScales, l.upMins, xn2[:l.upCols], upF)
+		} else {
+			uRes := _resultI32[:pad4(l.upRows)*4]
+			ime2.GemmINT8Packed(pad4(l.upRows), 4, K3, l.upPacked, actPF, uRes)
+			for i := range upF { upF[i] = float32(uRes[i*4]) * l.upScale * _actScale }
+		}
 		hidden := _hidden[:nFF]
 		for i := 0; i < nFF; i++ {
-			hidden[i] = silu(float32(gRes[i*4])*l.gateScale*_actScale) * float32(uRes[i*4]) * l.upScale * _actScale
+			hidden[i] = silu(gateF[i]) * upF[i]
 		}
 		K4 := pad8(l.downCols)
 		for i := nFF; i < K4; i++ { _hidden[i] = 0 }
 		actPD := packAct(_hidden[:K4], K4)
-		dRes := _resultI32[:pad4(l.downRows)*4]
-		ime2.GemmINT8Packed(pad4(l.downRows), 4, K4, l.downPacked, actPD, dRes)
-		for i := 0; i < nEmbd; i++ { x[i] += float32(dRes[i*4]) * l.downScale * _actScale }
+		downF := make([]float32, l.downRows)
+		if l.downScales != nil {
+			matVecQ4KCorrect(l.downRows, l.downCols, l.downRaw, l.downScales, l.downMins, hidden[:l.downCols], downF)
+		} else {
+			dRes := _resultI32[:pad4(l.downRows)*4]
+			ime2.GemmINT8Packed(pad4(l.downRows), 4, K4, l.downPacked, actPD, dRes)
+			for i := range downF { downF[i] = float32(dRes[i*4]) * l.downScale * _actScale }
+		}
+		for i := 0; i < nEmbd; i++ { x[i] += downF[i] }
 
 		}
 
@@ -493,6 +570,61 @@ func padF32(src []float32, n int) []float32 {
 
 
 // applyRoPE applies Rotary Position Embedding to a vector of headDim floats.
+
+// matVecQ4KCorrect performs out[M] = W_q4k[M×K] · act[K] with per-sub-block scale correction.
+// wData: raw Q4_K bytes, wPacked: pre-extracted INT8 nibbles (pre-packed in tiles),
+// wScales/wMins: per sub-block scales [M × blocksPerRow × 8]
+// act: F32 activation, out: F32 output
+func matVecQ4KCorrect(M, K int, wPacked []int8, wScales, wMins []float32, act []float32, out []float32) {
+	// Quantize activation to INT8
+	actI8 := make([]int8, K)
+	var maxAbs float32
+	for _, v := range act[:K] {
+		a := v; if a < 0 { a = -a }
+		if a > maxAbs { maxAbs = a }
+	}
+	actScale := float32(0)
+	if maxAbs > 0 {
+		actScale = 127.0 / maxAbs
+		for i := 0; i < K; i++ {
+			v := act[i] * actScale
+			if v > 127 { v = 127 } else if v < -128 { v = -128 }
+			actI8[i] = int8(v)
+		}
+	}
+	actDeScale := float32(0)
+	if actScale > 0 { actDeScale = 1.0 / actScale }
+
+	blocksPerRow := K / 256
+	subsPerRow := blocksPerRow * 8 // 8 sub-blocks per Q4_K block
+
+	// For each output row: accumulate dot products per sub-block with individual scales
+	for row := 0; row < M; row++ {
+		var sum float32
+		for sb := 0; sb < subsPerRow; sb++ {
+			// Sub-block: 32 elements starting at row*K + sb*32
+			elemOff := sb * 32
+			// Dot product (scalar, can optimize later with vmadot)
+			var dot int32
+			for i := 0; i < 32; i++ {
+				dot += int32(wPacked[row*K+elemOff+i]) * int32(actI8[elemOff+i])
+			}
+			// Apply per-sub-block scale
+			wScale := wScales[row*subsPerRow+sb]
+			wMin := wMins[row*subsPerRow+sb]
+			sum += float32(dot) * wScale * actDeScale
+			// Min correction: each nibble value has dmin*min subtracted
+			// The dot product of act with the constant -min offset:
+			var actSum int32
+			for i := 0; i < 32; i++ {
+				actSum += int32(actI8[elemOff+i])
+			}
+			sum -= float32(actSum) * wMin * actDeScale
+		}
+		out[row] = sum
+	}
+}
+
 func applyRoPE(x []float32, headDim int, pos int, ropeBase float32) {
 	for i := 0; i < headDim/2; i++ {
 		freq := 1.0 / math.Pow(float64(ropeBase), float64(2*i)/float64(headDim))
