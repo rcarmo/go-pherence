@@ -96,3 +96,26 @@ Start here:
 ## License
 
 MIT
+
+
+## SpacemiT K3 / RISC-V IME2 Acceleration
+
+go-pherence includes a pure Go backend for SpacemiT K3 SoC (MilkV Jupiter 2), using IME2 hardware for accelerated INT8 matrix multiply.
+
+### Performance
+
+| Benchmark | Result |
+|-----------|--------|
+| Raw vmadot (4x8x4 MAC) | 9.3ns / 128M ops/sec |
+| Pre-packed GEMM (1024 cubed, 8 threads) | 142 GOPS |
+| Single matmul (2048x1024) | 326us |
+| End-to-end decode (Qwen3-0.6B) | 14 tok/s (INT8 LM head) |
+
+### Key findings
+
+- IME2 spec: `spacemit-com/riscv-ime-extension-spec`
+- GCC flag: `-march=rv64gcv_xsmtvdotii`
+- X100 cores are CPU 0-7; A100 efficiency cores are 8-15
+- TCM: mmap `/dev/tcm` gives 3MB SRAM
+- Q4_K repack is identity (no tile format change)
+- Full details: `docs/spacemit-ime2.md`
