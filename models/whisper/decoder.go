@@ -189,31 +189,51 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 }
 
 // causalAttentionSingle computes causal attention for a single query position
-// against cached K/V of length seqKV.
+// against cached K/V of length seqKV. Optimized with unrolled dot product.
 func causalAttentionSingle(q, kCache, vCache []float32, seqKV, numHeads, headDim int) []float32 {
 	dModel := numHeads * headDim
 	out := make([]float32, dModel)
 	scale := float32(1.0 / math.Sqrt(float64(headDim)))
 
+	scores := make([]float32, seqKV)
+
 	for h := 0; h < numHeads; h++ {
 		hOff := h * headDim
-		scores := make([]float32, seqKV)
 
+		// Compute attention scores with unrolled dot product
 		for tkv := 0; tkv < seqKV; tkv++ {
 			kOff := tkv*dModel + hOff
 			var dot float32
-			for d := 0; d < headDim; d++ {
+			d := 0
+			for ; d+3 < headDim; d += 4 {
+				dot += q[hOff+d]*kCache[kOff+d] +
+					q[hOff+d+1]*kCache[kOff+d+1] +
+					q[hOff+d+2]*kCache[kOff+d+2] +
+					q[hOff+d+3]*kCache[kOff+d+3]
+			}
+			for ; d < headDim; d++ {
 				dot += q[hOff+d] * kCache[kOff+d]
 			}
 			scores[tkv] = dot * scale
 		}
 
-		softmax(scores)
+		softmax(scores[:seqKV])
 
+		// Weighted value sum with unrolled accumulation
 		for tkv := 0; tkv < seqKV; tkv++ {
 			vOff := tkv*dModel + hOff
 			w := scores[tkv]
-			for d := 0; d < headDim; d++ {
+			if w < 1e-8 {
+				continue // skip near-zero weights
+			}
+			d := 0
+			for ; d+3 < headDim; d += 4 {
+				out[hOff+d] += w * vCache[vOff+d]
+				out[hOff+d+1] += w * vCache[vOff+d+1]
+				out[hOff+d+2] += w * vCache[vOff+d+2]
+				out[hOff+d+3] += w * vCache[vOff+d+3]
+			}
+			for ; d < headDim; d++ {
 				out[hOff+d] += w * vCache[vOff+d]
 			}
 		}
