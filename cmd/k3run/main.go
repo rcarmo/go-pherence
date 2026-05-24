@@ -124,9 +124,10 @@ func runInference(modelPath, prompt string, maxNew int, be k3.OpBackend) {
 		kvK[i] = make([]float32, maxSeq*kvDim)
 		kvV[i] = make([]float32, maxSeq*kvDim)
 	}
+	state := m.NewForwardState()
 	var lastLogits []float32
 	for step, tokID := range ids {
-		lastLogits = m.Forward(tokID, step, kvK, kvV)
+		lastLogits = m.ForwardState(state, tokID, step, kvK, kvV)
 	}
 	prefillDur := time.Since(prefillStart)
 	ppTPS := float64(len(ids)) / prefillDur.Seconds()
@@ -142,7 +143,7 @@ func runInference(modelPath, prompt string, maxNew int, be k3.OpBackend) {
 			break
 		}
 		tStart := time.Now()
-		curLogits = m.Forward(next, step, kvK, kvV)
+		curLogits = m.ForwardState(state, next, step, kvK, kvV)
 		tokenTimes = append(tokenTimes, time.Since(tStart))
 		step++
 		if step >= maxSeq {
@@ -176,9 +177,9 @@ func runBenchAll(modelPath, prompt string, maxNew int) {
 	fmt.Printf("Loading model for benchmark (will be reloaded per backend) …\n\n")
 
 	type result struct {
-		name string
-		ppTPS float64
-		tgTPS float64
+		name   string
+		ppTPS  float64
+		tgTPS  float64
 		loadMs int64
 	}
 	var results []result
@@ -237,10 +238,11 @@ func runBenchAll(modelPath, prompt string, maxNew int) {
 		kvK, kvV, maxSeq := allocKV(m, len(ids)+maxNew)
 
 		// Prefill
+		state := m.NewForwardState()
 		var lastLogits []float32
 		ppStart := time.Now()
 		for step, tokID := range ids {
-			lastLogits = m.Forward(tokID, step, kvK, kvV)
+			lastLogits = m.ForwardState(state, tokID, step, kvK, kvV)
 		}
 		ppDur := time.Since(ppStart)
 		ppTPS := float64(len(ids)) / ppDur.Seconds()
@@ -255,7 +257,7 @@ func runBenchAll(modelPath, prompt string, maxNew int) {
 				break
 			}
 			tStart := time.Now()
-			curLogits = m.Forward(next, step, kvK, kvV)
+			curLogits = m.ForwardState(state, next, step, kvK, kvV)
 			tgTimes = append(tgTimes, time.Since(tStart))
 			step++
 			if step >= maxSeq {

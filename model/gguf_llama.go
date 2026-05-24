@@ -394,11 +394,61 @@ func (m *GGUFLlama) siluMul(dst, gate, up []float32) {
 
 // ── forward pass ─────────────────────────────────────────────────────────────
 
+// GGUFForwardState holds reusable per-token scratch buffers for GGUFLlama.ForwardState.
+// Keeping this around avoids allocating ~hundreds of KB of temporary buffers per token.
+type GGUFForwardState struct {
+	hidden     []float32
+	attnIn     []float32
+	q          []float32
+	k          []float32
+	v          []float32
+	attnOut    []float32
+	attnScores []float32
+	oOut       []float32
+	ffnIn      []float32
+	gate       []float32
+	up         []float32
+	ffnMid     []float32
+	down       []float32
+	logits     []float32
+}
+
+// NewForwardState allocates reusable scratch for one autoregressive stream.
+func (m *GGUFLlama) NewForwardState() *GGUFForwardState {
+	cfg := m.Config
+	h := cfg.HiddenSize
+	nH := cfg.NumHeads
+	hDim := cfg.HeadDim
+	kvDim := cfg.NumKVHeads * hDim
+	ffn := cfg.FFNHiddenSize
+	return &GGUFForwardState{
+		hidden:     make([]float32, h),
+		attnIn:     make([]float32, h),
+		q:          make([]float32, nH*hDim),
+		k:          make([]float32, kvDim),
+		v:          make([]float32, kvDim),
+		attnOut:    make([]float32, nH*hDim),
+		attnScores: make([]float32, cfg.MaxSeqLen),
+		oOut:       make([]float32, h),
+		ffnIn:      make([]float32, h),
+		gate:       make([]float32, ffn),
+		up:         make([]float32, ffn),
+		ffnMid:     make([]float32, ffn),
+		down:       make([]float32, h),
+		logits:     make([]float32, cfg.VocabSize),
+	}
+}
+
 // Forward runs a single token through the model, updating the KV cache,
 // and returns the logits vector [vocabSize].
 //
 // kvK[layer][step*kvDim : (step+1)*kvDim] and kvV[...] are the KV caches.
 func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
+	return m.ForwardState(m.NewForwardState(), tokenID, step, kvK, kvV)
+}
+
+// ForwardState is Forward using caller-owned reusable scratch buffers.
+func (m *GGUFLlama) ForwardState(st *GGUFForwardState, tokenID, step int, kvK, kvV [][]float32) []float32 {
 	cfg := m.Config
 	h := cfg.HiddenSize
 	nH := cfg.NumHeads
@@ -409,10 +459,10 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 	rotHalf := m.rotHalf
 
 	// Token embedding
-	hidden := make([]float32, h)
+	hidden := st.hidden[:h]
 	if m.UseGGMLQuant && m.EmbedMatrix != nil {
 		if err := m.EmbedMatrix.DequantRowTo(hidden, tokenID); err != nil {
-			return make([]float32, cfg.VocabSize)
+			return st.logits[:cfg.VocabSize]
 		}
 	} else {
 		copy(hidden, m.EmbedTokens[tokenID*h:(tokenID+1)*h])
@@ -421,20 +471,18 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 	// RoPE frequencies for this position
 	posFreqs := m.ropeFreqs[step*rotHalf : (step+1)*rotHalf]
 
-	// Reusable per-token scratch buffers. These used to be allocated per layer,
-	// which created hundreds of short-lived slices per generated token.
-	attnIn := make([]float32, h)
-	q := make([]float32, nH*hDim)
-	k := make([]float32, kvDim)
-	v := make([]float32, kvDim)
-	attnOut := make([]float32, nH*hDim)
-	attnScores := make([]float32, cfg.MaxSeqLen)
-	oOut := make([]float32, h)
-	ffnIn := make([]float32, h)
-	gate := make([]float32, ffn)
-	up := make([]float32, ffn)
-	ffnMid := make([]float32, ffn)
-	down := make([]float32, h)
+	attnIn := st.attnIn[:h]
+	q := st.q[:nH*hDim]
+	k := st.k[:kvDim]
+	v := st.v[:kvDim]
+	attnOut := st.attnOut[:nH*hDim]
+	attnScores := st.attnScores[:cfg.MaxSeqLen]
+	oOut := st.oOut[:h]
+	ffnIn := st.ffnIn[:h]
+	gate := st.gate[:ffn]
+	up := st.up[:ffn]
+	ffnMid := st.ffnMid[:ffn]
+	down := st.down[:h]
 
 	for i, layer := range m.Layers {
 		// ── attention sub-layer ───────────────────────────────────────────
@@ -505,7 +553,7 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 
 	// Final norm + LM head
 	m.rmsNorm(hidden, m.OutputNorm)
-	logits := make([]float32, cfg.VocabSize)
+	logits := st.logits[:cfg.VocabSize]
 	if m.LMHeadGraph != nil {
 		_ = m.LMHeadGraph.Run(hidden, logits)
 	} else {
@@ -580,24 +628,25 @@ func (m *GGUFLlama) Generate(promptIDs []int, maxNew int) ([]int, error) {
 	}
 
 	var generated []int
+	state := m.NewForwardState()
 
 	// Prefill: run all prompt tokens
 	for step, tok := range promptIDs {
 		if step == len(promptIDs)-1 {
 			// Last prompt token: capture logits
-			logits := m.Forward(tok, step, kvK, kvV)
+			logits := m.ForwardState(state, tok, step, kvK, kvV)
 			next := argmaxF32(logits)
 			if next == cfg.VocabSize { // shouldn't happen
 				break
 			}
 		} else {
-			_ = m.Forward(tok, step, kvK, kvV)
+			_ = m.ForwardState(state, tok, step, kvK, kvV)
 		}
 	}
 
 	// Decode: autoregressively generate maxNew tokens
 	step := len(promptIDs) - 1
-	logits := m.Forward(promptIDs[step], step, kvK, kvV)
+	logits := m.ForwardState(state, promptIDs[step], step, kvK, kvV)
 	for range maxNew {
 		next := argmaxF32(logits)
 		generated = append(generated, next)
@@ -609,7 +658,7 @@ func (m *GGUFLlama) Generate(promptIDs []int, maxNew int) ([]int, error) {
 		if step >= maxSeq {
 			break
 		}
-		logits = m.Forward(next, step, kvK, kvV)
+		logits = m.ForwardState(state, next, step, kvK, kvV)
 	}
 	return generated, nil
 }
