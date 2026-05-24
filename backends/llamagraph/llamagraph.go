@@ -1,4 +1,4 @@
-//go:build cgo && linux
+//go:build ggml && cgo && linux
 
 // Package llamagraph implements a full GGML LLaMA decode-graph executor.
 // It builds the complete per-token decode graph (embedding → N×(attn+FFN) →
@@ -10,11 +10,12 @@
 package llamagraph
 
 /*
-#cgo CFLAGS:  -I/usr/include -O3
+#cgo CFLAGS:  -I/usr/include -I${SRCDIR}/csrc -O3
 #cgo LDFLAGS: -lggml -lggml-base -lggml-cpu -lm -lstdc++
 
 #include <stdlib.h>
 #include "llamagraph.h"
+#include "csrc/llamagraph.c"
 */
 import "C"
 import (
