@@ -17,6 +17,63 @@ import (
 	// tokenizer loaded via gguf
 )
 
+
+// extractQ4KDirect extracts Q4K 4-bit nibbles to INT8 without F32 intermediate.
+// Values are in range 0-15 (unsigned, stored as signed int8).
+func extractQ4KDirect(data []byte, rows, cols int) []int8 {
+	blockSize := 256
+	bytesPerBlock := 144
+	blocksPerRow := cols / blockSize
+	out := make([]int8, rows*cols)
+	for row := 0; row < rows; row++ {
+		for blk := 0; blk < blocksPerRow; blk++ {
+			offset := (row*blocksPerRow + blk) * bytesPerBlock
+			b := data[offset : offset+bytesPerBlock]
+			base := row*cols + blk*blockSize
+			for sb := 0; sb < 8; sb++ {
+				qOff := 16 + sb*16
+				for j := 0; j < 16; j++ {
+					q := b[qOff+j]
+					out[base+sb*32+j] = int8(q & 0xf)
+					out[base+sb*32+j+16] = int8(q >> 4)
+				}
+			}
+		}
+	}
+	return out
+}
+
+// avgQ4KScale returns average block scale (uses proper fp16 decode).
+func avgQ4KScale(data []byte, rows, cols int) float32 {
+	bytesPerBlock := 144
+	blocksPerRow := cols / 256
+	nBlocks := rows * blocksPerRow
+	var sum float32
+	for i := 0; i < nBlocks; i++ {
+		offset := i * bytesPerBlock
+		h := uint16(data[offset]) | uint16(data[offset+1])<<8
+		sum += fp16ToFloat(h)
+	}
+	return sum / float32(nBlocks)
+}
+
+func fp16ToFloat(h uint16) float32 {
+	sign := uint32(h>>15) & 1
+	exp := uint32(h>>10) & 0x1f
+	mant := uint32(h) & 0x3ff
+	if exp == 0 {
+		if mant == 0 { return 0 }
+		for mant&0x400 == 0 { mant <<= 1; exp-- }
+		exp++; mant &= 0x3ff
+	} else if exp == 31 {
+		return 0 // inf/nan → treat as 0
+	}
+	exp = exp + (127 - 15)
+	bits := (sign << 31) | (exp << 23) | (mant << 13)
+	return *(*float32)(unsafe.Pointer(&bits))
+}
+
+
 func main() {
 	modelPath := flag.String("model", "", "GGUF model path")
 	prompt := flag.String("prompt", "Hello", "prompt")
@@ -71,26 +128,29 @@ func main() {
 
 	layers := make([]layerWeights, nLayers)
 	
-	// Helper: load, dequant, quantize, pack a weight tensor
+	// Helper: extract Q4K nibbles directly to INT8 and pre-pack tiles
 	packWeight := func(name string, rows, cols int) ([]int8, float32) {
 		t, ok := g.TensorByName(name)
-		if !ok {
-			fatal("tensor %s not found", name)
-		}
-		f32, err := g.DequantF32(t)
-		if err != nil {
-			fatal("dequant %s: %v", name, err)
-		}
-		// Pad to multiples of 4 rows, 8 cols
+		if !ok { fatal("tensor %s not found", name) }
 		rowsPad := ((rows + 3) / 4) * 4
 		colsPad := ((cols + 7) / 8) * 8
-		i8 := make([]int8, rowsPad*colsPad)
-		f32Flat := make([]float32, rowsPad*colsPad)
-		for r := 0; r < rows; r++ {
-			copy(f32Flat[r*colsPad:r*colsPad+cols], f32[r*cols:(r+1)*cols])
+		var i8Pad []int8
+		var scale float32
+		if t.QType == 12 { // Q4_K direct
+			raw, _ := g.Raw(t)
+			i8 := extractQ4KDirect(raw, rows, cols)
+			i8Pad = make([]int8, rowsPad*colsPad)
+			for r := 0; r < rows; r++ { copy(i8Pad[r*colsPad:r*colsPad+cols], i8[r*cols:(r+1)*cols]) }
+			scale = avgQ4KScale(raw, rows, cols)
+		} else {
+			f32, err := g.DequantF32(t)
+			if err != nil { fatal("dequant %s: %v", name, err) }
+			f32Pad := make([]float32, rowsPad*colsPad)
+			for r := 0; r < rows; r++ { copy(f32Pad[r*colsPad:r*colsPad+cols], f32[r*cols:(r+1)*cols]) }
+			i8Pad = make([]int8, rowsPad*colsPad)
+			scale = inference.QuantizeF32ToINT8(f32Pad, i8Pad)
 		}
-		scale := inference.QuantizeF32ToINT8(f32Flat, i8)
-		packed := ime2.PackTiles(i8, rowsPad, colsPad)
+		packed := ime2.PackTiles(i8Pad, rowsPad, colsPad)
 		return packed, scale
 	}
 
@@ -172,9 +232,61 @@ func main() {
 	promptTokens, _ := tok.Encode(*prompt)
 	fmt.Fprintf(os.Stderr, "Prompt tokens: %v\n", promptTokens)
 
+
+	// Pre-allocate reusable buffers to avoid per-step allocation
+
 	// --- Decode loop ---
 	// Simplified: no KV cache (recompute attention each time — slow but correct)
 	// This proves the pure Go path works end-to-end.
+
+	// Pre-allocate all decode buffers (zero allocation in hot path)
+	maxK := pad8(nFF) // 3072 padded = 3072
+	maxM := pad4(nFF) // 3072
+	_xI8 := make([]int8, maxK)
+	_xBroadcast := make([]int8, 4*maxK)
+	_actPacked := make([]int8, 4*maxK) // PackTiles output = same size as input for 4 rows
+	_resultI32 := make([]int32, maxM*4)
+	_xn := make([]float32, maxK)
+	_xn2 := make([]float32, maxK)
+	_qOut := make([]float32, maxM)
+	_hidden := make([]float32, maxK)
+
+	// Helper: quantize+pack activation into pre-allocated buffers (zero alloc)
+	packAct := func(x []float32, K int) []int8 {
+		xI8 := _xI8[:K]
+		var maxAbs float32
+		for _, v := range x[:K] {
+			if v < 0 { v = -v }
+			if v > maxAbs { maxAbs = v }
+		}
+		if maxAbs > 0 {
+			s := 127.0 / maxAbs
+			for i := 0; i < K; i++ {
+				v := x[i] * s
+				if v > 127 { v = 127 } else if v < -128 { v = -128 }
+				xI8[i] = int8(v)
+			}
+		}
+		// Broadcast 4×
+		bc := _xBroadcast[:4*K]
+		copy(bc[0:K], xI8)
+		copy(bc[K:2*K], xI8)
+		copy(bc[2*K:3*K], xI8)
+		copy(bc[3*K:4*K], xI8)
+		// Pack tiles in-place
+		packed := _actPacked[:4*K]
+		for rg := 0; rg < 4; rg += 4 {
+			for ki := 0; ki < K; ki += 8 {
+				tileIdx := ki / 8
+				tileBase := tileIdx * 32
+				for r := 0; r < 4; r++ {
+					copy(packed[tileBase+r*8:tileBase+r*8+8], bc[r*K+ki:r*K+ki+8])
+				}
+			}
+		}
+		return packed
+	}
+	_ = packAct; _ = _resultI32; _ = _xn; _ = _xn2; _ = _qOut; _ = _hidden
 
 	allTokens := promptTokens
 	t1 := time.Now()

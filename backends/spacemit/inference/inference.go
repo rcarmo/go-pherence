@@ -185,3 +185,16 @@ func PackActivation(x []float32, K int) ([]int8, float32) {
 func MatVecINT8Pool(M, K int, wPacked []int8, actPacked []int8, out []int32, pool *ime2.WorkerPool) {
 	ime2.GemmINT8PackedPool(M, 4, K, wPacked, actPacked, out, pool)
 }
+
+// PackActivationInto quantizes and packs activation into pre-allocated buffers.
+// xI8Buf must be at least K bytes. broadcastBuf must be at least 4*K bytes.
+// Returns the packed slice (from broadcastBuf) and scale.
+func PackActivationInto(x []float32, K int, xI8Buf, broadcastBuf []int8) ([]int8, float32) {
+	xI8 := xI8Buf[:K]
+	scale := QuantizeF32ToINT8(x[:K], xI8)
+	broadcast := broadcastBuf[:4*K]
+	for r := 0; r < 4; r++ {
+		copy(broadcast[r*K:(r+1)*K], xI8)
+	}
+	return ime2.PackTilesInto(broadcast, 4, K, broadcastBuf[4*K:]), scale
+}
