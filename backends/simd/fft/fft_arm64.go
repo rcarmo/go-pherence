@@ -4,6 +4,11 @@ package fft
 
 import "math"
 
+// conv1dK3S1InnerNEON accumulates one input channel's Conv1D contribution using NEON.
+//
+//go:noescape
+func conv1dK3S1InnerNEON(out, input *float32, w0, w1, w2 float32, n int)
+
 // fftButterfly2NEON performs 2 parallel radix-2 butterflies using NEON.
 //
 //go:noescape
