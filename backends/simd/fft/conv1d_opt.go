@@ -2,6 +2,12 @@
 
 package fft
 
+// conv1dK3S1Inner accumulates one input channel's contribution to the output
+// using the AVX2 FMA inner loop.
+//
+//go:noescape
+func conv1dK3S1Inner(out, input *float32, w0, w1, w2 float32, n int)
+
 // Conv1DK3S1 performs 1D convolution with kernel_size=3, stride=1, padding=1.
 // Optimized for the Whisper conv stem common case.
 // input: [inChannels * inLength], weight: [outChannels * inChannels * 3], bias: [outChannels]
