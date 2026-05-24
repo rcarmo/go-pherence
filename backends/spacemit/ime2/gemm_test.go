@@ -126,3 +126,109 @@ func BenchmarkScalarGemm_32x32x128(b *testing.B) {
 		refGemm(M, N, K, A, B, C)
 	}
 }
+
+
+func TestGemmINT8Packed(t *testing.T) {
+	M, N, K := 8, 8, 16
+	A := make([]int8, M*K)
+	B := make([]int8, N*K)
+
+	for i := range A {
+		A[i] = int8((i*7 + 3) % 127 - 63)
+	}
+	for i := range B {
+		B[i] = int8((i*13 + 11) % 127 - 63)
+	}
+
+	Ap := PackTiles(A, M, K)
+	Bp := PackTiles(B, N, K)
+	C_hw := make([]int32, M*N)
+	C_ref := make([]int32, M*N)
+
+	GemmINT8Packed(M, N, K, Ap, Bp, C_hw)
+	refGemm(M, N, K, A, B, C_ref)
+
+	errors := 0
+	for i := 0; i < M*N; i++ {
+		if C_hw[i] != C_ref[i] {
+			if errors < 5 {
+				t.Errorf("C[%d]: hw=%d ref=%d", i, C_hw[i], C_ref[i])
+			}
+			errors++
+		}
+	}
+	if errors == 0 {
+		t.Logf("GemmINT8Packed %dx%dx%d: all %d elements correct!", M, N, K, M*N)
+	} else {
+		t.Errorf("%d/%d errors", errors, M*N)
+	}
+}
+
+func TestGemmINT8PackedLarge(t *testing.T) {
+	M, N, K := 32, 32, 128
+	A := make([]int8, M*K)
+	B := make([]int8, N*K)
+
+	for i := range A {
+		A[i] = int8((i*3 + 7) % 200 - 100)
+	}
+	for i := range B {
+		B[i] = int8((i*11 + 5) % 200 - 100)
+	}
+
+	Ap := PackTiles(A, M, K)
+	Bp := PackTiles(B, N, K)
+	C_hw := make([]int32, M*N)
+	C_ref := make([]int32, M*N)
+
+	GemmINT8Packed(M, N, K, Ap, Bp, C_hw)
+	refGemm(M, N, K, A, B, C_ref)
+
+	errors := 0
+	for i := 0; i < M*N; i++ {
+		if C_hw[i] != C_ref[i] {
+			errors++
+		}
+	}
+	if errors == 0 {
+		t.Logf("GemmINT8Packed %dx%dx%d: all %d elements correct!", M, N, K, M*N)
+	} else {
+		t.Errorf("%d/%d errors", errors, M*N)
+	}
+}
+
+func BenchmarkGemmINT8Packed_32x32x128(b *testing.B) {
+	M, N, K := 32, 32, 128
+	A := make([]int8, M*K)
+	B := make([]int8, N*K)
+	for i := range A { A[i] = int8(i % 127) }
+	for i := range B { B[i] = int8(i % 127) }
+	Ap := PackTiles(A, M, K)
+	Bp := PackTiles(B, N, K)
+	C := make([]int32, M*N)
+
+	ops := int64(M) * int64(N) * int64(K) * 2
+	b.SetBytes(ops)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		GemmINT8Packed(M, N, K, Ap, Bp, C)
+	}
+}
+
+func BenchmarkGemmINT8Packed_128x128x256(b *testing.B) {
+	M, N, K := 128, 128, 256
+	A := make([]int8, M*K)
+	B := make([]int8, N*K)
+	for i := range A { A[i] = int8(i % 127) }
+	for i := range B { B[i] = int8(i % 127) }
+	Ap := PackTiles(A, M, K)
+	Bp := PackTiles(B, N, K)
+	C := make([]int32, M*N)
+
+	ops := int64(M) * int64(N) * int64(K) * 2
+	b.SetBytes(ops)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		GemmINT8Packed(M, N, K, Ap, Bp, C)
+	}
+}
