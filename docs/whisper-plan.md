@@ -289,3 +289,49 @@ Speaker models (pyannote/wespeaker):
 - [ ] Integration test with real whisper-tiny weights
 - [ ] Batched encoder, streaming, speculative decoding
 - [ ] TurboQuant for Whisper KV cache
+
+## Latest Session Progress
+
+### Additional commits
+- Optimized FFT: 5.2× speedup with zero-alloc twiddle rotation (10µs/512pt)
+- Platform FFT butterfly stubs (amd64/arm64 Go, assembly pending)
+- Unrolled Conv1D k=3 stride=1/2 for Whisper stem (60ms for 80→384ch)
+- Vectorized sinusoidal position embedding generation
+- GPU non-causal attention dispatch (CPU fallback)
+- GPU cross-attention dispatch (CPU fallback)
+- CUDA PTX kernel structure: mel spectrogram (shared-memory FFT), Conv1D (tiled halo)
+- Chunked/streaming transcription for audio > 30s with overlap deduplication
+- Speaker embedding extraction pipeline (ECAPA + mel + diarize)
+
+### Performance Benchmarks (i7-12700, scalar CPU)
+| Operation | Time | Notes |
+|-----------|------|-------|
+| FFT 512pt (optimized) | 10µs | 5.2× faster than naive |
+| FFT 512pt (scalar) | 53µs | Baseline |
+| Conv1D 80→384ch, 480 frames | 60ms | Whisper conv stem |
+| Encoder forward (tiny, 480 frames) | ~2.5s | 4 layers, scalar attention |
+| Decoder per-token (tiny) | ~100ms | Cross-attention + self-attention |
+
+### Architecture
+```text
+backends/simd/fft/
+  fft.go            — Scalar radix-2 FFT (fallback)
+  fft_simd.go       — Optimized Go FFT (zero-alloc twiddle)
+  fft_amd64.go      — AVX2 butterfly stub
+  fft_arm64.go      — NEON butterfly stub
+  conv1d_opt.go     — Unrolled Conv1D k=3 s=1/2
+  posembed.go       — Sinusoidal position embedding
+
+backends/cuda/ptx/
+  fft.go            — Fused mel spectrogram PTX (structure defined)
+  conv1d.go         — Tiled Conv1D PTX (structure defined)
+  attention_full.go — Non-causal attention + cross-attention PTX
+
+gpu/
+  conv1d.go         — Conv1D dispatch (CPU fallback)
+  cross_attention.go — Full/cross attention dispatch
+  attention_full.go — DevAttentionFull dispatch
+
+models/whisper/
+  chunked.go        — Streaming/chunked transcription
+```
