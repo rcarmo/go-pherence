@@ -40,8 +40,8 @@ func extractQ4KScales(data []byte, rows, cols int) ([]float32, []float32) {
 				mn[i] = float32(b[8+i] & 63)
 			}
 			for i := 0; i < 4; i++ {
-				sc[i+4] = float32((b[4+i]>>6) | ((b[12+i]&0xf)<<2))
-				mn[i+4] = float32((b[8+i]>>6) | ((b[12+i]>>4)<<2))
+				sc[i+4] = float32((b[12+i]&0xF) | (uint8(b[4+i]>>6)<<4))
+				mn[i+4] = float32((b[12+i]>>4) | (uint8(b[8+i]>>6)<<4))
 			}
 			idx := (row*blocksPerRow + blk) * 8
 			for sb := 0; sb < 8; sb++ {

@@ -4,7 +4,7 @@ import (
 	"unsafe"
 
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	_ "github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 // matVecQ4KVmadot performs out[M] = W_q4k[M×K] · act[K] using vmadot
@@ -78,8 +78,14 @@ func matVecQ4KVmadot(M, K int, wRaw []int8, wScales, wMins []float32, act []floa
 					copy(actTile[r*8:(r+1)*8], (*[8]byte)(unsafe.Pointer(&actI8[passOff]))[:])
 				}
 
-				// vmadot accumulate
-				ime2.VmadotAccSS4x8(&actTile[0], &tile[0], &acc[0])
+				// Scalar accumulate (vmadot replacement for correctness test)
+				for r := 0; r < 4; r++ {
+					for c2 := 0; c2 < 4; c2++ {
+						var d int32
+						for i := 0; i < 8; i++ { d += int32(int8(actTile[c2*8+i])) * int32(int8(tile[r*8+i])) }
+						acc[r*4+c2] += d
+					}
+				}
 			}
 
 			// Apply per-sub-block scale to accumulated result
