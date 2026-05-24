@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -275,6 +276,7 @@ func main() {
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
 	gpuLMHead := flag.Bool("gpu-lm-head", true, "run BF16 LM head on GPU when -gpu is enabled; set -gpu-lm-head=false to disable")
+	cpuprofile := flag.String("cpuprofile", "", "write Go CPU profile for qwen36run to this file")
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
 	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
@@ -375,6 +377,15 @@ func main() {
 		prewarmStart := time.Now()
 		prewarmStats = qwen.PrewarmQwen35GPUCache(bundle.Base)
 		prewarmMS = time.Since(prewarmStart).Milliseconds()
+	}
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		check("cpuprofile create", err)
+		check("cpuprofile start", pprof.StartCPUProfile(f))
+		defer func() {
+			pprof.StopCPUProfile()
+			_ = f.Close()
+		}()
 	}
 	if *mtp {
 		r.mtpHead, err = qwen.LoadQwenNativeMTPHeadFromSafetensorsDir(*dir, meta)

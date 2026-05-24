@@ -166,12 +166,11 @@ func (m *Qwen35BaseModel) ForwardSequence(inputs [][]float32, state Qwen35BaseFo
 	outs := make([][]float32, 0, len(inputs))
 	curState := CloneQwen35BaseForwardState(state)
 	for i, input := range inputs {
-		out, next, err := m.ForwardOne(input, curState, curState.Pos, ropeFreqs, eps, meta)
+		out, err := m.forwardOneMutating(input, &curState, curState.Pos, ropeFreqs, eps, meta)
 		if err != nil {
 			return nil, state, fmt.Errorf("Qwen3.5 sequence step %d: %w", i, err)
 		}
 		outs = append(outs, out)
-		curState = next
 	}
 	return outs, curState, nil
 }
@@ -250,13 +249,21 @@ func (m *Qwen35BaseModel) ForwardChunkLayerStreamed(inputs [][]float32, state Qw
 }
 
 func (m *Qwen35BaseModel) ForwardOne(input []float32, state Qwen35BaseForwardState, pos int, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, Qwen35BaseForwardState, error) {
+	state = CloneQwen35BaseForwardState(state)
+	out, err := m.forwardOneMutating(input, &state, pos, ropeFreqs, eps, meta)
+	return out, state, err
+}
+
+func (m *Qwen35BaseModel) forwardOneMutating(input []float32, state *Qwen35BaseForwardState, pos int, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, error) {
 	if m == nil {
-		return nil, state, fmt.Errorf("nil Qwen3.5 base model")
+		return nil, fmt.Errorf("nil Qwen3.5 base model")
+	}
+	if state == nil {
+		return nil, fmt.Errorf("nil Qwen3.5 forward state")
 	}
 	if len(state.FullK) != len(m.Layers) || len(state.FullV) != len(m.Layers) || len(state.Linear) != len(m.Layers) {
-		return nil, state, fmt.Errorf("Qwen3.5 forward state layer counts K/V/linear=%d/%d/%d want %d", len(state.FullK), len(state.FullV), len(state.Linear), len(m.Layers))
+		return nil, fmt.Errorf("Qwen3.5 forward state layer counts K/V/linear=%d/%d/%d want %d", len(state.FullK), len(state.FullV), len(state.Linear), len(m.Layers))
 	}
-	state = CloneQwen35BaseForwardState(state)
 	cur := append([]float32(nil), input...)
 	for i := range m.Layers {
 		layer := &m.Layers[i]
@@ -264,11 +271,11 @@ func (m *Qwen35BaseModel) ForwardOne(input []float32, state Qwen35BaseForwardSta
 		case Qwen35FullAttentionLayerKind:
 			out, curK, curV, err := layer.Full.ForwardWithKV(cur, pos, ropeFreqs, state.FullK[i], state.FullV[i], eps, meta)
 			if err != nil {
-				return nil, state, fmt.Errorf("Qwen3.5 full-attention layer %d: %w", i, err)
+				return nil, fmt.Errorf("Qwen3.5 full-attention layer %d: %w", i, err)
 			}
 			nextK, nextV, err := appendQwen35FullAttentionKV(state.FullK[i], state.FullV[i], curK, curV, meta)
 			if err != nil {
-				return nil, state, fmt.Errorf("Qwen3.5 full-attention layer %d cache: %w", i, err)
+				return nil, fmt.Errorf("Qwen3.5 full-attention layer %d cache: %w", i, err)
 			}
 			state.FullK[i] = nextK
 			state.FullV[i] = nextV
@@ -276,16 +283,16 @@ func (m *Qwen35BaseModel) ForwardOne(input []float32, state Qwen35BaseForwardSta
 		case Qwen35LinearAttentionLayerKind:
 			out, nextLinear, err := layer.Linear.ForwardWithState(cur, state.Linear[i], eps, meta)
 			if err != nil {
-				return nil, state, fmt.Errorf("Qwen3.5 linear-attention layer %d: %w", i, err)
+				return nil, fmt.Errorf("Qwen3.5 linear-attention layer %d: %w", i, err)
 			}
 			state.Linear[i] = nextLinear
 			cur = out
 		default:
-			return nil, state, fmt.Errorf("Qwen3.5 layer %d has unsupported kind %q", i, layer.Kind)
+			return nil, fmt.Errorf("Qwen3.5 layer %d has unsupported kind %q", i, layer.Kind)
 		}
 	}
 	state.Pos = pos + 1
-	return cur, state, nil
+	return cur, nil
 }
 
 func appendQwen35FullAttentionKV(pastK, pastV, curK, curV []float32, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, []float32, error) {
