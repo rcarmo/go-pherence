@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/rcarmo/go-pherence/backends/ggmlcompute"
 	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
 	"github.com/rcarmo/go-pherence/backends/ggmlquant"
 	"github.com/rcarmo/go-pherence/backends/k3"
@@ -38,6 +39,16 @@ func main() {
 		}
 		fmt.Printf("\n== %s q=%d/%s shape=[%d,%d] vecdot=%v vecdot_type=%d/%s nrows=%d ==\n", name, qm.QType, ggmlquant.TypeName(int(qm.QType)), qm.InDim, qm.OutDim, ggmlquant.HasVecDot(int(qm.QType)), ggmlquant.VecDotType(int(qm.QType)), ggmlquant.TypeName(ggmlquant.VecDotType(int(qm.QType))), ggmlquant.NRows(int(qm.QType)))
 
+		if qm.QType == gguf.QuantQ2_K || qm.QType == gguf.QuantQ3_K || qm.QType == gguf.QuantQ6_K {
+			out := make([]float32, qm.OutDim)
+			start := time.Now()
+			for i := 0; i < *iters; i++ {
+				if err := ggmlComputeGemv(out, x, qm); err != nil {
+					panic(err)
+				}
+			}
+			fmt.Printf("  ggml direct:      %s first=%+.5f\n", time.Since(start)/time.Duration(*iters), out[0])
+		}
 		if bg, err := ggmlgraph.NewBackendMulMat(int(qm.QType), qm.Raw, qm.InDim, qm.OutDim); err == nil {
 			out := make([]float32, qm.OutDim)
 			_ = bg.Run(x, out)
@@ -49,10 +60,7 @@ func main() {
 			}
 			fmt.Printf("  ggml backend:     %s first=%+.5f\n", time.Since(start)/time.Duration(*iters), out[0])
 			bg.Close()
-		} else {
-			fmt.Printf("  ggml backend:     ERR %v\n", err)
 		}
-
 		if graph, err := ggmlgraph.NewMulMat(int(qm.QType), qm.Raw, qm.InDim, qm.OutDim, 8); err == nil {
 			out := make([]float32, qm.OutDim)
 			_ = graph.Run(x, out)
@@ -64,10 +72,7 @@ func main() {
 			}
 			fmt.Printf("  ggml graph:       %s first=%+.5f\n", time.Since(start)/time.Duration(*iters), out[0])
 			graph.Close()
-		} else {
-			fmt.Printf("  ggml graph:       ERR %v\n", err)
 		}
-
 		if ggmlquant.HasVecDot(int(qm.QType)) {
 			out := make([]float32, qm.OutDim)
 			start := time.Now()
@@ -78,7 +83,6 @@ func main() {
 			}
 			fmt.Printf("  ggml vecdot rows: %s first=%+.5f\n", time.Since(start)/time.Duration(*iters), out[0])
 		}
-
 		out := make([]float32, qm.OutDim)
 		start := time.Now()
 		for i := 0; i < *iters; i++ {
@@ -101,6 +105,18 @@ func main() {
 		}
 		fmt.Printf("  f32-rvv:          %s first=%+.5f\n", time.Since(start)/time.Duration(*iters), outF[0])
 	}
+}
+
+func ggmlComputeGemv(out []float32, x []float32, qm *gguf.QuantMatrix) error {
+	q8, err := ggmlcompute.QuantizeQ8K(x[:qm.InDim])
+	if err != nil {
+		return err
+	}
+	rowBytes, err := qm.RowBytes()
+	if err != nil {
+		return err
+	}
+	return ggmlcompute.VecDotRowsDirect(int(qm.QType), out, qm.Raw, rowBytes, q8, qm.InDim, qm.OutDim)
 }
 
 func ggmlVecDotGemvRows(out []float32, x []float32, qm *gguf.QuantMatrix) error {
