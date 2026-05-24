@@ -40,6 +40,7 @@ type Config struct {
 	// Per-layer types (length must be >= NLayers)
 	WQType, WKType, WVType, WOType          []int
 	FFNGateType, FFNUpType, FFNDownType     []int
+	HasQKNorm bool  // Qwen3+ QK norm
 }
 
 // GGML type enum constants (mirror ggml_type).
@@ -89,6 +90,9 @@ func New(cfg Config) (*Model, error) {
 	)
 	if cm == nil {
 		return nil, fmt.Errorf("gpll_init returned nil")
+	}
+	if cfg.HasQKNorm {
+		C.gpll_set_has_qk_norm(cm, 1)
 	}
 	return &Model{m: cm, nVocab: cfg.NVocab}, nil
 }
@@ -144,6 +148,20 @@ func (m *Model) SetLayerFFNUp(il int, data []byte) {
 func (m *Model) SetLayerFFNDown(il int, data []byte) {
 	C.gpll_set_ffn_down(m.m, C.int(il), cptr(data), C.size_t(len(data)))
 }
+// SetLayerQNorm loads layer il Q norm (F32, head_dim).
+func (m *Model) SetLayerQNorm(il int, data []byte) {
+	C.gpll_set_q_norm(m.m, C.int(il), cptr(data), C.size_t(len(data)))
+}
+func (m *Model) SetLayerKNorm(il int, data []byte) {
+	C.gpll_set_k_norm(m.m, C.int(il), cptr(data), C.size_t(len(data)))
+}
+
+// MTP setters
+func (m *Model) SetMTPENorm(data []byte)         { C.gpll_set_mtp_enorm(m.m, cptr(data), C.size_t(len(data))) }
+func (m *Model) SetMTPHNorm(data []byte)         { C.gpll_set_mtp_hnorm(m.m, cptr(data), C.size_t(len(data))) }
+func (m *Model) SetMTPEHProj(data []byte)        { C.gpll_set_mtp_eh_proj(m.m, cptr(data), C.size_t(len(data))) }
+func (m *Model) SetMTPSharedHeadNorm(data []byte) { C.gpll_set_mtp_shared_head_norm(m.m, cptr(data), C.size_t(len(data))) }
+
 
 // Decode runs one decode step for tokenID. Returns logits (len NVocab).
 func (m *Model) Decode(tokenID int) ([]float32, error) {

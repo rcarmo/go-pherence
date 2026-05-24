@@ -27,6 +27,7 @@ typedef struct {
 typedef struct {
     struct ggml_tensor *attn_norm;
     struct ggml_tensor *wq, *wk, *wv, *wo;
+    struct ggml_tensor *q_norm, *k_norm;  // QK norm (Qwen3+)
     struct ggml_tensor *ffn_norm;
     struct ggml_tensor *ffn_gate, *ffn_up, *ffn_down;
 } gpll_layer;
@@ -36,6 +37,7 @@ typedef struct gpll_model {
     float rope_base, rms_eps;
     int rope_dims, n_embd_head;
     int n_threads;
+    int has_qk_norm;  // 1 if model uses QK norm (Qwen3+)
 
     ggml_backend_t          backend;
     ggml_backend_buffer_type_t repack_buft;  // SpacemiT IME2 repack buffer type (or NULL)
@@ -53,6 +55,13 @@ typedef struct gpll_model {
     struct ggml_tensor     *v_cache[GPLL_MAX_LAYERS];
 
     int n_past;
+
+    // MTP (Multi-Token Prediction) — optional, nextn_predict_layers > 0
+    int n_mtp_layers;                          // 0 = no MTP; 1 = one extra prediction head
+    struct ggml_tensor *mtp_enorm;             // embedding norm
+    struct ggml_tensor *mtp_hnorm;             // hidden state norm
+    struct ggml_tensor *mtp_eh_proj;           // concat(embd,hidden) → hidden projection
+    struct ggml_tensor *mtp_shared_head_norm;  // norm before LM head
 
     // Persistent scratch context and buffer — built once in gpll_build_graph()
     void                   *scratch_mem;
@@ -72,6 +81,7 @@ gpll_model *gpll_init(
         float rope_base, float rms_eps, int rope_dims,
         int n_threads, gpll_weight_types *wt);
 
+void gpll_set_has_qk_norm(gpll_model *m, int v);
 void gpll_set_tok_embd   (gpll_model *m, const void *d, size_t n);
 void gpll_set_output_norm(gpll_model *m, const void *d, size_t n);
 void gpll_set_output     (gpll_model *m, const void *d, size_t n);
