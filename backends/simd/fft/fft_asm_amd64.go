@@ -51,20 +51,36 @@ func fftButterflyStageASM(re, im []float64, n, size int) {
 	half := size / 2
 	angle := -2 * math.Pi / float64(size)
 
+	// Precompute ALL twiddle factors for this stage
+	allTwRe := make([]float64, half)
+	allTwIm := make([]float64, half)
 	for k := 0; k < half; k++ {
-		wr := math.Cos(angle * float64(k))
-		wi := math.Sin(angle * float64(k))
+		allTwRe[k] = math.Cos(angle * float64(k))
+		allTwIm[k] = math.Sin(angle * float64(k))
+	}
+
+	for k := 0; k < half; k += 4 {
+		rem := half - k
+		if rem < 4 {
+			// Scalar tail
+			for kk := k; kk < half; kk++ {
+				for start := 0; start < n; start += size {
+					a := start + kk
+					b := start + kk + half
+					tr := allTwRe[kk]*re[b] - allTwIm[kk]*im[b]
+					ti := allTwRe[kk]*im[b] + allTwIm[kk]*re[b]
+					re[b] = re[a] - tr
+					im[b] = im[a] - ti
+					re[a] += tr
+					im[a] += ti
+				}
+			}
+			break
+		}
+
+		// Apply 4 butterflies per group using AVX2 assembly
 		for start := 0; start < n; start += size {
-			a := start + k
-			b := start + k + half
-
-			tr := wr*re[b] - wi*im[b]
-			ti := wr*im[b] + wi*re[b]
-
-			re[b] = re[a] - tr
-			im[b] = im[a] - ti
-			re[a] += tr
-			im[a] += ti
+			fftButterfly4(&re[0], &im[0], &allTwRe[k], &allTwIm[k], start+k, start+k+half, 1)
 		}
 	}
 }
