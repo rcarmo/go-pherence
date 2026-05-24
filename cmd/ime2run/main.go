@@ -220,6 +220,21 @@ func main() {
 	outputNorm := loadNorm("output_norm.weight")
 	tokEmbdF32, _ := g.DequantF32(tokT)
 
+	// Pre-pack token embeddings for LM head (IME2 output projection)
+	vocabPad := pad4(nVocab)
+	embdPad := pad8(nEmbd)
+	tokEmbdI8 := make([]int8, vocabPad*embdPad)
+	tokEmbdScale := inference.QuantizeF32ToINT8(func() []float32 {
+		// Pad tok_embd to vocabPad × embdPad
+		padded := make([]float32, vocabPad*embdPad)
+		for r := 0; r < nVocab; r++ {
+			copy(padded[r*embdPad:r*embdPad+nEmbd], tokEmbdF32[r*nEmbd:(r+1)*nEmbd])
+		}
+		return padded
+	}(), tokEmbdI8)
+	tokEmbdPacked := ime2.PackTiles(tokEmbdI8, vocabPad, embdPad)
+	fmt.Fprintf(os.Stderr, "Packed LM head: %d×%d (%d MB)\n", vocabPad, embdPad, len(tokEmbdPacked)/1024/1024)
+
 	loadTime := time.Since(t0)
 	fmt.Fprintf(os.Stderr, "Loaded in %.1fs\n", loadTime.Seconds())
 
@@ -245,13 +260,14 @@ func main() {
 	_xI8 := make([]int8, maxK)
 	_xBroadcast := make([]int8, 4*maxK)
 	_actPacked := make([]int8, 4*maxK) // PackTiles output = same size as input for 4 rows
-	_resultI32 := make([]int32, maxM*4)
+	_resultI32 := make([]int32, maxM*4*2)
 	_xn := make([]float32, maxK)
 	_xn2 := make([]float32, maxK)
 	_qOut := make([]float32, maxM)
 	_hidden := make([]float32, maxK)
 
 	// Helper: quantize+pack activation into pre-allocated buffers (zero alloc)
+	var _actScale float32
 	packAct := func(x []float32, K int) []int8 {
 		xI8 := _xI8[:K]
 		var maxAbs float32
@@ -259,6 +275,7 @@ func main() {
 			if v < 0 { v = -v }
 			if v > maxAbs { maxAbs = v }
 		}
+		_actScale = maxAbs / 127.0
 		if maxAbs > 0 {
 			s := 127.0 / maxAbs
 			for i := 0; i < K; i++ {
@@ -302,67 +319,58 @@ func main() {
 		for il := 0; il < nLayers; il++ {
 			l := &layers[il]
 
-			// Attn norm
-			xn := make([]float32, nEmbd)
-			inference.RMSNorm(x, l.attnNorm, xn, rmsEps)
+		// === Zero-alloc layer forward pass ===
+		xn := _xn[:nEmbd]
+		inference.RMSNorm(x, l.attnNorm, xn, rmsEps)
+		K1 := pad8(l.wqCols)
+		for i := nEmbd; i < K1; i++ { _xn[i] = 0 }
+		actP := packAct(_xn[:K1], K1)
+		res := _resultI32[:pad4(l.wqRows)*4]
+		ime2.GemmINT8Packed(pad4(l.wqRows), 4, K1, l.wqPacked, actP, res)
+		qOut := _qOut[:pad4(l.wqRows)]
+		for i := range qOut { qOut[i] = float32(res[i*4]) * l.wqScale * _actScale }
+		K2 := pad8(l.woCols)
+		for i := l.woCols; i < K2; i++ { _qOut[i] = 0 }
+		actP2 := packAct(_qOut[:K2], K2)
+		res2 := _resultI32[:pad4(l.woRows)*4]
+		ime2.GemmINT8Packed(pad4(l.woRows), 4, K2, l.woPacked, actP2, res2)
+		for i := 0; i < nEmbd; i++ { x[i] += float32(res2[i*4]) * l.woScale * _actScale }
+		xn2 := _xn2[:nEmbd]
+		inference.RMSNorm(x, l.ffnNorm, xn2, rmsEps)
+		K3 := pad8(l.gateCols)
+		for i := nEmbd; i < K3; i++ { _xn2[i] = 0 }
+		actPF := packAct(_xn2[:K3], K3)
+		gRes := _resultI32[:pad4(l.gateRows)*4]
+		ime2.GemmINT8Packed(pad4(l.gateRows), 4, K3, l.gatePacked, actPF, gRes)
+		uOff := pad4(l.gateRows) * 4
+		uRes := _resultI32[uOff : uOff+pad4(l.upRows)*4]
+		ime2.GemmINT8Packed(pad4(l.upRows), 4, K3, l.upPacked, actPF, uRes)
+		hidden := _hidden[:nFF]
+		for i := 0; i < nFF; i++ {
+			hidden[i] = silu(float32(gRes[i*4])*l.gateScale*_actScale) * float32(uRes[i*4]) * l.upScale * _actScale
+		}
+		K4 := pad8(l.downCols)
+		for i := nFF; i < K4; i++ { _hidden[i] = 0 }
+		actPD := packAct(_hidden[:K4], K4)
+		dRes := _resultI32[:pad4(l.downRows)*4]
+		ime2.GemmINT8Packed(pad4(l.downRows), 4, K4, l.downPacked, actPD, dRes)
+		for i := 0; i < nEmbd; i++ { x[i] += float32(dRes[i*4]) * l.downScale * _actScale }
 
-			// Pack activation once for all attn matmuls
-			xnPacked, xnScale := inference.PackActivation(padF32(xn, pad8(l.wqCols)), pad8(l.wqCols))
-
-			// QKV projections (reuse packed activation)
-			qI32 := make([]int32, pad4(l.wqRows)*4)
-			inference.MatVecINT8Parallel(pad4(l.wqRows), pad8(l.wqCols), l.wqPacked, xnPacked, qI32, 1)
-			qOut := make([]float32, pad4(l.wqRows))
-			qCombined := l.wqScale * xnScale
-			for i := range qOut { qOut[i] = float32(qI32[i*4]) * qCombined }
-
-			// Output projection (uses qOut as input)
-			qOutPacked, qOutScale := inference.PackActivation(padF32(qOut[:l.woCols], pad8(l.woCols)), pad8(l.woCols))
-			oI32 := make([]int32, pad4(l.woRows)*4)
-			inference.MatVecINT8Parallel(pad4(l.woRows), pad8(l.woCols), l.woPacked, qOutPacked, oI32, 1)
-			oCombined := l.woScale * qOutScale
-			for i := 0; i < nEmbd; i++ { x[i] += float32(oI32[i*4]) * oCombined }
-
-			// FFN norm
-			xn2 := make([]float32, nEmbd)
-			inference.RMSNorm(x, l.ffnNorm, xn2, rmsEps)
-
-			// Pack for FFN (gate + up share same input)
-			xn2Packed, xn2Scale := inference.PackActivation(padF32(xn2, pad8(l.gateCols)), pad8(l.gateCols))
-
-			gateI32 := make([]int32, pad4(l.gateRows)*4)
-			inference.MatVecINT8Parallel(pad4(l.gateRows), pad8(l.gateCols), l.gatePacked, xn2Packed, gateI32, 1)
-			upI32 := make([]int32, pad4(l.upRows)*4)
-			inference.MatVecINT8Parallel(pad4(l.upRows), pad8(l.upCols), l.upPacked, xn2Packed, upI32, 1)
-
-			// SiLU(gate) * up → hidden
-			gCombined := l.gateScale * xn2Scale
-			uCombined := l.upScale * xn2Scale
-			hidden := make([]float32, nFF)
-			for i := 0; i < nFF; i++ {
-				hidden[i] = silu(float32(gateI32[i*4])*gCombined) * float32(upI32[i*4])*uCombined
-			}
-
-			// Down projection
-			hidPacked, hidScale := inference.PackActivation(padF32(hidden, pad8(l.downCols)), pad8(l.downCols))
-			downI32 := make([]int32, pad4(l.downRows)*4)
-			inference.MatVecINT8Parallel(pad4(l.downRows), pad8(l.downCols), l.downPacked, hidPacked, downI32, 1)
-			dCombined := l.downScale * hidScale
-			for i := 0; i < nEmbd; i++ { x[i] += float32(downI32[i*4]) * dCombined }
 		}
 
 		// Output norm + LM head
 		xn := make([]float32, nEmbd)
 		inference.RMSNorm(x, outputNorm, xn, rmsEps)
 
-		// LM head: logits = tok_embd^T × xn (dot product per vocab entry)
+		// LM head via vmadot (pre-packed tok_embd)
+		xnLM := make([]float32, embdPad)
+		copy(xnLM, xn)
+		actLM := packAct(xnLM, embdPad)
+		logitsI32 := make([]int32, vocabPad*4)
+		ime2.GemmINT8Packed(vocabPad, 4, embdPad, tokEmbdPacked, actLM, logitsI32)
 		logits := make([]float32, nVocab)
 		for v := 0; v < nVocab; v++ {
-			var sum float32
-			for k := 0; k < nEmbd; k++ {
-				sum += tokEmbdF32[v*nEmbd+k] * xn[k]
-			}
-			logits[v] = sum
+			logits[v] = float32(logitsI32[v*4]) * tokEmbdScale * _actScale
 		}
 
 		// Argmax
