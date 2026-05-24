@@ -7,6 +7,9 @@
 #include "ggml-backend.h"
 #include "ggml-cpu.h"
 
+// SpacemiT-specific buffer type (enables IME2 q2_K/q4_0/iq4_nl 16x1 kernels)
+extern ggml_backend_buffer_type_t ggml_backend_cpu_riscv64_spacemit_buffer_type(void);
+
 #define GPLL_MAX_LAYERS 128
 
 typedef struct {
@@ -48,7 +51,18 @@ typedef struct gpll_model {
     struct ggml_tensor     *v_cache[GPLL_MAX_LAYERS];
 
     int n_past;
+
+    // Persistent scratch context and buffer — built once in gpll_build_graph()
+    void                   *scratch_mem;
+    size_t                  scratch_size;
+    void                   *work_buf;
+    size_t                  work_size;
+    struct ggml_context    *ctx_compute;  // lives over scratch_mem
+    ggml_threadpool_t       threadpool;   // persistent; avoids per-step thread creation
 } gpll_model;
+
+// Build the persistent decode graph (call once after loading weights)
+int gpll_build_graph(gpll_model *m);
 
 gpll_model *gpll_init(
         int n_vocab, int n_embd, int n_heads, int n_heads_kv,
