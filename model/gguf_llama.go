@@ -6,7 +6,9 @@ package model
 import (
 	"fmt"
 	"math"
+	"os"
 
+	"github.com/rcarmo/go-pherence/backends/ggmlquant"
 	"github.com/rcarmo/go-pherence/backends/k3"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
@@ -31,22 +33,32 @@ type GGUFLlamaLayer struct {
 	AttnNorm []float32 // [hidden]
 	FFNNorm  []float32 // [hidden]
 	WQ       []float32 // [outDim=hidden, inDim=hidden] row-major
+	WQm      *gguf.QuantMatrix
 	WK       []float32 // [outDim=kvDim, inDim=hidden]
+	WKm      *gguf.QuantMatrix
 	WV       []float32 // [outDim=kvDim, inDim=hidden]
+	WVm      *gguf.QuantMatrix
 	WO       []float32 // [outDim=hidden, inDim=hidden]
+	WOm      *gguf.QuantMatrix
 	WGate    []float32 // [outDim=ffn, inDim=hidden]
+	WGateM   *gguf.QuantMatrix
 	WUp      []float32 // [outDim=ffn, inDim=hidden]
+	WUpM     *gguf.QuantMatrix
 	WDown    []float32 // [outDim=hidden, inDim=ffn]
+	WDownM   *gguf.QuantMatrix
 }
 
 // GGUFLlama is a loaded LLaMA model with all weights dequanted to F32.
 type GGUFLlama struct {
-	Config      GGUFLlamaConfig
-	Layers      []GGUFLlamaLayer
-	EmbedTokens []float32 // [vocab × hidden]
-	OutputNorm  []float32 // [hidden]
-	LMHead      []float32 // [vocab × hidden]
-	Backend     k3.OpBackend
+	Config       GGUFLlamaConfig
+	Layers       []GGUFLlamaLayer
+	EmbedTokens  []float32 // [vocab × hidden]
+	EmbedMatrix  *gguf.QuantMatrix
+	OutputNorm   []float32 // [hidden]
+	LMHead       []float32 // [vocab × hidden]
+	LMHeadM      *gguf.QuantMatrix
+	UseGGMLQuant bool
+	Backend      k3.OpBackend
 	// precomputed RoPE frequencies [maxSeqLen × rotHalf]
 	ropeFreqs []float32
 	rotHalf   int
@@ -73,6 +85,14 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		}
 		return g.DequantF32(t)
 	}
+	loadMatrix := func(name string) (*gguf.QuantMatrix, error) {
+		t, ok := g.TensorByName(name)
+		if !ok {
+			return nil, fmt.Errorf("tensor %q not found", name)
+		}
+		return g.MatrixFromTensor(t)
+	}
+	useGGMLQuant := os.Getenv("GO_PHERENCE_GGML_QUANT") == "1"
 
 	embedTokens, err := load("token_embd.weight")
 	if err != nil {
@@ -85,6 +105,15 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 	lmHead, err := load("output.weight")
 	if err != nil {
 		return nil, err
+	}
+	var embedMatrix, lmHeadM *gguf.QuantMatrix
+	if useGGMLQuant {
+		if embedMatrix, err = loadMatrix("token_embd.weight"); err != nil {
+			return nil, err
+		}
+		if lmHeadM, err = loadMatrix("output.weight"); err != nil {
+			return nil, err
+		}
 	}
 
 	layers := make([]GGUFLlamaLayer, cfg.NumLayers)
@@ -108,16 +137,42 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 			}
 			*dst = data
 		}
+		if useGGMLQuant {
+			if layer.WQm, err = loadMatrix(p + "attn_q.weight"); err != nil {
+				return nil, err
+			}
+			if layer.WKm, err = loadMatrix(p + "attn_k.weight"); err != nil {
+				return nil, err
+			}
+			if layer.WVm, err = loadMatrix(p + "attn_v.weight"); err != nil {
+				return nil, err
+			}
+			if layer.WOm, err = loadMatrix(p + "attn_output.weight"); err != nil {
+				return nil, err
+			}
+			if layer.WGateM, err = loadMatrix(p + "ffn_gate.weight"); err != nil {
+				return nil, err
+			}
+			if layer.WUpM, err = loadMatrix(p + "ffn_up.weight"); err != nil {
+				return nil, err
+			}
+			if layer.WDownM, err = loadMatrix(p + "ffn_down.weight"); err != nil {
+				return nil, err
+			}
+		}
 		layers[i] = layer
 	}
 
 	m := &GGUFLlama{
-		Config:      cfg,
-		Layers:      layers,
-		EmbedTokens: embedTokens,
-		OutputNorm:  outputNorm,
-		LMHead:      lmHead,
-		Backend:     backend,
+		Config:       cfg,
+		Layers:       layers,
+		EmbedTokens:  embedTokens,
+		OutputNorm:   outputNorm,
+		LMHead:       lmHead,
+		EmbedMatrix:  embedMatrix,
+		LMHeadM:      lmHeadM,
+		UseGGMLQuant: useGGMLQuant,
+		Backend:      backend,
 	}
 	m.precomputeRoPE()
 	return m, nil
@@ -268,6 +323,46 @@ func (m *GGUFLlama) gemv(out, x, w []float32, inDim, outDim int) {
 	}
 }
 
+func (m *GGUFLlama) gemvMaybe(out, x, wf32 []float32, wq *gguf.QuantMatrix, inDim, outDim int) {
+	if m.UseGGMLQuant && wq != nil {
+		if err := m.gemvGGMLQuant(out, x, wq, inDim, outDim); err == nil {
+			return
+		}
+	}
+	m.gemv(out, x, wf32, inDim, outDim)
+}
+
+func (m *GGUFLlama) gemvGGMLQuant(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int) error {
+	if w.InDim != inDim || w.OutDim != outDim {
+		return fmt.Errorf("bad quant matrix dims")
+	}
+	vt := ggmlquant.VecDotType(int(w.QType))
+	xRaw, err := ggmlquant.QuantizeFromFloat(vt, x[:inDim])
+	if err != nil {
+		return err
+	}
+	rowBytes, err := w.RowBytes()
+	if err != nil {
+		return err
+	}
+	return ggmlquant.VecDotRows(int(w.QType), out[:outDim], w.Raw, rowBytes, xRaw, inDim, outDim)
+}
+
+func (m *GGUFLlama) gemvGGMLQuantRaw(out []float32, xRaw []byte, w *gguf.QuantMatrix, inDim, outDim int) error {
+	if w == nil || w.InDim != inDim || w.OutDim != outDim {
+		return fmt.Errorf("bad quant matrix dims")
+	}
+	rowBytes, err := w.RowBytes()
+	if err != nil {
+		return err
+	}
+	return ggmlquant.VecDotRows(int(w.QType), out[:outDim], w.Raw, rowBytes, xRaw, inDim, outDim)
+}
+
+func quantActQ8K(x []float32) ([]byte, error) {
+	return ggmlquant.QuantizeFromFloat(ggmlquant.Q8_K, x)
+}
+
 func (m *GGUFLlama) rmsNorm(x, w []float32) {
 	if err := m.Backend.RMSNormF32(x, w, m.Config.RMSNormEps); err != nil {
 		rmsNormF32Inplace(x, w, m.Config.RMSNormEps)
@@ -303,7 +398,13 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 
 	// Token embedding
 	hidden := make([]float32, h)
-	copy(hidden, m.EmbedTokens[tokenID*h:(tokenID+1)*h])
+	if m.UseGGMLQuant && m.EmbedMatrix != nil {
+		if err := m.EmbedMatrix.DequantRowTo(hidden, tokenID); err != nil {
+			return make([]float32, cfg.VocabSize)
+		}
+	} else {
+		copy(hidden, m.EmbedTokens[tokenID*h:(tokenID+1)*h])
+	}
 
 	// RoPE frequencies for this position
 	posFreqs := m.ropeFreqs[step*rotHalf : (step+1)*rotHalf]
@@ -327,9 +428,21 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 		// ── attention sub-layer ───────────────────────────────────────────
 		copy(attnIn, hidden)
 		m.rmsNorm(attnIn, layer.AttnNorm)
-		m.gemv(q, attnIn, layer.WQ, h, nH*hDim)
-		m.gemv(k, attnIn, layer.WK, h, kvDim)
-		m.gemv(v, attnIn, layer.WV, h, kvDim)
+		if m.UseGGMLQuant && layer.WQm != nil {
+			if actRaw, err := quantActQ8K(attnIn[:h]); err == nil {
+				_ = m.gemvGGMLQuantRaw(q, actRaw, layer.WQm, h, nH*hDim)
+				_ = m.gemvGGMLQuantRaw(k, actRaw, layer.WKm, h, kvDim)
+				_ = m.gemvGGMLQuantRaw(v, actRaw, layer.WVm, h, kvDim)
+			} else {
+				m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, nH*hDim)
+				m.gemvMaybe(k, attnIn, layer.WK, layer.WKm, h, kvDim)
+				m.gemvMaybe(v, attnIn, layer.WV, layer.WVm, h, kvDim)
+			}
+		} else {
+			m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, nH*hDim)
+			m.gemvMaybe(k, attnIn, layer.WK, layer.WKm, h, kvDim)
+			m.gemvMaybe(v, attnIn, layer.WV, layer.WVm, h, kvDim)
+		}
 
 		// RoPE
 		applyRoPEInplace(q, posFreqs, nH, hDim, rotHalf)
@@ -345,7 +458,7 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 		m.gqaAttentionInto(attnOut, attnScores, q, kCache, vCache, step+1, nH, nKV, hDim)
 
 		// Output projection
-		m.gemv(oOut, attnOut, layer.WO, nH*hDim, h)
+		m.gemvMaybe(oOut, attnOut, layer.WO, layer.WOm, nH*hDim, h)
 
 		// Residual add
 		for j := range hidden {
@@ -356,12 +469,22 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 		copy(ffnIn, hidden)
 		m.rmsNorm(ffnIn, layer.FFNNorm)
 
-		m.gemv(gate, ffnIn, layer.WGate, h, ffn)
-		m.gemv(up, ffnIn, layer.WUp, h, ffn)
+		if m.UseGGMLQuant && layer.WGateM != nil {
+			if ffnRaw, err := quantActQ8K(ffnIn[:h]); err == nil {
+				_ = m.gemvGGMLQuantRaw(gate, ffnRaw, layer.WGateM, h, ffn)
+				_ = m.gemvGGMLQuantRaw(up, ffnRaw, layer.WUpM, h, ffn)
+			} else {
+				m.gemvMaybe(gate, ffnIn, layer.WGate, layer.WGateM, h, ffn)
+				m.gemvMaybe(up, ffnIn, layer.WUp, layer.WUpM, h, ffn)
+			}
+		} else {
+			m.gemvMaybe(gate, ffnIn, layer.WGate, layer.WGateM, h, ffn)
+			m.gemvMaybe(up, ffnIn, layer.WUp, layer.WUpM, h, ffn)
+		}
 
 		m.siluMul(ffnMid, gate, up)
 
-		m.gemv(down, ffnMid, layer.WDown, ffn, h)
+		m.gemvMaybe(down, ffnMid, layer.WDown, layer.WDownM, ffn, h)
 
 		for j := range hidden {
 			hidden[j] += down[j]
@@ -371,7 +494,7 @@ func (m *GGUFLlama) Forward(tokenID, step int, kvK, kvV [][]float32) []float32 {
 	// Final norm + LM head
 	m.rmsNorm(hidden, m.OutputNorm)
 	logits := make([]float32, cfg.VocabSize)
-	m.gemv(logits, hidden, m.LMHead, h, cfg.VocabSize)
+	m.gemvMaybe(logits, hidden, m.LMHead, m.LMHeadM, h, cfg.VocabSize)
 	return logits
 }
 
