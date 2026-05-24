@@ -34,3 +34,7 @@ func Matmul4x8(A, B []int8, C []int32) {
 	}
 	vmadotSS4x8((*byte)(unsafe.Pointer(&A[0])), (*byte)(unsafe.Pointer(&B[0])), &C[0])
 }
+
+// VmadotAccSS4x8 is the exported version of vmadotAccSS4x8.
+func VmadotAccSS4x8(A *byte, B *byte, C *int32) { vmadotAccSS4x8(A, B, C) }
+
