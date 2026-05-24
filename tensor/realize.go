@@ -267,3 +267,24 @@ func guessInputShape(u *UOp) Shape {
 	}
 	panic("cannot determine input shape")
 }
+
+// pooledAlloc allocates a buffer of the given dtype and length.
+// TODO: implement actual pooling for reuse.
+func pooledAlloc(dtype DType, n int) *Buffer {
+	if n < 0 {
+		panic("pooledAlloc: negative length")
+	}
+	if dtype.Bits == 0 {
+		panic("pooledAlloc: zero-bit dtype")
+	}
+	const maxAlloc = 1 << 30 // 1GB safety limit
+	byteSize := n * int(dtype.Bits) / 8
+	if byteSize > maxAlloc {
+		panic("pooledAlloc: exceeds safety limit")
+	}
+	return &Buffer{
+		DType:  dtype,
+		Length: n,
+		Data:   make([]byte, byteSize),
+	}
+}
