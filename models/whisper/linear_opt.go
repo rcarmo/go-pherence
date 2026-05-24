@@ -1,27 +1,18 @@
 package whisper
 
+import simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+
 // linearForwardOpt computes out = x @ W^T + bias with loop reordering for cache friendliness.
 // x: [seqLen, inDim], W: [outDim, inDim], bias: [outDim]
 // Returns [seqLen, outDim].
 func linearForwardOpt(x, weight, bias []float32, seqLen, inDim, outDim int) []float32 {
 	out := make([]float32, seqLen*outDim)
 
-	// For single-token (seqLen=1), use simple GEMV
+	// For single-token (seqLen=1), use SIMD dot product
 	if seqLen == 1 {
 		for o := 0; o < outDim; o++ {
-			var sum float32
 			wOff := o * inDim
-			// Unroll by 4
-			d := 0
-			for ; d+3 < inDim; d += 4 {
-				sum += x[d]*weight[wOff+d] +
-					x[d+1]*weight[wOff+d+1] +
-					x[d+2]*weight[wOff+d+2] +
-					x[d+3]*weight[wOff+d+3]
-			}
-			for ; d < inDim; d++ {
-				sum += x[d] * weight[wOff+d]
-			}
+			sum := simdrt.Sdot(x[:inDim], weight[wOff:wOff+inDim])
 			if bias != nil && o < len(bias) {
 				sum += bias[o]
 			}
