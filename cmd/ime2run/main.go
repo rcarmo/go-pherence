@@ -273,20 +273,6 @@ func main() {
 	outputNorm := loadNorm("output_norm.weight")
 	tokEmbdF32, _ := g.DequantF32(tokT)
 
-	// Pre-pack token embeddings for LM head (IME2 output projection)
-	vocabPad := pad4(nVocab)
-	embdPad := pad8(nEmbd)
-	tokEmbdI8 := make([]int8, vocabPad*embdPad)
-	tokEmbdScale := inference.QuantizeF32ToINT8(func() []float32 {
-		// Pad tok_embd to vocabPad × embdPad
-		padded := make([]float32, vocabPad*embdPad)
-		for r := 0; r < nVocab; r++ {
-			copy(padded[r*embdPad:r*embdPad+nEmbd], tokEmbdF32[r*nEmbd:(r+1)*nEmbd])
-		}
-		return padded
-	}(), tokEmbdI8)
-	tokEmbdPacked := ime2.PackTiles(tokEmbdI8, vocabPad, embdPad)
-	fmt.Fprintf(os.Stderr, "Packed LM head: %d×%d (%d MB)\n", vocabPad, embdPad, len(tokEmbdPacked)/1024/1024)
 
 	loadTime := time.Since(t0)
 	fmt.Fprintf(os.Stderr, "Loaded in %.1fs\n", loadTime.Seconds())
@@ -529,14 +515,11 @@ func main() {
 		inference.RMSNorm(x, outputNorm, xn, rmsEps)
 
 		// LM head via vmadot (pre-packed tok_embd)
-		xnLM := make([]float32, embdPad)
-		copy(xnLM, xn)
-		actLM := packAct(xnLM, embdPad)
-		logitsI32 := make([]int32, vocabPad*4)
-		ime2.GemmINT8PackedParallel(vocabPad, 4, embdPad, tokEmbdPacked, actLM, logitsI32, *nThreads)
 		logits := make([]float32, nVocab)
 		for v := 0; v < nVocab; v++ {
-			logits[v] = float32(logitsI32[v*4]) * tokEmbdScale * _actScale
+			var sum float32
+			for k := 0; k < nEmbd; k++ { sum += tokEmbdF32[v*nEmbd+k] * xn[k] }
+			logits[v] = sum
 		}
 
 		// Argmax
