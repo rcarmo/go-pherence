@@ -54,27 +54,26 @@ func extractQ4KScales(data []byte, rows, cols int) ([]float32, []float32) {
 }
 
 func extractQ4KDirect(data []byte, rows, cols int) []int8 {
-	blockSize := 256
 	bytesPerBlock := 144
-	blocksPerRow := cols / blockSize
+	blocksPerRow := cols / 256
 	out := make([]int8, rows*cols)
 	for row := 0; row < rows; row++ {
 		for blk := 0; blk < blocksPerRow; blk++ {
 			offset := (row*blocksPerRow + blk) * bytesPerBlock
-			b := data[offset : offset+bytesPerBlock]
-			base := row*cols + blk*blockSize
-			for sb := 0; sb < 8; sb++ {
-				qOff := 16 + sb*16
-				for j := 0; j < 16; j++ {
-					q := b[qOff+j]
-					out[base+sb*32+j] = int8(q & 0xf)
-					out[base+sb*32+j+16] = int8(q >> 4)
+			qs := data[offset+16 : offset+144]
+			base := row*cols + blk*256
+			for i := 0; i < 256; i++ {
+				if i%2 == 0 {
+					out[base+i] = int8(qs[i/2] & 0xf)
+				} else {
+					out[base+i] = int8(qs[i/2] >> 4)
 				}
 			}
 		}
 	}
 	return out
 }
+
 
 // avgQ4KScale returns average block scale (uses proper fp16 decode).
 func avgQ4KScale(data []byte, rows, cols int) float32 {
@@ -164,6 +163,7 @@ func main() {
 		upScales, upMins []float32
 		downScales, downMins []float32
 		attnNorm, ffnNorm                            []float32
+		qNorm, kNorm                                 []float32
 		wqRows, wkRows, wvRows, woRows              int
 		wqCols, wkCols, wvCols, woCols              int
 		gateRows, upRows, downRows                   int
@@ -181,7 +181,7 @@ func main() {
 		var i8Pad []int8
 		var scale float32
 		var scales, mins []float32
-		if t.QType == 12 { // Q4_K direct
+		if t.QType == 12 { // Q4_K: direct nibble extraction (correct interleaved order)
 			raw, _ := g.Raw(t)
 			i8 := extractQ4KDirect(raw, rows, cols)
 			i8Pad = make([]int8, rowsPad*colsPad)
@@ -257,6 +257,12 @@ func main() {
 		l.downPacked, l.downRaw, l.downScale, l.downScales, l.downMins = packWeight(tensorName("down", il), l.downRows, l.downCols)
 		l.attnNorm = loadNorm(tensorName("attn_norm", il))
 		l.ffnNorm = loadNorm(tensorName("ffn_norm", il))
+		if qn, ok := g.TensorByName(fmt.Sprintf("blk.%d.attn_q_norm.weight", il)); ok {
+			l.qNorm, _ = g.DequantF32(qn)
+		}
+		if kn, ok := g.TensorByName(fmt.Sprintf("blk.%d.attn_k_norm.weight", il)); ok {
+			l.kNorm, _ = g.DequantF32(kn)
+		}
 
 		if il%7 == 0 {
 			fmt.Fprintf(os.Stderr, "  layer %d/%d loaded\n", il, nLayers)
@@ -410,9 +416,17 @@ func main() {
 			for i := range vF { vF[i] = float32(vRes[i*4]) * l.wvScale * _actScale }
 		}
 
-		// Store K, V in cache (already F32)
+		// Apply K norm, then RoPE, then store in cache
 		pos := nPast
 		nKVD := nKVHeads * headDim
+		if l.kNorm != nil {
+			for kh := 0; kh < nKVHeads; kh++ {
+				var ss float32
+				for d := 0; d < headDim; d++ { ss += kF[kh*headDim+d] * kF[kh*headDim+d] }
+				ss = float32(1.0 / math.Sqrt(float64(ss/float32(headDim)+rmsEps)))
+				for d := 0; d < headDim; d++ { kF[kh*headDim+d] = kF[kh*headDim+d] * ss * l.kNorm[d] }
+			}
+		}
 		copy(kCache[il][pos*nKVD:pos*nKVD+nKVD], kF)
 		copy(vCache[il][pos*nKVD:pos*nKVD+nKVD], vF)
 		// Apply RoPE to K at current position
@@ -426,9 +440,16 @@ func main() {
 		invSqrtD := float32(1.0 / math.Sqrt(float64(headDim)))
 		for h := 0; h < nHeads; h++ {
 			kvH := h / repFactor
-			// Q head + RoPE (copy since RoPE modifies in place)
+			// Q head: QK norm + RoPE
 			qHead := make([]float32, headDim)
 			copy(qHead, qF[h*headDim:(h+1)*headDim])
+			if l.qNorm != nil {
+				// RMS norm on head dimension
+				var ss float32
+				for d := 0; d < headDim; d++ { ss += qHead[d] * qHead[d] }
+				ss = float32(1.0 / math.Sqrt(float64(ss/float32(headDim)+rmsEps)))
+				for d := 0; d < headDim; d++ { qHead[d] = qHead[d] * ss * l.qNorm[d] }
+			}
 			applyRoPE(qHead, headDim, pos, ropeBase)
 			// Compute scores over [0..pos]
 			maxScore := float32(-1e30)
