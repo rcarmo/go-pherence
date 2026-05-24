@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"strconv"
 	"time"
 	"unsafe"
 
@@ -134,6 +135,7 @@ func main() {
 	nFF := metaInt(g, arch+".feed_forward_length", 0)
 	rmsEps := metaF32(g, arch+".attention.layer_norm_rms_epsilon", 1e-5)
 	ropeBase := metaF32(g, arch+".rope.freq_base", 10000.0)
+	fmt.Fprintf(os.Stderr, "rmsEps=%.10f ropeBase=%.1f\n", rmsEps, ropeBase)
 	headDim := func() int { t, ok := g.TensorByName("blk.0.attn_q.weight"); if ok { return int(t.Shape[1]) / nHeads }; return nEmbd / nHeads }()
 	nQEmbd := nHeads * headDim
 	nKVEmbd := nKVHeads * headDim
@@ -241,7 +243,9 @@ func main() {
 	}
 
 	fmt.Fprintf(os.Stderr, "Loading and packing weights...\n")
-	for il := 0; il < nLayers; il++ {
+	nRunLayers := nLayers
+		if el := os.Getenv("LAYERS"); el != "" { n, _ := strconv.Atoi(el); nRunLayers = n }
+		for il := 0; il < nRunLayers; il++ {
 		l := &layers[il]
 		l.wqRows, l.wqCols = nQEmbd, nEmbd
 		l.wkRows, l.wkCols = nKVEmbd, nEmbd
@@ -439,7 +443,9 @@ func main() {
 		copy(x, tokEmbdF32[tokID*nEmbd:(tokID+1)*nEmbd])
 
 		// Layer loop (simplified: no attention, just FFN for speed test)
-		for il := 0; il < nLayers; il++ {
+		nRunLayers := nLayers
+		if el := os.Getenv("LAYERS"); el != "" { n, _ := strconv.Atoi(el); nRunLayers = n }
+		for il := 0; il < nRunLayers; il++ {
 			l := &layers[il]
 
 		// === Attention with KV cache ===
@@ -592,6 +598,7 @@ func main() {
 		}
 
 		// Argmax
+		fmt.Fprintf(os.Stderr, "logit[374]=%.4f logit[264]=%.4f logit[635]=%.4f\n", logits[374], logits[264], logits[635])
 		nextTok := 0
 		maxVal := logits[0]
 		for i := 1; i < nVocab; i++ {
