@@ -611,12 +611,8 @@ func appendQwenMTPKV(pastK, pastV, curK, curV []float32) ([]float32, []float32, 
 	if len(pastK) != len(pastV) {
 		return nil, nil, fmt.Errorf("past MTP KV length mismatch K/V=%d/%d", len(pastK), len(pastV))
 	}
-	outK := make([]float32, 0, len(pastK)+len(curK))
-	outK = append(outK, pastK...)
-	outK = append(outK, curK...)
-	outV := make([]float32, 0, len(pastV)+len(curV))
-	outV = append(outV, pastV...)
-	outV = append(outV, curV...)
+	outK := append(pastK, curK...)
+	outV := append(pastV, curV...)
 	return outK, outV, nil
 }
 

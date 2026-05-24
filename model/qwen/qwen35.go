@@ -130,15 +130,51 @@ func CloneQwen35BaseForwardState(state Qwen35BaseForwardState) Qwen35BaseForward
 		Pos:    state.Pos,
 	}
 	for i := range state.FullK {
-		out.FullK[i] = append([]float32(nil), state.FullK[i]...)
+		if cap(state.FullK[i]) > len(state.FullK[i]) {
+			out.FullK[i] = make([]float32, len(state.FullK[i]), cap(state.FullK[i]))
+			copy(out.FullK[i], state.FullK[i])
+		} else {
+			out.FullK[i] = append([]float32(nil), state.FullK[i]...)
+		}
 	}
 	for i := range state.FullV {
-		out.FullV[i] = append([]float32(nil), state.FullV[i]...)
+		if cap(state.FullV[i]) > len(state.FullV[i]) {
+			out.FullV[i] = make([]float32, len(state.FullV[i]), cap(state.FullV[i]))
+			copy(out.FullV[i], state.FullV[i])
+		} else {
+			out.FullV[i] = append([]float32(nil), state.FullV[i]...)
+		}
 	}
 	for i := range state.Linear {
 		out.Linear[i] = CloneQwen35LinearAttentionState(state.Linear[i])
 	}
 	return out
+}
+
+func EnsureQwen35BaseForwardStateKVCapacity(state *Qwen35BaseForwardState, model *Qwen35BaseModel, meta loaderconfig.QwenNativeMTPMetadata, maxSeq int) {
+	if state == nil || model == nil || maxSeq <= 0 {
+		return
+	}
+	kvDim := meta.NumKeyValueHeads * meta.HeadDim
+	if kvDim <= 0 {
+		return
+	}
+	want := maxSeq * kvDim
+	for i, layer := range model.Layers {
+		if layer.Kind != Qwen35FullAttentionLayerKind {
+			continue
+		}
+		if i < len(state.FullK) && cap(state.FullK[i]) < want {
+			next := make([]float32, len(state.FullK[i]), want)
+			copy(next, state.FullK[i])
+			state.FullK[i] = next
+		}
+		if i < len(state.FullV) && cap(state.FullV[i]) < want {
+			next := make([]float32, len(state.FullV[i]), want)
+			copy(next, state.FullV[i])
+			state.FullV[i] = next
+		}
+	}
 }
 
 func NewQwen35BaseForwardState(model *Qwen35BaseModel, meta loaderconfig.QwenNativeMTPMetadata) (Qwen35BaseForwardState, error) {
@@ -309,12 +345,8 @@ func appendQwen35FullAttentionKV(pastK, pastV, curK, curV []float32, meta loader
 	if len(pastK)%kvDim != 0 {
 		return nil, nil, fmt.Errorf("past KV len=%d not multiple of %d", len(pastK), kvDim)
 	}
-	nextK := make([]float32, 0, len(pastK)+len(curK))
-	nextK = append(nextK, pastK...)
-	nextK = append(nextK, curK...)
-	nextV := make([]float32, 0, len(pastV)+len(curV))
-	nextV = append(nextV, pastV...)
-	nextV = append(nextV, curV...)
+	nextK := append(pastK, curK...)
+	nextV := append(pastV, curV...)
 	return nextK, nextV, nil
 }
 

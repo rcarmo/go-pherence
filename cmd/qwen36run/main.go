@@ -440,6 +440,7 @@ func main() {
 			os.Exit(2)
 		}
 	}
+	qwen.EnsureQwen35BaseForwardStateKVCapacity(&r.state, bundle.Base, meta, len(inputIDs)+*steps+*mtpSteps+1)
 	runStart := time.Now()
 	cachedPromptStart := runStart
 	var next int
