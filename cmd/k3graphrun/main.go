@@ -109,7 +109,7 @@ func main() {
 	rmsEps   := getFloat32(prefix+"attention.layer_norm_rms_epsilon", getFloat32("llama.attention.layer_norm_rms_epsilon", 1e-5))
 	ropeDims := nEmbd / nHeads
 
-	fmt.Printf("Config: vocab=%d embd=%d heads=%d kv=%d layers=%d ff=%d\n",
+	fmt.Printf("Config: vocab=%d embd=%d heads=%d kv=%d layers=%d ff=%d rope_base=%.0f rope_dims=%d head_dim=%d\n",
 		nVocab, nEmbd, nHeads, nHeadsKV, nLayers, nFF)
 
 	qtType := func(name string) int {
@@ -117,6 +117,8 @@ func main() {
 		if !ok { return llamagraph.GGMLTypeF32 }
 		return int(t.QType)
 	}
+
+	if t, ok := g.TensorByName(tensorName(arch, "wq", 0)); ok && len(t.Shape) >= 2 { ropeDims = int(t.Shape[1]) / nHeads }
 
 	cfg := llamagraph.Config{
 		NVocab: nVocab, NEmbd: nEmbd, NHeads: nHeads, NHeadsKV: nHeadsKV,
@@ -132,6 +134,10 @@ func main() {
 		FFNGateType: make([]int, nLayers),
 		FFNUpType:   make([]int, nLayers),
 		FFNDownType: make([]int, nLayers),
+		WQOut: make([]int, nLayers),
+		WKOut: make([]int, nLayers),
+		WVOut: make([]int, nLayers),
+		WOIn:  make([]int, nLayers),
 		HasQKNorm:   hasQKNorm,
 	}
 	for il := 0; il < nLayers; il++ {
@@ -142,6 +148,10 @@ func main() {
 		cfg.FFNGateType[il] = qtType(tensorName(arch, "ffn_gate", il))
 		cfg.FFNUpType[il]   = qtType(tensorName(arch, "ffn_up", il))
 		cfg.FFNDownType[il] = qtType(tensorName(arch, "ffn_down", il))
+		if t, ok := g.TensorByName(tensorName(arch, "wq", il)); ok && len(t.Shape) >= 2 { cfg.WQOut[il] = int(t.Shape[1]) }
+		if t, ok := g.TensorByName(tensorName(arch, "wk", il)); ok && len(t.Shape) >= 2 { cfg.WKOut[il] = int(t.Shape[1]) }
+		if t, ok := g.TensorByName(tensorName(arch, "wv", il)); ok && len(t.Shape) >= 2 { cfg.WVOut[il] = int(t.Shape[1]) }
+		if t, ok := g.TensorByName(tensorName(arch, "wo", il)); ok && len(t.Shape) >= 2 { cfg.WOIn[il] = int(t.Shape[0]) }
 	}
 
 	// --- Init model ---
@@ -162,11 +172,11 @@ func main() {
 
 	m.SetTokEmbd(rawBytes("token_embd.weight"))
 	m.SetOutputNorm(rawBytes("output_norm.weight"))
-	if outW := rawBytes("output.weight"); outW != nil {
+	if outW := rawBytes("output.weight"); outW != nil && arch != "qwen3" {
 		m.SetOutput(outW)
 	} else {
 		// tie_word_embeddings: output shares token_embd — signal to C layer
-		m.SetOutput(rawBytes("token_embd.weight"))
+		m.TieOutputEmbeddings()
 	}
 
 	for il := 0; il < nLayers; il++ {
@@ -200,7 +210,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "encode: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Prompt tokens: %d\n", len(tokens))
+	fmt.Printf("Prompt tokens: %v\n", tokens)
 
 	// --- Prefill ---
 	t1 := time.Now()
@@ -214,6 +224,7 @@ func main() {
 		lastLogits = logits
 
 	}
+	fmt.Fprintf(os.Stderr, "logits[0]=%.4f max_idx=", lastLogits[0]); maxI:=0; for ii,vv:=range lastLogits { if vv>lastLogits[maxI]{maxI=ii} }; fmt.Fprintf(os.Stderr, "%d val=%.4f\n", maxI, lastLogits[maxI])
 	prefillTime := time.Since(t1)
 	ppTPS := float64(len(tokens)) / prefillTime.Seconds()
 	fmt.Printf("Prefill: %.3fs → %.2f tok/s\n", prefillTime.Seconds(), ppTPS)

@@ -22,6 +22,11 @@ typedef struct {
     int ffn_gate[GPLL_MAX_LAYERS];
     int ffn_up[GPLL_MAX_LAYERS];
     int ffn_down[GPLL_MAX_LAYERS];
+    // Output dimensions for Q/K/V/O (may differ from n_embd for GQA with large head_dim)
+    int wq_out[GPLL_MAX_LAYERS];   // wq output dim (n_heads * head_dim)
+    int wk_out[GPLL_MAX_LAYERS];   // wk output dim (n_kv_heads * head_dim)
+    int wv_out[GPLL_MAX_LAYERS];   // wv output dim (same as wk_out)
+    int wo_in[GPLL_MAX_LAYERS];    // wo input dim (= wq_out)
 } gpll_weight_types;
 
 typedef struct {
@@ -79,9 +84,10 @@ gpll_model *gpll_init(
         int n_vocab, int n_embd, int n_heads, int n_heads_kv,
         int n_layers, int n_ff, int n_ctx,
         float rope_base, float rms_eps, int rope_dims,
-        int n_threads, gpll_weight_types *wt);
+        int n_threads, int has_qk_norm, gpll_weight_types *wt);
 
 void gpll_set_has_qk_norm(gpll_model *m, int v);
+void gpll_tie_output_embeddings(gpll_model *m);
 void gpll_set_tok_embd   (gpll_model *m, const void *d, size_t n);
 void gpll_set_output_norm(gpll_model *m, const void *d, size_t n);
 void gpll_set_output     (gpll_model *m, const void *d, size_t n);
