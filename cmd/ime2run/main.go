@@ -163,6 +163,10 @@ func main() {
 	loadTime := time.Since(t0)
 	fmt.Fprintf(os.Stderr, "Loaded in %.1fs\n", loadTime.Seconds())
 
+	// Create persistent worker pool
+	pool := ime2.NewWorkerPool(*nThreads)
+	defer pool.Close()
+
 	// Tokenize prompt
 	tok, _ := gguf.NewTokenizer(g); tok.SetModelPath(*modelPath)
 	promptTokens, _ := tok.Encode(*prompt)
@@ -190,37 +194,49 @@ func main() {
 			xn := make([]float32, nEmbd)
 			inference.RMSNorm(x, l.attnNorm, xn, rmsEps)
 
-			// Skip attention for now — just do QKV projection as test
-			// In real implementation: Q/K/V → RoPE → attention → O projection
-			// For now: x += wo(wq(xn)) as a proxy (wrong but exercises the matmul)
-			qOut := make([]float32, pad4(l.wqRows))
-			inference.MatVecQ4K(pad4(l.wqRows), pad8(l.wqCols), l.wqPacked, padF32(xn, pad8(l.wqCols)), qOut, l.wqScale)
-			oOut := make([]float32, pad4(l.woRows))
-			inference.MatVecQ4K(pad4(l.woRows), pad8(l.woCols), l.woPacked, padF32(qOut[:l.woCols], pad8(l.woCols)), oOut, l.woScale)
-			for i := 0; i < nEmbd; i++ {
-				x[i] += oOut[i]
-			}
+			// Pack activation once for all attn matmuls
+			xnPacked, xnScale := inference.PackActivation(padF32(xn, pad8(l.wqCols)), pad8(l.wqCols))
 
-			// FFN
+			// QKV projections (reuse packed activation)
+			qI32 := make([]int32, pad4(l.wqRows)*4)
+			inference.MatVecINT8Parallel(pad4(l.wqRows), pad8(l.wqCols), l.wqPacked, xnPacked, qI32, 1)
+			qOut := make([]float32, pad4(l.wqRows))
+			qCombined := l.wqScale * xnScale
+			for i := range qOut { qOut[i] = float32(qI32[i*4]) * qCombined }
+
+			// Output projection (uses qOut as input)
+			qOutPacked, qOutScale := inference.PackActivation(padF32(qOut[:l.woCols], pad8(l.woCols)), pad8(l.woCols))
+			oI32 := make([]int32, pad4(l.woRows)*4)
+			inference.MatVecINT8Parallel(pad4(l.woRows), pad8(l.woCols), l.woPacked, qOutPacked, oI32, 1)
+			oCombined := l.woScale * qOutScale
+			for i := 0; i < nEmbd; i++ { x[i] += float32(oI32[i*4]) * oCombined }
+
+			// FFN norm
 			xn2 := make([]float32, nEmbd)
 			inference.RMSNorm(x, l.ffnNorm, xn2, rmsEps)
 
-			gate := make([]float32, pad4(l.gateRows))
-			inference.MatVecQ4K(pad4(l.gateRows), pad8(l.gateCols), l.gatePacked, padF32(xn2, pad8(l.gateCols)), gate, l.gateScale)
-			up := make([]float32, pad4(l.upRows))
-			inference.MatVecQ4K(pad4(l.upRows), pad8(l.upCols), l.upPacked, padF32(xn2, pad8(l.upCols)), up, l.upScale)
+			// Pack for FFN (gate + up share same input)
+			xn2Packed, xn2Scale := inference.PackActivation(padF32(xn2, pad8(l.gateCols)), pad8(l.gateCols))
 
-			// SiLU(gate) * up
+			gateI32 := make([]int32, pad4(l.gateRows)*4)
+			inference.MatVecINT8Parallel(pad4(l.gateRows), pad8(l.gateCols), l.gatePacked, xn2Packed, gateI32, 1)
+			upI32 := make([]int32, pad4(l.upRows)*4)
+			inference.MatVecINT8Parallel(pad4(l.upRows), pad8(l.upCols), l.upPacked, xn2Packed, upI32, 1)
+
+			// SiLU(gate) * up → hidden
+			gCombined := l.gateScale * xn2Scale
+			uCombined := l.upScale * xn2Scale
 			hidden := make([]float32, nFF)
 			for i := 0; i < nFF; i++ {
-				hidden[i] = silu(gate[i]) * up[i]
+				hidden[i] = silu(float32(gateI32[i*4])*gCombined) * float32(upI32[i*4])*uCombined
 			}
 
-			down := make([]float32, pad4(l.downRows))
-			inference.MatVecQ4K(pad4(l.downRows), pad8(l.downCols), l.downPacked, padF32(hidden, pad8(l.downCols)), down, l.downScale)
-			for i := 0; i < nEmbd; i++ {
-				x[i] += down[i]
-			}
+			// Down projection
+			hidPacked, hidScale := inference.PackActivation(padF32(hidden, pad8(l.downCols)), pad8(l.downCols))
+			downI32 := make([]int32, pad4(l.downRows)*4)
+			inference.MatVecINT8Parallel(pad4(l.downRows), pad8(l.downCols), l.downPacked, hidPacked, downI32, 1)
+			dCombined := l.downScale * hidScale
+			for i := 0; i < nEmbd; i++ { x[i] += float32(downI32[i*4]) * dCombined }
 		}
 
 		// Output norm + LM head

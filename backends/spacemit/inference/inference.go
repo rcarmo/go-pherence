@@ -134,3 +134,54 @@ func (m *Model) Decode(tokenID int) []float32 {
 
 // ensure unsafe import is used
 var _ = unsafe.Pointer(nil)
+
+// MatVecQ4KParallel performs matrix-vector multiply using multi-threaded GEMM.
+// Same as MatVecQ4K but uses 8 threads for the vmadot inner loop.
+func MatVecQ4KParallel(M, K int, wPacked []int8, x []float32, out []float32, wScale float32, nThreads int) {
+	// Quantize activation to INT8
+	xI8 := make([]int8, K)
+	xScale := QuantizeF32ToINT8(x, xI8)
+
+	// Replicate x into 4 rows for broadcast
+	xBroadcast := make([]int8, 4*K)
+	for r := 0; r < 4; r++ {
+		copy(xBroadcast[r*K:(r+1)*K], xI8)
+	}
+	xPacked := ime2.PackTiles(xBroadcast, 4, K)
+
+	// Run parallel GEMM
+	cI32 := make([]int32, M*4)
+	ime2.GemmINT8PackedParallel(M, 4, K, wPacked, xPacked, cI32, nThreads)
+
+	// Dequantize
+	combinedScale := wScale * xScale
+	for i := 0; i < M; i++ {
+		out[i] = float32(cI32[i*4]) * combinedScale
+	}
+}
+
+// MatVecINT8Parallel performs out[M] = wPacked[M×K] · actPacked[4×K]^T
+// where actPacked is ALREADY quantized and packed (call PackActivation first).
+// This avoids per-call quantization overhead.
+func MatVecINT8Parallel(M, K int, wPacked []int8, actPacked []int8, out []int32, nThreads int) {
+	ime2.GemmINT8PackedParallel(M, 4, K, wPacked, actPacked, out, nThreads)
+}
+
+// PackActivation quantizes F32 activation to INT8 and packs into 4-row tile format.
+// Returns the packed data and the dequant scale.
+func PackActivation(x []float32, K int) ([]int8, float32) {
+	xI8 := make([]int8, K)
+	scale := QuantizeF32ToINT8(x, xI8)
+	// Replicate into 4 rows
+	xBroadcast := make([]int8, 4*K)
+	for r := 0; r < 4; r++ {
+		copy(xBroadcast[r*K:(r+1)*K], xI8)
+	}
+	packed := ime2.PackTiles(xBroadcast, 4, K)
+	return packed, scale
+}
+
+// MatVecINT8Pool performs matvec using a persistent worker pool (no goroutine spawn per call).
+func MatVecINT8Pool(M, K int, wPacked []int8, actPacked []int8, out []int32, pool *ime2.WorkerPool) {
+	ime2.GemmINT8PackedPool(M, 4, K, wPacked, actPacked, out, pool)
+}
