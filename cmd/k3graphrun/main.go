@@ -156,6 +156,7 @@ func main() {
 			os.Exit(1)
 		}
 		lastLogits = logits
+
 	}
 	prefillTime := time.Since(t1)
 	ppTPS := float64(len(tokens)) / prefillTime.Seconds()

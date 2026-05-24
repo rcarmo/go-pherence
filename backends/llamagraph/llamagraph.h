@@ -38,8 +38,10 @@ typedef struct gpll_model {
     int n_threads;
 
     ggml_backend_t          backend;
+    ggml_backend_buffer_type_t repack_buft;  // SpacemiT IME2 repack buffer type (or NULL)
     struct ggml_context    *ctx_weights;
     ggml_backend_buffer_t   buf_weights;
+    ggml_backend_buffer_t   buf_plain;    // plain CPU buffer for tok_embd + norms
     struct ggml_tensor     *tok_embd;
     struct ggml_tensor     *output_norm;
     struct ggml_tensor     *output;
