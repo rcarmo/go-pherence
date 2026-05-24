@@ -2,7 +2,8 @@ package audio
 
 import (
 	"math"
-	"math/cmplx"
+
+	"github.com/rcarmo/go-pherence/backends/simd/fft"
 )
 
 // MelConfig holds mel spectrogram parameters matching Whisper defaults.
@@ -51,32 +52,30 @@ func MelSpectrogram(samples []float32, cfg MelConfig) [][]float32 {
 	}
 
 	// Process each frame
-	fftBuf := make([]complex128, cfg.NFFTPadded)
+	frameBuf := make([]float32, cfg.NFFTPadded)
 	for frame := 0; frame < numFrames; frame++ {
 		offset := frame * cfg.HopLength
 
 		// Apply window and zero-pad
-		for i := range fftBuf {
-			fftBuf[i] = 0
+		for i := range frameBuf {
+			frameBuf[i] = 0
 		}
 		for i := 0; i < cfg.FFTSize && offset+i < len(samples); i++ {
-			fftBuf[i] = complex(float64(samples[offset+i])*float64(window[i]), 0)
+			frameBuf[i] = samples[offset+i] * window[i]
 		}
 
-		// FFT
-		fft(fftBuf)
+		// Power spectrum via reusable FFT
+		power := fft.PowerSpectrum(frameBuf)
 
-		// Power spectrum (first numBins)
+		// Apply mel filterbank
 		for m := 0; m < cfg.NumMels; m++ {
 			var energy float64
-			for k := 0; k < numBins; k++ {
+			for k := 0; k < numBins && k < len(power); k++ {
 				if filters[m][k] == 0 {
 					continue
 				}
-				power := real(fftBuf[k])*real(fftBuf[k]) + imag(fftBuf[k])*imag(fftBuf[k])
-				energy += float64(filters[m][k]) * power
+				energy += float64(filters[m][k]) * float64(power[k])
 			}
-			// Log mel
 			if energy < 1e-10 {
 				energy = 1e-10
 			}
@@ -139,42 +138,4 @@ func melFilterbank(numMels, numBins, sampleRate, nfft int) [][]float32 {
 		}
 	}
 	return filters
-}
-
-// fft computes in-place radix-2 Cooley-Tukey FFT.
-// Input length must be a power of 2.
-func fft(x []complex128) {
-	n := len(x)
-	if n <= 1 {
-		return
-	}
-
-	// Bit-reversal permutation
-	j := 0
-	for i := 1; i < n; i++ {
-		bit := n >> 1
-		for j&bit != 0 {
-			j ^= bit
-			bit >>= 1
-		}
-		j ^= bit
-		if i < j {
-			x[i], x[j] = x[j], x[i]
-		}
-	}
-
-	// Butterfly stages
-	for size := 2; size <= n; size <<= 1 {
-		half := size / 2
-		wn := cmplx.Exp(complex(0, -2*math.Pi/float64(size)))
-		for start := 0; start < n; start += size {
-			w := complex(1, 0)
-			for k := 0; k < half; k++ {
-				t := w * x[start+k+half]
-				x[start+k+half] = x[start+k] - t
-				x[start+k] = x[start+k] + t
-				w *= wn
-			}
-		}
-	}
 }

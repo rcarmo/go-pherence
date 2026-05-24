@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
-	"math/cmplx"
 	"testing"
+
+	fftpkg "github.com/rcarmo/go-pherence/backends/simd/fft"
 )
 
 func TestReadWAV16bitMono(t *testing.T) {
@@ -130,20 +131,25 @@ func TestMelSpectrogram(t *testing.T) {
 func TestFFT(t *testing.T) {
 	// FFT of a simple signal: DC + single frequency
 	n := 8
-	x := make([]complex128, n)
+	input := make([]float32, n)
 	// Pure cosine at bin 1
-	for i := range x {
-		x[i] = complex(math.Cos(2*math.Pi*float64(i)/float64(n)), 0)
+	for i := range input {
+		input[i] = float32(math.Cos(2 * math.Pi * float64(i) / float64(n)))
 	}
-	fft(x)
+	out := fftpkg.ForwardReal(input)
+	if out == nil {
+		t.Fatal("ForwardReal returned nil")
+	}
 
-	// Bin 1 should have magnitude n/2 = 4, others ~0 except bin n-1 (conjugate)
-	mag1 := cmplx.Abs(x[1])
+	// Bin 1 should have magnitude n/2 = 4
+	re := out[2*1]
+	im := out[2*1+1]
+	mag1 := math.Sqrt(float64(re*re + im*im))
 	if mag1 < 3.5 || mag1 > 4.5 {
 		t.Fatalf("FFT bin 1 magnitude=%.2f want ~4", mag1)
 	}
 	// DC should be ~0
-	magDC := cmplx.Abs(x[0])
+	magDC := math.Abs(float64(out[0]))
 	if magDC > 0.1 {
 		t.Fatalf("FFT DC magnitude=%.2f want ~0", magDC)
 	}
