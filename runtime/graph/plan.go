@@ -38,7 +38,7 @@ func DTypeSize(t DType) int {
 		return 2
 	case I64:
 		return 8
-	case Q2K, Q3K, Q6K, Q8K:
+	case Q2K, Q3K, Q6K, Q8K, Q4G:
 		// Quantized weights are persistent. Transients should not use this path.
 		return 1
 	default:
