@@ -29,8 +29,9 @@ MoE note: 128 experts/layer, 8 active/token. NVIDIA backend runs attention, rout
 | **qwen3_moe** | Qwen3-30B-A3B MoE | MLX 4-bit | ✅ |
 | **gemma3** | Gemma 3 1B+ | MLX 4-bit, BF16 | ✅ |
 | **gemma4** | Gemma 4 E2B+ | MLX 4-bit | ✅ |
+| **hunyuan3d_dit** | Hunyuan3D-2/2mini/2mv shape generation | HF safetensors + YAML | 🧭 assessed, not implemented |
 
-Any model from [mlx-community](https://huggingface.co/mlx-community) using these architectures should work through the compatible loader path.
+Any model from [mlx-community](https://huggingface.co/mlx-community) using the supported LLM architectures should work through the compatible loader path. Hunyuan3D-2 is a separate diffusion/3D pipeline family rather than an LLM decode architecture; see [hunyuan3d-2-support.md](hunyuan3d-2-support.md).
 
 ## Weight format support
 
