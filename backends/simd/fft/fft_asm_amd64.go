@@ -4,6 +4,11 @@ package fft
 
 import "math"
 
+// meanStdReduce computes mean and std of a float32 slice using AVX2.
+//
+//go:noescape
+func meanStdReduce(out_mean, out_std, input *float32, length int)
+
 // fftButterfly4 performs 4 parallel radix-2 butterflies using AVX2 FMA.
 // Go declaration for the assembly implementation.
 //
