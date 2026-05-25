@@ -94,6 +94,81 @@ func TestTrellis2ValidationRejectsBadPipeline(t *testing.T) {
 	}
 }
 
+func TestValidateTrellis2PipelineModelKeys(t *testing.T) {
+	path := mustTrellis2JSON(t, "pipeline.json", `{
+		"name":"Trellis2ImageTo3DPipeline",
+		"args":{"models":{
+			"sparse_structure_decoder":"ss-dec",
+			"sparse_structure_flow_model":"ss-flow",
+			"shape_slat_decoder":"shape-dec",
+			"shape_slat_flow_model_512":"shape-flow-512",
+			"shape_slat_flow_model_1024":"shape-flow-1024",
+			"tex_slat_decoder":"tex-dec",
+			"tex_slat_flow_model_512":"tex-flow-512",
+			"tex_slat_flow_model_1024":"tex-flow-1024"
+		}}
+	}`)
+	cfg, _, err := ReadTrellis2Config(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateTrellis2ShapePipeline(cfg, false); err != nil {
+		t.Fatalf("shape-only pipeline rejected: %v", err)
+	}
+	if err := ValidateTrellis2ShapePipeline(cfg, true); err != nil {
+		t.Fatalf("shape+texture pipeline rejected: %v", err)
+	}
+
+	missingTexture := mustTrellis2JSON(t, "pipeline.json", `{
+		"name":"Trellis2ImageTo3DPipeline",
+		"args":{"models":{
+			"sparse_structure_decoder":"ss-dec",
+			"sparse_structure_flow_model":"ss-flow",
+			"shape_slat_decoder":"shape-dec",
+			"shape_slat_flow_model_512":"shape-flow-512",
+			"shape_slat_flow_model_1024":"shape-flow-1024"
+		}}
+	}`)
+	cfg, _, err = ReadTrellis2Config(missingTexture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateTrellis2ShapePipeline(cfg, false); err != nil {
+		t.Fatalf("shape-only pipeline with no texture rejected: %v", err)
+	}
+	if err := ValidateTrellis2ShapePipeline(cfg, true); err == nil {
+		t.Fatal("shape+texture pipeline with missing texture keys accepted")
+	}
+}
+
+func TestValidateTrellis2TexturingPipelineModelKeys(t *testing.T) {
+	path := mustTrellis2JSON(t, "texturing_pipeline.json", `{
+		"name":"Trellis2TexturingPipeline",
+		"args":{"models":{
+			"shape_slat_encoder":"shape-enc",
+			"tex_slat_decoder":"tex-dec",
+			"tex_slat_flow_model_512":"tex-flow-512",
+			"tex_slat_flow_model_1024":"tex-flow-1024"
+		}}
+	}`)
+	cfg, _, err := ReadTrellis2Config(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateTrellis2TexturingPipeline(cfg); err != nil {
+		t.Fatalf("texturing pipeline rejected: %v", err)
+	}
+
+	bad := mustTrellis2JSON(t, "texturing_pipeline.json", `{"name":"Trellis2TexturingPipeline","args":{"models":{"tex_slat_decoder":"tex-dec"}}}`)
+	cfg, _, err = ReadTrellis2Config(bad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateTrellis2TexturingPipeline(cfg); err == nil {
+		t.Fatal("bad texturing pipeline accepted")
+	}
+}
+
 func TestTrellis2FamilyForPathAndName(t *testing.T) {
 	if got := Trellis2FamilyForPath("ckpts/tex_dec_next_dc_f16c32_fp16.json"); got != Trellis2FamilyTextureDecoder {
 		t.Fatalf("family for path=%s", got)

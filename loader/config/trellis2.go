@@ -46,6 +46,27 @@ type Trellis2Summary struct {
 	DType               string         `json:"dtype,omitempty"`
 }
 
+var Trellis2ShapePipelineModelKeys = []string{
+	"sparse_structure_decoder",
+	"sparse_structure_flow_model",
+	"shape_slat_decoder",
+	"shape_slat_flow_model_512",
+	"shape_slat_flow_model_1024",
+}
+
+var Trellis2TexturePipelineModelKeys = []string{
+	"tex_slat_decoder",
+	"tex_slat_flow_model_512",
+	"tex_slat_flow_model_1024",
+}
+
+var Trellis2TexturingPipelineModelKeys = []string{
+	"shape_slat_encoder",
+	"tex_slat_decoder",
+	"tex_slat_flow_model_512",
+	"tex_slat_flow_model_1024",
+}
+
 func ReadTrellis2Config(path string) (*Trellis2Config, Trellis2Family, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -101,6 +122,24 @@ func ValidateTrellis2Config(cfg *Trellis2Config, family Trellis2Family) error {
 		return nil
 	}
 	return nil
+}
+
+func ValidateTrellis2ShapePipeline(cfg *Trellis2Config, includeTexture bool) error {
+	if err := ValidateTrellis2Config(cfg, Trellis2FamilyPipeline); err != nil {
+		return err
+	}
+	required := append([]string(nil), Trellis2ShapePipelineModelKeys...)
+	if includeTexture {
+		required = append(required, Trellis2TexturePipelineModelKeys...)
+	}
+	return validateTrellis2ModelKeys(cfg, required)
+}
+
+func ValidateTrellis2TexturingPipeline(cfg *Trellis2Config) error {
+	if err := ValidateTrellis2Config(cfg, Trellis2FamilyTexturingPipeline); err != nil {
+		return err
+	}
+	return validateTrellis2ModelKeys(cfg, Trellis2TexturingPipelineModelKeys)
 }
 
 func SummarizeTrellis2Config(cfg *Trellis2Config, family Trellis2Family) Trellis2Summary {
@@ -176,6 +215,23 @@ func Trellis2FamilyForName(name string) Trellis2Family {
 	default:
 		return Trellis2FamilyUnknown
 	}
+}
+
+func validateTrellis2ModelKeys(cfg *Trellis2Config, required []string) error {
+	models, ok := cfg.Args["models"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("trellis2 pipeline %q: missing models map", cfg.Name)
+	}
+	var missing []string
+	for _, key := range required {
+		if _, ok := models[key]; !ok {
+			missing = append(missing, key)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("trellis2 pipeline %q: missing model keys %s", cfg.Name, strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 func stringArg(args map[string]any, key string) string {
