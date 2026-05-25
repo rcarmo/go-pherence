@@ -1,57 +1,52 @@
 package main
-
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
 	"os"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
-
+func f16(h uint16) float32 {
+	if h == 0 { return 0 }
+	sign := uint32(h>>15)&1; exp := uint32(h>>10)&0x1f; mant := uint32(h)&0x3ff
+	if exp == 0 { for mant&0x400==0 { mant<<=1; exp-- }; exp++; mant&=0x3ff }
+	exp += 127-15
+	bits := (sign<<31)|(exp<<23)|(mant<<13)
+	return math.Float32frombits(bits)
+}
 func main() {
 	g, _ := gguf.Open(os.Args[1])
 	tokT, _ := g.TensorByName("token_embd.weight")
-	tokF32, _ := g.DequantF32(tokT)
-	nEmbd := int(tokT.Shape[0])
+	raw, _ := g.Raw(tokT)
+	fmt.Printf("Raw bytes for token_embd: %d bytes\n", len(raw))
 	
-	// Token 374 ("is") embedding
-	tok := 374
-	fmt.Printf("token_embd[%d][0:8]:", tok)
+	// First Q2_K block (84 bytes, 256 elements of row 0)
+	blk := raw[0:84]
+	scales := blk[0:16]
+	qs := blk[16:80]
+	d := f16(binary.LittleEndian.Uint16(blk[80:82]))
+	dmin := f16(binary.LittleEndian.Uint16(blk[82:84]))
+	
+	fmt.Printf("Block 0: d=%.8f dmin=%.8f\n", d, dmin)
+	fmt.Printf("  scales[0:4]: %d %d %d %d\n", scales[0], scales[1], scales[2], scales[3])
+	fmt.Printf("  qs[0:4]: %02x %02x %02x %02x\n", qs[0], qs[1], qs[2], qs[3])
+	
+	// Manual dequant of first 8 elements
+	sc0 := scales[0]
+	dl := d * float32(sc0&0x0F)
+	ml := dmin * float32(sc0>>4)
+	fmt.Printf("  sc0=0x%02x dl=%.8f ml=%.8f\n", sc0, dl, ml)
 	for i := 0; i < 8; i++ {
-		fmt.Printf(" %.6f", tokF32[tok*nEmbd+i])
+		q := qs[i/4]
+		shift := uint(2 * (i % 4))
+		val := (q >> shift) & 3
+		result := dl*float32(val) - ml
+		fmt.Printf("  elem[%d]: q_byte=0x%02x shift=%d val=%d → %.8f\n", i, q, shift, val, result)
 	}
+	
+	// Compare with DequantF32 output
+	tokF32, _ := g.DequantF32(tokT)
+	fmt.Printf("\n  DequantF32[0:8]:")
+	for i := 0; i < 8; i++ { fmt.Printf(" %.8f", tokF32[i]) }
 	fmt.Println()
-	
-	// Also check: what does RMSnorm of this embedding give?
-	normT, _ := g.TensorByName("output_norm.weight")
-	normF32, _ := g.DequantF32(normT)
-	
-	x := tokF32[tok*nEmbd : (tok+1)*nEmbd]
-	var ss float32
-	for i := 0; i < nEmbd; i++ { ss += x[i] * x[i] }
-	ss = 1.0 / float32(len(x))  // wrong - need sqrt
-	
-	// Compute logit for token 374 (self-dot through norm)
-	// logit[374] = dot(tokEmbd[374], norm(tokEmbd[374]))
-	// First compute norm(x):
-	var rms float32
-	for i := 0; i < nEmbd; i++ { rms += x[i] * x[i] }
-	
-	rms = float32(1.0 / math.Sqrt(float64(rms/float32(nEmbd) + 1e-5)))
-	xn := make([]float32, nEmbd)
-	for i := 0; i < nEmbd; i++ { xn[i] = x[i] * rms * normF32[i] }
-	
-	// Self-dot
-	var selfDot float32
-	for i := 0; i < nEmbd; i++ { selfDot += tokF32[tok*nEmbd+i] * xn[i] }
-	fmt.Printf("logit[374] (self-dot after norm) = %.4f\n", selfDot)
-	
-	// Also compute logit[264] ("a") for comparison
-	var dot264 float32
-	for i := 0; i < nEmbd; i++ { dot264 += tokF32[264*nEmbd+i] * xn[i] }
-	fmt.Printf("logit[264] = %.4f\n", dot264)
-	
-	// And logit[635]
-	var dot635 float32
-	for i := 0; i < nEmbd; i++ { dot635 += tokF32[635*nEmbd+i] * xn[i] }
-	fmt.Printf("logit[635] = %.4f\n", dot635)
 }
