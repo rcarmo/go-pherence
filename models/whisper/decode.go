@@ -140,24 +140,31 @@ func argmax(x []float32) int {
 	return maxIdx
 }
 
-// TokensToText is a placeholder that converts token IDs to text.
-// A proper implementation would use the Whisper tokenizer (GPT-2 BPE).
+// DefaultTokenizer is the global tokenizer instance (set by LoadTokenizerGlobal).
+var DefaultTokenizer *Tokenizer
+
+// LoadTokenizerGlobal loads a tokenizer and sets it as the default for TokensToText.
+func LoadTokenizerGlobal(path string) error {
+	t, err := LoadTokenizer(path)
+	if err != nil {
+		return err
+	}
+	DefaultTokenizer = t
+	return nil
+}
+
+// TokensToText converts token IDs to text using the loaded tokenizer.
 func TokensToText(tokens []int) string {
-	// Filter out special tokens and timestamps
+	if DefaultTokenizer != nil {
+		return DefaultTokenizer.Decode(tokens)
+	}
+	// Fallback: placeholder
 	var parts []string
 	for _, tok := range tokens {
 		if tok >= TokenSOT || tok < 0 {
-			continue // Skip special tokens
+			continue
 		}
-		// Placeholder: represent as token ID
-		parts = append(parts, tokenToString(tok))
+		parts = append(parts, "[tok]")
 	}
 	return strings.Join(parts, "")
-}
-
-// tokenToString is a placeholder — real implementation needs the Whisper BPE vocab.
-func tokenToString(tok int) string {
-	// This would look up the token in the vocabulary
-	// For now just return a placeholder
-	return "[tok]"
 }

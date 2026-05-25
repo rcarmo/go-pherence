@@ -82,6 +82,10 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 		enc.PosEmbed = posEmbed
 	}
 
+	// Final encoder LayerNorm
+	enc.FinalLNWeight, _ = get("model.encoder.layer_norm.weight")
+	enc.FinalLNBias, _ = get("model.encoder.layer_norm.bias")
+
 	// Encoder layers
 	for i := 0; i < cfg.EncoderLayers; i++ {
 		l := &enc.Layers[i]

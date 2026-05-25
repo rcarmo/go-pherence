@@ -83,6 +83,29 @@ func MelSpectrogram(samples []float32, cfg MelConfig) [][]float32 {
 		}
 	}
 
+	// Whisper-specific mel normalization: clip to max-8, scale to [-1, 1]
+	if mel != nil {
+		// Find global max
+		maxVal := mel[0][0]
+		for _, row := range mel {
+			for _, v := range row {
+				if v > maxVal {
+					maxVal = v
+				}
+			}
+		}
+		// Clip and normalize to [-1, 1]
+		for m := range mel {
+			for t := range mel[m] {
+				v := mel[m][t]
+				if v < maxVal-8.0 {
+					v = maxVal - 8.0
+				}
+				mel[m][t] = (v - (maxVal - 4.0)) / 4.0 // maps [max-8, max] to [-1, 1]
+			}
+		}
+	}
+
 	return mel
 }
 

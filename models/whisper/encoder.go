@@ -18,6 +18,10 @@ type Encoder struct {
 
 	// Encoder layers
 	Layers []EncoderLayer
+
+	// Final LayerNorm (after all encoder layers)
+	FinalLNWeight []float32
+	FinalLNBias   []float32
 }
 
 // EncoderLayer holds weights for one Whisper encoder transformer layer.
@@ -84,6 +88,10 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 		ht = enc.forwardLayer(&enc.Layers[i], ht, T2)
 	}
 
+	// Final LayerNorm
+	if enc.FinalLNWeight != nil {
+		ht = layerNorm(ht, enc.FinalLNWeight, enc.FinalLNBias, T2, cfg.EncoderDModel)
+	}
 	return ht // [T2 * d_model]
 }
 
