@@ -65,6 +65,21 @@ func ReadTrellis2Config(path string) (*Trellis2Config, Trellis2Family, error) {
 	return &cfg, family, nil
 }
 
+func ReadTrellis2ConfigWithFamily(path string, family Trellis2Family) (*Trellis2Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var cfg Trellis2Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	if err := ValidateTrellis2Config(&cfg, family); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
 func ValidateTrellis2Config(cfg *Trellis2Config, family Trellis2Family) error {
 	if cfg == nil {
 		return fmt.Errorf("trellis2 config: nil")
