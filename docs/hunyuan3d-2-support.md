@@ -148,7 +148,7 @@ Goal: load Hunyuan3D shape checkpoints without running inference.
 
 - [x] Add `loader/config/hunyuan3d.go` for YAML-derived shape config structs.
 - [x] Add safetensors-style tensor-name grouping for Hunyuan files that split keys by `model.*`, `vae.*`, `conditioner.*`.
-- [ ] Add `model/hunyuan3d` package with static config structs and shape validation.
+- [x] Add `model/hunyuan3d` package with static config structs and shape validation.
 - [ ] Add `cmd/hy3dinspect` or extend existing inspect commands to print Hunyuan3D config and tensor coverage.
 
 Acceptance:
@@ -156,7 +156,7 @@ Acceptance:
 - Local mini checkpoint loads metadata and tensor manifests.
 - Unit tests cover config parsing, tensor group binding, and malformed shape errors.
 
-Current status: YAML config parsing and tensor-name inventory helpers are present under `loader/config` with unit tests. They deliberately stop at metadata/config coverage and do not claim runtime support.
+Current status: YAML config parsing and tensor-name inventory helpers are present under `loader/config` with unit tests. `model/hunyuan3d` contains static shape metadata validation and latent-shape helpers. These deliberately stop at metadata/config coverage and do not claim runtime support.
 
 ### Phase H2 — Image preprocessing and conditioner
 
