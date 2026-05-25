@@ -140,7 +140,7 @@ Acceptance:
 - Metadata inventory command identifies all required tensor groups and dimensions.
 - Golden fixture can be reproduced with Python and local cached weights.
 
-Current status: `scripts/hunyuan3d_fixture_inventory.py` can generate a metadata fixture from Hugging Face without downloading full tensor payloads. With `--include-tensors`, it fetches only safetensors header bytes. It also emits a small FlowMatch scheduler reference (`sigmas`, timesteps, normalized model timestep inputs, and Euler step formula) for early Go parity tests. `scripts/hunyuan3d_image_fixture.py` mirrors upstream `ImageProcessorV2` preprocessing for a file or synthetic RGBA input and emits tensor summaries/hashes; it is optional because it requires local Python image dependencies. `scripts/hunyuan3d_conditioner_fixture.py` can emit compact DINO/CLIP conditioner embedding hashes/shapes once a local Hunyuan3D Python environment and checkpoint payloads are available. `scripts/hunyuan3d_denoiser_fixture.py` uses the same local environment to instantiate the conditioner and DiT model, generate fixed-seed latents, and emit compact one-step denoiser summaries. `scripts/hunyuan3d_lowstep_latent_fixture.py` runs the upstream FlowMatch loop for a small number of steps and emits initial/final latent summaries without VAE decode or mesh export. `scripts/hunyuan3d_mesh_fixture.py` extends that local-only path through VAE decode and low-resolution marching-cubes mesh summaries. For `tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini`, the header inventory reports one `model.fp16.safetensors` file with `model`, `vae`, and `conditioner` tensor groups.
+Current status: `scripts/hunyuan3d_check_fixture_env.py` reports which optional Python dependencies and local files are present before attempting heavy fixture generation. `scripts/hunyuan3d_fixture_inventory.py` can generate a metadata fixture from Hugging Face without downloading full tensor payloads. With `--include-tensors`, it fetches only safetensors header bytes. It also emits a small FlowMatch scheduler reference (`sigmas`, timesteps, normalized model timestep inputs, and Euler step formula) for early Go parity tests. `scripts/hunyuan3d_image_fixture.py` mirrors upstream `ImageProcessorV2` preprocessing for a file or synthetic RGBA input and emits tensor summaries/hashes; it is optional because it requires local Python image dependencies. `scripts/hunyuan3d_conditioner_fixture.py` can emit compact DINO/CLIP conditioner embedding hashes/shapes once a local Hunyuan3D Python environment and checkpoint payloads are available. `scripts/hunyuan3d_denoiser_fixture.py` uses the same local environment to instantiate the conditioner and DiT model, generate fixed-seed latents, and emit compact one-step denoiser summaries. `scripts/hunyuan3d_lowstep_latent_fixture.py` runs the upstream FlowMatch loop for a small number of steps and emits initial/final latent summaries without VAE decode or mesh export. `scripts/hunyuan3d_mesh_fixture.py` extends that local-only path through VAE decode and low-resolution marching-cubes mesh summaries. For `tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini`, the header inventory reports one `model.fp16.safetensors` file with `model`, `vae`, and `conditioner` tensor groups.
 
 ### Phase H1 — Loader/config plumbing
 
@@ -267,14 +267,15 @@ Only after image-to-shape works:
 - Multiview shape uses `DinoImageEncoderMV` and view embeddings; add after single-view.
 - Turbo/FlashVDM changes VAE/decoder behavior; add after standard VAE parity.
 
-## Recommended first code change
+## Recommended next step
 
-Do **not** start by adding a CLI that claims support. Start with inspect/fixture plumbing:
+Do **not** add a CLI that claims runtime support yet. The fixture ladder is now scaffolded, so the next practical step is to create the local Python/checkpoint environment and run the actual fixtures:
 
-1. Add a Hunyuan3D model inventory script/command.
-2. Add config structs and safetensors key grouping tests.
-3. Generate Python fixtures for `Hunyuan3D-2mini`.
-4. Implement the DINO/conditioner path only after tensor inventory is stable.
+1. `make hunyuan3d-fixture-env` to see missing optional dependencies and files.
+2. Install local Hunyuan3D Python dependencies and place/cache the standard `Hunyuan3D-2mini/hunyuan3d-dit-v2-mini` config/checkpoint/image.
+3. Run `make hunyuan3d-image-fixture`, `make hunyuan3d-conditioner-fixture`, `make hunyuan3d-denoiser-fixture`, and `make hunyuan3d-lowstep-fixture`.
+4. Use `make hunyuan3d-mesh-fixture` only after the low-step latent fixture is stable, because VAE decode/marching-cubes is heavier and adds more dependency surface.
+5. Implement the Go image preprocessing and DINO/conditioner path only after these Python goldens are stable.
 
 This avoids prematurely coupling Hunyuan3D to the token-generation APIs and keeps the work aligned with the existing backend-first package boundaries.
 
