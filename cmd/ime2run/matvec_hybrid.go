@@ -229,7 +229,7 @@ func matVecFastBuf(M, K int, f32 []float32, packed []int8, scale float32, act []
 		// GEMM
 		res := bufs.res[:Mp*4]
 		for i := range res { res[i] = 0 }
-		ime2.GemmINT8Packed(Mp, 4, Kp, packed, pk, res)
+		if Mp >= 8192 { ime2.GemmINT8PackedParallel(Mp, 4, Kp, packed, pk, res, 8) } else { ime2.GemmINT8Packed(Mp, 4, Kp, packed, pk, res) }
 		for i := 0; i < M; i++ { out[i] = float32(res[i*4]) * scale * _actScaleG }
 	} else {
 		for row := 0; row < M; row++ {
