@@ -278,6 +278,12 @@ func main() {
 	// Output norm + token embeddings (for LM head via tied embeddings)
 	outputNorm := loadNorm("output_norm.weight")
 	tokEmbdF32, _ := g.DequantF32(tokT)
+	// Load output.weight for LM head (may differ from tok_embd)
+	lmHeadF32 := tokEmbdF32 // default: tied embeddings
+	if outT, ok := g.TensorByName("output.weight"); ok {
+		fmt.Fprintf(os.Stderr, "Using separate output.weight (type %d) for LM head\n", outT.QType)
+		lmHeadF32, _ = g.DequantF32(outT)
+	}
 
 
 	loadTime := time.Since(t0)
@@ -513,7 +519,7 @@ func main() {
 		logits := make([]float32, nVocab)
 		for v := 0; v < nVocab; v++ {
 			var sum float32
-			for k := 0; k < nEmbd; k++ { sum += tokEmbdF32[v*nEmbd+k] * xn[k] }
+			for k := 0; k < nEmbd; k++ { sum += lmHeadF32[v*nEmbd+k] * xn[k] }
 			logits[v] = sum
 		}
 
