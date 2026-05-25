@@ -181,3 +181,33 @@ func init() {
 		_ = math.Pi // prevent unused import
 	}
 }
+
+// NewDecoderStateGPU pre-computes cross-attention K/V using GPU SGEMM.
+func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *Decoder) *DecoderState {
+	dModel := cfg.DecoderDModel
+	numLayers := cfg.DecoderLayers
+
+	state := &DecoderState{
+		SelfKCache: make([][]float32, numLayers),
+		SelfVCache: make([][]float32, numLayers),
+		CrossK:     make([][]float32, numLayers),
+		CrossV:     make([][]float32, numLayers),
+		Bufs:       newDecoderBufs(cfg),
+	}
+
+	for l := 0; l < numLayers; l++ {
+		state.SelfKCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
+		state.SelfVCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
+	}
+
+	// Pre-compute cross-attention K/V using GPU SGEMM
+	for l := 0; l < numLayers; l++ {
+		layer := &dec.Layers[l]
+		wK := nv.NewDevBufFrom(layer.CrossKWeight)
+		wV := nv.NewDevBufFrom(layer.CrossVWeight)
+		state.CrossK[l] = gemvGPU(encoderOutput, wK, layer.CrossKBias, encLen, dModel, dModel)
+		state.CrossV[l] = gemvGPU(encoderOutput, wV, layer.CrossVBias, encLen, dModel, dModel)
+	}
+
+	return state
+}

@@ -96,6 +96,7 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 	}
 
 	// Pre-compute cross-attention K/V from encoder output (done once)
+	// Use GPU SGEMM if available for this large batched matmul
 	for l := 0; l < numLayers; l++ {
 		layer := &dec.Layers[l]
 		state.CrossK[l] = linearForwardOpt(encoderOutput, layer.CrossKWeight, layer.CrossKBias, encLen, dModel, dModel)
