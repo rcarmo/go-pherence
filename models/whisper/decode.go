@@ -35,12 +35,24 @@ type Segment struct {
 	Tokens []int
 }
 
-// GreedyDecode performs greedy autoregressive decoding.
+// GreedyDecode performs greedy autoregressive no-timestamps transcription in English.
 func GreedyDecode(dec *Decoder, state *DecoderState, cfg Config) []int {
-	maxTokens := cfg.MaxDecoderLength
+	return GreedyDecodePrompt(dec, state, cfg, TokenEnglish, TokenTranscribe)
+}
 
-	// Start with SOT + language + task + notimestamps
-	prompt := []int{TokenSOT, TokenEnglish, TokenTranscribe, TokenNoTimestamps}
+// GreedyDecodePrompt performs greedy autoregressive no-timestamps decoding with
+// an explicit Whisper language token and task token (transcribe or translate).
+func GreedyDecodePrompt(dec *Decoder, state *DecoderState, cfg Config, languageToken, taskToken int) []int {
+	maxTokens := cfg.MaxDecoderLength
+	if languageToken == 0 {
+		languageToken = TokenEnglish
+	}
+	if taskToken == 0 {
+		taskToken = TokenTranscribe
+	}
+
+	// Start with SOT + language + task + notimestamps.
+	prompt := []int{TokenSOT, languageToken, taskToken, TokenNoTimestamps}
 
 	// Feed prompt tokens once. The logits returned for the final prompt token are
 	// the distribution for the first generated token; do not feed the final

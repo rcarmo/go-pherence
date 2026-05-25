@@ -41,8 +41,10 @@ type result struct {
 func main() {
 	input := flag.String("input", "", "Input audio file or URL")
 	output := flag.String("output", "", "Output VTT path")
-	modelPath := flag.String("model", "models/whisper-tiny-hf/model.safetensors", "Whisper safetensors model")
-	modelSize := flag.String("size", "tiny", "Model size: tiny, base, small, medium, large-v3, turbo")
+	modelPath := flag.String("model", "models/whisper-large-v3-hf/model.safetensors", "Whisper safetensors model")
+	modelSize := flag.String("size", "large-v3", "Model size: tiny, base, small, medium, large-v3, turbo")
+	task := flag.String("task", "translate", "Whisper task: translate or transcribe")
+	language := flag.String("language", "pt", "Source language code for Whisper prompt, e.g. pt, es, en")
 	workers := flag.Int("workers", max(1, min(4, runtimeWorkersDefault())), "Parallel transcription workers")
 	chunkSec := flag.Float64("chunk", 25.0, "Chunk duration in seconds (<=30 recommended)")
 	overlapSec := flag.Float64("overlap", 1.0, "Chunk overlap in seconds")
@@ -67,6 +69,19 @@ func main() {
 	}
 	if *overlapSec < 0 || *overlapSec >= *chunkSec {
 		fatalf("-overlap must be >=0 and less than -chunk")
+	}
+	languageToken, ok := whisper.LanguageTokens[*language]
+	if !ok {
+		fatalf("unknown -language %q", *language)
+	}
+	taskToken := whisper.TokenTranslate
+	switch *task {
+	case "translate":
+		taskToken = whisper.TokenTranslate
+	case "transcribe":
+		taskToken = whisper.TokenTranscribe
+	default:
+		fatalf("unknown -task %q", *task)
 	}
 
 	startAll := time.Now()
@@ -121,7 +136,7 @@ func main() {
 	jobs := makeJobs(len(samples), *chunkSec, *overlapSec)
 	jobs = filterSpeechJobs(jobs, vad, *minSpeech)
 	fmt.Fprintf(os.Stderr, "speech chunks: %d\n", len(jobs))
-	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers)
+	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers, languageToken, taskToken)
 	sort.Slice(results, func(i, j int) bool { return results[i].idx < results[j].idx })
 
 	segments := make([]whisper.DiarizedSegment, 0, len(results))
@@ -166,7 +181,7 @@ func filterSpeechJobs(jobs []job, vad []speaker.VADSegment, minRatio float64) []
 	return out
 }
 
-func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int) []result {
+func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int, languageToken, taskToken int) []result {
 	if len(jobs) == 0 {
 		return nil
 	}
@@ -185,7 +200,7 @@ func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples 
 			defer wg.Done()
 			for j := range in {
 				st := time.Now()
-				text, err := transcribeChunkFast(w, gpuEnc, samples[j.start:j.end])
+				text, err := transcribeChunkFast(w, gpuEnc, samples[j.start:j.end], languageToken, taskToken)
 				rs := float64(j.start) / 16000.0
 				re := float64(j.end) / 16000.0
 				out <- result{idx: j.idx, startSec: rs, endSec: re, speaker: dominantSpeaker(rs, re, vad, labels), text: text, err: err, duration: time.Since(st)}
@@ -211,7 +226,7 @@ func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples 
 	return results
 }
 
-func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32) (string, error) {
+func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, languageToken, taskToken int) (string, error) {
 	cfg := w.Config
 	melCfg := audio.MelConfig{SampleRate: 16000, FFTSize: 400, HopLength: 160, NumMels: cfg.NumMelBins, NFFTPadded: 512}
 	mel := audio.MelSpectrogram(samples, melCfg)
@@ -232,7 +247,7 @@ func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples
 	}
 	encLen := len(encoderOutput) / cfg.EncoderDModel
 	state := whisper.NewDecoderState(cfg, encoderOutput, encLen, w.Decoder)
-	tokens := whisper.GreedyDecode(w.Decoder, state, cfg)
+	tokens := whisper.GreedyDecodePrompt(w.Decoder, state, cfg, languageToken, taskToken)
 	return whisper.TokensToText(tokens), nil
 }
 
