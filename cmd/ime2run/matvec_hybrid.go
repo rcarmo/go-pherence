@@ -216,15 +216,9 @@ func matVecFastBuf(M, K int, f32 []float32, packed []int8, scale float32, act []
 		s := float32(127.0) / maxAbs
 		xI8 := bufs.xI8[:Kp]
 		for i := 0; i < Kp; i++ { v := actPad[i]*s; if v > 127 { v = 127 } else if v < -128 { v = -128 }; xI8[i] = int8(v) }
-		// Fused broadcast-pack: replicate each 8-byte chunk 4x into tile format
+		// Broadcast-pack using RVV (vectorized 4× copy)
 		pk := bufs.packed[:4*Kp]
-		for ki := 0; ki < Kp; ki += 8 {
-			tileBase := (ki / 8) * 32
-			copy(pk[tileBase:tileBase+8], xI8[ki:ki+8])
-			copy(pk[tileBase+8:tileBase+16], xI8[ki:ki+8])
-			copy(pk[tileBase+16:tileBase+24], xI8[ki:ki+8])
-			copy(pk[tileBase+24:tileBase+32], xI8[ki:ki+8])
-		}
+		ime2.BroadcastPackRVV(xI8[:Kp], Kp, pk)
 		// GEMM
 		res := bufs.res[:Mp*4]
 		for i := range res { res[i] = 0 }
