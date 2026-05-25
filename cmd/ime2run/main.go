@@ -107,6 +107,31 @@ func fp16ToFloat(h uint16) float32 {
 }
 
 
+type layerWeights struct {
+		wqPacked, wkPacked, wvPacked, woPacked       []int8
+		wqRaw, wkRaw, wvRaw, woRaw                   []int8
+		gateRaw, upRaw, downRaw                       []int8
+		wqF32, wkF32, wvF32, woF32                   []float32
+		gateF32, upF32, downF32                       []float32
+		gatePacked, upPacked, downPacked             []int8
+		wqScale, wkScale, wvScale, woScale           float32
+		gateScale, upScale, downScale                float32
+		// Per-sub-block scales for correct Q4K matmul
+		wqScales, wqMins []float32
+		wkScales, wkMins []float32
+		wvScales, wvMins []float32
+		woScales, woMins []float32
+		gateScales, gateMins []float32
+		upScales, upMins []float32
+		downScales, downMins []float32
+		attnNorm, ffnNorm                            []float32
+		qNorm, kNorm                                 []float32
+		wqRows, wkRows, wvRows, woRows              int
+		wqCols, wkCols, wvCols, woCols              int
+		gateRows, upRows, downRows                   int
+		gateCols, upCols, downCols                   int
+	}
+
 func main() {
 	modelPath := flag.String("model", "", "GGUF model path")
 	prompt := flag.String("prompt", "Hello", "prompt")
@@ -148,30 +173,7 @@ func main() {
 
 	// Dequant all weights to F32, then quantize to INT8 and pre-pack
 	// This is the naive approach (uses 2× memory) but proves the concept
-	type layerWeights struct {
-		wqPacked, wkPacked, wvPacked, woPacked       []int8
-		wqRaw, wkRaw, wvRaw, woRaw                   []int8
-		gateRaw, upRaw, downRaw                       []int8
-		wqF32, wkF32, wvF32, woF32                   []float32
-		gateF32, upF32, downF32                       []float32
-		gatePacked, upPacked, downPacked             []int8
-		wqScale, wkScale, wvScale, woScale           float32
-		gateScale, upScale, downScale                float32
-		// Per-sub-block scales for correct Q4K matmul
-		wqScales, wqMins []float32
-		wkScales, wkMins []float32
-		wvScales, wvMins []float32
-		woScales, woMins []float32
-		gateScales, gateMins []float32
-		upScales, upMins []float32
-		downScales, downMins []float32
-		attnNorm, ffnNorm                            []float32
-		qNorm, kNorm                                 []float32
-		wqRows, wkRows, wvRows, woRows              int
-		wqCols, wkCols, wvCols, woCols              int
-		gateRows, upRows, downRows                   int
-		gateCols, upCols, downCols                   int
-	}
+
 
 	layers := make([]layerWeights, nLayers)
 	
@@ -389,149 +391,9 @@ func main() {
 		copy(x, tokEmbdF32[tokID*nEmbd:(tokID+1)*nEmbd])
 
 		// Layer loop (simplified: no attention, just FFN for speed test)
-		nRunLayers := nLayers
-		if el := os.Getenv("LAYERS"); el != "" { n, _ := strconv.Atoi(el); nRunLayers = n }
-		for il := 0; il < nRunLayers; il++ {
-			l := &layers[il]
+		parallelDecode(x, layers, nLayers, nEmbd, nHeads, nKVHeads, headDim, nFF, rmsEps, ropeBase, kCache, vCache, nPast, *nThreads)
 
-		// === Attention with KV cache ===
-		xn := _xn[:nEmbd]
-		inference.RMSNorm(x, l.attnNorm, xn, rmsEps)
-		K1 := pad8(l.wqCols)
-		for i := nEmbd; i < K1; i++ { _xn[i] = 0 }
-		actP := packAct(_xn[:K1], K1)
-
-		// Q, K, V projections (per-sub-block scale correction for Q4K)
-		qF := make([]float32, l.wqRows)
-		if l.wqScales != nil {
-			matVecFast(l.wqRows, l.wqCols, l.wqF32, l.wqPacked, l.wqScale, xn[:l.wqCols], qF)
-		} else {
-			qRes := _resultI32[:pad4(l.wqRows)*4]
-			ime2.GemmINT8Packed(pad4(l.wqRows), 4, K1, l.wqPacked, actP, qRes)
-			for i := range qF { qF[i] = float32(qRes[i*4]) * l.wqScale * _actScale }
-		}
-		kF := make([]float32, l.wkRows)
-		if l.wkScales != nil {
-			matVecFast(l.wkRows, l.wkCols, l.wkF32, l.wkPacked, l.wkScale, xn[:l.wkCols], kF)
-		} else {
-			kRes := _resultI32[:pad4(l.wkRows)*4]
-			ime2.GemmINT8Packed(pad4(l.wkRows), 4, K1, l.wkPacked, actP, kRes)
-			for i := range kF { kF[i] = float32(kRes[i*4]) * l.wkScale * _actScale }
-		}
-		vF := make([]float32, l.wvRows)
-		if l.wvScales != nil {
-			matVecFast(l.wvRows, l.wvCols, l.wvF32, l.wvPacked, l.wvScale, xn[:l.wvCols], vF)
-		} else {
-			vRes := _resultI32[:pad4(l.wvRows)*4]
-			ime2.GemmINT8Packed(pad4(l.wvRows), 4, K1, l.wvPacked, actP, vRes)
-			for i := range vF { vF[i] = float32(vRes[i*4]) * l.wvScale * _actScale }
-		}
-
-		// Apply K norm, then RoPE, then store in cache
-		pos := nPast
-		nKVD := nKVHeads * headDim
-		if false && l.kNorm != nil {
-			for kh := 0; kh < nKVHeads; kh++ {
-				var ss float32
-				for d := 0; d < headDim; d++ { ss += kF[kh*headDim+d] * kF[kh*headDim+d] }
-				ss = float32(1.0 / math.Sqrt(float64(ss/float32(headDim)+rmsEps)))
-				for d := 0; d < headDim; d++ { kF[kh*headDim+d] = kF[kh*headDim+d] * ss * l.kNorm[d] }
-			}
-		}
-		copy(kCache[il][pos*nKVD:pos*nKVD+nKVD], kF)
-		copy(vCache[il][pos*nKVD:pos*nKVD+nKVD], vF)
-		// Apply RoPE to K at current position
-		for kh := 0; kh < nKVHeads; kh++ {
-			applyRoPE(kCache[il][pos*nKVD+kh*headDim:pos*nKVD+(kh+1)*headDim], headDim, pos, ropeBase)
-		}
-
-		// Attention: Q heads attend over cached K/V
-		repFactor := nHeads / nKVHeads
-		attnOut := _qOut[:nHeads*headDim]
-		invSqrtD := float32(1.0 / math.Sqrt(float64(headDim)))
-		for h := 0; h < nHeads; h++ {
-			kvH := h / repFactor
-			// Q head: QK norm + RoPE
-			qHead := make([]float32, headDim)
-			copy(qHead, qF[h*headDim:(h+1)*headDim])
-			if l.qNorm != nil {
-				// RMS norm on head dimension
-				var ss float32
-				for d := 0; d < headDim; d++ { ss += qHead[d] * qHead[d] }
-				ss = float32(1.0 / math.Sqrt(float64(ss/float32(headDim)+rmsEps)))
-				for d := 0; d < headDim; d++ { qHead[d] = qHead[d] * ss * l.qNorm[d] }
-			}
-			applyRoPE(qHead, headDim, pos, ropeBase)
-			// Compute scores over [0..pos]
-			maxScore := float32(-1e30)
-			scores := make([]float32, pos+1)
-			for t := 0; t <= pos; t++ {
-				var dot float32
-				for d := 0; d < headDim; d++ {
-					dot += qHead[d] * kCache[il][t*nKVD+kvH*headDim+d]
-				}
-				scores[t] = dot * invSqrtD
-				if scores[t] > maxScore { maxScore = scores[t] }
-			}
-			// Softmax
-			var sumExp float32
-			for i := range scores { scores[i] = float32(math.Exp(float64(scores[i] - maxScore))); sumExp += scores[i] }
-			for i := range scores { scores[i] /= sumExp }
-			// Weighted V sum
-			for d := 0; d < headDim; d++ {
-				var sum float32
-				for t := 0; t <= pos; t++ {
-					sum += scores[t] * vCache[il][t*nKVD+kvH*headDim+d]
-				}
-				attnOut[h*headDim+d] = sum
-			}
-		}
-
-		// Output projection
-		K2 := pad8(l.woCols)
-		for i := nHeads*headDim; i < K2; i++ { _qOut[i] = 0 }
-		woOut := make([]float32, l.woRows)
-		matVecFast(l.woRows, l.woCols, l.woF32, l.woPacked, l.woScale, _qOut[:l.woCols], woOut)
-		for i := 0; i < nEmbd; i++ { x[i] += woOut[i] }
-
-		xn2 := _xn2[:nEmbd]
-		inference.RMSNorm(x, l.ffnNorm, xn2, rmsEps)
-		K3 := pad8(l.gateCols)
-		for i := nEmbd; i < K3; i++ { _xn2[i] = 0 }
-		actPF := packAct(_xn2[:K3], K3)
-		gateF := make([]float32, l.gateRows)
-		if l.gateScales != nil {
-			matVecFast(l.gateRows, l.gateCols, l.gateF32, l.gatePacked, l.gateScale, xn2[:l.gateCols], gateF)
-		} else {
-			gRes := _resultI32[:pad4(l.gateRows)*4]
-			ime2.GemmINT8Packed(pad4(l.gateRows), 4, K3, l.gatePacked, actPF, gRes)
-			for i := range gateF { gateF[i] = float32(gRes[i*4]) * l.gateScale * _actScale }
-		}
-		upF := make([]float32, l.upRows)
-		if l.upScales != nil {
-			matVecFast(l.upRows, l.upCols, l.upF32, l.upPacked, l.upScale, xn2[:l.upCols], upF)
-		} else {
-			uRes := _resultI32[:pad4(l.upRows)*4]
-			ime2.GemmINT8Packed(pad4(l.upRows), 4, K3, l.upPacked, actPF, uRes)
-			for i := range upF { upF[i] = float32(uRes[i*4]) * l.upScale * _actScale }
-		}
-		hidden := _hidden[:nFF]
-		for i := 0; i < nFF; i++ {
-			hidden[i] = silu(gateF[i]) * upF[i]
-		}
-		K4 := pad8(l.downCols)
-		for i := nFF; i < K4; i++ { _hidden[i] = 0 }
-		downF := make([]float32, l.downRows)
-		if l.downScales != nil {
-			matVecFast(l.downRows, l.downCols, l.downF32, l.downPacked, l.downScale, hidden[:l.downCols], downF)
-		} else {
-			matVecFast(l.downRows, l.downCols, l.downF32, l.downPacked, l.downScale, hidden[:l.downCols], downF)
-		}
-		for i := 0; i < nEmbd; i++ { x[i] += downF[i] }
-
-		}
-
-		// Output norm + LM head
+		// Output norm// Output norm + LM head
 		xn := make([]float32, nEmbd)
 		inference.RMSNorm(x, outputNorm, xn, rmsEps)
 
