@@ -56,6 +56,24 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 		return data, err
 	}
 
+	// getLinear loads a 2D weight matrix and transposes it from [out, in] to [in, out]
+	// HuggingFace stores nn.Linear weights as [out_features, in_features] but our
+	// linearForwardOpt expects the transposed layout for correct matrix-vector multiply.
+	getLinear := func(name string, rows, cols int) ([]float32, error) {
+		data, _, err := f.GetFloat32(name)
+		if err != nil || len(data) != rows*cols {
+			return data, err
+		}
+		// Transpose [rows, cols] → [cols, rows]
+		t := make([]float32, rows*cols)
+		for r := 0; r < rows; r++ {
+			for c := 0; c < cols; c++ {
+				t[c*rows+r] = data[r*cols+c]
+			}
+		}
+		return t, nil
+	}
+
 	enc := NewEncoder(cfg)
 
 	// Conv stem
@@ -93,20 +111,20 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 
 		l.AttnLNWeight, _ = get(prefix + ".self_attn_layer_norm.weight")
 		l.AttnLNBias, _ = get(prefix + ".self_attn_layer_norm.bias")
-		l.QWeight, _ = get(prefix + ".self_attn.q_proj.weight")
+		l.QWeight, _ = getLinear(prefix+".self_attn.q_proj.weight", cfg.EncoderDModel, cfg.EncoderDModel)
 		l.QBias, _ = get(prefix + ".self_attn.q_proj.bias")
-		l.KWeight, _ = get(prefix + ".self_attn.k_proj.weight")
+		l.KWeight, _ = getLinear(prefix+".self_attn.k_proj.weight", cfg.EncoderDModel, cfg.EncoderDModel)
 		l.KBias, _ = get(prefix + ".self_attn.k_proj.bias") // may not exist
-		l.VWeight, _ = get(prefix + ".self_attn.v_proj.weight")
+		l.VWeight, _ = getLinear(prefix+".self_attn.v_proj.weight", cfg.EncoderDModel, cfg.EncoderDModel)
 		l.VBias, _ = get(prefix + ".self_attn.v_proj.bias")
-		l.OWeight, _ = get(prefix + ".self_attn.out_proj.weight")
+		l.OWeight, _ = getLinear(prefix+".self_attn.out_proj.weight", cfg.EncoderDModel, cfg.EncoderDModel)
 		l.OBias, _ = get(prefix + ".self_attn.out_proj.bias")
 
 		l.MLPLNWeight, _ = get(prefix + ".final_layer_norm.weight")
 		l.MLPLNBias, _ = get(prefix + ".final_layer_norm.bias")
-		l.FC1Weight, _ = get(prefix + ".fc1.weight")
+		l.FC1Weight, _ = getLinear(prefix+".fc1.weight", cfg.EncoderFFNDim, cfg.EncoderDModel)
 		l.FC1Bias, _ = get(prefix + ".fc1.bias")
-		l.FC2Weight, _ = get(prefix + ".fc2.weight")
+		l.FC2Weight, _ = getLinear(prefix+".fc2.weight", cfg.EncoderDModel, cfg.EncoderFFNDim)
 		l.FC2Bias, _ = get(prefix + ".fc2.bias")
 	}
 
@@ -123,31 +141,31 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 
 		l.SelfAttnLNWeight, _ = get(prefix + ".self_attn_layer_norm.weight")
 		l.SelfAttnLNBias, _ = get(prefix + ".self_attn_layer_norm.bias")
-		l.SelfQWeight, _ = get(prefix + ".self_attn.q_proj.weight")
+		l.SelfQWeight, _ = getLinear(prefix+".self_attn.q_proj.weight", cfg.DecoderDModel, cfg.DecoderDModel)
 		l.SelfQBias, _ = get(prefix + ".self_attn.q_proj.bias")
-		l.SelfKWeight, _ = get(prefix + ".self_attn.k_proj.weight")
+		l.SelfKWeight, _ = getLinear(prefix+".self_attn.k_proj.weight", cfg.DecoderDModel, cfg.DecoderDModel)
 		l.SelfKBias, _ = get(prefix + ".self_attn.k_proj.bias")
-		l.SelfVWeight, _ = get(prefix + ".self_attn.v_proj.weight")
+		l.SelfVWeight, _ = getLinear(prefix+".self_attn.v_proj.weight", cfg.DecoderDModel, cfg.DecoderDModel)
 		l.SelfVBias, _ = get(prefix + ".self_attn.v_proj.bias")
-		l.SelfOWeight, _ = get(prefix + ".self_attn.out_proj.weight")
+		l.SelfOWeight, _ = getLinear(prefix+".self_attn.out_proj.weight", cfg.DecoderDModel, cfg.DecoderDModel)
 		l.SelfOBias, _ = get(prefix + ".self_attn.out_proj.bias")
 
 		l.CrossAttnLNWeight, _ = get(prefix + ".encoder_attn_layer_norm.weight")
 		l.CrossAttnLNBias, _ = get(prefix + ".encoder_attn_layer_norm.bias")
-		l.CrossQWeight, _ = get(prefix + ".encoder_attn.q_proj.weight")
+		l.CrossQWeight, _ = getLinear(prefix+".encoder_attn.q_proj.weight", cfg.DecoderDModel, cfg.DecoderDModel)
 		l.CrossQBias, _ = get(prefix + ".encoder_attn.q_proj.bias")
-		l.CrossKWeight, _ = get(prefix + ".encoder_attn.k_proj.weight")
+		l.CrossKWeight, _ = getLinear(prefix+".encoder_attn.k_proj.weight", cfg.DecoderDModel, cfg.DecoderDModel)
 		l.CrossKBias, _ = get(prefix + ".encoder_attn.k_proj.bias")
-		l.CrossVWeight, _ = get(prefix + ".encoder_attn.v_proj.weight")
+		l.CrossVWeight, _ = getLinear(prefix+".encoder_attn.v_proj.weight", cfg.DecoderDModel, cfg.DecoderDModel)
 		l.CrossVBias, _ = get(prefix + ".encoder_attn.v_proj.bias")
-		l.CrossOWeight, _ = get(prefix + ".encoder_attn.out_proj.weight")
+		l.CrossOWeight, _ = getLinear(prefix+".encoder_attn.out_proj.weight", cfg.DecoderDModel, cfg.DecoderDModel)
 		l.CrossOBias, _ = get(prefix + ".encoder_attn.out_proj.bias")
 
 		l.MLPLNWeight, _ = get(prefix + ".final_layer_norm.weight")
 		l.MLPLNBias, _ = get(prefix + ".final_layer_norm.bias")
-		l.FC1Weight, _ = get(prefix + ".fc1.weight")
+		l.FC1Weight, _ = getLinear(prefix+".fc1.weight", cfg.EncoderFFNDim, cfg.EncoderDModel)
 		l.FC1Bias, _ = get(prefix + ".fc1.bias")
-		l.FC2Weight, _ = get(prefix + ".fc2.weight")
+		l.FC2Weight, _ = getLinear(prefix+".fc2.weight", cfg.EncoderDModel, cfg.EncoderFFNDim)
 		l.FC2Bias, _ = get(prefix + ".fc2.bias")
 	}
 

@@ -84,6 +84,10 @@ func (ge *GPUEncoder) ForwardGPU(mel []float32, T int) []float32 {
 		ht = ge.forwardLayerGPU(i, ht, T2)
 	}
 
+	// Final LayerNorm
+	if ge.Encoder.FinalLNWeight != nil {
+		ht = layerNorm(ht, ge.Encoder.FinalLNWeight, ge.Encoder.FinalLNBias, T2, dModel)
+	}
 	return ht
 }
 
