@@ -284,6 +284,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Using separate output.weight (type %d) for LM head\n", outT.QType)
 		lmHeadF32, _ = g.DequantF32(outT)
 	}
+	// Pre-pack LM head for vmadot acceleration
+	var lmHeadPacked []int8
+	var lmHeadScale float32
+	{
+		vPad := pad4(nVocab)
+		ePad := pad8(nEmbd)
+		i8 := make([]int8, vPad*ePad)
+		lmHeadScale = inference.QuantizeF32ToINT8(func() []float32 {
+			padded := make([]float32, vPad*ePad)
+			for r := 0; r < nVocab; r++ { copy(padded[r*ePad:r*ePad+nEmbd], lmHeadF32[r*nEmbd:(r+1)*nEmbd]) }
+			return padded
+		}(), i8)
+		lmHeadPacked = ime2.PackTiles(i8, vPad, ePad)
+		fmt.Fprintf(os.Stderr, "Packed LM head: %d×%d (%d MB)\n", vPad, ePad, len(lmHeadPacked)/1024/1024)
+	}
 
 
 	loadTime := time.Since(t0)
@@ -515,12 +530,21 @@ func main() {
 		xn := make([]float32, nEmbd)
 		inference.RMSNorm(x, outputNorm, xn, rmsEps)
 
-		// LM head via vmadot (pre-packed tok_embd)
 		logits := make([]float32, nVocab)
-		for v := 0; v < nVocab; v++ {
-			var sum float32
-			for k := 0; k < nEmbd; k++ { sum += lmHeadF32[v*nEmbd+k] * xn[k] }
-			logits[v] = sum
+		// LM head via vmadot (pre-packed tok_embd)
+		if lmHeadPacked != nil {
+			xnPad := make([]float32, pad8(nEmbd))
+			copy(xnPad, xn)
+			actLM := packAct(xnPad, pad8(nEmbd))
+			logitsI32 := make([]int32, pad4(nVocab)*4)
+			ime2.GemmINT8PackedParallel(pad4(nVocab), 4, pad8(nEmbd), lmHeadPacked, actLM, logitsI32, *nThreads)
+			for v := 0; v < nVocab; v++ { logits[v] = float32(logitsI32[v*4]) * lmHeadScale * _actScale }
+		} else {
+			for v := 0; v < nVocab; v++ {
+				var sum float32
+				for k := 0; k < nEmbd; k++ { sum += lmHeadF32[v*nEmbd+k] * xn[k] }
+				logits[v] = sum
+			}
 		}
 
 		// Argmax
