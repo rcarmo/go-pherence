@@ -172,18 +172,65 @@ func packActG(x []float32, K int) []int8 {
 	return ime2.PackTiles(bc, 4, K)
 }
 
+// MatVecBufs holds pre-allocated buffers for matVecFast (zero alloc in hot path).
+type MatVecBufs struct {
+	actPad []float32
+	xI8    []int8
+	bc     []int8
+	packed []int8
+	res    []int32
+}
+
+func NewMatVecBufs(maxK, maxM int) *MatVecBufs {
+	Kp := ((maxK + 7) / 8) * 8
+	Mp := ((maxM + 3) / 4) * 4
+	return &MatVecBufs{
+		actPad: make([]float32, Kp),
+		xI8:    make([]int8, Kp),
+		bc:     make([]int8, 4*Kp),
+		packed: make([]int8, 4*Kp),
+		res:    make([]int32, Mp*4),
+	}
+}
+
 func matVecFast(M, K int, f32 []float32, packed []int8, scale float32, act []float32, out []float32) {
-	if packed != nil && len(packed) > 0 {
+	matVecFastBuf(M, K, f32, packed, scale, act, out, globalBufs)
+}
+
+var globalBufs *MatVecBufs
+
+func matVecFastBuf(M, K int, f32 []float32, packed []int8, scale float32, act []float32, out []float32, bufs *MatVecBufs) {
+	if packed != nil && len(packed) > 0 && bufs != nil {
 		Kp := ((K + 7) / 8) * 8
 		Mp := ((M + 3) / 4) * 4
-		actPad := make([]float32, Kp)
+		// Zero-alloc activation quantize + pack
+		actPad := bufs.actPad[:Kp]
 		copy(actPad, act[:K])
-		ap := packActG(actPad, Kp)
-		res := make([]int32, Mp*4)
-		ime2.GemmINT8Packed(Mp, 4, Kp, packed, ap, res)
-		for i := 0; i < M; i++ {
-			out[i] = float32(res[i*4]) * scale * _actScaleG
+		for i := K; i < Kp; i++ { actPad[i] = 0 }
+		// Quantize
+		var maxAbs float32
+		for _, v := range actPad { a := v; if a < 0 { a = -a }; if a > maxAbs { maxAbs = a } }
+		if maxAbs == 0 { for i := range out[:M] { out[i] = 0 }; return }
+		_actScaleG = maxAbs / 127.0
+		s := float32(127.0) / maxAbs
+		xI8 := bufs.xI8[:Kp]
+		for i := 0; i < Kp; i++ { v := actPad[i]*s; if v > 127 { v = 127 } else if v < -128 { v = -128 }; xI8[i] = int8(v) }
+		// Broadcast 4x
+		bc := bufs.bc[:4*Kp]
+		copy(bc[0:Kp], xI8); copy(bc[Kp:2*Kp], xI8); copy(bc[2*Kp:3*Kp], xI8); copy(bc[3*Kp:4*Kp], xI8)
+		// Pack tiles (in-place)
+		pk := bufs.packed[:4*Kp]
+		for ki := 0; ki < Kp; ki += 8 {
+			tileBase := (ki / 8) * 32
+			for r := 0; r < 4; r++ {
+				copy(pk[tileBase+r*8:tileBase+r*8+8], bc[r*Kp+ki:r*Kp+ki+8])
+			}
 		}
+		// GEMM
+		res := bufs.res[:Mp*4]
+		for i := range res { res[i] = 0 }
+		ime2.GemmINT8Packed(Mp, 4, Kp, packed, pk, res)
+		for i := 0; i < M; i++ { out[i] = float32(res[i*4]) * scale * _actScaleG }
 	} else {
 		for row := 0; row < M; row++ {
 			var sum float32

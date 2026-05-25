@@ -373,6 +373,9 @@ func main() {
 		vCache[il] = make([]float32, kvSize)
 	}
 	nPast := 0
+	// Pre-allocate matmul buffers (zero-alloc hot path)
+	globalBufs = NewMatVecBufs(pad8(nFF), pad4(nFF))
+
 	allTokens := promptTokens
 	t1 := time.Now()
 
