@@ -38,14 +38,14 @@ func NewGPUEncoder(enc *Encoder, cfg Config) *GPUEncoder {
 	for i := range ge.layers {
 		l := &enc.Layers[i]
 		gl := &ge.layers[i]
-		gl.qW = nv.NewDevBufFrom(l.QWeight)
-		gl.kW = nv.NewDevBufFrom(l.KWeight)
-		gl.vW = nv.NewDevBufFrom(l.VWeight)
-		gl.oW = nv.NewDevBufFrom(l.OWeight)
-		gl.fc1W = nv.NewDevBufFrom(l.FC1Weight)
-		gl.fc2W = nv.NewDevBufFrom(l.FC2Weight)
-		gl.attnLNW = nv.NewDevBufFrom(l.AttnLNWeight)
-		gl.mlpLNW = nv.NewDevBufFrom(l.MLPLNWeight)
+		gl.qW = gpuWeight(l.QWeight)
+		gl.kW = gpuWeight(l.KWeight)
+		gl.vW = gpuWeight(l.VWeight)
+		gl.oW = gpuWeight(l.OWeight)
+		gl.fc1W = gpuWeight(l.FC1Weight)
+		gl.fc2W = gpuWeight(l.FC2Weight)
+		gl.attnLNW = gpuWeight(l.AttnLNWeight)
+		gl.mlpLNW = gpuWeight(l.MLPLNWeight)
 	}
 	_ = dModel
 
@@ -134,40 +134,59 @@ func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []f
 	return mlpOut
 }
 
+func gpuWeight(data []float32) *nv.DevBuf {
+	b := nv.NewDevBufFrom(data)
+	_ = b.ToGPU()
+	return b
+}
+
 // gemvGPU computes batched GEMV using GPU SGEMM when profitable.
-// x: [seqLen, inDim], W: DevBuf[outDim * inDim], bias: [outDim]
+// x: [seqLen, inDim], W: DevBuf[outDim * inDim] in HF [outDim,inDim] layout, bias: [outDim]
 // Returns [seqLen * outDim].
 func gemvGPU(x []float32, W *nv.DevBuf, bias []float32, seqLen, inDim, outDim int) []float32 {
-	// Use GPU SGEMM for batched matmul (seqLen >= 8)
+	// Use GPU SGEMM for batched matmul (seqLen >= 8). Keep W resident on
+	// device; only upload the per-chunk activation X^T and download C.
 	if seqLen >= 8 && W != nil && nv.SgemmReady() {
-		// We want: out[seq, out] = x[seq, in] @ W[out, in]^T
-		// Sgemm(M, N, K, alpha, A, B, C) computes C[M,N] = A[M,K] * B[K,N]
-		// So: C[outDim, seqLen] = W[outDim, inDim] * X^T[inDim, seqLen]
-		// First transpose X from [seqLen, inDim] to X^T[inDim, seqLen]
-		xT := make([]float32, inDim*seqLen)
-		for s := 0; s < seqLen; s++ {
-			for d := 0; d < inDim; d++ {
-				xT[d*seqLen+s] = x[s*inDim+d]
-			}
-		}
-		result, err := nv.SgemmHost(outDim, seqLen, inDim, 1.0, W.Data(), xT)
-		if err == nil && len(result) == outDim*seqLen {
-			// result is C[outDim, seqLen] row-major
-			// Transpose to [seqLen, outDim]
-			out := make([]float32, seqLen*outDim)
+		wGPU := W.GPUPtr()
+		if wGPU != nil {
+			// out[seq,out] = x[seq,in] @ W[out,in]^T.
+			// Compute C[outDim,seqLen] = W[outDim,inDim] * X^T[inDim,seqLen].
+			xT := make([]float32, inDim*seqLen)
 			for s := 0; s < seqLen; s++ {
-				for o := 0; o < outDim; o++ {
-					out[s*outDim+o] = result[o*seqLen+s]
+				for d := 0; d < inDim; d++ {
+					xT[d*seqLen+s] = x[s*inDim+d]
 				}
 			}
-			if bias != nil {
-				for s := 0; s < seqLen; s++ {
-					for o := 0; o < outDim && o < len(bias); o++ {
-						out[s*outDim+o] += bias[o]
+			dX, err := nv.Malloc(len(xT))
+			if err == nil {
+				defer dX.Free()
+				dC, err := nv.Malloc(outDim * seqLen)
+				if err == nil {
+					defer dC.Free()
+					if err = dX.Upload(xT); err == nil {
+						if err = nv.Sgemm(outDim, seqLen, inDim, 1.0, wGPU, dX, dC); err == nil {
+							nv.Sync()
+							result := make([]float32, outDim*seqLen)
+							if err = dC.Download(result); err == nil {
+								out := make([]float32, seqLen*outDim)
+								for s := 0; s < seqLen; s++ {
+									for o := 0; o < outDim; o++ {
+										out[s*outDim+o] = result[o*seqLen+s]
+									}
+								}
+								if bias != nil {
+									for s := 0; s < seqLen; s++ {
+										for o := 0; o < outDim && o < len(bias); o++ {
+											out[s*outDim+o] += bias[o]
+										}
+									}
+								}
+								return out
+							}
+						}
 					}
 				}
 			}
-			return out
 		}
 	}
 

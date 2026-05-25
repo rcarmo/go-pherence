@@ -47,6 +47,7 @@ func main() {
 	chunkSec := flag.Float64("chunk", 25.0, "Chunk duration in seconds (<=30 recommended)")
 	overlapSec := flag.Float64("overlap", 1.0, "Chunk overlap in seconds")
 	maxTokens := flag.Int("max-tokens", 96, "Maximum generated tokens per chunk")
+	minSpeech := flag.Float64("min-speech", 0.35, "Minimum VAD speech overlap ratio required to transcribe a chunk")
 	useGPU := flag.Bool("gpu", true, "Use GPU encoder path when CUDA SGEMM is available")
 	keepWav := flag.Bool("keep-wav", false, "Keep converted temporary WAV")
 	flag.Parse()
@@ -118,6 +119,8 @@ func main() {
 	labels := make([]int, len(vad)) // ECAPA weights are not bundled yet; single-speaker fallback.
 
 	jobs := makeJobs(len(samples), *chunkSec, *overlapSec)
+	jobs = filterSpeechJobs(jobs, vad, *minSpeech)
+	fmt.Fprintf(os.Stderr, "speech chunks: %d\n", len(jobs))
 	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers)
 	sort.Slice(results, func(i, j int) bool { return results[i].idx < results[j].idx })
 
@@ -141,7 +144,32 @@ func main() {
 	fmt.Fprintf(os.Stderr, "wrote %s (%d cues) in %s, RTF %.2f\n", *output, len(segments), time.Since(startAll).Round(time.Second), time.Since(startAll).Seconds()/audioDur)
 }
 
+func filterSpeechJobs(jobs []job, vad []speaker.VADSegment, minRatio float64) []job {
+	if minRatio <= 0 || len(vad) == 0 {
+		return jobs
+	}
+	out := make([]job, 0, len(jobs))
+	for _, j := range jobs {
+		start := float64(j.start) / 16000.0
+		end := float64(j.end) / 16000.0
+		var speech float64
+		for _, seg := range vad {
+			o := minf(end, seg.End) - maxf(start, seg.Start)
+			if o > 0 {
+				speech += o
+			}
+		}
+		if speech/(end-start) >= minRatio {
+			out = append(out, j)
+		}
+	}
+	return out
+}
+
 func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int) []result {
+	if len(jobs) == 0 {
+		return nil
+	}
 	if workers < 1 {
 		workers = 1
 	}

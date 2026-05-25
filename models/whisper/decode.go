@@ -55,6 +55,7 @@ func GreedyDecode(dec *Decoder, state *DecoderState, cfg Config) []int {
 	tokens := make([]int, 0, maxTokens)
 	for i := 0; i < maxTokens; i++ {
 		suppressNonTextSpecials(logits)
+		suppressRecentRepeats(logits, tokens, 6)
 		if i == 0 && TokenEOT < len(logits) {
 			// Avoid an immediate empty transcript on short clips where the blank/EOT
 			// prior can dominate the first greedy step.
@@ -62,7 +63,7 @@ func GreedyDecode(dec *Decoder, state *DecoderState, cfg Config) []int {
 		}
 		nextTok := argmax(logits)
 
-		if nextTok == TokenEOT {
+		if nextTok == TokenEOT || wouldRepeatRun(tokens, nextTok, 4) || repeatedBigram(tokens, nextTok) {
 			break
 		}
 		tokens = append(tokens, nextTok)
@@ -124,6 +125,43 @@ func GreedyDecodeWithTimestamps(dec *Decoder, state *DecoderState, cfg Config) [
 	}
 
 	return segments
+}
+
+func suppressRecentRepeats(logits []float32, tokens []int, window int) {
+	start := len(tokens) - window
+	if start < 0 {
+		start = 0
+	}
+	for _, tok := range tokens[start:] {
+		if tok >= 0 && tok < len(logits) {
+			logits[tok] -= 8.0
+		}
+	}
+}
+
+func wouldRepeatRun(tokens []int, nextTok, maxRun int) bool {
+	if maxRun <= 1 || len(tokens) < maxRun-1 {
+		return false
+	}
+	for i := len(tokens) - (maxRun - 1); i < len(tokens); i++ {
+		if tokens[i] != nextTok {
+			return false
+		}
+	}
+	return true
+}
+
+func repeatedBigram(tokens []int, nextTok int) bool {
+	if len(tokens) < 5 {
+		return false
+	}
+	prev := tokens[len(tokens)-1]
+	for i := 0; i+1 < len(tokens)-1; i++ {
+		if tokens[i] == prev && tokens[i+1] == nextTok {
+			return true
+		}
+	}
+	return false
 }
 
 func suppressNonTextSpecials(logits []float32) {
