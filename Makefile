@@ -6,7 +6,7 @@ MODEL ?=
 MODEL_DOWNLOAD_FLAGS ?=
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test test-cpu clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-gemma4 models-download-one hunyuan3d-inventory hunyuan3d-image-fixture hunyuan3d-conditioner-fixture
+.PHONY: all build test test-cpu clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-gemma4 models-download-one hunyuan3d-inventory hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture
 
 all: build
 
@@ -64,6 +64,8 @@ HUNYUAN3D_CONFIG ?=
 HUNYUAN3D_CHECKPOINT ?=
 HUNYUAN3D_CONDITIONER_FIXTURE ?= /workspace/tmp/hunyuan3d-conditioner-fixture.json
 HUNYUAN3D_CONDITIONER_FLAGS ?=
+HUNYUAN3D_DENOISER_FIXTURE ?= /workspace/tmp/hunyuan3d-denoiser-step-fixture.json
+HUNYUAN3D_DENOISER_FLAGS ?=
 
 hunyuan3d-inventory:
 	$(PYTHON) scripts/hunyuan3d_fixture_inventory.py --repo $(HUNYUAN3D_REPO) --subfolder $(HUNYUAN3D_SUBFOLDER) --out $(HUNYUAN3D_INVENTORY) $(HUNYUAN3D_INVENTORY_FLAGS)
@@ -74,6 +76,10 @@ hunyuan3d-image-fixture:
 hunyuan3d-conditioner-fixture:
 	@if [ -z "$(HUNYUAN3D_CONFIG)" ] || [ -z "$(HUNYUAN3D_CHECKPOINT)" ] || [ -z "$(HUNYUAN3D_IMAGE)" ]; then echo "usage: make hunyuan3d-conditioner-fixture HUNYUAN3D_CONFIG=.../config.yaml HUNYUAN3D_CHECKPOINT=.../model.fp16.safetensors HUNYUAN3D_IMAGE=...png"; exit 2; fi
 	$(PYTHON) scripts/hunyuan3d_conditioner_fixture.py --hunyuan3d-src $(HUNYUAN3D_SRC) --config $(HUNYUAN3D_CONFIG) --checkpoint $(HUNYUAN3D_CHECKPOINT) --image $(HUNYUAN3D_IMAGE) --out $(HUNYUAN3D_CONDITIONER_FIXTURE) $(HUNYUAN3D_CONDITIONER_FLAGS)
+
+hunyuan3d-denoiser-fixture:
+	@if [ -z "$(HUNYUAN3D_CONFIG)" ] || [ -z "$(HUNYUAN3D_CHECKPOINT)" ] || [ -z "$(HUNYUAN3D_IMAGE)" ]; then echo "usage: make hunyuan3d-denoiser-fixture HUNYUAN3D_CONFIG=.../config.yaml HUNYUAN3D_CHECKPOINT=.../model.fp16.safetensors HUNYUAN3D_IMAGE=...png"; exit 2; fi
+	$(PYTHON) scripts/hunyuan3d_denoiser_fixture.py --hunyuan3d-src $(HUNYUAN3D_SRC) --config $(HUNYUAN3D_CONFIG) --checkpoint $(HUNYUAN3D_CHECKPOINT) --image $(HUNYUAN3D_IMAGE) --out $(HUNYUAN3D_DENOISER_FIXTURE) $(HUNYUAN3D_DENOISER_FLAGS)
 
 # GPU-heavy tests (require GEMMA4_TRACE_TEST=1 and GPU)
 test-gpu:
