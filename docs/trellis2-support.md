@@ -117,7 +117,7 @@ Likely low-level areas:
 
 - [x] Add `loader/config/trellis2.go`.
 - [x] Add representative JSON tests for pipeline and checkpoint config snippets.
-- [ ] Validate required checkpoint families for shape-only and shape+texture pipelines.
+- [ ] Validate required checkpoint families for shape-only and shape+texture pipelines. `loader/config` now has metadata structs, summaries, representative tests, and explicit-family parsing for ambiguous `SLatFlowModel` configs.
 - [x] Add compact summary helpers for checkpoint dtype, resolution, latent dimensions, and flow model family.
 
 ### T3 — parity fixtures
