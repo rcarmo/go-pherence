@@ -129,8 +129,8 @@ Likely low-level areas:
 ### T4 — runtime feasibility study
 
 - [x] Map O-Voxel metadata and sparse tensor layouts.
-- [ ] Inventory sparse convolution/attention kernels.
-- [ ] Identify which kernels could run on CPU, CUDA, Vulkan, or future backend abstractions.
+- [x] Inventory sparse convolution/attention kernels.
+- [x] Identify which kernels could run on CPU, CUDA, Vulkan, or future backend abstractions.
 - [ ] Defer any runtime inference support claim until metadata, fixtures, and kernel requirements are validated.
 
 ## O-Voxel and sparse tensor layout notes
@@ -188,7 +188,86 @@ Pipeline sparse/voxel transitions seen in `trellis2_image_to_3d.py`:
 
 4. Shape/texture decoders operate on structured sparse latents and later convert to mesh/O-Voxel/PBR asset outputs.
 
-Near-term Go implication: store sparse fixture metadata as `{coords_shape, coords_dtype/hash, feats_shape, feats_dtype/hash, coordinate_order}` first. Avoid committing to a runtime sparse backend until `torchsparse`/`spconv` kernel usage and O-Voxel conversion kernels are fully inventoried.
+Near-term Go implication: store sparse fixture metadata as `{coords_shape, coords_dtype/hash, feats_shape, feats_dtype/hash, coordinate_order}` first. Avoid committing to a runtime sparse backend until `torchsparse`/`spconv` and O-Voxel conversion kernels are fully inventoried.
+
+## Sparse kernel and backend inventory
+
+TRELLIS.2 sparse runtime is controlled by `trellis2/modules/sparse/config.py`:
+
+```text
+SPARSE_CONV_BACKEND / config.CONV: none | spconv | torchsparse | flex_gemm
+SPARSE_ATTN_BACKEND or ATTN_BACKEND / config.ATTN: xformers | flash_attn | flash_attn_3
+Defaults: CONV=flex_gemm, ATTN=flash_attn
+```
+
+Sparse convolution layer dispatch:
+
+```text
+trellis2/modules/sparse/conv/conv.py
+  SparseConv3d.forward -> sparse_conv3d_forward(...)
+  SparseInverseConv3d.forward -> sparse_inverse_conv3d_forward(...)
+
+trellis2/modules/sparse/conv/conv_flex_gemm.py
+  flex_gemm.ops.spconv_subm / spconv / inverse-conv style CUDA kernels
+
+trellis2/modules/sparse/conv/conv_spconv.py
+  spconv.pytorch SparseConv3d/SubMConv3d/SparseInverseConv3d backend
+
+trellis2/modules/sparse/conv/conv_torchsparse.py
+  torchsparse convolution backend
+
+trellis2/modules/sparse/conv/conv_none.py
+  placeholder/no sparse convolution runtime path
+```
+
+Sparse attention layer dispatch:
+
+```text
+trellis2/modules/sparse/attention/modules.py
+  SparseMultiHeadAttention
+
+trellis2/modules/sparse/attention/full_attn.py
+  sparse_scaled_dot_product_attention
+  xformers variable-length attention path
+  flash_attn varlen qkv-packed path
+  flash_attn_3 path where available
+```
+
+Other sparse primitives used by models:
+
+```text
+trellis2/modules/sparse/linear.py       SparseLinear
+trellis2/modules/sparse/spatial/basic.py SparseDownsample / SparseUpsample
+trellis2/modules/sparse/subdivide.py    sparse subdivision helpers
+trellis2/modules/sparse/basic.py        VarLenTensor, SparseTensor, sparse_cat, sparse_unbind
+```
+
+Model usage hotspots:
+
+- `trellis2/models/sc_vaes/sparse_unet_vae.py`: heavy use of `SparseConv3d`, `SparseLinear`, `SparseDownsample`, `SparseUpsample`, and Sparse ConvNeXt/ResBlock VAE blocks.
+- `trellis2/models/sc_vaes/fdg_vae.py`: flexible-dual-grid VAE blocks using sparse ConvNeXt components.
+- `trellis2/models/structured_latent_flow.py`: `SparseLinear` and `sparse_cat` around sparse structured latents.
+- DiT/flow models depend on sparse attention backends through `SparseMultiHeadAttention` and variable-length attention layouts.
+
+Backend feasibility:
+
+| Area | Upstream backend | Near-term Go feasibility | Notes |
+| --- | --- | --- | --- |
+| Sparse conv3d / inverse conv | `flex_gemm`, `spconv`, `torchsparse` | Low without CUDA/custom sparse kernels | Core VAE/decoder blocker. CPU scalar fallback would be correctness-only and likely too slow. |
+| Sparse attention | `flash_attn`, `flash_attn_3`, `xformers` | Low without varlen attention kernels | Requires packed QKV, cumulative sequence lengths, and GPU-friendly varlen attention. |
+| Sparse linear / MLP | PyTorch dense matmul over sparse feature rows | Medium | Could map to existing GEMM/GEMV once feature layouts are fixed. |
+| Sparse cat/unbind/layout | Python tensor bookkeeping | High for metadata/fixtures | Good first Go target for fixture validation. |
+| Sparse down/up-sample/subdivide | custom sparse coordinate transforms | Medium | Implementable as coordinate/layout transforms before conv kernels. |
+| O-Voxel conversion/render/postprocess | `o-voxel` C++/CUDA extensions | Low for runtime, medium for metadata | Start with file/metadata inspection only. |
+| Mesh/GLB export | O-Voxel + rendering/postprocess stack | Low in pure Go initially | Keep out of runtime claims. |
+
+CPU path: viable only for metadata, fixtures, small coordinate transforms, sparse linear math, and correctness micro-fixtures. Full TRELLIS.2 inference is not CPU-practical without a much larger sparse-kernel project.
+
+CUDA path: closest to upstream because `flex_gemm`, `flash_attn`, `xformers`, `spconv`, O-Voxel render/convert, and nvdiffrast/nvdiffrec are CUDA-oriented. A Go CUDA backend would still need either bindings or native kernels for sparse conv and varlen attention.
+
+Vulkan path: speculative. Dense matmul/MLP pieces are plausible, but sparse conv3d, inverse conv, varlen attention, O-Voxel conversion, and differentiable/rendering kernels would require substantial new compute kernels.
+
+Future backend abstraction: separate sparse layout/coordinate transforms from kernel execution. First stable Go surfaces should be fixture structures and validators for `SparseTensor`-like `{coords, feats, layout}` data, not inference kernels.
 
 ## Relationship to Hunyuan3D work
 
