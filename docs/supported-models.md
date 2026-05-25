@@ -31,7 +31,7 @@ MoE note: 128 experts/layer, 8 active/token. NVIDIA backend runs attention, rout
 | **gemma4** | Gemma 4 E2B+ | MLX 4-bit | ✅ |
 | **hunyuan3d_dit** | Hunyuan3D-2/2mini/2mv shape generation | HF safetensors + YAML | 🧭 assessed, not implemented |
 
-Any model from [mlx-community](https://huggingface.co/mlx-community) using the supported LLM architectures should work through the compatible loader path. Hunyuan3D-2 is a separate diffusion/3D pipeline family rather than an LLM decode architecture; see [hunyuan3d-2-support.md](hunyuan3d-2-support.md).
+Any model from [mlx-community](https://huggingface.co/mlx-community) using the supported LLM architectures should work through the compatible loader path. Hunyuan3D-2 is a separate diffusion/3D pipeline family rather than an LLM decode architecture; config/tensor inventory scaffolding exists, but runtime support is not implemented. See [hunyuan3d-2-support.md](hunyuan3d-2-support.md).
 
 ## Weight format support
 
