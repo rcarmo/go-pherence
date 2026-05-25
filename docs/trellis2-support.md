@@ -304,6 +304,17 @@ Runtime claims remain deferred until all of the following are true:
 
 Until then, describe TRELLIS.2 support as **metadata and fixture scaffolding only**.
 
+## Next phase: sparse fixture metadata
+
+The first post-roadmap implementation surface is Go-side fixture metadata, not runtime kernels. `loader/config` now includes TRELLIS.2 low-step fixture structs and validators for compact JSON emitted by `scripts/trellis2_lowstep_fixture.py`:
+
+- top-level fixture schema and run metadata
+- fixture-compatible float32 tensor summaries
+- sparse structure coordinate summaries with `[N,4]` int coordinate shape checks
+- optional structured-latent coordinate/flow-model metadata
+
+This provides a stable place for future upstream CUDA fixture runs to land without committing tensor payloads or implying inference support.
+
 ## Relationship to Hunyuan3D work
 
 Hunyuan3D remains the active implementation track. TRELLIS.2 should start as a parallel metadata and fixture-parity track because it is public, MIT licensed, and architecturally important, but its sparse-native runtime requirements are larger than the current Hunyuan3D metadata ladder.
