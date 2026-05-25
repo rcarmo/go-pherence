@@ -109,6 +109,8 @@ func fp16ToFloat(h uint16) float32 {
 
 type layerWeights struct {
 		wqPacked, wkPacked, wvPacked, woPacked       []int8
+	wqPacked1024, wkPacked1024, wvPacked1024, woPacked1024 []int8
+	gatePacked1024, upPacked1024, downPacked1024         []int8
 		wqRaw, wkRaw, wvRaw, woRaw                   []int8
 		gateRaw, upRaw, downRaw                       []int8
 		wqF32, wkF32, wvF32, woF32                   []float32
@@ -272,6 +274,13 @@ func main() {
 			l.kNorm, _ = g.DequantF32(kn)
 		}
 
+		l.wqPacked1024 = ime2.PackTiles1024(l.wqRaw, l.wqRows, pad32(l.wqCols))
+		l.wkPacked1024 = ime2.PackTiles1024(l.wkRaw, l.wkRows, pad32(l.wkCols))
+		l.wvPacked1024 = ime2.PackTiles1024(l.wvRaw, l.wvRows, pad32(l.wvCols))
+		l.woPacked1024 = ime2.PackTiles1024(l.woRaw, l.woRows, pad32(l.woCols))
+		l.gatePacked1024 = ime2.PackTiles1024(l.gateRaw, l.gateRows, pad32(l.gateCols))
+		l.upPacked1024 = ime2.PackTiles1024(l.upRaw, l.upRows, pad32(l.upCols))
+		l.downPacked1024 = ime2.PackTiles1024(l.downRaw, l.downRows, pad32(l.downCols))
 		if il%7 == 0 {
 			fmt.Fprintf(os.Stderr, "  layer %d/%d loaded\n", il, nLayers)
 		}
@@ -381,6 +390,9 @@ func main() {
 	globalBufs = NewMatVecBufs(pad8(nFF), pad4(nFF))
 
 	var layerTime, headTime time.Duration
+	aiPool := NewAIWorkerPool(*nThreads)
+	defer aiPool.Close()
+
 	allTokens := promptTokens
 	t1 := time.Now()
 
@@ -393,7 +405,7 @@ func main() {
 
 		// Layer loop (simplified: no attention, just FFN for speed test)
 		tL := time.Now()
-		parallelDecodeV2(x, layers, nLayers, nEmbd, nHeads, nKVHeads, headDim, nFF, rmsEps, ropeBase, kCache, vCache, nPast, *nThreads)
+		parallelDecodeAI(x, layers, nLayers, nEmbd, nHeads, nKVHeads, headDim, nFF, rmsEps, ropeBase, kCache, vCache, nPast, aiPool)
 		layerTime += time.Since(tL)
 
 		tH := time.Now()
@@ -569,3 +581,5 @@ func fatal(f string, a ...any) {
 }
 
 var _ = unsafe.Pointer(nil)
+
+func pad32(n int) int { return ((n + 31) / 32) * 32 }
