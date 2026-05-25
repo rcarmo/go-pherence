@@ -115,10 +115,10 @@ Likely low-level areas:
 
 ### T2 — Go config parsing and validation
 
-- [ ] Add `loader/config/trellis2.go`.
-- [ ] Add representative JSON tests for pipeline and checkpoint config snippets.
+- [x] Add `loader/config/trellis2.go`.
+- [x] Add representative JSON tests for pipeline and checkpoint config snippets.
 - [ ] Validate required checkpoint families for shape-only and shape+texture pipelines.
-- [ ] Add compact summary helpers for checkpoint dtype, resolution, latent dimensions, and flow model family.
+- [x] Add compact summary helpers for checkpoint dtype, resolution, latent dimensions, and flow model family.
 
 ### T3 — parity fixtures
 
