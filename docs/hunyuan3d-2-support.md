@@ -140,7 +140,7 @@ Acceptance:
 - Metadata inventory command identifies all required tensor groups and dimensions.
 - Golden fixture can be reproduced with Python and local cached weights.
 
-Current status: `scripts/hunyuan3d_fixture_inventory.py` can generate a metadata fixture from Hugging Face without downloading full tensor payloads. With `--include-tensors`, it fetches only safetensors header bytes. For `tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini`, the header inventory reports one `model.fp16.safetensors` file with `model`, `vae`, and `conditioner` tensor groups.
+Current status: `scripts/hunyuan3d_fixture_inventory.py` can generate a metadata fixture from Hugging Face without downloading full tensor payloads. With `--include-tensors`, it fetches only safetensors header bytes. It also emits a small FlowMatch scheduler reference (`sigmas`, timesteps, normalized model timestep inputs, and Euler step formula) for early Go parity tests. For `tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini`, the header inventory reports one `model.fp16.safetensors` file with `model`, `vae`, and `conditioner` tensor groups.
 
 ### Phase H1 — Loader/config plumbing
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import struct
 import sys
 import urllib.parse
@@ -78,6 +79,50 @@ def fetch_safetensors_header(repo: str, path: str) -> dict[str, Any]:
     return json.loads(header.decode("utf-8"))
 
 
+def yaml_scalar(text: str, key: str, default: Any = None) -> Any:
+    match = re.search(rf"(?m)^\s*{re.escape(key)}:\s*([^#\n]+)", text)
+    if not match:
+        return default
+    raw = match.group(1).strip()
+    if raw.lower() in {"true", "false"}:
+        return raw.lower() == "true"
+    try:
+        if any(c in raw for c in ".eE"):
+            return float(raw)
+        return int(raw)
+    except ValueError:
+        return raw.strip('"\'')
+
+
+def scheduler_reference(config_text: str, steps: int) -> dict[str, Any]:
+    if steps <= 0:
+        return {}
+    train_steps = int(yaml_scalar(config_text, "num_train_timesteps", 1000))
+    shift = float(yaml_scalar(config_text, "shift", 1.0))
+    use_dynamic = bool(yaml_scalar(config_text, "use_dynamic_shifting", False))
+    if steps == 1:
+        base_sigmas = [0.0]
+    else:
+        base_sigmas = [i / (steps - 1) for i in range(steps)]
+    if use_dynamic:
+        sigmas = base_sigmas
+    else:
+        sigmas = [shift * s / (1 + (shift - 1) * s) if s != 0 else 0.0 for s in base_sigmas]
+    timesteps = [s * train_steps for s in sigmas]
+    return {
+        "num_inference_steps": steps,
+        "num_train_timesteps": train_steps,
+        "shift": shift,
+        "use_dynamic_shifting": use_dynamic,
+        "base_sigmas": base_sigmas,
+        "sigmas": sigmas,
+        "scheduler_sigmas_with_terminal_one": sigmas + [1.0],
+        "timesteps": timesteps,
+        "model_timestep_inputs": [t / train_steps for t in timesteps],
+        "step_formula": "prev_sample = sample + (sigma_next - sigma) * model_output",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default="tencent/Hunyuan3D-2mini", help="Hugging Face repo id")
@@ -85,6 +130,7 @@ def main() -> int:
     parser.add_argument("--out", default="testdata/hunyuan3d/fixture-inventory.json", help="output JSON path")
     parser.add_argument("--include-tensors", action="store_true", help="fetch safetensors headers for tensor inventory")
     parser.add_argument("--max-tensor-files", type=int, default=4, help="safety cap for safetensors header reads")
+    parser.add_argument("--scheduler-steps", type=int, default=5, help="emit a small FlowMatch scheduler reference")
     args = parser.parse_args()
 
     repo = args.repo
@@ -97,6 +143,7 @@ def main() -> int:
         raise SystemExit(f"config not found in repo listing: {config_path}")
 
     config_bytes = fetch_bytes(resolve_url(repo, config_path))
+    config_text = config_bytes.decode("utf-8")
     safetensors_files = [p for p in files if p.endswith(".safetensors")]
 
     tensor_headers = []
@@ -119,8 +166,9 @@ def main() -> int:
             "path": config_path,
             "sha256": hashlib.sha256(config_bytes).hexdigest(),
             "bytes": len(config_bytes),
-            "text": config_bytes.decode("utf-8"),
+            "text": config_text,
         },
+        "scheduler_reference": scheduler_reference(config_text, args.scheduler_steps),
         "files": files,
         "safetensors_files": safetensors_files,
         "tensor_headers": tensor_headers,
