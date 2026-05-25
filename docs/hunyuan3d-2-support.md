@@ -215,8 +215,8 @@ Goal: produce final latents without mesh export.
   - sigma/timestep generation;
   - `step`: `sample + (sigma_next - sigma) * model_output`;
   - flow pipeline convention where model receives timesteps normalized to `[0, 1]`.
-- [ ] Implement CFG duplication/blending for Hunyuan3D flow pipeline.
-- [ ] Add deterministic random latent generation for fixture parity.
+- [x] Implement CFG duplication/blending for Hunyuan3D flow pipeline.
+- [x] Add deterministic random latent generation for fixture parity.
 
 Acceptance:
 
