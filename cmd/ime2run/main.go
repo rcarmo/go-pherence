@@ -374,6 +374,8 @@ func main() {
 	}
 	nPast := 0
 	// Pre-allocate matmul buffers (zero-alloc hot path)
+	globalPool = ime2.NewWorkerPool(*nThreads)
+	defer globalPool.Close()
 	globalBufs = NewMatVecBufs(pad8(nFF), pad4(nFF))
 
 	allTokens := promptTokens

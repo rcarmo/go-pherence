@@ -198,6 +198,7 @@ func matVecFast(M, K int, f32 []float32, packed []int8, scale float32, act []flo
 }
 
 var globalBufs *MatVecBufs
+var globalPool *ime2.WorkerPool
 
 func matVecFastBuf(M, K int, f32 []float32, packed []int8, scale float32, act []float32, out []float32, bufs *MatVecBufs) {
 	if packed != nil && len(packed) > 0 && bufs != nil {
@@ -229,7 +230,11 @@ func matVecFastBuf(M, K int, f32 []float32, packed []int8, scale float32, act []
 		// GEMM
 		res := bufs.res[:Mp*4]
 		for i := range res { res[i] = 0 }
-		if Mp >= 8192 { ime2.GemmINT8PackedParallel(Mp, 4, Kp, packed, pk, res, 8) } else { ime2.GemmINT8Packed(Mp, 4, Kp, packed, pk, res) }
+		if globalPool != nil && Mp >= 512 {
+			ime2.GemmINT8PackedPool(Mp, 4, Kp, packed, pk, res, globalPool)
+		} else {
+			ime2.GemmINT8Packed(Mp, 4, Kp, packed, pk, res)
+		}
 		for i := 0; i < M; i++ { out[i] = float32(res[i*4]) * scale * _actScaleG }
 	} else {
 		for row := 0; row < M; row++ {
