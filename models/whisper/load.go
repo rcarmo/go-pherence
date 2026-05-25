@@ -56,22 +56,15 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 		return data, err
 	}
 
-	// getLinear loads a 2D weight matrix and transposes it from [out, in] to [in, out]
-	// HuggingFace stores nn.Linear weights as [out_features, in_features] but our
-	// linearForwardOpt expects the transposed layout for correct matrix-vector multiply.
+	// getLinear loads a HuggingFace nn.Linear weight in its native row-major
+	// [out_features, in_features] layout. linearForwardOpt consumes that layout
+	// directly as y[o] = dot(x, W[o]).
 	getLinear := func(name string, rows, cols int) ([]float32, error) {
 		data, _, err := f.GetFloat32(name)
 		if err != nil || len(data) != rows*cols {
 			return data, err
 		}
-		// Transpose [rows, cols] → [cols, rows]
-		t := make([]float32, rows*cols)
-		for r := 0; r < rows; r++ {
-			for c := 0; c < cols; c++ {
-				t[c*rows+r] = data[r*cols+c]
-			}
-		}
-		return t, nil
+		return data, nil
 	}
 
 	enc := NewEncoder(cfg)

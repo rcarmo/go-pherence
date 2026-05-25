@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/models/speaker"
@@ -19,6 +20,7 @@ func main() {
 	modelPath := flag.String("model", "", "Path to Whisper safetensors model")
 	audioPath := flag.String("audio", "", "Path to input WAV file")
 	modelSize := flag.String("size", "tiny", "Model size: tiny, base, small, medium, large-v3, turbo")
+	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
 	timestamps := flag.Bool("timestamps", false, "Output with timestamps")
 	output := flag.String("output", "", "Output file path (supports .vtt)")
@@ -47,6 +49,19 @@ func main() {
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown model size: %s\n", *modelSize)
 		os.Exit(1)
+	}
+
+	if *maxTokens > 0 && *maxTokens < cfg.MaxDecoderLength {
+		cfg.MaxDecoderLength = *maxTokens
+	}
+
+	// Load tokenizer next to the model when available; without this, transcripts
+	// degrade to placeholder tokens.
+	tokenizerPath := filepath.Join(filepath.Dir(*modelPath), "tokenizer.json")
+	if _, err := os.Stat(tokenizerPath); err == nil {
+		if err := whisper.LoadTokenizerGlobal(tokenizerPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not load tokenizer %s: %v\n", tokenizerPath, err)
+		}
 	}
 
 	// Load model

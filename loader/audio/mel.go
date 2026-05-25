@@ -79,13 +79,13 @@ func MelSpectrogram(samples []float32, cfg MelConfig) [][]float32 {
 			if energy < 1e-10 {
 				energy = 1e-10
 			}
-			mel[m][frame] = float32(math.Log(energy))
+			mel[m][frame] = float32(math.Log10(energy))
 		}
 	}
 
-	// Whisper-specific mel normalization: clip to max-8, scale to [-1, 1]
+	// Whisper normalization: log10 mel, clamp to max-8dB, then (x+4)/4.
+	// This matches OpenAI Whisper's log_mel_spectrogram normalization.
 	if mel != nil {
-		// Find global max
 		maxVal := mel[0][0]
 		for _, row := range mel {
 			for _, v := range row {
@@ -94,14 +94,14 @@ func MelSpectrogram(samples []float32, cfg MelConfig) [][]float32 {
 				}
 			}
 		}
-		// Clip and normalize to [-1, 1]
+		floor := maxVal - 8.0
 		for m := range mel {
 			for t := range mel[m] {
 				v := mel[m][t]
-				if v < maxVal-8.0 {
-					v = maxVal - 8.0
+				if v < floor {
+					v = floor
 				}
-				mel[m][t] = (v - (maxVal - 4.0)) / 4.0 // maps [max-8, max] to [-1, 1]
+				mel[m][t] = (v + 4.0) / 4.0
 			}
 		}
 	}

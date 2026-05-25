@@ -68,6 +68,7 @@ func (ge *GPUEncoder) ForwardGPU(mel []float32, T int) []float32 {
 	gelu(h)
 	h = conv1dForward(h, ge.Encoder.Conv2Weight, ge.Encoder.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
 	T2 := (T1+2*1-3)/2 + 1
+	gelu(h)
 
 	// Transpose to [T2, d_model]
 	ht := transpose2D(h, dModel, T2)

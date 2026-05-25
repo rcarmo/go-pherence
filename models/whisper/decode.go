@@ -42,28 +42,31 @@ func GreedyDecode(dec *Decoder, state *DecoderState, cfg Config) []int {
 	// Start with SOT + language + task + notimestamps
 	prompt := []int{TokenSOT, TokenEnglish, TokenTranscribe, TokenNoTimestamps}
 
-	// Feed prompt tokens
+	// Feed prompt tokens once. The logits returned for the final prompt token are
+	// the distribution for the first generated token; do not feed the final
+	// prompt token a second time, or absolute positions/KV cache drift from the
+	// intended Whisper prompt.
+	var logits []float32
 	for _, tok := range prompt {
-		dec.ForwardToken(tok, state)
+		logits = dec.ForwardToken(tok, state)
 	}
 
 	// Generate tokens greedily
 	tokens := make([]int, 0, maxTokens)
 	for i := 0; i < maxTokens; i++ {
-		var prevTok int
-		if len(tokens) == 0 {
-			prevTok = prompt[len(prompt)-1]
-		} else {
-			prevTok = tokens[len(tokens)-1]
+		suppressNonTextSpecials(logits)
+		if i == 0 && TokenEOT < len(logits) {
+			// Avoid an immediate empty transcript on short clips where the blank/EOT
+			// prior can dominate the first greedy step.
+			logits[TokenEOT] = -1e30
 		}
-
-		logits := dec.ForwardToken(prevTok, state)
 		nextTok := argmax(logits)
 
 		if nextTok == TokenEOT {
 			break
 		}
 		tokens = append(tokens, nextTok)
+		logits = dec.ForwardToken(nextTok, state)
 	}
 
 	return tokens
@@ -75,17 +78,16 @@ func GreedyDecodeWithTimestamps(dec *Decoder, state *DecoderState, cfg Config) [
 
 	// Start with SOT + language + task (allow timestamps)
 	prompt := []int{TokenSOT, TokenEnglish, TokenTranscribe}
-	for _, tok := range prompt {
-		dec.ForwardToken(tok, state)
-	}
 
 	var segments []Segment
 	var currentTokens []int
 	var startTime float64
 
-	prevTok := prompt[len(prompt)-1]
+	var logits []float32
+	for _, tok := range prompt {
+		logits = dec.ForwardToken(tok, state)
+	}
 	for i := 0; i < maxTokens; i++ {
-		logits := dec.ForwardToken(prevTok, state)
 		nextTok := argmax(logits)
 
 		if nextTok == TokenEOT {
@@ -118,10 +120,19 @@ func GreedyDecodeWithTimestamps(dec *Decoder, state *DecoderState, cfg Config) [
 			currentTokens = append(currentTokens, nextTok)
 		}
 
-		prevTok = nextTok
+		logits = dec.ForwardToken(nextTok, state)
 	}
 
 	return segments
+}
+
+func suppressNonTextSpecials(logits []float32) {
+	// Whisper suppresses prompt/control/language/timestamp tokens during
+	// no-timestamps transcription. Without this, greedy decoding can loop on
+	// <|translate|>, <|notimestamps|>, or language tags.
+	for tok := TokenSOT; tok < len(logits); tok++ {
+		logits[tok] = -1e30
+	}
 }
 
 // argmax returns the index of the maximum value.

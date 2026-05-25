@@ -72,6 +72,7 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	// Conv2: [d_model, T] → [d_model, T/2] with kernel=3, stride=2, padding=1
 	h = conv1dForward(h, enc.Conv2Weight, enc.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
 	T2 := (T1+2*1-3)/2 + 1
+	gelu(h)
 
 	// Transpose to [T2, d_model] for transformer layers
 	ht := transpose2D(h, dModel, T2)
