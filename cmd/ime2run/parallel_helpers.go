@@ -22,11 +22,8 @@ func newPackBufs(maxK int) *packBufs {
 func quantizeAndPackInto(act []float32, Kp int, b *packBufs) ([]int8, float32) {
 	xI8 := b.xI8[:Kp]
 	for i := Kp - 1; i >= len(act); i-- { xI8[i] = 0 }
-	var maxAbs float32
-	for _, v := range act {
-		a := v; if a < 0 { a = -a }
-		if a > maxAbs { maxAbs = a }
-	}
+	maxAbs := ime2.FindMaxAbsRVV(act)
+	
 	if maxAbs == 0 {
 		for i := range xI8 { xI8[i] = 0 }
 		pk := b.packed[:4*Kp]

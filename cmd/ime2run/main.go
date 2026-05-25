@@ -391,7 +391,7 @@ func main() {
 		copy(x, tokEmbdF32[tokID*nEmbd:(tokID+1)*nEmbd])
 
 		// Layer loop (simplified: no attention, just FFN for speed test)
-		parallelDecode(x, layers, nLayers, nEmbd, nHeads, nKVHeads, headDim, nFF, rmsEps, ropeBase, kCache, vCache, nPast, *nThreads)
+		parallelDecodeV2(x, layers, nLayers, nEmbd, nHeads, nKVHeads, headDim, nFF, rmsEps, ropeBase, kCache, vCache, nPast, *nThreads)
 
 		// Output norm// Output norm + LM head
 		xn := make([]float32, nEmbd)

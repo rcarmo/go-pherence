@@ -59,3 +59,13 @@ func FusedPackVmadot(M, K int, wPacked []int8, actI8 []int8, out []int32) {
 	fusedPackVmadot((*byte)(unsafe.Pointer(&wPacked[0])), (*byte)(unsafe.Pointer(&actI8[0])), M, K, &rawOut[0])
 	for i := 0; i < M; i++ { out[i] = rawOut[i*4] }
 }
+
+// rvvFindMaxAbs returns max(|x[i]|) using RVV vectorized reduction.
+//go:noescape
+func rvvFindMaxAbs(x *float32, n int) float32
+
+// FindMaxAbsRVV is the exported wrapper.
+func FindMaxAbsRVV(x []float32) float32 {
+	if len(x) == 0 { return 0 }
+	return rvvFindMaxAbs(&x[0], len(x))
+}
