@@ -28,6 +28,7 @@ func parallelDecodeV2(
 	KpFF := ((nFF + 7) / 8) * 8
 
 	// Shared buffers (written by main between layers, read by workers)
+	scoresPool := make([]float32, 512) // max context length
 	xn := make([]float32, nEmbd)
 	xn2 := make([]float32, nEmbd)
 	qF := make([]float32, nQEmbd)
@@ -121,7 +122,7 @@ func parallelDecodeV2(
 			kvH := h / repFactor
 			// Compute scores
 			var maxScore float32 = -1e30
-			scores := make([]float32, pos+1)
+			scores := scoresPool[:pos+1]
 			for t := 0; t <= pos; t++ {
 				var dot float32
 				for d := 0; d < headDim; d++ { dot += qHead[d] * kCache[il][t*nKVD+kvH*headDim+d] }

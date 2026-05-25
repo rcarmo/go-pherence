@@ -380,6 +380,7 @@ func main() {
 	defer globalPool.Close()
 	globalBufs = NewMatVecBufs(pad8(nFF), pad4(nFF))
 
+	var layerTime, headTime time.Duration
 	allTokens := promptTokens
 	t1 := time.Now()
 
@@ -391,9 +392,12 @@ func main() {
 		copy(x, tokEmbdF32[tokID*nEmbd:(tokID+1)*nEmbd])
 
 		// Layer loop (simplified: no attention, just FFN for speed test)
+		tL := time.Now()
 		parallelDecodeV2(x, layers, nLayers, nEmbd, nHeads, nKVHeads, headDim, nFF, rmsEps, ropeBase, kCache, vCache, nPast, *nThreads)
+		layerTime += time.Since(tL)
 
-		// Output norm// Output norm + LM head
+		tH := time.Now()
+		// Output norm + LM head
 		xn := make([]float32, nEmbd)
 		inference.RMSNorm(x, outputNorm, xn, rmsEps)
 
@@ -414,6 +418,7 @@ func main() {
 			}
 		}
 
+		headTime += time.Since(tH)
 		// Argmax
 		fmt.Fprintf(os.Stderr, "logit[374]=%.4f logit[264]=%.4f logit[635]=%.4f\n", logits[374], logits[264], logits[635])
 		nextTok := 0
@@ -446,6 +451,7 @@ func main() {
 
 	decodeTime := time.Since(t1)
 	genCount := len(allTokens) - len(promptTokens)
+	fmt.Fprintf(os.Stderr, "  layers=%.1fms lm_head=%.1fms\n", float64(layerTime.Milliseconds())/float64(genCount), float64(headTime.Milliseconds())/float64(genCount))
 	fmt.Fprintf(os.Stderr, "Decode: %.3fs (%.2f tok/s, %d tokens)\n",
 		decodeTime.Seconds(), float64(genCount)/decodeTime.Seconds(), genCount)
 
