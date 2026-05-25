@@ -117,8 +117,3 @@ func PackQ4KForI2K(rawQS []byte, M, K int) []byte {
 	}
 	return out
 }
-
-
-// Processes nGroups row-groups against the same activation tile.
-// Results are nGroups×16 int32 values (stride 4 for diagonal extraction).
-}
