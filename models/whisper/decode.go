@@ -6,11 +6,11 @@ import "strings"
 const (
 	TokenSOT            = 50258 // <|startoftranscript|>
 	TokenEOT            = 50257 // <|endoftext|>
-	TokenTranscribe     = 50359 // <|transcribe|>
-	TokenTranslate      = 50358 // <|translate|>
-	TokenNoTimestamps   = 50363 // <|notimestamps|>
+	TokenTranslate      = 50359 // <|translate|>
+	TokenTranscribe     = 50360 // <|transcribe|>
+	TokenNoTimestamps   = 50364 // <|notimestamps|>
 	TokenEnglish        = 50259 // <|en|>
-	TokenTimestampBegin = 50364 // <|0.00|>
+	TokenTimestampBegin = 50365 // <|0.00|>
 )
 
 // IsTimestamp returns true if the token is a timestamp token.
@@ -75,7 +75,7 @@ func GreedyDecodePrompt(dec *Decoder, state *DecoderState, cfg Config, languageT
 		}
 		nextTok := argmax(logits)
 
-		if nextTok == TokenEOT || wouldRepeatRun(tokens, nextTok, 4) || repeatedBigram(tokens, nextTok) {
+		if nextTok == TokenEOT || wouldRepeatRun(tokens, nextTok, 6) {
 			break
 		}
 		tokens = append(tokens, nextTok)
@@ -161,19 +161,6 @@ func wouldRepeatRun(tokens []int, nextTok, maxRun int) bool {
 		}
 	}
 	return true
-}
-
-func repeatedBigram(tokens []int, nextTok int) bool {
-	if len(tokens) < 5 {
-		return false
-	}
-	prev := tokens[len(tokens)-1]
-	for i := 0; i+1 < len(tokens)-1; i++ {
-		if tokens[i] == prev && tokens[i+1] == nextTok {
-			return true
-		}
-	}
-	return false
 }
 
 func suppressNonTextSpecials(logits []float32) {

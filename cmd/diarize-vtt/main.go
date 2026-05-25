@@ -246,7 +246,12 @@ func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples
 		encoderOutput = w.Encoder.Forward(melFlat, T)
 	}
 	encLen := len(encoderOutput) / cfg.EncoderDModel
-	state := whisper.NewDecoderState(cfg, encoderOutput, encLen, w.Decoder)
+	var state *whisper.DecoderState
+	if gpuEnc != nil {
+		state = whisper.NewDecoderStateGPU(cfg, encoderOutput, encLen, w.Decoder)
+	} else {
+		state = whisper.NewDecoderState(cfg, encoderOutput, encLen, w.Decoder)
+	}
 	tokens := whisper.GreedyDecodePrompt(w.Decoder, state, cfg, languageToken, taskToken)
 	return whisper.TokensToText(tokens), nil
 }
