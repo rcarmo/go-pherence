@@ -128,10 +128,67 @@ Likely low-level areas:
 
 ### T4 — runtime feasibility study
 
-- [ ] Map O-Voxel metadata and sparse tensor layouts.
+- [x] Map O-Voxel metadata and sparse tensor layouts.
 - [ ] Inventory sparse convolution/attention kernels.
 - [ ] Identify which kernels could run on CPU, CUDA, Vulkan, or future backend abstractions.
 - [ ] Defer any runtime inference support claim until metadata, fixtures, and kernel requirements are validated.
+
+## O-Voxel and sparse tensor layout notes
+
+Upstream O-Voxel lives in the separate `o-voxel/` package embedded as part of the TRELLIS.2 repository. It is not just a file format shim: it includes Python modules plus compiled C++/CUDA extension sources for conversion, rendering, post-processing, and GLB/export workflows.
+
+Important O-Voxel files:
+
+```text
+o-voxel/o_voxel/io/npz.py
+o-voxel/o_voxel/io/vxz.py
+o-voxel/o_voxel/io/ply.py
+o-voxel/o_voxel/convert/flexible_dual_grid.py
+o-voxel/o_voxel/convert/volumetic_attr.py
+o-voxel/o_voxel/postprocess/*
+o-voxel/src/convert/*
+o-voxel/src/render/*
+```
+
+Observed layout concepts:
+
+- O-Voxel examples pass `coords`, voxel data/features, and rendering/export metadata around explicitly.
+- Sparse coordinates are integer tensors; TRELLIS.2 sparse module comments state coords should be in `[0, 1023]`.
+- `trellis2.modules.sparse.basic.SparseTensor` is the central sparse wrapper and extends `VarLenTensor`.
+- `SparseTensor` stores feature rows (`feats`) and corresponding coordinate rows (`coords`), with data for the same batch expected to be contiguous.
+- Coordinates include a leading batch coordinate for sparse backends; user-facing sparse structure coords are often projected as `[batch, x, y, z]` after `torch.argwhere(decoded)[:, [0, 2, 3, 4]]`.
+- `SparseTensor` can wrap multiple backend layouts:
+  - `torchsparse.SparseTensor`
+  - `spconv.pytorch.SparseConvTensor`
+  - fallback dict-style `{feats, coords}` data
+- `spconv` construction derives `spatial_shape = coords.max(0)+1`, uses `spatial_shape[1:]` for spatial dimensions, and `spatial_shape[0]` as batch size.
+- `VarLenTensor` carries a compact variable-length layout with sequence lengths, cumulative sequence lengths, and broadcast maps. This is relevant for sparse attention and any future Go fixture representation.
+
+Pipeline sparse/voxel transitions seen in `trellis2_image_to_3d.py`:
+
+1. Sparse-structure flow samples dense noise with shape:
+
+   ```text
+   [num_samples, in_channels, reso, reso, reso]
+   ```
+
+2. Sparse-structure decoder thresholds occupancy:
+
+   ```text
+   decoded = decoder(z_s) > 0
+   coords = torch.argwhere(decoded)[:, [0, 2, 3, 4]].int()
+   ```
+
+3. Shape structured-latent flow creates a `SparseTensor`:
+
+   ```text
+   feats = randn([coords.shape[0], flow_model.in_channels])
+   coords = coords
+   ```
+
+4. Shape/texture decoders operate on structured sparse latents and later convert to mesh/O-Voxel/PBR asset outputs.
+
+Near-term Go implication: store sparse fixture metadata as `{coords_shape, coords_dtype/hash, feats_shape, feats_dtype/hash, coordinate_order}` first. Avoid committing to a runtime sparse backend until `torchsparse`/`spconv` kernel usage and O-Voxel conversion kernels are fully inventoried.
 
 ## Relationship to Hunyuan3D work
 
