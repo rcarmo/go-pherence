@@ -79,3 +79,4 @@ func QuantizeF32ToI8RVV(src []float32, scale float32, dst []int8) {
 	bits := math.Float32bits(scale)
 	rvvQuantizeF32ToI8(&src[0], bits, (*byte)(unsafe.Pointer(&dst[0])), len(src))
 }
+

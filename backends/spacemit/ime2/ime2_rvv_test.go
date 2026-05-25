@@ -145,3 +145,31 @@ func TestQuantizeF32ToI8RVV(t *testing.T) {
 	if dst[8] != 0 { t.Errorf("dst[8]=%d want 0", dst[8]) }
 	if dst[0] > -120 { t.Errorf("dst[0]=%d want ~-127", dst[0]) }
 }
+
+func TestI8I2KMatVec(t *testing.T) {
+	M, K := 8, 16
+	// Weights: row i = all value (i+1)
+	wI8 := make([]int8, M*K)
+	for i := 0; i < M; i++ { for k := 0; k < K; k++ { wI8[i*K+k] = int8(i+1) } }
+	wPacked := PackTiles(wI8, M, K)
+	// Activation: all 10 (quantized)
+	actI8 := make([]int8, K)
+	for i := range actI8 { actI8[i] = 10 }
+	bc := make([]int8, 4*K)
+	copy(bc[0:K], actI8); copy(bc[K:2*K], actI8); copy(bc[2*K:3*K], actI8); copy(bc[3*K:4*K], actI8)
+	actPacked := PackTiles(bc, 4, K)
+	
+	out := make([]float32, M)
+	I8I2KMatVec(M, K, wPacked, actPacked, 1.0, 1.0, out)
+	
+	// Expected: for row i, dot(act=10, wt=i+1 as low2+4*high2)
+	// nibble = i+1. low2 = (i+1)&3, high2 = (i+1)>>2
+	// dot_low = sum(10 * low2) = 10 * K * low2
+	// dot_high = sum(10 * high2) = 10 * K * high2
+	// result = (dot_low + 4*dot_high) * 1 * 1 = 10*K*(low2 + 4*high2) = 10*K*nibble = 10*K*(i+1)
+	for i := 0; i < M; i++ {
+		expected := float32(10 * K * (i + 1))
+		t.Logf("out[%d] = %.0f (expected %.0f)", i, out[i], expected)
+		if out[i] != expected { t.Errorf("MISMATCH row %d: got %.0f want %.0f", i, out[i], expected) }
+	}
+}
