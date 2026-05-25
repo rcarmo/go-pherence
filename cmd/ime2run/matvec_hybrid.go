@@ -4,7 +4,7 @@ import (
 	"unsafe"
 
 
-	_ "github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 // matVecQ4KVmadot performs out[M] = W_q4k[M×K] · act[K] using vmadot
@@ -140,5 +140,55 @@ func matVecF32Direct(M, K int, wF32 []float32, act []float32, out []float32) {
 			sum += wF32[row*K+k] * act[k]
 		}
 		out[row] = sum
+	}
+}
+
+
+var _actScaleG float32
+
+func packActG(x []float32, K int) []int8 {
+	xI8 := make([]int8, K)
+	var maxAbs float32
+	for _, v := range x[:K] {
+		a := v; if a < 0 { a = -a }
+		if a > maxAbs { maxAbs = a }
+	}
+	if maxAbs == 0 {
+		_actScaleG = 0
+		return ime2.PackTiles(make([]int8, 4*K), 4, K)
+	}
+	_actScaleG = maxAbs / 127.0
+	s := float32(127.0) / maxAbs
+	for i := 0; i < K; i++ {
+		v := x[i] * s
+		if v > 127 { v = 127 } else if v < -128 { v = -128 }
+		xI8[i] = int8(v)
+	}
+	bc := make([]int8, 4*K)
+	copy(bc[0:K], xI8)
+	copy(bc[K:2*K], xI8)
+	copy(bc[2*K:3*K], xI8)
+	copy(bc[3*K:4*K], xI8)
+	return ime2.PackTiles(bc, 4, K)
+}
+
+func matVecFast(M, K int, f32 []float32, packed []int8, scale float32, act []float32, out []float32) {
+	if packed != nil && len(packed) > 0 {
+		Kp := ((K + 7) / 8) * 8
+		Mp := ((M + 3) / 4) * 4
+		actPad := make([]float32, Kp)
+		copy(actPad, act[:K])
+		ap := packActG(actPad, Kp)
+		res := make([]int32, Mp*4)
+		ime2.GemmINT8Packed(Mp, 4, Kp, packed, ap, res)
+		for i := 0; i < M; i++ {
+			out[i] = float32(res[i*4]) * scale * _actScaleG
+		}
+	} else {
+		for row := 0; row < M; row++ {
+			var sum float32
+			for k := 0; k < K; k++ { sum += f32[row*K+k] * act[k] }
+			out[row] = sum
+		}
 	}
 }
