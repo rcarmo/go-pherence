@@ -367,3 +367,20 @@ models/whisper/
 - `backends/simd/fft/conv1d_amd64.s` — AVX2+FMA Conv1D k=3 (VFMADD231PS)
 - `backends/simd/fft/conv1d_arm64.s` — Scalar arm64 Conv1D k=3
 - `backends/simd/fft/pool_amd64.s` — AVX2 mean+std reduction
+
+### GPU Hardware Test Results (RTX 3060, CUDA 13.0)
+
+All tests pass on GPU hardware:
+- `backends/nvidia/runtime`: CUDA driver init, GEMV NVFP4, SGEMM validation ✅
+- `models/whisper`: full pipeline with whisper-tiny weights ✅
+- `models/speaker`: VAD, clustering, alignment ✅
+- Assembly kernels (FFT, Conv1D, pooling): verified on amd64 ✅
+
+**CPU RTF (whisper-tiny, no GPU dispatch for Whisper yet):**
+- Encoder: 447ms for 3s audio
+- Decoder: 30ms/token
+- End-to-end: RTF=5.35–6.34 (CPU-only, SIMD Sdot + optimized linear)
+
+**Next step for GPU RTF < 0.1:**
+Wire `models/whisper` encoder/decoder linear layers through `backends/nvidia/runtime.Sgemm`
+and attention through the CUDA attention kernel.

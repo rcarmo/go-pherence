@@ -28,7 +28,7 @@ Hunyuan3D-2 support is a new model family and pipeline class, not a minor archit
 - there is no native ShapeVAE volume decoder or marching-cubes mesh output path yet;
 - Hunyuan3D texture generation is a much larger Stable-Diffusion-family subproject and should not be the first target.
 
-Recommended first milestone: **image-to-shape only, no texture, no turbo FlashVDM, CPU reference first, one small Hunyuan3D-2mini fixture.**
+Recommended first milestone: **image-to-shape only, no texture, no turbo FlashVDM, CPU reference first, one standard Hunyuan3D-2mini fixture.** The standard `hunyuan3d-dit-v2-mini` target is preferred over `mini-turbo` for initial parity because it keeps the first fixture on the non-turbo flow path while retaining the smaller 0.6B-class DiT and 512-latent VAE footprint.
 
 ## What Hunyuan3D-2 actually runs
 
@@ -119,14 +119,15 @@ The texture path pulls in Diffusers/Stable-Diffusion-style pipelines, ControlNet
 Goal: make Hunyuan3D support measurable without downloading every model variant.
 
 - Add `docs/hunyuan3d-2-support.md` (this file) and keep it current.
-- Add a small helper script or command to inspect Hugging Face Hunyuan subfolders and print:
+- [x] Add a small helper script or command to inspect Hugging Face Hunyuan subfolders and print:
   - config path;
   - safetensors files;
   - tensor names/shapes/dtypes;
   - top-level checkpoint key groups (`model`, `vae`, `conditioner`).
-- Download only the smallest useful target first:
-  - `tencent/Hunyuan3D-2mini`, preferably `hunyuan3d-dit-v2-mini-turbo` or non-turbo mini for simpler scheduler behavior.
-- Generate Python golden fixtures:
+- [x] Decide the first target:
+  - `tencent/Hunyuan3D-2mini`, subfolder `hunyuan3d-dit-v2-mini`.
+  - Rationale: smallest single-view standard/non-turbo shape target; avoids coupling the initial fixture to turbo/FlashVDM behavior.
+- [ ] Generate Python golden fixtures:
   - preprocessed image tensor;
   - DINO/CLIP condition embeddings;
   - scheduler sigmas/timesteps;
@@ -136,8 +137,10 @@ Goal: make Hunyuan3D support measurable without downloading every model variant.
 
 Acceptance:
 
-- Inventory command identifies all required tensor groups and dimensions.
+- Metadata inventory command identifies all required tensor groups and dimensions.
 - Golden fixture can be reproduced with Python and local cached weights.
+
+Current status: `scripts/hunyuan3d_fixture_inventory.py` can generate a metadata fixture from Hugging Face without downloading full tensor payloads. With `--include-tensors`, it fetches only safetensors header bytes. For `tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini`, the header inventory reports one `model.fp16.safetensors` file with `model`, `vae`, and `conditioner` tensor groups.
 
 ### Phase H1 — Loader/config plumbing
 

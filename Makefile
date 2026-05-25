@@ -6,7 +6,7 @@ MODEL ?=
 MODEL_DOWNLOAD_FLAGS ?=
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test test-cpu clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-gemma4 models-download-one
+.PHONY: all build test test-cpu clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-gemma4 models-download-one hunyuan3d-inventory
 
 all: build
 
@@ -51,6 +51,14 @@ models-download-gemma4:
 models-download-one:
 	@if [ -z "$(MODEL)" ]; then echo "usage: make models-download-one MODEL=qwen3.6-27b-mlx4-mtp"; exit 2; fi
 	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --only $(MODEL) $(MODEL_DOWNLOAD_FLAGS)
+
+HUNYUAN3D_REPO ?= tencent/Hunyuan3D-2mini
+HUNYUAN3D_SUBFOLDER ?= hunyuan3d-dit-v2-mini
+HUNYUAN3D_INVENTORY ?= /workspace/tmp/hunyuan3d-mini-inventory.json
+HUNYUAN3D_INVENTORY_FLAGS ?= --include-tensors
+
+hunyuan3d-inventory:
+	$(PYTHON) scripts/hunyuan3d_fixture_inventory.py --repo $(HUNYUAN3D_REPO) --subfolder $(HUNYUAN3D_SUBFOLDER) --out $(HUNYUAN3D_INVENTORY) $(HUNYUAN3D_INVENTORY_FLAGS)
 
 # GPU-heavy tests (require GEMMA4_TRACE_TEST=1 and GPU)
 test-gpu:

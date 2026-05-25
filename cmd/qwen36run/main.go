@@ -125,6 +125,8 @@ type Report struct {
 	GPUTransientBytesPerToken   float64                    `json:"gpu_transient_bytes_per_token,omitempty"`
 	GPUTransientUploadsPerToken float64                    `json:"gpu_transient_uploads_per_token,omitempty"`
 	GPUWindowEstimates          []QwenGPUWindowEstimate    `json:"gpu_window_estimates,omitempty"`
+	GPUWindowAutoPlan           bool                       `json:"gpu_window_auto_plan,omitempty"`
+	GPUWindowAutoStartLayer     int                        `json:"gpu_window_auto_start_layer,omitempty"`
 	LayerSchedulePlan           qwen.LayerSchedulePlan     `json:"layer_schedule_plan,omitempty"`
 	GPUVerify                   qwen.Qwen35GPUVerifyStats  `json:"gpu_verify,omitempty"`
 	LinearStats                 qwen.Qwen35LinearStats     `json:"linear_stats,omitempty"`
@@ -245,6 +247,7 @@ func main() {
 	useGPU := flag.Bool("gpu", false, "use CUDA for Qwen3.6 NVFP4 GEMV when available")
 	gpuCacheMB := flag.Int("gpu-cache-mb", 10600, "GPU cache budget for packed Qwen3.6 weights; tuned below full VRAM to leave transient MLX upload scratch")
 	gpuWindowReserveMB := flag.Int("gpu-window-reserve-mb", 0, "MiB to subtract from Qwen resident weight cache for experimental suffix layer-window headroom")
+	gpuWindowAutoPlan := flag.Bool("gpu-window-auto-plan", false, "choose overflow-window start layer from the Qwen layer schedule planner after prewarm")
 	gpuWindowStartLayer := flag.Int("gpu-window-start-layer", -1, "minimum Qwen layer index admitted to the overflow-window cache; -1 admits any overflow")
 	gpuWindowSticky := flag.Bool("gpu-window-sticky", true, "keep admitted overflow-window weights resident when the window is full instead of LRU-evicting them")
 	gpuWindowCategory := flag.String("gpu-window-category", "all", "overflow-window admission category: all, mlp, attention, or linear_attention")
