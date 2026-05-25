@@ -21,7 +21,24 @@ func BenchmarkGemmSingle_2048x4x2048(b *testing.B) {
 	Bp := PackTiles(make([]int8, N*K), N, K)
 	C := make([]int32, M*N)
 	b.ResetTimer()
+	for i := 0; i < b.N; i++ { GemmINT8Packed(M, N, K, Ap, Bp, C) }
+}
+
+func BenchmarkPoolOverhead(b *testing.B) {
+	pool := NewWorkerPool(8)
+	defer pool.Close()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GemmINT8Packed(M, N, K, Ap, Bp, C)
+		pool.Run(func(workerID, nWorkers int) {})
 	}
+}
+
+
+func BenchmarkChanRoundtrip(b *testing.B) {
+	ch := make(chan struct{}, 1)
+	done := make(chan struct{}, 1)
+	go func() { for range ch { done <- struct{}{} } }()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ { ch <- struct{}{}; <-done }
+	close(ch)
 }

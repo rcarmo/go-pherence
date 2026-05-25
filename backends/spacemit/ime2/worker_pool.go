@@ -103,3 +103,64 @@ func GemmINT8PackedPool(M, N, K int, Apacked, Bpacked []int8, C []int32, pool *W
 }
 
 var _ sync.Mutex // ensure import
+
+
+
+// CondPool uses sync.Cond for lower-latency dispatch than channels.
+type CondPool struct {
+	n      int
+	mu     sync.Mutex
+	cond   *sync.Cond
+	fn     func(int, int)
+	phase  int
+	done   int
+}
+
+func NewCondPool(n int) *CondPool {
+	p := &CondPool{n: n}
+	p.cond = sync.NewCond(&p.mu)
+	for i := 0; i < n; i++ {
+		go p.condWorker(i)
+	}
+	return p
+}
+
+func (p *CondPool) condWorker(id int) {
+	runtime.LockOSThread()
+	var cpuSet unix.CPUSet
+	cpuSet.Zero()
+	cpuSet.Set(id % 8)
+	unix.SchedSetaffinity(0, &cpuSet)
+	myPhase := 0
+	for {
+		p.mu.Lock()
+		for p.phase == myPhase { p.cond.Wait() }
+		myPhase = p.phase
+		fn := p.fn
+		p.mu.Unlock()
+		if fn == nil { return }
+		fn(id, p.n)
+		p.mu.Lock()
+		p.done++
+		if p.done == p.n { p.cond.Broadcast() }
+		p.mu.Unlock()
+	}
+}
+
+func (p *CondPool) Run(fn func(workerID, nWorkers int)) {
+	p.mu.Lock()
+	p.fn = fn
+	p.done = 0
+	p.phase++
+	p.cond.Broadcast()
+	for p.done < p.n { p.cond.Wait() }
+	p.mu.Unlock()
+}
+
+func (p *CondPool) Close() {
+	p.mu.Lock()
+	p.fn = nil
+	p.phase++
+	p.cond.Broadcast()
+	p.mu.Unlock()
+}
