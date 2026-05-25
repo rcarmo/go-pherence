@@ -1,38 +1,37 @@
 package main
-
-/*
-#define _GNU_SOURCE
-#include <sched.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/syscall.h>
-
-static int result_core8 = -1;
-
-void* worker(void* arg) {
-    cpu_set_t set;
-    CPU_ZERO(&set);
-    CPU_SET(8, &set);
-    pid_t tid = syscall(SYS_gettid);
-    int ret = sched_setaffinity(tid, sizeof(set), &set);
-    result_core8 = ret;
-    printf("C pthread: sched_setaffinity(tid=%d, core 8) = %d\n", tid, ret);
-    return NULL;
-}
-
-int try_pthread_core8() {
-    pthread_t t;
-    pthread_create(&t, NULL, worker, NULL);
-    pthread_join(t, NULL);
-    return result_core8;
-}
-*/
-import "C"
-import "fmt"
-
+import (
+	"fmt"
+	"os"
+	"runtime"
+	"sync"
+	"syscall"
+	"golang.org/x/sys/unix"
+)
 func main() {
-	fmt.Println("Testing sched_setaffinity from a C pthread:")
-	ret := C.try_pthread_core8()
-	fmt.Printf("Result: %d (0=success)\n", ret)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			runtime.LockOSThread()
+			tid := syscall.Gettid()
+			// Write TID to /proc/set_ai_thread
+			f, err := os.OpenFile("/proc/set_ai_thread", os.O_WRONLY, 0)
+			if err != nil { fmt.Printf("Worker %d: open failed: %v\n", id, err); return }
+			_, err = fmt.Fprintf(f, "%d", tid)
+			f.Close()
+			if err != nil { fmt.Printf("Worker %d: write failed: %v\n", id, err); return }
+			// Now try pinning to core 8+id
+			var set unix.CPUSet
+			set.Zero()
+			set.Set(8 + id)
+			err = unix.SchedSetaffinity(0, &set)
+			if err == nil {
+				fmt.Printf("Worker %d: pinned to core %d!\n", id, 8+id)
+			} else {
+				fmt.Printf("Worker %d: pin failed: %v\n", id, err)
+			}
+		}(i)
+	}
+	wg.Wait()
 }

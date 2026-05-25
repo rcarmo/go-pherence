@@ -30,7 +30,6 @@ func parallelDecodeV2(
 	KpFF := ((nFF + 7) / 8) * 8
 
 	// Shared buffers (written by main between layers, read by workers)
-	scoresPool := make([]float32, 512) // max context length
 	scoresPool := make([]float32, 512)
 	xn := make([]float32, nEmbd)
 	xn2 := make([]float32, nEmbd)
@@ -66,11 +65,10 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				runtime.LockOSThread()
+				}
 				var cpuSet unix.CPUSet
 				cpuSet.Zero()
-				cpuSet.Set(wid % 8)
-				unix.SchedSetaffinity(0, &cpuSet)
+				// Let scheduler distribute across 8-15
 				// Q slice
 				qS := (wid * nQEmbd / nWorkers / 4) * 4
 				qE := ((wid+1) * nQEmbd / nWorkers / 4) * 4
@@ -158,11 +156,10 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				runtime.LockOSThread()
+				}
 				var cpuSet unix.CPUSet
 				cpuSet.Zero()
-				cpuSet.Set(wid % 8)
-				unix.SchedSetaffinity(0, &cpuSet)
+				// Let scheduler distribute across 8-15
 				wS := (wid * nEmbd / nWorkers / 4) * 4
 				wE := ((wid+1) * nEmbd / nWorkers / 4) * 4
 				if wid == nWorkers-1 { wE = nEmbd }
@@ -188,11 +185,10 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				runtime.LockOSThread()
+				}
 				var cpuSet unix.CPUSet
 				cpuSet.Zero()
-				cpuSet.Set(wid % 8)
-				unix.SchedSetaffinity(0, &cpuSet)
+				// Let scheduler distribute across 8-15
 				tcmBuf := getTCMSlice(wid); _ = tcmBuf; tcmBuf = nil
 				fS := (wid * nFF / nWorkers / 4) * 4
 				fE := ((wid+1) * nFF / nWorkers / 4) * 4
@@ -253,11 +249,10 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				runtime.LockOSThread()
+				}
 				var cpuSet unix.CPUSet
 				cpuSet.Zero()
-				cpuSet.Set(wid % 8)
-				unix.SchedSetaffinity(0, &cpuSet)
+				// Let scheduler distribute across 8-15
 				dS := (wid * nEmbd / nWorkers / 4) * 4
 				dE := ((wid+1) * nEmbd / nWorkers / 4) * 4
 				if wid == nWorkers-1 { dE = nEmbd }
@@ -273,4 +268,3 @@ func parallelDecodeV2(
 	}
 }
 
-var _ = unix.SchedSetaffinity
