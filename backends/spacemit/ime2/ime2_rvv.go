@@ -166,3 +166,24 @@ func VmadotKLoop1024(A *byte, B *byte, C *int32, K int) {
 
 //go:noescape
 func vmadotKLoop1024native(A *byte, B *byte, C *int32, K int)
+
+// GemmINT8_AI performs matmul on AI cores (VLEN=1024).
+// M output rows, K input dimension. wPacked in 128-byte tile format.
+// actPacked in 128-byte broadcast tile format.
+// Output: out[M] float32 (scaled by wScale * actScale).
+func GemmINT8_AI(M, K int, wPacked []int8, actPacked []int8, wScale, actScale float32, out []float32) {
+	tilesPerRow := K / 32
+	combined := wScale * actScale
+	for i := 0; i < M; i += 4 {
+		var acc [64]int32
+		VmadotKLoop1024(
+			(*byte)(unsafe.Pointer(&wPacked[(i/4)*tilesPerRow*128])),
+			(*byte)(unsafe.Pointer(&actPacked[0])),
+			&acc[0], K,
+		)
+		// Extract: C[r][0] = acc[r*16] + acc[r*16+1]
+		for r := 0; r < 4 && i+r < M; r++ {
+			out[i+r] = float32(acc[r*16]+acc[r*16+1]) * combined
+		}
+	}
+}
