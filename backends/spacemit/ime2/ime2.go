@@ -1,3 +1,5 @@
+//go:build riscv64
+
 // Package ime2 provides pure Go access to SpacemiT IME2 matrix instructions.
 // These are RISC-V custom vector instructions (vmadot family) that perform
 // INT8 matrix multiply-accumulate operations using on-chip hardware.
@@ -37,4 +39,3 @@ func Matmul4x8(A, B []int8, C []int32) {
 
 // VmadotAccSS4x8 is the exported version of vmadotAccSS4x8.
 func VmadotAccSS4x8(A *byte, B *byte, C *int32) { vmadotAccSS4x8(A, B, C) }
-
