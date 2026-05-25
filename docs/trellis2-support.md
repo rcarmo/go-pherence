@@ -131,7 +131,7 @@ Likely low-level areas:
 - [x] Map O-Voxel metadata and sparse tensor layouts.
 - [x] Inventory sparse convolution/attention kernels.
 - [x] Identify which kernels could run on CPU, CUDA, Vulkan, or future backend abstractions.
-- [ ] Defer any runtime inference support claim until metadata, fixtures, and kernel requirements are validated.
+- [x] Defer any runtime inference support claim until metadata, fixtures, and kernel requirements are validated.
 
 ## O-Voxel and sparse tensor layout notes
 
@@ -268,6 +268,41 @@ CUDA path: closest to upstream because `flex_gemm`, `flash_attn`, `xformers`, `s
 Vulkan path: speculative. Dense matmul/MLP pieces are plausible, but sparse conv3d, inverse conv, varlen attention, O-Voxel conversion, and differentiable/rendering kernels would require substantial new compute kernels.
 
 Future backend abstraction: separate sparse layout/coordinate transforms from kernel execution. First stable Go surfaces should be fixture structures and validators for `SparseTensor`-like `{coords, feats, layout}` data, not inference kernels.
+
+## Runtime support boundary
+
+Current TRELLIS.2 support in `go-pherence` is limited to:
+
+- research notes and roadmap documentation
+- Hugging Face/local metadata inventory tooling
+- Go parsing/validation for pipeline and checkpoint JSON configs
+- Go reference math for the upstream FlowEuler scheduler
+- fixture-compatible tensor summary/hash helpers
+- dependency-gated Python scaffolds for low-step fixture generation
+- O-Voxel/sparse layout and backend feasibility notes
+
+It does **not** include TRELLIS.2 runtime inference. In particular, the following are not implemented in Go:
+
+- image feature extraction / conditioning
+- sparse-structure flow model execution
+- sparse-structure occupancy decoder
+- structured-latent shape or texture flow model execution
+- sparse compression VAE encode/decode
+- sparse 3D convolution or inverse convolution kernels
+- variable-length sparse attention kernels
+- O-Voxel conversion/render/postprocess kernels
+- PBR mesh/GLB export
+
+The dependency-gated fixture scripts are not correctness proof by themselves. They must be run in a compatible upstream TRELLIS.2 CUDA environment with real checkpoint payloads before any numeric parity claim can be made. Generated fixtures should remain compact summaries/hashes unless licensing and file-size constraints are explicitly reviewed.
+
+Runtime claims remain deferred until all of the following are true:
+
+1. representative upstream fixture runs exist for sparse-structure and structured-latent stages;
+2. Go fixture loaders validate sparse `{coords, feats, layout}` summaries against those upstream runs;
+3. required sparse conv/attention/O-Voxel kernels have an explicit backend plan;
+4. CPU/CUDA/Vulkan support boundaries are tested rather than inferred.
+
+Until then, describe TRELLIS.2 support as **metadata and fixture scaffolding only**.
 
 ## Relationship to Hunyuan3D work
 
