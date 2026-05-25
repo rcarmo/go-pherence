@@ -377,10 +377,21 @@ func main() {
 	}
 	var prewarmStats qwen.Qwen35GPUPrewarmStats
 	var prewarmMS int64
+	gpuWindowAutoStartLayer := -1
 	if *useGPU && *gpuPrewarm {
 		prewarmStart := time.Now()
 		prewarmStats = qwen.PrewarmQwen35GPUCache(bundle.Base)
 		prewarmMS = time.Since(prewarmStart).Milliseconds()
+		if *gpuWindowAutoPlan && *gpuWindowReserveMB > 0 && *gpuWindowStartLayer < 0 {
+			plan := qwen.BuildLayerSchedulePlan(qwen.Qwen35GPUCacheStatsSnapshot(), []int{2, 4, 8})
+			gpuWindowAutoStartLayer = plan.FirstOverflowLayer
+			if plan.BestFeasible.Layers > 0 {
+				gpuWindowAutoStartLayer = plan.BestFeasible.StartLayer
+			}
+			if gpuWindowAutoStartLayer >= 0 {
+				qwen.SetQwen35GPUWindowMinLayer(gpuWindowAutoStartLayer)
+			}
+		}
 	}
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -769,6 +780,8 @@ func main() {
 	}
 	rep.Summary = Qwen36Summary{KVHit: rep.KVCacheHit, KVReuseEfficiency: rep.KVReuseEfficiency, KVSpeedupVsCold: rep.KVSpeedupVsCold, MTPAcceptanceRate: rep.MTPGeneratedAcceptanceRate, MTPSpeedupVsSeq: rep.MTPSpeedupVsSequential, DecodeTPS: rep.DecodeTokensPerSecond}
 	rep.GPULMHead = r.lmGPU != nil
+	rep.GPUWindowAutoPlan = *gpuWindowAutoPlan
+	rep.GPUWindowAutoStartLayer = gpuWindowAutoStartLayer
 	if *mtp && !*mtpGenerate {
 		applyMTPDiagnostics(&rep, &r, h, prefillVerifierNext, prefillHidden, prefillToken, prefillPos, generated, preNormHidden, ropeFreqs, meta, *mtpSteps, *greedySeed)
 	}

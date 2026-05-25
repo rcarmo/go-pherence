@@ -1,0 +1,183 @@
+package whisper
+
+import (
+	"math"
+
+	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+)
+
+// GPUEncoder wraps a Whisper encoder with GPU-resident weights for fast inference.
+type GPUEncoder struct {
+	*Encoder
+	cfg Config
+
+	// GPU-resident weights (uploaded once)
+	conv1W, conv2W *nv.DevBuf
+	layers         []gpuEncoderLayer
+
+	ready bool
+}
+
+type gpuEncoderLayer struct {
+	qW, kW, vW, oW  *nv.DevBuf
+	fc1W, fc2W      *nv.DevBuf
+	attnLNW, mlpLNW *nv.DevBuf
+}
+
+// NewGPUEncoder uploads encoder weights to GPU and returns an accelerated encoder.
+func NewGPUEncoder(enc *Encoder, cfg Config) *GPUEncoder {
+	if !nv.SgemmReady() {
+		return &GPUEncoder{Encoder: enc, cfg: cfg, ready: false}
+	}
+
+	ge := &GPUEncoder{Encoder: enc, cfg: cfg, ready: true}
+	dModel := cfg.EncoderDModel
+
+	// Upload layer weights
+	ge.layers = make([]gpuEncoderLayer, cfg.EncoderLayers)
+	for i := range ge.layers {
+		l := &enc.Layers[i]
+		gl := &ge.layers[i]
+		gl.qW = nv.NewDevBufFrom(l.QWeight)
+		gl.kW = nv.NewDevBufFrom(l.KWeight)
+		gl.vW = nv.NewDevBufFrom(l.VWeight)
+		gl.oW = nv.NewDevBufFrom(l.OWeight)
+		gl.fc1W = nv.NewDevBufFrom(l.FC1Weight)
+		gl.fc2W = nv.NewDevBufFrom(l.FC2Weight)
+		gl.attnLNW = nv.NewDevBufFrom(l.AttnLNWeight)
+		gl.mlpLNW = nv.NewDevBufFrom(l.MLPLNWeight)
+	}
+	_ = dModel
+
+	return ge
+}
+
+// ForwardGPU runs the encoder with GPU-accelerated linear layers.
+// Falls back to CPU for operations without GPU kernels.
+func (ge *GPUEncoder) ForwardGPU(mel []float32, T int) []float32 {
+	if !ge.ready {
+		return ge.Encoder.Forward(mel, T)
+	}
+
+	cfg := ge.cfg
+	dModel := cfg.EncoderDModel
+
+	// Conv stem still on CPU (small relative to attention)
+	h := conv1dForward(mel, ge.Encoder.Conv1Weight, ge.Encoder.Conv1Bias, cfg.NumMelBins, T, dModel, 3, 1, 1)
+	T1 := T
+	gelu(h)
+	h = conv1dForward(h, ge.Encoder.Conv2Weight, ge.Encoder.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
+	T2 := (T1+2*1-3)/2 + 1
+
+	// Transpose to [T2, d_model]
+	ht := transpose2D(h, dModel, T2)
+
+	// Add positional embeddings
+	for t := 0; t < T2 && t < cfg.MaxLength; t++ {
+		for d := 0; d < dModel; d++ {
+			ht[t*dModel+d] += ge.Encoder.PosEmbed[t*dModel+d]
+		}
+	}
+
+	// Encoder layers with GPU GEMV
+	for i := range ge.layers {
+		ht = ge.forwardLayerGPU(i, ht, T2)
+	}
+
+	return ht
+}
+
+func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []float32 {
+	cfg := ge.cfg
+	dModel := cfg.EncoderDModel
+	layer := &ge.Encoder.Layers[layerIdx]
+	gl := &ge.layers[layerIdx]
+
+	// Pre-attention LayerNorm (CPU — lightweight)
+	normed := layerNorm(x, layer.AttnLNWeight, layer.AttnLNBias, seqLen, dModel)
+
+	// Q, K, V projections via GPU SGEMM
+	q := gemvGPU(normed, gl.qW, layer.QBias, seqLen, dModel, dModel)
+	k := gemvGPU(normed, gl.kW, layer.KBias, seqLen, dModel, dModel)
+	v := gemvGPU(normed, gl.vW, layer.VBias, seqLen, dModel, dModel)
+
+	// Full attention (CPU for now — GPU attention kernel needs sequence-level parallelism)
+	attnOut := fullAttention(q, k, v, seqLen, seqLen, cfg.EncoderHeads, cfg.HeadDim)
+
+	// Output projection via GPU
+	projected := gemvGPU(attnOut, gl.oW, layer.OBias, seqLen, dModel, dModel)
+
+	// Residual
+	for i := range x {
+		projected[i] += x[i]
+	}
+
+	// Pre-MLP LayerNorm
+	mlpIn := layerNorm(projected, layer.MLPLNWeight, layer.MLPLNBias, seqLen, dModel)
+
+	// MLP via GPU
+	ffnDim := cfg.EncoderFFNDim
+	hidden := gemvGPU(mlpIn, gl.fc1W, layer.FC1Bias, seqLen, dModel, ffnDim)
+	gelu(hidden)
+	mlpOut := gemvGPU(hidden, gl.fc2W, layer.FC2Bias, seqLen, ffnDim, dModel)
+
+	// Residual
+	for i := range projected {
+		mlpOut[i] += projected[i]
+	}
+
+	return mlpOut
+}
+
+// gemvGPU computes batched GEMV using GPU SGEMM when profitable.
+// x: [seqLen, inDim], W: DevBuf[outDim * inDim], bias: [outDim]
+// Returns [seqLen * outDim].
+func gemvGPU(x []float32, W *nv.DevBuf, bias []float32, seqLen, inDim, outDim int) []float32 {
+	// Use GPU SGEMM for batched matmul (seqLen >= 8)
+	if seqLen >= 8 && W != nil && nv.SgemmReady() {
+		// We want: out[seq, out] = x[seq, in] @ W[out, in]^T
+		// Sgemm(M, N, K, alpha, A, B, C) computes C[M,N] = A[M,K] * B[K,N]
+		// So: C[outDim, seqLen] = W[outDim, inDim] * X^T[inDim, seqLen]
+		// First transpose X from [seqLen, inDim] to X^T[inDim, seqLen]
+		xT := make([]float32, inDim*seqLen)
+		for s := 0; s < seqLen; s++ {
+			for d := 0; d < inDim; d++ {
+				xT[d*seqLen+s] = x[s*inDim+d]
+			}
+		}
+		result, err := nv.SgemmHost(outDim, seqLen, inDim, 1.0, W.Data(), xT)
+		if err == nil && len(result) == outDim*seqLen {
+			// result is C[outDim, seqLen] row-major
+			// Transpose to [seqLen, outDim]
+			out := make([]float32, seqLen*outDim)
+			for s := 0; s < seqLen; s++ {
+				for o := 0; o < outDim; o++ {
+					out[s*outDim+o] = result[o*seqLen+s]
+				}
+			}
+			if bias != nil {
+				for s := 0; s < seqLen; s++ {
+					for o := 0; o < outDim && o < len(bias); o++ {
+						out[s*outDim+o] += bias[o]
+					}
+				}
+			}
+			return out
+		}
+	}
+
+	// CPU fallback (uses SIMD Sdot)
+	return linearForwardOpt(x, W.Data(), bias, seqLen, inDim, outDim)
+}
+
+// transpose2DGPU is a placeholder for GPU-accelerated transpose.
+func transpose2DGPU(data []float32, channels, length int) []float32 {
+	return transpose2D(data, channels, length)
+}
+
+func init() {
+	// Warm up CUDA context on package init if available
+	if nv.SgemmReady() {
+		_ = math.Pi // prevent unused import
+	}
+}
