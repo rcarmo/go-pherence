@@ -133,3 +133,15 @@ func TestFindMaxAbsRVV(t *testing.T) {
 	t.Logf("FindMaxAbsRVV = %f (expected 4.8)", result)
 	if result != 4.8 { t.Errorf("got %f want 4.8", result) }
 }
+
+func TestQuantizeF32ToI8RVV(t *testing.T) {
+	src := make([]float32, 16)
+	for i := range src { src[i] = float32(i) - 8 } // [-8, -7, ..., 7]
+	dst := make([]int8, 16)
+	scale := float32(127.0 / 8.0) // maps [-8,8] to [-127,127]
+	QuantizeF32ToI8RVV(src, scale, dst)
+	t.Logf("dst = %v", dst[:16])
+	// Expected: dst[0] = -127 (clamped), dst[8] = 0, dst[15] = 111
+	if dst[8] != 0 { t.Errorf("dst[8]=%d want 0", dst[8]) }
+	if dst[0] > -120 { t.Errorf("dst[0]=%d want ~-127", dst[0]) }
+}
