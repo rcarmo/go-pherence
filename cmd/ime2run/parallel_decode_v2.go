@@ -2,7 +2,7 @@ package main
 
 import (
 	"math"
-	"runtime"
+	
 	"sync"
 	"unsafe"
 
@@ -62,7 +62,6 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				runtime.LockOSThread()
 				// Q slice
 				qS := (wid * nQEmbd / nWorkers / 4) * 4
 				qE := ((wid+1) * nQEmbd / nWorkers / 4) * 4

@@ -79,3 +79,41 @@ func QuantizeF32ToI8RVV(src []float32, scale float32, dst []int8) {
 	bits := math.Float32bits(scale)
 	rvvQuantizeF32ToI8(&src[0], bits, (*byte)(unsafe.Pointer(&dst[0])), len(src))
 }
+
+
+// vmadotQ4KPackedLoop reads packed Q4K bytes and unpacks inline with RVV.
+// 2× less weight bandwidth. actReord must be in even/odd interleaved format.
+//go:noescape
+func vmadotQ4KPackedLoop(wQS *byte, actReord *byte, acc *int32, Kgroups int)
+
+// ReorderActEvenOdd reorders activation for packed Q4K vmadot.
+// Output: [act[0],act[2],...,act[30], act[1],act[3],...,act[31]] per 32-element group.
+func ReorderActEvenOdd(act []int8, K int) []int8 {
+	out := make([]int8, K)
+	for g := 0; g < K; g += 32 {
+		for i := 0; i < 16; i++ {
+			out[g+i] = act[g+2*i]       // even elements first
+			out[g+16+i] = act[g+2*i+1]  // odd elements second
+		}
+	}
+	return out
+}
+
+// PackQ4KForI2K stores raw Q4K qs bytes in tile format (16 bytes per 32-element group per row).
+// For M rows × K elements: output is M/4 row-groups × K/32 groups × 64 bytes
+// (4 rows × 16 packed bytes per row per group).
+func PackQ4KForI2K(rawQS []byte, M, K int) []byte {
+	bytesPerGroup := 16 // per row (32 nibbles = 16 packed bytes)
+	groupsPerRow := K / 32
+	out := make([]byte, (M/4)*groupsPerRow*64) // 4 rows × 16 bytes = 64 per tile
+	for rg := 0; rg < M; rg += 4 {
+		for gi := 0; gi < groupsPerRow; gi++ {
+			tileOff := ((rg/4)*groupsPerRow + gi) * 64
+			for r := 0; r < 4; r++ {
+				srcOff := (rg+r)*(K/2) + gi*bytesPerGroup
+				copy(out[tileOff+r*16:tileOff+(r+1)*16], rawQS[srcOff:srcOff+16])
+			}
+		}
+	}
+	return out
+}
