@@ -123,3 +123,13 @@ func TestFusedPackVmadot(t *testing.T) {
 		t.Errorf("out[0]=%d want %d", out[0], expected)
 	}
 }
+
+func TestFindMaxAbsRVV(t *testing.T) {
+	x := []float32{1.0, -3.5, 2.1, -0.5, 4.2, -4.8, 0.1, 3.3,
+	               1.0, -3.5, 2.1, -0.5, 4.2, -4.8, 0.1, 3.3,
+	               1.0, -3.5, 2.1, -0.5, 4.2, -4.8, 0.1, 3.3,
+	               1.0, -3.5, 2.1, -0.5, 4.2, -4.8, 0.1, 3.3}
+	result := FindMaxAbsRVV(x)
+	t.Logf("FindMaxAbsRVV = %f (expected 4.8)", result)
+	if result != 4.8 { t.Errorf("got %f want 4.8", result) }
+}
