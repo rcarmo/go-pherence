@@ -128,19 +128,19 @@ Goal: make Hunyuan3D support measurable without downloading every model variant.
   - `tencent/Hunyuan3D-2mini`, subfolder `hunyuan3d-dit-v2-mini`.
   - Rationale: smallest single-view standard/non-turbo shape target; avoids coupling the initial fixture to turbo/FlashVDM behavior.
 - [ ] Generate Python golden fixtures:
-  - preprocessed image tensor;
-  - DINO/CLIP condition embeddings;
-  - scheduler sigmas/timesteps;
-  - one denoiser step output for fixed seed/latents;
-  - final latent for a very low step count;
-  - optional low-resolution mesh/volume logits if practical.
+  - [x] preprocessed image tensor fixture generator (`scripts/hunyuan3d_image_fixture.py`, dependency-gated on `numpy`, `Pillow`, and `opencv-python`);
+  - [ ] DINO/CLIP condition embeddings;
+  - [x] scheduler sigmas/timesteps via `scripts/hunyuan3d_fixture_inventory.py`;
+  - [ ] one denoiser step output for fixed seed/latents;
+  - [ ] final latent for a very low step count;
+  - [ ] optional low-resolution mesh/volume logits if practical.
 
 Acceptance:
 
 - Metadata inventory command identifies all required tensor groups and dimensions.
 - Golden fixture can be reproduced with Python and local cached weights.
 
-Current status: `scripts/hunyuan3d_fixture_inventory.py` can generate a metadata fixture from Hugging Face without downloading full tensor payloads. With `--include-tensors`, it fetches only safetensors header bytes. It also emits a small FlowMatch scheduler reference (`sigmas`, timesteps, normalized model timestep inputs, and Euler step formula) for early Go parity tests. For `tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini`, the header inventory reports one `model.fp16.safetensors` file with `model`, `vae`, and `conditioner` tensor groups.
+Current status: `scripts/hunyuan3d_fixture_inventory.py` can generate a metadata fixture from Hugging Face without downloading full tensor payloads. With `--include-tensors`, it fetches only safetensors header bytes. It also emits a small FlowMatch scheduler reference (`sigmas`, timesteps, normalized model timestep inputs, and Euler step formula) for early Go parity tests. `scripts/hunyuan3d_image_fixture.py` mirrors upstream `ImageProcessorV2` preprocessing for a file or synthetic RGBA input and emits tensor summaries/hashes; it is optional because it requires local Python image dependencies. For `tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini`, the header inventory reports one `model.fp16.safetensors` file with `model`, `vae`, and `conditioner` tensor groups.
 
 ### Phase H1 — Loader/config plumbing
 
@@ -162,11 +162,12 @@ Current status: YAML config parsing and tensor-name inventory helpers are presen
 
 Goal: reproduce condition embeddings for one fixture.
 
-- Implement image preprocessing equivalent to upstream `ImageProcessorV2`:
+- [x] Add Python fixture generator for upstream `ImageProcessorV2`:
   - RGBA mask handling;
   - recenter with border ratio;
   - resize to model image size;
-  - normalize to expected DINO/CLIP value ranges.
+  - normalize to `[-1, 1]` BCHW tensor range.
+- [ ] Implement Go image preprocessing equivalent to upstream `ImageProcessorV2`:
 - Implement or import a minimal DINOv2/CLIP-ViT encoder path:
   - patch embedding;
   - class token/position embeddings;
