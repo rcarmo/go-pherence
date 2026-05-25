@@ -158,3 +158,11 @@ func BroadcastPack1024(src []int8, K int) []int8 {
 	}
 	return dst
 }
+
+// VmadotKLoop1024 uses native vl=128 (full VLEN=1024). For probing only.
+func VmadotKLoop1024(A *byte, B *byte, C *int32, K int) {
+	vmadotKLoop1024native(A, B, C, K)
+}
+
+//go:noescape
+func vmadotKLoop1024native(A *byte, B *byte, C *int32, K int)

@@ -40,3 +40,31 @@ done_ai:
     WORD $0x0112f2d7            // vsetvli t0, t0, e32, m2
     WORD $0x02066e27            // vse32.v v28, (a2)
     RET
+
+// func vmadotKLoop1024native(A *byte, B *byte, C *int32, K int)
+// Full VLEN=1024 vmadot (vl=128, 128-byte tiles). No vl cap.
+TEXT ·vmadotKLoop1024native(SB), NOSPLIT, $0-32
+    MOV  A+0(FP), X10
+    MOV  B+8(FP), X11
+    MOV  C+16(FP), X12
+    MOV  K+24(FP), X13
+    // Load acc (e32, m2 → 64 int32s on VLEN=1024)
+    WORD $0x011072d7            // vsetvli t0, zero, e32, m2
+    WORD $0x02066e07            // vle32.v v28, (a2)
+    // Set e8, m1 (vl=128 on VLEN=1024)
+    WORD $0x000072d7            // vsetvli t0, zero, e8, m1
+    // K/32 iterations (128 bytes per tile = 32 elements per row × 4 rows)
+    SRLI $5, X13, X14
+native_loop:
+    BEQ  X14, X0, native_done
+    WORD $0x02050007            // vle8.v v0, (a0)
+    WORD $0x02058087            // vle8.v v1, (a1)
+    WORD $0xe2103e2b            // vmadot v28, v1, v0
+    ADD  $128, X10, X10
+    ADD  $128, X11, X11
+    ADD  $-1, X14, X14
+    JMP  native_loop
+native_done:
+    WORD $0x011072d7            // vsetvli t0, zero, e32, m2
+    WORD $0x02066e27            // vse32.v v28, (a2)
+    RET
