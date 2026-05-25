@@ -40,3 +40,22 @@ func RMSNormFast(x, weight, out []float32, eps float32) {
 func BroadcastPackRVV(src []int8, K int, dst []int8) {
 	rvvBroadcastPack((*byte)(unsafe.Pointer(&src[0])), K, (*byte)(unsafe.Pointer(&dst[0])))
 }
+
+// fusedMatVec performs quantize+vmadot+dequant in one assembly function.
+// out[i] = sum_k(wPacked[i,k] * quantize(act[k])) * wScale * actInvScale
+// M must be multiple of 4. K must be multiple of 8.
+//go:noescape
+
+// FusedMatVec is the exported wrapper.
+
+// fusedPackVmadot fuses broadcast-pack + vmadot K-loop.
+//go:noescape
+func fusedPackVmadot(wPacked *byte, actI8 *byte, M int, K int, out *int32)
+
+// FusedPackVmadot is the exported wrapper.
+// Performs C[M] = wPacked[M×K] · actI8[K] (int8 matmul, int32 output at stride 4).
+func FusedPackVmadot(M, K int, wPacked []int8, actI8 []int8, out []int32) {
+	rawOut := make([]int32, M*4)
+	fusedPackVmadot((*byte)(unsafe.Pointer(&wPacked[0])), (*byte)(unsafe.Pointer(&actI8[0])), M, K, &rawOut[0])
+	for i := 0; i < M; i++ { out[i] = rawOut[i*4] }
+}

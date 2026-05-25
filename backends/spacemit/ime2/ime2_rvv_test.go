@@ -97,3 +97,29 @@ func BenchmarkRMSNormScalar_2048(b *testing.B) {
 		for j := range out { out[j] = x[j]*inv*w[j] }
 	}
 }
+
+
+func TestFusedPackVmadot(t *testing.T) {
+	M, K := 8, 16
+	// Weight: row i = all (i+1)
+	wI8 := make([]int8, M*K)
+	for i := 0; i < M; i++ { for k := 0; k < K; k++ { wI8[i*K+k] = int8(i+1) } }
+	wPacked := PackTiles(wI8, M, K)
+	// Activation: all 10
+	actI8 := make([]int8, K)
+	for i := range actI8 { actI8[i] = 10 }
+	
+	out := make([]int32, M)
+	FusedPackVmadot(M, K, wPacked, actI8, out)
+	
+	// Expected: out[i] = dot(wI8_row_i, actI8) = (i+1) * 10 * K
+	// But vmadot only uses first 8 elements per pass, and we do K/8 passes...
+	// Actually with K=16: 2 vmadot passes of 8. Each pass: dot(act[8], wt_row[8]) = (i+1)*10*8
+	// Total: 2 * (i+1)*10*8 = (i+1)*160
+	t.Logf("out = %v", out[:8])
+	expected := int32(1 * 10 * K)  // row 0
+	t.Logf("expected[0] = %d", expected)
+	if out[0] != expected {
+		t.Errorf("out[0]=%d want %d", out[0], expected)
+	}
+}
