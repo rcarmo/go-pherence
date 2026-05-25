@@ -280,7 +280,7 @@ func main() {
 	tokEmbdF32, _ := g.DequantF32(tokT)
 	// Load output.weight for LM head (may differ from tok_embd)
 	lmHeadF32 := tokEmbdF32 // default: tied embeddings
-	if outT, ok := g.TensorByName("output.weight"); ok {
+	if outT, ok := g.TensorByName("output.weight"); ok && len(outT.Shape) >= 2 && int(outT.Shape[0]) == nEmbd && int(outT.Shape[1]) >= nVocab {
 		fmt.Fprintf(os.Stderr, "Using separate output.weight (type %d) for LM head\n", outT.QType)
 		lmHeadF32, _ = g.DequantF32(outT)
 	}
@@ -384,7 +384,7 @@ func main() {
 		// Q, K, V projections (per-sub-block scale correction for Q4K)
 		qF := make([]float32, l.wqRows)
 		if l.wqScales != nil {
-			matVecQ4KCorrect(l.wqRows, l.wqCols, l.wqRaw, l.wqScales, l.wqMins, xn[:l.wqCols], qF)
+			matVecF32Direct(l.wqRows, l.wqCols, l.wqF32, xn[:l.wqCols], qF)
 		} else {
 			qRes := _resultI32[:pad4(l.wqRows)*4]
 			ime2.GemmINT8Packed(pad4(l.wqRows), 4, K1, l.wqPacked, actP, qRes)
@@ -392,7 +392,7 @@ func main() {
 		}
 		kF := make([]float32, l.wkRows)
 		if l.wkScales != nil {
-			matVecQ4KCorrect(l.wkRows, l.wkCols, l.wkRaw, l.wkScales, l.wkMins, xn[:l.wkCols], kF)
+			matVecF32Direct(l.wkRows, l.wkCols, l.wkF32, xn[:l.wkCols], kF)
 		} else {
 			kRes := _resultI32[:pad4(l.wkRows)*4]
 			ime2.GemmINT8Packed(pad4(l.wkRows), 4, K1, l.wkPacked, actP, kRes)
@@ -400,7 +400,7 @@ func main() {
 		}
 		vF := make([]float32, l.wvRows)
 		if l.wvScales != nil {
-			matVecQ4KCorrect(l.wvRows, l.wvCols, l.wvRaw, l.wvScales, l.wvMins, xn[:l.wvCols], vF)
+			matVecF32Direct(l.wvRows, l.wvCols, l.wvF32, xn[:l.wvCols], vF)
 		} else {
 			vRes := _resultI32[:pad4(l.wvRows)*4]
 			ime2.GemmINT8Packed(pad4(l.wvRows), 4, K1, l.wvPacked, actP, vRes)
@@ -410,7 +410,7 @@ func main() {
 		// Apply K norm, then RoPE, then store in cache
 		pos := nPast
 		nKVD := nKVHeads * headDim
-		if l.kNorm != nil {
+		if false && l.kNorm != nil {
 			for kh := 0; kh < nKVHeads; kh++ {
 				var ss float32
 				for d := 0; d < headDim; d++ { ss += kF[kh*headDim+d] * kF[kh*headDim+d] }
@@ -481,7 +481,7 @@ func main() {
 		actPF := packAct(_xn2[:K3], K3)
 		gateF := make([]float32, l.gateRows)
 		if l.gateScales != nil {
-			matVecQ4KCorrect(l.gateRows, l.gateCols, l.gateRaw, l.gateScales, l.gateMins, xn2[:l.gateCols], gateF)
+			matVecF32Direct(l.gateRows, l.gateCols, l.gateF32, xn2[:l.gateCols], gateF)
 		} else {
 			gRes := _resultI32[:pad4(l.gateRows)*4]
 			ime2.GemmINT8Packed(pad4(l.gateRows), 4, K3, l.gatePacked, actPF, gRes)
@@ -489,7 +489,7 @@ func main() {
 		}
 		upF := make([]float32, l.upRows)
 		if l.upScales != nil {
-			matVecQ4KCorrect(l.upRows, l.upCols, l.upRaw, l.upScales, l.upMins, xn2[:l.upCols], upF)
+			matVecF32Direct(l.upRows, l.upCols, l.upF32, xn2[:l.upCols], upF)
 		} else {
 			uRes := _resultI32[:pad4(l.upRows)*4]
 			ime2.GemmINT8Packed(pad4(l.upRows), 4, K3, l.upPacked, actPF, uRes)
@@ -503,7 +503,7 @@ func main() {
 		for i := nFF; i < K4; i++ { _hidden[i] = 0 }
 		downF := make([]float32, l.downRows)
 		if l.downScales != nil {
-			matVecQ4KCorrect(l.downRows, l.downCols, l.downRaw, l.downScales, l.downMins, hidden[:l.downCols], downF)
+			matVecF32Direct(l.downRows, l.downCols, l.downF32, hidden[:l.downCols], downF)
 		} else {
 			matVecF32Direct(l.downRows, l.downCols, l.downF32, hidden[:l.downCols], downF)
 		}
