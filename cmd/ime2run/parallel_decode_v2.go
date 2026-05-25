@@ -21,6 +21,7 @@ func parallelDecodeV2(
 	nPast int,
 	nWorkers int,
 ) {
+	initTCMDevice()
 	nQEmbd := nHeads * headDim
 	nKVD := nKVHeads * headDim
 	KpEmbd := ((nEmbd + 7) / 8) * 8
@@ -175,13 +176,40 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
+				tcmBuf := getTCMSlice(wid); tcmBuf = nil // disabled
 				fS := (wid * nFF / nWorkers / 4) * 4
 				fE := ((wid+1) * nFF / nWorkers / 4) * 4
 				if wid == nWorkers-1 { fE = nFF }
+				tileBytes := tprEmbd * 32
+				groupsPerChunk := tcmBlockSize / tileBytes
+				if groupsPerChunk < 1 { groupsPerChunk = 1 }
 				for i := fS; i < fE; i += 4 {
+					grpIdx := i / 4
+					// Stage gate tile to TCM if available
+					var gatePtr, upPtr unsafe.Pointer
+					if tcmBuf != nil {
+						chunkStart := (grpIdx / groupsPerChunk) * groupsPerChunk
+						localIdx := grpIdx - chunkStart
+						// Stage chunk if first group in chunk
+						if localIdx == 0 || i == fS {
+							nG := groupsPerChunk
+							if chunkStart+nG > fE/4 { nG = fE/4 - chunkStart }
+							srcOff := chunkStart * tileBytes
+							copySize := nG * tileBytes
+							if copySize > tcmBlockSize/2 { copySize = tcmBlockSize / 2 }
+							for ci := 0; ci < copySize; ci++ { tcmBuf[ci] = byte(l.gatePacked[srcOff+ci]) }
+							for ci := 0; ci < copySize; ci++ { tcmBuf[tcmBlockSize/2+ci] = byte(l.upPacked[srcOff+ci]) }
+						}
+						localOff := localIdx * tileBytes
+						gatePtr = unsafe.Pointer(&tcmBuf[localOff])
+						upPtr = unsafe.Pointer(&tcmBuf[tcmBlockSize/2+localOff])
+					} else {
+						gatePtr = unsafe.Pointer(&l.gatePacked[grpIdx*tileBytes])
+						upPtr = unsafe.Pointer(&l.upPacked[grpIdx*tileBytes])
+					}
 					var gacc, uacc [16]int32
-					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.gatePacked[(i/4)*tprEmbd*32])), (*byte)(unsafe.Pointer(&actFFN[0])), &gacc[0], KpEmbd)
-					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.upPacked[(i/4)*tprEmbd*32])), (*byte)(unsafe.Pointer(&actFFN[0])), &uacc[0], KpEmbd)
+					ime2.VmadotKLoop((*byte)(gatePtr), (*byte)(unsafe.Pointer(&actFFN[0])), &gacc[0], KpEmbd)
+					ime2.VmadotKLoop((*byte)(upPtr), (*byte)(unsafe.Pointer(&actFFN[0])), &uacc[0], KpEmbd)
 					for r := 0; r < 4 && i+r < nFF; r++ {
 						g := float32(gacc[r*4]) * l.gateScale * scFFN
 						u := float32(uacc[r*4]) * l.upScale * scFFN
