@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -180,6 +181,74 @@ func (c Hunyuan3DConfig) Summary() Hunyuan3DSummary {
 		ConditionerType:   condType,
 		SchedulerSteps:    c.Scheduler.Params.NumTrainTimesteps,
 	}
+}
+
+type Hunyuan3DFlowMatchSchedule struct {
+	NumInferenceSteps              int
+	NumTrainTimesteps              int
+	Shift                          float64
+	UseDynamicShifting             bool
+	BaseSigmas                     []float64
+	Sigmas                         []float64
+	SchedulerSigmasWithTerminalOne []float64
+	Timesteps                      []float64
+	ModelTimestepInputs            []float64
+}
+
+// Hunyuan3DFlowMatchScheduleFor mirrors the upstream fixture scheduler path for
+// Hunyuan3DDiTFlowMatchingPipeline: base sigmas are linearly spaced from 0 to 1,
+// optional static shifting is applied, timesteps are sigma*num_train_timesteps,
+// and the model receives normalized timestep inputs in [0, 1].
+func Hunyuan3DFlowMatchScheduleFor(params Hunyuan3DSchedulerParams, steps int) (Hunyuan3DFlowMatchSchedule, error) {
+	if steps <= 0 {
+		return Hunyuan3DFlowMatchSchedule{}, fmt.Errorf("invalid Hunyuan3D inference steps %d", steps)
+	}
+	trainSteps := params.NumTrainTimesteps
+	if trainSteps <= 0 {
+		trainSteps = 1000
+	}
+	shift := params.Shift
+	if shift == 0 {
+		shift = 1
+	}
+	out := Hunyuan3DFlowMatchSchedule{
+		NumInferenceSteps:   steps,
+		NumTrainTimesteps:   trainSteps,
+		Shift:               shift,
+		UseDynamicShifting:  params.UseDynamicShifting,
+		BaseSigmas:          make([]float64, steps),
+		Sigmas:              make([]float64, steps),
+		Timesteps:           make([]float64, steps),
+		ModelTimestepInputs: make([]float64, steps),
+	}
+	for i := 0; i < steps; i++ {
+		base := 0.0
+		if steps > 1 {
+			base = float64(i) / float64(steps-1)
+		}
+		sigma := base
+		if !params.UseDynamicShifting {
+			denom := 1 + (shift-1)*base
+			if denom == 0 || math.IsNaN(denom) || math.IsInf(denom, 0) {
+				return Hunyuan3DFlowMatchSchedule{}, fmt.Errorf("invalid Hunyuan3D sigma shift denominator for shift=%g sigma=%g", shift, base)
+			}
+			sigma = shift * base / denom
+		}
+		out.BaseSigmas[i] = base
+		out.Sigmas[i] = sigma
+		out.Timesteps[i] = sigma * float64(trainSteps)
+		out.ModelTimestepInputs[i] = sigma
+	}
+	out.SchedulerSigmasWithTerminalOne = append(append([]float64(nil), out.Sigmas...), 1)
+	return out, nil
+}
+
+func (c Hunyuan3DConfig) FlowMatchSchedule(steps int) (Hunyuan3DFlowMatchSchedule, error) {
+	return Hunyuan3DFlowMatchScheduleFor(c.Scheduler.Params, steps)
+}
+
+func Hunyuan3DFlowMatchStep(sample, modelOutput, sigma, sigmaNext float32) float32 {
+	return sample + (sigmaNext-sigma)*modelOutput
 }
 
 type Hunyuan3DTensorGroup string

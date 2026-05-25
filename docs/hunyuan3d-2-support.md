@@ -130,7 +130,7 @@ Goal: make Hunyuan3D support measurable without downloading every model variant.
 - [ ] Generate Python golden fixtures:
   - [x] preprocessed image tensor fixture generator (`scripts/hunyuan3d_image_fixture.py`, dependency-gated on `numpy`, `Pillow`, and `opencv-python`);
   - [ ] DINO/CLIP condition embeddings (`scripts/hunyuan3d_conditioner_fixture.py` is available, but requires a local Hunyuan3D checkout plus Torch/Transformers/Safetensors image dependencies and local checkpoint payloads);
-  - [x] scheduler sigmas/timesteps via `scripts/hunyuan3d_fixture_inventory.py`;
+  - [x] scheduler sigmas/timesteps via `scripts/hunyuan3d_fixture_inventory.py`, with Go parity helpers in `loader/config`;
   - [ ] one denoiser step output for fixed seed/latents (`scripts/hunyuan3d_denoiser_fixture.py` is available, but requires local Hunyuan3D deps and checkpoint payloads);
   - [ ] final latent for a very low step count (`scripts/hunyuan3d_lowstep_latent_fixture.py` is available, but requires local Hunyuan3D deps and checkpoint payloads);
   - [ ] optional low-resolution mesh/volume logits (`scripts/hunyuan3d_mesh_fixture.py` is available, but requires local Hunyuan3D deps and checkpoint payloads).
@@ -211,12 +211,12 @@ Acceptance:
 
 Goal: produce final latents without mesh export.
 
-- Implement `FlowMatchEulerDiscreteScheduler`:
+- [x] Implement metadata-level `FlowMatchEulerDiscreteScheduler` reference helpers:
   - sigma/timestep generation;
   - `step`: `sample + (sigma_next - sigma) * model_output`;
   - flow pipeline convention where model receives timesteps normalized to `[0, 1]`.
-- Implement CFG duplication/blending for Hunyuan3D flow pipeline.
-- Add deterministic random latent generation for fixture parity.
+- [ ] Implement CFG duplication/blending for Hunyuan3D flow pipeline.
+- [ ] Add deterministic random latent generation for fixture parity.
 
 Acceptance:
 

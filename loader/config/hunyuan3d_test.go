@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 const hunyuan3DSampleConfig = `
 model:
@@ -90,6 +93,48 @@ scheduler:
 `)
 	if _, err := ParseHunyuan3DConfig(bad); err == nil {
 		t.Fatal("bad axes_dim parsed without error")
+	}
+}
+
+func TestHunyuan3DFlowMatchSchedule(t *testing.T) {
+	cfg, err := ParseHunyuan3DConfig([]byte(hunyuan3DSampleConfig))
+	if err != nil {
+		t.Fatalf("ParseHunyuan3DConfig: %v", err)
+	}
+	got, err := cfg.FlowMatchSchedule(5)
+	if err != nil {
+		t.Fatalf("FlowMatchSchedule: %v", err)
+	}
+	want := []float64{0, 0.25, 0.5, 0.75, 1}
+	if got.NumInferenceSteps != 5 || got.NumTrainTimesteps != 1000 || got.Shift != 1 || got.UseDynamicShifting {
+		t.Fatalf("schedule metadata=%+v", got)
+	}
+	for i := range want {
+		if math.Abs(got.BaseSigmas[i]-want[i]) > 1e-12 || math.Abs(got.Sigmas[i]-want[i]) > 1e-12 || math.Abs(got.ModelTimestepInputs[i]-want[i]) > 1e-12 || math.Abs(got.Timesteps[i]-want[i]*1000) > 1e-9 {
+			t.Fatalf("schedule[%d]=base %g sigma %g t %g model %g", i, got.BaseSigmas[i], got.Sigmas[i], got.Timesteps[i], got.ModelTimestepInputs[i])
+		}
+	}
+	if len(got.SchedulerSigmasWithTerminalOne) != 6 || got.SchedulerSigmasWithTerminalOne[5] != 1 {
+		t.Fatalf("terminal sigmas=%v", got.SchedulerSigmasWithTerminalOne)
+	}
+}
+
+func TestHunyuan3DFlowMatchScheduleShiftAndStep(t *testing.T) {
+	got, err := Hunyuan3DFlowMatchScheduleFor(Hunyuan3DSchedulerParams{NumTrainTimesteps: 1000, Shift: 2}, 3)
+	if err != nil {
+		t.Fatalf("Hunyuan3DFlowMatchScheduleFor: %v", err)
+	}
+	wantSigmas := []float64{0, 2.0 / 3.0, 1}
+	for i, want := range wantSigmas {
+		if math.Abs(got.Sigmas[i]-want) > 1e-12 {
+			t.Fatalf("sigma[%d]=%.12f want %.12f", i, got.Sigmas[i], want)
+		}
+	}
+	if got := Hunyuan3DFlowMatchStep(10, 4, 0.25, 0.5); got != 11 {
+		t.Fatalf("Hunyuan3DFlowMatchStep=%v want 11", got)
+	}
+	if _, err := Hunyuan3DFlowMatchScheduleFor(Hunyuan3DSchedulerParams{}, 0); err == nil {
+		t.Fatal("zero steps returned nil error")
 	}
 }
 
