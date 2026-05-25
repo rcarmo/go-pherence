@@ -381,15 +381,6 @@ func main() {
 	globalBufs = NewMatVecBufs(pad8(nFF), pad4(nFF))
 
 	var layerTime, headTime time.Duration
-	// Register worker threads as AI threads (unlock cores 8-15)
-	for i := 0; i < *nThreads; i++ {
-		go func() {
-			runtime.LockOSThread()
-			f, _ := os.OpenFile("/proc/set_ai_thread", os.O_WRONLY, 0)
-			if f != nil { fmt.Fprintf(f, "%d", syscall.Gettid()); f.Close() }
-		}()
-	}
-	runtime.Gosched() // let AI threads register
 	allTokens := promptTokens
 	t1 := time.Now()
 

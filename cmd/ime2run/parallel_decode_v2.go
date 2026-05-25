@@ -3,7 +3,6 @@ package main
 import (
 	"math"
 	
-	"runtime"
 	"sync"
 	"unsafe"
 
@@ -22,7 +21,6 @@ func parallelDecodeV2(
 	nPast int,
 	nWorkers int,
 ) {
-	initTCMDevice()
 	nQEmbd := nHeads * headDim
 	nKVD := nKVHeads * headDim
 	KpEmbd := ((nEmbd + 7) / 8) * 8
@@ -30,7 +28,7 @@ func parallelDecodeV2(
 	KpFF := ((nFF + 7) / 8) * 8
 
 	// Shared buffers (written by main between layers, read by workers)
-	scoresPool := make([]float32, 512)
+	scoresPool := make([]float32, 512) // max context length
 	xn := make([]float32, nEmbd)
 	xn2 := make([]float32, nEmbd)
 	qF := make([]float32, nQEmbd)
@@ -65,10 +63,6 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				}
-				var cpuSet unix.CPUSet
-				cpuSet.Zero()
-				// Let scheduler distribute across 8-15
 				// Q slice
 				qS := (wid * nQEmbd / nWorkers / 4) * 4
 				qE := ((wid+1) * nQEmbd / nWorkers / 4) * 4
@@ -156,10 +150,6 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				}
-				var cpuSet unix.CPUSet
-				cpuSet.Zero()
-				// Let scheduler distribute across 8-15
 				wS := (wid * nEmbd / nWorkers / 4) * 4
 				wE := ((wid+1) * nEmbd / nWorkers / 4) * 4
 				if wid == nWorkers-1 { wE = nEmbd }
@@ -185,57 +175,17 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				}
-				var cpuSet unix.CPUSet
-				cpuSet.Zero()
-				// Let scheduler distribute across 8-15
-				tcmBuf := getTCMSlice(wid); _ = tcmBuf; tcmBuf = nil
 				fS := (wid * nFF / nWorkers / 4) * 4
 				fE := ((wid+1) * nFF / nWorkers / 4) * 4
 				if wid == nWorkers-1 { fE = nFF }
-				tileBytes := tprEmbd * 32
-				// TCM tiling: stage groups in chunks that fit in half the TCM block
-				// (half for gate, half for up)
-				halfTCM := tcmBlockSize / 2
-				groupsPerChunk := halfTCM / tileBytes
-				if groupsPerChunk < 1 || tcmBuf == nil { groupsPerChunk = fE/4 - fS/4 + 1 } // no chunking without TCM
-				for chunkBase := fS / 4; chunkBase < fE/4; chunkBase += groupsPerChunk {
-					chunkEnd := chunkBase + groupsPerChunk
-					if chunkEnd > fE/4 { chunkEnd = fE / 4 }
-					nG := chunkEnd - chunkBase
-					// Stage this chunk to TCM
-					if tcmBuf != nil && nG > 0 {
-						srcOff := chunkBase * tileBytes
-						sz := nG * tileBytes
-						if sz > halfTCM { sz = halfTCM }
-						dst := tcmBuf[:sz]
-						src := l.gatePacked[srcOff : srcOff+sz]
-						copy(dst, unsafe.Slice((*byte)(unsafe.Pointer(&src[0])), len(dst)))
-						dst2 := tcmBuf[halfTCM : halfTCM+sz]
-						src2 := l.upPacked[srcOff : srcOff+sz]
-						copy(dst2, unsafe.Slice((*byte)(unsafe.Pointer(&src2[0])), len(dst2)))
-					}
-					// Process groups in this chunk
-					for gi := 0; gi < nG; gi++ {
-						grpIdx := chunkBase + gi
-						i := grpIdx * 4
-						var gatePtr, upPtr unsafe.Pointer
-						if tcmBuf != nil {
-							localOff := gi * tileBytes
-							gatePtr = unsafe.Pointer(&tcmBuf[localOff])
-							upPtr = unsafe.Pointer(&tcmBuf[halfTCM+localOff])
-						} else {
-							gatePtr = unsafe.Pointer(&l.gatePacked[grpIdx*tileBytes])
-							upPtr = unsafe.Pointer(&l.upPacked[grpIdx*tileBytes])
-						}
-						var gacc, uacc [16]int32
-						ime2.VmadotKLoop((*byte)(gatePtr), (*byte)(unsafe.Pointer(&actFFN[0])), &gacc[0], KpEmbd)
-						ime2.VmadotKLoop((*byte)(upPtr), (*byte)(unsafe.Pointer(&actFFN[0])), &uacc[0], KpEmbd)
-						for r := 0; r < 4 && i+r < nFF; r++ {
-							g := float32(gacc[r*4]) * l.gateScale * scFFN
-							u := float32(uacc[r*4]) * l.upScale * scFFN
-							hidden[i+r] = silu(g) * u
-						}
+				for i := fS; i < fE; i += 4 {
+					var gacc, uacc [16]int32
+					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.gatePacked[(i/4)*tprEmbd*32])), (*byte)(unsafe.Pointer(&actFFN[0])), &gacc[0], KpEmbd)
+					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.upPacked[(i/4)*tprEmbd*32])), (*byte)(unsafe.Pointer(&actFFN[0])), &uacc[0], KpEmbd)
+					for r := 0; r < 4 && i+r < nFF; r++ {
+						g := float32(gacc[r*4]) * l.gateScale * scFFN
+						u := float32(uacc[r*4]) * l.upScale * scFFN
+						hidden[i+r] = silu(g) * u
 					}
 				}
 			}(w)
@@ -249,10 +199,6 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				}
-				var cpuSet unix.CPUSet
-				cpuSet.Zero()
-				// Let scheduler distribute across 8-15
 				dS := (wid * nEmbd / nWorkers / 4) * 4
 				dE := ((wid+1) * nEmbd / nWorkers / 4) * 4
 				if wid == nWorkers-1 { dE = nEmbd }
@@ -268,3 +214,4 @@ func parallelDecodeV2(
 	}
 }
 
+var _ = unix.SchedSetaffinity
