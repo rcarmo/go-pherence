@@ -104,6 +104,12 @@ var (
 	gpuSMs     int32
 	gpuCCMajor int32
 	gpuCCMinor int32
+
+	// CUDA driver contexts are thread-local and purego calls are not a
+	// synchronization boundary. Serialize driver entry and pin each operation to
+	// one OS thread so EnsureContext and the following driver call cannot be
+	// separated by goroutine migration under concurrent inference.
+	cudaMu sync.Mutex
 )
 
 // Init attempts to load CUDA and initialize the GPU.
@@ -218,11 +224,19 @@ func Init() bool {
 	return gpuOK
 }
 
-// EnsureContext sets the CUDA context on the calling thread.
-func EnsureContext() {
+func ensureContextLocked() {
 	if gpuOK && gpuCtx != 0 && cuCtxSetCurrent != nil {
 		cuCtxSetCurrent(gpuCtx)
 	}
+}
+
+// EnsureContext sets the CUDA context on the calling thread.
+func EnsureContext() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 }
 
 // Available returns true if CUDA GPU is accessible.
@@ -254,7 +268,11 @@ func Malloc(n int) (*Buffer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cuMemAlloc size overflow for %d float32s", n)
 	}
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 	var ptr CUdeviceptr
 	if r := cuMemAlloc(&ptr, size); r != CUDA_SUCCESS {
 		return nil, fmt.Errorf("cuMemAlloc(%d): error %d", size, r)
@@ -265,7 +283,11 @@ func Malloc(n int) (*Buffer, error) {
 // Free releases GPU memory.
 func (b *Buffer) Free() {
 	if b.Ptr != 0 {
-		EnsureContext()
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		cudaMu.Lock()
+		defer cudaMu.Unlock()
+		ensureContextLocked()
 		cuMemFree(b.Ptr)
 		b.Ptr = 0
 	}
@@ -303,9 +325,13 @@ func (b *Buffer) Upload(data []float32) error {
 	if err != nil {
 		return err
 	}
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	ensureContextLocked()
 	r := cuMemcpyHtoD(b.Ptr, unsafe.Pointer(&data[0]), size)
 	runtime.KeepAlive(data) // prevent GC from moving data during CUDA memcpy
+	cudaMu.Unlock()
 	if r != CUDA_SUCCESS {
 		return fmt.Errorf("cuMemcpyHtoD: error %d", r)
 	}
@@ -327,9 +353,13 @@ func (b *Buffer) UploadBytes(data []byte) error {
 	if len(data) > b.Size {
 		return fmt.Errorf("copy size %d exceeds buffer size %d", len(data), b.Size)
 	}
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	ensureContextLocked()
 	r := cuMemcpyHtoD(b.Ptr, unsafe.Pointer(&data[0]), uint64(len(data)))
 	runtime.KeepAlive(data)
+	cudaMu.Unlock()
 	if r != CUDA_SUCCESS {
 		return fmt.Errorf("cuMemcpyHtoD: error %d", r)
 	}
@@ -353,9 +383,13 @@ func (b *Buffer) UploadUint32(data []uint32) error {
 	if err != nil {
 		return err
 	}
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	ensureContextLocked()
 	r := cuMemcpyHtoD(b.Ptr, unsafe.Pointer(&data[0]), size)
 	runtime.KeepAlive(data)
+	cudaMu.Unlock()
 	if r != CUDA_SUCCESS {
 		return fmt.Errorf("cuMemcpyHtoD: error %d", r)
 	}
@@ -376,9 +410,13 @@ func (b *Buffer) DownloadBytes(data []byte) error {
 	if len(data) > b.Size {
 		return fmt.Errorf("copy size %d exceeds buffer size %d", len(data), b.Size)
 	}
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	ensureContextLocked()
 	r := cuMemcpyDtoH(unsafe.Pointer(&data[0]), b.Ptr, uint64(len(data)))
 	runtime.KeepAlive(data)
+	cudaMu.Unlock()
 	if r != CUDA_SUCCESS {
 		return fmt.Errorf("cuMemcpyDtoH: error %d", r)
 	}
@@ -400,9 +438,13 @@ func (b *Buffer) Download(data []float32) error {
 	if err != nil {
 		return err
 	}
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	ensureContextLocked()
 	r := cuMemcpyDtoH(unsafe.Pointer(&data[0]), b.Ptr, size)
 	runtime.KeepAlive(data)
+	cudaMu.Unlock()
 	if r != CUDA_SUCCESS {
 		return fmt.Errorf("cuMemcpyDtoH: error %d", r)
 	}
@@ -413,7 +455,11 @@ func (b *Buffer) Download(data []float32) error {
 }
 
 func syncCounted(count bool) CUresult {
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 	r := cuCtxSynchronize()
 	if count && r == CUDA_SUCCESS && gpuStatsEnabled.Load() {
 		gpuStatsSyncs.Add(1)
@@ -492,6 +538,11 @@ func LaunchKernel(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, blockZ uin
 	if len(args) > 0 {
 		argPtrs = unsafe.Pointer(&args[0])
 	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 	if r := cuLaunchKernel(fn, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem, 0, argPtrs, nil); r != CUDA_SUCCESS {
 		return fmt.Errorf("cuLaunchKernel: error %d", r)
 	}
