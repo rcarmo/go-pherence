@@ -176,44 +176,53 @@ func parallelDecodeV2(
 		for w := 0; w < nWorkers; w++ {
 			go func(wid int) {
 				defer wg.Done()
-				tcmBuf := getTCMSlice(wid); tcmBuf = nil // disabled
+				tcmBuf := getTCMSlice(wid); _ = tcmBuf; tcmBuf = nil
 				fS := (wid * nFF / nWorkers / 4) * 4
 				fE := ((wid+1) * nFF / nWorkers / 4) * 4
 				if wid == nWorkers-1 { fE = nFF }
 				tileBytes := tprEmbd * 32
-				groupsPerChunk := tcmBlockSize / tileBytes
-				if groupsPerChunk < 1 { groupsPerChunk = 1 }
-				for i := fS; i < fE; i += 4 {
-					grpIdx := i / 4
-					// Stage gate tile to TCM if available
-					var gatePtr, upPtr unsafe.Pointer
-					if tcmBuf != nil {
-						chunkStart := (grpIdx / groupsPerChunk) * groupsPerChunk
-						localIdx := grpIdx - chunkStart
-						// Stage chunk if first group in chunk
-						if localIdx == 0 || i == fS {
-							nG := groupsPerChunk
-							if chunkStart+nG > fE/4 { nG = fE/4 - chunkStart }
-							srcOff := chunkStart * tileBytes
-							copySize := nG * tileBytes
-							if copySize > tcmBlockSize/2 { copySize = tcmBlockSize / 2 }
-							for ci := 0; ci < copySize; ci++ { tcmBuf[ci] = byte(l.gatePacked[srcOff+ci]) }
-							for ci := 0; ci < copySize; ci++ { tcmBuf[tcmBlockSize/2+ci] = byte(l.upPacked[srcOff+ci]) }
-						}
-						localOff := localIdx * tileBytes
-						gatePtr = unsafe.Pointer(&tcmBuf[localOff])
-						upPtr = unsafe.Pointer(&tcmBuf[tcmBlockSize/2+localOff])
-					} else {
-						gatePtr = unsafe.Pointer(&l.gatePacked[grpIdx*tileBytes])
-						upPtr = unsafe.Pointer(&l.upPacked[grpIdx*tileBytes])
+				// TCM tiling: stage groups in chunks that fit in half the TCM block
+				// (half for gate, half for up)
+				halfTCM := tcmBlockSize / 2
+				groupsPerChunk := halfTCM / tileBytes
+				if groupsPerChunk < 1 || tcmBuf == nil { groupsPerChunk = fE/4 - fS/4 + 1 } // no chunking without TCM
+				for chunkBase := fS / 4; chunkBase < fE/4; chunkBase += groupsPerChunk {
+					chunkEnd := chunkBase + groupsPerChunk
+					if chunkEnd > fE/4 { chunkEnd = fE / 4 }
+					nG := chunkEnd - chunkBase
+					// Stage this chunk to TCM
+					if tcmBuf != nil && nG > 0 {
+						srcOff := chunkBase * tileBytes
+						sz := nG * tileBytes
+						if sz > halfTCM { sz = halfTCM }
+						dst := tcmBuf[:sz]
+						src := l.gatePacked[srcOff : srcOff+sz]
+						copy(dst, unsafe.Slice((*byte)(unsafe.Pointer(&src[0])), len(dst)))
+						dst2 := tcmBuf[halfTCM : halfTCM+sz]
+						src2 := l.upPacked[srcOff : srcOff+sz]
+						copy(dst2, unsafe.Slice((*byte)(unsafe.Pointer(&src2[0])), len(dst2)))
 					}
-					var gacc, uacc [16]int32
-					ime2.VmadotKLoop((*byte)(gatePtr), (*byte)(unsafe.Pointer(&actFFN[0])), &gacc[0], KpEmbd)
-					ime2.VmadotKLoop((*byte)(upPtr), (*byte)(unsafe.Pointer(&actFFN[0])), &uacc[0], KpEmbd)
-					for r := 0; r < 4 && i+r < nFF; r++ {
-						g := float32(gacc[r*4]) * l.gateScale * scFFN
-						u := float32(uacc[r*4]) * l.upScale * scFFN
-						hidden[i+r] = silu(g) * u
+					// Process groups in this chunk
+					for gi := 0; gi < nG; gi++ {
+						grpIdx := chunkBase + gi
+						i := grpIdx * 4
+						var gatePtr, upPtr unsafe.Pointer
+						if tcmBuf != nil {
+							localOff := gi * tileBytes
+							gatePtr = unsafe.Pointer(&tcmBuf[localOff])
+							upPtr = unsafe.Pointer(&tcmBuf[halfTCM+localOff])
+						} else {
+							gatePtr = unsafe.Pointer(&l.gatePacked[grpIdx*tileBytes])
+							upPtr = unsafe.Pointer(&l.upPacked[grpIdx*tileBytes])
+						}
+						var gacc, uacc [16]int32
+						ime2.VmadotKLoop((*byte)(gatePtr), (*byte)(unsafe.Pointer(&actFFN[0])), &gacc[0], KpEmbd)
+						ime2.VmadotKLoop((*byte)(upPtr), (*byte)(unsafe.Pointer(&actFFN[0])), &uacc[0], KpEmbd)
+						for r := 0; r < 4 && i+r < nFF; r++ {
+							g := float32(gacc[r*4]) * l.gateScale * scFFN
+							u := float32(uacc[r*4]) * l.upScale * scFFN
+							hidden[i+r] = silu(g) * u
+						}
 					}
 				}
 			}(w)
