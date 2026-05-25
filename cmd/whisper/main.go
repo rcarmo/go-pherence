@@ -18,9 +18,10 @@ import (
 func main() {
 	modelPath := flag.String("model", "", "Path to Whisper safetensors model")
 	audioPath := flag.String("audio", "", "Path to input WAV file")
-	modelSize := flag.String("size", "tiny", "Model size: tiny, base, small, medium, large-v3")
+	modelSize := flag.String("size", "tiny", "Model size: tiny, base, small, medium, large-v3, turbo")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
 	timestamps := flag.Bool("timestamps", false, "Output with timestamps")
+	output := flag.String("output", "", "Output file path (supports .vtt)")
 	flag.Parse()
 
 	if *modelPath == "" || *audioPath == "" {
@@ -83,12 +84,28 @@ func main() {
 		segments := transcribeWithTimestamps(w, samples)
 		if *diarize {
 			diarized := diarizeSegments(samples, segments)
-			for _, seg := range diarized {
-				fmt.Printf("[%.2f - %.2f] Speaker %d: %s\n", seg.Start, seg.End, seg.Speaker, seg.Text)
+			if *output != "" {
+				if err := whisper.WriteDiarizedVTT(*output, diarized); err != nil {
+					fmt.Fprintf(os.Stderr, "Error writing VTT: %v\n", err)
+					os.Exit(1)
+				}
+				fmt.Fprintf(os.Stderr, "Written to %s\n", *output)
+			} else {
+				for _, seg := range diarized {
+					fmt.Printf("[%.2f - %.2f] Speaker %d: %s\n", seg.Start, seg.End, seg.Speaker+1, seg.Text)
+				}
 			}
 		} else {
-			for _, seg := range segments {
-				fmt.Printf("[%.2f - %.2f] %s\n", seg.Start, seg.End, seg.Text)
+			if *output != "" {
+				if err := whisper.WriteVTT(*output, segments); err != nil {
+					fmt.Fprintf(os.Stderr, "Error writing VTT: %v\n", err)
+					os.Exit(1)
+				}
+				fmt.Fprintf(os.Stderr, "Written to %s\n", *output)
+			} else {
+				for _, seg := range segments {
+					fmt.Printf("[%.2f - %.2f] %s\n", seg.Start, seg.End, seg.Text)
+				}
 			}
 		}
 	} else {
@@ -128,20 +145,18 @@ func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.S
 	return whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
 }
 
-func diarizeSegments(samples []float32, segments []whisper.Segment) []speaker.DiarizedSegment {
+func diarizeSegments(samples []float32, segments []whisper.Segment) []whisper.DiarizedSegment {
 	// VAD to find speech segments
 	vadSegs := speaker.EnergyVAD(samples, 16000, 25, 10, 0)
 	if len(vadSegs) == 0 {
-		// Fallback: one segment per whisper segment
-		result := make([]speaker.DiarizedSegment, len(segments))
+		result := make([]whisper.DiarizedSegment, len(segments))
 		for i, s := range segments {
-			result[i] = speaker.DiarizedSegment{Start: s.Start, End: s.End, Text: s.Text, Speaker: 0}
+			result[i] = whisper.DiarizedSegment{Start: s.Start, End: s.End, Text: s.Text, Speaker: 0}
 		}
 		return result
 	}
 
 	// Extract speaker embeddings per VAD segment (placeholder: zero embeddings)
-	// Real implementation would use ECAPA-TDNN model
 	embeddings := make([][]float32, len(vadSegs))
 	for i := range embeddings {
 		embeddings[i] = make([]float32, 192)
@@ -150,6 +165,11 @@ func diarizeSegments(samples []float32, segments []whisper.Segment) []speaker.Di
 	// Cluster
 	labels := speaker.AgglomerativeCluster(embeddings, 0.7)
 
-	// Align
-	return speaker.AlignSpeakers(segments, vadSegs, labels)
+	// Align and convert
+	aligned := speaker.AlignSpeakers(segments, vadSegs, labels)
+	result := make([]whisper.DiarizedSegment, len(aligned))
+	for i, a := range aligned {
+		result[i] = whisper.DiarizedSegment{Start: a.Start, End: a.End, Speaker: a.Speaker, Text: a.Text}
+	}
+	return result
 }
