@@ -1,0 +1,99 @@
+package ime2
+
+import (
+	"math"
+	"testing"
+	"unsafe"
+)
+
+func TestRVVBroadcastPack(t *testing.T) {
+	src := make([]int8, 16)
+	for i := range src { src[i] = int8(i + 1) }
+	dst := make([]int8, 64) // 4*16
+
+	BroadcastPackRVV(src, 16, dst)
+
+	// Check: dst should have [1..8, 1..8, 1..8, 1..8, 9..16, 9..16, 9..16, 9..16]
+	for tile := 0; tile < 2; tile++ {
+		for row := 0; row < 4; row++ {
+			for col := 0; col < 8; col++ {
+				expected := int8(tile*8 + col + 1)
+				got := dst[tile*32+row*8+col]
+				if got != expected {
+					t.Errorf("tile%d row%d col%d: got %d want %d", tile, row, col, got, expected)
+					return
+				}
+			}
+		}
+	}
+	t.Log("RVV BroadcastPack: correct!")
+}
+
+func TestRMSNormRVV(t *testing.T) {
+	n := 64
+	x := make([]float32, n)
+	w := make([]float32, n)
+	out := make([]float32, n)
+	ref := make([]float32, n)
+
+	for i := range x { x[i] = float32(i) * 0.1 - 3.2 }
+	for i := range w { w[i] = 1.0 + float32(i)*0.01 }
+
+	// Reference
+	var ss float32
+	for i := range x { ss += x[i] * x[i] }
+	
+	invRMS := float32(1.0 / math.Sqrt(float64(ss/float32(n)+1e-5)))
+	for i := range ref { ref[i] = x[i] * invRMS * w[i] }
+
+	// RVV
+	RMSNormFast(x, w, out, 1e-5)
+
+	maxErr := float32(0)
+	for i := range out {
+		e := out[i] - ref[i]; if e < 0 { e = -e }
+		if e > maxErr { maxErr = e }
+	}
+	t.Logf("RMSNormRVV maxErr: %e", maxErr)
+	if maxErr > 1e-5 { t.Errorf("too much error: %e", maxErr) }
+}
+
+var _ = unsafe.Pointer(nil)
+
+func TestRVVMulVecVec(t *testing.T) {
+	n := 32
+	a := make([]float32, n)
+	b := make([]float32, n)
+	out := make([]float32, n)
+	for i := range a { a[i] = float32(i) + 1; b[i] = 2.0 }
+	rvvMulVecVec(&a[0], &b[0], &out[0], n)
+	for i := 0; i < 8; i++ {
+		t.Logf("out[%d] = %.2f (expected %.2f)", i, out[i], a[i]*b[i])
+	}
+	if out[0] != 2.0 || out[7] != 16.0 {
+		t.Errorf("wrong: out[0]=%f out[7]=%f", out[0], out[7])
+	}
+}
+
+func BenchmarkRMSNormRVV_2048(b *testing.B) {
+	x := make([]float32, 2048)
+	w := make([]float32, 2048)
+	out := make([]float32, 2048)
+	for i := range x { x[i] = 0.1; w[i] = 1.5 }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ { RMSNormFast(x, w, out, 1e-6) }
+}
+
+func BenchmarkRMSNormScalar_2048(b *testing.B) {
+	x := make([]float32, 2048)
+	w := make([]float32, 2048)
+	out := make([]float32, 2048)
+	for i := range x { x[i] = 0.1; w[i] = 1.5 }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var ss float32
+		for j := range x { ss += x[j]*x[j] }
+		inv := float32(1.0/math.Sqrt(float64(ss/2048+1e-6)))
+		for j := range out { out[j] = x[j]*inv*w[j] }
+	}
+}
