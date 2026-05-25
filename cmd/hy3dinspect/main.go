@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sort"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -19,6 +18,7 @@ type tensorSummary struct {
 	VAE         int                                            `json:"vae"`
 	Conditioner int                                            `json:"conditioner"`
 	Other       int                                            `json:"other"`
+	Missing     []string                                       `json:"missing,omitempty"`
 	Examples    map[loaderconfig.Hunyuan3DTensorGroup][]string `json:"examples,omitempty"`
 }
 
@@ -87,13 +87,11 @@ func summarizeTensorFile(path string) (tensorSummary, error) {
 		return tensorSummary{}, err
 	}
 	defer f.Close()
-	names := make([]string, 0, len(f.Tensors))
-	for name := range f.Tensors {
-		names = append(names, name)
+	coverage, err := hunyuan3d.ValidateTensorCoverage(hunyuan3d.TensorNames(f.Tensors))
+	if err != nil {
+		return tensorSummary{}, err
 	}
-	sort.Strings(names)
-	inv := loaderconfig.SummarizeHunyuan3DTensors(names)
-	return tensorSummary{Path: path, Total: inv.Total, Model: inv.Model, VAE: inv.VAE, Conditioner: inv.Conditioner, Other: inv.Other, Examples: inv.Examples}, nil
+	return tensorSummary{Path: path, Total: coverage.Total, Model: coverage.Model, VAE: coverage.VAE, Conditioner: coverage.Conditioner, Other: coverage.Other, Missing: coverage.Missing, Examples: coverage.Examples}, nil
 }
 
 func printText(r report) {
