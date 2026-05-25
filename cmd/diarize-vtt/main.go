@@ -24,8 +24,9 @@ import (
 )
 
 type job struct {
-	idx        int
-	start, end int
+	idx              int
+	start, end       int
+	cueStart, cueEnd int
 }
 
 type result struct {
@@ -46,7 +47,7 @@ func main() {
 	task := flag.String("task", "translate", "Whisper task: translate or transcribe")
 	language := flag.String("language", "pt", "Source language code for Whisper prompt, e.g. pt, es, en")
 	workers := flag.Int("workers", max(1, min(4, runtimeWorkersDefault())), "Parallel transcription workers")
-	chunkSec := flag.Float64("chunk", 25.0, "Chunk duration in seconds (<=30 recommended)")
+	chunkSec := flag.Float64("chunk", 10.0, "Chunk duration in seconds (<=30 recommended)")
 	overlapSec := flag.Float64("overlap", 1.0, "Chunk overlap in seconds")
 	maxTokens := flag.Int("max-tokens", 96, "Maximum generated tokens per chunk")
 	minSpeech := flag.Float64("min-speech", 0.35, "Minimum VAD speech overlap ratio required to transcribe a chunk")
@@ -201,8 +202,8 @@ func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples 
 			for j := range in {
 				st := time.Now()
 				text, err := transcribeChunkFast(w, gpuEnc, samples[j.start:j.end], languageToken, taskToken)
-				rs := float64(j.start) / 16000.0
-				re := float64(j.end) / 16000.0
+				rs := float64(j.cueStart) / 16000.0
+				re := float64(j.cueEnd) / 16000.0
 				out <- result{idx: j.idx, startSec: rs, endSec: re, speaker: dominantSpeaker(rs, re, vad, labels), text: text, err: err, duration: time.Since(st)}
 			}
 		}()
@@ -269,7 +270,24 @@ func makeJobs(n int, chunkSec, overlapSec float64) []job {
 		if end-off < 16000 {
 			break
 		}
-		jobs = append(jobs, job{idx: idx, start: off, end: end})
+		cueStart := off
+		cueEnd := end
+		if idx > 0 {
+			cueStart = off + int(overlapSec*16000/2)
+		}
+		if end < n {
+			cueEnd = end - int(overlapSec*16000/2)
+		}
+		if cueStart < off {
+			cueStart = off
+		}
+		if cueEnd > end {
+			cueEnd = end
+		}
+		if cueEnd <= cueStart {
+			cueStart, cueEnd = off, end
+		}
+		jobs = append(jobs, job{idx: idx, start: off, end: end, cueStart: cueStart, cueEnd: cueEnd})
 	}
 	return jobs
 }
