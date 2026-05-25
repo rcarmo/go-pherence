@@ -123,7 +123,7 @@ Likely low-level areas:
 ### T3 — parity fixtures
 
 - [x] Inspect upstream `flow_euler.py` and add a native Go scheduler reference if simple and stable.
-- [ ] Reuse fixture-compatible tensor summary/hash helpers for TRELLIS.2 generated fixture outputs.
+- [x] Reuse fixture-compatible tensor summary/hash helpers for TRELLIS.2 generated fixture outputs.
 - [ ] Add dependency-gated Python fixture scaffolds for low-step sparse-structure and structured-latent flow outputs.
 
 ### T4 — runtime feasibility study
