@@ -69,3 +69,13 @@ func FindMaxAbsRVV(x []float32) float32 {
 	if len(x) == 0 { return 0 }
 	return rvvFindMaxAbs(&x[0], len(x))
 }
+
+// rvvQuantizeF32ToI8 quantizes float32 to int8 using RVV.
+//go:noescape
+func rvvQuantizeF32ToI8(src *float32, scaleBits uint32, dst *byte, n int)
+
+// QuantizeF32ToI8RVV quantizes n float32s to int8 with the given scale.
+func QuantizeF32ToI8RVV(src []float32, scale float32, dst []int8) {
+	bits := math.Float32bits(scale)
+	rvvQuantizeF32ToI8(&src[0], bits, (*byte)(unsafe.Pointer(&dst[0])), len(src))
+}

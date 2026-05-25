@@ -78,3 +78,40 @@ findmax_done:
     // Store result
     MOVF F10, ret+16(FP)
     RET
+
+// func rvvQuantizeF32ToI8(src *float32, scaleBits uint32, dst *byte, n int)
+// Quantizes n float32s to int8: dst[i] = int8(src[i] * scale)
+// scaleBits is the IEEE754 bits of the float32 scale factor.
+TEXT ·rvvQuantizeF32ToI8(SB), NOSPLIT, $0-32
+    MOV  src+0(FP), X10       // a0 = src
+    MOVW scaleBits+8(FP), X5  // load scale bits
+    WORD $0xf00282d3           // fmv.w.x ft5, t0 (move bits to float reg)
+    MOV  dst+16(FP), X11      // a1 = dst
+    MOV  n+24(FP), X12        // a2 = n
+
+    // Process 8 floats at a time (e32,m1 → 8 with VLEN=256)
+quant_loop:
+    BEQ  X12, X0, quant_done
+    MOV  $8, X5
+    WORD $0x0d02f2d7            // vsetvli t0, t0, e32, m1, ta, ma
+    WORD $0x02056007            // vle32.v v0, (a0)
+    WORD $0x9202d057            // vfmul.vf v0, v0, ft5
+    WORD $0x4a009057            // vfcvt.x.f.v v0, v0 (float→int32, rounding)
+    // Narrow int32→int16
+    WORD $0x0cf2f2d7            // vsetvli t0, t0, e16, mf2, ta, ma
+    WORD $0xb2003257            // vnsrl.wi v4, v0, 0, v0, 0
+    // Narrow int16→int8
+    WORD $0x0c62f2d7            // vsetvli t0, t0, e8, mf4, ta, ma
+    WORD $0xb2403457            // vnsrl.wi v8, v4, 0, v4, 0
+    // Store 8 int8s
+    MOV  $8, X5
+    WORD $0x0002f2d7            // vsetvli t0, t0, e8, m1 (vl=8)
+    WORD $0x02058427            // vse8.v v8, (a1)
+    // Advance
+    ADD  $32, X10, X10         // src += 8 floats = 32 bytes
+    ADD  $8, X11, X11          // dst += 8 bytes
+    ADD  $-8, X12, X12         // n -= 8
+    JMP  quant_loop
+
+quant_done:
+    RET

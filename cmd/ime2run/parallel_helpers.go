@@ -31,11 +31,7 @@ func quantizeAndPackInto(act []float32, Kp int, b *packBufs) ([]int8, float32) {
 		return pk, 0
 	}
 	s := float32(127.0) / maxAbs
-	for i := 0; i < len(act); i++ {
-		v := act[i] * s
-		if v > 127 { v = 127 } else if v < -128 { v = -128 }
-		xI8[i] = int8(v)
-	}
+	ime2.QuantizeF32ToI8RVV(act, s, xI8[:len(act)])
 	// Fused broadcast-pack (zero-alloc)
 	pk := b.packed[:4*Kp]
 	for ki := 0; ki < Kp; ki += 8 {
