@@ -156,7 +156,7 @@ Acceptance:
 - Local mini checkpoint loads metadata and tensor manifests.
 - Unit tests cover config parsing, tensor group binding, and malformed shape errors.
 
-Current status: YAML config parsing and tensor-name inventory helpers are present under `loader/config` with unit tests. `model/hunyuan3d` contains static shape metadata validation and latent-shape helpers. `cmd/hy3dinspect` / `make hunyuan3d-inspect` can print validated config shape metadata and optional safetensors group coverage for local checkpoints. These deliberately stop at metadata/config coverage and do not claim runtime support.
+Current status: YAML config parsing and tensor-name inventory helpers are present under `loader/config` with unit tests. `model/hunyuan3d` contains static shape metadata validation, latent-shape helpers, and a deterministic Go `ImageProcessorV2` preprocessing parity target for alpha-mask recentering, white-background compositing, square resize, and BCHW `[-1, 1]` tensors. `cmd/hy3dinspect` / `make hunyuan3d-inspect` can print validated config shape metadata and optional safetensors group coverage for local checkpoints. These deliberately stop at metadata/config coverage and do not claim runtime support.
 
 ### Phase H2 — Image preprocessing and conditioner
 
@@ -167,7 +167,7 @@ Goal: reproduce condition embeddings for one fixture.
   - recenter with border ratio;
   - resize to model image size;
   - normalize to `[-1, 1]` BCHW tensor range.
-- [ ] Implement Go image preprocessing equivalent to upstream `ImageProcessorV2`:
+- [x] Implement Go image preprocessing equivalent to upstream `ImageProcessorV2`:
 - Implement or import a minimal DINOv2/CLIP-ViT encoder path:
   - patch embedding;
   - class token/position embeddings;
