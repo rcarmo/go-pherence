@@ -24,6 +24,15 @@ func parallelDecode(
 	nQEmbd := nHeads * headDim
 	nKVD := nKVHeads * headDim
 
+	// Pre-allocate pack buffers (one per activation quantize point, reused across layers)
+	maxK := nFF
+	if nEmbd > maxK { maxK = nEmbd }
+	if nQEmbd > maxK { maxK = nQEmbd }
+	pkAttn := newPackBufs(maxK)
+	pkWO := newPackBufs(maxK)
+	pkFFN := newPackBufs(maxK)
+	pkDown := newPackBufs(maxK)
+
 	// Pre-allocate per-layer buffers (shared across layers)
 	xn := make([]float32, nEmbd)
 	xn2 := make([]float32, nEmbd)
@@ -59,7 +68,7 @@ func parallelDecode(
 
 		// === QKV Projections (vmadot, parallel over output rows) ===
 		Kp := ((nEmbd + 7) / 8) * 8
-		actPacked, actScale := quantizeAndPackLocal(xn, Kp)
+		actPacked, actScale := quantizeAndPackInto(xn, Kp, pkAttn)
 		tilesPerRow := Kp / 8
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {
@@ -119,7 +128,7 @@ func parallelDecode(
 			go func(hs, he int) {
 				defer wg.Done()
 				for h := hs; h < he; h++ {
-					qHead := make([]float32, headDim)
+					qHead := make([]float32, headDim) // TODO: pre-allocate
 					copy(qHead, qF[h*headDim:(h+1)*headDim])
 					if l.qNorm != nil {
 						var ss3 float32
@@ -152,7 +161,7 @@ func parallelDecode(
 
 		// === WO Projection (vmadot, parallel) ===
 		KpWO := ((nQEmbd + 7) / 8) * 8
-		actWO, actScaleWO := quantizeAndPackLocal(qF[:nQEmbd], KpWO)
+		actWO, actScaleWO := quantizeAndPackInto(qF[:nQEmbd], KpWO, pkWO)
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {
 			go func(workerID int) {
@@ -180,7 +189,7 @@ func parallelDecode(
 
 		// === Gate + Up + SiLU (vmadot, parallel) ===
 		KpFFN := ((nEmbd + 7) / 8) * 8
-		actFFN, actScaleFFN := quantizeAndPackLocal(xn2, KpFFN)
+		actFFN, actScaleFFN := quantizeAndPackInto(xn2, KpFFN, pkFFN)
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {
 			go func(workerID int) {
@@ -205,7 +214,7 @@ func parallelDecode(
 
 		// === Down Projection (vmadot, parallel) ===
 		KpDown := ((nFF + 7) / 8) * 8
-		actDown, actScaleDown := quantizeAndPackLocal(hidden, KpDown)
+		actDown, actScaleDown := quantizeAndPackInto(hidden, KpDown, pkDown)
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {
 			go func(workerID int) {

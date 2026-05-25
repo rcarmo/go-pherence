@@ -2,28 +2,59 @@ package main
 
 import "github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 
-// quantizeAndPackLocal quantizes F32 act to INT8 and broadcast-packs for vmadot.
-func quantizeAndPackLocal(act []float32, Kp int) ([]int8, float32) {
-	xI8 := make([]int8, Kp)
+// packBufs holds pre-allocated buffers for activation quantize+pack.
+type packBufs struct {
+	xI8    []int8
+	bc     []int8
+	packed []int8
+}
+
+func newPackBufs(maxK int) *packBufs {
+	Kp := ((maxK + 7) / 8) * 8
+	return &packBufs{
+		xI8:    make([]int8, Kp),
+		bc:     make([]int8, 4*Kp),
+		packed: make([]int8, 4*Kp),
+	}
+}
+
+// quantizeAndPackInto quantizes and packs without allocation.
+func quantizeAndPackInto(act []float32, Kp int, b *packBufs) ([]int8, float32) {
+	xI8 := b.xI8[:Kp]
+	for i := Kp - 1; i >= len(act); i-- { xI8[i] = 0 }
 	var maxAbs float32
 	for _, v := range act {
-		a := v
-		if a < 0 { a = -a }
+		a := v; if a < 0 { a = -a }
 		if a > maxAbs { maxAbs = a }
 	}
 	if maxAbs == 0 {
-		return make([]int8, 4*Kp), 0
+		for i := range xI8 { xI8[i] = 0 }
+		pk := b.packed[:4*Kp]
+		for i := range pk { pk[i] = 0 }
+		return pk, 0
 	}
 	s := float32(127.0) / maxAbs
-	for i := 0; i < len(act) && i < Kp; i++ {
+	for i := 0; i < len(act); i++ {
 		v := act[i] * s
 		if v > 127 { v = 127 } else if v < -128 { v = -128 }
 		xI8[i] = int8(v)
 	}
-	bc := make([]int8, 4*Kp)
-	copy(bc[0:Kp], xI8)
-	copy(bc[Kp:2*Kp], xI8)
-	copy(bc[2*Kp:3*Kp], xI8)
-	copy(bc[3*Kp:4*Kp], xI8)
-	return ime2.PackTiles(bc, 4, Kp), maxAbs / 127.0
+	// Fused broadcast-pack (zero-alloc)
+	pk := b.packed[:4*Kp]
+	for ki := 0; ki < Kp; ki += 8 {
+		tileBase := (ki / 8) * 32
+		copy(pk[tileBase:tileBase+8], xI8[ki:ki+8])
+		copy(pk[tileBase+8:tileBase+16], xI8[ki:ki+8])
+		copy(pk[tileBase+16:tileBase+24], xI8[ki:ki+8])
+		copy(pk[tileBase+24:tileBase+32], xI8[ki:ki+8])
+	}
+	return pk, maxAbs / 127.0
 }
+
+// Keep the allocating version for compatibility
+func quantizeAndPackLocal(act []float32, Kp int) ([]int8, float32) {
+	b := newPackBufs(Kp)
+	return quantizeAndPackInto(act, Kp, b)
+}
+
+var _ = ime2.PackTiles // keep import
