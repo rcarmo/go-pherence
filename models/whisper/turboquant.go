@@ -158,6 +158,27 @@ func quantizeVector(vec []float32, nbits int) ([]uint8, float32) {
 }
 
 // MemorySavings returns the compression ratio of quantized vs full-precision storage.
+// EstimateSelfKVBytes returns the float32 self-attention KV footprint for a
+// decoder state with the given number of generated/prompt tokens. It is useful
+// for deciding whether TurboQuant is worth enabling; chunked Whisper decoding
+// usually keeps this small because state is reset per chunk.
+func EstimateSelfKVBytes(numLayers, dModel, tokens int) int64 {
+	if numLayers <= 0 || dModel <= 0 || tokens <= 0 {
+		return 0
+	}
+	return int64(numLayers) * int64(tokens) * int64(dModel) * 2 * 4 // K+V float32
+}
+
+// EstimateCrossKVBytes returns the float32 cross-attention KV footprint for a
+// decoder state after encoder K/V precompute. Cross KV is fixed for a chunk and
+// is not helped by the current self-KV TurboQuant cache.
+func EstimateCrossKVBytes(numLayers, dModel, encLen int) int64 {
+	if numLayers <= 0 || dModel <= 0 || encLen <= 0 {
+		return 0
+	}
+	return int64(numLayers) * int64(encLen) * int64(dModel) * 2 * 4 // K+V float32
+}
+
 func (c *CompressedKVCache) MemorySavings() float64 {
 	if c.TotalTokens == 0 {
 		return 1.0

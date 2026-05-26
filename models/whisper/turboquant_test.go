@@ -52,6 +52,27 @@ func TestQuantizeVector(t *testing.T) {
 	t.Logf("scale=%f, packed bytes=%d", scale, len(packed))
 }
 
+func TestWhisperKVFootprintEstimates(t *testing.T) {
+	cfg := LargeV3()
+	self := EstimateSelfKVBytes(cfg.DecoderLayers, cfg.DecoderDModel, 40)
+	cross := EstimateCrossKVBytes(cfg.DecoderLayers, cfg.DecoderDModel, 50)
+	if self != 32*1280*40*2*4 {
+		t.Fatalf("self bytes=%d", self)
+	}
+	if cross != 32*1280*50*2*4 {
+		t.Fatalf("cross bytes=%d", cross)
+	}
+	// The tuned diarization profile uses short independent chunks, so self KV is
+	// only tens of MiB per active worker. TurboQuant helps memory for true long
+	// streaming states, but does not address the current decoder compute bottleneck.
+	if self > 16<<20 {
+		t.Fatalf("unexpectedly high self KV for packed chunks: %d", self)
+	}
+	if cross <= self {
+		t.Fatalf("expected cross KV to dominate short self KV: cross=%d self=%d", cross, self)
+	}
+}
+
 func TestMemorySavings(t *testing.T) {
 	cfg := DefaultTurboQuantConfig()
 	cfg.RecentWindow = 8
