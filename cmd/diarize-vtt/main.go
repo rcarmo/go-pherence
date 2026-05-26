@@ -155,6 +155,14 @@ func main() {
 			initialResults = existing
 			jobs = filterCompletedJobs(jobs, completed)
 			fmt.Fprintf(os.Stderr, "resume: loaded %d existing cues, remaining chunks: %d\n", len(existing), len(jobs))
+			if *progressive {
+				// Rewrite immediately so stale/degenerate cues from older partial runs
+				// are cleaned even if this resume pass is interrupted before another
+				// chunk completes.
+				if err := whisper.WriteDiarizedVTT(*output, segmentsFromResults(initialResults)); err != nil {
+					fmt.Fprintf(os.Stderr, "resume rewrite failed: %v\n", err)
+				}
+			}
 		}
 	}
 	fmt.Fprintf(os.Stderr, "speech chunks: %d\n", len(jobs))
@@ -433,6 +441,9 @@ func segmentsFromResults(results []result) []whisper.DiarizedSegment {
 
 func degenerateCueText(text string) bool {
 	words := strings.Fields(strings.ToLower(text))
+	if len(words) <= 2 {
+		return lowValueShortCue(words)
+	}
 	if len(words) < 8 {
 		return false
 	}
@@ -442,6 +453,17 @@ func degenerateCueText(text string) bool {
 		}
 	}
 	return false
+}
+
+func lowValueShortCue(words []string) bool {
+	if len(words) == 0 {
+		return true
+	}
+	filler := map[string]bool{"and": true, "or": true, "the": true, "a": true, "um": true, "uh": true, "eh": true, "ah": true}
+	if len(words) == 1 {
+		return filler[strings.Trim(words[0], ".,!?;:")]
+	}
+	return filler[strings.Trim(words[0], ".,!?;:")] && filler[strings.Trim(words[1], ".,!?;:")]
 }
 
 func hasRepeatedWordNGram(words []string, n int) bool {

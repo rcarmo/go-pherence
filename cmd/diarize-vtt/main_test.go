@@ -6,6 +6,12 @@ func TestDegenerateCueText(t *testing.T) {
 	if !degenerateCueText("and I'm going to go back and I'm going to go back and I'm going to go back") {
 		t.Fatal("missed repeated phrase cue")
 	}
+	if !degenerateCueText("and") {
+		t.Fatal("missed low-value short cue")
+	}
+	if degenerateCueText("go field") {
+		t.Fatal("false positive on meaningful short cue")
+	}
 	if degenerateCueText("the recommendation is to confirm if it is necessary to go out into the field") {
 		t.Fatal("false positive on normal cue")
 	}
