@@ -2,6 +2,16 @@ package main
 
 import "testing"
 
+func TestSegmentsFromResultsSortsByTime(t *testing.T) {
+	segments := segmentsFromResults([]result{
+		{idx: 9, startSec: 10, endSec: 11, text: "later"},
+		{idx: 1, startSec: 1, endSec: 2, text: "earlier"},
+	})
+	if len(segments) != 2 || segments[0].Text != "earlier" || segments[1].Text != "later" {
+		t.Fatalf("segments not time sorted: %+v", segments)
+	}
+}
+
 func TestParseVTTMillisAndFilterCompletedJobs(t *testing.T) {
 	ms, ok := parseVTTMillis("01:02:03.456")
 	if !ok || ms != 3723456 {

@@ -409,8 +409,15 @@ func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples 
 }
 
 func segmentsFromResults(results []result) []whisper.DiarizedSegment {
-	segments := make([]whisper.DiarizedSegment, 0, len(results))
-	for _, r := range results {
+	ordered := append([]result(nil), results...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		if ordered[i].startSec == ordered[j].startSec {
+			return ordered[i].endSec < ordered[j].endSec
+		}
+		return ordered[i].startSec < ordered[j].startSec
+	})
+	segments := make([]whisper.DiarizedSegment, 0, len(ordered))
+	for _, r := range ordered {
 		if r.err != nil {
 			fmt.Fprintf(os.Stderr, "chunk %d failed: %v\n", r.idx, r.err)
 			continue
