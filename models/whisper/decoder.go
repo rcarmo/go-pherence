@@ -23,6 +23,10 @@ type Decoder struct {
 	// Final LayerNorm
 	FinalLNWeight []float32
 	FinalLNBias   []float32
+
+	// Optional generation-config logit suppression.
+	SuppressTokens      []int
+	BeginSuppressTokens []int
 }
 
 // DecoderLayer holds weights for one Whisper decoder transformer layer.

@@ -67,6 +67,10 @@ func GreedyDecodePrompt(dec *Decoder, state *DecoderState, cfg Config, languageT
 	tokens := make([]int, 0, maxTokens)
 	for i := 0; i < maxTokens; i++ {
 		suppressNonTextSpecials(logits)
+		suppressTokenIDs(logits, dec.SuppressTokens)
+		if i == 0 {
+			suppressTokenIDs(logits, dec.BeginSuppressTokens)
+		}
 		suppressRecentRepeats(logits, tokens, 6)
 		if i == 0 && TokenEOT < len(logits) {
 			// Avoid an immediate empty transcript on short clips where the blank/EOT
@@ -137,6 +141,14 @@ func GreedyDecodeWithTimestamps(dec *Decoder, state *DecoderState, cfg Config) [
 	}
 
 	return segments
+}
+
+func suppressTokenIDs(logits []float32, ids []int) {
+	for _, tok := range ids {
+		if tok >= 0 && tok < len(logits) {
+			logits[tok] = -1e30
+		}
+	}
 }
 
 func suppressRecentRepeats(logits []float32, tokens []int, window int) {

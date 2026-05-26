@@ -107,7 +107,7 @@ The current local model is full `openai/whisper-large-v3` layout (`32` decoder l
 
 | Model | Decoder layers | Notes |
 |-------|----------------|-------|
-| `openai/whisper-large-v3-turbo` | 4 | Same `d_model=1280`, 32-layer encoder, large-v3 tokenizer IDs (`translate=50359`, `transcribe=50360`, `notimestamps=50364`). Downloaded/shape-valid locally; stress RTF≈0.54–0.56. Tokenizer byte decoding is fixed, but current Go decode still produces source-language Spanish instead of English translation, so it is **not** a default replacement yet. |
+| `openai/whisper-large-v3-turbo` | 4 | Same `d_model=1280`, 32-layer encoder, large-v3 tokenizer IDs (`translate=50359`, `transcribe=50360`, `notimestamps=50364`). Downloaded/shape-valid locally; stress RTF≈0.54–0.56. Tokenizer byte decoding and `generation_config` suppression are fixed, but current Go decode still produces source-language Spanish instead of English translation, so it is **not** a default replacement yet. |
 | `distil-whisper/distil-large-v3` | 2 | Same large-v3 dimensionality and tokenizer IDs; potentially faster but distillation quality/translation behavior must be validated on the target meeting audio. |
 | `distil-whisper/distil-large-v3.5` | 2 | Same shape class; newer distil checkpoint, also needs quality validation. |
 

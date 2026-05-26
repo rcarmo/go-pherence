@@ -1,8 +1,10 @@
 package whisper
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -132,6 +134,7 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 			dec.lmHeadGPU = nil
 		}
 	}
+	loadGenerationConfig(filepath.Join(filepath.Dir(path), "generation_config.json"), dec)
 	dec.PosEmbed, _ = get("model.decoder.embed_positions.weight")
 	dec.FinalLNWeight, _ = get("model.decoder.layer_norm.weight")
 	dec.FinalLNBias, _ = get("model.decoder.layer_norm.bias")
@@ -182,4 +185,23 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 	}
 
 	return enc, dec, nil
+}
+
+func loadGenerationConfig(path string, dec *Decoder) {
+	if dec == nil || path == "" {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var cfg struct {
+		SuppressTokens      []int `json:"suppress_tokens"`
+		BeginSuppressTokens []int `json:"begin_suppress_tokens"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return
+	}
+	dec.SuppressTokens = cfg.SuppressTokens
+	dec.BeginSuppressTokens = cfg.BeginSuppressTokens
 }
