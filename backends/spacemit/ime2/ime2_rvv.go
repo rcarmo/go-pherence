@@ -117,3 +117,73 @@ func PackQ4KForI2K(rawQS []byte, M, K int) []byte {
 	}
 	return out
 }
+
+// vmadotKLoopAI forces vl=32 on VLEN=1024 cores (128-byte tiles).
+//go:noescape
+func vmadotKLoopAI(A *byte, B *byte, C *int32, K int)
+
+// VmadotKLoopAI is the exported wrapper.
+func VmadotKLoopAI(A *byte, B *byte, C *int32, K int) { vmadotKLoopAI(A, B, C, K) }
+
+// PackTiles1024 packs int8 matrix into 128-byte tiles for VLEN=1024.
+// Each tile = 4 rows × 32 columns. Output: (rows/4) × (K/32) tiles of 128 bytes.
+func PackTiles1024(src []int8, rows, K int) []int8 {
+	if rows%4 != 0 || K%32 != 0 {
+		panic("ime2: PackTiles1024 requires rows%4==0, K%32==0")
+	}
+	dst := make([]int8, rows*K)
+	for rg := 0; rg < rows; rg += 4 {
+		for ki := 0; ki < K; ki += 32 {
+			tileIdx := (rg/4)*(K/32) + ki/32
+			tileBase := tileIdx * 128
+			for r := 0; r < 4; r++ {
+				copy(dst[tileBase+r*32:tileBase+(r+1)*32],
+					src[(rg+r)*K+ki:(rg+r)*K+ki+32])
+			}
+		}
+	}
+	return dst
+}
+
+// BroadcastPack1024 packs K int8 values into broadcast tile format for VLEN=1024.
+// Each tile = 4 copies of 32 consecutive bytes = 128 bytes.
+func BroadcastPack1024(src []int8, K int) []int8 {
+	if K%32 != 0 { panic("ime2: BroadcastPack1024 requires K%32==0") }
+	dst := make([]int8, 4*K) // K/32 tiles × 128 bytes = 4*K
+	for ki := 0; ki < K; ki += 32 {
+		tileBase := (ki / 32) * 128
+		for r := 0; r < 4; r++ {
+			copy(dst[tileBase+r*32:tileBase+(r+1)*32], src[ki:ki+32])
+		}
+	}
+	return dst
+}
+
+// VmadotKLoop1024 uses native vl=128 (full VLEN=1024). For probing only.
+func VmadotKLoop1024(A *byte, B *byte, C *int32, K int) {
+	vmadotKLoop1024native(A, B, C, K)
+}
+
+//go:noescape
+func vmadotKLoop1024native(A *byte, B *byte, C *int32, K int)
+
+// GemmINT8_AI performs matmul on AI cores (VLEN=1024).
+// M output rows, K input dimension. wPacked in 128-byte tile format.
+// actPacked in 128-byte broadcast tile format.
+// Output: out[M] float32 (scaled by wScale * actScale).
+func GemmINT8_AI(M, K int, wPacked []int8, actPacked []int8, wScale, actScale float32, out []float32) {
+	tilesPerRow := K / 32
+	combined := wScale * actScale
+	for i := 0; i < M; i += 4 {
+		var acc [64]int32
+		VmadotKLoop1024(
+			(*byte)(unsafe.Pointer(&wPacked[(i/4)*tilesPerRow*128])),
+			(*byte)(unsafe.Pointer(&actPacked[0])),
+			&acc[0], K,
+		)
+		// Extract: C[r][0] = acc[r*16] + acc[r*16+1]
+		for r := 0; r < 4 && i+r < M; r++ {
+			out[i+r] = float32(acc[r*16]+acc[r*16+1]) * combined
+		}
+	}
+}
