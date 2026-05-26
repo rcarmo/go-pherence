@@ -51,7 +51,7 @@ func main() {
 	overlapSec := flag.Float64("overlap", 1.0, "Chunk overlap/context padding in seconds")
 	vadPack := flag.Bool("vad-pack", true, "Pack VAD speech regions into chunks instead of fixed windows")
 	vadGap := flag.Float64("vad-gap", 1.0, "Maximum silence gap in seconds to merge adjacent VAD regions")
-	maxTokens := flag.Int("max-tokens", 96, "Maximum generated tokens per chunk")
+	maxTokens := flag.Int("max-tokens", 40, "Maximum generated tokens per chunk")
 	tokensPerSec := flag.Float64("tokens-per-sec", 4.0, "Dynamic decoder token budget per second of cue audio")
 	minSpeech := flag.Float64("min-speech", 0.35, "Minimum VAD speech overlap ratio required to transcribe a chunk")
 	useGPU := flag.Bool("gpu", true, "Use GPU encoder path when CUDA SGEMM is available")
