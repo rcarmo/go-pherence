@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 // Tokenizer decodes Whisper token IDs to text.
@@ -51,7 +52,7 @@ func (t *Tokenizer) Decode(tokens []int) string {
 		return ""
 	}
 
-	var parts []string
+	var raw strings.Builder
 	for _, tok := range tokens {
 		// Skip special tokens
 		if tok >= TokenSOT {
@@ -61,23 +62,63 @@ func (t *Tokenizer) Decode(tokens []int) string {
 		if !ok {
 			continue
 		}
-		// Convert GPT-2 BPE Ġ to space
-		s = strings.ReplaceAll(s, "Ġ", " ")
-		// Convert byte-level tokens (e.g., Ã, ¤) back to UTF-8
-		s = decodeBPEBytes(s)
-		parts = append(parts, s)
+		raw.WriteString(s)
 	}
 
-	text := strings.Join(parts, "")
+	text := decodeBPEBytes(raw.String())
 	return strings.TrimSpace(text)
 }
 
-// decodeBPEBytes handles the GPT-2 byte-level BPE encoding where bytes 0-255
-// are mapped to Unicode characters in a specific range.
+var byteDecoder = buildByteDecoder()
+
+// decodeBPEBytes handles the GPT-2/Whisper byte-level BPE encoding where bytes
+// 0-255 are mapped to printable Unicode characters. This must run over the
+// concatenated token string so multi-byte UTF-8 sequences split across tokens
+// (for example "TelefÃ³nica") are reconstructed correctly.
 func decodeBPEBytes(s string) string {
-	// GPT-2 BPE maps bytes to printable Unicode chars.
-	// Most common tokens are already readable ASCII/Unicode.
-	// The byte-fallback chars (Ã, ¢, etc.) are rare in practice.
-	// For now, pass through — a full implementation would decode the byte map.
-	return s
+	if s == "" {
+		return ""
+	}
+	buf := make([]byte, 0, len(s))
+	for _, r := range s {
+		if b, ok := byteDecoder[r]; ok {
+			buf = append(buf, b)
+			continue
+		}
+		var tmp [utf8.UTFMax]byte
+		n := utf8.EncodeRune(tmp[:], r)
+		buf = append(buf, tmp[:n]...)
+	}
+	return string(buf)
+}
+
+func buildByteDecoder() map[rune]byte {
+	bs := make([]int, 0, 256)
+	for b := int('!'); b <= int('~'); b++ {
+		bs = append(bs, b)
+	}
+	for b := 0xA1; b <= 0xAC; b++ {
+		bs = append(bs, b)
+	}
+	for b := 0xAE; b <= 0xFF; b++ {
+		bs = append(bs, b)
+	}
+	seen := make(map[int]bool, len(bs))
+	for _, b := range bs {
+		seen[b] = true
+	}
+	cs := append([]int(nil), bs...)
+	n := 0
+	for b := 0; b < 256; b++ {
+		if !seen[b] {
+			bs = append(bs, b)
+			cs = append(cs, 256+n)
+			n++
+		}
+	}
+	dec := make(map[rune]byte, 256)
+	for i, b := range bs {
+		dec[rune(cs[i])] = byte(b)
+	}
+	return dec
 }

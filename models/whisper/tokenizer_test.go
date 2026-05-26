@@ -32,6 +32,15 @@ func TestTokenizerLoad(t *testing.T) {
 	}
 }
 
+func TestDecodeBPEBytes(t *testing.T) {
+	if got := decodeBPEBytes("TelefÃ³nica"); got != "Telefónica" {
+		t.Fatalf("decode accent=%q", got)
+	}
+	if got := decodeBPEBytes("Ġhello"); got != " hello" {
+		t.Fatalf("decode space=%q", got)
+	}
+}
+
 func TestTokenizerWithModel(t *testing.T) {
 	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
 	tokPath := "../../models/whisper-tiny-hf/tokenizer.json"
