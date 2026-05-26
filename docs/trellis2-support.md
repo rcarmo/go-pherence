@@ -323,6 +323,17 @@ make trellis2-ovoxel-inspect TRELLIS2_OVOXEL_FILES='artifact.npz artifact.vxz'
 
 The goal is to collect small file/container metadata first; actual O-Voxel runtime support remains blocked on the C++/CUDA conversion/rendering stack.
 
+`trellis2_check_fixture_env.py` is a lightweight readiness checker for the remaining real fixture-run step. It checks the TRELLIS.2 source checkout, selected local model files when `TRELLIS2_MODEL_DIR` is a local path, optional input image path, and Python imports such as `torch`, `PIL`, `safetensors`, `trellis2`, `o_voxel`, `flash_attn`, `xformers`, `spconv`, `torchsparse`, and `flex_gemm`. It does not load checkpoint payloads or run inference:
+
+```bash
+make trellis2-fixture-env \
+  TRELLIS2_SRC=/path/to/TRELLIS.2 \
+  TRELLIS2_MODEL_DIR=/path/to/TRELLIS.2-4B \
+  TRELLIS2_IMAGE=input.png
+```
+
+Use the readiness report before attempting `trellis2-lowstep-fixture` on a CUDA host.
+
 ## Relationship to Hunyuan3D work
 
 Hunyuan3D remains the active implementation track. TRELLIS.2 should start as a parallel metadata and fixture-parity track because it is public, MIT licensed, and architecturally important, but its sparse-native runtime requirements are larger than the current Hunyuan3D metadata ladder.
