@@ -2,6 +2,7 @@ package whisper
 
 import (
 	"math"
+	"os"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
@@ -219,6 +220,11 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 		LastToken:  -1,
 		Bufs:       newDecoderBufs(cfg),
 	}
+	gpuCrossAttn := os.Getenv("GO_PHERENCE_WHISPER_GPU_CROSS_ATTN") == "1" && nv.SgemmReady()
+	if gpuCrossAttn {
+		state.CrossKGPU = make([]*nv.DevBuf, numLayers)
+		state.CrossVGPU = make([]*nv.DevBuf, numLayers)
+	}
 
 	for l := 0; l < numLayers; l++ {
 		state.SelfKCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
@@ -232,6 +238,16 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 		wV := nv.NewDevBufFrom(layer.CrossVWeight)
 		state.CrossK[l] = gemvGPU(encoderOutput, wK, layer.CrossKBias, encLen, dModel, dModel)
 		state.CrossV[l] = gemvGPU(encoderOutput, wV, layer.CrossVBias, encLen, dModel, dModel)
+		if gpuCrossAttn {
+			state.CrossKGPU[l] = nv.NewDevBufFrom(state.CrossK[l])
+			if err := state.CrossKGPU[l].ToGPU(); err != nil {
+				state.CrossKGPU[l] = nil
+			}
+			state.CrossVGPU[l] = nv.NewDevBufFrom(state.CrossV[l])
+			if err := state.CrossVGPU[l].ToGPU(); err != nil {
+				state.CrossVGPU[l] = nil
+			}
+		}
 	}
 
 	return state

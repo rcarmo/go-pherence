@@ -76,6 +76,11 @@ type DecoderState struct {
 	CrossK [][]float32 // [layer][encLen * dModel]
 	CrossV [][]float32 // [layer][encLen * dModel]
 
+	// Optional GPU-resident cross-attention KV. These are populated by
+	// NewDecoderStateGPU when GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1.
+	CrossKGPU []*nv.DevBuf
+	CrossVGPU []*nv.DevBuf
+
 	Pos       int          // Current token position
 	LastToken int          // Last token fed into ForwardToken, or -1 before prompt
 	Bufs      *decoderBufs // Reusable buffers (nil = allocate per call)
@@ -179,7 +184,9 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		linearInto(bufs.crossQ, bufs.normed, layer.CrossQWeight, layer.CrossQBias, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
-		attentionSingleInto(bufs.crossOut, bufs.crossQ, state.CrossK[l], state.CrossV[l], encLen, numHeads, headDim, bufs.scores)
+		if !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
+			attentionSingleInto(bufs.crossOut, bufs.crossQ, state.CrossK[l], state.CrossV[l], encLen, numHeads, headDim, bufs.scores)
+		}
 		linearInto(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, layer.CrossOBias, dModel, dModel)
 		for d := range x {
 			x[d] += bufs.crossProj[d]

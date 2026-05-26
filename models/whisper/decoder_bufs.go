@@ -10,23 +10,24 @@ import (
 // decoderBufs holds pre-allocated working buffers for one decoder forward token step.
 // This eliminates per-token allocations in the hot path.
 type decoderBufs struct {
-	dModel    int
-	ffnDim    int
-	x         []float32
-	normed    []float32
-	q, k, v   []float32
-	selfOut   []float32
-	proj      []float32
-	crossQ    []float32
-	crossOut  []float32
-	crossProj []float32
-	mlpIn     []float32
-	hidden    []float32
-	mlpOut    []float32
-	scores    []float32
-	gpuX      *nv.DevBuf
-	gpuOut    *nv.DevBuf
-	gpuLogits *nv.DevBuf
+	dModel     int
+	ffnDim     int
+	x          []float32
+	normed     []float32
+	q, k, v    []float32
+	selfOut    []float32
+	proj       []float32
+	crossQ     []float32
+	crossOut   []float32
+	crossProj  []float32
+	mlpIn      []float32
+	hidden     []float32
+	mlpOut     []float32
+	scores     []float32
+	gpuX       *nv.DevBuf
+	gpuOut     *nv.DevBuf
+	gpuAttnOut *nv.DevBuf
+	gpuLogits  *nv.DevBuf
 }
 
 func newDecoderBufs(cfg Config) *decoderBufs {
@@ -88,6 +89,27 @@ func layerNormInto(out, x, weight, bias []float32, dim int) {
 		}
 		out[d] = normed
 	}
+}
+
+func (b *decoderBufs) attentionGPU(out, q []float32, kBufs, vBufs []*nv.DevBuf, layer, seqLen, numHeads, headDim int) bool {
+	if b == nil || layer < 0 || layer >= len(kBufs) || layer >= len(vBufs) || kBufs[layer] == nil || vBufs[layer] == nil || seqLen <= 0 || numHeads <= 0 || headDim <= 0 || !nv.SgemmReady() {
+		return false
+	}
+	dModel := numHeads * headDim
+	if len(q) < dModel || len(out) < dModel {
+		return false
+	}
+	if b.gpuX == nil || b.gpuX.Len() < dModel {
+		b.gpuX = nv.NewDevBuf(dModel)
+	}
+	if b.gpuAttnOut == nil || b.gpuAttnOut.Len() < dModel {
+		b.gpuAttnOut = nv.NewDevBuf(dModel)
+	}
+	copy(b.gpuX.Data()[:dModel], q[:dModel])
+	b.gpuX.MarkDirty()
+	nv.DevAttention(b.gpuAttnOut, b.gpuX, kBufs[layer], vBufs[layer], seqLen, numHeads, numHeads, headDim, float32(1.0/math.Sqrt(float64(headDim))))
+	copy(out[:dModel], b.gpuAttnOut.Data()[:dModel])
+	return true
 }
 
 func (b *decoderBufs) linearGPU(out, x []float32, weight *nv.DevBuf, bias []float32, inDim, outDim int) bool {
