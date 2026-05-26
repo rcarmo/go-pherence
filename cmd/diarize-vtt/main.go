@@ -47,8 +47,10 @@ func main() {
 	task := flag.String("task", "translate", "Whisper task: translate or transcribe")
 	language := flag.String("language", "pt", "Source language code for Whisper prompt, e.g. pt, es, en")
 	workers := flag.Int("workers", max(1, min(4, runtimeWorkersDefault())), "Parallel transcription workers")
-	chunkSec := flag.Float64("chunk", 10.0, "Chunk duration in seconds (<=30 recommended)")
-	overlapSec := flag.Float64("overlap", 1.0, "Chunk overlap in seconds")
+	chunkSec := flag.Float64("chunk", 10.0, "Maximum chunk duration in seconds (<=30 recommended)")
+	overlapSec := flag.Float64("overlap", 1.0, "Chunk overlap/context padding in seconds")
+	vadPack := flag.Bool("vad-pack", true, "Pack VAD speech regions into chunks instead of fixed windows")
+	vadGap := flag.Float64("vad-gap", 1.0, "Maximum silence gap in seconds to merge adjacent VAD regions")
 	maxTokens := flag.Int("max-tokens", 96, "Maximum generated tokens per chunk")
 	minSpeech := flag.Float64("min-speech", 0.35, "Minimum VAD speech overlap ratio required to transcribe a chunk")
 	useGPU := flag.Bool("gpu", true, "Use GPU encoder path when CUDA SGEMM is available")
@@ -136,7 +138,11 @@ func main() {
 	labels := make([]int, len(vad)) // ECAPA weights are not bundled yet; single-speaker fallback.
 
 	jobs := makeJobs(len(samples), *chunkSec, *overlapSec)
-	jobs = filterSpeechJobs(jobs, vad, *minSpeech)
+	if *vadPack {
+		jobs = makeVADPackedJobs(len(samples), vad, *chunkSec, *overlapSec, *vadGap)
+	} else {
+		jobs = filterSpeechJobs(jobs, vad, *minSpeech)
+	}
 	fmt.Fprintf(os.Stderr, "speech chunks: %d\n", len(jobs))
 	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers, languageToken, taskToken, *output, *progressive)
 	sort.Slice(results, func(i, j int) bool { return results[i].idx < results[j].idx })
@@ -147,6 +153,102 @@ func main() {
 		fatalf("write vtt: %v", err)
 	}
 	fmt.Fprintf(os.Stderr, "wrote %s (%d cues) in %s, RTF %.2f\n", *output, len(segments), time.Since(startAll).Round(time.Second), time.Since(startAll).Seconds()/audioDur)
+}
+
+func makeVADPackedJobs(totalSamples int, vad []speaker.VADSegment, maxChunkSec, padSec, mergeGapSec float64) []job {
+	if totalSamples <= 0 || len(vad) == 0 || maxChunkSec <= 0 {
+		return makeJobs(totalSamples, maxChunkSec, padSec)
+	}
+	maxSamples := int(maxChunkSec * 16000)
+	padSamples := int(padSec * 16000)
+	mergeGapSamples := int(mergeGapSec * 16000)
+	if maxSamples <= 0 {
+		return nil
+	}
+
+	type region struct{ start, end int }
+	regions := make([]region, 0, len(vad))
+	for _, seg := range vad {
+		start := int(seg.Start * 16000)
+		end := int(seg.End * 16000)
+		if start < 0 {
+			start = 0
+		}
+		if end > totalSamples {
+			end = totalSamples
+		}
+		if end <= start {
+			continue
+		}
+		if len(regions) > 0 && start-regions[len(regions)-1].end <= mergeGapSamples {
+			if end > regions[len(regions)-1].end {
+				regions[len(regions)-1].end = end
+			}
+			continue
+		}
+		regions = append(regions, region{start: start, end: end})
+	}
+
+	var jobs []job
+	idx := 0
+	for i := 0; i < len(regions); {
+		cueStart := regions[i].start
+		cueEnd := regions[i].end
+		j := i + 1
+		for j < len(regions) && regions[j].end-cueStart <= maxSamples {
+			cueEnd = regions[j].end
+			j++
+		}
+		// If one VAD region exceeds max duration, split it into max-sized jobs.
+		if cueEnd-cueStart > maxSamples {
+			for off := cueStart; off < cueEnd; off += maxSamples {
+				end := off + maxSamples
+				if end > cueEnd {
+					end = cueEnd
+				}
+				jobs = appendVADJob(jobs, idx, off, end, totalSamples, padSamples)
+				idx++
+			}
+			i++
+			continue
+		}
+		jobs = appendVADJob(jobs, idx, cueStart, cueEnd, totalSamples, padSamples)
+		idx++
+		i = j
+	}
+	return jobs
+}
+
+func appendVADJob(jobs []job, idx, cueStart, cueEnd, totalSamples, padSamples int) []job {
+	start := cueStart - padSamples
+	if start < 0 {
+		start = 0
+	}
+	end := cueEnd + padSamples
+	if end > totalSamples {
+		end = totalSamples
+	}
+	if end-start < 16000 {
+		// Keep very short speech regions decodable with at least one second of context.
+		need := 16000 - (end - start)
+		start -= need / 2
+		end += need - need/2
+		if start < 0 {
+			end -= start
+			start = 0
+		}
+		if end > totalSamples {
+			start -= end - totalSamples
+			end = totalSamples
+			if start < 0 {
+				start = 0
+			}
+		}
+	}
+	if end <= start || cueEnd <= cueStart {
+		return jobs
+	}
+	return append(jobs, job{idx: idx, start: start, end: end, cueStart: cueStart, cueEnd: cueEnd})
 }
 
 func filterSpeechJobs(jobs []job, vad []speaker.VADSegment, minRatio float64) []job {
