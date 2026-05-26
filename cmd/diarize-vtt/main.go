@@ -52,6 +52,7 @@ func main() {
 	vadPack := flag.Bool("vad-pack", true, "Pack VAD speech regions into chunks instead of fixed windows")
 	vadGap := flag.Float64("vad-gap", 1.0, "Maximum silence gap in seconds to merge adjacent VAD regions")
 	maxTokens := flag.Int("max-tokens", 96, "Maximum generated tokens per chunk")
+	tokensPerSec := flag.Float64("tokens-per-sec", 4.0, "Dynamic decoder token budget per second of cue audio")
 	minSpeech := flag.Float64("min-speech", 0.35, "Minimum VAD speech overlap ratio required to transcribe a chunk")
 	useGPU := flag.Bool("gpu", true, "Use GPU encoder path when CUDA SGEMM is available")
 	progressive := flag.Bool("progressive", true, "Write VTT after each completed chunk")
@@ -144,7 +145,7 @@ func main() {
 		jobs = filterSpeechJobs(jobs, vad, *minSpeech)
 	}
 	fmt.Fprintf(os.Stderr, "speech chunks: %d\n", len(jobs))
-	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers, languageToken, taskToken, *output, *progressive)
+	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers, languageToken, taskToken, *tokensPerSec, *output, *progressive)
 	sort.Slice(results, func(i, j int) bool { return results[i].idx < results[j].idx })
 
 	segments := segmentsFromResults(results)
@@ -273,7 +274,7 @@ func filterSpeechJobs(jobs []job, vad []speaker.VADSegment, minRatio float64) []
 	return out
 }
 
-func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int, languageToken, taskToken int, outputPath string, progressive bool) []result {
+func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int, languageToken, taskToken int, tokensPerSec float64, outputPath string, progressive bool) []result {
 	if len(jobs) == 0 {
 		return nil
 	}
@@ -292,9 +293,9 @@ func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples 
 			defer wg.Done()
 			for j := range in {
 				st := time.Now()
-				text, err := transcribeChunkFast(w, gpuEnc, samples[j.start:j.end], languageToken, taskToken)
 				rs := float64(j.cueStart) / 16000.0
 				re := float64(j.cueEnd) / 16000.0
+				text, err := transcribeChunkFast(w, gpuEnc, samples[j.start:j.end], languageToken, taskToken, dynamicMaxTokens(w.Config.MaxDecoderLength, re-rs, tokensPerSec))
 				out <- result{idx: j.idx, startSec: rs, endSec: re, speaker: dominantSpeaker(rs, re, vad, labels), text: text, err: err, duration: time.Since(st)}
 			}
 		}()
@@ -341,8 +342,11 @@ func segmentsFromResults(results []result) []whisper.DiarizedSegment {
 	return mergeDiarized(segments)
 }
 
-func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, languageToken, taskToken int) (string, error) {
+func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, languageToken, taskToken, maxTokens int) (string, error) {
 	cfg := w.Config
+	if maxTokens > 0 && maxTokens < cfg.MaxDecoderLength {
+		cfg.MaxDecoderLength = maxTokens
+	}
 	melCfg := audio.MelConfig{SampleRate: 16000, FFTSize: 400, HopLength: 160, NumMels: cfg.NumMelBins, NFFTPadded: 512}
 	mel := audio.MelSpectrogram(samples, melCfg)
 	if mel == nil || len(mel) == 0 || len(mel[0]) == 0 {
@@ -367,6 +371,20 @@ func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples
 	}
 	tokens := whisper.GreedyDecodePrompt(w.Decoder, state, cfg, languageToken, taskToken)
 	return whisper.TokensToText(tokens), nil
+}
+
+func dynamicMaxTokens(defaultMax int, cueSeconds, tokensPerSec float64) int {
+	if defaultMax <= 0 || cueSeconds <= 0 || tokensPerSec <= 0 {
+		return defaultMax
+	}
+	budget := int(cueSeconds*tokensPerSec) + 8
+	if budget < 12 {
+		budget = 12
+	}
+	if budget > defaultMax {
+		budget = defaultMax
+	}
+	return budget
 }
 
 func makeJobs(n int, chunkSec, overlapSec float64) []job {
