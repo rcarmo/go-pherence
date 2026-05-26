@@ -315,6 +315,14 @@ The first post-roadmap implementation surface is Go-side fixture metadata, not r
 
 This provides a stable place for future upstream CUDA fixture runs to land without committing tensor payloads or implying inference support.
 
+`trellis2_ovoxel_inspect.py` is the matching metadata-only O-Voxel inspector scaffold. It currently parses `.npy` and `.npz` array headers with the standard library and reports shape/dtype/container metadata for other files without invoking O-Voxel conversion, rendering, postprocess, mesh extraction, or GLB export. Use it via:
+
+```bash
+make trellis2-ovoxel-inspect TRELLIS2_OVOXEL_FILES='artifact.npz artifact.vxz'
+```
+
+The goal is to collect small file/container metadata first; actual O-Voxel runtime support remains blocked on the C++/CUDA conversion/rendering stack.
+
 ## Relationship to Hunyuan3D work
 
 Hunyuan3D remains the active implementation track. TRELLIS.2 should start as a parallel metadata and fixture-parity track because it is public, MIT licensed, and architecturally important, but its sparse-native runtime requirements are larger than the current Hunyuan3D metadata ladder.
