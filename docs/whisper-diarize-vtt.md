@@ -107,11 +107,11 @@ The current local model is full `openai/whisper-large-v3` layout (`32` decoder l
 
 | Model | Decoder layers | Notes |
 |-------|----------------|-------|
-| `openai/whisper-large-v3-turbo` | 4 | Same `d_model=1280`, 32-layer encoder, large-v3 tokenizer IDs (`translate=50359`, `transcribe=50360`, `notimestamps=50364`); most attractive first replacement because it keeps official OpenAI lineage and cuts decoder depth 8×. |
+| `openai/whisper-large-v3-turbo` | 4 | Same `d_model=1280`, 32-layer encoder, large-v3 tokenizer IDs (`translate=50359`, `transcribe=50360`, `notimestamps=50364`). Downloaded/shape-valid locally; stress RTF≈0.54, but current Go decode produced source-language Spanish instead of English translation, so it is **not** a default replacement yet. |
 | `distil-whisper/distil-large-v3` | 2 | Same large-v3 dimensionality and tokenizer IDs; potentially faster but distillation quality/translation behavior must be validated on the target meeting audio. |
 | `distil-whisper/distil-large-v3.5` | 2 | Same shape class; newer distil checkpoint, also needs quality validation. |
 
-All three publish `config.json`, `generation_config.json`, `model.safetensors`, `preprocessor_config.json`, and `tokenizer.json`, so they should fit the existing loader with config selection and tensor-name validation work. The next practical step is to download `openai/whisper-large-v3-turbo`, validate tensor names/shapes against `LargeV3Turbo()`, and benchmark the same 110s stress sample and full M4A.
+All three publish `config.json`, `generation_config.json`, `model.safetensors`, `preprocessor_config.json`, and `tokenizer.json`, so they should fit the existing loader with config selection and tensor-name validation work. `openai/whisper-large-v3-turbo` is present locally under `models/whisper-large-v3-turbo-hf`; tensor names include decoder layers `0..3` as expected. Before enabling it, compare Go logits/task behavior against a Transformers reference for `task=translate`, because the current Go path appears to transcribe Spanish rather than translate to English.
 
 ## Candidate speaker embedding models
 
@@ -129,7 +129,7 @@ Recommended first target: `speechbrain/spkrec-ecapa-voxceleb`, because it is Apa
 
 ## Remaining high-impact work
 
-1. Download and validate `openai/whisper-large-v3-turbo` as the likely fastest quality-preserving Whisper replacement.
+1. Fix/validate `openai/whisper-large-v3-turbo` translate behavior against a Transformers reference; keep full large-v3 as default until turbo produces English translation.
 2. Fused/resident decoder kernels that avoid per-token/per-layer GPU launch and host-transfer overhead.
 3. A true batched Whisper verifier for speculative/MTP decoding.
 4. A real speaker embedding/clustering path for multi-speaker diarization, starting with SpeechBrain ECAPA checkpoint conversion.
