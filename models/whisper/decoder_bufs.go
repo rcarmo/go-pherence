@@ -4,6 +4,7 @@ import (
 	"math"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // decoderBufs holds pre-allocated working buffers for one decoder forward token step.
@@ -54,17 +55,7 @@ func newDecoderBufs(cfg Config) *decoderBufs {
 func linearInto(out, x, weight, bias []float32, inDim, outDim int) {
 	for o := 0; o < outDim; o++ {
 		wOff := o * inDim
-		var sum float32
-		d := 0
-		for ; d+3 < inDim; d += 4 {
-			sum += x[d]*weight[wOff+d] +
-				x[d+1]*weight[wOff+d+1] +
-				x[d+2]*weight[wOff+d+2] +
-				x[d+3]*weight[wOff+d+3]
-		}
-		for ; d < inDim; d++ {
-			sum += x[d] * weight[wOff+d]
-		}
+		sum := simdrt.Sdot(x[:inDim], weight[wOff:wOff+inDim])
 		if bias != nil && o < len(bias) {
 			sum += bias[o]
 		}

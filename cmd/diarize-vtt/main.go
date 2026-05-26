@@ -52,6 +52,7 @@ func main() {
 	maxTokens := flag.Int("max-tokens", 96, "Maximum generated tokens per chunk")
 	minSpeech := flag.Float64("min-speech", 0.35, "Minimum VAD speech overlap ratio required to transcribe a chunk")
 	useGPU := flag.Bool("gpu", true, "Use GPU encoder path when CUDA SGEMM is available")
+	progressive := flag.Bool("progressive", true, "Write VTT after each completed chunk")
 	keepWav := flag.Bool("keep-wav", false, "Keep converted temporary WAV")
 	flag.Parse()
 
@@ -137,22 +138,10 @@ func main() {
 	jobs := makeJobs(len(samples), *chunkSec, *overlapSec)
 	jobs = filterSpeechJobs(jobs, vad, *minSpeech)
 	fmt.Fprintf(os.Stderr, "speech chunks: %d\n", len(jobs))
-	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers, languageToken, taskToken)
+	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers, languageToken, taskToken, *output, *progressive)
 	sort.Slice(results, func(i, j int) bool { return results[i].idx < results[j].idx })
 
-	segments := make([]whisper.DiarizedSegment, 0, len(results))
-	for _, r := range results {
-		if r.err != nil {
-			fmt.Fprintf(os.Stderr, "chunk %d failed: %v\n", r.idx, r.err)
-			continue
-		}
-		text := strings.TrimSpace(r.text)
-		if text == "" {
-			continue
-		}
-		segments = append(segments, whisper.DiarizedSegment{Start: r.startSec, End: r.endSec, Speaker: r.speaker, Text: text})
-	}
-	segments = mergeDiarized(segments)
+	segments := segmentsFromResults(results)
 
 	if err := whisper.WriteDiarizedVTT(*output, segments); err != nil {
 		fatalf("write vtt: %v", err)
@@ -182,7 +171,7 @@ func filterSpeechJobs(jobs []job, vad []speaker.VADSegment, minRatio float64) []
 	return out
 }
 
-func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int, languageToken, taskToken int) []result {
+func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int, languageToken, taskToken int, outputPath string, progressive bool) []result {
 	if len(jobs) == 0 {
 		return nil
 	}
@@ -223,8 +212,31 @@ func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples 
 		done++
 		fmt.Fprintf(os.Stderr, "%3d/%3d %s-%s spk%d %q (%s)\n", done, len(jobs), vttTime(r.startSec), vttTime(r.endSec), r.speaker+1, truncate(r.text, 80), r.duration.Round(time.Second))
 		results = append(results, r)
+		if progressive && outputPath != "" {
+			ordered := append([]result(nil), results...)
+			sort.Slice(ordered, func(i, j int) bool { return ordered[i].idx < ordered[j].idx })
+			if err := whisper.WriteDiarizedVTT(outputPath, segmentsFromResults(ordered)); err != nil {
+				fmt.Fprintf(os.Stderr, "progressive write failed: %v\n", err)
+			}
+		}
 	}
 	return results
+}
+
+func segmentsFromResults(results []result) []whisper.DiarizedSegment {
+	segments := make([]whisper.DiarizedSegment, 0, len(results))
+	for _, r := range results {
+		if r.err != nil {
+			fmt.Fprintf(os.Stderr, "chunk %d failed: %v\n", r.idx, r.err)
+			continue
+		}
+		text := strings.TrimSpace(r.text)
+		if text == "" {
+			continue
+		}
+		segments = append(segments, whisper.DiarizedSegment{Start: r.startSec, End: r.endSec, Speaker: r.speaker, Text: text})
+	}
+	return mergeDiarized(segments)
 }
 
 func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, languageToken, taskToken int) (string, error) {
