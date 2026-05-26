@@ -258,23 +258,16 @@ func attentionSingleInto(out, q, kCache, vCache []float32, seqKV, numHeads, head
 
 		softmax(scores[:seqKV])
 
-		// Weighted value sum with unrolled accumulation
+		// Weighted value sum. Use SIMD SAXPY for each value row; headDim is
+		// 64 for Whisper large-v3, which maps well to the vector kernel.
+		outHead := out[hOff : hOff+headDim]
 		for tkv := 0; tkv < seqKV; tkv++ {
-			vOff := tkv*dModel + hOff
 			w := scores[tkv]
 			if w < 1e-8 {
 				continue // skip near-zero weights
 			}
-			d := 0
-			for ; d+3 < headDim; d += 4 {
-				out[hOff+d] += w * vCache[vOff+d]
-				out[hOff+d+1] += w * vCache[vOff+d+1]
-				out[hOff+d+2] += w * vCache[vOff+d+2]
-				out[hOff+d+3] += w * vCache[vOff+d+3]
-			}
-			for ; d < headDim; d++ {
-				out[hOff+d] += w * vCache[vOff+d]
-			}
+			vOff := tkv*dModel + hOff
+			simdrt.Saxpy(w, vCache[vOff:vOff+headDim], outHead)
 		}
 	}
 }
