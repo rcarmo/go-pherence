@@ -101,9 +101,36 @@ Whisper speculative/MTP scaffolding is correctness-only today:
 
 TurboQuant is not useful for the current chunked Whisper workflow. Decoder state is reset per VAD-packed chunk; self-KV is only about 13 MiB/chunk at 40 tokens for large-v3, while cross-KV and decoder compute dominate. TurboQuant may become relevant only if true long-running streaming decode with persistent KV is added.
 
+## Candidate faster Whisper models
+
+The current local model is full `openai/whisper-large-v3` layout (`32` decoder layers). Hugging Face metadata shows compatible safetensors/tokenizer layouts for these faster alternatives:
+
+| Model | Decoder layers | Notes |
+|-------|----------------|-------|
+| `openai/whisper-large-v3-turbo` | 4 | Same `d_model=1280`, 32-layer encoder, large-v3 tokenizer IDs (`translate=50359`, `transcribe=50360`, `notimestamps=50364`); most attractive first replacement because it keeps official OpenAI lineage and cuts decoder depth 8×. |
+| `distil-whisper/distil-large-v3` | 2 | Same large-v3 dimensionality and tokenizer IDs; potentially faster but distillation quality/translation behavior must be validated on the target meeting audio. |
+| `distil-whisper/distil-large-v3.5` | 2 | Same shape class; newer distil checkpoint, also needs quality validation. |
+
+All three publish `config.json`, `generation_config.json`, `model.safetensors`, `preprocessor_config.json`, and `tokenizer.json`, so they should fit the existing loader with config selection and tensor-name validation work. The next practical step is to download `openai/whisper-large-v3-turbo`, validate tensor names/shapes against `LargeV3Turbo()`, and benchmark the same 110s stress sample and full M4A.
+
+## Candidate speaker embedding models
+
+`cmd/diarize-vtt` currently assigns a single speaker label. Candidate models for real multi-speaker labels:
+
+| Model | Format/library | License/notes | Fit for Go pipeline |
+|-------|----------------|---------------|---------------------|
+| `speechbrain/spkrec-ecapa-voxceleb` | SpeechBrain PyTorch checkpoints (`embedding_model.ckpt`, `hyperparams.yaml`) | Apache-2.0; widely used ECAPA-TDNN speaker verification model. | Best architecture match to the existing `models/speaker/ECAPA` scaffold, but requires checkpoint conversion/parsing from SpeechBrain `.ckpt` to a Go-loadable format. |
+| `speechbrain/spkrec-xvect-voxceleb` | SpeechBrain x-vector TDNN checkpoints | Apache-2.0; simpler TDNN/x-vector style. | Potentially simpler than ECAPA; still requires checkpoint conversion. |
+| `microsoft/wavlm-base-plus-sv` | Transformers `pytorch_model.bin` | WavLM audio-xvector speaker verification. | More complex transformer encoder; less aligned with current lightweight ECAPA code. |
+| `pyannote/embedding` | pyannote-audio PyTorch | MIT but often gated/pyannote-dependent in practice. | Strong diarization ecosystem, but config/runtime mismatch with pure Go path. |
+| `nvidia/speakerverification_en_titanet_large` | NeMo | Speaker verification/diarization model, but NeMo archive format. | Requires NeMo export/conversion; less direct. |
+
+Recommended first target: `speechbrain/spkrec-ecapa-voxceleb`, because it is Apache-2.0, popular, and closest to the existing ECAPA implementation. If checkpoint conversion proves too slow, evaluate x-vector as a simpler fallback.
+
 ## Remaining high-impact work
 
-1. Fused/resident decoder kernels that avoid per-token/per-layer GPU launch and host-transfer overhead.
-2. A true batched Whisper verifier for speculative/MTP decoding.
-3. A real speaker embedding/clustering path for multi-speaker diarization.
-4. GPU mel kernel body completion; currently PTX structure exists but the fused FFT/mel body remains pending and is not the dominant bottleneck.
+1. Download and validate `openai/whisper-large-v3-turbo` as the likely fastest quality-preserving Whisper replacement.
+2. Fused/resident decoder kernels that avoid per-token/per-layer GPU launch and host-transfer overhead.
+3. A true batched Whisper verifier for speculative/MTP decoding.
+4. A real speaker embedding/clustering path for multi-speaker diarization, starting with SpeechBrain ECAPA checkpoint conversion.
+5. GPU mel kernel body completion; currently PTX structure exists but the fused FFT/mel body remains pending and is not the dominant bottleneck.
