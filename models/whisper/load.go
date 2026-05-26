@@ -2,6 +2,7 @@ package whisper
 
 import (
 	"fmt"
+	"os"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -135,6 +136,7 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 	dec.FinalLNWeight, _ = get("model.decoder.layer_norm.weight")
 	dec.FinalLNBias, _ = get("model.decoder.layer_norm.bias")
 
+	uploadDecoderMLP := os.Getenv("GO_PHERENCE_WHISPER_GPU_DECODER_MLP") == "1"
 	for i := 0; i < cfg.DecoderLayers; i++ {
 		l := &dec.Layers[i]
 		prefix := fmt.Sprintf("model.decoder.layers.%d", i)
@@ -167,6 +169,16 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 		l.FC1Bias, _ = get(prefix + ".fc1.bias")
 		l.FC2Weight, _ = getLinear(prefix+".fc2.weight", cfg.EncoderDModel, cfg.EncoderFFNDim)
 		l.FC2Bias, _ = get(prefix + ".fc2.bias")
+		if uploadDecoderMLP && nv.SgemmReady() {
+			l.gpuFC1Weight = nv.NewDevBufFrom(l.FC1Weight)
+			if err := l.gpuFC1Weight.ToGPU(); err != nil {
+				l.gpuFC1Weight = nil
+			}
+			l.gpuFC2Weight = nv.NewDevBufFrom(l.FC2Weight)
+			if err := l.gpuFC2Weight.ToGPU(); err != nil {
+				l.gpuFC2Weight = nil
+			}
+		}
 	}
 
 	return enc, dec, nil

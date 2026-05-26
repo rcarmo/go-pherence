@@ -25,6 +25,7 @@ type decoderBufs struct {
 	mlpOut    []float32
 	scores    []float32
 	gpuX      *nv.DevBuf
+	gpuOut    *nv.DevBuf
 	gpuLogits *nv.DevBuf
 }
 
@@ -87,6 +88,28 @@ func layerNormInto(out, x, weight, bias []float32, dim int) {
 		}
 		out[d] = normed
 	}
+}
+
+func (b *decoderBufs) linearGPU(out, x []float32, weight *nv.DevBuf, bias []float32, inDim, outDim int) bool {
+	if b == nil || weight == nil || inDim <= 0 || outDim <= 0 || len(x) < inDim || len(out) < outDim || !nv.SgemmReady() {
+		return false
+	}
+	if b.gpuX == nil || b.gpuX.Len() < inDim {
+		b.gpuX = nv.NewDevBuf(inDim)
+	}
+	if b.gpuOut == nil || b.gpuOut.Len() < outDim {
+		b.gpuOut = nv.NewDevBuf(outDim)
+	}
+	copy(b.gpuX.Data()[:inDim], x[:inDim])
+	b.gpuX.MarkDirty()
+	nv.DevGemv(b.gpuOut, b.gpuX, weight, outDim, inDim)
+	copy(out[:outDim], b.gpuOut.Data()[:outDim])
+	if bias != nil {
+		for i := 0; i < outDim && i < len(bias); i++ {
+			out[i] += bias[i]
+		}
+	}
+	return true
 }
 
 func (b *decoderBufs) lmHeadGPU(logits, x []float32, weight *nv.DevBuf, vocab, h int) bool {

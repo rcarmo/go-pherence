@@ -57,6 +57,12 @@ type DecoderLayer struct {
 	FC1Bias     []float32
 	FC2Weight   []float32
 	FC2Bias     []float32
+
+	// Optional GPU-resident decoder projection weights. These are intentionally
+	// used only when explicitly enabled because per-token CUDA launch overhead can
+	// dominate on short chunks.
+	gpuFC1Weight *nv.DevBuf
+	gpuFC2Weight *nv.DevBuf
 }
 
 // DecoderState holds cached KV for incremental decoding.
@@ -175,9 +181,13 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 
 		// --- MLP ---
 		layerNormInto(bufs.mlpIn, x, layer.MLPLNWeight, layer.MLPLNBias, dModel)
-		linearInto(bufs.hidden, bufs.mlpIn, layer.FC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
+		if !bufs.linearGPU(bufs.hidden, bufs.mlpIn, layer.gpuFC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim) {
+			linearInto(bufs.hidden, bufs.mlpIn, layer.FC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
+		}
 		gelu(bufs.hidden)
-		linearInto(bufs.mlpOut, bufs.hidden, layer.FC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel)
+		if !bufs.linearGPU(bufs.mlpOut, bufs.hidden, layer.gpuFC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel) {
+			linearInto(bufs.mlpOut, bufs.hidden, layer.FC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel)
+		}
 		for d := range x {
 			x[d] += bufs.mlpOut[d]
 		}
