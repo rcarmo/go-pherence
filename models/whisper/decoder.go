@@ -4,6 +4,7 @@ import (
 	"math"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // Decoder implements the Whisper token decoder:
@@ -249,20 +250,10 @@ func attentionSingleInto(out, q, kCache, vCache []float32, seqKV, numHeads, head
 		hOff := h * headDim
 
 		// Compute attention scores with unrolled dot product
+		qHead := q[hOff : hOff+headDim]
 		for tkv := 0; tkv < seqKV; tkv++ {
 			kOff := tkv*dModel + hOff
-			var dot float32
-			d := 0
-			for ; d+3 < headDim; d += 4 {
-				dot += q[hOff+d]*kCache[kOff+d] +
-					q[hOff+d+1]*kCache[kOff+d+1] +
-					q[hOff+d+2]*kCache[kOff+d+2] +
-					q[hOff+d+3]*kCache[kOff+d+3]
-			}
-			for ; d < headDim; d++ {
-				dot += q[hOff+d] * kCache[kOff+d]
-			}
-			scores[tkv] = dot * scale
+			scores[tkv] = simdrt.Sdot(qHead, kCache[kOff:kOff+headDim]) * scale
 		}
 
 		softmax(scores[:seqKV])
