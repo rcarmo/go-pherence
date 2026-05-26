@@ -49,37 +49,27 @@ func (sd *SpeculativeDecoder) Step(draftState, targetState *DecoderState) Specul
 		return SpeculativeResult{Bonus: tok}
 	}
 
-	// Step 2: Run verifier on all draft tokens
-	// Feed each drafted token through the target decoder and check agreement
-	var accepted []int
-	prevTok = lastToken(targetState)
-	for i, draftTok := range draftTokens {
-		verifierLogits := sd.Target.Decoder.ForwardToken(prevTok, targetState)
-		verifierTok := argmax(verifierLogits)
-
-		if verifierTok == draftTok {
-			// Accept
-			accepted = append(accepted, draftTok)
-			prevTok = draftTok
-		} else {
-			// Reject — take verifier's token as bonus
-			return SpeculativeResult{
-				Accepted: accepted,
-				Bonus:    verifierTok,
-			}
-		}
-		_ = i
+	// Step 2: Run verifier over [last target token] + draft tokens. This currently
+	// uses a sequential implementation under ForwardTokens, but has the right
+	// G+1 verifier shape for a future fused/batched decoder.
+	_, verifier := sd.Target.Decoder.VerifyDraftSequential(lastToken(targetState), draftTokens, targetState)
+	acceptance, err := AcceptDraftTokens(draftTokens, verifier)
+	if err != nil {
+		// Defensive fallback: emit one ordinary target token.
+		logits := sd.Target.Decoder.ForwardToken(lastToken(targetState), targetState)
+		return SpeculativeResult{Bonus: argmax(logits)}
+	}
+	if !acceptance.AllAccepted {
+		return SpeculativeResult{Accepted: acceptance.Accepted, Bonus: acceptance.Bonus}
 	}
 
-	// All K tokens accepted — get one bonus from verifier
-	bonusLogits := sd.Target.Decoder.ForwardToken(prevTok, targetState)
-	bonus := argmax(bonusLogits)
+	bonus := acceptance.Bonus
 
 	// Also advance draft state past accepted tokens (already done above)
 	_ = cfg
 
 	return SpeculativeResult{
-		Accepted: accepted,
+		Accepted: acceptance.Accepted,
 		Bonus:    bonus,
 	}
 }
