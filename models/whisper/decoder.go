@@ -75,8 +75,9 @@ type DecoderState struct {
 	CrossK [][]float32 // [layer][encLen * dModel]
 	CrossV [][]float32 // [layer][encLen * dModel]
 
-	Pos  int          // Current token position
-	Bufs *decoderBufs // Reusable buffers (nil = allocate per call)
+	Pos       int          // Current token position
+	LastToken int          // Last token fed into ForwardToken, or -1 before prompt
+	Bufs      *decoderBufs // Reusable buffers (nil = allocate per call)
 }
 
 // NewDecoder creates a Decoder with allocated layers.
@@ -97,6 +98,7 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 		SelfVCache: make([][]float32, numLayers),
 		CrossK:     make([][]float32, numLayers),
 		CrossV:     make([][]float32, numLayers),
+		LastToken:  -1,
 		Bufs:       newDecoderBufs(cfg),
 	}
 
@@ -144,7 +146,10 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 
 	numHeads := cfg.DecoderHeads
 	headDim := cfg.HeadDim
-	encLen := len(state.CrossK[0]) / dModel
+	encLen := 0
+	if len(state.CrossK) > 0 {
+		encLen = len(state.CrossK[0]) / dModel
+	}
 
 	for l := range dec.Layers {
 		layer := &dec.Layers[l]
@@ -214,6 +219,7 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		}
 	}
 
+	state.LastToken = tokenID
 	state.Pos++
 	return logits
 }

@@ -216,6 +216,7 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 		SelfVCache: make([][]float32, numLayers),
 		CrossK:     make([][]float32, numLayers),
 		CrossV:     make([][]float32, numLayers),
+		LastToken:  -1,
 		Bufs:       newDecoderBufs(cfg),
 	}
 

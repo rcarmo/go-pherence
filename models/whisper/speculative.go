@@ -84,15 +84,31 @@ func (sd *SpeculativeDecoder) Step(draftState, targetState *DecoderState) Specul
 	}
 }
 
-// SpeculativeDecode runs full speculative decoding until EOT.
+// SpeculativeDecode runs full speculative decoding until EOT using the default
+// English transcription prompt. It is correctness scaffolding only: verifier
+// calls are still sequential and therefore this is not expected to speed up
+// large-v3 until a batched verifier lands.
 func (sd *SpeculativeDecoder) SpeculativeDecode(encoderOutput []float32, encLen int) []int {
+	return sd.SpeculativeDecodePrompt(encoderOutput, encLen, TokenEnglish, TokenTranscribe)
+}
+
+// SpeculativeDecodePrompt runs speculative decoding with an explicit Whisper
+// language/task prompt. The current verifier is sequential; this exists to make
+// the state/acceptance contract correct before adding a true batched verifier.
+func (sd *SpeculativeDecoder) SpeculativeDecodePrompt(encoderOutput []float32, encLen int, languageToken, taskToken int) []int {
 	cfg := sd.Target.Config
+	if languageToken == 0 {
+		languageToken = TokenEnglish
+	}
+	if taskToken == 0 {
+		taskToken = TokenTranscribe
+	}
 
 	draftState := NewDecoderState(sd.Draft.Config, encoderOutput, encLen, sd.Draft.Decoder)
 	targetState := NewDecoderState(cfg, encoderOutput, encLen, sd.Target.Decoder)
 
 	// Feed prompt
-	prompt := []int{TokenSOT, TokenEnglish, TokenTranscribe, TokenNoTimestamps}
+	prompt := []int{TokenSOT, languageToken, taskToken, TokenNoTimestamps}
 	for _, tok := range prompt {
 		sd.Draft.Decoder.ForwardToken(tok, draftState)
 		sd.Target.Decoder.ForwardToken(tok, targetState)
@@ -119,9 +135,8 @@ func (sd *SpeculativeDecoder) SpeculativeDecode(encoderOutput []float32, encLen 
 }
 
 func lastToken(state *DecoderState) int {
-	if state.Pos == 0 {
+	if state == nil || state.LastToken < 0 {
 		return TokenNoTimestamps
 	}
-	// The last token fed is implicit in the KV cache state
-	return TokenNoTimestamps // placeholder — real impl would track this
+	return state.LastToken
 }
