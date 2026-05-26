@@ -1,6 +1,10 @@
 package whisper
 
-import "math"
+import (
+	"math"
+
+	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+)
 
 // Decoder implements the Whisper token decoder:
 // Token embedding + positional embedding → N decoder layers (self-attn + cross-attn + MLP).
@@ -10,6 +14,7 @@ type Decoder struct {
 	// Token embeddings
 	TokenEmbed []float32 // [vocabSize, dModel]
 	PosEmbed   []float32 // [maxDecoderLength, dModel]
+	lmHeadGPU  *nv.DevBuf
 
 	// Decoder layers
 	Layers []DecoderLayer
@@ -182,8 +187,13 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 	layerNormInto(bufs.normed, x, dec.FinalLNWeight, dec.FinalLNBias, dModel)
 	x = bufs.normed
 
-	// LM head: project to vocab (using token embedding transposed)
+	// LM head: project to vocab (using tied token embedding). Use the dedicated
+	// GPU LM-head kernel when the token embedding has been uploaded.
 	logits := make([]float32, cfg.VocabSize)
+	if dec.lmHeadGPU != nil && bufs.lmHeadGPU(logits, x, dec.lmHeadGPU, cfg.VocabSize, dModel) {
+		state.Pos++
+		return logits
+	}
 	if dec.TokenEmbed != nil {
 		for v := 0; v < cfg.VocabSize; v++ {
 			var dot float32

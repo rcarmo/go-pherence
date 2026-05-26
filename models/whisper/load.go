@@ -3,6 +3,7 @@ package whisper
 import (
 	"fmt"
 
+	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
@@ -124,6 +125,12 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 	// Decoder
 	dec := NewDecoder(cfg)
 	dec.TokenEmbed, _ = get("model.decoder.embed_tokens.weight")
+	if len(dec.TokenEmbed) >= cfg.VocabSize*cfg.DecoderDModel && nv.SgemmReady() {
+		dec.lmHeadGPU = nv.NewDevBufFrom(dec.TokenEmbed)
+		if err := dec.lmHeadGPU.ToGPU(); err != nil {
+			dec.lmHeadGPU = nil
+		}
+	}
 	dec.PosEmbed, _ = get("model.decoder.embed_positions.weight")
 	dec.FinalLNWeight, _ = get("model.decoder.layer_norm.weight")
 	dec.FinalLNBias, _ = get("model.decoder.layer_norm.bias")

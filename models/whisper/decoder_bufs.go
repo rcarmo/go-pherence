@@ -1,6 +1,10 @@
 package whisper
 
-import "math"
+import (
+	"math"
+
+	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+)
 
 // decoderBufs holds pre-allocated working buffers for one decoder forward token step.
 // This eliminates per-token allocations in the hot path.
@@ -19,6 +23,8 @@ type decoderBufs struct {
 	hidden    []float32
 	mlpOut    []float32
 	scores    []float32
+	gpuX      *nv.DevBuf
+	gpuLogits *nv.DevBuf
 }
 
 func newDecoderBufs(cfg Config) *decoderBufs {
@@ -90,6 +96,23 @@ func layerNormInto(out, x, weight, bias []float32, dim int) {
 		}
 		out[d] = normed
 	}
+}
+
+func (b *decoderBufs) lmHeadGPU(logits, x []float32, weight *nv.DevBuf, vocab, h int) bool {
+	if b == nil || weight == nil || vocab <= 0 || h <= 0 || len(logits) < vocab || len(x) < h || !nv.SgemmReady() {
+		return false
+	}
+	if b.gpuX == nil || b.gpuX.Len() < h {
+		b.gpuX = nv.NewDevBuf(h)
+	}
+	if b.gpuLogits == nil || b.gpuLogits.Len() < vocab {
+		b.gpuLogits = nv.NewDevBuf(vocab)
+	}
+	copy(b.gpuX.Data()[:h], x[:h])
+	b.gpuX.MarkDirty()
+	nv.DevLMHead(b.gpuLogits, b.gpuX, weight, vocab, h)
+	copy(logits[:vocab], b.gpuLogits.Data()[:vocab])
+	return true
 }
 
 func zeroFloat32s(x []float32) {
