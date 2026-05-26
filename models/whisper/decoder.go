@@ -113,8 +113,15 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 	dModel := cfg.DecoderDModel
 	pos := state.Pos
 
+	bufs := state.Bufs
+	if bufs == nil {
+		bufs = newDecoderBufs(cfg)
+		state.Bufs = bufs
+	}
+
 	// Token embedding + positional embedding
-	x := make([]float32, dModel)
+	x := bufs.x
+	zeroFloat32s(x)
 	if tokenID >= 0 && tokenID < cfg.VocabSize && dec.TokenEmbed != nil {
 		copy(x, dec.TokenEmbed[tokenID*dModel:(tokenID+1)*dModel])
 	}
@@ -132,48 +139,48 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		layer := &dec.Layers[l]
 
 		// --- Causal self-attention ---
-		normed := layerNorm(x, layer.SelfAttnLNWeight, layer.SelfAttnLNBias, 1, dModel)
-
-		q := linearForwardOpt(normed, layer.SelfQWeight, layer.SelfQBias, 1, dModel, dModel)
-		k := linearForwardOpt(normed, layer.SelfKWeight, layer.SelfKBias, 1, dModel, dModel)
-		v := linearForwardOpt(normed, layer.SelfVWeight, layer.SelfVBias, 1, dModel, dModel)
+		layerNormInto(bufs.normed, x, layer.SelfAttnLNWeight, layer.SelfAttnLNBias, dModel)
+		linearInto(bufs.q, bufs.normed, layer.SelfQWeight, layer.SelfQBias, dModel, dModel)
+		linearInto(bufs.k, bufs.normed, layer.SelfKWeight, layer.SelfKBias, dModel, dModel)
+		linearInto(bufs.v, bufs.normed, layer.SelfVWeight, layer.SelfVBias, dModel, dModel)
 
 		// Append to KV cache
-		state.SelfKCache[l] = append(state.SelfKCache[l], k...)
-		state.SelfVCache[l] = append(state.SelfVCache[l], v...)
+		state.SelfKCache[l] = append(state.SelfKCache[l], bufs.k...)
+		state.SelfVCache[l] = append(state.SelfVCache[l], bufs.v...)
 
 		// Causal attention: query attends to all cached positions (0..pos)
 		seqKV := pos + 1
-		selfOut := causalAttentionSingle(q, state.SelfKCache[l], state.SelfVCache[l], seqKV, numHeads, headDim)
+		attentionSingleInto(bufs.selfOut, bufs.q, state.SelfKCache[l], state.SelfVCache[l], seqKV, numHeads, headDim, bufs.scores)
 
-		projected := linearForwardOpt(selfOut, layer.SelfOWeight, layer.SelfOBias, 1, dModel, dModel)
+		linearInto(bufs.proj, bufs.selfOut, layer.SelfOWeight, layer.SelfOBias, dModel, dModel)
 		for d := range x {
-			x[d] += projected[d]
+			x[d] += bufs.proj[d]
 		}
 
 		// --- Cross-attention ---
-		normed = layerNorm(x, layer.CrossAttnLNWeight, layer.CrossAttnLNBias, 1, dModel)
-		crossQ := linearForwardOpt(normed, layer.CrossQWeight, layer.CrossQBias, 1, dModel, dModel)
+		layerNormInto(bufs.normed, x, layer.CrossAttnLNWeight, layer.CrossAttnLNBias, dModel)
+		linearInto(bufs.crossQ, bufs.normed, layer.CrossQWeight, layer.CrossQBias, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
-		crossOut := fullAttention(crossQ, state.CrossK[l], state.CrossV[l], 1, encLen, numHeads, headDim)
-		crossProjected := linearForwardOpt(crossOut, layer.CrossOWeight, layer.CrossOBias, 1, dModel, dModel)
+		attentionSingleInto(bufs.crossOut, bufs.crossQ, state.CrossK[l], state.CrossV[l], encLen, numHeads, headDim, bufs.scores)
+		linearInto(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, layer.CrossOBias, dModel, dModel)
 		for d := range x {
-			x[d] += crossProjected[d]
+			x[d] += bufs.crossProj[d]
 		}
 
 		// --- MLP ---
-		mlpIn := layerNorm(x, layer.MLPLNWeight, layer.MLPLNBias, 1, dModel)
-		hidden := linearForwardOpt(mlpIn, layer.FC1Weight, layer.FC1Bias, 1, dModel, cfg.DecoderFFNDim)
-		gelu(hidden)
-		mlpOut := linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, 1, cfg.DecoderFFNDim, dModel)
+		layerNormInto(bufs.mlpIn, x, layer.MLPLNWeight, layer.MLPLNBias, dModel)
+		linearInto(bufs.hidden, bufs.mlpIn, layer.FC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
+		gelu(bufs.hidden)
+		linearInto(bufs.mlpOut, bufs.hidden, layer.FC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel)
 		for d := range x {
-			x[d] += mlpOut[d]
+			x[d] += bufs.mlpOut[d]
 		}
 	}
 
 	// Final LayerNorm
-	x = layerNorm(x, dec.FinalLNWeight, dec.FinalLNBias, 1, dModel)
+	layerNormInto(bufs.normed, x, dec.FinalLNWeight, dec.FinalLNBias, dModel)
+	x = bufs.normed
 
 	// LM head: project to vocab (using token embedding transposed)
 	logits := make([]float32, cfg.VocabSize)
@@ -196,9 +203,21 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 func causalAttentionSingle(q, kCache, vCache []float32, seqKV, numHeads, headDim int) []float32 {
 	dModel := numHeads * headDim
 	out := make([]float32, dModel)
-	scale := float32(1.0 / math.Sqrt(float64(headDim)))
-
 	scores := make([]float32, seqKV)
+	attentionSingleInto(out, q, kCache, vCache, seqKV, numHeads, headDim, scores)
+	return out
+}
+
+func attentionSingleInto(out, q, kCache, vCache []float32, seqKV, numHeads, headDim int, scores []float32) {
+	dModel := numHeads * headDim
+	zeroFloat32s(out[:dModel])
+	if seqKV <= 0 {
+		return
+	}
+	if len(scores) < seqKV {
+		scores = make([]float32, seqKV)
+	}
+	scale := float32(1.0 / math.Sqrt(float64(headDim)))
 
 	for h := 0; h < numHeads; h++ {
 		hOff := h * headDim
@@ -241,5 +260,4 @@ func causalAttentionSingle(q, kCache, vCache []float32, seqKV, numHeads, headDim
 			}
 		}
 	}
-	return out
 }
