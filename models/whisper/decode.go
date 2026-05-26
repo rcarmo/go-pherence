@@ -75,7 +75,7 @@ func GreedyDecodePrompt(dec *Decoder, state *DecoderState, cfg Config, languageT
 		}
 		nextTok := argmax(logits)
 
-		if nextTok == TokenEOT || wouldRepeatRun(tokens, nextTok, 6) {
+		if nextTok == TokenEOT || wouldRepeatRun(tokens, nextTok, 6) || repeatedNGram(tokens, nextTok, 3) {
 			break
 		}
 		tokens = append(tokens, nextTok)
@@ -161,6 +161,26 @@ func wouldRepeatRun(tokens []int, nextTok, maxRun int) bool {
 		}
 	}
 	return true
+}
+
+func repeatedNGram(tokens []int, nextTok, n int) bool {
+	if n <= 1 || len(tokens) < 2*n-1 {
+		return false
+	}
+	candidateStart := len(tokens) - (n - 1)
+	for start := 0; start+n <= candidateStart; start++ {
+		match := true
+		for i := 0; i < n-1; i++ {
+			if tokens[start+i] != tokens[candidateStart+i] {
+				match = false
+				break
+			}
+		}
+		if match && tokens[start+n-1] == nextTok {
+			return true
+		}
+	}
+	return false
 }
 
 func suppressNonTextSpecials(logits []float32) {
