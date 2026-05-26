@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -56,6 +57,7 @@ func main() {
 	minSpeech := flag.Float64("min-speech", 0.35, "Minimum VAD speech overlap ratio required to transcribe a chunk")
 	useGPU := flag.Bool("gpu", true, "Use GPU encoder path when CUDA SGEMM is available")
 	progressive := flag.Bool("progressive", true, "Write VTT after each completed chunk")
+	resume := flag.Bool("resume", true, "Resume from existing output VTT by skipping completed cue intervals")
 	keepWav := flag.Bool("keep-wav", false, "Keep converted temporary WAV")
 	flag.Parse()
 
@@ -144,8 +146,19 @@ func main() {
 	} else {
 		jobs = filterSpeechJobs(jobs, vad, *minSpeech)
 	}
+	initialResults := []result(nil)
+	if *resume {
+		completed, existing, err := loadCompletedResults(*output)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "resume disabled: %v\n", err)
+		} else if len(completed) > 0 {
+			initialResults = existing
+			jobs = filterCompletedJobs(jobs, completed)
+			fmt.Fprintf(os.Stderr, "resume: loaded %d existing cues, remaining chunks: %d\n", len(existing), len(jobs))
+		}
+	}
 	fmt.Fprintf(os.Stderr, "speech chunks: %d\n", len(jobs))
-	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers, languageToken, taskToken, *tokensPerSec, *output, *progressive)
+	results := transcribeParallel(w, gpuEnc, samples, jobs, vad, labels, *workers, languageToken, taskToken, *tokensPerSec, *output, *progressive, initialResults)
 	sort.Slice(results, func(i, j int) bool { return results[i].idx < results[j].idx })
 
 	segments := segmentsFromResults(results)
@@ -252,6 +265,75 @@ func appendVADJob(jobs []job, idx, cueStart, cueEnd, totalSamples, padSamples in
 	return append(jobs, job{idx: idx, start: start, end: end, cueStart: cueStart, cueEnd: cueEnd})
 }
 
+type cueKey struct{ startMS, endMS int }
+
+func filterCompletedJobs(jobs []job, completed map[cueKey]bool) []job {
+	if len(completed) == 0 {
+		return jobs
+	}
+	out := make([]job, 0, len(jobs))
+	for _, j := range jobs {
+		key := cueKey{startMS: sampleMS(j.cueStart), endMS: sampleMS(j.cueEnd)}
+		if !completed[key] {
+			out = append(out, j)
+		}
+	}
+	return out
+}
+
+func loadCompletedResults(path string) (map[cueKey]bool, []result, error) {
+	if path == "" {
+		return nil, nil, fmt.Errorf("empty output path")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer f.Close()
+	completed := map[cueKey]bool{}
+	var results []result
+	scanner := bufio.NewScanner(f)
+	idx := 0
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.Contains(line, "-->") {
+			continue
+		}
+		parts := strings.Split(line, "-->")
+		if len(parts) != 2 {
+			continue
+		}
+		startMS, ok1 := parseVTTMillis(strings.TrimSpace(parts[0]))
+		endMS, ok2 := parseVTTMillis(strings.TrimSpace(parts[1]))
+		if !ok1 || !ok2 || endMS <= startMS {
+			continue
+		}
+		text := ""
+		if scanner.Scan() {
+			text = strings.TrimSpace(scanner.Text())
+			text = strings.TrimPrefix(text, "<v Speaker 1>")
+		}
+		key := cueKey{startMS: startMS, endMS: endMS}
+		completed[key] = true
+		results = append(results, result{idx: idx, startSec: float64(startMS) / 1000, endSec: float64(endMS) / 1000, speaker: 0, text: text})
+		idx++
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, nil, err
+	}
+	return completed, results, nil
+}
+
+func parseVTTMillis(s string) (int, bool) {
+	var h, m, sec, ms int
+	if _, err := fmt.Sscanf(s, "%d:%d:%d.%d", &h, &m, &sec, &ms); err != nil {
+		return 0, false
+	}
+	return ((h*60+m)*60+sec)*1000 + ms, true
+}
+
+func sampleMS(sample int) int { return int(float64(sample) * 1000 / 16000) }
+
 func filterSpeechJobs(jobs []job, vad []speaker.VADSegment, minRatio float64) []job {
 	if minRatio <= 0 || len(vad) == 0 {
 		return jobs
@@ -274,9 +356,9 @@ func filterSpeechJobs(jobs []job, vad []speaker.VADSegment, minRatio float64) []
 	return out
 }
 
-func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int, languageToken, taskToken int, tokensPerSec float64, outputPath string, progressive bool) []result {
+func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, jobs []job, vad []speaker.VADSegment, labels []int, workers int, languageToken, taskToken int, tokensPerSec float64, outputPath string, progressive bool, initial []result) []result {
 	if len(jobs) == 0 {
-		return nil
+		return initial
 	}
 	if workers < 1 {
 		workers = 1
@@ -309,7 +391,7 @@ func transcribeParallel(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples 
 		close(out)
 	}()
 
-	results := make([]result, 0, len(jobs))
+	results := append([]result(nil), initial...)
 	done := 0
 	for r := range out {
 		done++
