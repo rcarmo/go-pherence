@@ -46,7 +46,7 @@ func main() {
 	modelSize := flag.String("size", "large-v3", "Model size: tiny, base, small, medium, large-v3, turbo")
 	task := flag.String("task", "translate", "Whisper task: translate or transcribe")
 	language := flag.String("language", "pt", "Source language code for Whisper prompt, e.g. pt, es, en")
-	workers := flag.Int("workers", max(1, min(4, runtimeWorkersDefault())), "Parallel transcription workers")
+	workers := flag.Int("workers", max(1, min(16, runtimeWorkersDefault())), "Parallel transcription workers")
 	chunkSec := flag.Float64("chunk", 10.0, "Maximum chunk duration in seconds (<=30 recommended)")
 	overlapSec := flag.Float64("overlap", 1.0, "Chunk overlap/context padding in seconds")
 	vadPack := flag.Bool("vad-pack", true, "Pack VAD speech regions into chunks instead of fixed windows")
