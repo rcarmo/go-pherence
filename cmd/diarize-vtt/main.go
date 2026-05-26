@@ -281,12 +281,32 @@ func filterCompletedJobs(jobs []job, completed map[cueKey]bool) []job {
 	}
 	out := make([]job, 0, len(jobs))
 	for _, j := range jobs {
-		key := cueKey{startMS: sampleMS(j.cueStart), endMS: sampleMS(j.cueEnd)}
-		if !completed[key] {
+		startMS, endMS := sampleMS(j.cueStart), sampleMS(j.cueEnd)
+		if !coveredByCompletedCue(startMS, endMS, completed) {
 			out = append(out, j)
 		}
 	}
 	return out
+}
+
+func coveredByCompletedCue(startMS, endMS int, completed map[cueKey]bool) bool {
+	if endMS <= startMS {
+		return false
+	}
+	jobDur := endMS - startMS
+	for c := range completed {
+		overlap := min(endMS, c.endMS) - max(startMS, c.startMS)
+		if overlap <= 0 {
+			continue
+		}
+		// Resume from older partial VTTs whose cue boundaries may not match the
+		// current VAD-packed chunking exactly. Treat a job as complete when an
+		// existing cue covers most of its interval.
+		if overlap*100 >= jobDur*80 {
+			return true
+		}
+	}
+	return false
 }
 
 func loadCompletedResults(path string) (map[cueKey]bool, []result, error) {

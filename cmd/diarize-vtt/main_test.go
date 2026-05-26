@@ -40,6 +40,16 @@ func TestParseVTTMillisAndFilterCompletedJobs(t *testing.T) {
 	if len(remaining) != 1 || remaining[0].idx != 1 {
 		t.Fatalf("remaining=%+v", remaining)
 	}
+	// Older partial VTTs may not match current VAD-packed cue boundaries exactly;
+	// sufficient overlap should still count as completed.
+	remaining = filterCompletedJobs(jobs, map[cueKey]bool{{startMS: 100, endMS: 950}: true})
+	if len(remaining) != 1 || remaining[0].idx != 1 {
+		t.Fatalf("fuzzy remaining=%+v", remaining)
+	}
+	remaining = filterCompletedJobs(jobs, map[cueKey]bool{{startMS: 700, endMS: 1000}: true})
+	if len(remaining) != 2 {
+		t.Fatalf("low-overlap remaining=%+v", remaining)
+	}
 }
 
 func TestDynamicMaxTokens(t *testing.T) {
