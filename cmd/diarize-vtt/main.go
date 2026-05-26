@@ -423,12 +423,40 @@ func segmentsFromResults(results []result) []whisper.DiarizedSegment {
 			continue
 		}
 		text := strings.TrimSpace(r.text)
-		if text == "" {
+		if text == "" || degenerateCueText(text) {
 			continue
 		}
 		segments = append(segments, whisper.DiarizedSegment{Start: r.startSec, End: r.endSec, Speaker: r.speaker, Text: text})
 	}
 	return mergeDiarized(segments)
+}
+
+func degenerateCueText(text string) bool {
+	words := strings.Fields(strings.ToLower(text))
+	if len(words) < 8 {
+		return false
+	}
+	for n := 3; n <= 5; n++ {
+		if hasRepeatedWordNGram(words, n) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRepeatedWordNGram(words []string, n int) bool {
+	if n <= 0 || len(words) < 2*n {
+		return false
+	}
+	seen := map[string]bool{}
+	for i := 0; i+n <= len(words); i++ {
+		key := strings.Join(words[i:i+n], " ")
+		if seen[key] {
+			return true
+		}
+		seen[key] = true
+	}
+	return false
 }
 
 func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, languageToken, taskToken, maxTokens int) (string, error) {

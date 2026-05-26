@@ -2,6 +2,15 @@ package main
 
 import "testing"
 
+func TestDegenerateCueText(t *testing.T) {
+	if !degenerateCueText("and I'm going to go back and I'm going to go back and I'm going to go back") {
+		t.Fatal("missed repeated phrase cue")
+	}
+	if degenerateCueText("the recommendation is to confirm if it is necessary to go out into the field") {
+		t.Fatal("false positive on normal cue")
+	}
+}
+
 func TestSegmentsFromResultsSortsByTime(t *testing.T) {
 	segments := segmentsFromResults([]result{
 		{idx: 9, startSec: 10, endSec: 11, text: "later"},
