@@ -17,6 +17,7 @@ This directory contains the durable backend, model, validation, and research not
 
 - [validation-gates.md](validation-gates.md) — phase-level test, vet, CPU-only, and hardware smoke gates.
 - [commands.md](commands.md) — CLI usage, MTP smokes, Qwen MTP triage, and benchmark harnesses.
+- [whisper-diarize-vtt.md](whisper-diarize-vtt.md) — current Whisper large-v3 translated VTT pipeline, performance, resume behavior, and diarization limitations.
 - [final-coverage-acceptance.md](final-coverage-acceptance.md) — final backend coverage acceptance tracker.
 - [performance.md](performance.md) — benchmark notes and current snapshots.
 - [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and refreshed snapshot status.
@@ -43,6 +44,7 @@ This directory contains the durable backend, model, validation, and research not
 - [qwen36-mtp.md](qwen36-mtp.md) — Qwen3.6 native MTP checkpoint findings.
 - [qwen35-reference-audit.md](qwen35-reference-audit.md) — Qwen3.5 reference audit.
 - [orthrus.md](orthrus.md) — Orthrus/speculative decoding notes.
+- [whisper-plan.md](whisper-plan.md) — original Whisper/diarization implementation plan plus historical status notes.
 - [turboquant.md](turboquant.md) — TurboQuant notes.
 - [kvboost-application-plan.md](kvboost-application-plan.md) — how KVBoost-style chunked KV reuse/page-offload maps to go-pherence.
 - [weight-budget.md](weight-budget.md) — tiered weight budget manager.

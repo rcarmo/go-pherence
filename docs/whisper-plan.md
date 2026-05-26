@@ -384,3 +384,19 @@ All tests pass on GPU hardware:
 **Next step for GPU RTF < 0.1:**
 Wire `models/whisper` encoder/decoder linear layers through `backends/nvidia/runtime.Sgemm`
 and attention through the CUDA attention kernel.
+
+## Current status update (2026-05-26)
+
+The original plan above is historical. The actively maintained operational notes for the long-form VTT workflow are now in [whisper-diarize-vtt.md](whisper-diarize-vtt.md).
+
+Key current points:
+
+- `cmd/diarize-vtt` is the preferred long-form audio command.
+- The default profile uses `whisper-large-v3-hf`, `-task translate`, VAD-packed 10s max chunks, 1s context padding, 16 workers, `-max-tokens 40`, progressive writes, and resume.
+- Local stress benchmark for large-v3 translate is currently about RTF≈0.68–0.69 on the 110s sample with the default tuned profile.
+- `whisper-tiny-hf` local weights were removed and should not be used for this workflow.
+- Speaker labels in `diarize-vtt` are currently a single-speaker fallback; real multi-speaker diarization still requires loading speaker embedding weights and clustering labels.
+- GPU-assisted default path covers encoder projections, decoder cross-K/V precompute, and LM head. Decoder layers and attention remain the main CPU bottleneck.
+- Experimental per-token GPU decoder MLP and cross-attention paths exist behind `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1` and `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1`, but both regressed on the current stress workload due to launch/transfer overhead and remain disabled by default.
+- Whisper speculative/MTP scaffolding now has state tracking, translate prompt support, `ForwardTokens`, and G+1 acceptance helpers, but the verifier is still sequential and provides no speedup until a fused/batched verifier or acceptable smaller drafter is added.
+- TurboQuant is validated as not useful for the current VAD-packed chunked decode profile because self-KV is small and reset per chunk; decoder compute and cross-attention dominate.

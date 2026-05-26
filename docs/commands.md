@@ -141,6 +141,29 @@ go run ./cmd/speccheck -model models/smollm2-135m \
 
 `specbench` emits normal/speculative rows with output parity, speedup, verifier backend, proposer, acceptance/fallback counters, emitted tokens, tokens/step, average proposal length, and aggregate total rows. `speccheck` emits JSON and exits non-zero on mismatch; use `-write-golden` / `-golden` to save and compare baselines.
 
+## `diarize-vtt` — large-v3 translated WebVTT
+
+`cmd/diarize-vtt` is the current long-form audio command. It defaults to Whisper large-v3 translation, VAD-packed chunks, progressive writes, and resume support:
+
+```bash
+go run ./cmd/diarize-vtt \
+  -input meeting.m4a \
+  -output meeting.vtt \
+  -language es
+```
+
+Useful flags:
+
+- `-task translate|transcribe` — default `translate`.
+- `-language CODE` — source language prompt (`pt` default; use `es`, `en`, etc. as needed).
+- `-workers N` — default `min(16, runtime.NumCPU())`; local stress testing found 16 best and 20 regressed.
+- `-chunk 10 -overlap 1 -vad-pack=true` — default VAD-packed chunk profile.
+- `-max-tokens 40 -tokens-per-sec 4` — tuned decoder token budget.
+- `-progressive=true -resume=true` — preserve and resume partial VTTs.
+- `-gpu=true` — GPU-assisted encoder, cross-KV precompute, and LM head.
+
+Current limitations: speaker labels are a single-speaker fallback until a real speaker embedding model is loaded; `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1` and `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1` are experimental and slower on the current stress sample. See [whisper-diarize-vtt.md](whisper-diarize-vtt.md).
+
 ## `llmchat`
 
 ```bash
