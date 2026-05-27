@@ -12,33 +12,32 @@ func (m *SpeechBrainECAPA) Embed(mel []float32, frames int) []float32 {
 		return nil
 	}
 	x := tdnnForward(m.Conv0, mel, 80, frames, 1)
-	relu(x)
 	blockInputs := x
 	blockOuts := make([][]float32, 0, len(m.Blocks))
 	for i := range m.Blocks {
 		b := &m.Blocks[i]
 		y := tdnnForward(b.TDNN1, blockInputs, 1024, frames, 1)
-		relu(y)
 		chunks := splitChannels(y, 1024, frames, 8)
-		res := chunks[0]
+		var prev []float32
 		merged := make([][]float32, 0, 8)
-		merged = append(merged, res)
-		for j := 0; j < 7; j++ {
-			inp := addSame(res, chunks[j+1])
-			res = tdnnForward(b.Res2Net[j], inp, 128, frames, 2+i)
-			relu(res)
-			merged = append(merged, res)
+		for j, chunk := range chunks {
+			if j == 0 {
+				prev = chunk
+			} else if j == 1 {
+				prev = tdnnForward(b.Res2Net[j-1], chunk, 128, frames, 2+i)
+			} else {
+				prev = tdnnForward(b.Res2Net[j-1], addSame(chunk, prev), 128, frames, 2+i)
+			}
+			merged = append(merged, prev)
 		}
 		y = concatChannels(merged, frames)
 		y = tdnnForward(b.TDNN2, y, 1024, frames, 1)
-		relu(y)
 		y = seForward(b.SE, y, 1024, frames)
 		blockInputs = addSame(blockInputs, y)
 		blockOuts = append(blockOuts, blockInputs)
 	}
 	multi := concatChannels(blockOuts, frames)
 	x = tdnnForward(m.MFA, multi, 3072, frames, 1)
-	relu(x)
 	pooled := aspForward(m.ASP, x, 3072, frames)
 	pooled = batchNormForward(m.ASPBN, pooled, 6144, 1)
 	out := conv1dForward(m.FC, pooled, 6144, 1, 1)
@@ -47,6 +46,7 @@ func (m *SpeechBrainECAPA) Embed(mel []float32, frames int) []float32 {
 
 func tdnnForward(layer TDNNLayer, input []float32, inCh, frames, dilation int) []float32 {
 	y := conv1dForwardDilated(layer.Conv, input, inCh, frames, dilation)
+	relu(y)
 	y = batchNormForward(layer.Norm, y, len(layer.Norm.Weight), frames)
 	return y
 }
