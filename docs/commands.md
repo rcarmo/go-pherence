@@ -161,8 +161,10 @@ Useful flags:
 - `-max-tokens 40 -tokens-per-sec 4` — tuned decoder token budget.
 - `-progressive=true -resume=true` — preserve and resume partial VTTs.
 - `-gpu=true` — GPU-assisted encoder, cross-KV precompute, and LM head.
+- `-speaker-model PATH` — optional converted ECAPA safetensors speaker embedding model.
+- `-speaker-threshold 0.7` — cosine similarity threshold for speaker clustering.
 
-Current limitations: speaker labels are a single-speaker fallback until a real speaker embedding model is loaded; `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1` and `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1` are experimental and slower on the current stress sample. See [whisper-diarize-vtt.md](whisper-diarize-vtt.md).
+Current limitations: speaker labels remain a single-speaker fallback unless `-speaker-model` points to converted ECAPA weights; `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1` and `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1` are experimental and slower on the current stress sample. See [whisper-diarize-vtt.md](whisper-diarize-vtt.md).
 
 ## `llmchat`
 

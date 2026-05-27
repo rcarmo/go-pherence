@@ -58,6 +58,8 @@ func main() {
 	useGPU := flag.Bool("gpu", true, "Use GPU encoder path when CUDA SGEMM is available")
 	progressive := flag.Bool("progressive", true, "Write VTT after each completed chunk")
 	resume := flag.Bool("resume", true, "Resume from existing output VTT by skipping completed cue intervals")
+	speakerModel := flag.String("speaker-model", "", "Optional converted ECAPA safetensors speaker embedding model")
+	speakerThreshold := flag.Float64("speaker-threshold", 0.7, "Cosine similarity threshold for speaker clustering")
 	keepWav := flag.Bool("keep-wav", false, "Keep converted temporary WAV")
 	flag.Parse()
 
@@ -138,7 +140,7 @@ func main() {
 	fmt.Fprintf(os.Stderr, "audio %.1fs, chunk %.1fs overlap %.1fs, workers %d\n", audioDur, *chunkSec, *overlapSec, *workers)
 
 	vad := speaker.EnergyVAD(samples, 16000, 25, 10, 0)
-	labels := make([]int, len(vad)) // ECAPA weights are not bundled yet; single-speaker fallback.
+	labels := speakerLabels(samples, vad, *speakerModel, float32(*speakerThreshold))
 
 	jobs := makeJobs(len(samples), *chunkSec, *overlapSec)
 	if *vadPack {
@@ -175,6 +177,39 @@ func main() {
 		fatalf("write vtt: %v", err)
 	}
 	fmt.Fprintf(os.Stderr, "wrote %s (%d cues) in %s, RTF %.2f\n", *output, len(segments), time.Since(startAll).Round(time.Second), time.Since(startAll).Seconds()/audioDur)
+}
+
+func speakerLabels(samples []float32, vad []speaker.VADSegment, modelPath string, threshold float32) []int {
+	labels := make([]int, len(vad))
+	if len(vad) == 0 || modelPath == "" {
+		if modelPath == "" {
+			fmt.Fprintf(os.Stderr, "speaker model not set; using single-speaker fallback\n")
+		}
+		return labels
+	}
+	cfg := speaker.DefaultECAPAConfig()
+	ecapa, err := speaker.LoadECAPASafetensors(modelPath, cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "speaker model disabled: %v\n", err)
+		return labels
+	}
+	embeddings := speaker.ExtractEmbeddings(samples, 16000, vad, ecapa)
+	if len(embeddings) != len(vad) {
+		fmt.Fprintf(os.Stderr, "speaker model disabled: got %d embeddings for %d VAD segments\n", len(embeddings), len(vad))
+		return labels
+	}
+	if threshold <= 0 {
+		threshold = 0.7
+	}
+	labels = speaker.AgglomerativeCluster(embeddings, threshold)
+	maxLabel := 0
+	for _, label := range labels {
+		if label > maxLabel {
+			maxLabel = label
+		}
+	}
+	fmt.Fprintf(os.Stderr, "speaker model %s: clustered %d VAD segments into %d speakers\n", modelPath, len(vad), maxLabel+1)
+	return labels
 }
 
 func makeVADPackedJobs(totalSamples int, vad []speaker.VADSegment, maxChunkSec, padSec, mergeGapSec float64) []job {

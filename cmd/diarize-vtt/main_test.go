@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/rcarmo/go-pherence/models/speaker"
+)
 
 func TestDegenerateCueText(t *testing.T) {
 	if !degenerateCueText("and I'm going to go back and I'm going to go back and I'm going to go back") {
@@ -49,6 +53,19 @@ func TestParseVTTMillisAndFilterCompletedJobs(t *testing.T) {
 	remaining = filterCompletedJobs(jobs, map[cueKey]bool{{startMS: 700, endMS: 1000}: true})
 	if len(remaining) != 2 {
 		t.Fatalf("low-overlap remaining=%+v", remaining)
+	}
+}
+
+func TestSpeakerLabelsFallback(t *testing.T) {
+	vad := []speaker.VADSegment{{Start: 0, End: 1}, {Start: 2, End: 3}}
+	labels := speakerLabels(make([]float32, 16000*3), vad, "", 0)
+	if len(labels) != len(vad) {
+		t.Fatalf("labels len=%d want %d", len(labels), len(vad))
+	}
+	for i, label := range labels {
+		if label != 0 {
+			t.Fatalf("label[%d]=%d want fallback 0", i, label)
+		}
 	}
 }
 

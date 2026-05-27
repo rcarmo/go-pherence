@@ -78,13 +78,24 @@ This is important for long files because full `large-v3` translation can still b
 
 ## Diarization status
 
-Despite the command name, current speaker labels are still a **single-speaker fallback**:
+Speaker labels are still a **single-speaker fallback by default**:
 
-```go
-labels := make([]int, len(vad)) // ECAPA weights are not bundled yet; single-speaker fallback.
+```bash
+go run ./cmd/diarize-vtt -input meeting.m4a -output meeting.vtt
+# speaker model not set; using single-speaker fallback
 ```
 
-The output uses WebVTT voice tags (`<v Speaker 1>...`) and VAD segments, but real multi-speaker identification is not active until an ECAPA/pyannote-style speaker embedding model is loaded and clustered. Current VTT files should therefore be interpreted as translated speech cues with placeholder speaker labels.
+The command now has an opt-in ECAPA path:
+
+```bash
+go run ./cmd/diarize-vtt \
+  -input meeting.m4a \
+  -output meeting.vtt \
+  -speaker-model models/speaker-ecapa-voxceleb.safetensors \
+  -speaker-threshold 0.7
+```
+
+The output uses WebVTT voice tags (`<v Speaker 1>...`) and VAD segments. Real multi-speaker identification requires a converted ECAPA safetensors file; without `-speaker-model`, current VTT files should still be interpreted as translated speech cues with placeholder speaker labels.
 
 ## MTP/speculative status for Whisper
 
