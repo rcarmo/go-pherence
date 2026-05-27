@@ -39,6 +39,11 @@ MODELS: tuple[ModelSpec, ...] = (
     ModelSpec("qwen3.6-27b-mlx4-mtp", "samwang0041/Qwen3.6-27B-MLX-4bit-MTP", "qwen", "Qwen3.6 MLX 4-bit native MTP"),
     ModelSpec("qwen3.6-27b-text-nvfp4-mtp", "Qwen/Qwen3.6-27B-Text-NVFP4-MTP", "qwen", "Qwen3.6 NVFP4/native MTP stress asset"),
 
+    # Speaker embedding assets for diarization conversion. These are source
+    # checkpoints; run scripts/convert_speechbrain_ecapa.py before using them
+    # with cmd/diarize-vtt -speaker-model.
+    ModelSpec("speechbrain-ecapa-voxceleb", "speechbrain/spkrec-ecapa-voxceleb", "speaker", "SpeechBrain ECAPA speaker verification checkpoint"),
+
     # Gemma4 assets used by MTP work. These IDs mirror the public MLX naming scheme;
     # if a repo is renamed upstream, override with --repo name=repo or edit this file.
     ModelSpec("gemma4-e2b-it-4bit", "mlx-community/gemma-4-E2B-it-4bit", "gemma4", "Gemma4 E2B verifier"),
