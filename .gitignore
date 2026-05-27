@@ -1,6 +1,7 @@
 *.test
 *.pprof
 *.out
+.venv*/
 /tmp/
 
 # Local downloaded model assets live under models/ but source packages do too.
