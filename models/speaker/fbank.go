@@ -1,6 +1,9 @@
 package speaker
 
-import "math"
+import (
+	"math"
+	"sync"
+)
 
 // SpeechBrainFbank computes the normalized 80-bin Fbank features expected by
 // speechbrain/spkrec-ecapa-voxceleb. It mirrors the checkpoint hyperparams:
@@ -93,20 +96,48 @@ func hammingWindow(n int) []float32 {
 	return w
 }
 
+var dftBasisCache sync.Map // map[int]*dftBasis
+
+type dftBasis struct {
+	cos [][]float32
+	sin [][]float32
+}
+
 func dftPowerSpectrum(input []float32) []float32 {
 	n := len(input)
 	bins := n/2 + 1
 	out := make([]float32, bins)
+	basis := cachedDFTBasis(n)
 	for k := 0; k < bins; k++ {
-		var re, im float64
+		var re, im float32
+		cosRow := basis.cos[k]
+		sinRow := basis.sin[k]
 		for t, v := range input {
-			angle := -2 * math.Pi * float64(k*t) / float64(n)
-			re += float64(v) * math.Cos(angle)
-			im += float64(v) * math.Sin(angle)
+			re += v * cosRow[t]
+			im += v * sinRow[t]
 		}
-		out[k] = float32(re*re + im*im)
+		out[k] = re*re + im*im
 	}
 	return out
+}
+
+func cachedDFTBasis(n int) *dftBasis {
+	if v, ok := dftBasisCache.Load(n); ok {
+		return v.(*dftBasis)
+	}
+	bins := n/2 + 1
+	basis := &dftBasis{cos: make([][]float32, bins), sin: make([][]float32, bins)}
+	for k := 0; k < bins; k++ {
+		basis.cos[k] = make([]float32, n)
+		basis.sin[k] = make([]float32, n)
+		for t := 0; t < n; t++ {
+			angle := -2 * math.Pi * float64(k*t) / float64(n)
+			basis.cos[k][t] = float32(math.Cos(angle))
+			basis.sin[k][t] = float32(math.Sin(angle))
+		}
+	}
+	actual, _ := dftBasisCache.LoadOrStore(n, basis)
+	return actual.(*dftBasis)
 }
 
 func speechBrainMelFilters(numMels, numBins, sampleRate, nFFT int) [][]float32 {
