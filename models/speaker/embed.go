@@ -1,9 +1,5 @@
 package speaker
 
-import (
-	"github.com/rcarmo/go-pherence/loader/audio"
-)
-
 // ExtractEmbeddings computes speaker embeddings for each VAD segment.
 // samples: 16kHz mono float32 audio.
 // segments: voice-active segments.
@@ -34,15 +30,7 @@ func ExtractEmbeddings(samples []float32, sampleRate int, segments []VADSegment,
 
 		segAudio := samples[startSample:endSample]
 
-		// Compute mel spectrogram for segment
-		melCfg := audio.MelConfig{
-			SampleRate: sampleRate,
-			FFTSize:    400,
-			HopLength:  160,
-			NumMels:    cfg.NumMels,
-			NFFTPadded: 512,
-		}
-		mel := audio.MelSpectrogram(segAudio, melCfg)
+		mel := SpeechBrainFbank(segAudio, sampleRate)
 		if mel == nil || len(mel[0]) == 0 {
 			embeddings[i] = make([]float32, cfg.EmbedDim)
 			continue

@@ -187,13 +187,11 @@ func speakerLabels(samples []float32, vad []speaker.VADSegment, modelPath string
 		}
 		return labels
 	}
-	cfg := speaker.DefaultECAPAConfig()
-	ecapa, err := speaker.LoadECAPASafetensors(modelPath, cfg)
+	embeddings, err := speakerEmbeddings(samples, vad, modelPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "speaker model disabled: %v\n", err)
 		return labels
 	}
-	embeddings := speaker.ExtractEmbeddings(samples, 16000, vad, ecapa)
 	if len(embeddings) != len(vad) {
 		fmt.Fprintf(os.Stderr, "speaker model disabled: got %d embeddings for %d VAD segments\n", len(embeddings), len(vad))
 		return labels
@@ -210,6 +208,18 @@ func speakerLabels(samples []float32, vad []speaker.VADSegment, modelPath string
 	}
 	fmt.Fprintf(os.Stderr, "speaker model %s: clustered %d VAD segments into %d speakers\n", modelPath, len(vad), maxLabel+1)
 	return labels
+}
+
+func speakerEmbeddings(samples []float32, vad []speaker.VADSegment, modelPath string) ([][]float32, error) {
+	if sb, err := speaker.LoadSpeechBrainECAPASafetensors(modelPath); err == nil {
+		return speaker.ExtractSpeechBrainEmbeddings(samples, 16000, vad, sb), nil
+	}
+	cfg := speaker.DefaultECAPAConfig()
+	ecapa, err := speaker.LoadECAPASafetensors(modelPath, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return speaker.ExtractEmbeddings(samples, 16000, vad, ecapa), nil
 }
 
 func makeVADPackedJobs(totalSamples int, vad []speaker.VADSegment, maxChunkSec, padSec, mergeGapSec float64) []job {
