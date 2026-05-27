@@ -39,6 +39,7 @@ def main() -> int:
     ap.add_argument("--source", default="speechbrain/spkrec-ecapa-voxceleb", help="HF repo id or local SpeechBrain model directory")
     ap.add_argument("--audio", required=True, help="Audio file path")
     ap.add_argument("--output", default="", help="Optional JSON output path; stdout if omitted")
+    ap.add_argument("--features-output", default="", help="Optional JSON output path for normalized Fbank features [num_mels, frames]")
     ap.add_argument("--device", default="cpu", help="Torch device, default cpu")
     args = ap.parse_args()
 
@@ -72,9 +73,34 @@ def main() -> int:
         wav = torchaudio.functional.resample(wav, sample_rate, 16000)
         sample_rate = 16000
 
+    wav = wav.to(args.device).float()
+    wav_lens = torch.ones(wav.shape[0], device=args.device)
     with torch.no_grad():
-        emb = classifier.encode_batch(wav.to(args.device)).squeeze().detach().cpu().float()
+        feats = classifier.mods.compute_features(wav)
+        feats = classifier.mods.mean_var_norm(feats, wav_lens)
+        emb = classifier.mods.embedding_model(feats, wav_lens).squeeze().detach().cpu().float()
     values = emb.tolist()
+    if args.features_output:
+        # SpeechBrain features are [batch, frames, mels]. Store channel-first to
+        # match Go's [numMels, frames] ECAPA forward input contract.
+        f = feats.squeeze(0).detach().cpu().float().transpose(0, 1).contiguous()
+        features = f.tolist()
+        Path(args.features_output).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.features_output).write_text(
+            json.dumps(
+                {
+                    "source": args.source,
+                    "audio": str(audio_path),
+                    "sample_rate": sample_rate,
+                    "num_mels": len(features),
+                    "frames": len(features[0]) if features else 0,
+                    "features": features,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     payload = {
         "source": args.source,
         "audio": str(audio_path),
