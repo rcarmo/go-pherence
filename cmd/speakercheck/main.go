@@ -16,6 +16,8 @@ func main() {
 	modelPath := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors model")
 	threshold := flag.Float64("threshold", 0.3, "Cosine similarity threshold for agglomerative clustering")
 	context := flag.Float64("context", 0.5, "Embedding context padding around VAD segments in seconds")
+	startSec := flag.Float64("start", 0, "Start offset in seconds for spot checks")
+	durationSec := flag.Float64("duration", 0, "Optional duration in seconds for spot checks")
 	showSims := flag.Bool("sims", true, "Print pairwise cosine similarities")
 	flag.Parse()
 	if *input == "" {
@@ -31,6 +33,7 @@ func main() {
 		samples = audio.ResampleSinc(samples, sr, 16000)
 		sr = 16000
 	}
+	samples = sliceSamples(samples, sr, *startSec, *durationSec)
 	model, err := speaker.LoadSpeechBrainECAPASafetensors(*modelPath)
 	if err != nil {
 		fatalf("speaker model: %v", err)
@@ -49,9 +52,9 @@ func main() {
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
-	fmt.Printf("segments=%d speakers=%d threshold=%.2f context=%.2fs\n", len(vad), len(keys), *threshold, *context)
+	fmt.Printf("segments=%d speakers=%d threshold=%.2f context=%.2fs start=%.2fs duration=%.2fs\n", len(vad), len(keys), *threshold, *context, *startSec, float64(len(samples))/float64(sr))
 	for i, seg := range vad {
-		fmt.Printf("%02d %.2f-%.2f speaker=%d duration=%.2fs\n", i, seg.Start, seg.End, labels[i]+1, seg.End-seg.Start)
+		fmt.Printf("%02d %.2f-%.2f speaker=%d duration=%.2fs\n", i, seg.Start+*startSec, seg.End+*startSec, labels[i]+1, seg.End-seg.Start)
 	}
 	fmt.Print("counts")
 	for _, k := range keys {
@@ -65,6 +68,27 @@ func main() {
 			}
 		}
 	}
+}
+
+func sliceSamples(samples []float32, sampleRate int, startSec, durationSec float64) []float32 {
+	if len(samples) == 0 || sampleRate <= 0 {
+		return samples
+	}
+	start := int(startSec * float64(sampleRate))
+	if start < 0 {
+		start = 0
+	}
+	if start > len(samples) {
+		start = len(samples)
+	}
+	end := len(samples)
+	if durationSec > 0 {
+		end = start + int(durationSec*float64(sampleRate))
+		if end > len(samples) {
+			end = len(samples)
+		}
+	}
+	return samples[start:end]
 }
 
 func smoothSingletons(labels []int, embeddings [][]float32, minAvgSim float32) []int {

@@ -190,6 +190,17 @@ go run ./cmd/speakercheck \
   -context 0.5
 ```
 
+For long recordings, spot-check a short window:
+
+```bash
+go run ./cmd/speakercheck \
+  -input testdata/podcast.wav \
+  -speaker-model models/speaker-ecapa-voxceleb.safetensors \
+  -start 300 \
+  -duration 30 \
+  -sims=false
+```
+
 It prints VAD segment timings, assigned speaker labels, speaker counts, and optional pairwise cosine similarities.
 
 ## `llmchat`
