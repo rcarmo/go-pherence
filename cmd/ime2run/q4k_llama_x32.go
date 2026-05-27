@@ -138,8 +138,12 @@ func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []
 	quantA := q8Block32ToBytes(q8)
 	subs := w.K / 32
 	groups := w.M / 32
+	dbg := os.Getenv("IME2_K3_DBG") != ""
 	runGroup := func(rg int) {
-		k3I8I4M1((*byte)(unsafe.Pointer(&quantA[0])), (*byte)(unsafe.Pointer(&w.BData[rg*subs*640])), &out[rg*32], subs, 32)
+		k3I8I4M1((*byte)(unsafe.Pointer(&quantA[0])), (*byte)(unsafe.Pointer(&w.BData[rg*subs*608])), &out[rg*32], subs, 32)
+		if dbg && rg == 0 {
+			fmt.Fprintf(os.Stderr, "k3raw[0..3]: %.5f %.5f %.5f %.5f\n", out[0], out[1], out[2], out[3])
+		}
 		for r := 0; r < 32; r++ {
 			corr := float32(0)
 			for sb := 0; sb < subs; sb++ {
@@ -180,7 +184,7 @@ func q4kQ41x32MatVecCShim(w q4kQ41x32, act []float32, out []float32, pool *AIWor
 		gStart := workerID * groups / nWorkers
 		gEnd := (workerID + 1) * groups / nWorkers
 		for rg := gStart; rg < gEnd; rg++ {
-			callLocalK3I8I4M1(quantA, w.BData[rg*subs*640:(rg+1)*subs*640], out[rg*32:(rg+1)*32], 32, subs)
+			callLocalK3I8I4M1(quantA, w.BData[rg*subs*608:(rg+1)*subs*608], out[rg*32:(rg+1)*32], 32, subs)
 		}
 	})
 }

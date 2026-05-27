@@ -22,7 +22,7 @@ type q4kQ41x32 struct {
 	D     []float32 // [rowGroup][subblock][32 rows]
 	ZP    []uint8   // [rowGroup][subblock][32 rows]
 	QS    []byte    // [rowGroup][subblock][32 rows][16 packed q bytes]
-	BData []byte    // Go asm kernel layout: fp16 d[32], zp-u16-lanes[32], qs[512] per subblock
+	BData []byte    // Go asm kernel layout: fp16 d[32]=64B, int8 zp[32]=32B, qs[512]=512B per subblock (608B)
 	Valid bool
 }
 
@@ -77,7 +77,7 @@ func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
 		D:     make([]float32, groups*subs*32),
 		ZP:    make([]uint8, groups*subs*32),
 		QS:    make([]byte, groups*subs*32*16),
-		BData: make([]byte, groups*subs*(32*2+64+512)),
+		BData: make([]byte, groups*subs*(64+32+512)), // 608B per subblock
 		Valid: true,
 	}
 	for rg := 0; rg < groups; rg++ {
@@ -110,15 +110,19 @@ func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
 	}
 	for rg := 0; rg < groups; rg++ {
 		for sb := 0; sb < subs; sb++ {
-			blkOff := (rg*subs + sb) * (32*2 + 64 + 512)
+			blkOff := (rg*subs + sb) * (64 + 32 + 512) // 608B per subblock
 			for r := 0; r < 32; r++ {
 				metaIdx := q41x32MetaIndex(rg, sb, r, subs)
 				dh := f32ToF16Bits(out.D[metaIdx])
 				out.BData[blkOff+r*2] = byte(dh)
 				out.BData[blkOff+r*2+1] = byte(dh >> 8)
-				out.BData[blkOff+64+2*r] = 0
-				out.BData[blkOff+64+2*r+1] = 0
-				copy(out.BData[blkOff+128+r*16:blkOff+128+(r+1)*16], out.QS[q41x32QSOffset(rg, sb, r, subs):q41x32QSOffset(rg, sb, r, subs)+16])
+				out.BData[blkOff+64+r] = 0 // zp=0; min correction applied externally
+			}
+			// QS: column-major layout — column r at offset 96+r*16, 16 bytes per column
+			// vmadotsu/vmadotu.hp process 8 columns at a time from v4/v5/v6/v7
+			for r := 0; r < 32; r++ {
+				qsBase := q41x32QSOffset(rg, sb, r, subs)
+				copy(out.BData[blkOff+96+r*16:blkOff+96+(r+1)*16], out.QS[qsBase:qsBase+16])
 			}
 		}
 	}
