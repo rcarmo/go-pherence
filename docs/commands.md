@@ -178,6 +178,20 @@ Useful flags:
 
 Current limitations: speaker labels remain a single-speaker fallback unless `-speaker-model` points to converted ECAPA weights; `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1` and `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1` are experimental and slower on the current stress sample. See [whisper-diarize-vtt.md](whisper-diarize-vtt.md).
 
+## `speakercheck` — speaker-only ECAPA validation
+
+Use this to validate VAD → ECAPA embeddings → clustering without loading Whisper:
+
+```bash
+go run ./cmd/speakercheck \
+  -input testdata/jfk.wav \
+  -speaker-model models/speaker-ecapa-voxceleb.safetensors \
+  -threshold 0.3 \
+  -context 0.5
+```
+
+It prints VAD segment timings, assigned speaker labels, speaker counts, and optional pairwise cosine similarities.
+
 ## `llmchat`
 
 ```bash
