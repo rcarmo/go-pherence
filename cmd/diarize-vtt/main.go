@@ -200,7 +200,7 @@ func speakerLabels(samples []float32, vad []speaker.VADSegment, modelPath string
 		threshold = 0.3
 	}
 	labels = speaker.AgglomerativeCluster(embeddings, threshold)
-	labels = smoothSpeakerLabels(labels, embeddings, 0.4)
+	labels = speaker.SmoothSingletonLabels(labels, embeddings, 0.4)
 	maxLabel := 0
 	for _, label := range labels {
 		if label > maxLabel {
@@ -209,68 +209,6 @@ func speakerLabels(samples []float32, vad []speaker.VADSegment, modelPath string
 	}
 	fmt.Fprintf(os.Stderr, "speaker model %s: clustered %d VAD segments into %d speakers\n", modelPath, len(vad), maxLabel+1)
 	return labels
-}
-
-func smoothSpeakerLabels(labels []int, embeddings [][]float32, minAvgSim float32) []int {
-	if len(labels) == 0 || len(labels) != len(embeddings) {
-		return labels
-	}
-	out := append([]int(nil), labels...)
-	for pass := 0; pass < len(out); pass++ {
-		changed := false
-		counts := map[int]int{}
-		for _, label := range out {
-			counts[label]++
-		}
-		for i, label := range out {
-			if counts[label] != 1 {
-				continue
-			}
-			bestLabel := label
-			bestSim := float32(-2)
-			for candidate, count := range counts {
-				if candidate == label || count == 0 {
-					continue
-				}
-				var sum float32
-				var n int
-				for j, other := range out {
-					if other != candidate || i == j {
-						continue
-					}
-					sum += speaker.CosineSimilarity(embeddings[i], embeddings[j])
-					n++
-				}
-				if n == 0 {
-					continue
-				}
-				avg := sum / float32(n)
-				if avg > bestSim {
-					bestSim = avg
-					bestLabel = candidate
-				}
-			}
-			if bestLabel != label && bestSim >= minAvgSim {
-				out[i] = bestLabel
-				changed = true
-			}
-		}
-		if !changed {
-			break
-		}
-	}
-	remap := map[int]int{}
-	next := 0
-	for i, label := range out {
-		mapped, ok := remap[label]
-		if !ok {
-			mapped = next
-			remap[label] = mapped
-			next++
-		}
-		out[i] = mapped
-	}
-	return out
 }
 
 func speakerEmbeddings(samples []float32, vad []speaker.VADSegment, modelPath string) ([][]float32, error) {

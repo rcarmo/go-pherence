@@ -41,7 +41,7 @@ func main() {
 	vad := speaker.EnergyVAD(samples, sr, 25, 10, 0)
 	embeddings := speaker.ExtractSpeechBrainEmbeddingsWithContext(samples, sr, vad, model, *context)
 	labels := speaker.AgglomerativeCluster(embeddings, float32(*threshold))
-	labels = smoothSingletons(labels, embeddings, 0.4)
+	labels = speaker.SmoothSingletonLabels(labels, embeddings, 0.4)
 
 	counts := map[int]int{}
 	for _, label := range labels {
@@ -89,73 +89,6 @@ func sliceSamples(samples []float32, sampleRate int, startSec, durationSec float
 		}
 	}
 	return samples[start:end]
-}
-
-func smoothSingletons(labels []int, embeddings [][]float32, minAvgSim float32) []int {
-	if len(labels) == 0 || len(labels) != len(embeddings) {
-		return labels
-	}
-	out := append([]int(nil), labels...)
-	for pass := 0; pass < len(out); pass++ {
-		changed := false
-		counts := map[int]int{}
-		for _, label := range out {
-			counts[label]++
-		}
-		for i, label := range out {
-			if counts[label] != 1 {
-				continue
-			}
-			bestLabel := label
-			bestSim := float32(-2)
-			for candidate, count := range counts {
-				if candidate == label || count == 0 {
-					continue
-				}
-				var sum float32
-				var n int
-				for j, other := range out {
-					if other != candidate || i == j {
-						continue
-					}
-					sum += speaker.CosineSimilarity(embeddings[i], embeddings[j])
-					n++
-				}
-				if n == 0 {
-					continue
-				}
-				avg := sum / float32(n)
-				if avg > bestSim {
-					bestSim = avg
-					bestLabel = candidate
-				}
-			}
-			if bestLabel != label && bestSim >= minAvgSim {
-				out[i] = bestLabel
-				changed = true
-			}
-		}
-		if !changed {
-			break
-		}
-	}
-	return renumber(out)
-}
-
-func renumber(labels []int) []int {
-	remap := map[int]int{}
-	next := 0
-	out := make([]int, len(labels))
-	for i, label := range labels {
-		mapped, ok := remap[label]
-		if !ok {
-			mapped = next
-			remap[label] = mapped
-			next++
-		}
-		out[i] = mapped
-	}
-	return out
 }
 
 func fatalf(format string, args ...any) {
