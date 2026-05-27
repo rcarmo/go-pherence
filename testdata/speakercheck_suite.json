@@ -1,0 +1,12 @@
+{
+  "cases": [
+    {
+      "name": "jfk-single-speaker",
+      "input": "testdata/jfk.wav",
+      "speaker_model": "models/speaker-ecapa-voxceleb.safetensors",
+      "threshold": 0.3,
+      "context": 0.5,
+      "expect": [1, 1, 1, 1, 1]
+    }
+  ]
+}
