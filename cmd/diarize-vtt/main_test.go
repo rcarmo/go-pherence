@@ -69,6 +69,32 @@ func TestSpeakerLabelsFallback(t *testing.T) {
 	}
 }
 
+func TestSmoothSpeakerLabelsMergesSingletons(t *testing.T) {
+	labels := []int{0, 0, 1, 0, 2}
+	embeddings := [][]float32{
+		{1, 0},
+		{0.99, 0.01},
+		{0.98, 0.02},
+		{0.97, 0.03},
+		{0.96, 0.04},
+	}
+	smoothed := smoothSpeakerLabels(labels, embeddings, 0.4)
+	for i, label := range smoothed {
+		if label != 0 {
+			t.Fatalf("label[%d]=%d want all merged to 0: %v", i, label, smoothed)
+		}
+	}
+}
+
+func TestSmoothSpeakerLabelsKeepsDissimilarSingleton(t *testing.T) {
+	labels := []int{0, 0, 1}
+	embeddings := [][]float32{{1, 0}, {0.9, 0.1}, {0, 1}}
+	smoothed := smoothSpeakerLabels(labels, embeddings, 0.4)
+	if len(smoothed) != 3 || smoothed[2] != 1 {
+		t.Fatalf("smoothed=%v, want dissimilar singleton preserved", smoothed)
+	}
+}
+
 func TestDynamicMaxTokens(t *testing.T) {
 	if got := dynamicMaxTokens(40, 0.5, 4); got != 12 {
 		t.Fatalf("short cue budget=%d want 12", got)
