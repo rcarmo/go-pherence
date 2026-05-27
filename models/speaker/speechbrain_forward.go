@@ -1,6 +1,10 @@
 package speaker
 
-import "math"
+import (
+	"math"
+
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+)
 
 // Embed computes a 192-dimensional speaker embedding for normalized 80-bin
 // log-mel features shaped [80, frames] in channel-first layout. This implements
@@ -60,8 +64,14 @@ func conv1dForwardDilated(c Conv1D, input []float32, inCh, frames, dilation int)
 		return nil
 	}
 	outCh, kernel := c.Shape[0], c.Shape[2]
-	pad := dilation * (kernel / 2)
 	out := make([]float32, outCh*frames)
+	if kernel == 1 && dilation == 1 && len(c.Weight) >= outCh*inCh && len(input) >= inCh*frames {
+		if simdrt.SgemmNNTo(out, c.Weight, input, outCh, frames, inCh, 1, inCh, frames, frames) {
+			addConvBias(out, c.Bias, outCh, frames)
+			return out
+		}
+	}
+	pad := dilation * (kernel / 2)
 	for oc := 0; oc < outCh; oc++ {
 		for t := 0; t < frames; t++ {
 			sum := float32(0)
@@ -82,6 +92,22 @@ func conv1dForwardDilated(c Conv1D, input []float32, inCh, frames, dilation int)
 		}
 	}
 	return out
+}
+
+func addConvBias(out, bias []float32, outCh, frames int) {
+	for oc := 0; oc < outCh; oc++ {
+		b := float32(0)
+		if oc < len(bias) {
+			b = bias[oc]
+		}
+		if b == 0 {
+			continue
+		}
+		base := oc * frames
+		for t := 0; t < frames; t++ {
+			out[base+t] += b
+		}
+	}
 }
 
 func batchNormForward(b BatchNorm1D, input []float32, channels, frames int) []float32 {
