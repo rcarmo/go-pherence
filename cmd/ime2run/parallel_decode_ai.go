@@ -40,14 +40,14 @@ var q4kMinCorrOn = os.Getenv("IME2_Q4K_MIN_CORR") != "" // add Q4K min correctio
 var q4kScaledLoopOn = os.Getenv("IME2_Q4K_SCALED_LOOP") != "" // use vmadotQ4KScaledLoop1024 kernel
 
 var aiProfile struct {
-	tokens                                             int
-	norm, pack, qkv, attn, wo, ffn, gateUp, silu, down time.Duration
+	tokens                                                          int
+	norm, pack, qkv, attn, wo, ffn, gateUp, silu, down, layerTotal time.Duration
 }
 
 func resetAIProfile() {
 	aiProfile = struct {
-		tokens                                             int
-		norm, pack, qkv, attn, wo, ffn, gateUp, silu, down time.Duration
+		tokens                                                          int
+		norm, pack, qkv, attn, wo, ffn, gateUp, silu, down, layerTotal time.Duration
 	}{}
 }
 
@@ -56,8 +56,11 @@ func printAIProfile(tokens int) {
 		return
 	}
 	den := float64(tokens)
+	total := float64(aiProfile.layerTotal.Microseconds()) / 1000.0 / den
+	profiled := float64((aiProfile.norm + aiProfile.pack + aiProfile.qkv + aiProfile.attn +
+		aiProfile.wo + aiProfile.ffn + aiProfile.gateUp + aiProfile.silu + aiProfile.down).Microseconds()) / 1000.0 / den
 	fmt.Fprintf(os.Stderr,
-		"  ai_profile/token: norm=%.2fms pack=%.2fms qkv=%.2fms attn=%.2fms wo=%.2fms ffn=%.2fms gate_up=%.2fms silu=%.2fms down=%.2fms\n",
+		"  ai_profile/token: norm=%.2fms pack=%.2fms qkv=%.2fms attn=%.2fms wo=%.2fms ffn=%.2fms gate_up=%.2fms silu=%.2fms down=%.2fms | layers=%.2fms profiled=%.2fms other=%.2fms\n",
 		float64(aiProfile.norm.Microseconds())/1000.0/den,
 		float64(aiProfile.pack.Microseconds())/1000.0/den,
 		float64(aiProfile.qkv.Microseconds())/1000.0/den,
@@ -67,6 +70,7 @@ func printAIProfile(tokens int) {
 		float64(aiProfile.gateUp.Microseconds())/1000.0/den,
 		float64(aiProfile.silu.Microseconds())/1000.0/den,
 		float64(aiProfile.down.Microseconds())/1000.0/den,
+		total, profiled, total-profiled,
 	)
 }
 
@@ -170,7 +174,8 @@ func parallelDecodeAI(
 	for il := 0; il < nLayers; il++ {
 		l := &layers[il]
 		pos := nPast
-
+		var tLayer time.Time
+		if aiProfileOn { tLayer = time.Now() }
 		// RMS Norm (scalar, main core)
 		t0 := time.Time{}
 		if aiProfileOn {
@@ -194,10 +199,14 @@ func parallelDecodeAI(
 			t0 = time.Now()
 		}
 
-		// Quantize activation + pack for VLEN=1024
-		actScale := quantizeToI8(xn, actI8Pad[:nEmbd])
-		clear(actI8Pad[nEmbd:])
-		packActAI(actI8Pad, KpEmbd, actPacked)
+		// Quantize + pack activation for native GemmAI/VL32 paths.
+		// Skipped when using Q4K_A100 path (does its own per-subblock quantization).
+		var actScale float32
+		if !q4kAIOn || aiUseVL32 {
+			actScale = quantizeToI8(xn, actI8Pad[:nEmbd])
+			clear(actI8Pad[nEmbd:])
+			packActAI(actI8Pad, KpEmbd, actPacked)
+		}
 		if aiProfileOn {
 			aiProfile.pack += time.Since(t0)
 			t0 = time.Now()
@@ -322,9 +331,12 @@ func parallelDecodeAI(
 		}
 
 		// WO projection on AI cores
-		woActScale := quantizeToI8(qF[:nQEmbd], woActPad[:nQEmbd])
-		clear(woActPad[nQEmbd:])
-		packActAI(woActPad, KpQ, woActPacked)
+		var woActScale float32
+		if !q4kAIOn || aiUseVL32 {
+			woActScale = quantizeToI8(qF[:nQEmbd], woActPad[:nQEmbd])
+			clear(woActPad[nQEmbd:])
+			packActAI(woActPad, KpQ, woActPacked)
+		}
 		if aiProfileOn {
 			aiProfile.pack += time.Since(t0)
 			t0 = time.Now()
@@ -359,8 +371,11 @@ func parallelDecodeAI(
 		for i := 0; i < nEmbd; i++ {
 			xn2[i] = x[i] * invRMS * l.ffnNorm[i]
 		}
-		ffnActScale := quantizeToI8(xn2, ffnActPad[:nEmbd])
-		clear(ffnActPad[nEmbd:])
+		var ffnActScale float32
+		if !q4kAIOn || aiUseVL32 {
+			ffnActScale = quantizeToI8(xn2, ffnActPad[:nEmbd])
+			clear(ffnActPad[nEmbd:])
+		}
 		if os.Getenv("IME2_NORM_TRACE") != "" {
 			var s float32; var mx float32
 			for _, v := range xn2 {
@@ -371,7 +386,9 @@ func parallelDecodeAI(
 			fmt.Fprintf(os.Stderr, "layer %2d xn2_rms=%.4f xn2_max=%.4f xn2[0:6]= %.4f %.4f %.4f %.4f %.4f %.4f\n",
 				il, float32(math.Sqrt(float64(s/float32(nEmbd)))), mx, xn2[0], xn2[1], xn2[2], xn2[3], xn2[4], xn2[5])
 		}
-		packActAI(ffnActPad, KpEmbd, ffnActPacked)
+		if !q4kAIOn || aiUseVL32 {
+			packActAI(ffnActPad, KpEmbd, ffnActPacked)
+		}
 		if aiProfileOn {
 			aiProfile.ffn += time.Since(t0)
 			t0 = time.Now()
@@ -433,9 +450,12 @@ func parallelDecodeAI(
 		}
 
 		// Down projection on AI cores
-		downActScale := quantizeToI8(hidden, downActPad[:nFF])
-		clear(downActPad[nFF:])
-		packActAI(downActPad, KpFF, downActPacked)
+		var downActScale float32
+		if !q4kAIOn || aiUseVL32 {
+			downActScale = quantizeToI8(hidden, downActPad[:nFF])
+			clear(downActPad[nFF:])
+			packActAI(downActPad, KpFF, downActPacked)
+		}
 		if aiProfileOn {
 			aiProfile.pack += time.Since(t0)
 			t0 = time.Now()
@@ -472,6 +492,7 @@ func parallelDecodeAI(
 		}
 		if aiProfileOn {
 			aiProfile.down += time.Since(t0)
+			aiProfile.layerTotal += time.Since(tLayer)
 		}
 	}
 	if aiProfileOn {
