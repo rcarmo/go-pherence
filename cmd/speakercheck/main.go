@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,7 +54,7 @@ type checkScore struct {
 }
 
 func main() {
-	input := flag.String("input", "", "Input WAV file")
+	input := flag.String("input", "", "Input audio file (WAV directly, other formats via ffmpeg if available)")
 	modelPath := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors model")
 	threshold := flag.Float64("threshold", 0.3, "Cosine similarity threshold for agglomerative clustering")
 	context := flag.Float64("context", 0.5, "Embedding context padding around VAD segments in seconds")
@@ -67,9 +69,12 @@ func main() {
 		os.Exit(2)
 	}
 
-	samples, sr, err := audio.WAV(*input)
+	samples, sr, cleanup, err := loadAudioSamples(*input)
+	if cleanup != nil {
+		defer cleanup()
+	}
 	if err != nil {
-		fatalf("wav: %v", err)
+		fatalf("audio: %v", err)
 	}
 	if sr != 16000 {
 		samples = audio.ResampleSinc(samples, sr, 16000)
@@ -210,6 +215,28 @@ func scoreExpected(segments []checkSegment, expected []int) *checkScore {
 		s.PairwiseScore = float64(pairAgree) / float64(pairTotal)
 	}
 	return s
+}
+
+func loadAudioSamples(path string) ([]float32, int, func(), error) {
+	samples, sr, err := audio.WAV(path)
+	if err == nil {
+		return samples, sr, nil, nil
+	}
+	if _, lookErr := exec.LookPath("ffmpeg"); lookErr != nil {
+		return nil, 0, nil, fmt.Errorf("wav decode failed (%v), and ffmpeg was not found for fallback decode", err)
+	}
+	tmp := filepath.Join(os.TempDir(), fmt.Sprintf("speakercheck-%d.wav", os.Getpid()))
+	cmd := exec.Command("ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", path, "-ar", "16000", "-ac", "1", tmp)
+	if out, runErr := cmd.CombinedOutput(); runErr != nil {
+		return nil, 0, nil, fmt.Errorf("ffmpeg decode: %v: %s", runErr, strings.TrimSpace(string(out)))
+	}
+	cleanup := func() { _ = os.Remove(tmp) }
+	samples, sr, err = audio.WAV(tmp)
+	if err != nil {
+		cleanup()
+		return nil, 0, nil, fmt.Errorf("decoded wav: %w", err)
+	}
+	return samples, sr, cleanup, nil
 }
 
 func sliceSamples(samples []float32, sampleRate int, startSec, durationSec float64) []float32 {

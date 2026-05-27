@@ -180,7 +180,7 @@ Current limitations: speaker labels remain a single-speaker fallback unless `-sp
 
 ## `speakercheck` — speaker-only ECAPA validation
 
-Use this to validate VAD → ECAPA embeddings → clustering without loading Whisper:
+Use this to validate VAD → ECAPA embeddings → clustering without loading Whisper. WAV files are read directly; other audio formats such as M4A are decoded through `ffmpeg` when available.
 
 ```bash
 go run ./cmd/speakercheck \
