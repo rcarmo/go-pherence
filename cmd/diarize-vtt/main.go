@@ -59,7 +59,7 @@ func main() {
 	progressive := flag.Bool("progressive", true, "Write VTT after each completed chunk")
 	resume := flag.Bool("resume", true, "Resume from existing output VTT by skipping completed cue intervals")
 	speakerModel := flag.String("speaker-model", "", "Optional converted ECAPA safetensors speaker embedding model")
-	speakerThreshold := flag.Float64("speaker-threshold", 0.7, "Cosine similarity threshold for speaker clustering")
+	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine similarity threshold for speaker clustering")
 	keepWav := flag.Bool("keep-wav", false, "Keep converted temporary WAV")
 	flag.Parse()
 
@@ -197,7 +197,7 @@ func speakerLabels(samples []float32, vad []speaker.VADSegment, modelPath string
 		return labels
 	}
 	if threshold <= 0 {
-		threshold = 0.7
+		threshold = 0.3
 	}
 	labels = speaker.AgglomerativeCluster(embeddings, threshold)
 	maxLabel := 0
