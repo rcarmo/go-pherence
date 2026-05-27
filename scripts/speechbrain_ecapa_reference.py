@@ -45,6 +45,7 @@ def main() -> int:
     try:
         import torch
         import torchaudio
+        import soundfile as sf
         from speechbrain.inference.speaker import EncoderClassifier
     except Exception as exc:  # pragma: no cover - optional helper
         fail_missing(exc)
@@ -60,7 +61,11 @@ def main() -> int:
         run_opts={"device": args.device},
     )
 
-    wav, sample_rate = torchaudio.load(str(audio_path))
+    try:
+        wav, sample_rate = torchaudio.load(str(audio_path))
+    except Exception:
+        data, sample_rate = sf.read(str(audio_path), dtype="float32", always_2d=True)
+        wav = torch.from_numpy(data.T.copy())
     if wav.ndim == 2 and wav.shape[0] > 1:
         wav = wav.mean(dim=0, keepdim=True)
     if sample_rate != 16000:
