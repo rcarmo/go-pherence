@@ -125,7 +125,7 @@ All three publish `config.json`, `generation_config.json`, `model.safetensors`, 
 | `pyannote/embedding` | pyannote-audio PyTorch | MIT but often gated/pyannote-dependent in practice. | Strong diarization ecosystem, but config/runtime mismatch with pure Go path. |
 | `nvidia/speakerverification_en_titanet_large` | NeMo | Speaker verification/diarization model, but NeMo archive format. | Requires NeMo export/conversion; less direct. |
 
-Recommended first target: `speechbrain/spkrec-ecapa-voxceleb`, because it is Apache-2.0, popular, and closest to the existing ECAPA implementation. If checkpoint conversion proves too slow, evaluate x-vector as a simpler fallback.
+Recommended first target: `speechbrain/spkrec-ecapa-voxceleb`, because it is Apache-2.0, popular, and closest to the existing ECAPA implementation. The Go side now has a converted safetensors loading contract via `models/speaker.LoadECAPASafetensors`; the remaining work is a one-time converter from SpeechBrain checkpoint parameter names into the stable tensor names documented in `models/speaker/load.go`, then embedding/clustering validation on real multi-speaker audio. If checkpoint conversion proves too slow, evaluate x-vector as a simpler fallback.
 
 ## Remaining high-impact work
 
