@@ -147,6 +147,7 @@ def main() -> int:
     ap.add_argument("--map", action="append", default=[], help="Override canonical=checkpoint_key mapping; repeatable")
     ap.add_argument("--block", action="append", default=[], help="Map ECAPA block index as go_index:checkpoint_prefix")
     ap.add_argument("--dump-keys", action="store_true", help="Print checkpoint keys before converting")
+    ap.add_argument("--preserve-names", action="store_true", help="Write all floating-point checkpoint tensors under their original names for the real SpeechBrain ECAPA loader")
     args = ap.parse_args()
 
     try:
@@ -162,6 +163,17 @@ def main() -> int:
     if args.dump_keys:
         for key, tensor in state.items():
             print(f"{key}\t{tuple(tensor.shape)}\t{tensor.dtype}")
+
+    if args.preserve_names:
+        out = OrderedDict()
+        for key, tensor in state.items():
+            if tensor.is_floating_point():
+                out[key] = tensor.detach().cpu().contiguous().float()
+        output = Path(args.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        save_file(out, str(output))
+        print(f"wrote {len(out)} tensors to {output}")
+        return 0
 
     overrides = parse_map(args.map)
     out = OrderedDict()
