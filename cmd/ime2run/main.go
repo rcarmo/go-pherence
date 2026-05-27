@@ -18,7 +18,6 @@ import (
 	// tokenizer loaded via gguf
 )
 
-
 // extractQ4KDirect extracts Q4K 4-bit nibbles to INT8 without F32 intermediate.
 // Values are in range 0-15 (unsigned, stored as signed int8).
 
@@ -41,8 +40,8 @@ func extractQ4KScales(data []byte, rows, cols int) ([]float32, []float32) {
 				mn[i] = float32(b[8+i] & 63)
 			}
 			for i := 0; i < 4; i++ {
-				sc[i+4] = float32((b[12+i]&0xF) | (uint8(b[4+i]>>6)<<4))
-				mn[i+4] = float32((b[12+i]>>4) | (uint8(b[8+i]>>6)<<4))
+				sc[i+4] = float32((b[12+i] & 0xF) | (uint8(b[4+i]>>6) << 4))
+				mn[i+4] = float32((b[12+i] >> 4) | (uint8(b[8+i]>>6) << 4))
 			}
 			idx := (row*blocksPerRow + blk) * 8
 			for sb := 0; sb < 8; sb++ {
@@ -63,18 +62,22 @@ func extractQ4KDirect(data []byte, rows, cols int) []int8 {
 			offset := (row*blocksPerRow + blk) * bytesPerBlock
 			qs := data[offset+16 : offset+144]
 			base := row*cols + blk*256
-			for i := 0; i < 256; i++ {
-				if i%2 == 0 {
-					out[base+i] = int8(qs[i/2] & 0xf)
-				} else {
-					out[base+i] = int8(qs[i/2] >> 4)
+			for group := 0; group < 8; group++ {
+				q := qs[(group/2)*32:]
+				for i := 0; i < 16; i++ {
+					if group%2 == 0 {
+						out[base+group*32+i] = int8(q[i] & 0x0f)
+						out[base+group*32+16+i] = int8(q[i+16] & 0x0f)
+					} else {
+						out[base+group*32+i] = int8(q[i] >> 4)
+						out[base+group*32+16+i] = int8(q[i+16] >> 4)
+					}
 				}
 			}
 		}
 	}
 	return out
 }
-
 
 // avgQ4KScale returns average block scale (uses proper fp16 decode).
 func avgQ4KScale(data []byte, rows, cols int) float32 {
@@ -95,9 +98,15 @@ func fp16ToFloat(h uint16) float32 {
 	exp := uint32(h>>10) & 0x1f
 	mant := uint32(h) & 0x3ff
 	if exp == 0 {
-		if mant == 0 { return 0 }
-		for mant&0x400 == 0 { mant <<= 1; exp-- }
-		exp++; mant &= 0x3ff
+		if mant == 0 {
+			return 0
+		}
+		for mant&0x400 == 0 {
+			mant <<= 1
+			exp--
+		}
+		exp++
+		mant &= 0x3ff
 	} else if exp == 31 {
 		return 0 // inf/nan → treat as 0
 	}
@@ -106,46 +115,51 @@ func fp16ToFloat(h uint16) float32 {
 	return *(*float32)(unsafe.Pointer(&bits))
 }
 
-
 type layerWeights struct {
-		wqPacked, wkPacked, wvPacked, woPacked       []int8
+	wqPacked, wkPacked, wvPacked, woPacked                 []int8
 	wqPacked1024, wkPacked1024, wvPacked1024, woPacked1024 []int8
-	gatePacked1024, upPacked1024, downPacked1024         []int8
-		wqRaw, wkRaw, wvRaw, woRaw                   []int8
-		gateRaw, upRaw, downRaw                       []int8
-		wqF32, wkF32, wvF32, woF32                   []float32
-		gateF32, upF32, downF32                       []float32
-		gatePacked, upPacked, downPacked             []int8
-		wqScale, wkScale, wvScale, woScale           float32
-		gateScale, upScale, downScale                float32
-		// Per-sub-block scales for correct Q4K matmul
-		wqScales, wqMins []float32
-		wkScales, wkMins []float32
-		wvScales, wvMins []float32
-		woScales, woMins []float32
-		gateScales, gateMins []float32
-		upScales, upMins []float32
-		downScales, downMins []float32
-		attnNorm, ffnNorm                            []float32
-		qNorm, kNorm                                 []float32
-		wqRows, wkRows, wvRows, woRows              int
-		wqCols, wkCols, wvCols, woCols              int
-		gateRows, upRows, downRows                   int
-		gateCols, upCols, downCols                   int
-	}
+	gatePacked1024, upPacked1024, downPacked1024           []int8
+	wqRaw, wkRaw, wvRaw, woRaw                             []int8
+	gateRaw, upRaw, downRaw                                []int8
+	wqF32, wkF32, wvF32, woF32                             []float32
+	gateF32, upF32, downF32                                []float32
+	gatePacked, upPacked, downPacked                       []int8
+	wqQ41, wkQ41, wvQ41, woQ41                             q4kQ41Packed
+	gateQ41, upQ41, downQ41                                q4kQ41Packed
+	wqX32, wkX32, wvX32, woX32                             q4kQ41x32
+	gateX32, upX32, downX32                                q4kQ41x32
+	wqScale, wkScale, wvScale, woScale                     float32
+	gateScale, upScale, downScale                          float32
+	// Per-sub-block scales for correct Q4K matmul
+	wqScales, wqMins               []float32
+	wkScales, wkMins               []float32
+	wvScales, wvMins               []float32
+	woScales, woMins               []float32
+	gateScales, gateMins           []float32
+	upScales, upMins               []float32
+	downScales, downMins           []float32
+	attnNorm, ffnNorm              []float32
+	qNorm, kNorm                   []float32
+	wqRows, wkRows, wvRows, woRows int
+	wqCols, wkCols, wvCols, woCols int
+	gateRows, upRows, downRows     int
+	gateCols, upCols, downCols     int
+}
 
 func main() {
 	modelPath := flag.String("model", "", "GGUF model path")
 	prompt := flag.String("prompt", "Hello", "prompt")
 	nTokens := flag.Int("tokens", 16, "tokens to generate")
-	nThreads := flag.Int("threads", 8, "threads")
+	nThreads := flag.Int("threads", 6, "AI worker threads")
+	scalarThreads := flag.Int("scalar-threads", 5, "X100 scalar worker threads")
+	traceIDs := flag.Bool("trace-ids", false, "print prompt and generated token IDs")
 	flag.Parse()
 
 	if *modelPath == "" {
 		fmt.Fprintln(os.Stderr, "usage: ime2run -model <path>")
 		os.Exit(1)
 	}
-	runtime.GOMAXPROCS(*nThreads)
+	runtime.GOMAXPROCS(*nThreads + *scalarThreads + 2)
 
 	// Load GGUF
 	t0 := time.Now()
@@ -162,7 +176,13 @@ func main() {
 	nFF := metaInt(g, arch+".feed_forward_length", 0)
 	rmsEps := metaF32(g, arch+".attention.layer_norm_rms_epsilon", 1e-5)
 	ropeBase := metaF32(g, arch+".rope.freq_base", 10000.0)
-	headDim := func() int { t, ok := g.TensorByName("blk.0.attn_q.weight"); if ok { return int(t.Shape[1]) / nHeads }; return nEmbd / nHeads }()
+	headDim := func() int {
+		t, ok := g.TensorByName("blk.0.attn_q.weight")
+		if ok {
+			return int(t.Shape[1]) / nHeads
+		}
+		return nEmbd / nHeads
+	}()
 	nQEmbd := nHeads * headDim
 	nKVEmbd := nKVHeads * headDim
 
@@ -176,31 +196,43 @@ func main() {
 	// Dequant all weights to F32, then quantize to INT8 and pre-pack
 	// This is the naive approach (uses 2× memory) but proves the concept
 
-
 	layers := make([]layerWeights, nLayers)
-	
-	// Helper: extract Q4K nibbles directly to INT8 and pre-pack tiles
+
+	q4kDequantRepack := os.Getenv("IME2_Q4K_DEQUANT_REPACK") != ""
+
+	// Helper: extract/repack weights. The fast Q4_K path is currently a lossy
+	// raw-nibble approximation; IME2_Q4K_DEQUANT_REPACK=1 includes Q4_K scales
+	// and mins via dequantize-then-INT8-repack for quality triage.
 	packWeight := func(name string, rows, cols int) ([]int8, []int8, float32, []float32, []float32, []float32) {
 		t, ok := g.TensorByName(name)
-		if !ok { fatal("tensor %s not found", name) }
+		if !ok {
+			fatal("tensor %s not found", name)
+		}
 		rowsPad := ((rows + 3) / 4) * 4
 		colsPad := ((cols + 7) / 8) * 8
 		var i8Pad []int8
 		var scale float32
 		var scales, mins []float32
-		if t.QType == 12 { // Q4_K: direct nibble extraction (correct interleaved order)
+		if t.QType == 12 && !q4kDequantRepack { // Q4_K: direct nibble extraction (lossy fast path)
 			raw, _ := g.Raw(t)
 			i8 := extractQ4KDirect(raw, rows, cols)
 			i8Pad = make([]int8, rowsPad*colsPad)
-			for r := 0; r < rows; r++ { copy(i8Pad[r*colsPad:r*colsPad+cols], i8[r*cols:(r+1)*cols]) }
+			for r := 0; r < rows; r++ {
+				copy(i8Pad[r*colsPad:r*colsPad+cols], i8[r*cols:(r+1)*cols])
+			}
 			scale = avgQ4KScale(raw, rows, cols)
 			scales, mins = extractQ4KScales(raw, rows, cols)
 		} else {
-			scales = nil; mins = nil
+			scales = nil
+			mins = nil
 			f32, err := g.DequantF32(t)
-			if err != nil { fatal("dequant %s: %v", name, err) }
+			if err != nil {
+				fatal("dequant %s: %v", name, err)
+			}
 			f32Pad := make([]float32, rowsPad*colsPad)
-			for r := 0; r < rows; r++ { copy(f32Pad[r*colsPad:r*colsPad+cols], f32[r*cols:(r+1)*cols]) }
+			for r := 0; r < rows; r++ {
+				copy(f32Pad[r*colsPad:r*colsPad+cols], f32[r*cols:(r+1)*cols])
+			}
 			i8Pad = make([]int8, rowsPad*colsPad)
 			scale = inference.QuantizeF32ToINT8(f32Pad, i8Pad)
 		}
@@ -247,8 +279,11 @@ func main() {
 
 	fmt.Fprintf(os.Stderr, "Loading and packing weights...\n")
 	nRunLayers := nLayers
-		if el := os.Getenv("LAYERS"); el != "" { n, _ := strconv.Atoi(el); nRunLayers = n }
-		for il := 0; il < nRunLayers; il++ {
+	if el := os.Getenv("LAYERS"); el != "" {
+		n, _ := strconv.Atoi(el)
+		nRunLayers = n
+	}
+	for il := 0; il < nRunLayers; il++ {
 		l := &layers[il]
 		l.wqRows, l.wqCols = nQEmbd, nEmbd
 		l.wkRows, l.wkCols = nKVEmbd, nEmbd
@@ -281,6 +316,20 @@ func main() {
 		l.gatePacked1024 = ime2.PackTiles1024(l.gateRaw, l.gateRows, pad32(l.gateCols))
 		l.upPacked1024 = ime2.PackTiles1024(l.upRaw, l.upRows, pad32(l.upCols))
 		l.downPacked1024 = ime2.PackTiles1024(l.downRaw, l.downRows, pad32(l.downCols))
+		l.wqQ41 = repackQ4KToQ41A100(l.wqRows, pad32(l.wqCols), l.wqRaw, l.wqScales, l.wqMins)
+		l.wkQ41 = repackQ4KToQ41A100(l.wkRows, pad32(l.wkCols), l.wkRaw, l.wkScales, l.wkMins)
+		l.wvQ41 = repackQ4KToQ41A100(l.wvRows, pad32(l.wvCols), l.wvRaw, l.wvScales, l.wvMins)
+		l.woQ41 = repackQ4KToQ41A100(l.woRows, pad32(l.woCols), l.woRaw, l.woScales, l.woMins)
+		l.gateQ41 = repackQ4KToQ41A100(l.gateRows, pad32(l.gateCols), l.gateRaw, l.gateScales, l.gateMins)
+		l.upQ41 = repackQ4KToQ41A100(l.upRows, pad32(l.upCols), l.upRaw, l.upScales, l.upMins)
+		l.downQ41 = repackQ4KToQ41A100(l.downRows, pad32(l.downCols), l.downRaw, l.downScales, l.downMins)
+		l.wqX32 = repackQ4KToQ41x32(l.wqRows, pad32(l.wqCols), l.wqRaw, l.wqScales, l.wqMins)
+		l.wkX32 = repackQ4KToQ41x32(l.wkRows, pad32(l.wkCols), l.wkRaw, l.wkScales, l.wkMins)
+		l.wvX32 = repackQ4KToQ41x32(l.wvRows, pad32(l.wvCols), l.wvRaw, l.wvScales, l.wvMins)
+		l.woX32 = repackQ4KToQ41x32(l.woRows, pad32(l.woCols), l.woRaw, l.woScales, l.woMins)
+		l.gateX32 = repackQ4KToQ41x32(l.gateRows, pad32(l.gateCols), l.gateRaw, l.gateScales, l.gateMins)
+		l.upX32 = repackQ4KToQ41x32(l.upRows, pad32(l.upCols), l.upRaw, l.upScales, l.upMins)
+		l.downX32 = repackQ4KToQ41x32(l.downRows, pad32(l.downCols), l.downRaw, l.downScales, l.downMins)
 		if il%7 == 0 {
 			fmt.Fprintf(os.Stderr, "  layer %d/%d loaded\n", il, nLayers)
 		}
@@ -295,30 +344,45 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Using separate output.weight (type %d) for LM head\n", outT.QType)
 		lmHeadF32, _ = g.DequantF32(outT)
 	}
-	// Pre-pack LM head for vmadot acceleration
-	var lmHeadPacked []int8
+	// Pre-pack LM head. Native A100/VLEN=1024 is the default now that the
+	// 8×16 tile layout has parity with the X100/VLEN=256 path. Set
+	// IME2_LM_X100=1 to force the older X100 head.
+	lmUseF32 := os.Getenv("IME2_LM_F32") != ""
+	lmUseA100 := os.Getenv("IME2_LM_X100") == "" && !lmUseF32
+	lmParity := os.Getenv("IME2_LM_PARITY") != ""
+	stepLogits := os.Getenv("IME2_STEP_LOGITS") != ""
+	var lmHeadPacked1024 []int8
+	var lmHeadPackedX100 []int8
 	var lmHeadScale float32
+	vPad := ((nVocab + 7) / 8) * 8
+	lmKp := pad32(nEmbd)
 	{
-		vPad := pad4(nVocab)
-		ePad := pad8(nEmbd)
-		i8 := make([]int8, vPad*ePad)
+		i8 := make([]int8, vPad*lmKp)
 		lmHeadScale = inference.QuantizeF32ToINT8(func() []float32 {
-			padded := make([]float32, vPad*ePad)
-			for r := 0; r < nVocab; r++ { copy(padded[r*ePad:r*ePad+nEmbd], lmHeadF32[r*nEmbd:(r+1)*nEmbd]) }
+			padded := make([]float32, vPad*lmKp)
+			for r := 0; r < nVocab; r++ {
+				copy(padded[r*lmKp:r*lmKp+nEmbd], lmHeadF32[r*nEmbd:(r+1)*nEmbd])
+			}
 			return padded
 		}(), i8)
-		lmHeadPacked = ime2.PackTiles(i8, vPad, ePad)
-		fmt.Fprintf(os.Stderr, "Packed LM head: %d×%d (%d MB)\n", vPad, ePad, len(lmHeadPacked)/1024/1024)
+		if (!lmUseA100 && !lmUseF32) || lmParity {
+			lmHeadPackedX100 = ime2.PackTiles(i8, vPad, lmKp)
+			fmt.Fprintf(os.Stderr, "Packed LM head X100: %d×%d (%d MB)\n", vPad, lmKp, len(lmHeadPackedX100)/1024/1024)
+		}
+		if lmUseA100 || lmParity {
+			lmHeadPacked1024 = ime2.PackTiles1024(i8, vPad, lmKp)
+			fmt.Fprintf(os.Stderr, "Packed LM head A100: %d×%d (%d MB)\n", vPad, lmKp, len(lmHeadPacked1024)/1024/1024)
+		}
 	}
-
 
 	loadTime := time.Since(t0)
 	fmt.Fprintf(os.Stderr, "Loaded in %.1fs\n", loadTime.Seconds())
 	// Create persistent worker pool
-	pool := ime2.NewWorkerPool(*nThreads)
+	pool := ime2.NewWorkerPool(*scalarThreads)
 	defer pool.Close()
 	// Tokenize prompt
-	tok, _ := gguf.NewTokenizer(g); tok.SetModelPath(*modelPath)
+	tok, _ := gguf.NewTokenizer(g)
+	tok.SetModelPath(*modelPath)
 	promptTokens, _ := tok.Encode(*prompt)
 	fmt.Fprintf(os.Stderr, "Prompt tokens: %v\n", promptTokens)
 	// Pre-allocate reusable buffers to avoid per-step allocation
@@ -342,15 +406,23 @@ func main() {
 		xI8 := _xI8[:K]
 		var maxAbs float32
 		for _, v := range x[:K] {
-			if v < 0 { v = -v }
-			if v > maxAbs { maxAbs = v }
+			if v < 0 {
+				v = -v
+			}
+			if v > maxAbs {
+				maxAbs = v
+			}
 		}
 		_actScale = maxAbs / 127.0
 		if maxAbs > 0 {
 			s := 127.0 / maxAbs
 			for i := 0; i < K; i++ {
 				v := x[i] * s
-				if v > 127 { v = 127 } else if v < -128 { v = -128 }
+				if v > 127 {
+					v = 127
+				} else if v < -128 {
+					v = -128
+				}
 				xI8[i] = int8(v)
 			}
 		}
@@ -373,9 +445,17 @@ func main() {
 		}
 		return packed
 	}
-	_ = packAct; _ = _resultI32; _ = _xn; _ = _xn2; _ = _qOut; _ = _hidden
+	_ = packAct
+	_ = _actScale
+	_ = _resultI32
+	_ = _xn
+	_ = _xn2
+	_ = _qOut
+	_ = _hidden
 	// KV cache: [nLayers][nKVHeads * headDim * nCtx] for both K and V
 	nCtx := 512
+	initRoPECache(nCtx, headDim, ropeBase)
+	initSiluCache()
 	kvSize := nKVHeads * headDim * nCtx
 	kCache := make([][]float32, nLayers)
 	vCache := make([][]float32, nLayers)
@@ -385,13 +465,21 @@ func main() {
 	}
 	nPast := 0
 	// Pre-allocate matmul buffers (zero-alloc hot path)
-	globalPool = ime2.NewWorkerPool(*nThreads)
+	globalPool = ime2.NewWorkerPool(*scalarThreads)
 	defer globalPool.Close()
 	globalBufs = NewMatVecBufs(pad8(nFF), pad4(nFF))
 
 	var layerTime, headTime time.Duration
 	aiPool := NewAIWorkerPool(*nThreads)
 	defer aiPool.Close()
+	lmActI8 := make([]int8, lmKp)
+	lmActPacked1024 := make([]int8, 8*lmKp)
+	lmLogits := make([]float32, vPad)
+	lmLogitsI32 := make([]int32, vPad*4)
+	var lmParityLogits []float32
+	if lmParity {
+		lmParityLogits = make([]float32, vPad)
+	}
 
 	allTokens := promptTokens
 	t1 := time.Now()
@@ -402,37 +490,66 @@ func main() {
 		// Embedding lookup
 		x := make([]float32, nEmbd)
 		copy(x, tokEmbdF32[tokID*nEmbd:(tokID+1)*nEmbd])
+		if os.Getenv("IME2_X_TRACE") != "" && step == len(promptTokens)-1 {
+			fmt.Fprintf(os.Stderr, "embed tok=%d [0:8]:", tokID)
+			for _, v := range x[:8] {
+				fmt.Fprintf(os.Stderr, " %.5f", v)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		}
 
-		// Layer loop (simplified: no attention, just FFN for speed test)
+		// Layer loop
 		tL := time.Now()
-		parallelDecodeAI(x, layers, nLayers, nEmbd, nHeads, nKVHeads, headDim, nFF, rmsEps, ropeBase, kCache, vCache, nPast, aiPool)
+		parallelDecodeAI(x, layers, nRunLayers, nEmbd, nHeads, nKVHeads, headDim, nFF, rmsEps, ropeBase, kCache, vCache, nPast, aiPool)
 		layerTime += time.Since(tL)
+
+		// During prompt prefill, only the final prompt position needs logits.
+		// Intermediate prompt tokens only populate KV cache.
+		if step < len(promptTokens)-1 {
+			nPast++
+			continue
+		}
 
 		tH := time.Now()
 		// Output norm + LM head
 		xn := make([]float32, nEmbd)
 		inference.RMSNorm(x, outputNorm, xn, rmsEps)
+		if os.Getenv("IME2_X_TRACE") != "" {
+			fmt.Fprintf(os.Stderr, "go_hidden_post_norm[0:8]:")
+			for _, v := range xn[:8] { fmt.Fprintf(os.Stderr, " %.5f", v) }
+			fmt.Fprintf(os.Stderr, "\n")
+		}
 
-		logits := make([]float32, nVocab)
-		// LM head via vmadot (pre-packed tok_embd)
-		if lmHeadPacked != nil {
-			xnPad := make([]float32, pad8(nEmbd))
-			copy(xnPad, xn)
-			actLM := packAct(xnPad, pad8(nEmbd))
-			logitsI32 := make([]int32, pad4(nVocab)*4)
-			ime2.GemmINT8PackedParallel(pad4(nVocab), 4, pad8(nEmbd), lmHeadPacked, actLM, logitsI32, *nThreads)
-			for v := 0; v < nVocab; v++ { logits[v] = float32(logitsI32[v*4]) * lmHeadScale * _actScale }
-		} else {
+		clear(lmLogits)
+		logits := lmLogits[:nVocab]
+		// LM head via validated X100 vmadot by default; A100 is opt-in.
+		lmActScale := float32(0)
+		if lmUseF32 {
 			for v := 0; v < nVocab; v++ {
 				var sum float32
-				for k := 0; k < nEmbd; k++ { sum += lmHeadF32[v*nEmbd+k] * xn[k] }
+				for k := 0; k < nEmbd; k++ {
+					sum += lmHeadF32[v*nEmbd+k] * xn[k]
+				}
 				logits[v] = sum
+			}
+		} else if lmUseA100 && lmHeadPacked1024 != nil {
+			lmActScale = quantizeToI8(xn, lmActI8[:nEmbd])
+			clear(lmActI8[nEmbd:])
+			broadcastPack1024Into(lmActI8, lmKp, lmActPacked1024)
+			GemmAIPooled(vPad, lmKp, lmHeadPacked1024, lmActPacked1024, lmHeadScale, lmActScale, lmLogits, aiPool)
+		} else if lmHeadPackedX100 != nil {
+			actLM := packAct(xn, lmKp)
+			logitsI32 := lmLogitsI32[:vPad*4]
+			clear(logitsI32)
+			ime2.GemmINT8PackedParallel(vPad, 4, lmKp, lmHeadPackedX100, actLM, logitsI32, *nThreads)
+			lmActScale = _actScale
+			for v := 0; v < nVocab; v++ {
+				logits[v] = float32(logitsI32[v*4]) * lmHeadScale * lmActScale
 			}
 		}
 
 		headTime += time.Since(tH)
 		// Argmax
-		fmt.Fprintf(os.Stderr, "logit[374]=%.4f logit[264]=%.4f logit[635]=%.4f\n", logits[374], logits[264], logits[635])
 		nextTok := 0
 		maxVal := logits[0]
 		for i := 1; i < nVocab; i++ {
@@ -441,11 +558,57 @@ func main() {
 				nextTok = i
 			}
 		}
-
-		// If in prefill phase, just continue
-		if step < len(promptTokens)-1 {
-			nPast++
-			continue
+		if stepLogits {
+			// find top-5
+			topIDs := [5]int{}
+			topVals := [5]float32{-1e38, -1e38, -1e38, -1e38, -1e38}
+			for i := 0; i < nVocab; i++ {
+				if logits[i] > topVals[4] {
+					topVals[4] = logits[i]
+					topIDs[4] = i
+					for k := 3; k >= 0; k-- {
+						if topVals[k+1] > topVals[k] {
+							topVals[k], topVals[k+1] = topVals[k+1], topVals[k]
+							topIDs[k], topIDs[k+1] = topIDs[k+1], topIDs[k]
+						} else {
+							break
+						}
+					}
+				}
+			}
+			genIdx := step - (len(promptTokens) - 1)
+			fmt.Printf("step %d top5:", genIdx)
+			for k := 0; k < 5; k++ {
+				fmt.Printf(" %d:%.4f", topIDs[k], topVals[k])
+			}
+			fmt.Printf("\n")
+		}
+		if lmParity && step == len(promptTokens)-1 && lmHeadPacked1024 != nil {
+			clear(lmParityLogits)
+			a100Scale := quantizeToI8(xn, lmActI8[:nEmbd])
+			clear(lmActI8[nEmbd:])
+			broadcastPack1024Into(lmActI8, lmKp, lmActPacked1024)
+			GemmAIPooled(vPad, lmKp, lmHeadPacked1024, lmActPacked1024, lmHeadScale, a100Scale, lmParityLogits, aiPool)
+			maxAbsDiff := float32(0)
+			maxDiffIdx := 0
+			topAIdx := 0
+			topAVal := float32(-1e30)
+			for v := 0; v < nVocab; v++ {
+				diff := lmParityLogits[v] - logits[v]
+				if diff < 0 {
+					diff = -diff
+				}
+				if diff > maxAbsDiff {
+					maxAbsDiff = diff
+					maxDiffIdx = v
+				}
+				if lmParityLogits[v] > topAVal {
+					topAVal = lmParityLogits[v]
+					topAIdx = v
+				}
+			}
+			fmt.Fprintf(os.Stderr, "LM parity A100_vs_X100: max_abs=%.6f idx=%d a100=%.6f x100=%.6f top_a100=%d %.6f top_x100=%d %.6f scale_a100=%.8f scale_x100=%.8f\n",
+				maxAbsDiff, maxDiffIdx, lmParityLogits[maxDiffIdx], logits[maxDiffIdx], topAIdx, topAVal, nextTok, maxVal, a100Scale, lmActScale)
 		}
 
 		// First generated token or subsequent
@@ -454,6 +617,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Prefill: %.3fs (%.1f tok/s)\n",
 				prefillTime.Seconds(), float64(len(promptTokens))/prefillTime.Seconds())
 			fmt.Fprintf(os.Stderr, "logits[0]=%.4f max_idx=%d val=%.4f\n", logits[0], nextTok, maxVal)
+			resetAIProfile()
 			t1 = time.Now()
 		}
 
@@ -463,7 +627,20 @@ func main() {
 
 	decodeTime := time.Since(t1)
 	genCount := len(allTokens) - len(promptTokens)
+	if *traceIDs {
+		fmt.Printf("prompt ids:")
+		for _, id := range promptTokens {
+			fmt.Printf(" %d", id)
+		}
+		fmt.Printf("\n")
+		fmt.Printf("gen ids:")
+		for _, id := range allTokens[len(promptTokens):] {
+			fmt.Printf(" %d", id)
+		}
+		fmt.Printf("\n")
+	}
 	fmt.Fprintf(os.Stderr, "  layers=%.1fms lm_head=%.1fms\n", float64(layerTime.Milliseconds())/float64(genCount), float64(headTime.Milliseconds())/float64(genCount))
+	printAIProfile(aiProfile.tokens)
 	fmt.Fprintf(os.Stderr, "Decode: %.3fs (%.2f tok/s, %d tokens)\n",
 		decodeTime.Seconds(), float64(genCount)/decodeTime.Seconds(), genCount)
 
@@ -472,8 +649,8 @@ func main() {
 	fmt.Printf("Output: %s\n", output)
 }
 
-func pad4(n int) int  { return ((n + 3) / 4) * 4 }
-func pad8(n int) int  { return ((n + 7) / 8) * 8 }
+func pad4(n int) int { return ((n + 3) / 4) * 4 }
+func pad8(n int) int { return ((n + 7) / 8) * 8 }
 func padF32(src []float32, n int) []float32 {
 	if len(src) >= n {
 		return src[:n]
@@ -482,7 +659,6 @@ func padF32(src []float32, n int) []float32 {
 	copy(dst, src)
 	return dst
 }
-
 
 // applyRoPE applies Rotary Position Embedding to a vector of headDim floats.
 
@@ -495,20 +671,31 @@ func matVecQ4KCorrect(M, K int, wPacked []int8, wScales, wMins []float32, act []
 	actI8 := make([]int8, K)
 	var maxAbs float32
 	for _, v := range act[:K] {
-		a := v; if a < 0 { a = -a }
-		if a > maxAbs { maxAbs = a }
+		a := v
+		if a < 0 {
+			a = -a
+		}
+		if a > maxAbs {
+			maxAbs = a
+		}
 	}
 	actScale := float32(0)
 	if maxAbs > 0 {
 		actScale = 127.0 / maxAbs
 		for i := 0; i < K; i++ {
 			v := act[i] * actScale
-			if v > 127 { v = 127 } else if v < -128 { v = -128 }
+			if v > 127 {
+				v = 127
+			} else if v < -128 {
+				v = -128
+			}
 			actI8[i] = int8(v)
 		}
 	}
 	actDeScale := float32(0)
-	if actScale > 0 { actDeScale = 1.0 / actScale }
+	if actScale > 0 {
+		actDeScale = 1.0 / actScale
+	}
 
 	blocksPerRow := K / 256
 	subsPerRow := blocksPerRow * 8 // 8 sub-blocks per Q4_K block
@@ -540,20 +727,105 @@ func matVecQ4KCorrect(M, K int, wPacked []int8, wScales, wMins []float32, act []
 	}
 }
 
+var ropeCosTable []float32
+var ropeSinTable []float32
+var ropeTableHeadDim int
+var ropeNeoX = os.Getenv("IME2_ROPE_NEOX") != ""
+
+func initRoPECache(nCtx, headDim int, ropeBase float32) {
+	cols := headDim / 2
+	ropeCosTable = make([]float32, nCtx*cols)
+	ropeSinTable = make([]float32, nCtx*cols)
+	ropeTableHeadDim = headDim
+	for pos := 0; pos < nCtx; pos++ {
+		for i := 0; i < cols; i++ {
+			freq := 1.0 / math.Pow(float64(ropeBase), float64(2*i)/float64(headDim))
+			theta := float64(pos) * freq
+			ropeCosTable[pos*cols+i] = float32(math.Cos(theta))
+			ropeSinTable[pos*cols+i] = float32(math.Sin(theta))
+		}
+	}
+}
+
 func applyRoPE(x []float32, headDim int, pos int, ropeBase float32) {
-	for i := 0; i < headDim/2; i++ {
+	if ropeTableHeadDim == headDim && pos >= 0 && pos < len(ropeCosTable)/(headDim/2) {
+		cols := headDim / 2
+		cosRow := ropeCosTable[pos*cols : pos*cols+cols]
+		sinRow := ropeSinTable[pos*cols : pos*cols+cols]
+		if ropeNeoX {
+			for i := 0; i < cols; i++ {
+				cos_t := cosRow[i]
+				sin_t := sinRow[i]
+				x0 := x[i]
+				x1 := x[i+cols]
+				x[i] = x0*cos_t - x1*sin_t
+				x[i+cols] = x0*sin_t + x1*cos_t
+			}
+		} else {
+			for i := 0; i < cols; i++ {
+				cos_t := cosRow[i]
+				sin_t := sinRow[i]
+				x0 := x[2*i]
+				x1 := x[2*i+1]
+				x[2*i] = x0*cos_t - x1*sin_t
+				x[2*i+1] = x0*sin_t + x1*cos_t
+			}
+		}
+		return
+	}
+	cols := headDim / 2
+	for i := 0; i < cols; i++ {
 		freq := 1.0 / math.Pow(float64(ropeBase), float64(2*i)/float64(headDim))
 		theta := float64(pos) * freq
 		cos_t := float32(math.Cos(theta))
 		sin_t := float32(math.Sin(theta))
-		x0 := x[2*i]
-		x1 := x[2*i+1]
-		x[2*i] = x0*cos_t - x1*sin_t
-		x[2*i+1] = x0*sin_t + x1*cos_t
+		if ropeNeoX {
+			x0 := x[i]
+			x1 := x[i+cols]
+			x[i] = x0*cos_t - x1*sin_t
+			x[i+cols] = x0*sin_t + x1*cos_t
+		} else {
+			x0 := x[2*i]
+			x1 := x[2*i+1]
+			x[2*i] = x0*cos_t - x1*sin_t
+			x[2*i+1] = x0*sin_t + x1*cos_t
+		}
+	}
+}
+
+var fastSiluOn = os.Getenv("IME2_FAST_SILU") != ""
+var siluLUT []float32
+
+const siluLUTMin = -16.0
+const siluLUTMax = 16.0
+const siluLUTScale = 512.0
+
+func initSiluCache() {
+	if !fastSiluOn || siluLUT != nil {
+		return
+	}
+	n := int((siluLUTMax-siluLUTMin)*siluLUTScale) + 1
+	siluLUT = make([]float32, n)
+	for i := range siluLUT {
+		x := float32(siluLUTMin + float64(i)/siluLUTScale)
+		siluLUT[i] = x / (1.0 + float32(math.Exp(-float64(x))))
 	}
 }
 
 func silu(x float32) float32 {
+	if fastSiluOn && siluLUT != nil {
+		if x <= siluLUTMin {
+			return 0
+		}
+		if x >= siluLUTMax {
+			return x
+		}
+		f := (float64(x) - siluLUTMin) * siluLUTScale
+		i := int(f)
+		frac := float32(f - float64(i))
+		a := siluLUT[i]
+		return a + (siluLUT[i+1]-a)*frac
+	}
 	return x / (1.0 + float32(math.Exp(-float64(x))))
 }
 

@@ -115,3 +115,60 @@ quant_loop:
 
 quant_done:
     RET
+// func rvvDotF32(a *float32, b *float32, n int) float32
+// Returns sum(a[i]*b[i]) for i in 0..n-1 using RVV e32,m4.
+// Rolling accumulator: each vfmacc.vv accumulates the next vl-element
+// chunk into the same v16 slots, so after all chunks v16[j] holds
+// sum of a[j + k*vlmax]*b[j + k*vlmax] over all k.  The final
+// vfredusum then collapses those to a scalar.
+// FP layout: a+0(FP)[8] b+8(FP)[8] n+16(FP)[8] ret+24(FP)[4]
+TEXT ·rvvDotF32(SB), NOSPLIT, $0-28
+    MOV  a+0(FP),  X10        // a0 = ptr to a
+    MOV  b+8(FP),  X11        // a1 = ptr to b
+    MOV  n+16(FP), X12        // a2 = n
+    // Initialise accumulator v16 (m4 group = v16..v19) to 0.0
+    WORD $0x012072d7            // vsetvli t0, zero, e32, m4, tu, mu
+    WORD $0x5e003857            // vmv.v.i v16, 0
+dot_loop:
+    BEQ  X12, X0, dot_done
+    WORD $0x012672d7            // vsetvli t0, a2, e32, m4, tu, mu
+    WORD $0x02056007            // vle32.v v0, (a0)
+    WORD $0x0205e407            // vle32.v v8, (a1)
+    WORD $0xb2801857            // vfmacc.vv v16, v0, v8
+    SLL  $2, X5, X6             // X6 = vl * 4 bytes
+    ADD  X6, X10, X10
+    ADD  X6, X11, X11
+    SUB  X5, X12, X12
+    JMP  dot_loop
+dot_done:
+    // Reset vl to max so the reduction covers all vlmax slots of v16
+    WORD $0x012072d7            // vsetvli t0, zero, e32, m4, tu, mu
+    WORD $0x5e003457            // vmv.v.i v8, 0   (reduction identity = 0.0)
+    WORD $0x07041057            // vfredusum.vs v0, v16, v8
+    WORD $0x42001557            // vfmv.f.s fa0, v0
+    MOVF F10, ret+24(FP)
+    RET
+
+// func rvvScaleAccF32(acc *float32, src *float32, scale float32, n int)
+// acc[i] += scale * src[i] for i in 0..n-1 using RVV e32,m4.
+// FP layout: acc+0(FP)[8] src+8(FP)[8] scale+16(FP)[4] _pad[4] n+24(FP)[8]
+TEXT ·rvvScaleAccF32(SB), NOSPLIT, $0-32
+    MOV  acc+0(FP),   X10      // a0 = acc
+    MOV  src+8(FP),   X11      // a1 = src
+    MOVW scale+16(FP), X5      // t0 = scale bits (32-bit IEEE754)
+    WORD $0xf00282d3            // fmv.w.x ft5, t0  (int bits → float reg)
+    MOV  n+24(FP),    X12      // a2 = n
+scaleacc_loop:
+    BEQ  X12, X0, scaleacc_done
+    WORD $0x0d2672d7            // vsetvli t0, a2, e32, m4, ta, ma
+    WORD $0x02056007            // vle32.v v0, (a0)   load acc chunk
+    WORD $0x0205e407            // vle32.v v8, (a1)   load src chunk
+    WORD $0xb282d057            // vfmacc.vf v0, ft5, v8   v0 += scale * v8
+    WORD $0x02056027            // vse32.v v0, (a0)   write back
+    SLL  $2, X5, X6             // X6 = vl * 4 bytes
+    ADD  X6, X10, X10
+    ADD  X6, X11, X11
+    SUB  X5, X12, X12
+    JMP  scaleacc_loop
+scaleacc_done:
+    RET

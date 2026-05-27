@@ -1,0 +1,318 @@
+package main
+
+import (
+	"math"
+	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+)
+
+type q4kQ41Packed struct {
+	M, K  int
+	Q     []int8
+	D     []float32
+	ZP    []int8
+	Valid bool
+}
+
+type q4kQ41x32 struct {
+	M, K  int
+	D     []float32 // [rowGroup][subblock][32 rows]
+	ZP    []uint8   // [rowGroup][subblock][32 rows]
+	QS    []byte    // [rowGroup][subblock][32 rows][16 packed q bytes]
+	BData []byte    // Go asm kernel layout: fp16 d[32], zp-u16-lanes[32], qs[512] per subblock
+	Valid bool
+}
+
+func q41x32MetaIndex(rowGroup, subblock, rowInGroup, subs int) int {
+	return (rowGroup*subs+subblock)*32 + rowInGroup
+}
+
+func q41x32QSOffset(rowGroup, subblock, rowInGroup, subs int) int {
+	return ((rowGroup*subs+subblock)*32 + rowInGroup) * 16
+}
+
+func f32ToF16Bits(f float32) uint16 {
+	bits := math.Float32bits(f)
+	sign := uint16((bits >> 16) & 0x8000)
+	exp := int((bits>>23)&0xff) - 127 + 15
+	mant := bits & 0x7fffff
+	if exp <= 0 {
+		if exp < -10 {
+			return sign
+		}
+		mant |= 0x800000
+		shift := uint(14 - exp)
+		rounded := (mant + (1 << (shift - 1))) >> shift
+		return sign | uint16(rounded)
+	}
+	if exp >= 31 {
+		return sign | 0x7c00
+	}
+	rounded := mant + 0x1000
+	if rounded&0x800000 != 0 {
+		rounded = 0
+		exp++
+		if exp >= 31 {
+			return sign | 0x7c00
+		}
+	}
+	return sign | uint16(exp<<10) | uint16(rounded>>13)
+}
+
+func f32ToF16ToF32(f float32) float32 { return fp16ToFloat(f32ToF16Bits(f)) }
+
+// repackQ4KToQ41x32 ports llama.cpp PR #22863's Q4_K -> Q4_1x32 repack.
+func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
+	if M%32 != 0 || K%32 != 0 || scales == nil || mins == nil {
+		return q4kQ41x32{}
+	}
+	subs := K / 32
+	groups := M / 32
+	out := q4kQ41x32{
+		M:     M,
+		K:     K,
+		D:     make([]float32, groups*subs*32),
+		ZP:    make([]uint8, groups*subs*32),
+		QS:    make([]byte, groups*subs*32*16),
+		BData: make([]byte, groups*subs*(32*2+64+512)),
+		Valid: true,
+	}
+	for rg := 0; rg < groups; rg++ {
+		for sb := 0; sb < subs; sb++ {
+			for r := 0; r < 32; r++ {
+				row := rg*32 + r
+				srcIdx := row*subs + sb
+				metaIdx := q41x32MetaIndex(rg, sb, r, subs)
+				d := f32ToF16ToF32(scales[srcIdx])
+				m := f32ToF16ToF32(mins[srcIdx])
+				out.D[metaIdx] = d
+				if d != 0 {
+					zp := math.Round(float64(m / d))
+					if zp < 0 {
+						zp = 0
+					} else if zp > 15 {
+						zp = 15
+					}
+					out.ZP[metaIdx] = uint8(zp)
+				}
+				qsOff := q41x32QSOffset(rg, sb, r, subs)
+				base := row*K + sb*32
+				for i := 0; i < 16; i++ {
+					lo := byte(raw[base+2*i]) & 0x0f
+					hi := (byte(raw[base+2*i+1]) & 0x0f) << 4
+					out.QS[qsOff+i] = lo | hi
+				}
+			}
+		}
+	}
+	for rg := 0; rg < groups; rg++ {
+		for sb := 0; sb < subs; sb++ {
+			blkOff := (rg*subs + sb) * (32*2 + 64 + 512)
+			for r := 0; r < 32; r++ {
+				metaIdx := q41x32MetaIndex(rg, sb, r, subs)
+				dh := f32ToF16Bits(out.D[metaIdx])
+				out.BData[blkOff+r*2] = byte(dh)
+				out.BData[blkOff+r*2+1] = byte(dh >> 8)
+				out.BData[blkOff+64+2*r] = 0
+				out.BData[blkOff+64+2*r+1] = 0
+				copy(out.BData[blkOff+128+r*16:blkOff+128+(r+1)*16], out.QS[q41x32QSOffset(rg, sb, r, subs):q41x32QSOffset(rg, sb, r, subs)+16])
+			}
+		}
+	}
+	return out
+}
+
+// repackQ4KToQ41A100 mirrors llama.cpp PR #22863's Q4_K -> Q4_1-style
+// repack at the semantic level: each 32-value Q4_K subblock becomes q values
+// plus d and a rounded zero point zp = nearbyint(min/d), clamped to [0,15].
+// Q is additionally packed into native A100 8×16 tiles for vmadot.
+func repackQ4KToQ41A100(M, K int, raw []int8, scales, mins []float32) q4kQ41Packed {
+	if M%8 != 0 || K%32 != 0 || scales == nil || mins == nil {
+		return q4kQ41Packed{}
+	}
+	subsPerRow := K / 32
+	zp := make([]int8, M*subsPerRow)
+	for row := 0; row < M; row++ {
+		for sb := 0; sb < subsPerRow; sb++ {
+			idx := row*subsPerRow + sb
+			d := scales[idx]
+			if d == 0 {
+				continue
+			}
+			z := float32(math.Round(float64(mins[idx] / d)))
+			if z < 0 {
+				z = 0
+			} else if z > 15 {
+				z = 15
+			}
+			zp[idx] = int8(z)
+		}
+	}
+	return q4kQ41Packed{
+		M:     M,
+		K:     K,
+		Q:     ime2.PackTiles1024(raw, M, K),
+		D:     scales,
+		ZP:    zp,
+		Valid: true,
+	}
+}
+
+// q4kBlockMatVecAI computes out[M] = W_q4k[M×K] · act[K] using Q4_K
+// per-subblock scales/mins and native A100 VLEN=1024 vmadot tiles.
+//
+// wRaw contains unpacked Q4_K values in [0,15] in logical row-major order.
+// scales/mins contain one entry per 32-column subblock per row.
+func q4kBlockMatVecAI(M, K int, wRaw []int8, scales, mins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+	if K%32 != 0 || M%8 != 0 {
+		// Fallback for odd shapes; model shapes should not hit this.
+		matVecQ4KF32(M, K, wRaw, scales, mins, act, out)
+		return
+	}
+	wPacked := ime2.PackTiles1024(wRaw, M, K)
+	q4kBlockMatVecAIPacked(M, K, wPacked, scales, mins, act, out, pool)
+}
+
+// q4kBlockMatVecAIPacked is the same kernel using persistent native 8×16
+// raw-Q4 tiles (the output of PackTiles1024 on unpacked Q4 nibbles).
+func q4kBlockMatVecAIPacked(M, K int, wPacked []int8, scales, mins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+	if K%32 != 0 || M%8 != 0 {
+		panic("q4kBlockMatVecAIPacked: unsupported shape")
+	}
+	q41 := q4kQ41Packed{M: M, K: K, Q: wPacked, D: scales, Valid: true}
+	returnQ4KBlockMatVecQ41(q41, mins, act, out, pool)
+}
+
+func q4kBlockMatVecQ41(q41 q4kQ41Packed, act []float32, out []float32, pool *AIWorkerPool) {
+	returnQ4KBlockMatVecQ41(q41, nil, act, out, pool)
+}
+
+func returnQ4KBlockMatVecQ41(q41 q4kQ41Packed, exactMins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+	M, K := q41.M, q41.K
+	if !q41.Valid || K%32 != 0 || M%8 != 0 {
+		panic("q4kBlockMatVecQ41: unsupported shape")
+	}
+	wPacked := q41.Q
+	scales := q41.D
+	subsPerRow := K / 32
+	actI8 := make([]int8, K)
+	actScale := make([]float32, subsPerRow)
+	actSum := make([]int32, subsPerRow)
+
+	for sb := 0; sb < subsPerRow; sb++ {
+		base := sb * 32
+		var maxAbs float32
+		for i := 0; i < 32; i++ {
+			a := act[base+i]
+			if a < 0 {
+				a = -a
+			}
+			if a > maxAbs {
+				maxAbs = a
+			}
+		}
+		if maxAbs == 0 {
+			continue
+		}
+		actScale[sb] = maxAbs / 127.0
+		s := float32(127.0) / maxAbs
+		var sum int32
+		for i := 0; i < 32; i++ {
+			v := act[base+i] * s
+			if v > 127 {
+				v = 127
+			} else if v < -128 {
+				v = -128
+			}
+			q := int8(v)
+			actI8[base+i] = q
+			sum += int32(q)
+		}
+		actSum[sb] = sum
+	}
+
+	// Pre-broadcast activation tiles once (outside row loop) to avoid O(M/8 * K/16) copies.
+	tilesPerRow := K / 16
+	actBcast := make([]int8, tilesPerRow*128) // [K/16 × 128]: each 16 act values broadcast to 8 rows
+	for tileIdx := 0; tileIdx < tilesPerRow; tileIdx++ {
+		kBase := tileIdx * 16
+		for r := 0; r < 8; r++ {
+			copy(actBcast[tileIdx*128+r*16:tileIdx*128+(r+1)*16], actI8[kBase:kBase+16])
+		}
+	}
+
+	pool.Run(func(workerID, nWorkers int) {
+		rowStart := (workerID * M / nWorkers / 8) * 8
+		rowEnd := ((workerID + 1) * M / nWorkers / 8) * 8
+		if workerID == nWorkers-1 {
+			rowEnd = M
+		}
+		for row := rowStart; row < rowEnd; row += 8 {
+			for r := 0; r < 8 && row+r < M; r++ {
+				out[row+r] = 0
+			}
+			for sb := 0; sb < subsPerRow; sb++ {
+				as := actScale[sb]
+				if as == 0 {
+					continue
+				}
+				// Two native 8×16 vmadot passes cover one 32-element Q4_K subblock.
+				var dots [8]int32
+				for half := 0; half < 2; half++ {
+					kBase := sb*32 + half*16
+					tileIdx := kBase / 16
+					var acc [64]int32
+					wOff := ((row/8)*tilesPerRow + tileIdx) * 128
+					ime2.VmadotKLoop1024(
+						(*byte)(unsafe.Pointer(&wPacked[wOff])),
+						(*byte)(unsafe.Pointer(&actBcast[tileIdx*128])),
+						&acc[0], 16,
+					)
+					for r := 0; r < 8; r++ {
+						dots[r] += acc[r*8]
+					}
+				}
+				for r := 0; r < 8 && row+r < M; r++ {
+					idx := (row+r)*subsPerRow + sb
+					var minTerm float32
+					if exactMins != nil && !q4kLlamaZPOn {
+						minTerm = exactMins[idx]
+					} else {
+						minTerm = scales[idx] * float32(q41.ZP[idx])
+					}
+					out[row+r] += float32(dots[r])*scales[idx]*as - float32(actSum[sb])*minTerm*as
+				}
+			}
+		}
+	})
+}
+
+// applyQ4KMinCorr adds the Q4_K minimum correction to a matmul output:
+//   out[row] -= sum_sb { mins[row*subs+sb] * sumAct[sb] }
+// where sumAct[sb] = sum(act[sb*32 : (sb+1)*32]).
+// This corrects the missing "-min" term when raw nibbles are used without dequant.
+func applyQ4KMinCorr(out []float32, mins []float32, act []float32, M, K int) {
+	if mins == nil {
+		return
+	}
+	subs := K / 32
+	// Pre-compute per-subblock activation sums once.
+	sumAct := make([]float32, subs)
+	for sb := 0; sb < subs; sb++ {
+		var s float32
+		base := sb * 32
+		for i := 0; i < 32; i++ {
+			s += act[base+i]
+		}
+		sumAct[sb] = s
+	}
+	for row := 0; row < M; row++ {
+		mOff := row * subs
+		var corr float32
+		for sb := 0; sb < subs; sb++ {
+			corr += mins[mOff+sb] * sumAct[sb]
+		}
+		out[row] -= corr
+	}
+}
