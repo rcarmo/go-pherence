@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"math"
+	"os"
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
@@ -180,6 +182,38 @@ func q4kBlockMatVecAIPacked(M, K int, wPacked []int8, scales, mins []float32, ac
 	if K%32 != 0 || M%8 != 0 {
 		panic("q4kBlockMatVecAIPacked: unsupported shape")
 	}
+	if q4kScaledLoopOn && scales != nil && mins != nil {
+		// Fast path: quantize activations per-subblock then call the single-dispatch kernel.
+		subs := K / 32
+		actI8 := make([]int8, K)
+		actScale := make([]float32, subs)
+		// actSumScaled[sb] = float32(sum(actI8[sb])) * actScale[sb]
+		// This matches Q4K_A100's min-correction: float32(actSum)*minTerm*as.
+		actSumScaled := make([]float32, subs)
+		for sb := 0; sb < subs; sb++ {
+			base := sb * 32
+			var maxAbs float32
+			for i := 0; i < 32; i++ {
+				a := act[base+i]
+				if a < 0 { a = -a }
+				if a > maxAbs { maxAbs = a }
+			}
+			if maxAbs == 0 { continue }
+			actScale[sb] = maxAbs / 127.0
+			s := float32(127.0) / maxAbs
+			var isum int32
+			for i := 0; i < 32; i++ {
+				v := act[base+i] * s
+				if v > 127 { v = 127 } else if v < -128 { v = -128 }
+				q := int8(v)
+				actI8[base+i] = q
+				isum += int32(q)
+			}
+			actSumScaled[sb] = float32(isum) * actScale[sb]
+		}
+		q4kBlockMatVecScaledLoop(M, K, wPacked, scales, mins, actI8, actScale, actSumScaled, out, pool)
+		return
+	}
 	q41 := q4kQ41Packed{M: M, K: K, Q: wPacked, D: scales, Valid: true}
 	returnQ4KBlockMatVecQ41(q41, mins, act, out, pool)
 }
@@ -316,3 +350,96 @@ func applyQ4KMinCorr(out []float32, mins []float32, act []float32, M, K int) {
 		out[row] -= corr
 	}
 }
+
+// q4kBlockMatVecScaledLoop runs a Q4_K-correct M×K matrix-vector multiply
+// using vmadotQ4KIntLoop1024: one Go function call per 8-row group for all
+// subblocks in assembly, then float scaling in scalar Go.
+//
+// Requires M%8==0, K%32==0, scales and mins non-nil.
+// actI8 must be pre-quantized per-subblock with actScale[sb] = maxAbs[sb]/127.
+// q4kBlockMatVecScaledLoop runs all K/32 subblocks in one assembly dispatch per row group.
+// actSumScaled[sb] must be float32(sum(actI8[sb])) * actScale[sb] to match Q4K_A100 correction.
+func q4kBlockMatVecScaledLoop(M, K int, wPacked []int8, scales, mins []float32,
+	actI8 []int8, actScale []float32, actSumScaled []float32, out []float32, pool *AIWorkerPool) {
+	if M%8 != 0 || K%32 != 0 {
+		panic("q4kBlockMatVecScaledLoop: unsupported shape")
+	}
+	subs := K / 32
+	tilesPerRow := K / 16 // = subs * 2
+
+	// Pre-broadcast activation tiles once (K/16 × 128 bytes).
+	actBcast := make([]int8, tilesPerRow*128)
+	for t := 0; t < tilesPerRow; t++ {
+		kBase := t * 16
+		for r := 0; r < 8; r++ {
+			copy(actBcast[t*128+r*16:t*128+(r+1)*16], actI8[kBase:kBase+16])
+		}
+	}
+
+	slCompareOn := os.Getenv("IME2_Q4K_SL_COMPARE") != ""
+	pool.Run(func(workerID, nWorkers int) {
+		rowStart := (workerID * M / nWorkers / 8) * 8
+		rowEnd := ((workerID + 1) * M / nWorkers / 8) * 8
+		if workerID == nWorkers-1 {
+			rowEnd = M
+		}
+		// Per-worker buffers: int32 results, scratch (v28 dump, 64 int32).
+		intBuf := make([]int32, subs*8)
+		scratch := make([]int32, 64) // overwritten each subblock
+
+		for row := rowStart; row < rowEnd; row += 8 {
+			// One assembly call processes all subs; eliminates per-tile Go call overhead.
+			vmadotQ4KIntLoop1024(
+				(*byte)(unsafe.Pointer(&wPacked[(row/8)*tilesPerRow*128])),
+				(*byte)(unsafe.Pointer(&actBcast[0])),
+				&scratch[0],
+				&intBuf[0],
+				subs,
+			)
+			// Apply per-subblock scale and min corrections in scalar Go.
+			for r := 0; r < 8; r++ {
+				out[row+r] = 0
+			}
+			rowBase := row * subs
+			for sb := 0; sb < subs; sb++ {
+				as := actScale[sb]
+				sf := actSumScaled[sb]
+				sb8 := sb * 8
+				sbOff := rowBase + sb
+				for r := 0; r < 8; r++ {
+					out[row+r] += scales[sbOff+r*subs] * as * float32(intBuf[sb8+r])
+					out[row+r] -= mins[sbOff+r*subs] * sf
+				}
+			}
+			// Diagnostic: compare intBuf against tile-by-tile reference (IME2_Q4K_SL_COMPARE=1).
+			if slCompareOn && row == rowStart {
+				var atile [128]int8
+				wOff := (row / 8) * tilesPerRow * 128
+				for sb := 0; sb < subs; sb++ {
+					var acc [64]int32
+					for half := 0; half < 2; half++ {
+						kBase := sb*32 + half*16
+						for rr := 0; rr < 8; rr++ {
+							copy(atile[rr*16:rr*16+16], actI8[kBase:kBase+16])
+						}
+						ime2.VmadotKLoop1024(
+							(*byte)(unsafe.Pointer(&wPacked[wOff+(sb*2+half)*128])),
+							(*byte)(unsafe.Pointer(&atile[0])),
+							&acc[0], 16)
+					}
+					for r := 0; r < 8; r++ {
+						got := intBuf[sb*8+r]
+						ref := acc[r*8]
+						if got != ref {
+							fmt.Fprintf(os.Stderr, "SL_cmp M=%d K=%d row=%d sb=%d r=%d got=%d ref=%d\n",
+								M, K, row, sb, r, got, ref)
+						}
+					}
+				}
+			}
+		}
+	})
+}
+//
+// Requires M%8==0, K%32==0, scales and mins non-nil.
+// actI8 must be pre-quantized per-subblock with actScale[sb] = maxAbs[sb]/127.

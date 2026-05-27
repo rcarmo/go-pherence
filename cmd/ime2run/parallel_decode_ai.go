@@ -37,6 +37,7 @@ var q4kExactVOn = os.Getenv("IME2_Q4K_EXACT_V") != ""
 var q4kExactFFNOn = os.Getenv("IME2_Q4K_EXACT_FFN") != ""
 var q4kExactWOOn = os.Getenv("IME2_Q4K_EXACT_WO") != ""
 var q4kMinCorrOn = os.Getenv("IME2_Q4K_MIN_CORR") != "" // add Q4K min correction to fast native path
+var q4kScaledLoopOn = os.Getenv("IME2_Q4K_SCALED_LOOP") != "" // use vmadotQ4KScaledLoop1024 kernel
 
 var aiProfile struct {
 	tokens                                             int
