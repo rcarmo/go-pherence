@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/models/speaker"
@@ -22,6 +24,7 @@ type checkReport struct {
 	Segments  []checkSegment  `json:"segments"`
 	Counts    map[string]int  `json:"counts"`
 	Sims      []checkPairwise `json:"similarities,omitempty"`
+	Score     *checkScore     `json:"score,omitempty"`
 }
 
 type checkSegment struct {
@@ -38,6 +41,16 @@ type checkPairwise struct {
 	Cosine float32 `json:"cosine"`
 }
 
+type checkScore struct {
+	Expected      []int   `json:"expected"`
+	ExactMatches  int     `json:"exact_matches"`
+	Total         int     `json:"total"`
+	Accuracy      float64 `json:"accuracy"`
+	PairwiseAgree int     `json:"pairwise_agree"`
+	PairwiseTotal int     `json:"pairwise_total"`
+	PairwiseScore float64 `json:"pairwise_score"`
+}
+
 func main() {
 	input := flag.String("input", "", "Input WAV file")
 	modelPath := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors model")
@@ -47,6 +60,7 @@ func main() {
 	durationSec := flag.Float64("duration", 0, "Optional duration in seconds for spot checks")
 	showSims := flag.Bool("sims", true, "Print pairwise cosine similarities")
 	jsonOut := flag.Bool("json", false, "Emit machine-readable JSON")
+	expect := flag.String("expect", "", "Comma-separated expected 1-based speaker labels for scored validation, e.g. 1,1,2,2")
 	flag.Parse()
 	if *input == "" {
 		fmt.Fprintln(os.Stderr, "-input is required")
@@ -72,6 +86,13 @@ func main() {
 	labels = speaker.SmoothSingletonLabels(labels, embeddings, 0.4)
 
 	report := buildReport(*input, *modelPath, *threshold, *context, *startSec, float64(len(samples))/float64(sr), vad, labels, embeddings, *showSims)
+	if *expect != "" {
+		expected, err := parseExpectedLabels(*expect)
+		if err != nil {
+			fatalf("expect: %v", err)
+		}
+		report.Score = scoreExpected(report.Segments, expected)
+	}
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -81,6 +102,9 @@ func main() {
 		return
 	}
 	printTextReport(report)
+	if report.Score != nil && report.Score.PairwiseScore < 1 {
+		os.Exit(1)
+	}
 }
 
 func buildReport(input, modelPath string, threshold, context, start, duration float64, vad []speaker.VADSegment, labels []int, embeddings [][]float32, includeSims bool) checkReport {
@@ -131,9 +155,61 @@ func printTextReport(report checkReport) {
 		fmt.Printf(" %s=%d", k, report.Counts[k])
 	}
 	fmt.Println()
+	if report.Score != nil {
+		fmt.Printf("score exact=%d/%d accuracy=%.3f pairwise=%d/%d pairwise_score=%.3f\n", report.Score.ExactMatches, report.Score.Total, report.Score.Accuracy, report.Score.PairwiseAgree, report.Score.PairwiseTotal, report.Score.PairwiseScore)
+	}
 	for _, sim := range report.Sims {
 		fmt.Printf("sim %02d-%02d %.3f\n", sim.I, sim.J, sim.Cosine)
 	}
+}
+
+func parseExpectedLabels(value string) ([]int, error) {
+	parts := strings.Split(value, ",")
+	out := make([]int, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		v, err := strconv.Atoi(part)
+		if err != nil || v <= 0 {
+			return nil, fmt.Errorf("invalid 1-based label %q", part)
+		}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+func scoreExpected(segments []checkSegment, expected []int) *checkScore {
+	total := len(segments)
+	if len(expected) < total {
+		total = len(expected)
+	}
+	exact := 0
+	for i := 0; i < total; i++ {
+		if segments[i].Speaker == expected[i] {
+			exact++
+		}
+	}
+	pairAgree, pairTotal := 0, 0
+	for i := 0; i < total; i++ {
+		for j := i + 1; j < total; j++ {
+			pairTotal++
+			predSame := segments[i].Speaker == segments[j].Speaker
+			expSame := expected[i] == expected[j]
+			if predSame == expSame {
+				pairAgree++
+			}
+		}
+	}
+	s := &checkScore{Expected: expected, ExactMatches: exact, Total: total, PairwiseAgree: pairAgree, PairwiseTotal: pairTotal}
+	if total > 0 {
+		s.Accuracy = float64(exact) / float64(total)
+	}
+	if pairTotal > 0 {
+		s.PairwiseScore = float64(pairAgree) / float64(pairTotal)
+	}
+	return s
 }
 
 func sliceSamples(samples []float32, sampleRate int, startSec, durationSec float64) []float32 {

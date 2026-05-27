@@ -201,7 +201,7 @@ go run ./cmd/speakercheck \
   -sims=false
 ```
 
-It prints VAD segment timings, assigned speaker labels, speaker counts, and optional pairwise cosine similarities. Add `-json` to emit a machine-readable report for scoring against labeled fixtures.
+It prints VAD segment timings, assigned speaker labels, speaker counts, and optional pairwise cosine similarities. Add `-json` to emit a machine-readable report. Add `-expect 1,1,2,2` to score a labeled fixture by exact label accuracy and pairwise same/different agreement; text mode exits non-zero when pairwise score is below 1.
 
 ## `llmchat`
 
