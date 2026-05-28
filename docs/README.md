@@ -38,6 +38,7 @@ This directory contains the durable backend, model, validation, and research not
 - [supported-models.md](supported-models.md) — supported architectures, formats, and performance snapshot.
 - [hunyuan3d-2-support.md](hunyuan3d-2-support.md) — Hunyuan3D-2 feasibility assessment and staged implementation plan.
 - [qwen3-tts-support.md](qwen3-tts-support.md) — Qwen3-TTS repository mapping, roadmap, and implementation guidance.
+- [lfm2-moe-support.md](lfm2-moe-support.md) — LFM2.5-8B-A1B hybrid conv/attention MoE support roadmap.
 - [gemma4-precision.md](gemma4-precision.md) — Gemma4 GPU correctness and precision notes.
 - [gemma4-31b-runbook.md](gemma4-31b-runbook.md) — local Gemma4 31B main/MTP assets and current run strategy.
 - [model-package-refactor.md](model-package-refactor.md) — safe plan for splitting generic model contracts from architecture-specific packages.
