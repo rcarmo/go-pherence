@@ -29,9 +29,10 @@ MoE note: 128 experts/layer, 8 active/token. NVIDIA backend runs attention, rout
 | **qwen3_moe** | Qwen3-30B-A3B MoE | MLX 4-bit | ✅ |
 | **gemma3** | Gemma 3 1B+ | MLX 4-bit, BF16 | ✅ |
 | **gemma4** | Gemma 4 E2B+ | MLX 4-bit | ✅ |
+| **qwen3_tts** | Qwen3-TTS 0.6B/1.7B speech synthesis | HF safetensors + Qwen tokenizer + speech tokenizer | 🧭 roadmap, not implemented |
 | **hunyuan3d_dit** | Hunyuan3D-2/2mini/2mv shape generation | HF safetensors + YAML | 🧭 assessed, not implemented |
 
-Any model from [mlx-community](https://huggingface.co/mlx-community) using the supported LLM architectures should work through the compatible loader path. Hunyuan3D-2 is a separate diffusion/3D pipeline family rather than an LLM decode architecture; config/tensor inventory scaffolding exists, but runtime support is not implemented. See [hunyuan3d-2-support.md](hunyuan3d-2-support.md).
+Any model from [mlx-community](https://huggingface.co/mlx-community) using the supported LLM architectures should work through the compatible loader path. Qwen3-TTS is a separate multi-stage speech pipeline (talker, code predictor, codec decoder, optional speaker/codec encoder) and is now tracked in [qwen3-tts-support.md](qwen3-tts-support.md). Hunyuan3D-2 is a separate diffusion/3D pipeline family rather than an LLM decode architecture; config/tensor inventory scaffolding exists, but runtime support is not implemented. See [hunyuan3d-2-support.md](hunyuan3d-2-support.md).
 
 ## Weight format support
 
