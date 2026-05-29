@@ -139,6 +139,46 @@ go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -sweep
 
 `qwenmtpmeta` inspects config/tensor metadata without entering the full model loader. `qwenmtpsynth` runs a tiny deterministic native-MTP synthetic path. `qwenmtpsmoke` loads a real native-MTP head and runs a synthetic hidden-state forward pass. `qwen36run` is the real-checkpoint CPU smoke runner.
 
+## `qwen3ttsinspect` — Qwen3-TTS metadata and prompt inspection
+
+`cmd/qwen3ttsinspect` is the safe first step for Qwen3-TTS checkpoints. It reads `config.json`, optional safetensors headers, tokenizer files, and emits shape/cache readiness without loading full inference weights into a runtime.
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
+  -model models/qwen3-tts-0.6b-customvoice \
+  -text "Hello world" \
+  -speaker ryan \
+  -language en \
+  -json
+```
+
+Useful flags:
+
+- `-json` — emit the full machine-readable report.
+- `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
+- `-text TEXT` — load tokenizer files from `-model`, tokenize `TEXT`, and build the deterministic CustomVoice text/codec control streams.
+- `-first-text-id ID` — build only the fixed CustomVoice prefix around a known first tokenizer ID.
+- `-speaker NAME` / `-language CODE` — select CustomVoice control tokens for the prompt probe.
+
+The report includes variant/size, talker dimensions, code-predictor dimensions, tensor group readiness, runtime KV sizing, 12Hz decoder code-frame assumptions, speaker encoder presence, and optional tokenized CustomVoice streams. It does not synthesize audio yet; reference fixtures and CPU Talker/CodePredictor/Decoder parity are the next steps.
+
+## `lfm2inspect` — LFM2.5 metadata and runtime-state sizing
+
+`cmd/lfm2inspect` validates `lfm2_moe` config metadata, counts hybrid conv/full-attention layers, summarizes MoE settings, inspects optional safetensors headers, and reports state/cache sizing.
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
+  -model models/lfm2.5-8b-a1b \
+  -json
+```
+
+Useful flags:
+
+- `-json` — emit the full machine-readable report.
+- `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
+
+The report includes layer-pattern counts, MoE routing dimensions, conv cache settings, tensor group readiness, conv-state floats, and attention KV floats/token. It is metadata/reference scaffolding only; LFM convolution, attention, router, and expert execution remain future CPU parity work.
+
 ## `specbench` / `speccheck`
 
 ```bash
