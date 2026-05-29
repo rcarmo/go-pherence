@@ -19,6 +19,7 @@ type RuntimePlan struct {
 	ExpertsPerToken     int           `json:"experts_per_token"`
 	MoEIntermediate     int           `json:"moe_intermediate"`
 	Schedule            LayerSchedule `json:"schedule"`
+	Execution           ExecutionPlan `json:"execution"`
 }
 
 func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
@@ -26,6 +27,10 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		return RuntimePlan{}, err
 	}
 	schedule, err := NewLayerSchedule(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	execution, err := NewExecutionPlan(cfg)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
@@ -43,6 +48,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		ExpertsPerToken:     cfg.NumExpertsPerTok,
 		MoEIntermediate:     cfg.MoEIntermediateSize,
 		Schedule:            schedule,
+		Execution:           execution,
 	}
 	if err := plan.Validate(); err != nil {
 		return RuntimePlan{}, err
@@ -69,6 +75,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if len(p.Schedule.Steps) > 0 {
 		if err := p.Schedule.Validate(p.Layers); err != nil {
+			return err
+		}
+	}
+	if len(p.Execution.Steps) > 0 {
+		if err := p.Execution.Validate(p.Layers); err != nil {
 			return err
 		}
 	}
