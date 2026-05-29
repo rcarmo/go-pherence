@@ -3,6 +3,7 @@ package docs_test
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -46,11 +47,49 @@ func TestModelCoverageManifest(t *testing.T) {
 		if len(fam.Coverage) == 0 {
 			t.Fatalf("%s has no coverage entries", name)
 		}
+		for _, pkg := range fam.Packages {
+			if st, err := os.Stat(filepath.Join("..", pkg)); err != nil || !st.IsDir() {
+				t.Fatalf("%s package path %s missing or not directory: %v", name, pkg, err)
+			}
+		}
 	}
-	if !m.Families["qwen3_tts"].Coverage["pipeline_plan"] || m.Families["qwen3_tts"].Coverage["cpu_talker_runtime"] {
-		t.Fatalf("unexpected qwen3_tts coverage: %+v", m.Families["qwen3_tts"].Coverage)
+	qwen := m.Families["qwen3_tts"].Coverage
+	if !qwen["pipeline_plan"] || qwen["cpu_talker_runtime"] {
+		t.Fatalf("unexpected qwen3_tts coverage: %+v", qwen)
 	}
-	if !m.Families["lfm2_moe"].Coverage["execution_role_plan"] || m.Families["lfm2_moe"].Coverage["cpu_generation_runtime"] {
-		t.Fatalf("unexpected lfm2_moe coverage: %+v", m.Families["lfm2_moe"].Coverage)
+	for key, path := range map[string]string{
+		"pipeline_plan":              "../model/qwen3tts/pipeline.go",
+		"capability_validation":      "../model/qwen3tts/capabilities.go",
+		"runtime_sizing_plan":        "../model/qwen3tts/shapes.go",
+		"tensor_shape_validation":    "../model/qwen3tts/tensor_shape_validation.go",
+		"strict_inspector_mode":      "../cmd/qwen3ttsinspect/main.go",
+		"prompt_fixture_scaffold":    "../model/qwen3tts/testdata/customvoice_prompt_fixture.json",
+		"customvoice_prompt_builder": "../model/qwen3tts/prompt.go",
+	} {
+		assertCoverageFile(t, "qwen3_tts", qwen, key, path)
+	}
+	lfm2 := m.Families["lfm2_moe"].Coverage
+	if !lfm2["execution_role_plan"] || lfm2["cpu_generation_runtime"] {
+		t.Fatalf("unexpected lfm2_moe coverage: %+v", lfm2)
+	}
+	for key, path := range map[string]string{
+		"layer_schedule":          "../model/lfm2/schedule.go",
+		"execution_role_plan":     "../model/lfm2/execution.go",
+		"runtime_state_sizing":    "../model/lfm2/state.go",
+		"tensor_shape_validation": "../model/lfm2/tensor_shape_validation.go",
+		"strict_inspector_mode":   "../cmd/lfm2inspect/main.go",
+		"metadata_fixture":        "../model/lfm2/testdata/lfm25_8b_a1b_metadata.json",
+	} {
+		assertCoverageFile(t, "lfm2_moe", lfm2, key, path)
+	}
+}
+
+func assertCoverageFile(t *testing.T, family string, coverage map[string]bool, key, path string) {
+	t.Helper()
+	if !coverage[key] {
+		t.Fatalf("%s coverage %s is not marked true", family, key)
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Fatalf("%s coverage %s file %s missing or not file: %v", family, key, path, err)
 	}
 }
