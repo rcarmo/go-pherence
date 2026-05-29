@@ -17,6 +17,7 @@ type report struct {
 	Config           qwen3tts.ParsedConfig     `json:"config"`
 	TensorCoverage   *qwen3tts.TensorCoverage  `json:"tensor_coverage,omitempty"`
 	RuntimePlan      qwen3tts.RuntimePlan      `json:"runtime_plan"`
+	Capabilities     qwen3tts.Capabilities     `json:"capabilities"`
 	CustomVoiceProbe *customVoicePrefixSummary `json:"custom_voice_prefix,omitempty"`
 }
 
@@ -50,7 +51,11 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	out := report{ModelDir: *modelDir, Label: cfg.Label(), Config: cfg, RuntimePlan: plan}
+	caps, err := cfg.Capabilities()
+	if err != nil {
+		fatal(err)
+	}
+	out := report{ModelDir: *modelDir, Label: cfg.Label(), Config: cfg, RuntimePlan: plan, Capabilities: caps}
 	if names, err := safetensorNames(*modelDir, *safetensorPath); err == nil {
 		cov := qwen3tts.InspectTensorNames(names)
 		out.TensorCoverage = &cov
@@ -117,7 +122,7 @@ func safetensorNames(modelDir, explicit string) ([]string, error) {
 func printText(r report) {
 	c := r.Config
 	fmt.Printf("Qwen3-TTS: %s (%s)\n", r.Label, r.ModelDir)
-	fmt.Printf("  variant: %s size=%s speaker_encoder=%v\n", c.ModelType, c.ModelSize, c.SpeakerEncoder != nil)
+	fmt.Printf("  variant: %s size=%s speaker_encoder=%v conditioning=%s\n", c.ModelType, c.ModelSize, c.SpeakerEncoder != nil, r.Capabilities.Conditioning)
 	fmt.Printf("  talker: hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d text_hidden=%d text_vocab=%d codec_vocab=%d mrope=%v\n", c.TalkerHiddenSize, c.TalkerNumHiddenLayers, c.TalkerNumAttentionHeads, c.TalkerNumKeyValueHeads, c.TalkerHeadDim, c.TalkerTextHiddenSize, c.TalkerTextVocabSize, c.TalkerVocabSize, c.HasMRoPESection)
 	fmt.Printf("  code predictor: hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d vocab=%d code_groups=%d\n", c.CPHiddenSize, c.CPNumHiddenLayers, c.CPNumAttentionHeads, c.CPNumKeyValueHeads, c.CPHeadDim, c.CPVocabSize, c.CPNumCodeGroups)
 	fmt.Printf("  runtime plan: talker_kv_floats/token=%d cp_kv_floats/token=%d decoder=%dHz/%d_codes\n", r.RuntimePlan.Talker.KVFloatsPerToken, r.RuntimePlan.CodePredictor.KVFloatsPerToken, r.RuntimePlan.Decoder12Hz.FrameRateHz, r.RuntimePlan.Decoder12Hz.CodeGroups)

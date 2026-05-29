@@ -52,6 +52,10 @@ const (
 	Italian    Language = "it"
 )
 
+func AllLanguages() []Language {
+	return []Language{Chinese, English, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian}
+}
+
 func ParseLanguage(s string) (Language, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "chinese", "zh":
@@ -119,6 +123,10 @@ const (
 	Eric    Speaker = "eric"
 	Dylan   Speaker = "dylan"
 )
+
+func AllSpeakers() []Speaker {
+	return []Speaker{Serena, Vivian, UncleFu, Ryan, Aiden, OnoAnna, Sohee, Eric, Dylan}
+}
 
 func ParseSpeaker(s string) (Speaker, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
