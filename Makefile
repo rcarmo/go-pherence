@@ -6,7 +6,7 @@ MODEL ?=
 MODEL_DOWNLOAD_FLAGS ?=
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test test-cpu clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-gemma4 models-download-speaker models-download-one qwen3tts-inspect lfm2-inspect hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect
+.PHONY: all build test test-cpu clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-gemma4 models-download-speaker models-download-one qwen3tts-inspect lfm2-inspect hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect
 
 all: build
 
@@ -44,6 +44,12 @@ models-download-small:
 
 models-download-qwen:
 	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group qwen $(MODEL_DOWNLOAD_FLAGS)
+
+models-download-qwen3tts:
+	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group qwen3tts $(MODEL_DOWNLOAD_FLAGS)
+
+models-download-lfm2:
+	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group lfm2 $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-gemma4:
 	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group gemma4 $(MODEL_DOWNLOAD_FLAGS)

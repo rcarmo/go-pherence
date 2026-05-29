@@ -39,6 +39,17 @@ MODELS: tuple[ModelSpec, ...] = (
     ModelSpec("qwen3.6-27b-mlx4-mtp", "samwang0041/Qwen3.6-27B-MLX-4bit-MTP", "qwen", "Qwen3.6 MLX 4-bit native MTP"),
     ModelSpec("qwen3.6-27b-text-nvfp4-mtp", "Qwen/Qwen3.6-27B-Text-NVFP4-MTP", "qwen", "Qwen3.6 NVFP4/native MTP stress asset"),
 
+    # Qwen3-TTS multi-stage speech synthesis checkpoints. Start with the 0.6B
+    # CustomVoice model for metadata/prompt inspection and eventual CPU parity.
+    ModelSpec("qwen3-tts-0.6b-base", "Qwen/Qwen3-TTS-12Hz-0.6B-Base", "qwen3tts", "Qwen3-TTS 0.6B Base/reference-audio checkpoint"),
+    ModelSpec("qwen3-tts-0.6b-customvoice", "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", "qwen3tts", "Qwen3-TTS 0.6B CustomVoice first target"),
+    ModelSpec("qwen3-tts-1.7b-base", "Qwen/Qwen3-TTS-12Hz-1.7B-Base", "qwen3tts", "Qwen3-TTS 1.7B Base/reference-audio checkpoint"),
+    ModelSpec("qwen3-tts-1.7b-customvoice", "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", "qwen3tts", "Qwen3-TTS 1.7B CustomVoice checkpoint"),
+    ModelSpec("qwen3-tts-1.7b-voicedesign", "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign", "qwen3tts", "Qwen3-TTS 1.7B VoiceDesign checkpoint"),
+
+    # LFM2 hybrid conv/full-attention MoE checkpoint for metadata and future CPU parity work.
+    ModelSpec("lfm2.5-8b-a1b", "LiquidAI/LFM2.5-8B-A1B", "lfm2", "LFM2.5 hybrid conv/full-attention MoE"),
+
     # Speaker embedding assets for diarization conversion. These are source
     # checkpoints; run scripts/convert_speechbrain_ecapa.py before using them
     # with cmd/diarize-vtt -speaker-model.
