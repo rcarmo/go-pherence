@@ -12,12 +12,25 @@ func TestSummarizeManifest(t *testing.T) {
 		"b": {Status: "two", ValidationTarget: "make test", Coverage: map[string]bool{"done": true, "todo": false}},
 		"a": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"done": true}},
 	}}
-	s := summarize(m)
+	s, err := summarize(m, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(s) != 2 || s[0].Name != "a" || s[1].Name != "b" {
 		t.Fatalf("summaries=%+v", s)
 	}
 	if s[1].Covered != 1 || s[1].Pending != 1 || len(s[1].PendingKeys) != 1 || s[1].PendingKeys[0] != "todo" {
 		t.Fatalf("summary=%+v", s[1])
+	}
+	filtered, err := summarize(m, "b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered) != 1 || filtered[0].Name != "b" {
+		t.Fatalf("filtered=%+v", filtered)
+	}
+	if _, err := summarize(m, "missing"); err == nil {
+		t.Fatal("expected unknown family error")
 	}
 }
 

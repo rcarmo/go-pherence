@@ -34,14 +34,19 @@ type familySummary struct {
 
 func main() {
 	manifestPath := flag.String("manifest", "docs/model-coverage-manifest.json", "model coverage manifest path")
+	family := flag.String("family", "", "optional family name to summarize, e.g. qwen3_tts or lfm2_moe")
 	jsonOut := flag.Bool("json", false, "emit JSON summary")
-	failPending := flag.Bool("fail-pending", false, "exit non-zero if any coverage gates are pending")
+	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
+	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
 	flag.Parse()
 	m, err := loadManifest(*manifestPath)
 	if err != nil {
 		fatal(err)
 	}
-	summaries := summarize(m)
+	summaries, err := summarize(m, *family)
+	if err != nil {
+		fatal(err)
+	}
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -50,6 +55,12 @@ func main() {
 		}
 	} else {
 		for _, s := range summaries {
+			if *pendingOnly {
+				for _, key := range s.PendingKeys {
+					fmt.Printf("%s.%s\n", s.Name, key)
+				}
+				continue
+			}
 			fmt.Printf("%s: %s covered=%d pending=%d runtime=%v validation=%q\n", s.Name, s.Status, s.Covered, s.Pending, s.RuntimeGeneration, s.ValidationTarget)
 			if len(s.PendingKeys) > 0 {
 				fmt.Printf("  pending: %v\n", s.PendingKeys)
@@ -80,12 +91,19 @@ func loadManifest(path string) (manifest, error) {
 	return m, nil
 }
 
-func summarize(m manifest) []familySummary {
+func summarize(m manifest, family string) ([]familySummary, error) {
 	names := make([]string, 0, len(m.Families))
-	for name := range m.Families {
-		names = append(names, name)
+	if family != "" {
+		if _, ok := m.Families[family]; !ok {
+			return nil, fmt.Errorf("unknown model family %q", family)
+		}
+		names = append(names, family)
+	} else {
+		for name := range m.Families {
+			names = append(names, name)
+		}
+		sort.Strings(names)
 	}
-	sort.Strings(names)
 	out := make([]familySummary, 0, len(names))
 	for _, name := range names {
 		fam := m.Families[name]
@@ -105,7 +123,7 @@ func summarize(m manifest) []familySummary {
 		}
 		out = append(out, s)
 	}
-	return out
+	return out, nil
 }
 
 func fatal(err error) {

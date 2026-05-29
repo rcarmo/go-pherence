@@ -206,6 +206,7 @@ Show the current manifest summary with:
 ```bash
 make model-coverage
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -json
+GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -family qwen3_tts -pending-only
 ```
 
 This runs tests and vet for:
