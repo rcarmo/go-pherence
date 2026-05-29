@@ -60,7 +60,7 @@ That makes this a hybrid recurrent/convolutional + attention MoE decoder, not a 
 
 ### Missing or uncertain
 
-- No `model/lfm2` package exists.
+- `model/lfm2` now exists for strict config parsing and tensor-name inventory; runtime block implementations are still pending.
 - No native LFM2 convolution/recurrent block implementation exists.
 - Tensor names and exact block math need inventory against the checkpoint and, ideally, a Transformers reference trace.
 - MoE routing details need parity checks: normalized top-k probabilities, expert bias behavior, routed scaling, and dense-layer exceptions.
@@ -92,9 +92,9 @@ Do not fold this into `model/qwen`; it should be its own architecture package wi
 
 ### Phase L0 — Metadata and tensor inventory
 
-- [ ] Add `cmd/lfm2inspect` to parse `config.json`, print layer types, MoE settings, conv cache settings, and safetensors tensor groups.
-- [ ] Add `model/lfm2/config.go` with strict parsing and defaults matching the published config.
-- [ ] Add tensor-name inventory tests from a local checkpoint header, without committing weights.
+- [x] Add `cmd/lfm2inspect` to parse `config.json`, print layer types, MoE settings, conv cache settings, and safetensors tensor groups.
+- [x] Add `model/lfm2/config.go` with strict parsing and defaults matching the published config.
+- [x] Add tensor-name inventory tests from representative checkpoint names, without committing weights.
 
 Acceptance:
 

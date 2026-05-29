@@ -79,7 +79,7 @@ Start with `0.6B CustomVoice` because it avoids ECAPA/reference-codec front-end 
 
 ### Missing or insufficient
 
-- No `model/qwen3tts` package yet for TTS-specific config, token constants, checkpoint binding, and pipeline state.
+- `model/qwen3tts` now covers TTS-specific config parsing, token constants, tensor-group inventory, and deterministic CustomVoice prefix IDs; checkpoint binding and pipeline state are still pending.
 - No native Qwen3-TTS talker wrapper that can mix text projections, codec embeddings, MRoPE, speaker/control prefixes, and semantic-token generation.
 - No native TTS code predictor package with 15 acoustic heads and compact per-frame KV-cache reuse.
 - No `Decoder12Hz` / speech-tokenizer decoder or encoder implementation.
@@ -121,7 +121,7 @@ If shared Qwen decoder code is extracted, prefer a small internal/common bridge 
 Goal: make the work measurable before implementing inference.
 
 - [ ] Add `docs/qwen3-tts-support.md` and keep it current.
-- [ ] Add `cmd/qwen3ttsinspect` to read local checkpoint metadata:
+- [x] Add `cmd/qwen3ttsinspect` to read local checkpoint metadata:
   - variant (`base`, `custom_voice`, `voice_design`);
   - size class (`0.6B`, `1.7B`);
   - talker dimensions;
@@ -144,10 +144,10 @@ Acceptance:
 
 Goal: reproduce the exact text/control inputs for `0.6B CustomVoice`.
 
-- [ ] Implement `model/qwen3tts.Config` and `ParsedModelConfig` equivalent.
-- [ ] Add token constants and speaker/language enums.
+- [x] Implement `model/qwen3tts.Config` and `ParsedModelConfig` equivalent.
+- [x] Add token constants and speaker/language enums.
 - [ ] Reuse `loader/tokenizer` for Qwen tokenizer files; support `tokenizer.json` and fallback `vocab.json` + `merges.txt` if needed.
-- [ ] Implement CustomVoice prompt builder:
+- [x] Implement CustomVoice prompt builder:
   - ChatML role prefix;
   - TTS pad/BOS/control tokens;
   - language token;

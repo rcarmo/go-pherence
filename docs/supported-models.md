@@ -29,8 +29,8 @@ MoE note: 128 experts/layer, 8 active/token. NVIDIA backend runs attention, rout
 | **qwen3_moe** | Qwen3-30B-A3B MoE | MLX 4-bit | ✅ |
 | **gemma3** | Gemma 3 1B+ | MLX 4-bit, BF16 | ✅ |
 | **gemma4** | Gemma 4 E2B+ | MLX 4-bit | ✅ |
-| **lfm2_moe** | LFM2.5-8B-A1B hybrid conv/attention MoE | HF safetensors BF16 | 🧭 roadmap, not implemented |
-| **qwen3_tts** | Qwen3-TTS 0.6B/1.7B speech synthesis | HF safetensors + Qwen tokenizer + speech tokenizer | 🧭 roadmap, not implemented |
+| **lfm2_moe** | LFM2.5-8B-A1B hybrid conv/attention MoE | HF safetensors BF16 | 🧭 metadata/inspect coverage; runtime not implemented |
+| **qwen3_tts** | Qwen3-TTS 0.6B/1.7B speech synthesis | HF safetensors + Qwen tokenizer + speech tokenizer | 🧭 metadata/token/inspect coverage; runtime not implemented |
 | **hunyuan3d_dit** | Hunyuan3D-2/2mini/2mv shape generation | HF safetensors + YAML | 🧭 assessed, not implemented |
 
 Any model from [mlx-community](https://huggingface.co/mlx-community) using the supported LLM architectures should work through the compatible loader path. LFM2.5-8B-A1B is a separate hybrid convolution/full-attention MoE decoder family and is tracked in [lfm2-moe-support.md](lfm2-moe-support.md). Qwen3-TTS is a separate multi-stage speech pipeline (talker, code predictor, codec decoder, optional speaker/codec encoder) and is tracked in [qwen3-tts-support.md](qwen3-tts-support.md). Hunyuan3D-2 is a separate diffusion/3D pipeline family rather than an LLM decode architecture; config/tensor inventory scaffolding exists, but runtime support is not implemented. See [hunyuan3d-2-support.md](hunyuan3d-2-support.md).
@@ -64,7 +64,7 @@ conv_L_cache: 3
 format: BF16 safetensors
 ```
 
-See [lfm2-moe-support.md](lfm2-moe-support.md). First implementation step should be metadata/config inspection (`model/lfm2/config.go` and `cmd/lfm2inspect`), not generation.
+See [lfm2-moe-support.md](lfm2-moe-support.md). Metadata/config inspection (`model/lfm2/config.go` and `cmd/lfm2inspect`) is in place; next steps are reference fixtures and CPU block parity, not generation shortcuts.
 
 ## Qwen3.6 MTP candidates
 
