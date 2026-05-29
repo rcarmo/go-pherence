@@ -6,10 +6,11 @@ import "fmt"
 // is intentionally allocation-free: use it to validate model metadata and size
 // buffers before implementing Talker/CodePredictor/Decoder execution.
 type RuntimePlan struct {
-	Talker        TransformerPlan `json:"talker"`
-	CodePredictor TransformerPlan `json:"code_predictor"`
-	Decoder12Hz   DecoderPlan     `json:"decoder12hz"`
-	Pipeline      PipelinePlan    `json:"pipeline"`
+	Talker              TransformerPlan     `json:"talker"`
+	CodePredictor       TransformerPlan     `json:"code_predictor"`
+	Decoder12Hz         DecoderPlan         `json:"decoder12hz"`
+	AcousticFrameLayout AcousticFrameLayout `json:"acoustic_frame_layout"`
+	Pipeline            PipelinePlan        `json:"pipeline"`
 }
 
 type TransformerPlan struct {
@@ -38,6 +39,10 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	frameLayout, err := NewAcousticFrameLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		Talker: TransformerPlan{
 			HiddenSize:       cfg.TalkerHiddenSize,
@@ -59,8 +64,9 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 			VocabSize:        cfg.CPVocabSize,
 			KVFloatsPerToken: 2 * cfg.CPNumHiddenLayers * cfg.CPNumKeyValueHeads * cfg.CPHeadDim,
 		},
-		Decoder12Hz: DecoderPlan{FrameRateHz: 12, CodeGroups: cfg.CPNumCodeGroups - 1, CodesPerFrame: cfg.CPNumCodeGroups - 1, CodecVocab: cfg.CPVocabSize},
-		Pipeline:    pipeline,
+		Decoder12Hz:         DecoderPlan{FrameRateHz: 12, CodeGroups: cfg.CPNumCodeGroups - 1, CodesPerFrame: cfg.CPNumCodeGroups - 1, CodecVocab: cfg.CPVocabSize},
+		AcousticFrameLayout: frameLayout,
+		Pipeline:            pipeline,
 	}
 	if err := plan.Validate(); err != nil {
 		return RuntimePlan{}, err
@@ -77,6 +83,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.Decoder12Hz.FrameRateHz != 12 || p.Decoder12Hz.CodeGroups <= 0 || p.Decoder12Hz.CodesPerFrame != p.Decoder12Hz.CodeGroups || p.Decoder12Hz.CodecVocab <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS decoder plan: %+v", p.Decoder12Hz)
+	}
+	if p.AcousticFrameLayout.TotalCodeGroups > 0 {
+		if err := p.AcousticFrameLayout.Validate(); err != nil {
+			return err
+		}
 	}
 	if len(p.Pipeline.Steps) > 0 {
 		if err := p.Pipeline.Validate(); err != nil {

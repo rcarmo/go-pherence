@@ -18,6 +18,7 @@
         "conditioning_cli_validation": true,
         "pipeline_plan": true,
         "runtime_sizing_plan": true,
+        "acoustic_frame_layout": true,
         "tensor_group_readiness": true,
         "tensor_shape_summary": true,
         "tensor_shape_validation": true,
