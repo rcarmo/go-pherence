@@ -163,6 +163,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
 Useful flags:
 
 - `-json` — emit the full machine-readable report.
+- `-strict` — exit non-zero when safetensors are present and tensor readiness or shape validation fails.
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 - `-text TEXT` — load tokenizer files from `-model`, tokenize `TEXT`, and build the deterministic CustomVoice text/codec control streams.
 - `-first-text-id ID` — build only the fixed CustomVoice prefix around a known first tokenizer ID.
@@ -185,6 +186,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
 Useful flags:
 
 - `-json` — emit the full machine-readable report.
+- `-strict` — exit non-zero when safetensors are present and tensor readiness or shape validation fails.
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 
 The report includes layer-pattern counts, MoE routing dimensions, conv cache settings, tensor group readiness, conv-state floats, and attention KV floats/token. It is metadata/reference scaffolding only; LFM convolution, attention, router, and expert execution remain future CPU parity work.

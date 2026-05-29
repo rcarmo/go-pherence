@@ -35,6 +35,12 @@ func TestInspectMetadataSmoke(t *testing.T) {
 	}
 }
 
+func TestStrictWithoutTensorMetadataPasses(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.json"), `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`)
+	runInspect(t, "-model", dir, "-strict")
+}
+
 func runInspect(t *testing.T, args ...string) string {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], append([]string{"-test.run=TestHelperProcess", "--"}, args...)...)

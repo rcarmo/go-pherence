@@ -22,6 +22,12 @@ func TestInspectTokenizedPromptSmoke(t *testing.T) {
 	}
 }
 
+func TestStrictWithoutTensorMetadataPasses(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64}}}`)
+	runInspect(t, "-model", dir, "-strict")
+}
+
 func runInspect(t *testing.T, args ...string) string {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], append([]string{"-test.run=TestHelperProcess", "--"}, args...)...)

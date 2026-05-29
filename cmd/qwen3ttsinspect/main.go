@@ -40,6 +40,7 @@ func main() {
 	langName := flag.String("language", "en", "language for prefix probe")
 	firstTextID := flag.Uint("first-text-id", 0, "optional first token ID for CustomVoice prefix probe")
 	promptText := flag.String("text", "", "optional text to tokenize and build a CustomVoice prompt from tokenizer files in -model")
+	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness or shape validation fails")
 	flag.Parse()
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: qwen3ttsinspect -model <dir> [-safetensors path] [-json]")
@@ -103,9 +104,12 @@ func main() {
 		if err := enc.Encode(out); err != nil {
 			fatal(err)
 		}
-		return
+	} else {
+		printText(out)
 	}
-	printText(out)
+	if *strict && !reportValid(out) {
+		os.Exit(1)
+	}
 }
 
 func safetensorInfos(modelDir, explicit string) (map[string]safetensors.TensorInfo, error) {
@@ -169,6 +173,16 @@ func printText(r report) {
 		p := r.CustomVoiceProbe
 		fmt.Printf("  custom voice prefix: speaker=%s language=%s first_text_id=%d prefill_len=%d\n", p.Speaker, p.Language, p.FirstTextID, p.PrefillLength)
 	}
+}
+
+func reportValid(r report) bool {
+	if r.TensorCoverage != nil && !r.TensorCoverage.Readiness.Ready {
+		return false
+	}
+	if r.ShapeValidation != nil && !r.ShapeValidation.Valid {
+		return false
+	}
+	return true
 }
 
 func fatal(err error) {

@@ -26,6 +26,7 @@ func main() {
 	modelDir := flag.String("model", "", "LFM2 model directory containing config.json")
 	safetensorPath := flag.String("safetensors", "", "optional safetensors path; defaults to model.safetensors or sharded index in -model")
 	jsonOut := flag.Bool("json", false, "emit JSON report")
+	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness or shape validation fails")
 	flag.Parse()
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: lfm2inspect -model <dir> [-safetensors path] [-json]")
@@ -58,9 +59,12 @@ func main() {
 		if err := enc.Encode(out); err != nil {
 			fatal(err)
 		}
-		return
+	} else {
+		printText(out)
 	}
-	printText(out)
+	if *strict && !reportValid(out) {
+		os.Exit(1)
+	}
 }
 
 func safetensorInfos(modelDir, explicit string) (map[string]safetensors.TensorInfo, error) {
@@ -120,6 +124,16 @@ func printText(r report) {
 		}
 		fmt.Printf("  tensors: total=%d embeddings=%d layers=%d router=%d experts=%d lm_head=%d other=%d ready=%v missing=%v shapes_valid=%v\n", t.Total, t.Embedding, t.Layers, t.Router, t.Experts, t.LMHead, t.Other, t.Readiness.Ready, t.Readiness.MissingRequired, shapeValid)
 	}
+}
+
+func reportValid(r report) bool {
+	if r.TensorCoverage != nil && !r.TensorCoverage.Readiness.Ready {
+		return false
+	}
+	if r.ShapeValidation != nil && !r.ShapeValidation.Valid {
+		return false
+	}
+	return true
 }
 
 func fatal(err error) { fmt.Fprintln(os.Stderr, "lfm2inspect:", err); os.Exit(1) }
