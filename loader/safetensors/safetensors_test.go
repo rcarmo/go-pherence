@@ -169,6 +169,20 @@ func TestNamesAreSorted(t *testing.T) {
 	}
 }
 
+func TestTensorInfosCloneShape(t *testing.T) {
+	f := &File{Tensors: map[string]TensorInfo{"x": {DType: "F32", Shape: []int{2, 3}, DataOffsets: [2]int{0, 24}}}}
+	infos := f.TensorInfos()
+	infos["x"].Shape[0] = 99
+	if f.Tensors["x"].Shape[0] != 2 {
+		t.Fatalf("TensorInfos leaked shape mutation: %+v", f.Tensors["x"])
+	}
+	sf := &ShardedFile{mapping: map[string]string{"x": "s"}, shards: map[string]*File{"s": f}}
+	sinfos := sf.TensorInfos()
+	if sinfos["x"].DType != "F32" || sinfos["x"].Shape[1] != 3 {
+		t.Fatalf("sharded infos=%+v", sinfos)
+	}
+}
+
 func TestCheckedSafetensorsHelpers(t *testing.T) {
 	if got, ok := checkedAddInt64(40, 2); !ok || got != 42 {
 		t.Fatalf("checkedAddInt64(40,2)=%d,%v want 42,true", got, ok)

@@ -12,12 +12,13 @@ import (
 )
 
 type report struct {
-	ModelDir        string               `json:"model_dir"`
-	Config          lfm2.Config          `json:"config"`
-	ConvLayers      int                  `json:"conv_layers"`
-	AttentionLayers int                  `json:"attention_layers"`
-	TensorCoverage  *lfm2.TensorCoverage `json:"tensor_coverage,omitempty"`
-	RuntimePlan     lfm2.RuntimePlan     `json:"runtime_plan"`
+	ModelDir        string                   `json:"model_dir"`
+	Config          lfm2.Config              `json:"config"`
+	ConvLayers      int                      `json:"conv_layers"`
+	AttentionLayers int                      `json:"attention_layers"`
+	TensorCoverage  *lfm2.TensorCoverage     `json:"tensor_coverage,omitempty"`
+	TensorShapes    *lfm2.TensorShapeSummary `json:"tensor_shapes,omitempty"`
+	RuntimePlan     lfm2.RuntimePlan         `json:"runtime_plan"`
 }
 
 func main() {
@@ -38,9 +39,15 @@ func main() {
 		fatal(err)
 	}
 	out := report{ModelDir: *modelDir, Config: cfg, ConvLayers: cfg.ConvLayerCount(), AttentionLayers: cfg.FullAttentionLayerCount(), RuntimePlan: plan}
-	if names, err := safetensorNames(*modelDir, *safetensorPath); err == nil {
+	if infos, err := safetensorInfos(*modelDir, *safetensorPath); err == nil {
+		names := make([]string, 0, len(infos))
+		for name := range infos {
+			names = append(names, name)
+		}
 		cov := lfm2.InspectTensorNames(names)
 		out.TensorCoverage = &cov
+		shapes := lfm2.InspectTensorShapes(infos)
+		out.TensorShapes = &shapes
 	}
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
@@ -51,6 +58,27 @@ func main() {
 		return
 	}
 	printText(out)
+}
+
+func safetensorInfos(modelDir, explicit string) (map[string]safetensors.TensorInfo, error) {
+	if explicit != "" {
+		f, err := safetensors.Open(explicit)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return f.TensorInfos(), nil
+	}
+	if sf, err := safetensors.OpenSharded(filepath.Join(modelDir, "model.safetensors.index.json")); err == nil {
+		defer sf.Close()
+		return sf.TensorInfos(), nil
+	}
+	f, err := safetensors.Open(filepath.Join(modelDir, "model.safetensors"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return f.TensorInfos(), nil
 }
 
 func safetensorNames(modelDir, explicit string) ([]string, error) {

@@ -225,6 +225,18 @@ func (f *File) Names() []string {
 	return names
 }
 
+func (f *File) TensorInfos() map[string]TensorInfo {
+	if f == nil {
+		return nil
+	}
+	out := make(map[string]TensorInfo, len(f.Tensors))
+	for name, info := range f.Tensors {
+		shape := append([]int(nil), info.Shape...)
+		out[name] = TensorInfo{DType: info.DType, Shape: shape, DataOffsets: info.DataOffsets}
+	}
+	return out
+}
+
 // GetFloat32 returns a tensor's data as float32, converting from the stored dtype.
 func (f *File) GetFloat32(name string) ([]float32, []int, error) {
 	info, raw, err := f.rawTensor(name)
@@ -432,6 +444,24 @@ func (sf *ShardedFile) Names() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func (sf *ShardedFile) TensorInfos() map[string]TensorInfo {
+	if sf == nil {
+		return nil
+	}
+	out := make(map[string]TensorInfo, len(sf.mapping))
+	for name, filename := range sf.mapping {
+		shard := sf.shards[filename]
+		if shard == nil {
+			continue
+		}
+		if info, ok := shard.Tensors[name]; ok {
+			shape := append([]int(nil), info.Shape...)
+			out[name] = TensorInfo{DType: info.DType, Shape: shape, DataOffsets: info.DataOffsets}
+		}
+	}
+	return out
 }
 
 // GetRaw returns raw bytes and shape for a tensor without conversion.

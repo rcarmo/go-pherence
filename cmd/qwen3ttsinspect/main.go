@@ -12,13 +12,14 @@ import (
 )
 
 type report struct {
-	ModelDir         string                    `json:"model_dir"`
-	Label            string                    `json:"label"`
-	Config           qwen3tts.ParsedConfig     `json:"config"`
-	TensorCoverage   *qwen3tts.TensorCoverage  `json:"tensor_coverage,omitempty"`
-	RuntimePlan      qwen3tts.RuntimePlan      `json:"runtime_plan"`
-	Capabilities     qwen3tts.Capabilities     `json:"capabilities"`
-	CustomVoiceProbe *customVoicePrefixSummary `json:"custom_voice_prefix,omitempty"`
+	ModelDir         string                       `json:"model_dir"`
+	Label            string                       `json:"label"`
+	Config           qwen3tts.ParsedConfig        `json:"config"`
+	TensorCoverage   *qwen3tts.TensorCoverage     `json:"tensor_coverage,omitempty"`
+	TensorShapes     *qwen3tts.TensorShapeSummary `json:"tensor_shapes,omitempty"`
+	RuntimePlan      qwen3tts.RuntimePlan         `json:"runtime_plan"`
+	Capabilities     qwen3tts.Capabilities        `json:"capabilities"`
+	CustomVoiceProbe *customVoicePrefixSummary    `json:"custom_voice_prefix,omitempty"`
 }
 
 type customVoicePrefixSummary struct {
@@ -56,9 +57,15 @@ func main() {
 		fatal(err)
 	}
 	out := report{ModelDir: *modelDir, Label: cfg.Label(), Config: cfg, RuntimePlan: plan, Capabilities: caps}
-	if names, err := safetensorNames(*modelDir, *safetensorPath); err == nil {
+	if infos, err := safetensorInfos(*modelDir, *safetensorPath); err == nil {
+		names := make([]string, 0, len(infos))
+		for name := range infos {
+			names = append(names, name)
+		}
 		cov := qwen3tts.InspectTensorNames(names)
 		out.TensorCoverage = &cov
+		shapes := qwen3tts.InspectTensorShapes(infos)
+		out.TensorShapes = &shapes
 	}
 	if *firstTextID != 0 || *promptText != "" {
 		speaker, err := qwen3tts.ParseSpeaker(*speakerName)
@@ -96,6 +103,27 @@ func main() {
 		return
 	}
 	printText(out)
+}
+
+func safetensorInfos(modelDir, explicit string) (map[string]safetensors.TensorInfo, error) {
+	if explicit != "" {
+		f, err := safetensors.Open(explicit)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return f.TensorInfos(), nil
+	}
+	if sf, err := safetensors.OpenSharded(filepath.Join(modelDir, "model.safetensors.index.json")); err == nil {
+		defer sf.Close()
+		return sf.TensorInfos(), nil
+	}
+	f, err := safetensors.Open(filepath.Join(modelDir, "model.safetensors"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return f.TensorInfos(), nil
 }
 
 func safetensorNames(modelDir, explicit string) ([]string, error) {
