@@ -33,6 +33,7 @@ Implemented package/command surface:
 - `model/qwen3tts/tensors.go` — tensor group readiness.
 - `model/qwen3tts/tensor_shapes.go` — safetensors dtype/shape summaries.
 - `model/qwen3tts/tensor_shape_validation.go` — config-aware shape sanity checks.
+- `model/qwen3tts/pipeline.go` — conditioning → prompt prefill → Talker → CodePredictor → Decoder12Hz stage plan.
 - `model/qwen3tts/shapes.go` — Talker, CodePredictor, and 12Hz decoder runtime sizing plan.
 - `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema.
 - `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/tokenized-prompt inspector.

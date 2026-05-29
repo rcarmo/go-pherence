@@ -180,7 +180,7 @@ func printText(r report) {
 	fmt.Printf("  variant: %s size=%s speaker_encoder=%v conditioning=%s\n", c.ModelType, c.ModelSize, c.SpeakerEncoder != nil, r.Capabilities.Conditioning)
 	fmt.Printf("  talker: hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d text_hidden=%d text_vocab=%d codec_vocab=%d mrope=%v\n", c.TalkerHiddenSize, c.TalkerNumHiddenLayers, c.TalkerNumAttentionHeads, c.TalkerNumKeyValueHeads, c.TalkerHeadDim, c.TalkerTextHiddenSize, c.TalkerTextVocabSize, c.TalkerVocabSize, c.HasMRoPESection)
 	fmt.Printf("  code predictor: hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d vocab=%d code_groups=%d\n", c.CPHiddenSize, c.CPNumHiddenLayers, c.CPNumAttentionHeads, c.CPNumKeyValueHeads, c.CPHeadDim, c.CPVocabSize, c.CPNumCodeGroups)
-	fmt.Printf("  runtime plan: talker_kv_floats/token=%d cp_kv_floats/token=%d decoder=%dHz/%d_codes\n", r.RuntimePlan.Talker.KVFloatsPerToken, r.RuntimePlan.CodePredictor.KVFloatsPerToken, r.RuntimePlan.Decoder12Hz.FrameRateHz, r.RuntimePlan.Decoder12Hz.CodeGroups)
+	fmt.Printf("  runtime plan: talker_kv_floats/token=%d cp_kv_floats/token=%d decoder=%dHz/%d_codes pipeline=%d_stages\n", r.RuntimePlan.Talker.KVFloatsPerToken, r.RuntimePlan.CodePredictor.KVFloatsPerToken, r.RuntimePlan.Decoder12Hz.FrameRateHz, r.RuntimePlan.Decoder12Hz.CodeGroups, len(r.RuntimePlan.Pipeline.Steps))
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
 		shapeValid := true
