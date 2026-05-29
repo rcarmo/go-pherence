@@ -1,0 +1,79 @@
+package lfm2
+
+import "fmt"
+
+// RuntimePlan records state/cache sizing for LFM2 before runtime execution is
+// implemented. It makes the conv/full-attention/MoE split explicit and keeps
+// cache accounting testable without model weights.
+type RuntimePlan struct {
+	HiddenSize          int `json:"hidden_size"`
+	HeadDim             int `json:"head_dim"`
+	Layers              int `json:"layers"`
+	ConvLayers          int `json:"conv_layers"`
+	FullAttentionLayers int `json:"full_attention_layers"`
+	KVHeads             int `json:"kv_heads"`
+	ConvLCache          int `json:"conv_l_cache"`
+	ConvStateFloats     int `json:"conv_state_floats"`
+	KVFloatsPerToken    int `json:"kv_floats_per_token"`
+	Experts             int `json:"experts"`
+	ExpertsPerToken     int `json:"experts_per_token"`
+	MoEIntermediate     int `json:"moe_intermediate"`
+}
+
+func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
+	if err := cfg.Validate(); err != nil {
+		return RuntimePlan{}, err
+	}
+	plan := RuntimePlan{
+		HiddenSize:          cfg.HiddenSize,
+		HeadDim:             cfg.HeadDim,
+		Layers:              cfg.NumHiddenLayers,
+		ConvLayers:          cfg.ConvLayerCount(),
+		FullAttentionLayers: cfg.FullAttentionLayerCount(),
+		KVHeads:             cfg.NumKeyValueHeads,
+		ConvLCache:          cfg.ConvLCache,
+		ConvStateFloats:     cfg.ConvLayerCount() * cfg.ConvLCache * cfg.HiddenSize,
+		KVFloatsPerToken:    2 * cfg.FullAttentionLayerCount() * cfg.NumKeyValueHeads * cfg.HeadDim,
+		Experts:             cfg.NumExperts,
+		ExpertsPerToken:     cfg.NumExpertsPerTok,
+		MoEIntermediate:     cfg.MoEIntermediateSize,
+	}
+	if err := plan.Validate(); err != nil {
+		return RuntimePlan{}, err
+	}
+	return plan, nil
+}
+
+func (p RuntimePlan) Validate() error {
+	if p.HiddenSize <= 0 || p.HeadDim <= 0 || p.Layers <= 0 || p.KVHeads <= 0 {
+		return fmt.Errorf("invalid LFM2 runtime plan dims: %+v", p)
+	}
+	if p.ConvLayers+p.FullAttentionLayers != p.Layers {
+		return fmt.Errorf("invalid LFM2 layer counts: conv=%d attention=%d layers=%d", p.ConvLayers, p.FullAttentionLayers, p.Layers)
+	}
+	if p.ConvStateFloats != p.ConvLayers*p.ConvLCache*p.HiddenSize {
+		return fmt.Errorf("invalid LFM2 conv state floats=%d", p.ConvStateFloats)
+	}
+	wantKV := 2 * p.FullAttentionLayers * p.KVHeads * p.HeadDim
+	if p.KVFloatsPerToken != wantKV {
+		return fmt.Errorf("invalid LFM2 KV floats/token=%d want=%d", p.KVFloatsPerToken, wantKV)
+	}
+	if p.Experts <= 0 || p.ExpertsPerToken <= 0 || p.ExpertsPerToken > p.Experts || p.MoEIntermediate <= 0 {
+		return fmt.Errorf("invalid LFM2 MoE plan: %+v", p)
+	}
+	return nil
+}
+
+func (p RuntimePlan) KVBytes(maxSeq int, bytesPerFloat int) (int64, error) {
+	if maxSeq < 0 || bytesPerFloat <= 0 {
+		return 0, fmt.Errorf("invalid KV sizing arguments: max_seq=%d bytes_per_float=%d", maxSeq, bytesPerFloat)
+	}
+	return int64(maxSeq) * int64(p.KVFloatsPerToken) * int64(bytesPerFloat), nil
+}
+
+func (p RuntimePlan) ConvStateBytes(bytesPerFloat int) (int64, error) {
+	if bytesPerFloat <= 0 {
+		return 0, fmt.Errorf("invalid conv state bytes/float=%d", bytesPerFloat)
+	}
+	return int64(p.ConvStateFloats) * int64(bytesPerFloat), nil
+}

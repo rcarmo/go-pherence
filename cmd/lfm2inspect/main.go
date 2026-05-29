@@ -17,6 +17,7 @@ type report struct {
 	ConvLayers      int                  `json:"conv_layers"`
 	AttentionLayers int                  `json:"attention_layers"`
 	TensorCoverage  *lfm2.TensorCoverage `json:"tensor_coverage,omitempty"`
+	RuntimePlan     lfm2.RuntimePlan     `json:"runtime_plan"`
 }
 
 func main() {
@@ -32,7 +33,11 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	out := report{ModelDir: *modelDir, Config: cfg, ConvLayers: cfg.ConvLayerCount(), AttentionLayers: cfg.FullAttentionLayerCount()}
+	plan, err := lfm2.NewRuntimePlan(cfg)
+	if err != nil {
+		fatal(err)
+	}
+	out := report{ModelDir: *modelDir, Config: cfg, ConvLayers: cfg.ConvLayerCount(), AttentionLayers: cfg.FullAttentionLayerCount(), RuntimePlan: plan}
 	if names, err := safetensorNames(*modelDir, *safetensorPath); err == nil {
 		cov := lfm2.InspectTensorNames(names)
 		out.TensorCoverage = &cov
@@ -75,6 +80,7 @@ func printText(r report) {
 	fmt.Printf("  arch=%v dtype=%s hidden=%d layers=%d conv=%d full_attention=%d heads=%d kv_heads=%d head_dim=%d max_pos=%d\n", c.Architectures, c.DType, c.HiddenSize, c.NumHiddenLayers, r.ConvLayers, r.AttentionLayers, c.NumAttentionHeads, c.NumKeyValueHeads, c.HeadDim, c.MaxPositionEmbeddings)
 	fmt.Printf("  moe: experts=%d active=%d intermediate=%d dense_layers=%d norm_topk=%v expert_bias=%v routed_scale=%g\n", c.NumExperts, c.NumExpertsPerTok, c.MoEIntermediateSize, c.NumDenseLayers, c.NormTopKProb, c.UseExpertBias, c.RoutedScalingFactor)
 	fmt.Printf("  conv: L_cache=%d bias=%v rope_theta=%g\n", c.ConvLCache, c.ConvBias, c.RoPE.Theta)
+	fmt.Printf("  runtime plan: conv_state_floats=%d kv_floats/token=%d\n", r.RuntimePlan.ConvStateFloats, r.RuntimePlan.KVFloatsPerToken)
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
 		fmt.Printf("  tensors: total=%d embeddings=%d layers=%d router=%d experts=%d lm_head=%d other=%d ready=%v missing=%v\n", t.Total, t.Embedding, t.Layers, t.Router, t.Experts, t.LMHead, t.Other, t.Readiness.Ready, t.Readiness.MissingRequired)
