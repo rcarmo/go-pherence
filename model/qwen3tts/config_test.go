@@ -83,6 +83,9 @@ func TestTokens(t *testing.T) {
 	}
 	wantText := []uint32{IMStart, Assistant, Newline, TTSPad, TTSPad, TTSPad, TTSPad, TTSPad, TTSBOS, 123}
 	wantCodec := []uint32{CodecThink, CodecThinkBOS, 2050, CodecThinkEOS, 3061, CodecPad, CodecBOS}
+	if CustomVoiceFirstTextIndex >= len(text) || text[CustomVoiceFirstTextIndex] != 123 {
+		t.Fatalf("first text index=%d text=%v", CustomVoiceFirstTextIndex, text)
+	}
 	if !eq(text, wantText) {
 		t.Fatalf("text=%v", text)
 	}

@@ -19,6 +19,10 @@ const (
 	TTSPad uint32 = 151671
 	TTSBOS uint32 = 151672
 	TTSEOS uint32 = 151673
+
+	// CustomVoiceFirstTextIndex is the text-stream position occupied by the
+	// first tokenizer ID after the fixed ChatML/TTS control prefix.
+	CustomVoiceFirstTextIndex = 9
 )
 
 const (

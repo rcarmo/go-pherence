@@ -36,6 +36,7 @@ func main() {
 	speakerName := flag.String("speaker", "ryan", "CustomVoice speaker for prefix probe")
 	langName := flag.String("language", "en", "language for prefix probe")
 	firstTextID := flag.Uint("first-text-id", 0, "optional first token ID for CustomVoice prefix probe")
+	promptText := flag.String("text", "", "optional text to tokenize and build a CustomVoice prompt from tokenizer files in -model")
 	flag.Parse()
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: qwen3ttsinspect -model <dir> [-safetensors path] [-json]")
@@ -54,7 +55,7 @@ func main() {
 		cov := qwen3tts.InspectTensorNames(names)
 		out.TensorCoverage = &cov
 	}
-	if *firstTextID != 0 {
+	if *firstTextID != 0 || *promptText != "" {
 		speaker, err := qwen3tts.ParseSpeaker(*speakerName)
 		if err != nil {
 			fatal(err)
@@ -63,11 +64,23 @@ func main() {
 		if err != nil {
 			fatal(err)
 		}
-		text, codec, err := qwen3tts.CustomVoicePrefixIDs(uint32(*firstTextID), speaker, lang)
-		if err != nil {
-			fatal(err)
+		if *promptText != "" {
+			tok, err := qwen3tts.LoadTokenizer(*modelDir)
+			if err != nil {
+				fatal(err)
+			}
+			prompt, err := qwen3tts.BuildCustomVoicePrompt(tok, *promptText, speaker, lang)
+			if err != nil {
+				fatal(err)
+			}
+			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: speaker, Language: lang, FirstTextID: prompt.Text[qwen3tts.CustomVoiceFirstTextIndex], TextStream: prompt.Text, CodecStream: prompt.Codec, PrefillLength: len(prompt.Text)}
+		} else {
+			text, codec, err := qwen3tts.CustomVoicePrefixIDs(uint32(*firstTextID), speaker, lang)
+			if err != nil {
+				fatal(err)
+			}
+			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: speaker, Language: lang, FirstTextID: uint32(*firstTextID), TextStream: text, CodecStream: codec, PrefillLength: len(text)}
 		}
-		out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: speaker, Language: lang, FirstTextID: uint32(*firstTextID), TextStream: text, CodecStream: codec, PrefillLength: len(text)}
 	}
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
