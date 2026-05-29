@@ -144,6 +144,10 @@ go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -sweep
 `cmd/qwen3ttsinspect` is the safe first step for Qwen3-TTS checkpoints. It reads `config.json`, optional safetensors headers, tokenizer files, and emits shape/cache readiness without loading full inference weights into a runtime.
 
 ```bash
+make qwen3tts-inspect \
+  QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice \
+  QWEN3TTS_TEXT="Hello world"
+
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
   -model models/qwen3-tts-0.6b-customvoice \
   -text "Hello world" \
@@ -167,6 +171,8 @@ The report includes variant/size, talker dimensions, code-predictor dimensions, 
 `cmd/lfm2inspect` validates `lfm2_moe` config metadata, counts hybrid conv/full-attention layers, summarizes MoE settings, inspects optional safetensors headers, and reports state/cache sizing.
 
 ```bash
+make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b
+
 GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
   -model models/lfm2.5-8b-a1b \
   -json
