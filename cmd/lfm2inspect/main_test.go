@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/model/lfm2"
 )
 
 func TestInspectMetadataSmoke(t *testing.T) {
@@ -50,6 +52,21 @@ func runInspect(t *testing.T, args ...string) string {
 		t.Fatalf("inspect failed: %v\n%s", err, out)
 	}
 	return string(out)
+}
+
+func TestReportValidStrictInputs(t *testing.T) {
+	if !reportValid(report{}) {
+		t.Fatal("empty report should be valid")
+	}
+	if reportValid(report{TensorCoverage: &lfm2.TensorCoverage{Readiness: lfm2.TensorReadiness{Ready: false}}}) {
+		t.Fatal("expected tensor readiness failure")
+	}
+	if reportValid(report{ShapeValidation: &lfm2.TensorShapeValidation{Valid: false, Issues: []string{"bad"}}}) {
+		t.Fatal("expected shape validation failure")
+	}
+	if !reportValid(report{TensorCoverage: &lfm2.TensorCoverage{Readiness: lfm2.TensorReadiness{Ready: true}}, ShapeValidation: &lfm2.TensorShapeValidation{Valid: true}}) {
+		t.Fatal("expected valid strict report")
+	}
 }
 
 func TestHelperProcess(t *testing.T) {
