@@ -2,6 +2,10 @@
 
 This page is the short-form status for the current non-LLM model-family coverage work. The detailed roadmaps remain in [qwen3-tts-support.md](qwen3-tts-support.md) and [lfm2-moe-support.md](lfm2-moe-support.md).
 
+## Machine-readable manifest
+
+`model-coverage-manifest.json` tracks the same coverage gates in a compact form for CI and status tooling. Keep it in sync when a model-family coverage layer moves from `false` to `true`.
+
 ## Validation command
 
 Use the focused model-coverage target while these families are in metadata/fixture/inspector stages:
@@ -12,6 +16,7 @@ make test-model-coverage
 
 It validates:
 
+- `docs` manifest tests
 - `loader/safetensors`
 - `model/qwen3tts`
 - `model/lfm2`
