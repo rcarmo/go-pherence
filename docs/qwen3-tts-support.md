@@ -120,7 +120,7 @@ If shared Qwen decoder code is extracted, prefer a small internal/common bridge 
 
 Goal: make the work measurable before implementing inference.
 
-- [ ] Add `docs/qwen3-tts-support.md` and keep it current.
+- [x] Add `docs/qwen3-tts-support.md` and keep it current.
 - [x] Add `cmd/qwen3ttsinspect` to read local checkpoint metadata:
   - variant (`base`, `custom_voice`, `voice_design`);
   - size class (`0.6B`, `1.7B`);
@@ -146,14 +146,14 @@ Goal: reproduce the exact text/control inputs for `0.6B CustomVoice`.
 
 - [x] Implement `model/qwen3tts.Config` and `ParsedModelConfig` equivalent.
 - [x] Add token constants and speaker/language enums.
-- [ ] Reuse `loader/tokenizer` for Qwen tokenizer files; support `tokenizer.json` and fallback `vocab.json` + `merges.txt` if needed.
+- [x] Reuse `loader/tokenizer` for Qwen tokenizer files; support `tokenizer.json` and fallback `vocab.json` + `merges.txt` if needed.
 - [x] Implement CustomVoice prompt builder:
   - ChatML role prefix;
   - TTS pad/BOS/control tokens;
   - language token;
   - speaker token;
   - codec BOS.
-- [ ] Add table tests for speaker IDs, language IDs, malformed combinations, and known tokenized prefixes.
+- [x] Add table tests for speaker IDs, language IDs, malformed combinations, and known tokenized prefixes.
 
 Acceptance:
 
