@@ -10,6 +10,8 @@ Summarize it with:
 
 ```bash
 make model-coverage
+make model-coverage-json
+make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -json
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -family qwen3_tts -pending-only
 ```
