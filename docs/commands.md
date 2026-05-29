@@ -201,6 +201,13 @@ Use the focused target below while Qwen3-TTS and LFM2 are still metadata/fixture
 make test-model-coverage
 ```
 
+Show the current manifest summary with:
+
+```bash
+make model-coverage
+GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -json
+```
+
 This runs tests and vet for:
 
 - `loader/safetensors`
@@ -208,6 +215,7 @@ This runs tests and vet for:
 - `model/lfm2`
 - `cmd/qwen3ttsinspect`
 - `cmd/lfm2inspect`
+- `cmd/modelcoverage`
 
 ## `specbench` / `speccheck`
 

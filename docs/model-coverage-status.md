@@ -6,6 +6,13 @@ This page is the short-form status for the current non-LLM model-family coverage
 
 `model-coverage-manifest.json` tracks the same coverage gates in a compact form for CI and status tooling. Keep it in sync when a model-family coverage layer moves from `false` to `true`.
 
+Summarize it with:
+
+```bash
+make model-coverage
+GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -json
+```
+
 ## Validation command
 
 Use the focused model-coverage target while these families are in metadata/fixture/inspector stages:
