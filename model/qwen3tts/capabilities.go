@@ -90,5 +90,22 @@ type ConditioningRequest struct {
 	Language          Language `json:"language"`
 	Speaker           Speaker  `json:"speaker,omitempty"`
 	HasReferenceAudio bool     `json:"has_reference_audio,omitempty"`
+	ReferenceAudio    string   `json:"reference_audio,omitempty"`
 	VoicePrompt       string   `json:"voice_prompt,omitempty"`
+}
+
+type ConditioningValidation struct {
+	Valid   bool                `json:"valid"`
+	Request ConditioningRequest `json:"request"`
+	Error   string              `json:"error,omitempty"`
+}
+
+func (c ParsedConfig) CheckConditioning(req ConditioningRequest) ConditioningValidation {
+	if req.ReferenceAudio != "" {
+		req.HasReferenceAudio = true
+	}
+	if err := c.ValidateConditioning(req); err != nil {
+		return ConditioningValidation{Valid: false, Request: req, Error: err.Error()}
+	}
+	return ConditioningValidation{Valid: true, Request: req}
 }

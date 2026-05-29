@@ -12,15 +12,16 @@ import (
 )
 
 type report struct {
-	ModelDir         string                          `json:"model_dir"`
-	Label            string                          `json:"label"`
-	Config           qwen3tts.ParsedConfig           `json:"config"`
-	TensorCoverage   *qwen3tts.TensorCoverage        `json:"tensor_coverage,omitempty"`
-	TensorShapes     *qwen3tts.TensorShapeSummary    `json:"tensor_shapes,omitempty"`
-	ShapeValidation  *qwen3tts.TensorShapeValidation `json:"shape_validation,omitempty"`
-	RuntimePlan      qwen3tts.RuntimePlan            `json:"runtime_plan"`
-	Capabilities     qwen3tts.Capabilities           `json:"capabilities"`
-	CustomVoiceProbe *customVoicePrefixSummary       `json:"custom_voice_prefix,omitempty"`
+	ModelDir               string                           `json:"model_dir"`
+	Label                  string                           `json:"label"`
+	Config                 qwen3tts.ParsedConfig            `json:"config"`
+	TensorCoverage         *qwen3tts.TensorCoverage         `json:"tensor_coverage,omitempty"`
+	TensorShapes           *qwen3tts.TensorShapeSummary     `json:"tensor_shapes,omitempty"`
+	ShapeValidation        *qwen3tts.TensorShapeValidation  `json:"shape_validation,omitempty"`
+	RuntimePlan            qwen3tts.RuntimePlan             `json:"runtime_plan"`
+	Capabilities           qwen3tts.Capabilities            `json:"capabilities"`
+	ConditioningValidation *qwen3tts.ConditioningValidation `json:"conditioning_validation,omitempty"`
+	CustomVoiceProbe       *customVoicePrefixSummary        `json:"custom_voice_prefix,omitempty"`
 }
 
 type customVoicePrefixSummary struct {
@@ -40,7 +41,9 @@ func main() {
 	langName := flag.String("language", "en", "language for prefix probe")
 	firstTextID := flag.Uint("first-text-id", 0, "optional first token ID for CustomVoice prefix probe")
 	promptText := flag.String("text", "", "optional text to tokenize and build a CustomVoice prompt from tokenizer files in -model")
-	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness or shape validation fails")
+	referenceAudio := flag.String("reference-audio", "", "optional reference audio path marker for Base conditioning validation")
+	voicePrompt := flag.String("voice-prompt", "", "optional VoiceDesign prompt for conditioning validation")
+	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness, shape validation, or requested conditioning validation fails")
 	flag.Parse()
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: qwen3ttsinspect -model <dir> [-safetensors path] [-json]")
@@ -71,32 +74,49 @@ func main() {
 		shapeValidation := qwen3tts.ValidateTensorShapes(cfg, infos)
 		out.ShapeValidation = &shapeValidation
 	}
-	if *firstTextID != 0 || *promptText != "" {
+	var parsedSpeaker qwen3tts.Speaker
+	var hasSpeaker bool
+	if *speakerName != "" {
 		speaker, err := qwen3tts.ParseSpeaker(*speakerName)
 		if err != nil {
 			fatal(err)
 		}
-		lang, err := qwen3tts.ParseLanguage(*langName)
-		if err != nil {
-			fatal(err)
+		parsedSpeaker = speaker
+		hasSpeaker = true
+	}
+	lang, err := qwen3tts.ParseLanguage(*langName)
+	if err != nil {
+		fatal(err)
+	}
+	if *firstTextID != 0 || *promptText != "" {
+		if !hasSpeaker {
+			fatal(fmt.Errorf("CustomVoice prompt probe requires -speaker"))
 		}
 		if *promptText != "" {
 			tok, err := qwen3tts.LoadTokenizer(*modelDir)
 			if err != nil {
 				fatal(err)
 			}
-			prompt, err := qwen3tts.BuildCustomVoicePrompt(tok, *promptText, speaker, lang)
+			prompt, err := qwen3tts.BuildCustomVoicePrompt(tok, *promptText, parsedSpeaker, lang)
 			if err != nil {
 				fatal(err)
 			}
-			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: speaker, Language: lang, FirstTextID: prompt.Text[qwen3tts.CustomVoiceFirstTextIndex], TextStream: prompt.Text, CodecStream: prompt.Codec, PrefillLength: len(prompt.Text)}
+			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: parsedSpeaker, Language: lang, FirstTextID: prompt.Text[qwen3tts.CustomVoiceFirstTextIndex], TextStream: prompt.Text, CodecStream: prompt.Codec, PrefillLength: len(prompt.Text)}
 		} else {
-			text, codec, err := qwen3tts.CustomVoicePrefixIDs(uint32(*firstTextID), speaker, lang)
+			text, codec, err := qwen3tts.CustomVoicePrefixIDs(uint32(*firstTextID), parsedSpeaker, lang)
 			if err != nil {
 				fatal(err)
 			}
-			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: speaker, Language: lang, FirstTextID: uint32(*firstTextID), TextStream: text, CodecStream: codec, PrefillLength: len(text)}
+			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: parsedSpeaker, Language: lang, FirstTextID: uint32(*firstTextID), TextStream: text, CodecStream: codec, PrefillLength: len(text)}
 		}
+	}
+	if *referenceAudio != "" || *voicePrompt != "" || *firstTextID != 0 || *promptText != "" {
+		req := qwen3tts.ConditioningRequest{Language: lang, ReferenceAudio: *referenceAudio, VoicePrompt: *voicePrompt}
+		if hasSpeaker && (*firstTextID != 0 || *promptText != "" || cfg.ModelType == qwen3tts.CustomVoice) {
+			req.Speaker = parsedSpeaker
+		}
+		validation := cfg.CheckConditioning(req)
+		out.ConditioningValidation = &validation
 	}
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
@@ -180,6 +200,9 @@ func reportValid(r report) bool {
 		return false
 	}
 	if r.ShapeValidation != nil && !r.ShapeValidation.Valid {
+		return false
+	}
+	if r.ConditioningValidation != nil && !r.ConditioningValidation.Valid {
 		return false
 	}
 	return true

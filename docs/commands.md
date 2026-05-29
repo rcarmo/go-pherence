@@ -163,11 +163,13 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
 Useful flags:
 
 - `-json` — emit the full machine-readable report.
-- `-strict` — exit non-zero when safetensors are present and tensor readiness or shape validation fails.
+- `-strict` — exit non-zero when safetensors are present and tensor readiness or shape validation fails, or when requested conditioning validation fails.
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 - `-text TEXT` — load tokenizer files from `-model`, tokenize `TEXT`, and build the deterministic CustomVoice text/codec control streams.
 - `-first-text-id ID` — build only the fixed CustomVoice prefix around a known first tokenizer ID.
 - `-speaker NAME` / `-language CODE` — select CustomVoice control tokens for the prompt probe.
+- `-reference-audio PATH` — mark Base/reference-audio conditioning as present for capability validation.
+- `-voice-prompt TEXT` — provide VoiceDesign conditioning text for capability validation.
 
 The report includes variant/size, talker dimensions, code-predictor dimensions, tensor group readiness, runtime KV sizing, 12Hz decoder code-frame assumptions, speaker encoder presence, and optional tokenized CustomVoice streams. It does not synthesize audio yet; reference fixtures and CPU Talker/CodePredictor/Decoder parity are the next steps.
 

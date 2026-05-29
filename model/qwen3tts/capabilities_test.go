@@ -49,6 +49,18 @@ func TestValidateConditioning(t *testing.T) {
 	}
 }
 
+func TestCheckConditioningIncludesRequestAndError(t *testing.T) {
+	base := ParsedConfig{ModelType: Base}
+	bad := base.CheckConditioning(ConditioningRequest{Language: English})
+	if bad.Valid || bad.Error == "" {
+		t.Fatalf("bad=%+v", bad)
+	}
+	good := base.CheckConditioning(ConditioningRequest{Language: English, ReferenceAudio: "voice.wav"})
+	if !good.Valid || !good.Request.HasReferenceAudio {
+		t.Fatalf("good=%+v", good)
+	}
+}
+
 func TestAllSpeakerLanguageIDs(t *testing.T) {
 	for _, lang := range AllLanguages() {
 		if _, err := lang.TokenID(); err != nil {
