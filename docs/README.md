@@ -36,6 +36,7 @@ This directory contains the durable backend, model, validation, and research not
 ## Model/research notes
 
 - [supported-models.md](supported-models.md) — supported architectures, formats, and performance snapshot.
+- [model-coverage-status.md](model-coverage-status.md) — compact Qwen3-TTS and LFM2 coverage status, validation commands, and remaining runtime gaps.
 - [hunyuan3d-2-support.md](hunyuan3d-2-support.md) — Hunyuan3D-2 feasibility assessment and staged implementation plan.
 - [qwen3-tts-support.md](qwen3-tts-support.md) — Qwen3-TTS repository mapping, roadmap, and implementation guidance.
 - [lfm2-moe-support.md](lfm2-moe-support.md) — LFM2.5-8B-A1B hybrid conv/attention MoE support roadmap.
