@@ -12,13 +12,14 @@ import (
 )
 
 type report struct {
-	ModelDir        string                   `json:"model_dir"`
-	Config          lfm2.Config              `json:"config"`
-	ConvLayers      int                      `json:"conv_layers"`
-	AttentionLayers int                      `json:"attention_layers"`
-	TensorCoverage  *lfm2.TensorCoverage     `json:"tensor_coverage,omitempty"`
-	TensorShapes    *lfm2.TensorShapeSummary `json:"tensor_shapes,omitempty"`
-	RuntimePlan     lfm2.RuntimePlan         `json:"runtime_plan"`
+	ModelDir        string                      `json:"model_dir"`
+	Config          lfm2.Config                 `json:"config"`
+	ConvLayers      int                         `json:"conv_layers"`
+	AttentionLayers int                         `json:"attention_layers"`
+	TensorCoverage  *lfm2.TensorCoverage        `json:"tensor_coverage,omitempty"`
+	TensorShapes    *lfm2.TensorShapeSummary    `json:"tensor_shapes,omitempty"`
+	ShapeValidation *lfm2.TensorShapeValidation `json:"shape_validation,omitempty"`
+	RuntimePlan     lfm2.RuntimePlan            `json:"runtime_plan"`
 }
 
 func main() {
@@ -48,6 +49,8 @@ func main() {
 		out.TensorCoverage = &cov
 		shapes := lfm2.InspectTensorShapes(infos)
 		out.TensorShapes = &shapes
+		shapeValidation := lfm2.ValidateTensorShapes(cfg, infos)
+		out.ShapeValidation = &shapeValidation
 	}
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
@@ -111,7 +114,11 @@ func printText(r report) {
 	fmt.Printf("  runtime plan: conv_state_floats=%d kv_floats/token=%d attention_layers=%v\n", r.RuntimePlan.ConvStateFloats, r.RuntimePlan.KVFloatsPerToken, r.RuntimePlan.Schedule.FullAttentionIndices)
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
-		fmt.Printf("  tensors: total=%d embeddings=%d layers=%d router=%d experts=%d lm_head=%d other=%d ready=%v missing=%v\n", t.Total, t.Embedding, t.Layers, t.Router, t.Experts, t.LMHead, t.Other, t.Readiness.Ready, t.Readiness.MissingRequired)
+		shapeValid := true
+		if r.ShapeValidation != nil {
+			shapeValid = r.ShapeValidation.Valid
+		}
+		fmt.Printf("  tensors: total=%d embeddings=%d layers=%d router=%d experts=%d lm_head=%d other=%d ready=%v missing=%v shapes_valid=%v\n", t.Total, t.Embedding, t.Layers, t.Router, t.Experts, t.LMHead, t.Other, t.Readiness.Ready, t.Readiness.MissingRequired, shapeValid)
 	}
 }
 

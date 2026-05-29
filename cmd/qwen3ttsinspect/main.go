@@ -12,14 +12,15 @@ import (
 )
 
 type report struct {
-	ModelDir         string                       `json:"model_dir"`
-	Label            string                       `json:"label"`
-	Config           qwen3tts.ParsedConfig        `json:"config"`
-	TensorCoverage   *qwen3tts.TensorCoverage     `json:"tensor_coverage,omitempty"`
-	TensorShapes     *qwen3tts.TensorShapeSummary `json:"tensor_shapes,omitempty"`
-	RuntimePlan      qwen3tts.RuntimePlan         `json:"runtime_plan"`
-	Capabilities     qwen3tts.Capabilities        `json:"capabilities"`
-	CustomVoiceProbe *customVoicePrefixSummary    `json:"custom_voice_prefix,omitempty"`
+	ModelDir         string                          `json:"model_dir"`
+	Label            string                          `json:"label"`
+	Config           qwen3tts.ParsedConfig           `json:"config"`
+	TensorCoverage   *qwen3tts.TensorCoverage        `json:"tensor_coverage,omitempty"`
+	TensorShapes     *qwen3tts.TensorShapeSummary    `json:"tensor_shapes,omitempty"`
+	ShapeValidation  *qwen3tts.TensorShapeValidation `json:"shape_validation,omitempty"`
+	RuntimePlan      qwen3tts.RuntimePlan            `json:"runtime_plan"`
+	Capabilities     qwen3tts.Capabilities           `json:"capabilities"`
+	CustomVoiceProbe *customVoicePrefixSummary       `json:"custom_voice_prefix,omitempty"`
 }
 
 type customVoicePrefixSummary struct {
@@ -66,6 +67,8 @@ func main() {
 		out.TensorCoverage = &cov
 		shapes := qwen3tts.InspectTensorShapes(infos)
 		out.TensorShapes = &shapes
+		shapeValidation := qwen3tts.ValidateTensorShapes(cfg, infos)
+		out.ShapeValidation = &shapeValidation
 	}
 	if *firstTextID != 0 || *promptText != "" {
 		speaker, err := qwen3tts.ParseSpeaker(*speakerName)
@@ -156,7 +159,11 @@ func printText(r report) {
 	fmt.Printf("  runtime plan: talker_kv_floats/token=%d cp_kv_floats/token=%d decoder=%dHz/%d_codes\n", r.RuntimePlan.Talker.KVFloatsPerToken, r.RuntimePlan.CodePredictor.KVFloatsPerToken, r.RuntimePlan.Decoder12Hz.FrameRateHz, r.RuntimePlan.Decoder12Hz.CodeGroups)
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
-		fmt.Printf("  tensors: total=%d talker=%d code_predictor=%d speech_tokenizer=%d speaker_encoder=%d other=%d ready=%v missing=%v\n", t.Total, t.Talker, t.CodePredictor, t.SpeechTokenizer, t.SpeakerEncoder, t.Other, t.Readiness.Ready, t.Readiness.MissingRequired)
+		shapeValid := true
+		if r.ShapeValidation != nil {
+			shapeValid = r.ShapeValidation.Valid
+		}
+		fmt.Printf("  tensors: total=%d talker=%d code_predictor=%d speech_tokenizer=%d speaker_encoder=%d other=%d ready=%v missing=%v shapes_valid=%v\n", t.Total, t.Talker, t.CodePredictor, t.SpeechTokenizer, t.SpeakerEncoder, t.Other, t.Readiness.Ready, t.Readiness.MissingRequired, shapeValid)
 	}
 	if r.CustomVoiceProbe != nil {
 		p := r.CustomVoiceProbe
