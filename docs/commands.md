@@ -191,6 +191,22 @@ Useful flags:
 
 The report includes layer-pattern counts, MoE routing dimensions, conv cache settings, tensor group readiness, conv-state floats, and attention KV floats/token. It is metadata/reference scaffolding only; LFM convolution, attention, router, and expert execution remain future CPU parity work.
 
+## Model coverage validation
+
+Use the focused target below while Qwen3-TTS and LFM2 are still metadata/fixture/inspector work. It avoids unrelated experimental packages that currently fail whole-tree dry compiles.
+
+```bash
+make test-model-coverage
+```
+
+This runs tests and vet for:
+
+- `loader/safetensors`
+- `model/qwen3tts`
+- `model/lfm2`
+- `cmd/qwen3ttsinspect`
+- `cmd/lfm2inspect`
+
 ## `specbench` / `speccheck`
 
 ```bash
