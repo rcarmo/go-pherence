@@ -104,7 +104,7 @@ func printText(r report) {
 	fmt.Printf("  code predictor: hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d vocab=%d code_groups=%d\n", c.CPHiddenSize, c.CPNumHiddenLayers, c.CPNumAttentionHeads, c.CPNumKeyValueHeads, c.CPHeadDim, c.CPVocabSize, c.CPNumCodeGroups)
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
-		fmt.Printf("  tensors: total=%d talker=%d code_predictor=%d speech_tokenizer=%d speaker_encoder=%d other=%d\n", t.Total, t.Talker, t.CodePredictor, t.SpeechTokenizer, t.SpeakerEncoder, t.Other)
+		fmt.Printf("  tensors: total=%d talker=%d code_predictor=%d speech_tokenizer=%d speaker_encoder=%d other=%d ready=%v missing=%v\n", t.Total, t.Talker, t.CodePredictor, t.SpeechTokenizer, t.SpeakerEncoder, t.Other, t.Readiness.Ready, t.Readiness.MissingRequired)
 	}
 	if r.CustomVoiceProbe != nil {
 		p := r.CustomVoiceProbe

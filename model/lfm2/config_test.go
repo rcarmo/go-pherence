@@ -50,4 +50,26 @@ func TestTensorCoverage(t *testing.T) {
 	if cov.Embedding != 1 || cov.Layers != 1 || cov.Router != 1 || cov.Experts != 1 || cov.LMHead != 1 || cov.Other != 1 {
 		t.Fatalf("coverage=%+v", cov)
 	}
+	if !cov.Readiness.Ready {
+		t.Fatalf("readiness=%+v", cov.Readiness)
+	}
+	if !cov.Readiness.PresentOptional["lm_head"] {
+		t.Fatalf("optional readiness=%+v", cov.Readiness)
+	}
+}
+
+func TestTensorReadinessReportsMissingGroups(t *testing.T) {
+	ready := InspectTensorReadiness([]string{"model.embed_tokens.weight", "model.layers.0.conv.weight"})
+	if ready.Ready {
+		t.Fatal("expected incomplete tensor readiness")
+	}
+	want := []string{"experts", "router"}
+	if len(ready.MissingRequired) != len(want) {
+		t.Fatalf("missing=%v", ready.MissingRequired)
+	}
+	for i := range want {
+		if ready.MissingRequired[i] != want[i] {
+			t.Fatalf("missing=%v", ready.MissingRequired)
+		}
+	}
 }

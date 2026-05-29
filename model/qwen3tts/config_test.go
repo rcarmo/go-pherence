@@ -102,6 +102,28 @@ func TestTensorCoverage(t *testing.T) {
 	if cov.Talker != 1 || cov.CodePredictor != 1 || cov.SpeechTokenizer != 1 || cov.SpeakerEncoder != 1 || cov.Other != 1 {
 		t.Fatalf("coverage=%+v", cov)
 	}
+	if !cov.Readiness.Ready {
+		t.Fatalf("readiness=%+v", cov.Readiness)
+	}
+	if !cov.Readiness.PresentOptional["speaker_encoder"] {
+		t.Fatalf("optional readiness=%+v", cov.Readiness)
+	}
+}
+
+func TestTensorReadinessReportsMissingGroups(t *testing.T) {
+	ready := InspectTensorReadiness([]string{"talker.model.layers.0.weight"})
+	if ready.Ready {
+		t.Fatal("expected incomplete tensor readiness")
+	}
+	want := []string{"code_predictor", "speech_tokenizer"}
+	if len(ready.MissingRequired) != len(want) {
+		t.Fatalf("missing=%v", ready.MissingRequired)
+	}
+	for i := range want {
+		if ready.MissingRequired[i] != want[i] {
+			t.Fatalf("missing=%v", ready.MissingRequired)
+		}
+	}
 }
 
 func eq(a, b []uint32) bool {

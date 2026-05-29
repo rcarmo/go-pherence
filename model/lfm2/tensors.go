@@ -5,6 +5,17 @@ import (
 	"strings"
 )
 
+var requiredTensorMarkers = map[string][]string{
+	"embedding": {"embed_tokens", "embedding"},
+	"layers":    {"layers"},
+	"router":    {"router", "gate"},
+	"experts":   {"experts"},
+}
+
+var optionalTensorMarkers = map[string][]string{
+	"lm_head": {"lm_head"},
+}
+
 type TensorCoverage struct {
 	Total     int               `json:"total"`
 	Embedding int               `json:"embedding"`
@@ -14,6 +25,14 @@ type TensorCoverage struct {
 	LMHead    int               `json:"lm_head"`
 	Other     int               `json:"other"`
 	Examples  map[string]string `json:"examples,omitempty"`
+	Readiness TensorReadiness   `json:"readiness"`
+}
+
+type TensorReadiness struct {
+	Ready           bool            `json:"ready"`
+	PresentRequired map[string]bool `json:"present_required"`
+	MissingRequired []string        `json:"missing_required,omitempty"`
+	PresentOptional map[string]bool `json:"present_optional,omitempty"`
 }
 
 func InspectTensorNames(names []string) TensorCoverage {
@@ -43,7 +62,38 @@ func InspectTensorNames(names []string) TensorCoverage {
 	if len(cov.Examples) == 0 {
 		cov.Examples = nil
 	}
+	cov.Readiness = InspectTensorReadiness(sorted)
 	return cov
+}
+
+func InspectTensorReadiness(names []string) TensorReadiness {
+	presentRequired := make(map[string]bool, len(requiredTensorMarkers))
+	var missing []string
+	for group, markers := range requiredTensorMarkers {
+		present := anyTensorMarker(names, markers)
+		presentRequired[group] = present
+		if !present {
+			missing = append(missing, group)
+		}
+	}
+	sort.Strings(missing)
+	presentOptional := make(map[string]bool, len(optionalTensorMarkers))
+	for group, markers := range optionalTensorMarkers {
+		presentOptional[group] = anyTensorMarker(names, markers)
+	}
+	return TensorReadiness{Ready: len(missing) == 0, PresentRequired: presentRequired, MissingRequired: missing, PresentOptional: presentOptional}
+}
+
+func anyTensorMarker(names, markers []string) bool {
+	for _, name := range names {
+		s := strings.ToLower(name)
+		for _, marker := range markers {
+			if strings.Contains(s, marker) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func TensorGroup(name string) string {

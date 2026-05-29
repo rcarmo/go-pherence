@@ -77,7 +77,7 @@ func printText(r report) {
 	fmt.Printf("  conv: L_cache=%d bias=%v rope_theta=%g\n", c.ConvLCache, c.ConvBias, c.RoPE.Theta)
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
-		fmt.Printf("  tensors: total=%d embeddings=%d layers=%d router=%d experts=%d lm_head=%d other=%d\n", t.Total, t.Embedding, t.Layers, t.Router, t.Experts, t.LMHead, t.Other)
+		fmt.Printf("  tensors: total=%d embeddings=%d layers=%d router=%d experts=%d lm_head=%d other=%d ready=%v missing=%v\n", t.Total, t.Embedding, t.Layers, t.Router, t.Experts, t.LMHead, t.Other, t.Readiness.Ready, t.Readiness.MissingRequired)
 	}
 }
 
