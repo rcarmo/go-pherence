@@ -104,7 +104,7 @@ Acceptance:
 ### Phase L1 — Reference fixtures
 
 - [ ] Capture a small Transformers reference for tokenization, first-token logits, one conv layer output, one attention layer output, router top-k, and one MoE expert output.
-- [ ] Add tiny JSON/NPY summaries under `testdata/` rather than model payloads.
+- [x] Add tiny metadata JSON fixture under `testdata/` rather than model payloads; numeric parity summaries still pending.
 
 Acceptance:
 

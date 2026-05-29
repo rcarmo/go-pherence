@@ -128,8 +128,8 @@ Goal: make the work measurable before implementing inference.
   - code predictor dimensions;
   - speech tokenizer/decoder tensor groups;
   - speaker encoder presence.
-- [ ] Add a fixture generator or reference-run notes against `qwen3-tts-rs` for:
-  - tokenized prompt/prefix IDs;
+- [ ] Add reference-run values against `qwen3-tts-rs` for:
+  - [x] tokenized prompt/prefix IDs fixture schema and deterministic CustomVoice prompt fixture;
   - one talker prefill hidden/logit checksum;
   - first semantic token for a fixed seed;
   - one code-predictor acoustic frame;

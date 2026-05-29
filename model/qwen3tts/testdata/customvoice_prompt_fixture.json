@@ -1,0 +1,12 @@
+{
+  "name": "customvoice_0b6_ryan_english_hello_world_prompt",
+  "variant": "custom_voice",
+  "model_size": "0b6",
+  "text": "Hello world",
+  "speaker": "ryan",
+  "language": "en",
+  "prompt": {
+    "text": [151644, 77091, 198, 151671, 151671, 151671, 151671, 151671, 151672, 9707, 1879],
+    "codec": [2154, 2156, 2050, 2157, 3061, 2148, 2149]
+  }
+}
