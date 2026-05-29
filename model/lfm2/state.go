@@ -6,22 +6,27 @@ import "fmt"
 // implemented. It makes the conv/full-attention/MoE split explicit and keeps
 // cache accounting testable without model weights.
 type RuntimePlan struct {
-	HiddenSize          int `json:"hidden_size"`
-	HeadDim             int `json:"head_dim"`
-	Layers              int `json:"layers"`
-	ConvLayers          int `json:"conv_layers"`
-	FullAttentionLayers int `json:"full_attention_layers"`
-	KVHeads             int `json:"kv_heads"`
-	ConvLCache          int `json:"conv_l_cache"`
-	ConvStateFloats     int `json:"conv_state_floats"`
-	KVFloatsPerToken    int `json:"kv_floats_per_token"`
-	Experts             int `json:"experts"`
-	ExpertsPerToken     int `json:"experts_per_token"`
-	MoEIntermediate     int `json:"moe_intermediate"`
+	HiddenSize          int           `json:"hidden_size"`
+	HeadDim             int           `json:"head_dim"`
+	Layers              int           `json:"layers"`
+	ConvLayers          int           `json:"conv_layers"`
+	FullAttentionLayers int           `json:"full_attention_layers"`
+	KVHeads             int           `json:"kv_heads"`
+	ConvLCache          int           `json:"conv_l_cache"`
+	ConvStateFloats     int           `json:"conv_state_floats"`
+	KVFloatsPerToken    int           `json:"kv_floats_per_token"`
+	Experts             int           `json:"experts"`
+	ExpertsPerToken     int           `json:"experts_per_token"`
+	MoEIntermediate     int           `json:"moe_intermediate"`
+	Schedule            LayerSchedule `json:"schedule"`
 }
 
 func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 	if err := cfg.Validate(); err != nil {
+		return RuntimePlan{}, err
+	}
+	schedule, err := NewLayerSchedule(cfg)
+	if err != nil {
 		return RuntimePlan{}, err
 	}
 	plan := RuntimePlan{
@@ -37,6 +42,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		Experts:             cfg.NumExperts,
 		ExpertsPerToken:     cfg.NumExpertsPerTok,
 		MoEIntermediate:     cfg.MoEIntermediateSize,
+		Schedule:            schedule,
 	}
 	if err := plan.Validate(); err != nil {
 		return RuntimePlan{}, err
@@ -60,6 +66,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.Experts <= 0 || p.ExpertsPerToken <= 0 || p.ExpertsPerToken > p.Experts || p.MoEIntermediate <= 0 {
 		return fmt.Errorf("invalid LFM2 MoE plan: %+v", p)
+	}
+	if len(p.Schedule.Steps) > 0 {
+		if err := p.Schedule.Validate(p.Layers); err != nil {
+			return err
+		}
 	}
 	return nil
 }
