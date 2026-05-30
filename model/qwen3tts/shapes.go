@@ -18,6 +18,7 @@ type RuntimePlan struct {
 	CPAttentionLayout       AttentionLayout         `json:"code_predictor_attention_layout"`
 	TalkerFFNLayout         FFNLayout               `json:"talker_ffn_layout"`
 	CPFFNLayout             FFNLayout               `json:"code_predictor_ffn_layout"`
+	EmbeddingLayout         EmbeddingLayout         `json:"embedding_layout"`
 	Pipeline                PipelinePlan            `json:"pipeline"`
 }
 
@@ -83,6 +84,10 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	embeddingLayout, err := NewEmbeddingLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		Talker: TransformerPlan{
 			HiddenSize:       cfg.TalkerHiddenSize,
@@ -114,6 +119,7 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 		CPAttentionLayout:       cpAttentionLayout,
 		TalkerFFNLayout:         talkerFFNLayout,
 		CPFFNLayout:             cpFFNLayout,
+		EmbeddingLayout:         embeddingLayout,
 		Pipeline:                pipeline,
 	}
 	if err := plan.Validate(); err != nil {
@@ -172,6 +178,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.CPFFNLayout.HiddenSize > 0 {
 		if err := p.CPFFNLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.EmbeddingLayout.TalkerHiddenSize > 0 {
+		if err := p.EmbeddingLayout.Validate(); err != nil {
 			return err
 		}
 	}
