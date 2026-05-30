@@ -14,6 +14,8 @@ type RuntimePlan struct {
 	CodePredictorHeadLayout CodePredictorHeadLayout `json:"code_predictor_head_layout"`
 	WaveformLayout          WaveformLayout          `json:"waveform_layout"`
 	SpeakerEncoderLayout    SpeakerEncoderLayout    `json:"speaker_encoder_layout"`
+	TalkerAttentionLayout   AttentionLayout         `json:"talker_attention_layout"`
+	CPAttentionLayout       AttentionLayout         `json:"code_predictor_attention_layout"`
 	Pipeline                PipelinePlan            `json:"pipeline"`
 }
 
@@ -63,6 +65,14 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	talkerAttentionLayout, err := NewTalkerAttentionLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	cpAttentionLayout, err := NewCodePredictorAttentionLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		Talker: TransformerPlan{
 			HiddenSize:       cfg.TalkerHiddenSize,
@@ -90,6 +100,8 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 		CodePredictorHeadLayout: headLayout,
 		WaveformLayout:          waveformLayout,
 		SpeakerEncoderLayout:    speakerEncoderLayout,
+		TalkerAttentionLayout:   talkerAttentionLayout,
+		CPAttentionLayout:       cpAttentionLayout,
 		Pipeline:                pipeline,
 	}
 	if err := plan.Validate(); err != nil {
@@ -130,6 +142,16 @@ func (p RuntimePlan) Validate() error {
 	}
 	if err := p.SpeakerEncoderLayout.Validate(); err != nil {
 		return err
+	}
+	if p.TalkerAttentionLayout.HiddenSize > 0 {
+		if err := p.TalkerAttentionLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.CPAttentionLayout.HiddenSize > 0 {
+		if err := p.CPAttentionLayout.Validate(); err != nil {
+			return err
+		}
 	}
 	if len(p.Pipeline.Steps) > 0 {
 		if err := p.Pipeline.Validate(); err != nil {
