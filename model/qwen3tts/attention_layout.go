@@ -78,6 +78,24 @@ func (l AttentionLayout) Validate() error {
 	return nil
 }
 
+func (l AttentionLayout) KVFloatsPerToken() (int, error) {
+	if err := l.Validate(); err != nil {
+		return 0, err
+	}
+	return 2 * l.Layers * l.KVHeads * l.HeadDim, nil
+}
+
+func (l AttentionLayout) KVBytes(maxSeq int, bytesPerFloat int) (int64, error) {
+	floats, err := l.KVFloatsPerToken()
+	if err != nil {
+		return 0, err
+	}
+	if maxSeq < 0 || bytesPerFloat <= 0 {
+		return 0, fmt.Errorf("invalid Qwen3-TTS %s KV sizing arguments: max_seq=%d bytes_per_float=%d", l.Name, maxSeq, bytesPerFloat)
+	}
+	return int64(maxSeq) * int64(floats) * int64(bytesPerFloat), nil
+}
+
 func (l AttentionLayout) ValidatePosition(pos int) error {
 	if err := l.Validate(); err != nil {
 		return err

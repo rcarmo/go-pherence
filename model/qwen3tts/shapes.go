@@ -97,6 +97,14 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	talkerKVFloats, err := talkerAttentionLayout.KVFloatsPerToken()
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	cpKVFloats, err := cpAttentionLayout.KVFloatsPerToken()
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		Talker: TransformerPlan{
 			HiddenSize:       cfg.TalkerHiddenSize,
@@ -106,7 +114,7 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 			KVHeads:          cfg.TalkerNumKeyValueHeads,
 			HeadDim:          cfg.TalkerHeadDim,
 			VocabSize:        cfg.TalkerVocabSize,
-			KVFloatsPerToken: 2 * cfg.TalkerNumHiddenLayers * cfg.TalkerNumKeyValueHeads * cfg.TalkerHeadDim,
+			KVFloatsPerToken: talkerKVFloats,
 		},
 		CodePredictor: TransformerPlan{
 			HiddenSize:       cfg.CPHiddenSize,
@@ -116,7 +124,7 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 			KVHeads:          cfg.CPNumKeyValueHeads,
 			HeadDim:          cfg.CPHeadDim,
 			VocabSize:        cfg.CPVocabSize,
-			KVFloatsPerToken: 2 * cfg.CPNumHiddenLayers * cfg.CPNumKeyValueHeads * cfg.CPHeadDim,
+			KVFloatsPerToken: cpKVFloats,
 		},
 		Decoder12Hz:             decoderPlan,
 		SemanticTokenLayout:     semanticLayout,
@@ -189,10 +197,24 @@ func (p RuntimePlan) Validate() error {
 		if err := p.TalkerAttentionLayout.Validate(); err != nil {
 			return err
 		}
+		kvFloats, err := p.TalkerAttentionLayout.KVFloatsPerToken()
+		if err != nil {
+			return err
+		}
+		if p.Talker.KVFloatsPerToken != kvFloats {
+			return fmt.Errorf("Qwen3-TTS talker KV plan/layout mismatch: plan=%d layout=%d", p.Talker.KVFloatsPerToken, kvFloats)
+		}
 	}
 	if p.CPAttentionLayout.HiddenSize > 0 {
 		if err := p.CPAttentionLayout.Validate(); err != nil {
 			return err
+		}
+		kvFloats, err := p.CPAttentionLayout.KVFloatsPerToken()
+		if err != nil {
+			return err
+		}
+		if p.CodePredictor.KVFloatsPerToken != kvFloats {
+			return fmt.Errorf("Qwen3-TTS code predictor KV plan/layout mismatch: plan=%d layout=%d", p.CodePredictor.KVFloatsPerToken, kvFloats)
 		}
 	}
 	if p.TalkerFFNLayout.HiddenSize > 0 {

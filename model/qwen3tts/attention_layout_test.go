@@ -40,6 +40,20 @@ func TestAttentionLayouts(t *testing.T) {
 	if err := talker.ValidatePosition(32768); err == nil {
 		t.Fatal("expected max position error")
 	}
+	kvFloats, err := talker.KVFloatsPerToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kvFloats != 28672 {
+		t.Fatalf("talker kv floats=%d", kvFloats)
+	}
+	kvBytes, err := talker.KVBytes(2, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kvBytes != 114688 {
+		t.Fatalf("talker kv bytes=%d", kvBytes)
+	}
 	cp, err := NewCodePredictorAttentionLayout(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +63,13 @@ func TestAttentionLayouts(t *testing.T) {
 	}
 	if err := cp.ValidatePosition(1_000_000); err != nil {
 		t.Fatal(err)
+	}
+	cpKVFloats, err := cp.KVFloatsPerToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cpKVFloats != 5120 {
+		t.Fatalf("cp kv floats=%d", cpKVFloats)
 	}
 }
 
@@ -68,5 +89,8 @@ func TestAttentionLayoutRejectsMalformed(t *testing.T) {
 	bad = AttentionLayout{Name: "talker", HiddenSize: 1024, Layers: 1, Heads: 16, KVHeads: 8, HeadDim: 64, QueriesPerKV: 2, RoPETheta: 1, RMSNormEps: 1e-6}
 	if err := bad.ValidatePosition(-1); err == nil {
 		t.Fatal("expected negative position error")
+	}
+	if _, err := bad.KVBytes(-1, 2); err == nil {
+		t.Fatal("expected KV sizing error")
 	}
 }
