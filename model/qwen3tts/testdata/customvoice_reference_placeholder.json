@@ -1,0 +1,30 @@
+{
+  "name": "customvoice_0b6_ryan_english_hello_world_reference_placeholder",
+  "variant": "custom_voice",
+  "model_size": "0b6",
+  "text": "Hello world",
+  "speaker": "ryan",
+  "language": "en",
+  "prompt": {
+    "text": [151644, 77091, 198, 151671, 151671, 151671, 151671, 151671, 151672, 9707, 1879],
+    "codec": [2154, 2156, 2050, 2157, 3061, 2148, 2149]
+  },
+  "talker": {
+    "first_semantic_token": 0,
+    "logit_checksum": "pending-qwen3-tts-rs",
+    "hidden_checksum": "pending-qwen3-tts-rs",
+    "max_abs_diff": 0
+  },
+  "code_predictor": {
+    "acoustic_frame": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "logit_checksum": "pending-qwen3-tts-rs",
+    "max_abs_diff": 0
+  },
+  "decoder12hz": {
+    "sample_rate": 24000,
+    "samples": 2000,
+    "duration_s": 0.08333333333333333,
+    "sha256": "pending-qwen3-tts-rs",
+    "rms": 0
+  }
+}

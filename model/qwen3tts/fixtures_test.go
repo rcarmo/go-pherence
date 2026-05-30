@@ -29,6 +29,20 @@ func TestLoadReferenceFixture(t *testing.T) {
 	}
 }
 
+func TestLoadReferencePlaceholderFixture(t *testing.T) {
+	fx, err := LoadReferenceFixture(filepath.Join("testdata", "customvoice_reference_placeholder.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cov := fx.Coverage()
+	if !cov.CompleteRuntimeTrace || !cov.SemanticToken || !cov.AcousticFrame || !cov.DecodedWAVSummary {
+		t.Fatalf("coverage=%+v", cov)
+	}
+	if fx.Talker.LogitChecksum != "pending-qwen3-tts-rs" || fx.Decoder12Hz.SHA256 != "pending-qwen3-tts-rs" {
+		t.Fatalf("placeholder checksums not preserved: %+v", fx)
+	}
+}
+
 func TestReferenceFixtureCoverageComplete(t *testing.T) {
 	fx := ReferenceFixture{
 		Name:          "complete",

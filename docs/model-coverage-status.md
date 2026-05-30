@@ -64,7 +64,7 @@ Implemented package/command surface:
 - `model/qwen3tts/decoder_input.go` — acoustic-codebook tensor contract passed into Decoder12Hz.
 - `model/qwen3tts/waveform.go` — Decoder12Hz mono 24kHz waveform/WAV sizing contract.
 - `model/qwen3tts/shapes.go` — Talker, CodePredictor, and 12Hz decoder runtime sizing plan.
-- `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema plus reference-coverage tracking.
+- `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema, complete-reference placeholder fixture, and reference-coverage tracking.
 - `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/tokenized-prompt/reference-coverage inspector.
 - `make qwen3tts-fixture-coverage` — shortcut for fixture/reference coverage reports.
 
@@ -88,7 +88,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
 
 Remaining coverage before runtime implementation:
 
-- Capture qwen3-tts-rs reference values for first semantic token, one acoustic frame, and a short decoded WAV summary.
+- Replace `model/qwen3tts/testdata/customvoice_reference_placeholder.json` pending values with qwen3-tts-rs reference values for first semantic token, one acoustic frame, and a short decoded WAV summary.
 - Add fixture summaries for Base and VoiceDesign conditioning once their prompt/reference inputs are confirmed.
 
 Runtime work still pending:
