@@ -15,6 +15,7 @@
         "tokenizer_loading": true,
         "customvoice_prompt_builder": true,
         "prefill_layout": true,
+        "talker_input_layout": true,
         "capability_validation": true,
         "speaker_language_compatibility": true,
         "conditioning_cli_validation": true,

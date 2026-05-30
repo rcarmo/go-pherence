@@ -45,6 +45,7 @@ Implemented package/command surface:
 - `model/qwen3tts/tokens.go` — ChatML, TTS, codec, language, and speaker constants.
 - `model/qwen3tts/prompt.go` — tokenizer loading plus tokenized CustomVoice prompt builder.
 - `model/qwen3tts/prefill.go` — Talker prefill stream/embedding sizing contract.
+- `model/qwen3tts/talker_input.go` — text projection plus codec-control embedding fusion layout.
 - `model/qwen3tts/capabilities.go` — Base, CustomVoice, and VoiceDesign conditioning contracts.
 - `model/qwen3tts/speaker_language.go` — CustomVoice speaker/native-language compatibility metadata.
 - `model/qwen3tts/tensors.go` — tensor group readiness.
