@@ -18,9 +18,18 @@ func ValidateTensorShapes(cfg ParsedConfig, infos map[string]safetensors.TensorI
 		shape := info.Shape
 		lower := strings.ToLower(name)
 		switch {
-		case strings.Contains(lower, "talker") && strings.Contains(lower, "q_proj"):
+		case strings.Contains(lower, "talker") && (strings.Contains(lower, "q_proj") || strings.Contains(lower, "o_proj")):
 			if !matrixMatches(shape, cfg.TalkerHiddenSize, cfg.TalkerHiddenSize) {
 				v.add(fmt.Sprintf("%s shape=%v want matrix using talker hidden=%d", name, shape, cfg.TalkerHiddenSize))
+			}
+		case strings.Contains(lower, "talker") && (strings.Contains(lower, "k_proj") || strings.Contains(lower, "v_proj")):
+			kvWidth := cfg.TalkerNumKeyValueHeads * cfg.TalkerHeadDim
+			if kvWidth > 0 && !matrixMatches(shape, cfg.TalkerHiddenSize, kvWidth) {
+				v.add(fmt.Sprintf("%s shape=%v want matrix using talker hidden=%d and kv_width=%d", name, shape, cfg.TalkerHiddenSize, kvWidth))
+			}
+		case strings.Contains(lower, "talker") && (strings.Contains(lower, "gate_proj") || strings.Contains(lower, "up_proj") || strings.Contains(lower, "down_proj")):
+			if !matrixMatches(shape, cfg.TalkerHiddenSize, cfg.TalkerIntermediateSize) {
+				v.add(fmt.Sprintf("%s shape=%v want matrix using talker hidden=%d and intermediate=%d", name, shape, cfg.TalkerHiddenSize, cfg.TalkerIntermediateSize))
 			}
 		case strings.Contains(lower, "text_projection"):
 			if len(shape) != 2 || !containsDim(shape, cfg.TalkerTextHiddenSize) || !containsDim(shape, cfg.TalkerHiddenSize) {
@@ -30,9 +39,18 @@ func ValidateTensorShapes(cfg ParsedConfig, infos map[string]safetensors.TensorI
 			if len(shape) != 2 || shape[1] != cfg.CPHiddenSize {
 				v.add(fmt.Sprintf("%s shape=%v want [*,%d]", name, shape, cfg.CPHiddenSize))
 			}
-		case strings.Contains(lower, "code_predictor") && strings.Contains(lower, "q_proj"):
+		case strings.Contains(lower, "code_predictor") && (strings.Contains(lower, "q_proj") || strings.Contains(lower, "o_proj")):
 			if !matrixMatches(shape, cfg.CPHiddenSize, cfg.CPHiddenSize) {
 				v.add(fmt.Sprintf("%s shape=%v want matrix using code predictor hidden=%d", name, shape, cfg.CPHiddenSize))
+			}
+		case strings.Contains(lower, "code_predictor") && (strings.Contains(lower, "k_proj") || strings.Contains(lower, "v_proj")):
+			kvWidth := cfg.CPNumKeyValueHeads * cfg.CPHeadDim
+			if kvWidth > 0 && !matrixMatches(shape, cfg.CPHiddenSize, kvWidth) {
+				v.add(fmt.Sprintf("%s shape=%v want matrix using code predictor hidden=%d and kv_width=%d", name, shape, cfg.CPHiddenSize, kvWidth))
+			}
+		case strings.Contains(lower, "code_predictor") && (strings.Contains(lower, "gate_proj") || strings.Contains(lower, "up_proj") || strings.Contains(lower, "down_proj")):
+			if !matrixMatches(shape, cfg.CPHiddenSize, cfg.CPIntermediateSize) {
+				v.add(fmt.Sprintf("%s shape=%v want matrix using code predictor hidden=%d and intermediate=%d", name, shape, cfg.CPHiddenSize, cfg.CPIntermediateSize))
 			}
 		case strings.Contains(lower, "codec_head"):
 			if len(shape) != 2 || !containsDim(shape, cfg.TalkerHiddenSize) || !containsDim(shape, cfg.TalkerVocabSize) {
