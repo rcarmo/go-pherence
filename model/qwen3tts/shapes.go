@@ -221,9 +221,15 @@ func (p RuntimePlan) Validate() error {
 		if err := p.TalkerFFNLayout.Validate(); err != nil {
 			return err
 		}
+		if err := p.Talker.MatchesFFNLayout(p.TalkerFFNLayout); err != nil {
+			return err
+		}
 	}
 	if p.CPFFNLayout.HiddenSize > 0 {
 		if err := p.CPFFNLayout.Validate(); err != nil {
+			return err
+		}
+		if err := p.CodePredictor.MatchesFFNLayout(p.CPFFNLayout); err != nil {
 			return err
 		}
 	}
@@ -250,6 +256,16 @@ func (p TransformerPlan) Validate(label string) error {
 	wantKV := 2 * p.Layers * p.KVHeads * p.HeadDim
 	if p.KVFloatsPerToken != wantKV {
 		return fmt.Errorf("invalid Qwen3-TTS %s KV floats/token=%d want=%d", label, p.KVFloatsPerToken, wantKV)
+	}
+	return nil
+}
+
+func (p TransformerPlan) MatchesFFNLayout(layout FFNLayout) error {
+	if err := layout.Validate(); err != nil {
+		return err
+	}
+	if p.HiddenSize != layout.HiddenSize || p.IntermediateSize != layout.IntermediateSize || p.Layers != layout.Layers {
+		return fmt.Errorf("Qwen3-TTS %s transformer/FFN layout mismatch: transformer=%+v ffn=%+v", layout.Name, p, layout)
 	}
 	return nil
 }
