@@ -22,6 +22,7 @@ type report struct {
 	Capabilities           qwen3tts.Capabilities            `json:"capabilities"`
 	ConditioningValidation *qwen3tts.ConditioningValidation `json:"conditioning_validation,omitempty"`
 	CustomVoiceProbe       *customVoicePrefixSummary        `json:"custom_voice_prefix,omitempty"`
+	ReferenceCoverage      *qwen3tts.ReferenceCoverage      `json:"reference_coverage,omitempty"`
 }
 
 type customVoicePrefixSummary struct {
@@ -38,6 +39,7 @@ func main() {
 	modelDir := flag.String("model", "", "Qwen3-TTS model directory containing config.json")
 	safetensorPath := flag.String("safetensors", "", "optional safetensors path; defaults to model.safetensors or sharded index in -model")
 	jsonOut := flag.Bool("json", false, "emit JSON report")
+	fixturePath := flag.String("fixture", "", "optional Qwen3-TTS reference fixture path for coverage reporting")
 	speakerName := flag.String("speaker", "ryan", "CustomVoice speaker for prefix probe")
 	langName := flag.String("language", "en", "language for prefix probe")
 	firstTextID := flag.Uint("first-text-id", 0, "optional first token ID for CustomVoice prefix probe")
@@ -63,6 +65,14 @@ func main() {
 		fatal(err)
 	}
 	out := report{ModelDir: *modelDir, Label: cfg.Label(), Config: cfg, RuntimePlan: plan, Capabilities: caps}
+	if *fixturePath != "" {
+		fixture, err := qwen3tts.LoadReferenceFixture(*fixturePath)
+		if err != nil {
+			fatal(err)
+		}
+		coverage := fixture.Coverage()
+		out.ReferenceCoverage = &coverage
+	}
 	if infos, err := safetensorInfos(*modelDir, *safetensorPath); err == nil {
 		names := make([]string, 0, len(infos))
 		for name := range infos {
@@ -190,6 +200,9 @@ func printText(r report) {
 	fmt.Printf("  talker: hidden=%d layers=%d heads=%d kv_heads=%d q_per_kv=%d head_dim=%d text_hidden=%d text_vocab=%d codec_vocab=%d rope_theta=%g max_pos=%d mrope=%v\n", c.TalkerHiddenSize, c.TalkerNumHiddenLayers, c.TalkerNumAttentionHeads, c.TalkerNumKeyValueHeads, r.RuntimePlan.TalkerAttentionLayout.QueriesPerKV, c.TalkerHeadDim, c.TalkerTextHiddenSize, c.TalkerTextVocabSize, c.TalkerVocabSize, r.RuntimePlan.TalkerAttentionLayout.RoPETheta, r.RuntimePlan.TalkerAttentionLayout.MaxPositionEmbeddings, c.HasMRoPESection)
 	fmt.Printf("  code predictor: hidden=%d layers=%d heads=%d kv_heads=%d q_per_kv=%d head_dim=%d vocab=%d code_groups=%d acoustic_heads=%d rope_theta=%g\n", c.CPHiddenSize, c.CPNumHiddenLayers, c.CPNumAttentionHeads, c.CPNumKeyValueHeads, r.RuntimePlan.CPAttentionLayout.QueriesPerKV, c.CPHeadDim, c.CPVocabSize, c.CPNumCodeGroups, r.RuntimePlan.CodePredictorHeadLayout.Heads, r.RuntimePlan.CPAttentionLayout.RoPETheta)
 	fmt.Printf("  runtime plan: talker_kv_floats/token=%d cp_kv_floats/token=%d talker_ffn_floats/layer=%d cp_ffn_floats/layer=%d embedding_bridge_floats=%d decoder=%dHz/%d_codes decoder_groups=%d-%d waveform=%dHz/%dspf pipeline=%d_stages\n", r.RuntimePlan.Talker.KVFloatsPerToken, r.RuntimePlan.CodePredictor.KVFloatsPerToken, r.RuntimePlan.TalkerFFNLayout.FloatsPerLayer, r.RuntimePlan.CPFFNLayout.FloatsPerLayer, r.RuntimePlan.EmbeddingLayout.TotalBridgeFloats, r.RuntimePlan.Decoder12Hz.FrameRateHz, r.RuntimePlan.Decoder12Hz.CodeGroups, r.RuntimePlan.DecoderInputLayout.FirstCodeGroup, r.RuntimePlan.DecoderInputLayout.LastCodeGroup, r.RuntimePlan.WaveformLayout.SampleRateHz, r.RuntimePlan.WaveformLayout.SamplesPerFrame, len(r.RuntimePlan.Pipeline.Steps))
+	if r.ReferenceCoverage != nil {
+		fmt.Printf("  references: complete=%v missing=%v\n", r.ReferenceCoverage.CompleteRuntimeTrace, r.ReferenceCoverage.Missing)
+	}
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
 		shapeValid := true

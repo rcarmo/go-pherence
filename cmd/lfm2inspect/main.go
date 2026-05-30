@@ -12,20 +12,22 @@ import (
 )
 
 type report struct {
-	ModelDir        string                      `json:"model_dir"`
-	Config          lfm2.Config                 `json:"config"`
-	ConvLayers      int                         `json:"conv_layers"`
-	AttentionLayers int                         `json:"attention_layers"`
-	TensorCoverage  *lfm2.TensorCoverage        `json:"tensor_coverage,omitempty"`
-	TensorShapes    *lfm2.TensorShapeSummary    `json:"tensor_shapes,omitempty"`
-	ShapeValidation *lfm2.TensorShapeValidation `json:"shape_validation,omitempty"`
-	RuntimePlan     lfm2.RuntimePlan            `json:"runtime_plan"`
+	ModelDir          string                      `json:"model_dir"`
+	Config            lfm2.Config                 `json:"config"`
+	ConvLayers        int                         `json:"conv_layers"`
+	AttentionLayers   int                         `json:"attention_layers"`
+	TensorCoverage    *lfm2.TensorCoverage        `json:"tensor_coverage,omitempty"`
+	TensorShapes      *lfm2.TensorShapeSummary    `json:"tensor_shapes,omitempty"`
+	ShapeValidation   *lfm2.TensorShapeValidation `json:"shape_validation,omitempty"`
+	RuntimePlan       lfm2.RuntimePlan            `json:"runtime_plan"`
+	ReferenceCoverage *lfm2.ReferenceCoverage     `json:"reference_coverage,omitempty"`
 }
 
 func main() {
 	modelDir := flag.String("model", "", "LFM2 model directory containing config.json")
 	safetensorPath := flag.String("safetensors", "", "optional safetensors path; defaults to model.safetensors or sharded index in -model")
 	jsonOut := flag.Bool("json", false, "emit JSON report")
+	fixturePath := flag.String("fixture", "", "optional LFM2 reference metadata/fixture path for coverage reporting")
 	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness or shape validation fails")
 	flag.Parse()
 	if *modelDir == "" {
@@ -41,6 +43,14 @@ func main() {
 		fatal(err)
 	}
 	out := report{ModelDir: *modelDir, Config: cfg, ConvLayers: cfg.ConvLayerCount(), AttentionLayers: cfg.FullAttentionLayerCount(), RuntimePlan: plan}
+	if *fixturePath != "" {
+		fixture, err := lfm2.LoadReferenceMetadata(*fixturePath)
+		if err != nil {
+			fatal(err)
+		}
+		coverage := fixture.Coverage()
+		out.ReferenceCoverage = &coverage
+	}
 	if infos, err := safetensorInfos(*modelDir, *safetensorPath); err == nil {
 		names := make([]string, 0, len(infos))
 		for name := range infos {
@@ -116,6 +126,9 @@ func printText(r report) {
 	fmt.Printf("  moe: experts=%d active=%d intermediate=%d dense_layers=%d routed_layers=%d expert_params=%d router_floats/layer=%d norm_topk=%v expert_bias=%v routed_scale=%g\n", c.NumExperts, c.NumExpertsPerTok, c.MoEIntermediateSize, c.NumDenseLayers, r.RuntimePlan.Routing.MoELayers, r.RuntimePlan.FFNLayout.ExpertParamsPerExpert, r.RuntimePlan.RouterLayout.FloatsPerLayer, c.NormTopKProb, c.UseExpertBias, c.RoutedScalingFactor)
 	fmt.Printf("  conv: L_cache=%d bias=%v rope_theta=%g rope_layers=%d norm_eps=%g state_floats/layer=%d kernel_floats/layer=%d\n", c.ConvLCache, c.ConvBias, c.RoPE.Theta, r.RuntimePlan.RoPELayout.FullAttentionLayers, r.RuntimePlan.NormLayout.Epsilon, r.RuntimePlan.ConvStateLayout.FloatsPerLayer, r.RuntimePlan.ConvProjLayout.KernelFloats)
 	fmt.Printf("  runtime plan: conv_state_floats=%d kv_floats/token=%d attention_layers=%v attention_kv_floats/token=%d attention_proj_floats/layer=%d dense_layers=%v moe_layers=%d embedding_floats=%d lm_head_floats=%d\n", r.RuntimePlan.ConvStateFloats, r.RuntimePlan.KVFloatsPerToken, r.RuntimePlan.Schedule.FullAttentionIndices, r.RuntimePlan.AttentionKVLayout.FloatsPerToken, r.RuntimePlan.AttentionProjLayout.TotalFloatsPerLayer, r.RuntimePlan.Execution.DenseIndices, len(r.RuntimePlan.Execution.MoEIndices), r.RuntimePlan.EmbeddingLayout.EmbeddingFloats, r.RuntimePlan.EmbeddingLayout.LMHeadFloats)
+	if r.ReferenceCoverage != nil {
+		fmt.Printf("  references: complete=%v missing=%v\n", r.ReferenceCoverage.CompleteRuntimeTrace, r.ReferenceCoverage.Missing)
+	}
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
 		shapeValid := true
