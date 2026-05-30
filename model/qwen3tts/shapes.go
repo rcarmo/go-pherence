@@ -237,6 +237,12 @@ func (p RuntimePlan) Validate() error {
 		if err := p.EmbeddingLayout.Validate(); err != nil {
 			return err
 		}
+		if p.Talker.HiddenSize != p.EmbeddingLayout.TalkerHiddenSize || p.Talker.VocabSize != p.EmbeddingLayout.TalkerCodecVocabSize {
+			return fmt.Errorf("Qwen3-TTS talker embedding layout mismatch: talker=%+v embedding=%+v", p.Talker, p.EmbeddingLayout)
+		}
+		if p.CodePredictor.HiddenSize != p.EmbeddingLayout.CodePredictorHiddenSize || p.CodePredictor.VocabSize != p.EmbeddingLayout.CodePredictorVocabSize {
+			return fmt.Errorf("Qwen3-TTS code predictor embedding layout mismatch: code_predictor=%+v embedding=%+v", p.CodePredictor, p.EmbeddingLayout)
+		}
 	}
 	if len(p.Pipeline.Steps) > 0 {
 		if err := p.Pipeline.Validate(); err != nil {
