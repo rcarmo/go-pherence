@@ -64,6 +64,8 @@
         "execution_role_plan": true,
         "routing_plan": true,
         "ffn_layout": true,
+        "norm_layout": true,
+        "embedding_layout": true,
         "conv_state_layout": true,
         "attention_kv_layout": true,
         "context_layout": true,

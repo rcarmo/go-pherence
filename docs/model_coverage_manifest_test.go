@@ -84,6 +84,8 @@ func TestModelCoverageManifest(t *testing.T) {
 		"execution_role_plan":     "../model/lfm2/execution.go",
 		"routing_plan":            "../model/lfm2/routing.go",
 		"ffn_layout":              "../model/lfm2/ffn_layout.go",
+		"norm_layout":             "../model/lfm2/norm.go",
+		"embedding_layout":        "../model/lfm2/embedding_layout.go",
 		"conv_state_layout":       "../model/lfm2/conv_state.go",
 		"attention_kv_layout":     "../model/lfm2/attention_kv.go",
 		"context_layout":          "../model/lfm2/context.go",

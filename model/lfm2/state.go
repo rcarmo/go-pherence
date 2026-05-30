@@ -26,6 +26,8 @@ type RuntimePlan struct {
 	ContextLayout       ContextLayout     `json:"context_layout"`
 	RoPELayout          RoPELayout        `json:"rope_layout"`
 	FFNLayout           FFNLayout         `json:"ffn_layout"`
+	NormLayout          NormLayout        `json:"norm_layout"`
+	EmbeddingLayout     EmbeddingLayout   `json:"embedding_layout"`
 }
 
 func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
@@ -64,6 +66,14 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	normLayout, err := NewNormLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	embeddingLayout, err := NewEmbeddingLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		HiddenSize:          cfg.HiddenSize,
 		HeadDim:             cfg.HeadDim,
@@ -85,6 +95,8 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		ContextLayout:       contextLayout,
 		RoPELayout:          ropeLayout,
 		FFNLayout:           ffnLayout,
+		NormLayout:          normLayout,
+		EmbeddingLayout:     embeddingLayout,
 	}
 	if err := plan.Validate(); err != nil {
 		return RuntimePlan{}, err
@@ -146,6 +158,16 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.FFNLayout.HiddenSize > 0 {
 		if err := p.FFNLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.NormLayout.HiddenSize > 0 {
+		if err := p.NormLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.EmbeddingLayout.HiddenSize > 0 {
+		if err := p.EmbeddingLayout.Validate(); err != nil {
 			return err
 		}
 	}
