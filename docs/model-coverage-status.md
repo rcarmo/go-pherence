@@ -105,7 +105,7 @@ Implemented package/command surface:
 - `model/lfm2/config.go` — strict `lfm2_moe` config parsing and validation.
 - `model/lfm2/tensors.go` — tensor group readiness.
 - `model/lfm2/tensor_shapes.go` — safetensors dtype/shape summaries.
-- `model/lfm2/tensor_shape_validation.go` — config-aware shape sanity checks.
+- `model/lfm2/tensor_shape_validation.go` — config-aware embedding, router, conv-kernel, attention-projection, expert, and LM-head shape sanity checks.
 - `model/lfm2/schedule.go` — explicit conv/full-attention layer schedule.
 - `model/lfm2/execution.go` — per-layer dense-vs-routed-MoE execution role plan.
 - `model/lfm2/routing.go` — expert count, active top-k, normalization, bias, and routed-scaling contract.
