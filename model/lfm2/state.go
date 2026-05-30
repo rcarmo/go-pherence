@@ -203,6 +203,9 @@ func (p RuntimePlan) Validate() error {
 		if err := p.RoPELayout.Validate(); err != nil {
 			return err
 		}
+		if p.RoPELayout.MaxPositionEmbeddings != p.ContextLayout.MaxPositionEmbeddings || p.RoPELayout.FullAttentionLayers != p.FullAttentionLayers {
+			return fmt.Errorf("LFM2 RoPE/context plan mismatch: rope=%+v context=%+v attention_layers=%d", p.RoPELayout, p.ContextLayout, p.FullAttentionLayers)
+		}
 	}
 	if p.FFNLayout.HiddenSize > 0 {
 		if err := p.FFNLayout.Validate(); err != nil {
@@ -220,6 +223,9 @@ func (p RuntimePlan) Validate() error {
 	if p.EmbeddingLayout.HiddenSize > 0 {
 		if err := p.EmbeddingLayout.Validate(); err != nil {
 			return err
+		}
+		if p.EmbeddingLayout.HiddenSize != p.HiddenSize || p.EmbeddingLayout.VocabSize != p.ContextLayout.VocabSize || p.EmbeddingLayout.TieWordEmbeddings != p.ContextLayout.TieWordEmbeddings {
+			return fmt.Errorf("LFM2 embedding/context plan mismatch: hidden=%d embedding=%+v context=%+v", p.HiddenSize, p.EmbeddingLayout, p.ContextLayout)
 		}
 	}
 	return nil

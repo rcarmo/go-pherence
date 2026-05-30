@@ -104,6 +104,32 @@ func TestRuntimePlanAppliesScheduleExecutionContracts(t *testing.T) {
 	}
 }
 
+func TestRuntimePlanAppliesContextEmbeddingContracts(t *testing.T) {
+	meta, err := LoadReferenceMetadata(filepath.Join("testdata", "lfm25_8b_a1b_metadata.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewRuntimePlan(meta.Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.EmbeddingLayout.VocabSize != plan.ContextLayout.VocabSize || plan.EmbeddingLayout.HiddenSize != plan.HiddenSize || plan.EmbeddingLayout.TieWordEmbeddings != plan.ContextLayout.TieWordEmbeddings {
+		t.Fatalf("embedding/context contract not applied: hidden=%d embedding=%+v context=%+v", plan.HiddenSize, plan.EmbeddingLayout, plan.ContextLayout)
+	}
+	if plan.RoPELayout.MaxPositionEmbeddings != plan.ContextLayout.MaxPositionEmbeddings || plan.RoPELayout.FullAttentionLayers != plan.FullAttentionLayers {
+		t.Fatalf("rope/context contract not applied: rope=%+v context=%+v attention=%d", plan.RoPELayout, plan.ContextLayout, plan.FullAttentionLayers)
+	}
+	plan.EmbeddingLayout.VocabSize++
+	if err := plan.Validate(); err == nil {
+		t.Fatal("expected embedding/context vocab mismatch")
+	}
+	plan.EmbeddingLayout.VocabSize = plan.ContextLayout.VocabSize
+	plan.RoPELayout.MaxPositionEmbeddings++
+	if err := plan.Validate(); err == nil {
+		t.Fatal("expected RoPE/context max position mismatch")
+	}
+}
+
 func TestRuntimePlanAppliesMoELayoutContracts(t *testing.T) {
 	meta, err := LoadReferenceMetadata(filepath.Join("testdata", "lfm25_8b_a1b_metadata.json"))
 	if err != nil {
