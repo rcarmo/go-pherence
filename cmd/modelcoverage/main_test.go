@@ -12,7 +12,7 @@ func TestSummarizeManifest(t *testing.T) {
 		"b": {Status: "two", ValidationTarget: "make test", Coverage: map[string]bool{"done": true, "todo": false}},
 		"a": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"done": true}},
 	}}
-	s, err := summarize(m, "")
+	s, err := summarize(m, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,15 +22,28 @@ func TestSummarizeManifest(t *testing.T) {
 	if s[1].Covered != 1 || s[1].Pending != 1 || len(s[1].PendingKeys) != 1 || s[1].PendingKeys[0] != "todo" {
 		t.Fatalf("summary=%+v", s[1])
 	}
-	filtered, err := summarize(m, "b")
+	filtered, err := summarize(m, "b", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(filtered) != 1 || filtered[0].Name != "b" {
 		t.Fatalf("filtered=%+v", filtered)
 	}
-	if _, err := summarize(m, "missing"); err == nil {
+	if _, err := summarize(m, "missing", false); err == nil {
 		t.Fatal("expected unknown family error")
+	}
+}
+
+func TestSummarizeReferencesOnly(t *testing.T) {
+	m := manifest{Version: 1, Families: map[string]manifestFamily{
+		"x": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"config_parsing": true, "reference_coverage_reporting": true, "semantic_token_reference_fixture": false, "fixture_coverage_make_target": true}},
+	}}
+	s, err := summarize(m, "x", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 1 || s[0].Covered != 2 || s[0].Pending != 1 || len(s[0].PendingKeys) != 1 || s[0].PendingKeys[0] != "semantic_token_reference_fixture" {
+		t.Fatalf("summary=%+v", s)
 	}
 }
 
