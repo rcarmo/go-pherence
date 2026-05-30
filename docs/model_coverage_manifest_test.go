@@ -82,20 +82,21 @@ func TestModelCoverageManifest(t *testing.T) {
 		t.Fatalf("unexpected lfm2_moe coverage: %+v", lfm2)
 	}
 	for key, path := range map[string]string{
-		"layer_schedule":          "../model/lfm2/schedule.go",
-		"execution_role_plan":     "../model/lfm2/execution.go",
-		"routing_plan":            "../model/lfm2/routing.go",
-		"ffn_layout":              "../model/lfm2/ffn_layout.go",
-		"norm_layout":             "../model/lfm2/norm.go",
-		"embedding_layout":        "../model/lfm2/embedding_layout.go",
-		"conv_state_layout":       "../model/lfm2/conv_state.go",
-		"attention_kv_layout":     "../model/lfm2/attention_kv.go",
-		"context_layout":          "../model/lfm2/context.go",
-		"rope_layout":             "../model/lfm2/rope.go",
-		"runtime_state_sizing":    "../model/lfm2/state.go",
-		"tensor_shape_validation": "../model/lfm2/tensor_shape_validation.go",
-		"strict_inspector_mode":   "../cmd/lfm2inspect/main.go",
-		"metadata_fixture":        "../model/lfm2/testdata/lfm25_8b_a1b_metadata.json",
+		"layer_schedule":              "../model/lfm2/schedule.go",
+		"execution_role_plan":         "../model/lfm2/execution.go",
+		"routing_plan":                "../model/lfm2/routing.go",
+		"ffn_layout":                  "../model/lfm2/ffn_layout.go",
+		"norm_layout":                 "../model/lfm2/norm.go",
+		"embedding_layout":            "../model/lfm2/embedding_layout.go",
+		"conv_state_layout":           "../model/lfm2/conv_state.go",
+		"attention_kv_layout":         "../model/lfm2/attention_kv.go",
+		"attention_projection_layout": "../model/lfm2/attention_projection.go",
+		"context_layout":              "../model/lfm2/context.go",
+		"rope_layout":                 "../model/lfm2/rope.go",
+		"runtime_state_sizing":        "../model/lfm2/state.go",
+		"tensor_shape_validation":     "../model/lfm2/tensor_shape_validation.go",
+		"strict_inspector_mode":       "../cmd/lfm2inspect/main.go",
+		"metadata_fixture":            "../model/lfm2/testdata/lfm25_8b_a1b_metadata.json",
 	} {
 		assertCoverageFile(t, "lfm2_moe", lfm2, key, path)
 	}

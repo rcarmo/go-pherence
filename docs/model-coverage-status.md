@@ -110,6 +110,7 @@ Implemented package/command surface:
 - `model/lfm2/embedding_layout.go` — token embedding, tied/untied LM-head, and byte sizing contract.
 - `model/lfm2/conv_state.go` — per-conv-layer cache layout and byte sizing contract.
 - `model/lfm2/attention_kv.go` — full-attention layer KV-cache layout and byte sizing contract.
+- `model/lfm2/attention_projection.go` — full-attention Q/K/V/O projection and GQA sizing contract.
 - `model/lfm2/context.go` — vocabulary, max-context, tied-embedding, and RoPE context contract.
 - `model/lfm2/rope.go` — RoPE theta/head-dim/full-attention position contract.
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.

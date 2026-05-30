@@ -70,6 +70,7 @@
         "embedding_layout": true,
         "conv_state_layout": true,
         "attention_kv_layout": true,
+        "attention_projection_layout": true,
         "context_layout": true,
         "rope_layout": true,
         "runtime_state_sizing": true,

@@ -6,28 +6,29 @@ import "fmt"
 // implemented. It makes the conv/full-attention/MoE split explicit and keeps
 // cache accounting testable without model weights.
 type RuntimePlan struct {
-	HiddenSize          int               `json:"hidden_size"`
-	HeadDim             int               `json:"head_dim"`
-	Layers              int               `json:"layers"`
-	ConvLayers          int               `json:"conv_layers"`
-	FullAttentionLayers int               `json:"full_attention_layers"`
-	KVHeads             int               `json:"kv_heads"`
-	ConvLCache          int               `json:"conv_l_cache"`
-	ConvStateFloats     int               `json:"conv_state_floats"`
-	KVFloatsPerToken    int               `json:"kv_floats_per_token"`
-	Experts             int               `json:"experts"`
-	ExpertsPerToken     int               `json:"experts_per_token"`
-	MoEIntermediate     int               `json:"moe_intermediate"`
-	Schedule            LayerSchedule     `json:"schedule"`
-	Execution           ExecutionPlan     `json:"execution"`
-	Routing             RoutingPlan       `json:"routing"`
-	ConvStateLayout     ConvStateLayout   `json:"conv_state_layout"`
-	AttentionKVLayout   AttentionKVLayout `json:"attention_kv_layout"`
-	ContextLayout       ContextLayout     `json:"context_layout"`
-	RoPELayout          RoPELayout        `json:"rope_layout"`
-	FFNLayout           FFNLayout         `json:"ffn_layout"`
-	NormLayout          NormLayout        `json:"norm_layout"`
-	EmbeddingLayout     EmbeddingLayout   `json:"embedding_layout"`
+	HiddenSize          int                       `json:"hidden_size"`
+	HeadDim             int                       `json:"head_dim"`
+	Layers              int                       `json:"layers"`
+	ConvLayers          int                       `json:"conv_layers"`
+	FullAttentionLayers int                       `json:"full_attention_layers"`
+	KVHeads             int                       `json:"kv_heads"`
+	ConvLCache          int                       `json:"conv_l_cache"`
+	ConvStateFloats     int                       `json:"conv_state_floats"`
+	KVFloatsPerToken    int                       `json:"kv_floats_per_token"`
+	Experts             int                       `json:"experts"`
+	ExpertsPerToken     int                       `json:"experts_per_token"`
+	MoEIntermediate     int                       `json:"moe_intermediate"`
+	Schedule            LayerSchedule             `json:"schedule"`
+	Execution           ExecutionPlan             `json:"execution"`
+	Routing             RoutingPlan               `json:"routing"`
+	ConvStateLayout     ConvStateLayout           `json:"conv_state_layout"`
+	AttentionKVLayout   AttentionKVLayout         `json:"attention_kv_layout"`
+	AttentionProjLayout AttentionProjectionLayout `json:"attention_projection_layout"`
+	ContextLayout       ContextLayout             `json:"context_layout"`
+	RoPELayout          RoPELayout                `json:"rope_layout"`
+	FFNLayout           FFNLayout                 `json:"ffn_layout"`
+	NormLayout          NormLayout                `json:"norm_layout"`
+	EmbeddingLayout     EmbeddingLayout           `json:"embedding_layout"`
 }
 
 func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
@@ -51,6 +52,10 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		return RuntimePlan{}, err
 	}
 	attentionKVLayout, err := NewAttentionKVLayout(cfg, schedule)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	attentionProjLayout, err := NewAttentionProjectionLayout(cfg, schedule)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
@@ -92,6 +97,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		Routing:             routing,
 		ConvStateLayout:     convStateLayout,
 		AttentionKVLayout:   attentionKVLayout,
+		AttentionProjLayout: attentionProjLayout,
 		ContextLayout:       contextLayout,
 		RoPELayout:          ropeLayout,
 		FFNLayout:           ffnLayout,
@@ -143,6 +149,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.AttentionKVLayout.Layers > 0 {
 		if err := p.AttentionKVLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.AttentionProjLayout.HiddenSize > 0 {
+		if err := p.AttentionProjLayout.Validate(); err != nil {
 			return err
 		}
 	}
