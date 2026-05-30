@@ -51,6 +51,7 @@ Implemented package/command surface:
 - `model/qwen3tts/pipeline.go` — conditioning → prompt prefill → Talker → CodePredictor → Decoder12Hz stage plan.
 - `model/qwen3tts/semantic.go` — Talker semantic token stream layout and range validation.
 - `model/qwen3tts/frame.go` — semantic-group plus 15-code acoustic frame layout validation.
+- `model/qwen3tts/waveform.go` — Decoder12Hz mono 24kHz waveform/WAV sizing contract.
 - `model/qwen3tts/shapes.go` — Talker, CodePredictor, and 12Hz decoder runtime sizing plan.
 - `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema.
 - `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/tokenized-prompt inspector.

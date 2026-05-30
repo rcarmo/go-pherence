@@ -63,6 +63,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"runtime_sizing_plan":        "../model/qwen3tts/shapes.go",
 		"semantic_token_layout":      "../model/qwen3tts/semantic.go",
 		"acoustic_frame_layout":      "../model/qwen3tts/frame.go",
+		"waveform_layout":            "../model/qwen3tts/waveform.go",
 		"tensor_shape_validation":    "../model/qwen3tts/tensor_shape_validation.go",
 		"strict_inspector_mode":      "../cmd/qwen3ttsinspect/main.go",
 		"prompt_fixture_scaffold":    "../model/qwen3tts/testdata/customvoice_prompt_fixture.json",

@@ -11,6 +11,7 @@ type RuntimePlan struct {
 	Decoder12Hz         DecoderPlan         `json:"decoder12hz"`
 	SemanticTokenLayout SemanticTokenLayout `json:"semantic_token_layout"`
 	AcousticFrameLayout AcousticFrameLayout `json:"acoustic_frame_layout"`
+	WaveformLayout      WaveformLayout      `json:"waveform_layout"`
 	Pipeline            PipelinePlan        `json:"pipeline"`
 }
 
@@ -48,6 +49,10 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	waveformLayout, err := NewWaveformLayout(DecoderPlan{FrameRateHz: 12, CodeGroups: cfg.CPNumCodeGroups - 1, CodesPerFrame: cfg.CPNumCodeGroups - 1, CodecVocab: cfg.CPVocabSize})
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		Talker: TransformerPlan{
 			HiddenSize:       cfg.TalkerHiddenSize,
@@ -72,6 +77,7 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 		Decoder12Hz:         DecoderPlan{FrameRateHz: 12, CodeGroups: cfg.CPNumCodeGroups - 1, CodesPerFrame: cfg.CPNumCodeGroups - 1, CodecVocab: cfg.CPVocabSize},
 		SemanticTokenLayout: semanticLayout,
 		AcousticFrameLayout: frameLayout,
+		WaveformLayout:      waveformLayout,
 		Pipeline:            pipeline,
 	}
 	if err := plan.Validate(); err != nil {
@@ -97,6 +103,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.AcousticFrameLayout.TotalCodeGroups > 0 {
 		if err := p.AcousticFrameLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.WaveformLayout.SampleRateHz > 0 {
+		if err := p.WaveformLayout.Validate(); err != nil {
 			return err
 		}
 	}

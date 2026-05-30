@@ -20,6 +20,7 @@
         "runtime_sizing_plan": true,
         "semantic_token_layout": true,
         "acoustic_frame_layout": true,
+        "waveform_layout": true,
         "tensor_group_readiness": true,
         "tensor_shape_summary": true,
         "tensor_shape_validation": true,
