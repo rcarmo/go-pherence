@@ -37,7 +37,7 @@ Whole-tree dry compiles are still useful, but currently fail in unrelated experi
 
 ## Qwen3-TTS
 
-Status: metadata, tokenizer/prompt, fixture scaffold, tensor readiness, shape validation, runtime sizing, and inspector coverage are implemented. Audio generation is not implemented.
+Status: metadata, tokenizer/prompt, fixture scaffold, reference-coverage reporting, tensor readiness, shape validation, runtime sizing, and inspector coverage are implemented. Audio generation is not implemented.
 
 Implemented package/command surface:
 
@@ -98,7 +98,7 @@ Runtime work still pending:
 
 ## LFM2.5-8B-A1B
 
-Status: metadata, tensor readiness, shape validation, layer schedule, runtime state sizing, fixture scaffold, download registration, and inspector coverage are implemented. Generation is not implemented.
+Status: metadata, tensor readiness, shape validation, layer schedule, runtime state sizing, fixture scaffold, reference-coverage reporting, download registration, and inspector coverage are implemented. Generation is not implemented.
 
 Implemented package/command surface:
 
