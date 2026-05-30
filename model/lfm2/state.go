@@ -6,21 +6,22 @@ import "fmt"
 // implemented. It makes the conv/full-attention/MoE split explicit and keeps
 // cache accounting testable without model weights.
 type RuntimePlan struct {
-	HiddenSize          int           `json:"hidden_size"`
-	HeadDim             int           `json:"head_dim"`
-	Layers              int           `json:"layers"`
-	ConvLayers          int           `json:"conv_layers"`
-	FullAttentionLayers int           `json:"full_attention_layers"`
-	KVHeads             int           `json:"kv_heads"`
-	ConvLCache          int           `json:"conv_l_cache"`
-	ConvStateFloats     int           `json:"conv_state_floats"`
-	KVFloatsPerToken    int           `json:"kv_floats_per_token"`
-	Experts             int           `json:"experts"`
-	ExpertsPerToken     int           `json:"experts_per_token"`
-	MoEIntermediate     int           `json:"moe_intermediate"`
-	Schedule            LayerSchedule `json:"schedule"`
-	Execution           ExecutionPlan `json:"execution"`
-	Routing             RoutingPlan   `json:"routing"`
+	HiddenSize          int             `json:"hidden_size"`
+	HeadDim             int             `json:"head_dim"`
+	Layers              int             `json:"layers"`
+	ConvLayers          int             `json:"conv_layers"`
+	FullAttentionLayers int             `json:"full_attention_layers"`
+	KVHeads             int             `json:"kv_heads"`
+	ConvLCache          int             `json:"conv_l_cache"`
+	ConvStateFloats     int             `json:"conv_state_floats"`
+	KVFloatsPerToken    int             `json:"kv_floats_per_token"`
+	Experts             int             `json:"experts"`
+	ExpertsPerToken     int             `json:"experts_per_token"`
+	MoEIntermediate     int             `json:"moe_intermediate"`
+	Schedule            LayerSchedule   `json:"schedule"`
+	Execution           ExecutionPlan   `json:"execution"`
+	Routing             RoutingPlan     `json:"routing"`
+	ConvStateLayout     ConvStateLayout `json:"conv_state_layout"`
 }
 
 func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
@@ -36,6 +37,10 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		return RuntimePlan{}, err
 	}
 	routing, err := NewRoutingPlan(cfg, execution)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	convStateLayout, err := NewConvStateLayout(cfg, schedule)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
@@ -55,6 +60,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		Schedule:            schedule,
 		Execution:           execution,
 		Routing:             routing,
+		ConvStateLayout:     convStateLayout,
 	}
 	if err := plan.Validate(); err != nil {
 		return RuntimePlan{}, err
@@ -91,6 +97,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.Routing.Experts > 0 {
 		if err := p.Routing.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.ConvStateLayout.Layers > 0 {
+		if err := p.ConvStateLayout.Validate(); err != nil {
 			return err
 		}
 	}

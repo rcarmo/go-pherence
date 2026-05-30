@@ -58,6 +58,7 @@
         "layer_schedule": true,
         "execution_role_plan": true,
         "routing_plan": true,
+        "conv_state_layout": true,
         "runtime_state_sizing": true,
         "strict_inspector_mode": true,
         "download_registry": true,

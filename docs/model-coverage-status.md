@@ -98,6 +98,7 @@ Implemented package/command surface:
 - `model/lfm2/schedule.go` — explicit conv/full-attention layer schedule.
 - `model/lfm2/execution.go` — per-layer dense-vs-routed-MoE execution role plan.
 - `model/lfm2/routing.go` — expert count, active top-k, normalization, bias, and routed-scaling contract.
+- `model/lfm2/conv_state.go` — per-conv-layer cache layout and byte sizing contract.
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.
 - `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture.
 - `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan inspector.
