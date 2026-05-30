@@ -70,6 +70,7 @@
         "norm_layout": true,
         "embedding_layout": true,
         "conv_state_layout": true,
+        "conv_projection_layout": true,
         "attention_kv_layout": true,
         "attention_projection_layout": true,
         "context_layout": true,

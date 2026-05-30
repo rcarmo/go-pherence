@@ -22,6 +22,7 @@ type RuntimePlan struct {
 	Execution           ExecutionPlan             `json:"execution"`
 	Routing             RoutingPlan               `json:"routing"`
 	ConvStateLayout     ConvStateLayout           `json:"conv_state_layout"`
+	ConvProjLayout      ConvProjectionLayout      `json:"conv_projection_layout"`
 	AttentionKVLayout   AttentionKVLayout         `json:"attention_kv_layout"`
 	AttentionProjLayout AttentionProjectionLayout `json:"attention_projection_layout"`
 	ContextLayout       ContextLayout             `json:"context_layout"`
@@ -48,6 +49,10 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		return RuntimePlan{}, err
 	}
 	convStateLayout, err := NewConvStateLayout(cfg, schedule)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	convProjLayout, err := NewConvProjectionLayout(cfg, schedule)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
@@ -96,6 +101,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		Execution:           execution,
 		Routing:             routing,
 		ConvStateLayout:     convStateLayout,
+		ConvProjLayout:      convProjLayout,
 		AttentionKVLayout:   attentionKVLayout,
 		AttentionProjLayout: attentionProjLayout,
 		ContextLayout:       contextLayout,
@@ -144,6 +150,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.ConvStateLayout.Layers > 0 {
 		if err := p.ConvStateLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.ConvProjLayout.HiddenSize > 0 {
+		if err := p.ConvProjLayout.Validate(); err != nil {
 			return err
 		}
 	}

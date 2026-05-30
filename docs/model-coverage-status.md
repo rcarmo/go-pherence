@@ -110,6 +110,7 @@ Implemented package/command surface:
 - `model/lfm2/norm.go` — RMSNorm epsilon, vector count, and scratch sizing contract.
 - `model/lfm2/embedding_layout.go` — token embedding, tied/untied LM-head, and byte sizing contract.
 - `model/lfm2/conv_state.go` — per-conv-layer cache layout and byte sizing contract.
+- `model/lfm2/conv_projection.go` — per-conv-layer short-convolution kernel/bias sizing contract.
 - `model/lfm2/attention_kv.go` — full-attention layer KV-cache layout and byte sizing contract.
 - `model/lfm2/attention_projection.go` — full-attention Q/K/V/O projection and GQA sizing contract.
 - `model/lfm2/context.go` — vocabulary, max-context, tied-embedding, and RoPE context contract.
