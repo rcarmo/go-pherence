@@ -25,12 +25,13 @@ type report struct {
 }
 
 type customVoicePrefixSummary struct {
-	Speaker       qwen3tts.Speaker  `json:"speaker"`
-	Language      qwen3tts.Language `json:"language"`
-	FirstTextID   uint32            `json:"first_text_id"`
-	TextStream    []uint32          `json:"text_stream"`
-	CodecStream   []uint32          `json:"codec_stream"`
-	PrefillLength int               `json:"prefill_length"`
+	Speaker       qwen3tts.Speaker             `json:"speaker"`
+	Language      qwen3tts.Language            `json:"language"`
+	FirstTextID   uint32                       `json:"first_text_id"`
+	TextStream    []uint32                     `json:"text_stream"`
+	CodecStream   []uint32                     `json:"codec_stream"`
+	PrefillLength int                          `json:"prefill_length"`
+	RuntimeLayout qwen3tts.PromptRuntimeLayout `json:"runtime_layout"`
 }
 
 func main() {
@@ -101,13 +102,21 @@ func main() {
 			if err != nil {
 				fatal(err)
 			}
-			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: parsedSpeaker, Language: lang, FirstTextID: prompt.Text[qwen3tts.CustomVoiceFirstTextIndex], TextStream: prompt.Text, CodecStream: prompt.Codec, PrefillLength: len(prompt.Text)}
+			runtimeLayout, err := qwen3tts.NewPromptRuntimeLayout(cfg, prompt)
+			if err != nil {
+				fatal(err)
+			}
+			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: parsedSpeaker, Language: lang, FirstTextID: prompt.Text[qwen3tts.CustomVoiceFirstTextIndex], TextStream: prompt.Text, CodecStream: prompt.Codec, PrefillLength: len(prompt.Text), RuntimeLayout: runtimeLayout}
 		} else {
 			text, codec, err := qwen3tts.CustomVoicePrefixIDs(uint32(*firstTextID), parsedSpeaker, lang)
 			if err != nil {
 				fatal(err)
 			}
-			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: parsedSpeaker, Language: lang, FirstTextID: uint32(*firstTextID), TextStream: text, CodecStream: codec, PrefillLength: len(text)}
+			runtimeLayout, err := qwen3tts.NewPromptRuntimeLayout(cfg, qwen3tts.PromptIDs{Text: text, Codec: codec})
+			if err != nil {
+				fatal(err)
+			}
+			out.CustomVoiceProbe = &customVoicePrefixSummary{Speaker: parsedSpeaker, Language: lang, FirstTextID: uint32(*firstTextID), TextStream: text, CodecStream: codec, PrefillLength: len(text), RuntimeLayout: runtimeLayout}
 		}
 	}
 	if *referenceAudio != "" || *voicePrompt != "" || *firstTextID != 0 || *promptText != "" {
@@ -191,7 +200,7 @@ func printText(r report) {
 	}
 	if r.CustomVoiceProbe != nil {
 		p := r.CustomVoiceProbe
-		fmt.Printf("  custom voice prefix: speaker=%s language=%s first_text_id=%d prefill_len=%d\n", p.Speaker, p.Language, p.FirstTextID, p.PrefillLength)
+		fmt.Printf("  custom voice prefix: speaker=%s language=%s first_text_id=%d prefill_len=%d fused_input_floats=%d\n", p.Speaker, p.Language, p.FirstTextID, p.PrefillLength, p.RuntimeLayout.TalkerInput.FusedInputFloats)
 	}
 }
 
