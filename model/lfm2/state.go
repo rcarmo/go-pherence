@@ -143,10 +143,16 @@ func (p RuntimePlan) Validate() error {
 		if err := p.Schedule.Validate(p.Layers); err != nil {
 			return err
 		}
+		if p.ConvLayers != len(p.Schedule.ConvIndices) || p.FullAttentionLayers != len(p.Schedule.FullAttentionIndices) {
+			return fmt.Errorf("LFM2 schedule plan/layout mismatch: conv=%d/%d attention=%d/%d", p.ConvLayers, len(p.Schedule.ConvIndices), p.FullAttentionLayers, len(p.Schedule.FullAttentionIndices))
+		}
 	}
 	if len(p.Execution.Steps) > 0 {
 		if err := p.Execution.Validate(p.Layers); err != nil {
 			return err
+		}
+		if p.FFNLayout.HiddenSize > 0 && (p.FFNLayout.DenseLayers != len(p.Execution.DenseIndices) || p.FFNLayout.MoELayers != len(p.Execution.MoEIndices)) {
+			return fmt.Errorf("LFM2 execution/FFN layout mismatch: dense=%d/%d moe=%d/%d", len(p.Execution.DenseIndices), p.FFNLayout.DenseLayers, len(p.Execution.MoEIndices), p.FFNLayout.MoELayers)
 		}
 	}
 	if p.Routing.Experts > 0 {

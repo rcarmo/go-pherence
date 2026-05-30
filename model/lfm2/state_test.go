@@ -78,6 +78,32 @@ func TestRuntimePlanAppliesStateLayoutContracts(t *testing.T) {
 	}
 }
 
+func TestRuntimePlanAppliesScheduleExecutionContracts(t *testing.T) {
+	meta, err := LoadReferenceMetadata(filepath.Join("testdata", "lfm25_8b_a1b_metadata.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewRuntimePlan(meta.Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.ConvLayers != len(plan.Schedule.ConvIndices) || plan.FullAttentionLayers != len(plan.Schedule.FullAttentionIndices) {
+		t.Fatalf("schedule contract not applied: plan=%+v schedule=%+v", plan, plan.Schedule)
+	}
+	if plan.FFNLayout.DenseLayers != len(plan.Execution.DenseIndices) || plan.FFNLayout.MoELayers != len(plan.Execution.MoEIndices) {
+		t.Fatalf("execution contract not applied: ffn=%+v execution=%+v", plan.FFNLayout, plan.Execution)
+	}
+	plan.ConvLayers++
+	if err := plan.Validate(); err == nil {
+		t.Fatal("expected schedule conv-layer mismatch")
+	}
+	plan.ConvLayers = len(plan.Schedule.ConvIndices)
+	plan.FFNLayout.MoELayers++
+	if err := plan.Validate(); err == nil {
+		t.Fatal("expected execution/FFN MoE-layer mismatch")
+	}
+}
+
 func TestRuntimePlanAppliesMoELayoutContracts(t *testing.T) {
 	meta, err := LoadReferenceMetadata(filepath.Join("testdata", "lfm25_8b_a1b_metadata.json"))
 	if err != nil {
