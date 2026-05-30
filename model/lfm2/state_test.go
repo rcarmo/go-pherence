@@ -77,3 +77,29 @@ func TestRuntimePlanAppliesStateLayoutContracts(t *testing.T) {
 		t.Fatal("expected attention KV layout mismatch")
 	}
 }
+
+func TestRuntimePlanAppliesMoELayoutContracts(t *testing.T) {
+	meta, err := LoadReferenceMetadata(filepath.Join("testdata", "lfm25_8b_a1b_metadata.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewRuntimePlan(meta.Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Experts != plan.RouterLayout.Experts || plan.ExpertsPerToken != plan.RouterLayout.ExpertsPerToken {
+		t.Fatalf("router contract not applied: plan experts=%d active=%d layout=%+v", plan.Experts, plan.ExpertsPerToken, plan.RouterLayout)
+	}
+	if plan.MoEIntermediate != plan.FFNLayout.MoEIntermediate || plan.Experts != plan.FFNLayout.Experts || plan.ExpertsPerToken != plan.FFNLayout.ExpertsPerToken {
+		t.Fatalf("FFN contract not applied: plan=%+v layout=%+v", plan, plan.FFNLayout)
+	}
+	plan.ExpertsPerToken++
+	if err := plan.Validate(); err == nil {
+		t.Fatal("expected router/FFN active expert mismatch")
+	}
+	plan.ExpertsPerToken = plan.RouterLayout.ExpertsPerToken
+	plan.MoEIntermediate++
+	if err := plan.Validate(); err == nil {
+		t.Fatal("expected FFN intermediate mismatch")
+	}
+}

@@ -158,6 +158,9 @@ func (p RuntimePlan) Validate() error {
 		if err := p.RouterLayout.Validate(); err != nil {
 			return err
 		}
+		if p.Experts != p.RouterLayout.Experts || p.ExpertsPerToken != p.RouterLayout.ExpertsPerToken {
+			return fmt.Errorf("LFM2 router plan/layout mismatch: experts=%d/%d active=%d/%d", p.Experts, p.RouterLayout.Experts, p.ExpertsPerToken, p.RouterLayout.ExpertsPerToken)
+		}
 	}
 	if p.ConvStateLayout.Layers > 0 {
 		if err := p.ConvStateLayout.Validate(); err != nil {
@@ -198,6 +201,9 @@ func (p RuntimePlan) Validate() error {
 	if p.FFNLayout.HiddenSize > 0 {
 		if err := p.FFNLayout.Validate(); err != nil {
 			return err
+		}
+		if p.HiddenSize != p.FFNLayout.HiddenSize || p.MoEIntermediate != p.FFNLayout.MoEIntermediate || p.Experts != p.FFNLayout.Experts || p.ExpertsPerToken != p.FFNLayout.ExpertsPerToken {
+			return fmt.Errorf("LFM2 FFN plan/layout mismatch: plan hidden=%d moe_intermediate=%d experts=%d active=%d layout=%+v", p.HiddenSize, p.MoEIntermediate, p.Experts, p.ExpertsPerToken, p.FFNLayout)
 		}
 	}
 	if p.NormLayout.HiddenSize > 0 {
