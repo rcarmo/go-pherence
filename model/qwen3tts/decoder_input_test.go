@@ -24,6 +24,13 @@ func TestDecoderInputLayout(t *testing.T) {
 	if err := layout.ValidateCodes(make([]uint32, 30)); err != nil {
 		t.Fatal(err)
 	}
+	plan, err := layout.DecoderPlan()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan != (DecoderPlan{FrameRateHz: 12, CodeGroups: 15, CodesPerFrame: 15, CodecVocab: 2048}) {
+		t.Fatalf("decoder plan=%+v", plan)
+	}
 }
 
 func TestDecoderInputLayoutRejectsMalformed(t *testing.T) {

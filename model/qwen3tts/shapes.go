@@ -61,11 +61,15 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
-	waveformLayout, err := NewWaveformLayout(DecoderPlan{FrameRateHz: 12, CodeGroups: cfg.CPNumCodeGroups - 1, CodesPerFrame: cfg.CPNumCodeGroups - 1, CodecVocab: cfg.CPVocabSize})
+	decoderInputLayout, err := NewDecoderInputLayout(cfg)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
-	decoderInputLayout, err := NewDecoderInputLayout(cfg)
+	decoderPlan, err := decoderInputLayout.DecoderPlan()
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	waveformLayout, err := NewWaveformLayout(decoderPlan)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
@@ -114,7 +118,7 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 			VocabSize:        cfg.CPVocabSize,
 			KVFloatsPerToken: 2 * cfg.CPNumHiddenLayers * cfg.CPNumKeyValueHeads * cfg.CPHeadDim,
 		},
-		Decoder12Hz:             DecoderPlan{FrameRateHz: 12, CodeGroups: cfg.CPNumCodeGroups - 1, CodesPerFrame: cfg.CPNumCodeGroups - 1, CodecVocab: cfg.CPVocabSize},
+		Decoder12Hz:             decoderPlan,
 		SemanticTokenLayout:     semanticLayout,
 		AcousticFrameLayout:     frameLayout,
 		CodePredictorHeadLayout: headLayout,
@@ -143,6 +147,15 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.Decoder12Hz.FrameRateHz != 12 || p.Decoder12Hz.CodeGroups <= 0 || p.Decoder12Hz.CodesPerFrame != p.Decoder12Hz.CodeGroups || p.Decoder12Hz.CodecVocab <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS decoder plan: %+v", p.Decoder12Hz)
+	}
+	if p.DecoderInputLayout.CodecVocab > 0 {
+		decoderPlan, err := p.DecoderInputLayout.DecoderPlan()
+		if err != nil {
+			return err
+		}
+		if decoderPlan != p.Decoder12Hz {
+			return fmt.Errorf("Qwen3-TTS decoder input/plan mismatch: input=%+v plan=%+v", decoderPlan, p.Decoder12Hz)
+		}
 	}
 	if p.SemanticTokenLayout.VocabSize > 0 {
 		if err := p.SemanticTokenLayout.Validate(); err != nil {

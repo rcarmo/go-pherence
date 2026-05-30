@@ -45,6 +45,13 @@ func (l DecoderInputLayout) Validate() error {
 	return nil
 }
 
+func (l DecoderInputLayout) DecoderPlan() (DecoderPlan, error) {
+	if err := l.Validate(); err != nil {
+		return DecoderPlan{}, err
+	}
+	return DecoderPlan{FrameRateHz: l.FrameRateHz, CodeGroups: l.AcousticGroups, CodesPerFrame: l.CodesPerFrame, CodecVocab: l.CodecVocab}, nil
+}
+
 func (l DecoderInputLayout) CodesForFrames(frames int) (int, error) {
 	if err := l.Validate(); err != nil {
 		return 0, err
