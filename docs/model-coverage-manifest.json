@@ -14,6 +14,7 @@
         "token_constants": true,
         "tokenizer_loading": true,
         "customvoice_prompt_builder": true,
+        "prefill_layout": true,
         "capability_validation": true,
         "conditioning_cli_validation": true,
         "pipeline_plan": true,

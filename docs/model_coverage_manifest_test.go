@@ -68,6 +68,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"strict_inspector_mode":      "../cmd/qwen3ttsinspect/main.go",
 		"prompt_fixture_scaffold":    "../model/qwen3tts/testdata/customvoice_prompt_fixture.json",
 		"customvoice_prompt_builder": "../model/qwen3tts/prompt.go",
+		"prefill_layout":             "../model/qwen3tts/prefill.go",
 	} {
 		assertCoverageFile(t, "qwen3_tts", qwen, key, path)
 	}
