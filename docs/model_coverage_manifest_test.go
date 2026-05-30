@@ -72,6 +72,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"waveform_layout":                "../model/qwen3tts/waveform.go",
 		"tensor_shape_validation":        "../model/qwen3tts/tensor_shape_validation.go",
 		"strict_inspector_mode":          "../cmd/qwen3ttsinspect/main.go",
+		"fixture_coverage_make_target":   "../Makefile",
 		"reference_coverage_reporting":   "../model/qwen3tts/fixtures.go",
 		"prompt_fixture_scaffold":        "../model/qwen3tts/testdata/customvoice_prompt_fixture.json",
 		"customvoice_prompt_builder":     "../model/qwen3tts/prompt.go",
@@ -103,6 +104,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"runtime_state_sizing":         "../model/lfm2/state.go",
 		"tensor_shape_validation":      "../model/lfm2/tensor_shape_validation.go",
 		"strict_inspector_mode":        "../cmd/lfm2inspect/main.go",
+		"fixture_coverage_make_target": "../Makefile",
 		"reference_coverage_reporting": "../model/lfm2/fixtures.go",
 		"metadata_fixture":             "../model/lfm2/testdata/lfm25_8b_a1b_metadata.json",
 	} {

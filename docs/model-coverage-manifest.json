@@ -37,6 +37,7 @@
         "strict_inspector_mode": true,
         "download_registry": true,
         "make_inspect_target": true,
+        "fixture_coverage_make_target": true,
         "prompt_fixture_scaffold": true,
         "reference_coverage_reporting": true,
         "semantic_token_reference_fixture": false,
@@ -50,6 +51,7 @@
       },
       "commands": [
         "make qwen3tts-inspect QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice QWEN3TTS_TEXT='Hello world'",
+        "make qwen3tts-fixture-coverage QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice",
         "GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect -model models/qwen3-tts-0.6b-customvoice -text 'Hello world' -strict -json"
       ]
     },
@@ -84,6 +86,7 @@
         "strict_inspector_mode": true,
         "download_registry": true,
         "make_inspect_target": true,
+        "fixture_coverage_make_target": true,
         "reference_coverage_reporting": true,
         "tokenization_reference_fixture": false,
         "first_token_logits_reference_fixture": false,
@@ -96,6 +99,7 @@
       },
       "commands": [
         "make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b",
+        "make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b",
         "GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect -model models/lfm2.5-8b-a1b -strict -json"
       ]
     }

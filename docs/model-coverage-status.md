@@ -65,6 +65,7 @@ Implemented package/command surface:
 - `model/qwen3tts/shapes.go` — Talker, CodePredictor, and 12Hz decoder runtime sizing plan.
 - `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema plus reference-coverage tracking.
 - `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/tokenized-prompt/reference-coverage inspector.
+- `make qwen3tts-fixture-coverage` — shortcut for fixture/reference coverage reports.
 
 Useful commands:
 
@@ -122,6 +123,7 @@ Implemented package/command surface:
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.
 - `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture plus reference-coverage tracking.
 - `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan/reference-coverage inspector.
+- `make lfm2-fixture-coverage` — shortcut for fixture/reference coverage reports.
 
 Useful commands:
 
