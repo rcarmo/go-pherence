@@ -170,8 +170,18 @@ Useful flags:
 - `-speaker NAME` / `-language CODE` — select CustomVoice control tokens for the prompt probe.
 - `-reference-audio PATH` — mark Base/reference-audio conditioning as present for capability validation.
 - `-voice-prompt TEXT` — provide VoiceDesign conditioning text for capability validation.
+- `-fixture PATH` — load a compact reference fixture and report which prompt/semantic/acoustic/WAV parity anchors are present or still missing.
 
-The report includes variant/size, talker dimensions, code-predictor dimensions, tensor group readiness, runtime KV sizing, 12Hz decoder code-frame assumptions, speaker encoder presence, and optional tokenized CustomVoice streams. It does not synthesize audio yet; reference fixtures and CPU Talker/CodePredictor/Decoder parity are the next steps.
+Fixture coverage example:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
+  -model models/qwen3-tts-0.6b-customvoice \
+  -fixture model/qwen3tts/testdata/customvoice_prompt_fixture.json \
+  -json
+```
+
+The report includes variant/size, talker dimensions, code-predictor dimensions, tensor group readiness, runtime KV sizing, 12Hz decoder code-frame assumptions, speaker encoder presence, optional tokenized CustomVoice streams, prompt-runtime layout, and optional reference coverage. It does not synthesize audio yet; reference fixtures and CPU Talker/CodePredictor/Decoder parity are the next steps.
 
 ## `lfm2inspect` — LFM2.5 metadata and runtime-state sizing
 
@@ -190,8 +200,18 @@ Useful flags:
 - `-json` — emit the full machine-readable report.
 - `-strict` — exit non-zero when safetensors are present and tensor readiness or shape validation fails.
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
+- `-fixture PATH` — load compact reference metadata and report which config/tensor/reference parity anchors are present or still missing.
 
-The report includes layer-pattern counts, MoE routing dimensions, conv cache settings, tensor group readiness, conv-state floats, and attention KV floats/token. It is metadata/reference scaffolding only; LFM convolution, attention, router, and expert execution remain future CPU parity work.
+Fixture coverage example:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
+  -model models/lfm2.5-8b-a1b \
+  -fixture model/lfm2/testdata/lfm25_8b_a1b_metadata.json \
+  -json
+```
+
+The report includes layer-pattern counts, MoE routing dimensions, conv cache settings, tensor group readiness, conv-state floats, attention KV floats/token, and optional reference coverage. It is metadata/reference scaffolding only; LFM convolution, attention, router, and expert execution remain future CPU parity work.
 
 ## Model coverage validation
 

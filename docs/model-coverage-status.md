@@ -63,8 +63,8 @@ Implemented package/command surface:
 - `model/qwen3tts/decoder_input.go` — acoustic-codebook tensor contract passed into Decoder12Hz.
 - `model/qwen3tts/waveform.go` — Decoder12Hz mono 24kHz waveform/WAV sizing contract.
 - `model/qwen3tts/shapes.go` — Talker, CodePredictor, and 12Hz decoder runtime sizing plan.
-- `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema.
-- `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/tokenized-prompt inspector.
+- `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema plus reference-coverage tracking.
+- `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/tokenized-prompt/reference-coverage inspector.
 
 Useful commands:
 
@@ -120,8 +120,8 @@ Implemented package/command surface:
 - `model/lfm2/context.go` — vocabulary, max-context, tied-embedding, and RoPE context contract.
 - `model/lfm2/rope.go` — RoPE theta/head-dim/full-attention position contract.
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.
-- `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture.
-- `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan inspector.
+- `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture plus reference-coverage tracking.
+- `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan/reference-coverage inspector.
 
 Useful commands:
 
