@@ -10,9 +10,41 @@ import (
 // parity tensors are available. It captures the published config plus optional
 // tensor coverage counts from a local safetensors header.
 type ReferenceMetadata struct {
-	Name    string         `json:"name,omitempty"`
-	Config  Config         `json:"config"`
-	Tensors TensorCoverage `json:"tensors,omitempty"`
+	Name       string              `json:"name,omitempty"`
+	Config     Config              `json:"config"`
+	Tensors    TensorCoverage      `json:"tensors,omitempty"`
+	References *ReferenceSummaries `json:"references,omitempty"`
+}
+
+type ReferenceSummaries struct {
+	Tokenization   *TokenizationReference `json:"tokenization,omitempty"`
+	FirstToken     *FirstTokenReference   `json:"first_token,omitempty"`
+	ConvLayer      *LayerReference        `json:"conv_layer,omitempty"`
+	AttentionLayer *LayerReference        `json:"attention_layer,omitempty"`
+	RouterTopK     *RouterTopKReference   `json:"router_topk,omitempty"`
+	ExpertOutput   *LayerReference        `json:"expert_output,omitempty"`
+}
+
+type TokenizationReference struct {
+	Text   string   `json:"text"`
+	Tokens []uint32 `json:"tokens"`
+}
+
+type FirstTokenReference struct {
+	TokenID       uint32 `json:"token_id"`
+	LogitChecksum string `json:"logit_checksum,omitempty"`
+}
+
+type LayerReference struct {
+	Layer      int     `json:"layer"`
+	Checksum   string  `json:"checksum,omitempty"`
+	MaxAbsDiff float64 `json:"max_abs_diff,omitempty"`
+}
+
+type RouterTopKReference struct {
+	Layer      int    `json:"layer"`
+	ExpertIDs  []int  `json:"expert_ids"`
+	WeightHash string `json:"weight_hash,omitempty"`
 }
 
 type ReferenceCoverage struct {
@@ -37,6 +69,9 @@ func LoadReferenceMetadata(path string) (ReferenceMetadata, error) {
 	}
 	var meta ReferenceMetadata
 	if err := json.Unmarshal(data, &meta); err == nil && meta.Config.ModelType != "" {
+		if meta.Config.HeadDim == 0 && meta.Config.NumAttentionHeads > 0 {
+			meta.Config.HeadDim = meta.Config.HiddenSize / meta.Config.NumAttentionHeads
+		}
 		return meta, meta.Validate()
 	}
 	cfg, err := ParseConfig(data)
@@ -55,6 +90,14 @@ func (m ReferenceMetadata) Coverage() ReferenceCoverage {
 	}
 	cov.TensorCoverage = m.Tensors.Total > 0
 	cov.TensorReadiness = m.Tensors.Readiness.Ready
+	if m.References != nil {
+		cov.TokenizationFixture = m.References.Tokenization != nil && len(m.References.Tokenization.Tokens) > 0
+		cov.FirstTokenLogits = m.References.FirstToken != nil
+		cov.ConvLayerReference = m.References.ConvLayer != nil
+		cov.AttentionReference = m.References.AttentionLayer != nil
+		cov.RouterTopKReference = m.References.RouterTopK != nil && len(m.References.RouterTopK.ExpertIDs) > 0
+		cov.ExpertOutputFixture = m.References.ExpertOutput != nil
+	}
 	cov.CompleteRuntimeTrace = cov.ConfigMetadata && cov.RuntimePlan && cov.TensorReadiness && cov.TokenizationFixture && cov.FirstTokenLogits && cov.ConvLayerReference && cov.AttentionReference && cov.RouterTopKReference && cov.ExpertOutputFixture
 	if !cov.ConfigMetadata {
 		cov.Missing = append(cov.Missing, "config_metadata")
@@ -68,8 +111,23 @@ func (m ReferenceMetadata) Coverage() ReferenceCoverage {
 	if !cov.TensorReadiness {
 		cov.Missing = append(cov.Missing, "tensor_readiness")
 	}
-	for _, name := range []string{"tokenization_fixture", "first_token_logits", "conv_layer_reference", "attention_reference", "router_topk_reference", "expert_output_fixture"} {
-		cov.Missing = append(cov.Missing, name)
+	if !cov.TokenizationFixture {
+		cov.Missing = append(cov.Missing, "tokenization_fixture")
+	}
+	if !cov.FirstTokenLogits {
+		cov.Missing = append(cov.Missing, "first_token_logits")
+	}
+	if !cov.ConvLayerReference {
+		cov.Missing = append(cov.Missing, "conv_layer_reference")
+	}
+	if !cov.AttentionReference {
+		cov.Missing = append(cov.Missing, "attention_reference")
+	}
+	if !cov.RouterTopKReference {
+		cov.Missing = append(cov.Missing, "router_topk_reference")
+	}
+	if !cov.ExpertOutputFixture {
+		cov.Missing = append(cov.Missing, "expert_output_fixture")
 	}
 	return cov
 }
@@ -80,6 +138,30 @@ func (m ReferenceMetadata) Validate() error {
 	}
 	if m.Tensors.Total < 0 || m.Tensors.Other < 0 {
 		return fmt.Errorf("invalid negative tensor coverage: %+v", m.Tensors)
+	}
+	if m.References != nil {
+		if r := m.References.Tokenization; r != nil && (r.Text == "" || len(r.Tokens) == 0) {
+			return fmt.Errorf("invalid LFM2 tokenization reference: %+v", r)
+		}
+		if r := m.References.ConvLayer; r != nil && r.Layer < 0 {
+			return fmt.Errorf("invalid LFM2 conv layer reference: %+v", r)
+		}
+		if r := m.References.AttentionLayer; r != nil && r.Layer < 0 {
+			return fmt.Errorf("invalid LFM2 attention layer reference: %+v", r)
+		}
+		if r := m.References.ExpertOutput; r != nil && r.Layer < 0 {
+			return fmt.Errorf("invalid LFM2 expert output reference: %+v", r)
+		}
+		if r := m.References.RouterTopK; r != nil {
+			if r.Layer < 0 || len(r.ExpertIDs) == 0 {
+				return fmt.Errorf("invalid LFM2 router top-k reference: %+v", r)
+			}
+			for _, id := range r.ExpertIDs {
+				if id < 0 || id >= m.Config.NumExperts {
+					return fmt.Errorf("invalid LFM2 router expert id=%d experts=%d", id, m.Config.NumExperts)
+				}
+			}
+		}
 	}
 	return nil
 }

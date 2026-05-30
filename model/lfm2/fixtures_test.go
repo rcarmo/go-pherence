@@ -26,6 +26,20 @@ func TestLoadReferenceMetadata(t *testing.T) {
 	}
 }
 
+func TestLoadReferencePlaceholderMetadata(t *testing.T) {
+	meta, err := LoadReferenceMetadata(filepath.Join("testdata", "lfm25_8b_a1b_reference_placeholder.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cov := meta.Coverage()
+	if !cov.CompleteRuntimeTrace || !cov.TokenizationFixture || !cov.FirstTokenLogits || !cov.RouterTopKReference {
+		t.Fatalf("coverage=%+v", cov)
+	}
+	if meta.References.FirstToken.LogitChecksum != "pending-transformers" || meta.References.ConvLayer.Checksum != "pending-transformers" {
+		t.Fatalf("placeholder checksums not preserved: %+v", meta.References)
+	}
+}
+
 func TestReferenceMetadataCoverageWithTensorReadiness(t *testing.T) {
 	meta, err := LoadReferenceMetadata(filepath.Join("testdata", "lfm25_8b_a1b_metadata.json"))
 	if err != nil {

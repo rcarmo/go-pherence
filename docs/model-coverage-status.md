@@ -122,7 +122,7 @@ Implemented package/command surface:
 - `model/lfm2/context.go` — vocabulary, max-context, tied-embedding, and RoPE context contract.
 - `model/lfm2/rope.go` — RoPE theta/head-dim/full-attention position contract.
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.
-- `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture plus reference-coverage tracking.
+- `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture, complete-reference placeholder fixture, and reference-coverage tracking.
 - `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan/reference-coverage inspector.
 - `make lfm2-fixture-coverage` — shortcut for fixture/reference coverage reports.
 
@@ -143,7 +143,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
 
 Remaining coverage before runtime implementation:
 
-- Capture Transformers reference summaries for tokenization, first-token logits, one conv layer output, one full-attention layer output, router top-k, and one expert output.
+- Replace `model/lfm2/testdata/lfm25_8b_a1b_reference_placeholder.json` pending values with Transformers reference summaries for tokenization, first-token logits, one conv layer output, one full-attention layer output, router top-k, and one expert output.
 - Extend tensor shape validation after real checkpoint tensor names are audited for all MLP/expert projections.
 
 Runtime work still pending:
