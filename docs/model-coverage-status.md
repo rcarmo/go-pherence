@@ -88,7 +88,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
 
 Remaining coverage before runtime implementation:
 
-- Replace `model/qwen3tts/testdata/customvoice_reference_placeholder.json` pending values with qwen3-tts-rs reference values for first semantic token, one acoustic frame, and a short decoded WAV summary.
+- Replace placeholder values in `model/qwen3tts/testdata/customvoice_reference_placeholder.json` with measured qwen3-tts-rs values before using it as a numeric parity oracle.
 - Add fixture summaries for Base and VoiceDesign conditioning once their prompt/reference inputs are confirmed.
 
 Runtime work still pending:
@@ -143,7 +143,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
 
 Remaining coverage before runtime implementation:
 
-- Replace `model/lfm2/testdata/lfm25_8b_a1b_reference_placeholder.json` pending values with Transformers reference summaries for tokenization, first-token logits, one conv layer output, one full-attention layer output, router top-k, and one expert output.
+- Replace placeholder values in `model/lfm2/testdata/lfm25_8b_a1b_reference_placeholder.json` with measured Transformers reference summaries before using it as a numeric parity oracle.
 - Extend tensor shape validation after real checkpoint tensor names are audited for all MLP/expert projections.
 
 Runtime work still pending:
