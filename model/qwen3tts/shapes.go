@@ -9,6 +9,7 @@ type RuntimePlan struct {
 	Talker              TransformerPlan     `json:"talker"`
 	CodePredictor       TransformerPlan     `json:"code_predictor"`
 	Decoder12Hz         DecoderPlan         `json:"decoder12hz"`
+	SemanticTokenLayout SemanticTokenLayout `json:"semantic_token_layout"`
 	AcousticFrameLayout AcousticFrameLayout `json:"acoustic_frame_layout"`
 	Pipeline            PipelinePlan        `json:"pipeline"`
 }
@@ -39,6 +40,10 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	semanticLayout, err := NewSemanticTokenLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	frameLayout, err := NewAcousticFrameLayout(cfg)
 	if err != nil {
 		return RuntimePlan{}, err
@@ -65,6 +70,7 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 			KVFloatsPerToken: 2 * cfg.CPNumHiddenLayers * cfg.CPNumKeyValueHeads * cfg.CPHeadDim,
 		},
 		Decoder12Hz:         DecoderPlan{FrameRateHz: 12, CodeGroups: cfg.CPNumCodeGroups - 1, CodesPerFrame: cfg.CPNumCodeGroups - 1, CodecVocab: cfg.CPVocabSize},
+		SemanticTokenLayout: semanticLayout,
 		AcousticFrameLayout: frameLayout,
 		Pipeline:            pipeline,
 	}
@@ -83,6 +89,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.Decoder12Hz.FrameRateHz != 12 || p.Decoder12Hz.CodeGroups <= 0 || p.Decoder12Hz.CodesPerFrame != p.Decoder12Hz.CodeGroups || p.Decoder12Hz.CodecVocab <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS decoder plan: %+v", p.Decoder12Hz)
+	}
+	if p.SemanticTokenLayout.VocabSize > 0 {
+		if err := p.SemanticTokenLayout.Validate(); err != nil {
+			return err
+		}
 	}
 	if p.AcousticFrameLayout.TotalCodeGroups > 0 {
 		if err := p.AcousticFrameLayout.Validate(); err != nil {

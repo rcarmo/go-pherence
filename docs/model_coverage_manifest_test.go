@@ -61,6 +61,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"pipeline_plan":              "../model/qwen3tts/pipeline.go",
 		"capability_validation":      "../model/qwen3tts/capabilities.go",
 		"runtime_sizing_plan":        "../model/qwen3tts/shapes.go",
+		"semantic_token_layout":      "../model/qwen3tts/semantic.go",
 		"acoustic_frame_layout":      "../model/qwen3tts/frame.go",
 		"tensor_shape_validation":    "../model/qwen3tts/tensor_shape_validation.go",
 		"strict_inspector_mode":      "../cmd/qwen3ttsinspect/main.go",
