@@ -13,6 +13,7 @@ type RuntimePlan struct {
 	AcousticFrameLayout     AcousticFrameLayout     `json:"acoustic_frame_layout"`
 	CodePredictorHeadLayout CodePredictorHeadLayout `json:"code_predictor_head_layout"`
 	WaveformLayout          WaveformLayout          `json:"waveform_layout"`
+	SpeakerEncoderLayout    SpeakerEncoderLayout    `json:"speaker_encoder_layout"`
 	Pipeline                PipelinePlan            `json:"pipeline"`
 }
 
@@ -58,6 +59,10 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	speakerEncoderLayout, err := NewSpeakerEncoderLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		Talker: TransformerPlan{
 			HiddenSize:       cfg.TalkerHiddenSize,
@@ -84,6 +89,7 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 		AcousticFrameLayout:     frameLayout,
 		CodePredictorHeadLayout: headLayout,
 		WaveformLayout:          waveformLayout,
+		SpeakerEncoderLayout:    speakerEncoderLayout,
 		Pipeline:                pipeline,
 	}
 	if err := plan.Validate(); err != nil {
@@ -121,6 +127,9 @@ func (p RuntimePlan) Validate() error {
 		if err := p.WaveformLayout.Validate(); err != nil {
 			return err
 		}
+	}
+	if err := p.SpeakerEncoderLayout.Validate(); err != nil {
+		return err
 	}
 	if len(p.Pipeline.Steps) > 0 {
 		if err := p.Pipeline.Validate(); err != nil {

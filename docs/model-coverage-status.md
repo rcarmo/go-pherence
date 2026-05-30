@@ -48,6 +48,7 @@ Implemented package/command surface:
 - `model/qwen3tts/talker_input.go` — text projection plus codec-control embedding fusion layout.
 - `model/qwen3tts/capabilities.go` — Base, CustomVoice, and VoiceDesign conditioning contracts.
 - `model/qwen3tts/speaker_language.go` — CustomVoice speaker/native-language compatibility metadata.
+- `model/qwen3tts/speaker_encoder.go` — optional speaker encoder embedding/sample-rate/reference-audio layout.
 - `model/qwen3tts/tensors.go` — tensor group readiness.
 - `model/qwen3tts/tensor_shapes.go` — safetensors dtype/shape summaries.
 - `model/qwen3tts/tensor_shape_validation.go` — config-aware shape sanity checks.

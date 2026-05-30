@@ -18,6 +18,7 @@
         "talker_input_layout": true,
         "capability_validation": true,
         "speaker_language_compatibility": true,
+        "speaker_encoder_layout": true,
         "conditioning_cli_validation": true,
         "pipeline_plan": true,
         "runtime_sizing_plan": true,

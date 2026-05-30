@@ -177,7 +177,7 @@ func safetensorNames(modelDir, explicit string) ([]string, error) {
 func printText(r report) {
 	c := r.Config
 	fmt.Printf("Qwen3-TTS: %s (%s)\n", r.Label, r.ModelDir)
-	fmt.Printf("  variant: %s size=%s speaker_encoder=%v conditioning=%s\n", c.ModelType, c.ModelSize, c.SpeakerEncoder != nil, r.Capabilities.Conditioning)
+	fmt.Printf("  variant: %s size=%s speaker_encoder=%v speaker_dim=%d speaker_sample_rate=%d conditioning=%s\n", c.ModelType, c.ModelSize, r.RuntimePlan.SpeakerEncoderLayout.Present, r.RuntimePlan.SpeakerEncoderLayout.EmbeddingDim, r.RuntimePlan.SpeakerEncoderLayout.SampleRateHz, r.Capabilities.Conditioning)
 	fmt.Printf("  talker: hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d text_hidden=%d text_vocab=%d codec_vocab=%d mrope=%v\n", c.TalkerHiddenSize, c.TalkerNumHiddenLayers, c.TalkerNumAttentionHeads, c.TalkerNumKeyValueHeads, c.TalkerHeadDim, c.TalkerTextHiddenSize, c.TalkerTextVocabSize, c.TalkerVocabSize, c.HasMRoPESection)
 	fmt.Printf("  code predictor: hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d vocab=%d code_groups=%d acoustic_heads=%d\n", c.CPHiddenSize, c.CPNumHiddenLayers, c.CPNumAttentionHeads, c.CPNumKeyValueHeads, c.CPHeadDim, c.CPVocabSize, c.CPNumCodeGroups, r.RuntimePlan.CodePredictorHeadLayout.Heads)
 	fmt.Printf("  runtime plan: talker_kv_floats/token=%d cp_kv_floats/token=%d decoder=%dHz/%d_codes waveform=%dHz/%dspf pipeline=%d_stages\n", r.RuntimePlan.Talker.KVFloatsPerToken, r.RuntimePlan.CodePredictor.KVFloatsPerToken, r.RuntimePlan.Decoder12Hz.FrameRateHz, r.RuntimePlan.Decoder12Hz.CodeGroups, r.RuntimePlan.WaveformLayout.SampleRateHz, r.RuntimePlan.WaveformLayout.SamplesPerFrame, len(r.RuntimePlan.Pipeline.Steps))
