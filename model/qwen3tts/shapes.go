@@ -13,6 +13,7 @@ type RuntimePlan struct {
 	AcousticFrameLayout     AcousticFrameLayout     `json:"acoustic_frame_layout"`
 	CodePredictorHeadLayout CodePredictorHeadLayout `json:"code_predictor_head_layout"`
 	WaveformLayout          WaveformLayout          `json:"waveform_layout"`
+	DecoderInputLayout      DecoderInputLayout      `json:"decoder_input_layout"`
 	SpeakerEncoderLayout    SpeakerEncoderLayout    `json:"speaker_encoder_layout"`
 	TalkerAttentionLayout   AttentionLayout         `json:"talker_attention_layout"`
 	CPAttentionLayout       AttentionLayout         `json:"code_predictor_attention_layout"`
@@ -61,6 +62,10 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 		return RuntimePlan{}, err
 	}
 	waveformLayout, err := NewWaveformLayout(DecoderPlan{FrameRateHz: 12, CodeGroups: cfg.CPNumCodeGroups - 1, CodesPerFrame: cfg.CPNumCodeGroups - 1, CodecVocab: cfg.CPVocabSize})
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	decoderInputLayout, err := NewDecoderInputLayout(cfg)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
@@ -114,6 +119,7 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 		AcousticFrameLayout:     frameLayout,
 		CodePredictorHeadLayout: headLayout,
 		WaveformLayout:          waveformLayout,
+		DecoderInputLayout:      decoderInputLayout,
 		SpeakerEncoderLayout:    speakerEncoderLayout,
 		TalkerAttentionLayout:   talkerAttentionLayout,
 		CPAttentionLayout:       cpAttentionLayout,
@@ -155,6 +161,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.WaveformLayout.SampleRateHz > 0 {
 		if err := p.WaveformLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.DecoderInputLayout.CodecVocab > 0 {
+		if err := p.DecoderInputLayout.Validate(); err != nil {
 			return err
 		}
 	}

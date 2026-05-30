@@ -28,6 +28,7 @@
         "semantic_token_layout": true,
         "acoustic_frame_layout": true,
         "code_predictor_head_layout": true,
+        "decoder_input_layout": true,
         "waveform_layout": true,
         "tensor_group_readiness": true,
         "tensor_shape_summary": true,
