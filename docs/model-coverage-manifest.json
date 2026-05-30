@@ -67,6 +67,7 @@
         "layer_schedule": true,
         "execution_role_plan": true,
         "routing_plan": true,
+        "router_layout": true,
         "ffn_layout": true,
         "norm_layout": true,
         "embedding_layout": true,

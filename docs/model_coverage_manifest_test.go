@@ -87,6 +87,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"layer_schedule":              "../model/lfm2/schedule.go",
 		"execution_role_plan":         "../model/lfm2/execution.go",
 		"routing_plan":                "../model/lfm2/routing.go",
+		"router_layout":               "../model/lfm2/router_layout.go",
 		"ffn_layout":                  "../model/lfm2/ffn_layout.go",
 		"norm_layout":                 "../model/lfm2/norm.go",
 		"embedding_layout":            "../model/lfm2/embedding_layout.go",

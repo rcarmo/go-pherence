@@ -107,6 +107,7 @@ Implemented package/command surface:
 - `model/lfm2/schedule.go` — explicit conv/full-attention layer schedule.
 - `model/lfm2/execution.go` — per-layer dense-vs-routed-MoE execution role plan.
 - `model/lfm2/routing.go` — expert count, active top-k, normalization, bias, and routed-scaling contract.
+- `model/lfm2/router_layout.go` — router projection/logits/top-k scratch sizing contract.
 - `model/lfm2/ffn_layout.go` — dense and routed expert FFN dimension/parameter contract.
 - `model/lfm2/norm.go` — RMSNorm epsilon, vector count, and scratch sizing contract.
 - `model/lfm2/embedding_layout.go` — token embedding, tied/untied LM-head, and byte sizing contract.

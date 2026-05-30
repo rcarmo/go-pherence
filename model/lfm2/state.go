@@ -21,6 +21,7 @@ type RuntimePlan struct {
 	Schedule            LayerSchedule             `json:"schedule"`
 	Execution           ExecutionPlan             `json:"execution"`
 	Routing             RoutingPlan               `json:"routing"`
+	RouterLayout        RouterLayout              `json:"router_layout"`
 	ConvStateLayout     ConvStateLayout           `json:"conv_state_layout"`
 	ConvProjLayout      ConvProjectionLayout      `json:"conv_projection_layout"`
 	AttentionKVLayout   AttentionKVLayout         `json:"attention_kv_layout"`
@@ -45,6 +46,10 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		return RuntimePlan{}, err
 	}
 	routing, err := NewRoutingPlan(cfg, execution)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	routerLayout, err := NewRouterLayout(cfg, execution)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
@@ -100,6 +105,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		Schedule:            schedule,
 		Execution:           execution,
 		Routing:             routing,
+		RouterLayout:        routerLayout,
 		ConvStateLayout:     convStateLayout,
 		ConvProjLayout:      convProjLayout,
 		AttentionKVLayout:   attentionKVLayout,
@@ -145,6 +151,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.Routing.Experts > 0 {
 		if err := p.Routing.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.RouterLayout.Experts > 0 {
+		if err := p.RouterLayout.Validate(); err != nil {
 			return err
 		}
 	}
