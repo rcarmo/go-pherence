@@ -23,6 +23,7 @@ type RuntimePlan struct {
 	Routing             RoutingPlan       `json:"routing"`
 	ConvStateLayout     ConvStateLayout   `json:"conv_state_layout"`
 	AttentionKVLayout   AttentionKVLayout `json:"attention_kv_layout"`
+	ContextLayout       ContextLayout     `json:"context_layout"`
 }
 
 func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
@@ -49,6 +50,10 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	contextLayout, err := NewContextLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		HiddenSize:          cfg.HiddenSize,
 		HeadDim:             cfg.HeadDim,
@@ -67,6 +72,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		Routing:             routing,
 		ConvStateLayout:     convStateLayout,
 		AttentionKVLayout:   attentionKVLayout,
+		ContextLayout:       contextLayout,
 	}
 	if err := plan.Validate(); err != nil {
 		return RuntimePlan{}, err
@@ -113,6 +119,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.AttentionKVLayout.Layers > 0 {
 		if err := p.AttentionKVLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.ContextLayout.VocabSize > 0 {
+		if err := p.ContextLayout.Validate(); err != nil {
 			return err
 		}
 	}
