@@ -6,7 +6,7 @@ MODEL ?=
 MODEL_DOWNLOAD_FLAGS ?=
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test test-cpu test-model-coverage model-coverage model-coverage-json model-coverage-pending clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-gemma4 models-download-speaker models-download-one qwen3tts-inspect lfm2-inspect hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect
+.PHONY: all build test test-cpu test-model-coverage model-coverage model-coverage-json model-coverage-pending clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-gemma4 models-download-speaker models-download-one qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect
 
 all: build
 
@@ -81,16 +81,28 @@ QWEN3TTS_TEXT ?= Hello world
 QWEN3TTS_SPEAKER ?= ryan
 QWEN3TTS_LANGUAGE ?= en
 QWEN3TTS_INSPECT_FLAGS ?= -json
+QWEN3TTS_FIXTURE ?= model/qwen3tts/testdata/customvoice_prompt_fixture.json
+QWEN3TTS_FIXTURE_FLAGS ?= -json
 LFM2_MODEL ?=
 LFM2_INSPECT_FLAGS ?= -json
+LFM2_FIXTURE ?= model/lfm2/testdata/lfm25_8b_a1b_metadata.json
+LFM2_FIXTURE_FLAGS ?= -json
 
 qwen3tts-inspect:
 	@if [ -z "$(QWEN3TTS_MODEL)" ]; then echo "usage: make qwen3tts-inspect QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice [QWEN3TTS_TEXT='Hello world']"; exit 2; fi
 	go run ./cmd/qwen3ttsinspect -model $(QWEN3TTS_MODEL) -text "$(QWEN3TTS_TEXT)" -speaker $(QWEN3TTS_SPEAKER) -language $(QWEN3TTS_LANGUAGE) $(QWEN3TTS_INSPECT_FLAGS)
 
+qwen3tts-fixture-coverage:
+	@if [ -z "$(QWEN3TTS_MODEL)" ]; then echo "usage: make qwen3tts-fixture-coverage QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice [QWEN3TTS_FIXTURE=model/qwen3tts/testdata/customvoice_prompt_fixture.json]"; exit 2; fi
+	go run ./cmd/qwen3ttsinspect -model $(QWEN3TTS_MODEL) -fixture $(QWEN3TTS_FIXTURE) $(QWEN3TTS_FIXTURE_FLAGS)
+
 lfm2-inspect:
 	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b"; exit 2; fi
 	go run ./cmd/lfm2inspect -model $(LFM2_MODEL) $(LFM2_INSPECT_FLAGS)
+
+lfm2-fixture-coverage:
+	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b [LFM2_FIXTURE=model/lfm2/testdata/lfm25_8b_a1b_metadata.json]"; exit 2; fi
+	go run ./cmd/lfm2inspect -model $(LFM2_MODEL) -fixture $(LFM2_FIXTURE) $(LFM2_FIXTURE_FLAGS)
 
 HUNYUAN3D_REPO ?= tencent/Hunyuan3D-2mini
 HUNYUAN3D_SUBFOLDER ?= hunyuan3d-dit-v2-mini

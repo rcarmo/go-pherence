@@ -151,6 +151,8 @@ go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -sweep
 make qwen3tts-inspect \
   QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice \
   QWEN3TTS_TEXT="Hello world"
+make qwen3tts-fixture-coverage \
+  QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
   -model models/qwen3-tts-0.6b-customvoice \
@@ -190,6 +192,7 @@ The report includes variant/size, talker dimensions, code-predictor dimensions, 
 
 ```bash
 make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b
+make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
   -model models/lfm2.5-8b-a1b \
