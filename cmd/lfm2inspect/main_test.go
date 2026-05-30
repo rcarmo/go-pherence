@@ -67,6 +67,17 @@ func TestInspectReferenceCoverageFixture(t *testing.T) {
 	}
 }
 
+func TestRequireCompleteFixtureFailsForMetadataOnlyFixture(t *testing.T) {
+	dir := t.TempDir()
+	cfg := `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`
+	writeFile(t, filepath.Join(dir, "config.json"), cfg)
+	fixture := filepath.Join(dir, "fixture.json")
+	writeFile(t, fixture, cfg)
+	if out, err := runInspectRaw("-model", dir, "-fixture", fixture, "-require-complete-fixture"); err == nil {
+		t.Fatalf("expected incomplete fixture failure, output:\n%s", out)
+	}
+}
+
 func TestStrictWithoutTensorMetadataPasses(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "config.json"), `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`)
@@ -75,13 +86,18 @@ func TestStrictWithoutTensorMetadataPasses(t *testing.T) {
 
 func runInspect(t *testing.T, args ...string) string {
 	t.Helper()
-	cmd := exec.Command(os.Args[0], append([]string{"-test.run=TestHelperProcess", "--"}, args...)...)
-	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
-	out, err := cmd.CombinedOutput()
+	out, err := runInspectRaw(args...)
 	if err != nil {
 		t.Fatalf("inspect failed: %v\n%s", err, out)
 	}
-	return string(out)
+	return out
+}
+
+func runInspectRaw(args ...string) (string, error) {
+	cmd := exec.Command(os.Args[0], append([]string{"-test.run=TestHelperProcess", "--"}, args...)...)
+	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 func TestReportValidStrictInputs(t *testing.T) {

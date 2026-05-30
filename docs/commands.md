@@ -171,6 +171,7 @@ Useful flags:
 - `-reference-audio PATH` — mark Base/reference-audio conditioning as present for capability validation.
 - `-voice-prompt TEXT` — provide VoiceDesign conditioning text for capability validation.
 - `-fixture PATH` — load a compact reference fixture and report which prompt/semantic/acoustic/WAV parity anchors are present or still missing.
+- `-require-complete-fixture` — with `-fixture`, exit non-zero unless all reference anchors are present.
 
 Fixture coverage example:
 
@@ -201,6 +202,7 @@ Useful flags:
 - `-strict` — exit non-zero when safetensors are present and tensor readiness or shape validation fails.
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 - `-fixture PATH` — load compact reference metadata and report which config/tensor/reference parity anchors are present or still missing.
+- `-require-complete-fixture` — with `-fixture`, exit non-zero unless all reference anchors are present.
 
 Fixture coverage example:
 

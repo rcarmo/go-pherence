@@ -28,6 +28,7 @@ func main() {
 	safetensorPath := flag.String("safetensors", "", "optional safetensors path; defaults to model.safetensors or sharded index in -model")
 	jsonOut := flag.Bool("json", false, "emit JSON report")
 	fixturePath := flag.String("fixture", "", "optional LFM2 reference metadata/fixture path for coverage reporting")
+	requireCompleteFixture := flag.Bool("require-complete-fixture", false, "exit non-zero when -fixture reference coverage is incomplete")
 	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness or shape validation fails")
 	flag.Parse()
 	if *modelDir == "" {
@@ -73,6 +74,9 @@ func main() {
 		printText(out)
 	}
 	if *strict && !reportValid(out) {
+		os.Exit(1)
+	}
+	if *requireCompleteFixture && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.CompleteRuntimeTrace) {
 		os.Exit(1)
 	}
 }

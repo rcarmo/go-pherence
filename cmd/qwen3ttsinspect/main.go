@@ -40,6 +40,7 @@ func main() {
 	safetensorPath := flag.String("safetensors", "", "optional safetensors path; defaults to model.safetensors or sharded index in -model")
 	jsonOut := flag.Bool("json", false, "emit JSON report")
 	fixturePath := flag.String("fixture", "", "optional Qwen3-TTS reference fixture path for coverage reporting")
+	requireCompleteFixture := flag.Bool("require-complete-fixture", false, "exit non-zero when -fixture reference coverage is incomplete")
 	speakerName := flag.String("speaker", "ryan", "CustomVoice speaker for prefix probe")
 	langName := flag.String("language", "en", "language for prefix probe")
 	firstTextID := flag.Uint("first-text-id", 0, "optional first token ID for CustomVoice prefix probe")
@@ -147,6 +148,9 @@ func main() {
 		printText(out)
 	}
 	if *strict && !reportValid(out) {
+		os.Exit(1)
+	}
+	if *requireCompleteFixture && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.CompleteRuntimeTrace) {
 		os.Exit(1)
 	}
 }

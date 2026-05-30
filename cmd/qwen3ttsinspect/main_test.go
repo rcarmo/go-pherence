@@ -38,6 +38,16 @@ func TestInspectReferenceCoverageFixture(t *testing.T) {
 	}
 }
 
+func TestRequireCompleteFixtureFailsForPromptOnlyFixture(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64}}}`)
+	fixture := filepath.Join(dir, "fixture.json")
+	writeFile(t, fixture, `{"name":"probe","variant":"custom_voice","model_size":"0b6","text":"Hello","speaker":"ryan","language":"en","prompt":{"text":[151644,77091,198,151859,151859,151859,151859,151859,151860,9707],"codec":[151860,151861,2050,151862,3061,151859,151860]}}`)
+	if out, err := runInspectRaw("-model", dir, "-fixture", fixture, "-require-complete-fixture"); err == nil {
+		t.Fatalf("expected incomplete fixture failure, output:\n%s", out)
+	}
+}
+
 func TestStrictWithoutTensorMetadataPasses(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64}}}`)
@@ -55,13 +65,18 @@ func TestConditioningValidationSmoke(t *testing.T) {
 
 func runInspect(t *testing.T, args ...string) string {
 	t.Helper()
-	cmd := exec.Command(os.Args[0], append([]string{"-test.run=TestHelperProcess", "--"}, args...)...)
-	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
-	out, err := cmd.CombinedOutput()
+	out, err := runInspectRaw(args...)
 	if err != nil {
 		t.Fatalf("inspect failed: %v\n%s", err, out)
 	}
-	return string(out)
+	return out
+}
+
+func runInspectRaw(args ...string) (string, error) {
+	cmd := exec.Command(os.Args[0], append([]string{"-test.run=TestHelperProcess", "--"}, args...)...)
+	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 func TestReportValidStrictInputs(t *testing.T) {
