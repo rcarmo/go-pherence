@@ -24,6 +24,20 @@ func TestInspectTokenizedPromptSmoke(t *testing.T) {
 	}
 }
 
+func TestInspectReferenceCoverageFixture(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64}}}`)
+	fixture := filepath.Join(dir, "fixture.json")
+	writeFile(t, fixture, `{"name":"probe","variant":"custom_voice","model_size":"0b6","text":"Hello","speaker":"ryan","language":"en","prompt":{"text":[151644,77091,198,151859,151859,151859,151859,151859,151860,9707],"codec":[151860,151861,2050,151862,3061,151859,151860]}}`)
+
+	out := runInspect(t, "-model", dir, "-fixture", fixture, "-json")
+	for _, want := range []string{`"reference_coverage"`, `"prompt": true`, `"complete_runtime_trace": false`, `"semantic_token"`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output missing %s:\n%s", want, out)
+		}
+	}
+}
+
 func TestStrictWithoutTensorMetadataPasses(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64}}}`)

@@ -37,6 +37,36 @@ func TestInspectMetadataSmoke(t *testing.T) {
 	}
 }
 
+func TestInspectReferenceCoverageFixture(t *testing.T) {
+	dir := t.TempDir()
+	cfg := `{
+		"model_type":"lfm2_moe",
+		"architectures":["Lfm2MoeForCausalLM"],
+		"dtype":"bfloat16",
+		"vocab_size":128000,
+		"hidden_size":2048,
+		"num_hidden_layers":3,
+		"num_attention_heads":32,
+		"num_key_value_heads":8,
+		"layer_types":["conv","conv","full_attention"],
+		"num_dense_layers":2,
+		"num_experts":32,
+		"num_experts_per_tok":4,
+		"moe_intermediate_size":1792,
+		"conv_L_cache":3
+	}`
+	writeFile(t, filepath.Join(dir, "config.json"), cfg)
+	fixture := filepath.Join(dir, "fixture.json")
+	writeFile(t, fixture, cfg)
+
+	out := runInspect(t, "-model", dir, "-fixture", fixture, "-json")
+	for _, want := range []string{`"reference_coverage"`, `"config_metadata": true`, `"runtime_plan": true`, `"complete_runtime_trace": false`, `"tokenization_fixture"`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output missing %s:\n%s", want, out)
+		}
+	}
+}
+
 func TestStrictWithoutTensorMetadataPasses(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "config.json"), `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`)
