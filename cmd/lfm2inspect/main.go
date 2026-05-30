@@ -113,7 +113,7 @@ func printText(r report) {
 	c := r.Config
 	fmt.Printf("LFM2: %s (%s)\n", c.ModelType, r.ModelDir)
 	fmt.Printf("  arch=%v dtype=%s hidden=%d layers=%d conv=%d full_attention=%d heads=%d kv_heads=%d head_dim=%d max_pos=%d\n", c.Architectures, c.DType, c.HiddenSize, c.NumHiddenLayers, r.ConvLayers, r.AttentionLayers, c.NumAttentionHeads, c.NumKeyValueHeads, c.HeadDim, c.MaxPositionEmbeddings)
-	fmt.Printf("  moe: experts=%d active=%d intermediate=%d dense_layers=%d norm_topk=%v expert_bias=%v routed_scale=%g\n", c.NumExperts, c.NumExpertsPerTok, c.MoEIntermediateSize, c.NumDenseLayers, c.NormTopKProb, c.UseExpertBias, c.RoutedScalingFactor)
+	fmt.Printf("  moe: experts=%d active=%d intermediate=%d dense_layers=%d routed_layers=%d norm_topk=%v expert_bias=%v routed_scale=%g\n", c.NumExperts, c.NumExpertsPerTok, c.MoEIntermediateSize, c.NumDenseLayers, r.RuntimePlan.Routing.MoELayers, c.NormTopKProb, c.UseExpertBias, c.RoutedScalingFactor)
 	fmt.Printf("  conv: L_cache=%d bias=%v rope_theta=%g\n", c.ConvLCache, c.ConvBias, c.RoPE.Theta)
 	fmt.Printf("  runtime plan: conv_state_floats=%d kv_floats/token=%d attention_layers=%v dense_layers=%v moe_layers=%d\n", r.RuntimePlan.ConvStateFloats, r.RuntimePlan.KVFloatsPerToken, r.RuntimePlan.Schedule.FullAttentionIndices, r.RuntimePlan.Execution.DenseIndices, len(r.RuntimePlan.Execution.MoEIndices))
 	if r.TensorCoverage != nil {

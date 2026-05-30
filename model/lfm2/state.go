@@ -20,6 +20,7 @@ type RuntimePlan struct {
 	MoEIntermediate     int           `json:"moe_intermediate"`
 	Schedule            LayerSchedule `json:"schedule"`
 	Execution           ExecutionPlan `json:"execution"`
+	Routing             RoutingPlan   `json:"routing"`
 }
 
 func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
@@ -31,6 +32,10 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		return RuntimePlan{}, err
 	}
 	execution, err := NewExecutionPlan(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	routing, err := NewRoutingPlan(cfg, execution)
 	if err != nil {
 		return RuntimePlan{}, err
 	}
@@ -49,6 +54,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		MoEIntermediate:     cfg.MoEIntermediateSize,
 		Schedule:            schedule,
 		Execution:           execution,
+		Routing:             routing,
 	}
 	if err := plan.Validate(); err != nil {
 		return RuntimePlan{}, err
@@ -80,6 +86,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if len(p.Execution.Steps) > 0 {
 		if err := p.Execution.Validate(p.Layers); err != nil {
+			return err
+		}
+	}
+	if p.Routing.Experts > 0 {
+		if err := p.Routing.Validate(); err != nil {
 			return err
 		}
 	}

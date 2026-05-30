@@ -76,6 +76,7 @@ func TestModelCoverageManifest(t *testing.T) {
 	for key, path := range map[string]string{
 		"layer_schedule":          "../model/lfm2/schedule.go",
 		"execution_role_plan":     "../model/lfm2/execution.go",
+		"routing_plan":            "../model/lfm2/routing.go",
 		"runtime_state_sizing":    "../model/lfm2/state.go",
 		"tensor_shape_validation": "../model/lfm2/tensor_shape_validation.go",
 		"strict_inspector_mode":   "../cmd/lfm2inspect/main.go",
