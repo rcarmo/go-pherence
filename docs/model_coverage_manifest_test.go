@@ -80,6 +80,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"execution_role_plan":     "../model/lfm2/execution.go",
 		"routing_plan":            "../model/lfm2/routing.go",
 		"conv_state_layout":       "../model/lfm2/conv_state.go",
+		"attention_kv_layout":     "../model/lfm2/attention_kv.go",
 		"runtime_state_sizing":    "../model/lfm2/state.go",
 		"tensor_shape_validation": "../model/lfm2/tensor_shape_validation.go",
 		"strict_inspector_mode":   "../cmd/lfm2inspect/main.go",
