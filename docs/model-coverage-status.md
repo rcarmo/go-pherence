@@ -46,6 +46,7 @@ Implemented package/command surface:
 - `model/qwen3tts/prompt.go` — tokenizer loading plus tokenized CustomVoice prompt builder.
 - `model/qwen3tts/prefill.go` — Talker prefill stream/embedding sizing contract.
 - `model/qwen3tts/capabilities.go` — Base, CustomVoice, and VoiceDesign conditioning contracts.
+- `model/qwen3tts/speaker_language.go` — CustomVoice speaker/native-language compatibility metadata.
 - `model/qwen3tts/tensors.go` — tensor group readiness.
 - `model/qwen3tts/tensor_shapes.go` — safetensors dtype/shape summaries.
 - `model/qwen3tts/tensor_shape_validation.go` — config-aware shape sanity checks.

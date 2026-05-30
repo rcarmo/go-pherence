@@ -59,6 +59,15 @@ func TestCheckConditioningIncludesRequestAndError(t *testing.T) {
 	if !good.Valid || !good.Request.HasReferenceAudio {
 		t.Fatalf("good=%+v", good)
 	}
+	custom := ParsedConfig{ModelType: CustomVoice}
+	customGood := custom.CheckConditioning(ConditioningRequest{Language: English, Speaker: Ryan})
+	if !customGood.Valid || customGood.SpeakerCompatibility == nil || !customGood.SpeakerCompatibility.NativeMatch {
+		t.Fatalf("customGood=%+v", customGood)
+	}
+	customCross := custom.CheckConditioning(ConditioningRequest{Language: Chinese, Speaker: Ryan})
+	if !customCross.Valid || customCross.SpeakerCompatibility == nil || customCross.SpeakerCompatibility.NativeMatch {
+		t.Fatalf("customCross=%+v", customCross)
+	}
 }
 
 func TestAllSpeakerLanguageIDs(t *testing.T) {

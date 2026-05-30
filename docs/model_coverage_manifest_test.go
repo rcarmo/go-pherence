@@ -58,17 +58,18 @@ func TestModelCoverageManifest(t *testing.T) {
 		t.Fatalf("unexpected qwen3_tts coverage: %+v", qwen)
 	}
 	for key, path := range map[string]string{
-		"pipeline_plan":              "../model/qwen3tts/pipeline.go",
-		"capability_validation":      "../model/qwen3tts/capabilities.go",
-		"runtime_sizing_plan":        "../model/qwen3tts/shapes.go",
-		"semantic_token_layout":      "../model/qwen3tts/semantic.go",
-		"acoustic_frame_layout":      "../model/qwen3tts/frame.go",
-		"waveform_layout":            "../model/qwen3tts/waveform.go",
-		"tensor_shape_validation":    "../model/qwen3tts/tensor_shape_validation.go",
-		"strict_inspector_mode":      "../cmd/qwen3ttsinspect/main.go",
-		"prompt_fixture_scaffold":    "../model/qwen3tts/testdata/customvoice_prompt_fixture.json",
-		"customvoice_prompt_builder": "../model/qwen3tts/prompt.go",
-		"prefill_layout":             "../model/qwen3tts/prefill.go",
+		"pipeline_plan":                  "../model/qwen3tts/pipeline.go",
+		"capability_validation":          "../model/qwen3tts/capabilities.go",
+		"speaker_language_compatibility": "../model/qwen3tts/speaker_language.go",
+		"runtime_sizing_plan":            "../model/qwen3tts/shapes.go",
+		"semantic_token_layout":          "../model/qwen3tts/semantic.go",
+		"acoustic_frame_layout":          "../model/qwen3tts/frame.go",
+		"waveform_layout":                "../model/qwen3tts/waveform.go",
+		"tensor_shape_validation":        "../model/qwen3tts/tensor_shape_validation.go",
+		"strict_inspector_mode":          "../cmd/qwen3ttsinspect/main.go",
+		"prompt_fixture_scaffold":        "../model/qwen3tts/testdata/customvoice_prompt_fixture.json",
+		"customvoice_prompt_builder":     "../model/qwen3tts/prompt.go",
+		"prefill_layout":                 "../model/qwen3tts/prefill.go",
 	} {
 		assertCoverageFile(t, "qwen3_tts", qwen, key, path)
 	}

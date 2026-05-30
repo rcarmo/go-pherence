@@ -16,6 +16,7 @@
         "customvoice_prompt_builder": true,
         "prefill_layout": true,
         "capability_validation": true,
+        "speaker_language_compatibility": true,
         "conditioning_cli_validation": true,
         "pipeline_plan": true,
         "runtime_sizing_plan": true,

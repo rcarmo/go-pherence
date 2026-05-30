@@ -95,17 +95,26 @@ type ConditioningRequest struct {
 }
 
 type ConditioningValidation struct {
-	Valid   bool                `json:"valid"`
-	Request ConditioningRequest `json:"request"`
-	Error   string              `json:"error,omitempty"`
+	Valid                bool                          `json:"valid"`
+	Request              ConditioningRequest           `json:"request"`
+	SpeakerCompatibility *SpeakerLanguageCompatibility `json:"speaker_compatibility,omitempty"`
+	Error                string                        `json:"error,omitempty"`
 }
 
 func (c ParsedConfig) CheckConditioning(req ConditioningRequest) ConditioningValidation {
 	if req.ReferenceAudio != "" {
 		req.HasReferenceAudio = true
 	}
-	if err := c.ValidateConditioning(req); err != nil {
-		return ConditioningValidation{Valid: false, Request: req, Error: err.Error()}
+	var compat *SpeakerLanguageCompatibility
+	if req.Speaker != "" {
+		c, err := CheckSpeakerLanguage(req.Speaker, req.Language)
+		if err != nil {
+			return ConditioningValidation{Valid: false, Request: req, Error: err.Error()}
+		}
+		compat = &c
 	}
-	return ConditioningValidation{Valid: true, Request: req}
+	if err := c.ValidateConditioning(req); err != nil {
+		return ConditioningValidation{Valid: false, Request: req, SpeakerCompatibility: compat, Error: err.Error()}
+	}
+	return ConditioningValidation{Valid: true, Request: req, SpeakerCompatibility: compat}
 }
