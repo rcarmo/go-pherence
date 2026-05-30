@@ -62,6 +62,7 @@
         "layer_schedule": true,
         "execution_role_plan": true,
         "routing_plan": true,
+        "ffn_layout": true,
         "conv_state_layout": true,
         "attention_kv_layout": true,
         "context_layout": true,
