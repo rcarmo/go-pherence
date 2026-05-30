@@ -84,6 +84,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"conv_state_layout":       "../model/lfm2/conv_state.go",
 		"attention_kv_layout":     "../model/lfm2/attention_kv.go",
 		"context_layout":          "../model/lfm2/context.go",
+		"rope_layout":             "../model/lfm2/rope.go",
 		"runtime_state_sizing":    "../model/lfm2/state.go",
 		"tensor_shape_validation": "../model/lfm2/tensor_shape_validation.go",
 		"strict_inspector_mode":   "../cmd/lfm2inspect/main.go",

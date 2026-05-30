@@ -64,6 +64,7 @@
         "conv_state_layout": true,
         "attention_kv_layout": true,
         "context_layout": true,
+        "rope_layout": true,
         "runtime_state_sizing": true,
         "strict_inspector_mode": true,
         "download_registry": true,

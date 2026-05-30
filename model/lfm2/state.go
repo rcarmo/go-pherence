@@ -24,6 +24,7 @@ type RuntimePlan struct {
 	ConvStateLayout     ConvStateLayout   `json:"conv_state_layout"`
 	AttentionKVLayout   AttentionKVLayout `json:"attention_kv_layout"`
 	ContextLayout       ContextLayout     `json:"context_layout"`
+	RoPELayout          RoPELayout        `json:"rope_layout"`
 }
 
 func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
@@ -54,6 +55,10 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	ropeLayout, err := NewRoPELayout(cfg, schedule)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		HiddenSize:          cfg.HiddenSize,
 		HeadDim:             cfg.HeadDim,
@@ -73,6 +78,7 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		ConvStateLayout:     convStateLayout,
 		AttentionKVLayout:   attentionKVLayout,
 		ContextLayout:       contextLayout,
+		RoPELayout:          ropeLayout,
 	}
 	if err := plan.Validate(); err != nil {
 		return RuntimePlan{}, err
@@ -124,6 +130,11 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.ContextLayout.VocabSize > 0 {
 		if err := p.ContextLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.RoPELayout.HeadDim > 0 {
+		if err := p.RoPELayout.Validate(); err != nil {
 			return err
 		}
 	}
