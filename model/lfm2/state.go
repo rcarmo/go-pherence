@@ -97,8 +97,8 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 		FullAttentionLayers: cfg.FullAttentionLayerCount(),
 		KVHeads:             cfg.NumKeyValueHeads,
 		ConvLCache:          cfg.ConvLCache,
-		ConvStateFloats:     cfg.ConvLayerCount() * cfg.ConvLCache * cfg.HiddenSize,
-		KVFloatsPerToken:    2 * cfg.FullAttentionLayerCount() * cfg.NumKeyValueHeads * cfg.HeadDim,
+		ConvStateFloats:     convStateLayout.TotalFloats,
+		KVFloatsPerToken:    attentionKVLayout.FloatsPerToken,
 		Experts:             cfg.NumExperts,
 		ExpertsPerToken:     cfg.NumExpertsPerTok,
 		MoEIntermediate:     cfg.MoEIntermediateSize,
@@ -163,6 +163,9 @@ func (p RuntimePlan) Validate() error {
 		if err := p.ConvStateLayout.Validate(); err != nil {
 			return err
 		}
+		if p.ConvStateFloats != p.ConvStateLayout.TotalFloats {
+			return fmt.Errorf("LFM2 conv state plan/layout mismatch: plan=%d layout=%d", p.ConvStateFloats, p.ConvStateLayout.TotalFloats)
+		}
 	}
 	if p.ConvProjLayout.HiddenSize > 0 {
 		if err := p.ConvProjLayout.Validate(); err != nil {
@@ -172,6 +175,9 @@ func (p RuntimePlan) Validate() error {
 	if p.AttentionKVLayout.Layers > 0 {
 		if err := p.AttentionKVLayout.Validate(); err != nil {
 			return err
+		}
+		if p.KVFloatsPerToken != p.AttentionKVLayout.FloatsPerToken {
+			return fmt.Errorf("LFM2 attention KV plan/layout mismatch: plan=%d layout=%d", p.KVFloatsPerToken, p.AttentionKVLayout.FloatsPerToken)
 		}
 	}
 	if p.AttentionProjLayout.HiddenSize > 0 {
@@ -208,6 +214,9 @@ func (p RuntimePlan) Validate() error {
 }
 
 func (p RuntimePlan) KVBytes(maxSeq int, bytesPerFloat int) (int64, error) {
+	if p.AttentionKVLayout.KVHeads > 0 {
+		return p.AttentionKVLayout.Bytes(maxSeq, bytesPerFloat)
+	}
 	if maxSeq < 0 || bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid KV sizing arguments: max_seq=%d bytes_per_float=%d", maxSeq, bytesPerFloat)
 	}
@@ -215,6 +224,9 @@ func (p RuntimePlan) KVBytes(maxSeq int, bytesPerFloat int) (int64, error) {
 }
 
 func (p RuntimePlan) ConvStateBytes(bytesPerFloat int) (int64, error) {
+	if p.ConvStateLayout.Layers > 0 {
+		return p.ConvStateLayout.Bytes(bytesPerFloat)
+	}
 	if bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid conv state bytes/float=%d", bytesPerFloat)
 	}
