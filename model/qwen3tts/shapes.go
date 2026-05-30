@@ -16,6 +16,8 @@ type RuntimePlan struct {
 	SpeakerEncoderLayout    SpeakerEncoderLayout    `json:"speaker_encoder_layout"`
 	TalkerAttentionLayout   AttentionLayout         `json:"talker_attention_layout"`
 	CPAttentionLayout       AttentionLayout         `json:"code_predictor_attention_layout"`
+	TalkerFFNLayout         FFNLayout               `json:"talker_ffn_layout"`
+	CPFFNLayout             FFNLayout               `json:"code_predictor_ffn_layout"`
 	Pipeline                PipelinePlan            `json:"pipeline"`
 }
 
@@ -73,6 +75,14 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 	if err != nil {
 		return RuntimePlan{}, err
 	}
+	talkerFFNLayout, err := NewTalkerFFNLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
+	cpFFNLayout, err := NewCodePredictorFFNLayout(cfg)
+	if err != nil {
+		return RuntimePlan{}, err
+	}
 	plan := RuntimePlan{
 		Talker: TransformerPlan{
 			HiddenSize:       cfg.TalkerHiddenSize,
@@ -102,6 +112,8 @@ func NewRuntimePlan(cfg ParsedConfig) (RuntimePlan, error) {
 		SpeakerEncoderLayout:    speakerEncoderLayout,
 		TalkerAttentionLayout:   talkerAttentionLayout,
 		CPAttentionLayout:       cpAttentionLayout,
+		TalkerFFNLayout:         talkerFFNLayout,
+		CPFFNLayout:             cpFFNLayout,
 		Pipeline:                pipeline,
 	}
 	if err := plan.Validate(); err != nil {
@@ -150,6 +162,16 @@ func (p RuntimePlan) Validate() error {
 	}
 	if p.CPAttentionLayout.HiddenSize > 0 {
 		if err := p.CPAttentionLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.TalkerFFNLayout.HiddenSize > 0 {
+		if err := p.TalkerFFNLayout.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.CPFFNLayout.HiddenSize > 0 {
+		if err := p.CPFFNLayout.Validate(); err != nil {
 			return err
 		}
 	}

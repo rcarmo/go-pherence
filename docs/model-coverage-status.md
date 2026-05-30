@@ -54,6 +54,7 @@ Implemented package/command surface:
 - `model/qwen3tts/tensor_shape_validation.go` — config-aware shape sanity checks.
 - `model/qwen3tts/pipeline.go` — conditioning → prompt prefill → Talker → CodePredictor → Decoder12Hz stage plan.
 - `model/qwen3tts/attention_layout.go` — Talker and CodePredictor GQA/RoPE/RMSNorm attention contracts.
+- `model/qwen3tts/ffn_layout.go` — Talker and CodePredictor gated-MLP projection sizing contracts.
 - `model/qwen3tts/semantic.go` — Talker semantic token stream layout and range validation.
 - `model/qwen3tts/frame.go` — semantic-group plus 15-code acoustic frame layout validation.
 - `model/qwen3tts/code_predictor_heads.go` — 15 acoustic-head logits layout and validation contract.

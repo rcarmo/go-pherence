@@ -23,6 +23,7 @@
         "pipeline_plan": true,
         "runtime_sizing_plan": true,
         "attention_layout": true,
+        "ffn_layout": true,
         "semantic_token_layout": true,
         "acoustic_frame_layout": true,
         "code_predictor_head_layout": true,
