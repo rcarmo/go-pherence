@@ -43,6 +43,15 @@ type Decoder12HzReference struct {
 	RMS        float64 `json:"rms,omitempty"`
 }
 
+type ReferenceCoverage struct {
+	Prompt               bool     `json:"prompt"`
+	SemanticToken        bool     `json:"semantic_token"`
+	AcousticFrame        bool     `json:"acoustic_frame"`
+	DecodedWAVSummary    bool     `json:"decoded_wav_summary"`
+	CompleteRuntimeTrace bool     `json:"complete_runtime_trace"`
+	Missing              []string `json:"missing,omitempty"`
+}
+
 func LoadReferenceFixture(path string) (ReferenceFixture, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -53,6 +62,27 @@ func LoadReferenceFixture(path string) (ReferenceFixture, error) {
 		return ReferenceFixture{}, err
 	}
 	return fx, fx.Validate()
+}
+
+func (fx ReferenceFixture) Coverage() ReferenceCoverage {
+	cov := ReferenceCoverage{Prompt: len(fx.Prompt.Text) > 0 && len(fx.Prompt.Codec) > 0}
+	cov.SemanticToken = fx.Talker != nil
+	cov.AcousticFrame = fx.CodePredictor != nil && len(fx.CodePredictor.AcousticFrame) > 0
+	cov.DecodedWAVSummary = fx.Decoder12Hz != nil
+	cov.CompleteRuntimeTrace = cov.Prompt && cov.SemanticToken && cov.AcousticFrame && cov.DecodedWAVSummary
+	if !cov.Prompt {
+		cov.Missing = append(cov.Missing, "prompt")
+	}
+	if !cov.SemanticToken {
+		cov.Missing = append(cov.Missing, "semantic_token")
+	}
+	if !cov.AcousticFrame {
+		cov.Missing = append(cov.Missing, "acoustic_frame")
+	}
+	if !cov.DecodedWAVSummary {
+		cov.Missing = append(cov.Missing, "decoded_wav_summary")
+	}
+	return cov
 }
 
 func (fx ReferenceFixture) Validate() error {
@@ -73,6 +103,11 @@ func (fx ReferenceFixture) Validate() error {
 	}
 	if len(fx.Prompt.Text) == 0 || len(fx.Prompt.Codec) == 0 {
 		return fmt.Errorf("qwen3tts fixture %q has empty prompt streams", fx.Name)
+	}
+	if fx.Talker != nil {
+		if err := (SemanticTokenLayout{VocabSize: CodecVocabSize}).ValidateToken(fx.Talker.FirstSemanticToken); err != nil {
+			return fmt.Errorf("qwen3tts fixture %q: %w", fx.Name, err)
+		}
 	}
 	if fx.CodePredictor != nil && len(fx.CodePredictor.AcousticFrame) != 0 && len(fx.CodePredictor.AcousticFrame) != 15 {
 		return fmt.Errorf("qwen3tts fixture %q acoustic frame length=%d, want 15", fx.Name, len(fx.CodePredictor.AcousticFrame))

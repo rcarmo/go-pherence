@@ -23,6 +23,31 @@ func TestLoadReferenceFixture(t *testing.T) {
 	if !eq(prompt.Text, fx.Prompt.Text) || !eq(prompt.Codec, fx.Prompt.Codec) {
 		t.Fatalf("prompt mismatch built=%+v fixture=%+v", prompt, fx.Prompt)
 	}
+	cov := fx.Coverage()
+	if !cov.Prompt || cov.CompleteRuntimeTrace || len(cov.Missing) != 3 {
+		t.Fatalf("coverage=%+v", cov)
+	}
+}
+
+func TestReferenceFixtureCoverageComplete(t *testing.T) {
+	fx := ReferenceFixture{
+		Name:          "complete",
+		Variant:       CustomVoice,
+		ModelSize:     "0b6",
+		Speaker:       Ryan,
+		Language:      English,
+		Prompt:        PromptIDs{Text: []uint32{1}, Codec: []uint32{2}},
+		Talker:        &TalkerReference{FirstSemanticToken: 42},
+		CodePredictor: &CodePredictorReference{AcousticFrame: make([]uint32, 15)},
+		Decoder12Hz:   &Decoder12HzReference{SampleRate: 24000, Samples: 2000, DurationS: 1.0 / 12.0},
+	}
+	if err := fx.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	cov := fx.Coverage()
+	if !cov.CompleteRuntimeTrace || len(cov.Missing) != 0 {
+		t.Fatalf("coverage=%+v", cov)
+	}
 }
 
 func TestReferenceFixtureRejectsBadAcousticFrame(t *testing.T) {
@@ -39,5 +64,20 @@ func TestReferenceFixtureRejectsBadAcousticFrame(t *testing.T) {
 	}
 	if err := fx.Validate(); err == nil {
 		t.Fatal("expected bad acoustic frame length error")
+	}
+}
+
+func TestReferenceFixtureRejectsBadSemanticToken(t *testing.T) {
+	fx := ReferenceFixture{
+		Name:      "bad_semantic",
+		Variant:   CustomVoice,
+		ModelSize: "0b6",
+		Speaker:   Ryan,
+		Language:  English,
+		Prompt:    PromptIDs{Text: []uint32{1}, Codec: []uint32{2}},
+		Talker:    &TalkerReference{FirstSemanticToken: CodecVocabSize},
+	}
+	if err := fx.Validate(); err == nil {
+		t.Fatal("expected bad semantic token error")
 	}
 }
