@@ -123,6 +123,20 @@ func TestSummarizeRuntimeOnly(t *testing.T) {
 	}
 }
 
+func TestBuildRuntimeRoadmap(t *testing.T) {
+	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
+	roadmap := buildRuntimeRoadmap(summaries)
+	if len(roadmap) != 1 || roadmap[0].Family != "x" || len(roadmap[0].Blockers) != 2 {
+		t.Fatalf("roadmap=%+v", roadmap)
+	}
+	if roadmap[0].Blockers[0].Key != "cpu_talker_runtime" || roadmap[0].Blockers[0].Validation == "" {
+		t.Fatalf("blockers=%+v", roadmap[0].Blockers)
+	}
+	if roadmap[0].Blockers[1].Key != "nvidia_runtime" || roadmap[0].Blockers[1].Prerequisites == "" {
+		t.Fatalf("blockers=%+v", roadmap[0].Blockers)
+	}
+}
+
 func TestPrintRuntimeRoadmap(t *testing.T) {
 	var buf bytes.Buffer
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime", "decoder12hz_runtime"}}}}}

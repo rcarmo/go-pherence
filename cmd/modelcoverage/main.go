@@ -42,6 +42,18 @@ type categoryCounts struct {
 	PendingKeys []string `json:"pending_keys,omitempty"`
 }
 
+type runtimeRoadmapFamily struct {
+	Family   string                  `json:"family"`
+	Blockers []runtimeRoadmapBlocker `json:"blockers"`
+}
+
+type runtimeRoadmapBlocker struct {
+	Key           string `json:"key"`
+	Description   string `json:"description"`
+	Prerequisites string `json:"prerequisites,omitempty"`
+	Validation    string `json:"validation,omitempty"`
+}
+
 func main() {
 	manifestPath := flag.String("manifest", "docs/model-coverage-manifest.json", "model coverage manifest path")
 	family := flag.String("family", "", "optional family name to summarize, e.g. qwen3_tts or lfm2_moe")
@@ -49,6 +61,7 @@ func main() {
 	markdownOut := flag.Bool("markdown", false, "emit Markdown summary table")
 	csvOut := flag.Bool("csv", false, "emit CSV summary rows")
 	runtimeRoadmap := flag.Bool("runtime-roadmap", false, "emit Markdown checklist of pending runtime/backend gates")
+	runtimeRoadmapJSON := flag.Bool("runtime-roadmap-json", false, "emit JSON runtime blocker roadmap")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
 	minPercent := flag.Float64("min-percent", -1, "exit non-zero if any selected family coverage percent is below this threshold")
@@ -77,6 +90,12 @@ func main() {
 		printCSVSummary(os.Stdout, summaries)
 	} else if *runtimeRoadmap {
 		printRuntimeRoadmap(os.Stdout, summaries)
+	} else if *runtimeRoadmapJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(buildRuntimeRoadmap(summaries)); err != nil {
+			fatal(err)
+		}
 	} else {
 		for _, s := range summaries {
 			if *pendingOnly {
@@ -100,20 +119,32 @@ func main() {
 	}
 }
 
-func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
+func buildRuntimeRoadmap(summaries []familySummary) []runtimeRoadmapFamily {
+	roadmap := make([]runtimeRoadmapFamily, 0, len(summaries))
 	for _, s := range summaries {
 		pending := orderedRuntimePending(s.Categories["runtime"].PendingKeys)
 		if len(pending) == 0 {
 			continue
 		}
-		fmt.Fprintf(w, "## %s runtime blockers\n\n", s.Name)
+		family := runtimeRoadmapFamily{Family: s.Name, Blockers: make([]runtimeRoadmapBlocker, 0, len(pending))}
 		for _, key := range pending {
-			fmt.Fprintf(w, "- [ ] `%s` — %s", key, runtimeBlockerDescription(key))
-			if prereq := runtimeBlockerPrerequisites(key); prereq != "" {
-				fmt.Fprintf(w, " _(after: %s)_", prereq)
+			family.Blockers = append(family.Blockers, runtimeRoadmapBlocker{Key: key, Description: runtimeBlockerDescription(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)})
+		}
+		roadmap = append(roadmap, family)
+	}
+	return roadmap
+}
+
+func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
+	for _, family := range buildRuntimeRoadmap(summaries) {
+		fmt.Fprintf(w, "## %s runtime blockers\n\n", family.Family)
+		for _, blocker := range family.Blockers {
+			fmt.Fprintf(w, "- [ ] `%s` — %s", blocker.Key, blocker.Description)
+			if blocker.Prerequisites != "" {
+				fmt.Fprintf(w, " _(after: %s)_", blocker.Prerequisites)
 			}
-			if validation := runtimeBlockerValidation(key); validation != "" {
-				fmt.Fprintf(w, " _(validate: `%s`)_", validation)
+			if blocker.Validation != "" {
+				fmt.Fprintf(w, " _(validate: `%s`)_", blocker.Validation)
 			}
 			fmt.Fprintln(w)
 		}
