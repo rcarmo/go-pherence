@@ -13,6 +13,7 @@ make model-coverage
 make model-coverage-json
 make model-coverage-markdown
 make model-coverage-csv
+make model-coverage-snapshot
 make model-coverage-runtime-roadmap
 make model-coverage-runtime-roadmap-json
 # emits dependency-ordered runtime blocker checklists with short descriptions, prerequisites, and validation hints

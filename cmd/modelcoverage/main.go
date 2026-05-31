@@ -62,6 +62,7 @@ func main() {
 	csvOut := flag.Bool("csv", false, "emit CSV summary rows")
 	runtimeRoadmap := flag.Bool("runtime-roadmap", false, "emit Markdown checklist of pending runtime/backend gates")
 	runtimeRoadmapJSON := flag.Bool("runtime-roadmap-json", false, "emit JSON runtime blocker roadmap")
+	snapshotOut := flag.Bool("snapshot", false, "emit Markdown coverage snapshot plus runtime roadmap")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
 	minPercent := flag.Float64("min-percent", -1, "exit non-zero if any selected family coverage percent is below this threshold")
@@ -96,6 +97,8 @@ func main() {
 		if err := enc.Encode(buildRuntimeRoadmap(summaries)); err != nil {
 			fatal(err)
 		}
+	} else if *snapshotOut {
+		printSnapshot(os.Stdout, summaries)
 	} else {
 		for _, s := range summaries {
 			if *pendingOnly {
@@ -232,6 +235,20 @@ func runtimeBlockerDescription(key string) string {
 	default:
 		return "implement this runtime/backend coverage gate"
 	}
+}
+
+func printSnapshot(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
+	fmt.Fprintln(w, "# Model coverage snapshot")
+	fmt.Fprintln(w)
+	printMarkdownSummary(w, summaries)
+	roadmap := buildRuntimeRoadmap(summaries)
+	if len(roadmap) == 0 {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "# Runtime roadmap")
+	fmt.Fprintln(w)
+	printRuntimeRoadmap(w, summaries)
 }
 
 func summariesMeetMinPercent(summaries []familySummary, minPercent float64) bool {

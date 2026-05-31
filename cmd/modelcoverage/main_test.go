@@ -123,6 +123,23 @@ func TestSummarizeRuntimeOnly(t *testing.T) {
 	}
 }
 
+func TestPrintSnapshot(t *testing.T) {
+	var buf bytes.Buffer
+	summaries := []familySummary{{Name: "x", Status: "ok", Covered: 1, Pending: 1, CoveragePercent: 50, Categories: map[string]categoryCounts{
+		"references": {Covered: 1, Percent: 100},
+		"runtime":    {Pending: 1, PendingKeys: []string{"cpu_talker_runtime"}},
+		"parity":     {Percent: 100},
+		"readiness":  {Percent: 100},
+	}}}
+	printSnapshot(&buf, summaries)
+	out := buf.String()
+	for _, want := range []string{"# Model coverage snapshot", "| x | ok | 1 | 1 | 50.0%", "# Runtime roadmap", "cpu_talker_runtime"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
 func TestBuildRuntimeRoadmap(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
 	roadmap := buildRuntimeRoadmap(summaries)
