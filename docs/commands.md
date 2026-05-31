@@ -247,7 +247,7 @@ make model-coverage-runtime-roadmap-json
 make model-coverage-next-runtime
 make model-coverage-next-runtime-json
 # add -blocker-package model/qwen3tts, model/lfm2, or backends/nvidia to scope roadmap/next-runtime output
-# emits phase-numbered, dependency-ordered runtime blocker checklists with package hints, short descriptions, prerequisites, and validation hints
+# emits phase-numbered, dependency-ordered runtime blocker checklists with package/fixture hints, short descriptions, prerequisites, and validation hints
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
 make model-coverage-references-pending
 make model-coverage-runtime-pending

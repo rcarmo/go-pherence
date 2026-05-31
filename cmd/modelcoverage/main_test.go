@@ -173,7 +173,7 @@ func TestPrintNextRuntime(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
 	printNextRuntime(&buf, summaries, "")
 	out := buf.String()
-	for _, want := range []string{"x.cpu_talker_runtime", "implement the Qwen3-TTS CPU/reference Talker", "package: model/qwen3tts", "validate: cmd/qwen3ttsinspect -require-numeric-parity"} {
+	for _, want := range []string{"x.cpu_talker_runtime", "implement the Qwen3-TTS CPU/reference Talker", "package: model/qwen3tts", "fixture: model/qwen3tts/testdata/customvoice_reference_placeholder.json", "validate: cmd/qwen3ttsinspect -require-numeric-parity"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
@@ -197,7 +197,7 @@ func TestBuildRuntimeRoadmap(t *testing.T) {
 	if len(roadmap) != 1 || roadmap[0].Family != "x" || len(roadmap[0].Blockers) != 2 {
 		t.Fatalf("roadmap=%+v", roadmap)
 	}
-	if roadmap[0].Blockers[0].Key != "cpu_talker_runtime" || roadmap[0].Blockers[0].Phase != 10 || roadmap[0].Blockers[0].Package != "model/qwen3tts" || roadmap[0].Blockers[0].Validation == "" {
+	if roadmap[0].Blockers[0].Key != "cpu_talker_runtime" || roadmap[0].Blockers[0].Phase != 10 || roadmap[0].Blockers[0].Package != "model/qwen3tts" || roadmap[0].Blockers[0].Fixture == "" || roadmap[0].Blockers[0].Validation == "" {
 		t.Fatalf("blockers=%+v", roadmap[0].Blockers)
 	}
 	if roadmap[0].Blockers[1].Key != "nvidia_runtime" || roadmap[0].Blockers[1].Prerequisites == "" {
@@ -210,7 +210,7 @@ func TestPrintRuntimeRoadmap(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime", "decoder12hz_runtime"}}}}}
 	printRuntimeRoadmap(&buf, summaries, "")
 	out := buf.String()
-	for _, want := range []string{"## x runtime blockers", "- [ ] P10 `cpu_talker_runtime` — implement the Qwen3-TTS CPU/reference Talker semantic-token path", "_(package: `model/qwen3tts`)_", "_(validate: `cmd/qwen3ttsinspect -require-numeric-parity`)_", "- [ ] P30 `decoder12hz_runtime`", "_(after: cpu_code_predictor_runtime)_", "- [ ] P90 `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established _(package: `backends/nvidia`)_ _(after: CPU/reference parity)_"} {
+	for _, want := range []string{"## x runtime blockers", "- [ ] P10 `cpu_talker_runtime` — implement the Qwen3-TTS CPU/reference Talker semantic-token path", "_(package: `model/qwen3tts`)_", "_(fixture: `model/qwen3tts/testdata/customvoice_reference_placeholder.json`)_", "_(validate: `cmd/qwen3ttsinspect -require-numeric-parity`)_", "- [ ] P30 `decoder12hz_runtime`", "_(after: cpu_code_predictor_runtime)_", "- [ ] P90 `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established _(package: `backends/nvidia`)_ _(after: CPU/reference parity)_"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
