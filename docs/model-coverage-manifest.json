@@ -25,6 +25,7 @@
         "speaker_encoder_layout": true,
         "conditioning_cli_validation": true,
         "pipeline_plan": true,
+        "pipeline_execution_contract": true,
         "runtime_sizing_plan": true,
         "runtime_request_validation": true,
         "runtime_request_fixture": true,

@@ -59,6 +59,7 @@ func TestModelCoverageManifest(t *testing.T) {
 	}
 	for key, path := range map[string]string{
 		"pipeline_plan":                    "../model/qwen3tts/pipeline.go",
+		"pipeline_execution_contract":      "../model/qwen3tts/pipeline_contract.go",
 		"capability_validation":            "../model/qwen3tts/capabilities.go",
 		"speaker_language_compatibility":   "../model/qwen3tts/speaker_language.go",
 		"speaker_encoder_layout":           "../model/qwen3tts/speaker_encoder.go",

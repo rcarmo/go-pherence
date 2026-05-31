@@ -85,6 +85,7 @@ Implemented package/command surface:
 - `model/qwen3tts/tensor_shapes.go` — safetensors dtype/shape summaries.
 - `model/qwen3tts/tensor_shape_validation.go` — config-aware Talker/CodePredictor attention, FFN, text-projection, codec-embedding, and codec-head shape sanity checks.
 - `model/qwen3tts/pipeline.go` — conditioning → prompt prefill → Talker → CodePredictor → Decoder12Hz stage plan.
+- `model/qwen3tts/pipeline_contract.go` — validation-only pipeline contract ensuring Talker, CodePredictor, and Decoder12Hz contracts agree on request shapes.
 - `model/qwen3tts/attention_layout.go` — Talker and CodePredictor GQA/RoPE/RMSNorm attention contracts.
 - `model/qwen3tts/ffn_layout.go` — Talker and CodePredictor gated-MLP projection sizing contracts.
 - `model/qwen3tts/semantic.go` — Talker semantic token stream layout and range validation.
