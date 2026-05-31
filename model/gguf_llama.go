@@ -17,17 +17,21 @@ import (
 
 // GGUFLlamaConfig holds the hyper-parameters extracted from GGUF metadata.
 type GGUFLlamaConfig struct {
-	HiddenSize    int
-	NumLayers     int
-	NumHeads      int // query heads
-	NumKVHeads    int
-	HeadDim       int
-	FFNHiddenSize int
-	VocabSize     int
-	MaxSeqLen     int
-	RMSNormEps    float32
-	RopeFreqBase  float32
-	RopeDimCount  int
+	Architecture     string
+	HiddenSize       int
+	NumLayers        int
+	NumHeads         int // query heads
+	NumKVHeads       int
+	HeadDim          int
+	FFNHiddenSize    int
+	VocabSize        int
+	MaxSeqLen        int
+	RMSNormEps       float32
+	RopeFreqBase     float32
+	RopeDimCount     int
+	NumExperts       int
+	NumExpertsPerTok int
+	MoEHiddenSize    int
 }
 
 // GGUFLlamaLayer holds per-layer weight matrices.
@@ -81,6 +85,9 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 	cfg, err := ggufParseConfig(g)
 	if err != nil {
 		return nil, fmt.Errorf("LoadGGUFLlama: config: %w", err)
+	}
+	if err := cfg.ValidateRuntimeSupported(); err != nil {
+		return nil, fmt.Errorf("LoadGGUFLlama: %w", err)
 	}
 
 	load := func(name string) ([]float32, error) {
@@ -199,70 +206,111 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 	return m, nil
 }
 
-// ggufParseConfig extracts LLaMA config from GGUF metadata.
+// ggufParseConfig extracts LLaMA/Qwen-style config from GGUF metadata.
 func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
-	req := func(key string) (uint32, error) {
-		v, ok := g.MetaUint32(key)
-		if !ok {
-			return 0, fmt.Errorf("missing metadata key %q", key)
+	arch, _ := g.MetaString("general.architecture")
+	if arch == "" {
+		arch = "llama"
+	}
+	key := func(suffix string) string { return arch + "." + suffix }
+	req := func(suffix string) (uint32, error) {
+		if v, ok := g.MetaUint32(key(suffix)); ok {
+			return v, nil
 		}
-		return v, nil
+		if arch != "llama" {
+			if v, ok := g.MetaUint32("llama." + suffix); ok {
+				return v, nil
+			}
+		}
+		return 0, fmt.Errorf("missing metadata key %q", key(suffix))
 	}
-	hidden, err := req("llama.embedding_length")
+	hidden, err := req("embedding_length")
 	if err != nil {
 		return GGUFLlamaConfig{}, err
 	}
-	layers, err := req("llama.block_count")
+	layers, err := req("block_count")
 	if err != nil {
 		return GGUFLlamaConfig{}, err
 	}
-	heads, err := req("llama.attention.head_count")
+	heads, err := req("attention.head_count")
 	if err != nil {
 		return GGUFLlamaConfig{}, err
 	}
-	kvHeads, err := req("llama.attention.head_count_kv")
+	kvHeads, err := req("attention.head_count_kv")
 	if err != nil {
 		return GGUFLlamaConfig{}, err
 	}
-	ffn, err := req("llama.feed_forward_length")
+	ffn, err := req("feed_forward_length")
 	if err != nil {
 		return GGUFLlamaConfig{}, err
 	}
-	maxCtx, err := req("llama.context_length")
+	maxCtx, err := req("context_length")
 	if err != nil {
 		return GGUFLlamaConfig{}, err
 	}
-	vocabSize, err := req("llama.vocab_size")
+	vocabSize, err := req("vocab_size")
 	if err != nil {
 		// fallback: count from token_embd shape
 		vocabSize = 32000
 	}
 	ropeBase := float32(10000.0)
-	if v, ok := g.MetaFloat32("llama.rope.freq_base"); ok {
+	if v, ok := ggufMetaFloat32Any(g, key("rope.freq_base"), "llama.rope.freq_base"); ok {
 		ropeBase = v
 	}
 	eps := float32(1e-5)
-	if v, ok := g.MetaFloat32("llama.attention.layer_norm_rms_epsilon"); ok {
+	if v, ok := ggufMetaFloat32Any(g, key("attention.layer_norm_rms_epsilon"), "llama.attention.layer_norm_rms_epsilon"); ok {
 		eps = v
 	}
 	ropeDim := int(hidden) / int(heads)
-	if v, ok := g.MetaUint32("llama.rope.dimension_count"); ok {
+	if v, ok := ggufMetaUint32Any(g, key("rope.dimension_count"), "llama.rope.dimension_count"); ok {
 		ropeDim = int(v)
 	}
+	experts, _ := ggufMetaUint32Any(g, key("expert_count"), "llama.expert_count")
+	expertsPerTok, _ := ggufMetaUint32Any(g, key("expert_used_count"), "llama.expert_used_count")
+	moeHidden, _ := ggufMetaUint32Any(g, key("expert_feed_forward_length"), "llama.expert_feed_forward_length")
 	cfg := GGUFLlamaConfig{
-		HiddenSize:    int(hidden),
-		NumLayers:     int(layers),
-		NumHeads:      int(heads),
-		NumKVHeads:    int(kvHeads),
-		HeadDim:       int(hidden) / int(heads),
-		FFNHiddenSize: int(ffn),
-		VocabSize:     int(vocabSize),
-		MaxSeqLen:     int(maxCtx),
-		RMSNormEps:    eps,
-		RopeFreqBase:  ropeBase,
-		RopeDimCount:  ropeDim,
+		Architecture:     arch,
+		HiddenSize:       int(hidden),
+		NumLayers:        int(layers),
+		NumHeads:         int(heads),
+		NumKVHeads:       int(kvHeads),
+		HeadDim:          int(hidden) / int(heads),
+		FFNHiddenSize:    int(ffn),
+		VocabSize:        int(vocabSize),
+		MaxSeqLen:        int(maxCtx),
+		RMSNormEps:       eps,
+		RopeFreqBase:     ropeBase,
+		RopeDimCount:     ropeDim,
+		NumExperts:       int(experts),
+		NumExpertsPerTok: int(expertsPerTok),
+		MoEHiddenSize:    int(moeHidden),
 	}
 	return cfg, nil
+}
+
+func (c GGUFLlamaConfig) ValidateRuntimeSupported() error {
+	if c.NumExperts > 0 || c.NumExpertsPerTok > 0 || c.MoEHiddenSize > 0 {
+		return fmt.Errorf("GGUF MoE runtime for architecture %q is not wired yet (experts=%d active=%d moe_hidden=%d)", c.Architecture, c.NumExperts, c.NumExpertsPerTok, c.MoEHiddenSize)
+	}
+	return nil
+}
+
+func ggufMetaUint32Any(g *gguf.GGUF, keys ...string) (uint32, bool) {
+	for _, key := range keys {
+		if v, ok := g.MetaUint32(key); ok {
+			return v, true
+		}
+	}
+	return 0, false
+}
+
+func ggufMetaFloat32Any(g *gguf.GGUF, keys ...string) (float32, bool) {
+	for _, key := range keys {
+		if v, ok := g.MetaFloat32(key); ok {
+			return v, true
+		}
+	}
+	return 0, false
 }
 
 // precomputeRoPE precomputes [maxSeqLen × rotHalf] cos/sin interleaved frequencies.
