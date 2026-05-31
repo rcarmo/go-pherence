@@ -12,16 +12,17 @@ import (
 )
 
 type report struct {
-	ModelDir          string                      `json:"model_dir"`
-	Config            lfm2.Config                 `json:"config"`
-	ConvLayers        int                         `json:"conv_layers"`
-	AttentionLayers   int                         `json:"attention_layers"`
-	TensorCoverage    *lfm2.TensorCoverage        `json:"tensor_coverage,omitempty"`
-	TensorShapes      *lfm2.TensorShapeSummary    `json:"tensor_shapes,omitempty"`
-	ShapeValidation   *lfm2.TensorShapeValidation `json:"shape_validation,omitempty"`
-	RuntimePlan       lfm2.RuntimePlan            `json:"runtime_plan"`
-	RuntimeStatus     lfm2.RuntimeStatus          `json:"runtime_status"`
-	ReferenceCoverage *lfm2.ReferenceCoverage     `json:"reference_coverage,omitempty"`
+	ModelDir           string                      `json:"model_dir"`
+	Config             lfm2.Config                 `json:"config"`
+	ConvLayers         int                         `json:"conv_layers"`
+	AttentionLayers    int                         `json:"attention_layers"`
+	TensorCoverage     *lfm2.TensorCoverage        `json:"tensor_coverage,omitempty"`
+	TensorShapes       *lfm2.TensorShapeSummary    `json:"tensor_shapes,omitempty"`
+	ShapeValidation    *lfm2.TensorShapeValidation `json:"shape_validation,omitempty"`
+	RuntimePlan        lfm2.RuntimePlan            `json:"runtime_plan"`
+	RuntimeRequestPlan *lfm2.RuntimeRequestPlan    `json:"runtime_request_plan,omitempty"`
+	RuntimeStatus      lfm2.RuntimeStatus          `json:"runtime_status"`
+	ReferenceCoverage  *lfm2.ReferenceCoverage     `json:"reference_coverage,omitempty"`
 }
 
 func main() {
@@ -53,6 +54,13 @@ func main() {
 		}
 		coverage := fixture.Coverage()
 		out.ReferenceCoverage = &coverage
+		if fixture.RuntimeRequest != nil && fixture.References != nil && fixture.References.Tokenization != nil {
+			requestPlan, err := lfm2.NewRuntimeRequestPlan(cfg, lfm2.RuntimeRequest{Tokens: fixture.References.Tokenization.Tokens, MaxNewTokens: fixture.RuntimeRequest.MaxNewTokens, BytesPerFloat: fixture.RuntimeRequest.BytesPerFloat})
+			if err != nil {
+				fatal(err)
+			}
+			out.RuntimeRequestPlan = &requestPlan
+		}
 	}
 	if infos, err := safetensorInfos(*modelDir, *safetensorPath); err == nil {
 		names := make([]string, 0, len(infos))
@@ -136,6 +144,9 @@ func printText(r report) {
 	fmt.Printf("  conv: L_cache=%d bias=%v rope_theta=%g rope_layers=%d norm_eps=%g state_floats/layer=%d kernel_floats/layer=%d\n", c.ConvLCache, c.ConvBias, c.RoPE.Theta, r.RuntimePlan.RoPELayout.FullAttentionLayers, r.RuntimePlan.NormLayout.Epsilon, r.RuntimePlan.ConvStateLayout.FloatsPerLayer, r.RuntimePlan.ConvProjLayout.KernelFloats)
 	fmt.Printf("  runtime plan: conv_state_floats=%d kv_floats/token=%d attention_layers=%v attention_kv_floats/token=%d attention_proj_floats/layer=%d dense_layers=%v moe_layers=%d embedding_floats=%d lm_head_floats=%d\n", r.RuntimePlan.ConvStateFloats, r.RuntimePlan.KVFloatsPerToken, r.RuntimePlan.Schedule.FullAttentionIndices, r.RuntimePlan.AttentionKVLayout.FloatsPerToken, r.RuntimePlan.AttentionProjLayout.TotalFloatsPerLayer, r.RuntimePlan.Execution.DenseIndices, len(r.RuntimePlan.Execution.MoEIndices), r.RuntimePlan.EmbeddingLayout.EmbeddingFloats, r.RuntimePlan.EmbeddingLayout.LMHeadFloats)
 	fmt.Printf("  runtime status: implemented=%v pending=%v\n", r.RuntimeStatus.RuntimeImplemented, r.RuntimeStatus.Pending)
+	if r.RuntimeRequestPlan != nil {
+		fmt.Printf("  runtime request: prompt_tokens=%d max_new=%d max_sequence=%d kv_bytes=%d conv_state_bytes=%d\n", r.RuntimeRequestPlan.PromptTokens, r.RuntimeRequestPlan.MaxNewTokens, r.RuntimeRequestPlan.MaxSequence, r.RuntimeRequestPlan.KVBytes, r.RuntimeRequestPlan.ConvStateBytes)
+	}
 	if r.ReferenceCoverage != nil {
 		fmt.Printf("  references: complete=%v missing=%v\n", r.ReferenceCoverage.CompleteRuntimeTrace, r.ReferenceCoverage.Missing)
 	}

@@ -57,10 +57,10 @@ func TestInspectReferenceCoverageFixture(t *testing.T) {
 	}`
 	writeFile(t, filepath.Join(dir, "config.json"), cfg)
 	fixture := filepath.Join(dir, "fixture.json")
-	writeFile(t, fixture, cfg)
+	writeFile(t, fixture, `{"config":`+cfg+`,"references":{"tokenization":{"text":"Hello","tokens":[1,2]}},"runtime_request":{"prompt_tokens":2,"max_new_tokens":4,"max_sequence":6,"bytes_per_float":2,"kv_bytes":12288,"conv_state_bytes":24576}}`)
 
 	out := runInspect(t, "-model", dir, "-fixture", fixture, "-json")
-	for _, want := range []string{`"reference_coverage"`, `"config_metadata": true`, `"runtime_plan": true`, `"complete_runtime_trace": false`, `"tokenization_fixture"`} {
+	for _, want := range []string{`"reference_coverage"`, `"config_metadata": true`, `"runtime_plan": true`, `"complete_runtime_trace": false`, `"tokenization_fixture"`, `"runtime_request_plan"`, `"max_sequence": 6`, `"kv_bytes": 12288`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output missing %s:\n%s", want, out)
 		}
