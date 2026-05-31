@@ -44,6 +44,7 @@ func main() {
 	manifestPath := flag.String("manifest", "docs/model-coverage-manifest.json", "model coverage manifest path")
 	family := flag.String("family", "", "optional family name to summarize, e.g. qwen3_tts or lfm2_moe")
 	jsonOut := flag.Bool("json", false, "emit JSON summary")
+	markdownOut := flag.Bool("markdown", false, "emit Markdown summary table")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
 	referencesOnly := flag.Bool("references-only", false, "only include reference/fixture coverage gates in counts and pending output")
@@ -65,6 +66,8 @@ func main() {
 		if err := enc.Encode(summaries); err != nil {
 			fatal(err)
 		}
+	} else if *markdownOut {
+		printMarkdownSummary(os.Stdout, summaries)
 	} else {
 		for _, s := range summaries {
 			if *pendingOnly {
@@ -82,6 +85,18 @@ func main() {
 				os.Exit(1)
 			}
 		}
+	}
+}
+
+func printMarkdownSummary(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
+	fmt.Fprintln(w, "| family | status | covered | pending | references | runtime | parity | readiness |")
+	fmt.Fprintln(w, "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+	for _, s := range summaries {
+		refs := s.Categories["references"]
+		runtime := s.Categories["runtime"]
+		parity := s.Categories["parity"]
+		readiness := s.Categories["readiness"]
+		fmt.Fprintf(w, "| %s | %s | %d | %d | %d/%d | %d/%d | %d/%d | %d/%d |\n", s.Name, s.Status, s.Covered, s.Pending, refs.Covered, refs.Pending, runtime.Covered, runtime.Pending, parity.Covered, parity.Pending, readiness.Covered, readiness.Pending)
 	}
 }
 

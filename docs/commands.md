@@ -237,6 +237,7 @@ Show the current manifest summary with; text and JSON output include per-family 
 ```bash
 make model-coverage
 make model-coverage-json
+GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -markdown
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
 make model-coverage-references-pending
 make model-coverage-runtime-pending
