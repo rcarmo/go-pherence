@@ -251,6 +251,7 @@ This runs tests and vet for:
 - `model/lfm2`
 - `cmd/qwen3ttsinspect`
 - `cmd/lfm2inspect`
+- reference/fixture coverage has no pending manifest gates
 - `cmd/modelcoverage`
 
 ## `specbench` / `speccheck`

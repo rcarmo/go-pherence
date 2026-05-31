@@ -38,6 +38,7 @@ It validates:
 - `model/lfm2`
 - `cmd/qwen3ttsinspect`
 - `cmd/lfm2inspect`
+- reference/fixture coverage has no pending manifest gates
 
 Whole-tree dry compiles are still useful, but currently fail in unrelated experimental Spacemit IME2 and `tmp/diarize` packages.
 
