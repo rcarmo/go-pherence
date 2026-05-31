@@ -17,7 +17,7 @@ This page tracks model architecture and weight-format support. The top-level REA
 
 RTX 3060 12GB + i7-12700 6-core. Pure Go, zero CGo. Short-run decode rates vary with prompt length, route-set warmth, and VRAM headroom.
 
-MoE note: 128 experts/layer, 8 active/token. The pure Go/SIMD path runs router softmax/top-k and selected MLX 4-bit experts without llama.cpp. Optional REAP metadata (`reap_config.json` or `reap.json`) can statically mask pruned experts before top-k selection. NVIDIA backend runs attention, router, and selected experts via a GPU-resident expert cache; cold route sets pay one-time expert upload cost.
+MoE note: 128 experts/layer, 8 active/token. The pure Go/SIMD path runs router softmax/top-k and selected MLX 4-bit experts without llama.cpp. Optional REAP metadata (`reap_config.json` or `reap.json`) can statically mask pruned experts before top-k selection. TurboQuant-compatible KV policy names (`turbo4`, `turbo2`, `q8_0`, `f16`) are accepted by `cmd/llmserver` and mapped to the native Go compressed-KV cache rather than external llama.cpp storage. NVIDIA backend runs attention, router, and selected experts via a GPU-resident expert cache; cold route sets pay one-time expert upload cost.
 
 ## Architecture support
 

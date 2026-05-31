@@ -48,6 +48,7 @@ type LlamaModel struct {
 	OnTheFlyQuant bool
 
 	EnableTurboQuant bool
+	TurboQuantConfig *kv.TurboQuantConfig
 	TurboQuantStates map[int]*kv.TurboQuantState
 	REAP             *REAPConfig
 }

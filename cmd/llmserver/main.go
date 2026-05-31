@@ -17,6 +17,7 @@ import (
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
 // OpenAI API types
@@ -359,7 +360,7 @@ func (s *Server) switchModelLocked(id string) error {
 		return fmt.Errorf("unknown model %q", id)
 	}
 	log.Printf("Switching model from %s to %s (%s)", s.modelID, id, preset.Path)
-	m, tok, gpu, err := loadRuntimeModel(preset.Path, s.useGPU, preset.GPULayers)
+	m, tok, gpu, err := loadRuntimeModelWithKV(preset.Path, s.useGPU, preset.GPULayers, preset.CacheTypeK, preset.CacheTypeV, -1)
 	if err != nil {
 		return fmt.Errorf("load model %q: %w", id, err)
 	}
@@ -378,6 +379,10 @@ func (s *Server) switchModelLocked(id string) error {
 }
 
 func loadRuntimeModel(path string, useGPU bool, gpuLayers int) (*model.LlamaModel, *tokenizer.Tokenizer, *model.GPUModel, error) {
+	return loadRuntimeModelWithKV(path, useGPU, gpuLayers, "", "", -1)
+}
+
+func loadRuntimeModelWithKV(path string, useGPU bool, gpuLayers int, cacheTypeK, cacheTypeV string, residualWindow int) (*model.LlamaModel, *tokenizer.Tokenizer, *model.GPUModel, error) {
 	m, err := model.LoadLlama(path)
 	if err != nil {
 		return nil, nil, nil, err
@@ -387,6 +392,16 @@ func loadRuntimeModel(path string, useGPU bool, gpuLayers int) (*model.LlamaMode
 		return nil, nil, nil, err
 	}
 	m.Tok = tok
+	if cacheTypeK != "" || cacheTypeV != "" || residualWindow >= 0 {
+		cfg, enabled, err := kv.TurboQuantConfigFromCacheTypes(cacheTypeK, cacheTypeV, residualWindow)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if enabled || residualWindow >= 0 {
+			m.EnableTurboQuant = enabled
+			m.TurboQuantConfig = &cfg
+		}
+	}
 	var gpu *model.GPUModel
 	if useGPU {
 		g, err := model.LoadGPUModelWithLayers(m, gpuLayers)
@@ -411,6 +426,7 @@ func main() {
 	ctxSize := flag.Int("ctx-size", 32768, "maximum context size advertised by the server")
 	cacheTypeK := flag.String("cache-type-k", "", "KV cache key quantization hint (turbo4, q8_0, f16)")
 	cacheTypeV := flag.String("cache-type-v", "", "KV cache value quantization hint (turbo2, q4_0, f16)")
+	kvResidualWindow := flag.Int("kv-residual-window", -1, "TurboQuant full-precision residual KV tokens (-1=default)")
 	turboQuant := flag.Bool("turbo-quant", false, "enable TurboQuant KV cache compression on CPU backend")
 	speculative := flag.Bool("speculative", false, "enable opt-in stock-weight speculative decoding path (CPU backend)")
 	specBlock := flag.Int("speculative-block", 8, "speculative proposal block size")
@@ -466,7 +482,7 @@ func main() {
 
 	log.Printf("Loading model from %s...", *dir)
 	t0 := time.Now()
-	m, tok, gpu, err := loadRuntimeModel(*dir, *useGPU, *gpuLayers)
+	m, tok, gpu, err := loadRuntimeModelWithKV(*dir, *useGPU, *gpuLayers, *cacheTypeK, *cacheTypeV, *kvResidualWindow)
 	if err != nil {
 		log.Fatalf("Load failed: %v", err)
 	}
@@ -481,7 +497,7 @@ func main() {
 			break
 		}
 	}
-	log.Printf("Runtime hints: threads=%d batch_size=%d ctx_size=%d cache_type_k=%q cache_type_v=%q presets=%d", *threads, *batchSize, *ctxSize, *cacheTypeK, *cacheTypeV, len(presets))
+	log.Printf("Runtime hints: threads=%d batch_size=%d ctx_size=%d cache_type_k=%q cache_type_v=%q kv_residual_window=%d presets=%d", *threads, *batchSize, *ctxSize, *cacheTypeK, *cacheTypeV, *kvResidualWindow, len(presets))
 	srv := &Server{cpuModel: m, gpuModel: gpu, tok: tok, modelID: modelID, modelPath: *dir, presets: presets, created: time.Now().Unix(), maxCtx: *ctxSize, useGPU: *useGPU, gpuLayers: *gpuLayers, speculative: *speculative}
 	if gpu != nil {
 		defer gpu.Close()

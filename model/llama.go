@@ -805,8 +805,11 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	kvCacheK := make([][]float32, cfg.NumLayers) // [layers][seqLen * layerKVDim]
 	kvCacheV := make([][]float32, cfg.NumLayers)
 	var compressedKV []*kv.CompressedKVCache
-	if m.EnableTurboQuant || os.Getenv("TURBO_QUANT") == "1" {
+	if m.EnableTurboQuant || os.Getenv("TURBO_QUANT") == "1" || m.TurboQuantConfig != nil {
 		tqCfg := kv.DefaultTurboQuantConfig()
+		if m.TurboQuantConfig != nil {
+			tqCfg = *m.TurboQuantConfig
+		}
 		if m.TurboQuantStates == nil {
 			m.TurboQuantStates = make(map[int]*kv.TurboQuantState)
 		}
