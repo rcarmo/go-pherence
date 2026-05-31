@@ -174,6 +174,7 @@ Useful flags:
 - `-voice-prompt TEXT` — provide VoiceDesign conditioning text for capability validation.
 - `-fixture PATH` — load a compact reference fixture and report which prompt/semantic/acoustic/WAV parity anchors are present or still missing.
 - `-require-complete-fixture` — with `-fixture`, exit non-zero unless all reference anchors are present.
+- `-require-runtime` — exit non-zero until Talker, CodePredictor, and Decoder12Hz runtime execution are implemented.
 
 Fixture coverage example:
 
@@ -206,6 +207,7 @@ Useful flags:
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 - `-fixture PATH` — load compact reference metadata and report which config/tensor/reference parity anchors are present or still missing.
 - `-require-complete-fixture` — with `-fixture`, exit non-zero unless all reference anchors are present.
+- `-require-runtime` — exit non-zero until LFM2 generation runtime execution is implemented.
 
 Fixture coverage example:
 

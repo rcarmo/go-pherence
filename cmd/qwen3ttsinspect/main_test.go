@@ -38,6 +38,14 @@ func TestInspectReferenceCoverageFixture(t *testing.T) {
 	}
 }
 
+func TestRequireRuntimeFailsWhileUnimplemented(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64}}}`)
+	if out, err := runInspectRaw("-model", dir, "-require-runtime"); err == nil {
+		t.Fatalf("expected runtime requirement failure, output:\n%s", out)
+	}
+}
+
 func TestRequireCompleteFixtureFailsForPromptOnlyFixture(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64}}}`)

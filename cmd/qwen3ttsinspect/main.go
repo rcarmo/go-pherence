@@ -42,6 +42,7 @@ func main() {
 	jsonOut := flag.Bool("json", false, "emit JSON report")
 	fixturePath := flag.String("fixture", "", "optional Qwen3-TTS reference fixture path for coverage reporting")
 	requireCompleteFixture := flag.Bool("require-complete-fixture", false, "exit non-zero when -fixture reference coverage is incomplete")
+	requireRuntime := flag.Bool("require-runtime", false, "exit non-zero when runtime execution stages are not implemented")
 	speakerName := flag.String("speaker", "ryan", "CustomVoice speaker for prefix probe")
 	langName := flag.String("language", "en", "language for prefix probe")
 	firstTextID := flag.Uint("first-text-id", 0, "optional first token ID for CustomVoice prefix probe")
@@ -152,6 +153,9 @@ func main() {
 		os.Exit(1)
 	}
 	if *requireCompleteFixture && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.CompleteRuntimeTrace) {
+		os.Exit(1)
+	}
+	if *requireRuntime && !out.RuntimeStatus.RuntimeImplemented {
 		os.Exit(1)
 	}
 }

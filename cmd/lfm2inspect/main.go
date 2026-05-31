@@ -30,6 +30,7 @@ func main() {
 	jsonOut := flag.Bool("json", false, "emit JSON report")
 	fixturePath := flag.String("fixture", "", "optional LFM2 reference metadata/fixture path for coverage reporting")
 	requireCompleteFixture := flag.Bool("require-complete-fixture", false, "exit non-zero when -fixture reference coverage is incomplete")
+	requireRuntime := flag.Bool("require-runtime", false, "exit non-zero when runtime execution is not implemented")
 	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness or shape validation fails")
 	flag.Parse()
 	if *modelDir == "" {
@@ -78,6 +79,9 @@ func main() {
 		os.Exit(1)
 	}
 	if *requireCompleteFixture && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.CompleteRuntimeTrace) {
+		os.Exit(1)
+	}
+	if *requireRuntime && !out.RuntimeStatus.RuntimeImplemented {
 		os.Exit(1)
 	}
 }

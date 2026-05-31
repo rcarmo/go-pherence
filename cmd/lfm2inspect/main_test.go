@@ -67,6 +67,14 @@ func TestInspectReferenceCoverageFixture(t *testing.T) {
 	}
 }
 
+func TestRequireRuntimeFailsWhileUnimplemented(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.json"), `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`)
+	if out, err := runInspectRaw("-model", dir, "-require-runtime"); err == nil {
+		t.Fatalf("expected runtime requirement failure, output:\n%s", out)
+	}
+}
+
 func TestRequireCompleteFixtureFailsForMetadataOnlyFixture(t *testing.T) {
 	dir := t.TempDir()
 	cfg := `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`
