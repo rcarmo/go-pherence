@@ -37,6 +37,7 @@ This directory contains the durable backend, model, validation, and research not
 
 - [supported-models.md](supported-models.md) — supported architectures, formats, and performance snapshot.
 - [model-coverage-status.md](model-coverage-status.md) — compact Qwen3-TTS and LFM2 coverage status, validation commands, and remaining runtime gaps.
+- [model-coverage-snapshot.md](model-coverage-snapshot.md) — generated coverage table plus pending runtime roadmap.
 - [model-coverage-manifest.json](model-coverage-manifest.json) — machine-readable Qwen3-TTS and LFM2 coverage gates for status tooling.
 - [hunyuan3d-2-support.md](hunyuan3d-2-support.md) — Hunyuan3D-2 feasibility assessment and staged implementation plan.
 - [qwen3-tts-support.md](qwen3-tts-support.md) — Qwen3-TTS repository mapping, roadmap, and implementation guidance.
