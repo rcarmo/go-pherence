@@ -49,6 +49,7 @@ type runtimeRoadmapFamily struct {
 
 type runtimeRoadmapBlocker struct {
 	Key           string `json:"key"`
+	Phase         int    `json:"phase"`
 	Description   string `json:"description"`
 	Prerequisites string `json:"prerequisites,omitempty"`
 	Validation    string `json:"validation,omitempty"`
@@ -152,7 +153,7 @@ func buildRuntimeRoadmap(summaries []familySummary) []runtimeRoadmapFamily {
 		}
 		family := runtimeRoadmapFamily{Family: s.Name, Blockers: make([]runtimeRoadmapBlocker, 0, len(pending))}
 		for _, key := range pending {
-			family.Blockers = append(family.Blockers, runtimeRoadmapBlocker{Key: key, Description: runtimeBlockerDescription(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)})
+			family.Blockers = append(family.Blockers, runtimeRoadmapBlocker{Key: key, Phase: runtimeBlockerPriority(key), Description: runtimeBlockerDescription(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)})
 		}
 		roadmap = append(roadmap, family)
 	}
@@ -163,7 +164,7 @@ func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []
 	for _, family := range buildRuntimeRoadmap(summaries) {
 		fmt.Fprintf(w, "## %s runtime blockers\n\n", family.Family)
 		for _, blocker := range family.Blockers {
-			fmt.Fprintf(w, "- [ ] `%s` — %s", blocker.Key, blocker.Description)
+			fmt.Fprintf(w, "- [ ] P%d `%s` — %s", blocker.Phase, blocker.Key, blocker.Description)
 			if blocker.Prerequisites != "" {
 				fmt.Fprintf(w, " _(after: %s)_", blocker.Prerequisites)
 			}
