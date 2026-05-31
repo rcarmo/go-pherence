@@ -112,6 +112,9 @@ func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []
 			if prereq := runtimeBlockerPrerequisites(key); prereq != "" {
 				fmt.Fprintf(w, " _(after: %s)_", prereq)
 			}
+			if validation := runtimeBlockerValidation(key); validation != "" {
+				fmt.Fprintf(w, " _(validate: `%s`)_", validation)
+			}
 			fmt.Fprintln(w)
 		}
 		fmt.Fprintln(w)
@@ -157,6 +160,25 @@ func runtimeBlockerPrerequisites(key string) string {
 		return "CPU/reference parity"
 	case "streaming_runtime":
 		return "CPU/reference parity, nvidia_runtime where applicable"
+	default:
+		return ""
+	}
+}
+
+func runtimeBlockerValidation(key string) string {
+	switch key {
+	case "cpu_talker_runtime":
+		return "cmd/qwen3ttsinspect -require-numeric-parity"
+	case "cpu_code_predictor_runtime":
+		return "cmd/qwen3ttsinspect -require-numeric-parity"
+	case "decoder12hz_runtime":
+		return "cmd/qwen3ttsinspect -require-ready"
+	case "cpu_generation_runtime":
+		return "cmd/lfm2inspect -require-ready"
+	case "nvidia_runtime":
+		return "cmd/qwen3ttsinspect -require-runtime / cmd/lfm2inspect -require-runtime"
+	case "streaming_runtime":
+		return "cmd/qwen3ttsinspect -require-ready"
 	default:
 		return ""
 	}

@@ -240,7 +240,7 @@ make model-coverage-json
 make model-coverage-markdown
 make model-coverage-csv
 make model-coverage-runtime-roadmap
-# emits dependency-ordered runtime blocker checklists with short descriptions and prerequisites
+# emits dependency-ordered runtime blocker checklists with short descriptions, prerequisites, and validation hints
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
 make model-coverage-references-pending
 make model-coverage-runtime-pending
