@@ -88,6 +88,7 @@
         "runtime_state_sizing": true,
         "runtime_request_validation": true,
         "runtime_stage_interfaces": true,
+        "runtime_status_reporting": true,
         "strict_inspector_mode": true,
         "download_registry": true,
         "make_inspect_target": true,
