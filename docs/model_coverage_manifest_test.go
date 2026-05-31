@@ -141,6 +141,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"conv_execution_contract":              "../model/lfm2/conv_contract.go",
 		"conv_projection_layout":               "../model/lfm2/conv_projection.go",
 		"attention_kv_layout":                  "../model/lfm2/attention_kv.go",
+		"attention_execution_contract":         "../model/lfm2/attention_contract.go",
 		"attention_projection_layout":          "../model/lfm2/attention_projection.go",
 		"context_layout":                       "../model/lfm2/context.go",
 		"rope_layout":                          "../model/lfm2/rope.go",

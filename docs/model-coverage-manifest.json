@@ -119,6 +119,7 @@
         "conv_execution_contract": true,
         "conv_projection_layout": true,
         "attention_kv_layout": true,
+        "attention_execution_contract": true,
         "attention_projection_layout": true,
         "context_layout": true,
         "rope_layout": true,
