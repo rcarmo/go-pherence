@@ -40,12 +40,13 @@ func main() {
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
 	referencesOnly := flag.Bool("references-only", false, "only include reference/fixture coverage gates in counts and pending output")
+	runtimeOnly := flag.Bool("runtime-only", false, "only include runtime/backend coverage gates in counts and pending output")
 	flag.Parse()
 	m, err := loadManifest(*manifestPath)
 	if err != nil {
 		fatal(err)
 	}
-	summaries, err := summarize(m, *family, *referencesOnly)
+	summaries, err := summarize(m, *family, coverageFilter{ReferencesOnly: *referencesOnly, RuntimeOnly: *runtimeOnly})
 	if err != nil {
 		fatal(err)
 	}
@@ -93,7 +94,12 @@ func loadManifest(path string) (manifest, error) {
 	return m, nil
 }
 
-func summarize(m manifest, family string, referencesOnly bool) ([]familySummary, error) {
+type coverageFilter struct {
+	ReferencesOnly bool
+	RuntimeOnly    bool
+}
+
+func summarize(m manifest, family string, filter coverageFilter) ([]familySummary, error) {
 	names := make([]string, 0, len(m.Families))
 	if family != "" {
 		if _, ok := m.Families[family]; !ok {
@@ -112,7 +118,7 @@ func summarize(m manifest, family string, referencesOnly bool) ([]familySummary,
 		s := familySummary{Name: name, Status: fam.Status, RuntimeGeneration: fam.RuntimeGeneration, ValidationTarget: fam.ValidationTarget}
 		keys := make([]string, 0, len(fam.Coverage))
 		for key := range fam.Coverage {
-			if referencesOnly && !isReferenceCoverageKey(key) {
+			if !filter.include(key) {
 				continue
 			}
 			keys = append(keys, key)
@@ -131,8 +137,22 @@ func summarize(m manifest, family string, referencesOnly bool) ([]familySummary,
 	return out, nil
 }
 
+func (f coverageFilter) include(key string) bool {
+	if f.ReferencesOnly && !isReferenceCoverageKey(key) {
+		return false
+	}
+	if f.RuntimeOnly && !isRuntimeCoverageKey(key) {
+		return false
+	}
+	return true
+}
+
 func isReferenceCoverageKey(key string) bool {
 	return strings.Contains(key, "reference") || strings.Contains(key, "fixture")
+}
+
+func isRuntimeCoverageKey(key string) bool {
+	return strings.Contains(key, "runtime") || strings.Contains(key, "nvidia") || strings.Contains(key, "streaming")
 }
 
 func fatal(err error) {
