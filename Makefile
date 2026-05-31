@@ -34,6 +34,9 @@ test-model-coverage:
 	go run ./cmd/modelcoverage -parity-only -fail-pending
 	go run ./cmd/modelcoverage -readiness-only -fail-pending
 	go run ./cmd/modelcoverage -min-percent $(MODEL_COVERAGE_MIN_PERCENT)
+	mkdir -p $(GOTMPDIR)
+	go run ./cmd/modelcoverage -snapshot > $(GOTMPDIR)/model-coverage-snapshot.check.md
+	cmp docs/model-coverage-snapshot.md $(GOTMPDIR)/model-coverage-snapshot.check.md
 
 MODEL_COVERAGE_FAMILY ?=
 MODEL_COVERAGE_MIN_PERCENT ?= 90

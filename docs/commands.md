@@ -232,7 +232,7 @@ Use the focused target below while Qwen3-TTS and LFM2 are still metadata/fixture
 make test-model-coverage
 ```
 
-Show the current manifest summary with; text, JSON, Markdown, and CSV output include per-family category counts and completion percentages for reference, runtime, parity, and readiness gates. `make test-model-coverage` also enforces `MODEL_COVERAGE_MIN_PERCENT` (default `90`) through `modelcoverage -min-percent`.
+Show the current manifest summary with; text, JSON, Markdown, and CSV output include per-family category counts and completion percentages for reference, runtime, parity, and readiness gates. `make test-model-coverage` also enforces `MODEL_COVERAGE_MIN_PERCENT` (default `90`) through `modelcoverage -min-percent` and compares the generated snapshot against `docs/model-coverage-snapshot.md`.
 
 ```bash
 make model-coverage
