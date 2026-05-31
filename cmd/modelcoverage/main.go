@@ -48,6 +48,7 @@ func main() {
 	jsonOut := flag.Bool("json", false, "emit JSON summary")
 	markdownOut := flag.Bool("markdown", false, "emit Markdown summary table")
 	csvOut := flag.Bool("csv", false, "emit CSV summary rows")
+	runtimeRoadmap := flag.Bool("runtime-roadmap", false, "emit Markdown checklist of pending runtime/backend gates")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
 	minPercent := flag.Float64("min-percent", -1, "exit non-zero if any selected family coverage percent is below this threshold")
@@ -74,6 +75,8 @@ func main() {
 		printMarkdownSummary(os.Stdout, summaries)
 	} else if *csvOut {
 		printCSVSummary(os.Stdout, summaries)
+	} else if *runtimeRoadmap {
+		printRuntimeRoadmap(os.Stdout, summaries)
 	} else {
 		for _, s := range summaries {
 			if *pendingOnly {
@@ -94,6 +97,20 @@ func main() {
 	}
 	if *minPercent >= 0 && !summariesMeetMinPercent(summaries, *minPercent) {
 		os.Exit(1)
+	}
+}
+
+func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
+	for _, s := range summaries {
+		pending := s.Categories["runtime"].PendingKeys
+		if len(pending) == 0 {
+			continue
+		}
+		fmt.Fprintf(w, "## %s runtime blockers\n\n", s.Name)
+		for _, key := range pending {
+			fmt.Fprintf(w, "- [ ] `%s`\n", key)
+		}
+		fmt.Fprintln(w)
 	}
 }
 

@@ -123,6 +123,18 @@ func TestSummarizeRuntimeOnly(t *testing.T) {
 	}
 }
 
+func TestPrintRuntimeRoadmap(t *testing.T) {
+	var buf bytes.Buffer
+	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"cpu_runtime", "nvidia_runtime"}}}}}
+	printRuntimeRoadmap(&buf, summaries)
+	out := buf.String()
+	for _, want := range []string{"## x runtime blockers", "- [ ] `cpu_runtime`", "- [ ] `nvidia_runtime`"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
 func TestSummariesMeetMinPercent(t *testing.T) {
 	summaries := []familySummary{{Name: "a", CoveragePercent: 95}, {Name: "b", CoveragePercent: 90.6}}
 	if !summariesMeetMinPercent(summaries, 90) {
