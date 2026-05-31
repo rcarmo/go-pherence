@@ -62,6 +62,7 @@ func main() {
 	csvOut := flag.Bool("csv", false, "emit CSV summary rows")
 	runtimeRoadmap := flag.Bool("runtime-roadmap", false, "emit Markdown checklist of pending runtime/backend gates")
 	runtimeRoadmapJSON := flag.Bool("runtime-roadmap-json", false, "emit JSON runtime blocker roadmap")
+	nextRuntime := flag.Bool("next-runtime", false, "emit the next dependency-ordered runtime blocker per family")
 	snapshotOut := flag.Bool("snapshot", false, "emit Markdown coverage snapshot plus runtime roadmap")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
@@ -98,6 +99,8 @@ func main() {
 		if err := enc.Encode(buildRuntimeRoadmap(summaries)); err != nil {
 			fatal(err)
 		}
+	} else if *nextRuntime {
+		printNextRuntime(os.Stdout, summaries)
 	} else if *snapshotOut {
 		printSnapshot(os.Stdout, summaries)
 	} else {
@@ -120,6 +123,23 @@ func main() {
 	}
 	if *minPercent >= 0 && !summariesMeetMinPercent(summaries, *minPercent) {
 		os.Exit(1)
+	}
+}
+
+func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
+	for _, family := range buildRuntimeRoadmap(summaries) {
+		if len(family.Blockers) == 0 {
+			continue
+		}
+		blocker := family.Blockers[0]
+		fmt.Fprintf(w, "%s.%s — %s", family.Family, blocker.Key, blocker.Description)
+		if blocker.Prerequisites != "" {
+			fmt.Fprintf(w, " (after: %s)", blocker.Prerequisites)
+		}
+		if blocker.Validation != "" {
+			fmt.Fprintf(w, " (validate: %s)", blocker.Validation)
+		}
+		fmt.Fprintln(w)
 	}
 }
 

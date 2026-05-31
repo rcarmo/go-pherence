@@ -160,6 +160,18 @@ func TestPrintSnapshot(t *testing.T) {
 	}
 }
 
+func TestPrintNextRuntime(t *testing.T) {
+	var buf bytes.Buffer
+	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
+	printNextRuntime(&buf, summaries)
+	out := buf.String()
+	for _, want := range []string{"x.cpu_talker_runtime", "implement the Qwen3-TTS CPU/reference Talker", "validate: cmd/qwen3ttsinspect -require-numeric-parity"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
 func TestBuildRuntimeRoadmap(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
 	roadmap := buildRuntimeRoadmap(summaries)
