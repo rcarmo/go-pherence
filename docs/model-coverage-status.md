@@ -79,6 +79,7 @@ Implemented package/command surface:
 - `model/qwen3tts/readiness.go` — combined runtime/fixture/numeric-parity readiness report with blockers.
 - `cmd/qwen3ttsinspect -require-numeric-parity` — readiness gate that fails while fixture parity checksums are placeholders.
 - `cmd/qwen3ttsinspect -require-runtime` — readiness gate that fails until Talker, CodePredictor, and Decoder12Hz execution are implemented.
+- `cmd/qwen3ttsinspect -require-ready` — combined readiness gate that fails until runtime execution and numeric parity are both ready.
 - `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema, complete-reference placeholder fixture, runtime request summary fixture, placeholder-value tracking, and reference-coverage tracking.
 - `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/runtime-request-plan/tokenized-prompt/reference-coverage inspector.
 - `make qwen3tts-fixture-coverage` — shortcut for fixture/reference coverage reports.
@@ -143,6 +144,7 @@ Implemented package/command surface:
 - `model/lfm2/readiness.go` — combined runtime/fixture/numeric-parity readiness report with blockers.
 - `cmd/lfm2inspect -require-numeric-parity` — readiness gate that fails while fixture parity checksums are placeholders.
 - `cmd/lfm2inspect -require-runtime` — readiness gate that fails until LFM2 generation execution is implemented.
+- `cmd/lfm2inspect -require-ready` — combined readiness gate that fails until runtime execution and numeric parity are both ready.
 - `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture, complete-reference placeholder fixture, runtime request summary fixture, placeholder-value tracking, and reference-coverage tracking.
 - `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan/runtime-request-plan/reference-coverage inspector.
 - `make lfm2-fixture-coverage` — shortcut for fixture/reference coverage reports.

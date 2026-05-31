@@ -33,6 +33,7 @@ func main() {
 	fixturePath := flag.String("fixture", "", "optional LFM2 reference metadata/fixture path for coverage reporting")
 	requireCompleteFixture := flag.Bool("require-complete-fixture", false, "exit non-zero when -fixture reference coverage is incomplete")
 	requireNumericParity := flag.Bool("require-numeric-parity", false, "exit non-zero when -fixture contains placeholder parity values")
+	requireReady := flag.Bool("require-ready", false, "exit non-zero until runtime and numeric parity coverage are both ready")
 	requireRuntime := flag.Bool("require-runtime", false, "exit non-zero when runtime execution is not implemented")
 	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness or shape validation fails")
 	flag.Parse()
@@ -93,6 +94,9 @@ func main() {
 		os.Exit(1)
 	}
 	if *requireNumericParity && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.NumericParityReady) {
+		os.Exit(1)
+	}
+	if *requireReady && !out.Readiness.ReadyForExecution {
 		os.Exit(1)
 	}
 	if *requireRuntime && !out.RuntimeStatus.RuntimeImplemented {
