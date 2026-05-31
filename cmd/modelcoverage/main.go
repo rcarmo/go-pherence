@@ -73,10 +73,7 @@ func main() {
 				}
 				continue
 			}
-			fmt.Printf("%s: %s covered=%d pending=%d runtime=%v validation=%q\n", s.Name, s.Status, s.Covered, s.Pending, s.RuntimeGeneration, s.ValidationTarget)
-			if len(s.PendingKeys) > 0 {
-				fmt.Printf("  pending: %v\n", s.PendingKeys)
-			}
+			printTextSummary(os.Stdout, s)
 		}
 	}
 	if *failPending {
@@ -85,6 +82,23 @@ func main() {
 				os.Exit(1)
 			}
 		}
+	}
+}
+
+func printTextSummary(w interface{ Write([]byte) (int, error) }, s familySummary) {
+	fmt.Fprintf(w, "%s: %s covered=%d pending=%d runtime=%v validation=%q\n", s.Name, s.Status, s.Covered, s.Pending, s.RuntimeGeneration, s.ValidationTarget)
+	if len(s.Categories) > 0 {
+		for _, name := range []string{"references", "runtime", "parity", "readiness"} {
+			counts := s.Categories[name]
+			fmt.Fprintf(w, "  %s: covered=%d pending=%d", name, counts.Covered, counts.Pending)
+			if len(counts.PendingKeys) > 0 {
+				fmt.Fprintf(w, " pending_keys=%v", counts.PendingKeys)
+			}
+			fmt.Fprintln(w)
+		}
+	}
+	if len(s.PendingKeys) > 0 {
+		fmt.Fprintf(w, "  pending: %v\n", s.PendingKeys)
 	}
 }
 

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -114,6 +116,23 @@ func TestSummarizeRuntimeOnly(t *testing.T) {
 	for i := range wantPending {
 		if s[0].PendingKeys[i] != wantPending[i] {
 			t.Fatalf("pending=%+v", s[0].PendingKeys)
+		}
+	}
+}
+
+func TestPrintTextSummaryIncludesCategories(t *testing.T) {
+	var buf bytes.Buffer
+	s := familySummary{Name: "x", Status: "ok", Covered: 2, Pending: 1, Categories: map[string]categoryCounts{
+		"references": {Covered: 1},
+		"runtime":    {Pending: 1, PendingKeys: []string{"cpu_runtime"}},
+		"parity":     {Covered: 1},
+		"readiness":  {},
+	}}
+	printTextSummary(&buf, s)
+	out := buf.String()
+	for _, want := range []string{"x: ok covered=2 pending=1", "runtime: covered=0 pending=1 pending_keys=[cpu_runtime]", "readiness: covered=0 pending=0"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in:\n%s", want, out)
 		}
 	}
 }
