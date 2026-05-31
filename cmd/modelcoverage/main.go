@@ -50,6 +50,7 @@ func main() {
 	csvOut := flag.Bool("csv", false, "emit CSV summary rows")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
+	minPercent := flag.Float64("min-percent", -1, "exit non-zero if any selected family coverage percent is below this threshold")
 	referencesOnly := flag.Bool("references-only", false, "only include reference/fixture coverage gates in counts and pending output")
 	runtimeOnly := flag.Bool("runtime-only", false, "only include runtime/backend coverage gates in counts and pending output")
 	parityOnly := flag.Bool("parity-only", false, "only include numeric parity/reference readiness gates in counts and pending output")
@@ -91,6 +92,18 @@ func main() {
 			}
 		}
 	}
+	if *minPercent >= 0 && !summariesMeetMinPercent(summaries, *minPercent) {
+		os.Exit(1)
+	}
+}
+
+func summariesMeetMinPercent(summaries []familySummary, minPercent float64) bool {
+	for _, s := range summaries {
+		if s.CoveragePercent < minPercent {
+			return false
+		}
+	}
+	return true
 }
 
 func printCSVSummary(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {

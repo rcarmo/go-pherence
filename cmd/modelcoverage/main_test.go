@@ -123,6 +123,16 @@ func TestSummarizeRuntimeOnly(t *testing.T) {
 	}
 }
 
+func TestSummariesMeetMinPercent(t *testing.T) {
+	summaries := []familySummary{{Name: "a", CoveragePercent: 95}, {Name: "b", CoveragePercent: 90.6}}
+	if !summariesMeetMinPercent(summaries, 90) {
+		t.Fatal("expected threshold to pass")
+	}
+	if summariesMeetMinPercent(summaries, 91) {
+		t.Fatal("expected threshold to fail")
+	}
+}
+
 func TestPrintCSVSummary(t *testing.T) {
 	var buf bytes.Buffer
 	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, CoveragePercent: 75, Categories: map[string]categoryCounts{
