@@ -21,6 +21,7 @@ type RuntimeRequestSummary struct {
 	PromptTokens   int   `json:"prompt_tokens"`
 	MaxNewTokens   int   `json:"max_new_tokens"`
 	MaxSequence    int   `json:"max_sequence"`
+	BytesPerFloat  int   `json:"bytes_per_float"`
 	KVBytes        int64 `json:"kv_bytes"`
 	ConvStateBytes int64 `json:"conv_state_bytes"`
 }
@@ -154,7 +155,7 @@ func (m ReferenceMetadata) Validate() error {
 		return fmt.Errorf("invalid negative tensor coverage: %+v", m.Tensors)
 	}
 	if m.RuntimeRequest != nil {
-		if m.RuntimeRequest.PromptTokens <= 0 || m.RuntimeRequest.MaxNewTokens <= 0 || m.RuntimeRequest.MaxSequence != m.RuntimeRequest.PromptTokens+m.RuntimeRequest.MaxNewTokens {
+		if m.RuntimeRequest.PromptTokens <= 0 || m.RuntimeRequest.MaxNewTokens <= 0 || m.RuntimeRequest.MaxSequence != m.RuntimeRequest.PromptTokens+m.RuntimeRequest.MaxNewTokens || m.RuntimeRequest.BytesPerFloat <= 0 {
 			return fmt.Errorf("invalid LFM2 runtime request summary: %+v", m.RuntimeRequest)
 		}
 		if m.RuntimeRequest.KVBytes < 0 || m.RuntimeRequest.ConvStateBytes <= 0 {

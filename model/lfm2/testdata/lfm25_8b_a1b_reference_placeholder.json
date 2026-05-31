@@ -52,7 +52,8 @@
     "prompt_tokens": 1,
     "max_new_tokens": 16,
     "max_sequence": 17,
-    "kv_bytes": 417792,
-    "conv_state_bytes": 1032192
+    "bytes_per_float": 2,
+    "kv_bytes": 104448,
+    "conv_state_bytes": 258048
   }
 }

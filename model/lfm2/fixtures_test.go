@@ -38,6 +38,13 @@ func TestLoadReferencePlaceholderMetadata(t *testing.T) {
 	if meta.References.FirstToken.LogitChecksum != "pending-transformers" || meta.References.ConvLayer.Checksum != "pending-transformers" {
 		t.Fatalf("placeholder checksums not preserved: %+v", meta.References)
 	}
+	plan, err := NewRuntimeRequestPlan(meta.Config, RuntimeRequest{Tokens: meta.References.Tokenization.Tokens, MaxNewTokens: meta.RuntimeRequest.MaxNewTokens, BytesPerFloat: meta.RuntimeRequest.BytesPerFloat})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.PromptTokens != meta.RuntimeRequest.PromptTokens || plan.MaxSequence != meta.RuntimeRequest.MaxSequence || plan.KVBytes != meta.RuntimeRequest.KVBytes || plan.ConvStateBytes != meta.RuntimeRequest.ConvStateBytes {
+		t.Fatalf("runtime fixture summary=%+v plan=%+v", meta.RuntimeRequest, plan)
+	}
 }
 
 func TestReferenceMetadataCoverageWithTensorReadiness(t *testing.T) {

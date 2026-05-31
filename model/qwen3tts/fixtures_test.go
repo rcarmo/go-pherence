@@ -41,6 +41,17 @@ func TestLoadReferencePlaceholderFixture(t *testing.T) {
 	if fx.Talker.LogitChecksum != "pending-qwen3-tts-rs" || fx.Decoder12Hz.SHA256 != "pending-qwen3-tts-rs" {
 		t.Fatalf("placeholder checksums not preserved: %+v", fx)
 	}
+	cfg, err := ParseConfig([]byte(`{"tts_model_type":"custom_voice","talker_config":{"hidden_size":1024,"num_attention_heads":16,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"head_dim":64,"vocab_size":2048,"num_code_groups":16}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewRuntimeRequestPlan(cfg, RuntimeRequest{Conditioning: ConditioningRequest{Speaker: fx.Speaker, Language: fx.Language}, Prompt: fx.Prompt, MaxFrames: fx.Runtime.MaxFrames})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.MaxFrames != fx.Runtime.MaxFrames || plan.MaxSamples != fx.Runtime.MaxSamples || plan.MaxCodes != fx.Runtime.MaxCodes {
+		t.Fatalf("runtime fixture summary=%+v plan=%+v", fx.Runtime, plan)
+	}
 }
 
 func TestReferenceFixtureCoverageComplete(t *testing.T) {
