@@ -104,6 +104,25 @@ func TestSummarizeReadinessOnly(t *testing.T) {
 	}
 }
 
+func TestSummarizeExecutionOnly(t *testing.T) {
+	m := manifest{Version: 1, Families: map[string]manifestFamily{
+		"x": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"runtime_status_reporting": true, "cpu_generation_runtime": false, "nvidia_runtime": false, "streaming_runtime": true}},
+	}}
+	s, err := summarize(m, "x", coverageFilter{ExecutionOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPending := []string{"cpu_generation_runtime", "nvidia_runtime"}
+	if len(s) != 1 || s[0].Covered != 1 || s[0].Pending != 2 || len(s[0].PendingKeys) != len(wantPending) {
+		t.Fatalf("summary=%+v", s)
+	}
+	for i := range wantPending {
+		if s[0].PendingKeys[i] != wantPending[i] {
+			t.Fatalf("pending=%+v", s[0].PendingKeys)
+		}
+	}
+}
+
 func TestSummarizeRuntimeOnly(t *testing.T) {
 	m := manifest{Version: 1, Families: map[string]manifestFamily{
 		"x": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"config_parsing": true, "runtime_status_reporting": true, "cpu_generation_runtime": false, "nvidia_runtime": false, "streaming_runtime": true}},
@@ -128,6 +147,7 @@ func TestPrintSnapshot(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Status: "ok", Covered: 1, Pending: 1, CoveragePercent: 50, Categories: map[string]categoryCounts{
 		"references": {Covered: 1, Percent: 100},
 		"runtime":    {Pending: 1, PendingKeys: []string{"cpu_talker_runtime"}},
+		"execution":  {Pending: 1, PendingKeys: []string{"cpu_talker_runtime"}},
 		"parity":     {Percent: 100},
 		"readiness":  {Percent: 100},
 	}}}
@@ -184,12 +204,13 @@ func TestPrintCSVSummary(t *testing.T) {
 	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, CoveragePercent: 75, Categories: map[string]categoryCounts{
 		"references": {Covered: 1, Percent: 100},
 		"runtime":    {Covered: 1, Pending: 1, Percent: 50},
+		"execution":  {Pending: 1, Percent: 0},
 		"parity":     {Covered: 1, Percent: 100},
 		"readiness":  {Covered: 2, Percent: 100},
 	}}
 	printCSVSummary(&buf, []familySummary{s})
 	out := buf.String()
-	for _, want := range []string{"family,status,covered,pending,coverage_percent,references_covered", "x,ok,3,1,75.0,1,0,100.0,1,1,50.0,1,0,100.0,2,0,100.0"} {
+	for _, want := range []string{"family,status,covered,pending,coverage_percent,references_covered", "x,ok,3,1,75.0,1,0,100.0,1,1,50.0,0,1,0.0,1,0,100.0,2,0,100.0"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
@@ -201,12 +222,13 @@ func TestPrintMarkdownSummary(t *testing.T) {
 	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, CoveragePercent: 75, Categories: map[string]categoryCounts{
 		"references": {Covered: 1, Percent: 100},
 		"runtime":    {Covered: 1, Pending: 1, Percent: 50},
+		"execution":  {Pending: 1, Percent: 0},
 		"parity":     {Covered: 1, Percent: 100},
 		"readiness":  {Covered: 2, Percent: 100},
 	}}
 	printMarkdownSummary(&buf, []familySummary{s})
 	out := buf.String()
-	for _, want := range []string{"| family | status | covered | pending | coverage | references | runtime | parity | readiness |", "| x | ok | 3 | 1 | 75.0% | 1/0 (100.0%) | 1/1 (50.0%) | 1/0 (100.0%) | 2/0 (100.0%) |"} {
+	for _, want := range []string{"| family | status | covered | pending | coverage | references | runtime | execution | parity | readiness |", "| x | ok | 3 | 1 | 75.0% | 1/0 (100.0%) | 1/1 (50.0%) | 0/1 (0.0%) | 1/0 (100.0%) | 2/0 (100.0%) |"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
@@ -218,6 +240,7 @@ func TestPrintTextSummaryIncludesCategories(t *testing.T) {
 	s := familySummary{Name: "x", Status: "ok", Covered: 2, Pending: 1, CoveragePercent: 66.7, Categories: map[string]categoryCounts{
 		"references": {Covered: 1, Percent: 100},
 		"runtime":    {Pending: 1, Percent: 0, PendingKeys: []string{"cpu_runtime"}},
+		"execution":  {Pending: 1, Percent: 0, PendingKeys: []string{"cpu_runtime"}},
 		"parity":     {Covered: 1, Percent: 100},
 		"readiness":  {Percent: 100},
 	}}

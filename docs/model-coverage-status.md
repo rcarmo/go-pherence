@@ -22,16 +22,19 @@ make model-coverage-runtime-roadmap-json
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
 make model-coverage-references-pending
 make model-coverage-runtime-pending
+make model-coverage-execution-pending
 make model-coverage-parity-pending
 make model-coverage-readiness-pending
 make model-coverage-references-gate
 make model-coverage-runtime-gate
+make model-coverage-execution-gate
 make model-coverage-parity-gate
 make model-coverage-readiness-gate
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -json
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -family qwen3_tts -pending-only
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -family qwen3_tts -references-only -pending-only
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -runtime-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -execution-only -pending-only
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -parity-only -pending-only
 GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -readiness-only -pending-only
 ```

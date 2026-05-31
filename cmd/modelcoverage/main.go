@@ -68,6 +68,7 @@ func main() {
 	minPercent := flag.Float64("min-percent", -1, "exit non-zero if any selected family coverage percent is below this threshold")
 	referencesOnly := flag.Bool("references-only", false, "only include reference/fixture coverage gates in counts and pending output")
 	runtimeOnly := flag.Bool("runtime-only", false, "only include runtime/backend coverage gates in counts and pending output")
+	executionOnly := flag.Bool("execution-only", false, "only include actual execution/runtime implementation gates in counts and pending output")
 	parityOnly := flag.Bool("parity-only", false, "only include numeric parity/reference readiness gates in counts and pending output")
 	readinessOnly := flag.Bool("readiness-only", false, "only include readiness/report/gate coverage keys in counts and pending output")
 	flag.Parse()
@@ -75,7 +76,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	summaries, err := summarize(m, *family, coverageFilter{ReferencesOnly: *referencesOnly, RuntimeOnly: *runtimeOnly, ParityOnly: *parityOnly, ReadinessOnly: *readinessOnly})
+	summaries, err := summarize(m, *family, coverageFilter{ReferencesOnly: *referencesOnly, RuntimeOnly: *runtimeOnly, ExecutionOnly: *executionOnly, ParityOnly: *parityOnly, ReadinessOnly: *readinessOnly})
 	if err != nil {
 		fatal(err)
 	}
@@ -261,32 +262,34 @@ func summariesMeetMinPercent(summaries []familySummary, minPercent float64) bool
 }
 
 func printCSVSummary(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
-	fmt.Fprintln(w, "family,status,covered,pending,coverage_percent,references_covered,references_pending,references_percent,runtime_covered,runtime_pending,runtime_percent,parity_covered,parity_pending,parity_percent,readiness_covered,readiness_pending,readiness_percent")
+	fmt.Fprintln(w, "family,status,covered,pending,coverage_percent,references_covered,references_pending,references_percent,runtime_covered,runtime_pending,runtime_percent,execution_covered,execution_pending,execution_percent,parity_covered,parity_pending,parity_percent,readiness_covered,readiness_pending,readiness_percent")
 	for _, s := range summaries {
 		refs := s.Categories["references"]
 		runtime := s.Categories["runtime"]
+		execution := s.Categories["execution"]
 		parity := s.Categories["parity"]
 		readiness := s.Categories["readiness"]
-		fmt.Fprintf(w, "%s,%s,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f\n", s.Name, s.Status, s.Covered, s.Pending, s.CoveragePercent, refs.Covered, refs.Pending, refs.Percent, runtime.Covered, runtime.Pending, runtime.Percent, parity.Covered, parity.Pending, parity.Percent, readiness.Covered, readiness.Pending, readiness.Percent)
+		fmt.Fprintf(w, "%s,%s,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f\n", s.Name, s.Status, s.Covered, s.Pending, s.CoveragePercent, refs.Covered, refs.Pending, refs.Percent, runtime.Covered, runtime.Pending, runtime.Percent, execution.Covered, execution.Pending, execution.Percent, parity.Covered, parity.Pending, parity.Percent, readiness.Covered, readiness.Pending, readiness.Percent)
 	}
 }
 
 func printMarkdownSummary(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
-	fmt.Fprintln(w, "| family | status | covered | pending | coverage | references | runtime | parity | readiness |")
-	fmt.Fprintln(w, "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+	fmt.Fprintln(w, "| family | status | covered | pending | coverage | references | runtime | execution | parity | readiness |")
+	fmt.Fprintln(w, "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
 	for _, s := range summaries {
 		refs := s.Categories["references"]
 		runtime := s.Categories["runtime"]
+		execution := s.Categories["execution"]
 		parity := s.Categories["parity"]
 		readiness := s.Categories["readiness"]
-		fmt.Fprintf(w, "| %s | %s | %d | %d | %.1f%% | %d/%d (%.1f%%) | %d/%d (%.1f%%) | %d/%d (%.1f%%) | %d/%d (%.1f%%) |\n", s.Name, s.Status, s.Covered, s.Pending, s.CoveragePercent, refs.Covered, refs.Pending, refs.Percent, runtime.Covered, runtime.Pending, runtime.Percent, parity.Covered, parity.Pending, parity.Percent, readiness.Covered, readiness.Pending, readiness.Percent)
+		fmt.Fprintf(w, "| %s | %s | %d | %d | %.1f%% | %d/%d (%.1f%%) | %d/%d (%.1f%%) | %d/%d (%.1f%%) | %d/%d (%.1f%%) | %d/%d (%.1f%%) |\n", s.Name, s.Status, s.Covered, s.Pending, s.CoveragePercent, refs.Covered, refs.Pending, refs.Percent, runtime.Covered, runtime.Pending, runtime.Percent, execution.Covered, execution.Pending, execution.Percent, parity.Covered, parity.Pending, parity.Percent, readiness.Covered, readiness.Pending, readiness.Percent)
 	}
 }
 
 func printTextSummary(w interface{ Write([]byte) (int, error) }, s familySummary) {
 	fmt.Fprintf(w, "%s: %s covered=%d pending=%d coverage=%.1f%% runtime=%v validation=%q\n", s.Name, s.Status, s.Covered, s.Pending, s.CoveragePercent, s.RuntimeGeneration, s.ValidationTarget)
 	if len(s.Categories) > 0 {
-		for _, name := range []string{"references", "runtime", "parity", "readiness"} {
+		for _, name := range []string{"references", "runtime", "execution", "parity", "readiness"} {
 			counts := s.Categories[name]
 			fmt.Fprintf(w, "  %s: covered=%d pending=%d coverage=%.1f%%", name, counts.Covered, counts.Pending, counts.Percent)
 			if len(counts.PendingKeys) > 0 {
@@ -318,6 +321,7 @@ func loadManifest(path string) (manifest, error) {
 type coverageFilter struct {
 	ReferencesOnly bool
 	RuntimeOnly    bool
+	ExecutionOnly  bool
 	ParityOnly     bool
 	ReadinessOnly  bool
 }
@@ -366,6 +370,7 @@ func summarizeCategories(coverage map[string]bool) map[string]categoryCounts {
 	categories := map[string]categoryCounts{
 		"references": {},
 		"runtime":    {},
+		"execution":  {},
 		"parity":     {},
 		"readiness":  {},
 	}
@@ -373,6 +378,7 @@ func summarizeCategories(coverage map[string]bool) map[string]categoryCounts {
 		for name, include := range map[string]bool{
 			"references": isReferenceCoverageKey(key),
 			"runtime":    isRuntimeCoverageKey(key),
+			"execution":  isExecutionCoverageKey(key),
 			"parity":     isParityCoverageKey(key),
 			"readiness":  isReadinessCoverageKey(key),
 		} {
@@ -404,6 +410,9 @@ func (f coverageFilter) include(key string) bool {
 	if f.RuntimeOnly && !isRuntimeCoverageKey(key) {
 		return false
 	}
+	if f.ExecutionOnly && !isExecutionCoverageKey(key) {
+		return false
+	}
 	if f.ParityOnly && !isParityCoverageKey(key) {
 		return false
 	}
@@ -427,6 +436,10 @@ func isReferenceCoverageKey(key string) bool {
 
 func isRuntimeCoverageKey(key string) bool {
 	return strings.Contains(key, "runtime") || strings.Contains(key, "nvidia") || strings.Contains(key, "streaming")
+}
+
+func isExecutionCoverageKey(key string) bool {
+	return strings.HasPrefix(key, "cpu_") || key == "decoder12hz_runtime" || key == "nvidia_runtime" || key == "streaming_runtime"
 }
 
 func isParityCoverageKey(key string) bool {
