@@ -5,20 +5,22 @@ import "strings"
 // Inspection is a lightweight GGUF readiness summary. It reads only metadata and
 // tensor index data, so it is safe for large local checkpoints.
 type Inspection struct {
-	Path              string         `json:"path"`
-	Architecture      string         `json:"architecture,omitempty"`
-	Name              string         `json:"name,omitempty"`
-	TensorCount       int            `json:"tensor_count"`
-	QuantCounts       map[string]int `json:"quant_counts"`
-	HasQ4K            bool           `json:"has_q4_k"`
-	HasMoE            bool           `json:"has_moe"`
-	Experts           uint32         `json:"experts,omitempty"`
-	ExpertsPerToken   uint32         `json:"experts_per_token,omitempty"`
-	HasREAPMetadata   bool           `json:"has_reap_metadata"`
-	REAPMetadataKeys  []string       `json:"reap_metadata_keys,omitempty"`
-	TurboQuantReady   bool           `json:"turboquant_ready"`
-	PureGoSIMDReady   bool           `json:"pure_go_simd_ready"`
-	ReadinessWarnings []string       `json:"readiness_warnings,omitempty"`
+	Path                  string         `json:"path"`
+	Architecture          string         `json:"architecture,omitempty"`
+	Name                  string         `json:"name,omitempty"`
+	TensorCount           int            `json:"tensor_count"`
+	QuantCounts           map[string]int `json:"quant_counts"`
+	HasQ4K                bool           `json:"has_q4_k"`
+	HasMoE                bool           `json:"has_moe"`
+	Experts               uint32         `json:"experts,omitempty"`
+	ExpertsPerToken       uint32         `json:"experts_per_token,omitempty"`
+	HasREAPMetadata       bool           `json:"has_reap_metadata"`
+	REAPMetadataKeys      []string       `json:"reap_metadata_keys,omitempty"`
+	TurboQuantReady       bool           `json:"turboquant_ready"`
+	PureGoSIMDReady       bool           `json:"pure_go_simd_ready"`
+	RuntimeSupported      bool           `json:"runtime_supported"`
+	MissingRuntimeTensors []string       `json:"missing_runtime_tensors,omitempty"`
+	ReadinessWarnings     []string       `json:"readiness_warnings,omitempty"`
 }
 
 func Inspect(path string) (Inspection, error) {
@@ -71,6 +73,8 @@ func InspectOpen(path string, g *GGUF) Inspection {
 	}
 	in.TurboQuantReady = true
 	in.PureGoSIMDReady = in.TensorCount > 0 && (in.HasQ4K || len(in.QuantCounts) > 0)
+	in.MissingRuntimeTensors = missingRuntimeTensors(g, in.Architecture, in.HasMoE)
+	in.RuntimeSupported = in.PureGoSIMDReady && len(in.MissingRuntimeTensors) == 0
 	if in.Architecture == "" {
 		in.ReadinessWarnings = append(in.ReadinessWarnings, "missing general.architecture metadata")
 	}
@@ -78,6 +82,36 @@ func InspectOpen(path string, g *GGUF) Inspection {
 		in.ReadinessWarnings = append(in.ReadinessWarnings, "MoE tensors found but expert_count metadata was not detected")
 	}
 	return in
+}
+
+func missingRuntimeTensors(g *GGUF, arch string, hasMoE bool) []string {
+	if g == nil {
+		return []string{"<nil gguf>"}
+	}
+	// Current GGUFLlama runtime expects llama.cpp split attention tensors. Newer
+	// Qwen3.5/Qwen3.6 MoE GGUF files use fused attn_qkv plus SSM/hybrid blocks;
+	// report that explicitly instead of claiming generation readiness from quant
+	// metadata alone.
+	required := []string{"token_embd.weight", "output_norm.weight", "output.weight"}
+	if hasMoE {
+		required = append(required,
+			"blk.0.attn_q.weight", "blk.0.attn_k.weight", "blk.0.attn_v.weight", "blk.0.attn_output.weight",
+			"blk.0.attn_norm.weight", "blk.0.ffn_norm.weight",
+			"blk.0.ffn_gate_inp.weight", "blk.0.ffn_gate_exps.weight", "blk.0.ffn_up_exps.weight", "blk.0.ffn_down_exps.weight",
+		)
+	} else {
+		required = append(required,
+			"blk.0.attn_q.weight", "blk.0.attn_k.weight", "blk.0.attn_v.weight", "blk.0.attn_output.weight",
+			"blk.0.attn_norm.weight", "blk.0.ffn_norm.weight", "blk.0.ffn_gate.weight", "blk.0.ffn_up.weight", "blk.0.ffn_down.weight",
+		)
+	}
+	var missing []string
+	for _, name := range required {
+		if _, ok := g.TensorByName(name); !ok {
+			missing = append(missing, name)
+		}
+	}
+	return missing
 }
 
 func quantTypeName(q QuantType) string {

@@ -12,6 +12,7 @@ import (
 func main() {
 	jsonOut := flag.Bool("json", false, "emit JSON")
 	requirePure := flag.Bool("require-pure-go-simd-ready", false, "fail unless the GGUF has a pure Go/SIMD-compatible tensor index")
+	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless current pure Go GGUF generation runtime has the expected tensors")
 	requireMoE := flag.Bool("require-moe", false, "fail unless MoE metadata or tensors are present")
 	requireQ4K := flag.Bool("require-q4-k", false, "fail unless Q4_K tensors are present")
 	flag.Parse()
@@ -26,6 +27,10 @@ func main() {
 	}
 	if *requirePure && !in.PureGoSIMDReady {
 		fmt.Fprintln(os.Stderr, "ggufinspect: pure Go/SIMD readiness not satisfied")
+		os.Exit(1)
+	}
+	if *requireRuntime && !in.RuntimeSupported {
+		fmt.Fprintf(os.Stderr, "ggufinspect: runtime readiness not satisfied; missing tensors: %v\n", in.MissingRuntimeTensors)
 		os.Exit(1)
 	}
 	if *requireMoE && !in.HasMoE {
@@ -56,6 +61,10 @@ func main() {
 	fmt.Printf("reap_metadata: %v keys=%v\n", in.HasREAPMetadata, in.REAPMetadataKeys)
 	fmt.Printf("turboquant_ready: %v\n", in.TurboQuantReady)
 	fmt.Printf("pure_go_simd_ready: %v\n", in.PureGoSIMDReady)
+	fmt.Printf("runtime_supported: %v\n", in.RuntimeSupported)
+	if len(in.MissingRuntimeTensors) > 0 {
+		fmt.Printf("missing_runtime_tensors: %v\n", in.MissingRuntimeTensors)
+	}
 	for _, w := range in.ReadinessWarnings {
 		fmt.Printf("warning: %s\n", w)
 	}
