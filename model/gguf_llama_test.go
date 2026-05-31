@@ -30,10 +30,14 @@ func TestGGUFParseConfigQwenMoE(t *testing.T) {
 	}
 }
 
-func TestGGUFMoELoadReturnsExplicitUnsupported(t *testing.T) {
+func TestGGUFMoEValidationRequiresCompleteMetadata(t *testing.T) {
 	cfg := GGUFLlamaConfig{Architecture: "qwen3moe", NumExperts: 128, NumExpertsPerTok: 8}
 	err := cfg.ValidateRuntimeSupported()
-	if err == nil || !strings.Contains(err.Error(), "GGUF MoE runtime") {
-		t.Fatalf("expected explicit MoE unsupported error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "incomplete GGUF MoE metadata") {
+		t.Fatalf("expected incomplete metadata error, got %v", err)
+	}
+	cfg.MoEHiddenSize = 1536
+	if err := cfg.ValidateRuntimeSupported(); err != nil {
+		t.Fatalf("complete MoE metadata rejected: %v", err)
 	}
 }

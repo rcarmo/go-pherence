@@ -74,6 +74,7 @@ type GGUFLlama struct {
 	DecodePlan   *gograph.Plan
 	UseGGMLQuant bool
 	Backend      k3.OpBackend
+	REAP         *REAPConfig
 	// precomputed RoPE frequencies [maxSeqLen × rotHalf]
 	ropeFreqs []float32
 	rotHalf   int
@@ -154,15 +155,30 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 			&layer.WK:       "attn_k.weight",
 			&layer.WV:       "attn_v.weight",
 			&layer.WO:       "attn_output.weight",
-			&layer.WGate:    "ffn_gate.weight",
-			&layer.WUp:      "ffn_up.weight",
-			&layer.WDown:    "ffn_down.weight",
 		} {
 			data, err := load(p + suffix)
 			if err != nil {
 				return nil, fmt.Errorf("layer %d %s: %w", i, suffix, err)
 			}
 			*dst = data
+		}
+		if cfg.NumExperts > 0 {
+			layer.RouterM, layer.ExpertGateM, layer.ExpertUpM, layer.ExpertDownM, err = loadGGUFMoEExpertMatrices(g, i)
+			if err != nil {
+				return nil, fmt.Errorf("layer %d MoE: %w", i, err)
+			}
+		} else {
+			for dst, suffix := range map[*[]float32]string{
+				&layer.WGate: "ffn_gate.weight",
+				&layer.WUp:   "ffn_up.weight",
+				&layer.WDown: "ffn_down.weight",
+			} {
+				data, err := load(p + suffix)
+				if err != nil {
+					return nil, fmt.Errorf("layer %d %s: %w", i, suffix, err)
+				}
+				*dst = data
+			}
 		}
 		if useGGMLQuant {
 			if layer.WQm, err = loadMatrix(p + "attn_q.weight"); err != nil {
@@ -177,14 +193,16 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 			if layer.WOm, err = loadMatrix(p + "attn_output.weight"); err != nil {
 				return nil, err
 			}
-			if layer.WGateM, err = loadMatrix(p + "ffn_gate.weight"); err != nil {
-				return nil, err
-			}
-			if layer.WUpM, err = loadMatrix(p + "ffn_up.weight"); err != nil {
-				return nil, err
-			}
-			if layer.WDownM, err = loadMatrix(p + "ffn_down.weight"); err != nil {
-				return nil, err
+			if cfg.NumExperts == 0 {
+				if layer.WGateM, err = loadMatrix(p + "ffn_gate.weight"); err != nil {
+					return nil, err
+				}
+				if layer.WUpM, err = loadMatrix(p + "ffn_up.weight"); err != nil {
+					return nil, err
+				}
+				if layer.WDownM, err = loadMatrix(p + "ffn_down.weight"); err != nil {
+					return nil, err
+				}
 			}
 		}
 		layers[i] = layer
@@ -330,8 +348,11 @@ func loadGGUFMoEExpertMatrices(g *gguf.GGUF, layerIdx int) (router *gguf.QuantMa
 }
 
 func (c GGUFLlamaConfig) ValidateRuntimeSupported() error {
-	if c.NumExperts > 0 || c.NumExpertsPerTok > 0 || c.MoEHiddenSize > 0 {
-		return fmt.Errorf("GGUF MoE runtime for architecture %q is not wired yet (experts=%d active=%d moe_hidden=%d)", c.Architecture, c.NumExperts, c.NumExpertsPerTok, c.MoEHiddenSize)
+	if c.NumExperts < 0 || c.NumExpertsPerTok < 0 || c.MoEHiddenSize < 0 {
+		return fmt.Errorf("invalid GGUF MoE metadata experts=%d active=%d moe_hidden=%d", c.NumExperts, c.NumExpertsPerTok, c.MoEHiddenSize)
+	}
+	if c.NumExperts > 0 && (c.NumExpertsPerTok <= 0 || c.MoEHiddenSize <= 0) {
+		return fmt.Errorf("incomplete GGUF MoE metadata for architecture %q (experts=%d active=%d moe_hidden=%d)", c.Architecture, c.NumExperts, c.NumExpertsPerTok, c.MoEHiddenSize)
 	}
 	return nil
 }
@@ -519,6 +540,9 @@ func (m *GGUFLlama) NewForwardState() *GGUFForwardState {
 	hDim := cfg.HeadDim
 	kvDim := cfg.NumKVHeads * hDim
 	ffn := cfg.FFNHiddenSize
+	if cfg.MoEHiddenSize > ffn {
+		ffn = cfg.MoEHiddenSize
+	}
 	return &GGUFForwardState{
 		hidden:     make([]float32, h),
 		attnIn:     make([]float32, h),
@@ -554,6 +578,9 @@ func (m *GGUFLlama) ForwardState(st *GGUFForwardState, tokenID, step int, kvK, k
 	hDim := cfg.HeadDim
 	kvDim := nKV * hDim
 	ffn := cfg.FFNHiddenSize
+	if cfg.MoEHiddenSize > ffn {
+		ffn = cfg.MoEHiddenSize
+	}
 	rotHalf := m.rotHalf
 
 	// Token embedding
@@ -627,22 +654,26 @@ func (m *GGUFLlama) ForwardState(st *GGUFForwardState, tokenID, step int, kvK, k
 		copy(ffnIn, hidden)
 		m.rmsNorm(ffnIn, layer.FFNNorm)
 
-		if m.UseGGMLQuant && layer.WGateM != nil {
-			if ffnRaw, err := quantActQ8K(ffnIn[:h]); err == nil {
-				_ = m.gemvGGMLQuantRaw(gate, ffnRaw, layer.WGateM, h, ffn)
-				_ = m.gemvGGMLQuantRaw(up, ffnRaw, layer.WUpM, h, ffn)
+		if layer.ExpertGateM != nil && cfg.NumExperts > 0 {
+			m.ggufMoEForward(down, gate, up, ffnMid, ffnIn, &layer, i)
+		} else {
+			if m.UseGGMLQuant && layer.WGateM != nil {
+				if ffnRaw, err := quantActQ8K(ffnIn[:h]); err == nil {
+					_ = m.gemvGGMLQuantRaw(gate, ffnRaw, layer.WGateM, h, ffn)
+					_ = m.gemvGGMLQuantRaw(up, ffnRaw, layer.WUpM, h, ffn)
+				} else {
+					m.gemvMaybe(gate, ffnIn, layer.WGate, layer.WGateM, h, ffn)
+					m.gemvMaybe(up, ffnIn, layer.WUp, layer.WUpM, h, ffn)
+				}
 			} else {
 				m.gemvMaybe(gate, ffnIn, layer.WGate, layer.WGateM, h, ffn)
 				m.gemvMaybe(up, ffnIn, layer.WUp, layer.WUpM, h, ffn)
 			}
-		} else {
-			m.gemvMaybe(gate, ffnIn, layer.WGate, layer.WGateM, h, ffn)
-			m.gemvMaybe(up, ffnIn, layer.WUp, layer.WUpM, h, ffn)
+
+			m.siluMul(ffnMid, gate, up)
+
+			m.gemvMaybe(down, ffnMid, layer.WDown, layer.WDownM, ffn, h)
 		}
-
-		m.siluMul(ffnMid, gate, up)
-
-		m.gemvMaybe(down, ffnMid, layer.WDown, layer.WDownM, ffn, h)
 
 		for j := range hidden {
 			hidden[j] += down[j]
