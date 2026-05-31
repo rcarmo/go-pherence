@@ -48,7 +48,10 @@ func TestSummarizeCategoryCounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	cats := s[0].Categories
-	if cats["references"].Covered != 1 || cats["references"].Pending != 1 || cats["references"].PendingKeys[0] != "semantic_token_reference_fixture" {
+	if s[0].CoveragePercent != 4.0/6.0*100.0 {
+		t.Fatalf("coverage percent=%g", s[0].CoveragePercent)
+	}
+	if cats["references"].Covered != 1 || cats["references"].Pending != 1 || cats["references"].Percent != 50 || cats["references"].PendingKeys[0] != "semantic_token_reference_fixture" {
 		t.Fatalf("reference category=%+v", cats["references"])
 	}
 	if cats["runtime"].Covered != 1 || cats["runtime"].Pending != 1 || cats["runtime"].PendingKeys[0] != "cpu_generation_runtime" {
@@ -122,15 +125,15 @@ func TestSummarizeRuntimeOnly(t *testing.T) {
 
 func TestPrintCSVSummary(t *testing.T) {
 	var buf bytes.Buffer
-	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, Categories: map[string]categoryCounts{
-		"references": {Covered: 1},
-		"runtime":    {Covered: 1, Pending: 1},
-		"parity":     {Covered: 1},
-		"readiness":  {Covered: 2},
+	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, CoveragePercent: 75, Categories: map[string]categoryCounts{
+		"references": {Covered: 1, Percent: 100},
+		"runtime":    {Covered: 1, Pending: 1, Percent: 50},
+		"parity":     {Covered: 1, Percent: 100},
+		"readiness":  {Covered: 2, Percent: 100},
 	}}
 	printCSVSummary(&buf, []familySummary{s})
 	out := buf.String()
-	for _, want := range []string{"family,status,covered,pending,references_covered", "x,ok,3,1,1,0,1,1,1,0,2,0"} {
+	for _, want := range []string{"family,status,covered,pending,coverage_percent,references_covered", "x,ok,3,1,75.0,1,0,100.0,1,1,50.0,1,0,100.0,2,0,100.0"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
@@ -139,15 +142,15 @@ func TestPrintCSVSummary(t *testing.T) {
 
 func TestPrintMarkdownSummary(t *testing.T) {
 	var buf bytes.Buffer
-	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, Categories: map[string]categoryCounts{
-		"references": {Covered: 1},
-		"runtime":    {Covered: 1, Pending: 1},
-		"parity":     {Covered: 1},
-		"readiness":  {Covered: 2},
+	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, CoveragePercent: 75, Categories: map[string]categoryCounts{
+		"references": {Covered: 1, Percent: 100},
+		"runtime":    {Covered: 1, Pending: 1, Percent: 50},
+		"parity":     {Covered: 1, Percent: 100},
+		"readiness":  {Covered: 2, Percent: 100},
 	}}
 	printMarkdownSummary(&buf, []familySummary{s})
 	out := buf.String()
-	for _, want := range []string{"| family | status | covered | pending | references | runtime | parity | readiness |", "| x | ok | 3 | 1 | 1/0 | 1/1 | 1/0 | 2/0 |"} {
+	for _, want := range []string{"| family | status | covered | pending | coverage | references | runtime | parity | readiness |", "| x | ok | 3 | 1 | 75.0% | 1/0 (100.0%) | 1/1 (50.0%) | 1/0 (100.0%) | 2/0 (100.0%) |"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
@@ -156,15 +159,15 @@ func TestPrintMarkdownSummary(t *testing.T) {
 
 func TestPrintTextSummaryIncludesCategories(t *testing.T) {
 	var buf bytes.Buffer
-	s := familySummary{Name: "x", Status: "ok", Covered: 2, Pending: 1, Categories: map[string]categoryCounts{
-		"references": {Covered: 1},
-		"runtime":    {Pending: 1, PendingKeys: []string{"cpu_runtime"}},
-		"parity":     {Covered: 1},
-		"readiness":  {},
+	s := familySummary{Name: "x", Status: "ok", Covered: 2, Pending: 1, CoveragePercent: 66.7, Categories: map[string]categoryCounts{
+		"references": {Covered: 1, Percent: 100},
+		"runtime":    {Pending: 1, Percent: 0, PendingKeys: []string{"cpu_runtime"}},
+		"parity":     {Covered: 1, Percent: 100},
+		"readiness":  {Percent: 100},
 	}}
 	printTextSummary(&buf, s)
 	out := buf.String()
-	for _, want := range []string{"x: ok covered=2 pending=1", "runtime: covered=0 pending=1 pending_keys=[cpu_runtime]", "readiness: covered=0 pending=0"} {
+	for _, want := range []string{"x: ok covered=2 pending=1 coverage=66.7%", "runtime: covered=0 pending=1 coverage=0.0% pending_keys=[cpu_runtime]", "readiness: covered=0 pending=0 coverage=100.0%"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}

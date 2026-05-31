@@ -30,6 +30,7 @@ type familySummary struct {
 	ValidationTarget  string                    `json:"validation_target"`
 	Covered           int                       `json:"covered"`
 	Pending           int                       `json:"pending"`
+	CoveragePercent   float64                   `json:"coverage_percent"`
 	PendingKeys       []string                  `json:"pending_keys,omitempty"`
 	Categories        map[string]categoryCounts `json:"categories,omitempty"`
 }
@@ -37,6 +38,7 @@ type familySummary struct {
 type categoryCounts struct {
 	Covered     int      `json:"covered"`
 	Pending     int      `json:"pending"`
+	Percent     float64  `json:"percent"`
 	PendingKeys []string `json:"pending_keys,omitempty"`
 }
 
@@ -92,34 +94,34 @@ func main() {
 }
 
 func printCSVSummary(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
-	fmt.Fprintln(w, "family,status,covered,pending,references_covered,references_pending,runtime_covered,runtime_pending,parity_covered,parity_pending,readiness_covered,readiness_pending")
+	fmt.Fprintln(w, "family,status,covered,pending,coverage_percent,references_covered,references_pending,references_percent,runtime_covered,runtime_pending,runtime_percent,parity_covered,parity_pending,parity_percent,readiness_covered,readiness_pending,readiness_percent")
 	for _, s := range summaries {
 		refs := s.Categories["references"]
 		runtime := s.Categories["runtime"]
 		parity := s.Categories["parity"]
 		readiness := s.Categories["readiness"]
-		fmt.Fprintf(w, "%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", s.Name, s.Status, s.Covered, s.Pending, refs.Covered, refs.Pending, runtime.Covered, runtime.Pending, parity.Covered, parity.Pending, readiness.Covered, readiness.Pending)
+		fmt.Fprintf(w, "%s,%s,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f,%d,%d,%.1f\n", s.Name, s.Status, s.Covered, s.Pending, s.CoveragePercent, refs.Covered, refs.Pending, refs.Percent, runtime.Covered, runtime.Pending, runtime.Percent, parity.Covered, parity.Pending, parity.Percent, readiness.Covered, readiness.Pending, readiness.Percent)
 	}
 }
 
 func printMarkdownSummary(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
-	fmt.Fprintln(w, "| family | status | covered | pending | references | runtime | parity | readiness |")
-	fmt.Fprintln(w, "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+	fmt.Fprintln(w, "| family | status | covered | pending | coverage | references | runtime | parity | readiness |")
+	fmt.Fprintln(w, "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
 	for _, s := range summaries {
 		refs := s.Categories["references"]
 		runtime := s.Categories["runtime"]
 		parity := s.Categories["parity"]
 		readiness := s.Categories["readiness"]
-		fmt.Fprintf(w, "| %s | %s | %d | %d | %d/%d | %d/%d | %d/%d | %d/%d |\n", s.Name, s.Status, s.Covered, s.Pending, refs.Covered, refs.Pending, runtime.Covered, runtime.Pending, parity.Covered, parity.Pending, readiness.Covered, readiness.Pending)
+		fmt.Fprintf(w, "| %s | %s | %d | %d | %.1f%% | %d/%d (%.1f%%) | %d/%d (%.1f%%) | %d/%d (%.1f%%) | %d/%d (%.1f%%) |\n", s.Name, s.Status, s.Covered, s.Pending, s.CoveragePercent, refs.Covered, refs.Pending, refs.Percent, runtime.Covered, runtime.Pending, runtime.Percent, parity.Covered, parity.Pending, parity.Percent, readiness.Covered, readiness.Pending, readiness.Percent)
 	}
 }
 
 func printTextSummary(w interface{ Write([]byte) (int, error) }, s familySummary) {
-	fmt.Fprintf(w, "%s: %s covered=%d pending=%d runtime=%v validation=%q\n", s.Name, s.Status, s.Covered, s.Pending, s.RuntimeGeneration, s.ValidationTarget)
+	fmt.Fprintf(w, "%s: %s covered=%d pending=%d coverage=%.1f%% runtime=%v validation=%q\n", s.Name, s.Status, s.Covered, s.Pending, s.CoveragePercent, s.RuntimeGeneration, s.ValidationTarget)
 	if len(s.Categories) > 0 {
 		for _, name := range []string{"references", "runtime", "parity", "readiness"} {
 			counts := s.Categories[name]
-			fmt.Fprintf(w, "  %s: covered=%d pending=%d", name, counts.Covered, counts.Pending)
+			fmt.Fprintf(w, "  %s: covered=%d pending=%d coverage=%.1f%%", name, counts.Covered, counts.Pending, counts.Percent)
 			if len(counts.PendingKeys) > 0 {
 				fmt.Fprintf(w, " pending_keys=%v", counts.PendingKeys)
 			}
@@ -186,6 +188,7 @@ func summarize(m manifest, family string, filter coverageFilter) ([]familySummar
 				s.PendingKeys = append(s.PendingKeys, key)
 			}
 		}
+		s.CoveragePercent = percent(s.Covered, s.Pending)
 		s.Categories = summarizeCategories(fam.Coverage)
 		out = append(out, s)
 	}
@@ -221,6 +224,7 @@ func summarizeCategories(coverage map[string]bool) map[string]categoryCounts {
 	}
 	for name, counts := range categories {
 		sort.Strings(counts.PendingKeys)
+		counts.Percent = percent(counts.Covered, counts.Pending)
 		categories[name] = counts
 	}
 	return categories
@@ -240,6 +244,14 @@ func (f coverageFilter) include(key string) bool {
 		return false
 	}
 	return true
+}
+
+func percent(covered, pending int) float64 {
+	total := covered + pending
+	if total == 0 {
+		return 100
+	}
+	return 100 * float64(covered) / float64(total)
 }
 
 func isReferenceCoverageKey(key string) bool {
