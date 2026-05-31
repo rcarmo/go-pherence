@@ -108,6 +108,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"rope_layout":                          "../model/lfm2/rope.go",
 		"runtime_state_sizing":                 "../model/lfm2/state.go",
 		"runtime_request_validation":           "../model/lfm2/runtime_request.go",
+		"runtime_stage_interfaces":             "../model/lfm2/runtime_interfaces.go",
 		"tensor_shape_validation":              "../model/lfm2/tensor_shape_validation.go",
 		"strict_inspector_mode":                "../cmd/lfm2inspect/main.go",
 		"fixture_coverage_make_target":         "../Makefile",

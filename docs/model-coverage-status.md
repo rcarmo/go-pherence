@@ -125,6 +125,7 @@ Implemented package/command surface:
 - `model/lfm2/rope.go` — RoPE theta/head-dim/full-attention position contract.
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.
 - `model/lfm2/runtime_request.go` — validation-only generation request plan tying prompt tokens, context, KV/cache bytes, router scratch, and embedding residency sizing.
+- `model/lfm2/runtime_interfaces.go` — embedding, convolution, full-attention, MoE, and generation runtime boundaries with explicit not-implemented sentinel.
 - `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture, complete-reference placeholder fixture, and reference-coverage tracking.
 - `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan/reference-coverage inspector.
 - `make lfm2-fixture-coverage` — shortcut for fixture/reference coverage reports.
