@@ -65,6 +65,7 @@ func main() {
 	runtimeRoadmap := flag.Bool("runtime-roadmap", false, "emit Markdown checklist of pending runtime/backend gates")
 	runtimeRoadmapJSON := flag.Bool("runtime-roadmap-json", false, "emit JSON runtime blocker roadmap")
 	nextRuntime := flag.Bool("next-runtime", false, "emit the next dependency-ordered runtime blocker per family")
+	nextRuntimeJSON := flag.Bool("next-runtime-json", false, "emit JSON for the next dependency-ordered runtime blocker per family")
 	snapshotOut := flag.Bool("snapshot", false, "emit Markdown coverage snapshot plus runtime roadmap")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
@@ -103,6 +104,12 @@ func main() {
 		}
 	} else if *nextRuntime {
 		printNextRuntime(os.Stdout, summaries)
+	} else if *nextRuntimeJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(buildNextRuntime(summaries)); err != nil {
+			fatal(err)
+		}
 	} else if *snapshotOut {
 		printSnapshot(os.Stdout, summaries)
 	} else {
@@ -128,11 +135,19 @@ func main() {
 	}
 }
 
-func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
+func buildNextRuntime(summaries []familySummary) []runtimeRoadmapFamily {
+	var next []runtimeRoadmapFamily
 	for _, family := range buildRuntimeRoadmap(summaries) {
 		if len(family.Blockers) == 0 {
 			continue
 		}
+		next = append(next, runtimeRoadmapFamily{Family: family.Family, Blockers: []runtimeRoadmapBlocker{family.Blockers[0]}})
+	}
+	return next
+}
+
+func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
+	for _, family := range buildNextRuntime(summaries) {
 		blocker := family.Blockers[0]
 		fmt.Fprintf(w, "%s.%s — %s", family.Family, blocker.Key, blocker.Description)
 		if blocker.Prerequisites != "" {

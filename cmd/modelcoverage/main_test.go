@@ -160,6 +160,14 @@ func TestPrintSnapshot(t *testing.T) {
 	}
 }
 
+func TestBuildNextRuntime(t *testing.T) {
+	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
+	next := buildNextRuntime(summaries)
+	if len(next) != 1 || next[0].Family != "x" || len(next[0].Blockers) != 1 || next[0].Blockers[0].Key != "cpu_talker_runtime" {
+		t.Fatalf("next=%+v", next)
+	}
+}
+
 func TestPrintNextRuntime(t *testing.T) {
 	var buf bytes.Buffer
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}

@@ -245,6 +245,7 @@ make model-coverage-snapshot-check
 make model-coverage-runtime-roadmap
 make model-coverage-runtime-roadmap-json
 make model-coverage-next-runtime
+make model-coverage-next-runtime-json
 # emits phase-numbered, dependency-ordered runtime blocker checklists with package hints, short descriptions, prerequisites, and validation hints
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
 make model-coverage-references-pending
