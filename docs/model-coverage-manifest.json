@@ -111,6 +111,7 @@
         "execution_role_plan": true,
         "routing_plan": true,
         "router_layout": true,
+        "moe_execution_contract": true,
         "ffn_layout": true,
         "norm_layout": true,
         "embedding_layout": true,
