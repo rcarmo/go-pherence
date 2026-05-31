@@ -51,6 +51,7 @@ type runtimeRoadmapBlocker struct {
 	Key           string `json:"key"`
 	Phase         int    `json:"phase"`
 	Description   string `json:"description"`
+	Package       string `json:"package,omitempty"`
 	Prerequisites string `json:"prerequisites,omitempty"`
 	Validation    string `json:"validation,omitempty"`
 }
@@ -137,6 +138,9 @@ func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []fam
 		if blocker.Prerequisites != "" {
 			fmt.Fprintf(w, " (after: %s)", blocker.Prerequisites)
 		}
+		if blocker.Package != "" {
+			fmt.Fprintf(w, " (package: %s)", blocker.Package)
+		}
 		if blocker.Validation != "" {
 			fmt.Fprintf(w, " (validate: %s)", blocker.Validation)
 		}
@@ -153,7 +157,7 @@ func buildRuntimeRoadmap(summaries []familySummary) []runtimeRoadmapFamily {
 		}
 		family := runtimeRoadmapFamily{Family: s.Name, Blockers: make([]runtimeRoadmapBlocker, 0, len(pending))}
 		for _, key := range pending {
-			family.Blockers = append(family.Blockers, runtimeRoadmapBlocker{Key: key, Phase: runtimeBlockerPriority(key), Description: runtimeBlockerDescription(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)})
+			family.Blockers = append(family.Blockers, runtimeRoadmapBlocker{Key: key, Phase: runtimeBlockerPriority(key), Description: runtimeBlockerDescription(key), Package: runtimeBlockerPackage(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)})
 		}
 		roadmap = append(roadmap, family)
 	}
@@ -165,6 +169,9 @@ func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []
 		fmt.Fprintf(w, "## %s runtime blockers\n\n", family.Family)
 		for _, blocker := range family.Blockers {
 			fmt.Fprintf(w, "- [ ] P%d `%s` — %s", blocker.Phase, blocker.Key, blocker.Description)
+			if blocker.Package != "" {
+				fmt.Fprintf(w, " _(package: `%s`)_", blocker.Package)
+			}
 			if blocker.Prerequisites != "" {
 				fmt.Fprintf(w, " _(after: %s)_", blocker.Prerequisites)
 			}
@@ -216,6 +223,19 @@ func runtimeBlockerPrerequisites(key string) string {
 		return "CPU/reference parity"
 	case "streaming_runtime":
 		return "CPU/reference parity, nvidia_runtime where applicable"
+	default:
+		return ""
+	}
+}
+
+func runtimeBlockerPackage(key string) string {
+	switch key {
+	case "cpu_talker_runtime", "cpu_code_predictor_runtime", "decoder12hz_runtime", "streaming_runtime":
+		return "model/qwen3tts"
+	case "cpu_generation_runtime":
+		return "model/lfm2"
+	case "nvidia_runtime":
+		return "backends/nvidia"
 	default:
 		return ""
 	}
