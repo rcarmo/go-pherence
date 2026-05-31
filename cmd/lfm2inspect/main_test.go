@@ -75,6 +75,17 @@ func TestRequireRuntimeFailsWhileUnimplemented(t *testing.T) {
 	}
 }
 
+func TestRequireNumericParityFailsForPlaceholderFixture(t *testing.T) {
+	dir := t.TempDir()
+	cfg := `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`
+	writeFile(t, filepath.Join(dir, "config.json"), cfg)
+	fixture := filepath.Join(dir, "fixture.json")
+	writeFile(t, fixture, `{"config":`+cfg+`,"tensors":{"total":4,"embedding":1,"layers":1,"router":1,"experts":1,"readiness":{"ready":true,"present_required":{"embedding":true,"layers":true,"router":true,"experts":true}}},"references":{"tokenization":{"text":"Hello","tokens":[1]},"first_token":{"token_id":1,"logit_checksum":"pending-transformers"},"conv_layer":{"layer":0,"checksum":"pending-transformers"},"router_topk":{"layer":0,"expert_ids":[0,1,2,3]},"expert_output":{"layer":0,"checksum":"pending-transformers"}},"runtime_request":{"prompt_tokens":1,"max_new_tokens":1,"max_sequence":2,"bytes_per_float":2,"kv_bytes":0,"conv_state_bytes":12288}}`)
+	if out, err := runInspectRaw("-model", dir, "-fixture", fixture, "-require-numeric-parity"); err == nil {
+		t.Fatalf("expected numeric parity requirement failure, output:\n%s", out)
+	}
+}
+
 func TestRequireCompleteFixtureFailsForMetadataOnlyFixture(t *testing.T) {
 	dir := t.TempDir()
 	cfg := `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`

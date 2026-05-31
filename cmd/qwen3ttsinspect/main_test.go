@@ -46,6 +46,16 @@ func TestRequireRuntimeFailsWhileUnimplemented(t *testing.T) {
 	}
 }
 
+func TestRequireNumericParityFailsForPlaceholderFixture(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"vocab_size":2048,"num_code_groups":16}}}`)
+	fixture := filepath.Join(dir, "fixture.json")
+	writeFile(t, fixture, `{"name":"probe","variant":"custom_voice","model_size":"0b6","text":"Hello","speaker":"ryan","language":"en","prompt":{"text":[151644,77091,198,151859,151859,151859,151859,151859,151860,9707],"codec":[151860,151861,2050,151862,3061,151859,151860]},"talker":{"first_semantic_token":0,"logit_checksum":"pending-qwen3-tts-rs"},"code_predictor":{"acoustic_frame":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"decoder12hz":{"sample_rate":24000,"samples":2000,"duration_s":0.08333333333333333,"sha256":"pending-qwen3-tts-rs"},"runtime":{"max_frames":1,"max_samples":2000,"max_codes":15}}`)
+	if out, err := runInspectRaw("-model", dir, "-fixture", fixture, "-require-numeric-parity"); err == nil {
+		t.Fatalf("expected numeric parity requirement failure, output:\n%s", out)
+	}
+}
+
 func TestRequireCompleteFixtureFailsForPromptOnlyFixture(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64}}}`)

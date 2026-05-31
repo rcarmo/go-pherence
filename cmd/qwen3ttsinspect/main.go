@@ -43,6 +43,7 @@ func main() {
 	jsonOut := flag.Bool("json", false, "emit JSON report")
 	fixturePath := flag.String("fixture", "", "optional Qwen3-TTS reference fixture path for coverage reporting")
 	requireCompleteFixture := flag.Bool("require-complete-fixture", false, "exit non-zero when -fixture reference coverage is incomplete")
+	requireNumericParity := flag.Bool("require-numeric-parity", false, "exit non-zero when -fixture contains placeholder parity values")
 	requireRuntime := flag.Bool("require-runtime", false, "exit non-zero when runtime execution stages are not implemented")
 	speakerName := flag.String("speaker", "ryan", "CustomVoice speaker for prefix probe")
 	langName := flag.String("language", "en", "language for prefix probe")
@@ -163,6 +164,9 @@ func main() {
 	if *requireCompleteFixture && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.CompleteRuntimeTrace) {
 		os.Exit(1)
 	}
+	if *requireNumericParity && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.NumericParityReady) {
+		os.Exit(1)
+	}
 	if *requireRuntime && !out.RuntimeStatus.RuntimeImplemented {
 		os.Exit(1)
 	}
@@ -222,7 +226,7 @@ func printText(r report) {
 		fmt.Printf("  runtime request: frames=%d samples=%d codes=%d\n", r.RuntimeRequestPlan.MaxFrames, r.RuntimeRequestPlan.MaxSamples, r.RuntimeRequestPlan.MaxCodes)
 	}
 	if r.ReferenceCoverage != nil {
-		fmt.Printf("  references: complete=%v missing=%v\n", r.ReferenceCoverage.CompleteRuntimeTrace, r.ReferenceCoverage.Missing)
+		fmt.Printf("  references: complete=%v numeric_parity_ready=%v missing=%v placeholders=%v\n", r.ReferenceCoverage.CompleteRuntimeTrace, r.ReferenceCoverage.NumericParityReady, r.ReferenceCoverage.Missing, r.ReferenceCoverage.PlaceholderValues)
 	}
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage

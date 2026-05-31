@@ -31,6 +31,7 @@ func main() {
 	jsonOut := flag.Bool("json", false, "emit JSON report")
 	fixturePath := flag.String("fixture", "", "optional LFM2 reference metadata/fixture path for coverage reporting")
 	requireCompleteFixture := flag.Bool("require-complete-fixture", false, "exit non-zero when -fixture reference coverage is incomplete")
+	requireNumericParity := flag.Bool("require-numeric-parity", false, "exit non-zero when -fixture contains placeholder parity values")
 	requireRuntime := flag.Bool("require-runtime", false, "exit non-zero when runtime execution is not implemented")
 	strict := flag.Bool("strict", false, "exit non-zero when tensor readiness or shape validation fails")
 	flag.Parse()
@@ -87,6 +88,9 @@ func main() {
 		os.Exit(1)
 	}
 	if *requireCompleteFixture && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.CompleteRuntimeTrace) {
+		os.Exit(1)
+	}
+	if *requireNumericParity && (out.ReferenceCoverage == nil || !out.ReferenceCoverage.NumericParityReady) {
 		os.Exit(1)
 	}
 	if *requireRuntime && !out.RuntimeStatus.RuntimeImplemented {
@@ -148,7 +152,7 @@ func printText(r report) {
 		fmt.Printf("  runtime request: prompt_tokens=%d max_new=%d max_sequence=%d kv_bytes=%d conv_state_bytes=%d\n", r.RuntimeRequestPlan.PromptTokens, r.RuntimeRequestPlan.MaxNewTokens, r.RuntimeRequestPlan.MaxSequence, r.RuntimeRequestPlan.KVBytes, r.RuntimeRequestPlan.ConvStateBytes)
 	}
 	if r.ReferenceCoverage != nil {
-		fmt.Printf("  references: complete=%v missing=%v\n", r.ReferenceCoverage.CompleteRuntimeTrace, r.ReferenceCoverage.Missing)
+		fmt.Printf("  references: complete=%v numeric_parity_ready=%v missing=%v placeholders=%v\n", r.ReferenceCoverage.CompleteRuntimeTrace, r.ReferenceCoverage.NumericParityReady, r.ReferenceCoverage.Missing, r.ReferenceCoverage.PlaceholderValues)
 	}
 	if r.TensorCoverage != nil {
 		t := r.TensorCoverage
