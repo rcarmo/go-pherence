@@ -17,21 +17,30 @@ import (
 
 // GGUFLlamaConfig holds the hyper-parameters extracted from GGUF metadata.
 type GGUFLlamaConfig struct {
-	Architecture     string
-	HiddenSize       int
-	NumLayers        int
-	NumHeads         int // query heads
-	NumKVHeads       int
-	HeadDim          int
-	FFNHiddenSize    int
-	VocabSize        int
-	MaxSeqLen        int
-	RMSNormEps       float32
-	RopeFreqBase     float32
-	RopeDimCount     int
-	NumExperts       int
-	NumExpertsPerTok int
-	MoEHiddenSize    int
+	Architecture          string
+	HiddenSize            int
+	NumLayers             int
+	NumHeads              int // query heads
+	NumKVHeads            int
+	HeadDim               int
+	FFNHiddenSize         int
+	VocabSize             int
+	MaxSeqLen             int
+	RMSNormEps            float32
+	RopeFreqBase          float32
+	RopeDimCount          int
+	NumExperts            int
+	NumExpertsPerTok      int
+	MoEHiddenSize         int
+	SharedMoEHiddenSize   int
+	FullAttentionInterval int
+	AttentionKeyLength    int
+	AttentionValueLength  int
+	SSMConvKernel         int
+	SSMGroupCount         int
+	SSMInnerSize          int
+	SSMStateSize          int
+	SSMTimeStepRank       int
 }
 
 // GGUFLlamaLayer holds per-layer weight matrices.
@@ -58,6 +67,16 @@ type GGUFLlamaLayer struct {
 	ExpertGateM *gguf.ExpertMatrices
 	ExpertUpM   *gguf.ExpertMatrices
 	ExpertDownM *gguf.ExpertMatrices
+
+	FusedQKVM *gguf.QuantMatrix
+	AttnGateM *gguf.QuantMatrix
+	SSMOutM   *gguf.QuantMatrix
+	SSMConv1D []float32
+	SSMA      []float32
+	SSMDTBias []float32
+	SSMNorm   []float32
+	SSMAlphaM *gguf.QuantMatrix
+	SSMBetaM  *gguf.QuantMatrix
 }
 
 // GGUFLlama is a loaded LLaMA model with all weights dequanted to F32.
@@ -161,6 +180,11 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 				return nil, fmt.Errorf("layer %d %s: %w", i, suffix, err)
 			}
 			*dst = data
+		}
+		if cfg.IsQwenNextHybridGGUF() {
+			if err := loadGGUFQwenNextHybridTensors(g, i, &layer); err != nil {
+				return nil, fmt.Errorf("layer %d QwenNext hybrid: %w", i, err)
+			}
 		}
 		if cfg.NumExperts > 0 {
 			layer.RouterM, layer.ExpertGateM, layer.ExpertUpM, layer.ExpertDownM, err = loadGGUFMoEExpertMatrices(g, i)
@@ -292,22 +316,40 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 	experts, _ := ggufMetaUint32Any(g, key("expert_count"), "llama.expert_count")
 	expertsPerTok, _ := ggufMetaUint32Any(g, key("expert_used_count"), "llama.expert_used_count")
 	moeHidden, _ := ggufMetaUint32Any(g, key("expert_feed_forward_length"), "llama.expert_feed_forward_length")
+	sharedMoEHidden, _ := ggufMetaUint32Any(g, key("expert_shared_feed_forward_length"), "llama.expert_shared_feed_forward_length")
+	fullAttnInterval, _ := ggufMetaUint32Any(g, key("full_attention_interval"), "llama.full_attention_interval")
+	keyLen, _ := ggufMetaUint32Any(g, key("attention.key_length"), "llama.attention.key_length")
+	valueLen, _ := ggufMetaUint32Any(g, key("attention.value_length"), "llama.attention.value_length")
+	ssmConvKernel, _ := ggufMetaUint32Any(g, key("ssm.conv_kernel"), "llama.ssm.conv_kernel")
+	ssmGroupCount, _ := ggufMetaUint32Any(g, key("ssm.group_count"), "llama.ssm.group_count")
+	ssmInnerSize, _ := ggufMetaUint32Any(g, key("ssm.inner_size"), "llama.ssm.inner_size")
+	ssmStateSize, _ := ggufMetaUint32Any(g, key("ssm.state_size"), "llama.ssm.state_size")
+	ssmRank, _ := ggufMetaUint32Any(g, key("ssm.time_step_rank"), "llama.ssm.time_step_rank")
 	cfg := GGUFLlamaConfig{
-		Architecture:     arch,
-		HiddenSize:       int(hidden),
-		NumLayers:        int(layers),
-		NumHeads:         int(heads),
-		NumKVHeads:       int(kvHeads),
-		HeadDim:          int(hidden) / int(heads),
-		FFNHiddenSize:    int(ffn),
-		VocabSize:        int(vocabSize),
-		MaxSeqLen:        int(maxCtx),
-		RMSNormEps:       eps,
-		RopeFreqBase:     ropeBase,
-		RopeDimCount:     ropeDim,
-		NumExperts:       int(experts),
-		NumExpertsPerTok: int(expertsPerTok),
-		MoEHiddenSize:    int(moeHidden),
+		Architecture:          arch,
+		HiddenSize:            int(hidden),
+		NumLayers:             int(layers),
+		NumHeads:              int(heads),
+		NumKVHeads:            int(kvHeads),
+		HeadDim:               int(hidden) / int(heads),
+		FFNHiddenSize:         int(ffn),
+		VocabSize:             int(vocabSize),
+		MaxSeqLen:             int(maxCtx),
+		RMSNormEps:            eps,
+		RopeFreqBase:          ropeBase,
+		RopeDimCount:          ropeDim,
+		NumExperts:            int(experts),
+		NumExpertsPerTok:      int(expertsPerTok),
+		MoEHiddenSize:         int(moeHidden),
+		SharedMoEHiddenSize:   int(sharedMoEHidden),
+		FullAttentionInterval: int(fullAttnInterval),
+		AttentionKeyLength:    int(keyLen),
+		AttentionValueLength:  int(valueLen),
+		SSMConvKernel:         int(ssmConvKernel),
+		SSMGroupCount:         int(ssmGroupCount),
+		SSMInnerSize:          int(ssmInnerSize),
+		SSMStateSize:          int(ssmStateSize),
+		SSMTimeStepRank:       int(ssmRank),
 	}
 	return cfg, nil
 }
@@ -348,6 +390,9 @@ func loadGGUFMoEExpertMatrices(g *gguf.GGUF, layerIdx int) (router *gguf.QuantMa
 }
 
 func (c GGUFLlamaConfig) ValidateRuntimeSupported() error {
+	if err := c.ValidateQwenNextHybridMetadata(); err != nil {
+		return err
+	}
 	if c.NumExperts < 0 || c.NumExpertsPerTok < 0 || c.MoEHiddenSize < 0 {
 		return fmt.Errorf("invalid GGUF MoE metadata experts=%d active=%d moe_hidden=%d", c.NumExperts, c.NumExpertsPerTok, c.MoEHiddenSize)
 	}
