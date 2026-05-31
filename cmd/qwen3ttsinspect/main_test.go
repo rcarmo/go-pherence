@@ -17,7 +17,7 @@ func TestInspectTokenizedPromptSmoke(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "merges.txt"), "#version: 0.2\n")
 
 	out := runInspect(t, "-model", dir, "-text", "Hello world", "-json")
-	for _, want := range []string{`"label": "0.6B CustomVoice"`, `"first_text_id": 9707`, `"runtime_plan"`, `"runtime_status"`, `"runtime_implemented": false`, `"cpu_talker_runtime"`, `"codec_stream"`} {
+	for _, want := range []string{`"label": "0.6B CustomVoice"`, `"first_text_id": 9707`, `"runtime_plan"`, `"runtime_status"`, `"readiness"`, `"ready_for_execution": false`, `"runtime_implemented": false`, `"cpu_talker_runtime"`, `"codec_stream"`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output missing %s:\n%s", want, out)
 		}

@@ -21,6 +21,7 @@ type report struct {
 	RuntimePlan            qwen3tts.RuntimePlan             `json:"runtime_plan"`
 	RuntimeRequestPlan     *qwen3tts.RuntimeRequestPlan     `json:"runtime_request_plan,omitempty"`
 	RuntimeStatus          qwen3tts.RuntimeStatus           `json:"runtime_status"`
+	Readiness              qwen3tts.RuntimeReadinessReport  `json:"readiness"`
 	Capabilities           qwen3tts.Capabilities            `json:"capabilities"`
 	ConditioningValidation *qwen3tts.ConditioningValidation `json:"conditioning_validation,omitempty"`
 	CustomVoiceProbe       *customVoicePrefixSummary        `json:"custom_voice_prefix,omitempty"`
@@ -149,6 +150,7 @@ func main() {
 		validation := cfg.CheckConditioning(req)
 		out.ConditioningValidation = &validation
 	}
+	out.Readiness = qwen3tts.NewRuntimeReadinessReport(out.RuntimeStatus, out.ReferenceCoverage)
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -221,7 +223,7 @@ func printText(r report) {
 	fmt.Printf("  talker: hidden=%d layers=%d heads=%d kv_heads=%d q_per_kv=%d head_dim=%d text_hidden=%d text_vocab=%d codec_vocab=%d rope_theta=%g max_pos=%d mrope=%v\n", c.TalkerHiddenSize, c.TalkerNumHiddenLayers, c.TalkerNumAttentionHeads, c.TalkerNumKeyValueHeads, r.RuntimePlan.TalkerAttentionLayout.QueriesPerKV, c.TalkerHeadDim, c.TalkerTextHiddenSize, c.TalkerTextVocabSize, c.TalkerVocabSize, r.RuntimePlan.TalkerAttentionLayout.RoPETheta, r.RuntimePlan.TalkerAttentionLayout.MaxPositionEmbeddings, c.HasMRoPESection)
 	fmt.Printf("  code predictor: hidden=%d layers=%d heads=%d kv_heads=%d q_per_kv=%d head_dim=%d vocab=%d code_groups=%d acoustic_heads=%d rope_theta=%g\n", c.CPHiddenSize, c.CPNumHiddenLayers, c.CPNumAttentionHeads, c.CPNumKeyValueHeads, r.RuntimePlan.CPAttentionLayout.QueriesPerKV, c.CPHeadDim, c.CPVocabSize, c.CPNumCodeGroups, r.RuntimePlan.CodePredictorHeadLayout.Heads, r.RuntimePlan.CPAttentionLayout.RoPETheta)
 	fmt.Printf("  runtime plan: talker_kv_floats/token=%d cp_kv_floats/token=%d talker_ffn_floats/layer=%d cp_ffn_floats/layer=%d embedding_bridge_floats=%d decoder=%dHz/%d_codes decoder_groups=%d-%d waveform=%dHz/%dspf pipeline=%d_stages\n", r.RuntimePlan.Talker.KVFloatsPerToken, r.RuntimePlan.CodePredictor.KVFloatsPerToken, r.RuntimePlan.TalkerFFNLayout.FloatsPerLayer, r.RuntimePlan.CPFFNLayout.FloatsPerLayer, r.RuntimePlan.EmbeddingLayout.TotalBridgeFloats, r.RuntimePlan.Decoder12Hz.FrameRateHz, r.RuntimePlan.Decoder12Hz.CodeGroups, r.RuntimePlan.DecoderInputLayout.FirstCodeGroup, r.RuntimePlan.DecoderInputLayout.LastCodeGroup, r.RuntimePlan.WaveformLayout.SampleRateHz, r.RuntimePlan.WaveformLayout.SamplesPerFrame, len(r.RuntimePlan.Pipeline.Steps))
-	fmt.Printf("  runtime status: implemented=%v pending=%v\n", r.RuntimeStatus.RuntimeImplemented, r.RuntimeStatus.Pending)
+	fmt.Printf("  runtime status: implemented=%v pending=%v ready_for_execution=%v blockers=%v\n", r.RuntimeStatus.RuntimeImplemented, r.RuntimeStatus.Pending, r.Readiness.ReadyForExecution, r.Readiness.Blockers)
 	if r.RuntimeRequestPlan != nil {
 		fmt.Printf("  runtime request: frames=%d samples=%d codes=%d\n", r.RuntimeRequestPlan.MaxFrames, r.RuntimeRequestPlan.MaxSamples, r.RuntimeRequestPlan.MaxCodes)
 	}

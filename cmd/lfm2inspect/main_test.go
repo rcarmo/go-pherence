@@ -30,7 +30,7 @@ func TestInspectMetadataSmoke(t *testing.T) {
 	}`)
 
 	out := runInspect(t, "-model", dir, "-json")
-	for _, want := range []string{`"model_type": "lfm2_moe"`, `"conv_layers": 2`, `"attention_layers": 1`, `"runtime_plan"`, `"runtime_status"`, `"runtime_implemented": false`, `"cpu_generation_runtime"`, `"kv_floats_per_token": 1024`} {
+	for _, want := range []string{`"model_type": "lfm2_moe"`, `"conv_layers": 2`, `"attention_layers": 1`, `"runtime_plan"`, `"runtime_status"`, `"readiness"`, `"ready_for_execution": false`, `"runtime_implemented": false`, `"cpu_generation_runtime"`, `"kv_floats_per_token": 1024`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output missing %s:\n%s", want, out)
 		}

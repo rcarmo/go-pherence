@@ -22,6 +22,7 @@ type report struct {
 	RuntimePlan        lfm2.RuntimePlan            `json:"runtime_plan"`
 	RuntimeRequestPlan *lfm2.RuntimeRequestPlan    `json:"runtime_request_plan,omitempty"`
 	RuntimeStatus      lfm2.RuntimeStatus          `json:"runtime_status"`
+	Readiness          lfm2.RuntimeReadinessReport `json:"readiness"`
 	ReferenceCoverage  *lfm2.ReferenceCoverage     `json:"reference_coverage,omitempty"`
 }
 
@@ -75,6 +76,7 @@ func main() {
 		shapeValidation := lfm2.ValidateTensorShapes(cfg, infos)
 		out.ShapeValidation = &shapeValidation
 	}
+	out.Readiness = lfm2.NewRuntimeReadinessReport(out.RuntimeStatus, out.ReferenceCoverage)
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -147,7 +149,7 @@ func printText(r report) {
 	fmt.Printf("  moe: experts=%d active=%d intermediate=%d dense_layers=%d routed_layers=%d expert_params=%d router_floats/layer=%d norm_topk=%v expert_bias=%v routed_scale=%g\n", c.NumExperts, c.NumExpertsPerTok, c.MoEIntermediateSize, c.NumDenseLayers, r.RuntimePlan.Routing.MoELayers, r.RuntimePlan.FFNLayout.ExpertParamsPerExpert, r.RuntimePlan.RouterLayout.FloatsPerLayer, c.NormTopKProb, c.UseExpertBias, c.RoutedScalingFactor)
 	fmt.Printf("  conv: L_cache=%d bias=%v rope_theta=%g rope_layers=%d norm_eps=%g state_floats/layer=%d kernel_floats/layer=%d\n", c.ConvLCache, c.ConvBias, c.RoPE.Theta, r.RuntimePlan.RoPELayout.FullAttentionLayers, r.RuntimePlan.NormLayout.Epsilon, r.RuntimePlan.ConvStateLayout.FloatsPerLayer, r.RuntimePlan.ConvProjLayout.KernelFloats)
 	fmt.Printf("  runtime plan: conv_state_floats=%d kv_floats/token=%d attention_layers=%v attention_kv_floats/token=%d attention_proj_floats/layer=%d dense_layers=%v moe_layers=%d embedding_floats=%d lm_head_floats=%d\n", r.RuntimePlan.ConvStateFloats, r.RuntimePlan.KVFloatsPerToken, r.RuntimePlan.Schedule.FullAttentionIndices, r.RuntimePlan.AttentionKVLayout.FloatsPerToken, r.RuntimePlan.AttentionProjLayout.TotalFloatsPerLayer, r.RuntimePlan.Execution.DenseIndices, len(r.RuntimePlan.Execution.MoEIndices), r.RuntimePlan.EmbeddingLayout.EmbeddingFloats, r.RuntimePlan.EmbeddingLayout.LMHeadFloats)
-	fmt.Printf("  runtime status: implemented=%v pending=%v\n", r.RuntimeStatus.RuntimeImplemented, r.RuntimeStatus.Pending)
+	fmt.Printf("  runtime status: implemented=%v pending=%v ready_for_execution=%v blockers=%v\n", r.RuntimeStatus.RuntimeImplemented, r.RuntimeStatus.Pending, r.Readiness.ReadyForExecution, r.Readiness.Blockers)
 	if r.RuntimeRequestPlan != nil {
 		fmt.Printf("  runtime request: prompt_tokens=%d max_new=%d max_sequence=%d kv_bytes=%d conv_state_bytes=%d\n", r.RuntimeRequestPlan.PromptTokens, r.RuntimeRequestPlan.MaxNewTokens, r.RuntimeRequestPlan.MaxSequence, r.RuntimeRequestPlan.KVBytes, r.RuntimeRequestPlan.ConvStateBytes)
 	}

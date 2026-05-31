@@ -76,6 +76,7 @@ Implemented package/command surface:
 - `model/qwen3tts/runtime_request.go` — validation-only synthesis request plan tying conditioning, prompt runtime layout, decoder input, waveform sizing, and output limits.
 - `model/qwen3tts/runtime_interfaces.go` — Talker, CodePredictor, Decoder12Hz, and pipeline runtime boundaries with explicit not-implemented sentinel.
 - `model/qwen3tts/runtime_status.go` — explicit runtime implementation status and pending stage list for inspectors/status tooling.
+- `model/qwen3tts/readiness.go` — combined runtime/fixture/numeric-parity readiness report with blockers.
 - `cmd/qwen3ttsinspect -require-numeric-parity` — readiness gate that fails while fixture parity checksums are placeholders.
 - `cmd/qwen3ttsinspect -require-runtime` — readiness gate that fails until Talker, CodePredictor, and Decoder12Hz execution are implemented.
 - `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema, complete-reference placeholder fixture, runtime request summary fixture, placeholder-value tracking, and reference-coverage tracking.
@@ -139,6 +140,7 @@ Implemented package/command surface:
 - `model/lfm2/runtime_request.go` — validation-only generation request plan tying prompt tokens, context, KV/cache bytes, router scratch, and embedding residency sizing.
 - `model/lfm2/runtime_interfaces.go` — embedding, convolution, full-attention, MoE, and generation runtime boundaries with explicit not-implemented sentinel.
 - `model/lfm2/runtime_status.go` — explicit runtime implementation status and pending stage list for inspectors/status tooling.
+- `model/lfm2/readiness.go` — combined runtime/fixture/numeric-parity readiness report with blockers.
 - `cmd/lfm2inspect -require-numeric-parity` — readiness gate that fails while fixture parity checksums are placeholders.
 - `cmd/lfm2inspect -require-runtime` — readiness gate that fails until LFM2 generation execution is implemented.
 - `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture, complete-reference placeholder fixture, runtime request summary fixture, placeholder-value tracking, and reference-coverage tracking.
