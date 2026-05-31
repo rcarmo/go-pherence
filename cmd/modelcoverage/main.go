@@ -50,6 +50,7 @@ type runtimeRoadmapFamily struct {
 type runtimeRoadmapBlocker struct {
 	Key           string `json:"key"`
 	Phase         int    `json:"phase"`
+	Kind          string `json:"kind"`
 	Description   string `json:"description"`
 	Package       string `json:"package,omitempty"`
 	Fixture       string `json:"fixture,omitempty"`
@@ -177,7 +178,7 @@ func buildRuntimeRoadmap(summaries []familySummary, packageFilter string) []runt
 		}
 		family := runtimeRoadmapFamily{Family: s.Name, Blockers: make([]runtimeRoadmapBlocker, 0, len(pending))}
 		for _, key := range pending {
-			blocker := runtimeRoadmapBlocker{Key: key, Phase: runtimeBlockerPriority(key), Description: runtimeBlockerDescription(key), Package: runtimeBlockerPackage(key), Fixture: runtimeBlockerFixture(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)}
+			blocker := runtimeRoadmapBlocker{Key: key, Phase: runtimeBlockerPriority(key), Kind: runtimeBlockerKind(key), Description: runtimeBlockerDescription(key), Package: runtimeBlockerPackage(key), Fixture: runtimeBlockerFixture(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)}
 			if packageFilter != "" && blocker.Package != packageFilter {
 				continue
 			}
@@ -195,7 +196,7 @@ func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []
 	for _, family := range buildRuntimeRoadmap(summaries, packageFilter) {
 		fmt.Fprintf(w, "## %s runtime blockers\n\n", family.Family)
 		for _, blocker := range family.Blockers {
-			fmt.Fprintf(w, "- [ ] P%d `%s` — %s", blocker.Phase, blocker.Key, blocker.Description)
+			fmt.Fprintf(w, "- [ ] P%d/%s `%s` — %s", blocker.Phase, blocker.Kind, blocker.Key, blocker.Description)
 			if blocker.Package != "" {
 				fmt.Fprintf(w, " _(package: `%s`)_", blocker.Package)
 			}
@@ -240,6 +241,19 @@ func runtimeBlockerPriority(key string) int {
 		return 100
 	default:
 		return 50
+	}
+}
+
+func runtimeBlockerKind(key string) string {
+	switch key {
+	case "cpu_talker_runtime", "cpu_code_predictor_runtime", "decoder12hz_runtime", "cpu_generation_runtime":
+		return "cpu"
+	case "nvidia_runtime":
+		return "nvidia"
+	case "streaming_runtime":
+		return "streaming"
+	default:
+		return "runtime"
 	}
 }
 
