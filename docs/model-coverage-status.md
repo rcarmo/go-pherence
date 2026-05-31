@@ -65,6 +65,7 @@ Implemented package/command surface:
 - `model/qwen3tts/waveform.go` — Decoder12Hz mono 24kHz waveform/WAV sizing contract.
 - `model/qwen3tts/shapes.go` — Talker, CodePredictor, and 12Hz decoder runtime sizing plan.
 - `model/qwen3tts/runtime_request.go` — validation-only synthesis request plan tying conditioning, prompt runtime layout, decoder input, waveform sizing, and output limits.
+- `model/qwen3tts/runtime_interfaces.go` — Talker, CodePredictor, Decoder12Hz, and pipeline runtime boundaries with explicit not-implemented sentinel.
 - `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema, complete-reference placeholder fixture, and reference-coverage tracking.
 - `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/tokenized-prompt/reference-coverage inspector.
 - `make qwen3tts-fixture-coverage` — shortcut for fixture/reference coverage reports.

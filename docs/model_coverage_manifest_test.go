@@ -64,6 +64,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"speaker_encoder_layout":           "../model/qwen3tts/speaker_encoder.go",
 		"runtime_sizing_plan":              "../model/qwen3tts/shapes.go",
 		"runtime_request_validation":       "../model/qwen3tts/runtime_request.go",
+		"runtime_stage_interfaces":         "../model/qwen3tts/runtime_interfaces.go",
 		"attention_layout":                 "../model/qwen3tts/attention_layout.go",
 		"ffn_layout":                       "../model/qwen3tts/ffn_layout.go",
 		"semantic_token_layout":            "../model/qwen3tts/semantic.go",
