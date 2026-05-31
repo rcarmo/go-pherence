@@ -84,6 +84,7 @@
         "context_layout": true,
         "rope_layout": true,
         "runtime_state_sizing": true,
+        "runtime_request_validation": true,
         "strict_inspector_mode": true,
         "download_registry": true,
         "make_inspect_target": true,
