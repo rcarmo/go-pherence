@@ -2,8 +2,8 @@
 
 | family | status | covered | pending | coverage | references | runtime | execution | parity | readiness |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| lfm2_moe | metadata_schedule_inspector_coverage | 56 | 2 | 96.6% | 11/0 (100.0%) | 13/2 (86.7%) | 0/2 (0.0%) | 2/0 (100.0%) | 5/0 (100.0%) |
-| qwen3_tts | metadata_token_prompt_inspector_coverage | 59 | 5 | 92.2% | 8/0 (100.0%) | 14/5 (73.7%) | 0/5 (0.0%) | 2/0 (100.0%) | 5/0 (100.0%) |
+| lfm2_moe | metadata_schedule_inspector_coverage | 57 | 2 | 96.6% | 11/0 (100.0%) | 13/2 (86.7%) | 0/2 (0.0%) | 2/0 (100.0%) | 5/0 (100.0%) |
+| qwen3_tts | metadata_token_prompt_inspector_coverage | 60 | 5 | 92.3% | 8/0 (100.0%) | 14/5 (73.7%) | 0/5 (0.0%) | 2/0 (100.0%) | 5/0 (100.0%) |
 
 # Runtime roadmap
 

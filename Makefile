@@ -6,7 +6,7 @@ MODEL ?=
 MODEL_DOWNLOAD_FLAGS ?=
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test test-cpu test-model-coverage model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-gemma4 models-download-speaker models-download-one qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect
+.PHONY: all build test test-cpu test-model-coverage model-coverage-tmpdir model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-gemma4 models-download-speaker models-download-one qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect
 
 all: build
 
@@ -27,7 +27,7 @@ test:
 test-cpu:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 
-test-model-coverage:
+test-model-coverage: model-coverage-tmpdir
 	go test -count=1 -timeout=120s ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
 	go vet ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
 	go run ./cmd/modelcoverage -references-only -fail-pending
@@ -39,66 +39,68 @@ test-model-coverage:
 MODEL_COVERAGE_FAMILY ?=
 MODEL_COVERAGE_MIN_PERCENT ?= 90
 
-model-coverage:
+model-coverage-tmpdir:
+	mkdir -p $(GOTMPDIR)
+
+model-coverage: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),)
 
-model-coverage-json:
+model-coverage-json: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -json
 
-model-coverage-markdown:
+model-coverage-markdown: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -markdown
 
-model-coverage-csv:
+model-coverage-csv: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -csv
 
-model-coverage-snapshot:
+model-coverage-snapshot: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -snapshot
 
-model-coverage-snapshot-file:
+model-coverage-snapshot-file: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -snapshot > docs/model-coverage-snapshot.md
 
-model-coverage-snapshot-check:
-	mkdir -p $(GOTMPDIR)
+model-coverage-snapshot-check: model-coverage-tmpdir
 	go run ./cmd/modelcoverage -snapshot > $(GOTMPDIR)/model-coverage-snapshot.check.md
 	cmp docs/model-coverage-snapshot.md $(GOTMPDIR)/model-coverage-snapshot.check.md
 
-model-coverage-runtime-roadmap:
+model-coverage-runtime-roadmap: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-roadmap
 
-model-coverage-runtime-roadmap-json:
+model-coverage-runtime-roadmap-json: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-roadmap-json
 
-model-coverage-pending:
+model-coverage-pending: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -pending-only
 
-model-coverage-references-pending:
+model-coverage-references-pending: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -references-only -pending-only
 
-model-coverage-runtime-pending:
+model-coverage-runtime-pending: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-only -pending-only
 
-model-coverage-execution-pending:
+model-coverage-execution-pending: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -execution-only -pending-only
 
-model-coverage-parity-pending:
+model-coverage-parity-pending: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -parity-only -pending-only
 
-model-coverage-readiness-pending:
+model-coverage-readiness-pending: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -readiness-only -pending-only
 
-model-coverage-references-gate:
+model-coverage-references-gate: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -references-only -fail-pending
 
-model-coverage-runtime-gate:
+model-coverage-runtime-gate: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-only -fail-pending
 
-model-coverage-execution-gate:
+model-coverage-execution-gate: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -execution-only -fail-pending
 
-model-coverage-parity-gate:
+model-coverage-parity-gate: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -parity-only -fail-pending
 
-model-coverage-readiness-gate:
+model-coverage-readiness-gate: model-coverage-tmpdir
 	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -readiness-only -fail-pending
 
 vet:

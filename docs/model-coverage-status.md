@@ -4,7 +4,7 @@ This page is the short-form status for the current non-LLM model-family coverage
 
 ## Machine-readable manifest
 
-`model-coverage-manifest.json` tracks the same coverage gates in a compact form for CI and status tooling. Keep it in sync when a model-family coverage layer moves from `false` to `true`. Text, JSON, Markdown, and CSV summaries include per-family category counts and completion percentages for reference, runtime, parity, and readiness gates. The focused validation target enforces `MODEL_COVERAGE_MIN_PERCENT` (default `90`) through `modelcoverage -min-percent` and compares the generated snapshot against `docs/model-coverage-snapshot.md`.
+`model-coverage-manifest.json` tracks the same coverage gates in a compact form for CI and status tooling. Keep it in sync when a model-family coverage layer moves from `false` to `true`. Text, JSON, Markdown, and CSV summaries include per-family category counts and completion percentages for reference, runtime, execution, parity, and readiness gates. The Make targets bootstrap `$(GOTMPDIR)` before invoking Go. The focused validation target enforces `MODEL_COVERAGE_MIN_PERCENT` (default `90`) through `modelcoverage -min-percent` and compares the generated snapshot against `docs/model-coverage-snapshot.md`.
 
 Summarize it with:
 
