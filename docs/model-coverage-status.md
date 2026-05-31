@@ -12,6 +12,7 @@ Summarize it with:
 make model-coverage
 make model-coverage-json
 make model-coverage-markdown
+make model-coverage-csv
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
 make model-coverage-references-pending
 make model-coverage-runtime-pending

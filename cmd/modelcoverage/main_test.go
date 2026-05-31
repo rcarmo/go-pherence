@@ -120,6 +120,23 @@ func TestSummarizeRuntimeOnly(t *testing.T) {
 	}
 }
 
+func TestPrintCSVSummary(t *testing.T) {
+	var buf bytes.Buffer
+	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, Categories: map[string]categoryCounts{
+		"references": {Covered: 1},
+		"runtime":    {Covered: 1, Pending: 1},
+		"parity":     {Covered: 1},
+		"readiness":  {Covered: 2},
+	}}
+	printCSVSummary(&buf, []familySummary{s})
+	out := buf.String()
+	for _, want := range []string{"family,status,covered,pending,references_covered", "x,ok,3,1,1,0,1,1,1,0,2,0"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
 func TestPrintMarkdownSummary(t *testing.T) {
 	var buf bytes.Buffer
 	s := familySummary{Name: "x", Status: "ok", Covered: 3, Pending: 1, Categories: map[string]categoryCounts{
