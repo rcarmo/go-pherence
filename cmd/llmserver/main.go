@@ -96,19 +96,33 @@ type Server struct {
 	tok         *tokenizer.Tokenizer
 	mu          sync.Mutex
 	modelID     string
+	modelPath   string
+	presets     map[string]ModelPreset
+	created     int64
 	maxCtx      int
+	useGPU      bool
+	gpuLayers   int
 	speculative bool
 }
 
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	models := []ModelObject{{
+		ID:      s.modelID,
+		Object:  "model",
+		Created: s.created,
+		OwnedBy: "local",
+	}}
+	for id := range s.presets {
+		if id == s.modelID {
+			continue
+		}
+		models = append(models, ModelObject{ID: id, Object: "model", Created: s.created, OwnedBy: "local"})
+	}
 	resp := ModelListResponse{
 		Object: "list",
-		Data: []ModelObject{{
-			ID:      s.modelID,
-			Object:  "model",
-			Created: time.Now().Unix(),
-			OwnedBy: "local",
-		}},
+		Data:   models,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -156,6 +170,13 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if req.Model != "" && req.Model != s.modelID {
+		if err := s.switchModelLocked(req.Model); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
 
 	ids := s.tok.Encode(prompt)
 
@@ -323,15 +344,65 @@ func writeSSE(w io.Writer, flusher http.Flusher, chunk StreamChunk) bool {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	status := map[string]any{"status": "ok", "model": s.modelID, "gpu": s.gpuModel != nil}
+	status := map[string]any{"status": "ok", "model": s.modelID, "models": len(s.presets) + 1, "gpu": s.gpuModel != nil, "ctx_size": s.maxCtx}
 	if err := json.NewEncoder(w).Encode(status); err != nil {
 		log.Printf("health response encode failed: %v", err)
 	}
 }
 
+func (s *Server) switchModelLocked(id string) error {
+	preset, ok := s.presets[id]
+	if !ok {
+		return fmt.Errorf("unknown model %q", id)
+	}
+	log.Printf("Switching model from %s to %s (%s)", s.modelID, id, preset.Path)
+	m, tok, gpu, err := loadRuntimeModel(preset.Path, s.useGPU, preset.GPULayers)
+	if err != nil {
+		return fmt.Errorf("load model %q: %w", id, err)
+	}
+	if s.gpuModel != nil {
+		s.gpuModel.Close()
+	}
+	s.cpuModel = m
+	s.gpuModel = gpu
+	s.tok = tok
+	s.modelID = id
+	s.modelPath = preset.Path
+	if preset.CtxSize > 0 {
+		s.maxCtx = preset.CtxSize
+	}
+	return nil
+}
+
+func loadRuntimeModel(path string, useGPU bool, gpuLayers int) (*model.LlamaModel, *tokenizer.Tokenizer, *model.GPUModel, error) {
+	m, err := model.LoadLlama(path)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	tok, err := tokenizer.Load(filepath.Join(path, "tokenizer.json"))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	m.Tok = tok
+	var gpu *model.GPUModel
+	if useGPU {
+		g, err := model.LoadGPUModelWithLayers(m, gpuLayers)
+		if err != nil {
+			log.Printf("GPU failed for %s: %v (using CPU)", path, err)
+		} else {
+			g.CPU.Tok = tok
+			gpu = g
+		}
+	}
+	return m, tok, gpu, nil
+}
+
 func main() {
 	dir := flag.String("model", "", "model directory")
+	modelPresets := flag.String("model-presets", "", "llama.cpp-compatible models.ini preset file")
 	listen := flag.String("listen", ":8080", "address to listen on")
 	useGPU := flag.Bool("gpu", false, "use GPU")
 	gpuLayers := flag.Int("gpu-layers", 0, "number of layers on GPU (0=all)")
@@ -351,8 +422,21 @@ func main() {
 	eagerLoad := flag.Bool("eager-load", false, "pre-fault mmap'd model weights at startup")
 	flag.Parse()
 
+	presets := make(map[string]ModelPreset)
+	if *modelPresets != "" {
+		parsed, err := ParseModelPresets(*modelPresets)
+		if err != nil {
+			log.Fatalf("model presets failed: %v", err)
+		}
+		for _, preset := range parsed {
+			presets[preset.ID] = preset
+		}
+		if *dir == "" && len(parsed) > 0 {
+			*dir = parsed[0].Path
+		}
+	}
 	if *dir == "" {
-		fmt.Fprintln(os.Stderr, "usage: llmserver -model <dir> [-listen :8080] [-gpu]")
+		fmt.Fprintln(os.Stderr, "usage: llmserver -model <dir> [-model-presets models.ini] [-listen :8080] [-gpu]")
 		os.Exit(1)
 	}
 
@@ -382,34 +466,27 @@ func main() {
 
 	log.Printf("Loading model from %s...", *dir)
 	t0 := time.Now()
-	m, err := model.LoadLlama(*dir)
+	m, tok, gpu, err := loadRuntimeModel(*dir, *useGPU, *gpuLayers)
 	if err != nil {
 		log.Fatalf("Load failed: %v", err)
 	}
 	m.EnableTurboQuant = *turboQuant
-	tok, err := tokenizer.Load(*dir + "/tokenizer.json")
-	if err != nil {
-		log.Fatalf("Tokenizer failed: %v", err)
-	}
-	m.Tok = tok
 	log.Printf("Model loaded in %.1fs (%d layers, h=%d)", time.Since(t0).Seconds(),
 		m.Config.NumLayers, m.Config.HiddenSize)
 
 	modelID := filepath.Base(*dir)
-	log.Printf("Runtime hints: threads=%d batch_size=%d ctx_size=%d cache_type_k=%q cache_type_v=%q", *threads, *batchSize, *ctxSize, *cacheTypeK, *cacheTypeV)
-	srv := &Server{cpuModel: m, tok: tok, modelID: modelID, maxCtx: *ctxSize, speculative: *speculative}
-
-	if *useGPU {
-		g, err := model.LoadGPUModelWithLayers(m, *gpuLayers)
-		if err != nil {
-			log.Printf("GPU failed: %v (using CPU)", err)
-		} else {
-			g.CPU.Tok = tok
-			srv.gpuModel = g
-			defer g.Close()
-			defer nvidia.Shutdown()
-			log.Printf("GPU model ready")
+	for id, preset := range presets {
+		if preset.Path == *dir {
+			modelID = id
+			break
 		}
+	}
+	log.Printf("Runtime hints: threads=%d batch_size=%d ctx_size=%d cache_type_k=%q cache_type_v=%q presets=%d", *threads, *batchSize, *ctxSize, *cacheTypeK, *cacheTypeV, len(presets))
+	srv := &Server{cpuModel: m, gpuModel: gpu, tok: tok, modelID: modelID, modelPath: *dir, presets: presets, created: time.Now().Unix(), maxCtx: *ctxSize, useGPU: *useGPU, gpuLayers: *gpuLayers, speculative: *speculative}
+	if gpu != nil {
+		defer gpu.Close()
+		defer nvidia.Shutdown()
+		log.Printf("GPU model ready")
 	}
 
 	mux := http.NewServeMux()

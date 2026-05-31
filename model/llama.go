@@ -150,7 +150,15 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 		}
 	}
 
-	m := &LlamaModel{Config: cfg}
+	reapCfg, err := LoadREAPConfig(dir)
+	if err != nil {
+		return nil, err
+	}
+	if reapCfg != nil {
+		loaderDebugf("  REAP: static expert pruning enabled prune_ratio=%.2f default_active=%d layer_masks=%d\n", reapCfg.PruneRatio, len(reapCfg.DefaultActive), len(reapCfg.LayerActiveNumeric))
+	}
+
+	m := &LlamaModel{Config: cfg, REAP: reapCfg}
 	if cfg.IsOrthrus() {
 		loaderDebugf("  Orthrus: block_size=%d mask_token_id=%d (baseline Qwen3 path; diffusion tensors ignored)\n", cfg.OrthrusBlockSize, cfg.OrthrusMaskTokenID)
 	}
@@ -1177,8 +1185,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			// MLP: gate * up → SiLU → down (or MoE for expert layers)
 			var down []float32
 			if layer.IsMoE && layer.ExpertGateW != nil {
-				// MoE forward: router → top-k experts → weighted sum
-				down = moeForward(mlpInput, layer, cfg)
+				// MoE forward: router → top-k experts → weighted sum, with optional
+				// REAP static expert masks applied before top-k selection.
+				down = moeForwardWithREAP(mlpInput, layer, cfg, m.REAP, l)
 			} else {
 				gate := make([]float32, layerInter)
 				up := make([]float32, layerInter)

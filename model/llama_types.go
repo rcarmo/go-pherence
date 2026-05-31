@@ -49,6 +49,7 @@ type LlamaModel struct {
 
 	EnableTurboQuant bool
 	TurboQuantStates map[int]*kv.TurboQuantState
+	REAP             *REAPConfig
 }
 
 type LlamaLayer struct {

@@ -225,6 +225,10 @@ func bf16ToF32(bits uint16) float32 {
 
 // moeForward runs the MoE forward pass: router → top-k → expert MLPs → weighted sum.
 func moeForward(x []float32, layer *LlamaLayer, cfg LlamaConfig) []float32 {
+	return moeForwardWithREAP(x, layer, cfg, nil, -1)
+}
+
+func moeForwardWithREAP(x []float32, layer *LlamaLayer, cfg LlamaConfig, reap *REAPConfig, layerIdx int) []float32 {
 	if layer == nil || len(x) == 0 || cfg.NumExperts <= 0 || cfg.MoEIntermediate <= 0 {
 		return nil
 	}
@@ -249,7 +253,9 @@ func moeForward(x []float32, layer *LlamaLayer, cfg LlamaConfig) []float32 {
 		return nil
 	}
 
-	// Top-k selection
+	// Top-k selection. REAP masks statically pruned experts before choosing the
+	// active route set, preserving pure Go/SIMD execution while matching pruned
+	// MoE checkpoints that omit or intentionally disable cold experts.
 	type expertScore struct {
 		id    int
 		score float32
@@ -259,6 +265,9 @@ func moeForward(x []float32, layer *LlamaLayer, cfg LlamaConfig) []float32 {
 		bestID := -1
 		bestScore := float32(-1)
 		for j, s := range routerLogits {
+			if !reap.Allows(layerIdx, j) {
+				continue
+			}
 			if s > bestScore {
 				// Check not already selected
 				alreadyPicked := false
@@ -280,6 +289,10 @@ func moeForward(x []float32, layer *LlamaLayer, cfg LlamaConfig) []float32 {
 	}
 
 	// Normalize selected weights (norm_topk_prob)
+	if len(selected) == 0 {
+		return make([]float32, h)
+	}
+
 	if cfg.NormTopKProb {
 		var sum float32
 		for _, s := range selected {

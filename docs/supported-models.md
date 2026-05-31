@@ -17,7 +17,7 @@ This page tracks model architecture and weight-format support. The top-level REA
 
 RTX 3060 12GB + i7-12700 6-core. Pure Go, zero CGo. Short-run decode rates vary with prompt length, route-set warmth, and VRAM headroom.
 
-MoE note: 128 experts/layer, 8 active/token. NVIDIA backend runs attention, router, and selected experts via a GPU-resident expert cache; cold route sets pay one-time expert upload cost.
+MoE note: 128 experts/layer, 8 active/token. The pure Go/SIMD path runs router softmax/top-k and selected MLX 4-bit experts without llama.cpp. Optional REAP metadata (`reap_config.json` or `reap.json`) can statically mask pruned experts before top-k selection. NVIDIA backend runs attention, router, and selected experts via a GPU-resident expert cache; cold route sets pay one-time expert upload cost.
 
 ## Architecture support
 
@@ -26,7 +26,7 @@ MoE note: 128 experts/layer, 8 active/token. NVIDIA backend runs attention, rout
 | **llama** | SmolLM2, LLaMA 3.x | BF16, F16, F32 | ✅ |
 | **qwen2** | Qwen2.5 0.5B–7B | MLX 4-bit, GPTQ 4-bit | ✅ |
 | **qwen3** | Qwen3 0.6B+ | MLX 4-bit, BF16 | ✅ |
-| **qwen3_moe** | Qwen3-30B-A3B MoE | MLX 4-bit | ✅ |
+| **qwen3_moe** | Qwen3-30B-A3B MoE, REAP-pruned MoE route masks | MLX 4-bit | ✅ pure Go/SIMD MoE routing + optional static REAP expert masks |
 | **gemma3** | Gemma 3 1B+ | MLX 4-bit, BF16 | ✅ |
 | **gemma4** | Gemma 4 E2B+ | MLX 4-bit | ✅ |
 | **lfm2_moe** | LFM2.5-8B-A1B hybrid conv/attention MoE | HF safetensors BF16 | 🧭 metadata/inspect coverage; runtime not implemented |
