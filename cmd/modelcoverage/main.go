@@ -42,12 +42,13 @@ func main() {
 	referencesOnly := flag.Bool("references-only", false, "only include reference/fixture coverage gates in counts and pending output")
 	runtimeOnly := flag.Bool("runtime-only", false, "only include runtime/backend coverage gates in counts and pending output")
 	parityOnly := flag.Bool("parity-only", false, "only include numeric parity/reference readiness gates in counts and pending output")
+	readinessOnly := flag.Bool("readiness-only", false, "only include readiness/report/gate coverage keys in counts and pending output")
 	flag.Parse()
 	m, err := loadManifest(*manifestPath)
 	if err != nil {
 		fatal(err)
 	}
-	summaries, err := summarize(m, *family, coverageFilter{ReferencesOnly: *referencesOnly, RuntimeOnly: *runtimeOnly, ParityOnly: *parityOnly})
+	summaries, err := summarize(m, *family, coverageFilter{ReferencesOnly: *referencesOnly, RuntimeOnly: *runtimeOnly, ParityOnly: *parityOnly, ReadinessOnly: *readinessOnly})
 	if err != nil {
 		fatal(err)
 	}
@@ -99,6 +100,7 @@ type coverageFilter struct {
 	ReferencesOnly bool
 	RuntimeOnly    bool
 	ParityOnly     bool
+	ReadinessOnly  bool
 }
 
 func summarize(m manifest, family string, filter coverageFilter) ([]familySummary, error) {
@@ -149,6 +151,9 @@ func (f coverageFilter) include(key string) bool {
 	if f.ParityOnly && !isParityCoverageKey(key) {
 		return false
 	}
+	if f.ReadinessOnly && !isReadinessCoverageKey(key) {
+		return false
+	}
 	return true
 }
 
@@ -162,6 +167,10 @@ func isRuntimeCoverageKey(key string) bool {
 
 func isParityCoverageKey(key string) bool {
 	return strings.Contains(key, "parity") || strings.Contains(key, "placeholder_reference")
+}
+
+func isReadinessCoverageKey(key string) bool {
+	return strings.Contains(key, "readiness") || strings.Contains(key, "ready")
 }
 
 func fatal(err error) {

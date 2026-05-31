@@ -60,6 +60,19 @@ func TestSummarizeParityOnly(t *testing.T) {
 	}
 }
 
+func TestSummarizeReadinessOnly(t *testing.T) {
+	m := manifest{Version: 1, Families: map[string]manifestFamily{
+		"x": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"config_parsing": true, "runtime_readiness_report": true, "execution_readiness_gate": true, "ready_for_execution_fixture": false}},
+	}}
+	s, err := summarize(m, "x", coverageFilter{ReadinessOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 1 || s[0].Covered != 2 || s[0].Pending != 1 || len(s[0].PendingKeys) != 1 || s[0].PendingKeys[0] != "ready_for_execution_fixture" {
+		t.Fatalf("summary=%+v", s)
+	}
+}
+
 func TestSummarizeRuntimeOnly(t *testing.T) {
 	m := manifest{Version: 1, Families: map[string]manifestFamily{
 		"x": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"config_parsing": true, "runtime_status_reporting": true, "cpu_generation_runtime": false, "nvidia_runtime": false, "streaming_runtime": true}},
