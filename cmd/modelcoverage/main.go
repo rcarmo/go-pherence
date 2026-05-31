@@ -108,7 +108,11 @@ func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []
 		}
 		fmt.Fprintf(w, "## %s runtime blockers\n\n", s.Name)
 		for _, key := range pending {
-			fmt.Fprintf(w, "- [ ] `%s` — %s\n", key, runtimeBlockerDescription(key))
+			fmt.Fprintf(w, "- [ ] `%s` — %s", key, runtimeBlockerDescription(key))
+			if prereq := runtimeBlockerPrerequisites(key); prereq != "" {
+				fmt.Fprintf(w, " _(after: %s)_", prereq)
+			}
+			fmt.Fprintln(w)
 		}
 		fmt.Fprintln(w)
 	}
@@ -140,6 +144,21 @@ func runtimeBlockerPriority(key string) int {
 		return 100
 	default:
 		return 50
+	}
+}
+
+func runtimeBlockerPrerequisites(key string) string {
+	switch key {
+	case "cpu_code_predictor_runtime":
+		return "cpu_talker_runtime"
+	case "decoder12hz_runtime":
+		return "cpu_code_predictor_runtime"
+	case "nvidia_runtime":
+		return "CPU/reference parity"
+	case "streaming_runtime":
+		return "CPU/reference parity, nvidia_runtime where applicable"
+	default:
+		return ""
 	}
 }
 

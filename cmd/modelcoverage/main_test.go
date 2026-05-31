@@ -128,7 +128,7 @@ func TestPrintRuntimeRoadmap(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime", "decoder12hz_runtime"}}}}}
 	printRuntimeRoadmap(&buf, summaries)
 	out := buf.String()
-	for _, want := range []string{"## x runtime blockers", "- [ ] `cpu_talker_runtime` — implement the Qwen3-TTS CPU/reference Talker semantic-token path", "- [ ] `decoder12hz_runtime`", "- [ ] `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established"} {
+	for _, want := range []string{"## x runtime blockers", "- [ ] `cpu_talker_runtime` — implement the Qwen3-TTS CPU/reference Talker semantic-token path", "- [ ] `decoder12hz_runtime`", "_(after: cpu_code_predictor_runtime)_", "- [ ] `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established _(after: CPU/reference parity)_"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
