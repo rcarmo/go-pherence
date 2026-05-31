@@ -152,6 +152,7 @@ Implemented package/command surface:
 - `model/lfm2/ffn_layout.go` — dense and routed expert FFN dimension/parameter contract.
 - `model/lfm2/norm.go` — RMSNorm epsilon, vector count, and scratch sizing contract.
 - `model/lfm2/embedding_layout.go` — token embedding, tied/untied LM-head, and byte sizing contract.
+- `model/lfm2/embedding_contract.go` — validation-only embedding-stage contract tying prompt tokens to hidden activation shape.
 - `model/lfm2/conv_state.go` — per-conv-layer cache layout and byte sizing contract.
 - `model/lfm2/conv_projection.go` — per-conv-layer short-convolution kernel/bias sizing contract.
 - `model/lfm2/attention_kv.go` — full-attention layer KV-cache layout and byte sizing contract.

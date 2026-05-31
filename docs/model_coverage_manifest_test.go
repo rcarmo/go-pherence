@@ -136,6 +136,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"ffn_layout":                           "../model/lfm2/ffn_layout.go",
 		"norm_layout":                          "../model/lfm2/norm.go",
 		"embedding_layout":                     "../model/lfm2/embedding_layout.go",
+		"embedding_execution_contract":         "../model/lfm2/embedding_contract.go",
 		"conv_state_layout":                    "../model/lfm2/conv_state.go",
 		"conv_projection_layout":               "../model/lfm2/conv_projection.go",
 		"attention_kv_layout":                  "../model/lfm2/attention_kv.go",

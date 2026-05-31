@@ -114,6 +114,7 @@
         "ffn_layout": true,
         "norm_layout": true,
         "embedding_layout": true,
+        "embedding_execution_contract": true,
         "conv_state_layout": true,
         "conv_projection_layout": true,
         "attention_kv_layout": true,
