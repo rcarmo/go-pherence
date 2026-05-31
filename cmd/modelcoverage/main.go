@@ -102,15 +102,63 @@ func main() {
 
 func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
 	for _, s := range summaries {
-		pending := s.Categories["runtime"].PendingKeys
+		pending := orderedRuntimePending(s.Categories["runtime"].PendingKeys)
 		if len(pending) == 0 {
 			continue
 		}
 		fmt.Fprintf(w, "## %s runtime blockers\n\n", s.Name)
 		for _, key := range pending {
-			fmt.Fprintf(w, "- [ ] `%s`\n", key)
+			fmt.Fprintf(w, "- [ ] `%s` — %s\n", key, runtimeBlockerDescription(key))
 		}
 		fmt.Fprintln(w)
+	}
+}
+
+func orderedRuntimePending(keys []string) []string {
+	out := append([]string(nil), keys...)
+	sort.SliceStable(out, func(i, j int) bool {
+		pi, pj := runtimeBlockerPriority(out[i]), runtimeBlockerPriority(out[j])
+		if pi != pj {
+			return pi < pj
+		}
+		return out[i] < out[j]
+	})
+	return out
+}
+
+func runtimeBlockerPriority(key string) int {
+	switch key {
+	case "cpu_talker_runtime", "cpu_generation_runtime":
+		return 10
+	case "cpu_code_predictor_runtime":
+		return 20
+	case "decoder12hz_runtime":
+		return 30
+	case "nvidia_runtime":
+		return 90
+	case "streaming_runtime":
+		return 100
+	default:
+		return 50
+	}
+}
+
+func runtimeBlockerDescription(key string) string {
+	switch key {
+	case "cpu_talker_runtime":
+		return "implement the Qwen3-TTS CPU/reference Talker semantic-token path"
+	case "cpu_code_predictor_runtime":
+		return "implement the Qwen3-TTS CPU/reference CodePredictor acoustic-code path"
+	case "decoder12hz_runtime":
+		return "implement the Qwen3-TTS 12Hz decoder and WAV/PCM output path"
+	case "cpu_generation_runtime":
+		return "implement the LFM2 CPU/reference generation path across embedding, conv, attention, and MoE stages"
+	case "nvidia_runtime":
+		return "add NVIDIA acceleration after CPU/reference parity is established"
+	case "streaming_runtime":
+		return "add streaming execution after CPU/reference parity is established"
+	default:
+		return "implement this runtime/backend coverage gate"
 	}
 }
 

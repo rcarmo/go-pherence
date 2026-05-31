@@ -125,13 +125,16 @@ func TestSummarizeRuntimeOnly(t *testing.T) {
 
 func TestPrintRuntimeRoadmap(t *testing.T) {
 	var buf bytes.Buffer
-	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"cpu_runtime", "nvidia_runtime"}}}}}
+	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime", "decoder12hz_runtime"}}}}}
 	printRuntimeRoadmap(&buf, summaries)
 	out := buf.String()
-	for _, want := range []string{"## x runtime blockers", "- [ ] `cpu_runtime`", "- [ ] `nvidia_runtime`"} {
+	for _, want := range []string{"## x runtime blockers", "- [ ] `cpu_talker_runtime` — implement the Qwen3-TTS CPU/reference Talker semantic-token path", "- [ ] `decoder12hz_runtime`", "- [ ] `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
+	}
+	if strings.Index(out, "cpu_talker_runtime") > strings.Index(out, "decoder12hz_runtime") || strings.Index(out, "decoder12hz_runtime") > strings.Index(out, "nvidia_runtime") {
+		t.Fatalf("runtime blockers not in dependency order:\n%s", out)
 	}
 }
 
