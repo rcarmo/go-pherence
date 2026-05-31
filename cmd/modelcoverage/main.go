@@ -58,6 +58,11 @@ type runtimeRoadmapBlocker struct {
 	Validation    string `json:"validation,omitempty"`
 }
 
+type runtimeRoadmapFilter struct {
+	Package string
+	Kind    string
+}
+
 func main() {
 	manifestPath := flag.String("manifest", "docs/model-coverage-manifest.json", "model coverage manifest path")
 	family := flag.String("family", "", "optional family name to summarize, e.g. qwen3_tts or lfm2_moe")
@@ -69,6 +74,7 @@ func main() {
 	nextRuntime := flag.Bool("next-runtime", false, "emit the next dependency-ordered runtime blocker per family")
 	nextRuntimeJSON := flag.Bool("next-runtime-json", false, "emit JSON for the next dependency-ordered runtime blocker per family")
 	blockerPackage := flag.String("blocker-package", "", "optional package path filter for runtime roadmap/next-runtime outputs")
+	blockerKind := flag.String("blocker-kind", "", "optional kind filter for runtime roadmap/next-runtime outputs, e.g. cpu, nvidia, streaming")
 	snapshotOut := flag.Bool("snapshot", false, "emit Markdown coverage snapshot plus runtime roadmap")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
@@ -98,19 +104,19 @@ func main() {
 	} else if *csvOut {
 		printCSVSummary(os.Stdout, summaries)
 	} else if *runtimeRoadmap {
-		printRuntimeRoadmap(os.Stdout, summaries, *blockerPackage)
+		printRuntimeRoadmap(os.Stdout, summaries, runtimeRoadmapFilter{Package: *blockerPackage, Kind: *blockerKind})
 	} else if *runtimeRoadmapJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(buildRuntimeRoadmap(summaries, *blockerPackage)); err != nil {
+		if err := enc.Encode(buildRuntimeRoadmap(summaries, runtimeRoadmapFilter{Package: *blockerPackage, Kind: *blockerKind})); err != nil {
 			fatal(err)
 		}
 	} else if *nextRuntime {
-		printNextRuntime(os.Stdout, summaries, *blockerPackage)
+		printNextRuntime(os.Stdout, summaries, runtimeRoadmapFilter{Package: *blockerPackage, Kind: *blockerKind})
 	} else if *nextRuntimeJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(buildNextRuntime(summaries, *blockerPackage)); err != nil {
+		if err := enc.Encode(buildNextRuntime(summaries, runtimeRoadmapFilter{Package: *blockerPackage, Kind: *blockerKind})); err != nil {
 			fatal(err)
 		}
 	} else if *snapshotOut {
@@ -138,9 +144,9 @@ func main() {
 	}
 }
 
-func buildNextRuntime(summaries []familySummary, packageFilter string) []runtimeRoadmapFamily {
+func buildNextRuntime(summaries []familySummary, filter runtimeRoadmapFilter) []runtimeRoadmapFamily {
 	var next []runtimeRoadmapFamily
-	for _, family := range buildRuntimeRoadmap(summaries, packageFilter) {
+	for _, family := range buildRuntimeRoadmap(summaries, filter) {
 		if len(family.Blockers) == 0 {
 			continue
 		}
@@ -149,8 +155,8 @@ func buildNextRuntime(summaries []familySummary, packageFilter string) []runtime
 	return next
 }
 
-func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []familySummary, packageFilter string) {
-	for _, family := range buildNextRuntime(summaries, packageFilter) {
+func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []familySummary, filter runtimeRoadmapFilter) {
+	for _, family := range buildNextRuntime(summaries, filter) {
 		blocker := family.Blockers[0]
 		fmt.Fprintf(w, "%s.%s — %s", family.Family, blocker.Key, blocker.Description)
 		if blocker.Prerequisites != "" {
@@ -169,7 +175,7 @@ func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []fam
 	}
 }
 
-func buildRuntimeRoadmap(summaries []familySummary, packageFilter string) []runtimeRoadmapFamily {
+func buildRuntimeRoadmap(summaries []familySummary, filter runtimeRoadmapFilter) []runtimeRoadmapFamily {
 	roadmap := make([]runtimeRoadmapFamily, 0, len(summaries))
 	for _, s := range summaries {
 		pending := orderedRuntimePending(s.Categories["runtime"].PendingKeys)
@@ -179,7 +185,10 @@ func buildRuntimeRoadmap(summaries []familySummary, packageFilter string) []runt
 		family := runtimeRoadmapFamily{Family: s.Name, Blockers: make([]runtimeRoadmapBlocker, 0, len(pending))}
 		for _, key := range pending {
 			blocker := runtimeRoadmapBlocker{Key: key, Phase: runtimeBlockerPriority(key), Kind: runtimeBlockerKind(key), Description: runtimeBlockerDescription(key), Package: runtimeBlockerPackage(key), Fixture: runtimeBlockerFixture(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)}
-			if packageFilter != "" && blocker.Package != packageFilter {
+			if filter.Package != "" && blocker.Package != filter.Package {
+				continue
+			}
+			if filter.Kind != "" && blocker.Kind != filter.Kind {
 				continue
 			}
 			family.Blockers = append(family.Blockers, blocker)
@@ -192,8 +201,8 @@ func buildRuntimeRoadmap(summaries []familySummary, packageFilter string) []runt
 	return roadmap
 }
 
-func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []familySummary, packageFilter string) {
-	for _, family := range buildRuntimeRoadmap(summaries, packageFilter) {
+func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []familySummary, filter runtimeRoadmapFilter) {
+	for _, family := range buildRuntimeRoadmap(summaries, filter) {
 		fmt.Fprintf(w, "## %s runtime blockers\n\n", family.Family)
 		for _, blocker := range family.Blockers {
 			fmt.Fprintf(w, "- [ ] P%d/%s `%s` — %s", blocker.Phase, blocker.Kind, blocker.Key, blocker.Description)
@@ -338,14 +347,14 @@ func printSnapshot(w interface{ Write([]byte) (int, error) }, summaries []family
 	fmt.Fprintln(w, "# Model coverage snapshot")
 	fmt.Fprintln(w)
 	printMarkdownSummary(w, summaries)
-	roadmap := buildRuntimeRoadmap(summaries, "")
+	roadmap := buildRuntimeRoadmap(summaries, runtimeRoadmapFilter{})
 	if len(roadmap) == 0 {
 		return
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "# Runtime roadmap")
 	fmt.Fprintln(w)
-	printRuntimeRoadmap(w, summaries, "")
+	printRuntimeRoadmap(w, summaries, runtimeRoadmapFilter{})
 }
 
 func summariesMeetMinPercent(summaries []familySummary, minPercent float64) bool {

@@ -162,7 +162,7 @@ func TestPrintSnapshot(t *testing.T) {
 
 func TestBuildNextRuntime(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
-	next := buildNextRuntime(summaries, "")
+	next := buildNextRuntime(summaries, runtimeRoadmapFilter{})
 	if len(next) != 1 || next[0].Family != "x" || len(next[0].Blockers) != 1 || next[0].Blockers[0].Key != "cpu_talker_runtime" {
 		t.Fatalf("next=%+v", next)
 	}
@@ -171,7 +171,7 @@ func TestBuildNextRuntime(t *testing.T) {
 func TestPrintNextRuntime(t *testing.T) {
 	var buf bytes.Buffer
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
-	printNextRuntime(&buf, summaries, "")
+	printNextRuntime(&buf, summaries, runtimeRoadmapFilter{})
 	out := buf.String()
 	for _, want := range []string{"x.cpu_talker_runtime", "implement the Qwen3-TTS CPU/reference Talker", "package: model/qwen3tts", "fixture: model/qwen3tts/testdata/customvoice_reference_placeholder.json", "validate: cmd/qwen3ttsinspect -require-numeric-parity"} {
 		if !strings.Contains(out, want) {
@@ -180,20 +180,31 @@ func TestPrintNextRuntime(t *testing.T) {
 	}
 }
 
+func TestRuntimeRoadmapKindFilter(t *testing.T) {
+	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime", "streaming_runtime"}}}}}
+	roadmap := buildRuntimeRoadmap(summaries, runtimeRoadmapFilter{Kind: "nvidia"})
+	if len(roadmap) != 1 || len(roadmap[0].Blockers) != 1 || roadmap[0].Blockers[0].Key != "nvidia_runtime" {
+		t.Fatalf("roadmap=%+v", roadmap)
+	}
+	if next := buildNextRuntime(summaries, runtimeRoadmapFilter{Kind: "cpu"}); len(next) != 1 || next[0].Blockers[0].Key != "cpu_talker_runtime" {
+		t.Fatalf("next=%+v", next)
+	}
+}
+
 func TestRuntimeRoadmapPackageFilter(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
-	roadmap := buildRuntimeRoadmap(summaries, "model/qwen3tts")
+	roadmap := buildRuntimeRoadmap(summaries, runtimeRoadmapFilter{Package: "model/qwen3tts"})
 	if len(roadmap) != 1 || len(roadmap[0].Blockers) != 1 || roadmap[0].Blockers[0].Key != "cpu_talker_runtime" {
 		t.Fatalf("roadmap=%+v", roadmap)
 	}
-	if next := buildNextRuntime(summaries, "backends/nvidia"); len(next) != 1 || next[0].Blockers[0].Key != "nvidia_runtime" {
+	if next := buildNextRuntime(summaries, runtimeRoadmapFilter{Package: "backends/nvidia"}); len(next) != 1 || next[0].Blockers[0].Key != "nvidia_runtime" {
 		t.Fatalf("next=%+v", next)
 	}
 }
 
 func TestBuildRuntimeRoadmap(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
-	roadmap := buildRuntimeRoadmap(summaries, "")
+	roadmap := buildRuntimeRoadmap(summaries, runtimeRoadmapFilter{})
 	if len(roadmap) != 1 || roadmap[0].Family != "x" || len(roadmap[0].Blockers) != 2 {
 		t.Fatalf("roadmap=%+v", roadmap)
 	}
@@ -208,7 +219,7 @@ func TestBuildRuntimeRoadmap(t *testing.T) {
 func TestPrintRuntimeRoadmap(t *testing.T) {
 	var buf bytes.Buffer
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime", "decoder12hz_runtime"}}}}}
-	printRuntimeRoadmap(&buf, summaries, "")
+	printRuntimeRoadmap(&buf, summaries, runtimeRoadmapFilter{})
 	out := buf.String()
 	for _, want := range []string{"## x runtime blockers", "- [ ] P10/cpu `cpu_talker_runtime` — implement the Qwen3-TTS CPU/reference Talker semantic-token path", "_(package: `model/qwen3tts`)_", "_(fixture: `model/qwen3tts/testdata/customvoice_reference_placeholder.json`)_", "_(validate: `cmd/qwen3ttsinspect -require-numeric-parity`)_", "- [ ] P30/cpu `decoder12hz_runtime`", "_(after: cpu_code_predictor_runtime)_", "- [ ] P90/nvidia `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established _(package: `backends/nvidia`)_ _(after: CPU/reference parity)_"} {
 		if !strings.Contains(out, want) {
