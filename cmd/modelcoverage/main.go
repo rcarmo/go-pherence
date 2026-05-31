@@ -66,6 +66,7 @@ func main() {
 	runtimeRoadmapJSON := flag.Bool("runtime-roadmap-json", false, "emit JSON runtime blocker roadmap")
 	nextRuntime := flag.Bool("next-runtime", false, "emit the next dependency-ordered runtime blocker per family")
 	nextRuntimeJSON := flag.Bool("next-runtime-json", false, "emit JSON for the next dependency-ordered runtime blocker per family")
+	blockerPackage := flag.String("blocker-package", "", "optional package path filter for runtime roadmap/next-runtime outputs")
 	snapshotOut := flag.Bool("snapshot", false, "emit Markdown coverage snapshot plus runtime roadmap")
 	pendingOnly := flag.Bool("pending-only", false, "only print pending coverage gate names in text mode")
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
@@ -95,19 +96,19 @@ func main() {
 	} else if *csvOut {
 		printCSVSummary(os.Stdout, summaries)
 	} else if *runtimeRoadmap {
-		printRuntimeRoadmap(os.Stdout, summaries)
+		printRuntimeRoadmap(os.Stdout, summaries, *blockerPackage)
 	} else if *runtimeRoadmapJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(buildRuntimeRoadmap(summaries)); err != nil {
+		if err := enc.Encode(buildRuntimeRoadmap(summaries, *blockerPackage)); err != nil {
 			fatal(err)
 		}
 	} else if *nextRuntime {
-		printNextRuntime(os.Stdout, summaries)
+		printNextRuntime(os.Stdout, summaries, *blockerPackage)
 	} else if *nextRuntimeJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(buildNextRuntime(summaries)); err != nil {
+		if err := enc.Encode(buildNextRuntime(summaries, *blockerPackage)); err != nil {
 			fatal(err)
 		}
 	} else if *snapshotOut {
@@ -135,9 +136,9 @@ func main() {
 	}
 }
 
-func buildNextRuntime(summaries []familySummary) []runtimeRoadmapFamily {
+func buildNextRuntime(summaries []familySummary, packageFilter string) []runtimeRoadmapFamily {
 	var next []runtimeRoadmapFamily
-	for _, family := range buildRuntimeRoadmap(summaries) {
+	for _, family := range buildRuntimeRoadmap(summaries, packageFilter) {
 		if len(family.Blockers) == 0 {
 			continue
 		}
@@ -146,8 +147,8 @@ func buildNextRuntime(summaries []familySummary) []runtimeRoadmapFamily {
 	return next
 }
 
-func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
-	for _, family := range buildNextRuntime(summaries) {
+func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []familySummary, packageFilter string) {
+	for _, family := range buildNextRuntime(summaries, packageFilter) {
 		blocker := family.Blockers[0]
 		fmt.Fprintf(w, "%s.%s — %s", family.Family, blocker.Key, blocker.Description)
 		if blocker.Prerequisites != "" {
@@ -163,7 +164,7 @@ func printNextRuntime(w interface{ Write([]byte) (int, error) }, summaries []fam
 	}
 }
 
-func buildRuntimeRoadmap(summaries []familySummary) []runtimeRoadmapFamily {
+func buildRuntimeRoadmap(summaries []familySummary, packageFilter string) []runtimeRoadmapFamily {
 	roadmap := make([]runtimeRoadmapFamily, 0, len(summaries))
 	for _, s := range summaries {
 		pending := orderedRuntimePending(s.Categories["runtime"].PendingKeys)
@@ -172,15 +173,22 @@ func buildRuntimeRoadmap(summaries []familySummary) []runtimeRoadmapFamily {
 		}
 		family := runtimeRoadmapFamily{Family: s.Name, Blockers: make([]runtimeRoadmapBlocker, 0, len(pending))}
 		for _, key := range pending {
-			family.Blockers = append(family.Blockers, runtimeRoadmapBlocker{Key: key, Phase: runtimeBlockerPriority(key), Description: runtimeBlockerDescription(key), Package: runtimeBlockerPackage(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)})
+			blocker := runtimeRoadmapBlocker{Key: key, Phase: runtimeBlockerPriority(key), Description: runtimeBlockerDescription(key), Package: runtimeBlockerPackage(key), Prerequisites: runtimeBlockerPrerequisites(key), Validation: runtimeBlockerValidation(key)}
+			if packageFilter != "" && blocker.Package != packageFilter {
+				continue
+			}
+			family.Blockers = append(family.Blockers, blocker)
+		}
+		if len(family.Blockers) == 0 {
+			continue
 		}
 		roadmap = append(roadmap, family)
 	}
 	return roadmap
 }
 
-func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []familySummary) {
-	for _, family := range buildRuntimeRoadmap(summaries) {
+func printRuntimeRoadmap(w interface{ Write([]byte) (int, error) }, summaries []familySummary, packageFilter string) {
+	for _, family := range buildRuntimeRoadmap(summaries, packageFilter) {
 		fmt.Fprintf(w, "## %s runtime blockers\n\n", family.Family)
 		for _, blocker := range family.Blockers {
 			fmt.Fprintf(w, "- [ ] P%d `%s` — %s", blocker.Phase, blocker.Key, blocker.Description)
@@ -298,14 +306,14 @@ func printSnapshot(w interface{ Write([]byte) (int, error) }, summaries []family
 	fmt.Fprintln(w, "# Model coverage snapshot")
 	fmt.Fprintln(w)
 	printMarkdownSummary(w, summaries)
-	roadmap := buildRuntimeRoadmap(summaries)
+	roadmap := buildRuntimeRoadmap(summaries, "")
 	if len(roadmap) == 0 {
 		return
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "# Runtime roadmap")
 	fmt.Fprintln(w)
-	printRuntimeRoadmap(w, summaries)
+	printRuntimeRoadmap(w, summaries, "")
 }
 
 func summariesMeetMinPercent(summaries []familySummary, minPercent float64) bool {
