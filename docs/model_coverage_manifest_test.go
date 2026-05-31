@@ -116,6 +116,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"customvoice_prompt_builder":       "../model/qwen3tts/prompt.go",
 		"prefill_layout":                   "../model/qwen3tts/prefill.go",
 		"talker_input_layout":              "../model/qwen3tts/talker_input.go",
+		"talker_execution_contract":        "../model/qwen3tts/talker_contract.go",
 		"prompt_runtime_layout":            "../model/qwen3tts/prompt_runtime.go",
 		"embedding_layout":                 "../model/qwen3tts/embedding_layout.go",
 	} {

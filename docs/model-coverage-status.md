@@ -74,6 +74,7 @@ Implemented package/command surface:
 - `model/qwen3tts/prompt.go` — tokenizer loading plus tokenized CustomVoice prompt builder.
 - `model/qwen3tts/prefill.go` — Talker prefill stream/embedding sizing contract.
 - `model/qwen3tts/talker_input.go` — text projection plus codec-control embedding fusion layout.
+- `model/qwen3tts/talker_contract.go` — validation-only CPU/reference Talker output contract tied to runtime request limits and semantic token ranges.
 - `model/qwen3tts/prompt_runtime.go` — prompt-specific prefill plus Talker input-fusion contract.
 - `model/qwen3tts/embedding_layout.go` — text embedding, projection, codec-head, and codec-embedding matrix sizing.
 - `model/qwen3tts/capabilities.go` — Base, CustomVoice, and VoiceDesign conditioning contracts.

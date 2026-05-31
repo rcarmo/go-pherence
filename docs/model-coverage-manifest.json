@@ -16,6 +16,7 @@
         "customvoice_prompt_builder": true,
         "prefill_layout": true,
         "talker_input_layout": true,
+        "talker_execution_contract": true,
         "prompt_runtime_layout": true,
         "embedding_layout": true,
         "capability_validation": true,
