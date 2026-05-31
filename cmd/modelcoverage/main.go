@@ -41,12 +41,13 @@ func main() {
 	failPending := flag.Bool("fail-pending", false, "exit non-zero if any selected coverage gates are pending")
 	referencesOnly := flag.Bool("references-only", false, "only include reference/fixture coverage gates in counts and pending output")
 	runtimeOnly := flag.Bool("runtime-only", false, "only include runtime/backend coverage gates in counts and pending output")
+	parityOnly := flag.Bool("parity-only", false, "only include numeric parity/reference readiness gates in counts and pending output")
 	flag.Parse()
 	m, err := loadManifest(*manifestPath)
 	if err != nil {
 		fatal(err)
 	}
-	summaries, err := summarize(m, *family, coverageFilter{ReferencesOnly: *referencesOnly, RuntimeOnly: *runtimeOnly})
+	summaries, err := summarize(m, *family, coverageFilter{ReferencesOnly: *referencesOnly, RuntimeOnly: *runtimeOnly, ParityOnly: *parityOnly})
 	if err != nil {
 		fatal(err)
 	}
@@ -97,6 +98,7 @@ func loadManifest(path string) (manifest, error) {
 type coverageFilter struct {
 	ReferencesOnly bool
 	RuntimeOnly    bool
+	ParityOnly     bool
 }
 
 func summarize(m manifest, family string, filter coverageFilter) ([]familySummary, error) {
@@ -144,6 +146,9 @@ func (f coverageFilter) include(key string) bool {
 	if f.RuntimeOnly && !isRuntimeCoverageKey(key) {
 		return false
 	}
+	if f.ParityOnly && !isParityCoverageKey(key) {
+		return false
+	}
 	return true
 }
 
@@ -153,6 +158,10 @@ func isReferenceCoverageKey(key string) bool {
 
 func isRuntimeCoverageKey(key string) bool {
 	return strings.Contains(key, "runtime") || strings.Contains(key, "nvidia") || strings.Contains(key, "streaming")
+}
+
+func isParityCoverageKey(key string) bool {
+	return strings.Contains(key, "parity") || strings.Contains(key, "placeholder_reference")
 }
 
 func fatal(err error) {

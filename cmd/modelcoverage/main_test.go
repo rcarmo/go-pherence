@@ -47,6 +47,19 @@ func TestSummarizeReferencesOnly(t *testing.T) {
 	}
 }
 
+func TestSummarizeParityOnly(t *testing.T) {
+	m := manifest{Version: 1, Families: map[string]manifestFamily{
+		"x": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"config_parsing": true, "placeholder_reference_tracking": true, "numeric_parity_readiness_gate": true, "first_token_reference_fixture": false}},
+	}}
+	s, err := summarize(m, "x", coverageFilter{ParityOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 1 || s[0].Covered != 2 || s[0].Pending != 0 || len(s[0].PendingKeys) != 0 {
+		t.Fatalf("summary=%+v", s)
+	}
+}
+
 func TestSummarizeRuntimeOnly(t *testing.T) {
 	m := manifest{Version: 1, Families: map[string]manifestFamily{
 		"x": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"config_parsing": true, "runtime_status_reporting": true, "cpu_generation_runtime": false, "nvidia_runtime": false, "streaming_runtime": true}},
