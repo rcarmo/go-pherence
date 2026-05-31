@@ -24,7 +24,7 @@ func TestLoadReferenceFixture(t *testing.T) {
 		t.Fatalf("prompt mismatch built=%+v fixture=%+v", prompt, fx.Prompt)
 	}
 	cov := fx.Coverage()
-	if !cov.Prompt || cov.CompleteRuntimeTrace || len(cov.Missing) != 3 {
+	if !cov.Prompt || cov.CompleteRuntimeTrace || len(cov.Missing) != 4 {
 		t.Fatalf("coverage=%+v", cov)
 	}
 }
@@ -35,7 +35,7 @@ func TestLoadReferencePlaceholderFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	cov := fx.Coverage()
-	if !cov.CompleteRuntimeTrace || !cov.SemanticToken || !cov.AcousticFrame || !cov.DecodedWAVSummary {
+	if !cov.CompleteRuntimeTrace || !cov.SemanticToken || !cov.AcousticFrame || !cov.DecodedWAVSummary || !cov.RuntimeRequest {
 		t.Fatalf("coverage=%+v", cov)
 	}
 	if fx.Talker.LogitChecksum != "pending-qwen3-tts-rs" || fx.Decoder12Hz.SHA256 != "pending-qwen3-tts-rs" {
@@ -54,6 +54,7 @@ func TestReferenceFixtureCoverageComplete(t *testing.T) {
 		Talker:        &TalkerReference{FirstSemanticToken: 42},
 		CodePredictor: &CodePredictorReference{AcousticFrame: make([]uint32, 15)},
 		Decoder12Hz:   &Decoder12HzReference{SampleRate: 24000, Samples: 2000, DurationS: 1.0 / 12.0},
+		Runtime:       &RuntimeRequestReference{MaxFrames: 1, MaxSamples: 2000, MaxCodes: 15},
 	}
 	if err := fx.Validate(); err != nil {
 		t.Fatal(err)

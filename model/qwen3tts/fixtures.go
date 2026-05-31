@@ -10,16 +10,23 @@ import (
 // beyond Prompt are optional until qwen3-tts-rs/Transformers traces are captured;
 // keeping them in the schema now prevents ad-hoc fixture formats later.
 type ReferenceFixture struct {
-	Name          string                  `json:"name"`
-	Variant       ModelType               `json:"variant"`
-	ModelSize     string                  `json:"model_size"`
-	Text          string                  `json:"text"`
-	Speaker       Speaker                 `json:"speaker"`
-	Language      Language                `json:"language"`
-	Prompt        PromptIDs               `json:"prompt"`
-	Talker        *TalkerReference        `json:"talker,omitempty"`
-	CodePredictor *CodePredictorReference `json:"code_predictor,omitempty"`
-	Decoder12Hz   *Decoder12HzReference   `json:"decoder12hz,omitempty"`
+	Name          string                   `json:"name"`
+	Variant       ModelType                `json:"variant"`
+	ModelSize     string                   `json:"model_size"`
+	Text          string                   `json:"text"`
+	Speaker       Speaker                  `json:"speaker"`
+	Language      Language                 `json:"language"`
+	Prompt        PromptIDs                `json:"prompt"`
+	Talker        *TalkerReference         `json:"talker,omitempty"`
+	CodePredictor *CodePredictorReference  `json:"code_predictor,omitempty"`
+	Decoder12Hz   *Decoder12HzReference    `json:"decoder12hz,omitempty"`
+	Runtime       *RuntimeRequestReference `json:"runtime,omitempty"`
+}
+
+type RuntimeRequestReference struct {
+	MaxFrames  int `json:"max_frames"`
+	MaxSamples int `json:"max_samples"`
+	MaxCodes   int `json:"max_codes"`
 }
 
 type TalkerReference struct {
@@ -48,6 +55,7 @@ type ReferenceCoverage struct {
 	SemanticToken        bool     `json:"semantic_token"`
 	AcousticFrame        bool     `json:"acoustic_frame"`
 	DecodedWAVSummary    bool     `json:"decoded_wav_summary"`
+	RuntimeRequest       bool     `json:"runtime_request"`
 	CompleteRuntimeTrace bool     `json:"complete_runtime_trace"`
 	Missing              []string `json:"missing,omitempty"`
 }
@@ -69,7 +77,8 @@ func (fx ReferenceFixture) Coverage() ReferenceCoverage {
 	cov.SemanticToken = fx.Talker != nil
 	cov.AcousticFrame = fx.CodePredictor != nil && len(fx.CodePredictor.AcousticFrame) > 0
 	cov.DecodedWAVSummary = fx.Decoder12Hz != nil
-	cov.CompleteRuntimeTrace = cov.Prompt && cov.SemanticToken && cov.AcousticFrame && cov.DecodedWAVSummary
+	cov.RuntimeRequest = fx.Runtime != nil
+	cov.CompleteRuntimeTrace = cov.Prompt && cov.SemanticToken && cov.AcousticFrame && cov.DecodedWAVSummary && cov.RuntimeRequest
 	if !cov.Prompt {
 		cov.Missing = append(cov.Missing, "prompt")
 	}
@@ -81,6 +90,9 @@ func (fx ReferenceFixture) Coverage() ReferenceCoverage {
 	}
 	if !cov.DecodedWAVSummary {
 		cov.Missing = append(cov.Missing, "decoded_wav_summary")
+	}
+	if !cov.RuntimeRequest {
+		cov.Missing = append(cov.Missing, "runtime_request")
 	}
 	return cov
 }
@@ -114,6 +126,14 @@ func (fx ReferenceFixture) Validate() error {
 	}
 	if fx.Decoder12Hz != nil && (fx.Decoder12Hz.SampleRate <= 0 || fx.Decoder12Hz.Samples <= 0 || fx.Decoder12Hz.DurationS <= 0) {
 		return fmt.Errorf("qwen3tts fixture %q has invalid decoder summary: %+v", fx.Name, fx.Decoder12Hz)
+	}
+	if fx.Runtime != nil {
+		if fx.Runtime.MaxFrames <= 0 || fx.Runtime.MaxSamples <= 0 || fx.Runtime.MaxCodes <= 0 {
+			return fmt.Errorf("qwen3tts fixture %q has invalid runtime request: %+v", fx.Name, fx.Runtime)
+		}
+		if fx.Decoder12Hz != nil && fx.Runtime.MaxSamples < fx.Decoder12Hz.Samples {
+			return fmt.Errorf("qwen3tts fixture %q runtime samples=%d below decoder summary samples=%d", fx.Name, fx.Runtime.MaxSamples, fx.Decoder12Hz.Samples)
+		}
 	}
 	return nil
 }

@@ -10,10 +10,19 @@ import (
 // parity tensors are available. It captures the published config plus optional
 // tensor coverage counts from a local safetensors header.
 type ReferenceMetadata struct {
-	Name       string              `json:"name,omitempty"`
-	Config     Config              `json:"config"`
-	Tensors    TensorCoverage      `json:"tensors,omitempty"`
-	References *ReferenceSummaries `json:"references,omitempty"`
+	Name           string                 `json:"name,omitempty"`
+	Config         Config                 `json:"config"`
+	Tensors        TensorCoverage         `json:"tensors,omitempty"`
+	References     *ReferenceSummaries    `json:"references,omitempty"`
+	RuntimeRequest *RuntimeRequestSummary `json:"runtime_request,omitempty"`
+}
+
+type RuntimeRequestSummary struct {
+	PromptTokens   int   `json:"prompt_tokens"`
+	MaxNewTokens   int   `json:"max_new_tokens"`
+	MaxSequence    int   `json:"max_sequence"`
+	KVBytes        int64 `json:"kv_bytes"`
+	ConvStateBytes int64 `json:"conv_state_bytes"`
 }
 
 type ReferenceSummaries struct {
@@ -58,6 +67,7 @@ type ReferenceCoverage struct {
 	AttentionReference   bool     `json:"attention_reference"`
 	RouterTopKReference  bool     `json:"router_topk_reference"`
 	ExpertOutputFixture  bool     `json:"expert_output_fixture"`
+	RuntimeRequest       bool     `json:"runtime_request"`
 	CompleteRuntimeTrace bool     `json:"complete_runtime_trace"`
 	Missing              []string `json:"missing,omitempty"`
 }
@@ -98,7 +108,8 @@ func (m ReferenceMetadata) Coverage() ReferenceCoverage {
 		cov.RouterTopKReference = m.References.RouterTopK != nil && len(m.References.RouterTopK.ExpertIDs) > 0
 		cov.ExpertOutputFixture = m.References.ExpertOutput != nil
 	}
-	cov.CompleteRuntimeTrace = cov.ConfigMetadata && cov.RuntimePlan && cov.TensorReadiness && cov.TokenizationFixture && cov.FirstTokenLogits && cov.ConvLayerReference && cov.AttentionReference && cov.RouterTopKReference && cov.ExpertOutputFixture
+	cov.RuntimeRequest = m.RuntimeRequest != nil
+	cov.CompleteRuntimeTrace = cov.ConfigMetadata && cov.RuntimePlan && cov.TensorReadiness && cov.TokenizationFixture && cov.FirstTokenLogits && cov.ConvLayerReference && cov.AttentionReference && cov.RouterTopKReference && cov.ExpertOutputFixture && cov.RuntimeRequest
 	if !cov.ConfigMetadata {
 		cov.Missing = append(cov.Missing, "config_metadata")
 	}
@@ -129,6 +140,9 @@ func (m ReferenceMetadata) Coverage() ReferenceCoverage {
 	if !cov.ExpertOutputFixture {
 		cov.Missing = append(cov.Missing, "expert_output_fixture")
 	}
+	if !cov.RuntimeRequest {
+		cov.Missing = append(cov.Missing, "runtime_request")
+	}
 	return cov
 }
 
@@ -138,6 +152,14 @@ func (m ReferenceMetadata) Validate() error {
 	}
 	if m.Tensors.Total < 0 || m.Tensors.Other < 0 {
 		return fmt.Errorf("invalid negative tensor coverage: %+v", m.Tensors)
+	}
+	if m.RuntimeRequest != nil {
+		if m.RuntimeRequest.PromptTokens <= 0 || m.RuntimeRequest.MaxNewTokens <= 0 || m.RuntimeRequest.MaxSequence != m.RuntimeRequest.PromptTokens+m.RuntimeRequest.MaxNewTokens {
+			return fmt.Errorf("invalid LFM2 runtime request summary: %+v", m.RuntimeRequest)
+		}
+		if m.RuntimeRequest.KVBytes < 0 || m.RuntimeRequest.ConvStateBytes <= 0 {
+			return fmt.Errorf("invalid LFM2 runtime request sizing summary: %+v", m.RuntimeRequest)
+		}
 	}
 	if m.References != nil {
 		if r := m.References.Tokenization; r != nil && (r.Text == "" || len(r.Tokens) == 0) {

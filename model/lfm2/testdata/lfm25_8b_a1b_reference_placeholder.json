@@ -47,5 +47,12 @@
     "attention_layer": {"layer": 7, "checksum": "pending-transformers", "max_abs_diff": 0},
     "router_topk": {"layer": 2, "expert_ids": [0, 1, 2, 3], "weight_hash": "pending-transformers"},
     "expert_output": {"layer": 2, "checksum": "pending-transformers", "max_abs_diff": 0}
+  },
+  "runtime_request": {
+    "prompt_tokens": 1,
+    "max_new_tokens": 16,
+    "max_sequence": 17,
+    "kv_bytes": 417792,
+    "conv_state_bytes": 1032192
   }
 }

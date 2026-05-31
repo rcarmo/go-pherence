@@ -32,7 +32,7 @@ func TestLoadReferencePlaceholderMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	cov := meta.Coverage()
-	if !cov.CompleteRuntimeTrace || !cov.TokenizationFixture || !cov.FirstTokenLogits || !cov.RouterTopKReference {
+	if !cov.CompleteRuntimeTrace || !cov.TokenizationFixture || !cov.FirstTokenLogits || !cov.RouterTopKReference || !cov.RuntimeRequest {
 		t.Fatalf("coverage=%+v", cov)
 	}
 	if meta.References.FirstToken.LogitChecksum != "pending-transformers" || meta.References.ConvLayer.Checksum != "pending-transformers" {
@@ -55,7 +55,7 @@ func TestReferenceMetadataCoverageWithTensorReadiness(t *testing.T) {
 	if !cov.ConfigMetadata || !cov.RuntimePlan || !cov.TensorCoverage || !cov.TensorReadiness || cov.CompleteRuntimeTrace {
 		t.Fatalf("coverage=%+v", cov)
 	}
-	wantMissing := map[string]bool{"tokenization_fixture": true, "first_token_logits": true, "conv_layer_reference": true, "attention_reference": true, "router_topk_reference": true, "expert_output_fixture": true}
+	wantMissing := map[string]bool{"tokenization_fixture": true, "first_token_logits": true, "conv_layer_reference": true, "attention_reference": true, "router_topk_reference": true, "expert_output_fixture": true, "runtime_request": true}
 	for _, name := range cov.Missing {
 		delete(wantMissing, name)
 	}
