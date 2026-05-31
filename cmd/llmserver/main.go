@@ -22,8 +22,9 @@ import (
 // OpenAI API types
 
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content,omitempty"`
+	Role             string `json:"role"`
+	Content          string `json:"content,omitempty"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
 }
 
 type ChatCompletionRequest struct {
@@ -62,8 +63,9 @@ type StreamChoice struct {
 }
 
 type StreamDelta struct {
-	Role    string `json:"role,omitempty"`
-	Content string `json:"content,omitempty"`
+	Role             string `json:"role,omitempty"`
+	Content          string `json:"content,omitempty"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
 }
 
 type StreamChunk struct {
@@ -135,7 +137,9 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if maxTokens == 0 {
-		maxTokens = 2048
+		// Reasoning models such as Qwen3 can spend hundreds or thousands of
+		// tokens in <think> before producing user-visible content.
+		maxTokens = 4096
 	}
 
 	if len(req.Messages) == 0 {
@@ -204,6 +208,7 @@ func (s *Server) generate(ids []int, maxTokens int, emit func(token int, text st
 
 func (s *Server) nonStreamResponse(w http.ResponseWriter, ids []int, maxTokens int) {
 	generated, text := s.generate(ids, maxTokens, nil)
+	content, reasoning := splitReasoningText(text)
 	finishReason := "stop"
 	if generated >= maxTokens {
 		finishReason = "length"
@@ -216,7 +221,7 @@ func (s *Server) nonStreamResponse(w http.ResponseWriter, ids []int, maxTokens i
 		Model:   s.modelID,
 		Choices: []ChatCompletionChoice{{
 			Index:        0,
-			Message:      ChatMessage{Role: "assistant", Content: text},
+			Message:      ChatMessage{Role: "assistant", Content: content, ReasoningContent: reasoning},
 			FinishReason: finishReason,
 		}},
 		Usage: Usage{
@@ -255,6 +260,7 @@ func (s *Server) streamResponse(w http.ResponseWriter, r *http.Request, ids []in
 
 	generated := 0
 	finishReason := "stop"
+	var split reasoningSplitter
 
 	s.generate(ids, maxTokens, func(tok int, text string) bool {
 		select {
@@ -262,15 +268,27 @@ func (s *Server) streamResponse(w http.ResponseWriter, r *http.Request, ids []in
 			return false
 		default:
 		}
-		if !writeSSE(w, flusher, StreamChunk{
-			ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: s.modelID,
-			Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Content: text}}},
-		}) {
-			return false
+		content, reasoning := split.Push(text)
+		if content != "" || reasoning != "" {
+			if !writeSSE(w, flusher, StreamChunk{
+				ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: s.modelID,
+				Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Content: content, ReasoningContent: reasoning}}},
+			}) {
+				return false
+			}
 		}
 		generated++
 		return true
 	})
+
+	if content, reasoning := split.Flush(); content != "" || reasoning != "" {
+		if !writeSSE(w, flusher, StreamChunk{
+			ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: s.modelID,
+			Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Content: content, ReasoningContent: reasoning}}},
+		}) {
+			return
+		}
+	}
 
 	if generated >= maxTokens {
 		finishReason = "length"
@@ -304,11 +322,24 @@ func writeSSE(w io.Writer, flusher http.Flusher, chunk StreamChunk) bool {
 	return true
 }
 
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	status := map[string]any{"status": "ok", "model": s.modelID, "gpu": s.gpuModel != nil}
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		log.Printf("health response encode failed: %v", err)
+	}
+}
+
 func main() {
 	dir := flag.String("model", "", "model directory")
 	listen := flag.String("listen", ":8080", "address to listen on")
 	useGPU := flag.Bool("gpu", false, "use GPU")
 	gpuLayers := flag.Int("gpu-layers", 0, "number of layers on GPU (0=all)")
+	threads := flag.Int("threads", 4, "decode CPU threads hint for llama.cpp-compatible deployments")
+	batchSize := flag.Int("batch-size", 512, "prefill/ubatch size hint for llama.cpp-compatible deployments")
+	ctxSize := flag.Int("ctx-size", 32768, "maximum context size advertised by the server")
+	cacheTypeK := flag.String("cache-type-k", "", "KV cache key quantization hint (turbo4, q8_0, f16)")
+	cacheTypeV := flag.String("cache-type-v", "", "KV cache value quantization hint (turbo2, q4_0, f16)")
 	turboQuant := flag.Bool("turbo-quant", false, "enable TurboQuant KV cache compression on CPU backend")
 	speculative := flag.Bool("speculative", false, "enable opt-in stock-weight speculative decoding path (CPU backend)")
 	specBlock := flag.Int("speculative-block", 8, "speculative proposal block size")
@@ -365,7 +396,8 @@ func main() {
 		m.Config.NumLayers, m.Config.HiddenSize)
 
 	modelID := filepath.Base(*dir)
-	srv := &Server{cpuModel: m, tok: tok, modelID: modelID, maxCtx: 4096, speculative: *speculative}
+	log.Printf("Runtime hints: threads=%d batch_size=%d ctx_size=%d cache_type_k=%q cache_type_v=%q", *threads, *batchSize, *ctxSize, *cacheTypeK, *cacheTypeV)
+	srv := &Server{cpuModel: m, tok: tok, modelID: modelID, maxCtx: *ctxSize, speculative: *speculative}
 
 	if *useGPU {
 		g, err := model.LoadGPUModelWithLayers(m, *gpuLayers)
@@ -381,10 +413,12 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health", srv.handleHealth)
 	mux.HandleFunc("/v1/models", srv.handleModels)
 	mux.HandleFunc("/v1/chat/completions", srv.handleChatCompletions)
 
 	log.Printf("Listening on %s", *listen)
+	log.Printf("  GET  /health")
 	log.Printf("  POST /v1/chat/completions")
 	log.Printf("  GET  /v1/models")
 	if err := http.ListenAndServe(*listen, mux); err != nil {
