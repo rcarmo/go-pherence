@@ -31,6 +31,8 @@ test-model-coverage:
 	go test -count=1 -timeout=120s ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
 	go vet ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
 	go run ./cmd/modelcoverage -references-only -fail-pending
+	go run ./cmd/modelcoverage -parity-only -fail-pending
+	go run ./cmd/modelcoverage -readiness-only -fail-pending
 
 MODEL_COVERAGE_FAMILY ?=
 

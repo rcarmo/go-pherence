@@ -174,7 +174,9 @@ Useful flags:
 - `-voice-prompt TEXT` — provide VoiceDesign conditioning text for capability validation.
 - `-fixture PATH` — load a compact reference fixture and report which prompt/semantic/acoustic/WAV parity anchors are present or still missing.
 - `-require-complete-fixture` — with `-fixture`, exit non-zero unless all reference anchors are present.
+- `-require-numeric-parity` — with `-fixture`, exit non-zero while reference checksums are still placeholder values.
 - `-require-runtime` — exit non-zero until Talker, CodePredictor, and Decoder12Hz runtime execution are implemented.
+- `-require-ready` — exit non-zero until runtime execution and numeric parity are both ready.
 
 Fixture coverage example:
 
@@ -185,7 +187,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
   -json
 ```
 
-The report includes variant/size, talker dimensions, code-predictor dimensions, tensor group readiness, runtime KV sizing, 12Hz decoder code-frame assumptions, speaker encoder presence, optional tokenized CustomVoice streams, prompt-runtime layout, and optional reference coverage. It does not synthesize audio yet; reference fixtures and CPU Talker/CodePredictor/Decoder parity are the next steps.
+The report includes variant/size, talker dimensions, code-predictor dimensions, tensor group readiness, runtime KV sizing, 12Hz decoder code-frame assumptions, speaker encoder presence, optional tokenized CustomVoice streams, prompt-runtime layout, optional reference coverage, runtime request planning, and combined readiness blockers. It does not synthesize audio yet; reference fixtures and CPU Talker/CodePredictor/Decoder parity are the next steps.
 
 ## `lfm2inspect` — LFM2.5 metadata and runtime-state sizing
 
@@ -207,7 +209,9 @@ Useful flags:
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 - `-fixture PATH` — load compact reference metadata and report which config/tensor/reference parity anchors are present or still missing.
 - `-require-complete-fixture` — with `-fixture`, exit non-zero unless all reference anchors are present.
+- `-require-numeric-parity` — with `-fixture`, exit non-zero while reference checksums are still placeholder values.
 - `-require-runtime` — exit non-zero until LFM2 generation runtime execution is implemented.
+- `-require-ready` — exit non-zero until runtime execution and numeric parity are both ready.
 
 Fixture coverage example:
 
@@ -218,7 +222,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
   -json
 ```
 
-The report includes layer-pattern counts, MoE routing dimensions, conv cache settings, tensor group readiness, conv-state floats, attention KV floats/token, and optional reference coverage. It is metadata/reference scaffolding only; LFM convolution, attention, router, and expert execution remain future CPU parity work.
+The report includes layer-pattern counts, MoE routing dimensions, conv cache settings, tensor group readiness, conv-state floats, attention KV floats/token, optional reference coverage, runtime request planning, and combined readiness blockers. It is metadata/reference scaffolding only; LFM convolution, attention, router, and expert execution remain future CPU parity work.
 
 ## Model coverage validation
 
@@ -258,6 +262,7 @@ This runs tests and vet for:
 - `cmd/qwen3ttsinspect`
 - `cmd/lfm2inspect`
 - reference/fixture coverage has no pending manifest gates
+- parity/readiness coverage has no pending manifest gates
 - `cmd/modelcoverage`
 
 ## `specbench` / `speccheck`
