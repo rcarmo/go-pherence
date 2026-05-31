@@ -121,6 +121,7 @@
         "context_layout": true,
         "rope_layout": true,
         "runtime_state_sizing": true,
+        "generation_execution_contract": true,
         "runtime_request_validation": true,
         "runtime_request_fixture": true,
         "runtime_request_inspector": true,

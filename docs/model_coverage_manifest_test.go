@@ -143,6 +143,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"context_layout":                       "../model/lfm2/context.go",
 		"rope_layout":                          "../model/lfm2/rope.go",
 		"runtime_state_sizing":                 "../model/lfm2/state.go",
+		"generation_execution_contract":        "../model/lfm2/generation_contract.go",
 		"runtime_request_validation":           "../model/lfm2/runtime_request.go",
 		"runtime_request_fixture":              "../model/lfm2/testdata/lfm25_8b_a1b_reference_placeholder.json",
 		"runtime_request_inspector":            "../cmd/lfm2inspect/main.go",

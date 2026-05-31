@@ -159,6 +159,7 @@ Implemented package/command surface:
 - `model/lfm2/context.go` — vocabulary, max-context, tied-embedding, and RoPE context contract.
 - `model/lfm2/rope.go` — RoPE theta/head-dim/full-attention position contract.
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.
+- `model/lfm2/generation_contract.go` — validation-only generation contract tying prompt/output tokens to request limits and context vocabulary bounds.
 - `model/lfm2/runtime_request.go` — validation-only generation request plan tying prompt tokens, context, KV/cache bytes, router scratch, and embedding residency sizing.
 - `model/lfm2/runtime_interfaces.go` — embedding, convolution, full-attention, MoE, and generation runtime boundaries with explicit not-implemented sentinel.
 - `model/lfm2/runtime_status.go` — explicit runtime implementation status and pending stage list for inspectors/status tooling.
