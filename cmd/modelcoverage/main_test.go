@@ -22,6 +22,9 @@ func TestSummarizeManifest(t *testing.T) {
 	if s[1].Covered != 1 || s[1].Pending != 1 || len(s[1].PendingKeys) != 1 || s[1].PendingKeys[0] != "todo" {
 		t.Fatalf("summary=%+v", s[1])
 	}
+	if s[1].Categories == nil {
+		t.Fatalf("missing categories: %+v", s[1])
+	}
 	filtered, err := summarize(m, "b", coverageFilter{})
 	if err != nil {
 		t.Fatal(err)
@@ -31,6 +34,29 @@ func TestSummarizeManifest(t *testing.T) {
 	}
 	if _, err := summarize(m, "missing", coverageFilter{}); err == nil {
 		t.Fatal("expected unknown family error")
+	}
+}
+
+func TestSummarizeCategoryCounts(t *testing.T) {
+	m := manifest{Version: 1, Families: map[string]manifestFamily{
+		"x": {Status: "one", ValidationTarget: "make test", Coverage: map[string]bool{"reference_coverage_reporting": true, "semantic_token_reference_fixture": false, "runtime_status_reporting": true, "cpu_generation_runtime": false, "numeric_parity_readiness_gate": true, "execution_readiness_gate": true}},
+	}}
+	s, err := summarize(m, "x", coverageFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cats := s[0].Categories
+	if cats["references"].Covered != 1 || cats["references"].Pending != 1 || cats["references"].PendingKeys[0] != "semantic_token_reference_fixture" {
+		t.Fatalf("reference category=%+v", cats["references"])
+	}
+	if cats["runtime"].Covered != 1 || cats["runtime"].Pending != 1 || cats["runtime"].PendingKeys[0] != "cpu_generation_runtime" {
+		t.Fatalf("runtime category=%+v", cats["runtime"])
+	}
+	if cats["parity"].Covered != 1 || cats["parity"].Pending != 0 {
+		t.Fatalf("parity category=%+v", cats["parity"])
+	}
+	if cats["readiness"].Covered != 2 || cats["readiness"].Pending != 0 {
+		t.Fatalf("readiness category=%+v", cats["readiness"])
 	}
 }
 

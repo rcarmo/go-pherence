@@ -232,7 +232,7 @@ Use the focused target below while Qwen3-TTS and LFM2 are still metadata/fixture
 make test-model-coverage
 ```
 
-Show the current manifest summary with:
+Show the current manifest summary with; JSON output includes per-family category counts for reference, runtime, parity, and readiness gates:
 
 ```bash
 make model-coverage

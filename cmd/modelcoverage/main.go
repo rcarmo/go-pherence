@@ -24,13 +24,20 @@ type manifestFamily struct {
 }
 
 type familySummary struct {
-	Name              string   `json:"name"`
-	Status            string   `json:"status"`
-	RuntimeGeneration bool     `json:"runtime_generation"`
-	ValidationTarget  string   `json:"validation_target"`
-	Covered           int      `json:"covered"`
-	Pending           int      `json:"pending"`
-	PendingKeys       []string `json:"pending_keys,omitempty"`
+	Name              string                    `json:"name"`
+	Status            string                    `json:"status"`
+	RuntimeGeneration bool                      `json:"runtime_generation"`
+	ValidationTarget  string                    `json:"validation_target"`
+	Covered           int                       `json:"covered"`
+	Pending           int                       `json:"pending"`
+	PendingKeys       []string                  `json:"pending_keys,omitempty"`
+	Categories        map[string]categoryCounts `json:"categories,omitempty"`
+}
+
+type categoryCounts struct {
+	Covered     int      `json:"covered"`
+	Pending     int      `json:"pending"`
+	PendingKeys []string `json:"pending_keys,omitempty"`
 }
 
 func main() {
@@ -136,9 +143,44 @@ func summarize(m manifest, family string, filter coverageFilter) ([]familySummar
 				s.PendingKeys = append(s.PendingKeys, key)
 			}
 		}
+		s.Categories = summarizeCategories(fam.Coverage)
 		out = append(out, s)
 	}
 	return out, nil
+}
+
+func summarizeCategories(coverage map[string]bool) map[string]categoryCounts {
+	categories := map[string]categoryCounts{
+		"references": {},
+		"runtime":    {},
+		"parity":     {},
+		"readiness":  {},
+	}
+	for key, covered := range coverage {
+		for name, include := range map[string]bool{
+			"references": isReferenceCoverageKey(key),
+			"runtime":    isRuntimeCoverageKey(key),
+			"parity":     isParityCoverageKey(key),
+			"readiness":  isReadinessCoverageKey(key),
+		} {
+			if !include {
+				continue
+			}
+			counts := categories[name]
+			if covered {
+				counts.Covered++
+			} else {
+				counts.Pending++
+				counts.PendingKeys = append(counts.PendingKeys, key)
+			}
+			categories[name] = counts
+		}
+	}
+	for name, counts := range categories {
+		sort.Strings(counts.PendingKeys)
+		categories[name] = counts
+	}
+	return categories
 }
 
 func (f coverageFilter) include(key string) bool {

@@ -4,7 +4,7 @@ This page is the short-form status for the current non-LLM model-family coverage
 
 ## Machine-readable manifest
 
-`model-coverage-manifest.json` tracks the same coverage gates in a compact form for CI and status tooling. Keep it in sync when a model-family coverage layer moves from `false` to `true`.
+`model-coverage-manifest.json` tracks the same coverage gates in a compact form for CI and status tooling. Keep it in sync when a model-family coverage layer moves from `false` to `true`. JSON summaries include per-family category counts for reference, runtime, parity, and readiness gates.
 
 Summarize it with:
 
