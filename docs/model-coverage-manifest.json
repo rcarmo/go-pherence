@@ -17,6 +17,7 @@
         "prefill_layout": true,
         "talker_input_layout": true,
         "talker_execution_contract": true,
+        "code_predictor_execution_contract": true,
         "prompt_runtime_layout": true,
         "embedding_layout": true,
         "capability_validation": true,
