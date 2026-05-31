@@ -52,6 +52,12 @@ type GGUFLlamaLayer struct {
 	WUpM     *gguf.QuantMatrix
 	WDown    []float32 // [outDim=hidden, inDim=ffn]
 	WDownM   *gguf.QuantMatrix
+
+	RouterW     []float32 // [outDim=experts, inDim=hidden]
+	RouterM     *gguf.QuantMatrix
+	ExpertGateM *gguf.ExpertMatrices
+	ExpertUpM   *gguf.ExpertMatrices
+	ExpertDownM *gguf.ExpertMatrices
 }
 
 // GGUFLlama is a loaded LLaMA model with all weights dequanted to F32.
@@ -286,6 +292,41 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 		MoEHiddenSize:    int(moeHidden),
 	}
 	return cfg, nil
+}
+
+func loadGGUFMoEExpertMatrices(g *gguf.GGUF, layerIdx int) (router *gguf.QuantMatrix, gate, up, down *gguf.ExpertMatrices, err error) {
+	loadMatrix := func(name string) (*gguf.QuantMatrix, error) {
+		t, ok := g.TensorByName(name)
+		if !ok {
+			return nil, fmt.Errorf("tensor %q not found", name)
+		}
+		return g.MatrixFromTensor(t)
+	}
+	loadExperts := func(name string) (*gguf.ExpertMatrices, error) {
+		t, ok := g.TensorByName(name)
+		if !ok {
+			return nil, fmt.Errorf("tensor %q not found", name)
+		}
+		return g.ExpertMatricesFromTensor(t)
+	}
+	p := fmt.Sprintf("blk.%d.", layerIdx)
+	router, err = loadMatrix(p + "ffn_gate_inp.weight")
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	gate, err = loadExperts(p + "ffn_gate_exps.weight")
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	up, err = loadExperts(p + "ffn_up_exps.weight")
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	down, err = loadExperts(p + "ffn_down_exps.weight")
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return router, gate, up, down, nil
 }
 
 func (c GGUFLlamaConfig) ValidateRuntimeSupported() error {
