@@ -32,7 +32,7 @@ func TestLoadReferencePlaceholderMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	cov := meta.Coverage()
-	if !cov.CompleteRuntimeTrace || !cov.TokenizationFixture || !cov.FirstTokenLogits || !cov.RouterTopKReference || !cov.RuntimeRequest {
+	if !cov.CompleteRuntimeTrace || !cov.TokenizationFixture || !cov.FirstTokenLogits || !cov.RouterTopKReference || !cov.RuntimeRequest || cov.NumericParityReady || len(cov.PlaceholderValues) != 5 {
 		t.Fatalf("coverage=%+v", cov)
 	}
 	if meta.References.FirstToken.LogitChecksum != "pending-transformers" || meta.References.ConvLayer.Checksum != "pending-transformers" {

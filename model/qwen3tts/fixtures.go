@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // ReferenceFixture is a small, commit-safe parity anchor for Qwen3-TTS. Fields
@@ -57,6 +58,8 @@ type ReferenceCoverage struct {
 	DecodedWAVSummary    bool     `json:"decoded_wav_summary"`
 	RuntimeRequest       bool     `json:"runtime_request"`
 	CompleteRuntimeTrace bool     `json:"complete_runtime_trace"`
+	NumericParityReady   bool     `json:"numeric_parity_ready"`
+	PlaceholderValues    []string `json:"placeholder_values,omitempty"`
 	Missing              []string `json:"missing,omitempty"`
 }
 
@@ -79,6 +82,8 @@ func (fx ReferenceFixture) Coverage() ReferenceCoverage {
 	cov.DecodedWAVSummary = fx.Decoder12Hz != nil
 	cov.RuntimeRequest = fx.Runtime != nil
 	cov.CompleteRuntimeTrace = cov.Prompt && cov.SemanticToken && cov.AcousticFrame && cov.DecodedWAVSummary && cov.RuntimeRequest
+	cov.PlaceholderValues = fx.PlaceholderFields()
+	cov.NumericParityReady = cov.CompleteRuntimeTrace && len(cov.PlaceholderValues) == 0
 	if !cov.Prompt {
 		cov.Missing = append(cov.Missing, "prompt")
 	}
@@ -95,6 +100,29 @@ func (fx ReferenceFixture) Coverage() ReferenceCoverage {
 		cov.Missing = append(cov.Missing, "runtime_request")
 	}
 	return cov
+}
+
+func (fx ReferenceFixture) PlaceholderFields() []string {
+	var fields []string
+	if fx.Talker != nil {
+		if isPlaceholder(fx.Talker.LogitChecksum) {
+			fields = append(fields, "talker.logit_checksum")
+		}
+		if isPlaceholder(fx.Talker.HiddenChecksum) {
+			fields = append(fields, "talker.hidden_checksum")
+		}
+	}
+	if fx.CodePredictor != nil && isPlaceholder(fx.CodePredictor.LogitChecksum) {
+		fields = append(fields, "code_predictor.logit_checksum")
+	}
+	if fx.Decoder12Hz != nil && isPlaceholder(fx.Decoder12Hz.SHA256) {
+		fields = append(fields, "decoder12hz.sha256")
+	}
+	return fields
+}
+
+func isPlaceholder(value string) bool {
+	return strings.HasPrefix(value, "pending-")
 }
 
 func (fx ReferenceFixture) Validate() error {

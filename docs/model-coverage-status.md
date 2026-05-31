@@ -74,7 +74,7 @@ Implemented package/command surface:
 - `model/qwen3tts/runtime_interfaces.go` — Talker, CodePredictor, Decoder12Hz, and pipeline runtime boundaries with explicit not-implemented sentinel.
 - `model/qwen3tts/runtime_status.go` — explicit runtime implementation status and pending stage list for inspectors/status tooling.
 - `cmd/qwen3ttsinspect -require-runtime` — readiness gate that fails until Talker, CodePredictor, and Decoder12Hz execution are implemented.
-- `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema, complete-reference placeholder fixture, runtime request summary fixture, and reference-coverage tracking.
+- `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema, complete-reference placeholder fixture, runtime request summary fixture, placeholder-value tracking, and reference-coverage tracking.
 - `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/runtime-request-plan/tokenized-prompt/reference-coverage inspector.
 - `make qwen3tts-fixture-coverage` — shortcut for fixture/reference coverage reports.
 
@@ -136,7 +136,7 @@ Implemented package/command surface:
 - `model/lfm2/runtime_interfaces.go` — embedding, convolution, full-attention, MoE, and generation runtime boundaries with explicit not-implemented sentinel.
 - `model/lfm2/runtime_status.go` — explicit runtime implementation status and pending stage list for inspectors/status tooling.
 - `cmd/lfm2inspect -require-runtime` — readiness gate that fails until LFM2 generation execution is implemented.
-- `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture, complete-reference placeholder fixture, runtime request summary fixture, and reference-coverage tracking.
+- `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture, complete-reference placeholder fixture, runtime request summary fixture, placeholder-value tracking, and reference-coverage tracking.
 - `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan/runtime-request-plan/reference-coverage inspector.
 - `make lfm2-fixture-coverage` — shortcut for fixture/reference coverage reports.
 

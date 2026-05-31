@@ -35,7 +35,7 @@ func TestLoadReferencePlaceholderFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	cov := fx.Coverage()
-	if !cov.CompleteRuntimeTrace || !cov.SemanticToken || !cov.AcousticFrame || !cov.DecodedWAVSummary || !cov.RuntimeRequest {
+	if !cov.CompleteRuntimeTrace || !cov.SemanticToken || !cov.AcousticFrame || !cov.DecodedWAVSummary || !cov.RuntimeRequest || cov.NumericParityReady || len(cov.PlaceholderValues) != 4 {
 		t.Fatalf("coverage=%+v", cov)
 	}
 	if fx.Talker.LogitChecksum != "pending-qwen3-tts-rs" || fx.Decoder12Hz.SHA256 != "pending-qwen3-tts-rs" {
@@ -71,7 +71,7 @@ func TestReferenceFixtureCoverageComplete(t *testing.T) {
 		t.Fatal(err)
 	}
 	cov := fx.Coverage()
-	if !cov.CompleteRuntimeTrace || len(cov.Missing) != 0 {
+	if !cov.CompleteRuntimeTrace || !cov.NumericParityReady || len(cov.PlaceholderValues) != 0 || len(cov.Missing) != 0 {
 		t.Fatalf("coverage=%+v", cov)
 	}
 }

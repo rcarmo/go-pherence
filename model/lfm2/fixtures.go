@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // ReferenceMetadata is a small, commit-safe LFM2 fixture used before runtime
@@ -70,6 +71,8 @@ type ReferenceCoverage struct {
 	ExpertOutputFixture  bool     `json:"expert_output_fixture"`
 	RuntimeRequest       bool     `json:"runtime_request"`
 	CompleteRuntimeTrace bool     `json:"complete_runtime_trace"`
+	NumericParityReady   bool     `json:"numeric_parity_ready"`
+	PlaceholderValues    []string `json:"placeholder_values,omitempty"`
 	Missing              []string `json:"missing,omitempty"`
 }
 
@@ -111,6 +114,8 @@ func (m ReferenceMetadata) Coverage() ReferenceCoverage {
 	}
 	cov.RuntimeRequest = m.RuntimeRequest != nil
 	cov.CompleteRuntimeTrace = cov.ConfigMetadata && cov.RuntimePlan && cov.TensorReadiness && cov.TokenizationFixture && cov.FirstTokenLogits && cov.ConvLayerReference && cov.AttentionReference && cov.RouterTopKReference && cov.ExpertOutputFixture && cov.RuntimeRequest
+	cov.PlaceholderValues = m.PlaceholderFields()
+	cov.NumericParityReady = cov.CompleteRuntimeTrace && len(cov.PlaceholderValues) == 0
 	if !cov.ConfigMetadata {
 		cov.Missing = append(cov.Missing, "config_metadata")
 	}
@@ -145,6 +150,33 @@ func (m ReferenceMetadata) Coverage() ReferenceCoverage {
 		cov.Missing = append(cov.Missing, "runtime_request")
 	}
 	return cov
+}
+
+func (m ReferenceMetadata) PlaceholderFields() []string {
+	var fields []string
+	if m.References == nil {
+		return fields
+	}
+	if r := m.References.FirstToken; r != nil && isPlaceholder(r.LogitChecksum) {
+		fields = append(fields, "first_token.logit_checksum")
+	}
+	if r := m.References.ConvLayer; r != nil && isPlaceholder(r.Checksum) {
+		fields = append(fields, "conv_layer.checksum")
+	}
+	if r := m.References.AttentionLayer; r != nil && isPlaceholder(r.Checksum) {
+		fields = append(fields, "attention_layer.checksum")
+	}
+	if r := m.References.RouterTopK; r != nil && isPlaceholder(r.WeightHash) {
+		fields = append(fields, "router_topk.weight_hash")
+	}
+	if r := m.References.ExpertOutput; r != nil && isPlaceholder(r.Checksum) {
+		fields = append(fields, "expert_output.checksum")
+	}
+	return fields
+}
+
+func isPlaceholder(value string) bool {
+	return strings.HasPrefix(value, "pending-")
 }
 
 func (m ReferenceMetadata) Validate() error {
