@@ -64,6 +64,23 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 	}
 }
 
+func TestHandleHealthReportsREAPSummary(t *testing.T) {
+	s := &Server{modelID: "qwen-reap", maxCtx: 16, kvResidual: -1, cpuModel: &model.LlamaModel{REAP: &model.REAPConfig{Enabled: true, PruneRatio: 0.2, Source: "filename_or_name", DefaultMask: map[int]bool{1: true}}}, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}}
+	rr := httptest.NewRecorder()
+	s.handleHealth(rr, httptest.NewRequest("GET", "/health", nil))
+	if rr.Code != 200 {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	reap, ok := resp["reap"].(map[string]any)
+	if !ok || reap["enabled"] != true || reap["source"] != "filename_or_name" || int(reap["default_experts"].(float64)) != 1 {
+		t.Fatalf("unexpected REAP health: %+v", resp)
+	}
+}
+
 func TestHandleHealthReportsRuntimeState(t *testing.T) {
 	s := &Server{modelID: "qwen-reap", maxCtx: 32768, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}, kvResidual: -1}
 	rr := httptest.NewRecorder()

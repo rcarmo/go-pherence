@@ -352,6 +352,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	status := map[string]any{"status": "ok", "model": s.modelID, "models": len(s.presets) + 1, "gpu": s.gpuModel != nil, "ctx_size": s.maxCtx}
+	if s.cpuModel != nil && s.cpuModel.REAP != nil && s.cpuModel.REAP.Enabled {
+		status["reap"] = s.cpuModel.REAP.Summary()
+	}
 	if s.cacheTypeK != "" || s.cacheTypeV != "" || s.kvResidual >= 0 {
 		status["turboquant"] = s.turboQuantHealthLocked()
 	}
