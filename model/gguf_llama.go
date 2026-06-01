@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 
 	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
 	"github.com/rcarmo/go-pherence/backends/ggmlquant"
@@ -243,6 +244,14 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		layers[i] = layer
 	}
 
+	reapCfg, err := LoadREAPConfig(filepath.Dir(path))
+	if err != nil {
+		return nil, fmt.Errorf("LoadGGUFLlama: REAP: %w", err)
+	}
+	if reapCfg == nil {
+		reapCfg = InferREAPConfigFromName(filepath.Base(path))
+	}
+
 	m := &GGUFLlama{
 		Config:       cfg,
 		Layers:       layers,
@@ -254,6 +263,7 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		LMHeadGraph:  lmHeadGraph,
 		UseGGMLQuant: useGGMLQuant,
 		Backend:      backend,
+		REAP:         reapCfg,
 	}
 	m.precomputeRoPE()
 	if dg, dp, err := m.BuildDecodeGraph(); err == nil {

@@ -71,6 +71,10 @@ func InspectOpen(path string, g *GGUF) Inspection {
 			in.REAPMetadataKeys = append(in.REAPMetadataKeys, k)
 		}
 	}
+	if !in.HasREAPMetadata && strings.Contains(strings.ToLower(path+" "+in.Name), "reap") {
+		in.HasREAPMetadata = true
+		in.REAPMetadataKeys = append(in.REAPMetadataKeys, "filename_or_name")
+	}
 	in.TurboQuantReady = true
 	in.PureGoSIMDReady = in.TensorCount > 0 && (in.HasQ4K || len(in.QuantCounts) > 0)
 	in.MissingRuntimeTensors = missingRuntimeTensors(g, in.Architecture, in.HasMoE)

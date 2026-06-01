@@ -28,7 +28,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ggufsmoke: load failed: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("loaded architecture=%s layers=%d hidden=%d experts=%d active=%d qwennext=%v in %.2fs\n", m.Config.Architecture, m.Config.NumLayers, m.Config.HiddenSize, m.Config.NumExperts, m.Config.NumExpertsPerTok, m.Config.IsQwenNextHybridGGUF(), time.Since(t0).Seconds())
+	reap := 0.0
+	if m.REAP != nil {
+		reap = m.REAP.PruneRatio
+	}
+	fmt.Printf("loaded architecture=%s layers=%d hidden=%d experts=%d active=%d qwennext=%v reap=%.2f in %.2fs\n", m.Config.Architecture, m.Config.NumLayers, m.Config.HiddenSize, m.Config.NumExperts, m.Config.NumExpertsPerTok, m.Config.IsQwenNextHybridGGUF(), reap, time.Since(t0).Seconds())
 	if *loadOnly {
 		return
 	}

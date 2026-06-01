@@ -6,6 +6,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 )
 
 // REAPConfig describes static expert pruning for MoE models. It is intentionally
@@ -18,6 +20,23 @@ type REAPConfig struct {
 	LayerActive        map[string][]int     `json:"layers,omitempty"`
 	LayerActiveNumeric map[int]map[int]bool `json:"-"`
 	DefaultMask        map[int]bool         `json:"-"`
+}
+
+func InferREAPConfigFromName(name string) *REAPConfig {
+	re := regexp.MustCompile(`(?i)reap[-_ ]?(\d{1,2})(?:\D|$)`)
+	m := re.FindStringSubmatch(name)
+	if len(m) < 2 {
+		return nil
+	}
+	n, err := strconv.Atoi(m[1])
+	if err != nil || n <= 0 || n >= 100 {
+		return nil
+	}
+	cfg := &REAPConfig{Enabled: true, PruneRatio: float64(n) / 100.0}
+	if err := cfg.normalize(); err != nil {
+		return nil
+	}
+	return cfg
 }
 
 func LoadREAPConfig(dir string) (*REAPConfig, error) {
@@ -39,7 +58,7 @@ func LoadREAPConfig(dir string) (*REAPConfig, error) {
 		}
 		return &cfg, nil
 	}
-	return nil, nil
+	return InferREAPConfigFromName(filepath.Base(dir)), nil
 }
 
 func (r *REAPConfig) normalize() error {
