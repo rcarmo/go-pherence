@@ -39,7 +39,7 @@ func TestHandleModelsListsPresets(t *testing.T) {
 }
 
 func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
-	s := &Server{modelID: "qwen-reap", maxCtx: 16, cacheTypeK: "turbo4", cacheTypeV: "turbo2", kvResidual: 2, cpuModel: &model.LlamaModel{Config: model.LlamaConfig{NumLayers: 4, NumHeads: 2, NumKVHeads: 1, HiddenSize: 8, HeadDim: 4, MaxSeqLen: 32}}, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}}
+	s := &Server{modelID: "qwen-reap", maxCtx: 16, cacheTypeK: "turbo4", cacheTypeV: "turbo2", kvResidual: 2, cpuModel: &model.LlamaModel{Config: model.LlamaConfig{NumLayers: 8, NumHeads: 2, NumKVHeads: 1, HiddenSize: 8, HeadDim: 4, MaxSeqLen: 32}}, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}}
 	rr := httptest.NewRecorder()
 	s.handleHealth(rr, httptest.NewRequest("GET", "/health", nil))
 	if rr.Code != 200 {
@@ -50,11 +50,17 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	tq, ok := resp["turboquant"].(map[string]any)
-	if !ok || tq["enabled"] != true || int(tq["kv_dim"].(float64)) != 4 || int(tq["full_kv_bytes"].(float64)) != 2048 {
+	if !ok || tq["enabled"] != true || int(tq["kv_dim"].(float64)) != 4 || int(tq["full_kv_bytes"].(float64)) != 4096 {
 		t.Fatalf("unexpected turboquant health: %+v", resp)
 	}
-	if est := int(tq["estimated_kv_bytes"].(float64)); est <= 0 || est > 2048 {
+	if est := int(tq["estimated_kv_bytes"].(float64)); est <= 0 || est > 4096 {
 		t.Fatalf("unexpected turboquant estimate: %+v", tq)
+	}
+	if saved := int(tq["estimated_saved_kv_bytes"].(float64)); saved <= 0 || saved >= 4096 {
+		t.Fatalf("unexpected turboquant saved bytes: %+v", tq)
+	}
+	if ratio := tq["estimated_kv_ratio"].(float64); ratio <= 0 || ratio >= 1 {
+		t.Fatalf("unexpected turboquant ratio: %+v", tq)
 	}
 }
 

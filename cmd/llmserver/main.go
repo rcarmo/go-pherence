@@ -393,6 +393,14 @@ func (s *Server) turboQuantHealthLocked() map[string]any {
 		full, estimated := serverTurboQuantKVBytes(layers, kvHeads, headDim, maxSeq, cfg, enabled)
 		out["full_kv_bytes"] = full
 		out["estimated_kv_bytes"] = estimated
+		if full > 0 {
+			saved := full - estimated
+			if saved < 0 {
+				saved = 0
+			}
+			out["estimated_saved_kv_bytes"] = saved
+			out["estimated_kv_ratio"] = float64(estimated) / float64(full)
+		}
 	}
 	return out
 }
