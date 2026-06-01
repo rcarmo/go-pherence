@@ -93,6 +93,18 @@ func missingRuntimeTensors(g *GGUF, arch string, hasMoE bool) []string {
 	// report that explicitly instead of claiming generation readiness from quant
 	// metadata alone.
 	required := []string{"token_embd.weight", "output_norm.weight", "output.weight"}
+	if isQwenNextHybridGGUF(g, arch) {
+		required = append(required,
+			"blk.0.attn_qkv.weight", "blk.0.attn_gate.weight", "blk.0.post_attention_norm.weight",
+			"blk.0.ssm_conv1d.weight", "blk.0.ssm_a", "blk.0.ssm_dt.bias", "blk.0.ssm_norm.weight", "blk.0.ssm_alpha.weight", "blk.0.ssm_beta.weight", "blk.0.ssm_out.weight",
+			"blk.0.ffn_gate_inp.weight", "blk.0.ffn_gate_exps.weight", "blk.0.ffn_up_exps.weight", "blk.0.ffn_down_exps.weight",
+		)
+		missing := missingTensorNames(g, required)
+		if len(missing) == 0 {
+			missing = append(missing, "qwennext_hybrid_block_execution")
+		}
+		return missing
+	}
 	if hasMoE {
 		required = append(required,
 			"blk.0.attn_q.weight", "blk.0.attn_k.weight", "blk.0.attn_v.weight", "blk.0.attn_output.weight",
@@ -105,6 +117,10 @@ func missingRuntimeTensors(g *GGUF, arch string, hasMoE bool) []string {
 			"blk.0.attn_norm.weight", "blk.0.ffn_norm.weight", "blk.0.ffn_gate.weight", "blk.0.ffn_up.weight", "blk.0.ffn_down.weight",
 		)
 	}
+	return missingTensorNames(g, required)
+}
+
+func missingTensorNames(g *GGUF, required []string) []string {
 	var missing []string
 	for _, name := range required {
 		if _, ok := g.TensorByName(name); !ok {
@@ -112,6 +128,27 @@ func missingRuntimeTensors(g *GGUF, arch string, hasMoE bool) []string {
 		}
 	}
 	return missing
+}
+
+func isQwenNextHybridGGUF(g *GGUF, arch string) bool {
+	if g == nil {
+		return false
+	}
+	keys := []string{arch + ".ssm.inner_size", arch + ".ssm.state_size", arch + ".full_attention_interval"}
+	for _, key := range keys {
+		if key == ".ssm.inner_size" || key == ".ssm.state_size" || key == ".full_attention_interval" {
+			continue
+		}
+		if _, ok := g.MetaUint32(key); ok {
+			return true
+		}
+	}
+	if _, ok := g.TensorByName("blk.0.attn_qkv.weight"); ok {
+		if _, ok := g.TensorByName("blk.0.ssm_out.weight"); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func quantTypeName(q QuantType) string {

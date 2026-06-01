@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 
+	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
@@ -73,6 +74,39 @@ func loadGGUFQwenNextHybridTensors(g *gguf.GGUF, layerIdx int, layer *GGUFLlamaL
 	return nil
 }
 
+func (c GGUFLlamaConfig) QwenNextLinearShapes() (loaderconfig.Qwen35LinearAttentionShapes, error) {
+	return loaderconfig.Qwen35LinearAttentionShapesFor(c.HiddenSize, c.SSMInnerSize, c.SSMStateSize, c.SSMConvKernel, c.SSMTimeStepRank, c.SSMGroupCount)
+}
+
 func (l GGUFLlamaLayer) HasQwenNextHybridTensors() bool {
 	return l.FusedQKVM != nil || l.SSMOutM != nil || l.SSMConv1D != nil || l.SSMA != nil
+}
+
+func (m *GGUFLlama) projectQwenNextFusedQKV(layer *GGUFLlamaLayer, x []float32) (q, k, v []float32, err error) {
+	if m == nil || layer == nil || layer.FusedQKVM == nil {
+		return nil, nil, nil, fmt.Errorf("missing QwenNext fused qkv tensor")
+	}
+	shapes, err := m.Config.QwenNextLinearShapes()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if len(x) != m.Config.HiddenSize {
+		return nil, nil, nil, fmt.Errorf("QwenNext fused qkv input len=%d want %d", len(x), m.Config.HiddenSize)
+	}
+	if layer.FusedQKVM.InDim != m.Config.HiddenSize || layer.FusedQKVM.OutDim != shapes.ConvDim {
+		return nil, nil, nil, fmt.Errorf("QwenNext fused qkv dims in/out=%d/%d want %d/%d", layer.FusedQKVM.InDim, layer.FusedQKVM.OutDim, m.Config.HiddenSize, shapes.ConvDim)
+	}
+	projected := make([]float32, shapes.ConvDim)
+	m.gemvMaybe(projected, x, nil, layer.FusedQKVM, m.Config.HiddenSize, shapes.ConvDim)
+	return splitGGUFQwenNextFusedQKV(projected, shapes)
+}
+
+func splitGGUFQwenNextFusedQKV(projected []float32, shapes loaderconfig.Qwen35LinearAttentionShapes) (q, k, v []float32, err error) {
+	if len(projected) != shapes.ConvDim || shapes.KeyDim <= 0 || shapes.ValueDim <= 0 || shapes.ConvDim != shapes.KeyDim*2+shapes.ValueDim {
+		return nil, nil, nil, fmt.Errorf("QwenNext fused qkv len=%d want conv=%d key=%d value=%d", len(projected), shapes.ConvDim, shapes.KeyDim, shapes.ValueDim)
+	}
+	q = append([]float32(nil), projected[:shapes.KeyDim]...)
+	k = append([]float32(nil), projected[shapes.KeyDim:2*shapes.KeyDim]...)
+	v = append([]float32(nil), projected[2*shapes.KeyDim:]...)
+	return q, k, v, nil
 }

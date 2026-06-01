@@ -3,6 +3,7 @@ package model
 import (
 	"testing"
 
+	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
@@ -40,5 +41,27 @@ func TestGGUFQwenNextHybridMetadataRequiresSSM(t *testing.T) {
 	cfg := GGUFLlamaConfig{HiddenSize: 2048, AttentionKeyLength: 256, AttentionValueLength: 256, FullAttentionInterval: 4}
 	if err := cfg.ValidateQwenNextHybridMetadata(); err == nil {
 		t.Fatal("expected incomplete SSM metadata error")
+	}
+}
+
+func TestGGUFQwenNextLinearShapesMatchLocalREAP(t *testing.T) {
+	cfg := GGUFLlamaConfig{HiddenSize: 2048, SSMInnerSize: 4096, SSMStateSize: 128, SSMConvKernel: 4, SSMTimeStepRank: 32, SSMGroupCount: 16}
+	shapes, err := cfg.QwenNextLinearShapes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if shapes.KeyDim != 2048 || shapes.ValueDim != 4096 || shapes.ConvDim != 8192 || shapes.QKV[0] != 2048 || shapes.QKV[1] != 8192 {
+		t.Fatalf("unexpected shapes: %+v", shapes)
+	}
+}
+
+func TestSplitGGUFQwenNextFusedQKV(t *testing.T) {
+	shapes := loaderconfig.Qwen35LinearAttentionShapes{KeyDim: 2, ValueDim: 3, ConvDim: 7}
+	q, k, v, err := splitGGUFQwenNextFusedQKV([]float32{1, 2, 3, 4, 5, 6, 7}, shapes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(q) != 2 || q[0] != 1 || q[1] != 2 || len(k) != 2 || k[0] != 3 || k[1] != 4 || len(v) != 3 || v[0] != 5 || v[2] != 7 {
+		t.Fatalf("q=%v k=%v v=%v", q, k, v)
 	}
 }
