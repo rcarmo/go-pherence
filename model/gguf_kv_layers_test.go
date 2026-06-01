@@ -1,6 +1,10 @@
 package model
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/rcarmo/go-pherence/runtime/kv"
+)
 
 func TestGGUFCompressedKVLayersPlainModel(t *testing.T) {
 	cfg := GGUFLlamaConfig{NumLayers: 3}
@@ -24,6 +28,18 @@ func TestGGUFCompressedKVLayersQwenNextInterval(t *testing.T) {
 		if got := cfg.GGUFUsesCompressedKVLayer(i); got != want[i] {
 			t.Fatalf("layer %d compressed=%v want %v", i, got, want[i])
 		}
+	}
+}
+
+func TestGGUFTurboQuantKVBytesEstimatesCompressedCache(t *testing.T) {
+	cfg := GGUFLlamaConfig{NumLayers: 4, NumKVHeads: 1, HeadDim: 8, MaxSeqLen: 10}
+	full, estimated := cfg.GGUFTurboQuantKVBytes(kv.TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 2}, true)
+	// Full precision: layers * tokens * kvDim * K/V * sizeof(float32).
+	if full != 4*10*8*2*4 {
+		t.Fatalf("full bytes=%d", full)
+	}
+	if estimated <= 0 || estimated >= full {
+		t.Fatalf("estimated bytes=%d full=%d", estimated, full)
 	}
 }
 

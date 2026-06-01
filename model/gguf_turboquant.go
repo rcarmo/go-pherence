@@ -10,17 +10,20 @@ import (
 // GGUF model. It deliberately maps llama.cpp-style cache type names onto
 // go-pherence's pure Go TurboQuant cache implementation.
 type GGUFTurboQuantPlan struct {
-	Enabled        bool   `json:"enabled"`
-	KeyType        string `json:"key_type,omitempty"`
-	ValueType      string `json:"value_type,omitempty"`
-	KeyBits        int    `json:"key_bits,omitempty"`
-	ValueBits      int    `json:"value_bits,omitempty"`
-	ResidualWindow int    `json:"residual_window"`
-	Layers         int    `json:"layers"`
-	KVHeads        int    `json:"kv_heads"`
-	HeadDim        int    `json:"head_dim"`
-	KVDim          int    `json:"kv_dim"`
-	CacheLayers    int    `json:"cache_layers"`
+	Enabled          bool   `json:"enabled"`
+	KeyType          string `json:"key_type,omitempty"`
+	ValueType        string `json:"value_type,omitempty"`
+	KeyBits          int    `json:"key_bits,omitempty"`
+	ValueBits        int    `json:"value_bits,omitempty"`
+	ResidualWindow   int    `json:"residual_window"`
+	Layers           int    `json:"layers"`
+	KVHeads          int    `json:"kv_heads"`
+	HeadDim          int    `json:"head_dim"`
+	KVDim            int    `json:"kv_dim"`
+	CacheLayers      int    `json:"cache_layers"`
+	MaxSeqLen        int    `json:"max_seq_len,omitempty"`
+	FullKVBytes      int64  `json:"full_kv_bytes,omitempty"`
+	EstimatedKVBytes int64  `json:"estimated_kv_bytes,omitempty"`
 }
 
 func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int) (GGUFTurboQuantPlan, error) {
@@ -35,7 +38,7 @@ func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int
 	if err != nil {
 		return GGUFTurboQuantPlan{}, err
 	}
-	return GGUFTurboQuantPlan{
+	plan := GGUFTurboQuantPlan{
 		Enabled:        enabled,
 		KeyType:        keyType,
 		ValueType:      valueType,
@@ -47,7 +50,10 @@ func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int
 		HeadDim:        cfg.HeadDim,
 		KVDim:          cfg.NumKVHeads * cfg.HeadDim,
 		CacheLayers:    cfg.GGUFCompressedKVLayerCount(),
-	}, nil
+		MaxSeqLen:      cfg.MaxSeqLen,
+	}
+	plan.FullKVBytes, plan.EstimatedKVBytes = cfg.GGUFTurboQuantKVBytes(tqCfg, enabled)
+	return plan, nil
 }
 
 func (m *GGUFLlama) NewTurboQuantKVCache(keyType, valueType string, residualWindow int) ([]*kv.CompressedKVCache, error) {

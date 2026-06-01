@@ -13,6 +13,7 @@ type Inspection struct {
 	HasQ4K                bool           `json:"has_q4_k"`
 	HasMoE                bool           `json:"has_moe"`
 	Layers                uint32         `json:"layers,omitempty"`
+	MaxSeqLen             uint32         `json:"max_seq_len,omitempty"`
 	KVHeads               uint32         `json:"kv_heads,omitempty"`
 	HeadDim               uint32         `json:"head_dim,omitempty"`
 	KVDim                 uint32         `json:"kv_dim,omitempty"`
@@ -71,6 +72,9 @@ func InspectOpen(path string, g *GGUF) Inspection {
 		}
 		if in.KVHeads == 0 {
 			in.KVHeads, _ = g.MetaUint32(p + ".attention.head_count_kv")
+		}
+		if in.MaxSeqLen == 0 {
+			in.MaxSeqLen, _ = g.MetaUint32(p + ".context_length")
 		}
 		if in.FullAttentionInterval == 0 {
 			in.FullAttentionInterval, _ = g.MetaUint32(p + ".full_attention_interval")
