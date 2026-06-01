@@ -2147,3 +2147,12 @@ Added a repeatable pure Go/SIMD validation bundle for the local Qwen3.6 REAP GGU
 - `runtime/kv.EstimateTurboQuantKV` is the shared byte estimator for GGUF inspection, model-side plans, smoke output, and `llmserver /health`.
 - Make targets `gguf-smoke-qwen36-reap`, `gguf-validate-qwen36-reap`, and `gguf-bench-qwen36-reap` exercise the native path without llama.cpp runtime dependencies.
 - Current checkpoint inventory: architecture `qwen35moe`, `733` tensors (`F32=301`, `Q4_K=371`, `Q6_K=61`), `40` layers, hidden `2048`, `16` heads, vocab/tokenizer `248320`, context `262144`, MoE `205` experts with `8` active, KV dim `512`, `10` cache layers, and `1` protected cache layer.
+
+## Session 122: Qwen3.6 REAP GGUF CI assertions
+
+Extended the native GGUF REAP/TurboQuant validation bundle into a focused CI target:
+
+- `gguf-ci-qwen36-reap` now runs the relevant build-only package smoke and then the full inspect/smoke/cache-smoke/bench path.
+- `ggufinspect` assertions cover architecture/name, REAP ratio/source, tensor inventory, model/tokenizer shape, MoE shape, and TurboQuant cache/protected-layer plans.
+- `ggufsmoke` assertions cover greedy token IDs, decoded text, runtime KV byte plan, benchmark KV byte counters, and synthetic compressed-cache append accounting.
+- Current synthetic compressed-cache expectation for the local checkpoint is layer `3`, compressed/full counts `3`/`2`, and `9440` bytes after five synthetic appends with residual window `2`.
