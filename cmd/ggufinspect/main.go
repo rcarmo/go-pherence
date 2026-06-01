@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/rcarmo/go-pherence/loader/gguf"
+	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
 func main() {
@@ -15,6 +16,9 @@ func main() {
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless current pure Go GGUF generation runtime has the expected tensors")
 	requireMoE := flag.Bool("require-moe", false, "fail unless MoE metadata or tensors are present")
 	requireQ4K := flag.Bool("require-q4-k", false, "fail unless Q4_K tensors are present")
+	cacheTypeK := flag.String("cache-type-k", "", "validate native TurboQuant key cache type (turbo4, q8_0, f16)")
+	cacheTypeV := flag.String("cache-type-v", "", "validate native TurboQuant value cache type (turbo2, q4_0, f16)")
+	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window for plan output")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: ggufinspect [flags] <model.gguf>")
@@ -41,9 +45,25 @@ func main() {
 		fmt.Fprintln(os.Stderr, "ggufinspect: Q4_K tensors not detected")
 		os.Exit(1)
 	}
+	var tqPlan any
+	if *cacheTypeK != "" || *cacheTypeV != "" || *kvResidualWindow >= 0 {
+		plan, err := ggufTurboQuantPlanFromInspection(in, *cacheTypeK, *cacheTypeV, *kvResidualWindow)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ggufinspect: turboquant plan: %v\n", err)
+			os.Exit(1)
+		}
+		tqPlan = plan
+	}
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
+		if tqPlan != nil {
+			if err := enc.Encode(map[string]any{"inspection": in, "turboquant_plan": tqPlan}); err != nil {
+				fmt.Fprintf(os.Stderr, "ggufinspect: encode JSON: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
 		if err := enc.Encode(in); err != nil {
 			fmt.Fprintf(os.Stderr, "ggufinspect: encode JSON: %v\n", err)
 			os.Exit(1)
@@ -62,10 +82,31 @@ func main() {
 	fmt.Printf("turboquant_ready: %v\n", in.TurboQuantReady)
 	fmt.Printf("pure_go_simd_ready: %v\n", in.PureGoSIMDReady)
 	fmt.Printf("runtime_supported: %v\n", in.RuntimeSupported)
+	if tqPlan != nil {
+		fmt.Printf("turboquant_plan: %+v\n", tqPlan)
+	}
 	if len(in.MissingRuntimeTensors) > 0 {
 		fmt.Printf("missing_runtime_tensors: %v\n", in.MissingRuntimeTensors)
 	}
 	for _, w := range in.ReadinessWarnings {
 		fmt.Printf("warning: %s\n", w)
 	}
+}
+
+type inspectTurboQuantPlan struct {
+	Enabled        bool   `json:"enabled"`
+	KeyType        string `json:"key_type,omitempty"`
+	ValueType      string `json:"value_type,omitempty"`
+	KeyBits        int    `json:"key_bits,omitempty"`
+	ValueBits      int    `json:"value_bits,omitempty"`
+	ResidualWindow int    `json:"residual_window"`
+	RuntimeReady   bool   `json:"runtime_ready"`
+}
+
+func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType string, residualWindow int) (inspectTurboQuantPlan, error) {
+	cfg, enabled, err := kv.TurboQuantConfigFromCacheTypes(keyType, valueType, residualWindow)
+	if err != nil {
+		return inspectTurboQuantPlan{}, err
+	}
+	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, RuntimeReady: in.RuntimeSupported}, nil
 }
