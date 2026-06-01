@@ -21,6 +21,8 @@ func main() {
 	cacheTypeV := flag.String("cache-type-v", "", "validate native TurboQuant value cache type (turbo2, q4_0, f16)")
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window for plan output")
 	expectREAPRatio := flag.Float64("expect-reap-ratio", -1, "fail unless inferred/metadata REAP prune ratio matches this value")
+	expectLayers := flag.Int("expect-layers", -1, "fail unless model layer count matches this value")
+	expectKVDim := flag.Int("expect-kv-dim", -1, "fail unless model KV dimension matches this value")
 	expectCacheLayers := flag.Int("expect-cache-layers", -1, "fail unless TurboQuant KV cache layer count matches this value")
 	expectProtectedCacheLayers := flag.Int("expect-protected-cache-layers", -1, "fail unless TurboQuant protected cache layer count matches this value")
 	flag.Parse()
@@ -51,6 +53,14 @@ func main() {
 	}
 	if *expectREAPRatio >= 0 && math.Abs(in.REAPPruneRatio-*expectREAPRatio) > 1e-6 {
 		fmt.Fprintf(os.Stderr, "ggufinspect: REAP ratio mismatch got=%.6f want=%.6f source=%s\n", in.REAPPruneRatio, *expectREAPRatio, in.REAPSource)
+		os.Exit(1)
+	}
+	if *expectLayers >= 0 && int(in.Layers) != *expectLayers {
+		fmt.Fprintf(os.Stderr, "ggufinspect: layer count mismatch got=%d want=%d\n", in.Layers, *expectLayers)
+		os.Exit(1)
+	}
+	if *expectKVDim >= 0 && int(in.KVDim) != *expectKVDim {
+		fmt.Fprintf(os.Stderr, "ggufinspect: KV dimension mismatch got=%d want=%d\n", in.KVDim, *expectKVDim)
 		os.Exit(1)
 	}
 	if *expectCacheLayers >= 0 && int(in.CompressedKVLayers) != *expectCacheLayers {
