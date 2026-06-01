@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/model"
 )
 
@@ -17,6 +18,8 @@ func main() {
 	loadOnly := flag.Bool("load-only", false, "load model and exit")
 	bench := flag.Bool("bench", false, "print prefill/decode timing for smoke generation")
 	maxNew := flag.Int("max-new", 0, "run greedy generation for N tokens from -prompt-ids")
+	promptText := flag.String("prompt", "", "text prompt to tokenize via GGUF/llama-tokenize; overrides -prompt-ids")
+	decodeOutput := flag.Bool("decode", false, "decode generated token IDs using GGUF tokenizer vocabulary")
 	promptIDsCSV := flag.String("prompt-ids", "0", "comma-separated prompt token IDs for forward/generation smoke")
 	quant := flag.Bool("ggml-quant", true, "keep quantized GGUF matrices instead of full F32 expansion")
 	cacheTypeK := flag.String("cache-type-k", "", "native TurboQuant key cache type (turbo4, q8_0, f16)")
@@ -82,9 +85,12 @@ func main() {
 	if *loadOnly {
 		return
 	}
-	promptIDs, err := parsePromptIDs(*promptIDsCSV)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ggufsmoke: bad -prompt-ids: %v\n", err)
+	promptIDs, tok := resolvePromptIDs(*path, *promptText, *promptIDsCSV)
+	if *decodeOutput && tok == nil {
+		tok = loadGGUFTokenizerForDecode(*path)
+	}
+	if len(promptIDs) == 0 {
+		fmt.Fprintln(os.Stderr, "ggufsmoke: empty prompt")
 		os.Exit(2)
 	}
 	if *maxNew > 0 {
@@ -95,6 +101,9 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Printf("generated=%v\n", ids)
+			if *decodeOutput && tok != nil {
+				fmt.Printf("decoded=%q\n", tok.Decode(ids))
+			}
 			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS())
 			return
 		}
@@ -104,6 +113,9 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("generated=%v\n", ids)
+		if *decodeOutput && tok != nil {
+			fmt.Printf("decoded=%q\n", tok.Decode(ids))
+		}
 		return
 	}
 	state := m.NewForwardState()
@@ -215,4 +227,48 @@ func argmaxLocal(x []float32) int {
 		}
 	}
 	return best
+}
+
+func resolvePromptIDs(modelPath, promptText, promptIDsCSV string) ([]int, *gguf.Tokenizer) {
+	if promptText != "" {
+		g, err := gguf.Open(modelPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: tokenizer open failed: %v\n", err)
+			os.Exit(1)
+		}
+		defer g.Close()
+		tok, err := gguf.NewTokenizer(g)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: tokenizer load failed: %v\n", err)
+			os.Exit(1)
+		}
+		tok.SetModelPath(modelPath)
+		ids, err := tok.Encode(promptText)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: tokenize failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("prompt_tokens=%v\n", ids)
+		return ids, tok
+	}
+	ids, err := parsePromptIDs(promptIDsCSV)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ggufsmoke: bad -prompt-ids: %v\n", err)
+		os.Exit(2)
+	}
+	return ids, nil
+}
+
+func loadGGUFTokenizerForDecode(modelPath string) *gguf.Tokenizer {
+	g, err := gguf.Open(modelPath)
+	if err != nil {
+		return nil
+	}
+	defer g.Close()
+	tok, err := gguf.NewTokenizer(g)
+	if err != nil {
+		return nil
+	}
+	tok.SetModelPath(modelPath)
+	return tok
 }
