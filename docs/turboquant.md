@@ -16,11 +16,34 @@ TURBO_QUANT=1 ./bin/llmgen -model models/gemma4-e2b-mlx4 -prompt "..." -tokens 2
 `--turbo-quant` currently applies to the CPU backend only. If `--gpu` is also
 provided, the CLI prints a warning; GPU KV-cache compression is not wired yet.
 
+For GGUF/llama.cpp-compatible REAP checkpoints, use the native GGUF smoke and
+inspection commands. The llama.cpp-style policy names are mapped to the same
+`runtime/kv` implementation; no external llama.cpp cache runtime is used:
+
+```bash
+# Lightweight metadata/readiness + native TurboQuant byte plan
+make gguf-inspect \
+  GGUF_MODEL=/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf \
+  GGUF_CACHE_TYPE_K=turbo4 \
+  GGUF_CACHE_TYPE_V=turbo2 \
+  GGUF_KV_RESIDUAL_WINDOW=128
+
+# One-token generation/benchmark through the pure Go/SIMD GGUF path
+make gguf-bench \
+  GGUF_MODEL=/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf \
+  GGUF_PROMPT_IDS=0 \
+  GGUF_MAX_NEW=1 \
+  GGUF_CACHE_TYPE_K=turbo4 \
+  GGUF_CACHE_TYPE_V=turbo2 \
+  GGUF_KV_RESIDUAL_WINDOW=2
+```
+
 ## Current implementation
 
 - `runtime/kv` owns `TurboQuantState`, `CompressedKVCache`, and generic float/compressed KV checkpoint/rollback helpers.
 - The `model` package owns model-specific KV dimension derivation and CPU generation wiring.
 - Per-layer `CompressedKVCache` wrapper for CPU `LlamaModel.Generate`.
+- GGUF `GGUFLlama.GenerateWithOptions` accepts llama.cpp-compatible `cache_type_k`/`cache_type_v` names and attaches native compressed caches to the layers that actually use autoregressive KV. Plain LLaMA-family GGUF models use every layer; QwenNext/REAP hybrid GGUF models use only full-attention interval layers while recurrent/SSM layers keep their own state.
 - Recent tokens stay full precision via a 128-token residual window.
 - `CompressedKVCache` constructor sizing, accessors, scratch-buffer sizing, packed-entry validation, and memory accounting use checked/saturating arithmetic so malformed dimensions fail closed.
 - Older tokens are compressed on append.
@@ -34,6 +57,10 @@ provided, the CLI prints a warning; GPU KV-cache compression is not wired yet.
 - Staged checkpoint/restore/keep-prefix helpers support speculative verifier
   rollback and accepted-prefix commit even when candidate appends cross the
   residual window and trigger compression.
+- `runtime/kv.EstimateTurboQuantKV` is the shared byte estimator for model plans,
+  `ggufinspect`, `ggufsmoke`, and `cmd/llmserver /health`; it reports full bytes,
+  estimated compressed bytes, savings, ratio, KV layer count, and protected-layer
+  count.
 
 ## Validation snapshot
 
