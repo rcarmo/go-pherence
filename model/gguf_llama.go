@@ -999,9 +999,11 @@ func (m *GGUFLlama) GenerateWithOptions(promptIDs []int, maxNew int, opts GGUFGe
 		maxSeq = cfg.MaxSeqLen
 	}
 
-	// Allocate KV caches. TurboQuant options are accepted and validated here;
-	// QwenNext hybrid layers use recurrent state and full-attention interval
-	// layers still consume F32 KV slices until attention reads compressed caches directly.
+	// Allocate KV caches. With TurboQuant enabled, native compressed caches are
+	// attached only to layers that actually use autoregressive K/V state (all
+	// layers for plain LLaMA-family models; full-attention interval layers for
+	// QwenNext hybrid GGUFs). Recurrent hybrid layers keep their SSM state in the
+	// forward state and do not need F32 KV backing storage.
 	var compressedKV []*kv.CompressedKVCache
 	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
 		caches, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
@@ -1013,6 +1015,12 @@ func (m *GGUFLlama) GenerateWithOptions(promptIDs []int, maxNew int, opts GGUFGe
 	kvK := make([][]float32, cfg.NumLayers)
 	kvV := make([][]float32, cfg.NumLayers)
 	for i := range kvK {
+		if i < len(compressedKV) && compressedKV[i] != nil {
+			continue
+		}
+		if cfg.IsQwenNextHybridGGUF() && !cfg.GGUFUsesCompressedKVLayer(i) {
+			continue
+		}
 		kvK[i] = make([]float32, maxSeq*kvDim)
 		kvV[i] = make([]float32, maxSeq*kvDim)
 	}

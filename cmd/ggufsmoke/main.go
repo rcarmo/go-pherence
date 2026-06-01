@@ -52,7 +52,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: turboquant plan failed: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d kv_dim=%d\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.KVDim)
+		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d cache_layers=%d kv_dim=%d\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.CacheLayers, plan.KVDim)
 		if *kvSmokeTokens > 0 {
 			caches, err := m.NewTurboQuantKVCache(*cacheTypeK, *cacheTypeV, *kvResidualWindow)
 			if err != nil {

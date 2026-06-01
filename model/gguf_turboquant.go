@@ -20,6 +20,7 @@ type GGUFTurboQuantPlan struct {
 	KVHeads        int    `json:"kv_heads"`
 	HeadDim        int    `json:"head_dim"`
 	KVDim          int    `json:"kv_dim"`
+	CacheLayers    int    `json:"cache_layers"`
 }
 
 func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int) (GGUFTurboQuantPlan, error) {
@@ -45,6 +46,7 @@ func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int
 		KVHeads:        cfg.NumKVHeads,
 		HeadDim:        cfg.HeadDim,
 		KVDim:          cfg.NumKVHeads * cfg.HeadDim,
+		CacheLayers:    cfg.GGUFCompressedKVLayerCount(),
 	}, nil
 }
 
@@ -63,6 +65,9 @@ func (m *GGUFLlama) NewTurboQuantKVCache(keyType, valueType string, residualWind
 	tq := kv.NewTurboQuantState(plan.HeadDim, plan.Layers, tqCfg)
 	out := make([]*kv.CompressedKVCache, plan.Layers)
 	for i := range out {
+		if !m.Config.GGUFUsesCompressedKVLayer(i) {
+			continue
+		}
 		out[i] = kv.NewCompressedKVCache(plan.KVDim, plan.KVHeads, plan.HeadDim, tq, tq.IsProtectedLayer(i))
 	}
 	return out, nil
