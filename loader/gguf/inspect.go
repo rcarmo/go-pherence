@@ -13,6 +13,8 @@ type Inspection struct {
 	HasQ4K                bool           `json:"has_q4_k"`
 	HasMoE                bool           `json:"has_moe"`
 	Layers                uint32         `json:"layers,omitempty"`
+	HiddenSize            uint32         `json:"hidden_size,omitempty"`
+	Heads                 uint32         `json:"heads,omitempty"`
 	VocabSize             uint32         `json:"vocab_size,omitempty"`
 	BOSTokenID            uint32         `json:"bos_token_id,omitempty"`
 	EOSTokenID            uint32         `json:"eos_token_id,omitempty"`
@@ -70,10 +72,14 @@ func InspectOpen(path string, g *GGUF) Inspection {
 		if in.Layers == 0 {
 			in.Layers, _ = g.MetaUint32(p + ".block_count")
 		}
-		if heads, ok := g.MetaUint32(p + ".attention.head_count"); ok && heads > 0 && in.HeadDim == 0 {
-			if hidden, ok := g.MetaUint32(p + ".embedding_length"); ok {
-				in.HeadDim = hidden / heads
-			}
+		if in.HiddenSize == 0 {
+			in.HiddenSize, _ = g.MetaUint32(p + ".embedding_length")
+		}
+		if in.Heads == 0 {
+			in.Heads, _ = g.MetaUint32(p + ".attention.head_count")
+		}
+		if in.Heads > 0 && in.HeadDim == 0 && in.HiddenSize > 0 {
+			in.HeadDim = in.HiddenSize / in.Heads
 		}
 		if in.KVHeads == 0 {
 			in.KVHeads, _ = g.MetaUint32(p + ".attention.head_count_kv")

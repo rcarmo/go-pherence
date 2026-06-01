@@ -27,6 +27,8 @@ func main() {
 	expectNameContains := flag.String("expect-name-contains", "", "fail unless GGUF general.name contains this substring")
 	expectTensorCount := flag.Int("expect-tensor-count", -1, "fail unless GGUF tensor count matches this value")
 	expectLayers := flag.Int("expect-layers", -1, "fail unless model layer count matches this value")
+	expectHiddenSize := flag.Int("expect-hidden-size", -1, "fail unless model hidden size matches this value")
+	expectHeads := flag.Int("expect-heads", -1, "fail unless model attention head count matches this value")
 	expectVocabSize := flag.Int("expect-vocab-size", -1, "fail unless model vocabulary size matches this value")
 	expectBOS := flag.Int("expect-bos", -1, "fail unless tokenizer BOS token ID matches this value")
 	expectEOS := flag.Int("expect-eos", -1, "fail unless tokenizer EOS token ID matches this value")
@@ -90,6 +92,14 @@ func main() {
 	}
 	if *expectLayers >= 0 && int(in.Layers) != *expectLayers {
 		fmt.Fprintf(os.Stderr, "ggufinspect: layer count mismatch got=%d want=%d\n", in.Layers, *expectLayers)
+		os.Exit(1)
+	}
+	if *expectHiddenSize >= 0 && int(in.HiddenSize) != *expectHiddenSize {
+		fmt.Fprintf(os.Stderr, "ggufinspect: hidden size mismatch got=%d want=%d\n", in.HiddenSize, *expectHiddenSize)
+		os.Exit(1)
+	}
+	if *expectHeads >= 0 && int(in.Heads) != *expectHeads {
+		fmt.Fprintf(os.Stderr, "ggufinspect: attention head count mismatch got=%d want=%d\n", in.Heads, *expectHeads)
 		os.Exit(1)
 	}
 	if *expectVocabSize >= 0 && int(in.VocabSize) != *expectVocabSize {
@@ -184,7 +194,7 @@ func main() {
 	}
 	fmt.Printf("tensors: %d\n", in.TensorCount)
 	fmt.Printf("quant_counts: %v\n", in.QuantCounts)
-	fmt.Printf("vocab_size: %d bos=%d eos=%d\n", in.VocabSize, in.BOSTokenID, in.EOSTokenID)
+	fmt.Printf("shape: layers=%d hidden=%d heads=%d vocab=%d bos=%d eos=%d\n", in.Layers, in.HiddenSize, in.Heads, in.VocabSize, in.BOSTokenID, in.EOSTokenID)
 	fmt.Printf("moe: %v experts=%d active=%d\n", in.HasMoE, in.Experts, in.ExpertsPerToken)
 	fmt.Printf("reap_metadata: %v ratio=%.2f source=%s keys=%v\n", in.HasREAPMetadata, in.REAPPruneRatio, in.REAPSource, in.REAPMetadataKeys)
 	fmt.Printf("turboquant_ready: %v\n", in.TurboQuantReady)
