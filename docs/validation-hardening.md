@@ -15,6 +15,7 @@ This page summarizes recent malformed-input and boundary-hardening work. Phase-l
 
 ## Loader boundaries
 
+- `loader/gguf` inspection now reports and validates native GGUF REAP/TurboQuant readiness inputs: architecture/name, tensor and quant inventory, REAP ratio/source, hidden/head/vocab/tokenizer/BOS/EOS/context/KV shape, MoE expert counts, and full-attention/cache/protected-layer planning for QwenNext-style REAP checkpoints.
 - `loader/safetensors` validates dtype byte sizes against shapes/offsets at open time.
 - File and sharded helpers are nil-safe.
 - Tensor names are sorted deterministically.
@@ -66,6 +67,7 @@ Transitional model helpers validate:
 - zero-count state copy semantics,
 - CPU decode final norm/LM-head dimensions,
 - CPU generation allocation setup,
+- GGUF generation KV allocation and validation paths, including expected greedy token/decoded text, runtime KV byte plan, benchmark KV counters, and synthetic compressed-cache smoke accounting via `ggufsmoke`/Make targets.
 - MoE edge cases,
 - embedding/LM-head/per-layer input backing data,
 - chunked LM-head and batched-prefill dimensions,
