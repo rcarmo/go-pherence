@@ -60,6 +60,28 @@ func TestGGUFGenerationKVRuntimePlan(t *testing.T) {
 	}
 }
 
+func TestNewGGUFGenerationForwardStateUsesRuntimePlan(t *testing.T) {
+	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 5, NumKVHeads: 1, HeadDim: 4, MaxSeqLen: 16, VocabSize: 8, HiddenSize: 4, NumHeads: 1, SSMInnerSize: 16, SSMStateSize: 4, FullAttentionInterval: 2, AttentionKeyLength: 8, AttentionValueLength: 8}}
+	st, kvK, kvV, plan, err := m.newGGUFGenerationForwardState(3, 2, GGUFGenerationOptions{CacheTypeK: "turbo4", CacheTypeV: "turbo2", KVResidualWindow: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st == nil || len(st.compressedKV) != 5 || plan.MaxSeq != 5 || plan.CompressedKVLayers != 2 || plan.FloatKVLayers != 3 {
+		t.Fatalf("bad generation state/plan st=%v plan=%+v", st != nil, plan)
+	}
+	for i := 0; i < 5; i++ {
+		if st.compressedKV[i] != nil {
+			if len(kvK[i]) != 0 || len(kvV[i]) != 0 {
+				t.Fatalf("compressed layer %d should not allocate float KV", i)
+			}
+			continue
+		}
+		if len(kvK[i]) != plan.MaxSeq*4 || len(kvV[i]) != plan.MaxSeq*4 {
+			t.Fatalf("float layer %d KV lens=%d/%d", i, len(kvK[i]), len(kvV[i]))
+		}
+	}
+}
+
 func TestNewTurboQuantKVCacheSkipsQwenNextRecurrentLayers(t *testing.T) {
 	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 5, NumKVHeads: 1, HeadDim: 4, SSMInnerSize: 16, SSMStateSize: 4, FullAttentionInterval: 2, AttentionKeyLength: 8, AttentionValueLength: 8}}
 	caches, err := m.NewTurboQuantKVCache("turbo4", "turbo2", 1)

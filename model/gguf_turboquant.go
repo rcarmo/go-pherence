@@ -109,6 +109,34 @@ func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGene
 	return plan, nil
 }
 
+func (m *GGUFLlama) newGGUFGenerationForwardState(promptLen, maxNew int, opts GGUFGenerationOptions) (*GGUFForwardState, [][]float32, [][]float32, GGUFGenerationKVRuntimePlan, error) {
+	plan, err := m.GenerationKVRuntimePlan(promptLen, maxNew, opts)
+	if err != nil {
+		return nil, nil, nil, GGUFGenerationKVRuntimePlan{}, err
+	}
+	cfg := m.Config
+	kvDim := cfg.NumKVHeads * cfg.HeadDim
+	var compressedKV []*kv.CompressedKVCache
+	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
+		compressedKV, err = m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
+		if err != nil {
+			return nil, nil, nil, GGUFGenerationKVRuntimePlan{}, err
+		}
+	}
+	kvK := make([][]float32, cfg.NumLayers)
+	kvV := make([][]float32, cfg.NumLayers)
+	for i := range kvK {
+		if i < len(compressedKV) && compressedKV[i] != nil {
+			continue
+		}
+		kvK[i] = make([]float32, plan.MaxSeq*kvDim)
+		kvV[i] = make([]float32, plan.MaxSeq*kvDim)
+	}
+	state := m.NewForwardState()
+	state.compressedKV = compressedKV
+	return state, kvK, kvV, plan, nil
+}
+
 func (m *GGUFLlama) NewTurboQuantKVCache(keyType, valueType string, residualWindow int) ([]*kv.CompressedKVCache, error) {
 	plan, err := m.TurboQuantPlan(keyType, valueType, residualWindow)
 	if err != nil {

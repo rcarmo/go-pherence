@@ -993,39 +993,15 @@ func (m *GGUFLlama) Generate(promptIDs []int, maxNew int) ([]int, error) {
 
 func (m *GGUFLlama) GenerateWithOptions(promptIDs []int, maxNew int, opts GGUFGenerationOptions) ([]int, error) {
 	cfg := m.Config
-	kvDim := cfg.NumKVHeads * cfg.HeadDim
+	var generated []int
+	state, kvK, kvV, _, err := m.newGGUFGenerationForwardState(len(promptIDs), maxNew, opts)
+	if err != nil {
+		return nil, err
+	}
 	maxSeq := len(promptIDs) + maxNew
 	if maxSeq > cfg.MaxSeqLen {
 		maxSeq = cfg.MaxSeqLen
 	}
-
-	// Allocate KV caches. With TurboQuant enabled, native compressed caches are
-	// attached only to layers that actually use autoregressive K/V state (all
-	// layers for plain LLaMA-family models; full-attention interval layers for
-	// QwenNext hybrid GGUFs). F32 backing slices remain available for non-compressed
-	// fallback paths so malformed or partially-supported hybrid layers do not
-	// panic if they fall back to attention.
-	var compressedKV []*kv.CompressedKVCache
-	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
-		caches, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
-		if err != nil {
-			return nil, err
-		}
-		compressedKV = caches
-	}
-	kvK := make([][]float32, cfg.NumLayers)
-	kvV := make([][]float32, cfg.NumLayers)
-	for i := range kvK {
-		if i < len(compressedKV) && compressedKV[i] != nil {
-			continue
-		}
-		kvK[i] = make([]float32, maxSeq*kvDim)
-		kvV[i] = make([]float32, maxSeq*kvDim)
-	}
-
-	var generated []int
-	state := m.NewForwardState()
-	state.compressedKV = compressedKV
 	if len(promptIDs) == 0 || maxNew <= 0 {
 		return generated, nil
 	}
