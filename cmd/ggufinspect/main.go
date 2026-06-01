@@ -32,6 +32,8 @@ func main() {
 	expectEOS := flag.Int("expect-eos", -1, "fail unless tokenizer EOS token ID matches this value")
 	expectMaxSeqLen := flag.Int("expect-max-seq-len", -1, "fail unless model context length matches this value")
 	expectFullAttentionInterval := flag.Int("expect-full-attention-interval", -1, "fail unless full-attention interval matches this value")
+	expectKVHeads := flag.Int("expect-kv-heads", -1, "fail unless model KV head count matches this value")
+	expectHeadDim := flag.Int("expect-head-dim", -1, "fail unless model attention head dimension matches this value")
 	expectKVDim := flag.Int("expect-kv-dim", -1, "fail unless model KV dimension matches this value")
 	expectExperts := flag.Int("expect-experts", -1, "fail unless MoE expert count matches this value")
 	expectExpertsPerToken := flag.Int("expect-experts-per-token", -1, "fail unless MoE active experts per token matches this value")
@@ -108,6 +110,14 @@ func main() {
 	}
 	if *expectFullAttentionInterval >= 0 && int(in.FullAttentionInterval) != *expectFullAttentionInterval {
 		fmt.Fprintf(os.Stderr, "ggufinspect: full-attention interval mismatch got=%d want=%d\n", in.FullAttentionInterval, *expectFullAttentionInterval)
+		os.Exit(1)
+	}
+	if *expectKVHeads >= 0 && int(in.KVHeads) != *expectKVHeads {
+		fmt.Fprintf(os.Stderr, "ggufinspect: KV head count mismatch got=%d want=%d\n", in.KVHeads, *expectKVHeads)
+		os.Exit(1)
+	}
+	if *expectHeadDim >= 0 && int(in.HeadDim) != *expectHeadDim {
+		fmt.Fprintf(os.Stderr, "ggufinspect: head dimension mismatch got=%d want=%d\n", in.HeadDim, *expectHeadDim)
 		os.Exit(1)
 	}
 	if *expectKVDim >= 0 && int(in.KVDim) != *expectKVDim {
