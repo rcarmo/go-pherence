@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rcarmo/go-pherence/backends/k3"
@@ -13,6 +15,8 @@ import (
 func main() {
 	path := flag.String("model", "", "GGUF model path")
 	loadOnly := flag.Bool("load-only", false, "load model and exit")
+	maxNew := flag.Int("max-new", 0, "run greedy generation for N tokens from -prompt-ids")
+	promptIDsCSV := flag.String("prompt-ids", "0", "comma-separated prompt token IDs for forward/generation smoke")
 	quant := flag.Bool("ggml-quant", true, "keep quantized GGUF matrices instead of full F32 expansion")
 	cacheTypeK := flag.String("cache-type-k", "", "native TurboQuant key cache type (turbo4, q8_0, f16)")
 	cacheTypeV := flag.String("cache-type-v", "", "native TurboQuant value cache type (turbo2, q4_0, f16)")
@@ -47,6 +51,20 @@ func main() {
 	if *loadOnly {
 		return
 	}
+	promptIDs, err := parsePromptIDs(*promptIDsCSV)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ggufsmoke: bad -prompt-ids: %v\n", err)
+		os.Exit(2)
+	}
+	if *maxNew > 0 {
+		ids, err := m.Generate(promptIDs, *maxNew)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: generate failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("generated=%v\n", ids)
+		return
+	}
 	state := m.NewForwardState()
 	kvDim := m.Config.NumKVHeads * m.Config.HeadDim
 	kvK := make([][]float32, m.Config.NumLayers)
@@ -55,6 +73,29 @@ func main() {
 		kvK[i] = make([]float32, kvDim)
 		kvV[i] = make([]float32, kvDim)
 	}
-	logits := m.ForwardState(state, 0, 0, kvK, kvV)
+	logits := m.ForwardState(state, promptIDs[0], 0, kvK, kvV)
 	fmt.Printf("forward logits=%d\n", len(logits))
+}
+
+func parsePromptIDs(csv string) ([]int, error) {
+	parts := strings.Split(csv, ",")
+	ids := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		id, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, err
+		}
+		if id < 0 {
+			return nil, fmt.Errorf("negative token id %d", id)
+		}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no prompt ids")
+	}
+	return ids, nil
 }

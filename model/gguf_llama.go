@@ -880,24 +880,18 @@ func (m *GGUFLlama) Generate(promptIDs []int, maxNew int) ([]int, error) {
 
 	var generated []int
 	state := m.NewForwardState()
-
-	// Prefill: run all prompt tokens
-	for step, tok := range promptIDs {
-		if step == len(promptIDs)-1 {
-			// Last prompt token: capture logits
-			logits := m.ForwardState(state, tok, step, kvK, kvV)
-			next := argmaxF32(logits)
-			if next == cfg.VocabSize { // shouldn't happen
-				break
-			}
-		} else {
-			_ = m.ForwardState(state, tok, step, kvK, kvV)
-		}
+	if len(promptIDs) == 0 || maxNew <= 0 {
+		return generated, nil
 	}
 
-	// Decode: autoregressively generate maxNew tokens
+	// Prefill: run all prompt tokens once and keep logits from the final prompt token.
+	var logits []float32
+	for step, tok := range promptIDs {
+		logits = m.ForwardState(state, tok, step, kvK, kvV)
+	}
+
+	// Decode: autoregressively generate maxNew tokens.
 	step := len(promptIDs) - 1
-	logits := m.ForwardState(state, promptIDs[step], step, kvK, kvV)
 	for range maxNew {
 		next := argmaxF32(logits)
 		generated = append(generated, next)
