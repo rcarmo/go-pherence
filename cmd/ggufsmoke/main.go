@@ -117,7 +117,7 @@ func main() {
 			if *decodeOutput && tok != nil {
 				fmt.Printf("decoded=%q\n", tok.Decode(ids))
 			}
-			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS())
+			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f kv_float_bytes=%d kv_compressed_bytes=%d\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS(), stats.KVFloatBytes, stats.KVCompressedBytes)
 			return
 		}
 		ids, err := m.GenerateWithOptions(promptIDs, *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow})
@@ -167,10 +167,12 @@ func parsePromptIDs(csv string) ([]int, error) {
 }
 
 type generationBenchStats struct {
-	PrefillTokens  int
-	PrefillSeconds float64
-	DecodeTokens   int
-	DecodeSeconds  float64
+	PrefillTokens     int
+	PrefillSeconds    float64
+	DecodeTokens      int
+	DecodeSeconds     float64
+	KVFloatBytes      int64
+	KVCompressedBytes int64
 }
 
 func (s generationBenchStats) PrefillTPS() float64 {
@@ -209,6 +211,9 @@ func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int, opts mo
 	kvK := make([][]float32, cfg.NumLayers)
 	kvV := make([][]float32, cfg.NumLayers)
 	for i := range kvK {
+		if i < len(compressedKV) && compressedKV[i] != nil {
+			continue
+		}
 		kvK[i] = make([]float32, maxSeq*kvDim)
 		kvV[i] = make([]float32, maxSeq*kvDim)
 	}
@@ -238,7 +243,23 @@ func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int, opts mo
 	}
 	stats.DecodeTokens = len(generated)
 	stats.DecodeSeconds = time.Since(d0).Seconds()
+	stats.KVFloatBytes, stats.KVCompressedBytes = ggufBenchKVBytes(kvK, kvV, compressedKV)
 	return generated, stats, nil
+}
+
+func ggufBenchKVBytes(kvK, kvV [][]float32, compressedKV []*kv.CompressedKVCache) (floatBytes, compressedBytes int64) {
+	for _, x := range kvK {
+		floatBytes += int64(len(x)) * 4
+	}
+	for _, x := range kvV {
+		floatBytes += int64(len(x)) * 4
+	}
+	for _, c := range compressedKV {
+		if c != nil {
+			compressedBytes += c.MemoryBytes()
+		}
+	}
+	return floatBytes, compressedBytes
 }
 
 func argmaxLocal(x []float32) int {
