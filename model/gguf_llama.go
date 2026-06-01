@@ -44,6 +44,8 @@ type GGUFLlamaConfig struct {
 	SSMInnerSize          int
 	SSMStateSize          int
 	SSMTimeStepRank       int
+	BOSTokenID            int
+	EOSTokenID            int
 }
 
 // GGUFLlamaLayer holds per-layer weight matrices.
@@ -378,6 +380,8 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 	ssmInnerSize, _ := ggufMetaUint32Any(g, key("ssm.inner_size"), "llama.ssm.inner_size")
 	ssmStateSize, _ := ggufMetaUint32Any(g, key("ssm.state_size"), "llama.ssm.state_size")
 	ssmRank, _ := ggufMetaUint32Any(g, key("ssm.time_step_rank"), "llama.ssm.time_step_rank")
+	bosID, _ := ggufMetaUint32Any(g, "tokenizer.ggml.bos_token_id")
+	eosID, _ := ggufMetaUint32Any(g, "tokenizer.ggml.eos_token_id")
 	cfg := GGUFLlamaConfig{
 		Architecture:          arch,
 		HiddenSize:            int(hidden),
@@ -403,6 +407,8 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 		SSMInnerSize:          int(ssmInnerSize),
 		SSMStateSize:          int(ssmStateSize),
 		SSMTimeStepRank:       int(ssmRank),
+		BOSTokenID:            int(bosID),
+		EOSTokenID:            int(eosID),
 	}
 	if cfg.AttentionKeyLength > 0 {
 		cfg.HeadDim = cfg.AttentionKeyLength
@@ -1014,8 +1020,7 @@ func (m *GGUFLlama) GenerateWithOptions(promptIDs []int, maxNew int, opts GGUFGe
 	for range maxNew {
 		next := argmaxF32(logits)
 		generated = append(generated, next)
-		if next == cfg.VocabSize-1 || (cfg.VocabSize > 2 && next == 2) {
-			// EOS
+		if cfg.IsEOS(next) {
 			break
 		}
 		step++
@@ -1057,4 +1062,14 @@ func normGGUFHeads(x, weight []float32, heads, headDim int, eps float32) {
 			row[i] *= scale * weight[i]
 		}
 	}
+}
+
+func (c GGUFLlamaConfig) IsEOS(tokenID int) bool {
+	if tokenID < 0 {
+		return false
+	}
+	if c.EOSTokenID > 0 {
+		return tokenID == c.EOSTokenID
+	}
+	return tokenID == c.VocabSize-1 || (c.VocabSize > 2 && tokenID == 2)
 }

@@ -30,6 +30,17 @@ func TestGGUFParseConfigQwenMoE(t *testing.T) {
 	}
 }
 
+func TestGGUFConfigEOS(t *testing.T) {
+	cfg := GGUFLlamaConfig{VocabSize: 10, EOSTokenID: 7}
+	if !cfg.IsEOS(7) || cfg.IsEOS(2) {
+		t.Fatalf("explicit EOS mismatch")
+	}
+	cfg.EOSTokenID = 0
+	if !cfg.IsEOS(2) || !cfg.IsEOS(9) || cfg.IsEOS(8) {
+		t.Fatalf("fallback EOS mismatch")
+	}
+}
+
 func TestGGUFParseConfigInfersVocabFromEmbedding(t *testing.T) {
 	g := &gguf.GGUF{Meta: map[string]any{
 		"general.architecture":          "llama",
