@@ -125,6 +125,7 @@ make gguf-validate \
   GGUF_KV_RESIDUAL_WINDOW=2
 
 # Convenience targets for the local Qwen3.6 REAP checkpoint/expectations above
+make gguf-inspect-qwen36-reap
 make gguf-smoke-qwen36-reap
 make gguf-validate-qwen36-reap
 make gguf-bench-qwen36-reap
