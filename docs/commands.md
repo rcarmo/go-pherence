@@ -429,3 +429,18 @@ curl -s http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"gemma4-e2b-mlx4","messages":[{"role":"user","content":"Hello"}]}'
 ```
+
+For llama.cpp-compatible TurboQuant policy diagnostics on CPU/server paths, pass the cache flags and inspect `/health`:
+
+```bash
+go run ./cmd/llmserver \
+  -model models/qwen3-moe \
+  -listen :8080 \
+  -cache-type-k turbo4 \
+  -cache-type-v turbo2 \
+  -kv-residual-window 128
+
+curl -s http://localhost:8080/health | jq '.turboquant, .reap'
+```
+
+The health payload reports native go-pherence interpretation of those policy names: key/value bits, KV shape, full/estimated/saved bytes, ratio, KV layer count, protected-layer count, and REAP summary/source when the loaded model has REAP enabled.
