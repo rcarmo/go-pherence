@@ -15,6 +15,7 @@ import (
 func main() {
 	path := flag.String("model", "", "GGUF model path")
 	loadOnly := flag.Bool("load-only", false, "load model and exit")
+	bench := flag.Bool("bench", false, "print prefill/decode timing for smoke generation")
 	maxNew := flag.Int("max-new", 0, "run greedy generation for N tokens from -prompt-ids")
 	promptIDsCSV := flag.String("prompt-ids", "0", "comma-separated prompt token IDs for forward/generation smoke")
 	quant := flag.Bool("ggml-quant", true, "keep quantized GGUF matrices instead of full F32 expansion")
@@ -57,6 +58,16 @@ func main() {
 		os.Exit(2)
 	}
 	if *maxNew > 0 {
+		if *bench {
+			ids, stats, err := runGenerationBench(m, promptIDs, *maxNew)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ggufsmoke: generate failed: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("generated=%v\n", ids)
+			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS())
+			return
+		}
 		ids, err := m.Generate(promptIDs, *maxNew)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: generate failed: %v\n", err)
@@ -98,4 +109,80 @@ func parsePromptIDs(csv string) ([]int, error) {
 		return nil, fmt.Errorf("no prompt ids")
 	}
 	return ids, nil
+}
+
+type generationBenchStats struct {
+	PrefillTokens  int
+	PrefillSeconds float64
+	DecodeTokens   int
+	DecodeSeconds  float64
+}
+
+func (s generationBenchStats) PrefillTPS() float64 {
+	if s.PrefillSeconds <= 0 {
+		return 0
+	}
+	return float64(s.PrefillTokens) / s.PrefillSeconds
+}
+
+func (s generationBenchStats) DecodeTPS() float64 {
+	if s.DecodeSeconds <= 0 {
+		return 0
+	}
+	return float64(s.DecodeTokens) / s.DecodeSeconds
+}
+
+func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int) ([]int, generationBenchStats, error) {
+	var stats generationBenchStats
+	if m == nil || len(promptIDs) == 0 || maxNew <= 0 {
+		return nil, stats, nil
+	}
+	cfg := m.Config
+	kvDim := cfg.NumKVHeads * cfg.HeadDim
+	maxSeq := len(promptIDs) + maxNew
+	if maxSeq > cfg.MaxSeqLen {
+		maxSeq = cfg.MaxSeqLen
+	}
+	kvK := make([][]float32, cfg.NumLayers)
+	kvV := make([][]float32, cfg.NumLayers)
+	for i := range kvK {
+		kvK[i] = make([]float32, maxSeq*kvDim)
+		kvV[i] = make([]float32, maxSeq*kvDim)
+	}
+	state := m.NewForwardState()
+	var logits []float32
+	p0 := time.Now()
+	for step, tok := range promptIDs {
+		logits = m.ForwardState(state, tok, step, kvK, kvV)
+	}
+	stats.PrefillTokens = len(promptIDs)
+	stats.PrefillSeconds = time.Since(p0).Seconds()
+	var generated []int
+	step := len(promptIDs) - 1
+	d0 := time.Now()
+	for range maxNew {
+		next := argmaxLocal(logits)
+		generated = append(generated, next)
+		if next == cfg.VocabSize-1 || (cfg.VocabSize > 2 && next == 2) {
+			break
+		}
+		step++
+		if step >= maxSeq {
+			break
+		}
+		logits = m.ForwardState(state, next, step, kvK, kvV)
+	}
+	stats.DecodeTokens = len(generated)
+	stats.DecodeSeconds = time.Since(d0).Seconds()
+	return generated, stats, nil
+}
+
+func argmaxLocal(x []float32) int {
+	best := 0
+	for i, v := range x[1:] {
+		if v > x[best] {
+			best = i + 1
+		}
+	}
+	return best
 }
