@@ -21,6 +21,8 @@ func main() {
 	cacheTypeV := flag.String("cache-type-v", "", "validate native TurboQuant value cache type (turbo2, q4_0, f16)")
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window for plan output")
 	expectREAPRatio := flag.Float64("expect-reap-ratio", -1, "fail unless inferred/metadata REAP prune ratio matches this value")
+	expectCacheLayers := flag.Int("expect-cache-layers", -1, "fail unless TurboQuant KV cache layer count matches this value")
+	expectProtectedCacheLayers := flag.Int("expect-protected-cache-layers", -1, "fail unless TurboQuant protected cache layer count matches this value")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: ggufinspect [flags] <model.gguf>")
@@ -51,11 +53,19 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ggufinspect: REAP ratio mismatch got=%.6f want=%.6f source=%s\n", in.REAPPruneRatio, *expectREAPRatio, in.REAPSource)
 		os.Exit(1)
 	}
+	if *expectCacheLayers >= 0 && int(in.CompressedKVLayers) != *expectCacheLayers {
+		fmt.Fprintf(os.Stderr, "ggufinspect: cache layer count mismatch got=%d want=%d\n", in.CompressedKVLayers, *expectCacheLayers)
+		os.Exit(1)
+	}
 	var tqPlan any
 	if *cacheTypeK != "" || *cacheTypeV != "" || *kvResidualWindow >= 0 {
 		plan, err := ggufTurboQuantPlanFromInspection(in, *cacheTypeK, *cacheTypeV, *kvResidualWindow)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ggufinspect: turboquant plan: %v\n", err)
+			os.Exit(1)
+		}
+		if *expectProtectedCacheLayers >= 0 && plan.ProtectedLayers != *expectProtectedCacheLayers {
+			fmt.Fprintf(os.Stderr, "ggufinspect: protected cache layer count mismatch got=%d want=%d\n", plan.ProtectedLayers, *expectProtectedCacheLayers)
 			os.Exit(1)
 		}
 		tqPlan = plan
