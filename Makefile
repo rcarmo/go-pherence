@@ -184,6 +184,7 @@ GGUF_EXPECT_Q4_K_COUNT ?=
 GGUF_EXPECT_Q6_K_COUNT ?=
 GGUF_EXPECT_CACHE_LAYERS ?=
 GGUF_EXPECT_PROTECTED_CACHE_LAYERS ?=
+GGUF_CI_PACKAGES ?= ./cmd/llmserver ./loader/gguf ./cmd/ggufinspect ./cmd/ggufsmoke ./model ./runtime/kv
 
 # Inspect and smoke the native pure-Go/SIMD GGUF path for llama/Qwen REAP models.
 gguf-inspect:
@@ -215,7 +216,7 @@ gguf-bench-qwen36-reap:
 gguf-check-qwen36-reap: gguf-validate-qwen36-reap gguf-bench-qwen36-reap
 
 gguf-ci-qwen36-reap:
-	go test ./cmd/llmserver ./loader/gguf ./cmd/ggufinspect ./cmd/ggufsmoke ./model ./runtime/kv -run '^$$'
+	go test $(GGUF_CI_PACKAGES) -run '^$$'
 	$(MAKE) gguf-check-qwen36-reap
 
 QWEN3TTS_MODEL ?=
