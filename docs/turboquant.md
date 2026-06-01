@@ -76,6 +76,7 @@ Current expected checkpoint inventory:
 - name marker: `REAP20`
 - tensors: `733` (`F32=301`, `Q4_K=371`, `Q6_K=61`)
 - layers/vocab/context: `40` / `248320` / `262144`
+- tokenizer stops: BOS `248044`, EOS `248046`
 - MoE: `205` experts, `8` active per token
 - KV: `kv_dim=512`, `cache_layers=10`, `protected_cache_layers=1`
 - one-token greedy smoke: `prompt_ids=0 -> generated=[489]`, decoded as `"ype"`
