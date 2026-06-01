@@ -62,6 +62,9 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 	if ratio := tq["estimated_kv_ratio"].(float64); ratio <= 0 || ratio >= 1 {
 		t.Fatalf("unexpected turboquant ratio: %+v", tq)
 	}
+	if int(tq["kv_layers"].(float64)) != 8 || int(tq["protected_layers"].(float64)) != 4 {
+		t.Fatalf("unexpected turboquant layer accounting: %+v", tq)
+	}
 }
 
 func TestHandleHealthReportsREAPSummary(t *testing.T) {

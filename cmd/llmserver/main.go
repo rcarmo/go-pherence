@@ -398,6 +398,7 @@ func (s *Server) turboQuantHealthLocked() map[string]any {
 		out["estimated_kv_bytes"] = est.EstimatedBytes
 		out["estimated_saved_kv_bytes"] = est.SavedBytes
 		out["estimated_kv_ratio"] = est.Ratio
+		out["kv_layers"] = est.KVLayers
 		out["protected_layers"] = est.ProtectedLayers
 	}
 	return out
