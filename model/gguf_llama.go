@@ -68,6 +68,8 @@ type GGUFLlamaLayer struct {
 	ExpertGateM *gguf.ExpertMatrices
 	ExpertUpM   *gguf.ExpertMatrices
 	ExpertDownM *gguf.ExpertMatrices
+	QNorm       []float32
+	KNorm       []float32
 
 	FusedQKVM *gguf.QuantMatrix
 	AttnGateM *gguf.QuantMatrix
@@ -179,6 +181,12 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		}
 		if cfg.IsQwenNextHybridGGUF() {
 			baseLoads[&layer.FFNNorm] = "post_attention_norm.weight"
+			if _, ok := g.TensorByName(p + "attn_q.weight"); ok {
+				baseLoads[&layer.WQ] = "attn_q.weight"
+				baseLoads[&layer.WK] = "attn_k.weight"
+				baseLoads[&layer.WV] = "attn_v.weight"
+				baseLoads[&layer.WO] = "attn_output.weight"
+			}
 		} else {
 			baseLoads[&layer.FFNNorm] = "ffn_norm.weight"
 			baseLoads[&layer.WQ] = "attn_q.weight"
@@ -196,6 +204,12 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 		if cfg.IsQwenNextHybridGGUF() {
 			if err := loadGGUFQwenNextHybridTensors(g, i, &layer); err != nil {
 				return nil, fmt.Errorf("layer %d QwenNext hybrid: %w", i, err)
+			}
+			if qn, err := load(p + "attn_q_norm.weight"); err == nil {
+				layer.QNorm = qn
+			}
+			if kn, err := load(p + "attn_k_norm.weight"); err == nil {
+				layer.KNorm = kn
 			}
 		}
 		if cfg.NumExperts > 0 {
@@ -216,7 +230,7 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 				*dst = data
 			}
 		}
-		if useGGMLQuant && !cfg.IsQwenNextHybridGGUF() {
+		if useGGMLQuant && (!cfg.IsQwenNextHybridGGUF() || layer.WQ != nil) {
 			if layer.WQm, err = loadMatrix(p + "attn_q.weight"); err != nil {
 				return nil, err
 			}
@@ -379,6 +393,9 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 		SSMInnerSize:          int(ssmInnerSize),
 		SSMStateSize:          int(ssmStateSize),
 		SSMTimeStepRank:       int(ssmRank),
+	}
+	if cfg.AttentionKeyLength > 0 {
+		cfg.HeadDim = cfg.AttentionKeyLength
 	}
 	return cfg, nil
 }
@@ -734,20 +751,27 @@ func (m *GGUFLlama) ForwardState(st *GGUFForwardState, tokenID, step int, kvK, k
 			}
 		}
 		if !hybridDone {
-			if m.UseGGMLQuant && layer.WQm != nil {
+			qOut := nH * hDim
+			if layer.WQm != nil && layer.WQm.OutDim == qOut*2 {
+				qFull := make([]float32, qOut*2)
+				m.gemvMaybe(qFull, attnIn, layer.WQ, layer.WQm, h, qOut*2)
+				copyGGUFQwenFullQ(q, qFull, nH, hDim)
+			} else if m.UseGGMLQuant && layer.WQm != nil {
 				if actRaw, err := quantActQ8K(attnIn[:h]); err == nil {
-					_ = m.gemvGGMLQuantRaw(q, actRaw, layer.WQm, h, nH*hDim)
-					_ = m.gemvGGMLQuantRaw(k, actRaw, layer.WKm, h, kvDim)
-					_ = m.gemvGGMLQuantRaw(v, actRaw, layer.WVm, h, kvDim)
+					_ = m.gemvGGMLQuantRaw(q, actRaw, layer.WQm, h, qOut)
 				} else {
-					m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, nH*hDim)
-					m.gemvMaybe(k, attnIn, layer.WK, layer.WKm, h, kvDim)
-					m.gemvMaybe(v, attnIn, layer.WV, layer.WVm, h, kvDim)
+					m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, qOut)
 				}
 			} else {
-				m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, nH*hDim)
-				m.gemvMaybe(k, attnIn, layer.WK, layer.WKm, h, kvDim)
-				m.gemvMaybe(v, attnIn, layer.WV, layer.WVm, h, kvDim)
+				m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, qOut)
+			}
+			m.gemvMaybe(k, attnIn, layer.WK, layer.WKm, h, kvDim)
+			m.gemvMaybe(v, attnIn, layer.WV, layer.WVm, h, kvDim)
+			if len(layer.QNorm) == hDim {
+				normGGUFHeads(q, layer.QNorm, nH, hDim, cfg.RMSNormEps)
+			}
+			if len(layer.KNorm) == hDim {
+				normGGUFHeads(k, layer.KNorm, nKV, hDim, cfg.RMSNormEps)
 			}
 
 			// RoPE
@@ -917,4 +941,25 @@ func argmaxF32(x []float32) int {
 		}
 	}
 	return best
+}
+
+func copyGGUFQwenFullQ(dst, qFull []float32, heads, headDim int) {
+	for h := 0; h < heads; h++ {
+		src := h * headDim * 2
+		copy(dst[h*headDim:(h+1)*headDim], qFull[src:src+headDim])
+	}
+}
+
+func normGGUFHeads(x, weight []float32, heads, headDim int, eps float32) {
+	for h := 0; h < heads; h++ {
+		row := x[h*headDim : (h+1)*headDim]
+		var ss float32
+		for _, v := range row {
+			ss += v * v
+		}
+		scale := float32(1.0 / math.Sqrt(float64(ss/float32(headDim)+eps)))
+		for i := 0; i < headDim; i++ {
+			row[i] *= scale * weight[i]
+		}
+	}
 }
