@@ -78,7 +78,7 @@ Current expected checkpoint inventory:
 - layers/vocab/context: `40` / `248320` / `262144`
 - MoE: `205` experts, `8` active per token
 - KV: `kv_dim=512`, `cache_layers=10`, `protected_cache_layers=1`
-- one-token greedy smoke: `prompt_ids=0 -> generated=[489]`
+- one-token greedy smoke: `prompt_ids=0 -> generated=[489]`, decoded as `"ype"`
 
 Unit tests cover:
 
