@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/model"
 )
 
 func TestCheckExpectedGenerated(t *testing.T) {
@@ -20,6 +22,22 @@ func TestCheckExpectedGenerated(t *testing.T) {
 	}
 	if err := checkExpectedGenerated([]int{489}, "bad"); err == nil || !strings.Contains(err.Error(), "bad -expect-generated") {
 		t.Fatalf("expected parse error, got %v", err)
+	}
+}
+
+func TestCheckExpectedRuntimeKV(t *testing.T) {
+	plan := model.GGUFGenerationKVRuntimePlan{FloatKVBytesAllocated: 245760, EstimatedCompressedKVBytes: 81920}
+	if err := checkExpectedRuntimeKV(plan, 245760, 81920); err != nil {
+		t.Fatalf("expected runtime KV match: %v", err)
+	}
+	if err := checkExpectedRuntimeKV(plan, -1, -1); err != nil {
+		t.Fatalf("unset expectations should be ignored: %v", err)
+	}
+	if err := checkExpectedRuntimeKV(plan, 1, -1); err == nil || !strings.Contains(err.Error(), "runtime F32 KV bytes mismatch") {
+		t.Fatalf("expected runtime float mismatch, got %v", err)
+	}
+	if err := checkExpectedRuntimeKV(plan, -1, 1); err == nil || !strings.Contains(err.Error(), "runtime compressed KV bytes mismatch") {
+		t.Fatalf("expected runtime compressed mismatch, got %v", err)
 	}
 }
 

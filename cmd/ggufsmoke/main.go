@@ -29,6 +29,8 @@ func main() {
 	kvSmokeTokens := flag.Int("kv-smoke-tokens", 0, "append N synthetic K/V positions to native TurboQuant GGUF caches")
 	expectGeneratedCSV := flag.String("expect-generated", "", "comma-separated generated token IDs expected from generation smoke")
 	expectDecoded := flag.String("expect-decoded", "", "decoded generated text expected from generation smoke; implies -decode validation when tokenizer is available")
+	expectRuntimeFloatBytes := flag.Int64("expect-runtime-float-bytes", -1, "fail unless planned runtime F32 KV bytes match this value")
+	expectRuntimeCompressedBytes := flag.Int64("expect-runtime-compressed-bytes", -1, "fail unless planned runtime compressed KV bytes match this value")
 	expectKVFloatBytes := flag.Int64("expect-kv-float-bytes", -1, "fail unless benchmark F32 KV allocated bytes match this value")
 	expectKVCompressedBytes := flag.Int64("expect-kv-compressed-bytes", -1, "fail unless benchmark compressed KV bytes match this value")
 	flag.Parse()
@@ -56,6 +58,10 @@ func main() {
 		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d cache_layers=%d protected_cache_layers=%d max_seq=%d kv_dim=%d full_kv_bytes=%d estimated_kv_bytes=%d estimated_saved_kv_bytes=%d estimated_kv_ratio=%.4f\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.CacheLayers, plan.ProtectedCacheLayers, plan.MaxSeqLen, plan.KVDim, plan.FullKVBytes, plan.EstimatedKVBytes, plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio)
 		planPromptIDs, _ := resolvePromptIDs(*path, *promptText, *promptIDsCSV)
 		if rt, err := m.GenerationKVRuntimePlan(len(planPromptIDs), *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow}); err == nil {
+			if err := checkExpectedRuntimeKV(rt, *expectRuntimeFloatBytes, *expectRuntimeCompressedBytes); err != nil {
+				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
+				os.Exit(1)
+			}
 			fmt.Printf("turboquant_runtime_kv max_seq=%d float_layers=%d compressed_layers=%d protected_compressed_layers=%d float_alloc_bytes=%d compressed_full_bytes=%d compressed_estimated_bytes=%d compressed_saved_bytes=%d compressed_ratio=%.4f\n", rt.MaxSeq, rt.FloatKVLayers, rt.CompressedKVLayers, rt.ProtectedCompressedLayers, rt.FloatKVBytesAllocated, rt.FullCompressedKVBytes, rt.EstimatedCompressedKVBytes, rt.SavedCompressedKVBytes, rt.CompressedKVRatio)
 		}
 		if *kvSmokeTokens > 0 {
@@ -166,6 +172,22 @@ func main() {
 	}
 	logits := m.ForwardState(state, promptIDs[0], 0, kvK, kvV)
 	fmt.Printf("forward logits=%d\n", len(logits))
+}
+
+func checkExpectedRuntimeKV(plan model.GGUFGenerationKVRuntimePlan, expectFloat, expectCompressed int64) error {
+	if expectFloat >= 0 && plan.FloatKVBytesAllocated != expectFloat {
+		return fmt.Errorf("runtime F32 KV bytes mismatch got=%d want=%d", plan.FloatKVBytesAllocated, expectFloat)
+	}
+	if expectCompressed >= 0 && plan.EstimatedCompressedKVBytes != expectCompressed {
+		return fmt.Errorf("runtime compressed KV bytes mismatch got=%d want=%d", plan.EstimatedCompressedKVBytes, expectCompressed)
+	}
+	if expectFloat >= 0 {
+		fmt.Printf("expected_runtime_float_bytes_ok=%d\n", expectFloat)
+	}
+	if expectCompressed >= 0 {
+		fmt.Printf("expected_runtime_compressed_bytes_ok=%d\n", expectCompressed)
+	}
+	return nil
 }
 
 func checkExpectedBenchKV(stats generationBenchStats, expectFloat, expectCompressed int64) error {
