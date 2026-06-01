@@ -23,6 +23,8 @@ func main() {
 	expectREAPRatio := flag.Float64("expect-reap-ratio", -1, "fail unless inferred/metadata REAP prune ratio matches this value")
 	expectLayers := flag.Int("expect-layers", -1, "fail unless model layer count matches this value")
 	expectVocabSize := flag.Int("expect-vocab-size", -1, "fail unless model vocabulary size matches this value")
+	expectMaxSeqLen := flag.Int("expect-max-seq-len", -1, "fail unless model context length matches this value")
+	expectFullAttentionInterval := flag.Int("expect-full-attention-interval", -1, "fail unless full-attention interval matches this value")
 	expectKVDim := flag.Int("expect-kv-dim", -1, "fail unless model KV dimension matches this value")
 	expectExperts := flag.Int("expect-experts", -1, "fail unless MoE expert count matches this value")
 	expectExpertsPerToken := flag.Int("expect-experts-per-token", -1, "fail unless MoE active experts per token matches this value")
@@ -64,6 +66,14 @@ func main() {
 	}
 	if *expectVocabSize >= 0 && int(in.VocabSize) != *expectVocabSize {
 		fmt.Fprintf(os.Stderr, "ggufinspect: vocab size mismatch got=%d want=%d\n", in.VocabSize, *expectVocabSize)
+		os.Exit(1)
+	}
+	if *expectMaxSeqLen >= 0 && int(in.MaxSeqLen) != *expectMaxSeqLen {
+		fmt.Fprintf(os.Stderr, "ggufinspect: max sequence length mismatch got=%d want=%d\n", in.MaxSeqLen, *expectMaxSeqLen)
+		os.Exit(1)
+	}
+	if *expectFullAttentionInterval >= 0 && int(in.FullAttentionInterval) != *expectFullAttentionInterval {
+		fmt.Fprintf(os.Stderr, "ggufinspect: full-attention interval mismatch got=%d want=%d\n", in.FullAttentionInterval, *expectFullAttentionInterval)
 		os.Exit(1)
 	}
 	if *expectKVDim >= 0 && int(in.KVDim) != *expectKVDim {
