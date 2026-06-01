@@ -23,6 +23,22 @@ func TestCheckExpectedGenerated(t *testing.T) {
 	}
 }
 
+func TestCheckExpectedBenchKV(t *testing.T) {
+	stats := generationBenchStats{KVFloatBytes: 245760, KVCompressedBytes: 81920}
+	if err := checkExpectedBenchKV(stats, 245760, 81920); err != nil {
+		t.Fatalf("expected KV match: %v", err)
+	}
+	if err := checkExpectedBenchKV(stats, -1, -1); err != nil {
+		t.Fatalf("unset expectations should be ignored: %v", err)
+	}
+	if err := checkExpectedBenchKV(stats, 1, -1); err == nil || !strings.Contains(err.Error(), "F32 KV bytes mismatch") {
+		t.Fatalf("expected float KV mismatch, got %v", err)
+	}
+	if err := checkExpectedBenchKV(stats, -1, 1); err == nil || !strings.Contains(err.Error(), "compressed KV bytes mismatch") {
+		t.Fatalf("expected compressed KV mismatch, got %v", err)
+	}
+}
+
 func TestCheckExpectedDecodedRequiresTokenizer(t *testing.T) {
 	if err := checkExpectedDecoded([]int{489}, nil, ""); err != nil {
 		t.Fatalf("empty decoded expectation should be ignored: %v", err)

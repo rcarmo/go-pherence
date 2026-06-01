@@ -29,6 +29,8 @@ func main() {
 	kvSmokeTokens := flag.Int("kv-smoke-tokens", 0, "append N synthetic K/V positions to native TurboQuant GGUF caches")
 	expectGeneratedCSV := flag.String("expect-generated", "", "comma-separated generated token IDs expected from generation smoke")
 	expectDecoded := flag.String("expect-decoded", "", "decoded generated text expected from generation smoke; implies -decode validation when tokenizer is available")
+	expectKVFloatBytes := flag.Int64("expect-kv-float-bytes", -1, "fail unless benchmark F32 KV allocated bytes match this value")
+	expectKVCompressedBytes := flag.Int64("expect-kv-compressed-bytes", -1, "fail unless benchmark compressed KV bytes match this value")
 	flag.Parse()
 	if *path == "" {
 		fmt.Fprintln(os.Stderr, "usage: ggufsmoke -model model.gguf [-load-only]")
@@ -128,6 +130,10 @@ func main() {
 			if *decodeOutput && tok != nil {
 				fmt.Printf("decoded=%q\n", tok.Decode(ids))
 			}
+			if err := checkExpectedBenchKV(stats, *expectKVFloatBytes, *expectKVCompressedBytes); err != nil {
+				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
+				os.Exit(1)
+			}
 			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f kv_float_bytes=%d kv_compressed_bytes=%d\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS(), stats.KVFloatBytes, stats.KVCompressedBytes)
 			return
 		}
@@ -160,6 +166,22 @@ func main() {
 	}
 	logits := m.ForwardState(state, promptIDs[0], 0, kvK, kvV)
 	fmt.Printf("forward logits=%d\n", len(logits))
+}
+
+func checkExpectedBenchKV(stats generationBenchStats, expectFloat, expectCompressed int64) error {
+	if expectFloat >= 0 && stats.KVFloatBytes != expectFloat {
+		return fmt.Errorf("benchmark F32 KV bytes mismatch got=%d want=%d", stats.KVFloatBytes, expectFloat)
+	}
+	if expectCompressed >= 0 && stats.KVCompressedBytes != expectCompressed {
+		return fmt.Errorf("benchmark compressed KV bytes mismatch got=%d want=%d", stats.KVCompressedBytes, expectCompressed)
+	}
+	if expectFloat >= 0 {
+		fmt.Printf("expected_kv_float_bytes_ok=%d\n", expectFloat)
+	}
+	if expectCompressed >= 0 {
+		fmt.Printf("expected_kv_compressed_bytes_ok=%d\n", expectCompressed)
+	}
+	return nil
 }
 
 func checkExpectedDecoded(ids []int, tok *gguf.Tokenizer, expected string) error {
