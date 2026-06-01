@@ -23,6 +23,7 @@ type Inspection struct {
 	ExpertsPerToken       uint32         `json:"experts_per_token,omitempty"`
 	HasREAPMetadata       bool           `json:"has_reap_metadata"`
 	REAPPruneRatio        float64        `json:"reap_prune_ratio,omitempty"`
+	REAPSource            string         `json:"reap_source,omitempty"`
 	REAPMetadataKeys      []string       `json:"reap_metadata_keys,omitempty"`
 	TurboQuantReady       bool           `json:"turboquant_ready"`
 	PureGoSIMDReady       bool           `json:"pure_go_simd_ready"`
@@ -108,16 +109,21 @@ func InspectOpen(path string, g *GGUF) Inspection {
 			if strings.Contains(lk, "ratio") || strings.Contains(lk, "prune") {
 				if ratio, ok := ggufMetaFloat64(v); ok && ratio > 0 && ratio < 1 {
 					in.REAPPruneRatio = ratio
+					in.REAPSource = k
 				}
 			}
 		}
 	}
 	if ratio, ok := inferREAPRatioFromName(path + " " + in.Name); ok && in.REAPPruneRatio == 0 {
 		in.REAPPruneRatio = ratio
+		in.REAPSource = "filename_or_name"
 	}
 	if !in.HasREAPMetadata && strings.Contains(strings.ToLower(path+" "+in.Name), "reap") {
 		in.HasREAPMetadata = true
 		in.REAPMetadataKeys = append(in.REAPMetadataKeys, "filename_or_name")
+		if in.REAPSource == "" {
+			in.REAPSource = "filename_or_name"
+		}
 	}
 	in.TurboQuantReady = true
 	in.PureGoSIMDReady = in.TensorCount > 0 && (in.HasQ4K || len(in.QuantCounts) > 0)

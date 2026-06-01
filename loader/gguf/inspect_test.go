@@ -27,7 +27,7 @@ func TestInspectOpenDetectsQ4KMoEREAP(t *testing.T) {
 	if in.RuntimeSupported || len(in.MissingRuntimeTensors) == 0 {
 		t.Fatalf("synthetic index should not claim runtime support: %+v", in)
 	}
-	if in.Experts != 128 || in.ExpertsPerToken != 8 || in.QuantCounts["Q4_K"] != 2 || in.QuantCounts["Q6_K"] != 1 || in.REAPPruneRatio < 0.199 || in.REAPPruneRatio > 0.201 {
+	if in.Experts != 128 || in.ExpertsPerToken != 8 || in.QuantCounts["Q4_K"] != 2 || in.QuantCounts["Q6_K"] != 1 || in.REAPPruneRatio < 0.199 || in.REAPPruneRatio > 0.201 || in.REAPSource != "qwen3moe.reap.prune_ratio" {
 		t.Fatalf("bad counts: %+v", in)
 	}
 }
@@ -35,7 +35,7 @@ func TestInspectOpenDetectsQ4KMoEREAP(t *testing.T) {
 func TestInspectOpenInfersREAPRatioFromName(t *testing.T) {
 	g := &GGUF{Meta: map[string]any{"general.architecture": "qwen3moe", "general.name": "Qwen3.6-REAP20"}, Tensors: []TensorInfo{{Name: "token_embd.weight", QType: QuantQ4_K}}}
 	in := InspectOpen("model.gguf", g)
-	if !in.HasREAPMetadata || in.REAPPruneRatio != 0.2 {
+	if !in.HasREAPMetadata || in.REAPPruneRatio != 0.2 || in.REAPSource != "filename_or_name" {
 		t.Fatalf("expected inferred REAP ratio: %+v", in)
 	}
 }
