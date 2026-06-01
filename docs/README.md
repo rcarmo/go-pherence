@@ -16,7 +16,7 @@ This directory contains the durable backend, model, validation, and research not
 ## Validation and performance
 
 - [validation-gates.md](validation-gates.md) — phase-level test, vet, CPU-only, and hardware smoke gates.
-- [commands.md](commands.md) — CLI usage, MTP smokes, Qwen MTP triage, and benchmark harnesses.
+- [commands.md](commands.md) — CLI usage, GGUF REAP/TurboQuant validation, MTP smokes, Qwen MTP triage, and benchmark harnesses.
 - [whisper-diarize-vtt.md](whisper-diarize-vtt.md) — current Whisper large-v3 translated VTT pipeline, performance, resume behavior, and diarization limitations.
 - [final-coverage-acceptance.md](final-coverage-acceptance.md) — final backend coverage acceptance tracker.
 - [performance.md](performance.md) — benchmark notes and current snapshots.
