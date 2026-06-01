@@ -76,6 +76,7 @@ Current expected checkpoint inventory:
 
 - architecture: `qwen35moe`
 - name marker: `REAP20`
+- REAP ratio/source: `0.20` / `filename_or_name`
 - tensors: `733` (`F32=301`, `Q4_K=371`, `Q6_K=61`)
 - layers/vocab/context: `40` / `248320` / `262144`
 - tokenizer stops: BOS `248044`, EOS `248046`
