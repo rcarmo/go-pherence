@@ -75,8 +75,8 @@ GOTMPDIR=$PWD/.gotmp make gguf-inspect-qwen36-reap
 GOTMPDIR=$PWD/.gotmp make gguf-smoke-qwen36-reap
 GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
 GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
-GOTMPDIR=$PWD/.gotmp make gguf-check-qwen36-reap
-GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+GOTMPDIR=$PWD/.gotmp make gguf-check-qwen36-reap  # validation + benchmark
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap     # focused build smoke + check
 ```
 
 Current expected checkpoint inventory:
