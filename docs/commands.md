@@ -118,11 +118,12 @@ make gguf-validate \
   GGUF_EXPECT_PROTECTED_CACHE_LAYERS=1 \
   GGUF_KV_RESIDUAL_WINDOW=2
 
-# Convenience target for the local Qwen3.6 REAP checkpoint/expectations above
+# Convenience targets for the local Qwen3.6 REAP checkpoint/expectations above
 make gguf-validate-qwen36-reap
+make gguf-bench-qwen36-reap
 ```
 
-`ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run. Set `GGUF_EXPECT_REAP_RATIO`, `GGUF_EXPECT_ARCHITECTURE`, `GGUF_EXPECT_NAME_CONTAINS`, `GGUF_EXPECT_TENSOR_COUNT`, `GGUF_EXPECT_LAYERS`, `GGUF_EXPECT_VOCAB_SIZE`, `GGUF_EXPECT_BOS`, `GGUF_EXPECT_EOS`, `GGUF_EXPECT_MAX_SEQ_LEN`, `GGUF_EXPECT_FULL_ATTENTION_INTERVAL`, `GGUF_EXPECT_KV_DIM`, `GGUF_EXPECT_EXPERTS`, `GGUF_EXPECT_EXPERTS_PER_TOKEN`, `GGUF_EXPECT_F32_COUNT`, `GGUF_EXPECT_Q4_K_COUNT`, `GGUF_EXPECT_Q6_K_COUNT`, `GGUF_EXPECT_CACHE_LAYERS`, `GGUF_EXPECT_PROTECTED_CACHE_LAYERS` (or the matching `ggufinspect` flags) and `GGUF_EXPECT_GENERATED`/`GGUF_EXPECT_DECODED` (or `ggufsmoke -expect-generated`/`-expect-decoded`) to make validation fail if REAP metadata/source inference, runtime shape/MoE planning, TurboQuant layer planning, or greedy output/decoded text changes unexpectedly.
+`ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run; `make gguf-bench-qwen36-reap` bundles the local expected token/decoded-text assertions with that benchmark. Set `GGUF_EXPECT_REAP_RATIO`, `GGUF_EXPECT_ARCHITECTURE`, `GGUF_EXPECT_NAME_CONTAINS`, `GGUF_EXPECT_TENSOR_COUNT`, `GGUF_EXPECT_LAYERS`, `GGUF_EXPECT_VOCAB_SIZE`, `GGUF_EXPECT_BOS`, `GGUF_EXPECT_EOS`, `GGUF_EXPECT_MAX_SEQ_LEN`, `GGUF_EXPECT_FULL_ATTENTION_INTERVAL`, `GGUF_EXPECT_KV_DIM`, `GGUF_EXPECT_EXPERTS`, `GGUF_EXPECT_EXPERTS_PER_TOKEN`, `GGUF_EXPECT_F32_COUNT`, `GGUF_EXPECT_Q4_K_COUNT`, `GGUF_EXPECT_Q6_K_COUNT`, `GGUF_EXPECT_CACHE_LAYERS`, `GGUF_EXPECT_PROTECTED_CACHE_LAYERS` (or the matching `ggufinspect` flags) and `GGUF_EXPECT_GENERATED`/`GGUF_EXPECT_DECODED` (or `ggufsmoke -expect-generated`/`-expect-decoded`) to make validation fail if REAP metadata/source inference, runtime shape/MoE planning, TurboQuant layer planning, or greedy output/decoded text changes unexpectedly.
 
 ## Gemma4 MTP smoke
 
