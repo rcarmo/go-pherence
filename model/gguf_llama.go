@@ -569,6 +569,9 @@ func gemvGGUFQuantRows(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int)
 	if w == nil || w.InDim != inDim || w.OutDim != outDim || len(out) < outDim || len(x) < inDim {
 		return fmt.Errorf("bad quant matrix dims")
 	}
+	if err := gemvGGMLQuantRows(out, x, w, inDim, outDim); err == nil {
+		return nil
+	}
 	row := make([]float32, inDim)
 	for r := 0; r < outDim; r++ {
 		if err := w.DequantRowTo(row, r); err != nil {
@@ -581,6 +584,22 @@ func gemvGGUFQuantRows(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int)
 		out[r] = sum
 	}
 	return nil
+}
+
+func gemvGGMLQuantRows(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int) error {
+	if w == nil || len(out) < outDim || len(x) < inDim || w.InDim != inDim || w.OutDim != outDim || !ggmlquant.HasVecDot(int(w.QType)) {
+		return fmt.Errorf("ggml quant rows unavailable")
+	}
+	vt := ggmlquant.VecDotType(int(w.QType))
+	xRaw, err := ggmlquant.QuantizeFromFloat(vt, x[:inDim])
+	if err != nil {
+		return err
+	}
+	rowBytes, err := w.RowBytes()
+	if err != nil {
+		return err
+	}
+	return ggmlquant.VecDotRows(int(w.QType), out[:outDim], w.Raw, rowBytes, xRaw, inDim, outDim)
 }
 
 func (m *GGUFLlama) gemvGGMLQuant(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int) error {
