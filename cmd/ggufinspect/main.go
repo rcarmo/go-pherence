@@ -28,6 +28,7 @@ func main() {
 	expectKVDim := flag.Int("expect-kv-dim", -1, "fail unless model KV dimension matches this value")
 	expectExperts := flag.Int("expect-experts", -1, "fail unless MoE expert count matches this value")
 	expectExpertsPerToken := flag.Int("expect-experts-per-token", -1, "fail unless MoE active experts per token matches this value")
+	expectF32Count := flag.Int("expect-f32-count", -1, "fail unless F32 tensor count matches this value")
 	expectQ4KCount := flag.Int("expect-q4-k-count", -1, "fail unless Q4_K tensor count matches this value")
 	expectQ6KCount := flag.Int("expect-q6-k-count", -1, "fail unless Q6_K tensor count matches this value")
 	expectCacheLayers := flag.Int("expect-cache-layers", -1, "fail unless TurboQuant KV cache layer count matches this value")
@@ -88,6 +89,10 @@ func main() {
 	}
 	if *expectExpertsPerToken >= 0 && int(in.ExpertsPerToken) != *expectExpertsPerToken {
 		fmt.Fprintf(os.Stderr, "ggufinspect: active experts per token mismatch got=%d want=%d\n", in.ExpertsPerToken, *expectExpertsPerToken)
+		os.Exit(1)
+	}
+	if *expectF32Count >= 0 && in.QuantCounts["F32"] != *expectF32Count {
+		fmt.Fprintf(os.Stderr, "ggufinspect: F32 tensor count mismatch got=%d want=%d\n", in.QuantCounts["F32"], *expectF32Count)
 		os.Exit(1)
 	}
 	if *expectQ4KCount >= 0 && in.QuantCounts["Q4_K"] != *expectQ4KCount {
