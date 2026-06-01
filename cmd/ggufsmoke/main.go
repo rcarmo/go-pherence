@@ -27,6 +27,7 @@ func main() {
 	cacheTypeV := flag.String("cache-type-v", "", "native TurboQuant value cache type (turbo2, q4_0, f16)")
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window")
 	kvSmokeTokens := flag.Int("kv-smoke-tokens", 0, "append N synthetic K/V positions to native TurboQuant GGUF caches")
+	expectGeneratedCSV := flag.String("expect-generated", "", "comma-separated generated token IDs expected from generation smoke")
 	flag.Parse()
 	if *path == "" {
 		fmt.Fprintln(os.Stderr, "usage: ggufsmoke -model model.gguf [-load-only]")
@@ -114,6 +115,10 @@ func main() {
 				fmt.Fprintf(os.Stderr, "ggufsmoke: generate failed: %v\n", err)
 				os.Exit(1)
 			}
+			if err := checkExpectedGenerated(ids, *expectGeneratedCSV); err != nil {
+				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
+				os.Exit(1)
+			}
 			fmt.Printf("generated=%v\n", ids)
 			if *decodeOutput && tok != nil {
 				fmt.Printf("decoded=%q\n", tok.Decode(ids))
@@ -124,6 +129,10 @@ func main() {
 		ids, err := m.GenerateWithOptions(promptIDs, *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: generate failed: %v\n", err)
+			os.Exit(1)
+		}
+		if err := checkExpectedGenerated(ids, *expectGeneratedCSV); err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("generated=%v\n", ids)
@@ -142,6 +151,26 @@ func main() {
 	}
 	logits := m.ForwardState(state, promptIDs[0], 0, kvK, kvV)
 	fmt.Printf("forward logits=%d\n", len(logits))
+}
+
+func checkExpectedGenerated(got []int, expectedCSV string) error {
+	if strings.TrimSpace(expectedCSV) == "" {
+		return nil
+	}
+	want, err := parsePromptIDs(expectedCSV)
+	if err != nil {
+		return fmt.Errorf("bad -expect-generated: %w", err)
+	}
+	if len(got) != len(want) {
+		return fmt.Errorf("generated mismatch got=%v want=%v", got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return fmt.Errorf("generated mismatch got=%v want=%v", got, want)
+		}
+	}
+	fmt.Printf("expected_generated_ok=%v\n", want)
+	return nil
 }
 
 func parsePromptIDs(csv string) ([]int, error) {
