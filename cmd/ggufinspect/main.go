@@ -78,7 +78,7 @@ func main() {
 	fmt.Printf("tensors: %d\n", in.TensorCount)
 	fmt.Printf("quant_counts: %v\n", in.QuantCounts)
 	fmt.Printf("moe: %v experts=%d active=%d\n", in.HasMoE, in.Experts, in.ExpertsPerToken)
-	fmt.Printf("reap_metadata: %v keys=%v\n", in.HasREAPMetadata, in.REAPMetadataKeys)
+	fmt.Printf("reap_metadata: %v ratio=%.2f keys=%v\n", in.HasREAPMetadata, in.REAPPruneRatio, in.REAPMetadataKeys)
 	fmt.Printf("turboquant_ready: %v\n", in.TurboQuantReady)
 	fmt.Printf("pure_go_simd_ready: %v\n", in.PureGoSIMDReady)
 	fmt.Printf("runtime_supported: %v\n", in.RuntimeSupported)

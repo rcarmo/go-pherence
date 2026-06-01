@@ -22,6 +22,7 @@ type Inspection struct {
 	Experts               uint32         `json:"experts,omitempty"`
 	ExpertsPerToken       uint32         `json:"experts_per_token,omitempty"`
 	HasREAPMetadata       bool           `json:"has_reap_metadata"`
+	REAPPruneRatio        float64        `json:"reap_prune_ratio,omitempty"`
 	REAPMetadataKeys      []string       `json:"reap_metadata_keys,omitempty"`
 	TurboQuantReady       bool           `json:"turboquant_ready"`
 	PureGoSIMDReady       bool           `json:"pure_go_simd_ready"`
@@ -99,12 +100,20 @@ func InspectOpen(path string, g *GGUF) Inspection {
 			in.CompressedKVLayers = in.Layers / in.FullAttentionInterval
 		}
 	}
-	for k := range g.Meta {
+	for k, v := range g.Meta {
 		lk := strings.ToLower(k)
 		if strings.Contains(lk, "reap") || strings.Contains(lk, "prun") {
 			in.HasREAPMetadata = true
 			in.REAPMetadataKeys = append(in.REAPMetadataKeys, k)
+			if strings.Contains(lk, "ratio") || strings.Contains(lk, "prune") {
+				if ratio, ok := ggufMetaFloat64(v); ok && ratio > 0 && ratio < 1 {
+					in.REAPPruneRatio = ratio
+				}
+			}
 		}
+	}
+	if ratio, ok := inferREAPRatioFromName(path + " " + in.Name); ok && in.REAPPruneRatio == 0 {
+		in.REAPPruneRatio = ratio
 	}
 	if !in.HasREAPMetadata && strings.Contains(strings.ToLower(path+" "+in.Name), "reap") {
 		in.HasREAPMetadata = true
