@@ -68,6 +68,7 @@ The local Qwen3.6 REAP GGUF validation bundle is:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
 ```
 
 Current expected checkpoint inventory:
@@ -79,7 +80,7 @@ Current expected checkpoint inventory:
 - tokenizer stops: BOS `248044`, EOS `248046`
 - MoE: `205` experts, `8` active per token
 - KV: `kv_dim=512`, `cache_layers=10`, `protected_cache_layers=1`
-- one-token greedy smoke: `prompt_ids=0 -> generated=[489]`, decoded as `"ype"`
+- one-token greedy smoke/bench: `prompt_ids=0 -> generated=[489]`, decoded as `"ype"`
 
 Unit tests cover:
 

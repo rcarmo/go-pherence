@@ -79,8 +79,9 @@ go run ./cmd/specbench -model models/smollm2-135m -prompt-file prompts.txt -toke
 # Large-v3 translated WebVTT from audio (GPU-assisted, resumable)
 go run ./cmd/diarize-vtt -input meeting.m4a -output meeting.vtt -language es
 
-# Native pure Go/SIMD GGUF REAP/TurboQuant validation
+# Native pure Go/SIMD GGUF REAP/TurboQuant validation and benchmark
 make gguf-validate-qwen36-reap
+make gguf-bench-qwen36-reap
 ```
 
 See [docs/commands.md](docs/commands.md) for detailed command usage, GGUF REAP/TurboQuant validation, MTP smoke commands, Qwen3.6 native-MTP triage commands, Whisper VTT usage, and benchmark harnesses. See [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) for the current Whisper implementation status and limitations.
