@@ -406,40 +406,7 @@ func (s *Server) turboQuantHealthLocked() map[string]any {
 }
 
 func serverTurboQuantKVBytes(layers, kvHeads, headDim, maxSeq int, cfg kv.TurboQuantConfig, enabled bool) (fullBytes, estimatedBytes int64) {
-	if layers <= 0 || kvHeads <= 0 || headDim <= 0 || maxSeq <= 0 {
-		return 0, 0
-	}
-	kvDim := kvHeads * headDim
-	fullPerLayer := int64(maxSeq) * int64(kvDim) * 2 * 4
-	fullBytes = int64(layers) * fullPerLayer
-	if !enabled {
-		return fullBytes, fullBytes
-	}
-	residual := cfg.ResidualWindow
-	if residual < 0 {
-		residual = 0
-	}
-	if residual > maxSeq {
-		residual = maxSeq
-	}
-	compressedTokens := maxSeq - residual
-	bytesPerVec := func(bits int) int64 {
-		if bits <= 0 {
-			return int64(headDim * 4)
-		}
-		packed := (headDim*bits + 7) / 8
-		return int64(kvHeads * (packed + 8))
-	}
-	compressedPerToken := bytesPerVec(cfg.KeyBits) + bytesPerVec(cfg.ValueBits)
-	tq := kv.NewTurboQuantState(headDim, layers, cfg)
-	for i := 0; i < layers; i++ {
-		if tq.IsProtectedLayer(i) {
-			estimatedBytes += fullPerLayer
-			continue
-		}
-		estimatedBytes += int64(residual)*int64(kvDim)*2*4 + int64(compressedTokens)*compressedPerToken
-	}
-	return fullBytes, estimatedBytes
+	return kv.EstimateTurboQuantKVBytes(layers, kvHeads, headDim, maxSeq, cfg, enabled, nil)
 }
 
 func (s *Server) switchModelLocked(id string) error {

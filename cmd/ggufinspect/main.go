@@ -119,55 +119,12 @@ func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType str
 		return inspectTurboQuantPlan{}, err
 	}
 	full, estimated := inspectTurboQuantBytes(in, cfg, enabled)
-	saved := full - estimated
-	if saved < 0 {
-		saved = 0
-	}
-	ratio := float64(0)
-	if full > 0 {
-		ratio = float64(estimated) / float64(full)
-	}
+	saved, ratio := kv.TurboQuantKVByteSavings(full, estimated)
 	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: full, EstimatedBytes: estimated, SavedBytes: saved, EstimatedKVRatio: ratio, RuntimeReady: in.RuntimeSupported}, nil
 }
 
 func inspectTurboQuantBytes(in gguf.Inspection, cfg kv.TurboQuantConfig, enabled bool) (int64, int64) {
-	if in.CompressedKVLayers == 0 || in.KVDim == 0 || in.MaxSeqLen == 0 {
-		return 0, 0
-	}
-	fullPerLayer := int64(in.MaxSeqLen) * int64(in.KVDim) * 2 * 4
-	full := int64(in.CompressedKVLayers) * fullPerLayer
-	if !enabled {
-		return full, full
-	}
-	residual := cfg.ResidualWindow
-	if residual < 0 {
-		residual = 0
-	}
-	if residual > int(in.MaxSeqLen) {
-		residual = int(in.MaxSeqLen)
-	}
-	compressedTokens := int(in.MaxSeqLen) - residual
-	bytesPerVec := func(bits int) int64 {
-		if bits <= 0 {
-			return int64(in.HeadDim * 4)
-		}
-		packed := (int(in.HeadDim)*bits + 7) / 8
-		return int64(in.KVHeads) * int64(packed+8)
-	}
-	compressedPerToken := bytesPerVec(cfg.KeyBits) + bytesPerVec(cfg.ValueBits)
-	tq := kv.NewTurboQuantState(int(in.HeadDim), int(in.Layers), cfg)
-	estimated := int64(0)
-	for i := uint32(0); i < in.Layers; i++ {
-		if !inspectUsesKVLayer(in, i) {
-			continue
-		}
-		if tq.IsProtectedLayer(int(i)) {
-			estimated += fullPerLayer
-			continue
-		}
-		estimated += int64(residual)*int64(in.KVDim)*2*4 + int64(compressedTokens)*compressedPerToken
-	}
-	return full, estimated
+	return kv.EstimateTurboQuantKVBytes(int(in.Layers), int(in.KVHeads), int(in.HeadDim), int(in.MaxSeqLen), cfg, enabled, func(i int) bool { return inspectUsesKVLayer(in, uint32(i)) })
 }
 
 func inspectUsesKVLayer(in gguf.Inspection, layer uint32) bool {

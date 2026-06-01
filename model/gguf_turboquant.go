@@ -64,7 +64,7 @@ func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int
 		MaxSeqLen:      cfg.MaxSeqLen,
 	}
 	plan.FullKVBytes, plan.EstimatedKVBytes = cfg.GGUFTurboQuantKVBytes(tqCfg, enabled)
-	plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio = ggufKVByteSavings(plan.FullKVBytes, plan.EstimatedKVBytes)
+	plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio = kv.TurboQuantKVByteSavings(plan.FullKVBytes, plan.EstimatedKVBytes)
 	return plan, nil
 }
 
