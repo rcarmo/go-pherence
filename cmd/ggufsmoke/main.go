@@ -11,6 +11,7 @@ import (
 	"github.com/rcarmo/go-pherence/backends/k3"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
 func main() {
@@ -95,7 +96,7 @@ func main() {
 	}
 	if *maxNew > 0 {
 		if *bench {
-			ids, stats, err := runGenerationBench(m, promptIDs, *maxNew)
+			ids, stats, err := runGenerationBench(m, promptIDs, *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "ggufsmoke: generate failed: %v\n", err)
 				os.Exit(1)
@@ -174,7 +175,7 @@ func (s generationBenchStats) DecodeTPS() float64 {
 	return float64(s.DecodeTokens) / s.DecodeSeconds
 }
 
-func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int) ([]int, generationBenchStats, error) {
+func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int, opts model.GGUFGenerationOptions) ([]int, generationBenchStats, error) {
 	var stats generationBenchStats
 	if m == nil || len(promptIDs) == 0 || maxNew <= 0 {
 		return nil, stats, nil
@@ -185,6 +186,14 @@ func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int) ([]int,
 	if maxSeq > cfg.MaxSeqLen {
 		maxSeq = cfg.MaxSeqLen
 	}
+	var compressedKV []*kv.CompressedKVCache
+	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
+		caches, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
+		if err != nil {
+			return nil, stats, err
+		}
+		compressedKV = caches
+	}
 	kvK := make([][]float32, cfg.NumLayers)
 	kvV := make([][]float32, cfg.NumLayers)
 	for i := range kvK {
@@ -192,6 +201,7 @@ func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int) ([]int,
 		kvV[i] = make([]float32, maxSeq*kvDim)
 	}
 	state := m.NewForwardState()
+	state.SetCompressedKVForSmoke(compressedKV)
 	var logits []float32
 	p0 := time.Now()
 	for step, tok := range promptIDs {
@@ -205,7 +215,7 @@ func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int) ([]int,
 	for range maxNew {
 		next := argmaxLocal(logits)
 		generated = append(generated, next)
-		if next == cfg.VocabSize-1 || (cfg.VocabSize > 2 && next == 2) {
+		if cfg.IsEOS(next) {
 			break
 		}
 		step++

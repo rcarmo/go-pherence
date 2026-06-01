@@ -1088,3 +1088,12 @@ func (c GGUFLlamaConfig) IsEOS(tokenID int) bool {
 	}
 	return tokenID == c.VocabSize-1 || (c.VocabSize > 2 && tokenID == 2)
 }
+
+// SetCompressedKVForSmoke attaches native compressed KV caches to a reusable
+// forward state. It is primarily used by smoke/benchmark tooling; generation
+// APIs set this internally when TurboQuant options are supplied.
+func (st *GGUFForwardState) SetCompressedKVForSmoke(caches []*kv.CompressedKVCache) {
+	if st != nil {
+		st.compressedKV = caches
+	}
+}
