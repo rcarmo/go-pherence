@@ -64,16 +64,16 @@ End-to-end BF16 support spans the loader, SIMD facade, NVIDIA backend, Vulkan sc
 
 ## Package ownership overview
 
-- `loader/` — config, tokenizer, safetensors, and shared weight-source opening.
+- `loader/` — config, tokenizer, safetensors, GGUF inspection/tokenizer helpers, and shared weight-source opening.
 - `backends/placement/` — backend-neutral memory budget and layer placement policy.
 - `backends/simd/` — AVX2/FMA and NEON dispatch/kernels plus checked scalar fallbacks.
 - `backends/nvidia/ptx/` — PTX source assets grouped by quantization family.
 - `backends/nvidia/runtime/` — NVIDIA runtime, DevBuf, kernels, GPU weights, expert cache, and diagnostics.
 - `backends/vulkan/` — Vulkan loader/device/buffer/shader dispatch scaffolding.
 - `models/bert/` — GTE/BERT encoder path.
-- `runtime/kv/` — TurboQuant state, compressed KV cache, and staging/rollback primitives.
+- `runtime/kv/` — TurboQuant state, compressed KV cache, shared KV byte estimator, and staging/rollback primitives.
 - `runtime/memory/` — mmap residency advice and tracked range accounting.
 - `runtime/quant/` — compatibility wrappers for backend-owned quantization implementations.
-- `model/`, `model/qwen/`, `model/gemma4/`, `model/llama/` — shared LLaMA-family decoder plus focused architecture packages/diagnostics.
+- `model/`, `model/qwen/`, `model/gemma4/`, `model/llama/` — shared LLaMA-family decoder plus focused architecture packages/diagnostics, including native GGUF REAP/TurboQuant planning and smoke validation surfaces.
 
 See [backend-layout.md](backend-layout.md), [kernel-coverage.md](kernel-coverage.md), and [backend-parity-matrix.md](backend-parity-matrix.md) for detailed status.
