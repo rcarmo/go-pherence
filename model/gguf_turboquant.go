@@ -10,12 +10,15 @@ import (
 // GGUF model. It deliberately maps llama.cpp-style cache type names onto
 // go-pherence's pure Go TurboQuant cache implementation.
 type GGUFGenerationKVRuntimePlan struct {
-	MaxSeq                     int   `json:"max_seq"`
-	FloatKVLayers              int   `json:"float_kv_layers"`
-	CompressedKVLayers         int   `json:"compressed_kv_layers"`
-	FloatKVBytesAllocated      int64 `json:"float_kv_bytes_allocated"`
-	FullCompressedKVBytes      int64 `json:"full_compressed_kv_bytes"`
-	EstimatedCompressedKVBytes int64 `json:"estimated_compressed_kv_bytes"`
+	MaxSeq                     int     `json:"max_seq"`
+	FloatKVLayers              int     `json:"float_kv_layers"`
+	CompressedKVLayers         int     `json:"compressed_kv_layers"`
+	ProtectedCompressedLayers  int     `json:"protected_compressed_layers"`
+	FloatKVBytesAllocated      int64   `json:"float_kv_bytes_allocated"`
+	FullCompressedKVBytes      int64   `json:"full_compressed_kv_bytes"`
+	EstimatedCompressedKVBytes int64   `json:"estimated_compressed_kv_bytes"`
+	SavedCompressedKVBytes     int64   `json:"saved_compressed_kv_bytes"`
+	CompressedKVRatio          float64 `json:"compressed_kv_ratio"`
 }
 
 type GGUFTurboQuantPlan struct {
@@ -113,7 +116,12 @@ func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGene
 		plan.FloatKVLayers++
 	}
 	plan.FloatKVBytesAllocated = int64(plan.FloatKVLayers) * int64(maxSeq) * int64(kvDim) * 2 * 4
-	plan.FullCompressedKVBytes, plan.EstimatedCompressedKVBytes = cfg.GGUFTurboQuantKVBytesForSeq(maxSeq, tqCfg, enabled)
+	est := kv.EstimateTurboQuantKV(cfg.NumLayers, cfg.NumKVHeads, cfg.HeadDim, maxSeq, tqCfg, enabled, cfg.GGUFUsesCompressedKVLayer)
+	plan.FullCompressedKVBytes = est.FullBytes
+	plan.EstimatedCompressedKVBytes = est.EstimatedBytes
+	plan.SavedCompressedKVBytes = est.SavedBytes
+	plan.CompressedKVRatio = est.Ratio
+	plan.ProtectedCompressedLayers = est.ProtectedLayers
 	return plan, nil
 }
 

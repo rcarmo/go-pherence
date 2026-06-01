@@ -58,6 +58,9 @@ func TestGGUFGenerationKVRuntimePlan(t *testing.T) {
 	if plan.FullCompressedKVBytes <= 0 || plan.EstimatedCompressedKVBytes <= 0 || plan.EstimatedCompressedKVBytes > plan.FullCompressedKVBytes {
 		t.Fatalf("bad compressed bytes: %+v", plan)
 	}
+	if plan.SavedCompressedKVBytes != plan.FullCompressedKVBytes-plan.EstimatedCompressedKVBytes || plan.CompressedKVRatio <= 0 || plan.CompressedKVRatio > 1 {
+		t.Fatalf("bad runtime savings: %+v", plan)
+	}
 }
 
 func TestGGUFTurboQuantPlanSavings(t *testing.T) {
