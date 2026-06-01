@@ -53,6 +53,9 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 	if !ok || tq["enabled"] != true || int(tq["kv_dim"].(float64)) != 4 || int(tq["full_kv_bytes"].(float64)) != 2048 {
 		t.Fatalf("unexpected turboquant health: %+v", resp)
 	}
+	if est := int(tq["estimated_kv_bytes"].(float64)); est <= 0 || est > 2048 {
+		t.Fatalf("unexpected turboquant estimate: %+v", tq)
+	}
 }
 
 func TestHandleHealthReportsRuntimeState(t *testing.T) {
