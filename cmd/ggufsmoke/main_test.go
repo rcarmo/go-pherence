@@ -25,6 +25,27 @@ func TestCheckExpectedGenerated(t *testing.T) {
 	}
 }
 
+func TestCheckExpectedKVSmoke(t *testing.T) {
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 3, 3, 2, 9440); err != nil {
+		t.Fatalf("expected KV smoke match: %v", err)
+	}
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, -1, -1, -1, -1); err != nil {
+		t.Fatalf("unset expectations should be ignored: %v", err)
+	}
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 4, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "layer mismatch") {
+		t.Fatalf("expected layer mismatch, got %v", err)
+	}
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, -1, 4, -1, -1); err == nil || !strings.Contains(err.Error(), "compressed count mismatch") {
+		t.Fatalf("expected compressed mismatch, got %v", err)
+	}
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, -1, -1, 3, -1); err == nil || !strings.Contains(err.Error(), "full count mismatch") {
+		t.Fatalf("expected full mismatch, got %v", err)
+	}
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, -1, -1, -1, 1); err == nil || !strings.Contains(err.Error(), "bytes mismatch") {
+		t.Fatalf("expected bytes mismatch, got %v", err)
+	}
+}
+
 func TestCheckExpectedRuntimeKV(t *testing.T) {
 	plan := model.GGUFGenerationKVRuntimePlan{FloatKVBytesAllocated: 245760, EstimatedCompressedKVBytes: 81920}
 	if err := checkExpectedRuntimeKV(plan, 245760, 81920); err != nil {

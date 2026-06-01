@@ -85,6 +85,7 @@ Current expected checkpoint inventory:
 - tokenizer stops: BOS `248044`, EOS `248046`
 - MoE: `205` experts, `8` active per token
 - KV: `kv_dim=512`, `cache_layers=10`, `protected_cache_layers=1`
+- synthetic KV append smoke: layer `3`, compressed/full `3`/`2`, bytes `9440`
 - one-token runtime KV plan: `245760` F32 bytes and `81920` compressed bytes
 - one-token greedy smoke/bench: `prompt_ids=0 -> generated=[489]`, decoded as `"ype"`; bench KV bytes are `245760` F32 and `81920` compressed
 

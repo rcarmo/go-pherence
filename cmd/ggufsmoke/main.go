@@ -27,6 +27,10 @@ func main() {
 	cacheTypeV := flag.String("cache-type-v", "", "native TurboQuant value cache type (turbo2, q4_0, f16)")
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window")
 	kvSmokeTokens := flag.Int("kv-smoke-tokens", 0, "append N synthetic K/V positions to native TurboQuant GGUF caches")
+	expectKVSmokeLayer := flag.Int("expect-kv-smoke-layer", -1, "fail unless TurboQuant synthetic KV smoke selects this layer")
+	expectKVSmokeCompressed := flag.Int("expect-kv-smoke-compressed", -1, "fail unless TurboQuant synthetic KV smoke compressed count matches")
+	expectKVSmokeFull := flag.Int("expect-kv-smoke-full", -1, "fail unless TurboQuant synthetic KV smoke full count matches")
+	expectKVSmokeBytes := flag.Int64("expect-kv-smoke-bytes", -1, "fail unless TurboQuant synthetic KV smoke memory bytes match")
 	expectGeneratedCSV := flag.String("expect-generated", "", "comma-separated generated token IDs expected from generation smoke")
 	expectDecoded := flag.String("expect-decoded", "", "decoded generated text expected from generation smoke; implies -decode validation when tokenizer is available")
 	expectRuntimeFloatBytes := flag.Int64("expect-runtime-float-bytes", -1, "fail unless planned runtime F32 KV bytes match this value")
@@ -101,6 +105,10 @@ func main() {
 				}
 				if idx >= 0 {
 					c := caches[idx]
+					if err := checkExpectedKVSmoke(idx, c.CompressedCount(), c.FullCount(), c.MemoryBytes(), *expectKVSmokeLayer, *expectKVSmokeCompressed, *expectKVSmokeFull, *expectKVSmokeBytes); err != nil {
+						fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
+						os.Exit(1)
+					}
 					fmt.Printf("turboquant_cache_smoke tokens=%d layer=%d seq=%d compressed=%d full=%d bytes=%d\n", *kvSmokeTokens, idx, c.SeqLen(), c.CompressedCount(), c.FullCount(), c.MemoryBytes())
 				}
 			}
@@ -172,6 +180,34 @@ func main() {
 	}
 	logits := m.ForwardState(state, promptIDs[0], 0, kvK, kvV)
 	fmt.Printf("forward logits=%d\n", len(logits))
+}
+
+func checkExpectedKVSmoke(layer, compressed, full int, bytes int64, expectLayer, expectCompressed, expectFull int, expectBytes int64) error {
+	if expectLayer >= 0 && layer != expectLayer {
+		return fmt.Errorf("KV smoke layer mismatch got=%d want=%d", layer, expectLayer)
+	}
+	if expectCompressed >= 0 && compressed != expectCompressed {
+		return fmt.Errorf("KV smoke compressed count mismatch got=%d want=%d", compressed, expectCompressed)
+	}
+	if expectFull >= 0 && full != expectFull {
+		return fmt.Errorf("KV smoke full count mismatch got=%d want=%d", full, expectFull)
+	}
+	if expectBytes >= 0 && bytes != expectBytes {
+		return fmt.Errorf("KV smoke bytes mismatch got=%d want=%d", bytes, expectBytes)
+	}
+	if expectLayer >= 0 {
+		fmt.Printf("expected_kv_smoke_layer_ok=%d\n", expectLayer)
+	}
+	if expectCompressed >= 0 {
+		fmt.Printf("expected_kv_smoke_compressed_ok=%d\n", expectCompressed)
+	}
+	if expectFull >= 0 {
+		fmt.Printf("expected_kv_smoke_full_ok=%d\n", expectFull)
+	}
+	if expectBytes >= 0 {
+		fmt.Printf("expected_kv_smoke_bytes_ok=%d\n", expectBytes)
+	}
+	return nil
 }
 
 func checkExpectedRuntimeKV(plan model.GGUFGenerationKVRuntimePlan, expectFloat, expectCompressed int64) error {
