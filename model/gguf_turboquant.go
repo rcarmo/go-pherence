@@ -9,6 +9,13 @@ import (
 // GGUFTurboQuantPlan describes the native compressed-KV cache policy for a
 // GGUF model. It deliberately maps llama.cpp-style cache type names onto
 // go-pherence's pure Go TurboQuant cache implementation.
+type GGUFGenerationKVRuntimePlan struct {
+	MaxSeq                int   `json:"max_seq"`
+	FloatKVLayers         int   `json:"float_kv_layers"`
+	CompressedKVLayers    int   `json:"compressed_kv_layers"`
+	FloatKVBytesAllocated int64 `json:"float_kv_bytes_allocated"`
+}
+
 type GGUFTurboQuantPlan struct {
 	Enabled          bool   `json:"enabled"`
 	KeyType          string `json:"key_type,omitempty"`
@@ -53,6 +60,42 @@ func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int
 		MaxSeqLen:      cfg.MaxSeqLen,
 	}
 	plan.FullKVBytes, plan.EstimatedKVBytes = cfg.GGUFTurboQuantKVBytes(tqCfg, enabled)
+	return plan, nil
+}
+
+func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGenerationOptions) (GGUFGenerationKVRuntimePlan, error) {
+	if m == nil {
+		return GGUFGenerationKVRuntimePlan{}, fmt.Errorf("nil GGUF model")
+	}
+	cfg := m.Config
+	if promptLen < 0 || maxNew < 0 {
+		return GGUFGenerationKVRuntimePlan{}, fmt.Errorf("invalid generation lengths prompt=%d max_new=%d", promptLen, maxNew)
+	}
+	maxSeq := promptLen + maxNew
+	if maxSeq > cfg.MaxSeqLen {
+		maxSeq = cfg.MaxSeqLen
+	}
+	if maxSeq < 0 {
+		maxSeq = 0
+	}
+	var compressed []*kv.CompressedKVCache
+	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
+		caches, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
+		if err != nil {
+			return GGUFGenerationKVRuntimePlan{}, err
+		}
+		compressed = caches
+	}
+	kvDim := cfg.NumKVHeads * cfg.HeadDim
+	plan := GGUFGenerationKVRuntimePlan{MaxSeq: maxSeq}
+	for i := 0; i < cfg.NumLayers; i++ {
+		if i < len(compressed) && compressed[i] != nil {
+			plan.CompressedKVLayers++
+			continue
+		}
+		plan.FloatKVLayers++
+	}
+	plan.FloatKVBytesAllocated = int64(plan.FloatKVLayers) * int64(maxSeq) * int64(kvDim) * 2 * 4
 	return plan, nil
 }
 

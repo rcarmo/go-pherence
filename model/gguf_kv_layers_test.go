@@ -43,6 +43,20 @@ func TestGGUFTurboQuantKVBytesEstimatesCompressedCache(t *testing.T) {
 	}
 }
 
+func TestGGUFGenerationKVRuntimePlan(t *testing.T) {
+	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 5, NumKVHeads: 1, HeadDim: 4, MaxSeqLen: 16, SSMInnerSize: 16, SSMStateSize: 4, FullAttentionInterval: 2, AttentionKeyLength: 8, AttentionValueLength: 8}}
+	plan, err := m.GenerationKVRuntimePlan(3, 2, GGUFGenerationOptions{CacheTypeK: "turbo4", CacheTypeV: "turbo2", KVResidualWindow: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.MaxSeq != 5 || plan.CompressedKVLayers != 2 || plan.FloatKVLayers != 3 {
+		t.Fatalf("bad runtime plan: %+v", plan)
+	}
+	if want := int64(3 * 5 * 4 * 2 * 4); plan.FloatKVBytesAllocated != want {
+		t.Fatalf("float bytes=%d want %d", plan.FloatKVBytesAllocated, want)
+	}
+}
+
 func TestNewTurboQuantKVCacheSkipsQwenNextRecurrentLayers(t *testing.T) {
 	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 5, NumKVHeads: 1, HeadDim: 4, SSMInnerSize: 16, SSMStateSize: 4, FullAttentionInterval: 2, AttentionKeyLength: 8, AttentionValueLength: 8}}
 	caches, err := m.NewTurboQuantKVCache("turbo4", "turbo2", 1)
