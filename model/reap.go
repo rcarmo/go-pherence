@@ -20,6 +20,7 @@ type REAPConfig struct {
 	LayerActive        map[string][]int     `json:"layers,omitempty"`
 	LayerActiveNumeric map[int]map[int]bool `json:"-"`
 	DefaultMask        map[int]bool         `json:"-"`
+	Source             string               `json:"-"`
 }
 
 func InferREAPConfigFromName(name string) *REAPConfig {
@@ -32,7 +33,7 @@ func InferREAPConfigFromName(name string) *REAPConfig {
 	if err != nil || n <= 0 || n >= 100 {
 		return nil
 	}
-	cfg := &REAPConfig{Enabled: true, PruneRatio: float64(n) / 100.0}
+	cfg := &REAPConfig{Enabled: true, PruneRatio: float64(n) / 100.0, Source: "filename_or_name"}
 	if err := cfg.normalize(); err != nil {
 		return nil
 	}
@@ -53,6 +54,7 @@ func LoadREAPConfig(dir string) (*REAPConfig, error) {
 		if err := json.Unmarshal(data, &cfg); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
+		cfg.Source = path
 		if err := cfg.normalize(); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}

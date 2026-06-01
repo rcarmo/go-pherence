@@ -42,7 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 	reap := m.REAP.Summary()
-	fmt.Printf("loaded architecture=%s layers=%d hidden=%d experts=%d active=%d qwennext=%v reap=%.2f reap_static_masks=%v reap_default_experts=%d reap_layer_masks=%d reap_layer_experts=%d bos=%d eos=%d in %.2fs\n", m.Config.Architecture, m.Config.NumLayers, m.Config.HiddenSize, m.Config.NumExperts, m.Config.NumExpertsPerTok, m.Config.IsQwenNextHybridGGUF(), reap.PruneRatio, reap.HasStaticMasks, reap.DefaultExperts, reap.LayerMasks, reap.LayerExpertTotal, m.Config.BOSTokenID, m.Config.EOSTokenID, time.Since(t0).Seconds())
+	fmt.Printf("loaded architecture=%s layers=%d hidden=%d experts=%d active=%d qwennext=%v reap=%.2f reap_source=%s reap_static_masks=%v reap_default_experts=%d reap_layer_masks=%d reap_layer_experts=%d bos=%d eos=%d in %.2fs\n", m.Config.Architecture, m.Config.NumLayers, m.Config.HiddenSize, m.Config.NumExperts, m.Config.NumExpertsPerTok, m.Config.IsQwenNextHybridGGUF(), reap.PruneRatio, reap.Source, reap.HasStaticMasks, reap.DefaultExperts, reap.LayerMasks, reap.LayerExpertTotal, m.Config.BOSTokenID, m.Config.EOSTokenID, time.Since(t0).Seconds())
 	if *cacheTypeK != "" || *cacheTypeV != "" || *kvResidualWindow >= 0 {
 		plan, err := m.TurboQuantPlan(*cacheTypeK, *cacheTypeV, *kvResidualWindow)
 		if err != nil {

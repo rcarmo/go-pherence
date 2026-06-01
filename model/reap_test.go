@@ -16,14 +16,14 @@ func TestLoadREAPConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg == nil || !cfg.Allows(0, 2) || cfg.Allows(0, 1) || !cfg.Allows(3, 1) || cfg.Allows(3, 2) {
+	if cfg == nil || !cfg.Allows(0, 2) || cfg.Allows(0, 1) || !cfg.Allows(3, 1) || cfg.Allows(3, 2) || filepath.Base(cfg.Source) != "reap_config.json" {
 		t.Fatalf("unexpected REAP mask behavior: %+v", cfg)
 	}
 }
 
 func TestInferREAPConfigFromName(t *testing.T) {
 	cfg := InferREAPConfigFromName("Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf")
-	if cfg == nil || cfg.PruneRatio != 0.20 || !cfg.Enabled {
+	if cfg == nil || cfg.PruneRatio != 0.20 || !cfg.Enabled || cfg.Source != "filename_or_name" {
 		t.Fatalf("unexpected inferred cfg: %+v", cfg)
 	}
 	if got := InferREAPConfigFromName("dense.gguf"); got != nil {
