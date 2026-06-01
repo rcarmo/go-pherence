@@ -64,6 +64,22 @@ make gguf-bench \
 
 ## Validation snapshot
 
+The local Qwen3.6 REAP GGUF validation bundle is:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Current expected checkpoint inventory:
+
+- architecture: `qwen35moe`
+- name marker: `REAP20`
+- tensors: `733` (`F32=301`, `Q4_K=371`, `Q6_K=61`)
+- layers/vocab/context: `40` / `248320` / `262144`
+- MoE: `205` experts, `8` active per token
+- KV: `kv_dim=512`, `cache_layers=10`, `protected_cache_layers=1`
+- one-token greedy smoke: `prompt_ids=0 -> generated=[489]`
+
 Unit tests cover:
 
 - Roundtrip quality: 4-bit K max error about `0.455`, 2-bit V max error about
