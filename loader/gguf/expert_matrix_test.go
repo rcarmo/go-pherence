@@ -14,6 +14,12 @@ func TestDequantRowQ4KToZeroBlock(t *testing.T) {
 	}
 }
 
+func TestDotExpertRow(t *testing.T) {
+	if got := dotExpertRow([]float32{1, 2, 3}, []float32{4, 5, 6}); got != 32 {
+		t.Fatalf("dot=%v", got)
+	}
+}
+
 func TestExpertMatricesFromTensorQ4K(t *testing.T) {
 	g := &GGUF{Tensors: []TensorInfo{{Name: "blk.0.ffn_gate_exps.weight", Shape: []uint64{256, 2, 3}, QType: QuantQ4_K}}, DataOffset: 0}
 	// Avoid file IO by constructing the matrix directly; this validates row math

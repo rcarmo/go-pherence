@@ -1,6 +1,10 @@
 package gguf
 
-import "fmt"
+import (
+	"fmt"
+	"runtime"
+	"sync"
+)
 
 // ExpertMatrices keeps a GGUF 3D MoE expert tensor in its original quantized
 // form. GGUF MoE tensors are expected as [inDim, outDim, experts], making each
@@ -54,19 +58,63 @@ func (m *ExpertMatrices) DequantExpertRowTo(dst []float32, expert, row int) erro
 }
 
 func (m *ExpertMatrices) GemvExpertTo(out, x []float32, expert int) error {
-	if m == nil || len(out) < m.OutDim || len(x) < m.InDim {
+	if m == nil || expert < 0 || expert >= m.Experts || len(out) < m.OutDim || len(x) < m.InDim {
 		return fmt.Errorf("gguf expert gemv %s: bad buffers", m.Name)
 	}
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 1 {
+		workers = 1
+	}
+	if m.OutDim < workers*8 {
+		workers = 1
+	}
+	if workers == 1 {
+		return m.gemvExpertRange(out, x, expert, 0, m.OutDim)
+	}
+	chunk := (m.OutDim + workers - 1) / workers
+	var wg sync.WaitGroup
+	errCh := make(chan error, workers)
+	for wid := 0; wid < workers; wid++ {
+		start := wid * chunk
+		end := start + chunk
+		if end > m.OutDim {
+			end = m.OutDim
+		}
+		if start >= end {
+			continue
+		}
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			if err := m.gemvExpertRange(out, x, expert, start, end); err != nil {
+				errCh <- err
+			}
+		}(start, end)
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
+}
+
+func (m *ExpertMatrices) gemvExpertRange(out, x []float32, expert, start, end int) error {
 	row := make([]float32, m.InDim)
-	for r := 0; r < m.OutDim; r++ {
+	for r := start; r < end; r++ {
 		if err := m.DequantExpertRowTo(row, expert, r); err != nil {
 			return err
 		}
-		var sum float32
-		for i := 0; i < m.InDim; i++ {
-			sum += row[i] * x[i]
-		}
-		out[r] = sum
+		out[r] = dotExpertRow(row, x[:m.InDim])
 	}
 	return nil
+}
+
+func dotExpertRow(a, b []float32) float32 {
+	var sum float32
+	for i, av := range a {
+		sum += av * b[i]
+	}
+	return sum
 }
