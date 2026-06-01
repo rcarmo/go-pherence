@@ -61,6 +61,10 @@ make gguf-bench \
   `ggufinspect`, `ggufsmoke`, and `cmd/llmserver /health`; it reports full bytes,
   estimated compressed bytes, savings, ratio, KV layer count, and protected-layer
   count.
+- `cmd/llmserver /health` reports TurboQuant and REAP together when both are
+  active, so deployments can verify cache policy interpretation, KV/protected
+  layer accounting, byte estimates, and REAP source without starting a generation
+  request.
 
 ## Validation snapshot
 
