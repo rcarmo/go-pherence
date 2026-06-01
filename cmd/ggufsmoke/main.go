@@ -14,6 +14,9 @@ func main() {
 	path := flag.String("model", "", "GGUF model path")
 	loadOnly := flag.Bool("load-only", false, "load model and exit")
 	quant := flag.Bool("ggml-quant", true, "keep quantized GGUF matrices instead of full F32 expansion")
+	cacheTypeK := flag.String("cache-type-k", "", "native TurboQuant key cache type (turbo4, q8_0, f16)")
+	cacheTypeV := flag.String("cache-type-v", "", "native TurboQuant value cache type (turbo2, q4_0, f16)")
+	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window")
 	flag.Parse()
 	if *path == "" {
 		fmt.Fprintln(os.Stderr, "usage: ggufsmoke -model model.gguf [-load-only]")
@@ -33,6 +36,14 @@ func main() {
 		reap = m.REAP.PruneRatio
 	}
 	fmt.Printf("loaded architecture=%s layers=%d hidden=%d experts=%d active=%d qwennext=%v reap=%.2f in %.2fs\n", m.Config.Architecture, m.Config.NumLayers, m.Config.HiddenSize, m.Config.NumExperts, m.Config.NumExpertsPerTok, m.Config.IsQwenNextHybridGGUF(), reap, time.Since(t0).Seconds())
+	if *cacheTypeK != "" || *cacheTypeV != "" || *kvResidualWindow >= 0 {
+		plan, err := m.TurboQuantPlan(*cacheTypeK, *cacheTypeV, *kvResidualWindow)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: turboquant plan failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d kv_dim=%d\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.KVDim)
+	}
 	if *loadOnly {
 		return
 	}
