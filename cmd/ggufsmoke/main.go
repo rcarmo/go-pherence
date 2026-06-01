@@ -28,6 +28,7 @@ func main() {
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window")
 	kvSmokeTokens := flag.Int("kv-smoke-tokens", 0, "append N synthetic K/V positions to native TurboQuant GGUF caches")
 	expectGeneratedCSV := flag.String("expect-generated", "", "comma-separated generated token IDs expected from generation smoke")
+	expectDecoded := flag.String("expect-decoded", "", "decoded generated text expected from generation smoke; implies -decode validation when tokenizer is available")
 	flag.Parse()
 	if *path == "" {
 		fmt.Fprintln(os.Stderr, "usage: ggufsmoke -model model.gguf [-load-only]")
@@ -101,7 +102,7 @@ func main() {
 		return
 	}
 	promptIDs, tok := resolvePromptIDs(*path, *promptText, *promptIDsCSV)
-	if *decodeOutput && tok == nil {
+	if (*decodeOutput || *expectDecoded != "") && tok == nil {
 		tok = loadGGUFTokenizerForDecode(*path)
 	}
 	if len(promptIDs) == 0 {
@@ -120,6 +121,10 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Printf("generated=%v\n", ids)
+			if err := checkExpectedDecoded(ids, tok, *expectDecoded); err != nil {
+				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
+				os.Exit(1)
+			}
 			if *decodeOutput && tok != nil {
 				fmt.Printf("decoded=%q\n", tok.Decode(ids))
 			}
@@ -136,6 +141,10 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("generated=%v\n", ids)
+		if err := checkExpectedDecoded(ids, tok, *expectDecoded); err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
+			os.Exit(1)
+		}
 		if *decodeOutput && tok != nil {
 			fmt.Printf("decoded=%q\n", tok.Decode(ids))
 		}
@@ -151,6 +160,21 @@ func main() {
 	}
 	logits := m.ForwardState(state, promptIDs[0], 0, kvK, kvV)
 	fmt.Printf("forward logits=%d\n", len(logits))
+}
+
+func checkExpectedDecoded(ids []int, tok *gguf.Tokenizer, expected string) error {
+	if expected == "" {
+		return nil
+	}
+	if tok == nil {
+		return fmt.Errorf("-expect-decoded requires a GGUF tokenizer")
+	}
+	got := tok.Decode(ids)
+	if got != expected {
+		return fmt.Errorf("decoded mismatch got=%q want=%q", got, expected)
+	}
+	fmt.Printf("expected_decoded_ok=%q\n", expected)
+	return nil
 }
 
 func checkExpectedGenerated(got []int, expectedCSV string) error {
