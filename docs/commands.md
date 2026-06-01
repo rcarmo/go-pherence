@@ -73,6 +73,28 @@ go run ./cmd/llmgen -model models/smollm2-135m -tokens 32 \
 
 The current stock speculative backend is `replay`, a correctness scaffold that reuses the CPU generator and can be slower. Available proposer choices are `prompt`, `repeat-last`, and `none`; `-speculative-min-proposal` gates tiny proposals.
 
+## GGUF REAP/TurboQuant smoke
+
+The native GGUF path is pure Go/SIMD and does not shell out to llama.cpp. It accepts llama.cpp-compatible cache policy names and maps them to `runtime/kv` TurboQuant caches:
+
+```bash
+make gguf-inspect \
+  GGUF_MODEL=/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf \
+  GGUF_CACHE_TYPE_K=turbo4 \
+  GGUF_CACHE_TYPE_V=turbo2 \
+  GGUF_KV_RESIDUAL_WINDOW=128
+
+make gguf-bench \
+  GGUF_MODEL=/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf \
+  GGUF_PROMPT_IDS=0 \
+  GGUF_MAX_NEW=1 \
+  GGUF_CACHE_TYPE_K=turbo4 \
+  GGUF_CACHE_TYPE_V=turbo2 \
+  GGUF_KV_RESIDUAL_WINDOW=2
+```
+
+`ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run.
+
 ## Gemma4 MTP smoke
 
 Standalone smoke command:
