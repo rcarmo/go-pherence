@@ -78,7 +78,7 @@ Current expected checkpoint inventory:
 - name marker: `REAP20`
 - REAP ratio/source: `0.20` / `filename_or_name`
 - tensors: `733` (`F32=301`, `Q4_K=371`, `Q6_K=61`)
-- layers/hidden/heads/vocab/context: `40` / `2048` / `16` / `248320` / `262144`
+- layers/hidden/heads/vocab/tokenizer/context: `40` / `2048` / `16` / `248320` / `248320` / `262144`
 - tokenizer stops: BOS `248044`, EOS `248046`
 - MoE: `205` experts, `8` active per token
 - KV: `kv_dim=512`, `cache_layers=10`, `protected_cache_layers=1`

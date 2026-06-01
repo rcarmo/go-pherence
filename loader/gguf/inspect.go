@@ -16,6 +16,7 @@ type Inspection struct {
 	HiddenSize            uint32         `json:"hidden_size,omitempty"`
 	Heads                 uint32         `json:"heads,omitempty"`
 	VocabSize             uint32         `json:"vocab_size,omitempty"`
+	TokenizerTokens       uint32         `json:"tokenizer_tokens,omitempty"`
 	BOSTokenID            uint32         `json:"bos_token_id,omitempty"`
 	EOSTokenID            uint32         `json:"eos_token_id,omitempty"`
 	MaxSeqLen             uint32         `json:"max_seq_len,omitempty"`
@@ -108,6 +109,11 @@ func InspectOpen(path string, g *GGUF) Inspection {
 	if in.VocabSize == 0 {
 		if t, ok := g.TensorByName("token_embd.weight"); ok && len(t.Shape) >= 2 {
 			in.VocabSize = uint32(t.Shape[1])
+		}
+	}
+	if raw, ok := g.Meta["tokenizer.ggml.tokens"]; ok {
+		if arr, ok := raw.([]any); ok {
+			in.TokenizerTokens = uint32(len(arr))
 		}
 	}
 	in.BOSTokenID, _ = g.MetaUint32("tokenizer.ggml.bos_token_id")

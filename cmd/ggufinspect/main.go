@@ -30,6 +30,7 @@ func main() {
 	expectHiddenSize := flag.Int("expect-hidden-size", -1, "fail unless model hidden size matches this value")
 	expectHeads := flag.Int("expect-heads", -1, "fail unless model attention head count matches this value")
 	expectVocabSize := flag.Int("expect-vocab-size", -1, "fail unless model vocabulary size matches this value")
+	expectTokenizerTokens := flag.Int("expect-tokenizer-tokens", -1, "fail unless tokenizer token table length matches this value")
 	expectBOS := flag.Int("expect-bos", -1, "fail unless tokenizer BOS token ID matches this value")
 	expectEOS := flag.Int("expect-eos", -1, "fail unless tokenizer EOS token ID matches this value")
 	expectMaxSeqLen := flag.Int("expect-max-seq-len", -1, "fail unless model context length matches this value")
@@ -104,6 +105,10 @@ func main() {
 	}
 	if *expectVocabSize >= 0 && int(in.VocabSize) != *expectVocabSize {
 		fmt.Fprintf(os.Stderr, "ggufinspect: vocab size mismatch got=%d want=%d\n", in.VocabSize, *expectVocabSize)
+		os.Exit(1)
+	}
+	if *expectTokenizerTokens >= 0 && int(in.TokenizerTokens) != *expectTokenizerTokens {
+		fmt.Fprintf(os.Stderr, "ggufinspect: tokenizer token count mismatch got=%d want=%d\n", in.TokenizerTokens, *expectTokenizerTokens)
 		os.Exit(1)
 	}
 	if *expectBOS >= 0 && int(in.BOSTokenID) != *expectBOS {
@@ -194,7 +199,7 @@ func main() {
 	}
 	fmt.Printf("tensors: %d\n", in.TensorCount)
 	fmt.Printf("quant_counts: %v\n", in.QuantCounts)
-	fmt.Printf("shape: layers=%d hidden=%d heads=%d vocab=%d bos=%d eos=%d\n", in.Layers, in.HiddenSize, in.Heads, in.VocabSize, in.BOSTokenID, in.EOSTokenID)
+	fmt.Printf("shape: layers=%d hidden=%d heads=%d vocab=%d tokenizer_tokens=%d bos=%d eos=%d\n", in.Layers, in.HiddenSize, in.Heads, in.VocabSize, in.TokenizerTokens, in.BOSTokenID, in.EOSTokenID)
 	fmt.Printf("moe: %v experts=%d active=%d\n", in.HasMoE, in.Experts, in.ExpertsPerToken)
 	fmt.Printf("reap_metadata: %v ratio=%.2f source=%s keys=%v\n", in.HasREAPMetadata, in.REAPPruneRatio, in.REAPSource, in.REAPMetadataKeys)
 	fmt.Printf("turboquant_ready: %v\n", in.TurboQuantReady)
