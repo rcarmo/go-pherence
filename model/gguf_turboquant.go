@@ -30,6 +30,7 @@ type GGUFTurboQuantPlan struct {
 	HeadDim               int     `json:"head_dim"`
 	KVDim                 int     `json:"kv_dim"`
 	CacheLayers           int     `json:"cache_layers"`
+	ProtectedCacheLayers  int     `json:"protected_cache_layers,omitempty"`
 	MaxSeqLen             int     `json:"max_seq_len,omitempty"`
 	FullKVBytes           int64   `json:"full_kv_bytes,omitempty"`
 	EstimatedKVBytes      int64   `json:"estimated_kv_bytes,omitempty"`
@@ -63,8 +64,12 @@ func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int
 		CacheLayers:    cfg.GGUFCompressedKVLayerCount(),
 		MaxSeqLen:      cfg.MaxSeqLen,
 	}
-	plan.FullKVBytes, plan.EstimatedKVBytes = cfg.GGUFTurboQuantKVBytes(tqCfg, enabled)
-	plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio = kv.TurboQuantKVByteSavings(plan.FullKVBytes, plan.EstimatedKVBytes)
+	est := kv.EstimateTurboQuantKV(cfg.NumLayers, cfg.NumKVHeads, cfg.HeadDim, cfg.MaxSeqLen, tqCfg, enabled, cfg.GGUFUsesCompressedKVLayer)
+	plan.FullKVBytes = est.FullBytes
+	plan.EstimatedKVBytes = est.EstimatedBytes
+	plan.EstimatedSavedKVBytes = est.SavedBytes
+	plan.EstimatedKVRatio = est.Ratio
+	plan.ProtectedCacheLayers = est.ProtectedLayers
 	return plan, nil
 }
 

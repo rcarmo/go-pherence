@@ -390,23 +390,14 @@ func (s *Server) turboQuantHealthLocked() map[string]any {
 		out["head_dim"] = headDim
 		out["kv_dim"] = kvDim
 		out["max_seq"] = maxSeq
-		full, estimated := serverTurboQuantKVBytes(layers, kvHeads, headDim, maxSeq, cfg, enabled)
-		out["full_kv_bytes"] = full
-		out["estimated_kv_bytes"] = estimated
-		if full > 0 {
-			saved := full - estimated
-			if saved < 0 {
-				saved = 0
-			}
-			out["estimated_saved_kv_bytes"] = saved
-			out["estimated_kv_ratio"] = float64(estimated) / float64(full)
-		}
+		est := kv.EstimateTurboQuantKV(layers, kvHeads, headDim, maxSeq, cfg, enabled, nil)
+		out["full_kv_bytes"] = est.FullBytes
+		out["estimated_kv_bytes"] = est.EstimatedBytes
+		out["estimated_saved_kv_bytes"] = est.SavedBytes
+		out["estimated_kv_ratio"] = est.Ratio
+		out["protected_layers"] = est.ProtectedLayers
 	}
 	return out
-}
-
-func serverTurboQuantKVBytes(layers, kvHeads, headDim, maxSeq int, cfg kv.TurboQuantConfig, enabled bool) (fullBytes, estimatedBytes int64) {
-	return kv.EstimateTurboQuantKVBytes(layers, kvHeads, headDim, maxSeq, cfg, enabled, nil)
 }
 
 func (s *Server) switchModelLocked(id string) error {

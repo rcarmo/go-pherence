@@ -102,6 +102,7 @@ type inspectTurboQuantPlan struct {
 	ResidualWindow   int     `json:"residual_window"`
 	Layers           uint32  `json:"layers,omitempty"`
 	CacheLayers      uint32  `json:"cache_layers,omitempty"`
+	ProtectedLayers  int     `json:"protected_cache_layers,omitempty"`
 	MaxSeqLen        uint32  `json:"max_seq_len,omitempty"`
 	KVHeads          uint32  `json:"kv_heads,omitempty"`
 	HeadDim          uint32  `json:"head_dim,omitempty"`
@@ -118,13 +119,12 @@ func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType str
 	if err != nil {
 		return inspectTurboQuantPlan{}, err
 	}
-	full, estimated := inspectTurboQuantBytes(in, cfg, enabled)
-	saved, ratio := kv.TurboQuantKVByteSavings(full, estimated)
-	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: full, EstimatedBytes: estimated, SavedBytes: saved, EstimatedKVRatio: ratio, RuntimeReady: in.RuntimeSupported}, nil
+	est := inspectTurboQuantEstimate(in, cfg, enabled)
+	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, ProtectedLayers: est.ProtectedLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: est.FullBytes, EstimatedBytes: est.EstimatedBytes, SavedBytes: est.SavedBytes, EstimatedKVRatio: est.Ratio, RuntimeReady: in.RuntimeSupported}, nil
 }
 
-func inspectTurboQuantBytes(in gguf.Inspection, cfg kv.TurboQuantConfig, enabled bool) (int64, int64) {
-	return kv.EstimateTurboQuantKVBytes(int(in.Layers), int(in.KVHeads), int(in.HeadDim), int(in.MaxSeqLen), cfg, enabled, func(i int) bool { return inspectUsesKVLayer(in, uint32(i)) })
+func inspectTurboQuantEstimate(in gguf.Inspection, cfg kv.TurboQuantConfig, enabled bool) kv.TurboQuantKVEstimate {
+	return kv.EstimateTurboQuantKV(int(in.Layers), int(in.KVHeads), int(in.HeadDim), int(in.MaxSeqLen), cfg, enabled, func(i int) bool { return inspectUsesKVLayer(in, uint32(i)) })
 }
 
 func inspectUsesKVLayer(in gguf.Inspection, layer uint32) bool {

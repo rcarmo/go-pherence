@@ -3,7 +3,8 @@ package kv
 import "testing"
 
 func TestEstimateTurboQuantKVBytesSkipsLayersAndReportsSavings(t *testing.T) {
-	cfg := TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 2}
+	cfg := DefaultTurboQuantConfig()
+	cfg.ResidualWindow = 2
 	full, estimated := EstimateTurboQuantKVBytes(8, 1, 8, 16, cfg, true, func(i int) bool { return i%2 == 0 })
 	if full != 4*16*8*2*4 {
 		t.Fatalf("full bytes=%d", full)
@@ -14,6 +15,10 @@ func TestEstimateTurboQuantKVBytesSkipsLayersAndReportsSavings(t *testing.T) {
 	saved, ratio := TurboQuantKVByteSavings(full, estimated)
 	if saved != full-estimated || ratio <= 0 || ratio >= 1 {
 		t.Fatalf("saved=%d ratio=%f full=%d estimated=%d", saved, ratio, full, estimated)
+	}
+	est := EstimateTurboQuantKV(8, 1, 8, 16, cfg, true, func(i int) bool { return i%2 == 0 })
+	if est.FullBytes != full || est.EstimatedBytes != estimated || est.KVLayers != 4 || est.ProtectedLayers == 0 {
+		t.Fatalf("bad detailed estimate: %+v", est)
 	}
 }
 
