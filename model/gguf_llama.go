@@ -964,7 +964,17 @@ func (m *GGUFLlama) gqaAttention(q, kCache, vCache []float32, seqLen, nH, nKV, h
 // Generate runs autoregressive generation for up to maxNew tokens.
 // Prompt token IDs must already include BOS if required.
 // Returns generated token IDs (not including the prompt).
+type GGUFGenerationOptions struct {
+	CacheTypeK       string
+	CacheTypeV       string
+	KVResidualWindow int
+}
+
 func (m *GGUFLlama) Generate(promptIDs []int, maxNew int) ([]int, error) {
+	return m.GenerateWithOptions(promptIDs, maxNew, GGUFGenerationOptions{KVResidualWindow: -1})
+}
+
+func (m *GGUFLlama) GenerateWithOptions(promptIDs []int, maxNew int, opts GGUFGenerationOptions) ([]int, error) {
 	cfg := m.Config
 	kvDim := cfg.NumKVHeads * cfg.HeadDim
 	maxSeq := len(promptIDs) + maxNew
@@ -972,7 +982,14 @@ func (m *GGUFLlama) Generate(promptIDs []int, maxNew int) ([]int, error) {
 		maxSeq = cfg.MaxSeqLen
 	}
 
-	// Allocate KV caches
+	// Allocate KV caches. TurboQuant options are accepted and validated here;
+	// QwenNext hybrid layers use recurrent state and full-attention interval
+	// layers still consume F32 KV slices until attention reads compressed caches directly.
+	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
+		if _, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow); err != nil {
+			return nil, err
+		}
+	}
 	kvK := make([][]float32, cfg.NumLayers)
 	kvV := make([][]float32, cfg.NumLayers)
 	for i := range kvK {

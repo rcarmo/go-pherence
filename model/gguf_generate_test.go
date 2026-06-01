@@ -2,6 +2,13 @@ package model
 
 import "testing"
 
+func TestGGUFGenerateWithOptionsValidatesTurboQuantPolicy(t *testing.T) {
+	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 1, NumKVHeads: 1, HeadDim: 1, MaxSeqLen: 4, VocabSize: 2}}
+	if _, err := m.GenerateWithOptions([]int{0}, 1, GGUFGenerationOptions{CacheTypeK: "turbo9", KVResidualWindow: -1}); err == nil {
+		t.Fatal("expected invalid cache policy error")
+	}
+}
+
 func TestGGUFGenerateHandlesEmptyAndDoesNotDoublePrefill(t *testing.T) {
 	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 0, NumKVHeads: 1, HeadDim: 1, MaxSeqLen: 4, VocabSize: 2}}
 	if got, err := m.Generate(nil, 1); err != nil || len(got) != 0 {

@@ -98,7 +98,7 @@ func main() {
 			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS())
 			return
 		}
-		ids, err := m.Generate(promptIDs, *maxNew)
+		ids, err := m.GenerateWithOptions(promptIDs, *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: generate failed: %v\n", err)
 			os.Exit(1)
