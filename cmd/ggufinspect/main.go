@@ -45,6 +45,9 @@ func main() {
 	expectQ6KCount := flag.Int("expect-q6-k-count", -1, "fail unless Q6_K tensor count matches this value")
 	expectCacheLayers := flag.Int("expect-cache-layers", -1, "fail unless TurboQuant KV cache layer count matches this value")
 	expectProtectedCacheLayers := flag.Int("expect-protected-cache-layers", -1, "fail unless TurboQuant protected cache layer count matches this value")
+	expectFullKVBytes := flag.Int64("expect-full-kv-bytes", -1, "fail unless TurboQuant full KV byte estimate matches this value")
+	expectEstimatedKVBytes := flag.Int64("expect-estimated-kv-bytes", -1, "fail unless TurboQuant compressed KV byte estimate matches this value")
+	expectSavedKVBytes := flag.Int64("expect-saved-kv-bytes", -1, "fail unless TurboQuant saved KV byte estimate matches this value")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: ggufinspect [flags] <model.gguf>")
@@ -172,6 +175,18 @@ func main() {
 		}
 		if *expectProtectedCacheLayers >= 0 && plan.ProtectedLayers != *expectProtectedCacheLayers {
 			fmt.Fprintf(os.Stderr, "ggufinspect: protected cache layer count mismatch got=%d want=%d\n", plan.ProtectedLayers, *expectProtectedCacheLayers)
+			os.Exit(1)
+		}
+		if *expectFullKVBytes >= 0 && plan.FullKVBytes != *expectFullKVBytes {
+			fmt.Fprintf(os.Stderr, "ggufinspect: full KV byte estimate mismatch got=%d want=%d\n", plan.FullKVBytes, *expectFullKVBytes)
+			os.Exit(1)
+		}
+		if *expectEstimatedKVBytes >= 0 && plan.EstimatedBytes != *expectEstimatedKVBytes {
+			fmt.Fprintf(os.Stderr, "ggufinspect: estimated KV byte mismatch got=%d want=%d\n", plan.EstimatedBytes, *expectEstimatedKVBytes)
+			os.Exit(1)
+		}
+		if *expectSavedKVBytes >= 0 && plan.SavedBytes != *expectSavedKVBytes {
+			fmt.Fprintf(os.Stderr, "ggufinspect: saved KV byte estimate mismatch got=%d want=%d\n", plan.SavedBytes, *expectSavedKVBytes)
 			os.Exit(1)
 		}
 		tqPlan = plan
