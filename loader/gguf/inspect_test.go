@@ -46,7 +46,7 @@ func TestInspectOpenRuntimeSupportedForExpectedMoETensors(t *testing.T) {
 }
 
 func TestInspectOpenQwenNextRuntimeSupportedWhenTensorsPresent(t *testing.T) {
-	g := &GGUF{Meta: map[string]any{"general.architecture": "qwen35moe", "qwen35moe.ssm.inner_size": uint32(4096), "qwen35moe.expert_count": uint32(205), "qwen35moe.expert_used_count": uint32(8)}, Tensors: []TensorInfo{
+	g := &GGUF{Meta: map[string]any{"general.architecture": "qwen35moe", "qwen35moe.block_count": uint32(40), "qwen35moe.embedding_length": uint32(2048), "qwen35moe.attention.head_count": uint32(8), "qwen35moe.attention.head_count_kv": uint32(2), "qwen35moe.attention.key_length": uint32(256), "qwen35moe.full_attention_interval": uint32(4), "qwen35moe.ssm.inner_size": uint32(4096), "qwen35moe.expert_count": uint32(205), "qwen35moe.expert_used_count": uint32(8)}, Tensors: []TensorInfo{
 		{Name: "token_embd.weight", QType: QuantQ4_K}, {Name: "output_norm.weight", QType: QuantF32}, {Name: "output.weight", QType: QuantQ4_K},
 		{Name: "blk.0.attn_qkv.weight", QType: QuantQ4_K}, {Name: "blk.0.attn_gate.weight", QType: QuantQ4_K}, {Name: "blk.0.post_attention_norm.weight", QType: QuantF32},
 		{Name: "blk.0.ssm_conv1d.weight", QType: QuantF32}, {Name: "blk.0.ssm_a", QType: QuantF32}, {Name: "blk.0.ssm_dt.bias", QType: QuantF32}, {Name: "blk.0.ssm_norm.weight", QType: QuantF32}, {Name: "blk.0.ssm_alpha.weight", QType: QuantQ4_K}, {Name: "blk.0.ssm_beta.weight", QType: QuantQ4_K}, {Name: "blk.0.ssm_out.weight", QType: QuantQ4_K},
@@ -55,6 +55,9 @@ func TestInspectOpenQwenNextRuntimeSupportedWhenTensorsPresent(t *testing.T) {
 	in := InspectOpen("qwen.gguf", g)
 	if !in.RuntimeSupported || len(in.MissingRuntimeTensors) != 0 {
 		t.Fatalf("expected runtime support: %+v", in)
+	}
+	if in.Layers != 40 || in.KVHeads != 2 || in.HeadDim != 256 || in.KVDim != 512 || in.CompressedKVLayers != 10 {
+		t.Fatalf("bad QwenNext KV plan dims: %+v", in)
 	}
 }
 

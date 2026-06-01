@@ -100,6 +100,11 @@ type inspectTurboQuantPlan struct {
 	KeyBits        int    `json:"key_bits,omitempty"`
 	ValueBits      int    `json:"value_bits,omitempty"`
 	ResidualWindow int    `json:"residual_window"`
+	Layers         uint32 `json:"layers,omitempty"`
+	CacheLayers    uint32 `json:"cache_layers,omitempty"`
+	KVHeads        uint32 `json:"kv_heads,omitempty"`
+	HeadDim        uint32 `json:"head_dim,omitempty"`
+	KVDim          uint32 `json:"kv_dim,omitempty"`
 	RuntimeReady   bool   `json:"runtime_ready"`
 }
 
@@ -108,5 +113,5 @@ func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType str
 	if err != nil {
 		return inspectTurboQuantPlan{}, err
 	}
-	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, RuntimeReady: in.RuntimeSupported}, nil
+	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, RuntimeReady: in.RuntimeSupported}, nil
 }

@@ -12,6 +12,12 @@ type Inspection struct {
 	QuantCounts           map[string]int `json:"quant_counts"`
 	HasQ4K                bool           `json:"has_q4_k"`
 	HasMoE                bool           `json:"has_moe"`
+	Layers                uint32         `json:"layers,omitempty"`
+	KVHeads               uint32         `json:"kv_heads,omitempty"`
+	HeadDim               uint32         `json:"head_dim,omitempty"`
+	KVDim                 uint32         `json:"kv_dim,omitempty"`
+	FullAttentionInterval uint32         `json:"full_attention_interval,omitempty"`
+	CompressedKVLayers    uint32         `json:"compressed_kv_layers,omitempty"`
 	Experts               uint32         `json:"experts,omitempty"`
 	ExpertsPerToken       uint32         `json:"experts_per_token,omitempty"`
 	HasREAPMetadata       bool           `json:"has_reap_metadata"`
@@ -55,6 +61,23 @@ func InspectOpen(path string, g *GGUF) Inspection {
 		if p == "" {
 			continue
 		}
+		if in.Layers == 0 {
+			in.Layers, _ = g.MetaUint32(p + ".block_count")
+		}
+		if heads, ok := g.MetaUint32(p + ".attention.head_count"); ok && heads > 0 && in.HeadDim == 0 {
+			if hidden, ok := g.MetaUint32(p + ".embedding_length"); ok {
+				in.HeadDim = hidden / heads
+			}
+		}
+		if in.KVHeads == 0 {
+			in.KVHeads, _ = g.MetaUint32(p + ".attention.head_count_kv")
+		}
+		if in.FullAttentionInterval == 0 {
+			in.FullAttentionInterval, _ = g.MetaUint32(p + ".full_attention_interval")
+		}
+		if v, ok := g.MetaUint32(p + ".attention.key_length"); ok && v > 0 {
+			in.HeadDim = v
+		}
 		if v, ok := g.MetaUint32(p + ".expert_count"); ok {
 			in.Experts = v
 			in.HasMoE = true
@@ -62,6 +85,14 @@ func InspectOpen(path string, g *GGUF) Inspection {
 		if v, ok := g.MetaUint32(p + ".expert_used_count"); ok {
 			in.ExpertsPerToken = v
 			in.HasMoE = true
+		}
+	}
+	in.KVDim = in.KVHeads * in.HeadDim
+	in.CompressedKVLayers = in.Layers
+	if isQwenNextHybridGGUF(g, in.Architecture) {
+		in.CompressedKVLayers = 0
+		if in.FullAttentionInterval > 0 {
+			in.CompressedKVLayers = in.Layers / in.FullAttentionInterval
 		}
 	}
 	for k := range g.Meta {
