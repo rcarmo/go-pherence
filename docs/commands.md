@@ -97,10 +97,11 @@ make gguf-bench \
 make gguf-validate \
   GGUF_MODEL=/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf \
   GGUF_EXPECT_GENERATED=489 \
+  GGUF_EXPECT_REAP_RATIO=0.20 \
   GGUF_KV_RESIDUAL_WINDOW=2
 ```
 
-`ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run. Set `GGUF_EXPECT_GENERATED` (or `ggufsmoke -expect-generated`) to make the smoke fail if greedy output changes unexpectedly.
+`ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run. Set `GGUF_EXPECT_REAP_RATIO` (or `ggufinspect -expect-reap-ratio`) and `GGUF_EXPECT_GENERATED` (or `ggufsmoke -expect-generated`) to make validation fail if REAP metadata/source inference or greedy output changes unexpectedly.
 
 ## Gemma4 MTP smoke
 

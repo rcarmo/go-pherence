@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/rcarmo/go-pherence/loader/gguf"
@@ -19,6 +20,7 @@ func main() {
 	cacheTypeK := flag.String("cache-type-k", "", "validate native TurboQuant key cache type (turbo4, q8_0, f16)")
 	cacheTypeV := flag.String("cache-type-v", "", "validate native TurboQuant value cache type (turbo2, q4_0, f16)")
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window for plan output")
+	expectREAPRatio := flag.Float64("expect-reap-ratio", -1, "fail unless inferred/metadata REAP prune ratio matches this value")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: ggufinspect [flags] <model.gguf>")
@@ -43,6 +45,10 @@ func main() {
 	}
 	if *requireQ4K && !in.HasQ4K {
 		fmt.Fprintln(os.Stderr, "ggufinspect: Q4_K tensors not detected")
+		os.Exit(1)
+	}
+	if *expectREAPRatio >= 0 && math.Abs(in.REAPPruneRatio-*expectREAPRatio) > 1e-6 {
+		fmt.Fprintf(os.Stderr, "ggufinspect: REAP ratio mismatch got=%.6f want=%.6f source=%s\n", in.REAPPruneRatio, *expectREAPRatio, in.REAPSource)
 		os.Exit(1)
 	}
 	var tqPlan any
