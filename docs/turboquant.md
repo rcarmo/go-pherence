@@ -67,6 +67,7 @@ make gguf-bench \
 The local Qwen3.6 REAP GGUF validation bundle is:
 
 ```bash
+GOTMPDIR=$PWD/.gotmp make gguf-smoke-qwen36-reap
 GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
 GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
 ```

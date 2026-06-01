@@ -80,6 +80,7 @@ go run ./cmd/specbench -model models/smollm2-135m -prompt-file prompts.txt -toke
 go run ./cmd/diarize-vtt -input meeting.m4a -output meeting.vtt -language es
 
 # Native pure Go/SIMD GGUF REAP/TurboQuant validation and benchmark
+make gguf-smoke-qwen36-reap
 make gguf-validate-qwen36-reap
 make gguf-bench-qwen36-reap
 ```
