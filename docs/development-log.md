@@ -2156,3 +2156,12 @@ Extended the native GGUF REAP/TurboQuant validation bundle into a focused CI tar
 - `ggufinspect` assertions cover architecture/name, REAP ratio/source, tensor inventory, model/tokenizer shape, MoE shape, and TurboQuant cache/protected-layer plans.
 - `ggufsmoke` assertions cover greedy token IDs, decoded text, runtime KV byte plan, benchmark KV byte counters, and synthetic compressed-cache append accounting.
 - Current synthetic compressed-cache expectation for the local checkpoint is layer `3`, compressed/full counts `3`/`2`, and `9440` bytes after five synthetic appends with residual window `2`.
+
+## Session 123: GGUF REAP/TurboQuant server health diagnostics
+
+Extended the server/validation surface for native llama-compatible REAP/TurboQuant support:
+
+- `cmd/llmserver /health` now reports TurboQuant byte estimates, KV layer count, protected-layer count, and REAP summary/source together when both features are active.
+- Added health tests for TurboQuant-only, REAP-only, and combined REAP+TurboQuant responses.
+- `ggufsmoke` expectation checks now validate generated IDs, decoded text, runtime KV byte plans, benchmark KV counters, and synthetic compressed-cache smoke accounting.
+- The Qwen3.6 REAP GGUF Makefile bundle now has inspect, smoke, validate, bench, aggregate check, and focused CI targets.
