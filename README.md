@@ -85,6 +85,7 @@ make gguf-smoke-qwen36-reap
 make gguf-validate-qwen36-reap
 make gguf-bench-qwen36-reap
 make gguf-check-qwen36-reap
+make gguf-ci-qwen36-reap
 ```
 
 See [docs/commands.md](docs/commands.md) for detailed command usage, GGUF REAP/TurboQuant validation, MTP smoke commands, Qwen3.6 native-MTP triage commands, Whisper VTT usage, and benchmark harnesses. See [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) for the current Whisper implementation status and limitations.

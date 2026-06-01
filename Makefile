@@ -6,7 +6,7 @@ MODEL ?=
 MODEL_DOWNLOAD_FLAGS ?=
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test test-cpu test-model-coverage model-coverage-tmpdir model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-next-runtime model-coverage-next-runtime-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-gemma4 models-download-speaker models-download-one gguf-inspect gguf-smoke gguf-bench gguf-turboquant-smoke gguf-validate gguf-inspect-qwen36-reap gguf-smoke-qwen36-reap gguf-validate-qwen36-reap gguf-bench-qwen36-reap gguf-check-qwen36-reap qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect
+.PHONY: all build test test-cpu test-model-coverage model-coverage-tmpdir model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-next-runtime model-coverage-next-runtime-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-gemma4 models-download-speaker models-download-one gguf-inspect gguf-smoke gguf-bench gguf-turboquant-smoke gguf-validate gguf-inspect-qwen36-reap gguf-smoke-qwen36-reap gguf-validate-qwen36-reap gguf-bench-qwen36-reap gguf-check-qwen36-reap gguf-ci-qwen36-reap qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect
 
 all: build
 
@@ -209,6 +209,10 @@ gguf-bench-qwen36-reap:
 	$(MAKE) gguf-bench GGUF_MODEL=$(GGUF_MODEL) GGUF_PROMPT_IDS=0 GGUF_MAX_NEW=1 GGUF_CACHE_TYPE_K=turbo4 GGUF_CACHE_TYPE_V=turbo2 GGUF_KV_RESIDUAL_WINDOW=2 GGUF_EXPECT_GENERATED=489 GGUF_EXPECT_DECODED=ype GGUF_EXPECT_RUNTIME_FLOAT_BYTES=245760 GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES=81920 GGUF_EXPECT_KV_FLOAT_BYTES=245760 GGUF_EXPECT_KV_COMPRESSED_BYTES=81920
 
 gguf-check-qwen36-reap: gguf-validate-qwen36-reap gguf-bench-qwen36-reap
+
+gguf-ci-qwen36-reap:
+	go test ./cmd/llmserver ./loader/gguf ./cmd/ggufinspect ./cmd/ggufsmoke ./model ./runtime/kv -run '^$$'
+	$(MAKE) gguf-check-qwen36-reap
 
 QWEN3TTS_MODEL ?=
 QWEN3TTS_TEXT ?= Hello world
