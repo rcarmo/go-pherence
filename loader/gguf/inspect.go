@@ -14,6 +14,8 @@ type Inspection struct {
 	HasMoE                bool           `json:"has_moe"`
 	Layers                uint32         `json:"layers,omitempty"`
 	VocabSize             uint32         `json:"vocab_size,omitempty"`
+	BOSTokenID            uint32         `json:"bos_token_id,omitempty"`
+	EOSTokenID            uint32         `json:"eos_token_id,omitempty"`
 	MaxSeqLen             uint32         `json:"max_seq_len,omitempty"`
 	KVHeads               uint32         `json:"kv_heads,omitempty"`
 	HeadDim               uint32         `json:"head_dim,omitempty"`
@@ -102,6 +104,8 @@ func InspectOpen(path string, g *GGUF) Inspection {
 			in.VocabSize = uint32(t.Shape[1])
 		}
 	}
+	in.BOSTokenID, _ = g.MetaUint32("tokenizer.ggml.bos_token_id")
+	in.EOSTokenID, _ = g.MetaUint32("tokenizer.ggml.eos_token_id")
 	in.KVDim = in.KVHeads * in.HeadDim
 	in.CompressedKVLayers = in.Layers
 	if isQwenNextHybridGGUF(g, in.Architecture) {
