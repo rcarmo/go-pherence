@@ -10,6 +10,17 @@ func TestGGUFTopKExpertsAppliesREAPMask(t *testing.T) {
 	}
 }
 
+func TestGGUFSharedExpertAddSkipsMissingWeights(t *testing.T) {
+	m := &GGUFLlama{Config: GGUFLlamaConfig{HiddenSize: 4, MoEHiddenSize: 4, SharedMoEHiddenSize: 4}}
+	out := []float32{0, 0, 0, 0}
+	m.ggufSharedExpertAdd(out, make([]float32, 4), make([]float32, 4), make([]float32, 4), make([]float32, 4), &GGUFLlamaLayer{})
+	for i, v := range out {
+		if v != 0 {
+			t.Fatalf("out[%d]=%v", i, v)
+		}
+	}
+}
+
 func TestGGUFMoEForwardRejectsIncompleteLayer(t *testing.T) {
 	m := &GGUFLlama{Config: GGUFLlamaConfig{HiddenSize: 4, NumExperts: 2, NumExpertsPerTok: 1, MoEHiddenSize: 4}}
 	out := []float32{1, 1, 1, 1}

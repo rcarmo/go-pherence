@@ -49,6 +49,26 @@ func (m *GGUFLlama) ggufMoEForward(out, gate, up, mid, x []float32, layer *GGUFL
 			out[i] += e.score * down[i]
 		}
 	}
+	m.ggufSharedExpertAdd(out, gate, up, mid, x, layer)
+}
+
+func (m *GGUFLlama) ggufSharedExpertAdd(out, gate, up, mid, x []float32, layer *GGUFLlamaLayer) {
+	cfg := m.Config
+	shared := cfg.SharedMoEHiddenSize
+	if shared <= 0 {
+		shared = cfg.MoEHiddenSize
+	}
+	if layer == nil || layer.SharedGateM == nil || layer.SharedUpM == nil || layer.SharedDownM == nil || shared <= 0 || len(gate) < shared || len(up) < shared || len(mid) < shared {
+		return
+	}
+	m.gemvMaybe(gate[:shared], x, nil, layer.SharedGateM, cfg.HiddenSize, shared)
+	m.gemvMaybe(up[:shared], x, nil, layer.SharedUpM, cfg.HiddenSize, shared)
+	m.siluMul(mid[:shared], gate[:shared], up[:shared])
+	sharedDown := make([]float32, cfg.HiddenSize)
+	m.gemvMaybe(sharedDown, mid[:shared], nil, layer.SharedDownM, shared, cfg.HiddenSize)
+	for i := range out {
+		out[i] += sharedDown[i]
+	}
 }
 
 type ggufExpertScore struct {

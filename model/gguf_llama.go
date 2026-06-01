@@ -70,6 +70,9 @@ type GGUFLlamaLayer struct {
 	ExpertGateM *gguf.ExpertMatrices
 	ExpertUpM   *gguf.ExpertMatrices
 	ExpertDownM *gguf.ExpertMatrices
+	SharedGateM *gguf.QuantMatrix
+	SharedUpM   *gguf.QuantMatrix
+	SharedDownM *gguf.QuantMatrix
 	QNorm       []float32
 	KNorm       []float32
 
@@ -219,6 +222,9 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 			if err != nil {
 				return nil, fmt.Errorf("layer %d MoE: %w", i, err)
 			}
+			layer.SharedGateM, _ = loadMatrix(p + "ffn_gate_shexp.weight")
+			layer.SharedUpM, _ = loadMatrix(p + "ffn_up_shexp.weight")
+			layer.SharedDownM, _ = loadMatrix(p + "ffn_down_shexp.weight")
 		} else {
 			for dst, suffix := range map[*[]float32]string{
 				&layer.WGate: "ffn_gate.weight",
