@@ -55,6 +55,9 @@ func TestGGUFGenerationKVRuntimePlan(t *testing.T) {
 	if want := int64(3 * 5 * 4 * 2 * 4); plan.FloatKVBytesAllocated != want {
 		t.Fatalf("float bytes=%d want %d", plan.FloatKVBytesAllocated, want)
 	}
+	if plan.FullCompressedKVBytes <= 0 || plan.EstimatedCompressedKVBytes <= 0 || plan.EstimatedCompressedKVBytes > plan.FullCompressedKVBytes {
+		t.Fatalf("bad compressed bytes: %+v", plan)
+	}
 }
 
 func TestNewTurboQuantKVCacheSkipsQwenNextRecurrentLayers(t *testing.T) {

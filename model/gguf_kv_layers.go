@@ -31,11 +31,15 @@ func (c GGUFLlamaConfig) GGUFCompressedKVLayerCount() int {
 }
 
 func (c GGUFLlamaConfig) GGUFTurboQuantKVBytes(tqCfg kv.TurboQuantConfig, enabled bool) (fullBytes, estimatedBytes int64) {
-	if c.NumLayers <= 0 || c.NumKVHeads <= 0 || c.HeadDim <= 0 || c.MaxSeqLen <= 0 {
+	return c.GGUFTurboQuantKVBytesForSeq(c.MaxSeqLen, tqCfg, enabled)
+}
+
+func (c GGUFLlamaConfig) GGUFTurboQuantKVBytesForSeq(seqLen int, tqCfg kv.TurboQuantConfig, enabled bool) (fullBytes, estimatedBytes int64) {
+	if c.NumLayers <= 0 || c.NumKVHeads <= 0 || c.HeadDim <= 0 || seqLen <= 0 {
 		return 0, 0
 	}
 	kvDim := int64(c.NumKVHeads * c.HeadDim)
-	fullPerLayer := int64(c.MaxSeqLen) * kvDim * 2 * 4
+	fullPerLayer := int64(seqLen) * kvDim * 2 * 4
 	fullBytes = int64(c.GGUFCompressedKVLayerCount()) * fullPerLayer
 	if !enabled {
 		return fullBytes, fullBytes
@@ -44,10 +48,10 @@ func (c GGUFLlamaConfig) GGUFTurboQuantKVBytes(tqCfg kv.TurboQuantConfig, enable
 	if residual < 0 {
 		residual = 0
 	}
-	if residual > c.MaxSeqLen {
-		residual = c.MaxSeqLen
+	if residual > seqLen {
+		residual = seqLen
 	}
-	compressedTokens := c.MaxSeqLen - residual
+	compressedTokens := seqLen - residual
 	bytesPerVec := func(bits int) int64 {
 		if bits <= 0 {
 			return int64(c.HeadDim * 4)

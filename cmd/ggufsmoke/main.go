@@ -55,7 +55,7 @@ func main() {
 		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d cache_layers=%d max_seq=%d kv_dim=%d full_kv_bytes=%d estimated_kv_bytes=%d\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.CacheLayers, plan.MaxSeqLen, plan.KVDim, plan.FullKVBytes, plan.EstimatedKVBytes)
 		planPromptIDs, _ := resolvePromptIDs(*path, *promptText, *promptIDsCSV)
 		if rt, err := m.GenerationKVRuntimePlan(len(planPromptIDs), *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow}); err == nil {
-			fmt.Printf("turboquant_runtime_kv max_seq=%d float_layers=%d compressed_layers=%d float_alloc_bytes=%d\n", rt.MaxSeq, rt.FloatKVLayers, rt.CompressedKVLayers, rt.FloatKVBytesAllocated)
+			fmt.Printf("turboquant_runtime_kv max_seq=%d float_layers=%d compressed_layers=%d float_alloc_bytes=%d compressed_full_bytes=%d compressed_estimated_bytes=%d\n", rt.MaxSeq, rt.FloatKVLayers, rt.CompressedKVLayers, rt.FloatKVBytesAllocated, rt.FullCompressedKVBytes, rt.EstimatedCompressedKVBytes)
 		}
 		if *kvSmokeTokens > 0 {
 			caches, err := m.NewTurboQuantKVCache(*cacheTypeK, *cacheTypeV, *kvResidualWindow)

@@ -10,10 +10,12 @@ import (
 // GGUF model. It deliberately maps llama.cpp-style cache type names onto
 // go-pherence's pure Go TurboQuant cache implementation.
 type GGUFGenerationKVRuntimePlan struct {
-	MaxSeq                int   `json:"max_seq"`
-	FloatKVLayers         int   `json:"float_kv_layers"`
-	CompressedKVLayers    int   `json:"compressed_kv_layers"`
-	FloatKVBytesAllocated int64 `json:"float_kv_bytes_allocated"`
+	MaxSeq                     int   `json:"max_seq"`
+	FloatKVLayers              int   `json:"float_kv_layers"`
+	CompressedKVLayers         int   `json:"compressed_kv_layers"`
+	FloatKVBytesAllocated      int64 `json:"float_kv_bytes_allocated"`
+	FullCompressedKVBytes      int64 `json:"full_compressed_kv_bytes"`
+	EstimatedCompressedKVBytes int64 `json:"estimated_compressed_kv_bytes"`
 }
 
 type GGUFTurboQuantPlan struct {
@@ -79,7 +81,14 @@ func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGene
 		maxSeq = 0
 	}
 	var compressed []*kv.CompressedKVCache
+	tqCfg := kv.DefaultTurboQuantConfig()
+	enabled := false
 	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
+		var err error
+		tqCfg, enabled, err = kv.TurboQuantConfigFromCacheTypes(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
+		if err != nil {
+			return GGUFGenerationKVRuntimePlan{}, err
+		}
 		caches, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
 		if err != nil {
 			return GGUFGenerationKVRuntimePlan{}, err
@@ -96,6 +105,7 @@ func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGene
 		plan.FloatKVLayers++
 	}
 	plan.FloatKVBytesAllocated = int64(plan.FloatKVLayers) * int64(maxSeq) * int64(kvDim) * 2 * 4
+	plan.FullCompressedKVBytes, plan.EstimatedCompressedKVBytes = cfg.GGUFTurboQuantKVBytesForSeq(maxSeq, tqCfg, enabled)
 	return plan, nil
 }
 
