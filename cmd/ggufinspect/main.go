@@ -22,6 +22,7 @@ func main() {
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window for plan output")
 	expectREAPRatio := flag.Float64("expect-reap-ratio", -1, "fail unless inferred/metadata REAP prune ratio matches this value")
 	expectLayers := flag.Int("expect-layers", -1, "fail unless model layer count matches this value")
+	expectVocabSize := flag.Int("expect-vocab-size", -1, "fail unless model vocabulary size matches this value")
 	expectKVDim := flag.Int("expect-kv-dim", -1, "fail unless model KV dimension matches this value")
 	expectExperts := flag.Int("expect-experts", -1, "fail unless MoE expert count matches this value")
 	expectExpertsPerToken := flag.Int("expect-experts-per-token", -1, "fail unless MoE active experts per token matches this value")
@@ -59,6 +60,10 @@ func main() {
 	}
 	if *expectLayers >= 0 && int(in.Layers) != *expectLayers {
 		fmt.Fprintf(os.Stderr, "ggufinspect: layer count mismatch got=%d want=%d\n", in.Layers, *expectLayers)
+		os.Exit(1)
+	}
+	if *expectVocabSize >= 0 && int(in.VocabSize) != *expectVocabSize {
+		fmt.Fprintf(os.Stderr, "ggufinspect: vocab size mismatch got=%d want=%d\n", in.VocabSize, *expectVocabSize)
 		os.Exit(1)
 	}
 	if *expectKVDim >= 0 && int(in.KVDim) != *expectKVDim {
@@ -113,6 +118,7 @@ func main() {
 	}
 	fmt.Printf("tensors: %d\n", in.TensorCount)
 	fmt.Printf("quant_counts: %v\n", in.QuantCounts)
+	fmt.Printf("vocab_size: %d\n", in.VocabSize)
 	fmt.Printf("moe: %v experts=%d active=%d\n", in.HasMoE, in.Experts, in.ExpertsPerToken)
 	fmt.Printf("reap_metadata: %v ratio=%.2f source=%s keys=%v\n", in.HasREAPMetadata, in.REAPPruneRatio, in.REAPSource, in.REAPMetadataKeys)
 	fmt.Printf("turboquant_ready: %v\n", in.TurboQuantReady)

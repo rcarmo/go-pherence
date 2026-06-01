@@ -13,6 +13,7 @@ type Inspection struct {
 	HasQ4K                bool           `json:"has_q4_k"`
 	HasMoE                bool           `json:"has_moe"`
 	Layers                uint32         `json:"layers,omitempty"`
+	VocabSize             uint32         `json:"vocab_size,omitempty"`
 	MaxSeqLen             uint32         `json:"max_seq_len,omitempty"`
 	KVHeads               uint32         `json:"kv_heads,omitempty"`
 	HeadDim               uint32         `json:"head_dim,omitempty"`
@@ -78,6 +79,9 @@ func InspectOpen(path string, g *GGUF) Inspection {
 		if in.MaxSeqLen == 0 {
 			in.MaxSeqLen, _ = g.MetaUint32(p + ".context_length")
 		}
+		if in.VocabSize == 0 {
+			in.VocabSize, _ = g.MetaUint32(p + ".vocab_size")
+		}
 		if in.FullAttentionInterval == 0 {
 			in.FullAttentionInterval, _ = g.MetaUint32(p + ".full_attention_interval")
 		}
@@ -91,6 +95,11 @@ func InspectOpen(path string, g *GGUF) Inspection {
 		if v, ok := g.MetaUint32(p + ".expert_used_count"); ok {
 			in.ExpertsPerToken = v
 			in.HasMoE = true
+		}
+	}
+	if in.VocabSize == 0 {
+		if t, ok := g.TensorByName("token_embd.weight"); ok && len(t.Shape) >= 2 {
+			in.VocabSize = uint32(t.Shape[1])
 		}
 	}
 	in.KVDim = in.KVHeads * in.HeadDim
