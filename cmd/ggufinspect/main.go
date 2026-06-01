@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/runtime/kv"
@@ -22,6 +23,7 @@ func main() {
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window for plan output")
 	expectREAPRatio := flag.Float64("expect-reap-ratio", -1, "fail unless inferred/metadata REAP prune ratio matches this value")
 	expectArchitecture := flag.String("expect-architecture", "", "fail unless GGUF architecture metadata matches this value")
+	expectNameContains := flag.String("expect-name-contains", "", "fail unless GGUF general.name contains this substring")
 	expectTensorCount := flag.Int("expect-tensor-count", -1, "fail unless GGUF tensor count matches this value")
 	expectLayers := flag.Int("expect-layers", -1, "fail unless model layer count matches this value")
 	expectVocabSize := flag.Int("expect-vocab-size", -1, "fail unless model vocabulary size matches this value")
@@ -67,6 +69,10 @@ func main() {
 	}
 	if *expectArchitecture != "" && in.Architecture != *expectArchitecture {
 		fmt.Fprintf(os.Stderr, "ggufinspect: architecture mismatch got=%q want=%q\n", in.Architecture, *expectArchitecture)
+		os.Exit(1)
+	}
+	if *expectNameContains != "" && !strings.Contains(in.Name, *expectNameContains) {
+		fmt.Fprintf(os.Stderr, "ggufinspect: name mismatch got=%q want substring=%q\n", in.Name, *expectNameContains)
 		os.Exit(1)
 	}
 	if *expectTensorCount >= 0 && in.TensorCount != *expectTensorCount {
