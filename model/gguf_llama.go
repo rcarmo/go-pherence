@@ -133,17 +133,23 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 	useGGMLQuant := os.Getenv("GO_PHERENCE_GGML_QUANT") == "1"
 	useLMHeadGraph := os.Getenv("GO_PHERENCE_GGML_LMHEAD_GRAPH") == "1"
 
-	embedTokens, err := load("token_embd.weight")
-	if err != nil {
-		return nil, err
+	var embedTokens []float32
+	if !useGGMLQuant {
+		embedTokens, err = load("token_embd.weight")
+		if err != nil {
+			return nil, err
+		}
 	}
 	outputNorm, err := load("output_norm.weight")
 	if err != nil {
 		return nil, err
 	}
-	lmHead, err := load("output.weight")
-	if err != nil {
-		return nil, err
+	var lmHead []float32
+	if !useGGMLQuant && !useLMHeadGraph {
+		lmHead, err = load("output.weight")
+		if err != nil {
+			return nil, err
+		}
 	}
 	var embedMatrix, lmHeadM *gguf.QuantMatrix
 	var lmHeadGraph *ggmlgraph.MulMat
@@ -295,7 +301,11 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 	}
 	ffn, err := req("feed_forward_length")
 	if err != nil {
-		return GGUFLlamaConfig{}, err
+		if v, ok := ggufMetaUint32Any(g, key("expert_feed_forward_length"), "llama.expert_feed_forward_length"); ok {
+			ffn = v
+		} else {
+			return GGUFLlamaConfig{}, err
+		}
 	}
 	maxCtx, err := req("context_length")
 	if err != nil {
@@ -303,8 +313,12 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 	}
 	vocabSize, err := req("vocab_size")
 	if err != nil {
-		// fallback: count from token_embd shape
-		vocabSize = 32000
+		if t, ok := g.TensorByName("token_embd.weight"); ok && len(t.Shape) >= 2 {
+			vocabSize = uint32(t.Shape[1])
+		} else {
+			// fallback for tiny synthetic fixtures without an embedding tensor
+			vocabSize = 32000
+		}
 	}
 	ropeBase := float32(10000.0)
 	if v, ok := ggufMetaFloat32Any(g, key("rope.freq_base"), "llama.rope.freq_base"); ok {
@@ -505,12 +519,41 @@ func (m *GGUFLlama) gemv(out, x, w []float32, inDim, outDim int) {
 }
 
 func (m *GGUFLlama) gemvMaybe(out, x, wf32 []float32, wq *gguf.QuantMatrix, inDim, outDim int) {
-	if m.UseGGMLQuant && wq != nil {
-		if err := m.gemvGGMLQuant(out, x, wq, inDim, outDim); err == nil {
+	if wq != nil {
+		if m.UseGGMLQuant {
+			if err := m.gemvGGMLQuant(out, x, wq, inDim, outDim); err == nil {
+				return
+			}
+		}
+		if err := gemvGGUFQuantRows(out, x, wq, inDim, outDim); err == nil {
 			return
 		}
 	}
+	if len(wf32) < inDim*outDim {
+		for i := 0; i < outDim && i < len(out); i++ {
+			out[i] = 0
+		}
+		return
+	}
 	m.gemv(out, x, wf32, inDim, outDim)
+}
+
+func gemvGGUFQuantRows(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int) error {
+	if w == nil || w.InDim != inDim || w.OutDim != outDim || len(out) < outDim || len(x) < inDim {
+		return fmt.Errorf("bad quant matrix dims")
+	}
+	row := make([]float32, inDim)
+	for r := 0; r < outDim; r++ {
+		if err := w.DequantRowTo(row, r); err != nil {
+			return err
+		}
+		var sum float32
+		for i := 0; i < inDim; i++ {
+			sum += row[i] * x[i]
+		}
+		out[r] = sum
+	}
+	return nil
 }
 
 func (m *GGUFLlama) gemvGGMLQuant(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int) error {

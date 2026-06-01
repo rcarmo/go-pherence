@@ -30,6 +30,25 @@ func TestGGUFParseConfigQwenMoE(t *testing.T) {
 	}
 }
 
+func TestGGUFParseConfigInfersVocabFromEmbedding(t *testing.T) {
+	g := &gguf.GGUF{Meta: map[string]any{
+		"general.architecture":          "llama",
+		"llama.embedding_length":        uint32(4),
+		"llama.block_count":             uint32(1),
+		"llama.attention.head_count":    uint32(1),
+		"llama.attention.head_count_kv": uint32(1),
+		"llama.feed_forward_length":     uint32(8),
+		"llama.context_length":          uint32(16),
+	}, Tensors: []gguf.TensorInfo{{Name: "token_embd.weight", Shape: []uint64{4, 99}}}}
+	cfg, err := ggufParseConfig(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.VocabSize != 99 {
+		t.Fatalf("vocab=%d", cfg.VocabSize)
+	}
+}
+
 func TestGGUFMoEValidationRequiresCompleteMetadata(t *testing.T) {
 	cfg := GGUFLlamaConfig{Architecture: "qwen3moe", NumExperts: 128, NumExpertsPerTok: 8}
 	err := cfg.ValidateRuntimeSupported()
