@@ -22,6 +22,7 @@ func main() {
 	cacheTypeK := flag.String("cache-type-k", "", "native TurboQuant key cache type (turbo4, q8_0, f16)")
 	cacheTypeV := flag.String("cache-type-v", "", "native TurboQuant value cache type (turbo2, q4_0, f16)")
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window")
+	kvSmokeTokens := flag.Int("kv-smoke-tokens", 0, "append N synthetic K/V positions to native TurboQuant GGUF caches")
 	flag.Parse()
 	if *path == "" {
 		fmt.Fprintln(os.Stderr, "usage: ggufsmoke -model model.gguf [-load-only]")
@@ -48,6 +49,35 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d kv_dim=%d\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.KVDim)
+		if *kvSmokeTokens > 0 {
+			caches, err := m.NewTurboQuantKVCache(*cacheTypeK, *cacheTypeV, *kvResidualWindow)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ggufsmoke: turboquant cache failed: %v\n", err)
+				os.Exit(1)
+			}
+			if len(caches) > 0 {
+				k := make([]float32, plan.KVDim)
+				v := make([]float32, plan.KVDim)
+				for i := 0; i < *kvSmokeTokens; i++ {
+					for j := range k {
+						k[j] = float32(i+1) / float32(j+1)
+						v[j] = float32(i+2) / float32(j+2)
+					}
+					for _, c := range caches {
+						c.Append(k, v)
+					}
+				}
+				idx := 0
+				for i, c := range caches {
+					if c.CompressedCount() > 0 {
+						idx = i
+						break
+					}
+				}
+				c := caches[idx]
+				fmt.Printf("turboquant_cache_smoke tokens=%d layer=%d seq=%d compressed=%d full=%d bytes=%d\n", *kvSmokeTokens, idx, c.SeqLen(), c.CompressedCount(), c.FullCount(), c.MemoryBytes())
+			}
+		}
 	}
 	if *loadOnly {
 		return
