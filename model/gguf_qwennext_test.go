@@ -96,3 +96,25 @@ func TestGGUFQwenNextConvStateAndDepthwise(t *testing.T) {
 		t.Fatalf("out=%v", out)
 	}
 }
+
+func TestGGUFQwenNextDeltaUpdate(t *testing.T) {
+	cfg := GGUFLlamaConfig{HiddenSize: 2, SSMInnerSize: 2, SSMStateSize: 2, SSMConvKernel: 1, SSMTimeStepRank: 1, SSMGroupCount: 1}
+	ssm := make([]float32, 4)
+	out, err := applyGGUFQwenNextDeltaUpdateInPlace(ssm, []float32{1, 0}, []float32{1, 0}, []float32{2, 4}, []float32{1}, []float32{1}, []float32{0}, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 2 || out[0] == 0 || out[1] == 0 || ssm[0] == 0 || ssm[2] == 0 {
+		t.Fatalf("out=%v ssm=%v", out, ssm)
+	}
+}
+
+func TestGGUFQwenNextGatedRMSNorm(t *testing.T) {
+	x := []float32{3, 4}
+	if err := applyGGUFQwenNextGatedRMSNormValueHeads(x, []float32{1, 1}, []float32{1, 1}, 1, 2, 0); err != nil {
+		t.Fatal(err)
+	}
+	if x[0] == 3 || x[1] == 4 {
+		t.Fatalf("not normalized: %v", x)
+	}
+}

@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/gguf"
@@ -171,4 +172,97 @@ func applyGGUFQwenNextDepthwiseConv(state, weight []float32, convDim, kernel int
 		out[c] = sum
 	}
 	return out, nil
+}
+
+func prepareGGUFQwenNextDeltaParams(alpha, beta, dtBias, a []float32, rank int) (dt, decay []float32, err error) {
+	if rank <= 0 || len(alpha) != rank || len(beta) != rank || len(dtBias) != rank || len(a) != rank {
+		return nil, nil, fmt.Errorf("QwenNext delta lens alpha/beta/dt_bias/a=%d/%d/%d/%d want %d", len(alpha), len(beta), len(dtBias), len(a), rank)
+	}
+	dt = make([]float32, rank)
+	decay = make([]float32, rank)
+	for i := 0; i < rank; i++ {
+		dt[i] = ggufQwenNextSoftplus(alpha[i] + dtBias[i])
+		decay[i] = float32(math.Exp(float64(dt[i] * a[i])))
+		beta[i] = ggufQwenNextSigmoid(beta[i])
+	}
+	return dt, decay, nil
+}
+
+func applyGGUFQwenNextDeltaUpdateInPlace(ssm, q, k, v, beta, dt, decay []float32, cfg GGUFLlamaConfig) ([]float32, error) {
+	shapes, err := cfg.QwenNextLinearShapes()
+	if err != nil {
+		return nil, err
+	}
+	keyDim := cfg.SSMGroupCount * cfg.SSMStateSize
+	valueHeads := cfg.SSMTimeStepRank
+	valueHeadDim := cfg.SSMInnerSize / valueHeads
+	stateLen := valueHeads * valueHeadDim * cfg.SSMStateSize
+	if len(ssm) != stateLen || len(q) != keyDim || len(k) != keyDim || len(v) != shapes.ValueDim || len(beta) != valueHeads || len(dt) != valueHeads || len(decay) != valueHeads {
+		return nil, fmt.Errorf("QwenNext delta dims ssm/q/k/v/beta/dt/decay=%d/%d/%d/%d/%d/%d/%d want %d/%d/%d/%d/%d", len(ssm), len(q), len(k), len(v), len(beta), len(dt), len(decay), stateLen, keyDim, keyDim, shapes.ValueDim, valueHeads)
+	}
+	if valueHeads%cfg.SSMGroupCount != 0 {
+		return nil, fmt.Errorf("QwenNext value heads %d not divisible by key groups %d", valueHeads, cfg.SSMGroupCount)
+	}
+	out := make([]float32, shapes.ValueDim)
+	rep := valueHeads / cfg.SSMGroupCount
+	scale := float32(1.0 / math.Sqrt(float64(cfg.SSMStateSize)))
+	for vh := 0; vh < valueHeads; vh++ {
+		keyHead := vh / rep
+		qHead := q[keyHead*cfg.SSMStateSize : (keyHead+1)*cfg.SSMStateSize]
+		kHead := k[keyHead*cfg.SSMStateSize : (keyHead+1)*cfg.SSMStateSize]
+		stateHeadBase := vh * valueHeadDim * cfg.SSMStateSize
+		valueBase := vh * valueHeadDim
+		for vd := 0; vd < valueHeadDim; vd++ {
+			idx := valueBase + vd
+			row := ssm[stateHeadBase+vd*cfg.SSMStateSize : stateHeadBase+(vd+1)*cfg.SSMStateSize]
+			out[idx] = ggufQwenNextDeltaRowInPlace(row, qHead, kHead, v[idx], beta[vh], decay[vh], scale)
+		}
+	}
+	return out, nil
+}
+
+func ggufQwenNextDeltaRowInPlace(stateRow, qHead, kHead []float32, vVal, betaV, decayV, scale float32) float32 {
+	var acc float32
+	for i := range kHead {
+		old := stateRow[i]
+		updated := old*decayV + betaV*(vVal-old*kHead[i])*kHead[i]
+		stateRow[i] = updated
+		acc += updated * qHead[i]
+	}
+	return acc * scale
+}
+
+func applyGGUFQwenNextGatedRMSNormValueHeads(x, gate, weight []float32, heads, headDim int, eps float32) error {
+	if heads <= 0 || headDim <= 0 || len(x) != heads*headDim || len(gate) != len(x) || len(weight) != headDim {
+		return fmt.Errorf("QwenNext gated RMSNorm dims x/gate/weight=%d/%d/%d heads=%d head_dim=%d", len(x), len(gate), len(weight), heads, headDim)
+	}
+	for h := 0; h < heads; h++ {
+		row := x[h*headDim : (h+1)*headDim]
+		var ss float32
+		for _, v := range row {
+			ss += v * v
+		}
+		scale := float32(1.0 / math.Sqrt(float64(ss/float32(headDim)+eps)))
+		for i := 0; i < headDim; i++ {
+			g := gate[h*headDim+i]
+			row[i] = row[i] * scale * weight[i] * g * ggufQwenNextSigmoid(g)
+		}
+	}
+	return nil
+}
+
+func ggufQwenNextSoftplus(x float32) float32 {
+	if x > 20 {
+		return x
+	}
+	return float32(math.Log1p(math.Exp(float64(x))))
+}
+
+func ggufQwenNextSigmoid(x float32) float32 {
+	if x >= 0 {
+		e := float32(math.Exp(float64(-x)))
+		return 1 / (1 + e)
+	}
+	e := float32(math.Exp(float64(x)))
+	return e / (1 + e)
 }
