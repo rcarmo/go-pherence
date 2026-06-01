@@ -10,6 +10,16 @@ func TestGGUFTopKExpertsAppliesREAPMask(t *testing.T) {
 	}
 }
 
+func TestGGUFSharedExpertGate(t *testing.T) {
+	if got := ggufSharedExpertGate([]float32{1, 2}, nil); got != 1 {
+		t.Fatalf("nil gate=%v", got)
+	}
+	got := ggufSharedExpertGate([]float32{1, 1}, []float32{0, 0})
+	if got < 0.49 || got > 0.51 {
+		t.Fatalf("zero gate sigmoid=%v", got)
+	}
+}
+
 func TestGGUFSharedExpertAddSkipsMissingWeights(t *testing.T) {
 	m := &GGUFLlama{Config: GGUFLlamaConfig{HiddenSize: 4, MoEHiddenSize: 4, SharedMoEHiddenSize: 4}}
 	out := []float32{0, 0, 0, 0}

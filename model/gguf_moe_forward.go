@@ -66,9 +66,21 @@ func (m *GGUFLlama) ggufSharedExpertAdd(out, gate, up, mid, x []float32, layer *
 	m.siluMul(mid[:shared], gate[:shared], up[:shared])
 	sharedDown := make([]float32, cfg.HiddenSize)
 	m.gemvMaybe(sharedDown, mid[:shared], nil, layer.SharedDownM, shared, cfg.HiddenSize)
+	scale := ggufSharedExpertGate(x, layer.SharedGateInp)
 	for i := range out {
-		out[i] += sharedDown[i]
+		out[i] += scale * sharedDown[i]
 	}
+}
+
+func ggufSharedExpertGate(x, gate []float32) float32 {
+	if len(gate) == 0 || len(gate) != len(x) {
+		return 1
+	}
+	var dot float32
+	for i, v := range x {
+		dot += v * gate[i]
+	}
+	return ggufQwenNextSigmoid(dot)
 }
 
 type ggufExpertScore struct {
