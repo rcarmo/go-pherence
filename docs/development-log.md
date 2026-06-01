@@ -2165,3 +2165,11 @@ Extended the server/validation surface for native llama-compatible REAP/TurboQua
 - Added health tests for TurboQuant-only, REAP-only, and combined REAP+TurboQuant responses.
 - `ggufsmoke` expectation checks now validate generated IDs, decoded text, runtime KV byte plans, benchmark KV counters, and synthetic compressed-cache smoke accounting.
 - The Qwen3.6 REAP GGUF Makefile bundle now has inspect, smoke, validate, bench, aggregate check, and focused CI targets.
+
+## Session 124: GGUF TurboQuant byte-plan assertions
+
+Tightened the native Qwen3.6 REAP GGUF validation bundle with byte-level TurboQuant assertions:
+
+- `ggufinspect` can now assert full/estimated/saved full-context TurboQuant KV byte estimates.
+- `ggufsmoke` can assert planned runtime KV bytes, benchmark KV bytes, and synthetic compressed-cache layer/count/byte accounting.
+- `gguf-ci-qwen36-reap` passed end-to-end with the local checkpoint, validating the current full-context estimate (`10737418240` full bytes, `2055275200` estimated bytes, `8682143040` saved bytes) and one-token runtime/bench split (`245760` F32 bytes, `81920` compressed bytes).
