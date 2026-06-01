@@ -55,6 +55,17 @@ func TestGGUFQwenNextLinearShapesMatchLocalREAP(t *testing.T) {
 	}
 }
 
+func TestGGUFQwenNextStateSizes(t *testing.T) {
+	cfg := GGUFLlamaConfig{HiddenSize: 2048, SSMInnerSize: 4096, SSMStateSize: 128, SSMConvKernel: 4, SSMTimeStepRank: 32, SSMGroupCount: 16}
+	st, err := cfg.NewQwenNextState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Conv) != 8192*4 || len(st.SSM) != 32*4096*128 {
+		t.Fatalf("state lens conv=%d ssm=%d", len(st.Conv), len(st.SSM))
+	}
+}
+
 func TestSplitGGUFQwenNextFusedQKV(t *testing.T) {
 	shapes := loaderconfig.Qwen35LinearAttentionShapes{KeyDim: 2, ValueDim: 3, ConvDim: 7}
 	q, k, v, err := splitGGUFQwenNextFusedQKV([]float32{1, 2, 3, 4, 5, 6, 7}, shapes)
@@ -63,5 +74,25 @@ func TestSplitGGUFQwenNextFusedQKV(t *testing.T) {
 	}
 	if len(q) != 2 || q[0] != 1 || q[1] != 2 || len(k) != 2 || k[0] != 3 || k[1] != 4 || len(v) != 3 || v[0] != 5 || v[2] != 7 {
 		t.Fatalf("q=%v k=%v v=%v", q, k, v)
+	}
+}
+
+func TestGGUFQwenNextConvStateAndDepthwise(t *testing.T) {
+	state := make([]float32, 4) // convDim=2, kernel=2
+	if err := updateGGUFQwenNextConvStateInPlace(state, []float32{1}, []float32{2}, nil, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := updateGGUFQwenNextConvStateInPlace(state, []float32{3}, []float32{4}, nil, 2); err != nil {
+		t.Fatal(err)
+	}
+	if got := state; got[0] != 1 || got[1] != 2 || got[2] != 3 || got[3] != 4 {
+		t.Fatalf("state=%v", got)
+	}
+	out, err := applyGGUFQwenNextDepthwiseConv(state, []float32{10, 20, 100, 200}, 2, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out[0] != 310 || out[1] != 840 {
+		t.Fatalf("out=%v", out)
 	}
 }
