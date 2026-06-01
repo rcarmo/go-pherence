@@ -60,6 +60,17 @@ func TestGGUFGenerationKVRuntimePlan(t *testing.T) {
 	}
 }
 
+func TestGGUFTurboQuantPlanSavings(t *testing.T) {
+	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 8, NumKVHeads: 1, HeadDim: 8, MaxSeqLen: 16}}
+	plan, err := m.TurboQuantPlan("turbo4", "turbo2", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.EstimatedSavedKVBytes <= 0 || plan.EstimatedKVRatio <= 0 || plan.EstimatedKVRatio >= 1 {
+		t.Fatalf("bad savings in plan: %+v", plan)
+	}
+}
+
 func TestNewGGUFGenerationForwardStateUsesRuntimePlan(t *testing.T) {
 	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 5, NumKVHeads: 1, HeadDim: 4, MaxSeqLen: 16, VocabSize: 8, HiddenSize: 4, NumHeads: 1, SSMInnerSize: 16, SSMStateSize: 4, FullAttentionInterval: 2, AttentionKeyLength: 8, AttentionValueLength: 8}}
 	st, kvK, kvV, plan, err := m.newGGUFGenerationForwardState(3, 2, GGUFGenerationOptions{CacheTypeK: "turbo4", CacheTypeV: "turbo2", KVResidualWindow: 1})

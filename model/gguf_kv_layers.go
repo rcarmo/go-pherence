@@ -34,6 +34,17 @@ func (c GGUFLlamaConfig) GGUFTurboQuantKVBytes(tqCfg kv.TurboQuantConfig, enable
 	return c.GGUFTurboQuantKVBytesForSeq(c.MaxSeqLen, tqCfg, enabled)
 }
 
+func ggufKVByteSavings(fullBytes, estimatedBytes int64) (savedBytes int64, ratio float64) {
+	if fullBytes <= 0 {
+		return 0, 0
+	}
+	savedBytes = fullBytes - estimatedBytes
+	if savedBytes < 0 {
+		savedBytes = 0
+	}
+	return savedBytes, float64(estimatedBytes) / float64(fullBytes)
+}
+
 func (c GGUFLlamaConfig) GGUFTurboQuantKVBytesForSeq(seqLen int, tqCfg kv.TurboQuantConfig, enabled bool) (fullBytes, estimatedBytes int64) {
 	if c.NumLayers <= 0 || c.NumKVHeads <= 0 || c.HeadDim <= 0 || seqLen <= 0 {
 		return 0, 0

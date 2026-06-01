@@ -19,20 +19,22 @@ type GGUFGenerationKVRuntimePlan struct {
 }
 
 type GGUFTurboQuantPlan struct {
-	Enabled          bool   `json:"enabled"`
-	KeyType          string `json:"key_type,omitempty"`
-	ValueType        string `json:"value_type,omitempty"`
-	KeyBits          int    `json:"key_bits,omitempty"`
-	ValueBits        int    `json:"value_bits,omitempty"`
-	ResidualWindow   int    `json:"residual_window"`
-	Layers           int    `json:"layers"`
-	KVHeads          int    `json:"kv_heads"`
-	HeadDim          int    `json:"head_dim"`
-	KVDim            int    `json:"kv_dim"`
-	CacheLayers      int    `json:"cache_layers"`
-	MaxSeqLen        int    `json:"max_seq_len,omitempty"`
-	FullKVBytes      int64  `json:"full_kv_bytes,omitempty"`
-	EstimatedKVBytes int64  `json:"estimated_kv_bytes,omitempty"`
+	Enabled               bool    `json:"enabled"`
+	KeyType               string  `json:"key_type,omitempty"`
+	ValueType             string  `json:"value_type,omitempty"`
+	KeyBits               int     `json:"key_bits,omitempty"`
+	ValueBits             int     `json:"value_bits,omitempty"`
+	ResidualWindow        int     `json:"residual_window"`
+	Layers                int     `json:"layers"`
+	KVHeads               int     `json:"kv_heads"`
+	HeadDim               int     `json:"head_dim"`
+	KVDim                 int     `json:"kv_dim"`
+	CacheLayers           int     `json:"cache_layers"`
+	MaxSeqLen             int     `json:"max_seq_len,omitempty"`
+	FullKVBytes           int64   `json:"full_kv_bytes,omitempty"`
+	EstimatedKVBytes      int64   `json:"estimated_kv_bytes,omitempty"`
+	EstimatedSavedKVBytes int64   `json:"estimated_saved_kv_bytes,omitempty"`
+	EstimatedKVRatio      float64 `json:"estimated_kv_ratio,omitempty"`
 }
 
 func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int) (GGUFTurboQuantPlan, error) {
@@ -62,6 +64,7 @@ func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int
 		MaxSeqLen:      cfg.MaxSeqLen,
 	}
 	plan.FullKVBytes, plan.EstimatedKVBytes = cfg.GGUFTurboQuantKVBytes(tqCfg, enabled)
+	plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio = ggufKVByteSavings(plan.FullKVBytes, plan.EstimatedKVBytes)
 	return plan, nil
 }
 

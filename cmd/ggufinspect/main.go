@@ -94,21 +94,23 @@ func main() {
 }
 
 type inspectTurboQuantPlan struct {
-	Enabled        bool   `json:"enabled"`
-	KeyType        string `json:"key_type,omitempty"`
-	ValueType      string `json:"value_type,omitempty"`
-	KeyBits        int    `json:"key_bits,omitempty"`
-	ValueBits      int    `json:"value_bits,omitempty"`
-	ResidualWindow int    `json:"residual_window"`
-	Layers         uint32 `json:"layers,omitempty"`
-	CacheLayers    uint32 `json:"cache_layers,omitempty"`
-	MaxSeqLen      uint32 `json:"max_seq_len,omitempty"`
-	KVHeads        uint32 `json:"kv_heads,omitempty"`
-	HeadDim        uint32 `json:"head_dim,omitempty"`
-	KVDim          uint32 `json:"kv_dim,omitempty"`
-	FullKVBytes    int64  `json:"full_kv_bytes,omitempty"`
-	EstimatedBytes int64  `json:"estimated_kv_bytes,omitempty"`
-	RuntimeReady   bool   `json:"runtime_ready"`
+	Enabled          bool    `json:"enabled"`
+	KeyType          string  `json:"key_type,omitempty"`
+	ValueType        string  `json:"value_type,omitempty"`
+	KeyBits          int     `json:"key_bits,omitempty"`
+	ValueBits        int     `json:"value_bits,omitempty"`
+	ResidualWindow   int     `json:"residual_window"`
+	Layers           uint32  `json:"layers,omitempty"`
+	CacheLayers      uint32  `json:"cache_layers,omitempty"`
+	MaxSeqLen        uint32  `json:"max_seq_len,omitempty"`
+	KVHeads          uint32  `json:"kv_heads,omitempty"`
+	HeadDim          uint32  `json:"head_dim,omitempty"`
+	KVDim            uint32  `json:"kv_dim,omitempty"`
+	FullKVBytes      int64   `json:"full_kv_bytes,omitempty"`
+	EstimatedBytes   int64   `json:"estimated_kv_bytes,omitempty"`
+	SavedBytes       int64   `json:"estimated_saved_kv_bytes,omitempty"`
+	EstimatedKVRatio float64 `json:"estimated_kv_ratio,omitempty"`
+	RuntimeReady     bool    `json:"runtime_ready"`
 }
 
 func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType string, residualWindow int) (inspectTurboQuantPlan, error) {
@@ -117,7 +119,15 @@ func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType str
 		return inspectTurboQuantPlan{}, err
 	}
 	full, estimated := inspectTurboQuantBytes(in, cfg, enabled)
-	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: full, EstimatedBytes: estimated, RuntimeReady: in.RuntimeSupported}, nil
+	saved := full - estimated
+	if saved < 0 {
+		saved = 0
+	}
+	ratio := float64(0)
+	if full > 0 {
+		ratio = float64(estimated) / float64(full)
+	}
+	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: full, EstimatedBytes: estimated, SavedBytes: saved, EstimatedKVRatio: ratio, RuntimeReady: in.RuntimeSupported}, nil
 }
 
 func inspectTurboQuantBytes(in gguf.Inspection, cfg kv.TurboQuantConfig, enabled bool) (int64, int64) {
