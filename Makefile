@@ -154,12 +154,14 @@ GGUF_EXPECT_GENERATED ?=
 GGUF_EXPECT_REAP_RATIO ?=
 GGUF_EXPECT_LAYERS ?=
 GGUF_EXPECT_KV_DIM ?=
+GGUF_EXPECT_EXPERTS ?=
+GGUF_EXPECT_EXPERTS_PER_TOKEN ?=
 GGUF_EXPECT_CACHE_LAYERS ?=
 GGUF_EXPECT_PROTECTED_CACHE_LAYERS ?=
 
 # Inspect and smoke the native pure-Go/SIMD GGUF path for llama/Qwen REAP models.
 gguf-inspect:
-	go run ./cmd/ggufinspect -json -require-runtime-ready -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_REAP_RATIO),-expect-reap-ratio $(GGUF_EXPECT_REAP_RATIO),) $(if $(GGUF_EXPECT_LAYERS),-expect-layers $(GGUF_EXPECT_LAYERS),) $(if $(GGUF_EXPECT_KV_DIM),-expect-kv-dim $(GGUF_EXPECT_KV_DIM),) $(if $(GGUF_EXPECT_CACHE_LAYERS),-expect-cache-layers $(GGUF_EXPECT_CACHE_LAYERS),) $(if $(GGUF_EXPECT_PROTECTED_CACHE_LAYERS),-expect-protected-cache-layers $(GGUF_EXPECT_PROTECTED_CACHE_LAYERS),) $(GGUF_MODEL)
+	go run ./cmd/ggufinspect -json -require-runtime-ready -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_REAP_RATIO),-expect-reap-ratio $(GGUF_EXPECT_REAP_RATIO),) $(if $(GGUF_EXPECT_LAYERS),-expect-layers $(GGUF_EXPECT_LAYERS),) $(if $(GGUF_EXPECT_KV_DIM),-expect-kv-dim $(GGUF_EXPECT_KV_DIM),) $(if $(GGUF_EXPECT_EXPERTS),-expect-experts $(GGUF_EXPECT_EXPERTS),) $(if $(GGUF_EXPECT_EXPERTS_PER_TOKEN),-expect-experts-per-token $(GGUF_EXPECT_EXPERTS_PER_TOKEN),) $(if $(GGUF_EXPECT_CACHE_LAYERS),-expect-cache-layers $(GGUF_EXPECT_CACHE_LAYERS),) $(if $(GGUF_EXPECT_PROTECTED_CACHE_LAYERS),-expect-protected-cache-layers $(GGUF_EXPECT_PROTECTED_CACHE_LAYERS),) $(GGUF_MODEL)
 
 gguf-smoke:
 	go run ./cmd/ggufsmoke -model $(GGUF_MODEL) -prompt-ids $(GGUF_PROMPT_IDS) -max-new $(GGUF_MAX_NEW) -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_GENERATED),-expect-generated $(GGUF_EXPECT_GENERATED),)

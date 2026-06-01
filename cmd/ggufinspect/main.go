@@ -23,6 +23,8 @@ func main() {
 	expectREAPRatio := flag.Float64("expect-reap-ratio", -1, "fail unless inferred/metadata REAP prune ratio matches this value")
 	expectLayers := flag.Int("expect-layers", -1, "fail unless model layer count matches this value")
 	expectKVDim := flag.Int("expect-kv-dim", -1, "fail unless model KV dimension matches this value")
+	expectExperts := flag.Int("expect-experts", -1, "fail unless MoE expert count matches this value")
+	expectExpertsPerToken := flag.Int("expect-experts-per-token", -1, "fail unless MoE active experts per token matches this value")
 	expectCacheLayers := flag.Int("expect-cache-layers", -1, "fail unless TurboQuant KV cache layer count matches this value")
 	expectProtectedCacheLayers := flag.Int("expect-protected-cache-layers", -1, "fail unless TurboQuant protected cache layer count matches this value")
 	flag.Parse()
@@ -61,6 +63,14 @@ func main() {
 	}
 	if *expectKVDim >= 0 && int(in.KVDim) != *expectKVDim {
 		fmt.Fprintf(os.Stderr, "ggufinspect: KV dimension mismatch got=%d want=%d\n", in.KVDim, *expectKVDim)
+		os.Exit(1)
+	}
+	if *expectExperts >= 0 && int(in.Experts) != *expectExperts {
+		fmt.Fprintf(os.Stderr, "ggufinspect: expert count mismatch got=%d want=%d\n", in.Experts, *expectExperts)
+		os.Exit(1)
+	}
+	if *expectExpertsPerToken >= 0 && int(in.ExpertsPerToken) != *expectExpertsPerToken {
+		fmt.Fprintf(os.Stderr, "ggufinspect: active experts per token mismatch got=%d want=%d\n", in.ExpertsPerToken, *expectExpertsPerToken)
 		os.Exit(1)
 	}
 	if *expectCacheLayers >= 0 && int(in.CompressedKVLayers) != *expectCacheLayers {
