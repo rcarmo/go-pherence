@@ -8,6 +8,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 
 	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
 	"github.com/rcarmo/go-pherence/backends/ggmlquant"
@@ -572,18 +574,67 @@ func gemvGGUFQuantRows(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int)
 	if err := gemvGGMLQuantRows(out, x, w, inDim, outDim); err == nil {
 		return nil
 	}
-	row := make([]float32, inDim)
-	for r := 0; r < outDim; r++ {
-		if err := w.DequantRowTo(row, r); err != nil {
-			return err
-		}
-		var sum float32
-		for i := 0; i < inDim; i++ {
-			sum += row[i] * x[i]
-		}
-		out[r] = sum
+	return gemvGGUFQuantRowsPureGo(out, x, w, inDim, outDim)
+}
+
+func gemvGGUFQuantRowsPureGo(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int) error {
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 1 {
+		workers = 1
 	}
-	return nil
+	if outDim < workers*8 {
+		workers = 1
+	}
+	if workers == 1 {
+		row := make([]float32, inDim)
+		for r := 0; r < outDim; r++ {
+			if err := w.DequantRowTo(row, r); err != nil {
+				return err
+			}
+			out[r] = dotF32(row, x[:inDim])
+		}
+		return nil
+	}
+	var wg sync.WaitGroup
+	errCh := make(chan error, workers)
+	chunk := (outDim + workers - 1) / workers
+	for wid := 0; wid < workers; wid++ {
+		start := wid * chunk
+		end := start + chunk
+		if end > outDim {
+			end = outDim
+		}
+		if start >= end {
+			continue
+		}
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			row := make([]float32, inDim)
+			for r := start; r < end; r++ {
+				if err := w.DequantRowTo(row, r); err != nil {
+					errCh <- err
+					return
+				}
+				out[r] = dotF32(row, x[:inDim])
+			}
+		}(start, end)
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
+}
+
+func dotF32(a, b []float32) float32 {
+	var sum float32
+	for i, av := range a {
+		sum += av * b[i]
+	}
+	return sum
 }
 
 func gemvGGMLQuantRows(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int) error {
