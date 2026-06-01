@@ -22,6 +22,7 @@ func main() {
 	cacheTypeV := flag.String("cache-type-v", "", "validate native TurboQuant value cache type (turbo2, q4_0, f16)")
 	kvResidualWindow := flag.Int("kv-residual-window", -1, "native TurboQuant residual window for plan output")
 	expectREAPRatio := flag.Float64("expect-reap-ratio", -1, "fail unless inferred/metadata REAP prune ratio matches this value")
+	expectREAPSource := flag.String("expect-reap-source", "", "fail unless inferred/metadata REAP source matches this value")
 	expectArchitecture := flag.String("expect-architecture", "", "fail unless GGUF architecture metadata matches this value")
 	expectNameContains := flag.String("expect-name-contains", "", "fail unless GGUF general.name contains this substring")
 	expectTensorCount := flag.Int("expect-tensor-count", -1, "fail unless GGUF tensor count matches this value")
@@ -67,6 +68,10 @@ func main() {
 	}
 	if *expectREAPRatio >= 0 && math.Abs(in.REAPPruneRatio-*expectREAPRatio) > 1e-6 {
 		fmt.Fprintf(os.Stderr, "ggufinspect: REAP ratio mismatch got=%.6f want=%.6f source=%s\n", in.REAPPruneRatio, *expectREAPRatio, in.REAPSource)
+		os.Exit(1)
+	}
+	if *expectREAPSource != "" && in.REAPSource != *expectREAPSource {
+		fmt.Fprintf(os.Stderr, "ggufinspect: REAP source mismatch got=%q want=%q\n", in.REAPSource, *expectREAPSource)
 		os.Exit(1)
 	}
 	if *expectArchitecture != "" && in.Architecture != *expectArchitecture {
