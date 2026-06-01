@@ -99,11 +99,7 @@ func missingRuntimeTensors(g *GGUF, arch string, hasMoE bool) []string {
 			"blk.0.ssm_conv1d.weight", "blk.0.ssm_a", "blk.0.ssm_dt.bias", "blk.0.ssm_norm.weight", "blk.0.ssm_alpha.weight", "blk.0.ssm_beta.weight", "blk.0.ssm_out.weight",
 			"blk.0.ffn_gate_inp.weight", "blk.0.ffn_gate_exps.weight", "blk.0.ffn_up_exps.weight", "blk.0.ffn_down_exps.weight",
 		)
-		missing := missingTensorNames(g, required)
-		if len(missing) == 0 {
-			missing = append(missing, "qwennext_hybrid_block_execution")
-		}
-		return missing
+		return missingTensorNames(g, required)
 	}
 	if hasMoE {
 		required = append(required,

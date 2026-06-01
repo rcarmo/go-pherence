@@ -266,3 +266,60 @@ func ggufQwenNextSigmoid(x float32) float32 {
 	e := float32(math.Exp(float64(x)))
 	return e / (1 + e)
 }
+func (m *GGUFLlama) forwardQwenNextHybridLayer(out []float32, layer *GGUFLlamaLayer, state *GGUFQwenNextState, input []float32) error {
+	if m == nil || layer == nil || state == nil {
+		return fmt.Errorf("nil QwenNext hybrid forward input")
+	}
+	cfg := m.Config
+	shapes, err := cfg.QwenNextLinearShapes()
+	if err != nil {
+		return err
+	}
+	if len(input) != cfg.HiddenSize || len(out) < cfg.HiddenSize {
+		return fmt.Errorf("QwenNext hybrid input/output len=%d/%d want %d", len(input), len(out), cfg.HiddenSize)
+	}
+	q, k, v, err := m.projectQwenNextFusedQKV(layer, input)
+	if err != nil {
+		return err
+	}
+	z, err := m.projectQwenNextGate(layer, input)
+	if err != nil {
+		return err
+	}
+	if err := updateGGUFQwenNextConvStateInPlace(state.Conv, q, k, v, cfg.SSMConvKernel); err != nil {
+		return err
+	}
+	convOut, err := applyGGUFQwenNextDepthwiseConv(state.Conv, layer.SSMConv1D, shapes.ConvDim, cfg.SSMConvKernel)
+	if err != nil {
+		return err
+	}
+	ggufQwenNextSiluInPlace(convOut)
+	q, k, v, err = splitGGUFQwenNextFusedQKV(convOut, shapes)
+	if err != nil {
+		return err
+	}
+	alpha := make([]float32, cfg.SSMTimeStepRank)
+	beta := make([]float32, cfg.SSMTimeStepRank)
+	m.gemvMaybe(alpha, input, nil, layer.SSMAlphaM, cfg.HiddenSize, cfg.SSMTimeStepRank)
+	m.gemvMaybe(beta, input, nil, layer.SSMBetaM, cfg.HiddenSize, cfg.SSMTimeStepRank)
+	dt, decay, err := prepareGGUFQwenNextDeltaParams(alpha, beta, layer.SSMDTBias, layer.SSMA, cfg.SSMTimeStepRank)
+	if err != nil {
+		return err
+	}
+	deltaOut, err := applyGGUFQwenNextDeltaUpdateInPlace(state.SSM, q, k, v, beta, dt, decay, cfg)
+	if err != nil {
+		return err
+	}
+	if err := applyGGUFQwenNextGatedRMSNormValueHeads(deltaOut, z, layer.SSMNorm, cfg.SSMTimeStepRank, cfg.SSMInnerSize/cfg.SSMTimeStepRank, cfg.RMSNormEps); err != nil {
+		return err
+	}
+	m.gemvMaybe(out, deltaOut, nil, layer.SSMOutM, shapes.ValueDim, cfg.HiddenSize)
+	state.Pos++
+	return nil
+}
+
+func ggufQwenNextSiluInPlace(x []float32) {
+	for i, v := range x {
+		x[i] = v / (1 + float32(math.Exp(float64(-v))))
+	}
+}

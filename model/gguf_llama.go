@@ -167,14 +167,19 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 	for i := range layers {
 		p := fmt.Sprintf("blk.%d.", i)
 		var layer GGUFLlamaLayer
-		for dst, suffix := range map[*[]float32]string{
+		baseLoads := map[*[]float32]string{
 			&layer.AttnNorm: "attn_norm.weight",
-			&layer.FFNNorm:  "ffn_norm.weight",
-			&layer.WQ:       "attn_q.weight",
-			&layer.WK:       "attn_k.weight",
-			&layer.WV:       "attn_v.weight",
-			&layer.WO:       "attn_output.weight",
-		} {
+		}
+		if cfg.IsQwenNextHybridGGUF() {
+			baseLoads[&layer.FFNNorm] = "post_attention_norm.weight"
+		} else {
+			baseLoads[&layer.FFNNorm] = "ffn_norm.weight"
+			baseLoads[&layer.WQ] = "attn_q.weight"
+			baseLoads[&layer.WK] = "attn_k.weight"
+			baseLoads[&layer.WV] = "attn_v.weight"
+			baseLoads[&layer.WO] = "attn_output.weight"
+		}
+		for dst, suffix := range baseLoads {
 			data, err := load(p + suffix)
 			if err != nil {
 				return nil, fmt.Errorf("layer %d %s: %w", i, suffix, err)
@@ -204,7 +209,7 @@ func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
 				*dst = data
 			}
 		}
-		if useGGMLQuant {
+		if useGGMLQuant && !cfg.IsQwenNextHybridGGUF() {
 			if layer.WQm, err = loadMatrix(p + "attn_q.weight"); err != nil {
 				return nil, err
 			}
@@ -575,6 +580,7 @@ type GGUFForwardState struct {
 	ffnMid     []float32
 	down       []float32
 	logits     []float32
+	qwenNext   []GGUFQwenNextState
 }
 
 // NewForwardState allocates reusable scratch for one autoregressive stream.
@@ -587,6 +593,12 @@ func (m *GGUFLlama) NewForwardState() *GGUFForwardState {
 	ffn := cfg.FFNHiddenSize
 	if cfg.MoEHiddenSize > ffn {
 		ffn = cfg.MoEHiddenSize
+	}
+	qwenNext := make([]GGUFQwenNextState, cfg.NumLayers)
+	if cfg.IsQwenNextHybridGGUF() {
+		for i := range qwenNext {
+			qwenNext[i], _ = cfg.NewQwenNextState()
+		}
 	}
 	return &GGUFForwardState{
 		hidden:     make([]float32, h),
@@ -603,6 +615,7 @@ func (m *GGUFLlama) NewForwardState() *GGUFForwardState {
 		ffnMid:     make([]float32, ffn),
 		down:       make([]float32, h),
 		logits:     make([]float32, cfg.VocabSize),
+		qwenNext:   qwenNext,
 	}
 }
 
@@ -655,44 +668,55 @@ func (m *GGUFLlama) ForwardState(st *GGUFForwardState, tokenID, step int, kvK, k
 	down := st.down[:h]
 
 	for i, layer := range m.Layers {
-		// ── attention sub-layer ───────────────────────────────────────────
+		// ── attention / QwenNext hybrid sub-layer ─────────────────────────
 		copy(attnIn, hidden)
 		m.rmsNorm(attnIn, layer.AttnNorm)
-		if m.UseGGMLQuant && layer.WQm != nil {
-			if actRaw, err := quantActQ8K(attnIn[:h]); err == nil {
-				_ = m.gemvGGMLQuantRaw(q, actRaw, layer.WQm, h, nH*hDim)
-				_ = m.gemvGGMLQuantRaw(k, actRaw, layer.WKm, h, kvDim)
-				_ = m.gemvGGMLQuantRaw(v, actRaw, layer.WVm, h, kvDim)
+		hybridDone := false
+		if layer.HasQwenNextHybridTensors() && i < len(st.qwenNext) {
+			if err := m.forwardQwenNextHybridLayer(oOut, &layer, &st.qwenNext[i], attnIn); err == nil {
+				for j := range hidden {
+					hidden[j] += oOut[j]
+				}
+				hybridDone = true
+			}
+		}
+		if !hybridDone {
+			if m.UseGGMLQuant && layer.WQm != nil {
+				if actRaw, err := quantActQ8K(attnIn[:h]); err == nil {
+					_ = m.gemvGGMLQuantRaw(q, actRaw, layer.WQm, h, nH*hDim)
+					_ = m.gemvGGMLQuantRaw(k, actRaw, layer.WKm, h, kvDim)
+					_ = m.gemvGGMLQuantRaw(v, actRaw, layer.WVm, h, kvDim)
+				} else {
+					m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, nH*hDim)
+					m.gemvMaybe(k, attnIn, layer.WK, layer.WKm, h, kvDim)
+					m.gemvMaybe(v, attnIn, layer.WV, layer.WVm, h, kvDim)
+				}
 			} else {
 				m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, nH*hDim)
 				m.gemvMaybe(k, attnIn, layer.WK, layer.WKm, h, kvDim)
 				m.gemvMaybe(v, attnIn, layer.WV, layer.WVm, h, kvDim)
 			}
-		} else {
-			m.gemvMaybe(q, attnIn, layer.WQ, layer.WQm, h, nH*hDim)
-			m.gemvMaybe(k, attnIn, layer.WK, layer.WKm, h, kvDim)
-			m.gemvMaybe(v, attnIn, layer.WV, layer.WVm, h, kvDim)
-		}
 
-		// RoPE
-		applyRoPEInplace(q, posFreqs, nH, hDim, rotHalf)
-		applyRoPEInplace(k, posFreqs, nKV, hDim, rotHalf)
+			// RoPE
+			applyRoPEInplace(q, posFreqs, nH, hDim, rotHalf)
+			applyRoPEInplace(k, posFreqs, nKV, hDim, rotHalf)
 
-		// Update KV cache
-		kCache := kvK[i]
-		vCache := kvV[i]
-		copy(kCache[step*kvDim:], k)
-		copy(vCache[step*kvDim:], v)
+			// Update KV cache
+			kCache := kvK[i]
+			vCache := kvV[i]
+			copy(kCache[step*kvDim:], k)
+			copy(vCache[step*kvDim:], v)
 
-		// Grouped-query attention: compute attention output
-		m.gqaAttentionInto(attnOut, attnScores, q, kCache, vCache, step+1, nH, nKV, hDim)
+			// Grouped-query attention: compute attention output
+			m.gqaAttentionInto(attnOut, attnScores, q, kCache, vCache, step+1, nH, nKV, hDim)
 
-		// Output projection
-		m.gemvMaybe(oOut, attnOut, layer.WO, layer.WOm, nH*hDim, h)
+			// Output projection
+			m.gemvMaybe(oOut, attnOut, layer.WO, layer.WOm, nH*hDim, h)
 
-		// Residual add
-		for j := range hidden {
-			hidden[j] += oOut[j]
+			// Residual add
+			for j := range hidden {
+				hidden[j] += oOut[j]
+			}
 		}
 
 		// ── FFN sub-layer ─────────────────────────────────────────────────

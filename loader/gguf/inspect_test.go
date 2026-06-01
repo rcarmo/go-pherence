@@ -45,7 +45,7 @@ func TestInspectOpenRuntimeSupportedForExpectedMoETensors(t *testing.T) {
 	}
 }
 
-func TestInspectOpenQwenNextReportsExecutionGap(t *testing.T) {
+func TestInspectOpenQwenNextRuntimeSupportedWhenTensorsPresent(t *testing.T) {
 	g := &GGUF{Meta: map[string]any{"general.architecture": "qwen35moe", "qwen35moe.ssm.inner_size": uint32(4096), "qwen35moe.expert_count": uint32(205), "qwen35moe.expert_used_count": uint32(8)}, Tensors: []TensorInfo{
 		{Name: "token_embd.weight", QType: QuantQ4_K}, {Name: "output_norm.weight", QType: QuantF32}, {Name: "output.weight", QType: QuantQ4_K},
 		{Name: "blk.0.attn_qkv.weight", QType: QuantQ4_K}, {Name: "blk.0.attn_gate.weight", QType: QuantQ4_K}, {Name: "blk.0.post_attention_norm.weight", QType: QuantF32},
@@ -53,8 +53,8 @@ func TestInspectOpenQwenNextReportsExecutionGap(t *testing.T) {
 		{Name: "blk.0.ffn_gate_inp.weight", QType: QuantF32}, {Name: "blk.0.ffn_gate_exps.weight", QType: QuantQ4_K}, {Name: "blk.0.ffn_up_exps.weight", QType: QuantQ4_K}, {Name: "blk.0.ffn_down_exps.weight", QType: QuantQ6_K},
 	}}
 	in := InspectOpen("qwen.gguf", g)
-	if in.RuntimeSupported || len(in.MissingRuntimeTensors) != 1 || in.MissingRuntimeTensors[0] != "qwennext_hybrid_block_execution" {
-		t.Fatalf("expected execution gap marker: %+v", in)
+	if !in.RuntimeSupported || len(in.MissingRuntimeTensors) != 0 {
+		t.Fatalf("expected runtime support: %+v", in)
 	}
 }
 
