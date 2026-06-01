@@ -105,6 +105,8 @@ make gguf-validate \
   GGUF_EXPECT_KV_DIM=512 \
   GGUF_EXPECT_EXPERTS=205 \
   GGUF_EXPECT_EXPERTS_PER_TOKEN=8 \
+  GGUF_EXPECT_Q4_K_COUNT=371 \
+  GGUF_EXPECT_Q6_K_COUNT=61 \
   GGUF_EXPECT_CACHE_LAYERS=10 \
   GGUF_EXPECT_PROTECTED_CACHE_LAYERS=1 \
   GGUF_KV_RESIDUAL_WINDOW=2
@@ -113,7 +115,7 @@ make gguf-validate \
 make gguf-validate-qwen36-reap
 ```
 
-`ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run. Set `GGUF_EXPECT_REAP_RATIO`, `GGUF_EXPECT_LAYERS`, `GGUF_EXPECT_VOCAB_SIZE`, `GGUF_EXPECT_MAX_SEQ_LEN`, `GGUF_EXPECT_FULL_ATTENTION_INTERVAL`, `GGUF_EXPECT_KV_DIM`, `GGUF_EXPECT_EXPERTS`, `GGUF_EXPECT_EXPERTS_PER_TOKEN`, `GGUF_EXPECT_CACHE_LAYERS`, `GGUF_EXPECT_PROTECTED_CACHE_LAYERS` (or the matching `ggufinspect` flags) and `GGUF_EXPECT_GENERATED` (or `ggufsmoke -expect-generated`) to make validation fail if REAP metadata/source inference, runtime shape/MoE planning, TurboQuant layer planning, or greedy output changes unexpectedly.
+`ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run. Set `GGUF_EXPECT_REAP_RATIO`, `GGUF_EXPECT_LAYERS`, `GGUF_EXPECT_VOCAB_SIZE`, `GGUF_EXPECT_MAX_SEQ_LEN`, `GGUF_EXPECT_FULL_ATTENTION_INTERVAL`, `GGUF_EXPECT_KV_DIM`, `GGUF_EXPECT_EXPERTS`, `GGUF_EXPECT_EXPERTS_PER_TOKEN`, `GGUF_EXPECT_Q4_K_COUNT`, `GGUF_EXPECT_Q6_K_COUNT`, `GGUF_EXPECT_CACHE_LAYERS`, `GGUF_EXPECT_PROTECTED_CACHE_LAYERS` (or the matching `ggufinspect` flags) and `GGUF_EXPECT_GENERATED` (or `ggufsmoke -expect-generated`) to make validation fail if REAP metadata/source inference, runtime shape/MoE planning, TurboQuant layer planning, or greedy output changes unexpectedly.
 
 ## Gemma4 MTP smoke
 
