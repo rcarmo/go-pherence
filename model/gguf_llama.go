@@ -16,6 +16,7 @@ import (
 	"github.com/rcarmo/go-pherence/backends/k3"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	gograph "github.com/rcarmo/go-pherence/runtime/graph"
+	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
 // GGUFLlamaConfig holds the hyper-parameters extracted from GGUF metadata.
@@ -720,21 +721,22 @@ func (m *GGUFLlama) siluMul(dst, gate, up []float32) {
 // GGUFForwardState holds reusable per-token scratch buffers for GGUFLlama.ForwardState.
 // Keeping this around avoids allocating ~hundreds of KB of temporary buffers per token.
 type GGUFForwardState struct {
-	hidden     []float32
-	attnIn     []float32
-	q          []float32
-	k          []float32
-	v          []float32
-	attnOut    []float32
-	attnScores []float32
-	oOut       []float32
-	ffnIn      []float32
-	gate       []float32
-	up         []float32
-	ffnMid     []float32
-	down       []float32
-	logits     []float32
-	qwenNext   []GGUFQwenNextState
+	hidden       []float32
+	attnIn       []float32
+	q            []float32
+	k            []float32
+	v            []float32
+	attnOut      []float32
+	attnScores   []float32
+	oOut         []float32
+	ffnIn        []float32
+	gate         []float32
+	up           []float32
+	ffnMid       []float32
+	down         []float32
+	logits       []float32
+	qwenNext     []GGUFQwenNextState
+	compressedKV []*kv.CompressedKVCache
 }
 
 // NewForwardState allocates reusable scratch for one autoregressive stream.
@@ -863,13 +865,22 @@ func (m *GGUFLlama) ForwardState(st *GGUFForwardState, tokenID, step int, kvK, k
 			applyRoPEInplace(k, posFreqs, nKV, hDim, rotHalf)
 
 			// Update KV cache
-			kCache := kvK[i]
-			vCache := kvV[i]
-			copy(kCache[step*kvDim:], k)
-			copy(vCache[step*kvDim:], v)
+			var kCache, vCache []float32
+			seqLen := step + 1
+			if i < len(st.compressedKV) && st.compressedKV[i] != nil {
+				st.compressedKV[i].Append(k, v)
+				kCache = st.compressedKV[i].GetK()
+				vCache = st.compressedKV[i].GetV()
+				seqLen = st.compressedKV[i].SeqLen()
+			} else {
+				kCache = kvK[i]
+				vCache = kvV[i]
+				copy(kCache[step*kvDim:], k)
+				copy(vCache[step*kvDim:], v)
+			}
 
 			// Grouped-query attention: compute attention output
-			m.gqaAttentionInto(attnOut, attnScores, q, kCache, vCache, step+1, nH, nKV, hDim)
+			m.gqaAttentionInto(attnOut, attnScores, q, kCache, vCache, seqLen, nH, nKV, hDim)
 
 			// Output projection
 			m.gemvMaybe(oOut, attnOut, layer.WO, layer.WOm, nH*hDim, h)
@@ -991,10 +1002,13 @@ func (m *GGUFLlama) GenerateWithOptions(promptIDs []int, maxNew int, opts GGUFGe
 	// Allocate KV caches. TurboQuant options are accepted and validated here;
 	// QwenNext hybrid layers use recurrent state and full-attention interval
 	// layers still consume F32 KV slices until attention reads compressed caches directly.
+	var compressedKV []*kv.CompressedKVCache
 	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
-		if _, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow); err != nil {
+		caches, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
+		if err != nil {
 			return nil, err
 		}
+		compressedKV = caches
 	}
 	kvK := make([][]float32, cfg.NumLayers)
 	kvV := make([][]float32, cfg.NumLayers)
@@ -1005,6 +1019,7 @@ func (m *GGUFLlama) GenerateWithOptions(promptIDs []int, maxNew int, opts GGUFGe
 
 	var generated []int
 	state := m.NewForwardState()
+	state.compressedKV = compressedKV
 	if len(promptIDs) == 0 || maxNew <= 0 {
 		return generated, nil
 	}
