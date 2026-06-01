@@ -128,6 +128,45 @@ make gguf-validate \
   GGUF_EXPECT_KV_SMOKE_BYTES=9440 \
   GGUF_KV_RESIDUAL_WINDOW=2
 
+# Generic inspect/smoke/cache-smoke plus benchmark
+make gguf-check \
+  GGUF_MODEL=/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf \
+  GGUF_EXPECT_GENERATED=489 \
+  GGUF_EXPECT_DECODED=ype \
+  GGUF_EXPECT_RUNTIME_FLOAT_BYTES=245760 \
+  GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES=81920 \
+  GGUF_EXPECT_KV_FLOAT_BYTES=245760 \
+  GGUF_EXPECT_KV_COMPRESSED_BYTES=81920 \
+  GGUF_EXPECT_REAP_RATIO=0.20 \
+  GGUF_EXPECT_REAP_SOURCE=filename_or_name \
+  GGUF_EXPECT_ARCHITECTURE=qwen35moe \
+  GGUF_EXPECT_NAME_CONTAINS=REAP20 \
+  GGUF_EXPECT_TENSOR_COUNT=733 \
+  GGUF_EXPECT_LAYERS=40 \
+  GGUF_EXPECT_HIDDEN_SIZE=2048 \
+  GGUF_EXPECT_HEADS=16 \
+  GGUF_EXPECT_VOCAB_SIZE=248320 \
+  GGUF_EXPECT_TOKENIZER_TOKENS=248320 \
+  GGUF_EXPECT_BOS=248044 \
+  GGUF_EXPECT_EOS=248046 \
+  GGUF_EXPECT_MAX_SEQ_LEN=262144 \
+  GGUF_EXPECT_FULL_ATTENTION_INTERVAL=4 \
+  GGUF_EXPECT_KV_HEADS=2 \
+  GGUF_EXPECT_HEAD_DIM=256 \
+  GGUF_EXPECT_KV_DIM=512 \
+  GGUF_EXPECT_EXPERTS=205 \
+  GGUF_EXPECT_EXPERTS_PER_TOKEN=8 \
+  GGUF_EXPECT_F32_COUNT=301 \
+  GGUF_EXPECT_Q4_K_COUNT=371 \
+  GGUF_EXPECT_Q6_K_COUNT=61 \
+  GGUF_EXPECT_CACHE_LAYERS=10 \
+  GGUF_EXPECT_PROTECTED_CACHE_LAYERS=1 \
+  GGUF_EXPECT_KV_SMOKE_LAYER=3 \
+  GGUF_EXPECT_KV_SMOKE_COMPRESSED=3 \
+  GGUF_EXPECT_KV_SMOKE_FULL=2 \
+  GGUF_EXPECT_KV_SMOKE_BYTES=9440 \
+  GGUF_KV_RESIDUAL_WINDOW=2
+
 # Generic focused package smoke + inspect/smoke/cache-smoke validation
 make gguf-ci \
   GGUF_MODEL=/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf \
@@ -172,7 +211,7 @@ make gguf-check-qwen36-reap
 make gguf-ci-qwen36-reap
 ```
 
-`gguf-ci` is the generic focused package smoke plus `gguf-validate`; `gguf-ci-qwen36-reap` runs the focused build-only package smoke (`GGUF_CI_PACKAGES`, overrideable) before `gguf-check-qwen36-reap`; `llmserver /health` exposes the same TurboQuant byte estimate plus KV/protected-layer accounting for server deployments. `gguf-check-qwen36-reap` runs the validation target plus the benchmark target, including expected runtime and benchmark KV byte assertions (`245760` F32 bytes and `81920` compressed bytes for the one-token local smoke). `ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run; `make gguf-bench-qwen36-reap` bundles the local expected token/decoded-text assertions with that benchmark. Set `GGUF_EXPECT_REAP_RATIO`, `GGUF_EXPECT_REAP_SOURCE`, `GGUF_EXPECT_ARCHITECTURE`, `GGUF_EXPECT_NAME_CONTAINS`, `GGUF_EXPECT_TENSOR_COUNT`, `GGUF_EXPECT_LAYERS`, `GGUF_EXPECT_HIDDEN_SIZE`, `GGUF_EXPECT_HEADS`, `GGUF_EXPECT_VOCAB_SIZE`, `GGUF_EXPECT_TOKENIZER_TOKENS`, `GGUF_EXPECT_BOS`, `GGUF_EXPECT_EOS`, `GGUF_EXPECT_MAX_SEQ_LEN`, `GGUF_EXPECT_FULL_ATTENTION_INTERVAL`, `GGUF_EXPECT_KV_HEADS`, `GGUF_EXPECT_HEAD_DIM`, `GGUF_EXPECT_KV_DIM`, `GGUF_EXPECT_EXPERTS`, `GGUF_EXPECT_EXPERTS_PER_TOKEN`, `GGUF_EXPECT_F32_COUNT`, `GGUF_EXPECT_Q4_K_COUNT`, `GGUF_EXPECT_Q6_K_COUNT`, `GGUF_EXPECT_CACHE_LAYERS`, `GGUF_EXPECT_PROTECTED_CACHE_LAYERS` (or the matching `ggufinspect` flags) and `GGUF_EXPECT_GENERATED`/`GGUF_EXPECT_DECODED` (or `ggufsmoke -expect-generated`/`-expect-decoded`) to make validation fail if REAP metadata/source inference, runtime shape/MoE planning, TurboQuant layer planning, synthetic compressed-KV smoke accounting, or greedy output/decoded text changes unexpectedly.
+`gguf-check` is the generic validation-plus-benchmark target. `gguf-ci` is the generic focused package smoke plus `gguf-validate`; `gguf-ci-qwen36-reap` runs the focused build-only package smoke (`GGUF_CI_PACKAGES`, overrideable) before `gguf-check-qwen36-reap`; `llmserver /health` exposes the same TurboQuant byte estimate plus KV/protected-layer accounting for server deployments. `gguf-check-qwen36-reap` runs the validation target plus the benchmark target, including expected runtime and benchmark KV byte assertions (`245760` F32 bytes and `81920` compressed bytes for the one-token local smoke). `ggufinspect` reports REAP ratio/source, runtime readiness, KV dimensions, cache-layer counts, protected-layer counts, and full-vs-compressed KV byte estimates. `ggufsmoke -bench` runs the same generation allocator used by `GenerateWithOptions` and reports prefill/decode timing plus actual F32/compressed KV bytes for the run; `make gguf-bench-qwen36-reap` bundles the local expected token/decoded-text assertions with that benchmark. Set `GGUF_EXPECT_REAP_RATIO`, `GGUF_EXPECT_REAP_SOURCE`, `GGUF_EXPECT_ARCHITECTURE`, `GGUF_EXPECT_NAME_CONTAINS`, `GGUF_EXPECT_TENSOR_COUNT`, `GGUF_EXPECT_LAYERS`, `GGUF_EXPECT_HIDDEN_SIZE`, `GGUF_EXPECT_HEADS`, `GGUF_EXPECT_VOCAB_SIZE`, `GGUF_EXPECT_TOKENIZER_TOKENS`, `GGUF_EXPECT_BOS`, `GGUF_EXPECT_EOS`, `GGUF_EXPECT_MAX_SEQ_LEN`, `GGUF_EXPECT_FULL_ATTENTION_INTERVAL`, `GGUF_EXPECT_KV_HEADS`, `GGUF_EXPECT_HEAD_DIM`, `GGUF_EXPECT_KV_DIM`, `GGUF_EXPECT_EXPERTS`, `GGUF_EXPECT_EXPERTS_PER_TOKEN`, `GGUF_EXPECT_F32_COUNT`, `GGUF_EXPECT_Q4_K_COUNT`, `GGUF_EXPECT_Q6_K_COUNT`, `GGUF_EXPECT_CACHE_LAYERS`, `GGUF_EXPECT_PROTECTED_CACHE_LAYERS` (or the matching `ggufinspect` flags) and `GGUF_EXPECT_GENERATED`/`GGUF_EXPECT_DECODED` (or `ggufsmoke -expect-generated`/`-expect-decoded`) to make validation fail if REAP metadata/source inference, runtime shape/MoE planning, TurboQuant layer planning, synthetic compressed-KV smoke accounting, or greedy output/decoded text changes unexpectedly.
 
 ## Gemma4 MTP smoke
 
