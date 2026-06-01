@@ -26,7 +26,7 @@ MoE note: 128 experts/layer, 8 active/token. The pure Go/SIMD path runs router s
 | **llama** | SmolLM2, LLaMA 3.x | BF16, F16, F32 | ✅ |
 | **qwen2** | Qwen2.5 0.5B–7B | MLX 4-bit, GPTQ 4-bit | ✅ |
 | **qwen3** | Qwen3 0.6B+ | MLX 4-bit, BF16 | ✅ |
-| **qwen3_moe** | Qwen3-30B-A3B MoE, Qwen3.6 REAP-pruned MoE route masks | MLX 4-bit; GGUF Q4_K metadata/readiness inspection | ✅ pure Go/SIMD MoE routing + optional static REAP expert masks; GGUF inspection via `cmd/ggufinspect` |
+| **qwen3_moe** | Qwen3-30B-A3B MoE, Qwen3.6 REAP-pruned MoE route masks | MLX 4-bit; GGUF Q4_K/Q6_K REAP checkpoints | ✅ pure Go/SIMD MoE routing + optional static REAP expert masks; native GGUF inspect/smoke/bench/validation via `cmd/ggufinspect`, `cmd/ggufsmoke`, and `make gguf-validate-qwen36-reap` |
 | **gemma3** | Gemma 3 1B+ | MLX 4-bit, BF16 | ✅ |
 | **gemma4** | Gemma 4 E2B+ | MLX 4-bit | ✅ |
 | **lfm2_moe** | LFM2.5-8B-A1B hybrid conv/attention MoE | HF safetensors BF16 | 🧭 metadata/inspect coverage; runtime not implemented |
