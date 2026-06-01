@@ -104,6 +104,9 @@ type Server struct {
 	useGPU      bool
 	gpuLayers   int
 	speculative bool
+	cacheTypeK  string
+	cacheTypeV  string
+	kvResidual  int
 }
 
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
@@ -349,9 +352,47 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	status := map[string]any{"status": "ok", "model": s.modelID, "models": len(s.presets) + 1, "gpu": s.gpuModel != nil, "ctx_size": s.maxCtx}
+	if s.cacheTypeK != "" || s.cacheTypeV != "" || s.kvResidual >= 0 {
+		status["turboquant"] = s.turboQuantHealthLocked()
+	}
 	if err := json.NewEncoder(w).Encode(status); err != nil {
 		log.Printf("health response encode failed: %v", err)
 	}
+}
+
+func (s *Server) turboQuantHealthLocked() map[string]any {
+	out := map[string]any{"cache_type_k": s.cacheTypeK, "cache_type_v": s.cacheTypeV, "residual_window": s.kvResidual}
+	cfg, enabled, err := kv.TurboQuantConfigFromCacheTypes(s.cacheTypeK, s.cacheTypeV, s.kvResidual)
+	if err != nil {
+		out["error"] = err.Error()
+		return out
+	}
+	out["enabled"] = enabled
+	out["key_bits"] = cfg.KeyBits
+	out["value_bits"] = cfg.ValueBits
+	if s.cpuModel != nil {
+		kvHeads := s.cpuModel.Config.NumKVHeads
+		if kvHeads == 0 {
+			kvHeads = s.cpuModel.Config.NumHeads
+		}
+		headDim := s.cpuModel.Config.HeadDim
+		if headDim == 0 && s.cpuModel.Config.NumHeads > 0 {
+			headDim = s.cpuModel.Config.HiddenSize / s.cpuModel.Config.NumHeads
+		}
+		layers := s.cpuModel.Config.NumLayers
+		maxSeq := s.maxCtx
+		if maxSeq <= 0 {
+			maxSeq = s.cpuModel.Config.MaxSeqLen
+		}
+		kvDim := kvHeads * headDim
+		out["layers"] = layers
+		out["kv_heads"] = kvHeads
+		out["head_dim"] = headDim
+		out["kv_dim"] = kvDim
+		out["max_seq"] = maxSeq
+		out["full_kv_bytes"] = int64(layers) * int64(maxSeq) * int64(kvDim) * 2 * 4
+	}
+	return out
 }
 
 func (s *Server) switchModelLocked(id string) error {
@@ -372,6 +413,9 @@ func (s *Server) switchModelLocked(id string) error {
 	s.tok = tok
 	s.modelID = id
 	s.modelPath = preset.Path
+	s.cacheTypeK = preset.CacheTypeK
+	s.cacheTypeV = preset.CacheTypeV
+	s.kvResidual = -1
 	if preset.CtxSize > 0 {
 		s.maxCtx = preset.CtxSize
 	}
@@ -498,7 +542,7 @@ func main() {
 		}
 	}
 	log.Printf("Runtime hints: threads=%d batch_size=%d ctx_size=%d cache_type_k=%q cache_type_v=%q kv_residual_window=%d presets=%d", *threads, *batchSize, *ctxSize, *cacheTypeK, *cacheTypeV, *kvResidualWindow, len(presets))
-	srv := &Server{cpuModel: m, gpuModel: gpu, tok: tok, modelID: modelID, modelPath: *dir, presets: presets, created: time.Now().Unix(), maxCtx: *ctxSize, useGPU: *useGPU, gpuLayers: *gpuLayers, speculative: *speculative}
+	srv := &Server{cpuModel: m, gpuModel: gpu, tok: tok, modelID: modelID, modelPath: *dir, presets: presets, created: time.Now().Unix(), maxCtx: *ctxSize, useGPU: *useGPU, gpuLayers: *gpuLayers, speculative: *speculative, cacheTypeK: *cacheTypeK, cacheTypeV: *cacheTypeV, kvResidual: *kvResidualWindow}
 	if gpu != nil {
 		defer gpu.Close()
 		defer nvidia.Shutdown()

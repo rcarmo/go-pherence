@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/model"
 )
 
 func TestHandleModelsListsPresets(t *testing.T) {
@@ -36,8 +38,25 @@ func TestHandleModelsListsPresets(t *testing.T) {
 	}
 }
 
+func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
+	s := &Server{modelID: "qwen-reap", maxCtx: 16, cacheTypeK: "turbo4", cacheTypeV: "turbo2", kvResidual: 2, cpuModel: &model.LlamaModel{Config: model.LlamaConfig{NumLayers: 4, NumHeads: 2, NumKVHeads: 1, HiddenSize: 8, HeadDim: 4, MaxSeqLen: 32}}, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}}
+	rr := httptest.NewRecorder()
+	s.handleHealth(rr, httptest.NewRequest("GET", "/health", nil))
+	if rr.Code != 200 {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	tq, ok := resp["turboquant"].(map[string]any)
+	if !ok || tq["enabled"] != true || int(tq["kv_dim"].(float64)) != 4 || int(tq["full_kv_bytes"].(float64)) != 2048 {
+		t.Fatalf("unexpected turboquant health: %+v", resp)
+	}
+}
+
 func TestHandleHealthReportsRuntimeState(t *testing.T) {
-	s := &Server{modelID: "qwen-reap", maxCtx: 32768, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}}
+	s := &Server{modelID: "qwen-reap", maxCtx: 32768, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}, kvResidual: -1}
 	rr := httptest.NewRecorder()
 	s.handleHealth(rr, httptest.NewRequest("GET", "/health", nil))
 	if rr.Code != 200 {
