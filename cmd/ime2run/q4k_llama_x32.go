@@ -160,10 +160,14 @@ func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []
 				out[rg*32+r] += corr
 			}
 		} else if len(w.ZPD) > 0 {
-			// Fast path: RVV SAXPY for cache-efficient ZPD correction
+			// Fast path: RVV SAXPY, sequential ZPD access, skip near-zero blocks
+			base0 := rg * subs * 32
+			outSlice := out[rg*32 : rg*32+32]
 			for sb := 0; sb < subs; sb++ {
-				base := rg*subs*32 + sb*32
-				ime2.ScaleAccF32RVV(out[rg*32:rg*32+32], w.ZPD[base:base+32], sumActCorr[sb])
+				sc := sumActCorr[sb]
+				if sc < -1e-6 || sc > 1e-6 {
+					ime2.ScaleAccF32RVV(outSlice, w.ZPD[base0+sb*32:base0+sb*32+32], sc)
+				}
 			}
 		} else {
 			// Fallback: compute ZP*D on the fly
