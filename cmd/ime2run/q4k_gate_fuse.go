@@ -87,12 +87,17 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 		} else if subs%2 == 0 {
 			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[gStart*subs*608])), &gateOut[gStart*32], subs, gEnd-gStart)
 			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&up.BData[gStart*subs*608])), &upOut[gStart*32], subs, gEnd-gStart)
-			for sb := 0; sb < subs; sb++ {
-				sc := float32(q8.SumNeg[sb]) * q8.Scale[sb]
-				for rg := gStart; rg < gEnd; rg++ {
-					base := rg*subs*32 + sb*32
-					ime2.ScaleAccF32RVV(gateOut[rg*32:rg*32+32], gate.ZPD[base:base+32], sc)
-					ime2.ScaleAccF32RVV(upOut[rg*32:rg*32+32], up.ZPD[base:base+32], sc)
+			for rg := gStart; rg < gEnd; rg++ {
+				base0 := rg * subs * 32
+				go_ := gateOut[rg*32 : rg*32+32]
+				uo_ := upOut[rg*32 : rg*32+32]
+				for sb := 0; sb < subs; sb++ {
+					sc := float32(q8.SumNeg[sb]) * q8.Scale[sb]
+					if sc < -1e-6 || sc > 1e-6 {
+						b := base0 + sb*32
+						ime2.ScaleAccF32RVV(go_, gate.ZPD[b:b+32], sc)
+						ime2.ScaleAccF32RVV(uo_, up.ZPD[b:b+32], sc)
+					}
 				}
 			}
 		} else {
@@ -100,12 +105,17 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 				k3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[rg*subs*608])), &gateOut[rg*32], subs, 32)
 				k3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&up.BData[rg*subs*608])), &upOut[rg*32], subs, 32)
 			}
-			for sb := 0; sb < subs; sb++ {
-				sc := float32(q8.SumNeg[sb]) * q8.Scale[sb]
-				for rg := gStart; rg < gEnd; rg++ {
-					base := rg*subs*32 + sb*32
-					ime2.ScaleAccF32RVV(gateOut[rg*32:rg*32+32], gate.ZPD[base:base+32], sc)
-					ime2.ScaleAccF32RVV(upOut[rg*32:rg*32+32], up.ZPD[base:base+32], sc)
+			for rg := gStart; rg < gEnd; rg++ {
+				base0 := rg * subs * 32
+				go_ := gateOut[rg*32 : rg*32+32]
+				uo_ := upOut[rg*32 : rg*32+32]
+				for sb := 0; sb < subs; sb++ {
+					sc := float32(q8.SumNeg[sb]) * q8.Scale[sb]
+					if sc < -1e-6 || sc > 1e-6 {
+						b := base0 + sb*32
+						ime2.ScaleAccF32RVV(go_, gate.ZPD[b:b+32], sc)
+						ime2.ScaleAccF32RVV(uo_, up.ZPD[b:b+32], sc)
+					}
 				}
 			}
 		}
