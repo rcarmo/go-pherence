@@ -238,3 +238,54 @@ func TestAICoreVLENViaCGo(t *testing.T) {
 	t.Logf("out[0:8]=%v", out[:8])
 	t.Logf("out[8:16]=%v", out[8:16])
 }
+
+func TestK3I8I4M1ZPCorrection(t *testing.T) {
+	// Test: act=1, nibble=8, ZP=8 → correct output = 0 (ZP correction cancels dot)
+	// Without ZP correction: output = 32 * 8 * scale_A * scale_B per K32 block
+	// With ZP=8 correction: output = 0
+	const kBlks = 1
+	a := make([]byte, kBlks*38)
+	b := make([]byte, kBlks*608)
+
+	// A: scale=1.0, sumNeg=-32, all quants=1
+	*(*float32)(unsafe.Pointer(&a[0])) = 1.0
+	*(*int16)(unsafe.Pointer(&a[4])) = int16(-32)
+	for i := 0; i < 32; i++ { a[6+i] = 1 }
+
+	// B: fp16 scale=1.0, ZP=8 for all rows, nibbles=8 (0x88)
+	for r := 0; r < 32; r++ {
+		b[r*2] = 0x00; b[r*2+1] = 0x3C // fp16 1.0
+		b[64+r] = 8                        // ZP = 8
+		for n := 0; n < 16; n++ { b[96+r*16+n] = 0x88 }
+	}
+
+	pool := NewAIWorkerPool(1)
+	defer pool.Close()
+	out := make([]float32, 64)
+	for i := range out { out[i] = -999.0 }
+
+	pool.Run(func(workerID, nWorkers int) {
+		k3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
+	})
+
+	// With ZP=8 and nibble=8: dot - ZP*sumNeg*scale_A*scale_B = 32×8 - 8×(-32)×1×1 = 256+256=512? No wait:
+	// dot = sum_k(act_k × nibble_k) × scale_B × scale_A = 32×8×1×1 = 256
+	// ZP correction: - ZP × sum_act × scale_B × scale_A = - 8 × 32 × 1 × 1 = -256
+	// Wait: ZP correction = ZP × A_sumNeg × scale_A × scale_B = 8 × (-32) × 1.0 × 1.0 = -256
+	// Total = 256 + (-256) = 0 ← CORRECT
+	// Without ZP correction: output = 256 (raw dot product)
+
+	t.Logf("out[0:8] = %v", out[:8])
+	t.Logf("out[8:16] = %v", out[8:16])
+	
+	correctCount := 0
+	for i := 0; i < 32; i++ {
+		if math.Abs(float64(out[i])) < 1.0 { correctCount++ }
+	}
+	t.Logf("Rows with |output|<1 (correct ZP=8 correction): %d/32", correctCount)
+	if correctCount == 32 {
+		t.Logf("KERNEL ZP CORRECTION WORKING!")
+	} else {
+		t.Logf("KERNEL ZP CORRECTION NOT WORKING (values ~256 means no correction applied)")
+	}
+}

@@ -82,9 +82,12 @@ loop:
     WORD $0x008072d7
     // vmv.v.i v28, 8  (dead code — overwritten by vwcvtu below; kept for binary compatibility)
     WORD $0x5e043e57
+    // vmv.v.i v28, 8  (dead code, kept for binary compatibility)
+    // vmv.v.i v28, 8  (dead code — overwritten by vmv.v.i v28,0 below)
+    WORD $0x5e043e57
     // vsetvli t0, x0, e8, mf2, tu, mu
     WORD $0x007072d7
-    // vle8.v v29, (X12)  -- load B int8 zp (32B) + first 32B of nibbles (ignored)
+    // vle8.v v29, (X12)  -- load B int8 zp bytes
     WORD $0x02060e87
     ADD $544, X12
     // vsetvli t0, x0, e8, m1, tu, mu
@@ -93,7 +96,7 @@ loop:
     WORD $0xa2323c57
     // vsetvli t0, x0, e16, m1, tu, mu
     WORD $0x008072d7
-    // vmv.v.i v28, 0 (ZP=0; Go ZPD correction loop applies exact ZP correction)
+    // vmv.v.i v28, 0  -- ZP=0; Go ZPD correction loop applies exact ZP
     WORD $0x5E003E57
     // vmul.vx v26, v28, X7   — v26 = zp_int16 × A_sum
     WORD $0x97c3ed57
@@ -107,6 +110,7 @@ loop:
     WORD $0x03003957
     WORD $0x03003a57
     WORD $0x03003b57
+    WORD $0x008072d7
     // smt.vmadotsu.hp v16,v10,v4,v1,0,i4  — group cols 0-7:  hi4×B_lo, scale v1=16
     WORD $0xd645082b
     // smt.vmadotsu.hp v18,v10,v5,v1,0,i4  — group cols 8-15

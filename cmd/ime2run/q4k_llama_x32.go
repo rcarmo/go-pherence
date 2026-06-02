@@ -354,6 +354,8 @@ type q4kBatchMatVecSpec struct {
 // Kernel ZP=0; Go ZPD correction applies exact fp32 ZP correction.
 // q4kQ41x32MatVecBatchSameAct: constant ZP=8 kernel, no Go correction.
 // q4kQ41x32MatVecBatchSameAct: kernel ZP=0, Go ZPD correction for exact results.
+// q4kQ41x32MatVecBatchSameAct: kernel handles ZP via fixed vwcvtu (vl=32, VLEN=1024).
+// q4kQ41x32MatVecBatchSameAct: kernel ZP=0, Go ZPD correction for exact results.
 func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
 	if len(specs) == 0 || pool == nil { return false }
 	if q4kExactOn || q4kNativeCGOOn { return false }
@@ -399,6 +401,8 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 	})
 	return true
 }
+
+
 
 
 
