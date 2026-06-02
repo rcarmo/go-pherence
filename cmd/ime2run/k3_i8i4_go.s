@@ -84,17 +84,17 @@ loop:
     WORD $0x5e043e57
     // vsetvli t0, x0, e8, mf2, tu, mu
     WORD $0x007072d7
-    // vle8.v v29, (X12)  — load B int8 zp (32B) + first 32B of nibbles (ignored by kernel)
+    // vle8.v v29, (X12)  -- load B int8 zp (32B) + first 32B of nibbles (ignored)
     WORD $0x02060e87
     ADD $544, X12
     // vsetvli t0, x0, e8, m1, tu, mu
     WORD $0x000072d7
-    // vsrl.vi v24, v3, 4  — extract hi nibbles of A
+    // vsrl.vi v24, v3, 4  -- extract hi nibbles of A
     WORD $0xa2323c57
     // vsetvli t0, x0, e16, m1, tu, mu
     WORD $0x008072d7
-    // vwcvtu.x.x.v v28, v29  — zero-extend B zp bytes to int16
-    WORD $0x5E003E57 // vmv.v.i v28, 0 (kernel ZP=0; Go correction loop applies exact ZP)
+    // vmv.v.i v28, 0 (ZP=0; Go ZPD correction loop applies exact ZP correction)
+    WORD $0x5E003E57
     // vmul.vx v26, v28, X7   — v26 = zp_int16 × A_sum
     WORD $0x97c3ed57
     // smt.vnpack4.vv v8, v3, v3, 3   — unpack A lo nibbles → v8

@@ -84,7 +84,6 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 		} else if subs%2 == 0 {
 			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[gStart*subs*608])), &gateOut[gStart*32], subs, gEnd-gStart)
 			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&up.BData[gStart*subs*608])), &upOut[gStart*32], subs, gEnd-gStart)
-			// ZP correction using precomputed ZPD for sequential access
 			for sb := 0; sb < subs; sb++ {
 				sc := float32(q8.SumNeg[sb]) * q8.Scale[sb]
 				for rg := gStart; rg < gEnd; rg++ {

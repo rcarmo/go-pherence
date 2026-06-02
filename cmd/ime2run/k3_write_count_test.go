@@ -121,3 +121,120 @@ func TestBatchVsRef(t *testing.T) {
 		t.Logf("batch[0:4]=%v", outBatch[:4])
 	}
 }
+
+func TestK3I8I4M1WriteDetail(t *testing.T) {
+	const subs = 1
+	a := make([]byte, subs*38)
+	b := make([]byte, subs*608)
+	*(*float32)(unsafe.Pointer(&a[0])) = 1.0
+	*(*int16)(unsafe.Pointer(&a[4])) = int16(-32)
+	for i := 0; i < 32; i++ { a[6+i] = 1 }
+	for r := 0; r < 32; r++ {
+		b[r*2] = 0x00; b[r*2+1] = 0x3C
+		b[64+r] = 8
+		for n := 0; n < 16; n++ { b[96+r*16+n] = 0x88 }
+	}
+	sentinel := math.Float32frombits(0x7FC00001)
+	out := make([]float32, 64)
+	for i := range out { out[i] = sentinel }
+
+	pool := NewAIWorkerPool(1)
+	defer pool.Close()
+	pool.Run(func(workerID, nWorkers int) {
+		k3I8I4M1(&a[0], &b[0], &out[0], subs, 32)
+	})
+	
+	t.Logf("out[0:32] = %v", out[:32])
+	nonSentinel := 0
+	for i := 0; i < 64; i++ {
+		if math.Float32bits(out[i]) != math.Float32bits(sentinel) { 
+			nonSentinel++
+			if nonSentinel <= 10 { t.Logf("  wrote out[%d]=%v", i, out[i]) }
+		}
+	}
+	t.Logf("Total non-sentinel: %d", nonSentinel)
+}
+
+func TestK3I8I4M1ExactRange(t *testing.T) {
+	const subs = 1
+	a := make([]byte, subs*38)
+	b := make([]byte, subs*608)
+	*(*float32)(unsafe.Pointer(&a[0])) = 1.0
+	*(*int16)(unsafe.Pointer(&a[4])) = int16(-32)
+	for i := 0; i < 32; i++ { a[6+i] = 1 }
+	for r := 0; r < 32; r++ {
+		b[r*2] = 0x00; b[r*2+1] = 0x3C
+		b[64+r] = 8
+		for n := 0; n < 16; n++ { b[96+r*16+n] = 0x88 }
+	}
+
+	// Use a large sentinel block, mark different regions
+	out := make([]float32, 64)
+	for i := range out { out[i] = math.Float32frombits(0x7FC00001) }
+	// Mark second half with different sentinel to distinguish
+	for i := 8; i < 16; i++ { out[i] = math.Float32frombits(0x7FC00002) }
+	for i := 16; i < 32; i++ { out[i] = math.Float32frombits(0x7FC00003) }
+	
+	pool := NewAIWorkerPool(1)
+	defer pool.Close()
+	pool.Run(func(workerID, nWorkers int) {
+		k3I8I4M1(&a[0], &b[0], &out[0], subs, 32)
+	})
+	
+	// Count values changed from their respective sentinels
+	changed0_7 := 0; changed8_15 := 0; changed16_31 := 0
+	for i := 0; i < 8; i++ { if math.Float32bits(out[i]) != 0x7FC00001 { changed0_7++ } }
+	for i := 8; i < 16; i++ { if math.Float32bits(out[i]) != 0x7FC00002 { changed8_15++ } }
+	for i := 16; i < 32; i++ { if math.Float32bits(out[i]) != 0x7FC00003 { changed16_31++ } }
+	t.Logf("changed: [0:8]=%d [8:16]=%d [16:32]=%d", changed0_7, changed8_15, changed16_31)
+	t.Logf("out[0:16]=%v", out[:16])
+}
+
+func TestAICoreVLENViaCGo(t *testing.T) {
+	// The C aicore_vlen binary can't be run from AI core via taskset
+	// Instead, probe VLEN by running our kernel and measuring output count
+	// A 32-element store means VLEN=1024 (e32,m1 gives vl=32)
+	// An 8-element store means VLEN=256 (e32,m1 gives vl=8)
+	
+	pool := NewAIWorkerPool(1)
+	defer pool.Close()
+	
+	// Create minimal Q8 activation (subs=4 to make kBlks manageable)
+	const kBlks = 4
+	a := make([]byte, kBlks*38)
+	b := make([]byte, kBlks*608)
+	for k := 0; k < kBlks; k++ {
+		*(*float32)(unsafe.Pointer(&a[k*38])) = 1.0
+		*(*int16)(unsafe.Pointer(&a[k*38+4])) = int16(-32)
+		for i := 0; i < 32; i++ { a[k*38+6+i] = 1 }
+		for r := 0; r < 32; r++ {
+			b[k*608+r*2] = 0x00; b[k*608+r*2+1] = 0x3C // fp16 1.0
+			b[k*608+64+r] = 8
+			for n := 0; n < 16; n++ { b[k*608+96+r*16+n] = 0x88 }
+		}
+	}
+	
+	sentinel := float32(-99999.0)
+	out := make([]float32, 64)
+	for i := range out { out[i] = sentinel }
+	
+	pool.Run(func(workerID, nWorkers int) {
+		k3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
+	})
+	
+	written := 0
+	for i := 0; i < 64; i++ {
+		if out[i] != sentinel { written++ }
+	}
+	
+	switch written {
+	case 8:
+		t.Logf("VLEN=256 (wrote 8 values)")
+	case 32:
+		t.Logf("VLEN=1024 (wrote 32 values)")
+	default:
+		t.Logf("Unexpected: wrote %d values", written)
+	}
+	t.Logf("out[0:8]=%v", out[:8])
+	t.Logf("out[8:16]=%v", out[8:16])
+}

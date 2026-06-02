@@ -347,6 +347,13 @@ type q4kBatchMatVecSpec struct {
 // q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run.
 // k3I8I4M1 computes dot+partial-ZP; the correction loop applies exact fp32 ZP.
 // Uses precomputed ZPD = float32(ZP)*D for cache-efficient sequential access.
+// q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run.
+// k3I8I4M1 correctly applies ZP correction for all 32 output rows on VLEN=1024 AI cores.
+// No Go correction loop needed (would double-count the kernel's ZP correction).
+// q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run.
+// Kernel ZP=0; Go ZPD correction applies exact fp32 ZP correction.
+// q4kQ41x32MatVecBatchSameAct: constant ZP=8 kernel, no Go correction.
+// q4kQ41x32MatVecBatchSameAct: kernel ZP=0, Go ZPD correction for exact results.
 func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
 	if len(specs) == 0 || pool == nil { return false }
 	if q4kExactOn || q4kNativeCGOOn { return false }
@@ -358,7 +365,6 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 	subs := K / 32
 	q8 := quantizeQ8Blocks32(act)
 	quantBytes := q8Block32ToBytes(q8)
-	// Precompute sumActCorr[sb] = SumNeg[sb] * Scale[sb] (once per token)
 	sumActCorr := make([]float32, subs)
 	for sb := 0; sb < subs; sb++ {
 		sumActCorr[sb] = float32(q8.SumNeg[sb]) * q8.Scale[sb]
@@ -378,7 +384,6 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 			gEnd := (workerID + 1) * groups / nWorkers
 			if gStart >= gEnd { continue }
 			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart)
-			// ZP correction: iterate (sb, rg, r) for sequential ZPD access
 			for sb := 0; sb < subs; sb++ {
 				sc := sumActCorr[sb]
 				for rg := gStart; rg < gEnd; rg++ {
@@ -394,6 +399,10 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 	})
 	return true
 }
+
+
+
+
 
 
 
