@@ -96,7 +96,7 @@ func TestK3I8I4M1LargeRef(t *testing.T) {
 	q4kQ41x32MatVecRef(x32, act, ref)
 	q4kQ41x32MatVecCM1(x32, mins, act, got, pool)
 	var maxDiff float64
-	maxIdx := -1
+	maxIdx := 0
 	for i := range ref {
 		d := math.Abs(float64(got[i] - ref[i]))
 		if d > maxDiff {
@@ -206,7 +206,7 @@ func TestK3I8I4M1CExactResidualRef(t *testing.T) {
 	matVecQ4KF32(M, K, raw, scales, mins, act, ref)
 	q4kQ41x32MatVecCM1(x32, mins, act, got, pool)
 	var maxDiff float64
-	maxIdx := -1
+	maxIdx := 0
 	for i := range ref {
 		d := math.Abs(float64(got[i] - ref[i]))
 		if d > maxDiff {
@@ -301,7 +301,7 @@ func TestK3I8I4M1CResidualFusedRef(t *testing.T) {
 		}
 	})
 	var maxDiff float64
-	maxIdx := -1
+	maxIdx := 0
 	for i := range ref {
 		d := math.Abs(float64(got[i] - ref[i]))
 		if d > maxDiff {
@@ -386,7 +386,8 @@ func BenchmarkK3I8I4M1CKernel(b *testing.B) {
 }
 
 func TestK3I8I4DispatcherM4MatchesM1(t *testing.T) {
-	registerAIThread(8)
+	pool := NewAIWorkerPool(1)
+	defer pool.Close()
 	M, K := 32, 1024
 	subs := K / 32
 	raw := make([]int8, M*K)
@@ -414,17 +415,20 @@ func TestK3I8I4DispatcherM4MatchesM1(t *testing.T) {
 		rows[r] = quantizeQ8Blocks32Bytes(act)
 	}
 	want := make([]float32, 4*32)
-	for r := 0; r < 4; r++ {
-		k3I8I4M1((*byte)(unsafe.Pointer(&rows[r][0])), (*byte)(unsafe.Pointer(&x32.BData[0])), &want[r*32], subs, 32)
-	}
-	packedA := packQ8RowsM4(rows, subs)
 	got := make([]float32, 4*32)
-	handled := k3I8I4((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&x32.BData[0])), &got[0], 4, 32, subs, 32)
+	var handled int
+	packedA := packQ8RowsM4(rows, subs)
+	pool.Run(func(workerID, nWorkers int) {
+		for r := 0; r < 4; r++ {
+			k3I8I4M1((*byte)(unsafe.Pointer(&rows[r][0])), (*byte)(unsafe.Pointer(&x32.BData[0])), &want[r*32], subs, 32)
+		}
+		handled = k3I8I4((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&x32.BData[0])), &got[0], 4, 32, subs, 32)
+	})
 	if handled != 4 {
 		t.Fatalf("dispatcher handled %d rows, want 4", handled)
 	}
 	var maxDiff float64
-	maxIdx := -1
+	maxIdx := 0
 	for i := range want {
 		if diff := math.Abs(float64(got[i] - want[i])); diff > maxDiff {
 			maxDiff = diff
@@ -476,7 +480,7 @@ func TestQ4KMatVec4M4MatchesFourM1(t *testing.T) {
 		t.Fatal("q4kQ41x32MatVec4GoAsm returned false")
 	}
 	var maxDiff float64
-	maxR, maxI := -1, -1
+	maxR, maxI := 0, 0
 	for r := 0; r < 4; r++ {
 		for i := 0; i < M; i++ {
 			if diff := math.Abs(float64(outs[r][i] - want[r][i])); diff > maxDiff {
@@ -574,7 +578,7 @@ func TestK3I8I8M1NativeRef(t *testing.T) {
 	ref := make([]float32, M)
 	matVecF32Direct(M, K, f32, act, ref)
 	var maxDiff float64
-	maxIdx := -1
+	maxIdx := 0
 	for i := range ref {
 		if d := math.Abs(float64(got[i] - ref[i])); d > maxDiff {
 			maxDiff, maxIdx = d, i
@@ -620,7 +624,7 @@ func TestK3I8I8M4DispatcherMatchesM1(t *testing.T) {
 		t.Fatalf("handled=%d want 4", handled)
 	}
 	var maxDiff float64
-	maxIdx := -1
+	maxIdx := 0
 	for i := range want {
 		if d := math.Abs(float64(got[i]-want[i])); d > maxDiff {
 			maxDiff, maxIdx = d, i
@@ -725,7 +729,7 @@ func TestQ4KBWaveMatVecMatchesDirect(t *testing.T) {
 	q4kTCMBWaveOn = true
 	q4kQ41x32MatVecGoAsm(w, act, wave, pool)
 	var maxDiff float64
-	maxIdx := -1
+	maxIdx := 0
 	for i := range direct {
 		if d := math.Abs(float64(direct[i]-wave[i])); d > maxDiff { maxDiff, maxIdx = d, i }
 	}
@@ -765,7 +769,7 @@ func TestQ4KBWaveWOLikeMatVecMatchesDirect(t *testing.T) {
 	q4kTCMBWaveOn = true
 	q4kQ41x32MatVecGoAsm(w, act, wave, pool)
 	var maxDiff float64
-	maxIdx := -1
+	maxIdx := 0
 	for i := range direct { if d := math.Abs(float64(direct[i]-wave[i])); d > maxDiff { maxDiff, maxIdx = d, i } }
 	if maxIdx >= 0 { t.Logf("maxDiff=%.6f idx=%d direct=%.6f wave=%.6f", maxDiff, maxIdx, direct[maxIdx], wave[maxIdx]) } else { t.Logf("maxDiff=0") }
 	if maxDiff > 1e-5 { t.Fatalf("maxDiff %.6f > tolerance", maxDiff) }

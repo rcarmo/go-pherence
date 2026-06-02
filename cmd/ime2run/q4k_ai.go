@@ -76,10 +76,11 @@ func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
 	out := q4kQ41x32{
 		M:     M,
 		K:     K,
-		D:     make([]float32, groups*subs*32),
-		ZP:    make([]uint8, groups*subs*32),
-		ZPD:   make([]float32, groups*subs*32),
-		QS:    make([]byte, groups*subs*32*16),
+		D:        make([]float32, groups*subs*32),
+		ZP:       make([]uint8, groups*subs*32),
+		ZPD:      make([]float32, groups*subs*32),
+		Residual: make([]float32, groups*subs*32), // dmin - ZP*D per sub-block/row
+		QS:       make([]byte, groups*subs*32*16),
 		BData: make([]byte, groups*subs*(64+32+512)), // 608B per subblock
 		Valid: true,
 	}
@@ -100,7 +101,8 @@ func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
 						zp = 15
 					}
 					out.ZP[metaIdx] = uint8(zp)
-					out.ZPD[metaIdx] = float32(uint8(zp)) * d // precomputed ZP×D for fast correction
+					out.ZPD[metaIdx] = float32(uint8(zp)) * d // precomputed ZP×D
+					out.Residual[metaIdx] = mins[srcIdx] - float32(uint8(zp))*d // exact residual = dmin - ZP*D
 				}
 				qsOff := q41x32QSOffset(rg, sb, r, subs)
 				base := row*K + sb*32
