@@ -160,15 +160,10 @@ func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []
 				out[rg*32+r] += corr
 			}
 		} else if len(w.ZPD) > 0 {
-			// Fast path: use precomputed ZPD for sequential cache-friendly access
+			// Fast path: RVV SAXPY for cache-efficient ZPD correction
 			for sb := 0; sb < subs; sb++ {
-				sc := sumActCorr[sb]
 				base := rg*subs*32 + sb*32
-				zpd := w.ZPD[base : base+32]
-				o := out[rg*32 : rg*32+32]
-				for r := 0; r < 32; r++ {
-					o[r] += sc * zpd[r]
-				}
+				ime2.ScaleAccF32RVV(out[rg*32:rg*32+32], w.ZPD[base:base+32], sumActCorr[sb])
 			}
 		} else {
 			// Fallback: compute ZP*D on the fly
@@ -356,6 +351,8 @@ type q4kBatchMatVecSpec struct {
 // q4kQ41x32MatVecBatchSameAct: kernel ZP=0, Go ZPD correction for exact results.
 // q4kQ41x32MatVecBatchSameAct: kernel handles ZP via fixed vwcvtu (vl=32, VLEN=1024).
 // q4kQ41x32MatVecBatchSameAct: kernel ZP=0, Go ZPD correction for exact results.
+// q4kQ41x32MatVecBatchSameAct: kernel ZP=0, RVV-accelerated ZPD correction.
+// Uses ime2.ScaleAccF32RVV (e32,m4, vl=128 on VLEN=1024) for the SAXPY correction.
 func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
 	if len(specs) == 0 || pool == nil { return false }
 	if q4kExactOn || q4kNativeCGOOn { return false }
@@ -386,21 +383,19 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 			gEnd := (workerID + 1) * groups / nWorkers
 			if gStart >= gEnd { continue }
 			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart)
+			// ZPD correction: RVV SAXPY (acc[i] += sc * zpd[i]) per sb per group
 			for sb := 0; sb < subs; sb++ {
 				sc := sumActCorr[sb]
 				for rg := gStart; rg < gEnd; rg++ {
 					base := rg*subs*32 + sb*32
-					zpd := sp.W.ZPD[base : base+32]
-					out := sp.Out[rg*32 : rg*32+32]
-					for r := 0; r < 32; r++ {
-						out[r] += sc * zpd[r]
-					}
+					ime2.ScaleAccF32RVV(sp.Out[rg*32:rg*32+32], sp.W.ZPD[base:base+32], sc)
 				}
 			}
 		}
 	})
 	return true
 }
+
 
 
 

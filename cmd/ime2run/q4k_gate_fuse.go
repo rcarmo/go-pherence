@@ -1,6 +1,9 @@
 package main
 
-import "unsafe"
+import (
+	"unsafe"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+)
 
 // q4kQ41x32GateUpSiluSameAct runs Gate and Up Q4_K matvecs for the same
 // activation in a single AI-worker dispatch, then computes the local SiLU*Up
@@ -88,14 +91,8 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 				sc := float32(q8.SumNeg[sb]) * q8.Scale[sb]
 				for rg := gStart; rg < gEnd; rg++ {
 					base := rg*subs*32 + sb*32
-					gzpd := gate.ZPD[base : base+32]
-					uzpd := up.ZPD[base : base+32]
-					go_ := gateOut[rg*32 : rg*32+32]
-					uo_ := upOut[rg*32 : rg*32+32]
-					for r := 0; r < 32; r++ {
-						go_[r] += sc * gzpd[r]
-						uo_[r] += sc * uzpd[r]
-					}
+					ime2.ScaleAccF32RVV(gateOut[rg*32:rg*32+32], gate.ZPD[base:base+32], sc)
+					ime2.ScaleAccF32RVV(upOut[rg*32:rg*32+32], up.ZPD[base:base+32], sc)
 				}
 			}
 		} else {
@@ -107,14 +104,8 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 				sc := float32(q8.SumNeg[sb]) * q8.Scale[sb]
 				for rg := gStart; rg < gEnd; rg++ {
 					base := rg*subs*32 + sb*32
-					gzpd := gate.ZPD[base : base+32]
-					uzpd := up.ZPD[base : base+32]
-					go_ := gateOut[rg*32 : rg*32+32]
-					uo_ := upOut[rg*32 : rg*32+32]
-					for r := 0; r < 32; r++ {
-						go_[r] += sc * gzpd[r]
-						uo_[r] += sc * uzpd[r]
-					}
+					ime2.ScaleAccF32RVV(gateOut[rg*32:rg*32+32], gate.ZPD[base:base+32], sc)
+					ime2.ScaleAccF32RVV(upOut[rg*32:rg*32+32], up.ZPD[base:base+32], sc)
 				}
 			}
 		}
