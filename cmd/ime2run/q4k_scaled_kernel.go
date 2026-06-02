@@ -14,3 +14,9 @@ package main
 //
 //go:noescape
 func vmadotQ4KIntLoop1024(wTiles, actBcast *byte, scratch, intBuf *int32, numSubs int)
+
+// vmadotQ4KScaledLoop1024 performs the full per-subblock Q4_K matvec update
+// for one 8-row group in RISC-V/SpacemiT assembly.
+//
+//go:noescape
+func vmadotQ4KScaledLoop1024(wTiles, actBcast *byte, scales, mins, actScale, actSumScaled, out *float32, scratch *int32, numSubs int)

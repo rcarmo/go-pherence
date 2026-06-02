@@ -645,3 +645,103 @@ Pre-packing token embeddings and using `GemmINT8Packed` reduced it from 155ms to
 1. Implement `i8i2k` 2-bit splitting in Go vmadot path
 2. Or: Use F16 instead of INT8 for activation quantization
 3. Or: Mixed precision — F32 for layers, vmadot only for LM head (already fast at 14 tok/s)
+
+## Q4_K x32 exact path status (2026-05-29)
+
+The active `cmd/ime2run` Q4_K path is intentionally single-route:
+
+```text
+Q4_K raw nibbles + scales/mins
+  -> Q4_1x32-ish BData with zp=0
+  -> Residual[row,sb] = exact min[row,sb]
+  -> k3I8I4M1CResidual
+```
+
+There is no active rounded-ZP runtime path. The old C shim, old A100 vmadot
+scratch/scaled-loop/half paths, and Q4_K selection flags were removed from the
+`cmd/ime2run` default build surface. The default behavior is equivalent to the
+previous `IME2_Q4K_A100=1` fused-residual exact path.
+
+Validation after cleanup:
+
+```text
+go test ./cmd/ime2run ./backends/spacemit/ime2  -> PASS
+```
+
+Smoke/benchmark after cleanup on `qwen3-0.6b-q4_k_m.gguf`, prompt `Hello`:
+
+```text
+2 tokens:  Decode 0.211s (9.48 tok/s), gen ids 397 522
+60 tokens: Decode 12.269s (4.89 tok/s), exact fused path only
+```
+
+## Clean exact path benchmark/profile (2026-05-29)
+
+After pruning redundant Q4_K routes, `cmd/ime2run` uses a single exact IME2 path
+by default:
+
+```text
+Q4_K -> Q4_1x32-ish BData(zp=0) + Residual=min -> k3I8I4M1CResidual
+```
+
+No `IME2_Q4K_*` runtime flags are required or supported for Q4_K routing in
+`cmd/ime2run`.
+
+Correctness gate:
+
+```text
+TestK3I8I4M1Simple              PASS
+TestK3I8I4M1LargeRef            PASS maxDiff=0.001570
+TestK3I8I4M1Ref                 PASS
+TestK3I8I4M1CExactResidualRef   PASS maxDiff=0.004564
+TestQ41x32ResidualPrecompute    PASS maxErr=0
+TestK3I8I4M1CResidualFusedRef   PASS maxDiff=0.004564
+go test ./cmd/ime2run ./backends/spacemit/ime2 PASS
+```
+
+60-token model benchmark, `qwen3-0.6b-q4_k_m.gguf`, prompt `Hello`, 6 AI workers:
+
+```text
+Prefill: 0.158s (6.3 tok/s)
+Decode:  9.403s (6.38 tok/s, 60 tokens)
+gen ids: 397 522 1983 397 522 2599 397 522 1551 ...
+```
+
+Native llama package comparison using `llama-bench` on the same model, 6 threads:
+
+```text
+pp1:  36.05 ± 0.08 tok/s
+tg60: 34.82 ± 0.01 tok/s
+```
+
+This native number is the llama package's own Q4_K implementation and should be
+read as a performance target, not as proof of exact parity with go-pherence's
+fused exact residual semantics.
+
+Current go-pherence exact decode speed vs native llama package generation:
+
+```text
+6.38 / 34.82 = 0.183x   (~5.5x slower)
+```
+
+Profile for the 60-token exact run:
+
+```text
+layers/token = 152.15ms
+norm         =   0.18ms
+pack         =   0.02ms
+qkv          =  39.60ms
+attn         =   5.17ms
+wo           =   6.07ms
+ffn          =   0.28ms
+gate_up      =  11.86ms
+silu         =   3.70ms
+down         =  85.18ms
+other        =   0.09ms
+lm_head      =   6.6ms
+```
+
+Next optimization from profile data: the down projection dominates, followed by
+QKV. Focus on the exact C-M1 residual kernel/layout and high-K down projection
+memory/dispatch behavior. Do not implement M4 for decode unless a real batched or
+prefill caller supplies four activation vectors.

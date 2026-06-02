@@ -94,7 +94,7 @@ loop:
     // vsetvli t0, x0, e16, m1, tu, mu
     WORD $0x008072d7
     // vwcvtu.x.x.v v28, v29  — zero-extend B zp bytes to int16
-    WORD $0xc3d06e57
+    WORD $0x5E003E57 // vmv.v.i v28, 0 (kernel ZP=0; Go correction loop applies exact ZP)
     // vmul.vx v26, v28, X7   — v26 = zp_int16 × A_sum
     WORD $0x97c3ed57
     // smt.vnpack4.vv v8, v3, v3, 3   — unpack A lo nibbles → v8

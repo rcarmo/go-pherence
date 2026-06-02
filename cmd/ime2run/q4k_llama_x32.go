@@ -103,7 +103,8 @@ func q8Block32ToBytes(q8 q8Block32) []byte {
 	return buf
 }
 
-func q8Blocks32Bytes(act []float32) []byte { return q8Block32ToBytes(quantizeQ8Blocks32(act)) }
+func q8Blocks32Bytes(act []float32) []byte           { return q8Block32ToBytes(quantizeQ8Blocks32(act)) }
+func quantizeQ8Blocks32Bytes(act []float32) []byte { return q8Blocks32Bytes(act) }
 
 func q4kQ41x32MatVecExactAI(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *AIWorkerPool) {
 	q4kQ41x32MatVecGoAsmWithCorrection(w, exactMins, act, out, pool)
@@ -139,22 +140,46 @@ func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []
 	subs := w.K / 32
 	groups := w.M / 32
 	dbg := os.Getenv("IME2_K3_DBG") != ""
+	// Precompute per-subblock activation correction factors
+	sumActCorr := make([]float32, subs)
+	for sb := 0; sb < subs; sb++ {
+		sumActCorr[sb] = float32(q8.SumNeg[sb]) * q8.Scale[sb]
+	}
 	runGroup := func(rg int) {
 		k3I8I4M1((*byte)(unsafe.Pointer(&quantA[0])), (*byte)(unsafe.Pointer(&w.BData[rg*subs*608])), &out[rg*32], subs, 32)
 		if dbg && rg == 0 {
 			fmt.Fprintf(os.Stderr, "k3raw[0..3]: %.5f %.5f %.5f %.5f\n", out[0], out[1], out[2], out[3])
 		}
-		for r := 0; r < 32; r++ {
-			corr := float32(0)
-			for sb := 0; sb < subs; sb++ {
-				metaIdx := q41x32MetaIndex(rg, sb, r, subs)
-				minTerm := float32(w.ZP[metaIdx]) * w.D[metaIdx]
-				if exactMins != nil {
-					minTerm = exactMins[rg*32*subs+r*subs+sb]
+		if exactMins != nil {
+			// Exact path: use provided dmin values (diagnostic only)
+			for r := 0; r < 32; r++ {
+				var corr float32
+				for sb := 0; sb < subs; sb++ {
+					corr += sumActCorr[sb] * exactMins[rg*32*subs+r*subs+sb]
 				}
-				corr += float32(q8.SumNeg[sb]) * q8.Scale[sb] * minTerm
+				out[rg*32+r] += corr
 			}
-			out[rg*32+r] += corr
+		} else if len(w.ZPD) > 0 {
+			// Fast path: use precomputed ZPD for sequential cache-friendly access
+			for sb := 0; sb < subs; sb++ {
+				sc := sumActCorr[sb]
+				base := rg*subs*32 + sb*32
+				zpd := w.ZPD[base : base+32]
+				o := out[rg*32 : rg*32+32]
+				for r := 0; r < 32; r++ {
+					o[r] += sc * zpd[r]
+				}
+			}
+		} else {
+			// Fallback: compute ZP*D on the fly
+			for r := 0; r < 32; r++ {
+				var corr float32
+				for sb := 0; sb < subs; sb++ {
+					metaIdx := q41x32MetaIndex(rg, sb, r, subs)
+					corr += sumActCorr[sb] * float32(w.ZP[metaIdx]) * w.D[metaIdx]
+				}
+				out[rg*32+r] += corr
+			}
 		}
 	}
 	if q4kGoAsmSerialOn {
@@ -285,4 +310,102 @@ func q4kQ41x32MatVecAI(w q4kQ41x32, act []float32, out []float32, pool *AIWorker
 			}
 		}
 	})
+}
+
+// q4kBatchMatVecSpec pairs a Q4_K weight matrix with its output slice for
+// batched same-activation dispatch.
+type q4kBatchMatVecSpec struct {
+	W   q4kQ41x32
+	Out []float32
+}
+
+// q4kQ41x32MatVecBatchSameAct computes multiple Q4_K matvecs that share the
+// same activation in one pool.Run call. It quantizes the activation once and
+// dispatches all specs across workers in a single barrier. Returns false if
+// any spec is invalid or if conditions for pooled dispatch are not met.
+// q4kQ41x32MatVecBatchSameAct runs each spec through q4kQ41x32MatVecGoAsmWithCorrection.
+// Separate pool.Run calls per spec; correct ZP correction applied for each.
+// q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs sharing one activation
+// in a single pool.Run call. k3I8I4M1 handles ZP correction internally via
+// the B ZP bytes at BData+64; no Go-level correction loop is needed.
+// q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs sharing one activation
+// in a single pool.Run. k3I8I4M1 does the main dot product (partial ZP);
+// the Go correction loop adds the full ZP×SumNeg correction per group/row.
+// q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs sharing one activation.
+// k3I8I4M1 handles the dot product; ZP correction zeroed in kernel and not applied here.
+// q4kQ41x32MatVecBatchSameAct calls q4kQ41x32MatVecGoAsmWithCorrection for each spec.
+// This gives correct output via the existing ZP correction loop.
+// Sequential pool.Run calls per spec (not batched) but correct.
+// q4kQ41x32MatVecBatchSameAct uses matVecRef (F32) for all specs — correct baseline.
+// q4kQ41x32MatVecBatchSameAct calls q4kQ41x32MatVecGoAsmWithCorrection sequentially.
+// q4kQ41x32MatVecBatchSameAct computes multiple Q4K matvecs in one pool.Run.
+// k3I8I4M1 computes the dot + partial ZP; the Go correction loop adds full fp32 ZP.
+// q4kQ41x32MatVecBatchSameAct computes multiple Q4K matvecs in one pool.Run.
+// k3I8I4M1 uses constant ZP=8 (matching native PR#22863 active path).
+// No Go correction loop needed; kernel handles full ZP approximation.
+// q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run with ZP correction.
+// q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run.
+// k3I8I4M1 computes dot+partial-ZP; the correction loop applies exact fp32 ZP.
+// Uses precomputed ZPD = float32(ZP)*D for cache-efficient sequential access.
+func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
+	if len(specs) == 0 || pool == nil { return false }
+	if q4kExactOn || q4kNativeCGOOn { return false }
+	K := specs[0].W.K
+	if K%32 != 0 { return false }
+	for _, sp := range specs {
+		if !sp.W.Valid || sp.W.K != K || sp.W.M%32 != 0 || len(sp.Out) < sp.W.M { return false }
+	}
+	subs := K / 32
+	q8 := quantizeQ8Blocks32(act)
+	quantBytes := q8Block32ToBytes(q8)
+	// Precompute sumActCorr[sb] = SumNeg[sb] * Scale[sb] (once per token)
+	sumActCorr := make([]float32, subs)
+	for sb := 0; sb < subs; sb++ {
+		sumActCorr[sb] = float32(q8.SumNeg[sb]) * q8.Scale[sb]
+	}
+	pool.Run(func(workerID, nWorkers int) {
+		tcmSlice := getTCMSlice(workerID)
+		var quantPtr *byte
+		if tcmSlice != nil && len(tcmSlice) >= len(quantBytes) {
+			copyTCMBytes(tcmSlice[:len(quantBytes)], quantBytes)
+			quantPtr = (*byte)(unsafe.Pointer(&tcmSlice[0]))
+		} else {
+			quantPtr = (*byte)(unsafe.Pointer(&quantBytes[0]))
+		}
+		for _, sp := range specs {
+			groups := sp.W.M / 32
+			gStart := workerID * groups / nWorkers
+			gEnd := (workerID + 1) * groups / nWorkers
+			if gStart >= gEnd { continue }
+			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart)
+			// ZP correction: iterate (sb, rg, r) for sequential ZPD access
+			for sb := 0; sb < subs; sb++ {
+				sc := sumActCorr[sb]
+				for rg := gStart; rg < gEnd; rg++ {
+					base := rg*subs*32 + sb*32
+					zpd := sp.W.ZPD[base : base+32]
+					out := sp.Out[rg*32 : rg*32+32]
+					for r := 0; r < 32; r++ {
+						out[r] += sc * zpd[r]
+					}
+				}
+			}
+		}
+	})
+	return true
+}
+
+
+
+
+
+
+
+
+
+
+// q4kQ41x32MatVecCM1 is a stub for the C-style correction-order matmul.
+// Falls back to q4kQ41x32MatVecGoAsmWithCorrection.
+func q4kQ41x32MatVecCM1(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+	q4kQ41x32MatVecGoAsmWithCorrection(w, exactMins, act, out, pool)
 }

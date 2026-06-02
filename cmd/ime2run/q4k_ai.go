@@ -18,12 +18,14 @@ type q4kQ41Packed struct {
 }
 
 type q4kQ41x32 struct {
-	M, K  int
-	D     []float32 // [rowGroup][subblock][32 rows]
-	ZP    []uint8   // [rowGroup][subblock][32 rows]
-	QS    []byte    // [rowGroup][subblock][32 rows][16 packed q bytes]
-	BData []byte    // Go asm kernel layout: fp16 d[32]=64B, int8 zp[32]=32B, qs[512]=512B per subblock (608B)
-	Valid bool
+	M, K     int
+	D        []float32 // [rowGroup][subblock][32 rows]
+	ZP       []uint8   // [rowGroup][subblock][32 rows]
+	ZPD      []float32 // [rowGroup][subblock][32 rows]: float32(ZP)*D — precomputed for fast correction
+	Residual []float32 // [rowGroup][subblock][32 rows]: dmin - ZP*D (exact min residual)
+	QS       []byte    // [rowGroup][subblock][32 rows][16 packed q bytes]
+	BData    []byte    // kernel layout: fp16 d[32]=64B, int8 zp[32]=32B, qs[512]=512B per subblock (608B)
+	Valid    bool
 }
 
 func q41x32MetaIndex(rowGroup, subblock, rowInGroup, subs int) int {
@@ -76,6 +78,7 @@ func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
 		K:     K,
 		D:     make([]float32, groups*subs*32),
 		ZP:    make([]uint8, groups*subs*32),
+		ZPD:   make([]float32, groups*subs*32),
 		QS:    make([]byte, groups*subs*32*16),
 		BData: make([]byte, groups*subs*(64+32+512)), // 608B per subblock
 		Valid: true,
@@ -97,6 +100,7 @@ func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
 						zp = 15
 					}
 					out.ZP[metaIdx] = uint8(zp)
+					out.ZPD[metaIdx] = float32(uint8(zp)) * d // precomputed ZP×D for fast correction
 				}
 				qsOff := q41x32QSOffset(rg, sb, r, subs)
 				base := row*K + sb*32
