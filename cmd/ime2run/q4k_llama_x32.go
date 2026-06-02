@@ -357,6 +357,9 @@ type q4kBatchMatVecSpec struct {
 // q4kQ41x32MatVecBatchSameAct: kernel ZP=0, Go ZPD correction for exact results.
 // q4kQ41x32MatVecBatchSameAct: kernel ZP=0, RVV-accelerated ZPD correction.
 // Uses ime2.ScaleAccF32RVV (e32,m4, vl=128 on VLEN=1024) for the SAXPY correction.
+// q4kQ41x32MatVecBatchSameAct: precompute correction vector in main goroutine,
+// pool.Run() does kernel + simple vector add (no ZPD reads inside pool.Run).
+// q4kQ41x32MatVecBatchSameAct: kernel ZP=0, parallel ZPD correction inside pool.Run.
 func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
 	if len(specs) == 0 || pool == nil { return false }
 	if q4kExactOn || q4kNativeCGOOn { return false }
@@ -387,7 +390,6 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 			gEnd := (workerID + 1) * groups / nWorkers
 			if gStart >= gEnd { continue }
 			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart)
-			// ZPD correction: (rg,sb) loop for sequential ZPD access; skip near-zero blocks
 			for rg := gStart; rg < gEnd; rg++ {
 				base0 := rg * subs * 32
 				outSlice := sp.Out[rg*32 : rg*32+32]
@@ -402,6 +404,8 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 	})
 	return true
 }
+
+
 
 
 
