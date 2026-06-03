@@ -1,103 +1,10 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"runtime"
-	"strconv"
-	"sync"
-	"syscall"
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
-	tcmpkg "github.com/rcarmo/go-pherence/backends/spacemit/tcm"
-	"golang.org/x/sys/unix"
 )
-
-// AIWorkerPool manages persistent goroutines on AI cores (8-15).
-// Workers are created ONCE and stay alive for the lifetime of inference.
-type AIWorkerPool struct {
-	n         int
-	tasks     []chan aiTask
-	done      []chan struct{}
-	tcm       *tcmpkg.TCM
-	tcmSlices [][]byte
-}
-
-type aiTask struct {
-	fn func()
-}
-
-// NewAIWorkerPool creates n persistent AI workers pinned to cores 8-15.
-func NewAIWorkerPool(n int) *AIWorkerPool {
-	p := &AIWorkerPool{
-		n:     n,
-		tasks: make([]chan aiTask, n),
-		done:  make([]chan struct{}, n),
-	}
-	if os.Getenv("IME2_TCM_ACT") != "0" && tcmpkg.IsAvailable() {
-		if dev, err := tcmpkg.Open(); err == nil {
-			p.tcm = dev
-			p.tcmSlices = make([][]byte, n)
-			for i := 0; i < n; i++ {
-				p.tcmSlices[i] = dev.Slice(i % tcmpkg.BlockCount)
-			}
-			fmt.Fprintf(os.Stderr, "AI worker pool: TCM activation staging enabled (%d blocks)\n", n)
-		} else {
-			fmt.Fprintf(os.Stderr, "AI worker pool: TCM activation staging unavailable: %v\n", err)
-		}
-	}
-	var wg sync.WaitGroup
-	wg.Add(n)
-	for i := 0; i < n; i++ {
-		p.tasks[i] = make(chan aiTask, 1)
-		p.done[i] = make(chan struct{}, 1)
-		go func(id int) {
-			// Pin to AI core PERMANENTLY
-			runtime.LockOSThread()
-			tid := syscall.Gettid()
-			if f, err := os.OpenFile("/proc/set_ai_thread", os.O_WRONLY, 0); err == nil {
-				_, _ = f.Write([]byte(strconv.Itoa(tid)))
-				f.Close()
-			}
-			var set unix.CPUSet
-			set.Zero()
-			set.Set(8 + id%8)
-			unix.SchedSetaffinity(0, &set)
-			wg.Done()
-			// Process tasks forever
-			for task := range p.tasks[id] {
-				task.fn()
-				p.done[id] <- struct{}{}
-			}
-		}(i)
-	}
-	wg.Wait() // ensure all workers are registered before returning
-	fmt.Fprintf(os.Stderr, "AI worker pool: %d workers on cores 8-%d\n", n, 7+n)
-	return p
-}
-
-// Run dispatches work to all workers and waits for completion.
-func (p *AIWorkerPool) Run(fn func(workerID, nWorkers int)) {
-	for i := 0; i < p.n; i++ {
-		i := i
-		p.tasks[i] <- aiTask{fn: func() { fn(i, p.n) }}
-	}
-	for i := 0; i < p.n; i++ {
-		<-p.done[i]
-	}
-}
-
-// Close shuts down all workers.
-func (p *AIWorkerPool) Close() {
-	for i := 0; i < p.n; i++ {
-		close(p.tasks[i])
-	}
-	if p.tcm != nil {
-		p.tcm.Close()
-		p.tcm = nil
-	}
-}
 
 // aiGemmSpec describes one M×K matmul using already-packed weight and
 // activation layouts.

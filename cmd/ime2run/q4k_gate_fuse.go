@@ -64,6 +64,15 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 					barrier.wait(pair)
 				}
 				k3I8I4M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
+				// ZPD correction (was missing — caused wrong logits with gate wave)
+				base0 := rg * subs * 32
+				outSlice := out[rg*32 : rg*32+32]
+				for sb := 0; sb < subs; sb++ {
+					sc := float32(q8.SumNeg[sb]) * q8.Scale[sb]
+					if sc < -1e-6 || sc > 1e-6 {
+						ime2.ScaleAccF32RVV(outSlice, w.ZPD[base0+sb*32:base0+sb*32+32], sc)
+					}
+				}
 				if workerID%2 == 0 {
 					barrier.wait(pair)
 				}

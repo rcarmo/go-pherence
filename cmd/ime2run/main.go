@@ -413,6 +413,21 @@ func main() {
 		promptText = "<|im_start|>user\n" + *prompt + "<|im_end|>\n<|im_start|>assistant\n"
 	}
 	promptTokens, _ := tok.Encode(promptText)
+
+	// Initialize sampler (matches llama.cpp simple.cpp greedy + rep penalty)
+	var sampler *Sampler
+	if os.Getenv("IME2_NO_SAMPLER") == "" {
+		eosTokens := []int32{
+			151643, // <|endoftext|>
+			151645, // <|im_end|>
+		}
+		temp := float32(0.6)
+		if os.Getenv("IME2_GREEDY") != "" {
+			temp = 0
+		}
+		repPenalty := float32(1.1)
+		sampler = NewSampler(temp, repPenalty, 64, 40, eosTokens)
+	}
 	fmt.Fprintf(os.Stderr, "Prompt tokens: %v\n", promptTokens)
 	// Pre-allocate reusable buffers to avoid per-step allocation
 	// --- Decode loop ---
@@ -499,6 +514,7 @@ func main() {
 	globalBufs = NewMatVecBufs(pad8(nFF), pad4(nFF))
 
 	var layerTime, headTime time.Duration
+	logitsCopy := make([]float32, nVocab) // pre-allocated for sampler
 	aiPool := NewAIWorkerPool(*nThreads)
 	defer aiPool.Close()
 	lmActI8 := make([]int8, lmKp)
@@ -573,7 +589,7 @@ func main() {
 			lmActScale = quantizeToI8(xn, lmActI8[:nEmbd])
 			clear(lmActI8[nEmbd:])
 			broadcastPack1024Into(lmActI8, lmKp, lmActPacked1024)
-			if !stepLogits && !lmParity {
+			if !stepLogits && !lmParity && sampler == nil {
 				id, val := GemmAIArgmaxI32(vPad, lmKp, lmHeadPacked1024, lmActPacked1024, lmArgmaxI32, aiPool)
 				if id >= nVocab {
 					id = 0
@@ -597,14 +613,24 @@ func main() {
 		}
 
 		headTime += time.Since(tH)
-		// Argmax
+		// Sample next token (with repetition penalty + optional temperature)
 		if !haveNextTok {
-			nextTok = 0
-			maxVal = logits[0]
-			for i := 1; i < nVocab; i++ {
-				if logits[i] > maxVal {
-					maxVal = logits[i]
-					nextTok = i
+			if sampler != nil {
+				copy(logitsCopy, logits[:nVocab])
+				tok, isEOS := sampler.Sample(logitsCopy)
+				nextTok = int(tok)
+				maxVal = logits[nextTok]
+				if isEOS {
+					goto doneGenerating
+				}
+			} else {
+				nextTok = 0
+				maxVal = logits[0]
+				for i := 1; i < nVocab; i++ {
+					if logits[i] > maxVal {
+						maxVal = logits[i]
+						nextTok = i
+					}
 				}
 			}
 		}
@@ -675,6 +701,7 @@ func main() {
 		allTokens = append(allTokens, nextTok)
 	}
 
+doneGenerating:
 	decodeTime := time.Since(t1)
 	genCount := len(allTokens) - len(promptTokens)
 	if *traceIDs {

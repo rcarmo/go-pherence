@@ -128,6 +128,10 @@ func q4kQ41x32MatVecExactAI(w q4kQ41x32, exactMins []float32, act []float32, out
 }
 
 func q4kQ41x32MatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *AIWorkerPool) {
+	// Try B-wave TCM single matvec first
+	if q4kQ41x32BWaveMatVecGoAsm(w, act, out, pool) {
+		return
+	}
 	q4kQ41x32MatVecGoAsmWithCorrection(w, nil, act, out, pool)
 }
 
@@ -367,6 +371,10 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 	if K%32 != 0 { return false }
 	for _, sp := range specs {
 		if !sp.W.Valid || sp.W.K != K || sp.W.M%32 != 0 || len(sp.Out) < sp.W.M { return false }
+	}
+	// B-wave batch for QKV (TCM double-buffered weights)
+	if q4kTCMBWaveBatchOn && q4kQ41x32BWaveMatVecBatchSameAct(act, pool, specs...) {
+		return true
 	}
 	subs := K / 32
 	q8 := quantizeQ8Blocks32(act)
