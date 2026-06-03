@@ -397,17 +397,7 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 			gStart := workerID * groups / nWorkers
 			gEnd := (workerID + 1) * groups / nWorkers
 			if gStart >= gEnd { continue }
-			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart)
-			for rg := gStart; rg < gEnd; rg++ {
-				base0 := rg * subs * 32
-				outSlice := sp.Out[rg*32 : rg*32+32]
-				for sb := 0; sb < subs; sb++ {
-					sc := sumActCorr[sb]
-					if sc < -1e-6 || sc > 1e-6 {
-						ime2.ScaleAccF32RVV(outSlice, sp.W.ZPD[base0+sb*32:base0+sb*32+32], sc)
-					}
-				}
-			}
+			k3I8I4M1GroupsZPD(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart, &sp.W.ZPD[gStart*subs*32], &sumActCorr[0])
 		}
 	})
 	return true
