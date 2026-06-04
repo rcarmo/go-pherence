@@ -40,7 +40,9 @@ func main() {
 	expectRuntimeScratchBytes := flag.Int64("expect-runtime-scratch-bytes", -1, "fail unless planned runtime TurboQuant scratch bytes match this value")
 	expectRuntimeTotalBytes := flag.Int64("expect-runtime-total-bytes", -1, "fail unless planned runtime total KV+scratch bytes match this value")
 	expectKVFloatBytes := flag.Int64("expect-kv-float-bytes", -1, "fail unless benchmark F32 KV allocated bytes match this value")
-	expectKVCompressedBytes := flag.Int64("expect-kv-compressed-bytes", -1, "fail unless benchmark compressed KV bytes match this value")
+	expectKVCompressedBytes := flag.Int64("expect-kv-compressed-bytes", -1, "fail unless benchmark compressed KV stored bytes match this value")
+	expectKVScratchBytes := flag.Int64("expect-kv-scratch-bytes", -1, "fail unless benchmark compressed KV scratch bytes match this value")
+	expectKVTotalBytes := flag.Int64("expect-kv-total-bytes", -1, "fail unless benchmark total KV+scratch bytes match this value")
 	expectSIMDRotation := flag.Bool("expect-simd-rotation", false, "fail unless native SIMD dot-product rotation support is available")
 	flag.Parse()
 	if *path == "" {
@@ -154,11 +156,11 @@ func main() {
 			if *decodeOutput && tok != nil {
 				fmt.Printf("decoded=%q\n", tok.Decode(ids))
 			}
-			if err := checkExpectedBenchKV(stats, *expectKVFloatBytes, *expectKVCompressedBytes); err != nil {
+			if err := checkExpectedBenchKV(stats, *expectKVFloatBytes, *expectKVCompressedBytes, *expectKVScratchBytes, *expectKVTotalBytes); err != nil {
 				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f kv_float_bytes=%d kv_compressed_bytes=%d\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS(), stats.KVFloatBytes, stats.KVCompressedBytes)
+			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f kv_float_bytes=%d kv_compressed_bytes=%d kv_scratch_bytes=%d kv_total_bytes=%d\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS(), stats.KVFloatBytes, stats.KVCompressedBytes, stats.KVScratchBytes, stats.KVTotalBytes)
 			return
 		}
 		ids, err := m.GenerateWithOptions(promptIDs, *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow})
@@ -270,18 +272,30 @@ func checkExpectedRuntimeKV(plan model.GGUFGenerationKVRuntimePlan, expectFloat,
 	return nil
 }
 
-func checkExpectedBenchKV(stats generationBenchStats, expectFloat, expectCompressed int64) error {
+func checkExpectedBenchKV(stats generationBenchStats, expectFloat, expectCompressed, expectScratch, expectTotal int64) error {
 	if expectFloat >= 0 && stats.KVFloatBytes != expectFloat {
 		return fmt.Errorf("benchmark F32 KV bytes mismatch got=%d want=%d", stats.KVFloatBytes, expectFloat)
 	}
 	if expectCompressed >= 0 && stats.KVCompressedBytes != expectCompressed {
 		return fmt.Errorf("benchmark compressed KV bytes mismatch got=%d want=%d", stats.KVCompressedBytes, expectCompressed)
 	}
+	if expectScratch >= 0 && stats.KVScratchBytes != expectScratch {
+		return fmt.Errorf("benchmark scratch KV bytes mismatch got=%d want=%d", stats.KVScratchBytes, expectScratch)
+	}
+	if expectTotal >= 0 && stats.KVTotalBytes != expectTotal {
+		return fmt.Errorf("benchmark total KV bytes mismatch got=%d want=%d", stats.KVTotalBytes, expectTotal)
+	}
 	if expectFloat >= 0 {
 		fmt.Printf("expected_kv_float_bytes_ok=%d\n", expectFloat)
 	}
 	if expectCompressed >= 0 {
 		fmt.Printf("expected_kv_compressed_bytes_ok=%d\n", expectCompressed)
+	}
+	if expectScratch >= 0 {
+		fmt.Printf("expected_kv_scratch_bytes_ok=%d\n", expectScratch)
+	}
+	if expectTotal >= 0 {
+		fmt.Printf("expected_kv_total_bytes_ok=%d\n", expectTotal)
 	}
 	return nil
 }
@@ -351,6 +365,8 @@ type generationBenchStats struct {
 	DecodeSeconds     float64
 	KVFloatBytes      int64
 	KVCompressedBytes int64
+	KVScratchBytes    int64
+	KVTotalBytes      int64
 }
 
 func (s generationBenchStats) PrefillTPS() float64 {
@@ -421,11 +437,11 @@ func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int, opts mo
 	}
 	stats.DecodeTokens = len(generated)
 	stats.DecodeSeconds = time.Since(d0).Seconds()
-	stats.KVFloatBytes, stats.KVCompressedBytes = ggufBenchKVBytes(kvK, kvV, compressedKV)
+	stats.KVFloatBytes, stats.KVCompressedBytes, stats.KVScratchBytes, stats.KVTotalBytes = ggufBenchKVBytes(kvK, kvV, compressedKV)
 	return generated, stats, nil
 }
 
-func ggufBenchKVBytes(kvK, kvV [][]float32, compressedKV []*kv.CompressedKVCache) (floatBytes, compressedBytes int64) {
+func ggufBenchKVBytes(kvK, kvV [][]float32, compressedKV []*kv.CompressedKVCache) (floatBytes, compressedBytes, scratchBytes, totalBytes int64) {
 	for _, x := range kvK {
 		floatBytes += int64(len(x)) * 4
 	}
@@ -434,10 +450,12 @@ func ggufBenchKVBytes(kvK, kvV [][]float32, compressedKV []*kv.CompressedKVCache
 	}
 	for _, c := range compressedKV {
 		if c != nil {
-			compressedBytes += c.MemoryBytes()
+			stats := c.Stats()
+			compressedBytes += stats.StoredBytes
+			scratchBytes += stats.ScratchBytes
 		}
 	}
-	return floatBytes, compressedBytes
+	return floatBytes, compressedBytes, scratchBytes, floatBytes + compressedBytes + scratchBytes
 }
 
 func argmaxLocal(x []float32) int {

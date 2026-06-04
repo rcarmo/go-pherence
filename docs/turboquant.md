@@ -207,3 +207,6 @@ estimated_total_bytes=424448
 ```
 
 The `gguf-validate-qwen36-reap` target asserts all four runtime-plan byte values.
+
+
+`GGUF_EXPECT_KV_SCRATCH_BYTES` and `GGUF_EXPECT_KV_TOTAL_BYTES` can be used with `make gguf-bench` to assert post-generation compressed-cache scratch and total KV+scratch bytes alongside stored float/compressed byte counters.
