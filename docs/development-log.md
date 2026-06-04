@@ -2416,4 +2416,13 @@ GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
 ```
 
 Passed with static-plan assertion output from smoke/cache-smoke paths.
+## Session 140: Qwen3.6 REAP GGUF CI with complete static plan smoke assertions
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after extending `ggufsmoke` static plan assertions to full, estimated, saved, scratch, and total TurboQuant byte estimates:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The CI bundle now asserts the complete static/full-context TurboQuant plan consistently in inspect, smoke, cache-smoke, and benchmark paths, in addition to runtime-plan, cache-smoke, benchmark aggregate, REAP, and native SIMD readiness checks.
 
