@@ -12,10 +12,13 @@ type CompressedKVCache struct {
 	CompressedK []compressedEntry
 	CompressedV []compressedEntry
 
-	// Reusable decompression scratch buffers. GetK/GetV return these when
-	// compressed entries exist, so callers must treat returned slices as ephemeral.
-	scratchK []float32
-	scratchV []float32
+	// Reusable compression/decompression scratch buffers. GetK/GetV return
+	// scratchK/scratchV when compressed entries exist, so callers must treat
+	// returned slices as ephemeral.
+	scratchK     []float32
+	scratchV     []float32
+	quantRotated []float32
+	quantIndices []byte
 
 	// Config
 	kvDim          int
@@ -110,12 +113,23 @@ func (c *CompressedKVCache) compressOldest() {
 	ev.HeadVMin = make([]float32, c.numKVHeads)
 	ev.HeadScale = make([]float32, c.numKVHeads)
 
+	if cap(c.quantRotated) < c.headDim {
+		c.quantRotated = make([]float32, c.headDim)
+	}
+	if cap(c.quantIndices) < c.headDim {
+		c.quantIndices = make([]byte, c.headDim)
+	}
+	rotated := c.quantRotated[:c.headDim]
+	indices := c.quantIndices[:c.headDim]
 	for h := 0; h < c.numKVHeads; h++ {
 		headK := kVec[h*c.headDim : (h+1)*c.headDim]
 		headV := vVec[h*c.headDim : (h+1)*c.headDim]
 
-		pk, vMinK, scaleK := c.tq.QuantizeKey(headK)
-		pv, vMinV, scaleV := c.tq.QuantizeValue(headV)
+		pk, vMinK, scaleK, okK := c.tq.QuantizeKeyWithScratch(headK, rotated, indices)
+		pv, vMinV, scaleV, okV := c.tq.QuantizeValueWithScratch(headV, rotated, indices)
+		if !okK || !okV {
+			return
+		}
 
 		ek.Packed = append(ek.Packed, pk...)
 		ev.Packed = append(ev.Packed, pv...)

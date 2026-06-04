@@ -144,3 +144,8 @@ Model-side `GGUFTurboQuantPlan` now carries the kv-owned SIMD readiness fields (
 ## Generation runtime-plan SIMD readiness
 
 Generation KV runtime plans now carry the same SIMD readiness fields as the static TurboQuant plan. `ggufsmoke` reports these fields on `turboquant_runtime_kv`, so prompt/max-new allocation diagnostics show both cache byte accounting and native SIMD rotation readiness from the model runtime plan.
+
+
+## Scratch-owned quantization
+
+`CompressedKVCache` compression now uses scratch-aware K/V quantize helpers, reusing per-cache rotated-coordinate and index buffers while preserving the public allocating `QuantizeKey`/`QuantizeValue` compatibility methods. This reduces per-head allocation pressure in the native TurboQuant cache append path.

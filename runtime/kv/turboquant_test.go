@@ -39,6 +39,35 @@ func TestTurboQuantKeyValueMethodsMatchGenericVectorAPI(t *testing.T) {
 	}
 }
 
+func TestTurboQuantKeyValueQuantizeWithScratch(t *testing.T) {
+	tq := NewTurboQuantState(8, 2, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	vec := []float32{0.5, -1, 1.5, 2, -0.25, 0.75, -1.25, 0.125}
+	rotated := make([]float32, tq.HeadDim)
+	indices := make([]byte, tq.HeadDim)
+	pk, minK, scaleK, ok := tq.QuantizeKeyWithScratch(vec, rotated, indices)
+	if !ok {
+		t.Fatal("QuantizeKeyWithScratch rejected valid input")
+	}
+	wantPK, wantMinK, wantScaleK := tq.QuantizeKey(vec)
+	if string(pk) != string(wantPK) || minK != wantMinK || scaleK != wantScaleK {
+		t.Fatalf("QuantizeKeyWithScratch mismatch got=(%v,%v,%v) want=(%v,%v,%v)", pk, minK, scaleK, wantPK, wantMinK, wantScaleK)
+	}
+	pv, minV, scaleV, ok := tq.QuantizeValueWithScratch(vec, rotated, indices)
+	if !ok {
+		t.Fatal("QuantizeValueWithScratch rejected valid input")
+	}
+	wantPV, wantMinV, wantScaleV := tq.QuantizeValue(vec)
+	if string(pv) != string(wantPV) || minV != wantMinV || scaleV != wantScaleV {
+		t.Fatalf("QuantizeValueWithScratch mismatch got=(%v,%v,%v) want=(%v,%v,%v)", pv, minV, scaleV, wantPV, wantMinV, wantScaleV)
+	}
+	if _, _, _, ok := tq.QuantizeKeyWithScratch(vec, rotated[:tq.HeadDim-1], indices); ok {
+		t.Fatal("QuantizeKeyWithScratch accepted short rotated scratch")
+	}
+	if _, _, _, ok := tq.QuantizeValueWithScratch(vec, rotated, indices[:tq.HeadDim-1]); ok {
+		t.Fatal("QuantizeValueWithScratch accepted short index scratch")
+	}
+}
+
 func TestTurboQuantKeyValueDequantizeTo(t *testing.T) {
 	tq := NewTurboQuantState(8, 2, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
 	vec := []float32{0.5, -1, 1.5, 2, -0.25, 0.75, -1.25, 0.125}
@@ -147,6 +176,21 @@ func TestTurboQuantInverseUsesStoredTranspose(t *testing.T) {
 				t.Fatalf("bad V transpose at r=%d c=%d", r, c)
 			}
 		}
+	}
+}
+
+func TestCompressedKVCacheCompressionUsesScratch(t *testing.T) {
+	tq := NewTurboQuantState(4, 1, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	c := NewCompressedKVCache(4, 1, 4, tq, false)
+	c.Append([]float32{1, 2, 3, 4}, []float32{4, 3, 2, 1})
+	if c.CompressedCount() != 1 || len(c.quantRotated) != 4 || len(c.quantIndices) != 4 {
+		t.Fatalf("compression scratch not initialized compressed=%d rotated=%d indices=%d", c.CompressedCount(), len(c.quantRotated), len(c.quantIndices))
+	}
+	rotPtr := &c.quantRotated[0]
+	idxPtr := &c.quantIndices[0]
+	c.Append([]float32{2, 3, 4, 5}, []float32{5, 4, 3, 2})
+	if c.CompressedCount() != 2 || &c.quantRotated[0] != rotPtr || &c.quantIndices[0] != idxPtr {
+		t.Fatalf("compression scratch not reused compressed=%d", c.CompressedCount())
 	}
 }
 

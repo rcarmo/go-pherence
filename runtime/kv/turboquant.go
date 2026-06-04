@@ -143,20 +143,47 @@ func (tq *TurboQuantState) DequantizeValueTo(dst []float32, packed []byte, vMin,
 // Returns: quantized indices (packed), the min value, and the scale for dequantization.
 func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, codebook []float32, bits int) ([]byte, float32, float32) {
 	dim := len(vec)
-	bits = clampBits(bits)
-	needRot := squareSize(dim)
-	packedLen := packedByteLen(dim, bits)
-	if tq == nil || dim == 0 || needRot < 0 || packedLen < 0 || len(rotation) < needRot {
+	rotated := make([]float32, maxInt(dim, 0))
+	indices := make([]byte, maxInt(dim, 0))
+	packed, vMin, scale, ok := tq.quantizeVectorWithScratch(vec, rotation, codebook, bits, rotated, indices)
+	if !ok {
+		packedLen := packedByteLen(dim, clampBits(bits))
 		if packedLen < 0 {
 			packedLen = 0
 		}
 		return make([]byte, packedLen), 0, 0
 	}
+	return packed, vMin, scale
+}
+
+func (tq *TurboQuantState) QuantizeKeyWithScratch(vec, rotated []float32, indices []byte) ([]byte, float32, float32, bool) {
+	if tq == nil {
+		return nil, 0, 0, false
+	}
+	return tq.quantizeVectorWithScratch(vec, tq.RotationK, tq.CodebookK, tq.Config.KeyBits, rotated, indices)
+}
+
+func (tq *TurboQuantState) QuantizeValueWithScratch(vec, rotated []float32, indices []byte) ([]byte, float32, float32, bool) {
+	if tq == nil {
+		return nil, 0, 0, false
+	}
+	return tq.quantizeVectorWithScratch(vec, tq.RotationV, tq.CodebookV, tq.Config.ValueBits, rotated, indices)
+}
+
+func (tq *TurboQuantState) quantizeVectorWithScratch(vec []float32, rotation []float32, codebook []float32, bits int, rotated []float32, indices []byte) ([]byte, float32, float32, bool) {
+	dim := len(vec)
+	bits = clampBits(bits)
+	needRot := squareSize(dim)
+	packedLen := packedByteLen(dim, bits)
+	if tq == nil || dim == 0 || needRot < 0 || packedLen < 0 || len(rotation) < needRot || len(rotated) < dim || len(indices) < dim {
+		return nil, 0, 0, false
+	}
 
 	// Step 1: rotate through the checked SIMD facade. GemvRows uses the
 	// architecture dot-product path where available (AVX2/FMA, NEON, RVV) and
 	// falls back to the scalar reference otherwise.
-	rotated := make([]float32, dim)
+	rotated = rotated[:dim]
+	indices = indices[:dim]
 	rotateRows(rotated, vec, rotation, dim)
 
 	// Step 2: find min/max for uniform quantization
@@ -171,7 +198,7 @@ func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, cod
 	}
 	scale := vMax - vMin
 	if scale < 1e-10 {
-		return make([]byte, packedLen), vMin, 0
+		return make([]byte, packedLen), vMin, 0, true
 	}
 
 	// Step 3: quantize each coordinate to [0, 2^bits - 1]. The codebook
@@ -180,7 +207,6 @@ func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, cod
 	// the existing roundtrip tests.
 	_ = codebook
 	nLevels := 1 << bits
-	indices := make([]byte, dim)
 	for i, v := range rotated {
 		normalized := (v - vMin) / scale // [0, 1]
 		idx := int(normalized*float32(nLevels-1) + 0.5)
@@ -195,7 +221,7 @@ func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, cod
 
 	// Step 4: pack indices into bytes
 	packed := packIndices(indices, bits)
-	return packed, vMin, scale
+	return packed, vMin, scale, true
 }
 
 // DequantizeVector restores a float32 vector from compressed form.
