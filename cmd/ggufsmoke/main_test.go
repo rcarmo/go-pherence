@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
 func TestCheckExpectedGenerated(t *testing.T) {
@@ -96,6 +97,30 @@ func TestCheckExpectedRuntimeKV(t *testing.T) {
 	}
 	if err := checkExpectedRuntimeKV(plan, -1, -1, -1, 1); err == nil || !strings.Contains(err.Error(), "runtime total bytes mismatch") {
 		t.Fatalf("expected runtime total mismatch, got %v", err)
+	}
+}
+
+func TestGGUFBenchKVStatsUsesCompressedAggregate(t *testing.T) {
+	tq := kv.NewTurboQuantState(4, 2, kv.TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	c1 := kv.NewCompressedKVCache(4, 1, 4, tq, false)
+	c2 := kv.NewCompressedKVCache(4, 1, 4, tq, false)
+	c1.Append([]float32{1, 2, 3, 4}, []float32{4, 3, 2, 1})
+	c2.Append([]float32{2, 3, 4, 5}, []float32{5, 4, 3, 2})
+	_ = c1.GetK()
+	floatBytes, layers, seq, compressedCount, fullCount, compressedBytes, scratchBytes, totalBytes := ggufBenchKVStats(
+		[][]float32{{1, 2, 3, 4}},
+		[][]float32{{5, 6, 7, 8}},
+		[]*kv.CompressedKVCache{nil, c1, c2},
+	)
+	agg := kv.AggregateCompressedKVCacheStats([]*kv.CompressedKVCache{nil, c1, c2})
+	if floatBytes != 32 {
+		t.Fatalf("float bytes=%d want 32", floatBytes)
+	}
+	if layers != agg.Layers || seq != agg.SeqLen || compressedCount != agg.CompressedCount || fullCount != agg.FullCount {
+		t.Fatalf("aggregate counts mismatch got layers=%d seq=%d compressed=%d full=%d agg=%+v", layers, seq, compressedCount, fullCount, agg)
+	}
+	if compressedBytes != agg.StoredBytes || scratchBytes != agg.ScratchBytes || totalBytes != floatBytes+agg.TotalBytes {
+		t.Fatalf("aggregate bytes mismatch float=%d compressed=%d scratch=%d total=%d agg=%+v", floatBytes, compressedBytes, scratchBytes, totalBytes, agg)
 	}
 }
 
