@@ -2425,4 +2425,13 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed. The CI bundle now asserts the complete static/full-context TurboQuant plan consistently in inspect, smoke, cache-smoke, and benchmark paths, in addition to runtime-plan, cache-smoke, benchmark aggregate, REAP, and native SIMD readiness checks.
+## Session 141: Qwen3.6 REAP GGUF CI after health estimator hardening
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after pinning `llmserver /health` TurboQuant estimates directly to `runtime/kv.EstimateTurboQuantKV` in tests:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. This confirms the server readiness surface remains aligned with inspect, smoke, cache-smoke, benchmark, model runtime plans, and kv-owned TurboQuant estimate/accounting surfaces.
 
