@@ -167,3 +167,16 @@ TurboQuant cache accounting now separates stored payload bytes from reusable scr
 
 
 `GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES` and `GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES` can be used with `make gguf-turboquant-smoke`/`make gguf-validate` to assert reusable TurboQuant scratch and total cache footprint alongside the legacy stored-byte assertion.
+
+
+### Qwen3.6 REAP cache-smoke scratch assertion values
+
+For the local `/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf` preset with `turbo4/turbo2`, residual window `2`, and `-kv-smoke-tokens 5`, the pinned native TurboQuant cache-smoke byte values are:
+
+```text
+stored_bytes=9440
+scratch_bytes=1280
+total_bytes=10720
+```
+
+The `gguf-validate-qwen36-reap` target asserts all three values.

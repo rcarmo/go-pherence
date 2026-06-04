@@ -2173,3 +2173,21 @@ Tightened the native Qwen3.6 REAP GGUF validation bundle with byte-level TurboQu
 - `ggufinspect` can now assert full/estimated/saved full-context TurboQuant KV byte estimates.
 - `ggufsmoke` can assert planned runtime KV bytes, benchmark KV bytes, and synthetic compressed-cache layer/count/byte accounting.
 - `gguf-ci-qwen36-reap` passed end-to-end with the local checkpoint, validating the current full-context estimate (`10737418240` full bytes, `2055275200` estimated bytes, `8682143040` saved bytes) and one-token runtime/bench split (`245760` F32 bytes, `81920` compressed bytes).
+## Session 125: TurboQuant cache scratch accounting assertions
+
+Pinned Qwen3.6 REAP GGUF TurboQuant cache-smoke scratch accounting in the local validation preset. `make gguf-validate-qwen36-reap` now asserts stored, scratch, and total cache bytes for the synthetic compressed-KV smoke:
+
+```text
+stored_bytes=9440
+scratch_bytes=1280
+total_bytes=10720
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Passed with native SIMD readiness reported for TurboQuant rotation on amd64/AVX2.
+
