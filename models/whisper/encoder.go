@@ -508,6 +508,24 @@ func attnScalarAV(outh, scores, vh []float32, seqQ, seqKV, headDim int) {
 }
 
 // softmax applies softmax in-place.
+// fastExpF32 approximates exp(x) in float32 with range reduction x = k*ln2 + r
+// and a degree-5 polynomial for exp(r); error ~1e-7. Avoids the per-element
+// libm float64 exp in softmax (the encoder attention does ~1.4B exp calls at
+// T=1500). softmax args are <= 0 after max-subtraction.
+func fastExpF32(x float32) float32 {
+	if x < -87.3 {
+		return 0
+	}
+	const invln2 = 1.4426950408889634
+	const ln2 = 0.6931471805599453
+	v := x * invln2
+	kf := float32(int32(v - 0.5)) // x<=0 -> round to nearest via truncation
+	r := x - kf*ln2
+	er := 1 + r*(1+r*(0.5+r*(0.16666667+r*(0.041666668+r*0.008333334))))
+	bits := uint32((int32(kf) + 127) << 23)
+	return er * math.Float32frombits(bits)
+}
+
 func softmax(x []float32) {
 	if len(x) == 0 {
 		return
@@ -520,7 +538,7 @@ func softmax(x []float32) {
 	}
 	var sum float32
 	for i, v := range x {
-		e := float32(math.Exp(float64(v - max)))
+		e := fastExpF32(v - max)
 		x[i] = e
 		sum += e
 	}

@@ -80,6 +80,11 @@ type DecoderState struct {
 	CrossK [][]float32 // [layer][encLen * dModel]
 	CrossV [][]float32 // [layer][encLen * dModel]
 
+	// Head-major copies of the cross-attention KV ([layer][head*encLen*headDim])
+	// for contiguous per-head reads in the decode hot loop.
+	CrossKHead [][]float32
+	CrossVHead [][]float32
+
 	// Optional GPU-resident cross-attention KV. These are populated by
 	// NewDecoderStateGPU when GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1.
 	CrossKGPU []*nv.DevBuf
@@ -108,6 +113,8 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 		SelfVCache: make([][]float32, numLayers),
 		CrossK:     make([][]float32, numLayers),
 		CrossV:     make([][]float32, numLayers),
+		CrossKHead: make([][]float32, numLayers),
+		CrossVHead: make([][]float32, numLayers),
 		LastToken:  -1,
 		Bufs:       newDecoderBufs(cfg),
 	}
@@ -124,6 +131,10 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 		layer := &dec.Layers[l]
 		state.CrossK[l] = linearForwardOpt(encoderOutput, layer.CrossKWeight, layer.CrossKBias, encLen, dModel, dModel)
 		state.CrossV[l] = linearForwardOpt(encoderOutput, layer.CrossVWeight, layer.CrossVBias, encLen, dModel, dModel)
+		// Reorder once to head-major so each decoded token reads each head's
+		// frames contiguously instead of stride-dModel (the decode bottleneck).
+		state.CrossKHead[l] = toHeadMajor(state.CrossK[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
+		state.CrossVHead[l] = toHeadMajor(state.CrossV[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
 	}
 
 	return state
@@ -131,6 +142,13 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 
 // ForwardToken runs one decoder step for a single token.
 // Returns logits [vocabSize].
+var (
+	decSelfNs  int64
+	decCrossNs int64
+	decMlpNs   int64
+	decLmNs    int64
+)
+
 func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 	cfg := dec.cfg
 	dModel := cfg.DecoderDModel
@@ -165,6 +183,7 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		layer := &dec.Layers[l]
 
 		// --- Causal self-attention ---
+		tphase := nowNs()
 		layerNormInto(bufs.normed, x, layer.SelfAttnLNWeight, layer.SelfAttnLNBias, dModel)
 		linearInto(bufs.q, bufs.normed, layer.SelfQWeight, layer.SelfQBias, dModel, dModel)
 		linearInto(bufs.k, bufs.normed, layer.SelfKWeight, layer.SelfKBias, dModel, dModel)
@@ -182,21 +201,25 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		for d := range x {
 			x[d] += bufs.proj[d]
 		}
+		decSelfNs += nowNs() - tphase
 
 		// --- Cross-attention ---
+		tphase = nowNs()
 		layerNormInto(bufs.normed, x, layer.CrossAttnLNWeight, layer.CrossAttnLNBias, dModel)
 		linearInto(bufs.crossQ, bufs.normed, layer.CrossQWeight, layer.CrossQBias, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
 		if !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
-			attentionSingleInto(bufs.crossOut, bufs.crossQ, state.CrossK[l], state.CrossV[l], encLen, numHeads, headDim, bufs.scores)
+			crossAttentionHeadMajor(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores)
 		}
 		linearInto(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, layer.CrossOBias, dModel, dModel)
 		for d := range x {
 			x[d] += bufs.crossProj[d]
 		}
+		decCrossNs += nowNs() - tphase
 
 		// --- MLP ---
+		tphase = nowNs()
 		layerNormInto(bufs.mlpIn, x, layer.MLPLNWeight, layer.MLPLNBias, dModel)
 		if !bufs.linearGPU(bufs.hidden, bufs.mlpIn, layer.gpuFC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim) {
 			linearInto(bufs.hidden, bufs.mlpIn, layer.FC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
@@ -208,9 +231,11 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		for d := range x {
 			x[d] += bufs.mlpOut[d]
 		}
+		decMlpNs += nowNs() - tphase
 	}
 
 	// Final LayerNorm
+	tphase := nowNs()
 	layerNormInto(bufs.normed, x, dec.FinalLNWeight, dec.FinalLNBias, dModel)
 	x = bufs.normed
 
@@ -226,6 +251,7 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		// the threaded RVV seqLen=1 path instead of a scalar double loop.
 		logits = linearForwardOpt(x[:dModel], dec.TokenEmbed, nil, 1, dModel, cfg.VocabSize)
 	}
+	decLmNs += nowNs() - tphase
 
 	state.LastToken = tokenID
 	state.Pos++
@@ -277,4 +303,55 @@ func attentionSingleInto(out, q, kCache, vCache []float32, seqKV, numHeads, head
 			simdrt.Saxpy(w, vCache[vOff:vOff+headDim], outHead)
 		}
 	}
+}
+
+// crossAttentionHeadMajor is attentionSingleInto specialized for the cross
+// attention, where K/V are precomputed once and re-read for every decoded
+// token. kHead/vHead are head-major ([numHeads][seqKV][headDim]) so each head's
+// frames are contiguous — the [seqKV,dModel] cache layout otherwise forces a
+// stride-dModel cache miss on every frame (the decode's dominant cost).
+func crossAttentionHeadMajor(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32) {
+	dModel := numHeads * headDim
+	zeroFloat32s(out[:dModel])
+	if seqKV <= 0 {
+		return
+	}
+	if len(scores) < seqKV {
+		scores = make([]float32, seqKV)
+	}
+	scale := float32(1.0 / math.Sqrt(float64(headDim)))
+	for h := 0; h < numHeads; h++ {
+		hOff := h * headDim
+		qHead := q[hOff : hOff+headDim]
+		base := h * seqKV * headDim // contiguous block for this head
+		for tkv := 0; tkv < seqKV; tkv++ {
+			ko := base + tkv*headDim
+			scores[tkv] = simdrt.Sdot(qHead, kHead[ko:ko+headDim]) * scale
+		}
+		softmax(scores[:seqKV])
+		outHead := out[hOff : hOff+headDim]
+		for tkv := 0; tkv < seqKV; tkv++ {
+			w := scores[tkv]
+			if w < 1e-8 {
+				continue
+			}
+			vo := base + tkv*headDim
+			simdrt.Saxpy(w, vHead[vo:vo+headDim], outHead)
+		}
+	}
+}
+
+// toHeadMajor reorders a [seqKV, numHeads*headDim] cache into head-major
+// [numHeads, seqKV, headDim] for contiguous per-head access.
+func toHeadMajor(src []float32, seqKV, numHeads, headDim int) []float32 {
+	dModel := numHeads * headDim
+	out := make([]float32, seqKV*dModel)
+	for h := 0; h < numHeads; h++ {
+		hOff := h * headDim
+		base := h * seqKV * headDim
+		for t := 0; t < seqKV; t++ {
+			copy(out[base+t*headDim:base+t*headDim+headDim], src[t*dModel+hOff:t*dModel+hOff+headDim])
+		}
+	}
+	return out
 }

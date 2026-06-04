@@ -150,7 +150,13 @@ func linearForwardInt8(x, weight, bias []float32, seqLen, inDim, outDim int) []f
 
 	C := make([]int32, Mp*N)
 	tg := nowNs()
-	ime2.GemmINT8PackedParallel(Mp, N, K, xp, pw.wp, C, linearWorkers)
+	if Mp <= 8 {
+		// Decode (M padded 1->4): the GEMM is one tile-row, so threading is pure
+		// goroutine-spawn overhead (~256 linear calls per decoded token).
+		ime2.GemmINT8Packed(Mp, N, K, xp, pw.wp, C)
+	} else {
+		ime2.GemmINT8PackedParallel(Mp, N, K, xp, pw.wp, C, linearWorkers)
+	}
 	i8GemmNs += nowNs() - tg
 
 	td := nowNs()

@@ -95,6 +95,8 @@ func (w *Whisper) TranscribeFromSamples(samples []float32) (string, error) {
 		if useInt8 {
 			fmt.Fprintf(os.Stderr, "[int8] quant=%.1fs pack=%.1fs gemm=%.1fs dequant=%.1fs\n",
 				float64(i8QuantNs)/1e9, float64(i8PackNs)/1e9, float64(i8GemmNs)/1e9, float64(i8DeqNs)/1e9)
+			fmt.Fprintf(os.Stderr, "[dec] self=%.1fs cross=%.1fs mlp=%.1fs lmhead=%.1fs\n",
+				float64(decSelfNs)/1e9, float64(decCrossNs)/1e9, float64(decMlpNs)/1e9, float64(decLmNs)/1e9)
 		}
 	}
 
