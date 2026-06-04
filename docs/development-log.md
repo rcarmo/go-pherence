@@ -2383,4 +2383,18 @@ GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
 ```
 
 Passed with `expected_estimated_scratch_bytes_ok` and `expected_estimated_total_bytes_ok` emitted from smoke paths.
+## Session 138: Qwen3.6 REAP GGUF CI with static plan smoke assertions
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after enforcing static/full-context TurboQuant scratch and total estimate assertions across smoke/cache-smoke/bench paths:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. Static plan values are now asserted consistently by inspect and all smoke paths:
+
+```text
+estimated_scratch_bytes=9663699456
+estimated_total_bytes=11718974656
+```
 
