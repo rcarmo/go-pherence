@@ -157,7 +157,7 @@ Acceptance:
 - Local mini checkpoint loads metadata and tensor manifests.
 - Unit tests cover config parsing, tensor group binding, and malformed shape errors.
 
-Current status: YAML config parsing and tensor-name inventory helpers are present under `loader/config` with unit tests. `model/hunyuan3d` contains static shape metadata validation, latent-shape helpers, conditioner image/patch-token metadata helpers, DiT latent/context/hidden/QKV shape helpers, required tensor-group coverage checks, fixture-compatible float32 tensor summaries/hashes plus JSON fixture comparison helpers for image, conditioner, denoiser, and low-step latent fixtures, a gated local Python image-fixture parity test (`GO_PHERENCE_HY3D_IMAGE_FIXTURE` plus `GO_PHERENCE_HY3D_IMAGE`), and a deterministic Go `ImageProcessorV2` preprocessing parity target for alpha-mask recentering, white-background compositing, square resize, and BCHW `[-1, 1]` tensors. `model/hunyuan3d.Load` now opens Hunyuan3D YAML+safetensors checkpoints, validates required tensor groups, binds lazy tensor refs, exposes a shared tensor/SIMD-backed linear helper, and provides `RunImageToShape` scaffolding that executes preprocessing, latent allocation, and FlowMatch scheduling before returning a typed `ErrKernelNotImplemented` at the conditioner/DiT/VAE/mesh boundary. `cmd/hy3dinspect` / `make hunyuan3d-inspect` can print validated config shape metadata and enforce optional safetensors group coverage for local checkpoints. `scripts/hunyuan3d_seahorse_demo.py` plus `make hunyuan3d-seahorse` provide an end-to-end seahorse GLB generation entry point using a checked-in RGBA seahorse input asset, but it remains dependency/VRAM gated on the upstream Python runtime and local/HF model payloads. Native Go generation is now loadable/scaffolded, but not yet complete until conditioner, DiT, ShapeVAE, and mesh kernels are implemented.
+Current status: YAML config parsing and tensor-name inventory helpers are present under `loader/config` with unit tests. `model/hunyuan3d` contains static shape metadata validation, latent-shape helpers, conditioner image/patch-token metadata helpers, DiT latent/context/hidden/QKV shape helpers, required tensor-group coverage checks, fixture-compatible float32 tensor summaries/hashes plus JSON fixture comparison helpers for image, conditioner, denoiser, and low-step latent fixtures, a gated local Python image-fixture parity test (`GO_PHERENCE_HY3D_IMAGE_FIXTURE` plus `GO_PHERENCE_HY3D_IMAGE`), and a deterministic Go `ImageProcessorV2` preprocessing parity target for alpha-mask recentering, white-background compositing, square resize, and BCHW `[-1, 1]` tensors. `model/hunyuan3d.Load` now opens Hunyuan3D YAML+safetensors checkpoints, validates required tensor groups, binds lazy tensor refs, exposes a shared tensor/SIMD-backed linear helper, and provides `RunImageToShape` scaffolding that executes preprocessing, latent allocation, and FlowMatch scheduling before returning a typed `ErrKernelNotImplemented` at the conditioner/DiT/VAE/mesh boundary. `cmd/hy3dinspect` / `make hunyuan3d-inspect` can print validated config shape metadata and enforce optional safetensors group coverage for local checkpoints. `scripts/hunyuan3d_seahorse_demo.py` plus `make hunyuan3d-seahorse` provide an end-to-end seahorse GLB generation entry point using a checked-in RGBA seahorse input asset, but it remains dependency/VRAM gated on the upstream Python runtime and local/HF model payloads. Native Go generation is now loadable/scaffolded, with the first shared CPU/SIMD primitive layer implemented for linear projections, RMSNorm, GELU, dense attention, ViT patch embedding, class/position token assembly, and a CPU reference ViT transformer block. It is not yet complete until these primitives are bound to actual conditioner weights and the DiT, ShapeVAE, and mesh kernels are implemented.
 
 ### Phase H2 — Image preprocessing and conditioner
 
@@ -170,10 +170,10 @@ Goal: reproduce condition embeddings for one fixture.
   - normalize to `[-1, 1]` BCHW tensor range.
 - [x] Implement Go image preprocessing equivalent to upstream `ImageProcessorV2`:
 - Implement or import a minimal DINOv2/CLIP-ViT encoder path:
-  - patch embedding;
-  - class token/position embeddings;
-  - transformer encoder blocks;
-  - LayerNorm/GELU/attention parity.
+  - [x] shared CPU/SIMD primitive layer for linear, RMSNorm, GELU, softmax attention, and ViT patch embedding;
+  - [x] class token/position embeddings;
+  - [x] CPU reference transformer encoder block using RMSNorm, QKV projection, dense attention, projection, GELU MLP, and residuals;
+  - [ ] exact DINO/CLIP LayerNorm/GELU/attention parity against conditioner fixtures.
 - Start with CPU F32/BF16 reference; GPU later.
 
 Acceptance:
