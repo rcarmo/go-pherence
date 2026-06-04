@@ -263,6 +263,31 @@ func TestCompressedKVCacheCompressionUsesScratch(t *testing.T) {
 	}
 }
 
+func TestCompressedKVCacheScratchByteAccounting(t *testing.T) {
+	tq := NewTurboQuantState(4, 1, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	c := NewCompressedKVCache(4, 1, 4, tq, false)
+	if c.ScratchBytes() != 0 || c.TotalMemoryBytes() != c.MemoryBytes() {
+		t.Fatalf("empty scratch/total mismatch scratch=%d memory=%d total=%d", c.ScratchBytes(), c.MemoryBytes(), c.TotalMemoryBytes())
+	}
+	c.Append([]float32{1, 2, 3, 4}, []float32{4, 3, 2, 1})
+	if c.ScratchBytes() == 0 {
+		t.Fatalf("compression scratch not accounted")
+	}
+	stored := c.MemoryBytes()
+	if total := c.TotalMemoryBytes(); total <= stored {
+		t.Fatalf("total=%d stored=%d scratch=%d", total, stored, c.ScratchBytes())
+	}
+	_ = c.GetK()
+	_ = c.GetV()
+	if c.ScratchBytes() <= 0 || c.TotalMemoryBytes() != c.MemoryBytes()+c.ScratchBytes() {
+		t.Fatalf("bad scratch accounting memory=%d scratch=%d total=%d", c.MemoryBytes(), c.ScratchBytes(), c.TotalMemoryBytes())
+	}
+	c.Reset()
+	if c.MemoryBytes() != 0 || c.ScratchBytes() == 0 || c.TotalMemoryBytes() != c.ScratchBytes() {
+		t.Fatalf("reset should clear stored bytes but retain scratch: memory=%d scratch=%d total=%d", c.MemoryBytes(), c.ScratchBytes(), c.TotalMemoryBytes())
+	}
+}
+
 func TestCompressedKVCacheDirectScratchDecompression(t *testing.T) {
 	tq := NewTurboQuantState(4, 1, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 1})
 	c := NewCompressedKVCache(4, 1, 4, tq, false)

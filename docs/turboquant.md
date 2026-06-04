@@ -159,3 +159,8 @@ Generation KV runtime plans now carry the same SIMD readiness fields as the stat
 ## Scratch-owned unpack/dequantization
 
 `CompressedKVCache` decompression now uses scratch-aware unpack/dequantize helpers, reusing per-cache unpacked-index and rotated-coordinate buffers while writing final K/V heads into the sequence scratch. This removes the remaining per-head temporary allocation in the native TurboQuant cache read path.
+
+
+## Stored vs scratch byte accounting
+
+TurboQuant cache accounting now separates stored payload bytes from reusable scratch bytes. `MemoryBytes()` remains the stored full/compressed K/V payload estimate used by existing expectations, while `ScratchBytes()` and `TotalMemoryBytes()` expose reusable SIMD quant/dequant scratch. `ggufsmoke` cache smoke prints `stored_bytes`, `scratch_bytes`, and `total_bytes` alongside the legacy `bytes` field.

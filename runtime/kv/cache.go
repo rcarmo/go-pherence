@@ -301,7 +301,7 @@ func (c *CompressedKVCache) Reset() {
 	c.seqLen = 0
 }
 
-// MemoryBytes returns approximate memory usage (compressed + full, excluding slice headers).
+// MemoryBytes returns approximate stored cache usage (compressed + full, excluding slice headers and reusable scratch buffers).
 func compressedBytesPerHead(headDim, bits int) (int, bool) {
 	if headDim <= 0 || bits <= 0 {
 		return 0, false
@@ -369,6 +369,29 @@ func saturatingMulInt64(a, b int64) int64 {
 		return max
 	}
 	return a * b
+}
+
+func (c *CompressedKVCache) ScratchBytes() int64 {
+	if c == nil {
+		return 0
+	}
+	floatElems := 0
+	for _, n := range []int{len(c.scratchK), len(c.scratchV), len(c.quantRotated), len(c.dequantRotated)} {
+		var ok bool
+		floatElems, ok = checkedAddInt(floatElems, n)
+		if !ok {
+			return maxInt64()
+		}
+	}
+	byteElems, ok := checkedAddInt(len(c.quantIndices), len(c.dequantIndices))
+	if !ok {
+		return maxInt64()
+	}
+	return saturatingAddInt64(saturatingMulInt64(int64(floatElems), 4), int64(byteElems))
+}
+
+func (c *CompressedKVCache) TotalMemoryBytes() int64 {
+	return saturatingAddInt64(c.MemoryBytes(), c.ScratchBytes())
 }
 
 func (c *CompressedKVCache) MemoryBytes() int64 {
