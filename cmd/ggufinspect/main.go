@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/runtime/kv"
 )
@@ -48,6 +49,7 @@ func main() {
 	expectFullKVBytes := flag.Int64("expect-full-kv-bytes", -1, "fail unless TurboQuant full KV byte estimate matches this value")
 	expectEstimatedKVBytes := flag.Int64("expect-estimated-kv-bytes", -1, "fail unless TurboQuant compressed KV byte estimate matches this value")
 	expectSavedKVBytes := flag.Int64("expect-saved-kv-bytes", -1, "fail unless TurboQuant saved KV byte estimate matches this value")
+	expectSIMDRotation := flag.Bool("expect-simd-rotation", false, "fail unless native SIMD dot-product rotation support is available")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: ggufinspect [flags] <model.gguf>")
@@ -189,6 +191,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "ggufinspect: saved KV byte estimate mismatch got=%d want=%d\n", plan.SavedBytes, *expectSavedKVBytes)
 			os.Exit(1)
 		}
+		if *expectSIMDRotation && !plan.SIMDRotation {
+			fmt.Fprintf(os.Stderr, "ggufinspect: SIMD rotation unavailable arch=%s vec=%v\n", plan.SIMDArch, plan.SIMDVec)
+			os.Exit(1)
+		}
 		tqPlan = plan
 	}
 	if *jsonOut {
@@ -250,6 +256,12 @@ type inspectTurboQuantPlan struct {
 	SavedBytes       int64   `json:"estimated_saved_kv_bytes,omitempty"`
 	EstimatedKVRatio float64 `json:"estimated_kv_ratio,omitempty"`
 	RuntimeReady     bool    `json:"runtime_ready"`
+	SIMDArch         string  `json:"simd_arch"`
+	SIMDRotation     bool    `json:"simd_rotation"`
+	SIMDVec          bool    `json:"simd_vec"`
+	SIMDAVX2         bool    `json:"simd_avx2"`
+	SIMDNEON         bool    `json:"simd_neon"`
+	SIMDRVv          bool    `json:"simd_rvv"`
 }
 
 func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType string, residualWindow int) (inspectTurboQuantPlan, error) {
@@ -258,7 +270,8 @@ func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType str
 		return inspectTurboQuantPlan{}, err
 	}
 	est := inspectTurboQuantEstimate(in, cfg, enabled)
-	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, ProtectedLayers: est.ProtectedLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: est.FullBytes, EstimatedBytes: est.EstimatedBytes, SavedBytes: est.SavedBytes, EstimatedKVRatio: est.Ratio, RuntimeReady: in.RuntimeSupported}, nil
+	caps := simd.RuntimeCapabilities()
+	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, ProtectedLayers: est.ProtectedLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: est.FullBytes, EstimatedBytes: est.EstimatedBytes, SavedBytes: est.SavedBytes, EstimatedKVRatio: est.Ratio, RuntimeReady: in.RuntimeSupported, SIMDArch: caps.Arch, SIMDRotation: caps.HasDot, SIMDVec: caps.HasVec, SIMDAVX2: caps.HasAVX2, SIMDNEON: caps.HasNEON, SIMDRVv: caps.HasRVV}, nil
 }
 
 func inspectTurboQuantEstimate(in gguf.Inspection, cfg kv.TurboQuantConfig, enabled bool) kv.TurboQuantKVEstimate {

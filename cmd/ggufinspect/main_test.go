@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
@@ -17,6 +18,10 @@ func TestGGUFTurboQuantPlanFromInspection(t *testing.T) {
 	}
 	if plan.FullKVBytes != 10737418240 || plan.EstimatedBytes != 2059448320 || plan.SavedBytes != 8677969920 || plan.EstimatedKVRatio <= 0 || plan.EstimatedKVRatio >= 1 {
 		t.Fatalf("bad byte estimate: %+v", plan)
+	}
+	caps := simd.RuntimeCapabilities()
+	if plan.SIMDArch != caps.Arch || plan.SIMDRotation != caps.HasDot || plan.SIMDVec != caps.HasVec || plan.SIMDAVX2 != caps.HasAVX2 || plan.SIMDNEON != caps.HasNEON || plan.SIMDRVv != caps.HasRVV {
+		t.Fatalf("bad SIMD plan fields: %+v caps=%+v", plan, caps)
 	}
 }
 
