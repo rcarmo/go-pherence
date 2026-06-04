@@ -112,11 +112,12 @@ func main() {
 				}
 				if idx >= 0 {
 					c := caches[idx]
-					if err := checkExpectedKVSmoke(idx, c.CompressedCount(), c.FullCount(), c.MemoryBytes(), c.ScratchBytes(), c.TotalMemoryBytes(), *expectKVSmokeLayer, *expectKVSmokeCompressed, *expectKVSmokeFull, *expectKVSmokeBytes, *expectKVSmokeScratchBytes, *expectKVSmokeTotalBytes); err != nil {
+					stats := c.Stats()
+					if err := checkExpectedKVSmoke(idx, stats.CompressedCount, stats.FullCount, stats.StoredBytes, stats.ScratchBytes, stats.TotalBytes, *expectKVSmokeLayer, *expectKVSmokeCompressed, *expectKVSmokeFull, *expectKVSmokeBytes, *expectKVSmokeScratchBytes, *expectKVSmokeTotalBytes); err != nil {
 						fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 						os.Exit(1)
 					}
-					fmt.Printf("turboquant_cache_smoke tokens=%d layer=%d seq=%d compressed=%d full=%d bytes=%d stored_bytes=%d scratch_bytes=%d total_bytes=%d\n", *kvSmokeTokens, idx, c.SeqLen(), c.CompressedCount(), c.FullCount(), c.MemoryBytes(), c.MemoryBytes(), c.ScratchBytes(), c.TotalMemoryBytes())
+					fmt.Printf("turboquant_cache_smoke tokens=%d layer=%d seq=%d compressed=%d full=%d bytes=%d stored_bytes=%d scratch_bytes=%d total_bytes=%d\n", *kvSmokeTokens, idx, stats.SeqLen, stats.CompressedCount, stats.FullCount, stats.StoredBytes, stats.StoredBytes, stats.ScratchBytes, stats.TotalBytes)
 				}
 			}
 		}

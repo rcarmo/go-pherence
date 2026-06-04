@@ -282,6 +282,10 @@ func TestCompressedKVCacheScratchByteAccounting(t *testing.T) {
 	if c.ScratchBytes() <= 0 || c.TotalMemoryBytes() != c.MemoryBytes()+c.ScratchBytes() {
 		t.Fatalf("bad scratch accounting memory=%d scratch=%d total=%d", c.MemoryBytes(), c.ScratchBytes(), c.TotalMemoryBytes())
 	}
+	stats := c.Stats()
+	if stats.SeqLen != c.SeqLen() || stats.CompressedCount != c.CompressedCount() || stats.FullCount != c.FullCount() || stats.StoredBytes != c.MemoryBytes() || stats.ScratchBytes != c.ScratchBytes() || stats.TotalBytes != c.TotalMemoryBytes() {
+		t.Fatalf("bad stats %+v memory=%d scratch=%d total=%d", stats, c.MemoryBytes(), c.ScratchBytes(), c.TotalMemoryBytes())
+	}
 	c.Reset()
 	if c.MemoryBytes() != 0 || c.ScratchBytes() == 0 || c.TotalMemoryBytes() != c.ScratchBytes() {
 		t.Fatalf("reset should clear stored bytes but retain scratch: memory=%d scratch=%d total=%d", c.MemoryBytes(), c.ScratchBytes(), c.TotalMemoryBytes())

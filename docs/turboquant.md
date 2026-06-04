@@ -180,3 +180,8 @@ total_bytes=10720
 ```
 
 The `gguf-validate-qwen36-reap` target asserts all three values.
+
+
+## KV-owned cache stats
+
+`CompressedKVCache.Stats()` now owns cache-smoke accounting for sequence length, compressed/full counts, stored bytes, scratch bytes, and total bytes. Tools such as `ggufsmoke` consume this kv-owned summary instead of manually combining cache counters and byte methods.

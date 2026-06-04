@@ -38,6 +38,16 @@ type compressedEntry struct {
 	HeadScale []float32 // per-head scale values
 }
 
+// CompressedKVCacheStats summarizes a native TurboQuant cache layer.
+type CompressedKVCacheStats struct {
+	SeqLen          int   `json:"seq_len"`
+	CompressedCount int   `json:"compressed"`
+	FullCount       int   `json:"full"`
+	StoredBytes     int64 `json:"stored_bytes"`
+	ScratchBytes    int64 `json:"scratch_bytes"`
+	TotalBytes      int64 `json:"total_bytes"`
+}
+
 // NewCompressedKVCache creates a cache for one layer.
 func NewCompressedKVCache(kvDim, numKVHeads, headDim int, tq *TurboQuantState, isProtected bool) *CompressedKVCache {
 	if kvDim < 0 {
@@ -392,6 +402,15 @@ func (c *CompressedKVCache) ScratchBytes() int64 {
 
 func (c *CompressedKVCache) TotalMemoryBytes() int64 {
 	return saturatingAddInt64(c.MemoryBytes(), c.ScratchBytes())
+}
+
+func (c *CompressedKVCache) Stats() CompressedKVCacheStats {
+	if c == nil {
+		return CompressedKVCacheStats{}
+	}
+	stored := c.MemoryBytes()
+	scratch := c.ScratchBytes()
+	return CompressedKVCacheStats{SeqLen: c.SeqLen(), CompressedCount: c.CompressedCount(), FullCount: c.FullCount(), StoredBytes: stored, ScratchBytes: scratch, TotalBytes: saturatingAddInt64(stored, scratch)}
 }
 
 func (c *CompressedKVCache) MemoryBytes() int64 {
