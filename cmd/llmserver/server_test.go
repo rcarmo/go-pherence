@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"net/http/httptest"
+	"runtime"
 	"testing"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/model"
 )
 
@@ -64,6 +66,13 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 	}
 	if int(tq["kv_layers"].(float64)) != 8 || int(tq["protected_layers"].(float64)) != 4 {
 		t.Fatalf("unexpected turboquant layer accounting: %+v", tq)
+	}
+	caps := simd.RuntimeCapabilities()
+	if tq["simd_arch"] != runtime.GOARCH || tq["simd_rotation"] != caps.HasDot || tq["simd_vec"] != caps.HasVec {
+		t.Fatalf("unexpected turboquant SIMD health: %+v caps=%+v", tq, caps)
+	}
+	if tq["simd_avx2"] != caps.HasAVX2 || tq["simd_neon"] != caps.HasNEON || tq["simd_rvv"] != caps.HasRVV {
+		t.Fatalf("unexpected turboquant SIMD ISA health: %+v caps=%+v", tq, caps)
 	}
 }
 

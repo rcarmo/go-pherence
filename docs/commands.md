@@ -527,3 +527,23 @@ curl -s http://localhost:8080/health | jq '.turboquant, .reap'
 ```
 
 The health payload reports native go-pherence interpretation of those policy names: key/value bits, KV shape, full/estimated/saved bytes, ratio, KV layer count, protected-layer count, and REAP summary/source when the loaded model has REAP enabled.
+
+
+### TurboQuant SIMD readiness in server health
+
+`cmd/llmserver /health` includes native SIMD dispatch diagnostics inside the `turboquant` object when cache policy flags are set:
+
+```json
+{
+  "turboquant": {
+    "simd_arch": "amd64",
+    "simd_rotation": true,
+    "simd_vec": true,
+    "simd_avx2": true,
+    "simd_neon": false,
+    "simd_rvv": false
+  }
+}
+```
+
+`simd_rotation=true` means TurboQuant per-head rotation can use the checked go-pherence SIMD dot-product facade for the active CPU (AVX2/FMA, NEON, or RVV where available), with scalar fallback otherwise.
