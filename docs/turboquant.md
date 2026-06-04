@@ -116,3 +116,8 @@ Unit tests cover:
 - MTP/speculative decoding can commit/rollback TurboQuant-backed verifier KV via
   the staging helpers, but the current internal verifier-forward loop itself is
   float-KV CPU-only and public speculative generation remains disabled.
+
+
+## Native SIMD rotation path
+
+TurboQuant vector rotation and inverse rotation now call the checked `backends/simd/runtime` GEMV facade. On supported CPUs this routes the hot per-head rotation dot products through AVX2/FMA, NEON, or RVV-gated dot-product assembly where available, while retaining a scalar fallback for malformed inputs or unsupported runtimes. This keeps GGUF REAP/TurboQuant execution inside go-pherence pure Go/SIMD components instead of relying on llama.cpp cache kernels.

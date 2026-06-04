@@ -3,6 +3,8 @@ package kv
 import (
 	"math"
 	"math/rand"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // TurboQuantConfig holds settings for KV cache compression.
@@ -95,14 +97,18 @@ func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, cod
 		return make([]byte, packedLen), 0, 0
 	}
 
-	// Step 1: rotate
+	// Step 1: rotate through the checked SIMD facade. GemvRows uses the
+	// architecture dot-product path where available (AVX2/FMA, NEON, RVV) and
+	// falls back to the scalar reference otherwise.
 	rotated := make([]float32, dim)
-	for i := 0; i < dim; i++ {
-		var sum float32
-		for j := 0; j < dim; j++ {
-			sum += rotation[i*dim+j] * vec[j]
+	if !simd.GemvRows(rotated, vec, rotation, dim, dim) {
+		for i := 0; i < dim; i++ {
+			var sum float32
+			for j := 0; j < dim; j++ {
+				sum += rotation[i*dim+j] * vec[j]
+			}
+			rotated[i] = sum
 		}
-		rotated[i] = sum
 	}
 
 	// Step 2: find min/max for uniform quantization
@@ -161,14 +167,17 @@ func (tq *TurboQuantState) DequantizeVector(packed []byte, vMin, scale float32, 
 		rotated[i] = vMin + scale*float32(idx)/float32(nLevels-1)
 	}
 
-	// Inverse rotation: R^T @ rotated
+	// Inverse rotation: R^T @ rotated. GemvCols computes x · R, equivalent to
+	// R^T · x for row-major R, again using the checked SIMD facade when present.
 	out := make([]float32, dim)
-	for i := 0; i < dim; i++ {
-		var sum float32
-		for j := 0; j < dim; j++ {
-			sum += rotation[j*dim+i] * rotated[j] // R^T = transpose indexing
+	if !simd.GemvCols(out, rotated, rotation, dim, dim) {
+		for i := 0; i < dim; i++ {
+			var sum float32
+			for j := 0; j < dim; j++ {
+				sum += rotation[j*dim+i] * rotated[j] // R^T = transpose indexing
+			}
+			out[i] = sum
 		}
-		out[i] = sum
 	}
 
 	return out
