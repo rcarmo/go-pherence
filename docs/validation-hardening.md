@@ -5,7 +5,7 @@ This page summarizes recent malformed-input and boundary-hardening work. Phase-l
 ## Runtime and tensor layers
 
 - `tensor/` validates shapes, reductions, broadcasting, unsafe float32 views, realization internals, rewrite/fusion graphs, pooled allocations, NN helpers, convenience ops, embeddings, matmul/linear helpers, and module wrappers.
-- `runtime/kv` guards cache dimensions/layouts, compressed-cache accessors, memory accounting, staging rollback arithmetic, TurboQuant sizing, packed-byte calculations, protected-layer helper inputs, and nil/malformed cache receivers.
+- `runtime/kv` guards cache dimensions/layouts, compressed-cache accessors, stored/scratch/total memory accounting, aggregate compressed-cache stats, staging rollback arithmetic, TurboQuant sizing, packed-byte calculations, protected-layer helper inputs, SIMD rotation capability reporting, scratch-aware quant/dequant helpers, and nil/malformed cache receivers.
 - `runtime/memory` guards mmap range overflow, malformed tracked ranges, nil advisor receivers, and saturating accounting.
 
 ## Quantization boundaries
@@ -67,7 +67,7 @@ Transitional model helpers validate:
 - zero-count state copy semantics,
 - CPU decode final norm/LM-head dimensions,
 - CPU generation allocation setup,
-- GGUF generation KV allocation and validation paths, including expected greedy token/decoded text, runtime KV byte plan, benchmark KV counters, and synthetic compressed-cache smoke accounting via `ggufsmoke`/Make targets.
+- GGUF generation KV allocation and validation paths, including expected greedy token/decoded text, static TurboQuant full/estimated/saved/scratch/total byte plans, runtime KV+scratch byte plans, native SIMD rotation readiness assertions, benchmark aggregate KV counters, and synthetic compressed-cache stored/scratch/total smoke accounting via `ggufsmoke`/Make targets.
 - MoE edge cases,
 - embedding/LM-head/per-layer input backing data,
 - chunked LM-head and batched-prefill dimensions,
