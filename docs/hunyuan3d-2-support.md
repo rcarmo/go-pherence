@@ -17,15 +17,14 @@ The local review clone used for this assessment was placed under `/workspace/tmp
 
 ## Executive summary
 
-Hunyuan3D-2 support is a new model family and pipeline class, not a minor architecture switch in the current LLM runtime. The nearest existing pieces in `go-pherence` are useful but incomplete:
+Hunyuan3D-2 support is a new model family and pipeline class, not a minor architecture switch in the current LLM runtime. The repository now has native Go scaffolding for the image-to-shape path, but not yet a complete GLB-generating runtime:
 
-- safetensors/config loading already exists;
-- tensor primitives, Conv1D, pooling, LayerNorm/GELU, matmul, and SIMD/NVIDIA backends are reusable;
-- recent Whisper/audio work proves non-LLM frontends can be added;
-- there is no native diffusion pipeline abstraction yet;
-- there is no native DINO/CLIP vision transformer frontend yet;
-- there is no native Hunyuan3D DiT implementation yet;
-- there is no native ShapeVAE volume decoder or marching-cubes mesh output path yet;
+- Hunyuan3D YAML parsing, safetensors loading, tensor-group validation, lazy tensor refs, and inspection are implemented;
+- native image preprocessing, FlowMatch schedule/step helpers, CFG blending, deterministic latent generation, fixture JSON loaders/comparators, and seahorse demo input plumbing are implemented;
+- shared CPU/SIMD primitives now cover linear projections, RMSNorm, GELU, dense attention, ViT patch embedding, class/position token assembly, and a CPU reference ViT block;
+- actual DINO/CLIP conditioner weight binding and exact upstream parity are still pending;
+- native Hunyuan3D DiT double/single stream blocks are still pending;
+- native ShapeVAE volume decode and marching-cubes/mesh export are still pending;
 - Hunyuan3D texture generation is a much larger Stable-Diffusion-family subproject and should not be the first target.
 
 Recommended first milestone: **image-to-shape only, no texture, no turbo FlashVDM, CPU reference first, one standard Hunyuan3D-2mini fixture.** The standard `hunyuan3d-dit-v2-mini` target is preferred over `mini-turbo` for initial parity because it keeps the first fixture on the non-turbo flow path while retaining the smaller 0.6B-class DiT and 512-latent VAE footprint.
@@ -95,21 +94,21 @@ The texture path pulls in Diffusers/Stable-Diffusion-style pipelines, ControlNet
 
 ### Reusable now
 
-- `loader/safetensors` can read tensor payloads and metadata.
-- `loader/config` is already split enough to add a YAML/config adapter or a Hunyuan-specific config parser.
-- `tensor` has checked tensor shape helpers and NN-style operations (`Linear`, `Conv1D`, pooling, LayerNorm/GELU-style building blocks) useful for a CPU reference path.
+- `loader/safetensors` can read tensor payloads and metadata, and `model/hunyuan3d.Load` binds Hunyuan tensor groups lazily.
+- `loader/config` includes a Hunyuan-specific YAML parser and FlowMatch scheduler metadata helpers.
+- `tensor` plus `backends/simd/runtime` now drive Hunyuan3D CPU reference primitives for linear, RMSNorm, GELU, attention, and ViT patch embedding.
 - `backends/simd/runtime` and `backends/nvidia/runtime` already expose several hot kernels that map to attention/MLP/matmul-heavy DiT code.
 - `model` has patterns for architecture-specific packages (`model/qwen`, `model/gemma4`) and diagnostic fixtures.
 - `loader/audio` + Whisper work shows the repo can host non-token frontends without forcing everything through LLM generation.
 
 ### Missing or insufficient
 
-- **Diffusion pipeline abstraction.** Current generation code is token/KV-cache oriented. Hunyuan3D needs iterative latent denoising, scheduler state, CFG duplication/blending, and image-conditioned contexts.
-- **Vision transformer frontend.** Hunyuan3D conditioning depends on DINOv2/CLIP vision encoders and torchvision-like image transforms. There is no DINO/CLIP ViT model package yet.
+- **Diffusion pipeline execution.** Hunyuan3D now has FlowMatch schedule/step helpers and `RunImageToShape` scaffolding, but the full denoising loop still needs the native DiT model outputs.
+- **Vision transformer frontend.** Hunyuan3D conditioning depends on DINOv2/CLIP vision encoders and torchvision-like image transforms. The shared ViT primitive layer exists, but actual DINO/CLIP tensor binding, exact normalization/position behavior, and conditioner fixture parity are still pending.
 - **Hunyuan3D DiT blocks.** The denoiser uses double-stream image/text blocks, single-stream blocks, adaLN modulation, q/k RMSNorm, and attention over concatenated condition/latent streams. This is closer to Flux/DiT than to LLaMA/Qwen/Gemma decode.
 - **ShapeVAE and volume decoding.** The VAE is a transformer-based latent-to-volume model with Fourier embeddings, cross-attention decoder, chunked volume evaluation, and surface extraction.
 - **Marching cubes/mesh output.** Go needs a mesh package or exporter path for vertices/faces/GLB/OBJ. Python uses `skimage.measure.marching_cubes` and `trimesh`.
-- **YAML/config loading.** Hunyuan3D config is YAML with Python target strings; go-pherence currently focuses on JSON model configs.
+- **CLI/API surface.** Hunyuan3D has inspectors, fixture tools, and runtime scaffolding, but no public native CLI should claim complete image-to-shape generation until conditioner/DiT/VAE/mesh parity is locked.
 - **Texture generation dependencies.** Native texture support would require SD/ControlNet/IP-Adapter-like image diffusion, UV unwrapping/rasterization, and mesh texture baking.
 
 ## Proposed implementation plan
@@ -270,13 +269,17 @@ Only after image-to-shape works:
 
 ## Recommended next step
 
-Do **not** add a CLI that claims runtime support yet. The fixture ladder is now scaffolded, so the next practical step is to create the local Python/checkpoint environment and run the actual fixtures:
+Do **not** add a public CLI that claims native Hunyuan3D generation yet. The native Go loader/runtime scaffold and shared CPU/SIMD primitive layer exist, but completion now depends on real Python goldens plus exact tensor binding:
 
 1. `make hunyuan3d-fixture-env` to see missing optional dependencies and files.
 2. Install local Hunyuan3D Python dependencies and place/cache the standard `Hunyuan3D-2mini/hunyuan3d-dit-v2-mini` config/checkpoint/image.
 3. Run `make hunyuan3d-image-fixture`, `make hunyuan3d-conditioner-fixture`, `make hunyuan3d-denoiser-fixture`, and `make hunyuan3d-lowstep-fixture`.
 4. Use `make hunyuan3d-mesh-fixture` only after the low-step latent fixture is stable, because VAE decode/marching-cubes is heavier and adds more dependency surface.
-5. Implement the Go image preprocessing and DINO/conditioner path only after these Python goldens are stable.
+5. Bind actual DINO/CLIP conditioner tensor names to the Go ViT primitive layer, including class/position embeddings and exact normalization/activation semantics, then compare against conditioner fixtures.
+6. Assemble Hunyuan3D DiT double/single-stream blocks using the shared primitives and compare the one-step denoiser fixture.
+7. Implement ShapeVAE decode and mesh extraction only after low-step latent parity is stable.
+
+For dependency-gated upstream Python generation, `make hunyuan3d-seahorse` runs `scripts/hunyuan3d_seahorse_demo.py` against `testdata/hunyuan3d/seahorse_rgba.png` and writes `/workspace/tmp/hunyuan3d-seahorse.glb` once Python deps, weights, and VRAM are available. That helper is not the native Go runtime.
 
 This avoids prematurely coupling Hunyuan3D to the token-generation APIs and keeps the work aligned with the existing backend-first package boundaries.
 

@@ -373,6 +373,42 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
 
 The report includes layer-pattern counts, MoE routing dimensions, conv cache settings, tensor group readiness, conv-state floats, attention KV floats/token, optional reference coverage, runtime request planning, and combined readiness blockers. It is metadata/reference scaffolding only; LFM convolution, attention, router, and expert execution remain future CPU parity work.
 
+## Hunyuan3D fixture and runtime-scaffold commands
+
+Hunyuan3D is a diffusion/vision/3D pipeline, not an LLM decode path. The current Go implementation can parse configs, inspect/check safetensors groups, run native image preprocessing and FlowMatch scheduling scaffolds, compare fixture JSON, and exercise shared CPU/SIMD ViT primitives. End-to-end native GLB generation is still blocked on conditioner tensor binding, Hunyuan3DDiT, ShapeVAE, and mesh kernels.
+
+```bash
+# Environment/readiness report for optional Python fixture generation.
+make hunyuan3d-fixture-env \
+  HUNYUAN3D_IMAGE=testdata/hunyuan3d/seahorse_rgba.png
+
+# Hugging Face metadata/header inventory without downloading full tensor payloads.
+make hunyuan3d-inventory
+
+# Local YAML + safetensors group inspection once checkpoint payloads are present.
+make hunyuan3d-inspect \
+  HUNYUAN3D_CONFIG=/path/to/hunyuan3d-dit-v2-mini/config.yaml \
+  HUNYUAN3D_CHECKPOINT=/path/to/model.fp16.safetensors
+
+# Optional Python upstream seahorse GLB generation helper, dependency/VRAM gated.
+make hunyuan3d-seahorse
+```
+
+Fixture targets for parity work:
+
+```bash
+make hunyuan3d-image-fixture
+make hunyuan3d-conditioner-fixture \
+  HUNYUAN3D_CONFIG=/path/to/config.yaml \
+  HUNYUAN3D_CHECKPOINT=/path/to/model.fp16.safetensors \
+  HUNYUAN3D_IMAGE=/path/to/image.png
+make hunyuan3d-denoiser-fixture ...
+make hunyuan3d-lowstep-fixture ...
+make hunyuan3d-mesh-fixture ...
+```
+
+See [hunyuan3d-2-support.md](hunyuan3d-2-support.md) for the implementation status and staged native runtime plan.
+
 ## Model coverage validation
 
 Use the focused target below while Qwen3-TTS and LFM2 are still metadata/fixture/inspector work. It avoids unrelated experimental packages that currently fail whole-tree dry compiles.

@@ -31,7 +31,7 @@ go run ./cmd/llmgen -gpu -model models/qwen3-0.6b -tokens 50 -prompt "The meanin
 
 - **Backends:** NVIDIA PTX runtime, AVX2/NEON SIMD CPU runtime, Vulkan scaffolding, and embedded accelerator experiments such as SpacemiT K3 IME2.
 - **Weight formats:** MLX affine 4-bit, GPTQ/Q4, BF16, F16, F32, and model-specific packed paths where useful.
-- **Architectures:** LLaMA-family, Qwen2/3/Qwen3Next, Qwen3 MoE, Gemma3/Gemma4, BERT/GTE encoders, Whisper large-v3 translated VTT pipeline, and experimental 3D/vision metadata tooling.
+- **Architectures:** LLaMA-family, Qwen2/3/Qwen3Next, Qwen3 MoE, Gemma3/Gemma4, BERT/GTE encoders, Whisper large-v3 translated VTT pipeline, and experimental 3D/vision runtime scaffolding for Hunyuan3D.
 - **Hybrid placement:** `--gpu-layers N`, compact LM-head placement, reusable GPU caches, and planner-driven windowing for models larger than available VRAM.
 - **Embedded scenarios:** low-allocation CPU execution, quantized kernels, RISC-V IME2 INT8 matmul work, and static-binary deployment goals.
 - **Speculative/MTP work:** Gemma4 assistant loader, packed 4-bit assistant execution, real prompt activation/KV smoke, and Qwen3.6 native-MTP diagnostics.
