@@ -2285,4 +2285,26 @@ GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
 ```
 
 Passed with aggregate count and byte assertions.
+## Session 131: Qwen3.6 REAP GGUF CI with aggregate benchmark assertions
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding benchmark aggregate compressed-cache count assertions:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The bundle now includes aggregate benchmark assertions for:
+
+```text
+kv_compressed_layers=10
+kv_seq=2
+kv_compressed_count=0
+kv_full_count=20
+kv_float_bytes=245760
+kv_compressed_bytes=81920
+kv_scratch_bytes=0
+kv_total_bytes=327680
+```
+
+This confirms the current pure Go/SIMD GGUF REAP/TurboQuant path is green across inspect, smoke, cache-smoke, benchmark, native SIMD readiness, runtime scratch-plan, and aggregate cache accounting.
 
