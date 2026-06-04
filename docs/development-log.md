@@ -2226,4 +2226,23 @@ GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
 ```
 
 Passed. The one-token benchmark does not materialize compressed-cache read scratch, so benchmark scratch is zero while runtime-plan scratch remains pinned separately.
+## Session 128: Qwen3.6 REAP GGUF full CI with SIMD scratch assertions
+
+Ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding native TurboQuant SIMD/scratch accounting across inspect, smoke, cache-smoke, and benchmark paths:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The bundle now validates:
+
+- focused GGUF/llmserver/model/runtime package build smoke;
+- GGUF architecture/name/tensor/quant/shape/tokenizer/MoE expectations;
+- REAP ratio/source expectations;
+- TurboQuant full/estimated/saved byte plan;
+- native SIMD readiness fields;
+- generation runtime float/compressed/scratch/total byte plan;
+- synthetic compressed-cache stored/scratch/total byte accounting;
+- one-token greedy generation and decoded text;
+- benchmark float/compressed/scratch/total KV footprint.
 
