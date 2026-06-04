@@ -2208,4 +2208,22 @@ GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
 ```
 
 Passed with the native SIMD TurboQuant runtime-plan fields present in `ggufsmoke`.
+## Session 127: TurboQuant benchmark scratch-byte assertions
+
+Pinned Qwen3.6 REAP GGUF benchmark KV footprint assertions. The local one-token benchmark now asserts stored float/compressed bytes plus post-generation scratch/total bytes:
+
+```text
+kv_float_bytes=245760
+kv_compressed_bytes=81920
+kv_scratch_bytes=0
+kv_total_bytes=327680
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
+```
+
+Passed. The one-token benchmark does not materialize compressed-cache read scratch, so benchmark scratch is zero while runtime-plan scratch remains pinned separately.
 

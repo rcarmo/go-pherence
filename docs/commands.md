@@ -586,3 +586,17 @@ The `gguf-validate-qwen36-reap` target asserts all four runtime-plan byte values
 
 
 `GGUF_EXPECT_KV_SCRATCH_BYTES` and `GGUF_EXPECT_KV_TOTAL_BYTES` can be used with `make gguf-bench` to assert post-generation compressed-cache scratch and total KV+scratch bytes alongside stored float/compressed byte counters.
+
+
+### Qwen3.6 REAP benchmark KV footprint values
+
+For the local one-token Qwen3.6 REAP benchmark (`prompt-ids=0`, `max-new=1`, `turbo4/turbo2`, residual window `2`), the pinned post-generation KV footprint is:
+
+```text
+kv_float_bytes=245760
+kv_compressed_bytes=81920
+kv_scratch_bytes=0
+kv_total_bytes=327680
+```
+
+The one-token benchmark does not materialize compressed-cache read scratch, so `kv_scratch_bytes=0`; runtime-plan estimates still report the scratch that would be needed when compressed cache reads are materialized.
