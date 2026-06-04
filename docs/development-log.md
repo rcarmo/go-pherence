@@ -2443,4 +2443,13 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed. The supported-models status now matches a green CI bundle that requires native SIMD rotation readiness and pins static, runtime, cache-smoke, and benchmark TurboQuant KV/scratch/aggregate assertions.
+## Session 143: Qwen3.6 REAP GGUF CI after README coverage update
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after updating the top-level README to summarize native GGUF REAP/TurboQuant CI coverage:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The README, supported-models docs, backend/validation docs, and development log now all describe a green native go-pherence GGUF REAP/TurboQuant path with required SIMD rotation readiness and full KV/scratch/aggregate assertions.
 
