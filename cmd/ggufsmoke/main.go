@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rcarmo/go-pherence/backends/k3"
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/runtime/kv"
@@ -37,6 +38,7 @@ func main() {
 	expectRuntimeCompressedBytes := flag.Int64("expect-runtime-compressed-bytes", -1, "fail unless planned runtime compressed KV bytes match this value")
 	expectKVFloatBytes := flag.Int64("expect-kv-float-bytes", -1, "fail unless benchmark F32 KV allocated bytes match this value")
 	expectKVCompressedBytes := flag.Int64("expect-kv-compressed-bytes", -1, "fail unless benchmark compressed KV bytes match this value")
+	expectSIMDRotation := flag.Bool("expect-simd-rotation", false, "fail unless native SIMD dot-product rotation support is available")
 	flag.Parse()
 	if *path == "" {
 		fmt.Fprintln(os.Stderr, "usage: ggufsmoke -model model.gguf [-load-only]")
@@ -59,7 +61,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: turboquant plan failed: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d cache_layers=%d protected_cache_layers=%d max_seq=%d kv_dim=%d full_kv_bytes=%d estimated_kv_bytes=%d estimated_saved_kv_bytes=%d estimated_kv_ratio=%.4f\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.CacheLayers, plan.ProtectedCacheLayers, plan.MaxSeqLen, plan.KVDim, plan.FullKVBytes, plan.EstimatedKVBytes, plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio)
+		caps := simd.RuntimeCapabilities()
+		if err := checkExpectedSIMDRotation(caps, *expectSIMDRotation); err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d cache_layers=%d protected_cache_layers=%d max_seq=%d kv_dim=%d full_kv_bytes=%d estimated_kv_bytes=%d estimated_saved_kv_bytes=%d estimated_kv_ratio=%.4f simd_arch=%s simd_rotation=%v simd_vec=%v simd_avx2=%v simd_neon=%v simd_rvv=%v\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.CacheLayers, plan.ProtectedCacheLayers, plan.MaxSeqLen, plan.KVDim, plan.FullKVBytes, plan.EstimatedKVBytes, plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio, caps.Arch, caps.HasDot, caps.HasVec, caps.HasAVX2, caps.HasNEON, caps.HasRVV)
 		planPromptIDs, _ := resolvePromptIDs(*path, *promptText, *promptIDsCSV)
 		if rt, err := m.GenerationKVRuntimePlan(len(planPromptIDs), *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow}); err == nil {
 			if err := checkExpectedRuntimeKV(rt, *expectRuntimeFloatBytes, *expectRuntimeCompressedBytes); err != nil {
@@ -180,6 +187,16 @@ func main() {
 	}
 	logits := m.ForwardState(state, promptIDs[0], 0, kvK, kvV)
 	fmt.Printf("forward logits=%d\n", len(logits))
+}
+
+func checkExpectedSIMDRotation(caps simd.Capabilities, expect bool) error {
+	if expect && !caps.HasDot {
+		return fmt.Errorf("SIMD rotation unavailable arch=%s vec=%v", caps.Arch, caps.HasVec)
+	}
+	if expect {
+		fmt.Printf("expected_simd_rotation_ok=%v arch=%s\n", caps.HasDot, caps.Arch)
+	}
+	return nil
 }
 
 func checkExpectedKVSmoke(layer, compressed, full int, bytes int64, expectLayer, expectCompressed, expectFull int, expectBytes int64) error {

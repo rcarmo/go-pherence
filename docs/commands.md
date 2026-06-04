@@ -549,4 +549,4 @@ The health payload reports native go-pherence interpretation of those policy nam
 `simd_rotation=true` means TurboQuant per-head rotation can use the checked go-pherence SIMD dot-product facade for the active CPU (AVX2/FMA, NEON, or RVV where available), with scalar fallback otherwise.
 
 
-`GGUF_EXPECT_SIMD_ROTATION=1` can be passed to `make gguf-inspect`/`make gguf-validate` to require that the host reports native SIMD dot-product support for TurboQuant rotation in the inspect-time plan.
+`GGUF_EXPECT_SIMD_ROTATION=1` can be passed to `make gguf-inspect`/`make gguf-validate` to require that the host reports native SIMD dot-product support for TurboQuant rotation in both the inspect-time plan and runtime smoke paths.
