@@ -101,15 +101,7 @@ func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, cod
 	// architecture dot-product path where available (AVX2/FMA, NEON, RVV) and
 	// falls back to the scalar reference otherwise.
 	rotated := make([]float32, dim)
-	if !simd.GemvRows(rotated, vec, rotation, dim, dim) {
-		for i := 0; i < dim; i++ {
-			var sum float32
-			for j := 0; j < dim; j++ {
-				sum += rotation[i*dim+j] * vec[j]
-			}
-			rotated[i] = sum
-		}
-	}
+	rotateRows(rotated, vec, rotation, dim)
 
 	// Step 2: find min/max for uniform quantization
 	vMin, vMax := rotated[0], rotated[0]
@@ -170,17 +162,45 @@ func (tq *TurboQuantState) DequantizeVector(packed []byte, vMin, scale float32, 
 	// Inverse rotation: R^T @ rotated. GemvCols computes x · R, equivalent to
 	// R^T · x for row-major R, again using the checked SIMD facade when present.
 	out := make([]float32, dim)
-	if !simd.GemvCols(out, rotated, rotation, dim, dim) {
-		for i := 0; i < dim; i++ {
-			var sum float32
-			for j := 0; j < dim; j++ {
-				sum += rotation[j*dim+i] * rotated[j] // R^T = transpose indexing
-			}
-			out[i] = sum
-		}
-	}
+	rotateCols(out, rotated, rotation, dim)
 
 	return out
+}
+
+func rotateRows(dst, vec, rotation []float32, dim int) bool {
+	need := squareSize(dim)
+	if dim <= 0 || need < 0 || len(dst) < dim || len(vec) < dim || len(rotation) < need {
+		return false
+	}
+	if simd.GemvRows(dst, vec, rotation, dim, dim) {
+		return true
+	}
+	for i := 0; i < dim; i++ {
+		var sum float32
+		for j := 0; j < dim; j++ {
+			sum += rotation[i*dim+j] * vec[j]
+		}
+		dst[i] = sum
+	}
+	return true
+}
+
+func rotateCols(dst, vec, rotation []float32, dim int) bool {
+	need := squareSize(dim)
+	if dim <= 0 || need < 0 || len(dst) < dim || len(vec) < dim || len(rotation) < need {
+		return false
+	}
+	if simd.GemvCols(dst, vec, rotation, dim, dim) {
+		return true
+	}
+	for i := 0; i < dim; i++ {
+		var sum float32
+		for j := 0; j < dim; j++ {
+			sum += rotation[j*dim+i] * vec[j]
+		}
+		dst[i] = sum
+	}
+	return true
 }
 
 // randomOrthogonal generates a row-major random orthogonal matrix via

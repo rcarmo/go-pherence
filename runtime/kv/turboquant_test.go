@@ -5,6 +5,59 @@ import (
 	"testing"
 )
 
+func TestTurboQuantSIMDRotationParity(t *testing.T) {
+	dim := 17
+	vec := make([]float32, dim)
+	rot := make([]float32, dim*dim)
+	for i := range vec {
+		vec[i] = float32(math.Sin(float64(i+1)*0.37) + math.Cos(float64(i)*0.11))
+	}
+	for i := range rot {
+		rot[i] = float32(math.Sin(float64(i+3)*0.13) * 0.25)
+	}
+
+	gotRows := make([]float32, dim)
+	if !rotateRows(gotRows, vec, rot, dim) {
+		t.Fatal("rotateRows rejected valid input")
+	}
+	gotCols := make([]float32, dim)
+	if !rotateCols(gotCols, vec, rot, dim) {
+		t.Fatal("rotateCols rejected valid input")
+	}
+
+	for i := 0; i < dim; i++ {
+		var wantRow, wantCol float32
+		for j := 0; j < dim; j++ {
+			wantRow += rot[i*dim+j] * vec[j]
+			wantCol += rot[j*dim+i] * vec[j]
+		}
+		if d := math.Abs(float64(gotRows[i] - wantRow)); d > 1e-4 {
+			t.Fatalf("rotateRows[%d]=%g want %g diff=%g", i, gotRows[i], wantRow, d)
+		}
+		if d := math.Abs(float64(gotCols[i] - wantCol)); d > 1e-4 {
+			t.Fatalf("rotateCols[%d]=%g want %g diff=%g", i, gotCols[i], wantCol, d)
+		}
+	}
+}
+
+func TestTurboQuantRotationRejectsMalformedInputs(t *testing.T) {
+	out := make([]float32, 4)
+	vec := make([]float32, 4)
+	rot := make([]float32, 15)
+	if rotateRows(out, vec, rot, 4) {
+		t.Fatal("rotateRows accepted short rotation")
+	}
+	if rotateCols(out, vec, rot, 4) {
+		t.Fatal("rotateCols accepted short rotation")
+	}
+	if rotateRows(out[:3], vec, make([]float32, 16), 4) {
+		t.Fatal("rotateRows accepted short output")
+	}
+	if rotateCols(out, vec[:3], make([]float32, 16), 4) {
+		t.Fatal("rotateCols accepted short vector")
+	}
+}
+
 func TestTurboQuantRoundtrip(t *testing.T) {
 	dim := 128
 	tq := NewTurboQuantState(dim, 28, DefaultTurboQuantConfig())
