@@ -105,9 +105,14 @@ func (c *CompressedKVCache) compressOldest() {
 	kVec := c.FullK[:c.kvDim]
 	vVec := c.FullV[:c.kvDim]
 
+	bytesPerKeyHead, okKBytes := compressedBytesPerHead(c.headDim, c.tq.Config.KeyBits)
+	bytesPerValueHead, okVBytes := compressedBytesPerHead(c.headDim, c.tq.Config.ValueBits)
+	if !okKBytes || !okVBytes {
+		return
+	}
 	var ek, ev compressedEntry
-	ek.Packed = make([]byte, 0)
-	ev.Packed = make([]byte, 0)
+	ek.Packed = make([]byte, c.numKVHeads*bytesPerKeyHead)
+	ev.Packed = make([]byte, c.numKVHeads*bytesPerValueHead)
 	ek.HeadVMin = make([]float32, c.numKVHeads)
 	ek.HeadScale = make([]float32, c.numKVHeads)
 	ev.HeadVMin = make([]float32, c.numKVHeads)
@@ -125,14 +130,11 @@ func (c *CompressedKVCache) compressOldest() {
 		headK := kVec[h*c.headDim : (h+1)*c.headDim]
 		headV := vVec[h*c.headDim : (h+1)*c.headDim]
 
-		pk, vMinK, scaleK, okK := c.tq.QuantizeKeyWithScratch(headK, rotated, indices)
-		pv, vMinV, scaleV, okV := c.tq.QuantizeValueWithScratch(headV, rotated, indices)
+		vMinK, scaleK, okK := c.tq.QuantizeKeyTo(ek.Packed[h*bytesPerKeyHead:(h+1)*bytesPerKeyHead], headK, rotated, indices)
+		vMinV, scaleV, okV := c.tq.QuantizeValueTo(ev.Packed[h*bytesPerValueHead:(h+1)*bytesPerValueHead], headV, rotated, indices)
 		if !okK || !okV {
 			return
 		}
-
-		ek.Packed = append(ek.Packed, pk...)
-		ev.Packed = append(ev.Packed, pv...)
 		ek.HeadVMin[h] = vMinK
 		ek.HeadScale[h] = scaleK
 		ev.HeadVMin[h] = vMinV

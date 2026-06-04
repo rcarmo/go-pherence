@@ -170,13 +170,37 @@ func (tq *TurboQuantState) QuantizeValueWithScratch(vec, rotated []float32, indi
 	return tq.quantizeVectorWithScratch(vec, tq.RotationV, tq.CodebookV, tq.Config.ValueBits, rotated, indices)
 }
 
+func (tq *TurboQuantState) QuantizeKeyTo(packedDst []byte, vec, rotated []float32, indices []byte) (float32, float32, bool) {
+	if tq == nil {
+		return 0, 0, false
+	}
+	return tq.quantizeVectorTo(packedDst, vec, tq.RotationK, tq.CodebookK, tq.Config.KeyBits, rotated, indices)
+}
+
+func (tq *TurboQuantState) QuantizeValueTo(packedDst []byte, vec, rotated []float32, indices []byte) (float32, float32, bool) {
+	if tq == nil {
+		return 0, 0, false
+	}
+	return tq.quantizeVectorTo(packedDst, vec, tq.RotationV, tq.CodebookV, tq.Config.ValueBits, rotated, indices)
+}
+
 func (tq *TurboQuantState) quantizeVectorWithScratch(vec []float32, rotation []float32, codebook []float32, bits int, rotated []float32, indices []byte) ([]byte, float32, float32, bool) {
+	packedLen := packedByteLen(len(vec), clampBits(bits))
+	if packedLen < 0 {
+		return nil, 0, 0, false
+	}
+	packed := make([]byte, packedLen)
+	vMin, scale, ok := tq.quantizeVectorTo(packed, vec, rotation, codebook, bits, rotated, indices)
+	return packed, vMin, scale, ok
+}
+
+func (tq *TurboQuantState) quantizeVectorTo(packedDst []byte, vec []float32, rotation []float32, codebook []float32, bits int, rotated []float32, indices []byte) (float32, float32, bool) {
 	dim := len(vec)
 	bits = clampBits(bits)
 	needRot := squareSize(dim)
 	packedLen := packedByteLen(dim, bits)
-	if tq == nil || dim == 0 || needRot < 0 || packedLen < 0 || len(rotation) < needRot || len(rotated) < dim || len(indices) < dim {
-		return nil, 0, 0, false
+	if tq == nil || dim == 0 || needRot < 0 || packedLen < 0 || len(packedDst) < packedLen || len(rotation) < needRot || len(rotated) < dim || len(indices) < dim {
+		return 0, 0, false
 	}
 
 	// Step 1: rotate through the checked SIMD facade. GemvRows uses the
@@ -198,7 +222,8 @@ func (tq *TurboQuantState) quantizeVectorWithScratch(vec []float32, rotation []f
 	}
 	scale := vMax - vMin
 	if scale < 1e-10 {
-		return make([]byte, packedLen), vMin, 0, true
+		clear(packedDst[:packedLen])
+		return vMin, 0, true
 	}
 
 	// Step 3: quantize each coordinate to [0, 2^bits - 1]. The codebook
@@ -219,9 +244,11 @@ func (tq *TurboQuantState) quantizeVectorWithScratch(vec []float32, rotation []f
 		indices[i] = byte(idx)
 	}
 
-	// Step 4: pack indices into bytes
-	packed := packIndices(indices, bits)
-	return packed, vMin, scale, true
+	// Step 4: pack indices into caller-owned bytes
+	if !packIndicesTo(packedDst[:packedLen], indices, bits) {
+		return 0, 0, false
+	}
+	return vMin, scale, true
 }
 
 // DequantizeVector restores a float32 vector from compressed form.
@@ -410,16 +437,30 @@ func packIndices(indices []byte, bits int) []byte {
 		return nil
 	}
 	packed := make([]byte, packedLen)
+	if !packIndicesTo(packed, indices, bits) {
+		return nil
+	}
+	return packed
+}
+
+func packIndicesTo(dst []byte, indices []byte, bits int) bool {
+	bits = clampBits(bits)
+	packedLen := packedByteLen(len(indices), bits)
+	if packedLen < 0 || len(dst) < packedLen {
+		return false
+	}
+	dst = dst[:packedLen]
+	clear(dst)
 	bitPos := 0
 	for _, idx := range indices {
 		for b := 0; b < bits; b++ {
 			if idx&(1<<b) != 0 {
-				packed[bitPos/8] |= 1 << (bitPos % 8)
+				dst[bitPos/8] |= 1 << (bitPos % 8)
 			}
 			bitPos++
 		}
 	}
-	return packed
+	return true
 }
 
 // unpackIndices unpacks bit-packed indices into byte values.

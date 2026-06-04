@@ -149,3 +149,8 @@ Generation KV runtime plans now carry the same SIMD readiness fields as the stat
 ## Scratch-owned quantization
 
 `CompressedKVCache` compression now uses scratch-aware K/V quantize helpers, reusing per-cache rotated-coordinate and index buffers while preserving the public allocating `QuantizeKey`/`QuantizeValue` compatibility methods. This reduces per-head allocation pressure in the native TurboQuant cache append path.
+
+
+## Destination-packed quantization
+
+`CompressedKVCache` compression now preallocates exact packed K/V entry storage and writes each head directly into its destination slice via destination-packed quantize helpers. This removes the previous temporary packed-slice allocation per compressed head while retaining the public allocating compatibility API.

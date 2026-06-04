@@ -39,6 +39,29 @@ func TestTurboQuantKeyValueMethodsMatchGenericVectorAPI(t *testing.T) {
 	}
 }
 
+func TestPackIndicesTo(t *testing.T) {
+	indices := []byte{1, 2, 3, 4, 5, 6, 7}
+	want := packIndices(indices, 4)
+	dst := bytesWithSentinel(len(want), 0xAA)
+	if !packIndicesTo(dst, indices, 4) {
+		t.Fatal("packIndicesTo rejected valid input")
+	}
+	if string(dst) != string(want) {
+		t.Fatalf("packed mismatch got=%v want=%v", dst, want)
+	}
+	if packIndicesTo(dst[:len(dst)-1], indices, 4) {
+		t.Fatal("packIndicesTo accepted short dst")
+	}
+}
+
+func bytesWithSentinel(n int, v byte) []byte {
+	out := make([]byte, n)
+	for i := range out {
+		out[i] = v
+	}
+	return out
+}
+
 func TestTurboQuantKeyValueQuantizeWithScratch(t *testing.T) {
 	tq := NewTurboQuantState(8, 2, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
 	vec := []float32{0.5, -1, 1.5, 2, -0.25, 0.75, -1.25, 0.125}
@@ -65,6 +88,19 @@ func TestTurboQuantKeyValueQuantizeWithScratch(t *testing.T) {
 	}
 	if _, _, _, ok := tq.QuantizeValueWithScratch(vec, rotated, indices[:tq.HeadDim-1]); ok {
 		t.Fatal("QuantizeValueWithScratch accepted short index scratch")
+	}
+	keyDst := bytesWithSentinel(len(wantPK), 0xAA)
+	minKTo, scaleKTo, ok := tq.QuantizeKeyTo(keyDst, vec, rotated, indices)
+	if !ok || string(keyDst) != string(wantPK) || minKTo != wantMinK || scaleKTo != wantScaleK {
+		t.Fatalf("QuantizeKeyTo mismatch ok=%v got=(%v,%v,%v) want=(%v,%v,%v)", ok, keyDst, minKTo, scaleKTo, wantPK, wantMinK, wantScaleK)
+	}
+	valueDst := bytesWithSentinel(len(wantPV), 0xAA)
+	minVTo, scaleVTo, ok := tq.QuantizeValueTo(valueDst, vec, rotated, indices)
+	if !ok || string(valueDst) != string(wantPV) || minVTo != wantMinV || scaleVTo != wantScaleV {
+		t.Fatalf("QuantizeValueTo mismatch ok=%v got=(%v,%v,%v) want=(%v,%v,%v)", ok, valueDst, minVTo, scaleVTo, wantPV, wantMinV, wantScaleV)
+	}
+	if _, _, ok := tq.QuantizeKeyTo(keyDst[:len(keyDst)-1], vec, rotated, indices); ok {
+		t.Fatal("QuantizeKeyTo accepted short packed dst")
 	}
 }
 
@@ -185,6 +221,12 @@ func TestCompressedKVCacheCompressionUsesScratch(t *testing.T) {
 	c.Append([]float32{1, 2, 3, 4}, []float32{4, 3, 2, 1})
 	if c.CompressedCount() != 1 || len(c.quantRotated) != 4 || len(c.quantIndices) != 4 {
 		t.Fatalf("compression scratch not initialized compressed=%d rotated=%d indices=%d", c.CompressedCount(), len(c.quantRotated), len(c.quantIndices))
+	}
+	if got, want := len(c.CompressedK[0].Packed), 2; got != want {
+		t.Fatalf("key packed len=%d want %d", got, want)
+	}
+	if got, want := len(c.CompressedV[0].Packed), 1; got != want {
+		t.Fatalf("value packed len=%d want %d", got, want)
 	}
 	rotPtr := &c.quantRotated[0]
 	idxPtr := &c.quantIndices[0]
