@@ -30,7 +30,9 @@ func main() {
 	expectKVSmokeLayer := flag.Int("expect-kv-smoke-layer", -1, "fail unless TurboQuant synthetic KV smoke selects this layer")
 	expectKVSmokeCompressed := flag.Int("expect-kv-smoke-compressed", -1, "fail unless TurboQuant synthetic KV smoke compressed count matches")
 	expectKVSmokeFull := flag.Int("expect-kv-smoke-full", -1, "fail unless TurboQuant synthetic KV smoke full count matches")
-	expectKVSmokeBytes := flag.Int64("expect-kv-smoke-bytes", -1, "fail unless TurboQuant synthetic KV smoke memory bytes match")
+	expectKVSmokeBytes := flag.Int64("expect-kv-smoke-bytes", -1, "fail unless TurboQuant synthetic KV smoke stored memory bytes match")
+	expectKVSmokeScratchBytes := flag.Int64("expect-kv-smoke-scratch-bytes", -1, "fail unless TurboQuant synthetic KV smoke scratch bytes match")
+	expectKVSmokeTotalBytes := flag.Int64("expect-kv-smoke-total-bytes", -1, "fail unless TurboQuant synthetic KV smoke total bytes match")
 	expectGeneratedCSV := flag.String("expect-generated", "", "comma-separated generated token IDs expected from generation smoke")
 	expectDecoded := flag.String("expect-decoded", "", "decoded generated text expected from generation smoke; implies -decode validation when tokenizer is available")
 	expectRuntimeFloatBytes := flag.Int64("expect-runtime-float-bytes", -1, "fail unless planned runtime F32 KV bytes match this value")
@@ -110,7 +112,7 @@ func main() {
 				}
 				if idx >= 0 {
 					c := caches[idx]
-					if err := checkExpectedKVSmoke(idx, c.CompressedCount(), c.FullCount(), c.MemoryBytes(), *expectKVSmokeLayer, *expectKVSmokeCompressed, *expectKVSmokeFull, *expectKVSmokeBytes); err != nil {
+					if err := checkExpectedKVSmoke(idx, c.CompressedCount(), c.FullCount(), c.MemoryBytes(), c.ScratchBytes(), c.TotalMemoryBytes(), *expectKVSmokeLayer, *expectKVSmokeCompressed, *expectKVSmokeFull, *expectKVSmokeBytes, *expectKVSmokeScratchBytes, *expectKVSmokeTotalBytes); err != nil {
 						fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 						os.Exit(1)
 					}
@@ -197,7 +199,7 @@ func checkExpectedSIMDRotation(arch string, rotation, vec, expect bool) error {
 	return nil
 }
 
-func checkExpectedKVSmoke(layer, compressed, full int, bytes int64, expectLayer, expectCompressed, expectFull int, expectBytes int64) error {
+func checkExpectedKVSmoke(layer, compressed, full int, storedBytes, scratchBytes, totalBytes int64, expectLayer, expectCompressed, expectFull int, expectBytes, expectScratchBytes, expectTotalBytes int64) error {
 	if expectLayer >= 0 && layer != expectLayer {
 		return fmt.Errorf("KV smoke layer mismatch got=%d want=%d", layer, expectLayer)
 	}
@@ -207,8 +209,14 @@ func checkExpectedKVSmoke(layer, compressed, full int, bytes int64, expectLayer,
 	if expectFull >= 0 && full != expectFull {
 		return fmt.Errorf("KV smoke full count mismatch got=%d want=%d", full, expectFull)
 	}
-	if expectBytes >= 0 && bytes != expectBytes {
-		return fmt.Errorf("KV smoke bytes mismatch got=%d want=%d", bytes, expectBytes)
+	if expectBytes >= 0 && storedBytes != expectBytes {
+		return fmt.Errorf("KV smoke stored bytes mismatch got=%d want=%d", storedBytes, expectBytes)
+	}
+	if expectScratchBytes >= 0 && scratchBytes != expectScratchBytes {
+		return fmt.Errorf("KV smoke scratch bytes mismatch got=%d want=%d", scratchBytes, expectScratchBytes)
+	}
+	if expectTotalBytes >= 0 && totalBytes != expectTotalBytes {
+		return fmt.Errorf("KV smoke total bytes mismatch got=%d want=%d", totalBytes, expectTotalBytes)
 	}
 	if expectLayer >= 0 {
 		fmt.Printf("expected_kv_smoke_layer_ok=%d\n", expectLayer)
@@ -221,6 +229,12 @@ func checkExpectedKVSmoke(layer, compressed, full int, bytes int64, expectLayer,
 	}
 	if expectBytes >= 0 {
 		fmt.Printf("expected_kv_smoke_bytes_ok=%d\n", expectBytes)
+	}
+	if expectScratchBytes >= 0 {
+		fmt.Printf("expected_kv_smoke_scratch_bytes_ok=%d\n", expectScratchBytes)
+	}
+	if expectTotalBytes >= 0 {
+		fmt.Printf("expected_kv_smoke_total_bytes_ok=%d\n", expectTotalBytes)
 	}
 	return nil
 }

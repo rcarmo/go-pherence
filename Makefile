@@ -154,6 +154,8 @@ GGUF_EXPECT_KV_SMOKE_LAYER ?=
 GGUF_EXPECT_KV_SMOKE_COMPRESSED ?=
 GGUF_EXPECT_KV_SMOKE_FULL ?=
 GGUF_EXPECT_KV_SMOKE_BYTES ?=
+GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES ?=
+GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES ?=
 GGUF_EXPECT_GENERATED ?=
 GGUF_EXPECT_DECODED ?=
 GGUF_EXPECT_RUNTIME_FLOAT_BYTES ?=
@@ -201,7 +203,7 @@ gguf-bench:
 	go run ./cmd/ggufsmoke -model $(GGUF_MODEL) -prompt-ids $(GGUF_PROMPT_IDS) -max-new $(GGUF_MAX_NEW) -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_GENERATED),-expect-generated $(GGUF_EXPECT_GENERATED),) $(if $(GGUF_EXPECT_DECODED),-expect-decoded $(GGUF_EXPECT_DECODED),) $(if $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),-expect-runtime-float-bytes $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),-expect-runtime-compressed-bytes $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),) $(if $(GGUF_EXPECT_KV_FLOAT_BYTES),-expect-kv-float-bytes $(GGUF_EXPECT_KV_FLOAT_BYTES),) $(if $(GGUF_EXPECT_KV_COMPRESSED_BYTES),-expect-kv-compressed-bytes $(GGUF_EXPECT_KV_COMPRESSED_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,) -bench
 
 gguf-turboquant-smoke:
-	go run ./cmd/ggufsmoke -model $(GGUF_MODEL) -load-only -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) -kv-smoke-tokens $(GGUF_KV_SMOKE_TOKENS) $(if $(GGUF_EXPECT_KV_SMOKE_LAYER),-expect-kv-smoke-layer $(GGUF_EXPECT_KV_SMOKE_LAYER),) $(if $(GGUF_EXPECT_KV_SMOKE_COMPRESSED),-expect-kv-smoke-compressed $(GGUF_EXPECT_KV_SMOKE_COMPRESSED),) $(if $(GGUF_EXPECT_KV_SMOKE_FULL),-expect-kv-smoke-full $(GGUF_EXPECT_KV_SMOKE_FULL),) $(if $(GGUF_EXPECT_KV_SMOKE_BYTES),-expect-kv-smoke-bytes $(GGUF_EXPECT_KV_SMOKE_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,)
+	go run ./cmd/ggufsmoke -model $(GGUF_MODEL) -load-only -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) -kv-smoke-tokens $(GGUF_KV_SMOKE_TOKENS) $(if $(GGUF_EXPECT_KV_SMOKE_LAYER),-expect-kv-smoke-layer $(GGUF_EXPECT_KV_SMOKE_LAYER),) $(if $(GGUF_EXPECT_KV_SMOKE_COMPRESSED),-expect-kv-smoke-compressed $(GGUF_EXPECT_KV_SMOKE_COMPRESSED),) $(if $(GGUF_EXPECT_KV_SMOKE_FULL),-expect-kv-smoke-full $(GGUF_EXPECT_KV_SMOKE_FULL),) $(if $(GGUF_EXPECT_KV_SMOKE_BYTES),-expect-kv-smoke-bytes $(GGUF_EXPECT_KV_SMOKE_BYTES),) $(if $(GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES),-expect-kv-smoke-scratch-bytes $(GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES),-expect-kv-smoke-total-bytes $(GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,)
 
 gguf-validate: gguf-inspect gguf-smoke gguf-turboquant-smoke
 

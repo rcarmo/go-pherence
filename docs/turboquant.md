@@ -164,3 +164,6 @@ Generation KV runtime plans now carry the same SIMD readiness fields as the stat
 ## Stored vs scratch byte accounting
 
 TurboQuant cache accounting now separates stored payload bytes from reusable scratch bytes. `MemoryBytes()` remains the stored full/compressed K/V payload estimate used by existing expectations, while `ScratchBytes()` and `TotalMemoryBytes()` expose reusable SIMD quant/dequant scratch. `ggufsmoke` cache smoke prints `stored_bytes`, `scratch_bytes`, and `total_bytes` alongside the legacy `bytes` field.
+
+
+`GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES` and `GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES` can be used with `make gguf-turboquant-smoke`/`make gguf-validate` to assert reusable TurboQuant scratch and total cache footprint alongside the legacy stored-byte assertion.

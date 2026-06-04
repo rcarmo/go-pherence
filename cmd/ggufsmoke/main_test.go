@@ -26,23 +26,29 @@ func TestCheckExpectedGenerated(t *testing.T) {
 }
 
 func TestCheckExpectedKVSmoke(t *testing.T) {
-	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 3, 3, 2, 9440); err != nil {
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, 3, 3, 2, 9440, 100, 9540); err != nil {
 		t.Fatalf("expected KV smoke match: %v", err)
 	}
-	if err := checkExpectedKVSmoke(3, 3, 2, 9440, -1, -1, -1, -1); err != nil {
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, -1, -1, -1, -1, -1, -1); err != nil {
 		t.Fatalf("unset expectations should be ignored: %v", err)
 	}
-	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 4, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "layer mismatch") {
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, 4, -1, -1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "layer mismatch") {
 		t.Fatalf("expected layer mismatch, got %v", err)
 	}
-	if err := checkExpectedKVSmoke(3, 3, 2, 9440, -1, 4, -1, -1); err == nil || !strings.Contains(err.Error(), "compressed count mismatch") {
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, -1, 4, -1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "compressed count mismatch") {
 		t.Fatalf("expected compressed mismatch, got %v", err)
 	}
-	if err := checkExpectedKVSmoke(3, 3, 2, 9440, -1, -1, 3, -1); err == nil || !strings.Contains(err.Error(), "full count mismatch") {
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, -1, -1, 3, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "full count mismatch") {
 		t.Fatalf("expected full mismatch, got %v", err)
 	}
-	if err := checkExpectedKVSmoke(3, 3, 2, 9440, -1, -1, -1, 1); err == nil || !strings.Contains(err.Error(), "bytes mismatch") {
-		t.Fatalf("expected bytes mismatch, got %v", err)
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, -1, -1, -1, 1, -1, -1); err == nil || !strings.Contains(err.Error(), "stored bytes mismatch") {
+		t.Fatalf("expected stored bytes mismatch, got %v", err)
+	}
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, -1, -1, -1, -1, 1, -1); err == nil || !strings.Contains(err.Error(), "scratch bytes mismatch") {
+		t.Fatalf("expected scratch bytes mismatch, got %v", err)
+	}
+	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, -1, -1, -1, -1, -1, 1); err == nil || !strings.Contains(err.Error(), "total bytes mismatch") {
+		t.Fatalf("expected total bytes mismatch, got %v", err)
 	}
 }
 

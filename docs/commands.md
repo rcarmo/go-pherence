@@ -550,3 +550,6 @@ The health payload reports native go-pherence interpretation of those policy nam
 
 
 `GGUF_EXPECT_SIMD_ROTATION=1` can be passed to `make gguf-inspect`/`make gguf-validate` to require that the host reports native SIMD dot-product support for TurboQuant rotation in both the inspect-time plan and runtime smoke paths.
+
+
+`GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES` and `GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES` can be used with `make gguf-turboquant-smoke`/`make gguf-validate` to assert reusable TurboQuant scratch and total cache footprint alongside the legacy stored-byte assertion.
