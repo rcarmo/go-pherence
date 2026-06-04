@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"testing"
 
-	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/runtime/kv"
 )
 
 func TestHandleModelsListsPresets(t *testing.T) {
@@ -67,11 +67,11 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 	if int(tq["kv_layers"].(float64)) != 8 || int(tq["protected_layers"].(float64)) != 4 {
 		t.Fatalf("unexpected turboquant layer accounting: %+v", tq)
 	}
-	caps := simd.RuntimeCapabilities()
-	if tq["simd_arch"] != runtime.GOARCH || tq["simd_rotation"] != caps.HasDot || tq["simd_vec"] != caps.HasVec {
+	caps := kv.RuntimeTurboQuantCapabilities()
+	if tq["simd_arch"] != runtime.GOARCH || tq["simd_rotation"] != caps.Rotation || tq["simd_vec"] != caps.Vec {
 		t.Fatalf("unexpected turboquant SIMD health: %+v caps=%+v", tq, caps)
 	}
-	if tq["simd_avx2"] != caps.HasAVX2 || tq["simd_neon"] != caps.HasNEON || tq["simd_rvv"] != caps.HasRVV {
+	if tq["simd_avx2"] != caps.AVX2 || tq["simd_neon"] != caps.NEON || tq["simd_rvv"] != caps.RVV {
 		t.Fatalf("unexpected turboquant SIMD ISA health: %+v caps=%+v", tq, caps)
 	}
 }

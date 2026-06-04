@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/runtime/kv"
 )
@@ -270,8 +269,8 @@ func ggufTurboQuantPlanFromInspection(in gguf.Inspection, keyType, valueType str
 		return inspectTurboQuantPlan{}, err
 	}
 	est := inspectTurboQuantEstimate(in, cfg, enabled)
-	caps := simd.RuntimeCapabilities()
-	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, ProtectedLayers: est.ProtectedLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: est.FullBytes, EstimatedBytes: est.EstimatedBytes, SavedBytes: est.SavedBytes, EstimatedKVRatio: est.Ratio, RuntimeReady: in.RuntimeSupported, SIMDArch: caps.Arch, SIMDRotation: caps.HasDot, SIMDVec: caps.HasVec, SIMDAVX2: caps.HasAVX2, SIMDNEON: caps.HasNEON, SIMDRVv: caps.HasRVV}, nil
+	caps := kv.RuntimeTurboQuantCapabilities()
+	return inspectTurboQuantPlan{Enabled: enabled, KeyType: keyType, ValueType: valueType, KeyBits: cfg.KeyBits, ValueBits: cfg.ValueBits, ResidualWindow: cfg.ResidualWindow, Layers: in.Layers, CacheLayers: in.CompressedKVLayers, ProtectedLayers: est.ProtectedLayers, MaxSeqLen: in.MaxSeqLen, KVHeads: in.KVHeads, HeadDim: in.HeadDim, KVDim: in.KVDim, FullKVBytes: est.FullBytes, EstimatedBytes: est.EstimatedBytes, SavedBytes: est.SavedBytes, EstimatedKVRatio: est.Ratio, RuntimeReady: in.RuntimeSupported, SIMDArch: caps.Arch, SIMDRotation: caps.Rotation, SIMDVec: caps.Vec, SIMDAVX2: caps.AVX2, SIMDNEON: caps.NEON, SIMDRVv: caps.RVV}, nil
 }
 
 func inspectTurboQuantEstimate(in gguf.Inspection, cfg kv.TurboQuantConfig, enabled bool) kv.TurboQuantKVEstimate {

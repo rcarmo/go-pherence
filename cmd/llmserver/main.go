@@ -16,7 +16,6 @@ import (
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
-	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/runtime/kv"
 )
@@ -374,13 +373,13 @@ func (s *Server) turboQuantHealthLocked() map[string]any {
 	out["enabled"] = enabled
 	out["key_bits"] = cfg.KeyBits
 	out["value_bits"] = cfg.ValueBits
-	caps := simd.RuntimeCapabilities()
+	caps := kv.RuntimeTurboQuantCapabilities()
 	out["simd_arch"] = caps.Arch
-	out["simd_rotation"] = caps.HasDot
-	out["simd_vec"] = caps.HasVec
-	out["simd_avx2"] = caps.HasAVX2
-	out["simd_neon"] = caps.HasNEON
-	out["simd_rvv"] = caps.HasRVV
+	out["simd_rotation"] = caps.Rotation
+	out["simd_vec"] = caps.Vec
+	out["simd_avx2"] = caps.AVX2
+	out["simd_neon"] = caps.NEON
+	out["simd_rvv"] = caps.RVV
 	if s.cpuModel != nil {
 		kvHeads := s.cpuModel.Config.NumKVHeads
 		if kvHeads == 0 {

@@ -71,7 +71,7 @@ End-to-end BF16 support spans the loader, SIMD facade, NVIDIA backend, Vulkan sc
 - `backends/nvidia/runtime/` — NVIDIA runtime, DevBuf, kernels, GPU weights, expert cache, and diagnostics.
 - `backends/vulkan/` — Vulkan loader/device/buffer/shader dispatch scaffolding.
 - `models/bert/` — GTE/BERT encoder path.
-- `runtime/kv/` — TurboQuant state, compressed KV cache, shared KV byte estimator, and staging/rollback primitives.
+- `runtime/kv/` — TurboQuant state, compressed KV cache, shared KV byte estimator, native SIMD capability reporting for TurboQuant rotation, and staging/rollback primitives.
 - `runtime/memory/` — mmap residency advice and tracked range accounting.
 - `runtime/quant/` — compatibility wrappers for backend-owned quantization implementations.
 - `model/`, `model/qwen/`, `model/gemma4/`, `model/llama/` — shared LLaMA-family decoder plus focused architecture packages/diagnostics, including native GGUF REAP/TurboQuant planning and smoke validation surfaces.
