@@ -2470,4 +2470,13 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed. Server health tests now assert TurboQuant SIMD readiness, KV/protected layer counts, estimated KV+scratch totals, and REAP enabled/source fields together, while the full native GGUF CI remains green.
+## Session 146: Qwen3.6 REAP GGUF CI after health policy-error coverage
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding server-health coverage for malformed TurboQuant cache policy diagnostics:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The server readiness test suite now covers valid REAP+TurboQuant health details and invalid TurboQuant policy error reporting while the full native GGUF validation bundle remains green.
 
