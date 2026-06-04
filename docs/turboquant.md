@@ -190,3 +190,20 @@ The `gguf-validate-qwen36-reap` target asserts all three values.
 ## Runtime scratch estimates
 
 Generation runtime plans now estimate reusable TurboQuant scratch bytes before cache materialization. `runtime/kv.EstimateTurboQuantScratchBytes` accounts for per-layer quant/dequant rotated/index scratch plus GetK/GetV sequence scratch for unprotected compressed layers. `ggufsmoke` reports `estimated_scratch_bytes` and `estimated_total_bytes` on `turboquant_runtime_kv`.
+
+
+`GGUF_EXPECT_RUNTIME_SCRATCH_BYTES` and `GGUF_EXPECT_RUNTIME_TOTAL_BYTES` can be used with `make gguf-smoke`/`make gguf-validate` to assert generation runtime-plan scratch and total KV+scratch byte estimates.
+
+
+### Qwen3.6 REAP runtime-plan scratch assertion values
+
+For the local `/opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf` preset with prompt ID `0`, `max-new=1`, `turbo4/turbo2`, and residual window `2`, the pinned generation runtime-plan values are:
+
+```text
+float_alloc_bytes=245760
+compressed_estimated_bytes=81920
+estimated_scratch_bytes=96768
+estimated_total_bytes=424448
+```
+
+The `gguf-validate-qwen36-reap` target asserts all four runtime-plan byte values.

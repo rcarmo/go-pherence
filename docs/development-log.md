@@ -2190,4 +2190,22 @@ GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
 ```
 
 Passed with native SIMD readiness reported for TurboQuant rotation on amd64/AVX2.
+## Session 126: TurboQuant runtime scratch-plan assertions
+
+Pinned Qwen3.6 REAP GGUF generation runtime-plan scratch accounting in the local validation preset. `make gguf-validate-qwen36-reap` now asserts float, compressed, scratch, and total runtime bytes:
+
+```text
+float_alloc_bytes=245760
+compressed_estimated_bytes=81920
+estimated_scratch_bytes=96768
+estimated_total_bytes=424448
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Passed with the native SIMD TurboQuant runtime-plan fields present in `ggufsmoke`.
 

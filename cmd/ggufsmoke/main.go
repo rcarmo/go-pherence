@@ -37,6 +37,8 @@ func main() {
 	expectDecoded := flag.String("expect-decoded", "", "decoded generated text expected from generation smoke; implies -decode validation when tokenizer is available")
 	expectRuntimeFloatBytes := flag.Int64("expect-runtime-float-bytes", -1, "fail unless planned runtime F32 KV bytes match this value")
 	expectRuntimeCompressedBytes := flag.Int64("expect-runtime-compressed-bytes", -1, "fail unless planned runtime compressed KV bytes match this value")
+	expectRuntimeScratchBytes := flag.Int64("expect-runtime-scratch-bytes", -1, "fail unless planned runtime TurboQuant scratch bytes match this value")
+	expectRuntimeTotalBytes := flag.Int64("expect-runtime-total-bytes", -1, "fail unless planned runtime total KV+scratch bytes match this value")
 	expectKVFloatBytes := flag.Int64("expect-kv-float-bytes", -1, "fail unless benchmark F32 KV allocated bytes match this value")
 	expectKVCompressedBytes := flag.Int64("expect-kv-compressed-bytes", -1, "fail unless benchmark compressed KV bytes match this value")
 	expectSIMDRotation := flag.Bool("expect-simd-rotation", false, "fail unless native SIMD dot-product rotation support is available")
@@ -69,7 +71,7 @@ func main() {
 		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d cache_layers=%d protected_cache_layers=%d max_seq=%d kv_dim=%d full_kv_bytes=%d estimated_kv_bytes=%d estimated_saved_kv_bytes=%d estimated_kv_ratio=%.4f simd_arch=%s simd_rotation=%v simd_vec=%v simd_avx2=%v simd_neon=%v simd_rvv=%v\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.CacheLayers, plan.ProtectedCacheLayers, plan.MaxSeqLen, plan.KVDim, plan.FullKVBytes, plan.EstimatedKVBytes, plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio, plan.SIMDArch, plan.SIMDRotation, plan.SIMDVec, plan.SIMDAVX2, plan.SIMDNEON, plan.SIMDRVv)
 		planPromptIDs, _ := resolvePromptIDs(*path, *promptText, *promptIDsCSV)
 		if rt, err := m.GenerationKVRuntimePlan(len(planPromptIDs), *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow}); err == nil {
-			if err := checkExpectedRuntimeKV(rt, *expectRuntimeFloatBytes, *expectRuntimeCompressedBytes); err != nil {
+			if err := checkExpectedRuntimeKV(rt, *expectRuntimeFloatBytes, *expectRuntimeCompressedBytes, *expectRuntimeScratchBytes, *expectRuntimeTotalBytes); err != nil {
 				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 				os.Exit(1)
 			}
@@ -240,18 +242,30 @@ func checkExpectedKVSmoke(layer, compressed, full int, storedBytes, scratchBytes
 	return nil
 }
 
-func checkExpectedRuntimeKV(plan model.GGUFGenerationKVRuntimePlan, expectFloat, expectCompressed int64) error {
+func checkExpectedRuntimeKV(plan model.GGUFGenerationKVRuntimePlan, expectFloat, expectCompressed, expectScratch, expectTotal int64) error {
 	if expectFloat >= 0 && plan.FloatKVBytesAllocated != expectFloat {
 		return fmt.Errorf("runtime F32 KV bytes mismatch got=%d want=%d", plan.FloatKVBytesAllocated, expectFloat)
 	}
 	if expectCompressed >= 0 && plan.EstimatedCompressedKVBytes != expectCompressed {
 		return fmt.Errorf("runtime compressed KV bytes mismatch got=%d want=%d", plan.EstimatedCompressedKVBytes, expectCompressed)
 	}
+	if expectScratch >= 0 && plan.EstimatedScratchBytes != expectScratch {
+		return fmt.Errorf("runtime scratch bytes mismatch got=%d want=%d", plan.EstimatedScratchBytes, expectScratch)
+	}
+	if expectTotal >= 0 && plan.EstimatedTotalBytes != expectTotal {
+		return fmt.Errorf("runtime total bytes mismatch got=%d want=%d", plan.EstimatedTotalBytes, expectTotal)
+	}
 	if expectFloat >= 0 {
 		fmt.Printf("expected_runtime_float_bytes_ok=%d\n", expectFloat)
 	}
 	if expectCompressed >= 0 {
 		fmt.Printf("expected_runtime_compressed_bytes_ok=%d\n", expectCompressed)
+	}
+	if expectScratch >= 0 {
+		fmt.Printf("expected_runtime_scratch_bytes_ok=%d\n", expectScratch)
+	}
+	if expectTotal >= 0 {
+		fmt.Printf("expected_runtime_total_bytes_ok=%d\n", expectTotal)
 	}
 	return nil
 }

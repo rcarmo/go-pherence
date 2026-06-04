@@ -53,18 +53,24 @@ func TestCheckExpectedKVSmoke(t *testing.T) {
 }
 
 func TestCheckExpectedRuntimeKV(t *testing.T) {
-	plan := model.GGUFGenerationKVRuntimePlan{FloatKVBytesAllocated: 245760, EstimatedCompressedKVBytes: 81920}
-	if err := checkExpectedRuntimeKV(plan, 245760, 81920); err != nil {
+	plan := model.GGUFGenerationKVRuntimePlan{FloatKVBytesAllocated: 245760, EstimatedCompressedKVBytes: 81920, EstimatedScratchBytes: 1280, EstimatedTotalBytes: 328960}
+	if err := checkExpectedRuntimeKV(plan, 245760, 81920, 1280, 328960); err != nil {
 		t.Fatalf("expected runtime KV match: %v", err)
 	}
-	if err := checkExpectedRuntimeKV(plan, -1, -1); err != nil {
+	if err := checkExpectedRuntimeKV(plan, -1, -1, -1, -1); err != nil {
 		t.Fatalf("unset expectations should be ignored: %v", err)
 	}
-	if err := checkExpectedRuntimeKV(plan, 1, -1); err == nil || !strings.Contains(err.Error(), "runtime F32 KV bytes mismatch") {
+	if err := checkExpectedRuntimeKV(plan, 1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "runtime F32 KV bytes mismatch") {
 		t.Fatalf("expected runtime float mismatch, got %v", err)
 	}
-	if err := checkExpectedRuntimeKV(plan, -1, 1); err == nil || !strings.Contains(err.Error(), "runtime compressed KV bytes mismatch") {
+	if err := checkExpectedRuntimeKV(plan, -1, 1, -1, -1); err == nil || !strings.Contains(err.Error(), "runtime compressed KV bytes mismatch") {
 		t.Fatalf("expected runtime compressed mismatch, got %v", err)
+	}
+	if err := checkExpectedRuntimeKV(plan, -1, -1, 1, -1); err == nil || !strings.Contains(err.Error(), "runtime scratch bytes mismatch") {
+		t.Fatalf("expected runtime scratch mismatch, got %v", err)
+	}
+	if err := checkExpectedRuntimeKV(plan, -1, -1, -1, 1); err == nil || !strings.Contains(err.Error(), "runtime total bytes mismatch") {
+		t.Fatalf("expected runtime total mismatch, got %v", err)
 	}
 }
 
