@@ -87,6 +87,26 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 	}
 }
 
+func TestHandleHealthReportsTurboQuantPolicyError(t *testing.T) {
+	s := &Server{modelID: "qwen-reap", maxCtx: 16, cacheTypeK: "turbo9", cacheTypeV: "turbo2", kvResidual: 2, cpuModel: &model.LlamaModel{Config: model.LlamaConfig{NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HiddenSize: 4, HeadDim: 4, MaxSeqLen: 8}}, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}}
+	rr := httptest.NewRecorder()
+	s.handleHealth(rr, httptest.NewRequest("GET", "/health", nil))
+	if rr.Code != 200 {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	tq, ok := resp["turboquant"].(map[string]any)
+	if !ok || tq["error"] == nil {
+		t.Fatalf("missing turboquant policy error: %+v", resp)
+	}
+	if tq["enabled"] != nil || tq["estimated_kv_bytes"] != nil || tq["simd_rotation"] != nil {
+		t.Fatalf("malformed policy should not report normal TurboQuant details: %+v", tq)
+	}
+}
+
 func TestHandleHealthReportsREAPSummary(t *testing.T) {
 	s := &Server{modelID: "qwen-reap", maxCtx: 16, kvResidual: -1, cpuModel: &model.LlamaModel{REAP: &model.REAPConfig{Enabled: true, PruneRatio: 0.2, Source: "filename_or_name", DefaultMask: map[int]bool{1: true}}}, presets: map[string]ModelPreset{"qwen-reap": {ID: "qwen-reap"}}}
 	rr := httptest.NewRecorder()

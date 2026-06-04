@@ -281,3 +281,6 @@ Model-side static `GGUFTurboQuantPlan` now exposes `estimated_scratch_bytes` and
 
 
 Combined REAP+TurboQuant health coverage now asserts enabled TurboQuant status, SIMD rotation readiness, KV/protected layer accounting, estimated KV+scratch totals, and REAP source/enabled fields together.
+
+
+`llmserver /health` also reports malformed TurboQuant policy errors in the `turboquant.error` field without emitting normal byte/SIMD details for an invalid policy, and this path is covered by server tests.
