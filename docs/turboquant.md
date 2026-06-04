@@ -275,3 +275,6 @@ Model-side static `GGUFTurboQuantPlan` now exposes `estimated_scratch_bytes` and
 
 
 `ggufsmoke` static plan assertions also cover full/estimated/saved KV bytes (`-expect-full-kv-bytes`, `-expect-estimated-kv-bytes`, `-expect-saved-kv-bytes`) in addition to scratch and total estimates, so smoke paths can pin the complete static TurboQuant plan.
+
+
+`llmserver /health` tests now compare TurboQuant estimated KV, scratch, total, KV-layer, and protected-layer fields directly against `runtime/kv.EstimateTurboQuantKV`, keeping server readiness pinned to the kv-owned estimator.

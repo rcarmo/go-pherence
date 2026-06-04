@@ -64,13 +64,18 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 	if ratio := tq["estimated_kv_ratio"].(float64); ratio <= 0 || ratio >= 1 {
 		t.Fatalf("unexpected turboquant ratio: %+v", tq)
 	}
+	cfg, enabled, err := kv.TurboQuantConfigFromCacheTypes("turbo4", "turbo2", 2)
+	if err != nil || !enabled {
+		t.Fatalf("test TurboQuant config: enabled=%v err=%v", enabled, err)
+	}
+	wantEstimate := kv.EstimateTurboQuantKV(8, 1, 4, 16, cfg, true, nil)
 	estimated := int64(tq["estimated_kv_bytes"].(float64))
 	scratch := int64(tq["estimated_scratch_bytes"].(float64))
 	total := int64(tq["estimated_total_bytes"].(float64))
-	if scratch <= 0 || total != estimated+scratch {
-		t.Fatalf("unexpected turboquant scratch/total bytes: %+v", tq)
+	if estimated != wantEstimate.EstimatedBytes || scratch != wantEstimate.EstimatedScratchBytes || total != wantEstimate.EstimatedTotalBytes {
+		t.Fatalf("unexpected turboquant scratch/total bytes: %+v want=%+v", tq, wantEstimate)
 	}
-	if int(tq["kv_layers"].(float64)) != 8 || int(tq["protected_layers"].(float64)) != 4 {
+	if int(tq["kv_layers"].(float64)) != wantEstimate.KVLayers || int(tq["protected_layers"].(float64)) != wantEstimate.ProtectedLayers {
 		t.Fatalf("unexpected turboquant layer accounting: %+v", tq)
 	}
 	caps := kv.RuntimeTurboQuantCapabilities()
