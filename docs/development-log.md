@@ -2349,4 +2349,13 @@ estimated_total_bytes=11718974656
 ```
 
 alongside runtime-plan, cache-smoke, benchmark, REAP, and native SIMD readiness assertions.
+## Session 135: Qwen3.6 REAP GGUF CI after kv-owned total estimates
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after moving `estimated_total_bytes` ownership into `runtime/kv.TurboQuantKVEstimate`:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. This keeps inspect, server health, model runtime plans, cache-smoke, and benchmark assertions green after centralizing total byte estimation in the kv runtime package.
 
