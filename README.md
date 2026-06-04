@@ -88,6 +88,8 @@ make gguf-check-qwen36-reap  # validation + benchmark
 make gguf-ci-qwen36-reap     # focused build smoke + check
 ```
 
+The Qwen3.6 REAP GGUF CI target exercises the native go-pherence path end-to-end: GGUF inspect, one-token generation smoke, synthetic TurboQuant cache smoke, benchmark, required SIMD rotation readiness, static/runtime/cache/benchmark KV+scratch byte assertions, and aggregate compressed-cache counters. It does not depend on llama.cpp for runtime execution.
+
 See [docs/commands.md](docs/commands.md) for detailed command usage, GGUF REAP/TurboQuant validation, MTP smoke commands, Qwen3.6 native-MTP triage commands, Whisper VTT usage, and benchmark harnesses. See [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) for the current Whisper implementation status and limitations.
 
 ## Documentation map
