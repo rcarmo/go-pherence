@@ -619,3 +619,8 @@ kv_total_bytes=327680
 
 
 `GGUF_EXPECT_KV_COMPRESSED_LAYERS`, `GGUF_EXPECT_KV_SEQ`, `GGUF_EXPECT_KV_COMPRESSED_COUNT`, and `GGUF_EXPECT_KV_FULL_COUNT` can be used with `make gguf-bench` to assert aggregate compressed-cache counters from `runtime/kv.AggregateCompressedKVCacheStats`.
+
+
+### Qwen3.6 REAP preset requires SIMD rotation readiness
+
+The local Qwen3.6 REAP validation/benchmark presets now set `GGUF_EXPECT_SIMD_ROTATION=1`, so `make gguf-ci-qwen36-reap` fails if the host cannot report native SIMD dot-product support for TurboQuant rotation through the go-pherence SIMD facade.

@@ -2307,4 +2307,13 @@ kv_total_bytes=327680
 ```
 
 This confirms the current pure Go/SIMD GGUF REAP/TurboQuant path is green across inspect, smoke, cache-smoke, benchmark, native SIMD readiness, runtime scratch-plan, and aggregate cache accounting.
+## Session 132: Qwen3.6 REAP GGUF CI requires SIMD rotation
+
+Pinned native SIMD rotation readiness as a required assertion in the local Qwen3.6 REAP Make presets by setting `GGUF_EXPECT_SIMD_ROTATION=1` for inspect, smoke, validate, and bench targets. Re-ran:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed, including `expected_simd_rotation_ok=true arch=amd64` in the runtime smoke paths.
 
