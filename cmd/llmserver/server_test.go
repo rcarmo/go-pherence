@@ -64,6 +64,12 @@ func TestHandleHealthReportsTurboQuantPlan(t *testing.T) {
 	if ratio := tq["estimated_kv_ratio"].(float64); ratio <= 0 || ratio >= 1 {
 		t.Fatalf("unexpected turboquant ratio: %+v", tq)
 	}
+	estimated := int64(tq["estimated_kv_bytes"].(float64))
+	scratch := int64(tq["estimated_scratch_bytes"].(float64))
+	total := int64(tq["estimated_total_bytes"].(float64))
+	if scratch <= 0 || total != estimated+scratch {
+		t.Fatalf("unexpected turboquant scratch/total bytes: %+v", tq)
+	}
 	if int(tq["kv_layers"].(float64)) != 8 || int(tq["protected_layers"].(float64)) != 4 {
 		t.Fatalf("unexpected turboquant layer accounting: %+v", tq)
 	}

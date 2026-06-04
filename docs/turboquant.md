@@ -256,3 +256,6 @@ The local Qwen3.6 REAP validation/benchmark presets now set `GGUF_EXPECT_SIMD_RO
 
 
 `GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES` and `GGUF_EXPECT_ESTIMATED_TOTAL_BYTES` can be used with `make gguf-inspect`/`make gguf-validate` to assert inspect-time TurboQuant KV+scratch estimates. The Qwen3.6 REAP preset pins `estimated_scratch_bytes=9663699456` and `estimated_total_bytes=11718974656` for the full-context `turbo4/turbo2` plan.
+
+
+`llmserver /health` now reports TurboQuant `estimated_scratch_bytes` and `estimated_total_bytes` alongside stored KV estimates, using the same `runtime/kv` estimator as inspect/runtime tooling.
