@@ -2332,4 +2332,21 @@ GOTMPDIR=$PWD/.gotmp make gguf-inspect-qwen36-reap
 ```
 
 Passed, and the focused GGUF package build sweep remained green.
+## Session 134: Qwen3.6 REAP GGUF CI with inspect scratch estimates
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding inspect-time TurboQuant scratch/total estimate assertions:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The CI bundle now validates full-context inspect estimates:
+
+```text
+estimated_kv_bytes=2055275200
+estimated_scratch_bytes=9663699456
+estimated_total_bytes=11718974656
+```
+
+alongside runtime-plan, cache-smoke, benchmark, REAP, and native SIMD readiness assertions.
 
