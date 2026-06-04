@@ -20,6 +20,9 @@ func TestEstimateTurboQuantKVBytesSkipsLayersAndReportsSavings(t *testing.T) {
 	if est.FullBytes != full || est.EstimatedBytes != estimated || est.KVLayers != 4 || est.ProtectedLayers == 0 {
 		t.Fatalf("bad detailed estimate: %+v", est)
 	}
+	if est.EstimatedTotalBytes != est.EstimatedBytes+est.EstimatedScratchBytes {
+		t.Fatalf("bad total estimate: %+v", est)
+	}
 }
 
 func TestEstimateTurboQuantScratchBytes(t *testing.T) {

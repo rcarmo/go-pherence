@@ -10,6 +10,7 @@ type TurboQuantKVEstimate struct {
 	KVLayers              int     `json:"kv_layers"`
 	ProtectedLayers       int     `json:"protected_layers"`
 	EstimatedScratchBytes int64   `json:"estimated_scratch_bytes,omitempty"`
+	EstimatedTotalBytes   int64   `json:"estimated_total_bytes,omitempty"`
 }
 
 // EstimateTurboQuantKV estimates full-precision and TurboQuant-compressed K/V
@@ -22,7 +23,7 @@ func EstimateTurboQuantKV(layers, kvHeads, headDim, seqLen int, cfg TurboQuantCo
 	full, estimated, kvLayers, protected := estimateTurboQuantKVBytesDetailed(layers, kvHeads, headDim, seqLen, cfg, enabled, usesLayer)
 	saved, ratio := TurboQuantKVByteSavings(full, estimated)
 	scratch := EstimateTurboQuantScratchBytes(kvLayers-protected, kvHeads, headDim, seqLen, enabled)
-	return TurboQuantKVEstimate{FullBytes: full, EstimatedBytes: estimated, SavedBytes: saved, Ratio: ratio, KVLayers: kvLayers, ProtectedLayers: protected, EstimatedScratchBytes: scratch}
+	return TurboQuantKVEstimate{FullBytes: full, EstimatedBytes: estimated, SavedBytes: saved, Ratio: ratio, KVLayers: kvLayers, ProtectedLayers: protected, EstimatedScratchBytes: scratch, EstimatedTotalBytes: saturatingAddInt64(estimated, scratch)}
 }
 
 func EstimateTurboQuantKVBytes(layers, kvHeads, headDim, seqLen int, cfg TurboQuantConfig, enabled bool, usesLayer func(int) bool) (fullBytes, estimatedBytes int64) {

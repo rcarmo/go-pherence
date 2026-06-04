@@ -138,7 +138,7 @@ func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGene
 	plan.CompressedKVRatio = est.Ratio
 	plan.ProtectedCompressedLayers = est.ProtectedLayers
 	plan.EstimatedScratchBytes = est.EstimatedScratchBytes
-	plan.EstimatedTotalBytes = plan.FloatKVBytesAllocated + plan.EstimatedCompressedKVBytes + plan.EstimatedScratchBytes
+	plan.EstimatedTotalBytes = plan.FloatKVBytesAllocated + est.EstimatedTotalBytes
 	caps := kv.RuntimeTurboQuantCapabilities()
 	plan.SIMDArch = caps.Arch
 	plan.SIMDRotation = caps.Rotation
