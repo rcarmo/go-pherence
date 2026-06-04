@@ -2461,4 +2461,13 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed. The lightweight unit tests now pin the `runtime/kv` stats-to-smoke assertion mapping without requiring the full local GGUF model, while the full CI target remains green.
+## Session 145: Qwen3.6 REAP GGUF CI after combined health hardening
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after strengthening combined `llmserver /health` coverage for REAP+TurboQuant details:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. Server health tests now assert TurboQuant SIMD readiness, KV/protected layer counts, estimated KV+scratch totals, and REAP enabled/source fields together, while the full native GGUF CI remains green.
 
