@@ -448,13 +448,9 @@ func ggufBenchKVBytes(kvK, kvV [][]float32, compressedKV []*kv.CompressedKVCache
 	for _, x := range kvV {
 		floatBytes += int64(len(x)) * 4
 	}
-	for _, c := range compressedKV {
-		if c != nil {
-			stats := c.Stats()
-			compressedBytes += stats.StoredBytes
-			scratchBytes += stats.ScratchBytes
-		}
-	}
+	compressedStats := kv.AggregateCompressedKVCacheStats(compressedKV)
+	compressedBytes = compressedStats.StoredBytes
+	scratchBytes = compressedStats.ScratchBytes
 	return floatBytes, compressedBytes, scratchBytes, floatBytes + compressedBytes + scratchBytes
 }
 

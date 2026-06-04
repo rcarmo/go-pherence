@@ -263,6 +263,24 @@ func TestCompressedKVCacheCompressionUsesScratch(t *testing.T) {
 	}
 }
 
+func TestAggregateCompressedKVCacheStats(t *testing.T) {
+	tq := NewTurboQuantState(4, 2, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	c1 := NewCompressedKVCache(4, 1, 4, tq, false)
+	c2 := NewCompressedKVCache(4, 1, 4, tq, false)
+	c1.Append([]float32{1, 2, 3, 4}, []float32{4, 3, 2, 1})
+	c2.Append([]float32{2, 3, 4, 5}, []float32{5, 4, 3, 2})
+	_ = c1.GetK()
+	st1 := c1.Stats()
+	st2 := c2.Stats()
+	agg := AggregateCompressedKVCacheStats([]*CompressedKVCache{nil, c1, c2})
+	if agg.Layers != 2 || agg.SeqLen != 1 || agg.CompressedCount != st1.CompressedCount+st2.CompressedCount || agg.FullCount != st1.FullCount+st2.FullCount {
+		t.Fatalf("bad aggregate counts: %+v st1=%+v st2=%+v", agg, st1, st2)
+	}
+	if agg.StoredBytes != st1.StoredBytes+st2.StoredBytes || agg.ScratchBytes != st1.ScratchBytes+st2.ScratchBytes || agg.TotalBytes != st1.TotalBytes+st2.TotalBytes {
+		t.Fatalf("bad aggregate bytes: %+v st1=%+v st2=%+v", agg, st1, st2)
+	}
+}
+
 func TestCompressedKVCacheScratchByteAccounting(t *testing.T) {
 	tq := NewTurboQuantState(4, 1, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
 	c := NewCompressedKVCache(4, 1, 4, tq, false)

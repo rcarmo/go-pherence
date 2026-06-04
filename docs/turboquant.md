@@ -224,3 +224,8 @@ kv_total_bytes=327680
 ```
 
 The one-token benchmark does not materialize compressed-cache read scratch, so `kv_scratch_bytes=0`; runtime-plan estimates still report the scratch that would be needed when compressed cache reads are materialized.
+
+
+## Aggregate compressed-cache stats
+
+`runtime/kv.AggregateCompressedKVCacheStats` summarizes all compressed KV cache layers with layer count, max sequence length, compressed/full counts, stored bytes, scratch bytes, and total bytes. Benchmark tooling now consumes this kv-owned aggregate rather than manually summing per-layer cache fields.

@@ -48,6 +48,18 @@ type CompressedKVCacheStats struct {
 	TotalBytes      int64 `json:"total_bytes"`
 }
 
+// CompressedKVCacheAggregateStats summarizes a collection of native TurboQuant
+// cache layers.
+type CompressedKVCacheAggregateStats struct {
+	Layers          int   `json:"layers"`
+	SeqLen          int   `json:"seq_len"`
+	CompressedCount int   `json:"compressed"`
+	FullCount       int   `json:"full"`
+	StoredBytes     int64 `json:"stored_bytes"`
+	ScratchBytes    int64 `json:"scratch_bytes"`
+	TotalBytes      int64 `json:"total_bytes"`
+}
+
 // NewCompressedKVCache creates a cache for one layer.
 func NewCompressedKVCache(kvDim, numKVHeads, headDim int, tq *TurboQuantState, isProtected bool) *CompressedKVCache {
 	if kvDim < 0 {
@@ -411,6 +423,26 @@ func (c *CompressedKVCache) Stats() CompressedKVCacheStats {
 	stored := c.MemoryBytes()
 	scratch := c.ScratchBytes()
 	return CompressedKVCacheStats{SeqLen: c.SeqLen(), CompressedCount: c.CompressedCount(), FullCount: c.FullCount(), StoredBytes: stored, ScratchBytes: scratch, TotalBytes: saturatingAddInt64(stored, scratch)}
+}
+
+func AggregateCompressedKVCacheStats(caches []*CompressedKVCache) CompressedKVCacheAggregateStats {
+	var out CompressedKVCacheAggregateStats
+	for _, c := range caches {
+		if c == nil {
+			continue
+		}
+		st := c.Stats()
+		out.Layers++
+		if st.SeqLen > out.SeqLen {
+			out.SeqLen = st.SeqLen
+		}
+		out.CompressedCount += st.CompressedCount
+		out.FullCount += st.FullCount
+		out.StoredBytes = saturatingAddInt64(out.StoredBytes, st.StoredBytes)
+		out.ScratchBytes = saturatingAddInt64(out.ScratchBytes, st.ScratchBytes)
+		out.TotalBytes = saturatingAddInt64(out.TotalBytes, st.TotalBytes)
+	}
+	return out
 }
 
 func (c *CompressedKVCache) MemoryBytes() int64 {
