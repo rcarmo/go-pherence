@@ -2452,4 +2452,13 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed. The README, supported-models docs, backend/validation docs, and development log now all describe a green native go-pherence GGUF REAP/TurboQuant path with required SIMD rotation readiness and full KV/scratch/aggregate assertions.
+## Session 144: Qwen3.6 REAP GGUF CI after ggufsmoke stats unit coverage
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding direct unit coverage for `ggufsmoke` cache-smoke stats assertions and benchmark aggregate stats:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The lightweight unit tests now pin the `runtime/kv` stats-to-smoke assertion mapping without requiring the full local GGUF model, while the full CI target remains green.
 
