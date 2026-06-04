@@ -3,12 +3,13 @@ package kv
 // TurboQuantKVEstimate is a compact byte/readiness estimate for native
 // TurboQuant cache storage.
 type TurboQuantKVEstimate struct {
-	FullBytes       int64   `json:"full_kv_bytes"`
-	EstimatedBytes  int64   `json:"estimated_kv_bytes"`
-	SavedBytes      int64   `json:"estimated_saved_kv_bytes"`
-	Ratio           float64 `json:"estimated_kv_ratio"`
-	KVLayers        int     `json:"kv_layers"`
-	ProtectedLayers int     `json:"protected_layers"`
+	FullBytes             int64   `json:"full_kv_bytes"`
+	EstimatedBytes        int64   `json:"estimated_kv_bytes"`
+	SavedBytes            int64   `json:"estimated_saved_kv_bytes"`
+	Ratio                 float64 `json:"estimated_kv_ratio"`
+	KVLayers              int     `json:"kv_layers"`
+	ProtectedLayers       int     `json:"protected_layers"`
+	EstimatedScratchBytes int64   `json:"estimated_scratch_bytes,omitempty"`
 }
 
 // EstimateTurboQuantKV estimates full-precision and TurboQuant-compressed K/V
@@ -20,7 +21,8 @@ type TurboQuantKVEstimate struct {
 func EstimateTurboQuantKV(layers, kvHeads, headDim, seqLen int, cfg TurboQuantConfig, enabled bool, usesLayer func(int) bool) TurboQuantKVEstimate {
 	full, estimated, kvLayers, protected := estimateTurboQuantKVBytesDetailed(layers, kvHeads, headDim, seqLen, cfg, enabled, usesLayer)
 	saved, ratio := TurboQuantKVByteSavings(full, estimated)
-	return TurboQuantKVEstimate{FullBytes: full, EstimatedBytes: estimated, SavedBytes: saved, Ratio: ratio, KVLayers: kvLayers, ProtectedLayers: protected}
+	scratch := EstimateTurboQuantScratchBytes(kvLayers-protected, kvHeads, headDim, seqLen, enabled)
+	return TurboQuantKVEstimate{FullBytes: full, EstimatedBytes: estimated, SavedBytes: saved, Ratio: ratio, KVLayers: kvLayers, ProtectedLayers: protected, EstimatedScratchBytes: scratch}
 }
 
 func EstimateTurboQuantKVBytes(layers, kvHeads, headDim, seqLen int, cfg TurboQuantConfig, enabled bool, usesLayer func(int) bool) (fullBytes, estimatedBytes int64) {
@@ -75,6 +77,22 @@ func estimateTurboQuantKVBytesDetailed(layers, kvHeads, headDim, seqLen int, cfg
 		estimatedBytes += int64(residual)*int64(kvDim)*2*4 + int64(compressedTokens)*compressedPerToken
 	}
 	return fullBytes, estimatedBytes, kvLayers, protectedLayers
+}
+
+func EstimateTurboQuantScratchBytes(cacheLayers, kvHeads, headDim, seqLen int, enabled bool) int64 {
+	if !enabled || cacheLayers <= 0 || kvHeads <= 0 || headDim <= 0 || seqLen <= 0 {
+		return 0
+	}
+	kvDim := kvHeads * headDim
+	// Per compressed cache layer after generation has appended and read cache:
+	// quantRotated + dequantRotated float32 scratch, quant/dequant index bytes,
+	// plus GetK/GetV sequence scratch.
+	perLayer := saturatingAddInt64(int64(headDim)*4, int64(headDim))
+	perLayer = saturatingAddInt64(perLayer, int64(headDim)*4)
+	perLayer = saturatingAddInt64(perLayer, int64(headDim))
+	sequenceScratch := int64(seqLen) * int64(kvDim) * 2 * 4
+	perLayer = saturatingAddInt64(perLayer, sequenceScratch)
+	return saturatingMulInt64(int64(cacheLayers), perLayer)
 }
 
 func TurboQuantKVByteSavings(fullBytes, estimatedBytes int64) (savedBytes int64, ratio float64) {

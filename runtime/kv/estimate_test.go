@@ -22,6 +22,18 @@ func TestEstimateTurboQuantKVBytesSkipsLayersAndReportsSavings(t *testing.T) {
 	}
 }
 
+func TestEstimateTurboQuantScratchBytes(t *testing.T) {
+	got := EstimateTurboQuantScratchBytes(2, 1, 4, 3, true)
+	// Per layer: quant rotated/index (16+4), dequant rotated/index (16+4),
+	// sequence K/V scratch (3*4*2*4=96) = 136. Two layers = 272.
+	if got != 272 {
+		t.Fatalf("scratch bytes=%d want 272", got)
+	}
+	if got := EstimateTurboQuantScratchBytes(2, 1, 4, 3, false); got != 0 {
+		t.Fatalf("disabled scratch bytes=%d want 0", got)
+	}
+}
+
 func TestEstimateTurboQuantKVBytesDisabledEqualsFull(t *testing.T) {
 	full, estimated := EstimateTurboQuantKVBytes(2, 1, 4, 3, DefaultTurboQuantConfig(), false, nil)
 	if full != 2*3*4*2*4 || estimated != full {

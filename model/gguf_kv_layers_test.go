@@ -61,9 +61,23 @@ func TestGGUFGenerationKVRuntimePlan(t *testing.T) {
 	if plan.SavedCompressedKVBytes != plan.FullCompressedKVBytes-plan.EstimatedCompressedKVBytes || plan.CompressedKVRatio <= 0 || plan.CompressedKVRatio > 1 {
 		t.Fatalf("bad runtime savings: %+v", plan)
 	}
+	if plan.EstimatedScratchBytes != 0 || plan.EstimatedTotalBytes != plan.FloatKVBytesAllocated+plan.EstimatedCompressedKVBytes+plan.EstimatedScratchBytes {
+		t.Fatalf("bad runtime scratch/total: %+v", plan)
+	}
 	caps := kv.RuntimeTurboQuantCapabilities()
 	if plan.SIMDArch != caps.Arch || plan.SIMDRotation != caps.Rotation || plan.SIMDVec != caps.Vec || plan.SIMDAVX2 != caps.AVX2 || plan.SIMDNEON != caps.NEON || plan.SIMDRVv != caps.RVV {
 		t.Fatalf("bad runtime SIMD fields: %+v caps=%+v", plan, caps)
+	}
+}
+
+func TestGGUFGenerationKVRuntimePlanEstimatesUnprotectedScratch(t *testing.T) {
+	m := &GGUFLlama{Config: GGUFLlamaConfig{NumLayers: 8, NumKVHeads: 1, HeadDim: 8, MaxSeqLen: 16}}
+	plan, err := m.GenerationKVRuntimePlan(4, 4, GGUFGenerationOptions{CacheTypeK: "turbo4", CacheTypeV: "turbo2", KVResidualWindow: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.EstimatedScratchBytes <= 0 || plan.EstimatedTotalBytes != plan.FloatKVBytesAllocated+plan.EstimatedCompressedKVBytes+plan.EstimatedScratchBytes {
+		t.Fatalf("bad unprotected scratch estimate: %+v", plan)
 	}
 }
 

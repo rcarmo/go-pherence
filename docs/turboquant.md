@@ -185,3 +185,8 @@ The `gguf-validate-qwen36-reap` target asserts all three values.
 ## KV-owned cache stats
 
 `CompressedKVCache.Stats()` now owns cache-smoke accounting for sequence length, compressed/full counts, stored bytes, scratch bytes, and total bytes. Tools such as `ggufsmoke` consume this kv-owned summary instead of manually combining cache counters and byte methods.
+
+
+## Runtime scratch estimates
+
+Generation runtime plans now estimate reusable TurboQuant scratch bytes before cache materialization. `runtime/kv.EstimateTurboQuantScratchBytes` accounts for per-layer quant/dequant rotated/index scratch plus GetK/GetV sequence scratch for unprotected compressed layers. `ggufsmoke` reports `estimated_scratch_bytes` and `estimated_total_bytes` on `turboquant_runtime_kv`.
