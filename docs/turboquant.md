@@ -264,3 +264,8 @@ The local Qwen3.6 REAP validation/benchmark presets now set `GGUF_EXPECT_SIMD_RO
 ## KV-owned total estimates
 
 `runtime/kv.TurboQuantKVEstimate` now owns `estimated_total_bytes` in addition to stored and scratch estimates. Inspect, model runtime plans, and `llmserver /health` consume this kv-owned total instead of recomputing `estimated_kv_bytes + estimated_scratch_bytes` independently.
+
+
+## Static model-plan scratch estimates
+
+Model-side static `GGUFTurboQuantPlan` now exposes `estimated_scratch_bytes` and `estimated_total_bytes`, and `ggufsmoke` prints them on the first `turboquant` line. This aligns the model plan with `ggufinspect` and `llmserver /health` for full-context KV+scratch readiness.

@@ -15,6 +15,9 @@ func TestGGUFTurboQuantPlan(t *testing.T) {
 	if !plan.Enabled || plan.KeyBits != 4 || plan.ValueBits != 2 || plan.ResidualWindow != 32 || plan.KVDim != 16 {
 		t.Fatalf("unexpected plan: %+v", plan)
 	}
+	if plan.EstimatedTotalBytes != plan.EstimatedKVBytes+plan.EstimatedScratchBytes {
+		t.Fatalf("unexpected scratch/total plan: %+v", plan)
+	}
 	caps := kv.RuntimeTurboQuantCapabilities()
 	if plan.SIMDArch != caps.Arch || plan.SIMDRotation != caps.Rotation || plan.SIMDVec != caps.Vec || plan.SIMDAVX2 != caps.AVX2 || plan.SIMDNEON != caps.NEON || plan.SIMDRVv != caps.RVV {
 		t.Fatalf("unexpected SIMD plan fields: %+v caps=%+v", plan, caps)
