@@ -1,0 +1,1 @@
+{"_class_name":"ZImageTransformer2DModel","dim":3840,"in_channels":16,"n_heads":30,"n_kv_heads":30,"n_layers":30,"n_refiner_layers":2,"cap_feat_dim":2560,"axes_dims":[32,48,48],"axes_lens":[1536,512,512],"patch_size":2,"out_channels":16}
