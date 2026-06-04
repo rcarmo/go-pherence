@@ -2358,4 +2358,13 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed. This keeps inspect, server health, model runtime plans, cache-smoke, and benchmark assertions green after centralizing total byte estimation in the kv runtime package.
+## Session 136: Qwen3.6 REAP GGUF CI after static plan scratch output
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding static `GGUFTurboQuantPlan` scratch/total estimates to model and `ggufsmoke` output:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. Static/full-context TurboQuant plan output now includes `estimated_scratch_bytes` and `estimated_total_bytes` while all inspect, runtime-plan, cache-smoke, benchmark, REAP, and SIMD readiness assertions remain green.
 
