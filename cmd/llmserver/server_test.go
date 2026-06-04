@@ -115,10 +115,17 @@ func TestHandleHealthReportsREAPAndTurboQuantTogether(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := resp["turboquant"].(map[string]any); !ok {
+	tq, ok := resp["turboquant"].(map[string]any)
+	if !ok || tq["enabled"] != true || tq["simd_rotation"] != kv.RuntimeTurboQuantCapabilities().Rotation {
 		t.Fatalf("missing turboquant health: %+v", resp)
 	}
-	if reap, ok := resp["reap"].(map[string]any); !ok || reap["source"] != "filename_or_name" {
+	if int64(tq["estimated_total_bytes"].(float64)) != int64(tq["estimated_kv_bytes"].(float64))+int64(tq["estimated_scratch_bytes"].(float64)) {
+		t.Fatalf("bad combined TurboQuant total: %+v", tq)
+	}
+	if int(tq["kv_layers"].(float64)) != 8 || int(tq["protected_layers"].(float64)) != 4 {
+		t.Fatalf("bad combined TurboQuant layer accounting: %+v", tq)
+	}
+	if reap, ok := resp["reap"].(map[string]any); !ok || reap["source"] != "filename_or_name" || reap["enabled"] != true {
 		t.Fatalf("missing REAP health: %+v", resp)
 	}
 }

@@ -278,3 +278,6 @@ Model-side static `GGUFTurboQuantPlan` now exposes `estimated_scratch_bytes` and
 
 
 `llmserver /health` tests now compare TurboQuant estimated KV, scratch, total, KV-layer, and protected-layer fields directly against `runtime/kv.EstimateTurboQuantKV`, keeping server readiness pinned to the kv-owned estimator.
+
+
+Combined REAP+TurboQuant health coverage now asserts enabled TurboQuant status, SIMD rotation readiness, KV/protected layer accounting, estimated KV+scratch totals, and REAP source/enabled fields together.
