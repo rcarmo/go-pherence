@@ -2434,4 +2434,13 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed. This confirms the server readiness surface remains aligned with inspect, smoke, cache-smoke, benchmark, model runtime plans, and kv-owned TurboQuant estimate/accounting surfaces.
+## Session 142: Qwen3.6 REAP GGUF CI after supported-models coverage update
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after updating `docs/supported-models.md` to describe the current native SIMD/TurboQuant scratch/aggregate validation coverage:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The supported-models status now matches a green CI bundle that requires native SIMD rotation readiness and pins static, runtime, cache-smoke, and benchmark TurboQuant KV/scratch/aggregate assertions.
 
