@@ -35,6 +35,8 @@ func main() {
 	expectKVSmokeTotalBytes := flag.Int64("expect-kv-smoke-total-bytes", -1, "fail unless TurboQuant synthetic KV smoke total bytes match")
 	expectGeneratedCSV := flag.String("expect-generated", "", "comma-separated generated token IDs expected from generation smoke")
 	expectDecoded := flag.String("expect-decoded", "", "decoded generated text expected from generation smoke; implies -decode validation when tokenizer is available")
+	expectEstimatedScratchBytes := flag.Int64("expect-estimated-scratch-bytes", -1, "fail unless static TurboQuant scratch byte estimate matches this value")
+	expectEstimatedTotalBytes := flag.Int64("expect-estimated-total-bytes", -1, "fail unless static TurboQuant KV+scratch byte estimate matches this value")
 	expectRuntimeFloatBytes := flag.Int64("expect-runtime-float-bytes", -1, "fail unless planned runtime F32 KV bytes match this value")
 	expectRuntimeCompressedBytes := flag.Int64("expect-runtime-compressed-bytes", -1, "fail unless planned runtime compressed KV bytes match this value")
 	expectRuntimeScratchBytes := flag.Int64("expect-runtime-scratch-bytes", -1, "fail unless planned runtime TurboQuant scratch bytes match this value")
@@ -68,6 +70,10 @@ func main() {
 		plan, err := m.TurboQuantPlan(*cacheTypeK, *cacheTypeV, *kvResidualWindow)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: turboquant plan failed: %v\n", err)
+			os.Exit(1)
+		}
+		if err := checkExpectedStaticTurboQuantPlan(plan, *expectEstimatedScratchBytes, *expectEstimatedTotalBytes); err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 			os.Exit(1)
 		}
 		if err := checkExpectedSIMDRotation(plan.SIMDArch, plan.SIMDRotation, plan.SIMDVec, *expectSIMDRotation); err != nil {
@@ -196,6 +202,22 @@ func main() {
 	}
 	logits := m.ForwardState(state, promptIDs[0], 0, kvK, kvV)
 	fmt.Printf("forward logits=%d\n", len(logits))
+}
+
+func checkExpectedStaticTurboQuantPlan(plan model.GGUFTurboQuantPlan, expectScratch, expectTotal int64) error {
+	if expectScratch >= 0 && plan.EstimatedScratchBytes != expectScratch {
+		return fmt.Errorf("static TurboQuant scratch bytes mismatch got=%d want=%d", plan.EstimatedScratchBytes, expectScratch)
+	}
+	if expectTotal >= 0 && plan.EstimatedTotalBytes != expectTotal {
+		return fmt.Errorf("static TurboQuant total bytes mismatch got=%d want=%d", plan.EstimatedTotalBytes, expectTotal)
+	}
+	if expectScratch >= 0 {
+		fmt.Printf("expected_estimated_scratch_bytes_ok=%d\n", expectScratch)
+	}
+	if expectTotal >= 0 {
+		fmt.Printf("expected_estimated_total_bytes_ok=%d\n", expectTotal)
+	}
+	return nil
 }
 
 func checkExpectedSIMDRotation(arch string, rotation, vec, expect bool) error {

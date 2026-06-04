@@ -52,6 +52,22 @@ func TestCheckExpectedKVSmoke(t *testing.T) {
 	}
 }
 
+func TestCheckExpectedStaticTurboQuantPlan(t *testing.T) {
+	plan := model.GGUFTurboQuantPlan{EstimatedScratchBytes: 10, EstimatedTotalBytes: 20}
+	if err := checkExpectedStaticTurboQuantPlan(plan, 10, 20); err != nil {
+		t.Fatalf("expected static plan match: %v", err)
+	}
+	if err := checkExpectedStaticTurboQuantPlan(plan, -1, -1); err != nil {
+		t.Fatalf("unset static expectations should be ignored: %v", err)
+	}
+	if err := checkExpectedStaticTurboQuantPlan(plan, 1, -1); err == nil || !strings.Contains(err.Error(), "static TurboQuant scratch bytes mismatch") {
+		t.Fatalf("expected scratch mismatch, got %v", err)
+	}
+	if err := checkExpectedStaticTurboQuantPlan(plan, -1, 1); err == nil || !strings.Contains(err.Error(), "static TurboQuant total bytes mismatch") {
+		t.Fatalf("expected total mismatch, got %v", err)
+	}
+}
+
 func TestCheckExpectedRuntimeKV(t *testing.T) {
 	plan := model.GGUFGenerationKVRuntimePlan{FloatKVBytesAllocated: 245760, EstimatedCompressedKVBytes: 81920, EstimatedScratchBytes: 1280, EstimatedTotalBytes: 328960}
 	if err := checkExpectedRuntimeKV(plan, 245760, 81920, 1280, 328960); err != nil {

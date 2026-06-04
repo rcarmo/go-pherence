@@ -2367,4 +2367,20 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed. Static/full-context TurboQuant plan output now includes `estimated_scratch_bytes` and `estimated_total_bytes` while all inspect, runtime-plan, cache-smoke, benchmark, REAP, and SIMD readiness assertions remain green.
+## Session 137: Static TurboQuant plan assertions in ggufsmoke
+
+Added `ggufsmoke` assertions for static/full-context TurboQuant scratch and total estimates and wired the existing Qwen3.6 REAP preset values through smoke/cache-smoke/bench targets:
+
+```text
+estimated_scratch_bytes=9663699456
+estimated_total_bytes=11718974656
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Passed with `expected_estimated_scratch_bytes_ok` and `expected_estimated_total_bytes_ok` emitted from smoke paths.
 
