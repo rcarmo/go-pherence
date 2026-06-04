@@ -245,3 +245,6 @@ kv_compressed_bytes=81920
 kv_scratch_bytes=0
 kv_total_bytes=327680
 ```
+
+
+`GGUF_EXPECT_KV_COMPRESSED_LAYERS`, `GGUF_EXPECT_KV_SEQ`, `GGUF_EXPECT_KV_COMPRESSED_COUNT`, and `GGUF_EXPECT_KV_FULL_COUNT` can be used with `make gguf-bench` to assert aggregate compressed-cache counters from `runtime/kv.AggregateCompressedKVCacheStats`.

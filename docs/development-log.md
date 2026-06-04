@@ -2267,4 +2267,22 @@ GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
 ```
 
 Passed.
+## Session 130: TurboQuant benchmark aggregate-count assertions
+
+Added benchmark assertion flags for aggregate compressed-cache counters from `runtime/kv.AggregateCompressedKVCacheStats` and pinned the local Qwen3.6 REAP one-token benchmark values:
+
+```text
+kv_compressed_layers=10
+kv_seq=2
+kv_compressed_count=0
+kv_full_count=20
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
+```
+
+Passed with aggregate count and byte assertions.
 

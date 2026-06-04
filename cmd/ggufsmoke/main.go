@@ -39,6 +39,10 @@ func main() {
 	expectRuntimeCompressedBytes := flag.Int64("expect-runtime-compressed-bytes", -1, "fail unless planned runtime compressed KV bytes match this value")
 	expectRuntimeScratchBytes := flag.Int64("expect-runtime-scratch-bytes", -1, "fail unless planned runtime TurboQuant scratch bytes match this value")
 	expectRuntimeTotalBytes := flag.Int64("expect-runtime-total-bytes", -1, "fail unless planned runtime total KV+scratch bytes match this value")
+	expectKVCompressedLayers := flag.Int("expect-kv-compressed-layers", -1, "fail unless benchmark compressed KV layer count matches this value")
+	expectKVSeq := flag.Int("expect-kv-seq", -1, "fail unless benchmark compressed KV max sequence count matches this value")
+	expectKVCompressedCount := flag.Int("expect-kv-compressed-count", -1, "fail unless benchmark compressed KV entry count matches this value")
+	expectKVFullCount := flag.Int("expect-kv-full-count", -1, "fail unless benchmark full residual KV entry count matches this value")
 	expectKVFloatBytes := flag.Int64("expect-kv-float-bytes", -1, "fail unless benchmark F32 KV allocated bytes match this value")
 	expectKVCompressedBytes := flag.Int64("expect-kv-compressed-bytes", -1, "fail unless benchmark compressed KV stored bytes match this value")
 	expectKVScratchBytes := flag.Int64("expect-kv-scratch-bytes", -1, "fail unless benchmark compressed KV scratch bytes match this value")
@@ -156,7 +160,7 @@ func main() {
 			if *decodeOutput && tok != nil {
 				fmt.Printf("decoded=%q\n", tok.Decode(ids))
 			}
-			if err := checkExpectedBenchKV(stats, *expectKVFloatBytes, *expectKVCompressedBytes, *expectKVScratchBytes, *expectKVTotalBytes); err != nil {
+			if err := checkExpectedBenchKV(stats, *expectKVCompressedLayers, *expectKVSeq, *expectKVCompressedCount, *expectKVFullCount, *expectKVFloatBytes, *expectKVCompressedBytes, *expectKVScratchBytes, *expectKVTotalBytes); err != nil {
 				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 				os.Exit(1)
 			}
@@ -272,7 +276,19 @@ func checkExpectedRuntimeKV(plan model.GGUFGenerationKVRuntimePlan, expectFloat,
 	return nil
 }
 
-func checkExpectedBenchKV(stats generationBenchStats, expectFloat, expectCompressed, expectScratch, expectTotal int64) error {
+func checkExpectedBenchKV(stats generationBenchStats, expectLayers, expectSeq, expectCompressedCount, expectFullCount int, expectFloat, expectCompressed, expectScratch, expectTotal int64) error {
+	if expectLayers >= 0 && stats.KVCompressedLayers != expectLayers {
+		return fmt.Errorf("benchmark compressed KV layers mismatch got=%d want=%d", stats.KVCompressedLayers, expectLayers)
+	}
+	if expectSeq >= 0 && stats.KVSeqLen != expectSeq {
+		return fmt.Errorf("benchmark compressed KV seq mismatch got=%d want=%d", stats.KVSeqLen, expectSeq)
+	}
+	if expectCompressedCount >= 0 && stats.KVCompressedCount != expectCompressedCount {
+		return fmt.Errorf("benchmark compressed KV count mismatch got=%d want=%d", stats.KVCompressedCount, expectCompressedCount)
+	}
+	if expectFullCount >= 0 && stats.KVFullCount != expectFullCount {
+		return fmt.Errorf("benchmark full KV count mismatch got=%d want=%d", stats.KVFullCount, expectFullCount)
+	}
 	if expectFloat >= 0 && stats.KVFloatBytes != expectFloat {
 		return fmt.Errorf("benchmark F32 KV bytes mismatch got=%d want=%d", stats.KVFloatBytes, expectFloat)
 	}
@@ -284,6 +300,18 @@ func checkExpectedBenchKV(stats generationBenchStats, expectFloat, expectCompres
 	}
 	if expectTotal >= 0 && stats.KVTotalBytes != expectTotal {
 		return fmt.Errorf("benchmark total KV bytes mismatch got=%d want=%d", stats.KVTotalBytes, expectTotal)
+	}
+	if expectLayers >= 0 {
+		fmt.Printf("expected_kv_compressed_layers_ok=%d\n", expectLayers)
+	}
+	if expectSeq >= 0 {
+		fmt.Printf("expected_kv_seq_ok=%d\n", expectSeq)
+	}
+	if expectCompressedCount >= 0 {
+		fmt.Printf("expected_kv_compressed_count_ok=%d\n", expectCompressedCount)
+	}
+	if expectFullCount >= 0 {
+		fmt.Printf("expected_kv_full_count_ok=%d\n", expectFullCount)
 	}
 	if expectFloat >= 0 {
 		fmt.Printf("expected_kv_float_bytes_ok=%d\n", expectFloat)

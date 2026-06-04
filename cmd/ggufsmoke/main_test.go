@@ -75,23 +75,35 @@ func TestCheckExpectedRuntimeKV(t *testing.T) {
 }
 
 func TestCheckExpectedBenchKV(t *testing.T) {
-	stats := generationBenchStats{KVFloatBytes: 245760, KVCompressedBytes: 81920, KVScratchBytes: 96768, KVTotalBytes: 424448}
-	if err := checkExpectedBenchKV(stats, 245760, 81920, 96768, 424448); err != nil {
+	stats := generationBenchStats{KVCompressedLayers: 10, KVSeqLen: 2, KVCompressedCount: 0, KVFullCount: 20, KVFloatBytes: 245760, KVCompressedBytes: 81920, KVScratchBytes: 96768, KVTotalBytes: 424448}
+	if err := checkExpectedBenchKV(stats, 10, 2, 0, 20, 245760, 81920, 96768, 424448); err != nil {
 		t.Fatalf("expected KV match: %v", err)
 	}
-	if err := checkExpectedBenchKV(stats, -1, -1, -1, -1); err != nil {
+	if err := checkExpectedBenchKV(stats, -1, -1, -1, -1, -1, -1, -1, -1); err != nil {
 		t.Fatalf("unset expectations should be ignored: %v", err)
 	}
-	if err := checkExpectedBenchKV(stats, 1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "F32 KV bytes mismatch") {
+	if err := checkExpectedBenchKV(stats, 9, -1, -1, -1, -1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "compressed KV layers mismatch") {
+		t.Fatalf("expected layers mismatch, got %v", err)
+	}
+	if err := checkExpectedBenchKV(stats, -1, 1, -1, -1, -1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "compressed KV seq mismatch") {
+		t.Fatalf("expected seq mismatch, got %v", err)
+	}
+	if err := checkExpectedBenchKV(stats, -1, -1, 1, -1, -1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "compressed KV count mismatch") {
+		t.Fatalf("expected compressed count mismatch, got %v", err)
+	}
+	if err := checkExpectedBenchKV(stats, -1, -1, -1, 1, -1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "full KV count mismatch") {
+		t.Fatalf("expected full count mismatch, got %v", err)
+	}
+	if err := checkExpectedBenchKV(stats, -1, -1, -1, -1, 1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "F32 KV bytes mismatch") {
 		t.Fatalf("expected float KV mismatch, got %v", err)
 	}
-	if err := checkExpectedBenchKV(stats, -1, 1, -1, -1); err == nil || !strings.Contains(err.Error(), "compressed KV bytes mismatch") {
+	if err := checkExpectedBenchKV(stats, -1, -1, -1, -1, -1, 1, -1, -1); err == nil || !strings.Contains(err.Error(), "compressed KV bytes mismatch") {
 		t.Fatalf("expected compressed KV mismatch, got %v", err)
 	}
-	if err := checkExpectedBenchKV(stats, -1, -1, 1, -1); err == nil || !strings.Contains(err.Error(), "scratch KV bytes mismatch") {
+	if err := checkExpectedBenchKV(stats, -1, -1, -1, -1, -1, -1, 1, -1); err == nil || !strings.Contains(err.Error(), "scratch KV bytes mismatch") {
 		t.Fatalf("expected scratch KV mismatch, got %v", err)
 	}
-	if err := checkExpectedBenchKV(stats, -1, -1, -1, 1); err == nil || !strings.Contains(err.Error(), "total KV bytes mismatch") {
+	if err := checkExpectedBenchKV(stats, -1, -1, -1, -1, -1, -1, -1, 1); err == nil || !strings.Contains(err.Error(), "total KV bytes mismatch") {
 		t.Fatalf("expected total KV mismatch, got %v", err)
 	}
 }
