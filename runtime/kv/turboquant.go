@@ -139,6 +139,20 @@ func (tq *TurboQuantState) DequantizeValueTo(dst []float32, packed []byte, vMin,
 	return tq.dequantizeVectorTo(dst, packed, vMin, scale, tq.RotationV, tq.Config.ValueBits, dim)
 }
 
+func (tq *TurboQuantState) DequantizeKeyWithScratchTo(dst []float32, packed []byte, vMin, scale float32, dim int, rotated []float32, indices []byte) bool {
+	if tq == nil {
+		return false
+	}
+	return tq.dequantizeVectorWithScratchTo(dst, packed, vMin, scale, tq.RotationK, tq.Config.KeyBits, dim, rotated, indices)
+}
+
+func (tq *TurboQuantState) DequantizeValueWithScratchTo(dst []float32, packed []byte, vMin, scale float32, dim int, rotated []float32, indices []byte) bool {
+	if tq == nil {
+		return false
+	}
+	return tq.dequantizeVectorWithScratchTo(dst, packed, vMin, scale, tq.RotationV, tq.Config.ValueBits, dim, rotated, indices)
+}
+
 // QuantizeVector quantizes a float32 vector to compressed bytes.
 // Returns: quantized indices (packed), the min value, and the scale for dequantization.
 func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, codebook []float32, bits int) ([]byte, float32, float32) {
@@ -261,18 +275,25 @@ func (tq *TurboQuantState) DequantizeVector(packed []byte, vMin, scale float32, 
 }
 
 func (tq *TurboQuantState) dequantizeVectorTo(dst []float32, packed []byte, vMin, scale float32, rotation []float32, bits int, dim int) bool {
+	rotated := make([]float32, maxInt(dim, 0))
+	indices := make([]byte, maxInt(dim, 0))
+	return tq.dequantizeVectorWithScratchTo(dst, packed, vMin, scale, rotation, bits, dim, rotated, indices)
+}
+
+func (tq *TurboQuantState) dequantizeVectorWithScratchTo(dst []float32, packed []byte, vMin, scale float32, rotation []float32, bits int, dim int, rotated []float32, indices []byte) bool {
 	bits = clampBits(bits)
 	needRot := squareSize(dim)
-	if tq == nil || dim <= 0 || needRot < 0 || len(dst) < dim || len(rotation) < needRot {
+	if tq == nil || dim <= 0 || needRot < 0 || len(dst) < dim || len(rotation) < needRot || len(rotated) < dim || len(indices) < dim {
 		return false
 	}
-	// Unpack indices
-	indices := unpackIndices(packed, bits, dim)
+	if !unpackIndicesTo(indices[:dim], packed, bits) {
+		return false
+	}
 	nLevels := 1 << bits
 
 	// Dequantize: map index back to value
-	rotated := make([]float32, dim)
-	for i, idx := range indices {
+	rotated = rotated[:dim]
+	for i, idx := range indices[:dim] {
 		rotated[i] = vMin + scale*float32(idx)/float32(nLevels-1)
 	}
 
@@ -470,8 +491,17 @@ func unpackIndices(packed []byte, bits int, n int) []byte {
 		return nil
 	}
 	indices := make([]byte, n)
+	unpackIndicesTo(indices, packed, bits)
+	return indices
+}
+
+func unpackIndicesTo(indices []byte, packed []byte, bits int) bool {
+	bits = clampBits(bits)
+	if len(indices) == 0 {
+		return false
+	}
 	bitPos := 0
-	for i := 0; i < n; i++ {
+	for i := range indices {
 		var val byte
 		for b := 0; b < bits; b++ {
 			byteIdx := bitPos / 8
@@ -482,7 +512,7 @@ func unpackIndices(packed []byte, bits int, n int) []byte {
 		}
 		indices[i] = val
 	}
-	return indices
+	return true
 }
 
 func clampBits(bits int) int {

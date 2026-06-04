@@ -154,3 +154,8 @@ Generation KV runtime plans now carry the same SIMD readiness fields as the stat
 ## Destination-packed quantization
 
 `CompressedKVCache` compression now preallocates exact packed K/V entry storage and writes each head directly into its destination slice via destination-packed quantize helpers. This removes the previous temporary packed-slice allocation per compressed head while retaining the public allocating compatibility API.
+
+
+## Scratch-owned unpack/dequantization
+
+`CompressedKVCache` decompression now uses scratch-aware unpack/dequantize helpers, reusing per-cache unpacked-index and rotated-coordinate buffers while writing final K/V heads into the sequence scratch. This removes the remaining per-head temporary allocation in the native TurboQuant cache read path.

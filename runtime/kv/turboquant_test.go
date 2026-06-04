@@ -39,7 +39,7 @@ func TestTurboQuantKeyValueMethodsMatchGenericVectorAPI(t *testing.T) {
 	}
 }
 
-func TestPackIndicesTo(t *testing.T) {
+func TestPackUnpackIndicesTo(t *testing.T) {
 	indices := []byte{1, 2, 3, 4, 5, 6, 7}
 	want := packIndices(indices, 4)
 	dst := bytesWithSentinel(len(want), 0xAA)
@@ -51,6 +51,16 @@ func TestPackIndicesTo(t *testing.T) {
 	}
 	if packIndicesTo(dst[:len(dst)-1], indices, 4) {
 		t.Fatal("packIndicesTo accepted short dst")
+	}
+	unpacked := bytesWithSentinel(len(indices), 0xAA)
+	if !unpackIndicesTo(unpacked, dst, 4) {
+		t.Fatal("unpackIndicesTo rejected valid input")
+	}
+	if string(unpacked) != string(indices) {
+		t.Fatalf("unpacked mismatch got=%v want=%v", unpacked, indices)
+	}
+	if unpackIndicesTo(nil, dst, 4) {
+		t.Fatal("unpackIndicesTo accepted empty dst")
 	}
 }
 
@@ -134,6 +144,23 @@ func TestTurboQuantKeyValueDequantizeTo(t *testing.T) {
 	}
 	if tq.DequantizeValueTo(dstV[:tq.HeadDim-1], pv, minV, scaleV, tq.HeadDim) {
 		t.Fatal("DequantizeValueTo accepted short dst")
+	}
+	rotated := make([]float32, tq.HeadDim)
+	indices := make([]byte, tq.HeadDim)
+	dstKScratch := make([]float32, tq.HeadDim)
+	if !tq.DequantizeKeyWithScratchTo(dstKScratch, pk, minK, scaleK, tq.HeadDim, rotated, indices) {
+		t.Fatal("DequantizeKeyWithScratchTo rejected valid input")
+	}
+	for i := range dstKScratch {
+		if dstKScratch[i] != wantK[i] {
+			t.Fatalf("DequantizeKeyWithScratchTo[%d]=%v want %v", i, dstKScratch[i], wantK[i])
+		}
+	}
+	if tq.DequantizeKeyWithScratchTo(dstKScratch, pk, minK, scaleK, tq.HeadDim, rotated[:tq.HeadDim-1], indices) {
+		t.Fatal("DequantizeKeyWithScratchTo accepted short rotated scratch")
+	}
+	if tq.DequantizeValueWithScratchTo(dstV, pv, minV, scaleV, tq.HeadDim, rotated, indices[:tq.HeadDim-1]) {
+		t.Fatal("DequantizeValueWithScratchTo accepted short index scratch")
 	}
 }
 
@@ -250,8 +277,8 @@ func TestCompressedKVCacheDirectScratchDecompression(t *testing.T) {
 	if len(gotK) != 12 || len(gotV) != 12 {
 		t.Fatalf("unexpected decompressed lengths k=%d v=%d", len(gotK), len(gotV))
 	}
-	if len(c.scratchK) != 12 || len(c.scratchV) != 12 {
-		t.Fatalf("scratch not sized to sequence: k=%d v=%d", len(c.scratchK), len(c.scratchV))
+	if len(c.scratchK) != 12 || len(c.scratchV) != 12 || len(c.dequantRotated) != 4 || len(c.dequantIndices) != 4 {
+		t.Fatalf("scratch not sized to sequence: k=%d v=%d rotated=%d indices=%d", len(c.scratchK), len(c.scratchV), len(c.dequantRotated), len(c.dequantIndices))
 	}
 	for i := range gotK {
 		if math.IsNaN(float64(gotK[i])) || math.IsInf(float64(gotK[i]), 0) || math.IsNaN(float64(gotV[i])) || math.IsInf(float64(gotV[i]), 0) {

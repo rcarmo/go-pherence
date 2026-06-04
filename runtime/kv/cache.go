@@ -15,10 +15,12 @@ type CompressedKVCache struct {
 	// Reusable compression/decompression scratch buffers. GetK/GetV return
 	// scratchK/scratchV when compressed entries exist, so callers must treat
 	// returned slices as ephemeral.
-	scratchK     []float32
-	scratchV     []float32
-	quantRotated []float32
-	quantIndices []byte
+	scratchK       []float32
+	scratchV       []float32
+	quantRotated   []float32
+	quantIndices   []byte
+	dequantRotated []float32
+	dequantIndices []byte
 
 	// Config
 	kvDim          int
@@ -181,13 +183,21 @@ func (c *CompressedKVCache) GetK() []float32 {
 	if !ok {
 		return c.FullK
 	}
+	if cap(c.dequantRotated) < c.headDim {
+		c.dequantRotated = make([]float32, c.headDim)
+	}
+	if cap(c.dequantIndices) < c.headDim {
+		c.dequantIndices = make([]byte, c.headDim)
+	}
+	rotated := c.dequantRotated[:c.headDim]
+	indices := c.dequantIndices[:c.headDim]
 	for _, entry := range c.CompressedK {
 		if !compressedEntryValid(entry, c.numKVHeads, bytesPerHead) {
 			return c.FullK
 		}
 		for h := 0; h < c.numKVHeads; h++ {
 			packed := entry.Packed[h*bytesPerHead : (h+1)*bytesPerHead]
-			if !c.tq.DequantizeKeyTo(out[write:write+c.headDim], packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim) {
+			if !c.tq.DequantizeKeyWithScratchTo(out[write:write+c.headDim], packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim, rotated, indices) {
 				return c.FullK
 			}
 			write += c.headDim
@@ -228,13 +238,21 @@ func (c *CompressedKVCache) GetV() []float32 {
 	if !ok {
 		return c.FullV
 	}
+	if cap(c.dequantRotated) < c.headDim {
+		c.dequantRotated = make([]float32, c.headDim)
+	}
+	if cap(c.dequantIndices) < c.headDim {
+		c.dequantIndices = make([]byte, c.headDim)
+	}
+	rotated := c.dequantRotated[:c.headDim]
+	indices := c.dequantIndices[:c.headDim]
 	for _, entry := range c.CompressedV {
 		if !compressedEntryValid(entry, c.numKVHeads, bytesPerHead) {
 			return c.FullV
 		}
 		for h := 0; h < c.numKVHeads; h++ {
 			packed := entry.Packed[h*bytesPerHead : (h+1)*bytesPerHead]
-			if !c.tq.DequantizeValueTo(out[write:write+c.headDim], packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim) {
+			if !c.tq.DequantizeValueWithScratchTo(out[write:write+c.headDim], packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim, rotated, indices) {
 				return c.FullV
 			}
 			write += c.headDim
