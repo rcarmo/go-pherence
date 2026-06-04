@@ -2397,4 +2397,23 @@ Passed. Static plan values are now asserted consistently by inspect and all smok
 estimated_scratch_bytes=9663699456
 estimated_total_bytes=11718974656
 ```
+## Session 139: Complete static TurboQuant plan assertions in ggufsmoke
+
+Extended `ggufsmoke` static plan assertions to cover full, estimated, saved, scratch, and total TurboQuant byte estimates. The Qwen3.6 REAP preset now passes these existing Make variables through all smoke paths:
+
+```text
+GGUF_EXPECT_FULL_KV_BYTES=10737418240
+GGUF_EXPECT_ESTIMATED_KV_BYTES=2055275200
+GGUF_EXPECT_SAVED_KV_BYTES=8682143040
+GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES=9663699456
+GGUF_EXPECT_ESTIMATED_TOTAL_BYTES=11718974656
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Passed with static-plan assertion output from smoke/cache-smoke paths.
 

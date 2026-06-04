@@ -53,17 +53,26 @@ func TestCheckExpectedKVSmoke(t *testing.T) {
 }
 
 func TestCheckExpectedStaticTurboQuantPlan(t *testing.T) {
-	plan := model.GGUFTurboQuantPlan{EstimatedScratchBytes: 10, EstimatedTotalBytes: 20}
-	if err := checkExpectedStaticTurboQuantPlan(plan, 10, 20); err != nil {
+	plan := model.GGUFTurboQuantPlan{FullKVBytes: 100, EstimatedKVBytes: 40, EstimatedSavedKVBytes: 60, EstimatedScratchBytes: 10, EstimatedTotalBytes: 50}
+	if err := checkExpectedStaticTurboQuantPlan(plan, 100, 40, 60, 10, 50); err != nil {
 		t.Fatalf("expected static plan match: %v", err)
 	}
-	if err := checkExpectedStaticTurboQuantPlan(plan, -1, -1); err != nil {
+	if err := checkExpectedStaticTurboQuantPlan(plan, -1, -1, -1, -1, -1); err != nil {
 		t.Fatalf("unset static expectations should be ignored: %v", err)
 	}
-	if err := checkExpectedStaticTurboQuantPlan(plan, 1, -1); err == nil || !strings.Contains(err.Error(), "static TurboQuant scratch bytes mismatch") {
+	if err := checkExpectedStaticTurboQuantPlan(plan, 1, -1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "static TurboQuant full KV bytes mismatch") {
+		t.Fatalf("expected full mismatch, got %v", err)
+	}
+	if err := checkExpectedStaticTurboQuantPlan(plan, -1, 1, -1, -1, -1); err == nil || !strings.Contains(err.Error(), "static TurboQuant estimated KV bytes mismatch") {
+		t.Fatalf("expected estimated mismatch, got %v", err)
+	}
+	if err := checkExpectedStaticTurboQuantPlan(plan, -1, -1, 1, -1, -1); err == nil || !strings.Contains(err.Error(), "static TurboQuant saved KV bytes mismatch") {
+		t.Fatalf("expected saved mismatch, got %v", err)
+	}
+	if err := checkExpectedStaticTurboQuantPlan(plan, -1, -1, -1, 1, -1); err == nil || !strings.Contains(err.Error(), "static TurboQuant scratch bytes mismatch") {
 		t.Fatalf("expected scratch mismatch, got %v", err)
 	}
-	if err := checkExpectedStaticTurboQuantPlan(plan, -1, 1); err == nil || !strings.Contains(err.Error(), "static TurboQuant total bytes mismatch") {
+	if err := checkExpectedStaticTurboQuantPlan(plan, -1, -1, -1, -1, 1); err == nil || !strings.Contains(err.Error(), "static TurboQuant total bytes mismatch") {
 		t.Fatalf("expected total mismatch, got %v", err)
 	}
 }

@@ -272,3 +272,6 @@ Model-side static `GGUFTurboQuantPlan` now exposes `estimated_scratch_bytes` and
 
 
 `ggufsmoke` also accepts `-expect-estimated-scratch-bytes` and `-expect-estimated-total-bytes`, so smoke/cache-smoke/bench paths can assert the same static/full-context TurboQuant plan values as `ggufinspect`.
+
+
+`ggufsmoke` static plan assertions also cover full/estimated/saved KV bytes (`-expect-full-kv-bytes`, `-expect-estimated-kv-bytes`, `-expect-saved-kv-bytes`) in addition to scratch and total estimates, so smoke paths can pin the complete static TurboQuant plan.

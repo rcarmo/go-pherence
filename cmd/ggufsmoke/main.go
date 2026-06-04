@@ -35,6 +35,9 @@ func main() {
 	expectKVSmokeTotalBytes := flag.Int64("expect-kv-smoke-total-bytes", -1, "fail unless TurboQuant synthetic KV smoke total bytes match")
 	expectGeneratedCSV := flag.String("expect-generated", "", "comma-separated generated token IDs expected from generation smoke")
 	expectDecoded := flag.String("expect-decoded", "", "decoded generated text expected from generation smoke; implies -decode validation when tokenizer is available")
+	expectFullKVBytes := flag.Int64("expect-full-kv-bytes", -1, "fail unless static TurboQuant full KV byte estimate matches this value")
+	expectEstimatedKVBytes := flag.Int64("expect-estimated-kv-bytes", -1, "fail unless static TurboQuant compressed KV byte estimate matches this value")
+	expectSavedKVBytes := flag.Int64("expect-saved-kv-bytes", -1, "fail unless static TurboQuant saved KV byte estimate matches this value")
 	expectEstimatedScratchBytes := flag.Int64("expect-estimated-scratch-bytes", -1, "fail unless static TurboQuant scratch byte estimate matches this value")
 	expectEstimatedTotalBytes := flag.Int64("expect-estimated-total-bytes", -1, "fail unless static TurboQuant KV+scratch byte estimate matches this value")
 	expectRuntimeFloatBytes := flag.Int64("expect-runtime-float-bytes", -1, "fail unless planned runtime F32 KV bytes match this value")
@@ -72,7 +75,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: turboquant plan failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := checkExpectedStaticTurboQuantPlan(plan, *expectEstimatedScratchBytes, *expectEstimatedTotalBytes); err != nil {
+		if err := checkExpectedStaticTurboQuantPlan(plan, *expectFullKVBytes, *expectEstimatedKVBytes, *expectSavedKVBytes, *expectEstimatedScratchBytes, *expectEstimatedTotalBytes); err != nil {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 			os.Exit(1)
 		}
@@ -204,12 +207,30 @@ func main() {
 	fmt.Printf("forward logits=%d\n", len(logits))
 }
 
-func checkExpectedStaticTurboQuantPlan(plan model.GGUFTurboQuantPlan, expectScratch, expectTotal int64) error {
+func checkExpectedStaticTurboQuantPlan(plan model.GGUFTurboQuantPlan, expectFull, expectEstimated, expectSaved, expectScratch, expectTotal int64) error {
+	if expectFull >= 0 && plan.FullKVBytes != expectFull {
+		return fmt.Errorf("static TurboQuant full KV bytes mismatch got=%d want=%d", plan.FullKVBytes, expectFull)
+	}
+	if expectEstimated >= 0 && plan.EstimatedKVBytes != expectEstimated {
+		return fmt.Errorf("static TurboQuant estimated KV bytes mismatch got=%d want=%d", plan.EstimatedKVBytes, expectEstimated)
+	}
+	if expectSaved >= 0 && plan.EstimatedSavedKVBytes != expectSaved {
+		return fmt.Errorf("static TurboQuant saved KV bytes mismatch got=%d want=%d", plan.EstimatedSavedKVBytes, expectSaved)
+	}
 	if expectScratch >= 0 && plan.EstimatedScratchBytes != expectScratch {
 		return fmt.Errorf("static TurboQuant scratch bytes mismatch got=%d want=%d", plan.EstimatedScratchBytes, expectScratch)
 	}
 	if expectTotal >= 0 && plan.EstimatedTotalBytes != expectTotal {
 		return fmt.Errorf("static TurboQuant total bytes mismatch got=%d want=%d", plan.EstimatedTotalBytes, expectTotal)
+	}
+	if expectFull >= 0 {
+		fmt.Printf("expected_full_kv_bytes_ok=%d\n", expectFull)
+	}
+	if expectEstimated >= 0 {
+		fmt.Printf("expected_estimated_kv_bytes_ok=%d\n", expectEstimated)
+	}
+	if expectSaved >= 0 {
+		fmt.Printf("expected_saved_kv_bytes_ok=%d\n", expectSaved)
 	}
 	if expectScratch >= 0 {
 		fmt.Printf("expected_estimated_scratch_bytes_ok=%d\n", expectScratch)
