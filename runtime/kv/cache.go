@@ -157,9 +157,10 @@ func (c *CompressedKVCache) GetK() []float32 {
 		return c.FullK
 	}
 	if cap(c.scratchK) < need {
-		c.scratchK = make([]float32, 0, need)
+		c.scratchK = make([]float32, need)
 	}
-	out := c.scratchK[:0]
+	out := c.scratchK[:need]
+	write := 0
 	bytesPerHead, ok := compressedBytesPerHead(c.headDim, c.tq.Config.KeyBits)
 	if !ok {
 		return c.FullK
@@ -170,11 +171,13 @@ func (c *CompressedKVCache) GetK() []float32 {
 		}
 		for h := 0; h < c.numKVHeads; h++ {
 			packed := entry.Packed[h*bytesPerHead : (h+1)*bytesPerHead]
-			restored := c.tq.DequantizeKey(packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim)
-			out = append(out, restored...)
+			if !c.tq.DequantizeKeyTo(out[write:write+c.headDim], packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim) {
+				return c.FullK
+			}
+			write += c.headDim
 		}
 	}
-	out = append(out, c.FullK...)
+	copy(out[write:], c.FullK)
 	c.scratchK = out
 	return out
 }
@@ -201,9 +204,10 @@ func (c *CompressedKVCache) GetV() []float32 {
 		return c.FullV
 	}
 	if cap(c.scratchV) < need {
-		c.scratchV = make([]float32, 0, need)
+		c.scratchV = make([]float32, need)
 	}
-	out := c.scratchV[:0]
+	out := c.scratchV[:need]
+	write := 0
 	bytesPerHead, ok := compressedBytesPerHead(c.headDim, c.tq.Config.ValueBits)
 	if !ok {
 		return c.FullV
@@ -214,11 +218,13 @@ func (c *CompressedKVCache) GetV() []float32 {
 		}
 		for h := 0; h < c.numKVHeads; h++ {
 			packed := entry.Packed[h*bytesPerHead : (h+1)*bytesPerHead]
-			restored := c.tq.DequantizeValue(packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim)
-			out = append(out, restored...)
+			if !c.tq.DequantizeValueTo(out[write:write+c.headDim], packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim) {
+				return c.FullV
+			}
+			write += c.headDim
 		}
 	}
-	out = append(out, c.FullV...)
+	copy(out[write:], c.FullV)
 	c.scratchV = out
 	return out
 }

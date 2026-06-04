@@ -129,3 +129,8 @@ TurboQuant vector rotation and inverse rotation now call the checked `backends/s
 ## KV-owned key/value helpers
 
 `TurboQuantState` now exposes key/value-specific quantize/dequantize helpers for compressed KV cache users. The compressed cache calls these helpers instead of passing raw rotation/codebook slices around, so built-in K/V cache operations consistently use the owned TurboQuant policy and the stored-transpose SIMD inverse path. The generic vector API remains available for tests and compatibility.
+
+
+## Scratch-owned dequantization
+
+`CompressedKVCache.GetK/GetV` now use destination-based key/value dequantize helpers and write decompressed heads directly into reusable scratch buffers. This removes the previous per-compressed-head restored-vector allocation while preserving malformed-entry fallback behavior.

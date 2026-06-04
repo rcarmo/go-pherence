@@ -107,18 +107,36 @@ func (tq *TurboQuantState) QuantizeValue(vec []float32) ([]byte, float32, float3
 
 // DequantizeKey restores one key-head vector using the built-in key rotation.
 func (tq *TurboQuantState) DequantizeKey(packed []byte, vMin, scale float32, dim int) []float32 {
-	if tq == nil {
-		return make([]float32, maxInt(dim, 0))
+	out := make([]float32, maxInt(dim, 0))
+	if !tq.DequantizeKeyTo(out, packed, vMin, scale, dim) {
+		return out
 	}
-	return tq.DequantizeVector(packed, vMin, scale, tq.RotationK, tq.Config.KeyBits, dim)
+	return out
 }
 
 // DequantizeValue restores one value-head vector using the built-in value rotation.
 func (tq *TurboQuantState) DequantizeValue(packed []byte, vMin, scale float32, dim int) []float32 {
-	if tq == nil {
-		return make([]float32, maxInt(dim, 0))
+	out := make([]float32, maxInt(dim, 0))
+	if !tq.DequantizeValueTo(out, packed, vMin, scale, dim) {
+		return out
 	}
-	return tq.DequantizeVector(packed, vMin, scale, tq.RotationV, tq.Config.ValueBits, dim)
+	return out
+}
+
+// DequantizeKeyTo restores one key-head vector into caller-owned storage.
+func (tq *TurboQuantState) DequantizeKeyTo(dst []float32, packed []byte, vMin, scale float32, dim int) bool {
+	if tq == nil {
+		return false
+	}
+	return tq.dequantizeVectorTo(dst, packed, vMin, scale, tq.RotationK, tq.Config.KeyBits, dim)
+}
+
+// DequantizeValueTo restores one value-head vector into caller-owned storage.
+func (tq *TurboQuantState) DequantizeValueTo(dst []float32, packed []byte, vMin, scale float32, dim int) bool {
+	if tq == nil {
+		return false
+	}
+	return tq.dequantizeVectorTo(dst, packed, vMin, scale, tq.RotationV, tq.Config.ValueBits, dim)
 }
 
 // QuantizeVector quantizes a float32 vector to compressed bytes.
@@ -182,10 +200,18 @@ func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, cod
 
 // DequantizeVector restores a float32 vector from compressed form.
 func (tq *TurboQuantState) DequantizeVector(packed []byte, vMin, scale float32, rotation []float32, bits int, dim int) []float32 {
+	out := make([]float32, maxInt(dim, 0))
+	if !tq.dequantizeVectorTo(out, packed, vMin, scale, rotation, bits, dim) {
+		return out
+	}
+	return out
+}
+
+func (tq *TurboQuantState) dequantizeVectorTo(dst []float32, packed []byte, vMin, scale float32, rotation []float32, bits int, dim int) bool {
 	bits = clampBits(bits)
 	needRot := squareSize(dim)
-	if tq == nil || dim <= 0 || needRot < 0 || len(rotation) < needRot {
-		return make([]float32, maxInt(dim, 0))
+	if tq == nil || dim <= 0 || needRot < 0 || len(dst) < dim || len(rotation) < needRot {
+		return false
 	}
 	// Unpack indices
 	indices := unpackIndices(packed, bits, dim)
@@ -201,14 +227,13 @@ func (tq *TurboQuantState) DequantizeVector(packed []byte, vMin, scale float32, 
 	// precomputed transpose so inverse rotation also runs through row-GEMV and
 	// can hit AVX/NEON/RVV dot-product assembly. External rotation slices retain
 	// the checked column-GEMV/scalar fallback for API compatibility.
-	out := make([]float32, dim)
+	out := dst[:dim]
 	if rt := tq.transposeForRotation(rotation); rt != nil && len(rt) >= needRot {
 		rotateRows(out, rotated, rt, dim)
 	} else {
 		rotateCols(out, rotated, rotation, dim)
 	}
-
-	return out
+	return true
 }
 
 func (tq *TurboQuantState) transposeForRotation(rotation []float32) []float32 {

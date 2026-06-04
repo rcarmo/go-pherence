@@ -39,6 +39,39 @@ func TestTurboQuantKeyValueMethodsMatchGenericVectorAPI(t *testing.T) {
 	}
 }
 
+func TestTurboQuantKeyValueDequantizeTo(t *testing.T) {
+	tq := NewTurboQuantState(8, 2, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	vec := []float32{0.5, -1, 1.5, 2, -0.25, 0.75, -1.25, 0.125}
+	pk, minK, scaleK := tq.QuantizeKey(vec)
+	wantK := tq.DequantizeKey(pk, minK, scaleK, tq.HeadDim)
+	dstK := make([]float32, tq.HeadDim)
+	if !tq.DequantizeKeyTo(dstK, pk, minK, scaleK, tq.HeadDim) {
+		t.Fatal("DequantizeKeyTo rejected valid input")
+	}
+	for i := range dstK {
+		if dstK[i] != wantK[i] {
+			t.Fatalf("DequantizeKeyTo[%d]=%v want %v", i, dstK[i], wantK[i])
+		}
+	}
+	pv, minV, scaleV := tq.QuantizeValue(vec)
+	wantV := tq.DequantizeValue(pv, minV, scaleV, tq.HeadDim)
+	dstV := make([]float32, tq.HeadDim)
+	if !tq.DequantizeValueTo(dstV, pv, minV, scaleV, tq.HeadDim) {
+		t.Fatal("DequantizeValueTo rejected valid input")
+	}
+	for i := range dstV {
+		if dstV[i] != wantV[i] {
+			t.Fatalf("DequantizeValueTo[%d]=%v want %v", i, dstV[i], wantV[i])
+		}
+	}
+	if tq.DequantizeKeyTo(dstK[:tq.HeadDim-1], pk, minK, scaleK, tq.HeadDim) {
+		t.Fatal("DequantizeKeyTo accepted short dst")
+	}
+	if tq.DequantizeValueTo(dstV[:tq.HeadDim-1], pv, minV, scaleV, tq.HeadDim) {
+		t.Fatal("DequantizeValueTo accepted short dst")
+	}
+}
+
 func TestTurboQuantKeyValueMethodsHandleNilState(t *testing.T) {
 	var tq *TurboQuantState
 	if p, vMin, scale := tq.QuantizeKey([]float32{1, 2}); p != nil || vMin != 0 || scale != 0 {
@@ -114,6 +147,34 @@ func TestTurboQuantInverseUsesStoredTranspose(t *testing.T) {
 				t.Fatalf("bad V transpose at r=%d c=%d", r, c)
 			}
 		}
+	}
+}
+
+func TestCompressedKVCacheDirectScratchDecompression(t *testing.T) {
+	tq := NewTurboQuantState(4, 1, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 1})
+	c := NewCompressedKVCache(4, 1, 4, tq, false)
+	for i := 0; i < 3; i++ {
+		c.Append([]float32{float32(i), float32(i + 1), float32(i + 2), float32(i + 3)}, []float32{float32(-i), float32(i) + 0.5, float32(i) + 1.5, float32(i) + 2.5})
+	}
+	if c.CompressedCount() != 2 || c.FullCount() != 1 || c.SeqLen() != 3 {
+		t.Fatalf("unexpected counts compressed=%d full=%d seq=%d", c.CompressedCount(), c.FullCount(), c.SeqLen())
+	}
+	gotK := c.GetK()
+	gotV := c.GetV()
+	if len(gotK) != 12 || len(gotV) != 12 {
+		t.Fatalf("unexpected decompressed lengths k=%d v=%d", len(gotK), len(gotV))
+	}
+	if len(c.scratchK) != 12 || len(c.scratchV) != 12 {
+		t.Fatalf("scratch not sized to sequence: k=%d v=%d", len(c.scratchK), len(c.scratchV))
+	}
+	for i := range gotK {
+		if math.IsNaN(float64(gotK[i])) || math.IsInf(float64(gotK[i]), 0) || math.IsNaN(float64(gotV[i])) || math.IsInf(float64(gotV[i]), 0) {
+			t.Fatalf("bad decompressed value at %d k=%v v=%v", i, gotK[i], gotV[i])
+		}
+	}
+	gotK2 := c.GetK()
+	if len(gotK2) != 12 || &gotK2[0] != &c.scratchK[0] {
+		t.Fatalf("GetK did not reuse scratch")
 	}
 }
 
