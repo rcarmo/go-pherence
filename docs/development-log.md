@@ -2316,4 +2316,20 @@ GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
 ```
 
 Passed, including `expected_simd_rotation_ok=true arch=amd64` in the runtime smoke paths.
+## Session 133: TurboQuant inspect scratch-plan assertions
+
+Extended `ggufinspect` TurboQuant plans with inspect-time scratch and total KV+scratch estimates plus assertion flags. The Qwen3.6 REAP inspect preset now pins:
+
+```text
+estimated_scratch_bytes=9663699456
+estimated_total_bytes=11718974656
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-inspect-qwen36-reap
+```
+
+Passed, and the focused GGUF package build sweep remained green.
 

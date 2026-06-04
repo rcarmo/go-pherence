@@ -19,6 +19,9 @@ func TestGGUFTurboQuantPlanFromInspection(t *testing.T) {
 	if plan.FullKVBytes != 10737418240 || plan.EstimatedBytes != 2059448320 || plan.SavedBytes != 8677969920 || plan.EstimatedKVRatio <= 0 || plan.EstimatedKVRatio >= 1 {
 		t.Fatalf("bad byte estimate: %+v", plan)
 	}
+	if plan.EstimatedScratchBytes != 9663699456 || plan.EstimatedTotalBytes != 11723147776 {
+		t.Fatalf("bad scratch/total estimate: %+v", plan)
+	}
 	caps := kv.RuntimeTurboQuantCapabilities()
 	if plan.SIMDArch != caps.Arch || plan.SIMDRotation != caps.Rotation || plan.SIMDVec != caps.Vec || plan.SIMDAVX2 != caps.AVX2 || plan.SIMDNEON != caps.NEON || plan.SIMDRVv != caps.RVV {
 		t.Fatalf("bad SIMD plan fields: %+v caps=%+v", plan, caps)
