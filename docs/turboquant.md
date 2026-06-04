@@ -229,3 +229,19 @@ The one-token benchmark does not materialize compressed-cache read scratch, so `
 ## Aggregate compressed-cache stats
 
 `runtime/kv.AggregateCompressedKVCacheStats` summarizes all compressed KV cache layers with layer count, max sequence length, compressed/full counts, stored bytes, scratch bytes, and total bytes. Benchmark tooling now consumes this kv-owned aggregate rather than manually summing per-layer cache fields.
+
+
+### Qwen3.6 REAP benchmark aggregate KV counters
+
+`ggufsmoke -bench` now reports kv-owned aggregate compressed-cache counters in addition to byte totals. For the local one-token Qwen3.6 REAP benchmark, the pinned observation is:
+
+```text
+kv_compressed_layers=10
+kv_seq=2
+kv_compressed_count=0
+kv_full_count=20
+kv_float_bytes=245760
+kv_compressed_bytes=81920
+kv_scratch_bytes=0
+kv_total_bytes=327680
+```

@@ -2245,4 +2245,26 @@ Passed. The bundle now validates:
 - synthetic compressed-cache stored/scratch/total byte accounting;
 - one-token greedy generation and decoded text;
 - benchmark float/compressed/scratch/total KV footprint.
+## Session 129: TurboQuant benchmark aggregate KV counters
+
+Extended `ggufsmoke -bench` to print kv-owned aggregate compressed-cache counters from `runtime/kv.AggregateCompressedKVCacheStats` alongside benchmark byte totals. Local Qwen3.6 REAP one-token benchmark observation:
+
+```text
+kv_compressed_layers=10
+kv_seq=2
+kv_compressed_count=0
+kv_full_count=20
+kv_float_bytes=245760
+kv_compressed_bytes=81920
+kv_scratch_bytes=0
+kv_total_bytes=327680
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
+```
+
+Passed.
 

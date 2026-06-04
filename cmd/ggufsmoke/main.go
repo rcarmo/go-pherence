@@ -160,7 +160,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f kv_float_bytes=%d kv_compressed_bytes=%d kv_scratch_bytes=%d kv_total_bytes=%d\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS(), stats.KVFloatBytes, stats.KVCompressedBytes, stats.KVScratchBytes, stats.KVTotalBytes)
+			fmt.Printf("prefill_tokens=%d prefill_s=%.3f prefill_tps=%.2f decode_tokens=%d decode_s=%.3f decode_tps=%.2f kv_compressed_layers=%d kv_seq=%d kv_compressed_count=%d kv_full_count=%d kv_float_bytes=%d kv_compressed_bytes=%d kv_scratch_bytes=%d kv_total_bytes=%d\n", stats.PrefillTokens, stats.PrefillSeconds, stats.PrefillTPS(), stats.DecodeTokens, stats.DecodeSeconds, stats.DecodeTPS(), stats.KVCompressedLayers, stats.KVSeqLen, stats.KVCompressedCount, stats.KVFullCount, stats.KVFloatBytes, stats.KVCompressedBytes, stats.KVScratchBytes, stats.KVTotalBytes)
 			return
 		}
 		ids, err := m.GenerateWithOptions(promptIDs, *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow})
@@ -359,14 +359,18 @@ func parsePromptIDs(csv string) ([]int, error) {
 }
 
 type generationBenchStats struct {
-	PrefillTokens     int
-	PrefillSeconds    float64
-	DecodeTokens      int
-	DecodeSeconds     float64
-	KVFloatBytes      int64
-	KVCompressedBytes int64
-	KVScratchBytes    int64
-	KVTotalBytes      int64
+	PrefillTokens      int
+	PrefillSeconds     float64
+	DecodeTokens       int
+	DecodeSeconds      float64
+	KVCompressedLayers int
+	KVSeqLen           int
+	KVCompressedCount  int
+	KVFullCount        int
+	KVFloatBytes       int64
+	KVCompressedBytes  int64
+	KVScratchBytes     int64
+	KVTotalBytes       int64
 }
 
 func (s generationBenchStats) PrefillTPS() float64 {
@@ -437,11 +441,11 @@ func runGenerationBench(m *model.GGUFLlama, promptIDs []int, maxNew int, opts mo
 	}
 	stats.DecodeTokens = len(generated)
 	stats.DecodeSeconds = time.Since(d0).Seconds()
-	stats.KVFloatBytes, stats.KVCompressedBytes, stats.KVScratchBytes, stats.KVTotalBytes = ggufBenchKVBytes(kvK, kvV, compressedKV)
+	stats.KVFloatBytes, stats.KVCompressedLayers, stats.KVSeqLen, stats.KVCompressedCount, stats.KVFullCount, stats.KVCompressedBytes, stats.KVScratchBytes, stats.KVTotalBytes = ggufBenchKVStats(kvK, kvV, compressedKV)
 	return generated, stats, nil
 }
 
-func ggufBenchKVBytes(kvK, kvV [][]float32, compressedKV []*kv.CompressedKVCache) (floatBytes, compressedBytes, scratchBytes, totalBytes int64) {
+func ggufBenchKVStats(kvK, kvV [][]float32, compressedKV []*kv.CompressedKVCache) (floatBytes int64, compressedLayers, seqLen, compressedCount, fullCount int, compressedBytes, scratchBytes, totalBytes int64) {
 	for _, x := range kvK {
 		floatBytes += int64(len(x)) * 4
 	}
@@ -449,9 +453,13 @@ func ggufBenchKVBytes(kvK, kvV [][]float32, compressedKV []*kv.CompressedKVCache
 		floatBytes += int64(len(x)) * 4
 	}
 	compressedStats := kv.AggregateCompressedKVCacheStats(compressedKV)
+	compressedLayers = compressedStats.Layers
+	seqLen = compressedStats.SeqLen
+	compressedCount = compressedStats.CompressedCount
+	fullCount = compressedStats.FullCount
 	compressedBytes = compressedStats.StoredBytes
 	scratchBytes = compressedStats.ScratchBytes
-	return floatBytes, compressedBytes, scratchBytes, floatBytes + compressedBytes + scratchBytes
+	return floatBytes, compressedLayers, seqLen, compressedCount, fullCount, compressedBytes, scratchBytes, floatBytes + compressedBytes + scratchBytes
 }
 
 func argmaxLocal(x []float32) int {
