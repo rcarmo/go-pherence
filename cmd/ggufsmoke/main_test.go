@@ -26,6 +26,17 @@ func TestCheckExpectedGenerated(t *testing.T) {
 	}
 }
 
+func TestCheckExpectedKVSmokeFromCacheStats(t *testing.T) {
+	tq := kv.NewTurboQuantState(4, 1, kv.TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	c := kv.NewCompressedKVCache(4, 1, 4, tq, false)
+	c.Append([]float32{1, 2, 3, 4}, []float32{4, 3, 2, 1})
+	_ = c.GetK()
+	st := c.Stats()
+	if err := checkExpectedKVSmoke(7, st.CompressedCount, st.FullCount, st.StoredBytes, st.ScratchBytes, st.TotalBytes, 7, st.CompressedCount, st.FullCount, st.StoredBytes, st.ScratchBytes, st.TotalBytes); err != nil {
+		t.Fatalf("expected cache stats smoke match: %v stats=%+v", err, st)
+	}
+}
+
 func TestCheckExpectedKVSmoke(t *testing.T) {
 	if err := checkExpectedKVSmoke(3, 3, 2, 9440, 100, 9540, 3, 3, 2, 9440, 100, 9540); err != nil {
 		t.Fatalf("expected KV smoke match: %v", err)
