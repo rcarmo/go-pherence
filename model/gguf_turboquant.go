@@ -91,7 +91,6 @@ func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGene
 	if maxSeq < 0 {
 		maxSeq = 0
 	}
-	var compressed []*kv.CompressedKVCache
 	tqCfg := kv.DefaultTurboQuantConfig()
 	enabled := false
 	if opts.CacheTypeK != "" || opts.CacheTypeV != "" || opts.KVResidualWindow >= 0 {
@@ -100,16 +99,11 @@ func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGene
 		if err != nil {
 			return GGUFGenerationKVRuntimePlan{}, err
 		}
-		caches, err := m.NewTurboQuantKVCache(opts.CacheTypeK, opts.CacheTypeV, opts.KVResidualWindow)
-		if err != nil {
-			return GGUFGenerationKVRuntimePlan{}, err
-		}
-		compressed = caches
 	}
 	kvDim := cfg.NumKVHeads * cfg.HeadDim
 	plan := GGUFGenerationKVRuntimePlan{MaxSeq: maxSeq}
 	for i := 0; i < cfg.NumLayers; i++ {
-		if i < len(compressed) && compressed[i] != nil {
+		if enabled && cfg.GGUFUsesCompressedKVLayer(i) {
 			plan.CompressedKVLayers++
 			continue
 		}
