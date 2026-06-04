@@ -120,4 +120,4 @@ Unit tests cover:
 
 ## Native SIMD rotation path
 
-TurboQuant vector rotation and inverse rotation now call the checked `backends/simd/runtime` GEMV facade. On supported CPUs this routes the hot per-head rotation dot products through AVX2/FMA, NEON, or RVV-gated dot-product assembly where available, while retaining a scalar fallback for malformed inputs or unsupported runtimes. This keeps GGUF REAP/TurboQuant execution inside go-pherence pure Go/SIMD components instead of relying on llama.cpp cache kernels.
+TurboQuant vector rotation and inverse rotation now call the checked `backends/simd/runtime` GEMV facade. On supported CPUs this routes the hot per-head rotation dot products through AVX2/FMA, NEON, or RVV-gated dot-product assembly where available, while retaining a scalar fallback for malformed inputs or unsupported runtimes. Built-in key/value rotations store transposed matrices so inverse rotation also uses row-GEMV/dot-product dispatch rather than strided scalar column walks. This keeps GGUF REAP/TurboQuant execution inside go-pherence pure Go/SIMD components instead of relying on llama.cpp cache kernels.

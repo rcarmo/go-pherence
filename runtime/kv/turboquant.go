@@ -27,13 +27,15 @@ func DefaultTurboQuantConfig() TurboQuantConfig {
 
 // TurboQuantState holds per-model quantization state.
 type TurboQuantState struct {
-	Config    TurboQuantConfig
-	RotationK []float32 // [headDim × headDim] random orthogonal matrix for keys
-	RotationV []float32 // [headDim × headDim] random orthogonal matrix for values
-	CodebookK []float32 // [2^keyBits] reserved for future non-uniform quantization
-	CodebookV []float32 // [2^valueBits] reserved for future non-uniform quantization
-	HeadDim   int
-	NumLayers int
+	Config     TurboQuantConfig
+	RotationK  []float32 // [headDim × headDim] random orthogonal matrix for keys
+	RotationV  []float32 // [headDim × headDim] random orthogonal matrix for values
+	RotationKT []float32 // transpose of RotationK, for SIMD row-GEMV inverse rotation
+	RotationVT []float32 // transpose of RotationV, for SIMD row-GEMV inverse rotation
+	CodebookK  []float32 // [2^keyBits] reserved for future non-uniform quantization
+	CodebookV  []float32 // [2^valueBits] reserved for future non-uniform quantization
+	HeadDim    int
+	NumLayers  int
 }
 
 // NewTurboQuantState initializes TurboQuant for a model.
@@ -59,6 +61,8 @@ func NewTurboQuantState(headDim, numLayers int, cfg TurboQuantConfig) *TurboQuan
 	rng := rand.New(rand.NewSource(42)) // fixed seed for reproducibility
 	tq.RotationK = randomOrthogonal(headDim, rng)
 	tq.RotationV = randomOrthogonal(headDim, rng)
+	tq.RotationKT = transposeSquare(tq.RotationK, headDim)
+	tq.RotationVT = transposeSquare(tq.RotationV, headDim)
 
 	// Compute Beta-optimal codebooks
 	tq.CodebookK = betaOptimalCodebook(cfg.KeyBits)
@@ -159,12 +163,31 @@ func (tq *TurboQuantState) DequantizeVector(packed []byte, vMin, scale float32, 
 		rotated[i] = vMin + scale*float32(idx)/float32(nLevels-1)
 	}
 
-	// Inverse rotation: R^T @ rotated. GemvCols computes x · R, equivalent to
-	// R^T · x for row-major R, again using the checked SIMD facade when present.
+	// Inverse rotation: R^T @ rotated. For the built-in K/V rotations, use the
+	// precomputed transpose so inverse rotation also runs through row-GEMV and
+	// can hit AVX/NEON/RVV dot-product assembly. External rotation slices retain
+	// the checked column-GEMV/scalar fallback for API compatibility.
 	out := make([]float32, dim)
-	rotateCols(out, rotated, rotation, dim)
+	if rt := tq.transposeForRotation(rotation); rt != nil && len(rt) >= needRot {
+		rotateRows(out, rotated, rt, dim)
+	} else {
+		rotateCols(out, rotated, rotation, dim)
+	}
 
 	return out
+}
+
+func (tq *TurboQuantState) transposeForRotation(rotation []float32) []float32 {
+	if tq == nil || len(rotation) == 0 {
+		return nil
+	}
+	if len(tq.RotationK) > 0 && &rotation[0] == &tq.RotationK[0] {
+		return tq.RotationKT
+	}
+	if len(tq.RotationV) > 0 && &rotation[0] == &tq.RotationV[0] {
+		return tq.RotationVT
+	}
+	return nil
 }
 
 func rotateRows(dst, vec, rotation []float32, dim int) bool {
@@ -201,6 +224,20 @@ func rotateCols(dst, vec, rotation []float32, dim int) bool {
 		dst[i] = sum
 	}
 	return true
+}
+
+func transposeSquare(src []float32, dim int) []float32 {
+	need := squareSize(dim)
+	if dim <= 0 || need < 0 || len(src) < need {
+		return nil
+	}
+	out := make([]float32, need)
+	for r := 0; r < dim; r++ {
+		for c := 0; c < dim; c++ {
+			out[c*dim+r] = src[r*dim+c]
+		}
+	}
+	return out
 }
 
 // randomOrthogonal generates a row-major random orthogonal matrix via

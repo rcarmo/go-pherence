@@ -40,6 +40,57 @@ func TestTurboQuantSIMDRotationParity(t *testing.T) {
 	}
 }
 
+func TestTurboQuantInverseUsesStoredTranspose(t *testing.T) {
+	tq := NewTurboQuantState(8, 2, DefaultTurboQuantConfig())
+	if len(tq.RotationKT) != len(tq.RotationK) || len(tq.RotationVT) != len(tq.RotationV) {
+		t.Fatalf("missing transposed rotations: k=%d kt=%d v=%d vt=%d", len(tq.RotationK), len(tq.RotationKT), len(tq.RotationV), len(tq.RotationVT))
+	}
+	if got := tq.transposeForRotation(tq.RotationK); len(got) != len(tq.RotationKT) || &got[0] != &tq.RotationKT[0] {
+		t.Fatal("key rotation did not select stored transpose")
+	}
+	if got := tq.transposeForRotation(tq.RotationV); len(got) != len(tq.RotationVT) || &got[0] != &tq.RotationVT[0] {
+		t.Fatal("value rotation did not select stored transpose")
+	}
+	copyRot := append([]float32(nil), tq.RotationK...)
+	if got := tq.transposeForRotation(copyRot); got != nil {
+		t.Fatalf("external rotation copy selected internal transpose len=%d", len(got))
+	}
+	for r := 0; r < tq.HeadDim; r++ {
+		for c := 0; c < tq.HeadDim; c++ {
+			if tq.RotationKT[c*tq.HeadDim+r] != tq.RotationK[r*tq.HeadDim+c] {
+				t.Fatalf("bad K transpose at r=%d c=%d", r, c)
+			}
+			if tq.RotationVT[c*tq.HeadDim+r] != tq.RotationV[r*tq.HeadDim+c] {
+				t.Fatalf("bad V transpose at r=%d c=%d", r, c)
+			}
+		}
+	}
+}
+
+func TestCompressedKVCacheUsesSIMDTransposeDecompression(t *testing.T) {
+	tq := NewTurboQuantState(4, 1, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	c := NewCompressedKVCache(4, 1, 4, tq, false)
+	k := []float32{0.25, -0.5, 1.25, 2.0}
+	v := []float32{-1.0, 0.75, 1.5, -0.25}
+	c.Append(k, v)
+	if c.CompressedCount() != 1 || c.FullCount() != 0 || c.SeqLen() != 1 {
+		t.Fatalf("unexpected cache counts: compressed=%d full=%d seq=%d", c.CompressedCount(), c.FullCount(), c.SeqLen())
+	}
+	gotK := c.GetK()
+	gotV := c.GetV()
+	if len(gotK) != len(k) || len(gotV) != len(v) {
+		t.Fatalf("unexpected decompressed lengths: k=%d v=%d", len(gotK), len(gotV))
+	}
+	for i := range gotK {
+		if math.IsNaN(float64(gotK[i])) || math.IsInf(float64(gotK[i]), 0) {
+			t.Fatalf("bad K[%d]=%v", i, gotK[i])
+		}
+		if math.IsNaN(float64(gotV[i])) || math.IsInf(float64(gotV[i]), 0) {
+			t.Fatalf("bad V[%d]=%v", i, gotV[i])
+		}
+	}
+}
+
 func TestTurboQuantRotationRejectsMalformedInputs(t *testing.T) {
 	out := make([]float32, 4)
 	vec := make([]float32, 4)
