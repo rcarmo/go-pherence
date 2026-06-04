@@ -278,7 +278,8 @@ Current TRELLIS.2 support in `go-pherence` is limited to:
 - Go parsing/validation for pipeline and checkpoint JSON configs
 - Go reference math for the upstream FlowEuler scheduler
 - fixture-compatible tensor summary/hash helpers
-- dependency-gated Python scaffolds for low-step fixture generation
+- native Go sparse tensor/layout scaffolding and sparse linear execution over active feature rows
+- dependency-gated Python scripts as optional oracle/readiness tools only, not implementation path
 - O-Voxel/sparse layout and backend feasibility notes
 
 It does **not** include TRELLIS.2 runtime inference. In particular, the following are not implemented in Go:
@@ -306,14 +307,14 @@ Until then, describe TRELLIS.2 support as **metadata and fixture scaffolding onl
 
 ## Next phase: sparse fixture metadata
 
-The first post-roadmap implementation surface is Go-side fixture metadata, not runtime kernels. `loader/config` now includes TRELLIS.2 low-step fixture structs and validators for compact JSON emitted by `scripts/trellis2_lowstep_fixture.py`:
+The first post-roadmap implementation surface is Go-native sparse layout and fixture metadata, not Python runtime. `model/trellis2` now contains a native `SparseTensor` layout and SIMD-backed `SparseLinearFloat32` over active feature rows. `loader/config` includes TRELLIS.2 low-step fixture structs and validators for compact JSON emitted by optional oracle scripts such as `scripts/trellis2_lowstep_fixture.py`:
 
 - top-level fixture schema and run metadata
 - fixture-compatible float32 tensor summaries
 - sparse structure coordinate summaries with `[N,4]` int coordinate shape checks
 - optional structured-latent coordinate/flow-model metadata
 
-This provides a stable place for future upstream CUDA fixture runs to land without committing tensor payloads or implying inference support.
+This provides a stable place for future upstream CUDA fixture runs to land without committing tensor payloads or implying inference support, while the actual implementation path proceeds through native go-pherence kernels.
 
 `trellis2_ovoxel_inspect.py` is the matching metadata-only O-Voxel inspector scaffold. It currently parses `.npy` and `.npz` array headers with the standard library and reports shape/dtype/container metadata for other files without invoking O-Voxel conversion, rendering, postprocess, mesh extraction, or GLB export. Use it via:
 
