@@ -39,6 +39,12 @@ type GGUFTurboQuantPlan struct {
 	EstimatedKVBytes      int64   `json:"estimated_kv_bytes,omitempty"`
 	EstimatedSavedKVBytes int64   `json:"estimated_saved_kv_bytes,omitempty"`
 	EstimatedKVRatio      float64 `json:"estimated_kv_ratio,omitempty"`
+	SIMDArch              string  `json:"simd_arch"`
+	SIMDRotation          bool    `json:"simd_rotation"`
+	SIMDVec               bool    `json:"simd_vec"`
+	SIMDAVX2              bool    `json:"simd_avx2"`
+	SIMDNEON              bool    `json:"simd_neon"`
+	SIMDRVv               bool    `json:"simd_rvv"`
 }
 
 func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int) (GGUFTurboQuantPlan, error) {
@@ -73,6 +79,13 @@ func (m *GGUFLlama) TurboQuantPlan(keyType, valueType string, residualWindow int
 	plan.EstimatedSavedKVBytes = est.SavedBytes
 	plan.EstimatedKVRatio = est.Ratio
 	plan.ProtectedCacheLayers = est.ProtectedLayers
+	caps := kv.RuntimeTurboQuantCapabilities()
+	plan.SIMDArch = caps.Arch
+	plan.SIMDRotation = caps.Rotation
+	plan.SIMDVec = caps.Vec
+	plan.SIMDAVX2 = caps.AVX2
+	plan.SIMDNEON = caps.NEON
+	plan.SIMDRVv = caps.RVV
 	return plan, nil
 }
 

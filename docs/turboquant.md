@@ -134,3 +134,8 @@ TurboQuant vector rotation and inverse rotation now call the checked `backends/s
 ## Scratch-owned dequantization
 
 `CompressedKVCache.GetK/GetV` now use destination-based key/value dequantize helpers and write decompressed heads directly into reusable scratch buffers. This removes the previous per-compressed-head restored-vector allocation while preserving malformed-entry fallback behavior.
+
+
+## Model-side SIMD readiness
+
+Model-side `GGUFTurboQuantPlan` now carries the kv-owned SIMD readiness fields (`simd_arch`, `simd_rotation`, `simd_vec`, `simd_avx2`, `simd_neon`, `simd_rvv`). Runtime tools such as `ggufsmoke` can report the model plan directly instead of reinterpreting SIMD capabilities at the CLI layer.
