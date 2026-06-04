@@ -21,7 +21,7 @@ func gebpMicroKernel(k int, alpha float32, a unsafe.Pointer, lda int, bp unsafe.
 				return
 			}
 			aRow := unsafe.Slice((*float32)(unsafe.Add(a, aOff)), k)
-			sum := sdotAsm(aRow, bCol)
+			sum := sdotM4Asm(aRow, bCol)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
 	}

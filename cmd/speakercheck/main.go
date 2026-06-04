@@ -2,6 +2,7 @@
 package main
 
 import (
+	"time"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -69,6 +70,15 @@ func main() {
 		os.Exit(2)
 	}
 
+	dbg := os.Getenv("SPEAKER_DEBUG") != ""
+	tick := time.Now()
+	lap := func(name string) {
+		if dbg {
+			fmt.Fprintf(os.Stderr, "[t] %-12s %.2fs\n", name, time.Since(tick).Seconds())
+			tick = time.Now()
+		}
+	}
+
 	samples, sr, cleanup, err := loadAudioSamples(*input)
 	if cleanup != nil {
 		defer cleanup()
@@ -81,14 +91,19 @@ func main() {
 		sr = 16000
 	}
 	samples = sliceSamples(samples, sr, *startSec, *durationSec)
+	lap("audio")
 	model, err := speaker.LoadSpeechBrainECAPASafetensors(*modelPath)
 	if err != nil {
 		fatalf("speaker model: %v", err)
 	}
+	lap("model-load")
 	vad := speaker.EnergyVAD(samples, sr, 25, 10, 0)
+	lap("vad")
 	embeddings := speaker.ExtractSpeechBrainEmbeddingsWithContext(samples, sr, vad, model, *context)
+	lap("embed")
 	labels := speaker.AgglomerativeCluster(embeddings, float32(*threshold))
 	labels = speaker.SmoothSingletonLabels(labels, embeddings, 0.4)
+	lap("cluster")
 
 	report := buildReport(*input, *modelPath, *threshold, *context, *startSec, float64(len(samples))/float64(sr), vad, labels, embeddings, *showSims)
 	if *expect != "" {

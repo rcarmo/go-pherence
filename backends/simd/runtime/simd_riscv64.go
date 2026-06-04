@@ -9,8 +9,28 @@ import "unsafe"
 // because B columns are strided in row-major layout.
 const hasSgemmAsm = true
 
+//go:noescape
+func sgemmNT1x4Asm(a, b *float32, ldb int, k int, sums *float32)
+
+//go:noescape
+func sdotM4Asm(x, y []float32) float32
+
+//go:noescape
+func sdotM8Asm(x, y []float32) float32
+
+//go:noescape
+func sdotM4x2Asm(x, y []float32) float32
+
 // SgemmNT computes C += alpha * A * B^T. Rows of A and B are contiguous, so
-// each output cell can use the RVV dot-product kernel directly.
+// each output cell uses the RVV dot-product kernel directly.
+//
+// NOTE: a register-blocked 1x4 RVV microkernel (sgemmNT1x4Asm) was implemented
+// and validated, but benchmarks on the SpaceMIT K1 (in-order, single-issue RVV
+// pipe) showed it is ~0.84x — slower than this per-cell path. F32 RVV on the K1
+// is overhead/latency-bound around ~4.4 GFLOP/s and the simple kernel already
+// reaches that ceiling, so the per-cell dispatch is retained. The real
+// throughput lever is the int8 IME engine (backends/spacemit/ime2). The 1x4
+// kernel is kept for the A/B benchmark in sgemm_bench_riscv64_test.go.
 func SgemmNT(m, n, k int, alpha float32, a, b, c unsafe.Pointer, lda, ldb, ldc int) {
 	if !validRawSgemmArgs(m, n, k, a, b, c, lda, ldb, ldc, true) {
 		return
@@ -27,7 +47,46 @@ func SgemmNT(m, n, k int, alpha float32, a, b, c unsafe.Pointer, lda, ldb, ldc i
 				return
 			}
 			bRow := unsafe.Slice((*float32)(unsafe.Add(b, bOff)), k)
-			sum := sdotAsm(aRow, bRow)
+			sum := sdotM4Asm(aRow, bRow)
+			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
+		}
+	}
+}
+
+// sgemmNT1x4 is the register-blocked path, exposed for benchmarking/tests.
+func sgemmNT1x4(m, n, k int, alpha float32, a, b, c unsafe.Pointer, lda, ldb, ldc int) {
+	if !validRawSgemmArgs(m, n, k, a, b, c, lda, ldb, ldc, true) {
+		return
+	}
+	ldbBytes := ldb * 4
+	var sums [4]float32
+	for i := 0; i < m; i++ {
+		aOff, okA := checkedFloat32ByteOffset(i * lda)
+		if !okA {
+			return
+		}
+		aPtr := (*float32)(unsafe.Add(a, aOff))
+		aRow := unsafe.Slice(aPtr, k)
+		j := 0
+		for ; j+4 <= n; j += 4 {
+			bOff, okB := checkedFloat32ByteOffset(j * ldb)
+			if !okB {
+				return
+			}
+			bPtr := (*float32)(unsafe.Add(b, bOff))
+			sgemmNT1x4Asm(aPtr, bPtr, ldbBytes, k, &sums[0])
+			storeF32(c, i*ldc+j+0, loadF32(c, i*ldc+j+0)+alpha*sums[0])
+			storeF32(c, i*ldc+j+1, loadF32(c, i*ldc+j+1)+alpha*sums[1])
+			storeF32(c, i*ldc+j+2, loadF32(c, i*ldc+j+2)+alpha*sums[2])
+			storeF32(c, i*ldc+j+3, loadF32(c, i*ldc+j+3)+alpha*sums[3])
+		}
+		for ; j < n; j++ {
+			bOff, okB := checkedFloat32ByteOffset(j * ldb)
+			if !okB {
+				return
+			}
+			bRow := unsafe.Slice((*float32)(unsafe.Add(b, bOff)), k)
+			sum := sdotM4Asm(aRow, bRow)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
 	}
@@ -51,7 +110,7 @@ func SgemmNN(m, n, k int, alpha float32, a, b, c unsafe.Pointer, lda, ldb, ldc i
 				return
 			}
 			aRow := unsafe.Slice((*float32)(unsafe.Add(a, aOff)), k)
-			sum := sdotAsm(aRow, bCol)
+			sum := sdotM4Asm(aRow, bCol)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
 	}

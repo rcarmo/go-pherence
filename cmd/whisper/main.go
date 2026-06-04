@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/models/speaker"
@@ -22,6 +24,8 @@ func main() {
 	modelSize := flag.String("size", "tiny", "Model size: tiny, base, small, medium, large-v3, turbo")
 	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
+	speakerModel := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
+	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine threshold for speaker clustering")
 	timestamps := flag.Bool("timestamps", false, "Output with timestamps")
 	output := flag.String("output", "", "Output file path (supports .vtt)")
 	flag.Parse()
@@ -98,7 +102,7 @@ func main() {
 		// Transcribe with timestamps
 		segments := transcribeWithTimestamps(w, samples)
 		if *diarize {
-			diarized := diarizeSegments(samples, segments)
+			diarized := diarizeSegments(samples, segments, *speakerModel, float32(*speakerThreshold))
 			if *output != "" {
 				if err := whisper.WriteDiarizedVTT(*output, diarized); err != nil {
 					fmt.Fprintf(os.Stderr, "Error writing VTT: %v\n", err)
@@ -124,11 +128,24 @@ func main() {
 			}
 		}
 	} else {
-		// Simple transcription
-		text, err := w.TranscribeFromSamples(samples)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error transcribing: %v\n", err)
-			os.Exit(1)
+		// Simple transcription. WHISPER_REPEAT>1 runs extra warm passes (weights
+		// stay quantized/packed in cache) to measure steady-state resident cost.
+		reps := 1
+		if rv := os.Getenv("WHISPER_REPEAT"); rv != "" {
+			if n, e := strconv.Atoi(rv); e == nil && n > 0 {
+				reps = n
+			}
+		}
+		var text string
+		var err error
+		for r := 0; r < reps; r++ {
+			ps := time.Now()
+			text, err = w.TranscribeFromSamples(samples)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error transcribing: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Fprintf(os.Stderr, "[pass %d] %.1fs\n", r, time.Since(ps).Seconds())
 		}
 		fmt.Println(text)
 	}
@@ -160,10 +177,8 @@ func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.S
 	return whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
 }
 
-func diarizeSegments(samples []float32, segments []whisper.Segment) []whisper.DiarizedSegment {
-	// VAD to find speech segments
-	vadSegs := speaker.EnergyVAD(samples, 16000, 25, 10, 0)
-	if len(vadSegs) == 0 {
+func diarizeSegments(samples []float32, segments []whisper.Segment, modelPath string, threshold float32) []whisper.DiarizedSegment {
+	singleSpeaker := func() []whisper.DiarizedSegment {
 		result := make([]whisper.DiarizedSegment, len(segments))
 		for i, s := range segments {
 			result[i] = whisper.DiarizedSegment{Start: s.Start, End: s.End, Text: s.Text, Speaker: 0}
@@ -171,16 +186,26 @@ func diarizeSegments(samples []float32, segments []whisper.Segment) []whisper.Di
 		return result
 	}
 
-	// Extract speaker embeddings per VAD segment (placeholder: zero embeddings)
-	embeddings := make([][]float32, len(vadSegs))
-	for i := range embeddings {
-		embeddings[i] = make([]float32, 192)
+	// VAD to find speech segments.
+	vadSegs := speaker.EnergyVAD(samples, 16000, 25, 10, 0)
+	if len(vadSegs) == 0 {
+		return singleSpeaker()
 	}
 
-	// Cluster
-	labels := speaker.AgglomerativeCluster(embeddings, 0.7)
+	// Real ECAPA-TDNN speaker embeddings. Fall back to a single speaker if the
+	// converted model is unavailable so transcription still succeeds.
+	model, err := speaker.LoadSpeechBrainECAPASafetensors(modelPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "diarize: speaker model unavailable (%v); using single-speaker fallback\n", err)
+		return singleSpeaker()
+	}
+	embeddings := speaker.ExtractSpeechBrainEmbeddingsWithContext(samples, 16000, vadSegs, model, 0.5)
 
-	// Align and convert
+	// Cluster, then smooth singleton labels (mirrors cmd/speakercheck).
+	labels := speaker.AgglomerativeCluster(embeddings, threshold)
+	labels = speaker.SmoothSingletonLabels(labels, embeddings, 0.4)
+
+	// Align and convert.
 	aligned := speaker.AlignSpeakers(segments, vadSegs, labels)
 	result := make([]whisper.DiarizedSegment, len(aligned))
 	for i, a := range aligned {

@@ -222,13 +222,9 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		return logits
 	}
 	if dec.TokenEmbed != nil {
-		for v := 0; v < cfg.VocabSize; v++ {
-			var dot float32
-			for d := 0; d < dModel; d++ {
-				dot += x[d] * dec.TokenEmbed[v*dModel+d]
-			}
-			logits[v] = dot
-		}
+		// Tied-embedding projection x @ TokenEmbed^T over the full vocab; reuse
+		// the threaded RVV seqLen=1 path instead of a scalar double loop.
+		logits = linearForwardOpt(x[:dModel], dec.TokenEmbed, nil, 1, dModel, cfg.VocabSize)
 	}
 
 	state.LastToken = tokenID

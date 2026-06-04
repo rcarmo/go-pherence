@@ -44,7 +44,7 @@ func bf16RMSNormScaleAsm(x, w []uint16, scale float32)
 
 func Snrm2(x []float32) float32 {
 	if len(x) > 0 && HasDotAsm {
-		return float32Sqrt(sdotAsm(x, x))
+		return float32Sqrt(sdotM4Asm(x, x))
 	}
 	return snrm2Go(x)
 }
@@ -92,7 +92,7 @@ func VecSiLUMul(dst, a, b []float32) {
 func RMSNorm(x, w []float32, eps float32) { rmsNormGo(x, w, eps) }
 func RMSNormNoScale(x []float32, eps float32) {
 	if len(x) > 0 && HasDotAsm && hasRVVVecAsm {
-		ss := sdotAsm(x, x)
+		ss := sdotM4Asm(x, x)
 		scale := float32(1.0 / float32Sqrt(ss/float32(len(x))+eps))
 		vecScaleAsm(x, x, scale)
 		return

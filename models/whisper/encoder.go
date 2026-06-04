@@ -1,6 +1,22 @@
 package whisper
 
-import "math"
+import (
+	"fmt"
+	"math"
+	"os"
+	"sync"
+	"time"
+
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+)
+
+// Encoder phase timers (ns), summed across layers. Layers run serially so plain
+// accumulators are safe; reset at the start of each Encoder.Forward.
+var (
+	encLinearNs int64
+	encAttnNs   int64
+	encOtherNs  int64
+)
 
 // Encoder implements the Whisper audio encoder:
 // Conv1D stem → sinusoidal positional encoding → N transformer encoder layers.
@@ -63,14 +79,15 @@ func NewEncoder(cfg Config) *Encoder {
 func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	cfg := enc.cfg
 	dModel := cfg.EncoderDModel
+	convStart := time.Now()
 
 	// Conv1: [numMelBins, T] → [d_model, T] with kernel=3, stride=1, padding=1
-	h := conv1dForward(mel, enc.Conv1Weight, enc.Conv1Bias, cfg.NumMelBins, T, dModel, 3, 1, 1)
+	h := conv1dForwardFast(mel, enc.Conv1Weight, enc.Conv1Bias, cfg.NumMelBins, T, dModel, 3, 1, 1)
 	T1 := T // stride=1 preserves length
 	gelu(h)
 
 	// Conv2: [d_model, T] → [d_model, T/2] with kernel=3, stride=2, padding=1
-	h = conv1dForward(h, enc.Conv2Weight, enc.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
+	h = conv1dForwardFast(h, enc.Conv2Weight, enc.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
 	T2 := (T1+2*1-3)/2 + 1
 	gelu(h)
 
@@ -85,8 +102,14 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	}
 
 	// Encoder layers
+	encLinearNs, encAttnNs, encOtherNs = 0, 0, 0
+	convNs := int64(time.Since(convStart))
 	for i := range enc.Layers {
 		ht = enc.forwardLayer(&enc.Layers[i], ht, T2)
+	}
+	if os.Getenv("WHISPER_DEBUG") != "" {
+		fmt.Fprintf(os.Stderr, "[enc] convstem=%.1fs linear=%.1fs attn=%.1fs other=%.1fs\n",
+			float64(convNs)/1e9, float64(encLinearNs)/1e9, float64(encAttnNs)/1e9, float64(encOtherNs)/1e9)
 	}
 
 	// Final LayerNorm
@@ -103,18 +126,26 @@ func (enc *Encoder) forwardLayer(layer *EncoderLayer, x []float32, seqLen int) [
 	headDim := enc.cfg.HeadDim
 
 	// Pre-attention LayerNorm
+	t0 := time.Now()
 	normed := layerNorm(x, layer.AttnLNWeight, layer.AttnLNBias, seqLen, dModel)
+	encOtherNs += int64(time.Since(t0))
 
 	// Q, K, V projections
+	t0 = time.Now()
 	q := linearForwardOpt(normed, layer.QWeight, layer.QBias, seqLen, dModel, dModel)
 	k := linearForwardOpt(normed, layer.KWeight, layer.KBias, seqLen, dModel, dModel)
 	v := linearForwardOpt(normed, layer.VWeight, layer.VBias, seqLen, dModel, dModel)
+	encLinearNs += int64(time.Since(t0))
 
 	// Full (non-causal) multi-head attention
+	t0 = time.Now()
 	attnOut := fullAttention(q, k, v, seqLen, seqLen, numHeads, headDim)
+	encAttnNs += int64(time.Since(t0))
 
 	// Output projection
+	t0 = time.Now()
 	projected := linearForwardOpt(attnOut, layer.OWeight, layer.OBias, seqLen, dModel, dModel)
+	encLinearNs += int64(time.Since(t0))
 
 	// Residual
 	for i := range x {
@@ -122,13 +153,21 @@ func (enc *Encoder) forwardLayer(layer *EncoderLayer, x []float32, seqLen int) [
 	}
 
 	// Pre-MLP LayerNorm
+	t0 = time.Now()
 	mlpIn := layerNorm(projected, layer.MLPLNWeight, layer.MLPLNBias, seqLen, dModel)
+	encOtherNs += int64(time.Since(t0))
 
 	// MLP: FC1 → GELU → FC2
 	ffnDim := enc.cfg.EncoderFFNDim
+	t0 = time.Now()
 	hidden := linearForwardOpt(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
+	encLinearNs += int64(time.Since(t0))
+	t0 = time.Now()
 	gelu(hidden)
+	encOtherNs += int64(time.Since(t0))
+	t0 = time.Now()
 	mlpOut := linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, seqLen, ffnDim, dModel)
+	encLinearNs += int64(time.Since(t0))
 
 	// Residual
 	for i := range projected {
@@ -184,6 +223,44 @@ func conv1dForward(input, weight, bias []float32, inCh, inLen, outCh, kernel, st
 	return out
 }
 
+// conv1dForwardFast computes the same Conv1D as conv1dForward but reformulates
+// it as im2col + GEMM so the heavy matmul runs through the tiled, threaded RVV
+// linearForwardOpt path instead of a 4-deep scalar loop. Output stays
+// channel-first [outCh, outLen] to match conv1dForward.
+func conv1dForwardFast(input, weight, bias []float32, inCh, inLen, outCh, kernel, stride, padding int) []float32 {
+	outLen := (inLen+2*padding-kernel)/stride + 1
+	if outLen <= 0 {
+		return nil
+	}
+	K := inCh * kernel
+	// im2col: patch[outLen, K], patch[j, ic*kernel+k] = input[ic, j*stride+k-pad].
+	patch := make([]float32, outLen*K)
+	for j := 0; j < outLen; j++ {
+		base := j*stride - padding
+		pj := j * K
+		for ic := 0; ic < inCh; ic++ {
+			inBase := ic * inLen
+			pc := pj + ic*kernel
+			for k := 0; k < kernel; k++ {
+				if idx := base + k; idx >= 0 && idx < inLen {
+					patch[pc+k] = input[inBase+idx]
+				}
+			}
+		}
+	}
+	// outRM[outLen, outCh] = patch @ weight^T + bias (weight is [outCh, K]).
+	outRM := linearForwardOpt(patch, weight, bias, outLen, K, outCh)
+	// Transpose to channel-first [outCh, outLen].
+	out := make([]float32, outCh*outLen)
+	for j := 0; j < outLen; j++ {
+		row := j * outCh
+		for oc := 0; oc < outCh; oc++ {
+			out[oc*outLen+j] = outRM[row+oc]
+		}
+	}
+	return out
+}
+
 // transpose2D transposes [channels, length] to [length, channels].
 func transpose2D(data []float32, channels, length int) []float32 {
 	out := make([]float32, channels*length)
@@ -195,13 +272,28 @@ func transpose2D(data []float32, channels, length int) []float32 {
 	return out
 }
 
-// gelu applies GELU activation in-place (approximation).
+// fastTanh is a float32 Padé[7/6] approximation of tanh: |err| < ~1e-4 for
+// |x| < 4.97 and saturates beyond. Avoids the libm float64 round-trip in the
+// per-element GELU hot loop (246M calls per encoder forward).
+func fastTanh(x float32) float32 {
+	if x > 4.97 {
+		return 1
+	}
+	if x < -4.97 {
+		return -1
+	}
+	x2 := x * x
+	a := x * (135135 + x2*(17325 + x2*(378 + x2)))
+	b := 135135 + x2*(62370 + x2*(3150 + x2*28))
+	return a / b
+}
+
+// gelu applies GELU activation in-place (tanh approximation), float32 throughout.
 func gelu(x []float32) {
+	const c = 0.7978845608028654 // sqrt(2/pi)
 	for i, v := range x {
-		// GELU(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x³)))
-		x3 := v * v * v
-		inner := float32(math.Sqrt(2/math.Pi)) * (v + 0.044715*x3)
-		x[i] = 0.5 * v * (1 + float32(math.Tanh(float64(inner))))
+		inner := float32(c) * (v + 0.044715*v*v*v)
+		x[i] = 0.5 * v * (1 + fastTanh(inner))
 	}
 }
 
@@ -265,42 +357,154 @@ func linearForwardScalar(x, weight, bias []float32, seqLen, inDim, outDim int) [
 // fullAttention computes non-causal multi-head attention.
 // q, k, v: [seqQ * dModel] or [seqKV * dModel]
 // Returns [seqQ * dModel].
+//
+// Heads are independent (disjoint output columns) and split across
+// linearWorkers goroutines. Within a head the work is expressed as two GEMMs
+// over packed contiguous [seq, headDim] buffers:
+//   scores = scale * Qh @ Kh^T   (SgemmNTTo)
+//   outH   = softmax(scores) @ Vh (SgemmNNTo)
+// This replaces ~2.9e9 per-element Sdot/Saxpy calls with batched RVV GEMMs,
+// removing the per-call/reduction overhead that dominated the scalar-call form.
 func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []float32 {
 	dModel := numHeads * headDim
 	out := make([]float32, seqQ*dModel)
 	scale := float32(1.0 / math.Sqrt(float64(headDim)))
 
-	for h := 0; h < numHeads; h++ {
-		hOff := h * headDim
-		for tq := 0; tq < seqQ; tq++ {
-			// Compute attention scores for this query position
-			scores := make([]float32, seqKV)
-			qOff := tq*dModel + hOff
+	work := func(hStart, hEnd int) {
+		qh := make([]float32, seqQ*headDim)
+		kh := make([]float32, seqKV*headDim)
+		vh := make([]float32, seqKV*headDim)
+		scores := make([]float32, seqQ*seqKV)
+		outh := make([]float32, seqQ*headDim)
 
-			for tkv := 0; tkv < seqKV; tkv++ {
-				kOff := tkv*dModel + hOff
-				var dot float32
-				for d := 0; d < headDim; d++ {
-					dot += q[qOff+d] * k[kOff+d]
-				}
-				scores[tkv] = dot * scale
+		// int8 attention scratch (goroutine-local; heads run sequentially here).
+		var (
+			mq, nk, kpad             int
+			qi8, ki8, si8, vti8, qp, kp, sp, vtp []int8
+			qs, ks, ss, vts, vhT, sPad []float32
+			cqk, cout                []int32
+		)
+		if attnInt8 {
+			mq = (seqQ + 3) &^ 3
+			nk = (seqKV + 3) &^ 3
+			kpad = (seqKV + 7) &^ 7
+			qi8 = make([]int8, mq*headDim)
+			qs = make([]float32, mq)
+			ki8 = make([]int8, nk*headDim)
+			ks = make([]float32, nk)
+			cqk = make([]int32, mq*nk)
+			vhT = make([]float32, headDim*kpad)
+			vti8 = make([]int8, headDim*kpad)
+			vts = make([]float32, headDim)
+			sPad = make([]float32, mq*kpad)
+			si8 = make([]int8, mq*kpad)
+			ss = make([]float32, mq)
+			cout = make([]int32, mq*headDim)
+			qp = make([]int8, mq*headDim)
+			kp = make([]int8, nk*headDim)
+			sp = make([]int8, mq*kpad)
+			vtp = make([]int8, headDim*kpad)
+		}
+
+		for h := hStart; h < hEnd; h++ {
+			hOff := h * headDim
+			// Pack head-local contiguous Q/K/V.
+			for t := 0; t < seqQ; t++ {
+				copy(qh[t*headDim:(t+1)*headDim], q[t*dModel+hOff:t*dModel+hOff+headDim])
+			}
+			for t := 0; t < seqKV; t++ {
+				copy(kh[t*headDim:(t+1)*headDim], k[t*dModel+hOff:t*dModel+hOff+headDim])
+				copy(vh[t*headDim:(t+1)*headDim], v[t*dModel+hOff:t*dModel+hOff+headDim])
 			}
 
-			// Softmax
-			softmax(scores)
-
-			// Weighted sum of values
-			oOff := tq*dModel + hOff
-			for tkv := 0; tkv < seqKV; tkv++ {
-				vOff := tkv*dModel + hOff
-				w := scores[tkv]
-				for d := 0; d < headDim; d++ {
-					out[oOff+d] += w * v[vOff+d]
+			if attnInt8 {
+				attnInt8Head(scores, outh, qh, kh, vh, seqQ, seqKV, headDim, scale,
+					mq, nk, kpad, qi8, qs, ki8, ks, cqk, qp, kp,
+					vhT, vti8, vts, sPad, si8, ss, cout, sp, vtp)
+				for t := 0; t < seqQ; t++ {
+					copy(out[t*dModel+hOff:t*dModel+hOff+headDim], outh[t*headDim:(t+1)*headDim])
 				}
+				continue
+			}
+
+			// scores = scale * Qh @ Kh^T   [seqQ, seqKV]
+			for i := range scores {
+				scores[i] = 0
+			}
+			if !simdrt.SgemmNTTo(scores, qh, kh, seqQ, seqKV, headDim, scale, headDim, headDim, seqKV) {
+				attnScalarHead(scores, qh, kh, seqQ, seqKV, headDim, scale)
+			}
+			// Row softmax.
+			for tq := 0; tq < seqQ; tq++ {
+				softmax(scores[tq*seqKV : (tq+1)*seqKV])
+			}
+			// outH = scores @ Vh   [seqQ, headDim]
+			for i := range outh {
+				outh[i] = 0
+			}
+			if !simdrt.SgemmNNTo(outh, scores, vh, seqQ, headDim, seqKV, 1.0, seqKV, headDim, headDim) {
+				attnScalarAV(outh, scores, vh, seqQ, seqKV, headDim)
+			}
+			// Scatter back to out[:, head].
+			for t := 0; t < seqQ; t++ {
+				copy(out[t*dModel+hOff:t*dModel+hOff+headDim], outh[t*headDim:(t+1)*headDim])
 			}
 		}
 	}
+
+	nw := linearWorkers
+	if nw > numHeads {
+		nw = numHeads
+	}
+	if nw <= 1 {
+		work(0, numHeads)
+		return out
+	}
+	chunk := (numHeads + nw - 1) / nw
+	var wg sync.WaitGroup
+	for hs := 0; hs < numHeads; hs += chunk {
+		he := hs + chunk
+		if he > numHeads {
+			he = numHeads
+		}
+		wg.Add(1)
+		go func(hs, he int) {
+			defer wg.Done()
+			work(hs, he)
+		}(hs, he)
+	}
+	wg.Wait()
 	return out
+}
+
+// attnScalarHead is the portable fallback for scores = scale * Qh @ Kh^T.
+func attnScalarHead(scores, qh, kh []float32, seqQ, seqKV, headDim int, scale float32) {
+	for tq := 0; tq < seqQ; tq++ {
+		qo := tq * headDim
+		for tkv := 0; tkv < seqKV; tkv++ {
+			ko := tkv * headDim
+			var dot float32
+			for d := 0; d < headDim; d++ {
+				dot += qh[qo+d] * kh[ko+d]
+			}
+			scores[tq*seqKV+tkv] = dot * scale
+		}
+	}
+}
+
+// attnScalarAV is the portable fallback for outH = scores @ Vh.
+func attnScalarAV(outh, scores, vh []float32, seqQ, seqKV, headDim int) {
+	for tq := 0; tq < seqQ; tq++ {
+		oo := tq * headDim
+		so := tq * seqKV
+		for tkv := 0; tkv < seqKV; tkv++ {
+			w := scores[so+tkv]
+			vo := tkv * headDim
+			for d := 0; d < headDim; d++ {
+				outh[oo+d] += w * vh[vo+d]
+			}
+		}
+	}
 }
 
 // softmax applies softmax in-place.

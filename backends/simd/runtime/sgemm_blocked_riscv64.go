@@ -20,7 +20,7 @@ func sgemmNTTileFMA(iLen, jLen, kLen int, alpha float32, a unsafe.Pointer, lda i
 				return
 			}
 			bRow := unsafe.Slice((*float32)(unsafe.Add(b, bOff)), kLen)
-			sum := sdotAsm(aRow, bRow)
+			sum := sdotM4Asm(aRow, bRow)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
 	}
