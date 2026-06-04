@@ -5,6 +5,56 @@ import (
 	"testing"
 )
 
+func TestTurboQuantKeyValueMethodsMatchGenericVectorAPI(t *testing.T) {
+	tq := NewTurboQuantState(16, 4, TurboQuantConfig{KeyBits: 4, ValueBits: 2, ResidualWindow: 0})
+	vec := make([]float32, tq.HeadDim)
+	for i := range vec {
+		vec[i] = float32(math.Sin(float64(i)*0.23) + math.Cos(float64(i+2)*0.17))
+	}
+
+	pk, minK, scaleK := tq.QuantizeKey(vec)
+	wantPK, wantMinK, wantScaleK := tq.QuantizeVector(vec, tq.RotationK, tq.CodebookK, tq.Config.KeyBits)
+	if string(pk) != string(wantPK) || minK != wantMinK || scaleK != wantScaleK {
+		t.Fatalf("QuantizeKey mismatch got=(%v,%v,%v) want=(%v,%v,%v)", pk, minK, scaleK, wantPK, wantMinK, wantScaleK)
+	}
+	gotK := tq.DequantizeKey(pk, minK, scaleK, tq.HeadDim)
+	wantK := tq.DequantizeVector(wantPK, wantMinK, wantScaleK, tq.RotationK, tq.Config.KeyBits, tq.HeadDim)
+	for i := range gotK {
+		if gotK[i] != wantK[i] {
+			t.Fatalf("DequantizeKey[%d]=%v want %v", i, gotK[i], wantK[i])
+		}
+	}
+
+	pv, minV, scaleV := tq.QuantizeValue(vec)
+	wantPV, wantMinV, wantScaleV := tq.QuantizeVector(vec, tq.RotationV, tq.CodebookV, tq.Config.ValueBits)
+	if string(pv) != string(wantPV) || minV != wantMinV || scaleV != wantScaleV {
+		t.Fatalf("QuantizeValue mismatch got=(%v,%v,%v) want=(%v,%v,%v)", pv, minV, scaleV, wantPV, wantMinV, wantScaleV)
+	}
+	gotV := tq.DequantizeValue(pv, minV, scaleV, tq.HeadDim)
+	wantV := tq.DequantizeVector(wantPV, wantMinV, wantScaleV, tq.RotationV, tq.Config.ValueBits, tq.HeadDim)
+	for i := range gotV {
+		if gotV[i] != wantV[i] {
+			t.Fatalf("DequantizeValue[%d]=%v want %v", i, gotV[i], wantV[i])
+		}
+	}
+}
+
+func TestTurboQuantKeyValueMethodsHandleNilState(t *testing.T) {
+	var tq *TurboQuantState
+	if p, vMin, scale := tq.QuantizeKey([]float32{1, 2}); p != nil || vMin != 0 || scale != 0 {
+		t.Fatalf("nil QuantizeKey=(%v,%v,%v)", p, vMin, scale)
+	}
+	if p, vMin, scale := tq.QuantizeValue([]float32{1, 2}); p != nil || vMin != 0 || scale != 0 {
+		t.Fatalf("nil QuantizeValue=(%v,%v,%v)", p, vMin, scale)
+	}
+	if got := tq.DequantizeKey(nil, 0, 0, 3); len(got) != 3 {
+		t.Fatalf("nil DequantizeKey len=%d want 3", len(got))
+	}
+	if got := tq.DequantizeValue(nil, 0, 0, 3); len(got) != 3 {
+		t.Fatalf("nil DequantizeValue len=%d want 3", len(got))
+	}
+}
+
 func TestTurboQuantSIMDRotationParity(t *testing.T) {
 	dim := 17
 	vec := make([]float32, dim)

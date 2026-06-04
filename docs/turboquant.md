@@ -124,3 +124,8 @@ TurboQuant vector rotation and inverse rotation now call the checked `backends/s
 
 
 `GGUF_EXPECT_SIMD_ROTATION=1` can be passed to `make gguf-inspect`/`make gguf-validate` to require that the host reports native SIMD dot-product support for TurboQuant rotation in both the inspect-time plan and runtime smoke paths.
+
+
+## KV-owned key/value helpers
+
+`TurboQuantState` now exposes key/value-specific quantize/dequantize helpers for compressed KV cache users. The compressed cache calls these helpers instead of passing raw rotation/codebook slices around, so built-in K/V cache operations consistently use the owned TurboQuant policy and the stored-transpose SIMD inverse path. The generic vector API remains available for tests and compatibility.

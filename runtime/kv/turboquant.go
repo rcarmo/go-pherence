@@ -87,6 +87,40 @@ func (tq *TurboQuantState) IsProtectedLayer(layerIdx int) bool {
 	return false
 }
 
+// QuantizeKey quantizes one key-head vector with the TurboQuant key rotation
+// and bit policy.
+func (tq *TurboQuantState) QuantizeKey(vec []float32) ([]byte, float32, float32) {
+	if tq == nil {
+		return nil, 0, 0
+	}
+	return tq.QuantizeVector(vec, tq.RotationK, tq.CodebookK, tq.Config.KeyBits)
+}
+
+// QuantizeValue quantizes one value-head vector with the TurboQuant value
+// rotation and bit policy.
+func (tq *TurboQuantState) QuantizeValue(vec []float32) ([]byte, float32, float32) {
+	if tq == nil {
+		return nil, 0, 0
+	}
+	return tq.QuantizeVector(vec, tq.RotationV, tq.CodebookV, tq.Config.ValueBits)
+}
+
+// DequantizeKey restores one key-head vector using the built-in key rotation.
+func (tq *TurboQuantState) DequantizeKey(packed []byte, vMin, scale float32, dim int) []float32 {
+	if tq == nil {
+		return make([]float32, maxInt(dim, 0))
+	}
+	return tq.DequantizeVector(packed, vMin, scale, tq.RotationK, tq.Config.KeyBits, dim)
+}
+
+// DequantizeValue restores one value-head vector using the built-in value rotation.
+func (tq *TurboQuantState) DequantizeValue(packed []byte, vMin, scale float32, dim int) []float32 {
+	if tq == nil {
+		return make([]float32, maxInt(dim, 0))
+	}
+	return tq.DequantizeVector(packed, vMin, scale, tq.RotationV, tq.Config.ValueBits, dim)
+}
+
 // QuantizeVector quantizes a float32 vector to compressed bytes.
 // Returns: quantized indices (packed), the min value, and the scale for dequantization.
 func (tq *TurboQuantState) QuantizeVector(vec []float32, rotation []float32, codebook []float32, bits int) ([]byte, float32, float32) {

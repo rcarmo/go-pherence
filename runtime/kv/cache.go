@@ -114,8 +114,8 @@ func (c *CompressedKVCache) compressOldest() {
 		headK := kVec[h*c.headDim : (h+1)*c.headDim]
 		headV := vVec[h*c.headDim : (h+1)*c.headDim]
 
-		pk, vMinK, scaleK := c.tq.QuantizeVector(headK, c.tq.RotationK, c.tq.CodebookK, c.tq.Config.KeyBits)
-		pv, vMinV, scaleV := c.tq.QuantizeVector(headV, c.tq.RotationV, c.tq.CodebookV, c.tq.Config.ValueBits)
+		pk, vMinK, scaleK := c.tq.QuantizeKey(headK)
+		pv, vMinV, scaleV := c.tq.QuantizeValue(headV)
 
 		ek.Packed = append(ek.Packed, pk...)
 		ev.Packed = append(ev.Packed, pv...)
@@ -170,7 +170,7 @@ func (c *CompressedKVCache) GetK() []float32 {
 		}
 		for h := 0; h < c.numKVHeads; h++ {
 			packed := entry.Packed[h*bytesPerHead : (h+1)*bytesPerHead]
-			restored := c.tq.DequantizeVector(packed, entry.HeadVMin[h], entry.HeadScale[h], c.tq.RotationK, c.tq.Config.KeyBits, c.headDim)
+			restored := c.tq.DequantizeKey(packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim)
 			out = append(out, restored...)
 		}
 	}
@@ -214,7 +214,7 @@ func (c *CompressedKVCache) GetV() []float32 {
 		}
 		for h := 0; h < c.numKVHeads; h++ {
 			packed := entry.Packed[h*bytesPerHead : (h+1)*bytesPerHead]
-			restored := c.tq.DequantizeVector(packed, entry.HeadVMin[h], entry.HeadScale[h], c.tq.RotationV, c.tq.Config.ValueBits, c.headDim)
+			restored := c.tq.DequantizeValue(packed, entry.HeadVMin[h], entry.HeadScale[h], c.headDim)
 			out = append(out, restored...)
 		}
 	}
