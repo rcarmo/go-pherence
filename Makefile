@@ -263,6 +263,9 @@ HUNYUAN3D_INVENTORY_FLAGS ?= --include-tensors
 HUNYUAN3D_IMAGE_FIXTURE ?= /workspace/tmp/hunyuan3d-image-preprocess-fixture.json
 HUNYUAN3D_IMAGE ?=
 HUNYUAN3D_IMAGE_FLAGS ?=
+HUNYUAN3D_SEAHORSE_IMAGE ?= testdata/hunyuan3d/seahorse_rgba.png
+HUNYUAN3D_SEAHORSE_OUT ?= /workspace/tmp/hunyuan3d-seahorse.glb
+HUNYUAN3D_SEAHORSE_FLAGS ?=
 HUNYUAN3D_SRC ?= /workspace/tmp/Hunyuan3D-2-info
 HUNYUAN3D_CONFIG ?=
 HUNYUAN3D_CHECKPOINT ?=
@@ -313,6 +316,9 @@ trellis2-ovoxel-inspect:
 hunyuan3d-inspect:
 	@if [ -z "$(HUNYUAN3D_CONFIG)" ]; then echo "usage: make hunyuan3d-inspect HUNYUAN3D_CONFIG=.../config.yaml [HUNYUAN3D_CHECKPOINT=.../model.safetensors]"; exit 2; fi
 	go run ./cmd/hy3dinspect -config $(HUNYUAN3D_CONFIG) $(if $(HUNYUAN3D_CHECKPOINT),-safetensors $(HUNYUAN3D_CHECKPOINT),) $(HUNYUAN3D_INSPECT_FLAGS)
+
+hunyuan3d-seahorse:
+	$(PYTHON) scripts/hunyuan3d_seahorse_demo.py --hunyuan3d-src $(HUNYUAN3D_SRC) --image $(HUNYUAN3D_SEAHORSE_IMAGE) --out $(HUNYUAN3D_SEAHORSE_OUT) --model $(HUNYUAN3D_REPO) --subfolder $(HUNYUAN3D_SUBFOLDER) $(HUNYUAN3D_SEAHORSE_FLAGS)
 
 hunyuan3d-image-fixture:
 	$(PYTHON) scripts/hunyuan3d_image_fixture.py --out $(HUNYUAN3D_IMAGE_FIXTURE) $(if $(HUNYUAN3D_IMAGE),--image $(HUNYUAN3D_IMAGE),) $(HUNYUAN3D_IMAGE_FLAGS)
