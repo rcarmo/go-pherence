@@ -19,6 +19,12 @@ type GGUFGenerationKVRuntimePlan struct {
 	EstimatedCompressedKVBytes int64   `json:"estimated_compressed_kv_bytes"`
 	SavedCompressedKVBytes     int64   `json:"saved_compressed_kv_bytes"`
 	CompressedKVRatio          float64 `json:"compressed_kv_ratio"`
+	SIMDArch                   string  `json:"simd_arch"`
+	SIMDRotation               bool    `json:"simd_rotation"`
+	SIMDVec                    bool    `json:"simd_vec"`
+	SIMDAVX2                   bool    `json:"simd_avx2"`
+	SIMDNEON                   bool    `json:"simd_neon"`
+	SIMDRVv                    bool    `json:"simd_rvv"`
 }
 
 type GGUFTurboQuantPlan struct {
@@ -129,6 +135,13 @@ func (m *GGUFLlama) GenerationKVRuntimePlan(promptLen, maxNew int, opts GGUFGene
 	plan.SavedCompressedKVBytes = est.SavedBytes
 	plan.CompressedKVRatio = est.Ratio
 	plan.ProtectedCompressedLayers = est.ProtectedLayers
+	caps := kv.RuntimeTurboQuantCapabilities()
+	plan.SIMDArch = caps.Arch
+	plan.SIMDRotation = caps.Rotation
+	plan.SIMDVec = caps.Vec
+	plan.SIMDAVX2 = caps.AVX2
+	plan.SIMDNEON = caps.NEON
+	plan.SIMDRVv = caps.RVV
 	return plan, nil
 }
 

@@ -139,3 +139,8 @@ TurboQuant vector rotation and inverse rotation now call the checked `backends/s
 ## Model-side SIMD readiness
 
 Model-side `GGUFTurboQuantPlan` now carries the kv-owned SIMD readiness fields (`simd_arch`, `simd_rotation`, `simd_vec`, `simd_avx2`, `simd_neon`, `simd_rvv`). Runtime tools such as `ggufsmoke` can report the model plan directly instead of reinterpreting SIMD capabilities at the CLI layer.
+
+
+## Generation runtime-plan SIMD readiness
+
+Generation KV runtime plans now carry the same SIMD readiness fields as the static TurboQuant plan. `ggufsmoke` reports these fields on `turboquant_runtime_kv`, so prompt/max-new allocation diagnostics show both cache byte accounting and native SIMD rotation readiness from the model runtime plan.

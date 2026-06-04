@@ -71,7 +71,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("turboquant_runtime_kv max_seq=%d float_layers=%d compressed_layers=%d protected_compressed_layers=%d float_alloc_bytes=%d compressed_full_bytes=%d compressed_estimated_bytes=%d compressed_saved_bytes=%d compressed_ratio=%.4f\n", rt.MaxSeq, rt.FloatKVLayers, rt.CompressedKVLayers, rt.ProtectedCompressedLayers, rt.FloatKVBytesAllocated, rt.FullCompressedKVBytes, rt.EstimatedCompressedKVBytes, rt.SavedCompressedKVBytes, rt.CompressedKVRatio)
+			fmt.Printf("turboquant_runtime_kv max_seq=%d float_layers=%d compressed_layers=%d protected_compressed_layers=%d float_alloc_bytes=%d compressed_full_bytes=%d compressed_estimated_bytes=%d compressed_saved_bytes=%d compressed_ratio=%.4f simd_arch=%s simd_rotation=%v simd_vec=%v simd_avx2=%v simd_neon=%v simd_rvv=%v\n", rt.MaxSeq, rt.FloatKVLayers, rt.CompressedKVLayers, rt.ProtectedCompressedLayers, rt.FloatKVBytesAllocated, rt.FullCompressedKVBytes, rt.EstimatedCompressedKVBytes, rt.SavedCompressedKVBytes, rt.CompressedKVRatio, rt.SIMDArch, rt.SIMDRotation, rt.SIMDVec, rt.SIMDAVX2, rt.SIMDNEON, rt.SIMDRVv)
 		}
 		if *kvSmokeTokens > 0 {
 			caches, err := m.NewTurboQuantKVCache(*cacheTypeK, *cacheTypeV, *kvResidualWindow)
