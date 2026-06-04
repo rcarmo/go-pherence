@@ -63,18 +63,20 @@ func tcmStageAndVmadot(
 }
 
 var tcmDev *tcmpkg.TCM
+var tcmOnce sync.Once
 
 func initTCMDevice() {
-	if tcmpkg.IsAvailable() {
-		tcmDev, _ = tcmpkg.Open()
-	}
+	tcmOnce.Do(func() {
+		if tcmpkg.IsAvailable() {
+			tcmDev, _ = tcmpkg.Open()
+		}
+	})
 }
 
-func getTCMSlice(workerID int) []byte { return nil //
-	if tcmDev == nil {
+func getTCMSlice(workerID int) []byte {
+	initTCMDevice()
+	if tcmDev == nil || workerID < 0 || workerID >= tcmpkg.BlockCount {
 		return nil
 	}
 	return tcmDev.Slice(workerID)
 }
-
-var _ = sync.WaitGroup{}

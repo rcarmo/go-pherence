@@ -277,10 +277,20 @@ func dequantQ4K(raw []byte, n int) ([]float32, error) {
 		}
 
 		base := b * blockElems
-		for i := 0; i < blockElems; i++ {
-			group := i / 32
-			q := int((qs[i/2] >> uint(4*(i%2))) & 0xF)
-			out[base+i] = scales[group]*float32(q) - mins[group]
+		for group := 0; group < 8; group++ {
+			q := qs[(group/2)*32:]
+			for i := 0; i < 16; i++ {
+				var q0, q1 int
+				if group%2 == 0 {
+					q0 = int(q[i] & 0x0F)
+					q1 = int(q[i+16] & 0x0F)
+				} else {
+					q0 = int(q[i] >> 4)
+					q1 = int(q[i+16] >> 4)
+				}
+				out[base+group*32+i] = scales[group]*float32(q0) - mins[group]
+				out[base+group*32+16+i] = scales[group]*float32(q1) - mins[group]
+			}
 		}
 	}
 	return out, nil

@@ -53,8 +53,8 @@ TEXT ·vmadotKLoop1024native(SB), NOSPLIT, $0-32
     WORD $0x02066e07            // vle32.v v28, (a2)
     // Set e8, m1 (vl=128 on VLEN=1024)
     WORD $0x000072d7            // vsetvli t0, zero, e8, m1
-    // K/32 iterations (128 bytes per tile = 32 elements per row × 4 rows)
-    SRLI $5, X13, X14
+    // K/16 iterations (128 bytes per tile = 16 elements per row × 8 rows)
+    SRLI $4, X13, X14
 native_loop:
     BEQ  X14, X0, native_done
     WORD $0x02050007            // vle8.v v0, (a0)

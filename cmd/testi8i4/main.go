@@ -1,0 +1,4 @@
+package main
+import("fmt";"os";"runtime";"strconv";"syscall";"unsafe";"golang.org/x/sys/unix")
+func k3I8I4M1(a *byte,b *byte,c *float32,kBlks int,nBlks int)
+func main(){runtime.LockOSThread();if f,e:=os.OpenFile("/proc/set_ai_thread",os.O_WRONLY,0);e==nil{_,_=f.Write([]byte(strconv.Itoa(syscall.Gettid())));f.Close()};var set unix.CPUSet;set.Zero();set.Set(8);unix.SchedSetaffinity(0,&set);for off:=64;off<128;off++{a:=make([]byte,38);b:=make([]byte,640);c:=make([]float32,32);*(*float32)(unsafe.Pointer(&a[0]))=1;*(*int16)(unsafe.Pointer(&a[4]))=-1;for i:=0;i<32;i++{b[i*2]=0;b[i*2+1]=0x3c};b[off]=1;k3I8I4M1((*byte)(unsafe.Pointer(&a[0])),(*byte)(unsafe.Pointer(&b[0])),&c[0],1,32);printed:=false;for i,v:=range c{if v!=0{if !printed{fmt.Printf("off%d:",off);printed=true};fmt.Printf(" %d=%.0f",i,v)}};if printed{fmt.Println()}}}

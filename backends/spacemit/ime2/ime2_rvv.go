@@ -6,10 +6,12 @@ import (
 )
 
 // rvvBroadcastPack copies K int8 values into 4× broadcast tile format.
+//
 //go:noescape
 func rvvBroadcastPack(src *byte, K int, dst *byte)
 
 // rvvMulVecVec computes out[i] = a[i] * b[i] using RVV.
+//
 //go:noescape
 func rvvMulVecVec(a *float32, b *float32, out *float32, n int)
 
@@ -19,9 +21,13 @@ func rvvMulVecVec(a *float32, b *float32, out *float32, n int)
 func RMSNormRVV(x, weight, out []float32, eps float32) {
 	n := len(x)
 	var ss float32
-	for i := 0; i < n; i++ { ss += x[i] * x[i] }
+	for i := 0; i < n; i++ {
+		ss += x[i] * x[i]
+	}
 	invRMS := float32(1.0 / math.Sqrt(float64(ss/float32(n)+eps)))
-	for i := 0; i < n; i++ { x[i] *= invRMS }
+	for i := 0; i < n; i++ {
+		x[i] *= invRMS
+	}
 	rvvMulVecVec(&x[0], &weight[0], &out[0], n)
 }
 
@@ -29,10 +35,14 @@ func RMSNormRVV(x, weight, out []float32, eps float32) {
 func RMSNormFast(x, weight, out []float32, eps float32) {
 	n := len(x)
 	var ss float32
-	for i := 0; i < n; i++ { ss += x[i] * x[i] }
+	for i := 0; i < n; i++ {
+		ss += x[i] * x[i]
+	}
 	invRMS := float32(1.0 / math.Sqrt(float64(ss/float32(n)+eps)))
 	// Scale into out first, then multiply by weight in-place
-	for i := 0; i < n; i++ { out[i] = x[i] * invRMS }
+	for i := 0; i < n; i++ {
+		out[i] = x[i] * invRMS
+	}
 	rvvMulVecVec(&out[0], &weight[0], &out[0], n)
 }
 
@@ -49,6 +59,7 @@ func BroadcastPackRVV(src []int8, K int, dst []int8) {
 // FusedMatVec is the exported wrapper.
 
 // fusedPackVmadot fuses broadcast-pack + vmadot K-loop.
+//
 //go:noescape
 func fusedPackVmadot(wPacked *byte, actI8 *byte, M int, K int, out *int32)
 
@@ -57,20 +68,26 @@ func fusedPackVmadot(wPacked *byte, actI8 *byte, M int, K int, out *int32)
 func FusedPackVmadot(M, K int, wPacked []int8, actI8 []int8, out []int32) {
 	rawOut := make([]int32, M*4)
 	fusedPackVmadot((*byte)(unsafe.Pointer(&wPacked[0])), (*byte)(unsafe.Pointer(&actI8[0])), M, K, &rawOut[0])
-	for i := 0; i < M; i++ { out[i] = rawOut[i*4] }
+	for i := 0; i < M; i++ {
+		out[i] = rawOut[i*4]
+	}
 }
 
 // rvvFindMaxAbs returns max(|x[i]|) using RVV vectorized reduction.
+//
 //go:noescape
 func rvvFindMaxAbs(x *float32, n int) float32
 
 // FindMaxAbsRVV is the exported wrapper.
 func FindMaxAbsRVV(x []float32) float32 {
-	if len(x) == 0 { return 0 }
+	if len(x) == 0 {
+		return 0
+	}
 	return rvvFindMaxAbs(&x[0], len(x))
 }
 
 // rvvQuantizeF32ToI8 quantizes float32 to int8 using RVV.
+//
 //go:noescape
 func rvvQuantizeF32ToI8(src *float32, scaleBits uint32, dst *byte, n int)
 
@@ -80,9 +97,9 @@ func QuantizeF32ToI8RVV(src []float32, scale float32, dst []int8) {
 	rvvQuantizeF32ToI8(&src[0], bits, (*byte)(unsafe.Pointer(&dst[0])), len(src))
 }
 
-
 // vmadotQ4KPackedLoop reads packed Q4K bytes and unpacks inline with RVV.
 // 2× less weight bandwidth. actReord must be in even/odd interleaved format.
+//
 //go:noescape
 func vmadotQ4KPackedLoop(wQS *byte, actReord *byte, acc *int32, Kgroups int)
 
@@ -92,8 +109,8 @@ func ReorderActEvenOdd(act []int8, K int) []int8 {
 	out := make([]int8, K)
 	for g := 0; g < K; g += 32 {
 		for i := 0; i < 16; i++ {
-			out[g+i] = act[g+2*i]       // even elements first
-			out[g+16+i] = act[g+2*i+1]  // odd elements second
+			out[g+i] = act[g+2*i]      // even elements first
+			out[g+16+i] = act[g+2*i+1] // odd elements second
 		}
 	}
 	return out
@@ -119,41 +136,45 @@ func PackQ4KForI2K(rawQS []byte, M, K int) []byte {
 }
 
 // vmadotKLoopAI forces vl=32 on VLEN=1024 cores (128-byte tiles).
+//
 //go:noescape
 func vmadotKLoopAI(A *byte, B *byte, C *int32, K int)
 
 // VmadotKLoopAI is the exported wrapper.
 func VmadotKLoopAI(A *byte, B *byte, C *int32, K int) { vmadotKLoopAI(A, B, C, K) }
 
-// PackTiles1024 packs int8 matrix into 128-byte tiles for VLEN=1024.
-// Each tile = 4 rows × 32 columns. Output: (rows/4) × (K/32) tiles of 128 bytes.
+// PackTiles1024 packs int8 matrix into 128-byte tiles for native VLEN=1024.
+// Probed semantics: vmadot forms an 8×8 accumulator, where each source group
+// is 16 bytes. Each tile is therefore 8 rows × 16 columns.
 func PackTiles1024(src []int8, rows, K int) []int8 {
-	if rows%4 != 0 || K%32 != 0 {
-		panic("ime2: PackTiles1024 requires rows%4==0, K%32==0")
+	if rows%8 != 0 || K%16 != 0 {
+		panic("ime2: PackTiles1024 requires rows%8==0, K%16==0")
 	}
 	dst := make([]int8, rows*K)
-	for rg := 0; rg < rows; rg += 4 {
-		for ki := 0; ki < K; ki += 32 {
-			tileIdx := (rg/4)*(K/32) + ki/32
+	for rg := 0; rg < rows; rg += 8 {
+		for ki := 0; ki < K; ki += 16 {
+			tileIdx := (rg/8)*(K/16) + ki/16
 			tileBase := tileIdx * 128
-			for r := 0; r < 4; r++ {
-				copy(dst[tileBase+r*32:tileBase+(r+1)*32],
-					src[(rg+r)*K+ki:(rg+r)*K+ki+32])
+			for r := 0; r < 8; r++ {
+				copy(dst[tileBase+r*16:tileBase+(r+1)*16],
+					src[(rg+r)*K+ki:(rg+r)*K+ki+16])
 			}
 		}
 	}
 	return dst
 }
 
-// BroadcastPack1024 packs K int8 values into broadcast tile format for VLEN=1024.
-// Each tile = 4 copies of 32 consecutive bytes = 128 bytes.
+// BroadcastPack1024 packs K int8 values into native VLEN=1024 broadcast tile
+// format. Each tile = 8 copies of 16 consecutive bytes = 128 bytes.
 func BroadcastPack1024(src []int8, K int) []int8 {
-	if K%32 != 0 { panic("ime2: BroadcastPack1024 requires K%32==0") }
-	dst := make([]int8, 4*K) // K/32 tiles × 128 bytes = 4*K
-	for ki := 0; ki < K; ki += 32 {
-		tileBase := (ki / 32) * 128
-		for r := 0; r < 4; r++ {
-			copy(dst[tileBase+r*32:tileBase+(r+1)*32], src[ki:ki+32])
+	if K%16 != 0 {
+		panic("ime2: BroadcastPack1024 requires K%16==0")
+	}
+	dst := make([]int8, 8*K) // K/16 tiles × 128 bytes = 8*K
+	for ki := 0; ki < K; ki += 16 {
+		tileBase := (ki / 16) * 128
+		for r := 0; r < 8; r++ {
+			copy(dst[tileBase+r*16:tileBase+(r+1)*16], src[ki:ki+16])
 		}
 	}
 	return dst
@@ -172,18 +193,45 @@ func vmadotKLoop1024native(A *byte, B *byte, C *int32, K int)
 // actPacked in 128-byte broadcast tile format.
 // Output: out[M] float32 (scaled by wScale * actScale).
 func GemmINT8_AI(M, K int, wPacked []int8, actPacked []int8, wScale, actScale float32, out []float32) {
-	tilesPerRow := K / 32
+	tilesPerRow := K / 16
 	combined := wScale * actScale
-	for i := 0; i < M; i += 4 {
+	for i := 0; i < M; i += 8 {
 		var acc [64]int32
 		VmadotKLoop1024(
-			(*byte)(unsafe.Pointer(&wPacked[(i/4)*tilesPerRow*128])),
+			(*byte)(unsafe.Pointer(&wPacked[(i/8)*tilesPerRow*128])),
 			(*byte)(unsafe.Pointer(&actPacked[0])),
 			&acc[0], K,
 		)
-		// Extract: C[r][0] = acc[r*16] + acc[r*16+1]
-		for r := 0; r < 4 && i+r < M; r++ {
-			out[i+r] = float32(acc[r*16]+acc[r*16+1]) * combined
+		// With broadcast activation, all accumulator columns are identical.
+		// Output row r is acc[r][0] = acc[r*8].
+		for r := 0; r < 8 && i+r < M; r++ {
+			out[i+r] = float32(acc[r*8]) * combined
 		}
 	}
+}
+
+// rvvDotF32 computes sum(a[i]*b[i]) using RVV e32,m4.
+//
+//go:noescape
+func rvvDotF32(a *float32, b *float32, n int) float32
+
+// rvvScaleAccF32 computes acc[i] += scale*src[i] using RVV e32,m4.
+//
+//go:noescape
+func rvvScaleAccF32(acc *float32, src *float32, scale float32, n int)
+
+// DotF32RVV returns the dot product of a and b using SIMD.
+func DotF32RVV(a, b []float32) float32 {
+	if len(a) == 0 {
+		return 0
+	}
+	return rvvDotF32(&a[0], &b[0], len(a))
+}
+
+// ScaleAccF32RVV computes acc[i] += scale*src[i] in-place using SIMD.
+func ScaleAccF32RVV(acc, src []float32, scale float32) {
+	if len(acc) == 0 || scale == 0 {
+		return
+	}
+	rvvScaleAccF32(&acc[0], &src[0], scale, len(acc))
 }
