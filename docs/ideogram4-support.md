@@ -1,0 +1,73 @@
+# Ideogram 4 FP8 support
+
+`ideogram-ai/ideogram-4-fp8` is a gated Diffusers text-to-image pipeline released with the `ideogram-oss/ideogram4` reference implementation. It is not a LLaMA/GGUF decoder target; native go-pherence support needs a separate image-generation pipeline.
+
+## Published/local component graph
+
+The gated Hugging Face config reports:
+
+```text
+pipeline:                  Ideogram4Pipeline
+transformer:               Ideogram4Transformer2DModel
+unconditional_transformer: Ideogram4Transformer2DModel
+scheduler:                 FlowMatchEulerDiscreteScheduler
+text_encoder:              Qwen3VLModel
+tokenizer:                 Qwen2Tokenizer
+vae:                       AutoencoderKLFlux2
+```
+
+## Transformer shape
+
+From the real `ideogram-4-fp8` configs and `ideogram-oss/ideogram4`:
+
+```text
+layers=34
+emb_dim=4608
+num_attention_heads=18
+attention_head_dim=256
+intermediate_size=12288
+in_channels=128
+llm_features_dim=53248
+rope_theta=5000000
+mrope_section=[24 20 20]
+```
+
+`llm_features_dim=53248` is `4096 * 13`, from concatenating Qwen3-VL hidden states at activation layers:
+
+```text
+[0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 35]
+```
+
+## Text encoder
+
+The text encoder config is Qwen3-VL with nested `text_config`:
+
+```text
+model_type=qwen3_vl
+text.model_type=qwen3_vl_text
+hidden_size=4096
+num_hidden_layers=36
+num_attention_heads=32
+num_key_value_heads=8
+vocab_size=151936
+```
+
+The reference pipeline uses text-only Qwen3-VL hidden-state extraction through the Qwen chat template. Native support therefore needs an encoder-style Qwen3-VL forward path that returns the selected hidden layers, not causal token generation.
+
+## Native implementation requirements
+
+Generation support should be implemented in pure Go with backend-owned kernels and no Python/Diffusers runtime dependency:
+
+1. **Inspection/readiness** — implemented by `loader/config/ideogram4.go` and `cmd/ideogram4inspect` for local Diffusers folders.
+2. **Qwen3-VL text conditioning** — tokenize prompts with the Qwen2 tokenizer/chat template and concatenate the 13 selected Qwen3-VL text hidden states.
+3. **Ideogram4 DiT reference path** — implement single-stream text+image token transformer blocks with QK-RMSNorm, MRoPE, SwiGLU MLP, AdaLN timestep conditioning, and velocity prediction.
+4. **FP8 weight loading** — support the checkpoint's FP8 weight-only tensors through backend-owned quantization/dequantization paths.
+5. **Unconditional transformer / asymmetric CFG** — run conditional and unconditional paths as in `ideogram-oss/ideogram4`.
+6. **FlowMatch Euler scheduler** — implement the published sampling schedule.
+7. **AutoencoderKLFlux2 decode** — decode 32-channel latents to image output.
+8. **SIMD acceleration** — promote hot reference ops to checked `backends/simd/runtime` APIs and add AVX/NEON/RVV kernels where profiling warrants.
+9. **End-to-end fixture** — pin a small prompt/seed/step fixture against the reference implementation before marking runtime ready.
+
+## Current status
+
+Inspection only. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders and reports the actual component graph and dimensions, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT, scheduler, FP8 loading, and VAE decode are implemented natively.
