@@ -61,7 +61,7 @@ Generation support should be implemented in pure Go with backend-owned kernels a
 1. **Inspection/readiness** — implemented by `loader/config/ideogram4.go`, `model/ideogram4` shape scaffolding, and `cmd/ideogram4inspect` for local Diffusers folders.
 2. **Qwen3-VL text conditioning** — initial tokenizer/conditioning shape contracts exist in `model/ideogram4`; the remaining work is Qwen chat-template rendering and native Qwen3-VL forward execution to concatenate the 13 selected hidden states.
 3. **Ideogram4 DiT reference path** — implement single-stream text+image token transformer blocks with QK-RMSNorm, MRoPE, SwiGLU MLP, AdaLN timestep conditioning, and velocity prediction.
-4. **FP8 weight loading** — support the checkpoint's FP8 weight-only tensors through backend-owned quantization/dequantization paths.
+4. **FP8 weight loading** — tensor-index inventory scaffolding now verifies both conditional and unconditional DiT indexes (`669` tensors each, `34` layers, `211` FP8 weight scales each); remaining work is backend-owned FP8 dequant/GEMV execution.
 5. **Unconditional transformer / asymmetric CFG** — run conditional and unconditional paths as in `ideogram-oss/ideogram4`.
 6. **FlowMatch Euler scheduler** — initial logit-normal schedule, backward Euler step plan, and asymmetric CFG layout scaffolds exist in `model/ideogram4`; remaining work is wiring them into the DiT execution loop.
 7. **AutoencoderKLFlux2 decode** — decode 32-channel latents to image output.
@@ -70,4 +70,4 @@ Generation support should be implemented in pure Go with backend-owned kernels a
 
 ## Current status
 
-Inspection/runtime scaffolding only. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. `model/ideogram4` also has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, and asymmetric CFG layout helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT, FP8 loading, and VAE decode are implemented natively.
+Inspection/runtime scaffolding only. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. With optional safetensors index JSONs, it also reports conditional/unconditional transformer tensor inventory and FP8 scale coverage. `model/ideogram4` has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, asymmetric CFG layout, and tensor-inventory helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT execution, FP8 loading, and VAE decode are implemented natively.

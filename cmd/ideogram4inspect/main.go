@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/model/ideogram4"
@@ -13,6 +14,8 @@ import (
 func main() {
 	modelDir := flag.String("model", "", "Ideogram 4 Diffusers model directory")
 	asJSON := flag.Bool("json", false, "emit JSON report")
+	transformerIndex := flag.String("transformer-index", "", "optional transformer safetensors index JSON")
+	uncondIndex := flag.String("unconditional-transformer-index", "", "optional unconditional transformer safetensors index JSON")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless image generation runtime is implemented")
 	flag.Parse()
 	if *modelDir == "" {
@@ -31,10 +34,25 @@ func main() {
 	if *requireRuntime && !s.RuntimeReady {
 		fatal(fmt.Errorf("%s", s.RuntimeNote))
 	}
+	report := map[string]any{"summary": s}
+	if *transformerIndex != "" {
+		inv, err := inventoryFromIndex(*transformerIndex, shape.NumLayers)
+		if err != nil {
+			fatal(err)
+		}
+		report["transformer_inventory"] = inv
+	}
+	if *uncondIndex != "" {
+		inv, err := inventoryFromIndex(*uncondIndex, shape.NumLayers)
+		if err != nil {
+			fatal(err)
+		}
+		report["unconditional_transformer_inventory"] = inv
+	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(s); err != nil {
+		if err := enc.Encode(report); err != nil {
 			fatal(err)
 		}
 		return
@@ -45,7 +63,32 @@ func main() {
 	fmt.Printf("  uncond:      %s\n", s.UnconditionalTransformer)
 	fmt.Printf("  text:        %s tokenizer=%s hidden=%d layers=%d vocab=%d activations=%v\n", s.TextEncoder, s.Tokenizer, s.TextHidden, s.TextLayers, s.VocabSize, s.ActivationLayers)
 	fmt.Printf("  vae/sched:   %s / %s\n", s.VAE, s.Scheduler)
+	if inv, ok := report["transformer_inventory"].(ideogram4.TensorInventory); ok {
+		fmt.Printf("  tensors:     transformer total=%d layers=%d fp8_weights=%d fp8_scales=%d missing_globals=%d missing_layers=%d\n", inv.Total, inv.LayerCount, inv.FP8Weights, inv.FP8Scales, len(inv.MissingGlobals), len(inv.MissingLayerTensors))
+	}
+	if inv, ok := report["unconditional_transformer_inventory"].(ideogram4.TensorInventory); ok {
+		fmt.Printf("  tensors:     uncond total=%d layers=%d fp8_weights=%d fp8_scales=%d missing_globals=%d missing_layers=%d\n", inv.Total, inv.LayerCount, inv.FP8Weights, inv.FP8Scales, len(inv.MissingGlobals), len(inv.MissingLayerTensors))
+	}
 	fmt.Printf("  runtime:     ready=%v note=%s\n", s.RuntimeReady, s.RuntimeNote)
+}
+
+func inventoryFromIndex(path string, layers int) (ideogram4.TensorInventory, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ideogram4.TensorInventory{}, err
+	}
+	var raw struct {
+		WeightMap map[string]string `json:"weight_map"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return ideogram4.TensorInventory{}, err
+	}
+	names := make([]string, 0, len(raw.WeightMap))
+	for name := range raw.WeightMap {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return ideogram4.SummarizeTensorNames(names, layers), nil
 }
 
 func fatal(err error) {
