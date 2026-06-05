@@ -89,3 +89,37 @@ and TCM. It's pure MMIO built in-memory by the EP, so neither strace nor LD_PREL
 
 Everything above (device ABI, TCM management, leak handling) is the tractable 80%;
 the command encoding is the remaining, undocumented 20%.
+
+## Static analysis (Capstone) — the hardware layer is isolated and small
+
+`/dev/tcm` is **not** owned by the 3 MB EP — it lives in a dedicated
+**`libspine_tcm.so.0.2.0`** (27 KB total, **10 KB `.text`, 99.4% Capstone-decodable**,
+pure scalar device code, no custom NPU opcodes). This is the real RE target for the
+pure-Go hardware layer.
+
+Exported C API (`SPINE_TCM_0`):
+```
+spine_tcm_runtime_is_available()
+spine_tcm_runtime_layout_info()       // TCM geometry (3 MB / 8 cores × 384 KB)
+spine_tcm_runtime_version() / _marker()
+spine_tcm_runtime_mem_get()           // acquire (the "tcm buffer acquire" path)
+spine_tcm_runtime_mem_free() / _release() / _force_release()
+spine_tcm_runtime_mem_query() / _mem_info() / _mem_try_wait()
+```
+Strings confirm: `ioctl TCM_INFO_GET` (= our `_IOR('c',7)`), `open /dev/tcm`,
+`/dev/tcm_sync_mem`, `shm_open /tcm_sync_standalone` (+ `/tmp/tcm_sync_standalone.shm`
+fallback), and the mmap variants (`mmap tcm block`, `mmap sync`, `mmap shm`).
+
+So the Go port splits cleanly:
+1. **TCM/DMA substrate (tractable now):** reimplement the ~11 `spine_tcm_runtime_*`
+   functions in pure Go — open `/dev/tcm`, `ioctl TCM_INFO_GET`, mmap the 3 MB region +
+   per-core windows, the shm sync lock, acquire/release. 10 KB of decodable code.
+2. **Matrix-engine command encoding (harder, deferred):** the int8 GEMM descriptor +
+   doorbell sequence is built by the EP's `Spine*` kernels in mmap'd memory; the EP
+   `.text` is 97% decodable but the compute uses some custom/RVV opcodes Capstone 5.0.7
+   doesn't render. Needs continued xref RE (constants are runtime-built, not literals)
+   or the K3 NPU descriptor spec.
+
+Capstone is staged (`capstone 5.0.7`, RISCV arch, RV64+RVC) with helper scripts
+`sweep.py` (skip-and-continue linear sweep), `find_ioctl.py` (immediate-constant
+xref), and the live samplers (`sampler.c`).
