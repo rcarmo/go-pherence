@@ -102,7 +102,7 @@ go run ./cmd/diarize-vtt \
   -model models/whisper-large-v3-turbo-hf/model.safetensors \
   -size turbo \
   -task translate \
-  -language pt
+  -language en
 ```
 
 Current validation status:
@@ -111,7 +111,7 @@ Current validation status:
 - Stress RTF observed around `0.54–0.56`, materially faster than full large-v3.
 - Byte-level tokenizer decoding has been fixed.
 - `generation_config` suppression tokens are wired.
-- **Still not enabled as default** because the current Go decode path has produced source-language transcription instead of English translation under `-task translate`; keep full `large-v3` as default until Transformers reference parity is resolved.
+- Translation parity was checked on a Portuguese voice-memo clip (`/workspace/tmp/voice_memo_300_12.wav`). Transformers and Go both produce English with `task=translate` when prompted with `language=en`; `language=pt`/`portuguese` degenerates or transcribes Portuguese. Turbo is therefore not a drop-in replacement for the current source-language CLI default; keep full `large-v3` as default until this language-token behavior is made ergonomic and validated on more clips.
 
 ## Related helper scripts
 
