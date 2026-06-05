@@ -123,3 +123,31 @@ So the Go port splits cleanly:
 Capstone is staged (`capstone 5.0.7`, RISCV arch, RV64+RVC) with helper scripts
 `sweep.py` (skip-and-continue linear sweep), `find_ioctl.py` (immediate-constant
 xref), and the live samplers (`sampler.c`).
+
+## Pure-Go TCM substrate — DONE (npu/tcm.go)
+
+Implemented and validated on hardware (no cgo): `npu.Open()` opens `/dev/tcm`,
+`ioctl(TCM_INFO_GET)` (block size 393216), maps a contiguous 3 MiB TCM region,
+acquires all **8/8 cores**, maps the `aidma_list`/`dma_msi` rings, and round-trips
+data through every core's TCM window. The EP still runs cleanly afterward.
+
+Two non-obvious requirements (cost a long debug):
+1. **Per-core mmap+acquire must interleave** (`mmap(core c)` then `ioctl ACQUIRE(c)`);
+   acquire binds to the most-recently-mapped offset.
+2. **The driver's per-core mmap sequence must not be interleaved with *any* other
+   mmap syscall.** Go's runtime (GC/heap growth) races it, causing `EACCES` on the
+   2nd+ core even though the syscalls are byte-identical to a working C program.
+   Fix in `Open()`: `debug.SetGCPercent(-1)` + `runtime.LockOSThread()` for the
+   duration, reserve a contiguous range, `MAP_FIXED` each core into it, and retry
+   any core a stray runtime mmap interrupted. With that, all 8 cores acquire.
+
+`cmd/npu-tcm` is the on-device validator.
+
+## Next: GEMM (the remaining black box)
+
+The int8 matrix-engine **command/descriptor encoding** is still undecoded. It is
+built by the EP's `Spine*` kernels directly in mmap'd memory (TCM + `aidma_list`
+ring) and kicked via MMIO doorbells — no per-op syscalls, so it is invisible to
+strace/LD_PRELOAD. Recovering it needs live in-execution sampling of the ring/TCM
+during a *single isolated* int8 matmul, correlated with disassembly of the EP's
+GEMM dispatch (Capstone, 97% decodable). That is the next phase.
