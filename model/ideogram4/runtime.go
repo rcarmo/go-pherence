@@ -70,7 +70,7 @@ func (p *Pipeline) Generate(prompt string, height, width, steps int) (Image, err
 	if p == nil {
 		return Image{}, ErrRuntimeNotImplemented
 	}
-	if _, err := p.Config.LatentTokenCount(height, width); err != nil {
+	if _, err := p.Config.NewLatents(1, height, width); err != nil {
 		return Image{}, err
 	}
 	return Image{}, ErrRuntimeNotImplemented
