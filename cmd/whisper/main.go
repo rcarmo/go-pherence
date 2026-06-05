@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
@@ -26,6 +27,8 @@ func main() {
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
 	speakerModel := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
 	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine threshold for speaker clustering")
+	chunkSec := flag.Float64("chunk", 30, "Window length in seconds for long-form chunking")
+	chunkWorkers := flag.Int("chunk-workers", 1, "Parallel transcription windows (set with a small WHISPER_THREADS so workers*threads ~= cores)")
 	timestamps := flag.Bool("timestamps", false, "Output with timestamps")
 	output := flag.String("output", "", "Output file path (supports .vtt)")
 	flag.Parse()
@@ -99,8 +102,8 @@ func main() {
 	fmt.Fprintf(os.Stderr, "Audio: %.1fs\n", float64(len(samples))/16000)
 
 	if *timestamps {
-		// Transcribe with timestamps
-		segments := transcribeWithTimestamps(w, samples)
+		// Transcribe with timestamps (chunked + parallel for long audio).
+		segments := transcribeChunked(w, samples, *chunkSec, *chunkWorkers)
 		if *diarize {
 			diarized := diarizeSegments(samples, segments, *speakerModel, float32(*speakerThreshold))
 			if *output != "" {
@@ -152,6 +155,13 @@ func main() {
 }
 
 func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.Segment {
+	return transcribeWindow(w, samples, 0)
+}
+
+// transcribeWindow runs one <=30s window (mel -> encoder -> greedy decode) and
+// offsets the resulting segment timestamps by offsetSec. Encoder/decoder state
+// is per-call, so multiple windows can run concurrently.
+func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64) []whisper.Segment {
 	melCfg := audio.MelConfig{
 		SampleRate: 16000,
 		FFTSize:    400,
@@ -160,7 +170,7 @@ func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.S
 		NFFTPadded: 512,
 	}
 	mel := audio.MelSpectrogram(samples, melCfg)
-	if mel == nil {
+	if mel == nil || len(mel) == 0 || len(mel[0]) == 0 {
 		return nil
 	}
 
@@ -174,7 +184,66 @@ func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.S
 	encLen := len(encoderOutput) / w.Config.EncoderDModel
 	state := whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
 
-	return whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
+	segs := whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
+	if offsetSec != 0 {
+		for i := range segs {
+			segs[i].Start += offsetSec
+			segs[i].End += offsetSec
+		}
+	}
+	return segs
+}
+
+// transcribeChunked splits long audio into fixed windows and transcribes them
+// across `workers` goroutines. Whisper's encoder is a fixed 30s window, so
+// long-form throughput comes from running independent windows concurrently;
+// pair with a small per-window WHISPER_THREADS so workers*threads ~= cores.
+func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, workers int) []whisper.Segment {
+	const sr = 16000
+	chunk := int(chunkSec * sr)
+	if chunk <= 0 || len(samples) <= chunk || workers <= 1 {
+		if chunk > 0 && len(samples) > chunk {
+			// Sequential chunking (workers<=1) still avoids the O(T^2) full pass.
+			var all []whisper.Segment
+			for s := 0; s < len(samples); s += chunk {
+				e := s + chunk
+				if e > len(samples) {
+					e = len(samples)
+				}
+				all = append(all, transcribeWindow(w, samples[s:e], float64(s)/sr)...)
+			}
+			return all
+		}
+		return transcribeWindow(w, samples, 0)
+	}
+
+	type span struct{ s, e int }
+	var spans []span
+	for s := 0; s < len(samples); s += chunk {
+		e := s + chunk
+		if e > len(samples) {
+			e = len(samples)
+		}
+		spans = append(spans, span{s, e})
+	}
+	results := make([][]whisper.Segment, len(spans))
+	sem := make(chan struct{}, workers)
+	var wg sync.WaitGroup
+	for i, sp := range spans {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i, s, e int) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			results[i] = transcribeWindow(w, samples[s:e], float64(s)/sr)
+		}(i, sp.s, sp.e)
+	}
+	wg.Wait()
+	var all []whisper.Segment
+	for _, r := range results {
+		all = append(all, r...)
+	}
+	return all
 }
 
 func diarizeSegments(samples []float32, segments []whisper.Segment, modelPath string, threshold float32) []whisper.DiarizedSegment {
