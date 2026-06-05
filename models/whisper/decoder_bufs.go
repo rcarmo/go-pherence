@@ -55,6 +55,12 @@ func newDecoderBufs(cfg Config) *decoderBufs {
 
 // linearInto computes out = x @ W^T + bias into a pre-allocated buffer.
 func linearInto(out, x, weight, bias []float32, inDim, outDim int) {
+	// Decode is bandwidth-bound on streaming the full decoder weight set per
+	// token; int8 weights cut that traffic ~4x. M is padded 1->4 internally.
+	if useInt8 && int8Eligible(inDim, outDim) {
+		copy(out, linearForwardInt8(x[:inDim], weight, bias, 1, inDim, outDim))
+		return
+	}
 	for o := 0; o < outDim; o++ {
 		wOff := o * inDim
 		sum := simdrt.Sdot(x[:inDim], weight[wOff:wOff+inDim])

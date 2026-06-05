@@ -10,6 +10,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
+	"time"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/models/speaker"
@@ -22,6 +25,10 @@ func main() {
 	modelSize := flag.String("size", "tiny", "Model size: tiny, base, small, medium, large-v3, turbo")
 	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
+	speakerModel := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
+	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine threshold for speaker clustering")
+	chunkSec := flag.Float64("chunk", 30, "Window length in seconds for long-form chunking")
+	chunkWorkers := flag.Int("chunk-workers", 1, "Parallel transcription windows (set with a small WHISPER_THREADS so workers*threads ~= cores)")
 	timestamps := flag.Bool("timestamps", false, "Output with timestamps")
 	output := flag.String("output", "", "Output file path (supports .vtt)")
 	flag.Parse()
@@ -95,10 +102,10 @@ func main() {
 	fmt.Fprintf(os.Stderr, "Audio: %.1fs\n", float64(len(samples))/16000)
 
 	if *timestamps {
-		// Transcribe with timestamps
-		segments := transcribeWithTimestamps(w, samples)
+		// Transcribe with timestamps (chunked + parallel for long audio).
+		segments := transcribeChunked(w, samples, *chunkSec, *chunkWorkers)
 		if *diarize {
-			diarized := diarizeSegments(samples, segments)
+			diarized := diarizeSegments(samples, segments, *speakerModel, float32(*speakerThreshold))
 			if *output != "" {
 				if err := whisper.WriteDiarizedVTT(*output, diarized); err != nil {
 					fmt.Fprintf(os.Stderr, "Error writing VTT: %v\n", err)
@@ -124,17 +131,37 @@ func main() {
 			}
 		}
 	} else {
-		// Simple transcription
-		text, err := w.TranscribeFromSamples(samples)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error transcribing: %v\n", err)
-			os.Exit(1)
+		// Simple transcription. WHISPER_REPEAT>1 runs extra warm passes (weights
+		// stay quantized/packed in cache) to measure steady-state resident cost.
+		reps := 1
+		if rv := os.Getenv("WHISPER_REPEAT"); rv != "" {
+			if n, e := strconv.Atoi(rv); e == nil && n > 0 {
+				reps = n
+			}
+		}
+		var text string
+		var err error
+		for r := 0; r < reps; r++ {
+			ps := time.Now()
+			text, err = w.TranscribeFromSamples(samples)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error transcribing: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Fprintf(os.Stderr, "[pass %d] %.1fs\n", r, time.Since(ps).Seconds())
 		}
 		fmt.Println(text)
 	}
 }
 
 func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.Segment {
+	return transcribeWindow(w, samples, 0)
+}
+
+// transcribeWindow runs one <=30s window (mel -> encoder -> greedy decode) and
+// offsets the resulting segment timestamps by offsetSec. Encoder/decoder state
+// is per-call, so multiple windows can run concurrently.
+func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64) []whisper.Segment {
 	melCfg := audio.MelConfig{
 		SampleRate: 16000,
 		FFTSize:    400,
@@ -143,7 +170,7 @@ func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.S
 		NFFTPadded: 512,
 	}
 	mel := audio.MelSpectrogram(samples, melCfg)
-	if mel == nil {
+	if mel == nil || len(mel) == 0 || len(mel[0]) == 0 {
 		return nil
 	}
 
@@ -157,13 +184,70 @@ func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.S
 	encLen := len(encoderOutput) / w.Config.EncoderDModel
 	state := whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
 
-	return whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
+	segs := whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
+	if offsetSec != 0 {
+		for i := range segs {
+			segs[i].Start += offsetSec
+			segs[i].End += offsetSec
+		}
+	}
+	return segs
 }
 
-func diarizeSegments(samples []float32, segments []whisper.Segment) []whisper.DiarizedSegment {
-	// VAD to find speech segments
-	vadSegs := speaker.EnergyVAD(samples, 16000, 25, 10, 0)
-	if len(vadSegs) == 0 {
+// transcribeChunked splits long audio into fixed windows and transcribes them
+// across `workers` goroutines. Whisper's encoder is a fixed 30s window, so
+// long-form throughput comes from running independent windows concurrently;
+// pair with a small per-window WHISPER_THREADS so workers*threads ~= cores.
+func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, workers int) []whisper.Segment {
+	const sr = 16000
+	chunk := int(chunkSec * sr)
+	if chunk <= 0 || len(samples) <= chunk || workers <= 1 {
+		if chunk > 0 && len(samples) > chunk {
+			// Sequential chunking (workers<=1) still avoids the O(T^2) full pass.
+			var all []whisper.Segment
+			for s := 0; s < len(samples); s += chunk {
+				e := s + chunk
+				if e > len(samples) {
+					e = len(samples)
+				}
+				all = append(all, transcribeWindow(w, samples[s:e], float64(s)/sr)...)
+			}
+			return all
+		}
+		return transcribeWindow(w, samples, 0)
+	}
+
+	type span struct{ s, e int }
+	var spans []span
+	for s := 0; s < len(samples); s += chunk {
+		e := s + chunk
+		if e > len(samples) {
+			e = len(samples)
+		}
+		spans = append(spans, span{s, e})
+	}
+	results := make([][]whisper.Segment, len(spans))
+	sem := make(chan struct{}, workers)
+	var wg sync.WaitGroup
+	for i, sp := range spans {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i, s, e int) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			results[i] = transcribeWindow(w, samples[s:e], float64(s)/sr)
+		}(i, sp.s, sp.e)
+	}
+	wg.Wait()
+	var all []whisper.Segment
+	for _, r := range results {
+		all = append(all, r...)
+	}
+	return all
+}
+
+func diarizeSegments(samples []float32, segments []whisper.Segment, modelPath string, threshold float32) []whisper.DiarizedSegment {
+	singleSpeaker := func() []whisper.DiarizedSegment {
 		result := make([]whisper.DiarizedSegment, len(segments))
 		for i, s := range segments {
 			result[i] = whisper.DiarizedSegment{Start: s.Start, End: s.End, Text: s.Text, Speaker: 0}
@@ -171,16 +255,26 @@ func diarizeSegments(samples []float32, segments []whisper.Segment) []whisper.Di
 		return result
 	}
 
-	// Extract speaker embeddings per VAD segment (placeholder: zero embeddings)
-	embeddings := make([][]float32, len(vadSegs))
-	for i := range embeddings {
-		embeddings[i] = make([]float32, 192)
+	// VAD to find speech segments.
+	vadSegs := speaker.EnergyVAD(samples, 16000, 25, 10, 0)
+	if len(vadSegs) == 0 {
+		return singleSpeaker()
 	}
 
-	// Cluster
-	labels := speaker.AgglomerativeCluster(embeddings, 0.7)
+	// Real ECAPA-TDNN speaker embeddings. Fall back to a single speaker if the
+	// converted model is unavailable so transcription still succeeds.
+	model, err := speaker.LoadSpeechBrainECAPASafetensors(modelPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "diarize: speaker model unavailable (%v); using single-speaker fallback\n", err)
+		return singleSpeaker()
+	}
+	embeddings := speaker.ExtractSpeechBrainEmbeddingsWithContext(samples, 16000, vadSegs, model, 0.5)
 
-	// Align and convert
+	// Cluster, then smooth singleton labels (mirrors cmd/speakercheck).
+	labels := speaker.AgglomerativeCluster(embeddings, threshold)
+	labels = speaker.SmoothSingletonLabels(labels, embeddings, 0.4)
+
+	// Align and convert.
 	aligned := speaker.AlignSpeakers(segments, vadSegs, labels)
 	result := make([]whisper.DiarizedSegment, len(aligned))
 	for i, a := range aligned {

@@ -72,6 +72,35 @@ func conv1dForwardDilated(c Conv1D, input []float32, inCh, frames, dilation int)
 		}
 	}
 	pad := dilation * (kernel / 2)
+	// im2col + RVV SGEMM for kernel>1 (Conv0 k=5, Res2Net k=3). The weight is
+	// already laid out as [outCh, inCh*kernel], so it doubles as the GEMM A.
+	if kernel > 1 && len(c.Weight) >= outCh*inCh*kernel && len(input) >= inCh*frames {
+		kk := inCh * kernel
+		col := make([]float32, kk*frames)
+		for ic := 0; ic < inCh; ic++ {
+			inBase := ic * frames
+			for k := 0; k < kernel; k++ {
+				row := (ic*kernel + k) * frames
+				shift := k*dilation - pad
+				lo := 0
+				if shift < 0 {
+					lo = -shift
+				}
+				hi := frames
+				if frames-shift < hi {
+					hi = frames - shift
+				}
+				for t := lo; t < hi; t++ {
+					col[row+t] = input[inBase+t+shift]
+				}
+			}
+		}
+		if simdrt.SgemmNNTo(out, c.Weight, col, outCh, frames, kk, 1, kk, frames, frames) {
+			addConvBias(out, c.Bias, outCh, frames)
+			return out
+		}
+	}
+	// Scalar fallback (no RVV SGEMM available).
 	for oc := 0; oc < outCh; oc++ {
 		for t := 0; t < frames; t++ {
 			sum := float32(0)

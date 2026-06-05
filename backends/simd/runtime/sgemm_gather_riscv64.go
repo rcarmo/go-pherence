@@ -21,7 +21,7 @@ func gatherMicroKernel6x8(k int, alpha float32, a unsafe.Pointer, lda int, b uns
 				return
 			}
 			bRow := unsafe.Slice((*float32)(unsafe.Add(b, bOff)), k)
-			sum := sdotAsm(aRow, bRow)
+			sum := sdotM4Asm(aRow, bRow)
 			storeF32(c, i*ldc+j, loadF32(c, i*ldc+j)+alpha*sum)
 		}
 	}

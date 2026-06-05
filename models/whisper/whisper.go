@@ -1,6 +1,10 @@
 package whisper
 
 import (
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/rcarmo/go-pherence/loader/audio"
 )
 
@@ -78,11 +82,23 @@ func (w *Whisper) TranscribeFromSamples(samples []float32) (string, error) {
 		copy(melFlat[m*T:], mel[m])
 	}
 
+	encStart := time.Now()
 	encoderOutput := w.Encoder.Forward(melFlat, T)
 	encLen := len(encoderOutput) / w.Config.EncoderDModel
 
 	state := NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
+	stateDone := time.Now()
 	tokens := GreedyDecode(w.Decoder, state, w.Config)
+	if os.Getenv("WHISPER_DEBUG") != "" {
+		fmt.Fprintf(os.Stderr, "[timing] encoder+xkv=%.1fs decode=%.1fs tokens=%d\n",
+			stateDone.Sub(encStart).Seconds(), time.Since(stateDone).Seconds(), len(tokens))
+		if useInt8 {
+			fmt.Fprintf(os.Stderr, "[int8] quant=%.1fs pack=%.1fs gemm=%.1fs dequant=%.1fs\n",
+				float64(i8QuantNs)/1e9, float64(i8PackNs)/1e9, float64(i8GemmNs)/1e9, float64(i8DeqNs)/1e9)
+			fmt.Fprintf(os.Stderr, "[dec] self=%.1fs cross=%.1fs mlp=%.1fs lmhead=%.1fs\n",
+				float64(decSelfNs)/1e9, float64(decCrossNs)/1e9, float64(decMlpNs)/1e9, float64(decLmNs)/1e9)
+		}
+	}
 
 	return TokensToText(tokens), nil
 }

@@ -6,6 +6,12 @@ import (
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
+// k3I8I4M1ZPDFused is the full asm-fused kernel + ZPD correction.
+// Processes one N32 group: dot product + ZPD accumulation in one pass.
+// zpd: pointer to zpd[kBlks*32] float32 for this group.
+// sumCorr: pointer to sumCorr[kBlks] float32 (shared across groups).
+func k3I8I4M1ZPDFused(a *byte, b *byte, c *float32, kBlks int, zpd *float32, sumCorr *float32)
+
 // k3I8I4M1ZPD is k3I8I4M1 followed by ZPD correction in one call.
 // Eliminates the separate ScaleAccF32RVV loop (32 function calls per group).
 // zpd layout: [subs][32]float32 = subs*32 contiguous float32s for this group.
@@ -31,7 +37,7 @@ func k3I8I4M1GroupsZPD(a *byte, b *byte, c *float32, kBlks int, nGroups int, zpd
 	strideC := uintptr(32 * 4)
 	strideZPD := uintptr(kBlks * 32 * 4) // kBlks*32 float32 per group
 	for g := 0; g < nGroups; g++ {
-		k3I8I4M1ZPD(a, b, c, kBlks, 32, zpd, sumCorr)
+		k3I8I4M1ZPDFused(a, b, c, kBlks, zpd, sumCorr)
 		b = (*byte)(unsafe.Add(unsafe.Pointer(b), strideB))
 		c = (*float32)(unsafe.Add(unsafe.Pointer(c), strideC))
 		zpd = (*float32)(unsafe.Add(unsafe.Pointer(zpd), strideZPD))
