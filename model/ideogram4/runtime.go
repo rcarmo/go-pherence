@@ -73,5 +73,8 @@ func (p *Pipeline) Generate(prompt string, height, width, steps int) (Image, err
 	if _, err := p.Config.NewLatents(1, height, width); err != nil {
 		return Image{}, err
 	}
+	if _, err := p.Config.BuildSamplingPlan(height, width, steps, 1, nil, DefaultMaxTextTokens, LogitNormalSchedule{}); err != nil {
+		return Image{}, err
+	}
 	return Image{}, ErrRuntimeNotImplemented
 }

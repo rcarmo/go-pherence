@@ -63,11 +63,11 @@ Generation support should be implemented in pure Go with backend-owned kernels a
 3. **Ideogram4 DiT reference path** — implement single-stream text+image token transformer blocks with QK-RMSNorm, MRoPE, SwiGLU MLP, AdaLN timestep conditioning, and velocity prediction.
 4. **FP8 weight loading** — support the checkpoint's FP8 weight-only tensors through backend-owned quantization/dequantization paths.
 5. **Unconditional transformer / asymmetric CFG** — run conditional and unconditional paths as in `ideogram-oss/ideogram4`.
-6. **FlowMatch Euler scheduler** — implement the published sampling schedule.
+6. **FlowMatch Euler scheduler** — initial logit-normal schedule, backward Euler step plan, and asymmetric CFG layout scaffolds exist in `model/ideogram4`; remaining work is wiring them into the DiT execution loop.
 7. **AutoencoderKLFlux2 decode** — decode 32-channel latents to image output.
 8. **SIMD acceleration** — promote hot reference ops to checked `backends/simd/runtime` APIs and add AVX/NEON/RVV kernels where profiling warrants.
 9. **End-to-end fixture** — pin a small prompt/seed/step fixture against the reference implementation before marking runtime ready.
 
 ## Current status
 
-Inspection/runtime scaffolding only. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. `model/ideogram4` also has bounded prompt-token, text-conditioning, and latent shape helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT, scheduler, FP8 loading, and VAE decode are implemented natively.
+Inspection/runtime scaffolding only. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. `model/ideogram4` also has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, and asymmetric CFG layout helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT, FP8 loading, and VAE decode are implemented natively.
