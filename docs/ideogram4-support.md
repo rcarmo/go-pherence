@@ -58,7 +58,7 @@ The reference pipeline uses text-only Qwen3-VL hidden-state extraction through t
 
 Generation support should be implemented in pure Go with backend-owned kernels and no Python/Diffusers runtime dependency:
 
-1. **Inspection/readiness** — implemented by `loader/config/ideogram4.go` and `cmd/ideogram4inspect` for local Diffusers folders.
+1. **Inspection/readiness** — implemented by `loader/config/ideogram4.go`, `model/ideogram4` shape scaffolding, and `cmd/ideogram4inspect` for local Diffusers folders.
 2. **Qwen3-VL text conditioning** — tokenize prompts with the Qwen2 tokenizer/chat template and concatenate the 13 selected Qwen3-VL text hidden states.
 3. **Ideogram4 DiT reference path** — implement single-stream text+image token transformer blocks with QK-RMSNorm, MRoPE, SwiGLU MLP, AdaLN timestep conditioning, and velocity prediction.
 4. **FP8 weight loading** — support the checkpoint's FP8 weight-only tensors through backend-owned quantization/dequantization paths.
@@ -70,4 +70,4 @@ Generation support should be implemented in pure Go with backend-owned kernels a
 
 ## Current status
 
-Inspection only. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders and reports the actual component graph and dimensions, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT, scheduler, FP8 loading, and VAE decode are implemented natively.
+Inspection/runtime scaffolding only. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT, scheduler, FP8 loading, and VAE decode are implemented natively.
