@@ -151,3 +151,31 @@ ring) and kicked via MMIO doorbells — no per-op syscalls, so it is invisible t
 strace/LD_PRELOAD. Recovering it needs live in-execution sampling of the ring/TCM
 during a *single isolated* int8 matmul, correlated with disassembly of the EP's
 GEMM dispatch (Capstone, 97% decodable). That is the next phase.
+
+## GEMM phase — progress + remaining black box
+
+Findings toward the int8 GEMM command encoding:
+
+- **Isolation requires full-graph EP passes.** A single `DynamicQuantizeLinear→
+  MatMulInteger` subgraph extracted verbatim from the encoder fails on the NPU
+  with `kernel not found MatMulInteger` — the EP only offloads after graph-level
+  weight-prepacking (`SPACEMIT_EP_ENABLE_BLOCKLAYOUT`). So a single matmul can't
+  be run in isolation; capture must happen inside a full (or layer-prefix) run.
+- **EP introspection knobs** (`SPACEMIT_EP_DUMP_SUBGRAPHS`, `DUMP_TENSORS`,
+  `DEBUG_PROFILE`) expose the EP's *high-level* compiled subgraph
+  (`gemm/spine_subgraph_sample.onnx`: 256 MatMul + 256 DynamicQuantizeLinear +
+  448 DequantizeLinear + Softmax/Erf/ReduceMean — the whole encoder, input
+  `[1280,1500]` transposed) and a Chrome-trace profile. They do **not** expose the
+  raw NPU descriptors — those are synthesized at spine-executor runtime from this
+  graph and written to mmap'd TCM/ring via MMIO.
+- So decoding the descriptor format needs one of:
+  1. **Live in-execution sampling** of the now-Go-mappable TCM + `aidma_list` ring
+     during a full encoder run, isolating the first matmul's descriptor (the Go
+     `npu` substrate gives us our own TCM mapping to sample from).
+  2. **Static disassembly** of the EP's spine GEMM kernel (the function turning a
+     MatMul node into descriptors + doorbell offset); Capstone is staged, 97%
+     decodable, constants are runtime-built so xref-driven.
+
+This is the deep, focused remaining work. The TCM substrate (npu/tcm.go) is the
+foundation it builds on; `gemm/run_mm1.cpp` is the isolated-matmul harness (kept
+for the layer-prefix capture approach).
