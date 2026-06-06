@@ -73,6 +73,17 @@ func (p *Pipeline) Generate(prompt string, height, width, steps int) (Image, err
 	if _, err := p.Config.NewLatents(1, height, width); err != nil {
 		return Image{}, err
 	}
+	sched := p.Scheduler
+	if sched == nil {
+		fm, err := NewFlowMatchScheduler(p.Config, height, width, LogitNormalSchedule{})
+		if err != nil {
+			return Image{}, err
+		}
+		sched = fm
+	}
+	if _, err := sched.Steps(steps); err != nil {
+		return Image{}, err
+	}
 	if _, err := p.Config.BuildSamplingPlan(height, width, steps, 1, nil, DefaultMaxTextTokens, LogitNormalSchedule{}); err != nil {
 		return Image{}, err
 	}
