@@ -32,6 +32,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	defer pipe.ReleaseGPU()
 	cfg := pipe.Config
 	gh, gw, err := cfg.LatentGrid(*height, *width)
 	if err != nil {
