@@ -6,6 +6,8 @@
 package main
 
 import (
+	"math"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"os"
@@ -180,11 +182,33 @@ func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64) 
 		copy(melFlat[m*T:], mel[m])
 	}
 
-	encoderOutput := w.Encoder.Forward(melFlat, T)
+	var encoderOutput []float32
+	if hp := os.Getenv("WHISPER_ENC_H"); hp != "" {
+		// Inject a precomputed encoder hidden state (e.g. from the NPU encoder),
+		// raw float32 [seq, EncoderDModel] row-major. Skips the CPU encoder.
+		raw, err := os.ReadFile(hp)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WHISPER_ENC_H read: %v\n", err)
+			return nil
+		}
+		encoderOutput = make([]float32, len(raw)/4)
+		for i := range encoderOutput {
+			encoderOutput[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[i*4:]))
+		}
+		if os.Getenv("WHISPER_DEBUG") != "" {
+			fmt.Fprintf(os.Stderr, "[enc] injected %d floats from %s (skipping CPU encoder)\n", len(encoderOutput), hp)
+		}
+	} else {
+		encoderOutput = w.Encoder.Forward(melFlat, T)
+	}
 	encLen := len(encoderOutput) / w.Config.EncoderDModel
+	dt0 := time.Now()
 	state := whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
 
 	segs := whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
+	if os.Getenv("WHISPER_DEBUG") != "" {
+		fmt.Fprintf(os.Stderr, "[timing] xkv+decode=%.2fs\n", time.Since(dt0).Seconds())
+	}
 	if offsetSec != 0 {
 		for i := range segs {
 			segs[i].Start += offsetSec
