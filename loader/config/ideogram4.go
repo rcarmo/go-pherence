@@ -57,17 +57,25 @@ type Ideogram4TextEncoderConfig struct {
 	NumHiddenLayers   int                     `json:"num_hidden_layers"`
 	NumAttentionHeads int                     `json:"num_attention_heads"`
 	NumKeyValueHeads  int                     `json:"num_key_value_heads"`
+	HeadDim           int                     `json:"head_dim"`
+	IntermediateSize  int                     `json:"intermediate_size"`
+	RmsNormEps        float64                 `json:"rms_norm_eps"`
+	TextRopeTheta     float64                 `json:"rope_theta"`
 	VocabSize         int                     `json:"vocab_size"`
 	TextConfig        *Ideogram4TextSubConfig `json:"text_config"`
 }
 
 type Ideogram4TextSubConfig struct {
-	ModelType         string `json:"model_type"`
-	HiddenSize        int    `json:"hidden_size"`
-	NumHiddenLayers   int    `json:"num_hidden_layers"`
-	NumAttentionHeads int    `json:"num_attention_heads"`
-	NumKeyValueHeads  int    `json:"num_key_value_heads"`
-	VocabSize         int    `json:"vocab_size"`
+	ModelType         string  `json:"model_type"`
+	HiddenSize        int     `json:"hidden_size"`
+	NumHiddenLayers   int     `json:"num_hidden_layers"`
+	NumAttentionHeads int     `json:"num_attention_heads"`
+	NumKeyValueHeads  int     `json:"num_key_value_heads"`
+	HeadDim           int     `json:"head_dim"`
+	IntermediateSize  int     `json:"intermediate_size"`
+	RmsNormEps        float64 `json:"rms_norm_eps"`
+	TextRopeTheta     float64 `json:"rope_theta"`
+	VocabSize         int     `json:"vocab_size"`
 }
 
 type Ideogram4SchedulerConfig struct {
@@ -87,30 +95,36 @@ type Ideogram4Config struct {
 }
 
 type Ideogram4Summary struct {
-	Pipeline                 string `json:"pipeline"`
-	Transformer              string `json:"transformer"`
-	UnconditionalTransformer string `json:"unconditional_transformer"`
-	TextEncoder              string `json:"text_encoder"`
-	Tokenizer                string `json:"tokenizer"`
-	Scheduler                string `json:"scheduler"`
-	VAE                      string `json:"vae"`
-	EmbDim                   int    `json:"emb_dim"`
-	Layers                   int    `json:"layers"`
-	Heads                    int    `json:"heads"`
-	HeadDim                  int    `json:"head_dim"`
-	IntermediateSize         int    `json:"intermediate_size"`
-	AdaLNDim                 int    `json:"adaln_dim"`
-	InChannels               int    `json:"in_channels"`
-	LLMFeaturesDim           int    `json:"llm_features_dim"`
-	MRoPESection             []int  `json:"mrope_section"`
-	RopeTheta                int    `json:"rope_theta"`
+	Pipeline                 string  `json:"pipeline"`
+	Transformer              string  `json:"transformer"`
+	UnconditionalTransformer string  `json:"unconditional_transformer"`
+	TextEncoder              string  `json:"text_encoder"`
+	Tokenizer                string  `json:"tokenizer"`
+	Scheduler                string  `json:"scheduler"`
+	VAE                      string  `json:"vae"`
+	EmbDim                   int     `json:"emb_dim"`
+	Layers                   int     `json:"layers"`
+	Heads                    int     `json:"heads"`
+	HeadDim                  int     `json:"head_dim"`
+	IntermediateSize         int     `json:"intermediate_size"`
+	AdaLNDim                 int     `json:"adaln_dim"`
+	InChannels               int     `json:"in_channels"`
+	LLMFeaturesDim           int     `json:"llm_features_dim"`
+	MRoPESection             []int   `json:"mrope_section"`
+	RopeTheta                int     `json:"rope_theta"`
 	NormEps                  float64 `json:"norm_eps"`
-	ActivationLayers         []int  `json:"activation_layers"`
-	TextHidden               int    `json:"text_hidden"`
-	TextLayers               int    `json:"text_layers"`
-	VocabSize                int    `json:"vocab_size"`
-	RuntimeReady             bool   `json:"runtime_ready"`
-	RuntimeNote              string `json:"runtime_note"`
+	ActivationLayers         []int   `json:"activation_layers"`
+	TextHidden               int     `json:"text_hidden"`
+	TextHeads                int     `json:"text_heads"`
+	TextKVHeads              int     `json:"text_kv_heads"`
+	TextHeadDim              int     `json:"text_head_dim"`
+	TextIntermediate         int     `json:"text_intermediate"`
+	TextRmsEps               float64 `json:"text_rms_eps"`
+	TextRopeTheta            float64 `json:"text_rope_theta"`
+	TextLayers               int     `json:"text_layers"`
+	VocabSize                int     `json:"vocab_size"`
+	RuntimeReady             bool    `json:"runtime_ready"`
+	RuntimeNote              string  `json:"runtime_note"`
 }
 
 var Ideogram4Qwen3VLActivationLayers = []int{0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 35}
@@ -214,6 +228,18 @@ func normalizeIdeogram4TextEncoder(cfg *Ideogram4TextEncoderConfig) {
 	if cfg.VocabSize == 0 {
 		cfg.VocabSize = cfg.TextConfig.VocabSize
 	}
+	if cfg.HeadDim == 0 {
+		cfg.HeadDim = cfg.TextConfig.HeadDim
+	}
+	if cfg.IntermediateSize == 0 {
+		cfg.IntermediateSize = cfg.TextConfig.IntermediateSize
+	}
+	if cfg.RmsNormEps == 0 {
+		cfg.RmsNormEps = cfg.TextConfig.RmsNormEps
+	}
+	if cfg.TextRopeTheta == 0 {
+		cfg.TextRopeTheta = cfg.TextConfig.TextRopeTheta
+	}
 }
 
 func validateIdeogram4Transformer(name string, cfg Ideogram4TransformerConfig) error {
@@ -261,6 +287,12 @@ func SummarizeIdeogram4Config(cfg Ideogram4Config) Ideogram4Summary {
 		NormEps:                  cfg.Transformer.NormEps,
 		ActivationLayers:         append([]int(nil), Ideogram4Qwen3VLActivationLayers...),
 		TextHidden:               cfg.TextEncoder.HiddenSize,
+		TextHeads:                cfg.TextEncoder.NumAttentionHeads,
+		TextKVHeads:              cfg.TextEncoder.NumKeyValueHeads,
+		TextHeadDim:              cfg.TextEncoder.HeadDim,
+		TextIntermediate:         cfg.TextEncoder.IntermediateSize,
+		TextRmsEps:               cfg.TextEncoder.RmsNormEps,
+		TextRopeTheta:            cfg.TextEncoder.TextRopeTheta,
 		TextLayers:               cfg.TextEncoder.NumHiddenLayers,
 		VocabSize:                cfg.TextEncoder.VocabSize,
 		RuntimeReady:             false,

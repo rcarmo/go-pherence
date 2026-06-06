@@ -34,6 +34,12 @@ type Config struct {
 	NormEps                  float64
 	ActivationLayers         []int
 	TextHidden               int
+	TextHeads                int
+	TextKVHeads              int
+	TextHeadDim              int
+	TextIntermediate         int
+	TextRmsEps               float64
+	TextRopeTheta            float64
 	TextLayers               int
 	VocabSize                int
 	PatchSize                int
@@ -64,6 +70,12 @@ func FromLoaderConfig(cfg loaderconfig.Ideogram4Config) (Config, error) {
 		NormEps:                  s.NormEps,
 		ActivationLayers:         append([]int(nil), s.ActivationLayers...),
 		TextHidden:               s.TextHidden,
+		TextHeads:                s.TextHeads,
+		TextKVHeads:              s.TextKVHeads,
+		TextHeadDim:              s.TextHeadDim,
+		TextIntermediate:         s.TextIntermediate,
+		TextRmsEps:               s.TextRmsEps,
+		TextRopeTheta:            s.TextRopeTheta,
 		TextLayers:               s.TextLayers,
 		VocabSize:                s.VocabSize,
 		PatchSize:                2,
