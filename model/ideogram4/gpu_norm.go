@@ -37,3 +37,17 @@ func rmsNormWeightedGPU(dst, x, weight []float32, eps float32) error {
 	}
 	return nvidia.F32RMSNorm(dst, x, weight, eps)
 }
+
+func adalnTransformGPU(mod []float32, emb int) error {
+	if !nvidia.Available() {
+		return fmt.Errorf("nvidia runtime unavailable")
+	}
+	return nvidia.IdeogramAdaLNTransform(mod, emb)
+}
+
+func gatedResidualGPU(hidden, update, gate []float32) error {
+	if !nvidia.Available() {
+		return fmt.Errorf("nvidia runtime unavailable")
+	}
+	return nvidia.IdeogramGatedResidual(hidden, update, gate)
+}

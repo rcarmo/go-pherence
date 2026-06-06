@@ -182,3 +182,127 @@ done:
     ret;
 }
 `
+
+// IdeogramAdaLNTransformPTX transforms one DiT block adaLN modulation vector
+// in-place. The input layout is [scale_msa, gate_msa, scale_mlp, gate_mlp],
+// each length emb. It writes:
+//
+//	scale_* = 1 + scale_*
+//	gate_*  = tanh(gate_*)
+//
+// The tanh implementation matches the existing PTX activation style using
+// tanh(x) = 1 - 2/(1 + exp(2x)).
+const IdeogramAdaLNTransformPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_adaln_transform_f32(
+    .param .u64 MOD,
+    .param .u32 EMB
+) {
+    .reg .pred %p<4>;
+    .reg .u32 %r<16>;
+    .reg .u64 %rd<16>;
+    .reg .f32 %f<24>;
+
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2;      // i
+    ld.param.u32 %r4, [EMB];
+    setp.ge.u32 %p0, %r3, %r4;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [MOD];
+    mul.wide.u32 %rd1, %r3, 4;
+
+    // scale_msa[i] += 1
+    add.u64 %rd2, %rd0, %rd1;
+    ld.global.f32 %f0, [%rd2];
+    add.f32 %f0, %f0, 0f3F800000;
+    st.global.f32 [%rd2], %f0;
+
+    // scale_mlp[i] += 1 (offset 2*emb)
+    mul.lo.u32 %r5, %r4, 2;
+    add.u32 %r6, %r5, %r3;
+    mul.wide.u32 %rd3, %r6, 4;
+    add.u64 %rd4, %rd0, %rd3;
+    ld.global.f32 %f1, [%rd4];
+    add.f32 %f1, %f1, 0f3F800000;
+    st.global.f32 [%rd4], %f1;
+
+    // gate_msa[i] = tanh(gate_msa[i]) (offset emb)
+    add.u32 %r7, %r4, %r3;
+    mul.wide.u32 %rd5, %r7, 4;
+    add.u64 %rd6, %rd0, %rd5;
+    ld.global.f32 %f2, [%rd6];
+    mul.f32 %f3, %f2, 0f4038AA3B;       // 2*x*log2(e)
+    ex2.approx.f32 %f3, %f3;            // exp(2x)
+    add.f32 %f4, %f3, 0f3F800000;
+    mov.f32 %f5, 0f40000000;
+    div.approx.f32 %f5, %f5, %f4;
+    mov.f32 %f6, 0f3F800000;
+    sub.f32 %f6, %f6, %f5;
+    st.global.f32 [%rd6], %f6;
+
+    // gate_mlp[i] = tanh(gate_mlp[i]) (offset 3*emb)
+    mul.lo.u32 %r8, %r4, 3;
+    add.u32 %r9, %r8, %r3;
+    mul.wide.u32 %rd7, %r9, 4;
+    add.u64 %rd8, %rd0, %rd7;
+    ld.global.f32 %f7, [%rd8];
+    mul.f32 %f8, %f7, 0f4038AA3B;
+    ex2.approx.f32 %f8, %f8;
+    add.f32 %f9, %f8, 0f3F800000;
+    mov.f32 %f10, 0f40000000;
+    div.approx.f32 %f10, %f10, %f9;
+    mov.f32 %f11, 0f3F800000;
+    sub.f32 %f11, %f11, %f10;
+    st.global.f32 [%rd8], %f11;
+
+done:
+    ret;
+}
+`
+
+// IdeogramGatedResidualPTX computes hidden[i] += gate[i] * update[i]. It is
+// used for adaLN-gated attention and MLP residuals after post-norm.
+const IdeogramGatedResidualPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_gated_residual_f32(
+    .param .u64 HIDDEN,
+    .param .u64 UPDATE,
+    .param .u64 GATE,
+    .param .u32 N
+) {
+    .reg .pred %p<2>;
+    .reg .u32 %r<8>;
+    .reg .u64 %rd<16>;
+    .reg .f32 %f<8>;
+
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2;
+    ld.param.u32 %r4, [N];
+    setp.ge.u32 %p0, %r3, %r4;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [HIDDEN];
+    ld.param.u64 %rd1, [UPDATE];
+    ld.param.u64 %rd2, [GATE];
+    mul.wide.u32 %rd3, %r3, 4;
+    add.u64 %rd4, %rd0, %rd3;
+    add.u64 %rd5, %rd1, %rd3;
+    add.u64 %rd6, %rd2, %rd3;
+
+    ld.global.f32 %f0, [%rd4];
+    ld.global.f32 %f1, [%rd5];
+    ld.global.f32 %f2, [%rd6];
+    fma.rn.f32 %f3, %f2, %f1, %f0;
+    st.global.f32 [%rd4], %f3;
+
+done:
+    ret;
+}
+`

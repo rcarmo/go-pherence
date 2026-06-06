@@ -154,12 +154,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	gateMSA := mod[emb : 2*emb]
 	scaleMLP := mod[2*emb : 3*emb]
 	gateMLP := mod[3*emb : 4*emb]
-	for i := 0; i < emb; i++ {
-		scaleMSA[i] = 1 + scaleMSA[i]
-		scaleMLP[i] = 1 + scaleMLP[i]
-		gateMSA[i] = tanh32(gateMSA[i])
-		gateMLP[i] = tanh32(gateMLP[i])
-	}
+	transformAdaLNMod(mod, emb)
 
 	normEps := float32(cfg.NormEps)
 	if normEps <= 0 {
@@ -232,9 +227,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 		}
 		rmsNormWeightedTo(postNorm, oproj, l.AttnN2, normEps)
 		row := hidden[t*emb : (t+1)*emb]
-		for i := 0; i < emb; i++ {
-			row[i] += gateMSA[i] * postNorm[i]
-		}
+		addGatedResidual(row, postNorm, gateMSA)
 	}
 
 	// ---- MLP sublayer (SwiGLU) ----
@@ -261,11 +254,38 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 			return err
 		}
 		rmsNormWeightedTo(postNorm, down, l.FfnN2, normEps)
-		for i := 0; i < emb; i++ {
-			row[i] += gateMLP[i] * postNorm[i]
-		}
+		addGatedResidual(row, postNorm, gateMLP)
 	}
 	return nil
+}
+
+func transformAdaLNMod(mod []float32, emb int) {
+	if gpuNormEnabled() {
+		if err := adalnTransformGPU(mod, emb); err == nil || gpuNormStrict() {
+			return
+		}
+	}
+	scaleMSA := mod[0:emb]
+	gateMSA := mod[emb : 2*emb]
+	scaleMLP := mod[2*emb : 3*emb]
+	gateMLP := mod[3*emb : 4*emb]
+	for i := 0; i < emb; i++ {
+		scaleMSA[i] = 1 + scaleMSA[i]
+		scaleMLP[i] = 1 + scaleMLP[i]
+		gateMSA[i] = tanh32(gateMSA[i])
+		gateMLP[i] = tanh32(gateMLP[i])
+	}
+}
+
+func addGatedResidual(row, update, gate []float32) {
+	if gpuNormEnabled() {
+		if err := gatedResidualGPU(row, update, gate); err == nil || gpuNormStrict() {
+			return
+		}
+	}
+	for i := range row {
+		row[i] += gate[i] * update[i]
+	}
 }
 
 // rmsNormWeightedTo computes RMSNorm(x)*weight into dst.

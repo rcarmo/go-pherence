@@ -7,6 +7,8 @@ import (
 
 var fnIdeogramCFGStepF32 CUfunction
 var fnIdeogramLayerNormNoAffineF32 CUfunction
+var fnIdeogramAdaLNTransformF32 CUfunction
+var fnIdeogramGatedResidualF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -217,6 +219,125 @@ func F32RMSNorm(out, x, weight []float32, eps float32) error {
 	}
 	if err := outBuf.Download(out); err != nil {
 		return fmt.Errorf("download F32 RMSNorm output: %w", err)
+	}
+	return nil
+}
+
+// IdeogramAdaLNTransformBuffer transforms [scale_msa, gate_msa, scale_mlp,
+// gate_mlp] in-place on a GPU-resident F32 buffer, each slice length emb.
+func IdeogramAdaLNTransformBuffer(mod *Buffer, emb int) error {
+	if fnIdeogramAdaLNTransformF32 == 0 || !megaModuleOK || mod == nil || emb <= 0 || !fitsUint32(emb) {
+		return fmt.Errorf("invalid Ideogram adaLN transform device buffer")
+	}
+	need, ok := checkedMulInt(4, emb)
+	if !ok {
+		return fmt.Errorf("Ideogram adaLN transform size overflow emb=%d", emb)
+	}
+	if _, err := checkedByteSize(need, mod.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram adaLN transform buffer: %w", err)
+	}
+	grid, ok := grid1DFor(emb, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram adaLN transform grid")
+	}
+	ee := uint32(emb)
+	return LaunchKernel(fnIdeogramAdaLNTransformF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&mod.Ptr), unsafe.Pointer(&ee))
+}
+
+// IdeogramAdaLNTransform transforms a CPU modulation slice through temporary
+// GPU storage. It is an early wiring/correctness wrapper before DiT blocks keep
+// adaLN tensors GPU-resident.
+func IdeogramAdaLNTransform(mod []float32, emb int) error {
+	need, ok := checkedMulInt(4, emb)
+	if !ok || emb <= 0 || len(mod) < need {
+		return fmt.Errorf("invalid Ideogram adaLN transform host buffer len=%d want=%d", len(mod), need)
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	EnsureContext()
+	buf, err := Malloc(need)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram adaLN transform: %w", err)
+	}
+	defer buf.Free()
+	if err := buf.Upload(mod[:need]); err != nil {
+		return fmt.Errorf("upload Ideogram adaLN transform: %w", err)
+	}
+	if err := IdeogramAdaLNTransformBuffer(buf, emb); err != nil {
+		return err
+	}
+	if err := buf.Download(mod[:need]); err != nil {
+		return fmt.Errorf("download Ideogram adaLN transform: %w", err)
+	}
+	return nil
+}
+
+// IdeogramGatedResidualBuffer computes hidden += gate * update in-place on
+// GPU-resident F32 buffers.
+func IdeogramGatedResidualBuffer(hidden, update, gate *Buffer, n int) error {
+	if fnIdeogramGatedResidualF32 == 0 || !megaModuleOK || hidden == nil || update == nil || gate == nil || n <= 0 || !fitsUint32(n) {
+		return fmt.Errorf("invalid Ideogram gated residual device buffers")
+	}
+	if _, err := checkedByteSize(n, hidden.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram gated residual hidden buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, update.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram gated residual update buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, gate.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram gated residual gate buffer: %w", err)
+	}
+	grid, ok := grid1DFor(n, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram gated residual grid")
+	}
+	nn := uint32(n)
+	return LaunchKernel(fnIdeogramGatedResidualF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&hidden.Ptr), unsafe.Pointer(&update.Ptr), unsafe.Pointer(&gate.Ptr), unsafe.Pointer(&nn))
+}
+
+// IdeogramGatedResidual computes hidden += gate * update using temporary device
+// buffers. Hidden is downloaded back in-place.
+func IdeogramGatedResidual(hidden, update, gate []float32) error {
+	if len(hidden) == 0 || len(update) != len(hidden) || len(gate) != len(hidden) {
+		return fmt.Errorf("invalid Ideogram gated residual host buffers hidden=%d update=%d gate=%d", len(hidden), len(update), len(gate))
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	EnsureContext()
+	n := len(hidden)
+	hBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram gated residual hidden: %w", err)
+	}
+	defer hBuf.Free()
+	uBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram gated residual update: %w", err)
+	}
+	defer uBuf.Free()
+	gBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram gated residual gate: %w", err)
+	}
+	defer gBuf.Free()
+	if err := hBuf.Upload(hidden); err != nil {
+		return fmt.Errorf("upload Ideogram gated residual hidden: %w", err)
+	}
+	if err := uBuf.Upload(update); err != nil {
+		return fmt.Errorf("upload Ideogram gated residual update: %w", err)
+	}
+	if err := gBuf.Upload(gate); err != nil {
+		return fmt.Errorf("upload Ideogram gated residual gate: %w", err)
+	}
+	if err := IdeogramGatedResidualBuffer(hBuf, uBuf, gBuf, n); err != nil {
+		return err
+	}
+	if err := hBuf.Download(hidden); err != nil {
+		return fmt.Errorf("download Ideogram gated residual hidden: %w", err)
 	}
 	return nil
 }

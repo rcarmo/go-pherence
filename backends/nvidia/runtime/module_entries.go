@@ -75,5 +75,7 @@ func megaModuleEntries() []moduleEntry {
 		{"fp8_e4m3_gemv_f32", ptxfp8.FP8E4M3GemvF32PTX},
 		{"ideogram_cfg_step_f32", ptxideogram.IdeogramCFGStepPTX},
 		{"ideogram_layer_norm_no_affine_f32", ptxideogram.IdeogramLayerNormNoAffinePTX},
+		{"ideogram_adaln_transform_f32", ptxideogram.IdeogramAdaLNTransformPTX},
+		{"ideogram_gated_residual_f32", ptxideogram.IdeogramGatedResidualPTX},
 	}
 }
