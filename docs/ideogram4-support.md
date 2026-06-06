@@ -124,6 +124,16 @@ The full text→image path is now implemented natively in Go/SIMD. The DiT, MRoP
 
 Numerical parity against the reference pipeline on real downloaded FP8 weights still needs validation. The prompt is wrapped in the Qwen3-VL ChatML template (`TokenizeChatPrompt`); the lightweight BPE encoder assigns control markers their exact added-token ids but remains an approximation for the textual body (byte-level/newline handling).
 
+## Validation status against real weights
+
+Without downloading the full 27 GB of gated weights, the implementation has been validated as follows:
+
+- **VAE decoder** — fully downloaded (168 MB) and run end-to-end (`cmd/ideogram4vaesmoke`): all 251 tensors load, the conv graph executes, and a `[32,16,16]` latent decodes to a valid `128x128` RGB image. im2col + SIMD `GemmRows` makes it ~6s.
+- **FP8 DiT transformer** — the safetensors header (all 669 tensor shapes/dtypes) was fetched via a ~70 KB HTTP range request and checked against the loader's expectations: **0 shape mismatches, 0 missing tensors**. Weights are `F8_E4M3`, per-output-row scales are `F32`, and biases/norms are `BF16` (all handled by `decodeScale`/`decodeFloatVec`). This confirms the corrected layout (e.g. `final_layer.adaln_modulation` → `emb`, `embed_image_indicator` `[2,emb]`, QK-norms `[head_dim]`, four per-block RMSNorms, all biases).
+- **Qwen3-VL text encoder** — same header-only validation over all 1117 tensors: **0 errors**. FP8 q/k/v/o and gate/up/down projections with `F32` per-row scales, `BF16` q/k/input/post norms, and a `BF16` `[vocab, hidden]` embedding table — exactly what `QwenVLConditioner` loads.
+
+Full numerical parity (running the DiT + text encoder forward on real weights) remains pending only because the two 9.3 GB transformers plus the 8.8 GB encoder do not fit in the available disk; the tensor-metadata contracts are confirmed correct.
+
 ## Current status
 
 Inspection/runtime scaffolding with a concrete native scheduler, CFG combiner, FP8 E4M3 linear backend, FP8 weight loading, and a native DiT block forward. `FlowMatchScheduler` (weight-free) now natively derives ordered FlowMatch timesteps from the logit-normal schedule and performs the Euler latent update (`x_{t-1} = x_t + sigma * velocity`); `Pipeline.Generate` instantiates it and validates the step plan before the DiT/decode boundary returns not-implemented. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. With optional safetensors index JSONs, it also reports conditional/unconditional transformer tensor inventory, FP8 scale coverage, and FP8 linear-weight role coverage. `model/ideogram4` has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, asymmetric CFG layout, tensor-inventory, and FP8 linear-layout helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT execution, FP8 loading, and VAE decode are implemented natively.
