@@ -172,7 +172,7 @@ func dtypeByteSize(dtype string) int {
 		return 2
 	case "I64", "U64":
 		return 8
-	case "I8", "U8", "BOOL":
+	case "I8", "U8", "BOOL", "F8_E4M3", "F8_E4M3FN", "F8_E5M2":
 		return 1
 	default:
 		return 0
