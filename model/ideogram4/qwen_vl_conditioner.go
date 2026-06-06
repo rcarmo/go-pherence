@@ -336,6 +336,17 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 // ---- helpers ----
 
 func rmsNormTo(dst, x, weight []float32, eps float32) {
+	if gpuNormEnabled() {
+		if err := rmsNormWeightedGPU(dst, x, weight, eps); err == nil {
+			return
+		} else if gpuNormStrict() {
+			panic(err)
+		}
+	}
+	rmsNormToCPU(dst, x, weight, eps)
+}
+
+func rmsNormToCPU(dst, x, weight []float32, eps float32) {
 	var ss float64
 	for _, v := range x {
 		ss += float64(v) * float64(v)
@@ -347,14 +358,16 @@ func rmsNormTo(dst, x, weight []float32, eps float32) {
 }
 
 func rmsNormInPlace(x, weight []float32, eps float32) {
-	var ss float64
-	for _, v := range x {
-		ss += float64(v) * float64(v)
+	if gpuNormEnabled() {
+		tmp := make([]float32, len(x))
+		if err := rmsNormWeightedGPU(tmp, x, weight, eps); err == nil {
+			copy(x, tmp)
+			return
+		} else if gpuNormStrict() {
+			panic(err)
+		}
 	}
-	inv := float32(1 / math.Sqrt(ss/float64(len(x))+float64(eps)))
-	for i := range x {
-		x[i] = x[i] * inv * weight[i]
-	}
+	rmsNormToCPU(x, x, weight, eps)
 }
 
 type ropeTable struct {
