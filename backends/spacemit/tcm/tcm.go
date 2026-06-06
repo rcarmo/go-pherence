@@ -17,6 +17,13 @@ const (
 	BlockSize  = 393216 // 384KB per block
 	BlockCount = 8
 	TotalSize  = BlockSize * BlockCount // 3MB
+
+	// tcmAcquire is _IOWR('c',9,u32); arg = core id 0..7. Registers a core's
+	// TCM block with the kernel. NOTE: TCM is uncached device memory — fast for
+	// bulk DMA/memcpy (~1.2 GB/s) but ~60x slower than DRAM for CPU/RVV scalar
+	// loads, so it is a DMA-staging buffer, not a CPU compute scratchpad. See
+	// research/npu-whisper/TCM_DEAD_END.md.
+	tcmAcquire = 0xc0046309
 )
 
 // Block represents a single 384KB TCM SRAM block.
@@ -113,4 +120,18 @@ func (t *TCM) Slice(blockID int) []byte {
 func IsAvailable() bool {
 	_, err := os.Stat(DevicePath)
 	return err == nil
+}
+
+// Acquire issues TCM_ACQUIRE for a core's block (registers it with the kernel,
+// needed for the DMA/accelerator path). Returns nil on success.
+func (t *TCM) Acquire(coreID int) error {
+	if coreID < 0 || coreID >= BlockCount {
+		return fmt.Errorf("tcm: invalid core %d", coreID)
+	}
+	core := uint32(coreID)
+	_, _, e := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.fd), tcmAcquire, uintptr(unsafe.Pointer(&core)))
+	if e != 0 {
+		return fmt.Errorf("tcm: acquire core %d: %w", coreID, e)
+	}
+	return nil
 }

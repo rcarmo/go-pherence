@@ -1,40 +1,47 @@
-// npu-tcm validates the pure-Go TCM substrate against the SpaceMIT NPU:
-// opens the device, prints geometry, acquires cores, and round-trips TCM data.
+// npu-tcm validates the pure-Go TCM substrate: opens /dev/tcm, prints geometry,
+// acquires cores, and round-trips data through each core's SRAM block.
+//
+// NOTE: TCM is uncached device memory — usable for bulk DMA staging, not as a
+// CPU/RVV compute scratchpad (see research/npu-whisper/TCM_DEAD_END.md).
 package main
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/rcarmo/go-pherence/npu"
+	"github.com/rcarmo/go-pherence/backends/spacemit/tcm"
 )
 
 func main() {
-	if !npu.Available() {
+	if !tcm.IsAvailable() {
 		fmt.Fprintln(os.Stderr, "NPU /dev/tcm not available")
 		os.Exit(1)
 	}
-	t, err := npu.Open()
+	t, err := tcm.Open()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "open:", err)
 		os.Exit(1)
 	}
 	defer t.Close()
-	fmt.Printf("TCM: %d cores x %d bytes (%.0f KiB/core, %.1f MiB), acquired %d %v\n",
-		t.NumCores, t.BlockSize, float64(t.BlockSize)/1024,
-		float64(t.BlockSize*t.NumCores)/1048576, len(t.Acquired), t.Acquired)
-	fmt.Printf("rings: ai_dma list=%v msi=%v\n", t.Ring != nil, t.MSI != nil)
 
-	// round-trip each core's TCM via the mapped region
-	for c := 0; c < t.NumCores; c++ {
-		t.Cores[c][0] = byte(0xA0 + c)
-		t.Cores[c][1] = byte(c)
+	acquired := 0
+	for c := 0; c < tcm.BlockCount; c++ {
+		if err := t.Acquire(c); err == nil {
+			acquired++
+		}
 	}
+	fmt.Printf("TCM: %d blocks x %d bytes (%.1f MiB), acquired %d/%d\n",
+		tcm.BlockCount, tcm.BlockSize, float64(tcm.TotalSize)/1048576, acquired, tcm.BlockCount)
+
 	ok := true
-	fmt.Printf("TCM round-trip core[0]: ")
-	for c := 0; c < t.NumCores; c++ {
-		fmt.Printf("%02x ", t.Cores[c][0])
-		if t.Cores[c][0] != byte(0xA0+c) {
+	for c := 0; c < tcm.BlockCount; c++ {
+		t.Slice(c)[0] = byte(0xA0 + c)
+	}
+	fmt.Printf("TCM round-trip block[0]: ")
+	for c := 0; c < tcm.BlockCount; c++ {
+		v := t.Slice(c)[0]
+		fmt.Printf("%02x ", v)
+		if v != byte(0xA0+c) {
 			ok = false
 		}
 	}
