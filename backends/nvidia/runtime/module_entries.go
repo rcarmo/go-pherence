@@ -80,5 +80,6 @@ func megaModuleEntries() []moduleEntry {
 		{"ideogram_mrope_f32", ptxideogram.IdeogramMRoPEPTX},
 		{"ideogram_attention_scores_f32", ptxideogram.IdeogramAttentionScoresPTX},
 		{"ideogram_attention_values_f32", ptxideogram.IdeogramAttentionValuesPTX},
+		{"ideogram_latent_denorm_f32", ptxideogram.IdeogramLatentDenormPTX},
 	}
 }

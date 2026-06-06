@@ -53,6 +53,18 @@ func DenormalizeLatents(latents []float32, inChannels int) error {
 	if len(latents)%inChannels != 0 {
 		return fmt.Errorf("ideogram4 latent denorm len=%d not divisible by %d", len(latents), inChannels)
 	}
+	if gpuVAEEnabled() {
+		if err := latentDenormGPU(latents, inChannels); err == nil {
+			return nil
+		} else if gpuVAEStrict() {
+			return err
+		}
+	}
+	denormalizeLatentsCPU(latents, inChannels)
+	return nil
+}
+
+func denormalizeLatentsCPU(latents []float32, inChannels int) {
 	tokens := len(latents) / inChannels
 	for t := 0; t < tokens; t++ {
 		base := t * inChannels
@@ -60,5 +72,4 @@ func DenormalizeLatents(latents []float32, inChannels int) error {
 			latents[base+c] = latents[base+c]*latentScale[c] + latentShift[c]
 		}
 	}
-	return nil
 }

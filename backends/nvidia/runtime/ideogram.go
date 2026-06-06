@@ -12,6 +12,7 @@ var fnIdeogramGatedResidualF32 CUfunction
 var fnIdeogramMRoPEF32 CUfunction
 var fnIdeogramAttentionScoresF32 CUfunction
 var fnIdeogramAttentionValuesF32 CUfunction
+var fnIdeogramLatentDenormF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -754,4 +755,70 @@ func F32SiLUMul(out, a, b []float32) error {
 		return fmt.Errorf("download F32 SiLU*Mul output: %w", err)
 	}
 	return nil
+}
+
+// IdeogramLatentDenormBuffer applies per-channel latent denormalization in
+// place on a GPU-resident F32 buffer laid out [tokens, channels].
+func IdeogramLatentDenormBuffer(x, scale, shift *Buffer, n, channels int) error {
+	loadMegaModule()
+	if fnIdeogramLatentDenormF32 == 0 || !megaModuleOK || x == nil || scale == nil || shift == nil || n <= 0 || channels <= 0 || !fitsUint32(n) || !fitsUint32(channels) {
+		return fmt.Errorf("invalid Ideogram latent denorm device buffers")
+	}
+	if _, err := checkedByteSize(n, x.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram latent denorm data buffer: %w", err)
+	}
+	if _, err := checkedByteSize(channels, scale.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram latent denorm scale buffer: %w", err)
+	}
+	if _, err := checkedByteSize(channels, shift.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram latent denorm shift buffer: %w", err)
+	}
+	grid, ok := grid1DFor(n, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram latent denorm grid")
+	}
+	nn := uint32(n)
+	cc := uint32(channels)
+	return LaunchKernel(fnIdeogramLatentDenormF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&x.Ptr),
+		unsafe.Pointer(&scale.Ptr),
+		unsafe.Pointer(&shift.Ptr),
+		unsafe.Pointer(&nn),
+		unsafe.Pointer(&cc))
+}
+
+// IdeogramLatentDenorm applies per-channel latent denormalization in place on
+// host F32 data by staging through the NVIDIA kernel.
+func IdeogramLatentDenorm(x, scale, shift []float32, channels int) error {
+	if channels <= 0 || len(x) == 0 || len(x)%channels != 0 || len(scale) < channels || len(shift) < channels {
+		return fmt.Errorf("invalid Ideogram latent denorm host buffers x=%d channels=%d scale=%d shift=%d", len(x), channels, len(scale), len(shift))
+	}
+	xBuf, err := Malloc(len(x))
+	if err != nil {
+		return err
+	}
+	defer xBuf.Free()
+	sBuf, err := Malloc(channels)
+	if err != nil {
+		return err
+	}
+	defer sBuf.Free()
+	shBuf, err := Malloc(channels)
+	if err != nil {
+		return err
+	}
+	defer shBuf.Free()
+	if err := xBuf.Upload(x); err != nil {
+		return err
+	}
+	if err := sBuf.Upload(scale[:channels]); err != nil {
+		return err
+	}
+	if err := shBuf.Upload(shift[:channels]); err != nil {
+		return err
+	}
+	if err := IdeogramLatentDenormBuffer(xBuf, sBuf, shBuf, len(x), channels); err != nil {
+		return err
+	}
+	return xBuf.Download(x)
 }

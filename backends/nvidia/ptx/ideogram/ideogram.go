@@ -541,3 +541,50 @@ done:
     ret;
 }
 `
+
+// IdeogramLatentDenormPTX applies per-channel latent denormalization in place:
+// x[token, channel] = x[token, channel] * scale[channel] + shift[channel].
+const IdeogramLatentDenormPTX = `.version 7.0
+.target sm_80
+.address_size 64
+
+.visible .entry ideogram_latent_denorm_f32(
+    .param .u64 x,
+    .param .u64 scale,
+    .param .u64 shift,
+    .param .u32 n,
+    .param .u32 channels
+)
+{
+    .reg .pred %p<3>;
+    .reg .u32 %r<8>;
+    .reg .u64 %rd<8>;
+    .reg .f32 %f<5>;
+
+    ld.param.u64 %rd1, [x];
+    ld.param.u64 %rd2, [scale];
+    ld.param.u64 %rd3, [shift];
+    ld.param.u32 %r1, [n];
+    ld.param.u32 %r2, [channels];
+
+    mov.u32 %r3, %tid.x;
+    mov.u32 %r4, %ctaid.x;
+    mov.u32 %r5, %ntid.x;
+    mad.lo.u32 %r6, %r4, %r5, %r3;
+    setp.ge.u32 %p1, %r6, %r1;
+    @%p1 bra DONE;
+
+    rem.u32 %r7, %r6, %r2;
+    mul.wide.u32 %rd4, %r6, 4;
+    add.u64 %rd5, %rd1, %rd4;
+    mul.wide.u32 %rd6, %r7, 4;
+    add.u64 %rd7, %rd2, %rd6;
+    ld.global.f32 %f1, [%rd5];
+    ld.global.f32 %f2, [%rd7];
+    add.u64 %rd7, %rd3, %rd6;
+    ld.global.f32 %f3, [%rd7];
+    fma.rn.f32 %f4, %f1, %f2, %f3;
+    st.global.f32 [%rd5], %f4;
+DONE:
+    ret;
+}`
