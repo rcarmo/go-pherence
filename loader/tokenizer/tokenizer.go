@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
 )
 
 // Tokenizer handles BPE tokenization for LLaMA-style models.
@@ -103,15 +104,54 @@ func (t *Tokenizer) Encode(text string) []int {
 	return t.encodeByteLevel(text)
 }
 
-// gpt2Pattern is the GPT-2/Qwen pre-tokenization regex. RE2 has no lookahead,
-// so the trailing-whitespace `(?!\S)` clause is approximated by a plain `\s+`
-// alternative; this only differs on runs of consecutive interior whitespace,
-// which are rare in prompts.
-var gpt2Pattern = regexp.MustCompile(`'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+`)
+// gpt2Pattern is the Qwen2/Qwen3 byte-level pre-tokenization regex. RE2 has no
+// lookahead, so the trailing-whitespace `\s+(?!\S)` clause is dropped and its
+// effect (handing the final space of an interior whitespace run to the
+// following token) is reproduced in splitWhitespaceRuns.
+var gpt2Pattern = regexp.MustCompile(`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}+| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+`)
 
-// encodeByteLevel performs faithful GPT-2/Qwen byte-level BPE: GPT-2
-// pre-tokenization, per-byte unicode mapping, then rank-ordered merges over the
-// byte symbols (matching the inverse applied by Decode).
+// splitWhitespaceRuns emulates the `\s+(?!\S)` lookahead: for an interior
+// whitespace run that ends in a space and is followed by another token, the
+// trailing space is moved to the front of that next token (matching the
+// leading-space handling of the letter/number/symbol classes).
+func splitWhitespaceRuns(pieces []string) []string {
+	out := make([]string, 0, len(pieces))
+	for i := 0; i < len(pieces); i++ {
+		p := pieces[i]
+		if i+1 < len(pieces) && len(p) >= 2 && isSpaceRun(p) {
+			last := p[len(p)-1]
+			// A trailing space is accepted as a leading char by every
+			// class; a trailing tab only by the letter/number classes.
+			if last == ' ' || (last == '\t' && startsAlnum(pieces[i+1])) {
+				out = append(out, p[:len(p)-1])
+				pieces[i+1] = string(last) + pieces[i+1]
+				continue
+			}
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+func startsAlnum(s string) bool {
+	for _, r := range s {
+		return unicode.IsLetter(r) || unicode.IsNumber(r)
+	}
+	return false
+}
+
+func isSpaceRun(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] != ' ' && s[i] != '\t' {
+			return false
+		}
+	}
+	return len(s) > 0
+}
+
+// encodeByteLevel performs faithful Qwen byte-level BPE: pre-tokenization,
+// per-byte unicode mapping, then rank-ordered merges over the byte symbols
+// (matching the inverse applied by Decode).
 func (t *Tokenizer) encodeByteLevel(text string) []int {
 	mergeRank := make(map[[2]string]int, len(t.Merges))
 	for i, m := range t.Merges {
@@ -119,8 +159,9 @@ func (t *Tokenizer) encodeByteLevel(text string) []int {
 	}
 	byteEncoder := getByteEncoder()
 
+	pieces := splitWhitespaceRuns(gpt2Pattern.FindAllString(text, -1))
 	var ids []int
-	for _, piece := range gpt2Pattern.FindAllString(text, -1) {
+	for _, piece := range pieces {
 		// Map each raw UTF-8 byte (not rune) through the GPT-2 byte encoder.
 		symbols := make([]string, 0, len(piece))
 		for i := 0; i < len(piece); i++ {
