@@ -12,6 +12,7 @@ import (
 type FP8Linear struct {
 	spec   LinearSpec
 	weight fp8.Linear
+	gpu    fp8LinearGPUCache
 }
 
 // NewFP8Linear binds raw E4M3 weight bytes and a scale tensor to a LinearSpec,
@@ -33,16 +34,32 @@ func (f *FP8Linear) InDim() int       { return f.spec.InDim }
 func (f *FP8Linear) OutDim() int      { return f.spec.OutDim }
 func (f *FP8Linear) Spec() LinearSpec { return f.spec }
 
+// ReleaseGPU frees any cached GPU-resident copy owned by this linear. It is a
+// no-op unless GO_PHERENCE_IDEOGRAM4_GPU_FP8_CACHE has caused a cached upload.
+func (f *FP8Linear) ReleaseGPU() {
+	if f != nil {
+		f.gpu.release()
+	}
+}
+
 // Apply computes out = W*x using on-the-fly E4M3 dequant. By default this is
 // the CPU/SIMD fp8 backend. When GO_PHERENCE_IDEOGRAM4_GPU_FP8=1 is set, Apply
-// first tries the correctness-oriented NVIDIA streaming GEMV path and falls
-// back to CPU unless GO_PHERENCE_IDEOGRAM4_GPU_FP8_STRICT=1 is also set.
+// first tries the correctness-oriented NVIDIA GEMV path and falls back to CPU
+// unless GO_PHERENCE_IDEOGRAM4_GPU_FP8_STRICT=1 is also set. Set
+// GO_PHERENCE_IDEOGRAM4_GPU_FP8_CACHE=1 to keep the uploaded FP8 weight
+// resident across calls instead of streaming it every projection.
 func (f *FP8Linear) Apply(x []float32, out []float32) error {
 	if f == nil {
 		return ErrRuntimeNotImplemented
 	}
 	if gpuFP8Enabled() {
-		if err := f.applyGPUStreaming(x, out); err == nil || gpuFP8Strict() {
+		var err error
+		if gpuFP8CacheEnabled() {
+			err = f.applyGPUCached(x, out)
+		} else {
+			err = f.applyGPUStreaming(x, out)
+		}
+		if err == nil || gpuFP8Strict() {
 			return err
 		}
 	}
