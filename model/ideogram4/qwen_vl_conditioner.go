@@ -251,30 +251,7 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	// causal GQA attention.
 	attn := make([]float32, T*qDim)
 	scale := float32(1 / math.Sqrt(float64(headDim)))
-	scores := make([]float32, T)
-	for hd := 0; hd < heads; hd++ {
-		kvh := hd / group
-		for ti := 0; ti < T; ti++ {
-			qoff := ti*qDim + hd*headDim
-			for tj := 0; tj <= ti; tj++ {
-				koff := tj*kvDim + kvh*headDim
-				var dot float32
-				for d := 0; d < headDim; d++ {
-					dot += qh[qoff+d] * kh[koff+d]
-				}
-				scores[tj] = dot * scale
-			}
-			softmaxFallback(scores[:ti+1])
-			ooff := ti*qDim + hd*headDim
-			for tj := 0; tj <= ti; tj++ {
-				w := scores[tj]
-				voff := tj*kvDim + kvh*headDim
-				for d := 0; d < headDim; d++ {
-					attn[ooff+d] += w * vh[voff+d]
-				}
-			}
-		}
-	}
+	qwenCausalGQAAttention(attn, qh, kh, vh, T, heads, kvHeads, headDim, group, qDim, kvDim, scale)
 	// output projection + residual.
 	oBuf := make([]float32, hidden)
 	for t := 0; t < T; t++ {
@@ -334,6 +311,55 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 }
 
 // ---- helpers ----
+
+func qwenCausalGQAAttention(attn, qh, kh, vh []float32, T, heads, kvHeads, headDim, group, qDim, kvDim int, scale float32) {
+	if gpuAttentionEnabled() {
+		ok := true
+		for ti := 0; ti < T; ti++ {
+			out := attn[ti*qDim : (ti+1)*qDim]
+			qRow := qh[ti*qDim : (ti+1)*qDim]
+			kPrefix := kh[:(ti+1)*kvDim]
+			vPrefix := vh[:(ti+1)*kvDim]
+			if err := qwenGQAAttentionGPU(out, qRow, kPrefix, vPrefix, ti+1, heads, kvHeads, headDim, scale); err != nil {
+				if gpuAttentionStrict() {
+					panic(err)
+				}
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return
+		}
+		for i := range attn {
+			attn[i] = 0
+		}
+	}
+	scores := make([]float32, T)
+	for hd := 0; hd < heads; hd++ {
+		kvh := hd / group
+		for ti := 0; ti < T; ti++ {
+			qoff := ti*qDim + hd*headDim
+			for tj := 0; tj <= ti; tj++ {
+				koff := tj*kvDim + kvh*headDim
+				var dot float32
+				for d := 0; d < headDim; d++ {
+					dot += qh[qoff+d] * kh[koff+d]
+				}
+				scores[tj] = dot * scale
+			}
+			softmaxFallback(scores[:ti+1])
+			ooff := ti*qDim + hd*headDim
+			for tj := 0; tj <= ti; tj++ {
+				w := scores[tj]
+				voff := tj*kvDim + kvh*headDim
+				for d := 0; d < headDim; d++ {
+					attn[ooff+d] += w * vh[voff+d]
+				}
+			}
+		}
+	}
+}
 
 func rmsNormTo(dst, x, weight []float32, eps float32) {
 	if gpuNormEnabled() {

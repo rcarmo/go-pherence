@@ -132,6 +132,12 @@ func DevSoftmaxRows(out, in *DevBuf, nRows, seqLen int) bool {
 // DevAttention runs GQA attention on GPU.
 // q[nHeads*headDim], kCache/vCache[seqLen*kvDim], out[nHeads*headDim]
 func DevAttention(out, q, kCache, vCache *DevBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) {
+	_ = DevAttentionOK(out, q, kCache, vCache, seqLen, nHeads, nKVHeads, headDim, scale)
+}
+
+// DevAttentionOK is DevAttention plus a success flag for higher-level code that
+// wants to preserve an explicit CPU fallback path.
+func DevAttentionOK(out, q, kCache, vCache *DevBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) bool {
 	initRoPEAttn()
 	qLen, okQ := checkedMulInt(nHeads, headDim)
 	kvDim, okKVDim := checkedMulInt(nKVHeads, headDim)
@@ -153,8 +159,10 @@ func DevAttention(out, q, kCache, vCache *DevBuf, seqLen, nHeads, nKVHeads, head
 			unsafe.Pointer(&hd),
 			unsafe.Pointer(&scale)); err == nil {
 			out.dev = GPU_DEVICE
+			return true
 		}
-		return
+		return false
 	}
 	// CPU fallback in model code
+	return false
 }
