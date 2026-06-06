@@ -77,5 +77,6 @@ func megaModuleEntries() []moduleEntry {
 		{"ideogram_layer_norm_no_affine_f32", ptxideogram.IdeogramLayerNormNoAffinePTX},
 		{"ideogram_adaln_transform_f32", ptxideogram.IdeogramAdaLNTransformPTX},
 		{"ideogram_gated_residual_f32", ptxideogram.IdeogramGatedResidualPTX},
+		{"ideogram_mrope_f32", ptxideogram.IdeogramMRoPEPTX},
 	}
 }

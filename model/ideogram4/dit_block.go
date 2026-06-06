@@ -120,6 +120,31 @@ func (m *MRoPE) applyToHead(vec []float32, token int) {
 	}
 }
 
+func applyMRoPEToQK(q, k []float32, rope *MRoPE, tokens, heads, headDim int) error {
+	if gpuMRoPEEnabled() {
+		qGPU := append([]float32(nil), q...)
+		kGPU := append([]float32(nil), k...)
+		qErr := applyMRoPEGPU(qGPU, rope, tokens, heads, headDim)
+		kErr := applyMRoPEGPU(kGPU, rope, tokens, heads, headDim)
+		if qErr == nil && kErr == nil {
+			copy(q, qGPU)
+			copy(k, kGPU)
+			return nil
+		}
+		if gpuMRoPEStrict() {
+			return fmt.Errorf("ideogram4 GPU MRoPE q=%v k=%v", qErr, kErr)
+		}
+	}
+	for t := 0; t < tokens; t++ {
+		for h := 0; h < heads; h++ {
+			off := t*heads*headDim + h*headDim
+			rope.applyToHead(q[off:off+headDim], t)
+			rope.applyToHead(k[off:off+headDim], t)
+		}
+	}
+	return nil
+}
+
 // ForwardLayer applies one DiT block to hidden states in place. hidden is
 // [tokens, emb] row-major. adalnInput is SiLU(adaln_proj(t_embedding)) of length
 // AdaLNDim. rope must be built for the same token set.
@@ -189,9 +214,10 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 			off := t*emb + h*headDim
 			rmsNormWeightedInPlace(q[off:off+headDim], l.NormQ, qkEps)
 			rmsNormWeightedInPlace(k[off:off+headDim], l.NormK, qkEps)
-			rope.applyToHead(q[off:off+headDim], t)
-			rope.applyToHead(k[off:off+headDim], t)
 		}
+	}
+	if err := applyMRoPEToQK(q, k, rope, tokens, heads, headDim); err != nil {
+		return err
 	}
 	// full self-attention (single segment).
 	attnOut := make([]float32, tokens*emb)

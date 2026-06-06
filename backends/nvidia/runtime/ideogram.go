@@ -9,6 +9,7 @@ var fnIdeogramCFGStepF32 CUfunction
 var fnIdeogramLayerNormNoAffineF32 CUfunction
 var fnIdeogramAdaLNTransformF32 CUfunction
 var fnIdeogramGatedResidualF32 CUfunction
+var fnIdeogramMRoPEF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -338,6 +339,99 @@ func IdeogramGatedResidual(hidden, update, gate []float32) error {
 	}
 	if err := hBuf.Download(hidden); err != nil {
 		return fmt.Errorf("download Ideogram gated residual hidden: %w", err)
+	}
+	return nil
+}
+
+// IdeogramMRoPEBuffer applies precomputed Ideogram MRoPE tables to a
+// GPU-resident row-major [tokens, heads, headDim] F32 tensor in place. cos/sin
+// are [tokens, headDim/2].
+func IdeogramMRoPEBuffer(x, cosBuf, sinBuf *Buffer, tokens, heads, headDim int) error {
+	if fnIdeogramMRoPEF32 == 0 || !megaModuleOK || x == nil || cosBuf == nil || sinBuf == nil || tokens <= 0 || heads <= 0 || headDim <= 0 || headDim%2 != 0 || !fitsUint32(tokens) || !fitsUint32(heads) || !fitsUint32(headDim) {
+		return fmt.Errorf("invalid Ideogram MRoPE device buffers")
+	}
+	xLen, okX := checkedMulInt(tokens, heads)
+	if okX {
+		xLen, okX = checkedMulInt(xLen, headDim)
+	}
+	half := headDim / 2
+	tableLen, okT := checkedMulInt(tokens, half)
+	if !okX || !okT {
+		return fmt.Errorf("Ideogram MRoPE size overflow tokens=%d heads=%d headDim=%d", tokens, heads, headDim)
+	}
+	if _, err := checkedByteSize(xLen, x.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram MRoPE x buffer: %w", err)
+	}
+	if _, err := checkedByteSize(tableLen, cosBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram MRoPE cos buffer: %w", err)
+	}
+	if _, err := checkedByteSize(tableLen, sinBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram MRoPE sin buffer: %w", err)
+	}
+	totalPairs, okPairs := checkedMulInt(tokens, heads)
+	if okPairs {
+		totalPairs, okPairs = checkedMulInt(totalPairs, half)
+	}
+	if !okPairs || !fitsUint32(totalPairs) {
+		return fmt.Errorf("Ideogram MRoPE pair count overflow")
+	}
+	grid, ok := grid1DFor(totalPairs, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram MRoPE grid")
+	}
+	tt := uint32(tokens)
+	hh := uint32(heads)
+	hd := uint32(headDim)
+	return LaunchKernel(fnIdeogramMRoPEF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&x.Ptr), unsafe.Pointer(&cosBuf.Ptr), unsafe.Pointer(&sinBuf.Ptr),
+		unsafe.Pointer(&tt), unsafe.Pointer(&hh), unsafe.Pointer(&hd))
+}
+
+// IdeogramMRoPE applies precomputed MRoPE tables through temporary GPU buffers.
+// It is a correctness/wiring wrapper for current CPU-slice DiT execution.
+func IdeogramMRoPE(x, cosTable, sinTable []float32, tokens, heads, headDim int) error {
+	xLen, okX := checkedMulInt(tokens, heads)
+	if okX {
+		xLen, okX = checkedMulInt(xLen, headDim)
+	}
+	half := headDim / 2
+	tableLen, okT := checkedMulInt(tokens, half)
+	if !okX || !okT || tokens <= 0 || heads <= 0 || headDim <= 0 || headDim%2 != 0 || len(x) < xLen || len(cosTable) < tableLen || len(sinTable) < tableLen {
+		return fmt.Errorf("invalid Ideogram MRoPE host buffers x=%d/%d cos=%d/%d sin=%d/%d", len(x), xLen, len(cosTable), tableLen, len(sinTable), tableLen)
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	EnsureContext()
+	xBuf, err := Malloc(xLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram MRoPE x: %w", err)
+	}
+	defer xBuf.Free()
+	cosBuf, err := Malloc(tableLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram MRoPE cos: %w", err)
+	}
+	defer cosBuf.Free()
+	sinBuf, err := Malloc(tableLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram MRoPE sin: %w", err)
+	}
+	defer sinBuf.Free()
+	if err := xBuf.Upload(x[:xLen]); err != nil {
+		return fmt.Errorf("upload Ideogram MRoPE x: %w", err)
+	}
+	if err := cosBuf.Upload(cosTable[:tableLen]); err != nil {
+		return fmt.Errorf("upload Ideogram MRoPE cos: %w", err)
+	}
+	if err := sinBuf.Upload(sinTable[:tableLen]); err != nil {
+		return fmt.Errorf("upload Ideogram MRoPE sin: %w", err)
+	}
+	if err := IdeogramMRoPEBuffer(xBuf, cosBuf, sinBuf, tokens, heads, headDim); err != nil {
+		return err
+	}
+	if err := xBuf.Download(x[:xLen]); err != nil {
+		return fmt.Errorf("download Ideogram MRoPE x: %w", err)
 	}
 	return nil
 }

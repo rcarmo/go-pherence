@@ -41,4 +41,5 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnIdeogramLayerNormNoAffineF32 = f.get("ideogram_layer_norm_no_affine_f32")
 	fnIdeogramAdaLNTransformF32 = f.get("ideogram_adaln_transform_f32")
 	fnIdeogramGatedResidualF32 = f.get("ideogram_gated_residual_f32")
+	fnIdeogramMRoPEF32 = f.get("ideogram_mrope_f32")
 }

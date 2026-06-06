@@ -306,3 +306,85 @@ done:
     ret;
 }
 `
+
+// IdeogramMRoPEPTX applies precomputed Ideogram MRoPE tables to a row-major
+// [tokens, heads, head_dim] tensor in place. Cos/sin are [tokens, head_dim/2]
+// and are shared across heads. The rotation is NeoX rotate-half:
+//
+//	y[j]      = x[j]*cos - x[j+half]*sin
+//	y[j+half] = x[j+half]*cos + x[j]*sin
+const IdeogramMRoPEPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_mrope_f32(
+    .param .u64 X,
+    .param .u64 COS,
+    .param .u64 SIN,
+    .param .u32 TOKENS,
+    .param .u32 HEADS,
+    .param .u32 HEAD_DIM
+) {
+    .reg .pred %p<4>;
+    .reg .u32 %r<48>;
+    .reg .u64 %rd<24>;
+    .reg .f32 %f<16>;
+
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2;      // linear pair index
+
+    ld.param.u32 %r4, [TOKENS];
+    ld.param.u32 %r5, [HEADS];
+    ld.param.u32 %r6, [HEAD_DIM];
+    shr.u32 %r7, %r6, 1;                // half
+    mul.lo.u32 %r8, %r4, %r5;
+    mul.lo.u32 %r9, %r8, %r7;           // total pairs
+    setp.ge.u32 %p0, %r3, %r9;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [X];
+    ld.param.u64 %rd1, [COS];
+    ld.param.u64 %rd2, [SIN];
+
+    rem.u32 %r10, %r3, %r7;             // pair j
+    div.u32 %r11, %r3, %r7;             // token*heads + head
+    rem.u32 %r12, %r11, %r5;            // head
+    div.u32 %r13, %r11, %r5;            // token
+
+    // Base element = ((token*heads + head) * head_dim)
+    mad.lo.u32 %r14, %r13, %r5, %r12;
+    mul.lo.u32 %r15, %r14, %r6;
+    add.u32 %r16, %r15, %r10;           // offset first half
+    add.u32 %r17, %r16, %r7;            // offset second half
+
+    mul.wide.u32 %rd3, %r16, 4;
+    add.u64 %rd4, %rd0, %rd3;
+    mul.wide.u32 %rd5, %r17, 4;
+    add.u64 %rd6, %rd0, %rd5;
+
+    // table offset = token*half + pair
+    mad.lo.u32 %r18, %r13, %r7, %r10;
+    mul.wide.u32 %rd7, %r18, 4;
+    add.u64 %rd8, %rd1, %rd7;
+    add.u64 %rd9, %rd2, %rd7;
+
+    ld.global.f32 %f0, [%rd4];          // x1
+    ld.global.f32 %f1, [%rd6];          // x2
+    ld.global.f32 %f2, [%rd8];          // cos
+    ld.global.f32 %f3, [%rd9];          // sin
+
+    mul.f32 %f4, %f0, %f2;
+    mul.f32 %f5, %f1, %f3;
+    sub.f32 %f6, %f4, %f5;
+
+    mul.f32 %f7, %f1, %f2;
+    fma.rn.f32 %f8, %f0, %f3, %f7;
+
+    st.global.f32 [%rd4], %f6;
+    st.global.f32 [%rd6], %f8;
+
+done:
+    ret;
+}
+`
