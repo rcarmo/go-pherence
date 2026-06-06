@@ -44,13 +44,9 @@ func DenoiseLoop(cond, uncond *DiTModel, sched *FlowMatchScheduler, plan Samplin
 		}
 		condL := Latents{Batch: 1, Tokens: imgTokens, Channels: cfg.InChannels, Data: condVel}
 		uncondL := Latents{Batch: 1, Tokens: imgTokens, Channels: cfg.InChannels, Data: uncondVel}
-		guided, err := plan.CombineCFG(condL, uncondL, si)
+		x, err = gpuCFGStepOrFallback(sched, plan, x, condL, uncondL, step, si)
 		if err != nil {
-			return nil, fmt.Errorf("ideogram4 denoise step %d cfg: %w", si, err)
-		}
-		x, err = sched.Step(x, guided, step)
-		if err != nil {
-			return nil, fmt.Errorf("ideogram4 denoise step %d update: %w", si, err)
+			return nil, fmt.Errorf("ideogram4 denoise step %d cfg/update: %w", si, err)
 		}
 	}
 	return x.Data, nil
