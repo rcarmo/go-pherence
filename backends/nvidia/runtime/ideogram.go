@@ -17,6 +17,7 @@ var fnIdeogramRGBClampF32 CUfunction
 var fnIdeogramUpsampleNearestF32 CUfunction
 var fnIdeogramUnpatchifyF32 CUfunction
 var fnIdeogramGroupNormF32 CUfunction
+var fnIdeogramConv2DF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -979,4 +980,66 @@ func IdeogramGroupNorm(out, in, gamma, beta []float32, c, h, w, groups int, eps 
 		return err
 	}
 	return outBuf.Download(out[:n])
+}
+
+// IdeogramConv2D applies stride-1 same-padding CHW/OIHW F32 convolution through
+// the NVIDIA direct-convolution kernel.
+func IdeogramConv2D(out, in, weight, bias []float32, outC, inC, h, w, kh, kw int) error {
+	loadMegaModule()
+	hw, okHW := checkedMulInt(h, w)
+	outN, okOut := checkedMulInt(outC, hw)
+	inN, okIn := checkedMulInt(inC, hw)
+	kN, okK := checkedMulInt(outC, inC*kh*kw)
+	hasBias := 0
+	if bias != nil {
+		hasBias = 1
+	}
+	if fnIdeogramConv2DF32 == 0 || !megaModuleOK || outC <= 0 || inC <= 0 || h <= 0 || w <= 0 || kh <= 0 || kw <= 0 || !okHW || !okOut || !okIn || !okK || len(out) < outN || len(in) < inN || len(weight) < kN || (hasBias != 0 && len(bias) < outC) || !fitsUint32(outN) {
+		return fmt.Errorf("invalid Ideogram Conv2D buffers out=%d/%d in=%d/%d weight=%d/%d", len(out), outN, len(in), inN, len(weight), kN)
+	}
+	outBuf, err := Malloc(outN)
+	if err != nil {
+		return err
+	}
+	defer outBuf.Free()
+	inBuf, err := Malloc(inN)
+	if err != nil {
+		return err
+	}
+	defer inBuf.Free()
+	wBuf, err := Malloc(kN)
+	if err != nil {
+		return err
+	}
+	defer wBuf.Free()
+	biasN := outC
+	if biasN < 1 {
+		biasN = 1
+	}
+	bBuf, err := Malloc(biasN)
+	if err != nil {
+		return err
+	}
+	defer bBuf.Free()
+	if err := inBuf.Upload(in[:inN]); err != nil {
+		return err
+	}
+	if err := wBuf.Upload(weight[:kN]); err != nil {
+		return err
+	}
+	if hasBias != 0 {
+		if err := bBuf.Upload(bias[:outC]); err != nil {
+			return err
+		}
+	}
+	grid, ok := grid1DFor(outN, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram Conv2D grid")
+	}
+	oc, ic, hh, ww, kkh, kkw, hb, total := uint32(outC), uint32(inC), uint32(h), uint32(w), uint32(kh), uint32(kw), uint32(hasBias), uint32(outN)
+	if err := LaunchKernel(fnIdeogramConv2DF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&wBuf.Ptr), unsafe.Pointer(&bBuf.Ptr), unsafe.Pointer(&oc), unsafe.Pointer(&ic), unsafe.Pointer(&hh), unsafe.Pointer(&ww), unsafe.Pointer(&kkh), unsafe.Pointer(&kkw), unsafe.Pointer(&hb), unsafe.Pointer(&total)); err != nil {
+		return err
+	}
+	return outBuf.Download(out[:outN])
 }

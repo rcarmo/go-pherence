@@ -905,3 +905,62 @@ out_loop_gn:
 done:
     ret;
 }`
+
+// IdeogramConv2DPTX applies stride-1 same-padding CHW OIHW F32 convolution.
+const IdeogramConv2DPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_conv2d_f32(
+    .param .u64 out, .param .u64 in, .param .u64 weight, .param .u64 bias,
+    .param .u32 outC, .param .u32 inC, .param .u32 H, .param .u32 W,
+    .param .u32 KH, .param .u32 KW, .param .u32 hasBias, .param .u32 total
+) {
+    .reg .pred %p<8>;
+    .reg .u32 %r<32>;
+    .reg .u64 %rd<20>;
+    .reg .f32 %f<8>;
+    ld.param.u64 %rd1, [out]; ld.param.u64 %rd2, [in]; ld.param.u64 %rd3, [weight]; ld.param.u64 %rd4, [bias];
+    ld.param.u32 %r1, [outC]; ld.param.u32 %r2, [inC]; ld.param.u32 %r3, [H]; ld.param.u32 %r4, [W];
+    ld.param.u32 %r5, [KH]; ld.param.u32 %r6, [KW]; ld.param.u32 %r7, [hasBias]; ld.param.u32 %r8, [total];
+    mov.u32 %r9, %tid.x; mov.u32 %r10, %ctaid.x; mov.u32 %r11, %ntid.x; mad.lo.u32 %r12, %r10, %r11, %r9;
+    setp.ge.u32 %p1, %r12, %r8; @%p1 bra DONE;
+    mul.lo.u32 %r13, %r3, %r4;      // HW
+    div.u32 %r14, %r12, %r13;       // oc
+    rem.u32 %r15, %r12, %r13;       // hw
+    div.u32 %r16, %r15, %r4;        // y
+    rem.u32 %r17, %r15, %r4;        // x
+    shr.u32 %r18, %r5, 1;           // padY
+    shr.u32 %r19, %r6, 1;           // padX
+    mov.f32 %f1, 0f00000000;
+    mov.u32 %r20, 0;                // ic
+IC_LOOP:
+    setp.ge.u32 %p2, %r20, %r2; @%p2 bra BIAS;
+    mov.u32 %r21, 0;                // ky
+KY_LOOP:
+    setp.ge.u32 %p3, %r21, %r5; @%p3 bra NEXT_IC;
+    add.u32 %r22, %r16, %r21; sub.u32 %r22, %r22, %r18; // iy unsigned wrap ok checked
+    setp.ge.u32 %p4, %r22, %r3; @%p4 bra NEXT_KY;
+    mov.u32 %r23, 0;                // kx
+KX_LOOP:
+    setp.ge.u32 %p5, %r23, %r6; @%p5 bra NEXT_KY;
+    add.u32 %r24, %r17, %r23; sub.u32 %r24, %r24, %r19;
+    setp.ge.u32 %p6, %r24, %r4; @%p6 bra NEXT_KX;
+    mul.lo.u32 %r25, %r20, %r3; add.u32 %r25, %r25, %r22; mul.lo.u32 %r25, %r25, %r4; add.u32 %r25, %r25, %r24;
+    mul.lo.u32 %r26, %r14, %r2; add.u32 %r26, %r26, %r20; mul.lo.u32 %r26, %r26, %r5; add.u32 %r26, %r26, %r21; mul.lo.u32 %r26, %r26, %r6; add.u32 %r26, %r26, %r23;
+    mul.wide.u32 %rd5, %r25, 4; add.u64 %rd6, %rd2, %rd5; ld.global.f32 %f2, [%rd6];
+    mul.wide.u32 %rd7, %r26, 4; add.u64 %rd8, %rd3, %rd7; ld.global.f32 %f3, [%rd8];
+    fma.rn.f32 %f1, %f2, %f3, %f1;
+NEXT_KX:
+    add.u32 %r23, %r23, 1; bra KX_LOOP;
+NEXT_KY:
+    add.u32 %r21, %r21, 1; bra KY_LOOP;
+NEXT_IC:
+    add.u32 %r20, %r20, 1; bra IC_LOOP;
+BIAS:
+    setp.eq.u32 %p7, %r7, 0; @%p7 bra STORE;
+    mul.wide.u32 %rd9, %r14, 4; add.u64 %rd10, %rd4, %rd9; ld.global.f32 %f4, [%rd10]; add.f32 %f1, %f1, %f4;
+STORE:
+    mul.wide.u32 %rd11, %r12, 4; add.u64 %rd12, %rd1, %rd11; st.global.f32 [%rd12], %f1;
+DONE:
+    ret;
+}`

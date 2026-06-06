@@ -110,6 +110,13 @@ func Conv2D(in FeatureMap, w Conv2DWeights) (FeatureMap, error) {
 	if w.InC != in.C {
 		return FeatureMap{}, fmt.Errorf("ideogram4 conv in_c=%d feature_c=%d", w.InC, in.C)
 	}
+	if gpuVAEEnabled() {
+		if out, err := conv2DGPU(in, w); err == nil {
+			return out, nil
+		} else if gpuVAEStrict() {
+			return FeatureMap{}, err
+		}
+	}
 	padY := (w.KH - 1) / 2
 	padX := (w.KW - 1) / 2
 	H, W := in.H, in.W
