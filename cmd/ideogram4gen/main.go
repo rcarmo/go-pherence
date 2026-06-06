@@ -21,7 +21,13 @@ func main() {
 	steps := flag.Int("steps", 28, "sampling steps")
 	guidance := flag.Float64("guidance", 5.0, "CFG guidance scale")
 	seed := flag.Int64("seed", 0, "init-noise seed")
+	gpu := flag.Bool("gpu", false, "enable all Ideogram4 NVIDIA GPU gates (FP8, norm, RoPE/MRoPE, attention, CFG, MLP, VAE)")
+	gpuStrict := flag.Bool("gpu-strict", false, "enable strict GPU validation for all enabled Ideogram4 GPU gates (no CPU fallback on GPU errors)")
+	gpuFP8Cache := flag.Bool("gpu-fp8-cache", false, "cache uploaded Ideogram4 FP8 linear weights on GPU when FP8 GPU path is enabled")
+	gpuResidency := flag.String("gpu-residency", "", "GPU residency policy: persistent, phase, or stream (empty leaves environment/default unchanged)")
 	flag.Parse()
+
+	applyGPUFlags(*gpu, *gpuStrict, *gpuFP8Cache, *gpuResidency)
 
 	if *modelDir == "" || *prompt == "" {
 		fmt.Fprintln(os.Stderr, "usage: ideogram4gen -model PATH -prompt TEXT [-out png] [-height H -width W -steps N -guidance G -seed S]")
@@ -75,6 +81,41 @@ func writePNG(path string, im ideogram4.Image) error {
 	}
 	defer f.Close()
 	return png.Encode(f, out)
+}
+
+func applyGPUFlags(gpu, strict, fp8Cache bool, residency string) {
+	if gpu {
+		for _, k := range []string{
+			"GO_PHERENCE_IDEOGRAM4_GPU_FP8",
+			"GO_PHERENCE_IDEOGRAM4_GPU_NORM",
+			"GO_PHERENCE_IDEOGRAM4_GPU_MROPE",
+			"GO_PHERENCE_IDEOGRAM4_GPU_ATTN",
+			"GO_PHERENCE_IDEOGRAM4_GPU_CFG",
+			"GO_PHERENCE_IDEOGRAM4_GPU_MLP",
+			"GO_PHERENCE_IDEOGRAM4_GPU_VAE",
+		} {
+			_ = os.Setenv(k, "1")
+		}
+	}
+	if strict {
+		for _, k := range []string{
+			"GO_PHERENCE_IDEOGRAM4_GPU_FP8_STRICT",
+			"GO_PHERENCE_IDEOGRAM4_GPU_NORM_STRICT",
+			"GO_PHERENCE_IDEOGRAM4_GPU_MROPE_STRICT",
+			"GO_PHERENCE_IDEOGRAM4_GPU_ATTN_STRICT",
+			"GO_PHERENCE_IDEOGRAM4_GPU_CFG_STRICT",
+			"GO_PHERENCE_IDEOGRAM4_GPU_MLP_STRICT",
+			"GO_PHERENCE_IDEOGRAM4_GPU_VAE_STRICT",
+		} {
+			_ = os.Setenv(k, "1")
+		}
+	}
+	if fp8Cache {
+		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_FP8_CACHE", "1")
+	}
+	if residency != "" {
+		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_RESIDENCY", residency)
+	}
 }
 
 func fatal(err error) {
