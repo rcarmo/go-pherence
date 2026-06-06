@@ -104,9 +104,18 @@ func (l Linear) DequantRowTo(row int, dst []float32) error {
 	return nil
 }
 
+func dotE4M3Scalar(x []float32, w []byte) float32 {
+	var acc float32
+	for j := 0; j < len(x); j++ {
+		acc += e4m3LUT[w[j]] * x[j]
+	}
+	return acc
+}
+
 // GemvTo computes out = W * x, where W is [OutDim, InDim] and x is length
 // InDim. out must have length OutDim. Weights are dequantized on the fly so no
-// F32 weight expansion is materialized.
+// F32 weight expansion is materialized. On amd64 AVX2/FMA hosts the inner
+// E4M3 decode+dot loop uses a gather-based SIMD kernel over the 256-entry LUT.
 func (l Linear) GemvTo(x []float32, out []float32) error {
 	if err := l.Validate(); err != nil {
 		return err
@@ -120,11 +129,7 @@ func (l Linear) GemvTo(x []float32, out []float32) error {
 	for r := 0; r < l.OutDim; r++ {
 		scale := l.scaleForRow(r)
 		base := r * l.InDim
-		w := l.Weight[base : base+l.InDim]
-		var acc float32
-		for j := 0; j < l.InDim; j++ {
-			acc += e4m3LUT[w[j]] * x[j]
-		}
+		acc := dotE4M3(x, l.Weight[base:base+l.InDim])
 		out[r] = acc * scale
 		if l.Bias != nil {
 			out[r] += l.Bias[r]
