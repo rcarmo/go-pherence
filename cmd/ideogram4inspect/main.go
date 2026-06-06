@@ -36,18 +36,28 @@ func main() {
 	}
 	report := map[string]any{"summary": s}
 	if *transformerIndex != "" {
-		inv, err := inventoryFromIndex(*transformerIndex, shape.NumLayers)
+		inv, names, err := inventoryFromIndex(*transformerIndex, shape.NumLayers)
+		if err != nil {
+			fatal(err)
+		}
+		coverage, err := ideogram4.ValidateLinearCoverage(shape, names)
 		if err != nil {
 			fatal(err)
 		}
 		report["transformer_inventory"] = inv
+		report["transformer_linear_coverage"] = coverage
 	}
 	if *uncondIndex != "" {
-		inv, err := inventoryFromIndex(*uncondIndex, shape.NumLayers)
+		inv, names, err := inventoryFromIndex(*uncondIndex, shape.NumLayers)
+		if err != nil {
+			fatal(err)
+		}
+		coverage, err := ideogram4.ValidateLinearCoverage(shape, names)
 		if err != nil {
 			fatal(err)
 		}
 		report["unconditional_transformer_inventory"] = inv
+		report["unconditional_transformer_linear_coverage"] = coverage
 	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
@@ -66,29 +76,35 @@ func main() {
 	if inv, ok := report["transformer_inventory"].(ideogram4.TensorInventory); ok {
 		fmt.Printf("  tensors:     transformer total=%d layers=%d fp8_weights=%d fp8_scales=%d missing_globals=%d missing_layers=%d\n", inv.Total, inv.LayerCount, inv.FP8Weights, inv.FP8Scales, len(inv.MissingGlobals), len(inv.MissingLayerTensors))
 	}
+	if cov, ok := report["transformer_linear_coverage"].(ideogram4.LinearCoverage); ok {
+		fmt.Printf("  fp8 linear:  transformer required=%d present=%d scaled=%d missing=%d missing_scales=%d\n", cov.Required, cov.Present, cov.Scaled, len(cov.Missing), len(cov.MissingScales))
+	}
 	if inv, ok := report["unconditional_transformer_inventory"].(ideogram4.TensorInventory); ok {
 		fmt.Printf("  tensors:     uncond total=%d layers=%d fp8_weights=%d fp8_scales=%d missing_globals=%d missing_layers=%d\n", inv.Total, inv.LayerCount, inv.FP8Weights, inv.FP8Scales, len(inv.MissingGlobals), len(inv.MissingLayerTensors))
+	}
+	if cov, ok := report["unconditional_transformer_linear_coverage"].(ideogram4.LinearCoverage); ok {
+		fmt.Printf("  fp8 linear:  uncond required=%d present=%d scaled=%d missing=%d missing_scales=%d\n", cov.Required, cov.Present, cov.Scaled, len(cov.Missing), len(cov.MissingScales))
 	}
 	fmt.Printf("  runtime:     ready=%v note=%s\n", s.RuntimeReady, s.RuntimeNote)
 }
 
-func inventoryFromIndex(path string, layers int) (ideogram4.TensorInventory, error) {
+func inventoryFromIndex(path string, layers int) (ideogram4.TensorInventory, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return ideogram4.TensorInventory{}, err
+		return ideogram4.TensorInventory{}, nil, err
 	}
 	var raw struct {
 		WeightMap map[string]string `json:"weight_map"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return ideogram4.TensorInventory{}, err
+		return ideogram4.TensorInventory{}, nil, err
 	}
 	names := make([]string, 0, len(raw.WeightMap))
 	for name := range raw.WeightMap {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return ideogram4.SummarizeTensorNames(names, layers), nil
+	return ideogram4.SummarizeTensorNames(names, layers), names, nil
 }
 
 func fatal(err error) {

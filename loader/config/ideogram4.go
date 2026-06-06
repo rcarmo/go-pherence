@@ -30,7 +30,7 @@ type Ideogram4TransformerConfig struct {
 	NumAttentionHeads int     `json:"num_attention_heads"`
 	AttentionHeadDim  int     `json:"attention_head_dim"`
 	IntermediateSize  int     `json:"intermediate_size"`
-	AdaLNDim          int     `json:"adanln_dim"`
+	AdaLNDim          int     `json:"adaln_dim"`
 	InChannels        int     `json:"in_channels"`
 	LLMFeaturesDim    int     `json:"llm_features_dim"`
 	RopeTheta         int     `json:"rope_theta"`
@@ -99,7 +99,7 @@ type Ideogram4Summary struct {
 	Heads                    int    `json:"heads"`
 	HeadDim                  int    `json:"head_dim"`
 	IntermediateSize         int    `json:"intermediate_size"`
-	AdaLNDim                 int    `json:"adanln_dim"`
+	AdaLNDim                 int    `json:"adaln_dim"`
 	InChannels               int    `json:"in_channels"`
 	LLMFeaturesDim           int    `json:"llm_features_dim"`
 	MRoPESection             []int  `json:"mrope_section"`
