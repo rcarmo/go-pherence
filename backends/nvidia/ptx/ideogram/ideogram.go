@@ -388,3 +388,156 @@ done:
     ret;
 }
 `
+
+// IdeogramAttentionScoresPTX computes full non-causal attention scores for a
+// token-major Q/K tensor: Q,K are [tokens, heads, head_dim], scores are
+// [heads, tokens, tokens]. One thread computes one (head, query, key) dot.
+const IdeogramAttentionScoresPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_attention_scores_f32(
+    .param .u64 Q,
+    .param .u64 K,
+    .param .u64 SCORES,
+    .param .u32 TOKENS,
+    .param .u32 HEADS,
+    .param .u32 HEAD_DIM,
+    .param .f32 SCALE
+) {
+    .reg .pred %p<4>;
+    .reg .u32 %r<48>;
+    .reg .u64 %rd<24>;
+    .reg .f32 %f<16>;
+
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2;      // linear score index
+
+    ld.param.u32 %r4, [TOKENS];
+    ld.param.u32 %r5, [HEADS];
+    ld.param.u32 %r6, [HEAD_DIM];
+    mul.lo.u32 %r7, %r4, %r4;
+    mul.lo.u32 %r8, %r7, %r5;           // total scores
+    setp.ge.u32 %p0, %r3, %r8;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [Q];
+    ld.param.u64 %rd1, [K];
+    ld.param.u64 %rd2, [SCORES];
+    ld.param.f32 %f0, [SCALE];
+
+    rem.u32 %r9, %r3, %r4;              // key token tj
+    div.u32 %r10, %r3, %r4;
+    rem.u32 %r11, %r10, %r4;            // query token ti
+    div.u32 %r12, %r10, %r4;            // head h
+
+    mov.f32 %f1, 0f00000000;            // dot
+    mov.u32 %r13, 0;                    // d
+score_loop:
+    setp.ge.u32 %p1, %r13, %r6;
+    @%p1 bra store_score;
+
+    // q offset = ((ti*heads + h) * headDim + d)
+    mad.lo.u32 %r14, %r11, %r5, %r12;
+    mad.lo.u32 %r15, %r14, %r6, %r13;
+    mul.wide.u32 %rd3, %r15, 4;
+    add.u64 %rd4, %rd0, %rd3;
+
+    // k offset = ((tj*heads + h) * headDim + d)
+    mad.lo.u32 %r16, %r9, %r5, %r12;
+    mad.lo.u32 %r17, %r16, %r6, %r13;
+    mul.wide.u32 %rd5, %r17, 4;
+    add.u64 %rd6, %rd1, %rd5;
+
+    ld.global.f32 %f2, [%rd4];
+    ld.global.f32 %f3, [%rd6];
+    fma.rn.f32 %f1, %f2, %f3, %f1;
+    add.u32 %r13, %r13, 1;
+    bra score_loop;
+
+store_score:
+    mul.f32 %f1, %f1, %f0;
+    mul.wide.u32 %rd7, %r3, 4;
+    add.u64 %rd8, %rd2, %rd7;
+    st.global.f32 [%rd8], %f1;
+
+done:
+    ret;
+}
+`
+
+// IdeogramAttentionValuesPTX computes O = softmax(scores) * V. Probabilities
+// are [heads, tokens, tokens]; V and O are token-major [tokens, heads,
+// head_dim]. One thread computes one output element.
+const IdeogramAttentionValuesPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_attention_values_f32(
+    .param .u64 PROBS,
+    .param .u64 V,
+    .param .u64 O,
+    .param .u32 TOKENS,
+    .param .u32 HEADS,
+    .param .u32 HEAD_DIM
+) {
+    .reg .pred %p<4>;
+    .reg .u32 %r<48>;
+    .reg .u64 %rd<24>;
+    .reg .f32 %f<16>;
+
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2;      // output element index
+
+    ld.param.u32 %r4, [TOKENS];
+    ld.param.u32 %r5, [HEADS];
+    ld.param.u32 %r6, [HEAD_DIM];
+    mul.lo.u32 %r7, %r4, %r5;
+    mul.lo.u32 %r8, %r7, %r6;           // total output elems
+    setp.ge.u32 %p0, %r3, %r8;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [PROBS];
+    ld.param.u64 %rd1, [V];
+    ld.param.u64 %rd2, [O];
+
+    rem.u32 %r9, %r3, %r6;              // d
+    div.u32 %r10, %r3, %r6;
+    rem.u32 %r11, %r10, %r5;            // h
+    div.u32 %r12, %r10, %r5;            // query token ti
+
+    mov.f32 %f1, 0f00000000;            // sum
+    mov.u32 %r13, 0;                    // key token tj
+value_loop:
+    setp.ge.u32 %p1, %r13, %r4;
+    @%p1 bra store_value;
+
+    // prob offset = (h*tokens + ti)*tokens + tj
+    mad.lo.u32 %r14, %r11, %r4, %r12;
+    mad.lo.u32 %r15, %r14, %r4, %r13;
+    mul.wide.u32 %rd3, %r15, 4;
+    add.u64 %rd4, %rd0, %rd3;
+
+    // v offset = ((tj*heads + h) * headDim + d)
+    mad.lo.u32 %r16, %r13, %r5, %r11;
+    mad.lo.u32 %r17, %r16, %r6, %r9;
+    mul.wide.u32 %rd5, %r17, 4;
+    add.u64 %rd6, %rd1, %rd5;
+
+    ld.global.f32 %f2, [%rd4];
+    ld.global.f32 %f3, [%rd6];
+    fma.rn.f32 %f1, %f2, %f3, %f1;
+    add.u32 %r13, %r13, 1;
+    bra value_loop;
+
+store_value:
+    mul.wide.u32 %rd7, %r3, 4;
+    add.u64 %rd8, %rd2, %rd7;
+    st.global.f32 [%rd8], %f1;
+
+done:
+    ret;
+}
+`

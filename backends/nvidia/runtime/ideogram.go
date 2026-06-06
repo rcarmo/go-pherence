@@ -10,6 +10,8 @@ var fnIdeogramLayerNormNoAffineF32 CUfunction
 var fnIdeogramAdaLNTransformF32 CUfunction
 var fnIdeogramGatedResidualF32 CUfunction
 var fnIdeogramMRoPEF32 CUfunction
+var fnIdeogramAttentionScoresF32 CUfunction
+var fnIdeogramAttentionValuesF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -432,6 +434,172 @@ func IdeogramMRoPE(x, cosTable, sinTable []float32, tokens, heads, headDim int) 
 	}
 	if err := xBuf.Download(x[:xLen]); err != nil {
 		return fmt.Errorf("download Ideogram MRoPE x: %w", err)
+	}
+	return nil
+}
+
+// SoftmaxRowsBuffer runs the existing NVIDIA row-softmax kernel over contiguous
+// F32 rows. It is used by Ideogram full attention between score and value
+// phases. in/out may be the same buffer.
+func SoftmaxRowsBuffer(out, in *Buffer, rows, cols int) error {
+	if softmaxRowsFn == 0 || !megaModuleOK || out == nil || in == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) || cols > 2048 {
+		return fmt.Errorf("invalid row softmax device buffers")
+	}
+	total, ok := checkedMulInt(rows, cols)
+	if !ok {
+		return fmt.Errorf("row softmax size overflow rows=%d cols=%d", rows, cols)
+	}
+	if _, err := checkedByteSize(total, out.Size); err != nil {
+		return fmt.Errorf("invalid row softmax output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(total, in.Size); err != nil {
+		return fmt.Errorf("invalid row softmax input buffer: %w", err)
+	}
+	cc := uint32(cols)
+	return LaunchKernel(softmaxRowsFn, uint32(rows), 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&in.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&cc))
+}
+
+func IdeogramAttentionScoresBuffer(scores, q, k *Buffer, tokens, heads, headDim int, scale float32) error {
+	if fnIdeogramAttentionScoresF32 == 0 || !megaModuleOK || scores == nil || q == nil || k == nil || tokens <= 0 || heads <= 0 || headDim <= 0 || !fitsUint32(tokens) || !fitsUint32(heads) || !fitsUint32(headDim) {
+		return fmt.Errorf("invalid Ideogram attention score device buffers")
+	}
+	qLen, okQ := checkedMulInt(tokens, heads)
+	if okQ {
+		qLen, okQ = checkedMulInt(qLen, headDim)
+	}
+	scoreLen, okS := checkedMulInt(heads, tokens)
+	if okS {
+		scoreLen, okS = checkedMulInt(scoreLen, tokens)
+	}
+	if !okQ || !okS || !fitsUint32(scoreLen) {
+		return fmt.Errorf("Ideogram attention score size overflow")
+	}
+	if _, err := checkedByteSize(qLen, q.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram attention q buffer: %w", err)
+	}
+	if _, err := checkedByteSize(qLen, k.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram attention k buffer: %w", err)
+	}
+	if _, err := checkedByteSize(scoreLen, scores.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram attention scores buffer: %w", err)
+	}
+	grid, ok := grid1DFor(scoreLen, 128)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram attention score grid")
+	}
+	tt := uint32(tokens)
+	hh := uint32(heads)
+	hd := uint32(headDim)
+	return LaunchKernel(fnIdeogramAttentionScoresF32, grid, 1, 1, 128, 1, 1, 0,
+		unsafe.Pointer(&q.Ptr), unsafe.Pointer(&k.Ptr), unsafe.Pointer(&scores.Ptr),
+		unsafe.Pointer(&tt), unsafe.Pointer(&hh), unsafe.Pointer(&hd), unsafe.Pointer(&scale))
+}
+
+func IdeogramAttentionValuesBuffer(out, probs, v *Buffer, tokens, heads, headDim int) error {
+	if fnIdeogramAttentionValuesF32 == 0 || !megaModuleOK || out == nil || probs == nil || v == nil || tokens <= 0 || heads <= 0 || headDim <= 0 || !fitsUint32(tokens) || !fitsUint32(heads) || !fitsUint32(headDim) {
+		return fmt.Errorf("invalid Ideogram attention value device buffers")
+	}
+	outLen, okOut := checkedMulInt(tokens, heads)
+	if okOut {
+		outLen, okOut = checkedMulInt(outLen, headDim)
+	}
+	probLen, okP := checkedMulInt(heads, tokens)
+	if okP {
+		probLen, okP = checkedMulInt(probLen, tokens)
+	}
+	if !okOut || !okP || !fitsUint32(outLen) {
+		return fmt.Errorf("Ideogram attention value size overflow")
+	}
+	if _, err := checkedByteSize(outLen, out.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram attention output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(outLen, v.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram attention v buffer: %w", err)
+	}
+	if _, err := checkedByteSize(probLen, probs.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram attention probs buffer: %w", err)
+	}
+	grid, ok := grid1DFor(outLen, 128)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram attention value grid")
+	}
+	tt := uint32(tokens)
+	hh := uint32(heads)
+	hd := uint32(headDim)
+	return LaunchKernel(fnIdeogramAttentionValuesF32, grid, 1, 1, 128, 1, 1, 0,
+		unsafe.Pointer(&probs.Ptr), unsafe.Pointer(&v.Ptr), unsafe.Pointer(&out.Ptr),
+		unsafe.Pointer(&tt), unsafe.Pointer(&hh), unsafe.Pointer(&hd))
+}
+
+// IdeogramFullAttention computes full non-causal attention for token-major
+// [tokens, heads, headDim] Q/K/V through temporary device buffers.
+func IdeogramFullAttention(out, q, k, v []float32, tokens, heads, headDim int, scale float32) error {
+	outLen, okOut := checkedMulInt(tokens, heads)
+	if okOut {
+		outLen, okOut = checkedMulInt(outLen, headDim)
+	}
+	scoreLen, okS := checkedMulInt(heads, tokens)
+	if okS {
+		scoreLen, okS = checkedMulInt(scoreLen, tokens)
+	}
+	if !okOut || !okS || tokens <= 0 || heads <= 0 || headDim <= 0 || len(out) < outLen || len(q) < outLen || len(k) < outLen || len(v) < outLen {
+		return fmt.Errorf("invalid Ideogram full attention host buffers out=%d/%d q=%d k=%d v=%d", len(out), outLen, len(q), len(k), len(v))
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	EnsureContext()
+	qBuf, err := Malloc(outLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram attention q: %w", err)
+	}
+	defer qBuf.Free()
+	kBuf, err := Malloc(outLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram attention k: %w", err)
+	}
+	defer kBuf.Free()
+	vBuf, err := Malloc(outLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram attention v: %w", err)
+	}
+	defer vBuf.Free()
+	scoreBuf, err := Malloc(scoreLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram attention scores: %w", err)
+	}
+	defer scoreBuf.Free()
+	probBuf, err := Malloc(scoreLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram attention probs: %w", err)
+	}
+	defer probBuf.Free()
+	outBuf, err := Malloc(outLen)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram attention out: %w", err)
+	}
+	defer outBuf.Free()
+	if err := qBuf.Upload(q[:outLen]); err != nil {
+		return fmt.Errorf("upload Ideogram attention q: %w", err)
+	}
+	if err := kBuf.Upload(k[:outLen]); err != nil {
+		return fmt.Errorf("upload Ideogram attention k: %w", err)
+	}
+	if err := vBuf.Upload(v[:outLen]); err != nil {
+		return fmt.Errorf("upload Ideogram attention v: %w", err)
+	}
+	if err := IdeogramAttentionScoresBuffer(scoreBuf, qBuf, kBuf, tokens, heads, headDim, scale); err != nil {
+		return err
+	}
+	if err := SoftmaxRowsBuffer(probBuf, scoreBuf, heads*tokens, tokens); err != nil {
+		return err
+	}
+	if err := IdeogramAttentionValuesBuffer(outBuf, probBuf, vBuf, tokens, heads, headDim); err != nil {
+		return err
+	}
+	if err := outBuf.Download(out[:outLen]); err != nil {
+		return fmt.Errorf("download Ideogram attention output: %w", err)
 	}
 	return nil
 }

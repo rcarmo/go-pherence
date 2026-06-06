@@ -221,28 +221,8 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	}
 	// full self-attention (single segment).
 	attnOut := make([]float32, tokens*emb)
-	scores := make([]float32, tokens)
-	for h := 0; h < heads; h++ {
-		for ti := 0; ti < tokens; ti++ {
-			qoff := ti*emb + h*headDim
-			for tj := 0; tj < tokens; tj++ {
-				koff := tj*emb + h*headDim
-				var dot float32
-				for d := 0; d < headDim; d++ {
-					dot += q[qoff+d] * k[koff+d]
-				}
-				scores[tj] = dot * scaleAttn
-			}
-			softmaxFallback(scores)
-			ooff := ti*emb + h*headDim
-			for tj := 0; tj < tokens; tj++ {
-				w := scores[tj]
-				voff := tj*emb + h*headDim
-				for d := 0; d < headDim; d++ {
-					attnOut[ooff+d] += w * v[voff+d]
-				}
-			}
-		}
+	if err := fullSelfAttention(attnOut, q, k, v, tokens, heads, headDim, scaleAttn); err != nil {
+		return err
 	}
 	// output projection, post-norm, gated residual.
 	oproj := make([]float32, emb)
@@ -281,6 +261,39 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 		}
 		rmsNormWeightedTo(postNorm, down, l.FfnN2, normEps)
 		addGatedResidual(row, postNorm, gateMLP)
+	}
+	return nil
+}
+
+func fullSelfAttention(attnOut, q, k, v []float32, tokens, heads, headDim int, scaleAttn float32) error {
+	if gpuAttentionEnabled() {
+		if err := fullAttentionGPU(attnOut, q, k, v, tokens, heads, headDim, scaleAttn); err == nil || gpuAttentionStrict() {
+			return err
+		}
+	}
+	scores := make([]float32, tokens)
+	emb := heads * headDim
+	for h := 0; h < heads; h++ {
+		for ti := 0; ti < tokens; ti++ {
+			qoff := ti*emb + h*headDim
+			for tj := 0; tj < tokens; tj++ {
+				koff := tj*emb + h*headDim
+				var dot float32
+				for d := 0; d < headDim; d++ {
+					dot += q[qoff+d] * k[koff+d]
+				}
+				scores[tj] = dot * scaleAttn
+			}
+			softmaxFallback(scores)
+			off := ti*emb + h*headDim
+			for tj := 0; tj < tokens; tj++ {
+				w := scores[tj]
+				voff := tj*emb + h*headDim
+				for d := 0; d < headDim; d++ {
+					attnOut[off+d] += w * v[voff+d]
+				}
+			}
+		}
 	}
 	return nil
 }
