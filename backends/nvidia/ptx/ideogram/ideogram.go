@@ -588,3 +588,52 @@ const IdeogramLatentDenormPTX = `.version 7.0
 DONE:
     ret;
 }`
+
+// IdeogramRGBClampF32PTX converts CHW RGB float values in [-1,1] to clamped
+// interleaved RGB float values in [0,255]. The host can then round/cast to u8.
+const IdeogramRGBClampF32PTX = `.version 7.0
+.target sm_80
+.address_size 64
+
+.visible .entry ideogram_rgb_clamp_f32(
+    .param .u64 out,
+    .param .u64 in,
+    .param .u32 hw
+)
+{
+    .reg .pred %p<5>;
+    .reg .u32 %r<8>;
+    .reg .u64 %rd<8>;
+    .reg .f32 %f<8>;
+
+    ld.param.u64 %rd1, [out];
+    ld.param.u64 %rd2, [in];
+    ld.param.u32 %r1, [hw];
+
+    mov.u32 %r2, %tid.x;
+    mov.u32 %r3, %ctaid.x;
+    mov.u32 %r4, %ntid.x;
+    mad.lo.u32 %r5, %r3, %r4, %r2;
+    mul.lo.u32 %r6, %r1, 3;
+    setp.ge.u32 %p1, %r5, %r6;
+    @%p1 bra DONE;
+
+    rem.u32 %r7, %r5, 3;        // channel in interleaved output
+    div.u32 %r2, %r5, 3;        // pixel
+    mad.lo.u32 %r3, %r7, %r1, %r2; // CHW input index
+
+    mul.wide.u32 %rd3, %r3, 4;
+    add.u64 %rd4, %rd2, %rd3;
+    ld.global.f32 %f1, [%rd4];
+    mul.rn.f32 %f2, %f1, 0f3f000000; // 0.5
+    add.rn.f32 %f3, %f2, 0f3f000000; // +0.5
+    mul.rn.f32 %f4, %f3, 0f437f0000; // *255
+    max.f32 %f5, %f4, 0f00000000;
+    min.f32 %f6, %f5, 0f437f0000;
+
+    mul.wide.u32 %rd5, %r5, 4;
+    add.u64 %rd6, %rd1, %rd5;
+    st.global.f32 [%rd6], %f6;
+DONE:
+    ret;
+}`

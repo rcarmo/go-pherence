@@ -13,6 +13,7 @@ var fnIdeogramMRoPEF32 CUfunction
 var fnIdeogramAttentionScoresF32 CUfunction
 var fnIdeogramAttentionValuesF32 CUfunction
 var fnIdeogramLatentDenormF32 CUfunction
+var fnIdeogramRGBClampF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -821,4 +822,38 @@ func IdeogramLatentDenorm(x, scale, shift []float32, channels int) error {
 		return err
 	}
 	return xBuf.Download(x)
+}
+
+// IdeogramRGBClamp converts CHW RGB F32 values in [-1,1] to interleaved RGB F32
+// values in [0,255] through the NVIDIA kernel.
+func IdeogramRGBClamp(out, in []float32, hw int) error {
+	loadMegaModule()
+	if fnIdeogramRGBClampF32 == 0 || !megaModuleOK || hw <= 0 || len(in) < 3*hw || len(out) < 3*hw || !fitsUint32(hw) {
+		return fmt.Errorf("invalid Ideogram RGB clamp buffers out=%d in=%d hw=%d", len(out), len(in), hw)
+	}
+	inBuf, err := Malloc(3 * hw)
+	if err != nil {
+		return err
+	}
+	defer inBuf.Free()
+	outBuf, err := Malloc(3 * hw)
+	if err != nil {
+		return err
+	}
+	defer outBuf.Free()
+	if err := inBuf.Upload(in[:3*hw]); err != nil {
+		return err
+	}
+	grid, ok := grid1DFor(3*hw, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram RGB clamp grid")
+	}
+	h := uint32(hw)
+	if err := LaunchKernel(fnIdeogramRGBClampF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&outBuf.Ptr),
+		unsafe.Pointer(&inBuf.Ptr),
+		unsafe.Pointer(&h)); err != nil {
+		return err
+	}
+	return outBuf.Download(out[:3*hw])
 }

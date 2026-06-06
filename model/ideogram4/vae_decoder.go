@@ -302,6 +302,16 @@ func (d *VAEDecoder) Decode(latents FeatureMap) (Image, error) {
 func featureMapToImage(f FeatureMap) Image {
 	HW := f.H * f.W
 	rgb := make([]byte, HW*3)
+	if gpuVAEEnabled() {
+		if vals, err := rgbClampGPU(f); err == nil {
+			for i, v := range vals {
+				rgb[i] = byte(v + 0.5)
+			}
+			return Image{Width: f.W, Height: f.H, RGB: rgb}
+		} else if gpuVAEStrict() {
+			panic(err)
+		}
+	}
 	for p := 0; p < HW; p++ {
 		for c := 0; c < 3; c++ {
 			v := (f.Data[c*HW+p]*0.5 + 0.5) * 255
