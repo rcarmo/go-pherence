@@ -30,6 +30,8 @@ type Config struct {
 	InChannels               int
 	LLMFeaturesDim           int
 	MRoPESection             []int
+	RopeTheta                int
+	NormEps                  float64
 	ActivationLayers         []int
 	TextHidden               int
 	TextLayers               int
@@ -58,6 +60,8 @@ func FromLoaderConfig(cfg loaderconfig.Ideogram4Config) (Config, error) {
 		InChannels:               s.InChannels,
 		LLMFeaturesDim:           s.LLMFeaturesDim,
 		MRoPESection:             append([]int(nil), s.MRoPESection...),
+		RopeTheta:                s.RopeTheta,
+		NormEps:                  s.NormEps,
 		ActivationLayers:         append([]int(nil), s.ActivationLayers...),
 		TextHidden:               s.TextHidden,
 		TextLayers:               s.TextLayers,

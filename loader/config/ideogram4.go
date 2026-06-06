@@ -103,6 +103,8 @@ type Ideogram4Summary struct {
 	InChannels               int    `json:"in_channels"`
 	LLMFeaturesDim           int    `json:"llm_features_dim"`
 	MRoPESection             []int  `json:"mrope_section"`
+	RopeTheta                int    `json:"rope_theta"`
+	NormEps                  float64 `json:"norm_eps"`
 	ActivationLayers         []int  `json:"activation_layers"`
 	TextHidden               int    `json:"text_hidden"`
 	TextLayers               int    `json:"text_layers"`
@@ -255,6 +257,8 @@ func SummarizeIdeogram4Config(cfg Ideogram4Config) Ideogram4Summary {
 		InChannels:               cfg.Transformer.InChannels,
 		LLMFeaturesDim:           cfg.Transformer.LLMFeaturesDim,
 		MRoPESection:             append([]int(nil), cfg.Transformer.MRoPESection...),
+		RopeTheta:                cfg.Transformer.RopeTheta,
+		NormEps:                  cfg.Transformer.NormEps,
 		ActivationLayers:         append([]int(nil), Ideogram4Qwen3VLActivationLayers...),
 		TextHidden:               cfg.TextEncoder.HiddenSize,
 		TextLayers:               cfg.TextEncoder.NumHiddenLayers,

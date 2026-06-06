@@ -68,6 +68,19 @@ Generation support should be implemented in pure Go with backend-owned kernels a
 8. **SIMD acceleration** — promote hot reference ops to checked `backends/simd/runtime` APIs and add AVX/NEON/RVV kernels where profiling warrants.
 9. **End-to-end fixture** — pin a small prompt/seed/step fixture against the reference implementation before marking runtime ready.
 
+## DiT block forward
+
+`model/ideogram4/dit_block.go` implements one Ideogram4 transformer block natively over the loaded FP8 linears:
+
+- gate-less adaLN modulation (`4*emb` block params split into shift/scale for the attention and MLP sublayers, matching the `2*emb` final-layer modulation contract),
+- non-affine LayerNorm + `x*(1+scale)+shift`,
+- QKV projection, 3-section MRoPE (`[24,20,20]`, temporal/height/width) over the first `2*sum(section)` head dims via rotate-half,
+- full (non-causal) scaled dot-product attention with SIMD softmax,
+- output projection residual,
+- SwiGLU MLP (`W2(SiLU(W1)*W3)`) residual.
+
+The block math is assembled from the public Ideogram4 tensor contract and config; end-to-end numerical correctness still requires validation against real weights, so the pipeline keeps `runtime_ready=false`.
+
 ## Current status
 
-Inspection/runtime scaffolding with a concrete native scheduler, CFG combiner, FP8 E4M3 linear backend, and FP8 weight loading. `FlowMatchScheduler` (weight-free) now natively derives ordered FlowMatch timesteps from the logit-normal schedule and performs the Euler latent update (`x_{t-1} = x_t + sigma * velocity`); `Pipeline.Generate` instantiates it and validates the step plan before the DiT/decode boundary returns not-implemented. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. With optional safetensors index JSONs, it also reports conditional/unconditional transformer tensor inventory, FP8 scale coverage, and FP8 linear-weight role coverage. `model/ideogram4` has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, asymmetric CFG layout, tensor-inventory, and FP8 linear-layout helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT execution, FP8 loading, and VAE decode are implemented natively.
+Inspection/runtime scaffolding with a concrete native scheduler, CFG combiner, FP8 E4M3 linear backend, FP8 weight loading, and a native DiT block forward. `FlowMatchScheduler` (weight-free) now natively derives ordered FlowMatch timesteps from the logit-normal schedule and performs the Euler latent update (`x_{t-1} = x_t + sigma * velocity`); `Pipeline.Generate` instantiates it and validates the step plan before the DiT/decode boundary returns not-implemented. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. With optional safetensors index JSONs, it also reports conditional/unconditional transformer tensor inventory, FP8 scale coverage, and FP8 linear-weight role coverage. `model/ideogram4` has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, asymmetric CFG layout, tensor-inventory, and FP8 linear-layout helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT execution, FP8 loading, and VAE decode are implemented natively.
