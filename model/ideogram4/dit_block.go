@@ -67,6 +67,23 @@ type MRoPE struct {
 // first s0 freq pairs to the temporal axis, the next s1 to height, the last s2
 // to width.
 func BuildMRoPE(cfg Config, gridH, gridW int) (*MRoPE, error) {
+	if gridH <= 0 || gridW <= 0 {
+		return nil, fmt.Errorf("ideogram4 mrope grid %dx%d", gridH, gridW)
+	}
+	positions := make([][3]int, 0, gridH*gridW)
+	for r := 0; r < gridH; r++ {
+		for c := 0; c < gridW; c++ {
+			positions = append(positions, [3]int{0, r, c})
+		}
+	}
+	return BuildMRoPEPositions(cfg, positions)
+}
+
+// BuildMRoPEPositions precomputes rotary tables for an explicit list of
+// per-token (temporal, height, width) coordinates. This supports the joint
+// text+image sequence: text-prefix tokens supply their own coordinates (e.g.
+// sequential temporal positions) ahead of the image grid.
+func BuildMRoPEPositions(cfg Config, positions [][3]int) (*MRoPE, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -83,36 +100,35 @@ func BuildMRoPE(cfg Config, gridH, gridW int) (*MRoPE, error) {
 	if 2*rotPairs > cfg.HeadDim {
 		return nil, fmt.Errorf("ideogram4 mrope rot dims=%d exceed head_dim=%d", 2*rotPairs, cfg.HeadDim)
 	}
+	if len(positions) == 0 {
+		return nil, fmt.Errorf("ideogram4 mrope empty positions")
+	}
 	theta := float64(cfg.RopeTheta)
 	if theta <= 0 {
 		theta = 5000000
 	}
-	tokens := gridH * gridW
+	tokens := len(positions)
 	rope := &MRoPE{headDim: cfg.HeadDim, rotPairs: rotPairs, tokens: tokens,
 		cos: make([]float32, tokens*rotPairs), sin: make([]float32, tokens*rotPairs)}
-	// inverse frequencies over the full rotary span (2*rotPairs dims).
 	invFreq := make([]float64, rotPairs)
 	for i := 0; i < rotPairs; i++ {
 		invFreq[i] = math.Pow(theta, -float64(2*i)/float64(2*rotPairs))
 	}
 	s0, s1 := cfg.MRoPESection[0], cfg.MRoPESection[1]
-	for r := 0; r < gridH; r++ {
-		for c := 0; c < gridW; c++ {
-			tok := r*gridW + c
-			for i := 0; i < rotPairs; i++ {
-				var pos float64 // axis coordinate per section
-				switch {
-				case i < s0:
-					pos = 0 // single temporal frame
-				case i < s0+s1:
-					pos = float64(r)
-				default:
-					pos = float64(c)
-				}
-				ang := pos * invFreq[i]
-				rope.cos[tok*rotPairs+i] = float32(math.Cos(ang))
-				rope.sin[tok*rotPairs+i] = float32(math.Sin(ang))
+	for tok, p := range positions {
+		for i := 0; i < rotPairs; i++ {
+			var pos float64
+			switch {
+			case i < s0:
+				pos = float64(p[0])
+			case i < s0+s1:
+				pos = float64(p[1])
+			default:
+				pos = float64(p[2])
 			}
+			ang := pos * invFreq[i]
+			rope.cos[tok*rotPairs+i] = float32(math.Cos(ang))
+			rope.sin[tok*rotPairs+i] = float32(math.Sin(ang))
 		}
 	}
 	return rope, nil

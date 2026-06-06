@@ -9,20 +9,20 @@ import (
 type LinearRole string
 
 const (
-	RoleUnknown         LinearRole = "unknown"
-	RoleInputProj       LinearRole = "input_proj"
-	RoleLLMCondProj     LinearRole = "llm_cond_proj"
-	RoleTimeEmbedIn     LinearRole = "time_embed_in"
-	RoleTimeEmbedOut    LinearRole = "time_embed_out"
-	RoleAdaLNProj       LinearRole = "adaln_proj"
-	RoleLayerAdaLN      LinearRole = "layer_adaln"
-	RoleAttentionQKV    LinearRole = "attention_qkv"
-	RoleAttentionO      LinearRole = "attention_o"
-	RoleMLPW1           LinearRole = "mlp_w1"
-	RoleMLPW2           LinearRole = "mlp_w2"
-	RoleMLPW3           LinearRole = "mlp_w3"
-	RoleFinalAdaLN      LinearRole = "final_adaln"
-	RoleFinalLinear     LinearRole = "final_linear"
+	RoleUnknown      LinearRole = "unknown"
+	RoleInputProj    LinearRole = "input_proj"
+	RoleLLMCondProj  LinearRole = "llm_cond_proj"
+	RoleTimeEmbedIn  LinearRole = "time_embed_in"
+	RoleTimeEmbedOut LinearRole = "time_embed_out"
+	RoleAdaLNProj    LinearRole = "adaln_proj"
+	RoleLayerAdaLN   LinearRole = "layer_adaln"
+	RoleAttentionQKV LinearRole = "attention_qkv"
+	RoleAttentionO   LinearRole = "attention_o"
+	RoleMLPW1        LinearRole = "mlp_w1"
+	RoleMLPW2        LinearRole = "mlp_w2"
+	RoleMLPW3        LinearRole = "mlp_w3"
+	RoleFinalAdaLN   LinearRole = "final_adaln"
+	RoleFinalLinear  LinearRole = "final_linear"
 )
 
 type LinearSpec struct {

@@ -81,6 +81,17 @@ Generation support should be implemented in pure Go with backend-owned kernels a
 
 The block math is assembled from the public Ideogram4 tensor contract and config; end-to-end numerical correctness still requires validation against real weights, so the pipeline keeps `runtime_ready=false`.
 
+## Full DiT velocity forward
+
+`model/ideogram4/dit_forward.go` stacks the blocks into a complete velocity pass (`DiTModel.Velocity`):
+
+- `LoadDiTModel` assembles globals + 34 layers from a loaded FP8 set,
+- sinusoidal timestep embedding → `t_embedding.mlp_in/out` (SiLU) → `adaln_proj` conditioning,
+- `llm_cond_proj`(LayerNorm(text features)) text tokens + `input_proj`(latents) image tokens form one joint self-attention sequence (single qkv/o per block),
+- text prefix gets sequential temporal MRoPE positions, image tokens the 2D grid,
+- 34 `ForwardLayer` blocks,
+- `final_layer.adaln_modulation` + `final_layer.linear` over image tokens → velocity `[imageTokens, in_channels]`.
+
 ## Current status
 
 Inspection/runtime scaffolding with a concrete native scheduler, CFG combiner, FP8 E4M3 linear backend, FP8 weight loading, and a native DiT block forward. `FlowMatchScheduler` (weight-free) now natively derives ordered FlowMatch timesteps from the logit-normal schedule and performs the Euler latent update (`x_{t-1} = x_t + sigma * velocity`); `Pipeline.Generate` instantiates it and validates the step plan before the DiT/decode boundary returns not-implemented. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. With optional safetensors index JSONs, it also reports conditional/unconditional transformer tensor inventory, FP8 scale coverage, and FP8 linear-weight role coverage. `model/ideogram4` has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, asymmetric CFG layout, tensor-inventory, and FP8 linear-layout helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT execution, FP8 loading, and VAE decode are implemented natively.
