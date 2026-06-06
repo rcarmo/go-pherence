@@ -695,3 +695,72 @@ const IdeogramUpsampleNearestPTX = `.version 7.0
 DONE:
     ret;
 }`
+
+// IdeogramUnpatchifyPTX converts token-major patchified latents to CHW feature map.
+const IdeogramUnpatchifyPTX = `.version 7.0
+.target sm_80
+.address_size 64
+
+.visible .entry ideogram_unpatchify_f32(
+    .param .u64 out,
+    .param .u64 tokens,
+    .param .u32 gridH,
+    .param .u32 gridW,
+    .param .u32 inChannels,
+    .param .u32 latentChannels,
+    .param .u32 patchH,
+    .param .u32 patchW,
+    .param .u32 total
+)
+{
+    .reg .pred %p<2>;
+    .reg .u32 %r<30>;
+    .reg .u64 %rd<8>;
+    .reg .f32 %f<2>;
+
+    ld.param.u64 %rd1, [out];
+    ld.param.u64 %rd2, [tokens];
+    ld.param.u32 %r1, [gridH];
+    ld.param.u32 %r2, [gridW];
+    ld.param.u32 %r3, [inChannels];
+    ld.param.u32 %r4, [latentChannels];
+    ld.param.u32 %r5, [patchH];
+    ld.param.u32 %r6, [patchW];
+    ld.param.u32 %r7, [total];
+
+    mov.u32 %r8, %tid.x;
+    mov.u32 %r9, %ctaid.x;
+    mov.u32 %r10, %ntid.x;
+    mad.lo.u32 %r11, %r9, %r10, %r8; // output linear CHW idx
+    setp.ge.u32 %p1, %r11, %r7;
+    @%p1 bra DONE;
+
+    mul.lo.u32 %r12, %r1, %r5; // H
+    mul.lo.u32 %r13, %r2, %r6; // W
+    mul.lo.u32 %r14, %r12, %r13; // HW
+    div.u32 %r15, %r11, %r14; // ch
+    rem.u32 %r16, %r11, %r14; // yW+x
+    div.u32 %r17, %r16, %r13; // y
+    rem.u32 %r18, %r16, %r13; // x
+    div.u32 %r19, %r17, %r5;  // grid row
+    rem.u32 %r20, %r17, %r5;  // py
+    div.u32 %r21, %r18, %r6;  // grid col
+    rem.u32 %r22, %r18, %r6;  // px
+    mul.lo.u32 %r23, %r19, %r2;
+    add.u32 %r23, %r23, %r21; // token index
+    mul.lo.u32 %r24, %r20, %r6;
+    add.u32 %r24, %r24, %r22;
+    mul.lo.u32 %r24, %r24, %r4;
+    add.u32 %r24, %r24, %r15; // inner token channel
+    mul.lo.u32 %r25, %r23, %r3;
+    add.u32 %r25, %r25, %r24; // token offset
+
+    mul.wide.u32 %rd3, %r25, 4;
+    add.u64 %rd4, %rd2, %rd3;
+    ld.global.f32 %f1, [%rd4];
+    mul.wide.u32 %rd5, %r11, 4;
+    add.u64 %rd6, %rd1, %rd5;
+    st.global.f32 [%rd6], %f1;
+DONE:
+    ret;
+}`

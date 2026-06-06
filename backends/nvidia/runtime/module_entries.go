@@ -83,5 +83,6 @@ func megaModuleEntries() []moduleEntry {
 		{"ideogram_latent_denorm_f32", ptxideogram.IdeogramLatentDenormPTX},
 		{"ideogram_rgb_clamp_f32", ptxideogram.IdeogramRGBClampF32PTX},
 		{"ideogram_upsample_nearest_f32", ptxideogram.IdeogramUpsampleNearestPTX},
+		{"ideogram_unpatchify_f32", ptxideogram.IdeogramUnpatchifyPTX},
 	}
 }

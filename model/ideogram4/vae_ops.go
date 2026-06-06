@@ -45,6 +45,13 @@ func UnpatchifyLatents(tokens []float32, gridH, gridW, inChannels, latentChannel
 	if len(tokens) != imgTokens*inChannels {
 		return FeatureMap{}, fmt.Errorf("ideogram4 unpatchify: tokens=%d want %d*%d", len(tokens), imgTokens, inChannels)
 	}
+	if gpuVAEEnabled() {
+		if out, err := unpatchifyLatentsGPU(tokens, gridH, gridW, inChannels, latentChannels, patchH, patchW); err == nil {
+			return out, nil
+		} else if gpuVAEStrict() {
+			return FeatureMap{}, err
+		}
+	}
 	H := gridH * patchH
 	W := gridW * patchW
 	out := FeatureMap{C: latentChannels, H: H, W: W, Data: make([]float32, latentChannels*H*W)}

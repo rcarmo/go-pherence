@@ -15,6 +15,7 @@ var fnIdeogramAttentionValuesF32 CUfunction
 var fnIdeogramLatentDenormF32 CUfunction
 var fnIdeogramRGBClampF32 CUfunction
 var fnIdeogramUpsampleNearestF32 CUfunction
+var fnIdeogramUnpatchifyF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -892,6 +893,42 @@ func IdeogramUpsampleNearest(out, in []float32, c, h, w, factor int) error {
 	cc, hh, ww, ff, total := uint32(c), uint32(h), uint32(w), uint32(factor), uint32(outN)
 	if err := LaunchKernel(fnIdeogramUpsampleNearestF32, grid, 1, 1, 256, 1, 1, 0,
 		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&cc), unsafe.Pointer(&hh), unsafe.Pointer(&ww), unsafe.Pointer(&ff), unsafe.Pointer(&total)); err != nil {
+		return err
+	}
+	return outBuf.Download(out[:outN])
+}
+
+// IdeogramUnpatchify converts token-major patchified latents to a CHW F32 map.
+func IdeogramUnpatchify(out, tokens []float32, gridH, gridW, inChannels, latentChannels, patchH, patchW int) error {
+	loadMegaModule()
+	H, okH := checkedMulInt(gridH, patchH)
+	W, okW := checkedMulInt(gridW, patchW)
+	HW, okHW := checkedMulInt(H, W)
+	outN, okOut := checkedMulInt(latentChannels, HW)
+	tokN, okTok := checkedMulInt(gridH*gridW, inChannels)
+	if fnIdeogramUnpatchifyF32 == 0 || !megaModuleOK || gridH <= 0 || gridW <= 0 || inChannels <= 0 || latentChannels <= 0 || patchH <= 0 || patchW <= 0 || !okH || !okW || !okHW || !okOut || !okTok || len(out) < outN || len(tokens) < tokN || !fitsUint32(gridH) || !fitsUint32(gridW) || !fitsUint32(inChannels) || !fitsUint32(latentChannels) || !fitsUint32(patchH) || !fitsUint32(patchW) || !fitsUint32(outN) {
+		return fmt.Errorf("invalid Ideogram unpatchify buffers out=%d/%d tokens=%d/%d", len(out), outN, len(tokens), tokN)
+	}
+	outBuf, err := Malloc(outN)
+	if err != nil {
+		return err
+	}
+	defer outBuf.Free()
+	tokBuf, err := Malloc(tokN)
+	if err != nil {
+		return err
+	}
+	defer tokBuf.Free()
+	if err := tokBuf.Upload(tokens[:tokN]); err != nil {
+		return err
+	}
+	grid, ok := grid1DFor(outN, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram unpatchify grid")
+	}
+	gh, gw, ic, lc, ph, pw, total := uint32(gridH), uint32(gridW), uint32(inChannels), uint32(latentChannels), uint32(patchH), uint32(patchW), uint32(outN)
+	if err := LaunchKernel(fnIdeogramUnpatchifyF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&tokBuf.Ptr), unsafe.Pointer(&gh), unsafe.Pointer(&gw), unsafe.Pointer(&ic), unsafe.Pointer(&lc), unsafe.Pointer(&ph), unsafe.Pointer(&pw), unsafe.Pointer(&total)); err != nil {
 		return err
 	}
 	return outBuf.Download(out[:outN])

@@ -47,4 +47,5 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnIdeogramLatentDenormF32 = f.get("ideogram_latent_denorm_f32")
 	fnIdeogramRGBClampF32 = f.get("ideogram_rgb_clamp_f32")
 	fnIdeogramUpsampleNearestF32 = f.get("ideogram_upsample_nearest_f32")
+	fnIdeogramUnpatchifyF32 = f.get("ideogram_unpatchify_f32")
 }
