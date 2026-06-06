@@ -155,7 +155,7 @@ func (d *VAEDecoder) attention(in FeatureMap, prefix string) (FeatureMap, error)
 	if err != nil {
 		return FeatureMap{}, err
 	}
-	C, HW := in.C, in.H*in.W
+	C := in.C
 	// linear projections are stored as [C,C] (.weight) + [C] (.bias).
 	q, err := d.spatialLinear(h, prefix+".to_q")
 	if err != nil {
@@ -170,7 +170,30 @@ func (d *VAEDecoder) attention(in FeatureMap, prefix string) (FeatureMap, error)
 		return FeatureMap{}, err
 	}
 	scale := float32(1 / math.Sqrt(float64(C)))
-	attnOut := FeatureMap{C: C, H: in.H, W: in.W, Data: make([]float32, C*HW)}
+	attnOut, err := vaeSpatialAttention(q, k, v, scale)
+	if err != nil {
+		return FeatureMap{}, err
+	}
+	out, err := d.spatialLinear(attnOut, prefix+".to_out.0")
+	if err != nil {
+		return FeatureMap{}, err
+	}
+	if err := out.AddResidual(in); err != nil {
+		return FeatureMap{}, err
+	}
+	return out, nil
+}
+
+func vaeSpatialAttention(q, k, v FeatureMap, scale float32) (FeatureMap, error) {
+	C, HW := q.C, q.H*q.W
+	if gpuVAEEnabled() {
+		if out, err := vaeSpatialAttentionGPU(q, k, v, scale); err == nil {
+			return out, nil
+		} else if gpuVAEStrict() {
+			return FeatureMap{}, err
+		}
+	}
+	attnOut := FeatureMap{C: C, H: q.H, W: q.W, Data: make([]float32, C*HW)}
 	scores := make([]float32, HW)
 	for i := 0; i < HW; i++ {
 		for j := 0; j < HW; j++ {
@@ -189,14 +212,7 @@ func (d *VAEDecoder) attention(in FeatureMap, prefix string) (FeatureMap, error)
 			attnOut.Data[c*HW+i] = acc
 		}
 	}
-	out, err := d.spatialLinear(attnOut, prefix+".to_out.0")
-	if err != nil {
-		return FeatureMap{}, err
-	}
-	if err := out.AddResidual(in); err != nil {
-		return FeatureMap{}, err
-	}
-	return out, nil
+	return attnOut, nil
 }
 
 // spatialLinear applies a [outC,inC] weight + bias to every spatial position.
