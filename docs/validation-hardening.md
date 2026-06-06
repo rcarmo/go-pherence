@@ -50,7 +50,8 @@ Failed `DevBuf` transfers preserve authoritative state or fall back safely. NVID
 - precise `math.Sqrt` scalar RMSNorm,
 - empty vector/BF16 calls avoiding assembly stubs,
 - per-call GEBP scratch,
-- SGEMM/GEBP/gather preflights for dimensions, pointers, strides, CPU capability gates, checked byte offsets, and overflow.
+- SGEMM/GEBP/gather preflights for dimensions, pointers, strides, CPU capability gates, checked byte offsets, and overflow,
+- FP8 E4M3 linear validation for weight/scale/bias shape consistency, with amd64 AVX2/FMA dot dispatch guarded by CPU feature checks and scalar fallback elsewhere.
 
 ## Model helpers
 

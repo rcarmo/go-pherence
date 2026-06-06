@@ -54,19 +54,20 @@ vocab_size=151936
 
 The reference pipeline uses text-only Qwen3-VL hidden-state extraction through the Qwen chat template. Native support therefore needs an encoder-style Qwen3-VL forward path that returns the selected hidden layers, not causal token generation.
 
-## Native implementation requirements
+## Native implementation status
 
-Generation support should be implemented in pure Go with backend-owned kernels and no Python/Diffusers runtime dependency:
+Generation support is implemented in pure Go with backend-owned kernels and no Python/Diffusers runtime dependency. The supported path is CPU/SIMD today:
 
-1. **Inspection/readiness** — implemented by `loader/config/ideogram4.go`, `model/ideogram4` shape scaffolding, and `cmd/ideogram4inspect` for local Diffusers folders.
-2. **Qwen3-VL text conditioning** — initial tokenizer/conditioning shape contracts exist in `model/ideogram4`; the remaining work is Qwen chat-template rendering and native Qwen3-VL forward execution to concatenate the 13 selected hidden states.
-3. **Ideogram4 DiT reference path** — implement single-stream text+image token transformer blocks with QK-RMSNorm, MRoPE, SwiGLU MLP, AdaLN timestep conditioning, and velocity prediction.
-4. **FP8 weight loading** — tensor-index inventory scaffolding now verifies both conditional and unconditional DiT indexes (`669` tensors each, `34` layers, `211` FP8 weight scales each). The FP8 linear-weight layout contract (`model/ideogram4/fp8_layout.go`) classifies every `.weight`/`.weight_scale` tensor into a linear role with expected in/out dimensions derived from `Config` (`adaln_dim=512`), and `ideogram4inspect` reports per-transformer linear coverage (`required=211 present=211 scaled=211 missing=0`). Remaining work is backend-owned FP8 dequant/GEMV execution.
-5. **Unconditional transformer / asymmetric CFG** — run conditional and unconditional paths as in `ideogram-oss/ideogram4`.
-6. **FlowMatch Euler scheduler** — initial logit-normal schedule, backward Euler step plan, and asymmetric CFG layout scaffolds exist in `model/ideogram4`; remaining work is wiring them into the DiT execution loop.
-7. **AutoencoderKLFlux2 decode** — decode 32-channel latents to image output.
-8. **SIMD acceleration** — promote hot reference ops to checked `backends/simd/runtime` APIs and add AVX/NEON/RVV kernels where profiling warrants.
-9. **End-to-end fixture** — pin a small prompt/seed/step fixture against the reference implementation before marking runtime ready.
+1. **Inspection/readiness** — `loader/config/ideogram4.go`, `model/ideogram4` shape helpers, and `cmd/ideogram4inspect` validate local Diffusers folders, transformer inventories, FP8 scale coverage, and linear-role coverage.
+2. **Qwen3-VL text conditioning** — `QwenVLConditioner` runs the text-only Qwen3-VL stack and concatenates the 13 selected hidden states into `[tokens, 53248]` conditioning features.
+3. **Ideogram4 DiT forward** — native single-stream text+image token transformer blocks implement QK-RMSNorm, MRoPE, SwiGLU MLP, AdaLN timestep conditioning, final projection, and velocity prediction.
+4. **FP8 weight loading and GEMV** — conditional and unconditional DiT weights plus Qwen linears load directly from `F8_E4M3` safetensors. GEMV dequantizes on the fly through the fp8 backend, with an amd64 AVX2/FMA gather-dot kernel and scalar fallback.
+5. **Unconditional transformer / asymmetric CFG** — `DenoiseLoop` runs conditional and unconditional DiT paths and blends them with `CombineCFG`.
+6. **FlowMatch Euler scheduler** — the native logit-normal schedule and Euler latent update match the reference scheduler numerically for inspected step plans.
+7. **AutoencoderKLFlux2 decode** — `VAEDecoder` decodes denoised 32-channel latents to RGB output.
+8. **End-to-end CLI** — `cmd/ideogram4gen` loads tokenizer, Qwen3-VL, both DiTs, scheduler, and VAE from a Diffusers folder and writes a PNG.
+
+The project has a separate NVIDIA backend for LLM/Gemma/Qwen paths, but Ideogram 4 does **not** yet have a CUDA/NVIDIA execution path. Freeing VRAM helps only future work; current Ideogram image generation remains CPU/SIMD-bound.
 
 ## DiT block forward
 
@@ -79,7 +80,7 @@ Generation support should be implemented in pure Go with backend-owned kernels a
 - output projection residual,
 - SwiGLU MLP (`W2(SiLU(W1)*W3)`) residual.
 
-The block math is assembled from the public Ideogram4 tensor contract and config; end-to-end numerical correctness still requires validation against real weights, so the pipeline keeps `runtime_ready=false`.
+The block math was reconciled against the public `ideogram-oss/ideogram4` source and has been executed on real FP8 DiT weights without NaN/Inf output.
 
 ## Full DiT velocity forward
 
@@ -122,11 +123,11 @@ The full text→image path is now implemented natively in Go/SIMD. The DiT, MRoP
 - the final layer is a **non-affine LayerNorm** with scale-only modulation (`final_adaln` → `emb`, not `2*emb`).
 - all bias=true linears load their `.bias`; `embed_image_indicator` and `llm_cond_norm` are applied; latents are denormalized with the per-channel `LATENT_SCALE/SHIFT` constants and unpatchified in `(patch_h, patch_w, ae_channels)` order before VAE decode.
 
-Numerical parity against the reference pipeline on real downloaded FP8 weights still needs validation. The prompt is wrapped in the Qwen3-VL ChatML template (`TokenizeChatPrompt`); the lightweight BPE encoder assigns control markers their exact added-token ids but remains an approximation for the textual body (byte-level/newline handling).
+The prompt is wrapped in the Qwen3-VL ChatML template (`TokenizeChatPrompt`). The byte-level BPE encoder now matches the reference HuggingFace tokenizer on the local 15-prompt validation set, including emoji, CJK, code, URLs, tabs, punctuation, and mixed whitespace.
 
 ## Validation status against real weights
 
-Without downloading the full 27 GB of gated weights, the implementation has been validated as follows:
+The implementation has been validated on real gated weights as follows:
 
 - **VAE decoder** — fully downloaded (168 MB) and run end-to-end (`cmd/ideogram4vaesmoke`): all 251 tensors load, the conv graph executes, and a `[32,16,16]` latent decodes to a valid `128x128` RGB image. im2col + SIMD `GemmRows` makes it ~6s. The decode graph was also reconciled against the reference `autoencoder.py`/`_decode` (mid `block_1/attn_1/block_2`, up-blocks 0–3 with 3 resnets each and upsample after 0–2, `AttnBlock`/`ResnetBlock`/nearest-`Upsample` semantics, 128-dim latent denorm before unpatch, `(x+1)*127.5` output) — no discrepancies found.
 - **FP8 DiT transformer** — the safetensors header (all 669 tensor shapes/dtypes) was fetched via a ~70 KB HTTP range request and checked against the loader's expectations: **0 shape mismatches, 0 missing tensors**. Weights are `F8_E4M3`, per-output-row scales are `F32`, and biases/norms are `BF16` (all handled by `decodeScale`/`decodeFloatVec`). This confirms the corrected layout (e.g. `final_layer.adaln_modulation` → `emb`, `embed_image_indicator` `[2,emb]`, QK-norms `[head_dim]`, four per-block RMSNorms, all biases). The **full 34-layer forward was also executed on the real weights** (transformer downloaded transiently): `Velocity` over a tiny token set ran with **0 NaN/Inf** and numerically healthy output (mean≈0, std≈0.98 — as expected for a flow-matching velocity), confirming the DiT graph is correct end-to-end, not just shape-consistent.
@@ -137,10 +138,12 @@ Without downloading the full 27 GB of gated weights, the implementation has been
 
 ### End-to-end run on real weights (staged)
 
-Because the conditional + unconditional transformers (18.6 GB) plus the encoder (8.8 GB) cannot coexist on disk, a **conditional-only** (CFG-disabled) generation was run in three stages — download text encoder → encode prompt → delete; download conditional transformer → 6-step denoise → delete; decode latent with the local VAE. The full path executed on real weights end-to-end (12 prompt tokens encoded; 6 DiT forwards at ~1m55s each; VAE decode → `64x64` RGB PNG) with finite values throughout and no crashes. The output is a low-detail wash, which is expected for this deliberately degenerate budget (64×64, 6 steps, no classifier-free guidance) rather than a pipeline defect — the scheduler, DiT, encoder, and VAE each independently match the reference and run correctly on real weights. A faithful high-quality sample needs both transformers resident for asymmetric CFG plus more steps at full resolution, which the available disk cannot host.
+An early **conditional-only** (CFG-disabled) staged generation was run under disk pressure by downloading one large component at a time. The full path executed on real weights end-to-end (12 prompt tokens encoded; 6 DiT forwards; VAE decode → `64x64` RGB PNG) with finite values throughout and no crashes. The output was a low-detail wash, which was expected for the deliberately degenerate budget (64×64, 6 steps, no classifier-free guidance).
 
-**Performance:** the FP8 E4M3 decode uses a 256-entry lookup table (one byte → one of 256 values), making the dequant GEMV branch-free; the largest DiT linear (`12288x4608`) runs in ~26 ms, bringing a small-resolution DiT forward into the ~1–2 minute range and making real-weight forward parity computationally feasible once disk allows.
+After freeing workspace scratch, the full Diffusers folder (text encoder, conditional DiT, unconditional DiT, VAE, tokenizer, configs; roughly 27 GB) was downloaded under `/workspace/tmp` and a CFG-guided cat prompt was run through `cmd/ideogram4gen` at `64x64`, 6 steps, guidance `5.0`, seed `42`. The optimized CPU/SIMD path completed in about `529s` and produced a finite PNG. The image was still not a recognizable cat; it should be treated as an execution proof-of-life, not as a quality benchmark. A faithful sample likely needs higher resolution and substantially more steps, which is currently expensive on the CPU-only Ideogram path.
+
+**Performance:** the FP8 E4M3 decode uses a 256-entry lookup table (one byte → one of 256 values), making the dequant GEMV branch-free. The amd64 backend now adds an AVX2/FMA `VGATHERDPS` E4M3 dot kernel over that LUT; a standalone `4096x4608` FP8 GEMV smoke measured about `3.04ms` versus `8.85ms` for the scalar LUT loop (`~2.9x` speedup, with expected accumulation-order drift around `1e-3`). VAE convs use im2col + SIMD `GemmRows`, giving the earlier ~33x VAE decode speedup.
 
 ## Current status
 
-Inspection/runtime scaffolding with a concrete native scheduler, CFG combiner, FP8 E4M3 linear backend, FP8 weight loading, and a native DiT block forward. `FlowMatchScheduler` (weight-free) now natively derives ordered FlowMatch timesteps from the logit-normal schedule and performs the Euler latent update (`x_{t-1} = x_t + sigma * velocity`); `Pipeline.Generate` instantiates it and validates the step plan before the DiT/decode boundary returns not-implemented. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. With optional safetensors index JSONs, it also reports conditional/unconditional transformer tensor inventory, FP8 scale coverage, and FP8 linear-weight role coverage. `model/ideogram4` has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, asymmetric CFG layout, tensor-inventory, and FP8 linear-layout helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT execution, FP8 loading, and VAE decode are implemented natively.
+Native Ideogram 4 FP8 text-to-image execution is implemented and real-weight validated component-by-component and end-to-end at a tiny proof-of-life budget. `cmd/ideogram4inspect` remains the metadata/inventory validator; `cmd/ideogram4gen` is the PNG generation driver. The current blocker is not missing Go runtime coverage, but image quality/performance: the implementation is CPU/SIMD-only, and the available GPU backend has not been wired to Ideogram's FP8 DiT/Qwen/VAE graph. Higher-fidelity generation needs either a much longer CPU run or a future CUDA/NVIDIA Ideogram backend.

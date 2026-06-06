@@ -104,7 +104,7 @@ Start here:
 - [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) — current Whisper translated VTT pipeline and performance notes.
 - [docs/gemma4-31b-runbook.md](docs/gemma4-31b-runbook.md) — Gemma4 E4B/31B local run strategy and smoke results.
 - [docs/qwen36-mtp.md](docs/qwen36-mtp.md) — Qwen3.6 native-MTP checkpoint findings.
-- [docs/ideogram4-support.md](docs/ideogram4-support.md) — Ideogram 4 FP8 config inspection and native image-generation support plan.
+- [docs/ideogram4-support.md](docs/ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, and current GPU limitation.
 - [docs/validation-gates.md](docs/validation-gates.md) — standard validation gates.
 - [docs/validation-hardening.md](docs/validation-hardening.md) — malformed-input and boundary-hardening summary.
 
