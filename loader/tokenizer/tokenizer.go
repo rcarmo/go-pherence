@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -93,12 +94,87 @@ func (t *Tokenizer) Encode(text string) []int {
 	if t == nil || t.Vocab == nil {
 		return nil
 	}
-	// Pre-tokenize: split on word boundaries, add space prefix
-	// Auto-detect: Ġ (U+0120, GPT-2/Qwen) or ▁ (U+2581, SentencePiece/Gemma)
-	spacePrefix := "\u0120" // GPT-2 default
+	// Auto-detect family: Ġ (U+0120, GPT-2/Qwen byte-level BPE) or ▁
+	// (U+2581, SentencePiece/Gemma). SentencePiece keeps the legacy
+	// whitespace-prefix path; GPT-2/Qwen uses faithful byte-level BPE.
 	if _, ok := t.Vocab["\u2581the"]; ok {
-		spacePrefix = "\u2581" // SentencePiece
+		return t.encodeSentencePiece(text)
 	}
+	return t.encodeByteLevel(text)
+}
+
+// gpt2Pattern is the GPT-2/Qwen pre-tokenization regex. RE2 has no lookahead,
+// so the trailing-whitespace `(?!\S)` clause is approximated by a plain `\s+`
+// alternative; this only differs on runs of consecutive interior whitespace,
+// which are rare in prompts.
+var gpt2Pattern = regexp.MustCompile(`'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+`)
+
+// encodeByteLevel performs faithful GPT-2/Qwen byte-level BPE: GPT-2
+// pre-tokenization, per-byte unicode mapping, then rank-ordered merges over the
+// byte symbols (matching the inverse applied by Decode).
+func (t *Tokenizer) encodeByteLevel(text string) []int {
+	mergeRank := make(map[[2]string]int, len(t.Merges))
+	for i, m := range t.Merges {
+		mergeRank[m] = i
+	}
+	byteEncoder := getByteEncoder()
+
+	var ids []int
+	for _, piece := range gpt2Pattern.FindAllString(text, -1) {
+		// Map each raw UTF-8 byte (not rune) through the GPT-2 byte encoder.
+		symbols := make([]string, 0, len(piece))
+		for i := 0; i < len(piece); i++ {
+			symbols = append(symbols, string(byteEncoder[piece[i]]))
+		}
+		if len(symbols) == 0 {
+			continue
+		}
+		ids = append(ids, t.bpeMerge(symbols, mergeRank)...)
+	}
+	return ids
+}
+
+// bpeMerge applies rank-ordered pair merges to a symbol list and resolves the
+// result to vocab IDs.
+func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int) []int {
+	// Direct lookup for the whole joined piece first.
+	if joined := strings.Join(symbols, ""); len(symbols) > 1 {
+		if id, ok := t.Vocab[joined]; ok {
+			return []int{id}
+		}
+	}
+	for len(symbols) >= 2 {
+		bestRank := len(t.Merges)
+		bestIdx := -1
+		for i := 0; i < len(symbols)-1; i++ {
+			if rank, ok := mergeRank[[2]string{symbols[i], symbols[i+1]}]; ok && rank < bestRank {
+				bestRank = rank
+				bestIdx = i
+			}
+		}
+		if bestIdx < 0 {
+			break
+		}
+		merged := symbols[bestIdx] + symbols[bestIdx+1]
+		newSyms := make([]string, 0, len(symbols)-1)
+		newSyms = append(newSyms, symbols[:bestIdx]...)
+		newSyms = append(newSyms, merged)
+		newSyms = append(newSyms, symbols[bestIdx+2:]...)
+		symbols = newSyms
+	}
+	ids := make([]int, 0, len(symbols))
+	for _, s := range symbols {
+		if id, ok := t.Vocab[s]; ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// encodeSentencePiece is the legacy whitespace-prefix path used for
+// SentencePiece-family vocabularies (Gemma).
+func (t *Tokenizer) encodeSentencePiece(text string) []int {
+	spacePrefix := "\u2581"
 	words := strings.Fields(text)
 	var pieces []string
 	for i, w := range words {
