@@ -39,3 +39,28 @@ kernel is already cache-efficient enough that partition order is in the noise.
   (DMA + accelerator), which is **not reachable from CPU/RVV in pure Go**.
 - Therefore the **EP-encoder + turbo-decoder hybrid (RTF 0.90)** remains the only
   way to beat RTF 1.0 on this board; the pure-Go RVV encoder is a ~RTF 1.3 floor.
+
+## W4A8 (4-bit weights) also doesn't help — RVV has no native int4 MAC
+
+Built a correct W4A8 outer-product kernel (`kernelM4N32W4`, int4 weights packed
+2/byte, unpacked via vand/vxor/vadd/vsrl + 2x vsext.vf4 per k). Benchmarked vs the
+int8 kernel at 8T, same [1500,1280,1280]:
+
+| Kernel | 8T time |
+|--------|---------|
+| W8A8 (int8 weights) | 24.3 ms |
+| W4A8 (int4 weights) | **39.3 ms (slower)** |
+
+The half-size weight reads do not pay off: the per-k nibble unpack + widen costs
+more than the saved bandwidth. This is fundamental — **RVV has no native int4
+dot-product/MAC**, so 4-bit weights must be widened to int32 before `vmacc`.
+Either you unpack per-use (compute cost > bandwidth saving, as measured) or
+unpack-once-to-int8 (which loses the bandwidth benefit). Only hardware with a
+native int4 MAC (GPU/NPU) wins here.
+
+## Final: no pure-Go software lever reaches RTF < 1 on this board
+- int8 RVV encoder: ~31s @8T (RTF ~1.3 with turbo decode) — the floor.
+- TCM scratchpad: dead (uncached for CPU/RVV).
+- Cache-blocking: neutral.
+- W4A8: slower (no native int4 MAC).
+The EP-encoder + turbo-decoder hybrid (RTF 0.90) remains the only sub-1.0 path.
