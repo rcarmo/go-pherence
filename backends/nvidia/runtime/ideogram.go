@@ -14,6 +14,7 @@ var fnIdeogramAttentionScoresF32 CUfunction
 var fnIdeogramAttentionValuesF32 CUfunction
 var fnIdeogramLatentDenormF32 CUfunction
 var fnIdeogramRGBClampF32 CUfunction
+var fnIdeogramUpsampleNearestF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -856,4 +857,42 @@ func IdeogramRGBClamp(out, in []float32, hw int) error {
 		return err
 	}
 	return outBuf.Download(out[:3*hw])
+}
+
+// IdeogramUpsampleNearest upsamples a CHW F32 feature map by nearest-neighbour.
+func IdeogramUpsampleNearest(out, in []float32, c, h, w, factor int) error {
+	loadMegaModule()
+	if fnIdeogramUpsampleNearestF32 == 0 || !megaModuleOK || c <= 0 || h <= 0 || w <= 0 || factor <= 0 || !fitsUint32(c) || !fitsUint32(h) || !fitsUint32(w) || !fitsUint32(factor) {
+		return fmt.Errorf("invalid Ideogram upsample dims c=%d h=%d w=%d factor=%d", c, h, w, factor)
+	}
+	inN, okIn := checkedMulInt(c, h*w)
+	outH, okH := checkedMulInt(h, factor)
+	outW, okW := checkedMulInt(w, factor)
+	outN, okOut := checkedMulInt(c, outH*outW)
+	if !okIn || !okH || !okW || !okOut || len(in) < inN || len(out) < outN || !fitsUint32(outN) {
+		return fmt.Errorf("invalid Ideogram upsample buffers out=%d/%d in=%d/%d", len(out), outN, len(in), inN)
+	}
+	inBuf, err := Malloc(inN)
+	if err != nil {
+		return err
+	}
+	defer inBuf.Free()
+	outBuf, err := Malloc(outN)
+	if err != nil {
+		return err
+	}
+	defer outBuf.Free()
+	if err := inBuf.Upload(in[:inN]); err != nil {
+		return err
+	}
+	grid, ok := grid1DFor(outN, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram upsample grid")
+	}
+	cc, hh, ww, ff, total := uint32(c), uint32(h), uint32(w), uint32(factor), uint32(outN)
+	if err := LaunchKernel(fnIdeogramUpsampleNearestF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&cc), unsafe.Pointer(&hh), unsafe.Pointer(&ww), unsafe.Pointer(&ff), unsafe.Pointer(&total)); err != nil {
+		return err
+	}
+	return outBuf.Download(out[:outN])
 }

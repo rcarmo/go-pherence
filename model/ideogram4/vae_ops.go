@@ -236,6 +236,13 @@ func UpsampleNearest(in FeatureMap, factor int) (FeatureMap, error) {
 	if factor <= 0 {
 		return FeatureMap{}, fmt.Errorf("ideogram4 upsample factor=%d", factor)
 	}
+	if gpuVAEEnabled() {
+		if out, err := upsampleNearestGPU(in, factor); err == nil {
+			return out, nil
+		} else if gpuVAEStrict() {
+			return FeatureMap{}, err
+		}
+	}
 	H, W := in.H*factor, in.W*factor
 	out := FeatureMap{C: in.C, H: H, W: W, Data: make([]float32, in.C*H*W)}
 	for c := 0; c < in.C; c++ {

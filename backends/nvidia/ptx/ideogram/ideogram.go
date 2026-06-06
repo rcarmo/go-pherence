@@ -637,3 +637,61 @@ const IdeogramRGBClampF32PTX = `.version 7.0
 DONE:
     ret;
 }`
+
+// IdeogramUpsampleNearestPTX upsamples CHW feature maps by nearest-neighbour.
+const IdeogramUpsampleNearestPTX = `.version 7.0
+.target sm_80
+.address_size 64
+
+.visible .entry ideogram_upsample_nearest_f32(
+    .param .u64 out,
+    .param .u64 in,
+    .param .u32 c,
+    .param .u32 h,
+    .param .u32 w,
+    .param .u32 factor,
+    .param .u32 total
+)
+{
+    .reg .pred %p<2>;
+    .reg .u32 %r<18>;
+    .reg .u64 %rd<8>;
+    .reg .f32 %f<2>;
+
+    ld.param.u64 %rd1, [out];
+    ld.param.u64 %rd2, [in];
+    ld.param.u32 %r1, [c];
+    ld.param.u32 %r2, [h];
+    ld.param.u32 %r3, [w];
+    ld.param.u32 %r4, [factor];
+    ld.param.u32 %r5, [total];
+
+    mov.u32 %r6, %tid.x;
+    mov.u32 %r7, %ctaid.x;
+    mov.u32 %r8, %ntid.x;
+    mad.lo.u32 %r9, %r7, %r8, %r6;
+    setp.ge.u32 %p1, %r9, %r5;
+    @%p1 bra DONE;
+
+    mul.lo.u32 %r10, %r2, %r4; // outH
+    mul.lo.u32 %r11, %r3, %r4; // outW
+    div.u32 %r12, %r9, %r11;   // c*outH + y
+    rem.u32 %r13, %r9, %r11;   // x
+    div.u32 %r14, %r12, %r10;  // ch
+    rem.u32 %r15, %r12, %r10;  // y
+    div.u32 %r16, %r15, %r4;   // sy
+    div.u32 %r17, %r13, %r4;   // sx
+    mul.lo.u32 %r6, %r14, %r2;
+    add.u32 %r6, %r6, %r16;
+    mul.lo.u32 %r6, %r6, %r3;
+    add.u32 %r6, %r6, %r17;
+
+    mul.wide.u32 %rd3, %r6, 4;
+    add.u64 %rd4, %rd2, %rd3;
+    ld.global.f32 %f1, [%rd4];
+    mul.wide.u32 %rd5, %r9, 4;
+    add.u64 %rd6, %rd1, %rd5;
+    st.global.f32 [%rd6], %f1;
+DONE:
+    ret;
+}`
