@@ -36,3 +36,35 @@ to sparse **int32 accumulator outputs** (`ff 00 00 00`, `08 00 00 00`,
 Locate the command/descriptor region (changes ~256x = once per matmul, vs the
 churning tile/accumulator areas) and decode M/N/K + src/dst TCM offsets. The
 capture path is proven; this is structured correlation work.
+
+## Command-submission mechanism — decisive finding (strace)
+
+`strace -f -e ioctl,write,pwrite64,mmap` over a full 256-matmul encode shows the
+NPU is driven with **no per-matmul syscalls**:
+- 13 ioctl total — all setup: `TCM_INFO_GET` (0x63,0x7) + `TCM_ACQUIRE` (0x63,0x9)
+  for the cores. None during compute.
+- 9 write total. 2034 mmap (allocator, not per-op).
+
+So the 256 matmuls are issued by **direct memory-stores into mmap'd regions +
+MMIO doorbells** — invisible to strace/LD_PRELOAD/ptrace-syscall. Combined with:
+- DMA control regions (`ai_dma`/`aidma_list`/`dma_msi`) are **per-fd private**
+  (cross-process snapshot = 0 changes), and
+- the EP maps via **raw syscalls** (libc LD_PRELOAD sees nothing),
+
+the runtime-capture paths for the *command* are blocked. TCM (shared physical
+SRAM) lets us observe the int8->int32 **data**, but not the descriptor.
+
+## Therefore: static disassembly is the path
+
+The descriptor format + doorbell offset live in `libspacemit_ep.so.2.0.2+rc5`
+(4.9 MB). Exported symbols are only high-level C++ (`onnxruntime::spacemit::
+SpineGraph`, `SpineTensor`); the GEMM dispatch is internal/stripped. Next concrete
+RE task: disassemble the SpineGraph execute path, find the inner loop that writes
+the `aidma_list` descriptor + the MMIO doorbell store, and recover the struct
+(M/N/K, src/dst TCM offsets, opcode). This is a substantial focused effort.
+
+### Strategic note
+The proven practical result remains the **RTF 0.90 hybrid** (EP C++ NPU encoder +
+pure-Go turbo decoder). A fully pure-Go NPU encoder requires decoding the
+proprietary descriptor from a stripped 4.9 MB lib — high-effort, uncertain. The
+TCM substrate + capture findings de-risk it but the descriptor RE is the wall.
