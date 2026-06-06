@@ -3,6 +3,8 @@ package ideogram4
 import (
 	"fmt"
 	"math"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // FeatureMap is an NCHW=1 (single image) feature tensor: Channels x H x W,
@@ -88,7 +90,9 @@ func (w Conv2DWeights) validate() error {
 	return nil
 }
 
-// Conv2D applies a stride-1 same-padding (zero-pad) convolution.
+// Conv2D applies a stride-1 same-padding (zero-pad) convolution using an
+// im2col transform plus a SIMD GEMM, falling back to a scalar loop when the
+// accelerated GEMM is unavailable.
 func Conv2D(in FeatureMap, w Conv2DWeights) (FeatureMap, error) {
 	if err := in.validate(); err != nil {
 		return FeatureMap{}, err
@@ -101,33 +105,62 @@ func Conv2D(in FeatureMap, w Conv2DWeights) (FeatureMap, error) {
 	}
 	padY := (w.KH - 1) / 2
 	padX := (w.KW - 1) / 2
-	out := FeatureMap{C: w.OutC, H: in.H, W: in.W, Data: make([]float32, w.OutC*in.H*in.W)}
+	H, W := in.H, in.W
+	HW := H * W
+	K := in.C * w.KH * w.KW
+	out := FeatureMap{C: w.OutC, H: H, W: W, Data: make([]float32, w.OutC*HW)}
+
+	// im2col: col[hw, k] with k = ic*KH*KW + ky*KW + kx (matches OIHW weight).
+	col := make([]float32, HW*K)
+	for y := 0; y < H; y++ {
+		for x := 0; x < W; x++ {
+			hw := y*W + x
+			base := hw * K
+			for ic := 0; ic < in.C; ic++ {
+				for ky := 0; ky < w.KH; ky++ {
+					iy := y + ky - padY
+					if iy < 0 || iy >= H {
+						continue
+					}
+					row := (ic*H + iy) * W
+					kbase := base + (ic*w.KH+ky)*w.KW
+					for kx := 0; kx < w.KW; kx++ {
+						ix := x + kx - padX
+						if ix < 0 || ix >= W {
+							continue
+						}
+						col[kbase+kx] = in.Data[row+ix]
+					}
+				}
+			}
+		}
+	}
+
+	// outT[hw, oc] = col[hw, :] . weight[oc, :]
+	outT := make([]float32, HW*w.OutC)
+	if !simd.GemmRows(outT, col, w.Weight, HW, w.OutC, K) {
+		for hw := 0; hw < HW; hw++ {
+			cb := hw * K
+			for oc := 0; oc < w.OutC; oc++ {
+				wb := oc * K
+				var acc float32
+				for k := 0; k < K; k++ {
+					acc += col[cb+k] * w.Weight[wb+k]
+				}
+				outT[hw*w.OutC+oc] = acc
+			}
+		}
+	}
+
+	// transpose outT[hw, oc] -> out[oc, hw] and add bias.
 	for oc := 0; oc < w.OutC; oc++ {
 		var bias float32
 		if w.Bias != nil {
 			bias = w.Bias[oc]
 		}
-		for y := 0; y < in.H; y++ {
-			for x := 0; x < in.W; x++ {
-				acc := bias
-				for ic := 0; ic < in.C; ic++ {
-					for ky := 0; ky < w.KH; ky++ {
-						iy := y + ky - padY
-						if iy < 0 || iy >= in.H {
-							continue
-						}
-						for kx := 0; kx < w.KW; kx++ {
-							ix := x + kx - padX
-							if ix < 0 || ix >= in.W {
-								continue
-							}
-							wIdx := ((oc*w.InC+ic)*w.KH+ky)*w.KW + kx
-							acc += w.Weight[wIdx] * in.at(ic, iy, ix)
-						}
-					}
-				}
-				out.Data[(oc*in.H+y)*in.W+x] = acc
-			}
+		dst := out.Data[oc*HW : (oc+1)*HW]
+		for hw := 0; hw < HW; hw++ {
+			dst[hw] = outT[hw*w.OutC+oc] + bias
 		}
 	}
 	return out, nil

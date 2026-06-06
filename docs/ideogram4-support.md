@@ -98,13 +98,13 @@ The block math is assembled from the public Ideogram4 tensor contract and config
 
 ## VAE decode primitives
 
-`model/ideogram4/vae_ops.go` adds the native building blocks for the `AutoencoderKLFlux2` decoder (`latent_channels=32`, `block_out_channels=[128,256,512,512]`, GroupNorm-32 + SiLU, `patch_size=[2,2]`): `FeatureMap` (NCHW=1), `UnpatchifyLatents` (DiT patch tokens → latent feature map), stride-1 same-pad `Conv2D` (OIHW), affine `GroupNorm`, in-place `SiLUMap`, nearest `UpsampleNearest`, and residual add — the ops a ResNet/up-block decoder graph is assembled from.
+`model/ideogram4/vae_ops.go` adds the native building blocks for the `AutoencoderKLFlux2` decoder (`latent_channels=32`, `block_out_channels=[128,256,512,512]`, GroupNorm-32 + SiLU, `patch_size=[2,2]`): `FeatureMap` (NCHW=1), `UnpatchifyLatents` (DiT patch tokens → latent feature map), stride-1 same-pad `Conv2D` (OIHW, im2col + SIMD `GemmRows`), affine `GroupNorm`, in-place `SiLUMap`, nearest `UpsampleNearest`, and residual add — the ops a ResNet/up-block decoder graph is assembled from.
 
 ## VAE decoder graph
 
 `model/ideogram4/vae_decoder.go` (`VAEDecoder`) assembles the full `AutoencoderKLFlux2` decode from VAE safetensors weights: latent de-scale → `post_quant_conv` → `decoder.conv_in` → mid block (resnet → single-head spatial self-attention → resnet) → 4 up-blocks (`layers_per_block+1` ResnetBlock2D each, nearest ×2 upsample + conv between blocks) → `conv_norm_out`/SiLU/`conv_out` → 8-bit RGB `Image`. ResNet shortcuts auto-detect the optional `conv_shortcut`; norms are GroupNorm-32. Bound to any `F32TensorSource` (safetensors File/ShardedFile).
 
-**Validated against real weights:** `cmd/ideogram4vaesmoke` loads the actual downloaded `vae/diffusion_pytorch_model.safetensors` (251 tensors) and decodes a random `[32,16,16]` latent end-to-end through the full conv graph, producing a valid `128x128` RGB image with a healthy pixel distribution (e.g. min=27 max=188 mean=111). All tensor names/shapes matched on the first try. (The naive `Conv2D` is correctness-first and currently slow at 512-channel maps; SIMD GEMM acceleration is a later optimization.)
+**Validated against real weights:** `cmd/ideogram4vaesmoke` loads the actual downloaded `vae/diffusion_pytorch_model.safetensors` (251 tensors) and decodes a random `[32,16,16]` latent end-to-end through the full conv graph, producing a valid `128x128` RGB image with a healthy pixel distribution (e.g. min=27 max=188 mean=111). All tensor names/shapes matched on the first try. `Conv2D` uses im2col + the SIMD `GemmRows` kernel, cutting the `128x128` decode from ~3m25s to ~6s (~33x) with bit-identical output.
 
 ## Qwen3-VL text conditioning
 
