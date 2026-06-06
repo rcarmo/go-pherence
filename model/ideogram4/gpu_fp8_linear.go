@@ -24,6 +24,9 @@ func gpuFP8Strict() bool {
 }
 
 func gpuFP8CacheEnabled() bool {
+	if gpuResidencyPolicy() == gpuResidencyStream {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_FP8_CACHE")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }

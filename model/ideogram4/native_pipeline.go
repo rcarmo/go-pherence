@@ -164,6 +164,12 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 	if err != nil {
 		return Image{}, err
 	}
+	if gpuReleaseAfterPhase() {
+		// Qwen uses temporary FP8 wrappers today, but this keeps the phase boundary
+		// explicit as more text-encoder residency is added.
+		p.Cond.ReleaseGPU()
+		p.Uncond.ReleaseGPU()
+	}
 
 	plan, err := cfg.BuildSamplingPlan(opt.Height, opt.Width, opt.Steps, opt.GuidanceScale, nil, maxTok, LogitNormalSchedule{})
 	if err != nil {
@@ -176,6 +182,10 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 	latents, err := DenoiseLoop(p.Cond, p.Uncond, sched, plan, opt.InitLatents, gridH, gridW, textFeatures)
 	if err != nil {
 		return Image{}, err
+	}
+	if gpuReleaseAfterPhase() {
+		p.Cond.ReleaseGPU()
+		p.Uncond.ReleaseGPU()
 	}
 
 	patch := cfg.PatchSize

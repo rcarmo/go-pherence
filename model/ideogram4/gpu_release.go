@@ -33,8 +33,9 @@ func (m *DiTModel) ReleaseGPU() {
 }
 
 // ReleaseGPU frees cached GPU-resident resources owned by the full native
-// pipeline. VAE and Qwen conditioner do not currently hold cached NVIDIA
-// resources; this method is intentionally safe to call unconditionally.
+// pipeline. VAE and Qwen conditioner currently use transient NVIDIA buffers,
+// while DiT FP8 linears may hold cached weights; this method is safe to call
+// unconditionally at phase boundaries.
 func (p *NativePipeline) ReleaseGPU() {
 	if p == nil {
 		return
