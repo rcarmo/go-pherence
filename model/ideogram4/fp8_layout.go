@@ -140,6 +140,25 @@ func ValidateLinearCoverage(cfg Config, names []string) (LinearCoverage, error) 
 	return out, nil
 }
 
+// FP8LinearLoader is the backend boundary for materializing an Ideogram4 FP8
+// linear matrix from packed `.weight` (float8) plus `.weight_scale` tensors.
+// Implementations live in the owning backend package (FP8 dequant/GEMV), not
+// here; this contract only pins the role/shape expectations the runtime needs.
+type FP8LinearLoader interface {
+	// LoadLinear returns a backend-owned handle for the given linear spec,
+	// validating that the provided weight and scale tensors match spec dims.
+	LoadLinear(spec LinearSpec) (FP8LinearWeight, error)
+}
+
+// FP8LinearWeight is an opaque backend handle to a loaded FP8 linear matrix.
+// The runtime only needs its declared shape to wire DiT forward passes; the
+// backend owns dequant and matmul execution.
+type FP8LinearWeight interface {
+	Role() LinearRole
+	InDim() int
+	OutDim() int
+}
+
 func splitLayerPrefix(prefix string) (int, string, bool) {
 	parts := strings.Split(prefix, ".")
 	if len(parts) < 3 || parts[0] != "layers" {
