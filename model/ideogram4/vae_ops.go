@@ -213,6 +213,15 @@ func GroupNorm(in FeatureMap, groups int, gamma, beta []float32, eps float32) (F
 
 // SiLUMap applies SiLU activation in place.
 func (f FeatureMap) SiLUMap() {
+	if gpuVAEEnabled() && len(f.Data) > 0 {
+		out := make([]float32, len(f.Data))
+		if err := siluGPU(out, f.Data); err == nil {
+			copy(f.Data, out)
+			return
+		} else if gpuVAEStrict() {
+			panic(err)
+		}
+	}
 	for i := range f.Data {
 		f.Data[i] = siluScalar(f.Data[i])
 	}
