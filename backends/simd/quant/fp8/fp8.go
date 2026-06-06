@@ -14,9 +14,21 @@ import (
 	"math"
 )
 
+// e4m3LUT maps every possible E4M3FN byte to its float32 value, so decode is a
+// branch-free table lookup in hot GEMV loops.
+var e4m3LUT = func() [256]float32 {
+	var t [256]float32
+	for i := 0; i < 256; i++ {
+		t[i] = decodeE4M3Slow(byte(i))
+	}
+	return t
+}()
+
 // DecodeE4M3 decodes a finite-only float8 E4M3FN byte (bias 7, subnormals at
 // exponent 0, all-ones exponent+mantissa reserved as NaN, no infinities).
-func DecodeE4M3(code byte) float32 {
+func DecodeE4M3(code byte) float32 { return e4m3LUT[code] }
+
+func decodeE4M3Slow(code byte) float32 {
 	sign := code & 0x80
 	exp := (code >> 3) & 0x0f
 	mant := code & 0x07
@@ -87,7 +99,7 @@ func (l Linear) DequantRowTo(row int, dst []float32) error {
 	scale := l.scaleForRow(row)
 	base := row * l.InDim
 	for j := 0; j < l.InDim; j++ {
-		dst[j] = DecodeE4M3(l.Weight[base+j]) * scale
+		dst[j] = e4m3LUT[l.Weight[base+j]] * scale
 	}
 	return nil
 }
@@ -108,9 +120,10 @@ func (l Linear) GemvTo(x []float32, out []float32) error {
 	for r := 0; r < l.OutDim; r++ {
 		scale := l.scaleForRow(r)
 		base := r * l.InDim
+		w := l.Weight[base : base+l.InDim]
 		var acc float32
 		for j := 0; j < l.InDim; j++ {
-			acc += DecodeE4M3(l.Weight[base+j]) * x[j]
+			acc += e4m3LUT[w[j]] * x[j]
 		}
 		out[r] = acc * scale
 		if l.Bias != nil {
