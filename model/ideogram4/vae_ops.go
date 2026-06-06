@@ -185,6 +185,13 @@ func GroupNorm(in FeatureMap, groups int, gamma, beta []float32, eps float32) (F
 	if len(gamma) != in.C || len(beta) != in.C {
 		return FeatureMap{}, fmt.Errorf("ideogram4 groupnorm affine len gamma=%d beta=%d want=%d", len(gamma), len(beta), in.C)
 	}
+	if gpuVAEEnabled() {
+		if out, err := groupNormGPU(in, groups, gamma, beta, eps); err == nil {
+			return out, nil
+		} else if gpuVAEStrict() {
+			return FeatureMap{}, err
+		}
+	}
 	chPerGroup := in.C / groups
 	hw := in.H * in.W
 	out := FeatureMap{C: in.C, H: in.H, W: in.W, Data: make([]float32, len(in.Data))}

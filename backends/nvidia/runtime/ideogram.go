@@ -16,6 +16,7 @@ var fnIdeogramLatentDenormF32 CUfunction
 var fnIdeogramRGBClampF32 CUfunction
 var fnIdeogramUpsampleNearestF32 CUfunction
 var fnIdeogramUnpatchifyF32 CUfunction
+var fnIdeogramGroupNormF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -932,4 +933,50 @@ func IdeogramUnpatchify(out, tokens []float32, gridH, gridW, inChannels, latentC
 		return err
 	}
 	return outBuf.Download(out[:outN])
+}
+
+// IdeogramGroupNorm applies CHW GroupNorm with per-channel affine through the
+// NVIDIA kernel.
+func IdeogramGroupNorm(out, in, gamma, beta []float32, c, h, w, groups int, eps float32) error {
+	loadMegaModule()
+	hw, okHW := checkedMulInt(h, w)
+	n, okN := checkedMulInt(c, hw)
+	if fnIdeogramGroupNormF32 == 0 || !megaModuleOK || c <= 0 || h <= 0 || w <= 0 || groups <= 0 || c%groups != 0 || !okHW || !okN || len(out) < n || len(in) < n || len(gamma) < c || len(beta) < c || !fitsUint32(c) || !fitsUint32(hw) || !fitsUint32(groups) {
+		return fmt.Errorf("invalid Ideogram GroupNorm buffers out=%d/%d in=%d/%d c=%d h=%d w=%d groups=%d", len(out), n, len(in), n, c, h, w, groups)
+	}
+	outBuf, err := Malloc(n)
+	if err != nil {
+		return err
+	}
+	defer outBuf.Free()
+	inBuf, err := Malloc(n)
+	if err != nil {
+		return err
+	}
+	defer inBuf.Free()
+	gBuf, err := Malloc(c)
+	if err != nil {
+		return err
+	}
+	defer gBuf.Free()
+	bBuf, err := Malloc(c)
+	if err != nil {
+		return err
+	}
+	defer bBuf.Free()
+	if err := inBuf.Upload(in[:n]); err != nil {
+		return err
+	}
+	if err := gBuf.Upload(gamma[:c]); err != nil {
+		return err
+	}
+	if err := bBuf.Upload(beta[:c]); err != nil {
+		return err
+	}
+	cc, hww, gg := uint32(c), uint32(hw), uint32(groups)
+	if err := LaunchKernel(fnIdeogramGroupNormF32, uint32(groups), 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&gBuf.Ptr), unsafe.Pointer(&bBuf.Ptr), unsafe.Pointer(&cc), unsafe.Pointer(&hww), unsafe.Pointer(&gg), unsafe.Pointer(&eps)); err != nil {
+		return err
+	}
+	return outBuf.Download(out[:n])
 }

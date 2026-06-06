@@ -764,3 +764,144 @@ const IdeogramUnpatchifyPTX = `.version 7.0
 DONE:
     ret;
 }`
+
+// IdeogramGroupNormPTX applies CHW GroupNorm with per-channel affine.
+const IdeogramGroupNormPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_group_norm_f32(
+    .param .u64 X,
+    .param .u64 O,
+    .param .u64 GAMMA,
+    .param .u64 BETA,
+    .param .u32 C,
+    .param .u32 HW,
+    .param .u32 GROUPS,
+    .param .f32 EPS
+) {
+    .reg .pred %p<10>;
+    .reg .u32 %r<40>;
+    .reg .u64 %rd<28>;
+    .reg .f32 %f<36>;
+    .shared .align 4 .f32 gn_sum[256];
+    .shared .align 4 .f32 gn_sumsq[256];
+
+    mov.u32 %r0, %ctaid.x;              // group
+    mov.u32 %r1, %tid.x;
+    mov.u32 %r2, %ntid.x;
+    ld.param.u32 %r3, [GROUPS];
+    setp.ge.u32 %p0, %r0, %r3;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [X];
+    ld.param.u64 %rd1, [O];
+    ld.param.u64 %rd2, [GAMMA];
+    ld.param.u64 %rd3, [BETA];
+    ld.param.u32 %r4, [C];
+    ld.param.u32 %r5, [HW];
+    ld.param.f32 %f0, [EPS];
+
+    div.u32 %r6, %r4, %r3;              // channels per group
+    mul.lo.u32 %r7, %r0, %r6;           // c0
+    mul.lo.u32 %r8, %r6, %r5;           // group element count
+
+    mov.f32 %f1, 0f00000000;
+    mov.f32 %f2, 0f00000000;
+    mov.u32 %r9, %r1;
+sum_loop_gn:
+    setp.ge.u32 %p1, %r9, %r8;
+    @%p1 bra reduce_gn;
+    div.u32 %r10, %r9, %r5;             // local channel
+    rem.u32 %r11, %r9, %r5;             // spatial
+    add.u32 %r12, %r7, %r10;            // channel
+    mul.lo.u32 %r13, %r12, %r5;
+    add.u32 %r13, %r13, %r11;           // CHW idx
+    mul.wide.u32 %rd4, %r13, 4;
+    add.u64 %rd5, %rd0, %rd4;
+    ld.global.f32 %f3, [%rd5];
+    add.f32 %f1, %f1, %f3;
+    fma.rn.f32 %f2, %f3, %f3, %f2;
+    add.u32 %r9, %r9, %r2;
+    bra sum_loop_gn;
+
+reduce_gn:
+    mul.wide.u32 %rd6, %r1, 4;
+    mov.u64 %rd7, gn_sum;
+    mov.u64 %rd8, gn_sumsq;
+    add.u64 %rd9, %rd7, %rd6;
+    add.u64 %rd10, %rd8, %rd6;
+    st.shared.f32 [%rd9], %f1;
+    st.shared.f32 [%rd10], %f2;
+    bar.sync 0;
+
+    mov.u32 %r20, 128;
+red_loop_gn:
+    setp.ge.u32 %p2, %r1, %r20;
+    @%p2 bra red_skip_gn;
+    add.u32 %r21, %r1, %r20;
+    setp.ge.u32 %p3, %r21, %r2;
+    @%p3 bra red_skip_gn;
+    mul.wide.u32 %rd11, %r21, 4;
+    add.u64 %rd12, %rd7, %rd11;
+    add.u64 %rd13, %rd8, %rd11;
+    ld.shared.f32 %f4, [%rd9];
+    ld.shared.f32 %f5, [%rd12];
+    add.f32 %f4, %f4, %f5;
+    st.shared.f32 [%rd9], %f4;
+    ld.shared.f32 %f6, [%rd10];
+    ld.shared.f32 %f7, [%rd13];
+    add.f32 %f6, %f6, %f7;
+    st.shared.f32 [%rd10], %f6;
+red_skip_gn:
+    bar.sync 0;
+    shr.u32 %r20, %r20, 1;
+    setp.gt.u32 %p4, %r20, 0;
+    @%p4 bra red_loop_gn;
+
+    setp.ne.u32 %p5, %r1, 0;
+    @%p5 bra wait_stats_gn;
+    ld.shared.f32 %f8, [gn_sum];
+    ld.shared.f32 %f9, [gn_sumsq];
+    cvt.rn.f32.u32 %f10, %r8;
+    div.rn.f32 %f11, %f8, %f10;
+    div.rn.f32 %f12, %f9, %f10;
+    mul.f32 %f13, %f11, %f11;
+    sub.f32 %f14, %f12, %f13;
+    add.f32 %f14, %f14, %f0;
+    sqrt.rn.f32 %f15, %f14;
+    rcp.rn.f32 %f16, %f15;
+    st.shared.f32 [gn_sum], %f11;
+    st.shared.f32 [gn_sumsq], %f16;
+wait_stats_gn:
+    bar.sync 0;
+    ld.shared.f32 %f20, [gn_sum];
+    ld.shared.f32 %f21, [gn_sumsq];
+
+    mov.u32 %r22, %r1;
+out_loop_gn:
+    setp.ge.u32 %p6, %r22, %r8;
+    @%p6 bra done;
+    div.u32 %r23, %r22, %r5;
+    rem.u32 %r24, %r22, %r5;
+    add.u32 %r25, %r7, %r23;
+    mul.lo.u32 %r26, %r25, %r5;
+    add.u32 %r26, %r26, %r24;
+    mul.wide.u32 %rd14, %r26, 4;
+    add.u64 %rd15, %rd0, %rd14;
+    add.u64 %rd16, %rd1, %rd14;
+    ld.global.f32 %f22, [%rd15];
+    sub.f32 %f23, %f22, %f20;
+    mul.f32 %f24, %f23, %f21;
+    mul.wide.u32 %rd17, %r25, 4;
+    add.u64 %rd18, %rd2, %rd17;
+    add.u64 %rd19, %rd3, %rd17;
+    ld.global.f32 %f25, [%rd18];
+    ld.global.f32 %f26, [%rd19];
+    fma.rn.f32 %f27, %f24, %f25, %f26;
+    st.global.f32 [%rd16], %f27;
+    add.u32 %r22, %r22, %r2;
+    bra out_loop_gn;
+
+done:
+    ret;
+}`
