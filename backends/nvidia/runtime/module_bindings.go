@@ -38,4 +38,5 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnNVFP4GemvF32 = f.get("nvfp4_gemv_f32")
 	fnFP8E4M3GemvF32 = f.get("fp8_e4m3_gemv_f32")
 	fnIdeogramCFGStepF32 = f.get("ideogram_cfg_step_f32")
+	fnIdeogramLayerNormNoAffineF32 = f.get("ideogram_layer_norm_no_affine_f32")
 }

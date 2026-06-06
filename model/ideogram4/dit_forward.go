@@ -280,6 +280,15 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 
 // layerNormNoAffine computes a non-affine LayerNorm (mean/var over the row).
 func layerNormNoAffine(dst, x []float32, eps float32) {
+	if gpuNormEnabled() {
+		if err := layerNormNoAffineGPU(dst, x, eps); err == nil || gpuNormStrict() {
+			return
+		}
+	}
+	layerNormNoAffineCPU(dst, x, eps)
+}
+
+func layerNormNoAffineCPU(dst, x []float32, eps float32) {
 	n := len(x)
 	var mean float32
 	for _, v := range x {

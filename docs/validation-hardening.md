@@ -51,7 +51,7 @@ Failed `DevBuf` transfers preserve authoritative state or fall back safely. NVID
 - empty vector/BF16 calls avoiding assembly stubs,
 - per-call GEBP scratch,
 - SGEMM/GEBP/gather preflights for dimensions, pointers, strides, CPU capability gates, checked byte offsets, and overflow,
-- FP8 E4M3 linear validation for weight/scale/bias shape consistency, with amd64 AVX2/FMA dot dispatch guarded by CPU feature checks, scalar fallback elsewhere, an opt-in NVIDIA `GPUFP8E4M3Linear` upload/GEMV boundary that validates byte capacities, scale/bias buffers, CUDA u32 dimensions, and CPU fallback behavior, plus a fused Ideogram CFG+FlowMatch NVIDIA vector boundary with shape/capacity/u32 checks and CPU fallback.
+- FP8 E4M3 linear validation for weight/scale/bias shape consistency, with amd64 AVX2/FMA dot dispatch guarded by CPU feature checks, scalar fallback elsewhere, an opt-in NVIDIA `GPUFP8E4M3Linear` upload/GEMV boundary that validates byte capacities, scale/bias buffers, CUDA u32 dimensions, and CPU fallback behavior, a fused Ideogram CFG+FlowMatch NVIDIA vector boundary with shape/capacity/u32 checks and CPU fallback, and an Ideogram non-affine LayerNorm NVIDIA boundary with row/column/capacity/u32 checks and CPU fallback.
 
 ## Model helpers
 

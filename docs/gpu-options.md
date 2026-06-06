@@ -71,7 +71,7 @@ See [nvfp4.md](nvfp4.md) for current model-weight findings and roadmap.
 AVX2+FMA (amd64) and NEON (arm64):
 
 - Runtime-gated AVX2/FMA and NEON wrappers with scalar fallback
-- Covered hot paths include vector add/mul/scale, dot/Saxpy, RMSNorm variants, BF16 widen/narrow, SGEMM wrappers, the Ideogram CPU FP8 E4M3 LUT gather-dot GEMV kernel on amd64 AVX2/FMA, NVIDIA direct FP8 E4M3 GEMV for opt-in Ideogram linear streaming, and NVIDIA fused Ideogram CFG+FlowMatch scheduler vector update
+- Covered hot paths include vector add/mul/scale, dot/Saxpy, RMSNorm variants, BF16 widen/narrow, SGEMM wrappers, the Ideogram CPU FP8 E4M3 LUT gather-dot GEMV kernel on amd64 AVX2/FMA, NVIDIA direct FP8 E4M3 GEMV for opt-in Ideogram linear streaming, NVIDIA fused Ideogram CFG+FlowMatch scheduler vector update, and NVIDIA Ideogram non-affine row LayerNorm
 - Remaining CPU SIMD gaps include fused GELU, RoPEPartial, and MLX/GPTQ Q4 GEMV kernels
 
 ## Backend Selection
@@ -86,7 +86,7 @@ else:
     → Go scalar (universal fallback)
 ```
 
-The current production LLM model path chooses NVIDIA when requested/available, otherwise CPU SIMD/scalar. Vulkan wrappers are usable for the covered primitive tests and explicit dispatch calls, but model-level Vulkan placement is still intentionally opt-in/experimental. Ideogram 4 is a separate image pipeline: its default path remains CPU/SIMD fp8/DiT/VAE, with opt-in correctness-oriented FP8 linear streaming via `GO_PHERENCE_IDEOGRAM4_GPU_FP8=1` and fused CFG/scheduler update via `GO_PHERENCE_IDEOGRAM4_GPU_CFG=1`; no full CUDA/NVIDIA Ideogram graph has been wired yet. See [backend-selection.md](backend-selection.md) for detailed gates, fallback rules, and wrapper coverage.
+The current production LLM model path chooses NVIDIA when requested/available, otherwise CPU SIMD/scalar. Vulkan wrappers are usable for the covered primitive tests and explicit dispatch calls, but model-level Vulkan placement is still intentionally opt-in/experimental. Ideogram 4 is a separate image pipeline: its default path remains CPU/SIMD fp8/DiT/VAE, with opt-in correctness-oriented FP8 linear streaming via `GO_PHERENCE_IDEOGRAM4_GPU_FP8=1`, fused CFG/scheduler update via `GO_PHERENCE_IDEOGRAM4_GPU_CFG=1`, and non-affine LayerNorm via `GO_PHERENCE_IDEOGRAM4_GPU_NORM=1`; no full CUDA/NVIDIA Ideogram graph has been wired yet. See [backend-selection.md](backend-selection.md) for detailed gates, fallback rules, and wrapper coverage.
 
 ### Debug and diagnostics gates
 

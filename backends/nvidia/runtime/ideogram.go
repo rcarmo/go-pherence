@@ -6,6 +6,7 @@ import (
 )
 
 var fnIdeogramCFGStepF32 CUfunction
+var fnIdeogramLayerNormNoAffineF32 CUfunction
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -42,6 +43,66 @@ func IdeogramCFGStepBuffer(out, latents, cond, uncond *Buffer, n int, guidance, 
 		unsafe.Pointer(&guidance),
 		unsafe.Pointer(&sigma),
 		unsafe.Pointer(&nn))
+}
+
+// IdeogramLayerNormNoAffineBuffer computes row-wise non-affine LayerNorm on
+// GPU-resident F32 buffers. x/out are row-major [rows, cols].
+func IdeogramLayerNormNoAffineBuffer(out, x *Buffer, rows, cols int, eps float32) error {
+	if fnIdeogramLayerNormNoAffineF32 == 0 || !megaModuleOK || out == nil || x == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
+		return fmt.Errorf("invalid Ideogram LayerNorm device buffers")
+	}
+	n, ok := checkedMulInt(rows, cols)
+	if !ok {
+		return fmt.Errorf("Ideogram LayerNorm element count overflow rows=%d cols=%d", rows, cols)
+	}
+	if _, err := checkedByteSize(n, out.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram LayerNorm output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, x.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram LayerNorm input buffer: %w", err)
+	}
+	rr := uint32(rows)
+	cc := uint32(cols)
+	return LaunchKernel(fnIdeogramLayerNormNoAffineF32, rr, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&x.Ptr),
+		unsafe.Pointer(&out.Ptr),
+		unsafe.Pointer(&rr),
+		unsafe.Pointer(&cc),
+		unsafe.Pointer(&eps))
+}
+
+// IdeogramLayerNormNoAffine computes row-wise non-affine LayerNorm using
+// temporary device buffers. It is intended for correctness validation and early
+// model wiring before the full Ideogram graph is GPU-resident.
+func IdeogramLayerNormNoAffine(out, x []float32, rows, cols int, eps float32) error {
+	n, ok := checkedMulInt(rows, cols)
+	if !ok || rows <= 0 || cols <= 0 || len(out) < n || len(x) < n {
+		return fmt.Errorf("invalid Ideogram LayerNorm host buffers out=%d/%d x=%d/%d", len(out), n, len(x), n)
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	EnsureContext()
+	xBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram LayerNorm input: %w", err)
+	}
+	defer xBuf.Free()
+	outBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram LayerNorm output: %w", err)
+	}
+	defer outBuf.Free()
+	if err := xBuf.Upload(x[:n]); err != nil {
+		return fmt.Errorf("upload Ideogram LayerNorm input: %w", err)
+	}
+	if err := IdeogramLayerNormNoAffineBuffer(outBuf, xBuf, rows, cols, eps); err != nil {
+		return err
+	}
+	if err := outBuf.Download(out[:n]); err != nil {
+		return fmt.Errorf("download Ideogram LayerNorm output: %w", err)
+	}
+	return nil
 }
 
 // IdeogramCFGStep computes the fused CFG+Euler update using temporary device
