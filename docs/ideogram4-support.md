@@ -133,6 +133,7 @@ Without downloading the full 27 GB of gated weights, the implementation has been
 - **Qwen3-VL text encoder** — same header-only validation over all 1117 tensors: **0 errors**. FP8 q/k/v/o and gate/up/down projections with `F32` per-row scales, `BF16` q/k/input/post norms, and a `BF16` `[vocab, hidden]` embedding table — exactly what `QwenVLConditioner` loads. The **full 36-layer forward was also executed on the real weights** (encoder downloaded transiently): `Condition` produced the `[tokens, 53248]` features with **0 NaN/Inf**; magnitudes are large (std≈63) as expected for raw concatenated LLM hidden states with outlier activations, which the DiT's `llm_cond_norm` RMSNorm then normalizes.
 
 - **Schedule** — the FlowMatch logit-normal schedule was checked numerically against the reference `scheduler.py`: for a 6-step plan the t-value sequence matches (`[0.007, 0.528, 0.657, 0.746, 0.819, 0.886]`) to the clamp constant.
+- **Tokenizer** — the byte-level BPE `Encode` path was validated against the reference HuggingFace `tokenizers` library on 15 diverse prompts (emoji, CJK, code, URLs, tabs, mixed whitespace, punctuation): **15/15 exact token-ID matches**, using the Qwen2/Qwen3 pre-tokenization regex plus a `splitWhitespaceRuns` emulation of the RE2-inexpressible `\s+(?!\S)` lookahead.
 
 ### End-to-end run on real weights (staged)
 
