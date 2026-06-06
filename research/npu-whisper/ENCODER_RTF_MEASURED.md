@@ -36,3 +36,33 @@ Remaining encoder levers (in priority):
 
 The proven RTF 0.90 hybrid (EP encoder + turbo decode) remains the working
 solution today; this is the roadmap to match it with a fully pure-Go encoder.
+
+## 8-thread result + the bandwidth ceiling (decisive)
+
+| Config | Threads | convstem | linear | attn | other | encoder | RTF (full dec) |
+|--------|---------|----------|--------|------|-------|---------|------|
+| int8   | 8       | 0.4s     | 15.6s  | 10.0s| 5.0s  | ~31.0s  | 3.0  |
+
+8 threads is **stable** for the int8 path (board survived; the f32 RVV load was
+what caused earlier brownouts). Scaling 6->8 is diminishing: linear barely moves
+(16.2->15.6s) while attn scales (13.7->10.0s) — i.e. **linear is memory-bound,
+attn is compute-bound**.
+
+Effective linear throughput: ~944 GMAC of encoder matmuls in 15.6s = **~60
+GMAC/s** — below the 100 GMAC/s microbenchmark, the gap being per-call quant/
+dequant + orchestration. Both `npu/rvv` (vmacc) and `ime2` (vmadot) plateau here
+because **the DRAM bandwidth wall, not compute, is the limiter**.
+
+### The EP's real advantage = TCM-resident GEMM
+The EP reaches 19.7s @ 8T by staging weight/activation tiles in **TCM** (3 MiB
+on-chip SRAM) and running the RVV kernels on TCM-resident data, so the inner
+loops never touch DRAM. That is the single lever that breaks the ~60 GMAC/s wall.
+`npu/tcm.go` already maps TCM from pure Go; the remaining big piece is a
+TCM-tiled GEMM: DMA a weight panel + activation block into TCM, run kernelM4N32
+on TCM addresses, DMA results out. This — not more threads or kernel micro-opt —
+is the path from 31s to ~20s encoder (=> pure-Go RTF < 1 with turbo decode).
+
+### Smaller wins
+- Share activation quant across q/k/v/out (same `normed` input, currently
+  re-quantized 3x) — ~0.5s.
+- Vectorize the f32 "other" ops (layernorm/GELU/residual, 5.0s).
