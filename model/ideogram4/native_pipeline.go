@@ -156,7 +156,7 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 	if maxTok <= 0 {
 		maxTok = DefaultMaxTextTokens
 	}
-	pt, err := TokenizePrompt(p.Tokenizer, prompt, maxTok)
+	pt, err := TokenizeChatPrompt(p.Tokenizer, prompt, maxTok)
 	if err != nil {
 		return Image{}, err
 	}

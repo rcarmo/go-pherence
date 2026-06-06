@@ -120,7 +120,7 @@ The full text→image path is now implemented natively in Go/SIMD. The DiT, MRoP
 - the final layer is a **non-affine LayerNorm** with scale-only modulation (`final_adaln` → `emb`, not `2*emb`).
 - all bias=true linears load their `.bias`; `embed_image_indicator` and `llm_cond_norm` are applied; latents are denormalized with the per-channel `LATENT_SCALE/SHIFT` constants and unpatchified in `(patch_h, patch_w, ae_channels)` order before VAE decode.
 
-Numerical parity against the reference pipeline on real downloaded FP8 weights still needs validation, and the Qwen3 chat-template wrapping for the prompt is not yet applied (raw prompt tokenization is used).
+Numerical parity against the reference pipeline on real downloaded FP8 weights still needs validation. The prompt is wrapped in the Qwen3-VL ChatML template (`TokenizeChatPrompt`); the lightweight BPE encoder assigns control markers their exact added-token ids but remains an approximation for the textual body (byte-level/newline handling).
 
 ## Current status
 
