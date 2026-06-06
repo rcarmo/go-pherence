@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-
-	"github.com/rcarmo/go-pherence/backends/simd/quant/fp8"
 )
 
 // CombinedTensorSource exposes both raw and float32 tensor access, satisfied by
@@ -63,7 +61,7 @@ func NewQwenVLConditioner(src CombinedTensorSource, cfg Config, namePrefix strin
 	return &QwenVLConditioner{src: src, cfg: cfg, prefix: namePrefix, theta: theta, eps: eps, embed: embed, embedSh: sh}, nil
 }
 
-func (q *QwenVLConditioner) loadFP8(name string, outDim, inDim int) (*fp8.Linear, error) {
+func (q *QwenVLConditioner) loadFP8(name string, outDim, inDim int) (*FP8Linear, error) {
 	wb, wd, wsh, err := q.src.GetRaw(name + ".weight")
 	if err != nil {
 		return nil, fmt.Errorf("ideogram4 qwen-vl %q: %w", name, err)
@@ -83,8 +81,8 @@ func (q *QwenVLConditioner) loadFP8(name string, outDim, inDim int) (*fp8.Linear
 	if err != nil {
 		return nil, err
 	}
-	lin := &fp8.Linear{OutDim: outDim, InDim: inDim, Weight: wb, Scale: scale}
-	if err := lin.Validate(); err != nil {
+	lin, err := NewFP8Linear(spec, wb, scale, nil)
+	if err != nil {
 		return nil, fmt.Errorf("ideogram4 qwen-vl %q: %w", name, err)
 	}
 	return lin, nil
@@ -210,6 +208,10 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	if err != nil {
 		return err
 	}
+	defer qProj.ReleaseGPU()
+	defer kProj.ReleaseGPU()
+	defer vProj.ReleaseGPU()
+	defer oProj.ReleaseGPU()
 	qNorm, err := q.rmsWeight(lp+".self_attn.q_norm.weight", headDim)
 	if err != nil {
 		return err
@@ -224,13 +226,13 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	vh := make([]float32, T*kvDim)
 	for t := 0; t < T; t++ {
 		rmsNormTo(tmp, h[t*hidden:(t+1)*hidden], inW, q.eps)
-		if err := qProj.GemvTo(tmp, qh[t*qDim:(t+1)*qDim]); err != nil {
+		if err := qProj.Apply(tmp, qh[t*qDim:(t+1)*qDim]); err != nil {
 			return err
 		}
-		if err := kProj.GemvTo(tmp, kh[t*kvDim:(t+1)*kvDim]); err != nil {
+		if err := kProj.Apply(tmp, kh[t*kvDim:(t+1)*kvDim]); err != nil {
 			return err
 		}
-		if err := vProj.GemvTo(tmp, vh[t*kvDim:(t+1)*kvDim]); err != nil {
+		if err := vProj.Apply(tmp, vh[t*kvDim:(t+1)*kvDim]); err != nil {
 			return err
 		}
 		// per-head q/k RMSNorm then RoPE.
@@ -276,7 +278,7 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	// output projection + residual.
 	oBuf := make([]float32, hidden)
 	for t := 0; t < T; t++ {
-		if err := oProj.GemvTo(attn[t*qDim:(t+1)*qDim], oBuf); err != nil {
+		if err := oProj.Apply(attn[t*qDim:(t+1)*qDim], oBuf); err != nil {
 			return err
 		}
 		row := h[t*hidden : (t+1)*hidden]
@@ -303,21 +305,24 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	if err != nil {
 		return err
 	}
+	defer gate.ReleaseGPU()
+	defer up.ReleaseGPU()
+	defer down.ReleaseGPU()
 	g := make([]float32, inter)
 	u := make([]float32, inter)
 	dBuf := make([]float32, hidden)
 	for t := 0; t < T; t++ {
 		rmsNormTo(tmp, h[t*hidden:(t+1)*hidden], postW, q.eps)
-		if err := gate.GemvTo(tmp, g); err != nil {
+		if err := gate.Apply(tmp, g); err != nil {
 			return err
 		}
-		if err := up.GemvTo(tmp, u); err != nil {
+		if err := up.Apply(tmp, u); err != nil {
 			return err
 		}
 		for i := 0; i < inter; i++ {
 			g[i] = siluScalar(g[i]) * u[i]
 		}
-		if err := down.GemvTo(g, dBuf); err != nil {
+		if err := down.Apply(g, dBuf); err != nil {
 			return err
 		}
 		row := h[t*hidden : (t+1)*hidden]
