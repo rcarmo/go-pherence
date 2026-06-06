@@ -36,4 +36,5 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnGELUTanhMul = f.get("gelu_tanh_mul")
 	fnNVFP4DequantF32 = f.get("nvfp4_dequant_f32")
 	fnNVFP4GemvF32 = f.get("nvfp4_gemv_f32")
+	fnFP8E4M3GemvF32 = f.get("fp8_e4m3_gemv_f32")
 }

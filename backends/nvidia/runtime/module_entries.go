@@ -6,6 +6,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
 	ptxbf16 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16"
+	ptxfp8 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/fp8"
 	ptxmlx "github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx"
 	ptxnvfp4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4"
 	ptxq4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4"
@@ -70,5 +71,6 @@ func megaModuleEntries() []moduleEntry {
 		{"rms_norm_no_scale", ptx.RmsNormNoScalePTX},
 		{"nvfp4_dequant_f32", ptxnvfp4.NVFP4DequantF32PTX},
 		{"nvfp4_gemv_f32", ptxnvfp4.NVFP4GemvF32PTX},
+		{"fp8_e4m3_gemv_f32", ptxfp8.FP8E4M3GemvF32PTX},
 	}
 }

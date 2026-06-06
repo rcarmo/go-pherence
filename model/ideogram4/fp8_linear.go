@@ -33,10 +33,18 @@ func (f *FP8Linear) InDim() int       { return f.spec.InDim }
 func (f *FP8Linear) OutDim() int      { return f.spec.OutDim }
 func (f *FP8Linear) Spec() LinearSpec { return f.spec }
 
-// Apply computes out = W*x using on-the-fly E4M3 dequant.
+// Apply computes out = W*x using on-the-fly E4M3 dequant. By default this is
+// the CPU/SIMD fp8 backend. When GO_PHERENCE_IDEOGRAM4_GPU_FP8=1 is set, Apply
+// first tries the correctness-oriented NVIDIA streaming GEMV path and falls
+// back to CPU unless GO_PHERENCE_IDEOGRAM4_GPU_FP8_STRICT=1 is also set.
 func (f *FP8Linear) Apply(x []float32, out []float32) error {
 	if f == nil {
 		return ErrRuntimeNotImplemented
+	}
+	if gpuFP8Enabled() {
+		if err := f.applyGPUStreaming(x, out); err == nil || gpuFP8Strict() {
+			return err
+		}
 	}
 	return f.weight.GemvTo(x, out)
 }
