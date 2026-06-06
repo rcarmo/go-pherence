@@ -393,6 +393,13 @@ func buildRoPECosSin(T, headDim int, theta float64) ropeTable {
 
 // apply rotates a head vector with the rotate-half (NeoX) convention.
 func (rt ropeTable) apply(vec []float32, t int) {
+	if gpuMRoPEEnabled() {
+		if err := qwenRoPEGPU(vec, rt, t); err == nil {
+			return
+		} else if gpuMRoPEStrict() {
+			panic(err)
+		}
+	}
 	base := t * rt.half
 	for i := 0; i < rt.half; i++ {
 		x1 := vec[i]
