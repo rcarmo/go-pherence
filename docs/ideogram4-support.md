@@ -96,6 +96,10 @@ The block math is assembled from the public Ideogram4 tensor contract and config
 
 `model/ideogram4/denoise_loop.go` (`DenoiseLoop`) ties the pieces together: for each FlowMatch step it runs the conditional DiT (text+image) and unconditional DiT (image-only), blends them with asymmetric CFG (`CombineCFG`), and applies the scheduler Euler update — returning denoised latents `[imageTokens, in_channels]`.
 
+## VAE decode primitives
+
+`model/ideogram4/vae_ops.go` adds the native building blocks for the `AutoencoderKLFlux2` decoder (`latent_channels=32`, `block_out_channels=[128,256,512,512]`, GroupNorm-32 + SiLU, `patch_size=[2,2]`): `FeatureMap` (NCHW=1), `UnpatchifyLatents` (DiT patch tokens → latent feature map), stride-1 same-pad `Conv2D` (OIHW), affine `GroupNorm`, in-place `SiLUMap`, nearest `UpsampleNearest`, and residual add — the ops a ResNet/up-block decoder graph is assembled from.
+
 ## Current status
 
 Inspection/runtime scaffolding with a concrete native scheduler, CFG combiner, FP8 E4M3 linear backend, FP8 weight loading, and a native DiT block forward. `FlowMatchScheduler` (weight-free) now natively derives ordered FlowMatch timesteps from the logit-normal schedule and performs the Euler latent update (`x_{t-1} = x_t + sigma * velocity`); `Pipeline.Generate` instantiates it and validates the step plan before the DiT/decode boundary returns not-implemented. `cmd/ideogram4inspect` validates local `ideogram-4-fp8` config folders, converts them into `model/ideogram4.Config`, and reports the actual component graph and dimensions. With optional safetensors index JSONs, it also reports conditional/unconditional transformer tensor inventory, FP8 scale coverage, and FP8 linear-weight role coverage. `model/ideogram4` has bounded prompt-token, text-conditioning, latent shape, FlowMatch schedule, asymmetric CFG layout, tensor-inventory, and FP8 linear-layout helpers, but `runtime_ready=false` until Qwen3-VL conditioning, Ideogram4 DiT execution, FP8 loading, and VAE decode are implemented natively.
