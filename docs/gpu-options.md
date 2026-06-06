@@ -71,7 +71,7 @@ See [nvfp4.md](nvfp4.md) for current model-weight findings and roadmap.
 AVX2+FMA (amd64) and NEON (arm64):
 
 - Runtime-gated AVX2/FMA and NEON wrappers with scalar fallback
-- Covered hot paths include vector add/mul/scale, dot/Saxpy, RMSNorm variants, BF16 widen/narrow, SGEMM wrappers, the Ideogram CPU FP8 E4M3 LUT gather-dot GEMV kernel on amd64 AVX2/FMA, NVIDIA direct FP8 E4M3 GEMV for opt-in Ideogram linear streaming, NVIDIA fused Ideogram CFG+FlowMatch scheduler vector update, and NVIDIA Ideogram non-affine row LayerNorm
+- Covered hot paths include vector add/mul/scale, dot/Saxpy, RMSNorm variants, BF16 widen/narrow, SGEMM wrappers, the Ideogram CPU FP8 E4M3 LUT gather-dot GEMV kernel on amd64 AVX2/FMA, NVIDIA direct FP8 E4M3 GEMV for opt-in Ideogram linear streaming, NVIDIA fused Ideogram CFG+FlowMatch scheduler vector update, NVIDIA Ideogram non-affine row LayerNorm, and low-level F32 RMSNorm Buffer wrappers for Ideogram normalization wiring
 - Remaining CPU SIMD gaps include fused GELU, RoPEPartial, and MLX/GPTQ Q4 GEMV kernels
 
 ## Backend Selection

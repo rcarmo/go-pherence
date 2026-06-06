@@ -270,6 +270,26 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 
 // rmsNormWeightedTo computes RMSNorm(x)*weight into dst.
 func rmsNormWeightedTo(dst, x, weight []float32, eps float32) {
+	if gpuNormEnabled() {
+		if err := rmsNormWeightedGPU(dst, x, weight, eps); err == nil || gpuNormStrict() {
+			return
+		}
+	}
+	rmsNormWeightedCPU(dst, x, weight, eps)
+}
+
+func rmsNormWeightedInPlace(x, weight []float32, eps float32) {
+	if gpuNormEnabled() {
+		dst := make([]float32, len(x))
+		if err := rmsNormWeightedGPU(dst, x, weight, eps); err == nil || gpuNormStrict() {
+			copy(x, dst)
+			return
+		}
+	}
+	rmsNormWeightedCPU(x, x, weight, eps)
+}
+
+func rmsNormWeightedCPU(dst, x, weight []float32, eps float32) {
 	var ss float64
 	for _, vv := range x {
 		ss += float64(vv) * float64(vv)
@@ -277,17 +297,6 @@ func rmsNormWeightedTo(dst, x, weight []float32, eps float32) {
 	inv := float32(1 / math.Sqrt(ss/float64(len(x))+float64(eps)))
 	for i := range x {
 		dst[i] = x[i] * inv * weight[i]
-	}
-}
-
-func rmsNormWeightedInPlace(x, weight []float32, eps float32) {
-	var ss float64
-	for _, vv := range x {
-		ss += float64(vv) * float64(vv)
-	}
-	inv := float32(1 / math.Sqrt(ss/float64(len(x))+float64(eps)))
-	for i := range x {
-		x[i] = x[i] * inv * weight[i]
 	}
 }
 

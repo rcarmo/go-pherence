@@ -27,3 +27,13 @@ func layerNormNoAffineGPU(dst, x []float32, eps float32) error {
 	}
 	return nvidia.IdeogramLayerNormNoAffine(dst, x, 1, len(x), eps)
 }
+
+func rmsNormWeightedGPU(dst, x, weight []float32, eps float32) error {
+	if len(dst) != len(x) || len(weight) != len(x) || len(x) == 0 {
+		return fmt.Errorf("invalid Ideogram4 GPU RMSNorm row dst=%d x=%d weight=%d", len(dst), len(x), len(weight))
+	}
+	if !nvidia.Available() {
+		return fmt.Errorf("nvidia runtime unavailable")
+	}
+	return nvidia.F32RMSNorm(dst, x, weight, eps)
+}

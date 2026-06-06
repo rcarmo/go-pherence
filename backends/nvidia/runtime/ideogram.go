@@ -154,3 +154,69 @@ func IdeogramCFGStep(out, latents, cond, uncond []float32, guidance, sigma float
 	}
 	return nil
 }
+
+// F32RMSNormBuffer computes out = RMSNorm(x) * weight on GPU-resident F32
+// buffers. It exposes the existing NVIDIA RMSNorm kernel for model code that
+// uses low-level Buffer rather than DevBuf.
+func F32RMSNormBuffer(out, x, weight *Buffer, n int, eps float32) error {
+	if fnRmsNorm == 0 || !megaModuleOK || out == nil || x == nil || weight == nil || n <= 0 || !fitsUint32(n) {
+		return fmt.Errorf("invalid F32 RMSNorm device buffers")
+	}
+	if _, err := checkedByteSize(n, out.Size); err != nil {
+		return fmt.Errorf("invalid F32 RMSNorm output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, x.Size); err != nil {
+		return fmt.Errorf("invalid F32 RMSNorm input buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, weight.Size); err != nil {
+		return fmt.Errorf("invalid F32 RMSNorm weight buffer: %w", err)
+	}
+	nn := uint32(n)
+	return LaunchKernel(fnRmsNorm, 1, 1, 1, 256, 1, 1, 256*4,
+		unsafe.Pointer(&x.Ptr),
+		unsafe.Pointer(&weight.Ptr),
+		unsafe.Pointer(&out.Ptr),
+		unsafe.Pointer(&nn),
+		unsafe.Pointer(&eps))
+}
+
+// F32RMSNorm computes out = RMSNorm(x) * weight through temporary device
+// buffers. It is a correctness/wiring wrapper for early GPU conversion stages.
+func F32RMSNorm(out, x, weight []float32, eps float32) error {
+	if len(out) == 0 || len(x) != len(out) || len(weight) != len(out) {
+		return fmt.Errorf("invalid F32 RMSNorm host buffers out=%d x=%d weight=%d", len(out), len(x), len(weight))
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	EnsureContext()
+	n := len(out)
+	xBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 RMSNorm input: %w", err)
+	}
+	defer xBuf.Free()
+	wBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 RMSNorm weight: %w", err)
+	}
+	defer wBuf.Free()
+	outBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 RMSNorm output: %w", err)
+	}
+	defer outBuf.Free()
+	if err := xBuf.Upload(x); err != nil {
+		return fmt.Errorf("upload F32 RMSNorm input: %w", err)
+	}
+	if err := wBuf.Upload(weight); err != nil {
+		return fmt.Errorf("upload F32 RMSNorm weight: %w", err)
+	}
+	if err := F32RMSNormBuffer(outBuf, xBuf, wBuf, n, eps); err != nil {
+		return err
+	}
+	if err := outBuf.Download(out); err != nil {
+		return fmt.Errorf("download F32 RMSNorm output: %w", err)
+	}
+	return nil
+}
