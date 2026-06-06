@@ -48,6 +48,11 @@ type Ideogram4VAEConfig struct {
 	ShiftFactor     float64 `json:"shift_factor"`
 	SampleSize      int     `json:"sample_size"`
 	BlockOutChannel []int   `json:"block_out_channels"`
+	LayersPerBlock  int     `json:"layers_per_block"`
+	NormNumGroups   int     `json:"norm_num_groups"`
+	UsePostQuant    bool    `json:"use_post_quant_conv"`
+	MidAddAttention bool    `json:"mid_block_add_attention"`
+	PatchSize       []int   `json:"patch_size"`
 }
 
 type Ideogram4TextEncoderConfig struct {
