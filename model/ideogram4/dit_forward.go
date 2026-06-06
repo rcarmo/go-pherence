@@ -252,9 +252,7 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 	// final layer over image tokens: scale = 1 + final_adaln(SiLU(adaln));
 	// out = final_linear(LayerNorm_noaffine(h) * scale).
 	condAct := make([]float32, cfg.AdaLNDim)
-	for i := range adaln {
-		condAct[i] = siluScalar(adaln[i])
-	}
+	siluTo(condAct, adaln)
 	scale := make([]float32, emb)
 	if err := m.Globals.FinalAdaLN.Apply(condAct, scale); err != nil {
 		return nil, err
@@ -268,14 +266,38 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 	for t := 0; t < imgTokens; t++ {
 		row := hidden[(textTokens+t)*emb : (textTokens+t+1)*emb]
 		layerNormNoAffine(normed, row, 1e-6)
-		for i := 0; i < emb; i++ {
-			modBuf[i] = normed[i] * scale[i]
-		}
+		mulTo(modBuf, normed, scale)
 		if err := m.Globals.FinalLinear.Apply(modBuf, velocity[t*cfg.InChannels:(t+1)*cfg.InChannels]); err != nil {
 			return nil, err
 		}
 	}
 	return velocity, nil
+}
+
+func siluTo(dst, x []float32) {
+	if gpuMLPEnabled() {
+		if err := siluGPU(dst, x); err == nil {
+			return
+		} else if gpuMLPStrict() {
+			panic(fmt.Sprintf("ideogram4 GPU SiLU: %v", err))
+		}
+	}
+	for i := range x {
+		dst[i] = siluScalar(x[i])
+	}
+}
+
+func mulTo(dst, a, b []float32) {
+	if gpuMLPEnabled() {
+		if err := mulGPU(dst, a, b); err == nil {
+			return
+		} else if gpuMLPStrict() {
+			panic(fmt.Sprintf("ideogram4 GPU Mul: %v", err))
+		}
+	}
+	for i := range dst {
+		dst[i] = a[i] * b[i]
+	}
 }
 
 // layerNormNoAffine computes a non-affine LayerNorm (mean/var over the row).

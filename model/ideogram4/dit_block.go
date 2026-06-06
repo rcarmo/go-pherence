@@ -253,9 +253,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 		if err := l.W3.Apply(normed, u); err != nil {
 			return err
 		}
-		for i := 0; i < inter; i++ {
-			g[i] = siluScalar(g[i]) * u[i]
-		}
+		siluMulInPlace(g, u)
 		if err := l.W2.Apply(g, down); err != nil {
 			return err
 		}
@@ -263,6 +261,21 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 		addGatedResidual(row, postNorm, gateMLP)
 	}
 	return nil
+}
+
+func siluMulInPlace(gate, up []float32) {
+	if gpuMLPEnabled() {
+		out := make([]float32, len(gate))
+		if err := siluMulGPU(out, gate, up); err == nil {
+			copy(gate, out)
+			return
+		} else if gpuMLPStrict() {
+			panic(fmt.Sprintf("ideogram4 GPU SiLU*Mul: %v", err))
+		}
+	}
+	for i := range gate {
+		gate[i] = siluScalar(gate[i]) * up[i]
+	}
 }
 
 func fullSelfAttention(attnOut, q, k, v []float32, tokens, heads, headDim int, scaleAttn float32) error {

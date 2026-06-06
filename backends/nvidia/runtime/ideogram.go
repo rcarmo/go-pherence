@@ -603,3 +603,155 @@ func IdeogramFullAttention(out, q, k, v []float32, tokens, heads, headDim int, s
 	}
 	return nil
 }
+
+// F32SiLUBuffer computes out = silu(x) on GPU-resident F32 buffers.
+func F32SiLUBuffer(out, x *Buffer, n int) error {
+	if fnVecSilu == 0 || !megaModuleOK || out == nil || x == nil || n <= 0 || !fitsUint32(n) {
+		return fmt.Errorf("invalid F32 SiLU device buffers")
+	}
+	if _, err := checkedByteSize(n, out.Size); err != nil {
+		return fmt.Errorf("invalid F32 SiLU output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, x.Size); err != nil {
+		return fmt.Errorf("invalid F32 SiLU input buffer: %w", err)
+	}
+	grid, ok := grid1DFor(n, 256)
+	if !ok {
+		return fmt.Errorf("invalid F32 SiLU grid")
+	}
+	nn := uint32(n)
+	return LaunchKernel(fnVecSilu, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&x.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&nn))
+}
+
+// F32MulBuffer computes out = a*b on GPU-resident F32 buffers.
+func F32MulBuffer(out, a, b *Buffer, n int) error {
+	if fnVecMul == 0 || !megaModuleOK || out == nil || a == nil || b == nil || n <= 0 || !fitsUint32(n) {
+		return fmt.Errorf("invalid F32 Mul device buffers")
+	}
+	if _, err := checkedByteSize(n, out.Size); err != nil {
+		return fmt.Errorf("invalid F32 Mul output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, a.Size); err != nil {
+		return fmt.Errorf("invalid F32 Mul input A buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, b.Size); err != nil {
+		return fmt.Errorf("invalid F32 Mul input B buffer: %w", err)
+	}
+	grid, ok := grid1DFor(n, 256)
+	if !ok {
+		return fmt.Errorf("invalid F32 Mul grid")
+	}
+	nn := uint32(n)
+	return LaunchKernel(fnVecMul, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&a.Ptr), unsafe.Pointer(&b.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&nn))
+}
+
+// F32SiLU computes out = silu(x) through temporary device buffers.
+func F32SiLU(out, x []float32) error {
+	if len(out) == 0 || len(x) != len(out) {
+		return fmt.Errorf("invalid F32 SiLU host buffers out=%d x=%d", len(out), len(x))
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	n := len(out)
+	xBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 SiLU input: %w", err)
+	}
+	defer xBuf.Free()
+	outBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 SiLU output: %w", err)
+	}
+	defer outBuf.Free()
+	if err := xBuf.Upload(x); err != nil {
+		return fmt.Errorf("upload F32 SiLU input: %w", err)
+	}
+	if err := F32SiLUBuffer(outBuf, xBuf, n); err != nil {
+		return err
+	}
+	if err := outBuf.Download(out); err != nil {
+		return fmt.Errorf("download F32 SiLU output: %w", err)
+	}
+	return nil
+}
+
+// F32Mul computes out = a*b through temporary device buffers.
+func F32Mul(out, a, b []float32) error {
+	if len(out) == 0 || len(a) != len(out) || len(b) != len(out) {
+		return fmt.Errorf("invalid F32 Mul host buffers out=%d a=%d b=%d", len(out), len(a), len(b))
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	n := len(out)
+	aBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 Mul input A: %w", err)
+	}
+	defer aBuf.Free()
+	bBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 Mul input B: %w", err)
+	}
+	defer bBuf.Free()
+	outBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 Mul output: %w", err)
+	}
+	defer outBuf.Free()
+	if err := aBuf.Upload(a); err != nil {
+		return fmt.Errorf("upload F32 Mul input A: %w", err)
+	}
+	if err := bBuf.Upload(b); err != nil {
+		return fmt.Errorf("upload F32 Mul input B: %w", err)
+	}
+	if err := F32MulBuffer(outBuf, aBuf, bBuf, n); err != nil {
+		return err
+	}
+	if err := outBuf.Download(out); err != nil {
+		return fmt.Errorf("download F32 Mul output: %w", err)
+	}
+	return nil
+}
+
+// F32SiLUMul computes out = silu(a)*b through temporary device buffers.
+func F32SiLUMul(out, a, b []float32) error {
+	if len(out) == 0 || len(a) != len(out) || len(b) != len(out) {
+		return fmt.Errorf("invalid F32 SiLU*Mul host buffers out=%d a=%d b=%d", len(out), len(a), len(b))
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	n := len(out)
+	aBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 SiLU*Mul input A: %w", err)
+	}
+	defer aBuf.Free()
+	bBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 SiLU*Mul input B: %w", err)
+	}
+	defer bBuf.Free()
+	outBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc F32 SiLU*Mul output: %w", err)
+	}
+	defer outBuf.Free()
+	if err := aBuf.Upload(a); err != nil {
+		return fmt.Errorf("upload F32 SiLU*Mul input A: %w", err)
+	}
+	if err := bBuf.Upload(b); err != nil {
+		return fmt.Errorf("upload F32 SiLU*Mul input B: %w", err)
+	}
+	if err := F32SiLUMulBuffer(outBuf, aBuf, bBuf, n); err != nil {
+		return err
+	}
+	if err := outBuf.Download(out); err != nil {
+		return fmt.Errorf("download F32 SiLU*Mul output: %w", err)
+	}
+	return nil
+}
