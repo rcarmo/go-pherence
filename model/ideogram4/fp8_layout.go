@@ -52,7 +52,7 @@ func LinearSpecForPrefix(cfg Config, prefix string) (LinearSpec, bool) {
 	case "adaln_proj":
 		s.Role, s.InDim, s.OutDim = RoleAdaLNProj, cfg.EmbDim, cfg.AdaLNDim
 	case "final_layer.adaln_modulation":
-		s.Role, s.InDim, s.OutDim = RoleFinalAdaLN, cfg.AdaLNDim, 2*cfg.EmbDim
+		s.Role, s.InDim, s.OutDim = RoleFinalAdaLN, cfg.AdaLNDim, cfg.EmbDim
 	case "final_layer.linear":
 		s.Role, s.InDim, s.OutDim = RoleFinalLinear, cfg.EmbDim, cfg.InChannels
 	default:

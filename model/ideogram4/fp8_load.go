@@ -40,7 +40,66 @@ func LoadFP8Linear(src RawTensorSource, spec LinearSpec) (*FP8Linear, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewFP8Linear(spec, wbytes, scale)
+	var bias []float32
+	if bb, bd, _, berr := src.GetRaw(spec.Prefix + ".bias"); berr == nil {
+		bias, err = decodeFloatVec(bb, bd, spec.OutDim)
+		if err != nil {
+			return nil, fmt.Errorf("ideogram4 fp8 bias %q: %w", spec.Prefix, err)
+		}
+	}
+	return NewFP8Linear(spec, wbytes, scale, bias)
+}
+
+// decodeFloatVec decodes a small F32/F16/BF16 vector of length n.
+func decodeFloatVec(b []byte, dtype string, n int) ([]float32, error) {
+	out := make([]float32, n)
+	switch dtype {
+	case "F32":
+		if len(b) != n*4 {
+			return nil, fmt.Errorf("vec bytes=%d want=%d", len(b), n*4)
+		}
+		for i := 0; i < n; i++ {
+			out[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+		}
+	case "BF16":
+		if len(b) != n*2 {
+			return nil, fmt.Errorf("vec bytes=%d want=%d", len(b), n*2)
+		}
+		for i := 0; i < n; i++ {
+			out[i] = math.Float32frombits(uint32(binary.LittleEndian.Uint16(b[i*2:])) << 16)
+		}
+	case "F16":
+		if len(b) != n*2 {
+			return nil, fmt.Errorf("vec bytes=%d want=%d", len(b), n*2)
+		}
+		for i := 0; i < n; i++ {
+			out[i] = f16ToF32(binary.LittleEndian.Uint16(b[i*2:]))
+		}
+	default:
+		return nil, fmt.Errorf("unsupported vec dtype %s", dtype)
+	}
+	return out, nil
+}
+
+func f16ToF32(h uint16) float32 {
+	sign := uint32(h&0x8000) << 16
+	exp := uint32(h>>10) & 0x1f
+	mant := uint32(h & 0x3ff)
+	switch exp {
+	case 0:
+		if mant == 0 {
+			return math.Float32frombits(sign)
+		}
+		for mant&0x400 == 0 {
+			mant <<= 1
+			exp--
+		}
+		exp++
+		mant &= 0x3ff
+	case 0x1f:
+		return math.Float32frombits(sign | 0x7f800000 | (mant << 13))
+	}
+	return math.Float32frombits(sign | ((exp + 112) << 23) | (mant << 13))
 }
 
 // LoadLayerFP8Linears loads every required FP8 linear for the transformer

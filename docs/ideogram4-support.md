@@ -112,7 +112,15 @@ The block math is assembled from the public Ideogram4 tensor contract and config
 
 `model/ideogram4/native_pipeline.go` (`NativePipeline` / `LoadNativePipeline`) assembles every component from a Diffusers directory — tokenizer, Qwen3-VL conditioner, conditional + unconditional FP8 DiT transformers, and the VAE decoder (single-file or sharded safetensors auto-detected). `NativePipeline.Generate(prompt, opts)` runs the full path: tokenize → Qwen3-VL conditioning → FlowMatch denoise loop with asymmetric CFG → unpatchify → VAE decode → RGB `Image`. `cmd/ideogram4gen` drives it from the CLI (seeded Gaussian init latents, PNG output).
 
-The full text→image path is now implemented natively in Go/SIMD. Numerical parity against the reference Diffusers pipeline still needs validation on real downloaded FP8 weights, and the documented architectural assumptions (gate-less adaLN split, joint text+image MRoPE coordinates, activation-layer indexing) should be confirmed against the OSS forward before `runtime_ready` is flipped.
+The full text→image path is now implemented natively in Go/SIMD. The DiT, MRoPE, adaLN, final layer, latent denormalization/unpatchify, and conditioning were reconciled against the reference `ideogram-oss/ideogram4` source (`modeling_ideogram4.py`, `scheduler.py`, `latent_norm.py`, `pipeline_ideogram4.py`), resolving the earlier provisional assumptions:
+
+- adaLN is **scale + tanh-gate** (not shift/scale): per block `4*emb` → `scale_msa, gate_msa, scale_mlp, gate_mlp`; sublayers are `x += tanh(gate) * norm2(sublayer(norm1(x)*(1+scale)))` with four learnable RMSNorms per block.
+- attention uses **QK-RMSNorm** (`norm_q`/`norm_k`, eps 1e-5) before RoPE.
+- **MRoPE** uses interleaved 3-axis section assignment over the full head_dim with `IMAGE_POSITION_OFFSET=65536` and text positions `(i,i,i)`.
+- the final layer is a **non-affine LayerNorm** with scale-only modulation (`final_adaln` → `emb`, not `2*emb`).
+- all bias=true linears load their `.bias`; `embed_image_indicator` and `llm_cond_norm` are applied; latents are denormalized with the per-channel `LATENT_SCALE/SHIFT` constants and unpatchified in `(patch_h, patch_w, ae_channels)` order before VAE decode.
+
+Numerical parity against the reference pipeline on real downloaded FP8 weights still needs validation, and the Qwen3 chat-template wrapping for the prompt is not yet applied (raw prompt tokenization is used).
 
 ## Current status
 

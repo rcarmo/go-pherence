@@ -240,10 +240,9 @@ func (d *VAEDecoder) Decode(latents FeatureMap) (Image, error) {
 	if latents.C != d.latentChannels {
 		return Image{}, fmt.Errorf("ideogram4 vae decode latent_c=%d want=%d", latents.C, d.latentChannels)
 	}
-	z := FeatureMap{C: latents.C, H: latents.H, W: latents.W, Data: make([]float32, len(latents.Data))}
-	for i, v := range latents.Data {
-		z.Data[i] = v/d.scalingFactor + d.shiftFactor
-	}
+	// Latents are expected already denormalized (see DenormalizeLatents); the
+	// KL VAE decoder applies no additional scaling.
+	z := FeatureMap{C: latents.C, H: latents.H, W: latents.W, Data: append([]float32(nil), latents.Data...)}
 	var err error
 	if d.usePostQuantConv {
 		if z, err = d.conv(z, "post_quant_conv"); err != nil {

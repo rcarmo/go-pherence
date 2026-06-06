@@ -3,69 +3,41 @@ package ideogram4
 import (
 	"fmt"
 	"math"
-
-	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
-// DiTLayer bundles the six FP8 linear matrices of one Ideogram4 transformer
-// block, as enumerated by RequiredLinearSpecs.
+// DiTLayer bundles the FP8 linears and RMSNorm weights of one Ideogram4
+// transformer block, matching the reference Ideogram4TransformerBlock.
 type DiTLayer struct {
-	AdaLN *FP8Linear // adaln_dim -> 4*emb (shift/scale for attn + mlp)
-	QKV   *FP8Linear // emb -> 3*emb
-	O     *FP8Linear // emb -> emb
-	W1    *FP8Linear // emb -> intermediate (gate)
-	W2    *FP8Linear // intermediate -> emb (down)
-	W3    *FP8Linear // emb -> intermediate (up)
+	QKV   *FP8Linear // emb -> 3*emb (bias=false)
+	O     *FP8Linear // emb -> emb   (bias=false)
+	W1    *FP8Linear // emb -> intermediate
+	W2    *FP8Linear // intermediate -> emb
+	W3    *FP8Linear // emb -> intermediate
+	AdaLN *FP8Linear // adaln_dim -> 4*emb (bias=true)
+
+	NormQ  []float32 // head_dim RMSNorm (eps 1e-5)
+	NormK  []float32 // head_dim RMSNorm (eps 1e-5)
+	AttnN1 []float32 // emb RMSNorm (norm_eps)
+	AttnN2 []float32 // emb RMSNorm (norm_eps)
+	FfnN1  []float32 // emb RMSNorm (norm_eps)
+	FfnN2  []float32 // emb RMSNorm (norm_eps)
 }
 
-// DiTLayerFromSet pulls the six linears for a layer index out of a loaded set.
-func DiTLayerFromSet(set map[string]*FP8Linear, layer int) (DiTLayer, error) {
-	get := func(suffix string) (*FP8Linear, error) {
-		key := fmt.Sprintf("layers.%d.%s", layer, suffix)
-		lin, ok := set[key]
-		if !ok || lin == nil {
-			return nil, fmt.Errorf("ideogram4 DiT layer %d missing %q", layer, key)
-		}
-		return lin, nil
-	}
-	var l DiTLayer
-	var err error
-	if l.AdaLN, err = get("adaln_modulation"); err != nil {
-		return DiTLayer{}, err
-	}
-	if l.QKV, err = get("attention.qkv"); err != nil {
-		return DiTLayer{}, err
-	}
-	if l.O, err = get("attention.o"); err != nil {
-		return DiTLayer{}, err
-	}
-	if l.W1, err = get("feed_forward.w1"); err != nil {
-		return DiTLayer{}, err
-	}
-	if l.W2, err = get("feed_forward.w2"); err != nil {
-		return DiTLayer{}, err
-	}
-	if l.W3, err = get("feed_forward.w3"); err != nil {
-		return DiTLayer{}, err
-	}
-	return l, nil
-}
-
-// MRoPE holds precomputed cos/sin tables for the Ideogram4 3-section rotary
-// embedding (temporal/height/width). The rotary covers 2*sum(section) head
-// dims; the remainder of each head is left unrotated.
+// MRoPE holds precomputed cos/sin tables for the Ideogram4 3-section
+// interleaved rotary embedding. The rotary covers the full head_dim via
+// head_dim/2 frequency pairs (NeoX rotate-half), where each pair's angle is
+// driven by the temporal, height, or width coordinate per the interleaved
+// mrope_section assignment.
 type MRoPE struct {
-	headDim  int
-	rotPairs int       // sum(section)
-	cos      []float32 // [tokens, rotPairs]
-	sin      []float32 // [tokens, rotPairs]
-	tokens   int
+	headDim int
+	half    int       // head_dim/2
+	cos     []float32 // [tokens, half]
+	sin     []float32 // [tokens, half]
+	tokens  int
 }
 
-// BuildMRoPE precomputes rotary tables for image tokens laid out row-major over
-// a gridH x gridW latent grid (single temporal frame). Section assigns the
-// first s0 freq pairs to the temporal axis, the next s1 to height, the last s2
-// to width.
+// BuildMRoPE precomputes rotary tables for image tokens over a gridH x gridW
+// latent grid (single temporal frame).
 func BuildMRoPE(cfg Config, gridH, gridW int) (*MRoPE, error) {
 	if gridH <= 0 || gridW <= 0 {
 		return nil, fmt.Errorf("ideogram4 mrope grid %dx%d", gridH, gridW)
@@ -79,10 +51,11 @@ func BuildMRoPE(cfg Config, gridH, gridW int) (*MRoPE, error) {
 	return BuildMRoPEPositions(cfg, positions)
 }
 
-// BuildMRoPEPositions precomputes rotary tables for an explicit list of
-// per-token (temporal, height, width) coordinates. This supports the joint
-// text+image sequence: text-prefix tokens supply their own coordinates (e.g.
-// sequential temporal positions) ahead of the image grid.
+// BuildMRoPEPositions precomputes rotary tables for explicit per-token
+// (temporal, height, width) coordinates, matching the reference Ideogram4MRoPE:
+// inv_freq[j] = base^(-2j/head_dim); the interleaved section assignment routes
+// j%3==1 (j<3*section_h) to the height axis and j%3==2 (j<3*section_w) to the
+// width axis; all other freqs use the temporal axis.
 func BuildMRoPEPositions(cfg Config, positions [][3]int) (*MRoPE, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -90,15 +63,8 @@ func BuildMRoPEPositions(cfg Config, positions [][3]int) (*MRoPE, error) {
 	if len(cfg.MRoPESection) != 3 {
 		return nil, fmt.Errorf("ideogram4 mrope section=%v want 3 entries", cfg.MRoPESection)
 	}
-	rotPairs := 0
-	for _, s := range cfg.MRoPESection {
-		if s < 0 {
-			return nil, fmt.Errorf("ideogram4 mrope section negative %v", cfg.MRoPESection)
-		}
-		rotPairs += s
-	}
-	if 2*rotPairs > cfg.HeadDim {
-		return nil, fmt.Errorf("ideogram4 mrope rot dims=%d exceed head_dim=%d", 2*rotPairs, cfg.HeadDim)
+	if cfg.HeadDim%2 != 0 {
+		return nil, fmt.Errorf("ideogram4 mrope head_dim=%d not even", cfg.HeadDim)
 	}
 	if len(positions) == 0 {
 		return nil, fmt.Errorf("ideogram4 mrope empty positions")
@@ -107,65 +73,65 @@ func BuildMRoPEPositions(cfg Config, positions [][3]int) (*MRoPE, error) {
 	if theta <= 0 {
 		theta = 5000000
 	}
-	tokens := len(positions)
-	rope := &MRoPE{headDim: cfg.HeadDim, rotPairs: rotPairs, tokens: tokens,
-		cos: make([]float32, tokens*rotPairs), sin: make([]float32, tokens*rotPairs)}
-	invFreq := make([]float64, rotPairs)
-	for i := 0; i < rotPairs; i++ {
-		invFreq[i] = math.Pow(theta, -float64(2*i)/float64(2*rotPairs))
+	half := cfg.HeadDim / 2
+	// axis selector per freq index j.
+	axisOf := make([]int, half)
+	hLen := cfg.MRoPESection[1] * 3
+	wLen := cfg.MRoPESection[2] * 3
+	for j := 0; j < half; j++ {
+		switch {
+		case j%3 == 1 && j < hLen:
+			axisOf[j] = 1
+		case j%3 == 2 && j < wLen:
+			axisOf[j] = 2
+		default:
+			axisOf[j] = 0
+		}
 	}
-	s0, s1 := cfg.MRoPESection[0], cfg.MRoPESection[1]
+	invFreq := make([]float64, half)
+	for j := 0; j < half; j++ {
+		invFreq[j] = math.Pow(theta, -float64(2*j)/float64(cfg.HeadDim))
+	}
+	tokens := len(positions)
+	rope := &MRoPE{headDim: cfg.HeadDim, half: half, tokens: tokens,
+		cos: make([]float32, tokens*half), sin: make([]float32, tokens*half)}
 	for tok, p := range positions {
-		for i := 0; i < rotPairs; i++ {
-			var pos float64
-			switch {
-			case i < s0:
-				pos = float64(p[0])
-			case i < s0+s1:
-				pos = float64(p[1])
-			default:
-				pos = float64(p[2])
-			}
-			ang := pos * invFreq[i]
-			rope.cos[tok*rotPairs+i] = float32(math.Cos(ang))
-			rope.sin[tok*rotPairs+i] = float32(math.Sin(ang))
+		for j := 0; j < half; j++ {
+			pos := float64(p[axisOf[j]])
+			ang := pos * invFreq[j]
+			rope.cos[tok*half+j] = float32(math.Cos(ang))
+			rope.sin[tok*half+j] = float32(math.Sin(ang))
 		}
 	}
 	return rope, nil
 }
 
-// applyToHead rotates the first 2*rotPairs dims of one head vector in place
-// using the rotate-half convention: (x1, x2) -> (x1*cos - x2*sin, x2*cos +
-// x1*sin), where x1 is the first rotPairs dims and x2 the next rotPairs dims.
+// applyToHead rotates one head vector in place using NeoX rotate-half over the
+// full head_dim: pair (j, j+half) rotates by angle j.
 func (m *MRoPE) applyToHead(vec []float32, token int) {
-	base := token * m.rotPairs
-	for i := 0; i < m.rotPairs; i++ {
-		x1 := vec[i]
-		x2 := vec[m.rotPairs+i]
-		c := m.cos[base+i]
-		s := m.sin[base+i]
-		vec[i] = x1*c - x2*s
-		vec[m.rotPairs+i] = x2*c + x1*s
-	}
-}
-
-// modulate computes x_norm * (1+scale) + shift over emb dims for one token.
-func modulate(dst, x, shift, scale []float32) {
-	for i := range dst {
-		dst[i] = x[i]*(1+scale[i]) + shift[i]
+	base := token * m.half
+	for j := 0; j < m.half; j++ {
+		x1 := vec[j]
+		x2 := vec[m.half+j]
+		c := m.cos[base+j]
+		s := m.sin[base+j]
+		vec[j] = x1*c - x2*s
+		vec[m.half+j] = x2*c + x1*s
 	}
 }
 
 // ForwardLayer applies one DiT block to hidden states in place. hidden is
-// [tokens, emb] row-major. cond is the adaLN conditioning vector of length
-// AdaLNDim. rope must be built for the same token grid.
+// [tokens, emb] row-major. adalnInput is SiLU(adaln_proj(t_embedding)) of length
+// AdaLNDim. rope must be built for the same token set.
 //
-// Block structure (gate-less adaLN, matching the 4*emb block / 2*emb final
-// modulation contract):
+// Reference Ideogram4TransformerBlock:
 //
-//	h = h + O(Attn(modulate(LN(h), shift_a, scale_a)))
-//	h = h + W2(SiLU(W1(modulate(LN(h), shift_m, scale_m))) * W3(...))
-func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, cond []float32, rope *MRoPE) error {
+//	mod = adaln_modulation(adaln_input); scale_msa, gate_msa, scale_mlp, gate_mlp = chunk(4)
+//	gate = tanh(gate); scale = 1 + scale
+//	attn = attention(attention_norm1(x) * scale_msa)
+//	x = x + gate_msa * attention_norm2(attn)
+//	x = x + gate_mlp * ffn_norm2(feed_forward(ffn_norm1(x) * scale_mlp))
+func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float32, rope *MRoPE) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
@@ -180,48 +146,59 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, cond []float32, rop
 	if l.AdaLN.OutDim() != 4*emb {
 		return fmt.Errorf("ideogram4 DiT adaln out=%d want=%d", l.AdaLN.OutDim(), 4*emb)
 	}
-	// adaLN modulation parameters from conditioning.
 	mod := make([]float32, 4*emb)
-	if err := l.AdaLN.Apply(cond, mod); err != nil {
+	if err := l.AdaLN.Apply(adalnInput, mod); err != nil {
 		return err
 	}
-	shiftA, scaleA := mod[0:emb], mod[emb:2*emb]
-	shiftM, scaleM := mod[2*emb:3*emb], mod[3*emb:4*emb]
-
-	eps := float32(cfg.NormEps)
-	if eps <= 0 {
-		eps = 1e-6
+	scaleMSA := mod[0:emb]
+	gateMSA := mod[emb : 2*emb]
+	scaleMLP := mod[2*emb : 3*emb]
+	gateMLP := mod[3*emb : 4*emb]
+	for i := 0; i < emb; i++ {
+		scaleMSA[i] = 1 + scaleMSA[i]
+		scaleMLP[i] = 1 + scaleMLP[i]
+		gateMSA[i] = tanh32(gateMSA[i])
+		gateMLP[i] = tanh32(gateMLP[i])
 	}
+
+	normEps := float32(cfg.NormEps)
+	if normEps <= 0 {
+		normEps = 1e-5
+	}
+	const qkEps = 1e-5
 	heads, headDim := cfg.NumHeads, cfg.HeadDim
 	scaleAttn := float32(1 / math.Sqrt(float64(headDim)))
 
 	// ---- Attention sublayer ----
 	normed := make([]float32, emb)
-	modBuf := make([]float32, emb)
 	q := make([]float32, tokens*emb)
 	k := make([]float32, tokens*emb)
 	v := make([]float32, tokens*emb)
 	qkv := make([]float32, 3*emb)
 	for t := 0; t < tokens; t++ {
 		row := hidden[t*emb : (t+1)*emb]
-		layerNormTo(normed, row, eps)
-		modulate(modBuf, normed, shiftA, scaleA)
-		if err := l.QKV.Apply(modBuf, qkv); err != nil {
+		rmsNormWeightedTo(normed, row, l.AttnN1, normEps)
+		for i := 0; i < emb; i++ {
+			normed[i] *= scaleMSA[i]
+		}
+		if err := l.QKV.Apply(normed, qkv); err != nil {
 			return err
 		}
 		copy(q[t*emb:(t+1)*emb], qkv[0:emb])
 		copy(k[t*emb:(t+1)*emb], qkv[emb:2*emb])
 		copy(v[t*emb:(t+1)*emb], qkv[2*emb:3*emb])
 	}
-	// apply MRoPE per head to q,k.
+	// per-head QK-RMSNorm then RoPE.
 	for t := 0; t < tokens; t++ {
 		for h := 0; h < heads; h++ {
 			off := t*emb + h*headDim
+			rmsNormWeightedInPlace(q[off:off+headDim], l.NormQ, qkEps)
+			rmsNormWeightedInPlace(k[off:off+headDim], l.NormK, qkEps)
 			rope.applyToHead(q[off:off+headDim], t)
 			rope.applyToHead(k[off:off+headDim], t)
 		}
 	}
-	// full (non-causal) scaled dot-product attention per head.
+	// full self-attention (single segment).
 	attnOut := make([]float32, tokens*emb)
 	scores := make([]float32, tokens)
 	for h := 0; h < heads; h++ {
@@ -235,9 +212,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, cond []float32, rop
 				}
 				scores[tj] = dot * scaleAttn
 			}
-			if !simd.SoftmaxInPlace(scores) {
-				softmaxFallback(scores)
-			}
+			softmaxFallback(scores)
 			ooff := ti*emb + h*headDim
 			for tj := 0; tj < tokens; tj++ {
 				w := scores[tj]
@@ -248,15 +223,17 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, cond []float32, rop
 			}
 		}
 	}
-	// output projection + residual.
+	// output projection, post-norm, gated residual.
 	oproj := make([]float32, emb)
+	postNorm := make([]float32, emb)
 	for t := 0; t < tokens; t++ {
 		if err := l.O.Apply(attnOut[t*emb:(t+1)*emb], oproj); err != nil {
 			return err
 		}
+		rmsNormWeightedTo(postNorm, oproj, l.AttnN2, normEps)
 		row := hidden[t*emb : (t+1)*emb]
 		for i := 0; i < emb; i++ {
-			row[i] += oproj[i]
+			row[i] += gateMSA[i] * postNorm[i]
 		}
 	}
 
@@ -267,12 +244,14 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, cond []float32, rop
 	down := make([]float32, emb)
 	for t := 0; t < tokens; t++ {
 		row := hidden[t*emb : (t+1)*emb]
-		layerNormTo(normed, row, eps)
-		modulate(modBuf, normed, shiftM, scaleM)
-		if err := l.W1.Apply(modBuf, g); err != nil {
+		rmsNormWeightedTo(normed, row, l.FfnN1, normEps)
+		for i := 0; i < emb; i++ {
+			normed[i] *= scaleMLP[i]
+		}
+		if err := l.W1.Apply(normed, g); err != nil {
 			return err
 		}
-		if err := l.W3.Apply(modBuf, u); err != nil {
+		if err := l.W3.Apply(normed, u); err != nil {
 			return err
 		}
 		for i := 0; i < inter; i++ {
@@ -281,32 +260,38 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, cond []float32, rop
 		if err := l.W2.Apply(g, down); err != nil {
 			return err
 		}
+		rmsNormWeightedTo(postNorm, down, l.FfnN2, normEps)
 		for i := 0; i < emb; i++ {
-			row[i] += down[i]
+			row[i] += gateMLP[i] * postNorm[i]
 		}
 	}
 	return nil
 }
 
-// layerNormTo computes a non-affine LayerNorm (mean/var over the row) into dst.
-func layerNormTo(dst, x []float32, eps float32) {
-	n := len(x)
-	var mean float32
-	for _, v := range x {
-		mean += v
+// rmsNormWeightedTo computes RMSNorm(x)*weight into dst.
+func rmsNormWeightedTo(dst, x, weight []float32, eps float32) {
+	var ss float64
+	for _, vv := range x {
+		ss += float64(vv) * float64(vv)
 	}
-	mean /= float32(n)
-	var variance float32
-	for _, v := range x {
-		d := v - mean
-		variance += d * d
-	}
-	variance /= float32(n)
-	inv := float32(1 / math.Sqrt(float64(variance)+float64(eps)))
-	for i := 0; i < n; i++ {
-		dst[i] = (x[i] - mean) * inv
+	inv := float32(1 / math.Sqrt(ss/float64(len(x))+float64(eps)))
+	for i := range x {
+		dst[i] = x[i] * inv * weight[i]
 	}
 }
+
+func rmsNormWeightedInPlace(x, weight []float32, eps float32) {
+	var ss float64
+	for _, vv := range x {
+		ss += float64(vv) * float64(vv)
+	}
+	inv := float32(1 / math.Sqrt(ss/float64(len(x))+float64(eps)))
+	for i := range x {
+		x[i] = x[i] * inv * weight[i]
+	}
+}
+
+func tanh32(x float32) float32 { return float32(math.Tanh(float64(x))) }
 
 func siluScalar(x float32) float32 {
 	return x / (1 + float32(math.Exp(float64(-x))))

@@ -79,11 +79,7 @@ func LoadNativePipeline(modelDir string) (*NativePipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ideogram4 transformer weights: %w", err)
 	}
-	condSet, err := LoadLayerFP8Linears(condSrc, cfg)
-	if err != nil {
-		return nil, err
-	}
-	condDiT, err := LoadDiTModel(cfg, condSet)
+	condDiT, err := LoadDiTModel(cfg, condSrc)
 	if err != nil {
 		return nil, err
 	}
@@ -92,11 +88,7 @@ func LoadNativePipeline(modelDir string) (*NativePipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ideogram4 unconditional_transformer weights: %w", err)
 	}
-	uncondSet, err := LoadLayerFP8Linears(uncondSrc, cfg)
-	if err != nil {
-		return nil, err
-	}
-	uncondDiT, err := LoadDiTModel(cfg, uncondSet)
+	uncondDiT, err := LoadDiTModel(cfg, uncondSrc)
 	if err != nil {
 		return nil, err
 	}
@@ -187,6 +179,9 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 	}
 
 	patch := cfg.PatchSize
+	if err := DenormalizeLatents(latents, cfg.InChannels); err != nil {
+		return Image{}, err
+	}
 	fmap, err := UnpatchifyLatents(latents, gridH, gridW, cfg.InChannels, cfg.VAELatentChannels, patch, patch)
 	if err != nil {
 		return Image{}, err

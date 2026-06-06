@@ -31,8 +31,10 @@ func (f FeatureMap) validate() error {
 // where in_channels = latentChannels * patch_h * patch_w; this reverses the
 // patch packing onto a (latentChannels, gridH*patchH, gridW*patchW) map.
 //
-// Patch packing order is channel-major within a patch: index
-// = ((ch*patchH)+py)*patchW + px.
+// Patch packing order matches the reference reshape
+// z.view(grid_h, grid_w, patch_h, patch_w, ae_channels): within a token the 128
+// channels are laid out (patch_h, patch_w, ae_channels) with ae_channels
+// innermost, i.e. index = (py*patchW + px)*latentChannels + ch.
 func UnpatchifyLatents(tokens []float32, gridH, gridW, inChannels, latentChannels, patchH, patchW int) (FeatureMap, error) {
 	if latentChannels*patchH*patchW != inChannels {
 		return FeatureMap{}, fmt.Errorf("ideogram4 unpatchify: latent=%d patch=%dx%d != in=%d", latentChannels, patchH, patchW, inChannels)
@@ -48,10 +50,10 @@ func UnpatchifyLatents(tokens []float32, gridH, gridW, inChannels, latentChannel
 		for c := 0; c < gridW; c++ {
 			tok := r*gridW + c
 			base := tok * inChannels
-			for ch := 0; ch < latentChannels; ch++ {
-				for py := 0; py < patchH; py++ {
-					for px := 0; px < patchW; px++ {
-						idx := base + (ch*patchH+py)*patchW + px
+			for py := 0; py < patchH; py++ {
+				for px := 0; px < patchW; px++ {
+					for ch := 0; ch < latentChannels; ch++ {
+						idx := base + (py*patchW+px)*latentChannels + ch
 						y := r*patchH + py
 						x := c*patchW + px
 						out.Data[(ch*H+y)*W+x] = tokens[idx]

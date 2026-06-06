@@ -46,6 +46,7 @@ type Linear struct {
 	InDim  int
 	Weight []byte    // OutDim*InDim E4M3 bytes, row-major
 	Scale  []float32 // 1 (per-tensor) or OutDim (per-row)
+	Bias   []float32 // nil or OutDim
 }
 
 // Validate checks shape consistency.
@@ -58,6 +59,9 @@ func (l Linear) Validate() error {
 	}
 	if len(l.Scale) != 1 && len(l.Scale) != l.OutDim {
 		return fmt.Errorf("fp8 linear scale len=%d want 1 or %d", len(l.Scale), l.OutDim)
+	}
+	if l.Bias != nil && len(l.Bias) != l.OutDim {
+		return fmt.Errorf("fp8 linear bias len=%d want %d", len(l.Bias), l.OutDim)
 	}
 	return nil
 }
@@ -109,6 +113,9 @@ func (l Linear) GemvTo(x []float32, out []float32) error {
 			acc += DecodeE4M3(l.Weight[base+j]) * x[j]
 		}
 		out[r] = acc * scale
+		if l.Bias != nil {
+			out[r] += l.Bias[r]
+		}
 	}
 	return nil
 }
