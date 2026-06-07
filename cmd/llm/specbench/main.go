@@ -1,15 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"encoding/csv"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model"
 )
@@ -52,7 +51,7 @@ func main() {
 		os.Exit(1)
 	}
 	m.Tok = tok
-	prompts, err := loadPrompts(*prompt, *promptFile)
+	prompts, err := promptfile.Load(*prompt, *promptFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "prompts: %v\n", err)
 		os.Exit(1)
@@ -196,33 +195,6 @@ func benchRow(modelID string, promptIdx, promptTokens, maxTokens, repeat int, mo
 		strconv.FormatFloat(stats.TokensPerStep(), 'f', 3, 64),
 		strconv.FormatFloat(stats.AverageProposalLen(), 'f', 3, 64),
 	}
-}
-
-func loadPrompts(prompt, promptFile string) ([]string, error) {
-	if promptFile == "" {
-		return []string{prompt}, nil
-	}
-	f, err := os.Open(promptFile)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	var prompts []string
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		line := strings.TrimSpace(s.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		prompts = append(prompts, line)
-	}
-	if err := s.Err(); err != nil {
-		return nil, err
-	}
-	if len(prompts) == 0 {
-		return nil, fmt.Errorf("no prompts in %s", promptFile)
-	}
-	return prompts, nil
 }
 
 func generatedTokenCount(output []int, promptLen int) int {

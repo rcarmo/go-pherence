@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model"
 )
@@ -88,7 +88,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "qwen native MTP speccheck mode is available only for synthetic unit fixtures until Qwen3.6 LoadLlama support lands")
 		os.Exit(2)
 	}
-	prompts, err := loadPrompts(*prompt, *promptFile)
+	prompts, err := promptfile.Load(*prompt, *promptFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "prompts: %v\n", err)
 		os.Exit(2)
@@ -262,33 +262,6 @@ func parseList(s string) []string {
 		}
 	}
 	return out
-}
-
-func loadPrompts(prompt, promptFile string) ([]string, error) {
-	if promptFile == "" {
-		return []string{prompt}, nil
-	}
-	f, err := os.Open(promptFile)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	var prompts []string
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		line := strings.TrimSpace(s.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		prompts = append(prompts, line)
-	}
-	if err := s.Err(); err != nil {
-		return nil, err
-	}
-	if len(prompts) == 0 {
-		return nil, fmt.Errorf("no prompts in %s", promptFile)
-	}
-	return prompts, nil
 }
 
 func baseName(path string) string {
