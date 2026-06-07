@@ -29,10 +29,10 @@ func TestIsPlaceholder(t *testing.T) {
 func TestAnyTensorMarker(t *testing.T) {
 	names := []string{"model.layers.0.attn", "model.embed"}
 	if !AnyTensorMarker(names, []string{"attn"}) {
-		t.Error("should find attn marker (case-insensitive substring)")
+		t.Error("should find attn marker (substring of a lowercased name)")
 	}
-	if !AnyTensorMarker(names, []string{"EMBED"}) {
-		t.Error("match should be case-insensitive")
+	if !AnyTensorMarker([]string{"model.EMBED"}, []string{"embed"}) {
+		t.Error("name is lowercased before matching, so mixed-case names match lowercase markers")
 	}
 	if AnyTensorMarker(names, []string{"router"}) {
 		t.Error("absent marker should not match")
