@@ -3,6 +3,8 @@ package k3
 import (
 	"math"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 func putQ6(raw []byte, blkOff, pos int, v int8) {
@@ -54,7 +56,7 @@ func TestRepackQ6KRawToQ80x32NativeRef(t *testing.T) {
 	for k := range act {
 		act[k] = float32((k%17)-8) / 5.0
 	}
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	got := make([]float32, M)
 	if !q8Q80x32MatVecNative(w, act, got, pool) {

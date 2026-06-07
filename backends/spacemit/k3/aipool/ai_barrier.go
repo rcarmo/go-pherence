@@ -1,4 +1,4 @@
-package k3
+package aipool
 
 import "sync/atomic"
 
@@ -8,9 +8,9 @@ type aiBarrier struct {
 	n     int64
 }
 
-func newAIBarrier(n int) *aiBarrier { return &aiBarrier{n: int64(n)} }
+func NewAIBarrier(n int) *aiBarrier { return &aiBarrier{n: int64(n)} }
 
-func (b *aiBarrier) wait() {
+func (b *aiBarrier) Wait() {
 	p := b.phase.Load()
 	if b.count.Add(1) == b.n {
 		b.count.Store(0)

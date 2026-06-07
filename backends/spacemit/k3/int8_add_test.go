@@ -6,6 +6,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/inference"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 func TestVmadotI8GroupsAddMatchesSeparateAdd(t *testing.T) {
@@ -27,7 +28,7 @@ func TestVmadotI8GroupsAddMatchesSeparateAdd(t *testing.T) {
 	actScale := quantizeToI8(actF, actI8)
 	actPacked := make([]int8, 8*K)
 	broadcastPack1024Into(actI8, K, actPacked)
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	want := make([]float32, M)
 	got := make([]float32, M)
@@ -36,11 +37,11 @@ func TestVmadotI8GroupsAddMatchesSeparateAdd(t *testing.T) {
 		got[i] = want[i]
 	}
 	prod := make([]float32, M)
-	GemmAIPooled(M, K, wPacked, actPacked, wScale, actScale, prod, pool)
+	aipool.GemmAIPooled(M, K, wPacked, actPacked, wScale, actScale, prod, pool)
 	for i := range want {
 		want[i] += prod[i]
 	}
-	GemmAIPooledAdd(M, K, wPacked, actPacked, wScale, actScale, got, pool)
+	aipool.GemmAIPooledAdd(M, K, wPacked, actPacked, wScale, actScale, got, pool)
 	var maxDiff float64
 	for i := range want {
 		if d := math.Abs(float64(got[i] - want[i])); d > maxDiff {
@@ -54,8 +55,8 @@ func TestVmadotI8GroupsAddMatchesSeparateAdd(t *testing.T) {
 }
 
 func TestVmadotI8GroupsAddTCMBWaveMatchesDirectAdd(t *testing.T) {
-	old := int8TCMBWaveOn
-	defer func() { int8TCMBWaveOn = old }()
+	old := aipool.Int8TCMBWaveOn
+	defer func() { aipool.Int8TCMBWaveOn = old }()
 	M, K := 1024, 3072
 	f32 := make([]float32, M*K)
 	for m := 0; m < M; m++ {
@@ -74,7 +75,7 @@ func TestVmadotI8GroupsAddTCMBWaveMatchesDirectAdd(t *testing.T) {
 	actScale := quantizeToI8(actF, actI8)
 	actPacked := make([]int8, 8*K)
 	broadcastPack1024Into(actI8, K, actPacked)
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	direct := make([]float32, M)
 	wave := make([]float32, M)
@@ -82,10 +83,10 @@ func TestVmadotI8GroupsAddTCMBWaveMatchesDirectAdd(t *testing.T) {
 		direct[i] = float32(i%19) / 13.0
 		wave[i] = direct[i]
 	}
-	int8TCMBWaveOn = false
-	GemmAIPooledAdd(M, K, wPacked, actPacked, wScale, actScale, direct, pool)
-	int8TCMBWaveOn = true
-	GemmAIPooledAdd(M, K, wPacked, actPacked, wScale, actScale, wave, pool)
+	aipool.Int8TCMBWaveOn = false
+	aipool.GemmAIPooledAdd(M, K, wPacked, actPacked, wScale, actScale, direct, pool)
+	aipool.Int8TCMBWaveOn = true
+	aipool.GemmAIPooledAdd(M, K, wPacked, actPacked, wScale, actScale, wave, pool)
 	var maxDiff float64
 	for i := range direct {
 		if d := math.Abs(float64(direct[i] - wave[i])); d > maxDiff {

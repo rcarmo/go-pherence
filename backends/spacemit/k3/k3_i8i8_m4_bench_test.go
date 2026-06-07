@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"testing"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 func makeBenchQ8X32(M, K int) q8Q80x32 {
@@ -17,7 +19,7 @@ func makeBenchQ8X32(M, K int) q8Q80x32 {
 }
 
 func TestQ8I8MatVec4M4MatchesFourM1(t *testing.T) {
-	registerAIThread(8)
+	aipool.RegisterAIThread(8)
 	M, K := 64, 1024
 	subs := K / 32
 	w := makeBenchQ8X32(M, K)
@@ -77,7 +79,7 @@ func BenchmarkK3I8I8M1x4VsM4(b *testing.B) {
 	b.Run("four_m1", func(b *testing.B) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
-		registerAIThread(8)
+		aipool.RegisterAIThread(8)
 		for i := 0; i < b.N; i++ {
 			for r := 0; r < 4; r++ {
 				k3I8I8M1((*byte)(unsafe.Pointer(&qRows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM1[r*32], subs, 32)
@@ -87,7 +89,7 @@ func BenchmarkK3I8I8M1x4VsM4(b *testing.B) {
 	b.Run("m4_dispatch", func(b *testing.B) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
-		registerAIThread(8)
+		aipool.RegisterAIThread(8)
 		for i := 0; i < b.N; i++ {
 			handled := q8I8Dispatcher((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM4[0], 4, 32, subs, 32)
 			if handled != 4 {
@@ -113,7 +115,7 @@ func TestQ8I8MatVec4PooledMatchesFourM1(t *testing.T) {
 	var acts [4][]float32
 	var got [4][]float32
 	var want [4][]float32
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	for r := 0; r < 4; r++ {
 		acts[r] = make([]float32, K)
@@ -147,7 +149,7 @@ func BenchmarkQ8I8MatVec4PooledVsFourMatVecs(b *testing.B) {
 	w := makeBenchQ8X32(M, K)
 	var acts [4][]float32
 	var outs [4][]float32
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	for r := 0; r < 4; r++ {
 		acts[r] = make([]float32, K)
@@ -173,8 +175,8 @@ func BenchmarkQ8I8MatVec4PooledVsFourMatVecs(b *testing.B) {
 }
 
 func TestQ8I8NativeBWaveMatVecMatchesDirect(t *testing.T) {
-	old := int8TCMBWaveOn
-	defer func() { int8TCMBWaveOn = old }()
+	old := aipool.Int8TCMBWaveOn
+	defer func() { aipool.Int8TCMBWaveOn = old }()
 	M, K := 1024, 1024
 	w := makeBenchQ8X32(M, K)
 	if !w.Valid {
@@ -184,15 +186,15 @@ func TestQ8I8NativeBWaveMatVecMatchesDirect(t *testing.T) {
 	for k := range act {
 		act[k] = float32((k%37)-18) / 9.0
 	}
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	direct := make([]float32, M)
 	wave := make([]float32, M)
-	int8TCMBWaveOn = false
+	aipool.Int8TCMBWaveOn = false
 	if !q8Q80x32MatVecNative(w, act, direct, pool) {
 		t.Fatal("direct native matvec failed")
 	}
-	int8TCMBWaveOn = true
+	aipool.Int8TCMBWaveOn = true
 	if !q8Q80x32MatVecNative(w, act, wave, pool) {
 		t.Fatal("b-wave native matvec failed")
 	}

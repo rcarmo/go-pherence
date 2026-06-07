@@ -5,14 +5,16 @@ import (
 	"math"
 	"testing"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 // TestK3I8I4M1Simple verifies the kernel with constant/simple inputs
 func TestK3I8I4M1Simple(t *testing.T) {
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	_ = pool
 	// Run directly on AI thread via serial path
-	registerAIThread(8)
+	aipool.RegisterAIThread(8)
 
 	// Build a single 32-col subblock with known values
 	// B data: 608 bytes = [fp16_d×32:64][zp×32:32][qs×512:512]
@@ -66,7 +68,7 @@ func TestK3I8I4M1Simple(t *testing.T) {
 
 // TestK3I8I4M1Ref compares kernel against scalar reference for one group
 func TestK3I8I4M1LargeRef(t *testing.T) {
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 
 	M, K := 64, 1024
@@ -110,7 +112,7 @@ func TestK3I8I4M1LargeRef(t *testing.T) {
 }
 
 func TestK3I8I4M1Ref(t *testing.T) {
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 
 	// Use a small but real-ish test: M=32, K=32 (1 subblock, 1 group)
 	// Fill with simple data
@@ -177,7 +179,7 @@ func TestK3I8I4M1Ref(t *testing.T) {
 }
 
 func TestK3I8I4M1CExactResidualRef(t *testing.T) {
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	M, K := 64, 1024
 	subs := K / 32
@@ -259,7 +261,7 @@ func TestQ41x32ResidualPrecompute(t *testing.T) {
 }
 
 func TestK3I8I4M1CResidualFusedRef(t *testing.T) {
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	M, K := 64, 1024
 	subs := K / 32
@@ -315,7 +317,7 @@ func TestK3I8I4M1CResidualFusedRef(t *testing.T) {
 }
 
 func BenchmarkK3I8I4M1CResidualKernel(b *testing.B) {
-	registerAIThread(8)
+	aipool.RegisterAIThread(8)
 	subs := 32
 	a := make([]byte, subs*38)
 	bd := make([]byte, subs*608)
@@ -351,7 +353,7 @@ func BenchmarkK3I8I4M1CResidualKernel(b *testing.B) {
 }
 
 func BenchmarkK3I8I4M1CKernel(b *testing.B) {
-	registerAIThread(8)
+	aipool.RegisterAIThread(8)
 	subs := 32
 	a := make([]byte, subs*38)
 	bd := make([]byte, subs*608)
@@ -386,7 +388,7 @@ func BenchmarkK3I8I4M1CKernel(b *testing.B) {
 }
 
 func TestK3I8I4DispatcherM4MatchesM1(t *testing.T) {
-	pool := NewAIWorkerPool(1)
+	pool := aipool.NewAIWorkerPool(1)
 	defer pool.Close()
 	M, K := 32, 1024
 	subs := K / 32
@@ -442,7 +444,7 @@ func TestK3I8I4DispatcherM4MatchesM1(t *testing.T) {
 }
 
 func TestQ4KMatVec4M4MatchesFourM1(t *testing.T) {
-	registerAIThread(8)
+	aipool.RegisterAIThread(8)
 	M, K := 64, 1024
 	subs := K / 32
 	raw := make([]int8, M*K)
@@ -522,7 +524,7 @@ func TestQ4KGateUpSiluFuseMatchesUnfused(t *testing.T) {
 	for k := 0; k < K; k++ {
 		act[k] = float32((k%29)-14) / 8.0
 	}
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	gateA, upA, hiddenA := make([]float32, M), make([]float32, M), make([]float32, M)
 	gateB, upB, hiddenB := make([]float32, M), make([]float32, M), make([]float32, M)
@@ -569,7 +571,7 @@ func TestK3I8I8M1NativeRef(t *testing.T) {
 	if !w.Valid {
 		t.Fatal("repack failed")
 	}
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	got := make([]float32, M)
 	if !q8Q80x32MatVecNative(w, act, got, pool) {
@@ -591,7 +593,7 @@ func TestK3I8I8M1NativeRef(t *testing.T) {
 }
 
 func TestK3I8I8M4DispatcherMatchesM1(t *testing.T) {
-	registerAIThread(8)
+	aipool.RegisterAIThread(8)
 	M, K := 32, 1024
 	f32 := make([]float32, M*K)
 	for m := 0; m < M; m++ {
@@ -666,7 +668,7 @@ func TestQ4KGateUpSiluFuseBWaveMatchesDirect(t *testing.T) {
 	for k := 0; k < K; k++ {
 		act[k] = float32((k%31)-15) / 9.0
 	}
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	gateA, upA, hiddenA := make([]float32, M), make([]float32, M), make([]float32, M)
 	gateB, upB, hiddenB := make([]float32, M), make([]float32, M), make([]float32, M)
@@ -724,7 +726,7 @@ func TestQ4KBWaveMatVecMatchesDirect(t *testing.T) {
 	for k := range act {
 		act[k] = float32((k%31)-15) / 8.0
 	}
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	direct := make([]float32, M)
 	wave := make([]float32, M)
@@ -774,7 +776,7 @@ func TestQ4KBWaveWOLikeMatVecMatchesDirect(t *testing.T) {
 	for k := range act {
 		act[k] = float32((k%37)-18) / 9.0
 	}
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	direct := make([]float32, M)
 	wave := make([]float32, M)
@@ -830,7 +832,7 @@ func TestQ4KBWaveBatchMixedShapesMatchesDirect(t *testing.T) {
 	for k := range act {
 		act[k] = float32((k%29)-14) / 7.0
 	}
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	qDirect, kDirect := make([]float32, wq.M), make([]float32, wk.M)
 	qWave, kWave := make([]float32, wq.M), make([]float32, wk.M)
@@ -894,7 +896,7 @@ func BenchmarkGateUpDecodePooled6Workers(b *testing.B) {
 		act[i] = 0.1
 	}
 	out := make([]float32, M)
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -947,7 +949,7 @@ func TestInlineZPVsGoZPD(t *testing.T) {
 	q4kQ41x32MatVecRef(w, act, outRef)
 
 	// Kernel only, no Go ZPD — tests if inline correction is sufficient
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	outKernel := make([]float32, M)
 	quantBytes := q8Blocks32Bytes(act)
@@ -1005,7 +1007,7 @@ func TestInlineZPAppliedCorrectly(t *testing.T) {
 		}
 	}
 
-	pool := NewAIWorkerPool(1)
+	pool := aipool.NewAIWorkerPool(1)
 	defer pool.Close()
 	out := make([]float32, 64)
 	for i := range out {
@@ -1067,7 +1069,7 @@ func TestInlineZPMultiBlock(t *testing.T) {
 		}
 	}
 
-	pool := NewAIWorkerPool(1)
+	pool := aipool.NewAIWorkerPool(1)
 	defer pool.Close()
 	out := make([]float32, 64)
 	for i := range out {
@@ -1123,7 +1125,7 @@ func TestInlineZPVsGoZPDCorrect(t *testing.T) {
 	q4kQ41x32MatVecRef(w, act, outRef)
 
 	// Kernel-only (inline ZP, no Go ZPD loop)
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	outKernelOnly := make([]float32, M)
 	q8 := quantizeQ8Blocks32(act)
@@ -1194,7 +1196,7 @@ func TestInlineZPSingleGroup32Blks(t *testing.T) {
 		expected += scale * 1.0 * (256 + 8*sumNeg) // D=1.0 (fp16 1.0)
 	}
 
-	pool := NewAIWorkerPool(1)
+	pool := aipool.NewAIWorkerPool(1)
 	defer pool.Close()
 	out := make([]float32, 64)
 	for i := range out {
@@ -1239,7 +1241,7 @@ func TestInlineZPVsGoZPDFullMatrix(t *testing.T) {
 	q4kQ41x32MatVecRef(w, act, outRef)
 
 	// Kernel via batch function (includes Go ZPD correction)
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	outBatch := make([]float32, M)
 	ok := q4kQ41x32MatVecBatchSameAct(act, pool, q4kBatchMatVecSpec{W: w, Out: outBatch})

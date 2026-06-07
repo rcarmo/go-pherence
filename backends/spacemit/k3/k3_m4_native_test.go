@@ -5,13 +5,15 @@ import (
 	"runtime"
 	"testing"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 // TestK3I8I4M4NativeVsFallback validates the native assembly M4 kernel
 // produces the same results as the Go fallback (which calls M1 4 times).
 func TestK3I8I4M4NativeVsFallback(t *testing.T) {
 	runtime.LockOSThread()
-	registerAIThread(8)
+	aipool.RegisterAIThread(8)
 
 	const kBlks = 4 // 4 K32 blocks = 128 dimensions
 	const nCols = 32

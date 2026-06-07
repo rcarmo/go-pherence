@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -11,7 +12,7 @@ import (
 // activation in a single AI-worker dispatch, then computes the local SiLU*Up
 // shard before leaving the worker. It supports both the direct grouped path and
 // the native-style B/N32 TCM pair-wave path.
-func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ41x32, gateOut, upOut, hidden []float32) bool {
+func q4kQ41x32GateUpSiluSameAct(act []float32, pool *aipool.AIWorkerPool, gate, up q4kQ41x32, gateOut, upOut, hidden []float32) bool {
 	if !q4kGateFuseOn || q4kExactOn || q4kNativeCGOOn {
 		return false
 	}
@@ -27,17 +28,17 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 	groups := gate.M / 32
 	bBytes := subs * 608
 	bOff := (len(quantA) + 63) &^ 63
-	useWave := q4kTCMBWaveGateOn && subs%2 == 0 && pool != nil && pool.n%2 == 0 && groups >= pool.n && (groups%pool.n)%2 == 0 && pool.tcmSlices != nil && len(pool.tcmSlices) >= pool.n
+	useWave := q4kTCMBWaveGateOn && subs%2 == 0 && pool != nil && pool.N%2 == 0 && groups >= pool.N && (groups%pool.N)%2 == 0 && pool.TcmSlices != nil && len(pool.TcmSlices) >= pool.N
 	if useWave {
-		for i := 0; i < pool.n; i++ {
-			if len(pool.tcmSlices[i]) < bOff+bBytes {
+		for i := 0; i < pool.N; i++ {
+			if len(pool.TcmSlices[i]) < bOff+bBytes {
 				useWave = false
 				break
 			}
 		}
 	}
-	gateBarrier := &q4kPairBarrier{}
-	upBarrier := &q4kPairBarrier{}
+	gateBarrier := &aipool.Q4KPairBarrier{}
+	upBarrier := &aipool.Q4KPairBarrier{}
 	pool.Run(func(workerID, nWorkers int) {
 		quantPtr := (*byte)(unsafe.Pointer(&quantA[0]))
 		tcmSlice := getTCMSlice(workerID)
@@ -50,20 +51,20 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 		if gEnd <= gStart {
 			return
 		}
-		runWave := func(w q4kQ41x32, out []float32, barrier *q4kPairBarrier) {
+		runWave := func(w q4kQ41x32, out []float32, barrier *aipool.Q4KPairBarrier) {
 			pair := workerID / 2
 			rg := workerID
 			if workerID%2 == 0 {
 				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*608:(rg+1)*subs*608])
 			}
-			barrier.wait(pair)
+			barrier.Wait(pair)
 			if workerID%2 != 0 {
 				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*608:(rg+1)*subs*608])
 			}
 			bPtr := (*byte)(unsafe.Pointer(&tcmSlice[bOff]))
 			for ; rg < groups; rg += nWorkers {
 				if workerID%2 != 0 {
-					barrier.wait(pair)
+					barrier.Wait(pair)
 				}
 				k3I8I4M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
 				// ZPD correction (was missing — caused wrong logits with gate wave)
@@ -76,7 +77,7 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 					}
 				}
 				if workerID%2 == 0 {
-					barrier.wait(pair)
+					barrier.Wait(pair)
 				}
 				nextRg := rg + nWorkers
 				if nextRg < groups {
@@ -87,9 +88,9 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 			// exits the kernel here. Add a final pair sync so even workers do not
 			// enter the next wave while odd workers are still computing the final tile.
 			if workerID%2 != 0 {
-				barrier.wait(pair)
+				barrier.Wait(pair)
 			} else {
-				barrier.wait(pair)
+				barrier.Wait(pair)
 			}
 		}
 		if useWave {

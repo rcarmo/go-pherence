@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 // parallelDecodeAI runs inference with matmuls on AI cores (8-15, VLEN=1024).
@@ -63,7 +64,7 @@ func parallelDecodeAI(
 	rmsEps, ropeBase float32,
 	kCache, vCache [][]float32,
 	nPast int,
-	pool *AIWorkerPool,
+	pool *aipool.AIWorkerPool,
 ) {
 	nQEmbd := nHeads * headDim
 	nKVD := nKVHeads * headDim
@@ -80,9 +81,9 @@ func parallelDecodeAI(
 	}
 	gemmAI := func(M, K int, wPacked1024, wPackedVL32, actPacked []int8, wScale, actScale float32, out []float32) {
 		if aiUseVL32 {
-			GemmAIPooledVL32(M, K, wPackedVL32, actPacked, wScale, actScale, out, pool)
+			aipool.GemmAIPooledVL32(M, K, wPackedVL32, actPacked, wScale, actScale, out, pool)
 		} else {
-			GemmAIPooled(M, K, wPacked1024, actPacked, wScale, actScale, out, pool)
+			aipool.GemmAIPooled(M, K, wPacked1024, actPacked, wScale, actScale, out, pool)
 		}
 	}
 	matVecRef := func(_ bool, M, K int, raw, packed1024 []int8, x32 q4kQ41x32, scales, mins []float32, f32 []float32, act []float32, out []float32) {
@@ -208,7 +209,7 @@ func parallelDecodeAI(
 						{W: l.wqX32, Out: qF},
 						{W: l.wkX32, Out: kF},
 					},
-					aiGemmSpec{M: nKVD, K: KpEmbd, wPacked: l.wvPacked1024, actPacked: actPacked, wScale: l.wvScale, actScale: actScale, out: vF},
+					aipool.AIGemmSpec{M: nKVD, K: KpEmbd, WPacked: l.wvPacked1024, ActPacked: actPacked, WScale: l.wvScale, ActScale: actScale, Out: vF},
 				) {
 					q4kQ41x32MatVecBatchSameAct(xn, pool,
 						q4kBatchMatVecSpec{W: l.wqX32, Out: qF},
@@ -424,7 +425,7 @@ func parallelDecodeAI(
 		var downActScale float32
 		if q4kBatchOn && !aiUseVL32 && !l.downX32.Valid && l.gateX32.Valid && l.upX32.Valid {
 			downActScale, downDone = q4kQ41x32FFNFusedSameAct(xn2, pool, l.gateX32, l.upX32,
-				aiGemmSpec{M: nEmbd, K: KpFF, wPacked: l.downPacked1024, actPacked: downActPacked, wScale: l.downScale, out: downF},
+				aipool.AIGemmSpec{M: nEmbd, K: KpFF, WPacked: l.downPacked1024, ActPacked: downActPacked, WScale: l.downScale, Out: downF},
 				gateF, upF, hidden, downF, downActPad, downActPacked)
 			siluDone = downDone
 		}
@@ -571,7 +572,7 @@ func parallelDecodeAI(
 			} else if nativeI8I8DownOn && l.downQ8X32.Valid {
 				q8Q80x32MatVecNative(l.downQ8X32, hidden, downF, pool)
 			} else if int8DownAddOn && !aiUseVL32 && os.Getenv("IME2_NORM_TRACE") == "" {
-				GemmAIPooledAdd(nEmbd, KpFF, l.downPacked1024, downActPacked, l.downScale, downActScale, x, pool)
+				aipool.GemmAIPooledAdd(nEmbd, KpFF, l.downPacked1024, downActPacked, l.downScale, downActScale, x, pool)
 				downAdded = true
 			} else {
 				gemmAI(nEmbd, KpFF, l.downPacked1024, l.downPacked, downActPacked, l.downScale, downActScale, downF)

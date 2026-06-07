@@ -3,14 +3,16 @@ package k3
 import (
 	"math"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 // q4kQ41x32FFNFusedSameAct runs Gate/Up Q4_K, SiLU, global INT8 quant/pack,
 // and the INT8 down projection inside one AI-worker dispatch. It preserves the
 // existing single global activation scale for down by reducing per-worker maxAbs
 // before quantization.
-func q4kQ41x32FFNFusedSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ41x32, down aiGemmSpec, gateOut, upOut, hidden, downOut []float32, downActPad, downActPacked []int8) (float32, bool) {
-	if !q4kFFNFuseOn || q4kTCMBWaveOn || q4kExactOn || q4kNativeCGOOn || int8TCMBWaveOn {
+func q4kQ41x32FFNFusedSameAct(act []float32, pool *aipool.AIWorkerPool, gate, up q4kQ41x32, down aipool.AIGemmSpec, gateOut, upOut, hidden, downOut []float32, downActPad, downActPacked []int8) (float32, bool) {
+	if !q4kFFNFuseOn || q4kTCMBWaveOn || q4kExactOn || q4kNativeCGOOn || aipool.Int8TCMBWaveOn {
 		return 0, false
 	}
 	if !gate.Valid || !up.Valid || gate.K != up.K || gate.M != up.M || gate.K%32 != 0 || gate.M%32 != 0 {
@@ -24,9 +26,9 @@ func q4kQ41x32FFNFusedSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ41
 	}
 	quantA := quantizeQ8Blocks32Bytes(act)
 	subs := gate.K / 32
-	localMax := make([]float32, pool.n)
+	localMax := make([]float32, pool.N)
 	var scaleBox [1]float32
-	barrier := newAIBarrier(pool.n)
+	barrier := aipool.NewAIBarrier(pool.N)
 	pool.Run(func(workerID, nWorkers int) {
 		quantPtr := (*byte)(unsafe.Pointer(&quantA[0]))
 		tcmSlice := getTCMSlice(workerID)
@@ -63,7 +65,7 @@ func q4kQ41x32FFNFusedSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ41
 			}
 		}
 		localMax[workerID] = mx
-		barrier.wait()
+		barrier.Wait()
 		if workerID == 0 {
 			var globalMax float32
 			for _, v := range localMax {
@@ -77,7 +79,7 @@ func q4kQ41x32FFNFusedSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ41
 				scaleBox[0] = globalMax / 127.0
 			}
 		}
-		barrier.wait()
+		barrier.Wait()
 		actScale := scaleBox[0]
 		// Quantize hidden and broadcast-pack down activation in parallel by K16 tiles.
 		if actScale == 0 {
@@ -104,7 +106,7 @@ func q4kQ41x32FFNFusedSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ41
 				downActPad[i] = 0
 			}
 		}
-		barrier.wait()
+		barrier.Wait()
 		K := down.K
 		tiles := K / 16
 		tStart := workerID * tiles / nWorkers
@@ -116,17 +118,17 @@ func q4kQ41x32FFNFusedSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ41
 				copy(downActPacked[dstBase+r*16:dstBase+(r+1)*16], src)
 			}
 		}
-		barrier.wait()
+		barrier.Wait()
 		sp := down
-		sp.actScale = actScale
-		sp.actPacked = downActPacked
-		actPacked := sp.actPacked
+		sp.ActScale = actScale
+		sp.ActPacked = downActPacked
+		actPacked := sp.ActPacked
 		if len(tcmSlice) >= len(actPacked) {
 			buf := tcmSlice[:len(actPacked)]
 			copy(buf, unsafe.Slice((*byte)(unsafe.Pointer(&actPacked[0])), len(actPacked)))
 			actPacked = unsafe.Slice((*int8)(unsafe.Pointer(&buf[0])), len(buf))
 		}
-		runAIGemmWorkerWithAct(sp, workerID, nWorkers, actPacked)
+		aipool.RunAIGemmWorkerWithAct(sp, workerID, nWorkers, actPacked)
 	})
 	return scaleBox[0], true
 }

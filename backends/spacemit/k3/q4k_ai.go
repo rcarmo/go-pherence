@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 type q4kQ41Packed struct {
@@ -176,7 +177,7 @@ func repackQ4KToQ41A100(M, K int, raw []int8, scales, mins []float32) q4kQ41Pack
 //
 // wRaw contains unpacked Q4_K values in [0,15] in logical row-major order.
 // scales/mins contain one entry per 32-column subblock per row.
-func q4kBlockMatVecAI(M, K int, wRaw []int8, scales, mins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kBlockMatVecAI(M, K int, wRaw []int8, scales, mins []float32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	if K%32 != 0 || M%8 != 0 {
 		// Fallback for odd shapes; model shapes should not hit this.
 		matVecQ4KF32(M, K, wRaw, scales, mins, act, out)
@@ -188,7 +189,7 @@ func q4kBlockMatVecAI(M, K int, wRaw []int8, scales, mins []float32, act []float
 
 // q4kBlockMatVecAIPacked is the same kernel using persistent native 8×16
 // raw-Q4 tiles (the output of PackTiles1024 on unpacked Q4 nibbles).
-func q4kBlockMatVecAIPacked(M, K int, wPacked []int8, scales, mins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kBlockMatVecAIPacked(M, K int, wPacked []int8, scales, mins []float32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	if K%32 != 0 || M%8 != 0 {
 		panic("q4kBlockMatVecAIPacked: unsupported shape")
 	}
@@ -238,11 +239,11 @@ func q4kBlockMatVecAIPacked(M, K int, wPacked []int8, scales, mins []float32, ac
 	returnQ4KBlockMatVecQ41(q41, mins, act, out, pool)
 }
 
-func q4kBlockMatVecQ41(q41 q4kQ41Packed, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kBlockMatVecQ41(q41 q4kQ41Packed, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	returnQ4KBlockMatVecQ41(q41, nil, act, out, pool)
 }
 
-func returnQ4KBlockMatVecQ41(q41 q4kQ41Packed, exactMins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+func returnQ4KBlockMatVecQ41(q41 q4kQ41Packed, exactMins []float32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	M, K := q41.M, q41.K
 	if !q41.Valid || K%32 != 0 || M%8 != 0 {
 		panic("q4kBlockMatVecQ41: unsupported shape")
@@ -382,7 +383,7 @@ func applyQ4KMinCorr(out []float32, mins []float32, act []float32, M, K int) {
 // q4kBlockMatVecScaledLoop runs all K/32 subblocks in one assembly dispatch per row group.
 // actSumScaled[sb] must be float32(sum(actI8[sb])) * actScale[sb] to match Q4K_A100 correction.
 func q4kBlockMatVecScaledLoop(M, K int, wPacked []int8, scales, mins []float32,
-	actI8 []int8, actScale []float32, actSumScaled []float32, out []float32, pool *AIWorkerPool) {
+	actI8 []int8, actScale []float32, actSumScaled []float32, out []float32, pool *aipool.AIWorkerPool) {
 	if M%8 != 0 || K%32 != 0 {
 		panic("q4kBlockMatVecScaledLoop: unsupported shape")
 	}

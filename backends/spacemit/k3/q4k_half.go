@@ -4,13 +4,14 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 // q4kBlockMatVecAIPackedHalf uses native 8x16 vmadot tiles with a separate
 // activation scale/sum for each 16-element half of a Q4_K 32-element subblock.
 // This is not the llama.cpp q8 block contract; it is an accuracy-oriented fused
 // Q4_K diagnostic that preserves exact Q4_K min correction more closely.
-func q4kBlockMatVecAIPackedHalf(M, K int, wPacked []int8, scales, mins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kBlockMatVecAIPackedHalf(M, K int, wPacked []int8, scales, mins []float32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	if K%32 != 0 || M%8 != 0 {
 		panic("q4kBlockMatVecAIPackedHalf: unsupported shape")
 	}

@@ -1,4 +1,4 @@
-package k3
+package aipool
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ import (
 // AIWorkerPool manages persistent goroutines on AI cores (8-15).
 // Uses atomic spin with periodic yields for dispatch signaling.
 type AIWorkerPool struct {
-	n int
+	N int
 	// Dispatch: caller sets fn + increments gen; workers spin on gen
 	gen  atomic.Int64
 	fn   unsafe.Pointer // *func(int,int)
@@ -24,17 +24,17 @@ type AIWorkerPool struct {
 	stop atomic.Int64
 
 	tcm       *tcmpkg.TCM
-	tcmSlices [][]byte
+	TcmSlices [][]byte
 }
 
 func NewAIWorkerPool(n int) *AIWorkerPool {
-	p := &AIWorkerPool{n: n}
+	p := &AIWorkerPool{N: n}
 	if os.Getenv("IME2_TCM_ACT") != "0" && tcmpkg.IsAvailable() {
 		if dev, err := tcmpkg.Open(); err == nil {
 			p.tcm = dev
-			p.tcmSlices = make([][]byte, n)
+			p.TcmSlices = make([][]byte, n)
 			for i := 0; i < n; i++ {
-				p.tcmSlices[i] = dev.Slice(i % tcmpkg.BlockCount)
+				p.TcmSlices[i] = dev.Slice(i % tcmpkg.BlockCount)
 			}
 			fmt.Fprintf(os.Stderr, "AI worker pool: TCM activation staging enabled (%d blocks)\n", n)
 		}
@@ -89,7 +89,7 @@ func (p *AIWorkerPool) Run(fn func(workerID, nWorkers int)) {
 	p.done.Store(0)
 	atomic.StorePointer(&p.fn, unsafe.Pointer(&fn))
 	p.gen.Add(1)
-	target := int64(p.n)
+	target := int64(p.N)
 	for p.done.Load() < target {
 		runtime.Gosched()
 	}

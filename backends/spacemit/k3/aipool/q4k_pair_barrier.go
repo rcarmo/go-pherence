@@ -1,13 +1,13 @@
-package k3
+package aipool
 
 import "sync/atomic"
 
-type q4kPairBarrier struct {
+type Q4KPairBarrier struct {
 	count [4]atomic.Int64
 	phase [4]atomic.Int64
 }
 
-func (b *q4kPairBarrier) wait(pair int) {
+func (b *Q4KPairBarrier) Wait(pair int) {
 	if pair < 0 || pair >= len(b.count) {
 		return
 	}

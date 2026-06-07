@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -107,7 +108,7 @@ func q8Block32ToBytes(q8 q8Block32) []byte {
 func q8Blocks32Bytes(act []float32) []byte         { return q8Block32ToBytes(quantizeQ8Blocks32(act)) }
 func quantizeQ8Blocks32Bytes(act []float32) []byte { return q8Blocks32Bytes(act) }
 
-func q4kQ41x32MatVecExactAI(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kQ41x32MatVecExactAI(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	q4kQ41x32MatVecGoAsmWithCorrection(w, exactMins, act, out, pool)
 	if q4kCompareOn {
 		ref := make([]float32, len(out))
@@ -128,7 +129,7 @@ func q4kQ41x32MatVecExactAI(w q4kQ41x32, exactMins []float32, act []float32, out
 	}
 }
 
-func q4kQ41x32MatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kQ41x32MatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	// Try B-wave TCM single matvec first
 	if q4kQ41x32BWaveMatVecGoAsm(w, act, out, pool) {
 		return
@@ -136,7 +137,7 @@ func q4kQ41x32MatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *AIWor
 	q4kQ41x32MatVecGoAsmWithCorrection(w, nil, act, out, pool)
 }
 
-func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	if !w.Valid || w.K%32 != 0 || w.M%32 != 0 {
 		panic("q4kQ41x32MatVecGoAsm: invalid shape")
 	}
@@ -187,7 +188,7 @@ func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []
 		}
 	}
 	if q4kGoAsmSerialOn {
-		registerAIThread(8)
+		aipool.RegisterAIThread(8)
 		for rg := 0; rg < groups; rg++ {
 			runGroup(rg)
 		}
@@ -202,7 +203,7 @@ func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []
 	})
 }
 
-func q4kQ41x32MatVecCShim(w q4kQ41x32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kQ41x32MatVecCShim(w q4kQ41x32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	if !w.Valid || w.K%32 != 0 || w.M%32 != 0 {
 		panic("q4kQ41x32MatVecCShim: invalid shape")
 	}
@@ -221,7 +222,7 @@ func q4kQ41x32MatVecCShim(w q4kQ41x32, act []float32, out []float32, pool *AIWor
 // q4kQ41x32MatVecAI ports llama.cpp's q4_k_32x32_q8_0 data contract:
 // q8 activations are quantized in 32-wide blocks with scale and negative sum;
 // weights are Q4_K->Q4_1x32 with fp scale and uint4 zero-point per output row.
-func q4kQ41x32MatVecAI(w q4kQ41x32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kQ41x32MatVecAI(w q4kQ41x32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	if q4kGoAsmOn {
 		q4kQ41x32MatVecGoAsm(w, act, out, pool)
 		if q4kCompareOn {
@@ -365,7 +366,7 @@ type q4kBatchMatVecSpec struct {
 // q4kQ41x32MatVecBatchSameAct: precompute correction vector in main goroutine,
 // pool.Run() does kernel + simple vector add (no ZPD reads inside pool.Run).
 // q4kQ41x32MatVecBatchSameAct: kernel ZP=0, parallel ZPD correction inside pool.Run.
-func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
+func q4kQ41x32MatVecBatchSameAct(act []float32, pool *aipool.AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
 	if len(specs) == 0 || pool == nil {
 		return false
 	}
@@ -416,6 +417,6 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 
 // q4kQ41x32MatVecCM1 is a stub for the C-style correction-order matmul.
 // Falls back to q4kQ41x32MatVecGoAsmWithCorrection.
-func q4kQ41x32MatVecCM1(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *AIWorkerPool) {
+func q4kQ41x32MatVecCM1(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	q4kQ41x32MatVecGoAsmWithCorrection(w, exactMins, act, out, pool)
 }

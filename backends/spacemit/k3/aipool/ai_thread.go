@@ -1,4 +1,4 @@
-package k3
+package aipool
 
 import (
 	"os"
@@ -9,9 +9,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// registerAIThread grants the current goroutine access to cores 8-15
+// RegisterAIThread grants the current goroutine access to cores 8-15
 // by writing its TID to /proc/set_ai_thread, then pins to coreID.
-func registerAIThread(coreID int) {
+func RegisterAIThread(coreID int) {
 	runtime.LockOSThread()
 	tid := syscall.Gettid()
 	if f, err := os.OpenFile("/proc/set_ai_thread", os.O_WRONLY, 0); err == nil {

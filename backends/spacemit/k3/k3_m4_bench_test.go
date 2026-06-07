@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"testing"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 func makeBenchQ4X32(M, K int) q4kQ41x32 {
@@ -46,7 +48,7 @@ func BenchmarkK3I8I4M1x4VsM4(b *testing.B) {
 	b.Run("four_m1", func(b *testing.B) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
-		registerAIThread(8)
+		aipool.RegisterAIThread(8)
 		for i := 0; i < b.N; i++ {
 			for r := 0; r < 4; r++ {
 				k3I8I4M1((*byte)(unsafe.Pointer(&rows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM1[r*32], subs, 32)
@@ -56,7 +58,7 @@ func BenchmarkK3I8I4M1x4VsM4(b *testing.B) {
 	b.Run("m4_dispatch", func(b *testing.B) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
-		registerAIThread(8)
+		aipool.RegisterAIThread(8)
 		for i := 0; i < b.N; i++ {
 			q4Handled := k3I8I4((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM4[0], 4, 32, subs, 32)
 			if q4Handled != 4 {

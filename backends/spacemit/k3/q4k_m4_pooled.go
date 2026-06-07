@@ -3,6 +3,7 @@ package k3
 import (
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -10,7 +11,7 @@ import (
 // using the k3I8I4 dispatcher (M4 for countM>=4) distributed over N32 groups.
 // This is the reusable production primitive for batched/prefill work where
 // four rows share the same B matrix.
-func q4kQ41x32MatVec4Pooled(w q4kQ41x32, acts [4][]float32, outs [4][]float32, pool *AIWorkerPool) bool {
+func q4kQ41x32MatVec4Pooled(w q4kQ41x32, acts [4][]float32, outs [4][]float32, pool *aipool.AIWorkerPool) bool {
 	if !w.Valid || w.K%32 != 0 || w.M%32 != 0 || pool == nil {
 		return false
 	}
@@ -22,7 +23,7 @@ func q4kQ41x32MatVec4Pooled(w q4kQ41x32, acts [4][]float32, outs [4][]float32, p
 	subs := w.K / 32
 	groups := w.M / 32
 	packedA := quantizeQ8RowsM4Bytes(acts, subs)
-	pairBarrier := &q4kPairBarrier{}
+	pairBarrier := &aipool.Q4KPairBarrier{}
 	pool.Run(func(workerID, nWorkers int) {
 		aPtr := (*byte)(unsafe.Pointer(&packedA[0]))
 		tcmSlice := getTCMSlice(workerID)
@@ -38,14 +39,14 @@ func q4kQ41x32MatVec4Pooled(w q4kQ41x32, acts [4][]float32, outs [4][]float32, p
 			if workerID%2 == 0 {
 				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*608:(rg+1)*subs*608])
 			}
-			pairBarrier.wait(pair)
+			pairBarrier.Wait(pair)
 			if workerID%2 != 0 {
 				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*608:(rg+1)*subs*608])
 			}
 			bPtr := (*byte)(unsafe.Pointer(&tcmSlice[bOff]))
 			for ; rg < groups; rg += nWorkers {
 				if workerID%2 != 0 {
-					pairBarrier.wait(pair)
+					pairBarrier.Wait(pair)
 				}
 				var tmp [4 * 32]float32
 				handled := k3I8I4(aPtr, bPtr, &tmp[0], 4, 32, subs, 32)
@@ -55,7 +56,7 @@ func q4kQ41x32MatVec4Pooled(w q4kQ41x32, acts [4][]float32, outs [4][]float32, p
 					}
 				}
 				if workerID%2 == 0 {
-					pairBarrier.wait(pair)
+					pairBarrier.Wait(pair)
 				}
 				nextRg := rg + nWorkers
 				if nextRg < groups {

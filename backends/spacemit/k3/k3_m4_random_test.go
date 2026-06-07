@@ -6,11 +6,13 @@ import (
 	"runtime"
 	"testing"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 func TestK3I8I4M4NativeRandomData(t *testing.T) {
 	runtime.LockOSThread()
-	registerAIThread(8)
+	aipool.RegisterAIThread(8)
 
 	rng := rand.New(rand.NewSource(42))
 	const kBlks = 32 // 1024 dimensions (typical for Qwen3 0.6B)

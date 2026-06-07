@@ -2,6 +2,8 @@ package k3
 
 import (
 	"testing"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
 func BenchmarkQ4KMatVec4PooledVsFourMatVecs(b *testing.B) {
@@ -9,7 +11,7 @@ func BenchmarkQ4KMatVec4PooledVsFourMatVecs(b *testing.B) {
 	w := makeBenchQ4X32(M, K)
 	var acts [4][]float32
 	var outs [4][]float32
-	pool := NewAIWorkerPool(6)
+	pool := aipool.NewAIWorkerPool(6)
 	defer pool.Close()
 	for r := 0; r < 4; r++ {
 		acts[r] = make([]float32, K)

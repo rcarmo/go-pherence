@@ -1,4 +1,4 @@
-package k3
+package aipool
 
 import "github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 
@@ -9,7 +9,7 @@ type packBufs struct {
 	packed []int8
 }
 
-func newPackBufs(maxK int) *packBufs {
+func NewPackBufs(maxK int) *packBufs {
 	Kp := ((maxK + 7) / 8) * 8
 	return &packBufs{
 		xI8:    make([]int8, Kp),
@@ -18,8 +18,8 @@ func newPackBufs(maxK int) *packBufs {
 	}
 }
 
-// quantizeAndPackInto quantizes and packs without allocation.
-func quantizeAndPackInto(act []float32, Kp int, b *packBufs) ([]int8, float32) {
+// QuantizeAndPackInto quantizes and packs without allocation.
+func QuantizeAndPackInto(act []float32, Kp int, b *packBufs) ([]int8, float32) {
 	xI8 := b.xI8[:Kp]
 	for i := Kp - 1; i >= len(act); i-- {
 		xI8[i] = 0
@@ -52,8 +52,8 @@ func quantizeAndPackInto(act []float32, Kp int, b *packBufs) ([]int8, float32) {
 
 // Keep the allocating version for compatibility
 func quantizeAndPackLocal(act []float32, Kp int) ([]int8, float32) {
-	b := newPackBufs(Kp)
-	return quantizeAndPackInto(act, Kp, b)
+	b := NewPackBufs(Kp)
+	return QuantizeAndPackInto(act, Kp, b)
 }
 
 var _ = ime2.PackTiles // keep import

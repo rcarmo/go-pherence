@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"golang.org/x/sys/unix"
 )
 
@@ -32,10 +33,10 @@ func parallelDecode(
 	if nQEmbd > maxK {
 		maxK = nQEmbd
 	}
-	pkAttn := newPackBufs(maxK)
-	pkWO := newPackBufs(maxK)
-	pkFFN := newPackBufs(maxK)
-	pkDown := newPackBufs(maxK)
+	pkAttn := aipool.NewPackBufs(maxK)
+	pkWO := aipool.NewPackBufs(maxK)
+	pkFFN := aipool.NewPackBufs(maxK)
+	pkDown := aipool.NewPackBufs(maxK)
 
 	// Pre-allocate per-layer buffers (shared across layers)
 	xn := make([]float32, nEmbd)
@@ -76,7 +77,7 @@ func parallelDecode(
 
 		// === QKV Projections (vmadot, parallel over output rows) ===
 		Kp := ((nEmbd + 7) / 8) * 8
-		actPacked, actScale := quantizeAndPackInto(xn, Kp, pkAttn)
+		actPacked, actScale := aipool.QuantizeAndPackInto(xn, Kp, pkAttn)
 		tilesPerRow := Kp / 8
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {
@@ -198,7 +199,7 @@ func parallelDecode(
 
 		// === WO Projection (vmadot, parallel) ===
 		KpWO := ((nQEmbd + 7) / 8) * 8
-		actWO, actScaleWO := quantizeAndPackInto(qF[:nQEmbd], KpWO, pkWO)
+		actWO, actScaleWO := aipool.QuantizeAndPackInto(qF[:nQEmbd], KpWO, pkWO)
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {
 			go func(workerID int) {
@@ -236,7 +237,7 @@ func parallelDecode(
 
 		// === Gate + Up + SiLU (vmadot, parallel) ===
 		KpFFN := ((nEmbd + 7) / 8) * 8
-		actFFN, actScaleFFN := quantizeAndPackInto(xn2, KpFFN, pkFFN)
+		actFFN, actScaleFFN := aipool.QuantizeAndPackInto(xn2, KpFFN, pkFFN)
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {
 			go func(workerID int) {
@@ -263,7 +264,7 @@ func parallelDecode(
 
 		// === Down Projection (vmadot, parallel) ===
 		KpDown := ((nFF + 7) / 8) * 8
-		actDown, actScaleDown := quantizeAndPackInto(hidden, KpDown, pkDown)
+		actDown, actScaleDown := aipool.QuantizeAndPackInto(hidden, KpDown, pkDown)
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {
 			go func(workerID int) {

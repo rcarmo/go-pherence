@@ -14,6 +14,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/inference"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	// tokenizer loaded via gguf
 )
@@ -515,7 +516,7 @@ func Run() {
 
 	var layerTime, headTime time.Duration
 	logitsCopy := make([]float32, nVocab) // pre-allocated for sampler
-	aiPool := NewAIWorkerPool(*nThreads)
+	aiPool := aipool.NewAIWorkerPool(*nThreads)
 	defer aiPool.Close()
 	lmActI8 := make([]int8, lmKp)
 	lmActPacked1024 := make([]int8, 8*lmKp)
@@ -599,7 +600,7 @@ func Run() {
 				haveNextTok = true
 				logits[0] = float32(lmArgmaxI32[0]) * lmHeadScale * lmActScale
 			} else {
-				GemmAIPooled(vPad, lmKp, lmHeadPacked1024, lmActPacked1024, lmHeadScale, lmActScale, lmLogits, aiPool)
+				aipool.GemmAIPooled(vPad, lmKp, lmHeadPacked1024, lmActPacked1024, lmHeadScale, lmActScale, lmLogits, aiPool)
 			}
 		} else if lmHeadPackedX100 != nil {
 			actLM := packAct(xn, lmKp)
@@ -664,7 +665,7 @@ func Run() {
 			a100Scale := quantizeToI8(xn, lmActI8[:nEmbd])
 			clear(lmActI8[nEmbd:])
 			broadcastPack1024Into(lmActI8, lmKp, lmActPacked1024)
-			GemmAIPooled(vPad, lmKp, lmHeadPacked1024, lmActPacked1024, lmHeadScale, a100Scale, lmParityLogits, aiPool)
+			aipool.GemmAIPooled(vPad, lmKp, lmHeadPacked1024, lmActPacked1024, lmHeadScale, a100Scale, lmParityLogits, aiPool)
 			maxAbsDiff := float32(0)
 			maxDiffIdx := 0
 			topAIdx := 0

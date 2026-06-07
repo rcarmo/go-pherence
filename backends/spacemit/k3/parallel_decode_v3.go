@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -15,7 +16,7 @@ type layerBarrier struct {
 	n     int64
 }
 
-func (b *layerBarrier) wait() {
+func (b *layerBarrier) Wait() {
 	p := b.phase.Load()
 	if b.count.Add(1) == b.n {
 		b.count.Store(0)
@@ -50,7 +51,7 @@ func q4kFFNFused(
 	downF []float32,
 	gate, up, down q4kQ41x32,
 	nEmbd, nFF int,
-	pool *AIWorkerPool,
+	pool *aipool.AIWorkerPool,
 ) bool {
 	if !gate.Valid || !up.Valid || !down.Valid {
 		return false
@@ -58,7 +59,7 @@ func q4kFFNFused(
 	if gate.K%32 != 0 || gate.M%32 != 0 || down.K%32 != 0 || down.M%32 != 0 {
 		return false
 	}
-	if pool == nil || pool.n < 2 {
+	if pool == nil || pool.N < 2 {
 		return false
 	}
 
@@ -75,7 +76,7 @@ func q4kFFNFused(
 		sumCorrGate[sb] = float32(q8Gate.SumNeg[sb]) * q8Gate.Scale[sb]
 	}
 
-	barrier := &layerBarrier{n: int64(pool.n)}
+	barrier := &layerBarrier{n: int64(pool.N)}
 
 	// Shared buffers for Down quantization
 	sharedQuantDown := make([]byte, subsDown*38)
@@ -132,7 +133,7 @@ func q4kFFNFused(
 		}
 
 		// === BARRIER: all workers must finish SiLU before Down can read hidden ===
-		barrier.wait()
+		barrier.Wait()
 
 		// Worker 0 quantizes hidden for Down; others wait at second barrier
 		if workerID == 0 {
@@ -143,7 +144,7 @@ func q4kFFNFused(
 				sharedSumCorrDown[sb] = float32(q8d.SumNeg[sb]) * q8d.Scale[sb]
 			}
 		}
-		barrier.wait()
+		barrier.Wait()
 
 		var quantPtrDown *byte
 		if tcmSlice != nil && len(tcmSlice) >= len(sharedQuantDown) {

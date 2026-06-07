@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"golang.org/x/sys/unix"
 )
 
@@ -39,10 +40,10 @@ func parallelDecodeV2(
 	downF := make([]float32, nEmbd)
 
 	// Per-layer pack buffers (computed once per matmul group, shared read-only)
-	pkAttn := newPackBufs(nEmbd)
-	pkWO := newPackBufs(nQEmbd)
-	pkFFN := newPackBufs(nEmbd)
-	pkDown := newPackBufs(nFF)
+	pkAttn := aipool.NewPackBufs(nEmbd)
+	pkWO := aipool.NewPackBufs(nQEmbd)
+	pkFFN := aipool.NewPackBufs(nEmbd)
+	pkDown := aipool.NewPackBufs(nFF)
 
 	var wg sync.WaitGroup
 
@@ -59,7 +60,7 @@ func parallelDecodeV2(
 		for i := 0; i < nEmbd; i++ {
 			xn[i] = x[i] * invRMS * l.attnNorm[i]
 		}
-		actAttn, scAttn := quantizeAndPackInto(xn, KpEmbd, pkAttn)
+		actAttn, scAttn := aipool.QuantizeAndPackInto(xn, KpEmbd, pkAttn)
 		tprEmbd := KpEmbd / 8
 
 		// === PARALLEL: QKV for all workers ===
@@ -172,7 +173,7 @@ func parallelDecodeV2(
 			}
 		}
 		// Quantize attn output for WO
-		actWO, scWO := quantizeAndPackInto(qF[:nQEmbd], KpQEmbd, pkWO)
+		actWO, scWO := aipool.QuantizeAndPackInto(qF[:nQEmbd], KpQEmbd, pkWO)
 		tprQ := KpQEmbd / 8
 
 		// === PARALLEL: WO + FFN norm + gate/up/silu + down ===
@@ -211,7 +212,7 @@ func parallelDecodeV2(
 		for i := 0; i < nEmbd; i++ {
 			xn2[i] = x[i] * invRMS * l.ffnNorm[i]
 		}
-		actFFN, scFFN := quantizeAndPackInto(xn2, KpEmbd, pkFFN)
+		actFFN, scFFN := aipool.QuantizeAndPackInto(xn2, KpEmbd, pkFFN)
 
 		// Dispatch 2: gate+up+silu → hidden
 		wg.Add(nWorkers)
@@ -238,7 +239,7 @@ func parallelDecodeV2(
 		wg.Wait()
 
 		// Down projection
-		actDown, scDown := quantizeAndPackInto(hidden, KpFF, pkDown)
+		actDown, scDown := aipool.QuantizeAndPackInto(hidden, KpFF, pkDown)
 		tprFF := KpFF / 8
 		wg.Add(nWorkers)
 		for w := 0; w < nWorkers; w++ {

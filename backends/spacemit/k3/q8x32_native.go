@@ -4,6 +4,7 @@ import (
 	"math"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -115,14 +116,14 @@ func q8Q80x32MatVec4Native(w q8Q80x32, acts [4][]float32, outs [4][]float32) boo
 	return true
 }
 
-func q8Q80x32MatVecNative(w q8Q80x32, act []float32, out []float32, pool *AIWorkerPool) bool {
+func q8Q80x32MatVecNative(w q8Q80x32, act []float32, out []float32, pool *aipool.AIWorkerPool) bool {
 	if !w.Valid || w.K%32 != 0 || w.M%32 != 0 || len(out) < w.M {
 		return false
 	}
 	quantA := quantizeQ8Blocks32Bytes(act)
 	subs := w.K / 32
 	groups := w.M / 32
-	pairBarrier := &q4kPairBarrier{}
+	pairBarrier := &aipool.Q4KPairBarrier{}
 	pool.Run(func(workerID, nWorkers int) {
 		quantPtr := (*byte)(unsafe.Pointer(&quantA[0]))
 		tcmSlice := getTCMSlice(workerID)
@@ -132,24 +133,24 @@ func q8Q80x32MatVecNative(w q8Q80x32, act []float32, out []float32, pool *AIWork
 		}
 		bBytes := subs * 1088
 		bOff := (len(quantA) + 63) &^ 63
-		if int8TCMBWaveOn && nWorkers%2 == 0 && groups >= nWorkers && (groups%nWorkers)%2 == 0 && len(tcmSlice) >= bOff+bBytes {
+		if aipool.Int8TCMBWaveOn && nWorkers%2 == 0 && groups >= nWorkers && (groups%nWorkers)%2 == 0 && len(tcmSlice) >= bOff+bBytes {
 			pair := workerID / 2
 			rg := workerID
 			if workerID%2 == 0 {
 				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
 			}
-			pairBarrier.wait(pair)
+			pairBarrier.Wait(pair)
 			if workerID%2 != 0 {
 				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
 			}
 			bPtr := (*byte)(unsafe.Pointer(&tcmSlice[bOff]))
 			for ; rg < groups; rg += nWorkers {
 				if workerID%2 != 0 {
-					pairBarrier.wait(pair)
+					pairBarrier.Wait(pair)
 				}
 				k3I8I8M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
 				if workerID%2 == 0 {
-					pairBarrier.wait(pair)
+					pairBarrier.Wait(pair)
 				}
 				nextRg := rg + nWorkers
 				if nextRg < groups {

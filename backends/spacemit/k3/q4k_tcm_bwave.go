@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -11,14 +12,14 @@ import (
 // batched Q4_K matmuls. Delegates to per-spec B-wave single calls.
 // Each spec is processed in its own pool.Run with a fresh pair barrier,
 // ensuring correct barrier state between specs.
-func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
+func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *aipool.AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
 	if len(specs) == 0 || pool == nil {
 		return false
 	}
 	if q4kExactOn || q4kNativeCGOOn {
 		return false
 	}
-	if !q4kTCMBWaveBatchOn || pool.n%2 != 0 || pool.tcmSlices == nil {
+	if !q4kTCMBWaveBatchOn || pool.N%2 != 0 || pool.TcmSlices == nil {
 		return false
 	}
 	K := specs[0].W.K
@@ -42,17 +43,17 @@ func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs .
 	}
 	aOff := (len(quantBytes) + 63) &^ 63
 	needTCM := aOff + bBytes
-	if len(pool.tcmSlices) > 0 && len(pool.tcmSlices[0]) < needTCM {
+	if len(pool.TcmSlices) > 0 && len(pool.TcmSlices[0]) < needTCM {
 		return false
 	}
 	// Check all specs satisfy group conditions
 	for _, sp := range specs {
 		groups := sp.W.M / 32
-		if groups < pool.n || (groups%pool.n)%2 != 0 {
+		if groups < pool.N || (groups%pool.N)%2 != 0 {
 			return false
 		}
 	}
-	pairBarrier := &q4kPairBarrier{}
+	pairBarrier := &aipool.Q4KPairBarrier{}
 	pool.Run(func(workerID, nWorkers int) {
 		tcmSlice := getTCMSlice(workerID)
 		if tcmSlice == nil || len(tcmSlice) < needTCM {
@@ -69,14 +70,14 @@ func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs .
 			if workerID%2 == 0 && rg < spGroups {
 				rvv.CopyTCMBytes(bSlice, sp.W.BData[rg*subs*608:(rg+1)*subs*608])
 			}
-			pairBarrier.wait(pair)
+			pairBarrier.Wait(pair)
 			if workerID%2 != 0 && rg < spGroups {
 				rvv.CopyTCMBytes(bSlice, sp.W.BData[rg*subs*608:(rg+1)*subs*608])
 			}
 			bPtr := (*byte)(unsafe.Pointer(&bSlice[0]))
 			for ; rg < spGroups; rg += nWorkers {
 				if workerID%2 != 0 {
-					pairBarrier.wait(pair)
+					pairBarrier.Wait(pair)
 				}
 				k3I8I4M1(quantPtr, bPtr, &sp.Out[rg*32], subs, 32)
 				// ZPD correction
@@ -89,7 +90,7 @@ func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs .
 					}
 				}
 				if workerID%2 == 0 {
-					pairBarrier.wait(pair)
+					pairBarrier.Wait(pair)
 				}
 				nextRg := rg + nWorkers
 				if nextRg < spGroups {
@@ -103,16 +104,16 @@ func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs .
 
 // q4kQ41x32BWaveMatVecGoAsm is the B-wave TCM variant of q4kQ41x32MatVecGoAsm.
 // Uses worker-pair barriers for double-buffered B access from TCM.
-func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *AIWorkerPool) bool {
+func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *aipool.AIWorkerPool) bool {
 	if !w.Valid || w.K%32 != 0 || w.M%32 != 0 || pool == nil {
 		return false
 	}
-	if !q4kTCMBWaveSingleOn || pool.n%2 != 0 || pool.tcmSlices == nil {
+	if !q4kTCMBWaveSingleOn || pool.N%2 != 0 || pool.TcmSlices == nil {
 		return false
 	}
 	subs := w.K / 32
 	groups := w.M / 32
-	if groups < pool.n || (groups%pool.n)%2 != 0 {
+	if groups < pool.N || (groups%pool.N)%2 != 0 {
 		return false
 	}
 	bBytes := subs * 608
@@ -124,10 +125,10 @@ func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *
 	}
 	aOff := (len(quantBytes) + 63) &^ 63
 	needTCM := aOff + bBytes
-	if len(pool.tcmSlices) > 0 && len(pool.tcmSlices[0]) < needTCM {
+	if len(pool.TcmSlices) > 0 && len(pool.TcmSlices[0]) < needTCM {
 		return false
 	}
-	pairBarrier := &q4kPairBarrier{}
+	pairBarrier := &aipool.Q4KPairBarrier{}
 	pool.Run(func(workerID, nWorkers int) {
 		tcmSlice := getTCMSlice(workerID)
 		if tcmSlice == nil || len(tcmSlice) < needTCM {
@@ -141,14 +142,14 @@ func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *
 		if workerID%2 == 0 && rg < groups {
 			rvv.CopyTCMBytes(bSlice, w.BData[rg*subs*608:(rg+1)*subs*608])
 		}
-		pairBarrier.wait(pair)
+		pairBarrier.Wait(pair)
 		if workerID%2 != 0 && rg < groups {
 			rvv.CopyTCMBytes(bSlice, w.BData[rg*subs*608:(rg+1)*subs*608])
 		}
 		bPtr := (*byte)(unsafe.Pointer(&bSlice[0]))
 		for ; rg < groups; rg += nWorkers {
 			if workerID%2 != 0 {
-				pairBarrier.wait(pair)
+				pairBarrier.Wait(pair)
 			}
 			k3I8I4M1(quantPtr, bPtr, &out[rg*32], subs, 32)
 			base0 := rg * subs * 32
@@ -160,7 +161,7 @@ func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *
 				}
 			}
 			if workerID%2 == 0 {
-				pairBarrier.wait(pair)
+				pairBarrier.Wait(pair)
 			}
 			nextRg := rg + nWorkers
 			if nextRg < groups {

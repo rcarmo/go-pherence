@@ -4,20 +4,21 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
 )
 
-func GemmAIArgmaxI32(M, K int, wPacked, actPacked []int8, tmp []int32, pool *AIWorkerPool) (int, int32) {
+func GemmAIArgmaxI32(M, K int, wPacked, actPacked []int8, tmp []int32, pool *aipool.AIWorkerPool) (int, int32) {
 	if M == 0 {
 		return 0, 0
 	}
-	bestIDs := make([]int, pool.n)
-	bestVals := make([]int32, pool.n)
+	bestIDs := make([]int, pool.N)
+	bestVals := make([]int32, pool.N)
 	pool.Run(func(workerID, nWorkers int) {
 		actPtr := (*byte)(unsafe.Pointer(&actPacked[0]))
-		if pool.tcmSlices != nil && workerID < len(pool.tcmSlices) {
+		if pool.TcmSlices != nil && workerID < len(pool.TcmSlices) {
 			need := len(actPacked)
-			if need > 0 && need <= len(pool.tcmSlices[workerID]) {
-				buf := pool.tcmSlices[workerID][:need]
+			if need > 0 && need <= len(pool.TcmSlices[workerID]) {
+				buf := pool.TcmSlices[workerID][:need]
 				copy(buf, *(*[]byte)(unsafe.Pointer(&actPacked)))
 				actPtr = (*byte)(unsafe.Pointer(&buf[0]))
 			}
