@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"github.com/rcarmo/go-pherence/model/qwen3tts"
@@ -87,7 +86,7 @@ func main() {
 			out.RuntimeRequestPlan = &requestPlan
 		}
 	}
-	if infos, err := safetensorInfos(*modelDir, *safetensorPath); err == nil {
+	if infos, err := safetensors.TensorInfosFrom(*modelDir, *safetensorPath); err == nil {
 		names := make([]string, 0, len(infos))
 		for name := range infos {
 			names = append(names, name)
@@ -176,48 +175,6 @@ func main() {
 	if *requireRuntime && !out.RuntimeStatus.RuntimeImplemented {
 		os.Exit(1)
 	}
-}
-
-func safetensorInfos(modelDir, explicit string) (map[string]safetensors.TensorInfo, error) {
-	if explicit != "" {
-		f, err := safetensors.Open(explicit)
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-		return f.TensorInfos(), nil
-	}
-	if sf, err := safetensors.OpenSharded(filepath.Join(modelDir, "model.safetensors.index.json")); err == nil {
-		defer sf.Close()
-		return sf.TensorInfos(), nil
-	}
-	f, err := safetensors.Open(filepath.Join(modelDir, "model.safetensors"))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return f.TensorInfos(), nil
-}
-
-func safetensorNames(modelDir, explicit string) ([]string, error) {
-	if explicit != "" {
-		f, err := safetensors.Open(explicit)
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-		return f.Names(), nil
-	}
-	if sf, err := safetensors.OpenSharded(filepath.Join(modelDir, "model.safetensors.index.json")); err == nil {
-		defer sf.Close()
-		return sf.Names(), nil
-	}
-	f, err := safetensors.Open(filepath.Join(modelDir, "model.safetensors"))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return f.Names(), nil
 }
 
 func printText(r report) {
