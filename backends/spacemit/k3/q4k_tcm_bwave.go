@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 // q4kQ41x32BWaveMatVecBatchSameAct is the B/N32 TCM wave scheduler for
@@ -66,11 +67,11 @@ func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs .
 			rg := workerID
 			// Initial prefetch
 			if workerID%2 == 0 && rg < spGroups {
-				copyTCMBytes(bSlice, sp.W.BData[rg*subs*608:(rg+1)*subs*608])
+				rvv.CopyTCMBytes(bSlice, sp.W.BData[rg*subs*608:(rg+1)*subs*608])
 			}
 			pairBarrier.wait(pair)
 			if workerID%2 != 0 && rg < spGroups {
-				copyTCMBytes(bSlice, sp.W.BData[rg*subs*608:(rg+1)*subs*608])
+				rvv.CopyTCMBytes(bSlice, sp.W.BData[rg*subs*608:(rg+1)*subs*608])
 			}
 			bPtr := (*byte)(unsafe.Pointer(&bSlice[0]))
 			for ; rg < spGroups; rg += nWorkers {
@@ -92,7 +93,7 @@ func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs .
 				}
 				nextRg := rg + nWorkers
 				if nextRg < spGroups {
-					copyTCMBytes(bSlice, sp.W.BData[nextRg*subs*608:(nextRg+1)*subs*608])
+					rvv.CopyTCMBytes(bSlice, sp.W.BData[nextRg*subs*608:(nextRg+1)*subs*608])
 				}
 			}
 		}
@@ -138,11 +139,11 @@ func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *
 		pair := workerID / 2
 		rg := workerID
 		if workerID%2 == 0 && rg < groups {
-			copyTCMBytes(bSlice, w.BData[rg*subs*608:(rg+1)*subs*608])
+			rvv.CopyTCMBytes(bSlice, w.BData[rg*subs*608:(rg+1)*subs*608])
 		}
 		pairBarrier.wait(pair)
 		if workerID%2 != 0 && rg < groups {
-			copyTCMBytes(bSlice, w.BData[rg*subs*608:(rg+1)*subs*608])
+			rvv.CopyTCMBytes(bSlice, w.BData[rg*subs*608:(rg+1)*subs*608])
 		}
 		bPtr := (*byte)(unsafe.Pointer(&bSlice[0]))
 		for ; rg < groups; rg += nWorkers {
@@ -163,7 +164,7 @@ func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *
 			}
 			nextRg := rg + nWorkers
 			if nextRg < groups {
-				copyTCMBytes(bSlice, w.BData[nextRg*subs*608:(nextRg+1)*subs*608])
+				rvv.CopyTCMBytes(bSlice, w.BData[nextRg*subs*608:(nextRg+1)*subs*608])
 			}
 		}
 	})

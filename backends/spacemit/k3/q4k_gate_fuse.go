@@ -1,8 +1,10 @@
 package k3
 
 import (
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 // q4kQ41x32GateUpSiluSameAct runs Gate and Up Q4_K matvecs for the same
@@ -52,11 +54,11 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 			pair := workerID / 2
 			rg := workerID
 			if workerID%2 == 0 {
-				copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*608:(rg+1)*subs*608])
+				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*608:(rg+1)*subs*608])
 			}
 			barrier.wait(pair)
 			if workerID%2 != 0 {
-				copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*608:(rg+1)*subs*608])
+				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*608:(rg+1)*subs*608])
 			}
 			bPtr := (*byte)(unsafe.Pointer(&tcmSlice[bOff]))
 			for ; rg < groups; rg += nWorkers {
@@ -78,7 +80,7 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *AIWorkerPool, gate, up q4kQ
 				}
 				nextRg := rg + nWorkers
 				if nextRg < groups {
-					copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[nextRg*subs*608:(nextRg+1)*subs*608])
+					rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[nextRg*subs*608:(nextRg+1)*subs*608])
 				}
 			}
 			// Batched Go schedulers chain another matrix after this wave; native

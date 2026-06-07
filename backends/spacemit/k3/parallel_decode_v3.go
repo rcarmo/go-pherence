@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 // layerBarrier is a reusable N-party barrier for intra-layer sync.
@@ -85,7 +86,7 @@ func q4kFFNFused(
 		tcmSlice := getTCMSlice(workerID)
 		var quantPtrGate *byte
 		if tcmSlice != nil && len(tcmSlice) >= len(quantGate) {
-			copyTCMBytes(tcmSlice[:len(quantGate)], quantGate)
+			rvv.CopyTCMBytes(tcmSlice[:len(quantGate)], quantGate)
 			quantPtrGate = (*byte)(unsafe.Pointer(&tcmSlice[0]))
 		} else {
 			quantPtrGate = (*byte)(unsafe.Pointer(&quantGate[0]))
@@ -146,7 +147,7 @@ func q4kFFNFused(
 
 		var quantPtrDown *byte
 		if tcmSlice != nil && len(tcmSlice) >= len(sharedQuantDown) {
-			copyTCMBytes(tcmSlice[:len(sharedQuantDown)], sharedQuantDown)
+			rvv.CopyTCMBytes(tcmSlice[:len(sharedQuantDown)], sharedQuantDown)
 			quantPtrDown = (*byte)(unsafe.Pointer(&tcmSlice[0]))
 		} else {
 			quantPtrDown = (*byte)(unsafe.Pointer(&sharedQuantDown[0]))

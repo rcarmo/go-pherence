@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 // aiGemmSpec describes one M×K matmul using already-packed weight and
@@ -108,11 +109,11 @@ func runAIGemmWorkerTCMBWaveMode(spec aiGemmSpec, workerID, nWorkers int, actPac
 	rg := workerID
 	wBytes := unsafe.Slice((*byte)(unsafe.Pointer(&spec.wPacked[0])), len(spec.wPacked))
 	if workerID%2 == 0 {
-		copyTCMBytes(tcmSlice[bOff:bOff+groupBytes], wBytes[rg*groupBytes:(rg+1)*groupBytes])
+		rvv.CopyTCMBytes(tcmSlice[bOff:bOff+groupBytes], wBytes[rg*groupBytes:(rg+1)*groupBytes])
 	}
 	pairBarrier.wait(pair)
 	if workerID%2 != 0 {
-		copyTCMBytes(tcmSlice[bOff:bOff+groupBytes], wBytes[rg*groupBytes:(rg+1)*groupBytes])
+		rvv.CopyTCMBytes(tcmSlice[bOff:bOff+groupBytes], wBytes[rg*groupBytes:(rg+1)*groupBytes])
 	}
 	bPtr := (*byte)(unsafe.Pointer(&tcmSlice[bOff]))
 	actPtr := (*byte)(unsafe.Pointer(&actPacked[0]))
@@ -130,7 +131,7 @@ func runAIGemmWorkerTCMBWaveMode(spec aiGemmSpec, workerID, nWorkers int, actPac
 		}
 		nextRg := rg + nWorkers
 		if nextRg < groups {
-			copyTCMBytes(tcmSlice[bOff:bOff+groupBytes], wBytes[nextRg*groupBytes:(nextRg+1)*groupBytes])
+			rvv.CopyTCMBytes(tcmSlice[bOff:bOff+groupBytes], wBytes[nextRg*groupBytes:(nextRg+1)*groupBytes])
 		}
 	}
 	return true

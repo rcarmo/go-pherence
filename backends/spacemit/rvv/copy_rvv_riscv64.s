@@ -2,7 +2,7 @@
 
 // func copyBytesRVV(dst, src *byte, n int)
 // Copies n bytes in 128-byte RVV chunks. Caller guarantees n%128 == 0.
-TEXT ·copyBytesRVV(SB), NOSPLIT, $0-24
+TEXT ·CopyBytesRVV(SB), NOSPLIT, $0-24
     MOV dst+0(FP), X10
     MOV src+8(FP), X11
     MOV n+16(FP), X12

@@ -3,6 +3,8 @@ package k3
 import (
 	"math"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 type q8Q80x32 struct {
@@ -134,11 +136,11 @@ func q8Q80x32MatVecNative(w q8Q80x32, act []float32, out []float32, pool *AIWork
 			pair := workerID / 2
 			rg := workerID
 			if workerID%2 == 0 {
-				copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
+				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
 			}
 			pairBarrier.wait(pair)
 			if workerID%2 != 0 {
-				copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
+				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
 			}
 			bPtr := (*byte)(unsafe.Pointer(&tcmSlice[bOff]))
 			for ; rg < groups; rg += nWorkers {
@@ -151,7 +153,7 @@ func q8Q80x32MatVecNative(w q8Q80x32, act []float32, out []float32, pool *AIWork
 				}
 				nextRg := rg + nWorkers
 				if nextRg < groups {
-					copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[nextRg*subs*1088:(nextRg+1)*subs*1088])
+					rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[nextRg*subs*1088:(nextRg+1)*subs*1088])
 				}
 			}
 			return

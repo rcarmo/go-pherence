@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 type q8Block32 struct {
@@ -395,7 +396,7 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 		tcmSlice := getTCMSlice(workerID)
 		var quantPtr *byte
 		if tcmSlice != nil && len(tcmSlice) >= len(quantBytes) {
-			copyTCMBytes(tcmSlice[:len(quantBytes)], quantBytes)
+			rvv.CopyTCMBytes(tcmSlice[:len(quantBytes)], quantBytes)
 			quantPtr = (*byte)(unsafe.Pointer(&tcmSlice[0]))
 		} else {
 			quantPtr = (*byte)(unsafe.Pointer(&quantBytes[0]))

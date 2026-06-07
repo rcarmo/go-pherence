@@ -1,6 +1,10 @@
 package k3
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
+)
 
 // q8Q80x32MatVec4Pooled computes four activations against one native q8_0_32x32
 // matrix using the i8i8 dispatcher (M4 for countM>=4), distributed over N32 groups.
@@ -30,11 +34,11 @@ func q8Q80x32MatVec4Pooled(w q8Q80x32, acts [4][]float32, outs [4][]float32, poo
 			pair := workerID / 2
 			rg := workerID
 			if workerID%2 == 0 {
-				copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
+				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
 			}
 			pairBarrier.wait(pair)
 			if workerID%2 != 0 {
-				copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
+				rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[rg*subs*1088:(rg+1)*subs*1088])
 			}
 			bPtr := (*byte)(unsafe.Pointer(&tcmSlice[bOff]))
 			for ; rg < groups; rg += nWorkers {
@@ -53,7 +57,7 @@ func q8Q80x32MatVec4Pooled(w q8Q80x32, acts [4][]float32, outs [4][]float32, poo
 				}
 				nextRg := rg + nWorkers
 				if nextRg < groups {
-					copyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[nextRg*subs*1088:(nextRg+1)*subs*1088])
+					rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], w.BData[nextRg*subs*1088:(nextRg+1)*subs*1088])
 				}
 			}
 			return

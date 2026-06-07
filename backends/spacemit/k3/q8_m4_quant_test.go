@@ -4,6 +4,8 @@ import (
 	"math/rand"
 	"testing"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 func TestQuantizeQ8RowsM4BytesMatchesPackRows(t *testing.T) {
@@ -52,7 +54,7 @@ func TestQuantizeQ8Block32RVVMatchesGo(t *testing.T) {
 	for b := 0; b < nBlocks; b++ {
 		src := &act[b*32]
 		dst := (*byte)(unsafe.Pointer(&got[b*38]))
-		quantizeQ8Block32RVV(src, dst, &q8QuantDivisor)
+		rvv.QuantizeQ8Block32RVV(src, dst, &rvv.Q8QuantDivisor)
 	}
 
 	maxDiff := 0
@@ -98,7 +100,7 @@ func BenchmarkQuantizeQ8Block32RVV(b *testing.B) {
 	var buf [38]byte
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		quantizeQ8Block32RVV(&act[0], &buf[0], &q8QuantDivisor)
+		rvv.QuantizeQ8Block32RVV(&act[0], &buf[0], &rvv.Q8QuantDivisor)
 	}
 }
 
@@ -127,6 +129,6 @@ func BenchmarkCopyBytesRVV128(b *testing.B) {
 	b.SetBytes(n)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		copyTCMBytes(dst, src)
+		rvv.CopyTCMBytes(dst, src)
 	}
 }

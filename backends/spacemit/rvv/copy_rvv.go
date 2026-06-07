@@ -1,11 +1,11 @@
-package k3
+package rvv
 
 import "unsafe"
 
 //go:noescape
-func copyBytesRVV(dst, src *byte, n int)
+func CopyBytesRVV(dst, src *byte, n int)
 
-func copyTCMBytes(dst, src []byte) {
+func CopyTCMBytes(dst, src []byte) {
 	if len(src) == 0 {
 		return
 	}
@@ -16,7 +16,7 @@ func copyTCMBytes(dst, src []byte) {
 	// sizes (Q4_K N32 blocks and INT8 8-row tiles). Use RVV for those and
 	// preserve normal copy() as a safe fallback for odd sizes.
 	if len(src)%128 == 0 {
-		copyBytesRVV((*byte)(unsafe.Pointer(&dst[0])), (*byte)(unsafe.Pointer(&src[0])), len(src))
+		CopyBytesRVV((*byte)(unsafe.Pointer(&dst[0])), (*byte)(unsafe.Pointer(&src[0])), len(src))
 		return
 	}
 	copy(dst, src)

@@ -15,7 +15,7 @@
 //
 // vle32.v with SEW=e8,m1 in effect: EEW=32, EMUL=EEW/SEW*LMUL=m4 → uses v4-v7.
 // All subsequent ops: the vsetvli before each op sets the correct type.
-TEXT ·quantizeQ8Block32RVV(SB), NOSPLIT, $0-24
+TEXT ·QuantizeQ8Block32RVV(SB), NOSPLIT, $0-24
     MOV src+0(FP),      X10  // a0 = src
     MOV dst+8(FP),      X11  // a1 = dst
     MOV divisor+16(FP), X12  // a2 = &divisor

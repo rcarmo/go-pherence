@@ -1,6 +1,10 @@
 package k3
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
+)
 
 // q4kQ41x32MatVecBatchSameActWithI8 runs Q4_K matvecs and INT8 matvecs
 // sharing the same activation in one AI-worker dispatch. This is useful for
@@ -54,11 +58,11 @@ func q4kQ41x32MatVecBatchSameActWithI8(act []float32, pool *AIWorkerPool, q4Spec
 				pair := workerID / 2
 				rg := workerID
 				if workerID%2 == 0 {
-					copyTCMBytes(tcmSlice[bOff:bOff+bBytes], sp.W.BData[rg*subs*608:(rg+1)*subs*608])
+					rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], sp.W.BData[rg*subs*608:(rg+1)*subs*608])
 				}
 				q4PairBarrier.wait(pair)
 				if workerID%2 != 0 {
-					copyTCMBytes(tcmSlice[bOff:bOff+bBytes], sp.W.BData[rg*subs*608:(rg+1)*subs*608])
+					rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], sp.W.BData[rg*subs*608:(rg+1)*subs*608])
 				}
 				bPtr := (*byte)(unsafe.Pointer(&tcmSlice[bOff]))
 				for ; rg < groups; rg += nWorkers {
@@ -71,7 +75,7 @@ func q4kQ41x32MatVecBatchSameActWithI8(act []float32, pool *AIWorkerPool, q4Spec
 					}
 					nextRg := rg + nWorkers
 					if nextRg < groups {
-						copyTCMBytes(tcmSlice[bOff:bOff+bBytes], sp.W.BData[nextRg*subs*608:(nextRg+1)*subs*608])
+						rvv.CopyTCMBytes(tcmSlice[bOff:bOff+bBytes], sp.W.BData[nextRg*subs*608:(nextRg+1)*subs*608])
 					}
 				}
 				q4PairBarrier.wait(pair)
