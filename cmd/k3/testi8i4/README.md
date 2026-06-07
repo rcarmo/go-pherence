@@ -4,7 +4,7 @@ Standalone check of the `k3I8I4M1` RVV matmul kernel against a scalar reference.
 Carries its **own private copy** of `k3_i8i4_go.s` (duplicated from `ime2run`).
 
 ## Usage
-`go run ./cmd/testi8i4`
+`go run ./cmd/k3/testi8i4`
 
 ## Kernels / SIMD to migrate
 - `k3_i8i4_go.s` (`k3I8I4M1`) → `backends/spacemit/ime2/`.

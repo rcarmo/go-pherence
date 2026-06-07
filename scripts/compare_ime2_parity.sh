@@ -17,8 +17,8 @@ export GOCACHE=${GOCACHE:-/home/me/.cache/go-build}
 export GOMODCACHE=${GOMODCACHE:-/home/me/go/pkg/mod}
 mkdir -p "$TMPDIR" "$GOTMPDIR" "$GOCACHE" "$GOMODCACHE"
 
-CGO_ENABLED=1 go build -tags llamacpp -o k3llama ./cmd/k3llama
-go build -o ime2run ./cmd/ime2run
+CGO_ENABLED=1 go build -tags llamacpp -o k3llama ./cmd/k3/k3llama
+go build -o ime2run ./cmd/k3/ime2run
 
 c_out=$(mktemp)
 go_out=$(mktemp)

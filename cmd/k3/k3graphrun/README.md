@@ -6,7 +6,7 @@ the SpaceMIT repack buffer-type activation that closed the IME2 perf gap.
 `//go:build ggml && cgo && linux`.
 
 ## Usage
-`go run -tags 'ggml cgo linux' ./cmd/k3graphrun -model <m.gguf> -prompt "..." -tokens 64 -threads 8`
+`go run -tags 'ggml cgo linux' ./cmd/k3/k3graphrun -model <m.gguf> -prompt "..." -tokens 64 -threads 8`
 
 ## go-pherence packages used
 - `backends/llamagraph`, `loader/gguf`

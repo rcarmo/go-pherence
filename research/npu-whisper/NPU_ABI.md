@@ -141,7 +141,7 @@ Two non-obvious requirements (cost a long debug):
    duration, reserve a contiguous range, `MAP_FIXED` each core into it, and retry
    any core a stray runtime mmap interrupted. With that, all 8 cores acquire.
 
-`cmd/npu-tcm` is the on-device validator.
+`cmd/k3/npu-tcm` is the on-device validator.
 
 ## Next: GEMM (the remaining black box)
 

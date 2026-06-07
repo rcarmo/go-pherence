@@ -7,7 +7,7 @@ kernel was first written, tuned, and benchmarked.
 
 ## Usage
 ```
-go run -tags 'cgo q4kcshim' ./cmd/ime2run \
+go run -tags 'cgo q4kcshim' ./cmd/k3/ime2run \
   -model <model.gguf> -prompt "..." -tokens 64 \
   -threads 6 -scalar-threads 2 -trace-ids
 ```

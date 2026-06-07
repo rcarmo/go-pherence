@@ -5,7 +5,7 @@ Backend selection order: `auto → SpacemiT(IME2) → Vulkan → CPU SIMD`; the 
 forward pass is benchmarked per tier, then steady-state tokens are timed.
 
 ## Usage
-`go run ./cmd/k3run -model <m.gguf> -prompt "..." -tokens 64 [-backend auto] [-bench-all]`
+`go run ./cmd/k3/k3run -model <m.gguf> -prompt "..." -tokens 64 [-backend auto] [-bench-all]`
 
 ## go-pherence packages used
 - `backends/k3`, `loader/gguf`, `model`

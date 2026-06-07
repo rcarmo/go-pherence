@@ -1,7 +1,7 @@
 # Measured end-to-end RTF — pure-Go int8 encoder (large-v3, 30s clip)
 
 Real measurements this session on the MilkV Jupiter 2 (SpaceMIT K3, 8x X60),
-large-v3 safetensors, 30s podcast window, via `cmd/whisper -size large-v3
+large-v3 safetensors, 30s podcast window, via `cmd/audio/whisper -size large-v3
 -timestamps`. Decode column is the FULL 32-layer large-v3 decoder unless noted.
 
 | Config                        | Threads | convstem | linear | attn  | other | encoder | decode | total  | RTF  |

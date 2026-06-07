@@ -21,10 +21,10 @@ for f in config.json model.safetensors tokenizer.json; do
 done
 
 # CPU path: AVX2/NEON SIMD with scalar fallbacks
-go run ./cmd/llmgen -model models/qwen3-0.6b -tokens 50 -prompt "The meaning of life is"
+go run ./cmd/llm/llmgen -model models/qwen3-0.6b -tokens 50 -prompt "The meaning of life is"
 
 # NVIDIA path: runtime-loaded PTX, zero CGo
-go run ./cmd/llmgen -gpu -model models/qwen3-0.6b -tokens 50 -prompt "The meaning of life is"
+go run ./cmd/llm/llmgen -gpu -model models/qwen3-0.6b -tokens 50 -prompt "The meaning of life is"
 ```
 
 ## Current highlights
@@ -51,7 +51,7 @@ It fits fully on the local RTX 3060 (`42/42` layers resident, compact quantized 
 Example:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
   -model models/gemma4-e4b-it-4bit \
   -mtp-drafter models/gemma4-e4b-mtp-drafter \
@@ -65,19 +65,19 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
 
 ```bash
 # One-shot generation
-go run ./cmd/llmgen -model models/qwen3-0.6b -gpu -tokens 50 -prompt "Hello"
+go run ./cmd/llm/llmgen -model models/qwen3-0.6b -gpu -tokens 50 -prompt "Hello"
 
 # Interactive chat
-go run ./cmd/llmchat -model models/gemma4-e2b-it-4bit -gpu -n 256
+go run ./cmd/llm/llmchat -model models/gemma4-e2b-it-4bit -gpu -n 256
 
 # OpenAI-compatible server
-go run ./cmd/llmserver -model models/gemma4-e2b-it-4bit -gpu -listen :8080
+go run ./cmd/llm/llmserver -model models/gemma4-e2b-it-4bit -gpu -listen :8080
 
 # Stock-weight speculative benchmark scaffold
-go run ./cmd/specbench -model models/smollm2-135m -prompt-file prompts.txt -tokens 16 -repeat 3
+go run ./cmd/llm/specbench -model models/smollm2-135m -prompt-file prompts.txt -tokens 16 -repeat 3
 
 # Large-v3 translated WebVTT from audio (GPU-assisted, resumable)
-go run ./cmd/diarize-vtt -input meeting.m4a -output meeting.vtt -language es
+go run ./cmd/audio/diarize-vtt -input meeting.m4a -output meeting.vtt -language es
 
 # Native pure Go/SIMD GGUF REAP/TurboQuant validation and benchmark
 make gguf-inspect-qwen36-reap

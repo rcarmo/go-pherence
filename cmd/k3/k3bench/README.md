@@ -5,7 +5,7 @@ Benchmarks each available compute backend tier across the core transformer ops
 on a GGUF model for a whole-model number.
 
 ## Usage
-`go run ./cmd/k3bench -size 4096 -heads 32 -kv-heads 8 -head-dim 128 -seq 512 -iters 50 -threads 8 [-model m.gguf]`
+`go run ./cmd/k3/k3bench -size 4096 -heads 32 -kv-heads 8 -head-dim 128 -seq 512 -iters 50 -threads 8 [-model m.gguf]`
 
 ## go-pherence packages used
 - `backends/k3`
