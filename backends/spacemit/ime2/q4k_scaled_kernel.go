@@ -1,6 +1,6 @@
-package k3engine
+package ime2
 
-// vmadotQ4KIntLoop1024 performs Q4_K vmadot for one 8-row tile group across
+// VmadotQ4KIntLoop1024 performs Q4_K vmadot for one 8-row tile group across
 // all K/32 subblocks in a single assembly call.
 //
 // For each subblock sb = 0..numSubs-1:
@@ -13,7 +13,7 @@ package k3engine
 // intBuf must have capacity numSubs*8.
 //
 //go:noescape
-func vmadotQ4KIntLoop1024(wTiles, actBcast *byte, scratch, intBuf *int32, numSubs int)
+func VmadotQ4KIntLoop1024(wTiles, actBcast *byte, scratch, intBuf *int32, numSubs int)
 
 // vmadotQ4KScaledLoop1024 performs the full per-subblock Q4_K matvec update
 // for one 8-row group in RISC-V/SpacemiT assembly.

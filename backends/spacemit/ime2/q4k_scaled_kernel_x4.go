@@ -1,4 +1,4 @@
-package k3engine
+package ime2
 
 // vmadotQ4KIntLoop1024x4 processes 4 consecutive 8-row groups per call,
 // loading actBcast ONCE per tile (vs 4× for separate calls).

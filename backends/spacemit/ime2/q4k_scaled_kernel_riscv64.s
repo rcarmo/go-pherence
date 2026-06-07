@@ -19,7 +19,7 @@
 //   X14 (a4) = numSubs   (countdown)
 //   X5,X6,X7,X15,X16,X28,X29,X30 = extracted rows (all caller-saved)
 
-TEXT ·vmadotQ4KIntLoop1024(SB), NOSPLIT, $0-40
+TEXT ·VmadotQ4KIntLoop1024(SB), NOSPLIT, $0-40
     MOV wTiles+0(FP),   X10
     MOV actBcast+8(FP), X11
     MOV scratch+16(FP), X12

@@ -376,7 +376,7 @@ func applyQ4KMinCorr(out []float32, mins []float32, act []float32, M, K int) {
 }
 
 // q4kBlockMatVecScaledLoop runs a Q4_K-correct M×K matrix-vector multiply
-// using vmadotQ4KIntLoop1024: one Go function call per 8-row group for all
+// using ime2.VmadotQ4KIntLoop1024: one Go function call per 8-row group for all
 // subblocks in assembly, then float scaling in scalar Go.
 //
 // Requires M%8==0, K%32==0, scales and mins non-nil.
@@ -413,7 +413,7 @@ func q4kBlockMatVecScaledLoop(M, K int, wPacked []int8, scales, mins []float32,
 
 		for row := rowStart; row < rowEnd; row += 8 {
 			// One assembly call processes all subs; eliminates per-tile Go call overhead.
-			vmadotQ4KIntLoop1024(
+			ime2.VmadotQ4KIntLoop1024(
 				(*byte)(unsafe.Pointer(&wPacked[(row/8)*tilesPerRow*128])),
 				(*byte)(unsafe.Pointer(&actBcast[0])),
 				&scratch[0],
