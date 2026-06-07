@@ -2,6 +2,6 @@
 // The implementation lives in backends/spacemit/k3.
 package main
 
-import k3 "github.com/rcarmo/go-pherence/backends/spacemit/k3"
+import "github.com/rcarmo/go-pherence/backends/spacemit/k3engine"
 
-func main() { k3.Run() }
+func main() { k3engine.Run() }
