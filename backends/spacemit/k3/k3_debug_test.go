@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 )
 
 // TestK3I8I4M1Simple verifies the kernel with constant/simple inputs
@@ -639,8 +640,8 @@ func TestK3I8I8M4DispatcherMatchesM1(t *testing.T) {
 }
 
 func TestQ4KGateUpSiluFuseBWaveMatchesDirect(t *testing.T) {
-	oldWave := q4kTCMBWaveOn
-	defer func() { q4kTCMBWaveOn = oldWave }()
+	oldWave := config.Q4kTCMBWaveOn
+	defer func() { config.Q4kTCMBWaveOn = oldWave }()
 	M, K := 192, 1024
 	subs := K / 32
 	mkWeight := func(seed int) q4kQ41x32 {
@@ -672,14 +673,14 @@ func TestQ4KGateUpSiluFuseBWaveMatchesDirect(t *testing.T) {
 	defer pool.Close()
 	gateA, upA, hiddenA := make([]float32, M), make([]float32, M), make([]float32, M)
 	gateB, upB, hiddenB := make([]float32, M), make([]float32, M), make([]float32, M)
-	q4kTCMBWaveOn = false
+	config.Q4kTCMBWaveOn = false
 	if !q4kQ41x32MatVecBatchSameAct(act, pool, q4kBatchMatVecSpec{W: gate, Out: gateA}, q4kBatchMatVecSpec{W: up, Out: upA}) {
 		t.Fatal("direct batch failed")
 	}
 	for i := 0; i < M; i++ {
 		hiddenA[i] = silu(gateA[i]) * upA[i]
 	}
-	q4kTCMBWaveOn = true
+	config.Q4kTCMBWaveOn = true
 	if !q4kQ41x32GateUpSiluSameAct(act, pool, gate, up, gateB, upB, hiddenB) {
 		t.Fatal("b-wave fused failed")
 	}
@@ -702,8 +703,8 @@ func TestQ4KGateUpSiluFuseBWaveMatchesDirect(t *testing.T) {
 }
 
 func TestQ4KBWaveMatVecMatchesDirect(t *testing.T) {
-	oldWave := q4kTCMBWaveOn
-	defer func() { q4kTCMBWaveOn = oldWave }()
+	oldWave := config.Q4kTCMBWaveOn
+	defer func() { config.Q4kTCMBWaveOn = oldWave }()
 	M, K := 1024, 1024
 	subs := K / 32
 	raw := make([]int8, M*K)
@@ -730,9 +731,9 @@ func TestQ4KBWaveMatVecMatchesDirect(t *testing.T) {
 	defer pool.Close()
 	direct := make([]float32, M)
 	wave := make([]float32, M)
-	q4kTCMBWaveOn = false
+	config.Q4kTCMBWaveOn = false
 	q4kQ41x32MatVecGoAsm(w, act, direct, pool)
-	q4kTCMBWaveOn = true
+	config.Q4kTCMBWaveOn = true
 	q4kQ41x32MatVecGoAsm(w, act, wave, pool)
 	var maxDiff float64
 	maxIdx := 0
@@ -752,8 +753,8 @@ func TestQ4KBWaveMatVecMatchesDirect(t *testing.T) {
 }
 
 func TestQ4KBWaveWOLikeMatVecMatchesDirect(t *testing.T) {
-	oldWave := q4kTCMBWaveOn
-	defer func() { q4kTCMBWaveOn = oldWave }()
+	oldWave := config.Q4kTCMBWaveOn
+	defer func() { config.Q4kTCMBWaveOn = oldWave }()
 	M, K := 1024, 2048
 	subs := K / 32
 	raw := make([]int8, M*K)
@@ -780,9 +781,9 @@ func TestQ4KBWaveWOLikeMatVecMatchesDirect(t *testing.T) {
 	defer pool.Close()
 	direct := make([]float32, M)
 	wave := make([]float32, M)
-	q4kTCMBWaveOn = false
+	config.Q4kTCMBWaveOn = false
 	q4kQ41x32MatVecGoAsm(w, act, direct, pool)
-	q4kTCMBWaveOn = true
+	config.Q4kTCMBWaveOn = true
 	q4kQ41x32MatVecGoAsm(w, act, wave, pool)
 	var maxDiff float64
 	maxIdx := 0
@@ -802,9 +803,9 @@ func TestQ4KBWaveWOLikeMatVecMatchesDirect(t *testing.T) {
 }
 
 func TestQ4KBWaveBatchMixedShapesMatchesDirect(t *testing.T) {
-	oldWave := q4kTCMBWaveOn
-	oldBatch := q4kTCMBWaveBatchOn
-	defer func() { q4kTCMBWaveOn = oldWave; q4kTCMBWaveBatchOn = oldBatch }()
+	oldWave := config.Q4kTCMBWaveOn
+	oldBatch := config.Q4kTCMBWaveBatchOn
+	defer func() { config.Q4kTCMBWaveOn = oldWave; config.Q4kTCMBWaveBatchOn = oldBatch }()
 	K := 1024
 	subs := K / 32
 	mkWeight := func(M int, seed int) q4kQ41x32 {
@@ -836,13 +837,13 @@ func TestQ4KBWaveBatchMixedShapesMatchesDirect(t *testing.T) {
 	defer pool.Close()
 	qDirect, kDirect := make([]float32, wq.M), make([]float32, wk.M)
 	qWave, kWave := make([]float32, wq.M), make([]float32, wk.M)
-	q4kTCMBWaveOn = false
-	q4kTCMBWaveBatchOn = false
+	config.Q4kTCMBWaveOn = false
+	config.Q4kTCMBWaveBatchOn = false
 	if !q4kQ41x32MatVecBatchSameAct(act, pool, q4kBatchMatVecSpec{W: wq, Out: qDirect}, q4kBatchMatVecSpec{W: wk, Out: kDirect}) {
 		t.Fatal("direct batch failed")
 	}
-	q4kTCMBWaveOn = true
-	q4kTCMBWaveBatchOn = true
+	config.Q4kTCMBWaveOn = true
+	config.Q4kTCMBWaveBatchOn = true
 	if !q4kQ41x32MatVecBatchSameAct(act, pool, q4kBatchMatVecSpec{W: wq, Out: qWave}, q4kBatchMatVecSpec{W: wk, Out: kWave}) {
 		t.Fatal("b-wave batch failed")
 	}

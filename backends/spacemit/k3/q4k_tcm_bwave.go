@@ -5,6 +5,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -16,10 +17,10 @@ func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *aipool.AIWorkerPool, 
 	if len(specs) == 0 || pool == nil {
 		return false
 	}
-	if q4kExactOn || q4kNativeCGOOn {
+	if config.Q4kExactOn || config.Q4kNativeCGOOn {
 		return false
 	}
-	if !q4kTCMBWaveBatchOn || pool.N%2 != 0 || pool.TcmSlices == nil {
+	if !config.Q4kTCMBWaveBatchOn || pool.N%2 != 0 || pool.TcmSlices == nil {
 		return false
 	}
 	K := specs[0].W.K
@@ -108,7 +109,7 @@ func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *
 	if !w.Valid || w.K%32 != 0 || w.M%32 != 0 || pool == nil {
 		return false
 	}
-	if !q4kTCMBWaveSingleOn || pool.N%2 != 0 || pool.TcmSlices == nil {
+	if !config.Q4kTCMBWaveSingleOn || pool.N%2 != 0 || pool.TcmSlices == nil {
 		return false
 	}
 	subs := w.K / 32

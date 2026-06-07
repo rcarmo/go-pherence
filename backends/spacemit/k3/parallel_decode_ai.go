@@ -9,6 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 )
 
 // parallelDecodeAI runs inference with matmuls on AI cores (8-15, VLEN=1024).
@@ -94,7 +95,7 @@ func parallelDecodeAI(
 		if x32.Valid && scales != nil && mins != nil {
 			// Q4_K AI route: native PR #22863 Q4_1x32-style layout + SpacemiT RISC-V assembly kernel.
 			// Default is C parity (zp*d correction only). Exact dequant residual is opt-in for diagnostics.
-			if q4kExactOn {
+			if config.Q4kExactOn {
 				q4kQ41x32MatVecExactAI(x32, mins, act, out, pool)
 			} else {
 				q4kQ41x32MatVecGoAsm(x32, act, out, pool)
@@ -190,7 +191,7 @@ func parallelDecodeAI(
 		}
 
 		// QKV matmuls
-		if q4kBatchOn && l.wqX32.Valid && l.wkX32.Valid {
+		if config.Q4kBatchOn && l.wqX32.Valid && l.wkX32.Valid {
 			if l.wvX32.Valid {
 				q4kQ41x32MatVecBatchSameAct(xn, pool,
 					q4kBatchMatVecSpec{W: l.wqX32, Out: qF},
@@ -198,7 +199,7 @@ func parallelDecodeAI(
 					q4kBatchMatVecSpec{W: l.wvX32, Out: vF},
 				)
 			} else {
-				if nativeI8I8WVOn && l.wvQ8X32.Valid {
+				if config.NativeI8I8WVOn && l.wvQ8X32.Valid {
 					q4kQ41x32MatVecBatchSameAct(xn, pool,
 						q4kBatchMatVecSpec{W: l.wqX32, Out: qF},
 						q4kBatchMatVecSpec{W: l.wkX32, Out: kF},
@@ -423,13 +424,13 @@ func parallelDecodeAI(
 		siluDone := false
 		downDone := false
 		var downActScale float32
-		if q4kBatchOn && !aiUseVL32 && !l.downX32.Valid && l.gateX32.Valid && l.upX32.Valid {
+		if config.Q4kBatchOn && !aiUseVL32 && !l.downX32.Valid && l.gateX32.Valid && l.upX32.Valid {
 			downActScale, downDone = q4kQ41x32FFNFusedSameAct(xn2, pool, l.gateX32, l.upX32,
 				aipool.AIGemmSpec{M: nEmbd, K: KpFF, WPacked: l.downPacked1024, ActPacked: downActPacked, WScale: l.downScale, Out: downF},
 				gateF, upF, hidden, downF, downActPad, downActPacked)
 			siluDone = downDone
 		}
-		if !downDone && q4kBatchOn && l.gateX32.Valid && l.upX32.Valid && q4kQ41x32GateUpSiluSameAct(xn2, pool, l.gateX32, l.upX32, gateF, upF, hidden) {
+		if !downDone && config.Q4kBatchOn && l.gateX32.Valid && l.upX32.Valid && q4kQ41x32GateUpSiluSameAct(xn2, pool, l.gateX32, l.upX32, gateF, upF, hidden) {
 			siluDone = true
 			if il <= 2 && os.Getenv("IME2_NORM_TRACE") != "" {
 				var us float32
@@ -446,7 +447,7 @@ func parallelDecodeAI(
 					l.upF32[0], l.upF32[1], l.upF32[2], l.upF32[3],
 					upF[0], upF[1], upF[2], upF[3])
 			}
-		} else if q4kBatchOn && l.gateX32.Valid && l.upX32.Valid && q4kQ41x32MatVecBatchSameAct(xn2, pool,
+		} else if config.Q4kBatchOn && l.gateX32.Valid && l.upX32.Valid && q4kQ41x32MatVecBatchSameAct(xn2, pool,
 			q4kBatchMatVecSpec{W: l.gateX32, Out: gateF},
 			q4kBatchMatVecSpec{W: l.upX32, Out: upF},
 		) {
@@ -470,16 +471,16 @@ func parallelDecodeAI(
 			matVecRef(false, nFF, nEmbd, l.gateRaw, l.gatePacked1024, l.gateX32, l.gateScales, l.gateMins, l.gateF32, xn2, gateF)
 			matVecRef(false, nFF, nEmbd, l.upRaw, l.upPacked1024, l.upX32, l.upScales, l.upMins, l.upF32, xn2, upF)
 		}
-		if os.Getenv("IME2_GATE_WAVE_COMPARE") != "" && q4kTCMBWaveGateOn && l.gateX32.Valid && l.upX32.Valid {
+		if os.Getenv("IME2_GATE_WAVE_COMPARE") != "" && config.Q4kTCMBWaveGateOn && l.gateX32.Valid && l.upX32.Valid {
 			refGate := make([]float32, nFF)
 			refUp := make([]float32, nFF)
-			oldBatchWave := q4kTCMBWaveBatchOn
-			q4kTCMBWaveBatchOn = false
+			oldBatchWave := config.Q4kTCMBWaveBatchOn
+			config.Q4kTCMBWaveBatchOn = false
 			_ = q4kQ41x32MatVecBatchSameAct(xn2, pool,
 				q4kBatchMatVecSpec{W: l.gateX32, Out: refGate},
 				q4kBatchMatVecSpec{W: l.upX32, Out: refUp},
 			)
-			q4kTCMBWaveBatchOn = oldBatchWave
+			config.Q4kTCMBWaveBatchOn = oldBatchWave
 			var maxGate, maxUp, maxHidden float32
 			maxGateIdx, maxUpIdx, maxHiddenIdx := 0, 0, 0
 			for i := 0; i < nFF; i++ {
@@ -569,9 +570,9 @@ func parallelDecodeAI(
 		if !downDone {
 			if l.downX32.Valid && l.downScales != nil && l.downMins != nil {
 				matVecRef(false, nEmbd, nFF, l.downRaw, l.downPacked1024, l.downX32, l.downScales, l.downMins, l.downF32, hidden, downF)
-			} else if nativeI8I8DownOn && l.downQ8X32.Valid {
+			} else if config.NativeI8I8DownOn && l.downQ8X32.Valid {
 				q8Q80x32MatVecNative(l.downQ8X32, hidden, downF, pool)
-			} else if int8DownAddOn && !aiUseVL32 && os.Getenv("IME2_NORM_TRACE") == "" {
+			} else if config.Int8DownAddOn && !aiUseVL32 && os.Getenv("IME2_NORM_TRACE") == "" {
 				aipool.GemmAIPooledAdd(nEmbd, KpFF, l.downPacked1024, downActPacked, l.downScale, downActScale, x, pool)
 				downAdded = true
 			} else {

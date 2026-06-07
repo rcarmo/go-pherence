@@ -8,6 +8,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 )
 
 type q4kQ41Packed struct {
@@ -193,7 +194,7 @@ func q4kBlockMatVecAIPacked(M, K int, wPacked []int8, scales, mins []float32, ac
 	if K%32 != 0 || M%8 != 0 {
 		panic("q4kBlockMatVecAIPacked: unsupported shape")
 	}
-	if q4kScaledLoopOn && scales != nil && mins != nil {
+	if config.Q4kScaledLoopOn && scales != nil && mins != nil {
 		// Fast path: quantize activations per-subblock then call the single-dispatch kernel.
 		subs := K / 32
 		actI8 := make([]int8, K)
@@ -331,7 +332,7 @@ func returnQ4KBlockMatVecQ41(q41 q4kQ41Packed, exactMins []float32, act []float3
 				for r := 0; r < 8 && row+r < M; r++ {
 					idx := (row+r)*subsPerRow + sb
 					var minTerm float32
-					if exactMins != nil && !q4kLlamaZPOn {
+					if exactMins != nil && !config.Q4kLlamaZPOn {
 						minTerm = exactMins[idx]
 					} else {
 						minTerm = scales[idx] * float32(q41.ZP[idx])

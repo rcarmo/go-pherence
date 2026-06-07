@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -15,7 +16,7 @@ func q4kQ41x32MatVecBatchSameActWithI8(act []float32, pool *aipool.AIWorkerPool,
 		return false
 	}
 	// Keep diagnostic/special modes on their established code paths.
-	if q4kExactOn || q4kNativeCGOOn {
+	if config.Q4kExactOn || config.Q4kNativeCGOOn {
 		return false
 	}
 	// k3I8I4M1Groups kernel is imprecise without Go ZP correction loop.
@@ -55,7 +56,7 @@ func q4kQ41x32MatVecBatchSameActWithI8(act []float32, pool *aipool.AIWorkerPool,
 			}
 			bBytes := subs * 608
 			bOff := (len(quantA) + 63) &^ 63
-			if q4kTCMBWaveBatchOn && subs%2 == 0 && nWorkers%2 == 0 && groups >= nWorkers && (groups%nWorkers)%2 == 0 && len(tcmSlice) >= bOff+bBytes {
+			if config.Q4kTCMBWaveBatchOn && subs%2 == 0 && nWorkers%2 == 0 && groups >= nWorkers && (groups%nWorkers)%2 == 0 && len(tcmSlice) >= bOff+bBytes {
 				pair := workerID / 2
 				rg := workerID
 				if workerID%2 == 0 {

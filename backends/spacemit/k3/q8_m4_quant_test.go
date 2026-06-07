@@ -5,6 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -34,7 +35,7 @@ func TestQuantizeQ8RowsM4BytesMatchesPackRows(t *testing.T) {
 
 func TestQuantizeQ8Block32RVVMatchesGo(t *testing.T) {
 	// Test that quantizeQ8Block32RVV produces identical output to the
-	// reference Go path (quantizeQ8Blocks32Bytes with q8RoundOn forced off).
+	// reference Go path (quantizeQ8Blocks32Bytes with config.Q8RoundOn forced off).
 	rng := rand.New(rand.NewSource(0xDEAD_BEEF))
 	const nBlocks = 16
 
@@ -44,10 +45,10 @@ func TestQuantizeQ8Block32RVVMatchesGo(t *testing.T) {
 	}
 
 	// Reference: Go path (truncation, not RVV)
-	oldRound := q8RoundOn
-	q8RoundOn = false
+	oldRound := config.Q8RoundOn
+	config.Q8RoundOn = false
 	ref := quantizeQ8Blocks32Bytes(act)
-	q8RoundOn = oldRound
+	config.Q8RoundOn = oldRound
 
 	// RVV path: call block-by-block directly
 	got := make([]byte, nBlocks*38)
@@ -109,13 +110,13 @@ func BenchmarkQuantizeQ8Block32Go(b *testing.B) {
 	for i := range act {
 		act[i] = float32(i+1) * 0.1
 	}
-	old := q8RoundOn
-	q8RoundOn = false
+	old := config.Q8RoundOn
+	config.Q8RoundOn = false
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		quantizeQ8Blocks32Bytes(act)
 	}
-	q8RoundOn = old
+	config.Q8RoundOn = old
 }
 
 func BenchmarkCopyBytesRVV128(b *testing.B) {

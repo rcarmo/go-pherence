@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 )
 
 // q4kQ41x32FFNFusedSameAct runs Gate/Up Q4_K, SiLU, global INT8 quant/pack,
@@ -12,7 +13,7 @@ import (
 // existing single global activation scale for down by reducing per-worker maxAbs
 // before quantization.
 func q4kQ41x32FFNFusedSameAct(act []float32, pool *aipool.AIWorkerPool, gate, up q4kQ41x32, down aipool.AIGemmSpec, gateOut, upOut, hidden, downOut []float32, downActPad, downActPacked []int8) (float32, bool) {
-	if !q4kFFNFuseOn || q4kTCMBWaveOn || q4kExactOn || q4kNativeCGOOn || aipool.Int8TCMBWaveOn {
+	if !config.Q4kFFNFuseOn || config.Q4kTCMBWaveOn || config.Q4kExactOn || config.Q4kNativeCGOOn || aipool.Int8TCMBWaveOn {
 		return 0, false
 	}
 	if !gate.Valid || !up.Valid || gate.K != up.K || gate.M != up.M || gate.K%32 != 0 || gate.M%32 != 0 {

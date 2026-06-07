@@ -1,12 +1,16 @@
 package k3
 
-import "math"
+import (
+	"math"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
+)
 
 // quantizeQ8RowsM4Bytes builds the native M4 A layout directly:
 // per K32 block: fp32 scale[4], int16 negative_sum[4], int8 q[4][32].
 // This mirrors llama.cpp quantize_a_4row_i8 for blk_len=32.
 func quantizeQ8RowsM4Bytes(acts [4][]float32, kBlks int) []byte {
-	if q8RoundOn {
+	if config.Q8RoundOn {
 		var rows [4][]byte
 		for i := 0; i < 4; i++ {
 			rows[i] = quantizeQ8Blocks32Bytes(acts[i])
@@ -42,7 +46,7 @@ func quantizeQ8RowsM4Bytes(acts [4][]float32, kBlks int) []byte {
 			var sum int32
 			for i := 0; i < 32; i++ {
 				v := row[base+i] * rep
-				if q8RoundOn {
+				if config.Q8RoundOn {
 					v = float32(math.RoundToEven(float64(v)))
 				}
 				if v > 127 {

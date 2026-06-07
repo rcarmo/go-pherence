@@ -8,6 +8,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -110,7 +111,7 @@ func quantizeQ8Blocks32Bytes(act []float32) []byte { return q8Blocks32Bytes(act)
 
 func q4kQ41x32MatVecExactAI(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
 	q4kQ41x32MatVecGoAsmWithCorrection(w, exactMins, act, out, pool)
-	if q4kCompareOn {
+	if config.Q4kCompareOn {
 		ref := make([]float32, len(out))
 		q4kQ41x32MatVecRef(w, act, ref)
 		var maxDiff float32
@@ -187,7 +188,7 @@ func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []
 			}
 		}
 	}
-	if q4kGoAsmSerialOn {
+	if config.Q4kGoAsmSerialOn {
 		aipool.RegisterAIThread(8)
 		for rg := 0; rg < groups; rg++ {
 			runGroup(rg)
@@ -223,9 +224,9 @@ func q4kQ41x32MatVecCShim(w q4kQ41x32, act []float32, out []float32, pool *aipoo
 // q8 activations are quantized in 32-wide blocks with scale and negative sum;
 // weights are Q4_K->Q4_1x32 with fp scale and uint4 zero-point per output row.
 func q4kQ41x32MatVecAI(w q4kQ41x32, act []float32, out []float32, pool *aipool.AIWorkerPool) {
-	if q4kGoAsmOn {
+	if config.Q4kGoAsmOn {
 		q4kQ41x32MatVecGoAsm(w, act, out, pool)
-		if q4kCompareOn {
+		if config.Q4kCompareOn {
 			ref := make([]float32, len(out))
 			q4kQ41x32MatVecRef(w, act, ref)
 			var maxDiff float32
@@ -244,11 +245,11 @@ func q4kQ41x32MatVecAI(w q4kQ41x32, act []float32, out []float32, pool *aipool.A
 		}
 		return
 	}
-	if q4kCShimOn {
+	if config.Q4kCShimOn {
 		q4kQ41x32MatVecCShim(w, act, out, pool)
 		return
 	}
-	if q4kLlamaX32RefOn {
+	if config.Q4kLlamaX32RefOn {
 		q4kQ41x32MatVecRef(w, act, out)
 		return
 	}
@@ -370,7 +371,7 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *aipool.AIWorkerPool, specs
 	if len(specs) == 0 || pool == nil {
 		return false
 	}
-	if q4kExactOn || q4kNativeCGOOn {
+	if config.Q4kExactOn || config.Q4kNativeCGOOn {
 		return false
 	}
 	K := specs[0].W.K
@@ -383,7 +384,7 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *aipool.AIWorkerPool, specs
 		}
 	}
 	// B-wave batch for QKV (TCM double-buffered weights)
-	if q4kTCMBWaveBatchOn && q4kQ41x32BWaveMatVecBatchSameAct(act, pool, specs...) {
+	if config.Q4kTCMBWaveBatchOn && q4kQ41x32BWaveMatVecBatchSameAct(act, pool, specs...) {
 		return true
 	}
 	subs := K / 32

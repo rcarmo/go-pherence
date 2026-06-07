@@ -15,6 +15,7 @@ import (
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/inference"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	// tokenizer loaded via gguf
 )
@@ -321,7 +322,7 @@ func Run() {
 		l.gateX32 = repackQ4KToQ41x32(l.gateRows, pad32(l.gateCols), l.gateRaw, l.gateScales, l.gateMins)
 		l.upX32 = repackQ4KToQ41x32(l.upRows, pad32(l.upCols), l.upRaw, l.upScales, l.upMins)
 		l.downX32 = repackQ4KToQ41x32(l.downRows, pad32(l.downCols), l.downRaw, l.downScales, l.downMins)
-		if nativeI8I8WVOn && !l.wvX32.Valid {
+		if config.NativeI8I8WVOn && !l.wvX32.Valid {
 			if t, ok := g.TensorByName(tensorName("wv", il)); ok && t.QType == 14 {
 				if raw, err := g.Raw(t); err == nil {
 					l.wvQ8X32 = repackQ6KRawToQ80x32(l.wvRows, pad32(l.wvCols), raw)
@@ -331,7 +332,7 @@ func Run() {
 				l.wvQ8X32 = repackF32ToQ80x32(l.wvRows, pad32(l.wvCols), l.wvF32)
 			}
 		}
-		if nativeI8I8DownOn && !l.downX32.Valid {
+		if config.NativeI8I8DownOn && !l.downX32.Valid {
 			if t, ok := g.TensorByName(tensorName("down", il)); ok && t.QType == 14 {
 				if raw, err := g.Raw(t); err == nil {
 					l.downQ8X32 = repackQ6KRawToQ80x32(l.downRows, pad32(l.downCols), raw)
@@ -368,7 +369,7 @@ func Run() {
 	var lmHeadScale float32
 	vPad := ((nVocab + 7) / 8) * 8
 	lmKp := pad32(nEmbd)
-	if nativeI8I8LMOn {
+	if config.NativeI8I8LMOn {
 		lmTensor := tokT
 		if outT, ok := g.TensorByName("output.weight"); ok && len(outT.Shape) >= 2 && int(outT.Shape[0]) == nEmbd && int(outT.Shape[1]) >= nVocab {
 			lmTensor = outT
@@ -395,7 +396,7 @@ func Run() {
 			lmHeadPackedX100 = ime2.PackTiles(i8, vPad, lmKp)
 			fmt.Fprintf(os.Stderr, "Packed LM head X100: %d×%d (%d MB)\n", vPad, lmKp, len(lmHeadPackedX100)/1024/1024)
 		}
-		if (lmUseA100 && !(nativeI8I8LMOn && lmHeadQ8X32.Valid)) || lmParity {
+		if (lmUseA100 && !(config.NativeI8I8LMOn && lmHeadQ8X32.Valid)) || lmParity {
 			lmHeadPacked1024 = ime2.PackTiles1024(i8, vPad, lmKp)
 			fmt.Fprintf(os.Stderr, "Packed LM head A100: %d×%d (%d MB)\n", vPad, lmKp, len(lmHeadPacked1024)/1024/1024)
 		}
@@ -584,7 +585,7 @@ func Run() {
 				}
 				logits[v] = sum
 			}
-		} else if nativeI8I8LMOn && lmHeadQ8X32.Valid {
+		} else if config.NativeI8I8LMOn && lmHeadQ8X32.Valid {
 			q8Q80x32MatVecNative(lmHeadQ8X32, xn, lmLogits[:vPad], aiPool)
 		} else if lmUseA100 && lmHeadPacked1024 != nil {
 			lmActScale = quantizeToI8(xn, lmActI8[:nEmbd])

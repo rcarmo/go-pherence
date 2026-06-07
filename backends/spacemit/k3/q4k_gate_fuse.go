@@ -5,6 +5,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3/config"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
@@ -13,7 +14,7 @@ import (
 // shard before leaving the worker. It supports both the direct grouped path and
 // the native-style B/N32 TCM pair-wave path.
 func q4kQ41x32GateUpSiluSameAct(act []float32, pool *aipool.AIWorkerPool, gate, up q4kQ41x32, gateOut, upOut, hidden []float32) bool {
-	if !q4kGateFuseOn || q4kExactOn || q4kNativeCGOOn {
+	if !config.Q4kGateFuseOn || config.Q4kExactOn || config.Q4kNativeCGOOn {
 		return false
 	}
 	if !gate.Valid || !up.Valid || gate.K != up.K || gate.M != up.M || gate.K%32 != 0 || gate.M%32 != 0 {
@@ -28,7 +29,7 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *aipool.AIWorkerPool, gate, 
 	groups := gate.M / 32
 	bBytes := subs * 608
 	bOff := (len(quantA) + 63) &^ 63
-	useWave := q4kTCMBWaveGateOn && subs%2 == 0 && pool != nil && pool.N%2 == 0 && groups >= pool.N && (groups%pool.N)%2 == 0 && pool.TcmSlices != nil && len(pool.TcmSlices) >= pool.N
+	useWave := config.Q4kTCMBWaveGateOn && subs%2 == 0 && pool != nil && pool.N%2 == 0 && groups >= pool.N && (groups%pool.N)%2 == 0 && pool.TcmSlices != nil && len(pool.TcmSlices) >= pool.N
 	if useWave {
 		for i := 0; i < pool.N; i++ {
 			if len(pool.TcmSlices[i]) < bOff+bBytes {
