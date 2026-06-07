@@ -3,7 +3,6 @@ package k3
 import (
 	"unsafe"
 
-
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
@@ -21,8 +20,12 @@ func matVecQ4KVmadot(M, K int, wRaw []int8, wScales, wMins []float32, act []floa
 		var maxAbs float32
 		for i := 0; i < 32; i++ {
 			a := act[sb*32+i]
-			if a < 0 { a = -a }
-			if a > maxAbs { maxAbs = a }
+			if a < 0 {
+				a = -a
+			}
+			if a > maxAbs {
+				maxAbs = a
+			}
 		}
 		if maxAbs == 0 {
 			actInvScales[sb] = 0
@@ -33,7 +36,11 @@ func matVecQ4KVmadot(M, K int, wRaw []int8, wScales, wMins []float32, act []floa
 		var s int32
 		for i := 0; i < 32; i++ {
 			v := act[sb*32+i] * actScale
-			if v > 127 { v = 127 } else if v < -128 { v = -128 }
+			if v > 127 {
+				v = 127
+			} else if v < -128 {
+				v = -128
+			}
 			actI8[sb*32+i] = int8(v)
 			s += int32(actI8[sb*32+i])
 		}
@@ -41,23 +48,29 @@ func matVecQ4KVmadot(M, K int, wRaw []int8, wScales, wMins []float32, act []floa
 	}
 
 	// Process 4 rows at a time using vmadot
-	var tile [32]byte   // 4×8 tile for vmadot
+	var tile [32]byte    // 4×8 tile for vmadot
 	var actTile [32]byte // 4×8 activation tile (broadcast)
 	var acc [16]int32    // 4×4 accumulator
 
 	for row := 0; row < M; row += 4 {
 		rowCount := 4
-		if row+4 > M { rowCount = M - row }
-		
+		if row+4 > M {
+			rowCount = M - row
+		}
+
 		// Zero F32 output for these rows
-		for r := 0; r < rowCount; r++ { out[row+r] = 0 }
+		for r := 0; r < rowCount; r++ {
+			out[row+r] = 0
+		}
 
 		// Process each sub-block (32 elements)
 		for sb := 0; sb < subsPerRow; sb++ {
 			elemOff := sb * 32
 
 			// Zero INT32 accumulator
-			for i := range acc { acc[i] = 0 }
+			for i := range acc {
+				acc[i] = 0
+			}
 
 			// 4 vmadot passes per sub-block (32 elements / 8 per vmadot)
 			for pass := 0; pass < 4; pass++ {
@@ -70,7 +83,9 @@ func matVecQ4KVmadot(M, K int, wRaw []int8, wScales, wMins []float32, act []floa
 				}
 				// Zero remaining rows if rowCount < 4
 				for r := rowCount; r < 4; r++ {
-					for i := 0; i < 8; i++ { tile[r*8+i] = 0 }
+					for i := 0; i < 8; i++ {
+						tile[r*8+i] = 0
+					}
 				}
 
 				// Pack activation tile: broadcast same 8 elements to 4 rows
@@ -82,7 +97,9 @@ func matVecQ4KVmadot(M, K int, wRaw []int8, wScales, wMins []float32, act []floa
 				for r := 0; r < 4; r++ {
 					for c2 := 0; c2 < 4; c2++ {
 						var d int32
-						for i := 0; i < 8; i++ { d += int32(int8(actTile[c2*8+i])) * int32(int8(tile[r*8+i])) }
+						for i := 0; i < 8; i++ {
+							d += int32(int8(actTile[c2*8+i])) * int32(int8(tile[r*8+i]))
+						}
 						acc[r*4+c2] += d
 					}
 				}
@@ -94,7 +111,7 @@ func matVecQ4KVmadot(M, K int, wRaw []int8, wScales, wMins []float32, act []floa
 			// Wait: acc is 4×4 where row i of acc has dot(actTile_row[i], wtTile_row[r])
 			// Since actTile rows are all identical (broadcast), acc[r][c] = dot(act_8, wt_row_r_8)
 			// for each pass. After 4 passes: acc[r][0] = full sub-block dot for row (row+r).
-			// Actually acc[r][c] = dot(act_broadcast_row_c, wt_row_r). 
+			// Actually acc[r][c] = dot(act_broadcast_row_c, wt_row_r).
 			// With broadcast: all act rows are the same, so acc[r][0]==acc[r][1]==acc[r][2]==acc[r][3]
 			// We just need acc[r][0] for each output row r.
 
@@ -143,15 +160,19 @@ func matVecF32Direct(M, K int, wF32 []float32, act []float32, out []float32) {
 	}
 }
 
-
 var _actScaleG float32
 
 func packActG(x []float32, K int) []int8 {
 	xI8 := make([]int8, K)
 	var maxAbs float32
 	for _, v := range x[:K] {
-		a := v; if a < 0 { a = -a }
-		if a > maxAbs { maxAbs = a }
+		a := v
+		if a < 0 {
+			a = -a
+		}
+		if a > maxAbs {
+			maxAbs = a
+		}
 	}
 	if maxAbs == 0 {
 		_actScaleG = 0
@@ -161,7 +182,11 @@ func packActG(x []float32, K int) []int8 {
 	s := float32(127.0) / maxAbs
 	for i := 0; i < K; i++ {
 		v := x[i] * s
-		if v > 127 { v = 127 } else if v < -128 { v = -128 }
+		if v > 127 {
+			v = 127
+		} else if v < -128 {
+			v = -128
+		}
 		xI8[i] = int8(v)
 	}
 	bc := make([]int8, 4*K)
@@ -207,31 +232,60 @@ func matVecFastBuf(M, K int, f32 []float32, packed []int8, scale float32, act []
 		// Zero-alloc activation quantize + pack
 		actPad := bufs.actPad[:Kp]
 		copy(actPad, act[:K])
-		for i := K; i < Kp; i++ { actPad[i] = 0 }
+		for i := K; i < Kp; i++ {
+			actPad[i] = 0
+		}
 		// Quantize
 		var maxAbs float32
-		for _, v := range actPad { a := v; if a < 0 { a = -a }; if a > maxAbs { maxAbs = a } }
-		if maxAbs == 0 { for i := range out[:M] { out[i] = 0 }; return }
+		for _, v := range actPad {
+			a := v
+			if a < 0 {
+				a = -a
+			}
+			if a > maxAbs {
+				maxAbs = a
+			}
+		}
+		if maxAbs == 0 {
+			for i := range out[:M] {
+				out[i] = 0
+			}
+			return
+		}
 		_actScaleG = maxAbs / 127.0
 		s := float32(127.0) / maxAbs
 		xI8 := bufs.xI8[:Kp]
-		for i := 0; i < Kp; i++ { v := actPad[i]*s; if v > 127 { v = 127 } else if v < -128 { v = -128 }; xI8[i] = int8(v) }
+		for i := 0; i < Kp; i++ {
+			v := actPad[i] * s
+			if v > 127 {
+				v = 127
+			} else if v < -128 {
+				v = -128
+			}
+			xI8[i] = int8(v)
+		}
 		// Broadcast-pack using RVV (vectorized 4× copy)
 		pk := bufs.packed[:4*Kp]
 		ime2.BroadcastPackRVV(xI8[:Kp], Kp, pk)
 		// GEMM
 		res := bufs.res[:Mp*4]
-		for i := range res { res[i] = 0 }
+		for i := range res {
+			res[i] = 0
+		}
 		if globalPool != nil && Mp >= 512 {
 			ime2.GemmINT8PackedPool(Mp, 4, Kp, packed, pk, res, globalPool)
 		} else {
 			ime2.GemmINT8Packed(Mp, 4, Kp, packed, pk, res)
 		}
-		for i := 0; i < M; i++ { out[i] = float32(res[i*4]) * scale * _actScaleG }
+		for i := 0; i < M; i++ {
+			out[i] = float32(res[i*4]) * scale * _actScaleG
+		}
 	} else {
 		for row := 0; row < M; row++ {
 			var sum float32
-			for k := 0; k < K; k++ { sum += f32[row*K+k] * act[k] }
+			for k := 0; k < K; k++ {
+				sum += f32[row*K+k] * act[k]
+			}
 			out[row] = sum
 		}
 	}

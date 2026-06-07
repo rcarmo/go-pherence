@@ -6,7 +6,7 @@ import (
 )
 
 func putQ6(raw []byte, blkOff, pos int, v int8) {
-	u := uint8(int(v) + 32) & 0x3f
+	u := uint8(int(v)+32) & 0x3f
 	bi := pos / 32
 	l := pos % 32
 	q4Base := 64 * (bi / 4)

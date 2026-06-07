@@ -33,7 +33,7 @@ func TestQ8I8MatVec4M4MatchesFourM1(t *testing.T) {
 		outs[r] = make([]float32, M)
 		want[r] = make([]float32, M)
 		for k := range acts[r] {
-			acts[r][k] = float32(((r+1)*(k%31)-15)) / 10.0
+			acts[r][k] = float32(((r+1)*(k%31) - 15)) / 10.0
 		}
 		qRows[r] = quantizeQ8Blocks32Bytes(acts[r])
 		for rg := 0; rg < M/32; rg++ {
@@ -67,7 +67,7 @@ func BenchmarkK3I8I8M1x4VsM4(b *testing.B) {
 	for r := 0; r < 4; r++ {
 		acts[r] = make([]float32, K)
 		for k := range acts[r] {
-			acts[r][k] = float32(((r+1)*(k%31)-15)) / 10.0
+			acts[r][k] = float32(((r+1)*(k%31) - 15)) / 10.0
 		}
 		qRows[r] = quantizeQ8Blocks32Bytes(acts[r])
 	}
@@ -120,7 +120,7 @@ func TestQ8I8MatVec4PooledMatchesFourM1(t *testing.T) {
 		got[r] = make([]float32, M)
 		want[r] = make([]float32, M)
 		for k := range acts[r] {
-			acts[r][k] = float32(((r+5)*(k%29)-13)) / 12.0
+			acts[r][k] = float32(((r+5)*(k%29) - 13)) / 12.0
 		}
 		q8Q80x32MatVecNative(w, acts[r], want[r], pool)
 	}
@@ -153,7 +153,7 @@ func BenchmarkQ8I8MatVec4PooledVsFourMatVecs(b *testing.B) {
 		acts[r] = make([]float32, K)
 		outs[r] = make([]float32, M)
 		for k := range acts[r] {
-			acts[r][k] = float32(((r+5)*(k%29)-13)) / 12.0
+			acts[r][k] = float32(((r+5)*(k%29) - 13)) / 12.0
 		}
 	}
 	b.Run("four_independent_matvecs", func(b *testing.B) {

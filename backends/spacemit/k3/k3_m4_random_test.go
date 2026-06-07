@@ -26,7 +26,7 @@ func TestK3I8I4M4NativeRandomData(t *testing.T) {
 			*(*float32)(unsafe.Pointer(&aData[off+r*4])) = scale
 		}
 		for r := 0; r < 4; r++ {
-			*(*int16)(unsafe.Pointer(&aData[off+16+r*2])) = int16(rng.Intn(65)-32)
+			*(*int16)(unsafe.Pointer(&aData[off+16+r*2])) = int16(rng.Intn(65) - 32)
 		}
 		for r := 0; r < 4; r++ {
 			for i := 0; i < 32; i++ {

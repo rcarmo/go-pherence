@@ -126,7 +126,7 @@ type layerWeights struct {
 	gatePacked, upPacked, downPacked                       []int8
 	wqX32, wkX32, wvX32, woX32                             q4kQ41x32
 	gateX32, upX32, downX32                                q4kQ41x32
-	wvQ8X32, downQ8X32                                    q8Q80x32
+	wvQ8X32, downQ8X32                                     q8Q80x32
 	wqScale, wkScale, wvScale, woScale                     float32
 	gateScale, upScale, downScale                          float32
 	// Per-sub-block scales for correct Q4K matmul

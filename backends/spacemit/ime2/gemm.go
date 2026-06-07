@@ -11,7 +11,7 @@ import (
 func GemmINT8(M, N, K int, A, B []int8, C []int32) {
 	// vmadot computes: C_tile[4×4] += A_tile[4×8] × B_tile[4×8]^T
 	// So we tile: M in steps of 4, N in steps of 4, K in steps of 8
-	
+
 	for i := 0; i < M; i += 4 {
 		for j := 0; j < N; j += 4 {
 			// Accumulator for this 4x4 output tile
@@ -64,7 +64,7 @@ func GemmINT8Simple(M, N, K int, A []int8, B []int8, C []int32) {
 
 			for k := 0; k < K; k += 8 {
 				var aTile, bTile [32]byte
-				
+
 				// Pack A tile (4 rows from A, 8 consecutive K elements)
 				aBase := i*K + k
 				copy(aTile[0:8], (*[8]byte)(unsafe.Pointer(&A[aBase]))[:])

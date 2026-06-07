@@ -133,7 +133,6 @@ func q4kFFNFused(
 		// === BARRIER: all workers must finish SiLU before Down can read hidden ===
 		barrier.wait()
 
-
 		// Worker 0 quantizes hidden for Down; others wait at second barrier
 		if workerID == 0 {
 			q8d := quantizeQ8Blocks32(hidden[:nFF])
@@ -152,7 +151,6 @@ func q4kFFNFused(
 		} else {
 			quantPtrDown = (*byte)(unsafe.Pointer(&sharedQuantDown[0]))
 		}
-
 
 		// === Down matmul ===
 		dStart := workerID * groupsDown / nWorkers

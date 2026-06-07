@@ -24,10 +24,10 @@ func TestGemmINT8Simple(t *testing.T) {
 	C_ref := make([]int32, M*N)
 
 	for i := range A {
-		A[i] = int8((i*7 + 3) % 127 - 63)
+		A[i] = int8((i*7+3)%127 - 63)
 	}
 	for i := range B {
-		B[i] = int8((i*13 + 11) % 127 - 63)
+		B[i] = int8((i*13+11)%127 - 63)
 	}
 
 	GemmINT8Simple(M, N, K, A, B, C_hw)
@@ -57,10 +57,10 @@ func TestGemmINT8Large(t *testing.T) {
 	C_ref := make([]int32, M*N)
 
 	for i := range A {
-		A[i] = int8((i*3 + 7) % 200 - 100)
+		A[i] = int8((i*3+7)%200 - 100)
 	}
 	for i := range B {
-		B[i] = int8((i*11 + 5) % 200 - 100)
+		B[i] = int8((i*11+5)%200 - 100)
 	}
 
 	GemmINT8Simple(M, N, K, A, B, C_hw)
@@ -84,8 +84,12 @@ func BenchmarkGemmINT8_32x32x128(b *testing.B) {
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
 	C := make([]int32, M*N)
-	for i := range A { A[i] = int8(i % 127) }
-	for i := range B { B[i] = int8(i % 127) }
+	for i := range A {
+		A[i] = int8(i % 127)
+	}
+	for i := range B {
+		B[i] = int8(i % 127)
+	}
 
 	ops := int64(M) * int64(N) * int64(K) * 2 // multiply-accumulate = 2 ops
 	b.SetBytes(ops)
@@ -100,8 +104,12 @@ func BenchmarkGemmINT8_128x128x256(b *testing.B) {
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
 	C := make([]int32, M*N)
-	for i := range A { A[i] = int8(i % 127) }
-	for i := range B { B[i] = int8(i % 127) }
+	for i := range A {
+		A[i] = int8(i % 127)
+	}
+	for i := range B {
+		B[i] = int8(i % 127)
+	}
 
 	ops := int64(M) * int64(N) * int64(K) * 2
 	b.SetBytes(ops)
@@ -116,8 +124,12 @@ func BenchmarkScalarGemm_32x32x128(b *testing.B) {
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
 	C := make([]int32, M*N)
-	for i := range A { A[i] = int8(i % 127) }
-	for i := range B { B[i] = int8(i % 127) }
+	for i := range A {
+		A[i] = int8(i % 127)
+	}
+	for i := range B {
+		B[i] = int8(i % 127)
+	}
 
 	ops := int64(M) * int64(N) * int64(K) * 2
 	b.SetBytes(ops)
@@ -127,17 +139,16 @@ func BenchmarkScalarGemm_32x32x128(b *testing.B) {
 	}
 }
 
-
 func TestGemmINT8Packed(t *testing.T) {
 	M, N, K := 8, 8, 16
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
 
 	for i := range A {
-		A[i] = int8((i*7 + 3) % 127 - 63)
+		A[i] = int8((i*7+3)%127 - 63)
 	}
 	for i := range B {
-		B[i] = int8((i*13 + 11) % 127 - 63)
+		B[i] = int8((i*13+11)%127 - 63)
 	}
 
 	Ap := PackTiles(A, M, K)
@@ -170,10 +181,10 @@ func TestGemmINT8PackedLarge(t *testing.T) {
 	B := make([]int8, N*K)
 
 	for i := range A {
-		A[i] = int8((i*3 + 7) % 200 - 100)
+		A[i] = int8((i*3+7)%200 - 100)
 	}
 	for i := range B {
-		B[i] = int8((i*11 + 5) % 200 - 100)
+		B[i] = int8((i*11+5)%200 - 100)
 	}
 
 	Ap := PackTiles(A, M, K)
@@ -201,8 +212,12 @@ func BenchmarkGemmINT8Packed_32x32x128(b *testing.B) {
 	M, N, K := 32, 32, 128
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
-	for i := range A { A[i] = int8(i % 127) }
-	for i := range B { B[i] = int8(i % 127) }
+	for i := range A {
+		A[i] = int8(i % 127)
+	}
+	for i := range B {
+		B[i] = int8(i % 127)
+	}
 	Ap := PackTiles(A, M, K)
 	Bp := PackTiles(B, N, K)
 	C := make([]int32, M*N)
@@ -219,8 +234,12 @@ func BenchmarkGemmINT8Packed_128x128x256(b *testing.B) {
 	M, N, K := 128, 128, 256
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
-	for i := range A { A[i] = int8(i % 127) }
-	for i := range B { B[i] = int8(i % 127) }
+	for i := range A {
+		A[i] = int8(i % 127)
+	}
+	for i := range B {
+		B[i] = int8(i % 127)
+	}
 	Ap := PackTiles(A, M, K)
 	Bp := PackTiles(B, N, K)
 	C := make([]int32, M*N)
@@ -233,17 +252,16 @@ func BenchmarkGemmINT8Packed_128x128x256(b *testing.B) {
 	}
 }
 
-
 func TestGemmINT8PackedParallel(t *testing.T) {
 	M, N, K := 128, 128, 256
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
 
 	for i := range A {
-		A[i] = int8((i*3 + 7) % 200 - 100)
+		A[i] = int8((i*3+7)%200 - 100)
 	}
 	for i := range B {
-		B[i] = int8((i*11 + 5) % 200 - 100)
+		B[i] = int8((i*11+5)%200 - 100)
 	}
 
 	Ap := PackTiles(A, M, K)
@@ -274,8 +292,12 @@ func BenchmarkGemmINT8PackedParallel_128x128x256_8T(b *testing.B) {
 	M, N, K := 128, 128, 256
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
-	for i := range A { A[i] = int8(i % 127) }
-	for i := range B { B[i] = int8(i % 127) }
+	for i := range A {
+		A[i] = int8(i % 127)
+	}
+	for i := range B {
+		B[i] = int8(i % 127)
+	}
 	Ap := PackTiles(A, M, K)
 	Bp := PackTiles(B, N, K)
 	C := make([]int32, M*N)
@@ -292,8 +314,12 @@ func BenchmarkGemmINT8PackedParallel_256x256x512_8T(b *testing.B) {
 	M, N, K := 256, 256, 512
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
-	for i := range A { A[i] = int8(i % 127) }
-	for i := range B { B[i] = int8(i % 127) }
+	for i := range A {
+		A[i] = int8(i % 127)
+	}
+	for i := range B {
+		B[i] = int8(i % 127)
+	}
 	Ap := PackTiles(A, M, K)
 	Bp := PackTiles(B, N, K)
 	C := make([]int32, M*N)
@@ -310,8 +336,12 @@ func BenchmarkGemmINT8PackedParallel_1024x1024x1024_8T(b *testing.B) {
 	M, N, K := 1024, 1024, 1024
 	A := make([]int8, M*K)
 	B := make([]int8, N*K)
-	for i := range A { A[i] = int8(i % 127) }
-	for i := range B { B[i] = int8(i % 127) }
+	for i := range A {
+		A[i] = int8(i % 127)
+	}
+	for i := range B {
+		B[i] = int8(i % 127)
+	}
 	Ap := PackTiles(A, M, K)
 	Bp := PackTiles(B, N, K)
 	C := make([]int32, M*N)

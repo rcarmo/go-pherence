@@ -14,7 +14,7 @@ func TestQuantizeQ8RowsM4BytesMatchesPackRows(t *testing.T) {
 	for r := 0; r < 4; r++ {
 		acts[r] = make([]float32, K)
 		for k := range acts[r] {
-			acts[r][k] = float32(((r+5)*(k%37)-17)) / 11.0
+			acts[r][k] = float32(((r+5)*(k%37) - 17)) / 11.0
 		}
 		rows[r] = quantizeQ8Blocks32Bytes(acts[r])
 	}
@@ -121,7 +121,9 @@ func BenchmarkCopyBytesRVV128(b *testing.B) {
 	const n = 19456
 	src := make([]byte, n)
 	dst := make([]byte, n)
-	for i := range src { src[i] = byte(i) }
+	for i := range src {
+		src[i] = byte(i)
+	}
 	b.SetBytes(n)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

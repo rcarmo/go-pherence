@@ -1,7 +1,7 @@
 #include "textflag.h"
 
 // func vmadotI8Groups1024(wPacked, actPacked *byte, scratch *int32, out, scale *float32, nGroups, K int)
-TEXT ·vmadotI8Groups1024(SB), NOSPLIT, $0-56
+TEXT ·VmadotI8Groups1024(SB), NOSPLIT, $0-56
     MOV wPacked+0(FP),  X10
     MOV actPacked+8(FP), X17
     MOV scratch+16(FP), X12

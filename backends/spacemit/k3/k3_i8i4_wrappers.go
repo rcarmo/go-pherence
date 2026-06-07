@@ -20,7 +20,7 @@ func k3I8I4M1GroupsImpl(a *byte, b *byte, c *float32, kBlks int, nGroups int) {
 // k3I8I4M1ResidualGroupsImpl is the residual-correction variant of the groups loop.
 func k3I8I4M1ResidualGroupsImpl(a *byte, b *byte, residual *float32, c *float32, kBlks int, nGroups int) {
 	strideB := uintptr(kBlks) * 608
-	strideC := uintptr(32 * 4) // 32 float32 = 128 bytes
+	strideC := uintptr(32 * 4)           // 32 float32 = 128 bytes
 	strideRes := uintptr(kBlks * 32 * 4) // kBlks*32 float32 per group
 	for g := 0; g < nGroups; g++ {
 		k3I8I4M1Residual(a, b, residual, c, kBlks, 32)

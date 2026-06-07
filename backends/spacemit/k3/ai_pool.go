@@ -41,14 +41,14 @@ func runAIGemmWorkerWithActMode(spec aiGemmSpec, workerID, nWorkers int, actPack
 	if rowEnd > rowStart && rowStart%8 == 0 && rowEnd%8 == 0 {
 		var scratch [64]int32
 		if add {
-			vmadotI8GroupsAdd1024(
+			ime2.VmadotI8GroupsAdd1024(
 				(*byte)(unsafe.Pointer(&spec.wPacked[(rowStart/8)*tilesPerRow*128])),
 				(*byte)(unsafe.Pointer(&actPacked[0])),
 				&scratch[0], &spec.out[rowStart], &combined,
 				(rowEnd-rowStart)/8, spec.K,
 			)
 		} else {
-			vmadotI8Groups1024(
+			ime2.VmadotI8Groups1024(
 				(*byte)(unsafe.Pointer(&spec.wPacked[(rowStart/8)*tilesPerRow*128])),
 				(*byte)(unsafe.Pointer(&actPacked[0])),
 				&scratch[0], &spec.out[rowStart], &combined,
@@ -121,9 +121,9 @@ func runAIGemmWorkerTCMBWaveMode(spec aiGemmSpec, workerID, nWorkers int, actPac
 			pairBarrier.wait(pair)
 		}
 		if add {
-			vmadotI8GroupsAdd1024(bPtr, actPtr, &scratch[0], &spec.out[rg*8], &combined, 1, spec.K)
+			ime2.VmadotI8GroupsAdd1024(bPtr, actPtr, &scratch[0], &spec.out[rg*8], &combined, 1, spec.K)
 		} else {
-			vmadotI8Groups1024(bPtr, actPtr, &scratch[0], &spec.out[rg*8], &combined, 1, spec.K)
+			ime2.VmadotI8Groups1024(bPtr, actPtr, &scratch[0], &spec.out[rg*8], &combined, 1, spec.K)
 		}
 		if workerID%2 == 0 {
 			pairBarrier.wait(pair)

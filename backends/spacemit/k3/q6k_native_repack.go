@@ -61,13 +61,21 @@ func repackQ6KRawToQ80x32(M, K int, raw []byte) q8Q80x32 {
 					var maxAbs float32
 					for l := 0; l < 16; l++ {
 						v := float32(aux[l]) * scale0
-						if v < 0 { v = -v }
-						if v > maxAbs { maxAbs = v }
+						if v < 0 {
+							v = -v
+						}
+						if v > maxAbs {
+							maxAbs = v
+						}
 					}
 					for l := 16; l < 32; l++ {
 						v := float32(aux[l]) * scale1
-						if v < 0 { v = -v }
-						if v > maxAbs { maxAbs = v }
+						if v < 0 {
+							v = -v
+						}
+						if v > maxAbs {
+							maxAbs = v
+						}
 					}
 					reflectScale := float32(0)
 					if maxAbs != 0 {
@@ -78,16 +86,26 @@ func repackQ6KRawToQ80x32(M, K int, raw []byte) q8Q80x32 {
 						rs1 := scale1 / reflectScale
 						for l := 0; l < 16; l++ {
 							q := float32(math.Round(float64(float32(aux[l]) * rs0)))
-							if q > 127 { q = 127 } else if q < -128 { q = -128 }
+							if q > 127 {
+								q = 127
+							} else if q < -128 {
+								q = -128
+							}
 							aux[l] = int8(q)
 						}
 						for l := 16; l < 32; l++ {
 							q := float32(math.Round(float64(float32(aux[l]) * rs1)))
-							if q > 127 { q = 127 } else if q < -128 { q = -128 }
+							if q > 127 {
+								q = 127
+							} else if q < -128 {
+								q = -128
+							}
 							aux[l] = int8(q)
 						}
 					} else {
-						for l := range aux { aux[l] = 0 }
+						for l := range aux {
+							aux[l] = 0
+						}
 					}
 					bits := f32ToF16Bits(reflectScale)
 					out.BData[base+r*2+0] = byte(bits)

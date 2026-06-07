@@ -103,7 +103,7 @@ func q8Block32ToBytes(q8 q8Block32) []byte {
 	return buf
 }
 
-func q8Blocks32Bytes(act []float32) []byte           { return q8Block32ToBytes(quantizeQ8Blocks32(act)) }
+func q8Blocks32Bytes(act []float32) []byte         { return q8Block32ToBytes(quantizeQ8Blocks32(act)) }
 func quantizeQ8Blocks32Bytes(act []float32) []byte { return q8Blocks32Bytes(act) }
 
 func q4kQ41x32MatVecExactAI(w q4kQ41x32, exactMins []float32, act []float32, out []float32, pool *AIWorkerPool) {
@@ -365,12 +365,20 @@ type q4kBatchMatVecSpec struct {
 // pool.Run() does kernel + simple vector add (no ZPD reads inside pool.Run).
 // q4kQ41x32MatVecBatchSameAct: kernel ZP=0, parallel ZPD correction inside pool.Run.
 func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4kBatchMatVecSpec) bool {
-	if len(specs) == 0 || pool == nil { return false }
-	if q4kExactOn || q4kNativeCGOOn { return false }
+	if len(specs) == 0 || pool == nil {
+		return false
+	}
+	if q4kExactOn || q4kNativeCGOOn {
+		return false
+	}
 	K := specs[0].W.K
-	if K%32 != 0 { return false }
+	if K%32 != 0 {
+		return false
+	}
 	for _, sp := range specs {
-		if !sp.W.Valid || sp.W.K != K || sp.W.M%32 != 0 || len(sp.Out) < sp.W.M { return false }
+		if !sp.W.Valid || sp.W.K != K || sp.W.M%32 != 0 || len(sp.Out) < sp.W.M {
+			return false
+		}
 	}
 	// B-wave batch for QKV (TCM double-buffered weights)
 	if q4kTCMBWaveBatchOn && q4kQ41x32BWaveMatVecBatchSameAct(act, pool, specs...) {
@@ -396,30 +404,14 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *AIWorkerPool, specs ...q4k
 			groups := sp.W.M / 32
 			gStart := workerID * groups / nWorkers
 			gEnd := (workerID + 1) * groups / nWorkers
-			if gStart >= gEnd { continue }
+			if gStart >= gEnd {
+				continue
+			}
 			k3I8I4M1GroupsZPD(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart, &sp.W.ZPD[gStart*subs*32], &sumActCorr[0])
 		}
 	})
 	return true
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // q4kQ41x32MatVecCM1 is a stub for the C-style correction-order matmul.
 // Falls back to q4kQ41x32MatVecGoAsmWithCorrection.

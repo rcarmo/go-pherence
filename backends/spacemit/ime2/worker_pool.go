@@ -11,9 +11,9 @@ import (
 // WorkerPool maintains persistent goroutines pinned to X100 cores.
 // Eliminates goroutine spawn overhead for per-matmul parallelism.
 type WorkerPool struct {
-	n       int
-	tasks   []chan workItem
-	done    []chan struct{}
+	n     int
+	tasks []chan workItem
+	done  []chan struct{}
 }
 
 type workItem struct {
@@ -104,16 +104,14 @@ func GemmINT8PackedPool(M, N, K int, Apacked, Bpacked []int8, C []int32, pool *W
 
 var _ sync.Mutex // ensure import
 
-
-
 // CondPool uses sync.Cond for lower-latency dispatch than channels.
 type CondPool struct {
-	n      int
-	mu     sync.Mutex
-	cond   *sync.Cond
-	fn     func(int, int)
-	phase  int
-	done   int
+	n     int
+	mu    sync.Mutex
+	cond  *sync.Cond
+	fn    func(int, int)
+	phase int
+	done  int
 }
 
 func NewCondPool(n int) *CondPool {
@@ -134,15 +132,21 @@ func (p *CondPool) condWorker(id int) {
 	myPhase := 0
 	for {
 		p.mu.Lock()
-		for p.phase == myPhase { p.cond.Wait() }
+		for p.phase == myPhase {
+			p.cond.Wait()
+		}
 		myPhase = p.phase
 		fn := p.fn
 		p.mu.Unlock()
-		if fn == nil { return }
+		if fn == nil {
+			return
+		}
 		fn(id, p.n)
 		p.mu.Lock()
 		p.done++
-		if p.done == p.n { p.cond.Broadcast() }
+		if p.done == p.n {
+			p.cond.Broadcast()
+		}
 		p.mu.Unlock()
 	}
 }
@@ -153,7 +157,9 @@ func (p *CondPool) Run(fn func(workerID, nWorkers int)) {
 	p.done = 0
 	p.phase++
 	p.cond.Broadcast()
-	for p.done < p.n { p.cond.Wait() }
+	for p.done < p.n {
+		p.cond.Wait()
+	}
 	p.mu.Unlock()
 }
 

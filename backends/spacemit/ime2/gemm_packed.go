@@ -91,6 +91,4 @@ func PackTilesInto(src []int8, rows, K int, dst []int8) []int8 {
 
 // VmadotKLoop is the exported version of vmadotKLoop.
 
-
 func VmadotKLoop(A *byte, B *byte, C *int32, K int) { vmadotKLoop(A, B, C, K) }
-

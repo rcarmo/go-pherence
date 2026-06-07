@@ -28,7 +28,7 @@ func makeBenchQRows4(K int) [4][]byte {
 	for r := 0; r < 4; r++ {
 		act := make([]float32, K)
 		for k := range act {
-			act[k] = float32(((r+1)*(k%31)-15)) / 9.0
+			act[k] = float32(((r+1)*(k%31) - 15)) / 9.0
 		}
 		rows[r] = quantizeQ8Blocks32Bytes(act)
 	}

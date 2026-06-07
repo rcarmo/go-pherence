@@ -2,7 +2,7 @@ package k3
 
 import (
 	"math"
-	
+
 	"sync"
 	"unsafe"
 
@@ -52,9 +52,13 @@ func parallelDecodeV2(
 
 		// === SERIAL: RMS Norm + quantize activation for QKV ===
 		var ss float32
-		for i := 0; i < nEmbd; i++ { ss += x[i] * x[i] }
+		for i := 0; i < nEmbd; i++ {
+			ss += x[i] * x[i]
+		}
 		invRMS := float32(1.0 / math.Sqrt(float64(ss/float32(nEmbd)+rmsEps)))
-		for i := 0; i < nEmbd; i++ { xn[i] = x[i] * invRMS * l.attnNorm[i] }
+		for i := 0; i < nEmbd; i++ {
+			xn[i] = x[i] * invRMS * l.attnNorm[i]
+		}
 		actAttn, scAttn := quantizeAndPackInto(xn, KpEmbd, pkAttn)
 		tprEmbd := KpEmbd / 8
 
@@ -65,27 +69,37 @@ func parallelDecodeV2(
 				defer wg.Done()
 				// Q slice
 				qS := (wid * nQEmbd / nWorkers / 4) * 4
-				qE := ((wid+1) * nQEmbd / nWorkers / 4) * 4
-				if wid == nWorkers-1 { qE = nQEmbd }
+				qE := ((wid + 1) * nQEmbd / nWorkers / 4) * 4
+				if wid == nWorkers-1 {
+					qE = nQEmbd
+				}
 				for i := qS; i < qE; i += 4 {
 					var acc [16]int32
 					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.wqPacked[(i/4)*tprEmbd*32])), (*byte)(unsafe.Pointer(&actAttn[0])), &acc[0], KpEmbd)
-					for r := 0; r < 4 && i+r < nQEmbd; r++ { qF[i+r] = float32(acc[r*4]) * l.wqScale * scAttn }
+					for r := 0; r < 4 && i+r < nQEmbd; r++ {
+						qF[i+r] = float32(acc[r*4]) * l.wqScale * scAttn
+					}
 				}
 				// K slice
 				kS := (wid * nKVD / nWorkers / 4) * 4
-				kE := ((wid+1) * nKVD / nWorkers / 4) * 4
-				if wid == nWorkers-1 { kE = nKVD }
+				kE := ((wid + 1) * nKVD / nWorkers / 4) * 4
+				if wid == nWorkers-1 {
+					kE = nKVD
+				}
 				for i := kS; i < kE; i += 4 {
 					var acc [16]int32
 					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.wkPacked[(i/4)*tprEmbd*32])), (*byte)(unsafe.Pointer(&actAttn[0])), &acc[0], KpEmbd)
-					for r := 0; r < 4 && i+r < nKVD; r++ { kF[i+r] = float32(acc[r*4]) * l.wkScale * scAttn }
+					for r := 0; r < 4 && i+r < nKVD; r++ {
+						kF[i+r] = float32(acc[r*4]) * l.wkScale * scAttn
+					}
 				}
 				// V slice
 				for i := kS; i < kE; i += 4 {
 					var acc [16]int32
 					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.wvPacked[(i/4)*tprEmbd*32])), (*byte)(unsafe.Pointer(&actAttn[0])), &acc[0], KpEmbd)
-					for r := 0; r < 4 && i+r < nKVD; r++ { vF[i+r] = float32(acc[r*4]) * l.wvScale * scAttn }
+					for r := 0; r < 4 && i+r < nKVD; r++ {
+						vF[i+r] = float32(acc[r*4]) * l.wvScale * scAttn
+					}
 				}
 			}(w)
 		}
@@ -96,9 +110,13 @@ func parallelDecodeV2(
 			for kh := 0; kh < nKVHeads; kh++ {
 				head := kF[kh*headDim : (kh+1)*headDim]
 				var s2 float32
-				for d := range head { s2 += head[d] * head[d] }
+				for d := range head {
+					s2 += head[d] * head[d]
+				}
 				inv := float32(1.0 / math.Sqrt(float64(s2/float32(headDim)+rmsEps)))
-				for d := range head { head[d] = head[d] * inv * l.kNorm[d] }
+				for d := range head {
+					head[d] = head[d] * inv * l.kNorm[d]
+				}
 			}
 		}
 		copy(kCache[il][pos*nKVD:pos*nKVD+nKVD], kF)
@@ -114,9 +132,13 @@ func parallelDecodeV2(
 			// QK norm + RoPE on Q
 			if l.qNorm != nil {
 				var s3 float32
-				for d := range qHead { s3 += qHead[d] * qHead[d] }
+				for d := range qHead {
+					s3 += qHead[d] * qHead[d]
+				}
 				inv := float32(1.0 / math.Sqrt(float64(s3/float32(headDim)+rmsEps)))
-				for d := range qHead { qHead[d] = qHead[d] * inv * l.qNorm[d] }
+				for d := range qHead {
+					qHead[d] = qHead[d] * inv * l.qNorm[d]
+				}
 			}
 			applyRoPE(qHead, headDim, pos, ropeBase)
 			kvH := h / repFactor
@@ -125,16 +147,27 @@ func parallelDecodeV2(
 			scores := scoresPool[:pos+1]
 			for t := 0; t <= pos; t++ {
 				var dot float32
-				for d := 0; d < headDim; d++ { dot += qHead[d] * kCache[il][t*nKVD+kvH*headDim+d] }
+				for d := 0; d < headDim; d++ {
+					dot += qHead[d] * kCache[il][t*nKVD+kvH*headDim+d]
+				}
 				scores[t] = dot * invSqrtD
-				if scores[t] > maxScore { maxScore = scores[t] }
+				if scores[t] > maxScore {
+					maxScore = scores[t]
+				}
 			}
 			var sumExp float32
-			for i := range scores { scores[i] = float32(math.Exp(float64(scores[i] - maxScore))); sumExp += scores[i] }
-			for i := range scores { scores[i] /= sumExp }
+			for i := range scores {
+				scores[i] = float32(math.Exp(float64(scores[i] - maxScore)))
+				sumExp += scores[i]
+			}
+			for i := range scores {
+				scores[i] /= sumExp
+			}
 			for d := 0; d < headDim; d++ {
 				var sum float32
-				for t := 0; t <= pos; t++ { sum += scores[t] * vCache[il][t*nKVD+kvH*headDim+d] }
+				for t := 0; t <= pos; t++ {
+					sum += scores[t] * vCache[il][t*nKVD+kvH*headDim+d]
+				}
 				qF[h*headDim+d] = sum
 			}
 		}
@@ -151,23 +184,33 @@ func parallelDecodeV2(
 			go func(wid int) {
 				defer wg.Done()
 				wS := (wid * nEmbd / nWorkers / 4) * 4
-				wE := ((wid+1) * nEmbd / nWorkers / 4) * 4
-				if wid == nWorkers-1 { wE = nEmbd }
+				wE := ((wid + 1) * nEmbd / nWorkers / 4) * 4
+				if wid == nWorkers-1 {
+					wE = nEmbd
+				}
 				for i := wS; i < wE; i += 4 {
 					var acc [16]int32
 					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.woPacked[(i/4)*tprQ*32])), (*byte)(unsafe.Pointer(&actWO[0])), &acc[0], KpQEmbd)
-					for r := 0; r < 4 && i+r < nEmbd; r++ { woOut[i+r] = float32(acc[r*4]) * l.woScale * scWO }
+					for r := 0; r < 4 && i+r < nEmbd; r++ {
+						woOut[i+r] = float32(acc[r*4]) * l.woScale * scWO
+					}
 				}
 			}(w)
 		}
 		wg.Wait()
-		for i := 0; i < nEmbd; i++ { x[i] += woOut[i] }
+		for i := 0; i < nEmbd; i++ {
+			x[i] += woOut[i]
+		}
 
 		// FFN norm + quantize
 		ss = 0
-		for i := 0; i < nEmbd; i++ { ss += x[i] * x[i] }
+		for i := 0; i < nEmbd; i++ {
+			ss += x[i] * x[i]
+		}
 		invRMS = float32(1.0 / math.Sqrt(float64(ss/float32(nEmbd)+rmsEps)))
-		for i := 0; i < nEmbd; i++ { xn2[i] = x[i] * invRMS * l.ffnNorm[i] }
+		for i := 0; i < nEmbd; i++ {
+			xn2[i] = x[i] * invRMS * l.ffnNorm[i]
+		}
 		actFFN, scFFN := quantizeAndPackInto(xn2, KpEmbd, pkFFN)
 
 		// Dispatch 2: gate+up+silu → hidden
@@ -176,8 +219,10 @@ func parallelDecodeV2(
 			go func(wid int) {
 				defer wg.Done()
 				fS := (wid * nFF / nWorkers / 4) * 4
-				fE := ((wid+1) * nFF / nWorkers / 4) * 4
-				if wid == nWorkers-1 { fE = nFF }
+				fE := ((wid + 1) * nFF / nWorkers / 4) * 4
+				if wid == nWorkers-1 {
+					fE = nFF
+				}
 				for i := fS; i < fE; i += 4 {
 					var gacc, uacc [16]int32
 					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.gatePacked[(i/4)*tprEmbd*32])), (*byte)(unsafe.Pointer(&actFFN[0])), &gacc[0], KpEmbd)
@@ -200,17 +245,23 @@ func parallelDecodeV2(
 			go func(wid int) {
 				defer wg.Done()
 				dS := (wid * nEmbd / nWorkers / 4) * 4
-				dE := ((wid+1) * nEmbd / nWorkers / 4) * 4
-				if wid == nWorkers-1 { dE = nEmbd }
+				dE := ((wid + 1) * nEmbd / nWorkers / 4) * 4
+				if wid == nWorkers-1 {
+					dE = nEmbd
+				}
 				for i := dS; i < dE; i += 4 {
 					var acc [16]int32
 					ime2.VmadotKLoop((*byte)(unsafe.Pointer(&l.downPacked[(i/4)*tprFF*32])), (*byte)(unsafe.Pointer(&actDown[0])), &acc[0], KpFF)
-					for r := 0; r < 4 && i+r < nEmbd; r++ { downF[i+r] = float32(acc[r*4]) * l.downScale * scDown }
+					for r := 0; r < 4 && i+r < nEmbd; r++ {
+						downF[i+r] = float32(acc[r*4]) * l.downScale * scDown
+					}
 				}
 			}(w)
 		}
 		wg.Wait()
-		for i := 0; i < nEmbd; i++ { x[i] += downF[i] }
+		for i := 0; i < nEmbd; i++ {
+			x[i] += downF[i]
+		}
 	}
 }
 

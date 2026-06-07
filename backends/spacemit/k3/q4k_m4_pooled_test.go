@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-
 func BenchmarkQ4KMatVec4PooledVsFourMatVecs(b *testing.B) {
 	M, K := 1024, 1024
 	w := makeBenchQ4X32(M, K)
@@ -16,7 +15,7 @@ func BenchmarkQ4KMatVec4PooledVsFourMatVecs(b *testing.B) {
 		acts[r] = make([]float32, K)
 		outs[r] = make([]float32, M)
 		for k := range acts[r] {
-			acts[r][k] = float32(((r+3)*(k%37)-17)) / 11.0
+			acts[r][k] = float32(((r+3)*(k%37) - 17)) / 11.0
 		}
 	}
 	b.Run("four_independent_matvecs", func(b *testing.B) {

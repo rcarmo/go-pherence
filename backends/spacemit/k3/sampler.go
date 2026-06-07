@@ -8,13 +8,13 @@ import (
 // Sampler implements temperature-scaled sampling with repetition penalty,
 // matching llama.cpp sampler_chain logic.
 type Sampler struct {
-	Temperature  float32
-	RepPenalty   float32
-	RepWindow    int
-	TopK         int
-	EOSTokens    []int32
-	history      []int32
-	rng          *rand.Rand
+	Temperature float32
+	RepPenalty  float32
+	RepWindow   int
+	TopK        int
+	EOSTokens   []int32
+	history     []int32
+	rng         *rand.Rand
 }
 
 func NewSampler(temp, repPenalty float32, repWindow, topK int, eosTokens []int32) *Sampler {

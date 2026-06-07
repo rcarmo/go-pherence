@@ -67,7 +67,9 @@ func TestVmadotI8GroupsAddTCMBWaveMatchesDirectAdd(t *testing.T) {
 	wScale := inference.QuantizeF32ToINT8(f32, i8)
 	wPacked := ime2.PackTiles1024(i8, M, K)
 	actF := make([]float32, K)
-	for k := range actF { actF[k] = float32(((k*7)%31)-15) / 10.0 }
+	for k := range actF {
+		actF[k] = float32(((k*7)%31)-15) / 10.0
+	}
 	actI8 := make([]int8, K)
 	actScale := quantizeToI8(actF, actI8)
 	actPacked := make([]int8, 8*K)
@@ -76,13 +78,22 @@ func TestVmadotI8GroupsAddTCMBWaveMatchesDirectAdd(t *testing.T) {
 	defer pool.Close()
 	direct := make([]float32, M)
 	wave := make([]float32, M)
-	for i := range direct { direct[i] = float32(i%19) / 13.0; wave[i] = direct[i] }
+	for i := range direct {
+		direct[i] = float32(i%19) / 13.0
+		wave[i] = direct[i]
+	}
 	int8TCMBWaveOn = false
 	GemmAIPooledAdd(M, K, wPacked, actPacked, wScale, actScale, direct, pool)
 	int8TCMBWaveOn = true
 	GemmAIPooledAdd(M, K, wPacked, actPacked, wScale, actScale, wave, pool)
 	var maxDiff float64
-	for i := range direct { if d := math.Abs(float64(direct[i]-wave[i])); d > maxDiff { maxDiff = d } }
+	for i := range direct {
+		if d := math.Abs(float64(direct[i] - wave[i])); d > maxDiff {
+			maxDiff = d
+		}
+	}
 	t.Logf("maxDiff=%.6f", maxDiff)
-	if maxDiff > 1e-5 { t.Fatalf("maxDiff %.6f > tolerance", maxDiff) }
+	if maxDiff > 1e-5 {
+		t.Fatalf("maxDiff %.6f > tolerance", maxDiff)
+	}
 }

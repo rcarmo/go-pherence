@@ -1,7 +1,7 @@
 #include "textflag.h"
 
 // func vmadotI8ArgmaxGroups1024(wPacked, actPacked *byte, scratch *int32, bestVal *int32, bestID *int64, nGroups, K, rowStart int)
-TEXT ·vmadotI8ArgmaxGroups1024(SB), NOSPLIT, $0-64
+TEXT ·VmadotI8ArgmaxGroups1024(SB), NOSPLIT, $0-64
     MOV wPacked+0(FP),   X10
     MOV actPacked+8(FP), X17
     MOV scratch+16(FP),  X12

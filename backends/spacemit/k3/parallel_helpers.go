@@ -21,13 +21,19 @@ func newPackBufs(maxK int) *packBufs {
 // quantizeAndPackInto quantizes and packs without allocation.
 func quantizeAndPackInto(act []float32, Kp int, b *packBufs) ([]int8, float32) {
 	xI8 := b.xI8[:Kp]
-	for i := Kp - 1; i >= len(act); i-- { xI8[i] = 0 }
+	for i := Kp - 1; i >= len(act); i-- {
+		xI8[i] = 0
+	}
 	maxAbs := ime2.FindMaxAbsRVV(act)
-	
+
 	if maxAbs == 0 {
-		for i := range xI8 { xI8[i] = 0 }
+		for i := range xI8 {
+			xI8[i] = 0
+		}
 		pk := b.packed[:4*Kp]
-		for i := range pk { pk[i] = 0 }
+		for i := range pk {
+			pk[i] = 0
+		}
 		return pk, 0
 	}
 	s := float32(127.0) / maxAbs

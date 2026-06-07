@@ -74,15 +74,15 @@ func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
 	subs := K / 32
 	groups := M / 32
 	out := q4kQ41x32{
-		M:     M,
-		K:     K,
+		M:        M,
+		K:        K,
 		D:        make([]float32, groups*subs*32),
 		ZP:       make([]uint8, groups*subs*32),
 		ZPD:      make([]float32, groups*subs*32),
 		Residual: make([]float32, groups*subs*32), // dmin - ZP*D per sub-block/row
 		QS:       make([]byte, groups*subs*32*16),
-		BData: make([]byte, groups*subs*(64+32+512)), // 608B per subblock
-		Valid: true,
+		BData:    make([]byte, groups*subs*(64+32+512)), // 608B per subblock
+		Valid:    true,
 	}
 	for rg := 0; rg < groups; rg++ {
 		for sb := 0; sb < subs; sb++ {
@@ -101,7 +101,7 @@ func repackQ4KToQ41x32(M, K int, raw []int8, scales, mins []float32) q4kQ41x32 {
 						zp = 15
 					}
 					out.ZP[metaIdx] = uint8(zp)
-					out.ZPD[metaIdx] = float32(uint8(zp)) * d // precomputed ZP×D
+					out.ZPD[metaIdx] = float32(uint8(zp)) * d                   // precomputed ZP×D
 					out.Residual[metaIdx] = mins[srcIdx] - float32(uint8(zp))*d // exact residual = dmin - ZP*D
 				}
 				qsOff := q41x32QSOffset(rg, sb, r, subs)
@@ -205,16 +205,26 @@ func q4kBlockMatVecAIPacked(M, K int, wPacked []int8, scales, mins []float32, ac
 			var maxAbs float32
 			for i := 0; i < 32; i++ {
 				a := act[base+i]
-				if a < 0 { a = -a }
-				if a > maxAbs { maxAbs = a }
+				if a < 0 {
+					a = -a
+				}
+				if a > maxAbs {
+					maxAbs = a
+				}
 			}
-			if maxAbs == 0 { continue }
+			if maxAbs == 0 {
+				continue
+			}
 			actScale[sb] = maxAbs / 127.0
 			s := float32(127.0) / maxAbs
 			var isum int32
 			for i := 0; i < 32; i++ {
 				v := act[base+i] * s
-				if v > 127 { v = 127 } else if v < -128 { v = -128 }
+				if v > 127 {
+					v = 127
+				} else if v < -128 {
+					v = -128
+				}
 				q := int8(v)
 				actI8[base+i] = q
 				isum += int32(q)
@@ -333,7 +343,9 @@ func returnQ4KBlockMatVecQ41(q41 q4kQ41Packed, exactMins []float32, act []float3
 }
 
 // applyQ4KMinCorr adds the Q4_K minimum correction to a matmul output:
-//   out[row] -= sum_sb { mins[row*subs+sb] * sumAct[sb] }
+//
+//	out[row] -= sum_sb { mins[row*subs+sb] * sumAct[sb] }
+//
 // where sumAct[sb] = sum(act[sb*32 : (sb+1)*32]).
 // This corrects the missing "-min" term when raw nibbles are used without dequant.
 func applyQ4KMinCorr(out []float32, mins []float32, act []float32, M, K int) {
@@ -450,6 +462,7 @@ func q4kBlockMatVecScaledLoop(M, K int, wPacked []int8, scales, mins []float32,
 		}
 	})
 }
+
 //
 // Requires M%8==0, K%32==0, scales and mins non-nil.
 // actI8 must be pre-quantized per-subblock with actScale[sb] = maxAbs[sb]/127.

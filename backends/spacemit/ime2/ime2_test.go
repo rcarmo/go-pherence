@@ -26,8 +26,8 @@ func TestVmadotSS4x8(t *testing.T) {
 
 	// Fill with test pattern
 	for i := range A {
-		A[i] = int8((i*7 + 3) % 127 - 63)
-		B[i] = int8((i*13 + 5) % 127 - 63)
+		A[i] = int8((i*7+3)%127 - 63)
+		B[i] = int8((i*13+5)%127 - 63)
 	}
 
 	vmadotSS4x8((*byte)(unsafe.Pointer(&A[0])), (*byte)(unsafe.Pointer(&B[0])), &C_hw[0])

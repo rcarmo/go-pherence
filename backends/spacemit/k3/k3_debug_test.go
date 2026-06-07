@@ -410,7 +410,7 @@ func TestK3I8I4DispatcherM4MatchesM1(t *testing.T) {
 	for r := 0; r < 4; r++ {
 		act := make([]float32, K)
 		for k := 0; k < K; k++ {
-			act[k] = float32(((r+1)*(k%17)-8)) / 5.0
+			act[k] = float32(((r+1)*(k%17) - 8)) / 5.0
 		}
 		rows[r] = quantizeQ8Blocks32Bytes(act)
 	}
@@ -469,7 +469,7 @@ func TestQ4KMatVec4M4MatchesFourM1(t *testing.T) {
 		outs[r] = make([]float32, M)
 		want[r] = make([]float32, M)
 		for k := 0; k < K; k++ {
-			acts[r][k] = float32(((r+2)*(k%23)-11)) / 6.0
+			acts[r][k] = float32(((r+2)*(k%23) - 11)) / 6.0
 		}
 		q := quantizeQ8Blocks32Bytes(acts[r])
 		for rg := 0; rg < M/32; rg++ {
@@ -609,7 +609,7 @@ func TestK3I8I8M4DispatcherMatchesM1(t *testing.T) {
 	for r := 0; r < 4; r++ {
 		acts[r] = make([]float32, K)
 		for k := range acts[r] {
-			acts[r][k] = float32(((r+1)*(k%31)-15)) / 10.0
+			acts[r][k] = float32(((r+1)*(k%31) - 15)) / 10.0
 		}
 		qRows[r] = quantizeQ8Blocks32Bytes(acts[r])
 	}
@@ -626,7 +626,7 @@ func TestK3I8I8M4DispatcherMatchesM1(t *testing.T) {
 	var maxDiff float64
 	maxIdx := 0
 	for i := range want {
-		if d := math.Abs(float64(got[i]-want[i])); d > maxDiff {
+		if d := math.Abs(float64(got[i] - want[i])); d > maxDiff {
 			maxDiff, maxIdx = d, i
 		}
 	}
@@ -717,9 +717,13 @@ func TestQ4KBWaveMatVecMatchesDirect(t *testing.T) {
 		}
 	}
 	w := repackQ4KToQ41x32(M, K, raw, scales, mins)
-	if !w.Valid { t.Fatal("repack failed") }
+	if !w.Valid {
+		t.Fatal("repack failed")
+	}
 	act := make([]float32, K)
-	for k := range act { act[k] = float32((k%31)-15) / 8.0 }
+	for k := range act {
+		act[k] = float32((k%31)-15) / 8.0
+	}
 	pool := NewAIWorkerPool(6)
 	defer pool.Close()
 	direct := make([]float32, M)
@@ -731,14 +735,18 @@ func TestQ4KBWaveMatVecMatchesDirect(t *testing.T) {
 	var maxDiff float64
 	maxIdx := 0
 	for i := range direct {
-		if d := math.Abs(float64(direct[i]-wave[i])); d > maxDiff { maxDiff, maxIdx = d, i }
+		if d := math.Abs(float64(direct[i] - wave[i])); d > maxDiff {
+			maxDiff, maxIdx = d, i
+		}
 	}
 	if maxIdx >= 0 {
 		t.Logf("maxDiff=%.6f idx=%d direct=%.6f wave=%.6f", maxDiff, maxIdx, direct[maxIdx], wave[maxIdx])
 	} else {
 		t.Logf("maxDiff=0")
 	}
-	if maxDiff > 1e-5 { t.Fatalf("maxDiff %.6f > tolerance", maxDiff) }
+	if maxDiff > 1e-5 {
+		t.Fatalf("maxDiff %.6f > tolerance", maxDiff)
+	}
 }
 
 func TestQ4KBWaveWOLikeMatVecMatchesDirect(t *testing.T) {
@@ -750,16 +758,22 @@ func TestQ4KBWaveWOLikeMatVecMatchesDirect(t *testing.T) {
 	scales := make([]float32, M*subs)
 	mins := make([]float32, M*subs)
 	for m := 0; m < M; m++ {
-		for k := 0; k < K; k++ { raw[m*K+k] = int8((m*5 + k*7 + 3) & 15) }
+		for k := 0; k < K; k++ {
+			raw[m*K+k] = int8((m*5 + k*7 + 3) & 15)
+		}
 		for sb := 0; sb < subs; sb++ {
 			scales[m*subs+sb] = 0.001 + float32((m+sb)%19)*0.0003
 			mins[m*subs+sb] = 0.004 + float32((m*2+sb)%11)*0.0008
 		}
 	}
 	w := repackQ4KToQ41x32(M, K, raw, scales, mins)
-	if !w.Valid { t.Fatal("repack failed") }
+	if !w.Valid {
+		t.Fatal("repack failed")
+	}
 	act := make([]float32, K)
-	for k := range act { act[k] = float32((k%37)-18) / 9.0 }
+	for k := range act {
+		act[k] = float32((k%37)-18) / 9.0
+	}
 	pool := NewAIWorkerPool(6)
 	defer pool.Close()
 	direct := make([]float32, M)
@@ -770,9 +784,19 @@ func TestQ4KBWaveWOLikeMatVecMatchesDirect(t *testing.T) {
 	q4kQ41x32MatVecGoAsm(w, act, wave, pool)
 	var maxDiff float64
 	maxIdx := 0
-	for i := range direct { if d := math.Abs(float64(direct[i]-wave[i])); d > maxDiff { maxDiff, maxIdx = d, i } }
-	if maxIdx >= 0 { t.Logf("maxDiff=%.6f idx=%d direct=%.6f wave=%.6f", maxDiff, maxIdx, direct[maxIdx], wave[maxIdx]) } else { t.Logf("maxDiff=0") }
-	if maxDiff > 1e-5 { t.Fatalf("maxDiff %.6f > tolerance", maxDiff) }
+	for i := range direct {
+		if d := math.Abs(float64(direct[i] - wave[i])); d > maxDiff {
+			maxDiff, maxIdx = d, i
+		}
+	}
+	if maxIdx >= 0 {
+		t.Logf("maxDiff=%.6f idx=%d direct=%.6f wave=%.6f", maxDiff, maxIdx, direct[maxIdx], wave[maxIdx])
+	} else {
+		t.Logf("maxDiff=0")
+	}
+	if maxDiff > 1e-5 {
+		t.Fatalf("maxDiff %.6f > tolerance", maxDiff)
+	}
 }
 
 func TestQ4KBWaveBatchMixedShapesMatchesDirect(t *testing.T) {
@@ -786,20 +810,26 @@ func TestQ4KBWaveBatchMixedShapesMatchesDirect(t *testing.T) {
 		scales := make([]float32, M*subs)
 		mins := make([]float32, M*subs)
 		for m := 0; m < M; m++ {
-			for k := 0; k < K; k++ { raw[m*K+k] = int8((m*seed + k*7 + 3) & 15) }
+			for k := 0; k < K; k++ {
+				raw[m*K+k] = int8((m*seed + k*7 + 3) & 15)
+			}
 			for sb := 0; sb < subs; sb++ {
 				scales[m*subs+sb] = 0.001 + float32((m+sb+seed)%17)*0.0004
 				mins[m*subs+sb] = 0.005 + float32((m*3+sb+seed)%13)*0.0009
 			}
 		}
 		w := repackQ4KToQ41x32(M, K, raw, scales, mins)
-		if !w.Valid { t.Fatal("repack failed") }
+		if !w.Valid {
+			t.Fatal("repack failed")
+		}
 		return w
 	}
 	wq := mkWeight(2048, 5)
 	wk := mkWeight(1024, 11)
 	act := make([]float32, K)
-	for k := range act { act[k] = float32((k%29)-14) / 7.0 }
+	for k := range act {
+		act[k] = float32((k%29)-14) / 7.0
+	}
 	pool := NewAIWorkerPool(6)
 	defer pool.Close()
 	qDirect, kDirect := make([]float32, wq.M), make([]float32, wk.M)
@@ -815,10 +845,20 @@ func TestQ4KBWaveBatchMixedShapesMatchesDirect(t *testing.T) {
 		t.Fatal("b-wave batch failed")
 	}
 	var maxDiff float64
-	for i := range qDirect { if d := math.Abs(float64(qDirect[i]-qWave[i])); d > maxDiff { maxDiff = d } }
-	for i := range kDirect { if d := math.Abs(float64(kDirect[i]-kWave[i])); d > maxDiff { maxDiff = d } }
+	for i := range qDirect {
+		if d := math.Abs(float64(qDirect[i] - qWave[i])); d > maxDiff {
+			maxDiff = d
+		}
+	}
+	for i := range kDirect {
+		if d := math.Abs(float64(kDirect[i] - kWave[i])); d > maxDiff {
+			maxDiff = d
+		}
+	}
 	t.Logf("maxDiff=%.6f", maxDiff)
-	if maxDiff > 1e-5 { t.Fatalf("maxDiff %.6f > tolerance", maxDiff) }
+	if maxDiff > 1e-5 {
+		t.Fatalf("maxDiff %.6f > tolerance", maxDiff)
+	}
 }
 
 // BenchmarkGateUpDecode mirrors the actual gate_up decode operation:
@@ -827,7 +867,9 @@ func BenchmarkGateUpDecodeSingleWorkerSerial(b *testing.B) {
 	const M, K = 3072, 1024
 	w := makeRandQ4KW(M, K)
 	act := make([]float32, K)
-	for i := range act { act[i] = 0.1 }
+	for i := range act {
+		act[i] = 0.1
+	}
 	quantA := quantizeQ8Blocks32Bytes(act)
 	out := make([]float32, M)
 	subs := K / 32
@@ -848,7 +890,9 @@ func BenchmarkGateUpDecodePooled6Workers(b *testing.B) {
 	const M, K = 3072, 1024
 	w := makeRandQ4KW(M, K)
 	act := make([]float32, K)
-	for i := range act { act[i] = 0.1 }
+	for i := range act {
+		act[i] = 0.1
+	}
 	out := make([]float32, M)
 	pool := NewAIWorkerPool(6)
 	defer pool.Close()
@@ -885,7 +929,9 @@ func TestInlineZPVsGoZPD(t *testing.T) {
 	scales := make([]float32, M*subs)
 	mins := make([]float32, M*subs)
 	for m := 0; m < M; m++ {
-		for k := 0; k < K; k++ { raw[m*K+k] = int8((m*3 + k*7 + 5) & 15) }
+		for k := 0; k < K; k++ {
+			raw[m*K+k] = int8((m*3 + k*7 + 5) & 15)
+		}
 		for sb := 0; sb < subs; sb++ {
 			scales[m*subs+sb] = 0.01 + float32(m+sb)*0.001
 			mins[m*subs+sb] = 0.08 + float32(m+sb)*0.002
@@ -893,7 +939,9 @@ func TestInlineZPVsGoZPD(t *testing.T) {
 	}
 	w := repackQ4KToQ41x32(M, K, raw, scales, mins)
 	act := make([]float32, K)
-	for i := range act { act[i] = float32(i+1) * 0.01 }
+	for i := range act {
+		act[i] = float32(i+1) * 0.01
+	}
 
 	outRef := make([]float32, M)
 	q4kQ41x32MatVecRef(w, act, outRef)
@@ -907,18 +955,26 @@ func TestInlineZPVsGoZPD(t *testing.T) {
 		groups := M / 32
 		gStart := workerID * groups / nWorkers
 		gEnd := (workerID + 1) * groups / nWorkers
-		if gStart >= gEnd { return }
+		if gStart >= gEnd {
+			return
+		}
 		k3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernel[gStart*32], subs, gEnd-gStart)
 	})
 
 	maxDiff := float32(0)
 	for i := range outRef {
 		d := outRef[i] - outKernel[i]
-		if d < 0 { d = -d }
-		if d > maxDiff { maxDiff = d }
+		if d < 0 {
+			d = -d
+		}
+		if d > maxDiff {
+			maxDiff = d
+		}
 	}
 	t.Logf("Kernel-only vs Ref maxDiff=%.6f (ref[0]=%.4f kernel[0]=%.4f)", maxDiff, outRef[0], outKernel[0])
-	if maxDiff < 0.5 { t.Logf("INLINE ZP correction working! maxDiff=%.6f", maxDiff) }
+	if maxDiff < 0.5 {
+		t.Logf("INLINE ZP correction working! maxDiff=%.6f", maxDiff)
+	}
 }
 
 func TestInlineZPAppliedCorrectly(t *testing.T) {
@@ -927,35 +983,46 @@ func TestInlineZPAppliedCorrectly(t *testing.T) {
 	const kBlks = 1
 	a := make([]byte, kBlks*38)
 	b := make([]byte, kBlks*608)
-	
+
 	// A: scale=1.0, sumNeg=-32 (sum=32), all quants=1
 	*(*float32)(unsafe.Pointer(&a[0])) = 1.0
 	*(*int16)(unsafe.Pointer(&a[4])) = int16(-32)
-	for i := 0; i < 32; i++ { a[6+i] = 1 }
-	
+	for i := 0; i < 32; i++ {
+		a[6+i] = 1
+	}
+
 	// B: fp16 scale=1.0, ZP=4 for rows 0-7, ZP=8 for rows 8-31, nibbles=8
 	for r := 0; r < 32; r++ {
-		b[r*2] = 0x00; b[r*2+1] = 0x3C  // fp16 1.0
-		if r < 8 { b[64+r] = 4 } else { b[64+r] = 8 }  // ZP
-		for n := 0; n < 16; n++ { b[96+r*16+n] = 0x88 }
+		b[r*2] = 0x00
+		b[r*2+1] = 0x3C // fp16 1.0
+		if r < 8 {
+			b[64+r] = 4
+		} else {
+			b[64+r] = 8
+		} // ZP
+		for n := 0; n < 16; n++ {
+			b[96+r*16+n] = 0x88
+		}
 	}
-	
+
 	pool := NewAIWorkerPool(1)
 	defer pool.Close()
 	out := make([]float32, 64)
-	for i := range out { out[i] = -999.0 }
-	
+	for i := range out {
+		out[i] = -999.0
+	}
+
 	pool.Run(func(w, n int) {
 		k3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
 	})
-	
+
 	// Pure dot: 32 * 8 * 1.0 * 1.0 = 256
 	// ZP correction for row r: -scale_A * ZP[r] * D[r] * sum_A = -1.0 * ZP[r] * 1.0 * 32 = -32 * ZP[r]
 	// Expected rows 0-7: 256 - 32*4 = 256 - 128 = 128
 	// Expected rows 8-31: 256 - 32*8 = 256 - 256 = 0
 	t.Logf("out[0:8] = %v (expect 128)", out[:8])
 	t.Logf("out[8:16] = %v (expect 0)", out[8:16])
-	
+
 	// Check rows 0-7: expect 128 (ZP=4, correction=-128)
 	for i := 0; i < 8; i++ {
 		if math.Abs(float64(out[i]-128)) > 5.0 {
@@ -971,46 +1038,56 @@ func TestInlineZPAppliedCorrectly(t *testing.T) {
 }
 
 func TestInlineZPMultiBlock(t *testing.T) {
-	// Test with kBlks=8 (typical for real inference) 
+	// Test with kBlks=8 (typical for real inference)
 	const kBlks = 8
 	a := make([]byte, kBlks*38)
 	b := make([]byte, kBlks*608)
-	
+
 	// Each A block: scale=0.5+i*0.1, sumNeg=-20+i*2, quants=1
 	for k := 0; k < kBlks; k++ {
 		scale := 0.5 + float32(k)*0.1
 		sumNeg := int16(-20 + k*2)
 		*(*float32)(unsafe.Pointer(&a[k*38])) = scale
 		*(*int16)(unsafe.Pointer(&a[k*38+4])) = sumNeg
-		for i := 0; i < 32; i++ { a[k*38+6+i] = 1 }
+		for i := 0; i < 32; i++ {
+			a[k*38+6+i] = 1
+		}
 	}
-	
+
 	// Each B block: D[r] = 0.01, ZP[r] = (r%8)+1 (varying ZP), nibbles=8
 	for k := 0; k < kBlks; k++ {
 		for r := 0; r < 32; r++ {
-			// fp16(0.01) ≈ 0x211F  
-			b[k*608+r*2] = 0x1f; b[k*608+r*2+1] = 0x21
-			b[k*608+64+r] = uint8(r%8 + 1)  // ZP[r] = 1..8 cycling
-			for n := 0; n < 16; n++ { b[k*608+96+r*16+n] = 0x88 }
+			// fp16(0.01) ≈ 0x211F
+			b[k*608+r*2] = 0x1f
+			b[k*608+r*2+1] = 0x21
+			b[k*608+64+r] = uint8(r%8 + 1) // ZP[r] = 1..8 cycling
+			for n := 0; n < 16; n++ {
+				b[k*608+96+r*16+n] = 0x88
+			}
 		}
 	}
-	
+
 	pool := NewAIWorkerPool(1)
 	defer pool.Close()
 	out := make([]float32, 64)
-	for i := range out { out[i] = -999.0 }
-	
+	for i := range out {
+		out[i] = -999.0
+	}
+
 	pool.Run(func(w, n int) {
 		k3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
 	})
-	
+
 	t.Logf("out[0:8] = %v", out[:8])
 	t.Logf("out[8:16] = %v", out[8:16])
-	
+
 	// Check: are any outputs significantly non-zero in a way that indicates ZP is applied?
 	allSame := true
 	for i := 1; i < 32; i++ {
-		if math.Abs(float64(out[i]-out[0])) > 1.0 { allSame = false; break }
+		if math.Abs(float64(out[i]-out[0])) > 1.0 {
+			allSame = false
+			break
+		}
 	}
 	if allSame {
 		t.Logf("All outputs same (%.2f) — ZP correction not working or ZPs are uniform", out[0])
@@ -1027,7 +1104,9 @@ func TestInlineZPVsGoZPDCorrect(t *testing.T) {
 	scales := make([]float32, M*subs)
 	mins := make([]float32, M*subs)
 	for m := 0; m < M; m++ {
-		for k := 0; k < K; k++ { raw[m*K+k] = int8((m*3 + k*7 + 5) & 15) }
+		for k := 0; k < K; k++ {
+			raw[m*K+k] = int8((m*3 + k*7 + 5) & 15)
+		}
 		for sb := 0; sb < subs; sb++ {
 			scales[m*subs+sb] = 0.01 + float32(m+sb)*0.001
 			mins[m*subs+sb] = 0.08 + float32(m+sb)*0.002
@@ -1035,7 +1114,9 @@ func TestInlineZPVsGoZPDCorrect(t *testing.T) {
 	}
 	w := repackQ4KToQ41x32(M, K, raw, scales, mins)
 	act := make([]float32, K)
-	for i := range act { act[i] = float32(i+1) * 0.01 }
+	for i := range act {
+		act[i] = float32(i+1) * 0.01
+	}
 
 	// Reference: F32 exact
 	outRef := make([]float32, M)
@@ -1051,15 +1132,21 @@ func TestInlineZPVsGoZPDCorrect(t *testing.T) {
 		groups := M / 32
 		gStart := workerID * groups / nWorkers
 		gEnd := (workerID + 1) * groups / nWorkers
-		if gStart >= gEnd { return }
+		if gStart >= gEnd {
+			return
+		}
 		k3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernelOnly[gStart*32], subs, gEnd-gStart)
 	})
 
 	maxDiff := float32(0)
 	for i := range outRef {
 		d := outRef[i] - outKernelOnly[i]
-		if d < 0 { d = -d }
-		if d > maxDiff { maxDiff = d }
+		if d < 0 {
+			d = -d
+		}
+		if d > maxDiff {
+			maxDiff = d
+		}
 	}
 	t.Logf("KernelInlineZP vs Ref: maxDiff=%.6f (ref[0]=%.4f kernel[0]=%.4f)", maxDiff, outRef[0], outKernelOnly[0])
 	if maxDiff < 0.2 {
@@ -1071,27 +1158,32 @@ func TestInlineZPVsGoZPDCorrect(t *testing.T) {
 
 func TestInlineZPSingleGroup32Blks(t *testing.T) {
 	// Test k3I8I4M1 directly with 32 K32 blocks (real inference scenario)
-	const kBlks = 32  // subs = K/32 for K=1024
+	const kBlks = 32 // subs = K/32 for K=1024
 	a := make([]byte, kBlks*38)
 	b := make([]byte, kBlks*608)
-	
+
 	// Set up realistic values: scale varies, sumNeg varies, ZP=8 for all
 	for k := 0; k < kBlks; k++ {
 		scale := 0.005 + float32(k)*0.001
-		sumNeg := int16(-40 + k*2)  // sumNeg = -40 to -40+62 = 22
+		sumNeg := int16(-40 + k*2) // sumNeg = -40 to -40+62 = 22
 		*(*float32)(unsafe.Pointer(&a[k*38])) = scale
 		*(*int16)(unsafe.Pointer(&a[k*38+4])) = sumNeg
-		for i := 0; i < 32; i++ { a[k*38+6+i] = 1 }
+		for i := 0; i < 32; i++ {
+			a[k*38+6+i] = 1
+		}
 		for r := 0; r < 32; r++ {
-			b[k*608+r*2] = 0x00; b[k*608+r*2+1] = 0x3C  // fp16 1.0
-			b[k*608+64+r] = 8  // ZP=8 for all rows
-			for n := 0; n < 16; n++ { b[k*608+96+r*16+n] = 0x88 }
+			b[k*608+r*2] = 0x00
+			b[k*608+r*2+1] = 0x3C // fp16 1.0
+			b[k*608+64+r] = 8     // ZP=8 for all rows
+			for n := 0; n < 16; n++ {
+				b[k*608+96+r*16+n] = 0x88
+			}
 		}
 	}
-	
+
 	// Expected output with ZP=8, nibble=8, act=1:
 	// Per block: dot = 32*8 = 256, ZP_correction = scale * ZP * D * sumNeg = scale * 8 * 1 * sumNeg
-	// Total = sum_k(scale_k * 1 * (256 - 8 * (-sumNeg_k))) 
+	// Total = sum_k(scale_k * 1 * (256 - 8 * (-sumNeg_k)))
 	// Wait: ZP_correction = scale_A * D * ZP * sumNeg (negative of ZP*sum_A)
 	// = scale * 1 * 8 * sumNeg (sumNeg is negative → ZP_correction is negative)
 	// output = sum_k(scale_k * (256 + 8 * sumNeg_k))
@@ -1099,18 +1191,20 @@ func TestInlineZPSingleGroup32Blks(t *testing.T) {
 	for k := 0; k < kBlks; k++ {
 		scale := 0.005 + float32(k)*0.001
 		sumNeg := -40.0 + float32(k)*2
-		expected += scale * 1.0 * (256 + 8*sumNeg)  // D=1.0 (fp16 1.0)
+		expected += scale * 1.0 * (256 + 8*sumNeg) // D=1.0 (fp16 1.0)
 	}
-	
+
 	pool := NewAIWorkerPool(1)
 	defer pool.Close()
 	out := make([]float32, 64)
-	for i := range out { out[i] = -999.0 }
-	
+	for i := range out {
+		out[i] = -999.0
+	}
+
 	pool.Run(func(w, n int) {
 		k3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
 	})
-	
+
 	t.Logf("Expected = %.4f, Got[0] = %.4f, Got[1] = %.4f", expected, out[0], out[1])
 	diff := math.Abs(float64(out[0] - expected))
 	if diff > 1.0 {
@@ -1126,7 +1220,9 @@ func TestInlineZPVsGoZPDFullMatrix(t *testing.T) {
 	scales := make([]float32, M*subs)
 	mins := make([]float32, M*subs)
 	for m := 0; m < M; m++ {
-		for k := 0; k < K; k++ { raw[m*K+k] = int8((m*3 + k*7 + 5) & 15) }
+		for k := 0; k < K; k++ {
+			raw[m*K+k] = int8((m*3 + k*7 + 5) & 15)
+		}
 		for sb := 0; sb < subs; sb++ {
 			scales[m*subs+sb] = 0.01 + float32(m+sb)*0.001
 			mins[m*subs+sb] = 0.08 + float32(m+sb)*0.002
@@ -1134,7 +1230,9 @@ func TestInlineZPVsGoZPDFullMatrix(t *testing.T) {
 	}
 	w := repackQ4KToQ41x32(M, K, raw, scales, mins)
 	act := make([]float32, K)
-	for i := range act { act[i] = float32(i+1) * 0.01 }
+	for i := range act {
+		act[i] = float32(i+1) * 0.01
+	}
 
 	// Reference
 	outRef := make([]float32, M)
@@ -1145,16 +1243,22 @@ func TestInlineZPVsGoZPDFullMatrix(t *testing.T) {
 	defer pool.Close()
 	outBatch := make([]float32, M)
 	ok := q4kQ41x32MatVecBatchSameAct(act, pool, q4kBatchMatVecSpec{W: w, Out: outBatch})
-	if !ok { t.Fatal("batch returned false") }
+	if !ok {
+		t.Fatal("batch returned false")
+	}
 
 	maxDiff := float32(0)
 	for i := range outRef {
 		d := outRef[i] - outBatch[i]
-		if d < 0 { d = -d }
-		if d > maxDiff { maxDiff = d }
+		if d < 0 {
+			d = -d
+		}
+		if d > maxDiff {
+			maxDiff = d
+		}
 	}
 	t.Logf("Batch(kernel+GoZPD) vs Ref: maxDiff=%.4f", maxDiff)
-	
+
 	// Kernel-only (inline ZP, no Go ZPD) via raw pool.Run
 	outKernelOnly := make([]float32, M)
 	q8 := quantizeQ8Blocks32(act)
@@ -1163,15 +1267,21 @@ func TestInlineZPVsGoZPDFullMatrix(t *testing.T) {
 		groups := M / 32
 		gStart := workerID * groups / nWorkers
 		gEnd := (workerID + 1) * groups / nWorkers
-		if gStart >= gEnd { return }
+		if gStart >= gEnd {
+			return
+		}
 		k3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernelOnly[gStart*32], subs, gEnd-gStart)
 	})
-	
+
 	maxDiffInline := float32(0)
 	for i := range outRef {
 		d := outRef[i] - outKernelOnly[i]
-		if d < 0 { d = -d }
-		if d > maxDiffInline { maxDiffInline = d }
+		if d < 0 {
+			d = -d
+		}
+		if d > maxDiffInline {
+			maxDiffInline = d
+		}
 	}
 	t.Logf("KernelInlineZP vs Ref: maxDiff=%.4f (ref[0]=%.3f batch[0]=%.3f inline[0]=%.3f)", maxDiffInline, outRef[0], outBatch[0], outKernelOnly[0])
 }

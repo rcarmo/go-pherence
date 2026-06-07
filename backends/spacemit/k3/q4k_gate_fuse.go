@@ -1,8 +1,8 @@
 package k3
 
 import (
-	"unsafe"
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"unsafe"
 )
 
 // q4kQ41x32GateUpSiluSameAct runs Gate and Up Q4_K matvecs for the same

@@ -1,6 +1,10 @@
 package k3
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+)
 
 func GemmAIArgmaxI32(M, K int, wPacked, actPacked []int8, tmp []int32, pool *AIWorkerPool) (int, int32) {
 	if M == 0 {
@@ -32,7 +36,7 @@ func GemmAIArgmaxI32(M, K int, wPacked, actPacked []int8, tmp []int32, pool *AIW
 		tilesPerRow := K / 16
 		var localBest int32
 		var localID int64
-		vmadotI8ArgmaxGroups1024(
+		ime2.VmadotI8ArgmaxGroups1024(
 			(*byte)(unsafe.Pointer(&wPacked[(rowStart/8)*tilesPerRow*128])),
 			actPtr,
 			&scratch[0], &localBest, &localID,
