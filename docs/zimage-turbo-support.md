@@ -61,7 +61,7 @@ assembly under backend-owned packages.
 ## Work breakdown
 
 1. **Inspection/readiness** — implemented via `loader/config/zimage.go` and
-   `cmd/zimageinspect`. This validates the Diffusers component graph and reports
+   `cmd/image/zimageinspect`. This validates the Diffusers component graph and reports
    an explicit `runtime_ready=false` until generation exists.
 2. **Text conditioning** — reuse/adapt Qwen tokenizer and Qwen3 encoder support
    for hidden-state conditioning, without causal generation/KV assumptions.

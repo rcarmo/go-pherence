@@ -118,7 +118,7 @@ WHISPER_INT8=1 bin/whisper-k3 -model models/whisper/whisper-large-v3.safetensors
 Flags: `-speaker-model` (default `models/speaker-ecapa-voxceleb.safetensors`) and
 `-speaker-threshold` (default 0.3, lower = more speakers). If the speaker model is
 absent the command logs a warning and falls back to single-speaker labels so
-transcription still succeeds. `cmd/speakercheck` runs the speaker path alone
+transcription still succeeds. `cmd/audio/speakercheck` runs the speaker path alone
 (VAD + embeddings + clustering) for tuning without Whisper.
 
 The same RVV/SIMD kernels accelerate ECAPA: its 1×1 pointwise convolutions and

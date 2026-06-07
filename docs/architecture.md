@@ -37,7 +37,7 @@ Phase 6.5 has moved the repository toward explicit ownership boundaries. Remaini
 
 | Area | Current package | Notes |
 |---|---|---|
-| CLI front-ends | `cmd/llmgen`, `cmd/llmchat`, `cmd/llmserver`, `cmd/specbench`, `cmd/speccheck`, `cmd/qwenmtpmeta`, `cmd/qwenmtpsynth` | Flags and user/server I/O only; `specbench` emits normal-vs-speculative CSV benchmark rows, `speccheck` emits correctness JSON, Qwen MTP commands inspect metadata and run synthetic harnesses |
+| CLI front-ends | `cmd/llm/llmgen`, `cmd/llm/llmchat`, `cmd/llm/llmserver`, `cmd/llm/specbench`, `cmd/llm/speccheck`, `cmd/qwen/qwenmtpmeta`, `cmd/qwen/qwenmtpsynth` | Flags and user/server I/O only; `specbench` emits normal-vs-speculative CSV benchmark rows, `speccheck` emits correctness JSON, Qwen MTP commands inspect metadata and run synthetic harnesses |
 | Loader helpers | `loader/config`, `loader/tokenizer`, `loader/safetensors`, `loader/weights`, `loader/gguf` | Config JSON, tokenizer JSON, mmap safetensors, sharded/single-file weight sources, and GGUF inspection/tokenizer helpers; safetensors metadata, nil helpers, deterministic names, checked eager totals, partial sharded-open cleanup, tokenizer merge helpers, and GGUF REAP/TurboQuant readiness fields are guarded |
 | Placement policy | `backends/placement` | Backend-neutral budget manager and layer placement estimator; device memory availability is caller-supplied; accounting rejects invalid categories and estimator math is saturating |
 | SIMD backend | `backends/simd/runtime`, `backends/simd/kernels` | Package name remains `simd` for runtime imports; scalar/asm dispatch wrappers live in `runtime`; reusable CPU kernel bodies live in `kernels`; BF16/Q4/NVFP4 are grouped under runtime quant subpackages; scalar fallbacks, BF16 GEMV, empty-slice dispatch, per-call GEBP scratch, and SGEMM/GEBP/gather byte offsets are bounds/overflow-guarded |
@@ -147,7 +147,7 @@ The stock-weight path deliberately avoids Orthrus custom `*_diff` tensors and in
 - Current verifier backend is `replay`: exact greedy verification by replaying the prepared CPU prompt. It is a correctness/measurement scaffold and can be slower.
 - The `kv` backend selector is accepted but falls back to `replay` until a stateful KV-reusing verifier replaces the replay body.
 - `SpeculativeStats` records backend, proposer, proposal/acceptance/fallback counters, emitted-token counts, tokens/step, average proposal length, plus reusable add/average helpers for benchmarks.
-- `cmd/specbench` compares normal vs speculative output, validates parity, supports prompt-file workloads and repeat averaging, and emits CSV suitable for tracking `backend=replay` to future `backend=kv` improvements.
+- `cmd/llm/specbench` compares normal vs speculative output, validates parity, supports prompt-file workloads and repeat averaging, and emits CSV suitable for tracking `backend=replay` to future `backend=kv` improvements.
 
 ## BF16 Pipeline
 

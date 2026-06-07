@@ -85,7 +85,7 @@ The recommended Qwen next target is `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`: dens
 Local metadata status:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwenmtpmeta \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwenmtpmeta \
   -model models/qwen3.6-27b-mlx4-mtp \
   -strict
 ```
@@ -95,7 +95,7 @@ This now passes after accepting `language_model.mtp.*` tensor names. The checkpo
 Current loader status:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -model models/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
@@ -112,7 +112,7 @@ Implemented local smoke step: Qwen3.5/Qwen3.6 base layers and native-MTP head no
 Current CPU smoke:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -model models/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
@@ -133,7 +133,7 @@ This proves the dense MLX checkpoint can load and run the base+native-MTP diagno
 Initial NVIDIA status:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing \
   -model models/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
@@ -156,7 +156,7 @@ The NVIDIA MLX path now uses an MLX-specific GPU weight cache under the existing
 Latest local one-step MTP cache smoke:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing \
   -gpu-cache-mb 11000 \
   -model models/qwen3.6-27b-mlx4-mtp \
@@ -196,7 +196,7 @@ Follow-up improvements landed:
 Latest local one-step MTP smoke with native-only cached MLX:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=false -gpu-timing \
   -gpu-cache-mb 11000 \
   -model models/qwen3.6-27b-mlx4-mtp \
@@ -234,7 +234,7 @@ This is a substantial improvement over CPU-only (`~30.9s` for the one-step MTP s
 Current validation command:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true \
   -gpu-cache-mb 10600 \
   -model models/qwen3.6-27b-mlx4-mtp \
@@ -263,7 +263,7 @@ Remaining performance gaps are no longer missing NVIDIA plumbing: they are trans
 Qwen prompt-state reuse is now available in-process and searches for the longest cached prefix, not just exact prompts:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -kv-reuse -kv-repeat 2 -kv-chunk-size 32 \
   -model models/qwen3.6-27b-mlx4-mtp \
@@ -287,7 +287,7 @@ The cached state includes the full `Qwen35BaseForwardState`, so it covers both f
 Layer-streamed prompt prefill is now available for Qwen diagnostics:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -layer-streamed-prefill -prefill-chunk-size 4 \
   -model models/qwen3.6-27b-mlx4-mtp \
@@ -309,7 +309,7 @@ MTP verifier state and accepted-prefix commit are now combined with the restored
 Validation command:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -kv-reuse -kv-chunk-size 2 \
   -layer-streamed-prefill -prefill-chunk-size 4 \
@@ -369,7 +369,7 @@ MTP audit notes:
 Validation command:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -kv-reuse -kv-repeat 2 -kv-chunk-size 2 \
   -layer-streamed-prefill -prefill-chunk-size 4 \
@@ -498,28 +498,28 @@ For go-pherence, this maps onto:
 
 ### Metadata inspection helper
 
-Use `cmd/qwenmtpmeta` for local metadata inspection without entering the full model loader:
+Use `cmd/qwen/qwenmtpmeta` for local metadata inspection without entering the full model loader:
 
 ```bash
-go run ./cmd/qwenmtpmeta -model /path/to/qwen3.6-27b-mtp
+go run ./cmd/qwen/qwenmtpmeta -model /path/to/qwen3.6-27b-mtp
 # or fail non-zero when native MTP tensors are incomplete:
-go run ./cmd/qwenmtpmeta -model /path/to/qwen3.6-27b-mtp -strict
+go run ./cmd/qwen/qwenmtpmeta -model /path/to/qwen3.6-27b-mtp -strict
 ```
 
 It emits JSON with parsed Qwen native-MTP config metadata (including `vocab_size`), whether optional MTP shared-head loading can be attempted, layer counts by type, derived Qwen3.5 full/linear attention shape contracts, any local `mtp.*` safetensors tensor names, optional shared-head tensors as a separate list, summary counts, and `mtp_tensor_complete` when `model.safetensors` or `model.safetensors.index.json` is present. If safetensors are available, it also reports missing required native-MTP tensors for the configured MTP layer count.
 
 ### Real-checkpoint smoke runner
 
-Use `cmd/qwen36run` for the current CPU correctness smoke against the downloaded NVFP4 Qwen3.6 checkpoint:
+Use `cmd/qwen/qwen36run` for the current CPU correctness smoke against the downloaded NVFP4 Qwen3.6 checkpoint:
 
 ```bash
-go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
+go run ./cmd/qwen/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
 
 # Optional, more expensive prefill diagnostic seeded with the base greedy token:
-go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -greedy-seed
+go run ./cmd/qwen/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -greedy-seed
 
 # Sweep newline-separated prompts and summarize MTP acceptance:
-go run ./cmd/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
+go run ./cmd/qwen/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
 ```
 
 The runner reports base greedy IDs, native-MTP draft IDs, verifier IDs, acceptance prefix length, and rejection margins. It is intentionally a slow CPU smoke path, not the final public generation API.
@@ -577,7 +577,7 @@ Once base forward works:
 
 ### Phase D — correctness harness
 
-Use `cmd/speccheck` to compare:
+Use `cmd/llm/speccheck` to compare:
 
 - normal greedy generation;
 - native-MTP speculative generation with K=1 first;
@@ -588,7 +588,7 @@ Do not optimize GPU until CPU token parity is stable.
 Synthetic command-line harness while real Qwen3.6 loading is gated:
 
 ```bash
-go run ./cmd/qwenmtpsynth -steps 2
+go run ./cmd/qwen/qwenmtpsynth -steps 2
 ```
 
 This exercises the native-MTP plan/draft/acceptance/stat plumbing over tiny deterministic tensors and exits non-zero on acceptance failure.

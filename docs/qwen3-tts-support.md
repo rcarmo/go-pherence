@@ -107,7 +107,7 @@ model/qwen3tts/
 CLI and scripts:
 
 ```text
-cmd/qwen3ttsinspect/  # metadata/config/tensor inventory first
+cmd/qwen/qwen3ttsinspect/  # metadata/config/tensor inventory first
 cmd/qwen3tts/         # synthesize text to WAV once runtime path exists
 scripts/qwen3tts_*    # optional Python/Rust-reference fixture generation helpers
 ```
@@ -121,7 +121,7 @@ If shared Qwen decoder code is extracted, prefer a small internal/common bridge 
 Goal: make the work measurable before implementing inference.
 
 - [x] Add `docs/qwen3-tts-support.md` and keep it current.
-- [x] Add `cmd/qwen3ttsinspect` to read local checkpoint metadata:
+- [x] Add `cmd/qwen/qwen3ttsinspect` to read local checkpoint metadata:
   - variant (`base`, `custom_voice`, `voice_design`);
   - size class (`0.6B`, `1.7B`);
   - talker dimensions;
@@ -248,4 +248,4 @@ GOTMPDIR=$PWD/.gotmp go vet ./...
 
 ## Immediate next action
 
-Implement Phase T0/T1 together: config/token/prefix support plus `cmd/qwen3ttsinspect`. That gives us a safe, testable landing zone before any heavy decoder or codec work.
+Implement Phase T0/T1 together: config/token/prefix support plus `cmd/qwen/qwen3ttsinspect`. That gives us a safe, testable landing zone before any heavy decoder or codec work.

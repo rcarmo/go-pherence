@@ -1,6 +1,6 @@
 # Whisper model assets in use
 
-This project currently uses local Hugging Face-style Whisper safetensors assets under `models/` for `cmd/diarize-vtt` and related Whisper tests/tools.
+This project currently uses local Hugging Face-style Whisper safetensors assets under `models/` for `cmd/audio/diarize-vtt` and related Whisper tests/tools.
 
 ## Production/default translated VTT model
 
@@ -36,7 +36,7 @@ Shape/config used by Go:
 Default `diarize-vtt` usage:
 
 ```bash
-go run ./cmd/diarize-vtt \
+go run ./cmd/audio/diarize-vtt \
   -input meeting.m4a \
   -output meeting.vtt \
   -model models/whisper-large-v3-hf/model.safetensors \
@@ -47,7 +47,7 @@ go run ./cmd/diarize-vtt \
 
 Notes:
 
-- This is the default `cmd/diarize-vtt` model path.
+- This is the default `cmd/audio/diarize-vtt` model path.
 - The workflow loads `tokenizer.json` from the same directory as `model.safetensors`.
 - This is currently kept as the production/default path because translation behavior is known-good compared with the turbo candidate.
 
@@ -96,7 +96,7 @@ Important token IDs from `generation_config.json`:
 Test command:
 
 ```bash
-go run ./cmd/diarize-vtt \
+go run ./cmd/audio/diarize-vtt \
   -input meeting.m4a \
   -output meeting.vtt \
   -model models/whisper-large-v3-turbo-hf/model.safetensors \

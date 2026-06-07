@@ -47,7 +47,7 @@ Added a direct Go/asm port of the PR's `gemm_kernel_i8i4_m1` active `#else` path
 
 - `cmd/k3/ime2run/k3_i8i4_go.s`
 - env route: `IME2_Q4K_LLAMA_X32=1 IME2_Q4K_GOASM=1`
-- synthetic all-ones kernel test passes in `cmd/testi8i4`.
+- synthetic all-ones kernel test passes in `cmd/k3/testi8i4`.
 
 However, a randomized synthetic test and model-path `IME2_Q4K_COMPARE=1` still show mismatches vs the scalar `Q4_1x32` reference. The direct asm is executing on A100 and no longer faults, but the remaining issue is semantic/layout correspondence between:
 
@@ -55,4 +55,4 @@ However, a randomized synthetic test and model-path `IME2_Q4K_COMPARE=1` still s
 - Q4_1x32 `qs` byte ordering consumed by `vl4r.v v4..v7`
 - output lane order after `vpack.vv`
 
-Do not port `m4` until `m1` matches the scalar reference on randomized `cmd/testi8i4` cases.
+Do not port `m4` until `m1` matches the scalar reference on randomized `cmd/k3/testi8i4` cases.

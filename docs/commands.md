@@ -32,7 +32,7 @@ The downloader uses `huggingface_hub.snapshot_download`; install it with:
 python3 -m pip install huggingface_hub
 ```
 
-The speaker group downloads source SpeechBrain checkpoints. Convert them before use with `cmd/diarize-vtt -speaker-model`:
+The speaker group downloads source SpeechBrain checkpoints. Convert them before use with `cmd/audio/diarize-vtt -speaker-model`:
 
 ```bash
 python3 -m pip install torch safetensors
@@ -51,7 +51,7 @@ python3 scripts/download_models.py --only gemma4-e4b-it-4bit --repo gemma4-e4b-i
 ## `llmgen` — one-shot generation
 
 ```bash
-go run ./cmd/llmgen -model models/qwen3-0.6b-mlx4 -gpu -tokens 50 -prompt "The meaning of life is"
+go run ./cmd/llm/llmgen -model models/qwen3-0.6b-mlx4 -gpu -tokens 50 -prompt "The meaning of life is"
 ```
 
 Useful flags:
@@ -66,7 +66,7 @@ Useful flags:
 CPU speculative scaffold example:
 
 ```bash
-go run ./cmd/llmgen -model models/smollm2-135m -tokens 32 \
+go run ./cmd/llm/llmgen -model models/smollm2-135m -tokens 32 \
   -prompt "abc abc abc abc" \
   -speculative -speculative-proposer prompt -speculative-debug
 ```
@@ -227,7 +227,7 @@ make gguf-ci-qwen36-reap
 Standalone smoke command:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/gemma4mtpsmoke \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpsmoke \
   -model models/gemma4-e4b-it-4bit \
   -drafter models/gemma4-e4b-mtp-drafter
 ```
@@ -235,7 +235,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/gemma4mtpsmoke \
 The same experimental smoke is exposed through `llmgen`:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
   -model models/gemma4-e4b-it-4bit \
   -mtp-drafter models/gemma4-e4b-mtp-drafter \
@@ -248,7 +248,7 @@ Use the E4B pair for local MTP development. It fits fully on the RTX 3060 and su
 31B stress path:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 17 -gpu-kv-max-seq 256 \
   -model models/gemma4-31b-it-4bit \
   -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
@@ -269,32 +269,32 @@ samwang0041/Qwen3.6-27B-MLX-4bit-MTP
 It is a dense MLX affine 4-bit native-MTP checkpoint (~15.37GB) and is a better current target than the older NVFP4 public checkpoint because public NVFP4 generation remains gated.
 
 ```bash
-go run ./cmd/qwenmtpmeta -model /path/to/qwen3.6-27b-mtp
+go run ./cmd/qwen/qwenmtpmeta -model /path/to/qwen3.6-27b-mtp
 
-go run ./cmd/qwenmtpsynth -steps 2
+go run ./cmd/qwen/qwenmtpsynth -steps 2
 
-go run ./cmd/qwenmtpsmoke -model /path/to/qwen3.6-27b-mtp
+go run ./cmd/qwen/qwenmtpsmoke -model /path/to/qwen3.6-27b-mtp
 
-go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
+go run ./cmd/qwen/qwen36run -model /path/to/qwen3.6-27b-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
 ```
 
 Optional seed-variant diagnostic:
 
 ```bash
-go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -prompt "Hello" -steps 1 -mtp -greedy-seed
+go run ./cmd/qwen/qwen36run -model /path/to/qwen3.6-27b-mtp -prompt "Hello" -steps 1 -mtp -greedy-seed
 ```
 
 Sweep newline-separated prompt files:
 
 ```bash
-go run ./cmd/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
+go run ./cmd/qwen/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
 ```
 
 `qwenmtpmeta` inspects config/tensor metadata without entering the full model loader. `qwenmtpsynth` runs a tiny deterministic native-MTP synthetic path. `qwenmtpsmoke` loads a real native-MTP head and runs a synthetic hidden-state forward pass. `qwen36run` is the real-checkpoint CPU smoke runner.
 
 ## `qwen3ttsinspect` — Qwen3-TTS metadata and prompt inspection
 
-`cmd/qwen3ttsinspect` is the safe first step for Qwen3-TTS checkpoints. It reads `config.json`, optional safetensors headers, tokenizer files, and emits shape/cache readiness without loading full inference weights into a runtime.
+`cmd/qwen/qwen3ttsinspect` is the safe first step for Qwen3-TTS checkpoints. It reads `config.json`, optional safetensors headers, tokenizer files, and emits shape/cache readiness without loading full inference weights into a runtime.
 
 ```bash
 make qwen3tts-inspect \
@@ -303,7 +303,7 @@ make qwen3tts-inspect \
 make qwen3tts-fixture-coverage \
   QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice
 
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen3ttsinspect \
   -model models/qwen3-tts-0.6b-customvoice \
   -text "Hello world" \
   -speaker ryan \
@@ -330,7 +330,7 @@ Useful flags:
 Fixture coverage example:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen3ttsinspect \
   -model models/qwen3-tts-0.6b-customvoice \
   -fixture model/qwen3tts/testdata/customvoice_prompt_fixture.json \
   -json
@@ -458,7 +458,7 @@ This runs tests and vet for:
 - `loader/safetensors`
 - `model/qwen3tts`
 - `model/lfm2`
-- `cmd/qwen3ttsinspect`
+- `cmd/qwen/qwen3ttsinspect`
 - `cmd/models/lfm2inspect`
 - reference/fixture coverage has no pending manifest gates
 - parity/readiness coverage has no pending manifest gates
@@ -467,11 +467,11 @@ This runs tests and vet for:
 ## `specbench` / `speccheck`
 
 ```bash
-go run ./cmd/specbench -model models/smollm2-135m \
+go run ./cmd/llm/specbench -model models/smollm2-135m \
   -prompt-file prompts.txt -tokens 16 -repeat 3 \
   -speculative-proposer prompt -csv specbench.csv
 
-go run ./cmd/speccheck -model models/smollm2-135m \
+go run ./cmd/llm/speccheck -model models/smollm2-135m \
   -prompt-file prompts.txt -tokens 16 \
   -proposers prompt,repeat-last,none
 ```
@@ -480,10 +480,10 @@ go run ./cmd/speccheck -model models/smollm2-135m \
 
 ## `diarize-vtt` — large-v3 translated WebVTT
 
-`cmd/diarize-vtt` is the current long-form audio command. It defaults to Whisper large-v3 translation, VAD-packed chunks, progressive writes, and resume support:
+`cmd/audio/diarize-vtt` is the current long-form audio command. It defaults to Whisper large-v3 translation, VAD-packed chunks, progressive writes, and resume support:
 
 ```bash
-go run ./cmd/diarize-vtt \
+go run ./cmd/audio/diarize-vtt \
   -input meeting.m4a \
   -output meeting.vtt \
   -language es
@@ -508,7 +508,7 @@ Current limitations: speaker labels remain a single-speaker fallback unless `-sp
 Use this to validate VAD → ECAPA embeddings → clustering without loading Whisper. WAV files are read directly; other audio formats such as M4A are decoded through `ffmpeg` when available.
 
 ```bash
-go run ./cmd/speakercheck \
+go run ./cmd/audio/speakercheck \
   -input testdata/jfk.wav \
   -speaker-model models/speaker-ecapa-voxceleb.safetensors \
   -threshold 0.3 \
@@ -518,7 +518,7 @@ go run ./cmd/speakercheck \
 For long recordings, spot-check a short window:
 
 ```bash
-go run ./cmd/speakercheck \
+go run ./cmd/audio/speakercheck \
   -input testdata/podcast.wav \
   -speaker-model models/speaker-ecapa-voxceleb.safetensors \
   -start 300 \
@@ -537,13 +537,13 @@ python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 ## `llmchat`
 
 ```bash
-go run ./cmd/llmchat -model models/gemma4-e2b-mlx4 -gpu -n 256
+go run ./cmd/llm/llmchat -model models/gemma4-e2b-mlx4 -gpu -n 256
 ```
 
 ## `llmserver`
 
 ```bash
-go run ./cmd/llmserver -model models/gemma4-e2b-mlx4 -gpu -listen :8080
+go run ./cmd/llm/llmserver -model models/gemma4-e2b-mlx4 -gpu -listen :8080
 curl -s http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"gemma4-e2b-mlx4","messages":[{"role":"user","content":"Hello"}]}'
@@ -552,7 +552,7 @@ curl -s http://localhost:8080/v1/chat/completions \
 For llama.cpp-compatible TurboQuant policy diagnostics on CPU/server paths, pass the cache flags and inspect `/health`:
 
 ```bash
-go run ./cmd/llmserver \
+go run ./cmd/llm/llmserver \
   -model models/qwen3-moe \
   -listen :8080 \
   -cache-type-k turbo4 \
@@ -567,7 +567,7 @@ The health payload reports native go-pherence interpretation of those policy nam
 
 ### TurboQuant SIMD readiness in server health
 
-`cmd/llmserver /health` includes native SIMD dispatch diagnostics inside the `turboquant` object when cache policy flags are set:
+`cmd/llm/llmserver /health` includes native SIMD dispatch diagnostics inside the `turboquant` object when cache policy flags are set:
 
 ```json
 {

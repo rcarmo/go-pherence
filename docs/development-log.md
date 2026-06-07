@@ -834,7 +834,7 @@ Started Phase 6.5.6 validation gate after the GPU/model/cmd audit batch:
 - Focused model tests passed: `TestPrefillGPURejectsMalformedInputs|TestMTP|TestInference|TestKV|TestMoE|TestLoad`.
 - Fast no-run package gate passed for GPU, loader, backend, runtime, BERT, tensor, and command packages.
 - `go vet ./...` and `git diff --check` passed.
-- Loader/generation smoke runs passed for `models/smollm2-135m` and `models/gemma4-e2b-mlx4` via `cmd/llmgen`.
+- Loader/generation smoke runs passed for `models/smollm2-135m` and `models/gemma4-e2b-mlx4` via `cmd/llm/llmgen`.
 
 ## Session 87: Refactor validation gate no-run sweep
 
@@ -1277,8 +1277,8 @@ Completed the final Phase 6.5 documentation sweep after recording mechanical spl
 
 Completed the Phase 6.5 final validation gate:
 
-- SmolLM2 CPU loader/generation smoke passed: `go run ./cmd/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2`.
-- Gemma4 E2B MLX4 CPU loader/generation smoke passed: `go run ./cmd/llmgen -model models/gemma4-e2b-mlx4 -prompt 'Hello' -tokens 2`.
+- SmolLM2 CPU loader/generation smoke passed: `go run ./cmd/llm/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2`.
+- Gemma4 E2B MLX4 CPU loader/generation smoke passed: `go run ./cmd/llm/llmgen -model models/gemma4-e2b-mlx4 -prompt 'Hello' -tokens 2`.
 - Full test gate passed: `go test ./... -count=1`.
 - `go vet ./...` and `git diff --check` passed.
 
@@ -1386,21 +1386,21 @@ Continued the aggressive runtime validation plan with cross-architecture gates:
 
 Completed the CPU generation smoke matrix with short budgets:
 
-- SmolLM2 CPU: `go run ./cmd/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 3` passed.
-- Gemma4 E2B MLX4 CPU: `go run ./cmd/llmgen -model models/gemma4-e2b-mlx4 -prompt 'Hello' -tokens 2` passed.
-- Qwen3 0.6B MLX4 CPU: `go run ./cmd/llmgen -model models/qwen3-0.6b-mlx4 -prompt 'Hello' -tokens 2` passed.
-- Eager-load small model smoke: `go run ./cmd/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2 -eager-load` passed.
-- TurboQuant CPU smoke: `go run ./cmd/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2 -turbo-quant` passed.
-- Qwen3 MoE loader/short-generation smoke: `go run ./cmd/llmgen -model models/qwen3-30b-a3b-mlx4 -prompt 'Hi' -tokens 0` passed within the current resource budget.
+- SmolLM2 CPU: `go run ./cmd/llm/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 3` passed.
+- Gemma4 E2B MLX4 CPU: `go run ./cmd/llm/llmgen -model models/gemma4-e2b-mlx4 -prompt 'Hello' -tokens 2` passed.
+- Qwen3 0.6B MLX4 CPU: `go run ./cmd/llm/llmgen -model models/qwen3-0.6b-mlx4 -prompt 'Hello' -tokens 2` passed.
+- Eager-load small model smoke: `go run ./cmd/llm/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2 -eager-load` passed.
+- TurboQuant CPU smoke: `go run ./cmd/llm/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2 -turbo-quant` passed.
+- Qwen3 MoE loader/short-generation smoke: `go run ./cmd/llm/llmgen -model models/qwen3-30b-a3b-mlx4 -prompt 'Hi' -tokens 0` passed within the current resource budget.
 
 ## Session 159: GPU and hybrid runtime smoke matrix
 
 Completed the GPU/hybrid runtime smoke matrix on the current host:
 
 - NVIDIA availability probe passed (`nvidia-smi` reports a NVIDIA-capable NVIDIA driver/device).
-- SmolLM2 GPU smoke passed: `go run ./cmd/llmgen -model models/smollm2-135m -gpu -prompt 'Hello' -tokens 2`.
-- SmolLM2 hybrid smoke passed: `go run ./cmd/llmgen -model models/smollm2-135m -gpu -gpu-layers 4 -prompt 'Hello' -tokens 2`.
-- Gemma4 E2B MLX4 GPU decode smoke passed with a one-token budget: `go run ./cmd/llmgen -model models/gemma4-e2b-mlx4 -gpu -prompt 'Hello' -tokens 1`.
+- SmolLM2 GPU smoke passed: `go run ./cmd/llm/llmgen -model models/smollm2-135m -gpu -prompt 'Hello' -tokens 2`.
+- SmolLM2 hybrid smoke passed: `go run ./cmd/llm/llmgen -model models/smollm2-135m -gpu -gpu-layers 4 -prompt 'Hello' -tokens 2`.
+- Gemma4 E2B MLX4 GPU decode smoke passed with a one-token budget: `go run ./cmd/llm/llmgen -model models/gemma4-e2b-mlx4 -gpu -prompt 'Hello' -tokens 1`.
 - Normal-path GPU diagnostics remained quiet without `GO_PHERENCE_GPU_DEBUG` during a SmolLM2 GPU smoke.
 
 ## Session 160: MTP verifier result runtime chain tests
@@ -1956,7 +1956,7 @@ Implemented an opt-in CPU speculative generation path for normal model weights:
 - `CPUDecodeState` with output/KV checkpoint, restore, greedy fallback, verifier-block, and commit contracts.
 - `backend=replay` as the current exact verifier scaffold. The `kv` selector is accepted but safely falls back to `replay` until a stateful KV-reusing verifier lands.
 - `llmgen`, `llmchat`, and `llmserver` expose `--speculative` on CPU; GPU speculative verification remains disabled.
-- `cmd/specbench` emits CSV normal-vs-speculative benchmarks with parity, speedup, backend/proposer identity, proposal/acceptance/fallback counters, emitted tokens, tokens/step, average proposal length, repeat averaging, prompt-file workloads, and aggregate rows.
+- `cmd/llm/specbench` emits CSV normal-vs-speculative benchmarks with parity, speedup, backend/proposer identity, proposal/acceptance/fallback counters, emitted tokens, tokens/step, average proposal length, repeat averaging, prompt-file workloads, and aggregate rows.
 
 Audit fixes during this work:
 
@@ -1998,7 +1998,7 @@ Implemented metadata/config scaffolding:
 - native `mtp.*` tensor-name detection and required tensor set validation;
 - Qwen3.5/Qwen3.6 full-attention and linear-attention shape helpers;
 - layer classification helpers for main linear/full-attention layers vs appended MTP tail;
-- `cmd/qwenmtpmeta` for local metadata/tensor triage.
+- `cmd/qwen/qwenmtpmeta` for local metadata/tensor triage.
 
 Implemented native-MTP head scaffolding:
 
@@ -2007,7 +2007,7 @@ Implemented native-MTP head scaffolding:
 - synthetic full-head safetensors loading test;
 - CPU preprojection, full-attention/MLP block skeleton, RoPE application, history-aware MTP KV attention, final MTP norm + main LM-head logits/argmax;
 - `QwenNativeMTPDraftState`, bounded `DraftSteps`, plan contract, verifier-token/logit adapters, accepted-prefix draft-state commit, and stats/aggregation helpers;
-- `cmd/qwenmtpsynth` for command-line synthetic correctness.
+- `cmd/qwen/qwenmtpsynth` for command-line synthetic correctness.
 
 Remaining blockers:
 
@@ -2033,7 +2033,7 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 - Added MLX row dequantization for single embedding rows so the 31B MTP assistant can keep its vocabulary embedding table packed and only materialize the requested token row.
 - Extended `LoadGemma4MTPDrafter` to load the 31B assistant checkpoint (`models/gemma4-31b-it-mtp-assistant-4bit`) with packed MLX 4-bit weights for embeddings, pre/post projections, attention projections, and MLP projections.
 - Routed q-only drafter GEMVs through `backends/mlx` when packed weights are present, preserving the BF16/F32 path for the E2B assistant.
-- Added `cmd/gemma4mtpsmoke` plus `llmgen -mtp-drafter ... -mtp-smoke` as runtime-facing smoke paths. They load the main 31B model on the on-the-fly 4-bit path, load the packed assistant, build minimal external KV, run one q-only drafter step, and emit timing/shape JSON.
+- Added `cmd/models/gemma4mtpsmoke` plus `llmgen -mtp-drafter ... -mtp-smoke` as runtime-facing smoke paths. They load the main 31B model on the on-the-fly 4-bit path, load the packed assistant, build minimal external KV, run one q-only drafter step, and emit timing/shape JSON.
 - Local 31B smoke after `go test ./...` and `go vet ./...`: main load `16.25s`, assistant load `0.26s`, drafter step `0.47s`, packed embedding/projection/layer weights all true.
 - Full speculative generation remains pending: capture real verifier activations/KV, run adaptive multi-draft assistant steps, batch verifier candidates, and commit accepted KV prefixes plus the bonus token.
 
@@ -2079,10 +2079,10 @@ Completed the documentation and acceptance-tracking pass for the backend coverag
 ## 2026-05-21 — Qwen3.6 27B MLX MTP local asset
 
 - Downloaded `samwang0041/Qwen3.6-27B-MLX-4bit-MTP` into ignored local directory `models/qwen3.6-27b-mlx4-mtp` (~15GB).
-- Taught Qwen native-MTP metadata recognition to accept nested `language_model.mtp.*` tensor names; `cmd/qwenmtpmeta -strict` now reports `mtp_tensor_complete=true` for the MLX checkpoint.
-- First `cmd/qwen36run` probe reached base linear-attention weight loading and exposed the next blocker: Qwen3.5/Qwen3.6 base path did not load MLX affine U32 packed linear-attention weights (`language_model.model.layers.0.linear_attn.in_proj_qkv.weight`), and its NVFP4 fallback expected U8.
-- Added MLX affine packed-weight loading/CPU GEMV to the Qwen3.5/Qwen3.6 base path and native-MTP head, plus MLX packed embedding/LM-head handling in `cmd/qwen36run`.
-- `cmd/qwen36run -model models/qwen3.6-27b-mlx4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 1` now passes on CPU: base greedy `next_id=119`, MTP draft `mtp_next_id=220`, `passed=true`, `duration_ms=30860`. The next performance step is NVIDIA MLX packed-weight caching/GEMV for the Qwen3.5/Qwen3.6 path.
+- Taught Qwen native-MTP metadata recognition to accept nested `language_model.mtp.*` tensor names; `cmd/qwen/qwenmtpmeta -strict` now reports `mtp_tensor_complete=true` for the MLX checkpoint.
+- First `cmd/qwen/qwen36run` probe reached base linear-attention weight loading and exposed the next blocker: Qwen3.5/Qwen3.6 base path did not load MLX affine U32 packed linear-attention weights (`language_model.model.layers.0.linear_attn.in_proj_qkv.weight`), and its NVFP4 fallback expected U8.
+- Added MLX affine packed-weight loading/CPU GEMV to the Qwen3.5/Qwen3.6 base path and native-MTP head, plus MLX packed embedding/LM-head handling in `cmd/qwen/qwen36run`.
+- `cmd/qwen/qwen36run -model models/qwen3.6-27b-mlx4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 1` now passes on CPU: base greedy `next_id=119`, MTP draft `mtp_next_id=220`, `passed=true`, `duration_ms=30860`. The next performance step is NVIDIA MLX packed-weight caching/GEMV for the Qwen3.5/Qwen3.6 path.
 - Added an initial NVIDIA MLX GEMV scaffold for Qwen3.5/Qwen3.6 packed weights. `qwen36run -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing` now passes, with `linear_stats.gpu_calls=8` and CPU fallback for the rest; this validates CUDA dispatch.
 - Added an MLX-specific GPU weight cache under the existing Qwen GPU cache budget. Initial LRU admission thrashed because the full 27B MLX working set exceeds local VRAM; switching MLX admission to no-evict preserves a resident prefix and lets overflow weights fall back to CPU.
 - Current `-gpu-cache-mb 11000` Qwen MLX MTP smoke: 144 resident MLX entries, `gpu_calls=144`, `cpu_calls=345`, `duration_ms=25695`, `passed=true`. A two-step decode shows reuse (`gpu_cache.hits=144`) and improves over the thrashing path.
@@ -2161,7 +2161,7 @@ Extended the native GGUF REAP/TurboQuant validation bundle into a focused CI tar
 
 Extended the server/validation surface for native llama-compatible REAP/TurboQuant support:
 
-- `cmd/llmserver /health` now reports TurboQuant byte estimates, KV layer count, protected-layer count, and REAP summary/source together when both features are active.
+- `cmd/llm/llmserver /health` now reports TurboQuant byte estimates, KV layer count, protected-layer count, and REAP summary/source together when both features are active.
 - Added health tests for TurboQuant-only, REAP-only, and combined REAP+TurboQuant responses.
 - `ggufsmoke` expectation checks now validate generated IDs, decoded text, runtime KV byte plans, benchmark KV counters, and synthetic compressed-cache smoke accounting.
 - The Qwen3.6 REAP GGUF Makefile bundle now has inspect, smoke, validate, bench, aggregate check, and focused CI targets.

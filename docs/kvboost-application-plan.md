@@ -179,7 +179,7 @@ Acceptance criteria:
 Initial status: an in-process exact prompt-context cache is available in `llmgen` for MTP real-prompt smokes:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
   -model models/gemma4-e4b-it-4bit \
   -mtp-drafter models/gemma4-e4b-mtp-drafter \
@@ -213,10 +213,10 @@ Benchmarks:
 
 ### Phase 4 — Qwen native-MTP reuse
 
-Initial status: `cmd/qwen36run` now supports in-process prompt-state reuse with longest cached-prefix lookup:
+Initial status: `cmd/qwen/qwen36run` now supports in-process prompt-state reuse with longest cached-prefix lookup:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen36run \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -kv-reuse -kv-repeat 2 -kv-chunk-size 32 \
   -model models/qwen3.6-27b-mlx4-mtp \

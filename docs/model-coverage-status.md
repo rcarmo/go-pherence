@@ -56,7 +56,7 @@ It validates:
 - `loader/safetensors`
 - `model/qwen3tts`
 - `model/lfm2`
-- `cmd/qwen3ttsinspect`
+- `cmd/qwen/qwen3ttsinspect`
 - `cmd/models/lfm2inspect`
 - reference/fixture coverage has no pending manifest gates
 - parity/readiness coverage has no pending manifest gates
@@ -99,11 +99,11 @@ Implemented package/command surface:
 - `model/qwen3tts/runtime_interfaces.go` — Talker, CodePredictor, Decoder12Hz, and pipeline runtime boundaries with explicit not-implemented sentinel.
 - `model/qwen3tts/runtime_status.go` — explicit runtime implementation status and pending stage list for inspectors/status tooling.
 - `model/qwen3tts/readiness.go` — combined runtime/fixture/numeric-parity readiness report with blockers.
-- `cmd/qwen3ttsinspect -require-numeric-parity` — readiness gate that fails while fixture parity checksums are placeholders.
-- `cmd/qwen3ttsinspect -require-runtime` — readiness gate that fails until Talker, CodePredictor, and Decoder12Hz execution are implemented.
-- `cmd/qwen3ttsinspect -require-ready` — combined readiness gate that fails until runtime execution and numeric parity are both ready.
+- `cmd/qwen/qwen3ttsinspect -require-numeric-parity` — readiness gate that fails while fixture parity checksums are placeholders.
+- `cmd/qwen/qwen3ttsinspect -require-runtime` — readiness gate that fails until Talker, CodePredictor, and Decoder12Hz execution are implemented.
+- `cmd/qwen/qwen3ttsinspect -require-ready` — combined readiness gate that fails until runtime execution and numeric parity are both ready.
 - `model/qwen3tts/fixtures.go` and `testdata/` — small committed prompt fixture schema, complete-reference placeholder fixture, runtime request summary fixture, placeholder-value tracking, and reference-coverage tracking.
-- `cmd/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/runtime-request-plan/tokenized-prompt/reference-coverage inspector.
+- `cmd/qwen/qwen3ttsinspect` — config/tensor/shape/capability/runtime-plan/runtime-request-plan/tokenized-prompt/reference-coverage inspector.
 - `make qwen3tts-fixture-coverage` — shortcut for fixture/reference coverage reports.
 
 Useful commands:
@@ -118,7 +118,7 @@ make qwen3tts-inspect \
 Strict checkpoint validation:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen3ttsinspect \
   -model models/qwen3-tts-0.6b-customvoice \
   -text "Hello world" \
   -strict -json

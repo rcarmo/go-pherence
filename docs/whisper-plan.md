@@ -391,7 +391,7 @@ The original plan above is historical. The actively maintained operational notes
 
 Key current points:
 
-- `cmd/diarize-vtt` is the preferred long-form audio command.
+- `cmd/audio/diarize-vtt` is the preferred long-form audio command.
 - The default profile uses `whisper-large-v3-hf`, `-task translate`, VAD-packed 10s max chunks, 1s context padding, 16 workers, `-max-tokens 40`, progressive writes, and resume.
 - Local stress benchmark for large-v3 translate is currently about RTF≈0.68–0.69 on the 110s sample with the default tuned profile.
 - `whisper-tiny-hf` local weights were removed and should not be used for this workflow.

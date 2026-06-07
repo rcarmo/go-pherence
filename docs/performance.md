@@ -86,7 +86,7 @@ Current refreshed snapshot on i7-12700 (`GOTMPDIR=$PWD/.gotmp go test ./model -r
 The Orthrus-inspired stock-weight speculative path is currently an **opt-in CPU-only correctness scaffold**, not a performance feature yet:
 
 ```bash
-go run ./cmd/llmgen -model models/smollm2-135m \
+go run ./cmd/llm/llmgen -model models/smollm2-135m \
   -prompt "abc abc abc abc" -tokens 8 \
   -speculative -speculative-proposer prompt -speculative-debug
 ```
@@ -98,7 +98,7 @@ Current backend/proposer status:
 | Verifier backend | `replay` | Exact greedy verification by replaying the prepared CPU prompt; useful for parity/acceptance measurement but often slower |
 | Future verifier backend | `kv` selector accepted but falls back to `replay` | Planned KV-reusing verifier block |
 | Proposers | `prompt`, `repeat-last`, `none` | Stock-weight only; no Orthrus custom diffusion weights |
-| Benchmark harness | `cmd/specbench` | Emits CSV with parity, speedup, backend/proposer, acceptance/fallback, emitted tokens, tokens/step, average proposal length, and aggregate workload rows |
+| Benchmark harness | `cmd/llm/specbench` | Emits CSV with parity, speedup, backend/proposer, acceptance/fallback, emitted tokens, tokens/step, average proposal length, and aggregate workload rows |
 
 Example replay-backend smoke results on `smollm2-135m` are intentionally slower than normal generation, despite exact output parity:
 
@@ -110,7 +110,7 @@ Example replay-backend smoke results on `smollm2-135m` are intentionally slower 
 Use `specbench` for less noisy comparisons:
 
 ```bash
-go run ./cmd/specbench -model models/smollm2-135m \
+go run ./cmd/llm/specbench -model models/smollm2-135m \
   -prompt-file prompts.txt -tokens 16 -repeat 3 \
   -speculative-proposer prompt -csv specbench.csv
 ```
