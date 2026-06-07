@@ -11,6 +11,7 @@ import (
 	"sort"
 	"syscall"
 
+	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/runtime/memory"
 )
 
@@ -308,31 +309,7 @@ func (f *File) GetFloat32(name string) ([]float32, []int, error) {
 
 // float16ToFloat32 converts an IEEE 754 half-precision float to float32.
 func float16ToFloat32(h uint16) float32 {
-	sign := uint32(h>>15) & 1
-	exp := uint32(h>>10) & 0x1f
-	mant := uint32(h) & 0x3ff
-
-	switch {
-	case exp == 0:
-		if mant == 0 {
-			return math.Float32frombits(sign << 31) // ±0
-		}
-		// Subnormal: normalize
-		for mant&0x400 == 0 {
-			mant <<= 1
-			exp--
-		}
-		exp++
-		mant &= 0x3ff
-		fallthrough
-	case exp < 31:
-		return math.Float32frombits((sign << 31) | ((exp + 112) << 23) | (mant << 13))
-	default: // exp == 31: Inf or NaN
-		if mant == 0 {
-			return math.Float32frombits((sign << 31) | 0x7f800000) // ±Inf
-		}
-		return math.Float32frombits((sign << 31) | 0x7fc00000) // NaN
-	}
+	return half.F16ToF32(h)
 }
 
 // ShardedFile represents a sharded safetensors model (multiple files).

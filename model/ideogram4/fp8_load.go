@@ -67,7 +67,7 @@ func decodeFloatVec(b []byte, dtype string, n int) ([]float32, error) {
 			return nil, fmt.Errorf("vec bytes=%d want=%d", len(b), n*2)
 		}
 		for i := 0; i < n; i++ {
-			out[i] = math.Float32frombits(uint32(binary.LittleEndian.Uint16(b[i*2:])) << 16)
+			out[i] = half.BF16ToF32(binary.LittleEndian.Uint16(b[i*2:]))
 		}
 	case "F16":
 		if len(b) != n*2 {

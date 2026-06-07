@@ -14,6 +14,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	"github.com/rcarmo/go-pherence/half"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/qwen"
@@ -1620,7 +1621,7 @@ func qwen35QuantBits(meta loaderconfig.QwenNativeMTPMetadata) int {
 	return 4
 }
 func bf16(bits []byte, i int) float32 {
-	return math.Float32frombits(uint32(binary.LittleEndian.Uint16(bits[i*2:])) << 16)
+	return half.BF16ToF32(binary.LittleEndian.Uint16(bits[i*2:]))
 }
 func bf16Row(t rawTensor, row int) []float32 {
 	if t.mlx != nil {
