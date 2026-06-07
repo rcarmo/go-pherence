@@ -33,13 +33,13 @@ make model-coverage-runtime-gate
 make model-coverage-execution-gate
 make model-coverage-parity-gate
 make model-coverage-readiness-gate
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -json
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -family qwen3_tts -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -family qwen3_tts -references-only -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -runtime-only -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -execution-only -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -parity-only -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -readiness-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -json
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -family qwen3_tts -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -family qwen3_tts -references-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -runtime-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -execution-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -parity-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -readiness-only -pending-only
 ```
 
 ## Validation command
@@ -57,7 +57,7 @@ It validates:
 - `model/qwen3tts`
 - `model/lfm2`
 - `cmd/qwen3ttsinspect`
-- `cmd/lfm2inspect`
+- `cmd/models/lfm2inspect`
 - reference/fixture coverage has no pending manifest gates
 - parity/readiness coverage has no pending manifest gates
 
@@ -170,11 +170,11 @@ Implemented package/command surface:
 - `model/lfm2/runtime_interfaces.go` — embedding, convolution, full-attention, MoE, and generation runtime boundaries with explicit not-implemented sentinel.
 - `model/lfm2/runtime_status.go` — explicit runtime implementation status and pending stage list for inspectors/status tooling.
 - `model/lfm2/readiness.go` — combined runtime/fixture/numeric-parity readiness report with blockers.
-- `cmd/lfm2inspect -require-numeric-parity` — readiness gate that fails while fixture parity checksums are placeholders.
-- `cmd/lfm2inspect -require-runtime` — readiness gate that fails until LFM2 generation execution is implemented.
-- `cmd/lfm2inspect -require-ready` — combined readiness gate that fails until runtime execution and numeric parity are both ready.
+- `cmd/models/lfm2inspect -require-numeric-parity` — readiness gate that fails while fixture parity checksums are placeholders.
+- `cmd/models/lfm2inspect -require-runtime` — readiness gate that fails until LFM2 generation execution is implemented.
+- `cmd/models/lfm2inspect -require-ready` — combined readiness gate that fails until runtime execution and numeric parity are both ready.
 - `model/lfm2/fixtures.go` and `testdata/` — committed metadata fixture, complete-reference placeholder fixture, runtime request summary fixture, placeholder-value tracking, and reference-coverage tracking.
-- `cmd/lfm2inspect` — config/tensor/shape/schedule/runtime-plan/runtime-request-plan/reference-coverage inspector.
+- `cmd/models/lfm2inspect` — config/tensor/shape/schedule/runtime-plan/runtime-request-plan/reference-coverage inspector.
 - `make lfm2-fixture-coverage` — shortcut for fixture/reference coverage reports.
 
 Useful commands:
@@ -187,7 +187,7 @@ make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b
 Strict checkpoint validation:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/lfm2inspect \
   -model models/lfm2.5-8b-a1b \
   -strict -json
 ```

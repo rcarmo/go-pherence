@@ -2142,8 +2142,8 @@ Extended the Qwen MLX4 GPU MLP fusion to overflow layers: missing gate/up/down M
 
 Added a repeatable pure Go/SIMD validation bundle for the local Qwen3.6 REAP GGUF checkpoint:
 
-- `cmd/ggufinspect` now reports and can assert architecture/name, tensor counts, quant inventory, REAP ratio/source, hidden/head/vocab/tokenizer/BOS/EOS/context/KV shape, MoE expert counts, and TurboQuant cache/protected-layer counts.
-- `cmd/ggufsmoke` can assert generated token IDs and decoded text, so the local one-token greedy smoke is pinned as `prompt_ids=0 -> generated=[489]`, decoded as `"ype"`.
+- `cmd/models/ggufinspect` now reports and can assert architecture/name, tensor counts, quant inventory, REAP ratio/source, hidden/head/vocab/tokenizer/BOS/EOS/context/KV shape, MoE expert counts, and TurboQuant cache/protected-layer counts.
+- `cmd/models/ggufsmoke` can assert generated token IDs and decoded text, so the local one-token greedy smoke is pinned as `prompt_ids=0 -> generated=[489]`, decoded as `"ype"`.
 - `runtime/kv.EstimateTurboQuantKV` is the shared byte estimator for GGUF inspection, model-side plans, smoke output, and `llmserver /health`.
 - Make targets `gguf-smoke-qwen36-reap`, `gguf-validate-qwen36-reap`, and `gguf-bench-qwen36-reap` exercise the native path without llama.cpp runtime dependencies.
 - Current checkpoint inventory: architecture `qwen35moe`, `733` tensors (`F32=301`, `Q4_K=371`, `Q6_K=61`), `40` layers, hidden `2048`, `16` heads, vocab/tokenizer `248320`, context `262144`, MoE `205` experts with `8` active, KV dim `512`, `10` cache layers, and `1` protected cache layer.

@@ -1,7 +1,7 @@
 # Whisper on RISC-V (SpaceMIT K1/K3) — RVV + IME optimization
 
 This document describes the optimization of the Whisper speech-to-text pipeline
-(`cmd/whisper`, `models/whisper`) for the SpaceMIT K1/K3 SoC as found on the
+(`cmd/audio/whisper`, `models/whisper`) for the SpaceMIT K1/K3 SoC as found on the
 **MilkV Jupiter 2** (8× X60 RISC-V cores, RVV 1.0 vector unit, and the **IME**
 integer matrix engine reached via the `vmadot` instruction).
 
@@ -98,7 +98,7 @@ x86 host.
 
 ## Diarization (speaker labels)
 
-`cmd/whisper -timestamps -diarize` produces multi-speaker transcripts using an
+`cmd/audio/whisper -timestamps -diarize` produces multi-speaker transcripts using an
 **ECAPA-TDNN** speaker-embedding network (`models/speaker`, SpeechBrain
 `spkrec-ecapa-voxceleb` topology, parity-validated to cosine ≈0.9999 vs upstream)
 on top of the optimized Whisper path: energy VAD → ECAPA embeddings per segment →

@@ -11,11 +11,11 @@ import (
 )
 
 func TestPodcastDiarizeVTT(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../../models/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("model not available")
 	}
-	audioPath := "../../testdata/podcast.wav"
+	audioPath := "../../../testdata/podcast.wav"
 	if _, err := os.Stat(audioPath); err != nil {
 		t.Skip("podcast.wav not available")
 	}
@@ -68,13 +68,13 @@ func TestPodcastDiarizeVTT(t *testing.T) {
 		diarized[i] = whisper.DiarizedSegment{Start: seg.Start, End: seg.End, Speaker: spk, Text: seg.Text}
 	}
 
-	outPath := "../../testdata/podcast_diarized.vtt"
+	outPath := "../../../testdata/podcast_diarized.vtt"
 	if err := whisper.WriteDiarizedVTT(outPath, diarized); err != nil {
 		t.Fatalf("WriteDiarizedVTT: %v", err)
 	}
 	t.Logf("VTT written to %s", outPath)
 
-	plainPath := "../../testdata/podcast.vtt"
+	plainPath := "../../../testdata/podcast.vtt"
 	if err := whisper.WriteVTT(plainPath, segs); err != nil {
 		t.Fatalf("WriteVTT: %v", err)
 	}

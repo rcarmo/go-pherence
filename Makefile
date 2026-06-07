@@ -27,7 +27,7 @@ chat:
 # docs/whisper-riscv-optimization.md for the optimization details and the
 # WHISPER_* runtime tunables.
 whisper:
-	go build -o bin/whisper ./cmd/whisper
+	go build -o bin/whisper ./cmd/audio/whisper
 
 # Build for the SpaceMIT K1/K3 (MilkV Jupiter 2: 8x X60 RISC-V, RVV 1.0 + IME
 # integer matrix engine). Forces GOARCH=riscv64 so it can be cross-compiled from
@@ -35,7 +35,7 @@ whisper:
 # binary. Run with WHISPER_INT8=1 for the full int8 IME pipeline.
 whisper-k3:
 	mkdir -p $(GOTMPDIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/whisper-k3 ./cmd/whisper
+	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/whisper-k3 ./cmd/audio/whisper
 	@echo "Built bin/whisper-k3 (riscv64, RVV + IME int8)."
 	@echo "Resident run:  WHISPER_INT8=1 WHISPER_THREADS=4 bin/whisper-k3 -model <model.safetensors> -size large-v3 -audio <file.wav>"
 
@@ -45,7 +45,7 @@ SPEAKER_CKPT_URL ?= https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/res
 
 # Download + convert the SpeechBrain ECAPA-TDNN speaker-embedding weights WITHOUT
 # torch (works on the RISC-V board; needs only python3 + numpy). Produces the
-# safetensors that `whisper -diarize` and cmd/speakercheck consume. The full
+# safetensors that `whisper -diarize` and cmd/audio/speakercheck consume. The full
 # torch-based converter (scripts/convert_speechbrain_ecapa.py) remains for hosts
 # that have torch installed.
 speaker-weights:
@@ -61,12 +61,12 @@ test-cpu:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 
 test-model-coverage: model-coverage-tmpdir
-	go test -count=1 -timeout=120s ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
-	go vet ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
-	go run ./cmd/modelcoverage -references-only -fail-pending
-	go run ./cmd/modelcoverage -parity-only -fail-pending
-	go run ./cmd/modelcoverage -readiness-only -fail-pending
-	go run ./cmd/modelcoverage -min-percent $(MODEL_COVERAGE_MIN_PERCENT)
+	go test -count=1 -timeout=120s ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen/qwen3ttsinspect ./cmd/models/lfm2inspect ./cmd/models/modelcoverage
+	go vet ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen/qwen3ttsinspect ./cmd/models/lfm2inspect ./cmd/models/modelcoverage
+	go run ./cmd/models/modelcoverage -references-only -fail-pending
+	go run ./cmd/models/modelcoverage -parity-only -fail-pending
+	go run ./cmd/models/modelcoverage -readiness-only -fail-pending
+	go run ./cmd/models/modelcoverage -min-percent $(MODEL_COVERAGE_MIN_PERCENT)
 	$(MAKE) model-coverage-snapshot-check
 
 MODEL_COVERAGE_FAMILY ?=
@@ -76,71 +76,71 @@ model-coverage-tmpdir:
 	mkdir -p $(GOTMPDIR)
 
 model-coverage: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),)
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),)
 
 model-coverage-json: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -json
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -json
 
 model-coverage-markdown: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -markdown
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -markdown
 
 model-coverage-csv: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -csv
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -csv
 
 model-coverage-snapshot: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -snapshot
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -snapshot
 
 model-coverage-snapshot-file: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -snapshot > docs/model-coverage-snapshot.md
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -snapshot > docs/model-coverage-snapshot.md
 
 model-coverage-snapshot-check: model-coverage-tmpdir
-	go run ./cmd/modelcoverage -snapshot > $(GOTMPDIR)/model-coverage-snapshot.check.md
+	go run ./cmd/models/modelcoverage -snapshot > $(GOTMPDIR)/model-coverage-snapshot.check.md
 	cmp docs/model-coverage-snapshot.md $(GOTMPDIR)/model-coverage-snapshot.check.md
 
 model-coverage-runtime-roadmap: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-roadmap
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-roadmap
 
 model-coverage-runtime-roadmap-json: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-roadmap-json
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-roadmap-json
 
 model-coverage-next-runtime: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -next-runtime
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -next-runtime
 
 model-coverage-next-runtime-json: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -next-runtime-json
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -next-runtime-json
 
 model-coverage-pending: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -pending-only
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -pending-only
 
 model-coverage-references-pending: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -references-only -pending-only
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -references-only -pending-only
 
 model-coverage-runtime-pending: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-only -pending-only
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-only -pending-only
 
 model-coverage-execution-pending: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -execution-only -pending-only
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -execution-only -pending-only
 
 model-coverage-parity-pending: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -parity-only -pending-only
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -parity-only -pending-only
 
 model-coverage-readiness-pending: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -readiness-only -pending-only
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -readiness-only -pending-only
 
 model-coverage-references-gate: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -references-only -fail-pending
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -references-only -fail-pending
 
 model-coverage-runtime-gate: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-only -fail-pending
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -runtime-only -fail-pending
 
 model-coverage-execution-gate: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -execution-only -fail-pending
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -execution-only -fail-pending
 
 model-coverage-parity-gate: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -parity-only -fail-pending
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -parity-only -fail-pending
 
 model-coverage-readiness-gate: model-coverage-tmpdir
-	go run ./cmd/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -readiness-only -fail-pending
+	go run ./cmd/models/modelcoverage $(if $(MODEL_COVERAGE_FAMILY),-family $(MODEL_COVERAGE_FAMILY),) -readiness-only -fail-pending
 
 vet:
 	go vet ./...
@@ -233,20 +233,20 @@ GGUF_EXPECT_SAVED_KV_BYTES ?=
 GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES ?=
 GGUF_EXPECT_ESTIMATED_TOTAL_BYTES ?=
 GGUF_EXPECT_SIMD_ROTATION ?=
-GGUF_CI_PACKAGES ?= ./cmd/llm/llmserver ./loader/gguf ./cmd/ggufinspect ./cmd/ggufsmoke ./model ./runtime/kv
+GGUF_CI_PACKAGES ?= ./cmd/llm/llmserver ./loader/gguf ./cmd/models/ggufinspect ./cmd/models/ggufsmoke ./model ./runtime/kv
 
 # Inspect and smoke the native pure-Go/SIMD GGUF path for llama/Qwen REAP models.
 gguf-inspect:
-	go run ./cmd/ggufinspect -json -require-runtime-ready -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_REAP_RATIO),-expect-reap-ratio $(GGUF_EXPECT_REAP_RATIO),) $(if $(GGUF_EXPECT_REAP_SOURCE),-expect-reap-source $(GGUF_EXPECT_REAP_SOURCE),) $(if $(GGUF_EXPECT_ARCHITECTURE),-expect-architecture $(GGUF_EXPECT_ARCHITECTURE),) $(if $(GGUF_EXPECT_NAME_CONTAINS),-expect-name-contains $(GGUF_EXPECT_NAME_CONTAINS),) $(if $(GGUF_EXPECT_TENSOR_COUNT),-expect-tensor-count $(GGUF_EXPECT_TENSOR_COUNT),) $(if $(GGUF_EXPECT_LAYERS),-expect-layers $(GGUF_EXPECT_LAYERS),) $(if $(GGUF_EXPECT_HIDDEN_SIZE),-expect-hidden-size $(GGUF_EXPECT_HIDDEN_SIZE),) $(if $(GGUF_EXPECT_HEADS),-expect-heads $(GGUF_EXPECT_HEADS),) $(if $(GGUF_EXPECT_VOCAB_SIZE),-expect-vocab-size $(GGUF_EXPECT_VOCAB_SIZE),) $(if $(GGUF_EXPECT_TOKENIZER_TOKENS),-expect-tokenizer-tokens $(GGUF_EXPECT_TOKENIZER_TOKENS),) $(if $(GGUF_EXPECT_BOS),-expect-bos $(GGUF_EXPECT_BOS),) $(if $(GGUF_EXPECT_EOS),-expect-eos $(GGUF_EXPECT_EOS),) $(if $(GGUF_EXPECT_MAX_SEQ_LEN),-expect-max-seq-len $(GGUF_EXPECT_MAX_SEQ_LEN),) $(if $(GGUF_EXPECT_FULL_ATTENTION_INTERVAL),-expect-full-attention-interval $(GGUF_EXPECT_FULL_ATTENTION_INTERVAL),) $(if $(GGUF_EXPECT_KV_HEADS),-expect-kv-heads $(GGUF_EXPECT_KV_HEADS),) $(if $(GGUF_EXPECT_HEAD_DIM),-expect-head-dim $(GGUF_EXPECT_HEAD_DIM),) $(if $(GGUF_EXPECT_KV_DIM),-expect-kv-dim $(GGUF_EXPECT_KV_DIM),) $(if $(GGUF_EXPECT_EXPERTS),-expect-experts $(GGUF_EXPECT_EXPERTS),) $(if $(GGUF_EXPECT_EXPERTS_PER_TOKEN),-expect-experts-per-token $(GGUF_EXPECT_EXPERTS_PER_TOKEN),) $(if $(GGUF_EXPECT_F32_COUNT),-expect-f32-count $(GGUF_EXPECT_F32_COUNT),) $(if $(GGUF_EXPECT_Q4_K_COUNT),-expect-q4-k-count $(GGUF_EXPECT_Q4_K_COUNT),) $(if $(GGUF_EXPECT_Q6_K_COUNT),-expect-q6-k-count $(GGUF_EXPECT_Q6_K_COUNT),) $(if $(GGUF_EXPECT_CACHE_LAYERS),-expect-cache-layers $(GGUF_EXPECT_CACHE_LAYERS),) $(if $(GGUF_EXPECT_PROTECTED_CACHE_LAYERS),-expect-protected-cache-layers $(GGUF_EXPECT_PROTECTED_CACHE_LAYERS),) $(if $(GGUF_EXPECT_FULL_KV_BYTES),-expect-full-kv-bytes $(GGUF_EXPECT_FULL_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_KV_BYTES),-expect-estimated-kv-bytes $(GGUF_EXPECT_ESTIMATED_KV_BYTES),) $(if $(GGUF_EXPECT_SAVED_KV_BYTES),-expect-saved-kv-bytes $(GGUF_EXPECT_SAVED_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),-expect-estimated-scratch-bytes $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),-expect-estimated-total-bytes $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,) $(GGUF_MODEL)
+	go run ./cmd/models/ggufinspect -json -require-runtime-ready -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_REAP_RATIO),-expect-reap-ratio $(GGUF_EXPECT_REAP_RATIO),) $(if $(GGUF_EXPECT_REAP_SOURCE),-expect-reap-source $(GGUF_EXPECT_REAP_SOURCE),) $(if $(GGUF_EXPECT_ARCHITECTURE),-expect-architecture $(GGUF_EXPECT_ARCHITECTURE),) $(if $(GGUF_EXPECT_NAME_CONTAINS),-expect-name-contains $(GGUF_EXPECT_NAME_CONTAINS),) $(if $(GGUF_EXPECT_TENSOR_COUNT),-expect-tensor-count $(GGUF_EXPECT_TENSOR_COUNT),) $(if $(GGUF_EXPECT_LAYERS),-expect-layers $(GGUF_EXPECT_LAYERS),) $(if $(GGUF_EXPECT_HIDDEN_SIZE),-expect-hidden-size $(GGUF_EXPECT_HIDDEN_SIZE),) $(if $(GGUF_EXPECT_HEADS),-expect-heads $(GGUF_EXPECT_HEADS),) $(if $(GGUF_EXPECT_VOCAB_SIZE),-expect-vocab-size $(GGUF_EXPECT_VOCAB_SIZE),) $(if $(GGUF_EXPECT_TOKENIZER_TOKENS),-expect-tokenizer-tokens $(GGUF_EXPECT_TOKENIZER_TOKENS),) $(if $(GGUF_EXPECT_BOS),-expect-bos $(GGUF_EXPECT_BOS),) $(if $(GGUF_EXPECT_EOS),-expect-eos $(GGUF_EXPECT_EOS),) $(if $(GGUF_EXPECT_MAX_SEQ_LEN),-expect-max-seq-len $(GGUF_EXPECT_MAX_SEQ_LEN),) $(if $(GGUF_EXPECT_FULL_ATTENTION_INTERVAL),-expect-full-attention-interval $(GGUF_EXPECT_FULL_ATTENTION_INTERVAL),) $(if $(GGUF_EXPECT_KV_HEADS),-expect-kv-heads $(GGUF_EXPECT_KV_HEADS),) $(if $(GGUF_EXPECT_HEAD_DIM),-expect-head-dim $(GGUF_EXPECT_HEAD_DIM),) $(if $(GGUF_EXPECT_KV_DIM),-expect-kv-dim $(GGUF_EXPECT_KV_DIM),) $(if $(GGUF_EXPECT_EXPERTS),-expect-experts $(GGUF_EXPECT_EXPERTS),) $(if $(GGUF_EXPECT_EXPERTS_PER_TOKEN),-expect-experts-per-token $(GGUF_EXPECT_EXPERTS_PER_TOKEN),) $(if $(GGUF_EXPECT_F32_COUNT),-expect-f32-count $(GGUF_EXPECT_F32_COUNT),) $(if $(GGUF_EXPECT_Q4_K_COUNT),-expect-q4-k-count $(GGUF_EXPECT_Q4_K_COUNT),) $(if $(GGUF_EXPECT_Q6_K_COUNT),-expect-q6-k-count $(GGUF_EXPECT_Q6_K_COUNT),) $(if $(GGUF_EXPECT_CACHE_LAYERS),-expect-cache-layers $(GGUF_EXPECT_CACHE_LAYERS),) $(if $(GGUF_EXPECT_PROTECTED_CACHE_LAYERS),-expect-protected-cache-layers $(GGUF_EXPECT_PROTECTED_CACHE_LAYERS),) $(if $(GGUF_EXPECT_FULL_KV_BYTES),-expect-full-kv-bytes $(GGUF_EXPECT_FULL_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_KV_BYTES),-expect-estimated-kv-bytes $(GGUF_EXPECT_ESTIMATED_KV_BYTES),) $(if $(GGUF_EXPECT_SAVED_KV_BYTES),-expect-saved-kv-bytes $(GGUF_EXPECT_SAVED_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),-expect-estimated-scratch-bytes $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),-expect-estimated-total-bytes $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,) $(GGUF_MODEL)
 
 gguf-smoke:
-	go run ./cmd/ggufsmoke -model $(GGUF_MODEL) -prompt-ids $(GGUF_PROMPT_IDS) -max-new $(GGUF_MAX_NEW) -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_FULL_KV_BYTES),-expect-full-kv-bytes $(GGUF_EXPECT_FULL_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_KV_BYTES),-expect-estimated-kv-bytes $(GGUF_EXPECT_ESTIMATED_KV_BYTES),) $(if $(GGUF_EXPECT_SAVED_KV_BYTES),-expect-saved-kv-bytes $(GGUF_EXPECT_SAVED_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),-expect-estimated-scratch-bytes $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),-expect-estimated-total-bytes $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),) $(if $(GGUF_EXPECT_GENERATED),-expect-generated $(GGUF_EXPECT_GENERATED),) $(if $(GGUF_EXPECT_DECODED),-expect-decoded $(GGUF_EXPECT_DECODED),) $(if $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),-expect-runtime-float-bytes $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),-expect-runtime-compressed-bytes $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_SCRATCH_BYTES),-expect-runtime-scratch-bytes $(GGUF_EXPECT_RUNTIME_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_TOTAL_BYTES),-expect-runtime-total-bytes $(GGUF_EXPECT_RUNTIME_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,)
+	go run ./cmd/models/ggufsmoke -model $(GGUF_MODEL) -prompt-ids $(GGUF_PROMPT_IDS) -max-new $(GGUF_MAX_NEW) -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_FULL_KV_BYTES),-expect-full-kv-bytes $(GGUF_EXPECT_FULL_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_KV_BYTES),-expect-estimated-kv-bytes $(GGUF_EXPECT_ESTIMATED_KV_BYTES),) $(if $(GGUF_EXPECT_SAVED_KV_BYTES),-expect-saved-kv-bytes $(GGUF_EXPECT_SAVED_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),-expect-estimated-scratch-bytes $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),-expect-estimated-total-bytes $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),) $(if $(GGUF_EXPECT_GENERATED),-expect-generated $(GGUF_EXPECT_GENERATED),) $(if $(GGUF_EXPECT_DECODED),-expect-decoded $(GGUF_EXPECT_DECODED),) $(if $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),-expect-runtime-float-bytes $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),-expect-runtime-compressed-bytes $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_SCRATCH_BYTES),-expect-runtime-scratch-bytes $(GGUF_EXPECT_RUNTIME_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_TOTAL_BYTES),-expect-runtime-total-bytes $(GGUF_EXPECT_RUNTIME_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,)
 
 gguf-bench:
-	go run ./cmd/ggufsmoke -model $(GGUF_MODEL) -prompt-ids $(GGUF_PROMPT_IDS) -max-new $(GGUF_MAX_NEW) -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_FULL_KV_BYTES),-expect-full-kv-bytes $(GGUF_EXPECT_FULL_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_KV_BYTES),-expect-estimated-kv-bytes $(GGUF_EXPECT_ESTIMATED_KV_BYTES),) $(if $(GGUF_EXPECT_SAVED_KV_BYTES),-expect-saved-kv-bytes $(GGUF_EXPECT_SAVED_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),-expect-estimated-scratch-bytes $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),-expect-estimated-total-bytes $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),) $(if $(GGUF_EXPECT_GENERATED),-expect-generated $(GGUF_EXPECT_GENERATED),) $(if $(GGUF_EXPECT_DECODED),-expect-decoded $(GGUF_EXPECT_DECODED),) $(if $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),-expect-runtime-float-bytes $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),-expect-runtime-compressed-bytes $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_SCRATCH_BYTES),-expect-runtime-scratch-bytes $(GGUF_EXPECT_RUNTIME_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_TOTAL_BYTES),-expect-runtime-total-bytes $(GGUF_EXPECT_RUNTIME_TOTAL_BYTES),) $(if $(GGUF_EXPECT_KV_COMPRESSED_LAYERS),-expect-kv-compressed-layers $(GGUF_EXPECT_KV_COMPRESSED_LAYERS),) $(if $(GGUF_EXPECT_KV_SEQ),-expect-kv-seq $(GGUF_EXPECT_KV_SEQ),) $(if $(GGUF_EXPECT_KV_COMPRESSED_COUNT),-expect-kv-compressed-count $(GGUF_EXPECT_KV_COMPRESSED_COUNT),) $(if $(GGUF_EXPECT_KV_FULL_COUNT),-expect-kv-full-count $(GGUF_EXPECT_KV_FULL_COUNT),) $(if $(GGUF_EXPECT_KV_FLOAT_BYTES),-expect-kv-float-bytes $(GGUF_EXPECT_KV_FLOAT_BYTES),) $(if $(GGUF_EXPECT_KV_COMPRESSED_BYTES),-expect-kv-compressed-bytes $(GGUF_EXPECT_KV_COMPRESSED_BYTES),) $(if $(GGUF_EXPECT_KV_SCRATCH_BYTES),-expect-kv-scratch-bytes $(GGUF_EXPECT_KV_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_KV_TOTAL_BYTES),-expect-kv-total-bytes $(GGUF_EXPECT_KV_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,) -bench
+	go run ./cmd/models/ggufsmoke -model $(GGUF_MODEL) -prompt-ids $(GGUF_PROMPT_IDS) -max-new $(GGUF_MAX_NEW) -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) $(if $(GGUF_EXPECT_FULL_KV_BYTES),-expect-full-kv-bytes $(GGUF_EXPECT_FULL_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_KV_BYTES),-expect-estimated-kv-bytes $(GGUF_EXPECT_ESTIMATED_KV_BYTES),) $(if $(GGUF_EXPECT_SAVED_KV_BYTES),-expect-saved-kv-bytes $(GGUF_EXPECT_SAVED_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),-expect-estimated-scratch-bytes $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),-expect-estimated-total-bytes $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),) $(if $(GGUF_EXPECT_GENERATED),-expect-generated $(GGUF_EXPECT_GENERATED),) $(if $(GGUF_EXPECT_DECODED),-expect-decoded $(GGUF_EXPECT_DECODED),) $(if $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),-expect-runtime-float-bytes $(GGUF_EXPECT_RUNTIME_FLOAT_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),-expect-runtime-compressed-bytes $(GGUF_EXPECT_RUNTIME_COMPRESSED_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_SCRATCH_BYTES),-expect-runtime-scratch-bytes $(GGUF_EXPECT_RUNTIME_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_RUNTIME_TOTAL_BYTES),-expect-runtime-total-bytes $(GGUF_EXPECT_RUNTIME_TOTAL_BYTES),) $(if $(GGUF_EXPECT_KV_COMPRESSED_LAYERS),-expect-kv-compressed-layers $(GGUF_EXPECT_KV_COMPRESSED_LAYERS),) $(if $(GGUF_EXPECT_KV_SEQ),-expect-kv-seq $(GGUF_EXPECT_KV_SEQ),) $(if $(GGUF_EXPECT_KV_COMPRESSED_COUNT),-expect-kv-compressed-count $(GGUF_EXPECT_KV_COMPRESSED_COUNT),) $(if $(GGUF_EXPECT_KV_FULL_COUNT),-expect-kv-full-count $(GGUF_EXPECT_KV_FULL_COUNT),) $(if $(GGUF_EXPECT_KV_FLOAT_BYTES),-expect-kv-float-bytes $(GGUF_EXPECT_KV_FLOAT_BYTES),) $(if $(GGUF_EXPECT_KV_COMPRESSED_BYTES),-expect-kv-compressed-bytes $(GGUF_EXPECT_KV_COMPRESSED_BYTES),) $(if $(GGUF_EXPECT_KV_SCRATCH_BYTES),-expect-kv-scratch-bytes $(GGUF_EXPECT_KV_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_KV_TOTAL_BYTES),-expect-kv-total-bytes $(GGUF_EXPECT_KV_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,) -bench
 
 gguf-turboquant-smoke:
-	go run ./cmd/ggufsmoke -model $(GGUF_MODEL) -load-only -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) -kv-smoke-tokens $(GGUF_KV_SMOKE_TOKENS) $(if $(GGUF_EXPECT_FULL_KV_BYTES),-expect-full-kv-bytes $(GGUF_EXPECT_FULL_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_KV_BYTES),-expect-estimated-kv-bytes $(GGUF_EXPECT_ESTIMATED_KV_BYTES),) $(if $(GGUF_EXPECT_SAVED_KV_BYTES),-expect-saved-kv-bytes $(GGUF_EXPECT_SAVED_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),-expect-estimated-scratch-bytes $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),-expect-estimated-total-bytes $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),) $(if $(GGUF_EXPECT_KV_SMOKE_LAYER),-expect-kv-smoke-layer $(GGUF_EXPECT_KV_SMOKE_LAYER),) $(if $(GGUF_EXPECT_KV_SMOKE_COMPRESSED),-expect-kv-smoke-compressed $(GGUF_EXPECT_KV_SMOKE_COMPRESSED),) $(if $(GGUF_EXPECT_KV_SMOKE_FULL),-expect-kv-smoke-full $(GGUF_EXPECT_KV_SMOKE_FULL),) $(if $(GGUF_EXPECT_KV_SMOKE_BYTES),-expect-kv-smoke-bytes $(GGUF_EXPECT_KV_SMOKE_BYTES),) $(if $(GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES),-expect-kv-smoke-scratch-bytes $(GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES),-expect-kv-smoke-total-bytes $(GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,)
+	go run ./cmd/models/ggufsmoke -model $(GGUF_MODEL) -load-only -cache-type-k $(GGUF_CACHE_TYPE_K) -cache-type-v $(GGUF_CACHE_TYPE_V) -kv-residual-window $(GGUF_KV_RESIDUAL_WINDOW) -kv-smoke-tokens $(GGUF_KV_SMOKE_TOKENS) $(if $(GGUF_EXPECT_FULL_KV_BYTES),-expect-full-kv-bytes $(GGUF_EXPECT_FULL_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_KV_BYTES),-expect-estimated-kv-bytes $(GGUF_EXPECT_ESTIMATED_KV_BYTES),) $(if $(GGUF_EXPECT_SAVED_KV_BYTES),-expect-saved-kv-bytes $(GGUF_EXPECT_SAVED_KV_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),-expect-estimated-scratch-bytes $(GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),-expect-estimated-total-bytes $(GGUF_EXPECT_ESTIMATED_TOTAL_BYTES),) $(if $(GGUF_EXPECT_KV_SMOKE_LAYER),-expect-kv-smoke-layer $(GGUF_EXPECT_KV_SMOKE_LAYER),) $(if $(GGUF_EXPECT_KV_SMOKE_COMPRESSED),-expect-kv-smoke-compressed $(GGUF_EXPECT_KV_SMOKE_COMPRESSED),) $(if $(GGUF_EXPECT_KV_SMOKE_FULL),-expect-kv-smoke-full $(GGUF_EXPECT_KV_SMOKE_FULL),) $(if $(GGUF_EXPECT_KV_SMOKE_BYTES),-expect-kv-smoke-bytes $(GGUF_EXPECT_KV_SMOKE_BYTES),) $(if $(GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES),-expect-kv-smoke-scratch-bytes $(GGUF_EXPECT_KV_SMOKE_SCRATCH_BYTES),) $(if $(GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES),-expect-kv-smoke-total-bytes $(GGUF_EXPECT_KV_SMOKE_TOTAL_BYTES),) $(if $(GGUF_EXPECT_SIMD_ROTATION),-expect-simd-rotation,)
 
 gguf-validate: gguf-inspect gguf-smoke gguf-turboquant-smoke
 
@@ -296,11 +296,11 @@ qwen3tts-fixture-coverage:
 
 lfm2-inspect:
 	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b"; exit 2; fi
-	go run ./cmd/lfm2inspect -model $(LFM2_MODEL) $(LFM2_INSPECT_FLAGS)
+	go run ./cmd/models/lfm2inspect -model $(LFM2_MODEL) $(LFM2_INSPECT_FLAGS)
 
 lfm2-fixture-coverage:
 	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b [LFM2_FIXTURE=model/lfm2/testdata/lfm25_8b_a1b_metadata.json]"; exit 2; fi
-	go run ./cmd/lfm2inspect -model $(LFM2_MODEL) -fixture $(LFM2_FIXTURE) $(LFM2_FIXTURE_FLAGS)
+	go run ./cmd/models/lfm2inspect -model $(LFM2_MODEL) -fixture $(LFM2_FIXTURE) $(LFM2_FIXTURE_FLAGS)
 
 HUNYUAN3D_REPO ?= tencent/Hunyuan3D-2mini
 HUNYUAN3D_SUBFOLDER ?= hunyuan3d-dit-v2-mini
@@ -361,7 +361,7 @@ trellis2-ovoxel-inspect:
 
 hunyuan3d-inspect:
 	@if [ -z "$(HUNYUAN3D_CONFIG)" ]; then echo "usage: make hunyuan3d-inspect HUNYUAN3D_CONFIG=.../config.yaml [HUNYUAN3D_CHECKPOINT=.../model.safetensors]"; exit 2; fi
-	go run ./cmd/hy3dinspect -config $(HUNYUAN3D_CONFIG) $(if $(HUNYUAN3D_CHECKPOINT),-safetensors $(HUNYUAN3D_CHECKPOINT),) $(HUNYUAN3D_INSPECT_FLAGS)
+	go run ./cmd/image/hy3dinspect -config $(HUNYUAN3D_CONFIG) $(if $(HUNYUAN3D_CHECKPOINT),-safetensors $(HUNYUAN3D_CHECKPOINT),) $(HUNYUAN3D_INSPECT_FLAGS)
 
 hunyuan3d-seahorse:
 	$(PYTHON) scripts/hunyuan3d_seahorse_demo.py --hunyuan3d-src $(HUNYUAN3D_SRC) --image $(HUNYUAN3D_SEAHORSE_IMAGE) --out $(HUNYUAN3D_SEAHORSE_OUT) --model $(HUNYUAN3D_REPO) --subfolder $(HUNYUAN3D_SUBFOLDER) $(HUNYUAN3D_SEAHORSE_FLAGS)

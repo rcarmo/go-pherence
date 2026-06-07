@@ -112,7 +112,7 @@ gpu/
     cross_attention.go — Cross-attention GPU dispatch
     mel.go          — GPU mel spectrogram dispatch
 
-cmd/whisper/
+cmd/audio/whisper/
     main.go         — CLI: transcribe [+ diarize] audio files
 ```
 

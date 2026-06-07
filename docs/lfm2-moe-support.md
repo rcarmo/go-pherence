@@ -83,7 +83,7 @@ model/lfm2/
 CLI:
 
 ```text
-cmd/lfm2inspect/  # config/tensor/layer-pattern inventory first
+cmd/models/lfm2inspect/  # config/tensor/layer-pattern inventory first
 ```
 
 Do not fold this into `model/qwen`; it should be its own architecture package with only deliberate helper reuse.
@@ -92,7 +92,7 @@ Do not fold this into `model/qwen`; it should be its own architecture package wi
 
 ### Phase L0 — Metadata and tensor inventory
 
-- [x] Add `cmd/lfm2inspect` to parse `config.json`, print layer types, MoE settings, conv cache settings, and safetensors tensor groups.
+- [x] Add `cmd/models/lfm2inspect` to parse `config.json`, print layer types, MoE settings, conv cache settings, and safetensors tensor groups.
 - [x] Add `model/lfm2/config.go` with strict parsing and defaults matching the published config.
 - [x] Add tensor-name inventory tests from representative checkpoint names, without committing weights.
 
@@ -134,4 +134,4 @@ Acceptance:
 
 ## Immediate next action
 
-Treat LFM2.5 as a separate roadmap track. After Qwen3-TTS T0/T1 is started, the first concrete LFM task should be `model/lfm2/config.go` plus `cmd/lfm2inspect`, not runtime generation.
+Treat LFM2.5 as a separate roadmap track. After Qwen3-TTS T0/T1 is started, the first concrete LFM task should be `model/lfm2/config.go` plus `cmd/models/lfm2inspect`, not runtime generation.

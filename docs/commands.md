@@ -340,13 +340,13 @@ The report includes variant/size, talker dimensions, code-predictor dimensions, 
 
 ## `lfm2inspect` — LFM2.5 metadata and runtime-state sizing
 
-`cmd/lfm2inspect` validates `lfm2_moe` config metadata, counts hybrid conv/full-attention layers, summarizes MoE settings, inspects optional safetensors headers, and reports state/cache sizing.
+`cmd/models/lfm2inspect` validates `lfm2_moe` config metadata, counts hybrid conv/full-attention layers, summarizes MoE settings, inspects optional safetensors headers, and reports state/cache sizing.
 
 ```bash
 make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b
 make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b
 
-GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/lfm2inspect \
   -model models/lfm2.5-8b-a1b \
   -json
 ```
@@ -365,7 +365,7 @@ Useful flags:
 Fixture coverage example:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/lfm2inspect \
   -model models/lfm2.5-8b-a1b \
   -fixture model/lfm2/testdata/lfm25_8b_a1b_metadata.json \
   -json
@@ -444,13 +444,13 @@ make model-coverage-runtime-gate
 make model-coverage-execution-gate
 make model-coverage-parity-gate
 make model-coverage-readiness-gate
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -json
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -family qwen3_tts -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -family qwen3_tts -references-only -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -runtime-only -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -execution-only -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -parity-only -pending-only
-GOTMPDIR=$PWD/.gotmp go run ./cmd/modelcoverage -readiness-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -json
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -family qwen3_tts -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -family qwen3_tts -references-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -runtime-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -execution-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -parity-only -pending-only
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/modelcoverage -readiness-only -pending-only
 ```
 
 This runs tests and vet for:
@@ -459,10 +459,10 @@ This runs tests and vet for:
 - `model/qwen3tts`
 - `model/lfm2`
 - `cmd/qwen3ttsinspect`
-- `cmd/lfm2inspect`
+- `cmd/models/lfm2inspect`
 - reference/fixture coverage has no pending manifest gates
 - parity/readiness coverage has no pending manifest gates
-- `cmd/modelcoverage`
+- `cmd/models/modelcoverage`
 
 ## `specbench` / `speccheck`
 
