@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile"
 )
 
 func TestNativeQwenMTPModeMessage(t *testing.T) {
@@ -103,7 +105,7 @@ func TestLoadPrompts(t *testing.T) {
 	if err := os.WriteFile(path, []byte("# comment\n\nhello\n world \n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := loadPrompts("fallback", path)
+	got, err := promptfile.Load("fallback", path)
 	if err != nil {
 		t.Fatalf("loadPrompts: %v", err)
 	}

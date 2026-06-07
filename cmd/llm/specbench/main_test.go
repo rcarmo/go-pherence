@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile"
 )
 
 func TestGeneratedTokenCount(t *testing.T) {
@@ -42,7 +44,7 @@ func TestSpecbenchLoadPrompts(t *testing.T) {
 	if err := os.WriteFile(path, []byte("# c\n\none\n two \n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := loadPrompts("fallback", path)
+	got, err := promptfile.Load("fallback", path)
 	if err != nil {
 		t.Fatalf("loadPrompts: %v", err)
 	}
@@ -55,7 +57,7 @@ func TestSpecbenchLoadPrompts(t *testing.T) {
 			t.Fatalf("prompt[%d]=%q want %q", i, got[i], want[i])
 		}
 	}
-	got, err = loadPrompts("fallback", "")
+	got, err = promptfile.Load("fallback", "")
 	if err != nil || len(got) != 1 || got[0] != "fallback" {
 		t.Fatalf("fallback prompts=%v err=%v", got, err)
 	}
