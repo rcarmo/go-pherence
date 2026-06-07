@@ -13,13 +13,13 @@ all: build
 build: gen server chat
 
 gen:
-	go build -o bin/llmgen ./cmd/llmgen
+	go build -o bin/llmgen ./cmd/llm/llmgen
 
 server:
-	go build -o bin/llmserver ./cmd/llmserver
+	go build -o bin/llmserver ./cmd/llm/llmserver
 
 chat:
-	go build -o bin/llmchat ./cmd/llmchat
+	go build -o bin/llmchat ./cmd/llm/llmchat
 
 # Whisper speech-to-text. The optimized RVV + SpaceMIT IME (int8) kernels are
 # gated by //go:build riscv64 and selected at runtime via CPU feature detection,
@@ -61,8 +61,8 @@ test-cpu:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 
 test-model-coverage: model-coverage-tmpdir
-	go test -count=1 -timeout=120s ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
-	go vet ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
+	go test -count=1 -timeout=120s ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
+	go vet ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen/qwen3ttsinspect ./cmd/lfm2inspect ./cmd/modelcoverage
 	go run ./cmd/modelcoverage -references-only -fail-pending
 	go run ./cmd/modelcoverage -parity-only -fail-pending
 	go run ./cmd/modelcoverage -readiness-only -fail-pending
@@ -233,7 +233,7 @@ GGUF_EXPECT_SAVED_KV_BYTES ?=
 GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES ?=
 GGUF_EXPECT_ESTIMATED_TOTAL_BYTES ?=
 GGUF_EXPECT_SIMD_ROTATION ?=
-GGUF_CI_PACKAGES ?= ./cmd/llmserver ./loader/gguf ./cmd/ggufinspect ./cmd/ggufsmoke ./model ./runtime/kv
+GGUF_CI_PACKAGES ?= ./cmd/llm/llmserver ./loader/gguf ./cmd/ggufinspect ./cmd/ggufsmoke ./model ./runtime/kv
 
 # Inspect and smoke the native pure-Go/SIMD GGUF path for llama/Qwen REAP models.
 gguf-inspect:
@@ -288,11 +288,11 @@ LFM2_FIXTURE_FLAGS ?= -json
 
 qwen3tts-inspect:
 	@if [ -z "$(QWEN3TTS_MODEL)" ]; then echo "usage: make qwen3tts-inspect QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice [QWEN3TTS_TEXT='Hello world']"; exit 2; fi
-	go run ./cmd/qwen3ttsinspect -model $(QWEN3TTS_MODEL) -text "$(QWEN3TTS_TEXT)" -speaker $(QWEN3TTS_SPEAKER) -language $(QWEN3TTS_LANGUAGE) $(QWEN3TTS_INSPECT_FLAGS)
+	go run ./cmd/qwen/qwen3ttsinspect -model $(QWEN3TTS_MODEL) -text "$(QWEN3TTS_TEXT)" -speaker $(QWEN3TTS_SPEAKER) -language $(QWEN3TTS_LANGUAGE) $(QWEN3TTS_INSPECT_FLAGS)
 
 qwen3tts-fixture-coverage:
 	@if [ -z "$(QWEN3TTS_MODEL)" ]; then echo "usage: make qwen3tts-fixture-coverage QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice [QWEN3TTS_FIXTURE=model/qwen3tts/testdata/customvoice_prompt_fixture.json]"; exit 2; fi
-	go run ./cmd/qwen3ttsinspect -model $(QWEN3TTS_MODEL) -fixture $(QWEN3TTS_FIXTURE) $(QWEN3TTS_FIXTURE_FLAGS)
+	go run ./cmd/qwen/qwen3ttsinspect -model $(QWEN3TTS_MODEL) -fixture $(QWEN3TTS_FIXTURE) $(QWEN3TTS_FIXTURE_FLAGS)
 
 lfm2-inspect:
 	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b"; exit 2; fi
@@ -392,9 +392,9 @@ test-gpu:
 # Quick smoke test
 smoke:
 	@echo "=== build ==="
-	go build -o /dev/null ./cmd/llmgen
-	go build -o /dev/null ./cmd/llmserver
-	go build -o /dev/null ./cmd/llmchat
+	go build -o /dev/null ./cmd/llm/llmgen
+	go build -o /dev/null ./cmd/llm/llmserver
+	go build -o /dev/null ./cmd/llm/llmchat
 	@echo "=== vet ==="
 	go vet ./...
 	@echo "=== unit tests ==="

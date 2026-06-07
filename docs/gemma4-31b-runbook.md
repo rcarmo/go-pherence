@@ -31,7 +31,7 @@ The 31B main model is about 18 GiB on disk in 4-bit MLX form. CPU dequant-at-loa
 The packed-MTP runtime smoke loads the main model on the on-the-fly path, loads the 31B assistant as packed MLX 4-bit weights, builds a minimal external-KV view, and runs one q-only drafter step:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -model models/gemma4-31b-it-4bit \
   -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
   -mtp-smoke \
@@ -64,7 +64,7 @@ The main model load for that run was `16.25s`.
 A real-prompt smoke is also available. It prefills the prompt through the main model, captures final activation and float KV using the Generate-equivalent Gemma4 per-layer-input path, maps drafter layers onto compatible main-model KV source widths, and feeds that state into the packed MTP assistant:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -model models/gemma4-31b-it-4bit \
   -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
   -mtp-smoke \
@@ -85,7 +85,7 @@ This proves the real activation/KV handoff, but also shows that CPU/on-the-fly 3
 The compact GPU LM-head smoke also loads successfully:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 1 \
   -model models/gemma4-31b-it-4bit \
   -tokens 0 \
@@ -95,7 +95,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
 A plain CPU load is not recommended:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -model models/gemma4-31b-it-4bit \
   -tokens 0 \
   -prompt "Hello"
@@ -129,7 +129,7 @@ So the immediate effective run strategy is mmap/on-the-fly MLX loading plus comp
 
 ## MTP deployment audit
 
-`cmd/llmgen` now exposes an experimental `-mtp-smoke` mode for Gemma4 MTP. This is a runtime smoke path, not full speculative generation: it loads `Gemma4MTPDrafter`, runs one q-only drafter step with a minimal external-KV view, and exits. The `-speculative` flag remains the stock-weight proposer/replay verifier path and is separate from Gemma4 MTP.
+`cmd/llm/llmgen` now exposes an experimental `-mtp-smoke` mode for Gemma4 MTP. This is a runtime smoke path, not full speculative generation: it loads `Gemma4MTPDrafter`, runs one q-only drafter step with a minimal external-KV view, and exits. The `-speculative` flag remains the stock-weight proposer/replay verifier path and is separate from Gemma4 MTP.
 
 Current Gemma4 MTP status:
 
@@ -173,7 +173,7 @@ The E4B main model is `hidden=2560`, `layers=42`; the assistant is `hidden=256`,
 Minimal MTP smoke:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -model models/gemma4-e4b-it-4bit \
   -mtp-drafter models/gemma4-e4b-mtp-drafter \
   -mtp-smoke \
@@ -185,7 +185,7 @@ Result: main load `6.98s`, assistant load `0.24s`, drafter step `0.12s`.
 Real-prompt full-GPU MTP smoke:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llmgen \
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
   -model models/gemma4-e4b-it-4bit \
   -mtp-drafter models/gemma4-e4b-mtp-drafter \
