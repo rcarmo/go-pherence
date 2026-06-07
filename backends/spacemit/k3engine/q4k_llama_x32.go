@@ -153,7 +153,7 @@ func q4kQ41x32MatVecGoAsmWithCorrection(w q4kQ41x32, exactMins []float32, act []
 		sumActCorr[sb] = float32(q8.SumNeg[sb]) * q8.Scale[sb]
 	}
 	runGroup := func(rg int) {
-		k3I8I4M1((*byte)(unsafe.Pointer(&quantA[0])), (*byte)(unsafe.Pointer(&w.BData[rg*subs*608])), &out[rg*32], subs, 32)
+		ime2.K3I8I4M1((*byte)(unsafe.Pointer(&quantA[0])), (*byte)(unsafe.Pointer(&w.BData[rg*subs*608])), &out[rg*32], subs, 32)
 		if dbg && rg == 0 {
 			fmt.Fprintf(os.Stderr, "k3raw[0..3]: %.5f %.5f %.5f %.5f\n", out[0], out[1], out[2], out[3])
 		}
@@ -332,29 +332,29 @@ type q4kBatchMatVecSpec struct {
 // q4kQ41x32MatVecBatchSameAct runs each spec through q4kQ41x32MatVecGoAsmWithCorrection.
 // Separate pool.Run calls per spec; correct ZP correction applied for each.
 // q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs sharing one activation
-// in a single pool.Run call. k3I8I4M1 handles ZP correction internally via
+// in a single pool.Run call. ime2.K3I8I4M1 handles ZP correction internally via
 // the B ZP bytes at BData+64; no Go-level correction loop is needed.
 // q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs sharing one activation
-// in a single pool.Run. k3I8I4M1 does the main dot product (partial ZP);
+// in a single pool.Run. ime2.K3I8I4M1 does the main dot product (partial ZP);
 // the Go correction loop adds the full ZP×SumNeg correction per group/row.
 // q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs sharing one activation.
-// k3I8I4M1 handles the dot product; ZP correction zeroed in kernel and not applied here.
+// ime2.K3I8I4M1 handles the dot product; ZP correction zeroed in kernel and not applied here.
 // q4kQ41x32MatVecBatchSameAct calls q4kQ41x32MatVecGoAsmWithCorrection for each spec.
 // This gives correct output via the existing ZP correction loop.
 // Sequential pool.Run calls per spec (not batched) but correct.
 // q4kQ41x32MatVecBatchSameAct uses matVecRef (F32) for all specs — correct baseline.
 // q4kQ41x32MatVecBatchSameAct calls q4kQ41x32MatVecGoAsmWithCorrection sequentially.
 // q4kQ41x32MatVecBatchSameAct computes multiple Q4K matvecs in one pool.Run.
-// k3I8I4M1 computes the dot + partial ZP; the Go correction loop adds full fp32 ZP.
+// ime2.K3I8I4M1 computes the dot + partial ZP; the Go correction loop adds full fp32 ZP.
 // q4kQ41x32MatVecBatchSameAct computes multiple Q4K matvecs in one pool.Run.
-// k3I8I4M1 uses constant ZP=8 (matching native PR#22863 active path).
+// ime2.K3I8I4M1 uses constant ZP=8 (matching native PR#22863 active path).
 // No Go correction loop needed; kernel handles full ZP approximation.
 // q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run with ZP correction.
 // q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run.
-// k3I8I4M1 computes dot+partial-ZP; the correction loop applies exact fp32 ZP.
+// ime2.K3I8I4M1 computes dot+partial-ZP; the correction loop applies exact fp32 ZP.
 // Uses precomputed ZPD = float32(ZP)*D for cache-efficient sequential access.
 // q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run.
-// k3I8I4M1 correctly applies ZP correction for all 32 output rows on VLEN=1024 AI cores.
+// ime2.K3I8I4M1 correctly applies ZP correction for all 32 output rows on VLEN=1024 AI cores.
 // No Go correction loop needed (would double-count the kernel's ZP correction).
 // q4kQ41x32MatVecBatchSameAct runs multiple Q4K matvecs in one pool.Run.
 // Kernel ZP=0; Go ZPD correction applies exact fp32 ZP correction.
@@ -410,7 +410,7 @@ func q4kQ41x32MatVecBatchSameAct(act []float32, pool *aipool.AIWorkerPool, specs
 			if gStart >= gEnd {
 				continue
 			}
-			k3I8I4M1GroupsZPD(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart, &sp.W.ZPD[gStart*subs*32], &sumActCorr[0])
+			ime2.K3I8I4M1GroupsZPD(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart, &sp.W.ZPD[gStart*subs*32], &sumActCorr[0])
 		}
 	})
 	return true

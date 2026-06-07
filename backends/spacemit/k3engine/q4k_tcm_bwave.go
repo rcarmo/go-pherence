@@ -80,7 +80,7 @@ func q4kQ41x32BWaveMatVecBatchSameAct(act []float32, pool *aipool.AIWorkerPool, 
 				if workerID%2 != 0 {
 					pairBarrier.Wait(pair)
 				}
-				k3I8I4M1(quantPtr, bPtr, &sp.Out[rg*32], subs, 32)
+				ime2.K3I8I4M1(quantPtr, bPtr, &sp.Out[rg*32], subs, 32)
 				// ZPD correction
 				base0 := rg * subs * 32
 				outSlice := sp.Out[rg*32 : rg*32+32]
@@ -152,7 +152,7 @@ func q4kQ41x32BWaveMatVecGoAsm(w q4kQ41x32, act []float32, out []float32, pool *
 			if workerID%2 != 0 {
 				pairBarrier.Wait(pair)
 			}
-			k3I8I4M1(quantPtr, bPtr, &out[rg*32], subs, 32)
+			ime2.K3I8I4M1(quantPtr, bPtr, &out[rg*32], subs, 32)
 			base0 := rg * subs * 32
 			outSlice := out[rg*32 : rg*32+32]
 			for sb := 0; sb < subs; sb++ {

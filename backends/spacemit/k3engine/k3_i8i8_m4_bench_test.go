@@ -5,6 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 )
 
@@ -73,7 +74,7 @@ func BenchmarkK3I8I8M1x4VsM4(b *testing.B) {
 		}
 		qRows[r] = quantizeQ8Blocks32Bytes(acts[r])
 	}
-	packedA := packQ8RowsM4(qRows, subs)
+	packedA := ime2.PackQ8RowsM4(qRows, subs)
 	outM1 := make([]float32, 4*32)
 	outM4 := make([]float32, 4*32)
 	b.Run("four_m1", func(b *testing.B) {

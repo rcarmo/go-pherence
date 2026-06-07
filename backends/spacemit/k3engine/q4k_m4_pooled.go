@@ -3,13 +3,14 @@ package k3engine
 import (
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/config"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 // q4kQ41x32MatVec4Pooled computes four activations against one Q4_K matrix
-// using the k3I8I4 dispatcher (M4 for countM>=4) distributed over N32 groups.
+// using the ime2.K3I8I4 dispatcher (M4 for countM>=4) distributed over N32 groups.
 // This is the reusable production primitive for batched/prefill work where
 // four rows share the same B matrix.
 func q4kQ41x32MatVec4Pooled(w q4kQ41x32, acts [4][]float32, outs [4][]float32, pool *aipool.AIWorkerPool) bool {
@@ -50,7 +51,7 @@ func q4kQ41x32MatVec4Pooled(w q4kQ41x32, acts [4][]float32, outs [4][]float32, p
 					pairBarrier.Wait(pair)
 				}
 				var tmp [4 * 32]float32
-				handled := k3I8I4(aPtr, bPtr, &tmp[0], 4, 32, subs, 32)
+				handled := ime2.K3I8I4(aPtr, bPtr, &tmp[0], 4, 32, subs, 32)
 				if handled == 4 {
 					for r := 0; r < 4; r++ {
 						copy(outs[r][rg*32:(rg+1)*32], tmp[r*32:(r+1)*32])
@@ -71,7 +72,7 @@ func q4kQ41x32MatVec4Pooled(w q4kQ41x32, acts [4][]float32, outs [4][]float32, p
 		for rg := gStart; rg < gEnd; rg++ {
 			var tmp [4 * 32]float32
 			bPtr := (*byte)(unsafe.Pointer(&w.BData[rg*subs*608]))
-			handled := k3I8I4(aPtr, bPtr, &tmp[0], 4, 32, subs, 32)
+			handled := ime2.K3I8I4(aPtr, bPtr, &tmp[0], 4, 32, subs, 32)
 			if handled != 4 {
 				return
 			}

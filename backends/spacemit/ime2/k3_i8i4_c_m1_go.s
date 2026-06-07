@@ -3,7 +3,7 @@
 // func k3I8I4M1C(a *byte, b *byte, c *float32, kBlks int, nBlks int)
 // Faithful C-M1 correction-order clone attempt based on ime2_gemm_i8i4_m1.s
 // active path, kept separate from safe k3I8I4M1.
-TEXT ·k3I8I4M1C(SB), NOSPLIT, $0-40
+TEXT ·K3I8I4M1C(SB), NOSPLIT, $0-40
     MOV a+0(FP), X10          // A scale/sum ptr
     MOV a+0(FP), X11
     ADD $6, X11               // A q8 data ptr
@@ -93,7 +93,7 @@ loop_c_m1:
 
 // func k3I8I4M1CResidual(a *byte, b *byte, residual *float32, c *float32, kBlks int, nBlks int)
 // C-M1 clone plus fused exact residual vector: v31 += residual[32] * SumNeg before A-scale vfmacc.
-TEXT ·k3I8I4M1CResidual(SB), NOSPLIT, $0-48
+TEXT ·K3I8I4M1CResidual(SB), NOSPLIT, $0-48
     MOV a+0(FP), X10          // A scale/sum ptr
     MOV a+0(FP), X11
     ADD $6, X11               // A q8 data ptr

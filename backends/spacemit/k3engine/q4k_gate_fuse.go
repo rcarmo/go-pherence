@@ -67,7 +67,7 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *aipool.AIWorkerPool, gate, 
 				if workerID%2 != 0 {
 					barrier.Wait(pair)
 				}
-				k3I8I4M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
+				ime2.K3I8I4M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
 				// ZPD correction (was missing — caused wrong logits with gate wave)
 				base0 := rg * subs * 32
 				outSlice := out[rg*32 : rg*32+32]
@@ -98,8 +98,8 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *aipool.AIWorkerPool, gate, 
 			runWave(gate, gateOut, gateBarrier)
 			runWave(up, upOut, upBarrier)
 		} else if subs%2 == 0 {
-			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[gStart*subs*608])), &gateOut[gStart*32], subs, gEnd-gStart)
-			k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&up.BData[gStart*subs*608])), &upOut[gStart*32], subs, gEnd-gStart)
+			ime2.K3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[gStart*subs*608])), &gateOut[gStart*32], subs, gEnd-gStart)
+			ime2.K3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&up.BData[gStart*subs*608])), &upOut[gStart*32], subs, gEnd-gStart)
 			for rg := gStart; rg < gEnd; rg++ {
 				base0 := rg * subs * 32
 				go_ := gateOut[rg*32 : rg*32+32]
@@ -115,8 +115,8 @@ func q4kQ41x32GateUpSiluSameAct(act []float32, pool *aipool.AIWorkerPool, gate, 
 			}
 		} else {
 			for rg := gStart; rg < gEnd; rg++ {
-				k3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[rg*subs*608])), &gateOut[rg*32], subs, 32)
-				k3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&up.BData[rg*subs*608])), &upOut[rg*32], subs, 32)
+				ime2.K3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[rg*subs*608])), &gateOut[rg*32], subs, 32)
+				ime2.K3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&up.BData[rg*subs*608])), &upOut[rg*32], subs, 32)
 			}
 			for rg := gStart; rg < gEnd; rg++ {
 				base0 := rg * subs * 32

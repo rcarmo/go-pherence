@@ -5,6 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/config"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
@@ -21,7 +22,7 @@ func TestQuantizeQ8RowsM4BytesMatchesPackRows(t *testing.T) {
 		}
 		rows[r] = quantizeQ8Blocks32Bytes(acts[r])
 	}
-	want := packQ8RowsM4(rows, subs)
+	want := ime2.PackQ8RowsM4(rows, subs)
 	got := quantizeQ8RowsM4Bytes(acts, subs)
 	if len(got) != len(want) {
 		t.Fatalf("len got=%d want=%d", len(got), len(want))

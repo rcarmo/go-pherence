@@ -29,7 +29,7 @@
 //   v30 = fp32 accumulator row 2
 //   v31 = fp32 accumulator row 3
 //
-TEXT ·k3I8I4M4(SB), NOSPLIT, $0-40
+TEXT ·K3I8I4M4(SB), NOSPLIT, $0-40
     MOV a+0(FP), X10
     MOV b+8(FP), X11
     MOV b+8(FP), X12

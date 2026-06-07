@@ -4,6 +4,7 @@ import (
 	"math"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/config"
 )
@@ -42,12 +43,12 @@ func q4kQ41x32FFNFusedSameAct(act []float32, pool *aipool.AIWorkerPool, gate, up
 		gEnd := (workerID + 1) * groups / nWorkers
 		if gEnd > gStart {
 			if subs%2 == 0 {
-				k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[gStart*subs*608])), &gateOut[gStart*32], subs, gEnd-gStart)
-				k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&up.BData[gStart*subs*608])), &upOut[gStart*32], subs, gEnd-gStart)
+				ime2.K3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[gStart*subs*608])), &gateOut[gStart*32], subs, gEnd-gStart)
+				ime2.K3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&up.BData[gStart*subs*608])), &upOut[gStart*32], subs, gEnd-gStart)
 			} else {
 				for rg := gStart; rg < gEnd; rg++ {
-					k3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[rg*subs*608])), &gateOut[rg*32], subs, 32)
-					k3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&up.BData[rg*subs*608])), &upOut[rg*32], subs, 32)
+					ime2.K3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&gate.BData[rg*subs*608])), &gateOut[rg*32], subs, 32)
+					ime2.K3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&up.BData[rg*subs*608])), &upOut[rg*32], subs, 32)
 				}
 			}
 		}

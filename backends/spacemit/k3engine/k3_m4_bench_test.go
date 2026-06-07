@@ -5,6 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 )
 
@@ -42,7 +43,7 @@ func BenchmarkK3I8I4M1x4VsM4(b *testing.B) {
 	subs := K / 32
 	w := makeBenchQ4X32(32, K)
 	rows := makeBenchQRows4(K)
-	packedA := packQ8RowsM4(rows, subs)
+	packedA := ime2.PackQ8RowsM4(rows, subs)
 	outM1 := make([]float32, 4*32)
 	outM4 := make([]float32, 4*32)
 	b.Run("four_m1", func(b *testing.B) {
@@ -51,7 +52,7 @@ func BenchmarkK3I8I4M1x4VsM4(b *testing.B) {
 		aipool.RegisterAIThread(8)
 		for i := 0; i < b.N; i++ {
 			for r := 0; r < 4; r++ {
-				k3I8I4M1((*byte)(unsafe.Pointer(&rows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM1[r*32], subs, 32)
+				ime2.K3I8I4M1((*byte)(unsafe.Pointer(&rows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM1[r*32], subs, 32)
 			}
 		}
 	})
@@ -60,7 +61,7 @@ func BenchmarkK3I8I4M1x4VsM4(b *testing.B) {
 		defer runtime.UnlockOSThread()
 		aipool.RegisterAIThread(8)
 		for i := 0; i < b.N; i++ {
-			q4Handled := k3I8I4((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM4[0], 4, 32, subs, 32)
+			q4Handled := ime2.K3I8I4((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM4[0], 4, 32, subs, 32)
 			if q4Handled != 4 {
 				b.Fatalf("handled=%d", q4Handled)
 			}

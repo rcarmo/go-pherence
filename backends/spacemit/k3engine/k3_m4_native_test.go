@@ -6,6 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 )
 
@@ -57,11 +58,11 @@ func TestK3I8I4M4NativeVsFallback(t *testing.T) {
 
 	// Run native M4
 	outNative := make([]float32, 4*nCols)
-	k3I8I4M4(&aData[0], &bData[0], &outNative[0], kBlks, ldcBytes)
+	ime2.K3I8I4M4(&aData[0], &bData[0], &outNative[0], kBlks, ldcBytes)
 
 	// Run fallback M4
 	outFallback := make([]float32, 4*nCols)
-	k3I8I4M4Fallback(&aData[0], &bData[0], &outFallback[0], kBlks, ldcBytes)
+	ime2.K3I8I4M4Fallback(&aData[0], &bData[0], &outFallback[0], kBlks, ldcBytes)
 
 	// Compare
 	maxDiff := float64(0)

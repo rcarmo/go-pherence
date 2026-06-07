@@ -6,6 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/config"
 )
@@ -53,7 +54,7 @@ func TestK3I8I4M1Simple(t *testing.T) {
 	a[5] = 0
 
 	out := make([]float32, 32)
-	k3I8I4M1((*byte)(unsafe.Pointer(&a[0])), (*byte)(unsafe.Pointer(&b[0])), &out[0], 1, 32)
+	ime2.K3I8I4M1((*byte)(unsafe.Pointer(&a[0])), (*byte)(unsafe.Pointer(&b[0])), &out[0], 1, 32)
 
 	t.Logf("ALL outputs: %v", out)
 	//   dot = sum_i(act[i] * w[i]) = sum_i(1 * 1) = 32
@@ -296,7 +297,7 @@ func TestK3I8I4M1CResidualFusedRef(t *testing.T) {
 		gStart := workerID * groups / nWorkers
 		gEnd := (workerID + 1) * groups / nWorkers
 		for rg := gStart; rg < gEnd; rg++ {
-			k3I8I4M1CResidual(
+			ime2.K3I8I4M1CResidual(
 				(*byte)(unsafe.Pointer(&quantA[0])),
 				(*byte)(unsafe.Pointer(&x32.BData[rg*subs*608])),
 				&x32.Residual[rg*subs*32],
@@ -349,7 +350,7 @@ func BenchmarkK3I8I4M1CResidualKernel(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		k3I8I4M1CResidual((*byte)(unsafe.Pointer(&a[0])), (*byte)(unsafe.Pointer(&bd[0])), &residual[0], &out[0], subs, 32)
+		ime2.K3I8I4M1CResidual((*byte)(unsafe.Pointer(&a[0])), (*byte)(unsafe.Pointer(&bd[0])), &residual[0], &out[0], subs, 32)
 	}
 }
 
@@ -384,7 +385,7 @@ func BenchmarkK3I8I4M1CKernel(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		k3I8I4M1C((*byte)(unsafe.Pointer(&a[0])), (*byte)(unsafe.Pointer(&bd[0])), &out[0], subs, 32)
+		ime2.K3I8I4M1C((*byte)(unsafe.Pointer(&a[0])), (*byte)(unsafe.Pointer(&bd[0])), &out[0], subs, 32)
 	}
 }
 
@@ -420,12 +421,12 @@ func TestK3I8I4DispatcherM4MatchesM1(t *testing.T) {
 	want := make([]float32, 4*32)
 	got := make([]float32, 4*32)
 	var handled int
-	packedA := packQ8RowsM4(rows, subs)
+	packedA := ime2.PackQ8RowsM4(rows, subs)
 	pool.Run(func(workerID, nWorkers int) {
 		for r := 0; r < 4; r++ {
-			k3I8I4M1((*byte)(unsafe.Pointer(&rows[r][0])), (*byte)(unsafe.Pointer(&x32.BData[0])), &want[r*32], subs, 32)
+			ime2.K3I8I4M1((*byte)(unsafe.Pointer(&rows[r][0])), (*byte)(unsafe.Pointer(&x32.BData[0])), &want[r*32], subs, 32)
 		}
-		handled = k3I8I4((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&x32.BData[0])), &got[0], 4, 32, subs, 32)
+		handled = ime2.K3I8I4((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&x32.BData[0])), &got[0], 4, 32, subs, 32)
 	})
 	if handled != 4 {
 		t.Fatalf("dispatcher handled %d rows, want 4", handled)
@@ -476,7 +477,7 @@ func TestQ4KMatVec4M4MatchesFourM1(t *testing.T) {
 		}
 		q := quantizeQ8Blocks32Bytes(acts[r])
 		for rg := 0; rg < M/32; rg++ {
-			k3I8I4M1((*byte)(unsafe.Pointer(&q[0])), (*byte)(unsafe.Pointer(&x32.BData[rg*subs*608])), &want[r][rg*32], subs, 32)
+			ime2.K3I8I4M1((*byte)(unsafe.Pointer(&q[0])), (*byte)(unsafe.Pointer(&x32.BData[rg*subs*608])), &want[r][rg*32], subs, 32)
 		}
 	}
 	if !q4kQ41x32MatVec4GoAsm(x32, acts, outs) {
@@ -620,7 +621,7 @@ func TestK3I8I8M4DispatcherMatchesM1(t *testing.T) {
 	for r := 0; r < 4; r++ {
 		k3I8I8M1((*byte)(unsafe.Pointer(&qRows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &want[r*32], subs, 32)
 	}
-	packedA := packQ8RowsM4(qRows, subs)
+	packedA := ime2.PackQ8RowsM4(qRows, subs)
 	got := make([]float32, 4*32)
 	handled := q8I8Dispatcher((*byte)(unsafe.Pointer(&packedA[0])), (*byte)(unsafe.Pointer(&w.BData[0])), &got[0], 4, 32, subs, 32)
 	if handled != 4 {
@@ -884,7 +885,7 @@ func BenchmarkGateUpDecodeSingleWorkerSerial(b *testing.B) {
 		// Serial version: all groups sequentially (1 worker)
 		for rg := 0; rg < groups; rg++ {
 			bPtr := (*byte)(unsafe.Pointer(&w.BData[rg*subs*608]))
-			k3I8I4M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
+			ime2.K3I8I4M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
 		}
 	}
 }
@@ -961,7 +962,7 @@ func TestInlineZPVsGoZPD(t *testing.T) {
 		if gStart >= gEnd {
 			return
 		}
-		k3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernel[gStart*32], subs, gEnd-gStart)
+		ime2.K3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernel[gStart*32], subs, gEnd-gStart)
 	})
 
 	maxDiff := float32(0)
@@ -1016,7 +1017,7 @@ func TestInlineZPAppliedCorrectly(t *testing.T) {
 	}
 
 	pool.Run(func(w, n int) {
-		k3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
+		ime2.K3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
 	})
 
 	// Pure dot: 32 * 8 * 1.0 * 1.0 = 256
@@ -1078,7 +1079,7 @@ func TestInlineZPMultiBlock(t *testing.T) {
 	}
 
 	pool.Run(func(w, n int) {
-		k3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
+		ime2.K3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
 	})
 
 	t.Logf("out[0:8] = %v", out[:8])
@@ -1138,7 +1139,7 @@ func TestInlineZPVsGoZPDCorrect(t *testing.T) {
 		if gStart >= gEnd {
 			return
 		}
-		k3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernelOnly[gStart*32], subs, gEnd-gStart)
+		ime2.K3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernelOnly[gStart*32], subs, gEnd-gStart)
 	})
 
 	maxDiff := float32(0)
@@ -1160,7 +1161,7 @@ func TestInlineZPVsGoZPDCorrect(t *testing.T) {
 }
 
 func TestInlineZPSingleGroup32Blks(t *testing.T) {
-	// Test k3I8I4M1 directly with 32 K32 blocks (real inference scenario)
+	// Test ime2.K3I8I4M1 directly with 32 K32 blocks (real inference scenario)
 	const kBlks = 32 // subs = K/32 for K=1024
 	a := make([]byte, kBlks*38)
 	b := make([]byte, kBlks*608)
@@ -1205,7 +1206,7 @@ func TestInlineZPSingleGroup32Blks(t *testing.T) {
 	}
 
 	pool.Run(func(w, n int) {
-		k3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
+		ime2.K3I8I4M1(&a[0], &b[0], &out[0], kBlks, 32)
 	})
 
 	t.Logf("Expected = %.4f, Got[0] = %.4f, Got[1] = %.4f", expected, out[0], out[1])
@@ -1273,7 +1274,7 @@ func TestInlineZPVsGoZPDFullMatrix(t *testing.T) {
 		if gStart >= gEnd {
 			return
 		}
-		k3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernelOnly[gStart*32], subs, gEnd-gStart)
+		ime2.K3I8I4M1Groups((*byte)(unsafe.Pointer(&quantBytes[0])), (*byte)(unsafe.Pointer(&w.BData[gStart*subs*608])), &outKernelOnly[gStart*32], subs, gEnd-gStart)
 	})
 
 	maxDiffInline := float32(0)

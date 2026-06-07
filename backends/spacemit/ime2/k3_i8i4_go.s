@@ -29,7 +29,7 @@
 //   - ADD $128,X13 → ADD $96,X13       (nibbles at B+96, not B+128)
 //   - ADD $640,X13 → ADD $608,X13      (608-byte sub-block stride)
 //   - ADD $576,X12 → ADD $544,X12      (64+544=608 total B scale stride)
-TEXT ·k3I8I4M1(SB), NOSPLIT, $0-40
+TEXT ·K3I8I4M1(SB), NOSPLIT, $0-40
     MOV a+0(FP), X10
     MOV a+0(FP), X11
     ADD $6, X11

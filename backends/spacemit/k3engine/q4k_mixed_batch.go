@@ -3,6 +3,7 @@ package k3engine
 import (
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/config"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
@@ -19,7 +20,7 @@ func q4kQ41x32MatVecBatchSameActWithI8(act []float32, pool *aipool.AIWorkerPool,
 	if config.Q4kExactOn || config.Q4kNativeCGOOn {
 		return false
 	}
-	// k3I8I4M1Groups kernel is imprecise without Go ZP correction loop.
+	// ime2.K3I8I4M1Groups kernel is imprecise without Go ZP correction loop.
 	// Fall through to matVecRef which uses GoAsmWithCorrection.
 	return false
 	K := q4Specs[0].W.K
@@ -71,7 +72,7 @@ func q4kQ41x32MatVecBatchSameActWithI8(act []float32, pool *aipool.AIWorkerPool,
 					if workerID%2 != 0 {
 						q4PairBarrier.Wait(pair)
 					}
-					k3I8I4M1Groups(quantPtr, bPtr, &sp.Out[rg*32], subs, 1)
+					ime2.K3I8I4M1Groups(quantPtr, bPtr, &sp.Out[rg*32], subs, 1)
 					if workerID%2 == 0 {
 						q4PairBarrier.Wait(pair)
 					}
@@ -84,10 +85,10 @@ func q4kQ41x32MatVecBatchSameActWithI8(act []float32, pool *aipool.AIWorkerPool,
 				continue
 			}
 			if subs%2 == 0 {
-				k3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart)
+				ime2.K3I8I4M1Groups(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[gStart*subs*608])), &sp.Out[gStart*32], subs, gEnd-gStart)
 			} else {
 				for rg := gStart; rg < gEnd; rg++ {
-					k3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[rg*subs*608])), &sp.Out[rg*32], subs, 32)
+					ime2.K3I8I4M1(quantPtr, (*byte)(unsafe.Pointer(&sp.W.BData[rg*subs*608])), &sp.Out[rg*32], subs, 32)
 				}
 			}
 		}

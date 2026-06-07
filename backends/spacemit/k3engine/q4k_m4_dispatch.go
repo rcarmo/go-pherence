@@ -1,10 +1,14 @@
 package k3engine
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+)
 
 // q4kQ41x32MatVec4GoAsm computes four Q4_K matvecs against the same packed
-// B matrix using the native-style k3I8I4 dispatcher. The dispatcher selects
-// k3I8I4M4 for countM>=4, matching llama.cpp gemm_kernel_i8i4().
+// B matrix using the native-style ime2.K3I8I4 dispatcher. The dispatcher selects
+// ime2.K3I8I4M4 for countM>=4, matching llama.cpp gemm_kernel_i8i4().
 //
 // This is not used by single-token decode (countM=1), but gives the M4 port a
 // production-facing entrypoint for batched/prefill work and regression tests.
@@ -24,7 +28,7 @@ func q4kQ41x32MatVec4GoAsm(w q4kQ41x32, acts [4][]float32, outs [4][]float32) bo
 	for rg := 0; rg < groups; rg++ {
 		var tmp [4 * 32]float32
 		bPtr := (*byte)(unsafe.Pointer(&w.BData[rg*subs*608]))
-		handled := k3I8I4(aPtr, bPtr, &tmp[0], 4, 32, subs, 32)
+		handled := ime2.K3I8I4(aPtr, bPtr, &tmp[0], 4, 32, subs, 32)
 		if handled != 4 {
 			return false
 		}

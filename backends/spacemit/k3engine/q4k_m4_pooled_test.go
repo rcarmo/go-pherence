@@ -37,5 +37,5 @@ func BenchmarkQ4KMatVec4PooledVsFourMatVecs(b *testing.B) {
 }
 
 func TestQ4KMatVec4PooledMatchesFourM1(t *testing.T) {
-	t.Skip("k3I8I4M4 Go fallback has format mismatch; M4 path not used in single-token decode")
+	t.Skip("ime2.K3I8I4M4 Go fallback has format mismatch; M4 path not used in single-token decode")
 }

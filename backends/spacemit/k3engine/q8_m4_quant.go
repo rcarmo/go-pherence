@@ -3,6 +3,7 @@ package k3engine
 import (
 	"math"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/config"
 )
 
@@ -15,11 +16,11 @@ func quantizeQ8RowsM4Bytes(acts [4][]float32, kBlks int) []byte {
 		for i := 0; i < 4; i++ {
 			rows[i] = quantizeQ8Blocks32Bytes(acts[i])
 		}
-		return packQ8RowsM4(rows, kBlks)
+		return ime2.PackQ8RowsM4(rows, kBlks)
 	}
-	out := make([]byte, kBlks*k3I8I4ABlockM4Bytes)
+	out := make([]byte, kBlks*ime2.K3I8I4ABlockM4Bytes)
 	for sb := 0; sb < kBlks; sb++ {
-		dst := sb * k3I8I4ABlockM4Bytes
+		dst := sb * ime2.K3I8I4ABlockM4Bytes
 		base := sb * 32
 		for r := 0; r < 4; r++ {
 			var maxAbs float32

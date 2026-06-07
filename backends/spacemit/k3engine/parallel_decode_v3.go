@@ -97,7 +97,7 @@ func q4kFFNFused(
 		gStart := workerID * groupsGate / nWorkers
 		gEnd := (workerID + 1) * groupsGate / nWorkers
 		if gStart < gEnd {
-			k3I8I4M1Groups(quantPtrGate, (*byte)(unsafe.Pointer(&gate.BData[gStart*subsGate*608])), &gateF[gStart*32], subsGate, gEnd-gStart)
+			ime2.K3I8I4M1Groups(quantPtrGate, (*byte)(unsafe.Pointer(&gate.BData[gStart*subsGate*608])), &gateF[gStart*32], subsGate, gEnd-gStart)
 			for rg := gStart; rg < gEnd; rg++ {
 				base0 := rg * subsGate * 32
 				outSlice := gateF[rg*32 : rg*32+32]
@@ -112,7 +112,7 @@ func q4kFFNFused(
 
 		// === Up matmul ===
 		if gStart < gEnd {
-			k3I8I4M1Groups(quantPtrGate, (*byte)(unsafe.Pointer(&up.BData[gStart*subsGate*608])), &upF[gStart*32], subsGate, gEnd-gStart)
+			ime2.K3I8I4M1Groups(quantPtrGate, (*byte)(unsafe.Pointer(&up.BData[gStart*subsGate*608])), &upF[gStart*32], subsGate, gEnd-gStart)
 			for rg := gStart; rg < gEnd; rg++ {
 				base0 := rg * subsGate * 32
 				outSlice := upF[rg*32 : rg*32+32]
@@ -158,7 +158,7 @@ func q4kFFNFused(
 		dStart := workerID * groupsDown / nWorkers
 		dEnd := (workerID + 1) * groupsDown / nWorkers
 		if dStart < dEnd {
-			k3I8I4M1Groups(quantPtrDown, (*byte)(unsafe.Pointer(&down.BData[dStart*subsDown*608])), &downF[dStart*32], subsDown, dEnd-dStart)
+			ime2.K3I8I4M1Groups(quantPtrDown, (*byte)(unsafe.Pointer(&down.BData[dStart*subsDown*608])), &downF[dStart*32], subsDown, dEnd-dStart)
 			for rg := dStart; rg < dEnd; rg++ {
 				base0 := rg * subsDown * 32
 				outSlice := downF[rg*32 : rg*32+32]
