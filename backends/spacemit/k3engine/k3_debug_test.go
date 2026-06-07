@@ -619,7 +619,7 @@ func TestK3I8I8M4DispatcherMatchesM1(t *testing.T) {
 	}
 	want := make([]float32, 4*32)
 	for r := 0; r < 4; r++ {
-		k3I8I8M1((*byte)(unsafe.Pointer(&qRows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &want[r*32], subs, 32)
+		ime2.K3I8I8M1((*byte)(unsafe.Pointer(&qRows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &want[r*32], subs, 32)
 	}
 	packedA := ime2.PackQ8RowsM4(qRows, subs)
 	got := make([]float32, 4*32)

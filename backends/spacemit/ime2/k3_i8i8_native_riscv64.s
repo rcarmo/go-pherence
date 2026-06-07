@@ -1,25 +1,24 @@
 #include "textflag.h"
 
-// func k3I8I8M1Groups(a *byte, b *byte, c *float32, kBlks int, nGroups int)
-TEXT ·k3I8I8M1Groups(SB), NOSPLIT, $0-40
-    MOV b+8(FP), X20          // current group B base
-    MOV c+16(FP), X22         // current group C base
-    MOV nGroups+32(FP), X28
-    BEQ X28, X0, done_i8i8_groups
-
-group_loop_i8i8_groups:
-    MOV a+0(FP), X18
-    MOV a+0(FP), X19
+// func k3I8I8M1(a *byte, b *byte, c *float32, kBlks int, nBlks int)
+// Direct port of llama.cpp gemm_kernel_i8i8_m1 for one N32 tile.
+// A per K32: fp32 scale + int16 sum + 32 int8 q = 38B.
+// B per K32/N32: fp16 d[32] + int8 q[32][32] = 1088B.
+TEXT ·K3I8I8M1(SB), NOSPLIT, $0-40
+    MOV a+0(FP), X18         // A scale base
+    MOV a+0(FP), X19         // A data base
     ADD $6, X19
-    MOV X20, X23              // B scale base for this group
-    MOV X20, X21              // B data base for this group
+    MOV b+8(FP), X20         // B scale base
+    MOV b+8(FP), X21         // B data base
     ADD $64, X21
+    MOV c+16(FP), X22
     MOV kBlks+24(FP), X15
+    MOV nBlks+32(FP), X28
 
     WORD $0x010072d7        // vsetvli t0, zero, e32, m1
     WORD $0x2e000157        // vxor.vv v2, v0, v0
 
-k_loop_i8i8_groups:
+k_loop_i8i8_m1:
     WORD $0x000072d7        // vsetvli t0, zero, e8, m1
     WORD $0x628a8207        // vl4r.v v4, (X21)
     ADD  $512, X21
@@ -27,8 +26,8 @@ k_loop_i8i8_groups:
     ADD  $576, X21
 
     WORD $0x007072d7        // vsetvli t0, zero, e8, mf2
-    WORD $0x020b8007        // vle8.v v0, (X23)
-    ADD  $1088, X23
+    WORD $0x020a0007        // vle8.v v0, (X20)
+    ADD  $1088, X20
 
     WORD $0x006072d7        // vsetvli t0, zero, e8, mf4
     WORD $0x02098187        // vle8.v v3, (X19)
@@ -69,17 +68,8 @@ k_loop_i8i8_groups:
     WORD $0xb3a09157        // vfmacc.vv v2, v1, v26
 
     ADD $-1, X15
-    BGT X15, X0, k_loop_i8i8_groups
+    BGT X15, X0, k_loop_i8i8_m1
 
-    WORD $0x010072d7        // vsetvli t0, zero, e32, m1
+    WORD $0x010e72d7        // vsetvli t0, X28, e32, m1
     WORD $0x020b6127        // vse32.v v2, (X22)
-    ADD $128, X22
-    MOV kBlks+24(FP), X15
-    MOV $1088, X24
-    MUL X15, X24, X24
-    ADD X24, X20
-    ADD $-1, X28
-    BNE X28, X0, group_loop_i8i8_groups
-
-done_i8i8_groups:
     RET

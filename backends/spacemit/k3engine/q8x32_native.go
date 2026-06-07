@@ -4,6 +4,7 @@ import (
 	"math"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
@@ -67,24 +68,15 @@ func repackF32ToQ80x32(M, K int, f32 []float32) q8Q80x32 {
 	return out
 }
 
-//go:noescape
-func k3I8I8M1(a *byte, b *byte, c *float32, kBlks int, nBlks int)
-
-//go:noescape
-func k3I8I8M1Groups(a *byte, b *byte, c *float32, kBlks int, nGroups int)
-
-//go:noescape
-func k3I8I8M4(a *byte, b *byte, c *float32, kBlks int, ldcBytes int)
-
 func q8I8Dispatcher(a, b *byte, c *float32, countM, countN, kBlks, ldc int) int {
 	if countM >= 4 {
 		for n := 0; n < countN; n += 32 {
-			k3I8I8M4(a, (*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(b))+uintptr((n/32)*kBlks*1088))), (*float32)(unsafe.Pointer(uintptr(unsafe.Pointer(c))+uintptr(n*4))), kBlks, ldc*4)
+			ime2.K3I8I8M4(a, (*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(b))+uintptr((n/32)*kBlks*1088))), (*float32)(unsafe.Pointer(uintptr(unsafe.Pointer(c))+uintptr(n*4))), kBlks, ldc*4)
 		}
 		return 4
 	}
 	for n := 0; n < countN; n += 32 {
-		k3I8I8M1(a, (*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(b))+uintptr((n/32)*kBlks*1088))), (*float32)(unsafe.Pointer(uintptr(unsafe.Pointer(c))+uintptr(n*4))), kBlks, 32)
+		ime2.K3I8I8M1(a, (*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(b))+uintptr((n/32)*kBlks*1088))), (*float32)(unsafe.Pointer(uintptr(unsafe.Pointer(c))+uintptr(n*4))), kBlks, 32)
 	}
 	return 1
 }
@@ -148,7 +140,7 @@ func q8Q80x32MatVecNative(w q8Q80x32, act []float32, out []float32, pool *aipool
 				if workerID%2 != 0 {
 					pairBarrier.Wait(pair)
 				}
-				k3I8I8M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
+				ime2.K3I8I8M1Groups(quantPtr, bPtr, &out[rg*32], subs, 1)
 				if workerID%2 == 0 {
 					pairBarrier.Wait(pair)
 				}
@@ -162,7 +154,7 @@ func q8Q80x32MatVecNative(w q8Q80x32, act []float32, out []float32, pool *aipool
 		gStart := workerID * groups / nWorkers
 		gEnd := (workerID + 1) * groups / nWorkers
 		if gEnd > gStart {
-			k3I8I8M1Groups(quantPtr, (*byte)(unsafe.Pointer(&w.BData[gStart*subs*1088])), &out[gStart*32], subs, gEnd-gStart)
+			ime2.K3I8I8M1Groups(quantPtr, (*byte)(unsafe.Pointer(&w.BData[gStart*subs*1088])), &out[gStart*32], subs, gEnd-gStart)
 		}
 	})
 	return true

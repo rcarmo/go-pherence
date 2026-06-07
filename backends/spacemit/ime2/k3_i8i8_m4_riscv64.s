@@ -2,7 +2,7 @@
 
 // func k3I8I8M4(a *byte, b *byte, c *float32, kBlks int, ldcBytes int)
 // Direct port of llama.cpp gemm_kernel_i8i8_m4 for one N32 tile.
-TEXT ·k3I8I8M4(SB), NOSPLIT, $0-40
+TEXT ·K3I8I8M4(SB), NOSPLIT, $0-40
     MOV a+0(FP), X10
     MOV b+8(FP), X11
     MOV c+16(FP), X12

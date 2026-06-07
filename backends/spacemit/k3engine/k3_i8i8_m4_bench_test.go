@@ -40,7 +40,7 @@ func TestQ8I8MatVec4M4MatchesFourM1(t *testing.T) {
 		}
 		qRows[r] = quantizeQ8Blocks32Bytes(acts[r])
 		for rg := 0; rg < M/32; rg++ {
-			k3I8I8M1((*byte)(unsafe.Pointer(&qRows[r][0])), (*byte)(unsafe.Pointer(&w.BData[rg*subs*1088])), &want[r][rg*32], subs, 32)
+			ime2.K3I8I8M1((*byte)(unsafe.Pointer(&qRows[r][0])), (*byte)(unsafe.Pointer(&w.BData[rg*subs*1088])), &want[r][rg*32], subs, 32)
 		}
 	}
 	if !q8Q80x32MatVec4Native(w, acts, outs) {
@@ -83,7 +83,7 @@ func BenchmarkK3I8I8M1x4VsM4(b *testing.B) {
 		aipool.RegisterAIThread(8)
 		for i := 0; i < b.N; i++ {
 			for r := 0; r < 4; r++ {
-				k3I8I8M1((*byte)(unsafe.Pointer(&qRows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM1[r*32], subs, 32)
+				ime2.K3I8I8M1((*byte)(unsafe.Pointer(&qRows[r][0])), (*byte)(unsafe.Pointer(&w.BData[0])), &outM1[r*32], subs, 32)
 			}
 		}
 	})
