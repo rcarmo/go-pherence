@@ -3,6 +3,8 @@ package qwen3tts
 import (
 	"sort"
 	"strings"
+
+	"github.com/rcarmo/go-pherence/model/inspect"
 )
 
 var requiredTensorMarkers = map[string][]string{
@@ -66,7 +68,7 @@ func InspectTensorReadiness(names []string) TensorReadiness {
 	presentRequired := make(map[string]bool, len(requiredTensorMarkers))
 	var missing []string
 	for group, markers := range requiredTensorMarkers {
-		present := anyTensorMarker(names, markers)
+		present := inspect.AnyTensorMarker(names, markers)
 		presentRequired[group] = present
 		if !present {
 			missing = append(missing, group)
@@ -75,21 +77,9 @@ func InspectTensorReadiness(names []string) TensorReadiness {
 	sort.Strings(missing)
 	presentOptional := make(map[string]bool, len(optionalTensorMarkers))
 	for group, markers := range optionalTensorMarkers {
-		presentOptional[group] = anyTensorMarker(names, markers)
+		presentOptional[group] = inspect.AnyTensorMarker(names, markers)
 	}
 	return TensorReadiness{Ready: len(missing) == 0, PresentRequired: presentRequired, MissingRequired: missing, PresentOptional: presentOptional}
-}
-
-func anyTensorMarker(names, markers []string) bool {
-	for _, name := range names {
-		s := strings.ToLower(name)
-		for _, marker := range markers {
-			if strings.Contains(s, marker) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func TensorGroup(name string) string {

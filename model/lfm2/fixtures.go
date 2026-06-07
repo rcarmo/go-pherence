@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
+
+	"github.com/rcarmo/go-pherence/model/inspect"
 )
 
 // ReferenceMetadata is a small, commit-safe LFM2 fixture used before runtime
@@ -157,26 +158,22 @@ func (m ReferenceMetadata) PlaceholderFields() []string {
 	if m.References == nil {
 		return fields
 	}
-	if r := m.References.FirstToken; r != nil && isPlaceholder(r.LogitChecksum) {
+	if r := m.References.FirstToken; r != nil && inspect.IsPlaceholder(r.LogitChecksum) {
 		fields = append(fields, "first_token.logit_checksum")
 	}
-	if r := m.References.ConvLayer; r != nil && isPlaceholder(r.Checksum) {
+	if r := m.References.ConvLayer; r != nil && inspect.IsPlaceholder(r.Checksum) {
 		fields = append(fields, "conv_layer.checksum")
 	}
-	if r := m.References.AttentionLayer; r != nil && isPlaceholder(r.Checksum) {
+	if r := m.References.AttentionLayer; r != nil && inspect.IsPlaceholder(r.Checksum) {
 		fields = append(fields, "attention_layer.checksum")
 	}
-	if r := m.References.RouterTopK; r != nil && isPlaceholder(r.WeightHash) {
+	if r := m.References.RouterTopK; r != nil && inspect.IsPlaceholder(r.WeightHash) {
 		fields = append(fields, "router_topk.weight_hash")
 	}
-	if r := m.References.ExpertOutput; r != nil && isPlaceholder(r.Checksum) {
+	if r := m.References.ExpertOutput; r != nil && inspect.IsPlaceholder(r.Checksum) {
 		fields = append(fields, "expert_output.checksum")
 	}
 	return fields
-}
-
-func isPlaceholder(value string) bool {
-	return strings.HasPrefix(value, "pending-")
 }
 
 func (m ReferenceMetadata) Validate() error {

@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
+
+	"github.com/rcarmo/go-pherence/model/inspect"
 )
 
 // ReferenceFixture is a small, commit-safe parity anchor for Qwen3-TTS. Fields
@@ -105,24 +106,20 @@ func (fx ReferenceFixture) Coverage() ReferenceCoverage {
 func (fx ReferenceFixture) PlaceholderFields() []string {
 	var fields []string
 	if fx.Talker != nil {
-		if isPlaceholder(fx.Talker.LogitChecksum) {
+		if inspect.IsPlaceholder(fx.Talker.LogitChecksum) {
 			fields = append(fields, "talker.logit_checksum")
 		}
-		if isPlaceholder(fx.Talker.HiddenChecksum) {
+		if inspect.IsPlaceholder(fx.Talker.HiddenChecksum) {
 			fields = append(fields, "talker.hidden_checksum")
 		}
 	}
-	if fx.CodePredictor != nil && isPlaceholder(fx.CodePredictor.LogitChecksum) {
+	if fx.CodePredictor != nil && inspect.IsPlaceholder(fx.CodePredictor.LogitChecksum) {
 		fields = append(fields, "code_predictor.logit_checksum")
 	}
-	if fx.Decoder12Hz != nil && isPlaceholder(fx.Decoder12Hz.SHA256) {
+	if fx.Decoder12Hz != nil && inspect.IsPlaceholder(fx.Decoder12Hz.SHA256) {
 		fields = append(fields, "decoder12hz.sha256")
 	}
 	return fields
-}
-
-func isPlaceholder(value string) bool {
-	return strings.HasPrefix(value, "pending-")
 }
 
 func (fx ReferenceFixture) Validate() error {
