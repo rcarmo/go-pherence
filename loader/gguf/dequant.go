@@ -4,32 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	"github.com/rcarmo/go-pherence/half"
 )
-
-// f16ToF32 converts an IEEE 754 half-precision float to float32 without unsafe.
-func f16ToF32(u uint16) float32 {
-	sign := uint32(u >> 15)
-	exp := uint32((u >> 10) & 0x1F)
-	mant := uint32(u & 0x3FF)
-
-	if exp == 0x1F {
-		// inf or NaN
-		return math.Float32frombits(sign<<31 | 0x7F800000 | mant<<13)
-	}
-	if exp == 0 {
-		if mant == 0 {
-			return math.Float32frombits(sign << 31) // ±0
-		}
-		// Denormal: normalize
-		for mant&0x400 == 0 {
-			mant <<= 1
-			exp--
-		}
-		exp++
-		mant &= 0x3FF
-	}
-	return math.Float32frombits(sign<<31 | (exp+112)<<23 | mant<<13)
-}
 
 // dequantToF32 dequantizes raw GGUF tensor bytes to a []float32 of length n.
 func dequantToF32(raw []byte, qt QuantType, n int) ([]float32, error) {
@@ -76,7 +53,7 @@ func dequantF16(raw []byte, n int) ([]float32, error) {
 	out := make([]float32, n)
 	for i := range out {
 		u := binary.LittleEndian.Uint16(raw[i*2:])
-		out[i] = f16ToF32(u)
+		out[i] = half.F16ToF32(u)
 	}
 	return out, nil
 }
@@ -96,7 +73,7 @@ func dequantQ8_0(raw []byte, n int) ([]float32, error) {
 	out := make([]float32, n)
 	for b := 0; b < nBlocks; b++ {
 		blk := raw[b*blockSize:]
-		d := f16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
 		qs := blk[2:34]
 		base := b * blockElems
 		for i := 0; i < blockElems; i++ {
@@ -126,8 +103,8 @@ func dequantQ2K(raw []byte, n int) ([]float32, error) {
 		blk := raw[b*blockSize:]
 		scales := blk[0:16]
 		q := blk[16:80]
-		d := f16ToF32(binary.LittleEndian.Uint16(blk[80:82]))
-		minv := f16ToF32(binary.LittleEndian.Uint16(blk[82:84]))
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[80:82]))
+		minv := half.F16ToF32(binary.LittleEndian.Uint16(blk[82:84]))
 		is := 0
 		qoff := 0
 		for nn := 0; nn < blockElems; nn += 128 {
@@ -181,7 +158,7 @@ func dequantQ3K(raw []byte, n int) ([]float32, error) {
 		hm := blk[0:32]
 		q := blk[32:96]
 		s := blk[96:108]
-		dAll := f16ToF32(binary.LittleEndian.Uint16(blk[108:110]))
+		dAll := half.F16ToF32(binary.LittleEndian.Uint16(blk[108:110]))
 
 		aux := [4]uint32{
 			binary.LittleEndian.Uint32(s[0:4]),
@@ -257,8 +234,8 @@ func dequantQ4K(raw []byte, n int) ([]float32, error) {
 	out := make([]float32, n)
 	for b := 0; b < nBlocks; b++ {
 		blk := raw[b*blockSize:]
-		d := f16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
-		dmin := f16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		dmin := half.F16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
 		sc := blk[4:16]
 		qs := blk[16:144]
 
@@ -317,7 +294,7 @@ func dequantQ6K(raw []byte, n int) ([]float32, error) {
 		ql := blk[0:128]
 		qh := blk[128:192]
 		sc := blk[192:208]
-		d := f16ToF32(binary.LittleEndian.Uint16(blk[208:210]))
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[208:210]))
 		y := yBase
 		qlOff := 0
 		qhOff := 0

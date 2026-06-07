@@ -5,6 +5,7 @@ import (
 	"math"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	"github.com/rcarmo/go-pherence/half"
 )
 
 // Qwen35GPUForwardStateBF16 stores a Qwen forward state in BF16-packed uint16
@@ -28,8 +29,6 @@ func f32ToBF16Bits(x float32) uint16 {
 	bits := math.Float32bits(x)
 	return uint16((bits + 0x8000) >> 16)
 }
-
-func bf16BitsToF32(x uint16) float32 { return math.Float32frombits(uint32(x) << 16) }
 
 func qwen35UploadBF16Buffer(x []float32) (*nvidia.Buffer, int64, error) {
 	if len(x) == 0 {
@@ -70,7 +69,7 @@ func qwen35DownloadBF16Buffer(b *nvidia.Buffer, length int) ([]float32, error) {
 	out := make([]float32, length)
 	for i := range out {
 		bits := uint16(raw[i*2]) | uint16(raw[i*2+1])<<8
-		out[i] = bf16BitsToF32(bits)
+		out[i] = half.BF16ToF32(bits)
 	}
 	return out, nil
 }

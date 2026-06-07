@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	"github.com/rcarmo/go-pherence/half"
 )
 
 // CombinedTensorSource exposes both raw and float32 tensor access, satisfied by
@@ -103,10 +105,6 @@ func (q *QwenVLConditioner) rmsWeight(name string, n int) ([]float32, error) {
 	return w, nil
 }
 
-func bf16ToF32(b uint16) float32 {
-	return math.Float32frombits(uint32(b) << 16)
-}
-
 // embedToken decodes one embedding row (bf16) into dst.
 func (q *QwenVLConditioner) embedToken(id int, dst []float32) error {
 	hidden := q.cfg.TextHidden
@@ -115,7 +113,7 @@ func (q *QwenVLConditioner) embedToken(id int, dst []float32) error {
 	}
 	base := id * hidden * 2
 	for i := 0; i < hidden; i++ {
-		dst[i] = bf16ToF32(binary.LittleEndian.Uint16(q.embed[base+i*2:]))
+		dst[i] = half.BF16ToF32(binary.LittleEndian.Uint16(q.embed[base+i*2:]))
 	}
 	return nil
 }

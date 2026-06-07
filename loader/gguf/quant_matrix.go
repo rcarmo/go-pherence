@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	"github.com/rcarmo/go-pherence/half"
 )
 
 // QuantMatrix is a GGUF-encoded 2D matrix kept in its original quantized form.
@@ -63,7 +65,7 @@ func dequantRowTo(dst []float32, raw []byte, qt QuantType, n int) error {
 			return fmt.Errorf("F16 row raw short")
 		}
 		for i := 0; i < n; i++ {
-			dst[i] = f16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
+			dst[i] = half.F16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
 		}
 		return nil
 	case QuantQ2_K:
@@ -93,7 +95,7 @@ func dequantRowQ8_0To(dst []float32, raw []byte, n int) error {
 	}
 	for b := 0; b < nBlocks; b++ {
 		blk := raw[b*blockSize:]
-		d := f16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
 		qs := blk[2:34]
 		base := b * blockElems
 		for i := 0; i < blockElems; i++ {
@@ -118,8 +120,8 @@ func dequantRowQ2KTo(dst []float32, raw []byte, n int) error {
 		blk := raw[b*blockSize:]
 		scales := blk[0:16]
 		q := blk[16:80]
-		d := f16ToF32(binary.LittleEndian.Uint16(blk[80:82]))
-		minv := f16ToF32(binary.LittleEndian.Uint16(blk[82:84]))
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[80:82]))
+		minv := half.F16ToF32(binary.LittleEndian.Uint16(blk[82:84]))
 		is := 0
 		qoff := 0
 		for nn := 0; nn < blockElems; nn += 128 {
@@ -168,7 +170,7 @@ func dequantRowQ3KTo(dst []float32, raw []byte, n int) error {
 		hm := blk[0:32]
 		q := blk[32:96]
 		s := blk[96:108]
-		dAll := f16ToF32(binary.LittleEndian.Uint16(blk[108:110]))
+		dAll := half.F16ToF32(binary.LittleEndian.Uint16(blk[108:110]))
 		aux := [4]uint32{
 			binary.LittleEndian.Uint32(s[0:4]),
 			binary.LittleEndian.Uint32(s[4:8]),
@@ -236,8 +238,8 @@ func dequantRowQ4KTo(dst []float32, raw []byte, n int) error {
 	}
 	for b := 0; b < nBlocks; b++ {
 		blk := raw[b*blockSize:]
-		d := f16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
-		dmin := f16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		dmin := half.F16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
 		sc := blk[4:16]
 		qs := blk[16:144]
 		var scales [8]float32
@@ -277,7 +279,7 @@ func dequantRowQ6KTo(dst []float32, raw []byte, n int) error {
 		ql := blk[0:128]
 		qh := blk[128:192]
 		sc := blk[192:208]
-		d := f16ToF32(binary.LittleEndian.Uint16(blk[208:210]))
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[208:210]))
 		y := yBase
 		qlOff, qhOff, scOff := 0, 0, 0
 		for nn := 0; nn < blockElems; nn += 128 {

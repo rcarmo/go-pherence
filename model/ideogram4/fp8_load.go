@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/simd/quant/fp8"
+	"github.com/rcarmo/go-pherence/half"
 )
 
 // RawTensorSource abstracts a (sharded) safetensors file: it returns raw bytes,
@@ -73,33 +74,12 @@ func decodeFloatVec(b []byte, dtype string, n int) ([]float32, error) {
 			return nil, fmt.Errorf("vec bytes=%d want=%d", len(b), n*2)
 		}
 		for i := 0; i < n; i++ {
-			out[i] = f16ToF32(binary.LittleEndian.Uint16(b[i*2:]))
+			out[i] = half.F16ToF32(binary.LittleEndian.Uint16(b[i*2:]))
 		}
 	default:
 		return nil, fmt.Errorf("unsupported vec dtype %s", dtype)
 	}
 	return out, nil
-}
-
-func f16ToF32(h uint16) float32 {
-	sign := uint32(h&0x8000) << 16
-	exp := uint32(h>>10) & 0x1f
-	mant := uint32(h & 0x3ff)
-	switch exp {
-	case 0:
-		if mant == 0 {
-			return math.Float32frombits(sign)
-		}
-		for mant&0x400 == 0 {
-			mant <<= 1
-			exp--
-		}
-		exp++
-		mant &= 0x3ff
-	case 0x1f:
-		return math.Float32frombits(sign | 0x7f800000 | (mant << 13))
-	}
-	return math.Float32frombits(sign | ((exp + 112) << 23) | (mant << 13))
 }
 
 // LoadLayerFP8Linears loads every required FP8 linear for the transformer

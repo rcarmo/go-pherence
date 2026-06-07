@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	"github.com/rcarmo/go-pherence/half"
 )
 
 func TestBF16BitRoundTrip(t *testing.T) {
 	v := float32(1.5)
-	if got := bf16BitsToF32(f32ToBF16Bits(v)); got != v {
+	if got := half.BF16ToF32(f32ToBF16Bits(v)); got != v {
 		t.Fatalf("got %v want %v", got, v)
 	}
 }
@@ -35,7 +36,7 @@ func TestUploadDownloadQwen35ForwardStateGPUBF16(t *testing.T) {
 		t.Fatalf("metadata mismatch got=%+v want=%+v", got, want)
 	}
 	for i, v := range want.FullK[0] {
-		if math.Abs(float64(got.FullK[0][i]-bf16BitsToF32(f32ToBF16Bits(v)))) > 0 {
+		if math.Abs(float64(got.FullK[0][i]-half.BF16ToF32(f32ToBF16Bits(v)))) > 0 {
 			t.Fatalf("value mismatch got=%v want bf16(%v)", got.FullK[0][i], v)
 		}
 	}
