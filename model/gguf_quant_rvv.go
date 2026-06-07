@@ -3,11 +3,11 @@ package model
 import (
 	"encoding/binary"
 	"fmt"
-	"math"
 	"runtime"
 	"sync"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
@@ -97,24 +97,7 @@ func quantDotRowBlocks(w *gguf.QuantMatrix, row int, x []float32, scratch []floa
 }
 
 func f16bitsToF32(u uint16) float32 {
-	sign := uint32(u >> 15)
-	exp := uint32((u >> 10) & 0x1F)
-	mant := uint32(u & 0x3FF)
-	if exp == 0x1F {
-		return math.Float32frombits(sign<<31 | 0x7F800000 | mant<<13)
-	}
-	if exp == 0 {
-		if mant == 0 {
-			return math.Float32frombits(sign << 31)
-		}
-		for mant&0x400 == 0 {
-			mant <<= 1
-			exp--
-		}
-		exp++
-		mant &= 0x3FF
-	}
-	return math.Float32frombits(sign<<31 | (exp+112)<<23 | mant<<13)
+	return half.F16ToF32(u)
 }
 
 func dotQ2KBlocks(raw []byte, x []float32, scratch []float32, inDim int) (float32, error) {
