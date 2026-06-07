@@ -89,6 +89,18 @@ func TestCheckExpectedStaticTurboQuantPlan(t *testing.T) {
 	}
 }
 
+func TestCheckExpectedSIMDRotation(t *testing.T) {
+	if err := checkExpectedSIMDRotation("amd64", true, true, true); err != nil {
+		t.Fatalf("expected SIMD rotation match: %v", err)
+	}
+	if err := checkExpectedSIMDRotation("other", false, false, false); err != nil {
+		t.Fatalf("unset SIMD rotation expectation should be ignored: %v", err)
+	}
+	if err := checkExpectedSIMDRotation("other", false, false, true); err == nil || !strings.Contains(err.Error(), "SIMD rotation unavailable") {
+		t.Fatalf("expected SIMD rotation error, got %v", err)
+	}
+}
+
 func TestCheckExpectedRuntimeKV(t *testing.T) {
 	plan := model.GGUFGenerationKVRuntimePlan{FloatKVBytesAllocated: 245760, EstimatedCompressedKVBytes: 81920, EstimatedScratchBytes: 1280, EstimatedTotalBytes: 328960}
 	if err := checkExpectedRuntimeKV(plan, 245760, 81920, 1280, 328960); err != nil {
