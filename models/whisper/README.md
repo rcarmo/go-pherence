@@ -33,7 +33,10 @@ shape benchmarks (1500x1504x64) show 6 threads at ~4.3 ms vs 1 thread at ~23 ms.
 A100 int8 experiment: `WHISPER_A100_FC1=1` routes the large-v3/turbo encoder
 FFN expansion (`1280 -> 5120`) through the native A100 Q8_0 x Q8_0 N32/K32
 `K3I8I8` path via `aipool` (`/proc/set_ai_thread`, cores 8-13 by default).
-The path is real A100 execution and currently opt-in only: on `pod_30.wav` with
+The opt-in path defaults to 6 A100 workers and disables generic `IME2_TCM_ACT`
+staging unless explicitly requested; the current FC1 integration performs its own
+activation packing and TCM staging did not improve whole-pass timings in the
+worker-count grid. The path is real A100 execution and currently opt-in only: on `pod_30.wav` with
 `WHISPER_THREADS=6`, it measured `pass0=43.9s` / `encoder+xkv=38.8s` versus the
 baseline native int8 `pass0=40.2s` / `encoder+xkv=35.8s`. The FC1 kernel itself
 runs (~2.7s total), but the extra activation/weight Q8_0 packing and scheduler

@@ -44,6 +44,12 @@ func getA100Pool() *aipool.AIWorkerPool {
 		if runtime.GOMAXPROCS(0) < needP {
 			runtime.GOMAXPROCS(needP)
 		}
+		// The FC1 A100 integration uses its own per-call M4 activation packing; the
+		// generic TCM activation staging in AIWorkerPool is not yet a whole-pass win
+		// for this path. Default it off unless the caller explicitly requests it.
+		if os.Getenv("IME2_TCM_ACT") == "" {
+			os.Setenv("IME2_TCM_ACT", "0")
+		}
 		a100Pool = aipool.NewAIWorkerPool(n)
 	})
 	return a100Pool
