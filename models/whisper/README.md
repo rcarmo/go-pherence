@@ -44,6 +44,10 @@ interaction still erase the win. Keep this as infrastructure while improving
 packing/pooling before making it default.
 
 Warm-cache A100 note: with `WHISPER_REPEAT=2`, A100 FC1 improves to
-`pass1=37.9s`, but baseline native int8 is still faster at `pass1=35.7s`. The
+`pass1=37.8s`, but baseline native int8 is still faster at `pass1=35.7s`. The
 FC1 kernel itself is not the bottleneck; activation packing and scheduler/pool
 integration remain the overhead to remove before enabling A100 by default.
+Current overhead reductions implemented: the A100 helper reuses one Q8 activation
+pack scratch per worker, and Whisper no longer clones/pads the full activation
+matrix just to satisfy the M4 kernel tail; non-M4 tails are handled inside the
+A100 pooled helper with small per-worker scratch.

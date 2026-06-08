@@ -77,22 +77,13 @@ func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) 
 	if !w.Valid {
 		return nil, false
 	}
-	Mp := (seqLen + 3) &^ 3
-	xp := x
-	if Mp != seqLen {
-		xp = make([]float32, Mp*inDim)
-		for i := 0; i < seqLen; i++ {
-			copy(xp[i*inDim:(i+1)*inDim], x[i*inDim:(i+1)*inDim])
-		}
-	}
-	outp := make([]float32, Mp*outDim)
+	out := make([]float32, seqLen*outDim)
 	t0 := nowNs()
-	ok := aipool.GemmQ80x32AIPooled(xp, Mp, inDim, w, outp, getA100Pool())
+	ok := aipool.GemmQ80x32AIPooled(x, seqLen, inDim, w, out, getA100Pool())
 	a100Ns += nowNs() - t0
 	if !ok {
 		return nil, false
 	}
-	out := outp[:seqLen*outDim]
 	if bias != nil {
 		for i := 0; i < seqLen; i++ {
 			row := out[i*outDim : (i+1)*outDim]
