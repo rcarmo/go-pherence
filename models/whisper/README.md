@@ -24,3 +24,6 @@ encoder+turbo decoder. `WHISPER_FP16_ATTN=1` is an experimental X100 RVV/Zvfh
 attention path (QKᵀ and softmax·V in FP16 with F32 accumulation). On `pod_30.wav`,
 FP16 attention is transcript-safe but currently slower than int8 attention
 because many small per-head GEMMs dominate after F32→F16 packing was vectorized.
+`WHISPER_FP16_HEAD_BATCH=1` enables an additional head-batched FP16 experiment;
+it reduces GEMM fanout time but is slower end-to-end today because the larger
+batched working set increases copy/allocation/softmax overhead.

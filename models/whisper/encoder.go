@@ -372,9 +372,28 @@ func linearForwardScalar(x, weight, bias []float32, seqLen, inDim, outDim int) [
 // This replaces ~2.9e9 per-element Sdot/Saxpy calls with batched RVV GEMMs,
 // removing the per-call/reduction overhead that dominated the scalar-call form.
 func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []float32 {
+	if attnF16 && os.Getenv("WHISPER_FP16_HEAD_BATCH") != "" {
+		return fullAttentionF16(q, k, v, seqQ, seqKV, numHeads, headDim)
+	}
 	dModel := numHeads * headDim
 	out := make([]float32, seqQ*dModel)
 	scale := float32(1.0 / math.Sqrt(float64(headDim)))
+
+	nw := linearWorkers
+	if nw > numHeads {
+		nw = numHeads
+	}
+	if nw < 1 {
+		nw = 1
+	}
+	// In FP16 attention the heads are the batch/parallelism unit. Avoid nesting
+	// another linearWorkers fanout inside each per-head GEMM; that created
+	// linearWorkers² runnable goroutines and dominated the many small attention
+	// GEMMs. If there is only one head worker, keep row-level GEMM parallelism.
+	f16GemmWorkers := 1
+	if attnF16 && nw <= 1 {
+		f16GemmWorkers = linearWorkers
+	}
 
 	work := func(hStart, hEnd int) {
 		qh := make([]float32, seqQ*headDim)
@@ -434,7 +453,7 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 
 			if attnF16 {
 				attnF16Head(scores, outh, qh, kh, vh, seqQ, seqKV, headDim, scale,
-					kpad, qf16, kf16, sf16, vtf16, cqkf16, kpf16, vtpf16)
+					kpad, f16GemmWorkers, qf16, kf16, sf16, vtf16, cqkf16, kpf16, vtpf16)
 				for t := 0; t < seqQ; t++ {
 					copy(out[t*dModel+hOff:t*dModel+hOff+headDim], outh[t*headDim:(t+1)*headDim])
 				}
@@ -475,10 +494,6 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 		}
 	}
 
-	nw := linearWorkers
-	if nw > numHeads {
-		nw = numHeads
-	}
 	if nw <= 1 {
 		work(0, numHeads)
 		return out

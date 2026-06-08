@@ -2,6 +2,14 @@ package rvv
 
 import "sync"
 
+// GemmF16Outer32Spec describes one prepacked M4xN32 FP16 GEMM for batched
+// dispatch. Bp must come from PackBF16N32.
+type GemmF16Outer32Spec struct {
+	A, Bp   []uint16
+	C       []float32
+	M, N, K int
+}
+
 // dotF16 returns sum(float32(a[i]) * float32(b[i])) for fp16 vectors stored as
 // IEEE 754 binary16 words. Accumulation is float32 via RVV/Zvfh widening FMA.
 //
@@ -76,6 +84,50 @@ func GemmF16Outer(A, Bp []uint16, C []float32, M, N, K, nthreads int) {
 // PackBF16N32. Requires M%4==0 and N%32==0.
 func GemmF16Outer32(A, Bp []uint16, C []float32, M, N, K, nthreads int) {
 	gemmF16OuterTile(A, Bp, C, M, N, K, nthreads, 32, kernelF16M4N32)
+}
+
+// GemmF16Outer32Batch runs multiple independent M4xN32 FP16 GEMMs with a single
+// worker fanout. This is intended for attention head batching: each head remains
+// an independent GEMM, but goroutine launch/barrier overhead is paid once per
+// batch rather than once per head.
+func GemmF16Outer32Batch(nthreads int, specs ...GemmF16Outer32Spec) {
+	if len(specs) == 0 {
+		return
+	}
+	if nthreads <= 1 {
+		for _, sp := range specs {
+			GemmF16Outer32(sp.A, sp.Bp, sp.C, sp.M, sp.N, sp.K, 1)
+		}
+		return
+	}
+	starts := make([]int, len(specs)+1)
+	for i, sp := range specs {
+		starts[i+1] = starts[i] + sp.M/4
+	}
+	total := starts[len(specs)]
+	var wg sync.WaitGroup
+	for wid := 0; wid < nthreads; wid++ {
+		wg.Add(1)
+		go func(wid int) {
+			defer wg.Done()
+			for flat := wid; flat < total; flat += nthreads {
+				// len(specs) is small (heads per batch), so linear search is cheaper
+				// than extra bookkeeping and keeps this helper allocation-light.
+				si := 0
+				for starts[si+1] <= flat {
+					si++
+				}
+				sp := specs[si]
+				mb := flat - starts[si]
+				m := mb * 4
+				for nt := 0; nt < sp.N/32; nt++ {
+					kernelF16M4N32(&sp.A[m*sp.K], &sp.Bp[nt*sp.K*32], &sp.C[m*sp.N+nt*32],
+						int64(sp.K), int64(sp.K*2), int64(sp.N*4))
+				}
+			}
+		}(wid)
+	}
+	wg.Wait()
 }
 
 func gemmF16OuterTile(A, Bp []uint16, C []float32, M, N, K, nthreads, tileN int, kernel func(a, bp *uint16, c *float32, K, lda, ldc int64)) {

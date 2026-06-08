@@ -106,6 +106,35 @@ func TestGemmF16Outer32(t *testing.T) {
 	}
 }
 
+func TestGemmF16Outer32Batch(t *testing.T) {
+	const M, N, K = 8, 32, 33
+	var specs []GemmF16Outer32Spec
+	var wants [][]float32
+	for h := 0; h < 3; h++ {
+		A := make([]uint16, M*K)
+		B := make([]uint16, N*K)
+		for i := range A {
+			A[i] = uint16(0x3800 + ((i+h)%5)<<8)
+		}
+		for i := range B {
+			B[i] = uint16(0x3400 + ((i*3+h)%7)<<8)
+		}
+		want := make([]float32, M*N)
+		got := make([]float32, M*N)
+		GemmF16Outer32(A, PackBF16N32(B, N, K), want, M, N, K, 1)
+		specs = append(specs, GemmF16Outer32Spec{A: A, Bp: PackBF16N32(B, N, K), C: got, M: M, N: N, K: K})
+		wants = append(wants, want)
+	}
+	GemmF16Outer32Batch(4, specs...)
+	for s, sp := range specs {
+		for i := range sp.C {
+			if math.Abs(float64(sp.C[i]-wants[s][i])) > 1e-3 {
+				t.Fatalf("spec=%d i=%d got %.8f want %.8f", s, i, sp.C[i], wants[s][i])
+			}
+		}
+	}
+}
+
 func TestGemmF16Threaded(t *testing.T) {
 	const M, N, K = 16, 9, 33
 	A := make([]uint16, M*K)
