@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func vmadotQ4KIntLoop1024x4(wBase *byte, wRGStride int, actBcast *byte, scratch *int32, intBuf *int32, intRGStride int, numSubs int)
 //
@@ -63,13 +64,13 @@ subloop_x4:
     // Tile 1 (columns 0-15):
     WORD $0x02060087        // vle8.v v1, (X12=actBcast)  -- shared activation
     WORD $0x02050007        // vle8.v v0, (X10=wBase rg0)
-    WORD $0xE2103E2B        // vmadot v28, v0, v1          (rg0)
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v0, v1          (rg0)
     WORD $0x02028107        // vle8.v v2, (X5=wBase rg1)
-    WORD $0xE2113D2B        // vmadot v26, v2, v1          (rg1)
+    VMADOT_SS(26, 2, 1)         // vmadot v26, v2, v1          (rg1)
     WORD $0x02030207        // vle8.v v4, (X6=wBase rg2)
-    WORD $0xE2123C2B        // vmadot v24, v4, v1          (rg2)
+    VMADOT_SS(24, 4, 1)         // vmadot v24, v4, v1          (rg2)
     WORD $0x02038307        // vle8.v v6, (X7=wBase rg3)
-    WORD $0xE2133B2B        // vmadot v22, v6, v1          (rg3)
+    VMADOT_SS(22, 6, 1)         // vmadot v22, v6, v1          (rg3)
     ADD  $128, X10
     ADD  $128, X5
     ADD  $128, X6
@@ -79,13 +80,13 @@ subloop_x4:
     // Tile 2 (columns 16-31):
     WORD $0x02060087        // vle8.v v1, (X12)
     WORD $0x02050007        // vle8.v v0, (X10)
-    WORD $0xE2103E2B        // vmadot v28, v0, v1
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v0, v1
     WORD $0x02028107        // vle8.v v2, (X5)
-    WORD $0xE2113D2B        // vmadot v26, v2, v1
+    VMADOT_SS(26, 2, 1)         // vmadot v26, v2, v1
     WORD $0x02030207        // vle8.v v4, (X6)
-    WORD $0xE2123C2B        // vmadot v24, v4, v1
+    VMADOT_SS(24, 4, 1)         // vmadot v24, v4, v1
     WORD $0x02038307        // vle8.v v6, (X7)
-    WORD $0xE2133B2B        // vmadot v22, v6, v1
+    VMADOT_SS(22, 6, 1)         // vmadot v22, v6, v1
     ADD  $128, X10
     ADD  $128, X5
     ADD  $128, X6

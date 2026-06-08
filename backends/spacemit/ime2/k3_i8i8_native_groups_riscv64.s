@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func k3I8I8M1Groups(a *byte, b *byte, c *float32, kBlks int, nGroups int)
 TEXT ·K3I8I8M1Groups(SB), NOSPLIT, $0-40
@@ -37,10 +38,10 @@ k_loop_i8i8_groups:
     ADD  $38, X18
 
     WORD $0x010072d7        // vsetvli t0, zero, e32, m1
-    WORD $0x66525c2b        // vupack.vv v24, v4, v5, 1
-    WORD $0x66735d2b        // vupack.vv v26, v6, v7, 1
-    WORD $0x66945e2b        // vupack.vv v28, v8, v9, 1
-    WORD $0x66b55f2b        // vupack.vv v30, v10, v11, 1
+    VUPACK(24, 4, 5)            // vupack.vv v24, v4, v5, 1
+    VUPACK(26, 6, 7)            // vupack.vv v26, v6, v7, 1
+    VUPACK(28, 8, 9)            // vupack.vv v28, v8, v9, 1
+    VUPACK(30, 10, 11)          // vupack.vv v30, v10, v11, 1
     WORD $0x3e323257        // vslidedown.vi v4, v3, 4
 
     WORD $0x2f080857        // vxor.vv v16, v16, v16
@@ -48,18 +49,18 @@ k_loop_i8i8_groups:
     WORD $0x2f080a57        // vxor.vv v20, v16, v16
     WORD $0x2f080b57        // vxor.vv v22, v16, v16
 
-    WORD $0xe381b82b        // vmadot v16, v3, v24
-    WORD $0xe3a1b92b        // vmadot v18, v3, v26
-    WORD $0xe3c1ba2b        // vmadot v20, v3, v28
-    WORD $0xe3e1bb2b        // vmadot v22, v3, v30
-    WORD $0xe392382b        // vmadot v16, v4, v25
-    WORD $0xe3b2392b        // vmadot v18, v4, v27
-    WORD $0xe3d23a2b        // vmadot v20, v4, v29
-    WORD $0xe3f23b2b        // vmadot v22, v4, v31
+    VMADOT_SS(16, 3, 24)        // vmadot v16, v3, v24
+    VMADOT_SS(18, 3, 26)        // vmadot v18, v3, v26
+    VMADOT_SS(20, 3, 28)        // vmadot v20, v3, v28
+    VMADOT_SS(22, 3, 30)        // vmadot v22, v3, v30
+    VMADOT_SS(16, 4, 25)        // vmadot v16, v4, v25
+    VMADOT_SS(18, 4, 27)        // vmadot v18, v4, v27
+    VMADOT_SS(20, 4, 29)        // vmadot v20, v4, v29
+    VMADOT_SS(22, 4, 31)        // vmadot v22, v4, v31
 
-    WORD $0x67282c2b        // vpack.vv v24, v16, v18, 2
-    WORD $0x676a2d2b        // vpack.vv v26, v20, v22, 2
-    WORD $0x67ac382b        // vpack.vv v16, v24, v26, 3
+    VPACK(24, 16, 18, 2)        // vpack.vv v24, v16, v18, 2
+    VPACK(26, 20, 22, 2)        // vpack.vv v26, v20, v22, 2
+    VPACK(16, 24, 26, 3)        // vpack.vv v16, v24, v26, 3
 
     WORD $0x00f072d7        // vsetvli t0, zero, e16, mf2
     WORD $0x4a061c57        // vfwcvt.f.f.v v24, v0

@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func k3I8I4M1(a *byte, b *byte, c *float32, kBlks int, nBlks int)
 //
@@ -101,9 +102,9 @@ loop:
     // vmul.vx v26, v28, X7   — v26 = zp_int16 × A_sum
     WORD $0x97c3ed57
     // smt.vnpack4.vv v8, v3, v3, 3   — unpack A lo nibbles → v8
-    WORD $0x4231b42b
+    VNPACK4(8, 3, 3)
     // smt.vnpack4.vv v10, v24, v24, 3 — unpack A hi nibbles → v10
-    WORD $0x438c352b
+    VNPACK4(10, 24, 24)
     // vfcvt.f.x.v v16, v26  — convert zp×sum to fp16 (ZP correction init for accumulators)
     WORD $0x4ba19857
     // vadd.vi v18, v16, 0   — copy v16 to v18,v20,v22 (init accumulators for groups 8-15,16-23,24-31)
@@ -112,24 +113,24 @@ loop:
     WORD $0x03003b57
     WORD $0x008072d7
     // smt.vmadotsu.hp v16,v10,v4,v1,0,i4  — group cols 0-7:  hi4×B_lo, scale v1=16
-    WORD $0xd645082b
+    VMADOTSU_HP(16, 10, 4)
     // smt.vmadotsu.hp v18,v10,v5,v1,0,i4  — group cols 8-15
-    WORD $0xd655092b
+    VMADOTSU_HP(18, 10, 5)
     // smt.vmadotsu.hp v20,v10,v6,v1,0,i4  — group cols 16-23
-    WORD $0xd6650a2b
+    VMADOTSU_HP(20, 10, 6)
     // smt.vmadotsu.hp v22,v10,v7,v1,0,i4  — group cols 24-31
-    WORD $0xd6750b2b
+    VMADOTSU_HP(22, 10, 7)
     // smt.vmadotu.hp v16,v8,v4,v0,0,i4   — lo4×B_lo, scale v0=1
-    WORD $0xcc44082b
-    WORD $0xcc54092b
-    WORD $0xcc640a2b
-    WORD $0xcc740b2b
+    VMADOTU_HP(16, 8, 4)
+    VMADOTU_HP(18, 8, 5)
+    VMADOTU_HP(20, 8, 6)
+    VMADOTU_HP(22, 8, 7)
     // smt.vpack.vv v24,v16,v18,1   — pack groups 0-7 and 8-15 → v24
-    WORD $0x67281c2b
+    VPACK(24, 16, 18, 1)
     // smt.vpack.vv v26,v20,v22,1   — pack groups 16-23 and 24-31 → v26
-    WORD $0x676a1d2b
+    VPACK(26, 20, 22, 1)
     // smt.vpack.vv v16,v24,v26,2   — pack all 32 cols → v16 (fp16)
-    WORD $0x67ac282b
+    VPACK(16, 24, 26, 2)
     // vsetvli t0, x0, e16, mf2, tu, mu
     WORD $0x00f072d7
     // vfwmul.vv v31, v30, v16  — fp16×fp16→fp32: B_scale × dot_result

@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func k3I8I8M4(a *byte, b *byte, c *float32, kBlks int, ldcBytes int)
 // Direct port of llama.cpp gemm_kernel_i8i8_m4 for one N32 tile.
@@ -36,30 +37,30 @@ loop_i8i8_m4:
     ADD  $512, X11
 
     WORD $0x010072d7        // vsetvli t0, zero, e32, m1
-    WORD $0x6600512b        // vupack.vv v2, v0, v0, 1
-    WORD $0x66525c2b        // vupack.vv v24, v4, v5, 1
-    WORD $0x66735d2b        // vupack.vv v26, v6, v7, 1
-    WORD $0x6694522b        // vupack.vv v4, v8, v9, 1
-    WORD $0x66b5532b        // vupack.vv v6, v10, v11, 1
+    VUPACK(2, 0, 0)             // vupack.vv v2, v0, v0, 1
+    VUPACK(24, 4, 5)            // vupack.vv v24, v4, v5, 1
+    VUPACK(26, 6, 7)            // vupack.vv v26, v6, v7, 1
+    VUPACK(4, 8, 9)             // vupack.vv v4, v8, v9, 1
+    VUPACK(6, 10, 11)           // vupack.vv v6, v10, v11, 1
 
     WORD $0x2f080857        // vxor.vv v16, v16, v16
     WORD $0x2f080957        // vxor.vv v18, v16, v16
     WORD $0x2f080a57        // vxor.vv v20, v16, v16
     WORD $0x2f080b57        // vxor.vv v22, v16, v16
 
-    WORD $0xe381382b        // vmadot v16, v2, v24
-    WORD $0xe3a1392b        // vmadot v18, v2, v26
-    WORD $0xe2413a2b        // vmadot v20, v2, v4
-    WORD $0xe2613b2b        // vmadot v22, v2, v6
-    WORD $0xe391b82b        // vmadot v16, v3, v25
-    WORD $0xe3b1b92b        // vmadot v18, v3, v27
-    WORD $0xe251ba2b        // vmadot v20, v3, v5
-    WORD $0xe271bb2b        // vmadot v22, v3, v7
+    VMADOT_SS(16, 2, 24)        // vmadot v16, v2, v24
+    VMADOT_SS(18, 2, 26)        // vmadot v18, v2, v26
+    VMADOT_SS(20, 2, 4)         // vmadot v20, v2, v4
+    VMADOT_SS(22, 2, 6)         // vmadot v22, v2, v6
+    VMADOT_SS(16, 3, 25)        // vmadot v16, v3, v25
+    VMADOT_SS(18, 3, 27)        // vmadot v18, v3, v27
+    VMADOT_SS(20, 3, 5)         // vmadot v20, v3, v5
+    VMADOT_SS(22, 3, 7)         // vmadot v22, v3, v7
 
-    WORD $0x6728202b        // vpack.vv v0, v16, v18, 2
-    WORD $0x676a212b        // vpack.vv v2, v20, v22, 2
-    WORD $0x6620382b        // vpack.vv v16, v0, v2, 3
-    WORD $0x6630b92b        // vpack.vv v18, v1, v3, 3
+    VPACK(0, 16, 18, 2)         // vpack.vv v0, v16, v18, 2
+    VPACK(2, 20, 22, 2)         // vpack.vv v2, v20, v22, 2
+    VPACK(16, 0, 2, 3)          // vpack.vv v16, v0, v2, 3
+    VPACK(18, 1, 3, 3)          // vpack.vv v18, v1, v3, 3
 
     WORD $0x4b019857        // vfcvt.f.x.v v16, v16
     WORD $0x4b1198d7        // vfcvt.f.x.v v17, v17

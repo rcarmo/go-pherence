@@ -12,6 +12,37 @@ package half
 
 import "math"
 
+// F32ToF16 converts a float32 value to IEEE-754 half-precision bits (no unsafe).
+// Values outside the representable range saturate to ±Inf; subnormals are
+// rounded to the nearest half value.
+func F32ToF16(f float32) uint16 {
+	bits := math.Float32bits(f)
+	sign := uint16((bits >> 16) & 0x8000)
+	exp := int((bits>>23)&0xff) - 127 + 15
+	mant := bits & 0x7fffff
+	if exp <= 0 {
+		if exp < -10 {
+			return sign
+		}
+		mant |= 0x800000
+		shift := uint(14 - exp)
+		rounded := (mant + (1 << (shift - 1))) >> shift
+		return sign | uint16(rounded)
+	}
+	if exp >= 31 {
+		return sign | 0x7c00
+	}
+	rounded := mant + 0x1000
+	if rounded&0x800000 != 0 {
+		rounded = 0
+		exp++
+		if exp >= 31 {
+			return sign | 0x7c00
+		}
+	}
+	return sign | uint16(exp<<10) | uint16(rounded>>13)
+}
+
 // F16ToF32 converts an IEEE-754 half-precision value to float32 (no unsafe).
 func F16ToF32(u uint16) float32 {
 	sign := uint32(u >> 15)

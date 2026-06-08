@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func vmadotKLoopAI(A *byte, B *byte, C *int32, K int)
 // K-loop that forces vl=32 (VLEN=256 behavior) on AI cores (VLEN=1024).
@@ -28,7 +29,7 @@ loop_ai:
     BEQ  X14, X0, done_ai
     WORD $0x02050007            // vle8.v v0, (a0) — loads 32 bytes (vl=32)
     WORD $0x02058087            // vle8.v v1, (a1) — loads 32 bytes
-    WORD $0xe2103e2b            // vmadot v28, v1, v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v1, v0
     ADD  $32, X10, X10
     ADD  $32, X11, X11
     ADD  $-1, X14, X14
@@ -59,7 +60,7 @@ native_loop:
     BEQ  X14, X0, native_done
     WORD $0x02050007            // vle8.v v0, (a0)
     WORD $0x02058087            // vle8.v v1, (a1)
-    WORD $0xe2103e2b            // vmadot v28, v1, v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v1, v0
     ADD  $128, X10, X10
     ADD  $128, X11, X11
     ADD  $-1, X14, X14

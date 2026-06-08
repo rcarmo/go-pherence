@@ -3,6 +3,10 @@
 // Usage:
 //
 //	whisper -model /path/to/model.safetensors -audio input.wav [-diarize]
+//
+// The default -size is large-v3-turbo (full large-v3 encoder + 4-layer distilled
+// decoder): on-par transcript quality with much cheaper decode. Pass -size
+// large-v3 for the full 32-layer decoder.
 package main
 
 import (
@@ -24,7 +28,7 @@ import (
 func main() {
 	modelPath := flag.String("model", "", "Path to Whisper safetensors model")
 	audioPath := flag.String("audio", "", "Path to input WAV file")
-	modelSize := flag.String("size", "tiny", "Model size: tiny, base, small, medium, large-v3, turbo")
+	modelSize := flag.String("size", "turbo", "Model size: tiny, base, small, medium, large-v3, turbo (default large-v3-turbo: same encoder as large-v3, 4-layer distilled decoder)")
 	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
 	speakerModel := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
