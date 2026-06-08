@@ -171,8 +171,16 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	if l.AdaLN.OutDim() != 4*emb {
 		return fmt.Errorf("ideogram4 DiT adaln out=%d want=%d", l.AdaLN.OutDim(), 4*emb)
 	}
+	layerGPU, err := uploadDiTLayerGPU(l)
+	if err != nil {
+		if gpuFP8Strict() {
+			return err
+		}
+		layerGPU = nil
+	}
+	defer layerGPU.Free()
 	mod := make([]float32, 4*emb)
-	if err := l.AdaLN.Apply(adalnInput, mod); err != nil {
+	if err := layerGPU.AdaLN(l, adalnInput, mod); err != nil {
 		return err
 	}
 	scaleMSA := mod[0:emb]
@@ -201,7 +209,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 		for i := 0; i < emb; i++ {
 			normed[i] *= scaleMSA[i]
 		}
-		if err := l.QKV.Apply(normed, qkv); err != nil {
+		if err := layerGPU.QKV(l, normed, qkv); err != nil {
 			return err
 		}
 		copy(q[t*emb:(t+1)*emb], qkv[0:emb])
@@ -228,7 +236,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	oproj := make([]float32, emb)
 	postNorm := make([]float32, emb)
 	for t := 0; t < tokens; t++ {
-		if err := l.O.Apply(attnOut[t*emb:(t+1)*emb], oproj); err != nil {
+		if err := layerGPU.O(l, attnOut[t*emb:(t+1)*emb], oproj); err != nil {
 			return err
 		}
 		rmsNormWeightedTo(postNorm, oproj, l.AttnN2, normEps)
@@ -247,14 +255,14 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 		for i := 0; i < emb; i++ {
 			normed[i] *= scaleMLP[i]
 		}
-		if err := l.W1.Apply(normed, g); err != nil {
+		if err := layerGPU.W1(l, normed, g); err != nil {
 			return err
 		}
-		if err := l.W3.Apply(normed, u); err != nil {
+		if err := layerGPU.W3(l, normed, u); err != nil {
 			return err
 		}
 		siluMulInPlace(g, u)
-		if err := l.W2.Apply(g, down); err != nil {
+		if err := layerGPU.W2(l, g, down); err != nil {
 			return err
 		}
 		rmsNormWeightedTo(postNorm, down, l.FfnN2, normEps)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -136,6 +137,14 @@ type GenerateOptions struct {
 // decode. InitLatents must be supplied (deterministic) since this package does
 // not own an RNG policy.
 func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, error) {
+	traceTiming := os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1"
+	t0 := time.Now()
+	mark := func(name string, since time.Time) time.Time {
+		if traceTiming {
+			fmt.Fprintf(os.Stderr, "timing %s=%s total=%s\n", name, time.Since(since), time.Since(t0))
+		}
+		return time.Now()
+	}
 	if p == nil {
 		return Image{}, ErrRuntimeNotImplemented
 	}
@@ -160,10 +169,12 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 	if err != nil {
 		return Image{}, err
 	}
+	phaseStart := time.Now()
 	textFeatures, err := p.Conditioner.Condition(pt.IDs)
 	if err != nil {
 		return Image{}, err
 	}
+	phaseStart = mark("qwen_condition", phaseStart)
 	if gpuReleaseAfterPhase() {
 		// Qwen uses temporary FP8 wrappers today, but this keeps the phase boundary
 		// explicit as more text-encoder residency is added.
@@ -183,6 +194,7 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 	if err != nil {
 		return Image{}, err
 	}
+	phaseStart = mark("denoise", phaseStart)
 	if gpuReleaseAfterPhase() {
 		p.Cond.ReleaseGPU()
 		p.Uncond.ReleaseGPU()
@@ -196,5 +208,11 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 	if err != nil {
 		return Image{}, err
 	}
-	return p.VAE.Decode(fmap)
+	phaseStart = mark("latent_postprocess", phaseStart)
+	img, err := p.VAE.Decode(fmap)
+	if err != nil {
+		return Image{}, err
+	}
+	mark("vae_decode", phaseStart)
+	return img, nil
 }
