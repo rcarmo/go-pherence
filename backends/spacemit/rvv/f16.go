@@ -11,6 +11,9 @@ func dotF16(a, b *uint16, n int64) float32
 //go:noescape
 func kernelF16M4N16(a, bp *uint16, c *float32, K, lda, ldc int64)
 
+//go:noescape
+func kernelF16M4N32(a, bp *uint16, c *float32, K, lda, ldc int64)
+
 // DotF16 returns the dot product of two fp16 vectors, accumulated in float32.
 // The inputs are IEEE 754 binary16 words. It is the FP16/Zvfh counterpart to
 // DotF32RVV/dotI8 and is the first building block for K3-native fp16 attention
@@ -43,13 +46,19 @@ func GemmF16(A, B []uint16, C []float32, M, N, K int) {
 // PackBF16 packs B[N,K] (transposed-B, row n = output n's fp16 weights) into
 // tiles of 16 N-columns: Bp[nt][k][0:16]. Requires N % 16 == 0. Pre-pack static
 // weights before calling GemmF16Outer.
-func PackBF16(B []uint16, N, K int) []uint16 {
+func PackBF16(B []uint16, N, K int) []uint16 { return packBF16Tile(B, N, K, 16) }
+
+// PackBF16N32 packs B[N,K] into tiles of 32 N-columns for GemmF16Outer32.
+// It is the preferred layout for X100 VLEN=256 because it fills e16,m2/e32,m4.
+func PackBF16N32(B []uint16, N, K int) []uint16 { return packBF16Tile(B, N, K, 32) }
+
+func packBF16Tile(B []uint16, N, K, tileN int) []uint16 {
 	Bp := make([]uint16, N*K)
-	for nt := 0; nt < N/16; nt++ {
-		base := nt * K * 16
+	for nt := 0; nt < N/tileN; nt++ {
+		base := nt * K * tileN
 		for k := 0; k < K; k++ {
-			for j := 0; j < 16; j++ {
-				Bp[base+k*16+j] = B[(nt*16+j)*K+k]
+			for j := 0; j < tileN; j++ {
+				Bp[base+k*tileN+j] = B[(nt*tileN+j)*K+k]
 			}
 		}
 	}
@@ -60,12 +69,22 @@ func PackBF16(B []uint16, N, K int) []uint16 {
 // outer-product kernel. Bp must come from PackBF16. Requires M%4==0 and N%16==0.
 // nthreads partitions work over M-blocks.
 func GemmF16Outer(A, Bp []uint16, C []float32, M, N, K, nthreads int) {
+	gemmF16OuterTile(A, Bp, C, M, N, K, nthreads, 16, kernelF16M4N16)
+}
+
+// GemmF16Outer32 is the M4xN32 FP16 outer-product kernel. Bp must come from
+// PackBF16N32. Requires M%4==0 and N%32==0.
+func GemmF16Outer32(A, Bp []uint16, C []float32, M, N, K, nthreads int) {
+	gemmF16OuterTile(A, Bp, C, M, N, K, nthreads, 32, kernelF16M4N32)
+}
+
+func gemmF16OuterTile(A, Bp []uint16, C []float32, M, N, K, nthreads, tileN int, kernel func(a, bp *uint16, c *float32, K, lda, ldc int64)) {
 	mblocks := M / 4
 	work := func(mb0, mb1 int) {
 		for mb := mb0; mb < mb1; mb++ {
 			m := mb * 4
-			for nt := 0; nt < N/16; nt++ {
-				kernelF16M4N16(&A[m*K], &Bp[nt*K*16], &C[m*N+nt*16],
+			for nt := 0; nt < N/tileN; nt++ {
+				kernel(&A[m*K], &Bp[nt*K*tileN], &C[m*N+nt*tileN],
 					int64(K), int64(K*2), int64(N*4))
 			}
 		}
@@ -92,7 +111,9 @@ func GemmF16Outer(A, Bp []uint16, C []float32, M, N, K, nthreads int) {
 
 // GemmF16Threaded runs GemmF16 across nthreads goroutines partitioned over M
 // rows. It dispatches to the tiled M4xN16 kernel when dimensions are compatible,
-// and falls back to the dot-loop kernel for tails/small odd shapes.
+// and falls back to the dot-loop kernel for tails/small odd shapes. M4xN32 is
+// available via GemmF16Outer32, but N16 remains the default on this K3 until the
+// zero-stride-broadcast cost is solved.
 func GemmF16Threaded(A, B []uint16, C []float32, M, N, K, nthreads int) {
 	if M%4 == 0 && N%16 == 0 {
 		GemmF16Outer(A, PackBF16(B, N, K), C, M, N, K, nthreads)

@@ -72,9 +72,11 @@
 // with -march=rv64gcv_zvfh.
 // ---------------------------------------------------------------------------
 
-// Fixed-vl setup used by the M4xN16 FP16 tile kernel (t6/X31 holds 16).
+// Fixed-vl setup used by FP16 tile kernels (t6/X31 holds tile N).
 #define K3_VSETVLI_E32_M2_16        WORD $0x0d1ff057 // vsetvli zero, t6, e32, m2, ta, ma
 #define K3_VSETVLI_E16_M1_16        WORD $0x0c8ff057 // vsetvli zero, t6, e16, m1, ta, ma
+#define K3_VSETVLI_E32_M4_32        WORD $0x0d2ff057 // vsetvli zero, t6, e32, m4, ta, ma
+#define K3_VSETVLI_E16_M2_32        WORD $0x0c9ff057 // vsetvli zero, t6, e16, m2, ta, ma
 
 // Variable-vl setup used by the FP16 dot kernel (a2/X12 holds remaining length).
 #define K3_VSETVLI_E32_M4_ZERO_TU_MU WORD $0x012072d7 // vsetvli t0, zero, e32, m4, tu, mu
@@ -86,13 +88,17 @@
 #define K3_VMV_V_I_V12_0            WORD $0x5e003657 // vmv.v.i v12, 0
 #define K3_VMV_V_I_V14_0            WORD $0x5e003757 // vmv.v.i v14, 0
 #define K3_VMV_V_I_V16_0            WORD $0x5e003857 // vmv.v.i v16, 0
+#define K3_VMV_V_I_V20_0            WORD $0x5e003a57 // vmv.v.i v20, 0
 
 // FP16 vector loads/broadcasts.
 #define K3_VLE16_V0_A1              WORD $0x0205d007 // vle16.v  v0, (a1)
 #define K3_VLE16_V0_A0              WORD $0x02055007 // vle16.v  v0, (a0)
 #define K3_VLE16_V8_A1              WORD $0x0205d407 // vle16.v  v8, (a1)
 #define K3_VLSE16_V2_A0_ZERO        WORD $0x0a055107 // vlse16.v v2,  (a0), zero
+#define K3_VLSE16_V4_A0_ZERO        WORD $0x0a055207 // vlse16.v v4,  (a0), zero
 #define K3_VLSE16_V4_T0_ZERO        WORD $0x0a02d207 // vlse16.v v4,  (t0), zero
+#define K3_VLSE16_V4_T1_ZERO        WORD $0x0a035207 // vlse16.v v4,  (t1), zero
+#define K3_VLSE16_V4_T2_ZERO        WORD $0x0a03d207 // vlse16.v v4,  (t2), zero
 #define K3_VLSE16_V6_T1_ZERO        WORD $0x0a035307 // vlse16.v v6,  (t1), zero
 #define K3_VLSE16_V16_T2_ZERO       WORD $0x0a03d807 // vlse16.v v16, (t2), zero
 
@@ -102,6 +108,10 @@
 #define K3_VFWMACC_VV_V10_V4_V0     WORD $0xf2021557 // vfwmacc.vv v10, v4,  v0
 #define K3_VFWMACC_VV_V12_V6_V0     WORD $0xf2031657 // vfwmacc.vv v12, v6,  v0
 #define K3_VFWMACC_VV_V14_V16_V0    WORD $0xf2081757 // vfwmacc.vv v14, v16, v0
+#define K3_VFWMACC_VV_V8_V4_V0      WORD $0xf2021457 // vfwmacc.vv v8,  v4,  v0
+#define K3_VFWMACC_VV_V12_V4_V0     WORD $0xf2021657 // vfwmacc.vv v12, v4,  v0
+#define K3_VFWMACC_VV_V16_V4_V0     WORD $0xf2021857 // vfwmacc.vv v16, v4,  v0
+#define K3_VFWMACC_VV_V20_V4_V0     WORD $0xf2021a57 // vfwmacc.vv v20, v4,  v0
 
 // FP32 reduction/stores for FP16 kernels.
 #define K3_VFREDUSUM_VS_V0_V16_V8   WORD $0x07041057 // vfredusum.vs v0, v16, v8
@@ -110,3 +120,5 @@
 #define K3_VSE32_V10_A2             WORD $0x02066527 // vse32.v v10, (a2)
 #define K3_VSE32_V12_A2             WORD $0x02066627 // vse32.v v12, (a2)
 #define K3_VSE32_V14_A2             WORD $0x02066727 // vse32.v v14, (a2)
+#define K3_VSE32_V16_A2             WORD $0x02066827 // vse32.v v16, (a2)
+#define K3_VSE32_V20_A2             WORD $0x02066a27 // vse32.v v20, (a2)

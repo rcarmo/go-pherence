@@ -10,7 +10,7 @@ no dependency on the inference engine.
 | Files | Purpose |
 |---|---|
 | `gemm.go`, `dot_riscv64.s` | int8 dot product + `GemmI8` / `GemmI8Threaded` |
-| `f16.go`, `f16_riscv64.s`, `ker_f16_m4n16_riscv64.s` | FP16/Zvfh dot product + `GemmF16` / `GemmF16Outer` / `GemmF16Threaded` (f16 inputs, f32 accumulation/output) |
+| `f16.go`, `f16_riscv64.s`, `ker_f16_m4n16_riscv64.s`, `ker_f16_m4n32_riscv64.s` | FP16/Zvfh dot product + `GemmF16` / `GemmF16Outer` / `GemmF16Outer32` / `GemmF16Threaded` (f16 inputs, f32 accumulation/output) |
 | `gemm_quant.go` | Dynamic int8 quantize + dequant epilogue (`QuantizeDynamicU8`, `MatMulIntegerDequant`) |
 | `ker_w4_riscv64.s`, `gemm_w4.go` | W4A8 (int4-weight) outer-product kernel — built & benchmarked, but **slower** than int8 (no native int4 MAC) |
 | `copy_rvv.go` + `.s` | `CopyBytesRVV` / `CopyTCMBytes` byte-copy |
@@ -18,8 +18,10 @@ no dependency on the inference engine.
 
 See `research/npu-whisper` for the RVV-vs-IME and W4A8 measurements. The
 FP16 path uses the K3's advertised `zvfh`/`zvfhmin` RVV extensions; RVV/Zvfh
-instructions are WORD-encoded with local named macros until the Go assembler
-supports these mnemonics. The initial M4xN16 tiled FP16 kernel uses zero-stride
-vector loads to broadcast A scalars and avoid the scalar-FP `vfwmacc.vf` form,
-which traps on the K3 kernel path; it is correctness-first and ready for a later
-broadcast/tile-shape performance pass.
+instructions are WORD-encoded with shared `k3_isa.h` macros until the Go
+assembler supports these mnemonics. The initial M4xN16/M4xN32 tiled FP16 kernels
+use zero-stride vector loads to broadcast A scalars and avoid the scalar-FP
+`vfwmacc.vf` form, which traps on the K3 kernel path; they are correctness-first
+and ready for a later broadcast/tile-shape performance pass. Current measurements
+show N16 remains slightly faster than N32 on X100, and generic Zvfh FP16 is not
+suitable for A100 placement without a real custom-HP kernel path.
