@@ -104,6 +104,7 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	// Encoder layers
 	encLinearNs, encAttnNs, encOtherNs = 0, 0, 0
 	resetF16Timers()
+	resetA100Timers()
 	convNs := int64(time.Since(convStart))
 	for i := range enc.Layers {
 		ht = enc.forwardLayer(&enc.Layers[i], ht, T2)
@@ -113,6 +114,9 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 			float64(convNs)/1e9, float64(encLinearNs)/1e9, float64(encAttnNs)/1e9, float64(encOtherNs)/1e9)
 		if attnF16 {
 			fmt.Fprintln(os.Stderr, f16TimingLine())
+		}
+		if useA100FC1 {
+			fmt.Fprintln(os.Stderr, a100TimingLine())
 		}
 	}
 
