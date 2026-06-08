@@ -386,14 +386,12 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 	if nw < 1 {
 		nw = 1
 	}
-	// In FP16 attention the heads are the batch/parallelism unit. Avoid nesting
-	// another linearWorkers fanout inside each per-head GEMM; that created
-	// linearWorkers² runnable goroutines and dominated the many small attention
-	// GEMMs. If there is only one head worker, keep row-level GEMM parallelism.
-	f16GemmWorkers := 1
-	if attnF16 && nw <= 1 {
-		f16GemmWorkers = linearWorkers
-	}
+	// FP16 attention uses heads as the outer parallel unit, but each attention
+	// GEMM is still large enough (e.g. 1500x1504x64) to benefit from row
+	// fanout. Shape benchmarks show nt=6 is ~5x faster than nt=1, so keep
+	// linearWorkers inside the per-head GEMM path. Whole-head batching remains
+	// behind WHISPER_FP16_HEAD_BATCH because it regresses wall time today.
+	f16GemmWorkers := linearWorkers
 
 	work := func(hStart, hEnd int) {
 		qh := make([]float32, seqQ*headDim)

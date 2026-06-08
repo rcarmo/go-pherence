@@ -25,5 +25,7 @@ attention path (QKᵀ and softmax·V in FP16 with F32 accumulation). On `pod_30.
 FP16 attention is transcript-safe but currently slower than int8 attention
 because many small per-head GEMMs dominate after F32→F16 packing was vectorized.
 `WHISPER_FP16_HEAD_BATCH=1` enables an additional head-batched FP16 experiment;
-it reduces GEMM fanout time but is slower end-to-end today because the larger
-batched working set increases copy/allocation/softmax overhead.
+it reduces summed GEMM fanout time but is slower end-to-end today because the
+larger batched working set increases copy/allocation/softmax overhead. Per-head
+FP16 GEMMs deliberately keep row-parallel WHISPER_THREADS fanout: attention
+shape benchmarks (1500x1504x64) show 6 threads at ~4.3 ms vs 1 thread at ~23 ms.
