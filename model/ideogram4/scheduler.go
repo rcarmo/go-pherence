@@ -55,14 +55,6 @@ func (s LogitNormalSchedule) Value(u float64) (float32, error) {
 	return float32(t), nil
 }
 
-func (s LogitNormalSchedule) Sigma(u float64) (float32, error) {
-	t, err := s.Value(u)
-	if err != nil {
-		return 0, err
-	}
-	return 1 - t, nil
-}
-
 type SamplingPlan struct {
 	Height           int
 	Width            int
@@ -101,21 +93,20 @@ func (c Config) BuildSamplingPlan(height, width, numSteps int, guidanceScale flo
 		return SamplingPlan{}, err
 	}
 	steps := make([]FlowStep, 0, numSteps)
-	for i := 0; i < numSteps; i++ {
-		curU := float64(numSteps-i) / float64(numSteps)
-		nextU := float64(numSteps-i-1) / float64(numSteps)
-		cur, err := schedule.Sigma(curU)
+	// Match ideogram-oss/ideogram-4 Pipeline.__call__: for i := numSteps-1; i >= 0;
+	// t=schedule(u[i+1]), s=schedule(u[i]), delta=s-t. Step.Index keeps the
+	// reference loop index so guidanceSchedule[Index] is in OSS loop-index order
+	// (index 0 is the final polish step, index numSteps-1 is the first step).
+	for i := numSteps - 1; i >= 0; i-- {
+		tVal, err := schedule.Value(float64(i+1) / float64(numSteps))
 		if err != nil {
 			return SamplingPlan{}, err
 		}
-		next, err := schedule.Sigma(nextU)
+		sVal, err := schedule.Value(float64(i) / float64(numSteps))
 		if err != nil {
 			return SamplingPlan{}, err
 		}
-		if i == numSteps-1 {
-			next = 0
-		}
-		steps = append(steps, FlowStep{Index: i, Sigma: next - cur, T: cur})
+		steps = append(steps, FlowStep{Index: i, Sigma: sVal - tVal, T: tVal})
 	}
 	gw := make([]float32, numSteps)
 	if len(guidanceSchedule) > 0 {

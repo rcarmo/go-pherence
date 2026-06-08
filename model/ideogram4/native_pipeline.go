@@ -124,12 +124,14 @@ func LoadNativePipeline(modelDir string) (*NativePipeline, error) {
 
 // GenerateOptions controls a native generation run.
 type GenerateOptions struct {
-	Height        int
-	Width         int
-	Steps         int
-	GuidanceScale float32
-	MaxTextTokens int
-	InitLatents   []float32 // optional [imageTokens, in_channels]; random if nil
+	Height           int
+	Width            int
+	Steps            int
+	GuidanceScale    float32
+	GuidanceSchedule []float32
+	Schedule         LogitNormalSchedule
+	MaxTextTokens    int
+	InitLatents      []float32 // optional [imageTokens, in_channels]; random if nil
 }
 
 // Generate runs the full native text-to-image path: tokenize, Qwen3-VL
@@ -182,11 +184,11 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 		p.Uncond.ReleaseGPU()
 	}
 
-	plan, err := cfg.BuildSamplingPlan(opt.Height, opt.Width, opt.Steps, opt.GuidanceScale, nil, maxTok, LogitNormalSchedule{})
+	plan, err := cfg.BuildSamplingPlan(opt.Height, opt.Width, opt.Steps, opt.GuidanceScale, opt.GuidanceSchedule, maxTok, opt.Schedule)
 	if err != nil {
 		return Image{}, err
 	}
-	sched, err := NewFlowMatchScheduler(cfg, opt.Height, opt.Width, LogitNormalSchedule{})
+	sched, err := NewFlowMatchScheduler(cfg, opt.Height, opt.Width, opt.Schedule)
 	if err != nil {
 		return Image{}, err
 	}

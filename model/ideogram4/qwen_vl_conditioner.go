@@ -20,9 +20,8 @@ type CombinedTensorSource interface {
 // hidden states at Config.ActivationLayers into the [tokens, llm_features_dim]
 // tensor consumed by the Ideogram4 DiT.
 //
-// hidden_states indexing follows HF convention: index 0 is the post-embedding
-// state, index k (1..num_layers) is the residual stream after decoder layer
-// k-1.
+// Activation indices match ideogram-oss/ideogram-4 exactly: zero-based decoder
+// layer indices captured after that decoder layer has run.
 type QwenVLConditioner struct {
 	src     CombinedTensorSource
 	cfg     Config
@@ -151,9 +150,6 @@ func (q *QwenVLConditioner) Condition(tokenIDs []int) ([]float32, error) {
 		want[l] = true
 	}
 	captured := make(map[int][]float32, len(cfg.ActivationLayers))
-	if want[0] {
-		captured[0] = append([]float32(nil), h...)
-	}
 
 	rope := buildRoPECosSin(T, headDim, q.theta)
 	tmp := make([]float32, hidden)
@@ -162,8 +158,8 @@ func (q *QwenVLConditioner) Condition(tokenIDs []int) ([]float32, error) {
 		if err := q.decoderLayer(h, T, lp, heads, kvHeads, headDim, group, qDim, kvDim, rope, tmp); err != nil {
 			return nil, fmt.Errorf("ideogram4 qwen-vl layer %d: %w", layer, err)
 		}
-		if want[layer+1] {
-			captured[layer+1] = append([]float32(nil), h...)
+		if want[layer] {
+			captured[layer] = append([]float32(nil), h...)
 		}
 	}
 

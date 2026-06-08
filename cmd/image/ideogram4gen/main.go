@@ -20,7 +20,9 @@ func main() {
 	height := flag.Int("height", 1024, "image height")
 	width := flag.Int("width", 1024, "image width")
 	steps := flag.Int("steps", 28, "sampling steps")
-	guidance := flag.Float64("guidance", 5.0, "CFG guidance scale")
+	guidance := flag.Float64("guidance", 7.0, "CFG guidance scale (OSS custom sampler default: 7.0)")
+	mu := flag.Float64("mu", 0.0, "Ideogram logit-normal scheduler known-mean/mu (OSS custom/default-20 default: 0.0)")
+	std := flag.Float64("std", 1.75, "Ideogram logit-normal scheduler std (OSS default-20/custom default: 1.75)")
 	seed := flag.Int64("seed", 0, "init-noise seed")
 	gpu := flag.Bool("gpu", false, "enable production-safe coarse Ideogram4 NVIDIA GPU gates (CFG and VAE; token/row-level experimental gates remain opt-in via env or -gpu-fp8)")
 	gpuStrict := flag.Bool("gpu-strict", false, "enable strict GPU validation for enabled Ideogram4 GPU gates (no CPU fallback on GPU errors)")
@@ -63,11 +65,16 @@ func main() {
 	}
 
 	genStart := time.Now()
+	schedule, err := ideogram4.DefaultScheduleForResolution(*height, *width, 512, 512, *mu, *std)
+	if err != nil {
+		fatal(err)
+	}
 	img, err := pipe.Generate(*prompt, ideogram4.GenerateOptions{
 		Height:        *height,
 		Width:         *width,
 		Steps:         *steps,
 		GuidanceScale: float32(*guidance),
+		Schedule:      schedule,
 		InitLatents:   init,
 	})
 	if err != nil {
