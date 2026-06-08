@@ -19,9 +19,12 @@ no dependency on the inference engine.
 See `research/npu-whisper` for the RVV-vs-IME and W4A8 measurements. The
 FP16 path uses the K3's advertised `zvfh`/`zvfhmin` RVV extensions; RVV/Zvfh
 instructions are WORD-encoded with shared `k3_isa.h` macros until the Go
-assembler supports these mnemonics. The initial M4xN16/M4xN32 tiled FP16 kernels
-use zero-stride vector loads to broadcast A scalars and avoid the scalar-FP
-`vfwmacc.vf` form, which traps on the K3 kernel path; they are correctness-first
-and ready for a later broadcast/tile-shape performance pass. Current measurements
-show N16 remains slightly faster than N32 on X100, and generic Zvfh FP16 is not
-suitable for A100 placement without a real custom-HP kernel path.
+assembler supports these mnemonics. The tiled FP16 kernels avoid the scalar-FP
+`vfwmacc.vf` form, which traps on the K3 kernel path, by broadcasting A scalars
+as halfword bits (`lhu` + `vmv.v.x`) and using the proven `vfwmacc.vv` form.
+That broadcast change moved the encoder-shape M4xN32 kernel from ~155 ms to
+~51–56 ms at 1500×1280×1280 (8T), so N32 is now the default tile. Generic Zvfh
+FP16 is still an X100-standard-RVV path: an `aipool` probe correctly placed
+workers on A100 cores 8–15, but the same standard-Zvfh kernel measured ~194 ms
+(~25 GF/s) there, versus ~56 ms (~88 GF/s) on X100. A100 needs a real custom-HP
+kernel path rather than naive standard Zvfh.

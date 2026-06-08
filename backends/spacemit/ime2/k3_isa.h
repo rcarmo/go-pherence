@@ -94,6 +94,8 @@
 #define K3_VLE16_V0_A1              WORD $0x0205d007 // vle16.v  v0, (a1)
 #define K3_VLE16_V0_A0              WORD $0x02055007 // vle16.v  v0, (a0)
 #define K3_VLE16_V8_A1              WORD $0x0205d407 // vle16.v  v8, (a1)
+// Initial correctness kernels used vlse16 with zero stride for FP16 scalar
+// broadcast. Prefer the cheaper lhu + vmv.v.x sequence below when possible.
 #define K3_VLSE16_V2_A0_ZERO        WORD $0x0a055107 // vlse16.v v2,  (a0), zero
 #define K3_VLSE16_V4_A0_ZERO        WORD $0x0a055207 // vlse16.v v4,  (a0), zero
 #define K3_VLSE16_V4_T0_ZERO        WORD $0x0a02d207 // vlse16.v v4,  (t0), zero
@@ -101,6 +103,16 @@
 #define K3_VLSE16_V4_T2_ZERO        WORD $0x0a03d207 // vlse16.v v4,  (t2), zero
 #define K3_VLSE16_V6_T1_ZERO        WORD $0x0a035307 // vlse16.v v6,  (t1), zero
 #define K3_VLSE16_V16_T2_ZERO       WORD $0x0a03d807 // vlse16.v v16, (t2), zero
+#define K3_LHU_T3_A0                WORD $0x00055e03 // lhu t3, 0(a0)
+#define K3_LHU_T4_T0                WORD $0x0002de83 // lhu t4, 0(t0)
+#define K3_LHU_T5_T1                WORD $0x00035f03 // lhu t5, 0(t1)
+#define K3_LHU_T3_T2                WORD $0x0003de03 // lhu t3, 0(t2)
+#define K3_VMV_V_X_V4_T3            WORD $0x5e0e4257 // vmv.v.x v4,  t3
+#define K3_VMV_V_X_V4_T4            WORD $0x5e0ec257 // vmv.v.x v4,  t4
+#define K3_VMV_V_X_V4_T5            WORD $0x5e0f4257 // vmv.v.x v4,  t5
+#define K3_VMV_V_X_V6_T4            WORD $0x5e0ec357 // vmv.v.x v6,  t4
+#define K3_VMV_V_X_V16_T5           WORD $0x5e0f4857 // vmv.v.x v16, t5
+#define K3_VMV_V_X_V20_T3           WORD $0x5e0e4a57 // vmv.v.x v20, t3
 
 // FP16 widening FMA, f16*f16 -> f32 accumulator.
 #define K3_VFWMACC_VV_V16_V0_V8     WORD $0xf2801857 // vfwmacc.vv v16, v0,  v8
@@ -109,6 +121,7 @@
 #define K3_VFWMACC_VV_V12_V6_V0     WORD $0xf2031657 // vfwmacc.vv v12, v6,  v0
 #define K3_VFWMACC_VV_V14_V16_V0    WORD $0xf2081757 // vfwmacc.vv v14, v16, v0
 #define K3_VFWMACC_VV_V8_V4_V0      WORD $0xf2021457 // vfwmacc.vv v8,  v4,  v0
+#define K3_VFWMACC_VV_V14_V4_V0     WORD $0xf2021757 // vfwmacc.vv v14, v4,  v0
 #define K3_VFWMACC_VV_V12_V4_V0     WORD $0xf2021657 // vfwmacc.vv v12, v4,  v0
 #define K3_VFWMACC_VV_V16_V4_V0     WORD $0xf2021857 // vfwmacc.vv v16, v4,  v0
 #define K3_VFWMACC_VV_V20_V4_V0     WORD $0xf2021a57 // vfwmacc.vv v20, v4,  v0

@@ -110,11 +110,14 @@ func gemmF16OuterTile(A, Bp []uint16, C []float32, M, N, K, nthreads, tileN int,
 }
 
 // GemmF16Threaded runs GemmF16 across nthreads goroutines partitioned over M
-// rows. It dispatches to the tiled M4xN16 kernel when dimensions are compatible,
-// and falls back to the dot-loop kernel for tails/small odd shapes. M4xN32 is
-// available via GemmF16Outer32, but N16 remains the default on this K3 until the
-// zero-stride-broadcast cost is solved.
+// rows. It dispatches to the tiled M4xN32 kernel when dimensions are compatible,
+// falls back to M4xN16, and finally to the dot-loop kernel for tails/small odd
+// shapes.
 func GemmF16Threaded(A, B []uint16, C []float32, M, N, K, nthreads int) {
+	if M%4 == 0 && N%32 == 0 {
+		GemmF16Outer32(A, PackBF16N32(B, N, K), C, M, N, K, nthreads)
+		return
+	}
 	if M%4 == 0 && N%16 == 0 {
 		GemmF16Outer(A, PackBF16(B, N, K), C, M, N, K, nthreads)
 		return
