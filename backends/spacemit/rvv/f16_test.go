@@ -64,6 +64,24 @@ func TestGemmF16(t *testing.T) {
 	}
 }
 
+func TestPackBF16Into(t *testing.T) {
+	const N, K = 32, 33
+	B := make([]uint16, N*K)
+	for i := range B {
+		B[i] = uint16(0x3000 + i%1024)
+	}
+	for _, tileN := range []int{16, 32} {
+		want := packBF16Tile(B, N, K, tileN)
+		got := make([]uint16, N*K)
+		packBF16TileInto(B, N, K, tileN, got)
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("tileN=%d i=%d got 0x%04x want 0x%04x", tileN, i, got[i], want[i])
+			}
+		}
+	}
+}
+
 func TestGemmF16Outer(t *testing.T) {
 	const M, N, K = 8, 16, 33
 	A := make([]uint16, M*K)

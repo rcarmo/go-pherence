@@ -72,7 +72,7 @@ func attnF16Head(scores, outh, qh, kh, vh []float32, seqQ, seqKV, headDim int, s
 	tp := nowNs()
 	f32ToF16RowsPadded(qh, seqQ, headDim, headDim, qf16)
 	f32ToF16RowsPadded(kh, seqKV, headDim, headDim, kf16)
-	kp = rvv.PackBF16N32(kf16, kpad, headDim)
+	kp = rvv.PackBF16N32Into(kf16, kpad, headDim, kp)
 	f16PackNs += nowNs() - tp
 
 	tg := nowNs()
@@ -93,7 +93,7 @@ func attnF16Head(scores, outh, qh, kh, vh []float32, seqQ, seqKV, headDim int, s
 	tp = nowNs()
 	f32ToF16RowsPadded(scores, seqQ, seqKV, kpad, sf16)
 	transposeF32ToF16RowsPadded(vh, seqKV, headDim, kpad, vtf16)
-	vtp = rvv.PackBF16N32(vtf16, headDim, kpad)
+	vtp = rvv.PackBF16N32Into(vtf16, headDim, kpad, vtp)
 	f16PackNs += nowNs() - tp
 
 	tg = nowNs()

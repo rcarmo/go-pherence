@@ -56,12 +56,28 @@ func GemmF16(A, B []uint16, C []float32, M, N, K int) {
 // weights before calling GemmF16Outer.
 func PackBF16(B []uint16, N, K int) []uint16 { return packBF16Tile(B, N, K, 16) }
 
+// PackBF16Into is the allocation-free form of PackBF16. dst must have at least
+// N*K elements and is returned for call chaining.
+func PackBF16Into(B []uint16, N, K int, dst []uint16) []uint16 {
+	return packBF16TileInto(B, N, K, 16, dst)
+}
+
 // PackBF16N32 packs B[N,K] into tiles of 32 N-columns for GemmF16Outer32.
 // It is the preferred layout for X100 VLEN=256 because it fills e16,m2/e32,m4.
 func PackBF16N32(B []uint16, N, K int) []uint16 { return packBF16Tile(B, N, K, 32) }
 
+// PackBF16N32Into is the allocation-free form of PackBF16N32. dst must have at
+// least N*K elements and is returned for call chaining.
+func PackBF16N32Into(B []uint16, N, K int, dst []uint16) []uint16 {
+	return packBF16TileInto(B, N, K, 32, dst)
+}
+
 func packBF16Tile(B []uint16, N, K, tileN int) []uint16 {
-	Bp := make([]uint16, N*K)
+	return packBF16TileInto(B, N, K, tileN, make([]uint16, N*K))
+}
+
+func packBF16TileInto(B []uint16, N, K, tileN int, dst []uint16) []uint16 {
+	Bp := dst[:N*K]
 	for nt := 0; nt < N/tileN; nt++ {
 		base := nt * K * tileN
 		for k := 0; k < K; k++ {

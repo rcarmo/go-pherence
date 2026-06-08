@@ -418,6 +418,8 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 			cqkf16 = make([]float32, seqQ*kpad)
 			sf16 = make([]uint16, seqQ*kpad)
 			vtf16 = make([]uint16, headDim*kpad)
+			kpf16 = make([]uint16, kpad*headDim)
+			vtpf16 = make([]uint16, headDim*kpad)
 		} else if attnInt8 {
 			mq = (seqQ + 3) &^ 3
 			nk = (seqKV + 3) &^ 3
