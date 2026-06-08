@@ -59,3 +59,15 @@ sample), so FC2 remains explicitly experimental. The useful cold-pass win is
 prepacking all enabled encoder A100 FFN weights and prewarming the pool at model
 load time: FC1 pass0 improved from roughly `43.7s` to `41.1s`, close to native
 int8 but still slower than the `~40.1s` baseline on the same sample.
+
+A100 fused FFN experiment: `WHISPER_A100_FFN_FUSED=1` replaces the encoder MLP
+block with `FC1(A100) -> FC2(A100)` and fuses GELU into the FC2 activation
+quantizer (`QuantizeF32RowsQ8M4GELUInto`) so the 1500x5120 hidden matrix is not
+written/read again just for GELU before FC2 packing. The fused packer uses the
+same rational `fastTanh` approximation as the normal Whisper GELU and is tested
+against explicit GELU followed by normal Q8 M4 packing. On `pod_30.wav` with
+`WHISPER_THREADS=6`, the fused path improved encoder time (`encoder+xkv` about
+`32.8s` vs baseline `35.6s`) and first-pass wall (`39.2s` vs `40.0s`), but it
+also changed decode behavior (`107` tokens vs `73`) and warm-pass wall remained
+slower (`37.4s` vs `36.4s`) because decode dominated. Keep it opt-in while
+transcript quality and decode-length behavior are studied.

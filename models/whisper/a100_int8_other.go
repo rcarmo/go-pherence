@@ -6,5 +6,8 @@ func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) 
 	return nil, false
 }
 func prepackA100EncoderWeights(enc *Encoder) {}
-func resetA100Timers()                       {}
-func a100TimingLine() string                 { return "" }
+func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	return nil, false
+}
+func resetA100Timers()       {}
+func a100TimingLine() string { return "" }

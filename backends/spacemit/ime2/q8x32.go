@@ -115,6 +115,69 @@ func QuantizeF32RowsQ8M4Into(rows [4][]float32, kBlks int, dst []byte) []byte {
 	return out
 }
 
+func fastTanhQ8(x float32) float32 {
+	if x > 4.97 {
+		return 1
+	}
+	if x < -4.97 {
+		return -1
+	}
+	x2 := x * x
+	a := x * (135135 + x2*(17325+x2*(378+x2)))
+	b := float32(135135) + x2*(62370+x2*(3150+x2*28))
+	return a / b
+}
+
+func geluQ8(v float32) float32 {
+	const c = float32(0.7978845608028654)
+	inner := c * (v + 0.044715*v*v*v)
+	return 0.5 * v * (1 + fastTanhQ8(inner))
+}
+
+// QuantizeF32RowsQ8M4GELUInto is like QuantizeF32RowsQ8M4Into, but applies the
+// Whisper GELU approximation while quantizing. It is intended for fused
+// FFN paths that feed FC1 output directly into an A100 FC2 kernel without a
+// separate GELU pass over the full hidden matrix.
+func QuantizeF32RowsQ8M4GELUInto(rows [4][]float32, kBlks int, dst []byte) []byte {
+	out := dst[:kBlks*K3I8I8ABlockM4Bytes]
+	for sb := 0; sb < kBlks; sb++ {
+		dstOff := sb * K3I8I8ABlockM4Bytes
+		for r := 0; r < 4; r++ {
+			var vals [32]float32
+			maxAbs := float32(0)
+			for k := 0; k < 32; k++ {
+				v := geluQ8(rows[r][sb*32+k])
+				vals[k] = v
+				av := float32(math.Abs(float64(v)))
+				if av > maxAbs {
+					maxAbs = av
+				}
+			}
+			scale := float32(0)
+			inv := float32(0)
+			if maxAbs != 0 {
+				scale = maxAbs / 127.0
+				inv = 1 / scale
+			}
+			binary.LittleEndian.PutUint32(out[dstOff+r*4:], math.Float32bits(scale))
+			sum := 0
+			for k := 0; k < 32; k++ {
+				q := int(math.Round(float64(vals[k] * inv)))
+				if q > 127 {
+					q = 127
+				}
+				if q < -128 {
+					q = -128
+				}
+				out[dstOff+24+r*32+k] = byte(int8(q))
+				sum += q
+			}
+			binary.LittleEndian.PutUint16(out[dstOff+16+r*2:], uint16(int16(-sum)))
+		}
+	}
+	return out
+}
+
 // K3I8I8 dispatches the native A100 Q8_0 x Q8_0 kernel across N32 tiles. c is
 // row-major [countM, ldc]. Returns the number of M rows consumed (4 or 1).
 func K3I8I8(a, b *byte, c *float32, countM, countN, kBlks, ldc int) int {

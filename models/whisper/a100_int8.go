@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	useA100FC1 = os.Getenv("WHISPER_A100_FC1") != ""
-	useA100FC2 = os.Getenv("WHISPER_A100_FC2") != ""
+	useA100FC1      = os.Getenv("WHISPER_A100_FC1") != ""
+	useA100FC2      = os.Getenv("WHISPER_A100_FC2") != ""
+	useA100FFNFused = os.Getenv("WHISPER_A100_FFN_FUSED") != ""
 )
 
 var (
@@ -81,10 +82,7 @@ func a100LinearEligible(seqLen, inDim, outDim int) bool {
 	return false
 }
 
-func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) ([]float32, bool) {
-	if !a100LinearEligible(seqLen, inDim, outDim) {
-		return nil, false
-	}
+func linearForwardA100Raw(x, weight, bias []float32, seqLen, inDim, outDim int) ([]float32, bool) {
 	w := getA100Q80x32Weight(weight, outDim, inDim)
 	if !w.Valid {
 		return nil, false
@@ -107,17 +105,55 @@ func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) 
 	return out, true
 }
 
+func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) ([]float32, bool) {
+	if !a100LinearEligible(seqLen, inDim, outDim) {
+		return nil, false
+	}
+	return linearForwardA100Raw(x, weight, bias, seqLen, inDim, outDim)
+}
+
+func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if !useA100FFNFused || dModel != 1280 || ffnDim != 5120 || layer == nil {
+		return nil, false
+	}
+	hidden, ok := linearForwardA100Raw(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
+	if !ok {
+		return nil, false
+	}
+	w2 := getA100Q80x32Weight(layer.FC2Weight, dModel, ffnDim)
+	if !w2.Valid {
+		return nil, false
+	}
+	out := make([]float32, seqLen*dModel)
+	t0 := nowNs()
+	ok = aipool.GemmQ80x32AIPooledGELU(hidden, seqLen, ffnDim, w2, out, getA100Pool())
+	a100Ns += nowNs() - t0
+	if !ok {
+		return nil, false
+	}
+	for i := 0; i < seqLen; i++ {
+		row := out[i*dModel : (i+1)*dModel]
+		for j := 0; j < dModel; j++ {
+			if j < len(layer.FC2Bias) {
+				row[j] += layer.FC2Bias[j]
+			}
+			row[j] += residual[i*dModel+j]
+		}
+	}
+	return out, true
+}
+
 func prepackA100EncoderWeights(enc *Encoder) {
-	if enc == nil || (!useA100FC1 && !useA100FC2) {
+	if enc == nil || (!useA100FC1 && !useA100FC2 && !useA100FFNFused) {
 		return
 	}
 	_ = getA100Pool()
 	for i := range enc.Layers {
 		layer := &enc.Layers[i]
-		if useA100FC1 && len(layer.FC1Weight) != 0 {
+		if (useA100FC1 || useA100FFNFused) && len(layer.FC1Weight) != 0 {
 			_ = getA100Q80x32Weight(layer.FC1Weight, 5120, 1280)
 		}
-		if useA100FC2 && len(layer.FC2Weight) != 0 {
+		if (useA100FC2 || useA100FFNFused) && len(layer.FC2Weight) != 0 {
 			_ = getA100Q80x32Weight(layer.FC2Weight, 1280, 5120)
 		}
 	}

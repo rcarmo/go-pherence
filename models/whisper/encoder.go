@@ -115,7 +115,7 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 		if attnF16 {
 			fmt.Fprintln(os.Stderr, f16TimingLine())
 		}
-		if useA100FC1 {
+		if useA100FC1 || useA100FC2 || useA100FFNFused {
 			fmt.Fprintln(os.Stderr, a100TimingLine())
 		}
 	}
@@ -168,6 +168,10 @@ func (enc *Encoder) forwardLayer(layer *EncoderLayer, x []float32, seqLen int) [
 	// MLP: FC1 → GELU → FC2
 	ffnDim := enc.cfg.EncoderFFNDim
 	t0 = time.Now()
+	if mlpOut, ok := forwardA100FFNFused(mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
+		encLinearNs += int64(time.Since(t0))
+		return mlpOut
+	}
 	hidden := linearForwardOpt(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
 	encLinearNs += int64(time.Since(t0))
 	t0 = time.Now()

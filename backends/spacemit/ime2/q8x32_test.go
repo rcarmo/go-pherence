@@ -23,3 +23,29 @@ func TestQuantizeF32RowsQ8M4Into(t *testing.T) {
 		}
 	}
 }
+
+func TestQuantizeF32RowsQ8M4GELUInto(t *testing.T) {
+	const kBlks = 3
+	var rows [4][]float32
+	var geluRows [4][]float32
+	for r := 0; r < 4; r++ {
+		rows[r] = make([]float32, kBlks*32)
+		geluRows[r] = make([]float32, kBlks*32)
+		for i := range rows[r] {
+			v := float32((r+1)*(i%19-9)) / 5
+			rows[r][i] = v
+			geluRows[r][i] = geluQ8(v)
+		}
+	}
+	want := QuantizeF32RowsQ8M4(geluRows, kBlks)
+	got := make([]byte, kBlks*K3I8I8ABlockM4Bytes)
+	QuantizeF32RowsQ8M4GELUInto(rows, kBlks, got)
+	if len(got) != len(want) {
+		t.Fatalf("len got %d want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("byte %d got %02x want %02x", i, got[i], want[i])
+		}
+	}
+}
