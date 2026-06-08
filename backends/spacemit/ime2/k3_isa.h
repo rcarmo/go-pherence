@@ -78,9 +78,11 @@
 #define K3_VSETVLI_E32_M4_32        WORD $0x0d2ff057 // vsetvli zero, t6, e32, m4, ta, ma
 #define K3_VSETVLI_E16_M2_32        WORD $0x0c9ff057 // vsetvli zero, t6, e16, m2, ta, ma
 
-// Variable-vl setup used by the FP16 dot kernel (a2/X12 holds remaining length).
+// Variable-vl setup used by FP16 dot/convert kernels (a2/X12 holds remaining length).
 #define K3_VSETVLI_E32_M4_ZERO_TU_MU WORD $0x012072d7 // vsetvli t0, zero, e32, m4, tu, mu
 #define K3_VSETVLI_E16_M2_A2_TU_MU   WORD $0x009672d7 // vsetvli t0, a2,   e16, m2, tu, mu
+#define K3_VSETVLI_E32_M4_A2_TA_MA   WORD $0x0d2672d7 // vsetvli t0, a2,   e32, m4, ta, ma
+#define K3_VSETVLI_E16_M2_A2_TA_MA   WORD $0x0c9672d7 // vsetvli t0, a2,   e16, m2, ta, ma
 
 // Vector zeroing / identity values.
 #define K3_VMV_V_I_V8_0             WORD $0x5e003457 // vmv.v.i v8,  0
@@ -94,6 +96,8 @@
 #define K3_VLE16_V0_A1              WORD $0x0205d007 // vle16.v  v0, (a1)
 #define K3_VLE16_V0_A0              WORD $0x02055007 // vle16.v  v0, (a0)
 #define K3_VLE16_V8_A1              WORD $0x0205d407 // vle16.v  v8, (a1)
+#define K3_VLE32_V8_A0              WORD $0x02056407 // vle32.v  v8, (a0)
+#define K3_VSE16_V0_A1              WORD $0x0205d027 // vse16.v  v0, (a1)
 // Initial correctness kernels used vlse16 with zero stride for FP16 scalar
 // broadcast. Prefer the cheaper lhu + vmv.v.x sequence below when possible.
 #define K3_VLSE16_V2_A0_ZERO        WORD $0x0a055107 // vlse16.v v2,  (a0), zero
@@ -126,7 +130,8 @@
 #define K3_VFWMACC_VV_V16_V4_V0     WORD $0xf2021857 // vfwmacc.vv v16, v4,  v0
 #define K3_VFWMACC_VV_V20_V4_V0     WORD $0xf2021a57 // vfwmacc.vv v20, v4,  v0
 
-// FP32 reduction/stores for FP16 kernels.
+// FP32/FP16 conversion and FP32 reduction/stores for FP16 kernels.
+#define K3_VFNCVT_F_F_W_V0_V8       WORD $0x4a8a1057 // vfncvt.f.f.w v0, v8 (f32 -> f16)
 #define K3_VFREDUSUM_VS_V0_V16_V8   WORD $0x07041057 // vfredusum.vs v0, v16, v8
 #define K3_VFMV_F_S_FA0_V0          WORD $0x42001557 // vfmv.f.s fa0, v0
 #define K3_VSE32_V8_A2              WORD $0x02066427 // vse32.v v8,  (a2)

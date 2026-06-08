@@ -12,9 +12,15 @@ tuned for the SpaceMIT K3 (MilkV Jupiter 2).
 | int8 / quant | `int8_linear.go`, `linear_opt.go`, `turboquant.go` (compressed KV cache) |
 | Tokenizer / output | `tokenizer.go`, `align.go`, `vtt.go` |
 
-The reusable DSP and GEMM kernels (mel/FFT, int8 matmul) live in
-`backends/simd/fft` and `backends/spacemit`; the files here are Whisper-specific
-orchestration and quantization tuned for byte-exact transcripts.
+The reusable DSP and GEMM kernels (mel/FFT, int8 matmul, experimental FP16/Zvfh)
+live in `backends/simd/fft` and `backends/spacemit`; the files here are
+Whisper-specific orchestration and quantization tuned for byte-exact transcripts.
 
 Production sub-1.0 RTF path: EP-encoder + Go int8 turbo-decoder hybrid
 (`WHISPER_ENC_H` seam in `cmd/audio/whisper`). See `research/npu-whisper`.
+
+Native K3 path status: `WHISPER_INT8=1` enables the full native IME/RVV int8
+encoder+turbo decoder. `WHISPER_FP16_ATTN=1` is an experimental X100 RVV/Zvfh
+attention path (QKᵀ and softmax·V in FP16 with F32 accumulation). On `pod_30.wav`,
+FP16 attention is transcript-safe but currently slower than int8 attention
+because many small per-head GEMMs dominate after F32→F16 packing was vectorized.

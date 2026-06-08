@@ -103,6 +103,7 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 
 	// Encoder layers
 	encLinearNs, encAttnNs, encOtherNs = 0, 0, 0
+	resetF16Timers()
 	convNs := int64(time.Since(convStart))
 	for i := range enc.Layers {
 		ht = enc.forwardLayer(&enc.Layers[i], ht, T2)
@@ -110,6 +111,9 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	if os.Getenv("WHISPER_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr, "[enc] convstem=%.1fs linear=%.1fs attn=%.1fs other=%.1fs\n",
 			float64(convNs)/1e9, float64(encLinearNs)/1e9, float64(encAttnNs)/1e9, float64(encOtherNs)/1e9)
+		if attnF16 {
+			fmt.Fprintln(os.Stderr, f16TimingLine())
+		}
 	}
 
 	// Final LayerNorm
@@ -283,8 +287,8 @@ func fastTanh(x float32) float32 {
 		return -1
 	}
 	x2 := x * x
-	a := x * (135135 + x2*(17325 + x2*(378 + x2)))
-	b := 135135 + x2*(62370 + x2*(3150 + x2*28))
+	a := x * (135135 + x2*(17325+x2*(378+x2)))
+	b := 135135 + x2*(62370+x2*(3150+x2*28))
 	return a / b
 }
 
@@ -361,8 +365,10 @@ func linearForwardScalar(x, weight, bias []float32, seqLen, inDim, outDim int) [
 // Heads are independent (disjoint output columns) and split across
 // linearWorkers goroutines. Within a head the work is expressed as two GEMMs
 // over packed contiguous [seq, headDim] buffers:
-//   scores = scale * Qh @ Kh^T   (SgemmNTTo)
-//   outH   = softmax(scores) @ Vh (SgemmNNTo)
+//
+//	scores = scale * Qh @ Kh^T   (SgemmNTTo)
+//	outH   = softmax(scores) @ Vh (SgemmNNTo)
+//
 // This replaces ~2.9e9 per-element Sdot/Saxpy calls with batched RVV GEMMs,
 // removing the per-call/reduction overhead that dominated the scalar-call form.
 func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []float32 {
@@ -377,14 +383,23 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 		scores := make([]float32, seqQ*seqKV)
 		outh := make([]float32, seqQ*headDim)
 
-		// int8 attention scratch (goroutine-local; heads run sequentially here).
+		// int8/fp16 attention scratch (goroutine-local; heads run sequentially here).
 		var (
-			mq, nk, kpad             int
-			qi8, ki8, si8, vti8, qp, kp, sp, vtp []int8
-			qs, ks, ss, vts, vhT, sPad []float32
-			cqk, cout                []int32
+			mq, nk, kpad                           int
+			qi8, ki8, si8, vti8, qp, kp, sp, vtp   []int8
+			qs, ks, ss, vts, vhT, sPad             []float32
+			cqk, cout                              []int32
+			qf16, kf16, sf16, vtf16, kpf16, vtpf16 []uint16
+			cqkf16                                 []float32
 		)
-		if attnInt8 {
+		if attnF16 {
+			kpad = (seqKV + 31) &^ 31
+			qf16 = make([]uint16, seqQ*headDim)
+			kf16 = make([]uint16, kpad*headDim)
+			cqkf16 = make([]float32, seqQ*kpad)
+			sf16 = make([]uint16, seqQ*kpad)
+			vtf16 = make([]uint16, headDim*kpad)
+		} else if attnInt8 {
 			mq = (seqQ + 3) &^ 3
 			nk = (seqKV + 3) &^ 3
 			kpad = (seqKV + 7) &^ 7
@@ -417,6 +432,14 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 				copy(vh[t*headDim:(t+1)*headDim], v[t*dModel+hOff:t*dModel+hOff+headDim])
 			}
 
+			if attnF16 {
+				attnF16Head(scores, outh, qh, kh, vh, seqQ, seqKV, headDim, scale,
+					kpad, qf16, kf16, sf16, vtf16, cqkf16, kpf16, vtpf16)
+				for t := 0; t < seqQ; t++ {
+					copy(out[t*dModel+hOff:t*dModel+hOff+headDim], outh[t*headDim:(t+1)*headDim])
+				}
+				continue
+			}
 			if attnInt8 {
 				attnInt8Head(scores, outh, qh, kh, vh, seqQ, seqKV, headDim, scale,
 					mq, nk, kpad, qi8, qs, ki8, ks, cqk, qp, kp,
