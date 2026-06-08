@@ -51,3 +51,11 @@ Current overhead reductions implemented: the A100 helper reuses one Q8 activatio
 pack scratch per worker, and Whisper no longer clones/pads the full activation
 matrix just to satisfy the M4 kernel tail; non-M4 tails are handled inside the
 A100 pooled helper with small per-worker scratch.
+
+A100 FFN batching/prewarm update: the A100 hook can also be extended to FC2 with
+`WHISPER_A100_FC2=1`, but live measurement is negative (`FC1+FC2` was about
+`pass0=48.1s` versus `FC1` at about `44.0s`, with decode/token drift in that
+sample), so FC2 remains explicitly experimental. The useful cold-pass win is
+prepacking all enabled encoder A100 FFN weights and prewarming the pool at model
+load time: FC1 pass0 improved from roughly `43.7s` to `41.1s`, close to native
+int8 but still slower than the `~40.1s` baseline on the same sample.

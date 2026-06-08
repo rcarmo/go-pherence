@@ -14,7 +14,10 @@ import (
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 )
 
-var useA100FC1 = os.Getenv("WHISPER_A100_FC1") != ""
+var (
+	useA100FC1 = os.Getenv("WHISPER_A100_FC1") != ""
+	useA100FC2 = os.Getenv("WHISPER_A100_FC2") != ""
+)
 
 var (
 	a100PoolOnce    sync.Once
@@ -44,9 +47,9 @@ func getA100Pool() *aipool.AIWorkerPool {
 		if runtime.GOMAXPROCS(0) < needP {
 			runtime.GOMAXPROCS(needP)
 		}
-		// The FC1 A100 integration uses its own per-call M4 activation packing; the
-		// generic TCM activation staging in AIWorkerPool is not yet a whole-pass win
-		// for this path. Default it off unless the caller explicitly requests it.
+		// The experimental A100 FFN integration uses its own per-call activation M4
+		// packing; generic activation TCM staging in AIWorkerPool has not measured as
+		// a whole-pass win for this path. Default it off unless explicitly requested.
 		if os.Getenv("IME2_TCM_ACT") == "" {
 			os.Setenv("IME2_TCM_ACT", "0")
 		}
@@ -65,12 +68,21 @@ func getA100Q80x32Weight(weight []float32, outDim, inDim int) ime2.Q80x32 {
 	return q
 }
 
-func a100FC1Eligible(seqLen, inDim, outDim int) bool {
-	return useA100FC1 && inDim == 1280 && outDim == 5120
+func a100LinearEligible(seqLen, inDim, outDim int) bool {
+	if seqLen <= 0 {
+		return false
+	}
+	if useA100FC1 && inDim == 1280 && outDim == 5120 {
+		return true
+	}
+	if useA100FC2 && inDim == 5120 && outDim == 1280 {
+		return true
+	}
+	return false
 }
 
 func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) ([]float32, bool) {
-	if !a100FC1Eligible(seqLen, inDim, outDim) {
+	if !a100LinearEligible(seqLen, inDim, outDim) {
 		return nil, false
 	}
 	w := getA100Q80x32Weight(weight, outDim, inDim)
@@ -95,5 +107,21 @@ func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) 
 	return out, true
 }
 
+func prepackA100EncoderWeights(enc *Encoder) {
+	if enc == nil || (!useA100FC1 && !useA100FC2) {
+		return
+	}
+	_ = getA100Pool()
+	for i := range enc.Layers {
+		layer := &enc.Layers[i]
+		if useA100FC1 && len(layer.FC1Weight) != 0 {
+			_ = getA100Q80x32Weight(layer.FC1Weight, 5120, 1280)
+		}
+		if useA100FC2 && len(layer.FC2Weight) != 0 {
+			_ = getA100Q80x32Weight(layer.FC2Weight, 1280, 5120)
+		}
+	}
+}
+
 func resetA100Timers()       { a100Ns = 0 }
-func a100TimingLine() string { return "[a100] fc1=" + time.Duration(a100Ns).String() }
+func a100TimingLine() string { return "[a100] ffn=" + time.Duration(a100Ns).String() }
