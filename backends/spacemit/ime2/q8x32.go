@@ -72,9 +72,16 @@ func PackF32ToQ80x32(M, K int, f32 []float32) Q80x32 {
 // consumed by K3I8I8M4: per K32 block fp32 scale[4], int16 negative_sum[4],
 // int8 q[4][32].
 func QuantizeF32RowsQ8M4(rows [4][]float32, kBlks int) []byte {
-	out := make([]byte, kBlks*K3I8I8ABlockM4Bytes)
+	return QuantizeF32RowsQ8M4Into(rows, kBlks, make([]byte, kBlks*K3I8I8ABlockM4Bytes))
+}
+
+// QuantizeF32RowsQ8M4Into is the allocation-free form of QuantizeF32RowsQ8M4.
+// dst must have at least kBlks*K3I8I8ABlockM4Bytes bytes and is returned sliced
+// to that length. This is intended for persistent A100 worker scratch buffers.
+func QuantizeF32RowsQ8M4Into(rows [4][]float32, kBlks int, dst []byte) []byte {
+	out := dst[:kBlks*K3I8I8ABlockM4Bytes]
 	for sb := 0; sb < kBlks; sb++ {
-		dst := sb * K3I8I8ABlockM4Bytes
+		dstOff := sb * K3I8I8ABlockM4Bytes
 		for r := 0; r < 4; r++ {
 			maxAbs := float32(0)
 			for k := 0; k < 32; k++ {
@@ -89,7 +96,7 @@ func QuantizeF32RowsQ8M4(rows [4][]float32, kBlks int) []byte {
 				scale = maxAbs / 127.0
 				inv = 1 / scale
 			}
-			binary.LittleEndian.PutUint32(out[dst+r*4:], math.Float32bits(scale))
+			binary.LittleEndian.PutUint32(out[dstOff+r*4:], math.Float32bits(scale))
 			sum := 0
 			for k := 0; k < 32; k++ {
 				q := int(math.Round(float64(rows[r][sb*32+k] * inv)))
@@ -99,10 +106,10 @@ func QuantizeF32RowsQ8M4(rows [4][]float32, kBlks int) []byte {
 				if q < -128 {
 					q = -128
 				}
-				out[dst+24+r*32+k] = byte(int8(q))
+				out[dstOff+24+r*32+k] = byte(int8(q))
 				sum += q
 			}
-			binary.LittleEndian.PutUint16(out[dst+16+r*2:], uint16(int16(-sum)))
+			binary.LittleEndian.PutUint16(out[dstOff+16+r*2:], uint16(int16(-sum)))
 		}
 	}
 	return out

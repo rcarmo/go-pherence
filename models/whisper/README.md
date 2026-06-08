@@ -42,3 +42,8 @@ baseline native int8 `pass0=40.2s` / `encoder+xkv=35.8s`. The FC1 kernel itself
 runs (~2.7s total), but the extra activation/weight Q8_0 packing and scheduler
 interaction still erase the win. Keep this as infrastructure while improving
 packing/pooling before making it default.
+
+Warm-cache A100 note: with `WHISPER_REPEAT=2`, A100 FC1 improves to
+`pass1=37.9s`, but baseline native int8 is still faster at `pass1=35.7s`. The
+FC1 kernel itself is not the bottleneck; activation packing and scheduler/pool
+integration remain the overhead to remove before enabling A100 by default.
