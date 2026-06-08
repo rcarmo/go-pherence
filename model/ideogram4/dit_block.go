@@ -198,20 +198,24 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	scaleAttn := float32(1 / math.Sqrt(float64(headDim)))
 
 	// ---- Attention sublayer ----
-	normed := make([]float32, emb)
+	normedAll := make([]float32, tokens*emb)
 	q := make([]float32, tokens*emb)
 	k := make([]float32, tokens*emb)
 	v := make([]float32, tokens*emb)
-	qkv := make([]float32, 3*emb)
+	qkvAll := make([]float32, tokens*3*emb)
 	for t := 0; t < tokens; t++ {
 		row := hidden[t*emb : (t+1)*emb]
+		normed := normedAll[t*emb : (t+1)*emb]
 		rmsNormWeightedTo(normed, row, l.AttnN1, normEps)
 		for i := 0; i < emb; i++ {
 			normed[i] *= scaleMSA[i]
 		}
-		if err := layerGPU.QKV(l, normed, qkv); err != nil {
-			return err
-		}
+	}
+	if err := layerGPU.QKVBatch(l, normedAll, qkvAll, tokens); err != nil {
+		return err
+	}
+	for t := 0; t < tokens; t++ {
+		qkv := qkvAll[t*3*emb : (t+1)*3*emb]
 		copy(q[t*emb:(t+1)*emb], qkv[0:emb])
 		copy(k[t*emb:(t+1)*emb], qkv[emb:2*emb])
 		copy(v[t*emb:(t+1)*emb], qkv[2*emb:3*emb])
@@ -233,39 +237,44 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 		return err
 	}
 	// output projection, post-norm, gated residual.
-	oproj := make([]float32, emb)
+	oprojAll := make([]float32, tokens*emb)
+	if err := layerGPU.OBatch(l, attnOut, oprojAll, tokens); err != nil {
+		return err
+	}
 	postNorm := make([]float32, emb)
 	for t := 0; t < tokens; t++ {
-		if err := layerGPU.O(l, attnOut[t*emb:(t+1)*emb], oproj); err != nil {
-			return err
-		}
-		rmsNormWeightedTo(postNorm, oproj, l.AttnN2, normEps)
+		rmsNormWeightedTo(postNorm, oprojAll[t*emb:(t+1)*emb], l.AttnN2, normEps)
 		row := hidden[t*emb : (t+1)*emb]
 		addGatedResidual(row, postNorm, gateMSA)
 	}
 
 	// ---- MLP sublayer (SwiGLU) ----
 	inter := cfg.IntermediateSize
-	g := make([]float32, inter)
-	u := make([]float32, inter)
-	down := make([]float32, emb)
+	mlpIn := normedAll
 	for t := 0; t < tokens; t++ {
 		row := hidden[t*emb : (t+1)*emb]
+		normed := mlpIn[t*emb : (t+1)*emb]
 		rmsNormWeightedTo(normed, row, l.FfnN1, normEps)
 		for i := 0; i < emb; i++ {
 			normed[i] *= scaleMLP[i]
 		}
-		if err := layerGPU.W1(l, normed, g); err != nil {
-			return err
-		}
-		if err := layerGPU.W3(l, normed, u); err != nil {
-			return err
-		}
-		siluMulInPlace(g, u)
-		if err := layerGPU.W2(l, g, down); err != nil {
-			return err
-		}
-		rmsNormWeightedTo(postNorm, down, l.FfnN2, normEps)
+	}
+	gAll := make([]float32, tokens*inter)
+	uAll := make([]float32, tokens*inter)
+	downAll := make([]float32, tokens*emb)
+	if err := layerGPU.W1Batch(l, mlpIn, gAll, tokens); err != nil {
+		return err
+	}
+	if err := layerGPU.W3Batch(l, mlpIn, uAll, tokens); err != nil {
+		return err
+	}
+	siluMulInPlace(gAll, uAll)
+	if err := layerGPU.W2Batch(l, gAll, downAll, tokens); err != nil {
+		return err
+	}
+	for t := 0; t < tokens; t++ {
+		row := hidden[t*emb : (t+1)*emb]
+		rmsNormWeightedTo(postNorm, downAll[t*emb:(t+1)*emb], l.FfnN2, normEps)
 		addGatedResidual(row, postNorm, gateMLP)
 	}
 	return nil

@@ -9,6 +9,7 @@ import (
 )
 
 var fnFP8E4M3GemvF32 CUfunction
+var fnFP8E4M3GemmF32 CUfunction
 
 var fp8Scratch = struct {
 	sync.Mutex
@@ -166,6 +167,111 @@ func GemvFP8E4M3(out, x []float32, w *GPUFP8E4M3Linear) error {
 		return err
 	}
 	return lin.GemvTo(x[:w.InDim], out[:w.OutDim])
+}
+
+// GemmFP8E4M3 computes dense row-major out[batch,OutDim] = x[batch,InDim] · W^T.
+func GemmFP8E4M3(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(w) {
+		return fmt.Errorf("invalid GPU FP8 E4M3 linear")
+	}
+	if batch <= 0 {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM batch=%d", batch)
+	}
+	inLen, ok := checkedMulInt(batch, w.InDim)
+	if !ok {
+		return fmt.Errorf("FP8 E4M3 GEMM input size overflow batch=%d in=%d", batch, w.InDim)
+	}
+	outLen, ok := checkedMulInt(batch, w.OutDim)
+	if !ok {
+		return fmt.Errorf("FP8 E4M3 GEMM output size overflow batch=%d out=%d", batch, w.OutDim)
+	}
+	if len(x) < inLen || len(out) < outLen {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM buffers out=%d/%d x=%d/%d", len(out), outLen, len(x), inLen)
+	}
+	if SgemmReady() {
+		if err := gemmFP8E4M3CUDA(out, x, batch, w); err == nil {
+			return nil
+		} else {
+			debugf("[gpu] FP8 E4M3 GEMM CUDA fallback: %v\n", err)
+		}
+	}
+	lin, err := downloadFP8E4M3Linear(w)
+	if err != nil {
+		return err
+	}
+	for b := 0; b < batch; b++ {
+		if err := lin.GemvTo(x[b*w.InDim:(b+1)*w.InDim], out[b*w.OutDim:(b+1)*w.OutDim]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func GemmFP8E4M3Buffer(outBuf, xBuf *Buffer, batch int, w *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(w) || outBuf == nil || xBuf == nil {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM device buffers")
+	}
+	inLen, ok := checkedMulInt(batch, w.InDim)
+	if !ok {
+		return fmt.Errorf("FP8 E4M3 GEMM input size overflow")
+	}
+	outLen, ok := checkedMulInt(batch, w.OutDim)
+	if !ok {
+		return fmt.Errorf("FP8 E4M3 GEMM output size overflow")
+	}
+	if _, err := checkedByteSize(outLen, outBuf.Size); err != nil {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(inLen, xBuf.Size); err != nil {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM input buffer: %w", err)
+	}
+	if fnFP8E4M3GemmF32 == 0 || !megaModuleOK {
+		return fmt.Errorf("FP8 E4M3 GEMM kernel not available")
+	}
+	if !fitsUint32(w.OutDim) || !fitsUint32(w.InDim) || !fitsUint32(w.ScaleLen) || !fitsUint32(batch) {
+		return fmt.Errorf("FP8 E4M3 GEMM dims exceed CUDA u32 interface")
+	}
+	biasPtr := CUdeviceptr(0)
+	hasBias := uint32(0)
+	if w.Bias != nil {
+		biasPtr = w.Bias.Ptr
+		hasBias = 1
+	}
+	outDim := uint32(w.OutDim)
+	inDim := uint32(w.InDim)
+	scaleLen := uint32(w.ScaleLen)
+	batchU := uint32(batch)
+	return LaunchKernel(fnFP8E4M3GemmF32, uint32(w.OutDim), batchU, 1, 128, 1, 1, 128*4,
+		unsafe.Pointer(&w.Weight.Ptr),
+		unsafe.Pointer(&w.Scale.Ptr),
+		unsafe.Pointer(&biasPtr),
+		unsafe.Pointer(&xBuf.Ptr),
+		unsafe.Pointer(&outBuf.Ptr),
+		unsafe.Pointer(&outDim),
+		unsafe.Pointer(&inDim),
+		unsafe.Pointer(&scaleLen),
+		unsafe.Pointer(&hasBias),
+		unsafe.Pointer(&batchU))
+}
+
+func gemmFP8E4M3CUDA(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
+	inLen := batch * w.InDim
+	outLen := batch * w.OutDim
+	xBuf, outBuf, unlock, err := fp8ScratchBuffers(inLen, outLen)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err := xBuf.Upload(x[:inLen]); err != nil {
+		return fmt.Errorf("upload FP8 E4M3 GEMM input: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(outBuf, xBuf, batch, w); err != nil {
+		return err
+	}
+	if err := outBuf.Download(out[:outLen]); err != nil {
+		return fmt.Errorf("download FP8 E4M3 GEMM output: %w", err)
+	}
+	return nil
 }
 
 // GemvFP8E4M3Buffer computes into GPU-resident buffers. It is the lower-level

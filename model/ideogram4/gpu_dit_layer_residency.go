@@ -124,3 +124,50 @@ func (r *ditLayerGPUResidency) AdaLN(l DiTLayer, x, out []float32) error {
 	}
 	return r.gemv("adaln", w, l.AdaLN, x, out)
 }
+
+func (r *ditLayerGPUResidency) gemm(name string, gpuW *nvidia.GPUFP8E4M3Linear, cpuW *FP8Linear, x, out []float32, batch int) error {
+	if r != nil && gpuW != nil {
+		if err := nvidia.GemmFP8E4M3(out, x, batch, gpuW); err == nil {
+			return nil
+		} else if gpuFP8Strict() {
+			return fmt.Errorf("DiT layer GPU %s GEMM: %w", name, err)
+		}
+	}
+	return cpuW.ApplyBatch(x, out, batch)
+}
+
+func (r *ditLayerGPUResidency) QKVBatch(l DiTLayer, x, out []float32, batch int) error {
+	var w *nvidia.GPUFP8E4M3Linear
+	if r != nil {
+		w = r.qkv
+	}
+	return r.gemm("qkv", w, l.QKV, x, out, batch)
+}
+func (r *ditLayerGPUResidency) OBatch(l DiTLayer, x, out []float32, batch int) error {
+	var w *nvidia.GPUFP8E4M3Linear
+	if r != nil {
+		w = r.o
+	}
+	return r.gemm("o", w, l.O, x, out, batch)
+}
+func (r *ditLayerGPUResidency) W1Batch(l DiTLayer, x, out []float32, batch int) error {
+	var w *nvidia.GPUFP8E4M3Linear
+	if r != nil {
+		w = r.w1
+	}
+	return r.gemm("w1", w, l.W1, x, out, batch)
+}
+func (r *ditLayerGPUResidency) W2Batch(l DiTLayer, x, out []float32, batch int) error {
+	var w *nvidia.GPUFP8E4M3Linear
+	if r != nil {
+		w = r.w2
+	}
+	return r.gemm("w2", w, l.W2, x, out, batch)
+}
+func (r *ditLayerGPUResidency) W3Batch(l DiTLayer, x, out []float32, batch int) error {
+	var w *nvidia.GPUFP8E4M3Linear
+	if r != nil {
+		w = r.w3
+	}
+	return r.gemm("w3", w, l.W3, x, out, batch)
+}

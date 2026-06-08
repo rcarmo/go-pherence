@@ -66,4 +66,36 @@ func (f *FP8Linear) Apply(x []float32, out []float32) error {
 	return f.weight.GemvTo(x, out)
 }
 
+// ApplyBatch computes row-major out[batch,OutDim] = x[batch,InDim] * W^T.
+// It preserves the same GPU/CPU fallback policy as Apply while reducing host
+// overhead for token-wise Ideogram projections.
+func (f *FP8Linear) ApplyBatch(x []float32, out []float32, batch int) error {
+	if f == nil {
+		return ErrRuntimeNotImplemented
+	}
+	if batch <= 0 {
+		return fmt.Errorf("ideogram4 fp8 linear %q invalid batch=%d", f.spec.Prefix, batch)
+	}
+	if len(x) < batch*f.weight.InDim || len(out) < batch*f.weight.OutDim {
+		return fmt.Errorf("ideogram4 fp8 linear %q invalid batch buffers x=%d/%d out=%d/%d", f.spec.Prefix, len(x), batch*f.weight.InDim, len(out), batch*f.weight.OutDim)
+	}
+	if gpuFP8Enabled() {
+		var err error
+		if gpuFP8CacheEnabled() {
+			err = f.applyGPUBatchCached(x, out, batch)
+		} else {
+			err = f.applyGPUBatchStreaming(x, out, batch)
+		}
+		if err == nil || gpuFP8Strict() {
+			return err
+		}
+	}
+	for b := 0; b < batch; b++ {
+		if err := f.weight.GemvTo(x[b*f.weight.InDim:(b+1)*f.weight.InDim], out[b*f.weight.OutDim:(b+1)*f.weight.OutDim]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 var _ FP8LinearWeight = (*FP8Linear)(nil)

@@ -93,3 +93,48 @@ func (f *FP8Linear) applyGPUStreaming(x []float32, out []float32) error {
 	defer w.Free()
 	return nvidia.GemvFP8E4M3(out, x, w)
 }
+
+func (f *FP8Linear) applyGPUBatchCached(x []float32, out []float32, batch int) error {
+	if f == nil {
+		return ErrRuntimeNotImplemented
+	}
+	if !nvidia.Available() {
+		return fmt.Errorf("nvidia runtime unavailable")
+	}
+	f.gpu.mu.Lock()
+	defer f.gpu.mu.Unlock()
+	if f.gpu.weight == nil || f.gpu.outDim != f.weight.OutDim || f.gpu.inDim != f.weight.InDim {
+		if f.gpu.weight != nil {
+			f.gpu.weight.Free()
+			f.gpu.weight = nil
+		}
+		w, err := nvidia.UploadFP8E4M3Linear(f.weight.Weight, f.weight.Scale, f.weight.Bias, f.weight.OutDim, f.weight.InDim)
+		if err != nil {
+			return err
+		}
+		f.gpu.weight = w
+		f.gpu.outDim = f.weight.OutDim
+		f.gpu.inDim = f.weight.InDim
+	}
+	if err := nvidia.GemmFP8E4M3(out, x, batch, f.gpu.weight); err != nil {
+		f.gpu.weight.Free()
+		f.gpu.weight = nil
+		return err
+	}
+	return nil
+}
+
+func (f *FP8Linear) applyGPUBatchStreaming(x []float32, out []float32, batch int) error {
+	if f == nil {
+		return ErrRuntimeNotImplemented
+	}
+	if !nvidia.Available() {
+		return fmt.Errorf("nvidia runtime unavailable")
+	}
+	w, err := nvidia.UploadFP8E4M3Linear(f.weight.Weight, f.weight.Scale, f.weight.Bias, f.weight.OutDim, f.weight.InDim)
+	if err != nil {
+		return err
+	}
+	defer w.Free()
+	return nvidia.GemmFP8E4M3(out, x, batch, w)
+}

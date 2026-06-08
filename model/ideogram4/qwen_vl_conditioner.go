@@ -222,17 +222,20 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	qh := make([]float32, T*qDim)
 	kh := make([]float32, T*kvDim)
 	vh := make([]float32, T*kvDim)
+	normedAll := make([]float32, T*hidden)
 	for t := 0; t < T; t++ {
-		rmsNormTo(tmp, h[t*hidden:(t+1)*hidden], inW, q.eps)
-		if err := qProj.Apply(tmp, qh[t*qDim:(t+1)*qDim]); err != nil {
-			return err
-		}
-		if err := kProj.Apply(tmp, kh[t*kvDim:(t+1)*kvDim]); err != nil {
-			return err
-		}
-		if err := vProj.Apply(tmp, vh[t*kvDim:(t+1)*kvDim]); err != nil {
-			return err
-		}
+		rmsNormTo(normedAll[t*hidden:(t+1)*hidden], h[t*hidden:(t+1)*hidden], inW, q.eps)
+	}
+	if err := qProj.ApplyBatch(normedAll, qh, T); err != nil {
+		return err
+	}
+	if err := kProj.ApplyBatch(normedAll, kh, T); err != nil {
+		return err
+	}
+	if err := vProj.ApplyBatch(normedAll, vh, T); err != nil {
+		return err
+	}
+	for t := 0; t < T; t++ {
 		// per-head q/k RMSNorm then RoPE.
 		for hd := 0; hd < heads; hd++ {
 			seg := qh[t*qDim+hd*headDim : t*qDim+(hd+1)*headDim]
@@ -251,14 +254,15 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	scale := float32(1 / math.Sqrt(float64(headDim)))
 	qwenCausalGQAAttention(attn, qh, kh, vh, T, heads, kvHeads, headDim, group, qDim, kvDim, scale)
 	// output projection + residual.
-	oBuf := make([]float32, hidden)
+	oAll := make([]float32, T*hidden)
+	if err := oProj.ApplyBatch(attn, oAll, T); err != nil {
+		return err
+	}
 	for t := 0; t < T; t++ {
-		if err := oProj.Apply(attn[t*qDim:(t+1)*qDim], oBuf); err != nil {
-			return err
-		}
 		row := h[t*hidden : (t+1)*hidden]
+		oRow := oAll[t*hidden : (t+1)*hidden]
 		for i := 0; i < hidden; i++ {
-			row[i] += oBuf[i]
+			row[i] += oRow[i]
 		}
 	}
 
@@ -283,26 +287,27 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	defer gate.ReleaseGPU()
 	defer up.ReleaseGPU()
 	defer down.ReleaseGPU()
-	g := make([]float32, inter)
-	u := make([]float32, inter)
-	dBuf := make([]float32, hidden)
 	for t := 0; t < T; t++ {
-		rmsNormTo(tmp, h[t*hidden:(t+1)*hidden], postW, q.eps)
-		if err := gate.Apply(tmp, g); err != nil {
-			return err
-		}
-		if err := up.Apply(tmp, u); err != nil {
-			return err
-		}
-		for i := 0; i < inter; i++ {
-			g[i] = siluScalar(g[i]) * u[i]
-		}
-		if err := down.Apply(g, dBuf); err != nil {
-			return err
-		}
+		rmsNormTo(normedAll[t*hidden:(t+1)*hidden], h[t*hidden:(t+1)*hidden], postW, q.eps)
+	}
+	gAll := make([]float32, T*inter)
+	uAll := make([]float32, T*inter)
+	dAll := make([]float32, T*hidden)
+	if err := gate.ApplyBatch(normedAll, gAll, T); err != nil {
+		return err
+	}
+	if err := up.ApplyBatch(normedAll, uAll, T); err != nil {
+		return err
+	}
+	siluMulInPlace(gAll, uAll)
+	if err := down.ApplyBatch(gAll, dAll, T); err != nil {
+		return err
+	}
+	for t := 0; t < T; t++ {
 		row := h[t*hidden : (t+1)*hidden]
+		dRow := dAll[t*hidden : (t+1)*hidden]
 		for i := 0; i < hidden; i++ {
-			row[i] += dBuf[i]
+			row[i] += dRow[i]
 		}
 	}
 	return nil

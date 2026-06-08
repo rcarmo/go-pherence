@@ -17,10 +17,7 @@ func DefaultScheduleForResolution(height, width int, knownHeight, knownWidth int
 		return LogitNormalSchedule{}, fmt.Errorf("invalid Ideogram4 schedule resolution %dx%d known=%dx%d", height, width, knownHeight, knownWidth)
 	}
 	if std <= 0 {
-		std = 1
-	}
-	if knownMean == 0 {
-		knownMean = 1
+		std = 1.75
 	}
 	numPixels := float64(height * width)
 	knownPixels := float64(knownHeight * knownWidth)
@@ -58,6 +55,14 @@ func (s LogitNormalSchedule) Value(u float64) (float32, error) {
 	return float32(t), nil
 }
 
+func (s LogitNormalSchedule) Sigma(u float64) (float32, error) {
+	t, err := s.Value(u)
+	if err != nil {
+		return 0, err
+	}
+	return 1 - t, nil
+}
+
 type SamplingPlan struct {
 	Height           int
 	Width            int
@@ -87,7 +92,7 @@ func (c Config) BuildSamplingPlan(height, width, numSteps int, guidanceScale flo
 		return SamplingPlan{}, err
 	}
 	if schedule.Std == 0 {
-		schedule, err = DefaultScheduleForResolution(height, width, 512, 512, 1, 1)
+		schedule, err = DefaultScheduleForResolution(height, width, 512, 512, 0, 1.75)
 		if err != nil {
 			return SamplingPlan{}, err
 		}
@@ -96,16 +101,21 @@ func (c Config) BuildSamplingPlan(height, width, numSteps int, guidanceScale flo
 		return SamplingPlan{}, err
 	}
 	steps := make([]FlowStep, 0, numSteps)
-	for i := numSteps - 1; i >= 0; i-- {
-		tVal, err := schedule.Value(float64(i+1) / float64(numSteps))
+	for i := 0; i < numSteps; i++ {
+		curU := float64(numSteps-i) / float64(numSteps)
+		nextU := float64(numSteps-i-1) / float64(numSteps)
+		cur, err := schedule.Sigma(curU)
 		if err != nil {
 			return SamplingPlan{}, err
 		}
-		sVal, err := schedule.Value(float64(i) / float64(numSteps))
+		next, err := schedule.Sigma(nextU)
 		if err != nil {
 			return SamplingPlan{}, err
 		}
-		steps = append(steps, FlowStep{Index: i, Sigma: sVal - tVal, T: tVal})
+		if i == numSteps-1 {
+			next = 0
+		}
+		steps = append(steps, FlowStep{Index: i, Sigma: next - cur, T: cur})
 	}
 	gw := make([]float32, numSteps)
 	if len(guidanceSchedule) > 0 {

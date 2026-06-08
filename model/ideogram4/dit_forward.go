@@ -204,25 +204,29 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 	hidden := make([]float32, totalTokens*emb)
 	eps := float32(1e-6)
 	// text tokens: llm_cond_proj(RMSNorm(features)) + indicator[0].
-	normedFeat := make([]float32, cfg.LLMFeaturesDim)
-	for t := 0; t < textTokens; t++ {
-		feat := textFeatures[t*cfg.LLMFeaturesDim : (t+1)*cfg.LLMFeaturesDim]
-		rmsNormWeightedTo(normedFeat, feat, m.Globals.LLMCondNorm, eps)
-		row := hidden[t*emb : (t+1)*emb]
-		if err := m.Globals.LLMCondProj.Apply(normedFeat, row); err != nil {
+	if textTokens > 0 {
+		normedFeatures := make([]float32, textTokens*cfg.LLMFeaturesDim)
+		for t := 0; t < textTokens; t++ {
+			feat := textFeatures[t*cfg.LLMFeaturesDim : (t+1)*cfg.LLMFeaturesDim]
+			rmsNormWeightedTo(normedFeatures[t*cfg.LLMFeaturesDim:(t+1)*cfg.LLMFeaturesDim], feat, m.Globals.LLMCondNorm, eps)
+		}
+		if err := m.Globals.LLMCondProj.ApplyBatch(normedFeatures, hidden[:textTokens*emb], textTokens); err != nil {
 			return nil, err
 		}
-		for i := 0; i < emb; i++ {
-			row[i] += m.Globals.ImageIndicator[i] // index 0 = llm token
+		for t := 0; t < textTokens; t++ {
+			row := hidden[t*emb : (t+1)*emb]
+			for i := 0; i < emb; i++ {
+				row[i] += m.Globals.ImageIndicator[i] // index 0 = llm token
+			}
 		}
 	}
 	// image tokens: input_proj(latents) + indicator[1].
+	imageHidden := hidden[textTokens*emb:]
+	if err := m.Globals.InputProj.ApplyBatch(latents, imageHidden, imgTokens); err != nil {
+		return nil, err
+	}
 	for t := 0; t < imgTokens; t++ {
-		lat := latents[t*cfg.InChannels : (t+1)*cfg.InChannels]
-		row := hidden[(textTokens+t)*emb : (textTokens+t+1)*emb]
-		if err := m.Globals.InputProj.Apply(lat, row); err != nil {
-			return nil, err
-		}
+		row := imageHidden[t*emb : (t+1)*emb]
 		for i := 0; i < emb; i++ {
 			row[i] += m.Globals.ImageIndicator[emb+i] // index 1 = image token
 		}
@@ -260,16 +264,16 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 	for i := range scale {
 		scale[i] = 1 + scale[i]
 	}
-	normed := make([]float32, emb)
-	modBuf := make([]float32, emb)
+	modBuf := make([]float32, imgTokens*emb)
 	velocity := make([]float32, imgTokens*cfg.InChannels)
 	for t := 0; t < imgTokens; t++ {
 		row := hidden[(textTokens+t)*emb : (textTokens+t+1)*emb]
-		layerNormNoAffine(normed, row, 1e-6)
-		mulTo(modBuf, normed, scale)
-		if err := m.Globals.FinalLinear.Apply(modBuf, velocity[t*cfg.InChannels:(t+1)*cfg.InChannels]); err != nil {
-			return nil, err
-		}
+		modRow := modBuf[t*emb : (t+1)*emb]
+		layerNormNoAffine(modRow, row, 1e-6)
+		mulTo(modRow, modRow, scale)
+	}
+	if err := m.Globals.FinalLinear.ApplyBatch(modBuf, velocity, imgTokens); err != nil {
+		return nil, err
 	}
 	return velocity, nil
 }

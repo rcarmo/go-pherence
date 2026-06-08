@@ -73,6 +73,7 @@ func megaModuleEntries() []moduleEntry {
 		{"nvfp4_dequant_f32", ptxnvfp4.NVFP4DequantF32PTX},
 		{"nvfp4_gemv_f32", ptxnvfp4.NVFP4GemvF32PTX},
 		{"fp8_e4m3_gemv_f32", ptxfp8.FP8E4M3GemvF32PTX},
+		{"fp8_e4m3_gemm_f32", ptxfp8.FP8E4M3GemmF32PTX},
 		{"ideogram_cfg_step_f32", ptxideogram.IdeogramCFGStepPTX},
 		{"ideogram_layer_norm_no_affine_f32", ptxideogram.IdeogramLayerNormNoAffinePTX},
 		{"ideogram_adaln_transform_f32", ptxideogram.IdeogramAdaLNTransformPTX},
