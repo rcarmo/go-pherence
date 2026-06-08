@@ -2,6 +2,8 @@ package nvidia
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -10,6 +12,7 @@ import (
 
 var fnFP8E4M3GemvF32 CUfunction
 var fnFP8E4M3GemmF32 CUfunction
+var fnFP8E4M3DequantTransposeF32 CUfunction
 
 var fp8Scratch = struct {
 	sync.Mutex
@@ -189,6 +192,13 @@ func GemmFP8E4M3(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
 		return fmt.Errorf("invalid FP8 E4M3 GEMM buffers out=%d/%d x=%d/%d", len(out), outLen, len(x), inLen)
 	}
 	if SgemmReady() {
+		if fp8SgemmEnabled() && !w.HasBias {
+			if err := gemmFP8E4M3ViaSgemm(out, x, batch, w); err == nil {
+				return nil
+			} else {
+				debugf("[gpu] FP8 E4M3 SGEMM fallback: %v\n", err)
+			}
+		}
 		if err := gemmFP8E4M3CUDA(out, x, batch, w); err == nil {
 			return nil
 		} else {
@@ -252,6 +262,148 @@ func GemmFP8E4M3Buffer(outBuf, xBuf *Buffer, batch int, w *GPUFP8E4M3Linear) err
 		unsafe.Pointer(&scaleLen),
 		unsafe.Pointer(&hasBias),
 		unsafe.Pointer(&batchU))
+}
+
+// Gemm2FP8E4M3SameInput computes two row-major FP8 GEMMs sharing one uploaded
+// activation matrix. This is intended for SwiGLU-style projection pairs such as
+// Ideogram/Qwen W1+W3, where both linears consume the exact same [batch,InDim]
+// input. It reduces host-device traffic without changing numerical kernels.
+func Gemm2FP8E4M3SameInput(outA, outB, x []float32, batch int, wA, wB *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(wA) || !validGPUFP8E4M3Linear(wB) {
+		return fmt.Errorf("invalid GPU FP8 E4M3 linear pair")
+	}
+	if batch <= 0 {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM2 batch=%d", batch)
+	}
+	if wA.InDim != wB.InDim {
+		return fmt.Errorf("FP8 E4M3 GEMM2 input dim mismatch %d != %d", wA.InDim, wB.InDim)
+	}
+	inLen, ok := checkedMulInt(batch, wA.InDim)
+	if !ok {
+		return fmt.Errorf("FP8 E4M3 GEMM2 input size overflow batch=%d in=%d", batch, wA.InDim)
+	}
+	outALen, ok := checkedMulInt(batch, wA.OutDim)
+	if !ok {
+		return fmt.Errorf("FP8 E4M3 GEMM2 output A size overflow")
+	}
+	outBLen, ok := checkedMulInt(batch, wB.OutDim)
+	if !ok {
+		return fmt.Errorf("FP8 E4M3 GEMM2 output B size overflow")
+	}
+	if len(x) < inLen || len(outA) < outALen || len(outB) < outBLen {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM2 buffers x=%d/%d outA=%d/%d outB=%d/%d", len(x), inLen, len(outA), outALen, len(outB), outBLen)
+	}
+	if !SgemmReady() {
+		linA, err := downloadFP8E4M3Linear(wA)
+		if err != nil {
+			return err
+		}
+		linB, err := downloadFP8E4M3Linear(wB)
+		if err != nil {
+			return err
+		}
+		for b := 0; b < batch; b++ {
+			if err := linA.GemvTo(x[b*wA.InDim:(b+1)*wA.InDim], outA[b*wA.OutDim:(b+1)*wA.OutDim]); err != nil {
+				return err
+			}
+			if err := linB.GemvTo(x[b*wB.InDim:(b+1)*wB.InDim], outB[b*wB.OutDim:(b+1)*wB.OutDim]); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	xBuf, outABuf, unlock, err := fp8ScratchBuffers(inLen, outALen)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	outBBuf, err := Malloc(outBLen)
+	if err != nil {
+		return fmt.Errorf("alloc FP8 E4M3 GEMM2 output B: %w", err)
+	}
+	defer outBBuf.Free()
+	if err := xBuf.Upload(x[:inLen]); err != nil {
+		return fmt.Errorf("upload FP8 E4M3 GEMM2 input: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(outABuf, xBuf, batch, wA); err != nil {
+		return fmt.Errorf("GEMM2 A: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(outBBuf, xBuf, batch, wB); err != nil {
+		return fmt.Errorf("GEMM2 B: %w", err)
+	}
+	if err := outABuf.Download(outA[:outALen]); err != nil {
+		return fmt.Errorf("download FP8 E4M3 GEMM2 output A: %w", err)
+	}
+	if err := outBBuf.Download(outB[:outBLen]); err != nil {
+		return fmt.Errorf("download FP8 E4M3 GEMM2 output B: %w", err)
+	}
+	return nil
+}
+
+func fp8SgemmEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_NVIDIA_FP8_SGEMM")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func gemmFP8E4M3ViaSgemm(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
+	if fnFP8E4M3DequantTransposeF32 == 0 || !megaModuleOK {
+		return fmt.Errorf("FP8 E4M3 dequant-transpose kernel not available")
+	}
+	inLen := batch * w.InDim
+	outLen := batch * w.OutDim
+	weightLen := w.InDim * w.OutDim
+	xBuf, err := Malloc(inLen)
+	if err != nil {
+		return fmt.Errorf("alloc FP8 SGEMM input: %w", err)
+	}
+	defer xBuf.Free()
+	wtBuf, err := Malloc(weightLen)
+	if err != nil {
+		return fmt.Errorf("alloc FP8 SGEMM dequant weight: %w", err)
+	}
+	defer wtBuf.Free()
+	outBuf, err := Malloc(outLen)
+	if err != nil {
+		return fmt.Errorf("alloc FP8 SGEMM output: %w", err)
+	}
+	defer outBuf.Free()
+	if err := xBuf.Upload(x[:inLen]); err != nil {
+		return fmt.Errorf("upload FP8 SGEMM input: %w", err)
+	}
+	if err := dequantTransposeFP8E4M3(wtBuf, w); err != nil {
+		return err
+	}
+	if err := Sgemm(batch, w.OutDim, w.InDim, 1, xBuf, wtBuf, outBuf); err != nil {
+		return fmt.Errorf("FP8 SGEMM: %w", err)
+	}
+	if err := outBuf.Download(out[:outLen]); err != nil {
+		return fmt.Errorf("download FP8 SGEMM output: %w", err)
+	}
+	return nil
+}
+
+func dequantTransposeFP8E4M3(dst *Buffer, w *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(w) || dst == nil {
+		return fmt.Errorf("invalid FP8 dequant-transpose input")
+	}
+	weightLen := w.InDim * w.OutDim
+	if _, err := checkedByteSize(weightLen, dst.Size); err != nil {
+		return fmt.Errorf("invalid FP8 dequant-transpose output: %w", err)
+	}
+	if !fitsUint32(w.OutDim) || !fitsUint32(w.InDim) || !fitsUint32(w.ScaleLen) {
+		return fmt.Errorf("FP8 dequant-transpose dims exceed CUDA u32 interface")
+	}
+	outDim := uint32(w.OutDim)
+	inDim := uint32(w.InDim)
+	scaleLen := uint32(w.ScaleLen)
+	blocks := uint32((weightLen + 255) / 256)
+	return LaunchKernel(fnFP8E4M3DequantTransposeF32, blocks, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&w.Weight.Ptr),
+		unsafe.Pointer(&w.Scale.Ptr),
+		unsafe.Pointer(&dst.Ptr),
+		unsafe.Pointer(&outDim),
+		unsafe.Pointer(&inDim),
+		unsafe.Pointer(&scaleLen))
 }
 
 func gemmFP8E4M3CUDA(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {

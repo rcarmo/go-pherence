@@ -293,10 +293,7 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 	gAll := make([]float32, T*inter)
 	uAll := make([]float32, T*inter)
 	dAll := make([]float32, T*hidden)
-	if err := gate.ApplyBatch(normedAll, gAll, T); err != nil {
-		return err
-	}
-	if err := up.ApplyBatch(normedAll, uAll, T); err != nil {
+	if err := applyBatch2SameInput(gate, up, normedAll, gAll, uAll, T); err != nil {
 		return err
 	}
 	siluMulInPlace(gAll, uAll)

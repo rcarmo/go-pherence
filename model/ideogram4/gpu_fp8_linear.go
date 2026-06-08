@@ -138,3 +138,69 @@ func (f *FP8Linear) applyGPUBatchStreaming(x []float32, out []float32, batch int
 	defer w.Free()
 	return nvidia.GemmFP8E4M3(out, x, batch, w)
 }
+
+func applyBatch2SameInput(a, b *FP8Linear, x, outA, outB []float32, batch int) error {
+	if a == nil || b == nil {
+		return ErrRuntimeNotImplemented
+	}
+	if gpuFP8Enabled() && nvidia.Available() {
+		if gpuFP8CacheEnabled() {
+			a.gpu.mu.Lock()
+			defer a.gpu.mu.Unlock()
+			b.gpu.mu.Lock()
+			defer b.gpu.mu.Unlock()
+			if err := ensureFP8LinearGPUCachedLocked(a); err != nil {
+				if gpuFP8Strict() {
+					return err
+				}
+			} else if err := ensureFP8LinearGPUCachedLocked(b); err != nil {
+				if gpuFP8Strict() {
+					return err
+				}
+			} else if err := nvidia.Gemm2FP8E4M3SameInput(outA, outB, x, batch, a.gpu.weight, b.gpu.weight); err == nil || gpuFP8Strict() {
+				return err
+			}
+		} else {
+			wa, err := nvidia.UploadFP8E4M3Linear(a.weight.Weight, a.weight.Scale, a.weight.Bias, a.weight.OutDim, a.weight.InDim)
+			if err != nil {
+				if gpuFP8Strict() {
+					return err
+				}
+			} else {
+				defer wa.Free()
+				wb, err := nvidia.UploadFP8E4M3Linear(b.weight.Weight, b.weight.Scale, b.weight.Bias, b.weight.OutDim, b.weight.InDim)
+				if err != nil {
+					if gpuFP8Strict() {
+						return err
+					}
+				} else {
+					defer wb.Free()
+					if err := nvidia.Gemm2FP8E4M3SameInput(outA, outB, x, batch, wa, wb); err == nil || gpuFP8Strict() {
+						return err
+					}
+				}
+			}
+		}
+	}
+	if err := a.ApplyBatch(x, outA, batch); err != nil {
+		return err
+	}
+	return b.ApplyBatch(x, outB, batch)
+}
+
+func ensureFP8LinearGPUCachedLocked(f *FP8Linear) error {
+	if f.gpu.weight == nil || f.gpu.outDim != f.weight.OutDim || f.gpu.inDim != f.weight.InDim {
+		if f.gpu.weight != nil {
+			f.gpu.weight.Free()
+			f.gpu.weight = nil
+		}
+		w, err := nvidia.UploadFP8E4M3Linear(f.weight.Weight, f.weight.Scale, f.weight.Bias, f.weight.OutDim, f.weight.InDim)
+		if err != nil {
+			return err
+		}
+		f.gpu.weight = w
+		f.gpu.outDim = f.weight.OutDim
+		f.gpu.inDim = f.weight.InDim
+	}
+	return nil
+}

@@ -171,3 +171,17 @@ func (r *ditLayerGPUResidency) W3Batch(l DiTLayer, x, out []float32, batch int) 
 	}
 	return r.gemm("w3", w, l.W3, x, out, batch)
 }
+
+func (r *ditLayerGPUResidency) W1W3Batch(l DiTLayer, x, outW1, outW3 []float32, batch int) error {
+	if r != nil && r.w1 != nil && r.w3 != nil {
+		if err := nvidia.Gemm2FP8E4M3SameInput(outW1, outW3, x, batch, r.w1, r.w3); err == nil {
+			return nil
+		} else if gpuFP8Strict() {
+			return fmt.Errorf("DiT layer GPU w1+w3 GEMM2: %w", err)
+		}
+	}
+	if err := l.W1.ApplyBatch(x, outW1, batch); err != nil {
+		return err
+	}
+	return l.W3.ApplyBatch(x, outW3, batch)
+}

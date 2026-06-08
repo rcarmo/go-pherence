@@ -304,3 +304,90 @@ done:
     ret;
 }
 `
+
+// FP8E4M3DequantTransposeF32PTX dequantizes row-major FP8 W[out,in] into
+// F32 transposed WT[in,out], applying per-tensor or per-row scale.
+const FP8E4M3DequantTransposeF32PTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry fp8_e4m3_dequant_transpose_f32(
+    .param .u64 W,
+    .param .u64 SCALE,
+    .param .u64 WT,
+    .param .u32 OUT_DIM,
+    .param .u32 IN_DIM,
+    .param .u32 SCALE_LEN
+) {
+    .reg .pred %p<10>;
+    .reg .u32 %r<32>;
+    .reg .u64 %rd<18>;
+    .reg .f32 %f<8>;
+
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2;      // linear index
+    ld.param.u32 %r4, [OUT_DIM];
+    ld.param.u32 %r5, [IN_DIM];
+    mul.lo.u32 %r6, %r4, %r5;           // total
+    setp.ge.u32 %p0, %r3, %r6;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [W];
+    ld.param.u64 %rd1, [SCALE];
+    ld.param.u64 %rd2, [WT];
+    ld.param.u32 %r20, [SCALE_LEN];
+
+    div.u32 %r7, %r3, %r5;              // row/out
+    rem.u32 %r8, %r3, %r5;              // col/in
+    cvt.u64.u32 %rd3, %r3;
+    add.u64 %rd4, %rd0, %rd3;
+    ld.global.u8 %r9, [%rd4];
+
+    and.b32 %r10, %r9, 127;
+    setp.eq.u32 %p1, %r10, 127;
+    @%p1 bra val_nan;
+    and.b32 %r11, %r9, 128;
+    shr.u32 %r12, %r9, 3;
+    and.b32 %r12, %r12, 15;
+    and.b32 %r13, %r9, 7;
+    setp.eq.u32 %p2, %r12, 0;
+    @%p2 bra val_subnormal;
+
+    add.u32 %r14, %r12, 120;
+    shl.b32 %r14, %r14, 23;
+    shl.b32 %r15, %r13, 20;
+    or.b32 %r16, %r14, %r15;
+    setp.ne.u32 %p3, %r11, 0;
+    @%p3 or.b32 %r16, %r16, 2147483648;
+    mov.b32 %f1, %r16;
+    bra val_done;
+
+val_subnormal:
+    cvt.rn.f32.u32 %f1, %r13;
+    mul.f32 %f1, %f1, 0f3B000000;
+    setp.ne.u32 %p3, %r11, 0;
+    @%p3 neg.f32 %f1, %f1;
+    bra val_done;
+
+val_nan:
+    mov.f32 %f1, 0f7FC00000;
+
+val_done:
+    setp.eq.u32 %p4, %r20, 1;
+    @%p4 mov.u32 %r21, 0;
+    @!%p4 mov.u32 %r21, %r7;
+    mul.wide.u32 %rd5, %r21, 4;
+    add.u64 %rd6, %rd1, %rd5;
+    ld.global.f32 %f2, [%rd6];
+    mul.f32 %f1, %f1, %f2;
+
+    mad.lo.u32 %r22, %r8, %r4, %r7;     // WT[col*out + row]
+    mul.wide.u32 %rd7, %r22, 4;
+    add.u64 %rd8, %rd2, %rd7;
+    st.global.f32 [%rd8], %f1;
+
+done:
+    ret;
+}
+`

@@ -262,10 +262,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	gAll := make([]float32, tokens*inter)
 	uAll := make([]float32, tokens*inter)
 	downAll := make([]float32, tokens*emb)
-	if err := layerGPU.W1Batch(l, mlpIn, gAll, tokens); err != nil {
-		return err
-	}
-	if err := layerGPU.W3Batch(l, mlpIn, uAll, tokens); err != nil {
+	if err := layerGPU.W1W3Batch(l, mlpIn, gAll, uAll, tokens); err != nil {
 		return err
 	}
 	siluMulInPlace(gAll, uAll)

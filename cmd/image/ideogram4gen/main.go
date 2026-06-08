@@ -24,13 +24,14 @@ func main() {
 	seed := flag.Int64("seed", 0, "init-noise seed")
 	gpu := flag.Bool("gpu", false, "enable production-safe coarse Ideogram4 NVIDIA GPU gates (CFG and VAE; token/row-level experimental gates remain opt-in via env or -gpu-fp8)")
 	gpuStrict := flag.Bool("gpu-strict", false, "enable strict GPU validation for enabled Ideogram4 GPU gates (no CPU fallback on GPU errors)")
-	gpuFP8 := flag.Bool("gpu-fp8", false, "enable experimental Ideogram4 FP8 projection offload to NVIDIA (correctness-oriented GEMV; slow without batching)")
+	gpuFP8 := flag.Bool("gpu-fp8", false, "enable experimental Ideogram4 FP8 projection offload to NVIDIA")
 	gpuFP8Cache := flag.Bool("gpu-fp8-cache", false, "cache uploaded Ideogram4 FP8 linear weights on GPU when FP8 GPU path is enabled")
+	gpuFP8SGEMM := flag.Bool("gpu-fp8-sgemm", false, "use tiled SGEMM for batched no-bias FP8 projections by GPU-dequantizing weights to temporary F32")
 	gpuResidency := flag.String("gpu-residency", "", "GPU residency policy: persistent, phase, or stream (empty leaves environment/default unchanged)")
 	timing := flag.Bool("timing", false, "print coarse Ideogram4 generation timing diagnostics")
 	flag.Parse()
 
-	applyGPUFlags(*gpu, *gpuStrict, *gpuFP8, *gpuFP8Cache, *gpuResidency)
+	applyGPUFlags(*gpu, *gpuStrict, *gpuFP8, *gpuFP8Cache, *gpuFP8SGEMM, *gpuResidency)
 	if *timing {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_TIMING", "1")
 	}
@@ -101,7 +102,7 @@ func writePNG(path string, im ideogram4.Image) error {
 	return png.Encode(f, out)
 }
 
-func applyGPUFlags(gpu, strict, fp8, fp8Cache bool, residency string) {
+func applyGPUFlags(gpu, strict, fp8, fp8Cache, fp8SGEMM bool, residency string) {
 	if gpu {
 		for _, k := range []string{
 			"GO_PHERENCE_IDEOGRAM4_GPU_CFG",
@@ -130,6 +131,10 @@ func applyGPUFlags(gpu, strict, fp8, fp8Cache bool, residency string) {
 	}
 	if fp8Cache {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_FP8_CACHE", "1")
+	}
+	if fp8SGEMM {
+		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_FP8", "1")
+		_ = os.Setenv("GO_PHERENCE_NVIDIA_FP8_SGEMM", "1")
 	}
 	if residency != "" {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_RESIDENCY", residency)
