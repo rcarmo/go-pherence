@@ -10,6 +10,7 @@
 // Computes C[4×4] += A[4×K] * B[4×K]^T by iterating over K in steps of 8.
 
 #include "textflag.h"
+#include "k3_isa.h"
 
 // Arguments via stack (Go calling convention for riscv64):
 // A  = 8(SP)  → X10 (a0)
@@ -92,7 +93,7 @@ loop:
     WORD $0x02058087           // vle8.v v1, (a1)
     
     // vmadot v28, v0, v1 (accumulate)
-    WORD $0xe2103e2b
+    VMADOT_SS(28, 0, 1)
     
     // Advance pointers by 32 bytes
     ADD  $32, X10, X10        // a0 += 32

@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func k3I8I4M1C(a *byte, b *byte, c *float32, kBlks int, nBlks int)
 // Faithful C-M1 correction-order clone attempt based on ime2_gemm_i8i4_m1.s
@@ -46,8 +47,8 @@ loop_c_m1:
     WORD $0x000072d7        // vsetvli t0, zero, e8,m1,tu,mu
     WORD $0xa2323c57        // vsrl.vi v24, v3, 4
     WORD $0x008072d7        // vsetvli t0, zero, e16,m1,tu,mu
-    WORD $0x4231b42b        // vnpack4.vv v8, v3, v3, 3
-    WORD $0x438c352b        // vnpack4.vv v10, v24, v24, 3
+    VNPACK4(8, 3, 3)            // vnpack4.vv v8, v3, v3, 3
+    VNPACK4(10, 24, 24)         // vnpack4.vv v10, v24, v24, 3
 
     // Dot accumulators start at zero in original active path.
     WORD $0x2f080857        // vxor.vv v16, v16, v16
@@ -56,23 +57,23 @@ loop_c_m1:
     WORD $0x2f080b57        // vxor.vv v22, v16, v16
 
     // hp dot sequence.
-    WORD $0xd645082b        // vmadotsu.hp v16,v10,v4,v1,0,i4
-    WORD $0xd655092b        // vmadotsu.hp v18,v10,v5,v1,0,i4
-    WORD $0xd6650a2b        // vmadotsu.hp v20,v10,v6,v1,0,i4
-    WORD $0xd6750b2b        // vmadotsu.hp v22,v10,v7,v1,0,i4
-    WORD $0xcc44082b        // vmadotu.hp v16,v8,v4,v0,0,i4
-    WORD $0xcc54092b        // vmadotu.hp v18,v8,v5,v0,0,i4
-    WORD $0xcc640a2b        // vmadotu.hp v20,v8,v6,v0,0,i4
-    WORD $0xcc740b2b        // vmadotu.hp v22,v8,v7,v0,0,i4
+    VMADOTSU_HP(16, 10, 4)      // vmadotsu.hp v16,v10,v4,v1,0,i4
+    VMADOTSU_HP(18, 10, 5)      // vmadotsu.hp v18,v10,v5,v1,0,i4
+    VMADOTSU_HP(20, 10, 6)      // vmadotsu.hp v20,v10,v6,v1,0,i4
+    VMADOTSU_HP(22, 10, 7)      // vmadotsu.hp v22,v10,v7,v1,0,i4
+    VMADOTU_HP(16, 8, 4)        // vmadotu.hp v16,v8,v4,v0,0,i4
+    VMADOTU_HP(18, 8, 5)        // vmadotu.hp v18,v8,v5,v0,0,i4
+    VMADOTU_HP(20, 8, 6)        // vmadotu.hp v20,v8,v6,v0,0,i4
+    VMADOTU_HP(22, 8, 7)        // vmadotu.hp v22,v8,v7,v0,0,i4
 
     // Original C active-path correction after dots/pack.
     WORD $0x006072d7        // vsetvli t0, zero, e8,mf4,tu,mu
     WORD $0xc3f06e57        // vwcvtu.x.x.v v28, v31  zp -> u16
 
     WORD $0x000072d7        // vsetvli t0, zero, e8,m1,tu,mu
-    WORD $0x67281c2b        // vpack.vv v24,v16,v18,1
-    WORD $0x676a1d2b        // vpack.vv v26,v20,v22,1
-    WORD $0x67ac282b        // vpack.vv v16,v24,v26,2
+    VPACK(24, 16, 18, 1)        // vpack.vv v24,v16,v18,1
+    VPACK(26, 20, 22, 1)        // vpack.vv v26,v20,v22,1
+    VPACK(16, 24, 26, 2)        // vpack.vv v16,v24,v26,2
 
     WORD $0x00f072d7        // vsetvli t0, zero, e16,mf2,tu,mu
     WORD $0x97c3ed57        // vmul.vx v26, v28, X7   zp * SumNeg
@@ -137,8 +138,8 @@ loop_c_m1_residual:
     WORD $0x000072d7        // vsetvli t0, zero, e8,m1,tu,mu
     WORD $0xa2323c57        // vsrl.vi v24, v3, 4
     WORD $0x008072d7        // vsetvli t0, zero, e16,m1,tu,mu
-    WORD $0x4231b42b        // vnpack4.vv v8, v3, v3, 3
-    WORD $0x438c352b        // vnpack4.vv v10, v24, v24, 3
+    VNPACK4(8, 3, 3)            // vnpack4.vv v8, v3, v3, 3
+    VNPACK4(10, 24, 24)         // vnpack4.vv v10, v24, v24, 3
 
     // Dot accumulators start at zero in original active path.
     WORD $0x2f080857        // vxor.vv v16, v16, v16
@@ -147,23 +148,23 @@ loop_c_m1_residual:
     WORD $0x2f080b57        // vxor.vv v22, v16, v16
 
     // hp dot sequence.
-    WORD $0xd645082b        // vmadotsu.hp v16,v10,v4,v1,0,i4
-    WORD $0xd655092b        // vmadotsu.hp v18,v10,v5,v1,0,i4
-    WORD $0xd6650a2b        // vmadotsu.hp v20,v10,v6,v1,0,i4
-    WORD $0xd6750b2b        // vmadotsu.hp v22,v10,v7,v1,0,i4
-    WORD $0xcc44082b        // vmadotu.hp v16,v8,v4,v0,0,i4
-    WORD $0xcc54092b        // vmadotu.hp v18,v8,v5,v0,0,i4
-    WORD $0xcc640a2b        // vmadotu.hp v20,v8,v6,v0,0,i4
-    WORD $0xcc740b2b        // vmadotu.hp v22,v8,v7,v0,0,i4
+    VMADOTSU_HP(16, 10, 4)      // vmadotsu.hp v16,v10,v4,v1,0,i4
+    VMADOTSU_HP(18, 10, 5)      // vmadotsu.hp v18,v10,v5,v1,0,i4
+    VMADOTSU_HP(20, 10, 6)      // vmadotsu.hp v20,v10,v6,v1,0,i4
+    VMADOTSU_HP(22, 10, 7)      // vmadotsu.hp v22,v10,v7,v1,0,i4
+    VMADOTU_HP(16, 8, 4)        // vmadotu.hp v16,v8,v4,v0,0,i4
+    VMADOTU_HP(18, 8, 5)        // vmadotu.hp v18,v8,v5,v0,0,i4
+    VMADOTU_HP(20, 8, 6)        // vmadotu.hp v20,v8,v6,v0,0,i4
+    VMADOTU_HP(22, 8, 7)        // vmadotu.hp v22,v8,v7,v0,0,i4
 
     // Original C active-path correction after dots/pack.
     WORD $0x006072d7        // vsetvli t0, zero, e8,mf4,tu,mu
     WORD $0xc3f06e57        // vwcvtu.x.x.v v28, v31  zp -> u16
 
     WORD $0x000072d7        // vsetvli t0, zero, e8,m1,tu,mu
-    WORD $0x67281c2b        // vpack.vv v24,v16,v18,1
-    WORD $0x676a1d2b        // vpack.vv v26,v20,v22,1
-    WORD $0x67ac282b        // vpack.vv v16,v24,v26,2
+    VPACK(24, 16, 18, 1)        // vpack.vv v24,v16,v18,1
+    VPACK(26, 20, 22, 1)        // vpack.vv v26,v20,v22,1
+    VPACK(16, 24, 26, 2)        // vpack.vv v16,v24,v26,2
 
     WORD $0x00f072d7        // vsetvli t0, zero, e16,mf2,tu,mu
     WORD $0x97c3ed57        // vmul.vx v26, v28, X7   zp * SumNeg

@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func vmadotI8ArgmaxGroups1024(wPacked, actPacked *byte, scratch *int32, bestVal *int32, bestID *int64, nGroups, K, rowStart int)
 TEXT ·VmadotI8ArgmaxGroups1024(SB), NOSPLIT, $0-64
@@ -24,22 +25,22 @@ k_loop_argmax_i8:
     BEQ X14, X0, k_done_argmax_i8
     WORD $0x02050007        // vle8.v v0,(X10) tile 0
     WORD $0x02058087        // vle8.v v1,(X11) tile 0
-    WORD $0xe2103e2b        // vmadot v28,v1,v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28,v1,v0
     ADD $128, X10
     ADD $128, X11
     WORD $0x02050007        // vle8.v v0,(X10) tile 1
     WORD $0x02058087        // vle8.v v1,(X11) tile 1
-    WORD $0xe2103e2b        // vmadot v28,v1,v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28,v1,v0
     ADD $128, X10
     ADD $128, X11
     WORD $0x02050007        // vle8.v v0,(X10) tile 2
     WORD $0x02058087        // vle8.v v1,(X11) tile 2
-    WORD $0xe2103e2b        // vmadot v28,v1,v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28,v1,v0
     ADD $128, X10
     ADD $128, X11
     WORD $0x02050007        // vle8.v v0,(X10) tile 3
     WORD $0x02058087        // vle8.v v1,(X11) tile 3
-    WORD $0xe2103e2b        // vmadot v28,v1,v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28,v1,v0
     ADD $128, X10
     ADD $128, X11
     ADD $-4, X14

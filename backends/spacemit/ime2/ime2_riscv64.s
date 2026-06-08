@@ -5,6 +5,7 @@
 // funct7=0x38 (111000), funct3: 0=uu, 1=us, 2=su, 3=ss
 
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func vmadotSS4x8(A *byte, B *byte, C *int32)
 // Computes C[4x4] += A[4x8] * B[4x8]^T using vmadot (signed x signed)
@@ -32,7 +33,7 @@ TEXT ·vmadotSS4x8(SB), NOSPLIT, $0-24
 
     // vmadot v28, v0, v1 (signed x signed, funct3=3)
     // encoding: (0x38<<26)|(1<<25)|(1<<20)|(0<<15)|(3<<12)|(28<<7)|0x2b = 0xe2103e2b
-    WORD $0xe2103e2b
+    VMADOT_SS(28, 0, 1)
 
     // vsetvli t0, zero, e32, m2, tu, mu
     WORD $0x011072d7
@@ -56,7 +57,7 @@ TEXT ·vmadotUS4x8(SB), NOSPLIT, $0-24
     WORD $0x2fee8ed7        // vxor.vv v29, v29, v29
     // vmadotus: funct3=1
     // (0x38<<26)|(1<<25)|(1<<20)|(0<<15)|(1<<12)|(28<<7)|0x2b = 0xe2101e2b
-    WORD $0xe2101e2b
+    VMADOT_SU(28, 0, 1)
     WORD $0x011072d7        // vsetvli t0, zero, e32, m2
     WORD $0x02066e27        // vse32.v v28, (a2)
     RET
@@ -78,7 +79,7 @@ TEXT ·vmadotAccSS4x8(SB), NOSPLIT, $0-24
     WORD $0x02058087        // vle8.v v1, (a1)
 
     // vmadot accumulates into v28 (adds to existing)
-    WORD $0xe2103e2b        // vmadot v28, v0, v1
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v0, v1
 
     // Store result
     WORD $0x011072d7        // vsetvli t0, zero, e32, m2

@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func vmadotQ4KIntLoop1024(wTiles, actBcast *byte, scratch, intBuf *int32, numSubs int)
 //
@@ -42,14 +43,14 @@ subloop_int:
     // Tile 1:
     WORD $0x02050007        // vle8.v v0, (a0=X10)
     WORD $0x02058087        // vle8.v v1, (a1=X11)
-    WORD $0xe2103e2b        // vmadot v28, v1, v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v1, v0
     ADD  $128, X10
     ADD  $128, X11
 
     // Tile 2:
     WORD $0x02050007        // vle8.v v0, (a0)
     WORD $0x02058087        // vle8.v v1, (a1)
-    WORD $0xe2103e2b        // vmadot v28, v1, v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v1, v0
     ADD  $128, X10
     ADD  $128, X11
 
@@ -117,13 +118,13 @@ subloop_scaled:
 
     WORD $0x02050007        // vle8.v v0, (X10)
     WORD $0x02058087        // vle8.v v1, (X11)
-    WORD $0xe2103e2b        // vmadot v28, v1, v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v1, v0
     ADD  $128, X10
     ADD  $128, X11
 
     WORD $0x02050007        // vle8.v v0, (X10)
     WORD $0x02058087        // vle8.v v1, (X11)
-    WORD $0xe2103e2b        // vmadot v28, v1, v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v1, v0
     ADD  $128, X10
     ADD  $128, X11
 

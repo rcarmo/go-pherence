@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func fusedPackVmadot(wPacked *byte, actI8 *byte, M int, K int, out *int32)
 // Fuses broadcast-pack + vmadot K-loop for M output rows.
@@ -54,7 +55,7 @@ k_inner:
     // vmadot v28, v0, v1 (accumulate: C += v0 × v1^T)
     // vs1=v0, vs2=v1, vd=v28, funct3=3(ss), funct7=111000
     // (0x38<<26)|(1<<25)|(1<<20)|(0<<15)|(3<<12)|(28<<7)|0x2b
-    WORD $0xe2103e2b            // vmadot v28, v0, v1
+    VMADOT_SS(28, 0, 1)         // vmadot v28, v0, v1
     
     // Advance
     ADD  $8, X16, X16          // actI8_ptr += 8

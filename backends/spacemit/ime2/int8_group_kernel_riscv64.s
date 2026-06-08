@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func vmadotI8Groups1024(wPacked, actPacked *byte, scratch *int32, out, scale *float32, nGroups, K int)
 TEXT ·VmadotI8Groups1024(SB), NOSPLIT, $0-56
@@ -21,22 +22,22 @@ k_loop_i8:
     BEQ X14, X0, k_done_i8
     WORD $0x02050007        // vle8.v v0,(X10) tile 0
     WORD $0x02058087        // vle8.v v1,(X11) tile 0
-    WORD $0xe2103e2b        // vmadot v28,v1,v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28,v1,v0
     ADD $128, X10
     ADD $128, X11
     WORD $0x02050007        // vle8.v v0,(X10) tile 1
     WORD $0x02058087        // vle8.v v1,(X11) tile 1
-    WORD $0xe2103e2b        // vmadot v28,v1,v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28,v1,v0
     ADD $128, X10
     ADD $128, X11
     WORD $0x02050007        // vle8.v v0,(X10) tile 2
     WORD $0x02058087        // vle8.v v1,(X11) tile 2
-    WORD $0xe2103e2b        // vmadot v28,v1,v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28,v1,v0
     ADD $128, X10
     ADD $128, X11
     WORD $0x02050007        // vle8.v v0,(X10) tile 3
     WORD $0x02058087        // vle8.v v1,(X11) tile 3
-    WORD $0xe2103e2b        // vmadot v28,v1,v0
+    VMADOT_SS(28, 0, 1)         // vmadot v28,v1,v0
     ADD $128, X10
     ADD $128, X11
     ADD $-4, X14

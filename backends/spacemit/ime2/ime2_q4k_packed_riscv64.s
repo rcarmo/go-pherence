@@ -1,4 +1,5 @@
 #include "textflag.h"
+#include "k3_isa.h"
 
 // func vmadotQ4KPackedLoop(wQS *byte, actReord *byte, acc *int32, Kgroups int)
 // Reads PACKED Q4K bytes (16 per 32 elements), unpacks with vand/vsrl,
@@ -37,9 +38,8 @@ pk_loop:
     // Load 32-byte activation tile (reordered: even[16] + odd[16])
     WORD $0x02058187            // vle8.v v3, (a1)
 
-    // vmadot: v28 += v3 × v4^T (act × weight)
-    // vs1=v3(act), vs2=v4(weight), vd=v28
-    WORD $0xe2419e2b            // vmadot v28, v3, v4
+    // v28 += v3 × v4^T : signed activation (vs1=v3) × unsigned 4-bit weight (vs2=v4)
+    VMADOT_SU(28, 3, 4)
 
     // Advance pointers
     ADD  $16, X10, X10         // wQS += 16 bytes
