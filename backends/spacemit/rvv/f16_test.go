@@ -64,6 +64,27 @@ func TestGemmF16(t *testing.T) {
 	}
 }
 
+func TestGemmF16Outer(t *testing.T) {
+	const M, N, K = 8, 16, 33
+	A := make([]uint16, M*K)
+	B := make([]uint16, N*K)
+	for i := range A {
+		A[i] = uint16(0x3800 + (i%5)<<8)
+	}
+	for i := range B {
+		B[i] = uint16(0x3400 + (i%7)<<8)
+	}
+	want := make([]float32, M*N)
+	got := make([]float32, M*N)
+	GemmF16(A, B, want, M, N, K)
+	GemmF16Outer(A, PackBF16(B, N, K), got, M, N, K, 2)
+	for i := range got {
+		if math.Abs(float64(got[i]-want[i])) > 1e-3 {
+			t.Fatalf("GemmF16Outer[%d] got %.8f want %.8f", i, got[i], want[i])
+		}
+	}
+}
+
 func TestGemmF16Threaded(t *testing.T) {
 	const M, N, K = 16, 9, 33
 	A := make([]uint16, M*K)
@@ -114,5 +135,23 @@ func BenchmarkGemmF16Encoder8T(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		GemmF16Threaded(A, B, C, M, N, K, 8)
+	}
+}
+
+func BenchmarkGemmF16OuterEncoder8T(b *testing.B) {
+	const M, N, K = 1500, 1280, 1280
+	A := make([]uint16, M*K)
+	B := make([]uint16, N*K)
+	C := make([]float32, M*N)
+	for i := range A {
+		A[i] = 0x3c00 // 1.0
+	}
+	for i := range B {
+		B[i] = 0x3800 // 0.5
+	}
+	Bp := PackBF16(B, N, K)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		GemmF16Outer(A, Bp, C, M, N, K, 8)
 	}
 }
