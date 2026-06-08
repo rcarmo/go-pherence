@@ -90,7 +90,7 @@ func int8Eligible(inDim, outDim int) bool {
 }
 
 type packedWeight struct {
-	wp []int8   // PackTiles(quant(weight)) [outDim, inDim]
+	wp []int8    // PackTiles(quant(weight)) [outDim, inDim]
 	ws []float32 // per-row (output channel) scale
 }
 
@@ -133,6 +133,9 @@ func quantizeRowsInto(x []float32, rows, K int, q []int8, sc []float32) {
 // int8 IME GEMM. Weights are quantized+packed once and cached; activations are
 // quantized per call. M is zero-padded to a multiple of 4 for PackTiles.
 func linearForwardInt8(x, weight, bias []float32, seqLen, inDim, outDim int) []float32 {
+	if out, ok := linearForwardA100FC1(x, weight, bias, seqLen, inDim, outDim); ok {
+		return out
+	}
 	K, N := inDim, outDim
 	Mp := (seqLen + 3) &^ 3
 
