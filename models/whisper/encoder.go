@@ -168,6 +168,10 @@ func (enc *Encoder) forwardLayer(layer *EncoderLayer, x []float32, seqLen int) [
 	// MLP: FC1 → GELU → FC2
 	ffnDim := enc.cfg.EncoderFFNDim
 	t0 = time.Now()
+	if mlpOut, ok := forwardFFNTiled(mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
+		encLinearNs += int64(time.Since(t0))
+		return mlpOut
+	}
 	if mlpOut, ok := forwardA100FFNFused(mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
 		encLinearNs += int64(time.Since(t0))
 		return mlpOut

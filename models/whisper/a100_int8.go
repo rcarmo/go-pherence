@@ -172,6 +172,16 @@ func forwardA100FFNFusedRaw(mlpIn []float32, layer *EncoderLayer, residual []flo
 	return out, true
 }
 
+func forwardA100FFNTile(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if !useA100FFNFused {
+		return nil, false
+	}
+	if !a100FFNUsesA100FC2() {
+		return forwardA100FFNFC1NativeFC2Raw(mlpIn, layer, residual, seqLen, dModel, ffnDim)
+	}
+	return forwardA100FFNFusedRaw(mlpIn, layer, residual, seqLen, dModel, ffnDim)
+}
+
 func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	if !useA100FFNFused {
 		return nil, false

@@ -98,3 +98,14 @@ int8 FC2 path before adding the residual. This preserves baseline token count
 `pass0=40.1s` / `pass1=38.0s` versus baseline `40.0s` / `36.4s` on the same
 sample. It is a quality-safe control path for future tile-level fusion and RVV
 activation-packing work.
+
+Tile-level FFN execution: `WHISPER_FFN_TILE_M=N` executes the encoder FFN in row
+blocks, so FC1, GELU, FC2, and residual operate on tiles instead of keeping the
+full `[seqLen, ffnDim]` hidden buffer live. The tiled path also composes with
+`WHISPER_A100_FFN_FUSED=1` and `WHISPER_A100_FFN_FC2_MODE`. Initial
+`pod_30.wav` measurements show the scaffold is correctness-safe but not a speed
+win yet: native tiles were slower than the full-buffer native path (`tile=256`
+about `40.5s` vs baseline `39.8s`), and safe A100-int8 tiles were also slower
+(`tile=256` about `41.4s`). Full-A100 tiled mode was closest at `tile=256/512`
+(`~39.5–39.6s`) but retained the 107-token decode drift. This confirms the next
+bottleneck is activation packing rather than hidden-buffer lifetime alone.

@@ -6,6 +6,9 @@ func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) 
 	return nil, false
 }
 func prepackA100EncoderWeights(enc *Encoder) {}
+func forwardA100FFNTile(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	return nil, false
+}
 func forwardA100FFNFC1NativeFC2Raw(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	return nil, false
 }
