@@ -47,3 +47,53 @@ func TestGemmQ80x32AIPooledSmoke(t *testing.T) {
 		t.Fatalf("max diff too large: %.4f", maxDiff)
 	}
 }
+
+func TestGemmQ80x32AIPooledX100PackMatchesWorkerPack(t *testing.T) {
+	if _, err := os.Stat("/proc/set_ai_thread"); err != nil {
+		t.Skip("no A100 thread registration")
+	}
+	const M, N, K = 7, 32, 64
+	x := make([]float32, M*K)
+	w := make([]float32, N*K)
+	for i := range x {
+		x[i] = float32((i%17)-8) / 9
+	}
+	for i := range w {
+		w[i] = float32((i%19)-9) / 11
+	}
+	wq := ime2.PackF32ToQ80x32(N, K, w)
+	pool := NewAIWorkerPool(2)
+	defer pool.Close()
+	for _, tc := range []struct {
+		name string
+		base func([]float32, int, int, ime2.Q80x32, []float32, *AIWorkerPool) bool
+		x100 func([]float32, int, int, ime2.Q80x32, []float32, *AIWorkerPool) bool
+	}{
+		{"plain", GemmQ80x32AIPooled, GemmQ80x32AIPooledX100Pack},
+		{"gelu", GemmQ80x32AIPooledGELU, GemmQ80x32AIPooledGELUX100Pack},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			want := make([]float32, M*N)
+			got := make([]float32, M*N)
+			if !tc.base(x, M, K, wq, want, pool) {
+				t.Fatal("base pack failed")
+			}
+			if !tc.x100(x, M, K, wq, got, pool) {
+				t.Fatal("x100 pack failed")
+			}
+			maxDiff := float32(0)
+			for i := range want {
+				d := want[i] - got[i]
+				if d < 0 {
+					d = -d
+				}
+				if d > maxDiff {
+					maxDiff = d
+				}
+			}
+			if maxDiff != 0 {
+				t.Fatalf("maxDiff=%g", maxDiff)
+			}
+		})
+	}
+}

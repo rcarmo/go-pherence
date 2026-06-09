@@ -184,6 +184,7 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 		}
 	}
 
+	prepackA100EncoderWeights(enc)
 	return enc, dec, nil
 }
 

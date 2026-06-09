@@ -51,3 +51,81 @@ Current overhead reductions implemented: the A100 helper reuses one Q8 activatio
 pack scratch per worker, and Whisper no longer clones/pads the full activation
 matrix just to satisfy the M4 kernel tail; non-M4 tails are handled inside the
 A100 pooled helper with small per-worker scratch.
+
+A100 FFN batching/prewarm update: the A100 hook can also be extended to FC2 with
+`WHISPER_A100_FC2=1`, but live measurement is negative (`FC1+FC2` was about
+`pass0=48.1s` versus `FC1` at about `44.0s`, with decode/token drift in that
+sample), so FC2 remains explicitly experimental. The useful cold-pass win is
+prepacking all enabled encoder A100 FFN weights and prewarming the pool at model
+load time: FC1 pass0 improved from roughly `43.7s` to `41.1s`, close to native
+int8 but still slower than the `~40.1s` baseline on the same sample.
+
+A100 fused FFN experiment: `WHISPER_A100_FFN_FUSED=1` replaces the encoder MLP
+block with `FC1(A100) -> FC2(A100)` and fuses GELU into the FC2 activation
+quantizer (`QuantizeF32RowsQ8M4GELUInto`) so the 1500x5120 hidden matrix is not
+written/read again just for GELU before FC2 packing. The fused packer uses the
+same rational `fastTanh` approximation as the normal Whisper GELU and is tested
+against explicit GELU followed by normal Q8 M4 packing. On `pod_30.wav` with
+`WHISPER_THREADS=6`, the fused path improved encoder time (`encoder+xkv` about
+`32.8s` vs baseline `35.6s`) and first-pass wall (`39.2s` vs `40.0s`), but it
+also changed decode behavior (`107` tokens vs `73`) and warm-pass wall remained
+slower (`37.4s` vs `36.4s`) because decode dominated. Keep it opt-in while
+transcript quality and decode-length behavior are studied.
+
+A100 FFN quality diagnostics: `cmd/audio/whisperffndiag` compares per-layer FFN
+outputs against the normal native-int8 path at the same pre-MLP input. Example:
+
+```sh
+WHISPER_THREADS=6 WHISPER_INT8=1 go run ./cmd/audio/whisperffndiag \
+  -model /home/me/models/whisper-turbo/model.safetensors \
+  -size turbo -audio /home/me/pod_30.wav
+```
+
+It prints layer/variant metrics (`max_abs`, `mean_abs`, `rmse`, `rel_rmse`, and
+`cosine`) for `a100_fc1_native_fc2` and `a100_fused_ffn`. On `pod_30.wav`,
+`a100_fc1_native_fc2` stays close to baseline (`max_rel_rmse≈0.017`,
+`min_cos≈0.99985`), while the fused A100 FFN has a large early-layer drift spike
+(`max_rel_rmse≈0.131`, `min_cos≈0.99135`, worst at layer 1). This supports using
+A100 FC1 with native-int8 FC2 as the safer next mode and keeping full A100 FC2
+opt-in until its quantization is improved.
+
+A100 fused FC2 mode selector: `WHISPER_A100_FFN_FC2_MODE` controls the FC2 side
+of `WHISPER_A100_FFN_FUSED=1`. The default `a100` keeps the full A100 fused FFN
+and is encoder-fast but changes decode length on `pod_30.wav` (`107` tokens).
+The safer `int8` mode runs A100 FC1, applies normal GELU, then uses the native
+int8 FC2 path before adding the residual. This preserves baseline token count
+(`73` tokens) and transcript shape, but does not improve wall time yet: measured
+`pass0=40.1s` / `pass1=38.0s` versus baseline `40.0s` / `36.4s` on the same
+sample. It is a quality-safe control path for future tile-level fusion and RVV
+activation-packing work.
+
+Tile-level FFN execution: `WHISPER_FFN_TILE_M=N` executes the encoder FFN in row
+blocks, so FC1, GELU, FC2, and residual operate on tiles instead of keeping the
+full `[seqLen, ffnDim]` hidden buffer live. The tiled path also composes with
+`WHISPER_A100_FFN_FUSED=1` and `WHISPER_A100_FFN_FC2_MODE`. Initial
+`pod_30.wav` measurements show the scaffold is correctness-safe but not a speed
+win yet: native tiles were slower than the full-buffer native path (`tile=256`
+about `40.5s` vs baseline `39.8s`), and safe A100-int8 tiles were also slower
+(`tile=256` about `41.4s`). Full-A100 tiled mode was closest at `tile=256/512`
+(`~39.5–39.6s`) but retained the 107-token decode drift. This confirms the next
+bottleneck is activation packing rather than hidden-buffer lifetime alone.
+
+X100 activation prepack for A100 FFN: `WHISPER_A100_X100_PACK=1` moves Q8 M4
+activation packing out of the registered A100 worker callbacks and into normal
+X100 goroutines before A100 dispatch. This is a measurement/optimization bridge
+toward RVV pack kernels. Hardware smoke tests verify that X100-prepacked A blocks
+produce byte-equivalent A100 outputs for both plain and GELU-fused packing. On
+`pod_30.wav`, full A100 fused FFN improved from about `pass0=39.3s` /
+`encoder+xkv=32.9s` / `[a100] ffn=8.74s` to `pass0=37.8–38.0s` /
+`encoder+xkv=31.4–31.5s` / `[a100] ffn=7.35–7.49s`. It still changes decode
+length (`107` tokens), so it remains opt-in; the safe native-FC2 mode preserves
+`73` tokens but is still slower than baseline.
+
+A100 default eligibility decision: keep native int8 as the default. After X100
+activation prepack, the fastest A100 path (`WHISPER_A100_FFN_FUSED=1
+WHISPER_A100_FFN_FC2_MODE=a100 WHISPER_A100_X100_PACK=1`) is faster on wall time
+(`pass0≈38.0s`, `pass1≈36.2s`) but changes decode length (`107` tokens vs the
+baseline `73`). The quality-safe hybrid (`WHISPER_A100_FFN_FC2_MODE=int8`) keeps
+`73` tokens but remains slower (`pass0≈40.7s`, `pass1≈37.6s`) than baseline
+native int8 (`pass0≈39.4s`, `pass1≈36.5s`). A100 should therefore remain opt-in
+until FC2 quantization drift is reduced or the safe hybrid beats baseline.
