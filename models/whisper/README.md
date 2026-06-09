@@ -120,3 +120,12 @@ produce byte-equivalent A100 outputs for both plain and GELU-fused packing. On
 `encoder+xkv=31.4–31.5s` / `[a100] ffn=7.35–7.49s`. It still changes decode
 length (`107` tokens), so it remains opt-in; the safe native-FC2 mode preserves
 `73` tokens but is still slower than baseline.
+
+A100 default eligibility decision: keep native int8 as the default. After X100
+activation prepack, the fastest A100 path (`WHISPER_A100_FFN_FUSED=1
+WHISPER_A100_FFN_FC2_MODE=a100 WHISPER_A100_X100_PACK=1`) is faster on wall time
+(`pass0≈38.0s`, `pass1≈36.2s`) but changes decode length (`107` tokens vs the
+baseline `73`). The quality-safe hybrid (`WHISPER_A100_FFN_FC2_MODE=int8`) keeps
+`73` tokens but remains slower (`pass0≈40.7s`, `pass1≈37.6s`) than baseline
+native int8 (`pass0≈39.4s`, `pass1≈36.5s`). A100 should therefore remain opt-in
+until FC2 quantization drift is reduced or the safe hybrid beats baseline.
