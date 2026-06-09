@@ -1,6 +1,6 @@
 # Whisper diarized VTT status
 
-`cmd/audio/diarize-vtt` is the current purpose-built speech command for long-form translated WebVTT output. It is optimized for the local `whisper-large-v3-hf` assets and uses the large-v3 translate prompt by default.
+`cmd/audio/diarize-vtt` is the current purpose-built speech command for long-form translated WebVTT output. It now defaults to the local `whisper-large-v3-turbo-hf` assets and uses the turbo `translate` prompt with `language=en` by default so Portuguese/other source audio is translated to English.
 
 ## Default profile
 
@@ -14,10 +14,10 @@ Important defaults:
 
 | Flag | Default | Notes |
 |------|---------|-------|
-| `-model` | `models/whisper-large-v3-hf/model.safetensors` | `tokenizer.json` is loaded from the same directory. |
-| `-size` | `large-v3` | `tiny` weights are not bundled/used for this workflow. |
+| `-model` | `models/whisper-large-v3-turbo-hf/model.safetensors` | `tokenizer.json` is loaded from the same directory. |
+| `-size` | `turbo` | `openai/whisper-large-v3-turbo` has the large-v3 encoder with a 4-layer distilled decoder. |
 | `-task` | `translate` | Uses Whisper's automatic translation task. |
-| `-language` | `pt` | Override with `-language es`, `en`, etc. for source-language prompting. |
+| `-language` | `en` | Required for turbo English translation parity; use `pt`/`es` only when intentionally prompting source-language behavior or when overriding to full large-v3. |
 | `-chunk` | `10` | Maximum VAD-packed chunk duration in seconds. |
 | `-overlap` | `1` | Context padding around VAD-packed cues. |
 | `-vad-pack` | `true` | Pack VAD speech regions instead of fixed windows. |

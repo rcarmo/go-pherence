@@ -43,10 +43,10 @@ type result struct {
 func main() {
 	input := flag.String("input", "", "Input audio file or URL")
 	output := flag.String("output", "", "Output VTT path")
-	modelPath := flag.String("model", "models/whisper-large-v3-hf/model.safetensors", "Whisper safetensors model")
-	modelSize := flag.String("size", "large-v3", "Model size: tiny, base, small, medium, large-v3, turbo")
+	modelPath := flag.String("model", "models/whisper-large-v3-turbo-hf/model.safetensors", "Whisper safetensors model")
+	modelSize := flag.String("size", "turbo", "Model size: tiny, base, small, medium, large-v3, turbo")
 	task := flag.String("task", "translate", "Whisper task: translate or transcribe")
-	language := flag.String("language", "pt", "Source language code for Whisper prompt, e.g. pt, es, en")
+	language := flag.String("language", "en", "Whisper language prompt, e.g. en for turbo English translation; pt/es for source-language prompts")
 	workers := flag.Int("workers", max(1, min(16, runtimeWorkersDefault())), "Parallel transcription workers")
 	chunkSec := flag.Float64("chunk", 10.0, "Maximum chunk duration in seconds (<=30 recommended)")
 	overlapSec := flag.Float64("overlap", 1.0, "Chunk overlap/context padding in seconds")

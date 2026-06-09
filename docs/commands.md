@@ -478,21 +478,20 @@ go run ./cmd/llm/speccheck -model models/smollm2-135m \
 
 `specbench` emits normal/speculative rows with output parity, speedup, verifier backend, proposer, acceptance/fallback counters, emitted tokens, tokens/step, average proposal length, and aggregate total rows. `speccheck` emits JSON and exits non-zero on mismatch; use `-write-golden` / `-golden` to save and compare baselines.
 
-## `diarize-vtt` — large-v3 translated WebVTT
+## `diarize-vtt` — turbo translated WebVTT
 
-`cmd/audio/diarize-vtt` is the current long-form audio command. It defaults to Whisper large-v3 translation, VAD-packed chunks, progressive writes, and resume support:
+`cmd/audio/diarize-vtt` is the current long-form audio command. It now defaults to Whisper large-v3-turbo translation, VAD-packed chunks, progressive writes, and resume support:
 
 ```bash
 go run ./cmd/audio/diarize-vtt \
   -input meeting.m4a \
-  -output meeting.vtt \
-  -language es
+  -output meeting.vtt
 ```
 
 Useful flags:
 
 - `-task translate|transcribe` — default `translate`.
-- `-language CODE` — source language prompt (`pt` default; use `es`, `en`, etc. as needed).
+- `-language CODE` — Whisper language prompt (`en` default for turbo English translation; use `pt`/`es` for source-language prompts or full large-v3 behavior).
 - `-workers N` — default `min(16, runtime.NumCPU())`; local stress testing found 16 best and 20 regressed.
 - `-chunk 10 -overlap 1 -vad-pack=true` — default VAD-packed chunk profile.
 - `-max-tokens 40 -tokens-per-sec 4` — tuned decoder token budget.
