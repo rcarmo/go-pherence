@@ -19,6 +19,7 @@ var (
 	useA100FC1      = os.Getenv("WHISPER_A100_FC1") != ""
 	useA100FC2      = os.Getenv("WHISPER_A100_FC2") != ""
 	useA100FFNFused = os.Getenv("WHISPER_A100_FFN_FUSED") != ""
+	useA100X100Pack = os.Getenv("WHISPER_A100_X100_PACK") != ""
 	a100FFNFC2Mode  = strings.ToLower(os.Getenv("WHISPER_A100_FFN_FC2_MODE"))
 )
 
@@ -91,7 +92,12 @@ func linearForwardA100Raw(x, weight, bias []float32, seqLen, inDim, outDim int) 
 	}
 	out := make([]float32, seqLen*outDim)
 	t0 := nowNs()
-	ok := aipool.GemmQ80x32AIPooled(x, seqLen, inDim, w, out, getA100Pool())
+	ok := false
+	if useA100X100Pack {
+		ok = aipool.GemmQ80x32AIPooledX100Pack(x, seqLen, inDim, w, out, getA100Pool())
+	} else {
+		ok = aipool.GemmQ80x32AIPooled(x, seqLen, inDim, w, out, getA100Pool())
+	}
 	a100Ns += nowNs() - t0
 	if !ok {
 		return nil, false
@@ -155,7 +161,11 @@ func forwardA100FFNFusedRaw(mlpIn []float32, layer *EncoderLayer, residual []flo
 	}
 	out := make([]float32, seqLen*dModel)
 	t0 := nowNs()
-	ok = aipool.GemmQ80x32AIPooledGELU(hidden, seqLen, ffnDim, w2, out, getA100Pool())
+	if useA100X100Pack {
+		ok = aipool.GemmQ80x32AIPooledGELUX100Pack(hidden, seqLen, ffnDim, w2, out, getA100Pool())
+	} else {
+		ok = aipool.GemmQ80x32AIPooledGELU(hidden, seqLen, ffnDim, w2, out, getA100Pool())
+	}
 	a100Ns += nowNs() - t0
 	if !ok {
 		return nil, false

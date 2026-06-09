@@ -109,3 +109,14 @@ about `40.5s` vs baseline `39.8s`), and safe A100-int8 tiles were also slower
 (`tile=256` about `41.4s`). Full-A100 tiled mode was closest at `tile=256/512`
 (`~39.5–39.6s`) but retained the 107-token decode drift. This confirms the next
 bottleneck is activation packing rather than hidden-buffer lifetime alone.
+
+X100 activation prepack for A100 FFN: `WHISPER_A100_X100_PACK=1` moves Q8 M4
+activation packing out of the registered A100 worker callbacks and into normal
+X100 goroutines before A100 dispatch. This is a measurement/optimization bridge
+toward RVV pack kernels. Hardware smoke tests verify that X100-prepacked A blocks
+produce byte-equivalent A100 outputs for both plain and GELU-fused packing. On
+`pod_30.wav`, full A100 fused FFN improved from about `pass0=39.3s` /
+`encoder+xkv=32.9s` / `[a100] ffn=8.74s` to `pass0=37.8–38.0s` /
+`encoder+xkv=31.4–31.5s` / `[a100] ffn=7.35–7.49s`. It still changes decode
+length (`107` tokens), so it remains opt-in; the safe native-FC2 mode preserves
+`73` tokens but is still slower than baseline.
