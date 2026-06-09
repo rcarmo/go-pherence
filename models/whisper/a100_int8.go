@@ -112,8 +112,8 @@ func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) 
 	return linearForwardA100Raw(x, weight, bias, seqLen, inDim, outDim)
 }
 
-func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
-	if !useA100FFNFused || dModel != 1280 || ffnDim != 5120 || layer == nil {
+func forwardA100FFNFusedRaw(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if dModel != 1280 || ffnDim != 5120 || layer == nil {
 		return nil, false
 	}
 	hidden, ok := linearForwardA100Raw(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
@@ -141,6 +141,13 @@ func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float3
 		}
 	}
 	return out, true
+}
+
+func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if !useA100FFNFused {
+		return nil, false
+	}
+	return forwardA100FFNFusedRaw(mlpIn, layer, residual, seqLen, dModel, ffnDim)
 }
 
 func prepackA100EncoderWeights(enc *Encoder) {

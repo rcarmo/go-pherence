@@ -71,3 +71,20 @@ against explicit GELU followed by normal Q8 M4 packing. On `pod_30.wav` with
 also changed decode behavior (`107` tokens vs `73`) and warm-pass wall remained
 slower (`37.4s` vs `36.4s`) because decode dominated. Keep it opt-in while
 transcript quality and decode-length behavior are studied.
+
+A100 FFN quality diagnostics: `cmd/audio/whisperffndiag` compares per-layer FFN
+outputs against the normal native-int8 path at the same pre-MLP input. Example:
+
+```sh
+WHISPER_THREADS=6 WHISPER_INT8=1 go run ./cmd/audio/whisperffndiag \
+  -model /home/me/models/whisper-turbo/model.safetensors \
+  -size turbo -audio /home/me/pod_30.wav
+```
+
+It prints layer/variant metrics (`max_abs`, `mean_abs`, `rmse`, `rel_rmse`, and
+`cosine`) for `a100_fc1_native_fc2` and `a100_fused_ffn`. On `pod_30.wav`,
+`a100_fc1_native_fc2` stays close to baseline (`max_rel_rmse≈0.017`,
+`min_cos≈0.99985`), while the fused A100 FFN has a large early-layer drift spike
+(`max_rel_rmse≈0.131`, `min_cos≈0.99135`, worst at layer 1). This supports using
+A100 FC1 with native-int8 FC2 as the safer next mode and keeping full A100 FC2
+opt-in until its quantization is improved.
