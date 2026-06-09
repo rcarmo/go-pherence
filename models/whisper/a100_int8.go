@@ -20,7 +20,9 @@ var (
 	useA100FC2      = os.Getenv("WHISPER_A100_FC2") != ""
 	useA100FFNFused = os.Getenv("WHISPER_A100_FFN_FUSED") != ""
 	useA100X100Pack = os.Getenv("WHISPER_A100_X100_PACK") != ""
+	useA100NativeQ8 = os.Getenv("WHISPER_A100_NATIVE_Q8") != ""
 	a100FFNFC2Mode  = strings.ToLower(os.Getenv("WHISPER_A100_FFN_FC2_MODE"))
+	a100FFNLayers   = parseA100FFNLayers(os.Getenv("WHISPER_A100_FFN_LAYERS"))
 )
 
 var (
@@ -64,10 +66,18 @@ func getA100Pool() *aipool.AIWorkerPool {
 
 func getA100Q80x32Weight(weight []float32, outDim, inDim int) ime2.Q80x32 {
 	key := uintptr(unsafe.Pointer(&weight[0]))
+	if useA100NativeQ8 {
+		key |= 1
+	}
 	if v, ok := a100WeightCache.Load(key); ok {
 		return v.(ime2.Q80x32)
 	}
-	q := ime2.PackF32ToQ80x32(outDim, inDim, weight)
+	q := ime2.Q80x32{}
+	if useA100NativeQ8 {
+		q = ime2.PackF32ToQ80x32RowScale(outDim, inDim, weight)
+	} else {
+		q = ime2.PackF32ToQ80x32(outDim, inDim, weight)
+	}
 	a100WeightCache.Store(key, q)
 	return q
 }
@@ -85,20 +95,32 @@ func a100LinearEligible(seqLen, inDim, outDim int) bool {
 	return false
 }
 
+func runA100Gemm(x []float32, seqLen, inDim int, w ime2.Q80x32, out []float32) bool {
+	t0 := nowNs()
+	ok := aipool.GemmQ80x32AIPooled(x, seqLen, inDim, w, out, getA100Pool())
+	a100Ns += nowNs() - t0
+	return ok
+}
+
+func runA100GemmX100Pack(x []float32, seqLen, inDim int, w ime2.Q80x32, out []float32) bool {
+	t0 := nowNs()
+	ok := aipool.GemmQ80x32AIPooledX100Pack(x, seqLen, inDim, w, out, getA100Pool())
+	a100Ns += nowNs() - t0
+	return ok
+}
+
 func linearForwardA100Raw(x, weight, bias []float32, seqLen, inDim, outDim int) ([]float32, bool) {
 	w := getA100Q80x32Weight(weight, outDim, inDim)
 	if !w.Valid {
 		return nil, false
 	}
 	out := make([]float32, seqLen*outDim)
-	t0 := nowNs()
 	ok := false
 	if useA100X100Pack {
-		ok = aipool.GemmQ80x32AIPooledX100Pack(x, seqLen, inDim, w, out, getA100Pool())
+		ok = runA100GemmX100Pack(x, seqLen, inDim, w, out)
 	} else {
-		ok = aipool.GemmQ80x32AIPooled(x, seqLen, inDim, w, out, getA100Pool())
+		ok = runA100Gemm(x, seqLen, inDim, w, out)
 	}
-	a100Ns += nowNs() - t0
 	if !ok {
 		return nil, false
 	}
@@ -131,6 +153,46 @@ func a100FFNUsesA100FC2() bool {
 	}
 }
 
+func parseA100FFNLayers(spec string) func(int) bool {
+	spec = strings.TrimSpace(spec)
+	if spec == "" || spec == "all" || spec == "*" {
+		return nil
+	}
+	allowed := map[int]bool{}
+	for _, part := range strings.Split(spec, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "-") {
+			pieces := strings.SplitN(part, "-", 2)
+			lo, errLo := strconv.Atoi(strings.TrimSpace(pieces[0]))
+			hi, errHi := strconv.Atoi(strings.TrimSpace(pieces[1]))
+			if errLo != nil || errHi != nil {
+				continue
+			}
+			if hi < lo {
+				lo, hi = hi, lo
+			}
+			for i := lo; i <= hi; i++ {
+				allowed[i] = true
+			}
+			continue
+		}
+		if i, err := strconv.Atoi(part); err == nil {
+			allowed[i] = true
+		}
+	}
+	if len(allowed) == 0 {
+		return nil
+	}
+	return func(layer int) bool { return allowed[layer] }
+}
+
+func a100FFNLayerEnabled(layerIdx int) bool {
+	return a100FFNLayers == nil || a100FFNLayers(layerIdx)
+}
+
 func forwardA100FFNFC1NativeFC2Raw(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	if dModel != 1280 || ffnDim != 5120 || layer == nil {
 		return nil, false
@@ -161,7 +223,9 @@ func forwardA100FFNFusedRaw(mlpIn []float32, layer *EncoderLayer, residual []flo
 	}
 	out := make([]float32, seqLen*dModel)
 	t0 := nowNs()
-	if useA100X100Pack {
+	if useA100NativeQ8 {
+		ok = aipool.GemmQ80x32AIPooledGELUX100PackRowScale(hidden, seqLen, ffnDim, w2, out, getA100Pool())
+	} else if useA100X100Pack {
 		ok = aipool.GemmQ80x32AIPooledGELUX100Pack(hidden, seqLen, ffnDim, w2, out, getA100Pool())
 	} else {
 		ok = aipool.GemmQ80x32AIPooledGELU(hidden, seqLen, ffnDim, w2, out, getA100Pool())
@@ -182,8 +246,8 @@ func forwardA100FFNFusedRaw(mlpIn []float32, layer *EncoderLayer, residual []flo
 	return out, true
 }
 
-func forwardA100FFNTile(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
-	if !useA100FFNFused {
+func forwardA100FFNTile(layerIdx int, mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if !useA100FFNFused || !a100FFNLayerEnabled(layerIdx) {
 		return nil, false
 	}
 	if !a100FFNUsesA100FC2() {
@@ -192,8 +256,8 @@ func forwardA100FFNTile(mlpIn []float32, layer *EncoderLayer, residual []float32
 	return forwardA100FFNFusedRaw(mlpIn, layer, residual, seqLen, dModel, ffnDim)
 }
 
-func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
-	if !useA100FFNFused {
+func forwardA100FFNFused(layerIdx int, mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if !useA100FFNFused || !a100FFNLayerEnabled(layerIdx) {
 		return nil, false
 	}
 	if !a100FFNUsesA100FC2() {

@@ -21,7 +21,7 @@ var ffnTileM = func() int {
 // of materializing the full [seqLen, ffnDim] hidden buffer. It is opt-in via
 // WHISPER_FFN_TILE_M and preserves the current FFN semantics unless an A100 FFN
 // mode is explicitly enabled.
-func forwardFFNTiled(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+func forwardFFNTiled(layerIdx int, mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	if ffnTileM <= 0 || layer == nil || seqLen <= 0 {
 		return nil, false
 	}
@@ -40,7 +40,7 @@ func forwardFFNTiled(mlpIn []float32, layer *EncoderLayer, residual []float32, s
 		resTile := residual[start*dModel : end*dModel]
 		var tileOut []float32
 		var ok bool
-		if tileOut, ok = forwardA100FFNTile(mlpTile, layer, resTile, m, dModel, ffnDim); !ok {
+		if tileOut, ok = forwardA100FFNTile(layerIdx, mlpTile, layer, resTile, m, dModel, ffnDim); !ok {
 			hidden := linearForwardOpt(mlpTile, layer.FC1Weight, layer.FC1Bias, m, dModel, ffnDim)
 			gelu(hidden)
 			tileOut = linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, m, ffnDim, dModel)

@@ -2,11 +2,13 @@
 
 package whisper
 
+func runA100Gemm(x []float32, seqLen, inDim int, w any, out []float32) bool         { return false }
+func runA100GemmX100Pack(x []float32, seqLen, inDim int, w any, out []float32) bool { return false }
 func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) ([]float32, bool) {
 	return nil, false
 }
 func prepackA100EncoderWeights(enc *Encoder) {}
-func forwardA100FFNTile(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+func forwardA100FFNTile(layerIdx int, mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	return nil, false
 }
 func forwardA100FFNFC1NativeFC2Raw(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
@@ -15,7 +17,7 @@ func forwardA100FFNFC1NativeFC2Raw(mlpIn []float32, layer *EncoderLayer, residua
 func forwardA100FFNFusedRaw(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	return nil, false
 }
-func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+func forwardA100FFNFused(layerIdx int, mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	return nil, false
 }
 func resetA100Timers()       {}

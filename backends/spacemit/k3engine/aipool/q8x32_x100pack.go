@@ -125,3 +125,51 @@ func GemmQ80x32AIPooledGELUX100Pack(x []float32, M, K int, w ime2.Q80x32, out []
 	aData, groups := packQ80M4ActivationsX100(x, M, K, kBlks, true)
 	return gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
 }
+
+func packQ80M4ActivationsX100GELURowScale(x []float32, M, K, kBlks int) ([]byte, int) {
+	groups := (M + 3) / 4
+	stride := kBlks * ime2.K3I8I8ABlockM4Bytes
+	aData := make([]byte, groups*stride)
+	workers := q8ActPackWorkers(groups)
+	zeroRow := make([]float32, K)
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for wid := 0; wid < workers; wid++ {
+		wid := wid
+		go func() {
+			defer wg.Done()
+			g0 := wid * groups / workers
+			g1 := (wid + 1) * groups / workers
+			for g := g0; g < g1; g++ {
+				r := g * 4
+				actual := 4
+				if M-r < actual {
+					actual = M - r
+				}
+				var rows [4][]float32
+				for i := 0; i < 4; i++ {
+					if i < actual {
+						rows[i] = x[(r+i)*K : (r+i+1)*K]
+					} else {
+						rows[i] = zeroRow
+					}
+				}
+				dst := aData[g*stride : (g+1)*stride]
+				ime2.QuantizeF32RowsQ8M4GELURowScaleInto(rows, kBlks, dst)
+			}
+		}()
+	}
+	wg.Wait()
+	return aData, groups
+}
+
+// GemmQ80x32AIPooledGELUX100PackRowScale is the native-int8-compatible X100
+// activation-pack variant for the fused GELU+FC2 path.
+func GemmQ80x32AIPooledGELUX100PackRowScale(x []float32, M, K int, w ime2.Q80x32, out []float32, pool *AIWorkerPool) bool {
+	if pool == nil || !w.Valid || w.K != K || K%32 != 0 || w.M%32 != 0 || M <= 0 || len(out) < M*w.M || len(x) < M*K {
+		return false
+	}
+	kBlks := K / 32
+	aData, groups := packQ80M4ActivationsX100GELURowScale(x, M, K, kBlks)
+	return gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
+}
