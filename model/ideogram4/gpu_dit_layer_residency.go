@@ -54,10 +54,11 @@ func uploadDiTLayerGPU(l DiTLayer) (*ditLayerGPUResidency, error) {
 		r.Free()
 		return nil, err
 	}
-	if err := upload(&r.adaln, "adaln", l.AdaLN); err != nil {
-		r.Free()
-		return nil, err
-	}
+	// Keep per-layer AdaLN modulation on the CPU path for now. In full DiT
+	// residency, the resident AdaLN GEMV diverges in-context after the first
+	// layers even though standalone FP8 GEMV comparisons pass; QKV/O/MLP GEMMs
+	// remain GPU-resident and compare cleanly. This preserves correctness while
+	// the AdaLN-specific residency interaction is debugged.
 	return r, nil
 }
 
