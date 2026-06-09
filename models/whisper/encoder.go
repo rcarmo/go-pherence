@@ -107,7 +107,7 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	resetA100Timers()
 	convNs := int64(time.Since(convStart))
 	for i := range enc.Layers {
-		ht = enc.forwardLayer(&enc.Layers[i], ht, T2)
+		ht = enc.forwardLayer(i, &enc.Layers[i], ht, T2)
 	}
 	if os.Getenv("WHISPER_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr, "[enc] convstem=%.1fs linear=%.1fs attn=%.1fs other=%.1fs\n",
@@ -128,7 +128,7 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 }
 
 // forwardLayer runs one encoder transformer layer (full self-attention + MLP).
-func (enc *Encoder) forwardLayer(layer *EncoderLayer, x []float32, seqLen int) []float32 {
+func (enc *Encoder) forwardLayer(layerIdx int, layer *EncoderLayer, x []float32, seqLen int) []float32 {
 	dModel := enc.cfg.EncoderDModel
 	numHeads := enc.cfg.EncoderHeads
 	headDim := enc.cfg.HeadDim
@@ -168,11 +168,11 @@ func (enc *Encoder) forwardLayer(layer *EncoderLayer, x []float32, seqLen int) [
 	// MLP: FC1 → GELU → FC2
 	ffnDim := enc.cfg.EncoderFFNDim
 	t0 = time.Now()
-	if mlpOut, ok := forwardFFNTiled(mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
+	if mlpOut, ok := forwardFFNTiled(layerIdx, mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
 		encLinearNs += int64(time.Since(t0))
 		return mlpOut
 	}
-	if mlpOut, ok := forwardA100FFNFused(mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
+	if mlpOut, ok := forwardA100FFNFused(layerIdx, mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
 		encLinearNs += int64(time.Since(t0))
 		return mlpOut
 	}

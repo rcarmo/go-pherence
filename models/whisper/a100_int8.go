@@ -21,6 +21,7 @@ var (
 	useA100FFNFused = os.Getenv("WHISPER_A100_FFN_FUSED") != ""
 	useA100X100Pack = os.Getenv("WHISPER_A100_X100_PACK") != ""
 	a100FFNFC2Mode  = strings.ToLower(os.Getenv("WHISPER_A100_FFN_FC2_MODE"))
+	a100FFNLayers   = parseA100FFNLayers(os.Getenv("WHISPER_A100_FFN_LAYERS"))
 )
 
 var (
@@ -131,6 +132,46 @@ func a100FFNUsesA100FC2() bool {
 	}
 }
 
+func parseA100FFNLayers(spec string) func(int) bool {
+	spec = strings.TrimSpace(spec)
+	if spec == "" || spec == "all" || spec == "*" {
+		return nil
+	}
+	allowed := map[int]bool{}
+	for _, part := range strings.Split(spec, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "-") {
+			pieces := strings.SplitN(part, "-", 2)
+			lo, errLo := strconv.Atoi(strings.TrimSpace(pieces[0]))
+			hi, errHi := strconv.Atoi(strings.TrimSpace(pieces[1]))
+			if errLo != nil || errHi != nil {
+				continue
+			}
+			if hi < lo {
+				lo, hi = hi, lo
+			}
+			for i := lo; i <= hi; i++ {
+				allowed[i] = true
+			}
+			continue
+		}
+		if i, err := strconv.Atoi(part); err == nil {
+			allowed[i] = true
+		}
+	}
+	if len(allowed) == 0 {
+		return nil
+	}
+	return func(layer int) bool { return allowed[layer] }
+}
+
+func a100FFNLayerEnabled(layerIdx int) bool {
+	return a100FFNLayers == nil || a100FFNLayers(layerIdx)
+}
+
 func forwardA100FFNFC1NativeFC2Raw(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	if dModel != 1280 || ffnDim != 5120 || layer == nil {
 		return nil, false
@@ -182,8 +223,8 @@ func forwardA100FFNFusedRaw(mlpIn []float32, layer *EncoderLayer, residual []flo
 	return out, true
 }
 
-func forwardA100FFNTile(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
-	if !useA100FFNFused {
+func forwardA100FFNTile(layerIdx int, mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if !useA100FFNFused || !a100FFNLayerEnabled(layerIdx) {
 		return nil, false
 	}
 	if !a100FFNUsesA100FC2() {
@@ -192,8 +233,8 @@ func forwardA100FFNTile(mlpIn []float32, layer *EncoderLayer, residual []float32
 	return forwardA100FFNFusedRaw(mlpIn, layer, residual, seqLen, dModel, ffnDim)
 }
 
-func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
-	if !useA100FFNFused {
+func forwardA100FFNFused(layerIdx int, mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if !useA100FFNFused || !a100FFNLayerEnabled(layerIdx) {
 		return nil, false
 	}
 	if !a100FFNUsesA100FC2() {

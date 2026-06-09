@@ -129,3 +129,13 @@ baseline `73`). The quality-safe hybrid (`WHISPER_A100_FFN_FC2_MODE=int8`) keeps
 `73` tokens but remains slower (`pass0≈40.7s`, `pass1≈37.6s`) than baseline
 native int8 (`pass0≈39.4s`, `pass1≈36.5s`). A100 should therefore remain opt-in
 until FC2 quantization drift is reduced or the safe hybrid beats baseline.
+
+Layer-selective A100 FFN: `WHISPER_A100_FFN_LAYERS` restricts
+`WHISPER_A100_FFN_FUSED=1` to a comma/range selector such as `12-31` or
+`16-31`. This targets the diagnostic finding that early layers have the largest
+full-A100 FFN drift. On `pod_30.wav`, ranges `12-31` and `16-31` preserved the
+baseline `73` token output, unlike all-layer/full later-layer-only runs that can
+produce `107` tokens. Timing was variable: `16-31` produced fast warm passes
+(e.g. `encoder+xkv≈32.9s`, `pass≈37.3s`) but was not stable enough across
+repeats to replace native int8 by default. Keep this as an opt-in quality/speed
+tradeoff tool while FC2 quantization and activation packing are improved.
