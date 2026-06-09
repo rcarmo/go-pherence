@@ -84,19 +84,7 @@ func ffnBaseline(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLe
 }
 
 func ffnA100FC1NativeFC2(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
-	if dModel != 1280 || ffnDim != 5120 {
-		return nil, false
-	}
-	hidden, ok := linearForwardA100Raw(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
-	if !ok {
-		return nil, false
-	}
-	gelu(hidden)
-	out := linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, seqLen, ffnDim, dModel)
-	for i := range residual {
-		out[i] += residual[i]
-	}
-	return out, true
+	return forwardA100FFNFC1NativeFC2Raw(mlpIn, layer, residual, seqLen, dModel, ffnDim)
 }
 
 func compareFFN(layer int, variant string, baseline, candidate []float32, seqLen, dModel, ffnDim int) FFNDiagnostic {

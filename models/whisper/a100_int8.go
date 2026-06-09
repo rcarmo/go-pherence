@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -18,6 +19,7 @@ var (
 	useA100FC1      = os.Getenv("WHISPER_A100_FC1") != ""
 	useA100FC2      = os.Getenv("WHISPER_A100_FC2") != ""
 	useA100FFNFused = os.Getenv("WHISPER_A100_FFN_FUSED") != ""
+	a100FFNFC2Mode  = strings.ToLower(os.Getenv("WHISPER_A100_FFN_FC2_MODE"))
 )
 
 var (
@@ -112,6 +114,33 @@ func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) 
 	return linearForwardA100Raw(x, weight, bias, seqLen, inDim, outDim)
 }
 
+func a100FFNUsesA100FC2() bool {
+	switch a100FFNFC2Mode {
+	case "", "a100":
+		return true
+	case "int8", "native", "x100":
+		return false
+	default:
+		return true
+	}
+}
+
+func forwardA100FFNFC1NativeFC2Raw(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
+	if dModel != 1280 || ffnDim != 5120 || layer == nil {
+		return nil, false
+	}
+	hidden, ok := linearForwardA100Raw(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
+	if !ok {
+		return nil, false
+	}
+	gelu(hidden)
+	out := linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, seqLen, ffnDim, dModel)
+	for i := range residual {
+		out[i] += residual[i]
+	}
+	return out, true
+}
+
 func forwardA100FFNFusedRaw(mlpIn []float32, layer *EncoderLayer, residual []float32, seqLen, dModel, ffnDim int) ([]float32, bool) {
 	if dModel != 1280 || ffnDim != 5120 || layer == nil {
 		return nil, false
@@ -147,6 +176,9 @@ func forwardA100FFNFused(mlpIn []float32, layer *EncoderLayer, residual []float3
 	if !useA100FFNFused {
 		return nil, false
 	}
+	if !a100FFNUsesA100FC2() {
+		return forwardA100FFNFC1NativeFC2Raw(mlpIn, layer, residual, seqLen, dModel, ffnDim)
+	}
 	return forwardA100FFNFusedRaw(mlpIn, layer, residual, seqLen, dModel, ffnDim)
 }
 
@@ -160,7 +192,7 @@ func prepackA100EncoderWeights(enc *Encoder) {
 		if (useA100FC1 || useA100FFNFused) && len(layer.FC1Weight) != 0 {
 			_ = getA100Q80x32Weight(layer.FC1Weight, 5120, 1280)
 		}
-		if (useA100FC2 || useA100FFNFused) && len(layer.FC2Weight) != 0 {
+		if (useA100FC2 || (useA100FFNFused && a100FFNUsesA100FC2())) && len(layer.FC2Weight) != 0 {
 			_ = getA100Q80x32Weight(layer.FC2Weight, 1280, 5120)
 		}
 	}

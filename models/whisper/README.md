@@ -88,3 +88,13 @@ It prints layer/variant metrics (`max_abs`, `mean_abs`, `rmse`, `rel_rmse`, and
 (`max_rel_rmse≈0.131`, `min_cos≈0.99135`, worst at layer 1). This supports using
 A100 FC1 with native-int8 FC2 as the safer next mode and keeping full A100 FC2
 opt-in until its quantization is improved.
+
+A100 fused FC2 mode selector: `WHISPER_A100_FFN_FC2_MODE` controls the FC2 side
+of `WHISPER_A100_FFN_FUSED=1`. The default `a100` keeps the full A100 fused FFN
+and is encoder-fast but changes decode length on `pod_30.wav` (`107` tokens).
+The safer `int8` mode runs A100 FC1, applies normal GELU, then uses the native
+int8 FC2 path before adding the residual. This preserves baseline token count
+(`73` tokens) and transcript shape, but does not improve wall time yet: measured
+`pass0=40.1s` / `pass1=38.0s` versus baseline `40.0s` / `36.4s` on the same
+sample. It is a quality-safe control path for future tile-level fusion and RVV
+activation-packing work.
