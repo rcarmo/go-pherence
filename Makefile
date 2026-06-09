@@ -400,3 +400,60 @@ smoke:
 	@echo "=== unit tests ==="
 	go test -count=1 -timeout=60s ./loader/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 	@echo "=== ok ==="
+
+# Ideogram 4 OSS/ComfyUI-style generation. ComfyUI-Ideogram4's recommended
+# workflow is Magic Prompt -> Generate, where Magic Prompt produces a structured
+# single-line JSON caption. Keep the prompt in a file and pass it verbatim so
+# generation runs do not drift back to plain natural-language prompts.
+IDEOGRAM4_MODEL ?= /srv/piclaw-dev/workspace/tmp/ideogram4-cat-model
+IDEOGRAM4_PROMPT_FILE ?= prompts/ideogram4/cat.json
+IDEOGRAM4_OUT ?= $(TMPDIR)/ideogram4/cat_comfy_prompt_256.png
+IDEOGRAM4_WIDTH ?= 256
+IDEOGRAM4_HEIGHT ?= 256
+IDEOGRAM4_STEPS ?= 16
+IDEOGRAM4_GUIDANCE ?= 7.0
+IDEOGRAM4_MU ?= 0.0
+IDEOGRAM4_STD ?= 1.75
+IDEOGRAM4_SEED ?= 2026060803
+IDEOGRAM4_GPU_RESIDENCY ?= phase
+
+.PHONY: ideogram4-cat-prompt ideogram4-cat-gpu ideogram4-cat-cpu ideogram4-cat-open
+
+ideogram4-cat-prompt:
+	$(PYTHON) -m json.tool $(IDEOGRAM4_PROMPT_FILE) >/dev/null
+	@cat $(IDEOGRAM4_PROMPT_FILE)
+	@echo
+
+ideogram4-cat-gpu: ideogram4-cat-prompt
+	mkdir -p $(dir $(IDEOGRAM4_OUT)) $(GOTMPDIR)
+	go run ./cmd/image/ideogram4gen \
+		-model $(IDEOGRAM4_MODEL) \
+		-prompt "$$(cat $(IDEOGRAM4_PROMPT_FILE))" \
+		-out $(IDEOGRAM4_OUT) \
+		-width $(IDEOGRAM4_WIDTH) \
+		-height $(IDEOGRAM4_HEIGHT) \
+		-steps $(IDEOGRAM4_STEPS) \
+		-guidance $(IDEOGRAM4_GUIDANCE) \
+		-mu $(IDEOGRAM4_MU) \
+		-std $(IDEOGRAM4_STD) \
+		-seed $(IDEOGRAM4_SEED) \
+		-gpu -gpu-fp8 -gpu-fp8-cache -gpu-residency $(IDEOGRAM4_GPU_RESIDENCY) \
+		-timing
+
+ideogram4-cat-cpu: ideogram4-cat-prompt
+	mkdir -p $(dir $(IDEOGRAM4_OUT)) $(GOTMPDIR)
+	GO_PHERENCE_DISABLE_NVIDIA=1 go run ./cmd/image/ideogram4gen \
+		-model $(IDEOGRAM4_MODEL) \
+		-prompt "$$(cat $(IDEOGRAM4_PROMPT_FILE))" \
+		-out $(IDEOGRAM4_OUT) \
+		-width $(IDEOGRAM4_WIDTH) \
+		-height $(IDEOGRAM4_HEIGHT) \
+		-steps $(IDEOGRAM4_STEPS) \
+		-guidance $(IDEOGRAM4_GUIDANCE) \
+		-mu $(IDEOGRAM4_MU) \
+		-std $(IDEOGRAM4_STD) \
+		-seed $(IDEOGRAM4_SEED) \
+		-timing
+
+ideogram4-cat-open:
+	@echo $(IDEOGRAM4_OUT)
