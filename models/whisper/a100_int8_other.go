@@ -2,6 +2,8 @@
 
 package whisper
 
+func runA100Gemm(x []float32, seqLen, inDim int, w any, out []float32) bool         { return false }
+func runA100GemmX100Pack(x []float32, seqLen, inDim int, w any, out []float32) bool { return false }
 func linearForwardA100FC1(x, weight, bias []float32, seqLen, inDim, outDim int) ([]float32, bool) {
 	return nil, false
 }

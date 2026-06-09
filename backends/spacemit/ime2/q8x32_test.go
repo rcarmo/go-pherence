@@ -49,3 +49,22 @@ func TestQuantizeF32RowsQ8M4GELUInto(t *testing.T) {
 		}
 	}
 }
+
+func TestPackF32ToQ80x32RowScaleRepeatsScales(t *testing.T) {
+	const M, K = 32, 64
+	w := make([]float32, M*K)
+	for i := range w {
+		w[i] = float32((i%23)-11) / 13
+	}
+	q := PackF32ToQ80x32RowScale(M, K, w)
+	if !q.Valid {
+		t.Fatal("row-scale pack invalid")
+	}
+	for r := 0; r < 32; r++ {
+		s0 := q.BData[r*2 : r*2+2]
+		s1 := q.BData[K3I8I8BTileBytes+r*2 : K3I8I8BTileBytes+r*2+2]
+		if s0[0] != s1[0] || s0[1] != s1[1] {
+			t.Fatalf("row %d scale differs across K blocks: %02x%02x vs %02x%02x", r, s0[0], s0[1], s1[0], s1[1])
+		}
+	}
+}

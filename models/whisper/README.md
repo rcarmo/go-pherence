@@ -139,3 +139,14 @@ produce `107` tokens. Timing was variable: `16-31` produced fast warm passes
 (e.g. `encoder+xkv≈32.9s`, `pass≈37.3s`) but was not stable enough across
 repeats to replace native int8 by default. Keep this as an opt-in quality/speed
 tradeoff tool while FC2 quantization and activation packing are improved.
+
+Native-compatible A100 Q8 row scaling: `WHISPER_A100_NATIVE_Q8=1` packs A100
+Q80x32 weights with one scale per output row and packs GELU activations with one
+scale per activation row, repeated across K32 blocks. This mirrors the existing
+native int8 quantization contract while still using the A100 tile layout. On
+`pod_30.wav`, the full fused A100 FFN with X100 activation prepack and row-scale
+Q8 preserved the baseline `73` token output and became faster than native int8:
+`pass0≈37.0s` / `pass1≈35.3s` versus baseline `pass0≈40.1s` / `pass1≈37.0s` in
+the same run. The older block-scale A100 Q8 path remained slightly faster in
+encoder-only terms but drifted to `107` tokens. Recommended opt-in candidate:
+`WHISPER_A100_FFN_FUSED=1 WHISPER_A100_X100_PACK=1 WHISPER_A100_NATIVE_Q8=1`.

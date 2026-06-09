@@ -68,6 +68,105 @@ func PackF32ToQ80x32(M, K int, f32 []float32) Q80x32 {
 	return Q80x32{M: M, K: K, BData: out, Valid: true}
 }
 
+// PackF32ToQ80x32RowScale packs weights into the native A100 Q8_0 x32 layout
+// using one scale for each full output row, repeated across all K32 blocks. This
+// mirrors the row-global quantization contract used by the existing Whisper
+// native int8 path and is useful for compatibility experiments.
+func PackF32ToQ80x32RowScale(M, K int, f32 []float32) Q80x32 {
+	if M%32 != 0 || K%32 != 0 || len(f32) < M*K {
+		return Q80x32{M: M, K: K}
+	}
+	groups, subs := M/32, K/32
+	out := make([]byte, groups*subs*K3I8I8BTileBytes)
+	sc := make([]float32, M)
+	for row := 0; row < M; row++ {
+		maxAbs := float32(0)
+		base := row * K
+		for k := 0; k < K; k++ {
+			v := float32(math.Abs(float64(f32[base+k])))
+			if v > maxAbs {
+				maxAbs = v
+			}
+		}
+		if maxAbs != 0 {
+			sc[row] = maxAbs / 127.0
+		}
+	}
+	for g := 0; g < groups; g++ {
+		for sb := 0; sb < subs; sb++ {
+			block := out[(g*subs+sb)*K3I8I8BTileBytes:]
+			scales := block[:64]
+			qs := block[64 : 64+1024]
+			for r := 0; r < 32; r++ {
+				row := g*32 + r
+				base := row*K + sb*32
+				d := sc[row]
+				binary.LittleEndian.PutUint16(scales[r*2:], half.F32ToF16(d))
+				inv := float32(0)
+				if d != 0 {
+					inv = 1 / d
+				}
+				for k := 0; k < 32; k++ {
+					q := int(math.Round(float64(f32[base+k] * inv)))
+					if q > 127 {
+						q = 127
+					}
+					if q < -128 {
+						q = -128
+					}
+					qs[r*32+k] = byte(int8(q))
+				}
+			}
+		}
+	}
+	return Q80x32{M: M, K: K, BData: out, Valid: true}
+}
+
+// QuantizeF32RowsQ8M4GELURowScaleInto is the row-global-scale form of
+// QuantizeF32RowsQ8M4GELUInto. It repeats each row's full-K GELU scale across
+// all K32 A blocks to mimic Whisper's native int8 activation quantization.
+func QuantizeF32RowsQ8M4GELURowScaleInto(rows [4][]float32, kBlks int, dst []byte) []byte {
+	out := dst[:kBlks*K3I8I8ABlockM4Bytes]
+	var sc [4]float32
+	for r := 0; r < 4; r++ {
+		maxAbs := float32(0)
+		for k := 0; k < kBlks*32; k++ {
+			v := float32(math.Abs(float64(geluQ8(rows[r][k]))))
+			if v > maxAbs {
+				maxAbs = v
+			}
+		}
+		if maxAbs != 0 {
+			sc[r] = maxAbs / 127.0
+		}
+	}
+	for sb := 0; sb < kBlks; sb++ {
+		dstOff := sb * K3I8I8ABlockM4Bytes
+		for r := 0; r < 4; r++ {
+			scale := sc[r]
+			inv := float32(0)
+			if scale != 0 {
+				inv = 1 / scale
+			}
+			binary.LittleEndian.PutUint32(out[dstOff+r*4:], math.Float32bits(scale))
+			sum := 0
+			for k := 0; k < 32; k++ {
+				q := int(math.Round(float64(geluQ8(rows[r][sb*32+k]) * inv)))
+				if q > 127 {
+					q = 127
+				}
+				if q < -128 {
+					q = -128
+				}
+				out[dstOff+24+r*32+k] = byte(int8(q))
+				sum += q
+			}
+			binary.LittleEndian.PutUint16(out[dstOff+16+r*2:], uint16(int16(-sum)))
+		}
+	}
+	return out
+}
+
 // QuantizeF32RowsQ8M4 packs four activation rows [4,K] into the M4 A layout
 // consumed by K3I8I8M4: per K32 block fp32 scale[4], int16 negative_sum[4],
 // int8 q[4][32].
