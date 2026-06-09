@@ -150,3 +150,11 @@ Q8 preserved the baseline `73` token output and became faster than native int8:
 the same run. The older block-scale A100 Q8 path remained slightly faster in
 encoder-only terms but drifted to `107` tokens. Recommended opt-in candidate:
 `WHISPER_A100_FFN_FUSED=1 WHISPER_A100_X100_PACK=1 WHISPER_A100_NATIVE_Q8=1`.
+
+A100 row-scale confirmation: a repeat-3 confirmation on `pod_30.wav` with
+`WHISPER_A100_FFN_FUSED=1 WHISPER_A100_X100_PACK=1 WHISPER_A100_NATIVE_Q8=1`
+preserved the baseline `73` token transcript and improved every pass in the same
+run: baseline `40.6s/37.2s/36.0s` versus A100 row-scale `37.4s/35.7s/35.5s` for
+passes 0/1/2. This supersedes the earlier block-scale default-eligibility
+finding: row-scale A100 is now a strong opt-in/default-candidate path, but should
+be validated on a broader audio set before becoming the automatic default.
