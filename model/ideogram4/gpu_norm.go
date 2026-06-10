@@ -64,10 +64,3 @@ func gatedResidualRowsGPU(hidden, update, gate []float32, rows, cols int) error 
 	}
 	return nvidia.IdeogramGatedResidualRows(hidden, update, gate, rows, cols)
 }
-
-func gatedResidualGPU(hidden, update, gate []float32) error {
-	if !nvidia.Available() {
-		return fmt.Errorf("nvidia runtime unavailable")
-	}
-	return nvidia.IdeogramGatedResidual(hidden, update, gate)
-}

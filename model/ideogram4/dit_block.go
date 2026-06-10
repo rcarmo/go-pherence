@@ -379,17 +379,6 @@ func transformAdaLNMod(mod []float32, emb int) {
 	}
 }
 
-func addGatedResidual(row, update, gate []float32) {
-	if gpuNormEnabled() {
-		if err := gatedResidualGPU(row, update, gate); err == nil || gpuNormStrict() {
-			return
-		}
-	}
-	for i := range row {
-		row[i] += gate[i] * update[i]
-	}
-}
-
 // rmsNormWeightedTo computes RMSNorm(x)*weight into dst.
 func rmsNormWeightedTo(dst, x, weight []float32, eps float32) {
 	if gpuNormEnabled() {
@@ -398,17 +387,6 @@ func rmsNormWeightedTo(dst, x, weight []float32, eps float32) {
 		}
 	}
 	rmsNormWeightedCPU(dst, x, weight, eps)
-}
-
-func rmsNormWeightedInPlace(x, weight []float32, eps float32) {
-	if gpuNormEnabled() {
-		dst := make([]float32, len(x))
-		if err := rmsNormWeightedGPU(dst, x, weight, eps); err == nil || gpuNormStrict() {
-			copy(x, dst)
-			return
-		}
-	}
-	rmsNormWeightedCPU(x, x, weight, eps)
 }
 
 func rmsNormWeightedCPU(dst, x, weight []float32, eps float32) {
