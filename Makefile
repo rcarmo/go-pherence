@@ -557,3 +557,16 @@ diffusiongemma-run-scaffold:
 
 diffusiongemma-run-cpu:
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher
+
+DIFFUSIONGEMMA_REF_OUT ?= $(TMPDIR)/diffusiongemma/reference.json
+DIFFUSIONGEMMA_REF_PROMPT ?= Why is the sky blue?
+DIFFUSIONGEMMA_REF_MAX_NEW ?= 64
+DIFFUSIONGEMMA_REF_STEPS ?= 48
+
+.PHONY: diffusiongemma-reference-dry-run diffusiongemma-reference
+
+diffusiongemma-reference-dry-run:
+	python3 scripts/diffusiongemma_reference.py --model $(DIFFUSIONGEMMA_MODEL) --dry-run --out $(DIFFUSIONGEMMA_REF_OUT)
+
+diffusiongemma-reference:
+	python3 scripts/diffusiongemma_reference.py --model $(DIFFUSIONGEMMA_MODEL) --prompt '$(DIFFUSIONGEMMA_REF_PROMPT)' --max-new-tokens $(DIFFUSIONGEMMA_REF_MAX_NEW) --max-denoising-steps $(DIFFUSIONGEMMA_REF_STEPS) --out $(DIFFUSIONGEMMA_REF_OUT)

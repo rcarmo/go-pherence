@@ -495,3 +495,20 @@ For example, `-tokens <mask> -add-bos -think` produces prompt IDs `[2 98 4]` aga
 ## Reference-complete status reporting
 
 `diffusiongemmainspect` now prints the remaining `missing_reference` capability items. Current scaffold status reports only `reference parity fixtures` and `vision/token processor integration` as missing from reference-complete status, while still keeping `runtime_ready=false` until those gaps are closed and verified.
+
+
+## Reference fixture helper
+
+`scripts/diffusiongemma_reference.py` can capture Hugging Face Transformers reference outputs for parity work. Use dry-run mode to inspect local metadata without importing/loading Transformers:
+
+```bash
+make diffusiongemma-reference-dry-run DIFFUSIONGEMMA_MODEL=/path/to/model
+```
+
+When a Python environment and full weights are available, run:
+
+```bash
+make diffusiongemma-reference DIFFUSIONGEMMA_MODEL=/path/to/model DIFFUSIONGEMMA_REF_PROMPT="Why is the sky blue?"
+```
+
+The output JSON includes prompt, input IDs, output IDs, decoded text, timing, dtype, and device. This is a fixture-capture tool, not a Go test.
