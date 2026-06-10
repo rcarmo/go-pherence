@@ -61,11 +61,18 @@ var (
 )
 
 type Stats struct {
-	KernelLaunches uint64
-	HostToDevice   uint64
-	DeviceToHost   uint64
-	DeviceToDevice uint64
-	Syncs          uint64
+	KernelLaunches      uint64
+	HostToDevice        uint64
+	HostToDeviceBytes   uint64
+	DeviceToHost        uint64
+	DeviceToHostBytes   uint64
+	DeviceToDevice      uint64
+	DeviceToDeviceBytes uint64
+	Mallocs             uint64
+	MallocBytes         uint64
+	Frees               uint64
+	FreeBytes           uint64
+	Syncs               uint64
 }
 
 var gpuStatsEnabled atomic.Bool
@@ -73,6 +80,13 @@ var gpuStatsKernelLaunches atomic.Uint64
 var gpuStatsHostToDevice atomic.Uint64
 var gpuStatsDeviceToHost atomic.Uint64
 var gpuStatsDeviceToDevice atomic.Uint64
+var gpuStatsHostToDeviceBytes atomic.Uint64
+var gpuStatsDeviceToHostBytes atomic.Uint64
+var gpuStatsDeviceToDeviceBytes atomic.Uint64
+var gpuStatsMallocs atomic.Uint64
+var gpuStatsMallocBytes atomic.Uint64
+var gpuStatsFrees atomic.Uint64
+var gpuStatsFreeBytes atomic.Uint64
 var gpuStatsSyncs atomic.Uint64
 
 func SetStatsEnabled(enabled bool) bool {
@@ -81,19 +95,29 @@ func SetStatsEnabled(enabled bool) bool {
 
 func StatsSnapshot() Stats {
 	return Stats{
-		KernelLaunches: gpuStatsKernelLaunches.Load(),
-		HostToDevice:   gpuStatsHostToDevice.Load(),
-		DeviceToHost:   gpuStatsDeviceToHost.Load(),
-		DeviceToDevice: gpuStatsDeviceToDevice.Load(),
-		Syncs:          gpuStatsSyncs.Load(),
+		KernelLaunches:      gpuStatsKernelLaunches.Load(),
+		HostToDevice:        gpuStatsHostToDevice.Load(),
+		HostToDeviceBytes:   gpuStatsHostToDeviceBytes.Load(),
+		DeviceToHost:        gpuStatsDeviceToHost.Load(),
+		DeviceToHostBytes:   gpuStatsDeviceToHostBytes.Load(),
+		DeviceToDevice:      gpuStatsDeviceToDevice.Load(),
+		DeviceToDeviceBytes: gpuStatsDeviceToDeviceBytes.Load(),
+		Mallocs:             gpuStatsMallocs.Load(),
+		MallocBytes:         gpuStatsMallocBytes.Load(),
+		Frees:               gpuStatsFrees.Load(),
+		FreeBytes:           gpuStatsFreeBytes.Load(),
+		Syncs:               gpuStatsSyncs.Load(),
 	}
 }
 
-func recordDeviceToDeviceCopy() {
+func recordDeviceToDeviceCopyBytes(bytes uint64) {
 	if gpuStatsEnabled.Load() {
 		gpuStatsDeviceToDevice.Add(1)
+		gpuStatsDeviceToDeviceBytes.Add(bytes)
 	}
 }
+
+func recordDeviceToDeviceCopy() { recordDeviceToDeviceCopyBytes(0) }
 
 var (
 	gpuOnce    sync.Once
@@ -277,12 +301,20 @@ func Malloc(n int) (*Buffer, error) {
 	if r := cuMemAlloc(&ptr, size); r != CUDA_SUCCESS {
 		return nil, fmt.Errorf("cuMemAlloc(%d): error %d", size, r)
 	}
+	if gpuStatsEnabled.Load() {
+		gpuStatsMallocs.Add(1)
+		gpuStatsMallocBytes.Add(size)
+	}
 	return &Buffer{Ptr: ptr, Size: int(size)}, nil
 }
 
 // Free releases GPU memory.
 func (b *Buffer) Free() {
 	if b.Ptr != 0 {
+		if gpuStatsEnabled.Load() {
+			gpuStatsFrees.Add(1)
+			gpuStatsFreeBytes.Add(uint64(b.Size))
+		}
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 		cudaMu.Lock()
@@ -337,6 +369,7 @@ func (b *Buffer) Upload(data []float32) error {
 	}
 	if gpuStatsEnabled.Load() {
 		gpuStatsHostToDevice.Add(1)
+		gpuStatsHostToDeviceBytes.Add(size)
 	}
 	return nil
 }
@@ -365,6 +398,7 @@ func (b *Buffer) UploadBytes(data []byte) error {
 	}
 	if gpuStatsEnabled.Load() {
 		gpuStatsHostToDevice.Add(1)
+		gpuStatsHostToDeviceBytes.Add(uint64(len(data)))
 	}
 	return nil
 }
@@ -395,6 +429,7 @@ func (b *Buffer) UploadUint32(data []uint32) error {
 	}
 	if gpuStatsEnabled.Load() {
 		gpuStatsHostToDevice.Add(1)
+		gpuStatsHostToDeviceBytes.Add(size)
 	}
 	return nil
 }
@@ -422,6 +457,7 @@ func (b *Buffer) DownloadBytes(data []byte) error {
 	}
 	if gpuStatsEnabled.Load() {
 		gpuStatsDeviceToHost.Add(1)
+		gpuStatsDeviceToHostBytes.Add(uint64(len(data)))
 	}
 	return nil
 }
@@ -450,6 +486,7 @@ func (b *Buffer) Download(data []float32) error {
 	}
 	if gpuStatsEnabled.Load() {
 		gpuStatsDeviceToHost.Add(1)
+		gpuStatsDeviceToHostBytes.Add(size)
 	}
 	return nil
 }

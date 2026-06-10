@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
@@ -141,9 +142,34 @@ type GenerateOptions struct {
 func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, error) {
 	traceTiming := os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1"
 	t0 := time.Now()
+	statsEnabled := traceTiming && os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_STATS") == "1"
+	prevStatsEnabled := false
+	if statsEnabled {
+		prevStatsEnabled = nvidia.SetStatsEnabled(true)
+		defer nvidia.SetStatsEnabled(prevStatsEnabled)
+	}
+	lastStats := nvidia.StatsSnapshot()
 	mark := func(name string, since time.Time) time.Time {
 		if traceTiming {
 			fmt.Fprintf(os.Stderr, "timing %s=%s total=%s\n", name, time.Since(since), time.Since(t0))
+			if statsEnabled {
+				now := nvidia.StatsSnapshot()
+				fmt.Fprintf(os.Stderr, "gpu_stats %s kernels=%d h2d=%d h2d_bytes=%d d2h=%d d2h_bytes=%d d2d=%d d2d_bytes=%d mallocs=%d malloc_bytes=%d frees=%d free_bytes=%d syncs=%d\n",
+					name,
+					now.KernelLaunches-lastStats.KernelLaunches,
+					now.HostToDevice-lastStats.HostToDevice,
+					now.HostToDeviceBytes-lastStats.HostToDeviceBytes,
+					now.DeviceToHost-lastStats.DeviceToHost,
+					now.DeviceToHostBytes-lastStats.DeviceToHostBytes,
+					now.DeviceToDevice-lastStats.DeviceToDevice,
+					now.DeviceToDeviceBytes-lastStats.DeviceToDeviceBytes,
+					now.Mallocs-lastStats.Mallocs,
+					now.MallocBytes-lastStats.MallocBytes,
+					now.Frees-lastStats.Frees,
+					now.FreeBytes-lastStats.FreeBytes,
+					now.Syncs-lastStats.Syncs)
+				lastStats = now
+			}
 		}
 		return time.Now()
 	}
