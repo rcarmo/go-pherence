@@ -49,8 +49,8 @@ This is **not yet full K3 SIMD coverage**. It is the first targetable binary for
 
 | Area | Current generic path | K3 SIMD/IME target | Status |
 |---|---|---|---|
-| FP8 E4M3 linear GEMV/GEMM | scalar/amd64/NVIDIA-specific paths | K3 packed FP8→int8 or FP8→f16 kernels using IME2/RVV | missing |
-| FP8 E4M3 decode | LUT scalar | RVV byte→f16/int8 packing, row-scale fused | missing |
+| FP8 E4M3 linear GEMV/GEMM | scalar/amd64/NVIDIA-specific paths; K3 gate routes to RVV f16 GEMM bridge when `GO_PHERENCE_IDEOGRAM4_K3=1` on riscv64 | K3 packed FP8→int8 or FP8→f16 kernels using IME2/RVV | partial: RVV f16 bridge, not final IME2 |
+| FP8 E4M3 decode | LUT scalar; K3 bridge decodes row-scaled FP8 to fp16 before RVV GEMM | RVV byte→f16/int8 packing, row-scale fused | partial |
 | Qwen text encoder linears | `FP8Linear.ApplyBatch` | K3 FP8 batch linear, A100 worker-pool scheduling | missing |
 | DiT QKV/O/W1/W2/W3 linears | `FP8Linear.ApplyBatch` / GPU on NVIDIA | K3 full-layer packed/resident linears | missing |
 | RMSNorm rows | Go scalar / NVIDIA rows | RVV row RMSNorm over f32/f16 | missing |
@@ -87,11 +87,12 @@ make ideogram4gen-k3
   -timing
 ```
 
-K3-specific runtime environment should include, once wired:
+K3-specific runtime environment should include:
 
 ```text
-GO_PHERENCE_IDEOGRAM4_K3=1
-IME2_TCM_ACT=1
+GO_PHERENCE_IDEOGRAM4_K3=1          # enables current riscv64 RVV f16 FP8-linear bridge
+GO_PHERENCE_IDEOGRAM4_K3_THREADS=8  # optional RVV thread count for the bridge
+IME2_TCM_ACT=1                      # for future IME2/TCM-backed kernels
 ```
 
 and hardware logs should confirm A100 worker placement on cores 8–15.

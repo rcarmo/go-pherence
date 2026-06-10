@@ -52,6 +52,9 @@ func (f *FP8Linear) Apply(x []float32, out []float32) error {
 	if f == nil {
 		return ErrRuntimeNotImplemented
 	}
+	if ok, err := k3FP8Batch(f, x, out, 1); ok {
+		return err
+	}
 	if gpuFP8Enabled() {
 		var err error
 		if gpuFP8CacheEnabled() {
@@ -78,6 +81,9 @@ func (f *FP8Linear) ApplyBatch(x []float32, out []float32, batch int) error {
 	}
 	if len(x) < batch*f.weight.InDim || len(out) < batch*f.weight.OutDim {
 		return fmt.Errorf("ideogram4 fp8 linear %q invalid batch buffers x=%d/%d out=%d/%d", f.spec.Prefix, len(x), batch*f.weight.InDim, len(out), batch*f.weight.OutDim)
+	}
+	if ok, err := k3FP8Batch(f, x, out, batch); ok {
+		return err
 	}
 	if gpuFP8Enabled() {
 		var err error
