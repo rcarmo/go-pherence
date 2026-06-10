@@ -45,6 +45,7 @@ func main() {
 	addBOS := flag.Bool("add-bos", false, "prepend BOS token from tokenizer metadata")
 	enableThinking := flag.Bool("think", false, "prepend thinking control token from tokenizer metadata")
 	addGenerationPrompt := flag.Bool("generation-prompt", false, "append generation prompt token when available")
+	useChatTemplate := flag.Bool("chat-template", false, "render repeated -message values through simplified native Gemma chat template")
 	decode := flag.Bool("decode", false, "decode prompt/generated IDs through exact tokenizer vocabulary entries")
 	mockToken := flag.Int("mock-token", -1, "use deterministic mock denoiser that always favors this token ID")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
@@ -93,31 +94,75 @@ func main() {
 		if m.Tokenizer == nil {
 			fatal(fmt.Errorf("DiffusionGemma tokenizer metadata unavailable"))
 		}
-		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
-		chatMessages := make([]diffusiongemma.ChatMessage, 0, len(messages))
-		for _, raw := range messages {
-			role, content, ok := strings.Cut(raw, ":")
-			if !ok {
-				fatal(fmt.Errorf("bad -message %q, want role:text", raw))
+		if *useChatTemplate {
+			specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
+			ids := make([]int, 0)
+			if *addBOS {
+				ids = append(ids, specials.BOS)
 			}
-			role = strings.TrimSpace(role)
-			text := role + "\n" + content
-			if *enableThinking && (role == "system" || role == "developer") {
-				text = role + "\n" + m.Processor.Think + "\n" + content
+			parsed := make([]diffusiongemma.TextChatMessage, 0, len(messages))
+			for _, raw := range messages {
+				role, content, ok := strings.Cut(raw, ":")
+				if !ok {
+					fatal(fmt.Errorf("bad -message %q, want role:text", raw))
+				}
+				parsed = append(parsed, diffusiongemma.TextChatMessage{Role: strings.TrimSpace(role), Content: content})
 			}
-			chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: role, Content: tok.Encode(text)})
-		}
-		framed, err := diffusiongemma.BuildSimpleChatPromptIDs(chatMessages, specials, diffusiongemma.ChatPromptOptions{AddBOS: *addBOS})
-		if err != nil {
-			fatal(err)
-		}
-		promptIDs = append(promptIDs, framed.InputIDs...)
-		if *addGenerationPrompt {
-			if specials.BOT < 0 {
-				fatal(fmt.Errorf("DiffusionGemma begin-turn token ID unavailable"))
+			start := 0
+			if *enableThinking || (len(parsed) > 0 && (parsed[0].Role == "system" || parsed[0].Role == "developer")) {
+				ids = append(ids, specials.BOT)
+				ids = append(ids, tok.Encode("system\n")...)
+				if *enableThinking {
+					ids = append(ids, specials.THINK)
+					ids = append(ids, tok.Encode("\n")...)
+				}
+				if len(parsed) > 0 && (parsed[0].Role == "system" || parsed[0].Role == "developer") {
+					ids = append(ids, tok.Encode(parsed[0].Content)...)
+					start = 1
+				}
+				ids = append(ids, specials.EOT)
 			}
-			promptIDs = append(promptIDs, specials.BOT)
-			promptIDs = append(promptIDs, tok.Encode("model\n")...)
+			for _, msg := range parsed[start:] {
+				role := msg.Role
+				if role == "assistant" {
+					role = "model"
+				}
+				ids = append(ids, specials.BOT)
+				ids = append(ids, tok.Encode(role+"\n"+msg.Content)...)
+				ids = append(ids, specials.EOT)
+			}
+			if *addGenerationPrompt {
+				ids = append(ids, specials.BOT)
+				ids = append(ids, tok.Encode("model\n")...)
+			}
+			promptIDs = append(promptIDs, ids...)
+		} else {
+			specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
+			chatMessages := make([]diffusiongemma.ChatMessage, 0, len(messages))
+			for _, raw := range messages {
+				role, content, ok := strings.Cut(raw, ":")
+				if !ok {
+					fatal(fmt.Errorf("bad -message %q, want role:text", raw))
+				}
+				role = strings.TrimSpace(role)
+				text := role + "\n" + content
+				if *enableThinking && (role == "system" || role == "developer") {
+					text = role + "\n" + m.Processor.Think + "\n" + content
+				}
+				chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: role, Content: tok.Encode(text)})
+			}
+			framed, err := diffusiongemma.BuildSimpleChatPromptIDs(chatMessages, specials, diffusiongemma.ChatPromptOptions{AddBOS: *addBOS})
+			if err != nil {
+				fatal(err)
+			}
+			promptIDs = append(promptIDs, framed.InputIDs...)
+			if *addGenerationPrompt {
+				if specials.BOT < 0 {
+					fatal(fmt.Errorf("DiffusionGemma begin-turn token ID unavailable"))
+				}
+				promptIDs = append(promptIDs, specials.BOT)
+				promptIDs = append(promptIDs, tok.Encode("model\n")...)
+			}
 		}
 	} else if *addBOS || *enableThinking || *addGenerationPrompt {
 		if m.Tokenizer == nil {

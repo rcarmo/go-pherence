@@ -567,7 +567,7 @@ The default mock token is `4` (`<mask>` in the published tokenizer metadata).
 
 ## Model generation prompt header
 
-For repeated `-message role:text` inputs, `diffusiongemmarun -generation-prompt` now appends a simplified model turn header (`<|turn>model`) instead of just a raw begin-turn token. This better matches the reference template shape while remaining a scaffold rather than a full Jinja renderer.
+For repeated `-message role:text` inputs, `diffusiongemmarun -generation-prompt` appends a simplified model turn header (`<|turn>model`). The `-chat-template` path now inserts special/control token IDs directly instead of tokenizing strings like `<bos>` as ordinary text, while still remaining a scaffold rather than a full Jinja renderer.
 
 
 ## Text-only scaffold readiness
@@ -590,3 +590,8 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 ## Scaffold check target
 
 `make diffusiongemma-check-scaffold` runs `diffusiongemmainspect -require-text-scaffold-ready` and build-only validation for the DiffusionGemma packages. It validates the current text-only scaffold without requiring full weight shards or reference-complete runtime readiness.
+
+
+## Special-token-safe chat scaffold
+
+`diffusiongemmarun -chat-template` now builds prompt IDs using exact special token IDs for BOS, begin/end turn, thinking, and the model generation header. Role/content text is still tokenized with the Go tokenizer. This avoids accidentally tokenizing special-token strings as normal text pieces.
