@@ -589,7 +589,7 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 
 ## Scaffold check target
 
-`make diffusiongemma-check-scaffold` runs `diffusiongemmainspect -require-text-scaffold-ready` and build-only validation for the DiffusionGemma packages. It validates the current text-only scaffold without requiring full weight shards or reference-complete runtime readiness.
+`make diffusiongemma-check-scaffold` runs `diffusiongemmainspect -require-text-scaffold-ready`, exercises the mock denoiser through both plain prompt and structured chat-template scaffold paths, and runs build-only validation for the DiffusionGemma packages. It validates the current text-only scaffold without requiring full weight shards or reference-complete runtime readiness.
 
 
 ## Special-token-safe chat scaffold

@@ -579,5 +579,8 @@ diffusiongemma-reference:
 .PHONY: diffusiongemma-check-scaffold
 
 diffusiongemma-check-scaffold:
+	mkdir -p $(GOTMPDIR)
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -require-text-scaffold-ready
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -mock-token $(DIFFUSIONGEMMA_MOCK_TOKEN) -canvas 2 -max-new 2 -decode
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -messages-json '[{"role":"user","content":"$(DIFFUSIONGEMMA_PROMPT)"}]' -add-bos -chat-template -generation-prompt -mock-token $(DIFFUSIONGEMMA_MOCK_TOKEN) -canvas 2 -max-new 2 -decode
 	go test ./cmd/diffusiongemmarun ./cmd/diffusiongemmainspect ./model/diffusiongemma ./loader/config -run '^$$'
