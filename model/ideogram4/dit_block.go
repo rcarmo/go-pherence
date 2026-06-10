@@ -125,6 +125,9 @@ func (m *MRoPE) applyToHead(vec []float32, token int) {
 }
 
 func applyMRoPEToQK(q, k []float32, rope *MRoPE, tokens, heads, headDim int) error {
+	if k3MRoPEToQK(q, k, rope, tokens, heads, headDim) {
+		return nil
+	}
 	if gpuMRoPEEnabled() {
 		qGPU := append([]float32(nil), q...)
 		kGPU := append([]float32(nil), k...)

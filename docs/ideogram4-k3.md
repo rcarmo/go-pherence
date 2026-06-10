@@ -95,7 +95,7 @@ This is **not yet full K3 SIMD coverage**. It is the first targetable binary for
 | DiT QKV/O/W1/W2/W3 linears | `FP8Linear.ApplyBatch` / GPU on NVIDIA | K3 full-layer packed/resident linears | missing |
 | RMSNorm rows | Go scalar / NVIDIA rows; K3-gated riscv64 seam covers Qwen/DiT weighted RMSNorm call sites | RVV row RMSNorm over f32/f16 | partial seam: scalar body pending RVV assembly |
 | LayerNorm final | Go scalar / NVIDIA rows | RVV row LayerNorm | missing |
-| RoPE/MRoPE | Go scalar / NVIDIA kernels | RVV in-place rotation | missing |
+| RoPE/MRoPE | Go scalar / NVIDIA kernels; K3-gated riscv64 seams cover DiT MRoPE and Qwen RoPE call sites | RVV in-place rotation | partial seam: scalar body pending RVV assembly |
 | Attention score/value | Go scalar / NVIDIA full attention | RVV/f16 tiled attention; future tiled/streaming for high res | missing |
 | SiLU / SiLU*Mul / gated residual | Go scalar / NVIDIA vector kernels; K3-gated riscv64 seams cover SiLU, Mul, and SiLU*Mul call sites | RVV vector kernels | partial seam: scalar body pending RVV assembly |
 | CFG + scheduler update | Go scalar / NVIDIA vector kernel; K3-gated riscv64 seam exists | RVV vector kernel | partial seam: scalar body pending RVV assembly |
