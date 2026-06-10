@@ -32,7 +32,8 @@ type report struct {
 func main() {
 	modelDir := flag.String("model", "", "DiffusionGemma Hugging Face model directory")
 	asJSON := flag.Bool("json", false, "emit JSON report")
-	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless native DiffusionGemma runtime is implemented")
+	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless native DiffusionGemma runtime is reference-complete")
+	requireTextScaffold := flag.Bool("require-text-scaffold-ready", false, "fail unless the current text-only scaffold/inventory is ready")
 	openWeights := flag.Bool("open-weights", false, "open local safetensor shards and bind text tensor metadata")
 	flag.Parse()
 	if *modelDir == "" {
@@ -44,6 +45,12 @@ func main() {
 		fatal(err)
 	}
 	shape := m.Shape
+	if *requireTextScaffold {
+		caps := diffusiongemma.Capabilities()
+		if !caps.TextOnlyScaffoldReady || m.Readiness == nil || !m.Readiness.TextReady || m.TextTensorPlan == nil || !m.TextTensorPlan.Ready {
+			fatal(fmt.Errorf("DiffusionGemma text scaffold is not ready"))
+		}
+	}
 	if *requireRuntime {
 		if err := m.RequireRuntimeReady(); err != nil {
 			fatal(err)

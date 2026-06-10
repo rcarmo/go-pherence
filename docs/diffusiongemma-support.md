@@ -573,3 +573,15 @@ For repeated `-message role:text` inputs, `diffusiongemmarun -generation-prompt`
 ## Text-only scaffold readiness
 
 Capability reporting now distinguishes `text_only_scaffold_ready=true` from `reference_complete=false` and `runtime_ready=false`. This means the text-only control flow and operation scaffolds are wired enough to run with mock denoisers or local shards, but the implementation is not yet validated as reference-complete DiffusionGemma inference.
+
+
+## Readiness gates
+
+`diffusiongemmainspect` now supports two distinct readiness gates:
+
+```bash
+-require-text-scaffold-ready
+-require-runtime-ready
+```
+
+`-require-text-scaffold-ready` passes for the current metadata/index/text scaffold when tensor inventory and text tensor plans are ready. `-require-runtime-ready` remains stricter and fails until reference-complete DiffusionGemma inference is implemented and verified.
