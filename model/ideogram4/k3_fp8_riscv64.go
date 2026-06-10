@@ -29,10 +29,11 @@ func k3Threads() int {
 }
 
 type k3FP8Cache struct {
-	mu        sync.Mutex
-	weightF16 []uint16
-	outDim    int
-	inDim     int
+	mu           sync.Mutex
+	weightF16    []uint16 // row-major [outDim,inDim]
+	weightF16N32 []uint16 // packed N32 layout for GemmF16Outer32
+	outDim       int
+	inDim        int
 }
 
 func (c *k3FP8Cache) release() {
@@ -42,6 +43,7 @@ func (c *k3FP8Cache) release() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.weightF16 = nil
+	c.weightF16N32 = nil
 	c.outDim, c.inDim = 0, 0
 }
 
@@ -65,8 +67,20 @@ func (c *k3FP8Cache) ensureWeightF16(f *FP8Linear) []uint16 {
 		}
 	}
 	c.weightF16 = B
+	if outDim%32 == 0 {
+		c.weightF16N32 = rvv.PackBF16N32(B, outDim, inDim)
+	} else {
+		c.weightF16N32 = nil
+	}
 	c.outDim, c.inDim = outDim, inDim
 	return B
+}
+
+func (c *k3FP8Cache) weightN32(f *FP8Linear) []uint16 {
+	c.ensureWeightF16(f)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.weightF16N32
 }
 
 func k3FP8Batch(f *FP8Linear, x, out []float32, batch int) (bool, error) {
@@ -83,8 +97,17 @@ func k3FP8Batch(f *FP8Linear, x, out []float32, batch int) (bool, error) {
 	// should replace this with resident packed FP8→int8/IME2 kernels.
 	A := make([]uint16, batch*inDim)
 	rvv.F32ToF16RVV(A, x[:batch*inDim])
-	B := f.k3.ensureWeightF16(f)
-	rvv.GemmF16Threaded(A, B, out[:batch*outDim], batch, outDim, inDim, k3Threads())
+	if batch%4 == 0 && outDim%32 == 0 {
+		if bp := f.k3.weightN32(f); len(bp) == outDim*inDim {
+			rvv.GemmF16Outer32(A, bp, out[:batch*outDim], batch, outDim, inDim, k3Threads())
+		} else {
+			B := f.k3.ensureWeightF16(f)
+			rvv.GemmF16Threaded(A, B, out[:batch*outDim], batch, outDim, inDim, k3Threads())
+		}
+	} else {
+		B := f.k3.ensureWeightF16(f)
+		rvv.GemmF16Threaded(A, B, out[:batch*outDim], batch, outDim, inDim, k3Threads())
+	}
 	if f.weight.Bias != nil {
 		for b := 0; b < batch; b++ {
 			row := out[b*outDim : (b+1)*outDim]
