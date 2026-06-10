@@ -720,7 +720,7 @@ diffusiongemma-weights-json: diffusiongemma-check-shards
 
 .PHONY: diffusiongemma-ci-no-weights
 
-diffusiongemma-ci-no-weights: diffusiongemma-download-plan-report diffusiongemma-ci-scaffold diffusiongemma-ci-mock-pattern
+diffusiongemma-ci-no-weights: diffusiongemma-download-plan-report diffusiongemma-reference-env diffusiongemma-ci-scaffold diffusiongemma-ci-mock-pattern
 
 .PHONY: diffusiongemma-help
 

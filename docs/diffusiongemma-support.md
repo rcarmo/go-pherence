@@ -915,3 +915,8 @@ vision/token processor integration
 ## Reference environment preflight
 
 `make diffusiongemma-reference-env` runs `scripts/diffusiongemma_reference.py --check-env` to check Python, PyTorch, Transformers, and `DiffusionGemmaForBlockDiffusion` availability without loading weights. In the current container this reports missing `torch` and `transformers`, so full reference capture requires a separate Python environment setup.
+
+
+## No-weight CI reference environment check
+
+`make diffusiongemma-ci-no-weights` now includes `diffusiongemma-reference-env`, so the safe aggregate validation records whether the current Python environment can capture Transformers reference fixtures. Missing `torch`/`transformers` does not fail the no-weight CI; it is reported in `DIFFUSIONGEMMA_ENV_OUT`.
