@@ -768,3 +768,8 @@ DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW ?= 1
 
 diffusiongemma-run-cpu-smoke: diffusiongemma-check-weights
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_CPU_SMOKE_PROMPT)' -max-new $(DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CPU_SMOKE_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -decode
+
+IDEOGRAM4_K3_HANDOFF_DIR ?= $(TMPDIR)/ideogram4/k3-handoff
+.PHONY: ideogram4-k3-handoff
+ideogram4-k3-handoff: ideogram4-k3-check
+	IDEOGRAM4_K3_HANDOFF_DIR='$(IDEOGRAM4_K3_HANDOFF_DIR)' ./scripts/ideogram4_k3_handoff.sh
