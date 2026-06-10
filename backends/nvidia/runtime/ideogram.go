@@ -10,6 +10,7 @@ var fnIdeogramLayerNormNoAffineF32 CUfunction
 var fnIdeogramRMSNormRowsF32 CUfunction
 var fnIdeogramAdaLNTransformF32 CUfunction
 var fnIdeogramGatedResidualF32 CUfunction
+var fnIdeogramGatedResidualRowsF32 CUfunction
 var fnIdeogramMRoPEF32 CUfunction
 var fnIdeogramAttentionScoresF32 CUfunction
 var fnIdeogramAttentionValuesF32 CUfunction
@@ -412,6 +413,55 @@ func IdeogramGatedResidual(hidden, update, gate []float32) error {
 	}
 	if err := hBuf.Download(hidden); err != nil {
 		return fmt.Errorf("download Ideogram gated residual hidden: %w", err)
+	}
+	return nil
+}
+
+// IdeogramGatedResidualRows computes hidden[row,col] += gate[col] * update[row,col]
+// through temporary device buffers. Hidden is downloaded back in-place.
+func IdeogramGatedResidualRows(hidden, update, gate []float32, rows, cols int) error {
+	n, ok := checkedMulInt(rows, cols)
+	if !ok || rows <= 0 || cols <= 0 || len(hidden) < n || len(update) < n || len(gate) < cols {
+		return fmt.Errorf("invalid Ideogram gated residual rows host buffers hidden=%d/%d update=%d/%d gate=%d/%d", len(hidden), n, len(update), n, len(gate), cols)
+	}
+	if !SgemmReady() || fnIdeogramGatedResidualRowsF32 == 0 {
+		return fmt.Errorf("GPU not available")
+	}
+	hBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram gated residual rows hidden: %w", err)
+	}
+	defer hBuf.Free()
+	uBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram gated residual rows update: %w", err)
+	}
+	defer uBuf.Free()
+	gBuf, err := Malloc(cols)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram gated residual rows gate: %w", err)
+	}
+	defer gBuf.Free()
+	if err := hBuf.Upload(hidden[:n]); err != nil {
+		return fmt.Errorf("upload Ideogram gated residual rows hidden: %w", err)
+	}
+	if err := uBuf.Upload(update[:n]); err != nil {
+		return fmt.Errorf("upload Ideogram gated residual rows update: %w", err)
+	}
+	if err := gBuf.Upload(gate[:cols]); err != nil {
+		return fmt.Errorf("upload Ideogram gated residual rows gate: %w", err)
+	}
+	rr, cc := uint32(rows), uint32(cols)
+	grid, ok := grid1DFor(n, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram gated residual rows grid")
+	}
+	if err := LaunchKernel(fnIdeogramGatedResidualRowsF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&hBuf.Ptr), unsafe.Pointer(&uBuf.Ptr), unsafe.Pointer(&gBuf.Ptr), unsafe.Pointer(&rr), unsafe.Pointer(&cc)); err != nil {
+		return err
+	}
+	if err := hBuf.Download(hidden[:n]); err != nil {
+		return fmt.Errorf("download Ideogram gated residual rows hidden: %w", err)
 	}
 	return nil
 }

@@ -44,6 +44,7 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnIdeogramRMSNormRowsF32 = f.get("ideogram_rms_norm_rows_f32")
 	fnIdeogramAdaLNTransformF32 = f.get("ideogram_adaln_transform_f32")
 	fnIdeogramGatedResidualF32 = f.get("ideogram_gated_residual_f32")
+	fnIdeogramGatedResidualRowsF32 = f.get("ideogram_gated_residual_rows_f32")
 	fnIdeogramMRoPEF32 = f.get("ideogram_mrope_f32")
 	fnIdeogramAttentionScoresF32 = f.get("ideogram_attention_scores_f32")
 	fnIdeogramAttentionValuesF32 = f.get("ideogram_attention_values_f32")

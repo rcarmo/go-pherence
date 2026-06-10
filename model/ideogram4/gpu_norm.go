@@ -55,6 +55,16 @@ func adalnTransformGPU(mod []float32, emb int) error {
 	return nvidia.IdeogramAdaLNTransform(mod, emb)
 }
 
+func gatedResidualRowsGPU(hidden, update, gate []float32, rows, cols int) error {
+	if rows <= 0 || cols <= 0 || len(hidden) < rows*cols || len(update) < rows*cols || len(gate) < cols {
+		return fmt.Errorf("invalid Ideogram GPU gated residual rows hidden=%d update=%d gate=%d rows=%d cols=%d", len(hidden), len(update), len(gate), rows, cols)
+	}
+	if !nvidia.Available() {
+		return fmt.Errorf("nvidia runtime unavailable")
+	}
+	return nvidia.IdeogramGatedResidualRows(hidden, update, gate, rows, cols)
+}
+
 func gatedResidualGPU(hidden, update, gate []float32) error {
 	if !nvidia.Available() {
 		return fmt.Errorf("nvidia runtime unavailable")

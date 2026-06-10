@@ -1077,3 +1077,50 @@ done:
     ret;
 }
 `
+
+// IdeogramGatedResidualRowsPTX computes hidden[row,col] += gate[col] * update[row,col].
+const IdeogramGatedResidualRowsPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_gated_residual_rows_f32(
+    .param .u64 HIDDEN,
+    .param .u64 UPDATE,
+    .param .u64 GATE,
+    .param .u32 ROWS,
+    .param .u32 COLS
+) {
+    .reg .pred %p<2>;
+    .reg .u32 %r<10>;
+    .reg .u64 %rd<16>;
+    .reg .f32 %f<8>;
+
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2; // linear idx
+    ld.param.u32 %r4, [ROWS];
+    ld.param.u32 %r5, [COLS];
+    mul.lo.u32 %r6, %r4, %r5;
+    setp.ge.u32 %p0, %r3, %r6;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [HIDDEN];
+    ld.param.u64 %rd1, [UPDATE];
+    ld.param.u64 %rd2, [GATE];
+
+    rem.u32 %r7, %r3, %r5; // col
+    mul.wide.u32 %rd3, %r3, 4;
+    mul.wide.u32 %rd4, %r7, 4;
+    add.u64 %rd5, %rd0, %rd3;
+    add.u64 %rd6, %rd1, %rd3;
+    add.u64 %rd7, %rd2, %rd4;
+    ld.global.f32 %f0, [%rd5];
+    ld.global.f32 %f1, [%rd6];
+    ld.global.f32 %f2, [%rd7];
+    fma.rn.f32 %f3, %f2, %f1, %f0;
+    st.global.f32 [%rd5], %f3;
+
+done:
+    ret;
+}
+`

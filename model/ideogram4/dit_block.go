@@ -279,11 +279,35 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	if err := layerGPU.OBatch(l, attnOut, oprojAll, tokens); err != nil {
 		return err
 	}
-	postNorm := make([]float32, emb)
-	for t := 0; t < tokens; t++ {
-		rmsNormWeightedTo(postNorm, oprojAll[t*emb:(t+1)*emb], l.AttnN2, normEps)
-		row := hidden[t*emb : (t+1)*emb]
-		addGatedResidual(row, postNorm, gateMSA)
+	postNormAll := make([]float32, tokens*emb)
+	if gpuNormEnabled() {
+		if err := rmsNormRowsWeightedGPU(postNormAll, oprojAll, l.AttnN2, nil, tokens, emb, normEps); err != nil && gpuNormStrict() {
+			return err
+		} else if err != nil {
+			for t := 0; t < tokens; t++ {
+				rmsNormWeightedCPU(postNormAll[t*emb:(t+1)*emb], oprojAll[t*emb:(t+1)*emb], l.AttnN2, normEps)
+			}
+		}
+		if err := gatedResidualRowsGPU(hidden, postNormAll, gateMSA, tokens, emb); err != nil && gpuNormStrict() {
+			return err
+		} else if err != nil {
+			for t := 0; t < tokens; t++ {
+				row := hidden[t*emb : (t+1)*emb]
+				upd := postNormAll[t*emb : (t+1)*emb]
+				for i := range row {
+					row[i] += gateMSA[i] * upd[i]
+				}
+			}
+		}
+	} else {
+		for t := 0; t < tokens; t++ {
+			rmsNormWeightedCPU(postNormAll[t*emb:(t+1)*emb], oprojAll[t*emb:(t+1)*emb], l.AttnN2, normEps)
+			row := hidden[t*emb : (t+1)*emb]
+			upd := postNormAll[t*emb : (t+1)*emb]
+			for i := range row {
+				row[i] += gateMSA[i] * upd[i]
+			}
+		}
 	}
 
 	// ---- MLP sublayer (SwiGLU) ----
@@ -322,10 +346,34 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	if err := layerGPU.W2Batch(l, gAll, downAll, tokens); err != nil {
 		return err
 	}
-	for t := 0; t < tokens; t++ {
-		row := hidden[t*emb : (t+1)*emb]
-		rmsNormWeightedTo(postNorm, downAll[t*emb:(t+1)*emb], l.FfnN2, normEps)
-		addGatedResidual(row, postNorm, gateMLP)
+	if gpuNormEnabled() {
+		if err := rmsNormRowsWeightedGPU(postNormAll, downAll, l.FfnN2, nil, tokens, emb, normEps); err != nil && gpuNormStrict() {
+			return err
+		} else if err != nil {
+			for t := 0; t < tokens; t++ {
+				rmsNormWeightedCPU(postNormAll[t*emb:(t+1)*emb], downAll[t*emb:(t+1)*emb], l.FfnN2, normEps)
+			}
+		}
+		if err := gatedResidualRowsGPU(hidden, postNormAll, gateMLP, tokens, emb); err != nil && gpuNormStrict() {
+			return err
+		} else if err != nil {
+			for t := 0; t < tokens; t++ {
+				row := hidden[t*emb : (t+1)*emb]
+				upd := postNormAll[t*emb : (t+1)*emb]
+				for i := range row {
+					row[i] += gateMLP[i] * upd[i]
+				}
+			}
+		}
+	} else {
+		for t := 0; t < tokens; t++ {
+			rmsNormWeightedCPU(postNormAll[t*emb:(t+1)*emb], downAll[t*emb:(t+1)*emb], l.FfnN2, normEps)
+			row := hidden[t*emb : (t+1)*emb]
+			upd := postNormAll[t*emb : (t+1)*emb]
+			for i := range row {
+				row[i] += gateMLP[i] * upd[i]
+			}
+		}
 	}
 	return nil
 }
