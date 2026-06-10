@@ -91,6 +91,10 @@ func printText(r report) {
 	}
 	if r.Processor != nil {
 		fmt.Printf("  processor: tokenizer=%s processor=%s mask=%q image=%q think=%q chat_template_bytes=%d\n", r.Processor.TokenizerClass, r.Processor.ProcessorClass, r.Processor.Mask, r.Processor.Image, r.Processor.Think, r.Processor.ChatTemplateBytes)
+		if r.Processor.ChatTemplate != nil {
+			ct := r.Processor.ChatTemplate
+			fmt.Printf("  template:  system=%v user=%v assistant=%v tools=%v thinking=%v markers=%v\n", ct.HasSystemRole, ct.HasUserRole, ct.HasAssistantRole, ct.HasToolSupport, ct.HasThinkingToken, ct.Markers)
+		}
 	}
 	if r.Tokenizer != nil {
 		fmt.Printf("  tokenizer: vocab=%d added=%d ids=%v\n", r.Tokenizer.VocabSize, r.Tokenizer.AddedTokens, r.Tokenizer.TokenIDs)

@@ -457,3 +457,8 @@ DIFFUSIONGEMMA_SEED
 ```
 
 `diffusiongemma-run-scaffold` intentionally reports `DiffusionGemma denoiser is not implemented` until a denoiser is attached; `diffusiongemma-run-cpu` requires local safetensor shards and uses the current CPU dispatcher scaffold.
+
+
+## Chat-template metadata
+
+Processor metadata now includes a lightweight `chat_template.jinja` preflight. The inspector reports whether the template references system/user/assistant roles, tool support, and thinking markers. This is not a renderer; it is a readiness/diagnostic layer before implementing full Gemma chat-template execution.
