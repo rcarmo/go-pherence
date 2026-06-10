@@ -621,3 +621,8 @@ diffusiongemma-mock-compare:
 diffusiongemma-status-json:
 	mkdir -p $(dir $(DIFFUSIONGEMMA_STATUS_OUT))
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -json > $(DIFFUSIONGEMMA_STATUS_OUT)
+
+.PHONY: diffusiongemma-status-summary
+
+diffusiongemma-status-summary:
+	python3 scripts/diffusiongemma_status_summary.py $(DIFFUSIONGEMMA_STATUS_OUT)

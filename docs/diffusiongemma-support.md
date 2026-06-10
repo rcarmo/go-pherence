@@ -651,3 +651,8 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 ## Status JSON target
 
 `make diffusiongemma-status-json` writes the full `diffusiongemmainspect -json` report to `DIFFUSIONGEMMA_STATUS_OUT`. This includes metadata, shard readiness, capabilities, and the per-operation `operation_status` array for artifact capture.
+
+
+## Status summary helper
+
+`scripts/diffusiongemma_status_summary.py` reads a `diffusiongemmainspect -json` artifact and prints a compact CI-friendly summary. Use `make diffusiongemma-status-json` followed by `make diffusiongemma-status-summary`.
