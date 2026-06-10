@@ -70,7 +70,7 @@ func (m *DiTModel) forwardLayersHiddenResident(hidden []float32, adaln []float32
 			}
 			return fmt.Errorf("hidden-resident layer %d upload: %w", i, err)
 		}
-		freeLayer := !l.cacheGPUResidency()
+		freeLayer := !l.cacheAnyGPUResidency()
 		if err := layerGPU.AdaLN(*l, adaln, mod); err != nil {
 			if freeLayer {
 				layerGPU.Free()

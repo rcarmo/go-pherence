@@ -182,7 +182,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 		}
 		layerGPU = nil
 	}
-	if !l.cacheGPUResidency() {
+	if !l.cacheAnyGPUResidency() {
 		defer layerGPU.Free()
 	}
 	mod := make([]float32, 4*emb)

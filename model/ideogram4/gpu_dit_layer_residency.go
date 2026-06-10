@@ -31,7 +31,11 @@ func gpuFullLayerIslandEnabled() bool {
 }
 
 func (l *DiTLayer) cacheGPUResidency() bool {
-	if l == nil || !gpuFP8CacheEnabled() {
+	return l != nil && gpuFP8CacheEnabled() && l.inLayerCacheWindow()
+}
+
+func (l *DiTLayer) inLayerCacheWindow() bool {
+	if l == nil {
 		return false
 	}
 	winS := strings.TrimSpace(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_WINDOW"))
@@ -46,15 +50,27 @@ func (l *DiTLayer) cacheGPUResidency() bool {
 	return l.Index >= start && l.Index < start+win
 }
 
+func (l *DiTLayer) cacheAttentionGPUResidency() bool {
+	if l == nil || !gpuFP8CacheEnabled() {
+		return false
+	}
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_ATTENTION_ALL")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func (l *DiTLayer) cacheAnyGPUResidency() bool {
+	return l.cacheGPUResidency() || l.cacheAttentionGPUResidency()
+}
+
 func (l *DiTLayer) uploadGPU() (*ditLayerGPUResidency, error) {
-	if l != nil && l.cacheGPUResidency() && l.gpu != nil {
+	if l != nil && l.cacheAnyGPUResidency() && l.gpu != nil {
 		return l.gpu, nil
 	}
 	r, err := uploadDiTLayerGPU(*l)
 	if err != nil {
 		return nil, err
 	}
-	if l != nil && l.cacheGPUResidency() {
+	if l != nil && l.cacheAnyGPUResidency() {
 		l.gpu = r
 	}
 	return r, nil
@@ -79,25 +95,31 @@ func uploadDiTLayerGPU(l DiTLayer) (*ditLayerGPUResidency, error) {
 		*dst = w
 		return nil
 	}
-	if err := upload(&r.qkv, "qkv", l.QKV); err != nil {
-		r.Free()
-		return nil, err
+	fullCache := l.cacheGPUResidency()
+	attentionCache := fullCache || l.cacheAttentionGPUResidency()
+	if attentionCache || !fullCache {
+		if err := upload(&r.qkv, "qkv", l.QKV); err != nil {
+			r.Free()
+			return nil, err
+		}
+		if err := upload(&r.o, "o", l.O); err != nil {
+			r.Free()
+			return nil, err
+		}
 	}
-	if err := upload(&r.o, "o", l.O); err != nil {
-		r.Free()
-		return nil, err
-	}
-	if err := upload(&r.w1, "w1", l.W1); err != nil {
-		r.Free()
-		return nil, err
-	}
-	if err := upload(&r.w2, "w2", l.W2); err != nil {
-		r.Free()
-		return nil, err
-	}
-	if err := upload(&r.w3, "w3", l.W3); err != nil {
-		r.Free()
-		return nil, err
+	if fullCache || !attentionCache {
+		if err := upload(&r.w1, "w1", l.W1); err != nil {
+			r.Free()
+			return nil, err
+		}
+		if err := upload(&r.w2, "w2", l.W2); err != nil {
+			r.Free()
+			return nil, err
+		}
+		if err := upload(&r.w3, "w3", l.W3); err != nil {
+			r.Free()
+			return nil, err
+		}
 	}
 	// Keep per-layer AdaLN modulation on the CPU path for now. In full DiT
 	// residency, the resident AdaLN GEMV diverges in-context after the first
@@ -216,9 +238,49 @@ func (r *ditLayerGPUResidency) gemm(name string, gpuW *nvidia.GPUFP8E4M3Linear, 
 }
 
 func (r *ditLayerGPUResidency) FullLayerIslandsBuffer(l DiTLayer, hiddenBuf, normedBuf, cosBuf, sinBuf *nvidia.Buffer, scaleMSA, gateMSA, scaleMLP, gateMLP []float32, tokens, heads, headDim int, scaleAttn, normEps float32) error {
-	if r == nil || r.qkv == nil || r.o == nil || r.w1 == nil || r.w3 == nil || r.w2 == nil || cosBuf == nil || sinBuf == nil {
+	if r == nil || cosBuf == nil || sinBuf == nil {
 		return fmt.Errorf("full layer island unavailable")
 	}
+	tmpLinears := make([]*nvidia.GPUFP8E4M3Linear, 0, 5)
+	ensure := func(cur *nvidia.GPUFP8E4M3Linear, lin *FP8Linear, name string) (*nvidia.GPUFP8E4M3Linear, error) {
+		if cur != nil {
+			return cur, nil
+		}
+		if lin == nil {
+			return nil, fmt.Errorf("missing %s linear", name)
+		}
+		w, err := nvidia.UploadFP8E4M3Linear(lin.weight.Weight, lin.weight.Scale, lin.weight.Bias, lin.weight.OutDim, lin.weight.InDim)
+		if err != nil {
+			return nil, fmt.Errorf("upload transient %s: %w", name, err)
+		}
+		tmpLinears = append(tmpLinears, w)
+		return w, nil
+	}
+	qkvW, err := ensure(r.qkv, l.QKV, "qkv")
+	if err != nil {
+		return err
+	}
+	oW, err := ensure(r.o, l.O, "o")
+	if err != nil {
+		return err
+	}
+	w1, err := ensure(r.w1, l.W1, "w1")
+	if err != nil {
+		return err
+	}
+	w3, err := ensure(r.w3, l.W3, "w3")
+	if err != nil {
+		return err
+	}
+	w2, err := ensure(r.w2, l.W2, "w2")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for _, w := range tmpLinears {
+			w.Free()
+		}
+	}()
 	emb := heads * headDim
 	alloc := func(name string, size int) (*nvidia.Buffer, error) {
 		b, err := nvidia.Malloc(size)
@@ -311,13 +373,13 @@ func (r *ditLayerGPUResidency) FullLayerIslandsBuffer(l DiTLayer, hiddenBuf, nor
 	if err := nvidia.IdeogramRMSNormRowsBuffer(normedBuf, hiddenBuf, attnN1, scaleMSABuf, tokens, emb, normEps, true); err != nil {
 		return err
 	}
-	if err := nvidia.GemmQKVAttentionOResidualFP8E4M3Buffer(hiddenBuf, normedBuf, gateMSABuf, normQ, normK, attnN2, cosBuf, sinBuf, tokens, heads, headDim, scaleAttn, r.qkv, r.o); err != nil {
+	if err := nvidia.GemmQKVAttentionOResidualFP8E4M3Buffer(hiddenBuf, normedBuf, gateMSABuf, normQ, normK, attnN2, cosBuf, sinBuf, tokens, heads, headDim, scaleAttn, qkvW, oW); err != nil {
 		return err
 	}
 	if err := nvidia.IdeogramRMSNormRowsBuffer(normedBuf, hiddenBuf, ffnN1, scaleMLPBuf, tokens, emb, normEps, true); err != nil {
 		return err
 	}
-	return nvidia.GemmSwiGLUResidualFP8E4M3Buffer(hiddenBuf, normedBuf, gateMLPBuf, ffnN2, tokens, r.w1, r.w3, r.w2)
+	return nvidia.GemmSwiGLUResidualFP8E4M3Buffer(hiddenBuf, normedBuf, gateMLPBuf, ffnN2, tokens, w1, w3, w2)
 }
 
 func (r *ditLayerGPUResidency) FullLayerIslands(l DiTLayer, hidden, scaleMSA, gateMSA, scaleMLP, gateMLP []float32, tokens, heads, headDim int, rope *MRoPE, scaleAttn, normEps float32) error {

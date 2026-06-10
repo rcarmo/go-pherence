@@ -25,6 +25,7 @@ run_one() {
   GO_PHERENCE_IDEOGRAM4_GPU_FULL_LAYER="${IDEOGRAM4_FULL_LAYER:-0}" \
   GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_WINDOW="$window" \
   GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_START="$start" \
+  GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_ATTENTION_ALL="${IDEOGRAM4_LAYER_CACHE_ATTENTION_ALL:-0}" \
   go run ./cmd/image/ideogram4gen \
     -model "$model" \
     -prompt "$(cat "$prompt_file")" \
