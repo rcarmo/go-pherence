@@ -22,6 +22,7 @@ type report struct {
 func main() {
 	modelDir := flag.String("model", "", "DiffusionGemma model directory")
 	promptCSV := flag.String("prompt-ids", "", "comma-separated already-tokenized prompt IDs")
+	exactTokensCSV := flag.String("tokens", "", "comma-separated exact tokenizer vocabulary entries (no BPE tokenization)")
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
 	seed := flag.Int64("seed", 1, "deterministic canvas RNG seed")
@@ -35,6 +36,17 @@ func main() {
 	promptIDs, err := parseIDs(*promptCSV)
 	if err != nil {
 		fatal(err)
+	}
+	if strings.TrimSpace(*exactTokensCSV) != "" {
+		vocab, err := diffusiongemma.LoadVocab(*modelDir)
+		if err != nil {
+			fatal(err)
+		}
+		ids, err := vocab.EncodeExact(splitCSV(*exactTokensCSV))
+		if err != nil {
+			fatal(err)
+		}
+		promptIDs = append(promptIDs, ids...)
 	}
 	m, err := diffusiongemma.LoadMetadata(*modelDir)
 	if err != nil {
@@ -90,6 +102,21 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("  generated=%v canvases=%d\n", res.Generated, len(res.Canvases))
+}
+
+func splitCSV(csv string) []string {
+	if strings.TrimSpace(csv) == "" {
+		return nil
+	}
+	parts := strings.Split(csv, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func parseIDs(csv string) ([]int, error) {

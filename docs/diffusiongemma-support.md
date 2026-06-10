@@ -462,3 +462,8 @@ DIFFUSIONGEMMA_SEED
 ## Chat-template metadata
 
 Processor metadata now includes a lightweight `chat_template.jinja` preflight. The inspector reports whether the template references system/user/assistant roles, tool support, and thinking markers. This is not a renderer; it is a readiness/diagnostic layer before implementing full Gemma chat-template execution.
+
+
+## Exact vocab helper
+
+`model/diffusiongemma/vocab.go` loads `tokenizer.json` into exact token/string lookup maps. `diffusiongemmarun -tokens` can append comma-separated exact vocab entries such as `<bos>,<mask>` to the prompt ID list. This is not BPE tokenization; unknown text pieces fail explicitly.
