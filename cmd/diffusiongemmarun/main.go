@@ -60,6 +60,7 @@ func main() {
 	mockToken := flag.Int("mock-token", -1, "use deterministic mock denoiser that always favors this token ID")
 	mockTokensCSV := flag.String("mock-tokens", "", "comma-separated deterministic mock denoiser token ID pattern")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
+	allowSlowCPU := flag.Bool("allow-slow-cpu", false, "allow experimental full-weight CPU dispatcher run; may be extremely slow and memory-heavy")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
 	if *modelDir == "" {
@@ -175,6 +176,9 @@ func main() {
 		denoiser = diffusiongemma.MockDenoiser{VocabSize: m.Shape.VocabSize, TokenID: *mockToken}
 	}
 	if *useCPUDispatcher {
+		if !*allowSlowCPU {
+			fatal(fmt.Errorf("DiffusionGemma full-weight CPU dispatcher is experimental and may be extremely slow; re-run with -allow-slow-cpu to proceed"))
+		}
 		if m.Shards != nil && !m.Shards.Ready {
 			missing := m.Shards.MissingShards
 			if len(missing) > 5 {

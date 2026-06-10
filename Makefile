@@ -567,6 +567,7 @@ DIFFUSIONGEMMA_PROMPT ?= hi
 DIFFUSIONGEMMA_MAX_NEW ?= 16
 DIFFUSIONGEMMA_CANVAS ?= 0
 DIFFUSIONGEMMA_SEED ?= 1
+DIFFUSIONGEMMA_ALLOW_SLOW_CPU ?= no
 DIFFUSIONGEMMA_MOCK_TOKEN ?= 4
 DIFFUSIONGEMMA_MOCK_TOKENS ?=
 DIFFUSIONGEMMA_DENOISE_STEPS ?= 0
@@ -595,11 +596,11 @@ diffusiongemma-run-mock-json:
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -mock-token $(DIFFUSIONGEMMA_MOCK_TOKEN) $(if $(DIFFUSIONGEMMA_MOCK_TOKENS),-mock-tokens $(DIFFUSIONGEMMA_MOCK_TOKENS),) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps $(DIFFUSIONGEMMA_DENOISE_STEPS) -t-min $(DIFFUSIONGEMMA_T_MIN) -t-max $(DIFFUSIONGEMMA_T_MAX) -entropy-bound $(DIFFUSIONGEMMA_ENTROPY_BOUND) -stability $(DIFFUSIONGEMMA_STABILITY) -confidence $(DIFFUSIONGEMMA_CONFIDENCE) -decode -json > $(DIFFUSIONGEMMA_RUN_OUT)
 
 diffusiongemma-run-cpu:
-	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,)
 
 diffusiongemma-run-cpu-json:
 	mkdir -p $(dir $(DIFFUSIONGEMMA_RUN_OUT))
-	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -json > $(DIFFUSIONGEMMA_RUN_OUT)
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,) -json > $(DIFFUSIONGEMMA_RUN_OUT)
 
 DIFFUSIONGEMMA_STATUS_OUT ?= $(TMPDIR)/diffusiongemma/status.json
 DIFFUSIONGEMMA_REF_OUT ?= $(TMPDIR)/diffusiongemma/reference.json
@@ -767,7 +768,7 @@ DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW ?= 1
 .PHONY: diffusiongemma-run-cpu-smoke
 
 diffusiongemma-run-cpu-smoke: diffusiongemma-check-weights
-	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_CPU_SMOKE_PROMPT)' -max-new $(DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CPU_SMOKE_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -decode
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_CPU_SMOKE_PROMPT)' -max-new $(DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CPU_SMOKE_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,) -decode
 
 IDEOGRAM4_K3_HANDOFF_DIR ?= $(TMPDIR)/ideogram4/k3-handoff
 .PHONY: ideogram4-k3-handoff

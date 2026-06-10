@@ -595,7 +595,7 @@ func runRouter(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
 	if len(scratch.Router) < positions*experts {
 		return fmt.Errorf("DiffusionGemma router scratch=%d want %d", len(scratch.Router), positions*experts)
 	}
-	routerScale, err := loadOptionalScalar(weights, lb.RouterScale, 1)
+	routerScale, err := loadOptionalVector(weights, lb.RouterScale, hiddenSize)
 	if err != nil {
 		return err
 	}
@@ -603,14 +603,20 @@ func runRouter(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
 	if err != nil {
 		return err
 	}
+	routerInput := make([]float32, hiddenSize)
 	for pos := 0; pos < positions; pos++ {
 		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		copy(routerInput, hidden)
+		if len(routerScale) == hiddenSize {
+			for i := range routerInput {
+				routerInput[i] *= routerScale[i]
+			}
+		}
 		out := scratch.Router[pos*experts : (pos+1)*experts]
-		if !simd.GemvRows(out, hidden, proj, experts, hiddenSize) {
+		if !simd.GemvRows(out, routerInput, proj, experts, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma router GEMV rejected layer %d", op.Layer)
 		}
 		for i := range out {
-			out[i] *= routerScale
 			if len(perExpertScale) == experts {
 				out[i] *= perExpertScale[i]
 			}

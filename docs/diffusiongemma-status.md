@@ -378,3 +378,8 @@ make diffusiongemma-run-cpu-smoke \
 ```
 
 The target uses a tiny canvas/max-new setting and is intended as the first real CPU dispatcher smoke before full parity.
+
+
+## Slow CPU dispatcher guard
+
+Full-weight `diffusiongemmarun -cpu-dispatcher` is now guarded by `-allow-slow-cpu` (or `DIFFUSIONGEMMA_ALLOW_SLOW_CPU=yes` through Makefile targets). A real-weight canvas-1 smoke hit the command timeout before completion, confirming the current correctness-first full-matrix CPU path is not practical yet. The guard prevents accidental long CPU runs while preserving an explicit opt-in for debugging.

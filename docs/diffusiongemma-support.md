@@ -925,3 +925,8 @@ vision/token processor integration
 ## CPU smoke target
 
 `make diffusiongemma-run-cpu-smoke` is a full-weight target for after all shards are present. It runs `diffusiongemma-check-weights` and then invokes `diffusiongemmarun -cpu-dispatcher` with a tiny default prompt/canvas (`hi`, canvas 1, max-new 1). This is not part of no-weight CI and is expected to fail until the 11 shards are downloaded.
+
+
+## Slow CPU dispatcher guard
+
+Full-weight `diffusiongemmarun -cpu-dispatcher` is now guarded by `-allow-slow-cpu` (or `DIFFUSIONGEMMA_ALLOW_SLOW_CPU=yes` through Makefile targets). A real-weight canvas-1 smoke hit the command timeout before completion, confirming the current correctness-first full-matrix CPU path is not practical yet. The guard prevents accidental long CPU runs while preserving an explicit opt-in for debugging.
