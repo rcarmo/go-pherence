@@ -412,3 +412,22 @@ This CLI is useful for checking that metadata loading and the public inference e
 ## Shard availability preflight
 
 `ShardAvailabilityFromModelDir` now checks the safetensors index for expected shard filenames and reports how many are present locally before `-open-weights` or `-cpu-dispatcher` attempts to open them. The metadata-only snapshot reports `present=0/11`; a fully downloaded checkpoint should report `present=11/11`.
+
+
+## Download helper
+
+`scripts/download_diffusiongemma.py` plus Makefile targets can fetch the public Hugging Face checkpoint metadata or full shards:
+
+```bash
+make diffusiongemma-download-metadata
+make diffusiongemma-download
+```
+
+Defaults:
+
+```text
+DIFFUSIONGEMMA_REPO=google/diffusiongemma-26B-A4B-it
+DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
+```
+
+The helper uses `HUGGINGFACE_TOKEN` when present and skips existing files unless `--force` is passed directly to the script.

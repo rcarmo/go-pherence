@@ -527,3 +527,14 @@ ideogram4-vae-probe:
 		-width $(IDEOGRAM4_VAE_PROBE_WIDTH) \
 		-height $(IDEOGRAM4_VAE_PROBE_HEIGHT) \
 		-gpu -gpu-stats
+
+DIFFUSIONGEMMA_REPO ?= google/diffusiongemma-26B-A4B-it
+DIFFUSIONGEMMA_MODEL ?= models/diffusiongemma-26B-A4B-it
+
+.PHONY: diffusiongemma-download-metadata diffusiongemma-download
+
+diffusiongemma-download-metadata:
+	python3 scripts/download_diffusiongemma.py --repo $(DIFFUSIONGEMMA_REPO) --out $(DIFFUSIONGEMMA_MODEL) --metadata-only
+
+diffusiongemma-download:
+	python3 scripts/download_diffusiongemma.py --repo $(DIFFUSIONGEMMA_REPO) --out $(DIFFUSIONGEMMA_MODEL)
