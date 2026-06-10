@@ -1279,12 +1279,6 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					} else if layer.DownWg != nil {
 						g.gate.ToGPU()
 						nvidia.GemvQ4(g.down, g.gate, layer.DownWg)
-					} else if layer.DownWmg != nil {
-						if useDirectMLX {
-							nvidia.GemvMLXDirect(g.down, g.gate, layer.DownWmg)
-						} else {
-							nvidia.GemvMLX(g.down, g.gate, layer.DownWmg)
-						}
 					} else if layer.DownWq != nil {
 						gd := g.gate.Data()
 						dd := g.down.Data()

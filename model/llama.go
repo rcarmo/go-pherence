@@ -369,10 +369,9 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 		var layer LlamaLayer
 
 		// Per-layer Q/K/V/O dimensions (Gemma4: varies by layer type)
-		qDimL := h                     // Q output = numHeads * headDim
-		layerKVHeads := cfg.NumKVHeads // K/V output heads can differ for Gemma4 full-attention layers
-		kvDimL := kvDim                // K/V output = layerKVHeads * headDim
-		oDimIn := h                    // O input = numHeads * headDim
+		qDimL := h      // Q output = numHeads * headDim
+		kvDimL := kvDim // K/V output = layerKVHeads * headDim
+		oDimIn := h     // O input = numHeads * headDim
 		if len(cfg.LayerTypes) > l {
 			lt := cfg.LayerTypes[l]
 			var lhd int
@@ -381,7 +380,7 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 			} else {
 				lhd = cfg.HeadDim
 			}
-			layerKVHeads = gemmacfg.LayerKVHeads(cfg, l)
+			layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
 			qDimL = cfg.NumHeads * lhd
 			kvDimL = layerKVHeads * lhd
 			oDimIn = qDimL
