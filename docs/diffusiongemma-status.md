@@ -232,3 +232,19 @@ make diffusiongemma-parity \
 ```
 
 Expected current outcome: scaffold commands pass; full-weight/parity commands are gated on the 11 safetensor shards and a working Transformers/PyTorch environment.
+
+## Latest scaffold CI with structured messages
+
+The main scaffold CI now includes structured-message coverage by default. It was re-run with:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma \
+  DIFFUSIONGEMMA_PROMPT=hi \
+  DIFFUSIONGEMMA_REF_OUT=/workspace/tmp/diffusiongemma/expanded_reference_dry_run.json \
+  DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/expanded_mock_run.json \
+  DIFFUSIONGEMMA_MOCK_REF_OUT=/workspace/tmp/diffusiongemma/expanded_mock_ref.json \
+  DIFFUSIONGEMMA_STATUS_OUT=/workspace/tmp/diffusiongemma/expanded_status.json
+```
+
+Result: passed. This now covers text scaffold readiness, reference dry-run, mock comparison, structured JSON messages, chat-template scaffold path, status JSON, and status summary in the default no-weight CI path.
