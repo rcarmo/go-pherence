@@ -203,12 +203,27 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	k := make([]float32, tokens*emb)
 	v := make([]float32, tokens*emb)
 	qkvAll := make([]float32, tokens*3*emb)
-	for t := 0; t < tokens; t++ {
-		row := hidden[t*emb : (t+1)*emb]
-		normed := normedAll[t*emb : (t+1)*emb]
-		rmsNormWeightedTo(normed, row, l.AttnN1, normEps)
-		for i := 0; i < emb; i++ {
-			normed[i] *= scaleMSA[i]
+	if gpuNormEnabled() {
+		if err := rmsNormRowsWeightedGPU(normedAll, hidden, l.AttnN1, scaleMSA, tokens, emb, normEps); err != nil && gpuNormStrict() {
+			return err
+		} else if err != nil {
+			for t := 0; t < tokens; t++ {
+				row := hidden[t*emb : (t+1)*emb]
+				normed := normedAll[t*emb : (t+1)*emb]
+				rmsNormWeightedCPU(normed, row, l.AttnN1, normEps)
+				for i := 0; i < emb; i++ {
+					normed[i] *= scaleMSA[i]
+				}
+			}
+		}
+	} else {
+		for t := 0; t < tokens; t++ {
+			row := hidden[t*emb : (t+1)*emb]
+			normed := normedAll[t*emb : (t+1)*emb]
+			rmsNormWeightedCPU(normed, row, l.AttnN1, normEps)
+			for i := 0; i < emb; i++ {
+				normed[i] *= scaleMSA[i]
+			}
 		}
 	}
 	if err := layerGPU.QKVBatch(l, normedAll, qkvAll, tokens); err != nil {
@@ -221,11 +236,34 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 		copy(v[t*emb:(t+1)*emb], qkv[2*emb:3*emb])
 	}
 	// per-head QK-RMSNorm then RoPE.
-	for t := 0; t < tokens; t++ {
-		for h := 0; h < heads; h++ {
-			off := t*emb + h*headDim
-			rmsNormWeightedInPlace(q[off:off+headDim], l.NormQ, qkEps)
-			rmsNormWeightedInPlace(k[off:off+headDim], l.NormK, qkEps)
+	if gpuNormEnabled() {
+		if err := rmsNormRowsWeightedGPU(q, q, l.NormQ, nil, tokens*heads, headDim, qkEps); err != nil && gpuNormStrict() {
+			return err
+		} else if err != nil {
+			for t := 0; t < tokens; t++ {
+				for h := 0; h < heads; h++ {
+					off := t*emb + h*headDim
+					rmsNormWeightedCPU(q[off:off+headDim], q[off:off+headDim], l.NormQ, qkEps)
+				}
+			}
+		}
+		if err := rmsNormRowsWeightedGPU(k, k, l.NormK, nil, tokens*heads, headDim, qkEps); err != nil && gpuNormStrict() {
+			return err
+		} else if err != nil {
+			for t := 0; t < tokens; t++ {
+				for h := 0; h < heads; h++ {
+					off := t*emb + h*headDim
+					rmsNormWeightedCPU(k[off:off+headDim], k[off:off+headDim], l.NormK, qkEps)
+				}
+			}
+		}
+	} else {
+		for t := 0; t < tokens; t++ {
+			for h := 0; h < heads; h++ {
+				off := t*emb + h*headDim
+				rmsNormWeightedCPU(q[off:off+headDim], q[off:off+headDim], l.NormQ, qkEps)
+				rmsNormWeightedCPU(k[off:off+headDim], k[off:off+headDim], l.NormK, qkEps)
+			}
 		}
 	}
 	if err := applyMRoPEToQK(q, k, rope, tokens, heads, headDim); err != nil {
@@ -251,12 +289,27 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	// ---- MLP sublayer (SwiGLU) ----
 	inter := cfg.IntermediateSize
 	mlpIn := normedAll
-	for t := 0; t < tokens; t++ {
-		row := hidden[t*emb : (t+1)*emb]
-		normed := mlpIn[t*emb : (t+1)*emb]
-		rmsNormWeightedTo(normed, row, l.FfnN1, normEps)
-		for i := 0; i < emb; i++ {
-			normed[i] *= scaleMLP[i]
+	if gpuNormEnabled() {
+		if err := rmsNormRowsWeightedGPU(mlpIn, hidden, l.FfnN1, scaleMLP, tokens, emb, normEps); err != nil && gpuNormStrict() {
+			return err
+		} else if err != nil {
+			for t := 0; t < tokens; t++ {
+				row := hidden[t*emb : (t+1)*emb]
+				normed := mlpIn[t*emb : (t+1)*emb]
+				rmsNormWeightedCPU(normed, row, l.FfnN1, normEps)
+				for i := 0; i < emb; i++ {
+					normed[i] *= scaleMLP[i]
+				}
+			}
+		}
+	} else {
+		for t := 0; t < tokens; t++ {
+			row := hidden[t*emb : (t+1)*emb]
+			normed := mlpIn[t*emb : (t+1)*emb]
+			rmsNormWeightedCPU(normed, row, l.FfnN1, normEps)
+			for i := 0; i < emb; i++ {
+				normed[i] *= scaleMLP[i]
+			}
 		}
 	}
 	gAll := make([]float32, tokens*inter)

@@ -964,3 +964,116 @@ STORE:
 DONE:
     ret;
 }`
+
+// IdeogramRMSNormRowsPTX computes row-wise RMSNorm with optional per-column scale:
+// out[row,col] = x[row,col] * weight[col] * (scale[col] if USE_SCALE else 1) * rsqrt(mean(row^2)+eps)
+const IdeogramRMSNormRowsPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_rms_norm_rows_f32(
+    .param .u64 X,
+    .param .u64 WEIGHT,
+    .param .u64 SCALE,
+    .param .u64 O,
+    .param .u32 ROWS,
+    .param .u32 COLS,
+    .param .f32 EPS,
+    .param .u32 USE_SCALE
+) {
+    .reg .pred %p<10>;
+    .reg .u32 %r<32>;
+    .reg .u64 %rd<24>;
+    .reg .f32 %f<24>;
+    .shared .align 4 .f32 rn_sumsq[256];
+
+    mov.u32 %r0, %ctaid.x;      // row
+    mov.u32 %r1, %tid.x;        // tid
+    mov.u32 %r2, %ntid.x;       // blockDim
+    ld.param.u32 %r3, [ROWS];
+    setp.ge.u32 %p0, %r0, %r3;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [X];
+    ld.param.u64 %rd1, [WEIGHT];
+    ld.param.u64 %rd2, [SCALE];
+    ld.param.u64 %rd3, [O];
+    ld.param.u32 %r4, [COLS];
+    ld.param.f32 %f0, [EPS];
+    ld.param.u32 %r20, [USE_SCALE];
+
+    mov.f32 %f1, 0f00000000;    // sumsq
+    mov.u32 %r5, %r1;           // col = tid
+    mad.lo.u32 %r6, %r0, %r4, 0;// row offset elements
+
+sum_loop:
+    setp.ge.u32 %p1, %r5, %r4;
+    @%p1 bra reduce;
+    add.u32 %r7, %r6, %r5;
+    mul.wide.u32 %rd4, %r7, 4;
+    add.u64 %rd5, %rd0, %rd4;
+    ld.global.f32 %f2, [%rd5];
+    fma.rn.f32 %f1, %f2, %f2, %f1;
+    add.u32 %r5, %r5, %r2;
+    bra sum_loop;
+
+reduce:
+    mul.wide.u32 %rd6, %r1, 4;
+    mov.u64 %rd7, rn_sumsq;
+    add.u64 %rd8, %rd7, %rd6;
+    st.shared.f32 [%rd8], %f1;
+    bar.sync 0;
+
+    shr.u32 %r8, %r2, 1;
+red_loop:
+    setp.eq.u32 %p2, %r8, 0;
+    @%p2 bra red_done;
+    setp.ge.u32 %p3, %r1, %r8;
+    @%p3 bra red_skip;
+    add.u32 %r9, %r1, %r8;
+    mul.wide.u32 %rd9, %r9, 4;
+    add.u64 %rd10, %rd7, %rd9;
+    ld.shared.f32 %f3, [%rd8];
+    ld.shared.f32 %f4, [%rd10];
+    add.f32 %f5, %f3, %f4;
+    st.shared.f32 [%rd8], %f5;
+red_skip:
+    bar.sync 0;
+    shr.u32 %r8, %r8, 1;
+    bra red_loop;
+
+red_done:
+    mov.u64 %rd11, rn_sumsq;
+    ld.shared.f32 %f6, [%rd11];
+    cvt.rn.f32.u32 %f7, %r4;
+    div.rn.f32 %f8, %f6, %f7;
+    add.f32 %f9, %f8, %f0;
+    rsqrt.approx.f32 %f10, %f9;
+
+    mov.u32 %r10, %r1;
+write_loop:
+    setp.ge.u32 %p4, %r10, %r4;
+    @%p4 bra done;
+    add.u32 %r11, %r6, %r10;
+    mul.wide.u32 %rd12, %r11, 4;
+    add.u64 %rd13, %rd0, %rd12;
+    add.u64 %rd14, %rd3, %rd12;
+    mul.wide.u32 %rd15, %r10, 4;
+    add.u64 %rd16, %rd1, %rd15;
+    ld.global.f32 %f11, [%rd13];
+    ld.global.f32 %f12, [%rd16];
+    mul.f32 %f13, %f11, %f10;
+    mul.f32 %f14, %f13, %f12;
+    setp.eq.u32 %p5, %r20, 0;
+    @%p5 bra no_scale;
+    add.u64 %rd17, %rd2, %rd15;
+    ld.global.f32 %f15, [%rd17];
+    mul.f32 %f14, %f14, %f15;
+no_scale:
+    st.global.f32 [%rd14], %f14;
+    add.u32 %r10, %r10, %r2;
+    bra write_loop;
+
+done:
+    ret;
+}
+`

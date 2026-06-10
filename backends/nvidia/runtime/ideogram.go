@@ -7,6 +7,7 @@ import (
 
 var fnIdeogramCFGStepF32 CUfunction
 var fnIdeogramLayerNormNoAffineF32 CUfunction
+var fnIdeogramRMSNormRowsF32 CUfunction
 var fnIdeogramAdaLNTransformF32 CUfunction
 var fnIdeogramGatedResidualF32 CUfunction
 var fnIdeogramMRoPEF32 CUfunction
@@ -80,6 +81,70 @@ func IdeogramLayerNormNoAffineBuffer(out, x *Buffer, rows, cols int, eps float32
 		unsafe.Pointer(&rr),
 		unsafe.Pointer(&cc),
 		unsafe.Pointer(&eps))
+}
+
+// IdeogramRMSNormRows computes row-wise RMSNorm with per-column weight and an
+// optional per-column scale vector through temporary device buffers.
+func IdeogramRMSNormRows(out, x, weight, scale []float32, rows, cols int, eps float32) error {
+	n, ok := checkedMulInt(rows, cols)
+	if !ok || rows <= 0 || cols <= 0 || len(out) < n || len(x) < n || len(weight) < cols {
+		return fmt.Errorf("invalid Ideogram RMSNorm rows host buffers out=%d/%d x=%d/%d weight=%d/%d", len(out), n, len(x), n, len(weight), cols)
+	}
+	useScale := scale != nil
+	if useScale && len(scale) < cols {
+		return fmt.Errorf("invalid Ideogram RMSNorm rows scale=%d/%d", len(scale), cols)
+	}
+	if !SgemmReady() || fnIdeogramRMSNormRowsF32 == 0 {
+		return fmt.Errorf("GPU not available")
+	}
+	xBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram RMSNorm rows input: %w", err)
+	}
+	defer xBuf.Free()
+	wBuf, err := Malloc(cols)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram RMSNorm rows weight: %w", err)
+	}
+	defer wBuf.Free()
+	outBuf, err := Malloc(n)
+	if err != nil {
+		return fmt.Errorf("alloc Ideogram RMSNorm rows output: %w", err)
+	}
+	defer outBuf.Free()
+	sBuf := &Buffer{}
+	if useScale {
+		sBuf, err = Malloc(cols)
+		if err != nil {
+			return fmt.Errorf("alloc Ideogram RMSNorm rows scale: %w", err)
+		}
+		defer sBuf.Free()
+	}
+	if err := xBuf.Upload(x[:n]); err != nil {
+		return fmt.Errorf("upload Ideogram RMSNorm rows input: %w", err)
+	}
+	if err := wBuf.Upload(weight[:cols]); err != nil {
+		return fmt.Errorf("upload Ideogram RMSNorm rows weight: %w", err)
+	}
+	if useScale {
+		if err := sBuf.Upload(scale[:cols]); err != nil {
+			return fmt.Errorf("upload Ideogram RMSNorm rows scale: %w", err)
+		}
+	}
+	use := uint32(0)
+	if useScale {
+		use = 1
+	}
+	rr, cc := uint32(rows), uint32(cols)
+	if err := LaunchKernel(fnIdeogramRMSNormRowsF32, rr, 1, 1, 256, 1, 1, 256*4,
+		unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&wBuf.Ptr), unsafe.Pointer(&sBuf.Ptr), unsafe.Pointer(&outBuf.Ptr),
+		unsafe.Pointer(&rr), unsafe.Pointer(&cc), unsafe.Pointer(&eps), unsafe.Pointer(&use)); err != nil {
+		return err
+	}
+	if err := outBuf.Download(out[:n]); err != nil {
+		return fmt.Errorf("download Ideogram RMSNorm rows output: %w", err)
+	}
+	return nil
 }
 
 // IdeogramLayerNormNoAffine computes row-wise non-affine LayerNorm using
