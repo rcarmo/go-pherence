@@ -80,6 +80,8 @@ func dispatchPrefixOp(op OpKind, ctx ForwardContext, weights *TextWeights, scrat
 	switch op {
 	case OpCanvasEmbedding:
 		return runCanvasEmbedding(ctx, weights, scratch)
+	case OpSelfCondition:
+		return runSelfCondition(ctx, weights, scratch)
 	default:
 		return fmt.Errorf("DiffusionGemma unknown prefix op %q", op)
 	}
@@ -169,6 +171,79 @@ func diffusionGemmaF16ToF32(h uint16) float32 {
 	}
 	exp32 := uint32(int(exp) + (127 - 15))
 	return math.Float32frombits(sign | (exp32 << 23) | (mant << 13))
+}
+
+func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma self-conditioning missing weights")
+	}
+	fp := weights.ForwardPlan()
+	hiddenSize := 0
+	if fp.Globals.EmbedTokens != nil && len(fp.Globals.EmbedTokens.Shape) == 2 {
+		hiddenSize = fp.Globals.EmbedTokens.Shape[1]
+	}
+	if hiddenSize <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma self-conditioning hidden len=%d hidden_size=%d", len(scratch.Hidden), hiddenSize)
+	}
+	if len(ctx.SelfConditioning) == 0 {
+		for off := 0; off < len(scratch.Hidden); off += hiddenSize {
+			if !simd.RMSNormNoScaleTo(scratch.Hidden[off:off+hiddenSize], 1e-6) {
+				return fmt.Errorf("DiffusionGemma self-conditioning post norm rejected row at offset %d", off)
+			}
+		}
+		return nil
+	}
+	if len(ctx.SelfConditioning) != len(scratch.Hidden) {
+		return fmt.Errorf("DiffusionGemma self-conditioning len=%d want %d", len(ctx.SelfConditioning), len(scratch.Hidden))
+	}
+	preNorm, err := loadFloatVector(weights, fp.Globals.SelfCondPreNorm)
+	if err != nil {
+		return err
+	}
+	gateW, gateRows, gateCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondGateProj)
+	if err != nil {
+		return err
+	}
+	upW, upRows, upCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondUpProj)
+	if err != nil {
+		return err
+	}
+	downW, downRows, downCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondDownProj)
+	if err != nil {
+		return err
+	}
+	if len(preNorm) != hiddenSize || gateCols != hiddenSize || upCols != hiddenSize || gateRows != upRows || downRows != hiddenSize || downCols != gateRows {
+		return fmt.Errorf("DiffusionGemma self-conditioning shape mismatch")
+	}
+	intermediate := gateRows
+	cond := make([]float32, hiddenSize)
+	gate := make([]float32, intermediate)
+	up := make([]float32, intermediate)
+	act := make([]float32, intermediate)
+	signal := make([]float32, hiddenSize)
+	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
+		copy(cond, ctx.SelfConditioning[off:off+hiddenSize])
+		if !simd.RMSNormTo(cond, preNorm, 1e-6) {
+			return fmt.Errorf("DiffusionGemma self-conditioning pre norm rejected row at offset %d", off)
+		}
+		if !simd.GemvRows(gate, cond, gateW, intermediate, hiddenSize) || !simd.GemvRows(up, cond, upW, intermediate, hiddenSize) {
+			return fmt.Errorf("DiffusionGemma self-conditioning gate/up GEMV rejected")
+		}
+		if !simd.GELUTanhMulTo(act, gate, up) {
+			return fmt.Errorf("DiffusionGemma self-conditioning activation rejected")
+		}
+		if !simd.GemvRows(signal, act, downW, hiddenSize, intermediate) {
+			return fmt.Errorf("DiffusionGemma self-conditioning down GEMV rejected")
+		}
+		row := scratch.Hidden[off : off+hiddenSize]
+		for i := range row {
+			row[i] += signal[i]
+		}
+		if !simd.RMSNormNoScaleTo(row, 1e-6) {
+			return fmt.Errorf("DiffusionGemma self-conditioning post norm rejected row at offset %d", off)
+		}
+	}
+	return nil
 }
 
 func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {

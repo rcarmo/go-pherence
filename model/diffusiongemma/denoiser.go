@@ -55,7 +55,7 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	if d.Dispatcher == nil {
 		return ForwardOutput{}, fmt.Errorf("DiffusionGemma text forward dispatcher is not configured")
 	}
-	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step}, d.Weights, d.Ops, d.Buffers)
+	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step, SelfConditioning: in.SelfConditioning}, d.Weights, d.Ops, d.Buffers)
 }
 
 // ForwardBufferPlan describes the major scratch buffers required by a future

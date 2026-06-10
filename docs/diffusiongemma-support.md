@@ -255,9 +255,9 @@ experts=1441792
 
 ```text
 ops ready=true
-prefix_ops=1
+prefix_ops=2
 layer_ops=270
-tail_ops=3
+tail_ops=2
 ```
 
 `TextDenoiser` now routes `Denoise` through a dispatcher. The default dispatcher returns an explicit not-implemented error until tensor-backed CPU/SIMD layer math is added.
@@ -268,7 +268,7 @@ tail_ops=3
 `model/diffusiongemma/cpu_dispatcher.go` adds `CPUDispatcher`, `ForwardScratch`, and per-operation dispatch hooks for every semantic text forward op. The dispatcher allocates the major scratch buffers from `ForwardBufferPlan`, walks the `ForwardOpPlan`, and currently returns explicit per-op not-implemented errors such as `DiffusionGemma CPU/SIMD op self_attention is not implemented`. This creates the concrete boundary for adding native SIMD math op-by-op without changing the block-diffusion sampler or `Denoiser` interface.
 
 
-The explicit `canvas_embedding` prefix op marks the point where token IDs from the noised canvas must become hidden states before layer execution begins.
+The explicit prefix ops are `canvas_embedding` followed by `self_condition`, matching the Transformers reference where self-conditioning is applied to input embeddings before decoder layers execute.
 
 
 ## Canvas embedding implementation scaffold
@@ -314,3 +314,8 @@ Router scratch now includes per-position `TopKIDs` and `TopKVals` sized by `top_
 ## LM head hook
 
 `CPUDispatcher` now implements the `lm_head` tail op using the tied `embed_tokens.weight` matrix as an output projection. It runs checked SIMD `GemvRows` for each canvas position to produce full-vocabulary logits. This is correctness-first and will be expensive for the published 262K vocabulary because it materializes/uses the full tied embedding matrix; practical inference will need paging, caching, or a more memory-aware output projection path.
+
+
+## Self-conditioning hook
+
+`CPUDispatcher` now implements `self_condition` as a prefix op after canvas embedding. With no previous self-conditioning signal, it applies the reference scale-free post RMSNorm to input embeddings. When a self-conditioning signal is provided, it applies pre RMSNorm, gated GELU MLP (`gate_proj`, `up_proj`, `down_proj`), adds the signal to embeddings, and applies scale-free post RMSNorm.

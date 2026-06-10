@@ -44,7 +44,7 @@ func BuildForwardOpPlan(shape Shape, textPlan *TextForwardPlan) ForwardOpPlan {
 	if textPlan != nil && !textPlan.Ready {
 		return ForwardOpPlan{Ready: false, Reason: "text forward bindings incomplete"}
 	}
-	plan := ForwardOpPlan{Ready: true, Prefix: []OpKind{OpCanvasEmbedding}, Tail: []OpKind{OpSelfCondition, OpFinalNorm, OpLMHead}}
+	plan := ForwardOpPlan{Ready: true, Prefix: []OpKind{OpCanvasEmbedding, OpSelfCondition}, Tail: []OpKind{OpFinalNorm, OpLMHead}}
 	for i := 0; i < shape.TextLayers; i++ {
 		lt := layerTypeAt(shape.LayerTypes, i)
 		plan.Layers = append(plan.Layers,
@@ -66,9 +66,10 @@ func BuildForwardOpPlan(shape Shape, textPlan *TextForwardPlan) ForwardOpPlan {
 // intentionally absent here; the concrete dispatcher will allocate or borrow
 // buffers according to ForwardBufferPlan.
 type ForwardContext struct {
-	PromptIDs []int `json:"prompt_ids,omitempty"`
-	Canvas    []int `json:"canvas"`
-	Step      int   `json:"step"`
+	PromptIDs        []int     `json:"prompt_ids,omitempty"`
+	Canvas           []int     `json:"canvas"`
+	Step             int       `json:"step"`
+	SelfConditioning []float32 `json:"-"`
 }
 
 // ForwardDispatcher is the explicit boundary where tensor-backed CPU/SIMD
