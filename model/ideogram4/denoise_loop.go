@@ -64,14 +64,18 @@ func DenoiseLoop(cond, uncond *DiTModel, sched *FlowMatchScheduler, plan Samplin
 	for si, step := range plan.Steps {
 		branchStart := time.Now()
 		branchStats := nvidia.StatsSnapshot()
-		condVel, err := cond.Velocity(x.Data, gridH, gridW, textFeatures, step.T)
+		condVel, err := withBranchLayerCache("COND", func() ([]float32, error) {
+			return cond.Velocity(x.Data, gridH, gridW, textFeatures, step.T)
+		})
 		if err != nil {
 			return nil, fmt.Errorf("ideogram4 denoise step %d cond: %w", si, err)
 		}
 		printStats(fmt.Sprintf("denoise_step_%d_cond", si), branchStats, branchStart)
 		branchStart = time.Now()
 		branchStats = nvidia.StatsSnapshot()
-		uncondVel, err := uncond.Velocity(x.Data, gridH, gridW, nil, step.T)
+		uncondVel, err := withBranchLayerCache("UNCOND", func() ([]float32, error) {
+			return uncond.Velocity(x.Data, gridH, gridW, nil, step.T)
+		})
 		if err != nil {
 			return nil, fmt.Errorf("ideogram4 denoise step %d uncond: %w", si, err)
 		}
