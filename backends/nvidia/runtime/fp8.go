@@ -268,6 +268,63 @@ func GemmFP8E4M3Buffer(outBuf, xBuf *Buffer, batch int, w *GPUFP8E4M3Linear) err
 // activation matrix. This is intended for SwiGLU-style projection pairs such as
 // Ideogram/Qwen W1+W3, where both linears consume the exact same [batch,InDim]
 // input. It reduces host-device traffic without changing numerical kernels.
+func GemmSwiGLUFP8E4M3(out, x []float32, batch int, w1, w3, w2 *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(w1) || !validGPUFP8E4M3Linear(w3) || !validGPUFP8E4M3Linear(w2) {
+		return fmt.Errorf("invalid GPU FP8 E4M3 SwiGLU linear set")
+	}
+	if batch <= 0 || w1.InDim != w3.InDim || w1.OutDim != w3.OutDim || w2.InDim != w1.OutDim {
+		return fmt.Errorf("invalid FP8 E4M3 SwiGLU dims batch=%d w1=%dx%d w3=%dx%d w2=%dx%d", batch, w1.OutDim, w1.InDim, w3.OutDim, w3.InDim, w2.OutDim, w2.InDim)
+	}
+	inLen := batch * w1.InDim
+	interLen := batch * w1.OutDim
+	outLen := batch * w2.OutDim
+	if len(x) < inLen || len(out) < outLen {
+		return fmt.Errorf("invalid FP8 E4M3 SwiGLU buffers x=%d/%d out=%d/%d", len(x), inLen, len(out), outLen)
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	xBuf, err := Malloc(inLen)
+	if err != nil {
+		return fmt.Errorf("alloc FP8 SwiGLU input: %w", err)
+	}
+	defer xBuf.Free()
+	gBuf, err := Malloc(interLen)
+	if err != nil {
+		return fmt.Errorf("alloc FP8 SwiGLU gate: %w", err)
+	}
+	defer gBuf.Free()
+	uBuf, err := Malloc(interLen)
+	if err != nil {
+		return fmt.Errorf("alloc FP8 SwiGLU up: %w", err)
+	}
+	defer uBuf.Free()
+	outBuf, err := Malloc(outLen)
+	if err != nil {
+		return fmt.Errorf("alloc FP8 SwiGLU output: %w", err)
+	}
+	defer outBuf.Free()
+	if err := xBuf.Upload(x[:inLen]); err != nil {
+		return fmt.Errorf("upload FP8 SwiGLU input: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(gBuf, xBuf, batch, w1); err != nil {
+		return fmt.Errorf("FP8 SwiGLU W1: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(uBuf, xBuf, batch, w3); err != nil {
+		return fmt.Errorf("FP8 SwiGLU W3: %w", err)
+	}
+	if err := F32SiLUMulBuffer(gBuf, gBuf, uBuf, interLen); err != nil {
+		return fmt.Errorf("FP8 SwiGLU SiLU*Mul: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(outBuf, gBuf, batch, w2); err != nil {
+		return fmt.Errorf("FP8 SwiGLU W2: %w", err)
+	}
+	if err := outBuf.Download(out[:outLen]); err != nil {
+		return fmt.Errorf("download FP8 SwiGLU output: %w", err)
+	}
+	return nil
+}
+
 func Gemm2FP8E4M3SameInput(outA, outB, x []float32, batch int, wA, wB *GPUFP8E4M3Linear) error {
 	if !validGPUFP8E4M3Linear(wA) || !validGPUFP8E4M3Linear(wB) {
 		return fmt.Errorf("invalid GPU FP8 E4M3 linear pair")

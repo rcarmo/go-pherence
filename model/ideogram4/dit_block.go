@@ -342,14 +342,9 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 			}
 		}
 	}
-	gAll := make([]float32, tokens*inter)
-	uAll := make([]float32, tokens*inter)
+	_ = inter
 	downAll := make([]float32, tokens*emb)
-	if err := layerGPU.W1W3Batch(*l, mlpIn, gAll, uAll, tokens); err != nil {
-		return err
-	}
-	siluMulInPlace(gAll, uAll)
-	if err := layerGPU.W2Batch(*l, gAll, downAll, tokens); err != nil {
+	if err := layerGPU.MLPBatch(*l, mlpIn, downAll, tokens); err != nil {
 		return err
 	}
 	if gpuNormEnabled() {

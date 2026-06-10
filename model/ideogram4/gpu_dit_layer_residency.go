@@ -206,6 +206,23 @@ func (r *ditLayerGPUResidency) W3Batch(l DiTLayer, x, out []float32, batch int) 
 	return r.gemm("w3", w, l.W3, x, out, batch)
 }
 
+func (r *ditLayerGPUResidency) MLPBatch(l DiTLayer, x, out []float32, batch int) error {
+	if r != nil && r.w1 != nil && r.w3 != nil && r.w2 != nil {
+		if err := nvidia.GemmSwiGLUFP8E4M3(out, x, batch, r.w1, r.w3, r.w2); err == nil {
+			return nil
+		} else if gpuFP8Strict() {
+			return fmt.Errorf("DiT layer GPU SwiGLU+W2: %w", err)
+		}
+	}
+	gAll := make([]float32, batch*l.W1.OutDim())
+	uAll := make([]float32, batch*l.W3.OutDim())
+	if err := r.W1W3Batch(l, x, gAll, uAll, batch); err != nil {
+		return err
+	}
+	siluMulInPlace(gAll, uAll)
+	return r.W2Batch(l, gAll, out, batch)
+}
+
 func (r *ditLayerGPUResidency) W1W3Batch(l DiTLayer, x, outW1, outW3 []float32, batch int) error {
 	if r != nil && r.w1 != nil && r.w3 != nil {
 		if err := nvidia.Gemm2FP8E4M3SameInput(outW1, outW3, x, batch, r.w1, r.w3); err == nil {
