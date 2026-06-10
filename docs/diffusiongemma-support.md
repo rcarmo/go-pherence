@@ -850,3 +850,6 @@ The text tensor plan now includes DiffusionGemma-specific `pre_feedforward_layer
 ## Weight binding JSON target
 
 `make diffusiongemma-weights-json` first requires shard readiness, then runs `diffusiongemmainspect -open-weights -json` into `DIFFUSIONGEMMA_WEIGHTS_OUT`. It is intended for full-checkpoint environments to capture text weight dtype/shape binding metadata before parity runs.
+
+
+`diffusiongemma-weights-json` performs shard readiness preflight before opening weights, so `diffusiongemma-parity` uses it as the full-weight gate and artifact capture step. `diffusiongemma-check-weights` remains available as a standalone human-readable gate.

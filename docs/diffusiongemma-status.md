@@ -314,3 +314,6 @@ Result: passed. Text readiness now reports `layer_tensors=655/655`.
 
 
 `DIFFUSIONGEMMA_WEIGHTS_OUT` captures the `diffusiongemmainspect -open-weights -json` report during full parity workflows.
+
+
+`diffusiongemma-weights-json` performs shard readiness preflight before opening weights, so `diffusiongemma-parity` uses it as the full-weight gate and artifact capture step. `diffusiongemma-check-weights` remains available as a standalone human-readable gate.
