@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/rcarmo/go-pherence/cmd/llm/internal/pathutil"
 	"os"
 	"path/filepath"
 	"slices"
@@ -71,7 +72,7 @@ func TestSpecbenchSameIntsAndBaseName(t *testing.T) {
 	if slices.Equal([]int{1, 2}, []int{1, 3}) {
 		t.Fatal("sameInts returned true for different slices")
 	}
-	if got := baseName("/tmp/models/foo/"); got != "foo" {
+	if got := pathutil.BaseName("/tmp/models/foo/"); got != "foo" {
 		t.Fatalf("baseName=%q want foo", got)
 	}
 }

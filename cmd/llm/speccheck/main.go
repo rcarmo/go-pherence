@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rcarmo/go-pherence/cmd/llm/internal/pathutil"
 	"github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model"
@@ -99,7 +100,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	modelID := baseName(*dir)
+	modelID := pathutil.BaseName(*dir)
 	golden, err := loadGolden(*goldenPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "golden: %v\n", err)
@@ -262,17 +263,4 @@ func parseList(s string) []string {
 		}
 	}
 	return out
-}
-
-func baseName(path string) string {
-	for len(path) > 0 && (path[len(path)-1] == '/' || path[len(path)-1] == '\\') {
-		path = path[:len(path)-1]
-	}
-	last := 0
-	for i := range path {
-		if path[i] == '/' || path[i] == '\\' {
-			last = i + 1
-		}
-	}
-	return path[last:]
 }

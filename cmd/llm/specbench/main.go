@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/rcarmo/go-pherence/cmd/llm/internal/pathutil"
 	"github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model"
@@ -121,7 +122,7 @@ func main() {
 		"model", "prompt_index", "prompt_tokens", "max_tokens", "repeat", "mode", "elapsed_ms", "tokens_per_sec", "speedup_vs_normal", "match_normal",
 		"backend", "proposer", "steps", "proposal_steps", "proposed", "accepted", "bonus", "fallback", "acceptance", "emitted", "tokens_per_step", "avg_proposal",
 	}}
-	modelID := baseName(*dir)
+	modelID := pathutil.BaseName(*dir)
 	var totalPromptTokens, totalNormalGenerated, totalSpecGenerated int
 	var totalNormalElapsed, totalSpecElapsed time.Duration
 	aggregateMatch := true
@@ -210,17 +211,4 @@ func tokensPerSecond(generated int, elapsed time.Duration) float64 {
 		return 0
 	}
 	return float64(generated) / elapsed.Seconds()
-}
-
-func baseName(path string) string {
-	for len(path) > 0 && (path[len(path)-1] == '/' || path[len(path)-1] == '\\') {
-		path = path[:len(path)-1]
-	}
-	last := 0
-	for i := range path {
-		if path[i] == '/' || path[i] == '\\' {
-			last = i + 1
-		}
-	}
-	return path[last:]
 }
