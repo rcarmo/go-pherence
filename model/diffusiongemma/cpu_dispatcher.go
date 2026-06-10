@@ -175,17 +175,17 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 	case OpSelfAttention:
 		return errOpNotImplemented(op.Kind)
 	case OpPostAttention:
-		return errOpNotImplemented(op.Kind)
+		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostAttentionLayerNorm })
 	case OpDenseMLP:
 		return errOpNotImplemented(op.Kind)
 	case OpPreMoE:
-		return errOpNotImplemented(op.Kind)
+		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PreFFNLayerNorm })
 	case OpRouter:
 		return errOpNotImplemented(op.Kind)
 	case OpExperts:
 		return errOpNotImplemented(op.Kind)
 	case OpPostMoE:
-		return errOpNotImplemented(op.Kind)
+		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostFFNLayerNorm })
 	case OpLayerScalar:
 		return errOpNotImplemented(op.Kind)
 	default:

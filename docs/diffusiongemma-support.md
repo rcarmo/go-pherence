@@ -278,4 +278,4 @@ The explicit `canvas_embedding` prefix op marks the point where token IDs from t
 
 ## Input RMSNorm hook
 
-`CPUDispatcher` now implements the `input_norm` layer op scaffold. It loads the rank-1 RMSNorm weight through `TextWeights.RawTensor`, decodes `BF16`/`F16`/`F32` to float32, and applies `backends/simd/runtime.RMSNormTo` row-by-row over the hidden scratch buffer. Subsequent attention/MLP/MoE/tail ops still return explicit not-implemented errors.
+`CPUDispatcher` now implements the `input_norm`, `post_attention_norm`, `pre_moe_norm`, and `post_moe_norm` layer op scaffolds. It loads the rank-1 RMSNorm weight through `TextWeights.RawTensor`, decodes `BF16`/`F16`/`F32` to float32, and applies `backends/simd/runtime.RMSNormTo` row-by-row over the hidden scratch buffer. Subsequent attention/MLP/router/expert/tail ops still return explicit not-implemented errors.
