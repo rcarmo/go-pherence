@@ -19,6 +19,7 @@ type report struct {
 	TextWeightsOpened  bool                               `json:"text_weights_opened,omitempty"`
 	TextWeightsGlobals int                                `json:"text_weights_globals,omitempty"`
 	TextWeightsLayers  int                                `json:"text_weights_layers,omitempty"`
+	TextForwardPlan    *diffusiongemma.TextForwardPlan    `json:"text_forward_plan,omitempty"`
 }
 
 func main() {
@@ -51,6 +52,8 @@ func main() {
 		out.TextWeightsOpened = true
 		out.TextWeightsGlobals = len(weights.Globals)
 		out.TextWeightsLayers = len(weights.Layers)
+		forwardPlan := weights.ForwardPlan()
+		out.TextForwardPlan = &forwardPlan
 	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
@@ -89,6 +92,9 @@ func printText(r report) {
 	}
 	if r.TextWeightsOpened {
 		fmt.Printf("  weights:   text_shards_opened=true globals=%d layers=%d\n", r.TextWeightsGlobals, r.TextWeightsLayers)
+	}
+	if r.TextForwardPlan != nil {
+		fmt.Printf("  forward:   text_ready=%v layers=%d missing=%d\n", r.TextForwardPlan.Ready, len(r.TextForwardPlan.Layers), len(r.TextForwardPlan.Missing))
 	}
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)

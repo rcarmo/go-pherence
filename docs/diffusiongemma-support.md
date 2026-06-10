@@ -224,3 +224,8 @@ This gives the future native loader exact tensor names and shard locations for t
 ## Text weight binding scaffold
 
 `model/diffusiongemma/weights.go` adds `OpenTextWeights`, a non-eager binder from `TextTensorPlan` to local sharded safetensors metadata. It opens the 11 shard files when present, binds dtype/shape metadata for planned global and per-layer text tensors, and exposes `RawTensor(name)` for future payload loading. The inspector exposes this behind `-open-weights`; normal inspection remains index-only and does not require downloading shards.
+
+
+## Text forward binding scaffold
+
+`model/diffusiongemma/text_forward.go` adds semantic bindings over opened text weights. `TextWeights.ForwardPlan()` maps tensor names into roles such as embeddings, final norm, self-conditioning projections, per-layer norms, Q/K/V/O projections, Q/K norms, MLP projections, routers, and expert projections. Full-attention layers are allowed to omit `v_proj`, matching the published tensor layout. The inspector reports this forward plan when `-open-weights` is used with local shard files.
