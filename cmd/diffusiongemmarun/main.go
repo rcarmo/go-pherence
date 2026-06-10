@@ -65,6 +65,7 @@ func main() {
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
 	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
 	residencyBudgetGiB := flag.Float64("residency-budget-gib", 0, "choose resident layer prefix from decoded float32 cache budget in GiB")
+	maxDispatchLayers := flag.Int("max-dispatch-layers", 0, "debug: execute at most N text layers in CPU dispatcher and skip tail/logit projection")
 	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
@@ -230,7 +231,7 @@ func main() {
 			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 			return
 		}
-		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers})
+		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers})
 		if err != nil {
 			fatal(err)
 		}
@@ -306,7 +307,7 @@ func main() {
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
 	}
 	if weights != nil {
-		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f float_cache_entries=%d float_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, weights.FloatCacheEntries(), weights.FloatCacheBytes())
+		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f max_dispatch_layers=%d float_cache_entries=%d float_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *maxDispatchLayers, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)

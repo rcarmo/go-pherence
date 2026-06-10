@@ -423,3 +423,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Run-time residency budget selection
 
 `diffusiongemmarun -residency-budget-gib N` now opens weight metadata, computes the resident layer prefix that fits under the decoded float32 budget, preloads that prefix when requested, and passes the selected `ResidentLayerPrefix` into the CPU dispatcher. On the downloaded checkpoint, `-residency-budget-gib 16 -preload-only` selects `resident_layers=4/30` and reports `float_cache_bytes=16049700880`. Make CPU targets pass this via `DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB`.
+
+
+## Bounded CPU layer smoke
+
+`diffusiongemmarun -max-dispatch-layers 1` executes prefix ops plus layer 0, skips tail/logit projection, and returns the current scaffold canvas. With full weights, `-canvas 1 -resident-layers 1 -max-dispatch-layers 1` completes and reports `float_cache_entries=22 float_cache_bytes=3256379908`; this confirms layer-0 real-weight ops execute under the decoded cache policy without attempting all 30 layers. `make diffusiongemma-run-cpu-layer1-smoke` wraps this bounded probe.

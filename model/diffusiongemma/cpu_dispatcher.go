@@ -13,6 +13,7 @@ import (
 // proceed operation-by-operation while keeping the Denoiser interface stable.
 type CPUDispatcher struct {
 	ResidentLayerPrefix int
+	MaxLayers           int
 }
 
 type ForwardScratch struct {
@@ -66,9 +67,16 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		}
 	}
 	currentLayer := -1
+	completedLayers := 0
 	for _, op := range ops.Layers {
-		if currentLayer >= 0 && op.Layer != currentLayer && currentLayer >= d.ResidentLayerPrefix {
-			weights.EvictLayer(currentLayer)
+		if currentLayer >= 0 && op.Layer != currentLayer {
+			completedLayers++
+			if currentLayer >= d.ResidentLayerPrefix {
+				weights.EvictLayer(currentLayer)
+			}
+			if d.MaxLayers > 0 && completedLayers >= d.MaxLayers {
+				break
+			}
 		}
 		currentLayer = op.Layer
 		if err := dispatchLayerOp(op, ctx, weights, scratch); err != nil {
@@ -77,6 +85,9 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 	if currentLayer >= 0 && currentLayer >= d.ResidentLayerPrefix {
 		weights.EvictLayer(currentLayer)
+	}
+	if d.MaxLayers > 0 {
+		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
 	}
 	for _, op := range ops.Tail {
 		if err := dispatchTailOp(op, weights, scratch); err != nil {
