@@ -43,6 +43,23 @@ func (m *DiTModel) forwardLayersHiddenResident(hidden []float32, adaln []float32
 	if err := hBuf.Upload(hidden); err != nil {
 		return err
 	}
+	tableLen := tokens * (headDim / 2)
+	cosBuf, err := nvidia.Malloc(tableLen)
+	if err != nil {
+		return err
+	}
+	defer cosBuf.Free()
+	sinBuf, err := nvidia.Malloc(tableLen)
+	if err != nil {
+		return err
+	}
+	defer sinBuf.Free()
+	if err := cosBuf.Upload(rope.cos[:tableLen]); err != nil {
+		return err
+	}
+	if err := sinBuf.Upload(rope.sin[:tableLen]); err != nil {
+		return err
+	}
 	mod := make([]float32, 4*emb)
 	for i := range m.Layers {
 		l := &m.Layers[i]
@@ -65,7 +82,7 @@ func (m *DiTModel) forwardLayersHiddenResident(hidden []float32, adaln []float32
 		scaleMLP := mod[2*emb : 3*emb]
 		gateMLP := mod[3*emb : 4*emb]
 		transformAdaLNMod(mod, emb)
-		if err := layerGPU.FullLayerIslandsBuffer(*l, hBuf, normedBuf, scaleMSA, gateMSA, scaleMLP, gateMLP, tokens, heads, headDim, rope, scaleAttn, normEps); err != nil {
+		if err := layerGPU.FullLayerIslandsBuffer(*l, hBuf, normedBuf, cosBuf, sinBuf, scaleMSA, gateMSA, scaleMLP, gateMLP, tokens, heads, headDim, scaleAttn, normEps); err != nil {
 			if freeLayer {
 				layerGPU.Free()
 			}

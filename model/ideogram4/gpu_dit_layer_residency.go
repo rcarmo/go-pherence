@@ -215,12 +215,11 @@ func (r *ditLayerGPUResidency) gemm(name string, gpuW *nvidia.GPUFP8E4M3Linear, 
 	return cpuW.ApplyBatch(x, out, batch)
 }
 
-func (r *ditLayerGPUResidency) FullLayerIslandsBuffer(l DiTLayer, hiddenBuf, normedBuf *nvidia.Buffer, scaleMSA, gateMSA, scaleMLP, gateMLP []float32, tokens, heads, headDim int, rope *MRoPE, scaleAttn, normEps float32) error {
-	if r == nil || r.qkv == nil || r.o == nil || r.w1 == nil || r.w3 == nil || r.w2 == nil || rope == nil {
+func (r *ditLayerGPUResidency) FullLayerIslandsBuffer(l DiTLayer, hiddenBuf, normedBuf, cosBuf, sinBuf *nvidia.Buffer, scaleMSA, gateMSA, scaleMLP, gateMLP []float32, tokens, heads, headDim int, scaleAttn, normEps float32) error {
+	if r == nil || r.qkv == nil || r.o == nil || r.w1 == nil || r.w3 == nil || r.w2 == nil || cosBuf == nil || sinBuf == nil {
 		return fmt.Errorf("full layer island unavailable")
 	}
 	emb := heads * headDim
-	tableLen := tokens * (headDim / 2)
 	alloc := func(name string, size int) (*nvidia.Buffer, error) {
 		b, err := nvidia.Malloc(size)
 		if err != nil {
@@ -248,16 +247,6 @@ func (r *ditLayerGPUResidency) FullLayerIslandsBuffer(l DiTLayer, hiddenBuf, nor
 		return err
 	}
 	defer gateMLPBuf.Free()
-	cosBuf, err := alloc("cos", tableLen)
-	if err != nil {
-		return err
-	}
-	defer cosBuf.Free()
-	sinBuf, err := alloc("sin", tableLen)
-	if err != nil {
-		return err
-	}
-	defer sinBuf.Free()
 	if err := scaleMSABuf.Upload(scaleMSA[:emb]); err != nil {
 		return err
 	}
@@ -268,12 +257,6 @@ func (r *ditLayerGPUResidency) FullLayerIslandsBuffer(l DiTLayer, hiddenBuf, nor
 		return err
 	}
 	if err := gateMLPBuf.Upload(gateMLP[:emb]); err != nil {
-		return err
-	}
-	if err := cosBuf.Upload(rope.cos[:tableLen]); err != nil {
-		return err
-	}
-	if err := sinBuf.Upload(rope.sin[:tableLen]); err != nil {
 		return err
 	}
 	attnN1, attnN2, ffnN1, ffnN2, normQ, normK := r.attnN1, r.attnN2, r.ffnN1, r.ffnN2, r.normQ, r.normK
