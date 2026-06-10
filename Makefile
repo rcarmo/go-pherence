@@ -698,3 +698,7 @@ diffusiongemma-download-plan-summary:
 .PHONY: diffusiongemma-download-plan-report
 
 diffusiongemma-download-plan-report: diffusiongemma-download-plan-json diffusiongemma-download-plan-summary
+
+.PHONY: diffusiongemma-download-status
+
+diffusiongemma-download-status: diffusiongemma-status-refresh

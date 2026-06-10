@@ -825,3 +825,8 @@ Shard readiness now includes `present_percent`, and the inspector/status summary
 ## Shard byte progress
 
 Shard readiness now reports byte-level progress as `present_bytes/expected_bytes` and `present_byte_percent`, in addition to shard-count progress. Metadata-only snapshots report `bytes=0/51647562456 byte_percent=0`.
+
+
+## Download status alias
+
+`make diffusiongemma-download-status` is an alias for the metadata/status refresh path. It is intended for checking shard-count and byte-level progress during or after a partial/full checkpoint download.
