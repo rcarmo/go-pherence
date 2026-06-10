@@ -537,3 +537,14 @@ After LM-head logits are produced, `CPUDispatcher` now builds the next self-cond
 ## Thinking placement
 
 The simple chat scaffold now places `<|think|>` inside the system/developer turn after `role\n`, rather than before the role token. This remains a simplified approximation of `chat_template.jinja`, but the thinking marker placement now follows the reference template shape.
+
+
+## Mock denoiser
+
+`model/diffusiongemma/mock.go` adds a deterministic `MockDenoiser` for exercising the block-diffusion control loop without weights. `diffusiongemmarun -mock-token N` attaches it. Example with a tiny canvas:
+
+```bash
+go run ./cmd/diffusiongemmarun -model /workspace/tmp/diffusiongemma -prompt "hi" -mock-token 4 -canvas 2 -max-new 2 -decode
+```
+
+Expected scaffold output includes `generated=[4 4]` and `<mask><mask>`. This is not model inference; it validates sampler/control-flow plumbing.

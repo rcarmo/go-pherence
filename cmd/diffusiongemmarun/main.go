@@ -46,6 +46,7 @@ func main() {
 	enableThinking := flag.Bool("think", false, "prepend thinking control token from tokenizer metadata")
 	addGenerationPrompt := flag.Bool("generation-prompt", false, "append generation prompt token when available")
 	decode := flag.Bool("decode", false, "decode prompt/generated IDs through exact tokenizer vocabulary entries")
+	mockToken := flag.Int("mock-token", -1, "use deterministic mock denoiser that always favors this token ID")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
@@ -124,6 +125,9 @@ func main() {
 	}
 	var denoiser diffusiongemma.Denoiser
 	var weights *diffusiongemma.TextWeights
+	if *mockToken >= 0 {
+		denoiser = diffusiongemma.MockDenoiser{VocabSize: m.Shape.VocabSize, TokenID: *mockToken}
+	}
 	if *useCPUDispatcher {
 		if m.Shards != nil && !m.Shards.Ready {
 			missing := m.Shards.MissingShards
@@ -180,7 +184,7 @@ func main() {
 		return
 	}
 	fmt.Printf("DiffusionGemma run scaffold: %s\n", *modelDir)
-	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher)
+	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v mock_token=%d\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher, *mockToken)
 	if len(out.PromptTokens) > 0 {
 		fmt.Printf("  prompt_tokens=%v\n", out.PromptTokens)
 	}
@@ -193,6 +197,9 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("  generated=%v canvases=%d\n", res.Generated, len(res.Canvases))
+	if len(out.GeneratedTokens) > 0 {
+		fmt.Printf("  generated_tokens=%v\n", out.GeneratedTokens)
+	}
 }
 
 func splitCSV(csv string) []string {
