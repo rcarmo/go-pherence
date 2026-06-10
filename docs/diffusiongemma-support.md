@@ -965,3 +965,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Runtime layer cache eviction
 
 `CPUDispatcher{ResidentLayerPrefix: N}` now evicts decoded tensors for completed layers outside the resident prefix as the layer loop advances. `diffusiongemmarun -resident-layers N` passes this policy to the CPU dispatcher, while `-preload-only` remains a safe way to validate the selected cache footprint without generation.
+
+
+## Run-time residency budget selection
+
+`diffusiongemmarun -residency-budget-gib N` now opens weight metadata, computes the resident layer prefix that fits under the decoded float32 budget, preloads that prefix when requested, and passes the selected `ResidentLayerPrefix` into the CPU dispatcher. On the downloaded checkpoint, `-residency-budget-gib 16 -preload-only` selects `resident_layers=4/30` and reports `float_cache_bytes=16049700880`. Make CPU targets pass this via `DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB`.

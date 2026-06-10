@@ -64,6 +64,7 @@ func main() {
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault all mapped safetensor shards before CPU dispatcher run")
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
 	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
+	residencyBudgetGiB := flag.Float64("residency-budget-gib", 0, "choose resident layer prefix from decoded float32 cache budget in GiB")
 	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
@@ -207,6 +208,12 @@ func main() {
 				fatal(err)
 			}
 		}
+		if *residencyBudgetGiB > 0 {
+			budgetBytes := int64(*residencyBudgetGiB * 1024 * 1024 * 1024)
+			budget := diffusiongemma.EstimateResidencyBudgetFromWeights(weights, true, budgetBytes)
+			*residentLayers = budget.ResidentLayers
+			fmt.Fprintf(os.Stderr, "diffusiongemmarun: residency budget %.2f GiB selects resident_layers=%d/%d resident_bytes=%d\n", *residencyBudgetGiB, budget.ResidentLayers, budget.TotalLayers, budget.ResidentBytes)
+		}
 		if *residentLayers > 0 {
 			if err := weights.PreloadLayerRange(0, *residentLayers); err != nil {
 				fatal(err)
@@ -220,7 +227,7 @@ func main() {
 			}
 			fmt.Printf("DiffusionGemma preload scaffold: %s\n", *modelDir)
 			fmt.Printf("  shards_ready=%v present=%d/%d\n", ready, present, expected)
-			fmt.Printf("  preload_globals=%v resident_layers=%d eager_mmap=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *eagerMmap, weights.FloatCacheEntries(), weights.FloatCacheBytes())
+			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 			return
 		}
 		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers})
@@ -299,7 +306,7 @@ func main() {
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
 	}
 	if weights != nil {
-		fmt.Printf("  residency: float_cache_entries=%d float_cache_bytes=%d\n", weights.FloatCacheEntries(), weights.FloatCacheBytes())
+		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f float_cache_entries=%d float_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)

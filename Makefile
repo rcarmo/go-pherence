@@ -599,11 +599,11 @@ diffusiongemma-run-mock-json:
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -mock-token $(DIFFUSIONGEMMA_MOCK_TOKEN) $(if $(DIFFUSIONGEMMA_MOCK_TOKENS),-mock-tokens $(DIFFUSIONGEMMA_MOCK_TOKENS),) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps $(DIFFUSIONGEMMA_DENOISE_STEPS) -t-min $(DIFFUSIONGEMMA_T_MIN) -t-max $(DIFFUSIONGEMMA_T_MAX) -entropy-bound $(DIFFUSIONGEMMA_ENTROPY_BOUND) -stability $(DIFFUSIONGEMMA_STABILITY) -confidence $(DIFFUSIONGEMMA_CONFIDENCE) -decode -json > $(DIFFUSIONGEMMA_RUN_OUT)
 
 diffusiongemma-run-cpu:
-	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,) $(if $(filter yes,$(DIFFUSIONGEMMA_EAGER_MMAP)),-eager-mmap,) $(if $(filter yes,$(DIFFUSIONGEMMA_PRELOAD_GLOBALS)),-preload-globals,) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RESIDENT_LAYERS)),-resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS),)
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,) $(if $(filter yes,$(DIFFUSIONGEMMA_EAGER_MMAP)),-eager-mmap,) $(if $(filter yes,$(DIFFUSIONGEMMA_PRELOAD_GLOBALS)),-preload-globals,) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RESIDENT_LAYERS)),-resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS),) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB)),-residency-budget-gib $(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB),)
 
 diffusiongemma-run-cpu-json:
 	mkdir -p $(dir $(DIFFUSIONGEMMA_RUN_OUT))
-	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,) $(if $(filter yes,$(DIFFUSIONGEMMA_EAGER_MMAP)),-eager-mmap,) $(if $(filter yes,$(DIFFUSIONGEMMA_PRELOAD_GLOBALS)),-preload-globals,) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RESIDENT_LAYERS)),-resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS),) -json > $(DIFFUSIONGEMMA_RUN_OUT)
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,) $(if $(filter yes,$(DIFFUSIONGEMMA_EAGER_MMAP)),-eager-mmap,) $(if $(filter yes,$(DIFFUSIONGEMMA_PRELOAD_GLOBALS)),-preload-globals,) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RESIDENT_LAYERS)),-resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS),) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB)),-residency-budget-gib $(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB),) -json > $(DIFFUSIONGEMMA_RUN_OUT)
 
 DIFFUSIONGEMMA_STATUS_OUT ?= $(TMPDIR)/diffusiongemma/status.json
 DIFFUSIONGEMMA_REF_OUT ?= $(TMPDIR)/diffusiongemma/reference.json
@@ -771,7 +771,7 @@ DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW ?= 1
 .PHONY: diffusiongemma-run-cpu-smoke
 
 diffusiongemma-run-cpu-smoke: diffusiongemma-check-weights
-	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_CPU_SMOKE_PROMPT)' -max-new $(DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CPU_SMOKE_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,) $(if $(filter yes,$(DIFFUSIONGEMMA_EAGER_MMAP)),-eager-mmap,) $(if $(filter yes,$(DIFFUSIONGEMMA_PRELOAD_GLOBALS)),-preload-globals,) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RESIDENT_LAYERS)),-resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS),) -decode
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_CPU_SMOKE_PROMPT)' -max-new $(DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CPU_SMOKE_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher $(if $(filter yes,$(DIFFUSIONGEMMA_ALLOW_SLOW_CPU)),-allow-slow-cpu,) $(if $(filter yes,$(DIFFUSIONGEMMA_EAGER_MMAP)),-eager-mmap,) $(if $(filter yes,$(DIFFUSIONGEMMA_PRELOAD_GLOBALS)),-preload-globals,) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RESIDENT_LAYERS)),-resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS),) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB)),-residency-budget-gib $(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB),) -decode
 
 IDEOGRAM4_K3_HANDOFF_DIR ?= $(TMPDIR)/ideogram4/k3-handoff
 .PHONY: ideogram4-k3-handoff
@@ -790,6 +790,7 @@ diffusiongemma-preload-layer0: diffusiongemma-check-shards
 
 DIFFUSIONGEMMA_RESIDENCY_OUT ?= $(TMPDIR)/diffusiongemma/residency.json
 DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB ?= 0
+DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB ?= 0
 
 .PHONY: diffusiongemma-residency-plan
 
