@@ -531,4 +531,9 @@ After LM-head logits are produced, `CPUDispatcher` now builds the next self-cond
 
 ## Simple chat message scaffold
 
-`diffusiongemmarun -message role:text` can now be repeated to build a simplified chat-style prompt. Message content is tokenized with `tokenizer.json` as `role\ncontent` and framed with available begin/end turn tokens, matching the basic `<|turn>role\n...<turn|>` template shape. This is not full Jinja rendering and currently does not tokenize role labels exactly as the model template does, but it provides a safer scaffold than raw prompt IDs for simple text turns.
+`diffusiongemmarun -message role:text` can now be repeated to build a simplified chat-style prompt. Message content is tokenized with `tokenizer.json` as `role\ncontent` and framed with available begin/end turn tokens, matching the basic `<|turn>role\n...<turn|>` template shape. When `-think` is used with a system/developer turn, `<|think|>` is inserted after the role line inside that turn, matching the reference template more closely. This is not full Jinja rendering and currently does not tokenize role labels exactly as the model template does, but it provides a safer scaffold than raw prompt IDs for simple text turns.
+
+
+## Thinking placement
+
+The simple chat scaffold now places `<|think|>` inside the system/developer turn after `role\n`, rather than before the role token. This remains a simplified approximation of `chat_template.jinja`, but the thinking marker placement now follows the reference template shape.

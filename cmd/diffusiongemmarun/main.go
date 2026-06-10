@@ -85,6 +85,9 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	if *enableThinking && len(messages) == 0 {
+		messages = append(messages, "system:")
+	}
 	if len(messages) > 0 {
 		if m.Tokenizer == nil {
 			fatal(fmt.Errorf("DiffusionGemma tokenizer metadata unavailable"))
@@ -93,13 +96,17 @@ func main() {
 		chatMessages := make([]diffusiongemma.ChatMessage, 0, len(messages))
 		for _, raw := range messages {
 			role, content, ok := strings.Cut(raw, ":")
-			if !ok || strings.TrimSpace(content) == "" {
+			if !ok {
 				fatal(fmt.Errorf("bad -message %q, want role:text", raw))
 			}
 			role = strings.TrimSpace(role)
-			chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: role, Content: tok.Encode(role + "\n" + content)})
+			text := role + "\n" + content
+			if *enableThinking && (role == "system" || role == "developer") {
+				text = role + "\n" + m.Processor.Think + "\n" + content
+			}
+			chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: role, Content: tok.Encode(text)})
 		}
-		framed, err := diffusiongemma.BuildSimpleChatPromptIDs(chatMessages, specials, diffusiongemma.ChatPromptOptions{AddBOS: *addBOS, EnableThinking: *enableThinking, AddGenerationPrompt: *addGenerationPrompt})
+		framed, err := diffusiongemma.BuildSimpleChatPromptIDs(chatMessages, specials, diffusiongemma.ChatPromptOptions{AddBOS: *addBOS, AddGenerationPrompt: *addGenerationPrompt})
 		if err != nil {
 			fatal(err)
 		}
