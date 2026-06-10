@@ -106,6 +106,7 @@ After implementing enough K3 kernels to make the path useful, the intended hardw
 ```bash
 make ideogram4gen-k3
 ./bin/ideogram4gen-k3 \
+  -k3 -k3-threads 8 \
   -model /path/to/ideogram4-model \
   -prompt "$(cat prompts/ideogram4/cat.json)" \
   -width 256 -height 256 -steps 4 \
@@ -120,6 +121,13 @@ K3-specific runtime environment should include:
 GO_PHERENCE_IDEOGRAM4_K3=1          # enables current riscv64 RVV f16 FP8-linear bridge
 GO_PHERENCE_IDEOGRAM4_K3_THREADS=8  # optional RVV thread count for the bridge
 IME2_TCM_ACT=1                      # for future IME2/TCM-backed kernels
+```
+
+The same K3 switches can be set through CLI flags on `ideogram4gen`:
+
+```text
+-k3
+-k3-threads 8
 ```
 
 and hardware logs should confirm A100 worker placement on cores 8–15.

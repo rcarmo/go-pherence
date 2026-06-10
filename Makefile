@@ -44,7 +44,7 @@ ideogram4gen-k3:
 	mkdir -p $(GOTMPDIR) bin
 	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/ideogram4gen-k3 ./cmd/image/ideogram4gen
 	@echo "Built bin/ideogram4gen-k3 (riscv64 target)."
-	@echo "Hardware smoke: GO_PHERENCE_IDEOGRAM4_K3=1 IME2_TCM_ACT=1 bin/ideogram4gen-k3 -model <ideogram4-dir> -prompt \"\$$(cat prompts/ideogram4/cat.json)\" -width 256 -height 256 -steps 4 -guidance 7.0 -mu 0.0 -std 1.75 -seed 2026060803 -timing"
+	@echo "Hardware smoke: IME2_TCM_ACT=1 bin/ideogram4gen-k3 -k3 -k3-threads 8 -model <ideogram4-dir> -prompt \"\$$(cat prompts/ideogram4/cat.json)\" -width 256 -height 256 -steps 4 -guidance 7.0 -mu 0.0 -std 1.75 -seed 2026060803 -timing"
 
 SPEAKER_CKPT ?= $(MODELS_DIR)/speechbrain-ecapa-voxceleb/embedding_model.ckpt
 SPEAKER_SAFETENSORS ?= $(MODELS_DIR)/speaker-ecapa-voxceleb.safetensors

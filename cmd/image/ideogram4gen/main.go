@@ -30,10 +30,13 @@ func main() {
 	gpuFP8Cache := flag.Bool("gpu-fp8-cache", false, "cache uploaded Ideogram4 FP8 linear weights on GPU when FP8 GPU path is enabled")
 	gpuFP8SGEMM := flag.Bool("gpu-fp8-sgemm", false, "use tiled SGEMM for batched no-bias FP8 projections by GPU-dequantizing weights to temporary F32")
 	gpuResidency := flag.String("gpu-residency", "", "GPU residency policy: persistent, phase, or stream (empty leaves environment/default unchanged)")
+	k3 := flag.Bool("k3", false, "enable SpacemiT K3/RVV/IME Ideogram kernels where available")
+	k3Threads := flag.Int("k3-threads", 0, "SpacemiT K3 worker/thread count for K3 kernels (0 leaves environment/default unchanged)")
 	timing := flag.Bool("timing", false, "print coarse Ideogram4 generation timing diagnostics")
 	flag.Parse()
 
 	applyGPUFlags(*gpu, *gpuStrict, *gpuFP8, *gpuFP8Cache, *gpuFP8SGEMM, *gpuResidency)
+	applyK3Flags(*k3, *k3Threads)
 	if *timing {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_TIMING", "1")
 	}
@@ -145,6 +148,15 @@ func applyGPUFlags(gpu, strict, fp8, fp8Cache, fp8SGEMM bool, residency string) 
 	}
 	if residency != "" {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_RESIDENCY", residency)
+	}
+}
+
+func applyK3Flags(k3 bool, threads int) {
+	if k3 {
+		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
+	}
+	if threads > 0 {
+		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3_THREADS", fmt.Sprintf("%d", threads))
 	}
 }
 
