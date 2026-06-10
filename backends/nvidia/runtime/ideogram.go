@@ -2,6 +2,7 @@ package nvidia
 
 import (
 	"fmt"
+	"sync"
 	"unsafe"
 )
 
@@ -20,6 +21,43 @@ var fnIdeogramUpsampleNearestF32 CUfunction
 var fnIdeogramUnpatchifyF32 CUfunction
 var fnIdeogramGroupNormF32 CUfunction
 var fnIdeogramConv2DF32 CUfunction
+
+var ideogramScratch = struct {
+	sync.Mutex
+	bufs []*Buffer
+	caps []int
+}{}
+
+func ideogramScratchBuffers(sizes ...int) ([]*Buffer, func(), error) {
+	ideogramScratch.Lock()
+	unlock := func() { ideogramScratch.Unlock() }
+	for len(ideogramScratch.bufs) < len(sizes) {
+		ideogramScratch.bufs = append(ideogramScratch.bufs, nil)
+		ideogramScratch.caps = append(ideogramScratch.caps, 0)
+	}
+	for i, n := range sizes {
+		if n < 0 {
+			unlock()
+			return nil, nil, fmt.Errorf("negative Ideogram scratch size %d", n)
+		}
+		if n == 0 {
+			continue
+		}
+		if ideogramScratch.bufs[i] == nil || ideogramScratch.caps[i] < n {
+			if ideogramScratch.bufs[i] != nil {
+				ideogramScratch.bufs[i].Free()
+			}
+			buf, err := Malloc(n)
+			if err != nil {
+				unlock()
+				return nil, nil, fmt.Errorf("alloc Ideogram scratch[%d] %d: %w", i, n, err)
+			}
+			ideogramScratch.bufs[i] = buf
+			ideogramScratch.caps[i] = n
+		}
+	}
+	return ideogramScratch.bufs[:len(sizes)], unlock, nil
+}
 
 // IdeogramCFGStepBuffer fuses asymmetric CFG and FlowMatch Euler update on
 // GPU-resident F32 buffers:
@@ -98,29 +136,16 @@ func IdeogramRMSNormRows(out, x, weight, scale []float32, rows, cols int, eps fl
 	if !SgemmReady() || fnIdeogramRMSNormRowsF32 == 0 {
 		return fmt.Errorf("GPU not available")
 	}
-	xBuf, err := Malloc(n)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram RMSNorm rows input: %w", err)
-	}
-	defer xBuf.Free()
-	wBuf, err := Malloc(cols)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram RMSNorm rows weight: %w", err)
-	}
-	defer wBuf.Free()
-	outBuf, err := Malloc(n)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram RMSNorm rows output: %w", err)
-	}
-	defer outBuf.Free()
-	sBuf := &Buffer{}
+	scaleN := 0
 	if useScale {
-		sBuf, err = Malloc(cols)
-		if err != nil {
-			return fmt.Errorf("alloc Ideogram RMSNorm rows scale: %w", err)
-		}
-		defer sBuf.Free()
+		scaleN = cols
 	}
+	bufs, unlock, err := ideogramScratchBuffers(n, cols, n, scaleN)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	xBuf, wBuf, outBuf, sBuf := bufs[0], bufs[1], bufs[2], bufs[3]
 	if err := xBuf.Upload(x[:n]); err != nil {
 		return fmt.Errorf("upload Ideogram RMSNorm rows input: %w", err)
 	}
@@ -427,21 +452,12 @@ func IdeogramGatedResidualRows(hidden, update, gate []float32, rows, cols int) e
 	if !SgemmReady() || fnIdeogramGatedResidualRowsF32 == 0 {
 		return fmt.Errorf("GPU not available")
 	}
-	hBuf, err := Malloc(n)
+	bufs, unlock, err := ideogramScratchBuffers(n, n, cols)
 	if err != nil {
-		return fmt.Errorf("alloc Ideogram gated residual rows hidden: %w", err)
+		return err
 	}
-	defer hBuf.Free()
-	uBuf, err := Malloc(n)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram gated residual rows update: %w", err)
-	}
-	defer uBuf.Free()
-	gBuf, err := Malloc(cols)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram gated residual rows gate: %w", err)
-	}
-	defer gBuf.Free()
+	defer unlock()
+	hBuf, uBuf, gBuf := bufs[0], bufs[1], bufs[2]
 	if err := hBuf.Upload(hidden[:n]); err != nil {
 		return fmt.Errorf("upload Ideogram gated residual rows hidden: %w", err)
 	}
@@ -671,36 +687,12 @@ func IdeogramFullAttention(out, q, k, v []float32, tokens, heads, headDim int, s
 		return fmt.Errorf("GPU not available")
 	}
 	EnsureContext()
-	qBuf, err := Malloc(outLen)
+	bufs, unlock, err := ideogramScratchBuffers(outLen, outLen, outLen, scoreLen, scoreLen, outLen)
 	if err != nil {
-		return fmt.Errorf("alloc Ideogram attention q: %w", err)
+		return err
 	}
-	defer qBuf.Free()
-	kBuf, err := Malloc(outLen)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram attention k: %w", err)
-	}
-	defer kBuf.Free()
-	vBuf, err := Malloc(outLen)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram attention v: %w", err)
-	}
-	defer vBuf.Free()
-	scoreBuf, err := Malloc(scoreLen)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram attention scores: %w", err)
-	}
-	defer scoreBuf.Free()
-	probBuf, err := Malloc(scoreLen)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram attention probs: %w", err)
-	}
-	defer probBuf.Free()
-	outBuf, err := Malloc(outLen)
-	if err != nil {
-		return fmt.Errorf("alloc Ideogram attention out: %w", err)
-	}
-	defer outBuf.Free()
+	defer unlock()
+	qBuf, kBuf, vBuf, scoreBuf, probBuf, outBuf := bufs[0], bufs[1], bufs[2], bufs[3], bufs[4], bufs[5]
 	if err := qBuf.Upload(q[:outLen]); err != nil {
 		return fmt.Errorf("upload Ideogram attention q: %w", err)
 	}
