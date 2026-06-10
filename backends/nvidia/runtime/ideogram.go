@@ -1123,6 +1123,32 @@ func IdeogramUnpatchify(out, tokens []float32, gridH, gridW, inChannels, latentC
 	return outBuf.Download(out[:outN])
 }
 
+// IdeogramGroupNormBuffer applies CHW GroupNorm with per-channel affine on
+// GPU-resident buffers.
+func IdeogramGroupNormBuffer(outBuf, inBuf, gBuf, bBuf *Buffer, c, h, w, groups int, eps float32) error {
+	loadMegaModule()
+	hw, okHW := checkedMulInt(h, w)
+	n, okN := checkedMulInt(c, hw)
+	if fnIdeogramGroupNormF32 == 0 || !megaModuleOK || outBuf == nil || inBuf == nil || gBuf == nil || bBuf == nil || c <= 0 || h <= 0 || w <= 0 || groups <= 0 || c%groups != 0 || !okHW || !okN || !fitsUint32(c) || !fitsUint32(hw) || !fitsUint32(groups) {
+		return fmt.Errorf("invalid Ideogram GroupNorm device buffers c=%d h=%d w=%d groups=%d", c, h, w, groups)
+	}
+	if _, err := checkedByteSize(n, outBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram GroupNorm output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(n, inBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram GroupNorm input buffer: %w", err)
+	}
+	if _, err := checkedByteSize(c, gBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram GroupNorm gamma buffer: %w", err)
+	}
+	if _, err := checkedByteSize(c, bBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram GroupNorm beta buffer: %w", err)
+	}
+	cc, hww, gg := uint32(c), uint32(hw), uint32(groups)
+	return LaunchKernel(fnIdeogramGroupNormF32, uint32(groups), 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&gBuf.Ptr), unsafe.Pointer(&bBuf.Ptr), unsafe.Pointer(&cc), unsafe.Pointer(&hww), unsafe.Pointer(&gg), unsafe.Pointer(&eps))
+}
+
 // IdeogramGroupNorm applies CHW GroupNorm with per-channel affine through the
 // NVIDIA kernel.
 func IdeogramGroupNorm(out, in, gamma, beta []float32, c, h, w, groups int, eps float32) error {
@@ -1147,12 +1173,48 @@ func IdeogramGroupNorm(out, in, gamma, beta []float32, c, h, w, groups int, eps 
 	if err := bBuf.Upload(beta[:c]); err != nil {
 		return err
 	}
-	cc, hww, gg := uint32(c), uint32(hw), uint32(groups)
-	if err := LaunchKernel(fnIdeogramGroupNormF32, uint32(groups), 1, 1, 256, 1, 1, 0,
-		unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&gBuf.Ptr), unsafe.Pointer(&bBuf.Ptr), unsafe.Pointer(&cc), unsafe.Pointer(&hww), unsafe.Pointer(&gg), unsafe.Pointer(&eps)); err != nil {
+	if err := IdeogramGroupNormBuffer(outBuf, inBuf, gBuf, bBuf, c, h, w, groups, eps); err != nil {
 		return err
 	}
 	return outBuf.Download(out[:n])
+}
+
+// IdeogramConv2DBuffer applies stride-1 same-padding CHW/OIHW F32 convolution
+// on GPU-resident buffers.
+func IdeogramConv2DBuffer(outBuf, inBuf, wBuf, bBuf *Buffer, outC, inC, h, w, kh, kw int, hasBias bool) error {
+	loadMegaModule()
+	hw, okHW := checkedMulInt(h, w)
+	outN, okOut := checkedMulInt(outC, hw)
+	inN, okIn := checkedMulInt(inC, hw)
+	kN, okK := checkedMulInt(outC, inC*kh*kw)
+	hb := uint32(0)
+	if hasBias {
+		hb = 1
+	}
+	if fnIdeogramConv2DF32 == 0 || !megaModuleOK || outBuf == nil || inBuf == nil || wBuf == nil || bBuf == nil || outC <= 0 || inC <= 0 || h <= 0 || w <= 0 || kh <= 0 || kw <= 0 || !okHW || !okOut || !okIn || !okK || !fitsUint32(outN) {
+		return fmt.Errorf("invalid Ideogram Conv2D device buffers outC=%d inC=%d h=%d w=%d", outC, inC, h, w)
+	}
+	if _, err := checkedByteSize(outN, outBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram Conv2D output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(inN, inBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram Conv2D input buffer: %w", err)
+	}
+	if _, err := checkedByteSize(kN, wBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram Conv2D weight buffer: %w", err)
+	}
+	if hb != 0 {
+		if _, err := checkedByteSize(outC, bBuf.Size); err != nil {
+			return fmt.Errorf("invalid Ideogram Conv2D bias buffer: %w", err)
+		}
+	}
+	grid, ok := grid1DFor(outN, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram Conv2D grid")
+	}
+	oc, ic, hh, ww, kkh, kkw, total := uint32(outC), uint32(inC), uint32(h), uint32(w), uint32(kh), uint32(kw), uint32(outN)
+	return LaunchKernel(fnIdeogramConv2DF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&wBuf.Ptr), unsafe.Pointer(&bBuf.Ptr), unsafe.Pointer(&oc), unsafe.Pointer(&ic), unsafe.Pointer(&hh), unsafe.Pointer(&ww), unsafe.Pointer(&kkh), unsafe.Pointer(&kkw), unsafe.Pointer(&hb), unsafe.Pointer(&total))
 }
 
 // IdeogramConv2D applies stride-1 same-padding CHW/OIHW F32 convolution through
@@ -1191,13 +1253,7 @@ func IdeogramConv2D(out, in, weight, bias []float32, outC, inC, h, w, kh, kw int
 			return err
 		}
 	}
-	grid, ok := grid1DFor(outN, 256)
-	if !ok {
-		return fmt.Errorf("invalid Ideogram Conv2D grid")
-	}
-	oc, ic, hh, ww, kkh, kkw, hb, total := uint32(outC), uint32(inC), uint32(h), uint32(w), uint32(kh), uint32(kw), uint32(hasBias), uint32(outN)
-	if err := LaunchKernel(fnIdeogramConv2DF32, grid, 1, 1, 256, 1, 1, 0,
-		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&wBuf.Ptr), unsafe.Pointer(&bBuf.Ptr), unsafe.Pointer(&oc), unsafe.Pointer(&ic), unsafe.Pointer(&hh), unsafe.Pointer(&ww), unsafe.Pointer(&kkh), unsafe.Pointer(&kkw), unsafe.Pointer(&hb), unsafe.Pointer(&total)); err != nil {
+	if err := IdeogramConv2DBuffer(outBuf, inBuf, wBuf, bBuf, outC, inC, h, w, kh, kw, hasBias != 0); err != nil {
 		return err
 	}
 	return outBuf.Download(out[:outN])
