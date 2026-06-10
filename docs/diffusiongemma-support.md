@@ -716,3 +716,8 @@ When denoising overrides are provided, `diffusiongemmarun` now prints the effect
 ## Run missing-reference output
 
 `diffusiongemmarun` text output now includes `missing_reference` from runtime capabilities, matching the inspector/status JSON. This makes mock/scaffold runs self-describing about why `reference_complete=false`.
+
+
+## Run operation status
+
+`diffusiongemmarun` now includes the same per-operation `operation_status` array in JSON output as `diffusiongemmainspect`, and text output summarizes it as `op_status: implemented=13/13 reference_complete=0/13`.

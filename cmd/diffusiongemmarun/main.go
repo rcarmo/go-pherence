@@ -27,6 +27,7 @@ type report struct {
 	PromptTokens    []string                           `json:"prompt_tokens,omitempty"`
 	GeneratedTokens []string                           `json:"generated_tokens,omitempty"`
 	Capabilities    diffusiongemma.RuntimeCapabilities `json:"capabilities"`
+	OperationStatus []diffusiongemma.OpStatus          `json:"operation_status,omitempty"`
 	Shards          *diffusiongemma.ShardAvailability  `json:"shards,omitempty"`
 	Result          *diffusiongemma.InferenceResult    `json:"result,omitempty"`
 	Error           string                             `json:"error,omitempty"`
@@ -198,7 +199,7 @@ func main() {
 	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *stabilityThreshold, *confidenceThreshold); denoising != nil {
 		opts.Denoising = denoising
 	}
-	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts, Capabilities: diffusiongemma.Capabilities(), Shards: m.Shards}
+	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts, Capabilities: diffusiongemma.Capabilities(), OperationStatus: diffusiongemma.OperationStatuses(), Shards: m.Shards}
 	if *decode {
 		if tok != nil {
 			out.PromptTokens = []string{tok.Decode(promptIDs)}
@@ -245,6 +246,18 @@ func main() {
 	fmt.Printf("  caps: text_scaffold=%v reference_complete=%v encoder_kv=%v sliding_mask=%v rope=%v\n", out.Capabilities.TextOnlyScaffoldReady, out.Capabilities.ReferenceComplete, out.Capabilities.EncoderKVConcat, out.Capabilities.SlidingWindowMask, out.Capabilities.RoPE)
 	if len(out.Capabilities.MissingForReference) > 0 {
 		fmt.Printf("  missing_reference=%v\n", out.Capabilities.MissingForReference)
+	}
+	if len(out.OperationStatus) > 0 {
+		implemented, referenceComplete := 0, 0
+		for _, op := range out.OperationStatus {
+			if op.Implemented {
+				implemented++
+			}
+			if op.ReferenceComplete {
+				referenceComplete++
+			}
+		}
+		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
 	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)
