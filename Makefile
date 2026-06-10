@@ -591,7 +591,7 @@ diffusiongemma-check-scaffold:
 
 .PHONY: diffusiongemma-ci-scaffold
 
-diffusiongemma-ci-scaffold: diffusiongemma-check-scaffold diffusiongemma-reference-dry-run
+diffusiongemma-ci-scaffold: diffusiongemma-check-scaffold diffusiongemma-reference-dry-run diffusiongemma-mock-compare
 
 .PHONY: diffusiongemma-check-shards
 
@@ -599,6 +599,7 @@ diffusiongemma-check-shards:
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -require-shards-ready
 
 DIFFUSIONGEMMA_RUN_OUT ?= $(TMPDIR)/diffusiongemma/run.json
+DIFFUSIONGEMMA_MOCK_REF_OUT ?= $(TMPDIR)/diffusiongemma/mock_reference.json
 DIFFUSIONGEMMA_COMPARE_PREFIX ?= 0
 
 .PHONY: diffusiongemma-compare-reference
@@ -609,7 +610,7 @@ diffusiongemma-compare-reference:
 .PHONY: diffusiongemma-mock-compare
 
 diffusiongemma-mock-compare:
-	mkdir -p $(dir $(DIFFUSIONGEMMA_REF_OUT)) $(dir $(DIFFUSIONGEMMA_RUN_OUT))
-	printf '{"output_ids":[$(DIFFUSIONGEMMA_MOCK_TOKEN),$(DIFFUSIONGEMMA_MOCK_TOKEN)]}' > $(DIFFUSIONGEMMA_REF_OUT)
+	mkdir -p $(dir $(DIFFUSIONGEMMA_MOCK_REF_OUT)) $(dir $(DIFFUSIONGEMMA_RUN_OUT))
+	printf '{"output_ids":[$(DIFFUSIONGEMMA_MOCK_TOKEN),$(DIFFUSIONGEMMA_MOCK_TOKEN)]}' > $(DIFFUSIONGEMMA_MOCK_REF_OUT)
 	$(MAKE) diffusiongemma-run-mock-json DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_PROMPT='$(DIFFUSIONGEMMA_PROMPT)' DIFFUSIONGEMMA_MOCK_TOKEN=$(DIFFUSIONGEMMA_MOCK_TOKEN) DIFFUSIONGEMMA_CANVAS=2 DIFFUSIONGEMMA_MAX_NEW=2 DIFFUSIONGEMMA_RUN_OUT=$(DIFFUSIONGEMMA_RUN_OUT)
-	$(MAKE) diffusiongemma-compare-reference DIFFUSIONGEMMA_REF_OUT=$(DIFFUSIONGEMMA_REF_OUT) DIFFUSIONGEMMA_RUN_OUT=$(DIFFUSIONGEMMA_RUN_OUT)
+	$(MAKE) diffusiongemma-compare-reference DIFFUSIONGEMMA_REF_OUT=$(DIFFUSIONGEMMA_MOCK_REF_OUT) DIFFUSIONGEMMA_RUN_OUT=$(DIFFUSIONGEMMA_RUN_OUT)
