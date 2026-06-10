@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import pathlib
+import shutil
 import sys
 import urllib.request
 
@@ -70,6 +71,9 @@ def main() -> int:
     total_params = int(meta.get("total_parameters") or 0)
     if total_size:
         print(f"checkpoint shards={len(shards)} total_size={total_size} bytes ({total_size/(1024**3):.2f} GiB) parameters={total_params}")
+        usage = shutil.disk_usage(out)
+        free = usage.free
+        print(f"target_free={free} bytes ({free/(1024**3):.2f} GiB) enough_space={free >= total_size}")
     else:
         print(f"checkpoint shards={len(shards)}")
     if args.plan_only:

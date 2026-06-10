@@ -800,3 +800,8 @@ Shard readiness now includes `present_percent`, and the inspector/status summary
 ## Large download guard
 
 `make diffusiongemma-download` refuses the ~48.10 GiB safetensor shard download unless `DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes` is set. Use `make diffusiongemma-download-plan-only` or `make diffusiongemma-status-refresh` for metadata-only checks.
+
+
+## Disk-space preflight
+
+`download_diffusiongemma.py --plan-only` now prints target filesystem free space and `enough_space=true/false` for the published shard payload size. This helps avoid starting the guarded full download on a filesystem without enough room.
