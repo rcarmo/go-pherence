@@ -1,3 +1,5 @@
+//go:build riscv64
+
 package ime2
 
 // VmadotI8GroupsAdd1024 computes nGroups contiguous 8-row INT8 row groups and

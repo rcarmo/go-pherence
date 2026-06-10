@@ -1,3 +1,5 @@
+//go:build riscv64
+
 package ime2
 
 // VmadotQ4KIntLoop1024 performs Q4_K vmadot for one 8-row tile group across

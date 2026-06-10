@@ -1,3 +1,5 @@
+//go:build riscv64
+
 package ime2
 
 // vmadotQ4KIntLoop1024x4 processes 4 consecutive 8-row groups per call,

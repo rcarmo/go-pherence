@@ -1,3 +1,5 @@
+//go:build riscv64
+
 package ime2
 
 // IME2 i8×i8 (int8 weights, int8 activations) GEMM kernels — native RVV vmadot
