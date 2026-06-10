@@ -167,3 +167,19 @@ GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-mock-pattern \
 ```
 
 Result: both passed. The default mock comparison and non-repeated mock pattern comparison report `match=true`. Status remains `ops=13/13`, `reference_complete=false`, `runtime_ready=false`.
+
+## Latest run-status scaffold validation
+
+After adding per-operation status to `diffusiongemmarun`, the combined scaffold CI was re-run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma \
+  DIFFUSIONGEMMA_PROMPT=hi \
+  DIFFUSIONGEMMA_REF_OUT=/workspace/tmp/diffusiongemma/post_run_status_reference_dry_run.json \
+  DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/post_run_status_mock_run.json \
+  DIFFUSIONGEMMA_MOCK_REF_OUT=/workspace/tmp/diffusiongemma/post_run_status_mock_ref.json \
+  DIFFUSIONGEMMA_STATUS_OUT=/workspace/tmp/diffusiongemma/post_run_status_status.json
+```
+
+Result: passed. Run JSON and inspect JSON both expose operation status; mock comparison remains `match=true`.
