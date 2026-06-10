@@ -15,6 +15,7 @@ type report struct {
 	Shape              diffusiongemma.Shape               `json:"shape"`
 	GenerationDefaults *diffusiongemma.GenerationDefaults `json:"generation_defaults,omitempty"`
 	Tensors            *diffusiongemma.TensorInventory    `json:"tensors,omitempty"`
+	Readiness          *diffusiongemma.TensorReadiness    `json:"readiness,omitempty"`
 }
 
 func main() {
@@ -50,6 +51,8 @@ func main() {
 		fatal(err)
 	} else if ok {
 		out.Tensors = &tensors
+		readiness := diffusiongemma.TensorReadinessFromInventory(tensors, shape)
+		out.Readiness = &readiness
 	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
@@ -76,6 +79,12 @@ func printText(r report) {
 	}
 	if r.Tensors != nil {
 		fmt.Printf("  tensors:   total=%d shards=%d groups=%v\n", r.Tensors.Total, r.Tensors.Shards, r.Tensors.Groups)
+	}
+	if r.Readiness != nil {
+		fmt.Printf("  readiness: text_ready=%v vision_inventory=%v runtime_ready=%v observed_layers=%d/%d layer_tensors=%d/%d missing_layer_tensors=%d\n", r.Readiness.TextReady, r.Readiness.VisionInventoryReady, r.Readiness.RuntimeReady, r.Readiness.ObservedTextLayers, r.Readiness.ExpectedTextLayers, r.Readiness.ObservedLayerTensors, r.Readiness.ExpectedLayerTensors, r.Readiness.MissingLayerTensors)
+		if len(r.Readiness.MissingRequired) > 0 {
+			fmt.Printf("  missing:   %v\n", r.Readiness.MissingRequired)
+		}
 	}
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)

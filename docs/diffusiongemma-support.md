@@ -184,3 +184,19 @@ type Denoiser interface {
 ```
 
 `GenerateCanvas` initializes a random canvas, runs up to `max_denoising_steps`, applies the linear temperature schedule, computes argmax and entropy per canvas position, applies entropy-bound acceptance, checks stable/confident stopping, and renoises non-accepted positions. This is the control-flow scaffold for inference; the actual DiffusionGemma forward pass and tensor loading still need to be implemented behind the `Denoiser` interface.
+
+
+## Tensor readiness
+
+`diffusiongemmainspect` now reports tensor readiness from the sharded index. For the published index snapshot, text decoder readiness is true after accounting for full-attention layers that intentionally omit `self_attn.v_proj.weight`:
+
+```text
+text_ready=true
+vision_inventory=true
+runtime_ready=false
+observed_layers=30/30
+layer_tensors=565/565
+missing_layer_tensors=0
+```
+
+`runtime_ready` remains false because tensor loading and forward execution are not implemented yet.
