@@ -14,6 +14,7 @@ type report struct {
 	ModelPath          string                             `json:"model_path"`
 	Shape              diffusiongemma.Shape               `json:"shape"`
 	GenerationDefaults *diffusiongemma.GenerationDefaults `json:"generation_defaults,omitempty"`
+	Tensors            *diffusiongemma.TensorInventory    `json:"tensors,omitempty"`
 }
 
 func main() {
@@ -45,6 +46,11 @@ func main() {
 		defaults := diffusiongemma.GenerationDefaultsFromConfig(gen)
 		out.GenerationDefaults = &defaults
 	}
+	if tensors, ok, err := diffusiongemma.TensorInventoryFromModelDir(*modelDir); err != nil {
+		fatal(err)
+	} else if ok {
+		out.Tensors = &tensors
+	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -67,6 +73,9 @@ func printText(r report) {
 	if r.GenerationDefaults != nil {
 		g := r.GenerationDefaults
 		fmt.Printf("  generate:  max_new=%d denoise_steps=%d t=[%.3f, %.3f] entropy_bound=%.3f stability=%d confidence=%.6f eos=%v\n", g.MaxNewTokens, g.MaxDenoisingSteps, g.TMin, g.TMax, g.EntropyBound, g.StabilityThreshold, g.ConfidenceThreshold, g.EOSTokenID)
+	}
+	if r.Tensors != nil {
+		fmt.Printf("  tensors:   total=%d shards=%d groups=%v\n", r.Tensors.Total, r.Tensors.Shards, r.Tensors.Groups)
 	}
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)

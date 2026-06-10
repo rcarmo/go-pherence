@@ -151,3 +151,23 @@ Staged implementation:
 - stable-and-confident stopping state.
 
 These are CPU/reference scaffolding pieces only. They do not yet call a DiffusionGemma forward pass or load tensors.
+
+
+## Tensor inventory scaffold
+
+`model/diffusiongemma/tensors.go` reads `model.safetensors.index.json` without opening weight shards and classifies tensor names into coarse groups. For `google/diffusiongemma-26B-A4B-it`, the current observed index summary is:
+
+```text
+total=1047
+shards=11
+attention=175
+decoder_embedding=1
+decoder_layer=120
+moe=60
+norm=212
+other=3
+router=90
+vision=386
+```
+
+This is sufficient to drive the next scaffold step: identify exact tensor naming for text decoder blocks, MoE routers/experts, prompt/canvas attention, and the vision encoder before any eager tensor loading.
