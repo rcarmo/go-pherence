@@ -968,16 +968,6 @@ func (m *GGUFLlama) gqaAttentionInto(out, scores, q, kCache, vCache []float32, s
 	}
 }
 
-// gqaAttention computes multi-head attention with GQA.
-// q: [nH × hDim], kCache: [seqLen × kvDim], vCache: [seqLen × kvDim]
-// Returns attention output [nH × hDim].
-func (m *GGUFLlama) gqaAttention(q, kCache, vCache []float32, seqLen, nH, nKV, hDim int) []float32 {
-	out := make([]float32, nH*hDim)
-	scores := make([]float32, seqLen)
-	m.gqaAttentionInto(out, scores, q, kCache, vCache, seqLen, nH, nKV, hDim)
-	return out
-}
-
 // Generate runs autoregressive generation for up to maxNew tokens.
 // Prompt token IDs must already include BOS if required.
 // Returns generated token IDs (not including the prompt).
