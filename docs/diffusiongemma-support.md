@@ -195,7 +195,7 @@ text_ready=true
 vision_inventory=true
 runtime_ready=false
 observed_layers=30/30
-layer_tensors=565/565
+layer_tensors=655/655
 missing_layer_tensors=0
 ```
 
@@ -840,3 +840,8 @@ Shard readiness now reports byte-level progress as `present_bytes/expected_bytes
 ## Script-level space guard
 
 `download_diffusiongemma.py` now refuses the full shard download if target free space is below the indexed payload size, unless `--ignore-space-check` is supplied. This complements the Makefile-level `DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes` guard.
+
+
+## Extra FFN/MoE norm tensor handles
+
+The text tensor plan now includes DiffusionGemma-specific `pre_feedforward_layernorm_2`, `post_feedforward_layernorm_1`, and `post_feedforward_layernorm_2` handles for every text layer. This aligns tensor planning with the semantic forward bindings used by the dense-MLP/MoE branch scaffold.

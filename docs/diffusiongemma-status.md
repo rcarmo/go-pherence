@@ -26,7 +26,7 @@ Current inspector summary:
 
 ```text
 shards:    ready=false present=0/11 missing=11
-readiness: text_ready=true vision_inventory=true runtime_ready=false observed_layers=30/30 layer_tensors=565/565 missing_layer_tensors=0
+readiness: text_ready=true vision_inventory=true runtime_ready=false observed_layers=30/30 layer_tensors=655/655 missing_layer_tensors=0
 text_plan: ready=true globals=6 layers=30 missing=0
 buffers:   hidden=720896 residual=720896 logits=67108864 router=32768 experts=1441792 top_k=8
 ops:       ready=true prefix_ops=2 layer_ops=270 tail_ops=2 reason=
@@ -290,3 +290,8 @@ checkpoint shards=11 total_size=51647562456 bytes (48.10 GiB) parameters=2582377
 ## Shard byte progress
 
 Shard readiness now reports byte-level progress as `present_bytes/expected_bytes` and `present_byte_percent`, in addition to shard-count progress. Metadata-only snapshots report `bytes=0/51647562456 byte_percent=0`.
+
+
+## Extra FFN/MoE norm tensor handles
+
+The text tensor plan now includes DiffusionGemma-specific `pre_feedforward_layernorm_2`, `post_feedforward_layernorm_1`, and `post_feedforward_layernorm_2` handles for every text layer. This aligns tensor planning with the semantic forward bindings used by the dense-MLP/MoE branch scaffold.
