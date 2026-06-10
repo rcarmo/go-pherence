@@ -199,3 +199,36 @@ GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
 ```
 
 Result: passed. This confirms the full parity target is additive and the metadata-only scaffold workflow remains green.
+
+
+## Next command sequence
+
+Use these commands depending on the available assets:
+
+### Reproduce current no-weight scaffold
+
+```bash
+make diffusiongemma-bootstrap-scaffold \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma_bootstrap_smoke
+```
+
+### Check a full local checkpoint after downloading shards
+
+```bash
+make diffusiongemma-download \
+  DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
+
+make diffusiongemma-check-weights \
+  DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
+```
+
+### Capture and compare parity once full weights and Python deps are available
+
+```bash
+make diffusiongemma-parity \
+  DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it \
+  DIFFUSIONGEMMA_REF_OUT=/workspace/tmp/diffusiongemma/reference.json \
+  DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/run.json
+```
+
+Expected current outcome: scaffold commands pass; full-weight/parity commands are gated on the 11 safetensor shards and a working Transformers/PyTorch environment.
