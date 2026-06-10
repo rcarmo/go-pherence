@@ -17,6 +17,9 @@ func main() {
 	width := flag.Int("width", 512, "image width")
 	seed := flag.Int64("seed", 42, "random latent seed")
 	gpu := flag.Bool("gpu", false, "enable Ideogram4 VAE GPU kernels")
+	k3 := flag.Bool("k3", false, "enable SpacemiT K3/RVV/IME Ideogram kernels where available")
+	k3Threads := flag.Int("k3-threads", 0, "SpacemiT K3 worker/thread count for K3 kernels (0 leaves environment/default unchanged)")
+	k3Prewarm := flag.Bool("k3-prewarm", false, "pre-decode/pre-pack K3 resident FP8 linears at pipeline load")
 	stats := flag.Bool("gpu-stats", false, "print NVIDIA GPU stats for VAE decode")
 	flag.Parse()
 	if *modelDir == "" {
@@ -26,6 +29,7 @@ func main() {
 	if *gpu {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_VAE", "1")
 	}
+	applyK3Flags(*k3, *k3Threads, *k3Prewarm)
 	pipe, err := ideogram4.LoadNativePipeline(*modelDir)
 	if err != nil {
 		fatal(err)
@@ -77,6 +81,18 @@ func main() {
 			after.Frees-before.Frees,
 			after.FreeBytes-before.FreeBytes,
 			after.Syncs-before.Syncs)
+	}
+}
+
+func applyK3Flags(k3 bool, threads int, prewarm bool) {
+	if k3 {
+		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
+	}
+	if threads > 0 {
+		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3_THREADS", fmt.Sprintf("%d", threads))
+	}
+	if prewarm {
+		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3_PREWARM", "1")
 	}
 }
 

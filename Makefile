@@ -46,7 +46,7 @@ ideogram4gen-k3:
 	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/ideogram4vaeprobe-k3 ./cmd/image/ideogram4vaeprobe
 	@echo "Built bin/ideogram4gen-k3 and bin/ideogram4vaeprobe-k3 (riscv64 target)."
 	@echo "Hardware smoke: IME2_TCM_ACT=1 bin/ideogram4gen-k3 -k3 -k3-threads 8 -k3-prewarm -model <ideogram4-dir> -prompt \"\$$(cat prompts/ideogram4/cat.json)\" -width 256 -height 256 -steps 4 -guidance 7.0 -mu 0.0 -std 1.75 -seed 2026060803 -timing"
-	@echo "VAE smoke:      bin/ideogram4vaeprobe-k3 -model <ideogram4-dir> -width 256 -height 256"
+	@echo "VAE smoke:      bin/ideogram4vaeprobe-k3 -k3 -k3-threads 8 -k3-prewarm -model <ideogram4-dir> -width 256 -height 256"
 
 ideogram4-k3-check:
 	mkdir -p $(GOTMPDIR) $(TMPDIR)/ideogram4/k3check bin

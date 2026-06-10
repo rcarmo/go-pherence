@@ -132,6 +132,7 @@ A smaller VAE-only smoke is also available:
 
 ```bash
 ./bin/ideogram4vaeprobe-k3 \
+  -k3 -k3-threads 8 -k3-prewarm \
   -model /path/to/ideogram4-model \
   -width 256 -height 256
 ```
