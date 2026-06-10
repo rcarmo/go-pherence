@@ -706,3 +706,8 @@ When denoising overrides are provided, `diffusiongemmarun` now prints the effect
 ## Pattern-aware mock comparison
 
 `diffusiongemma-mock-compare` now honors `DIFFUSIONGEMMA_MOCK_TOKENS` when creating its tiny reference JSON. For example, `DIFFUSIONGEMMA_MOCK_TOKENS=4,2` compares against `[4,2]` instead of the default repeated mock token.
+
+
+## Pattern mock CI target
+
+`make diffusiongemma-ci-mock-pattern` runs the mock comparison workflow with a non-repeated token pattern (`4,2`). It is a lightweight check that the mock denoiser, JSON run capture, and comparison helper are not accidentally hard-coded to repeated tokens.

@@ -633,3 +633,8 @@ diffusiongemma-status-json:
 
 diffusiongemma-status-summary:
 	python3 scripts/diffusiongemma_status_summary.py $(DIFFUSIONGEMMA_STATUS_OUT)
+
+.PHONY: diffusiongemma-ci-mock-pattern
+
+diffusiongemma-ci-mock-pattern:
+	$(MAKE) diffusiongemma-mock-compare DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_PROMPT='$(DIFFUSIONGEMMA_PROMPT)' DIFFUSIONGEMMA_MOCK_TOKENS=4,2 DIFFUSIONGEMMA_RUN_OUT=$(TMPDIR)/diffusiongemma/mock_pattern_run.json DIFFUSIONGEMMA_MOCK_REF_OUT=$(TMPDIR)/diffusiongemma/mock_pattern_ref.json
