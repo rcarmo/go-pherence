@@ -628,3 +628,8 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 ## Run JSON capture target
 
 `make diffusiongemma-run-mock-json` writes a mock-denoiser go-pherence run JSON to `DIFFUSIONGEMMA_RUN_OUT`. This pairs with `make diffusiongemma-compare-reference` and is useful for validating the comparison utility and future parity workflows.
+
+
+## Mock comparison target
+
+`make diffusiongemma-mock-compare` creates a tiny mock reference JSON, captures a mock go-pherence run JSON, and compares them through `scripts/diffusiongemma_compare_reference.py`. This validates the run-output and comparison workflow without real weights.
