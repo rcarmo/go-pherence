@@ -19,6 +19,7 @@ type Shape struct {
 	TextKVHeads         int      `json:"text_kv_heads"`
 	TextGlobalKVHeads   int      `json:"text_global_kv_heads"`
 	TextHeadDim         int      `json:"text_head_dim"`
+	TextGlobalHeadDim   int      `json:"text_global_head_dim"`
 	VocabSize           int      `json:"vocab_size"`
 	SlidingWindow       int      `json:"sliding_window"`
 	LayerTypes          []string `json:"layer_types"`
@@ -68,6 +69,7 @@ func ShapeFromConfig(cfg loaderconfig.DiffusionGemmaConfig) (Shape, error) {
 		TextKVHeads:         cfg.TextConfig.NumKeyValueHeads,
 		TextGlobalKVHeads:   cfg.TextConfig.NumGlobalKeyValueHeads,
 		TextHeadDim:         cfg.TextConfig.HeadDim,
+		TextGlobalHeadDim:   cfg.TextConfig.GlobalHeadDim,
 		VocabSize:           cfg.TextConfig.VocabSize,
 		SlidingWindow:       cfg.TextConfig.SlidingWindow,
 		LayerTypes:          append([]string(nil), cfg.TextConfig.LayerTypes...),

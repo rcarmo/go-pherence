@@ -332,6 +332,13 @@ func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 	vAll := make([]float32, positions*vRows)
 	ctx := make([]float32, qRows)
 	out := make([]float32, hiddenSize)
+	ropeHalf := headDim / 2
+	ropeTheta := 10000.0
+	if op.Type == "full_attention" {
+		ropeHalf = headDim / 8
+		ropeTheta = 1000000.0
+	}
+	ropeFreqs := simd.BuildRoPEFreqs(positions, ropeHalf, headDim, ropeTheta)
 	for pos := 0; pos < positions; pos++ {
 		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 		q := qAll[pos*qRows : (pos+1)*qRows]
@@ -359,6 +366,10 @@ func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 			if !simd.RMSNormNoScaleTo(v[h*headDim:(h+1)*headDim], 1e-6) {
 				return fmt.Errorf("DiffusionGemma attention v_norm rejected")
 			}
+		}
+		if len(ropeFreqs) > 0 && ropeHalf > 0 {
+			simd.ApplyRoPEPartial(q, ropeFreqs, pos, heads, headDim, ropeHalf)
+			simd.ApplyRoPEPartial(k, ropeFreqs, pos, kvHeads, headDim, ropeHalf)
 		}
 	}
 	group := heads / kvHeads
