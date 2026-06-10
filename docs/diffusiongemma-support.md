@@ -810,3 +810,8 @@ Shard readiness now includes `present_percent`, and the inspector/status summary
 ## Download plan JSON
 
 `make diffusiongemma-download-plan-json` writes a machine-readable shard/download plan to `DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT`. The JSON includes shard count, total bytes/GiB, parameter count, target free bytes/GiB, and `enough_space`.
+
+
+## Download plan summary
+
+`make diffusiongemma-download-plan-summary` prints a compact human-readable summary from `DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT`, complementing the machine-readable `diffusiongemma-download-plan-json` target.
