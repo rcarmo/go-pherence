@@ -225,6 +225,10 @@ func main() {
 	}
 	fmt.Printf("DiffusionGemma run scaffold: %s\n", *modelDir)
 	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v mock_token=%d\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher, *mockToken)
+	if opts.Denoising != nil {
+		d := opts.Denoising
+		fmt.Printf("  denoising: steps=%d t=[%.3f, %.3f] entropy_bound=%.3f stability=%d confidence=%.6f\n", d.MaxDenoisingSteps, d.TMin, d.TMax, d.Sampler.EntropyBound, d.StabilityThreshold, d.ConfidenceThreshold)
+	}
 	if len(out.PromptTokens) > 0 {
 		fmt.Printf("  prompt_tokens=%v\n", out.PromptTokens)
 	}

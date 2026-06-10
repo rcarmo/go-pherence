@@ -691,3 +691,8 @@ DIFFUSIONGEMMA_CONFIDENCE
 ```
 
 Use these to exercise non-default sampler schedules through `make diffusiongemma-run-mock` or JSON/scaffold CI targets.
+
+
+## Run output denoising summary
+
+When denoising overrides are provided, `diffusiongemmarun` now prints the effective sampler settings (`steps`, temperature range, entropy bound, stability, confidence) in text output. JSON output already carries the same values through `options.denoising`.
