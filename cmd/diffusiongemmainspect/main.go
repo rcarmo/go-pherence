@@ -128,6 +128,9 @@ func printText(r report) {
 		fmt.Printf("  forward:   text_ready=%v layers=%d missing=%d\n", r.TextForwardPlan.Ready, len(r.TextForwardPlan.Layers), len(r.TextForwardPlan.Missing))
 	}
 	fmt.Printf("  caps:      sampler=%v ops=%v attention_scaffold=%v rope=%v sliding_mask=%v encoder_kv=%v reference_complete=%v\n", r.Capabilities.Sampler, r.Capabilities.LMHead, r.Capabilities.SelfAttentionScaffold, r.Capabilities.RoPE, r.Capabilities.SlidingWindowMask, r.Capabilities.EncoderKVConcat, r.Capabilities.ReferenceComplete)
+	if len(r.Capabilities.MissingForReference) > 0 {
+		fmt.Printf("  missing_reference: %v\n", r.Capabilities.MissingForReference)
+	}
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)
 	}

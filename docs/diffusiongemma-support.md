@@ -490,3 +490,8 @@ For example, `-tokens <mask> -add-bos -think` produces prompt IDs `[2 98 4]` aga
 ## Run status reporting
 
 `diffusiongemmarun` now includes runtime capabilities and shard availability in both text and JSON output. This makes automation-friendly status checks possible even while the run path ends at the expected scaffold error.
+
+
+## Reference-complete status reporting
+
+`diffusiongemmainspect` now prints the remaining `missing_reference` capability items. Current scaffold status reports only `reference parity fixtures` and `vision/token processor integration` as missing from reference-complete status, while still keeping `runtime_ready=false` until those gaps are closed and verified.
