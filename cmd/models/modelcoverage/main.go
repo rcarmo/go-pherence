@@ -7,21 +7,12 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	modelcoverage "github.com/rcarmo/go-pherence/internal/modelcoverage"
 )
 
-type manifest struct {
-	Version  int                       `json:"version"`
-	Families map[string]manifestFamily `json:"families"`
-}
-
-type manifestFamily struct {
-	Status            string          `json:"status"`
-	RuntimeGeneration bool            `json:"runtime_generation"`
-	ValidationTarget  string          `json:"validation_target"`
-	Packages          []string        `json:"packages"`
-	Coverage          map[string]bool `json:"coverage"`
-	Commands          []string        `json:"commands"`
-}
+type manifest = modelcoverage.Manifest
+type manifestFamily = modelcoverage.ManifestFamily
 
 type familySummary struct {
 	Name              string                    `json:"name"`

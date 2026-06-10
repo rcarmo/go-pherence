@@ -5,21 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	modelcoverage "github.com/rcarmo/go-pherence/internal/modelcoverage"
 )
 
-type manifest struct {
-	Version  int                       `json:"version"`
-	Families map[string]manifestFamily `json:"families"`
-}
-
-type manifestFamily struct {
-	Status            string          `json:"status"`
-	RuntimeGeneration bool            `json:"runtime_generation"`
-	ValidationTarget  string          `json:"validation_target"`
-	Packages          []string        `json:"packages"`
-	Coverage          map[string]bool `json:"coverage"`
-	Commands          []string        `json:"commands"`
-}
+type manifest = modelcoverage.Manifest
+type manifestFamily = modelcoverage.ManifestFamily
 
 func TestModelCoverageManifest(t *testing.T) {
 	data, err := os.ReadFile("model-coverage-manifest.json")
@@ -58,70 +49,70 @@ func TestModelCoverageManifest(t *testing.T) {
 		t.Fatalf("unexpected qwen3_tts coverage: %+v", qwen)
 	}
 	for key, path := range map[string]string{
-		"pipeline_plan":                    "../model/qwen3tts/pipeline.go",
-		"pipeline_execution_contract":      "../model/qwen3tts/pipeline_contract.go",
-		"capability_validation":            "../model/qwen3tts/capabilities.go",
-		"speaker_language_compatibility":   "../model/qwen3tts/speaker_language.go",
-		"speaker_encoder_layout":           "../model/qwen3tts/speaker_encoder.go",
-		"runtime_sizing_plan":              "../model/qwen3tts/shapes.go",
-		"runtime_request_validation":       "../model/qwen3tts/runtime_request.go",
-		"runtime_request_fixture":          "../model/qwen3tts/testdata/customvoice_reference_placeholder.json",
-		"runtime_request_inspector":        "../cmd/qwen3ttsinspect/main.go",
-		"runtime_stage_interfaces":         "../model/qwen3tts/runtime_interfaces.go",
-		"runtime_status_reporting":         "../model/qwen3tts/runtime_status.go",
-		"runtime_readiness_report":         "../model/qwen3tts/readiness.go",
-		"runtime_readiness_gate":           "../cmd/qwen3ttsinspect/main.go",
-		"execution_readiness_gate":         "../cmd/qwen3ttsinspect/main.go",
-		"attention_layout":                 "../model/qwen3tts/attention_layout.go",
-		"ffn_layout":                       "../model/qwen3tts/ffn_layout.go",
-		"semantic_token_layout":            "../model/qwen3tts/semantic.go",
-		"acoustic_frame_layout":            "../model/qwen3tts/frame.go",
-		"code_predictor_head_layout":       "../model/qwen3tts/code_predictor_heads.go",
-		"decoder_input_layout":             "../model/qwen3tts/decoder_input.go",
-		"decoder_execution_contract":       "../model/qwen3tts/decoder_contract.go",
-		"waveform_layout":                  "../model/qwen3tts/waveform.go",
-		"tensor_shape_validation":          "../model/qwen3tts/tensor_shape_validation.go",
-		"strict_inspector_mode":            "../cmd/qwen3ttsinspect/main.go",
-		"fixture_coverage_make_target":     "../Makefile",
-		"reference_coverage_reporting":     "../model/qwen3tts/fixtures.go",
-		"coverage_category_reporting":      "../cmd/modelcoverage/main.go",
-		"coverage_markdown_reporting":      "../cmd/modelcoverage/main.go",
-		"coverage_markdown_make_target":    "../Makefile",
-		"coverage_csv_reporting":           "../cmd/modelcoverage/main.go",
-		"coverage_percent_reporting":       "../cmd/modelcoverage/main.go",
-		"coverage_threshold_gate":          "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_reporting":        "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_descriptions":     "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_prerequisites":    "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_validation_hints": "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_json_reporting":   "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_phase_ordering":   "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_package_hints":    "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_package_filter":   "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_fixture_hints":    "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_kind_hints":       "../cmd/modelcoverage/main.go",
-		"runtime_roadmap_kind_filter":      "../cmd/modelcoverage/main.go",
-		"next_runtime_reporting":           "../cmd/modelcoverage/main.go",
-		"next_runtime_json_reporting":      "../cmd/modelcoverage/main.go",
-		"coverage_snapshot_reporting":      "../cmd/modelcoverage/main.go",
-		"coverage_snapshot_file":           "model-coverage-snapshot.md",
-		"coverage_snapshot_freshness_gate": "../Makefile",
-		"coverage_snapshot_check_target":   "../Makefile",
-		"coverage_tmpdir_bootstrap":        "../Makefile",
-		"execution_coverage_filter":        "../cmd/modelcoverage/main.go",
-		"placeholder_reference_tracking":   "../model/qwen3tts/fixtures.go",
-		"numeric_parity_readiness_gate":    "../cmd/qwen3ttsinspect/main.go",
-		"prompt_fixture_scaffold":          "../model/qwen3tts/testdata/customvoice_prompt_fixture.json",
-		"semantic_token_reference_fixture": "../model/qwen3tts/testdata/customvoice_reference_placeholder.json",
-		"acoustic_frame_reference_fixture": "../model/qwen3tts/testdata/customvoice_reference_placeholder.json",
-		"decoded_wav_reference_fixture":    "../model/qwen3tts/testdata/customvoice_reference_placeholder.json",
-		"customvoice_prompt_builder":       "../model/qwen3tts/prompt.go",
-		"prefill_layout":                   "../model/qwen3tts/prefill.go",
-		"talker_input_layout":              "../model/qwen3tts/talker_input.go",
-		"talker_execution_contract":        "../model/qwen3tts/talker_contract.go",
+		"pipeline_plan":                     "../model/qwen3tts/pipeline.go",
+		"pipeline_execution_contract":       "../model/qwen3tts/pipeline_contract.go",
+		"capability_validation":             "../model/qwen3tts/capabilities.go",
+		"speaker_language_compatibility":    "../model/qwen3tts/speaker_language.go",
+		"speaker_encoder_layout":            "../model/qwen3tts/speaker_encoder.go",
+		"runtime_sizing_plan":               "../model/qwen3tts/shapes.go",
+		"runtime_request_validation":        "../model/qwen3tts/runtime_request.go",
+		"runtime_request_fixture":           "../model/qwen3tts/testdata/customvoice_reference_placeholder.json",
+		"runtime_request_inspector":         "../cmd/qwen3ttsinspect/main.go",
+		"runtime_stage_interfaces":          "../model/qwen3tts/runtime_interfaces.go",
+		"runtime_status_reporting":          "../model/qwen3tts/runtime_status.go",
+		"runtime_readiness_report":          "../model/qwen3tts/readiness.go",
+		"runtime_readiness_gate":            "../cmd/qwen3ttsinspect/main.go",
+		"execution_readiness_gate":          "../cmd/qwen3ttsinspect/main.go",
+		"attention_layout":                  "../model/qwen3tts/attention_layout.go",
+		"ffn_layout":                        "../model/qwen3tts/ffn_layout.go",
+		"semantic_token_layout":             "../model/qwen3tts/semantic.go",
+		"acoustic_frame_layout":             "../model/qwen3tts/frame.go",
+		"code_predictor_head_layout":        "../model/qwen3tts/code_predictor_heads.go",
+		"decoder_input_layout":              "../model/qwen3tts/decoder_input.go",
+		"decoder_execution_contract":        "../model/qwen3tts/decoder_contract.go",
+		"waveform_layout":                   "../model/qwen3tts/waveform.go",
+		"tensor_shape_validation":           "../model/qwen3tts/tensor_shape_validation.go",
+		"strict_inspector_mode":             "../cmd/qwen3ttsinspect/main.go",
+		"fixture_coverage_make_target":      "../Makefile",
+		"reference_coverage_reporting":      "../model/qwen3tts/fixtures.go",
+		"coverage_category_reporting":       "../cmd/modelcoverage/main.go",
+		"coverage_markdown_reporting":       "../cmd/modelcoverage/main.go",
+		"coverage_markdown_make_target":     "../Makefile",
+		"coverage_csv_reporting":            "../cmd/modelcoverage/main.go",
+		"coverage_percent_reporting":        "../cmd/modelcoverage/main.go",
+		"coverage_threshold_gate":           "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_reporting":         "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_descriptions":      "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_prerequisites":     "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_validation_hints":  "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_json_reporting":    "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_phase_ordering":    "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_package_hints":     "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_package_filter":    "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_fixture_hints":     "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_kind_hints":        "../cmd/modelcoverage/main.go",
+		"runtime_roadmap_kind_filter":       "../cmd/modelcoverage/main.go",
+		"next_runtime_reporting":            "../cmd/modelcoverage/main.go",
+		"next_runtime_json_reporting":       "../cmd/modelcoverage/main.go",
+		"coverage_snapshot_reporting":       "../cmd/modelcoverage/main.go",
+		"coverage_snapshot_file":            "model-coverage-snapshot.md",
+		"coverage_snapshot_freshness_gate":  "../Makefile",
+		"coverage_snapshot_check_target":    "../Makefile",
+		"coverage_tmpdir_bootstrap":         "../Makefile",
+		"execution_coverage_filter":         "../cmd/modelcoverage/main.go",
+		"placeholder_reference_tracking":    "../model/qwen3tts/fixtures.go",
+		"numeric_parity_readiness_gate":     "../cmd/qwen3ttsinspect/main.go",
+		"prompt_fixture_scaffold":           "../model/qwen3tts/testdata/customvoice_prompt_fixture.json",
+		"semantic_token_reference_fixture":  "../model/qwen3tts/testdata/customvoice_reference_placeholder.json",
+		"acoustic_frame_reference_fixture":  "../model/qwen3tts/testdata/customvoice_reference_placeholder.json",
+		"decoded_wav_reference_fixture":     "../model/qwen3tts/testdata/customvoice_reference_placeholder.json",
+		"customvoice_prompt_builder":        "../model/qwen3tts/prompt.go",
+		"prefill_layout":                    "../model/qwen3tts/prefill.go",
+		"talker_input_layout":               "../model/qwen3tts/talker_input.go",
+		"talker_execution_contract":         "../model/qwen3tts/talker_contract.go",
 		"code_predictor_execution_contract": "../model/qwen3tts/code_predictor_contract.go",
-		"prompt_runtime_layout":            "../model/qwen3tts/prompt_runtime.go",
-		"embedding_layout":                 "../model/qwen3tts/embedding_layout.go",
+		"prompt_runtime_layout":             "../model/qwen3tts/prompt_runtime.go",
+		"embedding_layout":                  "../model/qwen3tts/embedding_layout.go",
 	} {
 		assertCoverageFile(t, "qwen3_tts", qwen, key, path)
 	}
