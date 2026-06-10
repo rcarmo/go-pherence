@@ -311,3 +311,6 @@ GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
 ```
 
 Result: passed. Text readiness now reports `layer_tensors=655/655`.
+
+
+`DIFFUSIONGEMMA_WEIGHTS_OUT` captures the `diffusiongemmainspect -open-weights -json` report during full parity workflows.

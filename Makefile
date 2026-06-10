@@ -654,7 +654,7 @@ diffusiongemma-check-weights:
 
 .PHONY: diffusiongemma-parity
 
-diffusiongemma-parity: diffusiongemma-check-weights diffusiongemma-reference diffusiongemma-run-cpu-json diffusiongemma-compare-reference
+diffusiongemma-parity: diffusiongemma-check-weights diffusiongemma-weights-json diffusiongemma-reference diffusiongemma-run-cpu-json diffusiongemma-compare-reference
 
 .PHONY: diffusiongemma-bootstrap-scaffold
 
