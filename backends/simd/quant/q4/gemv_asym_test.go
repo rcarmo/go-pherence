@@ -91,10 +91,10 @@ func TestGemvToRejectsMalformedInputs(t *testing.T) {
 }
 
 func TestValidateGemvAsymRejectsMissingQZeros(t *testing.T) {
-	out, x, qw, g, s, inDim, _ := validGemvQ4Inputs()
+	out, x, _, g, _, inDim, _ := validGemvQ4Inputs()
 	outDim := 8
-	qw = make([]int32, (inDim/8)*outDim)
-	s = make([]float32, outDim)
+	qw := make([]int32, (inDim/8)*outDim)
+	s := make([]float32, outDim)
 	if err := ValidateGemv(out, x, qw, nil, g, s, inDim, outDim, false); err == nil {
 		t.Fatal("expected missing qzeros error")
 	}
