@@ -391,3 +391,14 @@ This is still metadata extraction only; full tokenization/chat-template renderin
 ## Prompt ID scaffold
 
 `model/diffusiongemma/prompt.go` adds typed special-token ID extraction and a token-ID-level prompt builder. It can add BOS, thinking, and generation-prompt framing tokens when their IDs are available. This deliberately does not implement full tokenizer BPE or chat-template rendering yet; it is the safe handoff point for processor/tokenizer integration.
+
+
+## Run scaffold CLI
+
+`cmd/diffusiongemmarun` exercises the public `Engine.GenerateTokenIDs` path with already-tokenized prompt IDs. With no denoiser attached it exits with the expected scaffold error:
+
+```text
+DiffusionGemma denoiser is not implemented
+```
+
+This CLI is useful for checking that metadata loading and the public inference entrypoint are wired without falsely claiming generation support.
