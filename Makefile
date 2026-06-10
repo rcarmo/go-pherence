@@ -593,3 +593,11 @@ diffusiongemma-ci-scaffold: diffusiongemma-check-scaffold diffusiongemma-referen
 
 diffusiongemma-check-shards:
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -require-shards-ready
+
+DIFFUSIONGEMMA_RUN_OUT ?= $(TMPDIR)/diffusiongemma/run.json
+DIFFUSIONGEMMA_COMPARE_PREFIX ?= 0
+
+.PHONY: diffusiongemma-compare-reference
+
+diffusiongemma-compare-reference:
+	python3 scripts/diffusiongemma_compare_reference.py --reference $(DIFFUSIONGEMMA_REF_OUT) --run $(DIFFUSIONGEMMA_RUN_OUT) --prefix $(DIFFUSIONGEMMA_COMPARE_PREFIX)

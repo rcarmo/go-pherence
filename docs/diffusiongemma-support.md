@@ -618,3 +618,8 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 ## Shard readiness gate
 
 `diffusiongemmainspect -require-shards-ready` fails unless every shard listed by `model.safetensors.index.json` is present locally. `make diffusiongemma-check-shards` wraps this gate. It is stricter than `-require-text-scaffold-ready`, which only needs metadata/index files.
+
+
+## Reference comparison helper
+
+`scripts/diffusiongemma_compare_reference.py` compares a Transformers reference JSON fixture against a go-pherence run JSON. It reports ID counts, match status, and first mismatch. `make diffusiongemma-compare-reference` wraps it with `DIFFUSIONGEMMA_REF_OUT`, `DIFFUSIONGEMMA_RUN_OUT`, and optional `DIFFUSIONGEMMA_COMPARE_PREFIX`. This is a parity triage utility, not a Go test.
