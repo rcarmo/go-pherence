@@ -365,3 +365,24 @@ chat_template_bytes=17466
 ```
 
 This is metadata integration only; actual tokenization/chat-template execution remains a future step.
+
+
+## Tokenizer metadata
+
+`model/diffusiongemma/tokenizer.go` reads `tokenizer.json` metadata and extracts vocab size, added-token count, and IDs for control tokens discovered through tokenizer/processor config. Against the fetched HF metadata snapshot:
+
+```text
+vocab=262144
+added=24
+<pad>=0
+<eos>=1
+<bos>=2
+<mask>=4
+<|think|>=98
+<turn|>=106
+<|image>=255999
+<|image|>=258880
+<image|>=258882
+```
+
+This is still metadata extraction only; full tokenization/chat-template rendering is not implemented.

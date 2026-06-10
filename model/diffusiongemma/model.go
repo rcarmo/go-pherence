@@ -19,6 +19,7 @@ type Model struct {
 	Readiness          *TensorReadiness                  `json:"readiness,omitempty"`
 	TextTensorPlan     *TextTensorPlan                   `json:"text_tensor_plan,omitempty"`
 	Processor          *ProcessorMetadata                `json:"processor,omitempty"`
+	Tokenizer          *TokenizerMetadata                `json:"tokenizer,omitempty"`
 }
 
 func LoadMetadata(modelDir string) (*Model, error) {
@@ -54,8 +55,27 @@ func LoadMetadata(modelDir string) (*Model, error) {
 		return nil, err
 	} else if ok {
 		m.Processor = &proc
+		tokens := []string{proc.BOS, proc.EOS, proc.Pad, proc.Mask, proc.BOI, proc.EOI, proc.Image, proc.Think, proc.BOT, proc.EOT, proc.BOC, proc.EOC}
+		if tok, tokOK, err := ReadTokenizerMetadata(modelDir, compactStrings(tokens)); err != nil {
+			return nil, err
+		} else if tokOK {
+			m.Tokenizer = &tok
+		}
 	}
 	return m, nil
+}
+
+func compactStrings(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 func (m *Model) RuntimeReady() bool {
