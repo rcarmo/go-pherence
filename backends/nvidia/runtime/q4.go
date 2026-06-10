@@ -221,10 +221,3 @@ func int32ToFloat32(data []int32) []float32 {
 	}
 	return unsafe.Slice((*float32)(unsafe.Pointer(&data[0])), len(data))
 }
-
-func float32ToInt32Placeholder(n int) []int32 {
-	if n <= 0 {
-		return nil
-	}
-	return make([]int32, n)
-}

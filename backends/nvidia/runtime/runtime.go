@@ -118,8 +118,6 @@ func recordDeviceToDeviceCopyBytes(bytes uint64) {
 	}
 }
 
-func recordDeviceToDeviceCopy() { recordDeviceToDeviceCopyBytes(0) }
-
 var (
 	gpuOnce    sync.Once
 	gpuOK      bool
