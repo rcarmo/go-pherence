@@ -873,3 +873,40 @@ The text tensor plan now includes DiffusionGemma-specific `pre_feedforward_layer
 ## Shared summary in status summary
 
 `diffusiongemma_status_summary.py` now prints the shared `summary` object emitted by `diffusiongemmainspect -json`, including scaffold readiness, shard readiness, reference/runtime readiness, and consolidated missing blockers.
+
+
+## Current implementation summary
+
+Safe/no-weight workflow is green:
+
+```bash
+make diffusiongemma-ci-no-weights DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma
+```
+
+Current no-weight status:
+
+```text
+text_scaffold=true
+ops=13/13
+reference_complete=false
+runtime_ready=false
+shards_ready=false
+```
+
+Full real-inference workflow is intentionally gated:
+
+```bash
+make diffusiongemma-download-plan-report
+make diffusiongemma-download DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes
+make diffusiongemma-check-weights
+make diffusiongemma-parity
+```
+
+Remaining blockers before declaring real DiffusionGemma inference complete:
+
+```text
+full 11-shard checkpoint availability
+Transformers reference fixtures
+parity against reference logits/tokens
+vision/token processor integration
+```
