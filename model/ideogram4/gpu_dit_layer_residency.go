@@ -50,16 +50,25 @@ func (l *DiTLayer) inLayerCacheWindow() bool {
 	return l.Index >= start && l.Index < start+win
 }
 
-func (l *DiTLayer) cacheAttentionGPUResidency() bool {
-	if l == nil || !gpuFP8CacheEnabled() {
-		return false
-	}
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_ATTENTION_ALL")))
+func envBool(name string) bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func (l *DiTLayer) cacheAttentionGPUResidency() bool {
+	return l != nil && gpuFP8CacheEnabled() && envBool("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_ATTENTION_ALL")
+}
+
+func (l *DiTLayer) cacheQKVGPUResidency() bool {
+	return l.cacheAttentionGPUResidency() || (l != nil && gpuFP8CacheEnabled() && envBool("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_QKV_ALL"))
+}
+
+func (l *DiTLayer) cacheOGPUResidency() bool {
+	return l.cacheAttentionGPUResidency() || (l != nil && gpuFP8CacheEnabled() && envBool("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_O_ALL"))
+}
+
 func (l *DiTLayer) cacheAnyGPUResidency() bool {
-	return l.cacheGPUResidency() || l.cacheAttentionGPUResidency()
+	return l.cacheGPUResidency() || l.cacheAttentionGPUResidency() || l.cacheQKVGPUResidency() || l.cacheOGPUResidency()
 }
 
 func (l *DiTLayer) uploadGPU() (*ditLayerGPUResidency, error) {
@@ -96,18 +105,21 @@ func uploadDiTLayerGPU(l DiTLayer) (*ditLayerGPUResidency, error) {
 		return nil
 	}
 	fullCache := l.cacheGPUResidency()
-	attentionCache := fullCache || l.cacheAttentionGPUResidency()
-	if attentionCache || !fullCache {
+	qkvCache := fullCache || l.cacheQKVGPUResidency()
+	oCache := fullCache || l.cacheOGPUResidency()
+	if qkvCache || !fullCache {
 		if err := upload(&r.qkv, "qkv", l.QKV); err != nil {
 			r.Free()
 			return nil, err
 		}
+	}
+	if oCache || !fullCache {
 		if err := upload(&r.o, "o", l.O); err != nil {
 			r.Free()
 			return nil, err
 		}
 	}
-	if fullCache || !attentionCache {
+	if fullCache || (!qkvCache && !oCache) {
 		if err := upload(&r.w1, "w1", l.W1); err != nil {
 			r.Free()
 			return nil, err
