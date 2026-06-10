@@ -1132,26 +1132,12 @@ func IdeogramGroupNorm(out, in, gamma, beta []float32, c, h, w, groups int, eps 
 	if fnIdeogramGroupNormF32 == 0 || !megaModuleOK || c <= 0 || h <= 0 || w <= 0 || groups <= 0 || c%groups != 0 || !okHW || !okN || len(out) < n || len(in) < n || len(gamma) < c || len(beta) < c || !fitsUint32(c) || !fitsUint32(hw) || !fitsUint32(groups) {
 		return fmt.Errorf("invalid Ideogram GroupNorm buffers out=%d/%d in=%d/%d c=%d h=%d w=%d groups=%d", len(out), n, len(in), n, c, h, w, groups)
 	}
-	outBuf, err := Malloc(n)
+	bufs, unlock, err := ideogramScratchBuffers(n, n, c, c)
 	if err != nil {
 		return err
 	}
-	defer outBuf.Free()
-	inBuf, err := Malloc(n)
-	if err != nil {
-		return err
-	}
-	defer inBuf.Free()
-	gBuf, err := Malloc(c)
-	if err != nil {
-		return err
-	}
-	defer gBuf.Free()
-	bBuf, err := Malloc(c)
-	if err != nil {
-		return err
-	}
-	defer bBuf.Free()
+	defer unlock()
+	outBuf, inBuf, gBuf, bBuf := bufs[0], bufs[1], bufs[2], bufs[3]
 	if err := inBuf.Upload(in[:n]); err != nil {
 		return err
 	}
@@ -1184,30 +1170,16 @@ func IdeogramConv2D(out, in, weight, bias []float32, outC, inC, h, w, kh, kw int
 	if fnIdeogramConv2DF32 == 0 || !megaModuleOK || outC <= 0 || inC <= 0 || h <= 0 || w <= 0 || kh <= 0 || kw <= 0 || !okHW || !okOut || !okIn || !okK || len(out) < outN || len(in) < inN || len(weight) < kN || (hasBias != 0 && len(bias) < outC) || !fitsUint32(outN) {
 		return fmt.Errorf("invalid Ideogram Conv2D buffers out=%d/%d in=%d/%d weight=%d/%d", len(out), outN, len(in), inN, len(weight), kN)
 	}
-	outBuf, err := Malloc(outN)
-	if err != nil {
-		return err
-	}
-	defer outBuf.Free()
-	inBuf, err := Malloc(inN)
-	if err != nil {
-		return err
-	}
-	defer inBuf.Free()
-	wBuf, err := Malloc(kN)
-	if err != nil {
-		return err
-	}
-	defer wBuf.Free()
 	biasN := outC
 	if biasN < 1 {
 		biasN = 1
 	}
-	bBuf, err := Malloc(biasN)
+	bufs, unlock, err := ideogramScratchBuffers(outN, inN, kN, biasN)
 	if err != nil {
 		return err
 	}
-	defer bBuf.Free()
+	defer unlock()
+	outBuf, inBuf, wBuf, bBuf := bufs[0], bufs[1], bufs[2], bufs[3]
 	if err := inBuf.Upload(in[:inN]); err != nil {
 		return err
 	}
