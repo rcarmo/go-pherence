@@ -546,7 +546,7 @@ DIFFUSIONGEMMA_CANVAS ?= 0
 DIFFUSIONGEMMA_SEED ?= 1
 DIFFUSIONGEMMA_MOCK_TOKEN ?= 4
 
-.PHONY: diffusiongemma-inspect diffusiongemma-inspect-json diffusiongemma-run-scaffold diffusiongemma-run-mock diffusiongemma-run-cpu
+.PHONY: diffusiongemma-inspect diffusiongemma-inspect-json diffusiongemma-run-scaffold diffusiongemma-run-mock diffusiongemma-run-mock-json diffusiongemma-run-cpu
 
 diffusiongemma-inspect:
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL)
@@ -559,6 +559,10 @@ diffusiongemma-run-scaffold:
 
 diffusiongemma-run-mock:
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -mock-token $(DIFFUSIONGEMMA_MOCK_TOKEN) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -decode
+
+diffusiongemma-run-mock-json:
+	mkdir -p $(dir $(DIFFUSIONGEMMA_RUN_OUT))
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -mock-token $(DIFFUSIONGEMMA_MOCK_TOKEN) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -decode -json > $(DIFFUSIONGEMMA_RUN_OUT)
 
 diffusiongemma-run-cpu:
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher

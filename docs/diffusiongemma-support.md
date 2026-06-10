@@ -623,3 +623,8 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 ## Reference comparison helper
 
 `scripts/diffusiongemma_compare_reference.py` compares a Transformers reference JSON fixture against a go-pherence run JSON. It reports ID counts, match status, and first mismatch. `make diffusiongemma-compare-reference` wraps it with `DIFFUSIONGEMMA_REF_OUT`, `DIFFUSIONGEMMA_RUN_OUT`, and optional `DIFFUSIONGEMMA_COMPARE_PREFIX`. This is a parity triage utility, not a Go test.
+
+
+## Run JSON capture target
+
+`make diffusiongemma-run-mock-json` writes a mock-denoiser go-pherence run JSON to `DIFFUSIONGEMMA_RUN_OUT`. This pairs with `make diffusiongemma-compare-reference` and is useful for validating the comparison utility and future parity workflows.
