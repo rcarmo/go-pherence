@@ -183,3 +183,19 @@ GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
 ```
 
 Result: passed. Run JSON and inspect JSON both expose operation status; mock comparison remains `match=true`.
+
+## Scaffold CI after full parity target addition
+
+After adding the full-shard `diffusiongemma-parity` target, the no-weights scaffold CI was re-run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma \
+  DIFFUSIONGEMMA_PROMPT=hi \
+  DIFFUSIONGEMMA_REF_OUT=/workspace/tmp/diffusiongemma/parity_target_reference_dry_run.json \
+  DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/parity_target_mock_run.json \
+  DIFFUSIONGEMMA_MOCK_REF_OUT=/workspace/tmp/diffusiongemma/parity_target_mock_ref.json \
+  DIFFUSIONGEMMA_STATUS_OUT=/workspace/tmp/diffusiongemma/parity_target_status.json
+```
+
+Result: passed. This confirms the full parity target is additive and the metadata-only scaffold workflow remains green.
