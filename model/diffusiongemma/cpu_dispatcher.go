@@ -551,7 +551,7 @@ func dispatchTailOp(op OpKind, weights *TextWeights, scratch ForwardScratch) err
 	case OpFinalNorm:
 		return runFinalNorm(weights, scratch)
 	case OpLMHead:
-		return errOpNotImplemented(op)
+		return runLMHead(weights, scratch)
 	default:
 		return fmt.Errorf("DiffusionGemma unknown tail op %q", op)
 	}
@@ -579,6 +579,37 @@ func runFinalNorm(weights *TextWeights, scratch ForwardScratch) error {
 	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
 		if !simd.RMSNormTo(scratch.Hidden[off:off+hiddenSize], weight, 1e-6) {
 			return fmt.Errorf("DiffusionGemma final norm rejected row at offset %d", off)
+		}
+	}
+	return nil
+}
+
+func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma LM head missing weights")
+	}
+	fp := weights.ForwardPlan()
+	if fp.Globals.EmbedTokens == nil {
+		return fmt.Errorf("DiffusionGemma LM head missing tied embeddings")
+	}
+	embed, vocab, hiddenSize, err := loadFloatMatrix(weights, fp.Globals.EmbedTokens)
+	if err != nil {
+		return err
+	}
+	if hiddenSize <= 0 || vocab <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma LM head hidden len=%d hidden_size=%d vocab=%d", len(scratch.Hidden), hiddenSize, vocab)
+	}
+	positions := len(scratch.Hidden) / hiddenSize
+	if len(scratch.Logits) < positions {
+		return fmt.Errorf("DiffusionGemma LM head logits rows=%d want %d", len(scratch.Logits), positions)
+	}
+	for pos := 0; pos < positions; pos++ {
+		if len(scratch.Logits[pos]) < vocab {
+			return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
+		}
+		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		if !simd.GemvRows(scratch.Logits[pos][:vocab], hidden, embed, vocab, hiddenSize) {
+			return fmt.Errorf("DiffusionGemma LM head GEMV rejected position %d", pos)
 		}
 	}
 	return nil

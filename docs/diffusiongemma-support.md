@@ -309,3 +309,8 @@ Router scratch now includes per-position `TopKIDs` and `TopKVals` sized by `top_
 ## Expert execution hook
 
 `CPUDispatcher` now implements a correctness-first `experts` op scaffold for 3D expert tensors. It expects `experts.gate_up_proj` shaped as `[experts, 2*intermediate, hidden]` and `experts.down_proj` shaped as `[experts, hidden, intermediate]`, runs checked SIMD GEMV for selected top-k experts, applies GELU(tanh)×up activation, and accumulates weighted expert outputs into hidden scratch. This still needs parity against the Transformers implementation and may need router-score normalization refinements before it is considered numerically complete.
+
+
+## LM head hook
+
+`CPUDispatcher` now implements the `lm_head` tail op using the tied `embed_tokens.weight` matrix as an output projection. It runs checked SIMD `GemvRows` for each canvas position to produce full-vocabulary logits. This is correctness-first and will be expensive for the published 262K vocabulary because it materializes/uses the full tied embedding matrix; practical inference will need paging, caching, or a more memory-aware output projection path.
