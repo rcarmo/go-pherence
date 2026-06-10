@@ -485,3 +485,8 @@ For example, `-tokens <mask> -add-bos -think` produces prompt IDs `[2 98 4]` aga
 ## Exact decode helper
 
 `diffusiongemmarun -decode` uses the exact `tokenizer.json` vocabulary map to display prompt/generated token strings for known token IDs. This is still not full detokenization; unknown IDs are rendered as `<id:N>`.
+
+
+## Run status reporting
+
+`diffusiongemmarun` now includes runtime capabilities and shard availability in both text and JSON output. This makes automation-friendly status checks possible even while the run path ends at the expected scaffold error.

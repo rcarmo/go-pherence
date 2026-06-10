@@ -12,13 +12,15 @@ import (
 )
 
 type report struct {
-	ModelPath       string                          `json:"model_path"`
-	PromptIDs       []int                           `json:"prompt_ids"`
-	Options         diffusiongemma.InferenceOptions `json:"options"`
-	PromptTokens    []string                        `json:"prompt_tokens,omitempty"`
-	GeneratedTokens []string                        `json:"generated_tokens,omitempty"`
-	Result          *diffusiongemma.InferenceResult `json:"result,omitempty"`
-	Error           string                          `json:"error,omitempty"`
+	ModelPath       string                             `json:"model_path"`
+	PromptIDs       []int                              `json:"prompt_ids"`
+	Options         diffusiongemma.InferenceOptions    `json:"options"`
+	PromptTokens    []string                           `json:"prompt_tokens,omitempty"`
+	GeneratedTokens []string                           `json:"generated_tokens,omitempty"`
+	Capabilities    diffusiongemma.RuntimeCapabilities `json:"capabilities"`
+	Shards          *diffusiongemma.ShardAvailability  `json:"shards,omitempty"`
+	Result          *diffusiongemma.InferenceResult    `json:"result,omitempty"`
+	Error           string                             `json:"error,omitempty"`
 }
 
 func main() {
@@ -97,7 +99,7 @@ func main() {
 		fatal(err)
 	}
 	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed}
-	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts}
+	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts, Capabilities: diffusiongemma.Capabilities(), Shards: m.Shards}
 	if *decode && vocab != nil {
 		out.PromptTokens = vocab.DecodeIDs(promptIDs)
 	}
@@ -126,6 +128,10 @@ func main() {
 	if len(out.PromptTokens) > 0 {
 		fmt.Printf("  prompt_tokens=%v\n", out.PromptTokens)
 	}
+	if out.Shards != nil {
+		fmt.Printf("  shards_ready=%v present=%d/%d\n", out.Shards.Ready, out.Shards.PresentShards, out.Shards.ExpectedShards)
+	}
+	fmt.Printf("  caps: reference_complete=%v encoder_kv=%v sliding_mask=%v rope=%v\n", out.Capabilities.ReferenceComplete, out.Capabilities.EncoderKVConcat, out.Capabilities.SlidingWindowMask, out.Capabilities.RoPE)
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)
 		os.Exit(1)
