@@ -3,6 +3,8 @@ package ideogram4
 import (
 	"fmt"
 	"math"
+	"os"
+	"time"
 )
 
 // F32TensorSource provides float32 tensors by name (satisfied by
@@ -256,31 +258,46 @@ func (d *VAEDecoder) Decode(latents FeatureMap) (Image, error) {
 	if latents.C != d.latentChannels {
 		return Image{}, fmt.Errorf("ideogram4 vae decode latent_c=%d want=%d", latents.C, d.latentChannels)
 	}
+	trace := os.Getenv("GO_PHERENCE_IDEOGRAM4_VAE_TIMING") == "1"
+	traceStart := time.Now()
+	last := traceStart
+	mark := func(name string, f FeatureMap) {
+		if trace {
+			fmt.Fprintf(os.Stderr, "vae_timing %s=%s total=%s shape=%dx%dx%d\n", name, time.Since(last), time.Since(traceStart), f.C, f.H, f.W)
+			last = time.Now()
+		}
+	}
 	// Latents are expected already denormalized (see DenormalizeLatents); the
 	// KL VAE decoder applies no additional scaling.
 	z := FeatureMap{C: latents.C, H: latents.H, W: latents.W, Data: append([]float32(nil), latents.Data...)}
+	mark("copy_latents", z)
 	var err error
 	if d.usePostQuantConv {
 		if z, err = d.conv(z, "post_quant_conv"); err != nil {
 			return Image{}, err
 		}
+		mark("post_quant_conv", z)
 	}
 	h, err := d.conv(z, "decoder.conv_in")
 	if err != nil {
 		return Image{}, err
 	}
+	mark("conv_in", h)
 	// mid block: resnet, [attention], resnet.
 	if h, err = d.resnet(h, "decoder.mid_block.resnets.0"); err != nil {
 		return Image{}, err
 	}
+	mark("mid_resnet_0", h)
 	if d.midAddAttention {
 		if h, err = d.attention(h, "decoder.mid_block.attentions.0"); err != nil {
 			return Image{}, err
 		}
+		mark("mid_attention", h)
 	}
 	if h, err = d.resnet(h, "decoder.mid_block.resnets.1"); err != nil {
 		return Image{}, err
 	}
+	mark("mid_resnet_1", h)
 	// up blocks (reversed channel order). diffusers names them 0..N-1 in the
 	// reversed order, each with layers_per_block+1 resnets and an upsampler
 	// (except the last block).
@@ -291,27 +308,37 @@ func (d *VAEDecoder) Decode(latents FeatureMap) (Image, error) {
 			if h, err = d.resnet(h, prefix); err != nil {
 				return Image{}, err
 			}
+			mark(fmt.Sprintf("up%d_resnet_%d", b, r), h)
 		}
 		if b < numBlocks-1 {
 			if h, err = UpsampleNearest(h, 2); err != nil {
 				return Image{}, err
 			}
+			mark(fmt.Sprintf("up%d_upsample", b), h)
 			if h, err = d.conv(h, fmt.Sprintf("decoder.up_blocks.%d.upsamplers.0.conv", b)); err != nil {
 				return Image{}, err
 			}
+			mark(fmt.Sprintf("up%d_upsample_conv", b), h)
 		}
 	}
 	if h, err = d.groupNorm(h, "decoder.conv_norm_out"); err != nil {
 		return Image{}, err
 	}
+	mark("conv_norm_out", h)
 	h.SiLUMap()
+	mark("silu_out", h)
 	if h, err = d.conv(h, "decoder.conv_out"); err != nil {
 		return Image{}, err
 	}
+	mark("conv_out", h)
 	if h.C != 3 {
 		return Image{}, fmt.Errorf("ideogram4 vae decode out channels=%d want 3", h.C)
 	}
-	return featureMapToImage(h), nil
+	img := featureMapToImage(h)
+	if trace {
+		fmt.Fprintf(os.Stderr, "vae_timing rgb=%s total=%s shape=%dx%d\n", time.Since(last), time.Since(traceStart), img.Width, img.Height)
+	}
+	return img, nil
 }
 
 // featureMapToImage converts a [3,H,W] float map in [-1,1] to 8-bit RGB.
