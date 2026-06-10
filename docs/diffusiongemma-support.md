@@ -641,3 +641,8 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 ## Operation status reporting
 
 `model/diffusiongemma/op_status.go` exposes per-operation implementation status and aggregate counts. The inspector prints this as `ops=13/13`, while `reference_complete=false` remains separate from scaffold coverage.
+
+
+## Operation status details
+
+`diffusiongemmainspect -json` now includes an `operation_status` array with per-operation implementation and reference-complete flags. Text output also summarizes this as `op_status: implemented=13/13 reference_complete=0/13`, making it clear that all planned text ops have scaffolds while parity remains incomplete.

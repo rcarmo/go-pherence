@@ -23,6 +23,7 @@ type report struct {
 	ForwardBufferPlan  diffusiongemma.ForwardBufferPlan   `json:"forward_buffer_plan"`
 	ForwardOpPlan      diffusiongemma.ForwardOpPlan       `json:"forward_op_plan"`
 	Capabilities       diffusiongemma.RuntimeCapabilities `json:"capabilities"`
+	OperationStatus    []diffusiongemma.OpStatus          `json:"operation_status,omitempty"`
 	Processor          *diffusiongemma.ProcessorMetadata  `json:"processor,omitempty"`
 	Tokenizer          *diffusiongemma.TokenizerMetadata  `json:"tokenizer,omitempty"`
 	SpecialTokenIDs    *diffusiongemma.SpecialTokenIDs    `json:"special_token_ids,omitempty"`
@@ -72,7 +73,7 @@ func main() {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities(), Processor: m.Processor, Tokenizer: m.Tokenizer, Shards: m.Shards}
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities(), OperationStatus: diffusiongemma.OperationStatuses(), Processor: m.Processor, Tokenizer: m.Tokenizer, Shards: m.Shards}
 	if m.Tokenizer != nil {
 		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
 		out.SpecialTokenIDs = &specials
@@ -153,6 +154,18 @@ func printText(r report) {
 	fmt.Printf("  caps:      sampler=%v ops=%d/%d text_scaffold=%v attention_scaffold=%v rope=%v sliding_mask=%v encoder_kv=%v reference_complete=%v\n", r.Capabilities.Sampler, r.Capabilities.ImplementedOps, r.Capabilities.TotalOps, r.Capabilities.TextOnlyScaffoldReady, r.Capabilities.SelfAttentionScaffold, r.Capabilities.RoPE, r.Capabilities.SlidingWindowMask, r.Capabilities.EncoderKVConcat, r.Capabilities.ReferenceComplete)
 	if len(r.Capabilities.MissingForReference) > 0 {
 		fmt.Printf("  missing_reference: %v\n", r.Capabilities.MissingForReference)
+	}
+	if len(r.OperationStatus) > 0 {
+		implemented, referenceComplete := 0, 0
+		for _, op := range r.OperationStatus {
+			if op.Implemented {
+				implemented++
+			}
+			if op.ReferenceComplete {
+				referenceComplete++
+			}
+		}
+		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(r.OperationStatus), referenceComplete, len(r.OperationStatus))
 	}
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)

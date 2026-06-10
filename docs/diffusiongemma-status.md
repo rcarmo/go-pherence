@@ -127,3 +127,8 @@ The code is a native text-only scaffold with substantial operation coverage, but
 ## Operation status summary
 
 The inspector now reports semantic operation coverage as `ops=13/13`, meaning every planned text-only operation has a scaffold/hook. `reference_complete=false` remains correct because those ops still need parity fixtures and full processor/vision integration.
+
+
+## Operation status details
+
+`diffusiongemmainspect -json` now includes an `operation_status` array with per-operation implementation and reference-complete flags. Text output also summarizes this as `op_status: implemented=13/13 reference_complete=0/13`, making it clear that all planned text ops have scaffolds while parity remains incomplete.
