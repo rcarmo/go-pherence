@@ -484,17 +484,6 @@ func packIndicesTo(dst []byte, indices []byte, bits int) bool {
 	return true
 }
 
-// unpackIndices unpacks bit-packed indices into byte values.
-func unpackIndices(packed []byte, bits int, n int) []byte {
-	bits = clampBits(bits)
-	if n <= 0 {
-		return nil
-	}
-	indices := make([]byte, n)
-	unpackIndicesTo(indices, packed, bits)
-	return indices
-}
-
 func unpackIndicesTo(indices []byte, packed []byte, bits int) bool {
 	bits = clampBits(bits)
 	if len(indices) == 0 {

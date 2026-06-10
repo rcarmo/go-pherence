@@ -165,11 +165,7 @@ func TestTurboQuantMalformedInputsDoNotPanic(t *testing.T) {
 	if tq.Config.KeyBits != 1 || tq.Config.ValueBits != 8 || tq.Config.ResidualWindow != 0 {
 		t.Fatalf("sanitized config=%+v", tq.Config)
 	}
-	packed, _, _ := tq.QuantizeVector(nil, nil, nil, -1)
-	if packed == nil {
-		// Empty-but-non-nil is not required; just ensure no panic and usable output.
-		packed = []byte{}
-	}
+	_, _, _ = tq.QuantizeVector(nil, nil, nil, -1)
 	got := tq.DequantizeVector([]byte{}, 0, 1, nil, -1, 4)
 	if len(got) != 4 {
 		t.Fatalf("DequantizeVector len=%d want 4", len(got))
