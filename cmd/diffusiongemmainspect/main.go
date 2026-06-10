@@ -25,6 +25,7 @@ type report struct {
 	Capabilities       diffusiongemma.RuntimeCapabilities `json:"capabilities"`
 	Processor          *diffusiongemma.ProcessorMetadata  `json:"processor,omitempty"`
 	Tokenizer          *diffusiongemma.TokenizerMetadata  `json:"tokenizer,omitempty"`
+	SpecialTokenIDs    *diffusiongemma.SpecialTokenIDs    `json:"special_token_ids,omitempty"`
 }
 
 func main() {
@@ -48,6 +49,10 @@ func main() {
 		}
 	}
 	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities(), Processor: m.Processor, Tokenizer: m.Tokenizer}
+	if m.Tokenizer != nil {
+		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
+		out.SpecialTokenIDs = &specials
+	}
 	if *openWeights {
 		weights, err := diffusiongemma.OpenTextWeights(*modelDir, shape)
 		if err != nil {
@@ -88,6 +93,10 @@ func printText(r report) {
 	}
 	if r.Tokenizer != nil {
 		fmt.Printf("  tokenizer: vocab=%d added=%d ids=%v\n", r.Tokenizer.VocabSize, r.Tokenizer.AddedTokens, r.Tokenizer.TokenIDs)
+	}
+	if r.SpecialTokenIDs != nil {
+		s := r.SpecialTokenIDs
+		fmt.Printf("  specials:  bos=%d eos=%d pad=%d mask=%d think=%d boi=%d eoi=%d image=%d bot=%d eot=%d\n", s.BOS, s.EOS, s.PAD, s.MASK, s.THINK, s.BOI, s.EOI, s.IMAGE, s.BOT, s.EOT)
 	}
 	if r.Tensors != nil {
 		fmt.Printf("  tensors:   total=%d shards=%d groups=%v\n", r.Tensors.Total, r.Tensors.Shards, r.Tensors.Groups)

@@ -386,3 +386,8 @@ added=24
 ```
 
 This is still metadata extraction only; full tokenization/chat-template rendering is not implemented.
+
+
+## Prompt ID scaffold
+
+`model/diffusiongemma/prompt.go` adds typed special-token ID extraction and a token-ID-level prompt builder. It can add BOS, thinking, and generation-prompt framing tokens when their IDs are available. This deliberately does not implement full tokenizer BPE or chat-template rendering yet; it is the safe handoff point for processor/tokenizer integration.
