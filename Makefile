@@ -777,3 +777,8 @@ IDEOGRAM4_K3_HANDOFF_DIR ?= $(TMPDIR)/ideogram4/k3-handoff
 .PHONY: ideogram4-k3-handoff
 ideogram4-k3-handoff: ideogram4-k3-check
 	IDEOGRAM4_K3_HANDOFF_DIR='$(IDEOGRAM4_K3_HANDOFF_DIR)' ./scripts/ideogram4_k3_handoff.sh
+
+.PHONY: diffusiongemma-preload-globals
+
+diffusiongemma-preload-globals: diffusiongemma-check-shards
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -cpu-dispatcher -allow-slow-cpu -preload-globals -preload-only

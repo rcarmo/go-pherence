@@ -64,6 +64,7 @@ func main() {
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault all mapped safetensor shards before CPU dispatcher run")
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
 	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
+	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
 	if *modelDir == "" {
@@ -210,6 +211,17 @@ func main() {
 			if err := weights.PreloadLayerRange(0, *residentLayers); err != nil {
 				fatal(err)
 			}
+		}
+		if *preloadOnly {
+			present, expected := 0, 0
+			ready := false
+			if m.Shards != nil {
+				present, expected, ready = m.Shards.PresentShards, m.Shards.ExpectedShards, m.Shards.Ready
+			}
+			fmt.Printf("DiffusionGemma preload scaffold: %s\n", *modelDir)
+			fmt.Printf("  shards_ready=%v present=%d/%d\n", ready, present, expected)
+			fmt.Printf("  preload_globals=%v resident_layers=%d eager_mmap=%v float_cache_entries=%d\n", *preloadGlobals, *residentLayers, *eagerMmap, weights.FloatCacheEntries())
+			return
 		}
 		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{})
 		if err != nil {

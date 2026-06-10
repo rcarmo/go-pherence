@@ -935,3 +935,8 @@ Full-weight `diffusiongemmarun -cpu-dispatcher` is now guarded by `-allow-slow-c
 ## Caching and layer residency
 
 `TextWeights` now has a decoded float tensor cache plus `PreloadGlobals`, `PreloadLayer`, and `PreloadLayerRange` helpers. `diffusiongemmarun -cpu-dispatcher` exposes `-preload-globals`, `-resident-layers N`, and `-eager-mmap`. Makefile CPU targets pass these through via `DIFFUSIONGEMMA_PRELOAD_GLOBALS`, `DIFFUSIONGEMMA_RESIDENT_LAYERS`, and `DIFFUSIONGEMMA_EAGER_MMAP`. Row-wise embedding/LM-head paths still stream from mmap through `RawTensorRow` to avoid full tied-embedding expansion.
+
+
+## Preload-only residency check
+
+`diffusiongemmarun -preload-only` opens weights, applies `-eager-mmap`, `-preload-globals`, and/or `-resident-layers`, reports `float_cache_entries`, and exits before generation. `make diffusiongemma-preload-globals` uses this to validate full-shard opening plus global tensor cache residency without entering the slow full dispatcher. With the downloaded checkpoint, global preload reports `float_cache_entries=6`.
