@@ -585,3 +585,8 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 ```
 
 `-require-text-scaffold-ready` passes for the current metadata/index/text scaffold when tensor inventory and text tensor plans are ready. `-require-runtime-ready` remains stricter and fails until reference-complete DiffusionGemma inference is implemented and verified.
+
+
+## Scaffold check target
+
+`make diffusiongemma-check-scaffold` runs `diffusiongemmainspect -require-text-scaffold-ready` and build-only validation for the DiffusionGemma packages. It validates the current text-only scaffold without requiring full weight shards or reference-complete runtime readiness.

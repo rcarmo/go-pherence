@@ -575,3 +575,9 @@ diffusiongemma-reference-dry-run:
 
 diffusiongemma-reference:
 	python3 scripts/diffusiongemma_reference.py --model $(DIFFUSIONGEMMA_MODEL) --prompt '$(DIFFUSIONGEMMA_REF_PROMPT)' --max-new-tokens $(DIFFUSIONGEMMA_REF_MAX_NEW) --max-denoising-steps $(DIFFUSIONGEMMA_REF_STEPS) --out $(DIFFUSIONGEMMA_REF_OUT)
+
+.PHONY: diffusiongemma-check-scaffold
+
+diffusiongemma-check-scaffold:
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -require-text-scaffold-ready
+	go test ./cmd/diffusiongemmarun ./cmd/diffusiongemmainspect ./model/diffusiongemma ./loader/config -run '^$$'
