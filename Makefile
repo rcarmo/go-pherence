@@ -567,6 +567,7 @@ diffusiongemma-run-mock-json:
 diffusiongemma-run-cpu:
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher
 
+DIFFUSIONGEMMA_STATUS_OUT ?= $(TMPDIR)/diffusiongemma/status.json
 DIFFUSIONGEMMA_REF_OUT ?= $(TMPDIR)/diffusiongemma/reference.json
 DIFFUSIONGEMMA_REF_PROMPT ?= Why is the sky blue?
 DIFFUSIONGEMMA_REF_MAX_NEW ?= 64
@@ -614,3 +615,9 @@ diffusiongemma-mock-compare:
 	printf '{"output_ids":[$(DIFFUSIONGEMMA_MOCK_TOKEN),$(DIFFUSIONGEMMA_MOCK_TOKEN)]}' > $(DIFFUSIONGEMMA_MOCK_REF_OUT)
 	$(MAKE) diffusiongemma-run-mock-json DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_PROMPT='$(DIFFUSIONGEMMA_PROMPT)' DIFFUSIONGEMMA_MOCK_TOKEN=$(DIFFUSIONGEMMA_MOCK_TOKEN) DIFFUSIONGEMMA_CANVAS=2 DIFFUSIONGEMMA_MAX_NEW=2 DIFFUSIONGEMMA_RUN_OUT=$(DIFFUSIONGEMMA_RUN_OUT)
 	$(MAKE) diffusiongemma-compare-reference DIFFUSIONGEMMA_REF_OUT=$(DIFFUSIONGEMMA_MOCK_REF_OUT) DIFFUSIONGEMMA_RUN_OUT=$(DIFFUSIONGEMMA_RUN_OUT)
+
+.PHONY: diffusiongemma-status-json
+
+diffusiongemma-status-json:
+	mkdir -p $(dir $(DIFFUSIONGEMMA_STATUS_OUT))
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -json > $(DIFFUSIONGEMMA_STATUS_OUT)

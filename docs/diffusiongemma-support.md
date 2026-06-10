@@ -646,3 +646,8 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 ## Operation status details
 
 `diffusiongemmainspect -json` now includes an `operation_status` array with per-operation implementation and reference-complete flags. Text output also summarizes this as `op_status: implemented=13/13 reference_complete=0/13`, making it clear that all planned text ops have scaffolds while parity remains incomplete.
+
+
+## Status JSON target
+
+`make diffusiongemma-status-json` writes the full `diffusiongemmainspect -json` report to `DIFFUSIONGEMMA_STATUS_OUT`. This includes metadata, shard readiness, capabilities, and the per-operation `operation_status` array for artifact capture.
