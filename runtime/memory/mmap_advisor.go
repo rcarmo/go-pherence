@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -215,10 +216,10 @@ func (a *MmapAdvisor) MergeRanges() {
 	for i := 1; i < len(sorted); i++ {
 		rv := sanitizeRange(*sorted[i])
 		r := &rv
-		curEnd := saturatingAddInt64(cur.Offset, cur.Bytes)
+		curEnd := checked.SaturatingAddInt64(cur.Offset, cur.Bytes)
 		if r.Offset <= curEnd && mergeCompatible(cur.State, r.State) {
 			// Overlapping or adjacent with equivalent residency — extend
-			rEnd := saturatingAddInt64(r.Offset, r.Bytes)
+			rEnd := checked.SaturatingAddInt64(r.Offset, r.Bytes)
 			if rEnd > curEnd {
 				cur.Bytes = saturatingSubInt64(rEnd, cur.Offset)
 			}
@@ -257,19 +258,6 @@ func sanitizeRange(r AdvisedRange) AdvisedRange {
 	return r
 }
 
-func maxInt64() int64 { return int64(^uint64(0) >> 1) }
-
-func saturatingAddInt64(a, b int64) int64 {
-	if a < 0 || b < 0 {
-		return 0
-	}
-	max := maxInt64()
-	if a > max-b {
-		return max
-	}
-	return a + b
-}
-
 func saturatingSubInt64(a, b int64) int64 {
 	if a <= b {
 		return 0
@@ -295,7 +283,7 @@ func (a *MmapAdvisor) recomputeTotalsLocked() {
 		}
 		*r = sanitizeRange(*r)
 		if r.State != RangeCold {
-			total = saturatingAddInt64(total, r.Bytes)
+			total = checked.SaturatingAddInt64(total, r.Bytes)
 		}
 	}
 	a.TotalBytes.Store(total)

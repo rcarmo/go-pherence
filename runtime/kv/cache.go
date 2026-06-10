@@ -349,30 +349,6 @@ func compressedEntryValid(entry compressedEntry, heads, bytesPerHead int) bool {
 	return ok && len(entry.Packed) >= packedLen && len(entry.HeadVMin) >= heads && len(entry.HeadScale) >= heads
 }
 
-func maxInt64() int64 { return int64(^uint64(0) >> 1) }
-
-func saturatingAddInt64(a, b int64) int64 {
-	if a < 0 || b < 0 {
-		return 0
-	}
-	max := maxInt64()
-	if a > max-b {
-		return max
-	}
-	return a + b
-}
-
-func saturatingMulInt64(a, b int64) int64 {
-	if a < 0 || b < 0 {
-		return 0
-	}
-	max := maxInt64()
-	if b != 0 && a > max/b {
-		return max
-	}
-	return a * b
-}
-
 func (c *CompressedKVCache) ScratchBytes() int64 {
 	if c == nil {
 		return 0
@@ -382,18 +358,18 @@ func (c *CompressedKVCache) ScratchBytes() int64 {
 		var ok bool
 		floatElems, ok = checked.AddInt(floatElems, n)
 		if !ok {
-			return maxInt64()
+			return checked.MaxInt64()
 		}
 	}
 	byteElems, ok := checked.AddInt(len(c.quantIndices), len(c.dequantIndices))
 	if !ok {
-		return maxInt64()
+		return checked.MaxInt64()
 	}
-	return saturatingAddInt64(saturatingMulInt64(int64(floatElems), 4), int64(byteElems))
+	return checked.SaturatingAddInt64(checked.SaturatingMulInt64(int64(floatElems), 4), int64(byteElems))
 }
 
 func (c *CompressedKVCache) TotalMemoryBytes() int64 {
-	return saturatingAddInt64(c.MemoryBytes(), c.ScratchBytes())
+	return checked.SaturatingAddInt64(c.MemoryBytes(), c.ScratchBytes())
 }
 
 func (c *CompressedKVCache) Stats() CompressedKVCacheStats {
@@ -402,7 +378,7 @@ func (c *CompressedKVCache) Stats() CompressedKVCacheStats {
 	}
 	stored := c.MemoryBytes()
 	scratch := c.ScratchBytes()
-	return CompressedKVCacheStats{SeqLen: c.SeqLen(), CompressedCount: c.CompressedCount(), FullCount: c.FullCount(), StoredBytes: stored, ScratchBytes: scratch, TotalBytes: saturatingAddInt64(stored, scratch)}
+	return CompressedKVCacheStats{SeqLen: c.SeqLen(), CompressedCount: c.CompressedCount(), FullCount: c.FullCount(), StoredBytes: stored, ScratchBytes: scratch, TotalBytes: checked.SaturatingAddInt64(stored, scratch)}
 }
 
 func AggregateCompressedKVCacheStats(caches []*CompressedKVCache) CompressedKVCacheAggregateStats {
@@ -418,9 +394,9 @@ func AggregateCompressedKVCacheStats(caches []*CompressedKVCache) CompressedKVCa
 		}
 		out.CompressedCount += st.CompressedCount
 		out.FullCount += st.FullCount
-		out.StoredBytes = saturatingAddInt64(out.StoredBytes, st.StoredBytes)
-		out.ScratchBytes = saturatingAddInt64(out.ScratchBytes, st.ScratchBytes)
-		out.TotalBytes = saturatingAddInt64(out.TotalBytes, st.TotalBytes)
+		out.StoredBytes = checked.SaturatingAddInt64(out.StoredBytes, st.StoredBytes)
+		out.ScratchBytes = checked.SaturatingAddInt64(out.ScratchBytes, st.ScratchBytes)
+		out.TotalBytes = checked.SaturatingAddInt64(out.TotalBytes, st.TotalBytes)
 	}
 	return out
 }
@@ -431,22 +407,22 @@ func (c *CompressedKVCache) MemoryBytes() int64 {
 	}
 	fullElems, ok := checked.AddInt(len(c.FullK), len(c.FullV))
 	if !ok {
-		return maxInt64()
+		return checked.MaxInt64()
 	}
-	full := saturatingMulInt64(int64(fullElems), 4)
+	full := checked.SaturatingMulInt64(int64(fullElems), 4)
 	compressed := int64(0)
 	entryBytes := func(e compressedEntry) int64 {
 		headElems, ok := checked.AddInt(len(e.HeadVMin), len(e.HeadScale))
 		if !ok {
-			return maxInt64()
+			return checked.MaxInt64()
 		}
-		return saturatingAddInt64(int64(len(e.Packed)), saturatingMulInt64(int64(headElems), 4))
+		return checked.SaturatingAddInt64(int64(len(e.Packed)), checked.SaturatingMulInt64(int64(headElems), 4))
 	}
 	for _, e := range c.CompressedK {
-		compressed = saturatingAddInt64(compressed, entryBytes(e))
+		compressed = checked.SaturatingAddInt64(compressed, entryBytes(e))
 	}
 	for _, e := range c.CompressedV {
-		compressed = saturatingAddInt64(compressed, entryBytes(e))
+		compressed = checked.SaturatingAddInt64(compressed, entryBytes(e))
 	}
-	return saturatingAddInt64(full, compressed)
+	return checked.SaturatingAddInt64(full, compressed)
 }

@@ -2,6 +2,7 @@ package placement
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
 // Tier represents where a weight set lives.
@@ -84,20 +85,20 @@ func EstimateLayerWeightBytes(info ModelSizeInfo, layerIdx int) int64 {
 		}
 	}
 
-	qDim := saturatingMulInt64(numHeads, headDim)
-	kvDim := saturatingMulInt64(numKVHeads, headDim)
+	qDim := checked.SaturatingMulInt64(numHeads, headDim)
+	kvDim := checked.SaturatingMulInt64(numKVHeads, headDim)
 
 	// Double-wide MLP for KV-shared layers
 	layerInter := inter
 	if info.HasDoubleWideMLP && info.NumKVSharedLayers > 0 {
 		firstShared := info.NumLayers - info.NumKVSharedLayers
 		if layerIdx >= firstShared {
-			layerInter = saturatingMulInt64(inter, 2)
+			layerInter = checked.SaturatingMulInt64(inter, 2)
 		}
 	}
 
 	var bytes int64
-	add := func(v int64) { bytes = saturatingAddInt64(bytes, v) }
+	add := func(v int64) { bytes = checked.SaturatingAddInt64(bytes, v) }
 
 	if isNVFP4(info) {
 		// NVFP4: two FP4 values per byte plus one F8 scale per 16 input values
@@ -110,7 +111,7 @@ func EstimateLayerWeightBytes(info ModelSizeInfo, layerIdx int) int64 {
 		if isMoE(info) {
 			// Qwen3 MoE keeps the router/gate in BF16; expert projection bytes are
 			// tracked separately by EstimateNVFP4ExpertBytes/SlotBytes.
-			add(saturatingMulInt64(saturatingMulInt64(h, nonNegativeInt64(info.NumExperts)), 2))
+			add(checked.SaturatingMulInt64(checked.SaturatingMulInt64(h, nonNegativeInt64(info.NumExperts)), 2))
 		} else {
 			add(pack(h, layerInter)) // Gate proj
 			add(pack(h, layerInter)) // Up proj
@@ -127,10 +128,10 @@ func EstimateLayerWeightBytes(info ModelSizeInfo, layerIdx int) int64 {
 				return 0
 			}
 			numGroups := divCeilInt64(inD, groupSize)
-			packed := saturatingMulInt64(inD, outD) / 8
-			scales := saturatingMulInt64(saturatingMulInt64(outD, numGroups), 4)
-			biases := saturatingMulInt64(saturatingMulInt64(outD, numGroups), 4)
-			return saturatingAddInt64(packed, saturatingAddInt64(scales, biases))
+			packed := checked.SaturatingMulInt64(inD, outD) / 8
+			scales := checked.SaturatingMulInt64(checked.SaturatingMulInt64(outD, numGroups), 4)
+			biases := checked.SaturatingMulInt64(checked.SaturatingMulInt64(outD, numGroups), 4)
+			return checked.SaturatingAddInt64(packed, checked.SaturatingAddInt64(scales, biases))
 		}
 		add(pack(h, qDim))       // Q proj
 		add(pack(h, kvDim))      // K proj
@@ -143,7 +144,7 @@ func EstimateLayerWeightBytes(info ModelSizeInfo, layerIdx int) int64 {
 		// FP32/BF16: full weight matrices
 		elemSize := int64(4) // f32; bf16 would be 2
 		matBytes := func(inD, outD int64) int64 {
-			return saturatingMulInt64(saturatingMulInt64(inD, outD), elemSize)
+			return checked.SaturatingMulInt64(checked.SaturatingMulInt64(inD, outD), elemSize)
 		}
 		add(matBytes(h, qDim))
 		add(matBytes(h, kvDim))
@@ -155,20 +156,20 @@ func EstimateLayerWeightBytes(info ModelSizeInfo, layerIdx int) int64 {
 	}
 
 	// Norm weights (small)
-	add(saturatingMulInt64(h, 4*4))       // InputNorm + PostNorm + PreFFNNorm + PostFFNNorm
-	add(saturatingMulInt64(headDim, 4*2)) // QNorm + KNorm
+	add(checked.SaturatingMulInt64(h, 4*4))       // InputNorm + PostNorm + PreFFNNorm + PostFFNNorm
+	add(checked.SaturatingMulInt64(headDim, 4*2)) // QNorm + KNorm
 
 	// PLI weights (Gemma4)
 	if info.HiddenPerLayer > 0 {
 		hpl := nonNegativeInt64(info.HiddenPerLayer)
-		add(saturatingMulInt64(saturatingMulInt64(h, hpl), 4)) // PLIGate
-		add(saturatingMulInt64(saturatingMulInt64(hpl, h), 4)) // PLIProj
-		add(saturatingMulInt64(h, 4))                          // PLIPostNorm
+		add(checked.SaturatingMulInt64(checked.SaturatingMulInt64(h, hpl), 4)) // PLIGate
+		add(checked.SaturatingMulInt64(checked.SaturatingMulInt64(hpl, h), 4)) // PLIProj
+		add(checked.SaturatingMulInt64(h, 4))                                  // PLIPostNorm
 	}
 
 	// KV cache estimate (per token, assume 1024 tokens)
-	kvPerToken := saturatingMulInt64(kvDim, 4*2) // K + V, float32
-	add(saturatingMulInt64(kvPerToken, 1024))
+	kvPerToken := checked.SaturatingMulInt64(kvDim, 4*2) // K + V, float32
+	add(checked.SaturatingMulInt64(kvPerToken, 1024))
 
 	return bytes
 }
@@ -179,9 +180,9 @@ func EstimateResidentBytes(info ModelSizeInfo) int64 {
 	vocab := nonNegativeInt64(info.VocabSize)
 
 	var bytes int64
-	add := func(v int64) { bytes = saturatingAddInt64(bytes, v) }
+	add := func(v int64) { bytes = checked.SaturatingAddInt64(bytes, v) }
 	matrixBytes := func(rows, cols, elemSize int64) int64 {
-		return saturatingMulInt64(saturatingMulInt64(rows, cols), elemSize)
+		return checked.SaturatingMulInt64(checked.SaturatingMulInt64(rows, cols), elemSize)
 	}
 
 	// Embedding table. Inspected NVIDIA NVFP4 Qwen/Gemma checkpoints keep
@@ -189,7 +190,7 @@ func EstimateResidentBytes(info ModelSizeInfo) int64 {
 	if isNVFP4(info) {
 		add(matrixBytes(vocab, h, 2))
 	} else if info.QuantBits == 4 {
-		add(divCeilInt64(saturatingMulInt64(vocab, h), 2)) // packed INT4
+		add(divCeilInt64(checked.SaturatingMulInt64(vocab, h), 2)) // packed INT4
 	} else {
 		add(matrixBytes(vocab, h, 4)) // F32
 	}
@@ -199,40 +200,40 @@ func EstimateResidentBytes(info ModelSizeInfo) int64 {
 	if isNVFP4(info) {
 		add(matrixBytes(vocab, h, 2))
 	} else if info.QuantBits == 4 {
-		add(divCeilInt64(saturatingMulInt64(vocab, h), 2))
+		add(divCeilInt64(checked.SaturatingMulInt64(vocab, h), 2))
 	} else {
 		add(matrixBytes(vocab, h, 4))
 	}
 
 	// Final norm
-	add(saturatingMulInt64(h, 4))
+	add(checked.SaturatingMulInt64(h, 4))
 
 	// RoPE tables (small)
-	add(saturatingMulInt64(saturatingMulInt64(2048, nonNegativeInt64(info.HeadDim)), 4))
+	add(checked.SaturatingMulInt64(checked.SaturatingMulInt64(2048, nonNegativeInt64(info.HeadDim)), 4))
 
 	// Work buffers (hidden, residual, normed, q, k, v, attn, gate, up, down)
 	maxHeadDim := nonNegativeInt64(info.HeadDim)
 	if nonNegativeInt64(info.GlobalHeadDim) > maxHeadDim {
 		maxHeadDim = nonNegativeInt64(info.GlobalHeadDim)
 	}
-	maxQDim := saturatingMulInt64(nonNegativeInt64(info.NumHeads), maxHeadDim)
+	maxQDim := checked.SaturatingMulInt64(nonNegativeInt64(info.NumHeads), maxHeadDim)
 	maxInter := nonNegativeInt64(info.Intermediate)
 	if info.HasDoubleWideMLP {
-		maxInter = saturatingMulInt64(maxInter, 2)
+		maxInter = checked.SaturatingMulInt64(maxInter, 2)
 	}
 	workElems := int64(0)
-	for _, v := range []int64{h, h, h, saturatingMulInt64(maxQDim, 2), maxQDim, maxQDim, saturatingMulInt64(maxInter, 2), h} {
-		workElems = saturatingAddInt64(workElems, v)
+	for _, v := range []int64{h, h, h, checked.SaturatingMulInt64(maxQDim, 2), maxQDim, maxQDim, checked.SaturatingMulInt64(maxInter, 2), h} {
+		workElems = checked.SaturatingAddInt64(workElems, v)
 	}
-	add(saturatingMulInt64(workElems, 4))
+	add(checked.SaturatingMulInt64(workElems, 4))
 
 	// Gemma4 PLI model-level projection
 	if info.HiddenPerLayer > 0 {
 		hpl := nonNegativeInt64(info.HiddenPerLayer)
-		totalPLI := saturatingMulInt64(nonNegativeInt64(info.NumLayers), hpl)
-		add(matrixBytes(h, totalPLI, 4))                            // per_layer_model_projection
-		add(saturatingMulInt64(hpl, 4))                             // per_layer_projection_norm
-		add(saturatingMulInt64(saturatingMulInt64(totalPLI, 4), 2)) // perLayerProjBuf + perLayerEmbedBuf
+		totalPLI := checked.SaturatingMulInt64(nonNegativeInt64(info.NumLayers), hpl)
+		add(matrixBytes(h, totalPLI, 4))                                            // per_layer_model_projection
+		add(checked.SaturatingMulInt64(hpl, 4))                                     // per_layer_projection_norm
+		add(checked.SaturatingMulInt64(checked.SaturatingMulInt64(totalPLI, 4), 2)) // perLayerProjBuf + perLayerEmbedBuf
 	}
 
 	return bytes
@@ -328,7 +329,7 @@ func EstimateNVFP4ExpertBytes(info ModelSizeInfo) int64 {
 	}
 	experts := nonNegativeInt64(info.NumExperts)
 	perExpert := EstimateNVFP4ExpertSlotBytes(info)
-	return saturatingMulInt64(experts, perExpert)
+	return checked.SaturatingMulInt64(experts, perExpert)
 }
 
 // EstimateNVFP4ExpertSlotBytes estimates one MoE expert's three projection
@@ -343,9 +344,9 @@ func EstimateNVFP4ExpertSlotBytes(info ModelSizeInfo) int64 {
 		inter = nonNegativeInt64(info.Intermediate)
 	}
 	bytes := int64(0)
-	bytes = saturatingAddInt64(bytes, estimateNVFP4MatrixBytes(h, inter))
-	bytes = saturatingAddInt64(bytes, estimateNVFP4MatrixBytes(h, inter))
-	bytes = saturatingAddInt64(bytes, estimateNVFP4MatrixBytes(inter, h))
+	bytes = checked.SaturatingAddInt64(bytes, estimateNVFP4MatrixBytes(h, inter))
+	bytes = checked.SaturatingAddInt64(bytes, estimateNVFP4MatrixBytes(h, inter))
+	bytes = checked.SaturatingAddInt64(bytes, estimateNVFP4MatrixBytes(inter, h))
 	return bytes
 }
 
@@ -381,11 +382,11 @@ func estimateNVFP4MatrixBytes(inD, outD int64) int64 {
 	if inD <= 0 || outD <= 0 {
 		return 0
 	}
-	params := saturatingMulInt64(inD, outD)
+	params := checked.SaturatingMulInt64(inD, outD)
 	packed := divCeilInt64(params, 2)
 	groups := divCeilInt64(inD, 16)
-	f8Scales := saturatingMulInt64(outD, groups)
-	return saturatingAddInt64(saturatingAddInt64(packed, f8Scales), 4)
+	f8Scales := checked.SaturatingMulInt64(outD, groups)
+	return checked.SaturatingAddInt64(checked.SaturatingAddInt64(packed, f8Scales), 4)
 }
 
 func nonNegativeInt64(v int) int64 {
@@ -400,26 +401,4 @@ func divCeilInt64(a, b int64) int64 {
 		return 0
 	}
 	return 1 + (a-1)/b
-}
-
-func saturatingAddInt64(a, b int64) int64 {
-	if a < 0 || b < 0 {
-		return 0
-	}
-	maxInt64 := int64(^uint64(0) >> 1)
-	if a > maxInt64-b {
-		return maxInt64
-	}
-	return a + b
-}
-
-func saturatingMulInt64(a, b int64) int64 {
-	if a < 0 || b < 0 {
-		return 0
-	}
-	maxInt64 := int64(^uint64(0) >> 1)
-	if b != 0 && a > maxInt64/b {
-		return maxInt64
-	}
-	return a * b
 }

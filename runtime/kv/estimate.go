@@ -1,5 +1,7 @@
 package kv
 
+import "github.com/rcarmo/go-pherence/internal/checked"
+
 // TurboQuantKVEstimate is a compact byte/readiness estimate for native
 // TurboQuant cache storage.
 type TurboQuantKVEstimate struct {
@@ -23,7 +25,7 @@ func EstimateTurboQuantKV(layers, kvHeads, headDim, seqLen int, cfg TurboQuantCo
 	full, estimated, kvLayers, protected := estimateTurboQuantKVBytesDetailed(layers, kvHeads, headDim, seqLen, cfg, enabled, usesLayer)
 	saved, ratio := TurboQuantKVByteSavings(full, estimated)
 	scratch := EstimateTurboQuantScratchBytes(kvLayers-protected, kvHeads, headDim, seqLen, enabled)
-	return TurboQuantKVEstimate{FullBytes: full, EstimatedBytes: estimated, SavedBytes: saved, Ratio: ratio, KVLayers: kvLayers, ProtectedLayers: protected, EstimatedScratchBytes: scratch, EstimatedTotalBytes: saturatingAddInt64(estimated, scratch)}
+	return TurboQuantKVEstimate{FullBytes: full, EstimatedBytes: estimated, SavedBytes: saved, Ratio: ratio, KVLayers: kvLayers, ProtectedLayers: protected, EstimatedScratchBytes: scratch, EstimatedTotalBytes: checked.SaturatingAddInt64(estimated, scratch)}
 }
 
 func EstimateTurboQuantKVBytes(layers, kvHeads, headDim, seqLen int, cfg TurboQuantConfig, enabled bool, usesLayer func(int) bool) (fullBytes, estimatedBytes int64) {
@@ -88,12 +90,12 @@ func EstimateTurboQuantScratchBytes(cacheLayers, kvHeads, headDim, seqLen int, e
 	// Per compressed cache layer after generation has appended and read cache:
 	// quantRotated + dequantRotated float32 scratch, quant/dequant index bytes,
 	// plus GetK/GetV sequence scratch.
-	perLayer := saturatingAddInt64(int64(headDim)*4, int64(headDim))
-	perLayer = saturatingAddInt64(perLayer, int64(headDim)*4)
-	perLayer = saturatingAddInt64(perLayer, int64(headDim))
+	perLayer := checked.SaturatingAddInt64(int64(headDim)*4, int64(headDim))
+	perLayer = checked.SaturatingAddInt64(perLayer, int64(headDim)*4)
+	perLayer = checked.SaturatingAddInt64(perLayer, int64(headDim))
 	sequenceScratch := int64(seqLen) * int64(kvDim) * 2 * 4
-	perLayer = saturatingAddInt64(perLayer, sequenceScratch)
-	return saturatingMulInt64(int64(cacheLayers), perLayer)
+	perLayer = checked.SaturatingAddInt64(perLayer, sequenceScratch)
+	return checked.SaturatingMulInt64(int64(cacheLayers), perLayer)
 }
 
 func TurboQuantKVByteSavings(fullBytes, estimatedBytes int64) (savedBytes int64, ratio float64) {
