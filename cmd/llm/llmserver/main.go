@@ -440,10 +440,6 @@ func (s *Server) switchModelLocked(id string) error {
 	return nil
 }
 
-func loadRuntimeModel(path string, useGPU bool, gpuLayers int) (*model.LlamaModel, *tokenizer.Tokenizer, *model.GPUModel, error) {
-	return loadRuntimeModelWithKV(path, useGPU, gpuLayers, "", "", -1)
-}
-
 func loadRuntimeModelWithKV(path string, useGPU bool, gpuLayers int, cacheTypeK, cacheTypeV string, residualWindow int) (*model.LlamaModel, *tokenizer.Tokenizer, *model.GPUModel, error) {
 	m, err := model.LoadLlama(path)
 	if err != nil {
