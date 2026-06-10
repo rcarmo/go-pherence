@@ -675,3 +675,19 @@ The scaffold CI target also writes `DIFFUSIONGEMMA_STATUS_OUT` and prints the co
 ```
 
 These override `InferenceOptions.Denoising` and work with mock runs today; they will carry through to real denoising once the tensor-backed denoiser is reference-complete.
+
+
+## Denoising Make variables
+
+Mock/run targets pass through denoising override variables:
+
+```text
+DIFFUSIONGEMMA_DENOISE_STEPS
+DIFFUSIONGEMMA_T_MIN
+DIFFUSIONGEMMA_T_MAX
+DIFFUSIONGEMMA_ENTROPY_BOUND
+DIFFUSIONGEMMA_STABILITY
+DIFFUSIONGEMMA_CONFIDENCE
+```
+
+Use these to exercise non-default sampler schedules through `make diffusiongemma-run-mock` or JSON/scaffold CI targets.
