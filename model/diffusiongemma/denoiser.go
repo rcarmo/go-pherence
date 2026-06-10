@@ -6,12 +6,19 @@ import "fmt"
 // currently validates and owns the metadata/weight binding needed by a forward
 // pass, but does not yet implement layer math.
 type TextDenoiser struct {
-	Shape   Shape
-	Weights *TextWeights
-	Plan    TextForwardPlan
+	Shape      Shape
+	Weights    *TextWeights
+	Plan       TextForwardPlan
+	Ops        ForwardOpPlan
+	Buffers    ForwardBufferPlan
+	Dispatcher ForwardDispatcher
 }
 
 func NewTextDenoiser(shape Shape, weights *TextWeights) (*TextDenoiser, error) {
+	return NewTextDenoiserWithDispatcher(shape, weights, NotImplementedDispatcher{})
+}
+
+func NewTextDenoiserWithDispatcher(shape Shape, weights *TextWeights, dispatcher ForwardDispatcher) (*TextDenoiser, error) {
 	if weights == nil {
 		return nil, fmt.Errorf("nil DiffusionGemma text weights")
 	}
@@ -25,7 +32,14 @@ func NewTextDenoiser(shape Shape, weights *TextWeights) (*TextDenoiser, error) {
 	if len(plan.Layers) != shape.TextLayers {
 		return nil, fmt.Errorf("DiffusionGemma text layer binding count=%d want %d", len(plan.Layers), shape.TextLayers)
 	}
-	return &TextDenoiser{Shape: shape, Weights: weights, Plan: plan}, nil
+	if dispatcher == nil {
+		dispatcher = NotImplementedDispatcher{}
+	}
+	ops := BuildForwardOpPlan(shape, &plan)
+	if !ops.Ready {
+		return nil, fmt.Errorf("DiffusionGemma text op plan not ready: %s", ops.Reason)
+	}
+	return &TextDenoiser{Shape: shape, Weights: weights, Plan: plan, Ops: ops, Buffers: BuildForwardBufferPlan(shape), Dispatcher: dispatcher}, nil
 }
 
 func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
@@ -38,7 +52,10 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	if d.Shape.VocabSize <= 0 {
 		return ForwardOutput{}, fmt.Errorf("invalid DiffusionGemma vocab size %d", d.Shape.VocabSize)
 	}
-	return ForwardOutput{}, fmt.Errorf("DiffusionGemma text denoiser forward is not implemented")
+	if d.Dispatcher == nil {
+		return ForwardOutput{}, fmt.Errorf("DiffusionGemma text forward dispatcher is not configured")
+	}
+	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step}, d.Weights, d.Ops, d.Buffers)
 }
 
 // ForwardBufferPlan describes the major scratch buffers required by a future

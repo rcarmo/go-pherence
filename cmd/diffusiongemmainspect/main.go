@@ -21,6 +21,7 @@ type report struct {
 	TextWeightsLayers  int                                `json:"text_weights_layers,omitempty"`
 	TextForwardPlan    *diffusiongemma.TextForwardPlan    `json:"text_forward_plan,omitempty"`
 	ForwardBufferPlan  diffusiongemma.ForwardBufferPlan   `json:"forward_buffer_plan"`
+	ForwardOpPlan      diffusiongemma.ForwardOpPlan       `json:"forward_op_plan"`
 }
 
 func main() {
@@ -43,7 +44,7 @@ func main() {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape)}
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil)}
 	if *openWeights {
 		weights, err := diffusiongemma.OpenTextWeights(*modelDir, shape)
 		if err != nil {
@@ -93,6 +94,7 @@ func printText(r report) {
 	}
 	fb := r.ForwardBufferPlan
 	fmt.Printf("  buffers:   hidden=%d residual=%d logits=%d router=%d experts=%d\n", fb.Hidden, fb.Residual, fb.Logits, fb.Router, fb.Experts)
+	fmt.Printf("  ops:       ready=%v layer_ops=%d tail_ops=%d reason=%s\n", r.ForwardOpPlan.Ready, len(r.ForwardOpPlan.Layers), len(r.ForwardOpPlan.Tail), r.ForwardOpPlan.Reason)
 	if r.TextWeightsOpened {
 		fmt.Printf("  weights:   text_shards_opened=true globals=%d layers=%d\n", r.TextWeightsGlobals, r.TextWeightsLayers)
 	}

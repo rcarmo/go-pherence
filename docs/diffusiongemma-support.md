@@ -247,3 +247,16 @@ logits=67108864
 router=32768
 experts=1441792
 ```
+
+
+## Forward op plan
+
+`model/diffusiongemma/ops.go` adds a semantic `ForwardOpPlan` and `ForwardDispatcher` boundary for the text denoiser. The plan currently emits 9 high-level operations per text layer plus tail operations (`self_condition`, `final_norm`, `lm_head`). For the published 30-layer checkpoint, the inspector reports:
+
+```text
+ops ready=true
+layer_ops=270
+tail_ops=3
+```
+
+`TextDenoiser` now routes `Denoise` through a dispatcher. The default dispatcher returns an explicit not-implemented error until tensor-backed CPU/SIMD layer math is added.
