@@ -694,3 +694,7 @@ diffusiongemma-download-plan-json:
 
 diffusiongemma-download-plan-summary:
 	python3 scripts/diffusiongemma_download_plan_summary.py $(DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT)
+
+.PHONY: diffusiongemma-download-plan-report
+
+diffusiongemma-download-plan-report: diffusiongemma-download-plan-json diffusiongemma-download-plan-summary

@@ -815,3 +815,8 @@ Shard readiness now includes `present_percent`, and the inspector/status summary
 ## Download plan summary
 
 `make diffusiongemma-download-plan-summary` prints a compact human-readable summary from `DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT`, complementing the machine-readable `diffusiongemma-download-plan-json` target.
+
+
+## Download plan report target
+
+`make diffusiongemma-download-plan-report` writes the machine-readable download plan JSON and immediately prints the compact download-plan summary. It is the recommended preflight before opting into the full ~48.10 GiB shard download.
