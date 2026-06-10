@@ -548,3 +548,18 @@ go run ./cmd/diffusiongemmarun -model /workspace/tmp/diffusiongemma -prompt "hi"
 ```
 
 Expected scaffold output includes `generated=[4 4]` and `<mask><mask>`. This is not model inference; it validates sampler/control-flow plumbing.
+
+
+## Mock run target
+
+`make diffusiongemma-run-mock` exercises the tokenizer + block-diffusion control-flow scaffold without weights by attaching `MockDenoiser`. Useful overrides:
+
+```text
+DIFFUSIONGEMMA_PROMPT
+DIFFUSIONGEMMA_MOCK_TOKEN
+DIFFUSIONGEMMA_CANVAS
+DIFFUSIONGEMMA_MAX_NEW
+DIFFUSIONGEMMA_SEED
+```
+
+The default mock token is `4` (`<mask>` in the published tokenizer metadata).
