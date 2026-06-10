@@ -2,9 +2,16 @@ package ideogram4
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
+
+func gpuVAEAttentionSGEMMEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_VAE_ATTN_SGEMM")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
 
 func vaeSpatialAttentionGPU(q, k, v FeatureMap, scale float32) (FeatureMap, error) {
 	if q.C != k.C || q.C != v.C || q.H != k.H || q.H != v.H || q.W != k.W || q.W != v.W {
@@ -25,7 +32,13 @@ func vaeSpatialAttentionGPU(q, k, v FeatureMap, scale float32) (FeatureMap, erro
 		}
 	}
 	outT := make([]float32, HW*C)
-	if err := nvidia.IdeogramFullAttention(outT, qt, kt, vt, HW, 1, C, scale); err != nil {
+	if gpuVAEAttentionSGEMMEnabled() {
+		if err := nvidia.IdeogramFullAttentionSgemm(outT, qt, kt, vt, HW, C, scale); err != nil {
+			if err2 := nvidia.IdeogramFullAttention(outT, qt, kt, vt, HW, 1, C, scale); err2 != nil {
+				return FeatureMap{}, err
+			}
+		}
+	} else if err := nvidia.IdeogramFullAttention(outT, qt, kt, vt, HW, 1, C, scale); err != nil {
 		return FeatureMap{}, err
 	}
 	out := FeatureMap{C: C, H: q.H, W: q.W, Data: make([]float32, C*HW)}

@@ -713,6 +713,70 @@ func IdeogramAttentionScoresBuffer(scores, q, k *Buffer, tokens, heads, headDim 
 		unsafe.Pointer(&tt), unsafe.Pointer(&hh), unsafe.Pointer(&hd), unsafe.Pointer(&scale))
 }
 
+func IdeogramFullAttentionSgemm(out, q, k, v []float32, tokens, dim int, scale float32) error {
+	if tokens <= 0 || dim <= 0 || len(out) < tokens*dim || len(q) < tokens*dim || len(k) < tokens*dim || len(v) < tokens*dim {
+		return fmt.Errorf("invalid Ideogram SGEMM attention buffers tokens=%d dim=%d", tokens, dim)
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU SGEMM not available")
+	}
+	kT := make([]float32, dim*tokens)
+	for t := 0; t < tokens; t++ {
+		for d := 0; d < dim; d++ {
+			kT[d*tokens+t] = k[t*dim+d]
+		}
+	}
+	qBuf, err := Malloc(tokens * dim)
+	if err != nil {
+		return err
+	}
+	defer qBuf.Free()
+	kBuf, err := Malloc(dim * tokens)
+	if err != nil {
+		return err
+	}
+	defer kBuf.Free()
+	vBuf, err := Malloc(tokens * dim)
+	if err != nil {
+		return err
+	}
+	defer vBuf.Free()
+	scoreBuf, err := Malloc(tokens * tokens)
+	if err != nil {
+		return err
+	}
+	defer scoreBuf.Free()
+	probBuf, err := Malloc(tokens * tokens)
+	if err != nil {
+		return err
+	}
+	defer probBuf.Free()
+	outBuf, err := Malloc(tokens * dim)
+	if err != nil {
+		return err
+	}
+	defer outBuf.Free()
+	if err := qBuf.Upload(q[:tokens*dim]); err != nil {
+		return err
+	}
+	if err := kBuf.Upload(kT); err != nil {
+		return err
+	}
+	if err := vBuf.Upload(v[:tokens*dim]); err != nil {
+		return err
+	}
+	if err := Sgemm(tokens, tokens, dim, scale, qBuf, kBuf, scoreBuf); err != nil {
+		return fmt.Errorf("attention score SGEMM: %w", err)
+	}
+	if err := SoftmaxRowsBuffer(probBuf, scoreBuf, tokens, tokens); err != nil {
+		return err
+	}
+	if err := Sgemm(tokens, dim, tokens, 1, probBuf, vBuf, outBuf); err != nil {
+		return fmt.Errorf("attention value SGEMM: %w", err)
+	}
+	return outBuf.Download(out[:tokens*dim])
+}
+
 func IdeogramAttentionValuesBuffer(out, probs, v *Buffer, tokens, heads, headDim int) error {
 	if fnIdeogramAttentionValuesF32 == 0 || !megaModuleOK || out == nil || probs == nil || v == nil || tokens <= 0 || heads <= 0 || headDim <= 0 || !fitsUint32(tokens) || !fitsUint32(heads) || !fitsUint32(headDim) {
 		return fmt.Errorf("invalid Ideogram attention value device buffers")
