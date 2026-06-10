@@ -402,3 +402,8 @@ DiffusionGemma denoiser is not implemented
 ```
 
 This CLI is useful for checking that metadata loading and the public inference entrypoint are wired without falsely claiming generation support.
+
+
+## CPU dispatcher run mode
+
+`cmd/diffusiongemmarun` now accepts `-cpu-dispatcher`. In that mode it opens local safetensor shards, builds `TextWeights`, attaches `TextDenoiser` with `CPUDispatcher`, and calls the public engine. Against the metadata-only snapshot it fails clearly on the missing shard files; with local shards present it will execute the current CPU/SIMD scaffold until the next unimplemented or non-parity operation is reached. Default mode remains safe and reports `DiffusionGemma denoiser is not implemented`.

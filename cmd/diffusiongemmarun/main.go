@@ -25,6 +25,7 @@ func main() {
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
 	seed := flag.Int64("seed", 1, "deterministic canvas RNG seed")
+	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
 	if *modelDir == "" {
@@ -39,7 +40,20 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	eng, err := diffusiongemma.NewEngine(m, nil)
+	var denoiser diffusiongemma.Denoiser
+	var weights *diffusiongemma.TextWeights
+	if *useCPUDispatcher {
+		weights, err = diffusiongemma.OpenTextWeights(*modelDir, m.Shape)
+		if err != nil {
+			fatal(err)
+		}
+		defer weights.Close()
+		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{})
+		if err != nil {
+			fatal(err)
+		}
+	}
+	eng, err := diffusiongemma.NewEngineWithTextWeights(m, weights, denoiser)
 	if err != nil {
 		fatal(err)
 	}
@@ -63,7 +77,7 @@ func main() {
 		return
 	}
 	fmt.Printf("DiffusionGemma run scaffold: %s\n", *modelDir)
-	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed)
+	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher)
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)
 		os.Exit(1)
