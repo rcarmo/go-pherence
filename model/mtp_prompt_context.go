@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
@@ -104,7 +105,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	if layer.HeadDimLocal > 0 {
 		layerHeadDim = layer.HeadDimLocal
 	}
-	layerKVHeads := layerKVHeadsForConfig(cfg, layerIdx)
+	layerKVHeads := gemmacfg.LayerKVHeads(cfg, layerIdx)
 	qDim, ok := checkedProduct(cfg.NumHeads, layerHeadDim)
 	layerKVDim, okKV := checkedProduct(layerKVHeads, layerHeadDim)
 	if layerHeadDim <= 0 || !ok || !okKV {

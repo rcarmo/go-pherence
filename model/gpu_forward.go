@@ -6,6 +6,7 @@ package model
 
 import (
 	"fmt"
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 	"math"
 	"os"
 	"runtime"
@@ -509,7 +510,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	for i := 0; i < g.GPULayers && i < len(g.kvGPU_K); i++ {
 		lkv := kvDim
 		if m.Layers[i].HeadDimLocal > 0 {
-			lkv = layerKVHeadsForConfig(cfg, i) * m.Layers[i].HeadDimLocal
+			lkv = gemmacfg.LayerKVHeads(cfg, i) * m.Layers[i].HeadDimLocal
 		}
 		g.kvGPU_K[i] = nvidia.NewDevBuf(maxSeq * lkv)
 		g.kvGPU_V[i] = nvidia.NewDevBuf(maxSeq * lkv)

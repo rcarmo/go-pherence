@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 
 	"github.com/rcarmo/go-pherence/runtime/kv"
 )
@@ -19,7 +20,7 @@ func (m *LlamaModel) LayerKVDim(layerIdx int) (int, error) {
 	if !layer.HasKV {
 		return 0, nil
 	}
-	numKVHeads := layerKVHeadsForConfig(m.Config, layerIdx)
+	numKVHeads := gemmacfg.LayerKVHeads(m.Config, layerIdx)
 	if numKVHeads <= 0 {
 		return 0, fmt.Errorf("layer %d num_key_value_heads=%d", layerIdx, numKVHeads)
 	}

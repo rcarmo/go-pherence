@@ -30,10 +30,10 @@ func TestNormalizeGemma4TextConfigFromSubpackage(t *testing.T) {
 	if cfg.ModelType != "gemma4_text" || cfg.HiddenSize != 5376 || cfg.NumGlobalKVHeads != 4 || !cfg.AttentionKEqV {
 		t.Fatalf("cfg=%+v", cfg)
 	}
-	if got := layerKVHeadsForConfig(cfg, 0); got != 16 {
+	if got := gemmacfg.LayerKVHeads(cfg, 0); got != 16 {
 		t.Fatalf("sliding KV heads=%d want 16", got)
 	}
-	if got := layerKVHeadsForConfig(cfg, 1); got != 4 {
+	if got := gemmacfg.LayerKVHeads(cfg, 1); got != 4 {
 		t.Fatalf("full KV heads=%d want 4", got)
 	}
 }

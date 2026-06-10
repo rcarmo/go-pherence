@@ -1,11 +1,5 @@
 package model
 
-import gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
-
-func layerKVHeadsForConfig(cfg LlamaConfig, layerIdx int) int {
-	return gemmacfg.LayerKVHeads(cfg, layerIdx)
-}
-
 func checkedProduct(a, b int) (int, bool) {
 	if a < 0 || b < 0 {
 		return 0, false

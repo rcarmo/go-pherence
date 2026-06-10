@@ -381,7 +381,7 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 			} else {
 				lhd = cfg.HeadDim
 			}
-			layerKVHeads = layerKVHeadsForConfig(cfg, l)
+			layerKVHeads = gemmacfg.LayerKVHeads(cfg, l)
 			qDimL = cfg.NumHeads * lhd
 			kvDimL = layerKVHeads * lhd
 			oDimIn = qDimL
@@ -932,7 +932,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			if layer.HeadDimLocal > 0 {
 				layerHeadDim = layer.HeadDimLocal
 			}
-			layerKVHeads := layerKVHeadsForConfig(cfg, l)
+			layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
 			qDim := numHeads * layerHeadDim
 			q := make([]float32, qDim)
 			layerKVDim := layerKVHeads * layerHeadDim

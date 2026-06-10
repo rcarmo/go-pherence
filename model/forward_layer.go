@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 )
 
 // ForwardLayer runs a single transformer layer on CPU and returns the updated hidden state.
@@ -15,7 +16,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	cfg := m.Config
 	h := cfg.HiddenSize
 	numHeads := cfg.NumHeads
-	numKVHeads := layerKVHeadsForConfig(cfg, layerIdx)
+	numKVHeads := gemmacfg.LayerKVHeads(cfg, layerIdx)
 	if h <= 0 || numHeads <= 0 || numKVHeads <= 0 || len(hidden) < h {
 		return nil
 	}
