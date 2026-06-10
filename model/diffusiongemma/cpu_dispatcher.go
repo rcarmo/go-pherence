@@ -73,7 +73,11 @@ func (CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, op
 			return ForwardOutput{}, err
 		}
 	}
-	return ForwardOutput{Logits: scratch.Logits}, nil
+	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch)
+	if err != nil {
+		return ForwardOutput{}, err
+	}
+	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning}, nil
 }
 
 func dispatchPrefixOp(op OpKind, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
@@ -857,6 +861,51 @@ func runFinalNorm(weights *TextWeights, scratch ForwardScratch) error {
 		}
 	}
 	return nil
+}
+
+func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratch) ([]float32, error) {
+	if weights == nil || len(scratch.Logits) == 0 {
+		return nil, nil
+	}
+	fp := weights.ForwardPlan()
+	if fp.Globals.EmbedTokens == nil || len(fp.Globals.EmbedTokens.Shape) != 2 {
+		return nil, nil
+	}
+	vocab := fp.Globals.EmbedTokens.Shape[0]
+	hiddenSize := fp.Globals.EmbedTokens.Shape[1]
+	if vocab <= 0 || hiddenSize <= 0 {
+		return nil, nil
+	}
+	positions := len(scratch.Logits)
+	out := make([]float32, positions*hiddenSize)
+	row := make([]float32, hiddenSize)
+	for pos := 0; pos < positions; pos++ {
+		if len(scratch.Logits[pos]) < vocab {
+			return nil, fmt.Errorf("DiffusionGemma self-conditioning logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
+		}
+		probs := append([]float32(nil), scratch.Logits[pos][:vocab]...)
+		softmaxInPlace(probs)
+		for vocabID, prob := range probs {
+			if prob == 0 {
+				continue
+			}
+			raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
+			if err != nil {
+				return nil, err
+			}
+			if len(shape) != 1 || shape[0] != hiddenSize {
+				return nil, fmt.Errorf("DiffusionGemma self-conditioning row shape %v want [%d]", shape, hiddenSize)
+			}
+			if err := decodeFloatRowTo(row, raw, dtype); err != nil {
+				return nil, err
+			}
+			dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
+			for i := range dst {
+				dst[i] += prob * row[i]
+			}
+		}
+	}
+	return out, nil
 }
 
 func runLMHead(weights *TextWeights, scratch ForwardScratch) error {

@@ -516,4 +516,9 @@ The output JSON includes prompt, input IDs, output IDs, decoded text, timing, dt
 
 ## Self-conditioning feedback plumbing
 
-`GenerateCanvas` now carries an optional self-conditioning signal between denoising steps via `ForwardInput.SelfConditioning` and `ForwardOutput.SelfConditioning`. This matches the reference loop shape where logits from the previous denoising step can be converted into soft embeddings for the next step. The actual logits→soft-embedding conversion is not implemented yet and remains part of reference parity work.
+`GenerateCanvas` now carries an optional self-conditioning signal between denoising steps via `ForwardInput.SelfConditioning` and `ForwardOutput.SelfConditioning`. This matches the reference loop shape where logits from the previous denoising step can be converted into soft embeddings for the next step. The logits→soft-embedding conversion is now scaffolded in the CPU dispatcher using a row-wise softmax-weighted tied-embedding pass. It is correctness-first and expensive for the full vocabulary, but completes the feedback plumbing shape.
+
+
+## Self-conditioning soft embedding conversion
+
+After LM-head logits are produced, `CPUDispatcher` now builds the next self-conditioning signal by applying softmax over each logits row and accumulating a weighted sum of tied embedding rows. Like the memory-aware LM head, this uses row-wise `RawTensorRow` access to avoid eager full-matrix expansion, but it remains computationally expensive for the 262K vocabulary and needs reference parity validation.
