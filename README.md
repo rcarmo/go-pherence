@@ -86,9 +86,19 @@ make gguf-validate-qwen36-reap
 make gguf-bench-qwen36-reap
 make gguf-check-qwen36-reap  # validation + benchmark
 make gguf-ci-qwen36-reap     # focused build smoke + check
+
+# DiffusionGemma block-diffusion scaffold/status workflow
+make diffusiongemma-download-metadata
+make diffusiongemma-inspect
+make diffusiongemma-run-mock
+make diffusiongemma-status-json
+make diffusiongemma-status-summary
+make diffusiongemma-ci-scaffold
 ```
 
 The Qwen3.6 REAP GGUF CI target exercises the native go-pherence path end-to-end: GGUF inspect, one-token generation smoke, synthetic TurboQuant cache smoke, benchmark, required SIMD rotation readiness, static/runtime/cache/benchmark KV+scratch byte assertions, and aggregate compressed-cache counters. It does not depend on llama.cpp for runtime execution.
+
+The DiffusionGemma scaffold targets inspect the public `google/diffusiongemma-26B-A4B-it` metadata, run a mock block-diffusion denoiser through the native sampler/control-flow path, export machine-readable scaffold status, and run reference-helper dry-runs without requiring full weight shards. Real DiffusionGemma inference remains gated by reference parity and processor/vision integration.
 
 See [docs/commands.md](docs/commands.md) for detailed command usage, GGUF REAP/TurboQuant validation, MTP smoke commands, Qwen3.6 native-MTP triage commands, Whisper VTT usage, and benchmark harnesses. See [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) for the current Whisper implementation status and limitations.
 
@@ -105,6 +115,8 @@ Start here:
 - [docs/gemma4-31b-runbook.md](docs/gemma4-31b-runbook.md) — Gemma4 E4B/31B local run strategy and smoke results.
 - [docs/qwen36-mtp.md](docs/qwen36-mtp.md) — Qwen3.6 native-MTP checkpoint findings.
 - [docs/ideogram4-support.md](docs/ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, and current GPU limitation.
+- [docs/diffusiongemma-support.md](docs/diffusiongemma-support.md) — DiffusionGemma block-diffusion scaffold, references, controls, and implementation plan.
+- [docs/diffusiongemma-status.md](docs/diffusiongemma-status.md) — current DiffusionGemma scaffold status, operation coverage, and remaining readiness gaps.
 - [docs/validation-gates.md](docs/validation-gates.md) — standard validation gates.
 - [docs/validation-hardening.md](docs/validation-hardening.md) — malformed-input and boundary-hardening summary.
 
