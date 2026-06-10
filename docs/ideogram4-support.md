@@ -147,3 +147,104 @@ After freeing workspace scratch, the full Diffusers folder (text encoder, condit
 ## Current status
 
 Native Ideogram 4 FP8 text-to-image execution is implemented and real-weight validated component-by-component and end-to-end at a tiny proof-of-life budget. `cmd/image/ideogram4inspect` remains the metadata/inventory validator; `cmd/image/ideogram4gen` is the PNG generation driver. The current blocker is image quality/performance rather than missing CPU runtime coverage. NVIDIA kernels now cover opt-in FP8 linear streaming or lazy FP8 linear residency with explicit release hooks, Qwen3-VL FP8 projection/MLP calls through the same gated FP8 path, Qwen/shared weighted RMSNorm via `GO_PHERENCE_IDEOGRAM4_GPU_NORM`, Qwen RoPE via the existing RoPE kernel under `GO_PHERENCE_IDEOGRAM4_GPU_MROPE`, Qwen causal GQA attention via `GO_PHERENCE_IDEOGRAM4_GPU_ATTN`, VAE latent denormalization, unpatchify, direct Conv2D, GroupNorm, SiLU activation, mid-block attention, nearest-neighbour upsample, and final RGB clamp/scale via `GO_PHERENCE_IDEOGRAM4_GPU_VAE`, fused scheduler/CFG vector update, non-affine LayerNorm, adaLN transform, gated residual updates, MRoPE rotation, full DiT attention, and MLP/final vector operations, but the full Ideogram FP8 DiT/Qwen/VAE graph has not been converted to GPU-resident execution. Higher-fidelity generation needs either a much longer CPU/SIMD run or continued CUDA/NVIDIA conversion across GPU residency/streaming and VAE decode.
+
+## Current optimized NVIDIA profile (RTX 3060 12GB)
+
+The current local performance profile is tuned for an RTX 3060 12GB with model files on SSD and uses structured JSON prompts matching the ComfyUI-Ideogram4 Magic Prompt → Generate workflow. Reproducible targets live in the top-level `Makefile`:
+
+```bash
+make ideogram4-cat-gpu-256
+make ideogram4-cat-gpu-512
+make ideogram4-residency-sweep
+make ideogram4-vae-probe
+```
+
+The 256px default path enables:
+
+```text
+-gpu -gpu-fp8 -gpu-fp8-cache -gpu-fp8-sgemm -gpu-residency phase
+GO_PHERENCE_IDEOGRAM4_GPU_DIT_VECTOR=1
+GO_PHERENCE_IDEOGRAM4_GPU_FULL_LAYER=1
+GO_PHERENCE_IDEOGRAM4_GPU_HIDDEN_RESIDENT=1
+GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_WINDOW_COND=34
+GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_WINDOW_UNCOND=9
+```
+
+This profile keeps the DiT hidden state resident across the layer loop, runs the attention and MLP sublayers as GPU-resident islands through post-norm and gated residual, keeps all conditional DiT layer weights resident, and keeps the first nine unconditional layers resident. AdaLN residency is available behind `GO_PHERENCE_IDEOGRAM4_GPU_ADALN_RESIDENT=1` but is default-off because it exceeds 12GB VRAM with the aggressive default cache profile.
+
+Validated 256×256, 8-step structured cat prompt timing:
+
+```text
+qwen_condition ≈ 12.5s
+DiT denoise    ≈ 9m25s
+VAE decode     ≈ 4.6s
+total generate ≈ 9m43s
+```
+
+The output is a recognizable orange tabby cat. The early correct baseline for the same 8-step prompt was roughly 16m22s, so the current profile is about 40% faster end-to-end.
+
+### Residency and transfer findings
+
+Instrumentation is enabled with:
+
+```text
+GO_PHERENCE_IDEOGRAM4_GPU_STATS=1
+GO_PHERENCE_IDEOGRAM4_TIMING=1
+```
+
+The first instrumented denoise path had millions of tiny transfers/allocations per step. Batched DiT RMSNorm, batched post-norm/gated residual, reusable GPU scratch, and GPU-resident attention/MLP islands reduced 1-step denoise from roughly:
+
+```text
+initial: kernels≈957k, h2d≈1.96M, d2h≈957k, denoise≈1m45s
+current: kernels≈2.6k, h2d≈3.3k, d2h≈1.3k, denoise≈1m12s
+```
+
+Hidden-resident full-layer mode reduced DiT D2H to a small tail. Current 8-step denoise still uploads tens of GB host→device, mostly streamed layer weights/dynamic inputs. The asymmetric cache profile is the best stable 12GB tradeoff found so far:
+
+```text
+COND cache=34, UNCOND cache=9: stable
+UNCOND>=10 with COND=34: cuMemAlloc error 2
+symmetric window=21: stable
+symmetric window>=22: CUDA error 700 / allocation failure
+```
+
+Role-wide QKV/O/attention residency knobs exist for experiments:
+
+```text
+GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_QKV_ALL
+GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_O_ALL
+GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_ATTENTION_ALL
+```
+
+but are default-off because all-layer role residency exceeds VRAM in combination with the current hidden-resident profile.
+
+### Resolution limits
+
+At 512×512, the 256px residency defaults exceed VRAM. The conservative 512 target uses:
+
+```text
+COND cache=16
+UNCOND cache=0
+steps=4 by default
+```
+
+Measured 512×512, 4-step timing:
+
+```text
+qwen_condition ≈ 12.7s
+DiT denoise    ≈ 15m58s
+VAE decode     ≈ 54s
+total generate ≈ 17m05s
+```
+
+The 512 output is recognizable but artifacted at 4 steps. 512px is currently the practical upper bound for routine use on this 12GB GPU. 768px is experimental and likely hour-scale for a 4-step render; 1024px is not practical without tiled/chunked attention.
+
+### Remaining bottlenecks
+
+The remaining high-value work is:
+
+1. reduce DiT H2D further with safer selective weight/dynamic-buffer residency without exceeding 12GB,
+2. implement real VAE feature-map residency using the buffer-level VAE primitives,
+3. investigate tiled/chunked attention for 768px/1024px feasibility.
+
+VAE GPU buffer primitives now exist for Conv2D, GroupNorm, UpsampleNearest, and RGB clamp, and `make ideogram4-vae-probe` provides a reproducible VAE-only benchmark. A 512px VAE probe currently shows ~53s decode with ~6.7GB H2D and ~6.2GB D2H, so high-resolution VAE needs full buffer residency/direct-conv improvements.
