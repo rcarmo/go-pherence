@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rcarmo/go-pherence/cmd/internal/testexec"
 	"github.com/rcarmo/go-pherence/model/lfm2"
 )
 
@@ -143,17 +144,7 @@ func TestReportValidStrictInputs(t *testing.T) {
 }
 
 func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-	for i, arg := range os.Args {
-		if arg == "--" {
-			os.Args = append([]string{os.Args[0]}, os.Args[i+1:]...)
-			main()
-			return
-		}
-	}
-	os.Exit(2)
+	testexec.HelperProcess(t, main)
 }
 
 func writeFile(t *testing.T, path, data string) {
