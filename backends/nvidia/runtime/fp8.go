@@ -268,6 +268,60 @@ func GemmFP8E4M3Buffer(outBuf, xBuf *Buffer, batch int, w *GPUFP8E4M3Linear) err
 // activation matrix. This is intended for SwiGLU-style projection pairs such as
 // Ideogram/Qwen W1+W3, where both linears consume the exact same [batch,InDim]
 // input. It reduces host-device traffic without changing numerical kernels.
+func GemmQKVAttentionOResidualFP8E4M3Buffer(hiddenBuf, xBuf, gateBuf, normQBuf, normKBuf, normOutBuf, cosBuf, sinBuf *Buffer, tokens, heads, headDim int, scale float32, wqkv, wo *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(wqkv) || !validGPUFP8E4M3Linear(wo) || tokens <= 0 || heads <= 0 || headDim <= 0 {
+		return fmt.Errorf("invalid GPU FP8 E4M3 QKV attention/O buffer inputs")
+	}
+	emb := heads * headDim
+	outLen := tokens * emb
+	qkvLen := tokens * 3 * emb
+	scoreLen := heads * tokens * tokens
+	bufs, unlock, err := ideogramScratchBuffers(qkvLen, outLen, outLen, outLen, outLen, scoreLen, scoreLen, outLen)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	qkvBuf, qBuf, kBuf, vBuf, attnBuf, scoreBuf, probBuf, oprojBuf := bufs[0], bufs[1], bufs[2], bufs[3], bufs[4], bufs[5], bufs[6], bufs[7]
+	if err := GemmFP8E4M3Buffer(qkvBuf, xBuf, tokens, wqkv); err != nil {
+		return fmt.Errorf("FP8 QKV/O buffer QKV: %w", err)
+	}
+	if err := IdeogramSplitQKVBuffer(qkvBuf, qBuf, kBuf, vBuf, tokens, emb); err != nil {
+		return err
+	}
+	if err := IdeogramRMSNormRowsBuffer(qBuf, qBuf, normQBuf, nil, tokens*heads, headDim, 1e-5, false); err != nil {
+		return fmt.Errorf("FP8 QKV/O buffer normQ: %w", err)
+	}
+	if err := IdeogramRMSNormRowsBuffer(kBuf, kBuf, normKBuf, nil, tokens*heads, headDim, 1e-5, false); err != nil {
+		return fmt.Errorf("FP8 QKV/O buffer normK: %w", err)
+	}
+	if err := IdeogramMRoPEBuffer(qBuf, cosBuf, sinBuf, tokens, heads, headDim); err != nil {
+		return fmt.Errorf("FP8 QKV/O buffer mropeQ: %w", err)
+	}
+	if err := IdeogramMRoPEBuffer(kBuf, cosBuf, sinBuf, tokens, heads, headDim); err != nil {
+		return fmt.Errorf("FP8 QKV/O buffer mropeK: %w", err)
+	}
+	if err := IdeogramAttentionScoresBuffer(scoreBuf, qBuf, kBuf, tokens, heads, headDim, scale); err != nil {
+		return err
+	}
+	if err := SoftmaxRowsBuffer(probBuf, scoreBuf, heads*tokens, tokens); err != nil {
+		return err
+	}
+	if err := IdeogramAttentionValuesBuffer(attnBuf, probBuf, vBuf, tokens, heads, headDim); err != nil {
+		return err
+	}
+	if err := GemmFP8E4M3Buffer(oprojBuf, attnBuf, tokens, wo); err != nil {
+		return fmt.Errorf("FP8 QKV/O buffer O: %w", err)
+	}
+	if err := IdeogramRMSNormRowsBuffer(oprojBuf, oprojBuf, normOutBuf, nil, tokens, emb, 1e-5, false); err != nil {
+		return fmt.Errorf("FP8 QKV/O buffer post norm: %w", err)
+	}
+	if err := IdeogramGatedResidualRowsBuffer(hiddenBuf, oprojBuf, gateBuf, tokens, emb); err != nil {
+		return fmt.Errorf("FP8 QKV/O buffer residual: %w", err)
+	}
+	_ = outLen
+	return nil
+}
+
 func GemmQKVAttentionOResidualFP8E4M3(hidden, x, gate, normQ, normK, normOut, cos, sin []float32, tokens, heads, headDim int, scale float32, wqkv, wo *GPUFP8E4M3Linear) error {
 	if !validGPUFP8E4M3Linear(wqkv) || !validGPUFP8E4M3Linear(wo) || tokens <= 0 || heads <= 0 || headDim <= 0 {
 		return fmt.Errorf("invalid GPU FP8 E4M3 QKV attention/O inputs")
@@ -417,6 +471,43 @@ func GemmQKVAttentionFP8E4M3(out, x, normQ, normK, cos, sin []float32, tokens, h
 	if err := outBuf.Download(out[:outLen]); err != nil {
 		return fmt.Errorf("download FP8 QKV attention output: %w", err)
 	}
+	return nil
+}
+
+func GemmSwiGLUResidualFP8E4M3Buffer(hiddenBuf, xBuf, gateBuf, normOutBuf *Buffer, batch int, w1, w3, w2 *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(w1) || !validGPUFP8E4M3Linear(w3) || !validGPUFP8E4M3Linear(w2) {
+		return fmt.Errorf("invalid GPU FP8 E4M3 SwiGLU residual buffer linear set")
+	}
+	if batch <= 0 || w1.InDim != w3.InDim || w1.OutDim != w3.OutDim || w2.InDim != w1.OutDim {
+		return fmt.Errorf("invalid FP8 E4M3 SwiGLU residual buffer dims")
+	}
+	interLen := batch * w1.OutDim
+	outLen := batch * w2.OutDim
+	bufs, unlock, err := ideogramScratchBuffers(interLen, interLen, outLen)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	gBuf, uBuf, downBuf := bufs[0], bufs[1], bufs[2]
+	if err := GemmFP8E4M3Buffer(gBuf, xBuf, batch, w1); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual buffer W1: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(uBuf, xBuf, batch, w3); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual buffer W3: %w", err)
+	}
+	if err := F32SiLUMulBuffer(gBuf, gBuf, uBuf, interLen); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual buffer SiLU*Mul: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(downBuf, gBuf, batch, w2); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual buffer W2: %w", err)
+	}
+	if err := IdeogramRMSNormRowsBuffer(downBuf, downBuf, normOutBuf, nil, batch, w2.OutDim, 1e-5, false); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual buffer post norm: %w", err)
+	}
+	if err := IdeogramGatedResidualRowsBuffer(hiddenBuf, downBuf, gateBuf, batch, w2.OutDim); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual buffer gated: %w", err)
+	}
+	_ = outLen
 	return nil
 }
 
