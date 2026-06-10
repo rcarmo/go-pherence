@@ -58,9 +58,9 @@ func ReadProcessorMetadata(modelDir string) (ProcessorMetadata, bool, error) {
 		out.EOI = tok.EOIToken
 		out.Image = tok.ImageToken
 		out.Think = tok.ThinkToken
-		out.BOT = tok.BOTToken
+		out.BOT = firstNonEmpty(tok.BOTToken, tok.SOTToken)
 		out.EOT = tok.EOTToken
-		out.BOC = tok.BOCToken
+		out.BOC = firstNonEmpty(tok.BOCToken, tok.SOCToken)
 		out.EOC = tok.EOCToken
 	}
 	if proc, ok, err := loaderconfig.ReadDiffusionGemmaProcessorConfig(modelDir); err != nil {
@@ -79,6 +79,15 @@ func ReadProcessorMetadata(modelDir string) (ProcessorMetadata, bool, error) {
 		out.ChatTemplate = &meta
 	}
 	return out, seen, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func ReadChatTemplateMetadata(modelDir string) (ChatTemplateMetadata, bool, error) {

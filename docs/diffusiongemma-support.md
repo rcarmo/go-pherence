@@ -527,3 +527,8 @@ After LM-head logits are produced, `CPUDispatcher` now builds the next self-cond
 ## Text prompt tokenization
 
 `diffusiongemmarun -prompt` now uses the existing Go Hugging Face tokenizer loader on `tokenizer.json` for plain text prompts. For example, `-prompt "hello world"` tokenizes to `[23391 1902]` against the fetched DiffusionGemma tokenizer snapshot and `-decode` can render it back through the same tokenizer. Exact-token mode (`-tokens`) remains available for control-token scaffolding. Full chat-template rendering is still separate work.
+
+
+## Simple chat message scaffold
+
+`diffusiongemmarun -message role:text` can now be repeated to build a simplified chat-style prompt. Message content is tokenized with `tokenizer.json` and framed with available begin/end turn tokens. This is not full Jinja rendering and currently does not tokenize role labels exactly as the model template does, but it provides a safer scaffold than raw prompt IDs for simple text turns.

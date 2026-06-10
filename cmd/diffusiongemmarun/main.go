@@ -12,6 +12,14 @@ import (
 	"github.com/rcarmo/go-pherence/model/diffusiongemma"
 )
 
+type stringList []string
+
+func (s *stringList) String() string { return strings.Join(*s, ",") }
+func (s *stringList) Set(v string) error {
+	*s = append(*s, v)
+	return nil
+}
+
 type report struct {
 	ModelPath       string                             `json:"model_path"`
 	PromptIDs       []int                              `json:"prompt_ids"`
@@ -28,6 +36,8 @@ func main() {
 	modelDir := flag.String("model", "", "DiffusionGemma model directory")
 	promptCSV := flag.String("prompt-ids", "", "comma-separated already-tokenized prompt IDs")
 	promptText := flag.String("prompt", "", "text prompt to tokenize with tokenizer.json")
+	var messages stringList
+	flag.Var(&messages, "message", "chat message as role:text; may be repeated; simplified scaffold, not full Jinja")
 	exactTokensCSV := flag.String("tokens", "", "comma-separated exact tokenizer vocabulary entries (no BPE tokenization)")
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
@@ -49,11 +59,13 @@ func main() {
 	}
 	var vocab *diffusiongemma.Vocab
 	var tok *tokenizer.Tokenizer
-	if strings.TrimSpace(*promptText) != "" {
+	if strings.TrimSpace(*promptText) != "" || len(messages) > 0 {
 		tok, err = tokenizer.Load(*modelDir + "/tokenizer.json")
 		if err != nil {
 			fatal(err)
 		}
+	}
+	if strings.TrimSpace(*promptText) != "" {
 		promptIDs = append(promptIDs, tok.Encode(*promptText)...)
 	}
 	if strings.TrimSpace(*exactTokensCSV) != "" || *decode {
@@ -73,7 +85,25 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if *addBOS || *enableThinking || *addGenerationPrompt {
+	if len(messages) > 0 {
+		if m.Tokenizer == nil {
+			fatal(fmt.Errorf("DiffusionGemma tokenizer metadata unavailable"))
+		}
+		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
+		chatMessages := make([]diffusiongemma.ChatMessage, 0, len(messages))
+		for _, raw := range messages {
+			role, content, ok := strings.Cut(raw, ":")
+			if !ok || strings.TrimSpace(content) == "" {
+				fatal(fmt.Errorf("bad -message %q, want role:text", raw))
+			}
+			chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: strings.TrimSpace(role), Content: tok.Encode(content)})
+		}
+		framed, err := diffusiongemma.BuildSimpleChatPromptIDs(chatMessages, specials, diffusiongemma.ChatPromptOptions{AddBOS: *addBOS, EnableThinking: *enableThinking, AddGenerationPrompt: *addGenerationPrompt})
+		if err != nil {
+			fatal(err)
+		}
+		promptIDs = append(promptIDs, framed.InputIDs...)
+	} else if *addBOS || *enableThinking || *addGenerationPrompt {
 		if m.Tokenizer == nil {
 			fatal(fmt.Errorf("DiffusionGemma tokenizer metadata unavailable"))
 		}

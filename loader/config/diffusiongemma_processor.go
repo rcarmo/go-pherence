@@ -12,8 +12,10 @@ type DiffusionGemmaTokenizerConfig struct {
 	EOIToken       string `json:"eoi_token"`
 	ImageToken     string `json:"image_token"`
 	BOTToken       string `json:"bot_token"`
+	SOTToken       string `json:"sot_token"`
 	EOTToken       string `json:"eot_token"`
 	BOCToken       string `json:"boc_token"`
+	SOCToken       string `json:"soc_token"`
 	EOCToken       string `json:"eoc_token"`
 	ThinkToken     string `json:"think_token"`
 	TokenizerClass string `json:"tokenizer_class"`

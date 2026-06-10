@@ -85,3 +85,45 @@ func BuildPromptIDs(content []int, specials SpecialTokenIDs, opts PromptOptions)
 	}
 	return PromptIDs{InputIDs: ids}, nil
 }
+
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content []int  `json:"content"`
+}
+
+type ChatPromptOptions struct {
+	AddBOS              bool `json:"add_bos"`
+	AddGenerationPrompt bool `json:"add_generation_prompt"`
+	EnableThinking      bool `json:"enable_thinking"`
+}
+
+func BuildSimpleChatPromptIDs(messages []ChatMessage, specials SpecialTokenIDs, opts ChatPromptOptions) (PromptIDs, error) {
+	ids := make([]int, 0)
+	if opts.AddBOS {
+		if specials.BOS < 0 {
+			return PromptIDs{}, fmt.Errorf("DiffusionGemma BOS token ID unavailable")
+		}
+		ids = append(ids, specials.BOS)
+	}
+	if opts.EnableThinking {
+		if specials.THINK < 0 {
+			return PromptIDs{}, fmt.Errorf("DiffusionGemma think token ID unavailable")
+		}
+		ids = append(ids, specials.THINK)
+	}
+	for _, msg := range messages {
+		if specials.BOT >= 0 {
+			ids = append(ids, specials.BOT)
+		}
+		// Role strings are intentionally not tokenized here; callers should include
+		// role/content token IDs once full chat-template rendering is implemented.
+		ids = append(ids, msg.Content...)
+		if specials.EOT >= 0 {
+			ids = append(ids, specials.EOT)
+		}
+	}
+	if opts.AddGenerationPrompt && specials.BOT >= 0 {
+		ids = append(ids, specials.BOT)
+	}
+	return PromptIDs{InputIDs: ids}, nil
+}
