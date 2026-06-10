@@ -13,6 +13,7 @@ type FP8Linear struct {
 	spec   LinearSpec
 	weight fp8.Linear
 	gpu    fp8LinearGPUCache
+	k3     k3FP8Cache
 }
 
 // NewFP8Linear binds raw E4M3 weight bytes and a scale tensor to a LinearSpec,
@@ -39,6 +40,7 @@ func (f *FP8Linear) Spec() LinearSpec { return f.spec }
 func (f *FP8Linear) ReleaseGPU() {
 	if f != nil {
 		f.gpu.release()
+		f.k3.release()
 	}
 }
 

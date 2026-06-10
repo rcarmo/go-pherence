@@ -51,8 +51,8 @@ This is **not yet full K3 SIMD coverage**. It is the first targetable binary for
 
 | Area | Current generic path | K3 SIMD/IME target | Status |
 |---|---|---|---|
-| FP8 E4M3 linear GEMV/GEMM | scalar/amd64/NVIDIA-specific paths; K3 gate routes to RVV f16 GEMM bridge when `GO_PHERENCE_IDEOGRAM4_K3=1` on riscv64 | K3 packed FP8→int8 or FP8→f16 kernels using IME2/RVV | partial: RVV f16 bridge, not final IME2 |
-| FP8 E4M3 decode | LUT scalar; K3 bridge decodes row-scaled FP8 to fp16 before RVV GEMM | RVV byte→f16/int8 packing, row-scale fused | partial |
+| FP8 E4M3 linear GEMV/GEMM | scalar/amd64/NVIDIA-specific paths; K3 gate routes to RVV f16 GEMM bridge when `GO_PHERENCE_IDEOGRAM4_K3=1` on riscv64 | K3 packed FP8→int8 or FP8→f16 kernels using IME2/RVV | partial: RVV f16 bridge with resident decoded fp16 weight cache, not final IME2 |
+| FP8 E4M3 decode | LUT scalar; K3 bridge decodes row-scaled FP8 to resident fp16 weight rows before RVV GEMM | RVV byte→f16/int8 packing, row-scale fused | partial |
 | Qwen text encoder linears | `FP8Linear.ApplyBatch` | K3 FP8 batch linear, A100 worker-pool scheduling | missing |
 | DiT QKV/O/W1/W2/W3 linears | `FP8Linear.ApplyBatch` / GPU on NVIDIA | K3 full-layer packed/resident linears | missing |
 | RMSNorm rows | Go scalar / NVIDIA rows | RVV row RMSNorm over f32/f16 | missing |
@@ -70,7 +70,7 @@ This is **not yet full K3 SIMD coverage**. It is the first targetable binary for
 
 1. Keep the Ideogram model code backend-neutral. Add K3-specific acceleration behind package-level helpers instead of forking `model/ideogram4`.
 2. Start with FP8 linears, because Qwen and DiT throughput depends on them.
-3. For K3, do not attempt NVIDIA-style GPU residency. Instead, use 24 GB RAM for resident decoded/packed weights and activation work buffers, and use `aipool`/TCM for compute kernels.
+3. For K3, do not attempt NVIDIA-style GPU residency. Instead, use 24 GB RAM for resident decoded/packed weights and activation work buffers, and use `aipool`/TCM for compute kernels. The first FP8 bridge already caches decoded fp16 weights per `FP8Linear` to avoid re-decoding large projections on every call.
 4. Prefer IME2 int8 for large linears if accuracy is acceptable after FP8 row-scale conversion; prefer RVV f16/f32 for norm/attention/vector kernels.
 5. Maintain scalar fallbacks and cross-build tests until real K3 hardware validation is available.
 

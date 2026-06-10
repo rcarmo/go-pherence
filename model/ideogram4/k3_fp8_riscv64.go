@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/rcarmo/go-pherence/backends/simd/quant/fp8"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
@@ -27,6 +28,47 @@ func k3Threads() int {
 	return 8
 }
 
+type k3FP8Cache struct {
+	mu        sync.Mutex
+	weightF16 []uint16
+	outDim    int
+	inDim     int
+}
+
+func (c *k3FP8Cache) release() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.weightF16 = nil
+	c.outDim, c.inDim = 0, 0
+}
+
+func (c *k3FP8Cache) ensureWeightF16(f *FP8Linear) []uint16 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	outDim, inDim := f.weight.OutDim, f.weight.InDim
+	if c.weightF16 != nil && c.outDim == outDim && c.inDim == inDim {
+		return c.weightF16
+	}
+	B := make([]uint16, outDim*inDim)
+	for r := 0; r < outDim; r++ {
+		scale := f.weight.Scale[0]
+		if len(f.weight.Scale) != 1 {
+			scale = f.weight.Scale[r]
+		}
+		wb := f.weight.Weight[r*inDim : (r+1)*inDim]
+		bb := B[r*inDim : (r+1)*inDim]
+		for cidx := 0; cidx < inDim; cidx++ {
+			bb[cidx] = half.F32ToF16(fp8.DecodeE4M3(wb[cidx]) * scale)
+		}
+	}
+	c.weightF16 = B
+	c.outDim, c.inDim = outDim, inDim
+	return B
+}
+
 func k3FP8Batch(f *FP8Linear, x, out []float32, batch int) (bool, error) {
 	if f == nil || !k3Enabled() || batch <= 0 {
 		return false, nil
@@ -41,18 +83,7 @@ func k3FP8Batch(f *FP8Linear, x, out []float32, batch int) (bool, error) {
 	// should replace this with resident packed FP8→int8/IME2 kernels.
 	A := make([]uint16, batch*inDim)
 	rvv.F32ToF16RVV(A, x[:batch*inDim])
-	B := make([]uint16, outDim*inDim)
-	for r := 0; r < outDim; r++ {
-		scale := f.weight.Scale[0]
-		if len(f.weight.Scale) != 1 {
-			scale = f.weight.Scale[r]
-		}
-		wb := f.weight.Weight[r*inDim : (r+1)*inDim]
-		bb := B[r*inDim : (r+1)*inDim]
-		for c := 0; c < inDim; c++ {
-			bb[c] = half.F32ToF16(fp8.DecodeE4M3(wb[c]) * scale)
-		}
-	}
+	B := f.k3.ensureWeightF16(f)
 	rvv.GemmF16Threaded(A, B, out[:batch*outDim], batch, outDim, inDim, k3Threads())
 	if f.weight.Bias != nil {
 		for b := 0; b < batch; b++ {
