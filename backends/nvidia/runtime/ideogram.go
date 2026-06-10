@@ -1015,6 +1015,28 @@ func IdeogramLatentDenorm(x, scale, shift []float32, channels int) error {
 	return xBuf.Download(x)
 }
 
+// IdeogramRGBClampBuffer converts CHW RGB F32 values in [-1,1] to interleaved
+// RGB F32 values in [0,255] on GPU-resident buffers.
+func IdeogramRGBClampBuffer(outBuf, inBuf *Buffer, hw int) error {
+	loadMegaModule()
+	if fnIdeogramRGBClampF32 == 0 || !megaModuleOK || outBuf == nil || inBuf == nil || hw <= 0 || !fitsUint32(hw) {
+		return fmt.Errorf("invalid Ideogram RGB clamp device buffers hw=%d", hw)
+	}
+	if _, err := checkedByteSize(3*hw, outBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram RGB clamp output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(3*hw, inBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram RGB clamp input buffer: %w", err)
+	}
+	grid, ok := grid1DFor(3*hw, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram RGB clamp grid")
+	}
+	h := uint32(hw)
+	return LaunchKernel(fnIdeogramRGBClampF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&h))
+}
+
 // IdeogramRGBClamp converts CHW RGB F32 values in [-1,1] to interleaved RGB F32
 // values in [0,255] through the NVIDIA kernel.
 func IdeogramRGBClamp(out, in []float32, hw int) error {
@@ -1022,31 +1044,44 @@ func IdeogramRGBClamp(out, in []float32, hw int) error {
 	if fnIdeogramRGBClampF32 == 0 || !megaModuleOK || hw <= 0 || len(in) < 3*hw || len(out) < 3*hw || !fitsUint32(hw) {
 		return fmt.Errorf("invalid Ideogram RGB clamp buffers out=%d in=%d hw=%d", len(out), len(in), hw)
 	}
-	inBuf, err := Malloc(3 * hw)
+	bufs, unlock, err := ideogramScratchBuffers(3*hw, 3*hw)
 	if err != nil {
 		return err
 	}
-	defer inBuf.Free()
-	outBuf, err := Malloc(3 * hw)
-	if err != nil {
-		return err
-	}
-	defer outBuf.Free()
+	defer unlock()
+	inBuf, outBuf := bufs[0], bufs[1]
 	if err := inBuf.Upload(in[:3*hw]); err != nil {
 		return err
 	}
-	grid, ok := grid1DFor(3*hw, 256)
-	if !ok {
-		return fmt.Errorf("invalid Ideogram RGB clamp grid")
-	}
-	h := uint32(hw)
-	if err := LaunchKernel(fnIdeogramRGBClampF32, grid, 1, 1, 256, 1, 1, 0,
-		unsafe.Pointer(&outBuf.Ptr),
-		unsafe.Pointer(&inBuf.Ptr),
-		unsafe.Pointer(&h)); err != nil {
+	if err := IdeogramRGBClampBuffer(outBuf, inBuf, hw); err != nil {
 		return err
 	}
 	return outBuf.Download(out[:3*hw])
+}
+
+// IdeogramUpsampleNearestBuffer upsamples a GPU-resident CHW F32 feature map.
+func IdeogramUpsampleNearestBuffer(outBuf, inBuf *Buffer, c, h, w, factor int) error {
+	loadMegaModule()
+	inN, okIn := checkedMulInt(c, h*w)
+	outH, okH := checkedMulInt(h, factor)
+	outW, okW := checkedMulInt(w, factor)
+	outN, okOut := checkedMulInt(c, outH*outW)
+	if fnIdeogramUpsampleNearestF32 == 0 || !megaModuleOK || outBuf == nil || inBuf == nil || c <= 0 || h <= 0 || w <= 0 || factor <= 0 || !fitsUint32(c) || !fitsUint32(h) || !fitsUint32(w) || !fitsUint32(factor) || !okIn || !okH || !okW || !okOut || !fitsUint32(outN) {
+		return fmt.Errorf("invalid Ideogram upsample device dims c=%d h=%d w=%d factor=%d", c, h, w, factor)
+	}
+	if _, err := checkedByteSize(inN, inBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram upsample input buffer: %w", err)
+	}
+	if _, err := checkedByteSize(outN, outBuf.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram upsample output buffer: %w", err)
+	}
+	grid, ok := grid1DFor(outN, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram upsample grid")
+	}
+	cc, hh, ww, ff, total := uint32(c), uint32(h), uint32(w), uint32(factor), uint32(outN)
+	return LaunchKernel(fnIdeogramUpsampleNearestF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&cc), unsafe.Pointer(&hh), unsafe.Pointer(&ww), unsafe.Pointer(&ff), unsafe.Pointer(&total))
 }
 
 // IdeogramUpsampleNearest upsamples a CHW F32 feature map by nearest-neighbour.
@@ -1062,26 +1097,16 @@ func IdeogramUpsampleNearest(out, in []float32, c, h, w, factor int) error {
 	if !okIn || !okH || !okW || !okOut || len(in) < inN || len(out) < outN || !fitsUint32(outN) {
 		return fmt.Errorf("invalid Ideogram upsample buffers out=%d/%d in=%d/%d", len(out), outN, len(in), inN)
 	}
-	inBuf, err := Malloc(inN)
+	bufs, unlock, err := ideogramScratchBuffers(inN, outN)
 	if err != nil {
 		return err
 	}
-	defer inBuf.Free()
-	outBuf, err := Malloc(outN)
-	if err != nil {
-		return err
-	}
-	defer outBuf.Free()
+	defer unlock()
+	inBuf, outBuf := bufs[0], bufs[1]
 	if err := inBuf.Upload(in[:inN]); err != nil {
 		return err
 	}
-	grid, ok := grid1DFor(outN, 256)
-	if !ok {
-		return fmt.Errorf("invalid Ideogram upsample grid")
-	}
-	cc, hh, ww, ff, total := uint32(c), uint32(h), uint32(w), uint32(factor), uint32(outN)
-	if err := LaunchKernel(fnIdeogramUpsampleNearestF32, grid, 1, 1, 256, 1, 1, 0,
-		unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inBuf.Ptr), unsafe.Pointer(&cc), unsafe.Pointer(&hh), unsafe.Pointer(&ww), unsafe.Pointer(&ff), unsafe.Pointer(&total)); err != nil {
+	if err := IdeogramUpsampleNearestBuffer(outBuf, inBuf, c, h, w, factor); err != nil {
 		return err
 	}
 	return outBuf.Download(out[:outN])
