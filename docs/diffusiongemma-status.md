@@ -339,3 +339,20 @@ GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-no-weights \
 ```
 
 Result: passed. This validates the current no-weight workflow advertised in the README: download-plan report, scaffold CI, structured-message path, status export/summary, and both default and pattern mock comparison.
+
+## Latest no-weight CI after shared summary update
+
+After wiring `diffusiongemma_status_summary.py` to the shared inspector `summary` object, the safe aggregate CI was re-run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-no-weights \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma \
+  DIFFUSIONGEMMA_PROMPT=hi \
+  DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT=/workspace/tmp/diffusiongemma/shared_summary_plan.json \
+  DIFFUSIONGEMMA_REF_OUT=/workspace/tmp/diffusiongemma/shared_summary_ref.json \
+  DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/shared_summary_run.json \
+  DIFFUSIONGEMMA_MOCK_REF_OUT=/workspace/tmp/diffusiongemma/shared_summary_mock_ref.json \
+  DIFFUSIONGEMMA_STATUS_OUT=/workspace/tmp/diffusiongemma/shared_summary_status_ci.json
+```
+
+Result: passed. The summary output now includes `summary_text_scaffold`, `summary_shards`, `summary_reference_complete`, `summary_runtime_ready`, and consolidated `summary_missing` fields.
