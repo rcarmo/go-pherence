@@ -22,7 +22,10 @@ type TextLayerBindings struct {
 	InputLayerNorm         *TensorBinding `json:"input_layernorm,omitempty"`
 	PostAttentionLayerNorm *TensorBinding `json:"post_attention_layernorm,omitempty"`
 	PreFFNLayerNorm        *TensorBinding `json:"pre_feedforward_layernorm,omitempty"`
+	PreFFNLayerNorm2       *TensorBinding `json:"pre_feedforward_layernorm_2,omitempty"`
 	PostFFNLayerNorm       *TensorBinding `json:"post_feedforward_layernorm,omitempty"`
+	PostFFNLayerNorm1      *TensorBinding `json:"post_feedforward_layernorm_1,omitempty"`
+	PostFFNLayerNorm2      *TensorBinding `json:"post_feedforward_layernorm_2,omitempty"`
 	LayerScalar            *TensorBinding `json:"layer_scalar,omitempty"`
 
 	QProj *TensorBinding `json:"q_proj,omitempty"`
@@ -105,8 +108,14 @@ func assignLayerBinding(lb *TextLayerBindings, b *TensorBinding) {
 		lb.InputLayerNorm = b
 	case strings.Contains(name, "post_attention_layernorm"):
 		lb.PostAttentionLayerNorm = b
+	case strings.Contains(name, "pre_feedforward_layernorm_2"):
+		lb.PreFFNLayerNorm2 = b
 	case strings.Contains(name, "pre_feedforward_layernorm.weight"):
 		lb.PreFFNLayerNorm = b
+	case strings.Contains(name, "post_feedforward_layernorm_1"):
+		lb.PostFFNLayerNorm1 = b
+	case strings.Contains(name, "post_feedforward_layernorm_2"):
+		lb.PostFFNLayerNorm2 = b
 	case strings.Contains(name, "post_feedforward_layernorm.weight"):
 		lb.PostFFNLayerNorm = b
 	case strings.HasSuffix(name, ".layer_scalar"):
@@ -152,7 +161,10 @@ func validateLayerBinding(plan *TextForwardPlan, lb TextLayerBindings) {
 	require("input_layernorm", lb.InputLayerNorm)
 	require("post_attention_layernorm", lb.PostAttentionLayerNorm)
 	require("pre_feedforward_layernorm", lb.PreFFNLayerNorm)
+	require("pre_feedforward_layernorm_2", lb.PreFFNLayerNorm2)
 	require("post_feedforward_layernorm", lb.PostFFNLayerNorm)
+	require("post_feedforward_layernorm_1", lb.PostFFNLayerNorm1)
+	require("post_feedforward_layernorm_2", lb.PostFFNLayerNorm2)
 	require("layer_scalar", lb.LayerScalar)
 	require("q_proj", lb.QProj)
 	require("k_proj", lb.KProj)
