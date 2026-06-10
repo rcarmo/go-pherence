@@ -363,6 +363,9 @@ func qwenCausalGQAAttention(attn, qh, kh, vh []float32, T, heads, kvHeads, headD
 }
 
 func rmsNormTo(dst, x, weight []float32, eps float32) {
+	if k3RMSNormWeighted(dst, x, weight, eps) {
+		return
+	}
 	if gpuNormEnabled() {
 		if err := rmsNormWeightedGPU(dst, x, weight, eps); err == nil {
 			return
@@ -385,6 +388,9 @@ func rmsNormToCPU(dst, x, weight []float32, eps float32) {
 }
 
 func rmsNormInPlace(x, weight []float32, eps float32) {
+	if k3RMSNormWeighted(x, x, weight, eps) {
+		return
+	}
 	if gpuNormEnabled() {
 		tmp := make([]float32, len(x))
 		if err := rmsNormWeightedGPU(tmp, x, weight, eps); err == nil {

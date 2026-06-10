@@ -381,6 +381,9 @@ func transformAdaLNMod(mod []float32, emb int) {
 
 // rmsNormWeightedTo computes RMSNorm(x)*weight into dst.
 func rmsNormWeightedTo(dst, x, weight []float32, eps float32) {
+	if k3RMSNormWeighted(dst, x, weight, eps) {
+		return
+	}
 	if gpuNormEnabled() {
 		if err := rmsNormWeightedGPU(dst, x, weight, eps); err == nil || gpuNormStrict() {
 			return
