@@ -670,3 +670,7 @@ diffusiongemma-ci-structured-messages:
 .PHONY: diffusiongemma-download-plan
 
 diffusiongemma-download-plan: diffusiongemma-download-metadata diffusiongemma-inspect diffusiongemma-status-json diffusiongemma-status-summary
+
+.PHONY: diffusiongemma-status-refresh
+
+diffusiongemma-status-refresh: diffusiongemma-download-metadata diffusiongemma-status-json diffusiongemma-status-summary

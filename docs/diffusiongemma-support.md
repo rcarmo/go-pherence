@@ -785,3 +785,8 @@ total_size_bytes=51647562456 (~48.10 GiB)
 ## Shard download percentage
 
 Shard readiness now includes `present_percent`, and the inspector/status summary print download progress as `present=N/11 (P%)`. Metadata-only snapshots report `0.0%`; a full checkpoint should report `100.0%`.
+
+
+## Status refresh target
+
+`make diffusiongemma-status-refresh` downloads/refreshes metadata, writes `DIFFUSIONGEMMA_STATUS_OUT`, and prints the compact status summary without running mock generation. It is the quickest metadata/download readiness check.
