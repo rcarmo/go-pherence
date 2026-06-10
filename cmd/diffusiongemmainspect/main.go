@@ -66,7 +66,7 @@ func printText(r report) {
 	fmt.Printf("  vision:    hidden=%d layers=%d heads=%d soft_tokens=%d patch=%d\n", s.VisionHiddenSize, s.VisionLayers, s.VisionHeads, s.VisionSoftTokens, s.PatchSize)
 	if r.GenerationDefaults != nil {
 		g := r.GenerationDefaults
-		fmt.Printf("  generate:  max_new=%d denoise_steps=%d t=[%.3f, %.3f] stability=%d confidence=%.6f eos=%v\n", g.MaxNewTokens, g.MaxDenoisingSteps, g.TMin, g.TMax, g.StabilityThreshold, g.ConfidenceThreshold, g.EOSTokenID)
+		fmt.Printf("  generate:  max_new=%d denoise_steps=%d t=[%.3f, %.3f] entropy_bound=%.3f stability=%d confidence=%.6f eos=%v\n", g.MaxNewTokens, g.MaxDenoisingSteps, g.TMin, g.TMax, g.EntropyBound, g.StabilityThreshold, g.ConfidenceThreshold, g.EOSTokenID)
 	}
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)

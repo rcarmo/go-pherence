@@ -46,6 +46,7 @@ type GenerationDefaults struct {
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
 	PadTokenID          int     `json:"pad_token_id"`
 	EOSTokenID          []int   `json:"eos_token_id"`
+	EntropyBound        float64 `json:"entropy_bound"`
 }
 
 func ShapeFromConfig(cfg loaderconfig.DiffusionGemmaConfig) (Shape, error) {
@@ -87,7 +88,7 @@ func ShapeFromConfig(cfg loaderconfig.DiffusionGemmaConfig) (Shape, error) {
 }
 
 func GenerationDefaultsFromConfig(cfg loaderconfig.DiffusionGemmaGenerationConfig) GenerationDefaults {
-	return GenerationDefaults{MaxNewTokens: cfg.MaxNewTokens, MaxDenoisingSteps: cfg.MaxDenoisingSteps, TMin: cfg.TMin, TMax: cfg.TMax, StabilityThreshold: cfg.StabilityThreshold, ConfidenceThreshold: cfg.ConfidenceThreshold, PadTokenID: cfg.PadTokenID, EOSTokenID: append([]int(nil), cfg.EOSTokenID...)}
+	return GenerationDefaults{MaxNewTokens: cfg.MaxNewTokens, MaxDenoisingSteps: cfg.MaxDenoisingSteps, TMin: cfg.TMin, TMax: cfg.TMax, StabilityThreshold: cfg.StabilityThreshold, ConfidenceThreshold: cfg.ConfidenceThreshold, PadTokenID: cfg.PadTokenID, EOSTokenID: append([]int(nil), cfg.EOSTokenID...), EntropyBound: cfg.SamplerConfig.EntropyBound}
 }
 
 func RequireRuntimeReady(s Shape) error {

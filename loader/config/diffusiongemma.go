@@ -75,15 +75,20 @@ type DiffusionGemmaVisionConfig struct {
 }
 
 type DiffusionGemmaGenerationConfig struct {
-	MaxNewTokens        int     `json:"max_new_tokens"`
-	MaxDenoisingSteps   int     `json:"max_denoising_steps"`
-	TMin                float64 `json:"t_min"`
-	TMax                float64 `json:"t_max"`
-	StabilityThreshold  int     `json:"stability_threshold"`
-	ConfidenceThreshold float64 `json:"confidence_threshold"`
-	PadTokenID          int     `json:"pad_token_id"`
-	EOSTokenID          []int   `json:"eos_token_id"`
-	SamplerConfig       any     `json:"sampler_config"`
+	MaxNewTokens        int                         `json:"max_new_tokens"`
+	MaxDenoisingSteps   int                         `json:"max_denoising_steps"`
+	TMin                float64                     `json:"t_min"`
+	TMax                float64                     `json:"t_max"`
+	StabilityThreshold  int                         `json:"stability_threshold"`
+	ConfidenceThreshold float64                     `json:"confidence_threshold"`
+	PadTokenID          int                         `json:"pad_token_id"`
+	EOSTokenID          []int                       `json:"eos_token_id"`
+	SamplerConfig       DiffusionGemmaSamplerConfig `json:"sampler_config"`
+}
+
+type DiffusionGemmaSamplerConfig struct {
+	ClassName    string  `json:"_cls_name"`
+	EntropyBound float64 `json:"entropy_bound"`
 }
 
 func ReadDiffusionGemmaConfig(dir string) (DiffusionGemmaConfig, error) {

@@ -99,6 +99,7 @@ Implemented scaffold:
 loader/config/diffusiongemma.go
 model/diffusiongemma/config.go
 model/diffusiongemma/runtime.go
+model/diffusiongemma/sampler.go
 cmd/diffusiongemmainspect
 ```
 
@@ -135,3 +136,18 @@ Staged implementation:
 - No tests added in this pass per user instruction.
 - No weight download committed.
 - No Python dependency in the runtime path; Python/Transformers is only a reference for fixtures/parity.
+
+
+## Sampler scaffold
+
+`model/diffusiongemma/sampler.go` implements reference-aligned non-model primitives for the future block-diffusion loop:
+
+- linear temperature schedule (`t_min + (t_max-t_min) * cur_step/max_steps`);
+- temperature application to logits;
+- categorical entropy from logits;
+- argmax helper;
+- entropy-bound canvas acceptance (`cumulative_entropy - max_entropy <= entropy_bound` over lowest-entropy positions);
+- renoising of non-accepted tokens with a caller-provided RNG;
+- stable-and-confident stopping state.
+
+These are CPU/reference scaffolding pieces only. They do not yet call a DiffusionGemma forward pass or load tensors.
