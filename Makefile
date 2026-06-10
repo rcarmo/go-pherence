@@ -493,3 +493,27 @@ ideogram4-residency-sweep:
 	IDEOGRAM4_GPU_RESIDENCY='$(IDEOGRAM4_GPU_RESIDENCY)' \
 	IDEOGRAM4_FULL_LAYER='$(IDEOGRAM4_FULL_LAYER)' \
 	./scripts/ideogram4_residency_sweep.sh
+
+# Resolution-aware Ideogram presets for the local RTX 3060 12GB profile.
+# 256px can use aggressive asymmetric residency. 512px needs reduced residency
+# because the larger activation/attention buffers exceed VRAM with 256px defaults.
+IDEOGRAM4_512_STEPS ?= 4
+.PHONY: ideogram4-cat-gpu-256 ideogram4-cat-gpu-512
+
+ideogram4-cat-gpu-256:
+	$(MAKE) ideogram4-cat-gpu \
+		IDEOGRAM4_WIDTH=256 \
+		IDEOGRAM4_HEIGHT=256 \
+		IDEOGRAM4_LAYER_CACHE_WINDOW=21 \
+		IDEOGRAM4_LAYER_CACHE_WINDOW_COND=34 \
+		IDEOGRAM4_LAYER_CACHE_WINDOW_UNCOND=9
+
+ideogram4-cat-gpu-512:
+	$(MAKE) ideogram4-cat-gpu \
+		IDEOGRAM4_WIDTH=512 \
+		IDEOGRAM4_HEIGHT=512 \
+		IDEOGRAM4_STEPS=$(IDEOGRAM4_512_STEPS) \
+		IDEOGRAM4_OUT=$(TMPDIR)/ideogram4/cat_comfy_prompt_512.png \
+		IDEOGRAM4_LAYER_CACHE_WINDOW=0 \
+		IDEOGRAM4_LAYER_CACHE_WINDOW_COND=16 \
+		IDEOGRAM4_LAYER_CACHE_WINDOW_UNCOND=0
