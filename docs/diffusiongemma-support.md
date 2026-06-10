@@ -711,3 +711,8 @@ When denoising overrides are provided, `diffusiongemmarun` now prints the effect
 ## Pattern mock CI target
 
 `make diffusiongemma-ci-mock-pattern` runs the mock comparison workflow with a non-repeated token pattern (`4,2`). It is a lightweight check that the mock denoiser, JSON run capture, and comparison helper are not accidentally hard-coded to repeated tokens.
+
+
+## Run missing-reference output
+
+`diffusiongemmarun` text output now includes `missing_reference` from runtime capabilities, matching the inspector/status JSON. This makes mock/scaffold runs self-describing about why `reference_complete=false`.
