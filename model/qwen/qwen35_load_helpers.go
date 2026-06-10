@@ -10,10 +10,6 @@ import (
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
-func loadQwen35DenseOrNVFP4(src Qwen35TensorSource, name string, dense **tensor.Tensor, q **Qwen35NVFP4Weight, want []int) error {
-	return loadQwen35DenseOrQuant(src, name, dense, q, nil, want, 0, 0)
-}
-
 func loadQwen35DenseOrQuant(src Qwen35TensorSource, name string, dense **tensor.Tensor, q **Qwen35NVFP4Weight, m **mlx.QuantWeight, want []int, groupSize, bits int) error {
 	if dense == nil {
 		return fmt.Errorf("nil dense destination for %s", name)

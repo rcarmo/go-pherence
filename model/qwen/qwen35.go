@@ -873,17 +873,6 @@ func projectQwen35LinearAlphaBeta(input []float32, alphaW, betaW []float32, hidd
 	return alpha, beta, nil
 }
 
-func splitQwen35LinearConvOutput(conv []float32, shapes loaderconfig.Qwen35LinearAttentionShapes) (k, v []float32, err error) {
-	if len(conv) != shapes.ConvDim {
-		return nil, nil, fmt.Errorf("Qwen3.5 linear-attention conv output len=%d want %d", len(conv), shapes.ConvDim)
-	}
-	kLen := shapes.ConvDim - shapes.ValueDim
-	if kLen <= 0 {
-		return nil, nil, fmt.Errorf("invalid Qwen3.5 linear-attention conv split key len=%d", kLen)
-	}
-	return append([]float32(nil), conv[:kLen]...), append([]float32(nil), conv[kLen:]...), nil
-}
-
 func applyQwen35LinearDepthwiseConv(state []float32, weight []float32, convDim, kernel int) ([]float32, error) {
 	if convDim <= 0 || kernel <= 0 {
 		return nil, fmt.Errorf("invalid Qwen3.5 linear-attention conv dims conv_dim=%d kernel=%d", convDim, kernel)
