@@ -23,6 +23,7 @@ type RuntimeCapabilities struct {
 	RoPE                     bool     `json:"rope"`
 	SlidingWindowMask        bool     `json:"sliding_window_mask"`
 	EncoderKVConcat          bool     `json:"encoder_kv_concat"`
+	TextOnlyScaffoldReady    bool     `json:"text_only_scaffold_ready"`
 	ReferenceComplete        bool     `json:"reference_complete"`
 	RuntimeReady             bool     `json:"runtime_ready"`
 	MissingForReference      []string `json:"missing_for_reference,omitempty"`
@@ -49,6 +50,7 @@ func Capabilities() RuntimeCapabilities {
 		RoPE:                     true,
 		SlidingWindowMask:        true,
 		EncoderKVConcat:          true,
+		TextOnlyScaffoldReady:    true,
 		ReferenceComplete:        false,
 		RuntimeReady:             false,
 		MissingForReference:      missing,

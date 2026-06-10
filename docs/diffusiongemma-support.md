@@ -568,3 +568,8 @@ The default mock token is `4` (`<mask>` in the published tokenizer metadata).
 ## Model generation prompt header
 
 For repeated `-message role:text` inputs, `diffusiongemmarun -generation-prompt` now appends a simplified model turn header (`<|turn>model`) instead of just a raw begin-turn token. This better matches the reference template shape while remaining a scaffold rather than a full Jinja renderer.
+
+
+## Text-only scaffold readiness
+
+Capability reporting now distinguishes `text_only_scaffold_ready=true` from `reference_complete=false` and `runtime_ready=false`. This means the text-only control flow and operation scaffolds are wired enough to run with mock denoisers or local shards, but the implementation is not yet validated as reference-complete DiffusionGemma inference.
