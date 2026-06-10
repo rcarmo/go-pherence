@@ -202,6 +202,14 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	heads, headDim := cfg.NumHeads, cfg.HeadDim
 	scaleAttn := float32(1 / math.Sqrt(float64(headDim)))
 
+	if gpuFullLayerIslandEnabled() && gpuFP8Enabled() && gpuNormEnabled() && gpuAttentionEnabled() && gpuMLPEnabled() {
+		if err := layerGPU.FullLayerIslands(*l, hidden, scaleMSA, gateMSA, scaleMLP, gateMLP, tokens, heads, headDim, rope, scaleAttn, normEps); err != nil && (gpuFP8Strict() || gpuNormStrict() || gpuAttentionStrict() || gpuMLPStrict()) {
+			return err
+		} else if err == nil {
+			return nil
+		}
+	}
+
 	// ---- Attention sublayer ----
 	normedAll := make([]float32, tokens*emb)
 	if gpuNormEnabled() {

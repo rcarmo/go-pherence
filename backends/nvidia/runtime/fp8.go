@@ -268,6 +268,79 @@ func GemmFP8E4M3Buffer(outBuf, xBuf *Buffer, batch int, w *GPUFP8E4M3Linear) err
 // activation matrix. This is intended for SwiGLU-style projection pairs such as
 // Ideogram/Qwen W1+W3, where both linears consume the exact same [batch,InDim]
 // input. It reduces host-device traffic without changing numerical kernels.
+func GemmDiTLayerIslandsFP8E4M3(hidden []float32, attnN1, scaleMSA, gateMSA, normQ, normK, attnN2, ffnN1, scaleMLP, gateMLP, ffnN2, cos, sin []float32, tokens, heads, headDim int, scaleAttn, normEps float32, qkv, o, w1, w3, w2 *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(qkv) || !validGPUFP8E4M3Linear(o) || !validGPUFP8E4M3Linear(w1) || !validGPUFP8E4M3Linear(w3) || !validGPUFP8E4M3Linear(w2) {
+		return fmt.Errorf("invalid GPU FP8 E4M3 full-layer island weights")
+	}
+	emb := heads * headDim
+	n := tokens * emb
+	tableLen := tokens * (headDim / 2)
+	if tokens <= 0 || heads <= 0 || headDim <= 0 || len(hidden) < n || len(attnN1) < emb || len(scaleMSA) < emb || len(gateMSA) < emb || len(normQ) < headDim || len(normK) < headDim || len(attnN2) < emb || len(ffnN1) < emb || len(scaleMLP) < emb || len(gateMLP) < emb || len(ffnN2) < emb || len(cos) < tableLen || len(sin) < tableLen {
+		return fmt.Errorf("invalid FP8 full-layer island buffers")
+	}
+	bufs, unlock, err := ideogramScratchBuffers(n, n, emb, emb, emb, headDim, headDim, tableLen, tableLen, emb, emb, emb, emb, emb)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	hiddenBuf, normedBuf, attnN1Buf, scaleMSABuf, gateMSABuf, normQBuf, normKBuf, cosBuf, sinBuf, attnN2Buf, ffnN1Buf, scaleMLPBuf, gateMLPBuf, ffnN2Buf := bufs[0], bufs[1], bufs[2], bufs[3], bufs[4], bufs[5], bufs[6], bufs[7], bufs[8], bufs[9], bufs[10], bufs[11], bufs[12], bufs[13]
+	if err := hiddenBuf.Upload(hidden[:n]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer hidden: %w", err)
+	}
+	if err := attnN1Buf.Upload(attnN1[:emb]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer attnN1: %w", err)
+	}
+	if err := scaleMSABuf.Upload(scaleMSA[:emb]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer scaleMSA: %w", err)
+	}
+	if err := gateMSABuf.Upload(gateMSA[:emb]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer gateMSA: %w", err)
+	}
+	if err := normQBuf.Upload(normQ[:headDim]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer normQ: %w", err)
+	}
+	if err := normKBuf.Upload(normK[:headDim]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer normK: %w", err)
+	}
+	if err := cosBuf.Upload(cos[:tableLen]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer cos: %w", err)
+	}
+	if err := sinBuf.Upload(sin[:tableLen]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer sin: %w", err)
+	}
+	if err := attnN2Buf.Upload(attnN2[:emb]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer attnN2: %w", err)
+	}
+	if err := ffnN1Buf.Upload(ffnN1[:emb]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer ffnN1: %w", err)
+	}
+	if err := scaleMLPBuf.Upload(scaleMLP[:emb]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer scaleMLP: %w", err)
+	}
+	if err := gateMLPBuf.Upload(gateMLP[:emb]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer gateMLP: %w", err)
+	}
+	if err := ffnN2Buf.Upload(ffnN2[:emb]); err != nil {
+		return fmt.Errorf("upload FP8 full-layer ffnN2: %w", err)
+	}
+	if err := IdeogramRMSNormRowsBuffer(normedBuf, hiddenBuf, attnN1Buf, scaleMSABuf, tokens, emb, normEps, true); err != nil {
+		return fmt.Errorf("FP8 full-layer attn prenorm: %w", err)
+	}
+	if err := GemmQKVAttentionOResidualFP8E4M3Buffer(hiddenBuf, normedBuf, gateMSABuf, normQBuf, normKBuf, attnN2Buf, cosBuf, sinBuf, tokens, heads, headDim, scaleAttn, qkv, o); err != nil {
+		return err
+	}
+	if err := IdeogramRMSNormRowsBuffer(normedBuf, hiddenBuf, ffnN1Buf, scaleMLPBuf, tokens, emb, normEps, true); err != nil {
+		return fmt.Errorf("FP8 full-layer mlp prenorm: %w", err)
+	}
+	if err := GemmSwiGLUResidualFP8E4M3Buffer(hiddenBuf, normedBuf, gateMLPBuf, ffnN2Buf, tokens, w1, w3, w2); err != nil {
+		return err
+	}
+	if err := hiddenBuf.Download(hidden[:n]); err != nil {
+		return fmt.Errorf("download FP8 full-layer hidden: %w", err)
+	}
+	return nil
+}
+
 func GemmQKVAttentionOResidualFP8E4M3Buffer(hiddenBuf, xBuf, gateBuf, normQBuf, normKBuf, normOutBuf, cosBuf, sinBuf *Buffer, tokens, heads, headDim int, scale float32, wqkv, wo *GPUFP8E4M3Linear) error {
 	if !validGPUFP8E4M3Linear(wqkv) || !validGPUFP8E4M3Linear(wo) || tokens <= 0 || heads <= 0 || headDim <= 0 {
 		return fmt.Errorf("invalid GPU FP8 E4M3 QKV attention/O buffer inputs")

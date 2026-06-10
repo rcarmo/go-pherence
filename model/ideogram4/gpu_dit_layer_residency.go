@@ -18,6 +18,11 @@ type ditLayerGPUResidency struct {
 	adaln *nvidia.GPUFP8E4M3Linear
 }
 
+func gpuFullLayerIslandEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_FULL_LAYER")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func (l *DiTLayer) cacheGPUResidency() bool {
 	if l == nil || !gpuFP8CacheEnabled() {
 		return false
@@ -168,6 +173,17 @@ func (r *ditLayerGPUResidency) gemm(name string, gpuW *nvidia.GPUFP8E4M3Linear, 
 		}
 	}
 	return cpuW.ApplyBatch(x, out, batch)
+}
+
+func (r *ditLayerGPUResidency) FullLayerIslands(l DiTLayer, hidden, scaleMSA, gateMSA, scaleMLP, gateMLP []float32, tokens, heads, headDim int, rope *MRoPE, scaleAttn, normEps float32) error {
+	if r != nil && r.qkv != nil && r.o != nil && r.w1 != nil && r.w3 != nil && r.w2 != nil && rope != nil {
+		if err := nvidia.GemmDiTLayerIslandsFP8E4M3(hidden, l.AttnN1, scaleMSA, gateMSA, l.NormQ, l.NormK, l.AttnN2, l.FfnN1, scaleMLP, gateMLP, l.FfnN2, rope.cos, rope.sin, tokens, heads, headDim, scaleAttn, normEps, r.qkv, r.o, r.w1, r.w3, r.w2); err == nil {
+			return nil
+		} else if gpuFP8Strict() || gpuAttentionStrict() || gpuNormStrict() || gpuMRoPEStrict() || gpuMLPStrict() {
+			return fmt.Errorf("DiT layer GPU full islands: %w", err)
+		}
+	}
+	return fmt.Errorf("full layer island unavailable")
 }
 
 func (r *ditLayerGPUResidency) AttentionResidualBatch(l DiTLayer, hidden, x, gate []float32, tokens, heads, headDim int, rope *MRoPE, scale, normEps float32) error {
