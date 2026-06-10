@@ -69,13 +69,15 @@ make ideogram4-k3-check
 
 It runs native Ideogram/NVIDIA fallback tests, cross-compiles riscv64 test
 binaries for the relevant K3 packages (including `k3engine` and `aipool`), and
-builds `bin/ideogram4gen-k3`.
+builds `bin/ideogram4gen-k3` plus `bin/ideogram4vaeprobe-k3`.
 Equivalent raw commands:
 
 ```bash
 mkdir -p .gotmp /workspace/tmp/ideogram4
 GOTMPDIR=$PWD/.gotmp CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 \
   go build -o /workspace/tmp/ideogram4/ideogram4gen-k3 ./cmd/image/ideogram4gen
+GOTMPDIR=$PWD/.gotmp CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 \
+  go build -o /workspace/tmp/ideogram4/ideogram4vaeprobe-k3 ./cmd/image/ideogram4vaeprobe
 GOTMPDIR=$PWD/.gotmp CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 \
   go test -c -o /workspace/tmp/ideogram4/ideogram4-model-k3.test ./model/ideogram4
 ```
@@ -123,6 +125,14 @@ make ideogram4gen-k3
   -guidance 7.0 -mu 0.0 -std 1.75 \
   -seed 2026060803 \
   -timing
+```
+
+A smaller VAE-only smoke is also available:
+
+```bash
+./bin/ideogram4vaeprobe-k3 \
+  -model /path/to/ideogram4-model \
+  -width 256 -height 256
 ```
 
 K3-specific runtime environment should include:
