@@ -187,7 +187,7 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 	case OpPostMoE:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostFFNLayerNorm })
 	case OpLayerScalar:
-		return errOpNotImplemented(op.Kind)
+		return runLayerScalar(op, weights, scratch)
 	default:
 		return fmt.Errorf("DiffusionGemma unknown layer op %q", op.Kind)
 	}
@@ -237,6 +237,53 @@ func loadFloatVector(weights *TextWeights, binding *TensorBinding) ([]float32, e
 		return nil, err
 	}
 	return out, nil
+}
+
+func runLayerScalar(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma layer scalar missing weights")
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
+		return fmt.Errorf("DiffusionGemma layer scalar layer %d outside plan", op.Layer)
+	}
+	binding := fp.Layers[op.Layer].LayerScalar
+	if binding == nil {
+		return fmt.Errorf("DiffusionGemma layer scalar missing binding for layer %d", op.Layer)
+	}
+	scale, err := loadFloatScalar(weights, binding)
+	if err != nil {
+		return err
+	}
+	for i := range scratch.Hidden {
+		scratch.Hidden[i] *= scale
+	}
+	return nil
+}
+
+func loadFloatScalar(weights *TextWeights, binding *TensorBinding) (float32, error) {
+	raw, dtype, shape, err := weights.RawTensor(binding.Name)
+	if err != nil {
+		return 0, err
+	}
+	n := 1
+	if len(shape) > 0 {
+		n = 1
+		for _, dim := range shape {
+			if dim <= 0 {
+				return 0, fmt.Errorf("DiffusionGemma tensor %q invalid scalar shape %v", binding.Name, shape)
+			}
+			n *= dim
+		}
+	}
+	if n != 1 {
+		return 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not scalar", binding.Name, shape)
+	}
+	var out [1]float32
+	if err := decodeFloatRowTo(out[:], raw, dtype); err != nil {
+		return 0, err
+	}
+	return out[0], nil
 }
 
 func dispatchTailOp(op OpKind, weights *TextWeights, scratch ForwardScratch) error {

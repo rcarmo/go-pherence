@@ -278,4 +278,9 @@ The explicit `canvas_embedding` prefix op marks the point where token IDs from t
 
 ## Input RMSNorm hook
 
-`CPUDispatcher` now implements the `input_norm`, `post_attention_norm`, `pre_moe_norm`, and `post_moe_norm` layer op scaffolds. It loads the rank-1 RMSNorm weight through `TextWeights.RawTensor`, decodes `BF16`/`F16`/`F32` to float32, and applies `backends/simd/runtime.RMSNormTo` row-by-row over the hidden scratch buffer. Subsequent attention/MLP/router/expert/tail ops still return explicit not-implemented errors.
+`CPUDispatcher` now implements the `input_norm`, `post_attention_norm`, `pre_moe_norm`, and `post_moe_norm` layer op scaffolds. It loads the rank-1 RMSNorm weight through `TextWeights.RawTensor`, decodes `BF16`/`F16`/`F32` to float32, and applies `backends/simd/runtime.RMSNormTo` row-by-row over the hidden scratch buffer. Layer scalar is also implemented as a scalar payload load and hidden-state scale. Subsequent attention/MLP/router/expert/tail ops still return explicit not-implemented errors.
+
+
+## Layer scalar hook
+
+`CPUDispatcher` now implements `layer_scalar` by loading a scalar or single-element tensor payload and scaling the hidden scratch buffer in place. This is intentionally small but exercises the same raw tensor path future ops will use.
