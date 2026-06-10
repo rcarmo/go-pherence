@@ -745,3 +745,8 @@ It requires all safetensor shards, a working Transformers/PyTorch environment fo
 ## Bootstrap scaffold target
 
 `make diffusiongemma-bootstrap-scaffold` downloads metadata (including `tokenizer.json`) and then runs `diffusiongemma-ci-scaffold`. It is the quickest no-weights path to reproduce the current scaffold readiness from an empty model directory.
+
+
+## Structured reference messages
+
+`scripts/diffusiongemma_reference.py` and `make diffusiongemma-reference` now accept structured chat messages through `--messages-json` / `DIFFUSIONGEMMA_REF_MESSAGES_JSON` or `--messages-file` / `DIFFUSIONGEMMA_REF_MESSAGES_FILE`. This aligns reference fixture capture with `diffusiongemmarun -messages-json` / `-messages-file`.
