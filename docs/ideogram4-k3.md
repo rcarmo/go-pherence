@@ -60,7 +60,16 @@ and prefer named macros like `VMADOT_SS`, `VMADOT_SU`, `K3_VSETVLI_*`,
 
 ## Current build status
 
-The generic native Ideogram CLI and model tests cross-compile for riscv64 today:
+The generic native Ideogram CLI and model tests cross-compile for riscv64 today.
+Use the consolidated check target from an x86 development host:
+
+```bash
+make ideogram4-k3-check
+```
+
+It runs native Ideogram/NVIDIA fallback tests, cross-compiles riscv64 test
+binaries for the relevant K3 packages, and builds `bin/ideogram4gen-k3`.
+Equivalent raw commands:
 
 ```bash
 mkdir -p .gotmp /workspace/tmp/ideogram4

@@ -39,12 +39,23 @@ whisper-k3:
 	@echo "Built bin/whisper-k3 (riscv64, RVV + IME int8)."
 	@echo "Resident run:  WHISPER_INT8=1 WHISPER_THREADS=4 bin/whisper-k3 -model <model.safetensors> -size large-v3 -audio <file.wav>"
 
-.PHONY: ideogram4gen-k3
+.PHONY: ideogram4gen-k3 ideogram4-k3-check
 ideogram4gen-k3:
 	mkdir -p $(GOTMPDIR) bin
 	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/ideogram4gen-k3 ./cmd/image/ideogram4gen
 	@echo "Built bin/ideogram4gen-k3 (riscv64 target)."
 	@echo "Hardware smoke: IME2_TCM_ACT=1 bin/ideogram4gen-k3 -k3 -k3-threads 8 -k3-prewarm -model <ideogram4-dir> -prompt \"\$$(cat prompts/ideogram4/cat.json)\" -width 256 -height 256 -steps 4 -guidance 7.0 -mu 0.0 -std 1.75 -seed 2026060803 -timing"
+
+ideogram4-k3-check:
+	mkdir -p $(GOTMPDIR) $(TMPDIR)/ideogram4/k3check bin
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test ./model/ideogram4 ./cmd/image/ideogram4gen ./backends/nvidia/runtime
+	@for pkg in ./model/ideogram4 ./backends/spacemit/rvv ./backends/spacemit/ime2 ./backends/spacemit/inference ./backends/spacemit/k3engine/aipool; do \
+		out="$(TMPDIR)/ideogram4/k3check/$$(echo $$pkg | sed 's#[/.]#_#g').test"; \
+		echo "cross-test $$pkg -> $$out"; \
+		CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go test -c -o "$$out" "$$pkg" || exit $$?; \
+	done
+	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/ideogram4gen-k3 ./cmd/image/ideogram4gen
+	@echo "K3 check passed: native Ideogram tests + riscv64 test binaries + bin/ideogram4gen-k3"
 
 SPEAKER_CKPT ?= $(MODELS_DIR)/speechbrain-ecapa-voxceleb/embedding_model.ckpt
 SPEAKER_SAFETENSORS ?= $(MODELS_DIR)/speaker-ecapa-voxceleb.safetensors
