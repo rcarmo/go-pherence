@@ -34,6 +34,7 @@ func main() {
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless native DiffusionGemma runtime is reference-complete")
 	requireTextScaffold := flag.Bool("require-text-scaffold-ready", false, "fail unless the current text-only scaffold/inventory is ready")
+	requireShards := flag.Bool("require-shards-ready", false, "fail unless all safetensor shards from the index are present locally")
 	openWeights := flag.Bool("open-weights", false, "open local safetensor shards and bind text tensor metadata")
 	flag.Parse()
 	if *modelDir == "" {
@@ -49,6 +50,21 @@ func main() {
 		caps := diffusiongemma.Capabilities()
 		if !caps.TextOnlyScaffoldReady || m.Readiness == nil || !m.Readiness.TextReady || m.TextTensorPlan == nil || !m.TextTensorPlan.Ready {
 			fatal(fmt.Errorf("DiffusionGemma text scaffold is not ready"))
+		}
+	}
+	if *requireShards {
+		if m.Shards == nil || !m.Shards.Ready {
+			present, expected := 0, 0
+			var missing []string
+			if m.Shards != nil {
+				present = m.Shards.PresentShards
+				expected = m.Shards.ExpectedShards
+				missing = m.Shards.MissingShards
+				if len(missing) > 5 {
+					missing = missing[:5]
+				}
+			}
+			fatal(fmt.Errorf("DiffusionGemma shards are not ready: present=%d/%d missing=%v", present, expected, missing))
 		}
 	}
 	if *requireRuntime {

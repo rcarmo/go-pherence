@@ -613,3 +613,8 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 
 
 Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`, `-decode`, exact vocab lookup, and scaffold CI work from a fresh metadata snapshot without needing safetensor shards.
+
+
+## Shard readiness gate
+
+`diffusiongemmainspect -require-shards-ready` fails unless every shard listed by `model.safetensors.index.json` is present locally. `make diffusiongemma-check-shards` wraps this gate. It is stricter than `-require-text-scaffold-ready`, which only needs metadata/index files.

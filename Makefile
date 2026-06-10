@@ -588,3 +588,8 @@ diffusiongemma-check-scaffold:
 .PHONY: diffusiongemma-ci-scaffold
 
 diffusiongemma-ci-scaffold: diffusiongemma-check-scaffold diffusiongemma-reference-dry-run
+
+.PHONY: diffusiongemma-check-shards
+
+diffusiongemma-check-shards:
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -require-shards-ready
