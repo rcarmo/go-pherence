@@ -16,6 +16,13 @@ type ditLayerGPUResidency struct {
 	w2    *nvidia.GPUFP8E4M3Linear
 	w3    *nvidia.GPUFP8E4M3Linear
 	adaln *nvidia.GPUFP8E4M3Linear
+
+	attnN1 *nvidia.Buffer
+	attnN2 *nvidia.Buffer
+	ffnN1  *nvidia.Buffer
+	ffnN2  *nvidia.Buffer
+	normQ  *nvidia.Buffer
+	normK  *nvidia.Buffer
 }
 
 func gpuFullLayerIslandEnabled() bool {
@@ -97,6 +104,35 @@ func uploadDiTLayerGPU(l DiTLayer) (*ditLayerGPUResidency, error) {
 	// layers even though standalone FP8 GEMV comparisons pass; QKV/O/MLP GEMMs
 	// remain GPU-resident and compare cleanly. This preserves correctness while
 	// the AdaLN-specific residency interaction is debugged.
+	uploadF32 := func(dst **nvidia.Buffer, name string, data []float32) error {
+		buf, err := nvidia.Malloc(len(data))
+		if err != nil {
+			return fmt.Errorf("upload %s metadata alloc: %w", name, err)
+		}
+		if err := buf.Upload(data); err != nil {
+			buf.Free()
+			return fmt.Errorf("upload %s metadata: %w", name, err)
+		}
+		*dst = buf
+		return nil
+	}
+	for _, item := range []struct {
+		dst  **nvidia.Buffer
+		name string
+		data []float32
+	}{
+		{&r.attnN1, "attnN1", l.AttnN1},
+		{&r.attnN2, "attnN2", l.AttnN2},
+		{&r.ffnN1, "ffnN1", l.FfnN1},
+		{&r.ffnN2, "ffnN2", l.FfnN2},
+		{&r.normQ, "normQ", l.NormQ},
+		{&r.normK, "normK", l.NormK},
+	} {
+		if err := uploadF32(item.dst, item.name, item.data); err != nil {
+			r.Free()
+			return nil, err
+		}
+	}
 	return r, nil
 }
 
@@ -107,7 +143,11 @@ func (r *ditLayerGPUResidency) Free() {
 	for _, w := range []*nvidia.GPUFP8E4M3Linear{r.qkv, r.o, r.w1, r.w2, r.w3, r.adaln} {
 		w.Free()
 	}
+	for _, b := range []*nvidia.Buffer{r.attnN1, r.attnN2, r.ffnN1, r.ffnN2, r.normQ, r.normK} {
+		b.Free()
+	}
 	r.qkv, r.o, r.w1, r.w2, r.w3, r.adaln = nil, nil, nil, nil, nil, nil
+	r.attnN1, r.attnN2, r.ffnN1, r.ffnN2, r.normQ, r.normK = nil, nil, nil, nil, nil, nil
 }
 
 func (r *ditLayerGPUResidency) gemv(name string, gpuW *nvidia.GPUFP8E4M3Linear, cpuW *FP8Linear, x, out []float32) error {
@@ -176,12 +216,99 @@ func (r *ditLayerGPUResidency) gemm(name string, gpuW *nvidia.GPUFP8E4M3Linear, 
 }
 
 func (r *ditLayerGPUResidency) FullLayerIslands(l DiTLayer, hidden, scaleMSA, gateMSA, scaleMLP, gateMLP []float32, tokens, heads, headDim int, rope *MRoPE, scaleAttn, normEps float32) error {
-	if r != nil && r.qkv != nil && r.o != nil && r.w1 != nil && r.w3 != nil && r.w2 != nil && rope != nil {
-		if err := nvidia.GemmDiTLayerIslandsFP8E4M3(hidden, l.AttnN1, scaleMSA, gateMSA, l.NormQ, l.NormK, l.AttnN2, l.FfnN1, scaleMLP, gateMLP, l.FfnN2, rope.cos, rope.sin, tokens, heads, headDim, scaleAttn, normEps, r.qkv, r.o, r.w1, r.w3, r.w2); err == nil {
-			return nil
-		} else if gpuFP8Strict() || gpuAttentionStrict() || gpuNormStrict() || gpuMRoPEStrict() || gpuMLPStrict() {
-			return fmt.Errorf("DiT layer GPU full islands: %w", err)
+	if r == nil || r.qkv == nil || r.o == nil || r.w1 == nil || r.w3 == nil || r.w2 == nil || rope == nil {
+		return fmt.Errorf("full layer island unavailable")
+	}
+	if r.attnN1 != nil && r.attnN2 != nil && r.ffnN1 != nil && r.ffnN2 != nil && r.normQ != nil && r.normK != nil {
+		emb := heads * headDim
+		n := tokens * emb
+		tableLen := tokens * (headDim / 2)
+		alloc := func(name string, size int) (*nvidia.Buffer, error) {
+			b, err := nvidia.Malloc(size)
+			if err != nil {
+				return nil, fmt.Errorf("alloc DiT full-layer cached %s: %w", name, err)
+			}
+			return b, nil
 		}
+		hiddenBuf, err := alloc("hidden", n)
+		if err != nil {
+			return err
+		}
+		defer hiddenBuf.Free()
+		normedBuf, err := alloc("normed", n)
+		if err != nil {
+			return err
+		}
+		defer normedBuf.Free()
+		scaleMSABuf, err := alloc("scaleMSA", emb)
+		if err != nil {
+			return err
+		}
+		defer scaleMSABuf.Free()
+		gateMSABuf, err := alloc("gateMSA", emb)
+		if err != nil {
+			return err
+		}
+		defer gateMSABuf.Free()
+		scaleMLPBuf, err := alloc("scaleMLP", emb)
+		if err != nil {
+			return err
+		}
+		defer scaleMLPBuf.Free()
+		gateMLPBuf, err := alloc("gateMLP", emb)
+		if err != nil {
+			return err
+		}
+		defer gateMLPBuf.Free()
+		cosBuf, err := alloc("cos", tableLen)
+		if err != nil {
+			return err
+		}
+		defer cosBuf.Free()
+		sinBuf, err := alloc("sin", tableLen)
+		if err != nil {
+			return err
+		}
+		defer sinBuf.Free()
+		if err := hiddenBuf.Upload(hidden[:n]); err != nil {
+			return err
+		}
+		if err := scaleMSABuf.Upload(scaleMSA[:emb]); err != nil {
+			return err
+		}
+		if err := gateMSABuf.Upload(gateMSA[:emb]); err != nil {
+			return err
+		}
+		if err := scaleMLPBuf.Upload(scaleMLP[:emb]); err != nil {
+			return err
+		}
+		if err := gateMLPBuf.Upload(gateMLP[:emb]); err != nil {
+			return err
+		}
+		if err := cosBuf.Upload(rope.cos[:tableLen]); err != nil {
+			return err
+		}
+		if err := sinBuf.Upload(rope.sin[:tableLen]); err != nil {
+			return err
+		}
+		if err := nvidia.IdeogramRMSNormRowsBuffer(normedBuf, hiddenBuf, r.attnN1, scaleMSABuf, tokens, emb, normEps, true); err != nil {
+			return err
+		}
+		if err := nvidia.GemmQKVAttentionOResidualFP8E4M3Buffer(hiddenBuf, normedBuf, gateMSABuf, r.normQ, r.normK, r.attnN2, cosBuf, sinBuf, tokens, heads, headDim, scaleAttn, r.qkv, r.o); err != nil {
+			return err
+		}
+		if err := nvidia.IdeogramRMSNormRowsBuffer(normedBuf, hiddenBuf, r.ffnN1, scaleMLPBuf, tokens, emb, normEps, true); err != nil {
+			return err
+		}
+		if err := nvidia.GemmSwiGLUResidualFP8E4M3Buffer(hiddenBuf, normedBuf, gateMLPBuf, r.ffnN2, tokens, r.w1, r.w3, r.w2); err != nil {
+			return err
+		}
+		return hiddenBuf.Download(hidden[:n])
+	}
+	if err := nvidia.GemmDiTLayerIslandsFP8E4M3(hidden, l.AttnN1, scaleMSA, gateMSA, l.NormQ, l.NormK, l.AttnN2, l.FfnN1, scaleMLP, gateMLP, l.FfnN2, rope.cos, rope.sin, tokens, heads, headDim, scaleAttn, normEps, r.qkv, r.o, r.w1, r.w3, r.w2); err == nil {
+		return nil
+	} else if gpuFP8Strict() || gpuAttentionStrict() || gpuNormStrict() || gpuMRoPEStrict() || gpuMLPStrict() {
+		return fmt.Errorf("DiT layer GPU full islands: %w", err)
 	}
 	return fmt.Errorf("full layer island unavailable")
 }
