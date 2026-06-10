@@ -204,9 +204,3 @@ func clamp255(v float64) float64 {
 	}
 	return math.Round(v)
 }
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
