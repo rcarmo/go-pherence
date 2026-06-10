@@ -56,6 +56,7 @@ func main() {
 	useChatTemplate := flag.Bool("chat-template", false, "render repeated -message values through simplified native Gemma chat template")
 	decode := flag.Bool("decode", false, "decode prompt/generated IDs through exact tokenizer vocabulary entries")
 	mockToken := flag.Int("mock-token", -1, "use deterministic mock denoiser that always favors this token ID")
+	mockTokensCSV := flag.String("mock-tokens", "", "comma-separated deterministic mock denoiser token ID pattern")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
@@ -162,7 +163,13 @@ func main() {
 	}
 	var denoiser diffusiongemma.Denoiser
 	var weights *diffusiongemma.TextWeights
-	if *mockToken >= 0 {
+	if strings.TrimSpace(*mockTokensCSV) != "" {
+		mockIDs, err := parseIDs(*mockTokensCSV)
+		if err != nil {
+			fatal(err)
+		}
+		denoiser = diffusiongemma.MockDenoiser{VocabSize: m.Shape.VocabSize, TokenIDs: mockIDs}
+	} else if *mockToken >= 0 {
 		denoiser = diffusiongemma.MockDenoiser{VocabSize: m.Shape.VocabSize, TokenID: *mockToken}
 	}
 	if *useCPUDispatcher {
@@ -224,7 +231,7 @@ func main() {
 		return
 	}
 	fmt.Printf("DiffusionGemma run scaffold: %s\n", *modelDir)
-	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v mock_token=%d\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher, *mockToken)
+	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v mock_token=%d mock_tokens=%q\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher, *mockToken, *mockTokensCSV)
 	if opts.Denoising != nil {
 		d := opts.Denoising
 		fmt.Printf("  denoising: steps=%d t=[%.3f, %.3f] entropy_bound=%.3f stability=%d confidence=%.6f\n", d.MaxDenoisingSteps, d.TMin, d.TMax, d.Sampler.EntropyBound, d.StabilityThreshold, d.ConfidenceThreshold)

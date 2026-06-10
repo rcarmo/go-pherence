@@ -696,3 +696,8 @@ Use these to exercise non-default sampler schedules through `make diffusiongemma
 ## Run output denoising summary
 
 When denoising overrides are provided, `diffusiongemmarun` now prints the effective sampler settings (`steps`, temperature range, entropy bound, stability, confidence) in text output. JSON output already carries the same values through `options.denoising`.
+
+
+## Mock token pattern
+
+`diffusiongemmarun` now accepts `-mock-tokens`, a comma-separated deterministic token pattern for `MockDenoiser`. `DIFFUSIONGEMMA_MOCK_TOKENS` passes this through Makefile mock targets. For example, `-mock-tokens 4,2` with a four-token canvas generates `[4 2 4 2]`.
