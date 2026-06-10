@@ -234,3 +234,16 @@ This gives the future native loader exact tensor names and shard locations for t
 ## Inference engine scaffold
 
 `model/diffusiongemma/inference.go` adds `Engine` and `GenerateTokenIDs`. The engine ties metadata, optional text weights, and an injected `Denoiser` to the block-diffusion canvas loop. It can iterate over canvases until `max_new_tokens` is reached, appending accepted canvas tokens to context for the next canvas. If no denoiser is attached it returns `DiffusionGemma denoiser is not implemented`, making the missing native forward path explicit.
+
+
+## Text denoiser scaffold
+
+`model/diffusiongemma/denoiser.go` adds `TextDenoiser`, a future tensor-backed implementation of the `Denoiser` interface. It validates shape and semantic text forward bindings, but its `Denoise` method intentionally returns `DiffusionGemma text denoiser forward is not implemented` until layer math is wired. The same file adds `ForwardBufferPlan`, which reports major scratch/logit/router/expert element counts. For the published 256-token canvas, the inspector currently reports:
+
+```text
+hidden=720896
+residual=720896
+logits=67108864
+router=32768
+experts=1441792
+```
