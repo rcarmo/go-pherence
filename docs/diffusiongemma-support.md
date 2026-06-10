@@ -960,3 +960,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Residency budget planning
 
 `diffusiongemmainspect -open-weights -residency-budget-gib N` estimates how many decoded float32 layers can stay resident with globals under a memory budget. On the downloaded checkpoint, a 16 GiB budget fits `resident_layers=4/30` with `resident_bytes=16049700880` and about 1.05 GiB remaining. `make diffusiongemma-residency-plan` accepts `DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB`.
+
+
+## Runtime layer cache eviction
+
+`CPUDispatcher{ResidentLayerPrefix: N}` now evicts decoded tensors for completed layers outside the resident prefix as the layer loop advances. `diffusiongemmarun -resident-layers N` passes this policy to the CPU dispatcher, while `-preload-only` remains a safe way to validate the selected cache footprint without generation.

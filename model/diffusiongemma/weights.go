@@ -126,6 +126,59 @@ func (w *TextWeights) ClearFloatCache() {
 	}
 }
 
+func (w *TextWeights) EvictFloatTensor(name string) bool {
+	if w == nil || w.floatCache == nil {
+		return false
+	}
+	if _, ok := w.floatCache[name]; !ok {
+		return false
+	}
+	delete(w.floatCache, name)
+	return true
+}
+
+func (w *TextWeights) EvictLayer(layer int) int {
+	if w == nil || layer < 0 || layer >= len(w.Layers) {
+		return 0
+	}
+	evicted := 0
+	for _, b := range w.Layers[layer].Bindings {
+		if w.EvictFloatTensor(b.Name) {
+			evicted++
+		}
+	}
+	return evicted
+}
+
+func (w *TextWeights) RetainGlobalsAndLayerPrefix(layers int) int {
+	if w == nil {
+		return 0
+	}
+	keep := map[string]bool{}
+	for _, b := range w.Globals {
+		keep[b.Name] = true
+	}
+	if layers > len(w.Layers) {
+		layers = len(w.Layers)
+	}
+	if layers < 0 {
+		layers = 0
+	}
+	for i := 0; i < layers; i++ {
+		for _, b := range w.Layers[i].Bindings {
+			keep[b.Name] = true
+		}
+	}
+	evicted := 0
+	for name := range w.floatCache {
+		if !keep[name] {
+			delete(w.floatCache, name)
+			evicted++
+		}
+	}
+	return evicted
+}
+
 func (w *TextWeights) FloatCacheEntries() int {
 	if w == nil {
 		return 0

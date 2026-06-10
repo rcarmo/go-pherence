@@ -11,7 +11,9 @@ import (
 // CPUDispatcher is the native CPU/SIMD forward scaffold for DiffusionGemma text
 // denoising. It gives each semantic op an explicit hook so implementation can
 // proceed operation-by-operation while keeping the Denoiser interface stable.
-type CPUDispatcher struct{}
+type CPUDispatcher struct {
+	ResidentLayerPrefix int
+}
 
 type ForwardScratch struct {
 	Hidden   []float32
@@ -47,7 +49,7 @@ func maxNonNegative(n int) int {
 	return n
 }
 
-func (CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) (ForwardOutput, error) {
+func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) (ForwardOutput, error) {
 	if weights == nil {
 		return ForwardOutput{}, fmt.Errorf("DiffusionGemma CPU dispatcher missing text weights")
 	}
@@ -63,10 +65,18 @@ func (CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, op
 			return ForwardOutput{}, err
 		}
 	}
+	currentLayer := -1
 	for _, op := range ops.Layers {
+		if currentLayer >= 0 && op.Layer != currentLayer && currentLayer >= d.ResidentLayerPrefix {
+			weights.EvictLayer(currentLayer)
+		}
+		currentLayer = op.Layer
 		if err := dispatchLayerOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
 		}
+	}
+	if currentLayer >= 0 && currentLayer >= d.ResidentLayerPrefix {
+		weights.EvictLayer(currentLayer)
 	}
 	for _, op := range ops.Tail {
 		if err := dispatchTailOp(op, weights, scratch); err != nil {
