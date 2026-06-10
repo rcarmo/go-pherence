@@ -28,7 +28,7 @@ type RuntimeCapabilities struct {
 }
 
 func Capabilities() RuntimeCapabilities {
-	missing := []string{"reference parity fixtures", "memory-efficient LM head", "vision/token processor integration"}
+	missing := []string{"reference parity fixtures", "vision/token processor integration"}
 	return RuntimeCapabilities{
 		Metadata:              true,
 		TensorInventory:       true,

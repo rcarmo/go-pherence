@@ -313,7 +313,7 @@ Router scratch now includes per-position `TopKIDs` and `TopKVals` sized by `top_
 
 ## LM head hook
 
-`CPUDispatcher` now implements the `lm_head` tail op using the tied `embed_tokens.weight` matrix as an output projection. It runs checked SIMD `GemvRows` for each canvas position to produce full-vocabulary logits. This is correctness-first and will be expensive for the published 262K vocabulary because it materializes/uses the full tied embedding matrix; practical inference will need paging, caching, or a more memory-aware output projection path.
+`CPUDispatcher` now implements the `lm_head` tail op using the tied `embed_tokens.weight` matrix as an output projection. It runs checked SIMD `GemvRows` for each canvas position to produce full-vocabulary logits. This is correctness-first and uses row-wise tied embedding projection to avoid materializing the full tied embedding matrix as a float32 matrix. It will still be slow for the published 262K vocabulary, so practical inference may need chunking/caching or acceleration, but the memory path is now safer.
 
 
 ## Self-conditioning hook
@@ -328,7 +328,7 @@ Router scratch now includes per-position `TopKIDs` and `TopKVals` sized by `top_
 
 ## Capability reporting
 
-`model/diffusiongemma/capabilities.go` exposes a runtime capability summary used by `diffusiongemmainspect`. It marks metadata, tensor inventory, sampler, semantic ops, RoPE, sliding-window masking, and the attention scaffold as present while explicitly reporting missing reference-complete pieces: encoder KV concatenation, parity fixtures, memory-efficient LM head, and processor integration. `runtime_ready` remains false.
+`model/diffusiongemma/capabilities.go` exposes a runtime capability summary used by `diffusiongemmainspect`. It marks metadata, tensor inventory, sampler, semantic ops, RoPE, sliding-window masking, and the attention scaffold as present while explicitly reporting missing reference-complete pieces: encoder KV concatenation, parity fixtures, and processor integration. `runtime_ready` remains false.
 
 
 ## RoPE hook
@@ -344,3 +344,8 @@ The canvas self-attention scaffold now masks positions outside the sliding windo
 ## Encoder KV concat scaffold
 
 `ForwardContext` now carries optional per-layer `EncoderKVLayer` entries. The self-attention scaffold validates encoder KV shape and concatenates encoder K/V before current canvas K/V in the attention score/value loops, matching the reference decoder behavior where prior prompt/cache K/V is read-only and canvas K/V is appended for the current denoising pass. This is still not reference-complete until parity fixtures and memory-efficient attention are added.
+
+
+## Memory-aware LM head
+
+The tied LM-head hook now projects logits row-by-row from `embed_tokens.weight` through `RawTensorRow`, avoiding an eager full-matrix float32 expansion of the 262K×2816 tied embedding. This is still correctness-first and slow, but it removes the largest avoidable memory blow-up in the scaffold.

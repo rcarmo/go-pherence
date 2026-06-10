@@ -867,10 +867,11 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	if fp.Globals.EmbedTokens == nil {
 		return fmt.Errorf("DiffusionGemma LM head missing tied embeddings")
 	}
-	embed, vocab, hiddenSize, err := loadFloatMatrix(weights, fp.Globals.EmbedTokens)
-	if err != nil {
-		return err
+	if len(fp.Globals.EmbedTokens.Shape) != 2 {
+		return fmt.Errorf("DiffusionGemma LM head tied embedding shape %v is not rank-2", fp.Globals.EmbedTokens.Shape)
 	}
+	vocab := fp.Globals.EmbedTokens.Shape[0]
+	hiddenSize := fp.Globals.EmbedTokens.Shape[1]
 	if hiddenSize <= 0 || vocab <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
 		return fmt.Errorf("DiffusionGemma LM head hidden len=%d hidden_size=%d vocab=%d", len(scratch.Hidden), hiddenSize, vocab)
 	}
@@ -878,13 +879,23 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	if len(scratch.Logits) < positions {
 		return fmt.Errorf("DiffusionGemma LM head logits rows=%d want %d", len(scratch.Logits), positions)
 	}
-	for pos := 0; pos < positions; pos++ {
-		if len(scratch.Logits[pos]) < vocab {
-			return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
+	row := make([]float32, hiddenSize)
+	for vocabID := 0; vocabID < vocab; vocabID++ {
+		raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
+		if err != nil {
+			return err
 		}
-		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
-		if !simd.GemvRows(scratch.Logits[pos][:vocab], hidden, embed, vocab, hiddenSize) {
-			return fmt.Errorf("DiffusionGemma LM head GEMV rejected position %d", pos)
+		if len(shape) != 1 || shape[0] != hiddenSize {
+			return fmt.Errorf("DiffusionGemma LM head row shape %v want [%d]", shape, hiddenSize)
+		}
+		if err := decodeFloatRowTo(row, raw, dtype); err != nil {
+			return err
+		}
+		for pos := 0; pos < positions; pos++ {
+			if len(scratch.Logits[pos]) < vocab {
+				return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
+			}
+			scratch.Logits[pos][vocabID] = dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
 		}
 	}
 	return nil
