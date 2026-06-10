@@ -8,18 +8,19 @@ import "fmt"
 type OpKind string
 
 const (
-	OpInputNorm     OpKind = "input_norm"
-	OpSelfAttention OpKind = "self_attention"
-	OpPostAttention OpKind = "post_attention_norm"
-	OpDenseMLP      OpKind = "dense_mlp"
-	OpPreMoE        OpKind = "pre_moe_norm"
-	OpRouter        OpKind = "router"
-	OpExperts       OpKind = "experts"
-	OpPostMoE       OpKind = "post_moe_norm"
-	OpLayerScalar   OpKind = "layer_scalar"
-	OpSelfCondition OpKind = "self_condition"
-	OpFinalNorm     OpKind = "final_norm"
-	OpLMHead        OpKind = "lm_head"
+	OpCanvasEmbedding OpKind = "canvas_embedding"
+	OpInputNorm       OpKind = "input_norm"
+	OpSelfAttention   OpKind = "self_attention"
+	OpPostAttention   OpKind = "post_attention_norm"
+	OpDenseMLP        OpKind = "dense_mlp"
+	OpPreMoE          OpKind = "pre_moe_norm"
+	OpRouter          OpKind = "router"
+	OpExperts         OpKind = "experts"
+	OpPostMoE         OpKind = "post_moe_norm"
+	OpLayerScalar     OpKind = "layer_scalar"
+	OpSelfCondition   OpKind = "self_condition"
+	OpFinalNorm       OpKind = "final_norm"
+	OpLMHead          OpKind = "lm_head"
 )
 
 type LayerOp struct {
@@ -29,6 +30,7 @@ type LayerOp struct {
 }
 
 type ForwardOpPlan struct {
+	Prefix []OpKind  `json:"prefix"`
 	Layers []LayerOp `json:"layers"`
 	Tail   []OpKind  `json:"tail"`
 	Ready  bool      `json:"ready"`
@@ -42,7 +44,7 @@ func BuildForwardOpPlan(shape Shape, textPlan *TextForwardPlan) ForwardOpPlan {
 	if textPlan != nil && !textPlan.Ready {
 		return ForwardOpPlan{Ready: false, Reason: "text forward bindings incomplete"}
 	}
-	plan := ForwardOpPlan{Ready: true, Tail: []OpKind{OpSelfCondition, OpFinalNorm, OpLMHead}}
+	plan := ForwardOpPlan{Ready: true, Prefix: []OpKind{OpCanvasEmbedding}, Tail: []OpKind{OpSelfCondition, OpFinalNorm, OpLMHead}}
 	for i := 0; i < shape.TextLayers; i++ {
 		lt := layerTypeAt(shape.LayerTypes, i)
 		plan.Layers = append(plan.Layers,

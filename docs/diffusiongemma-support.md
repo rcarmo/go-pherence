@@ -251,10 +251,11 @@ experts=1441792
 
 ## Forward op plan
 
-`model/diffusiongemma/ops.go` adds a semantic `ForwardOpPlan` and `ForwardDispatcher` boundary for the text denoiser. The plan currently emits 9 high-level operations per text layer plus tail operations (`self_condition`, `final_norm`, `lm_head`). For the published 30-layer checkpoint, the inspector reports:
+`model/diffusiongemma/ops.go` adds a semantic `ForwardOpPlan` and `ForwardDispatcher` boundary for the text denoiser. The plan currently emits a prefix canvas embedding operation, 9 high-level operations per text layer, plus tail operations (`self_condition`, `final_norm`, `lm_head`). For the published 30-layer checkpoint, the inspector reports:
 
 ```text
 ops ready=true
+prefix_ops=1
 layer_ops=270
 tail_ops=3
 ```
@@ -265,3 +266,6 @@ tail_ops=3
 ## CPU/SIMD dispatcher scaffold
 
 `model/diffusiongemma/cpu_dispatcher.go` adds `CPUDispatcher`, `ForwardScratch`, and per-operation dispatch hooks for every semantic text forward op. The dispatcher allocates the major scratch buffers from `ForwardBufferPlan`, walks the `ForwardOpPlan`, and currently returns explicit per-op not-implemented errors such as `DiffusionGemma CPU/SIMD op self_attention is not implemented`. This creates the concrete boundary for adding native SIMD math op-by-op without changing the block-diffusion sampler or `Denoiser` interface.
+
+
+The explicit `canvas_embedding` prefix op marks the point where token IDs from the noised canvas must become hidden states before layer execution begins.

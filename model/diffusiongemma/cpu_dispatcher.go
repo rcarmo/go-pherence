@@ -55,6 +55,11 @@ func (CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, op
 		return ForwardOutput{}, fmt.Errorf("DiffusionGemma CPU dispatcher empty canvas")
 	}
 	scratch := NewForwardScratch(buffers)
+	for _, op := range ops.Prefix {
+		if err := dispatchPrefixOp(op, weights, scratch); err != nil {
+			return ForwardOutput{}, err
+		}
+	}
 	for _, op := range ops.Layers {
 		if err := dispatchLayerOp(op, weights, scratch); err != nil {
 			return ForwardOutput{}, err
@@ -66,6 +71,15 @@ func (CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, op
 		}
 	}
 	return ForwardOutput{Logits: scratch.Logits}, nil
+}
+
+func dispatchPrefixOp(op OpKind, weights *TextWeights, scratch ForwardScratch) error {
+	switch op {
+	case OpCanvasEmbedding:
+		return errOpNotImplemented(op)
+	default:
+		return fmt.Errorf("DiffusionGemma unknown prefix op %q", op)
+	}
 }
 
 func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
