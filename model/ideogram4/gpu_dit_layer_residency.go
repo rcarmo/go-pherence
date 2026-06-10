@@ -2,6 +2,9 @@ package ideogram4
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
@@ -13,6 +16,36 @@ type ditLayerGPUResidency struct {
 	w2    *nvidia.GPUFP8E4M3Linear
 	w3    *nvidia.GPUFP8E4M3Linear
 	adaln *nvidia.GPUFP8E4M3Linear
+}
+
+func (l *DiTLayer) cacheGPUResidency() bool {
+	if l == nil || !gpuFP8CacheEnabled() {
+		return false
+	}
+	winS := strings.TrimSpace(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_WINDOW"))
+	if winS == "" || winS == "0" {
+		return false
+	}
+	win, err := strconv.Atoi(winS)
+	if err != nil || win <= 0 {
+		return false
+	}
+	start, _ := strconv.Atoi(strings.TrimSpace(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_START")))
+	return l.Index >= start && l.Index < start+win
+}
+
+func (l *DiTLayer) uploadGPU() (*ditLayerGPUResidency, error) {
+	if l != nil && l.cacheGPUResidency() && l.gpu != nil {
+		return l.gpu, nil
+	}
+	r, err := uploadDiTLayerGPU(*l)
+	if err != nil {
+		return nil, err
+	}
+	if l != nil && l.cacheGPUResidency() {
+		l.gpu = r
+	}
+	return r, nil
 }
 
 func uploadDiTLayerGPU(l DiTLayer) (*ditLayerGPUResidency, error) {

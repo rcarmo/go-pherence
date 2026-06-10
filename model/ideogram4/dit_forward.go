@@ -94,6 +94,7 @@ func LoadDiTModel(cfg Config, src CombinedTensorSource) (*DiTModel, error) {
 	for i := 0; i < cfg.NumLayers; i++ {
 		lp := fmt.Sprintf("layers.%d", i)
 		var l DiTLayer
+		l.Index = i
 		if l.QKV, err = loadLin(lp + ".attention.qkv"); err != nil {
 			return nil, err
 		}

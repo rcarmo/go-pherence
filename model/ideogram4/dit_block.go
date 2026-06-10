@@ -8,6 +8,8 @@ import (
 // DiTLayer bundles the FP8 linears and RMSNorm weights of one Ideogram4
 // transformer block, matching the reference Ideogram4TransformerBlock.
 type DiTLayer struct {
+	Index int
+
 	QKV   *FP8Linear // emb -> 3*emb (bias=false)
 	O     *FP8Linear // emb -> emb   (bias=false)
 	W1    *FP8Linear // emb -> intermediate
@@ -21,6 +23,8 @@ type DiTLayer struct {
 	AttnN2 []float32 // emb RMSNorm (norm_eps)
 	FfnN1  []float32 // emb RMSNorm (norm_eps)
 	FfnN2  []float32 // emb RMSNorm (norm_eps)
+
+	gpu *ditLayerGPUResidency // optional cached FP8 residency for windowed layers
 }
 
 // MRoPE holds precomputed cos/sin tables for the Ideogram4 3-section
@@ -156,7 +160,7 @@ func applyMRoPEToQK(q, k []float32, rope *MRoPE, tokens, heads, headDim int) err
 //	attn = attention(attention_norm1(x) * scale_msa)
 //	x = x + gate_msa * attention_norm2(attn)
 //	x = x + gate_mlp * ffn_norm2(feed_forward(ffn_norm1(x) * scale_mlp))
-func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float32, rope *MRoPE) error {
+func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float32, rope *MRoPE) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
@@ -171,16 +175,18 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	if l.AdaLN.OutDim() != 4*emb {
 		return fmt.Errorf("ideogram4 DiT adaln out=%d want=%d", l.AdaLN.OutDim(), 4*emb)
 	}
-	layerGPU, err := uploadDiTLayerGPU(l)
+	layerGPU, err := l.uploadGPU()
 	if err != nil {
 		if gpuFP8Strict() {
 			return err
 		}
 		layerGPU = nil
 	}
-	defer layerGPU.Free()
+	if !l.cacheGPUResidency() {
+		defer layerGPU.Free()
+	}
 	mod := make([]float32, 4*emb)
-	if err := layerGPU.AdaLN(l, adalnInput, mod); err != nil {
+	if err := layerGPU.AdaLN(*l, adalnInput, mod); err != nil {
 		return err
 	}
 	scaleMSA := mod[0:emb]
@@ -226,7 +232,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 			}
 		}
 	}
-	if err := layerGPU.QKVBatch(l, normedAll, qkvAll, tokens); err != nil {
+	if err := layerGPU.QKVBatch(*l, normedAll, qkvAll, tokens); err != nil {
 		return err
 	}
 	for t := 0; t < tokens; t++ {
@@ -276,7 +282,7 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	}
 	// output projection, post-norm, gated residual.
 	oprojAll := make([]float32, tokens*emb)
-	if err := layerGPU.OBatch(l, attnOut, oprojAll, tokens); err != nil {
+	if err := layerGPU.OBatch(*l, attnOut, oprojAll, tokens); err != nil {
 		return err
 	}
 	postNormAll := make([]float32, tokens*emb)
@@ -339,11 +345,11 @@ func (l DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float3
 	gAll := make([]float32, tokens*inter)
 	uAll := make([]float32, tokens*inter)
 	downAll := make([]float32, tokens*emb)
-	if err := layerGPU.W1W3Batch(l, mlpIn, gAll, uAll, tokens); err != nil {
+	if err := layerGPU.W1W3Batch(*l, mlpIn, gAll, uAll, tokens); err != nil {
 		return err
 	}
 	siluMulInPlace(gAll, uAll)
-	if err := layerGPU.W2Batch(l, gAll, downAll, tokens); err != nil {
+	if err := layerGPU.W2Batch(*l, gAll, downAll, tokens); err != nil {
 		return err
 	}
 	if gpuNormEnabled() {

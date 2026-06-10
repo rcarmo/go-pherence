@@ -16,6 +16,10 @@ func (l *DiTLayer) ReleaseGPU() {
 	if l == nil {
 		return
 	}
+	if l.gpu != nil {
+		l.gpu.Free()
+		l.gpu = nil
+	}
 	for _, lin := range []*FP8Linear{l.QKV, l.O, l.W1, l.W2, l.W3, l.AdaLN} {
 		lin.ReleaseGPU()
 	}
