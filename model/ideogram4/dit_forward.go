@@ -248,9 +248,15 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 		return nil, err
 	}
 
-	for i := range m.Layers {
-		if err := m.Layers[i].ForwardLayer(cfg, hidden, adaln, rope); err != nil {
-			return nil, fmt.Errorf("ideogram4 DiT layer %d: %w", i, err)
+	if gpuHiddenResidentEnabled() {
+		if err := m.forwardLayersHiddenResident(hidden, adaln, rope); err != nil {
+			return nil, err
+		}
+	} else {
+		for i := range m.Layers {
+			if err := m.Layers[i].ForwardLayer(cfg, hidden, adaln, rope); err != nil {
+				return nil, fmt.Errorf("ideogram4 DiT layer %d: %w", i, err)
+			}
 		}
 	}
 
