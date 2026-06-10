@@ -701,3 +701,8 @@ When denoising overrides are provided, `diffusiongemmarun` now prints the effect
 ## Mock token pattern
 
 `diffusiongemmarun` now accepts `-mock-tokens`, a comma-separated deterministic token pattern for `MockDenoiser`. `DIFFUSIONGEMMA_MOCK_TOKENS` passes this through Makefile mock targets. For example, `-mock-tokens 4,2` with a four-token canvas generates `[4 2 4 2]`.
+
+
+## Pattern-aware mock comparison
+
+`diffusiongemma-mock-compare` now honors `DIFFUSIONGEMMA_MOCK_TOKENS` when creating its tiny reference JSON. For example, `DIFFUSIONGEMMA_MOCK_TOKENS=4,2` compares against `[4,2]` instead of the default repeated mock token.
