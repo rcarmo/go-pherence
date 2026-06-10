@@ -1,5 +1,7 @@
 package lfm2
 
+import modelreadiness "github.com/rcarmo/go-pherence/model/internal/readiness"
+
 // RuntimeReadinessReport combines runtime implementation status with fixture
 // parity coverage. It is a validation/reporting surface only; it does not run
 // generation.
@@ -13,23 +15,13 @@ type RuntimeReadinessReport struct {
 }
 
 func NewRuntimeReadinessReport(status RuntimeStatus, coverage *ReferenceCoverage) RuntimeReadinessReport {
-	report := RuntimeReadinessReport{RuntimeStatus: status, ReferenceCoverage: coverage, RuntimeReady: status.RuntimeImplemented}
+	var numericParityReady bool
+	var missing, placeholders []string
 	if coverage != nil {
-		report.NumericParityReady = coverage.NumericParityReady
+		numericParityReady = coverage.NumericParityReady
+		missing = coverage.Missing
+		placeholders = coverage.PlaceholderValues
 	}
-	if !report.RuntimeReady {
-		report.Blockers = append(report.Blockers, status.Pending...)
-	}
-	if coverage == nil {
-		report.Blockers = append(report.Blockers, "reference_fixture_missing")
-	} else {
-		for _, missing := range coverage.Missing {
-			report.Blockers = append(report.Blockers, "reference_missing:"+missing)
-		}
-		for _, placeholder := range coverage.PlaceholderValues {
-			report.Blockers = append(report.Blockers, "placeholder:"+placeholder)
-		}
-	}
-	report.ReadyForExecution = report.RuntimeReady && report.NumericParityReady && len(report.Blockers) == 0
-	return report
+	core := modelreadiness.BuildReportCore(status.RuntimeImplemented, status.Pending, coverage != nil, numericParityReady, missing, placeholders)
+	return RuntimeReadinessReport{RuntimeStatus: status, ReferenceCoverage: coverage, RuntimeReady: core.RuntimeReady, NumericParityReady: core.NumericParityReady, ReadyForExecution: core.ReadyForExecution, Blockers: core.Blockers}
 }
