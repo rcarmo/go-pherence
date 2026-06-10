@@ -820,3 +820,8 @@ Shard readiness now includes `present_percent`, and the inspector/status summary
 ## Download plan report target
 
 `make diffusiongemma-download-plan-report` writes the machine-readable download plan JSON and immediately prints the compact download-plan summary. It is the recommended preflight before opting into the full ~48.10 GiB shard download.
+
+
+## Shard byte progress
+
+Shard readiness now reports byte-level progress as `present_bytes/expected_bytes` and `present_byte_percent`, in addition to shard-count progress. Metadata-only snapshots report `bytes=0/51647562456 byte_percent=0`.

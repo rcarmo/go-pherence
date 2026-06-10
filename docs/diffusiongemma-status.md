@@ -285,3 +285,8 @@ Expected output includes:
 ```text
 checkpoint shards=11 total_size=51647562456 bytes (48.10 GiB) parameters=25823778864
 ```
+
+
+## Shard byte progress
+
+Shard readiness now reports byte-level progress as `present_bytes/expected_bytes` and `present_byte_percent`, in addition to shard-count progress. Metadata-only snapshots report `bytes=0/51647562456 byte_percent=0`.

@@ -23,7 +23,7 @@ def main() -> int:
     size_bytes = tensors.get('total_size_bytes') or 0
     size_gib = size_bytes / (1024 ** 3) if size_bytes else 0
     print(f"parameters={tensors.get('total_parameters')} size_bytes={size_bytes} size_gib={size_gib:.2f}")
-    print(f"shards_ready={shards.get('ready')} present={shards.get('present_shards')}/{shards.get('expected_shards')} percent={shards.get('present_percent')}")
+    print(f"shards_ready={shards.get('ready')} present={shards.get('present_shards')}/{shards.get('expected_shards')} percent={shards.get('present_percent')} bytes={shards.get('present_bytes')}/{shards.get('expected_bytes')} byte_percent={shards.get('present_byte_percent')}")
     if missing:
         print("missing_reference=" + ",".join(missing))
     return 0

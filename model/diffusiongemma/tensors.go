@@ -208,12 +208,8 @@ func layerTypeAt(types []string, i int) string {
 }
 
 func tensorNamesFromIndex(path string) ([]string, error) {
-	b, err := os.ReadFile(path)
+	idx, err := readSafetensorsIndex(path)
 	if err != nil {
-		return nil, err
-	}
-	var idx hfSafetensorsIndex
-	if err := json.Unmarshal(b, &idx); err != nil {
 		return nil, err
 	}
 	names := make([]string, 0, len(idx.WeightMap))
@@ -306,29 +302,40 @@ func TextTensorPlanFromIndex(path string, shape Shape) (TextTensorPlan, error) {
 }
 
 func tensorWeightMapFromIndex(path string) (map[string]string, error) {
-	b, err := os.ReadFile(path)
+	idx, err := readSafetensorsIndex(path)
 	if err != nil {
-		return nil, err
-	}
-	var idx hfSafetensorsIndex
-	if err := json.Unmarshal(b, &idx); err != nil {
 		return nil, err
 	}
 	return idx.WeightMap, nil
 }
 
+func readSafetensorsIndex(path string) (hfSafetensorsIndex, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return hfSafetensorsIndex{}, err
+	}
+	var idx hfSafetensorsIndex
+	if err := json.Unmarshal(b, &idx); err != nil {
+		return hfSafetensorsIndex{}, err
+	}
+	return idx, nil
+}
+
 type ShardAvailability struct {
-	IndexPath      string   `json:"index_path"`
-	ExpectedShards int      `json:"expected_shards"`
-	PresentShards  int      `json:"present_shards"`
-	MissingShards  []string `json:"missing_shards,omitempty"`
-	Ready          bool     `json:"ready"`
-	PresentPercent float64  `json:"present_percent"`
+	IndexPath          string   `json:"index_path"`
+	ExpectedShards     int      `json:"expected_shards"`
+	PresentShards      int      `json:"present_shards"`
+	MissingShards      []string `json:"missing_shards,omitempty"`
+	Ready              bool     `json:"ready"`
+	PresentPercent     float64  `json:"present_percent"`
+	ExpectedBytes      int64    `json:"expected_bytes"`
+	PresentBytes       int64    `json:"present_bytes"`
+	PresentBytePercent float64  `json:"present_byte_percent"`
 }
 
 func ShardAvailabilityFromModelDir(modelDir string) (ShardAvailability, bool, error) {
 	path := filepath.Join(modelDir, "model.safetensors.index.json")
-	weights, err := tensorWeightMapFromIndex(path)
+	index, err := readSafetensorsIndex(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return ShardAvailability{}, false, nil
@@ -336,7 +343,7 @@ func ShardAvailabilityFromModelDir(modelDir string) (ShardAvailability, bool, er
 		return ShardAvailability{}, false, err
 	}
 	shards := map[string]bool{}
-	for _, shard := range weights {
+	for _, shard := range index.WeightMap {
 		shards[shard] = true
 	}
 	names := make([]string, 0, len(shards))
@@ -344,10 +351,11 @@ func ShardAvailabilityFromModelDir(modelDir string) (ShardAvailability, bool, er
 		names = append(names, shard)
 	}
 	sort.Strings(names)
-	out := ShardAvailability{IndexPath: path, ExpectedShards: len(names), Ready: true}
+	out := ShardAvailability{IndexPath: path, ExpectedShards: len(names), ExpectedBytes: index.Metadata.TotalSize, Ready: true}
 	for _, shard := range names {
-		if _, err := os.Stat(filepath.Join(modelDir, shard)); err == nil {
+		if info, err := os.Stat(filepath.Join(modelDir, shard)); err == nil {
 			out.PresentShards++
+			out.PresentBytes += info.Size()
 			continue
 		} else if err != nil && !os.IsNotExist(err) {
 			return ShardAvailability{}, false, err
@@ -357,6 +365,9 @@ func ShardAvailabilityFromModelDir(modelDir string) (ShardAvailability, bool, er
 	}
 	if out.ExpectedShards > 0 {
 		out.PresentPercent = 100 * float64(out.PresentShards) / float64(out.ExpectedShards)
+	}
+	if out.ExpectedBytes > 0 {
+		out.PresentBytePercent = 100 * float64(out.PresentBytes) / float64(out.ExpectedBytes)
 	}
 	return out, true, nil
 }
