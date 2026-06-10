@@ -830,3 +830,8 @@ Shard readiness now reports byte-level progress as `present_bytes/expected_bytes
 ## Download status alias
 
 `make diffusiongemma-download-status` is an alias for the metadata/status refresh path. It is intended for checking shard-count and byte-level progress during or after a partial/full checkpoint download.
+
+
+## Download plan shard lists
+
+`diffusiongemma-download-plan-json` now includes `shard_files`, `present_shards`, `missing_shards`, present/missing shard counts, `present_bytes`, and `present_byte_percent`. The compact download-plan summary prints present shard count and present byte progress as well as total size/free-space status.

@@ -74,10 +74,20 @@ def main() -> int:
     total_params = int(meta.get("total_parameters") or 0)
     usage = shutil.disk_usage(out)
     free = usage.free
+    present_shards = [s for s in shards if (out / s).exists()]
+    missing_shards = [s for s in shards if not (out / s).exists()]
+    present_bytes = sum((out / s).stat().st_size for s in present_shards)
     plan = {
         "repo": args.repo,
         "out": str(out),
         "shards": len(shards),
+        "shard_files": shards,
+        "present_shards": present_shards,
+        "missing_shards": missing_shards,
+        "present_shard_count": len(present_shards),
+        "missing_shard_count": len(missing_shards),
+        "present_bytes": present_bytes,
+        "present_byte_percent": (100 * present_bytes / total_size) if total_size else 0,
         "total_size_bytes": total_size,
         "total_size_gib": total_size / (1024**3) if total_size else 0,
         "total_parameters": total_params,
