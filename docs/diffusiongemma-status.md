@@ -248,3 +248,15 @@ GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
 ```
 
 Result: passed. This now covers text scaffold readiness, reference dry-run, mock comparison, structured JSON messages, chat-template scaffold path, status JSON, and status summary in the default no-weight CI path.
+
+
+## Checkpoint size metadata
+
+The safetensors index reports:
+
+```text
+total_parameters=25823778864
+total_size_bytes=51647562456
+```
+
+`diffusiongemmainspect` surfaces these fields from `model.safetensors.index.json`, so download planning can show expected payload size before fetching the 11 shards.

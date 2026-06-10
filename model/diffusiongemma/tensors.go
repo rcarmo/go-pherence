@@ -23,14 +23,20 @@ const (
 )
 
 type TensorInventory struct {
-	IndexPath string                   `json:"index_path"`
-	Total     int                      `json:"total"`
-	Shards    int                      `json:"shards"`
-	Groups    map[TensorGroup]int      `json:"groups"`
-	Examples  map[TensorGroup][]string `json:"examples,omitempty"`
+	IndexPath       string                   `json:"index_path"`
+	Total           int                      `json:"total"`
+	Shards          int                      `json:"shards"`
+	TotalParameters int64                    `json:"total_parameters,omitempty"`
+	TotalSizeBytes  int64                    `json:"total_size_bytes,omitempty"`
+	Groups          map[TensorGroup]int      `json:"groups"`
+	Examples        map[TensorGroup][]string `json:"examples,omitempty"`
 }
 
 type hfSafetensorsIndex struct {
+	Metadata struct {
+		TotalParameters int64 `json:"total_parameters"`
+		TotalSize       int64 `json:"total_size"`
+	} `json:"metadata"`
 	WeightMap map[string]string `json:"weight_map"`
 }
 
@@ -55,7 +61,7 @@ func TensorInventoryFromIndex(path string) (TensorInventory, error) {
 	if err := json.Unmarshal(b, &idx); err != nil {
 		return TensorInventory{}, err
 	}
-	inv := TensorInventory{IndexPath: path, Groups: map[TensorGroup]int{}, Examples: map[TensorGroup][]string{}}
+	inv := TensorInventory{IndexPath: path, TotalParameters: idx.Metadata.TotalParameters, TotalSizeBytes: idx.Metadata.TotalSize, Groups: map[TensorGroup]int{}, Examples: map[TensorGroup][]string{}}
 	shards := map[string]bool{}
 	names := make([]string, 0, len(idx.WeightMap))
 	for name, shard := range idx.WeightMap {

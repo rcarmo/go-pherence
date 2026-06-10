@@ -760,3 +760,15 @@ It requires all safetensor shards, a working Transformers/PyTorch environment fo
 ## Download planning target
 
 `make diffusiongemma-download-plan` downloads/refreshes metadata, runs inspection, exports status JSON, and prints the compact status summary. It does not download the 11 safetensor shards; use it before a full download to confirm model metadata and shard readiness.
+
+
+## Checkpoint size metadata
+
+The safetensors index reports:
+
+```text
+total_parameters=25823778864
+total_size_bytes=51647562456
+```
+
+`diffusiongemmainspect` surfaces these fields from `model.safetensors.index.json`, so download planning can show expected payload size before fetching the 11 shards.

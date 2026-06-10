@@ -128,7 +128,7 @@ func printText(r report) {
 		fmt.Printf("  specials:  bos=%d eos=%d pad=%d mask=%d think=%d boi=%d eoi=%d image=%d bot=%d eot=%d\n", s.BOS, s.EOS, s.PAD, s.MASK, s.THINK, s.BOI, s.EOI, s.IMAGE, s.BOT, s.EOT)
 	}
 	if r.Tensors != nil {
-		fmt.Printf("  tensors:   total=%d shards=%d groups=%v\n", r.Tensors.Total, r.Tensors.Shards, r.Tensors.Groups)
+		fmt.Printf("  tensors:   total=%d shards=%d parameters=%d size_bytes=%d groups=%v\n", r.Tensors.Total, r.Tensors.Shards, r.Tensors.TotalParameters, r.Tensors.TotalSizeBytes, r.Tensors.Groups)
 	}
 	if r.Shards != nil {
 		fmt.Printf("  shards:    ready=%v present=%d/%d missing=%d\n", r.Shards.Ready, r.Shards.PresentShards, r.Shards.ExpectedShards, len(r.Shards.MissingShards))
