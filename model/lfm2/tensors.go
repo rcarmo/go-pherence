@@ -1,11 +1,6 @@
 package lfm2
 
-import (
-	"sort"
-	"strings"
-
-	"github.com/rcarmo/go-pherence/model/inspect"
-)
+import tensorinspect "github.com/rcarmo/go-pherence/model/internal/tensorinspect"
 
 var requiredTensorMarkers = map[string][]string{
 	"embedding": {"embed_tokens", "embedding"},
@@ -18,88 +13,17 @@ var optionalTensorMarkers = map[string][]string{
 	"lm_head": {"lm_head"},
 }
 
-type TensorCoverage struct {
-	Total     int               `json:"total"`
-	Embedding int               `json:"embedding"`
-	Layers    int               `json:"layers"`
-	Router    int               `json:"router"`
-	Experts   int               `json:"experts"`
-	LMHead    int               `json:"lm_head"`
-	Other     int               `json:"other"`
-	Examples  map[string]string `json:"examples,omitempty"`
-	Readiness TensorReadiness   `json:"readiness"`
-}
-
-type TensorReadiness struct {
-	Ready           bool            `json:"ready"`
-	PresentRequired map[string]bool `json:"present_required"`
-	MissingRequired []string        `json:"missing_required,omitempty"`
-	PresentOptional map[string]bool `json:"present_optional,omitempty"`
-}
+type TensorCoverage = tensorinspect.TensorCoverage
+type TensorReadiness = tensorinspect.TensorReadiness
 
 func InspectTensorNames(names []string) TensorCoverage {
-	cov := TensorCoverage{Total: len(names), Examples: map[string]string{}}
-	sorted := append([]string(nil), names...)
-	sort.Strings(sorted)
-	for _, name := range sorted {
-		g := TensorGroup(name)
-		switch g {
-		case "embedding":
-			cov.Embedding++
-		case "layers":
-			cov.Layers++
-		case "router":
-			cov.Router++
-		case "experts":
-			cov.Experts++
-		case "lm_head":
-			cov.LMHead++
-		default:
-			cov.Other++
-		}
-		if _, ok := cov.Examples[g]; !ok {
-			cov.Examples[g] = name
-		}
-	}
-	if len(cov.Examples) == 0 {
-		cov.Examples = nil
-	}
-	cov.Readiness = InspectTensorReadiness(sorted)
-	return cov
+	return tensorinspect.InspectTensorNames(names, requiredTensorMarkers, optionalTensorMarkers)
 }
 
 func InspectTensorReadiness(names []string) TensorReadiness {
-	presentRequired := make(map[string]bool, len(requiredTensorMarkers))
-	var missing []string
-	for group, markers := range requiredTensorMarkers {
-		present := inspect.AnyTensorMarker(names, markers)
-		presentRequired[group] = present
-		if !present {
-			missing = append(missing, group)
-		}
-	}
-	sort.Strings(missing)
-	presentOptional := make(map[string]bool, len(optionalTensorMarkers))
-	for group, markers := range optionalTensorMarkers {
-		presentOptional[group] = inspect.AnyTensorMarker(names, markers)
-	}
-	return TensorReadiness{Ready: len(missing) == 0, PresentRequired: presentRequired, MissingRequired: missing, PresentOptional: presentOptional}
+	return tensorinspect.InspectTensorReadiness(names, requiredTensorMarkers, optionalTensorMarkers)
 }
 
 func TensorGroup(name string) string {
-	s := strings.ToLower(name)
-	switch {
-	case strings.Contains(s, "embed_tokens") || strings.Contains(s, "embedding"):
-		return "embedding"
-	case strings.Contains(s, "lm_head"):
-		return "lm_head"
-	case strings.Contains(s, "router") || strings.Contains(s, "gate"):
-		return "router"
-	case strings.Contains(s, "experts"):
-		return "experts"
-	case strings.Contains(s, "layers"):
-		return "layers"
-	default:
-		return "other"
-	}
+	return tensorinspect.TensorGroup(name)
 }
