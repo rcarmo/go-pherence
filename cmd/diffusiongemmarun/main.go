@@ -43,6 +43,12 @@ func main() {
 	exactTokensCSV := flag.String("tokens", "", "comma-separated exact tokenizer vocabulary entries (no BPE tokenization)")
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
+	denoiseSteps := flag.Int("denoise-steps", 0, "override maximum denoising steps")
+	tMin := flag.Float64("t-min", -1, "override final denoising temperature")
+	tMax := flag.Float64("t-max", -1, "override initial denoising temperature")
+	entropyBound := flag.Float64("entropy-bound", -1, "override entropy-bound sampler threshold")
+	stabilityThreshold := flag.Int("stability", -1, "override stable-canvas stopping threshold")
+	confidenceThreshold := flag.Float64("confidence", -1, "override mean entropy confidence threshold")
 	seed := flag.Int64("seed", 1, "deterministic canvas RNG seed")
 	addBOS := flag.Bool("add-bos", false, "prepend BOS token from tokenizer metadata")
 	enableThinking := flag.Bool("think", false, "prepend thinking control token from tokenizer metadata")
@@ -182,6 +188,9 @@ func main() {
 		fatal(err)
 	}
 	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed}
+	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *stabilityThreshold, *confidenceThreshold); denoising != nil {
+		opts.Denoising = denoising
+	}
 	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts, Capabilities: diffusiongemma.Capabilities(), Shards: m.Shards}
 	if *decode {
 		if tok != nil {
@@ -264,6 +273,39 @@ func parseFlagMessages(messages []string) ([]diffusiongemma.TextChatMessage, err
 		out = append(out, diffusiongemma.TextChatMessage{Role: strings.TrimSpace(role), Content: content})
 	}
 	return out, nil
+}
+
+func buildDenoisingOverride(base diffusiongemma.DenoisingConfig, steps int, tMin, tMax, entropyBound float64, stability int, confidence float64) *diffusiongemma.DenoisingConfig {
+	changed := false
+	cfg := base
+	if steps > 0 {
+		cfg.MaxDenoisingSteps = steps
+		changed = true
+	}
+	if tMin >= 0 {
+		cfg.TMin = tMin
+		changed = true
+	}
+	if tMax >= 0 {
+		cfg.TMax = tMax
+		changed = true
+	}
+	if entropyBound > 0 {
+		cfg.Sampler.EntropyBound = entropyBound
+		changed = true
+	}
+	if stability >= 0 {
+		cfg.StabilityThreshold = stability
+		changed = true
+	}
+	if confidence > 0 {
+		cfg.ConfidenceThreshold = confidence
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	return &cfg
 }
 
 func splitCSV(csv string) []string {

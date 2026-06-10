@@ -659,3 +659,19 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 
 
 The scaffold CI target also writes `DIFFUSIONGEMMA_STATUS_OUT` and prints the compact status summary, so CI artifacts can include both the full JSON report and human-readable readiness summary.
+
+
+## Denoising override flags
+
+`diffusiongemmarun` now exposes diffusion/sampler controls from the reference generation config:
+
+```bash
+-denoise-steps
+-t-min
+-t-max
+-entropy-bound
+-stability
+-confidence
+```
+
+These override `InferenceOptions.Denoising` and work with mock runs today; they will carry through to real denoising once the tensor-backed denoiser is reference-complete.
