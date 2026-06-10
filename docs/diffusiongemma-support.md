@@ -563,3 +563,8 @@ DIFFUSIONGEMMA_SEED
 ```
 
 The default mock token is `4` (`<mask>` in the published tokenizer metadata).
+
+
+## Model generation prompt header
+
+For repeated `-message role:text` inputs, `diffusiongemmarun -generation-prompt` now appends a simplified model turn header (`<|turn>model`) instead of just a raw begin-turn token. This better matches the reference template shape while remaining a scaffold rather than a full Jinja renderer.

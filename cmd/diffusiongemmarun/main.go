@@ -107,11 +107,18 @@ func main() {
 			}
 			chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: role, Content: tok.Encode(text)})
 		}
-		framed, err := diffusiongemma.BuildSimpleChatPromptIDs(chatMessages, specials, diffusiongemma.ChatPromptOptions{AddBOS: *addBOS, AddGenerationPrompt: *addGenerationPrompt})
+		framed, err := diffusiongemma.BuildSimpleChatPromptIDs(chatMessages, specials, diffusiongemma.ChatPromptOptions{AddBOS: *addBOS})
 		if err != nil {
 			fatal(err)
 		}
 		promptIDs = append(promptIDs, framed.InputIDs...)
+		if *addGenerationPrompt {
+			if specials.BOT < 0 {
+				fatal(fmt.Errorf("DiffusionGemma begin-turn token ID unavailable"))
+			}
+			promptIDs = append(promptIDs, specials.BOT)
+			promptIDs = append(promptIDs, tok.Encode("model\n")...)
+		}
 	} else if *addBOS || *enableThinking || *addGenerationPrompt {
 		if m.Tokenizer == nil {
 			fatal(fmt.Errorf("DiffusionGemma tokenizer metadata unavailable"))
