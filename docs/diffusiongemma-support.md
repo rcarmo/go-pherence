@@ -260,3 +260,8 @@ tail_ops=3
 ```
 
 `TextDenoiser` now routes `Denoise` through a dispatcher. The default dispatcher returns an explicit not-implemented error until tensor-backed CPU/SIMD layer math is added.
+
+
+## CPU/SIMD dispatcher scaffold
+
+`model/diffusiongemma/cpu_dispatcher.go` adds `CPUDispatcher`, `ForwardScratch`, and per-operation dispatch hooks for every semantic text forward op. The dispatcher allocates the major scratch buffers from `ForwardBufferPlan`, walks the `ForwardOpPlan`, and currently returns explicit per-op not-implemented errors such as `DiffusionGemma CPU/SIMD op self_attention is not implemented`. This creates the concrete boundary for adding native SIMD math op-by-op without changing the block-diffusion sampler or `Denoiser` interface.
