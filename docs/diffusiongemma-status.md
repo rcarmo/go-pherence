@@ -397,4 +397,9 @@ Full-weight `diffusiongemmarun -cpu-dispatcher` is now guarded by `-allow-slow-c
 
 ## Layer-0 residency preload
 
-With the full checkpoint present, `diffusiongemmarun -preload-only -preload-globals -resident-layers 1` succeeds and reports `float_cache_entries=28` (6 global tensors plus 22 layer-0 tensors). `make diffusiongemma-preload-layer0` wraps this bounded residency check.
+With the full checkpoint present, `diffusiongemmarun -preload-only -preload-globals -resident-layers 1` succeeds and reports `float_cache_entries=28 float_cache_bytes=6280561156 (~5.85 GiB)` (6 global tensors plus 22 layer-0 tensors). `make diffusiongemma-preload-layer0` wraps this bounded residency check.
+
+
+## Decoded cache byte accounting
+
+`TextWeights.FloatCacheBytes()` now reports decoded float32 cache memory. With full weights, `-preload-globals -resident-layers 1 -preload-only` reports `float_cache_entries=28 float_cache_bytes=6280561156` (~5.85 GiB). This confirms layer residency is expensive and must remain opt-in.

@@ -133,6 +133,17 @@ func (w *TextWeights) FloatCacheEntries() int {
 	return len(w.floatCache)
 }
 
+func (w *TextWeights) FloatCacheBytes() int64 {
+	if w == nil {
+		return 0
+	}
+	var total int64
+	for _, t := range w.floatCache {
+		total += int64(len(t.Data)) * 4
+	}
+	return total
+}
+
 func (w *TextWeights) PreloadGlobals() error {
 	if w == nil {
 		return fmt.Errorf("nil DiffusionGemma text weights")

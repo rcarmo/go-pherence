@@ -220,7 +220,7 @@ func main() {
 			}
 			fmt.Printf("DiffusionGemma preload scaffold: %s\n", *modelDir)
 			fmt.Printf("  shards_ready=%v present=%d/%d\n", ready, present, expected)
-			fmt.Printf("  preload_globals=%v resident_layers=%d eager_mmap=%v float_cache_entries=%d\n", *preloadGlobals, *residentLayers, *eagerMmap, weights.FloatCacheEntries())
+			fmt.Printf("  preload_globals=%v resident_layers=%d eager_mmap=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *eagerMmap, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 			return
 		}
 		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{})
@@ -299,7 +299,7 @@ func main() {
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
 	}
 	if weights != nil {
-		fmt.Printf("  residency: float_cache_entries=%d\n", weights.FloatCacheEntries())
+		fmt.Printf("  residency: float_cache_entries=%d float_cache_bytes=%d\n", weights.FloatCacheEntries(), weights.FloatCacheBytes())
 	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)
