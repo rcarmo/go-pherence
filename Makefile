@@ -710,3 +710,7 @@ DIFFUSIONGEMMA_WEIGHTS_OUT ?= $(TMPDIR)/diffusiongemma/weights.json
 diffusiongemma-weights-json: diffusiongemma-check-shards
 	mkdir -p $(dir $(DIFFUSIONGEMMA_WEIGHTS_OUT))
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -open-weights -json > $(DIFFUSIONGEMMA_WEIGHTS_OUT)
+
+.PHONY: diffusiongemma-ci-no-weights
+
+diffusiongemma-ci-no-weights: diffusiongemma-download-plan-report diffusiongemma-ci-scaffold diffusiongemma-ci-mock-pattern

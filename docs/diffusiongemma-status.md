@@ -317,3 +317,8 @@ Result: passed. Text readiness now reports `layer_tensors=655/655`.
 
 
 `diffusiongemma-weights-json` performs shard readiness preflight before opening weights, so `diffusiongemma-parity` uses it as the full-weight gate and artifact capture step. `diffusiongemma-check-weights` remains available as a standalone human-readable gate.
+
+
+## No-weight aggregate CI target
+
+`make diffusiongemma-ci-no-weights` runs the safe no-shard validation bundle: download-plan report, scaffold CI, and pattern mock CI. It does not download safetensor shards and is suitable for quick validation of the current scaffold state.
