@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/model/diffusiongemma"
 )
 
@@ -27,33 +26,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: diffusiongemmainspect -model PATH [-json] [-require-runtime-ready]")
 		os.Exit(2)
 	}
-	cfg, err := loaderconfig.ReadDiffusionGemmaConfig(*modelDir)
+	m, err := diffusiongemma.LoadMetadata(*modelDir)
 	if err != nil {
 		fatal(err)
 	}
-	shape, err := diffusiongemma.ShapeFromConfig(cfg)
-	if err != nil {
-		fatal(err)
-	}
+	shape := m.Shape
 	if *requireRuntime {
-		if err := diffusiongemma.RequireRuntimeReady(shape); err != nil {
+		if err := m.RequireRuntimeReady(); err != nil {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape}
-	if gen, ok, err := loaderconfig.ReadDiffusionGemmaGenerationConfig(*modelDir); err != nil {
-		fatal(err)
-	} else if ok {
-		defaults := diffusiongemma.GenerationDefaultsFromConfig(gen)
-		out.GenerationDefaults = &defaults
-	}
-	if tensors, ok, err := diffusiongemma.TensorInventoryFromModelDir(*modelDir); err != nil {
-		fatal(err)
-	} else if ok {
-		out.Tensors = &tensors
-		readiness := diffusiongemma.TensorReadinessFromInventory(tensors, shape)
-		out.Readiness = &readiness
-	}
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

@@ -200,3 +200,8 @@ missing_layer_tensors=0
 ```
 
 `runtime_ready` remains false because tensor loading and forward execution are not implemented yet.
+
+
+## Metadata loader
+
+`model/diffusiongemma/model.go` now provides `LoadMetadata(modelDir)`, a single scaffold entrypoint that combines config parsing, generation defaults, denoising config, tensor inventory, and tensor readiness. It intentionally does not load full safetensor payloads yet; future tensor-backed model construction should extend this entrypoint rather than duplicate inspector logic.
