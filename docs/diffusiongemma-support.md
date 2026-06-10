@@ -480,3 +480,8 @@ Processor metadata now includes a lightweight `chat_template.jinja` preflight. T
 ```
 
 For example, `-tokens <mask> -add-bos -think` produces prompt IDs `[2 98 4]` against the fetched tokenizer metadata. This is still exact-token/ID scaffolding, not full chat-template rendering.
+
+
+## Exact decode helper
+
+`diffusiongemmarun -decode` uses the exact `tokenizer.json` vocabulary map to display prompt/generated token strings for known token IDs. This is still not full detokenization; unknown IDs are rendered as `<id:N>`.

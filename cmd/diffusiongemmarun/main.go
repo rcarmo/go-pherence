@@ -12,11 +12,13 @@ import (
 )
 
 type report struct {
-	ModelPath string                          `json:"model_path"`
-	PromptIDs []int                           `json:"prompt_ids"`
-	Options   diffusiongemma.InferenceOptions `json:"options"`
-	Result    *diffusiongemma.InferenceResult `json:"result,omitempty"`
-	Error     string                          `json:"error,omitempty"`
+	ModelPath       string                          `json:"model_path"`
+	PromptIDs       []int                           `json:"prompt_ids"`
+	Options         diffusiongemma.InferenceOptions `json:"options"`
+	PromptTokens    []string                        `json:"prompt_tokens,omitempty"`
+	GeneratedTokens []string                        `json:"generated_tokens,omitempty"`
+	Result          *diffusiongemma.InferenceResult `json:"result,omitempty"`
+	Error           string                          `json:"error,omitempty"`
 }
 
 func main() {
@@ -29,6 +31,7 @@ func main() {
 	addBOS := flag.Bool("add-bos", false, "prepend BOS token from tokenizer metadata")
 	enableThinking := flag.Bool("think", false, "prepend thinking control token from tokenizer metadata")
 	addGenerationPrompt := flag.Bool("generation-prompt", false, "append generation prompt token when available")
+	decode := flag.Bool("decode", false, "decode prompt/generated IDs through exact tokenizer vocabulary entries")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
@@ -40,11 +43,14 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if strings.TrimSpace(*exactTokensCSV) != "" {
-		vocab, err := diffusiongemma.LoadVocab(*modelDir)
+	var vocab *diffusiongemma.Vocab
+	if strings.TrimSpace(*exactTokensCSV) != "" || *decode {
+		vocab, err = diffusiongemma.LoadVocab(*modelDir)
 		if err != nil {
 			fatal(err)
 		}
+	}
+	if strings.TrimSpace(*exactTokensCSV) != "" {
 		ids, err := vocab.EncodeExact(splitCSV(*exactTokensCSV))
 		if err != nil {
 			fatal(err)
@@ -92,11 +98,17 @@ func main() {
 	}
 	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed}
 	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts}
+	if *decode && vocab != nil {
+		out.PromptTokens = vocab.DecodeIDs(promptIDs)
+	}
 	res, err := eng.GenerateTokenIDs(promptIDs, opts)
 	if err != nil {
 		out.Error = err.Error()
 	} else {
 		out.Result = &res
+		if *decode && vocab != nil {
+			out.GeneratedTokens = vocab.DecodeIDs(res.Generated)
+		}
 	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
@@ -111,6 +123,9 @@ func main() {
 	}
 	fmt.Printf("DiffusionGemma run scaffold: %s\n", *modelDir)
 	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher)
+	if len(out.PromptTokens) > 0 {
+		fmt.Printf("  prompt_tokens=%v\n", out.PromptTokens)
+	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)
 		os.Exit(1)
