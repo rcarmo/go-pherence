@@ -431,3 +431,29 @@ DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
 ```
 
 The helper uses `HUGGINGFACE_TOKEN` when present and skips existing files unless `--force` is passed directly to the script.
+
+
+## Scaffold command targets
+
+DiffusionGemma scaffold commands are available through Makefile targets:
+
+```bash
+make diffusiongemma-inspect
+make diffusiongemma-inspect-json
+make diffusiongemma-run-scaffold
+make diffusiongemma-run-cpu
+make diffusiongemma-download-metadata
+make diffusiongemma-download
+```
+
+Key overrides:
+
+```text
+DIFFUSIONGEMMA_MODEL
+DIFFUSIONGEMMA_PROMPT_IDS
+DIFFUSIONGEMMA_MAX_NEW
+DIFFUSIONGEMMA_CANVAS
+DIFFUSIONGEMMA_SEED
+```
+
+`diffusiongemma-run-scaffold` intentionally reports `DiffusionGemma denoiser is not implemented` until a denoiser is attached; `diffusiongemma-run-cpu` requires local safetensor shards and uses the current CPU dispatcher scaffold.
