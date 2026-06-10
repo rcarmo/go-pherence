@@ -38,6 +38,8 @@ func main() {
 	promptText := flag.String("prompt", "", "text prompt to tokenize with tokenizer.json")
 	var messages stringList
 	flag.Var(&messages, "message", "chat message as role:text; may be repeated; simplified scaffold, not full Jinja")
+	messagesJSON := flag.String("messages-json", "", "JSON array of {role,content} messages")
+	messagesFile := flag.String("messages-file", "", "path to JSON array of {role,content} messages")
 	exactTokensCSV := flag.String("tokens", "", "comma-separated exact tokenizer vocabulary entries (no BPE tokenization)")
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
@@ -59,9 +61,13 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	jsonMessages, err := loadJSONMessages(*messagesJSON, *messagesFile)
+	if err != nil {
+		fatal(err)
+	}
 	var vocab *diffusiongemma.Vocab
 	var tok *tokenizer.Tokenizer
-	if strings.TrimSpace(*promptText) != "" || len(messages) > 0 {
+	if strings.TrimSpace(*promptText) != "" || len(messages) > 0 || len(jsonMessages) > 0 {
 		tok, err = tokenizer.Load(*modelDir + "/tokenizer.json")
 		if err != nil {
 			fatal(err)
@@ -87,10 +93,10 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if *enableThinking && len(messages) == 0 {
+	if *enableThinking && len(messages) == 0 && len(jsonMessages) == 0 {
 		messages = append(messages, "system:")
 	}
-	if len(messages) > 0 {
+	if len(messages) > 0 || len(jsonMessages) > 0 {
 		if m.Tokenizer == nil {
 			fatal(fmt.Errorf("DiffusionGemma tokenizer metadata unavailable"))
 		}
@@ -100,14 +106,12 @@ func main() {
 			if *addBOS {
 				ids = append(ids, specials.BOS)
 			}
-			parsed := make([]diffusiongemma.TextChatMessage, 0, len(messages))
-			for _, raw := range messages {
-				role, content, ok := strings.Cut(raw, ":")
-				if !ok {
-					fatal(fmt.Errorf("bad -message %q, want role:text", raw))
-				}
-				parsed = append(parsed, diffusiongemma.TextChatMessage{Role: strings.TrimSpace(role), Content: content})
+			parsed := append([]diffusiongemma.TextChatMessage(nil), jsonMessages...)
+			flagMessages, err := parseFlagMessages(messages)
+			if err != nil {
+				fatal(err)
 			}
+			parsed = append(parsed, flagMessages...)
 			start := 0
 			if *enableThinking || (len(parsed) > 0 && (parsed[0].Role == "system" || parsed[0].Role == "developer")) {
 				ids = append(ids, specials.BOT)
@@ -138,16 +142,18 @@ func main() {
 			promptIDs = append(promptIDs, ids...)
 		} else {
 			specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
-			chatMessages := make([]diffusiongemma.ChatMessage, 0, len(messages))
-			for _, raw := range messages {
-				role, content, ok := strings.Cut(raw, ":")
-				if !ok {
-					fatal(fmt.Errorf("bad -message %q, want role:text", raw))
-				}
-				role = strings.TrimSpace(role)
-				text := role + "\n" + content
+			parsed := append([]diffusiongemma.TextChatMessage(nil), jsonMessages...)
+			flagMessages, err := parseFlagMessages(messages)
+			if err != nil {
+				fatal(err)
+			}
+			parsed = append(parsed, flagMessages...)
+			chatMessages := make([]diffusiongemma.ChatMessage, 0, len(parsed))
+			for _, msg := range parsed {
+				role := strings.TrimSpace(msg.Role)
+				text := role + "\n" + msg.Content
 				if *enableThinking && (role == "system" || role == "developer") {
-					text = role + "\n" + m.Processor.Think + "\n" + content
+					text = role + "\n" + m.Processor.Think + "\n" + msg.Content
 				}
 				chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: role, Content: tok.Encode(text)})
 			}
@@ -252,6 +258,39 @@ func main() {
 	if len(out.GeneratedTokens) > 0 {
 		fmt.Printf("  generated_tokens=%v\n", out.GeneratedTokens)
 	}
+}
+
+func loadJSONMessages(raw, path string) ([]diffusiongemma.TextChatMessage, error) {
+	if strings.TrimSpace(raw) != "" && strings.TrimSpace(path) != "" {
+		return nil, fmt.Errorf("use only one of -messages-json or -messages-file")
+	}
+	if strings.TrimSpace(path) != "" {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		raw = string(b)
+	}
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var messages []diffusiongemma.TextChatMessage
+	if err := json.Unmarshal([]byte(raw), &messages); err != nil {
+		return nil, err
+	}
+	return messages, nil
+}
+
+func parseFlagMessages(messages []string) ([]diffusiongemma.TextChatMessage, error) {
+	out := make([]diffusiongemma.TextChatMessage, 0, len(messages))
+	for _, raw := range messages {
+		role, content, ok := strings.Cut(raw, ":")
+		if !ok {
+			return nil, fmt.Errorf("bad -message %q, want role:text", raw)
+		}
+		out = append(out, diffusiongemma.TextChatMessage{Role: strings.TrimSpace(role), Content: content})
+	}
+	return out, nil
 }
 
 func splitCSV(csv string) []string {

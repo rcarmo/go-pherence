@@ -595,3 +595,8 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 ## Special-token-safe chat scaffold
 
 `diffusiongemmarun -chat-template` now builds prompt IDs using exact special token IDs for BOS, begin/end turn, thinking, and the model generation header. Role/content text is still tokenized with the Go tokenizer. This avoids accidentally tokenizing special-token strings as normal text pieces.
+
+
+## Structured message input
+
+`diffusiongemmarun` now accepts structured text chat input with `-messages-json` or `-messages-file`, both using a JSON array of `{"role":"user","content":"..."}` objects. This is useful for automation and avoids shell-escaping many repeated `-message role:text` flags.
