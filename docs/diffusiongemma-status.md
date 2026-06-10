@@ -366,3 +366,15 @@ Result: passed. The summary output now includes `summary_text_scaffold`, `summar
 ## No-weight CI reference environment check
 
 `make diffusiongemma-ci-no-weights` now includes `diffusiongemma-reference-env`, so the safe aggregate validation records whether the current Python environment can capture Transformers reference fixtures. Missing `torch`/`transformers` does not fail the no-weight CI; it is reported in `DIFFUSIONGEMMA_ENV_OUT`.
+
+
+## CPU smoke target
+
+After full shards are downloaded, use:
+
+```bash
+make diffusiongemma-run-cpu-smoke \
+  DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
+```
+
+The target uses a tiny canvas/max-new setting and is intended as the first real CPU dispatcher smoke before full parity.

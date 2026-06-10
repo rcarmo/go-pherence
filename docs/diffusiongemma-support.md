@@ -920,3 +920,8 @@ vision/token processor integration
 ## No-weight CI reference environment check
 
 `make diffusiongemma-ci-no-weights` now includes `diffusiongemma-reference-env`, so the safe aggregate validation records whether the current Python environment can capture Transformers reference fixtures. Missing `torch`/`transformers` does not fail the no-weight CI; it is reported in `DIFFUSIONGEMMA_ENV_OUT`.
+
+
+## CPU smoke target
+
+`make diffusiongemma-run-cpu-smoke` is a full-weight target for after all shards are present. It runs `diffusiongemma-check-weights` and then invokes `diffusiongemmarun -cpu-dispatcher` with a tiny default prompt/canvas (`hi`, canvas 1, max-new 1). This is not part of no-weight CI and is expected to fail until the 11 shards are downloaded.

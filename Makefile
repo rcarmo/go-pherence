@@ -745,3 +745,12 @@ DIFFUSIONGEMMA_ENV_OUT ?= $(TMPDIR)/diffusiongemma/reference_env.json
 diffusiongemma-reference-env:
 	mkdir -p $(dir $(DIFFUSIONGEMMA_ENV_OUT))
 	python3 scripts/diffusiongemma_reference.py --check-env --out $(DIFFUSIONGEMMA_ENV_OUT)
+
+DIFFUSIONGEMMA_CPU_SMOKE_PROMPT ?= hi
+DIFFUSIONGEMMA_CPU_SMOKE_CANVAS ?= 1
+DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW ?= 1
+
+.PHONY: diffusiongemma-run-cpu-smoke
+
+diffusiongemma-run-cpu-smoke: diffusiongemma-check-weights
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_CPU_SMOKE_PROMPT)' -max-new $(DIFFUSIONGEMMA_CPU_SMOKE_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CPU_SMOKE_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -decode
