@@ -1411,7 +1411,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 			hd = g.hidden.Data()
 			rmsNormInPlace(hd, g.normWeight, float32(cfg.RMSNormEps))
 			// Try chunked GPU LM head, fall back to parallel SIMD
-			if !g.chunkedGPULMHead(logits, hd, g.vocabSize, h) {
+			if !nvidia.ChunkedLMHead(logits, hd, g.lmHead, g.vocabSize, h) {
 				gemvNTParallel(logits, hd, g.lmHead, h, g.vocabSize)
 			}
 		}
