@@ -605,7 +605,7 @@ diffusiongemma-check-scaffold:
 
 .PHONY: diffusiongemma-ci-scaffold
 
-diffusiongemma-ci-scaffold: diffusiongemma-check-scaffold diffusiongemma-reference-dry-run diffusiongemma-mock-compare diffusiongemma-status-json diffusiongemma-status-summary
+diffusiongemma-ci-scaffold: diffusiongemma-check-scaffold diffusiongemma-reference-dry-run diffusiongemma-mock-compare diffusiongemma-ci-structured-messages diffusiongemma-status-json diffusiongemma-status-summary
 
 .PHONY: diffusiongemma-check-shards
 
