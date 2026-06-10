@@ -58,7 +58,10 @@ func (i Island) String() string {
 
 // FindIslands returns contiguous GGML-supported node runs.
 func FindIslands(p *gograph.Plan, minNodes int) []Island {
-	if p == nil || minNodes <= 0 {
+	if p == nil {
+		return nil
+	}
+	if minNodes <= 0 {
 		minNodes = 1
 	}
 	var out []Island
