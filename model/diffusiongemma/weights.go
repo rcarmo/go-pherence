@@ -25,10 +25,17 @@ type LayerWeights struct {
 // TextWeights is a non-eager binding of the DiffusionGemma text tensor plan to
 // a sharded safetensors file. It owns the open shard handles and must be closed.
 type TextWeights struct {
-	Plan    TextTensorPlan  `json:"plan"`
-	Globals []TensorBinding `json:"globals"`
-	Layers  []LayerWeights  `json:"layers"`
-	shards  *safetensors.ShardedFile
+	Plan       TextTensorPlan  `json:"plan"`
+	Globals    []TensorBinding `json:"globals"`
+	Layers     []LayerWeights  `json:"layers"`
+	shards     *safetensors.ShardedFile
+	floatCache map[string]FloatTensor
+}
+
+type FloatTensor struct {
+	Data  []float32 `json:"-"`
+	Shape []int     `json:"shape"`
+	DType string    `json:"dtype"`
 }
 
 func OpenTextWeights(modelDir string, shape Shape) (*TextWeights, error) {
@@ -47,7 +54,7 @@ func OpenTextWeights(modelDir string, shape Shape) (*TextWeights, error) {
 		return nil, err
 	}
 	infos := shards.TensorInfos()
-	out := &TextWeights{Plan: plan, shards: shards}
+	out := &TextWeights{Plan: plan, shards: shards, floatCache: map[string]FloatTensor{}}
 	for _, h := range plan.Globals {
 		b, err := bindTensorHandle(h, infos)
 		if err != nil {
@@ -84,6 +91,92 @@ func (w *TextWeights) Close() error {
 		return nil
 	}
 	return w.shards.Close()
+}
+
+func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
+	if w == nil {
+		return FloatTensor{}, fmt.Errorf("nil DiffusionGemma text weights")
+	}
+	if t, ok := w.floatCache[name]; ok {
+		return t, nil
+	}
+	raw, dtype, shape, err := w.RawTensor(name)
+	if err != nil {
+		return FloatTensor{}, err
+	}
+	n := 1
+	for _, dim := range shape {
+		if dim <= 0 {
+			return FloatTensor{}, fmt.Errorf("DiffusionGemma tensor %q invalid shape %v", name, shape)
+		}
+		n *= dim
+	}
+	out := make([]float32, n)
+	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
+		return FloatTensor{}, err
+	}
+	t := FloatTensor{Data: out, Shape: append([]int(nil), shape...), DType: dtype}
+	w.floatCache[name] = t
+	return t, nil
+}
+
+func (w *TextWeights) ClearFloatCache() {
+	if w != nil {
+		w.floatCache = map[string]FloatTensor{}
+	}
+}
+
+func (w *TextWeights) FloatCacheEntries() int {
+	if w == nil {
+		return 0
+	}
+	return len(w.floatCache)
+}
+
+func (w *TextWeights) PreloadGlobals() error {
+	if w == nil {
+		return fmt.Errorf("nil DiffusionGemma text weights")
+	}
+	for _, b := range w.Globals {
+		if _, err := w.CachedFloatTensor(b.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *TextWeights) PreloadLayer(layer int) error {
+	if w == nil {
+		return fmt.Errorf("nil DiffusionGemma text weights")
+	}
+	if layer < 0 || layer >= len(w.Layers) {
+		return fmt.Errorf("DiffusionGemma layer %d outside [0,%d)", layer, len(w.Layers))
+	}
+	for _, b := range w.Layers[layer].Bindings {
+		if _, err := w.CachedFloatTensor(b.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *TextWeights) PreloadLayerRange(start, count int) error {
+	if count < 0 {
+		return fmt.Errorf("DiffusionGemma negative layer preload count %d", count)
+	}
+	for i := 0; i < count; i++ {
+		if err := w.PreloadLayer(start + i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *TextWeights) EagerLoad() (int64, error) {
+	if w == nil || w.shards == nil {
+		return 0, nil
+	}
+	return w.shards.EagerLoad()
 }
 
 func (w *TextWeights) RawTensor(name string) ([]byte, string, []int, error) {

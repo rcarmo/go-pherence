@@ -61,6 +61,9 @@ func main() {
 	mockTokensCSV := flag.String("mock-tokens", "", "comma-separated deterministic mock denoiser token ID pattern")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
 	allowSlowCPU := flag.Bool("allow-slow-cpu", false, "allow experimental full-weight CPU dispatcher run; may be extremely slow and memory-heavy")
+	eagerMmap := flag.Bool("eager-mmap", false, "prefault all mapped safetensor shards before CPU dispatcher run")
+	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
+	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
 	if *modelDir == "" {
@@ -191,6 +194,23 @@ func main() {
 			fatal(err)
 		}
 		defer weights.Close()
+		if *eagerMmap {
+			if n, err := weights.EagerLoad(); err != nil {
+				fatal(err)
+			} else {
+				fmt.Fprintf(os.Stderr, "diffusiongemmarun: eager mmap touched %d bytes\n", n)
+			}
+		}
+		if *preloadGlobals {
+			if err := weights.PreloadGlobals(); err != nil {
+				fatal(err)
+			}
+		}
+		if *residentLayers > 0 {
+			if err := weights.PreloadLayerRange(0, *residentLayers); err != nil {
+				fatal(err)
+			}
+		}
 		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{})
 		if err != nil {
 			fatal(err)
@@ -265,6 +285,9 @@ func main() {
 			}
 		}
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
+	}
+	if weights != nil {
+		fmt.Printf("  residency: float_cache_entries=%d\n", weights.FloatCacheEntries())
 	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)

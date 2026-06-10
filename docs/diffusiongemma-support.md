@@ -930,3 +930,8 @@ vision/token processor integration
 ## Slow CPU dispatcher guard
 
 Full-weight `diffusiongemmarun -cpu-dispatcher` is now guarded by `-allow-slow-cpu` (or `DIFFUSIONGEMMA_ALLOW_SLOW_CPU=yes` through Makefile targets). A real-weight canvas-1 smoke hit the command timeout before completion, confirming the current correctness-first full-matrix CPU path is not practical yet. The guard prevents accidental long CPU runs while preserving an explicit opt-in for debugging.
+
+
+## Caching and layer residency
+
+`TextWeights` now has a decoded float tensor cache plus `PreloadGlobals`, `PreloadLayer`, and `PreloadLayerRange` helpers. `diffusiongemmarun -cpu-dispatcher` exposes `-preload-globals`, `-resident-layers N`, and `-eager-mmap`. Makefile CPU targets pass these through via `DIFFUSIONGEMMA_PRELOAD_GLOBALS`, `DIFFUSIONGEMMA_RESIDENT_LAYERS`, and `DIFFUSIONGEMMA_EAGER_MMAP`. Row-wise embedding/LM-head paths still stream from mmap through `RawTensorRow` to avoid full tied-embedding expansion.

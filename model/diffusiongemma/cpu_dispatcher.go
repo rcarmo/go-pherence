@@ -507,18 +507,17 @@ func runLayerRMSNorm(op LayerOp, weights *TextWeights, scratch ForwardScratch, p
 }
 
 func loadFloatVector(weights *TextWeights, binding *TensorBinding) ([]float32, error) {
-	raw, dtype, shape, err := weights.RawTensor(binding.Name)
+	if binding == nil {
+		return nil, fmt.Errorf("DiffusionGemma missing vector binding")
+	}
+	t, err := weights.CachedFloatTensor(binding.Name)
 	if err != nil {
 		return nil, err
 	}
-	if len(shape) != 1 {
-		return nil, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-1", binding.Name, shape)
+	if len(t.Shape) != 1 {
+		return nil, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-1", binding.Name, t.Shape)
 	}
-	out := make([]float32, shape[0])
-	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return t.Data, nil
 }
 
 func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
@@ -749,38 +748,28 @@ func loadFloat3D(weights *TextWeights, binding *TensorBinding) ([]float32, int, 
 	if binding == nil {
 		return nil, 0, 0, 0, fmt.Errorf("DiffusionGemma missing 3D tensor binding")
 	}
-	raw, dtype, shape, err := weights.RawTensor(binding.Name)
+	t, err := weights.CachedFloatTensor(binding.Name)
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
-	if len(shape) != 3 || shape[0] <= 0 || shape[1] <= 0 || shape[2] <= 0 {
-		return nil, 0, 0, 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-3", binding.Name, shape)
+	if len(t.Shape) != 3 || t.Shape[0] <= 0 || t.Shape[1] <= 0 || t.Shape[2] <= 0 {
+		return nil, 0, 0, 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-3", binding.Name, t.Shape)
 	}
-	n := shape[0] * shape[1] * shape[2]
-	out := make([]float32, n)
-	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return out, shape[0], shape[1], shape[2], nil
+	return t.Data, t.Shape[0], t.Shape[1], t.Shape[2], nil
 }
 
 func loadFloatMatrix(weights *TextWeights, binding *TensorBinding) ([]float32, int, int, error) {
 	if binding == nil {
 		return nil, 0, 0, fmt.Errorf("DiffusionGemma missing matrix binding")
 	}
-	raw, dtype, shape, err := weights.RawTensor(binding.Name)
+	t, err := weights.CachedFloatTensor(binding.Name)
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	if len(shape) != 2 || shape[0] <= 0 || shape[1] <= 0 {
-		return nil, 0, 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-2", binding.Name, shape)
+	if len(t.Shape) != 2 || t.Shape[0] <= 0 || t.Shape[1] <= 0 {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-2", binding.Name, t.Shape)
 	}
-	n := shape[0] * shape[1]
-	out := make([]float32, n)
-	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
-		return nil, 0, 0, err
-	}
-	return out, shape[0], shape[1], nil
+	return t.Data, t.Shape[0], t.Shape[1], nil
 }
 
 func loadOptionalScalar(weights *TextWeights, binding *TensorBinding, fallback float32) (float32, error) {
@@ -805,28 +794,24 @@ func loadOptionalVector(weights *TextWeights, binding *TensorBinding, want int) 
 }
 
 func loadFloatScalar(weights *TextWeights, binding *TensorBinding) (float32, error) {
-	raw, dtype, shape, err := weights.RawTensor(binding.Name)
+	if binding == nil {
+		return 0, fmt.Errorf("DiffusionGemma missing scalar binding")
+	}
+	t, err := weights.CachedFloatTensor(binding.Name)
 	if err != nil {
 		return 0, err
 	}
 	n := 1
-	if len(shape) > 0 {
-		n = 1
-		for _, dim := range shape {
-			if dim <= 0 {
-				return 0, fmt.Errorf("DiffusionGemma tensor %q invalid scalar shape %v", binding.Name, shape)
-			}
-			n *= dim
+	for _, dim := range t.Shape {
+		if dim <= 0 {
+			return 0, fmt.Errorf("DiffusionGemma tensor %q invalid scalar shape %v", binding.Name, t.Shape)
 		}
+		n *= dim
 	}
-	if n != 1 {
-		return 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not scalar", binding.Name, shape)
+	if n != 1 || len(t.Data) != 1 {
+		return 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not scalar", binding.Name, t.Shape)
 	}
-	var out [1]float32
-	if err := decodeFloatRowTo(out[:], raw, dtype); err != nil {
-		return 0, err
-	}
-	return out[0], nil
+	return t.Data[0], nil
 }
 
 func dispatchTailOp(op OpKind, weights *TextWeights, scratch ForwardScratch) error {
