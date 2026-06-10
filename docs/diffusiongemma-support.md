@@ -795,3 +795,8 @@ Shard readiness now includes `present_percent`, and the inspector/status summary
 ## Download plan-only mode
 
 `scripts/download_diffusiongemma.py --plan-only` and `make diffusiongemma-download-plan-only` download/read metadata and print the planned shard count, total bytes, GiB, and parameter count without downloading the 11 safetensor shards. Use this before `make diffusiongemma-download` to confirm the expected ~48.10 GiB payload.
+
+
+## Large download guard
+
+`make diffusiongemma-download` refuses the ~48.10 GiB safetensor shard download unless `DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes` is set. Use `make diffusiongemma-download-plan-only` or `make diffusiongemma-status-refresh` for metadata-only checks.

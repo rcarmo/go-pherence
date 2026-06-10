@@ -216,7 +216,8 @@ make diffusiongemma-bootstrap-scaffold \
 
 ```bash
 make diffusiongemma-download \
-  DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
+  DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it \
+  DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes
 
 make diffusiongemma-check-weights \
   DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it

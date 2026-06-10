@@ -530,6 +530,7 @@ ideogram4-vae-probe:
 
 DIFFUSIONGEMMA_REPO ?= google/diffusiongemma-26B-A4B-it
 DIFFUSIONGEMMA_MODEL ?= models/diffusiongemma-26B-A4B-it
+DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD ?= no
 
 .PHONY: diffusiongemma-download-metadata diffusiongemma-download
 
@@ -537,6 +538,7 @@ diffusiongemma-download-metadata:
 	python3 scripts/download_diffusiongemma.py --repo $(DIFFUSIONGEMMA_REPO) --out $(DIFFUSIONGEMMA_MODEL) --metadata-only
 
 diffusiongemma-download:
+	@test "$(DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD)" = "yes" || (echo "Refusing ~48.10 GiB DiffusionGemma shard download. Re-run with DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes or use diffusiongemma-download-plan-only."; exit 2)
 	python3 scripts/download_diffusiongemma.py --repo $(DIFFUSIONGEMMA_REPO) --out $(DIFFUSIONGEMMA_MODEL)
 
 DIFFUSIONGEMMA_PROMPT_IDS ?= 2
