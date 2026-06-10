@@ -35,12 +35,14 @@ aipool.NewAIWorkerPool / RegisterAIThread
 
 ## Current build status
 
-The generic native Ideogram CLI cross-builds for riscv64 today:
+The generic native Ideogram CLI and model tests cross-compile for riscv64 today:
 
 ```bash
 mkdir -p .gotmp /workspace/tmp/ideogram4
 GOTMPDIR=$PWD/.gotmp CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 \
   go build -o /workspace/tmp/ideogram4/ideogram4gen-k3 ./cmd/image/ideogram4gen
+GOTMPDIR=$PWD/.gotmp CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 \
+  go test -c -o /workspace/tmp/ideogram4/ideogram4-model-k3.test ./model/ideogram4
 ```
 
 This is **not yet full K3 SIMD coverage**. It is the first targetable binary for hardware smoke tests while K3 kernels are wired in.
