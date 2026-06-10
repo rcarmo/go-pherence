@@ -339,3 +339,8 @@ The self-attention scaffold now applies partial RoPE after Q/K normalization. Sl
 ## Sliding-window mask scaffold
 
 The canvas self-attention scaffold now masks positions outside the sliding window for `sliding_attention` layers before softmax. For the published 256-token canvas and 1024-token sliding window this does not truncate canvas-only attention, but the hook is in place for larger/future canvas settings and for parity with the layer type contract.
+
+
+## Encoder KV concat scaffold
+
+`ForwardContext` now carries optional per-layer `EncoderKVLayer` entries. The self-attention scaffold validates encoder KV shape and concatenates encoder K/V before current canvas K/V in the attention score/value loops, matching the reference decoder behavior where prior prompt/cache K/V is read-only and canvas K/V is appended for the current denoising pass. This is still not reference-complete until parity fixtures and memory-efficient attention are added.

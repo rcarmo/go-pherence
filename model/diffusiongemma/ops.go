@@ -65,11 +65,20 @@ func BuildForwardOpPlan(shape Shape, textPlan *TextForwardPlan) ForwardOpPlan {
 // ForwardContext owns per-call text denoiser inputs. Hidden/logit buffers are
 // intentionally absent here; the concrete dispatcher will allocate or borrow
 // buffers according to ForwardBufferPlan.
+type EncoderKVLayer struct {
+	Keys    []float32 `json:"-"`
+	Values  []float32 `json:"-"`
+	SeqLen  int       `json:"seq_len"`
+	KVHeads int       `json:"kv_heads"`
+	HeadDim int       `json:"head_dim"`
+}
+
 type ForwardContext struct {
-	PromptIDs        []int     `json:"prompt_ids,omitempty"`
-	Canvas           []int     `json:"canvas"`
-	Step             int       `json:"step"`
-	SelfConditioning []float32 `json:"-"`
+	PromptIDs        []int            `json:"prompt_ids,omitempty"`
+	Canvas           []int            `json:"canvas"`
+	Step             int              `json:"step"`
+	SelfConditioning []float32        `json:"-"`
+	EncoderKV        []EncoderKVLayer `json:"-"`
 }
 
 // ForwardDispatcher is the explicit boundary where tensor-backed CPU/SIMD

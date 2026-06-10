@@ -18,10 +18,11 @@ type BlockDiffusionState struct {
 // intentionally abstract at this layer; the concrete model runtime will decide
 // how to encode prior canvases and expose cross-attention/prompt-cache state.
 type ForwardInput struct {
-	PromptIDs        []int     `json:"prompt_ids,omitempty"`
-	Canvas           []int     `json:"canvas"`
-	Step             int       `json:"step"`
-	SelfConditioning []float32 `json:"-"`
+	PromptIDs        []int            `json:"prompt_ids,omitempty"`
+	Canvas           []int            `json:"canvas"`
+	Step             int              `json:"step"`
+	SelfConditioning []float32        `json:"-"`
+	EncoderKV        []EncoderKVLayer `json:"-"`
 }
 
 // ForwardOutput contains per-canvas-position logits from the denoiser. Logits

@@ -64,7 +64,7 @@ func (CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, op
 		}
 	}
 	for _, op := range ops.Layers {
-		if err := dispatchLayerOp(op, weights, scratch); err != nil {
+		if err := dispatchLayerOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
 		}
 	}
@@ -246,12 +246,12 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 	return nil
 }
 
-func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
+func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
 	switch op.Kind {
 	case OpInputNorm:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.InputLayerNorm })
 	case OpSelfAttention:
-		return runSelfAttention(op, weights, scratch)
+		return runSelfAttention(op, ctx, weights, scratch)
 	case OpPostAttention:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostAttentionLayerNorm })
 	case OpDenseMLP:
@@ -271,7 +271,7 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 	}
 }
 
-func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
+func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma self-attention missing weights")
 	}
@@ -330,7 +330,7 @@ func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 	qAll := make([]float32, positions*qRows)
 	kAll := make([]float32, positions*kRows)
 	vAll := make([]float32, positions*vRows)
-	ctx := make([]float32, qRows)
+	attnCtx := make([]float32, qRows)
 	out := make([]float32, hiddenSize)
 	ropeHalf := headDim / 2
 	ropeTheta := 10000.0
@@ -373,35 +373,58 @@ func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 		}
 	}
 	group := heads / kvHeads
-	scores := make([]float32, positions)
+	enc := EncoderKVLayer{}
+	if op.Layer >= 0 && op.Layer < len(ctx.EncoderKV) {
+		enc = ctx.EncoderKV[op.Layer]
+	}
+	encSeq := 0
+	if enc.SeqLen > 0 {
+		if enc.KVHeads != kvHeads || enc.HeadDim != headDim || len(enc.Keys) < enc.SeqLen*kRows || len(enc.Values) < enc.SeqLen*vRows {
+			return fmt.Errorf("DiffusionGemma encoder KV layer %d shape mismatch seq=%d kv_heads=%d head_dim=%d", op.Layer, enc.SeqLen, enc.KVHeads, enc.HeadDim)
+		}
+		encSeq = enc.SeqLen
+	}
+	totalKV := encSeq + positions
+	scores := make([]float32, totalKV)
 	slidingWindow := 0
 	if op.Type == "sliding_attention" {
 		slidingWindow = 1024
 	}
 	for pos := 0; pos < positions; pos++ {
-		for i := range ctx {
-			ctx[i] = 0
+		for i := range attnCtx {
+			attnCtx[i] = 0
 		}
 		for h := 0; h < heads; h++ {
 			kvh := h / group
 			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
-			for j := 0; j < positions; j++ {
-				if slidingWindow > 0 && absInt(pos-j) >= slidingWindow {
+			for j := 0; j < totalKV; j++ {
+				if j < encSeq {
+					scores[j] = dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+					continue
+				}
+				canvasJ := j - encSeq
+				if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
 					scores[j] = float32(math.Inf(-1))
 					continue
 				}
-				scores[j] = dot(q, kAll[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+				scores[j] = dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
 			}
 			softmaxInPlace(scores)
-			dst := ctx[h*headDim : (h+1)*headDim]
+			dst := attnCtx[h*headDim : (h+1)*headDim]
 			for j, score := range scores {
-				vv := vAll[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
+				var vv []float32
+				if j < encSeq {
+					vv = enc.Values[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
+				} else {
+					canvasJ := j - encSeq
+					vv = vAll[canvasJ*vRows+kvh*headDim : canvasJ*vRows+(kvh+1)*headDim]
+				}
 				for d := range dst {
 					dst[d] += score * vv[d]
 				}
 			}
 		}
-		if !simd.GemvRows(out, ctx, oW, hiddenSize, qRows) {
+		if !simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows) {
 			return fmt.Errorf("DiffusionGemma attention O GEMV rejected layer %d", op.Layer)
 		}
 		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
