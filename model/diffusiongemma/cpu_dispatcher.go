@@ -291,12 +291,39 @@ func dispatchTailOp(op OpKind, weights *TextWeights, scratch ForwardScratch) err
 	case OpSelfCondition:
 		return errOpNotImplemented(op)
 	case OpFinalNorm:
-		return errOpNotImplemented(op)
+		return runFinalNorm(weights, scratch)
 	case OpLMHead:
 		return errOpNotImplemented(op)
 	default:
 		return fmt.Errorf("DiffusionGemma unknown tail op %q", op)
 	}
+}
+
+func runFinalNorm(weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma final norm missing weights")
+	}
+	fp := weights.ForwardPlan()
+	if fp.Globals.FinalNorm == nil {
+		return fmt.Errorf("DiffusionGemma final norm missing binding")
+	}
+	weight, err := loadFloatVector(weights, fp.Globals.FinalNorm)
+	if err != nil {
+		return err
+	}
+	if len(weight) == 0 {
+		return fmt.Errorf("DiffusionGemma final norm empty weight")
+	}
+	hiddenSize := len(weight)
+	if len(scratch.Hidden)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma final norm hidden len=%d not divisible by %d", len(scratch.Hidden), hiddenSize)
+	}
+	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
+		if !simd.RMSNormTo(scratch.Hidden[off:off+hiddenSize], weight, 1e-6) {
+			return fmt.Errorf("DiffusionGemma final norm rejected row at offset %d", off)
+		}
+	}
+	return nil
 }
 
 func errOpNotImplemented(op OpKind) error {
