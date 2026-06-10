@@ -609,7 +609,7 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 
 ## Scaffold CI target
 
-`make diffusiongemma-ci-scaffold` combines the text scaffold check with the reference-helper dry run. It validates metadata/readiness, mock denoising control flow, structured chat-template scaffold input, package buildability, and reference fixture preflight without requiring full safetensor shards.
+`make diffusiongemma-ci-scaffold` combines the text scaffold check, reference-helper dry run, and mock run/reference comparison. It validates metadata/readiness, mock denoising control flow, structured chat-template scaffold input, package buildability, reference fixture preflight, and the comparison utility without requiring full safetensor shards.
 
 
 Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`, `-decode`, exact vocab lookup, and scaffold CI work from a fresh metadata snapshot without needing safetensor shards.
@@ -633,3 +633,6 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 ## Mock comparison target
 
 `make diffusiongemma-mock-compare` creates a tiny mock reference JSON, captures a mock go-pherence run JSON, and compares them through `scripts/diffusiongemma_compare_reference.py`. This validates the run-output and comparison workflow without real weights.
+
+
+`DIFFUSIONGEMMA_MOCK_REF_OUT` controls the tiny mock reference JSON used by `diffusiongemma-mock-compare`, keeping it separate from `DIFFUSIONGEMMA_REF_OUT` used for Transformers dry-run/reference captures.
