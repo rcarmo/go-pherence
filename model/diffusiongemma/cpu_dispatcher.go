@@ -177,7 +177,7 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 	case OpPostAttention:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostAttentionLayerNorm })
 	case OpDenseMLP:
-		return errOpNotImplemented(op.Kind)
+		return runDenseMLP(op, weights, scratch)
 	case OpPreMoE:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PreFFNLayerNorm })
 	case OpRouter:
@@ -239,6 +239,58 @@ func loadFloatVector(weights *TextWeights, binding *TensorBinding) ([]float32, e
 	return out, nil
 }
 
+func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma dense MLP missing weights")
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
+		return fmt.Errorf("DiffusionGemma dense MLP layer %d outside plan", op.Layer)
+	}
+	lb := fp.Layers[op.Layer]
+	gateW, gateRows, gateCols, err := loadFloatMatrix(weights, lb.MLPGateProj)
+	if err != nil {
+		return err
+	}
+	upW, upRows, upCols, err := loadFloatMatrix(weights, lb.MLPUpProj)
+	if err != nil {
+		return err
+	}
+	downW, downRows, downCols, err := loadFloatMatrix(weights, lb.MLPDownProj)
+	if err != nil {
+		return err
+	}
+	if gateRows != upRows || gateCols != upCols || downCols != gateRows || downRows != gateCols {
+		return fmt.Errorf("DiffusionGemma dense MLP shape mismatch gate=[%d,%d] up=[%d,%d] down=[%d,%d]", gateRows, gateCols, upRows, upCols, downRows, downCols)
+	}
+	hiddenSize := gateCols
+	intermediate := gateRows
+	if hiddenSize <= 0 || intermediate <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma dense MLP hidden len=%d hidden_size=%d intermediate=%d", len(scratch.Hidden), hiddenSize, intermediate)
+	}
+	gate := make([]float32, intermediate)
+	up := make([]float32, intermediate)
+	act := make([]float32, intermediate)
+	out := make([]float32, hiddenSize)
+	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
+		row := scratch.Hidden[off : off+hiddenSize]
+		if !simd.GemvRows(gate, row, gateW, intermediate, hiddenSize) {
+			return fmt.Errorf("DiffusionGemma dense MLP gate GEMV rejected layer %d", op.Layer)
+		}
+		if !simd.GemvRows(up, row, upW, intermediate, hiddenSize) {
+			return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
+		}
+		if !simd.GELUTanhMulTo(act, gate, up) {
+			return fmt.Errorf("DiffusionGemma dense MLP activation rejected layer %d", op.Layer)
+		}
+		if !simd.GemvRows(out, act, downW, hiddenSize, intermediate) {
+			return fmt.Errorf("DiffusionGemma dense MLP down GEMV rejected layer %d", op.Layer)
+		}
+		copy(row, out)
+	}
+	return nil
+}
+
 func runLayerScalar(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma layer scalar missing weights")
@@ -259,6 +311,25 @@ func runLayerScalar(op LayerOp, weights *TextWeights, scratch ForwardScratch) er
 		scratch.Hidden[i] *= scale
 	}
 	return nil
+}
+
+func loadFloatMatrix(weights *TextWeights, binding *TensorBinding) ([]float32, int, int, error) {
+	if binding == nil {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma missing matrix binding")
+	}
+	raw, dtype, shape, err := weights.RawTensor(binding.Name)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	if len(shape) != 2 || shape[0] <= 0 || shape[1] <= 0 {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-2", binding.Name, shape)
+	}
+	n := shape[0] * shape[1]
+	out := make([]float32, n)
+	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
+		return nil, 0, 0, err
+	}
+	return out, shape[0], shape[1], nil
 }
 
 func loadFloatScalar(weights *TextWeights, binding *TensorBinding) (float32, error) {

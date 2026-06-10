@@ -289,3 +289,8 @@ The explicit `canvas_embedding` prefix op marks the point where token IDs from t
 ## Final norm hook
 
 `CPUDispatcher` now implements the `final_norm` tail op by loading the decoder final RMSNorm weight and applying `backends/simd/runtime.RMSNormTo` row-by-row over hidden scratch.
+
+
+## Dense MLP hook
+
+`CPUDispatcher` now implements the dense MLP op using checked SIMD facades: `GemvRows` for gate/up/down projections and `GELUTanhMulTo` for the activation product. This is correctness-first scaffolding and currently loads full projection matrices through the raw safetensor path when the op executes. Router/expert MoE, attention, self-conditioning, and LM head remain explicit not-implemented boundaries.
