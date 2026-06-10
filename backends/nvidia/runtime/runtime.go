@@ -310,6 +310,9 @@ func Malloc(n int) (*Buffer, error) {
 
 // Free releases GPU memory.
 func (b *Buffer) Free() {
+	if b == nil {
+		return
+	}
 	if b.Ptr != 0 {
 		if gpuStatsEnabled.Load() {
 			gpuStatsFrees.Add(1)
