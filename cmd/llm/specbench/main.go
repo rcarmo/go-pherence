@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 
@@ -97,9 +98,9 @@ func main() {
 				normal = runNormal
 				spec = runSpec
 			} else {
-				match = match && sameInts(normal, runNormal) && sameInts(spec, runSpec)
+				match = match && slices.Equal(normal, runNormal) && slices.Equal(spec, runSpec)
 			}
-			match = match && sameInts(runNormal, runSpec)
+			match = match && slices.Equal(runNormal, runSpec)
 			stats = stats.Add(runStats)
 		}
 		normalElapsed /= time.Duration(*repeat)
@@ -209,18 +210,6 @@ func tokensPerSecond(generated int, elapsed time.Duration) float64 {
 		return 0
 	}
 	return float64(generated) / elapsed.Seconds()
-}
-
-func sameInts(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func baseName(path string) string {

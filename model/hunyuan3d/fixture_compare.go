@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"slices"
 )
 
 // ImagePreprocessFixture is the JSON schema emitted by
@@ -59,7 +60,7 @@ func CompareTensorSummary(got, want TensorSummary, tolerance float32) error {
 	if got.DType != want.DType {
 		return fmt.Errorf("tensor %s dtype mismatch: got %q want %q", got.Name, got.DType, want.DType)
 	}
-	if !sameInts(got.Shape, want.Shape) {
+	if !slices.Equal(got.Shape, want.Shape) {
 		return fmt.Errorf("tensor %s shape mismatch: got %v want %v", got.Name, got.Shape, want.Shape)
 	}
 	if got.SHA256LEF32 != "" && want.SHA256LEF32 != "" && got.SHA256LEF32 != want.SHA256LEF32 {
@@ -99,16 +100,4 @@ func closeFloat(label string, got, want, tolerance float32) error {
 		return fmt.Errorf("%s mismatch: got %g want %g tolerance %g", label, got, want, tolerance)
 	}
 	return nil
-}
-
-func sameInts(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

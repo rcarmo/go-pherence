@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -64,10 +65,10 @@ func TestSpecbenchLoadPrompts(t *testing.T) {
 }
 
 func TestSpecbenchSameIntsAndBaseName(t *testing.T) {
-	if !sameInts([]int{1, 2}, []int{1, 2}) {
+	if !slices.Equal([]int{1, 2}, []int{1, 2}) {
 		t.Fatal("sameInts returned false for equal slices")
 	}
-	if sameInts([]int{1, 2}, []int{1, 3}) {
+	if slices.Equal([]int{1, 2}, []int{1, 3}) {
 		t.Fatal("sameInts returned true for different slices")
 	}
 	if got := baseName("/tmp/models/foo/"); got != "foo" {

@@ -1,6 +1,9 @@
 package hunyuan3d
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestDiTConfigShapes(t *testing.T) {
 	cfg := DiTConfig{InChannels: 64, ContextInDim: 1536, HiddenSize: 1024, NumHeads: 16, HeadDim: 64, Depth: 16, DepthSingleBlocks: 32}
@@ -31,7 +34,7 @@ func TestDiTConfigShapes(t *testing.T) {
 		{"qkv", qkv, []int{2, 512, 3, 16, 64}},
 	}
 	for _, check := range checks {
-		if !sameInts(check.got, check.want) {
+		if !slices.Equal(check.got, check.want) {
 			t.Fatalf("%s shape=%v want %v", check.name, check.got, check.want)
 		}
 	}

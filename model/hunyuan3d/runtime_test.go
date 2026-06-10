@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestLoadRuntimeAndTensorAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !sameInts(shape, []int{2, 3}) || len(data) != 6 || data[5] != 6 {
+	if !slices.Equal(shape, []int{2, 3}) || len(data) != 6 || data[5] != 6 {
 		t.Fatalf("tensor data=%v shape=%v", data, shape)
 	}
 }

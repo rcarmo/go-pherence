@@ -3,6 +3,7 @@ package diffusiongemma
 import (
 	"math"
 	"math/rand"
+	"slices"
 	"sort"
 )
 
@@ -178,7 +179,7 @@ func (s *StableConfidentStopper) ShouldStop(argmaxCanvas []int, tokenEntropy []f
 		if len(s.history) == s.StabilityThreshold {
 			stable = true
 			for _, prev := range s.history {
-				if !sameInts(prev, argmaxCanvas) {
+				if !slices.Equal(prev, argmaxCanvas) {
 					stable = false
 					break
 				}
@@ -198,16 +199,4 @@ func (s *StableConfidentStopper) ShouldStop(argmaxCanvas []int, tokenEntropy []f
 	}
 	confident := s.ConfidenceThreshold > 0 && meanEntropy < s.ConfidenceThreshold
 	return stable && confident
-}
-
-func sameInts(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
