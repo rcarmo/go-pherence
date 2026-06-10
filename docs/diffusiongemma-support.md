@@ -522,3 +522,8 @@ The output JSON includes prompt, input IDs, output IDs, decoded text, timing, dt
 ## Self-conditioning soft embedding conversion
 
 After LM-head logits are produced, `CPUDispatcher` now builds the next self-conditioning signal by applying softmax over each logits row and accumulating a weighted sum of tied embedding rows. Like the memory-aware LM head, this uses row-wise `RawTensorRow` access to avoid eager full-matrix expansion, but it remains computationally expensive for the 262K vocabulary and needs reference parity validation.
+
+
+## Text prompt tokenization
+
+`diffusiongemmarun -prompt` now uses the existing Go Hugging Face tokenizer loader on `tokenizer.json` for plain text prompts. For example, `-prompt "hello world"` tokenizes to `[23391 1902]` against the fetched DiffusionGemma tokenizer snapshot and `-decode` can render it back through the same tokenizer. Exact-token mode (`-tokens`) remains available for control-token scaffolding. Full chat-template rendering is still separate work.

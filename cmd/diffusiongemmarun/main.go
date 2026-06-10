@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/diffusiongemma"
 )
 
@@ -26,6 +27,7 @@ type report struct {
 func main() {
 	modelDir := flag.String("model", "", "DiffusionGemma model directory")
 	promptCSV := flag.String("prompt-ids", "", "comma-separated already-tokenized prompt IDs")
+	promptText := flag.String("prompt", "", "text prompt to tokenize with tokenizer.json")
 	exactTokensCSV := flag.String("tokens", "", "comma-separated exact tokenizer vocabulary entries (no BPE tokenization)")
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
@@ -46,6 +48,14 @@ func main() {
 		fatal(err)
 	}
 	var vocab *diffusiongemma.Vocab
+	var tok *tokenizer.Tokenizer
+	if strings.TrimSpace(*promptText) != "" {
+		tok, err = tokenizer.Load(*modelDir + "/tokenizer.json")
+		if err != nil {
+			fatal(err)
+		}
+		promptIDs = append(promptIDs, tok.Encode(*promptText)...)
+	}
 	if strings.TrimSpace(*exactTokensCSV) != "" || *decode {
 		vocab, err = diffusiongemma.LoadVocab(*modelDir)
 		if err != nil {
@@ -100,16 +110,24 @@ func main() {
 	}
 	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed}
 	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts, Capabilities: diffusiongemma.Capabilities(), Shards: m.Shards}
-	if *decode && vocab != nil {
-		out.PromptTokens = vocab.DecodeIDs(promptIDs)
+	if *decode {
+		if tok != nil {
+			out.PromptTokens = []string{tok.Decode(promptIDs)}
+		} else if vocab != nil {
+			out.PromptTokens = vocab.DecodeIDs(promptIDs)
+		}
 	}
 	res, err := eng.GenerateTokenIDs(promptIDs, opts)
 	if err != nil {
 		out.Error = err.Error()
 	} else {
 		out.Result = &res
-		if *decode && vocab != nil {
-			out.GeneratedTokens = vocab.DecodeIDs(res.Generated)
+		if *decode {
+			if tok != nil {
+				out.GeneratedTokens = []string{tok.Decode(res.Generated)}
+			} else if vocab != nil {
+				out.GeneratedTokens = vocab.DecodeIDs(res.Generated)
+			}
 		}
 	}
 	if *asJSON {
