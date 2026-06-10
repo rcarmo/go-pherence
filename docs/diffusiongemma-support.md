@@ -171,3 +171,16 @@ vision=386
 ```
 
 This is sufficient to drive the next scaffold step: identify exact tensor naming for text decoder blocks, MoE routers/experts, prompt/canvas attention, and the vision encoder before any eager tensor loading.
+
+
+## Block-diffusion runtime scaffold
+
+`model/diffusiongemma/runtime.go` now defines the model-agnostic block-diffusion loop around a narrow `Denoiser` interface:
+
+```go
+type Denoiser interface {
+    Denoise(ForwardInput) (ForwardOutput, error)
+}
+```
+
+`GenerateCanvas` initializes a random canvas, runs up to `max_denoising_steps`, applies the linear temperature schedule, computes argmax and entropy per canvas position, applies entropy-bound acceptance, checks stable/confident stopping, and renoises non-accepted positions. This is the control-flow scaffold for inference; the actual DiffusionGemma forward pass and tensor loading still need to be implemented behind the `Denoiser` interface.
