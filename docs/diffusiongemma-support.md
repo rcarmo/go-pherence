@@ -298,4 +298,9 @@ The explicit `canvas_embedding` prefix op marks the point where token IDs from t
 
 ## Router hook
 
-`CPUDispatcher` now implements the `router` op scaffold. It loads `router.proj.weight`, runs checked SIMD `GemvRows` from hidden state to expert scores, and applies `router.scale` plus `router.per_expert_scale` when present. The result is stored in router scratch. Top-k expert selection and expert execution remain separate future steps.
+`CPUDispatcher` now implements the `router` op scaffold. It loads `router.proj.weight`, runs checked SIMD `GemvRows` from hidden state to expert scores, and applies `router.scale` plus `router.per_expert_scale` when present. The result is stored in router scratch and top-k expert IDs/scores are selected per canvas position. Expert execution remains a separate future step.
+
+
+## Router top-k scaffold
+
+Router scratch now includes per-position `TopKIDs` and `TopKVals` sized by `top_k_experts`. The router op selects the top-k expert scores after applying router scale and per-expert scale. This prepares the expert execution hook without yet running expert MLPs.

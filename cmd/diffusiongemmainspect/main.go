@@ -93,7 +93,7 @@ func printText(r report) {
 		fmt.Printf("  text_plan: ready=%v globals=%d layers=%d missing=%d\n", r.TextTensorPlan.Ready, len(r.TextTensorPlan.Globals), len(r.TextTensorPlan.Layers), len(r.TextTensorPlan.Missing))
 	}
 	fb := r.ForwardBufferPlan
-	fmt.Printf("  buffers:   hidden=%d residual=%d logits=%d router=%d experts=%d\n", fb.Hidden, fb.Residual, fb.Logits, fb.Router, fb.Experts)
+	fmt.Printf("  buffers:   hidden=%d residual=%d logits=%d router=%d experts=%d top_k=%d\n", fb.Hidden, fb.Residual, fb.Logits, fb.Router, fb.Experts, fb.TopKExperts)
 	fmt.Printf("  ops:       ready=%v prefix_ops=%d layer_ops=%d tail_ops=%d reason=%s\n", r.ForwardOpPlan.Ready, len(r.ForwardOpPlan.Prefix), len(r.ForwardOpPlan.Layers), len(r.ForwardOpPlan.Tail), r.ForwardOpPlan.Reason)
 	if r.TextWeightsOpened {
 		fmt.Printf("  weights:   text_shards_opened=true globals=%d layers=%d\n", r.TextWeightsGlobals, r.TextWeightsLayers)

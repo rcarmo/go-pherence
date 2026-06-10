@@ -69,6 +69,7 @@ type ForwardBufferPlan struct {
 	Logits       int `json:"logits"`
 	Router       int `json:"router"`
 	Experts      int `json:"experts"`
+	TopKExperts  int `json:"top_k_experts"`
 }
 
 func BuildForwardBufferPlan(shape Shape) ForwardBufferPlan {
@@ -93,5 +94,6 @@ func BuildForwardBufferPlan(shape Shape) ForwardBufferPlan {
 		Logits:       canvas * vocab,
 		Router:       canvas * shape.NumExperts,
 		Experts:      canvas * shape.TopKExperts * shape.MoEIntermediateSize,
+		TopKExperts:  shape.TopKExperts,
 	}
 }

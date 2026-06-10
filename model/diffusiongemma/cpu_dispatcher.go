@@ -19,10 +19,13 @@ type ForwardScratch struct {
 	Logits   [][]float32
 	Router   []float32
 	Experts  []float32
+	TopKIDs  []int
+	TopKVals []float32
 }
 
 func NewForwardScratch(buffers ForwardBufferPlan) ForwardScratch {
-	return ForwardScratch{Hidden: make([]float32, maxNonNegative(buffers.Hidden)), Residual: make([]float32, maxNonNegative(buffers.Residual)), Router: make([]float32, maxNonNegative(buffers.Router)), Experts: make([]float32, maxNonNegative(buffers.Experts)), Logits: makeLogitRows(buffers.CanvasLength, buffers.VocabSize)}
+	topKSlots := maxNonNegative(buffers.CanvasLength * buffers.TopKExperts)
+	return ForwardScratch{Hidden: make([]float32, maxNonNegative(buffers.Hidden)), Residual: make([]float32, maxNonNegative(buffers.Residual)), Router: make([]float32, maxNonNegative(buffers.Router)), Experts: make([]float32, maxNonNegative(buffers.Experts)), TopKIDs: make([]int, topKSlots), TopKVals: make([]float32, topKSlots), Logits: makeLogitRows(buffers.CanvasLength, buffers.VocabSize)}
 }
 
 func makeLogitRows(rows, cols int) [][]float32 {
@@ -333,8 +336,33 @@ func runRouter(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
 				out[i] *= perExpertScale[i]
 			}
 		}
+		topK := 0
+		if positions > 0 {
+			topK = len(scratch.TopKIDs) / positions
+		}
+		if topK > 0 && len(scratch.TopKVals) >= (pos+1)*topK {
+			selectTopK(out, scratch.TopKIDs[pos*topK:(pos+1)*topK], scratch.TopKVals[pos*topK:(pos+1)*topK])
+		}
 	}
 	return nil
+}
+
+func selectTopK(scores []float32, ids []int, vals []float32) {
+	for i := range ids {
+		ids[i] = -1
+		vals[i] = float32(math.Inf(-1))
+	}
+	for id, score := range scores {
+		for slot := range ids {
+			if score > vals[slot] {
+				copy(vals[slot+1:], vals[slot:len(vals)-1])
+				copy(ids[slot+1:], ids[slot:len(ids)-1])
+				vals[slot] = score
+				ids[slot] = id
+				break
+			}
+		}
+	}
 }
 
 func runLayerScalar(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
