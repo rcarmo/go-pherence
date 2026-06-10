@@ -416,6 +416,8 @@ IDEOGRAM4_MU ?= 0.0
 IDEOGRAM4_STD ?= 1.75
 IDEOGRAM4_SEED ?= 2026060803
 IDEOGRAM4_GPU_RESIDENCY ?= phase
+IDEOGRAM4_EXTRA_FLAGS ?=
+IDEOGRAM4_GPU_ENV ?= GO_PHERENCE_IDEOGRAM4_GPU_NORM=1 GO_PHERENCE_IDEOGRAM4_GPU_MROPE=1 GO_PHERENCE_IDEOGRAM4_GPU_ATTN=1 GO_PHERENCE_IDEOGRAM4_GPU_MLP=1
 
 .PHONY: ideogram4-cat-prompt ideogram4-cat-gpu ideogram4-cat-cpu ideogram4-cat-open
 
@@ -426,7 +428,7 @@ ideogram4-cat-prompt:
 
 ideogram4-cat-gpu: ideogram4-cat-prompt
 	mkdir -p $(dir $(IDEOGRAM4_OUT)) $(GOTMPDIR)
-	go run ./cmd/image/ideogram4gen \
+	$(IDEOGRAM4_GPU_ENV) go run ./cmd/image/ideogram4gen \
 		-model $(IDEOGRAM4_MODEL) \
 		-prompt "$$(cat $(IDEOGRAM4_PROMPT_FILE))" \
 		-out $(IDEOGRAM4_OUT) \
@@ -438,6 +440,7 @@ ideogram4-cat-gpu: ideogram4-cat-prompt
 		-std $(IDEOGRAM4_STD) \
 		-seed $(IDEOGRAM4_SEED) \
 		-gpu -gpu-fp8 -gpu-fp8-cache -gpu-residency $(IDEOGRAM4_GPU_RESIDENCY) \
+		$(IDEOGRAM4_EXTRA_FLAGS) \
 		-timing
 
 ideogram4-cat-cpu: ideogram4-cat-prompt
