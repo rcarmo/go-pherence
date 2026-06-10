@@ -702,3 +702,11 @@ diffusiongemma-download-plan-report: diffusiongemma-download-plan-json diffusion
 .PHONY: diffusiongemma-download-status
 
 diffusiongemma-download-status: diffusiongemma-status-refresh
+
+DIFFUSIONGEMMA_WEIGHTS_OUT ?= $(TMPDIR)/diffusiongemma/weights.json
+
+.PHONY: diffusiongemma-weights-json
+
+diffusiongemma-weights-json: diffusiongemma-check-shards
+	mkdir -p $(dir $(DIFFUSIONGEMMA_WEIGHTS_OUT))
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -open-weights -json > $(DIFFUSIONGEMMA_WEIGHTS_OUT)

@@ -845,3 +845,8 @@ Shard readiness now reports byte-level progress as `present_bytes/expected_bytes
 ## Extra FFN/MoE norm tensor handles
 
 The text tensor plan now includes DiffusionGemma-specific `pre_feedforward_layernorm_2`, `post_feedforward_layernorm_1`, and `post_feedforward_layernorm_2` handles for every text layer. This aligns tensor planning with the semantic forward bindings used by the dense-MLP/MoE branch scaffold.
+
+
+## Weight binding JSON target
+
+`make diffusiongemma-weights-json` first requires shard readiness, then runs `diffusiongemmainspect -open-weights -json` into `DIFFUSIONGEMMA_WEIGHTS_OUT`. It is intended for full-checkpoint environments to capture text weight dtype/shape binding metadata before parity runs.
