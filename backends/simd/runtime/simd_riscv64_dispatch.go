@@ -16,11 +16,3 @@ func Sdot(x, y []float32) float32 {
 	}
 	return sdotScalar(x, y)
 }
-
-func Saxpy(alpha float32, x []float32, y []float32) {
-	if len(x) == len(y) && HasDotAsm {
-		saxpyAsm(alpha, x, y)
-		return
-	}
-	saxpyScalar(alpha, x, y)
-}
