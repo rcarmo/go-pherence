@@ -33,6 +33,31 @@ inference.RMSNorm / QuantizeF32ToINT8 / MatVecQ4K*
 aipool.NewAIWorkerPool / RegisterAIThread
 ```
 
+Assembly macro/reference files:
+
+```text
+backends/spacemit/ime2/k3_isa.h
+  Canonical hand-encoded instruction macros for K3 custom IME2 ops and RVV/Zvfh
+  helper instructions. Use this instead of scattering raw WORD encodings.
+
+backends/spacemit/ime2/*_riscv64.s
+  Existing IME2 vmadot, i8×i8, i8×i4, Q4_K, grouped GEMM, and argmax kernels.
+
+backends/spacemit/rvv/*_riscv64.s
+  Existing RVV copy, q8 quantization, fp16 conversion, fp16 dot/GEMM, and
+  w4/i8 kernels.
+```
+
+For new Ideogram K3 kernels, follow the existing style:
+
+```asm
+#include "textflag.h"
+#include "../ime2/k3_isa.h"
+```
+
+and prefer named macros like `VMADOT_SS`, `VMADOT_SU`, `K3_VSETVLI_*`,
+`K3_VLE*`, `K3_VSE*`, and `K3_VFWMACC_*` over raw hex encodings.
+
 ## Current build status
 
 The generic native Ideogram CLI and model tests cross-compile for riscv64 today:
