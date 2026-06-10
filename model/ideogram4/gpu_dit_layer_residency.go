@@ -170,6 +170,29 @@ func (r *ditLayerGPUResidency) gemm(name string, gpuW *nvidia.GPUFP8E4M3Linear, 
 	return cpuW.ApplyBatch(x, out, batch)
 }
 
+func (r *ditLayerGPUResidency) AttentionResidualBatch(l DiTLayer, hidden, x, gate []float32, tokens, heads, headDim int, rope *MRoPE, scale, normEps float32) error {
+	if r != nil && r.qkv != nil && r.o != nil && rope != nil {
+		if err := nvidia.GemmQKVAttentionOResidualFP8E4M3(hidden, x, gate, l.NormQ, l.NormK, l.AttnN2, rope.cos, rope.sin, tokens, heads, headDim, scale, r.qkv, r.o); err == nil {
+			return nil
+		} else if gpuFP8Strict() || gpuAttentionStrict() || gpuNormStrict() || gpuMRoPEStrict() {
+			return fmt.Errorf("DiT layer GPU QKV+attention+O+residual: %w", err)
+		}
+	}
+	attnOut := make([]float32, tokens*heads*headDim)
+	if err := r.QKVAttentionBatch(l, x, attnOut, tokens, heads, headDim, rope, scale); err != nil {
+		return err
+	}
+	oprojAll := make([]float32, len(attnOut))
+	if err := r.OBatch(l, attnOut, oprojAll, tokens); err != nil {
+		return err
+	}
+	postNormAll := make([]float32, len(attnOut))
+	if err := rmsNormRowsWeightedGPU(postNormAll, oprojAll, l.AttnN2, nil, tokens, heads*headDim, normEps); err != nil {
+		return err
+	}
+	return gatedResidualRowsGPU(hidden, postNormAll, gate, tokens, heads*headDim)
+}
+
 func (r *ditLayerGPUResidency) QKVAttentionBatch(l DiTLayer, x, out []float32, tokens, heads, headDim int, rope *MRoPE, scale float32) error {
 	if r != nil && r.qkv != nil && rope != nil {
 		if err := nvidia.GemmQKVAttentionFP8E4M3(out, x, l.NormQ, l.NormK, rope.cos, rope.sin, tokens, heads, headDim, scale, r.qkv); err == nil {

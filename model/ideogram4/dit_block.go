@@ -227,47 +227,11 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 			}
 		}
 	}
-	// QKV projection through attention. Keep the QKV split, Q/K norm, MRoPE,
-	// softmax attention, and value projection on-device when the resident QKV
-	// weight is available; fall back to the host-staged path otherwise.
-	attnOut := make([]float32, tokens*emb)
-	if err := layerGPU.QKVAttentionBatch(*l, normedAll, attnOut, tokens, heads, headDim, rope, scaleAttn); err != nil {
+	// QKV projection through attention, O projection, post-norm, and gated
+	// residual. Keep this full attention sublayer on-device when possible and
+	// download updated hidden once.
+	if err := layerGPU.AttentionResidualBatch(*l, hidden, normedAll, gateMSA, tokens, heads, headDim, rope, scaleAttn, normEps); err != nil {
 		return err
-	}
-	// output projection, post-norm, gated residual.
-	oprojAll := make([]float32, tokens*emb)
-	if err := layerGPU.OBatch(*l, attnOut, oprojAll, tokens); err != nil {
-		return err
-	}
-	postNormAll := make([]float32, tokens*emb)
-	if gpuNormEnabled() {
-		if err := rmsNormRowsWeightedGPU(postNormAll, oprojAll, l.AttnN2, nil, tokens, emb, normEps); err != nil && gpuNormStrict() {
-			return err
-		} else if err != nil {
-			for t := 0; t < tokens; t++ {
-				rmsNormWeightedCPU(postNormAll[t*emb:(t+1)*emb], oprojAll[t*emb:(t+1)*emb], l.AttnN2, normEps)
-			}
-		}
-		if err := gatedResidualRowsGPU(hidden, postNormAll, gateMSA, tokens, emb); err != nil && gpuNormStrict() {
-			return err
-		} else if err != nil {
-			for t := 0; t < tokens; t++ {
-				row := hidden[t*emb : (t+1)*emb]
-				upd := postNormAll[t*emb : (t+1)*emb]
-				for i := range row {
-					row[i] += gateMSA[i] * upd[i]
-				}
-			}
-		}
-	} else {
-		for t := 0; t < tokens; t++ {
-			rmsNormWeightedCPU(postNormAll[t*emb:(t+1)*emb], oprojAll[t*emb:(t+1)*emb], l.AttnN2, normEps)
-			row := hidden[t*emb : (t+1)*emb]
-			upd := postNormAll[t*emb : (t+1)*emb]
-			for i := range row {
-				row[i] += gateMSA[i] * upd[i]
-			}
-		}
 	}
 
 	// ---- MLP sublayer (SwiGLU) ----
@@ -298,6 +262,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	}
 	_ = inter
 	downAll := make([]float32, tokens*emb)
+	postNormAll := make([]float32, tokens*emb)
 	if err := layerGPU.MLPBatch(*l, mlpIn, downAll, tokens); err != nil {
 		return err
 	}

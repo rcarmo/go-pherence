@@ -473,6 +473,32 @@ func IdeogramGatedResidual(hidden, update, gate []float32) error {
 	return nil
 }
 
+func IdeogramGatedResidualRowsBuffer(hidden, update, gate *Buffer, rows, cols int) error {
+	if fnIdeogramGatedResidualRowsF32 == 0 || !megaModuleOK || hidden == nil || update == nil || gate == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
+		return fmt.Errorf("invalid Ideogram gated residual rows device buffers")
+	}
+	n, ok := checkedMulInt(rows, cols)
+	if !ok {
+		return fmt.Errorf("Ideogram gated residual rows size overflow")
+	}
+	if _, err := checkedByteSize(n, hidden.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram gated residual rows hidden: %w", err)
+	}
+	if _, err := checkedByteSize(n, update.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram gated residual rows update: %w", err)
+	}
+	if _, err := checkedByteSize(cols, gate.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram gated residual rows gate: %w", err)
+	}
+	grid, ok := grid1DFor(n, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram gated residual rows grid")
+	}
+	rr, cc := uint32(rows), uint32(cols)
+	return LaunchKernel(fnIdeogramGatedResidualRowsF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&hidden.Ptr), unsafe.Pointer(&update.Ptr), unsafe.Pointer(&gate.Ptr), unsafe.Pointer(&rr), unsafe.Pointer(&cc))
+}
+
 // IdeogramGatedResidualRows computes hidden[row,col] += gate[col] * update[row,col]
 // through temporary device buffers. Hidden is downloaded back in-place.
 func IdeogramGatedResidualRows(hidden, update, gate []float32, rows, cols int) error {
@@ -498,13 +524,7 @@ func IdeogramGatedResidualRows(hidden, update, gate []float32, rows, cols int) e
 	if err := gBuf.Upload(gate[:cols]); err != nil {
 		return fmt.Errorf("upload Ideogram gated residual rows gate: %w", err)
 	}
-	rr, cc := uint32(rows), uint32(cols)
-	grid, ok := grid1DFor(n, 256)
-	if !ok {
-		return fmt.Errorf("invalid Ideogram gated residual rows grid")
-	}
-	if err := LaunchKernel(fnIdeogramGatedResidualRowsF32, grid, 1, 1, 256, 1, 1, 0,
-		unsafe.Pointer(&hBuf.Ptr), unsafe.Pointer(&uBuf.Ptr), unsafe.Pointer(&gBuf.Ptr), unsafe.Pointer(&rr), unsafe.Pointer(&cc)); err != nil {
+	if err := IdeogramGatedResidualRowsBuffer(hBuf, uBuf, gBuf, rows, cols); err != nil {
 		return err
 	}
 	if err := hBuf.Download(hidden[:n]); err != nil {
