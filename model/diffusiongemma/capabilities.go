@@ -28,7 +28,7 @@ type RuntimeCapabilities struct {
 }
 
 func Capabilities() RuntimeCapabilities {
-	missing := []string{"encoder_kv_concat", "reference parity fixtures", "memory-efficient LM head", "vision/token processor integration"}
+	missing := []string{"reference parity fixtures", "memory-efficient LM head", "vision/token processor integration"}
 	return RuntimeCapabilities{
 		Metadata:              true,
 		TensorInventory:       true,
@@ -46,7 +46,7 @@ func Capabilities() RuntimeCapabilities {
 		SelfAttentionScaffold: true,
 		RoPE:                  true,
 		SlidingWindowMask:     true,
-		EncoderKVConcat:       false,
+		EncoderKVConcat:       true,
 		ReferenceComplete:     false,
 		RuntimeReady:          false,
 		MissingForReference:   missing,
