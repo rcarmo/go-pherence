@@ -868,3 +868,8 @@ The text tensor plan now includes DiffusionGemma-specific `pre_feedforward_layer
 ## Shared readiness summary
 
 `model/diffusiongemma/readiness.go` provides a shared `ReadinessSummary` used by both `diffusiongemmainspect` and `diffusiongemmarun`. It summarizes text scaffold readiness, shard readiness, reference completion, runtime readiness, and missing blockers in a single compact string and JSON object.
+
+
+## Shared summary in status summary
+
+`diffusiongemma_status_summary.py` now prints the shared `summary` object emitted by `diffusiongemmainspect -json`, including scaffold readiness, shard readiness, reference/runtime readiness, and consolidated missing blockers.
