@@ -15,6 +15,30 @@ def load_json(path: pathlib.Path):
         return json.load(f)
 
 
+def check_env(out: pathlib.Path | None) -> dict:
+    report = {"check_env": True}
+    try:
+        import torch
+        report["torch"] = {"present": True, "version": getattr(torch, "__version__", None), "cuda_available": bool(torch.cuda.is_available())}
+    except Exception as e:
+        report["torch"] = {"present": False, "error": str(e)}
+    try:
+        import transformers
+        report["transformers"] = {"present": True, "version": getattr(transformers, "__version__", None)}
+        try:
+            from transformers import DiffusionGemmaForBlockDiffusion, AutoProcessor  # noqa: F401
+            report["diffusiongemma"] = {"present": True}
+        except Exception as e:
+            report["diffusiongemma"] = {"present": False, "error": str(e)}
+    except Exception as e:
+        report["transformers"] = {"present": False, "error": str(e)}
+        report["diffusiongemma"] = {"present": False, "error": "transformers unavailable"}
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return report
+
+
 def dry_run(model_id: str, out: pathlib.Path | None) -> dict:
     p = pathlib.Path(model_id)
     report = {"model": model_id, "dry_run": True, "exists": p.exists()}
@@ -100,8 +124,9 @@ def main() -> int:
     ap.add_argument("--device-map", default="auto")
     ap.add_argument("--out", type=pathlib.Path)
     ap.add_argument("--dry-run", action="store_true", help="inspect local metadata/index only; do not import/load Transformers")
+    ap.add_argument("--check-env", action="store_true", help="check Python/PyTorch/Transformers DiffusionGemma availability without loading weights")
     args = ap.parse_args()
-    result = dry_run(args.model, args.out) if args.dry_run else run_reference(args)
+    result = check_env(args.out) if args.check_env else (dry_run(args.model, args.out) if args.dry_run else run_reference(args))
     print(json.dumps(result, indent=2))
     return 0
 

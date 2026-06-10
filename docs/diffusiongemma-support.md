@@ -910,3 +910,8 @@ Transformers reference fixtures
 parity against reference logits/tokens
 vision/token processor integration
 ```
+
+
+## Reference environment preflight
+
+`make diffusiongemma-reference-env` runs `scripts/diffusiongemma_reference.py --check-env` to check Python, PyTorch, Transformers, and `DiffusionGemmaForBlockDiffusion` availability without loading weights. In the current container this reports missing `torch` and `transformers`, so full reference capture requires a separate Python environment setup.

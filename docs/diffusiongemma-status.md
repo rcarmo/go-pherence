@@ -356,3 +356,8 @@ GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-no-weights \
 ```
 
 Result: passed. The summary output now includes `summary_text_scaffold`, `summary_shards`, `summary_reference_complete`, `summary_runtime_ready`, and consolidated `summary_missing` fields.
+
+
+## Reference environment preflight
+
+`make diffusiongemma-reference-env` runs `scripts/diffusiongemma_reference.py --check-env` to check Python, PyTorch, Transformers, and `DiffusionGemmaForBlockDiffusion` availability without loading weights. In the current container this reports missing `torch` and `transformers`, so full reference capture requires a separate Python environment setup.

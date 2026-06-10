@@ -39,6 +39,13 @@ whisper-k3:
 	@echo "Built bin/whisper-k3 (riscv64, RVV + IME int8)."
 	@echo "Resident run:  WHISPER_INT8=1 WHISPER_THREADS=4 bin/whisper-k3 -model <model.safetensors> -size large-v3 -audio <file.wav>"
 
+.PHONY: ideogram4gen-k3
+ideogram4gen-k3:
+	mkdir -p $(GOTMPDIR) bin
+	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/ideogram4gen-k3 ./cmd/image/ideogram4gen
+	@echo "Built bin/ideogram4gen-k3 (riscv64 target)."
+	@echo "Hardware smoke: GO_PHERENCE_IDEOGRAM4_K3=1 IME2_TCM_ACT=1 bin/ideogram4gen-k3 -model <ideogram4-dir> -prompt \"\$$(cat prompts/ideogram4/cat.json)\" -width 256 -height 256 -steps 4 -guidance 7.0 -mu 0.0 -std 1.75 -seed 2026060803 -timing"
+
 SPEAKER_CKPT ?= $(MODELS_DIR)/speechbrain-ecapa-voxceleb/embedding_model.ckpt
 SPEAKER_SAFETENSORS ?= $(MODELS_DIR)/speaker-ecapa-voxceleb.safetensors
 SPEAKER_CKPT_URL ?= https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/resolve/main/embedding_model.ckpt
@@ -730,3 +737,11 @@ diffusiongemma-help:
 	@echo ""
 	@echo "DiffusionGemma parity workflow (requires full shards + Transformers/PyTorch):"
 	@echo "  make diffusiongemma-parity"
+
+DIFFUSIONGEMMA_ENV_OUT ?= $(TMPDIR)/diffusiongemma/reference_env.json
+
+.PHONY: diffusiongemma-reference-env
+
+diffusiongemma-reference-env:
+	mkdir -p $(dir $(DIFFUSIONGEMMA_ENV_OUT))
+	python3 scripts/diffusiongemma_reference.py --check-env --out $(DIFFUSIONGEMMA_ENV_OUT)
