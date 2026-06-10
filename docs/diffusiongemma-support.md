@@ -229,3 +229,8 @@ This gives the future native loader exact tensor names and shard locations for t
 ## Text forward binding scaffold
 
 `model/diffusiongemma/text_forward.go` adds semantic bindings over opened text weights. `TextWeights.ForwardPlan()` maps tensor names into roles such as embeddings, final norm, self-conditioning projections, per-layer norms, Q/K/V/O projections, Q/K norms, MLP projections, routers, and expert projections. Full-attention layers are allowed to omit `v_proj`, matching the published tensor layout. The inspector reports this forward plan when `-open-weights` is used with local shard files.
+
+
+## Inference engine scaffold
+
+`model/diffusiongemma/inference.go` adds `Engine` and `GenerateTokenIDs`. The engine ties metadata, optional text weights, and an injected `Denoiser` to the block-diffusion canvas loop. It can iterate over canvases until `max_new_tokens` is reached, appending accepted canvas tokens to context for the next canvas. If no denoiser is attached it returns `DiffusionGemma denoiser is not implemented`, making the missing native forward path explicit.
