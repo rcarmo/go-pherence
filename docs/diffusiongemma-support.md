@@ -940,3 +940,8 @@ Full-weight `diffusiongemmarun -cpu-dispatcher` is now guarded by `-allow-slow-c
 ## Preload-only residency check
 
 `diffusiongemmarun -preload-only` opens weights, applies `-eager-mmap`, `-preload-globals`, and/or `-resident-layers`, reports `float_cache_entries`, and exits before generation. `make diffusiongemma-preload-globals` uses this to validate full-shard opening plus global tensor cache residency without entering the slow full dispatcher. With the downloaded checkpoint, global preload reports `float_cache_entries=6`.
+
+
+## Layer-0 residency preload
+
+With the full checkpoint present, `diffusiongemmarun -preload-only -preload-globals -resident-layers 1` succeeds and reports `float_cache_entries=28` (6 global tensors plus 22 layer-0 tensors). `make diffusiongemma-preload-layer0` wraps this bounded residency check.

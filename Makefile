@@ -782,3 +782,8 @@ ideogram4-k3-handoff: ideogram4-k3-check
 
 diffusiongemma-preload-globals: diffusiongemma-check-shards
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -cpu-dispatcher -allow-slow-cpu -preload-globals -preload-only
+
+.PHONY: diffusiongemma-preload-layer0
+
+diffusiongemma-preload-layer0: diffusiongemma-check-shards
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -cpu-dispatcher -allow-slow-cpu -preload-globals -resident-layers 1 -preload-only
