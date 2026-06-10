@@ -73,7 +73,7 @@ func SgemmNTGather(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Pointer, 
 				for i := 0; i < mr; i++ {
 					for d := 0; d < nr; d++ {
 						sum := float32(0)
-						row, okRow := checkedAddInt(jj, d)
+						row, okRow := checked.AddInt(jj, d)
 						rowOff, okOff := checked.MulInt(row, ldb)
 						rowByteOff, okByte := checkedFloat32ByteOffset(rowOff)
 						if !okRow || !okOff || !okByte {

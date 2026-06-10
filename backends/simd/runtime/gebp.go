@@ -147,9 +147,9 @@ func validPackBNTArgs(b []float32, ldb, jj, nr, k int, bp []float32) bool {
 		return false
 	}
 	bpLen, okBP := checked.MulInt(k, gebpNR)
-	lastRow, okRow := checkedAddInt(jj, nr-1)
+	lastRow, okRow := checked.AddInt(jj, nr-1)
 	rowOff, okOff := checked.MulInt(lastRow, ldb)
-	needB, okNeed := checkedAddInt(rowOff, k)
+	needB, okNeed := checked.AddInt(rowOff, k)
 	if !okBP || !okRow || !okOff || !okNeed {
 		return false
 	}

@@ -36,7 +36,7 @@ func TestCompressedKVCacheOverflowGuards(t *testing.T) {
 	if _, ok := checked.MulInt(-1, 4); ok {
 		t.Fatal("checkedMulInt accepted negative lhs")
 	}
-	if _, ok := checkedAddInt(maxInt, 1); ok {
+	if _, ok := checked.AddInt(maxInt, 1); ok {
 		t.Fatal("checkedAddInt accepted overflow")
 	}
 	if got := saturatingAddInt64(maxInt64()-1, 2); got != maxInt64() {

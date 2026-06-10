@@ -28,7 +28,7 @@ func SgemmNTBlockedFMA(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Point
 				kLen = k - kk
 			}
 			bRowOff, okRow := checked.MulInt(jj, ldb)
-			bIndex, ok := checkedAddInt(bRowOff, kk)
+			bIndex, ok := checked.AddInt(bRowOff, kk)
 			aByteOff, okA := checkedFloat32ByteOffset(kk)
 			bByteOff, okB := checkedFloat32ByteOffset(bIndex)
 			cByteOff, okC := checkedFloat32ByteOffset(jj)

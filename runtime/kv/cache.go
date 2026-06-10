@@ -334,7 +334,7 @@ func compressedBytesPerHead(headDim, bits int) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	withPadding, ok := checkedAddInt(payloadBits, 7)
+	withPadding, ok := checked.AddInt(payloadBits, 7)
 	if !ok {
 		return 0, false
 	}
@@ -347,17 +347,6 @@ func compressedEntryValid(entry compressedEntry, heads, bytesPerHead int) bool {
 	}
 	packedLen, ok := checked.MulInt(heads, bytesPerHead)
 	return ok && len(entry.Packed) >= packedLen && len(entry.HeadVMin) >= heads && len(entry.HeadScale) >= heads
-}
-
-func checkedAddInt(a, b int) (int, bool) {
-	if a < 0 || b < 0 {
-		return 0, false
-	}
-	maxInt := int(^uint(0) >> 1)
-	if a > maxInt-b {
-		return 0, false
-	}
-	return a + b, true
 }
 
 func maxInt64() int64 { return int64(^uint64(0) >> 1) }
@@ -391,12 +380,12 @@ func (c *CompressedKVCache) ScratchBytes() int64 {
 	floatElems := 0
 	for _, n := range []int{len(c.scratchK), len(c.scratchV), len(c.quantRotated), len(c.dequantRotated)} {
 		var ok bool
-		floatElems, ok = checkedAddInt(floatElems, n)
+		floatElems, ok = checked.AddInt(floatElems, n)
 		if !ok {
 			return maxInt64()
 		}
 	}
-	byteElems, ok := checkedAddInt(len(c.quantIndices), len(c.dequantIndices))
+	byteElems, ok := checked.AddInt(len(c.quantIndices), len(c.dequantIndices))
 	if !ok {
 		return maxInt64()
 	}
@@ -440,14 +429,14 @@ func (c *CompressedKVCache) MemoryBytes() int64 {
 	if c == nil {
 		return 0
 	}
-	fullElems, ok := checkedAddInt(len(c.FullK), len(c.FullV))
+	fullElems, ok := checked.AddInt(len(c.FullK), len(c.FullV))
 	if !ok {
 		return maxInt64()
 	}
 	full := saturatingMulInt64(int64(fullElems), 4)
 	compressed := int64(0)
 	entryBytes := func(e compressedEntry) int64 {
-		headElems, ok := checkedAddInt(len(e.HeadVMin), len(e.HeadScale))
+		headElems, ok := checked.AddInt(len(e.HeadVMin), len(e.HeadScale))
 		if !ok {
 			return maxInt64()
 		}
