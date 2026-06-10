@@ -170,6 +170,50 @@ func (r *ditLayerGPUResidency) gemm(name string, gpuW *nvidia.GPUFP8E4M3Linear, 
 	return cpuW.ApplyBatch(x, out, batch)
 }
 
+func (r *ditLayerGPUResidency) QKVAttentionBatch(l DiTLayer, x, out []float32, tokens, heads, headDim int, rope *MRoPE, scale float32) error {
+	if r != nil && r.qkv != nil && rope != nil {
+		if err := nvidia.GemmQKVAttentionFP8E4M3(out, x, l.NormQ, l.NormK, rope.cos, rope.sin, tokens, heads, headDim, scale, r.qkv); err == nil {
+			return nil
+		} else if gpuFP8Strict() || gpuAttentionStrict() || gpuNormStrict() || gpuMRoPEStrict() {
+			return fmt.Errorf("DiT layer GPU QKV+attention: %w", err)
+		}
+	}
+	q := make([]float32, tokens*heads*headDim)
+	k := make([]float32, tokens*heads*headDim)
+	v := make([]float32, tokens*heads*headDim)
+	qkvAll := make([]float32, tokens*3*heads*headDim)
+	if err := r.QKVBatch(l, x, qkvAll, tokens); err != nil {
+		return err
+	}
+	emb := heads * headDim
+	for t := 0; t < tokens; t++ {
+		qkv := qkvAll[t*3*emb : (t+1)*3*emb]
+		copy(q[t*emb:(t+1)*emb], qkv[0:emb])
+		copy(k[t*emb:(t+1)*emb], qkv[emb:2*emb])
+		copy(v[t*emb:(t+1)*emb], qkv[2*emb:3*emb])
+	}
+	if gpuNormEnabled() {
+		if err := rmsNormRowsWeightedGPU(q, q, l.NormQ, nil, tokens*heads, headDim, 1e-5); err != nil {
+			return err
+		}
+		if err := rmsNormRowsWeightedGPU(k, k, l.NormK, nil, tokens*heads, headDim, 1e-5); err != nil {
+			return err
+		}
+	} else {
+		for t := 0; t < tokens; t++ {
+			for h := 0; h < heads; h++ {
+				off := t*emb + h*headDim
+				rmsNormWeightedCPU(q[off:off+headDim], q[off:off+headDim], l.NormQ, 1e-5)
+				rmsNormWeightedCPU(k[off:off+headDim], k[off:off+headDim], l.NormK, 1e-5)
+			}
+		}
+	}
+	if err := applyMRoPEToQK(q, k, rope, tokens, heads, headDim); err != nil {
+		return err
+	}
+	return fullSelfAttention(out, q, k, v, tokens, heads, headDim, scale)
+}
+
 func (r *ditLayerGPUResidency) QKVBatch(l DiTLayer, x, out []float32, batch int) error {
 	var w *nvidia.GPUFP8E4M3Linear
 	if r != nil {

@@ -1124,3 +1124,70 @@ done:
     ret;
 }
 `
+
+// IdeogramSplitQKVPTX splits qkv[t, 3*emb + {0,emb,2emb}+c] into q/k/v[t, c].
+const IdeogramSplitQKVPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry ideogram_split_qkv_f32(
+    .param .u64 QKV,
+    .param .u64 Q,
+    .param .u64 K,
+    .param .u64 V,
+    .param .u32 TOKENS,
+    .param .u32 EMB
+) {
+    .reg .pred %p<2>;
+    .reg .u32 %r<12>;
+    .reg .u64 %rd<24>;
+    .reg .f32 %f<4>;
+
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2;
+    ld.param.u32 %r4, [TOKENS];
+    ld.param.u32 %r5, [EMB];
+    mul.lo.u32 %r6, %r4, %r5;
+    setp.ge.u32 %p0, %r3, %r6;
+    @%p0 bra done;
+
+    ld.param.u64 %rd0, [QKV];
+    ld.param.u64 %rd1, [Q];
+    ld.param.u64 %rd2, [K];
+    ld.param.u64 %rd3, [V];
+
+    div.u32 %r7, %r3, %r5;      // token
+    rem.u32 %r8, %r3, %r5;      // col
+    mul.lo.u32 %r9, %r7, %r5;
+    add.u32 %r10, %r9, %r8;     // out idx
+    mul.lo.u32 %r11, %r7, %r5;
+    mul.lo.u32 %r11, %r11, 3;   // token * 3emb
+    add.u32 %r11, %r11, %r8;    // q idx
+
+    mul.wide.u32 %rd4, %r10, 4;
+    add.u64 %rd5, %rd1, %rd4;
+    add.u64 %rd6, %rd2, %rd4;
+    add.u64 %rd7, %rd3, %rd4;
+
+    mul.wide.u32 %rd8, %r11, 4;
+    add.u64 %rd9, %rd0, %rd8;
+    ld.global.f32 %f0, [%rd9];
+    st.global.f32 [%rd5], %f0;
+
+    add.u32 %r11, %r11, %r5;
+    mul.wide.u32 %rd10, %r11, 4;
+    add.u64 %rd11, %rd0, %rd10;
+    ld.global.f32 %f1, [%rd11];
+    st.global.f32 [%rd6], %f1;
+
+    add.u32 %r11, %r11, %r5;
+    mul.wide.u32 %rd12, %r11, 4;
+    add.u64 %rd13, %rd0, %rd12;
+    ld.global.f32 %f2, [%rd13];
+    st.global.f32 [%rd7], %f2;
+
+done:
+    ret;
+}
+`

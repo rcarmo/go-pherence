@@ -15,6 +15,7 @@ var fnIdeogramGatedResidualRowsF32 CUfunction
 var fnIdeogramMRoPEF32 CUfunction
 var fnIdeogramAttentionScoresF32 CUfunction
 var fnIdeogramAttentionValuesF32 CUfunction
+var fnIdeogramSplitQKVF32 CUfunction
 var fnIdeogramLatentDenormF32 CUfunction
 var fnIdeogramRGBClampF32 CUfunction
 var fnIdeogramUpsampleNearestF32 CUfunction
@@ -124,6 +125,43 @@ func IdeogramLayerNormNoAffineBuffer(out, x *Buffer, rows, cols int, eps float32
 
 // IdeogramRMSNormRows computes row-wise RMSNorm with per-column weight and an
 // optional per-column scale vector through temporary device buffers.
+func IdeogramRMSNormRowsBuffer(out, x, weight, scale *Buffer, rows, cols int, eps float32, useScale bool) error {
+	if fnIdeogramRMSNormRowsF32 == 0 || !megaModuleOK || out == nil || x == nil || weight == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
+		return fmt.Errorf("invalid Ideogram RMSNorm rows device buffers")
+	}
+	n, ok := checkedMulInt(rows, cols)
+	if !ok {
+		return fmt.Errorf("Ideogram RMSNorm rows size overflow")
+	}
+	if _, err := checkedByteSize(n, out.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram RMSNorm rows output: %w", err)
+	}
+	if _, err := checkedByteSize(n, x.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram RMSNorm rows input: %w", err)
+	}
+	if _, err := checkedByteSize(cols, weight.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram RMSNorm rows weight: %w", err)
+	}
+	if useScale {
+		if scale == nil {
+			return fmt.Errorf("invalid Ideogram RMSNorm rows nil scale")
+		}
+		if _, err := checkedByteSize(cols, scale.Size); err != nil {
+			return fmt.Errorf("invalid Ideogram RMSNorm rows scale: %w", err)
+		}
+	} else if scale == nil {
+		scale = &Buffer{}
+	}
+	use := uint32(0)
+	if useScale {
+		use = 1
+	}
+	rr, cc := uint32(rows), uint32(cols)
+	return LaunchKernel(fnIdeogramRMSNormRowsF32, rr, 1, 1, 256, 1, 1, 256*4,
+		unsafe.Pointer(&x.Ptr), unsafe.Pointer(&weight.Ptr), unsafe.Pointer(&scale.Ptr), unsafe.Pointer(&out.Ptr),
+		unsafe.Pointer(&rr), unsafe.Pointer(&cc), unsafe.Pointer(&eps), unsafe.Pointer(&use))
+}
+
 func IdeogramRMSNormRows(out, x, weight, scale []float32, rows, cols int, eps float32) error {
 	n, ok := checkedMulInt(rows, cols)
 	if !ok || rows <= 0 || cols <= 0 || len(out) < n || len(x) < n || len(weight) < cols {
@@ -157,14 +195,7 @@ func IdeogramRMSNormRows(out, x, weight, scale []float32, rows, cols int, eps fl
 			return fmt.Errorf("upload Ideogram RMSNorm rows scale: %w", err)
 		}
 	}
-	use := uint32(0)
-	if useScale {
-		use = 1
-	}
-	rr, cc := uint32(rows), uint32(cols)
-	if err := LaunchKernel(fnIdeogramRMSNormRowsF32, rr, 1, 1, 256, 1, 1, 256*4,
-		unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&wBuf.Ptr), unsafe.Pointer(&sBuf.Ptr), unsafe.Pointer(&outBuf.Ptr),
-		unsafe.Pointer(&rr), unsafe.Pointer(&cc), unsafe.Pointer(&eps), unsafe.Pointer(&use)); err != nil {
+	if err := IdeogramRMSNormRowsBuffer(outBuf, xBuf, wBuf, sBuf, rows, cols, eps, useScale); err != nil {
 		return err
 	}
 	if err := outBuf.Download(out[:n]); err != nil {
@@ -595,6 +626,35 @@ func SoftmaxRowsBuffer(out, in *Buffer, rows, cols int) error {
 	cc := uint32(cols)
 	return LaunchKernel(softmaxRowsFn, uint32(rows), 1, 1, 256, 1, 1, 0,
 		unsafe.Pointer(&in.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&cc))
+}
+
+func IdeogramSplitQKVBuffer(qkv, q, k, v *Buffer, tokens, emb int) error {
+	if fnIdeogramSplitQKVF32 == 0 || !megaModuleOK || qkv == nil || q == nil || k == nil || v == nil || tokens <= 0 || emb <= 0 || !fitsUint32(tokens) || !fitsUint32(emb) {
+		return fmt.Errorf("invalid Ideogram split QKV device buffers")
+	}
+	outLen, ok := checkedMulInt(tokens, emb)
+	if !ok {
+		return fmt.Errorf("Ideogram split QKV output size overflow")
+	}
+	qkvLen, ok := checkedMulInt(outLen, 3)
+	if !ok {
+		return fmt.Errorf("Ideogram split QKV input size overflow")
+	}
+	if _, err := checkedByteSize(qkvLen, qkv.Size); err != nil {
+		return fmt.Errorf("invalid Ideogram split QKV input: %w", err)
+	}
+	for name, b := range map[string]*Buffer{"q": q, "k": k, "v": v} {
+		if _, err := checkedByteSize(outLen, b.Size); err != nil {
+			return fmt.Errorf("invalid Ideogram split QKV %s: %w", name, err)
+		}
+	}
+	grid, ok := grid1DFor(outLen, 256)
+	if !ok {
+		return fmt.Errorf("invalid Ideogram split QKV grid")
+	}
+	tt, ee := uint32(tokens), uint32(emb)
+	return LaunchKernel(fnIdeogramSplitQKVF32, grid, 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&qkv.Ptr), unsafe.Pointer(&q.Ptr), unsafe.Pointer(&k.Ptr), unsafe.Pointer(&v.Ptr), unsafe.Pointer(&tt), unsafe.Pointer(&ee))
 }
 
 func IdeogramAttentionScoresBuffer(scores, q, k *Buffer, tokens, heads, headDim int, scale float32) error {

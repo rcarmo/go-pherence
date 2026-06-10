@@ -199,16 +199,11 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	if normEps <= 0 {
 		normEps = 1e-5
 	}
-	const qkEps = 1e-5
 	heads, headDim := cfg.NumHeads, cfg.HeadDim
 	scaleAttn := float32(1 / math.Sqrt(float64(headDim)))
 
 	// ---- Attention sublayer ----
 	normedAll := make([]float32, tokens*emb)
-	q := make([]float32, tokens*emb)
-	k := make([]float32, tokens*emb)
-	v := make([]float32, tokens*emb)
-	qkvAll := make([]float32, tokens*3*emb)
 	if gpuNormEnabled() {
 		if err := rmsNormRowsWeightedGPU(normedAll, hidden, l.AttnN1, scaleMSA, tokens, emb, normEps); err != nil && gpuNormStrict() {
 			return err
@@ -232,52 +227,11 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 			}
 		}
 	}
-	if err := layerGPU.QKVBatch(*l, normedAll, qkvAll, tokens); err != nil {
-		return err
-	}
-	for t := 0; t < tokens; t++ {
-		qkv := qkvAll[t*3*emb : (t+1)*3*emb]
-		copy(q[t*emb:(t+1)*emb], qkv[0:emb])
-		copy(k[t*emb:(t+1)*emb], qkv[emb:2*emb])
-		copy(v[t*emb:(t+1)*emb], qkv[2*emb:3*emb])
-	}
-	// per-head QK-RMSNorm then RoPE.
-	if gpuNormEnabled() {
-		if err := rmsNormRowsWeightedGPU(q, q, l.NormQ, nil, tokens*heads, headDim, qkEps); err != nil && gpuNormStrict() {
-			return err
-		} else if err != nil {
-			for t := 0; t < tokens; t++ {
-				for h := 0; h < heads; h++ {
-					off := t*emb + h*headDim
-					rmsNormWeightedCPU(q[off:off+headDim], q[off:off+headDim], l.NormQ, qkEps)
-				}
-			}
-		}
-		if err := rmsNormRowsWeightedGPU(k, k, l.NormK, nil, tokens*heads, headDim, qkEps); err != nil && gpuNormStrict() {
-			return err
-		} else if err != nil {
-			for t := 0; t < tokens; t++ {
-				for h := 0; h < heads; h++ {
-					off := t*emb + h*headDim
-					rmsNormWeightedCPU(k[off:off+headDim], k[off:off+headDim], l.NormK, qkEps)
-				}
-			}
-		}
-	} else {
-		for t := 0; t < tokens; t++ {
-			for h := 0; h < heads; h++ {
-				off := t*emb + h*headDim
-				rmsNormWeightedCPU(q[off:off+headDim], q[off:off+headDim], l.NormQ, qkEps)
-				rmsNormWeightedCPU(k[off:off+headDim], k[off:off+headDim], l.NormK, qkEps)
-			}
-		}
-	}
-	if err := applyMRoPEToQK(q, k, rope, tokens, heads, headDim); err != nil {
-		return err
-	}
-	// full self-attention (single segment).
+	// QKV projection through attention. Keep the QKV split, Q/K norm, MRoPE,
+	// softmax attention, and value projection on-device when the resident QKV
+	// weight is available; fall back to the host-staged path otherwise.
 	attnOut := make([]float32, tokens*emb)
-	if err := fullSelfAttention(attnOut, q, k, v, tokens, heads, headDim, scaleAttn); err != nil {
+	if err := layerGPU.QKVAttentionBatch(*l, normedAll, attnOut, tokens, heads, headDim, rope, scaleAttn); err != nil {
 		return err
 	}
 	// output projection, post-norm, gated residual.
