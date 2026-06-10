@@ -27,3 +27,16 @@ func TestLayerKVHeadsForGPUKVBuffersUsesGemmaFullAttentionHeads(t *testing.T) {
 		t.Fatalf("full GPU KV dim=%d want 2048", got)
 	}
 }
+
+func TestGemma4LayerKVDimUsesGlobalKVHeadsForFullAttention(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{NumKVHeads: 16, NumGlobalKVHeads: 4, HeadDim: 256, GlobalHeadDim: 512, LayerTypes: []string{"sliding_attention", "full_attention"}},
+		Layers: []LlamaLayer{{HasKV: true, HeadDimLocal: 256}, {HasKV: true, HeadDimLocal: 512}},
+	}
+	if got, err := m.LayerKVDim(0); err != nil || got != 4096 {
+		t.Fatalf("sliding LayerKVDim=%d err=%v want 4096", got, err)
+	}
+	if got, err := m.LayerKVDim(1); err != nil || got != 2048 {
+		t.Fatalf("full LayerKVDim=%d err=%v want 2048", got, err)
+	}
+}
