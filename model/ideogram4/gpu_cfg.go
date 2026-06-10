@@ -19,10 +19,13 @@ func gpuCFGStepStrict() bool {
 }
 
 func gpuCFGStepOrFallback(sched *FlowMatchScheduler, plan SamplingPlan, latents Latents, cond Latents, uncond Latents, step FlowStep, stepIndex int) (Latents, error) {
+	if stepIndex < 0 || stepIndex >= len(plan.GuidanceSchedule) {
+		return Latents{}, fmt.Errorf("invalid Ideogram4 CFG step index=%d steps=%d", stepIndex, len(plan.GuidanceSchedule))
+	}
+	if out, ok, err := k3CFGStep(latents, cond, uncond, plan.GuidanceSchedule[stepIndex], step.Sigma); ok {
+		return out, err
+	}
 	if gpuCFGStepEnabled() {
-		if stepIndex < 0 || stepIndex >= len(plan.GuidanceSchedule) {
-			return Latents{}, fmt.Errorf("invalid Ideogram4 GPU CFG step index=%d steps=%d", stepIndex, len(plan.GuidanceSchedule))
-		}
 		if out, err := gpuCFGStep(latents, cond, uncond, plan.GuidanceSchedule[stepIndex], step.Sigma); err == nil || gpuCFGStepStrict() {
 			return out, err
 		}

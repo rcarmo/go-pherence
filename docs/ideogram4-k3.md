@@ -98,7 +98,7 @@ This is **not yet full K3 SIMD coverage**. It is the first targetable binary for
 | RoPE/MRoPE | Go scalar / NVIDIA kernels | RVV in-place rotation | missing |
 | Attention score/value | Go scalar / NVIDIA full attention | RVV/f16 tiled attention; future tiled/streaming for high res | missing |
 | SiLU / SiLU*Mul / gated residual | Go scalar / NVIDIA vector kernels | RVV vector kernels | missing |
-| CFG + scheduler update | Go scalar / NVIDIA vector kernel | RVV vector kernel | missing |
+| CFG + scheduler update | Go scalar / NVIDIA vector kernel; K3-gated riscv64 seam exists | RVV vector kernel | partial seam: scalar body pending RVV assembly |
 | VAE Conv2D | SIMD im2col/GemmRows / NVIDIA direct conv; K3 gate can route im2col GEMM through RVV fp16 bridge | RVV/f16 or int8 im2col/conv; potentially reuse f16 GEMM | partial: RVV f16 bridge |
 | VAE GroupNorm/SiLU/Upsample/RGB | Go scalar / NVIDIA kernels | RVV vector kernels | missing |
 | VAE spatial attention | Go/NVIDIA full attention | tiled/streaming RVV/f16 attention | missing |
