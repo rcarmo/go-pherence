@@ -740,3 +740,8 @@ diffusiongemma-compare-reference
 ```
 
 It requires all safetensor shards, a working Transformers/PyTorch environment for reference capture, and enough memory/compute for the current correctness-first CPU path. It is not part of scaffold CI.
+
+
+## Bootstrap scaffold target
+
+`make diffusiongemma-bootstrap-scaffold` downloads metadata (including `tokenizer.json`) and then runs `diffusiongemma-ci-scaffold`. It is the quickest no-weights path to reproduce the current scaffold readiness from an empty model directory.
