@@ -18,6 +18,7 @@ type Model struct {
 	Tensors            *TensorInventory                  `json:"tensors,omitempty"`
 	Readiness          *TensorReadiness                  `json:"readiness,omitempty"`
 	TextTensorPlan     *TextTensorPlan                   `json:"text_tensor_plan,omitempty"`
+	Processor          *ProcessorMetadata                `json:"processor,omitempty"`
 }
 
 func LoadMetadata(modelDir string) (*Model, error) {
@@ -48,6 +49,11 @@ func LoadMetadata(modelDir string) (*Model, error) {
 		return nil, err
 	} else if ok {
 		m.TextTensorPlan = &plan
+	}
+	if proc, ok, err := ReadProcessorMetadata(modelDir); err != nil {
+		return nil, err
+	} else if ok {
+		m.Processor = &proc
 	}
 	return m, nil
 }

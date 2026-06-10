@@ -23,6 +23,7 @@ type report struct {
 	ForwardBufferPlan  diffusiongemma.ForwardBufferPlan   `json:"forward_buffer_plan"`
 	ForwardOpPlan      diffusiongemma.ForwardOpPlan       `json:"forward_op_plan"`
 	Capabilities       diffusiongemma.RuntimeCapabilities `json:"capabilities"`
+	Processor          *diffusiongemma.ProcessorMetadata  `json:"processor,omitempty"`
 }
 
 func main() {
@@ -45,7 +46,7 @@ func main() {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities()}
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities(), Processor: m.Processor}
 	if *openWeights {
 		weights, err := diffusiongemma.OpenTextWeights(*modelDir, shape)
 		if err != nil {
@@ -80,6 +81,9 @@ func printText(r report) {
 	if r.GenerationDefaults != nil {
 		g := r.GenerationDefaults
 		fmt.Printf("  generate:  max_new=%d denoise_steps=%d t=[%.3f, %.3f] entropy_bound=%.3f stability=%d confidence=%.6f eos=%v\n", g.MaxNewTokens, g.MaxDenoisingSteps, g.TMin, g.TMax, g.EntropyBound, g.StabilityThreshold, g.ConfidenceThreshold, g.EOSTokenID)
+	}
+	if r.Processor != nil {
+		fmt.Printf("  processor: tokenizer=%s processor=%s mask=%q image=%q think=%q chat_template_bytes=%d\n", r.Processor.TokenizerClass, r.Processor.ProcessorClass, r.Processor.Mask, r.Processor.Image, r.Processor.Think, r.Processor.ChatTemplateBytes)
 	}
 	if r.Tensors != nil {
 		fmt.Printf("  tensors:   total=%d shards=%d groups=%v\n", r.Tensors.Total, r.Tensors.Shards, r.Tensors.Groups)

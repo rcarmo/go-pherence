@@ -349,3 +349,19 @@ The canvas self-attention scaffold now masks positions outside the sliding windo
 ## Memory-aware LM head
 
 The tied LM-head hook now projects logits row-by-row from `embed_tokens.weight` through `RawTensorRow`, avoiding an eager full-matrix float32 expansion of the 262K×2816 tied embedding. This is still correctness-first and slow, but it removes the largest avoidable memory blow-up in the scaffold.
+
+
+## Processor/tokenizer metadata
+
+`loader/config/diffusiongemma_processor.go` and `model/diffusiongemma/processor.go` parse `tokenizer_config.json`, `processor_config.json`, and `chat_template.jinja` metadata. The inspector now reports tokenizer class, processor class, mask/image/think control tokens, and chat-template size. Against the fetched HF metadata snapshot:
+
+```text
+tokenizer=GemmaTokenizer
+processor=Gemma4Processor
+mask="<mask>"
+image="<|image|>"
+think="<|think|>"
+chat_template_bytes=17466
+```
+
+This is metadata integration only; actual tokenization/chat-template execution remains a future step.
