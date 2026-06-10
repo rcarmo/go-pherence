@@ -251,7 +251,7 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 	case OpInputNorm:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.InputLayerNorm })
 	case OpSelfAttention:
-		return errOpNotImplemented(op.Kind)
+		return runSelfAttention(op, weights, scratch)
 	case OpPostAttention:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostAttentionLayerNorm })
 	case OpDenseMLP:
@@ -268,6 +268,157 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 		return runLayerScalar(op, weights, scratch)
 	default:
 		return fmt.Errorf("DiffusionGemma unknown layer op %q", op.Kind)
+	}
+}
+
+func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma self-attention missing weights")
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
+		return fmt.Errorf("DiffusionGemma self-attention layer %d outside plan", op.Layer)
+	}
+	lb := fp.Layers[op.Layer]
+	qW, qRows, hiddenSize, err := loadFloatMatrix(weights, lb.QProj)
+	if err != nil {
+		return err
+	}
+	kW, kRows, kCols, err := loadFloatMatrix(weights, lb.KProj)
+	if err != nil {
+		return err
+	}
+	if kCols != hiddenSize {
+		return fmt.Errorf("DiffusionGemma attention K shape [%d,%d] hidden=%d", kRows, kCols, hiddenSize)
+	}
+	var vW []float32
+	vRows, vCols := kRows, kCols
+	if lb.VProj != nil {
+		vW, vRows, vCols, err = loadFloatMatrix(weights, lb.VProj)
+		if err != nil {
+			return err
+		}
+		if vCols != hiddenSize {
+			return fmt.Errorf("DiffusionGemma attention V shape [%d,%d] hidden=%d", vRows, vCols, hiddenSize)
+		}
+	}
+	oW, oRows, oCols, err := loadFloatMatrix(weights, lb.OProj)
+	if err != nil {
+		return err
+	}
+	if oRows != hiddenSize || oCols != qRows {
+		return fmt.Errorf("DiffusionGemma attention O shape [%d,%d] q=%d hidden=%d", oRows, oCols, qRows, hiddenSize)
+	}
+	qNorm, err := loadFloatVector(weights, lb.QNorm)
+	if err != nil {
+		return err
+	}
+	kNorm, err := loadFloatVector(weights, lb.KNorm)
+	if err != nil {
+		return err
+	}
+	headDim := len(qNorm)
+	if headDim <= 0 || len(kNorm) != headDim || qRows%headDim != 0 || kRows%headDim != 0 || vRows%headDim != 0 {
+		return fmt.Errorf("DiffusionGemma attention invalid head dims q=%d k=%d v=%d head=%d", qRows, kRows, vRows, headDim)
+	}
+	heads := qRows / headDim
+	kvHeads := kRows / headDim
+	if heads <= 0 || kvHeads <= 0 || heads%kvHeads != 0 || len(scratch.Hidden)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma attention invalid heads=%d kv_heads=%d hidden_len=%d hidden=%d", heads, kvHeads, len(scratch.Hidden), hiddenSize)
+	}
+	positions := len(scratch.Hidden) / hiddenSize
+	qAll := make([]float32, positions*qRows)
+	kAll := make([]float32, positions*kRows)
+	vAll := make([]float32, positions*vRows)
+	ctx := make([]float32, qRows)
+	out := make([]float32, hiddenSize)
+	for pos := 0; pos < positions; pos++ {
+		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		q := qAll[pos*qRows : (pos+1)*qRows]
+		k := kAll[pos*kRows : (pos+1)*kRows]
+		v := vAll[pos*vRows : (pos+1)*vRows]
+		if !simd.GemvRows(q, hidden, qW, qRows, hiddenSize) || !simd.GemvRows(k, hidden, kW, kRows, hiddenSize) {
+			return fmt.Errorf("DiffusionGemma attention Q/K GEMV rejected layer %d", op.Layer)
+		}
+		if lb.VProj != nil {
+			if !simd.GemvRows(v, hidden, vW, vRows, hiddenSize) {
+				return fmt.Errorf("DiffusionGemma attention V GEMV rejected layer %d", op.Layer)
+			}
+		} else {
+			copy(v, k)
+		}
+		for h := 0; h < heads; h++ {
+			if !simd.RMSNormTo(q[h*headDim:(h+1)*headDim], qNorm, 1e-6) {
+				return fmt.Errorf("DiffusionGemma attention q_norm rejected")
+			}
+		}
+		for h := 0; h < kvHeads; h++ {
+			if !simd.RMSNormTo(k[h*headDim:(h+1)*headDim], kNorm, 1e-6) {
+				return fmt.Errorf("DiffusionGemma attention k_norm rejected")
+			}
+			if !simd.RMSNormNoScaleTo(v[h*headDim:(h+1)*headDim], 1e-6) {
+				return fmt.Errorf("DiffusionGemma attention v_norm rejected")
+			}
+		}
+	}
+	group := heads / kvHeads
+	scores := make([]float32, positions)
+	for pos := 0; pos < positions; pos++ {
+		for i := range ctx {
+			ctx[i] = 0
+		}
+		for h := 0; h < heads; h++ {
+			kvh := h / group
+			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			for j := 0; j < positions; j++ {
+				scores[j] = dot(q, kAll[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+			}
+			softmaxInPlace(scores)
+			dst := ctx[h*headDim : (h+1)*headDim]
+			for j, score := range scores {
+				vv := vAll[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
+				for d := range dst {
+					dst[d] += score * vv[d]
+				}
+			}
+		}
+		if !simd.GemvRows(out, ctx, oW, hiddenSize, qRows) {
+			return fmt.Errorf("DiffusionGemma attention O GEMV rejected layer %d", op.Layer)
+		}
+		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
+	}
+	return nil
+}
+
+func dot(a, b []float32) float32 {
+	var s float32
+	for i := range a {
+		s += a[i] * b[i]
+	}
+	return s
+}
+func softmaxInPlace(x []float32) {
+	if len(x) == 0 {
+		return
+	}
+	m := x[0]
+	for _, v := range x[1:] {
+		if v > m {
+			m = v
+		}
+	}
+	var sum float64
+	for i, v := range x {
+		e := math.Exp(float64(v - m))
+		x[i] = float32(e)
+		sum += e
+	}
+	if sum == 0 {
+		return
+	}
+	inv := float32(1 / sum)
+	for i := range x {
+		x[i] *= inv
 	}
 }
 

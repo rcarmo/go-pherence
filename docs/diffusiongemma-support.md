@@ -319,3 +319,8 @@ Router scratch now includes per-position `TopKIDs` and `TopKVals` sized by `top_
 ## Self-conditioning hook
 
 `CPUDispatcher` now implements `self_condition` as a prefix op after canvas embedding. With no previous self-conditioning signal, it applies the reference scale-free post RMSNorm to input embeddings. When a self-conditioning signal is provided, it applies pre RMSNorm, gated GELU MLP (`gate_proj`, `up_proj`, `down_proj`), adds the signal to embeddings, and applies scale-free post RMSNorm.
+
+
+## Self-attention scaffold
+
+`CPUDispatcher` now implements a correctness-first `self_attention` scaffold. It loads Q/K/V/O projection matrices, applies Q/K RMSNorm and scale-free V RMSNorm, computes bidirectional canvas-only attention, and applies the O projection through checked SIMD GEMV helpers. For full-attention layers where `v_proj` is absent, V reuses K, matching the reference layout. Limitations: RoPE, sliding-window masking, and encoder KV/cache concatenation are not wired yet, so this is not numerically complete against Transformers.
