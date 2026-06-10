@@ -68,7 +68,8 @@ make ideogram4-k3-check
 ```
 
 It runs native Ideogram/NVIDIA fallback tests, cross-compiles riscv64 test
-binaries for the relevant K3 packages, and builds `bin/ideogram4gen-k3`.
+binaries for the relevant K3 packages (including `k3engine` and `aipool`), and
+builds `bin/ideogram4gen-k3`.
 Equivalent raw commands:
 
 ```bash

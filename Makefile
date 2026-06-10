@@ -49,7 +49,7 @@ ideogram4gen-k3:
 ideogram4-k3-check:
 	mkdir -p $(GOTMPDIR) $(TMPDIR)/ideogram4/k3check bin
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test ./model/ideogram4 ./cmd/image/ideogram4gen ./backends/nvidia/runtime
-	@for pkg in ./model/ideogram4 ./backends/spacemit/rvv ./backends/spacemit/ime2 ./backends/spacemit/inference ./backends/spacemit/k3engine/aipool; do \
+	@for pkg in ./model/ideogram4 ./backends/spacemit/rvv ./backends/spacemit/ime2 ./backends/spacemit/inference ./backends/spacemit/k3engine/aipool ./backends/spacemit/k3engine; do \
 		out="$(TMPDIR)/ideogram4/k3check/$$(echo $$pkg | sed 's#[/.]#_#g').test"; \
 		echo "cross-test $$pkg -> $$out"; \
 		CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go test -c -o "$$out" "$$pkg" || exit $$?; \
