@@ -772,3 +772,8 @@ total_size_bytes=51647562456
 ```
 
 `diffusiongemmainspect` surfaces these fields from `model.safetensors.index.json`, so download planning can show expected payload size before fetching the 11 shards.
+
+
+## Status summary checkpoint size
+
+`diffusiongemma_status_summary.py` now prints `parameters` and `size_bytes` from the safetensors index metadata, making the compact summary useful for download planning as well as readiness checks.
