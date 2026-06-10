@@ -721,3 +721,8 @@ When denoising overrides are provided, `diffusiongemmarun` now prints the effect
 ## Run operation status
 
 `diffusiongemmarun` now includes the same per-operation `operation_status` array in JSON output as `diffusiongemmainspect`, and text output summarizes it as `op_status: implemented=13/13 reference_complete=0/13`.
+
+
+## Full-weight readiness target
+
+`make diffusiongemma-check-weights` is the next gate after metadata scaffold CI. It runs `diffusiongemmainspect -require-shards-ready -open-weights`, requiring all 11 safetensor shards to be present and verifying that text weight bindings can be opened with dtype/shape metadata. This target is expected to fail on metadata-only snapshots and pass only after `make diffusiongemma-download` or an equivalent full checkpoint download.

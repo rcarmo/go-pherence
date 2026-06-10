@@ -638,3 +638,8 @@ diffusiongemma-status-summary:
 
 diffusiongemma-ci-mock-pattern:
 	$(MAKE) diffusiongemma-mock-compare DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_PROMPT='$(DIFFUSIONGEMMA_PROMPT)' DIFFUSIONGEMMA_MOCK_TOKENS=4,2 DIFFUSIONGEMMA_RUN_OUT=$(TMPDIR)/diffusiongemma/mock_pattern_run.json DIFFUSIONGEMMA_MOCK_REF_OUT=$(TMPDIR)/diffusiongemma/mock_pattern_ref.json
+
+.PHONY: diffusiongemma-check-weights
+
+diffusiongemma-check-weights:
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -require-shards-ready -open-weights
