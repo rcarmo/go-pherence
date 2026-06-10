@@ -132,3 +132,18 @@ The inspector now reports semantic operation coverage as `ops=13/13`, meaning ev
 ## Operation status details
 
 `diffusiongemmainspect -json` now includes an `operation_status` array with per-operation implementation and reference-complete flags. Text output also summarizes this as `op_status: implemented=13/13 reference_complete=0/13`, making it clear that all planned text ops have scaffolds while parity remains incomplete.
+## Latest scaffold CI validation
+
+The current scaffold was validated with:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma \
+  DIFFUSIONGEMMA_PROMPT=hi \
+  DIFFUSIONGEMMA_REF_OUT=/workspace/tmp/diffusiongemma/final_reference_dry_run.json \
+  DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/final_mock_run.json \
+  DIFFUSIONGEMMA_MOCK_REF_OUT=/workspace/tmp/diffusiongemma/final_mock_ref.json \
+  DIFFUSIONGEMMA_STATUS_OUT=/workspace/tmp/diffusiongemma/final_status.json
+```
+
+Result: passed. The reference dry-run reports `tokenizer.json` present, mock comparison reports `match=true`, and the status summary remains `ops=13/13`, `reference_complete=false`, `runtime_ready=false`.
