@@ -2,7 +2,11 @@
 
 package ggmlquant
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/rcarmo/go-pherence/backends/internal/ggmlutil"
+)
 
 const (
 	F32  = 0
@@ -15,14 +19,14 @@ const (
 	Q6_K = 14
 )
 
-func TypeName(t int) string     { return fmt.Sprintf("ggml-disabled-%d", t) }
+func TypeName(t int) string     { return ggmlutil.DisabledTypeName(t) }
 func TypeSize(t int) int        { return 0 }
 func BlockSize(t int) int       { return 0 }
 func VecDotType(t int) int      { return 0 }
 func NRows(t int) int           { return 0 }
 func HasVecDot(t int) bool      { return false }
 func HasFromFloat(t int) bool   { return false }
-func RawBytes(t int, n int) int { return 0 }
+func RawBytes(t int, n int) int { return ggmlutil.RawBytes(n, BlockSize(t), TypeSize(t)) }
 
 func QuantizeFromFloat(t int, x []float32) ([]byte, error) {
 	return nil, fmt.Errorf("ggmlquant support not built; rebuild with -tags ggml on a system with GGML headers/libraries")

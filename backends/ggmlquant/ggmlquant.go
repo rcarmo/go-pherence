@@ -57,6 +57,8 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/internal/ggmlutil"
 )
 
 const (
@@ -77,7 +79,7 @@ func VecDotType(t int) int      { return int(C.vecdot_type(C.int(t))) }
 func NRows(t int) int           { return int(C.nrows_for_type(C.int(t))) }
 func HasVecDot(t int) bool      { return C.has_vecdot(C.int(t)) != 0 }
 func HasFromFloat(t int) bool   { return C.has_from_float(C.int(t)) != 0 }
-func RawBytes(t int, n int) int { return (n / BlockSize(t)) * TypeSize(t) }
+func RawBytes(t int, n int) int { return ggmlutil.RawBytes(n, BlockSize(t), TypeSize(t)) }
 
 func QuantizeFromFloat(t int, x []float32) ([]byte, error) {
 	if len(x) == 0 {

@@ -51,6 +51,8 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/backends/internal/ggmlutil"
 )
 
 const (
@@ -63,7 +65,7 @@ const (
 func TypeName(t int) string     { return C.GoString(C.gp_type_name(C.int(t))) }
 func TypeSize(t int) int        { return int(C.gp_type_size(C.int(t))) }
 func BlockSize(t int) int       { return int(C.gp_blck_size(C.int(t))) }
-func RawBytes(t int, n int) int { return (n / BlockSize(t)) * TypeSize(t) }
+func RawBytes(t int, n int) int { return ggmlutil.RawBytes(n, BlockSize(t), TypeSize(t)) }
 
 func QuantizeQ8K(x []float32) ([]byte, error) {
 	if len(x) == 0 {
