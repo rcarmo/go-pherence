@@ -310,3 +310,43 @@ func tensorWeightMapFromIndex(path string) (map[string]string, error) {
 	}
 	return idx.WeightMap, nil
 }
+
+type ShardAvailability struct {
+	IndexPath      string   `json:"index_path"`
+	ExpectedShards int      `json:"expected_shards"`
+	PresentShards  int      `json:"present_shards"`
+	MissingShards  []string `json:"missing_shards,omitempty"`
+	Ready          bool     `json:"ready"`
+}
+
+func ShardAvailabilityFromModelDir(modelDir string) (ShardAvailability, bool, error) {
+	path := filepath.Join(modelDir, "model.safetensors.index.json")
+	weights, err := tensorWeightMapFromIndex(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ShardAvailability{}, false, nil
+		}
+		return ShardAvailability{}, false, err
+	}
+	shards := map[string]bool{}
+	for _, shard := range weights {
+		shards[shard] = true
+	}
+	names := make([]string, 0, len(shards))
+	for shard := range shards {
+		names = append(names, shard)
+	}
+	sort.Strings(names)
+	out := ShardAvailability{IndexPath: path, ExpectedShards: len(names), Ready: true}
+	for _, shard := range names {
+		if _, err := os.Stat(filepath.Join(modelDir, shard)); err == nil {
+			out.PresentShards++
+			continue
+		} else if err != nil && !os.IsNotExist(err) {
+			return ShardAvailability{}, false, err
+		}
+		out.Ready = false
+		out.MissingShards = append(out.MissingShards, shard)
+	}
+	return out, true, nil
+}

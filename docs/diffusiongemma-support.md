@@ -407,3 +407,8 @@ This CLI is useful for checking that metadata loading and the public inference e
 ## CPU dispatcher run mode
 
 `cmd/diffusiongemmarun` now accepts `-cpu-dispatcher`. In that mode it opens local safetensor shards, builds `TextWeights`, attaches `TextDenoiser` with `CPUDispatcher`, and calls the public engine. Against the metadata-only snapshot it fails clearly on the missing shard files; with local shards present it will execute the current CPU/SIMD scaffold until the next unimplemented or non-parity operation is reached. Default mode remains safe and reports `DiffusionGemma denoiser is not implemented`.
+
+
+## Shard availability preflight
+
+`ShardAvailabilityFromModelDir` now checks the safetensors index for expected shard filenames and reports how many are present locally before `-open-weights` or `-cpu-dispatcher` attempts to open them. The metadata-only snapshot reports `present=0/11`; a fully downloaded checkpoint should report `present=11/11`.

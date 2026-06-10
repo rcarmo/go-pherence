@@ -26,6 +26,7 @@ type report struct {
 	Processor          *diffusiongemma.ProcessorMetadata  `json:"processor,omitempty"`
 	Tokenizer          *diffusiongemma.TokenizerMetadata  `json:"tokenizer,omitempty"`
 	SpecialTokenIDs    *diffusiongemma.SpecialTokenIDs    `json:"special_token_ids,omitempty"`
+	Shards             *diffusiongemma.ShardAvailability  `json:"shards,omitempty"`
 }
 
 func main() {
@@ -48,7 +49,7 @@ func main() {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities(), Processor: m.Processor, Tokenizer: m.Tokenizer}
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities(), Processor: m.Processor, Tokenizer: m.Tokenizer, Shards: m.Shards}
 	if m.Tokenizer != nil {
 		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
 		out.SpecialTokenIDs = &specials
@@ -100,6 +101,9 @@ func printText(r report) {
 	}
 	if r.Tensors != nil {
 		fmt.Printf("  tensors:   total=%d shards=%d groups=%v\n", r.Tensors.Total, r.Tensors.Shards, r.Tensors.Groups)
+	}
+	if r.Shards != nil {
+		fmt.Printf("  shards:    ready=%v present=%d/%d missing=%d\n", r.Shards.Ready, r.Shards.PresentShards, r.Shards.ExpectedShards, len(r.Shards.MissingShards))
 	}
 	if r.Readiness != nil {
 		fmt.Printf("  readiness: text_ready=%v vision_inventory=%v runtime_ready=%v observed_layers=%d/%d layer_tensors=%d/%d missing_layer_tensors=%d\n", r.Readiness.TextReady, r.Readiness.VisionInventoryReady, r.Readiness.RuntimeReady, r.Readiness.ObservedTextLayers, r.Readiness.ExpectedTextLayers, r.Readiness.ObservedLayerTensors, r.Readiness.ExpectedLayerTensors, r.Readiness.MissingLayerTensors)

@@ -20,6 +20,7 @@ type Model struct {
 	TextTensorPlan     *TextTensorPlan                   `json:"text_tensor_plan,omitempty"`
 	Processor          *ProcessorMetadata                `json:"processor,omitempty"`
 	Tokenizer          *TokenizerMetadata                `json:"tokenizer,omitempty"`
+	Shards             *ShardAvailability                `json:"shards,omitempty"`
 }
 
 func LoadMetadata(modelDir string) (*Model, error) {
@@ -50,6 +51,11 @@ func LoadMetadata(modelDir string) (*Model, error) {
 		return nil, err
 	} else if ok {
 		m.TextTensorPlan = &plan
+	}
+	if shards, ok, err := ShardAvailabilityFromModelDir(modelDir); err != nil {
+		return nil, err
+	} else if ok {
+		m.Shards = &shards
 	}
 	if proc, ok, err := ReadProcessorMetadata(modelDir); err != nil {
 		return nil, err
