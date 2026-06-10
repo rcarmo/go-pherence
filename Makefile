@@ -499,7 +499,9 @@ ideogram4-residency-sweep:
 # 256px can use aggressive asymmetric residency. 512px needs reduced residency
 # because the larger activation/attention buffers exceed VRAM with 256px defaults.
 IDEOGRAM4_512_STEPS ?= 4
-.PHONY: ideogram4-cat-gpu-256 ideogram4-cat-gpu-512
+IDEOGRAM4_VAE_PROBE_HEIGHT ?= 512
+IDEOGRAM4_VAE_PROBE_WIDTH ?= 512
+.PHONY: ideogram4-cat-gpu-256 ideogram4-cat-gpu-512 ideogram4-vae-probe
 
 ideogram4-cat-gpu-256:
 	$(MAKE) ideogram4-cat-gpu \
@@ -518,3 +520,10 @@ ideogram4-cat-gpu-512:
 		IDEOGRAM4_LAYER_CACHE_WINDOW=0 \
 		IDEOGRAM4_LAYER_CACHE_WINDOW_COND=16 \
 		IDEOGRAM4_LAYER_CACHE_WINDOW_UNCOND=0
+
+ideogram4-vae-probe:
+	go run ./cmd/image/ideogram4vaeprobe \
+		-model $(IDEOGRAM4_MODEL) \
+		-width $(IDEOGRAM4_VAE_PROBE_WIDTH) \
+		-height $(IDEOGRAM4_VAE_PROBE_HEIGHT) \
+		-gpu -gpu-stats
