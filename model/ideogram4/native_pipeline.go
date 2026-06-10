@@ -113,14 +113,16 @@ func LoadNativePipeline(modelDir string) (*NativePipeline, error) {
 		return nil, err
 	}
 
-	return &NativePipeline{
+	pipe := &NativePipeline{
 		Config:      cfg,
 		Tokenizer:   tok,
 		Conditioner: conditioner,
 		Cond:        condDiT,
 		Uncond:      uncondDiT,
 		VAE:         vae,
-	}, nil
+	}
+	pipe.maybePrewarmK3()
+	return pipe, nil
 }
 
 // GenerateOptions controls a native generation run.
