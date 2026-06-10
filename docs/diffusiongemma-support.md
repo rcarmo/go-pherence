@@ -304,3 +304,8 @@ The explicit `canvas_embedding` prefix op marks the point where token IDs from t
 ## Router top-k scaffold
 
 Router scratch now includes per-position `TopKIDs` and `TopKVals` sized by `top_k_experts`. The router op selects the top-k expert scores after applying router scale and per-expert scale. This prepares the expert execution hook without yet running expert MLPs.
+
+
+## Expert execution hook
+
+`CPUDispatcher` now implements a correctness-first `experts` op scaffold for 3D expert tensors. It expects `experts.gate_up_proj` shaped as `[experts, 2*intermediate, hidden]` and `experts.down_proj` shaped as `[experts, hidden, intermediate]`, runs checked SIMD GEMV for selected top-k experts, applies GELU(tanh)×up activation, and accumulates weighted expert outputs into hidden scratch. This still needs parity against the Transformers implementation and may need router-score normalization refinements before it is considered numerically complete.

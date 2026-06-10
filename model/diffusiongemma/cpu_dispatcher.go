@@ -186,7 +186,7 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 	case OpRouter:
 		return runRouter(op, weights, scratch)
 	case OpExperts:
-		return errOpNotImplemented(op.Kind)
+		return runExperts(op, weights, scratch)
 	case OpPostMoE:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostFFNLayerNorm })
 	case OpLayerScalar:
@@ -365,6 +365,79 @@ func selectTopK(scores []float32, ids []int, vals []float32) {
 	}
 }
 
+func runExperts(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma experts missing weights")
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
+		return fmt.Errorf("DiffusionGemma experts layer %d outside plan", op.Layer)
+	}
+	lb := fp.Layers[op.Layer]
+	gateUp, experts, gateUpRows, hiddenSize, err := loadFloat3D(weights, lb.ExpertsGateUpProj)
+	if err != nil {
+		return err
+	}
+	down, downExperts, downRows, downCols, err := loadFloat3D(weights, lb.ExpertsDownProj)
+	if err != nil {
+		return err
+	}
+	if experts != downExperts || downRows != hiddenSize || gateUpRows%2 != 0 || downCols != gateUpRows/2 {
+		return fmt.Errorf("DiffusionGemma expert shape mismatch gate_up=[%d,%d,%d] down=[%d,%d,%d]", experts, gateUpRows, hiddenSize, downExperts, downRows, downCols)
+	}
+	intermediate := gateUpRows / 2
+	positions := 0
+	if hiddenSize > 0 {
+		positions = len(scratch.Hidden) / hiddenSize
+	}
+	if positions <= 0 || len(scratch.TopKIDs) < positions || len(scratch.TopKVals) < positions {
+		return fmt.Errorf("DiffusionGemma expert top-k scratch invalid positions=%d ids=%d vals=%d", positions, len(scratch.TopKIDs), len(scratch.TopKVals))
+	}
+	topK := len(scratch.TopKIDs) / positions
+	if topK <= 0 {
+		return fmt.Errorf("DiffusionGemma expert top-k is zero")
+	}
+	gate := make([]float32, intermediate)
+	up := make([]float32, intermediate)
+	act := make([]float32, intermediate)
+	tmp := make([]float32, hiddenSize)
+	out := make([]float32, hiddenSize)
+	for pos := 0; pos < positions; pos++ {
+		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		for i := range out {
+			out[i] = 0
+		}
+		for slot := 0; slot < topK; slot++ {
+			expertID := scratch.TopKIDs[pos*topK+slot]
+			if expertID < 0 || expertID >= experts {
+				continue
+			}
+			weight := scratch.TopKVals[pos*topK+slot]
+			base := expertID * gateUpRows * hiddenSize
+			gateW := gateUp[base : base+intermediate*hiddenSize]
+			upW := gateUp[base+intermediate*hiddenSize : base+gateUpRows*hiddenSize]
+			if !simd.GemvRows(gate, hidden, gateW, intermediate, hiddenSize) {
+				return fmt.Errorf("DiffusionGemma expert gate GEMV rejected layer %d", op.Layer)
+			}
+			if !simd.GemvRows(up, hidden, upW, intermediate, hiddenSize) {
+				return fmt.Errorf("DiffusionGemma expert up GEMV rejected layer %d", op.Layer)
+			}
+			if !simd.GELUTanhMulTo(act, gate, up) {
+				return fmt.Errorf("DiffusionGemma expert activation rejected layer %d", op.Layer)
+			}
+			downBase := expertID * downRows * downCols
+			if !simd.GemvRows(tmp, act, down[downBase:downBase+downRows*downCols], hiddenSize, intermediate) {
+				return fmt.Errorf("DiffusionGemma expert down GEMV rejected layer %d", op.Layer)
+			}
+			for i := range out {
+				out[i] += weight * tmp[i]
+			}
+		}
+		copy(hidden, out)
+	}
+	return nil
+}
+
 func runLayerScalar(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma layer scalar missing weights")
@@ -385,6 +458,25 @@ func runLayerScalar(op LayerOp, weights *TextWeights, scratch ForwardScratch) er
 		scratch.Hidden[i] *= scale
 	}
 	return nil
+}
+
+func loadFloat3D(weights *TextWeights, binding *TensorBinding) ([]float32, int, int, int, error) {
+	if binding == nil {
+		return nil, 0, 0, 0, fmt.Errorf("DiffusionGemma missing 3D tensor binding")
+	}
+	raw, dtype, shape, err := weights.RawTensor(binding.Name)
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+	if len(shape) != 3 || shape[0] <= 0 || shape[1] <= 0 || shape[2] <= 0 {
+		return nil, 0, 0, 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-3", binding.Name, shape)
+	}
+	n := shape[0] * shape[1] * shape[2]
+	out := make([]float32, n)
+	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
+		return nil, 0, 0, 0, err
+	}
+	return out, shape[0], shape[1], shape[2], nil
 }
 
 func loadFloatMatrix(weights *TextWeights, binding *TensorBinding) ([]float32, int, int, error) {
