@@ -636,3 +636,8 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 
 
 `DIFFUSIONGEMMA_MOCK_REF_OUT` controls the tiny mock reference JSON used by `diffusiongemma-mock-compare`, keeping it separate from `DIFFUSIONGEMMA_REF_OUT` used for Transformers dry-run/reference captures.
+
+
+## Operation status reporting
+
+`model/diffusiongemma/op_status.go` exposes per-operation implementation status and aggregate counts. The inspector prints this as `ops=13/13`, while `reference_complete=false` remains separate from scaffold coverage.

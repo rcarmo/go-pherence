@@ -26,11 +26,15 @@ type RuntimeCapabilities struct {
 	TextOnlyScaffoldReady    bool     `json:"text_only_scaffold_ready"`
 	ReferenceComplete        bool     `json:"reference_complete"`
 	RuntimeReady             bool     `json:"runtime_ready"`
+	ImplementedOps           int      `json:"implemented_ops"`
+	ReferenceCompleteOps     int      `json:"reference_complete_ops"`
+	TotalOps                 int      `json:"total_ops"`
 	MissingForReference      []string `json:"missing_for_reference,omitempty"`
 }
 
 func Capabilities() RuntimeCapabilities {
 	missing := []string{"reference parity fixtures", "vision/token processor integration"}
+	implementedOps, referenceCompleteOps, totalOps := OperationStatusSummary()
 	return RuntimeCapabilities{
 		Metadata:                 true,
 		TensorInventory:          true,
@@ -53,6 +57,9 @@ func Capabilities() RuntimeCapabilities {
 		TextOnlyScaffoldReady:    true,
 		ReferenceComplete:        false,
 		RuntimeReady:             false,
+		ImplementedOps:           implementedOps,
+		ReferenceCompleteOps:     referenceCompleteOps,
+		TotalOps:                 totalOps,
 		MissingForReference:      missing,
 	}
 }

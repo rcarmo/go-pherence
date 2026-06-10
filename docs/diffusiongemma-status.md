@@ -30,7 +30,7 @@ readiness: text_ready=true vision_inventory=true runtime_ready=false observed_la
 text_plan: ready=true globals=6 layers=30 missing=0
 buffers:   hidden=720896 residual=720896 logits=67108864 router=32768 experts=1441792 top_k=8
 ops:       ready=true prefix_ops=2 layer_ops=270 tail_ops=2 reason=
-caps:      sampler=true ops=true text_scaffold=true attention_scaffold=true rope=true sliding_mask=true encoder_kv=true reference_complete=false
+caps:      sampler=true ops=13/13 text_scaffold=true attention_scaffold=true rope=true sliding_mask=true encoder_kv=true reference_complete=false
 missing_reference: [reference parity fixtures vision/token processor integration]
 ```
 
@@ -122,3 +122,8 @@ This runs:
 ## Current caveat
 
 The code is a native text-only scaffold with substantial operation coverage, but `runtime_ready=false` and `reference_complete=false` remain correct until real-weight parity fixtures pass.
+
+
+## Operation status summary
+
+The inspector now reports semantic operation coverage as `ops=13/13`, meaning every planned text-only operation has a scaffold/hook. `reference_complete=false` remains correct because those ops still need parity fixtures and full processor/vision integration.
