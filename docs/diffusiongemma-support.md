@@ -205,3 +205,17 @@ missing_layer_tensors=0
 ## Metadata loader
 
 `model/diffusiongemma/model.go` now provides `LoadMetadata(modelDir)`, a single scaffold entrypoint that combines config parsing, generation defaults, denoising config, tensor inventory, and tensor readiness. It intentionally does not load full safetensor payloads yet; future tensor-backed model construction should extend this entrypoint rather than duplicate inspector logic.
+
+
+## Text tensor plan
+
+`model/diffusiongemma/tensors.go` now builds a `TextTensorPlan` from `model.safetensors.index.json`. The plan records required global decoder handles and required per-layer handles with shard names, without loading tensor payloads. Against the published index snapshot:
+
+```text
+text_plan ready=true
+globals=6
+layers=30
+missing=0
+```
+
+This gives the future native loader exact tensor names and shard locations for the text/block-diffusion forward path.

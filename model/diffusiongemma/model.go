@@ -17,6 +17,7 @@ type Model struct {
 	Denoising          DenoisingConfig                   `json:"denoising"`
 	Tensors            *TensorInventory                  `json:"tensors,omitempty"`
 	Readiness          *TensorReadiness                  `json:"readiness,omitempty"`
+	TextTensorPlan     *TextTensorPlan                   `json:"text_tensor_plan,omitempty"`
 }
 
 func LoadMetadata(modelDir string) (*Model, error) {
@@ -42,6 +43,11 @@ func LoadMetadata(modelDir string) (*Model, error) {
 		m.Tensors = &inv
 		readiness := TensorReadinessFromInventory(inv, shape)
 		m.Readiness = &readiness
+	}
+	if plan, ok, err := TextTensorPlanFromModelDir(modelDir, shape); err != nil {
+		return nil, err
+	} else if ok {
+		m.TextTensorPlan = &plan
 	}
 	return m, nil
 }

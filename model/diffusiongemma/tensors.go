@@ -231,3 +231,82 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+
+type TensorHandle struct {
+	Name     string      `json:"name"`
+	Shard    string      `json:"shard,omitempty"`
+	Group    TensorGroup `json:"group"`
+	Required bool        `json:"required"`
+}
+
+type LayerTensorPlan struct {
+	Layer   int            `json:"layer"`
+	Type    string         `json:"type,omitempty"`
+	Handles []TensorHandle `json:"handles"`
+}
+
+type TextTensorPlan struct {
+	IndexPath string            `json:"index_path"`
+	Globals   []TensorHandle    `json:"globals"`
+	Layers    []LayerTensorPlan `json:"layers"`
+	Ready     bool              `json:"ready"`
+	Missing   []string          `json:"missing,omitempty"`
+}
+
+func TextTensorPlanFromModelDir(modelDir string, shape Shape) (TextTensorPlan, bool, error) {
+	path := filepath.Join(modelDir, "model.safetensors.index.json")
+	plan, err := TextTensorPlanFromIndex(path, shape)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return TextTensorPlan{}, false, nil
+		}
+		return TextTensorPlan{}, false, err
+	}
+	return plan, true, nil
+}
+
+func TextTensorPlanFromIndex(path string, shape Shape) (TextTensorPlan, error) {
+	weightMap, err := tensorWeightMapFromIndex(path)
+	if err != nil {
+		return TextTensorPlan{}, err
+	}
+	plan := TextTensorPlan{IndexPath: path, Ready: true}
+	for _, name := range diffusionGemmaRequiredGlobals {
+		h := TensorHandle{Name: name, Shard: weightMap[name], Group: ClassifyTensorName(name), Required: true}
+		if h.Shard == "" {
+			plan.Ready = false
+			plan.Missing = append(plan.Missing, name)
+		}
+		plan.Globals = append(plan.Globals, h)
+	}
+	for layer := 0; layer < shape.TextLayers; layer++ {
+		lt := layerTypeAt(shape.LayerTypes, layer)
+		lp := LayerTensorPlan{Layer: layer, Type: lt}
+		base := "model.decoder.layers." + itoa(layer) + "."
+		for _, suffix := range requiredLayerSuffixesForType(lt) {
+			name := base + suffix
+			h := TensorHandle{Name: name, Shard: weightMap[name], Group: ClassifyTensorName(name), Required: true}
+			if h.Shard == "" {
+				plan.Ready = false
+				if len(plan.Missing) < 64 {
+					plan.Missing = append(plan.Missing, name)
+				}
+			}
+			lp.Handles = append(lp.Handles, h)
+		}
+		plan.Layers = append(plan.Layers, lp)
+	}
+	return plan, nil
+}
+
+func tensorWeightMapFromIndex(path string) (map[string]string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var idx hfSafetensorsIndex
+	if err := json.Unmarshal(b, &idx); err != nil {
+		return nil, err
+	}
+	return idx.WeightMap, nil
+}

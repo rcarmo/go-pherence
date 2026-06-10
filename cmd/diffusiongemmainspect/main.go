@@ -15,6 +15,7 @@ type report struct {
 	GenerationDefaults *diffusiongemma.GenerationDefaults `json:"generation_defaults,omitempty"`
 	Tensors            *diffusiongemma.TensorInventory    `json:"tensors,omitempty"`
 	Readiness          *diffusiongemma.TensorReadiness    `json:"readiness,omitempty"`
+	TextTensorPlan     *diffusiongemma.TextTensorPlan     `json:"text_tensor_plan,omitempty"`
 }
 
 func main() {
@@ -36,7 +37,7 @@ func main() {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness}
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -68,6 +69,9 @@ func printText(r report) {
 		if len(r.Readiness.MissingRequired) > 0 {
 			fmt.Printf("  missing:   %v\n", r.Readiness.MissingRequired)
 		}
+	}
+	if r.TextTensorPlan != nil {
+		fmt.Printf("  text_plan: ready=%v globals=%d layers=%d missing=%d\n", r.TextTensorPlan.Ready, len(r.TextTensorPlan.Globals), len(r.TextTensorPlan.Layers), len(r.TextTensorPlan.Missing))
 	}
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)
