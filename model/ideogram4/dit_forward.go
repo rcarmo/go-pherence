@@ -286,6 +286,9 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 }
 
 func siluTo(dst, x []float32) {
+	if k3SiLUTo(dst, x) {
+		return
+	}
 	if gpuMLPEnabled() {
 		if err := siluGPU(dst, x); err == nil {
 			return
@@ -299,6 +302,9 @@ func siluTo(dst, x []float32) {
 }
 
 func mulTo(dst, a, b []float32) {
+	if k3MulTo(dst, a, b) {
+		return
+	}
 	if gpuMLPEnabled() {
 		if err := mulGPU(dst, a, b); err == nil {
 			return

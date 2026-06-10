@@ -314,6 +314,9 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 }
 
 func siluMulInPlace(gate, up []float32) {
+	if k3SiLUMulInPlace(gate, up) {
+		return
+	}
 	if gpuMLPEnabled() {
 		out := make([]float32, len(gate))
 		if err := siluMulGPU(out, gate, up); err == nil {
