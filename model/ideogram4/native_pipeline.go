@@ -218,7 +218,9 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 	if err != nil {
 		return Image{}, err
 	}
+	restoreDiTVectorEnv := enableDiTVectorGPUForPhase()
 	latents, err := DenoiseLoop(p.Cond, p.Uncond, sched, plan, opt.InitLatents, gridH, gridW, textFeatures)
+	restoreDiTVectorEnv()
 	if err != nil {
 		return Image{}, err
 	}
