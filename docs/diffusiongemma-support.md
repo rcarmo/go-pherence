@@ -863,3 +863,8 @@ The text tensor plan now includes DiffusionGemma-specific `pre_feedforward_layer
 ## Help target
 
 `make diffusiongemma-help` prints the safe/no-weight, full-checkpoint, and parity command groups for quick discovery.
+
+
+## Shared readiness summary
+
+`model/diffusiongemma/readiness.go` provides a shared `ReadinessSummary` used by both `diffusiongemmainspect` and `diffusiongemmarun`. It summarizes text scaffold readiness, shard readiness, reference completion, runtime readiness, and missing blockers in a single compact string and JSON object.

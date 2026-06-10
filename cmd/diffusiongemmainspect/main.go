@@ -28,6 +28,7 @@ type report struct {
 	Tokenizer          *diffusiongemma.TokenizerMetadata  `json:"tokenizer,omitempty"`
 	SpecialTokenIDs    *diffusiongemma.SpecialTokenIDs    `json:"special_token_ids,omitempty"`
 	Shards             *diffusiongemma.ShardAvailability  `json:"shards,omitempty"`
+	Summary            diffusiongemma.ReadinessSummary    `json:"summary"`
 }
 
 func main() {
@@ -73,7 +74,8 @@ func main() {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities(), OperationStatus: diffusiongemma.OperationStatuses(), Processor: m.Processor, Tokenizer: m.Tokenizer, Shards: m.Shards}
+	caps := diffusiongemma.Capabilities()
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: caps, OperationStatus: diffusiongemma.OperationStatuses(), Processor: m.Processor, Tokenizer: m.Tokenizer, Shards: m.Shards, Summary: diffusiongemma.BuildReadinessSummary(caps, m.Shards, m.Readiness)}
 	if m.Tokenizer != nil {
 		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
 		out.SpecialTokenIDs = &specials
@@ -167,6 +169,7 @@ func printText(r report) {
 		}
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(r.OperationStatus), referenceComplete, len(r.OperationStatus))
 	}
+	fmt.Printf("  summary:   %s\n", r.Summary.String())
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)
 	}

@@ -29,6 +29,7 @@ type report struct {
 	Capabilities    diffusiongemma.RuntimeCapabilities `json:"capabilities"`
 	OperationStatus []diffusiongemma.OpStatus          `json:"operation_status,omitempty"`
 	Shards          *diffusiongemma.ShardAvailability  `json:"shards,omitempty"`
+	Summary         diffusiongemma.ReadinessSummary    `json:"summary"`
 	Result          *diffusiongemma.InferenceResult    `json:"result,omitempty"`
 	Error           string                             `json:"error,omitempty"`
 }
@@ -199,7 +200,8 @@ func main() {
 	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *stabilityThreshold, *confidenceThreshold); denoising != nil {
 		opts.Denoising = denoising
 	}
-	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts, Capabilities: diffusiongemma.Capabilities(), OperationStatus: diffusiongemma.OperationStatuses(), Shards: m.Shards}
+	caps := diffusiongemma.Capabilities()
+	out := report{ModelPath: *modelDir, PromptIDs: promptIDs, Options: opts, Capabilities: caps, OperationStatus: diffusiongemma.OperationStatuses(), Shards: m.Shards, Summary: diffusiongemma.BuildReadinessSummary(caps, m.Shards, m.Readiness)}
 	if *decode {
 		if tok != nil {
 			out.PromptTokens = []string{tok.Decode(promptIDs)}
@@ -247,6 +249,7 @@ func main() {
 	if len(out.Capabilities.MissingForReference) > 0 {
 		fmt.Printf("  missing_reference=%v\n", out.Capabilities.MissingForReference)
 	}
+	fmt.Printf("  summary: %s\n", out.Summary.String())
 	if len(out.OperationStatus) > 0 {
 		implemented, referenceComplete := 0, 0
 		for _, op := range out.OperationStatus {
