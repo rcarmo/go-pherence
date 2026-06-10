@@ -950,3 +950,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Decoded cache byte accounting
 
 `TextWeights.FloatCacheBytes()` now reports decoded float32 cache memory. With full weights, `-preload-globals -resident-layers 1 -preload-only` reports `float_cache_entries=28 float_cache_bytes=6280561156` (~5.85 GiB). This confirms layer residency is expensive and must remain opt-in.
+
+
+## Residency estimate
+
+`diffusiongemmainspect -open-weights -resident-layers N` now estimates decoded float32 residency for global text tensors plus the first N layers. With full weights and `N=1`, it reports `tensors=28 float32_bytes=6280561156` (~5.85 GiB), matching `diffusiongemmarun -preload-only` cache accounting. `make diffusiongemma-residency-plan` writes the JSON report to `DIFFUSIONGEMMA_RESIDENCY_OUT`.
