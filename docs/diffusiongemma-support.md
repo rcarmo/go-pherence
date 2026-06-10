@@ -512,3 +512,8 @@ make diffusiongemma-reference DIFFUSIONGEMMA_MODEL=/path/to/model DIFFUSIONGEMMA
 ```
 
 The output JSON includes prompt, input IDs, output IDs, decoded text, timing, dtype, and device. This is a fixture-capture tool, not a Go test.
+
+
+## Self-conditioning feedback plumbing
+
+`GenerateCanvas` now carries an optional self-conditioning signal between denoising steps via `ForwardInput.SelfConditioning` and `ForwardOutput.SelfConditioning`. This matches the reference loop shape where logits from the previous denoising step can be converted into soft embeddings for the next step. The actual logits→soft-embedding conversion is not implemented yet and remains part of reference parity work.

@@ -26,9 +26,11 @@ type ForwardInput struct {
 }
 
 // ForwardOutput contains per-canvas-position logits from the denoiser. Logits
-// is laid out as [canvas_length][vocab_size].
+// is laid out as [canvas_length][vocab_size]. SelfConditioning, when present,
+// is the hidden-size soft embedding signal to feed into the next denoising step.
 type ForwardOutput struct {
-	Logits [][]float32 `json:"-"`
+	Logits           [][]float32 `json:"-"`
+	SelfConditioning []float32   `json:"-"`
 }
 
 // Denoiser is the narrow interface needed by the block-diffusion sampler. A
@@ -81,9 +83,10 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 	}
 	stopper := NewStableConfidentStopper(cfg.StabilityThreshold, cfg.ConfidenceThreshold)
 	steps := make([]CanvasStep, 0, cfg.MaxDenoisingSteps)
+	var selfConditioning []float32
 	for step := cfg.MaxDenoisingSteps; step > 0; step-- {
 		state.Step = step
-		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step})
+		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, SelfConditioning: selfConditioning})
 		if err != nil {
 			return CanvasResult{}, err
 		}
@@ -102,6 +105,9 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 		}
 		meanEntropy /= float64(canvasLength)
 		accepted := AcceptCanvas(canvas, denoiserCanvas, entropy, cfg.Sampler.EntropyBound)
+		if len(out.SelfConditioning) > 0 {
+			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
+		}
 		stopped := stopper.ShouldStop(denoiserCanvas, entropy)
 		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, Stopped: stopped})
 		canvas = accepted.Canvas
