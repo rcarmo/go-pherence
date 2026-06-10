@@ -67,6 +67,10 @@ func (l *DiTLayer) cacheOGPUResidency() bool {
 	return l.cacheAttentionGPUResidency() || (l != nil && gpuFP8CacheEnabled() && envBool("GO_PHERENCE_IDEOGRAM4_GPU_LAYER_CACHE_O_ALL"))
 }
 
+func gpuAdaLNResidencyEnabled() bool {
+	return envBool("GO_PHERENCE_IDEOGRAM4_GPU_ADALN_RESIDENT")
+}
+
 func (l *DiTLayer) cacheAnyGPUResidency() bool {
 	return l.cacheGPUResidency() || l.cacheAttentionGPUResidency() || l.cacheQKVGPUResidency() || l.cacheOGPUResidency()
 }
@@ -133,11 +137,15 @@ func uploadDiTLayerGPU(l DiTLayer) (*ditLayerGPUResidency, error) {
 			return nil, err
 		}
 	}
-	// Keep per-layer AdaLN modulation on the CPU path for now. In full DiT
-	// residency, the resident AdaLN GEMV diverges in-context after the first
-	// layers even though standalone FP8 GEMV comparisons pass; QKV/O/MLP GEMMs
-	// remain GPU-resident and compare cleanly. This preserves correctness while
-	// the AdaLN-specific residency interaction is debugged.
+	if gpuAdaLNResidencyEnabled() {
+		if err := upload(&r.adaln, "adaln", l.AdaLN); err != nil {
+			r.Free()
+			return nil, err
+		}
+	}
+	// Per-layer AdaLN modulation stays on the CPU path unless explicitly gated.
+	// In an older full DiT residency path, resident AdaLN GEMV diverged in-context
+	// after the first layers even though standalone FP8 GEMV comparisons passed.
 	uploadF32 := func(dst **nvidia.Buffer, name string, data []float32) error {
 		buf, err := nvidia.Malloc(len(data))
 		if err != nil {
