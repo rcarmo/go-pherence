@@ -16,12 +16,16 @@ type report struct {
 	Tensors            *diffusiongemma.TensorInventory    `json:"tensors,omitempty"`
 	Readiness          *diffusiongemma.TensorReadiness    `json:"readiness,omitempty"`
 	TextTensorPlan     *diffusiongemma.TextTensorPlan     `json:"text_tensor_plan,omitempty"`
+	TextWeightsOpened  bool                               `json:"text_weights_opened,omitempty"`
+	TextWeightsGlobals int                                `json:"text_weights_globals,omitempty"`
+	TextWeightsLayers  int                                `json:"text_weights_layers,omitempty"`
 }
 
 func main() {
 	modelDir := flag.String("model", "", "DiffusionGemma Hugging Face model directory")
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless native DiffusionGemma runtime is implemented")
+	openWeights := flag.Bool("open-weights", false, "open local safetensor shards and bind text tensor metadata")
 	flag.Parse()
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: diffusiongemmainspect -model PATH [-json] [-require-runtime-ready]")
@@ -38,6 +42,16 @@ func main() {
 		}
 	}
 	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan}
+	if *openWeights {
+		weights, err := diffusiongemma.OpenTextWeights(*modelDir, shape)
+		if err != nil {
+			fatal(err)
+		}
+		defer weights.Close()
+		out.TextWeightsOpened = true
+		out.TextWeightsGlobals = len(weights.Globals)
+		out.TextWeightsLayers = len(weights.Layers)
+	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -72,6 +86,9 @@ func printText(r report) {
 	}
 	if r.TextTensorPlan != nil {
 		fmt.Printf("  text_plan: ready=%v globals=%d layers=%d missing=%d\n", r.TextTensorPlan.Ready, len(r.TextTensorPlan.Globals), len(r.TextTensorPlan.Layers), len(r.TextTensorPlan.Missing))
+	}
+	if r.TextWeightsOpened {
+		fmt.Printf("  weights:   text_shards_opened=true globals=%d layers=%d\n", r.TextWeightsGlobals, r.TextWeightsLayers)
 	}
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)

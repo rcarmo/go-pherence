@@ -219,3 +219,8 @@ missing=0
 ```
 
 This gives the future native loader exact tensor names and shard locations for the text/block-diffusion forward path.
+
+
+## Text weight binding scaffold
+
+`model/diffusiongemma/weights.go` adds `OpenTextWeights`, a non-eager binder from `TextTensorPlan` to local sharded safetensors metadata. It opens the 11 shard files when present, binds dtype/shape metadata for planned global and per-layer text tensors, and exposes `RawTensor(name)` for future payload loading. The inspector exposes this behind `-open-weights`; normal inspection remains index-only and does not require downloading shards.
