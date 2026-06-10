@@ -835,3 +835,8 @@ Shard readiness now reports byte-level progress as `present_bytes/expected_bytes
 ## Download plan shard lists
 
 `diffusiongemma-download-plan-json` now includes `shard_files`, `present_shards`, `missing_shards`, present/missing shard counts, `present_bytes`, and `present_byte_percent`. The compact download-plan summary prints present shard count and present byte progress as well as total size/free-space status.
+
+
+## Script-level space guard
+
+`download_diffusiongemma.py` now refuses the full shard download if target free space is below the indexed payload size, unless `--ignore-space-check` is supplied. This complements the Makefile-level `DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes` guard.

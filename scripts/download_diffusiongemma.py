@@ -50,6 +50,7 @@ def main() -> int:
     ap.add_argument("--metadata-only", action="store_true", help="download configs/index only, not safetensor shards")
     ap.add_argument("--plan-only", action="store_true", help="download/read metadata, print shard plan, and exit before shard downloads")
     ap.add_argument("--json-plan", action="store_true", help="emit shard/download plan as JSON")
+    ap.add_argument("--ignore-space-check", action="store_true", help="allow full shard download even when free-space preflight is insufficient")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -104,6 +105,14 @@ def main() -> int:
         print(f"checkpoint shards={len(shards)}")
     if args.plan_only:
         return 0
+    if total_size and free < total_size and not args.ignore_space_check:
+        print(
+            f"refusing shard download: target has {free} bytes ({free/(1024**3):.2f} GiB) free, "
+            f"checkpoint requires {total_size} bytes ({total_size/(1024**3):.2f} GiB). "
+            "Use --ignore-space-check to override.",
+            file=sys.stderr,
+        )
+        return 3
     for shard in shards:
         fetch(f"{base}/{shard}", out / shard, token, args.force, args.json_plan)
     return 0
