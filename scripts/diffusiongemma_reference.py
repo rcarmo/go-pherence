@@ -19,7 +19,7 @@ def dry_run(model_id: str, out: pathlib.Path | None) -> dict:
     p = pathlib.Path(model_id)
     report = {"model": model_id, "dry_run": True, "exists": p.exists()}
     if p.exists():
-        for name in ["config.json", "generation_config.json", "tokenizer_config.json", "processor_config.json", "model.safetensors.index.json"]:
+        for name in ["config.json", "generation_config.json", "tokenizer.json", "tokenizer_config.json", "processor_config.json", "model.safetensors.index.json"]:
             fp = p / name
             report[name] = {"present": fp.exists(), "bytes": fp.stat().st_size if fp.exists() else 0}
         idx = p / "model.safetensors.index.json"

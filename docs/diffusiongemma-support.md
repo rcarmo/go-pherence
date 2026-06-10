@@ -499,7 +499,7 @@ For example, `-tokens <mask> -add-bos -think` produces prompt IDs `[2 98 4]` aga
 
 ## Reference fixture helper
 
-`scripts/diffusiongemma_reference.py` can capture Hugging Face Transformers reference outputs for parity work. Use dry-run mode to inspect local metadata without importing/loading Transformers:
+`scripts/diffusiongemma_reference.py` can capture Hugging Face Transformers reference outputs for parity work. Use dry-run mode to inspect local metadata, including `tokenizer.json`, without importing/loading Transformers:
 
 ```bash
 make diffusiongemma-reference-dry-run DIFFUSIONGEMMA_MODEL=/path/to/model
