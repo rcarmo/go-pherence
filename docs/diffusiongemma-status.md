@@ -147,3 +147,23 @@ GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
 ```
 
 Result: passed. The reference dry-run reports `tokenizer.json` present, mock comparison reports `match=true`, and the status summary remains `ops=13/13`, `reference_complete=false`, `runtime_ready=false`.
+
+## Latest extended scaffold validation
+
+The current scaffold was validated with both scaffold CI and pattern mock comparison:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-scaffold \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma \
+  DIFFUSIONGEMMA_PROMPT=hi \
+  DIFFUSIONGEMMA_REF_OUT=/workspace/tmp/diffusiongemma/final2_reference_dry_run.json \
+  DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/final2_mock_run.json \
+  DIFFUSIONGEMMA_MOCK_REF_OUT=/workspace/tmp/diffusiongemma/final2_mock_ref.json \
+  DIFFUSIONGEMMA_STATUS_OUT=/workspace/tmp/diffusiongemma/final2_status.json
+
+GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-mock-pattern \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma \
+  DIFFUSIONGEMMA_PROMPT=hi
+```
+
+Result: both passed. The default mock comparison and non-repeated mock pattern comparison report `match=true`. Status remains `ops=13/13`, `reference_complete=false`, `runtime_ready=false`.
