@@ -131,7 +131,7 @@ func printText(r report) {
 		fmt.Printf("  tensors:   total=%d shards=%d parameters=%d size_bytes=%d size_gib=%.2f groups=%v\n", r.Tensors.Total, r.Tensors.Shards, r.Tensors.TotalParameters, r.Tensors.TotalSizeBytes, float64(r.Tensors.TotalSizeBytes)/(1024*1024*1024), r.Tensors.Groups)
 	}
 	if r.Shards != nil {
-		fmt.Printf("  shards:    ready=%v present=%d/%d missing=%d\n", r.Shards.Ready, r.Shards.PresentShards, r.Shards.ExpectedShards, len(r.Shards.MissingShards))
+		fmt.Printf("  shards:    ready=%v present=%d/%d (%.1f%%) missing=%d\n", r.Shards.Ready, r.Shards.PresentShards, r.Shards.ExpectedShards, r.Shards.PresentPercent, len(r.Shards.MissingShards))
 	}
 	if r.Readiness != nil {
 		fmt.Printf("  readiness: text_ready=%v vision_inventory=%v runtime_ready=%v observed_layers=%d/%d layer_tensors=%d/%d missing_layer_tensors=%d\n", r.Readiness.TextReady, r.Readiness.VisionInventoryReady, r.Readiness.RuntimeReady, r.Readiness.ObservedTextLayers, r.Readiness.ExpectedTextLayers, r.Readiness.ObservedLayerTensors, r.Readiness.ExpectedLayerTensors, r.Readiness.MissingLayerTensors)

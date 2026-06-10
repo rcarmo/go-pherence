@@ -780,3 +780,8 @@ total_size_bytes=51647562456 (~48.10 GiB)
 
 
 `diffusiongemmainspect` and `diffusiongemma_status_summary.py` report `size_gib=48.10` for the published checkpoint payload.
+
+
+## Shard download percentage
+
+Shard readiness now includes `present_percent`, and the inspector/status summary print download progress as `present=N/11 (P%)`. Metadata-only snapshots report `0.0%`; a full checkpoint should report `100.0%`.

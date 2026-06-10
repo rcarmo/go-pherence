@@ -323,6 +323,7 @@ type ShardAvailability struct {
 	PresentShards  int      `json:"present_shards"`
 	MissingShards  []string `json:"missing_shards,omitempty"`
 	Ready          bool     `json:"ready"`
+	PresentPercent float64  `json:"present_percent"`
 }
 
 func ShardAvailabilityFromModelDir(modelDir string) (ShardAvailability, bool, error) {
@@ -353,6 +354,9 @@ func ShardAvailabilityFromModelDir(modelDir string) (ShardAvailability, bool, er
 		}
 		out.Ready = false
 		out.MissingShards = append(out.MissingShards, shard)
+	}
+	if out.ExpectedShards > 0 {
+		out.PresentPercent = 100 * float64(out.PresentShards) / float64(out.ExpectedShards)
 	}
 	return out, true, nil
 }
