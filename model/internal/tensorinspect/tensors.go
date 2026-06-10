@@ -89,7 +89,10 @@ func InspectTensorReadiness(names []string, required, optional map[string][]stri
 	return TensorReadiness{Ready: len(missing) == 0, PresentRequired: presentRequired, MissingRequired: missing, PresentOptional: presentOptional}
 }
 
-func InspectTensorShapes(infos map[string]safetensors.TensorInfo) TensorShapeSummary {
+func InspectTensorShapes(infos map[string]safetensors.TensorInfo, groupFunc func(string) string) TensorShapeSummary {
+	if groupFunc == nil {
+		groupFunc = TensorGroup
+	}
 	s := TensorShapeSummary{Total: len(infos), ByGroup: map[string]int{}, DTypes: map[string]int{}, Examples: map[string]TensorShape{}}
 	names := make([]string, 0, len(infos))
 	for name := range infos {
@@ -98,7 +101,7 @@ func InspectTensorShapes(infos map[string]safetensors.TensorInfo) TensorShapeSum
 	sort.Strings(names)
 	for _, name := range names {
 		info := infos[name]
-		group := TensorGroup(name)
+		group := groupFunc(name)
 		s.ByGroup[group]++
 		s.DTypes[info.DType]++
 		if _, ok := s.Examples[group]; !ok {

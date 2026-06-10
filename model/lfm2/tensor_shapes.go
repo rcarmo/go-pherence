@@ -9,5 +9,5 @@ type TensorShapeSummary = tensorinspect.TensorShapeSummary
 type TensorShape = tensorinspect.TensorShape
 
 func InspectTensorShapes(infos map[string]safetensors.TensorInfo) TensorShapeSummary {
-	return tensorinspect.InspectTensorShapes(infos)
+	return tensorinspect.InspectTensorShapes(infos, TensorGroup)
 }
