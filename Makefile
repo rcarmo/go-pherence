@@ -789,10 +789,11 @@ diffusiongemma-preload-layer0: diffusiongemma-check-shards
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -cpu-dispatcher -allow-slow-cpu -preload-globals -resident-layers 1 -preload-only
 
 DIFFUSIONGEMMA_RESIDENCY_OUT ?= $(TMPDIR)/diffusiongemma/residency.json
+DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB ?= 0
 
 .PHONY: diffusiongemma-residency-plan
 
 diffusiongemma-residency-plan: diffusiongemma-check-shards
 	mkdir -p $(dir $(DIFFUSIONGEMMA_RESIDENCY_OUT))
-	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -open-weights -resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS) -json > $(DIFFUSIONGEMMA_RESIDENCY_OUT)
-	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -open-weights -resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS) | grep residency
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -open-weights -resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB)),-residency-budget-gib $(DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB),) -json > $(DIFFUSIONGEMMA_RESIDENCY_OUT)
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -open-weights -resident-layers $(DIFFUSIONGEMMA_RESIDENT_LAYERS) $(if $(filter-out 0,$(DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB)),-residency-budget-gib $(DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB),) | grep residency

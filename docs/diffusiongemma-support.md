@@ -955,3 +955,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Residency estimate
 
 `diffusiongemmainspect -open-weights -resident-layers N` now estimates decoded float32 residency for global text tensors plus the first N layers. With full weights and `N=1`, it reports `tensors=28 float32_bytes=6280561156` (~5.85 GiB), matching `diffusiongemmarun -preload-only` cache accounting. `make diffusiongemma-residency-plan` writes the JSON report to `DIFFUSIONGEMMA_RESIDENCY_OUT`.
+
+
+## Residency budget planning
+
+`diffusiongemmainspect -open-weights -residency-budget-gib N` estimates how many decoded float32 layers can stay resident with globals under a memory budget. On the downloaded checkpoint, a 16 GiB budget fits `resident_layers=4/30` with `resident_bytes=16049700880` and about 1.05 GiB remaining. `make diffusiongemma-residency-plan` accepts `DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB`.

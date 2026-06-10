@@ -21,6 +21,7 @@ type report struct {
 	TextWeightsLayers  int                                `json:"text_weights_layers,omitempty"`
 	TextForwardPlan    *diffusiongemma.TextForwardPlan    `json:"text_forward_plan,omitempty"`
 	ResidencyEstimate  *diffusiongemma.ResidencyEstimate  `json:"residency_estimate,omitempty"`
+	ResidencyBudget    *diffusiongemma.ResidencyBudget    `json:"residency_budget,omitempty"`
 	ForwardBufferPlan  diffusiongemma.ForwardBufferPlan   `json:"forward_buffer_plan"`
 	ForwardOpPlan      diffusiongemma.ForwardOpPlan       `json:"forward_op_plan"`
 	Capabilities       diffusiongemma.RuntimeCapabilities `json:"capabilities"`
@@ -40,6 +41,7 @@ func main() {
 	requireShards := flag.Bool("require-shards-ready", false, "fail unless all safetensor shards from the index are present locally")
 	openWeights := flag.Bool("open-weights", false, "open local safetensor shards and bind text tensor metadata")
 	residentLayers := flag.Int("resident-layers", 1, "estimate decoded float32 residency for first N text layers when -open-weights is used")
+	residencyBudgetGiB := flag.Float64("residency-budget-gib", 0, "when -open-weights is used, estimate how many layers fit under this decoded float32 cache budget")
 	flag.Parse()
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: diffusiongemmainspect -model PATH [-json] [-require-runtime-ready]")
@@ -95,6 +97,11 @@ func main() {
 		out.TextForwardPlan = &forwardPlan
 		residency := diffusiongemma.EstimateResidencyFromWeights(weights, true, *residentLayers)
 		out.ResidencyEstimate = &residency
+		if *residencyBudgetGiB > 0 {
+			budgetBytes := int64(*residencyBudgetGiB * 1024 * 1024 * 1024)
+			budget := diffusiongemma.EstimateResidencyBudgetFromWeights(weights, true, budgetBytes)
+			out.ResidencyBudget = &budget
+		}
 	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
@@ -159,6 +166,9 @@ func printText(r report) {
 	}
 	if r.ResidencyEstimate != nil {
 		fmt.Printf("  residency: globals=%v layers=%d tensors=%d float32_bytes=%d float32_gib=%.2f\n", r.ResidencyEstimate.Globals, r.ResidencyEstimate.Layers, r.ResidencyEstimate.TensorCount, r.ResidencyEstimate.Float32Bytes, float64(r.ResidencyEstimate.Float32Bytes)/(1024*1024*1024))
+	}
+	if r.ResidencyBudget != nil {
+		fmt.Printf("  residency_budget: budget_bytes=%d resident_layers=%d/%d resident_bytes=%d remaining_bytes=%d all_layers=%v\n", r.ResidencyBudget.BudgetBytes, r.ResidencyBudget.ResidentLayers, r.ResidencyBudget.TotalLayers, r.ResidencyBudget.ResidentBytes, r.ResidencyBudget.RemainingBytes, r.ResidencyBudget.AllLayersResident)
 	}
 	fmt.Printf("  caps:      sampler=%v ops=%d/%d text_scaffold=%v attention_scaffold=%v rope=%v sliding_mask=%v encoder_kv=%v reference_complete=%v\n", r.Capabilities.Sampler, r.Capabilities.ImplementedOps, r.Capabilities.TotalOps, r.Capabilities.TextOnlyScaffoldReady, r.Capabilities.SelfAttentionScaffold, r.Capabilities.RoPE, r.Capabilities.SlidingWindowMask, r.Capabilities.EncoderKVConcat, r.Capabilities.ReferenceComplete)
 	if len(r.Capabilities.MissingForReference) > 0 {
