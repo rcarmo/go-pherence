@@ -605,3 +605,8 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 ## Reusable chat prompt builder
 
 `model/diffusiongemma/chat_prompt.go` adds `BuildTemplateChatPromptIDs`, a tokenizer-agnostic prompt-ID builder that inserts special token IDs directly and delegates normal text to a caller-provided encode function. `diffusiongemmarun -chat-template` now uses this model-level API instead of owning prompt construction logic in the CLI.
+
+
+## Scaffold CI target
+
+`make diffusiongemma-ci-scaffold` combines the text scaffold check with the reference-helper dry run. It validates metadata/readiness, mock denoising control flow, structured chat-template scaffold input, package buildability, and reference fixture preflight without requiring full safetensor shards.
