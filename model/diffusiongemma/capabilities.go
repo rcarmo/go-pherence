@@ -28,7 +28,7 @@ type RuntimeCapabilities struct {
 }
 
 func Capabilities() RuntimeCapabilities {
-	missing := []string{"sliding_window_mask", "encoder_kv_concat", "reference parity fixtures", "memory-efficient LM head", "vision/token processor integration"}
+	missing := []string{"encoder_kv_concat", "reference parity fixtures", "memory-efficient LM head", "vision/token processor integration"}
 	return RuntimeCapabilities{
 		Metadata:              true,
 		TensorInventory:       true,
@@ -45,7 +45,7 @@ func Capabilities() RuntimeCapabilities {
 		LMHead:                true,
 		SelfAttentionScaffold: true,
 		RoPE:                  true,
-		SlidingWindowMask:     false,
+		SlidingWindowMask:     true,
 		EncoderKVConcat:       false,
 		ReferenceComplete:     false,
 		RuntimeReady:          false,

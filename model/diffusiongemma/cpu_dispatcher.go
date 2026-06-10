@@ -374,6 +374,10 @@ func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 	}
 	group := heads / kvHeads
 	scores := make([]float32, positions)
+	slidingWindow := 0
+	if op.Type == "sliding_attention" {
+		slidingWindow = 1024
+	}
 	for pos := 0; pos < positions; pos++ {
 		for i := range ctx {
 			ctx[i] = 0
@@ -382,6 +386,10 @@ func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 			kvh := h / group
 			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
 			for j := 0; j < positions; j++ {
+				if slidingWindow > 0 && absInt(pos-j) >= slidingWindow {
+					scores[j] = float32(math.Inf(-1))
+					continue
+				}
 				scores[j] = dot(q, kAll[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
 			}
 			softmaxInPlace(scores)
@@ -399,6 +407,13 @@ func runSelfAttention(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 	}
 	return nil
+}
+
+func absInt(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func dot(a, b []float32) float32 {
