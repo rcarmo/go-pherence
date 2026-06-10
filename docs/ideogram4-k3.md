@@ -1,0 +1,97 @@
+# Ideogram 4 on SpaceMIT K3
+
+This document tracks the K3-specific implementation plan for native Ideogram 4 inference on the SpaceMIT K3/MilkV Jupiter 2 class of systems.
+
+## Target
+
+- CPU: SpaceMIT K3/X60, RVV 1.0.
+- AI cores: A100 cluster, cores 8–15, IME2 integer matrix extension.
+- Scratch: `/dev/tcm`, 8 × 384 KB = 3 MB.
+- Thread placement: `backends/spacemit/k3engine/aipool` must register/pin workers through `/proc/set_ai_thread` before scheduling IME2 work on cores 8–15.
+- Memory policy target: 24 GB system RAM. Prefer resident component/activation buffers and bulk staged transfers over tiny repeated allocations.
+
+## Existing K3 kernel assets
+
+Relevant packages:
+
+```text
+backends/spacemit/ime2       IME2 vmadot int8/i4/q4 kernels and WorkerPool
+backends/spacemit/rvv        RVV kernels: int8, fp16, quantization, copy
+backends/spacemit/tcm        TCM mapping
+backends/spacemit/k3engine   A100 worker-pool based transformer engine
+backends/k3                  higher-level K3 backend dispatch
+```
+
+Important existing primitives:
+
+```text
+ime2.K3I8I8M1/M4/M1Groups
+ime2.K3I8I4* / Q4K kernels
+rvv.GemmF16Outer32 / DotF16 / F32ToF16RVV
+rvv.MatMulIntegerDequant / QuantizeWeightsSym / QuantizeDynamicU8
+inference.RMSNorm / QuantizeF32ToINT8 / MatVecQ4K*
+aipool.NewAIWorkerPool / RegisterAIThread
+```
+
+## Current build status
+
+The generic native Ideogram CLI cross-builds for riscv64 today:
+
+```bash
+mkdir -p .gotmp /workspace/tmp/ideogram4
+GOTMPDIR=$PWD/.gotmp CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 \
+  go build -o /workspace/tmp/ideogram4/ideogram4gen-k3 ./cmd/image/ideogram4gen
+```
+
+This is **not yet full K3 SIMD coverage**. It is the first targetable binary for hardware smoke tests while K3 kernels are wired in.
+
+## Ideogram kernel coverage matrix
+
+| Area | Current generic path | K3 SIMD/IME target | Status |
+|---|---|---|---|
+| FP8 E4M3 linear GEMV/GEMM | scalar/amd64/NVIDIA-specific paths | K3 packed FP8→int8 or FP8→f16 kernels using IME2/RVV | missing |
+| FP8 E4M3 decode | LUT scalar | RVV byte→f16/int8 packing, row-scale fused | missing |
+| Qwen text encoder linears | `FP8Linear.ApplyBatch` | K3 FP8 batch linear, A100 worker-pool scheduling | missing |
+| DiT QKV/O/W1/W2/W3 linears | `FP8Linear.ApplyBatch` / GPU on NVIDIA | K3 full-layer packed/resident linears | missing |
+| RMSNorm rows | Go scalar / NVIDIA rows | RVV row RMSNorm over f32/f16 | missing |
+| LayerNorm final | Go scalar / NVIDIA rows | RVV row LayerNorm | missing |
+| RoPE/MRoPE | Go scalar / NVIDIA kernels | RVV in-place rotation | missing |
+| Attention score/value | Go scalar / NVIDIA full attention | RVV/f16 tiled attention; future tiled/streaming for high res | missing |
+| SiLU / SiLU*Mul / gated residual | Go scalar / NVIDIA vector kernels | RVV vector kernels | missing |
+| CFG + scheduler update | Go scalar / NVIDIA vector kernel | RVV vector kernel | missing |
+| VAE Conv2D | SIMD im2col/GemmRows / NVIDIA direct conv | RVV/f16 or int8 im2col/conv; potentially reuse f16 GEMM | missing |
+| VAE GroupNorm/SiLU/Upsample/RGB | Go scalar / NVIDIA kernels | RVV vector kernels | missing |
+| VAE spatial attention | Go/NVIDIA full attention | tiled/streaming RVV/f16 attention | missing |
+| Residency/activation policy | NVIDIA hidden-resident/full-layer/windowed | K3 24GB resident component buffers + A100 worker-pool execution | design needed |
+
+## Implementation direction
+
+1. Keep the Ideogram model code backend-neutral. Add K3-specific acceleration behind package-level helpers instead of forking `model/ideogram4`.
+2. Start with FP8 linears, because Qwen and DiT throughput depends on them.
+3. For K3, do not attempt NVIDIA-style GPU residency. Instead, use 24 GB RAM for resident decoded/packed weights and activation work buffers, and use `aipool`/TCM for compute kernels.
+4. Prefer IME2 int8 for large linears if accuracy is acceptable after FP8 row-scale conversion; prefer RVV f16/f32 for norm/attention/vector kernels.
+5. Maintain scalar fallbacks and cross-build tests until real K3 hardware validation is available.
+
+## First handoff command
+
+After implementing enough K3 kernels to make the path useful, the intended hardware smoke will be:
+
+```bash
+make ideogram4gen-k3
+./bin/ideogram4gen-k3 \
+  -model /path/to/ideogram4-model \
+  -prompt "$(cat prompts/ideogram4/cat.json)" \
+  -width 256 -height 256 -steps 4 \
+  -guidance 7.0 -mu 0.0 -std 1.75 \
+  -seed 2026060803 \
+  -timing
+```
+
+K3-specific runtime environment should include, once wired:
+
+```text
+GO_PHERENCE_IDEOGRAM4_K3=1
+IME2_TCM_ACT=1
+```
+
+and hardware logs should confirm A100 worker placement on cores 8–15.
