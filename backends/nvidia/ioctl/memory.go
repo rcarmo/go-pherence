@@ -72,7 +72,6 @@ type nvos33WithFD struct {
 // NVBuffer represents GPU-accessible memory.
 type NVBuffer struct {
 	dev     *NVDevice
-	va      uint64 // virtual address (GPU-accessible)
 	size    uint64
 	cpuAddr uintptr
 	cpuMem  []byte // keep mmap alive // mmap'd CPU address (if mapped)

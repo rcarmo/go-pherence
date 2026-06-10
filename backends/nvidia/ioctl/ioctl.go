@@ -137,36 +137,12 @@ type uvmInitParams struct {
 	_pad     uint32
 }
 
-type uvmRegisterGPUParams struct {
-	GpuUUID     [16]byte
-	Flags       uint32
-	_pad        uint32
-	RmCtrlFd    int32
-	HClient     uint32
-	HSmcPartRef uint32
-	RmStatus    uint32
-}
-
 type uvmRegisterGPUVASpaceParams struct {
 	GpuUUID  [16]byte
 	RmCtrlFd int32
 	HClient  uint32
 	HVASpace uint32
 	RmStatus uint32
-}
-
-type uvmCreateExternalRangeParams struct {
-	Base     uint64
-	Length   uint64
-	RmStatus uint32
-	_pad     uint32
-}
-
-type uvmFreeParams struct {
-	Base     uint64
-	Length   uint64
-	RmStatus uint32
-	_pad     uint32
 }
 
 // --- NV Device ---
@@ -184,10 +160,7 @@ type NVDevice struct {
 	vaspace   uint32 // FERMI_VASPACE_A
 	virtmem   uint32 // NV01_MEMORY_VIRTUAL
 
-	gpuUUID   [16]byte
-	gpuName   string
-	smVersion uint32
-	numSMs    int
+	gpuUUID [16]byte
 
 	handleCounter uint32
 

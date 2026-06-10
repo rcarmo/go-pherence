@@ -15,13 +15,11 @@ import (
 
 // GPFifo represents a GPU command submission queue.
 type GPFifo struct {
-	dev      *NVDevice
-	handle   uint32
-	ring     []uint64 // ring buffer entries (on GPU-visible memory)
-	ringBuf  *NVBuffer
-	entries  int
-	putValue uint64
-	token    uint32 // work submit token for MMIO doorbell
+	dev     *NVDevice
+	handle  uint32
+	ringBuf *NVBuffer
+	entries int
+	token   uint32 // work submit token for MMIO doorbell
 }
 
 // Channel group for organizing GPFifos
@@ -143,9 +141,6 @@ func (d *NVDevice) SetupGPFifo(cg *ChannelGroup, ctxShare uint32, gpuInfo *GPUIn
 		entries: entries,
 		token:   tp.WorkSubmitToken,
 	}
-
-	// Ring buffer view (uses pre-allocated cpuMem)
-	_ = ringBuf // ring buffer access via cpuMem if needed
 
 	debuglog.Printf("[nv] GPFifo created: handle=0x%x, entries=%d, token=%d\n",
 		gpfifoHandle, entries, tp.WorkSubmitToken)
