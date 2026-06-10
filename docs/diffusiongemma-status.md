@@ -322,3 +322,20 @@ Result: passed. Text readiness now reports `layer_tensors=655/655`.
 ## No-weight aggregate CI target
 
 `make diffusiongemma-ci-no-weights` runs the safe no-shard validation bundle: download-plan report, scaffold CI, and pattern mock CI. It does not download safetensor shards and is suitable for quick validation of the current scaffold state.
+
+## Latest no-weight aggregate CI validation
+
+The README-recommended safe aggregate target was run after documenting it:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-no-weights \
+  DIFFUSIONGEMMA_MODEL=/workspace/tmp/diffusiongemma \
+  DIFFUSIONGEMMA_PROMPT=hi \
+  DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT=/workspace/tmp/diffusiongemma/readme_no_weight_plan.json \
+  DIFFUSIONGEMMA_REF_OUT=/workspace/tmp/diffusiongemma/readme_no_weight_ref.json \
+  DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/readme_no_weight_run.json \
+  DIFFUSIONGEMMA_MOCK_REF_OUT=/workspace/tmp/diffusiongemma/readme_no_weight_mock_ref.json \
+  DIFFUSIONGEMMA_STATUS_OUT=/workspace/tmp/diffusiongemma/readme_no_weight_status.json
+```
+
+Result: passed. This validates the current no-weight workflow advertised in the README: download-plan report, scaffold CI, structured-message path, status export/summary, and both default and pattern mock comparison.
