@@ -750,3 +750,8 @@ It requires all safetensor shards, a working Transformers/PyTorch environment fo
 ## Structured reference messages
 
 `scripts/diffusiongemma_reference.py` and `make diffusiongemma-reference` now accept structured chat messages through `--messages-json` / `DIFFUSIONGEMMA_REF_MESSAGES_JSON` or `--messages-file` / `DIFFUSIONGEMMA_REF_MESSAGES_FILE`. This aligns reference fixture capture with `diffusiongemmarun -messages-json` / `-messages-file`.
+
+
+## Structured-message CI target
+
+`make diffusiongemma-ci-structured-messages` runs the reference dry-run plus go-pherence scaffold paths with a shared JSON message payload (`DIFFUSIONGEMMA_MESSAGES_JSON`). This keeps structured-message handling exercised separately from plain prompt and exact-token paths.
