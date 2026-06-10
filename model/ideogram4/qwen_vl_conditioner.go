@@ -163,18 +163,23 @@ func (q *QwenVLConditioner) Condition(tokenIDs []int) ([]float32, error) {
 		}
 	}
 
-	// concatenate captured states in activation-layer order.
+	// Pack captured states exactly like ideogram-oss/ideogram-4:
+	// stack(selected, dim=0) -> permute(B, L, H, taps) -> reshape(B, L, H*taps).
+	// This interleaves activation taps per hidden dimension, rather than appending
+	// whole hidden vectors layer-by-layer.
+	taps := len(cfg.ActivationLayers)
 	feat := cfg.LLMFeaturesDim
 	out := make([]float32, T*feat)
 	for t := 0; t < T; t++ {
-		off := 0
-		for _, l := range cfg.ActivationLayers {
-			capState, ok := captured[l]
-			if !ok {
-				return nil, fmt.Errorf("ideogram4 qwen-vl missing activation layer %d", l)
+		for h := 0; h < hidden; h++ {
+			base := t*feat + h*taps
+			for li, l := range cfg.ActivationLayers {
+				capState, ok := captured[l]
+				if !ok {
+					return nil, fmt.Errorf("ideogram4 qwen-vl missing activation layer %d", l)
+				}
+				out[base+li] = capState[t*hidden+h]
 			}
-			copy(out[t*feat+off:t*feat+off+hidden], capState[t*hidden:(t+1)*hidden])
-			off += hidden
 		}
 	}
 	return out, nil
