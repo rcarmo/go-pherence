@@ -1,6 +1,12 @@
 package ideogram4
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"time"
+
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+)
 
 // DenoiseLoop runs the full FlowMatch sampling loop with asymmetric CFG over a
 // conditional/unconditional DiT pair.
@@ -32,22 +38,53 @@ func DenoiseLoop(cond, uncond *DiTModel, sched *FlowMatchScheduler, plan Samplin
 		return nil, fmt.Errorf("ideogram4 denoise: empty sampling plan")
 	}
 
+	traceGPUStats := os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_STATS") == "1"
+	printStats := func(name string, before nvidia.Stats, since time.Time) {
+		if !traceGPUStats {
+			return
+		}
+		now := nvidia.StatsSnapshot()
+		fmt.Fprintf(os.Stderr, "gpu_stats %s elapsed=%s kernels=%d h2d=%d h2d_bytes=%d d2h=%d d2h_bytes=%d d2d=%d d2d_bytes=%d mallocs=%d malloc_bytes=%d frees=%d free_bytes=%d syncs=%d\n",
+			name, time.Since(since),
+			now.KernelLaunches-before.KernelLaunches,
+			now.HostToDevice-before.HostToDevice,
+			now.HostToDeviceBytes-before.HostToDeviceBytes,
+			now.DeviceToHost-before.DeviceToHost,
+			now.DeviceToHostBytes-before.DeviceToHostBytes,
+			now.DeviceToDevice-before.DeviceToDevice,
+			now.DeviceToDeviceBytes-before.DeviceToDeviceBytes,
+			now.Mallocs-before.Mallocs,
+			now.MallocBytes-before.MallocBytes,
+			now.Frees-before.Frees,
+			now.FreeBytes-before.FreeBytes,
+			now.Syncs-before.Syncs)
+	}
+
 	x := Latents{Batch: 1, Tokens: imgTokens, Channels: cfg.InChannels, Data: append([]float32(nil), latents...)}
 	for si, step := range plan.Steps {
+		branchStart := time.Now()
+		branchStats := nvidia.StatsSnapshot()
 		condVel, err := cond.Velocity(x.Data, gridH, gridW, textFeatures, step.T)
 		if err != nil {
 			return nil, fmt.Errorf("ideogram4 denoise step %d cond: %w", si, err)
 		}
+		printStats(fmt.Sprintf("denoise_step_%d_cond", si), branchStats, branchStart)
+		branchStart = time.Now()
+		branchStats = nvidia.StatsSnapshot()
 		uncondVel, err := uncond.Velocity(x.Data, gridH, gridW, nil, step.T)
 		if err != nil {
 			return nil, fmt.Errorf("ideogram4 denoise step %d uncond: %w", si, err)
 		}
+		printStats(fmt.Sprintf("denoise_step_%d_uncond", si), branchStats, branchStart)
 		condL := Latents{Batch: 1, Tokens: imgTokens, Channels: cfg.InChannels, Data: condVel}
 		uncondL := Latents{Batch: 1, Tokens: imgTokens, Channels: cfg.InChannels, Data: uncondVel}
+		branchStart = time.Now()
+		branchStats = nvidia.StatsSnapshot()
 		x, err = gpuCFGStepOrFallback(sched, plan, x, condL, uncondL, step, step.Index)
 		if err != nil {
 			return nil, fmt.Errorf("ideogram4 denoise step %d cfg/update: %w", si, err)
 		}
+		printStats(fmt.Sprintf("denoise_step_%d_cfg", si), branchStats, branchStart)
 	}
 	return x.Data, nil
 }
