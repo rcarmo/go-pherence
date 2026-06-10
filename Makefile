@@ -538,3 +538,22 @@ diffusiongemma-download-metadata:
 
 diffusiongemma-download:
 	python3 scripts/download_diffusiongemma.py --repo $(DIFFUSIONGEMMA_REPO) --out $(DIFFUSIONGEMMA_MODEL)
+
+DIFFUSIONGEMMA_PROMPT_IDS ?= 2
+DIFFUSIONGEMMA_MAX_NEW ?= 16
+DIFFUSIONGEMMA_CANVAS ?= 0
+DIFFUSIONGEMMA_SEED ?= 1
+
+.PHONY: diffusiongemma-inspect diffusiongemma-inspect-json diffusiongemma-run-scaffold diffusiongemma-run-cpu
+
+diffusiongemma-inspect:
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL)
+
+diffusiongemma-inspect-json:
+	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -json
+
+diffusiongemma-run-scaffold:
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED)
+
+diffusiongemma-run-cpu:
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher
