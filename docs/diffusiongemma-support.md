@@ -467,3 +467,16 @@ Processor metadata now includes a lightweight `chat_template.jinja` preflight. T
 ## Exact vocab helper
 
 `model/diffusiongemma/vocab.go` loads `tokenizer.json` into exact token/string lookup maps. `diffusiongemmarun -tokens` can append comma-separated exact vocab entries such as `<bos>,<mask>` to the prompt ID list. This is not BPE tokenization; unknown text pieces fail explicitly.
+
+
+## Prompt framing flags
+
+`diffusiongemmarun` now wires `BuildPromptIDs` through CLI flags:
+
+```bash
+-add-bos
+-think
+-generation-prompt
+```
+
+For example, `-tokens <mask> -add-bos -think` produces prompt IDs `[2 98 4]` against the fetched tokenizer metadata. This is still exact-token/ID scaffolding, not full chat-template rendering.

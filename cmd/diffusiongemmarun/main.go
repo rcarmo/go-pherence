@@ -26,6 +26,9 @@ func main() {
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
 	seed := flag.Int64("seed", 1, "deterministic canvas RNG seed")
+	addBOS := flag.Bool("add-bos", false, "prepend BOS token from tokenizer metadata")
+	enableThinking := flag.Bool("think", false, "prepend thinking control token from tokenizer metadata")
+	addGenerationPrompt := flag.Bool("generation-prompt", false, "append generation prompt token when available")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
@@ -51,6 +54,17 @@ func main() {
 	m, err := diffusiongemma.LoadMetadata(*modelDir)
 	if err != nil {
 		fatal(err)
+	}
+	if *addBOS || *enableThinking || *addGenerationPrompt {
+		if m.Tokenizer == nil {
+			fatal(fmt.Errorf("DiffusionGemma tokenizer metadata unavailable"))
+		}
+		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
+		framed, err := diffusiongemma.BuildPromptIDs(promptIDs, specials, diffusiongemma.PromptOptions{AddBOS: *addBOS, EnableThinking: *enableThinking, AddGenerationPrompt: *addGenerationPrompt})
+		if err != nil {
+			fatal(err)
+		}
+		promptIDs = framed.InputIDs
 	}
 	var denoiser diffusiongemma.Denoiser
 	var weights *diffusiongemma.TextWeights
