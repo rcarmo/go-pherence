@@ -89,6 +89,7 @@ make gguf-ci-qwen36-reap     # focused build smoke + check
 
 # DiffusionGemma block-diffusion scaffold/status workflow
 make diffusiongemma-download-metadata
+make diffusiongemma-download-plan-only  # show 11-shard / 48.10 GiB payload plan
 make diffusiongemma-inspect
 make diffusiongemma-run-mock
 make diffusiongemma-status-json

@@ -268,3 +268,19 @@ total_size_bytes=51647562456 (~48.10 GiB)
 ## Shard download percentage
 
 Shard readiness now includes `present_percent`, and the inspector/status summary print download progress as `present=N/11 (P%)`. Metadata-only snapshots report `0.0%`; a full checkpoint should report `100.0%`.
+
+
+## Download planning quick check
+
+Before starting the full ~48.10 GiB shard download, run:
+
+```bash
+make diffusiongemma-download-plan-only \
+  DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
+```
+
+Expected output includes:
+
+```text
+checkpoint shards=11 total_size=51647562456 bytes (48.10 GiB) parameters=25823778864
+```
