@@ -294,3 +294,8 @@ The explicit `canvas_embedding` prefix op marks the point where token IDs from t
 ## Dense MLP hook
 
 `CPUDispatcher` now implements the dense MLP op using checked SIMD facades: `GemvRows` for gate/up/down projections and `GELUTanhMulTo` for the activation product. This is correctness-first scaffolding and currently loads full projection matrices through the raw safetensor path when the op executes. Router/expert MoE, attention, self-conditioning, and LM head remain explicit not-implemented boundaries.
+
+
+## Router hook
+
+`CPUDispatcher` now implements the `router` op scaffold. It loads `router.proj.weight`, runs checked SIMD `GemvRows` from hidden state to expert scores, and applies `router.scale` plus `router.per_expert_scale` when present. The result is stored in router scratch. Top-k expert selection and expert execution remain separate future steps.

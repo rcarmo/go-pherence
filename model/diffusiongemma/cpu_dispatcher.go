@@ -181,7 +181,7 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 	case OpPreMoE:
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PreFFNLayerNorm })
 	case OpRouter:
-		return errOpNotImplemented(op.Kind)
+		return runRouter(op, weights, scratch)
 	case OpExperts:
 		return errOpNotImplemented(op.Kind)
 	case OpPostMoE:
@@ -291,6 +291,52 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 	return nil
 }
 
+func runRouter(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma router missing weights")
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
+		return fmt.Errorf("DiffusionGemma router layer %d outside plan", op.Layer)
+	}
+	lb := fp.Layers[op.Layer]
+	proj, rows, cols, err := loadFloatMatrix(weights, lb.RouterProj)
+	if err != nil {
+		return err
+	}
+	hiddenSize := cols
+	experts := rows
+	if hiddenSize <= 0 || experts <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma router hidden len=%d hidden_size=%d experts=%d", len(scratch.Hidden), hiddenSize, experts)
+	}
+	positions := len(scratch.Hidden) / hiddenSize
+	if len(scratch.Router) < positions*experts {
+		return fmt.Errorf("DiffusionGemma router scratch=%d want %d", len(scratch.Router), positions*experts)
+	}
+	routerScale, err := loadOptionalScalar(weights, lb.RouterScale, 1)
+	if err != nil {
+		return err
+	}
+	perExpertScale, err := loadOptionalVector(weights, lb.RouterPerExpertScale, experts)
+	if err != nil {
+		return err
+	}
+	for pos := 0; pos < positions; pos++ {
+		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		out := scratch.Router[pos*experts : (pos+1)*experts]
+		if !simd.GemvRows(out, hidden, proj, experts, hiddenSize) {
+			return fmt.Errorf("DiffusionGemma router GEMV rejected layer %d", op.Layer)
+		}
+		for i := range out {
+			out[i] *= routerScale
+			if len(perExpertScale) == experts {
+				out[i] *= perExpertScale[i]
+			}
+		}
+	}
+	return nil
+}
+
 func runLayerScalar(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma layer scalar missing weights")
@@ -330,6 +376,27 @@ func loadFloatMatrix(weights *TextWeights, binding *TensorBinding) ([]float32, i
 		return nil, 0, 0, err
 	}
 	return out, shape[0], shape[1], nil
+}
+
+func loadOptionalScalar(weights *TextWeights, binding *TensorBinding, fallback float32) (float32, error) {
+	if binding == nil {
+		return fallback, nil
+	}
+	return loadFloatScalar(weights, binding)
+}
+
+func loadOptionalVector(weights *TextWeights, binding *TensorBinding, want int) ([]float32, error) {
+	if binding == nil {
+		return nil, nil
+	}
+	v, err := loadFloatVector(weights, binding)
+	if err != nil {
+		return nil, err
+	}
+	if want > 0 && len(v) != want {
+		return nil, fmt.Errorf("DiffusionGemma tensor %q vector len=%d want %d", binding.Name, len(v), want)
+	}
+	return v, nil
 }
 
 func loadFloatScalar(weights *TextWeights, binding *TensorBinding) (float32, error) {
