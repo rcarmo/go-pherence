@@ -553,7 +553,7 @@ DIFFUSIONGEMMA_ENTROPY_BOUND ?= -1
 DIFFUSIONGEMMA_STABILITY ?= -1
 DIFFUSIONGEMMA_CONFIDENCE ?= -1
 
-.PHONY: diffusiongemma-inspect diffusiongemma-inspect-json diffusiongemma-run-scaffold diffusiongemma-run-mock diffusiongemma-run-mock-json diffusiongemma-run-cpu
+.PHONY: diffusiongemma-inspect diffusiongemma-inspect-json diffusiongemma-run-scaffold diffusiongemma-run-mock diffusiongemma-run-mock-json diffusiongemma-run-cpu diffusiongemma-run-cpu-json
 
 diffusiongemma-inspect:
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL)
@@ -573,6 +573,10 @@ diffusiongemma-run-mock-json:
 
 diffusiongemma-run-cpu:
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher
+
+diffusiongemma-run-cpu-json:
+	mkdir -p $(dir $(DIFFUSIONGEMMA_RUN_OUT))
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt-ids $(DIFFUSIONGEMMA_PROMPT_IDS) -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -json > $(DIFFUSIONGEMMA_RUN_OUT)
 
 DIFFUSIONGEMMA_STATUS_OUT ?= $(TMPDIR)/diffusiongemma/status.json
 DIFFUSIONGEMMA_REF_OUT ?= $(TMPDIR)/diffusiongemma/reference.json
@@ -643,3 +647,7 @@ diffusiongemma-ci-mock-pattern:
 
 diffusiongemma-check-weights:
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -require-shards-ready -open-weights
+
+.PHONY: diffusiongemma-parity
+
+diffusiongemma-parity: diffusiongemma-check-weights diffusiongemma-reference diffusiongemma-run-cpu-json diffusiongemma-compare-reference

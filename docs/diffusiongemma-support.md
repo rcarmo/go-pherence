@@ -726,3 +726,17 @@ When denoising overrides are provided, `diffusiongemmarun` now prints the effect
 ## Full-weight readiness target
 
 `make diffusiongemma-check-weights` is the next gate after metadata scaffold CI. It runs `diffusiongemmainspect -require-shards-ready -open-weights`, requiring all 11 safetensor shards to be present and verifying that text weight bindings can be opened with dtype/shape metadata. This target is expected to fail on metadata-only snapshots and pass only after `make diffusiongemma-download` or an equivalent full checkpoint download.
+
+
+## Full parity target
+
+`make diffusiongemma-parity` documents the intended full-checkpoint parity chain:
+
+```text
+diffusiongemma-check-weights
+diffusiongemma-reference
+diffusiongemma-run-cpu
+diffusiongemma-compare-reference
+```
+
+It requires all safetensor shards, a working Transformers/PyTorch environment for reference capture, and enough memory/compute for the current correctness-first CPU path. It is not part of scaffold CI.
