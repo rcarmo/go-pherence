@@ -11,6 +11,7 @@ package nvidia
 // halving memory bandwidth vs F32 kernels.
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"sync"
 	"unsafe"
 )
@@ -216,7 +217,7 @@ func BF16LMHead(logits []float32, weightRaw []byte, x []float32, vocab, h int) e
 }
 
 func checkedBF16MatrixBytes(rows, cols int) (int, bool) {
-	elements, ok := checkedMulInt(rows, cols)
+	elements, ok := checked.MulInt(rows, cols)
 	if rows <= 0 || cols <= 0 || !ok {
 		return 0, false
 	}

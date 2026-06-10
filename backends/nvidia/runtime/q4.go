@@ -4,6 +4,7 @@ package nvidia
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"sync"
 	"unsafe"
 
@@ -34,7 +35,7 @@ func UploadQuantWeight(qweight, gIdx []int32, scales []float32, inDim, outDim in
 		return nil, fmt.Errorf("invalid Q4 dims inDim=%d outDim=%d", inDim, outDim)
 	}
 	packRows := inDim / 8
-	wantQWeight, ok := checkedMulInt(packRows, outDim)
+	wantQWeight, ok := checked.MulInt(packRows, outDim)
 	if !ok {
 		return nil, fmt.Errorf("qweight size overflow for inDim=%d outDim=%d", inDim, outDim)
 	}
@@ -48,7 +49,7 @@ func UploadQuantWeight(qweight, gIdx []int32, scales []float32, inDim, outDim in
 		return nil, fmt.Errorf("scales length=%d is not a positive multiple of outDim=%d", len(scales), outDim)
 	}
 	groups := len(scales) / outDim
-	if _, ok := checkedMulInt(groups, outDim); !ok {
+	if _, ok := checked.MulInt(groups, outDim); !ok {
 		return nil, fmt.Errorf("scales size overflow groups=%d outDim=%d", groups, outDim)
 	}
 	for i := 0; i < inDim; i++ {
@@ -140,8 +141,8 @@ func q4BufferElementCounts(w *GPUQuantWeight) (qweight, scales, gidx int, ok boo
 	if w == nil {
 		return 0, 0, 0, false
 	}
-	qw, okQ := checkedMulInt(w.InDim/8, w.OutDim)
-	sc, okS := checkedMulInt(w.Groups, w.OutDim)
+	qw, okQ := checked.MulInt(w.InDim/8, w.OutDim)
+	sc, okS := checked.MulInt(w.Groups, w.OutDim)
 	if !okQ || !okS || w.InDim < 0 {
 		return 0, 0, 0, false
 	}
@@ -226,15 +227,4 @@ func float32ToInt32Placeholder(n int) []int32 {
 		return nil
 	}
 	return make([]int32, n)
-}
-
-func checkedMulInt(a, b int) (int, bool) {
-	if a < 0 || b < 0 {
-		return 0, false
-	}
-	maxInt := int(^uint(0) >> 1)
-	if b != 0 && a > maxInt/b {
-		return 0, false
-	}
-	return a * b, true
 }

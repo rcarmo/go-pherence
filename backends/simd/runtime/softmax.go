@@ -1,6 +1,9 @@
 package simd
 
-import "math"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"math"
+)
 
 // SoftmaxInPlace normalizes x in-place with a numerically stable row softmax.
 func SoftmaxInPlace(x []float32) bool {
@@ -28,7 +31,7 @@ func SoftmaxInPlace(x []float32) bool {
 
 // SoftmaxLastAxisTo writes a row-major last-axis softmax into out.
 func SoftmaxLastAxisTo(out, x []float32, rows, cols int) bool {
-	total, ok := checkedMulInt(rows, cols)
+	total, ok := checked.MulInt(rows, cols)
 	if rows <= 0 || cols <= 0 || !ok || len(out) < total || len(x) < total {
 		return false
 	}
@@ -38,7 +41,7 @@ func SoftmaxLastAxisTo(out, x []float32, rows, cols int) bool {
 
 // SoftmaxRowsInPlace normalizes a row-major [rows, cols] matrix in-place.
 func SoftmaxRowsInPlace(x []float32, rows, cols int) bool {
-	total, ok := checkedMulInt(rows, cols)
+	total, ok := checked.MulInt(rows, cols)
 	if rows <= 0 || cols <= 0 || !ok || len(x) < total {
 		return false
 	}

@@ -1,17 +1,9 @@
 package kernels
 
-import "math"
-
-func checkedMulInt(a, b int) (int, bool) {
-	if a < 0 || b < 0 {
-		return 0, false
-	}
-	maxInt := int(^uint(0) >> 1)
-	if b != 0 && a > maxInt/b {
-		return 0, false
-	}
-	return a * b, true
-}
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"math"
+)
 
 func GQAAttention(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, dot func([]float32, []float32) float32, saxpy func(float32, []float32, []float32)) []float32 {
 	if headDim <= 0 {
@@ -37,9 +29,9 @@ func GQAAttentionScaleInto(out, scores, q, kCache, vCache []float32, seqLen, num
 	if seqLen <= 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || numHeads%numKVHeads != 0 || dot == nil || saxpy == nil {
 		return
 	}
-	h, okH := checkedMulInt(numHeads, headDim)
-	kvDim, okKV := checkedMulInt(numKVHeads, headDim)
-	kvTotal, okTotal := checkedMulInt(seqLen, kvDim)
+	h, okH := checked.MulInt(numHeads, headDim)
+	kvDim, okKV := checked.MulInt(numKVHeads, headDim)
+	kvTotal, okTotal := checked.MulInt(seqLen, kvDim)
 	if !okH || !okKV || !okTotal || len(out) < h || len(scores) < seqLen || len(q) < h || len(kCache) < kvTotal || len(vCache) < kvTotal {
 		return
 	}

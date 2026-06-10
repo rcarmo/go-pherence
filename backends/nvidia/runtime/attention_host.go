@@ -1,6 +1,9 @@
 package nvidia
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 // F32GQAAttention computes one causal GQA attention output for a single query
 // row against prefix KV caches. q is [nHeads, headDim], k/v are
@@ -9,9 +12,9 @@ func F32GQAAttention(out, q, kCache, vCache []float32, seqLen, nHeads, nKVHeads,
 	if seqLen <= 0 || nHeads <= 0 || nKVHeads <= 0 || headDim <= 0 {
 		return fmt.Errorf("invalid F32 GQA dims seqLen=%d heads=%d kv=%d headDim=%d", seqLen, nHeads, nKVHeads, headDim)
 	}
-	qLen, okQ := checkedMulInt(nHeads, headDim)
-	kvDim, okKVDim := checkedMulInt(nKVHeads, headDim)
-	cacheLen, okCache := checkedMulInt(seqLen, kvDim)
+	qLen, okQ := checked.MulInt(nHeads, headDim)
+	kvDim, okKVDim := checked.MulInt(nKVHeads, headDim)
+	cacheLen, okCache := checked.MulInt(seqLen, kvDim)
 	if !okQ || !okKVDim || !okCache || len(out) < qLen || len(q) < qLen || len(kCache) < cacheLen || len(vCache) < cacheLen {
 		return fmt.Errorf("invalid F32 GQA buffers out=%d q=%d k=%d v=%d need out/q=%d cache=%d", len(out), len(q), len(kCache), len(vCache), qLen, cacheLen)
 	}

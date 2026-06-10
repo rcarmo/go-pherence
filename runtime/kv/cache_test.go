@@ -1,6 +1,7 @@
 package kv
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 	"testing"
 )
@@ -32,7 +33,7 @@ func TestCompressedKVCacheOverflowGuards(t *testing.T) {
 	if compressedEntryValid(compressedEntry{Packed: make([]byte, 4), HeadVMin: make([]float32, 1), HeadScale: make([]float32, 1)}, 0, 4) {
 		t.Fatal("zero-head compressed entry validated")
 	}
-	if _, ok := checkedMulInt(-1, 4); ok {
+	if _, ok := checked.MulInt(-1, 4); ok {
 		t.Fatal("checkedMulInt accepted negative lhs")
 	}
 	if _, ok := checkedAddInt(maxInt, 1); ok {

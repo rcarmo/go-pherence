@@ -1,6 +1,7 @@
 package mlx
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"runtime"
 	"sync"
 )
@@ -15,8 +16,8 @@ func Gemm(out, x []float32, batch int, qw *QuantWeight) bool {
 	if batch <= 0 || ValidateQuantWeight(qw) != nil {
 		return false
 	}
-	xLen, okX := checkedMulInt(batch, qw.InDim)
-	outLen, okOut := checkedMulInt(batch, qw.OutDim)
+	xLen, okX := checked.MulInt(batch, qw.InDim)
+	outLen, okOut := checked.MulInt(batch, qw.OutDim)
 	if !okX || !okOut || len(x) < xLen || len(out) < outLen {
 		return false
 	}

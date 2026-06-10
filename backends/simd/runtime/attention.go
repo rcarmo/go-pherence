@@ -1,6 +1,7 @@
 package simd
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/simd/kernels"
@@ -37,7 +38,7 @@ func GQAAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads
 
 // GQAAttentionScaleChecked allocates output and reports malformed inputs.
 func GQAAttentionScaleChecked(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) ([]float32, bool) {
-	h, ok := checkedMulInt(numHeads, headDim)
+	h, ok := checked.MulInt(numHeads, headDim)
 	if seqLen < 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || numHeads%numKVHeads != 0 || !ok {
 		return nil, false
 	}
@@ -69,9 +70,9 @@ func GQAAttentionScaleTo(out, scores, q, kCache, vCache []float32, seqLen, numHe
 	if seqLen <= 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || numHeads%numKVHeads != 0 {
 		return false
 	}
-	h, okH := checkedMulInt(numHeads, headDim)
-	kvDim, okKV := checkedMulInt(numKVHeads, headDim)
-	kvTotal, okTotal := checkedMulInt(seqLen, kvDim)
+	h, okH := checked.MulInt(numHeads, headDim)
+	kvDim, okKV := checked.MulInt(numKVHeads, headDim)
+	kvTotal, okTotal := checked.MulInt(seqLen, kvDim)
 	if !okH || !okKV || !okTotal || len(out) < h || len(scores) < seqLen || len(q) < h || len(kCache) < kvTotal || len(vCache) < kvTotal {
 		return false
 	}
@@ -82,9 +83,9 @@ func gqaAttentionScaleIntoSIMD(out, scores, q, kCache, vCache []float32, seqLen,
 	if seqLen <= 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || numHeads%numKVHeads != 0 {
 		return false
 	}
-	h, okH := checkedMulInt(numHeads, headDim)
-	kvDim, okKV := checkedMulInt(numKVHeads, headDim)
-	kvTotal, okTotal := checkedMulInt(seqLen, kvDim)
+	h, okH := checked.MulInt(numHeads, headDim)
+	kvDim, okKV := checked.MulInt(numKVHeads, headDim)
+	kvTotal, okTotal := checked.MulInt(seqLen, kvDim)
 	if !okH || !okKV || !okTotal || len(out) < h || len(scores) < seqLen || len(q) < h || len(kCache) < kvTotal || len(vCache) < kvTotal {
 		return false
 	}

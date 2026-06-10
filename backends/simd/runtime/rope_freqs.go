@@ -1,6 +1,9 @@
 package simd
 
-import "math"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"math"
+)
 
 // BuildRoPEFreqs builds interleaved cos/sin rotary frequency tables for
 // maxSeq positions and halfDim rotary pairs. It is the SIMD-owned reference
@@ -31,8 +34,8 @@ func CheckedRoPEFreqLen(maxSeq, halfDim int) (int, bool) {
 	if maxSeq <= 0 || halfDim <= 0 {
 		return 0, false
 	}
-	pairs, okPairs := checkedMulInt(maxSeq, halfDim)
-	n, okN := checkedMulInt(pairs, 2)
+	pairs, okPairs := checked.MulInt(maxSeq, halfDim)
+	n, okN := checked.MulInt(pairs, 2)
 	if !okPairs || !okN {
 		return 0, false
 	}

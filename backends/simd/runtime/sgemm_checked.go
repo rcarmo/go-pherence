@@ -1,6 +1,9 @@
 package simd
 
-import "unsafe"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"unsafe"
+)
 
 // SgemmNTTo computes C += alpha * A * B^T for row-major A[m,lda],
 // B[n,ldb], and C[m,ldc]. It validates slice capacities before invoking
@@ -58,20 +61,20 @@ func validSgemmSliceArgs(c, a, b []float32, m, n, k, lda, ldb, ldc int, nt bool)
 	} else if ldb < n {
 		return false
 	}
-	aBase, okABase := checkedMulInt(m-1, lda)
+	aBase, okABase := checked.MulInt(m-1, lda)
 	aNeed, okA := checkedAddInt(aBase, k)
 	var bNeed int
 	var okB bool
 	if nt {
-		bBase, okBBase := checkedMulInt(n-1, ldb)
+		bBase, okBBase := checked.MulInt(n-1, ldb)
 		bNeed, okB = checkedAddInt(bBase, k)
 		okB = okB && okBBase
 	} else {
-		bBase, okBBase := checkedMulInt(k-1, ldb)
+		bBase, okBBase := checked.MulInt(k-1, ldb)
 		bNeed, okB = checkedAddInt(bBase, n)
 		okB = okB && okBBase
 	}
-	cBase, okCBase := checkedMulInt(m-1, ldc)
+	cBase, okCBase := checked.MulInt(m-1, ldc)
 	cNeed, okC := checkedAddInt(cBase, n)
 	return okABase && okA && okB && okCBase && okC && len(a) >= aNeed && len(b) >= bNeed && len(c) >= cNeed
 }

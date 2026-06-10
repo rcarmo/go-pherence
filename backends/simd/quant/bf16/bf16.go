@@ -5,6 +5,7 @@ package bf16
 // This halves memory bandwidth vs the F32 emulation path.
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 	"unsafe"
 )
@@ -105,7 +106,7 @@ func BF16VecAdd(dst, a, b []uint16) {
 // BF16GemvNT computes out[j] = dot(x, w[j*inDim:(j+1)*inDim]) for BF16 x, F32 w.
 // This is the mixed-precision GEMV: BF16 activations × F32 weights → BF16 output.
 func BF16GemvNT(out []uint16, x []uint16, w []float32, inDim, outDim int) {
-	weightLen, ok := checkedMulInt(inDim, outDim)
+	weightLen, ok := checked.MulInt(inDim, outDim)
 	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
 		return
 	}
@@ -141,15 +142,4 @@ func BF16SlicePtr(s []uint16) unsafe.Pointer {
 		return nil
 	}
 	return unsafe.Pointer(&s[0])
-}
-
-func checkedMulInt(a, b int) (int, bool) {
-	if a < 0 || b < 0 {
-		return 0, false
-	}
-	maxInt := int(^uint(0) >> 1)
-	if b != 0 && a > maxInt/b {
-		return 0, false
-	}
-	return a * b, true
 }

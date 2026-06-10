@@ -1,6 +1,9 @@
 package simd
 
-import "github.com/rcarmo/go-pherence/backends/simd/kernels"
+import (
+	"github.com/rcarmo/go-pherence/backends/simd/kernels"
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 const hasRoPEAsm = false
 
@@ -38,9 +41,9 @@ func ApplyRoPEPartialTo(x, freqs []float32, pos, numHeads, headDim, rotHalf int)
 	if pos < 0 || numHeads <= 0 || headDim <= 0 || rotHalf <= 0 || rotHalf > headDim/2 {
 		return false
 	}
-	total, okTotal := checkedMulInt(numHeads, headDim)
-	posPairs, okPos := checkedMulInt(pos+1, rotHalf)
-	freqNeed, okFreq := checkedMulInt(posPairs, 2)
+	total, okTotal := checked.MulInt(numHeads, headDim)
+	posPairs, okPos := checked.MulInt(pos+1, rotHalf)
+	freqNeed, okFreq := checked.MulInt(posPairs, 2)
 	if !okTotal || !okPos || !okFreq || len(x) < total || len(freqs) < freqNeed {
 		return false
 	}

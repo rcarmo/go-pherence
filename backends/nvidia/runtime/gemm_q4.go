@@ -13,6 +13,7 @@ package nvidia
 // but accumulates B dot products per weight column.
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"unsafe"
 
 	simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
@@ -24,8 +25,8 @@ func GemmQ4(out, input *DevBuf, w *GPUQuantWeight, B int) {
 	if !validGPUQuantWeight(w) || input == nil || out == nil || B <= 0 {
 		return
 	}
-	inLen, okIn := checkedMulInt(B, w.InDim)
-	outLen, okOut := checkedMulInt(B, w.OutDim)
+	inLen, okIn := checked.MulInt(B, w.InDim)
+	outLen, okOut := checked.MulInt(B, w.OutDim)
 	if !okIn || !okOut || input.n < inLen || out.n < outLen {
 		return
 	}
@@ -66,8 +67,8 @@ func gemmQ4CPU(out, input *DevBuf, w *GPUQuantWeight, B int) {
 	if !validGPUQuantWeight(w) || input == nil || out == nil || B <= 0 {
 		return
 	}
-	inLen, okIn := checkedMulInt(B, w.InDim)
-	outLen, okOut := checkedMulInt(B, w.OutDim)
+	inLen, okIn := checked.MulInt(B, w.InDim)
+	outLen, okOut := checked.MulInt(B, w.OutDim)
 	if !okIn || !okOut || input.n < inLen || out.n < outLen {
 		return
 	}

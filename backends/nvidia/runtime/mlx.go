@@ -11,6 +11,7 @@ package nvidia
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"unsafe"
 
 	backendmlx "github.com/rcarmo/go-pherence/backends/mlx"
@@ -36,11 +37,11 @@ func validateMLXUploadInputs(weight []uint32, scales, biases []float32, inDim, o
 	}
 	numGroups = inDim / groupSize
 	packedPerRow = inDim / 8
-	wantWeight, ok := checkedMulInt(outDim, packedPerRow)
+	wantWeight, ok := checked.MulInt(outDim, packedPerRow)
 	if !ok {
 		return 0, 0, 0, 0, fmt.Errorf("MLX weight size overflow outDim=%d packedPerRow=%d", outDim, packedPerRow)
 	}
-	wantScale, ok = checkedMulInt(outDim, numGroups)
+	wantScale, ok = checked.MulInt(outDim, numGroups)
 	if !ok {
 		return 0, 0, 0, 0, fmt.Errorf("MLX scale size overflow outDim=%d groups=%d", outDim, numGroups)
 	}
@@ -234,8 +235,8 @@ func validGPUMLXWeight(w *GPUMLXWeight) bool {
 	if w.Groups != w.InDim/w.GroupSz {
 		return false
 	}
-	packed, okP := checkedMulInt(w.InDim/8, w.OutDim)
-	scale, okS := checkedMulInt(w.Groups, w.OutDim)
+	packed, okP := checked.MulInt(w.InDim/8, w.OutDim)
+	scale, okS := checked.MulInt(w.Groups, w.OutDim)
 	if !okP || !okS {
 		return false
 	}
@@ -352,8 +353,8 @@ func downloadMLXWeight(w *GPUMLXWeight) (*backendmlx.QuantWeight, bool) {
 	if w == nil || w.QWeight == nil || w.Scales == nil || w.Biases == nil {
 		return nil, false
 	}
-	packedN, okPacked := checkedMulInt(w.OutDim, w.InDim/8)
-	scaleN, okScale := checkedMulInt(w.OutDim, w.Groups)
+	packedN, okPacked := checked.MulInt(w.OutDim, w.InDim/8)
+	scaleN, okScale := checked.MulInt(w.OutDim, w.Groups)
 	if !okPacked || !okScale {
 		return nil, false
 	}
@@ -395,8 +396,8 @@ func GemmMLX(out, input *DevBuf, w *GPUMLXWeight, B int) {
 	if !validGPUMLXWeight(w) || input == nil || out == nil || B <= 0 {
 		return
 	}
-	inNeed, okIn := checkedMulInt(B, w.InDim)
-	outNeed, okOut := checkedMulInt(B, w.OutDim)
+	inNeed, okIn := checked.MulInt(B, w.InDim)
+	outNeed, okOut := checked.MulInt(B, w.OutDim)
 	if !okIn || !okOut || input.n < inNeed || out.n < outNeed {
 		return
 	}
@@ -433,8 +434,8 @@ func gemmMLXCPU(out, input *DevBuf, w *GPUMLXWeight, B int) {
 	if !validGPUMLXWeight(w) || input == nil || out == nil || B <= 0 {
 		return
 	}
-	inNeed, okIn := checkedMulInt(B, w.InDim)
-	outNeed, okOut := checkedMulInt(B, w.OutDim)
+	inNeed, okIn := checked.MulInt(B, w.InDim)
+	outNeed, okOut := checked.MulInt(B, w.OutDim)
 	if !okIn || !okOut || input.n < inNeed || out.n < outNeed {
 		return
 	}

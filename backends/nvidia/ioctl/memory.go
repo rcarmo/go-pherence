@@ -5,6 +5,7 @@ package nv
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -189,7 +190,7 @@ func (buf *NVBuffer) Upload(data []float32) error {
 	if buf.cpuAddr == 0 || buf.cpuMem == nil {
 		return fmt.Errorf("buffer not CPU-mapped")
 	}
-	bytes, ok := checkedMulInt(len(data), 4)
+	bytes, ok := checked.MulInt(len(data), 4)
 	if !ok || uint64(bytes) > buf.size || bytes > len(buf.cpuMem) {
 		return fmt.Errorf("data too large: %d > %d", bytes, buf.size)
 	}
@@ -210,7 +211,7 @@ func (buf *NVBuffer) Download(data []float32) error {
 	if buf.cpuMem == nil {
 		return fmt.Errorf("buffer not CPU-mapped")
 	}
-	bytes, ok := checkedMulInt(len(data), 4)
+	bytes, ok := checked.MulInt(len(data), 4)
 	if !ok || uint64(bytes) > buf.size || bytes > len(buf.cpuMem) {
 		return fmt.Errorf("destination too large: %d > %d", bytes, buf.size)
 	}

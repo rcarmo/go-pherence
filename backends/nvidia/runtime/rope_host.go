@@ -1,6 +1,9 @@
 package nvidia
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 // F32RoPE applies rotary position embedding to one or more row-major F32 heads
 // through the existing NVIDIA RoPEPartial kernel. cos and sin are separate
@@ -9,9 +12,9 @@ func F32RoPE(x []float32, cos, sin []float32, pos, nHeads, headDim int) error {
 	if pos < 0 || nHeads <= 0 || headDim <= 0 || headDim%2 != 0 {
 		return fmt.Errorf("invalid F32 RoPE dims pos=%d heads=%d headDim=%d", pos, nHeads, headDim)
 	}
-	total, okTotal := checkedMulInt(nHeads, headDim)
+	total, okTotal := checked.MulInt(nHeads, headDim)
 	half := headDim / 2
-	needTable, okNeed := checkedMulInt(pos+1, half)
+	needTable, okNeed := checked.MulInt(pos+1, half)
 	if !okTotal || !okNeed || len(x) < total || len(cos) < needTable || len(sin) < needTable {
 		return fmt.Errorf("invalid F32 RoPE buffers x=%d cos=%d sin=%d need x=%d table=%d", len(x), len(cos), len(sin), total, needTable)
 	}

@@ -1,6 +1,7 @@
 package bert
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 	"os"
 	"testing"
@@ -68,14 +69,14 @@ func TestForwardGTESmall(t *testing.T) {
 }
 
 func TestCheckedMulInt(t *testing.T) {
-	if got, ok := checkedMulInt(4, 7); !ok || got != 28 {
-		t.Fatalf("checkedMulInt(4,7)=%d,%v want 28,true", got, ok)
+	if got, ok := checked.MulInt(4, 7); !ok || got != 28 {
+		t.Fatalf("checked.MulInt(4,7)=%d,%v want 28,true", got, ok)
 	}
-	if _, ok := checkedMulInt(-1, 7); ok {
+	if _, ok := checked.MulInt(-1, 7); ok {
 		t.Fatal("checkedMulInt accepted negative lhs")
 	}
 	maxInt := int(^uint(0) >> 1)
-	if _, ok := checkedMulInt(maxInt/2+1, 3); ok {
+	if _, ok := checked.MulInt(maxInt/2+1, 3); ok {
 		t.Fatal("checkedMulInt accepted overflow")
 	}
 }

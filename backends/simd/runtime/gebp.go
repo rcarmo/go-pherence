@@ -1,6 +1,7 @@
 package simd
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"unsafe"
 )
 
@@ -145,9 +146,9 @@ func validPackBNTArgs(b []float32, ldb, jj, nr, k int, bp []float32) bool {
 	if ldb <= 0 || jj < 0 || nr <= 0 || nr > gebpNR || k <= 0 {
 		return false
 	}
-	bpLen, okBP := checkedMulInt(k, gebpNR)
+	bpLen, okBP := checked.MulInt(k, gebpNR)
 	lastRow, okRow := checkedAddInt(jj, nr-1)
-	rowOff, okOff := checkedMulInt(lastRow, ldb)
+	rowOff, okOff := checked.MulInt(lastRow, ldb)
 	needB, okNeed := checkedAddInt(rowOff, k)
 	if !okBP || !okRow || !okOff || !okNeed {
 		return false

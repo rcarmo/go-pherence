@@ -1,6 +1,9 @@
 package q4
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 func ValidateGemv(out, x []float32, qweight, qzeros, gIdx []int32, scales []float32, inDim, outDim int, sym bool) error {
 	if err := Validate(qweight, qzeros, gIdx, scales, inDim, outDim, sym); err != nil {
@@ -36,10 +39,10 @@ func Validate(qweight, qzeros, gIdx []int32, scales []float32, inFeatures, outFe
 	if !sym && outFeatures%8 != 0 {
 		return fmt.Errorf("GPTQ outFeatures=%d is not divisible by 8 for qzeros", outFeatures)
 	}
-	if _, ok := checkedMulInt(inFeatures, outFeatures); !ok {
+	if _, ok := checked.MulInt(inFeatures, outFeatures); !ok {
 		return fmt.Errorf("GPTQ output size overflows for in=%d out=%d", inFeatures, outFeatures)
 	}
-	wantQWeight, ok := checkedMulInt(inFeatures/8, outFeatures)
+	wantQWeight, ok := checked.MulInt(inFeatures/8, outFeatures)
 	if !ok {
 		return fmt.Errorf("GPTQ qweight size overflows for in=%d out=%d", inFeatures, outFeatures)
 	}
@@ -64,7 +67,7 @@ func Validate(qweight, qzeros, gIdx []int32, scales []float32, inFeatures, outFe
 		return fmt.Errorf("GPTQ g_idx has no groups")
 	}
 
-	wantScales, ok := checkedMulInt(maxGroup+1, outFeatures)
+	wantScales, ok := checked.MulInt(maxGroup+1, outFeatures)
 	if !ok {
 		return fmt.Errorf("GPTQ scales size overflows for %d groups and out=%d", maxGroup+1, outFeatures)
 	}
@@ -72,7 +75,7 @@ func Validate(qweight, qzeros, gIdx []int32, scales []float32, inFeatures, outFe
 		return fmt.Errorf("GPTQ scales length=%d, expected at least %d for %d groups", len(scales), wantScales, maxGroup+1)
 	}
 	if !sym {
-		wantQZeros, ok := checkedMulInt(maxGroup+1, outFeatures/8)
+		wantQZeros, ok := checked.MulInt(maxGroup+1, outFeatures/8)
 		if !ok {
 			return fmt.Errorf("GPTQ qzeros size overflows for %d groups and out=%d", maxGroup+1, outFeatures)
 		}
@@ -81,15 +84,4 @@ func Validate(qweight, qzeros, gIdx []int32, scales []float32, inFeatures, outFe
 		}
 	}
 	return nil
-}
-
-func checkedMulInt(a, b int) (int, bool) {
-	if a < 0 || b < 0 {
-		return 0, false
-	}
-	maxInt := int(^uint(0) >> 1)
-	if b != 0 && a > maxInt/b {
-		return 0, false
-	}
-	return a * b, true
 }

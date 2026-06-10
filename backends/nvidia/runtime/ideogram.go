@@ -2,6 +2,7 @@ package nvidia
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"sync"
 	"unsafe"
 )
@@ -103,7 +104,7 @@ func IdeogramLayerNormNoAffineBuffer(out, x *Buffer, rows, cols int, eps float32
 	if fnIdeogramLayerNormNoAffineF32 == 0 || !megaModuleOK || out == nil || x == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
 		return fmt.Errorf("invalid Ideogram LayerNorm device buffers")
 	}
-	n, ok := checkedMulInt(rows, cols)
+	n, ok := checked.MulInt(rows, cols)
 	if !ok {
 		return fmt.Errorf("Ideogram LayerNorm element count overflow rows=%d cols=%d", rows, cols)
 	}
@@ -129,7 +130,7 @@ func IdeogramRMSNormRowsBuffer(out, x, weight, scale *Buffer, rows, cols int, ep
 	if fnIdeogramRMSNormRowsF32 == 0 || !megaModuleOK || out == nil || x == nil || weight == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
 		return fmt.Errorf("invalid Ideogram RMSNorm rows device buffers")
 	}
-	n, ok := checkedMulInt(rows, cols)
+	n, ok := checked.MulInt(rows, cols)
 	if !ok {
 		return fmt.Errorf("Ideogram RMSNorm rows size overflow")
 	}
@@ -163,7 +164,7 @@ func IdeogramRMSNormRowsBuffer(out, x, weight, scale *Buffer, rows, cols int, ep
 }
 
 func IdeogramRMSNormRows(out, x, weight, scale []float32, rows, cols int, eps float32) error {
-	n, ok := checkedMulInt(rows, cols)
+	n, ok := checked.MulInt(rows, cols)
 	if !ok || rows <= 0 || cols <= 0 || len(out) < n || len(x) < n || len(weight) < cols {
 		return fmt.Errorf("invalid Ideogram RMSNorm rows host buffers out=%d/%d x=%d/%d weight=%d/%d", len(out), n, len(x), n, len(weight), cols)
 	}
@@ -208,7 +209,7 @@ func IdeogramRMSNormRows(out, x, weight, scale []float32, rows, cols int, eps fl
 // temporary device buffers. It is intended for correctness validation and early
 // model wiring before the full Ideogram graph is GPU-resident.
 func IdeogramLayerNormNoAffine(out, x []float32, rows, cols int, eps float32) error {
-	n, ok := checkedMulInt(rows, cols)
+	n, ok := checked.MulInt(rows, cols)
 	if !ok || rows <= 0 || cols <= 0 || len(out) < n || len(x) < n {
 		return fmt.Errorf("invalid Ideogram LayerNorm host buffers out=%d/%d x=%d/%d", len(out), n, len(x), n)
 	}
@@ -360,7 +361,7 @@ func IdeogramAdaLNTransformBuffer(mod *Buffer, emb int) error {
 	if fnIdeogramAdaLNTransformF32 == 0 || !megaModuleOK || mod == nil || emb <= 0 || !fitsUint32(emb) {
 		return fmt.Errorf("invalid Ideogram adaLN transform device buffer")
 	}
-	need, ok := checkedMulInt(4, emb)
+	need, ok := checked.MulInt(4, emb)
 	if !ok {
 		return fmt.Errorf("Ideogram adaLN transform size overflow emb=%d", emb)
 	}
@@ -380,7 +381,7 @@ func IdeogramAdaLNTransformBuffer(mod *Buffer, emb int) error {
 // GPU storage. It is an early wiring/correctness wrapper before DiT blocks keep
 // adaLN tensors GPU-resident.
 func IdeogramAdaLNTransform(mod []float32, emb int) error {
-	need, ok := checkedMulInt(4, emb)
+	need, ok := checked.MulInt(4, emb)
 	if !ok || emb <= 0 || len(mod) < need {
 		return fmt.Errorf("invalid Ideogram adaLN transform host buffer len=%d want=%d", len(mod), need)
 	}
@@ -477,7 +478,7 @@ func IdeogramGatedResidualRowsBuffer(hidden, update, gate *Buffer, rows, cols in
 	if fnIdeogramGatedResidualRowsF32 == 0 || !megaModuleOK || hidden == nil || update == nil || gate == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
 		return fmt.Errorf("invalid Ideogram gated residual rows device buffers")
 	}
-	n, ok := checkedMulInt(rows, cols)
+	n, ok := checked.MulInt(rows, cols)
 	if !ok {
 		return fmt.Errorf("Ideogram gated residual rows size overflow")
 	}
@@ -502,7 +503,7 @@ func IdeogramGatedResidualRowsBuffer(hidden, update, gate *Buffer, rows, cols in
 // IdeogramGatedResidualRows computes hidden[row,col] += gate[col] * update[row,col]
 // through temporary device buffers. Hidden is downloaded back in-place.
 func IdeogramGatedResidualRows(hidden, update, gate []float32, rows, cols int) error {
-	n, ok := checkedMulInt(rows, cols)
+	n, ok := checked.MulInt(rows, cols)
 	if !ok || rows <= 0 || cols <= 0 || len(hidden) < n || len(update) < n || len(gate) < cols {
 		return fmt.Errorf("invalid Ideogram gated residual rows host buffers hidden=%d/%d update=%d/%d gate=%d/%d", len(hidden), n, len(update), n, len(gate), cols)
 	}
@@ -540,12 +541,12 @@ func IdeogramMRoPEBuffer(x, cosBuf, sinBuf *Buffer, tokens, heads, headDim int) 
 	if fnIdeogramMRoPEF32 == 0 || !megaModuleOK || x == nil || cosBuf == nil || sinBuf == nil || tokens <= 0 || heads <= 0 || headDim <= 0 || headDim%2 != 0 || !fitsUint32(tokens) || !fitsUint32(heads) || !fitsUint32(headDim) {
 		return fmt.Errorf("invalid Ideogram MRoPE device buffers")
 	}
-	xLen, okX := checkedMulInt(tokens, heads)
+	xLen, okX := checked.MulInt(tokens, heads)
 	if okX {
-		xLen, okX = checkedMulInt(xLen, headDim)
+		xLen, okX = checked.MulInt(xLen, headDim)
 	}
 	half := headDim / 2
-	tableLen, okT := checkedMulInt(tokens, half)
+	tableLen, okT := checked.MulInt(tokens, half)
 	if !okX || !okT {
 		return fmt.Errorf("Ideogram MRoPE size overflow tokens=%d heads=%d headDim=%d", tokens, heads, headDim)
 	}
@@ -558,9 +559,9 @@ func IdeogramMRoPEBuffer(x, cosBuf, sinBuf *Buffer, tokens, heads, headDim int) 
 	if _, err := checkedByteSize(tableLen, sinBuf.Size); err != nil {
 		return fmt.Errorf("invalid Ideogram MRoPE sin buffer: %w", err)
 	}
-	totalPairs, okPairs := checkedMulInt(tokens, heads)
+	totalPairs, okPairs := checked.MulInt(tokens, heads)
 	if okPairs {
-		totalPairs, okPairs = checkedMulInt(totalPairs, half)
+		totalPairs, okPairs = checked.MulInt(totalPairs, half)
 	}
 	if !okPairs || !fitsUint32(totalPairs) {
 		return fmt.Errorf("Ideogram MRoPE pair count overflow")
@@ -580,12 +581,12 @@ func IdeogramMRoPEBuffer(x, cosBuf, sinBuf *Buffer, tokens, heads, headDim int) 
 // IdeogramMRoPE applies precomputed MRoPE tables through temporary GPU buffers.
 // It is a correctness/wiring wrapper for current CPU-slice DiT execution.
 func IdeogramMRoPE(x, cosTable, sinTable []float32, tokens, heads, headDim int) error {
-	xLen, okX := checkedMulInt(tokens, heads)
+	xLen, okX := checked.MulInt(tokens, heads)
 	if okX {
-		xLen, okX = checkedMulInt(xLen, headDim)
+		xLen, okX = checked.MulInt(xLen, headDim)
 	}
 	half := headDim / 2
-	tableLen, okT := checkedMulInt(tokens, half)
+	tableLen, okT := checked.MulInt(tokens, half)
 	if !okX || !okT || tokens <= 0 || heads <= 0 || headDim <= 0 || headDim%2 != 0 || len(x) < xLen || len(cosTable) < tableLen || len(sinTable) < tableLen {
 		return fmt.Errorf("invalid Ideogram MRoPE host buffers x=%d/%d cos=%d/%d sin=%d/%d", len(x), xLen, len(cosTable), tableLen, len(sinTable), tableLen)
 	}
@@ -633,7 +634,7 @@ func SoftmaxRowsBuffer(out, in *Buffer, rows, cols int) error {
 	if softmaxRowsFn == 0 || !megaModuleOK || out == nil || in == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) || cols > 2048 {
 		return fmt.Errorf("invalid row softmax device buffers")
 	}
-	total, ok := checkedMulInt(rows, cols)
+	total, ok := checked.MulInt(rows, cols)
 	if !ok {
 		return fmt.Errorf("row softmax size overflow rows=%d cols=%d", rows, cols)
 	}
@@ -652,11 +653,11 @@ func IdeogramSplitQKVBuffer(qkv, q, k, v *Buffer, tokens, emb int) error {
 	if fnIdeogramSplitQKVF32 == 0 || !megaModuleOK || qkv == nil || q == nil || k == nil || v == nil || tokens <= 0 || emb <= 0 || !fitsUint32(tokens) || !fitsUint32(emb) {
 		return fmt.Errorf("invalid Ideogram split QKV device buffers")
 	}
-	outLen, ok := checkedMulInt(tokens, emb)
+	outLen, ok := checked.MulInt(tokens, emb)
 	if !ok {
 		return fmt.Errorf("Ideogram split QKV output size overflow")
 	}
-	qkvLen, ok := checkedMulInt(outLen, 3)
+	qkvLen, ok := checked.MulInt(outLen, 3)
 	if !ok {
 		return fmt.Errorf("Ideogram split QKV input size overflow")
 	}
@@ -681,13 +682,13 @@ func IdeogramAttentionScoresBuffer(scores, q, k *Buffer, tokens, heads, headDim 
 	if fnIdeogramAttentionScoresF32 == 0 || !megaModuleOK || scores == nil || q == nil || k == nil || tokens <= 0 || heads <= 0 || headDim <= 0 || !fitsUint32(tokens) || !fitsUint32(heads) || !fitsUint32(headDim) {
 		return fmt.Errorf("invalid Ideogram attention score device buffers")
 	}
-	qLen, okQ := checkedMulInt(tokens, heads)
+	qLen, okQ := checked.MulInt(tokens, heads)
 	if okQ {
-		qLen, okQ = checkedMulInt(qLen, headDim)
+		qLen, okQ = checked.MulInt(qLen, headDim)
 	}
-	scoreLen, okS := checkedMulInt(heads, tokens)
+	scoreLen, okS := checked.MulInt(heads, tokens)
 	if okS {
-		scoreLen, okS = checkedMulInt(scoreLen, tokens)
+		scoreLen, okS = checked.MulInt(scoreLen, tokens)
 	}
 	if !okQ || !okS || !fitsUint32(scoreLen) {
 		return fmt.Errorf("Ideogram attention score size overflow")
@@ -781,13 +782,13 @@ func IdeogramAttentionValuesBuffer(out, probs, v *Buffer, tokens, heads, headDim
 	if fnIdeogramAttentionValuesF32 == 0 || !megaModuleOK || out == nil || probs == nil || v == nil || tokens <= 0 || heads <= 0 || headDim <= 0 || !fitsUint32(tokens) || !fitsUint32(heads) || !fitsUint32(headDim) {
 		return fmt.Errorf("invalid Ideogram attention value device buffers")
 	}
-	outLen, okOut := checkedMulInt(tokens, heads)
+	outLen, okOut := checked.MulInt(tokens, heads)
 	if okOut {
-		outLen, okOut = checkedMulInt(outLen, headDim)
+		outLen, okOut = checked.MulInt(outLen, headDim)
 	}
-	probLen, okP := checkedMulInt(heads, tokens)
+	probLen, okP := checked.MulInt(heads, tokens)
 	if okP {
-		probLen, okP = checkedMulInt(probLen, tokens)
+		probLen, okP = checked.MulInt(probLen, tokens)
 	}
 	if !okOut || !okP || !fitsUint32(outLen) {
 		return fmt.Errorf("Ideogram attention value size overflow")
@@ -816,13 +817,13 @@ func IdeogramAttentionValuesBuffer(out, probs, v *Buffer, tokens, heads, headDim
 // IdeogramFullAttention computes full non-causal attention for token-major
 // [tokens, heads, headDim] Q/K/V through temporary device buffers.
 func IdeogramFullAttention(out, q, k, v []float32, tokens, heads, headDim int, scale float32) error {
-	outLen, okOut := checkedMulInt(tokens, heads)
+	outLen, okOut := checked.MulInt(tokens, heads)
 	if okOut {
-		outLen, okOut = checkedMulInt(outLen, headDim)
+		outLen, okOut = checked.MulInt(outLen, headDim)
 	}
-	scoreLen, okS := checkedMulInt(heads, tokens)
+	scoreLen, okS := checked.MulInt(heads, tokens)
 	if okS {
-		scoreLen, okS = checkedMulInt(scoreLen, tokens)
+		scoreLen, okS = checked.MulInt(scoreLen, tokens)
 	}
 	if !okOut || !okS || tokens <= 0 || heads <= 0 || headDim <= 0 || len(out) < outLen || len(q) < outLen || len(k) < outLen || len(v) < outLen {
 		return fmt.Errorf("invalid Ideogram full attention host buffers out=%d/%d q=%d k=%d v=%d", len(out), outLen, len(q), len(k), len(v))
@@ -1126,10 +1127,10 @@ func IdeogramRGBClamp(out, in []float32, hw int) error {
 // IdeogramUpsampleNearestBuffer upsamples a GPU-resident CHW F32 feature map.
 func IdeogramUpsampleNearestBuffer(outBuf, inBuf *Buffer, c, h, w, factor int) error {
 	loadMegaModule()
-	inN, okIn := checkedMulInt(c, h*w)
-	outH, okH := checkedMulInt(h, factor)
-	outW, okW := checkedMulInt(w, factor)
-	outN, okOut := checkedMulInt(c, outH*outW)
+	inN, okIn := checked.MulInt(c, h*w)
+	outH, okH := checked.MulInt(h, factor)
+	outW, okW := checked.MulInt(w, factor)
+	outN, okOut := checked.MulInt(c, outH*outW)
 	if fnIdeogramUpsampleNearestF32 == 0 || !megaModuleOK || outBuf == nil || inBuf == nil || c <= 0 || h <= 0 || w <= 0 || factor <= 0 || !fitsUint32(c) || !fitsUint32(h) || !fitsUint32(w) || !fitsUint32(factor) || !okIn || !okH || !okW || !okOut || !fitsUint32(outN) {
 		return fmt.Errorf("invalid Ideogram upsample device dims c=%d h=%d w=%d factor=%d", c, h, w, factor)
 	}
@@ -1154,10 +1155,10 @@ func IdeogramUpsampleNearest(out, in []float32, c, h, w, factor int) error {
 	if fnIdeogramUpsampleNearestF32 == 0 || !megaModuleOK || c <= 0 || h <= 0 || w <= 0 || factor <= 0 || !fitsUint32(c) || !fitsUint32(h) || !fitsUint32(w) || !fitsUint32(factor) {
 		return fmt.Errorf("invalid Ideogram upsample dims c=%d h=%d w=%d factor=%d", c, h, w, factor)
 	}
-	inN, okIn := checkedMulInt(c, h*w)
-	outH, okH := checkedMulInt(h, factor)
-	outW, okW := checkedMulInt(w, factor)
-	outN, okOut := checkedMulInt(c, outH*outW)
+	inN, okIn := checked.MulInt(c, h*w)
+	outH, okH := checked.MulInt(h, factor)
+	outW, okW := checked.MulInt(w, factor)
+	outN, okOut := checked.MulInt(c, outH*outW)
 	if !okIn || !okH || !okW || !okOut || len(in) < inN || len(out) < outN || !fitsUint32(outN) {
 		return fmt.Errorf("invalid Ideogram upsample buffers out=%d/%d in=%d/%d", len(out), outN, len(in), inN)
 	}
@@ -1179,11 +1180,11 @@ func IdeogramUpsampleNearest(out, in []float32, c, h, w, factor int) error {
 // IdeogramUnpatchify converts token-major patchified latents to a CHW F32 map.
 func IdeogramUnpatchify(out, tokens []float32, gridH, gridW, inChannels, latentChannels, patchH, patchW int) error {
 	loadMegaModule()
-	H, okH := checkedMulInt(gridH, patchH)
-	W, okW := checkedMulInt(gridW, patchW)
-	HW, okHW := checkedMulInt(H, W)
-	outN, okOut := checkedMulInt(latentChannels, HW)
-	tokN, okTok := checkedMulInt(gridH*gridW, inChannels)
+	H, okH := checked.MulInt(gridH, patchH)
+	W, okW := checked.MulInt(gridW, patchW)
+	HW, okHW := checked.MulInt(H, W)
+	outN, okOut := checked.MulInt(latentChannels, HW)
+	tokN, okTok := checked.MulInt(gridH*gridW, inChannels)
 	if fnIdeogramUnpatchifyF32 == 0 || !megaModuleOK || gridH <= 0 || gridW <= 0 || inChannels <= 0 || latentChannels <= 0 || patchH <= 0 || patchW <= 0 || !okH || !okW || !okHW || !okOut || !okTok || len(out) < outN || len(tokens) < tokN || !fitsUint32(gridH) || !fitsUint32(gridW) || !fitsUint32(inChannels) || !fitsUint32(latentChannels) || !fitsUint32(patchH) || !fitsUint32(patchW) || !fitsUint32(outN) {
 		return fmt.Errorf("invalid Ideogram unpatchify buffers out=%d/%d tokens=%d/%d", len(out), outN, len(tokens), tokN)
 	}
@@ -1216,8 +1217,8 @@ func IdeogramUnpatchify(out, tokens []float32, gridH, gridW, inChannels, latentC
 // GPU-resident buffers.
 func IdeogramGroupNormBuffer(outBuf, inBuf, gBuf, bBuf *Buffer, c, h, w, groups int, eps float32) error {
 	loadMegaModule()
-	hw, okHW := checkedMulInt(h, w)
-	n, okN := checkedMulInt(c, hw)
+	hw, okHW := checked.MulInt(h, w)
+	n, okN := checked.MulInt(c, hw)
 	if fnIdeogramGroupNormF32 == 0 || !megaModuleOK || outBuf == nil || inBuf == nil || gBuf == nil || bBuf == nil || c <= 0 || h <= 0 || w <= 0 || groups <= 0 || c%groups != 0 || !okHW || !okN || !fitsUint32(c) || !fitsUint32(hw) || !fitsUint32(groups) {
 		return fmt.Errorf("invalid Ideogram GroupNorm device buffers c=%d h=%d w=%d groups=%d", c, h, w, groups)
 	}
@@ -1242,8 +1243,8 @@ func IdeogramGroupNormBuffer(outBuf, inBuf, gBuf, bBuf *Buffer, c, h, w, groups 
 // NVIDIA kernel.
 func IdeogramGroupNorm(out, in, gamma, beta []float32, c, h, w, groups int, eps float32) error {
 	loadMegaModule()
-	hw, okHW := checkedMulInt(h, w)
-	n, okN := checkedMulInt(c, hw)
+	hw, okHW := checked.MulInt(h, w)
+	n, okN := checked.MulInt(c, hw)
 	if fnIdeogramGroupNormF32 == 0 || !megaModuleOK || c <= 0 || h <= 0 || w <= 0 || groups <= 0 || c%groups != 0 || !okHW || !okN || len(out) < n || len(in) < n || len(gamma) < c || len(beta) < c || !fitsUint32(c) || !fitsUint32(hw) || !fitsUint32(groups) {
 		return fmt.Errorf("invalid Ideogram GroupNorm buffers out=%d/%d in=%d/%d c=%d h=%d w=%d groups=%d", len(out), n, len(in), n, c, h, w, groups)
 	}
@@ -1272,10 +1273,10 @@ func IdeogramGroupNorm(out, in, gamma, beta []float32, c, h, w, groups int, eps 
 // on GPU-resident buffers.
 func IdeogramConv2DBuffer(outBuf, inBuf, wBuf, bBuf *Buffer, outC, inC, h, w, kh, kw int, hasBias bool) error {
 	loadMegaModule()
-	hw, okHW := checkedMulInt(h, w)
-	outN, okOut := checkedMulInt(outC, hw)
-	inN, okIn := checkedMulInt(inC, hw)
-	kN, okK := checkedMulInt(outC, inC*kh*kw)
+	hw, okHW := checked.MulInt(h, w)
+	outN, okOut := checked.MulInt(outC, hw)
+	inN, okIn := checked.MulInt(inC, hw)
+	kN, okK := checked.MulInt(outC, inC*kh*kw)
 	hb := uint32(0)
 	if hasBias {
 		hb = 1
@@ -1310,10 +1311,10 @@ func IdeogramConv2DBuffer(outBuf, inBuf, wBuf, bBuf *Buffer, outC, inC, h, w, kh
 // the NVIDIA direct-convolution kernel.
 func IdeogramConv2D(out, in, weight, bias []float32, outC, inC, h, w, kh, kw int) error {
 	loadMegaModule()
-	hw, okHW := checkedMulInt(h, w)
-	outN, okOut := checkedMulInt(outC, hw)
-	inN, okIn := checkedMulInt(inC, hw)
-	kN, okK := checkedMulInt(outC, inC*kh*kw)
+	hw, okHW := checked.MulInt(h, w)
+	outN, okOut := checked.MulInt(outC, hw)
+	inN, okIn := checked.MulInt(inC, hw)
+	kN, okK := checked.MulInt(outC, inC*kh*kw)
 	hasBias := 0
 	if bias != nil {
 		hasBias = 1

@@ -7,13 +7,14 @@ package nvidia
 // This is much faster than SGEMM for N=1 (vector) cases.
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"unsafe"
 )
 
 // DevLMHead computes logits[vocab] = W[vocab,h] · x[h]
 // Uses a dedicated kernel optimized for large M (vocab) and small N (1).
 func DevLMHead(logits, x, W *DevBuf, vocab, h int) {
-	weightLen, ok := checkedMulInt(vocab, h)
+	weightLen, ok := checked.MulInt(vocab, h)
 	if logits == nil || x == nil || W == nil || vocab <= 0 || h <= 0 || !ok || logits.n < vocab || x.n < h || W.n < weightLen {
 		return
 	}

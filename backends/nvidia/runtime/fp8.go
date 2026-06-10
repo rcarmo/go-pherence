@@ -2,6 +2,7 @@ package nvidia
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"os"
 	"strings"
 	"sync"
@@ -61,7 +62,7 @@ func UploadFP8E4M3LinearReuse(dst **GPUFP8E4M3Linear, weight []byte, scale []flo
 	}
 	EnsureContext()
 
-	weightBytes, ok := checkedMulInt(outDim, inDim)
+	weightBytes, ok := checked.MulInt(outDim, inDim)
 	if !ok {
 		return fmt.Errorf("FP8 E4M3 weight size overflow out=%d in=%d", outDim, inDim)
 	}
@@ -180,11 +181,11 @@ func GemmFP8E4M3(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
 	if batch <= 0 {
 		return fmt.Errorf("invalid FP8 E4M3 GEMM batch=%d", batch)
 	}
-	inLen, ok := checkedMulInt(batch, w.InDim)
+	inLen, ok := checked.MulInt(batch, w.InDim)
 	if !ok {
 		return fmt.Errorf("FP8 E4M3 GEMM input size overflow batch=%d in=%d", batch, w.InDim)
 	}
-	outLen, ok := checkedMulInt(batch, w.OutDim)
+	outLen, ok := checked.MulInt(batch, w.OutDim)
 	if !ok {
 		return fmt.Errorf("FP8 E4M3 GEMM output size overflow batch=%d out=%d", batch, w.OutDim)
 	}
@@ -221,11 +222,11 @@ func GemmFP8E4M3Buffer(outBuf, xBuf *Buffer, batch int, w *GPUFP8E4M3Linear) err
 	if !validGPUFP8E4M3Linear(w) || outBuf == nil || xBuf == nil {
 		return fmt.Errorf("invalid FP8 E4M3 GEMM device buffers")
 	}
-	inLen, ok := checkedMulInt(batch, w.InDim)
+	inLen, ok := checked.MulInt(batch, w.InDim)
 	if !ok {
 		return fmt.Errorf("FP8 E4M3 GEMM input size overflow")
 	}
-	outLen, ok := checkedMulInt(batch, w.OutDim)
+	outLen, ok := checked.MulInt(batch, w.OutDim)
 	if !ok {
 		return fmt.Errorf("FP8 E4M3 GEMM output size overflow")
 	}
@@ -766,15 +767,15 @@ func Gemm2FP8E4M3SameInput(outA, outB, x []float32, batch int, wA, wB *GPUFP8E4M
 	if wA.InDim != wB.InDim {
 		return fmt.Errorf("FP8 E4M3 GEMM2 input dim mismatch %d != %d", wA.InDim, wB.InDim)
 	}
-	inLen, ok := checkedMulInt(batch, wA.InDim)
+	inLen, ok := checked.MulInt(batch, wA.InDim)
 	if !ok {
 		return fmt.Errorf("FP8 E4M3 GEMM2 input size overflow batch=%d in=%d", batch, wA.InDim)
 	}
-	outALen, ok := checkedMulInt(batch, wA.OutDim)
+	outALen, ok := checked.MulInt(batch, wA.OutDim)
 	if !ok {
 		return fmt.Errorf("FP8 E4M3 GEMM2 output A size overflow")
 	}
-	outBLen, ok := checkedMulInt(batch, wB.OutDim)
+	outBLen, ok := checked.MulInt(batch, wB.OutDim)
 	if !ok {
 		return fmt.Errorf("FP8 E4M3 GEMM2 output B size overflow")
 	}
@@ -1039,7 +1040,7 @@ func validGPUFP8E4M3Linear(w *GPUFP8E4M3Linear) bool {
 	if w == nil || w.Weight == nil || w.Scale == nil || w.OutDim <= 0 || w.InDim <= 0 || (w.ScaleLen != 1 && w.ScaleLen != w.OutDim) {
 		return false
 	}
-	weightBytes, ok := checkedMulInt(w.OutDim, w.InDim)
+	weightBytes, ok := checked.MulInt(w.OutDim, w.InDim)
 	if !ok || w.WeightBytes != weightBytes || !hasPaddedByteCapacity(w.Weight.Size, weightBytes) || w.Scale.Size < w.ScaleLen*4 {
 		return false
 	}

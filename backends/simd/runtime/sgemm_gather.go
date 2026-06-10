@@ -1,6 +1,9 @@
 package simd
 
-import "unsafe"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"unsafe"
+)
 
 // SgemmNTGather computes C += alpha * A * B^T using AVX2 VGATHERDPS.
 // No packing, no horizontal reductions. Gathers 8 B values from 8 rows
@@ -39,7 +42,7 @@ func SgemmNTGather(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Pointer, 
 				mr = m - ii
 			}
 			if nr == NR {
-				bBaseIndex, okBase := checkedMulInt(jj, ldb)
+				bBaseIndex, okBase := checked.MulInt(jj, ldb)
 				bBaseByteOff, okBaseByte := checkedFloat32ByteOffset(bBaseIndex)
 				if !okBase || !okBaseByte {
 					return
@@ -71,7 +74,7 @@ func SgemmNTGather(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Pointer, 
 					for d := 0; d < nr; d++ {
 						sum := float32(0)
 						row, okRow := checkedAddInt(jj, d)
-						rowOff, okOff := checkedMulInt(row, ldb)
+						rowOff, okOff := checked.MulInt(row, ldb)
 						rowByteOff, okByte := checkedFloat32ByteOffset(rowOff)
 						if !okRow || !okOff || !okByte {
 							return

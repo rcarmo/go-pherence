@@ -1,5 +1,7 @@
 package bf16
 
+import "github.com/rcarmo/go-pherence/internal/checked"
+
 // BF16DotF32Checked computes dot(BF16,F32) and reports malformed inputs.
 func BF16DotF32Checked(x []uint16, y []float32) (float32, bool) {
 	if len(x) == 0 || len(y) < len(x) {
@@ -36,7 +38,7 @@ func BF16VecAddChecked(dst, a, b []uint16) bool {
 
 // BF16GemvNTChecked computes mixed BF16/F32 GEMV and reports malformed inputs.
 func BF16GemvNTChecked(out []uint16, x []uint16, w []float32, inDim, outDim int) bool {
-	weightLen, ok := checkedMulInt(inDim, outDim)
+	weightLen, ok := checked.MulInt(inDim, outDim)
 	if inDim <= 0 || outDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(w) < weightLen {
 		return false
 	}

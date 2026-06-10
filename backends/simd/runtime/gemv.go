@@ -1,10 +1,12 @@
 package simd
 
+import "github.com/rcarmo/go-pherence/internal/checked"
+
 // GemvRows computes out[rows] = W[rows,cols] · x[cols], where W is row-major.
 // It is the backend-owned dense F32 GEMV reference used by CPU fallbacks and
 // future optimized dispatch paths.
 func GemvRows(out, x, w []float32, rows, cols int) bool {
-	weightLen, ok := checkedMulInt(rows, cols)
+	weightLen, ok := checked.MulInt(rows, cols)
 	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
 		return false
 	}
@@ -17,7 +19,7 @@ func GemvRows(out, x, w []float32, rows, cols int) bool {
 
 // GemvCols computes out[cols] = x[rows] · W[rows,cols], where W is row-major.
 func GemvCols(out, x, w []float32, rows, cols int) bool {
-	weightLen, ok := checkedMulInt(rows, cols)
+	weightLen, ok := checked.MulInt(rows, cols)
 	if rows <= 0 || cols <= 0 || !ok || len(out) < cols || len(x) < rows || len(w) < weightLen {
 		return false
 	}
@@ -33,9 +35,9 @@ func GemvCols(out, x, w []float32, rows, cols int) bool {
 
 // GemmRows computes out[batch,rows] = x[batch,cols] @ W[rows,cols]^T.
 func GemmRows(out, x, w []float32, batch, rows, cols int) bool {
-	xLen, okX := checkedMulInt(batch, cols)
-	outLen, okOut := checkedMulInt(batch, rows)
-	weightLen, okW := checkedMulInt(rows, cols)
+	xLen, okX := checked.MulInt(batch, cols)
+	outLen, okOut := checked.MulInt(batch, rows)
+	weightLen, okW := checked.MulInt(rows, cols)
 	if batch <= 0 || rows <= 0 || cols <= 0 || !okX || !okOut || !okW || len(out) < outLen || len(x) < xLen || len(w) < weightLen {
 		return false
 	}
@@ -49,9 +51,9 @@ func GemmRows(out, x, w []float32, batch, rows, cols int) bool {
 
 // GemmCols computes out[batch,cols] = x[batch,rows] @ W[rows,cols].
 func GemmCols(out, x, w []float32, batch, rows, cols int) bool {
-	xLen, okX := checkedMulInt(batch, rows)
-	outLen, okOut := checkedMulInt(batch, cols)
-	weightLen, okW := checkedMulInt(rows, cols)
+	xLen, okX := checked.MulInt(batch, rows)
+	outLen, okOut := checked.MulInt(batch, cols)
+	weightLen, okW := checked.MulInt(rows, cols)
 	if batch <= 0 || rows <= 0 || cols <= 0 || !okX || !okOut || !okW || len(out) < outLen || len(x) < xLen || len(w) < weightLen {
 		return false
 	}

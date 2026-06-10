@@ -3,6 +3,7 @@ package mlx
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 )
 
@@ -35,7 +36,7 @@ func LoadWeight(f interface {
 		if shapeOut <= 0 || shapePackedIn <= 0 {
 			return nil, fmt.Errorf("MLX weight invalid shape %v", shape)
 		}
-		shapeIn, ok := checkedMulInt(shapePackedIn, packFactor)
+		shapeIn, ok := checked.MulInt(shapePackedIn, packFactor)
 		if !ok {
 			return nil, fmt.Errorf("MLX weight shape %v overflows inDim with packFactor=%d", shape, packFactor)
 		}
@@ -69,7 +70,7 @@ func LoadWeight(f interface {
 		return nil, fmt.Errorf("MLX weight dtype %s not supported (expected U32/I32)", dtype)
 	}
 
-	expectedN, ok := checkedMulInt(outDim, inDim/packFactor)
+	expectedN, ok := checked.MulInt(outDim, inDim/packFactor)
 	if !ok {
 		return nil, fmt.Errorf("MLX weight expected size overflows out=%d in=%d packFactor=%d", outDim, inDim, packFactor)
 	}
@@ -77,7 +78,7 @@ func LoadWeight(f interface {
 		return nil, fmt.Errorf("MLX weight shape mismatch: got %d, expected %d (%dx%d)", len(weight), expectedN, outDim, inDim/packFactor)
 	}
 
-	expectedScaleN, ok := checkedMulInt(outDim, numGroups)
+	expectedScaleN, ok := checked.MulInt(outDim, numGroups)
 	if !ok {
 		return nil, fmt.Errorf("MLX scale/bias expected size overflows out=%d groups=%d", outDim, numGroups)
 	}
@@ -174,7 +175,7 @@ func validateMLXFloatLen(name string, got int, shape []int, expectedN int) error
 				return fmt.Errorf("%s invalid shape %v", name, shape)
 			}
 			var ok bool
-			shapeN, ok = checkedMulInt(shapeN, d)
+			shapeN, ok = checked.MulInt(shapeN, d)
 			if !ok {
 				return fmt.Errorf("%s shape %v element count overflows", name, shape)
 			}

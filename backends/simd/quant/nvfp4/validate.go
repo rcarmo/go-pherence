@@ -1,6 +1,9 @@
 package nvfp4
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 // ValidateNVFP4Weight checks the observed NVFP4 packed-weight and scale layout.
 func ValidateNVFP4Weight(qw *NVFP4Weight) error {
@@ -16,11 +19,11 @@ func ValidateNVFP4Weight(qw *NVFP4Weight) error {
 	if qw.InDim%qw.GroupSize != 0 || qw.Groups != qw.InDim/qw.GroupSize {
 		return fmt.Errorf("NVFP4 group layout mismatch inDim=%d groupSize=%d groups=%d", qw.InDim, qw.GroupSize, qw.Groups)
 	}
-	wantWeight, ok := checkedMulInt(qw.OutDim, qw.InDim/2)
+	wantWeight, ok := checked.MulInt(qw.OutDim, qw.InDim/2)
 	if !ok {
 		return fmt.Errorf("NVFP4 weight size overflows out=%d in=%d", qw.OutDim, qw.InDim)
 	}
-	wantScale, ok := checkedMulInt(qw.OutDim, qw.Groups)
+	wantScale, ok := checked.MulInt(qw.OutDim, qw.Groups)
 	if !ok {
 		return fmt.Errorf("NVFP4 scale size overflows out=%d groups=%d", qw.OutDim, qw.Groups)
 	}

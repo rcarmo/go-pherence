@@ -3,6 +3,7 @@ package nvidia
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 	"sync"
 	"unsafe"
@@ -90,16 +91,16 @@ func ValidateNVFP4KernelSpec(spec NVFP4KernelSpec) error {
 	if spec.GroupSize != 16 {
 		return fmt.Errorf("NVFP4 native kernels require groupSize=16, got %d", spec.GroupSize)
 	}
-	if _, ok := checkedMulInt(spec.OutDim, spec.InDim/2); !ok {
+	if _, ok := checked.MulInt(spec.OutDim, spec.InDim/2); !ok {
 		return fmt.Errorf("NVFP4 packed weight bytes overflow out=%d in=%d", spec.OutDim, spec.InDim)
 	}
-	if _, ok := checkedMulInt(spec.OutDim, spec.Groups); !ok {
+	if _, ok := checked.MulInt(spec.OutDim, spec.Groups); !ok {
 		return fmt.Errorf("NVFP4 scale bytes overflow out=%d groups=%d", spec.OutDim, spec.Groups)
 	}
-	if _, ok := checkedMulInt(spec.Batch, spec.InDim); !ok {
+	if _, ok := checked.MulInt(spec.Batch, spec.InDim); !ok {
 		return fmt.Errorf("NVFP4 input elements overflow batch=%d in=%d", spec.Batch, spec.InDim)
 	}
-	if _, ok := checkedMulInt(spec.Batch, spec.OutDim); !ok {
+	if _, ok := checked.MulInt(spec.Batch, spec.OutDim); !ok {
 		return fmt.Errorf("NVFP4 output elements overflow batch=%d out=%d", spec.Batch, spec.OutDim)
 	}
 	return nil
@@ -353,8 +354,8 @@ func GemmNVFP4(out, x []float32, batch int, w *GPUNVFP4Weight) error {
 	if err := ValidateNVFP4KernelSpec(spec); err != nil {
 		return err
 	}
-	xLen, okX := checkedMulInt(batch, w.InDim)
-	outLen, okOut := checkedMulInt(batch, w.OutDim)
+	xLen, okX := checked.MulInt(batch, w.InDim)
+	outLen, okOut := checked.MulInt(batch, w.OutDim)
 	if !okX || !okOut || len(x) < xLen || len(out) < outLen {
 		return fmt.Errorf("invalid NVFP4 GEMM buffers out=%d/%d x=%d/%d", len(out), outLen, len(x), xLen)
 	}
@@ -523,7 +524,7 @@ func gemvNVFP4CUDA(out, x []float32, w *GPUNVFP4Weight) error {
 }
 
 func gemvNVFP4F32(out, x []float32, outDim, inDim int, weights []float32) error {
-	wantWeights, ok := checkedMulInt(outDim, inDim)
+	wantWeights, ok := checked.MulInt(outDim, inDim)
 	if outDim <= 0 || inDim <= 0 || !ok || len(out) < outDim || len(x) < inDim || len(weights) < wantWeights {
 		return fmt.Errorf("invalid NVFP4 F32 GEMV buffers out=%d/%d x=%d/%d weights=%d/%d", len(out), outDim, len(x), inDim, len(weights), wantWeights)
 	}
@@ -545,7 +546,7 @@ func dequantNVFP4ToF32CUDA(w *GPUNVFP4Weight) ([]float32, bool) {
 		return nil, false
 	}
 	defer outBuf.Free()
-	outLen, _ := checkedMulInt(w.OutDim, w.InDim)
+	outLen, _ := checked.MulInt(w.OutDim, w.InDim)
 	out := make([]float32, outLen)
 	if err := outBuf.Download(out); err != nil {
 		debugf("[gpu] NVFP4 CUDA dequant download fallback: %v\n", err)
@@ -558,7 +559,7 @@ func dequantNVFP4ToF32GPU(w *GPUNVFP4Weight) (*Buffer, error) {
 	if fnNVFP4DequantF32 == 0 || !megaModuleOK {
 		return nil, fmt.Errorf("NVFP4 dequant kernel not available")
 	}
-	outLen, ok := checkedMulInt(w.OutDim, w.InDim)
+	outLen, ok := checked.MulInt(w.OutDim, w.InDim)
 	if !ok || !fitsUint32(outLen) || !fitsUint32(w.InDim) || !fitsUint32(w.GroupSize) {
 		return nil, fmt.Errorf("invalid NVFP4 dequant dims out=%d in=%d group=%d", w.OutDim, w.InDim, w.GroupSize)
 	}
@@ -602,11 +603,11 @@ func nvfp4RequiredBytes(outDim, inDim, groups int) (int, int, error) {
 	if outDim <= 0 || inDim <= 0 || groups <= 0 || inDim%2 != 0 {
 		return 0, 0, fmt.Errorf("invalid NVFP4 byte dims out=%d in=%d groups=%d", outDim, inDim, groups)
 	}
-	weightBytes, ok := checkedMulInt(outDim, inDim/2)
+	weightBytes, ok := checked.MulInt(outDim, inDim/2)
 	if !ok {
 		return 0, 0, fmt.Errorf("NVFP4 weight byte size overflows out=%d in=%d", outDim, inDim)
 	}
-	scaleBytes, ok := checkedMulInt(outDim, groups)
+	scaleBytes, ok := checked.MulInt(outDim, groups)
 	if !ok {
 		return 0, 0, fmt.Errorf("NVFP4 scale byte size overflows out=%d groups=%d", outDim, groups)
 	}
@@ -651,7 +652,7 @@ func float32PackedAsBytes(data []float32, n int) []byte {
 	if n <= 0 || len(data) == 0 {
 		return nil
 	}
-	maxBytes, ok := checkedMulInt(len(data), 4)
+	maxBytes, ok := checked.MulInt(len(data), 4)
 	if !ok || n > maxBytes {
 		return nil
 	}

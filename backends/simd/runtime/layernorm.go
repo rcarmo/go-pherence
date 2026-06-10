@@ -1,12 +1,15 @@
 package simd
 
-import "math"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"math"
+)
 
 // LayerNormLastAxisTo writes layer normalization over a row-major [rows, cols]
 // matrix into out. gamma and beta must either both be nil or both contain at
 // least cols values. Inputs are validated before writing.
 func LayerNormLastAxisTo(out, x []float32, rows, cols int, gamma, beta []float32, eps float32) bool {
-	total, ok := checkedMulInt(rows, cols)
+	total, ok := checked.MulInt(rows, cols)
 	if rows <= 0 || cols <= 0 || !ok || len(out) < total || len(x) < total {
 		return false
 	}

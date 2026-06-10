@@ -1,6 +1,7 @@
 package mlx
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"runtime"
 	"sync"
 )
@@ -12,7 +13,7 @@ func Dequant(qw *QuantWeight) []float32 {
 	if err := ValidateQuantWeight(qw); err != nil {
 		return nil
 	}
-	outLen, ok := checkedMulInt(qw.OutDim, qw.InDim)
+	outLen, ok := checked.MulInt(qw.OutDim, qw.InDim)
 	if !ok {
 		return nil
 	}
@@ -30,7 +31,7 @@ func DequantTo(out []float32, qw *QuantWeight) bool {
 	if err := ValidateQuantWeight(qw); err != nil {
 		return false
 	}
-	outLen, ok := checkedMulInt(qw.OutDim, qw.InDim)
+	outLen, ok := checked.MulInt(qw.OutDim, qw.InDim)
 	if !ok || len(out) < outLen {
 		return false
 	}

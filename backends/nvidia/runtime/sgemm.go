@@ -2,6 +2,7 @@ package nvidia
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"sync"
 	"unsafe"
 )
@@ -18,9 +19,9 @@ func Sgemm(M, N, K int, alpha float32, A, B, C *Buffer) error {
 	if M <= 0 || N <= 0 || K <= 0 || A == nil || B == nil || C == nil || A.Ptr == 0 || B.Ptr == 0 || C.Ptr == 0 {
 		return fmt.Errorf("invalid SGEMM inputs M=%d N=%d K=%d", M, N, K)
 	}
-	mk, okMK := checkedMulInt(M, K)
-	kn, okKN := checkedMulInt(K, N)
-	mn, okMN := checkedMulInt(M, N)
+	mk, okMK := checked.MulInt(M, K)
+	kn, okKN := checked.MulInt(K, N)
+	mn, okMN := checked.MulInt(M, N)
 	mkBytes, errMK := checkedByteSize(mk, -1)
 	knBytes, errKN := checkedByteSize(kn, -1)
 	mnBytes, errMN := checkedByteSize(mn, -1)
@@ -61,9 +62,9 @@ func Sgemm(M, N, K int, alpha float32, A, B, C *Buffer) error {
 // Handles upload, compute, download, and cleanup.
 // A is [M,K], B is [K,N], C (output) is [M,N].
 func SgemmHost(M, N, K int, alpha float32, A, B []float32) ([]float32, error) {
-	mk, okMK := checkedMulInt(M, K)
-	kn, okKN := checkedMulInt(K, N)
-	mn, okMN := checkedMulInt(M, N)
+	mk, okMK := checked.MulInt(M, K)
+	kn, okKN := checked.MulInt(K, N)
+	mn, okMN := checked.MulInt(M, N)
 	if M <= 0 || N <= 0 || K <= 0 || !okMK || !okKN || !okMN || len(A) < mk || len(B) < kn {
 		return nil, fmt.Errorf("invalid SGEMM host inputs M=%d N=%d K=%d", M, N, K)
 	}

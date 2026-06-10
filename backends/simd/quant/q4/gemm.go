@@ -1,6 +1,7 @@
 package q4
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"runtime"
 	"sync"
 )
@@ -12,8 +13,8 @@ func Gemm(out, x []float32, batch int, qweight, qzeros, gIdx []int32, scales []f
 	if batch <= 0 {
 		return false
 	}
-	xLen, okX := checkedMulInt(batch, inDim)
-	outLen, okOut := checkedMulInt(batch, outDim)
+	xLen, okX := checked.MulInt(batch, inDim)
+	outLen, okOut := checked.MulInt(batch, outDim)
 	if !okX || !okOut || len(x) < xLen || len(out) < outLen {
 		return false
 	}

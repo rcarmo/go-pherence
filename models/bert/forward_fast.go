@@ -1,6 +1,7 @@
 package bert
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -173,10 +174,10 @@ func mhaInPlace(out, q, k, v, scoresBuf []float32, seqLen, heads, headDim int) {
 	if seqLen <= 0 || heads <= 0 || headDim <= 0 {
 		return
 	}
-	hidden, okHidden := checkedMulInt(heads, headDim)
-	hiddenTotal, okTotal := checkedMulInt(seqLen, hidden)
-	scoresPerHead, okScoresPerHead := checkedMulInt(seqLen, seqLen)
-	scoresTotal, okScoresTotal := checkedMulInt(heads, scoresPerHead)
+	hidden, okHidden := checked.MulInt(heads, headDim)
+	hiddenTotal, okTotal := checked.MulInt(seqLen, hidden)
+	scoresPerHead, okScoresPerHead := checked.MulInt(seqLen, seqLen)
+	scoresTotal, okScoresTotal := checked.MulInt(heads, scoresPerHead)
 	if !okHidden || !okTotal || !okScoresPerHead || !okScoresTotal || len(out) < hiddenTotal || len(q) < hiddenTotal || len(k) < hiddenTotal || len(v) < hiddenTotal || len(scoresBuf) < scoresTotal {
 		return
 	}

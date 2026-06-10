@@ -1,6 +1,9 @@
 package mlx
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 // ValidateQuantWeight checks an in-memory MLX quantized weight before use.
 func ValidateQuantWeight(qw *QuantWeight) error {
@@ -20,11 +23,11 @@ func ValidateQuantWeight(qw *QuantWeight) error {
 	if qw.InDim%qw.GroupSize != 0 || qw.Groups != qw.InDim/qw.GroupSize {
 		return fmt.Errorf("MLX group layout mismatch inDim=%d groupSize=%d groups=%d", qw.InDim, qw.GroupSize, qw.Groups)
 	}
-	wantWeight, ok := checkedMulInt(qw.OutDim, qw.InDim/packFactor)
+	wantWeight, ok := checked.MulInt(qw.OutDim, qw.InDim/packFactor)
 	if !ok {
 		return fmt.Errorf("MLX weight size overflows out=%d in=%d packFactor=%d", qw.OutDim, qw.InDim, packFactor)
 	}
-	wantScale, ok := checkedMulInt(qw.OutDim, qw.Groups)
+	wantScale, ok := checked.MulInt(qw.OutDim, qw.Groups)
 	if !ok {
 		return fmt.Errorf("MLX scale/bias size overflows out=%d groups=%d", qw.OutDim, qw.Groups)
 	}

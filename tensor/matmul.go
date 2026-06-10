@@ -2,6 +2,7 @@ package tensor
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -31,7 +32,7 @@ func (t *Tensor) MatMul(other *Tensor) *Tensor {
 	if k1 != k2 {
 		panic(fmt.Sprintf("matmul: inner dims mismatch: %d vs %d", k1, k2))
 	}
-	outSize, ok := checkedMulInt(m, n)
+	outSize, ok := checked.MulInt(m, n)
 	if !ok {
 		panic("matmul: output shape overflows")
 	}
@@ -82,7 +83,7 @@ func (t *Tensor) MatMulTransposed(other *Tensor) *Tensor {
 	if k != bDims[len(bDims)-1] {
 		panic(fmt.Sprintf("matmul_t: inner dims mismatch: %d vs %d", k, bDims[len(bDims)-1]))
 	}
-	outSize, ok := checkedMulInt(m, n)
+	outSize, ok := checked.MulInt(m, n)
 	if !ok {
 		panic("matmul_t: output shape overflows")
 	}
@@ -144,7 +145,7 @@ func addLinearBias(result, bias *Tensor) {
 	bData := bias.Data()
 	rData := result.Data()
 	m := rDims[0]
-	total, ok := checkedMulInt(m, n)
+	total, ok := checked.MulInt(m, n)
 	if !ok || len(rData) < total || len(bData) < n {
 		panic("linear: invalid backing data")
 	}

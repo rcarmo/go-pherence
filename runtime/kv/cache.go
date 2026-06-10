@@ -1,5 +1,7 @@
 package kv
 
+import "github.com/rcarmo/go-pherence/internal/checked"
+
 // CompressedKVCache wraps a per-layer KV cache with TurboQuant compression.
 // Recent tokens (within the residual window) stay at full precision.
 // Older tokens are compressed on demand.
@@ -82,7 +84,7 @@ func NewCompressedKVCache(kvDim, numKVHeads, headDim int, tq *TurboQuantState, i
 	if rw < 0 {
 		rw = 0
 	}
-	capHint, ok := checkedMulInt(2048, kvDim)
+	capHint, ok := checked.MulInt(2048, kvDim)
 	if !ok {
 		capHint = 0
 	}
@@ -181,7 +183,7 @@ func (c *CompressedKVCache) GetK() []float32 {
 	}
 	if len(c.CompressedK) == 0 {
 		if c.seqLen > 0 {
-			need, ok := checkedMulInt(c.seqLen, c.kvDim)
+			need, ok := checked.MulInt(c.seqLen, c.kvDim)
 			if ok && len(c.FullK) > need {
 				return c.FullK[:need]
 			}
@@ -192,7 +194,7 @@ func (c *CompressedKVCache) GetK() []float32 {
 		return c.FullK
 	}
 	// Decompress + concatenate into reusable scratch storage.
-	need, ok := checkedMulInt(c.seqLen, c.kvDim)
+	need, ok := checked.MulInt(c.seqLen, c.kvDim)
 	if !ok {
 		return c.FullK
 	}
@@ -237,7 +239,7 @@ func (c *CompressedKVCache) GetV() []float32 {
 	}
 	if len(c.CompressedV) == 0 {
 		if c.seqLen > 0 {
-			need, ok := checkedMulInt(c.seqLen, c.kvDim)
+			need, ok := checked.MulInt(c.seqLen, c.kvDim)
 			if ok && len(c.FullV) > need {
 				return c.FullV[:need]
 			}
@@ -247,7 +249,7 @@ func (c *CompressedKVCache) GetV() []float32 {
 	if c.tq == nil || c.numKVHeads <= 0 || c.headDim <= 0 || c.numKVHeads*c.headDim != c.kvDim {
 		return c.FullV
 	}
-	need, ok := checkedMulInt(c.seqLen, c.kvDim)
+	need, ok := checked.MulInt(c.seqLen, c.kvDim)
 	if !ok {
 		return c.FullV
 	}
@@ -328,7 +330,7 @@ func compressedBytesPerHead(headDim, bits int) (int, bool) {
 	if headDim <= 0 || bits <= 0 {
 		return 0, false
 	}
-	payloadBits, ok := checkedMulInt(headDim, bits)
+	payloadBits, ok := checked.MulInt(headDim, bits)
 	if !ok {
 		return 0, false
 	}
@@ -343,19 +345,8 @@ func compressedEntryValid(entry compressedEntry, heads, bytesPerHead int) bool {
 	if heads <= 0 || bytesPerHead <= 0 {
 		return false
 	}
-	packedLen, ok := checkedMulInt(heads, bytesPerHead)
+	packedLen, ok := checked.MulInt(heads, bytesPerHead)
 	return ok && len(entry.Packed) >= packedLen && len(entry.HeadVMin) >= heads && len(entry.HeadScale) >= heads
-}
-
-func checkedMulInt(a, b int) (int, bool) {
-	if a < 0 || b < 0 {
-		return 0, false
-	}
-	maxInt := int(^uint(0) >> 1)
-	if b != 0 && a > maxInt/b {
-		return 0, false
-	}
-	return a * b, true
 }
 
 func checkedAddInt(a, b int) (int, bool) {

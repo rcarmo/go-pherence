@@ -1,6 +1,9 @@
 package simd
 
-import "unsafe"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"unsafe"
+)
 
 // SgemmNTBlockedFMA computes C += alpha * A * B^T with cache-blocked tiling.
 // Go handles the 64×64 block decomposition (keeps B tiles L1-resident).
@@ -24,7 +27,7 @@ func SgemmNTBlockedFMA(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Point
 			if kk+kLen > k {
 				kLen = k - kk
 			}
-			bRowOff, okRow := checkedMulInt(jj, ldb)
+			bRowOff, okRow := checked.MulInt(jj, ldb)
 			bIndex, ok := checkedAddInt(bRowOff, kk)
 			aByteOff, okA := checkedFloat32ByteOffset(kk)
 			bByteOff, okB := checkedFloat32ByteOffset(bIndex)

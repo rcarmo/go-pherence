@@ -1,6 +1,7 @@
 package nvfp4
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"runtime"
 	"sync"
 )
@@ -13,7 +14,7 @@ func DequantNVFP4(qw *NVFP4Weight) []float32 {
 	if err := ValidateNVFP4Weight(qw); err != nil {
 		return nil
 	}
-	outLen, ok := checkedMulInt(qw.OutDim, qw.InDim)
+	outLen, ok := checked.MulInt(qw.OutDim, qw.InDim)
 	if !ok {
 		return nil
 	}
@@ -31,7 +32,7 @@ func DequantNVFP4To(out []float32, qw *NVFP4Weight) bool {
 	if err := ValidateNVFP4Weight(qw); err != nil {
 		return false
 	}
-	outLen, ok := checkedMulInt(qw.OutDim, qw.InDim)
+	outLen, ok := checked.MulInt(qw.OutDim, qw.InDim)
 	if !ok || len(out) < outLen {
 		return false
 	}

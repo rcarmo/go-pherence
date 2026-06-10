@@ -1,5 +1,7 @@
 package nvidia
 
+import "github.com/rcarmo/go-pherence/internal/checked"
+
 // Chunked LM head: processes vocab projection in GPU-sized chunks.
 //
 // When full LM head weights do not fit in VRAM, split into chunks:
@@ -38,7 +40,7 @@ func ChunkedLMHead(logits, hidden, lmHead []float32, vocabSize, h int) bool {
 		chunkRows = vocabSize
 	}
 
-	chunkElems, ok := checkedMulInt(chunkRows, h)
+	chunkElems, ok := checked.MulInt(chunkRows, h)
 	if !ok {
 		return false
 	}

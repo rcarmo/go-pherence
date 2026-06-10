@@ -1,6 +1,7 @@
 package q4
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"runtime"
 	"sync"
 )
@@ -23,7 +24,7 @@ func Dequant(qweight, qzeros, gIdx []int32, scales []float32,
 		return nil
 	}
 
-	outLen, ok := checkedMulInt(outFeatures, inFeatures)
+	outLen, ok := checked.MulInt(outFeatures, inFeatures)
 	if !ok {
 		return nil
 	}
@@ -39,7 +40,7 @@ func DequantTo(out []float32, qweight, qzeros, gIdx []int32, scales []float32,
 	if err := Validate(qweight, qzeros, gIdx, scales, inFeatures, outFeatures, sym); err != nil {
 		return false
 	}
-	outLen, ok := checkedMulInt(outFeatures, inFeatures)
+	outLen, ok := checked.MulInt(outFeatures, inFeatures)
 	if !ok || len(out) < outLen {
 		return false
 	}
@@ -116,7 +117,7 @@ func DequantSym(qweight, gIdx []int32, scales []float32,
 		return nil
 	}
 
-	outLen, ok := checkedMulInt(outFeatures, inFeatures)
+	outLen, ok := checked.MulInt(outFeatures, inFeatures)
 	if !ok {
 		return nil
 	}
@@ -135,7 +136,7 @@ func DequantSymTo(out []float32, qweight, gIdx []int32, scales []float32,
 	if err := ValidateSym(qweight, gIdx, scales, inFeatures, outFeatures); err != nil {
 		return false
 	}
-	outLen, ok := checkedMulInt(outFeatures, inFeatures)
+	outLen, ok := checked.MulInt(outFeatures, inFeatures)
 	if !ok || len(out) < outLen {
 		return false
 	}
