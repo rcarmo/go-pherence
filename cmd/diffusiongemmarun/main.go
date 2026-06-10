@@ -43,6 +43,13 @@ func main() {
 	var denoiser diffusiongemma.Denoiser
 	var weights *diffusiongemma.TextWeights
 	if *useCPUDispatcher {
+		if m.Shards != nil && !m.Shards.Ready {
+			missing := m.Shards.MissingShards
+			if len(missing) > 5 {
+				missing = missing[:5]
+			}
+			fatal(fmt.Errorf("DiffusionGemma weight shards not ready: present=%d/%d missing=%v", m.Shards.PresentShards, m.Shards.ExpectedShards, missing))
+		}
 		weights, err = diffusiongemma.OpenTextWeights(*modelDir, m.Shape)
 		if err != nil {
 			fatal(err)
