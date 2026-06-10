@@ -3,15 +3,10 @@ package nvidia
 import (
 	"fmt"
 	"github.com/rcarmo/go-pherence/internal/checked"
-	"sync"
 	"unsafe"
 )
 
-var (
-	sgemmOnce sync.Once
-	sgemmFn   CUfunction
-	sgemmOK   bool
-)
+var sgemmFn CUfunction
 
 // SgemmReady returns true if GPU SGEMM is available.
 

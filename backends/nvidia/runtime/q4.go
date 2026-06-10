@@ -5,19 +5,15 @@ package nvidia
 import (
 	"fmt"
 	"github.com/rcarmo/go-pherence/internal/checked"
-	"sync"
 	"unsafe"
 
 	simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
 )
 
 var (
-	q4Once  sync.Once
 	q4Fn    CUfunction
 	q4Ready bool
 )
-
-func initQ4() { loadMegaModule() }
 
 // GPUQuantWeight holds INT4 weights in GPU VRAM.
 type GPUQuantWeight struct {

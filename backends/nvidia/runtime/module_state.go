@@ -8,7 +8,6 @@ import (
 func markMegaModuleReady(entryCount int) {
 	megaModuleOK = true
 	sgemmReady = true
-	sgemmOK = true
 	kernelsLoaded = true
 	ropeReady = true
 	ropePartialReady = true
@@ -42,7 +41,6 @@ func resetMegaModuleState() {
 	megaModuleOK = false
 	megaModuleOnce = sync.Once{}
 	sgemmReady = false
-	sgemmOK = false
 	kernelsLoaded = false
 	ropeReady = false
 	ropePartialReady = false

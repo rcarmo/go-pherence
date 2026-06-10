@@ -2,14 +2,12 @@ package nvidia
 
 import (
 	"github.com/rcarmo/go-pherence/internal/checked"
-	"sync"
 	"unsafe"
 )
 
 // --- GPU RoPE + Attention ---
 
 var (
-	ropeOnce         sync.Once
 	ropeFn           CUfunction
 	ropePartialFn    CUfunction
 	attnScoreFn      CUfunction

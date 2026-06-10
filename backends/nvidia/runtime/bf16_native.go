@@ -23,7 +23,6 @@ import (
 var (
 	fnNativeBF16RMSNorm CUfunction
 	fnNativeBF16VecAdd  CUfunction
-	fnNativeBF16Gemv    CUfunction
 	nativeBF16Mod       CUmodule
 	nativeBF16Ready     bool
 )
@@ -35,7 +34,7 @@ func InitNativeBF16() {
 	}
 	EnsureContext()
 
-	body := stripPTXHeader(ptxbf16.NativeBF16RMSNormPTX) + "\n" + stripPTXHeader(ptxbf16.NativeBF16VecAddPTX) + "\n" + stripPTXHeader(ptxbf16.NativeBF16GemvPTX)
+	body := stripPTXHeader(ptxbf16.NativeBF16RMSNormPTX) + "\n" + stripPTXHeader(ptxbf16.NativeBF16VecAddPTX)
 	full := ".version 7.8\n.target sm_86\n.address_size 64\n\n" + body
 	fullBytes := append([]byte(full), 0)
 
@@ -55,7 +54,6 @@ func InitNativeBF16() {
 
 	fnNativeBF16RMSNorm = extract("native_bf16_rms_norm")
 	fnNativeBF16VecAdd = extract("native_bf16_vec_add")
-	fnNativeBF16Gemv = extract("native_bf16_gemv")
 
 	if fnNativeBF16RMSNorm != 0 {
 		nativeBF16Ready = true
@@ -73,7 +71,6 @@ func shutdownNativeBF16() {
 	nativeBF16Mod = 0
 	fnNativeBF16RMSNorm = 0
 	fnNativeBF16VecAdd = 0
-	fnNativeBF16Gemv = 0
 	nativeBF16Ready = false
 }
 

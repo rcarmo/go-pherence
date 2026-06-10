@@ -21,7 +21,6 @@ var fnBF16RMSNormNoScale CUfunction
 var fnBF16VecAdd CUfunction
 var fnBF16SiLUMul CUfunction
 var fnBF16GELUTanhMul CUfunction
-var fnBF16Gemv CUfunction
 var fnBF16LMHead CUfunction
 
 var bf16LMHeadScratch = struct {

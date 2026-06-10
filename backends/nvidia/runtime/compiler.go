@@ -171,26 +171,10 @@ func shutdownCompiledKernels() {
 		}
 	}
 	kernelCache = map[string]*CompiledKernel{}
-	jitSiLUMul = nil
 	jitAdd = nil
 }
 
 // --- PTX code generation ---
-
-// genPTXBody generates the entry point without the module header.
-func genPTXBody(spec *KernelSpec) (string, int, int) {
-	ptx, bs, sm := genPTX(spec)
-	// Strip the .version/.target/.address_size header
-	lines := strings.Split(ptx, "\n")
-	var body []string
-	for _, l := range lines {
-		if strings.HasPrefix(l, ".version") || strings.HasPrefix(l, ".target") || strings.HasPrefix(l, ".address_size") {
-			continue
-		}
-		body = append(body, l)
-	}
-	return strings.Join(body, "\n"), bs, sm
-}
 
 func genPTX(spec *KernelSpec) (string, int, int) {
 	if spec == nil {

@@ -7,7 +7,6 @@ package nvidia
 import (
 	"fmt"
 	"github.com/rcarmo/go-pherence/internal/checked"
-	"sync"
 	"unsafe"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -32,7 +31,6 @@ type DevBuf struct {
 
 // Kernel function pointers (loaded once)
 var (
-	kernelsOnce      sync.Once
 	kernelsLoaded    bool
 	fnVecAdd         CUfunction
 	fnVecMul         CUfunction
@@ -562,9 +560,8 @@ func CopyDtoD(dst, src CUdeviceptr, bytes uint64) error {
 
 // Fused SiLU*Mul
 var (
-	fusedSiLUMulOnce sync.Once
-	fnFusedSiLUMul   CUfunction
-	fusedSiLUMulOK   bool
+	fnFusedSiLUMul CUfunction
+	fusedSiLUMulOK bool
 )
 
 // DevSiLUMul computes out = silu(a) * b in one kernel launch
@@ -624,8 +621,7 @@ func DevGELUTanhMul(gate, up *DevBuf, n int) {
 }
 
 var (
-	jitSiLUMul *CompiledKernel
-	jitAdd     *CompiledKernel
+	jitAdd *CompiledKernel
 )
 
 // Slice returns a DevBuf view into a sub-range [offset:offset+n] of this buffer.
