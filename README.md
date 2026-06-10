@@ -95,11 +95,12 @@ make diffusiongemma-run-mock
 make diffusiongemma-mock-compare
 make diffusiongemma-status-refresh
 make diffusiongemma-ci-scaffold
+make diffusiongemma-ci-no-weights # safe aggregate validation without safetensor shards
 ```
 
 The Qwen3.6 REAP GGUF CI target exercises the native go-pherence path end-to-end: GGUF inspect, one-token generation smoke, synthetic TurboQuant cache smoke, benchmark, required SIMD rotation readiness, static/runtime/cache/benchmark KV+scratch byte assertions, and aggregate compressed-cache counters. It does not depend on llama.cpp for runtime execution.
 
-The DiffusionGemma scaffold targets inspect the public `google/diffusiongemma-26B-A4B-it` metadata, run a mock block-diffusion denoiser through the native sampler/control-flow path, export machine-readable scaffold status, and run reference-helper dry-runs without requiring full weight shards. Real DiffusionGemma inference remains gated by reference parity and processor/vision integration.
+The DiffusionGemma scaffold targets inspect the public `google/diffusiongemma-26B-A4B-it` metadata, run a mock block-diffusion denoiser through the native sampler/control-flow path, export machine-readable scaffold status, and run reference-helper dry-runs without requiring full weight shards. `make diffusiongemma-ci-no-weights` is the safe aggregate validation target before any large download. Real DiffusionGemma inference remains gated by reference parity and processor/vision integration.
 
 See [docs/commands.md](docs/commands.md) for detailed command usage, GGUF REAP/TurboQuant validation, MTP smoke commands, Qwen3.6 native-MTP triage commands, Whisper VTT usage, and benchmark harnesses. See [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) for the current Whisper implementation status and limitations.
 
