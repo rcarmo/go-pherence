@@ -714,3 +714,19 @@ diffusiongemma-weights-json: diffusiongemma-check-shards
 .PHONY: diffusiongemma-ci-no-weights
 
 diffusiongemma-ci-no-weights: diffusiongemma-download-plan-report diffusiongemma-ci-scaffold diffusiongemma-ci-mock-pattern
+
+.PHONY: diffusiongemma-help
+
+diffusiongemma-help:
+	@echo "DiffusionGemma safe/no-weight workflow:"
+	@echo "  make diffusiongemma-download-plan-report"
+	@echo "  make diffusiongemma-status-refresh"
+	@echo "  make diffusiongemma-ci-no-weights"
+	@echo ""
+	@echo "DiffusionGemma full checkpoint workflow (~48.10 GiB):"
+	@echo "  make diffusiongemma-download DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes"
+	@echo "  make diffusiongemma-check-shards"
+	@echo "  make diffusiongemma-check-weights"
+	@echo ""
+	@echo "DiffusionGemma parity workflow (requires full shards + Transformers/PyTorch):"
+	@echo "  make diffusiongemma-parity"

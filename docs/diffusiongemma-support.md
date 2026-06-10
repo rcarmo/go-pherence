@@ -858,3 +858,8 @@ The text tensor plan now includes DiffusionGemma-specific `pre_feedforward_layer
 ## No-weight aggregate CI target
 
 `make diffusiongemma-ci-no-weights` runs the safe no-shard validation bundle: download-plan report, scaffold CI, and pattern mock CI. It does not download safetensor shards and is suitable for quick validation of the current scaffold state.
+
+
+## Help target
+
+`make diffusiongemma-help` prints the safe/no-weight, full-checkpoint, and parity command groups for quick discovery.
