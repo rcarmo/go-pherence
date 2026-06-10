@@ -324,3 +324,8 @@ Router scratch now includes per-position `TopKIDs` and `TopKVals` sized by `top_
 ## Self-attention scaffold
 
 `CPUDispatcher` now implements a correctness-first `self_attention` scaffold. It loads Q/K/V/O projection matrices, applies Q/K RMSNorm and scale-free V RMSNorm, computes bidirectional canvas-only attention, and applies the O projection through checked SIMD GEMV helpers. For full-attention layers where `v_proj` is absent, V reuses K, matching the reference layout. Limitations: RoPE, sliding-window masking, and encoder KV/cache concatenation are not wired yet, so this is not numerically complete against Transformers.
+
+
+## Capability reporting
+
+`model/diffusiongemma/capabilities.go` exposes a runtime capability summary used by `diffusiongemmainspect`. It marks metadata, tensor inventory, sampler, semantic ops, and the attention scaffold as present while explicitly reporting missing reference-complete pieces: RoPE, sliding-window masking, encoder KV concatenation, parity fixtures, memory-efficient LM head, and processor integration. `runtime_ready` remains false.

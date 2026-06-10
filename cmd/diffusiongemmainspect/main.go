@@ -22,6 +22,7 @@ type report struct {
 	TextForwardPlan    *diffusiongemma.TextForwardPlan    `json:"text_forward_plan,omitempty"`
 	ForwardBufferPlan  diffusiongemma.ForwardBufferPlan   `json:"forward_buffer_plan"`
 	ForwardOpPlan      diffusiongemma.ForwardOpPlan       `json:"forward_op_plan"`
+	Capabilities       diffusiongemma.RuntimeCapabilities `json:"capabilities"`
 }
 
 func main() {
@@ -44,7 +45,7 @@ func main() {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil)}
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: diffusiongemma.Capabilities()}
 	if *openWeights {
 		weights, err := diffusiongemma.OpenTextWeights(*modelDir, shape)
 		if err != nil {
@@ -101,6 +102,7 @@ func printText(r report) {
 	if r.TextForwardPlan != nil {
 		fmt.Printf("  forward:   text_ready=%v layers=%d missing=%d\n", r.TextForwardPlan.Ready, len(r.TextForwardPlan.Layers), len(r.TextForwardPlan.Missing))
 	}
+	fmt.Printf("  caps:      sampler=%v ops=%v attention_scaffold=%v rope=%v sliding_mask=%v encoder_kv=%v reference_complete=%v\n", r.Capabilities.Sampler, r.Capabilities.LMHead, r.Capabilities.SelfAttentionScaffold, r.Capabilities.RoPE, r.Capabilities.SlidingWindowMask, r.Capabilities.EncoderKVConcat, r.Capabilities.ReferenceComplete)
 	if s.RuntimeNote != "" {
 		fmt.Printf("  runtime:   %s\n", s.RuntimeNote)
 	}
