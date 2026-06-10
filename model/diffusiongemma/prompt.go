@@ -105,18 +105,16 @@ func BuildSimpleChatPromptIDs(messages []ChatMessage, specials SpecialTokenIDs, 
 		}
 		ids = append(ids, specials.BOS)
 	}
-	if opts.EnableThinking {
-		if specials.THINK < 0 {
-			return PromptIDs{}, fmt.Errorf("DiffusionGemma think token ID unavailable")
-		}
-		ids = append(ids, specials.THINK)
-	}
 	for _, msg := range messages {
 		if specials.BOT >= 0 {
 			ids = append(ids, specials.BOT)
 		}
-		// Role strings are intentionally not tokenized here; callers should include
-		// role/content token IDs once full chat-template rendering is implemented.
+		if opts.EnableThinking && (msg.Role == "system" || msg.Role == "developer") {
+			if specials.THINK < 0 {
+				return PromptIDs{}, fmt.Errorf("DiffusionGemma think token ID unavailable")
+			}
+			ids = append(ids, specials.THINK)
+		}
 		ids = append(ids, msg.Content...)
 		if specials.EOT >= 0 {
 			ids = append(ids, specials.EOT)
