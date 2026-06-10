@@ -351,26 +351,12 @@ func GemmSwiGLUFP8E4M3(out, x []float32, batch int, w1, w3, w2 *GPUFP8E4M3Linear
 	if !SgemmReady() {
 		return fmt.Errorf("GPU not available")
 	}
-	xBuf, err := Malloc(inLen)
+	bufs, unlock, err := ideogramScratchBuffers(inLen, interLen, interLen, outLen)
 	if err != nil {
-		return fmt.Errorf("alloc FP8 SwiGLU input: %w", err)
+		return err
 	}
-	defer xBuf.Free()
-	gBuf, err := Malloc(interLen)
-	if err != nil {
-		return fmt.Errorf("alloc FP8 SwiGLU gate: %w", err)
-	}
-	defer gBuf.Free()
-	uBuf, err := Malloc(interLen)
-	if err != nil {
-		return fmt.Errorf("alloc FP8 SwiGLU up: %w", err)
-	}
-	defer uBuf.Free()
-	outBuf, err := Malloc(outLen)
-	if err != nil {
-		return fmt.Errorf("alloc FP8 SwiGLU output: %w", err)
-	}
-	defer outBuf.Free()
+	defer unlock()
+	xBuf, gBuf, uBuf, outBuf := bufs[0], bufs[1], bufs[2], bufs[3]
 	if err := xBuf.Upload(x[:inLen]); err != nil {
 		return fmt.Errorf("upload FP8 SwiGLU input: %w", err)
 	}
