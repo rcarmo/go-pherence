@@ -23,15 +23,17 @@ SMALL_FILES = [
 ]
 
 
-def fetch(url: str, dst: pathlib.Path, token: str | None, force: bool) -> None:
+def fetch(url: str, dst: pathlib.Path, token: str | None, force: bool, quiet: bool = False) -> None:
     if dst.exists() and not force:
-        print(f"skip {dst}")
+        if not quiet:
+            print(f"skip {dst}")
         return
     dst.parent.mkdir(parents=True, exist_ok=True)
     headers = {"User-Agent": "go-pherence-diffusiongemma-downloader"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    print(f"download {url} -> {dst}")
+    if not quiet:
+        print(f"download {url} -> {dst}")
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=120) as r, open(dst, "wb") as f:
         while True:
@@ -47,6 +49,7 @@ def main() -> int:
     ap.add_argument("--out", default="models/diffusiongemma-26B-A4B-it")
     ap.add_argument("--metadata-only", action="store_true", help="download configs/index only, not safetensor shards")
     ap.add_argument("--plan-only", action="store_true", help="download/read metadata, print shard plan, and exit before shard downloads")
+    ap.add_argument("--json-plan", action="store_true", help="emit shard/download plan as JSON")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -55,7 +58,7 @@ def main() -> int:
     base = f"https://huggingface.co/{args.repo}/resolve/main"
 
     for name in SMALL_FILES:
-        fetch(f"{base}/{name}", out / name, token, args.force)
+        fetch(f"{base}/{name}", out / name, token, args.force, args.json_plan)
 
     if args.metadata_only and not args.plan_only:
         return 0
@@ -69,17 +72,30 @@ def main() -> int:
     meta = index.get("metadata", {})
     total_size = int(meta.get("total_size") or 0)
     total_params = int(meta.get("total_parameters") or 0)
-    if total_size:
+    usage = shutil.disk_usage(out)
+    free = usage.free
+    plan = {
+        "repo": args.repo,
+        "out": str(out),
+        "shards": len(shards),
+        "total_size_bytes": total_size,
+        "total_size_gib": total_size / (1024**3) if total_size else 0,
+        "total_parameters": total_params,
+        "target_free_bytes": free,
+        "target_free_gib": free / (1024**3),
+        "enough_space": (free >= total_size) if total_size else None,
+    }
+    if args.json_plan:
+        print(json.dumps(plan, indent=2))
+    elif total_size:
         print(f"checkpoint shards={len(shards)} total_size={total_size} bytes ({total_size/(1024**3):.2f} GiB) parameters={total_params}")
-        usage = shutil.disk_usage(out)
-        free = usage.free
         print(f"target_free={free} bytes ({free/(1024**3):.2f} GiB) enough_space={free >= total_size}")
     else:
         print(f"checkpoint shards={len(shards)}")
     if args.plan_only:
         return 0
     for shard in shards:
-        fetch(f"{base}/{shard}", out / shard, token, args.force)
+        fetch(f"{base}/{shard}", out / shard, token, args.force, args.json_plan)
     return 0
 
 

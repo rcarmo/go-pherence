@@ -681,3 +681,11 @@ diffusiongemma-status-refresh: diffusiongemma-download-metadata diffusiongemma-s
 
 diffusiongemma-download-plan-only:
 	python3 scripts/download_diffusiongemma.py --repo $(DIFFUSIONGEMMA_REPO) --out $(DIFFUSIONGEMMA_MODEL) --plan-only
+
+DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT ?= $(TMPDIR)/diffusiongemma/download_plan.json
+
+.PHONY: diffusiongemma-download-plan-json
+
+diffusiongemma-download-plan-json:
+	mkdir -p $(dir $(DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT))
+	python3 scripts/download_diffusiongemma.py --repo $(DIFFUSIONGEMMA_REPO) --out $(DIFFUSIONGEMMA_MODEL) --plan-only --json-plan > $(DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT)

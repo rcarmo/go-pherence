@@ -805,3 +805,8 @@ Shard readiness now includes `present_percent`, and the inspector/status summary
 ## Disk-space preflight
 
 `download_diffusiongemma.py --plan-only` now prints target filesystem free space and `enough_space=true/false` for the published shard payload size. This helps avoid starting the guarded full download on a filesystem without enough room.
+
+
+## Download plan JSON
+
+`make diffusiongemma-download-plan-json` writes a machine-readable shard/download plan to `DIFFUSIONGEMMA_DOWNLOAD_PLAN_OUT`. The JSON includes shard count, total bytes/GiB, parameter count, target free bytes/GiB, and `enough_space`.
