@@ -14,6 +14,7 @@ DEFAULT_REPO = "google/diffusiongemma-26B-A4B-it"
 SMALL_FILES = [
     "config.json",
     "generation_config.json",
+    "tokenizer.json",
     "tokenizer_config.json",
     "processor_config.json",
     "chat_template.jinja",

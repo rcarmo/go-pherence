@@ -610,3 +610,6 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 ## Scaffold CI target
 
 `make diffusiongemma-ci-scaffold` combines the text scaffold check with the reference-helper dry run. It validates metadata/readiness, mock denoising control flow, structured chat-template scaffold input, package buildability, and reference fixture preflight without requiring full safetensor shards.
+
+
+Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`, `-decode`, exact vocab lookup, and scaffold CI work from a fresh metadata snapshot without needing safetensor shards.
