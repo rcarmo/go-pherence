@@ -92,3 +92,40 @@ func (w *TextWeights) RawTensor(name string) ([]byte, string, []int, error) {
 	}
 	return w.shards.GetRaw(name)
 }
+
+func (w *TextWeights) RawTensorRow(name string, row int) ([]byte, string, []int, error) {
+	raw, dtype, shape, err := w.RawTensor(name)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	if len(shape) != 2 {
+		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-2", name, shape)
+	}
+	if row < 0 || row >= shape[0] {
+		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q row %d outside [0,%d)", name, row, shape[0])
+	}
+	elemSize, ok := diffusionGemmaDTypeSize(dtype)
+	if !ok {
+		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q unsupported dtype %s", name, dtype)
+	}
+	rowBytes := shape[1] * elemSize
+	start := row * rowBytes
+	end := start + rowBytes
+	if start < 0 || end < start || end > len(raw) {
+		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q row byte range [%d,%d) exceeds %d", name, start, end, len(raw))
+	}
+	return raw[start:end], dtype, []int{shape[1]}, nil
+}
+
+func diffusionGemmaDTypeSize(dtype string) (int, bool) {
+	switch dtype {
+	case "F32", "I32", "U32":
+		return 4, true
+	case "BF16", "F16", "I16", "U16":
+		return 2, true
+	case "I8", "U8", "BOOL":
+		return 1, true
+	default:
+		return 0, false
+	}
+}

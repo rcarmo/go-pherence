@@ -1,6 +1,10 @@
 package diffusiongemma
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+	"math"
+)
 
 // CPUDispatcher is the native CPU/SIMD forward scaffold for DiffusionGemma text
 // denoising. It gives each semantic op an explicit hook so implementation can
@@ -16,13 +20,7 @@ type ForwardScratch struct {
 }
 
 func NewForwardScratch(buffers ForwardBufferPlan) ForwardScratch {
-	return ForwardScratch{
-		Hidden:   make([]float32, maxNonNegative(buffers.Hidden)),
-		Residual: make([]float32, maxNonNegative(buffers.Residual)),
-		Router:   make([]float32, maxNonNegative(buffers.Router)),
-		Experts:  make([]float32, maxNonNegative(buffers.Experts)),
-		Logits:   makeLogitRows(buffers.CanvasLength, buffers.VocabSize),
-	}
+	return ForwardScratch{Hidden: make([]float32, maxNonNegative(buffers.Hidden)), Residual: make([]float32, maxNonNegative(buffers.Residual)), Router: make([]float32, maxNonNegative(buffers.Router)), Experts: make([]float32, maxNonNegative(buffers.Experts)), Logits: makeLogitRows(buffers.CanvasLength, buffers.VocabSize)}
 }
 
 func makeLogitRows(rows, cols int) [][]float32 {
@@ -56,7 +54,7 @@ func (CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, op
 	}
 	scratch := NewForwardScratch(buffers)
 	for _, op := range ops.Prefix {
-		if err := dispatchPrefixOp(op, weights, scratch); err != nil {
+		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
 		}
 	}
@@ -73,13 +71,99 @@ func (CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, op
 	return ForwardOutput{Logits: scratch.Logits}, nil
 }
 
-func dispatchPrefixOp(op OpKind, weights *TextWeights, scratch ForwardScratch) error {
+func dispatchPrefixOp(op OpKind, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
 	switch op {
 	case OpCanvasEmbedding:
-		return errOpNotImplemented(op)
+		return runCanvasEmbedding(ctx, weights, scratch)
 	default:
 		return fmt.Errorf("DiffusionGemma unknown prefix op %q", op)
 	}
+}
+
+func runCanvasEmbedding(ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma canvas embedding missing weights")
+	}
+	plan := weights.ForwardPlan()
+	if plan.Globals.EmbedTokens == nil {
+		return fmt.Errorf("DiffusionGemma canvas embedding missing embed_tokens")
+	}
+	hiddenSize := 0
+	if len(plan.Globals.EmbedTokens.Shape) == 2 {
+		hiddenSize = plan.Globals.EmbedTokens.Shape[1]
+	}
+	if hiddenSize <= 0 {
+		return fmt.Errorf("DiffusionGemma canvas embedding invalid shape %v", plan.Globals.EmbedTokens.Shape)
+	}
+	need := len(ctx.Canvas) * hiddenSize
+	if len(scratch.Hidden) < need {
+		return fmt.Errorf("DiffusionGemma canvas embedding hidden scratch=%d want %d", len(scratch.Hidden), need)
+	}
+	for i, token := range ctx.Canvas {
+		row, dtype, shape, err := weights.RawTensorRow(plan.Globals.EmbedTokens.Name, token)
+		if err != nil {
+			return err
+		}
+		if len(shape) != 1 || shape[0] != hiddenSize {
+			return fmt.Errorf("DiffusionGemma embed row shape %v want [%d]", shape, hiddenSize)
+		}
+		if err := decodeFloatRowTo(scratch.Hidden[i*hiddenSize:(i+1)*hiddenSize], row, dtype); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func decodeFloatRowTo(dst []float32, raw []byte, dtype string) error {
+	switch dtype {
+	case "F32":
+		if len(raw) < len(dst)*4 {
+			return fmt.Errorf("DiffusionGemma F32 row bytes=%d want %d", len(raw), len(dst)*4)
+		}
+		for i := range dst {
+			dst[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[i*4:]))
+		}
+		return nil
+	case "BF16":
+		if len(raw) < len(dst)*2 {
+			return fmt.Errorf("DiffusionGemma BF16 row bytes=%d want %d", len(raw), len(dst)*2)
+		}
+		for i := range dst {
+			dst[i] = math.Float32frombits(uint32(binary.LittleEndian.Uint16(raw[i*2:])) << 16)
+		}
+		return nil
+	case "F16":
+		if len(raw) < len(dst)*2 {
+			return fmt.Errorf("DiffusionGemma F16 row bytes=%d want %d", len(raw), len(dst)*2)
+		}
+		for i := range dst {
+			dst[i] = diffusionGemmaF16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
+		}
+		return nil
+	default:
+		return fmt.Errorf("DiffusionGemma unsupported float row dtype %s", dtype)
+	}
+}
+
+func diffusionGemmaF16ToF32(h uint16) float32 {
+	sign := uint32(h&0x8000) << 16
+	exp := (h >> 10) & 0x1f
+	mant := uint32(h & 0x03ff)
+	if exp == 0 {
+		if mant == 0 {
+			return math.Float32frombits(sign)
+		}
+		for mant&0x0400 == 0 {
+			mant <<= 1
+			exp--
+		}
+		exp++
+		mant &^= 0x0400
+	} else if exp == 31 {
+		return math.Float32frombits(sign | 0x7f800000 | (mant << 13))
+	}
+	exp32 := uint32(int(exp) + (127 - 15))
+	return math.Float32frombits(sign | (exp32 << 23) | (mant << 13))
 }
 
 func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {

@@ -269,3 +269,8 @@ tail_ops=3
 
 
 The explicit `canvas_embedding` prefix op marks the point where token IDs from the noised canvas must become hidden states before layer execution begins.
+
+
+## Canvas embedding implementation scaffold
+
+`CPUDispatcher` now implements the `canvas_embedding` prefix op enough to fetch embedding rows lazily from `TextWeights.RawTensorRow` and decode `BF16`, `F16`, or `F32` rows into the hidden scratch buffer. This is the first concrete tensor-backed operation boundary. Later layer ops still return explicit not-implemented errors until RMSNorm, attention, MLP, router, experts, final norm, and LM head math are wired.
