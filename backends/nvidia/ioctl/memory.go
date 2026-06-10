@@ -5,6 +5,7 @@ package nv
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"github.com/rcarmo/go-pherence/internal/checked"
 	"unsafe"
 
@@ -292,6 +293,6 @@ func (d *NVDevice) SetupVASpace() error {
 		return fmt.Errorf("UVM register VA space status: 0x%X", regVA.RmStatus)
 	}
 
-	debugf("[nv] VA space setup OK (vaspace=0x%x)\n", d.vaspace)
+	debuglog.Printf("[nv] VA space setup OK (vaspace=0x%x)\n", d.vaspace)
 	return nil
 }

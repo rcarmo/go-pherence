@@ -14,6 +14,7 @@ package nvidia
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"unsafe"
 )
 
@@ -80,7 +81,7 @@ func initStreams() error {
 	}
 
 	streamsReady = true
-	debugln("[gpu] Streams + events initialized (prefetch overlap)")
+	debuglog.Println("[gpu] Streams + events initialized (prefetch overlap)")
 	return nil
 }
 

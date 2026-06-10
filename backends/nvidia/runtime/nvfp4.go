@@ -3,6 +3,7 @@ package nvidia
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 	"sync"
@@ -295,12 +296,12 @@ func GemvNVFP4(out, x []float32, w *GPUNVFP4Weight) error {
 		if err := gemvNVFP4PackedCUDA(out, x, w); err == nil {
 			return nil
 		} else {
-			debugf("[gpu] NVFP4 packed GEMV CUDA fallback: %v\n", err)
+			debuglog.Printf("[gpu] NVFP4 packed GEMV CUDA fallback: %v\n", err)
 		}
 		if err := gemvNVFP4CUDA(out, x, w); err == nil {
 			return nil
 		} else {
-			debugf("[gpu] NVFP4 GEMV CUDA fallback: %v\n", err)
+			debuglog.Printf("[gpu] NVFP4 GEMV CUDA fallback: %v\n", err)
 		}
 	}
 	qw, err := downloadNVFP4Weight(w)
@@ -542,14 +543,14 @@ func gemvNVFP4F32(out, x []float32, outDim, inDim int, weights []float32) error 
 func dequantNVFP4ToF32CUDA(w *GPUNVFP4Weight) ([]float32, bool) {
 	outBuf, err := dequantNVFP4ToF32GPU(w)
 	if err != nil {
-		debugf("[gpu] NVFP4 CUDA dequant fallback: %v\n", err)
+		debuglog.Printf("[gpu] NVFP4 CUDA dequant fallback: %v\n", err)
 		return nil, false
 	}
 	defer outBuf.Free()
 	outLen, _ := checked.MulInt(w.OutDim, w.InDim)
 	out := make([]float32, outLen)
 	if err := outBuf.Download(out); err != nil {
-		debugf("[gpu] NVFP4 CUDA dequant download fallback: %v\n", err)
+		debuglog.Printf("[gpu] NVFP4 CUDA dequant download fallback: %v\n", err)
 		return nil, false
 	}
 	return out, true

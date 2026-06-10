@@ -1,6 +1,9 @@
 package nvidia
 
-import "sync"
+import (
+	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
+	"sync"
+)
 
 func markMegaModuleReady(entryCount int) {
 	megaModuleOK = true
@@ -14,7 +17,7 @@ func markMegaModuleReady(entryCount int) {
 	attnReady = true
 	q4Ready = true
 	fusedSiLUMulOK = true
-	debugf("[gpu] All %d kernels loaded in 1 module\n", entryCount)
+	debuglog.Printf("[gpu] All %d kernels loaded in 1 module\n", entryCount)
 }
 
 func freeNVFP4Scratch() {

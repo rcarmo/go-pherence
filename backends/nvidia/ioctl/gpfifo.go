@@ -9,6 +9,7 @@ package nv
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"unsafe"
 )
 
@@ -146,7 +147,7 @@ func (d *NVDevice) SetupGPFifo(cg *ChannelGroup, ctxShare uint32, gpuInfo *GPUIn
 	// Ring buffer view (uses pre-allocated cpuMem)
 	_ = ringBuf // ring buffer access via cpuMem if needed
 
-	debugf("[nv] GPFifo created: handle=0x%x, entries=%d, token=%d\n",
+	debuglog.Printf("[nv] GPFifo created: handle=0x%x, entries=%d, token=%d\n",
 		gpfifoHandle, entries, tp.WorkSubmitToken)
 
 	return gf, nil

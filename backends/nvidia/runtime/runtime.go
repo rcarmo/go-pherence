@@ -10,6 +10,7 @@ package nvidia
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"os"
 	"runtime"
 	"sync"
@@ -140,7 +141,7 @@ var (
 func Init() bool {
 	gpuOnce.Do(func() {
 		if os.Getenv("GO_PHERENCE_DISABLE_NVIDIA") != "" {
-			debugln("[gpu] NVIDIA backend disabled by GO_PHERENCE_DISABLE_NVIDIA")
+			debuglog.Println("[gpu] NVIDIA backend disabled by GO_PHERENCE_DISABLE_NVIDIA")
 			return
 		}
 		runtime.LockOSThread() // CUDA context is thread-local
@@ -211,13 +212,13 @@ func Init() bool {
 
 		// Initialize CUDA
 		if r := cuInit(0); r != CUDA_SUCCESS {
-			debugf("[gpu] cuInit failed: %d\n", r)
+			debuglog.Printf("[gpu] cuInit failed: %d\n", r)
 			return
 		}
 
 		// Get device 0
 		if r := cuDeviceGet(&gpuDev, 0); r != CUDA_SUCCESS {
-			debugf("[gpu] cuDeviceGet failed: %d\n", r)
+			debuglog.Printf("[gpu] cuDeviceGet failed: %d\n", r)
 			return
 		}
 
@@ -238,12 +239,12 @@ func Init() bool {
 
 		// Create context
 		if r := cuCtxCreate(&gpuCtx, 0, gpuDev); r != CUDA_SUCCESS {
-			debugf("[gpu] cuCtxCreate failed: %d\n", r)
+			debuglog.Printf("[gpu] cuCtxCreate failed: %d\n", r)
 			return
 		}
 
 		gpuOK = true
-		debugf("[gpu] %s (%d SMs) — pure Go, no CGo\n", gpuName, gpuSMs)
+		debuglog.Printf("[gpu] %s (%d SMs) — pure Go, no CGo\n", gpuName, gpuSMs)
 	})
 	return gpuOK
 }

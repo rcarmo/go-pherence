@@ -2,6 +2,7 @@ package nvidia
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"github.com/rcarmo/go-pherence/internal/checked"
 	"os"
 	"strings"
@@ -163,7 +164,7 @@ func GemvFP8E4M3(out, x []float32, w *GPUFP8E4M3Linear) error {
 		if err := gemvFP8E4M3CUDA(out, x, w); err == nil {
 			return nil
 		} else {
-			debugf("[gpu] FP8 E4M3 GEMV CUDA fallback: %v\n", err)
+			debuglog.Printf("[gpu] FP8 E4M3 GEMV CUDA fallback: %v\n", err)
 		}
 	}
 	lin, err := downloadFP8E4M3Linear(w)
@@ -197,13 +198,13 @@ func GemmFP8E4M3(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
 			if err := gemmFP8E4M3ViaSgemm(out, x, batch, w); err == nil {
 				return nil
 			} else {
-				debugf("[gpu] FP8 E4M3 SGEMM fallback: %v\n", err)
+				debuglog.Printf("[gpu] FP8 E4M3 SGEMM fallback: %v\n", err)
 			}
 		}
 		if err := gemmFP8E4M3CUDA(out, x, batch, w); err == nil {
 			return nil
 		} else {
-			debugf("[gpu] FP8 E4M3 GEMM CUDA fallback: %v\n", err)
+			debuglog.Printf("[gpu] FP8 E4M3 GEMM CUDA fallback: %v\n", err)
 		}
 	}
 	lin, err := downloadFP8E4M3Linear(w)

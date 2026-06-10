@@ -4,6 +4,7 @@ package nvidia
 // Solves the cuModuleLoadData error 201 (can't load multiple modules).
 
 import (
+	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"strings"
 	"sync"
 	"unsafe"
@@ -54,7 +55,7 @@ func loadMegaModule() {
 
 		entries := megaModuleEntries()
 		if err := validateModuleEntries(entries); err != nil {
-			debugf("[gpu] invalid mega module entries: %v\n", err)
+			debuglog.Printf("[gpu] invalid mega module entries: %v\n", err)
 			return
 		}
 
@@ -68,7 +69,7 @@ func loadMegaModule() {
 
 		EnsureContext()
 		if r := cuModuleLoadData(&megaModule, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
-			debugf("[gpu] mega module load failed: error %d\n", r)
+			debuglog.Printf("[gpu] mega module load failed: error %d\n", r)
 			return
 		}
 
@@ -79,7 +80,7 @@ func loadMegaModule() {
 			nameBytes := append([]byte(name), 0)
 			var fn CUfunction
 			if r := cuModuleGetFunction(&fn, megaModule, unsafe.Pointer(&nameBytes[0])); r != CUDA_SUCCESS {
-				debugf("[gpu] get %s: error %d\n", name, r)
+				debuglog.Printf("[gpu] get %s: error %d\n", name, r)
 				allOK = false
 				return 0
 			}
@@ -95,7 +96,7 @@ func loadMegaModule() {
 			markMegaModuleReady(len(entries))
 			// Initialize streams for prefetch overlap
 			if err := initStreams(); err != nil {
-				debugf("[gpu] streams: %v\n", err)
+				debuglog.Printf("[gpu] streams: %v\n", err)
 			}
 			// Try native BF16 kernels (Ampere+)
 			InitNativeBF16()
