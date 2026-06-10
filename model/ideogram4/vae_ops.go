@@ -152,7 +152,7 @@ func Conv2D(in FeatureMap, w Conv2DWeights) (FeatureMap, error) {
 
 	// outT[hw, oc] = col[hw, :] . weight[oc, :]
 	outT := make([]float32, HW*w.OutC)
-	if !simd.GemmRows(outT, col, w.Weight, HW, w.OutC, K) {
+	if !k3GemmRowsF32(outT, col, w.Weight, HW, w.OutC, K) && !simd.GemmRows(outT, col, w.Weight, HW, w.OutC, K) {
 		for hw := 0; hw < HW; hw++ {
 			cb := hw * K
 			for oc := 0; oc < w.OutC; oc++ {
