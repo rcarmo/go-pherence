@@ -273,6 +273,25 @@ func (r *ditLayerGPUResidency) W3Batch(l DiTLayer, x, out []float32, batch int) 
 	return r.gemm("w3", w, l.W3, x, out, batch)
 }
 
+func (r *ditLayerGPUResidency) MLPResidualBatch(l DiTLayer, hidden, x, gate []float32, batch int) error {
+	if r != nil && r.w1 != nil && r.w3 != nil && r.w2 != nil {
+		if err := nvidia.GemmSwiGLUResidualFP8E4M3(hidden, x, gate, l.FfnN2, batch, r.w1, r.w3, r.w2); err == nil {
+			return nil
+		} else if gpuFP8Strict() || gpuNormStrict() || gpuMLPStrict() {
+			return fmt.Errorf("DiT layer GPU SwiGLU+W2+residual: %w", err)
+		}
+	}
+	downAll := make([]float32, batch*l.W2.OutDim())
+	if err := r.MLPBatch(l, x, downAll, batch); err != nil {
+		return err
+	}
+	postNormAll := make([]float32, len(downAll))
+	if err := rmsNormRowsWeightedGPU(postNormAll, downAll, l.FfnN2, nil, batch, l.W2.OutDim(), 1e-5); err != nil {
+		return err
+	}
+	return gatedResidualRowsGPU(hidden, postNormAll, gate, batch, l.W2.OutDim())
+}
+
 func (r *ditLayerGPUResidency) MLPBatch(l DiTLayer, x, out []float32, batch int) error {
 	if r != nil && r.w1 != nil && r.w3 != nil && r.w2 != nil {
 		if err := nvidia.GemmSwiGLUFP8E4M3(out, x, batch, r.w1, r.w3, r.w2); err == nil {

@@ -261,6 +261,13 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 		}
 	}
 	_ = inter
+	if gpuFP8Enabled() && gpuNormEnabled() {
+		if err := layerGPU.MLPResidualBatch(*l, hidden, mlpIn, gateMLP, tokens); err != nil && (gpuFP8Strict() || gpuNormStrict() || gpuMLPStrict()) {
+			return err
+		} else if err == nil {
+			return nil
+		}
+	}
 	downAll := make([]float32, tokens*emb)
 	postNormAll := make([]float32, tokens*emb)
 	if err := layerGPU.MLPBatch(*l, mlpIn, downAll, tokens); err != nil {

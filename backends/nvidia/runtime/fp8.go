@@ -420,6 +420,64 @@ func GemmQKVAttentionFP8E4M3(out, x, normQ, normK, cos, sin []float32, tokens, h
 	return nil
 }
 
+func GemmSwiGLUResidualFP8E4M3(hidden, x, gate, normOut []float32, batch int, w1, w3, w2 *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(w1) || !validGPUFP8E4M3Linear(w3) || !validGPUFP8E4M3Linear(w2) {
+		return fmt.Errorf("invalid GPU FP8 E4M3 SwiGLU residual linear set")
+	}
+	if batch <= 0 || w1.InDim != w3.InDim || w1.OutDim != w3.OutDim || w2.InDim != w1.OutDim {
+		return fmt.Errorf("invalid FP8 E4M3 SwiGLU residual dims batch=%d w1=%dx%d w3=%dx%d w2=%dx%d", batch, w1.OutDim, w1.InDim, w3.OutDim, w3.InDim, w2.OutDim, w2.InDim)
+	}
+	inLen := batch * w1.InDim
+	interLen := batch * w1.OutDim
+	outLen := batch * w2.OutDim
+	if len(x) < inLen || len(hidden) < outLen || len(gate) < w2.OutDim || len(normOut) < w2.OutDim {
+		return fmt.Errorf("invalid FP8 E4M3 SwiGLU residual buffers")
+	}
+	if !SgemmReady() {
+		return fmt.Errorf("GPU not available")
+	}
+	bufs, unlock, err := ideogramScratchBuffers(inLen, interLen, interLen, outLen, outLen, w2.OutDim, w2.OutDim)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	xBuf, gBuf, uBuf, downBuf, hiddenBuf, gateBuf, normBuf := bufs[0], bufs[1], bufs[2], bufs[3], bufs[4], bufs[5], bufs[6]
+	if err := xBuf.Upload(x[:inLen]); err != nil {
+		return fmt.Errorf("upload FP8 SwiGLU residual input: %w", err)
+	}
+	if err := hiddenBuf.Upload(hidden[:outLen]); err != nil {
+		return fmt.Errorf("upload FP8 SwiGLU residual hidden: %w", err)
+	}
+	if err := gateBuf.Upload(gate[:w2.OutDim]); err != nil {
+		return fmt.Errorf("upload FP8 SwiGLU residual gate: %w", err)
+	}
+	if err := normBuf.Upload(normOut[:w2.OutDim]); err != nil {
+		return fmt.Errorf("upload FP8 SwiGLU residual norm: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(gBuf, xBuf, batch, w1); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual W1: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(uBuf, xBuf, batch, w3); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual W3: %w", err)
+	}
+	if err := F32SiLUMulBuffer(gBuf, gBuf, uBuf, interLen); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual SiLU*Mul: %w", err)
+	}
+	if err := GemmFP8E4M3Buffer(downBuf, gBuf, batch, w2); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual W2: %w", err)
+	}
+	if err := IdeogramRMSNormRowsBuffer(downBuf, downBuf, normBuf, nil, batch, w2.OutDim, 1e-5, false); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual post norm: %w", err)
+	}
+	if err := IdeogramGatedResidualRowsBuffer(hiddenBuf, downBuf, gateBuf, batch, w2.OutDim); err != nil {
+		return fmt.Errorf("FP8 SwiGLU residual gated: %w", err)
+	}
+	if err := hiddenBuf.Download(hidden[:outLen]); err != nil {
+		return fmt.Errorf("download FP8 SwiGLU residual hidden: %w", err)
+	}
+	return nil
+}
+
 func GemmSwiGLUFP8E4M3(out, x []float32, batch int, w1, w3, w2 *GPUFP8E4M3Linear) error {
 	if !validGPUFP8E4M3Linear(w1) || !validGPUFP8E4M3Linear(w3) || !validGPUFP8E4M3Linear(w2) {
 		return fmt.Errorf("invalid GPU FP8 E4M3 SwiGLU linear set")
