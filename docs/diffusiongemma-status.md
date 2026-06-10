@@ -256,7 +256,10 @@ The safetensors index reports:
 
 ```text
 total_parameters=25823778864
-total_size_bytes=51647562456
+total_size_bytes=51647562456 (~48.10 GiB)
 ```
 
 `diffusiongemmainspect` surfaces these fields from `model.safetensors.index.json`, so download planning can show expected payload size before fetching the 11 shards.
+
+
+`diffusiongemmainspect` and `diffusiongemma_status_summary.py` report `size_gib=48.10` for the published checkpoint payload.
