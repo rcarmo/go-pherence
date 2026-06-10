@@ -96,7 +96,8 @@ func main() {
 			if !ok || strings.TrimSpace(content) == "" {
 				fatal(fmt.Errorf("bad -message %q, want role:text", raw))
 			}
-			chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: strings.TrimSpace(role), Content: tok.Encode(content)})
+			role = strings.TrimSpace(role)
+			chatMessages = append(chatMessages, diffusiongemma.ChatMessage{Role: role, Content: tok.Encode(role + "\n" + content)})
 		}
 		framed, err := diffusiongemma.BuildSimpleChatPromptIDs(chatMessages, specials, diffusiongemma.ChatPromptOptions{AddBOS: *addBOS, EnableThinking: *enableThinking, AddGenerationPrompt: *addGenerationPrompt})
 		if err != nil {
