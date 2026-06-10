@@ -274,3 +274,8 @@ The explicit `canvas_embedding` prefix op marks the point where token IDs from t
 ## Canvas embedding implementation scaffold
 
 `CPUDispatcher` now implements the `canvas_embedding` prefix op enough to fetch embedding rows lazily from `TextWeights.RawTensorRow` and decode `BF16`, `F16`, or `F32` rows into the hidden scratch buffer. This is the first concrete tensor-backed operation boundary. Later layer ops still return explicit not-implemented errors until RMSNorm, attention, MLP, router, experts, final norm, and LM head math are wired.
+
+
+## Input RMSNorm hook
+
+`CPUDispatcher` now implements the `input_norm` layer op scaffold. It loads the rank-1 RMSNorm weight through `TextWeights.RawTensor`, decodes `BF16`/`F16`/`F32` to float32, and applies `backends/simd/runtime.RMSNormTo` row-by-row over the hidden scratch buffer. Subsequent attention/MLP/MoE/tail ops still return explicit not-implemented errors.

@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // CPUDispatcher is the native CPU/SIMD forward scaffold for DiffusionGemma text
@@ -169,7 +171,7 @@ func diffusionGemmaF16ToF32(h uint16) float32 {
 func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
 	switch op.Kind {
 	case OpInputNorm:
-		return errOpNotImplemented(op.Kind)
+		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.InputLayerNorm })
 	case OpSelfAttention:
 		return errOpNotImplemented(op.Kind)
 	case OpPostAttention:
@@ -189,6 +191,52 @@ func dispatchLayerOp(op LayerOp, weights *TextWeights, scratch ForwardScratch) e
 	default:
 		return fmt.Errorf("DiffusionGemma unknown layer op %q", op.Kind)
 	}
+}
+
+func runLayerRMSNorm(op LayerOp, weights *TextWeights, scratch ForwardScratch, pick func(TextLayerBindings) *TensorBinding) error {
+	if weights == nil {
+		return fmt.Errorf("DiffusionGemma RMSNorm missing weights")
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
+		return fmt.Errorf("DiffusionGemma RMSNorm layer %d outside plan", op.Layer)
+	}
+	binding := pick(fp.Layers[op.Layer])
+	if binding == nil {
+		return fmt.Errorf("DiffusionGemma RMSNorm missing binding for layer %d", op.Layer)
+	}
+	weight, err := loadFloatVector(weights, binding)
+	if err != nil {
+		return err
+	}
+	if len(weight) == 0 {
+		return fmt.Errorf("DiffusionGemma RMSNorm empty weight %s", binding.Name)
+	}
+	hiddenSize := len(weight)
+	if len(scratch.Hidden)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma RMSNorm hidden len=%d not divisible by %d", len(scratch.Hidden), hiddenSize)
+	}
+	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
+		if !simd.RMSNormTo(scratch.Hidden[off:off+hiddenSize], weight, 1e-6) {
+			return fmt.Errorf("DiffusionGemma RMSNorm rejected row at offset %d", off)
+		}
+	}
+	return nil
+}
+
+func loadFloatVector(weights *TextWeights, binding *TensorBinding) ([]float32, error) {
+	raw, dtype, shape, err := weights.RawTensor(binding.Name)
+	if err != nil {
+		return nil, err
+	}
+	if len(shape) != 1 {
+		return nil, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-1", binding.Name, shape)
+	}
+	out := make([]float32, shape[0])
+	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func dispatchTailOp(op OpKind, weights *TextWeights, scratch ForwardScratch) error {
