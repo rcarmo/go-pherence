@@ -609,7 +609,7 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 
 ## Scaffold CI target
 
-`make diffusiongemma-ci-scaffold` combines the text scaffold check, reference-helper dry run, and mock run/reference comparison. It validates metadata/readiness, mock denoising control flow, structured chat-template scaffold input, package buildability, reference fixture preflight, and the comparison utility without requiring full safetensor shards.
+`make diffusiongemma-ci-scaffold` combines the text scaffold check, reference-helper dry run, mock run/reference comparison, status JSON export, and status summary. It validates metadata/readiness, mock denoising control flow, structured chat-template scaffold input, package buildability, reference fixture preflight, and the comparison utility without requiring full safetensor shards.
 
 
 Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`, `-decode`, exact vocab lookup, and scaffold CI work from a fresh metadata snapshot without needing safetensor shards.
@@ -656,3 +656,6 @@ Metadata-only downloads include `tokenizer.json`, so `diffusiongemmarun -prompt`
 ## Status summary helper
 
 `scripts/diffusiongemma_status_summary.py` reads a `diffusiongemmainspect -json` artifact and prints a compact CI-friendly summary. Use `make diffusiongemma-status-json` followed by `make diffusiongemma-status-summary`.
+
+
+The scaffold CI target also writes `DIFFUSIONGEMMA_STATUS_OUT` and prints the compact status summary, so CI artifacts can include both the full JSON report and human-readable readiness summary.
