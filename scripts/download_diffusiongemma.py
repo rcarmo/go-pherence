@@ -45,6 +45,7 @@ def main() -> int:
     ap.add_argument("--repo", default=DEFAULT_REPO)
     ap.add_argument("--out", default="models/diffusiongemma-26B-A4B-it")
     ap.add_argument("--metadata-only", action="store_true", help="download configs/index only, not safetensor shards")
+    ap.add_argument("--plan-only", action="store_true", help="download/read metadata, print shard plan, and exit before shard downloads")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -55,7 +56,7 @@ def main() -> int:
     for name in SMALL_FILES:
         fetch(f"{base}/{name}", out / name, token, args.force)
 
-    if args.metadata_only:
+    if args.metadata_only and not args.plan_only:
         return 0
 
     index_path = out / "model.safetensors.index.json"
@@ -64,6 +65,15 @@ def main() -> int:
     if not shards:
         print("no shards found in index", file=sys.stderr)
         return 1
+    meta = index.get("metadata", {})
+    total_size = int(meta.get("total_size") or 0)
+    total_params = int(meta.get("total_parameters") or 0)
+    if total_size:
+        print(f"checkpoint shards={len(shards)} total_size={total_size} bytes ({total_size/(1024**3):.2f} GiB) parameters={total_params}")
+    else:
+        print(f"checkpoint shards={len(shards)}")
+    if args.plan_only:
+        return 0
     for shard in shards:
         fetch(f"{base}/{shard}", out / shard, token, args.force)
     return 0

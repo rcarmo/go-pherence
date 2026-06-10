@@ -790,3 +790,8 @@ Shard readiness now includes `present_percent`, and the inspector/status summary
 ## Status refresh target
 
 `make diffusiongemma-status-refresh` downloads/refreshes metadata, writes `DIFFUSIONGEMMA_STATUS_OUT`, and prints the compact status summary without running mock generation. It is the quickest metadata/download readiness check.
+
+
+## Download plan-only mode
+
+`scripts/download_diffusiongemma.py --plan-only` and `make diffusiongemma-download-plan-only` download/read metadata and print the planned shard count, total bytes, GiB, and parameter count without downloading the 11 safetensor shards. Use this before `make diffusiongemma-download` to confirm the expected ~48.10 GiB payload.

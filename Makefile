@@ -674,3 +674,8 @@ diffusiongemma-download-plan: diffusiongemma-download-metadata diffusiongemma-in
 .PHONY: diffusiongemma-status-refresh
 
 diffusiongemma-status-refresh: diffusiongemma-download-metadata diffusiongemma-status-json diffusiongemma-status-summary
+
+.PHONY: diffusiongemma-download-plan-only
+
+diffusiongemma-download-plan-only:
+	python3 scripts/download_diffusiongemma.py --repo $(DIFFUSIONGEMMA_REPO) --out $(DIFFUSIONGEMMA_MODEL) --plan-only
