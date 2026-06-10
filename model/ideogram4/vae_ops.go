@@ -192,6 +192,9 @@ func GroupNorm(in FeatureMap, groups int, gamma, beta []float32, eps float32) (F
 	if len(gamma) != in.C || len(beta) != in.C {
 		return FeatureMap{}, fmt.Errorf("ideogram4 groupnorm affine len gamma=%d beta=%d want=%d", len(gamma), len(beta), in.C)
 	}
+	if out, ok, err := k3GroupNorm(in, groups, gamma, beta, eps); ok {
+		return out, err
+	}
 	if gpuVAEEnabled() {
 		if out, err := groupNormGPU(in, groups, gamma, beta, eps); err == nil {
 			return out, nil
@@ -234,6 +237,9 @@ func GroupNorm(in FeatureMap, groups int, gamma, beta []float32, eps float32) (F
 
 // SiLUMap applies SiLU activation in place.
 func (f FeatureMap) SiLUMap() {
+	if k3SiLUTo(f.Data, f.Data) {
+		return
+	}
 	if gpuVAEEnabled() && len(f.Data) > 0 {
 		out := make([]float32, len(f.Data))
 		if err := siluGPU(out, f.Data); err == nil {
@@ -256,6 +262,9 @@ func UpsampleNearest(in FeatureMap, factor int) (FeatureMap, error) {
 	}
 	if factor <= 0 {
 		return FeatureMap{}, fmt.Errorf("ideogram4 upsample factor=%d", factor)
+	}
+	if out, ok, err := k3UpsampleNearest(in, factor); ok {
+		return out, err
 	}
 	if gpuVAEEnabled() {
 		if out, err := upsampleNearestGPU(in, factor); err == nil {

@@ -343,6 +343,9 @@ func (d *VAEDecoder) Decode(latents FeatureMap) (Image, error) {
 
 // featureMapToImage converts a [3,H,W] float map in [-1,1] to 8-bit RGB.
 func featureMapToImage(f FeatureMap) Image {
+	if img, ok := k3RGB(f); ok {
+		return img
+	}
 	HW := f.H * f.W
 	rgb := make([]byte, HW*3)
 	if gpuVAEEnabled() {

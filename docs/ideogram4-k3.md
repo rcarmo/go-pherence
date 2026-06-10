@@ -100,7 +100,7 @@ This is **not yet full K3 SIMD coverage**. It is the first targetable binary for
 | SiLU / SiLU*Mul / gated residual | Go scalar / NVIDIA vector kernels; K3-gated riscv64 seams cover SiLU, Mul, and SiLU*Mul call sites | RVV vector kernels | partial seam: scalar body pending RVV assembly |
 | CFG + scheduler update | Go scalar / NVIDIA vector kernel; K3-gated riscv64 seam exists | RVV vector kernel | partial seam: scalar body pending RVV assembly |
 | VAE Conv2D | SIMD im2col/GemmRows / NVIDIA direct conv; K3 gate can route im2col GEMM through RVV fp16 bridge | RVV/f16 or int8 im2col/conv; potentially reuse f16 GEMM | partial: RVV f16 bridge |
-| VAE GroupNorm/SiLU/Upsample/RGB | Go scalar / NVIDIA kernels | RVV vector kernels | missing |
+| VAE GroupNorm/SiLU/Upsample/RGB | Go scalar / NVIDIA kernels; K3-gated riscv64 seams cover GroupNorm, SiLU, UpsampleNearest, and RGB conversion | RVV vector kernels | partial seam: scalar body pending RVV assembly |
 | VAE spatial attention | Go/NVIDIA full attention | tiled/streaming RVV/f16 attention | missing |
 | Residency/activation policy | NVIDIA hidden-resident/full-layer/windowed | K3 24GB resident component buffers + A100 worker-pool execution | design needed |
 
