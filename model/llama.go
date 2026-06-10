@@ -6,6 +6,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 
 	"github.com/rcarmo/go-pherence/runtime/kv"
 
@@ -44,7 +45,7 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 		return nil, err
 	}
 	// Gemma4 and Qwen3.5/Qwen3.6: text config may be nested under text_config.
-	if normalized, ok := normalizeGemma4TextConfig(cfgData, cfg); ok {
+	if normalized, ok := gemmacfg.NormalizeTextConfig(cfgData, cfg); ok {
 		cfg = normalized
 	} else if cfg.HiddenSize == 0 {
 		var nested struct {

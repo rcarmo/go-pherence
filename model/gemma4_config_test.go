@@ -1,8 +1,12 @@
 package model
 
-import "testing"
+import (
+	"testing"
 
-func TestNormalizeGemma4TextConfigCompatibilityWrapper(t *testing.T) {
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
+)
+
+func TestNormalizeGemma4TextConfigFromSubpackage(t *testing.T) {
 	json := []byte(`{
 		"model_type":"gemma4",
 		"architectures":["Gemma4ForConditionalGeneration"],
@@ -19,7 +23,7 @@ func TestNormalizeGemma4TextConfigCompatibilityWrapper(t *testing.T) {
 			"layer_types":["sliding_attention","full_attention"]
 		}
 	}`)
-	cfg, ok := normalizeGemma4TextConfig(json, LlamaConfig{})
+	cfg, ok := gemmacfg.NormalizeTextConfig(json, LlamaConfig{})
 	if !ok {
 		t.Fatal("normalizeGemma4TextConfig rejected Gemma4 text_config")
 	}
