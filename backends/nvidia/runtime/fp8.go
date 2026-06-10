@@ -278,12 +278,83 @@ func GemmDiTLayerIslandsFP8E4M3(hidden []float32, attnN1, scaleMSA, gateMSA, nor
 	if tokens <= 0 || heads <= 0 || headDim <= 0 || len(hidden) < n || len(attnN1) < emb || len(scaleMSA) < emb || len(gateMSA) < emb || len(normQ) < headDim || len(normK) < headDim || len(attnN2) < emb || len(ffnN1) < emb || len(scaleMLP) < emb || len(gateMLP) < emb || len(ffnN2) < emb || len(cos) < tableLen || len(sin) < tableLen {
 		return fmt.Errorf("invalid FP8 full-layer island buffers")
 	}
-	bufs, unlock, err := ideogramScratchBuffers(n, n, emb, emb, emb, headDim, headDim, tableLen, tableLen, emb, emb, emb, emb, emb)
+	alloc := func(name string, size int) (*Buffer, error) {
+		b, err := Malloc(size)
+		if err != nil {
+			return nil, fmt.Errorf("alloc FP8 full-layer %s: %w", name, err)
+		}
+		return b, nil
+	}
+	hiddenBuf, err := alloc("hidden", n)
 	if err != nil {
 		return err
 	}
-	defer unlock()
-	hiddenBuf, normedBuf, attnN1Buf, scaleMSABuf, gateMSABuf, normQBuf, normKBuf, cosBuf, sinBuf, attnN2Buf, ffnN1Buf, scaleMLPBuf, gateMLPBuf, ffnN2Buf := bufs[0], bufs[1], bufs[2], bufs[3], bufs[4], bufs[5], bufs[6], bufs[7], bufs[8], bufs[9], bufs[10], bufs[11], bufs[12], bufs[13]
+	defer hiddenBuf.Free()
+	normedBuf, err := alloc("normed", n)
+	if err != nil {
+		return err
+	}
+	defer normedBuf.Free()
+	attnN1Buf, err := alloc("attnN1", emb)
+	if err != nil {
+		return err
+	}
+	defer attnN1Buf.Free()
+	scaleMSABuf, err := alloc("scaleMSA", emb)
+	if err != nil {
+		return err
+	}
+	defer scaleMSABuf.Free()
+	gateMSABuf, err := alloc("gateMSA", emb)
+	if err != nil {
+		return err
+	}
+	defer gateMSABuf.Free()
+	normQBuf, err := alloc("normQ", headDim)
+	if err != nil {
+		return err
+	}
+	defer normQBuf.Free()
+	normKBuf, err := alloc("normK", headDim)
+	if err != nil {
+		return err
+	}
+	defer normKBuf.Free()
+	cosBuf, err := alloc("cos", tableLen)
+	if err != nil {
+		return err
+	}
+	defer cosBuf.Free()
+	sinBuf, err := alloc("sin", tableLen)
+	if err != nil {
+		return err
+	}
+	defer sinBuf.Free()
+	attnN2Buf, err := alloc("attnN2", emb)
+	if err != nil {
+		return err
+	}
+	defer attnN2Buf.Free()
+	ffnN1Buf, err := alloc("ffnN1", emb)
+	if err != nil {
+		return err
+	}
+	defer ffnN1Buf.Free()
+	scaleMLPBuf, err := alloc("scaleMLP", emb)
+	if err != nil {
+		return err
+	}
+	defer scaleMLPBuf.Free()
+	gateMLPBuf, err := alloc("gateMLP", emb)
+	if err != nil {
+		return err
+	}
+	defer gateMLPBuf.Free()
+	ffnN2Buf, err := alloc("ffnN2", emb)
+	if err != nil {
+		return err
+	}
+	defer ffnN2Buf.Free()
 	if err := hiddenBuf.Upload(hidden[:n]); err != nil {
 		return fmt.Errorf("upload FP8 full-layer hidden: %w", err)
 	}
