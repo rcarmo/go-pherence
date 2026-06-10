@@ -248,3 +248,9 @@ The remaining high-value work is:
 3. investigate tiled/chunked attention for 768px/1024px feasibility.
 
 VAE GPU buffer primitives now exist for Conv2D, GroupNorm, UpsampleNearest, and RGB clamp, and `make ideogram4-vae-probe` provides a reproducible VAE-only benchmark. A 512px VAE probe currently shows ~53s decode with ~6.7GB H2D and ~6.2GB D2H, so high-resolution VAE needs full buffer residency/direct-conv improvements.
+
+### Qwen/VAE optimization notes
+
+`-gpu-fp8-sgemm` is enabled by default in the Makefile Ideogram targets because it consistently reduces Qwen conditioning time on the local RTX 3060 profile (roughly 17s → 12.5s for the structured cat prompt) without first-step semantic drift. It does not materially change current DiT denoise timing because the DiT path now mostly uses the hidden-resident full-layer islands rather than the older host-staged FP8 GEMM wrappers.
+
+The VAE path has reusable scratch buffers and buffer-level primitives for Conv2D, GroupNorm, UpsampleNearest, RGB clamp, and the spatial attention building blocks. At 256px, VAE decode is a small tail (~4.5s). At 512px, the VAE becomes material (~53s): block timing shows the mid-block spatial attention dominates (`~42–43s` of the decode). A naive SGEMM-backed full attention experiment is available behind `GO_PHERENCE_IDEOGRAM4_GPU_VAE_ATTN_SGEMM=1`, but it was slower at 512px (`~45.6s` mid-attention versus `~42.8s`) and remains default-off. Higher-resolution VAE work should focus on tiled/streaming spatial attention rather than more direct-conv tuning.
