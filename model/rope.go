@@ -1,6 +1,9 @@
 package model
 
-import simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+import (
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
+)
 
 func (m *LlamaModel) precomputeRoPE() {
 	cfg := m.Config
@@ -30,5 +33,5 @@ func applyRoPE(x, freqs []float32, pos, numHeads, headDim int) {
 }
 
 func applyRoPEPartial(x, freqs []float32, pos, numHeads, headDim, rotHalf int) {
-	simd.ApplyRoPEPartial(x, freqs, pos, numHeads, headDim, rotHalf)
+	llmops.ApplyRoPEPartial(x, freqs, pos, numHeads, headDim, rotHalf)
 }

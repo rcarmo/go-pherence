@@ -2,6 +2,7 @@ package qwen
 
 import (
 	"fmt"
+	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
@@ -548,8 +549,8 @@ func (l *Qwen35FullAttentionLayer) ForwardWithKV(input []float32, pos int, ropeF
 		// all sections share the same position, so partial RoPE is equivalent to
 		// applying those interleaved sections with identical position ids.
 		_ = Qwen35UseMRoPE(meta)
-		applyRoPEPartial(q, ropeFreqs, pos, meta.NumAttentionHeads, meta.HeadDim, rotHalf)
-		applyRoPEPartial(k, ropeFreqs, pos, meta.NumKeyValueHeads, meta.HeadDim, rotHalf)
+		llmops.ApplyRoPEPartial(q, ropeFreqs, pos, meta.NumAttentionHeads, meta.HeadDim, rotHalf)
+		llmops.ApplyRoPEPartial(k, ropeFreqs, pos, meta.NumKeyValueHeads, meta.HeadDim, rotHalf)
 	}
 	curK = append([]float32(nil), k...)
 	curV = append([]float32(nil), v...)
@@ -867,8 +868,8 @@ func projectQwen35LinearAlphaBeta(input []float32, alphaW, betaW []float32, hidd
 	}
 	alpha = make([]float32, rank)
 	beta = make([]float32, rank)
-	gemvNT(alpha, input, alphaW, hidden, rank)
-	gemvNT(beta, input, betaW, hidden, rank)
+	llmops.GemvNT(alpha, input, alphaW, hidden, rank)
+	llmops.GemvNT(beta, input, betaW, hidden, rank)
 	return alpha, beta, nil
 }
 

@@ -1,6 +1,9 @@
 package llama
 
-import simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+import (
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
+)
 
 // ApplyRoPE applies full-half rotary position embedding in-place.
 func ApplyRoPE(x, freqs []float32, pos, numHeads, headDim int) {
@@ -9,5 +12,5 @@ func ApplyRoPE(x, freqs []float32, pos, numHeads, headDim int) {
 
 // ApplyRoPEPartial applies RoPE with partial rotation.
 func ApplyRoPEPartial(x, freqs []float32, pos, numHeads, headDim, rotHalf int) {
-	simd.ApplyRoPEPartial(x, freqs, pos, numHeads, headDim, rotHalf)
+	llmops.ApplyRoPEPartial(x, freqs, pos, numHeads, headDim, rotHalf)
 }

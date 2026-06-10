@@ -1,6 +1,9 @@
 package model
 
-import "github.com/rcarmo/go-pherence/backends/simd/runtime"
+import (
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
+	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
+)
 
 func rmsNormInPlace(x, weight []float32, eps float32) {
 	simd.RMSNorm(x, weight, eps)
@@ -25,13 +28,7 @@ func gemv(out, x []float32, w []float32, inDim, outDim int) {
 
 // gemvNT: out = x @ w^T where w is [outDim, inDim] (original layout)
 func gemvNT(out, x []float32, w []float32, inDim, outDim int) {
-	for i := range out {
-		out[i] = 0
-	}
-	if len(out) < outDim {
-		return
-	}
-	simd.GemvRows(out[:outDim], x, w, outDim, inDim)
+	llmops.GemvNT(out, x, w, inDim, outDim)
 }
 
 func geluTanh(x float32) float32 {

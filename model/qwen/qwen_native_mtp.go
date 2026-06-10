@@ -2,6 +2,7 @@ package qwen
 
 import (
 	"fmt"
+	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
@@ -532,7 +533,7 @@ func (head *QwenNativeMTPHead) PreProject(embedding, hidden []float32, eps float
 			return nil, fmt.Errorf("mtp.fc MLX GEMV failed")
 		}
 	} else {
-		gemvNT(out, concat, head.FC.Data(), 2*h, h)
+		llmops.GemvNT(out, concat, head.FC.Data(), 2*h, h)
 	}
 	return out, nil
 }

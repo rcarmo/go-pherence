@@ -2,6 +2,7 @@ package qwen
 
 import (
 	"fmt"
+	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
 	"math"
 	"sync"
 	"time"
@@ -214,6 +215,6 @@ func qwen35LinearInto(out, x []float32, dense *tensor.Tensor, q *Qwen35NVFP4Weig
 	if dense == nil {
 		return fmt.Errorf("missing %s", name)
 	}
-	gemvNT(out, x, dense.Data(), inDim, outDim)
+	llmops.GemvNT(out, x, dense.Data(), inDim, outDim)
 	return nil
 }
