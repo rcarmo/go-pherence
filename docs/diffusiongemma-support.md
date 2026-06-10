@@ -600,3 +600,8 @@ Capability reporting now distinguishes `text_only_scaffold_ready=true` from `ref
 ## Structured message input
 
 `diffusiongemmarun` now accepts structured text chat input with `-messages-json` or `-messages-file`, both using a JSON array of `{"role":"user","content":"..."}` objects. This is useful for automation and avoids shell-escaping many repeated `-message role:text` flags.
+
+
+## Reusable chat prompt builder
+
+`model/diffusiongemma/chat_prompt.go` adds `BuildTemplateChatPromptIDs`, a tokenizer-agnostic prompt-ID builder that inserts special token IDs directly and delegates normal text to a caller-provided encode function. `diffusiongemmarun -chat-template` now uses this model-level API instead of owning prompt construction logic in the CLI.

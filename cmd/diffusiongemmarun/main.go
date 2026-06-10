@@ -102,44 +102,17 @@ func main() {
 		}
 		if *useChatTemplate {
 			specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
-			ids := make([]int, 0)
-			if *addBOS {
-				ids = append(ids, specials.BOS)
-			}
 			parsed := append([]diffusiongemma.TextChatMessage(nil), jsonMessages...)
 			flagMessages, err := parseFlagMessages(messages)
 			if err != nil {
 				fatal(err)
 			}
 			parsed = append(parsed, flagMessages...)
-			start := 0
-			if *enableThinking || (len(parsed) > 0 && (parsed[0].Role == "system" || parsed[0].Role == "developer")) {
-				ids = append(ids, specials.BOT)
-				ids = append(ids, tok.Encode("system\n")...)
-				if *enableThinking {
-					ids = append(ids, specials.THINK)
-					ids = append(ids, tok.Encode("\n")...)
-				}
-				if len(parsed) > 0 && (parsed[0].Role == "system" || parsed[0].Role == "developer") {
-					ids = append(ids, tok.Encode(parsed[0].Content)...)
-					start = 1
-				}
-				ids = append(ids, specials.EOT)
+			framed, err := diffusiongemma.BuildTemplateChatPromptIDs(parsed, specials, tok.Encode, diffusiongemma.ChatRenderOptions{AddBOS: *addBOS, EnableThinking: *enableThinking, AddGenerationPrompt: *addGenerationPrompt})
+			if err != nil {
+				fatal(err)
 			}
-			for _, msg := range parsed[start:] {
-				role := msg.Role
-				if role == "assistant" {
-					role = "model"
-				}
-				ids = append(ids, specials.BOT)
-				ids = append(ids, tok.Encode(role+"\n"+msg.Content)...)
-				ids = append(ids, specials.EOT)
-			}
-			if *addGenerationPrompt {
-				ids = append(ids, specials.BOT)
-				ids = append(ids, tok.Encode("model\n")...)
-			}
-			promptIDs = append(promptIDs, ids...)
+			promptIDs = append(promptIDs, framed.InputIDs...)
 		} else {
 			specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
 			parsed := append([]diffusiongemma.TextChatMessage(nil), jsonMessages...)
