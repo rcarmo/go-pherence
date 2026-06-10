@@ -755,3 +755,8 @@ It requires all safetensor shards, a working Transformers/PyTorch environment fo
 ## Structured-message CI target
 
 `make diffusiongemma-ci-structured-messages` runs the reference dry-run plus go-pherence scaffold paths with a shared JSON message payload (`DIFFUSIONGEMMA_MESSAGES_JSON`). This keeps structured-message handling exercised separately from plain prompt and exact-token paths.
+
+
+## Download planning target
+
+`make diffusiongemma-download-plan` downloads/refreshes metadata, runs inspection, exports status JSON, and prints the compact status summary. It does not download the 11 safetensor shards; use it before a full download to confirm model metadata and shard readiness.

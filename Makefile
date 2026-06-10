@@ -666,3 +666,7 @@ diffusiongemma-ci-structured-messages:
 	$(MAKE) diffusiongemma-reference-dry-run DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_REF_OUT=$(DIFFUSIONGEMMA_REF_OUT) DIFFUSIONGEMMA_REF_MESSAGES_JSON='$(DIFFUSIONGEMMA_MESSAGES_JSON)'
 	$(MAKE) diffusiongemma-run-mock-json DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_MOCK_TOKEN=$(DIFFUSIONGEMMA_MOCK_TOKEN) DIFFUSIONGEMMA_MOCK_TOKENS=$(DIFFUSIONGEMMA_MOCK_TOKENS) DIFFUSIONGEMMA_CANVAS=2 DIFFUSIONGEMMA_MAX_NEW=2 DIFFUSIONGEMMA_RUN_OUT=$(DIFFUSIONGEMMA_RUN_OUT) DIFFUSIONGEMMA_PROMPT='$(DIFFUSIONGEMMA_PROMPT)'
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -messages-json '$(DIFFUSIONGEMMA_MESSAGES_JSON)' -add-bos -chat-template -generation-prompt -mock-token $(DIFFUSIONGEMMA_MOCK_TOKEN) $(if $(DIFFUSIONGEMMA_MOCK_TOKENS),-mock-tokens $(DIFFUSIONGEMMA_MOCK_TOKENS),) -canvas 2 -max-new 2 -decode
+
+.PHONY: diffusiongemma-download-plan
+
+diffusiongemma-download-plan: diffusiongemma-download-metadata diffusiongemma-inspect diffusiongemma-status-json diffusiongemma-status-summary
