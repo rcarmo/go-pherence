@@ -198,54 +198,6 @@ func UploadNVFP4WeightReuse(dst **GPUNVFP4Weight, qw *simdnvfp4.NVFP4Weight) err
 	return nil
 }
 
-func uploadNVFP4WeightFresh(qw *simdnvfp4.NVFP4Weight) (*GPUNVFP4Weight, error) {
-	if err := simdnvfp4.ValidateNVFP4Weight(qw); err != nil {
-		return nil, err
-	}
-	if !SgemmReady() {
-		return nil, fmt.Errorf("GPU not available")
-	}
-	EnsureContext()
-
-	weightBytes, scaleBytes, err := nvfp4RequiredBytes(qw.OutDim, qw.InDim, qw.Groups)
-	if err != nil {
-		return nil, err
-	}
-	w := &GPUNVFP4Weight{
-		WeightScale2:  qw.WeightScale2,
-		InputScale:    qw.InputScale,
-		HasInputScale: qw.HasInputScale,
-		OutDim:        qw.OutDim,
-		InDim:         qw.InDim,
-		Groups:        qw.Groups,
-		GroupSize:     qw.GroupSize,
-		WeightBytes:   weightBytes,
-		ScaleBytes:    scaleBytes,
-	}
-
-	wb, err := Malloc(f32SlotsForBytes(weightBytes))
-	if err != nil {
-		return nil, fmt.Errorf("alloc NVFP4 weight (%d bytes): %w", weightBytes, err)
-	}
-	w.Weight = wb
-	if err := wb.UploadBytes(qw.Weight[:weightBytes]); err != nil {
-		w.Free()
-		return nil, fmt.Errorf("upload NVFP4 weight: %w", err)
-	}
-
-	sb, err := Malloc(f32SlotsForBytes(scaleBytes))
-	if err != nil {
-		w.Free()
-		return nil, fmt.Errorf("alloc NVFP4 weight_scale (%d bytes): %w", scaleBytes, err)
-	}
-	w.WeightScale = sb
-	if err := sb.UploadBytes(qw.WeightScale[:scaleBytes]); err != nil {
-		w.Free()
-		return nil, fmt.Errorf("upload NVFP4 weight_scale: %w", err)
-	}
-	return w, nil
-}
-
 func (w *GPUNVFP4Weight) Free() {
 	if w == nil {
 		return
