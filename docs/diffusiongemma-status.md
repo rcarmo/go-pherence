@@ -433,3 +433,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Bounded CPU layer eviction smoke
 
 `diffusiongemmarun -resident-layers 1 -max-dispatch-layers 2` executes layers 0 and 1, then evicts layer 1 so the retained decoded cache returns to the layer-0 footprint. With full weights it completes with `float_cache_entries=22 float_cache_bytes=3256379908`. `make diffusiongemma-run-cpu-layer2-evict-smoke` wraps this eviction probe.
+
+
+## Bounded CPU budget smoke
+
+`diffusiongemmarun -residency-budget-gib 16 -max-dispatch-layers 4` now executes the first four real-weight text layers while selecting a resident prefix from the budget planner. On the downloaded checkpoint it selects `resident_layers=4/30`, completes, and reports `float_cache_entries=88 float_cache_bytes=13025519632` (~12.13 GiB retained after execution). `make diffusiongemma-run-cpu-layer4-budget-smoke` wraps this bounded budget probe.
