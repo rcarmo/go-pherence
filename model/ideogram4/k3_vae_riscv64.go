@@ -45,10 +45,15 @@ func k3GroupNorm(in FeatureMap, groups int, gamma, beta []float32, eps float32) 
 		variance /= float64(n)
 		inv := 1 / math.Sqrt(variance+float64(eps))
 		for c := c0; c < c0+chPerGroup; c++ {
-			ga, be := float64(gamma[c]), float64(beta[c])
+			base := c * hw
+			dst := out.Data[base : base+hw]
 			for i := 0; i < hw; i++ {
-				norm := (float64(in.Data[c*hw+i]) - mean) * inv
-				out.Data[c*hw+i] = float32(norm*ga + be)
+				dst[i] = in.Data[base+i] - float32(mean)
+			}
+			simdruntime.VecScale(dst, dst, float32(inv)*gamma[c])
+			be := beta[c]
+			for i := range dst {
+				dst[i] += be
 			}
 		}
 	}
