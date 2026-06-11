@@ -498,3 +498,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Normal full-stack four-step sparse top-k smoke
 
 `diffusiongemmarun -denoise-steps 4 -residency-budget-gib 16 -lm-head-top-k 8 -dispatch-progress` completes the normal CPU dispatcher path for four denoising iterations with all thirty real-weight text layers, final norm, SIMD sparse top-k LM-head, and self-conditioning feedback. On the downloaded checkpoint it emits `generated=[220642]` decoded as ` pr�f�rable`. `make diffusiongemma-run-cpu-full-topk-4step-smoke` wraps this deeper multi-step probe.
+
+
+## Normal full-stack eight-step sparse top-k smoke
+
+`diffusiongemmarun -denoise-steps 8 -residency-budget-gib 16 -lm-head-top-k 8 -dispatch-progress` completes the normal CPU dispatcher path for eight denoising iterations with all thirty real-weight text layers, final norm, SIMD sparse top-k LM-head, and self-conditioning feedback. On the downloaded checkpoint it emits `generated=[115570]` decoded as ` 제일`. `make diffusiongemma-run-cpu-full-topk-8step-smoke` wraps this deeper multi-step probe.
