@@ -635,3 +635,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse text JSON operator target
 
 `make diffusiongemma-run-sparse-text-json` is the machine-readable companion to `diffusiongemma-run-sparse-text`. It uses the same sparse native defaults and writes `diffusiongemmarun -json` output to `DIFFUSIONGEMMA_RUN_OUT`, then prints the generated token IDs and error field. This is intended for prompt-output capture and future sparse/reference regression comparison.
+
+
+## Sparse chat operator targets
+
+`make diffusiongemma-run-sparse-chat-text` and `make diffusiongemma-run-sparse-chat-json` are structured-message companions to `diffusiongemma-run-sparse-text`. They gate on `diffusiongemma-check-sparse-text`, build the simplified Gemma chat-template scaffold from `DIFFUSIONGEMMA_MESSAGES_JSON`, append a generation prompt, and run the validated sparse native text stack with the same top-k/residency defaults. These targets are still scaffold chat rendering rather than full Jinja processor parity.
