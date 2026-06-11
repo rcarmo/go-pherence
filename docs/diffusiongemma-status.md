@@ -473,3 +473,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Single-step 16-layer sparse top-k smoke
 
 `diffusiongemmarun -denoise-steps 1 -residency-budget-gib 16 -max-dispatch-layers 16 -tail-after-max-layers -lm-head-top-k 8 -dispatch-progress` completes a single denoising step through the first sixteen real-weight text layers plus final norm and SIMD sparse top-k LM-head. On the downloaded checkpoint it emits `generated=[1595]` decoded as ` way`; progress logging shows per-layer timing and cache residency. `make diffusiongemma-run-cpu-layer16-topk-step-smoke` wraps this practical half-stack inference probe.
+
+
+## Single-step full-stack sparse top-k smoke
+
+`diffusiongemmarun -denoise-steps 1 -residency-budget-gib 16 -max-dispatch-layers 30 -tail-after-max-layers -lm-head-top-k 8 -dispatch-progress` now completes one denoising step through all thirty real-weight text layers plus final norm and SIMD sparse top-k LM-head. On the downloaded checkpoint it emits `generated=[147485]` decoded as `不开`; progress logging shows the 16 GiB budget selects a four-layer resident prefix and layer tensors outside that prefix are decoded/evicted. `make diffusiongemma-run-cpu-layer30-topk-step-smoke` wraps this full-stack single-step probe.
