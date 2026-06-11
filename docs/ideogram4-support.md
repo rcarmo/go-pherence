@@ -409,3 +409,33 @@ GO_PHERENCE_IDEOGRAM4_K3_A100_Q8=1 \
 GO_PHERENCE_IDEOGRAM4_K3_A100_MLP=1 \
 ideogram4gen -k3 -k3-prewarm ...
 ```
+
+### Expanded selective DiT global prewarm and steady-state profile
+
+Selective K3 prewarm now also includes the DiT global linears used during denoise
+(`llm_cond_proj`, `time_in`, `time_out`, `final_adaln`, `input_proj`, and
+`final_linear`) in addition to per-layer AdaLN/QKV/O/W1/W2/W3 linears. With
+`GO_PHERENCE_IDEOGRAM4_K3_PREWARM_QWEN=1`, the resident service profile now
+builds 672 K3/A100 row-scale Q8 linears across Qwen and both DiT branches.
+
+This removes the previous first-use global projection stall inside `Velocity`:
+`llm_cond_proj` fell from about `6.94s` to about `0.12s` on a 64×64 conditional
+branch, and the 64×64 one-step denoise phase fell from about `13.6s` to
+`5.86s`.
+
+Milk-V/K3 fully-prewarmed timings (`GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS=8`,
+`IME2_ACT_PACK_WORKERS=8`):
+
+| Run | Qwen | Denoise | VAE | Generate after load |
+|---|---:|---:|---:|---:|
+| 64×64, 1 step | 1.64s | 5.86s | 3.37s | 14.65s |
+| 128×128, 1 step | 1.90s | 24.65s | 12.30s | 42.90s |
+
+For 128×128, branch-level denoise timing after full prewarm is now dominated by
+layer execution rather than global projections:
+
+- conditional branch: `layers=14.24s`, globals/final ≈ `0.13s`
+- unconditional branch: `layers=10.20s`, globals/final ≈ `0.07s`
+
+The remaining K3 optimization target is therefore steady-state DiT layer kernels,
+especially attention and MLP internals, not cache construction or scheduler/CFG.
