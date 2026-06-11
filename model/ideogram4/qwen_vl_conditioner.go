@@ -314,6 +314,23 @@ func (q *QwenVLConditioner) decoderLayer(h []float32, T int, lp string, heads, k
 // ---- helpers ----
 
 func qwenCausalGQAAttention(attn, qh, kh, vh []float32, T, heads, kvHeads, headDim, group, qDim, kvDim int, scale float32) {
+	if k3Enabled() {
+		for ti := 0; ti < T; ti++ {
+			out := attn[ti*qDim : (ti+1)*qDim]
+			qRow := qh[ti*qDim : (ti+1)*qDim]
+			kPrefix := kh[:(ti+1)*kvDim]
+			vPrefix := vh[:(ti+1)*kvDim]
+			if !k3QwenGQA(out, qRow, kPrefix, vPrefix, ti+1, heads, kvHeads, headDim, scale) {
+				break
+			}
+			if ti == T-1 {
+				return
+			}
+		}
+		for i := range attn {
+			attn[i] = 0
+		}
+	}
 	if gpuAttentionEnabled() {
 		ok := true
 		for ti := 0; ti < T; ti++ {

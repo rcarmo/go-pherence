@@ -96,7 +96,7 @@ This is **not yet full K3 SIMD coverage**. It is the first targetable binary for
 | RMSNorm rows | Go scalar / NVIDIA rows; K3-gated riscv64 seam covers Qwen/DiT weighted RMSNorm call sites | RVV row RMSNorm over f32/f16 | partial seam: scalar body pending RVV assembly |
 | LayerNorm final | Go scalar / NVIDIA rows | RVV row LayerNorm | missing |
 | RoPE/MRoPE | Go scalar / NVIDIA kernels; K3-gated riscv64 seams cover DiT MRoPE and Qwen RoPE call sites | RVV in-place rotation | partial seam: scalar body pending RVV assembly |
-| Attention score/value | Go scalar / NVIDIA full attention | RVV/f16 tiled attention; future tiled/streaming for high res | missing |
+| Attention score/value | Go scalar / NVIDIA full attention; K3-gated riscv64 seams cover DiT full attention and Qwen causal GQA call sites | RVV/f16 tiled attention; future tiled/streaming for high res | partial seam: scalar body pending RVV assembly/tiled implementation |
 | SiLU / SiLU*Mul / gated residual | Go scalar / NVIDIA vector kernels; K3-gated riscv64 seams cover SiLU, Mul, and SiLU*Mul call sites | RVV vector kernels | partial seam: scalar body pending RVV assembly |
 | CFG + scheduler update | Go scalar / NVIDIA vector kernel; K3-gated riscv64 seam exists | RVV vector kernel | partial seam: scalar body pending RVV assembly |
 | VAE Conv2D | SIMD im2col/GemmRows / NVIDIA direct conv; K3 gate can route im2col GEMM through RVV fp16 bridge | RVV/f16 or int8 im2col/conv; potentially reuse f16 GEMM | partial: RVV f16 bridge |

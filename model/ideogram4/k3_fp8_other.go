@@ -4,6 +4,8 @@ package ideogram4
 
 type k3FP8Cache struct{}
 
+func k3Enabled() bool { return false }
+
 func (c *k3FP8Cache) release() {}
 
 func k3FP8Batch(_ *FP8Linear, _, _ []float32, _ int) (bool, error) { return false, nil }

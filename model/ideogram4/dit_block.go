@@ -335,6 +335,9 @@ func siluMulInPlace(gate, up []float32) {
 }
 
 func fullSelfAttention(attnOut, q, k, v []float32, tokens, heads, headDim int, scaleAttn float32) error {
+	if k3FullAttention(attnOut, q, k, v, tokens, heads, headDim, scaleAttn) {
+		return nil
+	}
 	if gpuAttentionEnabled() {
 		if err := fullAttentionGPU(attnOut, q, k, v, tokens, heads, headDim, scaleAttn); err == nil || gpuAttentionStrict() {
 			return err
