@@ -616,3 +616,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Published sparse text CI validation
 
 2026-06-11: `GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-sparse-text-published DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it DIFFUSIONGEMMA_RESIDENT_LAYERS=1 DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB=16` passed against the downloaded 11-shard checkpoint. The bundle validated `-require-text-sparse-ready`, residency planning, the published 256-position one-step sparse top-k smoke, and the published 256-position two-step sparse feedback smoke. The two-step output converged to repeated `generated=[1852 ...]` (`own ...`). Reference completeness remains false.
+
+
+## General sparse text run target
+
+`make diffusiongemma-run-sparse-text` is the parameterized full-checkpoint operator entrypoint for the validated sparse native path. It gates on `diffusiongemma-check-sparse-text`, then runs `diffusiongemmarun -cpu-dispatcher -allow-slow-cpu -lm-head-top-k $(DIFFUSIONGEMMA_LM_HEAD_TOP_K)` with the standard `DIFFUSIONGEMMA_PROMPT`, `DIFFUSIONGEMMA_MAX_NEW`, `DIFFUSIONGEMMA_CANVAS`, `DIFFUSIONGEMMA_DENOISE_STEPS`, `DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB`, and sampler override variables. This is the current recommended native sparse text inference command; reference-complete parity remains separate.

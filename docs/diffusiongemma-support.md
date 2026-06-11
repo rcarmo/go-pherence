@@ -1155,3 +1155,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse fields in status summary
 
 `scripts/diffusiongemma_status_summary.py` now prints `text_sparse` and `sparse_topk_lm` alongside `text_scaffold`, `reference_complete`, and `runtime_ready`, so compact status output distinguishes the validated sparse native path from reference completeness.
+
+
+## General sparse text run target
+
+`make diffusiongemma-run-sparse-text` is the parameterized full-checkpoint operator entrypoint for the validated sparse native path. It gates on `diffusiongemma-check-sparse-text`, then runs `diffusiongemmarun -cpu-dispatcher -allow-slow-cpu -lm-head-top-k $(DIFFUSIONGEMMA_LM_HEAD_TOP_K)` with the standard `DIFFUSIONGEMMA_PROMPT`, `DIFFUSIONGEMMA_MAX_NEW`, `DIFFUSIONGEMMA_CANVAS`, `DIFFUSIONGEMMA_DENOISE_STEPS`, `DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB`, and sampler override variables. This is the current recommended native sparse text inference command; reference-complete parity remains separate.

@@ -972,3 +972,8 @@ diffusiongemma-ci-sparse-text: diffusiongemma-check-sparse-text diffusiongemma-r
 .PHONY: diffusiongemma-ci-sparse-text-published
 
 diffusiongemma-ci-sparse-text-published: diffusiongemma-check-sparse-text diffusiongemma-residency-plan diffusiongemma-run-cpu-full-topk-canvas256-step-smoke diffusiongemma-run-cpu-full-topk-canvas256-2step-smoke
+
+.PHONY: diffusiongemma-run-sparse-text
+
+diffusiongemma-run-sparse-text: diffusiongemma-check-sparse-text
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps $(DIFFUSIONGEMMA_DENOISE_STEPS) -t-min $(DIFFUSIONGEMMA_T_MIN) -t-max $(DIFFUSIONGEMMA_T_MAX) -entropy-bound $(DIFFUSIONGEMMA_ENTROPY_BOUND) -stability $(DIFFUSIONGEMMA_STABILITY) -confidence $(DIFFUSIONGEMMA_CONFIDENCE) -cpu-dispatcher -allow-slow-cpu -residency-budget-gib $(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB) -lm-head-top-k $(DIFFUSIONGEMMA_LM_HEAD_TOP_K) $(if $(filter yes,$(DIFFUSIONGEMMA_DISPATCH_PROGRESS)),-dispatch-progress,) -decode
