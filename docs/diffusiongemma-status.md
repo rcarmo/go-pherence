@@ -597,7 +597,7 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 
 ## Sparse text CI target
 
-`make diffusiongemma-ci-sparse-text` is the full-checkpoint CI bundle for the validated native sparse path. It runs `diffusiongemma-check-sparse-text`, `diffusiongemma-residency-plan`, a normal full-stack one-step top-k smoke, a `canvas=8` two-step feedback smoke, and a structured-chat JSON sparse run. It remains distinct from no-weight scaffold CI and from reference-complete parity.
+`make diffusiongemma-ci-sparse-text` is the full-checkpoint CI bundle for the validated native sparse path. It runs `diffusiongemma-check-sparse-text`, `diffusiongemma-residency-plan`, a deterministic sparse JSON regression check, a normal full-stack one-step top-k smoke, a `canvas=8` two-step feedback smoke, and a structured-chat JSON sparse run. It remains distinct from no-weight scaffold CI and from reference-complete parity.
 
 ## Full-checkpoint sparse text CI validation
 
@@ -654,3 +654,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse JSON regression check
 
 `scripts/diffusiongemma_compare_sparse_run.py` compares `diffusiongemmarun -json` `result.generated` IDs against expected IDs. `make diffusiongemma-run-sparse-text-json-check` runs the sparse JSON operator and then compares the output using `DIFFUSIONGEMMA_EXPECT_GENERATED`. The deterministic smoke `DIFFUSIONGEMMA_PROMPT=hi DIFFUSIONGEMMA_MAX_NEW=1 DIFFUSIONGEMMA_CANVAS=1 DIFFUSIONGEMMA_DENOISE_STEPS=1 DIFFUSIONGEMMA_EXPECT_GENERATED=147485` passes against the downloaded checkpoint.
+
+
+## Sparse CI regression assertion
+
+`make diffusiongemma-ci-sparse-text` now includes `diffusiongemma-run-sparse-text-json-check`, so the full-checkpoint sparse CI asserts the deterministic `hi` / one-token sparse output (`generated=[147485]`) in addition to running broader smoke paths.
