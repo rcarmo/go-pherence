@@ -1135,3 +1135,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse text-stack capability reporting
 
 `Capabilities()` now distinguishes the validated native sparse text path from reference completeness: `text_sparse=true` / `text_full_stack_sparse_ready=true` and `sparse_topk_lm=true` are reported by `diffusiongemmainspect` and `diffusiongemmarun`, while `reference_complete=false` and `runtime_ready=false` remain unchanged.
+
+
+## Sparse text readiness gate
+
+`diffusiongemmainspect -require-text-sparse-ready` now fails unless the validated native sparse text-stack path is available and local safetensor shards are ready. This is intentionally distinct from `-require-runtime-ready`, which still requires reference completeness. `make diffusiongemma-check-sparse-text` wraps the gate.

@@ -38,6 +38,7 @@ func main() {
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless native DiffusionGemma runtime is reference-complete")
 	requireTextScaffold := flag.Bool("require-text-scaffold-ready", false, "fail unless the current text-only scaffold/inventory is ready")
+	requireTextSparse := flag.Bool("require-text-sparse-ready", false, "fail unless the native sparse text inference path and local shards are ready")
 	requireShards := flag.Bool("require-shards-ready", false, "fail unless all safetensor shards from the index are present locally")
 	openWeights := flag.Bool("open-weights", false, "open local safetensor shards and bind text tensor metadata")
 	residentLayers := flag.Int("resident-layers", 1, "estimate decoded float32 residency for first N text layers when -open-weights is used")
@@ -56,6 +57,17 @@ func main() {
 		caps := diffusiongemma.Capabilities()
 		if !caps.TextOnlyScaffoldReady || m.Readiness == nil || !m.Readiness.TextReady || m.TextTensorPlan == nil || !m.TextTensorPlan.Ready {
 			fatal(fmt.Errorf("DiffusionGemma text scaffold is not ready"))
+		}
+	}
+	caps := diffusiongemma.Capabilities()
+	if *requireTextSparse {
+		if !caps.TextFullStackSparseReady || !caps.SparseTopKLMHead || m.Readiness == nil || !m.Readiness.TextReady || m.TextTensorPlan == nil || !m.TextTensorPlan.Ready || m.Shards == nil || !m.Shards.Ready {
+			present, expected := 0, 0
+			if m.Shards != nil {
+				present = m.Shards.PresentShards
+				expected = m.Shards.ExpectedShards
+			}
+			fatal(fmt.Errorf("DiffusionGemma sparse text path is not ready: text_sparse=%v sparse_topk_lm=%v text_ready=%v shards=%d/%d", caps.TextFullStackSparseReady, caps.SparseTopKLMHead, m.Readiness != nil && m.Readiness.TextReady, present, expected))
 		}
 	}
 	if *requireShards {
@@ -78,7 +90,6 @@ func main() {
 			fatal(err)
 		}
 	}
-	caps := diffusiongemma.Capabilities()
 	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: caps, OperationStatus: diffusiongemma.OperationStatuses(), Processor: m.Processor, Tokenizer: m.Tokenizer, Shards: m.Shards, Summary: diffusiongemma.BuildReadinessSummary(caps, m.Shards, m.Readiness)}
 	if m.Tokenizer != nil {
 		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
