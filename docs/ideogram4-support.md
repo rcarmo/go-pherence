@@ -315,3 +315,43 @@ The fused path is correctness-tested against the CPU FP8 reference on a syntheti
 MLP. The current end-to-end MLP speedup is small because `W2` and the two large
 A100 GEMMs dominate, but the helper is the right integration point for future
 SiLU*Mul→Q8 activation packing and more aggressive W2 fusion.
+
+### K3-only runtime policy and 128x128 smoke
+
+On Milk-V/K3, `-k3` now hard-disables Ideogram NVIDIA paths: GPU enabled/strict
+predicates return false, DiT GPU residency upload is skipped, and layer helpers
+fall back to K3/X100/RVV/A100 or scalar CPU seams. There is intentionally no
+NVIDIA escape hatch for K3 because this platform has no NVIDIA hardware.
+
+Ideogram A100 defaults to all eight A100 cores (`8-15`) for FP8 row-scale Q8
+linears. With the full `ideogram-ai/ideogram-4-fp8` snapshot downloaded,
+`128x128`, one-step K3 smoke succeeds with:
+
+```sh
+GO_PHERENCE_IDEOGRAM4_K3=1 \
+GO_PHERENCE_IDEOGRAM4_K3_A100_Q8=1 \
+GO_PHERENCE_IDEOGRAM4_K3_A100_MLP=1 \
+GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS=8 \
+IME2_ACT_PACK_WORKERS=8 \
+ideogram4gen -model /home/me/models/ideogram-4-fp8 \
+  -prompt "a small red cube on a wooden table" \
+  -out /tmp/ideogram4-k3-128.png -height 128 -width 128 \
+  -steps 1 -seed 1 -k3 -timing
+```
+
+Measured on Milk-V/K3:
+
+| Phase | Time |
+|---|---:|
+| load pipeline | 1.50 s |
+| Qwen conditioning | 1m53.36s |
+| denoise, 1 step | 5m14.66s |
+| release denoise weights before VAE | 4.13s |
+| VAE decode | 12.23s |
+| total generation | 7m24.54s |
+| PNG write | 16 ms |
+
+The `release_denoise_before_vae` phase drops tokenizer/text/DiT references,
+releases residency caches, and forces GC before VAE decode. Without this, the
+same 128x128 run was killed after denoise/latent postprocess; 64x64 completed
+without the release but the release is now the default in K3 mode.
