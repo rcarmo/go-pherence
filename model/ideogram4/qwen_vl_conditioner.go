@@ -4,6 +4,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/rcarmo/go-pherence/half"
 )
@@ -30,6 +34,8 @@ type QwenVLConditioner struct {
 	eps     float32
 	embed   []byte // raw bf16 [vocab, hidden]
 	embedSh []int
+	fp8Mu   sync.Mutex
+	fp8     map[string]*FP8Linear
 }
 
 // NewQwenVLConditioner binds the conditioner to the text-encoder weight source.
@@ -59,10 +65,19 @@ func NewQwenVLConditioner(src CombinedTensorSource, cfg Config, namePrefix strin
 	if len(sh) != 2 || sh[1] != cfg.TextHidden {
 		return nil, fmt.Errorf("ideogram4 qwen-vl embed shape=%v want [vocab,%d]", sh, cfg.TextHidden)
 	}
-	return &QwenVLConditioner{src: src, cfg: cfg, prefix: namePrefix, theta: theta, eps: eps, embed: embed, embedSh: sh}, nil
+	return &QwenVLConditioner{src: src, cfg: cfg, prefix: namePrefix, theta: theta, eps: eps, embed: embed, embedSh: sh, fp8: map[string]*FP8Linear{}}, nil
 }
 
 func (q *QwenVLConditioner) loadFP8(name string, outDim, inDim int) (*FP8Linear, error) {
+	q.fp8Mu.Lock()
+	if q.fp8 != nil {
+		if l := q.fp8[name]; l != nil {
+			q.fp8Mu.Unlock()
+			return l, nil
+		}
+	}
+	q.fp8Mu.Unlock()
+
 	wb, wd, wsh, err := q.src.GetRaw(name + ".weight")
 	if err != nil {
 		return nil, fmt.Errorf("ideogram4 qwen-vl %q: %w", name, err)
@@ -86,6 +101,16 @@ func (q *QwenVLConditioner) loadFP8(name string, outDim, inDim int) (*FP8Linear,
 	if err != nil {
 		return nil, fmt.Errorf("ideogram4 qwen-vl %q: %w", name, err)
 	}
+	q.fp8Mu.Lock()
+	if q.fp8 == nil {
+		q.fp8 = map[string]*FP8Linear{}
+	}
+	if prev := q.fp8[name]; prev != nil {
+		lin = prev
+	} else {
+		q.fp8[name] = lin
+	}
+	q.fp8Mu.Unlock()
 	return lin, nil
 }
 
@@ -117,6 +142,41 @@ func (q *QwenVLConditioner) embedToken(id int, dst []float32) error {
 	return nil
 }
 
+func k3PrewarmQwenEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_K3_PREWARM_QWEN")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func (q *QwenVLConditioner) PrewarmK3() int {
+	if q == nil || !k3Enabled() || !k3PrewarmQwenEnabled() {
+		return 0
+	}
+	cfg := q.cfg
+	count := 0
+	pre := func(name string, outDim, inDim int) {
+		if l, err := q.loadFP8(name, outDim, inDim); err == nil && k3FP8Prewarm(l) {
+			count++
+		}
+	}
+	hidden := cfg.TextHidden
+	heads, kvHeads, headDim := cfg.TextHeads, cfg.TextKVHeads, cfg.TextHeadDim
+	group := heads / kvHeads
+	qDim, kvDim := heads*headDim, kvHeads*headDim
+	_ = group
+	for layer := 0; layer < cfg.TextLayers; layer++ {
+		lp := fmt.Sprintf("%s.layers.%d", q.prefix, layer)
+		pre(lp+".self_attn.q_proj", qDim, hidden)
+		pre(lp+".self_attn.k_proj", kvDim, hidden)
+		pre(lp+".self_attn.v_proj", kvDim, hidden)
+		pre(lp+".self_attn.o_proj", hidden, qDim)
+		inter := cfg.TextIntermediate
+		pre(lp+".mlp.gate_proj", inter, hidden)
+		pre(lp+".mlp.up_proj", inter, hidden)
+		pre(lp+".mlp.down_proj", hidden, inter)
+	}
+	return count
+}
+
 // Condition runs the Qwen3-VL stack over tokenIDs and returns the concatenated
 // activation-layer hidden states: [len(tokenIDs), llm_features_dim].
 func (q *QwenVLConditioner) Condition(tokenIDs []int) ([]float32, error) {
@@ -127,6 +187,8 @@ func (q *QwenVLConditioner) Condition(tokenIDs []int) ([]float32, error) {
 		return nil, fmt.Errorf("ideogram4 qwen-vl: empty token sequence")
 	}
 	cfg := q.cfg
+	timing := os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1"
+	condStart := time.Now()
 	hidden := cfg.TextHidden
 	T := len(tokenIDs)
 	heads, kvHeads, headDim := cfg.TextHeads, cfg.TextKVHeads, cfg.TextHeadDim
@@ -154,9 +216,13 @@ func (q *QwenVLConditioner) Condition(tokenIDs []int) ([]float32, error) {
 	rope := buildRoPECosSin(T, headDim, q.theta)
 	tmp := make([]float32, hidden)
 	for layer := 0; layer < cfg.TextLayers; layer++ {
+		layerStart := time.Now()
 		lp := fmt.Sprintf("%s.layers.%d", q.prefix, layer)
 		if err := q.decoderLayer(h, T, lp, heads, kvHeads, headDim, group, qDim, kvDim, rope, tmp); err != nil {
 			return nil, fmt.Errorf("ideogram4 qwen-vl layer %d: %w", layer, err)
+		}
+		if timing {
+			fmt.Fprintf(os.Stderr, "timing qwen_layer=%d elapsed=%s total=%s\n", layer, time.Since(layerStart), time.Since(condStart))
 		}
 		if want[layer] {
 			captured[layer] = append([]float32(nil), h...)
@@ -181,6 +247,9 @@ func (q *QwenVLConditioner) Condition(tokenIDs []int) ([]float32, error) {
 				out[base+li] = capState[t*hidden+h]
 			}
 		}
+	}
+	if timing {
+		fmt.Fprintf(os.Stderr, "timing qwen_phase=project total=%s\n", time.Since(condStart))
 	}
 	return out, nil
 }

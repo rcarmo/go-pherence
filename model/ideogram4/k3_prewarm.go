@@ -58,7 +58,7 @@ func (p *NativePipeline) PrewarmK3() int {
 	if p == nil || !k3PrewarmEnabled() {
 		return 0
 	}
-	return p.Cond.PrewarmK3() + p.Uncond.PrewarmK3()
+	return p.Conditioner.PrewarmK3() + p.Cond.PrewarmK3() + p.Uncond.PrewarmK3()
 }
 
 func (p *NativePipeline) maybePrewarmK3() {

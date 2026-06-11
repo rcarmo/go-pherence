@@ -380,3 +380,32 @@ For comparison, the non-prewarmed 128×128 one-step run spent about `8m02s` in
 denoise and `11m00s` total generation after load. Selective prewarm is therefore
 the right mode for repeated image generation or a resident service, while one-off
 CLI use still pays the prewarm cost up front.
+
+### Optional K3 Qwen conditioner prewarm
+
+`GO_PHERENCE_IDEOGRAM4_K3_PREWARM_QWEN=1` extends `-k3-prewarm` to the Qwen3-VL
+text conditioner linears. This builds and retains A100 row-scale Q8 caches for
+the 36 text layers (Q/K/V/O plus gate/up/down projections) in addition to the
+selective DiT denoise caches. It is opt-in because it increases prewarm time and
+resident memory, but it is the right mode for a long-lived K3 service.
+
+Milk-V/K3 64×64 one-step smoke with DiT+Qwen prewarm:
+
+| Phase | Time |
+|---|---:|
+| prewarm/load | 9m53.83s |
+| Qwen conditioner | 1.67s |
+| denoise | 13.1s |
+| VAE decode | 3.3s |
+
+Without Qwen prewarm, the same prompt-conditioning phase was about `2m45s`; with
+prewarm each Qwen layer is roughly `44–54ms` and the full conditioner is under
+2 seconds. Use:
+
+```sh
+GO_PHERENCE_IDEOGRAM4_K3_PREWARM_QWEN=1 \
+GO_PHERENCE_IDEOGRAM4_K3=1 \
+GO_PHERENCE_IDEOGRAM4_K3_A100_Q8=1 \
+GO_PHERENCE_IDEOGRAM4_K3_A100_MLP=1 \
+ideogram4gen -k3 -k3-prewarm ...
+```
