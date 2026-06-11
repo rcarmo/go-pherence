@@ -607,3 +607,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Published sparse text CI target
 
 `make diffusiongemma-ci-sparse-text-published` is the full-checkpoint bundle for the validated published-canvas sparse text path. It checks sparse text readiness, emits the residency plan, then runs the 256-position one-step and two-step sparse top-k smokes. This remains distinct from reference-complete parity, but it gates the largest currently validated native block.
+
+
+## Sparse fields in status summary
+
+`scripts/diffusiongemma_status_summary.py` now prints `text_sparse` and `sparse_topk_lm` alongside `text_scaffold`, `reference_complete`, and `runtime_ready`, so compact status output distinguishes the validated sparse native path from reference completeness.
