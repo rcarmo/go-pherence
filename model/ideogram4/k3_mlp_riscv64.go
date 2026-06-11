@@ -2,6 +2,8 @@
 
 package ideogram4
 
+import simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
+
 func k3SiLUTo(dst, x []float32) bool {
 	if !k3Enabled() || len(dst) != len(x) || len(x) == 0 {
 		return false
@@ -18,9 +20,7 @@ func k3MulTo(dst, a, b []float32) bool {
 	if !k3Enabled() || len(dst) != len(a) || len(dst) != len(b) || len(dst) == 0 {
 		return false
 	}
-	for i := range dst {
-		dst[i] = a[i] * b[i]
-	}
+	simdruntime.VecMul(dst, a, b)
 	return true
 }
 
@@ -28,8 +28,6 @@ func k3SiLUMulInPlace(gate, up []float32) bool {
 	if !k3Enabled() || len(gate) != len(up) || len(gate) == 0 {
 		return false
 	}
-	for i := range gate {
-		gate[i] = siluScalar(gate[i]) * up[i]
-	}
+	simdruntime.VecSiLUMul(gate, gate, up)
 	return true
 }
