@@ -797,6 +797,7 @@ DIFFUSIONGEMMA_MAX_DISPATCH_LAYERS ?= 0
 DIFFUSIONGEMMA_TAIL_AFTER_MAX_LAYERS ?= no
 DIFFUSIONGEMMA_LM_HEAD_TOP_K ?= 0
 DIFFUSIONGEMMA_SPARSE_LM_HEAD_TOP_K ?= 8
+DIFFUSIONGEMMA_EXPECT_GENERATED ?= 147485
 DIFFUSIONGEMMA_DISPATCH_PROGRESS ?= no
 
 .PHONY: diffusiongemma-residency-plan
@@ -997,3 +998,14 @@ diffusiongemma-run-sparse-chat-json: diffusiongemma-check-sparse-text
 	mkdir -p $(dir $(DIFFUSIONGEMMA_RUN_OUT))
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -messages-json '$(DIFFUSIONGEMMA_MESSAGES_JSON)' -add-bos -chat-template -generation-prompt -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps $(DIFFUSIONGEMMA_DENOISE_STEPS) -t-min $(DIFFUSIONGEMMA_T_MIN) -t-max $(DIFFUSIONGEMMA_T_MAX) -entropy-bound $(DIFFUSIONGEMMA_ENTROPY_BOUND) -stability $(DIFFUSIONGEMMA_STABILITY) -confidence $(DIFFUSIONGEMMA_CONFIDENCE) -cpu-dispatcher -allow-slow-cpu -residency-budget-gib $(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB) -lm-head-top-k $(DIFFUSIONGEMMA_SPARSE_LM_HEAD_TOP_K) $(if $(filter yes,$(DIFFUSIONGEMMA_DISPATCH_PROGRESS)),-dispatch-progress,) -decode -json > $(DIFFUSIONGEMMA_RUN_OUT)
 	python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); r=d.get("result") or {}; print("generated="+str(r.get("generated"))); print("error="+str(d.get("error")))' $(DIFFUSIONGEMMA_RUN_OUT)
+
+.PHONY: diffusiongemma-compare-sparse-run
+
+diffusiongemma-compare-sparse-run:
+	python3 scripts/diffusiongemma_compare_sparse_run.py $(DIFFUSIONGEMMA_RUN_OUT) --expected '$(DIFFUSIONGEMMA_EXPECT_GENERATED)'
+
+.PHONY: diffusiongemma-run-sparse-text-json-check
+
+diffusiongemma-run-sparse-text-json-check:
+	$(MAKE) diffusiongemma-run-sparse-text-json DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_PROMPT='$(DIFFUSIONGEMMA_PROMPT)' DIFFUSIONGEMMA_MAX_NEW=$(DIFFUSIONGEMMA_MAX_NEW) DIFFUSIONGEMMA_CANVAS=$(DIFFUSIONGEMMA_CANVAS) DIFFUSIONGEMMA_DENOISE_STEPS=$(DIFFUSIONGEMMA_DENOISE_STEPS) DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB=$(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB) DIFFUSIONGEMMA_RUN_OUT=$(DIFFUSIONGEMMA_RUN_OUT)
+	$(MAKE) diffusiongemma-compare-sparse-run DIFFUSIONGEMMA_RUN_OUT=$(DIFFUSIONGEMMA_RUN_OUT) DIFFUSIONGEMMA_EXPECT_GENERATED='$(DIFFUSIONGEMMA_EXPECT_GENERATED)'

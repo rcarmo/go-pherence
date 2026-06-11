@@ -649,3 +649,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse text CI with structured-chat validation
 
 2026-06-11: `GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it DIFFUSIONGEMMA_RESIDENT_LAYERS=1 DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB=16 DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/ci_sparse_with_chat.json` passed after adding `diffusiongemma-run-sparse-chat-json` to the bundle. The run validated sparse readiness, residency planning, plain prompt sparse output (`generated=[147485]`, decoded `不开`), `canvas=8` two-step sparse feedback output (repeated `generated=[154972 ...]`, decoded ` pilote ...`), and structured-chat JSON output.
+
+
+## Sparse JSON regression check
+
+`scripts/diffusiongemma_compare_sparse_run.py` compares `diffusiongemmarun -json` `result.generated` IDs against expected IDs. `make diffusiongemma-run-sparse-text-json-check` runs the sparse JSON operator and then compares the output using `DIFFUSIONGEMMA_EXPECT_GENERATED`. The deterministic smoke `DIFFUSIONGEMMA_PROMPT=hi DIFFUSIONGEMMA_MAX_NEW=1 DIFFUSIONGEMMA_CANVAS=1 DIFFUSIONGEMMA_DENOISE_STEPS=1 DIFFUSIONGEMMA_EXPECT_GENERATED=147485` passes against the downloaded checkpoint.
