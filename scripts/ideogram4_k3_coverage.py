@@ -8,7 +8,7 @@ rows = [
   ("FP8 decode", "partial", "row-scaled E4M3 -> resident fp16 bridge", "fused RVV/IME packing"),
   ("Qwen/DiT RMSNorm", "partial", "K3-gated riscv64 path composed from existing RVV Snrm2/VecScale/VecMul primitives", "fused RVV row RMSNorm assembly body"),
   ("LayerNorm final", "partial", "K3-gated riscv64 path uses scalar centering plus RVV Snrm2/VecScale", "fused RVV row LayerNorm assembly body"),
-  ("RoPE/MRoPE", "partial", "K3-gated riscv64 seam", "RVV rotate-half assembly body"),
+  ("RoPE/MRoPE", "partial", "K3-gated riscv64 path composed from existing RVV VecMul/VecScaleAdd primitives", "fused RVV rotate-half assembly body"),
   ("DiT/Qwen attention", "partial", "K3-gated riscv64 seams", "tiled RVV/f16 attention"),
   ("SiLU/Mul/SwiGLU", "partial", "K3-gated riscv64 path uses existing RVV VecMul/VecSiLUMul for Mul and SiLU*Mul; SiLU seam remains scalar", "dedicated RVV SiLU and fused kernels"),
   ("CFG/update", "partial", "K3-gated riscv64 path using existing RVV VecScaleAdd primitives", "fuse into one RVV assembly kernel to remove temporaries"),
