@@ -1010,3 +1010,8 @@ Sparse top-k LM-head mode now decodes `model.decoder.embed_tokens.weight` into t
 ## SIMD sparse top-k LM-head smoke
 
 Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `simd.GemvRows` instead of per-row mmap/decode. The 1-layer top-k smoke still returns `generated=[236991]`, and the previously timing-out four-layer top-k probe now completes with `generated=[59475]`, decoded as ` 싶`, under `-residency-budget-gib 16 -max-dispatch-layers 4 -tail-after-max-layers -lm-head-top-k 8`. `make diffusiongemma-run-cpu-layer4-topk-smoke` wraps this bounded tail+LM-head probe.
+
+
+## Eight-layer sparse top-k inference smoke
+
+`diffusiongemmarun -residency-budget-gib 16 -max-dispatch-layers 8 -tail-after-max-layers -lm-head-top-k 8` now completes with the SIMD cached LM-head path. On the downloaded checkpoint it keeps `resident_layers=4/30`, retains `float_cache_entries=94 float_cache_bytes=16049700880`, and emits `generated=[19338]` decoded as ` того`. `make diffusiongemma-run-cpu-layer8-topk-smoke` wraps this deeper bounded real-weight inference probe.
