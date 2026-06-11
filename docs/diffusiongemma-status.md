@@ -645,3 +645,7 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse CI structured-chat coverage
 
 `make diffusiongemma-ci-sparse-text` now includes `diffusiongemma-run-sparse-chat-json`, so the full-checkpoint sparse CI covers both plain prompt input and structured-message chat-template scaffold input against real weights.
+
+## Sparse text CI with structured-chat validation
+
+2026-06-11: `GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it DIFFUSIONGEMMA_RESIDENT_LAYERS=1 DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB=16 DIFFUSIONGEMMA_RUN_OUT=/workspace/tmp/diffusiongemma/ci_sparse_with_chat.json` passed after adding `diffusiongemma-run-sparse-chat-json` to the bundle. The run validated sparse readiness, residency planning, plain prompt sparse output (`generated=[147485]`, decoded `不开`), `canvas=8` two-step sparse feedback output (repeated `generated=[154972 ...]`, decoded ` pilote ...`), and structured-chat JSON output.
