@@ -319,6 +319,9 @@ func mulTo(dst, a, b []float32) {
 
 // layerNormNoAffine computes a non-affine LayerNorm (mean/var over the row).
 func layerNormNoAffine(dst, x []float32, eps float32) {
+	if k3LayerNormNoAffine(dst, x, eps) {
+		return
+	}
 	if gpuNormEnabled() {
 		if err := layerNormNoAffineGPU(dst, x, eps); err == nil || gpuNormStrict() {
 			return

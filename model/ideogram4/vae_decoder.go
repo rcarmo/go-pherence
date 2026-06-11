@@ -187,7 +187,9 @@ func (d *VAEDecoder) attention(in FeatureMap, prefix string) (FeatureMap, error)
 }
 
 func vaeSpatialAttention(q, k, v FeatureMap, scale float32) (FeatureMap, error) {
-	C, HW := q.C, q.H*q.W
+	if out, ok, err := k3VAESpatialAttention(q, k, v, scale); ok {
+		return out, err
+	}
 	if gpuVAEEnabled() {
 		if out, err := vaeSpatialAttentionGPU(q, k, v, scale); err == nil {
 			return out, nil
@@ -195,6 +197,11 @@ func vaeSpatialAttention(q, k, v FeatureMap, scale float32) (FeatureMap, error) 
 			return FeatureMap{}, err
 		}
 	}
+	return vaeSpatialAttentionCPU(q, k, v, scale)
+}
+
+func vaeSpatialAttentionCPU(q, k, v FeatureMap, scale float32) (FeatureMap, error) {
+	C, HW := q.C, q.H*q.W
 	attnOut := FeatureMap{C: C, H: q.H, W: q.W, Data: make([]float32, C*HW)}
 	scores := make([]float32, HW)
 	for i := 0; i < HW; i++ {
