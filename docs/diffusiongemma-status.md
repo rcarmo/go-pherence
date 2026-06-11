@@ -612,3 +612,7 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse fields in status summary
 
 `scripts/diffusiongemma_status_summary.py` now prints `text_sparse` and `sparse_topk_lm` alongside `text_scaffold`, `reference_complete`, and `runtime_ready`, so compact status output distinguishes the validated sparse native path from reference completeness.
+
+## Published sparse text CI validation
+
+2026-06-11: `GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-sparse-text-published DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it DIFFUSIONGEMMA_RESIDENT_LAYERS=1 DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB=16` passed against the downloaded 11-shard checkpoint. The bundle validated `-require-text-sparse-ready`, residency planning, the published 256-position one-step sparse top-k smoke, and the published 256-position two-step sparse feedback smoke. The two-step output converged to repeated `generated=[1852 ...]` (`own ...`). Reference completeness remains false.
