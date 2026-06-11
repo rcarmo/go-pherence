@@ -593,3 +593,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse text readiness gate
 
 `diffusiongemmainspect -require-text-sparse-ready` now fails unless the validated native sparse text-stack path is available and local safetensor shards are ready. This is intentionally distinct from `-require-runtime-ready`, which still requires reference completeness. `make diffusiongemma-check-sparse-text` wraps the gate.
+
+
+## Sparse text CI target
+
+`make diffusiongemma-ci-sparse-text` is the full-checkpoint CI bundle for the validated native sparse path. It runs `diffusiongemma-check-sparse-text`, `diffusiongemma-residency-plan`, a normal full-stack one-step top-k smoke, and a `canvas=8` two-step feedback smoke. It remains distinct from no-weight scaffold CI and from reference-complete parity.

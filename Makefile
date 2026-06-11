@@ -748,6 +748,7 @@ diffusiongemma-help:
 	@echo "  make diffusiongemma-download-plan-report"
 	@echo "  make diffusiongemma-status-refresh"
 	@echo "  make diffusiongemma-ci-no-weights"
+	@echo "  make diffusiongemma-ci-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it"
 	@echo ""
 	@echo "DiffusionGemma full checkpoint workflow (~48.10 GiB):"
 	@echo "  make diffusiongemma-download DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes"
@@ -963,3 +964,7 @@ diffusiongemma-run-cpu-full-topk-canvas256-2step-smoke: diffusiongemma-check-sha
 
 diffusiongemma-check-sparse-text:
 	go run ./cmd/diffusiongemmainspect -model $(DIFFUSIONGEMMA_MODEL) -require-text-sparse-ready
+
+.PHONY: diffusiongemma-ci-sparse-text
+
+diffusiongemma-ci-sparse-text: diffusiongemma-check-sparse-text diffusiongemma-residency-plan diffusiongemma-run-cpu-full-topk-step-smoke diffusiongemma-run-cpu-full-topk-canvas8-2step-smoke
