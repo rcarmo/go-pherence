@@ -978,3 +978,10 @@ diffusiongemma-ci-sparse-text-published: diffusiongemma-check-sparse-text diffus
 
 diffusiongemma-run-sparse-text: diffusiongemma-check-sparse-text
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps $(DIFFUSIONGEMMA_DENOISE_STEPS) -t-min $(DIFFUSIONGEMMA_T_MIN) -t-max $(DIFFUSIONGEMMA_T_MAX) -entropy-bound $(DIFFUSIONGEMMA_ENTROPY_BOUND) -stability $(DIFFUSIONGEMMA_STABILITY) -confidence $(DIFFUSIONGEMMA_CONFIDENCE) -cpu-dispatcher -allow-slow-cpu -residency-budget-gib $(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB) -lm-head-top-k $(DIFFUSIONGEMMA_SPARSE_LM_HEAD_TOP_K) $(if $(filter yes,$(DIFFUSIONGEMMA_DISPATCH_PROGRESS)),-dispatch-progress,) -decode
+
+.PHONY: diffusiongemma-run-sparse-text-json
+
+diffusiongemma-run-sparse-text-json: diffusiongemma-check-sparse-text
+	mkdir -p $(dir $(DIFFUSIONGEMMA_RUN_OUT))
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new $(DIFFUSIONGEMMA_MAX_NEW) -canvas $(DIFFUSIONGEMMA_CANVAS) -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps $(DIFFUSIONGEMMA_DENOISE_STEPS) -t-min $(DIFFUSIONGEMMA_T_MIN) -t-max $(DIFFUSIONGEMMA_T_MAX) -entropy-bound $(DIFFUSIONGEMMA_ENTROPY_BOUND) -stability $(DIFFUSIONGEMMA_STABILITY) -confidence $(DIFFUSIONGEMMA_CONFIDENCE) -cpu-dispatcher -allow-slow-cpu -residency-budget-gib $(DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB) -lm-head-top-k $(DIFFUSIONGEMMA_SPARSE_LM_HEAD_TOP_K) $(if $(filter yes,$(DIFFUSIONGEMMA_DISPATCH_PROGRESS)),-dispatch-progress,) -decode -json > $(DIFFUSIONGEMMA_RUN_OUT)
+	python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); r=d.get("result") or {}; print("generated="+str(r.get("generated"))); print("error="+str(d.get("error")))' $(DIFFUSIONGEMMA_RUN_OUT)

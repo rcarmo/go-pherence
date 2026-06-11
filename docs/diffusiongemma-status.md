@@ -630,3 +630,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse text operator default validation
 
 2026-06-11: `make diffusiongemma-run-sparse-text` was run without setting `DIFFUSIONGEMMA_SPARSE_LM_HEAD_TOP_K`, confirming the operator default passes `-lm-head-top-k 8` and executes the sparse native path. Example: `DIFFUSIONGEMMA_PROMPT='A small test prompt.' DIFFUSIONGEMMA_MAX_NEW=4 DIFFUSIONGEMMA_CANVAS=4 DIFFUSIONGEMMA_DENOISE_STEPS=1 DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB=16` emitted `generated=[6596 992 253884 165249]` (` math also윳μών`).
+
+
+## Sparse text JSON operator target
+
+`make diffusiongemma-run-sparse-text-json` is the machine-readable companion to `diffusiongemma-run-sparse-text`. It uses the same sparse native defaults and writes `diffusiongemmarun -json` output to `DIFFUSIONGEMMA_RUN_OUT`, then prints the generated token IDs and error field. This is intended for prompt-output capture and future sparse/reference regression comparison.
