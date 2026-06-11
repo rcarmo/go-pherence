@@ -3,6 +3,7 @@
 package ideogram4
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"runtime"
@@ -138,27 +139,81 @@ func (c *k3FP8Cache) ensureWeightQ80RowScale(f *FP8Linear) ime2.Q80x32 {
 	if c.weightQ80.Valid && c.weightQ80.M == outDim && c.weightQ80.K == inDim {
 		return c.weightQ80
 	}
-	if outDim%32 != 0 || inDim%32 != 0 {
+	if outDim%32 != 0 || inDim%32 != 0 || len(f.weight.Weight) < outDim*inDim {
 		return ime2.Q80x32{M: outDim, K: inDim}
 	}
-	// First implementation materializes F32 weights before row-scale Q8 packing.
-	// This is acceptable for focused benchmarking; production prewarm can replace
-	// it with a streaming FP8→Q80x32 packer to reduce peak memory.
-	wf32 := make([]float32, outDim*inDim)
+	c.weightQ80 = packFP8LinearToQ80x32RowScale(f)
+	c.outDim, c.inDim = outDim, inDim
+	return c.weightQ80
+}
+
+func packFP8LinearToQ80x32RowScale(f *FP8Linear) ime2.Q80x32 {
+	outDim, inDim := f.weight.OutDim, f.weight.InDim
+	if outDim%32 != 0 || inDim%32 != 0 || len(f.weight.Weight) < outDim*inDim {
+		return ime2.Q80x32{M: outDim, K: inDim}
+	}
+	groups, subs := outDim/32, inDim/32
+	out := make([]byte, groups*subs*ime2.K3I8I8BTileBytes)
+	rowScale := make([]float32, outDim)
 	for r := 0; r < outDim; r++ {
 		scale := f.weight.Scale[0]
 		if len(f.weight.Scale) != 1 {
 			scale = f.weight.Scale[r]
 		}
-		wb := f.weight.Weight[r*inDim : (r+1)*inDim]
-		row := wf32[r*inDim : (r+1)*inDim]
-		for cidx := 0; cidx < inDim; cidx++ {
-			row[cidx] = fp8.DecodeE4M3(wb[cidx]) * scale
+		maxAbs := float32(0)
+		base := r * inDim
+		for k := 0; k < inDim; k++ {
+			v := fp8.DecodeE4M3(f.weight.Weight[base+k]) * scale
+			if v < 0 {
+				v = -v
+			}
+			if v > maxAbs {
+				maxAbs = v
+			}
+		}
+		if maxAbs != 0 {
+			rowScale[r] = maxAbs / 127.0
 		}
 	}
-	c.weightQ80 = ime2.PackF32ToQ80x32RowScale(outDim, inDim, wf32)
-	c.outDim, c.inDim = outDim, inDim
-	return c.weightQ80
+	for g := 0; g < groups; g++ {
+		for sb := 0; sb < subs; sb++ {
+			block := out[(g*subs+sb)*ime2.K3I8I8BTileBytes:]
+			scales := block[:64]
+			qs := block[64 : 64+1024]
+			for rr := 0; rr < 32; rr++ {
+				r := g*32 + rr
+				inputScale := f.weight.Scale[0]
+				if len(f.weight.Scale) != 1 {
+					inputScale = f.weight.Scale[r]
+				}
+				d := rowScale[r]
+				binary.LittleEndian.PutUint16(scales[rr*2:], half.F32ToF16(d))
+				inv := float32(0)
+				if d != 0 {
+					inv = 1 / d
+				}
+				base := r*inDim + sb*32
+				for k := 0; k < 32; k++ {
+					q := int(fp8.DecodeE4M3(f.weight.Weight[base+k]) * inputScale * inv)
+					// Match existing packers' round-to-nearest behavior.
+					v := fp8.DecodeE4M3(f.weight.Weight[base+k]) * inputScale * inv
+					if v >= 0 {
+						q = int(v + 0.5)
+					} else {
+						q = int(v - 0.5)
+					}
+					if q > 127 {
+						q = 127
+					}
+					if q < -128 {
+						q = -128
+					}
+					qs[rr*32+k] = byte(int8(q))
+				}
+			}
+		}
+	}
+	return ime2.Q80x32{M: outDim, K: inDim, BData: out, Valid: true}
 }
 
 func k3FP8Batch(f *FP8Linear, x, out []float32, batch int) (bool, error) {

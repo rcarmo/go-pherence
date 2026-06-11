@@ -3,6 +3,8 @@ package ideogram4
 import (
 	"fmt"
 	"math"
+	"os"
+	"time"
 )
 
 // DiTLayer bundles the FP8 linears and RMSNorm weights of one Ideogram4
@@ -167,6 +169,15 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	timing := os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1"
+	layerStart := time.Now()
+	phaseStart := layerStart
+	mark := func(name string) {
+		if timing {
+			fmt.Fprintf(os.Stderr, "timing dit_layer=%d phase=%s elapsed=%s total=%s\n", l.Index, name, time.Since(phaseStart), time.Since(layerStart))
+			phaseStart = time.Now()
+		}
+	}
 	emb := cfg.EmbDim
 	if len(hidden)%emb != 0 {
 		return fmt.Errorf("ideogram4 DiT hidden len=%d not divisible by emb=%d", len(hidden), emb)
@@ -205,6 +216,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	scaleMLP := mod[2*emb : 3*emb]
 	gateMLP := mod[3*emb : 4*emb]
 	transformAdaLNMod(mod, emb)
+	mark("adaln")
 
 	normEps := float32(cfg.NormEps)
 	if normEps <= 0 {
@@ -252,6 +264,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	if err := layerGPU.AttentionResidualBatch(*l, hidden, normedAll, gateMSA, tokens, heads, headDim, rope, scaleAttn, normEps); err != nil {
 		return err
 	}
+	mark("attention")
 
 	// ---- MLP sublayer (SwiGLU) ----
 	inter := cfg.IntermediateSize
@@ -325,6 +338,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 			}
 		}
 	}
+	mark("mlp")
 	return nil
 }
 
