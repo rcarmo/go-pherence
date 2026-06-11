@@ -804,3 +804,8 @@ diffusiongemma-residency-plan: diffusiongemma-check-shards
 
 diffusiongemma-run-cpu-layer1-smoke: diffusiongemma-check-shards
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new 1 -canvas 1 -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -allow-slow-cpu -resident-layers 1 -max-dispatch-layers 1 -decode
+
+.PHONY: diffusiongemma-run-cpu-layer2-evict-smoke
+
+diffusiongemma-run-cpu-layer2-evict-smoke: diffusiongemma-check-shards
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new 1 -canvas 1 -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -allow-slow-cpu -resident-layers 1 -max-dispatch-layers 2 -decode

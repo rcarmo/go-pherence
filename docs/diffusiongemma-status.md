@@ -428,3 +428,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Bounded CPU layer smoke
 
 `diffusiongemmarun -max-dispatch-layers 1` executes prefix ops plus layer 0, skips tail/logit projection, and returns the current scaffold canvas. With full weights, `-canvas 1 -resident-layers 1 -max-dispatch-layers 1` completes and reports `float_cache_entries=22 float_cache_bytes=3256379908`; this confirms layer-0 real-weight ops execute under the decoded cache policy without attempting all 30 layers. `make diffusiongemma-run-cpu-layer1-smoke` wraps this bounded probe.
+
+
+## Bounded CPU layer eviction smoke
+
+`diffusiongemmarun -resident-layers 1 -max-dispatch-layers 2` executes layers 0 and 1, then evicts layer 1 so the retained decoded cache returns to the layer-0 footprint. With full weights it completes with `float_cache_entries=22 float_cache_bytes=3256379908`. `make diffusiongemma-run-cpu-layer2-evict-smoke` wraps this eviction probe.
