@@ -1145,3 +1145,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse text CI target
 
 `make diffusiongemma-ci-sparse-text` is the full-checkpoint CI bundle for the validated native sparse path. It runs `diffusiongemma-check-sparse-text`, `diffusiongemma-residency-plan`, a normal full-stack one-step top-k smoke, and a `canvas=8` two-step feedback smoke. It remains distinct from no-weight scaffold CI and from reference-complete parity.
+
+
+## Published sparse text CI target
+
+`make diffusiongemma-ci-sparse-text-published` is the full-checkpoint bundle for the validated published-canvas sparse text path. It checks sparse text readiness, emits the residency plan, then runs the 256-position one-step and two-step sparse top-k smokes. This remains distinct from reference-complete parity, but it gates the largest currently validated native block.

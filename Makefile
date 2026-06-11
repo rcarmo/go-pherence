@@ -968,3 +968,7 @@ diffusiongemma-check-sparse-text:
 .PHONY: diffusiongemma-ci-sparse-text
 
 diffusiongemma-ci-sparse-text: diffusiongemma-check-sparse-text diffusiongemma-residency-plan diffusiongemma-run-cpu-full-topk-step-smoke diffusiongemma-run-cpu-full-topk-canvas8-2step-smoke
+
+.PHONY: diffusiongemma-ci-sparse-text-published
+
+diffusiongemma-ci-sparse-text-published: diffusiongemma-check-sparse-text diffusiongemma-residency-plan diffusiongemma-run-cpu-full-topk-canvas256-step-smoke diffusiongemma-run-cpu-full-topk-canvas256-2step-smoke

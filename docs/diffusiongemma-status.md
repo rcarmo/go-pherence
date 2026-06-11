@@ -602,3 +602,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Full-checkpoint sparse text CI validation
 
 2026-06-11: `GOTMPDIR=$PWD/.gotmp make diffusiongemma-ci-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it DIFFUSIONGEMMA_RESIDENT_LAYERS=1 DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB=16` passed against the downloaded 11-shard checkpoint. The bundle validated `-require-text-sparse-ready`, residency planning, normal full-stack one-step sparse top-k output (`generated=[147485]`, decoded `不开`), and `canvas=8` two-step sparse feedback output (repeated `generated=[154972 ...]`, decoded ` pilote ...`). Reference completeness remains false.
+
+
+## Published sparse text CI target
+
+`make diffusiongemma-ci-sparse-text-published` is the full-checkpoint bundle for the validated published-canvas sparse text path. It checks sparse text readiness, emits the residency plan, then runs the 256-position one-step and two-step sparse top-k smokes. This remains distinct from reference-complete parity, but it gates the largest currently validated native block.
