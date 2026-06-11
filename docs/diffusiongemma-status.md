@@ -621,3 +621,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## General sparse text run target
 
 `make diffusiongemma-run-sparse-text` is the parameterized full-checkpoint operator entrypoint for the validated sparse native path. It gates on `diffusiongemma-check-sparse-text`, then runs `diffusiongemmarun -cpu-dispatcher -allow-slow-cpu -lm-head-top-k $(DIFFUSIONGEMMA_LM_HEAD_TOP_K)` with the standard `DIFFUSIONGEMMA_PROMPT`, `DIFFUSIONGEMMA_MAX_NEW`, `DIFFUSIONGEMMA_CANVAS`, `DIFFUSIONGEMMA_DENOISE_STEPS`, `DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB`, and sampler override variables. This is the current recommended native sparse text inference command; reference-complete parity remains separate.
+
+
+## Sparse operator top-k default
+
+`diffusiongemma-run-sparse-text` now uses `DIFFUSIONGEMMA_SPARSE_LM_HEAD_TOP_K ?= 8` instead of the low-level `DIFFUSIONGEMMA_LM_HEAD_TOP_K ?= 0` default. This prevents the operator target from accidentally taking the impractical dense LM-head path when top-k is not specified. Low-level CPU/debug targets keep their existing override behavior.
