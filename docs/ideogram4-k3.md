@@ -93,7 +93,7 @@ This is **not yet full K3 SIMD coverage**. It is the first targetable binary for
 | FP8 E4M3 decode | LUT scalar; K3 bridge decodes row-scaled FP8 to resident fp16 weight rows before RVV GEMM | RVV byte→f16/int8 packing, row-scale fused | partial |
 | Qwen text encoder linears | `FP8Linear.ApplyBatch` | K3 FP8 batch linear, A100 worker-pool scheduling | missing |
 | DiT QKV/O/W1/W2/W3 linears | `FP8Linear.ApplyBatch` / GPU on NVIDIA | K3 full-layer packed/resident linears | missing |
-| RMSNorm rows | Go scalar / NVIDIA rows; K3-gated riscv64 seam covers Qwen/DiT weighted RMSNorm call sites | RVV row RMSNorm over f32/f16 | partial seam: scalar body pending RVV assembly |
+| RMSNorm rows | Go scalar / NVIDIA rows; K3-gated riscv64 path composes existing RVV `Snrm2`/`VecScale`/`VecMul` for Qwen/DiT weighted RMSNorm | fused RVV row RMSNorm over f32/f16 | partial RVV path: fused assembly pending |
 | LayerNorm final | Go scalar / NVIDIA rows; K3-gated riscv64 seam covers final non-affine LayerNorm | RVV row LayerNorm | partial seam: scalar body pending RVV assembly |
 | RoPE/MRoPE | Go scalar / NVIDIA kernels; K3-gated riscv64 seams cover DiT MRoPE and Qwen RoPE call sites | RVV in-place rotation | partial seam: scalar body pending RVV assembly |
 | Attention score/value | Go scalar / NVIDIA full attention; K3-gated riscv64 seams cover DiT full attention and Qwen causal GQA call sites | RVV/f16 tiled attention; future tiled/streaming for high res | partial seam: scalar body pending RVV assembly/tiled implementation |

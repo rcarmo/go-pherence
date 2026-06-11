@@ -6,7 +6,7 @@ from pathlib import Path
 rows = [
   ("FP8 linears", "partial", "RVV fp16 bridge with resident fp16 + N32 packed weights", "final FP8->int8/IME2+TCM"),
   ("FP8 decode", "partial", "row-scaled E4M3 -> resident fp16 bridge", "fused RVV/IME packing"),
-  ("Qwen/DiT RMSNorm", "partial", "K3-gated riscv64 seam", "RVV f32/f16 assembly body"),
+  ("Qwen/DiT RMSNorm", "partial", "K3-gated riscv64 path composed from existing RVV Snrm2/VecScale/VecMul primitives", "fused RVV row RMSNorm assembly body"),
   ("LayerNorm final", "partial", "K3-gated riscv64 seam", "RVV row LayerNorm assembly body"),
   ("RoPE/MRoPE", "partial", "K3-gated riscv64 seam", "RVV rotate-half assembly body"),
   ("DiT/Qwen attention", "partial", "K3-gated riscv64 seams", "tiled RVV/f16 attention"),

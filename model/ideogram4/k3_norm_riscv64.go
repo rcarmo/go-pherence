@@ -2,22 +2,22 @@
 
 package ideogram4
 
-import "math"
+import (
+	"math"
+
+	simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
+)
 
 func k3RMSNormWeighted(dst []float32, x, weight []float32, eps float32) bool {
 	if !k3Enabled() || len(dst) != len(x) || len(weight) != len(x) || len(x) == 0 {
 		return false
 	}
-	// K3 runtime seam for weighted RMSNorm. The current body preserves exact
-	// scalar semantics; replace with an RVV implementation using k3_isa.h macros
-	// once the f32 reduction/vector multiply kernel is added.
-	var ss float64
-	for _, v := range x {
-		ss += float64(v) * float64(v)
-	}
-	inv := float32(1 / math.Sqrt(ss/float64(len(x))+float64(eps)))
-	for i := range x {
-		dst[i] = x[i] * inv * weight[i]
-	}
+	// Compose existing RVV primitives: Snrm2 uses RVV dot where available,
+	// VecScale and VecMul use RVV vector loops. This keeps the K3 path SIMD-backed
+	// today while leaving room for a future fused row RMSNorm assembly kernel.
+	ssqrt := simdruntime.Snrm2(x)
+	inv := float32(1 / math.Sqrt(float64(ssqrt*ssqrt)/float64(len(x))+float64(eps)))
+	simdruntime.VecScale(dst, x, inv)
+	simdruntime.VecMul(dst, dst, weight)
 	return true
 }
