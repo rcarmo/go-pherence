@@ -538,3 +538,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sixteen-position canvas full-stack sparse top-k smoke
 
 `diffusiongemmarun -canvas 16 -max-new 16 -denoise-steps 1 -residency-budget-gib 16 -lm-head-top-k 8` completes a normal CPU dispatcher pass for sixteen canvas positions through all thirty real-weight text layers, final norm, and SIMD sparse top-k LM-head. On the downloaded checkpoint it emits `generated=[161419 23701 1595 1852 16165 1852 569 1595 120397 101346 3324 132879 67802 242253 250472 138898]`. `make diffusiongemma-run-cpu-full-topk-canvas16-step-smoke` wraps this wider-block probe.
+
+
+## Sixteen-position two-step full-stack sparse top-k smoke
+
+`diffusiongemmarun -canvas 16 -max-new 16 -denoise-steps 2 -residency-budget-gib 16 -lm-head-top-k 8` completes two denoising iterations for sixteen canvas positions through all thirty real-weight text layers, final norm, SIMD sparse top-k LM-head, and self-conditioning feedback. On the downloaded checkpoint it emits `generated=[50303 183595 1010 51373 42262 20527 85240 250340 216118 137207 69596 142916 28188 163975 4803 169455]`. `make diffusiongemma-run-cpu-full-topk-canvas16-2step-smoke` wraps this wider feedback probe.
