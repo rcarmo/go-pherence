@@ -985,3 +985,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Bounded CPU budget smoke
 
 `diffusiongemmarun -residency-budget-gib 16 -max-dispatch-layers 4` now executes the first four real-weight text layers while selecting a resident prefix from the budget planner. On the downloaded checkpoint it selects `resident_layers=4/30`, completes, and reports `float_cache_entries=88 float_cache_bytes=13025519632` (~12.13 GiB retained after execution). `make diffusiongemma-run-cpu-layer4-budget-smoke` wraps this bounded budget probe.
+
+
+## Bounded CPU eviction beyond resident prefix
+
+`diffusiongemmarun -residency-budget-gib 16 -max-dispatch-layers 8` executes the first eight real-weight text layers while retaining only the budget-selected four-layer prefix. On the downloaded checkpoint it completes with `resident_layers=4/30` and retains `float_cache_entries=88 float_cache_bytes=13025519632`, matching the four-layer footprint and confirming layers beyond the resident prefix are decoded and evicted. `make diffusiongemma-run-cpu-layer8-budget-smoke` wraps this probe.

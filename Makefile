@@ -814,3 +814,8 @@ diffusiongemma-run-cpu-layer2-evict-smoke: diffusiongemma-check-shards
 
 diffusiongemma-run-cpu-layer4-budget-smoke: diffusiongemma-check-shards
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new 1 -canvas 1 -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -allow-slow-cpu -residency-budget-gib 16 -max-dispatch-layers 4 -decode
+
+.PHONY: diffusiongemma-run-cpu-layer8-budget-smoke
+
+diffusiongemma-run-cpu-layer8-budget-smoke: diffusiongemma-check-shards
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new 1 -canvas 1 -seed $(DIFFUSIONGEMMA_SEED) -cpu-dispatcher -allow-slow-cpu -residency-budget-gib 16 -max-dispatch-layers 8 -decode
