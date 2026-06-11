@@ -355,3 +355,28 @@ The `release_denoise_before_vae` phase drops tokenizer/text/DiT references,
 releases residency caches, and forces GC before VAE decode. Without this, the
 same 128x128 run was killed after denoise/latent postprocess; 64x64 completed
 without the release but the release is now the default in K3 mode.
+
+### Selective K3 DiT prewarm
+
+`-k3-prewarm` now warms only the DiT denoise FP8 linears by default instead of
+all Qwen/text/auxiliary linears. The previous all-linears traversal built too
+many A100 Q8 caches and could kill the process; it remains available for
+experiments with `GO_PHERENCE_IDEOGRAM4_K3_PREWARM_ALL=1`.
+
+With `GO_PHERENCE_IDEOGRAM4_K3_A100_Q8=1` and
+`GO_PHERENCE_IDEOGRAM4_K3_A100_MLP=1`, selective prewarm builds 412 resident DiT
+linear caches across conditional and unconditional transformers. It shifts the
+first-use FP8→Q80 packing cost into `load_pipeline` and makes subsequent denoise
+passes use already-resident A100 row-scale weights.
+
+Milk-V/K3 timings:
+
+| Run | Prewarm/load | Qwen condition | Denoise | VAE | Generate after load |
+|---|---:|---:|---:|---:|---:|
+| 64×64, 1 step | 7m10.99s | 2m44.77s | 13.22s | 3.27s | 3m04.64s |
+| 128×128, 1 step | 7m12.02s | 2m46.71s | 31.51s | 12.34s | 3m34.09s |
+
+For comparison, the non-prewarmed 128×128 one-step run spent about `8m02s` in
+denoise and `11m00s` total generation after load. Selective prewarm is therefore
+the right mode for repeated image generation or a resident service, while one-off
+CLI use still pays the prewarm cost up front.
