@@ -597,7 +597,7 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 
 ## Sparse text CI target
 
-`make diffusiongemma-ci-sparse-text` is the full-checkpoint CI bundle for the validated native sparse path. It runs `diffusiongemma-check-sparse-text`, `diffusiongemma-residency-plan`, a normal full-stack one-step top-k smoke, and a `canvas=8` two-step feedback smoke. It remains distinct from no-weight scaffold CI and from reference-complete parity.
+`make diffusiongemma-ci-sparse-text` is the full-checkpoint CI bundle for the validated native sparse path. It runs `diffusiongemma-check-sparse-text`, `diffusiongemma-residency-plan`, a normal full-stack one-step top-k smoke, a `canvas=8` two-step feedback smoke, and a structured-chat JSON sparse run. It remains distinct from no-weight scaffold CI and from reference-complete parity.
 
 ## Full-checkpoint sparse text CI validation
 
@@ -640,3 +640,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse chat operator targets
 
 `make diffusiongemma-run-sparse-chat-text` and `make diffusiongemma-run-sparse-chat-json` are structured-message companions to `diffusiongemma-run-sparse-text`. They gate on `diffusiongemma-check-sparse-text`, build the simplified Gemma chat-template scaffold from `DIFFUSIONGEMMA_MESSAGES_JSON`, append a generation prompt, and run the validated sparse native text stack with the same top-k/residency defaults. These targets are still scaffold chat rendering rather than full Jinja processor parity.
+
+
+## Sparse CI structured-chat coverage
+
+`make diffusiongemma-ci-sparse-text` now includes `diffusiongemma-run-sparse-chat-json`, so the full-checkpoint sparse CI covers both plain prompt input and structured-message chat-template scaffold input against real weights.
