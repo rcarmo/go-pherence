@@ -115,6 +115,53 @@ func GemmQ80x32AIPooledX100Pack(x []float32, M, K int, w ime2.Q80x32, out []floa
 	return gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
 }
 
+// Gemm2Q80x32AIPooledX100PackSameInput computes two row-scale Q8 GEMMs with
+// the same activation matrix. Activations are packed once on X100 goroutines and
+// each A100 worker dispatch applies both B matrices to its row-group range. This
+// is intended for gated MLPs (W1/W3) that share the same input.
+func Gemm2Q80x32AIPooledX100PackSameInput(x []float32, M, K int, wA, wB ime2.Q80x32, outA, outB []float32, pool *AIWorkerPool) bool {
+	if pool == nil || !wA.Valid || !wB.Valid || wA.K != K || wB.K != K || wA.M != wB.M || K%32 != 0 || wA.M%32 != 0 || M <= 0 || len(outA) < M*wA.M || len(outB) < M*wB.M || len(x) < M*K {
+		return false
+	}
+	kBlks := K / 32
+	aData, groups := packQ80M4ActivationsX100(x, M, K, kBlks, false)
+	n := wA.M
+	stride := kBlks * ime2.K3I8I8ABlockM4Bytes
+	pool.Run(func(workerID, nWorkers int) {
+		g0 := workerID * groups / nWorkers
+		g1 := (workerID + 1) * groups / nWorkers
+		if g1 <= g0 {
+			return
+		}
+		tailA := make([]float32, 4*n)
+		tailB := make([]float32, 4*n)
+		for g := g0; g < g1; g++ {
+			r := g * 4
+			actual := 4
+			if M-r < actual {
+				actual = M - r
+			}
+			a := aData[g*stride : (g+1)*stride]
+			if actual == 4 {
+				ime2.K3I8I8(&a[0], &wA.BData[0], &outA[r*n], 4, n, kBlks, n)
+				ime2.K3I8I8(&a[0], &wB.BData[0], &outB[r*n], 4, n, kBlks, n)
+				continue
+			}
+			for i := range tailA {
+				tailA[i] = 0
+				tailB[i] = 0
+			}
+			ime2.K3I8I8(&a[0], &wA.BData[0], &tailA[0], 4, n, kBlks, n)
+			ime2.K3I8I8(&a[0], &wB.BData[0], &tailB[0], 4, n, kBlks, n)
+			for i := 0; i < actual; i++ {
+				copy(outA[(r+i)*n:(r+i+1)*n], tailA[i*n:(i+1)*n])
+				copy(outB[(r+i)*n:(r+i+1)*n], tailB[i*n:(i+1)*n])
+			}
+		}
+	})
+	return true
+}
+
 // GemmQ80x32AIPooledGELUX100Pack is the X100 activation-pack variant for the
 // fused GELU+FC2 path.
 func GemmQ80x32AIPooledGELUX100Pack(x []float32, M, K int, w ime2.Q80x32, out []float32, pool *AIWorkerPool) bool {

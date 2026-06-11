@@ -291,3 +291,27 @@ GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS=6 \
 IME2_ACT_PACK_WORKERS=6 \
 ./ideogram4gen -k3 -k3-prewarm ...
 ```
+
+### K3 fused A100 MLP W1/W3/W2
+
+`GO_PHERENCE_IDEOGRAM4_K3_A100_MLP=1` adds an opt-in fused K3 MLP dispatch for
+Ideogram DiT layers when the A100 row-scale Q8 path is also enabled. The fused
+path packs the shared MLP input once and computes `W1(x)` and `W3(x)` in a single
+A100 worker dispatch via `Gemm2Q80x32AIPooledX100PackSameInput`, applies the
+existing K3/RVV `SiLU(W1) * W3` seam, then runs `W2` through the A100 row-scale
+`FP8Linear.ApplyBatch` path. This keeps the numerical contract identical to the
+unfused A100 row-scale path while reducing one activation pack and one A100 pool
+dispatch for the W1/W3 pair.
+
+Synthetic Milk-V/K3 DiT-like MLP benchmark (`batch=16`, `emb=4608`,
+`intermediate=12288`, `GO_PHERENCE_IDEOGRAM4_K3_A100_Q8=1`):
+
+| Path | Time | Notes |
+|---|---:|---|
+| Unfused A100 W1 + W3 + W2 | 38.91 ms | three independent ApplyBatch calls |
+| Fused W1/W3 + A100 W2 | 38.45 ms | shared input pack/dispatch for W1+W3 |
+
+The fused path is correctness-tested against the CPU FP8 reference on a synthetic
+MLP. The current end-to-end MLP speedup is small because `W2` and the two large
+A100 GEMMs dominate, but the helper is the right integration point for future
+SiLU*Mul→Q8 activation packing and more aggressive W2 fusion.

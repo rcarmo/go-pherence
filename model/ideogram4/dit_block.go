@@ -281,7 +281,11 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	}
 	downAll := make([]float32, tokens*emb)
 	postNormAll := make([]float32, tokens*emb)
-	if err := layerGPU.MLPBatch(*l, mlpIn, downAll, tokens); err != nil {
+	if ok, err := k3MLPBatch(*l, mlpIn, downAll, tokens); ok {
+		if err != nil {
+			return err
+		}
+	} else if err := layerGPU.MLPBatch(*l, mlpIn, downAll, tokens); err != nil {
 		return err
 	}
 	if gpuNormEnabled() {
