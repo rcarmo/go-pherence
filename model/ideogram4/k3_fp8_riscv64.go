@@ -5,11 +5,14 @@ package ideogram4
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/rcarmo/go-pherence/backends/simd/quant/fp8"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 	"github.com/rcarmo/go-pherence/half"
 )
@@ -28,10 +31,54 @@ func k3Threads() int {
 	return 8
 }
 
+func k3A100Q8Enabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_K3_A100_Q8")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func k3A100Workers() int {
+	if s := strings.TrimSpace(os.Getenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS")); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			if n > 8 {
+				n = 8
+			}
+			return n
+		}
+	}
+	return 6
+}
+
+var (
+	k3A100PoolOnce sync.Once
+	k3A100Pool     *aipool.AIWorkerPool
+)
+
+func k3A100WorkerPool() *aipool.AIWorkerPool {
+	k3A100PoolOnce.Do(func() {
+		n := k3A100Workers()
+		needP := k3Threads() + n
+		if needP > 16 {
+			needP = 16
+		}
+		if runtime.GOMAXPROCS(0) < needP {
+			runtime.GOMAXPROCS(needP)
+		}
+		// The Ideogram path pre-packs A activations on X100 goroutines before A100
+		// dispatch, so generic AIWorkerPool activation TCM staging is not useful by
+		// default. Leave explicit caller overrides intact.
+		if os.Getenv("IME2_TCM_ACT") == "" {
+			_ = os.Setenv("IME2_TCM_ACT", "0")
+		}
+		k3A100Pool = aipool.NewAIWorkerPool(n)
+	})
+	return k3A100Pool
+}
+
 type k3FP8Cache struct {
 	mu           sync.Mutex
 	weightF16    []uint16 // row-major [outDim,inDim]
 	weightF16N32 []uint16 // packed N32 layout for GemmF16Outer32
+	weightQ80    ime2.Q80x32
 	outDim       int
 	inDim        int
 }
@@ -44,6 +91,7 @@ func (c *k3FP8Cache) release() {
 	defer c.mu.Unlock()
 	c.weightF16 = nil
 	c.weightF16N32 = nil
+	c.weightQ80 = ime2.Q80x32{}
 	c.outDim, c.inDim = 0, 0
 }
 
@@ -83,6 +131,36 @@ func (c *k3FP8Cache) weightN32(f *FP8Linear) []uint16 {
 	return c.weightF16N32
 }
 
+func (c *k3FP8Cache) ensureWeightQ80RowScale(f *FP8Linear) ime2.Q80x32 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	outDim, inDim := f.weight.OutDim, f.weight.InDim
+	if c.weightQ80.Valid && c.weightQ80.M == outDim && c.weightQ80.K == inDim {
+		return c.weightQ80
+	}
+	if outDim%32 != 0 || inDim%32 != 0 {
+		return ime2.Q80x32{M: outDim, K: inDim}
+	}
+	// First implementation materializes F32 weights before row-scale Q8 packing.
+	// This is acceptable for focused benchmarking; production prewarm can replace
+	// it with a streaming FP8→Q80x32 packer to reduce peak memory.
+	wf32 := make([]float32, outDim*inDim)
+	for r := 0; r < outDim; r++ {
+		scale := f.weight.Scale[0]
+		if len(f.weight.Scale) != 1 {
+			scale = f.weight.Scale[r]
+		}
+		wb := f.weight.Weight[r*inDim : (r+1)*inDim]
+		row := wf32[r*inDim : (r+1)*inDim]
+		for cidx := 0; cidx < inDim; cidx++ {
+			row[cidx] = fp8.DecodeE4M3(wb[cidx]) * scale
+		}
+	}
+	c.weightQ80 = ime2.PackF32ToQ80x32RowScale(outDim, inDim, wf32)
+	c.outDim, c.inDim = outDim, inDim
+	return c.weightQ80
+}
+
 func k3FP8Batch(f *FP8Linear, x, out []float32, batch int) (bool, error) {
 	if f == nil || !k3Enabled() || batch <= 0 {
 		return false, nil
@@ -91,10 +169,27 @@ func k3FP8Batch(f *FP8Linear, x, out []float32, batch int) (bool, error) {
 	if len(x) < batch*inDim || len(out) < batch*outDim {
 		return true, fmt.Errorf("ideogram4 K3 FP8 linear %q invalid buffers x=%d/%d out=%d/%d", f.spec.Prefix, len(x), batch*inDim, len(out), batch*outDim)
 	}
+	if k3A100Q8Enabled() && inDim%32 == 0 && outDim%32 == 0 {
+		wq := f.k3.ensureWeightQ80RowScale(f)
+		if wq.Valid {
+			if ok := aipool.GemmQ80x32AIPooledX100Pack(x[:batch*inDim], batch, inDim, wq, out[:batch*outDim], k3A100WorkerPool()); ok {
+				if f.weight.Bias != nil {
+					for b := 0; b < batch; b++ {
+						row := out[b*outDim : (b+1)*outDim]
+						for i, bias := range f.weight.Bias {
+							row[i] += bias
+						}
+					}
+				}
+				return true, nil
+			}
+		}
+	}
+
 	// First K3 SIMD coverage path: decode FP8 weights to fp16 rows and convert
 	// F32 activations to fp16, then use the existing RVV/Zvfh fp16 GEMM kernels.
 	// This is intentionally conservative and correctness-oriented; later K3 work
-	// should replace this with resident packed FP8→int8/IME2 kernels.
+	// can replace it with resident packed FP8→int8/IME2 kernels.
 	A := make([]uint16, batch*inDim)
 	rvv.F32ToF16RVV(A, x[:batch*inDim])
 	if batch%4 == 0 && outDim%32 == 0 {

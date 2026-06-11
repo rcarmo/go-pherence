@@ -254,3 +254,40 @@ VAE GPU buffer primitives now exist for Conv2D, GroupNorm, UpsampleNearest, and 
 `-gpu-fp8-sgemm` is enabled by default in the Makefile Ideogram targets because it consistently reduces Qwen conditioning time on the local RTX 3060 profile (roughly 17s → 12.5s for the structured cat prompt) without first-step semantic drift. It does not materially change current DiT denoise timing because the DiT path now mostly uses the hidden-resident full-layer islands rather than the older host-staged FP8 GEMM wrappers.
 
 The VAE path has reusable scratch buffers and buffer-level primitives for Conv2D, GroupNorm, UpsampleNearest, RGB clamp, and the spatial attention building blocks. At 256px, VAE decode is a small tail (~4.5s). At 512px, the VAE becomes material (~53s): block timing shows the mid-block spatial attention dominates (`~42–43s` of the decode). A naive SGEMM-backed full attention experiment is available behind `GO_PHERENCE_IDEOGRAM4_GPU_VAE_ATTN_SGEMM=1`, but it was slower at 512px (`~45.6s` mid-attention versus `~42.8s`) and remains default-off. Higher-resolution VAE work should focus on tiled/streaming spatial attention rather than more direct-conv tuning.
+
+### K3 A100 row-scale Q8 FP8 linears
+
+`GO_PHERENCE_IDEOGRAM4_K3_A100_Q8=1` adds an opt-in A100/IME2 path for
+`FP8Linear.ApplyBatch` on riscv64 K3 systems. When `-k3` (or
+`GO_PHERENCE_IDEOGRAM4_K3=1`) is enabled and a linear has dimensions divisible by
+32, the path converts the E4M3 FP8 weight to a resident row-scale `Q80x32` A100
+layout, packs F32 activations on X100 worker goroutines, and dispatches the GEMM
+through the documented A100 worker pool (`/proc/set_ai_thread`, cores 8+). Bias
+is applied after the A100 GEMM. `-k3-prewarm` now pre-builds the Q8 row-scale
+resident cache when this flag is enabled; otherwise it keeps the earlier FP16/RVV
+prewarm behavior.
+
+The path deliberately uses row-global Q8 weight scales, matching the
+native-compatible row-scale strategy that stabilized Whisper's A100 FFN path. It
+is still opt-in until validated against real Ideogram4 weights/images, but
+synthetic E4M3 correctness tests compare it against the CPU FP8 reference within
+Q8 tolerance.
+
+Milk-V/K3 synthetic `ApplyBatch` benchmark (`go test ./model/ideogram4 -run '^$'
+`-bench 'BenchmarkK3FP8ApplyBatch(DiTShape|RVVF16|A100Q8)' -benchtime=1x`):
+
+| Shape | RVV/F16 K3 | A100 row-scale Q8 | Speedup |
+|---|---:|---:|---:|
+| batch=64, 512→1024 | 1.71 ms | 0.89 ms | 1.9× |
+| batch=32, 4608→4608 | 54.7 ms | 7.14 ms | 7.7× |
+| batch=16, 4608→12288 | 72.4 ms | 8.47 ms | 8.5× |
+
+Use for focused experiments with:
+
+```sh
+GO_PHERENCE_IDEOGRAM4_K3=1 \
+GO_PHERENCE_IDEOGRAM4_K3_A100_Q8=1 \
+GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS=6 \
+IME2_ACT_PACK_WORKERS=6 \
+./ideogram4gen -k3 -k3-prewarm ...
+```
