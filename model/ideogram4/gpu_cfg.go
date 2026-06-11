@@ -9,11 +9,17 @@ import (
 )
 
 func gpuCFGStepEnabled() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_CFG")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func gpuCFGStepStrict() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_CFG_STRICT")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
@@ -53,7 +59,7 @@ func gpuCFGStep(latents Latents, cond Latents, uncond Latents, guidance float32,
 	}
 	out := Latents{Batch: latents.Batch, Tokens: latents.Tokens, Channels: latents.Channels, Data: make([]float32, len(latents.Data))}
 	if !nvidia.Available() {
-		return Latents{}, fmt.Errorf("nvidia runtime unavailable")
+		return Latents{}, fmt.Errorf("nvidia runtime unavailable: cfg")
 	}
 	if err := nvidia.IdeogramCFGStep(out.Data, latents.Data, cond.Data, uncond.Data, guidance, sigma); err != nil {
 		return Latents{}, err

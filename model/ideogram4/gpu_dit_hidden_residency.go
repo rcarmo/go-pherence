@@ -10,6 +10,9 @@ import (
 )
 
 func gpuHiddenResidentEnabled() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_HIDDEN_RESIDENT")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }

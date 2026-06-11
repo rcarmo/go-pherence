@@ -383,7 +383,7 @@ func rmsNormTo(dst, x, weight []float32, eps float32) {
 	if k3RMSNormWeighted(dst, x, weight, eps) {
 		return
 	}
-	if gpuNormEnabled() {
+	if !gpuDisabledByK3() && gpuNormEnabled() {
 		if err := rmsNormWeightedGPU(dst, x, weight, eps); err == nil {
 			return
 		} else if gpuNormStrict() {

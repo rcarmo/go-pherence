@@ -14,16 +14,25 @@ import (
 // at a time to the GPU; this proves the CUDA kernel boundary without promising
 // that the whole Ideogram graph is performance-ready or GPU-resident.
 func gpuFP8Enabled() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_FP8")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func gpuFP8Strict() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_FP8_STRICT")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func gpuFP8CacheEnabled() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	if gpuResidencyPolicy() == gpuResidencyStream {
 		return false
 	}
@@ -54,7 +63,7 @@ func (f *FP8Linear) applyGPUCached(x []float32, out []float32) error {
 		return ErrRuntimeNotImplemented
 	}
 	if !nvidia.Available() {
-		return fmt.Errorf("nvidia runtime unavailable")
+		return fmt.Errorf("nvidia runtime unavailable: fp8")
 	}
 	f.gpu.mu.Lock()
 	defer f.gpu.mu.Unlock()
@@ -84,7 +93,7 @@ func (f *FP8Linear) applyGPUStreaming(x []float32, out []float32) error {
 		return ErrRuntimeNotImplemented
 	}
 	if !nvidia.Available() {
-		return fmt.Errorf("nvidia runtime unavailable")
+		return fmt.Errorf("nvidia runtime unavailable: fp8")
 	}
 	w, err := nvidia.UploadFP8E4M3Linear(f.weight.Weight, f.weight.Scale, f.weight.Bias, f.weight.OutDim, f.weight.InDim)
 	if err != nil {
@@ -99,7 +108,7 @@ func (f *FP8Linear) applyGPUBatchCached(x []float32, out []float32, batch int) e
 		return ErrRuntimeNotImplemented
 	}
 	if !nvidia.Available() {
-		return fmt.Errorf("nvidia runtime unavailable")
+		return fmt.Errorf("nvidia runtime unavailable: fp8")
 	}
 	f.gpu.mu.Lock()
 	defer f.gpu.mu.Unlock()
@@ -129,7 +138,7 @@ func (f *FP8Linear) applyGPUBatchStreaming(x []float32, out []float32, batch int
 		return ErrRuntimeNotImplemented
 	}
 	if !nvidia.Available() {
-		return fmt.Errorf("nvidia runtime unavailable")
+		return fmt.Errorf("nvidia runtime unavailable: fp8")
 	}
 	w, err := nvidia.UploadFP8E4M3Linear(f.weight.Weight, f.weight.Scale, f.weight.Bias, f.weight.OutDim, f.weight.InDim)
 	if err != nil {

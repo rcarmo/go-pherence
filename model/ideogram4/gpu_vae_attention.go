@@ -9,6 +9,9 @@ import (
 )
 
 func gpuVAEAttentionSGEMMEnabled() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_VAE_ATTN_SGEMM")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
@@ -18,7 +21,7 @@ func vaeSpatialAttentionGPU(q, k, v FeatureMap, scale float32) (FeatureMap, erro
 		return FeatureMap{}, fmt.Errorf("ideogram4 GPU VAE attention shape mismatch q=%dx%dx%d k=%dx%dx%d v=%dx%dx%d", q.C, q.H, q.W, k.C, k.H, k.W, v.C, v.H, v.W)
 	}
 	if !nvidia.Available() {
-		return FeatureMap{}, fmt.Errorf("nvidia runtime unavailable")
+		return FeatureMap{}, fmt.Errorf("nvidia runtime unavailable: vae_attention")
 	}
 	C, HW := q.C, q.H*q.W
 	qt := make([]float32, HW*C)

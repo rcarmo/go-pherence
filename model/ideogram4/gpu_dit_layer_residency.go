@@ -26,6 +26,9 @@ type ditLayerGPUResidency struct {
 }
 
 func gpuFullLayerIslandEnabled() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_FULL_LAYER")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
@@ -68,6 +71,9 @@ func (l *DiTLayer) cacheOGPUResidency() bool {
 }
 
 func gpuAdaLNResidencyEnabled() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	return envBool("GO_PHERENCE_IDEOGRAM4_GPU_ADALN_RESIDENT")
 }
 
@@ -94,7 +100,7 @@ func uploadDiTLayerGPU(l DiTLayer) (*ditLayerGPUResidency, error) {
 		return nil, nil
 	}
 	if !nvidia.Available() {
-		return nil, fmt.Errorf("nvidia runtime unavailable")
+		return nil, fmt.Errorf("nvidia runtime unavailable: dit_layer_residency")
 	}
 	r := &ditLayerGPUResidency{}
 	upload := func(dst **nvidia.GPUFP8E4M3Linear, name string, lin *FP8Linear) error {
@@ -517,10 +523,23 @@ func (r *ditLayerGPUResidency) AttentionResidualBatch(l DiTLayer, hidden, x, gat
 		return err
 	}
 	postNormAll := make([]float32, len(attnOut))
-	if err := rmsNormRowsWeightedGPU(postNormAll, oprojAll, l.AttnN2, nil, tokens, heads*headDim, normEps); err != nil {
-		return err
+	if !gpuDisabledByK3() {
+		if err := rmsNormRowsWeightedGPU(postNormAll, oprojAll, l.AttnN2, nil, tokens, heads*headDim, normEps); err == nil {
+			return gatedResidualRowsGPU(hidden, postNormAll, gate, tokens, heads*headDim)
+		} else if gpuNormStrict() {
+			return err
+		}
 	}
-	return gatedResidualRowsGPU(hidden, postNormAll, gate, tokens, heads*headDim)
+	cols := heads * headDim
+	for t := 0; t < tokens; t++ {
+		rmsNormWeightedCPU(postNormAll[t*cols:(t+1)*cols], oprojAll[t*cols:(t+1)*cols], l.AttnN2, normEps)
+		row := hidden[t*cols : (t+1)*cols]
+		upd := postNormAll[t*cols : (t+1)*cols]
+		for i := range row {
+			row[i] += gate[i] * upd[i]
+		}
+	}
+	return nil
 }
 
 func (r *ditLayerGPUResidency) QKVAttentionBatch(l DiTLayer, x, out []float32, tokens, heads, headDim int, rope *MRoPE, scale float32) error {
@@ -616,10 +635,23 @@ func (r *ditLayerGPUResidency) MLPResidualBatch(l DiTLayer, hidden, x, gate []fl
 		return err
 	}
 	postNormAll := make([]float32, len(downAll))
-	if err := rmsNormRowsWeightedGPU(postNormAll, downAll, l.FfnN2, nil, batch, l.W2.OutDim(), 1e-5); err != nil {
-		return err
+	if !gpuDisabledByK3() {
+		if err := rmsNormRowsWeightedGPU(postNormAll, downAll, l.FfnN2, nil, batch, l.W2.OutDim(), 1e-5); err == nil {
+			return gatedResidualRowsGPU(hidden, postNormAll, gate, batch, l.W2.OutDim())
+		} else if gpuNormStrict() {
+			return err
+		}
 	}
-	return gatedResidualRowsGPU(hidden, postNormAll, gate, batch, l.W2.OutDim())
+	cols := l.W2.OutDim()
+	for t := 0; t < batch; t++ {
+		rmsNormWeightedCPU(postNormAll[t*cols:(t+1)*cols], downAll[t*cols:(t+1)*cols], l.FfnN2, 1e-5)
+		row := hidden[t*cols : (t+1)*cols]
+		upd := postNormAll[t*cols : (t+1)*cols]
+		for i := range row {
+			row[i] += gate[i] * upd[i]
+		}
+	}
+	return nil
 }
 
 func (r *ditLayerGPUResidency) MLPBatch(l DiTLayer, x, out []float32, batch int) error {
