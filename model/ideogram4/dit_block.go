@@ -178,18 +178,26 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	if l.AdaLN.OutDim() != 4*emb {
 		return fmt.Errorf("ideogram4 DiT adaln out=%d want=%d", l.AdaLN.OutDim(), 4*emb)
 	}
-	layerGPU, err := l.uploadGPU()
-	if err != nil {
-		if gpuFP8Strict() {
-			return err
+	var layerGPU *ditLayerGPUResidency
+	if !gpuDisabledByK3() {
+		var err error
+		layerGPU, err = l.uploadGPU()
+		if err != nil {
+			if gpuFP8Strict() {
+				return err
+			}
+			layerGPU = nil
 		}
-		layerGPU = nil
-	}
-	if !l.cacheAnyGPUResidency() {
-		defer layerGPU.Free()
+		if layerGPU != nil && !l.cacheAnyGPUResidency() {
+			defer layerGPU.Free()
+		}
 	}
 	mod := make([]float32, 4*emb)
-	if err := layerGPU.AdaLN(*l, adalnInput, mod); err != nil {
+	if gpuDisabledByK3() {
+		if err := l.AdaLN.Apply(adalnInput, mod); err != nil {
+			return err
+		}
+	} else if err := layerGPU.AdaLN(*l, adalnInput, mod); err != nil {
 		return err
 	}
 	scaleMSA := mod[0:emb]
@@ -205,7 +213,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	heads, headDim := cfg.NumHeads, cfg.HeadDim
 	scaleAttn := float32(1 / math.Sqrt(float64(headDim)))
 
-	if gpuFullLayerIslandEnabled() && gpuFP8Enabled() && gpuNormEnabled() && gpuAttentionEnabled() && gpuMLPEnabled() {
+	if !gpuDisabledByK3() && gpuFullLayerIslandEnabled() && gpuFP8Enabled() && gpuNormEnabled() && gpuAttentionEnabled() && gpuMLPEnabled() {
 		if err := layerGPU.FullLayerIslands(*l, hidden, scaleMSA, gateMSA, scaleMLP, gateMLP, tokens, heads, headDim, rope, scaleAttn, normEps); err != nil && (gpuFP8Strict() || gpuNormStrict() || gpuAttentionStrict() || gpuMLPStrict()) {
 			return err
 		} else if err == nil {
@@ -215,7 +223,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 
 	// ---- Attention sublayer ----
 	normedAll := make([]float32, tokens*emb)
-	if gpuNormEnabled() {
+	if !gpuDisabledByK3() && gpuNormEnabled() {
 		if err := rmsNormRowsWeightedGPU(normedAll, hidden, l.AttnN1, scaleMSA, tokens, emb, normEps); err != nil && gpuNormStrict() {
 			return err
 		} else if err != nil {
@@ -248,7 +256,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	// ---- MLP sublayer (SwiGLU) ----
 	inter := cfg.IntermediateSize
 	mlpIn := normedAll
-	if gpuNormEnabled() {
+	if !gpuDisabledByK3() && gpuNormEnabled() {
 		if err := rmsNormRowsWeightedGPU(mlpIn, hidden, l.FfnN1, scaleMLP, tokens, emb, normEps); err != nil && gpuNormStrict() {
 			return err
 		} else if err != nil {
@@ -288,7 +296,7 @@ func (l *DiTLayer) ForwardLayer(cfg Config, hidden []float32, adalnInput []float
 	} else if err := layerGPU.MLPBatch(*l, mlpIn, downAll, tokens); err != nil {
 		return err
 	}
-	if gpuNormEnabled() {
+	if !gpuDisabledByK3() && gpuNormEnabled() {
 		if err := rmsNormRowsWeightedGPU(postNormAll, downAll, l.FfnN2, nil, tokens, emb, normEps); err != nil && gpuNormStrict() {
 			return err
 		} else if err != nil {
@@ -324,7 +332,7 @@ func siluMulInPlace(gate, up []float32) {
 	if k3SiLUMulInPlace(gate, up) {
 		return
 	}
-	if gpuMLPEnabled() {
+	if !gpuDisabledByK3() && gpuMLPEnabled() {
 		out := make([]float32, len(gate))
 		if err := siluMulGPU(out, gate, up); err == nil {
 			copy(gate, out)
@@ -342,7 +350,7 @@ func fullSelfAttention(attnOut, q, k, v []float32, tokens, heads, headDim int, s
 	if k3FullAttention(attnOut, q, k, v, tokens, heads, headDim, scaleAttn) {
 		return nil
 	}
-	if gpuAttentionEnabled() {
+	if !gpuDisabledByK3() && gpuAttentionEnabled() {
 		if err := fullAttentionGPU(attnOut, q, k, v, tokens, heads, headDim, scaleAttn); err == nil || gpuAttentionStrict() {
 			return err
 		}
@@ -375,7 +383,7 @@ func fullSelfAttention(attnOut, q, k, v []float32, tokens, heads, headDim int, s
 }
 
 func transformAdaLNMod(mod []float32, emb int) {
-	if gpuNormEnabled() {
+	if !gpuDisabledByK3() && gpuNormEnabled() {
 		if err := adalnTransformGPU(mod, emb); err == nil || gpuNormStrict() {
 			return
 		}
@@ -397,7 +405,7 @@ func rmsNormWeightedTo(dst, x, weight []float32, eps float32) {
 	if k3RMSNormWeighted(dst, x, weight, eps) {
 		return
 	}
-	if gpuNormEnabled() {
+	if !gpuDisabledByK3() && gpuNormEnabled() {
 		if err := rmsNormWeightedGPU(dst, x, weight, eps); err == nil || gpuNormStrict() {
 			return
 		}

@@ -121,8 +121,8 @@ func BenchmarkK3FP8ApplyBatchA100Q8(b *testing.B) {
 	out := make([]float32, batch*outDim)
 	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
 	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_Q8", "1")
-	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS", "6")
-	b.Setenv("IME2_ACT_PACK_WORKERS", "6")
+	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS", "8")
+	b.Setenv("IME2_ACT_PACK_WORKERS", "8")
 	_ = lin.k3.ensureWeightQ80RowScale(lin)
 	_ = k3A100WorkerPool()
 	b.SetBytes(int64(batch * inDim * outDim))
@@ -146,8 +146,8 @@ func benchmarkK3FP8ApplyBatchPath(b *testing.B, batch, inDim, outDim int, a100 b
 	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
 	if a100 {
 		b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_Q8", "1")
-		b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS", "6")
-		b.Setenv("IME2_ACT_PACK_WORKERS", "6")
+		b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS", "8")
+		b.Setenv("IME2_ACT_PACK_WORKERS", "8")
 		_ = lin.k3.ensureWeightQ80RowScale(lin)
 		_ = k3A100WorkerPool()
 	} else {
@@ -253,8 +253,8 @@ func benchmarkK3MLPBatch(b *testing.B, batch, emb, inter int, fused bool) {
 	out := make([]float32, batch*emb)
 	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
 	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_Q8", "1")
-	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS", "6")
-	b.Setenv("IME2_ACT_PACK_WORKERS", "6")
+	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS", "8")
+	b.Setenv("IME2_ACT_PACK_WORKERS", "8")
 	if fused {
 		b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_MLP", "1")
 	} else {

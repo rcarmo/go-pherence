@@ -9,11 +9,17 @@ import (
 )
 
 func gpuMRoPEEnabled() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_MROPE")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func gpuMRoPEStrict() bool {
+	if gpuDisabledByK3() {
+		return false
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_MROPE_STRICT")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
@@ -23,7 +29,7 @@ func applyMRoPEGPU(x []float32, rope *MRoPE, tokens, heads, headDim int) error {
 		return fmt.Errorf("invalid Ideogram4 GPU MRoPE tables")
 	}
 	if !nvidia.Available() {
-		return fmt.Errorf("nvidia runtime unavailable")
+		return fmt.Errorf("nvidia runtime unavailable: mrope")
 	}
 	return nvidia.IdeogramMRoPE(x, rope.cos, rope.sin, tokens, heads, headDim)
 }

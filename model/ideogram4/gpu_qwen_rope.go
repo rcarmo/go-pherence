@@ -11,7 +11,7 @@ func qwenRoPEGPU(vec []float32, rt ropeTable, t int) error {
 		return fmt.Errorf("invalid Qwen RoPE row vec=%d headDim=%d half=%d pos=%d", len(vec), rt.headDim, rt.half, t)
 	}
 	if !nvidia.Available() {
-		return fmt.Errorf("nvidia runtime unavailable")
+		return fmt.Errorf("nvidia runtime unavailable: qwen_rope")
 	}
 	return nvidia.F32RoPE(vec[:rt.headDim], rt.cos, rt.sin, t, 1, rt.headDim)
 }

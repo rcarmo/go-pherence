@@ -8,7 +8,7 @@ import (
 
 func unpatchifyLatentsGPU(tokens []float32, gridH, gridW, inChannels, latentChannels, patchH, patchW int) (FeatureMap, error) {
 	if !nvidia.Available() {
-		return FeatureMap{}, fmt.Errorf("nvidia runtime unavailable")
+		return FeatureMap{}, fmt.Errorf("nvidia runtime unavailable: vae_unpatchify")
 	}
 	H := gridH * patchH
 	W := gridW * patchW
