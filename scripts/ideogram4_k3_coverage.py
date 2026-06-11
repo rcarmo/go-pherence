@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 from pathlib import Path
 
@@ -17,4 +18,9 @@ rows = [
   ("24GB residency", "partial", "FP8 decoded/packed weight prewarm", "component+activation lifetime policy"),
 ]
 items = [{"area": a, "status": s, "current": c, "remaining": r} for a,s,c,r in rows]
+parser = argparse.ArgumentParser()
+parser.add_argument("--fail-missing", action="store_true", help="exit non-zero if any coverage row is missing")
+args = parser.parse_args()
 print(json.dumps({"ideogram4_k3_coverage": items}, indent=2))
+if args.fail_missing and any(i["status"] == "missing" for i in items):
+    raise SystemExit(1)

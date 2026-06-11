@@ -58,7 +58,8 @@ ideogram4-k3-check:
 	done
 	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/ideogram4gen-k3 ./cmd/image/ideogram4gen
 	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o bin/ideogram4vaeprobe-k3 ./cmd/image/ideogram4vaeprobe
-	@echo "K3 check passed: native Ideogram tests + riscv64 test binaries + bin/ideogram4gen-k3 + bin/ideogram4vaeprobe-k3"
+	./scripts/ideogram4_k3_coverage.py --fail-missing > $(TMPDIR)/ideogram4/k3check/coverage.json
+	@echo "K3 check passed: native Ideogram tests + riscv64 test binaries + bin/ideogram4gen-k3 + bin/ideogram4vaeprobe-k3 + coverage no-missing gate"
 
 SPEAKER_CKPT ?= $(MODELS_DIR)/speechbrain-ecapa-voxceleb/embedding_model.ckpt
 SPEAKER_SAFETENSORS ?= $(MODELS_DIR)/speaker-ecapa-voxceleb.safetensors
