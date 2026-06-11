@@ -40,7 +40,11 @@ func (m *DiTModel) PrewarmK3() int {
 	}
 	// These are the hot denoise path linears. They dominate first-use cost and are
 	// safe to warm selectively for K3/A100 inference.
+	pre(m.Globals.LLMCondProj)
 	pre(m.Globals.InputProj)
+	pre(m.Globals.TimeIn)
+	pre(m.Globals.TimeOut)
+	pre(m.Globals.FinalAdaLN)
 	pre(m.Globals.FinalLinear)
 	for i := range m.Layers {
 		l := &m.Layers[i]

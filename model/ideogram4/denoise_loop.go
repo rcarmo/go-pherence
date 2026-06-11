@@ -38,6 +38,7 @@ func DenoiseLoop(cond, uncond *DiTModel, sched *FlowMatchScheduler, plan Samplin
 		return nil, fmt.Errorf("ideogram4 denoise: empty sampling plan")
 	}
 
+	traceTiming := os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1"
 	traceGPUStats := os.Getenv("GO_PHERENCE_IDEOGRAM4_GPU_STATS") == "1"
 	printStats := func(name string, before nvidia.Stats, since time.Time) {
 		if !traceGPUStats {
@@ -70,6 +71,9 @@ func DenoiseLoop(cond, uncond *DiTModel, sched *FlowMatchScheduler, plan Samplin
 		if err != nil {
 			return nil, fmt.Errorf("ideogram4 denoise step %d cond: %w", si, err)
 		}
+		if traceTiming {
+			fmt.Fprintf(os.Stderr, "timing denoise_step=%d branch=cond elapsed=%s\n", si, time.Since(branchStart))
+		}
 		printStats(fmt.Sprintf("denoise_step_%d_cond", si), branchStats, branchStart)
 		branchStart = time.Now()
 		branchStats = nvidia.StatsSnapshot()
@@ -79,6 +83,9 @@ func DenoiseLoop(cond, uncond *DiTModel, sched *FlowMatchScheduler, plan Samplin
 		if err != nil {
 			return nil, fmt.Errorf("ideogram4 denoise step %d uncond: %w", si, err)
 		}
+		if traceTiming {
+			fmt.Fprintf(os.Stderr, "timing denoise_step=%d branch=uncond elapsed=%s\n", si, time.Since(branchStart))
+		}
 		printStats(fmt.Sprintf("denoise_step_%d_uncond", si), branchStats, branchStart)
 		condL := Latents{Batch: 1, Tokens: imgTokens, Channels: cfg.InChannels, Data: condVel}
 		uncondL := Latents{Batch: 1, Tokens: imgTokens, Channels: cfg.InChannels, Data: uncondVel}
@@ -87,6 +94,9 @@ func DenoiseLoop(cond, uncond *DiTModel, sched *FlowMatchScheduler, plan Samplin
 		x, err = gpuCFGStepOrFallback(sched, plan, x, condL, uncondL, step, step.Index)
 		if err != nil {
 			return nil, fmt.Errorf("ideogram4 denoise step %d cfg/update: %w", si, err)
+		}
+		if traceTiming {
+			fmt.Fprintf(os.Stderr, "timing denoise_step=%d branch=cfg elapsed=%s\n", si, time.Since(branchStart))
 		}
 		printStats(fmt.Sprintf("denoise_step_%d_cfg", si), branchStats, branchStart)
 	}

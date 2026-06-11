@@ -3,6 +3,8 @@ package ideogram4
 import (
 	"fmt"
 	"math"
+	"os"
+	"time"
 )
 
 // imagePositionOffset matches the reference IMAGE_POSITION_OFFSET, keeping image
@@ -186,6 +188,15 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 		return nil, ErrRuntimeNotImplemented
 	}
 	cfg := m.Config
+	timing := os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1"
+	velStart := time.Now()
+	phaseStart := velStart
+	mark := func(name string) {
+		if timing {
+			fmt.Fprintf(os.Stderr, "timing dit_velocity text_tokens=%d img_tokens=%d phase=%s elapsed=%s total=%s\n", len(textFeatures)/cfg.LLMFeaturesDim, gridH*gridW, name, time.Since(phaseStart), time.Since(velStart))
+			phaseStart = time.Now()
+		}
+	}
 	emb := cfg.EmbDim
 	imgTokens := gridH * gridW
 	if imgTokens <= 0 || len(latents) != imgTokens*cfg.InChannels {
@@ -221,11 +232,14 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 			}
 		}
 	}
+	mark("llm_cond_proj")
+
 	// image tokens: input_proj(latents) + indicator[1].
 	imageHidden := hidden[textTokens*emb:]
 	if err := m.Globals.InputProj.ApplyBatch(latents, imageHidden, imgTokens); err != nil {
 		return nil, err
 	}
+	mark("input_proj")
 	for t := 0; t < imgTokens; t++ {
 		row := imageHidden[t*emb : (t+1)*emb]
 		for i := 0; i < emb; i++ {
@@ -259,6 +273,7 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 			}
 		}
 	}
+	mark("layers")
 
 	// final layer over image tokens: scale = 1 + final_adaln(SiLU(adaln));
 	// out = final_linear(LayerNorm_noaffine(h) * scale).
@@ -282,6 +297,7 @@ func (m *DiTModel) Velocity(latents []float32, gridH, gridW int, textFeatures []
 	if err := m.Globals.FinalLinear.ApplyBatch(modBuf, velocity, imgTokens); err != nil {
 		return nil, err
 	}
+	mark("final")
 	return velocity, nil
 }
 
