@@ -5,6 +5,7 @@ mkdir -p "$out"
 
 cp -f bin/ideogram4gen-k3 "$out/" 2>/dev/null || true
 cp -f bin/ideogram4vaeprobe-k3 "$out/" 2>/dev/null || true
+./scripts/ideogram4_k3_coverage.py > "$out/coverage.json"
 
 cat > "$out/README.md" <<'MD'
 # Ideogram4 K3 handoff
@@ -63,6 +64,8 @@ repository or pass the same structured JSON caption manually.
 ```
 
 ## Current K3 coverage status
+
+See `coverage.json` for the machine-readable current coverage matrix. Summary:
 
 Implemented K3-specific bridges:
 
