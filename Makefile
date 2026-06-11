@@ -878,3 +878,8 @@ diffusiongemma-run-cpu-full-topk-4step-smoke: diffusiongemma-check-shards
 
 diffusiongemma-run-cpu-full-topk-8step-smoke: diffusiongemma-check-shards
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new 1 -canvas 1 -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps 8 -cpu-dispatcher -allow-slow-cpu -residency-budget-gib 16 -lm-head-top-k 8 -dispatch-progress -decode
+
+.PHONY: diffusiongemma-run-cpu-full-topk-canvas2-step-smoke
+
+diffusiongemma-run-cpu-full-topk-canvas2-step-smoke: diffusiongemma-check-shards
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new 2 -canvas 2 -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps 1 -cpu-dispatcher -allow-slow-cpu -residency-budget-gib 16 -lm-head-top-k 8 -dispatch-progress -decode
