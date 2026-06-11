@@ -448,3 +448,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Bounded CPU half-stack smoke
 
 `diffusiongemmarun -residency-budget-gib 16 -max-dispatch-layers 16` executes the first sixteen real-weight text layers while retaining only the four-layer budget-selected prefix. On the downloaded checkpoint it completes with `resident_layers=4/30` and retains `float_cache_entries=88 float_cache_bytes=13025519632`, confirming decode/evict behavior across more than half the text stack. `make diffusiongemma-run-cpu-layer16-budget-smoke` wraps this probe.
+
+
+## Sparse top-k LM-head smoke
+
+`CPUDispatcher` now supports `LMHeadTopK` and `TailAfterMaxLayers`. `diffusiongemmarun -max-dispatch-layers 1 -tail-after-max-layers -lm-head-top-k 8` executes layer 0, final norm, and a sparse top-8 tied LM-head projection that fills non-top logits with `-Inf` instead of using the dense output semantically. With the downloaded checkpoint it produces a real top-k token (`generated=[236991]`, decoded as `ை`) and reports `float_cache_entries=27 float_cache_bytes=3327771140`. This is still not reference-complete, but it is the first bounded full-weight path through tail + LM-head.

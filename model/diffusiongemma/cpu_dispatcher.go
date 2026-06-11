@@ -14,16 +14,19 @@ import (
 type CPUDispatcher struct {
 	ResidentLayerPrefix int
 	MaxLayers           int
+	TailAfterMaxLayers  bool
+	LMHeadTopK          int
 }
 
 type ForwardScratch struct {
-	Hidden   []float32
-	Residual []float32
-	Logits   [][]float32
-	Router   []float32
-	Experts  []float32
-	TopKIDs  []int
-	TopKVals []float32
+	Hidden     []float32
+	Residual   []float32
+	Logits     [][]float32
+	Router     []float32
+	Experts    []float32
+	TopKIDs    []int
+	TopKVals   []float32
+	LMHeadTopK int
 }
 
 func NewForwardScratch(buffers ForwardBufferPlan) ForwardScratch {
@@ -61,6 +64,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		return ForwardOutput{}, fmt.Errorf("DiffusionGemma CPU dispatcher empty canvas")
 	}
 	scratch := NewForwardScratch(buffers)
+	scratch.LMHeadTopK = d.LMHeadTopK
 	for _, op := range ops.Prefix {
 		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
@@ -86,7 +90,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	if currentLayer >= 0 && currentLayer >= d.ResidentLayerPrefix {
 		weights.EvictLayer(currentLayer)
 	}
-	if d.MaxLayers > 0 {
+	if d.MaxLayers > 0 && !d.TailAfterMaxLayers {
 		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
 	}
 	for _, op := range ops.Tail {
@@ -940,6 +944,32 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	if len(scratch.Logits) < positions {
 		return fmt.Errorf("DiffusionGemma LM head logits rows=%d want %d", len(scratch.Logits), positions)
 	}
+	topK := scratch.LMHeadTopK
+	if topK > vocab {
+		topK = vocab
+	}
+	if topK > 0 {
+		for pos := 0; pos < positions; pos++ {
+			if len(scratch.Logits[pos]) < vocab {
+				return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
+			}
+			for i := 0; i < vocab; i++ {
+				scratch.Logits[pos][i] = float32(math.Inf(-1))
+			}
+		}
+	}
+	topIDs := make([][]int, positions)
+	topVals := make([][]float32, positions)
+	if topK > 0 {
+		for pos := 0; pos < positions; pos++ {
+			topIDs[pos] = make([]int, topK)
+			topVals[pos] = make([]float32, topK)
+			for i := range topIDs[pos] {
+				topIDs[pos][i] = -1
+				topVals[pos][i] = float32(math.Inf(-1))
+			}
+		}
+	}
 	row := make([]float32, hiddenSize)
 	for vocabID := 0; vocabID < vocab; vocabID++ {
 		raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
@@ -956,10 +986,37 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 			if len(scratch.Logits[pos]) < vocab {
 				return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
 			}
-			scratch.Logits[pos][vocabID] = dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
+			score := dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
+			if topK <= 0 {
+				scratch.Logits[pos][vocabID] = score
+				continue
+			}
+			insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+		}
+	}
+	if topK > 0 {
+		for pos := 0; pos < positions; pos++ {
+			for i, id := range topIDs[pos] {
+				if id >= 0 {
+					scratch.Logits[pos][id] = topVals[pos][i]
+				}
+			}
 		}
 	}
 	return nil
+}
+
+func insertTopK(ids []int, vals []float32, id int, val float32) {
+	for i := range vals {
+		if val <= vals[i] {
+			continue
+		}
+		copy(vals[i+1:], vals[i:])
+		copy(ids[i+1:], ids[i:])
+		vals[i] = val
+		ids[i] = id
+		return
+	}
 }
 
 func errOpNotImplemented(op OpKind) error {
