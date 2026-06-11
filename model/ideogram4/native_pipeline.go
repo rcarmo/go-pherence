@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"time"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -125,6 +127,32 @@ func LoadNativePipeline(modelDir string) (*NativePipeline, error) {
 	return pipe, nil
 }
 
+func releaseDenoiseBeforeVAEEnabled() bool {
+	if k3Enabled() {
+		return true
+	}
+	v := os.Getenv("GO_PHERENCE_IDEOGRAM4_RELEASE_DENOISE_BEFORE_VAE")
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func (p *NativePipeline) releaseDenoiseBeforeVAE() {
+	if p == nil {
+		return
+	}
+	if p.Cond != nil {
+		p.Cond.ReleaseGPU()
+	}
+	if p.Uncond != nil {
+		p.Uncond.ReleaseGPU()
+	}
+	p.Tokenizer = nil
+	p.Conditioner = nil
+	p.Cond = nil
+	p.Uncond = nil
+	runtime.GC()
+	debug.FreeOSMemory()
+}
+
 // GenerateOptions controls a native generation run.
 type GenerateOptions struct {
 	Height           int
@@ -241,6 +269,10 @@ func (p *NativePipeline) Generate(prompt string, opt GenerateOptions) (Image, er
 		return Image{}, err
 	}
 	phaseStart = mark("latent_postprocess", phaseStart)
+	if releaseDenoiseBeforeVAEEnabled() {
+		p.releaseDenoiseBeforeVAE()
+		phaseStart = mark("release_denoise_before_vae", phaseStart)
+	}
 	img, err := p.VAE.Decode(fmap)
 	if err != nil {
 		return Image{}, err
