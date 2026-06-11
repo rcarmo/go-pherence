@@ -292,7 +292,7 @@ func main() {
 	if out.Shards != nil {
 		fmt.Printf("  shards_ready=%v present=%d/%d\n", out.Shards.Ready, out.Shards.PresentShards, out.Shards.ExpectedShards)
 	}
-	fmt.Printf("  caps: text_scaffold=%v reference_complete=%v encoder_kv=%v sliding_mask=%v rope=%v\n", out.Capabilities.TextOnlyScaffoldReady, out.Capabilities.ReferenceComplete, out.Capabilities.EncoderKVConcat, out.Capabilities.SlidingWindowMask, out.Capabilities.RoPE)
+	fmt.Printf("  caps: text_scaffold=%v text_sparse=%v sparse_topk_lm=%v reference_complete=%v encoder_kv=%v sliding_mask=%v rope=%v\n", out.Capabilities.TextOnlyScaffoldReady, out.Capabilities.TextFullStackSparseReady, out.Capabilities.SparseTopKLMHead, out.Capabilities.ReferenceComplete, out.Capabilities.EncoderKVConcat, out.Capabilities.SlidingWindowMask, out.Capabilities.RoPE)
 	if len(out.Capabilities.MissingForReference) > 0 {
 		fmt.Printf("  missing_reference=%v\n", out.Capabilities.MissingForReference)
 	}

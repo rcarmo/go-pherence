@@ -583,3 +583,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Published 256-position two-step full-stack sparse top-k smoke
 
 `diffusiongemmarun -canvas 256 -max-new 256 -denoise-steps 2 -residency-budget-gib 16 -lm-head-top-k 8` completes two denoising iterations for the published 256-token DiffusionGemma canvas through all thirty real-weight text layers, final norm, SIMD sparse top-k LM-head, and self-conditioning feedback. On the downloaded checkpoint it converges to repeated token `1852`, decoded as repeated `own`. `make diffusiongemma-run-cpu-full-topk-canvas256-2step-smoke` wraps this published-canvas feedback probe.
+
+
+## Sparse text-stack capability reporting
+
+`Capabilities()` now distinguishes the validated native sparse text path from reference completeness: `text_sparse=true` / `text_full_stack_sparse_ready=true` and `sparse_topk_lm=true` are reported by `diffusiongemmainspect` and `diffusiongemmarun`, while `reference_complete=false` and `runtime_ready=false` remain unchanged.

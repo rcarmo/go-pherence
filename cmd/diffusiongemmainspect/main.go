@@ -170,7 +170,7 @@ func printText(r report) {
 	if r.ResidencyBudget != nil {
 		fmt.Printf("  residency_budget: budget_bytes=%d resident_layers=%d/%d resident_bytes=%d remaining_bytes=%d all_layers=%v\n", r.ResidencyBudget.BudgetBytes, r.ResidencyBudget.ResidentLayers, r.ResidencyBudget.TotalLayers, r.ResidencyBudget.ResidentBytes, r.ResidencyBudget.RemainingBytes, r.ResidencyBudget.AllLayersResident)
 	}
-	fmt.Printf("  caps:      sampler=%v ops=%d/%d text_scaffold=%v attention_scaffold=%v rope=%v sliding_mask=%v encoder_kv=%v reference_complete=%v\n", r.Capabilities.Sampler, r.Capabilities.ImplementedOps, r.Capabilities.TotalOps, r.Capabilities.TextOnlyScaffoldReady, r.Capabilities.SelfAttentionScaffold, r.Capabilities.RoPE, r.Capabilities.SlidingWindowMask, r.Capabilities.EncoderKVConcat, r.Capabilities.ReferenceComplete)
+	fmt.Printf("  caps:      sampler=%v ops=%d/%d text_scaffold=%v text_sparse=%v sparse_topk_lm=%v attention_scaffold=%v rope=%v sliding_mask=%v encoder_kv=%v reference_complete=%v\n", r.Capabilities.Sampler, r.Capabilities.ImplementedOps, r.Capabilities.TotalOps, r.Capabilities.TextOnlyScaffoldReady, r.Capabilities.TextFullStackSparseReady, r.Capabilities.SparseTopKLMHead, r.Capabilities.SelfAttentionScaffold, r.Capabilities.RoPE, r.Capabilities.SlidingWindowMask, r.Capabilities.EncoderKVConcat, r.Capabilities.ReferenceComplete)
 	if len(r.Capabilities.MissingForReference) > 0 {
 		fmt.Printf("  missing_reference: %v\n", r.Capabilities.MissingForReference)
 	}

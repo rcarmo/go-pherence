@@ -19,6 +19,8 @@ type RuntimeCapabilities struct {
 	LayerScalar              bool     `json:"layer_scalar"`
 	FinalNorm                bool     `json:"final_norm"`
 	LMHead                   bool     `json:"lm_head"`
+	SparseTopKLMHead         bool     `json:"sparse_topk_lm_head"`
+	TextFullStackSparseReady bool     `json:"text_full_stack_sparse_ready"`
 	SelfAttentionScaffold    bool     `json:"self_attention_scaffold"`
 	RoPE                     bool     `json:"rope"`
 	SlidingWindowMask        bool     `json:"sliding_window_mask"`
@@ -50,6 +52,8 @@ func Capabilities() RuntimeCapabilities {
 		LayerScalar:              true,
 		FinalNorm:                true,
 		LMHead:                   true,
+		SparseTopKLMHead:         true,
+		TextFullStackSparseReady: true,
 		SelfAttentionScaffold:    true,
 		RoPE:                     true,
 		SlidingWindowMask:        true,
