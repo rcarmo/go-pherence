@@ -853,3 +853,8 @@ diffusiongemma-run-cpu-layer16-topk-step-smoke: diffusiongemma-check-shards
 
 diffusiongemma-run-cpu-layer30-topk-step-smoke: diffusiongemma-check-shards
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new 1 -canvas 1 -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps 1 -cpu-dispatcher -allow-slow-cpu -residency-budget-gib 16 -max-dispatch-layers 30 -tail-after-max-layers -lm-head-top-k 8 -dispatch-progress -decode
+
+.PHONY: diffusiongemma-run-cpu-layer30-topk-2step-smoke
+
+diffusiongemma-run-cpu-layer30-topk-2step-smoke: diffusiongemma-check-shards
+	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -prompt '$(DIFFUSIONGEMMA_PROMPT)' -max-new 1 -canvas 1 -seed $(DIFFUSIONGEMMA_SEED) -denoise-steps 2 -cpu-dispatcher -allow-slow-cpu -residency-budget-gib 16 -max-dispatch-layers 30 -tail-after-max-layers -lm-head-top-k 8 -dispatch-progress -decode
