@@ -443,3 +443,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Bounded CPU eviction beyond resident prefix
 
 `diffusiongemmarun -residency-budget-gib 16 -max-dispatch-layers 8` executes the first eight real-weight text layers while retaining only the budget-selected four-layer prefix. On the downloaded checkpoint it completes with `resident_layers=4/30` and retains `float_cache_entries=88 float_cache_bytes=13025519632`, matching the four-layer footprint and confirming layers beyond the resident prefix are decoded and evicted. `make diffusiongemma-run-cpu-layer8-budget-smoke` wraps this probe.
+
+
+## Bounded CPU half-stack smoke
+
+`diffusiongemmarun -residency-budget-gib 16 -max-dispatch-layers 16` executes the first sixteen real-weight text layers while retaining only the four-layer budget-selected prefix. On the downloaded checkpoint it completes with `resident_layers=4/30` and retains `float_cache_entries=88 float_cache_bytes=13025519632`, confirming decode/evict behavior across more than half the text stack. `make diffusiongemma-run-cpu-layer16-budget-smoke` wraps this probe.
