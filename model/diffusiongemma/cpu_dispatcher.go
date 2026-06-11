@@ -970,8 +970,6 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 			}
 		}
 	}
-	row := make([]float32, hiddenSize)
-	var cachedEmbedding []float32
 	if topK > 0 {
 		t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
 		if err != nil {
@@ -980,12 +978,19 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 		if len(t.Shape) != 2 || t.Shape[0] != vocab || t.Shape[1] != hiddenSize {
 			return fmt.Errorf("DiffusionGemma LM head cached embedding shape %v want [%d %d]", t.Shape, vocab, hiddenSize)
 		}
-		cachedEmbedding = t.Data
-	}
-	for vocabID := 0; vocabID < vocab; vocabID++ {
-		if topK > 0 {
-			row = cachedEmbedding[vocabID*hiddenSize : (vocabID+1)*hiddenSize]
-		} else {
+		scores := make([]float32, vocab)
+		for pos := 0; pos < positions; pos++ {
+			hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+			if !simd.GemvRows(scores, hidden, t.Data, vocab, hiddenSize) {
+				return fmt.Errorf("DiffusionGemma LM head SIMD GEMV failed vocab=%d hidden=%d", vocab, hiddenSize)
+			}
+			for vocabID, score := range scores {
+				insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+			}
+		}
+	} else {
+		row := make([]float32, hiddenSize)
+		for vocabID := 0; vocabID < vocab; vocabID++ {
 			raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
 			if err != nil {
 				return err
@@ -996,17 +1001,12 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 			if err := decodeFloatRowTo(row, raw, dtype); err != nil {
 				return err
 			}
-		}
-		for pos := 0; pos < positions; pos++ {
-			if len(scratch.Logits[pos]) < vocab {
-				return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
+			for pos := 0; pos < positions; pos++ {
+				if len(scratch.Logits[pos]) < vocab {
+					return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
+				}
+				scratch.Logits[pos][vocabID] = dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
 			}
-			score := dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
-			if topK <= 0 {
-				scratch.Logits[pos][vocabID] = score
-				continue
-			}
-			insertTopK(topIDs[pos], topVals[pos], vocabID, score)
 		}
 	}
 	if topK > 0 {

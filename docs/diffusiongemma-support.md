@@ -1005,3 +1005,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Cached sparse LM-head projection
 
 Sparse top-k LM-head mode now decodes `model.decoder.embed_tokens.weight` into the `TextWeights` float cache once and scans that resident matrix for top-k candidate scores. Dense LM-head mode still streams rows via `RawTensorRow`. This trades roughly 2.75 GiB of decoded embedding residency for avoiding hundreds of thousands of mmap row decode calls during top-k probes.
+
+
+## SIMD sparse top-k LM-head smoke
+
+Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `simd.GemvRows` instead of per-row mmap/decode. The 1-layer top-k smoke still returns `generated=[236991]`, and the previously timing-out four-layer top-k probe now completes with `generated=[59475]`, decoded as ` 싶`, under `-residency-budget-gib 16 -max-dispatch-layers 4 -tail-after-max-layers -lm-head-top-k 8`. `make diffusiongemma-run-cpu-layer4-topk-smoke` wraps this bounded tail+LM-head probe.
