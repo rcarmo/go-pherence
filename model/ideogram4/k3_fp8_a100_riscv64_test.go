@@ -9,6 +9,10 @@ import (
 )
 
 func syntheticFP8Linear(t testing.TB, inDim, outDim int) *FP8Linear {
+	return syntheticFP8LinearRole(t, RoleMLPW1, inDim, outDim)
+}
+
+func syntheticFP8LinearRole(t testing.TB, role LinearRole, inDim, outDim int) *FP8Linear {
 	t.Helper()
 	w := make([]byte, inDim*outDim)
 	scale := make([]float32, outDim)
@@ -21,7 +25,7 @@ func syntheticFP8Linear(t testing.TB, inDim, outDim int) *FP8Linear {
 		scale[i] = 0.015625 * (1 + float32(i%5)*0.25)
 		bias[i] = float32((i%7)-3) * 0.01
 	}
-	spec := LinearSpec{Prefix: "test.a100", Role: RoleMLPW1, InDim: inDim, OutDim: outDim, Weight: "w", WeightScale: "s"}
+	spec := LinearSpec{Prefix: "test.a100", Role: role, InDim: inDim, OutDim: outDim, Weight: "w", WeightScale: "s"}
 	lin, err := NewFP8Linear(spec, w, scale, bias)
 	if err != nil {
 		t.Fatal(err)
@@ -173,4 +177,113 @@ func BenchmarkK3FP8ApplyBatchDiTShapeMLPUpRVVF16(b *testing.B) {
 
 func BenchmarkK3FP8ApplyBatchDiTShapeMLPUpA100Q8(b *testing.B) {
 	benchmarkK3FP8ApplyBatchPath(b, 16, 4608, 12288, true)
+}
+
+func syntheticDiTLayer(t testing.TB, emb, inter int) DiTLayer {
+	t.Helper()
+	return DiTLayer{
+		W1: syntheticFP8LinearRole(t, RoleMLPW1, emb, inter),
+		W3: syntheticFP8LinearRole(t, RoleMLPW3, emb, inter),
+		W2: syntheticFP8LinearRole(t, RoleMLPW2, inter, emb),
+	}
+}
+
+func cpuMLPReference(t testing.TB, l DiTLayer, x, out []float32, batch int) {
+	t.Helper()
+	inter := l.W1.OutDim()
+	g := make([]float32, batch*inter)
+	u := make([]float32, batch*inter)
+	for b := 0; b < batch; b++ {
+		if err := l.W1.weight.GemvTo(x[b*l.W1.InDim():(b+1)*l.W1.InDim()], g[b*inter:(b+1)*inter]); err != nil {
+			t.Fatal(err)
+		}
+		if err := l.W3.weight.GemvTo(x[b*l.W3.InDim():(b+1)*l.W3.InDim()], u[b*inter:(b+1)*inter]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := range g {
+		g[i] = siluScalar(g[i]) * u[i]
+	}
+	for b := 0; b < batch; b++ {
+		if err := l.W2.weight.GemvTo(g[b*inter:(b+1)*inter], out[b*l.W2.OutDim():(b+1)*l.W2.OutDim()]); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestK3A100FusedMLPBatch(t *testing.T) {
+	if _, err := os.Stat("/proc/set_ai_thread"); err != nil {
+		t.Skip("no A100 thread registration")
+	}
+	t.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
+	t.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_Q8", "1")
+	t.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_MLP", "1")
+	t.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS", "2")
+	t.Setenv("IME2_ACT_PACK_WORKERS", "2")
+	const batch, emb, inter = 8, 64, 128
+	l := syntheticDiTLayer(t, emb, inter)
+	x := syntheticRows(batch, emb)
+	want := make([]float32, batch*emb)
+	got := make([]float32, batch*emb)
+	cpuMLPReference(t, l, x, want, batch)
+	if ok, err := k3MLPBatch(l, x, got, batch); !ok || err != nil {
+		t.Fatalf("k3MLPBatch ok=%v err=%v", ok, err)
+	}
+	var maxAbs, rmse float64
+	for i := range want {
+		d := float64(got[i] - want[i])
+		ad := math.Abs(d)
+		if ad > maxAbs {
+			maxAbs = ad
+		}
+		rmse += d * d
+	}
+	rmse = math.Sqrt(rmse / float64(len(want)))
+	if maxAbs > 0.35 || rmse > 0.08 {
+		t.Fatalf("fused MLP mismatch maxAbs=%g rmse=%g", maxAbs, rmse)
+	}
+}
+
+func benchmarkK3MLPBatch(b *testing.B, batch, emb, inter int, fused bool) {
+	if _, err := os.Stat("/proc/set_ai_thread"); err != nil {
+		b.Skip("no A100 thread registration")
+	}
+	l := syntheticDiTLayer(b, emb, inter)
+	x := syntheticRows(batch, emb)
+	out := make([]float32, batch*emb)
+	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
+	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_Q8", "1")
+	b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_WORKERS", "6")
+	b.Setenv("IME2_ACT_PACK_WORKERS", "6")
+	if fused {
+		b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_MLP", "1")
+	} else {
+		b.Setenv("GO_PHERENCE_IDEOGRAM4_K3_A100_MLP", "0")
+	}
+	_ = l.W1.k3.ensureWeightQ80RowScale(l.W1)
+	_ = l.W3.k3.ensureWeightQ80RowScale(l.W3)
+	_ = l.W2.k3.ensureWeightQ80RowScale(l.W2)
+	_ = k3A100WorkerPool()
+	b.SetBytes(int64(batch * (emb*inter*2 + inter*emb)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if fused {
+			if ok, err := k3MLPBatch(l, x, out, batch); !ok || err != nil {
+				b.Fatalf("k3MLPBatch ok=%v err=%v", ok, err)
+			}
+		} else {
+			var r *ditLayerGPUResidency
+			if err := r.MLPBatch(l, x, out, batch); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}
+
+func BenchmarkK3A100MLPUnfused(b *testing.B) {
+	benchmarkK3MLPBatch(b, 16, 4608, 12288, false)
+}
+
+func BenchmarkK3A100MLPFusedW1W3(b *testing.B) {
+	benchmarkK3MLPBatch(b, 16, 4608, 12288, true)
 }
