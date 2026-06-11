@@ -1,6 +1,6 @@
 # DiffusionGemma implementation status
 
-Generated from the current go-pherence DiffusionGemma scaffold and the fetched Hugging Face metadata snapshot under `/workspace/tmp/diffusiongemma`.
+Generated from the current go-pherence DiffusionGemma metadata/scaffold plus the downloaded full Hugging Face checkpoint at `models/diffusiongemma-26B-A4B-it`. Current status: no-weight scaffold CI passes, full-weight sparse text CI passes (`text_sparse=true`, `sparse_topk_lm=true`), and the native sparse text path is validated up to the published 256-token canvas with 1/2 denoising steps. Reference completion remains false pending parity fixtures and processor/vision integration.
 
 ## Weight/reference target
 

@@ -1,6 +1,6 @@
-# DiffusionGemma support scaffold
+# DiffusionGemma support
 
-This tracks native go-pherence support for Google's DiffusionGemma text generation model family.
+This tracks native go-pherence support for Google's DiffusionGemma text generation model family. Current status: metadata/no-weight scaffold remains available, and the full 11-shard checkpoint has a validated native sparse text path (`text_sparse=true`, `sparse_topk_lm=true`) through the full 30-layer CPU/SIMD text stack. The sparse path accepts arbitrary text prompts via `make diffusiongemma-run-sparse-text` and has been validated up to the published 256-token canvas with 1/2 denoising steps. `reference_complete=false` and `runtime_ready=false` remain intentionally set until Transformers parity, dense/reference logits, and full processor/vision integration are complete.
 
 ## Source review
 

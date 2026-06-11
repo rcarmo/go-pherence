@@ -87,20 +87,20 @@ make gguf-bench-qwen36-reap
 make gguf-check-qwen36-reap  # validation + benchmark
 make gguf-ci-qwen36-reap     # focused build smoke + check
 
-# DiffusionGemma block-diffusion scaffold/status workflow
+# DiffusionGemma block-diffusion scaffold/status/sparse-native workflow
 make diffusiongemma-download-metadata
 make diffusiongemma-download-plan-report # show 11-shard / 48.10 GiB payload and free-space plan
 make diffusiongemma-inspect
-make diffusiongemma-run-mock
-make diffusiongemma-mock-compare
 make diffusiongemma-status-refresh
-make diffusiongemma-ci-scaffold
 make diffusiongemma-ci-no-weights # safe aggregate validation without safetensor shards
+make diffusiongemma-check-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
+make diffusiongemma-run-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it DIFFUSIONGEMMA_PROMPT='hi' DIFFUSIONGEMMA_MAX_NEW=8 DIFFUSIONGEMMA_CANVAS=8 DIFFUSIONGEMMA_DENOISE_STEPS=2 DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB=16 DIFFUSIONGEMMA_LM_HEAD_TOP_K=8
+make diffusiongemma-ci-sparse-text-published DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
 ```
 
 The Qwen3.6 REAP GGUF CI target exercises the native go-pherence path end-to-end: GGUF inspect, one-token generation smoke, synthetic TurboQuant cache smoke, benchmark, required SIMD rotation readiness, static/runtime/cache/benchmark KV+scratch byte assertions, and aggregate compressed-cache counters. It does not depend on llama.cpp for runtime execution.
 
-The DiffusionGemma scaffold targets inspect the public `google/diffusiongemma-26B-A4B-it` metadata, run a mock block-diffusion denoiser through the native sampler/control-flow path, export machine-readable scaffold status, and run reference-helper dry-runs without requiring full weight shards. `make diffusiongemma-ci-no-weights` is the safe aggregate validation target before any large download. Real DiffusionGemma inference remains gated by reference parity and processor/vision integration.
+The DiffusionGemma targets now cover both the safe no-weight scaffold path and a full-checkpoint native sparse text path. `make diffusiongemma-ci-no-weights` validates metadata, tokenizer/chat scaffolds, mock denoising, status JSON, and reference-helper dry-runs without safetensor shards. With the 11-shard checkpoint downloaded, `make diffusiongemma-check-sparse-text` gates the validated native sparse text stack (`text_sparse=true`, `sparse_topk_lm=true`), and `make diffusiongemma-run-sparse-text` accepts arbitrary text prompts through the full 30-layer CPU/SIMD text stack plus sparse top-k LM head. Published 256-token canvas one/two-step sparse smokes are validated by `make diffusiongemma-ci-sparse-text-published`. Reference-complete DiffusionGemma remains gated by parity fixtures and full processor/vision integration.
 
 See [docs/commands.md](docs/commands.md) for detailed command usage, GGUF REAP/TurboQuant validation, MTP smoke commands, Qwen3.6 native-MTP triage commands, Whisper VTT usage, and benchmark harnesses. See [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) for the current Whisper implementation status and limitations.
 
@@ -117,8 +117,8 @@ Start here:
 - [docs/gemma4-31b-runbook.md](docs/gemma4-31b-runbook.md) — Gemma4 E4B/31B local run strategy and smoke results.
 - [docs/qwen36-mtp.md](docs/qwen36-mtp.md) — Qwen3.6 native-MTP checkpoint findings.
 - [docs/ideogram4-support.md](docs/ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, and current GPU limitation.
-- [docs/diffusiongemma-support.md](docs/diffusiongemma-support.md) — DiffusionGemma block-diffusion scaffold, references, controls, and implementation plan.
-- [docs/diffusiongemma-status.md](docs/diffusiongemma-status.md) — current DiffusionGemma scaffold status, operation coverage, and remaining readiness gaps.
+- [docs/diffusiongemma-support.md](docs/diffusiongemma-support.md) — DiffusionGemma block-diffusion metadata, sparse native text path, references, controls, and implementation plan.
+- [docs/diffusiongemma-status.md](docs/diffusiongemma-status.md) — current DiffusionGemma scaffold/sparse-native status, operation coverage, CI targets, and remaining reference-complete gaps.
 - [docs/validation-gates.md](docs/validation-gates.md) — standard validation gates.
 - [docs/validation-hardening.md](docs/validation-hardening.md) — malformed-input and boundary-hardening summary.
 

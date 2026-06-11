@@ -42,7 +42,7 @@ This directory contains the durable backend, model, validation, and research not
 - [model-coverage-manifest.json](model-coverage-manifest.json) — machine-readable Qwen3-TTS and LFM2 coverage gates for status tooling.
 - [hunyuan3d-2-support.md](hunyuan3d-2-support.md) — Hunyuan3D-2 staged implementation plan, native loader/runtime scaffold, fixture ladder, and current CPU kernel primitive status.
 - [zimage-turbo-support.md](zimage-turbo-support.md) — Z-Image-Turbo feasibility assessment and native SIMD image-generation plan.
-- [diffusiongemma-support.md](diffusiongemma-support.md) — DiffusionGemma block-diffusion text generation scaffold and native runtime plan.
+- [diffusiongemma-support.md](diffusiongemma-support.md) — DiffusionGemma block-diffusion text generation metadata, sparse native text path, and native runtime plan.
 - [diffusiongemma-status.md](diffusiongemma-status.md) — current DiffusionGemma implementation status snapshot and remaining readiness gaps.
 - [ideogram4-support.md](ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, AVX2 FP8 backend notes, and current GPU limitation.
 - [qwen3-tts-support.md](qwen3-tts-support.md) — Qwen3-TTS repository mapping, roadmap, and implementation guidance.
