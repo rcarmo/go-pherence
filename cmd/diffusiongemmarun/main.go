@@ -68,6 +68,7 @@ func main() {
 	maxDispatchLayers := flag.Int("max-dispatch-layers", 0, "debug: execute at most N text layers in CPU dispatcher")
 	tailAfterMaxLayers := flag.Bool("tail-after-max-layers", false, "debug: run tail ops after -max-dispatch-layers instead of returning before tail")
 	lmHeadTopK := flag.Int("lm-head-top-k", 0, "debug: keep only top-K LM head logits per position, storing -Inf elsewhere")
+	dispatchProgress := flag.Bool("dispatch-progress", false, "print CPU dispatcher layer/tail progress to stderr")
 	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
@@ -233,7 +234,7 @@ func main() {
 			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 			return
 		}
-		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK})
+		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress})
 		if err != nil {
 			fatal(err)
 		}

@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
+	"time"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -16,6 +18,7 @@ type CPUDispatcher struct {
 	MaxLayers           int
 	TailAfterMaxLayers  bool
 	LMHeadTopK          int
+	Progress            bool
 }
 
 type ForwardScratch struct {
@@ -72,17 +75,27 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 	currentLayer := -1
 	completedLayers := 0
+	layerStarted := time.Now()
 	for _, op := range ops.Layers {
 		if currentLayer >= 0 && op.Layer != currentLayer {
 			completedLayers++
+			if d.Progress {
+				fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed layer=%d cache_entries=%d cache_bytes=%d elapsed=%s\n", currentLayer, weights.FloatCacheEntries(), weights.FloatCacheBytes(), time.Since(layerStarted).Round(time.Millisecond))
+			}
 			if currentLayer >= d.ResidentLayerPrefix {
 				weights.EvictLayer(currentLayer)
 			}
 			if d.MaxLayers > 0 && completedLayers >= d.MaxLayers {
 				break
 			}
+			layerStarted = time.Now()
 		}
-		currentLayer = op.Layer
+		if op.Layer != currentLayer {
+			currentLayer = op.Layer
+			if d.Progress {
+				fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: starting layer=%d\n", currentLayer)
+			}
+		}
 		if err := dispatchLayerOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
 		}
@@ -94,8 +107,15 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
 	}
 	for _, op := range ops.Tail {
+		if d.Progress {
+			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: starting tail op=%s\n", op)
+		}
+		started := time.Now()
 		if err := dispatchTailOp(op, weights, scratch); err != nil {
 			return ForwardOutput{}, err
+		}
+		if d.Progress {
+			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed tail op=%s cache_entries=%d cache_bytes=%d elapsed=%s\n", op, weights.FloatCacheEntries(), weights.FloatCacheBytes(), time.Since(started).Round(time.Millisecond))
 		}
 	}
 	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch)
