@@ -1000,3 +1000,8 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 ## Sparse top-k LM-head smoke
 
 `CPUDispatcher` now supports `LMHeadTopK` and `TailAfterMaxLayers`. `diffusiongemmarun -max-dispatch-layers 1 -tail-after-max-layers -lm-head-top-k 8` executes layer 0, final norm, and a sparse top-8 tied LM-head projection that fills non-top logits with `-Inf` instead of using the dense output semantically. With the downloaded checkpoint it produces a real top-k token (`generated=[236991]`, decoded as `ை`) and reports `float_cache_entries=27 float_cache_bytes=3327771140`. This is still not reference-complete, but it is the first bounded full-weight path through tail + LM-head.
+
+
+## Cached sparse LM-head projection
+
+Sparse top-k LM-head mode now decodes `model.decoder.embed_tokens.weight` into the `TextWeights` float cache once and scans that resident matrix for top-k candidate scores. Dense LM-head mode still streams rows via `RawTensorRow`. This trades roughly 2.75 GiB of decoded embedding residency for avoiding hundreds of thousands of mmap row decode calls during top-k probes.

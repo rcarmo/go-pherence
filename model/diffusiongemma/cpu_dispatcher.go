@@ -971,16 +971,31 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 		}
 	}
 	row := make([]float32, hiddenSize)
-	for vocabID := 0; vocabID < vocab; vocabID++ {
-		raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
+	var cachedEmbedding []float32
+	if topK > 0 {
+		t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
 		if err != nil {
 			return err
 		}
-		if len(shape) != 1 || shape[0] != hiddenSize {
-			return fmt.Errorf("DiffusionGemma LM head row shape %v want [%d]", shape, hiddenSize)
+		if len(t.Shape) != 2 || t.Shape[0] != vocab || t.Shape[1] != hiddenSize {
+			return fmt.Errorf("DiffusionGemma LM head cached embedding shape %v want [%d %d]", t.Shape, vocab, hiddenSize)
 		}
-		if err := decodeFloatRowTo(row, raw, dtype); err != nil {
-			return err
+		cachedEmbedding = t.Data
+	}
+	for vocabID := 0; vocabID < vocab; vocabID++ {
+		if topK > 0 {
+			row = cachedEmbedding[vocabID*hiddenSize : (vocabID+1)*hiddenSize]
+		} else {
+			raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
+			if err != nil {
+				return err
+			}
+			if len(shape) != 1 || shape[0] != hiddenSize {
+				return fmt.Errorf("DiffusionGemma LM head row shape %v want [%d]", shape, hiddenSize)
+			}
+			if err := decodeFloatRowTo(row, raw, dtype); err != nil {
+				return err
+			}
 		}
 		for pos := 0; pos < positions; pos++ {
 			if len(scratch.Logits[pos]) < vocab {
