@@ -508,3 +508,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Two-position canvas full-stack sparse top-k smoke
 
 `diffusiongemmarun -canvas 2 -max-new 2 -denoise-steps 1 -residency-budget-gib 16 -lm-head-top-k 8 -dispatch-progress` completes a normal CPU dispatcher pass for two canvas positions through all thirty real-weight text layers, final norm, and SIMD sparse top-k LM-head. On the downloaded checkpoint it emits `generated=[19911 73585]` decoded as `eursGrav`. `make diffusiongemma-run-cpu-full-topk-canvas2-step-smoke` wraps this multi-position probe.
+
+
+## Two-position two-step full-stack sparse top-k smoke
+
+`diffusiongemmarun -canvas 2 -max-new 2 -denoise-steps 2 -residency-budget-gib 16 -lm-head-top-k 8 -dispatch-progress` completes two denoising iterations for two canvas positions through all thirty real-weight text layers, final norm, SIMD sparse top-k LM-head, and self-conditioning feedback. On the downloaded checkpoint it emits `generated=[4346 4346]` decoded as ` quite quite`. `make diffusiongemma-run-cpu-full-topk-canvas2-2step-smoke` wraps this multi-position feedback probe.
