@@ -5,6 +5,8 @@ package ideogram4
 import (
 	"fmt"
 	"math"
+
+	simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 func k3GroupNorm(in FeatureMap, groups int, gamma, beta []float32, eps float32) (FeatureMap, bool, error) {
@@ -83,9 +85,13 @@ func k3RGB(f FeatureMap) (Image, bool) {
 	}
 	HW := f.H * f.W
 	rgb := make([]byte, HW*3)
+	scaled := make([]float32, 3*HW)
+	// RVV-backed scaling where available: x in [-1,1] -> x*127.5, then scalar
+	// offset/clamp/interleave. A future fused RVV kernel should combine all of it.
+	simdruntime.VecScale(scaled, f.Data[:3*HW], 127.5)
 	for p := 0; p < HW; p++ {
 		for c := 0; c < 3; c++ {
-			v := (f.Data[c*HW+p]*0.5 + 0.5) * 255
+			v := scaled[c*HW+p] + 127.5
 			if v < 0 {
 				v = 0
 			}
