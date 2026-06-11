@@ -626,3 +626,7 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse operator top-k default
 
 `diffusiongemma-run-sparse-text` now uses `DIFFUSIONGEMMA_SPARSE_LM_HEAD_TOP_K ?= 8` instead of the low-level `DIFFUSIONGEMMA_LM_HEAD_TOP_K ?= 0` default. This prevents the operator target from accidentally taking the impractical dense LM-head path when top-k is not specified. Low-level CPU/debug targets keep their existing override behavior.
+
+## Sparse text operator default validation
+
+2026-06-11: `make diffusiongemma-run-sparse-text` was run without setting `DIFFUSIONGEMMA_SPARSE_LM_HEAD_TOP_K`, confirming the operator default passes `-lm-head-top-k 8` and executes the sparse native path. Example: `DIFFUSIONGEMMA_PROMPT='A small test prompt.' DIFFUSIONGEMMA_MAX_NEW=4 DIFFUSIONGEMMA_CANVAS=4 DIFFUSIONGEMMA_DENOISE_STEPS=1 DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB=16` emitted `generated=[6596 992 253884 165249]` (` math also윳μών`).
