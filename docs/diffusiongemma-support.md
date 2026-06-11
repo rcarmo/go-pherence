@@ -1030,3 +1030,8 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Two-step full-stack sparse top-k smoke
 
 `diffusiongemmarun -denoise-steps 2 -residency-budget-gib 16 -max-dispatch-layers 30 -tail-after-max-layers -lm-head-top-k 8 -dispatch-progress` now completes two denoising iterations through all thirty real-weight text layers plus final norm, SIMD sparse top-k LM-head, and sparse self-conditioning feedback. On the downloaded checkpoint it emits `generated=[256867]` decoded as `<unused955>`. `make diffusiongemma-run-cpu-layer30-topk-2step-smoke` wraps this first full-stack multi-step feedback probe.
+
+
+## Normal full-stack sparse top-k smoke
+
+`diffusiongemmarun -denoise-steps 1 -residency-budget-gib 16 -lm-head-top-k 8 -dispatch-progress` completes the normal CPU dispatcher path with all thirty real-weight text layers, final norm, and SIMD sparse top-k LM-head without using `-max-dispatch-layers` or `-tail-after-max-layers`. On the downloaded checkpoint it emits `generated=[147485]` decoded as `不开`. `make diffusiongemma-run-cpu-full-topk-step-smoke` wraps this non-debug full-stack single-step probe.
