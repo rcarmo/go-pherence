@@ -18,14 +18,12 @@ func k3CFGStep(latents Latents, cond, uncond Latents, guidance, sigma float32) (
 		return Latents{}, true, err
 	}
 	out := Latents{Batch: latents.Batch, Tokens: latents.Tokens, Channels: latents.Channels, Data: make([]float32, len(latents.Data))}
-	// Use existing RVV vector primitives on riscv64:
-	//   delta  = cond - uncond
-	//   guided = uncond + guidance*delta
-	//   out    = latents + sigma*guided
-	delta := make([]float32, len(out.Data))
-	guided := make([]float32, len(out.Data))
-	simdruntime.VecScaleAdd(delta, cond.Data, uncond.Data, -1)
-	simdruntime.VecScaleAdd(guided, uncond.Data, delta, guidance)
-	simdruntime.VecScaleAdd(out.Data, latents.Data, guided, sigma)
+	// Use existing RVV vector primitives on riscv64 without extra temporaries:
+	//   out = cond - uncond
+	//   out = uncond + guidance*out
+	//   out = latents + sigma*out
+	simdruntime.VecScaleAdd(out.Data, cond.Data, uncond.Data, -1)
+	simdruntime.VecScaleAdd(out.Data, uncond.Data, out.Data, guidance)
+	simdruntime.VecScaleAdd(out.Data, latents.Data, out.Data, sigma)
 	return out, true, nil
 }

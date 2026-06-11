@@ -11,7 +11,7 @@ rows = [
   ("RoPE/MRoPE", "partial", "K3-gated riscv64 path composed from existing RVV VecMul/VecScaleAdd primitives", "fused RVV rotate-half assembly body"),
   ("DiT/Qwen attention", "partial", "K3-gated riscv64 seams", "tiled RVV/f16 attention"),
   ("SiLU/Mul/SwiGLU", "partial", "K3-gated riscv64 path uses existing RVV VecMul/VecSiLUMul for Mul and SiLU*Mul; SiLU seam remains scalar", "dedicated RVV SiLU and fused kernels"),
-  ("CFG/update", "partial", "K3-gated riscv64 path using existing RVV VecScaleAdd primitives", "fuse into one RVV assembly kernel to remove temporaries"),
+  ("CFG/update", "partial", "K3-gated riscv64 path using in-place existing RVV VecScaleAdd primitives", "optional single fused RVV assembly kernel"),
   ("VAE Conv2D", "partial", "RVV fp16 im2col GEMM bridge", "resident/tiled RVV or IME conv path"),
   ("VAE GroupNorm/SiLU/Upsample/RGB", "partial", "K3-gated riscv64 seams; GroupNorm channel scale and RGB scaling use existing RVV VecScale", "fused RVV vector assembly bodies"),
   ("VAE spatial attention", "partial", "K3-gated riscv64 seam", "tiled/streaming RVV/f16 attention"),
