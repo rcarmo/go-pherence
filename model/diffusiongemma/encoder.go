@@ -15,10 +15,10 @@ import (
 // cache. The encoder uses causal attention (unlike the decoder which is
 // bidirectional) and does not use self-conditioning.
 func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) ([]EncoderKVLayer, error) {
-	return d.EncodePromptWithFP8(promptIDs, weights, ops, buffers, nil)
+	return d.EncodePromptWithFP8(promptIDs, weights, ops, buffers, nil, nil, nil)
 }
 
-func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan, fp8 *GPUFP8Model) ([]EncoderKVLayer, error) {
+func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan, fp8 *GPUFP8Model, fp8w *FP8TextWeights, expertCache *ExpertLRUCache) ([]EncoderKVLayer, error) {
 	if weights == nil {
 		return nil, fmt.Errorf("DiffusionGemma encoder missing weights")
 	}
@@ -427,20 +427,42 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 				if expertID < 0 || expertID >= nExperts {
 					continue
 				}
-				guSlice, guRows, _, err := loadExpertSlice(weights, lb.ExpertsGateUpProj, expertID)
-				if err != nil {
-					return nil, err
+				// Try GPU expert LRU cache first (FP8, fast)
+				gpuDone := false
+				if expertCache != nil && fp8w != nil {
+					gateL, upL, downL := expertCache.Get(layer, expertID)
+					if gateL == nil {
+						var cacheErr error
+						gateL, upL, downL, cacheErr = expertCache.Put(layer, expertID, fp8w)
+						if cacheErr == nil {
+							gpuDone = true
+						}
+					} else {
+						gpuDone = true
+					}
+					if gpuDone {
+						gpu.GemvFP8E4M3(eGate, normedRow, gateL)
+						gpu.GemvFP8E4M3(eUp, normedRow, upL)
+						simd.GELUTanhMulTo(eAct, eGate, eUp)
+						gpu.GemvFP8E4M3(eOut, eAct, downL)
+					}
 				}
-				dSlice, _, _, err := loadExpertSlice(weights, lb.ExpertsDownProj, expertID)
-				if err != nil {
-					return nil, err
+				if !gpuDone {
+					guSlice, guRows, _, err := loadExpertSlice(weights, lb.ExpertsGateUpProj, expertID)
+					if err != nil {
+						return nil, err
+					}
+					dSlice, _, _, err := loadExpertSlice(weights, lb.ExpertsDownProj, expertID)
+					if err != nil {
+						return nil, err
+					}
+					gW := guSlice[:guRows/2*hiddenSize]
+					uW := guSlice[guRows/2*hiddenSize:]
+					simd.GemvRows(eGate, normedRow, gW, moeIntermediate, hiddenSize)
+					simd.GemvRows(eUp, normedRow, uW, moeIntermediate, hiddenSize)
+					simd.GELUTanhMulTo(eAct, eGate, eUp)
+					simd.GemvRows(eOut, eAct, dSlice, hiddenSize, moeIntermediate)
 				}
-				gW := guSlice[:guRows/2*hiddenSize]
-				uW := guSlice[guRows/2*hiddenSize:]
-				simd.GemvRows(eGate, normedRow, gW, moeIntermediate, hiddenSize)
-				simd.GemvRows(eUp, normedRow, uW, moeIntermediate, hiddenSize)
-				simd.GELUTanhMulTo(eAct, eGate, eUp)
-				simd.GemvRows(eOut, eAct, dSlice, hiddenSize, moeIntermediate)
 				for i := range dst {
 					dst[i] += weight * eOut[i]
 				}

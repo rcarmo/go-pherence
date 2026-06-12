@@ -59,16 +59,19 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	// Encode prompt on first call if not already done
 	if d.EncoderKV == nil && len(in.PromptIDs) > 0 {
 		var encDispatcher CPUDispatcher
+		var fp8w *FP8TextWeights
+		var expertCache *ExpertLRUCache
 		switch disp := d.Dispatcher.(type) {
 		case CPUDispatcher:
 			encDispatcher = disp
 		case GPUDispatcher:
 			encDispatcher = disp.cpuFallback()
+			fp8w = disp.FP8Weights
+			expertCache = disp.ExpertCache
 		default:
 			encDispatcher = CPUDispatcher{}
 		}
-		// BF16 CPU encoder required — FP8 encoder KV causes decoder EOS collapse
-		kv, err := encDispatcher.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
+		kv, err := encDispatcher.EncodePromptWithFP8(in.PromptIDs, d.Weights, d.Ops, d.Buffers, nil, fp8w, expertCache)
 		if err != nil {
 			return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
 		}
