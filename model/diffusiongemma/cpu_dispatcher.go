@@ -170,6 +170,10 @@ func runCanvasEmbedding(ctx ForwardContext, weights *TextWeights, scratch Forwar
 			return err
 		}
 	}
+	embedScale := float32(math.Sqrt(float64(hiddenSize)))
+	for i := range scratch.Hidden[:need] {
+		scratch.Hidden[i] *= embedScale
+	}
 	return nil
 }
 
@@ -1136,6 +1140,10 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 				dst[i] += prob * row[i]
 			}
 		}
+	}
+	embedScale := float32(math.Sqrt(float64(hiddenSize)))
+	for i := range out {
+		out[i] *= embedScale
 	}
 	return out, nil
 }
