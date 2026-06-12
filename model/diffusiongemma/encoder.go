@@ -63,8 +63,13 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 	kvLayers := make([]EncoderKVLayer, numLayers)
 	residual := make([]float32, len(hidden))
 
-	// Run each layer
+	// Run each layer with prefetch of next layer's weights
+	var prefetchDone <-chan struct{}
 	for layer := 0; layer < numLayers; layer++ {
+		// Start prefetching layer+1 weights while this layer computes
+		if layer+1 < numLayers {
+			prefetchDone = prefetchLayerWeights(weights, fp, layer+1)
+		}
 		layerStart := time.Now()
 		lb := fp.Layers[layer]
 		lt := ""
@@ -464,6 +469,11 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			fmt.Fprintf(os.Stderr, "DiffusionGemma encoder: completed layer=%d elapsed=%s\n", layer, time.Since(layerStart).Round(time.Millisecond))
 		}
 
+		// Wait for next layer's prefetch before evicting this layer
+		if prefetchDone != nil {
+			<-prefetchDone
+		}
+
 		// Evict non-resident layer weights
 		if layer >= d.ResidentLayerPrefix {
 			weights.EvictLayer(layer)
@@ -478,4 +488,29 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 func bf16GemvNarrow(out []float32, hidden []float32, wBF16 []uint16, rows, cols int) bool {
 	xBF16 := simd.BF16FromF32Slice(hidden[:cols])
 	return simd.GemvRowsBF16BF16(out, xBF16, wBF16, rows, cols)
+}
+
+// prefetchLayerWeights pre-warms the F32 cache for a layer's major projections
+// by triggering CachedFloatTensor in a background goroutine.
+func prefetchLayerWeights(weights *TextWeights, fp TextForwardPlan, layer int) <-chan struct{} {
+	done := make(chan struct{})
+	if layer < 0 || layer >= len(fp.Layers) {
+		close(done)
+		return done
+	}
+	go func() {
+		defer close(done)
+		lb := fp.Layers[layer]
+		for _, b := range []*TensorBinding{
+			lb.QProj, lb.KProj, lb.VProj, lb.OProj,
+			lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj,
+			lb.InputLayerNorm, lb.PostAttentionLayerNorm,
+			lb.PreFFNLayerNorm, lb.QNorm, lb.KNorm,
+		} {
+			if b != nil {
+				weights.CachedFloatTensor(b.Name)
+			}
+		}
+	}()
+	return done
 }

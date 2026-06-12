@@ -3,6 +3,7 @@ package diffusiongemma
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -31,6 +32,7 @@ type TextWeights struct {
 	Layers     []LayerWeights  `json:"layers"`
 	shards     *safetensors.ShardedFile
 	floatCache map[string]FloatTensor
+	cacheMu    sync.RWMutex
 }
 
 type FloatTensor struct {
@@ -98,9 +100,13 @@ func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
 	if w == nil {
 		return FloatTensor{}, fmt.Errorf("nil DiffusionGemma text weights")
 	}
+	w.cacheMu.RLock()
 	if t, ok := w.floatCache[name]; ok {
+		w.cacheMu.RUnlock()
 		return t, nil
 	}
+	w.cacheMu.RUnlock()
+
 	raw, dtype, shape, err := w.RawTensor(name)
 	if err != nil {
 		return FloatTensor{}, err
@@ -117,13 +123,17 @@ func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
 		return FloatTensor{}, err
 	}
 	t := FloatTensor{Data: out, Shape: append([]int(nil), shape...), DType: dtype}
+	w.cacheMu.Lock()
 	w.floatCache[name] = t
+	w.cacheMu.Unlock()
 	return t, nil
 }
 
 func (w *TextWeights) ClearFloatCache() {
 	if w != nil {
+		w.cacheMu.Lock()
 		w.floatCache = map[string]FloatTensor{}
+		w.cacheMu.Unlock()
 	}
 }
 
@@ -131,11 +141,13 @@ func (w *TextWeights) EvictFloatTensor(name string) bool {
 	if w == nil || w.floatCache == nil {
 		return false
 	}
-	if _, ok := w.floatCache[name]; !ok {
-		return false
+	w.cacheMu.Lock()
+	_, ok := w.floatCache[name]
+	if ok {
+		delete(w.floatCache, name)
 	}
-	delete(w.floatCache, name)
-	return true
+	w.cacheMu.Unlock()
+	return ok
 }
 
 func (w *TextWeights) EvictLayer(layer int) int {
@@ -184,17 +196,22 @@ func (w *TextWeights) FloatCacheEntries() int {
 	if w == nil {
 		return 0
 	}
-	return len(w.floatCache)
+	w.cacheMu.RLock()
+	n := len(w.floatCache)
+	w.cacheMu.RUnlock()
+	return n
 }
 
 func (w *TextWeights) FloatCacheBytes() int64 {
 	if w == nil {
 		return 0
 	}
+	w.cacheMu.RLock()
 	var total int64
 	for _, t := range w.floatCache {
 		total += int64(len(t.Data)) * 4
 	}
+	w.cacheMu.RUnlock()
 	return total
 }
 
