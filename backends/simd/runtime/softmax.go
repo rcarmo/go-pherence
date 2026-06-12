@@ -18,7 +18,7 @@ func SoftmaxInPlace(x []float32) bool {
 	}
 	sum := float32(0)
 	for i, v := range x {
-		x[i] = fastExpF32(v - mx)
+		x[i] = float32(math.Exp(float64(v - mx)))
 		sum += x[i]
 	}
 	if sum == 0 || math.IsNaN(float64(sum)) || math.IsInf(float64(sum), 0) {
