@@ -393,6 +393,11 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		if d.Progress {
 			fmt.Fprintf(os.Stderr, "DiffusionGemma encoder: completed layer=%d\n", layer)
 		}
+
+		// Evict non-resident layer weights
+		if layer >= d.ResidentLayerPrefix {
+			weights.EvictLayer(layer)
+		}
 	}
 
 	return kvLayers, nil
