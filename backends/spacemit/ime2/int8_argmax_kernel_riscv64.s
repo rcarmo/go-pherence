@@ -1,5 +1,5 @@
 #include "textflag.h"
-#include "k3_isa.h"
+#include "ime2_isa.h"
 
 // func vmadotI8ArgmaxGroups1024(wPacked, actPacked *byte, scratch *int32, bestVal *int32, bestID *int64, nGroups, K, rowStart int)
 TEXT ·VmadotI8ArgmaxGroups1024(SB), NOSPLIT, $0-64

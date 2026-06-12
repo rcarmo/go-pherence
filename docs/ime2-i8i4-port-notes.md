@@ -4,11 +4,11 @@ Source: llama.cpp PR #22863 (`spacemit-com/llama.cpp` commit `58745bdb86b7599405
 
 ## Data contract ported in Go
 
-- Q4_K -> Q4_1x32 repack (`cmd/k3/ime2run/q4k_ai.go`):
+- Q4_K -> Q4_1x32 repack (`cmd/spacemit/ime2run/q4k_ai.go`):
   - `D[32]` fp16-rounded per output row and 32-column subblock
   - `ZP[32] = clamp(round(min/d), 0, 15)`
   - `QS[32][16]` packed q4 values in llama.cpp `make_block_q4_1x32` order
-- q8 activation block (`cmd/k3/ime2run/q4k_llama_x32.go`):
+- q8 activation block (`cmd/spacemit/ime2run/q4k_llama_x32.go`):
   - 32-wide block
   - f32 scale
   - s16 negative sum
@@ -28,7 +28,7 @@ Source: llama.cpp PR #22863 (`spacemit-com/llama.cpp` commit `58745bdb86b7599405
 spacemit_kernels::ime2::gemm_kernel_i8i4(unsigned long, unsigned char const*, unsigned char const*, unsigned char const*, float*, unsigned long, unsigned long, unsigned long, unsigned long)
 ```
 
-A cgo shim was added (`cmd/k3/ime2run/q4k_cshim.go`) and called under `IME2_Q4K_CSHIM=1`, but direct calls fault even with 128-byte aligned C buffers and AI-worker execution. Do not rely on this path except as a failed experiment.
+A cgo shim was added (`cmd/spacemit/ime2run/q4k_cshim.go`) and called under `IME2_Q4K_CSHIM=1`, but direct calls fault even with 128-byte aligned C buffers and AI-worker execution. Do not rely on this path except as a failed experiment.
 
 ## Instruction encodings obtained with GCC `-march=rv64gcv_xsmtvdotii`
 
@@ -45,9 +45,9 @@ These can be used as `WORD` values in Go/Plan 9 asm for the direct port.
 
 Added a direct Go/asm port of the PR's `gemm_kernel_i8i4_m1` active `#else` path:
 
-- `cmd/k3/ime2run/k3_i8i4_go.s`
+- `cmd/spacemit/ime2run/k3_i8i4_go.s`
 - env route: `IME2_Q4K_LLAMA_X32=1 IME2_Q4K_GOASM=1`
-- synthetic all-ones kernel test passes in `cmd/k3/testi8i4`.
+- synthetic all-ones kernel test passes in `cmd/spacemit/testi8i4`.
 
 However, a randomized synthetic test and model-path `IME2_Q4K_COMPARE=1` still show mismatches vs the scalar `Q4_1x32` reference. The direct asm is executing on A100 and no longer faults, but the remaining issue is semantic/layout correspondence between:
 
@@ -55,4 +55,4 @@ However, a randomized synthetic test and model-path `IME2_Q4K_COMPARE=1` still s
 - Q4_1x32 `qs` byte ordering consumed by `vl4r.v v4..v7`
 - output lane order after `vpack.vv`
 
-Do not port `m4` until `m1` matches the scalar reference on randomized `cmd/k3/testi8i4` cases.
+Do not port `m4` until `m1` matches the scalar reference on randomized `cmd/spacemit/testi8i4` cases.

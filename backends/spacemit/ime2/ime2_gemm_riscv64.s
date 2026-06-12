@@ -10,7 +10,7 @@
 // Computes C[4×4] += A[4×K] * B[4×K]^T by iterating over K in steps of 8.
 
 #include "textflag.h"
-#include "k3_isa.h"
+#include "ime2_isa.h"
 
 // Arguments via stack (Go calling convention for riscv64):
 // A  = 8(SP)  → X10 (a0)

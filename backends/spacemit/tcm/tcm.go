@@ -22,7 +22,7 @@ const (
 	// TCM block with the kernel. NOTE: TCM is uncached device memory — fast for
 	// bulk DMA/memcpy (~1.2 GB/s) but ~60x slower than DRAM for CPU/RVV scalar
 	// loads, so it is a DMA-staging buffer, not a CPU compute scratchpad. See
-	// research/npu-whisper/TCM_DEAD_END.md.
+	// research/aicpu-whisper/TCM_DEAD_END.md.
 	tcmAcquire = 0xc0046309
 )
 

@@ -16,7 +16,7 @@ no dependency on the inference engine.
 | `copy_rvv.go` + `.s` | `CopyBytesRVV` / `CopyTCMBytes` byte-copy |
 | `q8_quant_rvv.go` + `.s` | `QuantizeQ8Block32RVV` q8 block quantization |
 
-See `research/npu-whisper` for the RVV-vs-IME and W4A8 measurements. The
+See `research/aicpu-whisper` for the RVV-vs-IME and W4A8 measurements. The
 FP16 path uses the K3's advertised `zvfh`/`zvfhmin` RVV extensions; RVV/Zvfh
 instructions are WORD-encoded with shared `k3_isa.h` macros until the Go
 assembler supports these mnemonics. The tiled FP16 kernels avoid the scalar-FP

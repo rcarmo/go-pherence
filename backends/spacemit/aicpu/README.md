@@ -2,7 +2,7 @@
 
 The **pure-Go (no-cgo) transformer inference engine** for the SpaceMIT K3 SoC
 (MilkV Jupiter 2, 8× X60 RISC-V). `Run()` is the entry point used by
-`cmd/k3/ime2run`.
+`cmd/spacemit/ime2run`.
 
 > Not to be confused with `backends/k3`, which is the high-level ORT/Vulkan
 > compute-backend *dispatch* layer for the same chip.

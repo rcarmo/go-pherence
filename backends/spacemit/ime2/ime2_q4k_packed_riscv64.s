@@ -1,5 +1,5 @@
 #include "textflag.h"
-#include "k3_isa.h"
+#include "ime2_isa.h"
 
 // func vmadotQ4KPackedLoop(wQS *byte, actReord *byte, acc *int32, Kgroups int)
 // Reads PACKED Q4K bytes (16 per 32 elements), unpacks with vand/vsrl,

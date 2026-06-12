@@ -5,7 +5,7 @@
 // funct7=0x38 (111000), funct3: 0=uu, 1=us, 2=su, 3=ss
 
 #include "textflag.h"
-#include "k3_isa.h"
+#include "ime2_isa.h"
 
 // func vmadotSS4x8(A *byte, B *byte, C *int32)
 // Computes C[4x4] += A[4x8] * B[4x8]^T using vmadot (signed x signed)

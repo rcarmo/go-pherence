@@ -1,5 +1,5 @@
 #include "textflag.h"
-#include "k3_isa.h"
+#include "ime2_isa.h"
 
 // func vmadotI8GroupsAdd1024(wPacked, actPacked *byte, scratch *int32, out, scale *float32, nGroups, K int)
 TEXT ·VmadotI8GroupsAdd1024(SB), NOSPLIT, $0-56
