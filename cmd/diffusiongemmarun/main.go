@@ -266,8 +266,8 @@ func main() {
 					gpuDisp.ExpertPool = expertPool
 					fmt.Fprintf(os.Stderr, "diffusiongemmarun: %d layers with GPU-resident experts\n", *residentExpertLayers)
 				}
-				// LRU expert cache: use remaining VRAM (~6 GB after projections)
-				gpuDisp.ExpertCache = diffusiongemma.NewExpertLRUCache(6 * 1024 * 1024 * 1024)
+				// LRU expert cache: use remaining VRAM (~7.2 GB after projections)
+				gpuDisp.ExpertCache = diffusiongemma.NewExpertLRUCache(7200 * 1024 * 1024)
 			}
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, gpuDisp)
 		} else {

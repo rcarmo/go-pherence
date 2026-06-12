@@ -427,9 +427,10 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 				if expertID < 0 || expertID >= nExperts {
 					continue
 				}
-				// Try GPU expert LRU cache first (FP8, fast)
+				// Use GPU expert LRU for prompts with >4 tokens (amortizes upload)
+				// Short prompts: CPU BF16 is faster than GPU round-trip
 				gpuDone := false
-				if expertCache != nil && fp8w != nil {
+				if expertCache != nil && fp8w != nil && positions > 4 {
 					gateL, upL, downL := expertCache.Get(layer, expertID)
 					if gateL == nil {
 						var cacheErr error
