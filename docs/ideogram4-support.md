@@ -462,3 +462,21 @@ correctness test but did not improve the MLP benchmark, so it was rejected. The
 next useful kernel work is either a real RVV `SiLU*Mul` implementation or a
 finer split/optimization of `attn_qkv_attention` (Q/K norm + RoPE + attention
 math), rather than more orchestration changes.
+
+### Parallel K3 full-attention seam
+
+The K3 full non-causal attention seam now parallelizes independent `(head,
+query-token)` rows across X100 workers and uses the SIMD/RVV dot-dispatch path
+for Q·K scoring. This replaces the earlier single-goroutine scalar-preserving
+seam for DiT attention while keeping the original Qwen GQA seam intact.
+
+Fully-prewarmed 64×64 one-step profile on Milk-V/K3:
+
+| Sublayer | Before | After |
+|---|---:|---:|
+| `attn_qkv_attention` | ~1.75–1.88s | ~1.12s |
+| denoise total | ~5.72–5.87s | ~5.15s |
+
+The next attention target is the remaining split inside `attn_qkv_attention`:
+Q/K norm + RoPE + attention math, followed by a true tiled/RVV attention kernel if
+this parallel row-worker path stops scaling at larger token counts.

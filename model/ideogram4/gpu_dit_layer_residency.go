@@ -580,6 +580,8 @@ func (r *ditLayerGPUResidency) QKVAttentionBatch(l DiTLayer, x, out []float32, t
 		copy(k[t*emb:(t+1)*emb], qkv[emb:2*emb])
 		copy(v[t*emb:(t+1)*emb], qkv[2*emb:3*emb])
 	}
+	timingMarkDiTSub("qkv_split", t0)
+	t0 = time.Now()
 	if gpuNormEnabled() {
 		if err := rmsNormRowsWeightedGPU(q, q, l.NormQ, nil, tokens*heads, headDim, 1e-5); err != nil {
 			return err
