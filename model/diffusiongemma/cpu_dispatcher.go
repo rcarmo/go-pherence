@@ -220,9 +220,9 @@ func decodeFloatRowTo(dst []float32, raw []byte, dtype string) error {
 		if len(raw) < len(dst)*2 {
 			return fmt.Errorf("DiffusionGemma BF16 row bytes=%d want %d", len(raw), len(dst)*2)
 		}
-		for i := range dst {
-			dst[i] = math.Float32frombits(uint32(binary.LittleEndian.Uint16(raw[i*2:])) << 16)
-		}
+		// Use SIMD BF16→F32 widen when available (AVX2)
+		src := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[0])), len(dst))
+		simd.BF16WidenToF32(dst, src)
 		return nil
 	case "F16":
 		if len(raw) < len(dst)*2 {
