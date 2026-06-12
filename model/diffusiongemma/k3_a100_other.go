@@ -2,8 +2,14 @@
 
 package diffusiongemma
 
-func k3A100Q8Enabled() bool      { return false }
-func k3A100LMHeadEnabled() bool  { return false }
+func k3A100Q8Enabled() bool     { return false }
+func k3A100LMHeadEnabled() bool { return false }
+func k3A100LMHeadCandidates(topK, vocab int) int {
+	if topK > vocab {
+		return vocab
+	}
+	return topK
+}
 func k3Q80PrefetchEnabled() bool { return false }
 func k3Q80PrefetchExperts() bool { return false }
 func k3Threads() int             { return 1 }

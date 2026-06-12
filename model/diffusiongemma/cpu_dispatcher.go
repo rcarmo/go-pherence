@@ -1566,10 +1566,35 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 				return err
 			} else if done {
 				lmHeadDone = true
+				candidateK := k3A100LMHeadCandidates(topK, vocab)
+				row := make([]float32, hiddenSize)
 				for pos := 0; pos < positions; pos++ {
+					candIDs := make([]int, candidateK)
+					candVals := make([]float32, candidateK)
+					for i := range candIDs {
+						candIDs[i] = -1
+						candVals[i] = float32(math.Inf(-1))
+					}
 					scores := scoresAll[pos*vocab : (pos+1)*vocab]
 					for vocabID, score := range scores {
-						insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+						insertTopK(candIDs, candVals, vocabID, score)
+					}
+					hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+					for _, vocabID := range candIDs {
+						if vocabID < 0 {
+							continue
+						}
+						raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
+						if err != nil {
+							return err
+						}
+						if len(shape) != 1 || shape[0] != hiddenSize {
+							return fmt.Errorf("DiffusionGemma LM head rerank row shape %v want [%d]", shape, hiddenSize)
+						}
+						if err := decodeFloatRowTo(row, raw, dtype); err != nil {
+							return err
+						}
+						insertTopK(topIDs[pos], topVals[pos], vocabID, k3Dot(hidden, row))
 					}
 				}
 			}

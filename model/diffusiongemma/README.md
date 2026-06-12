@@ -131,10 +131,12 @@ prewarm currently packs 392 tensors in roughly 8s on the K3 and reports about
 865 MB of Q80 cache with zero decoded F32 cache.
 
 The tied BF16 LM head can also use A100 Q80 with
-`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD=1`. It is opt-in because Q80 logits
-can drift versus exact BF16/F32 scores, but in the current A100-hidden-state
-canvas-4 tail smoke it produced the same generated token while reducing LM-head
-time from `5.211s`/2.95 GiB F32 cache to `1.788s`/tiny F32 cache.
+`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD=1`. The A100 pass is used as a
+shortlist generator and candidates are reranked with exact BF16/F32 dot products
+(`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_CANDIDATES`, default max(32, 4×topK)).
+In the current A100-hidden-state canvas-4 tail smoke it produced the same token
+and top logit as the exact path while reducing LM-head time from `5.214s`/2.95
+GiB F32 cache to `1.889s`/tiny F32 cache plus one Q80 embedding cache.
 
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 
