@@ -686,3 +686,23 @@ With the encoder/decoder split and canvas buffer sizing fix, 1-step denoise prod
 - "Write one sentence about dogs." → "loyal" appears consistently across seeds
 
 Output quality is still noisy due to sparse top-k and no self-conditioning, but the fundamental encoder→KV→decoder pipeline now produces structurally coherent, prompt-relevant output.
+
+
+## Benchmark: first correct answers
+
+2026-06-12: Native Go/SIMD DiffusionGemma produces correct factual answers:
+
+| Prompt | Output | Correct |
+|---|---|---|
+| What is the capital of France? | The capital of France is **Paris**. | ✓ |
+| What is the capital of Japan? | The capital of Japan is **Tokyo**. | ✓ |
+| What is the speed of light? | The speed of light in a vacuum is **299,79... | ✓ (truncated) |
+
+Settings: `canvas=16, denoise_steps=4, lm_head_top_k=512, seed=42, residency_budget=16GiB`
+
+Timing (single run, France question):
+- Encoder: 30 layers, ~5 min
+- Decoder: 4 × 29 layer passes + 4 LM heads, ~2 min
+- Total: ~7 min wall clock on CPU
+
+Some prompts still produce all-EOS due to argmax decoding sensitivity to initial random canvas.
