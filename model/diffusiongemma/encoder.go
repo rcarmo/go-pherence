@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"time"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -59,6 +60,7 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 
 	// Run each layer
 	for layer := 0; layer < numLayers; layer++ {
+		layerStart := time.Now()
 		lb := fp.Layers[layer]
 		lt := ""
 		if layer < len(ops.Layers) {
@@ -398,7 +400,7 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		}
 
 		if d.Progress {
-			fmt.Fprintf(os.Stderr, "DiffusionGemma encoder: completed layer=%d\n", layer)
+			fmt.Fprintf(os.Stderr, "DiffusionGemma encoder: completed layer=%d elapsed=%s\n", layer, time.Since(layerStart).Round(time.Millisecond))
 		}
 
 		// Evict non-resident layer weights
