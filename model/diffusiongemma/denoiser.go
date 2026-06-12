@@ -58,13 +58,20 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	}
 	// Encode prompt on first call if not already done
 	if d.EncoderKV == nil && len(in.PromptIDs) > 0 {
-		if cpuDisp, ok := d.Dispatcher.(CPUDispatcher); ok {
-			kv, err := cpuDisp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
-			if err != nil {
-				return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
-			}
-			d.EncoderKV = kv
+		var encDispatcher CPUDispatcher
+		switch disp := d.Dispatcher.(type) {
+		case CPUDispatcher:
+			encDispatcher = disp
+		case GPUDispatcher:
+			encDispatcher = disp.cpuFallback()
+		default:
+			encDispatcher = CPUDispatcher{}
 		}
+		kv, err := encDispatcher.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
+		if err != nil {
+			return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
+		}
+		d.EncoderKV = kv
 	}
 	encoderSeqLen := 0
 	if len(d.EncoderKV) > 0 {

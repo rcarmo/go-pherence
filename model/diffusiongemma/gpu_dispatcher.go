@@ -207,12 +207,16 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 
 	// Upload weight matrices to GPU once per layer
 	qBuf := gpu.NewDevBufFrom(qW)
+	defer qBuf.Free()
 	kBuf := gpu.NewDevBufFrom(kW)
+	defer kBuf.Free()
 	var vBuf *gpu.DevBuf
 	if lb.VProj != nil {
 		vBuf = gpu.NewDevBufFrom(vW)
+		defer vBuf.Free()
 	}
 	oBuf := gpu.NewDevBufFrom(oW)
+	defer oBuf.Free()
 
 	qAll := make([]float32, positions*qRows)
 	kAll := make([]float32, positions*kRows)
@@ -244,13 +248,22 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 		kOut.ToCPU()
 		copy(k, kOut.Data()[:kRows])
 
+		var vOut *gpu.DevBuf
 		if lb.VProj != nil && vBuf != nil {
-			vOut := gpu.NewDevBuf(vRows)
+			vOut = gpu.NewDevBuf(vRows)
 			gpu.DevGemv(vOut, xBuf, vBuf, vRows, hiddenSize)
 			vOut.ToCPU()
 			copy(v, vOut.Data()[:vRows])
 		} else {
 			copy(v, k)
+		}
+
+		// Free per-position GPU buffers
+		xBuf.Free()
+		qOut.Free()
+		kOut.Free()
+		if vOut != nil {
+			vOut.Free()
 		}
 
 		// Norms + RoPE on CPU
@@ -324,6 +337,8 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 		gpu.DevGemv(oOut, aBuf, oBuf, hiddenSize, qRows)
 		oOut.ToCPU()
 		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], oOut.Data()[:hiddenSize])
+		oOut.Free()
+		aBuf.Free()
 	}
 	return nil
 }
@@ -349,8 +364,11 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 	intermediate := gateRows
 
 	gateBuf := gpu.NewDevBufFrom(gateW)
+	defer gateBuf.Free()
 	upBuf := gpu.NewDevBufFrom(upW)
+	defer upBuf.Free()
 	downBuf := gpu.NewDevBufFrom(downW)
+	defer downBuf.Free()
 
 	gate := make([]float32, intermediate)
 	up := make([]float32, intermediate)
@@ -381,6 +399,11 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 		dOut.ToCPU()
 		copy(mlpOut, dOut.Data()[:hiddenSize])
 		copy(row, mlpOut)
+		xBuf.Free()
+		gOut.Free()
+		uOut.Free()
+		aBuf.Free()
+		dOut.Free()
 	}
 
 	postNorm1, err := loadFloatVector(weights, lb.PostFFNLayerNorm1)
