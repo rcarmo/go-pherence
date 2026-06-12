@@ -79,7 +79,9 @@ worker pool, with X100 cores packing activations in parallel.
 
 Enable with `GO_PHERENCE_DIFFUSIONGEMMA_K3=1`.
 
-When enabled, hot-path operations are replaced with K3-optimized implementations:
+When enabled, hot-path operations are replaced with K3-optimized implementations.
+Set `GO_PHERENCE_DIFFUSIONGEMMA_TIMING=1` to emit per-layer operation timing
+similar to the Ideogram4 timing traces.
 
 | Operation | Default (scalar) | K3 dispatch |
 |---|---|---|

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -430,7 +431,22 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 	return nil
 }
 
+func diffusionGemmaTimingEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_TIMING")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
+	if !diffusionGemmaTimingEnabled() {
+		return dispatchLayerOpInner(op, ctx, weights, scratch)
+	}
+	started := time.Now()
+	err := dispatchLayerOpInner(op, ctx, weights, scratch)
+	fmt.Fprintf(os.Stderr, "timing diffusiongemma layer=%d op=%s type=%s elapsed=%s q80_entries=%d q80_bytes=%d\n", op.Layer, op.Kind, op.Type, time.Since(started).Round(time.Millisecond), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+	return err
+}
+
+func dispatchLayerOpInner(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
 	switch op.Kind {
 	case OpInputNorm:
 		copy(scratch.Residual, scratch.Hidden)
