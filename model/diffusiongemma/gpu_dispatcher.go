@@ -206,17 +206,6 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 	kvHeads := kRows / headDim
 
 	// Upload weight matrices to GPU once per layer
-	qBuf := gpu.NewDevBufFrom(qW)
-	defer qBuf.Free()
-	kBuf := gpu.NewDevBufFrom(kW)
-	defer kBuf.Free()
-	var vBuf *gpu.DevBuf
-	if lb.VProj != nil {
-		vBuf = gpu.NewDevBufFrom(vW)
-		defer vBuf.Free()
-	}
-	oBuf := gpu.NewDevBufFrom(oW)
-	defer oBuf.Free()
 
 	qAll := make([]float32, positions*qRows)
 	kAll := make([]float32, positions*kRows)
@@ -230,41 +219,33 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 	}
 	ropeFreqs := simd.BuildRoPEFreqs(ctx.EncoderSeqLen+positions, ropeHalf, headDim, ropeTheta)
 
+	// Batched GPU GEMM: all positions in one call per projection
+	qResult, err := batchedGPUGemm(qW, scratch.Hidden[:positions*hiddenSize], qRows, hiddenSize, positions)
+	if err != nil {
+		return fmt.Errorf("GPU Q GEMM: %w", err)
+	}
+	scatterGemmResult(qAll, qResult, qRows, positions)
+
+	kResult, err := batchedGPUGemm(kW, scratch.Hidden[:positions*hiddenSize], kRows, hiddenSize, positions)
+	if err != nil {
+		return fmt.Errorf("GPU K GEMM: %w", err)
+	}
+	scatterGemmResult(kAll, kResult, kRows, positions)
+
+	if lb.VProj != nil {
+		vResult, err := batchedGPUGemm(vW, scratch.Hidden[:positions*hiddenSize], vRows, hiddenSize, positions)
+		if err != nil {
+			return fmt.Errorf("GPU V GEMM: %w", err)
+		}
+		scatterGemmResult(vAll, vResult, vRows, positions)
+	} else {
+		copy(vAll, kAll)
+	}
+
 	for pos := 0; pos < positions; pos++ {
-		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 		q := qAll[pos*qRows : (pos+1)*qRows]
 		k := kAll[pos*kRows : (pos+1)*kRows]
 		v := vAll[pos*vRows : (pos+1)*vRows]
-
-		// GPU projections using pre-uploaded weight buffers
-		xBuf := gpu.NewDevBufFrom(hidden)
-		qOut := gpu.NewDevBuf(qRows)
-		gpu.DevGemv(qOut, xBuf, qBuf, qRows, hiddenSize)
-		qOut.ToCPU()
-		copy(q, qOut.Data()[:qRows])
-
-		kOut := gpu.NewDevBuf(kRows)
-		gpu.DevGemv(kOut, xBuf, kBuf, kRows, hiddenSize)
-		kOut.ToCPU()
-		copy(k, kOut.Data()[:kRows])
-
-		var vOut *gpu.DevBuf
-		if lb.VProj != nil && vBuf != nil {
-			vOut = gpu.NewDevBuf(vRows)
-			gpu.DevGemv(vOut, xBuf, vBuf, vRows, hiddenSize)
-			vOut.ToCPU()
-			copy(v, vOut.Data()[:vRows])
-		} else {
-			copy(v, k)
-		}
-
-		// Free per-position GPU buffers
-		xBuf.Free()
-		qOut.Free()
-		kOut.Free()
-		if vOut != nil {
-			vOut.Free()
-		}
 
 		// Norms + RoPE on CPU
 		for h := 0; h < heads; h++ {
@@ -331,14 +312,10 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 				}
 			}
 		}
-		// O projection on GPU
-		oOut := gpu.NewDevBuf(hiddenSize)
-		aBuf := gpu.NewDevBufFrom(attnCtx)
-		gpu.DevGemv(oOut, aBuf, oBuf, hiddenSize, qRows)
-		oOut.ToCPU()
-		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], oOut.Data()[:hiddenSize])
-		oOut.Free()
-		aBuf.Free()
+		// O projection on CPU (attnCtx is per-position, small)
+		oOut := make([]float32, hiddenSize)
+		simd.GemvRows(oOut, attnCtx, oW, hiddenSize, qRows)
+		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], oOut)
 	}
 	return nil
 }
@@ -418,4 +395,27 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 	copy(scratch.MlpOut, scratch.Hidden)
 	copy(scratch.Hidden, scratch.Residual)
 	return nil
+}
+
+// batchedGPUGemm computes Out[M,N] = W[M,K] × X_T[K,N] where
+// hidden is [N,K] (N positions, K=hiddenSize) stored row-major.
+// Returns Out as [M,N] row-major (M output features, N positions).
+func batchedGPUGemm(W []float32, hidden []float32, M, K, N int) ([]float32, error) {
+	// Transpose hidden [N,K] → X_T [K,N]
+	xt := make([]float32, K*N)
+	for pos := 0; pos < N; pos++ {
+		for k := 0; k < K; k++ {
+			xt[k*N+pos] = hidden[pos*K+k]
+		}
+	}
+	return gpu.SgemmHost(M, N, K, 1.0, W, xt)
+}
+
+// scatterGemmResult copies GEMM output [M,N] back into per-position slices.
+func scatterGemmResult(dst []float32, result []float32, M, N int) {
+	for pos := 0; pos < N; pos++ {
+		for m := 0; m < M; m++ {
+			dst[pos*M+m] = result[m*N+pos]
+		}
+	}
 }
