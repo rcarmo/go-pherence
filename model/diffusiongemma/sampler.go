@@ -109,6 +109,46 @@ func Argmax(logits []float32) int {
 	return best
 }
 
+func SampleFromLogits(logits []float32, rng *rand.Rand) int {
+	if len(logits) == 0 {
+		return -1
+	}
+	if rng == nil {
+		rng = rand.New(rand.NewSource(1))
+	}
+	maxLogit := float32(math.Inf(-1))
+	for _, v := range logits {
+		if v > maxLogit {
+			maxLogit = v
+		}
+	}
+	if math.IsInf(float64(maxLogit), -1) || math.IsNaN(float64(maxLogit)) {
+		return Argmax(logits)
+	}
+	weights := make([]float64, len(logits))
+	var sum float64
+	for i, v := range logits {
+		if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
+			continue
+		}
+		w := math.Exp(float64(v - maxLogit))
+		weights[i] = w
+		sum += w
+	}
+	if sum <= 0 || math.IsNaN(sum) {
+		return Argmax(logits)
+	}
+	draw := rng.Float64() * sum
+	var cumulative float64
+	for i, w := range weights {
+		cumulative += w
+		if draw <= cumulative {
+			return i
+		}
+	}
+	return Argmax(logits)
+}
+
 type AcceptanceResult struct {
 	Canvas       []int  `json:"canvas"`
 	AcceptedMask []bool `json:"accepted_mask"`

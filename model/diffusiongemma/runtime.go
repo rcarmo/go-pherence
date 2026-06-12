@@ -95,11 +95,13 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 		}
 		temperature := LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, step)
 		denoiserCanvas := make([]int, canvasLength)
+		argmaxCanvas := make([]int, canvasLength)
 		entropy := make([]float64, canvasLength)
 		var meanEntropy float64
 		for i := 0; i < canvasLength; i++ {
 			logits := ApplyTemperature(out.Logits[i], temperature)
-			denoiserCanvas[i] = Argmax(logits)
+			argmaxCanvas[i] = Argmax(logits)
+			denoiserCanvas[i] = SampleFromLogits(logits, rng)
 			entropy[i] = TokenEntropyFromLogits(logits)
 			meanEntropy += entropy[i]
 		}
@@ -108,7 +110,7 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 		if len(out.SelfConditioning) > 0 {
 			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
 		}
-		stopped := stopper.ShouldStop(denoiserCanvas, entropy)
+		stopped := stopper.ShouldStop(argmaxCanvas, entropy)
 		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, Stopped: stopped})
 		canvas = accepted.Canvas
 		if stopped {
