@@ -24,6 +24,63 @@ type CPUDispatcher struct {
 	SkipEviction        bool
 }
 
+type q80PrefetchResult struct {
+	count   int
+	err     error
+	elapsed time.Duration
+}
+
+type q80LayerPrefetcher struct {
+	weights        *TextWeights
+	includeExperts bool
+	progress       bool
+	mu             sync.Mutex
+	done           map[int]chan q80PrefetchResult
+}
+
+func newQ80LayerPrefetcher(weights *TextWeights, progress bool) *q80LayerPrefetcher {
+	if weights == nil || !k3Enabled() || !k3A100Q8Enabled() || !k3Q80PrefetchEnabled() {
+		return nil
+	}
+	return &q80LayerPrefetcher{weights: weights, includeExperts: k3Q80PrefetchExperts(), progress: progress, done: map[int]chan q80PrefetchResult{}}
+}
+
+func (p *q80LayerPrefetcher) start(layer int) {
+	if p == nil || p.weights == nil || layer < 0 || layer >= len(p.weights.Layers) {
+		return
+	}
+	p.mu.Lock()
+	if _, ok := p.done[layer]; ok {
+		p.mu.Unlock()
+		return
+	}
+	ch := make(chan q80PrefetchResult, 1)
+	p.done[layer] = ch
+	p.mu.Unlock()
+	go func() {
+		started := time.Now()
+		count, err := p.weights.PreloadLayerQ80(layer, p.includeExperts)
+		ch <- q80PrefetchResult{count: count, err: err, elapsed: time.Since(started)}
+	}()
+}
+
+func (p *q80LayerPrefetcher) wait(layer int) error {
+	if p == nil {
+		return nil
+	}
+	p.mu.Lock()
+	ch := p.done[layer]
+	p.mu.Unlock()
+	if ch == nil {
+		return nil
+	}
+	res := <-ch
+	if p.progress {
+		fmt.Fprintf(os.Stderr, "DiffusionGemma K3 Q80 prefetch: completed layer=%d tensors=%d include_experts=%v q80_entries=%d q80_bytes=%d elapsed=%s\n", layer, res.count, p.includeExperts, p.weights.Q80CacheEntries(), p.weights.Q80CacheBytes(), res.elapsed.Round(time.Millisecond))
+	}
+	return res.err
+}
+
 type ForwardScratch struct {
 	Hidden     []float32
 	Residual   []float32
@@ -89,6 +146,10 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			return ForwardOutput{}, err
 		}
 	}
+	prefetcher := newQ80LayerPrefetcher(weights, d.Progress)
+	if prefetcher != nil {
+		prefetcher.start(0)
+	}
 	currentLayer := -1
 	completedLayers := 0
 	layerStarted := time.Now()
@@ -108,6 +169,12 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		}
 		if op.Layer != currentLayer {
 			currentLayer = op.Layer
+			if err := prefetcher.wait(currentLayer); err != nil {
+				return ForwardOutput{}, err
+			}
+			if d.MaxLayers <= 0 || completedLayers+1 < d.MaxLayers {
+				prefetcher.start(currentLayer + 1)
+			}
 			if d.Progress {
 				fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: starting layer=%d\n", currentLayer)
 			}

@@ -111,6 +111,19 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 With a `1.0 GiB` Q80 budget, the FP8 checkpoint currently selects 1 all-expert
 layer (`864951296` bytes) or 18 dense-only layers (`1055864832` bytes).
 
+Async Q80 prefetch can interleave next-layer packing with current-layer compute:
+
+```sh
+GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH=1
+GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS=0  # dense-only, safer memory
+GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS=1  # all-expert, more memory
+```
+
+Dense-only prefetch on a 4-layer canvas-16 smoke improved later decoder layers
+from roughly `2.94s/2.90s/2.81s` to `2.75s/2.67s/2.65s`; all-expert prefetch
+reduced steady later layers to about `2.04s–2.17s` at higher transient Q80
+residency.
+
 Per-expert tensors are packed in parallel across X100 workers for both
 all-expert prewarm and selected on-demand prepack; override the default with
 `GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=N`. One-layer all-expert

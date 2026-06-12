@@ -27,6 +27,16 @@ func k3A100LMHeadEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func k3Q80PrefetchEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func k3Q80PrefetchExperts() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func k3Threads() int {
 	if s := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS")); s != "" {
 		if n, err := strconv.Atoi(s); err == nil && n > 0 {
