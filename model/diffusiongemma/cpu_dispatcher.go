@@ -1362,21 +1362,35 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 		}
 	}
 	if topK > 0 {
-		t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
-		if err != nil {
-			return err
-		}
-		if len(t.Shape) != 2 || t.Shape[0] != vocab || t.Shape[1] != hiddenSize {
-			return fmt.Errorf("DiffusionGemma LM head cached embedding shape %v want [%d %d]", t.Shape, vocab, hiddenSize)
-		}
-		scores := make([]float32, vocab)
-		for pos := 0; pos < positions; pos++ {
-			hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
-			if !simd.GemvRows(scores, hidden, t.Data, vocab, hiddenSize) {
-				return fmt.Errorf("DiffusionGemma LM head SIMD GEMV failed vocab=%d hidden=%d", vocab, hiddenSize)
+		// Try BF16 native LM head (half the memory, direct mmap scan)
+		bf16Embed, bf16Shape, _ := weights.RawBF16Tensor(fp.Globals.EmbedTokens.Name)
+		if bf16Embed != nil && len(bf16Shape) == 2 && bf16Shape[0] == vocab && bf16Shape[1] == hiddenSize {
+			for pos := 0; pos < positions; pos++ {
+				hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+				hiddenBF16 := simd.BF16FromF32Slice(hidden)
+				for vocabID := 0; vocabID < vocab; vocabID++ {
+					row := bf16Embed[vocabID*hiddenSize : (vocabID+1)*hiddenSize]
+					score := simd.BF16DotAsm(row, hiddenBF16)
+					insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+				}
 			}
-			for vocabID, score := range scores {
-				insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+		} else {
+			t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
+			if err != nil {
+				return err
+			}
+			if len(t.Shape) != 2 || t.Shape[0] != vocab || t.Shape[1] != hiddenSize {
+				return fmt.Errorf("DiffusionGemma LM head cached embedding shape %v want [%d %d]", t.Shape, vocab, hiddenSize)
+			}
+			scores := make([]float32, vocab)
+			for pos := 0; pos < positions; pos++ {
+				hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+				if !simd.GemvRows(scores, hidden, t.Data, vocab, hiddenSize) {
+					return fmt.Errorf("DiffusionGemma LM head SIMD GEMV failed vocab=%d hidden=%d", vocab, hiddenSize)
+				}
+				for vocabID, score := range scores {
+					insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+				}
 			}
 		}
 	} else {
