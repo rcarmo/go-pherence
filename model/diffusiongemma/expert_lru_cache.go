@@ -122,9 +122,17 @@ func (c *ExpertLRUCache) evictOldest() {
 	c.order = c.order[1:]
 	if e, ok := c.entries[key]; ok {
 		c.usedBytes -= e.bytes
+		if e.gate != nil {
+			e.gate.Free()
+		}
+		if e.up != nil {
+			e.up.Free()
+		}
+		if e.down != nil {
+			e.down.Free()
+		}
 		delete(c.entries, key)
 		c.evictions++
-		// GPU FP8 linear buffers are pooled; explicit free not needed
 	}
 }
 
