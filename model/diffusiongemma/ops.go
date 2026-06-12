@@ -52,8 +52,11 @@ func BuildForwardOpPlan(shape Shape, textPlan *TextForwardPlan) ForwardOpPlan {
 			LayerOp{Layer: i, Type: lt, Kind: OpSelfAttention},
 			LayerOp{Layer: i, Type: lt, Kind: OpPostAttention},
 			LayerOp{Layer: i, Type: lt, Kind: OpPreMoE},
-			LayerOp{Layer: i, Type: lt, Kind: OpDenseMLP},
+			// Router only reads the saved residual and can run before dense MLP.
+			// This lets K3 asynchronously prepack selected expert Q80 weights while
+			// dense MLP executes, then wait just before the expert GEMMs.
 			LayerOp{Layer: i, Type: lt, Kind: OpRouter},
+			LayerOp{Layer: i, Type: lt, Kind: OpDenseMLP},
 			LayerOp{Layer: i, Type: lt, Kind: OpExperts},
 			LayerOp{Layer: i, Type: lt, Kind: OpPostMoE},
 			LayerOp{Layer: i, Type: lt, Kind: OpLayerScalar},

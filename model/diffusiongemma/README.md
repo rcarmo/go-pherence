@@ -113,18 +113,22 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 With a `1.0 GiB` Q80 budget, the FP8 checkpoint currently selects 1 all-expert
 layer (`864951296` bytes) or 18 dense-only layers (`1055864832` bytes).
 
-Async Q80 prefetch can interleave next-layer packing with current-layer compute:
+Async Q80 prefetch can interleave packing with compute:
 
 ```sh
 GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH=1
-GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS=0  # dense-only, safer memory
-GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS=1  # all-expert, more memory
+GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS=0      # next-layer dense, safer memory
+GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS=1      # next-layer all-expert, more memory
+GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_SELECTED_PREFETCH=1     # selected experts after router
 ```
 
-Dense-only prefetch on a 4-layer canvas-16 smoke improved later decoder layers
-from roughly `2.94s/2.90s/2.81s` to `2.75s/2.67s/2.65s`; all-expert prefetch
-reduced steady later layers to about `2.04s–2.17s` at higher transient Q80
-residency.
+Dense-only next-layer prefetch on a 4-layer canvas-16 smoke improved later
+decoder layers from roughly `2.94s/2.90s/2.81s` to `2.75s/2.67s/2.65s`; all-expert
+prefetch reduced steady later layers to about `2.04s–2.17s` at higher transient
+Q80 residency. Selected-expert prefetch reorders router before dense MLP and
+packs selected expert weights while dense MLP runs; it modestly improves later
+layers (`~642ms→605ms`, `~603ms→594ms`, `~661ms→632ms`) but remains opt-in
+because it contends with dense MLP for X100 bandwidth.
 
 Per-expert tensors are packed in parallel across X100 workers for both
 all-expert prewarm and selected on-demand prepack; override the default with

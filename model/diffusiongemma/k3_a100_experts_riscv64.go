@@ -174,3 +174,73 @@ func k3RunPerExpertRowsA100(weights *TextWeights, layout expertWeightLayout, res
 	}
 	return true, nil
 }
+
+type k3SelectedExpertPrefetch struct {
+	layer          int
+	includeExperts bool
+	ch             chan q80PrefetchResult
+}
+
+func k3StartSelectedExpertQ80Prefetch(weights *TextWeights, lb TextLayerBindings, scratch ForwardScratch) *k3SelectedExpertPrefetch {
+	if weights == nil || !k3Enabled() || !k3A100Q8Enabled() || !k3Q80SelectedPrefetchEnabled() || !lb.HasPerExpertWeights {
+		return nil
+	}
+	hiddenSize := 0
+	if lb.PreFFNLayerNorm2 != nil && len(lb.PreFFNLayerNorm2.Shape) == 1 {
+		hiddenSize = lb.PreFFNLayerNorm2.Shape[0]
+	}
+	if hiddenSize <= 0 || len(scratch.Residual)%hiddenSize != 0 {
+		return nil
+	}
+	positions := len(scratch.Residual) / hiddenSize
+	if positions <= 0 || len(scratch.TopKIDs)%positions != 0 {
+		return nil
+	}
+	topK := len(scratch.TopKIDs) / positions
+	if topK <= 0 {
+		return nil
+	}
+	layout, err := expertLayoutForLayer(weights, lb, hiddenSize)
+	if err != nil || layout.fused || layout.layerPrefix == "" {
+		return nil
+	}
+	seen := map[int]bool{}
+	names := make([]string, 0, positions*topK*3)
+	for pos := 0; pos < positions; pos++ {
+		for k := 0; k < topK; k++ {
+			expertID := scratch.TopKIDs[pos*topK+k]
+			if expertID < 0 || expertID >= layout.nExperts || seen[expertID] {
+				continue
+			}
+			seen[expertID] = true
+			for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
+				names = append(names, perExpertTensorName(layout.layerPrefix, expertID, proj))
+			}
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	p := &k3SelectedExpertPrefetch{layer: lb.Layer, includeExperts: true, ch: make(chan q80PrefetchResult, 1)}
+	go func() {
+		started := time.Now()
+		ok, err := k3PrepackExpertQ80Names(weights, names)
+		count := 0
+		if ok {
+			count = len(names)
+		}
+		p.ch <- q80PrefetchResult{count: count, err: err, elapsed: time.Since(started)}
+	}()
+	return p
+}
+
+func (p *k3SelectedExpertPrefetch) Wait(weights *TextWeights, progress bool) error {
+	if p == nil || p.ch == nil {
+		return nil
+	}
+	res := <-p.ch
+	if progress {
+		fmt.Fprintf(os.Stderr, "timing diffusiongemma selected_expert_prefetch layer=%d tensors=%d elapsed=%s q80_entries=%d q80_bytes=%d\n", p.layer, res.count, res.elapsed.Round(time.Millisecond), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+	}
+	return res.err
+}

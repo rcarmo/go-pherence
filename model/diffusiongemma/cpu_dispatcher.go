@@ -83,16 +83,17 @@ func (p *q80LayerPrefetcher) wait(layer int) error {
 }
 
 type ForwardScratch struct {
-	Hidden     []float32
-	Residual   []float32
-	MlpOut     []float32
-	MoeOut     []float32
-	Logits     [][]float32
-	Router     []float32
-	Experts    []float32
-	TopKIDs    []int
-	TopKVals   []float32
-	LMHeadTopK int
+	Hidden         []float32
+	Residual       []float32
+	MlpOut         []float32
+	MoeOut         []float32
+	Logits         [][]float32
+	Router         []float32
+	Experts        []float32
+	TopKIDs        []int
+	TopKVals       []float32
+	LMHeadTopK     int
+	ExpertPrefetch *k3SelectedExpertPrefetch
 }
 
 func NewForwardScratch(buffers ForwardBufferPlan) ForwardScratch {
@@ -185,7 +186,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: starting layer=%d\n", currentLayer)
 			}
 		}
-		if err := dispatchLayerOp(op, ctx, weights, scratch); err != nil {
+		if err := dispatchLayerOp(op, ctx, weights, &scratch); err != nil {
 			return ForwardOutput{}, err
 		}
 	}
@@ -441,7 +442,7 @@ func diffusionGemmaTimingEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
-func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
+func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch *ForwardScratch) error {
 	if !diffusionGemmaTimingEnabled() {
 		return dispatchLayerOpInner(op, ctx, weights, scratch)
 	}
@@ -451,15 +452,15 @@ func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scrat
 	return err
 }
 
-func dispatchLayerOpInner(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
+func dispatchLayerOpInner(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch *ForwardScratch) error {
 	switch op.Kind {
 	case OpInputNorm:
 		copy(scratch.Residual, scratch.Hidden)
-		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.InputLayerNorm })
+		return runLayerRMSNorm(op, weights, *scratch, func(lb TextLayerBindings) *TensorBinding { return lb.InputLayerNorm })
 	case OpSelfAttention:
-		return runSelfAttention(op, ctx, weights, scratch)
+		return runSelfAttention(op, ctx, weights, *scratch)
 	case OpPostAttention:
-		if err := runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostAttentionLayerNorm }); err != nil {
+		if err := runLayerRMSNorm(op, weights, *scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostAttentionLayerNorm }); err != nil {
 			return err
 		}
 		for i := range scratch.Hidden {
@@ -467,16 +468,29 @@ func dispatchLayerOpInner(op LayerOp, ctx ForwardContext, weights *TextWeights, 
 		}
 		return nil
 	case OpDenseMLP:
-		return runDenseMLP(op, weights, scratch)
+		return runDenseMLP(op, weights, *scratch)
 	case OpPreMoE:
 		copy(scratch.Residual, scratch.Hidden)
-		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PreFFNLayerNorm })
+		return runLayerRMSNorm(op, weights, *scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PreFFNLayerNorm })
 	case OpRouter:
-		return runRouterFromResidual(op, weights, scratch)
+		if err := runRouterFromResidual(op, weights, *scratch); err != nil {
+			return err
+		}
+		fp := weights.ForwardPlan()
+		if op.Layer >= 0 && op.Layer < len(fp.Layers) {
+			scratch.ExpertPrefetch = k3StartSelectedExpertQ80Prefetch(weights, fp.Layers[op.Layer], *scratch)
+		}
+		return nil
 	case OpExperts:
-		return runExpertsFromResidual(op, weights, scratch)
+		if scratch.ExpertPrefetch != nil {
+			if err := scratch.ExpertPrefetch.Wait(weights, diffusionGemmaTimingEnabled()); err != nil {
+				return err
+			}
+			scratch.ExpertPrefetch = nil
+		}
+		return runExpertsFromResidual(op, weights, *scratch)
 	case OpPostMoE:
-		if err := runCombineMlpMoe(op, weights, scratch); err != nil {
+		if err := runCombineMlpMoe(op, weights, *scratch); err != nil {
 			return err
 		}
 		for i := range scratch.Hidden {
@@ -484,7 +498,7 @@ func dispatchLayerOpInner(op LayerOp, ctx ForwardContext, weights *TextWeights, 
 		}
 		return nil
 	case OpLayerScalar:
-		return runLayerScalar(op, weights, scratch)
+		return runLayerScalar(op, weights, *scratch)
 	default:
 		return fmt.Errorf("DiffusionGemma unknown layer op %q", op.Kind)
 	}

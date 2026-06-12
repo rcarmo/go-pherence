@@ -10,9 +10,10 @@ func k3A100LMHeadCandidates(topK, vocab int) int {
 	}
 	return topK
 }
-func k3Q80PrefetchEnabled() bool { return false }
-func k3Q80PrefetchExperts() bool { return false }
-func k3Threads() int             { return 1 }
+func k3Q80PrefetchEnabled() bool         { return false }
+func k3Q80PrefetchExperts() bool         { return false }
+func k3Q80SelectedPrefetchEnabled() bool { return false }
+func k3Threads() int                     { return 1 }
 
 func k3EvictQ80Tensor(_ *TextWeights, _ string) bool { return false }
 func k3EvictQ80Layer(_ *TextWeights, _ int) int      { return 0 }
