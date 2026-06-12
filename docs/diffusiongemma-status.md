@@ -675,3 +675,14 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 The CPU dispatcher now runs a full encoder pass (30 causal-attention layers with KV capture) on the prompt tokens, then passes per-layer encoder KV cache to the bidirectional decoder which processes only canvas tokens. This is the correct DiffusionGemma architecture: encoder processes prompt, decoder denoises canvas conditioned on encoder KV.
 
 With the encoder/decoder split and canvas buffer sizing fix, 1-step denoise produces diverse non-EOS tokens conditioned on the prompt. Multi-step denoising with sparse top-k currently collapses to EOS because self-conditioning requires dense logits; self-conditioning is disabled in sparse mode as a workaround.
+
+
+## First coherent inference
+
+2026-06-12: After fixing decoder RoPE position offset (canvas positions must be offset by encoder sequence length), the model produces prompt-conditioned output:
+
+- "What is the capital of France?" → "The capital of ... is ..."
+- "Say hello" → "hello" (seed 1)
+- "Write one sentence about dogs." → "loyal" appears consistently across seeds
+
+Output quality is still noisy due to sparse top-k and no self-conditioning, but the fundamental encoder→KV→decoder pipeline now produces structurally coherent, prompt-relevant output.
