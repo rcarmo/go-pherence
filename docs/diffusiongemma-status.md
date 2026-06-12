@@ -853,3 +853,35 @@ Performance progression:
 - FP8 projections: 4m42s
 - Zero-copy expert mmap: 3m9s
 - Expert LRU GPU cache: 1m50s (2.7× total speedup)
+
+
+## Final optimized benchmark
+
+2026-06-12: DiffusionGemma inference on i7-12700 + RTX 3060 (12 GB VRAM):
+
+| Prompt | Output | Time |
+|---|---|---|
+| What is the capital of France? | The capital of France is **Paris**. | 1m7s (cold) |
+| What is the capital of Japan? | The capital of Japan is **Tokyo**. | 55s |
+| What is the tallest mountain? | The tallest mountain on Earth is **Everest**... | 59s |
+| What is H2O? | H2O is the formula for **water**. | 52s |
+
+Optimization progression (cold start → warm):
+- CPU BF16 only: 4m54s → 1.0×
+- Final GPU/CPU optimized: 1m2s cold, 52-59s warm → 4.7-5.6×
+
+VRAM layout (12 GB RTX 3060):
+- FP8 projection layers (30 × 7 projections): 5.3 GB
+- Expert LRU GPU cache (7.2 GB budget, ~1265 experts): 7.5 GB
+- Total: fills available VRAM for maximum throughput
+
+Techniques applied:
+- FP8 E4M3 GPU GEMV for all decoder projections (batched Q/K/V GEMM)
+- Expert LRU GPU cache with on-demand FP8 upload and VRAM budget management
+- Batched expert GEMM across canvas positions
+- GPU GQA attention kernel with CPU fallback
+- BF16 native encoder (skip F32 decode, direct BF16 GEMV with AVX2)
+- Thread-safe weight cache with prefetch and madvise WILLNEED
+- Parallel GEMV with goroutine worker pool
+- SIMD AVX2+FMA BF16WidenToF32 for weight decode
+- Zero-copy mmap for FP8 expert weight bytes
