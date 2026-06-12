@@ -587,9 +587,7 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 					canvasJ := j - encSeq
 					vv = vAll[canvasJ*vRows+kvh*headDim : canvasJ*vRows+(kvh+1)*headDim]
 				}
-				for d := range dst {
-					dst[d] += score * vv[d]
-				}
+				k3SaxpyV(score, vv, dst)
 			}
 		}
 		if !oM.gemvRows(out, attnCtx) {
@@ -1075,9 +1073,7 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 				if !simd.GemvRows(expertOut, act, ew.downW, hiddenSize, intermediate) {
 					return fmt.Errorf("DiffusionGemma expert down GEMV rejected")
 				}
-				for i := range dst {
-					dst[i] += weight * expertOut[i]
-				}
+				k3SaxpyV(weight, expertOut, dst)
 			}
 		}
 	}

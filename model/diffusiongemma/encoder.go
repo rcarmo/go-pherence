@@ -260,9 +260,7 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 				dst := attnCtx[hh*headDim : (hh+1)*headDim]
 				for j := 0; j < positions; j++ {
 					vv := vAll[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
-					for dd := range dst {
-						dst[dd] += scores[j] * vv[dd]
-					}
+					k3SaxpyV(scores[j], vv, dst)
 				}
 			}
 			simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows)

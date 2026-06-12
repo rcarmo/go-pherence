@@ -75,9 +75,7 @@ func k3RunPerExpertA100(weights *TextWeights, lb TextLayerBindings, layout exper
 		for i, a := range rows {
 			dst := scratch.MoeOut[a.pos*hiddenSize : (a.pos+1)*hiddenSize]
 			src := down[i*hiddenSize : (i+1)*hiddenSize]
-			for d := range dst {
-				dst[d] += a.weight * src[d]
-			}
+			k3SaxpyV(a.weight, src, dst)
 		}
 	}
 	return true, nil
