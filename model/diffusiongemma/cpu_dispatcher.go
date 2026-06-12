@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -551,46 +552,11 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		}
 		encSeq = enc.SeqLen
 	}
-	totalKV := encSeq + positions
-	scores := make([]float32, totalKV)
 	slidingWindow := 0
 	if op.Type == "sliding_attention" {
 		slidingWindow = 1024
 	}
-	for pos := 0; pos < positions; pos++ {
-		attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
-		for i := range attnCtx {
-			attnCtx[i] = 0
-		}
-		for h := 0; h < heads; h++ {
-			kvh := h / group
-			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
-			for j := 0; j < totalKV; j++ {
-				if j < encSeq {
-					scores[j] = k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
-					continue
-				}
-				canvasJ := j - encSeq
-				if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
-					scores[j] = float32(math.Inf(-1))
-					continue
-				}
-				scores[j] = k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
-			}
-			k3SoftmaxInPlace(scores)
-			dst := attnCtx[h*headDim : (h+1)*headDim]
-			for j, score := range scores {
-				var vv []float32
-				if j < encSeq {
-					vv = enc.Values[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
-				} else {
-					canvasJ := j - encSeq
-					vv = vAll[canvasJ*vRows+kvh*headDim : canvasJ*vRows+(kvh+1)*headDim]
-				}
-				k3SaxpyV(score, vv, dst)
-			}
-		}
-	}
+	runAttentionContextK3(attnAll, qAll, kAll, vAll, enc, positions, heads, kvHeads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
 	if done, err := k3GemmRowsQ80(scratch.Hidden, attnAll, positions, weights, lb.OProj); err != nil {
 		return err
 	} else if !done {
@@ -604,6 +570,72 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		}
 	}
 	return nil
+}
+
+func runAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLayer, positions, heads, kvHeads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow int) {
+	if positions <= 0 || heads <= 0 || headDim <= 0 {
+		return
+	}
+	totalKV := encSeq + positions
+	work := func(start, end int) {
+		scores := make([]float32, totalKV)
+		for pos := start; pos < end; pos++ {
+			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
+			for i := range attnCtx {
+				attnCtx[i] = 0
+			}
+			for h := 0; h < heads; h++ {
+				kvh := h / group
+				q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+				for j := 0; j < totalKV; j++ {
+					if j < encSeq {
+						scores[j] = k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+						continue
+					}
+					canvasJ := j - encSeq
+					if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
+						scores[j] = float32(math.Inf(-1))
+						continue
+					}
+					scores[j] = k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
+				}
+				k3SoftmaxInPlace(scores)
+				dst := attnCtx[h*headDim : (h+1)*headDim]
+				for j, score := range scores {
+					var vv []float32
+					if j < encSeq {
+						vv = enc.Values[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
+					} else {
+						canvasJ := j - encSeq
+						vv = vAll[canvasJ*vRows+kvh*headDim : canvasJ*vRows+(kvh+1)*headDim]
+					}
+					k3SaxpyV(score, vv, dst)
+				}
+			}
+		}
+	}
+	nw := 1
+	if k3Enabled() && positions*heads >= 32 {
+		nw = k3Threads()
+		if nw > positions {
+			nw = positions
+		}
+	}
+	if nw <= 1 {
+		work(0, positions)
+		return
+	}
+	var wg sync.WaitGroup
+	wg.Add(nw)
+	for wid := 0; wid < nw; wid++ {
+		start := wid * positions / nw
+		end := (wid + 1) * positions / nw
+		go func() {
+			defer wg.Done()
+			work(start, end)
+		}()
+	}
+	wg.Wait()
 }
 
 func absInt(x int) int {

@@ -154,6 +154,9 @@ A 2-layer canvas-16 smoke (`-max-dispatch-layers 2`, `-k3-q80-prewarm-layers 2`,
 With dense-only Q80 prewarm (`-k3-q80-prewarm-layers 2`) and selected experts
 packed on demand, `GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=8`
 improved decoder layer times from roughly `5.42s/5.36s` to `3.96s/3.91s`.
+Decoder attention context is split across X100 workers; on a canvas-64 one-layer
+prewarmed smoke this improved layer time from `1.024s` (`K3_THREADS=1`) to
+`0.928s` (`K3_THREADS=8`) with identical output.
 
 The no-A100, A100, and A100+prewarm canvas-16 smoke runs produced the same
 sampled output and entropy (`generated=[0]`, accepted canvas tokens `16`, mean
