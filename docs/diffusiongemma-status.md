@@ -663,3 +663,15 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse text fast verification
 
 2026-06-12: After an interrupted long `diffusiongemma-ci-sparse-text` rerun, the fast full-checkpoint sparse subset was verified explicitly: `diffusiongemmainspect -require-text-sparse-ready`, `make diffusiongemma-residency-plan DIFFUSIONGEMMA_RESIDENT_LAYERS=1 DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB=16`, `make diffusiongemma-run-sparse-text-json-check ... DIFFUSIONGEMMA_EXPECT_GENERATED=147485`, and build-only validation all passed. The deterministic sparse JSON assertion reported `match=true`, `generated=[147485]`, `error=null`.
+
+
+## Fast sparse text CI target
+
+`make diffusiongemma-ci-sparse-text-fast` is the short full-checkpoint sparse validation path. It runs sparse readiness, residency planning, the deterministic sparse JSON output assertion, and build-only validation. It avoids the longer canvas feedback smokes used by `diffusiongemma-ci-sparse-text`, making it suitable for quick checks after code changes.
+
+
+## Encoder/decoder separation
+
+The CPU dispatcher now runs a full encoder pass (30 causal-attention layers with KV capture) on the prompt tokens, then passes per-layer encoder KV cache to the bidirectional decoder which processes only canvas tokens. This is the correct DiffusionGemma architecture: encoder processes prompt, decoder denoises canvas conditioned on encoder KV.
+
+With the encoder/decoder split and canvas buffer sizing fix, 1-step denoise produces diverse non-EOS tokens conditioned on the prompt. Multi-step denoising with sparse top-k currently collapses to EOS because self-conditioning requires dense logits; self-conditioning is disabled in sparse mode as a workaround.
