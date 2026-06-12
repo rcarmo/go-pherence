@@ -145,16 +145,12 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: logits pos=%d top_id=%d top_val=%.6f mean=%.6f\n", pos, bestID, bestVal, sum/float64(len(row)))
 		}
 	}
-	// Skip self-conditioning when using sparse top-k LM head, because
-	// the -Inf-filled logits produce a degenerate soft embedding that
-	// collapses multi-step denoising to EOS.
-	var selfConditioning []float32
-	if d.LMHeadTopK <= 0 {
-		var err error
-		selfConditioning, err = buildSelfConditioningFromLogits(weights, scratch)
-		if err != nil {
-			return ForwardOutput{}, err
-		}
+	// Build self-conditioning from logits. With sparse top-k, softmax
+	// naturally zeros -Inf positions, producing a weighted average of
+	// only the top-k token embeddings.
+	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch)
+	if err != nil {
+		return ForwardOutput{}, err
 	}
 	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning}, nil
 }
