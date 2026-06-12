@@ -7,6 +7,9 @@ import (
 
 	gpu "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/loader/safetensors"
+	"math"
+	"unsafe"
 )
 
 // GPUDispatcher offloads GEMV projections to GPU via DevBuf/DevGemv,
@@ -163,8 +166,14 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 
 	for _, op := range ops.Tail {
-		if err := dispatchTailOp(op, weights, scratch); err != nil {
-			return ForwardOutput{}, err
+		if op == OpLMHead && d.FP8Weights != nil {
+			if err := runLMHeadFromShards(d.FP8Weights.shards, scratch, "model.decoder.embed_tokens.weight"); err != nil {
+				return ForwardOutput{}, err
+			}
+		} else {
+			if err := dispatchTailOp(op, weights, scratch); err != nil {
+				return ForwardOutput{}, err
+			}
 		}
 	}
 	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch)
@@ -471,4 +480,67 @@ func scatterGemmResult(dst []float32, result []float32, M, N int) {
 			dst[pos*M+m] = result[m*N+pos]
 		}
 	}
+}
+
+// runLMHeadFromShards runs the sparse top-k LM head using BF16 embed_tokens
+// from a specific safetensors file (e.g. the FP8 checkpoint).
+func runLMHeadFromShards(shards *safetensors.ShardedFile, scratch ForwardScratch, embedName string) error {
+	raw, dtype, shape, err := shards.GetRaw(embedName)
+	if err != nil {
+		return fmt.Errorf("LM head embed %s: %w", embedName, err)
+	}
+	if dtype != "BF16" || len(shape) != 2 {
+		return fmt.Errorf("LM head embed %s: dtype=%s shape=%v (need BF16 rank-2)", embedName, dtype, shape)
+	}
+	vocab, hiddenSize := shape[0], shape[1]
+	if vocab <= 0 || hiddenSize <= 0 {
+		return fmt.Errorf("LM head embed invalid shape [%d,%d]", vocab, hiddenSize)
+	}
+	positions := len(scratch.Hidden) / hiddenSize
+	if positions <= 0 {
+		return nil
+	}
+	bf16Embed := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[0])), vocab*hiddenSize)
+	topK := scratch.LMHeadTopK
+	if topK > vocab {
+		topK = vocab
+	}
+	if topK <= 0 {
+		return nil
+	}
+	for pos := 0; pos < positions; pos++ {
+		if len(scratch.Logits[pos]) < vocab {
+			return fmt.Errorf("LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
+		}
+		for i := 0; i < vocab; i++ {
+			scratch.Logits[pos][i] = float32(math.Inf(-1))
+		}
+	}
+	topIDs := make([][]int, positions)
+	topVals := make([][]float32, positions)
+	for pos := 0; pos < positions; pos++ {
+		topIDs[pos] = make([]int, topK)
+		topVals[pos] = make([]float32, topK)
+		for i := range topIDs[pos] {
+			topIDs[pos][i] = -1
+			topVals[pos][i] = float32(math.Inf(-1))
+		}
+	}
+	for pos := 0; pos < positions; pos++ {
+		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		hiddenBF16 := simd.BF16FromF32Slice(hidden)
+		for vocabID := 0; vocabID < vocab; vocabID++ {
+			row := bf16Embed[vocabID*hiddenSize : (vocabID+1)*hiddenSize]
+			score := simd.BF16DotAsm(row, hiddenBF16)
+			insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+		}
+	}
+	for pos := 0; pos < positions; pos++ {
+		for i, id := range topIDs[pos] {
+			if id >= 0 {
+				scratch.Logits[pos][id] = topVals[pos][i]
+			}
+		}
+	}
+	return nil
 }
