@@ -380,28 +380,36 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 	downBuf := gpu.NewDevBufFrom(downW)
 	defer downBuf.Free()
 
-	gate := make([]float32, intermediate)
-	up := make([]float32, intermediate)
-	act := make([]float32, intermediate)
-	mlpOut := make([]float32, hiddenSize)
-
-	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
-		row := scratch.Hidden[off : off+hiddenSize]
-		if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
-			fl := &d.FP8Model.Layers[op.Layer]
-			if err := gpu.GemvFP8E4M3(gate, row, fl.Gate); err != nil {
-				return fmt.Errorf("FP8 gate GEMV: %w", err)
-			}
-			if err := gpu.GemvFP8E4M3(up, row, fl.Up); err != nil {
-				return fmt.Errorf("FP8 up GEMV: %w", err)
-			}
-			if !simd.GELUTanhMulTo(act, gate, up) {
-				return fmt.Errorf("GPU MLP activation rejected")
-			}
-			if err := gpu.GemvFP8E4M3(mlpOut, act, fl.Down); err != nil {
-				return fmt.Errorf("FP8 down GEMV: %w", err)
-			}
-		} else {
+	positions := len(scratch.Hidden) / hiddenSize
+	if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
+		fl := &d.FP8Model.Layers[op.Layer]
+		// Batched FP8 GEMM: all positions in 3 GPU calls
+		gateBatch := make([]float32, positions*intermediate)
+		upBatch := make([]float32, positions*intermediate)
+		if err := gpu.GemmFP8E4M3(gateBatch, scratch.Hidden[:positions*hiddenSize], positions, fl.Gate); err != nil {
+			return fmt.Errorf("FP8 gate GEMM: %w", err)
+		}
+		if err := gpu.GemmFP8E4M3(upBatch, scratch.Hidden[:positions*hiddenSize], positions, fl.Up); err != nil {
+			return fmt.Errorf("FP8 up GEMM: %w", err)
+		}
+		// Activation per position
+		actBatch := make([]float32, positions*intermediate)
+		for i := 0; i < positions; i++ {
+			simd.GELUTanhMulTo(actBatch[i*intermediate:(i+1)*intermediate], gateBatch[i*intermediate:(i+1)*intermediate], upBatch[i*intermediate:(i+1)*intermediate])
+		}
+		// Batched down projection
+		downBatch := make([]float32, positions*hiddenSize)
+		if err := gpu.GemmFP8E4M3(downBatch, actBatch, positions, fl.Down); err != nil {
+			return fmt.Errorf("FP8 down GEMM: %w", err)
+		}
+		copy(scratch.Hidden[:positions*hiddenSize], downBatch)
+	} else {
+		gate := make([]float32, intermediate)
+		up := make([]float32, intermediate)
+		act := make([]float32, intermediate)
+		mlpOut := make([]float32, hiddenSize)
+		for off := 0; off < len(scratch.Hidden); off += hiddenSize {
+			row := scratch.Hidden[off : off+hiddenSize]
 			xBuf := gpu.NewDevBufFrom(row)
 			gOut := gpu.NewDevBuf(intermediate)
 			gpu.DevGemv(gOut, xBuf, gateBuf, intermediate, gateCols)
@@ -424,8 +432,8 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 			uOut.Free()
 			aBuf.Free()
 			dOut.Free()
+			copy(row, mlpOut)
 		}
-		copy(row, mlpOut)
 	}
 
 	postNorm1, err := loadFloatVector(weights, lb.PostFFNLayerNorm1)
