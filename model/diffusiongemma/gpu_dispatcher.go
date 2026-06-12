@@ -9,6 +9,8 @@ import (
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"math"
+	"runtime"
+	"sync"
 	"unsafe"
 )
 
@@ -529,10 +531,52 @@ func runLMHeadFromShards(shards *safetensors.ShardedFile, scratch ForwardScratch
 	for pos := 0; pos < positions; pos++ {
 		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 		hiddenBF16 := simd.BF16FromF32Slice(hidden)
-		for vocabID := 0; vocabID < vocab; vocabID++ {
-			row := bf16Embed[vocabID*hiddenSize : (vocabID+1)*hiddenSize]
-			score := simd.BF16DotAsm(row, hiddenBF16)
-			insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+		// Parallel vocab scan across cores
+		nWorkers := runtime.GOMAXPROCS(0)
+		if nWorkers > 12 {
+			nWorkers = 12
+		}
+		chunk := (vocab + nWorkers - 1) / nWorkers
+		type topKResult struct {
+			ids  []int
+			vals []float32
+		}
+		results := make([]topKResult, nWorkers)
+		var wg sync.WaitGroup
+		for w := 0; w < nWorkers; w++ {
+			start := w * chunk
+			end := start + chunk
+			if end > vocab {
+				end = vocab
+			}
+			if start >= end {
+				break
+			}
+			wg.Add(1)
+			go func(s, e, wi int) {
+				defer wg.Done()
+				ids := make([]int, topK)
+				vals := make([]float32, topK)
+				for i := range ids {
+					ids[i] = -1
+					vals[i] = float32(math.Inf(-1))
+				}
+				for vocabID := s; vocabID < e; vocabID++ {
+					row := bf16Embed[vocabID*hiddenSize : (vocabID+1)*hiddenSize]
+					score := simd.BF16DotAsm(row, hiddenBF16)
+					insertTopK(ids, vals, vocabID, score)
+				}
+				results[wi] = topKResult{ids, vals}
+			}(start, end, w)
+		}
+		wg.Wait()
+		// Merge worker top-k results
+		for _, r := range results {
+			for i, id := range r.ids {
+				if id >= 0 {
+					insertTopK(topIDs[pos], topVals[pos], id, r.vals[i])
+				}
+			}
 		}
 	}
 	for pos := 0; pos < positions; pos++ {
