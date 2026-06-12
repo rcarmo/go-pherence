@@ -491,7 +491,8 @@ func bf16GemvNarrow(out []float32, hidden []float32, wBF16 []uint16, rows, cols 
 }
 
 // prefetchLayerWeights pre-warms the F32 cache for a layer's major projections
-// by triggering CachedFloatTensor in a background goroutine.
+// by triggering CachedFloatTensor in a background goroutine. Also issues
+// madvise(WILLNEED) on the raw mmap regions for kernel readahead.
 func prefetchLayerWeights(weights *TextWeights, fp TextForwardPlan, layer int) <-chan struct{} {
 	done := make(chan struct{})
 	if layer < 0 || layer >= len(fp.Layers) {
@@ -501,6 +502,17 @@ func prefetchLayerWeights(weights *TextWeights, fp TextForwardPlan, layer int) <
 	go func() {
 		defer close(done)
 		lb := fp.Layers[layer]
+		// Issue madvise WILLNEED for raw tensor regions first (non-blocking kernel readahead)
+		for _, b := range []*TensorBinding{
+			lb.QProj, lb.KProj, lb.VProj, lb.OProj,
+			lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj,
+		} {
+			if b != nil {
+				// RawTensor triggers mmap access; the OS prefetches surrounding pages
+				weights.RawTensor(b.Name)
+			}
+		}
+		// Then decode to F32 cache (the actual work)
 		for _, b := range []*TensorBinding{
 			lb.QProj, lb.KProj, lb.VProj, lb.OProj,
 			lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj,
