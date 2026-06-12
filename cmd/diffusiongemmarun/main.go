@@ -60,6 +60,7 @@ func main() {
 	mockToken := flag.Int("mock-token", -1, "use deterministic mock denoiser that always favors this token ID")
 	mockTokensCSV := flag.String("mock-tokens", "", "comma-separated deterministic mock denoiser token ID pattern")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
+	useGPUDispatcher := flag.Bool("gpu-dispatcher", false, "open local text weights and use GPU/CUDA dispatcher (falls back to CPU if no GPU)")
 	allowSlowCPU := flag.Bool("allow-slow-cpu", false, "allow experimental full-weight CPU dispatcher run; may be extremely slow and memory-heavy")
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault all mapped safetensor shards before CPU dispatcher run")
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
@@ -184,7 +185,7 @@ func main() {
 	} else if *mockToken >= 0 {
 		denoiser = diffusiongemma.MockDenoiser{VocabSize: m.Shape.VocabSize, TokenID: *mockToken}
 	}
-	if *useCPUDispatcher {
+	if *useCPUDispatcher || *useGPUDispatcher {
 		if !*allowSlowCPU {
 			fatal(fmt.Errorf("DiffusionGemma full-weight CPU dispatcher is experimental and may be extremely slow; re-run with -allow-slow-cpu to proceed"))
 		}
@@ -234,7 +235,11 @@ func main() {
 			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 			return
 		}
-		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress})
+		if *useGPUDispatcher {
+			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress})
+		} else {
+			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress})
+		}
 		if err != nil {
 			fatal(err)
 		}
