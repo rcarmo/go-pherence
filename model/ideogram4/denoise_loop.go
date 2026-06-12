@@ -3,6 +3,8 @@ package ideogram4
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"time"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -99,6 +101,8 @@ func DenoiseLoop(cond, uncond *DiTModel, sched *FlowMatchScheduler, plan Samplin
 			fmt.Fprintf(os.Stderr, "timing denoise_step=%d branch=cfg elapsed=%s\n", si, time.Since(branchStart))
 		}
 		printStats(fmt.Sprintf("denoise_step_%d_cfg", si), branchStats, branchStart)
+		runtime.GC()
+		debug.FreeOSMemory()
 	}
 	return x.Data, nil
 }
