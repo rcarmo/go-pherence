@@ -26,12 +26,13 @@ type LayerWeights struct {
 // TextWeights is a non-eager binding of the DiffusionGemma text tensor plan to
 // a sharded safetensors file. It owns the open shard handles and must be closed.
 type TextWeights struct {
-	Plan                   TextTensorPlan  `json:"plan"`
-	Globals                []TensorBinding `json:"globals"`
-	Layers                 []LayerWeights  `json:"layers"`
-	shards                 *safetensors.ShardedFile
-	floatCache             map[string]FloatTensor
-	q80ResidentLayerPrefix int
+	Plan                         TextTensorPlan  `json:"plan"`
+	Globals                      []TensorBinding `json:"globals"`
+	Layers                       []LayerWeights  `json:"layers"`
+	shards                       *safetensors.ShardedFile
+	floatCache                   map[string]FloatTensor
+	q80ResidentLayerPrefix       int
+	q80ExpertResidentLayerPrefix int
 }
 
 type FloatTensor struct {
@@ -126,6 +127,7 @@ func (w *TextWeights) ClearFloatCache() {
 	if w != nil {
 		w.floatCache = map[string]FloatTensor{}
 		w.q80ResidentLayerPrefix = 0
+		w.q80ExpertResidentLayerPrefix = 0
 		k3ClearQ80CacheForWeights(w)
 	}
 }
@@ -148,6 +150,7 @@ func (w *TextWeights) EvictLayer(layer int) int {
 	}
 	evicted := 0
 	keepQ80 := layer < w.q80ResidentLayerPrefix
+	keepExpertQ80 := layer < w.q80ExpertResidentLayerPrefix
 	for _, b := range w.Layers[layer].Bindings {
 		if w.floatCache != nil {
 			if _, ok := w.floatCache[b.Name]; ok {
@@ -159,7 +162,7 @@ func (w *TextWeights) EvictLayer(layer int) int {
 			evicted++
 		}
 	}
-	if !keepQ80 {
+	if !keepExpertQ80 {
 		evicted += k3EvictQ80Layer(w, layer)
 	}
 	return evicted

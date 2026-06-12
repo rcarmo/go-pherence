@@ -118,7 +118,7 @@ func k3EvictQ80Layer(weights *TextWeights, layer int) int {
 	evicted := 0
 	k3Q80Cache.Range(func(key, _ any) bool {
 		k, ok := key.(k3Q80CacheKey)
-		if ok && k.weights == weights && strings.HasPrefix(k.name, prefix) {
+		if ok && k.weights == weights && strings.HasPrefix(k.name, prefix) && strings.Contains(k.name, ".experts.") {
 			k3Q80Cache.Delete(key)
 			evicted++
 		}
@@ -647,8 +647,13 @@ func (w *TextWeights) PreloadLayerRangeQ80(start, count int, includeExperts bool
 	if count < 0 {
 		return 0, fmt.Errorf("DiffusionGemma negative Q80 preload count %d", count)
 	}
-	if w != nil && start == 0 && count > w.q80ResidentLayerPrefix {
-		w.q80ResidentLayerPrefix = count
+	if w != nil && start == 0 {
+		if count > w.q80ResidentLayerPrefix {
+			w.q80ResidentLayerPrefix = count
+		}
+		if includeExperts && count > w.q80ExpertResidentLayerPrefix {
+			w.q80ExpertResidentLayerPrefix = count
+		}
 	}
 	total := 0
 	for i := 0; i < count; i++ {

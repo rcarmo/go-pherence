@@ -111,7 +111,10 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 ```
 
 With a `1.0 GiB` Q80 budget, the FP8 checkpoint currently selects 1 all-expert
-layer (`864951296` bytes) or 18 dense-only layers (`1055864832` bytes).
+layer (`864951296` bytes) or 18 dense-only layers (`1055864832` bytes). Dense
+Q80 residency and per-expert Q80 residency are tracked separately, so dense
+all-layer prewarm can remain resident without accidentally retaining every
+selected expert tensor across nonresident layers.
 
 For multi-step denoising, `-skip-eviction` keeps decoded/Q80 layer caches across
 steps. It is memory-heavy but can avoid selected-expert repacking: in a 2-step,
