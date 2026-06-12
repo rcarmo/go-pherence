@@ -439,7 +439,7 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		ropeHalf = headDim / 8
 		ropeTheta = 1000000.0
 	}
-	ropeFreqs := simd.BuildRoPEFreqs(positions, ropeHalf, headDim, ropeTheta)
+	ropeFreqs := simd.BuildRoPEFreqs(ctx.EncoderSeqLen+positions, ropeHalf, headDim, ropeTheta)
 	for pos := 0; pos < positions; pos++ {
 		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 		q := qAll[pos*qRows : (pos+1)*qRows]
@@ -469,8 +469,8 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 			}
 		}
 		if len(ropeFreqs) > 0 && ropeHalf > 0 {
-			simd.ApplyRoPEPartial(q, ropeFreqs, pos, heads, headDim, ropeHalf)
-			simd.ApplyRoPEPartial(k, ropeFreqs, pos, kvHeads, headDim, ropeHalf)
+			simd.ApplyRoPEPartial(q, ropeFreqs, pos+ctx.EncoderSeqLen, heads, headDim, ropeHalf)
+			simd.ApplyRoPEPartial(k, ropeFreqs, pos+ctx.EncoderSeqLen, kvHeads, headDim, ropeHalf)
 		}
 	}
 	group := heads / kvHeads

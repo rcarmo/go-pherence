@@ -66,7 +66,11 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 			d.EncoderKV = kv
 		}
 	}
-	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step, SelfConditioning: in.SelfConditioning, EncoderKV: d.EncoderKV}, d.Weights, d.Ops, d.Buffers)
+	encoderSeqLen := 0
+	if len(d.EncoderKV) > 0 {
+		encoderSeqLen = d.EncoderKV[0].SeqLen
+	}
+	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step, SelfConditioning: in.SelfConditioning, EncoderKV: d.EncoderKV, EncoderSeqLen: encoderSeqLen}, d.Weights, d.Ops, d.Buffers)
 }
 
 // ForwardBufferPlan describes the major scratch buffers required by a future

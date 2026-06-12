@@ -79,6 +79,7 @@ type ForwardContext struct {
 	Step             int              `json:"step"`
 	SelfConditioning []float32        `json:"-"`
 	EncoderKV        []EncoderKVLayer `json:"-"`
+	EncoderSeqLen    int              `json:"encoder_seq_len,omitempty"`
 }
 
 // ForwardDispatcher is the explicit boundary where tensor-backed CPU/SIMD
