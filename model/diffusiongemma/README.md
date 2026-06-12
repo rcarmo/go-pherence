@@ -137,6 +137,14 @@ token, one decoder layer (`-max-dispatch-layers 1`, `-lm-head-top-k 8`):
 | 16 | on | no | 1.556s | 6.255s |
 | 16 | on | layer 0 + experts | 0.030s | 0.985s |
 
+A 2-layer canvas-16 smoke (`-max-dispatch-layers 2`, `-k3-q80-prewarm-layers 2`,
+`-k3-q80-prewarm-experts`) shows the packed-weight path carrying beyond layer 0:
+
+| Mode | Encoder layer 0 | Encoder layer 1 | Decoder layer 0 | Decoder layer 1 |
+|---|---:|---:|---:|---:|
+| A100 Q8 off | 1.772s | 1.835s | 16.951s | 16.360s |
+| A100 Q8 on + Q80 prewarm | 0.031s | 0.031s | 0.985s | 0.987s |
+
 The no-A100, A100, and A100+prewarm canvas-16 smoke runs produced the same
 sampled output and entropy (`generated=[0]`, accepted canvas tokens `16`, mean
 entropy `12.476649250079019`). Remaining high-value work: flash/tiled attention,
