@@ -706,3 +706,22 @@ Timing (single run, France question):
 - Total: ~7 min wall clock on CPU
 
 Some prompts still produce all-EOS due to argmax decoding sensitivity to initial random canvas.
+
+
+## Extended benchmark
+
+2026-06-12: Additional correct factual answers:
+
+| Prompt | Output |
+|---|---|
+| What is the capital of France? | The capital of France is **Paris**. |
+| What is the capital of Japan? | The capital of Japan is **Tokyo**. |
+| What is the capital of Germany? | The capital of Germany is Berlin. |
+| What is the capital of Italy? | The capital of Italy is Rome. |
+| What is the tallest mountain in the world? | The tallest mountain in the world is **Mount Everest**. |
+| What is the chemical formula for water? | The formula formula water is **H2O**. |
+| What is the speed of light? | The speed of light in a vacuum is **299,79... |
+
+Settings: `canvas=16, denoise_steps=4, lm_head_top_k=512, seed=42, residency_budget=16GiB`
+
+Some prompt patterns (short/ambiguous) still collapse to EOS with argmax decoding.

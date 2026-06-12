@@ -26,6 +26,13 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 	hiddenSize := fp.Globals.EmbedTokens.Shape[1]
 	positions := len(promptIDs)
 
+	// Preload resident layer weights for the encoder pass
+	if d.ResidentLayerPrefix > 0 {
+		if err := weights.PreloadLayerRange(0, d.ResidentLayerPrefix); err != nil {
+			return nil, err
+		}
+	}
+
 	// Embed prompt tokens with scale
 	hidden := make([]float32, positions*hiddenSize)
 	for i, token := range promptIDs {
