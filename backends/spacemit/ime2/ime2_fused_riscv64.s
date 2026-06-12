@@ -1,5 +1,5 @@
 #include "textflag.h"
-#include "k3_isa.h"
+#include "ime2_isa.h"
 
 // func fusedPackVmadot(wPacked *byte, actI8 *byte, M int, K int, out *int32)
 // Fuses broadcast-pack + vmadot K-loop for M output rows.

@@ -10,7 +10,7 @@ so the grouping is purely organisational.
 
 | Dir | Workstream | Commands |
 |---|---|---|
-| `k3/` | SpaceMIT K3 backend, kernels & benchmarks | `ime2run`, `ime2test`, `npu-tcm`, `testi8i4`, `verifydot`, `k3run`, `k3bench`, `k3llama`, `k3graphrun`, `k3ggmlbench`, `k3ggmlplan`, `k3ffnblockbench`, `k3graphfusebench`, `k3qbench`, `k3plandump`, `k3ortbench`, `k3ortlayerbench` |
+| `k3/` | SpaceMIT K3 backend, kernels & benchmarks | `ime2run`, `ime2test`, `npu-tcm`, `testi8i4`, `verifydot`, `spacemit_run`, `spacemit_bench`, `spacemit_llama`, `spacemit_graphrun`, `spacemit_ggmlbench`, `k3ggmlplan`, `spacemit_ffnblockbench`, `spacemit_graphfusebench`, `k3qbench`, `k3plandump`, `spacemit_ortbench`, `spacemit_ortlayerbench` |
 | `llm/` | LLM serving / generation + speculative decoding | `llmserver`, `llmchat`, `llmgen`, `specbench`, `speccheck` |
 | `qwen/` | Qwen model runners & MTP experiments | `qwen36run`, `qwen3ttsinspect`, `qwenmtpmeta`, `qwenmtpsmoke`, `qwenmtpsynth` |
 | `audio/` | Speech transcription / diarization | `whisper`, `diarize-vtt`, `speakercheck` |
@@ -20,7 +20,7 @@ so the grouping is purely organisational.
 
 ## Kernel migration — done
 
-The kernels and SIMD that used to live **inside** `cmd/k3/ime2run` (a 69-file
+The kernels and SIMD that used to live **inside** `cmd/spacemit/ime2run` (a 69-file
 `package main`) have been filed into their proper backend packages:
 
 | Package | Owns |
@@ -28,9 +28,9 @@ The kernels and SIMD that used to live **inside** `cmd/k3/ime2run` (a 69-file
 | `backends/spacemit/ime2/` | IME2 `vmadot` int8 GEMM kernels (i8i4, i8i8, Q4K tiled, int8-group, argmax) + generic `WorkerPool` |
 | `backends/spacemit/rvv/` | RVV 1.0 SIMD kernels (int8 GEMM, W4A8, byte-copy, q8 quant) |
 | `backends/spacemit/tcm/` | TCM (on-chip SRAM) driver |
-| `backends/spacemit/k3engine/` | The pure-Go transformer inference engine (decode loop + q4k/q6k/i8i4 kernels); `aipool/` worker pool, `config/` flags |
-| `backends/k3/` | High-level ORT/Vulkan backend selection / dispatch |
+| `backends/spacemit/aicpu/` | The pure-Go transformer inference engine (decode loop + q4k/q6k/i8i4 kernels); `aipool/` worker pool, `config/` flags |
+| `backends/spacemit/board/` | High-level ORT/Vulkan backend selection / dispatch |
 
 See `backends/spacemit/README.md` for the package layout and dependency map.
-The `cmd/k3/ime2run` command is now a thin wrapper around
-`backends/spacemit/k3engine`.
+The `cmd/spacemit/ime2run` command is now a thin wrapper around
+`backends/spacemit/aicpu`.

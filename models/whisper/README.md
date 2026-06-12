@@ -17,7 +17,7 @@ live in `backends/simd/fft` and `backends/spacemit`; the files here are
 Whisper-specific orchestration and quantization tuned for byte-exact transcripts.
 
 Production sub-1.0 RTF path: EP-encoder + Go int8 turbo-decoder hybrid
-(`WHISPER_ENC_H` seam in `cmd/audio/whisper`). See `research/npu-whisper`.
+(`WHISPER_ENC_H` seam in `cmd/audio/whisper`). See `research/aicpu-whisper`.
 
 Native K3 path status: `WHISPER_INT8=1` enables the full native IME/RVV int8
 encoder+turbo decoder. `WHISPER_FP16_ATTN=1` is an experimental X100 RVV/Zvfh

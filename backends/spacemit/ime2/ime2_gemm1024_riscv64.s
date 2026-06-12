@@ -1,5 +1,5 @@
 #include "textflag.h"
-#include "k3_isa.h"
+#include "ime2_isa.h"
 
 // func vmadotKLoopAI(A *byte, B *byte, C *int32, K int)
 // K-loop that forces vl=32 (VLEN=256 behavior) on AI cores (VLEN=1024).

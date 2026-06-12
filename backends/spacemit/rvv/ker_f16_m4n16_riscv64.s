@@ -1,5 +1,5 @@
 #include "textflag.h"
-#include "../ime2/k3_isa.h"
+#include "../ime2/ime2_isa.h"
 
 // func kernelF16M4N16(a, bp *uint16, c *float32, K, lda, ldc int64)
 //

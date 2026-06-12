@@ -15,15 +15,15 @@ layer for the same chip.
 | `rvv/` | Low-level RVV 1.0 SIMD kernels: int8 GEMM, W4A8, copy, q8 quant. Leaf. |
 | `tcm/` | TCM (on-chip SRAM) driver. Uncached for CPU → DMA-staging only. Leaf. |
 | `inference/` | Mid-level numeric ops (RMSNorm, Q4_K/INT8 mat-vec) over `ime2`. |
-| `k3engine/` | The pure-Go transformer inference engine (decode loop + quant kernels). |
-| `k3engine/aipool/` | The engine's TCM-aware worker pool. |
-| `k3engine/config/` | `IME2_*` environment feature flags. |
-| `k3engine/q4kcshim/` | Optional cgo shim linking llama.cpp for kernel validation. |
+| `aicpu/` | The pure-Go transformer inference engine (decode loop + quant kernels). |
+| `aicpu/aipool/` | The engine's TCM-aware worker pool. |
+| `aicpu/config/` | `IME2_*` environment feature flags. |
+| `aicpu/q4kcshim/` | Optional cgo shim linking llama.cpp for kernel validation. |
 
 ## Dependency direction
 
 ```
-k3engine ──> aipool, config, ime2, rvv, tcm, inference
+aicpu ──> aipool, config, ime2, rvv, tcm, inference
 inference ──> ime2
 ime2, rvv, tcm ──> (leaves, no internal deps)
 ```

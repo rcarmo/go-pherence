@@ -1,5 +1,5 @@
 #include "textflag.h"
-#include "../ime2/k3_isa.h"
+#include "../ime2/ime2_isa.h"
 
 // func dotF16(a, b *uint16, n int64) float32
 // RVV/Zvfh fp16 dot product with fp32 accumulation.

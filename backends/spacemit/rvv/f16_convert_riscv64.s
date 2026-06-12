@@ -1,5 +1,5 @@
 #include "textflag.h"
-#include "../ime2/k3_isa.h"
+#include "../ime2/ime2_isa.h"
 
 // func f32ToF16RVV(src *float32, dst *uint16, n int)
 // Vector narrowing conversion: f32 -> IEEE-754 fp16 bits.

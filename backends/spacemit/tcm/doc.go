@@ -3,6 +3,6 @@
 // ioctl (8 cores x 384 KB).
 //
 // Note: TCM is uncached for the CPU/RVV, so it is only useful as a DMA staging
-// buffer, not as a general compute scratchpad — see research/npu-whisper for
+// buffer, not as a general compute scratchpad — see research/aicpu-whisper for
 // the measurements behind that conclusion.
 package tcm

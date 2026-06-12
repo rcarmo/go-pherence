@@ -10,7 +10,7 @@ import (
 	"time"
 
 	simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
-	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 

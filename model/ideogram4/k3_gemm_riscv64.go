@@ -7,7 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
-	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 

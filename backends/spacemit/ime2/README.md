@@ -4,7 +4,7 @@ Low-level **IME** (Integrated Matrix Engine) int8 matrix-multiply kernels for th
 SpaceMIT K3 X60 cores, implemented in native RVV `vmadot` assembly (VLEN=1024).
 
 This is the canonical home for **all** SpaceMIT IME GEMM kernels — commands and
-the `k3engine` runtime call into here rather than carrying their own copies.
+the `aicpu` runtime call into here rather than carrying their own copies.
 
 ## Kernel families
 
@@ -21,5 +21,5 @@ the `k3engine` runtime call into here rather than carrying their own copies.
 
 - WORD-encoded / native `.s` assembly is used because the Go toolchain has no RVV
   assembler. Most kernels must run on an AI-registered worker goroutine pinned to
-  cores 8–15 (see `tcm` and `k3engine/aipool`).
-- Leaf package: depends only on `rvv`/`tcm` siblings, never on `k3engine`.
+  cores 8–15 (see `tcm` and `aicpu/aipool`).
+- Leaf package: depends only on `rvv`/`tcm` siblings, never on `aicpu`.

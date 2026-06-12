@@ -5,7 +5,7 @@
 // LM head) using libggml-base directly, mirroring llama.cpp's internal graph
 // builder but driven by go-pherence's own GGUF loader.
 //
-// Performance target: match cmd/k3llama (~12 tok/s decode on MilkV Jupiter K3)
+// Performance target: match cmd/spacemit_llama (~12 tok/s decode on MilkV Jupiter K3)
 // by using the same quantised GGML kernels through the same compute path.
 package llamagraph
 

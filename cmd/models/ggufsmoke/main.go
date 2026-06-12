@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/runtime/kv"
@@ -62,7 +62,7 @@ func main() {
 		os.Setenv("GO_PHERENCE_GGML_QUANT", "1")
 	}
 	t0 := time.Now()
-	m, err := model.LoadGGUFLlama(*path, k3.SIMDBackend{})
+	m, err := model.LoadGGUFLlama(*path, board.SIMDBackend{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ggufsmoke: load failed: %v\n", err)
 		os.Exit(1)
