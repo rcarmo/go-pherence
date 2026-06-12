@@ -177,7 +177,7 @@ A 2-layer canvas-16 smoke (`-max-dispatch-layers 2`, `-k3-q80-prewarm-layers 2`,
 | Mode | Encoder layer 0 | Encoder layer 1 | Decoder layer 0 | Decoder layer 1 |
 |---|---:|---:|---:|---:|
 | A100 Q8 off | 1.772s | 1.835s | 16.951s | 16.360s |
-| A100 Q8 on + Q80 prewarm | 0.031s | 0.031s | 0.985s | 0.987s |
+| A100 Q8 on + Q80 prewarm | 0.031s | 0.031s | 0.081s | 0.068s |
 
 With dense-only Q80 prewarm (`-k3-q80-prewarm-layers 2`) and selected experts
 packed on demand, `GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=8`
@@ -190,7 +190,10 @@ position), reducing resident-weight expert op time from ~304ms to ~44–54ms.
 Decoder and encoder attention context are split across X100 workers. On a
 canvas-64 one-layer decoder smoke this improved layer time from `1.024s`
 (`K3_THREADS=1`) to `0.928s` (`K3_THREADS=8`) with identical output; a 32-token
-prompt smoke completed cleanly with encoder context parallelism enabled.
+prompt smoke completed cleanly with encoder context parallelism enabled. The
+largest subsequent win came from lazily loading F32 fallback matrices only when
+Q80 dispatch fails: prewarmed canvas-16 decoder layers dropped to roughly
+`81ms/68ms`, with `self_attention≈9–10ms`, `dense_mlp≈5ms`, and `experts≈44–55ms`.
 
 The no-A100, A100, and A100+prewarm canvas-16 smoke runs produced the same
 sampled output and entropy (`generated=[0]`, accepted canvas tokens `16`, mean

@@ -499,37 +499,24 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		return fmt.Errorf("DiffusionGemma self-attention layer %d outside plan", op.Layer)
 	}
 	lb := fp.Layers[op.Layer]
-	qM, err := loadMixedMatrix(weights, lb.QProj)
-	if err != nil {
-		return err
+	if lb.QProj == nil || lb.KProj == nil || lb.OProj == nil || len(lb.QProj.Shape) != 2 || len(lb.KProj.Shape) != 2 || len(lb.OProj.Shape) != 2 {
+		return fmt.Errorf("DiffusionGemma attention missing projection bindings layer %d", op.Layer)
 	}
-	qRows, hiddenSize := qM.rows, qM.cols
-	kM, err := loadMixedMatrix(weights, lb.KProj)
-	if err != nil {
-		return err
+	qRows, hiddenSize := lb.QProj.Shape[0], lb.QProj.Shape[1]
+	kRows, kCols := lb.KProj.Shape[0], lb.KProj.Shape[1]
+	if kCols != hiddenSize {
+		return fmt.Errorf("DiffusionGemma attention K shape %v hidden=%d", lb.KProj.Shape, hiddenSize)
 	}
-	kRows := kM.rows
-	if kM.cols != hiddenSize {
-		return fmt.Errorf("DiffusionGemma attention K shape [%d,%d] hidden=%d", kRows, kM.cols, hiddenSize)
-	}
-	var vM *mixedMatrix
+	var qM, kM, vM, oM *mixedMatrix
 	vRows := kRows
 	if lb.VProj != nil {
-		vM, err = loadMixedMatrix(weights, lb.VProj)
-		if err != nil {
-			return err
+		if len(lb.VProj.Shape) != 2 || lb.VProj.Shape[1] != hiddenSize {
+			return fmt.Errorf("DiffusionGemma attention V shape %v hidden=%d", lb.VProj.Shape, hiddenSize)
 		}
-		vRows = vM.rows
-		if vM.cols != hiddenSize {
-			return fmt.Errorf("DiffusionGemma attention V shape [%d,%d] hidden=%d", vRows, vM.cols, hiddenSize)
-		}
+		vRows = lb.VProj.Shape[0]
 	}
-	oM, err := loadMixedMatrix(weights, lb.OProj)
-	if err != nil {
-		return err
-	}
-	if oM.rows != hiddenSize || oM.cols != qRows {
-		return fmt.Errorf("DiffusionGemma attention O shape [%d,%d] q=%d hidden=%d", oM.rows, oM.cols, qRows, hiddenSize)
+	if lb.OProj.Shape[0] != hiddenSize || lb.OProj.Shape[1] != qRows {
+		return fmt.Errorf("DiffusionGemma attention O shape %v q=%d hidden=%d", lb.OProj.Shape, qRows, hiddenSize)
 	}
 	qNorm, err := loadFloatVector(weights, lb.QNorm)
 	if err != nil {
@@ -559,6 +546,9 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		ropeHalf = headDim / 8
 		ropeTheta = 1000000.0
 	}
+	timing := diffusionGemmaTimingEnabled()
+	phaseStart := time.Now()
+	var qkvElapsed, normRopeElapsed, contextElapsed, oElapsed time.Duration
 	ropeFreqs := simd.BuildRoPEFreqs(ctx.EncoderSeqLen+positions, ropeHalf, headDim, ropeTheta)
 	qDone, kDone, vDone := false, false, false
 	if lb.VProj != nil {
@@ -594,6 +584,31 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		if err != nil {
 			return err
 		}
+	}
+	if !qDone {
+		var err error
+		qM, err = loadMixedMatrix(weights, lb.QProj)
+		if err != nil {
+			return err
+		}
+	}
+	if !kDone {
+		var err error
+		kM, err = loadMixedMatrix(weights, lb.KProj)
+		if err != nil {
+			return err
+		}
+	}
+	if lb.VProj != nil && !vDone {
+		var err error
+		vM, err = loadMixedMatrix(weights, lb.VProj)
+		if err != nil {
+			return err
+		}
+	}
+	if timing {
+		qkvElapsed = time.Since(phaseStart)
+		phaseStart = time.Now()
 	}
 	for pos := 0; pos < positions; pos++ {
 		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
@@ -631,6 +646,10 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 			simd.ApplyRoPEPartial(k, ropeFreqs, pos+ctx.EncoderSeqLen, kvHeads, headDim, ropeHalf)
 		}
 	}
+	if timing {
+		normRopeElapsed = time.Since(phaseStart)
+		phaseStart = time.Now()
+	}
 	group := heads / kvHeads
 	enc := EncoderKVLayer{}
 	if op.Layer >= 0 && op.Layer < len(ctx.EncoderKV) {
@@ -648,9 +667,18 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		slidingWindow = 1024
 	}
 	runAttentionContextK3(attnAll, qAll, kAll, vAll, enc, positions, heads, kvHeads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
+	if timing {
+		contextElapsed = time.Since(phaseStart)
+		phaseStart = time.Now()
+	}
 	if done, err := k3GemmRowsQ80(scratch.Hidden, attnAll, positions, weights, lb.OProj); err != nil {
 		return err
 	} else if !done {
+		var err error
+		oM, err = loadMixedMatrix(weights, lb.OProj)
+		if err != nil {
+			return err
+		}
 		out := make([]float32, hiddenSize)
 		for pos := 0; pos < positions; pos++ {
 			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
@@ -659,6 +687,10 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 			}
 			copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 		}
+	}
+	if timing {
+		oElapsed = time.Since(phaseStart)
+		fmt.Fprintf(os.Stderr, "timing diffusiongemma attention layer=%d qkv=%s norm_rope=%s context=%s o_proj=%s\n", op.Layer, qkvElapsed.Round(time.Millisecond), normRopeElapsed.Round(time.Millisecond), contextElapsed.Round(time.Millisecond), oElapsed.Round(time.Millisecond))
 	}
 	return nil
 }
@@ -822,23 +854,14 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 		return fmt.Errorf("DiffusionGemma dense MLP layer %d outside plan", op.Layer)
 	}
 	lb := fp.Layers[op.Layer]
-	gateM, err := loadMixedMatrix(weights, lb.MLPGateProj)
-	if err != nil {
-		return err
+	if lb.MLPGateProj == nil || lb.MLPUpProj == nil || lb.MLPDownProj == nil || len(lb.MLPGateProj.Shape) != 2 || len(lb.MLPUpProj.Shape) != 2 || len(lb.MLPDownProj.Shape) != 2 {
+		return fmt.Errorf("DiffusionGemma dense MLP missing projection bindings layer %d", op.Layer)
 	}
-	upM, err := loadMixedMatrix(weights, lb.MLPUpProj)
-	if err != nil {
-		return err
+	intermediate, hiddenSize := lb.MLPGateProj.Shape[0], lb.MLPGateProj.Shape[1]
+	if lb.MLPUpProj.Shape[0] != intermediate || lb.MLPUpProj.Shape[1] != hiddenSize || lb.MLPDownProj.Shape[0] != hiddenSize || lb.MLPDownProj.Shape[1] != intermediate {
+		return fmt.Errorf("DiffusionGemma dense MLP shape mismatch gate=%v up=%v down=%v", lb.MLPGateProj.Shape, lb.MLPUpProj.Shape, lb.MLPDownProj.Shape)
 	}
-	downM, err := loadMixedMatrix(weights, lb.MLPDownProj)
-	if err != nil {
-		return err
-	}
-	if gateM.rows != upM.rows || gateM.cols != upM.cols || downM.cols != gateM.rows || downM.rows != gateM.cols {
-		return fmt.Errorf("DiffusionGemma dense MLP shape mismatch")
-	}
-	hiddenSize := gateM.cols
-	intermediate := gateM.rows
+	var gateM, upM, downM *mixedMatrix
 	if hiddenSize <= 0 || intermediate <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
 		return fmt.Errorf("DiffusionGemma dense MLP hidden len=%d hidden_size=%d intermediate=%d", len(scratch.Hidden), hiddenSize, intermediate)
 	}
@@ -848,6 +871,15 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 	if done, err := k3Gemm2RowsQ80(gateAll, upAll, scratch.Hidden, positions, weights, lb.MLPGateProj, lb.MLPUpProj); err != nil {
 		return err
 	} else if !done {
+		var err error
+		gateM, err = loadMixedMatrix(weights, lb.MLPGateProj)
+		if err != nil {
+			return err
+		}
+		upM, err = loadMixedMatrix(weights, lb.MLPUpProj)
+		if err != nil {
+			return err
+		}
 		for off, pos := 0, 0; off < len(scratch.Hidden); off, pos = off+hiddenSize, pos+1 {
 			row := scratch.Hidden[off : off+hiddenSize]
 			gate := gateAll[pos*intermediate : (pos+1)*intermediate]
@@ -872,6 +904,11 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 	if done, err := k3GemmRowsQ80(scratch.Hidden, actAll, positions, weights, lb.MLPDownProj); err != nil {
 		return err
 	} else if !done {
+		var err error
+		downM, err = loadMixedMatrix(weights, lb.MLPDownProj)
+		if err != nil {
+			return err
+		}
 		out := make([]float32, hiddenSize)
 		for pos := 0; pos < positions; pos++ {
 			act := actAll[pos*intermediate : (pos+1)*intermediate]
