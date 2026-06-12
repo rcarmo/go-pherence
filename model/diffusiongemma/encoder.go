@@ -84,22 +84,23 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 			}
 		}
 
-		// attention: compute Q,K,V projections
-		qW, qRows, _, err := loadFloatMatrix(weights, lb.QProj)
-		if err != nil {
-			return nil, err
+		// attention: compute Q,K,V projections. Use binding shapes first so
+		// the K3 A100 path can avoid eager F32 decode of FP8 weights.
+		if lb.QProj == nil || lb.KProj == nil || len(lb.QProj.Shape) != 2 || len(lb.KProj.Shape) != 2 {
+			return nil, fmt.Errorf("DiffusionGemma encoder missing Q/K projection bindings layer %d", layer)
 		}
-		kW, kRows, _, err := loadFloatMatrix(weights, lb.KProj)
-		if err != nil {
-			return nil, err
+		qRows, qCols := lb.QProj.Shape[0], lb.QProj.Shape[1]
+		kRows, kCols := lb.KProj.Shape[0], lb.KProj.Shape[1]
+		if qCols != hiddenSize || kCols != hiddenSize {
+			return nil, fmt.Errorf("DiffusionGemma encoder Q/K projection shape mismatch q=%v k=%v hidden=%d", lb.QProj.Shape, lb.KProj.Shape, hiddenSize)
 		}
-		var vW []float32
+		var qW, kW, vW []float32
 		vRows := kRows
 		if lb.VProj != nil {
-			vW, vRows, _, err = loadFloatMatrix(weights, lb.VProj)
-			if err != nil {
-				return nil, err
+			if len(lb.VProj.Shape) != 2 || lb.VProj.Shape[1] != hiddenSize {
+				return nil, fmt.Errorf("DiffusionGemma encoder V projection shape mismatch v=%v hidden=%d", lb.VProj.Shape, hiddenSize)
 			}
+			vRows = lb.VProj.Shape[0]
 		}
 		qNorm, err := loadFloatVector(weights, lb.QNorm)
 		if err != nil {
@@ -124,16 +125,89 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 			ropeTheta = 1000000.0
 		}
 		ropeFreqs := simd.BuildRoPEFreqs(positions, ropeHalf, headDim, ropeTheta)
+		qDone, kDone, vDone := false, false, false
+		if lb.VProj != nil {
+			if done, err := k3GemmManyRowsQ80([][]float32{qAll, kAll, vAll}, hidden, positions, weights, []*TensorBinding{lb.QProj, lb.KProj, lb.VProj}); err != nil {
+				return nil, err
+			} else if done {
+				qDone, kDone, vDone = true, true, true
+			}
+		} else {
+			if done, err := k3GemmManyRowsQ80([][]float32{qAll, kAll}, hidden, positions, weights, []*TensorBinding{lb.QProj, lb.KProj}); err != nil {
+				return nil, err
+			} else if done {
+				qDone, kDone = true, true
+			}
+		}
+		if !qDone {
+			var err error
+			qDone, err = k3GemmRowsQ80(qAll, hidden, positions, weights, lb.QProj)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if !qDone {
+			var qCols int
+			qW, qRows, qCols, err = loadFloatMatrix(weights, lb.QProj)
+			if err != nil {
+				return nil, err
+			}
+			if qCols != hiddenSize {
+				return nil, fmt.Errorf("DiffusionGemma encoder Q projection cols=%d hidden=%d", qCols, hiddenSize)
+			}
+		}
+		if !kDone {
+			var err error
+			kDone, err = k3GemmRowsQ80(kAll, hidden, positions, weights, lb.KProj)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if !kDone {
+			var kCols int
+			kW, kRows, kCols, err = loadFloatMatrix(weights, lb.KProj)
+			if err != nil {
+				return nil, err
+			}
+			if kCols != hiddenSize {
+				return nil, fmt.Errorf("DiffusionGemma encoder K projection cols=%d hidden=%d", kCols, hiddenSize)
+			}
+		}
+		if lb.VProj != nil && !vDone {
+			var err error
+			vDone, err = k3GemmRowsQ80(vAll, hidden, positions, weights, lb.VProj)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if lb.VProj != nil {
+			if !vDone {
+				var vCols int
+				vW, vRows, vCols, err = loadFloatMatrix(weights, lb.VProj)
+				if err != nil {
+					return nil, err
+				}
+				if vCols != hiddenSize {
+					return nil, fmt.Errorf("DiffusionGemma encoder V projection cols=%d hidden=%d", vCols, hiddenSize)
+				}
+			}
+		}
 
 		for pos := 0; pos < positions; pos++ {
 			h := hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 			q := qAll[pos*qRows : (pos+1)*qRows]
 			k := kAll[pos*kRows : (pos+1)*kRows]
 			v := vAll[pos*vRows : (pos+1)*vRows]
-			simd.GemvRows(q, h, qW, qRows, hiddenSize)
-			simd.GemvRows(k, h, kW, kRows, hiddenSize)
+			if !qDone {
+				simd.GemvRows(q, h, qW, qRows, hiddenSize)
+			}
+			if !kDone {
+				simd.GemvRows(k, h, kW, kRows, hiddenSize)
+			}
 			if lb.VProj != nil {
-				simd.GemvRows(v, h, vW, vRows, hiddenSize)
+				if !vDone {
+					simd.GemvRows(v, h, vW, vRows, hiddenSize)
+				}
 			} else {
 				copy(v, k)
 			}
@@ -218,31 +292,61 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		}
 
 		// Dense MLP
-		gateW, gateRows, gateCols, err := loadFloatMatrix(weights, lb.MLPGateProj)
-		if err != nil {
-			return nil, err
+		if lb.MLPGateProj == nil || lb.MLPUpProj == nil || lb.MLPDownProj == nil || len(lb.MLPGateProj.Shape) != 2 || len(lb.MLPUpProj.Shape) != 2 || len(lb.MLPDownProj.Shape) != 2 {
+			return nil, fmt.Errorf("DiffusionGemma encoder missing MLP bindings layer %d", layer)
 		}
-		upW, _, _, err := loadFloatMatrix(weights, lb.MLPUpProj)
-		if err != nil {
-			return nil, err
+		intermediate := lb.MLPGateProj.Shape[0]
+		if lb.MLPGateProj.Shape[1] != hiddenSize || lb.MLPUpProj.Shape[0] != intermediate || lb.MLPUpProj.Shape[1] != hiddenSize || lb.MLPDownProj.Shape[0] != hiddenSize || lb.MLPDownProj.Shape[1] != intermediate {
+			return nil, fmt.Errorf("DiffusionGemma encoder MLP shape mismatch gate=%v up=%v down=%v hidden=%d", lb.MLPGateProj.Shape, lb.MLPUpProj.Shape, lb.MLPDownProj.Shape, hiddenSize)
 		}
-		downW, _, _, err := loadFloatMatrix(weights, lb.MLPDownProj)
-		if err != nil {
+		gateAll := make([]float32, positions*intermediate)
+		upAll := make([]float32, positions*intermediate)
+		if done, err := k3Gemm2RowsQ80(gateAll, upAll, hidden, positions, weights, lb.MLPGateProj, lb.MLPUpProj); err != nil {
 			return nil, err
+		} else if !done {
+			gateW, gateRows, gateCols, err := loadFloatMatrix(weights, lb.MLPGateProj)
+			if err != nil {
+				return nil, err
+			}
+			upW, upRows, upCols, err := loadFloatMatrix(weights, lb.MLPUpProj)
+			if err != nil {
+				return nil, err
+			}
+			if gateRows != intermediate || gateCols != hiddenSize || upRows != intermediate || upCols != hiddenSize {
+				return nil, fmt.Errorf("DiffusionGemma encoder MLP fallback shape mismatch")
+			}
+			for pos := 0; pos < positions; pos++ {
+				row := hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+				gate := gateAll[pos*intermediate : (pos+1)*intermediate]
+				up := upAll[pos*intermediate : (pos+1)*intermediate]
+				simd.GemvRows(gate, row, gateW, intermediate, hiddenSize)
+				simd.GemvRows(up, row, upW, intermediate, hiddenSize)
+			}
 		}
-		intermediate := gateRows
-		gate := make([]float32, intermediate)
-		up := make([]float32, intermediate)
-		act := make([]float32, intermediate)
-		mlpOut := make([]float32, hiddenSize)
-		mlpResult := make([]float32, len(hidden))
-		for off := 0; off < len(hidden); off += hiddenSize {
-			row := hidden[off : off+hiddenSize]
-			simd.GemvRows(gate, row, gateW, intermediate, gateCols)
-			simd.GemvRows(up, row, upW, intermediate, gateCols)
+		actAll := make([]float32, positions*intermediate)
+		for pos := 0; pos < positions; pos++ {
+			gate := gateAll[pos*intermediate : (pos+1)*intermediate]
+			up := upAll[pos*intermediate : (pos+1)*intermediate]
+			act := actAll[pos*intermediate : (pos+1)*intermediate]
 			simd.GELUTanhMulTo(act, gate, up)
-			simd.GemvRows(mlpOut, act, downW, hiddenSize, intermediate)
-			copy(mlpResult[off:off+hiddenSize], mlpOut)
+		}
+		mlpResult := make([]float32, len(hidden))
+		if done, err := k3GemmRowsQ80(mlpResult, actAll, positions, weights, lb.MLPDownProj); err != nil {
+			return nil, err
+		} else if !done {
+			downW, downRows, downCols, err := loadFloatMatrix(weights, lb.MLPDownProj)
+			if err != nil {
+				return nil, err
+			}
+			if downRows != hiddenSize || downCols != intermediate {
+				return nil, fmt.Errorf("DiffusionGemma encoder MLP down fallback shape mismatch")
+			}
+			mlpOut := make([]float32, hiddenSize)
+			for pos := 0; pos < positions; pos++ {
+				act := actAll[pos*intermediate : (pos+1)*intermediate]
+				simd.GemvRows(mlpOut, act, downW, hiddenSize, intermediate)
+				copy(mlpResult[pos*hiddenSize:(pos+1)*hiddenSize], mlpOut)
+			}
 		}
 
 		// post_feedforward_layernorm_1
@@ -276,12 +380,12 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		if err != nil {
 			return nil, err
 		}
-		if lb.ExpertsGateUpProj == nil || lb.ExpertsDownProj == nil || len(lb.ExpertsGateUpProj.Shape) != 3 || len(lb.ExpertsDownProj.Shape) != 3 {
-			return nil, fmt.Errorf("DiffusionGemma encoder expert tensor bindings missing layer %d", layer)
+		layout, err := expertLayoutForLayer(weights, lb, hiddenSize)
+		if err != nil {
+			return nil, fmt.Errorf("DiffusionGemma encoder expert layout layer %d: %w", layer, err)
 		}
-		nExperts := lb.ExpertsGateUpProj.Shape[0]
-		gateUpDim := lb.ExpertsGateUpProj.Shape[1]
-		moeIntermediate := gateUpDim / 2
+		moeIntermediate := layout.intermediate
+		decodedExperts := map[int]decodedExpertWeights{}
 
 		for pos := 0; pos < positions; pos++ {
 			resRow := residual[pos*hiddenSize : (pos+1)*hiddenSize]
@@ -337,23 +441,21 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 			for k := 0; k < topK; k++ {
 				expertID := topIDs[k]
 				weight := topVals[k]
-				if expertID < 0 || expertID >= nExperts {
+				if expertID < 0 || expertID >= layout.nExperts {
 					continue
 				}
-				guSlice, guRows, _, err := loadExpertSlice(weights, lb.ExpertsGateUpProj, expertID)
-				if err != nil {
-					return nil, err
+				ew, ok := decodedExperts[expertID]
+				if !ok {
+					ew, err = loadLayerExpertWeights(weights, lb, layout, expertID, hiddenSize)
+					if err != nil {
+						return nil, err
+					}
+					decodedExperts[expertID] = ew
 				}
-				dSlice, _, _, err := loadExpertSlice(weights, lb.ExpertsDownProj, expertID)
-				if err != nil {
-					return nil, err
-				}
-				gW := guSlice[:guRows/2*hiddenSize]
-				uW := guSlice[guRows/2*hiddenSize:]
-				simd.GemvRows(eGate, normedRow, gW, moeIntermediate, hiddenSize)
-				simd.GemvRows(eUp, normedRow, uW, moeIntermediate, hiddenSize)
+				simd.GemvRows(eGate, normedRow, ew.gateW, moeIntermediate, hiddenSize)
+				simd.GemvRows(eUp, normedRow, ew.upW, moeIntermediate, hiddenSize)
 				simd.GELUTanhMulTo(eAct, eGate, eUp)
-				simd.GemvRows(eOut, eAct, dSlice, hiddenSize, moeIntermediate)
+				simd.GemvRows(eOut, eAct, ew.downW, hiddenSize, moeIntermediate)
 				for i := range dst {
 					dst[i] += weight * eOut[i]
 				}

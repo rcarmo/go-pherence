@@ -252,3 +252,51 @@ func GemmQ80x32AIPooledGELUX100PackRowScale(x []float32, M, K int, w ime2.Q80x32
 	putADataBuf(aData)
 	return ok
 }
+
+// GemmManyQ80x32AIPooledX100PackSameInput computes several row-scale Q8 GEMMs
+// with the same activation matrix. Activations are packed once on X100
+// goroutines, then each A100 worker applies every B matrix to its row-group
+// range. Unlike the older dual-GEMM helper, output dimensions may differ.
+func GemmManyQ80x32AIPooledX100PackSameInput(x []float32, M, K int, weights []ime2.Q80x32, outs [][]float32, pool *AIWorkerPool) bool {
+	if pool == nil || M <= 0 || K%32 != 0 || len(x) < M*K || len(weights) == 0 || len(weights) != len(outs) {
+		return false
+	}
+	for i, w := range weights {
+		if !w.Valid || w.K != K || w.M%32 != 0 || len(outs[i]) < M*w.M {
+			return false
+		}
+	}
+	kBlks := K / 32
+	aData, groups := packQ80M4ActivationsX100(x, M, K, kBlks, false)
+	stride := kBlks * ime2.K3I8I8ABlockM4Bytes
+	defer putADataBuf(aData)
+	pool.Run(func(workerID, nWorkers int) {
+		g0 := workerID * groups / nWorkers
+		g1 := (workerID + 1) * groups / nWorkers
+		if g1 <= g0 {
+			return
+		}
+		for g := g0; g < g1; g++ {
+			r := g * 4
+			actual := 4
+			if M-r < actual {
+				actual = M - r
+			}
+			a := aData[g*stride : (g+1)*stride]
+			for i, w := range weights {
+				n := w.M
+				out := outs[i]
+				if actual == 4 {
+					ime2.K3I8I8(&a[0], &w.BData[0], &out[r*n], 4, n, kBlks, n)
+					continue
+				}
+				tail := make([]float32, 4*n)
+				ime2.K3I8I8(&a[0], &w.BData[0], &tail[0], 4, n, kBlks, n)
+				for row := 0; row < actual; row++ {
+					copy(out[(r+row)*n:(r+row+1)*n], tail[row*n:(row+1)*n])
+				}
+			}
+		}
+	})
+	return true
+}

@@ -232,9 +232,37 @@ func decodeFloatRowTo(dst []float32, raw []byte, dtype string) error {
 			dst[i] = diffusionGemmaF16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
 		}
 		return nil
+	case "F8_E4M3", "F8_E4M3FN":
+		if len(raw) < len(dst) {
+			return fmt.Errorf("DiffusionGemma F8_E4M3 row bytes=%d want %d", len(raw), len(dst))
+		}
+		for i := range dst {
+			dst[i] = fp8DecodeE4M3(raw[i])
+		}
+		return nil
 	default:
 		return fmt.Errorf("DiffusionGemma unsupported float row dtype %s", dtype)
 	}
+}
+
+// fp8DecodeE4M3 decodes a single FP8 E4M3 byte to float32.
+func fp8DecodeE4M3(b byte) float32 {
+	sign := float32(1)
+	if b&0x80 != 0 {
+		sign = -1
+		b &= 0x7F
+	}
+	exp := int(b >> 3)
+	mant := int(b & 0x07)
+	if exp == 0 {
+		// subnormal
+		return sign * float32(mant) * (1.0 / 64.0) * (1.0 / 8.0)
+	}
+	if exp == 15 && mant == 7 {
+		// NaN
+		return 0
+	}
+	return sign * float32(8+mant) * float32(uint32(1)<<uint(exp-1)) / 64.0
 }
 
 func diffusionGemmaF16ToF32(h uint16) float32 {
@@ -441,16 +469,54 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		ropeTheta = 1000000.0
 	}
 	ropeFreqs := simd.BuildRoPEFreqs(ctx.EncoderSeqLen+positions, ropeHalf, headDim, ropeTheta)
+	qDone, kDone, vDone := false, false, false
+	if lb.VProj != nil {
+		if done, err := k3GemmManyRowsQ80([][]float32{qAll, kAll, vAll}, scratch.Hidden, positions, weights, []*TensorBinding{lb.QProj, lb.KProj, lb.VProj}); err != nil {
+			return err
+		} else if done {
+			qDone, kDone, vDone = true, true, true
+		}
+	} else {
+		if done, err := k3GemmManyRowsQ80([][]float32{qAll, kAll}, scratch.Hidden, positions, weights, []*TensorBinding{lb.QProj, lb.KProj}); err != nil {
+			return err
+		} else if done {
+			qDone, kDone = true, true
+		}
+	}
+	if !qDone {
+		var err error
+		qDone, err = k3GemmRowsQ80(qAll, scratch.Hidden, positions, weights, lb.QProj)
+		if err != nil {
+			return err
+		}
+	}
+	if !kDone {
+		var err error
+		kDone, err = k3GemmRowsQ80(kAll, scratch.Hidden, positions, weights, lb.KProj)
+		if err != nil {
+			return err
+		}
+	}
+	if lb.VProj != nil && !vDone {
+		var err error
+		vDone, err = k3GemmRowsQ80(vAll, scratch.Hidden, positions, weights, lb.VProj)
+		if err != nil {
+			return err
+		}
+	}
 	for pos := 0; pos < positions; pos++ {
 		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 		q := qAll[pos*qRows : (pos+1)*qRows]
 		k := kAll[pos*kRows : (pos+1)*kRows]
 		v := vAll[pos*vRows : (pos+1)*vRows]
-		if !qM.gemvRows(q, hidden) || !kM.gemvRows(k, hidden) {
-			return fmt.Errorf("DiffusionGemma attention Q/K GEMV rejected layer %d", op.Layer)
+		if !qDone && !qM.gemvRows(q, hidden) {
+			return fmt.Errorf("DiffusionGemma attention Q GEMV rejected layer %d", op.Layer)
+		}
+		if !kDone && !kM.gemvRows(k, hidden) {
+			return fmt.Errorf("DiffusionGemma attention K GEMV rejected layer %d", op.Layer)
 		}
 		if lb.VProj != nil {
-			if !vM.gemvRows(v, hidden) {
+			if !vDone && !vM.gemvRows(v, hidden) {
 				return fmt.Errorf("DiffusionGemma attention V GEMV rejected layer %d", op.Layer)
 			}
 		} else {
@@ -501,7 +567,7 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
 			for j := 0; j < totalKV; j++ {
 				if j < encSeq {
-					scores[j] = dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+					scores[j] = k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
 					continue
 				}
 				canvasJ := j - encSeq
@@ -509,9 +575,9 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 					scores[j] = float32(math.Inf(-1))
 					continue
 				}
-				scores[j] = dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
+				scores[j] = k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
 			}
-			softmaxInPlace(scores)
+			k3SoftmaxInPlace(scores)
 			dst := attnCtx[h*headDim : (h+1)*headDim]
 			for j, score := range scores {
 				var vv []float32
@@ -647,25 +713,44 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 	if hiddenSize <= 0 || intermediate <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
 		return fmt.Errorf("DiffusionGemma dense MLP hidden len=%d hidden_size=%d intermediate=%d", len(scratch.Hidden), hiddenSize, intermediate)
 	}
-	gate := make([]float32, intermediate)
-	up := make([]float32, intermediate)
-	act := make([]float32, intermediate)
-	out := make([]float32, hiddenSize)
-	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
-		row := scratch.Hidden[off : off+hiddenSize]
-		if !gateM.gemvRows(gate, row) {
-			return fmt.Errorf("DiffusionGemma dense MLP gate GEMV rejected layer %d", op.Layer)
+	positions := len(scratch.Hidden) / hiddenSize
+	gateAll := make([]float32, positions*intermediate)
+	upAll := make([]float32, positions*intermediate)
+	if done, err := k3Gemm2RowsQ80(gateAll, upAll, scratch.Hidden, positions, weights, lb.MLPGateProj, lb.MLPUpProj); err != nil {
+		return err
+	} else if !done {
+		for off, pos := 0, 0; off < len(scratch.Hidden); off, pos = off+hiddenSize, pos+1 {
+			row := scratch.Hidden[off : off+hiddenSize]
+			gate := gateAll[pos*intermediate : (pos+1)*intermediate]
+			up := upAll[pos*intermediate : (pos+1)*intermediate]
+			if !gateM.gemvRows(gate, row) {
+				return fmt.Errorf("DiffusionGemma dense MLP gate GEMV rejected layer %d", op.Layer)
+			}
+			if !upM.gemvRows(up, row) {
+				return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
+			}
 		}
-		if !upM.gemvRows(up, row) {
-			return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
-		}
+	}
+	actAll := make([]float32, positions*intermediate)
+	for pos := 0; pos < positions; pos++ {
+		gate := gateAll[pos*intermediate : (pos+1)*intermediate]
+		up := upAll[pos*intermediate : (pos+1)*intermediate]
+		act := actAll[pos*intermediate : (pos+1)*intermediate]
 		if !simd.GELUTanhMulTo(act, gate, up) {
 			return fmt.Errorf("DiffusionGemma dense MLP activation rejected layer %d", op.Layer)
 		}
-		if !downM.gemvRows(out, act) {
-			return fmt.Errorf("DiffusionGemma dense MLP down GEMV rejected layer %d", op.Layer)
+	}
+	if done, err := k3GemmRowsQ80(scratch.Hidden, actAll, positions, weights, lb.MLPDownProj); err != nil {
+		return err
+	} else if !done {
+		out := make([]float32, hiddenSize)
+		for pos := 0; pos < positions; pos++ {
+			act := actAll[pos*intermediate : (pos+1)*intermediate]
+			if !downM.gemvRows(out, act) {
+				return fmt.Errorf("DiffusionGemma dense MLP down GEMV rejected layer %d", op.Layer)
+			}
+			copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 		}
-		copy(row, out)
 	}
 	postNorm1, err := loadFloatVector(weights, lb.PostFFNLayerNorm1)
 	if err != nil {
@@ -869,7 +954,7 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 		if !simd.GemvRows(scored, normBuf, projW, numExperts, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma router GEMV rejected")
 		}
-		softmaxInPlace(scored)
+		k3SoftmaxInPlace(scored)
 		topK := len(scratch.TopKIDs) / positions
 		if topK <= 0 {
 			continue
@@ -926,12 +1011,11 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 	if hiddenSize <= 0 || len(scratch.Residual)%hiddenSize != 0 {
 		return fmt.Errorf("DiffusionGemma expert hidden mismatch")
 	}
-	if lb.ExpertsGateUpProj == nil || lb.ExpertsDownProj == nil || len(lb.ExpertsGateUpProj.Shape) != 3 || len(lb.ExpertsDownProj.Shape) != 3 {
-		return fmt.Errorf("DiffusionGemma expert tensor bindings missing")
+	layout, err := expertLayoutForLayer(weights, lb, hiddenSize)
+	if err != nil {
+		return err
 	}
-	nExperts := lb.ExpertsGateUpProj.Shape[0]
-	gateUpDim := lb.ExpertsGateUpProj.Shape[1]
-	intermediate := gateUpDim / 2
+	intermediate := layout.intermediate
 
 	positions := len(scratch.Residual) / hiddenSize
 	for i := range scratch.MoeOut {
@@ -944,61 +1028,56 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 	expertOut := make([]float32, hiddenSize)
 	topK := len(scratch.TopKIDs) / positions
 
-	// Collect unique expert IDs to decode only needed slices
-	neededExperts := map[int]bool{}
-	for pos := 0; pos < positions; pos++ {
-		for k := 0; k < topK; k++ {
-			id := scratch.TopKIDs[pos*topK+k]
-			if id >= 0 && id < nExperts {
-				neededExperts[id] = true
+	expertsDone, err := k3RunPerExpertA100(weights, lb, layout, scratch, preNorm2, hiddenSize, positions, topK)
+	if err != nil {
+		return err
+	}
+	if !expertsDone {
+		// Collect unique expert IDs to decode only needed slices
+		neededExperts := map[int]bool{}
+		for pos := 0; pos < positions; pos++ {
+			for k := 0; k < topK; k++ {
+				id := scratch.TopKIDs[pos*topK+k]
+				if id >= 0 && id < layout.nExperts {
+					neededExperts[id] = true
+				}
 			}
 		}
-	}
-	type expertWeights struct {
-		gateW, upW, downW []float32
-	}
-	decoded := make(map[int]expertWeights, len(neededExperts))
-	for expertID := range neededExperts {
-		guSlice, guRows, _, err := loadExpertSlice(weights, lb.ExpertsGateUpProj, expertID)
-		if err != nil {
-			return err
+		decoded := make(map[int]decodedExpertWeights, len(neededExperts))
+		for expertID := range neededExperts {
+			ew, err := loadLayerExpertWeights(weights, lb, layout, expertID, hiddenSize)
+			if err != nil {
+				return err
+			}
+			decoded[expertID] = ew
 		}
-		dSlice, _, _, err := loadExpertSlice(weights, lb.ExpertsDownProj, expertID)
-		if err != nil {
-			return err
-		}
-		decoded[expertID] = expertWeights{
-			gateW: guSlice[:guRows/2*hiddenSize],
-			upW:   guSlice[guRows/2*hiddenSize:],
-			downW: dSlice,
-		}
-	}
 
-	for pos := 0; pos < positions; pos++ {
-		resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
-		copy(normedRow, resRow)
-		if !simd.RMSNormTo(normedRow, preNorm2, 1e-6) {
-			return fmt.Errorf("DiffusionGemma expert pre_norm_2 rejected")
-		}
-		dst := scratch.MoeOut[pos*hiddenSize : (pos+1)*hiddenSize]
-		for k := 0; k < topK; k++ {
-			expertID := scratch.TopKIDs[pos*topK+k]
-			weight := scratch.TopKVals[pos*topK+k]
-			ew, ok := decoded[expertID]
-			if !ok {
-				continue
+		for pos := 0; pos < positions; pos++ {
+			resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
+			copy(normedRow, resRow)
+			if !simd.RMSNormTo(normedRow, preNorm2, 1e-6) {
+				return fmt.Errorf("DiffusionGemma expert pre_norm_2 rejected")
 			}
-			if !simd.GemvRows(gate, normedRow, ew.gateW, intermediate, hiddenSize) || !simd.GemvRows(up, normedRow, ew.upW, intermediate, hiddenSize) {
-				return fmt.Errorf("DiffusionGemma expert GEMV rejected")
-			}
-			if !simd.GELUTanhMulTo(act, gate, up) {
-				return fmt.Errorf("DiffusionGemma expert activation rejected")
-			}
-			if !simd.GemvRows(expertOut, act, ew.downW, hiddenSize, intermediate) {
-				return fmt.Errorf("DiffusionGemma expert down GEMV rejected")
-			}
-			for i := range dst {
-				dst[i] += weight * expertOut[i]
+			dst := scratch.MoeOut[pos*hiddenSize : (pos+1)*hiddenSize]
+			for k := 0; k < topK; k++ {
+				expertID := scratch.TopKIDs[pos*topK+k]
+				weight := scratch.TopKVals[pos*topK+k]
+				ew, ok := decoded[expertID]
+				if !ok {
+					continue
+				}
+				if !simd.GemvRows(gate, normedRow, ew.gateW, intermediate, hiddenSize) || !simd.GemvRows(up, normedRow, ew.upW, intermediate, hiddenSize) {
+					return fmt.Errorf("DiffusionGemma expert GEMV rejected")
+				}
+				if !simd.GELUTanhMulTo(act, gate, up) {
+					return fmt.Errorf("DiffusionGemma expert activation rejected")
+				}
+				if !simd.GemvRows(expertOut, act, ew.downW, hiddenSize, intermediate) {
+					return fmt.Errorf("DiffusionGemma expert down GEMV rejected")
+				}
+				for i := range dst {
+					dst[i] += weight * expertOut[i]
+				}
 			}
 		}
 	}
@@ -1284,7 +1363,7 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 			return nil, fmt.Errorf("DiffusionGemma self-conditioning logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
 		}
 		probs := append([]float32(nil), scratch.Logits[pos][:vocab]...)
-		softmaxInPlace(probs)
+		k3SoftmaxInPlace(probs)
 		for vocabID, prob := range probs {
 			if prob == 0 {
 				continue
@@ -1393,7 +1472,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 				if len(scratch.Logits[pos]) < vocab {
 					return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
 				}
-				scratch.Logits[pos][vocabID] = dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
+				scratch.Logits[pos][vocabID] = k3Dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
 			}
 		}
 	}

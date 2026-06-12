@@ -39,9 +39,10 @@ expert selection across 128 experts.
 
 ### Current status
 
-The FP8 model uses per-expert tensor naming which differs from the original
-fused 3D format. The tensor plan builder needs adaptation to accept both formats
-before full inference can run.
+The native text scaffold now accepts both original fused 3D expert tensors and
+the FP8 per-expert tensor format. On riscv64/K3, large FP8 projections can be
+packed into row-scale Q80x32 tiles and dispatched through the SpacemiT A100
+worker pool, with X100 cores packing activations in parallel.
 
 ## Files
 
@@ -69,7 +70,10 @@ before full inference can run.
 |---|---|
 | `k3_dispatcher_riscv64.go` | K3 dispatch hooks: SIMD Sdot, FastExp softmax, RVV SiLU, Saxpy |
 | `k3_dispatcher_other.go` | Non-riscv64 stubs |
-| `k3_fp8_experts.go` | Per-expert FP8 tensor adapter (in progress) |
+| `k3_fp8_experts.go` | Per-expert FP8 tensor adapter and fused/per-expert expert loader |
+| `k3_a100_riscv64.go` | K3 A100 row-scale Q80x32 projection cache and GEMM dispatch |
+| `k3_a100_experts_riscv64.go` | Per-expert MoE grouping using A100 gate/up/down GEMMs |
+| `k3_a100_other.go`, `k3_a100_experts_other.go` | Non-riscv64 stubs |
 
 ## K3 native dispatch
 
@@ -85,13 +89,43 @@ When enabled, hot-path operations are replaced with K3-optimized implementations
 | V accumulation | scalar loop | `simdrt.Saxpy(w, v, out)` — SIMD/RVV SAXPY |
 | GELUTanhMul | shared SIMD | already uses shared backend |
 
-### Planned K3 optimizations
+### K3 A100/Q80x32 acceleration
 
-- A100 Q8 row-scale for dense projections (Q/K/V/O, MLP gate/up/down)
-- A100 Q8 for expert projections (128 experts, top-k activated)
-- Flash Attention for full_attention layers
-- Parallel expert dispatch across X100 workers
-- FP8 → Q80x32 resident weight caching with prewarm
+Enable with:
+
+```sh
+GO_PHERENCE_DIFFUSIONGEMMA_K3=1 \
+GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8=1 \
+GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS=8 \
+GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS=6
+```
+
+Implemented paths:
+
+- Dense attention projections: Q/K/V are dispatched as same-input A100 GEMMs so
+  X100 activation packing is shared.
+- Dense MLP: gate/up use a same-input dual GEMM; down uses the row-scale Q80x32
+  path.
+- Per-expert MoE: positions are grouped by selected expert; each expert batch
+  runs A100 gate/up, SIMD GELU×up, then A100 down projection.
+- Encoder prompt pass reuses A100 for attention projections and dense MLP.
+- FP8 E4M3 weights are decoded with `.weight_scale` and packed into row-scale
+  Q80x32 once per process; later calls reuse the cache.
+
+Current smoke numbers on Milk-V/K3, FP8 model, prompt IDs `2,3`, one generated
+token, one decoder layer (`-max-dispatch-layers 1`, `-lm-head-top-k 8`):
+
+| Canvas | A100 Q8 | Encoder layer 0 | Decoder layer 0 |
+|---:|:---:|---:|---:|
+| 4 | off | 1.793s | 12.299s |
+| 4 | on | 1.574s | 5.833s |
+| 16 | off | 1.792s | 16.958s |
+| 16 | on | 1.567s | 6.063s |
+
+The A100 and fallback smoke runs produced the same generated ID (`[0]`) for the
+sampled cases. Remaining high-value work: flash/tiled attention, reducing
+first-use Q80 packing latency with prewarm/residency policy, and broader parity
+fixtures.
 
 ## Platform: Milk-V Jupiter 2 / SpacemiT K3
 

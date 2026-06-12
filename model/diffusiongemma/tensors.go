@@ -174,6 +174,10 @@ func TensorReadinessFromInventory(inv TensorInventory, shape Shape) TensorReadin
 			if present[base+suffix] {
 				out.ObservedLayerTensors++
 				observedLayers[layer] = true
+			} else if isExpertSuffix(suffix) && present[base+"experts.0.gate_proj.weight"] {
+				// Per-expert FP8 format: experts.{N}.{gate,up,down}_proj instead of fused
+				out.ObservedLayerTensors++
+				observedLayers[layer] = true
 			} else {
 				out.MissingLayerTensors++
 				if len(out.MissingRequired) < 32 {
@@ -238,10 +242,11 @@ func itoa(n int) string {
 }
 
 type TensorHandle struct {
-	Name     string      `json:"name"`
-	Shard    string      `json:"shard,omitempty"`
-	Group    TensorGroup `json:"group"`
-	Required bool        `json:"required"`
+	Name      string      `json:"name"`
+	Shard     string      `json:"shard,omitempty"`
+	Group     TensorGroup `json:"group"`
+	Required  bool        `json:"required"`
+	PerExpert bool        `json:"per_expert,omitempty"`
 }
 
 type LayerTensorPlan struct {
@@ -291,6 +296,15 @@ func TextTensorPlanFromIndex(path string, shape Shape) (TextTensorPlan, error) {
 		for _, suffix := range requiredLayerSuffixesForType(lt) {
 			name := base + suffix
 			h := TensorHandle{Name: name, Shard: weightMap[name], Group: ClassifyTensorName(name), Required: true}
+			if h.Shard == "" && isExpertSuffix(suffix) {
+				// Per-expert FP8 format fallback
+				altName := base + "experts.0.gate_proj.weight"
+				if weightMap[altName] != "" {
+					h.Shard = weightMap[altName]
+					h.Name = altName
+					h.PerExpert = true
+				}
+			}
 			if h.Shard == "" {
 				plan.Ready = false
 				if len(plan.Missing) < 64 {
@@ -373,4 +387,8 @@ func ShardAvailabilityFromModelDir(modelDir string) (ShardAvailability, bool, er
 		out.PresentBytePercent = 100 * float64(out.PresentBytes) / float64(out.ExpectedBytes)
 	}
 	return out, true, nil
+}
+
+func isExpertSuffix(suffix string) bool {
+	return suffix == "experts.down_proj" || suffix == "experts.gate_up_proj"
 }

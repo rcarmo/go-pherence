@@ -44,6 +44,7 @@ type TextLayerBindings struct {
 	RouterPerExpertScale *TensorBinding `json:"router_per_expert_scale,omitempty"`
 	ExpertsGateUpProj    *TensorBinding `json:"experts_gate_up_proj,omitempty"`
 	ExpertsDownProj      *TensorBinding `json:"experts_down_proj,omitempty"`
+	HasPerExpertWeights  bool           `json:"has_per_expert_weights,omitempty"`
 }
 
 // TextForwardPlan is a semantic view over TextWeights for future forward code.
@@ -146,8 +147,12 @@ func assignLayerBinding(lb *TextLayerBindings, b *TensorBinding) {
 		lb.RouterScale = b
 	case strings.Contains(name, "experts.gate_up_proj"):
 		lb.ExpertsGateUpProj = b
-	case strings.Contains(name, "experts.down_proj"):
+	case strings.Contains(name, "experts.down_proj") && !strings.Contains(name, "experts.0."):
 		lb.ExpertsDownProj = b
+	case matchPerExpert(name, "gate_proj") || matchPerExpert(name, "up_proj") || matchPerExpert(name, "down_proj"):
+		// Per-expert FP8 format: experts.{N}.{gate,up,down}_proj
+		// These are collected and handled during forward dispatch, not stored as a single binding.
+		lb.HasPerExpertWeights = true
 	}
 }
 
@@ -180,6 +185,13 @@ func validateLayerBinding(plan *TextForwardPlan, lb TextLayerBindings) {
 	require("router_proj", lb.RouterProj)
 	require("router_scale", lb.RouterScale)
 	require("router_per_expert_scale", lb.RouterPerExpertScale)
-	require("experts_gate_up_proj", lb.ExpertsGateUpProj)
-	require("experts_down_proj", lb.ExpertsDownProj)
+	// Expert weights may be fused (original BF16) or per-expert (FP8 quantized).
+	if !lb.HasPerExpertWeights {
+		require("experts_gate_up_proj", lb.ExpertsGateUpProj)
+		require("experts_down_proj", lb.ExpertsDownProj)
+	}
+}
+
+func matchPerExpert(name, suffix string) bool {
+	return strings.Contains(name, "experts.") && strings.Contains(name, "."+suffix)
 }

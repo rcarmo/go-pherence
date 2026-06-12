@@ -297,7 +297,7 @@ func diffusionGemmaDTypeSize(dtype string) (int, bool) {
 		return 4, true
 	case "BF16", "F16", "I16", "U16":
 		return 2, true
-	case "I8", "U8", "BOOL":
+	case "I8", "U8", "BOOL", "F8_E4M3", "F8_E4M3FN":
 		return 1, true
 	default:
 		return 0, false
