@@ -104,8 +104,12 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 
 ```sh
 -k3-q80-prewarm-layers 1              # dense projections for first layer
+-k3-q80-residency-budget-gib 1.0      # choose layer count from Q80 cache budget
 -k3-q80-prewarm-experts               # also prepack all per-expert tensors; memory-heavy
 ```
+
+With a `1.0 GiB` Q80 budget, the FP8 checkpoint currently selects 1 all-expert
+layer (`864951296` bytes) or 18 dense-only layers (`1055864832` bytes).
 
 Per-expert tensors are packed in parallel across X100 workers for both
 all-expert prewarm and selected on-demand prepack; override the default with

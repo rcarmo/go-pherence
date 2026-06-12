@@ -473,6 +473,70 @@ func k3Gemm2RowsQ80Names(outA, outB, x []float32, batch int, weights *TextWeight
 // PreloadLayerQ80 pre-packs K3 A100 row-scale Q80x32 weights for one layer.
 // Dense projections are always prepacked; per-expert tensors are only included
 // when includeExperts is true because they dominate memory.
+func q80BytesForShape(shape []int) int64 {
+	if len(shape) != 2 || shape[0] <= 0 || shape[1] <= 0 || shape[0]%32 != 0 || shape[1]%32 != 0 {
+		return 0
+	}
+	return int64(shape[0]/32) * int64(shape[1]/32) * int64(ime2.K3I8I8BTileBytes)
+}
+
+func estimateLayerQ80Bytes(weights *TextWeights, lb TextLayerBindings, includeExperts bool) int64 {
+	if weights == nil {
+		return 0
+	}
+	var bytes int64
+	for _, b := range []*TensorBinding{lb.QProj, lb.KProj, lb.VProj, lb.OProj, lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj, lb.RouterProj} {
+		if b != nil {
+			bytes += q80BytesForShape(b.Shape)
+		}
+	}
+	if !includeExperts {
+		return bytes
+	}
+	hiddenSize := 0
+	if lb.PreFFNLayerNorm2 != nil && len(lb.PreFFNLayerNorm2.Shape) == 1 {
+		hiddenSize = lb.PreFFNLayerNorm2.Shape[0]
+	}
+	if hiddenSize <= 0 {
+		return bytes
+	}
+	layout, err := expertLayoutForLayer(weights, lb, hiddenSize)
+	if err != nil || layout.fused {
+		return bytes
+	}
+	for expertID := 0; expertID < layout.nExperts; expertID++ {
+		for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
+			_, _, shape, err := weights.RawTensor(perExpertTensorName(layout.layerPrefix, expertID, proj))
+			if err == nil {
+				bytes += q80BytesForShape(shape)
+			}
+		}
+	}
+	return bytes
+}
+
+func EstimateQ80ResidencyBudgetFromWeights(weights *TextWeights, includeExperts bool, budgetBytes int64) ResidencyBudget {
+	out := ResidencyBudget{BudgetBytes: budgetBytes, TotalLayers: 0}
+	if weights == nil {
+		return out
+	}
+	fp := weights.ForwardPlan()
+	out.TotalLayers = len(fp.Layers)
+	for i, lb := range fp.Layers {
+		layerBytes := estimateLayerQ80Bytes(weights, lb, includeExperts)
+		if budgetBytes > 0 && out.ResidentBytes+layerBytes > budgetBytes {
+			break
+		}
+		out.ResidentLayers = i + 1
+		out.ResidentBytes += layerBytes
+	}
+	if budgetBytes > 0 {
+		out.RemainingBytes = budgetBytes - out.ResidentBytes
+	}
+	out.AllLayersResident = out.ResidentLayers == len(fp.Layers)
+	return out
+}
+
 func (w *TextWeights) PreloadLayerQ80(layer int, includeExperts bool) (int, error) {
 	if w == nil {
 		return 0, fmt.Errorf("nil DiffusionGemma text weights")
