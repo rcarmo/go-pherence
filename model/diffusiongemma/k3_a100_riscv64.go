@@ -354,7 +354,7 @@ func packK3FP8ToQ80x32RowScale(raw []byte, scales []float32, rows, cols int) ime
 					base := row * cols
 					maxAbs := float32(0)
 					for k := 0; k < cols; k++ {
-						v := fp8DecodeE4M3(raw[base+k]) * scale
+						v := diffusionGemmaFP8E4M3Table[raw[base+k]] * scale
 						rowBuf[k] = v
 						av := float32(math.Abs(float64(v)))
 						if av > maxAbs {

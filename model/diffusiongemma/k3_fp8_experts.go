@@ -75,7 +75,7 @@ func loadPerExpertFP8(weights *TextWeights, layerPrefix string, expertID int, pr
 		}
 		base := r * cols
 		for c := 0; c < cols; c++ {
-			out[base+c] = fp8DecodeE4M3(raw[base+c]) * scale
+			out[base+c] = diffusionGemmaFP8E4M3Table[raw[base+c]] * scale
 		}
 	}
 	return out, rows, cols, nil
