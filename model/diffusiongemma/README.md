@@ -136,7 +136,8 @@ shortlist generator and candidates are reranked with exact BF16/F32 dot products
 (`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_CANDIDATES`, default max(32, 4×topK)).
 In the current A100-hidden-state canvas-4 tail smoke it produced the same token
 and top logit as the exact path while reducing LM-head time from `5.214s`/2.95
-GiB F32 cache to `1.889s`/tiny F32 cache plus one Q80 embedding cache.
+GiB F32 cache to `1.889s`/tiny F32 cache plus one Q80 embedding cache. Sparse
+self-conditioning over top-k logits then completes in roughly `5ms`.
 
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 

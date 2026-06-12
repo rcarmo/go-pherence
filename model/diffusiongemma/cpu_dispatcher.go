@@ -215,12 +215,15 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: logits pos=%d top_id=%d top_val=%.6f mean=%.6f\n", pos, bestID, bestVal, sum/float64(len(row)))
 		}
 	}
-	// Build self-conditioning from logits. With sparse top-k, softmax
-	// naturally zeros -Inf positions, producing a weighted average of
-	// only the top-k token embeddings.
+	// Build self-conditioning from logits. With sparse top-k, this now uses only
+	// finite logits instead of scanning/softmaxing the whole vocabulary row.
+	selfCondStart := time.Now()
 	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch)
 	if err != nil {
 		return ForwardOutput{}, err
+	}
+	if d.Progress {
+		fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed self_conditioning cache_entries=%d cache_bytes=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes(), time.Since(selfCondStart).Round(time.Millisecond))
 	}
 	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning}, nil
 }
@@ -1479,11 +1482,67 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 	positions := len(scratch.Logits)
 	out := make([]float32, positions*hiddenSize)
 	row := make([]float32, hiddenSize)
+	const sparseLimit = 4096
 	for pos := 0; pos < positions; pos++ {
 		if len(scratch.Logits[pos]) < vocab {
 			return nil, fmt.Errorf("DiffusionGemma self-conditioning logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
 		}
-		probs := append([]float32(nil), scratch.Logits[pos][:vocab]...)
+		logits := scratch.Logits[pos][:vocab]
+		finiteIDs := make([]int, 0, 16)
+		finiteVals := make([]float32, 0, 16)
+		dense := false
+		for vocabID, v := range logits {
+			if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
+				continue
+			}
+			if len(finiteIDs) >= sparseLimit {
+				dense = true
+				break
+			}
+			finiteIDs = append(finiteIDs, vocabID)
+			finiteVals = append(finiteVals, v)
+		}
+		if !dense && len(finiteIDs) > 0 {
+			maxLogit := finiteVals[0]
+			for _, v := range finiteVals[1:] {
+				if v > maxLogit {
+					maxLogit = v
+				}
+			}
+			var sum float64
+			probs := make([]float32, len(finiteVals))
+			for i, v := range finiteVals {
+				e := math.Exp(float64(v - maxLogit))
+				probs[i] = float32(e)
+				sum += e
+			}
+			if sum == 0 {
+				continue
+			}
+			inv := float32(1 / sum)
+			dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
+			for i, vocabID := range finiteIDs {
+				prob := probs[i] * inv
+				if prob == 0 {
+					continue
+				}
+				raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
+				if err != nil {
+					return nil, err
+				}
+				if len(shape) != 1 || shape[0] != hiddenSize {
+					return nil, fmt.Errorf("DiffusionGemma self-conditioning row shape %v want [%d]", shape, hiddenSize)
+				}
+				if err := decodeFloatRowTo(row, raw, dtype); err != nil {
+					return nil, err
+				}
+				for j := range dst {
+					dst[j] += prob * row[j]
+				}
+			}
+			continue
+		}
+		probs := append([]float32(nil), logits...)
 		k3SoftmaxInPlace(probs)
 		for vocabID, prob := range probs {
 			if prob == 0 {
