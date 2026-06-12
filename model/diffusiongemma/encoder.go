@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	gpu "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
@@ -14,6 +15,10 @@ import (
 // cache. The encoder uses causal attention (unlike the decoder which is
 // bidirectional) and does not use self-conditioning.
 func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) ([]EncoderKVLayer, error) {
+	return d.EncodePromptWithFP8(promptIDs, weights, ops, buffers, nil)
+}
+
+func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan, fp8 *GPUFP8Model) ([]EncoderKVLayer, error) {
 	if weights == nil {
 		return nil, fmt.Errorf("DiffusionGemma encoder missing weights")
 	}
@@ -130,12 +135,23 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 			q := qAll[pos*qRows : (pos+1)*qRows]
 			k := kAll[pos*kRows : (pos+1)*kRows]
 			v := vAll[pos*vRows : (pos+1)*vRows]
-			simd.GemvRows(q, h, qW, qRows, hiddenSize)
-			simd.GemvRows(k, h, kW, kRows, hiddenSize)
-			if lb.VProj != nil {
-				simd.GemvRows(v, h, vW, vRows, hiddenSize)
+			if fp8 != nil && layer < len(fp8.Layers) {
+				fl := &fp8.Layers[layer]
+				gpu.GemvFP8E4M3(q, h, fl.Q)
+				gpu.GemvFP8E4M3(k, h, fl.K)
+				if fl.V != nil {
+					gpu.GemvFP8E4M3(v, h, fl.V)
+				} else {
+					copy(v, k)
+				}
 			} else {
-				copy(v, k)
+				simd.GemvRows(q, h, qW, qRows, hiddenSize)
+				simd.GemvRows(k, h, kW, kRows, hiddenSize)
+				if lb.VProj != nil {
+					simd.GemvRows(v, h, vW, vRows, hiddenSize)
+				} else {
+					copy(v, k)
+				}
 			}
 			for hh := 0; hh < heads; hh++ {
 				simd.RMSNormTo(q[hh*headDim:(hh+1)*headDim], qNorm, 1e-6)
@@ -191,7 +207,11 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 					}
 				}
 			}
-			simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows)
+			if fp8 != nil && layer < len(fp8.Layers) {
+				gpu.GemvFP8E4M3(out, attnCtx, fp8.Layers[layer].O)
+			} else {
+				simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows)
+			}
 			copy(hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 		}
 
@@ -238,10 +258,18 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		mlpResult := make([]float32, len(hidden))
 		for off := 0; off < len(hidden); off += hiddenSize {
 			row := hidden[off : off+hiddenSize]
-			simd.GemvRows(gate, row, gateW, intermediate, gateCols)
-			simd.GemvRows(up, row, upW, intermediate, gateCols)
-			simd.GELUTanhMulTo(act, gate, up)
-			simd.GemvRows(mlpOut, act, downW, hiddenSize, intermediate)
+			if fp8 != nil && layer < len(fp8.Layers) {
+				fl := &fp8.Layers[layer]
+				gpu.GemvFP8E4M3(gate, row, fl.Gate)
+				gpu.GemvFP8E4M3(up, row, fl.Up)
+				simd.GELUTanhMulTo(act, gate, up)
+				gpu.GemvFP8E4M3(mlpOut, act, fl.Down)
+			} else {
+				simd.GemvRows(gate, row, gateW, intermediate, gateCols)
+				simd.GemvRows(up, row, upW, intermediate, gateCols)
+				simd.GELUTanhMulTo(act, gate, up)
+				simd.GemvRows(mlpOut, act, downW, hiddenSize, intermediate)
+			}
 			copy(mlpResult[off:off+hiddenSize], mlpOut)
 		}
 
