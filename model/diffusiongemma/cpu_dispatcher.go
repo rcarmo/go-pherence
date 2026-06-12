@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"time"
+	"unsafe"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -1109,6 +1110,34 @@ func loadExpertSlice(weights *TextWeights, binding *TensorBinding, expertID int)
 	return out, rows, cols, nil
 }
 
+// loadExpertSliceBF16 returns a BF16 expert slice as []uint16 via zero-copy
+// from the mmap'd tensor data. Returns nil if not BF16.
+func loadExpertSliceBF16(weights *TextWeights, binding *TensorBinding, expertID int) ([]uint16, int, int, error) {
+	if binding == nil || len(binding.Shape) != 3 {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma missing/invalid expert tensor binding")
+	}
+	nExperts, rows, cols := binding.Shape[0], binding.Shape[1], binding.Shape[2]
+	if expertID < 0 || expertID >= nExperts {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma expert %d outside [0,%d)", expertID, nExperts)
+	}
+	raw, dtype, _, err := weights.RawTensor(binding.Name)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	if dtype != "BF16" {
+		return nil, 0, 0, nil // caller should fall back to F32 path
+	}
+	sliceElements := rows * cols
+	sliceBytes := sliceElements * 2
+	start := expertID * sliceBytes
+	end := start + sliceBytes
+	if end > len(raw) {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma expert %d BF16 range [%d,%d) exceeds %d", expertID, start, end, len(raw))
+	}
+	out := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[start])), sliceElements)
+	return out, rows, cols, nil
+}
+
 func loadFloatMatrix(weights *TextWeights, binding *TensorBinding) ([]float32, int, int, error) {
 	if binding == nil {
 		return nil, 0, 0, fmt.Errorf("DiffusionGemma missing matrix binding")
@@ -1139,20 +1168,12 @@ func (m *mixedMatrix) gemvRows(out, x []float32) bool {
 	return simd.GemvRows(out, x, m.f32, m.rows, m.cols)
 }
 
-// loadMixedMatrix tries BF16 first (zero-copy from mmap), falls back to cached F32.
+// loadMixedMatrix tries cached F32 first (fast GEMV), avoiding BF16 path
+// since BF16DotF32 is slower than F32 Sdot on most CPUs.
 func loadMixedMatrix(weights *TextWeights, binding *TensorBinding) (*mixedMatrix, error) {
 	if binding == nil {
 		return nil, fmt.Errorf("DiffusionGemma missing matrix binding")
 	}
-	// Try BF16 path first — avoids full decode
-	bf16, shape, err := weights.RawBF16Tensor(binding.Name)
-	if err != nil {
-		return nil, err
-	}
-	if bf16 != nil && len(shape) == 2 && shape[0] > 0 && shape[1] > 0 {
-		return &mixedMatrix{bf16: bf16, rows: shape[0], cols: shape[1]}, nil
-	}
-	// Fall back to cached F32
 	f32, rows, cols, err := loadFloatMatrix(weights, binding)
 	if err != nil {
 		return nil, err

@@ -18,7 +18,8 @@ func GemvRows(out, x, w []float32, rows, cols int) bool {
 }
 
 // GemvRowsBF16 computes out[rows] = W_bf16[rows,cols] · x[cols], where W is
-// row-major BF16 ([]uint16) and x/out are F32. Avoids full BF16→F32 decode.
+// row-major BF16 ([]uint16) and x/out are F32. Uses BF16DotF32 with F32 input.
+// On amd64 with AVX2, this avoids full BF16→F32 weight decode.
 func GemvRowsBF16(out []float32, x []float32, w []uint16, rows, cols int) bool {
 	weightLen, ok := checked.MulInt(rows, cols)
 	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
