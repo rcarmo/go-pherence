@@ -838,15 +838,6 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 			return fmt.Errorf("DiffusionGemma router GEMV rejected")
 		}
 		softmaxInPlace(scored)
-		if lb.RouterPerExpertScale != nil {
-			perExpert, err2 := loadFloatVector(weights, lb.RouterPerExpertScale)
-			if err2 != nil {
-				return err2
-			}
-			for i := range scored {
-				scored[i] *= perExpert[i]
-			}
-		}
 		topK := len(scratch.TopKIDs) / positions
 		if topK <= 0 {
 			continue
@@ -859,6 +850,28 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 		}
 		for expertID, score := range scored {
 			insertTopK(ids, vals, expertID, score)
+		}
+		var topKSum float32
+		for _, v := range vals {
+			if v > float32(math.Inf(-1)) {
+				topKSum += v
+			}
+		}
+		if topKSum > 0 {
+			for i := range vals {
+				vals[i] /= topKSum
+			}
+		}
+		if lb.RouterPerExpertScale != nil {
+			perExpert, err2 := loadFloatVector(weights, lb.RouterPerExpertScale)
+			if err2 != nil {
+				return err2
+			}
+			for i, id := range ids {
+				if id >= 0 && id < len(perExpert) {
+					vals[i] *= perExpert[id]
+				}
+			}
 		}
 	}
 	return nil
