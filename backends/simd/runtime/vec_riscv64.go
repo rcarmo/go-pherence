@@ -2,7 +2,10 @@
 
 package simd
 
-import "github.com/rcarmo/go-pherence/backends/simd/kernels"
+import (
+	"github.com/rcarmo/go-pherence/backends/simd/kernels"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
+)
 
 // RVV vector assembly is enabled incrementally. HasVecAsm remains false until
 // the full vector surface (including RMSNorm/BF16) has parity-tested RVV
@@ -87,7 +90,8 @@ func VecSiLUMul(dst, a, b []float32) {
 		vecMulAsm(dst, dst, b)
 		return
 	}
-	vecSiLUMulGo(dst, a, b)
+	// Use the RVV polynomial SiLU approximation (~4x faster than scalar exp).
+	rvv.SiLUMulRVV(dst, a, b)
 }
 func RMSNorm(x, w []float32, eps float32) { rmsNormGo(x, w, eps) }
 func RMSNormNoScale(x []float32, eps float32) {
