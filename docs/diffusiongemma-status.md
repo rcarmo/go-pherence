@@ -743,3 +743,18 @@ Benchmark (Spain capital, 2 denoise steps, canvas=16, top-k=512):
 - Decoder: ~3m30s (2 × 30 layers + 2 LM heads)
 
 3 denoise steps adds punctuation/formatting; 2 steps gives the core answer.
+
+
+## Quantized weight variants
+
+2026-06-12: Surveyed quantized DiffusionGemma checkpoints for RTX 3060 (12 GB VRAM):
+
+| Variant | Size | VRAM Fit | GPU Backend |
+|---|---|---|---|
+| nvidia/diffusiongemma-26B-A4B-it-NVFP4 | 18.8 GB | Stream | GemvNVFP4 (needs ModelOpt loader) |
+| RedHatAI/diffusiongemma-26B-A4B-it-FP8-dynamic | 27.2 GB | 1-layer stream | GemvFP8E4M3 (compressed-tensors format) |
+| unsloth/diffusiongemma-26B-A4B-it-Q4_K_M | 16.8 GB | Almost | GemvQ4 (needs GGUF DiffusionGemma loader) |
+
+All variants have the same architecture: 30 layers, 2816 hidden, 128 experts, top-8.
+
+Best immediate option: FP8-dynamic (single safetensors file, existing GemvFP8E4M3 backend, 27.2 GB mmap + stream 1 layer through GPU at ~900 MB per layer vs 3.3 GB for BF16).
