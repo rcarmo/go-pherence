@@ -67,7 +67,7 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 		default:
 			encDispatcher = CPUDispatcher{}
 		}
-		// Always use BF16 CPU encoder (FP8 encoder accumulates too much quant error)
+		// BF16 CPU encoder required — FP8 encoder KV causes decoder EOS collapse
 		kv, err := encDispatcher.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
 		if err != nil {
 			return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
