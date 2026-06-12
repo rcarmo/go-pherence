@@ -19,6 +19,8 @@ type GPUDispatcher struct {
 	LMHeadTopK          int
 	Progress            bool
 	SkipEviction        bool
+	FP8Model            *GPUFP8Model
+	FP8Weights          *FP8TextWeights
 }
 
 func (d GPUDispatcher) cpuFallback() CPUDispatcher {

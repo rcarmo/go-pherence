@@ -61,6 +61,7 @@ func main() {
 	mockTokensCSV := flag.String("mock-tokens", "", "comma-separated deterministic mock denoiser token ID pattern")
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
 	useGPUDispatcher := flag.Bool("gpu-dispatcher", false, "open local text weights and use GPU/CUDA dispatcher (falls back to CPU if no GPU)")
+	fp8Model := flag.String("fp8-model", "", "path to FP8-dynamic DiffusionGemma checkpoint directory for GPU inference")
 	allowSlowCPU := flag.Bool("allow-slow-cpu", false, "allow experimental full-weight CPU dispatcher run; may be extremely slow and memory-heavy")
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault all mapped safetensor shards before CPU dispatcher run")
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
@@ -236,7 +237,24 @@ func main() {
 			return
 		}
 		if *useGPUDispatcher {
-			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress})
+			gpuDisp := diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress}
+			if *fp8Model != "" {
+				fmt.Fprintf(os.Stderr, "diffusiongemmarun: loading FP8 weights from %s\n", *fp8Model)
+				fp8Weights, err := diffusiongemma.OpenFP8TextWeights(*fp8Model, m.Shape)
+				if err != nil {
+					fatal(err)
+				}
+				defer fp8Weights.Close()
+				fmt.Fprintf(os.Stderr, "diffusiongemmarun: uploading %d FP8 layers to GPU\n", len(fp8Weights.Layers))
+				gpuModel, err := diffusiongemma.UploadFP8Layers(fp8Weights)
+				if err != nil {
+					fatal(err)
+				}
+				gpuDisp.FP8Model = gpuModel
+				gpuDisp.FP8Weights = fp8Weights
+				fmt.Fprintf(os.Stderr, "diffusiongemmarun: %d FP8 layers uploaded to GPU\n", len(gpuModel.Layers))
+			}
+			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, gpuDisp)
 		} else {
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress})
 		}
