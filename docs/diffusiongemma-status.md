@@ -777,3 +777,29 @@ GPU memory fit (RTX 3060 12 GB):
 
 Existing backend support: `GemvFP8E4M3`, `UploadFP8E4M3Linear` ready to use.
 Expected speedup: eliminate all CPU weight decode + GPU transfer per step.
+
+
+## FP8 GPU inference benchmark
+
+2026-06-12: FP8 GPU DiffusionGemma producing correct answers:
+
+| Path | Time | Output |
+|---|---|---|
+| CPU BF16 (baseline) | 4m54s | The capital of France is **Paris |
+| GPU F32 SGEMM (BF16 weights) | 4m41s | The capital of France is **Paris |
+| GPU FP8 GEMM (FP8 weights) | 4m53s | The capital of France is **Paris**. |
+
+All 30 FP8 layers uploaded to RTX 3060 (~5.3 GB VRAM).
+Batched FP8 GEMM for attention Q/K/V projections.
+FP8 per-position GEMV for MLP gate/up/down.
+
+Bottleneck analysis:
+- Encoder (CPU BF16): ~40s (30 causal layers, no FP8 encoder yet)
+- Decoder per-layer: ~3.5s (FP8 projections fast, attention/norms/experts on CPU)
+- Total decoder: ~200s (2 steps × 30 layers)
+- Expert slice decode from BF16: ~0.5s per layer
+
+Next optimization targets:
+- FP8 encoder (run encoder on FP8 weights too)
+- GPU-resident expert weights (stream per-layer)
+- Parallel CPU attention and norms
