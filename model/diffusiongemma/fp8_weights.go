@@ -245,7 +245,7 @@ func loadFP8Layer(shards *safetensors.ShardedFile, layer int) (FP8LayerWeights, 
 	return lw, nil
 }
 
-// loadFP8Proj loads FP8 weight bytes and F32 scale for a projection.
+// loadFP8Proj loads FP8 weight bytes (zero-copy from mmap) and F32 scale.
 func loadFP8Proj(shards *safetensors.ShardedFile, prefix string) ([]byte, []float32, [2]int, error) {
 	weightRaw, _, weightShape, err := shards.GetRaw(prefix + ".weight")
 	if err != nil {
@@ -267,8 +267,8 @@ func loadFP8Proj(shards *safetensors.ShardedFile, prefix string) ([]byte, []floa
 		return nil, nil, [2]int{}, fmt.Errorf("FP8 scale decode %s: %w", prefix, err)
 	}
 
-	// Return raw FP8 bytes (1 byte per element)
-	return append([]byte(nil), weightRaw...), scale, [2]int{weightShape[0], weightShape[1]}, nil
+	// Return mmap slice directly (zero-copy)
+	return weightRaw, scale, [2]int{weightShape[0], weightShape[1]}, nil
 }
 
 // loadF32Tensor loads a tensor and decodes to F32.
