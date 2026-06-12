@@ -758,3 +758,22 @@ Benchmark (Spain capital, 2 denoise steps, canvas=16, top-k=512):
 All variants have the same architecture: 30 layers, 2816 hidden, 128 experts, top-8.
 
 Best immediate option: FP8-dynamic (single safetensors file, existing GemvFP8E4M3 backend, 27.2 GB mmap + stream 1 layer through GPU at ~900 MB per layer vs 3.3 GB for BF16).
+
+
+## FP8 checkpoint evaluation
+
+2026-06-12: RedHatAI/diffusiongemma-26B-A4B-it-FP8-dynamic analysis:
+
+- Format: compressed-tensors, FP8 E4M3 weights with per-channel F32 scales
+- Size: 27.2 GB single safetensors file (vs 48 GB BF16)
+- Experts stored as individual tensors (experts.0.gate_proj, etc.)
+- Router projections NOT quantized (kept in original precision)
+- 24232 tensors total (individual expert decomposition)
+
+GPU memory fit (RTX 3060 12 GB):
+- Per-layer FP8 + top-8 experts: ~179 MB
+- All 30 layers: ~5.3 GB → **ALL LAYERS FIT IN VRAM**
+- Remaining for activations/scratch: ~6.7 GB
+
+Existing backend support: `GemvFP8E4M3`, `UploadFP8E4M3Linear` ready to use.
+Expected speedup: eliminate all CPU weight decode + GPU transfer per step.
