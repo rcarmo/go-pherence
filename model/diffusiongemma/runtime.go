@@ -106,18 +106,21 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 			meanEntropy += entropy[i]
 		}
 		meanEntropy /= float64(canvasLength)
-		accepted := AcceptCanvas(canvas, denoiserCanvas, entropy, cfg.Sampler.EntropyBound)
+		// Use argmax canvas directly instead of entropy-bound acceptance.
+		// The entropy-bound sampler underestimates entropy with sparse top-k
+		// logits, causing over-acceptance to EOS. Argmax gives the model's
+		// most confident prediction at each position.
+		canvas = append(canvas[:0], argmaxCanvas...)
 		if len(out.SelfConditioning) > 0 {
 			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
 		}
 		stopped := stopper.ShouldStop(argmaxCanvas, entropy)
-		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, Stopped: stopped})
-		canvas = accepted.Canvas
+		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: canvasLength, MeanEntropy: meanEntropy, Stopped: stopped})
 		if stopped {
 			state.Stopped = true
 			break
 		}
-		canvas = RenoiseCanvas(canvas, accepted.AcceptedMask, vocabSize, rng)
+		// No renoising with argmax decoding — canvas is the argmax prediction
 	}
 	return CanvasResult{Canvas: canvas, Steps: steps, State: state}, nil
 }
