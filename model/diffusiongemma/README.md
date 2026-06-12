@@ -135,7 +135,7 @@ token, one decoder layer (`-max-dispatch-layers 1`, `-lm-head-top-k 8`):
 | 4 | on | no | 1.574s | 5.833s |
 | 16 | off | — | 1.792s | 16.958s |
 | 16 | on | no | 1.556s | 6.255s |
-| 16 | on | layer 0 + experts | 1.357s | 0.993s |
+| 16 | on | layer 0 + experts | 1.118s | 0.889s |
 
 The no-A100, A100, and A100+prewarm canvas-16 smoke runs produced the same
 sampled output and entropy (`generated=[0]`, accepted canvas tokens `16`, mean
