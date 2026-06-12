@@ -410,8 +410,6 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 			}
 		}
 		topK := 8 // from config
-		topIDs := make([]int, topK)
-		topVals := make([]float32, topK)
 
 		preNorm2, err := loadFloatVector(weights, lb.PreFFNLayerNorm2)
 		if err != nil {
@@ -422,30 +420,31 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 			return nil, fmt.Errorf("DiffusionGemma encoder expert layout layer %d: %w", layer, err)
 		}
 		moeIntermediate := layout.intermediate
-		decodedExperts := map[int]decodedExpertWeights{}
+		topIDsAll := make([]int, positions*topK)
+		topValsAll := make([]float32, positions*topK)
 
 		for pos := 0; pos < positions; pos++ {
-			resRow := residual[pos*hiddenSize : (pos+1)*hiddenSize]
-
 			// Router: batched norm(residual) * scale * scalar_root_size projection, then softmax/top-k.
 			scored := scoredAll[pos*numExperts : (pos+1)*numExperts]
 			softmaxInPlace(scored)
-			for i := range topIDs {
-				topIDs[i] = -1
-				topVals[i] = float32(math.Inf(-1))
+			ids := topIDsAll[pos*topK : (pos+1)*topK]
+			vals := topValsAll[pos*topK : (pos+1)*topK]
+			for i := range ids {
+				ids[i] = -1
+				vals[i] = float32(math.Inf(-1))
 			}
 			for expertID, score := range scored {
-				insertTopK(topIDs, topVals, expertID, score)
+				insertTopK(ids, vals, expertID, score)
 			}
 			var topKSum float32
-			for _, v := range topVals {
+			for _, v := range vals {
 				if v > float32(math.Inf(-1)) {
 					topKSum += v
 				}
 			}
 			if topKSum > 0 {
-				for i := range topVals {
-					topVals[i] /= topKSum
+				for i := range vals {
+					vals[i] /= topKSum
 				}
 			}
 			if lb.RouterPerExpertScale != nil {
@@ -453,43 +452,54 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 				if err2 != nil {
 					return nil, err2
 				}
-				for i, id := range topIDs {
+				for i, id := range ids {
 					if id >= 0 && id < len(perExpert) {
-						topVals[i] *= perExpert[id]
+						vals[i] *= perExpert[id]
 					}
 				}
 			}
+		}
 
-			// Expert MLP from pre_norm_2(residual)
-			normedRow := make([]float32, hiddenSize)
-			copy(normedRow, resRow)
-			simd.RMSNormTo(normedRow, preNorm2, 1e-6)
+		expertsDone, err := k3RunPerExpertRowsA100(weights, layout, residual, topIDsAll, topValsAll, moeResult, preNorm2, hiddenSize, positions, topK)
+		if err != nil {
+			return nil, err
+		}
+		if !expertsDone {
+			decodedExperts := map[int]decodedExpertWeights{}
+			for pos := 0; pos < positions; pos++ {
+				resRow := residual[pos*hiddenSize : (pos+1)*hiddenSize]
 
-			dst := moeResult[pos*hiddenSize : (pos+1)*hiddenSize]
-			eGate := make([]float32, moeIntermediate)
-			eUp := make([]float32, moeIntermediate)
-			eAct := make([]float32, moeIntermediate)
-			eOut := make([]float32, hiddenSize)
-			for k := 0; k < topK; k++ {
-				expertID := topIDs[k]
-				weight := topVals[k]
-				if expertID < 0 || expertID >= layout.nExperts {
-					continue
-				}
-				ew, ok := decodedExperts[expertID]
-				if !ok {
-					ew, err = loadLayerExpertWeights(weights, lb, layout, expertID, hiddenSize)
-					if err != nil {
-						return nil, err
+				// Expert MLP from pre_norm_2(residual)
+				normedRow := make([]float32, hiddenSize)
+				copy(normedRow, resRow)
+				simd.RMSNormTo(normedRow, preNorm2, 1e-6)
+
+				dst := moeResult[pos*hiddenSize : (pos+1)*hiddenSize]
+				eGate := make([]float32, moeIntermediate)
+				eUp := make([]float32, moeIntermediate)
+				eAct := make([]float32, moeIntermediate)
+				eOut := make([]float32, hiddenSize)
+				ids := topIDsAll[pos*topK : (pos+1)*topK]
+				vals := topValsAll[pos*topK : (pos+1)*topK]
+				for k := 0; k < topK; k++ {
+					expertID := ids[k]
+					weight := vals[k]
+					if expertID < 0 || expertID >= layout.nExperts {
+						continue
 					}
-					decodedExperts[expertID] = ew
-				}
-				simd.GemvRows(eGate, normedRow, ew.gateW, moeIntermediate, hiddenSize)
-				simd.GemvRows(eUp, normedRow, ew.upW, moeIntermediate, hiddenSize)
-				simd.GELUTanhMulTo(eAct, eGate, eUp)
-				simd.GemvRows(eOut, eAct, ew.downW, hiddenSize, moeIntermediate)
-				for i := range dst {
-					dst[i] += weight * eOut[i]
+					ew, ok := decodedExperts[expertID]
+					if !ok {
+						ew, err = loadLayerExpertWeights(weights, lb, layout, expertID, hiddenSize)
+						if err != nil {
+							return nil, err
+						}
+						decodedExperts[expertID] = ew
+					}
+					simd.GemvRows(eGate, normedRow, ew.gateW, moeIntermediate, hiddenSize)
+					simd.GemvRows(eUp, normedRow, ew.upW, moeIntermediate, hiddenSize)
+					simd.GELUTanhMulTo(eAct, eGate, eUp)
+					simd.GemvRows(eOut, eAct, ew.downW, hiddenSize, moeIntermediate)
+					k3SaxpyV(weight, eOut, dst)
 				}
 			}
 		}
