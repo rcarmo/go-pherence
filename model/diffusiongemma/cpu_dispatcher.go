@@ -1492,21 +1492,38 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 		}
 	}
 	if topK > 0 {
-		t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
-		if err != nil {
-			return err
-		}
-		if len(t.Shape) != 2 || t.Shape[0] != vocab || t.Shape[1] != hiddenSize {
-			return fmt.Errorf("DiffusionGemma LM head cached embedding shape %v want [%d %d]", t.Shape, vocab, hiddenSize)
-		}
-		scores := make([]float32, vocab)
-		for pos := 0; pos < positions; pos++ {
-			hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
-			if !simd.GemvRows(scores, hidden, t.Data, vocab, hiddenSize) {
-				return fmt.Errorf("DiffusionGemma LM head SIMD GEMV failed vocab=%d hidden=%d", vocab, hiddenSize)
+		lmHeadDone := false
+		if k3A100LMHeadEnabled() {
+			scoresAll := make([]float32, positions*vocab)
+			if done, err := k3GemmRowsQ80(scoresAll, scratch.Hidden, positions, weights, fp.Globals.EmbedTokens); err != nil {
+				return err
+			} else if done {
+				lmHeadDone = true
+				for pos := 0; pos < positions; pos++ {
+					scores := scoresAll[pos*vocab : (pos+1)*vocab]
+					for vocabID, score := range scores {
+						insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+					}
+				}
 			}
-			for vocabID, score := range scores {
-				insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+		}
+		if !lmHeadDone {
+			t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
+			if err != nil {
+				return err
+			}
+			if len(t.Shape) != 2 || t.Shape[0] != vocab || t.Shape[1] != hiddenSize {
+				return fmt.Errorf("DiffusionGemma LM head cached embedding shape %v want [%d %d]", t.Shape, vocab, hiddenSize)
+			}
+			scores := make([]float32, vocab)
+			for pos := 0; pos < positions; pos++ {
+				hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+				if !simd.GemvRows(scores, hidden, t.Data, vocab, hiddenSize) {
+					return fmt.Errorf("DiffusionGemma LM head SIMD GEMV failed vocab=%d hidden=%d", vocab, hiddenSize)
+				}
+				for vocabID, score := range scores {
+					insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+				}
 			}
 		}
 	} else {

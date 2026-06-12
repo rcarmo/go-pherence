@@ -22,6 +22,11 @@ func k3A100Q8Enabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func k3A100LMHeadEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func k3Threads() int {
 	if s := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS")); s != "" {
 		if n, err := strconv.Atoi(s); err == nil && n > 0 {
@@ -191,6 +196,8 @@ func k3Q80ForBinding(weights *TextWeights, binding *TensorBinding) (ime2.Q80x32,
 			return ime2.Q80x32{}, true, err
 		}
 		q = packK3FP8ToQ80x32RowScale(raw, scales, rows, cols)
+	case "BF16":
+		q = packK3BF16ToQ80x32RowScale(raw, rows, cols)
 	default:
 		t, err := weights.CachedFloatTensor(binding.Name)
 		if err != nil {
@@ -229,6 +236,71 @@ func loadK3WeightScales(weights *TextWeights, weightName string, rows int) ([]fl
 		return nil, err
 	}
 	return scales, nil
+}
+
+func packK3BF16ToQ80x32RowScale(raw []byte, rows, cols int) ime2.Q80x32 {
+	if rows%32 != 0 || cols%32 != 0 || len(raw) < rows*cols*2 {
+		return ime2.Q80x32{M: rows, K: cols}
+	}
+	groups, subs := rows/32, cols/32
+	out := make([]byte, groups*subs*ime2.K3I8I8BTileBytes)
+	nw := k3Threads()
+	if nw > groups {
+		nw = groups
+	}
+	if nw < 1 {
+		nw = 1
+	}
+	var wg sync.WaitGroup
+	wg.Add(nw)
+	for wid := 0; wid < nw; wid++ {
+		g0 := wid * groups / nw
+		g1 := (wid + 1) * groups / nw
+		go func(g0, g1 int) {
+			defer wg.Done()
+			rowBuf := make([]float32, cols)
+			for g := g0; g < g1; g++ {
+				for rr := 0; rr < 32; rr++ {
+					row := g*32 + rr
+					base := row * cols
+					maxAbs := float32(0)
+					for k := 0; k < cols; k++ {
+						v := math.Float32frombits(uint32(binary.LittleEndian.Uint16(raw[(base+k)*2:])) << 16)
+						rowBuf[k] = v
+						av := float32(math.Abs(float64(v)))
+						if av > maxAbs {
+							maxAbs = av
+						}
+					}
+					d := float32(0)
+					if maxAbs != 0 {
+						d = maxAbs / 127.0
+					}
+					inv := float32(0)
+					if d != 0 {
+						inv = 1 / d
+					}
+					for sb := 0; sb < subs; sb++ {
+						block := out[(g*subs+sb)*ime2.K3I8I8BTileBytes:]
+						binary.LittleEndian.PutUint16(block[rr*2:], half.F32ToF16(d))
+						qs := block[64 : 64+1024]
+						for k := 0; k < 32; k++ {
+							q := int(math.Round(float64(rowBuf[sb*32+k] * inv)))
+							if q > 127 {
+								q = 127
+							}
+							if q < -128 {
+								q = -128
+							}
+							qs[rr*32+k] = byte(int8(q))
+						}
+					}
+				}
+			}
+		}(g0, g1)
+	}
+	wg.Wait()
+	return ime2.Q80x32{M: rows, K: cols, BData: out, Valid: true}
 }
 
 func packK3FP8ToQ80x32RowScale(raw []byte, scales []float32, rows, cols int) ime2.Q80x32 {
@@ -324,6 +396,8 @@ func k3Q80ForTensorName(weights *TextWeights, name string) (ime2.Q80x32, bool, e
 			return ime2.Q80x32{}, true, err
 		}
 		q = packK3FP8ToQ80x32RowScale(raw, scales, rows, cols)
+	case "BF16":
+		q = packK3BF16ToQ80x32RowScale(raw, rows, cols)
 	default:
 		t, err := weights.CachedFloatTensor(name)
 		if err != nil {

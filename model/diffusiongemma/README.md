@@ -113,6 +113,12 @@ all-expert prewarm and selected on-demand prepack; override the default with
 prewarm currently packs 392 tensors in roughly 8s on the K3 while leaving the F32
 float cache nearly empty.
 
+The tied BF16 LM head can also use A100 Q80 with
+`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD=1`. It is opt-in because Q80 logits
+can drift versus exact BF16/F32 scores, but in the current A100-hidden-state
+canvas-4 tail smoke it produced the same generated token while reducing LM-head
+time from `5.211s`/2.95 GiB F32 cache to `1.788s`/tiny F32 cache.
+
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 
 - unset / `1`: stage packed A blocks in TCM before `K3I8I8M4` (default)
