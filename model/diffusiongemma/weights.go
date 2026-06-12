@@ -124,6 +124,7 @@ func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
 func (w *TextWeights) ClearFloatCache() {
 	if w != nil {
 		w.floatCache = map[string]FloatTensor{}
+		k3ClearQ80CacheForWeights(w)
 	}
 }
 
@@ -135,6 +136,7 @@ func (w *TextWeights) EvictFloatTensor(name string) bool {
 		return false
 	}
 	delete(w.floatCache, name)
+	k3EvictQ80Tensor(w, name)
 	return true
 }
 
@@ -145,6 +147,9 @@ func (w *TextWeights) EvictLayer(layer int) int {
 	evicted := 0
 	for _, b := range w.Layers[layer].Bindings {
 		if w.EvictFloatTensor(b.Name) {
+			evicted++
+		}
+		if k3EvictQ80Tensor(w, b.Name) {
 			evicted++
 		}
 	}

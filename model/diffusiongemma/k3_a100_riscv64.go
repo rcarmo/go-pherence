@@ -54,6 +54,30 @@ type k3Q80CacheKey struct {
 	name    string
 }
 
+func k3EvictQ80Tensor(weights *TextWeights, name string) bool {
+	if weights == nil || name == "" {
+		return false
+	}
+	key := k3Q80CacheKey{weights: weights, name: name}
+	_, ok := k3Q80Cache.Load(key)
+	if ok {
+		k3Q80Cache.Delete(key)
+	}
+	return ok
+}
+
+func k3ClearQ80CacheForWeights(weights *TextWeights) {
+	if weights == nil {
+		return
+	}
+	k3Q80Cache.Range(func(key, _ any) bool {
+		if k, ok := key.(k3Q80CacheKey); ok && k.weights == weights {
+			k3Q80Cache.Delete(key)
+		}
+		return true
+	})
+}
+
 func k3A100WorkerPool() *aipool.AIWorkerPool {
 	k3A100PoolOnce.Do(func() {
 		n := k3A100Workers()
