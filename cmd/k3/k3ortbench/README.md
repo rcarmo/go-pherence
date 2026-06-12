@@ -5,7 +5,7 @@ Benchmarks the SpaceMIT ONNX Runtime execution provider
 IME2 kernels.
 
 ## go-pherence packages used
-- `backends/spacemitort`
+- `backends/spacemit/ort`
 
 ## Kernels / SIMD to migrate
 - None of ours; compute is inside the closed `libspacemit_ep.so`. Comparison

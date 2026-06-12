@@ -4,5 +4,5 @@
 // across cores.
 //
 // This is a leaf kernel package: it does not depend on the higher-level
-// inference engine (k3engine).
+// inference engine (aicpu).
 package ime2

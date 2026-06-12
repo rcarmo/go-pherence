@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/model"
 )
@@ -31,7 +31,7 @@ func main() {
 		"blk.0.ffn_down.weight",
 		"output.weight",
 	}
-	be := k3.SIMDBackend{}
+	be := board.SIMDBackend{}
 	for _, name := range bench {
 		t, ok := g.TensorByName(name)
 		if !ok {

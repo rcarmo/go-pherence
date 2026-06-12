@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
@@ -24,7 +24,7 @@ func main() {
 		panic(err)
 	}
 	defer g.Close()
-	be := k3.SIMDBackend{}
+	be := board.SIMDBackend{}
 	loadM := func(name string) *gguf.QuantMatrix {
 		t, ok := g.TensorByName(name)
 		if !ok {

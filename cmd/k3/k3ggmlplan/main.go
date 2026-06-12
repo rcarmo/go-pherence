@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	"github.com/rcarmo/go-pherence/backends/ggmlexec"
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 	"github.com/rcarmo/go-pherence/model"
 )
 
@@ -18,7 +18,7 @@ func main() {
 	if *path == "" {
 		panic("-model required")
 	}
-	m, err := model.LoadGGUFLlama(*path, k3.SIMDBackend{})
+	m, err := model.LoadGGUFLlama(*path, board.SIMDBackend{})
 	if err != nil {
 		panic(err)
 	}

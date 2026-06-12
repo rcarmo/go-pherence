@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"math/rand"
 	"time"
@@ -46,7 +46,7 @@ func main() {
 	for i := range x {
 		x[i] = rand.Float32()*2 - 1
 	}
-	be := k3.SIMDBackend{}
+	be := board.SIMDBackend{}
 	gate, up, mid, down := make([]float32, ffn), make([]float32, ffn), make([]float32, ffn), make([]float32, h)
 	start := time.Now()
 	for i := 0; i < *iters; i++ {

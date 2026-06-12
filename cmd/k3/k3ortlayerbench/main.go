@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rcarmo/go-pherence/backends/k3"
-	"github.com/rcarmo/go-pherence/backends/spacemitort"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ort"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
@@ -36,7 +36,7 @@ func main() {
 		panic(err)
 	}
 	defer g.Close()
-	be := k3.SIMDBackend{}
+	be := board.SIMDBackend{}
 	tensors := []string{
 		"blk.0.attn_q.weight",
 		"blk.0.attn_k.weight",
@@ -85,7 +85,7 @@ func main() {
 		fmt.Printf("  cpu-rvv:      %s/iter\n", cpuAvg)
 
 		sessStart := time.Now()
-		sess, err := spacemitort.NewSession(onnxPath, spacemitort.Options{IntraThreadNum: *threads})
+		sess, err := ort.NewSession(onnxPath, ort.Options{IntraThreadNum: *threads})
 		if err != nil {
 			fmt.Printf("  ort session ERR: %v\n", err)
 			continue

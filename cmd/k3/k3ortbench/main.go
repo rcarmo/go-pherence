@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rcarmo/go-pherence/backends/spacemitort"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ort"
 )
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 			input[i] = rand.Float32()*2 - 1
 		}
 		fmt.Printf("\n== %s [%d,%d]x[%d,%d] ==\n", s.name, s.m, s.k, s.k, s.n)
-		sess, err := spacemitort.NewSession(path, spacemitort.Options{IntraThreadNum: *threads})
+		sess, err := ort.NewSession(path, ort.Options{IntraThreadNum: *threads})
 		if err != nil {
 			fmt.Println("session ERR", err)
 			continue

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/model"
 )
@@ -35,7 +35,7 @@ func main() {
 	}
 
 	// ── detect available backends ──────────────────────────────────────────
-	caps := k3.Probe()
+	caps := board.Probe()
 	fmt.Println(caps.Summary())
 	fmt.Println()
 
@@ -50,29 +50,29 @@ func main() {
 	runInference(*modelPath, *promptStr, *maxNew, be)
 }
 
-func selectBackend(name string, caps k3.Capabilities) k3.OpBackend {
+func selectBackend(name string, caps board.Capabilities) board.OpBackend {
 	switch strings.ToLower(name) {
 	case "simd", "cpu":
-		return k3.SIMDBackend{}
+		return board.SIMDBackend{}
 	case "vulkan", "gpu":
 		if !caps.Vulkan {
 			fmt.Fprintln(os.Stderr, "k3run: Vulkan not available, falling back to SIMD")
-			return k3.SIMDBackend{}
+			return board.SIMDBackend{}
 		}
-		return k3.VulkanBackend{}
+		return board.VulkanBackend{}
 	case "spacemit", "npu", "ort":
 		if !caps.SpacemiT {
 			fmt.Fprintln(os.Stderr, "k3run: SpacemiT ORT not available, falling back to SIMD")
-			return k3.SIMDBackend{}
+			return board.SIMDBackend{}
 		}
-		return k3.SpacemiTBackend{}
+		return board.SpacemiTBackend{}
 	default: // auto
-		be, _ := k3.Select()
+		be, _ := board.Select()
 		return be
 	}
 }
 
-func runInference(modelPath, prompt string, maxNew int, be k3.OpBackend) {
+func runInference(modelPath, prompt string, maxNew int, be board.OpBackend) {
 	fmt.Printf("Loading model from %s …\n", modelPath)
 	t0 := time.Now()
 	m, err := model.LoadGGUFLlama(modelPath, be)
@@ -186,22 +186,22 @@ func runBenchAll(modelPath, prompt string, maxNew int) {
 
 	backends := []struct {
 		name string
-		be   k3.OpBackend
+		be   board.OpBackend
 	}{
-		{"CPU-SIMD-RVV", k3.SIMDBackend{}},
+		{"CPU-SIMD-RVV", board.SIMDBackend{}},
 	}
-	caps := k3.Probe()
+	caps := board.Probe()
 	if caps.Vulkan {
 		backends = append(backends, struct {
 			name string
-			be   k3.OpBackend
-		}{"Vulkan-PowerVR", k3.VulkanBackend{}})
+			be   board.OpBackend
+		}{"Vulkan-PowerVR", board.VulkanBackend{}})
 	}
 	if caps.SpacemiT {
 		backends = append(backends, struct {
 			name string
-			be   k3.OpBackend
-		}{"SpacemiT-ORT", k3.SpacemiTBackend{}})
+			be   board.OpBackend
+		}{"SpacemiT-ORT", board.SpacemiTBackend{}})
 	}
 
 	// Tokenize once

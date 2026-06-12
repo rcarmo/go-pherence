@@ -16,7 +16,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 )
 
 func main() {
@@ -31,13 +31,13 @@ func main() {
 	iters := flag.Int("iters", 20, "iterations per micro-benchmark")
 	flag.Parse()
 
-	caps := k3.Probe()
+	caps := board.Probe()
 	fmt.Println(caps.Summary())
 	fmt.Println("SpacemiT runtime:")
-	fmt.Println(k3.RVVCaps())
+	fmt.Println(board.RVVCaps())
 	fmt.Println()
 
-	backends := k3.SelectAll()
+	backends := board.SelectAll()
 
 	for _, b := range backends {
 		fmt.Printf("── %s ──────────────────────────\n", b.Name())
@@ -47,7 +47,7 @@ func main() {
 
 	if *model != "" {
 		fmt.Println("── SpacemiT llama-bench ────────────────────────────")
-		res, err := k3.RunGGUF(*model, *threads, 128, 64, 180*time.Second)
+		res, err := board.RunGGUF(*model, *threads, 128, 64, 180*time.Second)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "llama-bench failed: %v\n", err)
 			os.Exit(1)
@@ -61,7 +61,7 @@ func main() {
 	}
 }
 
-func benchAll(b k3.OpBackend, sz, outDim, seqLen, nH, nKV, hDim, iters int) {
+func benchAll(b board.OpBackend, sz, outDim, seqLen, nH, nKV, hDim, iters int) {
 	rng := rand.New(rand.NewSource(42))
 	mkVec := func(n int) []float32 {
 		v := make([]float32, n)

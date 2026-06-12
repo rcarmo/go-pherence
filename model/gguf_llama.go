@@ -1,5 +1,5 @@
 // GGUFLlama is a pure-Go LLaMA forward pass loaded from a GGUF file.
-// Hot-path linear ops are routed through a k3.OpBackend (CPU SIMD / Vulkan /
+// Hot-path linear ops are routed through a board.OpBackend (CPU SIMD / Vulkan /
 // SpacemiT ORT), selected at load time by the caller.
 package model
 
@@ -13,7 +13,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
 	"github.com/rcarmo/go-pherence/backends/ggmlquant"
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	gograph "github.com/rcarmo/go-pherence/runtime/graph"
 	"github.com/rcarmo/go-pherence/runtime/kv"
@@ -104,7 +104,7 @@ type GGUFLlama struct {
 	DecodeGraph  *gograph.Graph
 	DecodePlan   *gograph.Plan
 	UseGGMLQuant bool
-	Backend      k3.OpBackend
+	Backend      board.OpBackend
 	REAP         *REAPConfig
 	// precomputed RoPE frequencies [maxSeqLen × rotHalf]
 	ropeFreqs []float32
@@ -113,7 +113,7 @@ type GGUFLlama struct {
 
 // LoadGGUFLlama opens path, reads config, dequants all weights, precomputes
 // RoPE frequencies, and returns a ready-to-use GGUFLlama.
-func LoadGGUFLlama(path string, backend k3.OpBackend) (*GGUFLlama, error) {
+func LoadGGUFLlama(path string, backend board.OpBackend) (*GGUFLlama, error) {
 	g, err := gguf.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("LoadGGUFLlama: open: %w", err)

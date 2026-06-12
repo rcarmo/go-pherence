@@ -7,7 +7,7 @@ This document tracks the K3-specific implementation plan for native Ideogram 4 i
 - CPU: SpaceMIT K3/X60, RVV 1.0.
 - AI cores: A100 cluster, cores 8–15, IME2 integer matrix extension.
 - Scratch: `/dev/tcm`, 8 × 384 KB = 3 MB.
-- Thread placement: `backends/spacemit/k3engine/aipool` must register/pin workers through `/proc/set_ai_thread` before scheduling IME2 work on cores 8–15.
+- Thread placement: `backends/spacemit/aicpu/aipool` must register/pin workers through `/proc/set_ai_thread` before scheduling IME2 work on cores 8–15.
 - Memory policy target: 24 GB system RAM. Prefer resident component/activation buffers and bulk staged transfers over tiny repeated allocations.
 
 ## Existing K3 kernel assets
@@ -18,7 +18,7 @@ Relevant packages:
 backends/spacemit/ime2       IME2 vmadot int8/i4/q4 kernels and WorkerPool
 backends/spacemit/rvv        RVV kernels: int8, fp16, quantization, copy
 backends/spacemit/tcm        TCM mapping
-backends/spacemit/k3engine   A100 worker-pool based transformer engine
+backends/spacemit/aicpu   A100 worker-pool based transformer engine
 backends/k3                  higher-level K3 backend dispatch
 ```
 
@@ -69,7 +69,7 @@ make ideogram4-k3-check
 
 It runs native Ideogram/NVIDIA fallback tests, cross-compiles riscv64 test
 binaries for the Ideogram model/CLI packages and relevant K3 packages (including
-`k3engine` and `aipool`), and builds `bin/ideogram4gen-k3` plus
+`aicpu` and `aipool`), and builds `bin/ideogram4gen-k3` plus
 `bin/ideogram4vaeprobe-k3`.
 Equivalent raw commands:
 

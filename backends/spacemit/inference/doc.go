@@ -3,5 +3,5 @@
 // mat-vec routines (serial, parallel, and WorkerPool-backed).
 //
 // It is a thin numeric layer; the full pure-Go transformer runtime lives in
-// k3engine.
+// aicpu.
 package inference

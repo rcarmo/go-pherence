@@ -50,7 +50,7 @@ has no NVIDIA hardware.
 ### How A100 cores are used
 
 All 8 A100 cores (8–15) are registered via `/proc/set_ai_thread` and
-`sched_setaffinity`. The worker pool (`backends/spacemit/k3engine/aipool`) pins
+`sched_setaffinity`. The worker pool (`backends/spacemit/aicpu/aipool`) pins
 goroutines to A100 cores and dispatches Q8×Q8 IME2 GEMM kernels (`K3I8I8M4/M1`).
 
 FP8 weights are converted to row-scale Q80x32 A100 tile layout using a fused
@@ -124,7 +124,7 @@ These packages contain kernel work done for Ideogram4 but usable by any model:
 | `fastexp.go` | `FastExp(x)` | Schraudolph integer-trick exp, 9.3× faster than math.Exp |
 | `quantize.go` | `QuantizeF32RowQ8Block(src, dst)` | Block-scale Q8 quantizer (scalar, not yet RVV asm) |
 
-### `backends/spacemit/k3engine/aipool`
+### `backends/spacemit/aicpu/aipool`
 
 | Function | Notes |
 |---|---|

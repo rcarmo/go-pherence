@@ -18,7 +18,7 @@ go-pherence/
 │   └── spacemit/       # SpacemiT K3-specific backends
 │       ├── ime2/       # IME2 A100 kernel wrappers + Q80x32 packing
 │       ├── inference/  # SpacemiT inference abstractions
-│       ├── k3engine/   # K3 AI core engine
+│       ├── aicpu/   # K3 AI core engine
 │       │   └── aipool/ # A100 worker pool + Q80x32 GEMM dispatch
 │       ├── rvv/        # RVV vector kernels (FP16, SiLU, FastExp, dot, GEMM)
 │       └── tcm/        # TCM (Tightly Coupled Memory) access

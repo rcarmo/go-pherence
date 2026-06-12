@@ -9,7 +9,7 @@ import (
 	"github.com/rcarmo/go-pherence/backends/ggmlcompute"
 	"github.com/rcarmo/go-pherence/backends/ggmlgraph"
 	"github.com/rcarmo/go-pherence/backends/ggmlquant"
-	"github.com/rcarmo/go-pherence/backends/k3"
+	"github.com/rcarmo/go-pherence/backends/spacemit/board"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/model"
 )
@@ -26,7 +26,7 @@ func main() {
 		panic(err)
 	}
 	defer g.Close()
-	be := k3.SIMDBackend{}
+	be := board.SIMDBackend{}
 	for _, name := range []string{"blk.0.attn_q.weight", "blk.0.attn_output.weight", "blk.0.ffn_gate.weight", "blk.0.ffn_down.weight", "output.weight"} {
 		t, ok := g.TensorByName(name)
 		if !ok {

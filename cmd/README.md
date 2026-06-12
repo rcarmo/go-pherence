@@ -28,9 +28,9 @@ The kernels and SIMD that used to live **inside** `cmd/k3/ime2run` (a 69-file
 | `backends/spacemit/ime2/` | IME2 `vmadot` int8 GEMM kernels (i8i4, i8i8, Q4K tiled, int8-group, argmax) + generic `WorkerPool` |
 | `backends/spacemit/rvv/` | RVV 1.0 SIMD kernels (int8 GEMM, W4A8, byte-copy, q8 quant) |
 | `backends/spacemit/tcm/` | TCM (on-chip SRAM) driver |
-| `backends/spacemit/k3engine/` | The pure-Go transformer inference engine (decode loop + q4k/q6k/i8i4 kernels); `aipool/` worker pool, `config/` flags |
-| `backends/k3/` | High-level ORT/Vulkan backend selection / dispatch |
+| `backends/spacemit/aicpu/` | The pure-Go transformer inference engine (decode loop + q4k/q6k/i8i4 kernels); `aipool/` worker pool, `config/` flags |
+| `backends/spacemit/board/` | High-level ORT/Vulkan backend selection / dispatch |
 
 See `backends/spacemit/README.md` for the package layout and dependency map.
 The `cmd/k3/ime2run` command is now a thin wrapper around
-`backends/spacemit/k3engine`.
+`backends/spacemit/aicpu`.
