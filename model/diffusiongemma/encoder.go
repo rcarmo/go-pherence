@@ -276,19 +276,12 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		if err != nil {
 			return nil, err
 		}
-		gateUpAll, nExperts, gateUpDim, gateUpHidden, err := loadFloat3D(weights, lb.ExpertsGateUpProj)
-		if err != nil {
-			return nil, err
+		if lb.ExpertsGateUpProj == nil || lb.ExpertsDownProj == nil || len(lb.ExpertsGateUpProj.Shape) != 3 || len(lb.ExpertsDownProj.Shape) != 3 {
+			return nil, fmt.Errorf("DiffusionGemma encoder expert tensor bindings missing layer %d", layer)
 		}
-		downAll, _, downHidden, downIntermediate, err := loadFloat3D(weights, lb.ExpertsDownProj)
-		if err != nil {
-			return nil, err
-		}
+		nExperts := lb.ExpertsGateUpProj.Shape[0]
+		gateUpDim := lb.ExpertsGateUpProj.Shape[1]
 		moeIntermediate := gateUpDim / 2
-		_ = nExperts
-		_ = gateUpHidden
-		_ = downHidden
-		_ = downIntermediate
 
 		for pos := 0; pos < positions; pos++ {
 			resRow := residual[pos*hiddenSize : (pos+1)*hiddenSize]
@@ -347,13 +340,19 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 				if expertID < 0 || expertID >= nExperts {
 					continue
 				}
-				guSlice := gateUpAll[expertID*gateUpDim*gateUpHidden : (expertID+1)*gateUpDim*gateUpHidden]
-				gW := guSlice[:moeIntermediate*hiddenSize]
-				uW := guSlice[moeIntermediate*hiddenSize:]
+				guSlice, guRows, _, err := loadExpertSlice(weights, lb.ExpertsGateUpProj, expertID)
+				if err != nil {
+					return nil, err
+				}
+				dSlice, _, _, err := loadExpertSlice(weights, lb.ExpertsDownProj, expertID)
+				if err != nil {
+					return nil, err
+				}
+				gW := guSlice[:guRows/2*hiddenSize]
+				uW := guSlice[guRows/2*hiddenSize:]
 				simd.GemvRows(eGate, normedRow, gW, moeIntermediate, hiddenSize)
 				simd.GemvRows(eUp, normedRow, uW, moeIntermediate, hiddenSize)
 				simd.GELUTanhMulTo(eAct, eGate, eUp)
-				dSlice := downAll[expertID*downHidden*downIntermediate : (expertID+1)*downHidden*downIntermediate]
 				simd.GemvRows(eOut, eAct, dSlice, hiddenSize, moeIntermediate)
 				for i := range dst {
 					dst[i] += weight * eOut[i]
