@@ -803,3 +803,24 @@ Next optimization targets:
 - FP8 encoder (run encoder on FP8 weights too)
 - GPU-resident expert weights (stream per-layer)
 - Parallel CPU attention and norms
+
+
+## Expert LRU cache benchmark
+
+2026-06-12: Expert LRU GPU cache with on-demand upload and VRAM budget:
+
+| Steps | Time | Step 1 layer | Step 2+ layer | Output |
+|---|---|---|---|---|
+| 1 | 1m12s | 1.3s | — | degraded |
+| 2 | 1m50s | 1.3s | 0.5s | **Paris**. ✓ |
+| 3 | 2m19s | 1.2s | 0.5s | **Paris**. ✓ |
+
+Expert LRU cache: 6.4 GB VRAM, ~1080 experts cached, 115K hits.
+Step 2+ layers are 2.6× faster due to 100% expert cache hits.
+BF16 CPU encoder remains the floor at ~39s (one-time cost).
+
+Performance timeline:
+- CPU BF16: 4m54s
+- GPU FP8 projections: 4m42s
+- Zero-copy expert mmap: 3m9s
+- Expert LRU GPU cache: 1m50s (2 steps, 2.7× total speedup)
