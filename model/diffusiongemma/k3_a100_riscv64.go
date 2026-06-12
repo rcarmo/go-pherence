@@ -100,6 +100,26 @@ func k3ClearQ80CacheForWeights(weights *TextWeights) {
 	})
 }
 
+func k3Q80CacheStats(weights *TextWeights) (entries int, bytes int64) {
+	if weights == nil {
+		return 0, 0
+	}
+	k3Q80Cache.Range(func(key, value any) bool {
+		k, ok := key.(k3Q80CacheKey)
+		if !ok || k.weights != weights {
+			return true
+		}
+		q, ok := value.(ime2.Q80x32)
+		if !ok || !q.Valid {
+			return true
+		}
+		entries++
+		bytes += int64(len(q.BData))
+		return true
+	})
+	return entries, bytes
+}
+
 func k3A100WorkerPool() *aipool.AIWorkerPool {
 	k3A100PoolOnce.Do(func() {
 		n := k3A100Workers()

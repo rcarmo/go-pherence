@@ -212,6 +212,16 @@ func (w *TextWeights) FloatCacheBytes() int64 {
 	return total
 }
 
+func (w *TextWeights) Q80CacheEntries() int {
+	entries, _ := k3Q80CacheStats(w)
+	return entries
+}
+
+func (w *TextWeights) Q80CacheBytes() int64 {
+	_, bytes := k3Q80CacheStats(w)
+	return bytes
+}
+
 func (w *TextWeights) PreloadGlobals() error {
 	if w == nil {
 		return fmt.Errorf("nil DiffusionGemma text weights")

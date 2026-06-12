@@ -110,8 +110,8 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 Per-expert tensors are packed in parallel across X100 workers for both
 all-expert prewarm and selected on-demand prepack; override the default with
 `GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=N`. One-layer all-expert
-prewarm currently packs 392 tensors in roughly 8s on the K3 while leaving the F32
-float cache nearly empty.
+prewarm currently packs 392 tensors in roughly 8s on the K3 and reports about
+865 MB of Q80 cache with zero decoded F32 cache.
 
 The tied BF16 LM head can also use A100 Q80 with
 `GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD=1`. It is opt-in because Q80 logits
