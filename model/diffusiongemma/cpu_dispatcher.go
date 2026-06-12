@@ -1165,6 +1165,9 @@ func (m *mixedMatrix) gemvRows(out, x []float32) bool {
 	if m.bf16 != nil {
 		return simd.GemvRowsBF16(out, x, m.bf16, m.rows, m.cols)
 	}
+	if m.rows >= 256 {
+		return simd.GemvRowsParallel(out, x, m.f32, m.rows, m.cols)
+	}
 	return simd.GemvRows(out, x, m.f32, m.rows, m.cols)
 }
 

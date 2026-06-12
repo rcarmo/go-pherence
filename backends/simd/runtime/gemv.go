@@ -1,6 +1,11 @@
 package simd
 
-import "github.com/rcarmo/go-pherence/internal/checked"
+import (
+	"runtime"
+	"sync"
+
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 // GemvRows computes out[rows] = W[rows,cols] · x[cols], where W is row-major.
 // It is the backend-owned dense F32 GEMV reference used by CPU fallbacks and
@@ -92,5 +97,46 @@ func GemmCols(out, x, w []float32, batch, rows, cols int) bool {
 			return false
 		}
 	}
+	return true
+}
+
+// GemvRowsParallel computes out[rows] = W[rows,cols] · x[cols] using
+// goroutines to parallelize across rows. Falls back to GemvRows for small M.
+func GemvRowsParallel(out, x, w []float32, rows, cols int) bool {
+	weightLen, ok := checked.MulInt(rows, cols)
+	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
+		return false
+	}
+	if rows < 256 {
+		return GemvRows(out, x, w, rows, cols)
+	}
+	x = x[:cols]
+	nWorkers := runtime.GOMAXPROCS(0)
+	if nWorkers > rows/64 {
+		nWorkers = rows / 64
+	}
+	if nWorkers < 1 {
+		nWorkers = 1
+	}
+	chunk := (rows + nWorkers - 1) / nWorkers
+	var wg sync.WaitGroup
+	for i := 0; i < nWorkers; i++ {
+		start := i * chunk
+		end := start + chunk
+		if end > rows {
+			end = rows
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			defer wg.Done()
+			for row := s; row < e; row++ {
+				out[row] = Sdot(x, w[row*cols:(row+1)*cols])
+			}
+		}(start, end)
+	}
+	wg.Wait()
 	return true
 }

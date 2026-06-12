@@ -156,16 +156,16 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 						if vBF16 != nil {
 							bf16GemvNarrow(v, h, vBF16, vRows, hiddenSize)
 						} else {
-							simd.GemvRows(v, h, vW, vRows, hiddenSize)
+							simd.GemvRowsParallel(v, h, vW, vRows, hiddenSize)
 						}
 					} else {
 						copy(v, k)
 					}
 				} else {
-					simd.GemvRows(q, h, qW, qRows, hiddenSize)
-					simd.GemvRows(k, h, kW, kRows, hiddenSize)
+					simd.GemvRowsParallel(q, h, qW, qRows, hiddenSize)
+					simd.GemvRowsParallel(k, h, kW, kRows, hiddenSize)
 					if lb.VProj != nil {
-						simd.GemvRows(v, h, vW, vRows, hiddenSize)
+						simd.GemvRowsParallel(v, h, vW, vRows, hiddenSize)
 					} else {
 						copy(v, k)
 					}
@@ -230,7 +230,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			} else if oBF16, _, _ := weights.RawBF16Tensor(lb.OProj.Name); oBF16 != nil {
 				bf16GemvNarrow(out, attnCtx, oBF16, hiddenSize, qRows)
 			} else {
-				simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows)
+				simd.GemvRowsParallel(out, attnCtx, oW, hiddenSize, qRows)
 			}
 			copy(hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 		}
@@ -293,16 +293,16 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 					simd.GELUTanhMulTo(act, gate, up)
 					bf16GemvNarrow(mlpOut, act, downBF16, hiddenSize, intermediate)
 				} else {
-					simd.GemvRows(gate, row, gateW, intermediate, gateCols)
-					simd.GemvRows(up, row, upW, intermediate, gateCols)
+					simd.GemvRowsParallel(gate, row, gateW, intermediate, gateCols)
+					simd.GemvRowsParallel(up, row, upW, intermediate, gateCols)
 					simd.GELUTanhMulTo(act, gate, up)
-					simd.GemvRows(mlpOut, act, downW, hiddenSize, intermediate)
+					simd.GemvRowsParallel(mlpOut, act, downW, hiddenSize, intermediate)
 				}
 			} else {
-				simd.GemvRows(gate, row, gateW, intermediate, gateCols)
-				simd.GemvRows(up, row, upW, intermediate, gateCols)
+				simd.GemvRowsParallel(gate, row, gateW, intermediate, gateCols)
+				simd.GemvRowsParallel(up, row, upW, intermediate, gateCols)
 				simd.GELUTanhMulTo(act, gate, up)
-				simd.GemvRows(mlpOut, act, downW, hiddenSize, intermediate)
+				simd.GemvRowsParallel(mlpOut, act, downW, hiddenSize, intermediate)
 			}
 			copy(mlpResult[off:off+hiddenSize], mlpOut)
 		}
