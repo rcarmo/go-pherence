@@ -6,11 +6,58 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
+
+func k3FastSiLUMode() string {
+	return strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_K3_FAST_SILU")))
+}
+
+func k3FastSiLUEnabled() bool {
+	v := k3FastSiLUMode()
+	return v == "1" || v == "true" || v == "yes" || v == "on" || v == "lut"
+}
+
+const k3SiLUTableN = 4096
+
+var (
+	k3SiLUTableOnce sync.Once
+	k3SiLUTable     [k3SiLUTableN + 1]float32
+)
+
+func k3InitSiLUTable() {
+	const lo, hi = float32(-8), float32(8)
+	for i := 0; i <= k3SiLUTableN; i++ {
+		x := lo + (hi-lo)*float32(i)/k3SiLUTableN
+		k3SiLUTable[i] = siluScalar(x)
+	}
+}
+
+func k3SiLULUT(x float32) float32 {
+	const lo, hi = float32(-8), float32(8)
+	if x <= lo {
+		return 0
+	}
+	if x >= hi {
+		return x
+	}
+	k3SiLUTableOnce.Do(k3InitSiLUTable)
+	pos := (x - lo) * (k3SiLUTableN / (hi - lo))
+	i := int(pos)
+	if i < 0 {
+		i = 0
+	}
+	if i >= k3SiLUTableN {
+		i = k3SiLUTableN - 1
+	}
+	frac := pos - float32(i)
+	return k3SiLUTable[i]*(1-frac) + k3SiLUTable[i+1]*frac
+}
 
 func k3A100MLPEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_IDEOGRAM4_K3_A100_MLP")))
@@ -41,7 +88,7 @@ func k3SiLUMulInPlace(gate, up []float32) bool {
 	if !k3Enabled() || len(gate) != len(up) || len(gate) == 0 {
 		return false
 	}
-	simdruntime.VecSiLUMul(gate, gate, up)
+	rvv.SiLUMulRVV(gate, gate, up)
 	return true
 }
 

@@ -598,10 +598,18 @@ func (r *ditLayerGPUResidency) QKVAttentionBatch(l DiTLayer, x, out []float32, t
 			}
 		}
 	}
+	timingMarkDiTSub("qkv_norm", t0)
+	t0 = time.Now()
 	if err := applyMRoPEToQK(q, k, rope, tokens, heads, headDim); err != nil {
 		return err
 	}
-	return fullSelfAttention(out, q, k, v, tokens, heads, headDim, scale)
+	timingMarkDiTSub("qkv_rope", t0)
+	t0 = time.Now()
+	if err := fullSelfAttention(out, q, k, v, tokens, heads, headDim, scale); err != nil {
+		return err
+	}
+	timingMarkDiTSub("attention_math", t0)
+	return nil
 }
 
 func (r *ditLayerGPUResidency) QKVBatch(l DiTLayer, x, out []float32, batch int) error {
