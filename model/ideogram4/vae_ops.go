@@ -3,6 +3,9 @@ package ideogram4
 import (
 	"fmt"
 	"math"
+	"os"
+	"sync"
+	"time"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -124,33 +127,33 @@ func Conv2D(in FeatureMap, w Conv2DWeights) (FeatureMap, error) {
 	K := in.C * w.KH * w.KW
 	out := FeatureMap{C: w.OutC, H: H, W: W, Data: make([]float32, w.OutC*HW)}
 
-	// im2col: col[hw, k] with k = ic*KH*KW + ky*KW + kx (matches OIHW weight).
+	convStart := time.Now()
+	// im2col: col[hw, k] parallelized across rows for K3 X100.
 	col := make([]float32, HW*K)
-	for y := 0; y < H; y++ {
-		for x := 0; x < W; x++ {
-			hw := y*W + x
-			base := hw * K
-			for ic := 0; ic < in.C; ic++ {
-				for ky := 0; ky < w.KH; ky++ {
-					iy := y + ky - padY
-					if iy < 0 || iy >= H {
-						continue
-					}
-					row := (ic*H + iy) * W
-					kbase := base + (ic*w.KH+ky)*w.KW
-					for kx := 0; kx < w.KW; kx++ {
-						ix := x + kx - padX
-						if ix < 0 || ix >= W {
-							continue
-						}
-						col[kbase+kx] = in.Data[row+ix]
-					}
-				}
-			}
+	nw := k3Threads()
+	if nw > H {
+		nw = H
+	}
+	if nw <= 1 || !k3Enabled() {
+		im2colWork(col, in.Data, in.C, w.KH, w.KW, H, W, K, padY, padX, 0, H)
+	} else {
+		var wg sync.WaitGroup
+		wg.Add(nw)
+		for wid := 0; wid < nw; wid++ {
+			y0 := wid * H / nw
+			y1 := (wid + 1) * H / nw
+			go func() {
+				defer wg.Done()
+				im2colWork(col, in.Data, in.C, w.KH, w.KW, H, W, K, padY, padX, y0, y1)
+			}()
 		}
+		wg.Wait()
 	}
 
-	// outT[hw, oc] = col[hw, :] . weight[oc, :]
+	if os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1" {
+		fmt.Fprintf(os.Stderr, "timing vae_conv phase=im2col elapsed=%s hw=%d oc=%d k=%d\n", time.Since(convStart), HW, w.OutC, K)
+	}
+	gemStart := time.Now()
 	outT := make([]float32, HW*w.OutC)
 	if !k3GemmRowsF32(outT, col, w.Weight, HW, w.OutC, K) && !simd.GemmRows(outT, col, w.Weight, HW, w.OutC, K) {
 		for hw := 0; hw < HW; hw++ {
@@ -166,16 +169,28 @@ func Conv2D(in FeatureMap, w Conv2DWeights) (FeatureMap, error) {
 		}
 	}
 
-	// transpose outT[hw, oc] -> out[oc, hw] and add bias.
-	for oc := 0; oc < w.OutC; oc++ {
-		var bias float32
-		if w.Bias != nil {
-			bias = w.Bias[oc]
+	if os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1" {
+		fmt.Fprintf(os.Stderr, "timing vae_conv phase=gemm elapsed=%s hw=%d oc=%d k=%d\n", time.Since(gemStart), HW, w.OutC, K)
+	}
+	// transpose outT[hw, oc] -> out[oc, hw] and add bias, parallelized.
+	nwT := k3Threads()
+	if nwT > w.OutC {
+		nwT = w.OutC
+	}
+	if nwT <= 1 || !k3Enabled() {
+		transposeBiasWork(out.Data, outT, w.Bias, w.OutC, HW, 0, w.OutC)
+	} else {
+		var wgT sync.WaitGroup
+		wgT.Add(nwT)
+		for wid := 0; wid < nwT; wid++ {
+			oc0 := wid * w.OutC / nwT
+			oc1 := (wid + 1) * w.OutC / nwT
+			go func() {
+				defer wgT.Done()
+				transposeBiasWork(out.Data, outT, w.Bias, w.OutC, HW, oc0, oc1)
+			}()
 		}
-		dst := out.Data[oc*HW : (oc+1)*HW]
-		for hw := 0; hw < HW; hw++ {
-			dst[hw] = outT[hw*w.OutC+oc] + bias
-		}
+		wgT.Wait()
 	}
 	return out, nil
 }
@@ -296,4 +311,42 @@ func (f FeatureMap) AddResidual(b FeatureMap) error {
 		f.Data[i] += b.Data[i]
 	}
 	return nil
+}
+
+func im2colWork(col, data []float32, inC, KH, KW, H, W, K, padY, padX, y0, y1 int) {
+	for y := y0; y < y1; y++ {
+		for x := 0; x < W; x++ {
+			hw := y*W + x
+			base := hw * K
+			for ic := 0; ic < inC; ic++ {
+				for ky := 0; ky < KH; ky++ {
+					iy := y + ky - padY
+					if iy < 0 || iy >= H {
+						continue
+					}
+					row := (ic*H + iy) * W
+					kbase := base + (ic*KH+ky)*KW
+					for kx := 0; kx < KW; kx++ {
+						ix := x + kx - padX
+						if ix >= 0 && ix < W {
+							col[kbase+kx] = data[row+ix]
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func transposeBiasWork(dst, outT, bias []float32, outC, HW, oc0, oc1 int) {
+	for oc := oc0; oc < oc1; oc++ {
+		var b float32
+		if bias != nil {
+			b = bias[oc]
+		}
+		d := dst[oc*HW : (oc+1)*HW]
+		for hw := 0; hw < HW; hw++ {
+			d[hw] = outT[hw*outC+oc] + b
+		}
+	}
 }
