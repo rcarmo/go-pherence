@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sync"
 	"time"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -237,30 +238,7 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		group := heads / kvHeads
 		var oW []float32
 		attnAll := make([]float32, positions*qRows)
-		scores := make([]float32, positions)
-		for pos := 0; pos < positions; pos++ {
-			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
-			for i := range attnCtx {
-				attnCtx[i] = 0
-			}
-			for hh := 0; hh < heads; hh++ {
-				kvh := hh / group
-				q := qAll[pos*qRows+hh*headDim : pos*qRows+(hh+1)*headDim]
-				for j := 0; j < positions; j++ {
-					if j > pos {
-						scores[j] = float32(math.Inf(-1)) // causal mask
-					} else {
-						scores[j] = dot(q, kAll[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
-					}
-				}
-				softmaxInPlace(scores[:positions])
-				dst := attnCtx[hh*headDim : (hh+1)*headDim]
-				for j := 0; j < positions; j++ {
-					vv := vAll[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
-					k3SaxpyV(scores[j], vv, dst)
-				}
-			}
-		}
+		runEncoderAttentionContextK3(attnAll, qAll, kAll, vAll, positions, heads, kvHeads, headDim, qRows, kRows, vRows, group)
 		if done, err := k3GemmRowsQ80(hidden, attnAll, positions, weights, lb.OProj); err != nil {
 			return nil, err
 		} else if !done {
@@ -553,4 +531,58 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 	}
 
 	return kvLayers, nil
+}
+
+func runEncoderAttentionContextK3(attnAll, qAll, kAll, vAll []float32, positions, heads, kvHeads, headDim, qRows, kRows, vRows, group int) {
+	if positions <= 0 || heads <= 0 || headDim <= 0 {
+		return
+	}
+	work := func(start, end int) {
+		scores := make([]float32, positions)
+		for pos := start; pos < end; pos++ {
+			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
+			for i := range attnCtx {
+				attnCtx[i] = 0
+			}
+			for hh := 0; hh < heads; hh++ {
+				kvh := hh / group
+				q := qAll[pos*qRows+hh*headDim : pos*qRows+(hh+1)*headDim]
+				for j := 0; j < positions; j++ {
+					if j > pos {
+						scores[j] = float32(math.Inf(-1))
+					} else {
+						scores[j] = k3Dot(q, kAll[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+					}
+				}
+				k3SoftmaxInPlace(scores[:positions])
+				dst := attnCtx[hh*headDim : (hh+1)*headDim]
+				for j := 0; j < positions; j++ {
+					vv := vAll[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
+					k3SaxpyV(scores[j], vv, dst)
+				}
+			}
+		}
+	}
+	nw := 1
+	if k3Enabled() && positions*heads >= 32 {
+		nw = k3Threads()
+		if nw > positions {
+			nw = positions
+		}
+	}
+	if nw <= 1 {
+		work(0, positions)
+		return
+	}
+	var wg sync.WaitGroup
+	wg.Add(nw)
+	for wid := 0; wid < nw; wid++ {
+		start := wid * positions / nw
+		end := (wid + 1) * positions / nw
+		go func() {
+			defer wg.Done()
+			work(start, end)
+		}()
+	}
+	wg.Wait()
 }
