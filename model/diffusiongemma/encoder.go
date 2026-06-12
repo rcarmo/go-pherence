@@ -145,12 +145,30 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 					copy(v, k)
 				}
 			} else {
-				simd.GemvRows(q, h, qW, qRows, hiddenSize)
-				simd.GemvRows(k, h, kW, kRows, hiddenSize)
-				if lb.VProj != nil {
-					simd.GemvRows(v, h, vW, vRows, hiddenSize)
+				// Try BF16-native GEMV (avoids F32 decode for non-resident layers)
+				qBF16, _, _ := weights.RawBF16Tensor(lb.QProj.Name)
+				kBF16, _, _ := weights.RawBF16Tensor(lb.KProj.Name)
+				if qBF16 != nil && kBF16 != nil {
+					bf16GemvNarrow(q, h, qBF16, qRows, hiddenSize)
+					bf16GemvNarrow(k, h, kBF16, kRows, hiddenSize)
+					if lb.VProj != nil {
+						vBF16, _, _ := weights.RawBF16Tensor(lb.VProj.Name)
+						if vBF16 != nil {
+							bf16GemvNarrow(v, h, vBF16, vRows, hiddenSize)
+						} else {
+							simd.GemvRows(v, h, vW, vRows, hiddenSize)
+						}
+					} else {
+						copy(v, k)
+					}
 				} else {
-					copy(v, k)
+					simd.GemvRows(q, h, qW, qRows, hiddenSize)
+					simd.GemvRows(k, h, kW, kRows, hiddenSize)
+					if lb.VProj != nil {
+						simd.GemvRows(v, h, vW, vRows, hiddenSize)
+					} else {
+						copy(v, k)
+					}
 				}
 			}
 			for hh := 0; hh < heads; hh++ {
@@ -209,6 +227,8 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			}
 			if fp8 != nil && layer < len(fp8.Layers) {
 				gpu.GemvFP8E4M3(out, attnCtx, fp8.Layers[layer].O)
+			} else if oBF16, _, _ := weights.RawBF16Tensor(lb.OProj.Name); oBF16 != nil {
+				bf16GemvNarrow(out, attnCtx, oBF16, hiddenSize, qRows)
 			} else {
 				simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows)
 			}
@@ -264,6 +284,20 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 				gpu.GemvFP8E4M3(up, row, fl.Up)
 				simd.GELUTanhMulTo(act, gate, up)
 				gpu.GemvFP8E4M3(mlpOut, act, fl.Down)
+			} else if gateBF16, _, _ := weights.RawBF16Tensor(lb.MLPGateProj.Name); gateBF16 != nil {
+				upBF16, _, _ := weights.RawBF16Tensor(lb.MLPUpProj.Name)
+				downBF16, _, _ := weights.RawBF16Tensor(lb.MLPDownProj.Name)
+				if upBF16 != nil && downBF16 != nil {
+					bf16GemvNarrow(gate, row, gateBF16, intermediate, gateCols)
+					bf16GemvNarrow(up, row, upBF16, intermediate, gateCols)
+					simd.GELUTanhMulTo(act, gate, up)
+					bf16GemvNarrow(mlpOut, act, downBF16, hiddenSize, intermediate)
+				} else {
+					simd.GemvRows(gate, row, gateW, intermediate, gateCols)
+					simd.GemvRows(up, row, upW, intermediate, gateCols)
+					simd.GELUTanhMulTo(act, gate, up)
+					simd.GemvRows(mlpOut, act, downW, hiddenSize, intermediate)
+				}
 			} else {
 				simd.GemvRows(gate, row, gateW, intermediate, gateCols)
 				simd.GemvRows(up, row, upW, intermediate, gateCols)
@@ -437,4 +471,11 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 	}
 
 	return kvLayers, nil
+}
+
+// bf16GemvNarrow runs GEMV with BF16 weights and F32 hidden by narrowing
+// hidden→BF16 and using BF16DotAsm. Avoids F32 weight decode.
+func bf16GemvNarrow(out []float32, hidden []float32, wBF16 []uint16, rows, cols int) bool {
+	xBF16 := simd.BF16FromF32Slice(hidden[:cols])
+	return simd.GemvRowsBF16BF16(out, xBF16, wBF16, rows, cols)
 }

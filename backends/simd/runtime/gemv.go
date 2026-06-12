@@ -32,6 +32,21 @@ func GemvRowsBF16(out []float32, x []float32, w []uint16, rows, cols int) bool {
 	return true
 }
 
+// GemvRowsBF16BF16 computes out[rows] = W_bf16[rows,cols] · x_bf16[cols],
+// where both W and x are BF16. Uses BF16DotAsm when available (AVX2).
+// Output is F32. Fastest path for non-resident weight layers.
+func GemvRowsBF16BF16(out []float32, x []uint16, w []uint16, rows, cols int) bool {
+	weightLen, ok := checked.MulInt(rows, cols)
+	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
+		return false
+	}
+	x = x[:cols]
+	for row := 0; row < rows; row++ {
+		out[row] = BF16DotAsm(w[row*cols:(row+1)*cols], x)
+	}
+	return true
+}
+
 // GemvCols computes out[cols] = x[rows] · W[rows,cols], where W is row-major.
 func GemvCols(out, x, w []float32, rows, cols int) bool {
 	weightLen, ok := checked.MulInt(rows, cols)
