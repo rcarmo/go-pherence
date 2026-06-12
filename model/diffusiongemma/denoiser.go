@@ -12,6 +12,7 @@ type TextDenoiser struct {
 	Ops        ForwardOpPlan
 	Buffers    ForwardBufferPlan
 	Dispatcher ForwardDispatcher
+	EncoderKV  []EncoderKVLayer
 }
 
 func NewTextDenoiser(shape Shape, weights *TextWeights) (*TextDenoiser, error) {
@@ -55,7 +56,17 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	if d.Dispatcher == nil {
 		return ForwardOutput{}, fmt.Errorf("DiffusionGemma text forward dispatcher is not configured")
 	}
-	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step, SelfConditioning: in.SelfConditioning, EncoderKV: in.EncoderKV}, d.Weights, d.Ops, d.Buffers)
+	// Encode prompt on first call if not already done
+	if d.EncoderKV == nil && len(in.PromptIDs) > 0 {
+		if cpuDisp, ok := d.Dispatcher.(CPUDispatcher); ok {
+			kv, err := cpuDisp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
+			if err != nil {
+				return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
+			}
+			d.EncoderKV = kv
+		}
+	}
+	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step, SelfConditioning: in.SelfConditioning, EncoderKV: d.EncoderKV}, d.Weights, d.Ops, d.Buffers)
 }
 
 // ForwardBufferPlan describes the major scratch buffers required by a future
