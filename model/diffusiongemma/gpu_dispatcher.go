@@ -2,7 +2,6 @@ package diffusiongemma
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"time"
 
@@ -295,8 +294,7 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 		}
 	}
 
-	// Attention math on CPU
-	group := heads / kvHeads
+	// Attention: GPU GQA when available, CPU fallback
 	enc := EncoderKVLayer{}
 	if op.Layer >= 0 && op.Layer < len(ctx.EncoderKV) {
 		enc = ctx.EncoderKV[op.Layer]
@@ -306,47 +304,48 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 		encSeq = enc.SeqLen
 	}
 	totalKV := encSeq + positions
-	scores := make([]float32, totalKV)
-	slidingWindow := 0
-	if op.Type == "sliding_attention" {
-		slidingWindow = 1024
+
+	// Build concatenated KV cache: [totalKV, kvHeads * headDim]
+	kvDim := kvHeads * headDim
+	kConcat := make([]float32, totalKV*kvDim)
+	vConcat := make([]float32, totalKV*kvDim)
+	for j := 0; j < encSeq; j++ {
+		copy(kConcat[j*kvDim:(j+1)*kvDim], enc.Keys[j*kRows:j*kRows+kvDim])
+		copy(vConcat[j*kvDim:(j+1)*kvDim], enc.Values[j*vRows:j*vRows+kvDim])
 	}
+	for j := 0; j < positions; j++ {
+		copy(kConcat[(encSeq+j)*kvDim:(encSeq+j+1)*kvDim], kAll[j*kRows:j*kRows+kvDim])
+		copy(vConcat[(encSeq+j)*kvDim:(encSeq+j+1)*kvDim], vAll[j*vRows:j*vRows+kvDim])
+	}
+
 	attnCtx := make([]float32, qRows)
 	for pos := 0; pos < positions; pos++ {
-		for i := range attnCtx {
-			attnCtx[i] = 0
-		}
-		for h := 0; h < heads; h++ {
-			kvh := h / group
-			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
-			for j := 0; j < totalKV; j++ {
-				if j < encSeq {
-					scores[j] = dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
-				} else {
-					canvasJ := j - encSeq
-					if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
-						scores[j] = float32(math.Inf(-1))
-					} else {
-						scores[j] = dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
+		qPos := qAll[pos*qRows : (pos+1)*qRows]
+		// Try GPU GQA attention
+		if err := gpu.F32GQAAttention(attnCtx, qPos, kConcat, vConcat, totalKV, heads, kvHeads, headDim, 1.0); err != nil {
+			// CPU fallback
+			group := heads / kvHeads
+			for i := range attnCtx {
+				attnCtx[i] = 0
+			}
+			scores := make([]float32, totalKV)
+			for h := 0; h < heads; h++ {
+				kvh := h / group
+				q := qPos[h*headDim : (h+1)*headDim]
+				for j := 0; j < totalKV; j++ {
+					scores[j] = dot(q, kConcat[j*kvDim+kvh*headDim:j*kvDim+(kvh+1)*headDim])
+				}
+				softmaxInPlace(scores)
+				dst := attnCtx[h*headDim : (h+1)*headDim]
+				for j, score := range scores {
+					vv := vConcat[j*kvDim+kvh*headDim : j*kvDim+(kvh+1)*headDim]
+					for dd := range dst {
+						dst[dd] += score * vv[dd]
 					}
 				}
 			}
-			softmaxInPlace(scores)
-			dst := attnCtx[h*headDim : (h+1)*headDim]
-			for j, score := range scores {
-				var vv []float32
-				if j < encSeq {
-					vv = enc.Values[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
-				} else {
-					canvasJ := j - encSeq
-					vv = vAll[canvasJ*vRows+kvh*headDim : canvasJ*vRows+(kvh+1)*headDim]
-				}
-				for dd := range dst {
-					dst[dd] += score * vv[dd]
-				}
-			}
 		}
-		// O projection on CPU (attnCtx is per-position, small)
+		// O projection
 		oOut := make([]float32, hiddenSize)
 		simd.GemvRows(oOut, attnCtx, oW, hiddenSize, qRows)
 		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], oOut)
