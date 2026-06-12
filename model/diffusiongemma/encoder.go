@@ -94,21 +94,34 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			}
 		}
 
-		// attention: compute Q,K,V projections
-		qW, qRows, _, err := loadFloatMatrix(weights, lb.QProj)
-		if err != nil {
-			return nil, err
-		}
-		kW, kRows, _, err := loadFloatMatrix(weights, lb.KProj)
-		if err != nil {
-			return nil, err
-		}
-		var vW []float32
+		// attention: get shapes and try BF16 native path first
+		qRows := lb.QProj.Shape[0]
+		kRows := lb.KProj.Shape[0]
 		vRows := kRows
-		if lb.VProj != nil {
-			vW, vRows, _, err = loadFloatMatrix(weights, lb.VProj)
-			if err != nil {
-				return nil, err
+		if lb.VProj != nil && len(lb.VProj.Shape) >= 1 {
+			vRows = lb.VProj.Shape[0]
+		}
+		// Try BF16 zero-copy from mmap (avoids F32 decode entirely)
+		qBF16, _, _ := weights.RawBF16Tensor(lb.QProj.Name)
+		kBF16, _, _ := weights.RawBF16Tensor(lb.KProj.Name)
+		useBF16 := qBF16 != nil && kBF16 != nil
+		// Only decode F32 if BF16 native not available and not FP8
+		var qW, kW, vW []float32
+		if !useBF16 && fp8 == nil {
+			var err2 error
+			qW, _, _, err2 = loadFloatMatrix(weights, lb.QProj)
+			if err2 != nil {
+				return nil, err2
+			}
+			kW, _, _, err2 = loadFloatMatrix(weights, lb.KProj)
+			if err2 != nil {
+				return nil, err2
+			}
+			if lb.VProj != nil {
+				vW, _, _, err2 = loadFloatMatrix(weights, lb.VProj)
+				if err2 != nil {
+					return nil, err2
+				}
 			}
 		}
 		qNorm, err := loadFloatVector(weights, lb.QNorm)
@@ -149,31 +162,26 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 				} else {
 					copy(v, k)
 				}
-			} else {
-				// Try BF16-native GEMV (avoids F32 decode for non-resident layers)
-				qBF16, _, _ := weights.RawBF16Tensor(lb.QProj.Name)
-				kBF16, _, _ := weights.RawBF16Tensor(lb.KProj.Name)
-				if qBF16 != nil && kBF16 != nil {
-					bf16GemvNarrow(q, h, qBF16, qRows, hiddenSize)
-					bf16GemvNarrow(k, h, kBF16, kRows, hiddenSize)
-					if lb.VProj != nil {
-						vBF16, _, _ := weights.RawBF16Tensor(lb.VProj.Name)
-						if vBF16 != nil {
-							bf16GemvNarrow(v, h, vBF16, vRows, hiddenSize)
-						} else {
-							simd.GemvRowsParallel(v, h, vW, vRows, hiddenSize)
-						}
+			} else if useBF16 {
+				bf16GemvNarrow(q, h, qBF16, qRows, hiddenSize)
+				bf16GemvNarrow(k, h, kBF16, kRows, hiddenSize)
+				if lb.VProj != nil {
+					vBF16, _, _ := weights.RawBF16Tensor(lb.VProj.Name)
+					if vBF16 != nil {
+						bf16GemvNarrow(v, h, vBF16, vRows, hiddenSize)
 					} else {
 						copy(v, k)
 					}
 				} else {
-					simd.GemvRowsParallel(q, h, qW, qRows, hiddenSize)
-					simd.GemvRowsParallel(k, h, kW, kRows, hiddenSize)
-					if lb.VProj != nil {
-						simd.GemvRowsParallel(v, h, vW, vRows, hiddenSize)
-					} else {
-						copy(v, k)
-					}
+					copy(v, k)
+				}
+			} else {
+				simd.GemvRowsParallel(q, h, qW, qRows, hiddenSize)
+				simd.GemvRowsParallel(k, h, kW, kRows, hiddenSize)
+				if lb.VProj != nil {
+					simd.GemvRowsParallel(v, h, vW, vRows, hiddenSize)
+				} else {
+					copy(v, k)
 				}
 			}
 			for hh := 0; hh < heads; hh++ {
@@ -200,9 +208,13 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 
 		// Causal self-attention
 		group := heads / kvHeads
-		oW, _, _, err := loadFloatMatrix(weights, lb.OProj)
-		if err != nil {
-			return nil, err
+		var oW []float32
+		if !useBF16 && fp8 == nil {
+			var err2 error
+			oW, _, _, err2 = loadFloatMatrix(weights, lb.OProj)
+			if err2 != nil {
+				return nil, err2
+			}
 		}
 		attnCtx := make([]float32, qRows)
 		out := make([]float32, hiddenSize)
@@ -232,8 +244,12 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			}
 			if fp8 != nil && layer < len(fp8.Layers) {
 				gpu.GemvFP8E4M3(out, attnCtx, fp8.Layers[layer].O)
-			} else if oBF16, _, _ := weights.RawBF16Tensor(lb.OProj.Name); oBF16 != nil {
-				bf16GemvNarrow(out, attnCtx, oBF16, hiddenSize, qRows)
+			} else if useBF16 {
+				if oBF16, _, _ := weights.RawBF16Tensor(lb.OProj.Name); oBF16 != nil {
+					bf16GemvNarrow(out, attnCtx, oBF16, hiddenSize, qRows)
+				} else {
+					simd.GemvRowsParallel(out, attnCtx, oW, hiddenSize, qRows)
+				}
 			} else {
 				simd.GemvRowsParallel(out, attnCtx, oW, hiddenSize, qRows)
 			}
@@ -262,18 +278,31 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			simd.RMSNormTo(hidden[off:off+hiddenSize], preFFN, 1e-6)
 		}
 
-		// Dense MLP
-		gateW, gateRows, gateCols, err := loadFloatMatrix(weights, lb.MLPGateProj)
-		if err != nil {
-			return nil, err
+		// Dense MLP: use BF16 native when available
+		var gateW, upW, downW []float32
+		var gateRows, gateCols int
+		gateBF16, _, _ := weights.RawBF16Tensor(lb.MLPGateProj.Name)
+		upBF16, _, _ := weights.RawBF16Tensor(lb.MLPUpProj.Name)
+		downBF16, _, _ := weights.RawBF16Tensor(lb.MLPDownProj.Name)
+		useBF16MLP := gateBF16 != nil && upBF16 != nil && downBF16 != nil
+		if lb.MLPGateProj != nil && len(lb.MLPGateProj.Shape) >= 2 {
+			gateRows = lb.MLPGateProj.Shape[0]
+			gateCols = lb.MLPGateProj.Shape[1]
 		}
-		upW, _, _, err := loadFloatMatrix(weights, lb.MLPUpProj)
-		if err != nil {
-			return nil, err
-		}
-		downW, _, _, err := loadFloatMatrix(weights, lb.MLPDownProj)
-		if err != nil {
-			return nil, err
+		if !useBF16MLP && fp8 == nil {
+			var err2 error
+			gateW, gateRows, gateCols, err2 = loadFloatMatrix(weights, lb.MLPGateProj)
+			if err2 != nil {
+				return nil, err2
+			}
+			upW, _, _, err2 = loadFloatMatrix(weights, lb.MLPUpProj)
+			if err2 != nil {
+				return nil, err2
+			}
+			downW, _, _, err2 = loadFloatMatrix(weights, lb.MLPDownProj)
+			if err2 != nil {
+				return nil, err2
+			}
 		}
 		intermediate := gateRows
 		gate := make([]float32, intermediate)
@@ -289,20 +318,11 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 				gpu.GemvFP8E4M3(up, row, fl.Up)
 				simd.GELUTanhMulTo(act, gate, up)
 				gpu.GemvFP8E4M3(mlpOut, act, fl.Down)
-			} else if gateBF16, _, _ := weights.RawBF16Tensor(lb.MLPGateProj.Name); gateBF16 != nil {
-				upBF16, _, _ := weights.RawBF16Tensor(lb.MLPUpProj.Name)
-				downBF16, _, _ := weights.RawBF16Tensor(lb.MLPDownProj.Name)
-				if upBF16 != nil && downBF16 != nil {
-					bf16GemvNarrow(gate, row, gateBF16, intermediate, gateCols)
-					bf16GemvNarrow(up, row, upBF16, intermediate, gateCols)
-					simd.GELUTanhMulTo(act, gate, up)
-					bf16GemvNarrow(mlpOut, act, downBF16, hiddenSize, intermediate)
-				} else {
-					simd.GemvRowsParallel(gate, row, gateW, intermediate, gateCols)
-					simd.GemvRowsParallel(up, row, upW, intermediate, gateCols)
-					simd.GELUTanhMulTo(act, gate, up)
-					simd.GemvRowsParallel(mlpOut, act, downW, hiddenSize, intermediate)
-				}
+			} else if useBF16MLP {
+				bf16GemvNarrow(gate, row, gateBF16, gateRows, gateCols)
+				bf16GemvNarrow(up, row, upBF16, gateRows, gateCols)
+				simd.GELUTanhMulTo(act, gate, up)
+				bf16GemvNarrow(mlpOut, act, downBF16, hiddenSize, gateRows)
 			} else {
 				simd.GemvRowsParallel(gate, row, gateW, intermediate, gateCols)
 				simd.GemvRowsParallel(up, row, upW, intermediate, gateCols)
