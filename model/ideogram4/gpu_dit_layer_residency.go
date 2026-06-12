@@ -5,9 +5,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
+
+func timingMarkDiTSub(name string, since time.Time) {
+	if os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1" {
+		fmt.Fprintf(os.Stderr, "timing dit_sublayer=%s elapsed=%s\n", name, time.Since(since))
+	}
+}
 
 type ditLayerGPUResidency struct {
 	qkv   *nvidia.GPUFP8E4M3Linear
@@ -515,13 +522,18 @@ func (r *ditLayerGPUResidency) AttentionResidualBatch(l DiTLayer, hidden, x, gat
 		}
 	}
 	attnOut := make([]float32, tokens*heads*headDim)
+	t0 := time.Now()
 	if err := r.QKVAttentionBatch(l, x, attnOut, tokens, heads, headDim, rope, scale); err != nil {
 		return err
 	}
+	timingMarkDiTSub("attn_qkv_attention", t0)
+	t0 = time.Now()
 	oprojAll := make([]float32, len(attnOut))
 	if err := r.OBatch(l, attnOut, oprojAll, tokens); err != nil {
 		return err
 	}
+	timingMarkDiTSub("attn_o", t0)
+	t0 = time.Now()
 	postNormAll := make([]float32, len(attnOut))
 	if !gpuDisabledByK3() {
 		if err := rmsNormRowsWeightedGPU(postNormAll, oprojAll, l.AttnN2, nil, tokens, heads*headDim, normEps); err == nil {
@@ -539,6 +551,7 @@ func (r *ditLayerGPUResidency) AttentionResidualBatch(l DiTLayer, hidden, x, gat
 			row[i] += gate[i] * upd[i]
 		}
 	}
+	timingMarkDiTSub("attn_norm_residual", t0)
 	return nil
 }
 
@@ -550,6 +563,7 @@ func (r *ditLayerGPUResidency) QKVAttentionBatch(l DiTLayer, x, out []float32, t
 			return fmt.Errorf("DiT layer GPU QKV+attention: %w", err)
 		}
 	}
+	t0 := time.Now()
 	q := make([]float32, tokens*heads*headDim)
 	k := make([]float32, tokens*heads*headDim)
 	v := make([]float32, tokens*heads*headDim)
@@ -557,6 +571,8 @@ func (r *ditLayerGPUResidency) QKVAttentionBatch(l DiTLayer, x, out []float32, t
 	if err := r.QKVBatch(l, x, qkvAll, tokens); err != nil {
 		return err
 	}
+	timingMarkDiTSub("qkv_proj", t0)
+	t0 = time.Now()
 	emb := heads * headDim
 	for t := 0; t < tokens; t++ {
 		qkv := qkvAll[t*3*emb : (t+1)*3*emb]
@@ -662,13 +678,20 @@ func (r *ditLayerGPUResidency) MLPBatch(l DiTLayer, x, out []float32, batch int)
 			return fmt.Errorf("DiT layer GPU SwiGLU+W2: %w", err)
 		}
 	}
+	t0 := time.Now()
 	gAll := make([]float32, batch*l.W1.OutDim())
 	uAll := make([]float32, batch*l.W3.OutDim())
 	if err := r.W1W3Batch(l, x, gAll, uAll, batch); err != nil {
 		return err
 	}
+	timingMarkDiTSub("mlp_w1w3", t0)
+	t0 = time.Now()
 	siluMulInPlace(gAll, uAll)
-	return r.W2Batch(l, gAll, out, batch)
+	timingMarkDiTSub("mlp_silu_mul", t0)
+	t0 = time.Now()
+	err := r.W2Batch(l, gAll, out, batch)
+	timingMarkDiTSub("mlp_w2", t0)
+	return err
 }
 
 func (r *ditLayerGPUResidency) W1W3Batch(l DiTLayer, x, outW1, outW3 []float32, batch int) error {

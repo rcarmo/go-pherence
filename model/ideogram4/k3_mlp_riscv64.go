@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
@@ -63,11 +64,14 @@ func k3MLPBatch(l DiTLayer, x, out []float32, batch int) (bool, error) {
 	inter := l.W1.OutDim()
 	gAll := make([]float32, batch*inter)
 	uAll := make([]float32, batch*inter)
+	t0 := time.Now()
 	w1 := l.W1.k3.ensureWeightQ80RowScale(l.W1)
 	w3 := l.W3.k3.ensureWeightQ80RowScale(l.W3)
 	if !aipool.Gemm2Q80x32AIPooledX100PackSameInput(x, batch, l.W1.InDim(), w1, w3, gAll, uAll, k3A100WorkerPool()) {
 		return false, nil
 	}
+	timingMarkDiTSub("mlp_w1w3", t0)
+	t0 = time.Now()
 	if l.W1.weight.Bias != nil {
 		for b := 0; b < batch; b++ {
 			row := gAll[b*inter : (b+1)*inter]
@@ -85,8 +89,11 @@ func k3MLPBatch(l DiTLayer, x, out []float32, batch int) (bool, error) {
 		}
 	}
 	siluMulInPlace(gAll, uAll)
+	timingMarkDiTSub("mlp_silu_mul", t0)
+	t0 = time.Now()
 	if err := l.W2.ApplyBatch(gAll, out, batch); err != nil {
 		return true, err
 	}
+	timingMarkDiTSub("mlp_w2", t0)
 	return true, nil
 }
