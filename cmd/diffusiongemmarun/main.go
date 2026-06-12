@@ -62,6 +62,7 @@ func main() {
 	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "open local text weights and attach the CPU/SIMD dispatcher scaffold")
 	useGPUDispatcher := flag.Bool("gpu-dispatcher", false, "open local text weights and use GPU/CUDA dispatcher (falls back to CPU if no GPU)")
 	fp8Model := flag.String("fp8-model", "", "path to FP8-dynamic DiffusionGemma checkpoint directory for GPU inference")
+	residentExpertLayers := flag.Int("resident-expert-layers", 0, "pre-upload all 128 FP8 experts for the first N layers to GPU")
 	allowSlowCPU := flag.Bool("allow-slow-cpu", false, "allow experimental full-weight CPU dispatcher run; may be extremely slow and memory-heavy")
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault all mapped safetensor shards before CPU dispatcher run")
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
@@ -253,6 +254,18 @@ func main() {
 				gpuDisp.FP8Model = gpuModel
 				gpuDisp.FP8Weights = fp8Weights
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: %d FP8 layers uploaded to GPU\n", len(gpuModel.Layers))
+				if *residentExpertLayers > 0 {
+					layers := make([]int, *residentExpertLayers)
+					for i := range layers {
+						layers[i] = i
+					}
+					expertPool, err := diffusiongemma.UploadExpertPool(fp8Weights, layers, true)
+					if err != nil {
+						fatal(err)
+					}
+					gpuDisp.ExpertPool = expertPool
+					fmt.Fprintf(os.Stderr, "diffusiongemmarun: %d layers with GPU-resident experts\n", *residentExpertLayers)
+				}
 			}
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, gpuDisp)
 		} else {

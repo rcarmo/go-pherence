@@ -21,6 +21,7 @@ type GPUDispatcher struct {
 	SkipEviction        bool
 	FP8Model            *GPUFP8Model
 	FP8Weights          *FP8TextWeights
+	ExpertPool          *GPUFP8ExpertPool
 }
 
 func (d GPUDispatcher) cpuFallback() CPUDispatcher {
@@ -122,14 +123,17 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				return ForwardOutput{}, err
 			}
 		case OpExperts:
-			if d.FP8Weights != nil {
-				if err := runFP8ExpertsFromResidual(op, weights, scratch, d.FP8Weights); err != nil {
-					return ForwardOutput{}, err
+			if d.ExpertPool != nil {
+				if _, ok := d.ExpertPool.Layers[op.Layer]; ok {
+					if err := runGPUResidentExperts(op, weights, scratch, d.ExpertPool); err != nil {
+						return ForwardOutput{}, err
+					}
+					break
 				}
-			} else {
-				if err := runExpertsFromResidual(op, weights, scratch); err != nil {
-					return ForwardOutput{}, err
-				}
+			}
+			// Non-resident layers: use BF16 CPU experts (proven correct)
+			if err := runExpertsFromResidual(op, weights, scratch); err != nil {
+				return ForwardOutput{}, err
 			}
 		case OpPostMoE:
 			if err := runCombineMlpMoe(op, weights, scratch); err != nil {
