@@ -106,4 +106,16 @@ func (f *FP8Linear) ApplyBatch(x []float32, out []float32, batch int) error {
 	return nil
 }
 
+// ReleaseRawWeights nils out the raw E4M3 byte/scale data after resident K3/A100
+// caches have been built. This frees roughly OutDim*InDim bytes per linear,
+// halving peak memory for prewarmed DiT inference. The FP8Linear remains usable
+// through its K3 cache; CPU fallback GemvTo will panic if called afterward.
+func (f *FP8Linear) ReleaseRawWeights() {
+	if f == nil {
+		return
+	}
+	f.weight.Weight = nil
+	f.weight.Scale = nil
+}
+
 var _ FP8LinearWeight = (*FP8Linear)(nil)

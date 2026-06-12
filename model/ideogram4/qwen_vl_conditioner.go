@@ -155,6 +155,7 @@ func (q *QwenVLConditioner) PrewarmK3() int {
 	count := 0
 	pre := func(name string, outDim, inDim int) {
 		if l, err := q.loadFP8(name, outDim, inDim); err == nil && k3FP8Prewarm(l) {
+			l.ReleaseRawWeights()
 			count++
 		}
 	}

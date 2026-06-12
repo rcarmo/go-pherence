@@ -27,6 +27,7 @@ func (m *DiTModel) PrewarmK3() int {
 	count := 0
 	pre := func(l *FP8Linear) {
 		if k3FP8Prewarm(l) {
+			l.ReleaseRawWeights()
 			count++
 		}
 	}
@@ -62,7 +63,10 @@ func (p *NativePipeline) PrewarmK3() int {
 	if p == nil || !k3PrewarmEnabled() {
 		return 0
 	}
-	return p.Conditioner.PrewarmK3() + p.Cond.PrewarmK3() + p.Uncond.PrewarmK3()
+	// Only prewarm Qwen + conditional DiT at load time.
+	// Unconditional DiT shares the same shapes and will build caches on first use.
+	// This halves peak prewarmed memory on memory-constrained K3 boards.
+	return p.Conditioner.PrewarmK3() + p.Cond.PrewarmK3()
 }
 
 func (p *NativePipeline) maybePrewarmK3() {
