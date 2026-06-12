@@ -19,3 +19,8 @@ func k3Gemm2RowsQ80(_ []float32, _ []float32, _ []float32, _ int, _ *TextWeights
 func k3GemmManyRowsQ80(_ [][]float32, _ []float32, _ int, _ *TextWeights, _ []*TensorBinding) (bool, error) {
 	return false, nil
 }
+
+func (w *TextWeights) PreloadLayerQ80(_ int, _ bool) (int, error) { return 0, nil }
+func (w *TextWeights) PreloadLayerRangeQ80(_ int, _ int, _ bool) (int, error) {
+	return 0, nil
+}

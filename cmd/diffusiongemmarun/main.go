@@ -66,6 +66,8 @@ func main() {
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
 	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
 	residencyBudgetGiB := flag.Float64("residency-budget-gib", 0, "choose resident layer prefix from decoded float32 cache budget in GiB")
+	q80PrewarmLayers := flag.Int("k3-q80-prewarm-layers", 0, "prepack first N text layers into the K3 A100 Q80 cache")
+	q80PrewarmExperts := flag.Bool("k3-q80-prewarm-experts", false, "include all per-expert tensors when using -k3-q80-prewarm-layers; memory-heavy")
 	maxDispatchLayers := flag.Int("max-dispatch-layers", 0, "debug: execute at most N text layers in CPU dispatcher")
 	tailAfterMaxLayers := flag.Bool("tail-after-max-layers", false, "debug: run tail ops after -max-dispatch-layers instead of returning before tail")
 	lmHeadTopK := flag.Int("lm-head-top-k", 0, "debug: keep only top-K LM head logits per position, storing -Inf elsewhere")
@@ -224,6 +226,15 @@ func main() {
 				fatal(err)
 			}
 		}
+		q80Prewarmed := 0
+		if *q80PrewarmLayers > 0 {
+			var err error
+			q80Prewarmed, err = weights.PreloadLayerRangeQ80(0, *q80PrewarmLayers, *q80PrewarmExperts)
+			if err != nil {
+				fatal(err)
+			}
+			fmt.Fprintf(os.Stderr, "diffusiongemmarun: K3 Q80 prewarmed layers=%d tensors=%d include_experts=%v\n", *q80PrewarmLayers, q80Prewarmed, *q80PrewarmExperts)
+		}
 		if *preloadOnly {
 			present, expected := 0, 0
 			ready := false
@@ -232,7 +243,7 @@ func main() {
 			}
 			fmt.Printf("DiffusionGemma preload scaffold: %s\n", *modelDir)
 			fmt.Printf("  shards_ready=%v present=%d/%d\n", ready, present, expected)
-			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, weights.FloatCacheEntries(), weights.FloatCacheBytes())
+			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v k3_q80_prewarm_layers=%d k3_q80_prewarm_tensors=%d k3_q80_prewarm_experts=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, *q80PrewarmLayers, q80Prewarmed, *q80PrewarmExperts, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 			return
 		}
 		if *useGPUDispatcher {

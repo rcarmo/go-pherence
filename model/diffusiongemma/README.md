@@ -100,6 +100,13 @@ GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS=8 \
 GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS=6
 ```
 
+Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
+
+```sh
+-k3-q80-prewarm-layers 1              # dense projections for first layer
+-k3-q80-prewarm-experts               # also prepack all per-expert tensors; memory-heavy
+```
+
 Implemented paths:
 
 - Dense attention projections: Q/K/V are dispatched as same-input A100 GEMMs so
@@ -115,16 +122,18 @@ Implemented paths:
 Current smoke numbers on Milk-V/K3, FP8 model, prompt IDs `2,3`, one generated
 token, one decoder layer (`-max-dispatch-layers 1`, `-lm-head-top-k 8`):
 
-| Canvas | A100 Q8 | Encoder layer 0 | Decoder layer 0 |
-|---:|:---:|---:|---:|
-| 4 | off | 1.793s | 12.299s |
-| 4 | on | 1.574s | 5.833s |
-| 16 | off | 1.792s | 16.958s |
-| 16 | on | 1.567s | 6.063s |
+| Canvas | A100 Q8 | Q80 prewarm | Encoder layer 0 | Decoder layer 0 |
+|---:|:---:|:---:|---:|---:|
+| 4 | off | — | 1.793s | 12.299s |
+| 4 | on | no | 1.574s | 5.833s |
+| 16 | off | — | 1.792s | 16.958s |
+| 16 | on | no | 1.556s | 6.255s |
+| 16 | on | layer 0 + experts | 1.346s | 1.011s |
 
-The A100 and fallback smoke runs produced the same generated ID (`[0]`) for the
-sampled cases. Remaining high-value work: flash/tiled attention, reducing
-first-use Q80 packing latency with prewarm/residency policy, and broader parity
+The no-A100, A100, and A100+prewarm canvas-16 smoke runs produced the same
+sampled output and entropy (`generated=[0]`, accepted canvas tokens `16`, mean
+entropy `12.476649250079019`). Remaining high-value work: flash/tiled attention,
+selective expert prewarm instead of all-expert prewarm, and broader parity
 fixtures.
 
 ## Platform: Milk-V Jupiter 2 / SpacemiT K3

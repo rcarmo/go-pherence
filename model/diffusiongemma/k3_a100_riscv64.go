@@ -358,3 +358,84 @@ func k3Gemm2RowsQ80Names(outA, outB, x []float32, batch int, weights *TextWeight
 	}
 	return false, nil
 }
+
+// PreloadLayerQ80 pre-packs K3 A100 row-scale Q80x32 weights for one layer.
+// Dense projections are always prepacked; per-expert tensors are only included
+// when includeExperts is true because they dominate memory.
+func (w *TextWeights) PreloadLayerQ80(layer int, includeExperts bool) (int, error) {
+	if w == nil {
+		return 0, fmt.Errorf("nil DiffusionGemma text weights")
+	}
+	fp := w.ForwardPlan()
+	if layer < 0 || layer >= len(fp.Layers) {
+		return 0, fmt.Errorf("DiffusionGemma layer %d outside [0,%d)", layer, len(fp.Layers))
+	}
+	lb := fp.Layers[layer]
+	count := 0
+	for _, b := range []*TensorBinding{lb.QProj, lb.KProj, lb.VProj, lb.OProj, lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj, lb.RouterProj} {
+		if b == nil {
+			continue
+		}
+		if _, ok, err := k3Q80ForBinding(w, b); err != nil {
+			return count, err
+		} else if ok {
+			count++
+		}
+	}
+	if includeExperts {
+		hiddenSize := 0
+		if lb.PreFFNLayerNorm2 != nil && len(lb.PreFFNLayerNorm2.Shape) == 1 {
+			hiddenSize = lb.PreFFNLayerNorm2.Shape[0]
+		} else if fp.Globals.EmbedTokens != nil && len(fp.Globals.EmbedTokens.Shape) == 2 {
+			hiddenSize = fp.Globals.EmbedTokens.Shape[1]
+		}
+		if hiddenSize <= 0 {
+			return count, fmt.Errorf("DiffusionGemma layer %d cannot infer hidden size for expert Q80 prewarm", layer)
+		}
+		layout, err := expertLayoutForLayer(w, lb, hiddenSize)
+		if err != nil {
+			return count, err
+		}
+		if layout.fused {
+			for _, b := range []*TensorBinding{lb.ExpertsGateUpProj, lb.ExpertsDownProj} {
+				if b == nil {
+					continue
+				}
+				if _, ok, err := k3Q80ForBinding(w, b); err != nil {
+					return count, err
+				} else if ok {
+					count++
+				}
+			}
+		} else {
+			for expertID := 0; expertID < layout.nExperts; expertID++ {
+				for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
+					if _, ok, err := k3Q80ForTensorName(w, perExpertTensorName(layout.layerPrefix, expertID, proj)); err != nil {
+						return count, err
+					} else if ok {
+						count++
+					}
+				}
+			}
+		}
+	}
+	return count, nil
+}
+
+func (w *TextWeights) PreloadLayerRangeQ80(start, count int, includeExperts bool) (int, error) {
+	if count < 0 {
+		return 0, fmt.Errorf("DiffusionGemma negative Q80 preload count %d", count)
+	}
+	if w != nil && start == 0 && count > w.q80ResidentLayerPrefix {
+		w.q80ResidentLayerPrefix = count
+	}
+	total := 0
+	for i := 0; i < count; i++ {
+		n, err := w.PreloadLayerQ80(start+i, includeExperts)
+		if err != nil {
+			return total, err
+		}
+		total += n
+	}
+	return total, nil
+}
