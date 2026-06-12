@@ -113,6 +113,11 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 With a `1.0 GiB` Q80 budget, the FP8 checkpoint currently selects 1 all-expert
 layer (`864951296` bytes) or 18 dense-only layers (`1055864832` bytes).
 
+For multi-step denoising, `-skip-eviction` keeps decoded/Q80 layer caches across
+steps. It is memory-heavy but can avoid selected-expert repacking: in a 2-step,
+4-layer canvas-16 smoke, second-step layers 1–2 improved from roughly
+`477ms/474ms` to `124ms/147ms` with identical output.
+
 Async Q80 prefetch can interleave packing with compute:
 
 ```sh

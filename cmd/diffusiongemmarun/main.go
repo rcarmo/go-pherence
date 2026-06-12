@@ -73,6 +73,7 @@ func main() {
 	tailAfterMaxLayers := flag.Bool("tail-after-max-layers", false, "debug: run tail ops after -max-dispatch-layers instead of returning before tail")
 	lmHeadTopK := flag.Int("lm-head-top-k", 0, "debug: keep only top-K LM head logits per position, storing -Inf elsewhere")
 	dispatchProgress := flag.Bool("dispatch-progress", false, "print CPU dispatcher layer/tail progress to stderr")
+	skipEviction := flag.Bool("skip-eviction", false, "debug: keep decoded/Q80 layer caches instead of evicting after each layer; memory-heavy but useful across denoising steps")
 	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
@@ -254,9 +255,9 @@ func main() {
 			return
 		}
 		if *useGPUDispatcher {
-			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress})
+			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, SkipEviction: *skipEviction})
 		} else {
-			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress})
+			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, SkipEviction: *skipEviction})
 		}
 		if err != nil {
 			fatal(err)
@@ -333,7 +334,7 @@ func main() {
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
 	}
 	if weights != nil {
-		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f k3_q80_prewarm_layers=%d k3_q80_residency_budget_gib=%.2f max_dispatch_layers=%d tail_after_max_layers=%v lm_head_top_k=%d float_cache_entries=%d float_cache_bytes=%d q80_cache_entries=%d q80_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *q80PrewarmLayers, *q80ResidencyBudgetGiB, *maxDispatchLayers, *tailAfterMaxLayers, *lmHeadTopK, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f k3_q80_prewarm_layers=%d k3_q80_residency_budget_gib=%.2f max_dispatch_layers=%d tail_after_max_layers=%v lm_head_top_k=%d skip_eviction=%v float_cache_entries=%d float_cache_bytes=%d q80_cache_entries=%d q80_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *q80PrewarmLayers, *q80ResidencyBudgetGiB, *maxDispatchLayers, *tailAfterMaxLayers, *lmHeadTopK, *skipEviction, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes())
 	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)
