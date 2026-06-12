@@ -122,6 +122,8 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				return ForwardOutput{}, err
 			}
 		case OpExperts:
+			// FP8 expert GPU upload disabled (OOM with projection layers)
+			// CPU expert path with BF16 slice decode is the current default
 			if err := runExpertsFromResidual(op, weights, scratch); err != nil {
 				return ForwardOutput{}, err
 			}
