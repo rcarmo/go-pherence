@@ -224,21 +224,19 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 	// GPU projections: FP8 GEMV if available, else batched F32 SGEMM
 	if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
 		fl := &d.FP8Model.Layers[op.Layer]
-		for pos := 0; pos < positions; pos++ {
-			h := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
-			if err := fl.FP8GemvQ(qAll[pos*qRows:(pos+1)*qRows], h); err != nil {
-				return fmt.Errorf("FP8 Q GEMV: %w", err)
+		// Batched FP8 GEMM: all positions in one GPU call per projection
+		if err := gpu.GemmFP8E4M3(qAll, scratch.Hidden[:positions*hiddenSize], positions, fl.Q); err != nil {
+			return fmt.Errorf("FP8 Q GEMM: %w", err)
+		}
+		if err := gpu.GemmFP8E4M3(kAll, scratch.Hidden[:positions*hiddenSize], positions, fl.K); err != nil {
+			return fmt.Errorf("FP8 K GEMM: %w", err)
+		}
+		if fl.V != nil {
+			if err := gpu.GemmFP8E4M3(vAll, scratch.Hidden[:positions*hiddenSize], positions, fl.V); err != nil {
+				return fmt.Errorf("FP8 V GEMM: %w", err)
 			}
-			if err := fl.FP8GemvK(kAll[pos*kRows:(pos+1)*kRows], h); err != nil {
-				return fmt.Errorf("FP8 K GEMV: %w", err)
-			}
-			if fl.V != nil {
-				if err := fl.FP8GemvV(vAll[pos*vRows:(pos+1)*vRows], h); err != nil {
-					return fmt.Errorf("FP8 V GEMV: %w", err)
-				}
-			} else {
-				copy(vAll[pos*vRows:(pos+1)*vRows], kAll[pos*kRows:(pos+1)*kRows])
-			}
+		} else {
+			copy(vAll, kAll)
 		}
 	} else {
 		qResult, err := batchedGPUGemm(qW, scratch.Hidden[:positions*hiddenSize], qRows, hiddenSize, positions)
@@ -376,16 +374,16 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 		row := scratch.Hidden[off : off+hiddenSize]
 		if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
 			fl := &d.FP8Model.Layers[op.Layer]
-			if err := fl.FP8GemvGate(gate, row); err != nil {
+			if err := gpu.GemvFP8E4M3(gate, row, fl.Gate); err != nil {
 				return fmt.Errorf("FP8 gate GEMV: %w", err)
 			}
-			if err := fl.FP8GemvUp(up, row); err != nil {
+			if err := gpu.GemvFP8E4M3(up, row, fl.Up); err != nil {
 				return fmt.Errorf("FP8 up GEMV: %w", err)
 			}
 			if !simd.GELUTanhMulTo(act, gate, up) {
 				return fmt.Errorf("GPU MLP activation rejected")
 			}
-			if err := fl.FP8GemvDown(mlpOut, act); err != nil {
+			if err := gpu.GemvFP8E4M3(mlpOut, act, fl.Down); err != nil {
 				return fmt.Errorf("FP8 down GEMV: %w", err)
 			}
 		} else {
