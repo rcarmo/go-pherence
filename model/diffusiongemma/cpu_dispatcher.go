@@ -808,13 +808,14 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 	if err != nil {
 		return err
 	}
-	projW, numExperts, projCols, err := loadFloatMatrix(weights, lb.RouterProj)
+	projW, projRows, projCols, err := loadFloatMatrix(weights, lb.RouterProj)
 	if err != nil {
 		return err
 	}
 	hiddenSize := len(scaleVec)
-	if projCols != numExperts || hiddenSize <= 0 || len(scratch.Residual)%hiddenSize != 0 {
-		return fmt.Errorf("DiffusionGemma router shape mismatch scale=%d proj=[%d,%d] residual=%d", hiddenSize, projW, projCols, len(scratch.Residual))
+	numExperts := projRows
+	if projCols != hiddenSize || numExperts <= 0 || len(scratch.Residual)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma router shape mismatch scale=%d proj=[%d,%d] residual=%d", hiddenSize, projRows, projCols, len(scratch.Residual))
 	}
 	normBuf := make([]float32, hiddenSize)
 	scored := make([]float32, numExperts)
