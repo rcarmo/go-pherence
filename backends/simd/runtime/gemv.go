@@ -17,6 +17,20 @@ func GemvRows(out, x, w []float32, rows, cols int) bool {
 	return true
 }
 
+// GemvRowsBF16 computes out[rows] = W_bf16[rows,cols] · x[cols], where W is
+// row-major BF16 ([]uint16) and x/out are F32. Avoids full BF16→F32 decode.
+func GemvRowsBF16(out []float32, x []float32, w []uint16, rows, cols int) bool {
+	weightLen, ok := checked.MulInt(rows, cols)
+	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
+		return false
+	}
+	x = x[:cols]
+	for row := 0; row < rows; row++ {
+		out[row] = BF16DotF32(w[row*cols:(row+1)*cols], x)
+	}
+	return true
+}
+
 // GemvCols computes out[cols] = x[rows] · W[rows,cols], where W is row-major.
 func GemvCols(out, x, w []float32, rows, cols int) bool {
 	weightLen, ok := checked.MulInt(rows, cols)

@@ -378,34 +378,37 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		return fmt.Errorf("DiffusionGemma self-attention layer %d outside plan", op.Layer)
 	}
 	lb := fp.Layers[op.Layer]
-	qW, qRows, hiddenSize, err := loadFloatMatrix(weights, lb.QProj)
+	qM, err := loadMixedMatrix(weights, lb.QProj)
 	if err != nil {
 		return err
 	}
-	kW, kRows, kCols, err := loadFloatMatrix(weights, lb.KProj)
+	qRows, hiddenSize := qM.rows, qM.cols
+	kM, err := loadMixedMatrix(weights, lb.KProj)
 	if err != nil {
 		return err
 	}
-	if kCols != hiddenSize {
-		return fmt.Errorf("DiffusionGemma attention K shape [%d,%d] hidden=%d", kRows, kCols, hiddenSize)
+	kRows := kM.rows
+	if kM.cols != hiddenSize {
+		return fmt.Errorf("DiffusionGemma attention K shape [%d,%d] hidden=%d", kRows, kM.cols, hiddenSize)
 	}
-	var vW []float32
-	vRows, vCols := kRows, kCols
+	var vM *mixedMatrix
+	vRows := kRows
 	if lb.VProj != nil {
-		vW, vRows, vCols, err = loadFloatMatrix(weights, lb.VProj)
+		vM, err = loadMixedMatrix(weights, lb.VProj)
 		if err != nil {
 			return err
 		}
-		if vCols != hiddenSize {
-			return fmt.Errorf("DiffusionGemma attention V shape [%d,%d] hidden=%d", vRows, vCols, hiddenSize)
+		vRows = vM.rows
+		if vM.cols != hiddenSize {
+			return fmt.Errorf("DiffusionGemma attention V shape [%d,%d] hidden=%d", vRows, vM.cols, hiddenSize)
 		}
 	}
-	oW, oRows, oCols, err := loadFloatMatrix(weights, lb.OProj)
+	oM, err := loadMixedMatrix(weights, lb.OProj)
 	if err != nil {
 		return err
 	}
-	if oRows != hiddenSize || oCols != qRows {
-		return fmt.Errorf("DiffusionGemma attention O shape [%d,%d] q=%d hidden=%d", oRows, oCols, qRows, hiddenSize)
+	if oM.rows != hiddenSize || oM.cols != qRows {
+		return fmt.Errorf("DiffusionGemma attention O shape [%d,%d] q=%d hidden=%d", oM.rows, oM.cols, qRows, hiddenSize)
 	}
 	qNorm, err := loadFloatVector(weights, lb.QNorm)
 	if err != nil {
@@ -442,11 +445,11 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		q := qAll[pos*qRows : (pos+1)*qRows]
 		k := kAll[pos*kRows : (pos+1)*kRows]
 		v := vAll[pos*vRows : (pos+1)*vRows]
-		if !simd.GemvRows(q, hidden, qW, qRows, hiddenSize) || !simd.GemvRows(k, hidden, kW, kRows, hiddenSize) {
+		if !qM.gemvRows(q, hidden) || !kM.gemvRows(k, hidden) {
 			return fmt.Errorf("DiffusionGemma attention Q/K GEMV rejected layer %d", op.Layer)
 		}
 		if lb.VProj != nil {
-			if !simd.GemvRows(v, hidden, vW, vRows, hiddenSize) {
+			if !vM.gemvRows(v, hidden) {
 				return fmt.Errorf("DiffusionGemma attention V GEMV rejected layer %d", op.Layer)
 			}
 		} else {
@@ -522,7 +525,7 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 				}
 			}
 		}
-		if !simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows) {
+		if !oM.gemvRows(out, attnCtx) {
 			return fmt.Errorf("DiffusionGemma attention O GEMV rejected layer %d", op.Layer)
 		}
 		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
@@ -623,23 +626,23 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 		return fmt.Errorf("DiffusionGemma dense MLP layer %d outside plan", op.Layer)
 	}
 	lb := fp.Layers[op.Layer]
-	gateW, gateRows, gateCols, err := loadFloatMatrix(weights, lb.MLPGateProj)
+	gateM, err := loadMixedMatrix(weights, lb.MLPGateProj)
 	if err != nil {
 		return err
 	}
-	upW, upRows, upCols, err := loadFloatMatrix(weights, lb.MLPUpProj)
+	upM, err := loadMixedMatrix(weights, lb.MLPUpProj)
 	if err != nil {
 		return err
 	}
-	downW, downRows, downCols, err := loadFloatMatrix(weights, lb.MLPDownProj)
+	downM, err := loadMixedMatrix(weights, lb.MLPDownProj)
 	if err != nil {
 		return err
 	}
-	if gateRows != upRows || gateCols != upCols || downCols != gateRows || downRows != gateCols {
-		return fmt.Errorf("DiffusionGemma dense MLP shape mismatch gate=[%d,%d] up=[%d,%d] down=[%d,%d]", gateRows, gateCols, upRows, upCols, downRows, downCols)
+	if gateM.rows != upM.rows || gateM.cols != upM.cols || downM.cols != gateM.rows || downM.rows != gateM.cols {
+		return fmt.Errorf("DiffusionGemma dense MLP shape mismatch")
 	}
-	hiddenSize := gateCols
-	intermediate := gateRows
+	hiddenSize := gateM.cols
+	intermediate := gateM.rows
 	if hiddenSize <= 0 || intermediate <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
 		return fmt.Errorf("DiffusionGemma dense MLP hidden len=%d hidden_size=%d intermediate=%d", len(scratch.Hidden), hiddenSize, intermediate)
 	}
@@ -649,16 +652,16 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 	out := make([]float32, hiddenSize)
 	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
 		row := scratch.Hidden[off : off+hiddenSize]
-		if !simd.GemvRows(gate, row, gateW, intermediate, hiddenSize) {
+		if !gateM.gemvRows(gate, row) {
 			return fmt.Errorf("DiffusionGemma dense MLP gate GEMV rejected layer %d", op.Layer)
 		}
-		if !simd.GemvRows(up, row, upW, intermediate, hiddenSize) {
+		if !upM.gemvRows(up, row) {
 			return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
 		}
 		if !simd.GELUTanhMulTo(act, gate, up) {
 			return fmt.Errorf("DiffusionGemma dense MLP activation rejected layer %d", op.Layer)
 		}
-		if !simd.GemvRows(out, act, downW, hiddenSize, intermediate) {
+		if !downM.gemvRows(out, act) {
 			return fmt.Errorf("DiffusionGemma dense MLP down GEMV rejected layer %d", op.Layer)
 		}
 		copy(row, out)
@@ -1118,6 +1121,43 @@ func loadFloatMatrix(weights *TextWeights, binding *TensorBinding) ([]float32, i
 		return nil, 0, 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-2", binding.Name, t.Shape)
 	}
 	return t.Data, t.Shape[0], t.Shape[1], nil
+}
+
+// mixedMatrix holds either F32 or BF16 weight data for GEMV.
+type mixedMatrix struct {
+	f32  []float32
+	bf16 []uint16
+	rows int
+	cols int
+}
+
+// gemvRows runs the appropriate GEMV: BF16 path if available, else F32.
+func (m *mixedMatrix) gemvRows(out, x []float32) bool {
+	if m.bf16 != nil {
+		return simd.GemvRowsBF16(out, x, m.bf16, m.rows, m.cols)
+	}
+	return simd.GemvRows(out, x, m.f32, m.rows, m.cols)
+}
+
+// loadMixedMatrix tries BF16 first (zero-copy from mmap), falls back to cached F32.
+func loadMixedMatrix(weights *TextWeights, binding *TensorBinding) (*mixedMatrix, error) {
+	if binding == nil {
+		return nil, fmt.Errorf("DiffusionGemma missing matrix binding")
+	}
+	// Try BF16 path first — avoids full decode
+	bf16, shape, err := weights.RawBF16Tensor(binding.Name)
+	if err != nil {
+		return nil, err
+	}
+	if bf16 != nil && len(shape) == 2 && shape[0] > 0 && shape[1] > 0 {
+		return &mixedMatrix{bf16: bf16, rows: shape[0], cols: shape[1]}, nil
+	}
+	// Fall back to cached F32
+	f32, rows, cols, err := loadFloatMatrix(weights, binding)
+	if err != nil {
+		return nil, err
+	}
+	return &mixedMatrix{f32: f32, rows: rows, cols: cols}, nil
 }
 
 func loadOptionalScalar(weights *TextWeights, binding *TensorBinding, fallback float32) (float32, error) {

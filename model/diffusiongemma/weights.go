@@ -3,6 +3,7 @@ package diffusiongemma
 import (
 	"fmt"
 	"path/filepath"
+	"unsafe"
 
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
@@ -248,6 +249,22 @@ func (w *TextWeights) RawTensor(name string) ([]byte, string, []int, error) {
 		return nil, "", nil, fmt.Errorf("nil DiffusionGemma text weights")
 	}
 	return w.shards.GetRaw(name)
+}
+
+// RawBF16Tensor returns the raw BF16 weight data as []uint16 without decoding.
+// Uses unsafe reinterpretation of the mmap'd bytes to avoid copying.
+// Returns nil if the tensor is not BF16.
+func (w *TextWeights) RawBF16Tensor(name string) ([]uint16, []int, error) {
+	raw, dtype, shape, err := w.RawTensor(name)
+	if err != nil {
+		return nil, nil, err
+	}
+	if dtype != "BF16" {
+		return nil, nil, nil
+	}
+	n := len(raw) / 2
+	out := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[0])), n)
+	return out, shape, nil
 }
 
 func (w *TextWeights) RawTensorRow(name string, row int) ([]byte, string, []int, error) {
