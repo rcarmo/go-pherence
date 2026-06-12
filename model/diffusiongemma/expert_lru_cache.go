@@ -161,42 +161,111 @@ func runLRUCachedExperts(op LayerOp, weights *TextWeights, scratch ForwardScratc
 	}
 
 	intermediate := 704
-	normedRow := make([]float32, hiddenSize)
-	gate := make([]float32, intermediate)
-	up := make([]float32, intermediate)
-	act := make([]float32, intermediate)
-	expertOut := make([]float32, hiddenSize)
 
+	// Pre-norm all positions
+	normedRows := make([]float32, positions*hiddenSize)
 	for pos := 0; pos < positions; pos++ {
 		resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
-		copy(normedRow, resRow)
-		if !simd.RMSNormTo(normedRow, preNorm2, 1e-6) {
+		dst := normedRows[pos*hiddenSize : (pos+1)*hiddenSize]
+		copy(dst, resRow)
+		if !simd.RMSNormTo(dst, preNorm2, 1e-6) {
 			return fmt.Errorf("pre_norm_2 rejected")
 		}
-		dst := scratch.MoeOut[pos*hiddenSize : (pos+1)*hiddenSize]
+	}
+
+	// Collect unique experts and ensure they're cached
+	neededExperts := map[int]bool{}
+	for pos := 0; pos < positions; pos++ {
 		for k := 0; k < topK; k++ {
 			eid := scratch.TopKIDs[pos*topK+k]
-			w := scratch.TopKVals[pos*topK+k]
-			if eid < 0 {
-				continue
+			if eid >= 0 {
+				neededExperts[eid] = true
 			}
+		}
+	}
+	type cachedExpert struct {
+		gate, up, down *gpu.GPUFP8E4M3Linear
+	}
+	expertMap := make(map[int]cachedExpert, len(neededExperts))
+	for eid := range neededExperts {
+		gateL, upL, downL := cache.Get(op.Layer, eid)
+		if gateL == nil {
+			var err error
+			gateL, upL, downL, err = cache.Put(op.Layer, eid, fp8w)
+			if err != nil {
+				return fmt.Errorf("expert %d cache put: %w", eid, err)
+			}
+		}
+		expertMap[eid] = cachedExpert{gateL, upL, downL}
+	}
 
-			// Try cache first, upload on miss
-			gateL, upL, downL := cache.Get(op.Layer, eid)
-			if gateL == nil {
-				var err error
-				gateL, upL, downL, err = cache.Put(op.Layer, eid, fp8w)
-				if err != nil {
-					return fmt.Errorf("expert %d cache put: %w", eid, err)
+	// Batched expert GEMM: all positions through each expert at once
+	gateBatch := make([]float32, positions*intermediate)
+	upBatch := make([]float32, positions*intermediate)
+	actBatch := make([]float32, positions*intermediate)
+	downBatch := make([]float32, positions*hiddenSize)
+
+	for eid, el := range expertMap {
+		// Collect positions that use this expert and their weights
+		type posWeight struct {
+			pos int
+			w   float32
+		}
+		var users []posWeight
+		for pos := 0; pos < positions; pos++ {
+			for k := 0; k < topK; k++ {
+				if scratch.TopKIDs[pos*topK+k] == eid {
+					users = append(users, posWeight{pos, scratch.TopKVals[pos*topK+k]})
+					break
 				}
 			}
+		}
+		if len(users) == 0 {
+			continue
+		}
 
-			gpu.GemvFP8E4M3(gate, normedRow, gateL)
-			gpu.GemvFP8E4M3(up, normedRow, upL)
-			simd.GELUTanhMulTo(act, gate, up)
-			gpu.GemvFP8E4M3(expertOut, act, downL)
-			for i := range dst {
-				dst[i] += w * expertOut[i]
+		// Build batched input from normed rows of positions using this expert
+		batchInput := make([]float32, len(users)*hiddenSize)
+		for i, u := range users {
+			copy(batchInput[i*hiddenSize:(i+1)*hiddenSize], normedRows[u.pos*hiddenSize:(u.pos+1)*hiddenSize])
+		}
+		batch := len(users)
+
+		// Batched GEMM through gate, up, down
+		gB := gateBatch[:batch*intermediate]
+		uB := upBatch[:batch*intermediate]
+		if err := gpu.GemmFP8E4M3(gB, batchInput, batch, el.gate); err != nil {
+			// Fallback to per-position
+			for i, u := range users {
+				gpu.GemvFP8E4M3(gB[i*intermediate:(i+1)*intermediate], normedRows[u.pos*hiddenSize:(u.pos+1)*hiddenSize], el.gate)
+			}
+		}
+		if err := gpu.GemmFP8E4M3(uB, batchInput, batch, el.up); err != nil {
+			for i, u := range users {
+				gpu.GemvFP8E4M3(uB[i*intermediate:(i+1)*intermediate], normedRows[u.pos*hiddenSize:(u.pos+1)*hiddenSize], el.up)
+			}
+		}
+
+		// Activation per position
+		aB := actBatch[:batch*intermediate]
+		for i := 0; i < batch; i++ {
+			simd.GELUTanhMulTo(aB[i*intermediate:(i+1)*intermediate], gB[i*intermediate:(i+1)*intermediate], uB[i*intermediate:(i+1)*intermediate])
+		}
+
+		// Batched down projection
+		dB := downBatch[:batch*hiddenSize]
+		if err := gpu.GemmFP8E4M3(dB, aB, batch, el.down); err != nil {
+			for i := range users {
+				gpu.GemvFP8E4M3(dB[i*hiddenSize:(i+1)*hiddenSize], aB[i*intermediate:(i+1)*intermediate], el.down)
+			}
+		}
+
+		// Accumulate weighted results
+		for i, u := range users {
+			dst := scratch.MoeOut[u.pos*hiddenSize : (u.pos+1)*hiddenSize]
+			expertSlice := dB[i*hiddenSize : (i+1)*hiddenSize]
+			for j := range dst {
+				dst[j] += u.w * expertSlice[j]
 			}
 		}
 	}
