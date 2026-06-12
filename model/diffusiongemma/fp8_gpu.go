@@ -42,9 +42,11 @@ func UploadFP8Layers(fp8 *FP8TextWeights) (*GPUFP8Model, error) {
 		if err != nil {
 			return nil, fmt.Errorf("layer %d K upload: %w", i, err)
 		}
-		model.Layers[i].V, err = gpu.UploadFP8E4M3Linear(lw.VWeight, lw.VScale, nil, lw.VShape[0], lw.VShape[1])
-		if err != nil {
-			return nil, fmt.Errorf("layer %d V upload: %w", i, err)
+		if lw.VWeight != nil {
+			model.Layers[i].V, err = gpu.UploadFP8E4M3Linear(lw.VWeight, lw.VScale, nil, lw.VShape[0], lw.VShape[1])
+			if err != nil {
+				return nil, fmt.Errorf("layer %d V upload: %w", i, err)
+			}
 		}
 		model.Layers[i].O, err = gpu.UploadFP8E4M3Linear(lw.OWeight, lw.OScale, nil, lw.OShape[0], lw.OShape[1])
 		if err != nil {

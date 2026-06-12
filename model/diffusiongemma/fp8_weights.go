@@ -152,7 +152,10 @@ func loadFP8Layer(shards *safetensors.ShardedFile, layer int) (FP8LayerWeights, 
 	}
 	lw.VWeight, lw.VScale, lw.VShape, err = loadFP8Proj(shards, prefix+".self_attn.v_proj")
 	if err != nil {
-		return lw, err
+		// V proj may be absent in full-attention layers (V reuses K)
+		lw.VWeight = nil
+		lw.VScale = nil
+		lw.VShape = lw.KShape
 	}
 	lw.OWeight, lw.OScale, lw.OShape, err = loadFP8Proj(shards, prefix+".self_attn.o_proj")
 	if err != nil {

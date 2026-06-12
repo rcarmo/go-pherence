@@ -232,8 +232,12 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 			if err := fl.FP8GemvK(kAll[pos*kRows:(pos+1)*kRows], h); err != nil {
 				return fmt.Errorf("FP8 K GEMV: %w", err)
 			}
-			if err := fl.FP8GemvV(vAll[pos*vRows:(pos+1)*vRows], h); err != nil {
-				return fmt.Errorf("FP8 V GEMV: %w", err)
+			if fl.V != nil {
+				if err := fl.FP8GemvV(vAll[pos*vRows:(pos+1)*vRows], h); err != nil {
+					return fmt.Errorf("FP8 V GEMV: %w", err)
+				}
+			} else {
+				copy(vAll[pos*vRows:(pos+1)*vRows], kAll[pos*kRows:(pos+1)*kRows])
 			}
 		}
 	} else {
