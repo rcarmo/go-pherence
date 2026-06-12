@@ -318,9 +318,9 @@ func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scrat
 		}
 		return nil
 	case OpDenseMLP:
-		copy(scratch.Residual, scratch.Hidden)
 		return runDenseMLP(op, weights, scratch)
 	case OpPreMoE:
+		copy(scratch.Residual, scratch.Hidden)
 		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PreFFNLayerNorm })
 	case OpRouter:
 		return runRouterFromResidual(op, weights, scratch)
