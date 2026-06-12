@@ -439,3 +439,44 @@ layer execution rather than global projections:
 
 The remaining K3 optimization target is therefore steady-state DiT layer kernels,
 especially attention and MLP internals, not cache construction or scheduler/CFG.
+
+### Steady-state DiT layer subprofile
+
+`GO_PHERENCE_IDEOGRAM4_TIMING=1` now includes DiT branch and sublayer timing for
+K3 profiling. In the fully prewarmed 64×64 one-step K3 run (`k3_prewarm_linears=672`),
+steady-state denoise is about `5.72s` after Qwen conditioning. Aggregate sublayer
+totals across the 68 DiT layer calls in one denoise step were:
+
+| Sublayer | Total | Avg/layer |
+|---|---:|---:|
+| `attn_qkv_attention` | 1.75s | 25.7ms |
+| `mlp_w1w3` | 1.30s | 19.1ms |
+| `mlp_silu_mul` | 1.09s | 15.9ms |
+| `mlp_w2` | 0.76s | 11.1ms |
+| `qkv_proj` | 0.72s | 10.6ms |
+| `attn_o` | 0.27s | 3.9ms |
+| `attn_norm_residual` | 0.06s | 0.8ms |
+
+A trial scalar rational `FAST_SILU` approximation passed a small synthetic MLP
+correctness test but did not improve the MLP benchmark, so it was rejected. The
+next useful kernel work is either a real RVV `SiLU*Mul` implementation or a
+finer split/optimization of `attn_qkv_attention` (Q/K norm + RoPE + attention
+math), rather than more orchestration changes.
+
+### Parallel K3 full-attention seam
+
+The K3 full non-causal attention seam now parallelizes independent `(head,
+query-token)` rows across X100 workers and uses the SIMD/RVV dot-dispatch path
+for Q·K scoring. This replaces the earlier single-goroutine scalar-preserving
+seam for DiT attention while keeping the original Qwen GQA seam intact.
+
+Fully-prewarmed 64×64 one-step profile on Milk-V/K3:
+
+| Sublayer | Before | After |
+|---|---:|---:|
+| `attn_qkv_attention` | ~1.75–1.88s | ~1.12s |
+| denoise total | ~5.72–5.87s | ~5.15s |
+
+The next attention target is the remaining split inside `attn_qkv_attention`:
+Q/K norm + RoPE + attention math, followed by a true tiled/RVV attention kernel if
+this parallel row-worker path stops scaling at larger token counts.
