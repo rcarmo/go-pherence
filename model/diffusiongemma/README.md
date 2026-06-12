@@ -107,6 +107,10 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 -k3-q80-prewarm-experts               # also prepack all per-expert tensors; memory-heavy
 ```
 
+Selected per-expert tensors are packed on demand when `-k3-q80-prewarm-experts`
+is not used. This prepack step is parallelized across X100 workers; override the
+default with `GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=N`.
+
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 
 - unset / `1`: stage packed A blocks in TCM before `K3I8I8M4` (default)
@@ -144,6 +148,10 @@ A 2-layer canvas-16 smoke (`-max-dispatch-layers 2`, `-k3-q80-prewarm-layers 2`,
 |---|---:|---:|---:|---:|
 | A100 Q8 off | 1.772s | 1.835s | 16.951s | 16.360s |
 | A100 Q8 on + Q80 prewarm | 0.031s | 0.031s | 0.985s | 0.987s |
+
+With dense-only Q80 prewarm (`-k3-q80-prewarm-layers 2`) and selected experts
+packed on demand, `GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=8`
+improved decoder layer times from roughly `5.42s/5.36s` to `3.96s/3.91s`.
 
 The no-A100, A100, and A100+prewarm canvas-16 smoke runs produced the same
 sampled output and entropy (`generated=[0]`, accepted canvas tokens `16`, mean

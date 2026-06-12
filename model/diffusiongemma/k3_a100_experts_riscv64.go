@@ -4,6 +4,10 @@ package diffusiongemma
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -11,6 +15,57 @@ import (
 type k3ExpertAssignment struct {
 	pos    int
 	weight float32
+}
+
+func k3ExpertPrepackWorkers(tasks int) int {
+	if tasks <= 1 {
+		return tasks
+	}
+	workers := k3Threads()
+	if s := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS")); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			workers = n
+		}
+	}
+	if workers > tasks {
+		workers = tasks
+	}
+	return workers
+}
+
+func k3PrepackExpertQ80Names(weights *TextWeights, names []string) (bool, error) {
+	if len(names) == 0 {
+		return true, nil
+	}
+	workers := k3ExpertPrepackWorkers(len(names))
+	jobs := make(chan string)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	okAll := true
+	var firstErr error
+	wg.Add(workers)
+	for wid := 0; wid < workers; wid++ {
+		go func() {
+			defer wg.Done()
+			for name := range jobs {
+				_, ok, err := k3Q80ForTensorName(weights, name)
+				if err != nil || !ok {
+					mu.Lock()
+					okAll = okAll && ok
+					if firstErr == nil {
+						firstErr = err
+					}
+					mu.Unlock()
+				}
+			}
+		}()
+	}
+	for _, name := range names {
+		jobs <- name
+	}
+	close(jobs)
+	wg.Wait()
+	return okAll, firstErr
 }
 
 func k3RunPerExpertA100(weights *TextWeights, lb TextLayerBindings, layout expertWeightLayout, scratch ForwardScratch, preNorm2 []float32, hiddenSize, positions, topK int) (bool, error) {
@@ -42,13 +97,14 @@ func k3RunPerExpertRowsA100(weights *TextWeights, layout expertWeightLayout, res
 			assignments[expertID] = append(assignments[expertID], k3ExpertAssignment{pos: pos, weight: topVals[pos*topK+k]})
 		}
 	}
+	prepackNames := make([]string, 0, len(assignments)*3)
 	for expertID := range assignments {
 		for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
-			name := perExpertTensorName(layout.layerPrefix, expertID, proj)
-			if _, ok, err := k3Q80ForTensorName(weights, name); err != nil || !ok {
-				return ok, err
-			}
+			prepackNames = append(prepackNames, perExpertTensorName(layout.layerPrefix, expertID, proj))
 		}
+	}
+	if ok, err := k3PrepackExpertQ80Names(weights, prepackNames); err != nil || !ok {
+		return ok, err
 	}
 	for expertID, rows := range assignments {
 		batch := len(rows)
