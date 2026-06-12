@@ -10,8 +10,8 @@ import (
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
-// GPUDispatcher offloads GEMV-heavy operations to the GPU while keeping
-// control flow, attention, and sampling on the CPU.
+// GPUDispatcher offloads GEMV projections to GPU via DevBuf/DevGemv,
+// keeping attention math, norms, and sampling on CPU.
 type GPUDispatcher struct {
 	ResidentLayerPrefix int
 	MaxLayers           int
@@ -32,41 +32,6 @@ func (d GPUDispatcher) cpuFallback() CPUDispatcher {
 	}
 }
 
-// gpuGemvF32 uploads x to GPU, runs SGEMM(M,1,K), downloads result.
-// W must already be on GPU as a *gpu.Buffer of M*K float32s.
-func gpuGemvF32(out, x []float32, wBuf *gpu.Buffer, M, K int) error {
-	xBuf, err := gpu.Malloc(K)
-	if err != nil {
-		return err
-	}
-	defer xBuf.Free()
-	if err := xBuf.Upload(x[:K]); err != nil {
-		return err
-	}
-	outBuf, err := gpu.Malloc(M)
-	if err != nil {
-		return err
-	}
-	defer outBuf.Free()
-	if err := gpu.Sgemm(M, 1, K, 1.0, wBuf, xBuf, outBuf); err != nil {
-		return err
-	}
-	return outBuf.Download(out[:M])
-}
-
-// uploadF32 allocates GPU buffer and uploads float32 data.
-func uploadF32(data []float32) (*gpu.Buffer, error) {
-	buf, err := gpu.Malloc(len(data))
-	if err != nil {
-		return nil, err
-	}
-	if err := buf.Upload(data); err != nil {
-		buf.Free()
-		return nil, err
-	}
-	return buf, nil
-}
-
 func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) (ForwardOutput, error) {
 	if !gpu.SgemmReady() {
 		if d.Progress {
@@ -79,14 +44,13 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 
 	if d.Progress {
-		fmt.Fprintf(os.Stderr, "DiffusionGemma GPU: using %s for projections\n", gpu.DeviceName())
+		fmt.Fprintf(os.Stderr, "DiffusionGemma GPU: using %s\n", gpu.DeviceName())
 	}
 
 	fp := weights.ForwardPlan()
 	hiddenSize := buffers.HiddenSize
 	positions := len(ctx.Canvas)
 
-	// Allocate CPU scratch (same as CPU dispatcher)
 	scratch := NewForwardScratch(buffers)
 	scratch.LMHeadTopK = d.LMHeadTopK
 	actualHidden := positions * hiddenSize
@@ -98,14 +62,12 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		scratch.Logits = scratch.Logits[:positions]
 	}
 
-	// Run prefix ops on CPU (canvas embedding, self-conditioning)
 	for _, op := range ops.Prefix {
 		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
 		}
 	}
 
-	// Layer loop: GPU for projections, CPU for attention/norms/experts
 	currentLayer := -1
 	completedLayers := 0
 	layerStarted := time.Now()
@@ -134,7 +96,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				return ForwardOutput{}, err
 			}
 		case OpSelfAttention:
-			if err := d.runGPUAttention(op, ctx, weights, scratch, fp, hiddenSize, positions); err != nil {
+			if err := d.gpuAttention(op, ctx, weights, scratch, fp, hiddenSize, positions); err != nil {
 				return ForwardOutput{}, err
 			}
 		case OpPostAttention:
@@ -150,7 +112,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				return ForwardOutput{}, err
 			}
 		case OpDenseMLP:
-			if err := d.runGPUDenseMLP(op, weights, scratch, fp, hiddenSize); err != nil {
+			if err := d.gpuDenseMLP(op, weights, scratch, fp, hiddenSize); err != nil {
 				return ForwardOutput{}, err
 			}
 		case OpRouter:
@@ -183,7 +145,6 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
 	}
 
-	// Tail ops on CPU (final norm, LM head)
 	for _, op := range ops.Tail {
 		if err := dispatchTailOp(op, weights, scratch); err != nil {
 			return ForwardOutput{}, err
@@ -196,59 +157,42 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning}, nil
 }
 
-// runGPUAttention runs Q/K/V/O projections on GPU, attention math on CPU.
-func (d GPUDispatcher) runGPUAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch, fp TextForwardPlan, hiddenSize, positions int) error {
+// devGemv wraps DevGemv: uploads weight + input, computes on GPU, reads back.
+func devGemv(out, x, w []float32, M, K int) {
+	outBuf := gpu.NewDevBuf(M)
+	xBuf := gpu.NewDevBufFrom(x[:K])
+	wBuf := gpu.NewDevBufFrom(w[:M*K])
+	gpu.DevGemv(outBuf, xBuf, wBuf, M, K)
+	outBuf.ToCPU()
+	copy(out[:M], outBuf.Data()[:M])
+}
+
+func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch, fp TextForwardPlan, hiddenSize, positions int) error {
 	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
-		return fmt.Errorf("DiffusionGemma GPU attention layer %d outside plan", op.Layer)
+		return fmt.Errorf("GPU attention layer %d outside plan", op.Layer)
 	}
 	lb := fp.Layers[op.Layer]
 
-	// Load and upload Q/K/V/O weight matrices
-	qF32, qRows, _, err := loadFloatMatrix(weights, lb.QProj)
+	qW, qRows, _, err := loadFloatMatrix(weights, lb.QProj)
 	if err != nil {
 		return err
 	}
-	qGPU, err := uploadF32(qF32)
+	kW, kRows, _, err := loadFloatMatrix(weights, lb.KProj)
 	if err != nil {
 		return err
 	}
-	defer qGPU.Free()
-
-	kF32, kRows, _, err := loadFloatMatrix(weights, lb.KProj)
-	if err != nil {
-		return err
-	}
-	kGPU, err := uploadF32(kF32)
-	if err != nil {
-		return err
-	}
-	defer kGPU.Free()
-
-	var vGPU *gpu.Buffer
+	var vW []float32
 	vRows := kRows
 	if lb.VProj != nil {
-		vF32, vR, _, err := loadFloatMatrix(weights, lb.VProj)
+		vW, vRows, _, err = loadFloatMatrix(weights, lb.VProj)
 		if err != nil {
 			return err
 		}
-		vRows = vR
-		vGPU, err = uploadF32(vF32)
-		if err != nil {
-			return err
-		}
-		defer vGPU.Free()
 	}
-
-	oF32, _, _, err := loadFloatMatrix(weights, lb.OProj)
+	oW, _, _, err := loadFloatMatrix(weights, lb.OProj)
 	if err != nil {
 		return err
 	}
-	oGPU, err := uploadF32(oF32)
-	if err != nil {
-		return err
-	}
-	defer oGPU.Free()
-
 	qNorm, err := loadFloatVector(weights, lb.QNorm)
 	if err != nil {
 		return err
@@ -260,6 +204,15 @@ func (d GPUDispatcher) runGPUAttention(op LayerOp, ctx ForwardContext, weights *
 	headDim := len(qNorm)
 	heads := qRows / headDim
 	kvHeads := kRows / headDim
+
+	// Upload weight matrices to GPU once per layer
+	qBuf := gpu.NewDevBufFrom(qW)
+	kBuf := gpu.NewDevBufFrom(kW)
+	var vBuf *gpu.DevBuf
+	if lb.VProj != nil {
+		vBuf = gpu.NewDevBufFrom(vW)
+	}
+	oBuf := gpu.NewDevBufFrom(oW)
 
 	qAll := make([]float32, positions*qRows)
 	kAll := make([]float32, positions*kRows)
@@ -273,28 +226,34 @@ func (d GPUDispatcher) runGPUAttention(op LayerOp, ctx ForwardContext, weights *
 	}
 	ropeFreqs := simd.BuildRoPEFreqs(ctx.EncoderSeqLen+positions, ropeHalf, headDim, ropeTheta)
 
-	// GPU projections per position
 	for pos := 0; pos < positions; pos++ {
 		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 		q := qAll[pos*qRows : (pos+1)*qRows]
 		k := kAll[pos*kRows : (pos+1)*kRows]
 		v := vAll[pos*vRows : (pos+1)*vRows]
 
-		if err := gpuGemvF32(q, hidden, qGPU, qRows, hiddenSize); err != nil {
-			return fmt.Errorf("GPU Q GEMV: %w", err)
-		}
-		if err := gpuGemvF32(k, hidden, kGPU, kRows, hiddenSize); err != nil {
-			return fmt.Errorf("GPU K GEMV: %w", err)
-		}
-		if lb.VProj != nil && vGPU != nil {
-			if err := gpuGemvF32(v, hidden, vGPU, vRows, hiddenSize); err != nil {
-				return fmt.Errorf("GPU V GEMV: %w", err)
-			}
+		// GPU projections using pre-uploaded weight buffers
+		xBuf := gpu.NewDevBufFrom(hidden)
+		qOut := gpu.NewDevBuf(qRows)
+		gpu.DevGemv(qOut, xBuf, qBuf, qRows, hiddenSize)
+		qOut.ToCPU()
+		copy(q, qOut.Data()[:qRows])
+
+		kOut := gpu.NewDevBuf(kRows)
+		gpu.DevGemv(kOut, xBuf, kBuf, kRows, hiddenSize)
+		kOut.ToCPU()
+		copy(k, kOut.Data()[:kRows])
+
+		if lb.VProj != nil && vBuf != nil {
+			vOut := gpu.NewDevBuf(vRows)
+			gpu.DevGemv(vOut, xBuf, vBuf, vRows, hiddenSize)
+			vOut.ToCPU()
+			copy(v, vOut.Data()[:vRows])
 		} else {
 			copy(v, k)
 		}
 
-		// Norms and RoPE on CPU
+		// Norms + RoPE on CPU
 		for h := 0; h < heads; h++ {
 			simd.RMSNormTo(q[h*headDim:(h+1)*headDim], qNorm, 1e-6)
 		}
@@ -308,7 +267,7 @@ func (d GPUDispatcher) runGPUAttention(op LayerOp, ctx ForwardContext, weights *
 		}
 	}
 
-	// Attention math on CPU (same as CPU dispatcher)
+	// Attention math on CPU
 	group := heads / kvHeads
 	enc := EncoderKVLayer{}
 	if op.Layer >= 0 && op.Layer < len(ctx.EncoderKV) {
@@ -325,7 +284,6 @@ func (d GPUDispatcher) runGPUAttention(op LayerOp, ctx ForwardContext, weights *
 		slidingWindow = 1024
 	}
 	attnCtx := make([]float32, qRows)
-	out := make([]float32, hiddenSize)
 	for pos := 0; pos < positions; pos++ {
 		for i := range attnCtx {
 			attnCtx[i] = 0
@@ -361,52 +319,39 @@ func (d GPUDispatcher) runGPUAttention(op LayerOp, ctx ForwardContext, weights *
 			}
 		}
 		// O projection on GPU
-		if err := gpuGemvF32(out, attnCtx, oGPU, hiddenSize, qRows); err != nil {
-			return fmt.Errorf("GPU O GEMV: %w", err)
-		}
-		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
+		oOut := gpu.NewDevBuf(hiddenSize)
+		aBuf := gpu.NewDevBufFrom(attnCtx)
+		gpu.DevGemv(oOut, aBuf, oBuf, hiddenSize, qRows)
+		oOut.ToCPU()
+		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], oOut.Data()[:hiddenSize])
 	}
 	return nil
 }
 
-// runGPUDenseMLP runs gate/up/down projections on GPU.
-func (d GPUDispatcher) runGPUDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch, fp TextForwardPlan, hiddenSize int) error {
+func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch, fp TextForwardPlan, hiddenSize int) error {
 	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
-		return fmt.Errorf("DiffusionGemma GPU MLP layer %d outside plan", op.Layer)
+		return fmt.Errorf("GPU MLP layer %d outside plan", op.Layer)
 	}
 	lb := fp.Layers[op.Layer]
 
-	gateF32, gateRows, gateCols, err := loadFloatMatrix(weights, lb.MLPGateProj)
+	gateW, gateRows, gateCols, err := loadFloatMatrix(weights, lb.MLPGateProj)
 	if err != nil {
 		return err
 	}
-	gateGPU, err := uploadF32(gateF32)
+	upW, _, _, err := loadFloatMatrix(weights, lb.MLPUpProj)
 	if err != nil {
 		return err
 	}
-	defer gateGPU.Free()
-
-	upF32, _, _, err := loadFloatMatrix(weights, lb.MLPUpProj)
+	downW, _, _, err := loadFloatMatrix(weights, lb.MLPDownProj)
 	if err != nil {
 		return err
 	}
-	upGPU, err := uploadF32(upF32)
-	if err != nil {
-		return err
-	}
-	defer upGPU.Free()
-
-	downF32, _, _, err := loadFloatMatrix(weights, lb.MLPDownProj)
-	if err != nil {
-		return err
-	}
-	downGPU, err := uploadF32(downF32)
-	if err != nil {
-		return err
-	}
-	defer downGPU.Free()
-
 	intermediate := gateRows
+
+	gateBuf := gpu.NewDevBufFrom(gateW)
+	upBuf := gpu.NewDevBufFrom(upW)
+	downBuf := gpu.NewDevBufFrom(downW)
+
 	gate := make([]float32, intermediate)
 	up := make([]float32, intermediate)
 	act := make([]float32, intermediate)
@@ -414,29 +359,37 @@ func (d GPUDispatcher) runGPUDenseMLP(op LayerOp, weights *TextWeights, scratch 
 
 	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
 		row := scratch.Hidden[off : off+hiddenSize]
-		if err := gpuGemvF32(gate, row, gateGPU, intermediate, gateCols); err != nil {
-			return fmt.Errorf("GPU gate GEMV: %w", err)
-		}
-		if err := gpuGemvF32(up, row, upGPU, intermediate, gateCols); err != nil {
-			return fmt.Errorf("GPU up GEMV: %w", err)
-		}
+		xBuf := gpu.NewDevBufFrom(row)
+
+		gOut := gpu.NewDevBuf(intermediate)
+		gpu.DevGemv(gOut, xBuf, gateBuf, intermediate, gateCols)
+		gOut.ToCPU()
+		copy(gate, gOut.Data()[:intermediate])
+
+		uOut := gpu.NewDevBuf(intermediate)
+		gpu.DevGemv(uOut, xBuf, upBuf, intermediate, gateCols)
+		uOut.ToCPU()
+		copy(up, uOut.Data()[:intermediate])
+
 		if !simd.GELUTanhMulTo(act, gate, up) {
-			return fmt.Errorf("DiffusionGemma GPU MLP activation rejected")
+			return fmt.Errorf("GPU MLP activation rejected")
 		}
-		if err := gpuGemvF32(mlpOut, act, downGPU, hiddenSize, intermediate); err != nil {
-			return fmt.Errorf("GPU down GEMV: %w", err)
-		}
+
+		aBuf := gpu.NewDevBufFrom(act)
+		dOut := gpu.NewDevBuf(hiddenSize)
+		gpu.DevGemv(dOut, aBuf, downBuf, hiddenSize, intermediate)
+		dOut.ToCPU()
+		copy(mlpOut, dOut.Data()[:hiddenSize])
 		copy(row, mlpOut)
 	}
 
-	// post_feedforward_layernorm_1 + save to MlpOut + restore Hidden
 	postNorm1, err := loadFloatVector(weights, lb.PostFFNLayerNorm1)
 	if err != nil {
 		return err
 	}
 	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
 		if !simd.RMSNormTo(scratch.Hidden[off:off+hiddenSize], postNorm1, 1e-6) {
-			return fmt.Errorf("DiffusionGemma GPU MLP post_norm_1 rejected")
+			return fmt.Errorf("GPU MLP post_norm_1 rejected")
 		}
 	}
 	copy(scratch.MlpOut, scratch.Hidden)
