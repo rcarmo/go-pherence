@@ -124,10 +124,9 @@ steps. It is memory-heavy but can avoid selected-expert repacking: in a 2-step,
 Async Q80 prefetch can interleave packing with compute:
 
 ```sh
-GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH=1
-GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS=0      # next-layer dense, safer memory
-GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS=1      # next-layer all-expert, more memory
-GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_SELECTED_PREFETCH=1     # selected experts after router
+-k3-q80-prefetch                 # next-layer dense, safer memory
+-k3-q80-prefetch-experts         # next-layer all-expert, more memory/bandwidth
+-k3-q80-selected-prefetch        # selected experts after router
 ```
 
 Dense-only next-layer prefetch on a 4-layer canvas-16 smoke improved later
@@ -145,15 +144,14 @@ all-expert prewarm and selected on-demand prepack; override the default with
 prewarm currently packs 392 tensors in roughly 8s on the K3 and reports about
 865 MB of Q80 cache with zero decoded F32 cache.
 
-The tied BF16 LM head can also use A100 Q80 with
-`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD=1`. The A100 pass is used as a
-shortlist generator and candidates are reranked with exact BF16/F32 dot products
-(`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_CANDIDATES`, default max(32, 4×topK)).
-`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_PREFETCH=1` starts packing the tied
-embedding Q80 cache while decoder layers run; in a 4-layer 2-step smoke it moved
-the one-time 1.8s embedding Q80 pack out of the tail and kept LM-head tails near
-`904ms` with identical generated output. Sparse self-conditioning over top-k
-logits then completes in roughly `5ms`.
+The tied BF16 LM head can also use A100 Q80 with `-k3-a100-lmhead`. The A100
+pass is used as a shortlist generator and candidates are reranked with exact
+BF16/F32 dot products (`-k3-a100-lmhead-candidates`, default max(32, 4×topK)).
+`-k3-a100-lmhead-prefetch` starts packing the tied embedding Q80 cache while
+decoder layers run; in a 4-layer 2-step smoke it moved the one-time 1.8s
+embedding Q80 pack out of the tail and kept LM-head tails near `904ms` with
+identical generated output. Sparse self-conditioning over top-k logits then
+completes in roughly `5ms`.
 
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 

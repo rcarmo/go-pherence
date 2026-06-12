@@ -72,11 +72,35 @@ func main() {
 	maxDispatchLayers := flag.Int("max-dispatch-layers", 0, "debug: execute at most N text layers in CPU dispatcher")
 	tailAfterMaxLayers := flag.Bool("tail-after-max-layers", false, "debug: run tail ops after -max-dispatch-layers instead of returning before tail")
 	lmHeadTopK := flag.Int("lm-head-top-k", 0, "debug: keep only top-K LM head logits per position, storing -Inf elsewhere")
+	k3A100LMHead := flag.Bool("k3-a100-lmhead", false, "enable K3 A100 Q80 LM-head shortlist with exact rerank")
+	k3A100LMHeadPrefetch := flag.Bool("k3-a100-lmhead-prefetch", false, "prepack K3 A100 LM-head Q80 weights while decoder layers run")
+	k3A100LMHeadCandidates := flag.Int("k3-a100-lmhead-candidates", 0, "candidate count for K3 A100 LM-head exact rerank")
+	k3Q80Prefetch := flag.Bool("k3-q80-prefetch", false, "prefetch next layer's K3 Q80 cache while current layer runs")
+	k3Q80PrefetchExperts := flag.Bool("k3-q80-prefetch-experts", false, "include all experts in next-layer K3 Q80 prefetch; memory/bandwidth-heavy")
+	k3Q80SelectedPrefetch := flag.Bool("k3-q80-selected-prefetch", false, "prefetch router-selected expert K3 Q80 weights while dense MLP runs")
 	dispatchProgress := flag.Bool("dispatch-progress", false, "print CPU dispatcher layer/tail progress to stderr")
 	skipEviction := flag.Bool("skip-eviction", false, "debug: keep decoded/Q80 layer caches instead of evicting after each layer; memory-heavy but useful across denoising steps")
 	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
+	if *k3A100LMHead {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD", "1")
+	}
+	if *k3A100LMHeadPrefetch {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_PREFETCH", "1")
+	}
+	if *k3A100LMHeadCandidates > 0 {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_CANDIDATES", strconv.Itoa(*k3A100LMHeadCandidates))
+	}
+	if *k3Q80Prefetch {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH", "1")
+	}
+	if *k3Q80PrefetchExperts {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS", "1")
+	}
+	if *k3Q80SelectedPrefetch {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_SELECTED_PREFETCH", "1")
+	}
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: diffusiongemmarun -model PATH [-prompt-ids 1,2] [-max-new N] [-json]")
 		os.Exit(2)
