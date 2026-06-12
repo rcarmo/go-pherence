@@ -375,14 +375,40 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		if err != nil {
 			return nil, err
 		}
-		projW, projRows, projCols, err := loadFloatMatrix(weights, lb.RouterProj)
-		if err != nil {
-			return nil, err
+		if lb.RouterProj == nil || len(lb.RouterProj.Shape) != 2 {
+			return nil, fmt.Errorf("DiffusionGemma encoder missing router projection binding layer %d", layer)
 		}
-		numExperts := projRows
+		numExperts, projCols := lb.RouterProj.Shape[0], lb.RouterProj.Shape[1]
+		if numExperts <= 0 || projCols != hiddenSize {
+			return nil, fmt.Errorf("DiffusionGemma encoder router shape mismatch proj=%v hidden=%d", lb.RouterProj.Shape, hiddenSize)
+		}
 		scalarRootSize := float32(1.0 / math.Sqrt(float64(hiddenSize)))
-		normBuf := make([]float32, hiddenSize)
-		scored := make([]float32, numExperts)
+		routerInput := make([]float32, positions*hiddenSize)
+		for pos := 0; pos < positions; pos++ {
+			in := routerInput[pos*hiddenSize : (pos+1)*hiddenSize]
+			copy(in, residual[pos*hiddenSize:(pos+1)*hiddenSize])
+			if !simd.RMSNormNoScaleTo(in, 1e-6) {
+				return nil, fmt.Errorf("DiffusionGemma encoder router norm rejected")
+			}
+			for i := range in {
+				in[i] *= scaleVec[i] * scalarRootSize
+			}
+		}
+		scoredAll := make([]float32, positions*numExperts)
+		if done, err := k3GemmRowsQ80(scoredAll, routerInput, positions, weights, lb.RouterProj); err != nil {
+			return nil, err
+		} else if !done {
+			projW, projRows, projCols, err := loadFloatMatrix(weights, lb.RouterProj)
+			if err != nil {
+				return nil, err
+			}
+			if projRows != numExperts || projCols != hiddenSize {
+				return nil, fmt.Errorf("DiffusionGemma encoder router fallback shape mismatch proj=[%d,%d] expected=[%d,%d]", projRows, projCols, numExperts, hiddenSize)
+			}
+			for pos := 0; pos < positions; pos++ {
+				simd.GemvRows(scoredAll[pos*numExperts:(pos+1)*numExperts], routerInput[pos*hiddenSize:(pos+1)*hiddenSize], projW, numExperts, hiddenSize)
+			}
+		}
 		topK := 8 // from config
 		topIDs := make([]int, topK)
 		topVals := make([]float32, topK)
@@ -401,13 +427,8 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		for pos := 0; pos < positions; pos++ {
 			resRow := residual[pos*hiddenSize : (pos+1)*hiddenSize]
 
-			// Router: norm(residual) * scale * scalar_root_size, project, softmax, topk
-			copy(normBuf, resRow)
-			simd.RMSNormNoScaleTo(normBuf, 1e-6)
-			for i := range normBuf {
-				normBuf[i] *= scaleVec[i] * scalarRootSize
-			}
-			simd.GemvRows(scored, normBuf, projW, numExperts, projCols)
+			// Router: batched norm(residual) * scale * scalar_root_size projection, then softmax/top-k.
+			scored := scoredAll[pos*numExperts : (pos+1)*numExperts]
 			softmaxInPlace(scored)
 			for i := range topIDs {
 				topIDs[i] = -1

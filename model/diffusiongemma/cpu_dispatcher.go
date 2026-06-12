@@ -935,31 +935,49 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 	if err != nil {
 		return err
 	}
-	projW, projRows, projCols, err := loadFloatMatrix(weights, lb.RouterProj)
-	if err != nil {
-		return err
+	if lb.RouterProj == nil || len(lb.RouterProj.Shape) != 2 {
+		return fmt.Errorf("DiffusionGemma router missing projection binding")
 	}
+	numExperts, projCols := lb.RouterProj.Shape[0], lb.RouterProj.Shape[1]
 	hiddenSize := len(scaleVec)
-	numExperts := projRows
 	if projCols != hiddenSize || numExperts <= 0 || len(scratch.Residual)%hiddenSize != 0 {
-		return fmt.Errorf("DiffusionGemma router shape mismatch scale=%d proj=[%d,%d] residual=%d", hiddenSize, projRows, projCols, len(scratch.Residual))
+		return fmt.Errorf("DiffusionGemma router shape mismatch scale=%d proj=[%d,%d] residual=%d", hiddenSize, numExperts, projCols, len(scratch.Residual))
 	}
-	normBuf := make([]float32, hiddenSize)
-	scored := make([]float32, numExperts)
 	positions := len(scratch.Residual) / hiddenSize
+	if len(scratch.Router) < positions*numExperts {
+		return fmt.Errorf("DiffusionGemma router scratch=%d want %d", len(scratch.Router), positions*numExperts)
+	}
+	routerInput := make([]float32, positions*hiddenSize)
+	scalarRootSize := float32(1.0 / math.Sqrt(float64(hiddenSize)))
 	for pos := 0; pos < positions; pos++ {
-		resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
-		copy(normBuf, resRow)
-		if !simd.RMSNormNoScaleTo(normBuf, 1e-6) {
+		in := routerInput[pos*hiddenSize : (pos+1)*hiddenSize]
+		copy(in, scratch.Residual[pos*hiddenSize:(pos+1)*hiddenSize])
+		if !simd.RMSNormNoScaleTo(in, 1e-6) {
 			return fmt.Errorf("DiffusionGemma router norm rejected")
 		}
-		scalarRootSize := float32(1.0 / math.Sqrt(float64(hiddenSize)))
-		for i := range normBuf {
-			normBuf[i] *= scaleVec[i] * scalarRootSize
+		for i := range in {
+			in[i] *= scaleVec[i] * scalarRootSize
 		}
-		if !simd.GemvRows(scored, normBuf, projW, numExperts, hiddenSize) {
-			return fmt.Errorf("DiffusionGemma router GEMV rejected")
+	}
+	scoredAll := scratch.Router[:positions*numExperts]
+	if done, err := k3GemmRowsQ80(scoredAll, routerInput, positions, weights, lb.RouterProj); err != nil {
+		return err
+	} else if !done {
+		projW, projRows, projCols, err := loadFloatMatrix(weights, lb.RouterProj)
+		if err != nil {
+			return err
 		}
+		if projRows != numExperts || projCols != hiddenSize {
+			return fmt.Errorf("DiffusionGemma router fallback shape mismatch proj=[%d,%d] expected=[%d,%d]", projRows, projCols, numExperts, hiddenSize)
+		}
+		for pos := 0; pos < positions; pos++ {
+			if !simd.GemvRows(scoredAll[pos*numExperts:(pos+1)*numExperts], routerInput[pos*hiddenSize:(pos+1)*hiddenSize], projW, numExperts, hiddenSize) {
+				return fmt.Errorf("DiffusionGemma router GEMV rejected")
+			}
+		}
+	}
+	for pos := 0; pos < positions; pos++ {
+		scored := scoredAll[pos*numExperts : (pos+1)*numExperts]
 		k3SoftmaxInPlace(scored)
 		topK := len(scratch.TopKIDs) / positions
 		if topK <= 0 {
