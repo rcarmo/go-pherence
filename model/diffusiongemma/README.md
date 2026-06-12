@@ -107,6 +107,13 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 -k3-q80-prewarm-experts               # also prepack all per-expert tensors; memory-heavy
 ```
 
+TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
+
+- unset / `1`: stage packed A blocks in TCM before `K3I8I8M4` (default)
+- `0`: disable Q80 TCM staging
+- `ab`: experimental A+B tile staging; correctness-preserving but slower in the
+  current DiffusionGemma smoke because repeated B-tile copies dominate
+
 Implemented paths:
 
 - Dense attention projections: Q/K/V are dispatched as same-input A100 GEMMs so
@@ -128,7 +135,7 @@ token, one decoder layer (`-max-dispatch-layers 1`, `-lm-head-top-k 8`):
 | 4 | on | no | 1.574s | 5.833s |
 | 16 | off | — | 1.792s | 16.958s |
 | 16 | on | no | 1.556s | 6.255s |
-| 16 | on | layer 0 + experts | 1.346s | 1.011s |
+| 16 | on | layer 0 + experts | 1.357s | 0.993s |
 
 The no-A100, A100, and A100+prewarm canvas-16 smoke runs produced the same
 sampled output and entropy (`generated=[0]`, accepted canvas tokens `16`, mean

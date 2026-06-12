@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
@@ -87,6 +88,46 @@ func packQ80M4ActivationsX100(x []float32, M, K, kBlks int, gelu bool) ([]byte, 
 	return aData, groups
 }
 
+func q80TCMMode() string {
+	v := os.Getenv("IME2_Q80_TCM")
+	if v == "" || v == "1" || v == "true" || v == "yes" || v == "on" {
+		return "a"
+	}
+	return v
+}
+
+func k3I8I8M4TCM(a []byte, w ime2.Q80x32, c *float32, kBlks, ldc int, tcm []byte) bool {
+	mode := q80TCMMode()
+	if mode == "0" || mode == "false" || mode == "off" || len(a) == 0 || len(w.BData) == 0 || len(tcm) == 0 || w.M%32 != 0 {
+		return false
+	}
+	aBytes := kBlks * ime2.K3I8I8ABlockM4Bytes
+	bTileBytes := kBlks * ime2.K3I8I8BTileBytes
+	if len(a) < aBytes || len(tcm) < aBytes {
+		return false
+	}
+	q80CopyTCMBytes(tcm[:aBytes], a[:aBytes])
+	aPtr := &tcm[0]
+	if mode != "ab" && mode != "all" && mode != "b" {
+		for col := 0; col < w.M; col += 32 {
+			bPtr := &w.BData[(col/32)*bTileBytes]
+			ime2.K3I8I8M4(aPtr, bPtr, (*float32)(unsafe.Add(unsafe.Pointer(c), col*4)), kBlks, ldc*4)
+		}
+		return true
+	}
+	bOff := (aBytes + 63) &^ 63
+	if len(tcm) < bOff+bTileBytes {
+		return false
+	}
+	bDst := tcm[bOff : bOff+bTileBytes]
+	for col := 0; col < w.M; col += 32 {
+		bSrc := w.BData[(col/32)*bTileBytes : (col/32+1)*bTileBytes]
+		q80CopyTCMBytes(bDst, bSrc)
+		ime2.K3I8I8M4(aPtr, &bDst[0], (*float32)(unsafe.Add(unsafe.Pointer(c), col*4)), kBlks, ldc*4)
+	}
+	return true
+}
+
 func gemmQ80x32AIPooledPackedA(aData []byte, groups, M, kBlks int, w ime2.Q80x32, out []float32, pool *AIWorkerPool) bool {
 	n := w.M
 	stride := kBlks * ime2.K3I8I8ABlockM4Bytes
@@ -95,6 +136,10 @@ func gemmQ80x32AIPooledPackedA(aData []byte, groups, M, kBlks int, w ime2.Q80x32
 		g1 := (workerID + 1) * groups / nWorkers
 		if g1 <= g0 {
 			return
+		}
+		var tcmSlice []byte
+		if pool.TcmSlices != nil && workerID < len(pool.TcmSlices) {
+			tcmSlice = pool.TcmSlices[workerID]
 		}
 		tailOut := make([]float32, 4*n)
 		for g := g0; g < g1; g++ {
@@ -105,7 +150,9 @@ func gemmQ80x32AIPooledPackedA(aData []byte, groups, M, kBlks int, w ime2.Q80x32
 			}
 			a := aData[g*stride : (g+1)*stride]
 			if actual == 4 {
-				ime2.K3I8I8(&a[0], &w.BData[0], &out[r*n], 4, n, kBlks, n)
+				if !k3I8I8M4TCM(a, w, &out[r*n], kBlks, n, tcmSlice) {
+					ime2.K3I8I8(&a[0], &w.BData[0], &out[r*n], 4, n, kBlks, n)
+				}
 				continue
 			}
 			for i := range tailOut {
@@ -161,6 +208,10 @@ func Gemm2Q80x32AIPooledX100PackSameInput(x []float32, M, K int, wA, wB ime2.Q80
 		if g1 <= g0 {
 			return
 		}
+		var tcmSlice []byte
+		if pool.TcmSlices != nil && workerID < len(pool.TcmSlices) {
+			tcmSlice = pool.TcmSlices[workerID]
+		}
 		tailA := make([]float32, 4*n)
 		tailB := make([]float32, 4*n)
 		for g := g0; g < g1; g++ {
@@ -171,8 +222,12 @@ func Gemm2Q80x32AIPooledX100PackSameInput(x []float32, M, K int, wA, wB ime2.Q80
 			}
 			a := aData[g*stride : (g+1)*stride]
 			if actual == 4 {
-				ime2.K3I8I8(&a[0], &wA.BData[0], &outA[r*n], 4, n, kBlks, n)
-				ime2.K3I8I8(&a[0], &wB.BData[0], &outB[r*n], 4, n, kBlks, n)
+				if !k3I8I8M4TCM(a, wA, &outA[r*n], kBlks, n, tcmSlice) {
+					ime2.K3I8I8(&a[0], &wA.BData[0], &outA[r*n], 4, n, kBlks, n)
+				}
+				if !k3I8I8M4TCM(a, wB, &outB[r*n], kBlks, n, tcmSlice) {
+					ime2.K3I8I8(&a[0], &wB.BData[0], &outB[r*n], 4, n, kBlks, n)
+				}
 				continue
 			}
 			for i := range tailA {
@@ -276,6 +331,10 @@ func GemmManyQ80x32AIPooledX100PackSameInput(x []float32, M, K int, weights []im
 		if g1 <= g0 {
 			return
 		}
+		var tcmSlice []byte
+		if pool.TcmSlices != nil && workerID < len(pool.TcmSlices) {
+			tcmSlice = pool.TcmSlices[workerID]
+		}
 		for g := g0; g < g1; g++ {
 			r := g * 4
 			actual := 4
@@ -287,7 +346,9 @@ func GemmManyQ80x32AIPooledX100PackSameInput(x []float32, M, K int, weights []im
 				n := w.M
 				out := outs[i]
 				if actual == 4 {
-					ime2.K3I8I8(&a[0], &w.BData[0], &out[r*n], 4, n, kBlks, n)
+					if !k3I8I8M4TCM(a, w, &out[r*n], kBlks, n, tcmSlice) {
+						ime2.K3I8I8(&a[0], &w.BData[0], &out[r*n], 4, n, kBlks, n)
+					}
 					continue
 				}
 				tail := make([]float32, 4*n)
