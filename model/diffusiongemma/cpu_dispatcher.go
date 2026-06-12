@@ -460,8 +460,7 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 	qAll := make([]float32, positions*qRows)
 	kAll := make([]float32, positions*kRows)
 	vAll := make([]float32, positions*vRows)
-	attnCtx := make([]float32, qRows)
-	out := make([]float32, hiddenSize)
+	attnAll := make([]float32, positions*qRows)
 	ropeHalf := headDim / 2
 	ropeTheta := 10000.0
 	if op.Type == "full_attention" {
@@ -559,6 +558,7 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		slidingWindow = 1024
 	}
 	for pos := 0; pos < positions; pos++ {
+		attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
 		for i := range attnCtx {
 			attnCtx[i] = 0
 		}
@@ -590,10 +590,18 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 				k3SaxpyV(score, vv, dst)
 			}
 		}
-		if !oM.gemvRows(out, attnCtx) {
-			return fmt.Errorf("DiffusionGemma attention O GEMV rejected layer %d", op.Layer)
+	}
+	if done, err := k3GemmRowsQ80(scratch.Hidden, attnAll, positions, weights, lb.OProj); err != nil {
+		return err
+	} else if !done {
+		out := make([]float32, hiddenSize)
+		for pos := 0; pos < positions; pos++ {
+			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
+			if !oM.gemvRows(out, attnCtx) {
+				return fmt.Errorf("DiffusionGemma attention O GEMV rejected layer %d", op.Layer)
+			}
+			copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 		}
-		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 	}
 	return nil
 }

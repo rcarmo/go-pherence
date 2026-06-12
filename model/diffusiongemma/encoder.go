@@ -235,14 +235,11 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 
 		// Causal self-attention
 		group := heads / kvHeads
-		oW, _, _, err := loadFloatMatrix(weights, lb.OProj)
-		if err != nil {
-			return nil, err
-		}
-		attnCtx := make([]float32, qRows)
-		out := make([]float32, hiddenSize)
+		var oW []float32
+		attnAll := make([]float32, positions*qRows)
 		scores := make([]float32, positions)
 		for pos := 0; pos < positions; pos++ {
+			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
 			for i := range attnCtx {
 				attnCtx[i] = 0
 			}
@@ -263,8 +260,24 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 					k3SaxpyV(scores[j], vv, dst)
 				}
 			}
-			simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows)
-			copy(hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
+		}
+		if done, err := k3GemmRowsQ80(hidden, attnAll, positions, weights, lb.OProj); err != nil {
+			return nil, err
+		} else if !done {
+			var oRows, oCols int
+			oW, oRows, oCols, err = loadFloatMatrix(weights, lb.OProj)
+			if err != nil {
+				return nil, err
+			}
+			if oRows != hiddenSize || oCols != qRows {
+				return nil, fmt.Errorf("DiffusionGemma encoder O projection shape mismatch o=[%d,%d] hidden=%d q=%d", oRows, oCols, hiddenSize, qRows)
+			}
+			out := make([]float32, hiddenSize)
+			for pos := 0; pos < positions; pos++ {
+				attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
+				simd.GemvRows(out, attnCtx, oW, hiddenSize, qRows)
+				copy(hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
+			}
 		}
 
 		// post_attention_norm + residual add
