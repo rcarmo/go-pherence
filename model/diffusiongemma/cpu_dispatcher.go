@@ -159,6 +159,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 	currentLayer := -1
 	completedLayers := 0
+	exitedByMaxLayers := false
 	layerStarted := time.Now()
 	for _, op := range ops.Layers {
 		if currentLayer >= 0 && op.Layer != currentLayer {
@@ -170,6 +171,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				weights.EvictLayer(currentLayer)
 			}
 			if d.MaxLayers > 0 && completedLayers >= d.MaxLayers {
+				exitedByMaxLayers = true
 				break
 			}
 			layerStarted = time.Now()
@@ -188,6 +190,12 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		}
 		if err := dispatchLayerOp(op, ctx, weights, &scratch); err != nil {
 			return ForwardOutput{}, err
+		}
+	}
+	if currentLayer >= 0 && !exitedByMaxLayers {
+		completedLayers++
+		if d.Progress {
+			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed layer=%d cache_entries=%d cache_bytes=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", currentLayer, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes(), time.Since(layerStarted).Round(time.Millisecond))
 		}
 	}
 	if currentLayer >= 0 && currentLayer >= d.ResidentLayerPrefix {
