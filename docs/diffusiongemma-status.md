@@ -725,3 +725,21 @@ Some prompts still produce all-EOS due to argmax decoding sensitivity to initial
 Settings: `canvas=16, denoise_steps=4, lm_head_top_k=512, seed=42, residency_budget=16GiB`
 
 Some prompt patterns (short/ambiguous) still collapse to EOS with argmax decoding.
+
+
+## Speed optimization results
+
+2026-06-12: Key optimizations applied:
+
+| Optimization | Impact |
+|---|---|
+| Per-expert slice decoding (top-8 of 128) | ~30% per-layer speedup, 94% less expert weight decoding |
+| 2 denoise steps (vs 4) | ~50% total speedup, same answer quality |
+
+Benchmark (Spain capital, 2 denoise steps, canvas=16, top-k=512):
+- Output: "The capital of Spain is **Madrid"
+- Wall clock: 4m42s (down from 8m48s with 4 steps)
+- Encoder: ~40s (30 causal layers, per-expert slice decode)
+- Decoder: ~3m30s (2 × 30 layers + 2 LM heads)
+
+3 denoise steps adds punctuation/formatting; 2 steps gives the core answer.

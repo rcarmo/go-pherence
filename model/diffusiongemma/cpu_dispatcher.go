@@ -19,6 +19,7 @@ type CPUDispatcher struct {
 	TailAfterMaxLayers  bool
 	LMHeadTopK          int
 	Progress            bool
+	SkipEviction        bool
 }
 
 type ForwardScratch struct {
@@ -95,7 +96,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			if d.Progress {
 				fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed layer=%d cache_entries=%d cache_bytes=%d elapsed=%s\n", currentLayer, weights.FloatCacheEntries(), weights.FloatCacheBytes(), time.Since(layerStarted).Round(time.Millisecond))
 			}
-			if currentLayer >= d.ResidentLayerPrefix {
+			if !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
 				weights.EvictLayer(currentLayer)
 			}
 			if d.MaxLayers > 0 && completedLayers >= d.MaxLayers {
