@@ -824,3 +824,32 @@ Performance timeline:
 - GPU FP8 projections: 4m42s
 - Zero-copy expert mmap: 3m9s
 - Expert LRU GPU cache: 1m50s (2 steps, 2.7× total speedup)
+
+
+## Final GPU/CPU optimization results
+
+2026-06-12: DiffusionGemma inference on i7-12700 + RTX 3060 (12 GB VRAM):
+
+Best configuration: `gpu-dispatcher -fp8-model -residency-budget-gib 16 -lm-head-top-k 512 -denoise-steps 2`
+
+Timing breakdown (canvas=16, 2 denoise steps):
+- Encoder (BF16 CPU, SIMD BF16WidenToF32): 33s (30 layers × 1.1s)
+- Decoder step 1 (FP8 GPU, expert cache cold): 41s (30 layers × 1.35s)
+- Decoder step 2 (FP8 GPU, expert cache hot): 21s (30 layers × 0.7s)
+- Total: ~1m50s
+
+VRAM layout (12 GB):
+- FP8 projection layers (30 × Q/K/V/O/gate/up/down): 5.3 GB
+- Expert LRU GPU cache: 6.4 GB (~1080 experts, on-demand upload)
+- Scratch: 0.3 GB
+
+CPU instruction usage: AVX2 + FMA + SIMD BF16WidenToF32 for decode
+GPU: FP8 E4M3 GEMV via RTX 3060 CUDA kernels
+Expert dispatch: LRU GPU cache with cuMemAlloc/cuMemFree per eviction
+
+Performance progression:
+- CPU BF16 only: 4m54s
+- GPU F32 SGEMM: 4m41s  
+- FP8 projections: 4m42s
+- Zero-copy expert mmap: 3m9s
+- Expert LRU GPU cache: 1m50s (2.7× total speedup)
