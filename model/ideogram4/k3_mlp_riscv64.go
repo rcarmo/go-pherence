@@ -11,6 +11,7 @@ import (
 
 	simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/backends/spacemit/k3engine/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 func k3FastSiLUMode() string {
@@ -87,13 +88,7 @@ func k3SiLUMulInPlace(gate, up []float32) bool {
 	if !k3Enabled() || len(gate) != len(up) || len(gate) == 0 {
 		return false
 	}
-	if k3FastSiLUEnabled() {
-		for i, v := range gate {
-			gate[i] = k3SiLULUT(v) * up[i]
-		}
-		return true
-	}
-	simdruntime.VecSiLUMul(gate, gate, up)
+	rvv.SiLUMulRVV(gate, gate, up)
 	return true
 }
 
