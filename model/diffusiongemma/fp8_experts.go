@@ -2,8 +2,8 @@ package diffusiongemma
 
 import (
 	"fmt"
+	"math"
 
-	gpu "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
@@ -32,9 +32,6 @@ func runFP8ExpertsFromResidual(op LayerOp, weights *TextWeights, scratch Forward
 
 	prefix := fmt.Sprintf("model.decoder.layers.%d.experts", op.Layer)
 
-	// Reusable GPU buffers for one expert at a time
-	var gateGPU, upGPU, downGPU *gpu.GPUFP8E4M3Linear
-
 	intermediate := 704 // from config
 
 	for i := range scratch.MoeOut {
@@ -60,46 +57,32 @@ func runFP8ExpertsFromResidual(op LayerOp, weights *TextWeights, scratch Forward
 				continue
 			}
 
-			// Load FP8 expert weights and upload/reuse GPU buffers
+			// Load FP8 expert weights, dequant to F32 on CPU, run SIMD GEMV
+			// (faster than 3 GPU round-trips per expert for small matrices)
 			gateName := fmt.Sprintf("%s.%d.gate_proj", prefix, expertID)
 			gateW, gateScale, gateShape, err := loadFP8Proj(fp8w.shards, gateName)
 			if err != nil {
 				return fmt.Errorf("FP8 expert %d gate: %w", expertID, err)
 			}
-			if err := gpu.UploadFP8E4M3LinearReuse(&gateGPU, gateW, gateScale, nil, gateShape[0], gateShape[1]); err != nil {
-				return fmt.Errorf("FP8 expert %d gate upload: %w", expertID, err)
-			}
-
 			upName := fmt.Sprintf("%s.%d.up_proj", prefix, expertID)
 			upW, upScale, upShape, err := loadFP8Proj(fp8w.shards, upName)
 			if err != nil {
 				return fmt.Errorf("FP8 expert %d up: %w", expertID, err)
 			}
-			if err := gpu.UploadFP8E4M3LinearReuse(&upGPU, upW, upScale, nil, upShape[0], upShape[1]); err != nil {
-				return fmt.Errorf("FP8 expert %d up upload: %w", expertID, err)
-			}
-
 			downName := fmt.Sprintf("%s.%d.down_proj", prefix, expertID)
 			downW, downScale, downShape, err := loadFP8Proj(fp8w.shards, downName)
 			if err != nil {
 				return fmt.Errorf("FP8 expert %d down: %w", expertID, err)
 			}
-			if err := gpu.UploadFP8E4M3LinearReuse(&downGPU, downW, downScale, nil, downShape[0], downShape[1]); err != nil {
-				return fmt.Errorf("FP8 expert %d down upload: %w", expertID, err)
-			}
-
-			if err := gpu.GemvFP8E4M3(gate, normedRow, gateGPU); err != nil {
-				return fmt.Errorf("FP8 expert %d gate GEMV: %w", expertID, err)
-			}
-			if err := gpu.GemvFP8E4M3(up, normedRow, upGPU); err != nil {
-				return fmt.Errorf("FP8 expert %d up GEMV: %w", expertID, err)
-			}
+			gateF32 := dequantFP8(gateW, gateScale, gateShape[0], gateShape[1])
+			upF32 := dequantFP8(upW, upScale, upShape[0], upShape[1])
+			downF32 := dequantFP8(downW, downScale, downShape[0], downShape[1])
+			simd.GemvRows(gate, normedRow, gateF32, gateShape[0], gateShape[1])
+			simd.GemvRows(up, normedRow, upF32, upShape[0], upShape[1])
 			if !simd.GELUTanhMulTo(act, gate, up) {
 				return fmt.Errorf("FP8 expert activation rejected")
 			}
-			if err := gpu.GemvFP8E4M3(expertOut, act, downGPU); err != nil {
-				return fmt.Errorf("FP8 expert %d down GEMV: %w", expertID, err)
-			}
+			simd.GemvRows(expertOut, act, downF32, downShape[0], downShape[1])
 			for i := range dst {
 				dst[i] += weight * expertOut[i]
 			}
@@ -116,4 +99,47 @@ func runFP8ExpertsFromResidual(op LayerOp, weights *TextWeights, scratch Forward
 		}
 	}
 	return nil
+}
+
+// dequantFP8 converts FP8 E4M3 bytes + per-channel scale to F32.
+func dequantFP8(raw []byte, scale []float32, rows, cols int) []float32 {
+	out := make([]float32, rows*cols)
+	for r := 0; r < rows; r++ {
+		s := float32(1.0)
+		if r < len(scale) {
+			s = scale[r]
+		} else if len(scale) == 1 {
+			s = scale[0]
+		}
+		for c := 0; c < cols; c++ {
+			idx := r*cols + c
+			if idx < len(raw) {
+				out[idx] = fp8e4m3ToF32(raw[idx]) * s
+			}
+		}
+	}
+	return out
+}
+
+func fp8e4m3ToF32(b byte) float32 {
+	sign := uint32(b&0x80) << 24
+	exp := (b >> 3) & 0x0f
+	mant := uint32(b & 0x07)
+	if exp == 0 {
+		if mant == 0 {
+			return math.Float32frombits(sign)
+		}
+		// subnormal
+		for mant&0x08 == 0 {
+			mant <<= 1
+			exp--
+		}
+		exp++
+		mant &^= 0x08
+	} else if exp == 15 {
+		// NaN (no inf in E4M3)
+		return math.Float32frombits(sign | 0x7f800000 | (mant << 20))
+	}
+	exp32 := uint32(int(exp) + (127 - 7))
+	return math.Float32frombits(sign | (exp32 << 23) | (mant << 20))
 }
