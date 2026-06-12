@@ -66,6 +66,23 @@ func k3EvictQ80Tensor(weights *TextWeights, name string) bool {
 	return ok
 }
 
+func k3EvictQ80Layer(weights *TextWeights, layer int) int {
+	if weights == nil || layer < 0 {
+		return 0
+	}
+	prefix := fmt.Sprintf("model.decoder.layers.%d.", layer)
+	evicted := 0
+	k3Q80Cache.Range(func(key, _ any) bool {
+		k, ok := key.(k3Q80CacheKey)
+		if ok && k.weights == weights && strings.HasPrefix(k.name, prefix) {
+			k3Q80Cache.Delete(key)
+			evicted++
+		}
+		return true
+	})
+	return evicted
+}
+
 func k3ClearQ80CacheForWeights(weights *TextWeights) {
 	if weights == nil {
 		return

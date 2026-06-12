@@ -159,6 +159,9 @@ func (w *TextWeights) EvictLayer(layer int) int {
 			evicted++
 		}
 	}
+	if !keepQ80 {
+		evicted += k3EvictQ80Layer(w, layer)
+	}
 	return evicted
 }
 
