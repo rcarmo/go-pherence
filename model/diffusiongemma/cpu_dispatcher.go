@@ -121,6 +121,20 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed tail op=%s cache_entries=%d cache_bytes=%d elapsed=%s\n", op, weights.FloatCacheEntries(), weights.FloatCacheBytes(), time.Since(started).Round(time.Millisecond))
 		}
 	}
+	if d.Progress && len(scratch.Logits) > 0 {
+		for pos := 0; pos < len(scratch.Logits) && pos < 2; pos++ {
+			row := scratch.Logits[pos]
+			bestID, bestVal := 0, row[0]
+			var sum float64
+			for i, v := range row {
+				if v > bestVal {
+					bestID, bestVal = i, v
+				}
+				sum += float64(v)
+			}
+			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: logits pos=%d top_id=%d top_val=%.6f mean=%.6f\n", pos, bestID, bestVal, sum/float64(len(row)))
+		}
+	}
 	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch)
 	if err != nil {
 		return ForwardOutput{}, err
