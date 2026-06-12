@@ -71,6 +71,16 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 	scratch := NewForwardScratch(buffers)
 	scratch.LMHeadTopK = d.LMHeadTopK
+	// Resize working buffers to actual canvas length
+	actualPositions := len(ctx.Canvas)
+	actualHidden := actualPositions * buffers.HiddenSize
+	if actualHidden > 0 && actualHidden < len(scratch.Hidden) {
+		scratch.Hidden = scratch.Hidden[:actualHidden]
+		scratch.Residual = scratch.Residual[:actualHidden]
+		scratch.MlpOut = scratch.MlpOut[:actualHidden]
+		scratch.MoeOut = scratch.MoeOut[:actualHidden]
+		scratch.Logits = scratch.Logits[:actualPositions]
+	}
 	for _, op := range ops.Prefix {
 		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
