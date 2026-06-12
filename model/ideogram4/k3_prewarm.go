@@ -65,10 +65,13 @@ func (p *NativePipeline) PrewarmK3() int {
 	if p == nil || !k3PrewarmEnabled() {
 		return 0
 	}
-	// Prewarm Qwen + conditional DiT fully, release raw weights, GC.
-	// Unconditional DiT builds Q80 caches lazily during its first denoise pass
-	// because holding both branches' Q80 caches simultaneously exceeds 31GB on K3.
-	n := p.Conditioner.PrewarmK3() + p.Cond.PrewarmK3()
+	// Prewarm Qwen + conditional DiT, release raw weights, GC.
+	// Unconditional DiT builds Q80 caches lazily (with parallel packer) because
+	// holding both branches' full Q80 caches exceeds 31GB on K3.
+	n := p.Conditioner.PrewarmK3()
+	runtime.GC()
+	debug.FreeOSMemory()
+	n += p.Cond.PrewarmK3()
 	runtime.GC()
 	debug.FreeOSMemory()
 	return n
