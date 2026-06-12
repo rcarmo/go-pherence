@@ -183,7 +183,10 @@ With dense-only Q80 prewarm (`-k3-q80-prewarm-layers 2`) and selected experts
 packed on demand, `GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=8`
 improved decoder layer times from roughly `5.42s/5.36s` to `3.96s/3.91s`.
 Adding a shared FP8 E4M3 decode table reduced the same selected-expert first-use
-path further to roughly `2.53s/2.57s` for decoder layers 0/1.
+path further to roughly `2.53s/2.57s` for decoder layers 0/1. A scratch resize
+fix also keeps decoder MoE top-k at the configured value for short canvases
+(e.g. `16×8=128` assignments instead of accidentally using all 128 experts per
+position), reducing resident-weight expert op time from ~304ms to ~44–54ms.
 Decoder and encoder attention context are split across X100 workers. On a
 canvas-64 one-layer decoder smoke this improved layer time from `1.024s`
 (`K3_THREADS=1`) to `0.928s` (`K3_THREADS=8`) with identical output; a 32-token

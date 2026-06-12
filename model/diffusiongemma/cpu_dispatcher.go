@@ -142,6 +142,11 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		scratch.MoeOut = scratch.MoeOut[:actualHidden]
 		scratch.Logits = scratch.Logits[:actualPositions]
 	}
+	actualTopK := actualPositions * buffers.TopKExperts
+	if actualTopK > 0 && actualTopK < len(scratch.TopKIDs) {
+		scratch.TopKIDs = scratch.TopKIDs[:actualTopK]
+		scratch.TopKVals = scratch.TopKVals[:actualTopK]
+	}
 	for _, op := range ops.Prefix {
 		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err

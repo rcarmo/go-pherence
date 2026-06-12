@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -97,49 +98,79 @@ func k3RunPerExpertRowsA100(weights *TextWeights, layout expertWeightLayout, res
 			assignments[expertID] = append(assignments[expertID], k3ExpertAssignment{pos: pos, weight: topVals[pos*topK+k]})
 		}
 	}
+	assignmentCount := 0
+	for _, rows := range assignments {
+		assignmentCount += len(rows)
+	}
 	prepackNames := make([]string, 0, len(assignments)*3)
 	for expertID := range assignments {
 		for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
 			prepackNames = append(prepackNames, perExpertTensorName(layout.layerPrefix, expertID, proj))
 		}
 	}
+	prepackStart := time.Now()
 	if ok, err := k3PrepackExpertQ80Names(weights, prepackNames); err != nil || !ok {
 		return ok, err
 	}
+	prepackElapsed := time.Since(prepackStart)
+	ensure := func(buf []float32, n int) []float32 {
+		if cap(buf) < n {
+			return make([]float32, n)
+		}
+		return buf[:n]
+	}
+	var xBuf, gateBuf, upBuf, actBuf, downBuf []float32
+	var gateUpElapsed, actElapsed, downElapsed, accumElapsed time.Duration
 	for expertID, rows := range assignments {
 		batch := len(rows)
 		if batch == 0 {
 			continue
 		}
-		x := make([]float32, batch*hiddenSize)
+		x := ensure(xBuf, batch*hiddenSize)
+		xBuf = x
 		for i, a := range rows {
 			copy(x[i*hiddenSize:(i+1)*hiddenSize], normed[a.pos*hiddenSize:(a.pos+1)*hiddenSize])
 		}
-		gate := make([]float32, batch*layout.intermediate)
-		up := make([]float32, batch*layout.intermediate)
+		gate := ensure(gateBuf, batch*layout.intermediate)
+		gateBuf = gate
+		up := ensure(upBuf, batch*layout.intermediate)
+		upBuf = up
 		gateName := perExpertTensorName(layout.layerPrefix, expertID, "gate_proj")
 		upName := perExpertTensorName(layout.layerPrefix, expertID, "up_proj")
+		phaseStart := time.Now()
 		done, err := k3Gemm2RowsQ80Names(gate, up, x, batch, weights, gateName, upName)
+		gateUpElapsed += time.Since(phaseStart)
 		if err != nil || !done {
 			return done, err
 		}
-		act := make([]float32, batch*layout.intermediate)
+		act := ensure(actBuf, batch*layout.intermediate)
+		actBuf = act
+		phaseStart = time.Now()
 		for i := 0; i < batch; i++ {
 			if !simd.GELUTanhMulTo(act[i*layout.intermediate:(i+1)*layout.intermediate], gate[i*layout.intermediate:(i+1)*layout.intermediate], up[i*layout.intermediate:(i+1)*layout.intermediate]) {
 				return true, fmt.Errorf("DiffusionGemma K3 A100 expert activation rejected")
 			}
 		}
-		down := make([]float32, batch*hiddenSize)
+		actElapsed += time.Since(phaseStart)
+		down := ensure(downBuf, batch*hiddenSize)
+		downBuf = down
 		downName := perExpertTensorName(layout.layerPrefix, expertID, "down_proj")
+		phaseStart = time.Now()
 		done, err = k3GemmRowsQ80Name(down, act, batch, weights, downName)
+		downElapsed += time.Since(phaseStart)
 		if err != nil || !done {
 			return done, err
 		}
+		phaseStart = time.Now()
 		for i, a := range rows {
 			dst := moeOut[a.pos*hiddenSize : (a.pos+1)*hiddenSize]
 			src := down[i*hiddenSize : (i+1)*hiddenSize]
 			k3SaxpyV(a.weight, src, dst)
 		}
+		accumElapsed += time.Since(phaseStart)
+	}
+	if diffusionGemmaTimingEnabled() {
+		fmt.Fprintf(os.Stderr, "timing diffusiongemma experts unique=%d assignments=%d prepack=%s gate_up=%s act=%s down=%s accum=%s\n", len(assignments), assignmentCount, prepackElapsed.Round(time.Millisecond), gateUpElapsed.Round(time.Millisecond), actElapsed.Round(time.Millisecond), downElapsed.Round(time.Millisecond), accumElapsed.Round(time.Millisecond))
 	}
 	return true, nil
 }
