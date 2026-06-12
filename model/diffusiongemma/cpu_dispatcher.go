@@ -917,19 +917,17 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 	if err != nil {
 		return err
 	}
-	gateUpAll, nExperts, gateUpDim, gateUpHidden, err := loadFloat3D(weights, lb.ExpertsGateUpProj)
-	if err != nil {
-		return err
-	}
-	downAll, _, downHidden, downIntermediate, err := loadFloat3D(weights, lb.ExpertsDownProj)
-	if err != nil {
-		return err
-	}
 	hiddenSize := len(preNorm2)
-	intermediate := gateUpDim / 2
-	if gateUpHidden != hiddenSize || downHidden != hiddenSize || downIntermediate != intermediate {
-		return fmt.Errorf("DiffusionGemma expert shape mismatch")
+	if hiddenSize <= 0 || len(scratch.Residual)%hiddenSize != 0 {
+		return fmt.Errorf("DiffusionGemma expert hidden mismatch")
 	}
+	if lb.ExpertsGateUpProj == nil || lb.ExpertsDownProj == nil || len(lb.ExpertsGateUpProj.Shape) != 3 || len(lb.ExpertsDownProj.Shape) != 3 {
+		return fmt.Errorf("DiffusionGemma expert tensor bindings missing")
+	}
+	nExperts := lb.ExpertsGateUpProj.Shape[0]
+	gateUpDim := lb.ExpertsGateUpProj.Shape[1]
+	intermediate := gateUpDim / 2
+
 	positions := len(scratch.Residual) / hiddenSize
 	for i := range scratch.MoeOut {
 		scratch.MoeOut[i] = 0
@@ -940,6 +938,37 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 	act := make([]float32, intermediate)
 	expertOut := make([]float32, hiddenSize)
 	topK := len(scratch.TopKIDs) / positions
+
+	// Collect unique expert IDs to decode only needed slices
+	neededExperts := map[int]bool{}
+	for pos := 0; pos < positions; pos++ {
+		for k := 0; k < topK; k++ {
+			id := scratch.TopKIDs[pos*topK+k]
+			if id >= 0 && id < nExperts {
+				neededExperts[id] = true
+			}
+		}
+	}
+	type expertWeights struct {
+		gateW, upW, downW []float32
+	}
+	decoded := make(map[int]expertWeights, len(neededExperts))
+	for expertID := range neededExperts {
+		guSlice, guRows, _, err := loadExpertSlice(weights, lb.ExpertsGateUpProj, expertID)
+		if err != nil {
+			return err
+		}
+		dSlice, _, _, err := loadExpertSlice(weights, lb.ExpertsDownProj, expertID)
+		if err != nil {
+			return err
+		}
+		decoded[expertID] = expertWeights{
+			gateW: guSlice[:guRows/2*hiddenSize],
+			upW:   guSlice[guRows/2*hiddenSize:],
+			downW: dSlice,
+		}
+	}
+
 	for pos := 0; pos < positions; pos++ {
 		resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
 		copy(normedRow, resRow)
@@ -950,20 +979,17 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 		for k := 0; k < topK; k++ {
 			expertID := scratch.TopKIDs[pos*topK+k]
 			weight := scratch.TopKVals[pos*topK+k]
-			if expertID < 0 || expertID >= nExperts {
+			ew, ok := decoded[expertID]
+			if !ok {
 				continue
 			}
-			guSlice := gateUpAll[expertID*gateUpDim*gateUpHidden : (expertID+1)*gateUpDim*gateUpHidden]
-			gateW := guSlice[:intermediate*hiddenSize]
-			upW := guSlice[intermediate*hiddenSize:]
-			if !simd.GemvRows(gate, normedRow, gateW, intermediate, hiddenSize) || !simd.GemvRows(up, normedRow, upW, intermediate, hiddenSize) {
+			if !simd.GemvRows(gate, normedRow, ew.gateW, intermediate, hiddenSize) || !simd.GemvRows(up, normedRow, ew.upW, intermediate, hiddenSize) {
 				return fmt.Errorf("DiffusionGemma expert GEMV rejected")
 			}
 			if !simd.GELUTanhMulTo(act, gate, up) {
 				return fmt.Errorf("DiffusionGemma expert activation rejected")
 			}
-			dSlice := downAll[expertID*downHidden*downIntermediate : (expertID+1)*downHidden*downIntermediate]
-			if !simd.GemvRows(expertOut, act, dSlice, hiddenSize, intermediate) {
+			if !simd.GemvRows(expertOut, act, ew.downW, hiddenSize, intermediate) {
 				return fmt.Errorf("DiffusionGemma expert down GEMV rejected")
 			}
 			for i := range dst {
@@ -1042,6 +1068,41 @@ func loadFloat3D(weights *TextWeights, binding *TensorBinding) ([]float32, int, 
 		return nil, 0, 0, 0, fmt.Errorf("DiffusionGemma tensor %q shape %v is not rank-3", binding.Name, t.Shape)
 	}
 	return t.Data, t.Shape[0], t.Shape[1], t.Shape[2], nil
+}
+
+// loadExpertSlice decodes a single expert's 2D slice from a 3D [experts, rows, cols]
+// tensor stored in safetensors, without decoding all experts.
+func loadExpertSlice(weights *TextWeights, binding *TensorBinding, expertID int) ([]float32, int, int, error) {
+	if binding == nil {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma missing expert tensor binding")
+	}
+	if len(binding.Shape) != 3 {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma expert tensor %q shape %v is not rank-3", binding.Name, binding.Shape)
+	}
+	nExperts, rows, cols := binding.Shape[0], binding.Shape[1], binding.Shape[2]
+	if expertID < 0 || expertID >= nExperts {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma expert %d outside [0,%d)", expertID, nExperts)
+	}
+	raw, dtype, _, err := weights.RawTensor(binding.Name)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	elemSize, ok := diffusionGemmaDTypeSize(dtype)
+	if !ok {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma expert tensor %q unsupported dtype %s", binding.Name, dtype)
+	}
+	sliceElements := rows * cols
+	sliceBytes := sliceElements * elemSize
+	start := expertID * sliceBytes
+	end := start + sliceBytes
+	if end > len(raw) {
+		return nil, 0, 0, fmt.Errorf("DiffusionGemma expert %d byte range [%d,%d) exceeds %d", expertID, start, end, len(raw))
+	}
+	out := make([]float32, sliceElements)
+	if err := decodeFloatRowTo(out, raw[start:end], dtype); err != nil {
+		return nil, 0, 0, err
+	}
+	return out, rows, cols, nil
 }
 
 func loadFloatMatrix(weights *TextWeights, binding *TensorBinding) ([]float32, int, int, error) {
