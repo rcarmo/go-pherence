@@ -152,65 +152,71 @@ func packFP8LinearToQ80x32RowScale(f *FP8Linear) ime2.Q80x32 {
 	}
 	groups, subs := outDim/32, inDim/32
 	out := make([]byte, groups*subs*ime2.K3I8I8BTileBytes)
-	rowScale := make([]float32, outDim)
-	for r := 0; r < outDim; r++ {
-		scale := f.weight.Scale[0]
-		if len(f.weight.Scale) != 1 {
-			scale = f.weight.Scale[r]
-		}
-		maxAbs := float32(0)
-		base := r * inDim
-		for k := 0; k < inDim; k++ {
-			v := fp8.DecodeE4M3(f.weight.Weight[base+k]) * scale
-			if v < 0 {
-				v = -v
-			}
-			if v > maxAbs {
-				maxAbs = v
-			}
-		}
-		if maxAbs != 0 {
-			rowScale[r] = maxAbs / 127.0
-		}
+	// Parallel packing: each worker handles a range of output-row groups.
+	// Within each row, decode FP8 once into a local f32 row buffer, compute
+	// row-global maxAbs, then quantize all K32 blocks from that buffer.
+	nw := k3Threads()
+	if nw > groups {
+		nw = groups
 	}
-	for g := 0; g < groups; g++ {
-		for sb := 0; sb < subs; sb++ {
-			block := out[(g*subs+sb)*ime2.K3I8I8BTileBytes:]
-			scales := block[:64]
-			qs := block[64 : 64+1024]
-			for rr := 0; rr < 32; rr++ {
-				r := g*32 + rr
-				inputScale := f.weight.Scale[0]
-				if len(f.weight.Scale) != 1 {
-					inputScale = f.weight.Scale[r]
-				}
-				d := rowScale[r]
-				binary.LittleEndian.PutUint16(scales[rr*2:], half.F32ToF16(d))
-				inv := float32(0)
-				if d != 0 {
-					inv = 1 / d
-				}
-				base := r*inDim + sb*32
-				for k := 0; k < 32; k++ {
-					q := int(fp8.DecodeE4M3(f.weight.Weight[base+k]) * inputScale * inv)
-					// Match existing packers' round-to-nearest behavior.
-					v := fp8.DecodeE4M3(f.weight.Weight[base+k]) * inputScale * inv
-					if v >= 0 {
-						q = int(v + 0.5)
-					} else {
-						q = int(v - 0.5)
+	var wg sync.WaitGroup
+	wg.Add(nw)
+	for wid := 0; wid < nw; wid++ {
+		g0 := wid * groups / nw
+		g1 := (wid + 1) * groups / nw
+		go func() {
+			defer wg.Done()
+			rowBuf := make([]float32, inDim)
+			for g := g0; g < g1; g++ {
+				for rr := 0; rr < 32; rr++ {
+					r := g*32 + rr
+					inputScale := f.weight.Scale[0]
+					if len(f.weight.Scale) != 1 {
+						inputScale = f.weight.Scale[r]
 					}
-					if q > 127 {
-						q = 127
+					base := r * inDim
+					maxAbs := float32(0)
+					for k := 0; k < inDim; k++ {
+						v := fp8.DecodeE4M3(f.weight.Weight[base+k]) * inputScale
+						rowBuf[k] = v
+						if v < 0 {
+							v = -v
+						}
+						if v > maxAbs {
+							maxAbs = v
+						}
 					}
-					if q < -128 {
-						q = -128
+					d := float32(0)
+					if maxAbs != 0 {
+						d = maxAbs / 127.0
 					}
-					qs[rr*32+k] = byte(int8(q))
+					inv := float32(0)
+					if d != 0 {
+						inv = 1 / d
+					}
+					for sb := 0; sb < subs; sb++ {
+						block := out[(g*subs+sb)*ime2.K3I8I8BTileBytes:]
+						binary.LittleEndian.PutUint16(block[rr*2:], half.F32ToF16(d))
+						qs := block[64 : 64+1024]
+						for k := 0; k < 32; k++ {
+							q := int(rowBuf[sb*32+k]*inv + 0.5)
+							if rowBuf[sb*32+k] < 0 {
+								q = int(rowBuf[sb*32+k]*inv - 0.5)
+							}
+							if q > 127 {
+								q = 127
+							}
+							if q < -128 {
+								q = -128
+							}
+							qs[rr*32+k] = byte(int8(q))
+						}
+					}
 				}
 			}
-		}
+		}()
 	}
+	wg.Wait()
 	return ime2.Q80x32{M: outDim, K: inDim, BData: out, Valid: true}
 }
 

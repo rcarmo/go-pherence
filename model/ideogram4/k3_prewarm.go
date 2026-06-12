@@ -3,6 +3,8 @@ package ideogram4
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"strings"
 )
 
@@ -63,10 +65,16 @@ func (p *NativePipeline) PrewarmK3() int {
 	if p == nil || !k3PrewarmEnabled() {
 		return 0
 	}
-	// Only prewarm Qwen + conditional DiT at load time.
-	// Unconditional DiT shares the same shapes and will build caches on first use.
-	// This halves peak prewarmed memory on memory-constrained K3 boards.
-	return p.Conditioner.PrewarmK3() + p.Cond.PrewarmK3()
+	// Prewarm Qwen + conditional DiT, release raw weights, GC.
+	// Unconditional DiT builds Q80 caches lazily (with parallel packer) because
+	// holding both branches' full Q80 caches exceeds 31GB on K3.
+	n := p.Conditioner.PrewarmK3()
+	runtime.GC()
+	debug.FreeOSMemory()
+	n += p.Cond.PrewarmK3()
+	runtime.GC()
+	debug.FreeOSMemory()
+	return n
 }
 
 func (p *NativePipeline) maybePrewarmK3() {

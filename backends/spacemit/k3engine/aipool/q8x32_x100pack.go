@@ -1,10 +1,12 @@
 package aipool
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
@@ -127,8 +129,17 @@ func GemmQ80x32AIPooledX100Pack(x []float32, M, K int, w ime2.Q80x32, out []floa
 		return false
 	}
 	kBlks := K / 32
+	t0 := time.Now()
 	aData, groups := packQ80M4ActivationsX100(x, M, K, kBlks, false)
-	return gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
+	if os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1" {
+		fmt.Fprintf(os.Stderr, "timing a100_gemm phase=act_pack m=%d n=%d k=%d elapsed=%s\n", M, w.M, K, time.Since(t0))
+	}
+	t0 = time.Now()
+	ok := gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
+	if os.Getenv("GO_PHERENCE_IDEOGRAM4_TIMING") == "1" {
+		fmt.Fprintf(os.Stderr, "timing a100_gemm phase=kernel m=%d n=%d k=%d elapsed=%s\n", M, w.M, K, time.Since(t0))
+	}
+	return ok
 }
 
 // Gemm2Q80x32AIPooledX100PackSameInput computes two row-scale Q8 GEMMs with

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 
 // k3FullAttention computes full non-causal attention using X100 workers with
@@ -62,7 +63,7 @@ func k3AttentionWork(out, q, k, v []float32, tokens, heads, headDim, emb int, sc
 		// softmax
 		var sum float32
 		for tj := 0; tj < tokens; tj++ {
-			e := float32(math.Exp(float64(scores[tj] - maxScore)))
+			e := rvv.FastExp(scores[tj] - maxScore)
 			scores[tj] = e
 			sum += e
 		}
