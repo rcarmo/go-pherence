@@ -131,11 +131,12 @@ GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_SELECTED_PREFETCH=1     # selected experts aft
 ```
 
 Dense-only next-layer prefetch on a 4-layer canvas-16 smoke improved later
-decoder layers from roughly `2.94s/2.90s/2.81s` to `2.75s/2.67s/2.65s`; all-expert
-prefetch reduced steady later layers to about `2.04s–2.17s` at higher transient
-Q80 residency. Selected-expert prefetch reorders router before dense MLP and
-packs selected expert weights while dense MLP runs; it modestly improves later
-layers (`~642ms→605ms`, `~603ms→594ms`, `~661ms→632ms`) but remains opt-in
+decoder layers from roughly `2.94s/2.90s/2.81s` to `2.75s/2.67s/2.65s`. Full
+all-expert next-layer prefetch is not recommended for full passes after the lazy
+fallback fixes: it bounds Q80 around ~3.4 GiB but stalls each layer for ~1.8–2.0s
+full expert prepack. Selected-expert prefetch reorders router before dense MLP
+and packs selected expert weights while dense MLP runs; it modestly improves
+later layers (`~642ms→605ms`, `~603ms→594ms`, `~661ms→632ms`) but remains opt-in
 because it contends with dense MLP for X100 bandwidth.
 
 Per-expert tensors are packed in parallel across X100 workers for both
