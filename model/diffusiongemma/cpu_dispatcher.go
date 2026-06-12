@@ -830,8 +830,9 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 		if !simd.RMSNormNoScaleTo(normBuf, 1e-6) {
 			return fmt.Errorf("DiffusionGemma router norm rejected")
 		}
+		scalarRootSize := float32(1.0 / math.Sqrt(float64(hiddenSize)))
 		for i := range normBuf {
-			normBuf[i] *= scaleVec[i]
+			normBuf[i] *= scaleVec[i] * scalarRootSize
 		}
 		if !simd.GemvRows(scored, normBuf, projW, numExperts, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma router GEMV rejected")
