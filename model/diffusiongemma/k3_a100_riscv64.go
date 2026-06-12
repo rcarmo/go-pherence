@@ -27,6 +27,11 @@ func k3A100LMHeadEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func k3A100LMHeadPrefetchEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_PREFETCH")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func k3A100LMHeadCandidates(topK, vocab int) int {
 	candidates := topK * 4
 	if candidates < 32 {
@@ -167,6 +172,11 @@ func k3A100WorkerPool() *aipool.AIWorkerPool {
 		k3A100Pool = aipool.NewAIWorkerPool(n)
 	})
 	return k3A100Pool
+}
+
+func k3PreloadQ80Binding(weights *TextWeights, binding *TensorBinding) (bool, error) {
+	_, ok, err := k3Q80ForBinding(weights, binding)
+	return ok, err
 }
 
 func k3GemmRowsQ80(out, x []float32, batch int, weights *TextWeights, binding *TensorBinding) (bool, error) {

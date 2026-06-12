@@ -145,10 +145,11 @@ The tied BF16 LM head can also use A100 Q80 with
 `GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD=1`. The A100 pass is used as a
 shortlist generator and candidates are reranked with exact BF16/F32 dot products
 (`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_CANDIDATES`, default max(32, 4×topK)).
-In the current A100-hidden-state canvas-4 tail smoke it produced the same token
-and top logit as the exact path while reducing LM-head time from `5.214s`/2.95
-GiB F32 cache to `1.889s`/tiny F32 cache plus one Q80 embedding cache. Sparse
-self-conditioning over top-k logits then completes in roughly `5ms`.
+`GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_PREFETCH=1` starts packing the tied
+embedding Q80 cache while decoder layers run; in a 4-layer 2-step smoke it moved
+the one-time 1.8s embedding Q80 pack out of the tail and kept LM-head tails near
+`904ms` with identical generated output. Sparse self-conditioning over top-k
+logits then completes in roughly `5ms`.
 
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 
@@ -196,6 +197,8 @@ path further to roughly `2.53s/2.57s` for decoder layers 0/1. A scratch resize
 fix also keeps decoder MoE top-k at the configured value for short canvases
 (e.g. `16×8=128` assignments instead of accidentally using all 128 experts per
 position), reducing resident-weight expert op time from ~304ms to ~44–54ms.
+Expert IDs are processed in sorted order so floating-point accumulation is
+deterministic across runs.
 Decoder and encoder attention context are split across X100 workers. On a
 canvas-64 one-layer decoder smoke this improved layer time from `1.024s`
 (`K3_THREADS=1`) to `0.928s` (`K3_THREADS=8`) with identical output; a 32-token

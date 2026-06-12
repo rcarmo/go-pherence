@@ -5,6 +5,7 @@ package diffusiongemma
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,12 +99,15 @@ func k3RunPerExpertRowsA100(weights *TextWeights, layout expertWeightLayout, res
 			assignments[expertID] = append(assignments[expertID], k3ExpertAssignment{pos: pos, weight: topVals[pos*topK+k]})
 		}
 	}
+	expertIDs := make([]int, 0, len(assignments))
 	assignmentCount := 0
-	for _, rows := range assignments {
+	for expertID, rows := range assignments {
+		expertIDs = append(expertIDs, expertID)
 		assignmentCount += len(rows)
 	}
+	sort.Ints(expertIDs)
 	prepackNames := make([]string, 0, len(assignments)*3)
-	for expertID := range assignments {
+	for _, expertID := range expertIDs {
 		for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
 			prepackNames = append(prepackNames, perExpertTensorName(layout.layerPrefix, expertID, proj))
 		}
@@ -121,7 +125,8 @@ func k3RunPerExpertRowsA100(weights *TextWeights, layout expertWeightLayout, res
 	}
 	var xBuf, gateBuf, upBuf, actBuf, downBuf []float32
 	var gateUpElapsed, actElapsed, downElapsed, accumElapsed time.Duration
-	for expertID, rows := range assignments {
+	for _, expertID := range expertIDs {
+		rows := assignments[expertID]
 		batch := len(rows)
 		if batch == 0 {
 			continue
@@ -205,7 +210,7 @@ func k3StartSelectedExpertQ80Prefetch(weights *TextWeights, lb TextLayerBindings
 		return nil
 	}
 	seen := map[int]bool{}
-	names := make([]string, 0, positions*topK*3)
+	expertIDs := make([]int, 0, positions*topK)
 	for pos := 0; pos < positions; pos++ {
 		for k := 0; k < topK; k++ {
 			expertID := scratch.TopKIDs[pos*topK+k]
@@ -213,9 +218,14 @@ func k3StartSelectedExpertQ80Prefetch(weights *TextWeights, lb TextLayerBindings
 				continue
 			}
 			seen[expertID] = true
-			for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
-				names = append(names, perExpertTensorName(layout.layerPrefix, expertID, proj))
-			}
+			expertIDs = append(expertIDs, expertID)
+		}
+	}
+	sort.Ints(expertIDs)
+	names := make([]string, 0, len(expertIDs)*3)
+	for _, expertID := range expertIDs {
+		for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
+			names = append(names, perExpertTensorName(layout.layerPrefix, expertID, proj))
 		}
 	}
 	if len(names) == 0 {

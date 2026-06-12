@@ -2,8 +2,9 @@
 
 package diffusiongemma
 
-func k3A100Q8Enabled() bool     { return false }
-func k3A100LMHeadEnabled() bool { return false }
+func k3A100Q8Enabled() bool             { return false }
+func k3A100LMHeadEnabled() bool         { return false }
+func k3A100LMHeadPrefetchEnabled() bool { return false }
 func k3A100LMHeadCandidates(topK, vocab int) int {
 	if topK > vocab {
 		return vocab
@@ -19,6 +20,8 @@ func k3EvictQ80Tensor(_ *TextWeights, _ string) bool { return false }
 func k3EvictQ80Layer(_ *TextWeights, _ int) int      { return 0 }
 func k3ClearQ80CacheForWeights(_ *TextWeights)       {}
 func k3Q80CacheStats(_ *TextWeights) (int, int64)    { return 0, 0 }
+
+func k3PreloadQ80Binding(_ *TextWeights, _ *TensorBinding) (bool, error) { return false, nil }
 
 func k3GemmRowsQ80(_ []float32, _ []float32, _ int, _ *TextWeights, _ *TensorBinding) (bool, error) {
 	return false, nil

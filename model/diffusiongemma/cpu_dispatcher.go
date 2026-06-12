@@ -65,6 +65,23 @@ func (p *q80LayerPrefetcher) start(layer int) {
 	}()
 }
 
+func startQ80BindingPrefetch(weights *TextWeights, binding *TensorBinding) chan q80PrefetchResult {
+	if weights == nil || binding == nil || !k3Enabled() || !k3A100Q8Enabled() {
+		return nil
+	}
+	ch := make(chan q80PrefetchResult, 1)
+	go func() {
+		started := time.Now()
+		ok, err := k3PreloadQ80Binding(weights, binding)
+		count := 0
+		if ok {
+			count = 1
+		}
+		ch <- q80PrefetchResult{count: count, err: err, elapsed: time.Since(started)}
+	}()
+	return ch
+}
+
 func (p *q80LayerPrefetcher) wait(layer int) error {
 	if p == nil {
 		return nil
@@ -153,6 +170,11 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			return ForwardOutput{}, err
 		}
 	}
+	var lmHeadPrefetch chan q80PrefetchResult
+	if k3A100LMHeadEnabled() && k3A100LMHeadPrefetchEnabled() {
+		fp := weights.ForwardPlan()
+		lmHeadPrefetch = startQ80BindingPrefetch(weights, fp.Globals.EmbedTokens)
+	}
 	prefetcher := newQ80LayerPrefetcher(weights, d.Progress)
 	if prefetcher != nil {
 		prefetcher.start(0)
@@ -207,6 +229,16 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	for _, op := range ops.Tail {
 		if d.Progress {
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: starting tail op=%s\n", op)
+		}
+		if op == OpLMHead && lmHeadPrefetch != nil {
+			res := <-lmHeadPrefetch
+			if d.Progress {
+				fmt.Fprintf(os.Stderr, "DiffusionGemma K3 Q80 prefetch: completed lm_head tensors=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", res.count, weights.Q80CacheEntries(), weights.Q80CacheBytes(), res.elapsed.Round(time.Millisecond))
+			}
+			if res.err != nil {
+				return ForwardOutput{}, res.err
+			}
+			lmHeadPrefetch = nil
 		}
 		started := time.Now()
 		if err := dispatchTailOp(op, weights, scratch); err != nil {
