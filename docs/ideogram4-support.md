@@ -480,3 +480,27 @@ Fully-prewarmed 64×64 one-step profile on Milk-V/K3:
 The next attention target is the remaining split inside `attn_qkv_attention`:
 Q/K norm + RoPE + attention math, followed by a true tiled/RVV attention kernel if
 this parallel row-worker path stops scaling at larger token counts.
+
+### Opt-in K3 SiLU LUT experiment
+
+`GO_PHERENCE_IDEOGRAM4_K3_FAST_SILU=lut` enables a bounded lookup-table SiLU
+approximation inside the K3 MLP `SiLU(W1) * W3` seam. It avoids one exact
+`exp()` per intermediate element while preserving the rest of the A100 row-scale
+Q8 path.
+
+Fully-prewarmed 64×64 one-step timing:
+
+| Mode | `mlp_silu_mul` | Denoise | Generate |
+|---|---:|---:|---:|
+| exact SiLU | ~1.09s | ~5.15s | ~13.85s |
+| LUT SiLU | ~0.64s | ~4.63s | ~13.16s |
+
+This is a speed/quality tradeoff, not a default: the 64×64 PNG differs visibly
+from exact SiLU (`mean RGB diff≈26/255`, `rmse≈38/255` on the smoke image). Keep
+it opt-in for fast preview experiments; use exact SiLU for quality/reference
+runs.
+
+The latest steady-state sublayer split also shows `qkv_proj≈0.72s`,
+`attention_math≈0.18s`, `qkv_rope≈0.12s`, and `attn_o≈0.26s` at 64×64, so after
+A100 prewarm the remaining default-quality wins are likely MLP activation and
+further reducing A100 projection/packing overhead rather than scheduler/CFG.
