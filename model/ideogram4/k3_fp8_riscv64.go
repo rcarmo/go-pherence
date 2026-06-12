@@ -67,9 +67,7 @@ func k3A100WorkerPool() *aipool.AIWorkerPool {
 		// The Ideogram path pre-packs A activations on X100 goroutines before A100
 		// dispatch, so generic AIWorkerPool activation TCM staging is not useful by
 		// default. Leave explicit caller overrides intact.
-		if os.Getenv("IME2_TCM_ACT") == "" {
-			_ = os.Setenv("IME2_TCM_ACT", "0")
-		}
+		// Allow TCM activation staging for VAE and large-token A100 GEMMs.
 		k3A100Pool = aipool.NewAIWorkerPool(n)
 	})
 	return k3A100Pool
