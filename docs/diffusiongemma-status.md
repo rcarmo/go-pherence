@@ -659,3 +659,7 @@ Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `sim
 ## Sparse CI regression assertion
 
 `make diffusiongemma-ci-sparse-text` now includes `diffusiongemma-run-sparse-text-json-check`, so the full-checkpoint sparse CI asserts the deterministic `hi` / one-token sparse output (`generated=[147485]`) in addition to running broader smoke paths.
+
+## Sparse text fast verification
+
+2026-06-12: After an interrupted long `diffusiongemma-ci-sparse-text` rerun, the fast full-checkpoint sparse subset was verified explicitly: `diffusiongemmainspect -require-text-sparse-ready`, `make diffusiongemma-residency-plan DIFFUSIONGEMMA_RESIDENT_LAYERS=1 DIFFUSIONGEMMA_RESIDENCY_BUDGET_GIB=16`, `make diffusiongemma-run-sparse-text-json-check ... DIFFUSIONGEMMA_EXPECT_GENERATED=147485`, and build-only validation all passed. The deterministic sparse JSON assertion reported `match=true`, `generated=[147485]`, `error=null`.
