@@ -425,14 +425,16 @@ func (w *TextWeights) PreloadLayerQ80(layer int, includeExperts bool) (int, erro
 				}
 			}
 		} else {
+			names := make([]string, 0, layout.nExperts*3)
 			for expertID := 0; expertID < layout.nExperts; expertID++ {
 				for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
-					if _, ok, err := k3Q80ForTensorName(w, perExpertTensorName(layout.layerPrefix, expertID, proj)); err != nil {
-						return count, err
-					} else if ok {
-						count++
-					}
+					names = append(names, perExpertTensorName(layout.layerPrefix, expertID, proj))
 				}
+			}
+			if ok, err := k3PrepackExpertQ80Names(w, names); err != nil {
+				return count, err
+			} else if ok {
+				count += len(names)
 			}
 		}
 	}

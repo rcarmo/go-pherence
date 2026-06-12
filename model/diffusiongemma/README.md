@@ -107,9 +107,11 @@ Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
 -k3-q80-prewarm-experts               # also prepack all per-expert tensors; memory-heavy
 ```
 
-Selected per-expert tensors are packed on demand when `-k3-q80-prewarm-experts`
-is not used. This prepack step is parallelized across X100 workers; override the
-default with `GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=N`.
+Per-expert tensors are packed in parallel across X100 workers for both
+all-expert prewarm and selected on-demand prepack; override the default with
+`GO_PHERENCE_DIFFUSIONGEMMA_K3_EXPERT_PREPACK_WORKERS=N`. One-layer all-expert
+prewarm currently packs 392 tensors in roughly 8s on the K3 while leaving the F32
+float cache nearly empty.
 
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 
