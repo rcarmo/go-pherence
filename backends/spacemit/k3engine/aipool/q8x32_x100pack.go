@@ -28,10 +28,26 @@ func q8ActPackWorkers(groups int) int {
 	return n
 }
 
+var aDataPool sync.Pool
+
+func getADataBuf(n int) []byte {
+	if v := aDataPool.Get(); v != nil {
+		buf := v.([]byte)
+		if cap(buf) >= n {
+			return buf[:n]
+		}
+	}
+	return make([]byte, n)
+}
+
+func putADataBuf(buf []byte) {
+	aDataPool.Put(buf)
+}
+
 func packQ80M4ActivationsX100(x []float32, M, K, kBlks int, gelu bool) ([]byte, int) {
 	groups := (M + 3) / 4
 	stride := kBlks * ime2.K3I8I8ABlockM4Bytes
-	aData := make([]byte, groups*stride)
+	aData := getADataBuf(groups * stride)
 	workers := q8ActPackWorkers(groups)
 	zeroRow := make([]float32, K)
 	var wg sync.WaitGroup
@@ -127,6 +143,7 @@ func Gemm2Q80x32AIPooledX100PackSameInput(x []float32, M, K int, wA, wB ime2.Q80
 	aData, groups := packQ80M4ActivationsX100(x, M, K, kBlks, false)
 	n := wA.M
 	stride := kBlks * ime2.K3I8I8ABlockM4Bytes
+	defer putADataBuf(aData)
 	pool.Run(func(workerID, nWorkers int) {
 		g0 := workerID * groups / nWorkers
 		g1 := (workerID + 1) * groups / nWorkers
@@ -170,13 +187,15 @@ func GemmQ80x32AIPooledGELUX100Pack(x []float32, M, K int, w ime2.Q80x32, out []
 	}
 	kBlks := K / 32
 	aData, groups := packQ80M4ActivationsX100(x, M, K, kBlks, true)
-	return gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
+	ok := gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
+	putADataBuf(aData)
+	return ok
 }
 
 func packQ80M4ActivationsX100GELURowScale(x []float32, M, K, kBlks int) ([]byte, int) {
 	groups := (M + 3) / 4
 	stride := kBlks * ime2.K3I8I8ABlockM4Bytes
-	aData := make([]byte, groups*stride)
+	aData := getADataBuf(groups * stride)
 	workers := q8ActPackWorkers(groups)
 	zeroRow := make([]float32, K)
 	var wg sync.WaitGroup
@@ -218,5 +237,7 @@ func GemmQ80x32AIPooledGELUX100PackRowScale(x []float32, M, K int, w ime2.Q80x32
 	}
 	kBlks := K / 32
 	aData, groups := packQ80M4ActivationsX100GELURowScale(x, M, K, kBlks)
-	return gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
+	ok := gemmQ80x32AIPooledPackedA(aData, groups, M, kBlks, w, out, pool)
+	putADataBuf(aData)
+	return ok
 }
