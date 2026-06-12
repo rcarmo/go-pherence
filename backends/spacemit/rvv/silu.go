@@ -43,3 +43,6 @@ func fastTanhRVV(x float32) float32 {
 	b := float32(135135) + x2*(62370+x2*(3150+x2*28))
 	return a / b
 }
+
+// FastSiLU computes SiLU(x) = x * σ(x) using the polynomial sigmoid approximation.
+func FastSiLU(x float32) float32 { return fastSiLU(x) }
