@@ -266,6 +266,8 @@ func main() {
 					gpuDisp.ExpertPool = expertPool
 					fmt.Fprintf(os.Stderr, "diffusiongemmarun: %d layers with GPU-resident experts\n", *residentExpertLayers)
 				}
+				// LRU expert cache: use remaining VRAM (~6 GB after projections)
+				gpuDisp.ExpertCache = diffusiongemma.NewExpertLRUCache(6 * 1024 * 1024 * 1024)
 			}
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, gpuDisp)
 		} else {
@@ -347,6 +349,14 @@ func main() {
 	}
 	if weights != nil {
 		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f max_dispatch_layers=%d tail_after_max_layers=%v lm_head_top_k=%d float_cache_entries=%d float_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *maxDispatchLayers, *tailAfterMaxLayers, *lmHeadTopK, weights.FloatCacheEntries(), weights.FloatCacheBytes())
+	}
+	if *useGPUDispatcher && *fp8Model != "" {
+		gpuDisp, ok := denoiser.(*diffusiongemma.TextDenoiser)
+		if ok {
+			if gd, ok := gpuDisp.Dispatcher.(diffusiongemma.GPUDispatcher); ok && gd.ExpertCache != nil {
+				gd.ExpertCache.ReportCacheStats()
+			}
+		}
 	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)
