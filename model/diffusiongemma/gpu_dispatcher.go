@@ -221,27 +221,41 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 	}
 	ropeFreqs := simd.BuildRoPEFreqs(ctx.EncoderSeqLen+positions, ropeHalf, headDim, ropeTheta)
 
-	// Batched GPU GEMM: all positions in one call per projection
-	qResult, err := batchedGPUGemm(qW, scratch.Hidden[:positions*hiddenSize], qRows, hiddenSize, positions)
-	if err != nil {
-		return fmt.Errorf("GPU Q GEMM: %w", err)
-	}
-	scatterGemmResult(qAll, qResult, qRows, positions)
-
-	kResult, err := batchedGPUGemm(kW, scratch.Hidden[:positions*hiddenSize], kRows, hiddenSize, positions)
-	if err != nil {
-		return fmt.Errorf("GPU K GEMM: %w", err)
-	}
-	scatterGemmResult(kAll, kResult, kRows, positions)
-
-	if lb.VProj != nil {
-		vResult, err := batchedGPUGemm(vW, scratch.Hidden[:positions*hiddenSize], vRows, hiddenSize, positions)
-		if err != nil {
-			return fmt.Errorf("GPU V GEMM: %w", err)
+	// GPU projections: FP8 GEMV if available, else batched F32 SGEMM
+	if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
+		fl := &d.FP8Model.Layers[op.Layer]
+		for pos := 0; pos < positions; pos++ {
+			h := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+			if err := fl.FP8GemvQ(qAll[pos*qRows:(pos+1)*qRows], h); err != nil {
+				return fmt.Errorf("FP8 Q GEMV: %w", err)
+			}
+			if err := fl.FP8GemvK(kAll[pos*kRows:(pos+1)*kRows], h); err != nil {
+				return fmt.Errorf("FP8 K GEMV: %w", err)
+			}
+			if err := fl.FP8GemvV(vAll[pos*vRows:(pos+1)*vRows], h); err != nil {
+				return fmt.Errorf("FP8 V GEMV: %w", err)
+			}
 		}
-		scatterGemmResult(vAll, vResult, vRows, positions)
 	} else {
-		copy(vAll, kAll)
+		qResult, err := batchedGPUGemm(qW, scratch.Hidden[:positions*hiddenSize], qRows, hiddenSize, positions)
+		if err != nil {
+			return fmt.Errorf("GPU Q GEMM: %w", err)
+		}
+		scatterGemmResult(qAll, qResult, qRows, positions)
+		kResult, err := batchedGPUGemm(kW, scratch.Hidden[:positions*hiddenSize], kRows, hiddenSize, positions)
+		if err != nil {
+			return fmt.Errorf("GPU K GEMM: %w", err)
+		}
+		scatterGemmResult(kAll, kResult, kRows, positions)
+		if lb.VProj != nil {
+			vResult, err := batchedGPUGemm(vW, scratch.Hidden[:positions*hiddenSize], vRows, hiddenSize, positions)
+			if err != nil {
+				return fmt.Errorf("GPU V GEMM: %w", err)
+			}
+			scatterGemmResult(vAll, vResult, vRows, positions)
+		} else {
+			copy(vAll, kAll)
+		}
 	}
 
 	for pos := 0; pos < positions; pos++ {
@@ -356,33 +370,45 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 
 	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
 		row := scratch.Hidden[off : off+hiddenSize]
-		xBuf := gpu.NewDevBufFrom(row)
-
-		gOut := gpu.NewDevBuf(intermediate)
-		gpu.DevGemv(gOut, xBuf, gateBuf, intermediate, gateCols)
-		gOut.ToCPU()
-		copy(gate, gOut.Data()[:intermediate])
-
-		uOut := gpu.NewDevBuf(intermediate)
-		gpu.DevGemv(uOut, xBuf, upBuf, intermediate, gateCols)
-		uOut.ToCPU()
-		copy(up, uOut.Data()[:intermediate])
-
-		if !simd.GELUTanhMulTo(act, gate, up) {
-			return fmt.Errorf("GPU MLP activation rejected")
+		if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
+			fl := &d.FP8Model.Layers[op.Layer]
+			if err := fl.FP8GemvGate(gate, row); err != nil {
+				return fmt.Errorf("FP8 gate GEMV: %w", err)
+			}
+			if err := fl.FP8GemvUp(up, row); err != nil {
+				return fmt.Errorf("FP8 up GEMV: %w", err)
+			}
+			if !simd.GELUTanhMulTo(act, gate, up) {
+				return fmt.Errorf("GPU MLP activation rejected")
+			}
+			if err := fl.FP8GemvDown(mlpOut, act); err != nil {
+				return fmt.Errorf("FP8 down GEMV: %w", err)
+			}
+		} else {
+			xBuf := gpu.NewDevBufFrom(row)
+			gOut := gpu.NewDevBuf(intermediate)
+			gpu.DevGemv(gOut, xBuf, gateBuf, intermediate, gateCols)
+			gOut.ToCPU()
+			copy(gate, gOut.Data()[:intermediate])
+			uOut := gpu.NewDevBuf(intermediate)
+			gpu.DevGemv(uOut, xBuf, upBuf, intermediate, gateCols)
+			uOut.ToCPU()
+			copy(up, uOut.Data()[:intermediate])
+			if !simd.GELUTanhMulTo(act, gate, up) {
+				return fmt.Errorf("GPU MLP activation rejected")
+			}
+			aBuf := gpu.NewDevBufFrom(act)
+			dOut := gpu.NewDevBuf(hiddenSize)
+			gpu.DevGemv(dOut, aBuf, downBuf, hiddenSize, intermediate)
+			dOut.ToCPU()
+			copy(mlpOut, dOut.Data()[:hiddenSize])
+			xBuf.Free()
+			gOut.Free()
+			uOut.Free()
+			aBuf.Free()
+			dOut.Free()
 		}
-
-		aBuf := gpu.NewDevBufFrom(act)
-		dOut := gpu.NewDevBuf(hiddenSize)
-		gpu.DevGemv(dOut, aBuf, downBuf, hiddenSize, intermediate)
-		dOut.ToCPU()
-		copy(mlpOut, dOut.Data()[:hiddenSize])
 		copy(row, mlpOut)
-		xBuf.Free()
-		gOut.Free()
-		uOut.Free()
-		aBuf.Free()
-		dOut.Free()
 	}
 
 	postNorm1, err := loadFloatVector(weights, lb.PostFFNLayerNorm1)
