@@ -169,8 +169,11 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 
 	for _, op := range ops.Tail {
 		if op == OpLMHead && d.FP8Weights != nil {
-			if err := runLMHeadFromShards(d.FP8Weights.shards, scratch, "model.decoder.embed_tokens.weight"); err != nil {
-				return ForwardOutput{}, err
+			if err := runDenseGPULMHead(d.FP8Weights, scratch, buffers.HiddenSize); err != nil {
+				// Fall back to sparse BF16 scan
+				if err2 := runLMHeadFromShards(d.FP8Weights.shards, scratch, "model.decoder.embed_tokens.weight"); err2 != nil {
+					return ForwardOutput{}, err2
+				}
 			}
 		} else {
 			if err := dispatchTailOp(op, weights, scratch); err != nil {
@@ -584,6 +587,40 @@ func runLMHeadFromShards(shards *safetensors.ShardedFile, scratch ForwardScratch
 			if id >= 0 {
 				scratch.Logits[pos][id] = topVals[pos][i]
 			}
+		}
+	}
+	return nil
+}
+
+// runDenseGPULMHead computes full dense logits on GPU using BF16 embeddings.
+func runDenseGPULMHead(fp8w *FP8TextWeights, scratch ForwardScratch, hiddenSize int) error {
+	if fp8w == nil || fp8w.shards == nil {
+		return fmt.Errorf("no FP8 weights for dense LM head")
+	}
+	raw, dtype, shape, err := fp8w.shards.GetRaw("model.decoder.embed_tokens.weight")
+	if err != nil {
+		return err
+	}
+	if dtype != "BF16" || len(shape) != 2 {
+		return fmt.Errorf("dense LM head: dtype=%s shape=%v", dtype, shape)
+	}
+	vocab, h := shape[0], shape[1]
+	if h != hiddenSize {
+		return fmt.Errorf("dense LM head: hidden=%d want %d", h, hiddenSize)
+	}
+	positions := len(scratch.Hidden) / hiddenSize
+	wBuf, err := gpu.UploadBF16LMHead(raw, vocab, h)
+	if err != nil || wBuf == nil {
+		return fmt.Errorf("dense LM head GPU upload: %v", err)
+	}
+	defer wBuf.Free()
+	for pos := 0; pos < positions; pos++ {
+		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		if pos >= len(scratch.Logits) || len(scratch.Logits[pos]) < vocab {
+			break
+		}
+		if err := gpu.BF16LMHeadWithBuffer(scratch.Logits[pos][:vocab], wBuf, hidden, vocab, h); err != nil {
+			return fmt.Errorf("dense LM head pos %d: %w", pos, err)
 		}
 	}
 	return nil

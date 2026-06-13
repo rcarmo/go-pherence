@@ -106,20 +106,26 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 			meanEntropy += entropy[i]
 		}
 		meanEntropy /= float64(canvasLength)
-		// Use argmax for canvas (works reliably for factual prompts).
-		// Non-factual prompts may collapse to EOS — needs dense logits
-		// for proper entropy-bound sampling (future improvement).
-		canvas = append(canvas[:0], argmaxCanvas...)
 		if len(out.SelfConditioning) > 0 {
 			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
 		}
 		stopped := stopper.ShouldStop(argmaxCanvas, entropy)
+		// With dense logits (no top-k), use entropy-bound acceptance.
+		// With sparse logits, use argmax (entropy unreliable).
+		if cfg.SparseTopK > 0 {
+			canvas = append(canvas[:0], argmaxCanvas...)
+		} else {
+			accepted := AcceptCanvas(canvas, denoiserCanvas, entropy, cfg.Sampler.EntropyBound)
+			canvas = accepted.Canvas
+			if !stopped {
+				canvas = RenoiseCanvas(canvas, accepted.AcceptedMask, vocabSize, rng)
+			}
+		}
 		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: canvasLength, MeanEntropy: meanEntropy, Stopped: stopped})
 		if stopped {
 			state.Stopped = true
 			break
 		}
-		// No renoising with argmax decoding — canvas is the argmax prediction
 	}
 	return CanvasResult{Canvas: canvas, Steps: steps, State: state}, nil
 }

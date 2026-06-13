@@ -283,6 +283,7 @@ func main() {
 	}
 	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed}
 	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *stabilityThreshold, *confidenceThreshold); denoising != nil {
+		denoising.SparseTopK = *lmHeadTopK
 		opts.Denoising = denoising
 	}
 	caps := diffusiongemma.Capabilities()
