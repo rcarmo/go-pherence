@@ -124,15 +124,16 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 // ForwardBufferPlan describes the major scratch buffers required by a future
 // CPU/SIMD text denoiser forward pass. Sizes are element counts, not bytes.
 type ForwardBufferPlan struct {
-	CanvasLength int `json:"canvas_length"`
-	HiddenSize   int `json:"hidden_size"`
-	VocabSize    int `json:"vocab_size"`
-	Hidden       int `json:"hidden"`
-	Residual     int `json:"residual"`
-	Logits       int `json:"logits"`
-	Router       int `json:"router"`
-	Experts      int `json:"experts"`
-	TopKExperts  int `json:"top_k_experts"`
+	CanvasLength      int     `json:"canvas_length"`
+	HiddenSize        int     `json:"hidden_size"`
+	VocabSize         int     `json:"vocab_size"`
+	Hidden            int     `json:"hidden"`
+	Residual          int     `json:"residual"`
+	Logits            int     `json:"logits"`
+	Router            int     `json:"router"`
+	Experts           int     `json:"experts"`
+	TopKExperts       int     `json:"top_k_experts"`
+	FinalLogitSoftcap float64 `json:"final_logit_softcapping,omitempty"`
 }
 
 func BuildForwardBufferPlan(shape Shape) ForwardBufferPlan {
@@ -149,14 +150,15 @@ func BuildForwardBufferPlan(shape Shape) ForwardBufferPlan {
 		vocab = 0
 	}
 	return ForwardBufferPlan{
-		CanvasLength: canvas,
-		HiddenSize:   hidden,
-		VocabSize:    vocab,
-		Hidden:       canvas * hidden,
-		Residual:     canvas * hidden,
-		Logits:       canvas * vocab,
-		Router:       canvas * shape.NumExperts,
-		Experts:      canvas * shape.TopKExperts * shape.MoEIntermediateSize,
-		TopKExperts:  shape.TopKExperts,
+		CanvasLength:      canvas,
+		HiddenSize:        hidden,
+		VocabSize:         vocab,
+		Hidden:            canvas * hidden,
+		Residual:          canvas * hidden,
+		Logits:            canvas * vocab,
+		Router:            canvas * shape.NumExperts,
+		Experts:           canvas * shape.TopKExperts * shape.MoEIntermediateSize,
+		TopKExperts:       shape.TopKExperts,
+		FinalLogitSoftcap: shape.FinalLogitSoftcap,
 	}
 }

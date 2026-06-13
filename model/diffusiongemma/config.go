@@ -26,6 +26,7 @@ type Shape struct {
 	NumExperts          int      `json:"num_experts"`
 	TopKExperts         int      `json:"top_k_experts"`
 	MoEIntermediateSize int      `json:"moe_intermediate_size"`
+	FinalLogitSoftcap   float64  `json:"final_logit_softcapping"`
 	VisionHiddenSize    int      `json:"vision_hidden_size"`
 	VisionLayers        int      `json:"vision_layers"`
 	VisionHeads         int      `json:"vision_heads"`
@@ -76,6 +77,7 @@ func ShapeFromConfig(cfg loaderconfig.DiffusionGemmaConfig) (Shape, error) {
 		NumExperts:          cfg.TextConfig.NumExperts,
 		TopKExperts:         cfg.TextConfig.TopKExperts,
 		MoEIntermediateSize: cfg.TextConfig.MoEIntermediateSize,
+		FinalLogitSoftcap:   cfg.TextConfig.FinalLogitSoftcapping,
 		VisionHiddenSize:    cfg.VisionConfig.HiddenSize,
 		VisionLayers:        cfg.VisionConfig.NumHiddenLayers,
 		VisionHeads:         cfg.VisionConfig.NumAttentionHeads,

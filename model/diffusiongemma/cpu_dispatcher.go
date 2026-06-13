@@ -123,28 +123,29 @@ func (p *q80LayerPrefetcher) wait(layer int) error {
 }
 
 type ForwardScratch struct {
-	Hidden         []float32
-	Residual       []float32
-	MlpOut         []float32
-	MoeOut         []float32
-	Logits         [][]float32
-	LogitFlat      []float32
-	VocabSize      int
-	Router         []float32
-	Experts        []float32
-	TopKIDs        []int
-	TopKVals       []float32
-	TopKExperts    int
-	LMHeadTopK     int
-	ExpertPrefetch *k3SelectedExpertPrefetch
-	ExpertAsync    chan error
+	Hidden            []float32
+	Residual          []float32
+	MlpOut            []float32
+	MoeOut            []float32
+	Logits            [][]float32
+	LogitFlat         []float32
+	VocabSize         int
+	Router            []float32
+	Experts           []float32
+	TopKIDs           []int
+	TopKVals          []float32
+	TopKExperts       int
+	LMHeadTopK        int
+	FinalLogitSoftcap float64
+	ExpertPrefetch    *k3SelectedExpertPrefetch
+	ExpertAsync       chan error
 }
 
 func NewForwardScratch(buffers ForwardBufferPlan) ForwardScratch {
 	topKSlots := maxNonNegative(buffers.CanvasLength * buffers.TopKExperts)
 	hiddenSize := maxNonNegative(buffers.Hidden)
 	logitFlat, logits := makeLogitRows(buffers.CanvasLength, buffers.VocabSize)
-	return ForwardScratch{Hidden: make([]float32, hiddenSize), Residual: make([]float32, hiddenSize), MlpOut: make([]float32, hiddenSize), MoeOut: make([]float32, hiddenSize), Router: make([]float32, maxNonNegative(buffers.Router)), Experts: make([]float32, maxNonNegative(buffers.Experts)), TopKIDs: make([]int, topKSlots), TopKVals: make([]float32, topKSlots), TopKExperts: maxNonNegative(buffers.TopKExperts), LogitFlat: logitFlat, VocabSize: maxNonNegative(buffers.VocabSize), Logits: logits}
+	return ForwardScratch{Hidden: make([]float32, hiddenSize), Residual: make([]float32, hiddenSize), MlpOut: make([]float32, hiddenSize), MoeOut: make([]float32, hiddenSize), Router: make([]float32, maxNonNegative(buffers.Router)), Experts: make([]float32, maxNonNegative(buffers.Experts)), TopKIDs: make([]int, topKSlots), TopKVals: make([]float32, topKSlots), TopKExperts: maxNonNegative(buffers.TopKExperts), LogitFlat: logitFlat, VocabSize: maxNonNegative(buffers.VocabSize), Logits: logits, FinalLogitSoftcap: buffers.FinalLogitSoftcap}
 }
 
 func makeLogitRows(rows, cols int) ([]float32, [][]float32) {
@@ -2219,6 +2220,22 @@ func exactEmbeddingDotF32(raw []byte, dtype string, x []float32, rowScratch []fl
 	return k3Dot(x, rowScratch[:len(x)]), nil
 }
 
+func applyFinalLogitSoftcap(v float32, softcap float64) float32 {
+	if softcap <= 0 {
+		return v
+	}
+	return float32(math.Tanh(float64(v)/softcap) * softcap)
+}
+
+func applyFinalLogitSoftcapRow(row []float32, softcap float64) {
+	if softcap <= 0 {
+		return
+	}
+	for i, v := range row {
+		row[i] = applyFinalLogitSoftcap(v, softcap)
+	}
+}
+
 func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	started := time.Now()
 	mode := "full_raw_rows"
@@ -2288,6 +2305,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 						candVals[i] = float32(math.Inf(-1))
 					}
 					scores := scoresAll[pos*vocab : (pos+1)*vocab]
+					applyFinalLogitSoftcapRow(scores, scratch.FinalLogitSoftcap)
 					copy(scratch.Logits[pos][:vocab], scores)
 					phaseStart = time.Now()
 					selectTopKMin(candIDs, candVals, scores)
@@ -2310,6 +2328,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 						if err != nil {
 							return err
 						}
+						score = applyFinalLogitSoftcap(score, scratch.FinalLogitSoftcap)
 						rerankState.Insert(vocabID, score)
 					}
 					lmRerankElapsed += time.Since(phaseStart)
@@ -2330,6 +2349,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 				if !simd.GemvRows(scores, hidden, t.Data, vocab, hiddenSize) {
 					return fmt.Errorf("DiffusionGemma LM head SIMD GEMV failed vocab=%d hidden=%d", vocab, hiddenSize)
 				}
+				applyFinalLogitSoftcapRow(scores, scratch.FinalLogitSoftcap)
 				selectTopKMin(topIDs[pos], topVals[pos], scores)
 			}
 		}
@@ -2350,7 +2370,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 				if len(scratch.Logits[pos]) < vocab {
 					return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
 				}
-				scratch.Logits[pos][vocabID] = k3Dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
+				scratch.Logits[pos][vocabID] = applyFinalLogitSoftcap(k3Dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row), scratch.FinalLogitSoftcap)
 			}
 		}
 	}
