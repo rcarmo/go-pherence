@@ -63,6 +63,7 @@ fi
 mkdir -p "${LOG_DIR}"
 echo "diffusiongemma K3 profile log: ${LOG}" >&2
 
+PROFILE_START_NS="$(date +%s%N)"
 go run ./cmd/diffusiongemmarun \
   -model "${MODEL}" \
   -prompt-ids "${PROMPT_IDS}" \
@@ -81,10 +82,13 @@ go run ./cmd/diffusiongemmarun \
   -k3-q80-retain-selected-expert-layers "${RETAIN_SELECTED_EXPERT_LAYERS}" \
   "${EXTRA_FLAGS[@]}" \
   -json 2>&1 | tee "${LOG}"
+PROFILE_END_NS="$(date +%s%N)"
+PROFILE_WALL_MS="$(( (PROFILE_END_NS - PROFILE_START_NS) / 1000000 ))"
 
 printf '\n=== diffusiongemma K3 profile summary ===\n'
 printf 'log=%s\n' "${LOG}"
 printf 'config: canvas=%s steps=%s q80_budget_gib=%s retain_selected_expert_layers=%s skip_eviction=%s\n' "${CANVAS}" "${STEPS}" "${Q80_BUDGET_GIB}" "${RETAIN_SELECTED_EXPERT_LAYERS}" "${SKIP_EVICTION:-0}"
+printf 'wall_ms=%s\n' "${PROFILE_WALL_MS}"
 grep "K3 Q80 residency budget\|K3 Q80 prewarmed\|K3 Q80 retaining selected" "${LOG}" || true
 printf '\n-- encoder cache --\n'
 grep "DiffusionGemma encoder cache:" "${LOG}" || true
