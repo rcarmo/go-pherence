@@ -1016,7 +1016,7 @@ diffusiongemma-ci-sparse-text-fast: diffusiongemma-check-sparse-text diffusionge
 	$(MAKE) diffusiongemma-run-sparse-text-json-check DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_PROMPT=hi DIFFUSIONGEMMA_MAX_NEW=1 DIFFUSIONGEMMA_CANVAS=1 DIFFUSIONGEMMA_DENOISE_STEPS=1 DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB=16 DIFFUSIONGEMMA_RUN_OUT=$(TMPDIR)/diffusiongemma/ci_sparse_fast.json DIFFUSIONGEMMA_EXPECT_GENERATED=147485
 	go test ./cmd/diffusiongemmarun ./cmd/diffusiongemmainspect ./model/diffusiongemma ./loader/config -run '^$$'
 
-.PHONY: diffusiongemma-k3-profile diffusiongemma-k3-smoke diffusiongemma-k3-fp8-fallback-smoke
+.PHONY: diffusiongemma-k3-profile diffusiongemma-k3-smoke diffusiongemma-k3-fp8-fallback-smoke diffusiongemma-k3-check
 DIFFUSIONGEMMA_K3_MODEL ?= /home/me/models/diffusiongemma-26B-A4B-it-FP8
 DIFFUSIONGEMMA_K3_CANVAS ?= 16
 DIFFUSIONGEMMA_K3_STEPS ?= 2
@@ -1042,3 +1042,7 @@ diffusiongemma-k3-fp8-fallback-smoke: GOTMPDIR := /tmp
 diffusiongemma-k3-fp8-fallback-smoke:
 	GO_PHERENCE_DIFFUSIONGEMMA_K3=1 GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8=0 HOME=/home/me TMPDIR=/tmp GOCACHE=/home/me/.cache/go-build GOMODCACHE=/home/me/go/pkg/mod go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_K3_MODEL) -prompt-ids 2,3 -max-new 1 -canvas 1 -denoise-steps 1 -cpu-dispatcher -allow-slow-cpu -max-dispatch-layers 1 -lm-head-top-k 8 -json > /tmp/diffusiongemma-k3-fp8-fallback-smoke.json
 	jq -e '.result.generated == [0]' /tmp/diffusiongemma-k3-fp8-fallback-smoke.json >/dev/null
+
+diffusiongemma-k3-check: diffusiongemma-k3-smoke diffusiongemma-k3-fp8-fallback-smoke
+	HOME=/home/me TMPDIR=/tmp GOTMPDIR=/tmp GOCACHE=/home/me/.cache/go-build GOMODCACHE=/home/me/go/pkg/mod go test ./model/diffusiongemma ./cmd/diffusiongemmarun ./backends/spacemit/aicpu/aipool ./backends/spacemit/ime2
+	@echo "DiffusionGemma K3 check passed: A100 smoke + scaled-FP8 fallback smoke + affected Go tests"

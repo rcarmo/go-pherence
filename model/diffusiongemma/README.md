@@ -81,7 +81,9 @@ Enable with `-k3` (or `GO_PHERENCE_DIFFUSIONGEMMA_K3=1`).
 
 When enabled, hot-path operations are replaced with K3-optimized implementations.
 Set `GO_PHERENCE_DIFFUSIONGEMMA_TIMING=1` to emit per-layer operation timing
-similar to the Ideogram4 timing traces. Use `make diffusiongemma-k3-smoke` for a
+similar to the Ideogram4 timing traces. Use `make diffusiongemma-k3-check` for
+the fast K3 regression gate (A100 smoke, scaled-FP8 fallback smoke, and affected
+Go tests), `make diffusiongemma-k3-smoke` for a
 short K3/A100 correctness smoke with expected-output checking
 (`DIFFUSIONGEMMA_K3_SMOKE_EXPECT_GENERATED`, default `239683`), and
 `make diffusiongemma-k3-profile` or `scripts/diffusiongemma_k3_profile.sh` for a
