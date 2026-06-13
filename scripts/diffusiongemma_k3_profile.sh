@@ -28,6 +28,9 @@ fi
 if [[ -z "${TMPDIR:-}" || ! -d "${TMPDIR}" ]]; then
   export TMPDIR="/tmp"
 fi
+if [[ -z "${GOTMPDIR:-}" || ! -d "${GOTMPDIR}" ]]; then
+  export GOTMPDIR="${TMPDIR}"
+fi
 export GOCACHE="${GOCACHE:-${K3_HOME}/.cache/go-build}"
 export GOMODCACHE="${GOMODCACHE:-${K3_HOME}/go/pkg/mod}"
 export IME2_Q80_TCM="${IME2_Q80_TCM:-1}"
