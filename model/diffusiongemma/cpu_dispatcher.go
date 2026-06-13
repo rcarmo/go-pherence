@@ -71,6 +71,23 @@ func (p *q80LayerPrefetcher) start(layer int) {
 	}()
 }
 
+func startQ80TransposedBindingPrefetch(weights *TextWeights, binding *TensorBinding) chan q80PrefetchResult {
+	if weights == nil || binding == nil || !k3Enabled() || !k3A100Q8Enabled() {
+		return nil
+	}
+	ch := make(chan q80PrefetchResult, 1)
+	go func() {
+		started := time.Now()
+		ok, err := k3PreloadQ80TransposedBinding(weights, binding)
+		count := 0
+		if ok {
+			count = 1
+		}
+		ch <- q80PrefetchResult{count: count, err: err, elapsed: time.Since(started)}
+	}()
+	return ch
+}
+
 func startQ80BindingPrefetch(weights *TextWeights, binding *TensorBinding) chan q80PrefetchResult {
 	if weights == nil || binding == nil || !k3Enabled() || !k3A100Q8Enabled() {
 		return nil
@@ -178,6 +195,11 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		scratch.TopKIDs = scratch.TopKIDs[:actualTopK]
 		scratch.TopKVals = scratch.TopKVals[:actualTopK]
 	}
+	var scEmbTPrefetch chan q80PrefetchResult
+	if k3Enabled() && k3A100Q8Enabled() && ctx.Graph.Phase == ExecutionGraphDecode {
+		fp := weights.ForwardPlan()
+		scEmbTPrefetch = startQ80TransposedBindingPrefetch(weights, fp.Globals.EmbedTokens)
+	}
 	for _, op := range ops.Prefix {
 		if diffusionGemmaTimingEnabled() {
 			started := time.Now()
@@ -273,6 +295,15 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		}
 		if d.Progress {
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed tail op=%s cache_entries=%d cache_bytes=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", op, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes(), elapsed.Round(time.Millisecond))
+		}
+	}
+	if scEmbTPrefetch != nil {
+		res := <-scEmbTPrefetch
+		if d.Progress || timing {
+			fmt.Fprintf(os.Stderr, "timing diffusiongemma sc_embT_prefetch tensors=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", res.count, weights.Q80CacheEntries(), weights.Q80CacheBytes(), res.elapsed.Round(time.Millisecond))
+		}
+		if res.err != nil {
+			return ForwardOutput{}, res.err
 		}
 	}
 	if d.Progress && len(scratch.Logits) > 0 {
@@ -1817,6 +1848,15 @@ func buildSelfConditioningFromLogitRows(weights *TextWeights, logits [][]float32
 	}
 	positions := len(logits)
 	out := make([]float32, positions*hiddenSize)
+	if done, err := k3SelfConditioningSoftEmbeddingQ80(out, logits, weights, fp.Globals.EmbedTokens, positions, vocab, hiddenSize, tempInv); err != nil {
+		return nil, err
+	} else if done {
+		embedScale := float32(math.Sqrt(float64(hiddenSize)))
+		for i := range out {
+			out[i] *= embedScale
+		}
+		return out, nil
+	}
 	if raw, dtype, shape, err := weights.RawTensor(fp.Globals.EmbedTokens.Name); err == nil && len(shape) == 2 && shape[0] == vocab && shape[1] == hiddenSize {
 		scales, err := loadOptionalFP8RowScales(weights, fp.Globals.EmbedTokens.Name, dtype, vocab)
 		if err != nil {
