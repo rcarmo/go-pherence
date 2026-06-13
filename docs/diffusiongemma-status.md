@@ -989,3 +989,23 @@ With default stability_threshold=1 and confidence_threshold=0.005:
 Recommendation: use `-denoise-steps 4` for general use.
 The adaptive stopper exits after 3 effective steps for most factual prompts,
 avoiding unnecessary computation while guaranteeing convergence.
+
+
+## Stable performance baseline
+
+2026-06-13: Converged timing with all optimizations, FP8 eager load, correct prompt:
+
+3 consecutive runs (canvas=16, 2 denoise steps):
+- Run 1: 1m23s
+- Run 2: 1m23s  
+- Run 3: 1m27s
+
+Stable at **~1m25s ± 3s** with correct output.
+
+Resource usage:
+- CPU user: 49-50s
+- CPU sys: 21-23s (GPU driver)
+- VRAM: 5.3 GB projections + 7.5 GB expert LRU cache
+- RAM: 27 GB FP8 eager-loaded + 5 GB BF16 encoder pages
+
+Total speedup from CPU BF16 baseline (4m54s): **3.5-3.7×** with correct thinking-mode output.
