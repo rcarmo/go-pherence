@@ -96,7 +96,11 @@ func (w *TextWeights) Close() error {
 	if w == nil || w.shards == nil {
 		return nil
 	}
-	return w.shards.Close()
+	err := w.shards.Close()
+	w.shards = nil
+	w.ClearFloatCache()
+	w.forwardPlan = nil
+	return err
 }
 
 func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
