@@ -246,6 +246,9 @@ func main() {
 					fatal(err)
 				}
 				defer fp8Weights.Close()
+				if n, err := fp8Weights.EagerLoad(); err == nil && n > 0 {
+					fmt.Fprintf(os.Stderr, "diffusiongemmarun: eager-loaded FP8 file: %d bytes\n", n)
+				}
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: uploading %d FP8 layers to GPU\n", len(fp8Weights.Layers))
 				gpuModel, err := diffusiongemma.UploadFP8Layers(fp8Weights)
 				if err != nil {

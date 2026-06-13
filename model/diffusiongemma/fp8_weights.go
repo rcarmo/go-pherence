@@ -287,3 +287,11 @@ func loadF32Tensor(shards *safetensors.ShardedFile, name string) ([]float32, err
 	}
 	return out, nil
 }
+
+// EagerLoad pre-faults all FP8 safetensor pages into RAM.
+func (w *FP8TextWeights) EagerLoad() (int64, error) {
+	if w == nil || w.shards == nil {
+		return 0, nil
+	}
+	return w.shards.EagerLoad()
+}
