@@ -481,3 +481,18 @@ the same soft embedding directly before the existing K3/Q80 self-conditioning
 MLP; this avoids a separate raw-logit upload buffer but preserves the reference
 math. `self_conditioning_test.go` locks the raw-logit softmax-matmul behavior,
 including sparse `-Inf`/`NaN` handling used by sparse LM-head outputs.
+
+### Prompt/canvas graph parity
+
+The K3 path keeps prompt prefill and canvas decode as two phases for residency
+and performance, but mirrors llama.cpp's unified `[prompt | canvas]` graph:
+
+- prompt RoPE positions are `0..P-1`;
+- canvas decode RoPE positions are offset to `P+q` via `EncoderSeqLen`;
+- full-attention layers see all prompt KV plus bidirectional canvas KV;
+- sliding-window decode layers use llama.cpp's prompt cutoff
+  `canvas_prompt_lo = P - n_swa + 1`, so only the last `n_swa-1` prompt tokens
+  and in-window canvas tokens are visible.
+
+`attention_flash_test.go` includes fixtures for the decode sliding prompt mask
+and keeps the streaming/flash attention path matched to the materialized path.

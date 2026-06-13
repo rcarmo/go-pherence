@@ -865,6 +865,9 @@ func runFlashAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc Encoder
 				m = s
 			}
 			for j := 0; j < encSeq; j++ {
+				if !promptAllowedForSlidingDecode(j, encSeq, slidingWindow) {
+					continue
+				}
 				update(k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim]), enc.Values[j*vRows+kvh*headDim:j*vRows+(kvh+1)*headDim])
 			}
 			for canvasJ := 0; canvasJ < positions; canvasJ++ {
@@ -899,6 +902,10 @@ func runMaterializedAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc 
 			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
 			for j := 0; j < totalKV; j++ {
 				if j < encSeq {
+					if !promptAllowedForSlidingDecode(j, encSeq, slidingWindow) {
+						scores[j] = float32(math.Inf(-1))
+						continue
+					}
 					scores[j] = k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
 					continue
 				}
@@ -924,6 +931,17 @@ func runMaterializedAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc 
 		}
 	}
 	parallelizeAttentionTasks(positions*heads, work)
+}
+
+func promptAllowedForSlidingDecode(promptIndex, promptSeq, slidingWindow int) bool {
+	if slidingWindow <= 0 {
+		return true
+	}
+	lo := promptSeq - slidingWindow + 1
+	if lo < 0 {
+		lo = 0
+	}
+	return promptIndex >= lo
 }
 
 func parallelizeAttentionTasks(tasks int, work func(start, end int)) {

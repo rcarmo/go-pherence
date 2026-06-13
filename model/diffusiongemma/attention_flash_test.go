@@ -141,3 +141,57 @@ func makePattern(n int, step, bias float64) []float32 {
 	}
 	return out
 }
+
+func TestSlidingDecodePromptMaskMatchesLlamaRule(t *testing.T) {
+	const (
+		positions     = 1
+		heads         = 1
+		kvHeads       = 1
+		headDim       = 1
+		encSeq        = 5
+		slidingWindow = 3
+	)
+	qRows, kRows, vRows, group := 1, 1, 1, 1
+	qAll := []float32{0}
+	kAll := []float32{0}
+	vAll := []float32{100}
+	enc := EncoderKVLayer{
+		Keys:    []float32{0, 0, 0, 0, 0},
+		Values:  []float32{10, 20, 30, 40, 50},
+		SeqLen:  encSeq,
+		KVHeads: kvHeads,
+		HeadDim: headDim,
+	}
+	gotMaterialized := make([]float32, 1)
+	gotFlash := make([]float32, 1)
+	runMaterializedAttentionContextK3(gotMaterialized, qAll, kAll, vAll, enc, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
+	runFlashAttentionContextK3(gotFlash, qAll, kAll, vAll, enc, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
+
+	// llama.cpp decode SWA rule: canvas_prompt_lo = P - n_swa + 1. With
+	// P=5 and n_swa=3 only prompt keys 3 and 4 are visible, plus the canvas key.
+	want := float32((40 + 50 + 100) / 3.0)
+	for name, got := range map[string]float32{"materialized": gotMaterialized[0], "flash": gotFlash[0]} {
+		if math.Abs(float64(got-want)) > 1e-5 {
+			t.Fatalf("%s decode sliding output = %.8f, want %.8f", name, got, want)
+		}
+	}
+}
+
+func TestPromptAllowedForSlidingDecode(t *testing.T) {
+	if !promptAllowedForSlidingDecode(0, 5, 0) || !promptAllowedForSlidingDecode(4, 5, 0) {
+		t.Fatal("full attention should allow all prompt positions")
+	}
+	allowed := []bool{
+		promptAllowedForSlidingDecode(0, 5, 3),
+		promptAllowedForSlidingDecode(1, 5, 3),
+		promptAllowedForSlidingDecode(2, 5, 3),
+		promptAllowedForSlidingDecode(3, 5, 3),
+		promptAllowedForSlidingDecode(4, 5, 3),
+	}
+	want := []bool{false, false, false, true, true}
+	for i := range want {
+		if allowed[i] != want[i] {
+			t.Fatalf("allowed[%d]=%v want %v (all=%v)", i, allowed[i], want[i], allowed)
+		}
+	}
+}
