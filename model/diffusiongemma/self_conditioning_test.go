@@ -1,6 +1,7 @@
 package diffusiongemma
 
 import (
+	"encoding/binary"
 	"math"
 	"testing"
 )
@@ -108,5 +109,48 @@ func TestSelfConditioningSoftEmbeddingRowsF32MatchesRowHelper(t *testing.T) {
 		if math.Abs(float64(got[i]-want[i])) > 1e-6 {
 			t.Fatalf("got[%d]=%.8f want %.8f all got=%v want=%v", i, got[i], want[i], got, want)
 		}
+	}
+}
+
+func TestSelfConditioningSoftEmbeddingRowsRawMatchesF32(t *testing.T) {
+	logits := [][]float32{{1, 2, -1}, {0.5, -0.25, 1.5}}
+	emb := []float32{
+		1, 2,
+		-3, 4,
+		5, -6,
+	}
+	raw := make([]byte, len(emb)*4)
+	for i, v := range emb {
+		binary.LittleEndian.PutUint32(raw[i*4:], math.Float32bits(v))
+	}
+	got := make([]float32, 4)
+	if err := buildSelfConditioningSoftEmbeddingRowsRaw(got, logits, raw, "F32", nil, 2, 3, 2, 1.25); err != nil {
+		t.Fatal(err)
+	}
+	want := make([]float32, 4)
+	if err := buildSelfConditioningSoftEmbeddingRowsF32(want, logits, emb, 2, 3, 2, 1.25); err != nil {
+		t.Fatal(err)
+	}
+	for i := range got {
+		if math.Abs(float64(got[i]-want[i])) > 1e-6 {
+			t.Fatalf("got[%d]=%.8f want %.8f all got=%v want=%v", i, got[i], want[i], got, want)
+		}
+	}
+}
+
+func TestSelfConditioningSoftEmbeddingRowsRawAppliesScales(t *testing.T) {
+	logits := [][]float32{{0, 0}}
+	emb := []float32{1, 2, 3, 4}
+	raw := make([]byte, len(emb)*4)
+	for i, v := range emb {
+		binary.LittleEndian.PutUint32(raw[i*4:], math.Float32bits(v))
+	}
+	got := make([]float32, 2)
+	if err := buildSelfConditioningSoftEmbeddingRowsRaw(got, logits, raw, "F32", []float32{2, 4}, 1, 2, 2, 1); err != nil {
+		t.Fatal(err)
+	}
+	// Uniform probabilities: 0.5*(2*[1,2]) + 0.5*(4*[3,4]) = [7, 10]
+	if math.Abs(float64(got[0]-7)) > 1e-6 || math.Abs(float64(got[1]-10)) > 1e-6 {
+		t.Fatalf("got %v, want [7 10]", got)
 	}
 }

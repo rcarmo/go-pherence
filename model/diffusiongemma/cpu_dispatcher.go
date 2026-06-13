@@ -971,6 +971,12 @@ func absInt(x int) int {
 	return x
 }
 
+func k3ScaleV(scale float32, x []float32) {
+	for i := range x {
+		x[i] *= scale
+	}
+}
+
 func dot(a, b []float32) float32 {
 	var s float32
 	for i := range a {
@@ -1811,8 +1817,12 @@ func buildSelfConditioningFromLogitRows(weights *TextWeights, logits [][]float32
 	}
 	positions := len(logits)
 	out := make([]float32, positions*hiddenSize)
-	if t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name); err == nil && len(t.Shape) == 2 && t.Shape[0] == vocab && t.Shape[1] == hiddenSize && len(t.Data) >= vocab*hiddenSize {
-		if err := buildSelfConditioningSoftEmbeddingRowsF32(out, logits, t.Data, positions, vocab, hiddenSize, tempInv); err != nil {
+	if raw, dtype, shape, err := weights.RawTensor(fp.Globals.EmbedTokens.Name); err == nil && len(shape) == 2 && shape[0] == vocab && shape[1] == hiddenSize {
+		scales, err := loadOptionalFP8RowScales(weights, fp.Globals.EmbedTokens.Name, dtype, vocab)
+		if err != nil {
+			return nil, err
+		}
+		if err := buildSelfConditioningSoftEmbeddingRowsRaw(out, logits, raw, dtype, scales, positions, vocab, hiddenSize, tempInv); err != nil {
 			return nil, err
 		}
 		embedScale := float32(math.Sqrt(float64(hiddenSize)))
@@ -1842,6 +1852,154 @@ func buildSelfConditioningFromLogitRows(weights *TextWeights, logits [][]float32
 		out[i] *= embedScale
 	}
 	return out, nil
+}
+
+func loadOptionalFP8RowScales(weights *TextWeights, name, dtype string, rows int) ([]float32, error) {
+	if dtype != "F8_E4M3" && dtype != "F8_E4M3FN" {
+		return nil, nil
+	}
+	scaleName := diffusionGemmaWeightScaleName(name)
+	raw, scaleDType, shape, err := weights.RawTensor(scaleName)
+	if err != nil {
+		return nil, fmt.Errorf("DiffusionGemma FP8 tensor %q missing scale %q: %w", name, scaleName, err)
+	}
+	n := 1
+	for _, dim := range shape {
+		if dim <= 0 {
+			return nil, fmt.Errorf("DiffusionGemma FP8 scale %q invalid shape %v", scaleName, shape)
+		}
+		n *= dim
+	}
+	if n != 1 && n != rows {
+		return nil, fmt.Errorf("DiffusionGemma FP8 scale %q shape %v gives %d values, want 1 or %d", scaleName, shape, n, rows)
+	}
+	scales := make([]float32, n)
+	if err := decodeFloatRowTo(scales, raw, scaleDType); err != nil {
+		return nil, err
+	}
+	return scales, nil
+}
+
+func buildSelfConditioningSoftEmbeddingRowsRaw(out []float32, logits [][]float32, raw []byte, dtype string, scales []float32, positions, vocab, hiddenSize int, tempInv float32) error {
+	if positions < 0 || vocab <= 0 || hiddenSize <= 0 || len(out) < positions*hiddenSize || len(logits) < positions {
+		return fmt.Errorf("DiffusionGemma self-conditioning raw soft embedding shape mismatch out=%d logits=%d positions=%d vocab=%d hidden=%d", len(out), len(logits), positions, vocab, hiddenSize)
+	}
+	elemSize, ok := diffusionGemmaDTypeSize(dtype)
+	if !ok {
+		return fmt.Errorf("DiffusionGemma self-conditioning unsupported embedding dtype %s", dtype)
+	}
+	rowBytes := hiddenSize * elemSize
+	if len(raw) < vocab*rowBytes {
+		return fmt.Errorf("DiffusionGemma self-conditioning raw embedding bytes=%d want %d", len(raw), vocab*rowBytes)
+	}
+	if tempInv == 0 {
+		tempInv = 1
+	}
+	maxLogits := make([]float32, positions)
+	sums := make([]float64, positions)
+	for pos := 0; pos < positions; pos++ {
+		row := logits[pos]
+		if len(row) < vocab {
+			return fmt.Errorf("DiffusionGemma self-conditioning logits row=%d len=%d want %d", pos, len(row), vocab)
+		}
+		maxLogits[pos] = float32(math.Inf(-1))
+		for vocabID := 0; vocabID < vocab; vocabID++ {
+			v := row[vocabID]
+			if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
+				continue
+			}
+			v *= tempInv
+			if v > maxLogits[pos] {
+				maxLogits[pos] = v
+			}
+		}
+		if math.IsInf(float64(maxLogits[pos]), -1) {
+			continue
+		}
+		for vocabID := 0; vocabID < vocab; vocabID++ {
+			v := row[vocabID]
+			if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
+				continue
+			}
+			sums[pos] += math.Exp(float64(v*tempInv - maxLogits[pos]))
+		}
+	}
+	out = out[:positions*hiddenSize]
+	for i := range out {
+		out[i] = 0
+	}
+	workers := 1
+	if k3Enabled() && vocab >= 8192 && positions > 0 {
+		workers = k3Threads()
+		if workers > vocab/4096 {
+			workers = vocab / 4096
+		}
+		if workers < 1 {
+			workers = 1
+		}
+	}
+	runChunk := func(dst []float32, startVocab, endVocab int) error {
+		embedRow := make([]float32, hiddenSize)
+		for vocabID := startVocab; vocabID < endVocab; vocabID++ {
+			start := vocabID * rowBytes
+			if err := decodeFloatRowTo(embedRow, raw[start:start+rowBytes], dtype); err != nil {
+				return err
+			}
+			if len(scales) == 1 {
+				k3ScaleV(scales[0], embedRow)
+			} else if len(scales) == vocab {
+				k3ScaleV(scales[vocabID], embedRow)
+			}
+			for pos := 0; pos < positions; pos++ {
+				if sums[pos] <= 0 || math.IsNaN(sums[pos]) || math.IsInf(float64(maxLogits[pos]), -1) {
+					continue
+				}
+				v := logits[pos][vocabID]
+				if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
+					continue
+				}
+				prob := float32(math.Exp(float64(v*tempInv-maxLogits[pos])) / sums[pos])
+				if prob == 0 {
+					continue
+				}
+				k3SaxpyV(prob, embedRow, dst[pos*hiddenSize:(pos+1)*hiddenSize])
+			}
+		}
+		return nil
+	}
+	if workers <= 1 {
+		return runChunk(out, 0, vocab)
+	}
+	partials := make([][]float32, workers)
+	for i := range partials {
+		partials[i] = make([]float32, len(out))
+	}
+	var wg sync.WaitGroup
+	errCh := make(chan error, workers)
+	wg.Add(workers)
+	for wid := 0; wid < workers; wid++ {
+		startVocab := wid * vocab / workers
+		endVocab := (wid + 1) * vocab / workers
+		go func(wid, startVocab, endVocab int) {
+			defer wg.Done()
+			if err := runChunk(partials[wid], startVocab, endVocab); err != nil {
+				errCh <- err
+			}
+		}(wid, startVocab, endVocab)
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
+	}
+	for _, part := range partials {
+		for i, v := range part {
+			out[i] += v
+		}
+	}
+	return nil
 }
 
 func buildSelfConditioningSoftEmbeddingRowsF32(out []float32, logits [][]float32, embed []float32, positions, vocab, hiddenSize int, tempInv float32) error {
