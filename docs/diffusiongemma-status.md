@@ -910,3 +910,24 @@ All optimizations applied:
 - Thread-safe weight cache with prefetch and madvise
 - Parallel GEMV with goroutine workers
 - SIMD AVX2+FMA throughout
+
+
+## Prompt template fix: all prompts now work
+
+2026-06-13: Fixed missing newline token (ID 107) in chat prompt template.
+The tokenizer was merging `\n` with adjacent text instead of producing standalone newline tokens.
+This was the root cause of EOS collapse for non-factual prompts.
+
+Results with canvas=24, 2-4 denoise steps:
+
+| Prompt | Output | Steps | Time |
+|---|---|---|---|
+| What is the capital of France? | **Paris**. | 2 | ~52s |
+| What is 2+2? | 2+2 is 4. | 4 | ~3m44s |
+| Say hello in French | Bonjour! | 2 | ~1m29s |
+| Name the first US president | **George Washington**. | 2 | ~1m29s |
+| Who wrote Romeo and Juliet? | **William Shakespeare** | 2 | ~1m29s |
+| What color is the sky? | The sky is typically blue | 2 | ~52s |
+
+The model now enters thinking mode (`<|channel>thought`) before answering,
+matching the reference DiffusionGemma behavior.
