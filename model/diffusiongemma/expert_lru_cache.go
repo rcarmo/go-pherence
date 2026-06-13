@@ -79,29 +79,46 @@ func (c *ExpertLRUCache) Put(layer, expertID int, fp8w *FP8TextWeights) (*gpu.GP
 
 	entryBytes := int64(len(gW) + len(uW) + len(dW) + (gSh[0]+uSh[0]+dSh[0])*4)
 
-	// Evict until we have room
+	// Evict LRU, reuse first evicted entry's GPU buffers
+	var reuseGate, reuseUp, reuseDown *gpu.GPUFP8E4M3Linear
 	for c.usedBytes+entryBytes > c.maxBytes && len(c.order) > 0 {
-		c.evictOldest()
+		oldKey := c.order[0]
+		c.order = c.order[1:]
+		if old, ok := c.entries[oldKey]; ok {
+			c.usedBytes -= old.bytes
+			if reuseGate == nil {
+				reuseGate, reuseUp, reuseDown = old.gate, old.up, old.down
+			} else {
+				if old.gate != nil {
+					old.gate.Free()
+				}
+				if old.up != nil {
+					old.up.Free()
+				}
+				if old.down != nil {
+					old.down.Free()
+				}
+			}
+			delete(c.entries, oldKey)
+			c.evictions++
+		}
 	}
 
-	gate, err := gpu.UploadFP8E4M3Linear(gW, gS, nil, gSh[0], gSh[1])
-	if err != nil {
+	if err := gpu.UploadFP8E4M3LinearReuse(&reuseGate, gW, gS, nil, gSh[0], gSh[1]); err != nil {
 		return nil, nil, nil, fmt.Errorf("expert %d gate upload: %w", expertID, err)
 	}
-	up, err := gpu.UploadFP8E4M3Linear(uW, uS, nil, uSh[0], uSh[1])
-	if err != nil {
+	if err := gpu.UploadFP8E4M3LinearReuse(&reuseUp, uW, uS, nil, uSh[0], uSh[1]); err != nil {
 		return nil, nil, nil, fmt.Errorf("expert %d up upload: %w", expertID, err)
 	}
-	down, err := gpu.UploadFP8E4M3Linear(dW, dS, nil, dSh[0], dSh[1])
-	if err != nil {
+	if err := gpu.UploadFP8E4M3LinearReuse(&reuseDown, dW, dS, nil, dSh[0], dSh[1]); err != nil {
 		return nil, nil, nil, fmt.Errorf("expert %d down upload: %w", expertID, err)
 	}
 
-	e := &expertEntry{gate: gate, up: up, down: down, bytes: entryBytes}
+	e := &expertEntry{gate: reuseGate, up: reuseUp, down: reuseDown, bytes: entryBytes}
 	c.entries[key] = e
 	c.order = append(c.order, key)
 	c.usedBytes += entryBytes
-	return gate, up, down, nil
+	return reuseGate, reuseUp, reuseDown, nil
 }
 
 func (c *ExpertLRUCache) touch(key expertKey) {
