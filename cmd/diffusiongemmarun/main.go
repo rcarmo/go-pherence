@@ -70,7 +70,8 @@ func main() {
 	exactTokensCSV := flag.String("tokens", "", "comma-separated exact tokenizer vocabulary entries (no BPE tokenization)")
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
-	denoiseSteps := flag.Int("denoise-steps", 0, "override maximum denoising steps")
+	diffusionSteps := flag.Int("diffusion-steps", 0, "record requested public diffusion steps separately from effective denoising max")
+	denoiseSteps := flag.Int("denoise-steps", 0, "override effective maximum denoising steps")
 	tMin := flag.Float64("t-min", -1, "override final denoising temperature")
 	tMax := flag.Float64("t-max", -1, "override initial denoising temperature")
 	entropyBound := flag.Float64("entropy-bound", -1, "override entropy-bound sampler threshold")
@@ -344,7 +345,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed}
+	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed, RequestedDiffusionSteps: *diffusionSteps}
 	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *samplerMode, *stabilityThreshold, *confidenceThreshold); denoising != nil {
 		opts.Denoising = denoising
 	}
@@ -385,7 +386,7 @@ func main() {
 	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v mock_token=%d mock_tokens=%q\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher, *mockToken, *mockTokensCSV)
 	if opts.Denoising != nil {
 		d := opts.Denoising
-		fmt.Printf("  denoising: steps=%d t=[%.3f, %.3f] sampler_mode=%s entropy_bound=%.3f stability=%d confidence=%.6f\n", d.MaxDenoisingSteps, d.TMin, d.TMax, d.Sampler.Mode, d.Sampler.EntropyBound, d.StabilityThreshold, d.ConfidenceThreshold)
+		fmt.Printf("  denoising: requested_diffusion_steps=%d effective_steps=%d t=[%.3f, %.3f] sampler_mode=%s entropy_bound=%.3f stability=%d confidence=%.6f\n", opts.RequestedDiffusionSteps, d.MaxDenoisingSteps, d.TMin, d.TMax, d.Sampler.Mode, d.Sampler.EntropyBound, d.StabilityThreshold, d.ConfidenceThreshold)
 	}
 	if len(out.PromptTokens) > 0 {
 		fmt.Printf("  prompt_tokens=%v\n", out.PromptTokens)

@@ -47,6 +47,7 @@ type completionRequest struct {
 	MaxTokens            int                             `json:"max_tokens,omitempty"`
 	MaxNewTokens         int                             `json:"max_new_tokens,omitempty"`
 	CanvasLength         int                             `json:"canvas_length,omitempty"`
+	DiffusionSteps       int                             `json:"diffusion_steps,omitempty"`
 	DenoiseSteps         int                             `json:"denoise_steps,omitempty"`
 	SamplerMode          string                          `json:"sampler_mode,omitempty"`
 	Seed                 int64                           `json:"seed,omitempty"`
@@ -79,6 +80,7 @@ type diffusionStats struct {
 	EffectiveMaxTokens        int     `json:"effective_max_tokens"`
 	RequestedCanvasLength     int     `json:"requested_canvas_length,omitempty"`
 	EffectiveCanvasLength     int     `json:"effective_canvas_length"`
+	RequestedDiffusionSteps   int     `json:"requested_diffusion_steps,omitempty"`
 	RequestedDenoisingSteps   int     `json:"requested_denoising_steps,omitempty"`
 	EffectiveDenoisingSteps   int     `json:"effective_denoising_steps"`
 	GeneratedTokens           int     `json:"generated_tokens"`
@@ -433,7 +435,7 @@ func (s *server) options(req completionRequest, cb func(int, diffusiongemma.Diff
 		}
 		denoise = &cfg
 	}
-	return diffusiongemma.InferenceOptions{MaxNewTokens: maxNew, CanvasLength: canvas, Seed: seed, Denoising: denoise, StepCallback: cb}
+	return diffusiongemma.InferenceOptions{MaxNewTokens: maxNew, CanvasLength: canvas, Seed: seed, Denoising: denoise, RequestedDiffusionSteps: req.DiffusionSteps, StepCallback: cb}
 }
 
 func (s *server) promptIDs(req completionRequest, chat bool) ([]int, error) {
@@ -541,6 +543,7 @@ func (s *server) diffusionStats(req completionRequest, res diffusiongemma.Infere
 		EffectiveMaxTokens:        effectiveMax,
 		RequestedCanvasLength:     req.CanvasLength,
 		EffectiveCanvasLength:     effectiveCanvas,
+		RequestedDiffusionSteps:   req.DiffusionSteps,
 		RequestedDenoisingSteps:   req.DenoiseSteps,
 		EffectiveDenoisingSteps:   effectiveSteps,
 		GeneratedTokens:           len(res.Generated),

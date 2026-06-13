@@ -61,11 +61,12 @@ body=$(jq -cn \
   --arg prompt "${PROMPT}" \
   --argjson max_tokens "${MAX_TOKENS}" \
   --argjson canvas "${CANVAS}" \
+  --argjson requested_diffusion_steps "${REQUESTED_DIFFUSION_STEPS}" \
   --argjson denoise_steps "${DENOISE_STEPS}" \
   --arg sampler_mode "${SAMPLER_MODE}" \
   --argjson seed "${SEED}" \
   --argjson return_steps "$(if [[ "${RETURN_STEPS}" == "1" ]]; then echo true; else echo false; fi)" \
-  '{model:"diffusiongemma-k3",messages:[{role:"user",content:$prompt}],max_tokens:$max_tokens,canvas_length:$canvas,denoise_steps:$denoise_steps,sampler_mode:$sampler_mode,seed:$seed,return_diffusion_steps:$return_steps,stream:false}')
+  '{model:"diffusiongemma-k3",messages:[{role:"user",content:$prompt}],max_tokens:$max_tokens,canvas_length:$canvas,diffusion_steps:$requested_diffusion_steps,denoise_steps:$denoise_steps,sampler_mode:$sampler_mode,seed:$seed,return_diffusion_steps:$return_steps,stream:false}')
 
 tmp=$(mktemp)
 start_ns=$(date +%s%N)

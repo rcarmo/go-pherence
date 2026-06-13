@@ -9,11 +9,14 @@ import (
 // currently supports token IDs only; processor/chat-template integration stays
 // outside the model package.
 type InferenceOptions struct {
-	MaxNewTokens int                                                                 `json:"max_new_tokens"`
-	CanvasLength int                                                                 `json:"canvas_length"`
-	Denoising    *DenoisingConfig                                                    `json:"denoising,omitempty"`
-	Seed         int64                                                               `json:"seed,omitempty"`
-	StepCallback func(generatedTokenIndex int, snapshot DiffusionStepSnapshot) error `json:"-"`
+	MaxNewTokens int              `json:"max_new_tokens"`
+	CanvasLength int              `json:"canvas_length"`
+	Denoising    *DenoisingConfig `json:"denoising,omitempty"`
+	// RequestedDiffusionSteps records the public/user-facing diffusion_steps value
+	// separately from the effective entropy-bound max denoising steps.
+	RequestedDiffusionSteps int                                                                 `json:"requested_diffusion_steps,omitempty"`
+	Seed                    int64                                                               `json:"seed,omitempty"`
+	StepCallback            func(generatedTokenIndex int, snapshot DiffusionStepSnapshot) error `json:"-"`
 }
 
 // InferenceResult contains generated token IDs and per-canvas diagnostics.
