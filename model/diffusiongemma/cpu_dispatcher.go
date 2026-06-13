@@ -286,7 +286,11 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	// Build self-conditioning from logits. With sparse top-k, this now uses only
 	// finite logits instead of scanning/softmaxing the whole vocabulary row.
 	selfCondStart := time.Now()
-	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch)
+	tempInv := float32(1)
+	if ctx.Temperature > 0 {
+		tempInv = float32(1.0 / ctx.Temperature)
+	}
+	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch, tempInv)
 	if err != nil {
 		return ForwardOutput{}, err
 	}
@@ -1791,7 +1795,7 @@ func runFinalNorm(weights *TextWeights, scratch ForwardScratch) error {
 	return nil
 }
 
-func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratch) ([]float32, error) {
+func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratch, tempInv float32) ([]float32, error) {
 	if weights == nil || len(scratch.Logits) == 0 {
 		return nil, nil
 	}
@@ -1809,7 +1813,7 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 	row := make([]float32, hiddenSize)
 	for pos := 0; pos < positions; pos++ {
 		dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
-		if err := buildSelfConditioningSoftEmbeddingRow(dst, scratch.Logits[pos], vocab, hiddenSize, row, func(vocabID int, dst []float32) error {
+		if err := buildSelfConditioningSoftEmbeddingRow(dst, scratch.Logits[pos], vocab, hiddenSize, tempInv, row, func(vocabID int, dst []float32) error {
 			raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
 			if err != nil {
 				return err
@@ -1829,7 +1833,7 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 	return out, nil
 }
 
-func buildSelfConditioningSoftEmbeddingRow(dst []float32, logits []float32, vocab, hiddenSize int, scratch []float32, loadEmbeddingRow func(vocabID int, dst []float32) error) error {
+func buildSelfConditioningSoftEmbeddingRow(dst []float32, logits []float32, vocab, hiddenSize int, tempInv float32, scratch []float32, loadEmbeddingRow func(vocabID int, dst []float32) error) error {
 	if len(dst) != hiddenSize {
 		return fmt.Errorf("DiffusionGemma self-conditioning dst len=%d want %d", len(dst), hiddenSize)
 	}
@@ -1843,6 +1847,9 @@ func buildSelfConditioningSoftEmbeddingRow(dst []float32, logits []float32, voca
 		return fmt.Errorf("DiffusionGemma self-conditioning logits len=%d want %d", len(logits), vocab)
 	}
 	logits = logits[:vocab]
+	if tempInv == 0 {
+		tempInv = 1
+	}
 	const sparseLimit = 4096
 	finiteIDs := make([]int, 0, 16)
 	finiteVals := make([]float32, 0, 16)
@@ -1856,7 +1863,7 @@ func buildSelfConditioningSoftEmbeddingRow(dst []float32, logits []float32, voca
 			break
 		}
 		finiteIDs = append(finiteIDs, vocabID)
-		finiteVals = append(finiteVals, v)
+		finiteVals = append(finiteVals, v*tempInv)
 	}
 	if !dense && len(finiteIDs) > 0 {
 		maxLogit := finiteVals[0]
@@ -1889,6 +1896,9 @@ func buildSelfConditioningSoftEmbeddingRow(dst []float32, logits []float32, voca
 		return nil
 	}
 	probs := append([]float32(nil), logits...)
+	for i := range probs {
+		probs[i] *= tempInv
+	}
 	k3SoftmaxInPlace(probs)
 	for vocabID, prob := range probs {
 		if prob == 0 {
@@ -1951,14 +1961,9 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	if topK > vocab {
 		topK = vocab
 	}
-	if topK > 0 {
-		for pos := 0; pos < positions; pos++ {
-			if len(scratch.Logits[pos]) < vocab {
-				return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
-			}
-			for i := 0; i < vocab; i++ {
-				scratch.Logits[pos][i] = float32(math.Inf(-1))
-			}
+	for pos := 0; pos < positions; pos++ {
+		if len(scratch.Logits[pos]) < vocab {
+			return fmt.Errorf("DiffusionGemma LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
 		}
 	}
 	topIDs := make([][]int, positions)
@@ -1981,7 +1986,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 			if done, err := k3GemmRowsQ80(scoresAll, scratch.Hidden, positions, weights, fp.Globals.EmbedTokens); err != nil {
 				return err
 			} else if done {
-				mode = "topk_k3_a100_rerank"
+				mode = "topk_k3_a100_rerank_full_logits"
 				lmHeadDone = true
 				candidateK := k3A100LMHeadCandidates(topK, vocab)
 				row := make([]float32, hiddenSize)
@@ -1993,6 +1998,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 						candVals[i] = float32(math.Inf(-1))
 					}
 					scores := scoresAll[pos*vocab : (pos+1)*vocab]
+					copy(scratch.Logits[pos][:vocab], scores)
 					for vocabID, score := range scores {
 						insertTopK(candIDs, candVals, vocabID, score)
 					}
@@ -2031,6 +2037,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 				if !simd.GemvRows(scores, hidden, t.Data, vocab, hiddenSize) {
 					return fmt.Errorf("DiffusionGemma LM head SIMD GEMV failed vocab=%d hidden=%d", vocab, hiddenSize)
 				}
+				copy(scratch.Logits[pos][:vocab], scores)
 				for vocabID, score := range scores {
 					insertTopK(topIDs[pos], topVals[pos], vocabID, score)
 				}

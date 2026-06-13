@@ -56,4 +56,13 @@ func TestGenerateCanvasEntropyBoundModePartialAcceptsAndRenoises(t *testing.T) {
 	if !seenAccepted || !seenRejected {
 		t.Fatalf("accepted mask = %v, want accepted and rejected positions", snapshot.AcceptedMask)
 	}
+	wantArgmax := []int{1, 3, 3, 3}
+	for i, want := range wantArgmax {
+		if snapshot.Canvas[i] != want {
+			t.Fatalf("snapshot canvas = %v, want argmax canvas %v", snapshot.Canvas, wantArgmax)
+		}
+		if res.Canvas[i] != want {
+			t.Fatalf("final canvas = %v, want argmax canvas %v", res.Canvas, wantArgmax)
+		}
+	}
 }

@@ -21,6 +21,7 @@ type ForwardInput struct {
 	PromptIDs        []int            `json:"prompt_ids,omitempty"`
 	Canvas           []int            `json:"canvas"`
 	Step             int              `json:"step"`
+	Temperature      float64          `json:"temperature,omitempty"`
 	SelfConditioning []float32        `json:"-"`
 	EncoderKV        []EncoderKVLayer `json:"-"`
 }
@@ -96,16 +97,17 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 	stopper := NewStableConfidentStopper(cfg.StabilityThreshold, cfg.ConfidenceThreshold)
 	steps := make([]CanvasStep, 0, cfg.MaxDenoisingSteps)
 	var selfConditioning []float32
+	outputCanvas := append([]int(nil), canvas...)
 	for step := cfg.MaxDenoisingSteps; step > 0; step-- {
 		state.Step = step
-		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, SelfConditioning: selfConditioning})
+		temperature := LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, step)
+		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, Temperature: temperature, SelfConditioning: selfConditioning})
 		if err != nil {
 			return CanvasResult{}, err
 		}
 		if len(out.Logits) < canvasLength {
 			return CanvasResult{}, fmt.Errorf("denoiser returned %d canvas logits, want %d", len(out.Logits), canvasLength)
 		}
-		temperature := LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, step)
 		argmaxCanvas := make([]int, canvasLength)
 		sampledCanvas := make([]int, canvasLength)
 		entropy := make([]float64, canvasLength)
@@ -142,6 +144,7 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 			meanEntropy /= float64(canvasLength)
 			canvas = append(canvas[:0], argmaxCanvas...)
 		}
+		outputCanvas = append(outputCanvas[:0], argmaxCanvas...)
 		if len(out.SelfConditioning) > 0 {
 			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
 		}
@@ -151,7 +154,7 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 			snapshot := DiffusionStepSnapshot{
 				Step:         step,
 				Temperature:  temperature,
-				Canvas:       append([]int(nil), canvas...),
+				Canvas:       append([]int(nil), outputCanvas...),
 				AcceptedMask: append([]bool(nil), acceptedMask...),
 				MeanEntropy:  meanEntropy,
 				Stopped:      stopped,
@@ -165,5 +168,5 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 			break
 		}
 	}
-	return CanvasResult{Canvas: canvas, Steps: steps, State: state}, nil
+	return CanvasResult{Canvas: outputCanvas, Steps: steps, State: state}, nil
 }

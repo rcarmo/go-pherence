@@ -80,6 +80,7 @@ type ForwardContext struct {
 	PromptIDs        []int            `json:"prompt_ids,omitempty"`
 	Canvas           []int            `json:"canvas"`
 	Step             int              `json:"step"`
+	Temperature      float64          `json:"temperature,omitempty"`
 	SelfConditioning []float32        `json:"-"`
 	EncoderKV        []EncoderKVLayer `json:"-"`
 	EncoderSeqLen    int              `json:"encoder_seq_len,omitempty"`
