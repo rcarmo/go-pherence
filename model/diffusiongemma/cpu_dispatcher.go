@@ -1764,82 +1764,19 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 	positions := len(scratch.Logits)
 	out := make([]float32, positions*hiddenSize)
 	row := make([]float32, hiddenSize)
-	const sparseLimit = 4096
 	for pos := 0; pos < positions; pos++ {
-		if len(scratch.Logits[pos]) < vocab {
-			return nil, fmt.Errorf("DiffusionGemma self-conditioning logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
-		}
-		logits := scratch.Logits[pos][:vocab]
-		finiteIDs := make([]int, 0, 16)
-		finiteVals := make([]float32, 0, 16)
-		dense := false
-		for vocabID, v := range logits {
-			if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
-				continue
-			}
-			if len(finiteIDs) >= sparseLimit {
-				dense = true
-				break
-			}
-			finiteIDs = append(finiteIDs, vocabID)
-			finiteVals = append(finiteVals, v)
-		}
-		if !dense && len(finiteIDs) > 0 {
-			maxLogit := finiteVals[0]
-			for _, v := range finiteVals[1:] {
-				if v > maxLogit {
-					maxLogit = v
-				}
-			}
-			var sum float64
-			probs := make([]float32, len(finiteVals))
-			for i, v := range finiteVals {
-				e := math.Exp(float64(v - maxLogit))
-				probs[i] = float32(e)
-				sum += e
-			}
-			if sum == 0 {
-				continue
-			}
-			inv := float32(1 / sum)
-			dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
-			for i, vocabID := range finiteIDs {
-				prob := probs[i] * inv
-				if prob == 0 {
-					continue
-				}
-				raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
-				if err != nil {
-					return nil, err
-				}
-				if len(shape) != 1 || shape[0] != hiddenSize {
-					return nil, fmt.Errorf("DiffusionGemma self-conditioning row shape %v want [%d]", shape, hiddenSize)
-				}
-				if err := decodeFloatRowTo(row, raw, dtype); err != nil {
-					return nil, err
-				}
-				k3SaxpyV(prob, row, dst)
-			}
-			continue
-		}
-		probs := append([]float32(nil), logits...)
-		k3SoftmaxInPlace(probs)
-		for vocabID, prob := range probs {
-			if prob == 0 {
-				continue
-			}
+		dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
+		if err := buildSelfConditioningSoftEmbeddingRow(dst, scratch.Logits[pos], vocab, hiddenSize, row, func(vocabID int, dst []float32) error {
 			raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if len(shape) != 1 || shape[0] != hiddenSize {
-				return nil, fmt.Errorf("DiffusionGemma self-conditioning row shape %v want [%d]", shape, hiddenSize)
+				return fmt.Errorf("DiffusionGemma self-conditioning row shape %v want [%d]", shape, hiddenSize)
 			}
-			if err := decodeFloatRowTo(row, raw, dtype); err != nil {
-				return nil, err
-			}
-			dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
-			k3SaxpyV(prob, row, dst)
+			return decodeFloatRowTo(dst, raw, dtype)
+		}); err != nil {
+			return nil, err
 		}
 	}
 	embedScale := float32(math.Sqrt(float64(hiddenSize)))
@@ -1847,6 +1784,79 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 		out[i] *= embedScale
 	}
 	return out, nil
+}
+
+func buildSelfConditioningSoftEmbeddingRow(dst []float32, logits []float32, vocab, hiddenSize int, scratch []float32, loadEmbeddingRow func(vocabID int, dst []float32) error) error {
+	if len(dst) != hiddenSize {
+		return fmt.Errorf("DiffusionGemma self-conditioning dst len=%d want %d", len(dst), hiddenSize)
+	}
+	if len(scratch) != hiddenSize {
+		return fmt.Errorf("DiffusionGemma self-conditioning scratch len=%d want %d", len(scratch), hiddenSize)
+	}
+	for i := range dst {
+		dst[i] = 0
+	}
+	if len(logits) < vocab {
+		return fmt.Errorf("DiffusionGemma self-conditioning logits len=%d want %d", len(logits), vocab)
+	}
+	logits = logits[:vocab]
+	const sparseLimit = 4096
+	finiteIDs := make([]int, 0, 16)
+	finiteVals := make([]float32, 0, 16)
+	dense := false
+	for vocabID, v := range logits {
+		if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
+			continue
+		}
+		if len(finiteIDs) >= sparseLimit {
+			dense = true
+			break
+		}
+		finiteIDs = append(finiteIDs, vocabID)
+		finiteVals = append(finiteVals, v)
+	}
+	if !dense && len(finiteIDs) > 0 {
+		maxLogit := finiteVals[0]
+		for _, v := range finiteVals[1:] {
+			if v > maxLogit {
+				maxLogit = v
+			}
+		}
+		var sum float64
+		probs := make([]float32, len(finiteVals))
+		for i, v := range finiteVals {
+			e := math.Exp(float64(v - maxLogit))
+			probs[i] = float32(e)
+			sum += e
+		}
+		if sum == 0 {
+			return nil
+		}
+		inv := float32(1 / sum)
+		for i, vocabID := range finiteIDs {
+			prob := probs[i] * inv
+			if prob == 0 {
+				continue
+			}
+			if err := loadEmbeddingRow(vocabID, scratch); err != nil {
+				return err
+			}
+			k3SaxpyV(prob, scratch, dst)
+		}
+		return nil
+	}
+	probs := append([]float32(nil), logits...)
+	k3SoftmaxInPlace(probs)
+	for vocabID, prob := range probs {
+		if prob == 0 {
+			continue
+		}
+		if err := loadEmbeddingRow(vocabID, scratch); err != nil {
+			return err
+		}
+		k3SaxpyV(prob, scratch, dst)
+	}
+	return nil
 }
 
 func exactEmbeddingDotF32(raw []byte, dtype string, x []float32, rowScratch []float32) (float32, error) {

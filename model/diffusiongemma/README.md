@@ -470,3 +470,14 @@ for existing fast/debug runs.
 
 The CLI exposes `-sampler-mode argmax|entropy_bound`; the OpenAI-compatible
 server accepts flat JSON `sampler_mode` or a structured `denoising.sampler.mode`.
+
+### Self-conditioning parity
+
+llama.cpp PR #24423 uploads the previous step's raw logits as an input tensor
+`[n_vocab, canvas]`, then computes `softmax(logits * sc_temp_inv) @ embed_tokens`,
+scales by `sqrt(hidden)`, and feeds that soft embedding through the
+self-conditioning MLP. go-pherence keeps the raw logits in process and computes
+the same soft embedding directly before the existing K3/Q80 self-conditioning
+MLP; this avoids a separate raw-logit upload buffer but preserves the reference
+math. `self_conditioning_test.go` locks the raw-logit softmax-matmul behavior,
+including sparse `-Inf`/`NaN` handling used by sparse LM-head outputs.
