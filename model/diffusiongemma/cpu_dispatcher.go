@@ -1649,9 +1649,7 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 				if err := decodeFloatRowTo(row, raw, dtype); err != nil {
 					return nil, err
 				}
-				for j := range dst {
-					dst[j] += prob * row[j]
-				}
+				k3SaxpyV(prob, row, dst)
 			}
 			continue
 		}
@@ -1672,9 +1670,7 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 				return nil, err
 			}
 			dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
-			for i := range dst {
-				dst[i] += prob * row[i]
-			}
+			k3SaxpyV(prob, row, dst)
 		}
 	}
 	embedScale := float32(math.Sqrt(float64(hiddenSize)))
