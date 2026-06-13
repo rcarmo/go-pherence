@@ -14,7 +14,7 @@ MAX_NEW="${MAX_NEW:-1}"
 PROMPT_IDS="${PROMPT_IDS:-2,3}"
 Q80_BUDGET_GIB="${Q80_BUDGET_GIB:-2.0}"
 LM_HEAD_TOP_K="${LM_HEAD_TOP_K:-8}"
-RETAIN_SELECTED_EXPERT_LAYERS="${RETAIN_SELECTED_EXPERT_LAYERS:-0}"
+RETAIN_SELECTED_EXPERT_LAYERS="${RETAIN_SELECTED_EXPERT_LAYERS:-30}"
 A100_WORKERS="${A100_WORKERS:-6}"
 K3_THREADS="${K3_THREADS:-8}"
 LOG_DIR="${LOG_DIR:-/tmp}"
@@ -79,7 +79,8 @@ go run ./cmd/diffusiongemmarun \
 
 printf '\n=== diffusiongemma K3 profile summary ===\n'
 printf 'log=%s\n' "${LOG}"
-grep "K3 Q80 residency budget\|K3 Q80 prewarmed" "${LOG}" || true
+printf 'config: canvas=%s steps=%s q80_budget_gib=%s retain_selected_expert_layers=%s skip_eviction=%s\n' "${CANVAS}" "${STEPS}" "${Q80_BUDGET_GIB}" "${RETAIN_SELECTED_EXPERT_LAYERS}" "${SKIP_EVICTION:-1}"
+grep "K3 Q80 residency budget\|K3 Q80 prewarmed\|K3 Q80 retaining selected" "${LOG}" || true
 printf '\n-- decoder layer totals --\n'
 grep "CPU dispatcher: completed layer" "${LOG}" | awk '
 function ms(x){ if(x ~ /ms$/){sub("ms","",x); return x+0}; if(x ~ /s$/){sub("s","",x); return 1000*x}; return x+0 }
