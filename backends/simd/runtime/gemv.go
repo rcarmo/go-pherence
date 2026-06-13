@@ -49,6 +49,12 @@ func GemvCols(out, x, w []float32, rows, cols int) bool {
 }
 
 // GemmRows computes out[batch,rows] = x[batch,cols] @ W[rows,cols]^T.
+//
+// For batch > 1 this is deliberately not a loop of independent GEMV calls: it
+// streams each W row once and accumulates all batch rows before moving to the
+// next output row. DiffusionGemma uses this for selected MoE experts, e.g.
+// [16,2816] × [704,2816]^T -> [16,704], where reusing the expert row across
+// the 16 canvas positions avoids repeated weight walks.
 func GemmRows(out, x, w []float32, batch, rows, cols int) bool {
 	xLen, okX := checked.MulInt(batch, cols)
 	outLen, okOut := checked.MulInt(batch, rows)
@@ -56,9 +62,21 @@ func GemmRows(out, x, w []float32, batch, rows, cols int) bool {
 	if batch <= 0 || rows <= 0 || cols <= 0 || !okX || !okOut || !okW || len(out) < outLen || len(x) < xLen || len(w) < weightLen {
 		return false
 	}
-	for b := 0; b < batch; b++ {
-		if !GemvRows(out[b*rows:(b+1)*rows], x[b*cols:(b+1)*cols], w[:weightLen], rows, cols) {
-			return false
+	if batch == 1 {
+		return GemvRows(out[:rows], x[:cols], w[:weightLen], rows, cols)
+	}
+	out = out[:outLen]
+	x = x[:xLen]
+	w = w[:weightLen]
+	for i := range out {
+		out[i] = 0
+	}
+	for row := 0; row < rows; row++ {
+		wrow := w[row*cols : (row+1)*cols]
+		for col, wc := range wrow {
+			for b := 0; b < batch; b++ {
+				out[b*rows+row] += x[b*cols+col] * wc
+			}
 		}
 	}
 	return true

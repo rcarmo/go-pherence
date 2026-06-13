@@ -114,12 +114,16 @@ make diffusiongemma-k3-profile   # repeatable full profile summary
 attention context and restores the materialized score-buffer path for A/B timing
 or debugging. The flash path keeps a stable online `(m, l)` softmax state per
 query/head and updates the weighted value accumulator directly, avoiding the
-score-row allocation and second score pass. `attention_flash_test.go` compares
-flash and materialized context outputs with K3 dispatch enabled. On a focused
-Milk-V/K3 canvas-256, one-layer timing run, the optimized online update measured
-attention context at `533ms` versus `610ms` for the materialized path and reduced
-layer-0 time from `2.957s` to `2.911s`; full-layer speed remains dominated by
-selected-expert Q80 packing.
+score-row allocation and second score pass. The context kernels now batch work
+over flattened `(canvas_position, attention_head)` tasks instead of splitting
+only by canvas position, so short canvases can still feed all K3/X100 workers
+when `positions * heads` is large enough. `attention_flash_test.go` compares
+flash and materialized context outputs and includes a forced K3 batched-worker
+case (`positions=2`, `heads=16`, `threads=8`) against a serial reference. On a
+focused Milk-V/K3 canvas-256, one-layer timing run, the optimized online update
+measured attention context at `533ms` versus `610ms` for the materialized path
+and reduced layer-0 time from `2.957s` to `2.911s`; full-layer speed remains
+dominated by selected-expert Q80 packing.
 
 ### K3 A100/Q80x32 acceleration
 
@@ -221,7 +225,10 @@ Implemented paths:
 - Dense MLP: gate/up use a same-input dual GEMM; down uses the row-scale Q80x32
   path.
 - Per-expert MoE: positions are grouped by selected expert; each expert batch
-  runs A100 gate/up, SIMD GELU×up, then A100 down projection.
+  runs A100 gate/up, SIMD GELU×up, then A100 down projection. The generic F32
+  fallback uses the same shape instead of looping per-position GEMV: e.g.
+  `[16,2816] × [704,2816]^T -> [16,704]` for gate/up and `[16,704] ×
+  [2816,704]^T -> [16,2816]` for down.
 - Encoder prompt pass reuses A100 for attention projections and dense MLP.
 - FP8 E4M3 weights are decoded with `.weight_scale` and packed into row-scale
   Q80x32 once per process; later calls reuse the cache.
@@ -382,3 +389,53 @@ REQUESTS=3 MAX_TOKENS=1 CANVAS=16 DENOISE_STEPS=2 \
 
 Use `STREAM=1` to verify/count intermediate `diffusion_step` events, or set
 `SERVER_URL=http://host:port` to benchmark an already-running server.
+
+## llama.cpp PR #24423 reference run
+
+Checked out `ggml-org/llama.cpp` PR `#24423` at `4a6735f1` into
+`/home/me/src/llama.cpp-pr24423` and downloaded
+`unsloth/diffusiongemma-26B-A4B-it-GGUF/diffusiongemma-26B-A4B-it-Q4_K_M.gguf`
+under `/home/me/models/diffusiongemma-26B-A4B-it-GGUF/`.
+
+Reference command used on the Milk-V K3:
+
+```sh
+build/bin/llama-diffusion-cli \
+  -m /home/me/models/diffusiongemma-26B-A4B-it-GGUF/diffusiongemma-26B-A4B-it-Q4_K_M.gguf \
+  -ngl 99 \
+  --n-cpu-moe 20 \
+  --diffusion-steps 256 \
+  -n 1 \
+  -p 'Say hello briefly.'
+```
+
+Observed caveats/results on this board:
+
+- llama.cpp warned `no usable GPU found`, so `-ngl 99` was accepted but ignored
+  by this CPU-only riscv64 build.
+- `--n-cpu-moe 20` was accepted and maps to the PR's CPU-MoE offload flag.
+- The generic diffusion parameter logged `steps=256`, but the DiffusionGemma
+  entropy-bound runner used `max_steps=48` from `diffusion.eb_max_steps` GGUF
+  metadata/defaults and early-stopped after 11 steps for the single 256-token
+  canvas block.
+- Output sample: `Hello!`
+- Runtime: `529286.45ms`; reported `time per step: 48116.95ms`, `11 steps over
+  1 blocks`, `throughput: 0.5 tok/s (256 tok in 529286.45ms)`, and `in-step
+  parallel 5 tok/s`.
+
+Strategies in PR #24423 that map directly to go-pherence/K3 work:
+
+1. Keep model/server resident for sequential requests.
+2. Stream renderable per-step canvas frames instead of shipping full logits.
+3. Keep self-conditioning and sampling reductions as close to the device/backend
+   as possible.
+4. Track effective block/canvas/denoising-step counts and split model throughput
+   from API/rendering overhead.
+5. Use explicit MoE/cache placement policy knobs (`--n-cpu-moe` there;
+   selected-expert Q80 retention and Q80 residency budgets here).
+
+The resident OpenAI-compatible server now exposes `diffusion_stats` in every
+final response/chunk so go-pherence measurements report actual generated tokens,
+blocks, executed denoising steps, canvas-position evaluations, generated tok/s,
+and canvas-position tok/s. This mirrors the PR's later `STATS` commits and makes
+future runner-vs-server comparisons unambiguous.

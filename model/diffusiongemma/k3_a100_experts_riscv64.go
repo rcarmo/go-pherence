@@ -14,11 +14,6 @@ import (
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
-type k3ExpertAssignment struct {
-	pos    int
-	weight float32
-}
-
 func k3ExpertPrepackWorkers(tasks int) int {
 	if tasks <= 1 {
 		return tasks
@@ -107,14 +102,14 @@ func k3RunPerExpertRowsA100(weights *TextWeights, layout expertWeightLayout, res
 			return true, fmt.Errorf("DiffusionGemma K3 A100 expert pre_norm_2 rejected")
 		}
 	}
-	assignments := map[int][]k3ExpertAssignment{}
+	assignments := map[int][]expertAssignment{}
 	for pos := 0; pos < positions; pos++ {
 		for k := 0; k < topK; k++ {
 			expertID := topIDs[pos*topK+k]
 			if expertID < 0 || expertID >= layout.nExperts {
 				continue
 			}
-			assignments[expertID] = append(assignments[expertID], k3ExpertAssignment{pos: pos, weight: topVals[pos*topK+k]})
+			assignments[expertID] = append(assignments[expertID], expertAssignment{pos: pos, weight: topVals[pos*topK+k]})
 		}
 	}
 	expertIDs := make([]int, 0, len(assignments))

@@ -68,7 +68,7 @@ JSON
   else
     curl -fsS -H 'Content-Type: application/json' -d "${body}" "${URL}/v1/chat/completions" >"${tmp}"
     end_ns=$(date +%s%N)
-    jq -c --argjson request "$i" --argjson wall_ms "$(((end_ns-start_ns)/1000000))" '{request:$request,wall_ms:$wall_ms,server_latency_ms:.usage.latency_ms,prompt_tokens:.usage.prompt_tokens,completion_tokens:.usage.completion_tokens,generated_token_ids:.generated_token_ids,diffusion_steps:(.diffusion_steps|length)}' "${tmp}" | tee -a "${OUT}"
+    jq -c --argjson request "$i" --argjson wall_ms "$(((end_ns-start_ns)/1000000))" '{request:$request,wall_ms:$wall_ms,server_latency_ms:.usage.latency_ms,prompt_tokens:.usage.prompt_tokens,completion_tokens:.usage.completion_tokens,generated_token_ids:.generated_token_ids,diffusion_steps:(.diffusion_steps|length),diffusion_stats:.diffusion_stats,generated_tok_s:.diffusion_stats.generated_tokens_per_second,canvas_pos_s:.diffusion_stats.canvas_positions_per_second}' "${tmp}" | tee -a "${OUT}"
   fi
   rm -f "${tmp}"
 done

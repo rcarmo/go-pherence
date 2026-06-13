@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,11 @@ type CPUDispatcher struct {
 	LMHeadTopK          int
 	Progress            bool
 	SkipEviction        bool
+}
+
+type expertAssignment struct {
+	pos    int
+	weight float32
 }
 
 type q80PrefetchResult struct {
@@ -808,128 +814,126 @@ func k3FlashAttentionEnabled() bool {
 }
 
 func runFlashAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLayer, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow int) {
+	for i := range attnAll {
+		attnAll[i] = 0
+	}
 	work := func(start, end int) {
 		acc := make([]float64, headDim)
-		for pos := start; pos < end; pos++ {
-			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
-			for i := range attnCtx {
-				attnCtx[i] = 0
+		for task := start; task < end; task++ {
+			pos := task / heads
+			h := task - pos*heads
+			kvh := h / group
+			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			dst := attnAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			for i := range acc {
+				acc[i] = 0
 			}
-			for h := 0; h < heads; h++ {
-				kvh := h / group
-				q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
-				dst := attnCtx[h*headDim : (h+1)*headDim]
-				for i := range acc {
-					acc[i] = 0
-				}
-				m := math.Inf(-1)
-				l := 0.0
-				update := func(score float32, vv []float32) {
-					s := float64(score)
-					if l == 0 {
-						for i, v := range vv {
-							acc[i] = float64(v)
-						}
-						m = s
-						l = 1
-						return
-					}
-					if s <= m {
-						w := math.Exp(s - m)
-						for i, v := range vv {
-							acc[i] += float64(v) * w
-						}
-						l += w
-						return
-					}
-					scale := math.Exp(m - s)
-					for i, v := range vv {
-						acc[i] = acc[i]*scale + float64(v)
-					}
-					l = l*scale + 1
-					m = s
-				}
-				for j := 0; j < encSeq; j++ {
-					update(k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim]), enc.Values[j*vRows+kvh*headDim:j*vRows+(kvh+1)*headDim])
-				}
-				for canvasJ := 0; canvasJ < positions; canvasJ++ {
-					if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
-						continue
-					}
-					update(k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim]), vAll[canvasJ*vRows+kvh*headDim:canvasJ*vRows+(kvh+1)*headDim])
-				}
+			m := math.Inf(-1)
+			l := 0.0
+			update := func(score float32, vv []float32) {
+				s := float64(score)
 				if l == 0 {
+					for i, v := range vv {
+						acc[i] = float64(v)
+					}
+					m = s
+					l = 1
+					return
+				}
+				if s <= m {
+					w := math.Exp(s - m)
+					for i, v := range vv {
+						acc[i] += float64(v) * w
+					}
+					l += w
+					return
+				}
+				scale := math.Exp(m - s)
+				for i, v := range vv {
+					acc[i] = acc[i]*scale + float64(v)
+				}
+				l = l*scale + 1
+				m = s
+			}
+			for j := 0; j < encSeq; j++ {
+				update(k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim]), enc.Values[j*vRows+kvh*headDim:j*vRows+(kvh+1)*headDim])
+			}
+			for canvasJ := 0; canvasJ < positions; canvasJ++ {
+				if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
 					continue
 				}
-				inv := 1.0 / l
-				for i := range dst {
-					dst[i] = float32(acc[i] * inv)
-				}
+				update(k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim]), vAll[canvasJ*vRows+kvh*headDim:canvasJ*vRows+(kvh+1)*headDim])
+			}
+			if l == 0 {
+				continue
+			}
+			inv := 1.0 / l
+			for i := range dst {
+				dst[i] = float32(acc[i] * inv)
 			}
 		}
 	}
-	parallelizeAttentionPositions(positions, heads, work)
+	parallelizeAttentionTasks(positions*heads, work)
 }
 
 func runMaterializedAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLayer, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow int) {
+	for i := range attnAll {
+		attnAll[i] = 0
+	}
 	totalKV := encSeq + positions
 	work := func(start, end int) {
 		scores := make([]float32, totalKV)
-		for pos := start; pos < end; pos++ {
-			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
-			for i := range attnCtx {
-				attnCtx[i] = 0
+		for task := start; task < end; task++ {
+			pos := task / heads
+			h := task - pos*heads
+			kvh := h / group
+			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			for j := 0; j < totalKV; j++ {
+				if j < encSeq {
+					scores[j] = k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+					continue
+				}
+				canvasJ := j - encSeq
+				if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
+					scores[j] = float32(math.Inf(-1))
+					continue
+				}
+				scores[j] = k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
 			}
-			for h := 0; h < heads; h++ {
-				kvh := h / group
-				q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
-				for j := 0; j < totalKV; j++ {
-					if j < encSeq {
-						scores[j] = k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
-						continue
-					}
+			k3SoftmaxInPlace(scores)
+			dst := attnAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			for j, score := range scores {
+				var vv []float32
+				if j < encSeq {
+					vv = enc.Values[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
+				} else {
 					canvasJ := j - encSeq
-					if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
-						scores[j] = float32(math.Inf(-1))
-						continue
-					}
-					scores[j] = k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
+					vv = vAll[canvasJ*vRows+kvh*headDim : canvasJ*vRows+(kvh+1)*headDim]
 				}
-				k3SoftmaxInPlace(scores)
-				dst := attnCtx[h*headDim : (h+1)*headDim]
-				for j, score := range scores {
-					var vv []float32
-					if j < encSeq {
-						vv = enc.Values[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
-					} else {
-						canvasJ := j - encSeq
-						vv = vAll[canvasJ*vRows+kvh*headDim : canvasJ*vRows+(kvh+1)*headDim]
-					}
-					k3SaxpyV(score, vv, dst)
-				}
+				k3SaxpyV(score, vv, dst)
 			}
 		}
 	}
-	parallelizeAttentionPositions(positions, heads, work)
+	parallelizeAttentionTasks(positions*heads, work)
 }
 
-func parallelizeAttentionPositions(positions, heads int, work func(start, end int)) {
+func parallelizeAttentionTasks(tasks int, work func(start, end int)) {
 	nw := 1
-	if k3Enabled() && positions*heads >= 32 {
+	if k3Enabled() && tasks >= 32 {
 		nw = k3Threads()
-		if nw > positions {
-			nw = positions
+		if nw > tasks {
+			nw = tasks
 		}
 	}
 	if nw <= 1 {
-		work(0, positions)
+		work(0, tasks)
 		return
 	}
 	var wg sync.WaitGroup
 	wg.Add(nw)
 	for wid := 0; wid < nw; wid++ {
-		start := wid * positions / nw
-		end := (wid + 1) * positions / nw
+		start := wid * tasks / nw
+		end := (wid + 1) * tasks / nw
 		go func() {
 			defer wg.Done()
 			work(start, end)
@@ -1373,17 +1377,10 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 	if err != nil {
 		return err
 	}
-	intermediate := layout.intermediate
-
 	positions := len(scratch.Residual) / hiddenSize
 	for i := range scratch.MoeOut {
 		scratch.MoeOut[i] = 0
 	}
-	normedRow := make([]float32, hiddenSize)
-	gate := make([]float32, intermediate)
-	up := make([]float32, intermediate)
-	act := make([]float32, intermediate)
-	expertOut := make([]float32, hiddenSize)
 	topK := scratch.TopKExperts
 	if topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK {
 		return fmt.Errorf("DiffusionGemma expert top-k scratch invalid positions=%d top_k=%d ids=%d vals=%d", positions, topK, len(scratch.TopKIDs), len(scratch.TopKVals))
@@ -1394,50 +1391,8 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 		return err
 	}
 	if !expertsDone {
-		// Collect unique expert IDs to decode only needed slices
-		neededExperts := map[int]bool{}
-		for pos := 0; pos < positions; pos++ {
-			for k := 0; k < topK; k++ {
-				id := scratch.TopKIDs[pos*topK+k]
-				if id >= 0 && id < layout.nExperts {
-					neededExperts[id] = true
-				}
-			}
-		}
-		decoded := make(map[int]decodedExpertWeights, len(neededExperts))
-		for expertID := range neededExperts {
-			ew, err := loadLayerExpertWeights(weights, lb, layout, expertID, hiddenSize)
-			if err != nil {
-				return err
-			}
-			decoded[expertID] = ew
-		}
-
-		for pos := 0; pos < positions; pos++ {
-			resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
-			copy(normedRow, resRow)
-			if !simd.RMSNormTo(normedRow, preNorm2, 1e-6) {
-				return fmt.Errorf("DiffusionGemma expert pre_norm_2 rejected")
-			}
-			dst := scratch.MoeOut[pos*hiddenSize : (pos+1)*hiddenSize]
-			for k := 0; k < topK; k++ {
-				expertID := scratch.TopKIDs[pos*topK+k]
-				weight := scratch.TopKVals[pos*topK+k]
-				ew, ok := decoded[expertID]
-				if !ok {
-					continue
-				}
-				if !simd.GemvRows(gate, normedRow, ew.gateW, intermediate, hiddenSize) || !simd.GemvRows(up, normedRow, ew.upW, intermediate, hiddenSize) {
-					return fmt.Errorf("DiffusionGemma expert GEMV rejected")
-				}
-				if !simd.GELUTanhMulTo(act, gate, up) {
-					return fmt.Errorf("DiffusionGemma expert activation rejected")
-				}
-				if !simd.GemvRows(expertOut, act, ew.downW, hiddenSize, intermediate) {
-					return fmt.Errorf("DiffusionGemma expert down GEMV rejected")
-				}
-				k3SaxpyV(weight, expertOut, dst)
-			}
+		if err := runBatchedExpertFallback(weights, lb, layout, scratch, preNorm2, hiddenSize, positions, topK); err != nil {
+			return err
 		}
 	}
 	postNorm2, err := loadFloatVector(weights, lb.PostFFNLayerNorm2)
@@ -1448,6 +1403,89 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 		if !simd.RMSNormTo(scratch.MoeOut[off:off+hiddenSize], postNorm2, 1e-6) {
 			return fmt.Errorf("DiffusionGemma expert post_norm_2 rejected")
 		}
+	}
+	return nil
+}
+
+func runBatchedExpertFallback(weights *TextWeights, lb TextLayerBindings, layout expertWeightLayout, scratch ForwardScratch, preNorm2 []float32, hiddenSize, positions, topK int) error {
+	normed := make([]float32, positions*hiddenSize)
+	for pos := 0; pos < positions; pos++ {
+		row := normed[pos*hiddenSize : (pos+1)*hiddenSize]
+		copy(row, scratch.Residual[pos*hiddenSize:(pos+1)*hiddenSize])
+		if !simd.RMSNormTo(row, preNorm2, 1e-6) {
+			return fmt.Errorf("DiffusionGemma expert pre_norm_2 rejected")
+		}
+	}
+
+	assignments := map[int][]expertAssignment{}
+	for pos := 0; pos < positions; pos++ {
+		for k := 0; k < topK; k++ {
+			expertID := scratch.TopKIDs[pos*topK+k]
+			if expertID < 0 || expertID >= layout.nExperts {
+				continue
+			}
+			assignments[expertID] = append(assignments[expertID], expertAssignment{pos: pos, weight: scratch.TopKVals[pos*topK+k]})
+		}
+	}
+	expertIDs := make([]int, 0, len(assignments))
+	for expertID := range assignments {
+		expertIDs = append(expertIDs, expertID)
+	}
+	sort.Ints(expertIDs)
+
+	ensure := func(buf []float32, n int) []float32 {
+		if cap(buf) < n {
+			return make([]float32, n)
+		}
+		return buf[:n]
+	}
+	var xBuf, gateBuf, upBuf, actBuf, downBuf []float32
+	for _, expertID := range expertIDs {
+		rows := assignments[expertID]
+		batch := len(rows)
+		if batch == 0 {
+			continue
+		}
+		ew, err := loadLayerExpertWeights(weights, lb, layout, expertID, hiddenSize)
+		if err != nil {
+			return err
+		}
+		x := ensure(xBuf, batch*hiddenSize)
+		xBuf = x
+		for i, a := range rows {
+			copy(x[i*hiddenSize:(i+1)*hiddenSize], normed[a.pos*hiddenSize:(a.pos+1)*hiddenSize])
+		}
+		gate := ensure(gateBuf, batch*layout.intermediate)
+		gateBuf = gate
+		up := ensure(upBuf, batch*layout.intermediate)
+		upBuf = up
+		act := ensure(actBuf, batch*layout.intermediate)
+		actBuf = act
+		down := ensure(downBuf, batch*hiddenSize)
+		downBuf = down
+		if err := runDecodedExpertBatch(down, gate, up, act, x, ew, batch, hiddenSize, layout.intermediate); err != nil {
+			return err
+		}
+		for i, a := range rows {
+			dst := scratch.MoeOut[a.pos*hiddenSize : (a.pos+1)*hiddenSize]
+			src := down[i*hiddenSize : (i+1)*hiddenSize]
+			k3SaxpyV(a.weight, src, dst)
+		}
+	}
+	return nil
+}
+
+func runDecodedExpertBatch(out, gate, up, act, x []float32, ew decodedExpertWeights, batch, hiddenSize, intermediate int) error {
+	if !simd.GemmRows(gate, x, ew.gateW, batch, intermediate, hiddenSize) || !simd.GemmRows(up, x, ew.upW, batch, intermediate, hiddenSize) {
+		return fmt.Errorf("DiffusionGemma expert batched GEMM rejected")
+	}
+	for i := 0; i < batch; i++ {
+		if !simd.GELUTanhMulTo(act[i*intermediate:(i+1)*intermediate], gate[i*intermediate:(i+1)*intermediate], up[i*intermediate:(i+1)*intermediate]) {
+			return fmt.Errorf("DiffusionGemma expert activation rejected")
+		}
+	}
+	if !simd.GemmRows(out, act, ew.downW, batch, hiddenSize, intermediate) {
+		return fmt.Errorf("DiffusionGemma expert batched down GEMM rejected")
 	}
 	return nil
 }

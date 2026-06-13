@@ -73,6 +73,22 @@ type usage struct {
 	LatencyMS        int64 `json:"latency_ms,omitempty"`
 }
 
+type diffusionStats struct {
+	RequestedMaxTokens        int     `json:"requested_max_tokens"`
+	EffectiveMaxTokens        int     `json:"effective_max_tokens"`
+	RequestedCanvasLength     int     `json:"requested_canvas_length,omitempty"`
+	EffectiveCanvasLength     int     `json:"effective_canvas_length"`
+	RequestedDenoisingSteps   int     `json:"requested_denoising_steps,omitempty"`
+	EffectiveDenoisingSteps   int     `json:"effective_denoising_steps"`
+	GeneratedTokens           int     `json:"generated_tokens"`
+	Blocks                    int     `json:"blocks"`
+	DenoisingStepsExecuted    int     `json:"denoising_steps_executed"`
+	CanvasPositionEvaluations int     `json:"canvas_position_evaluations"`
+	LatencyMS                 int64   `json:"latency_ms"`
+	GeneratedTokensPerSecond  float64 `json:"generated_tokens_per_second"`
+	CanvasPositionsPerSecond  float64 `json:"canvas_positions_per_second"`
+}
+
 type choice struct {
 	Index        int               `json:"index"`
 	Text         string            `json:"text,omitempty"`
@@ -87,15 +103,16 @@ type openAIChatChoice struct {
 }
 
 type completionResponse struct {
-	ID                string       `json:"id"`
-	Object            string       `json:"object"`
-	Created           int64        `json:"created"`
-	Model             string       `json:"model"`
-	Choices           []choice     `json:"choices"`
-	Usage             usage        `json:"usage"`
-	PromptTokenIDs    []int        `json:"prompt_token_ids,omitempty"`
-	GeneratedTokenIDs []int        `json:"generated_token_ids,omitempty"`
-	DiffusionSteps    []renderStep `json:"diffusion_steps,omitempty"`
+	ID                string         `json:"id"`
+	Object            string         `json:"object"`
+	Created           int64          `json:"created"`
+	Model             string         `json:"model"`
+	Choices           []choice       `json:"choices"`
+	Usage             usage          `json:"usage"`
+	PromptTokenIDs    []int          `json:"prompt_token_ids,omitempty"`
+	GeneratedTokenIDs []int          `json:"generated_token_ids,omitempty"`
+	DiffusionSteps    []renderStep   `json:"diffusion_steps,omitempty"`
+	DiffusionStats    diffusionStats `json:"diffusion_stats"`
 }
 
 func main() {
@@ -324,7 +341,7 @@ func (s *server) handleGenerate(w http.ResponseWriter, r *http.Request, chat boo
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, s.response(req, promptIDs, res.Generated, steps, latency, chat, false))
+	writeJSON(w, http.StatusOK, s.response(req, promptIDs, res, steps, latency, chat, false))
 }
 
 func (s *server) handleStream(w http.ResponseWriter, r *http.Request, req completionRequest, promptIDs []int, chat bool) {
@@ -353,7 +370,7 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request, req comple
 		_ = writeSSE(ctx, w, flusher, "error", map[string]any{"error": err.Error()})
 		return
 	}
-	chunk := s.response(req, promptIDs, res.Generated, nil, latency, chat, true)
+	chunk := s.response(req, promptIDs, res, nil, latency, chat, true)
 	_ = writeSSEData(ctx, w, flusher, chunk)
 	_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 	flusher.Flush()
@@ -438,7 +455,8 @@ func (s *server) renderStep(idx int, snap diffusiongemma.DiffusionStepSnapshot) 
 	return step
 }
 
-func (s *server) response(req completionRequest, promptIDs []int, generated []int, steps []renderStep, latency time.Duration, chat bool, stream bool) completionResponse {
+func (s *server) response(req completionRequest, promptIDs []int, res diffusiongemma.InferenceResult, steps []renderStep, latency time.Duration, chat bool, stream bool) completionResponse {
+	generated := res.Generated
 	idPrefix := "cmpl"
 	object := "text_completion"
 	choices := []choice{{Index: 0, Text: s.decode(generated), FinishReason: "stop"}}
@@ -454,7 +472,67 @@ func (s *server) response(req completionRequest, promptIDs []int, generated []in
 	} else if stream {
 		object = "completion.chunk"
 	}
-	return completionResponse{ID: fmt.Sprintf("%s-%d", idPrefix, time.Now().UnixNano()), Object: object, Created: time.Now().Unix(), Model: s.modelID, Choices: choices, Usage: usage{PromptTokens: len(promptIDs), CompletionTokens: len(generated), TotalTokens: len(promptIDs) + len(generated), LatencyMS: latency.Milliseconds()}, PromptTokenIDs: promptIDs, GeneratedTokenIDs: generated, DiffusionSteps: steps}
+	return completionResponse{ID: fmt.Sprintf("%s-%d", idPrefix, time.Now().UnixNano()), Object: object, Created: time.Now().Unix(), Model: s.modelID, Choices: choices, Usage: usage{PromptTokens: len(promptIDs), CompletionTokens: len(generated), TotalTokens: len(promptIDs) + len(generated), LatencyMS: latency.Milliseconds()}, PromptTokenIDs: promptIDs, GeneratedTokenIDs: generated, DiffusionSteps: steps, DiffusionStats: s.diffusionStats(req, res, latency)}
+}
+
+func (s *server) diffusionStats(req completionRequest, res diffusiongemma.InferenceResult, latency time.Duration) diffusionStats {
+	effectiveCanvas := req.CanvasLength
+	if effectiveCanvas <= 0 {
+		effectiveCanvas = s.defaultCanvas
+	}
+	if effectiveCanvas <= 0 {
+		effectiveCanvas = s.model.Shape.CanvasLength
+	}
+	effectiveSteps := req.DenoiseSteps
+	if effectiveSteps <= 0 {
+		effectiveSteps = s.defaultDenoiseStep
+	}
+	if effectiveSteps <= 0 {
+		effectiveSteps = s.model.Denoising.MaxDenoisingSteps
+	}
+	effectiveMax := req.MaxNewTokens
+	if effectiveMax <= 0 {
+		effectiveMax = req.MaxTokens
+	}
+	if effectiveMax <= 0 {
+		effectiveMax = s.defaultMaxNew
+	}
+	if effectiveMax <= 0 && effectiveCanvas > 0 {
+		effectiveMax = effectiveCanvas
+	}
+	var executed, canvasPositions int
+	for _, canvas := range res.Canvases {
+		executed += len(canvas.Steps)
+		canvasPositions += len(canvas.Canvas) * len(canvas.Steps)
+	}
+	latencySeconds := latency.Seconds()
+	stats := diffusionStats{
+		RequestedMaxTokens:        firstPositive(req.MaxNewTokens, req.MaxTokens),
+		EffectiveMaxTokens:        effectiveMax,
+		RequestedCanvasLength:     req.CanvasLength,
+		EffectiveCanvasLength:     effectiveCanvas,
+		RequestedDenoisingSteps:   req.DenoiseSteps,
+		EffectiveDenoisingSteps:   effectiveSteps,
+		GeneratedTokens:           len(res.Generated),
+		Blocks:                    len(res.Canvases),
+		DenoisingStepsExecuted:    executed,
+		CanvasPositionEvaluations: canvasPositions,
+		LatencyMS:                 latency.Milliseconds(),
+	}
+	if latencySeconds > 0 {
+		stats.GeneratedTokensPerSecond = float64(stats.GeneratedTokens) / latencySeconds
+		stats.CanvasPositionsPerSecond = float64(stats.CanvasPositionEvaluations) / latencySeconds
+	}
+	return stats
+}
+
+func firstPositive(values ...int) int {
+	for _, v := range values {
+		if v > 0 {
+			return v
+		}
+	}
+	return 0
 }
 
 func (s *server) decode(ids []int) string {
