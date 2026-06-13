@@ -31,6 +31,7 @@ type TextWeights struct {
 	Globals                      []TensorBinding `json:"globals"`
 	Layers                       []LayerWeights  `json:"layers"`
 	shards                       *safetensors.ShardedFile
+	forwardPlan                  *TextForwardPlan
 	floatCache                   map[string]FloatTensor
 	q80ResidentLayerPrefix       int
 	q80ExpertResidentLayerPrefix int
@@ -79,6 +80,7 @@ func OpenTextWeights(modelDir string, shape Shape) (*TextWeights, error) {
 		}
 		out.Layers = append(out.Layers, lw)
 	}
+	_ = out.ForwardPlan()
 	return out, nil
 }
 

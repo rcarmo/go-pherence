@@ -56,10 +56,13 @@ type TextForwardPlan struct {
 }
 
 func (w *TextWeights) ForwardPlan() TextForwardPlan {
-	plan := TextForwardPlan{Ready: true}
 	if w == nil {
 		return TextForwardPlan{Ready: false, Missing: []string{"nil text weights"}}
 	}
+	if w.forwardPlan != nil {
+		return *w.forwardPlan
+	}
+	plan := TextForwardPlan{Ready: true}
 	for i := range w.Globals {
 		b := &w.Globals[i]
 		switch {
@@ -99,6 +102,7 @@ func (w *TextWeights) ForwardPlan() TextForwardPlan {
 		validateLayerBinding(&plan, lb)
 		plan.Layers = append(plan.Layers, lb)
 	}
+	w.forwardPlan = &plan
 	return plan
 }
 
