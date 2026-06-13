@@ -6,7 +6,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
@@ -31,10 +33,16 @@ func k3SelfConditioningSoftEmbeddingQ80(out []float32, logits [][]float32, weigh
 		return true, fmt.Errorf("DiffusionGemma K3 SC transposed shape M=%d K=%d want M=%d K=%d", wq.M, wq.K, hiddenSize, vocab)
 	}
 	probs := make([]float32, positions*vocab)
+	probStart := time.Now()
 	if err := buildSelfConditioningProbRows(probs, logits, positions, vocab, tempInv); err != nil {
 		return true, err
 	}
+	probElapsed := time.Since(probStart)
+	gemmStart := time.Now()
 	if aipool.GemmQ80x32AIPooledX100Pack(probs, positions, vocab, wq, out[:positions*hiddenSize], k3A100WorkerPool()) {
+		if diffusionGemmaTimingEnabled() {
+			fmt.Fprintf(os.Stderr, "timing diffusiongemma sc_q80 positions=%d vocab=%d hidden=%d prob=%s gemm=%s\n", positions, vocab, hiddenSize, probElapsed.Round(time.Millisecond), time.Since(gemmStart).Round(time.Millisecond))
+		}
 		return true, nil
 	}
 	return false, nil

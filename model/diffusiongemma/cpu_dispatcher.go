@@ -2244,6 +2244,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 		return fmt.Errorf("DiffusionGemma LM head logits rows=%d want %d", len(scratch.Logits), positions)
 	}
 	topK := scratch.LMHeadTopK
+	var lmQ80Elapsed, lmScanElapsed, lmRerankElapsed time.Duration
 	if topK > vocab {
 		topK = vocab
 	}
@@ -2272,9 +2273,11 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 			if len(scoresAll) < positions*vocab {
 				scoresAll = make([]float32, positions*vocab)
 			}
+			phaseStart := time.Now()
 			if done, err := k3GemmRowsQ80(scoresAll[:positions*vocab], scratch.Hidden, positions, weights, fp.Globals.EmbedTokens); err != nil {
 				return err
 			} else if done {
+				lmQ80Elapsed = time.Since(phaseStart)
 				mode = "topk_k3_a100_rerank_full_logits"
 				lmHeadDone = true
 				candidateK := k3A100LMHeadCandidates(topK, vocab)
@@ -2288,10 +2291,12 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 					}
 					scores := scoresAll[pos*vocab : (pos+1)*vocab]
 					copy(scratch.Logits[pos][:vocab], scores)
-					for vocabID, score := range scores {
-						insertTopK(candIDs, candVals, vocabID, score)
-					}
+					phaseStart = time.Now()
+					selectTopKMin(candIDs, candVals, scores)
+					lmScanElapsed += time.Since(phaseStart)
 					hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+					phaseStart = time.Now()
+					rerankState := newTopKMinState(topIDs[pos], topVals[pos])
 					for _, vocabID := range candIDs {
 						if vocabID < 0 {
 							continue
@@ -2307,8 +2312,9 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 						if err != nil {
 							return err
 						}
-						insertTopK(topIDs[pos], topVals[pos], vocabID, score)
+						rerankState.Insert(vocabID, score)
 					}
+					lmRerankElapsed += time.Since(phaseStart)
 				}
 			}
 		}
@@ -2326,9 +2332,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 				if !simd.GemvRows(scores, hidden, t.Data, vocab, hiddenSize) {
 					return fmt.Errorf("DiffusionGemma LM head SIMD GEMV failed vocab=%d hidden=%d", vocab, hiddenSize)
 				}
-				for vocabID, score := range scores {
-					insertTopK(topIDs[pos], topVals[pos], vocabID, score)
-				}
+				selectTopKMin(topIDs[pos], topVals[pos], scores)
 			}
 		}
 	} else {
@@ -2362,9 +2366,73 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 		}
 	}
 	if diffusionGemmaTimingEnabled() {
-		fmt.Fprintf(os.Stderr, "timing diffusiongemma lm_head mode=%s positions=%d vocab=%d hidden=%d top_k=%d elapsed=%s\n", mode, positions, vocab, hiddenSize, topK, time.Since(started).Round(time.Millisecond))
+		fmt.Fprintf(os.Stderr, "timing diffusiongemma lm_head mode=%s positions=%d vocab=%d hidden=%d top_k=%d elapsed=%s q80=%s scan=%s rerank=%s\n", mode, positions, vocab, hiddenSize, topK, time.Since(started).Round(time.Millisecond), lmQ80Elapsed.Round(time.Millisecond), lmScanElapsed.Round(time.Millisecond), lmRerankElapsed.Round(time.Millisecond))
 	}
 	return nil
+}
+
+type topKMinState struct {
+	ids    []int
+	vals   []float32
+	filled int
+	minIdx int
+	minVal float32
+}
+
+func newTopKMinState(ids []int, vals []float32) *topKMinState {
+	for i := range ids {
+		ids[i] = -1
+	}
+	for i := range vals {
+		vals[i] = float32(math.Inf(-1))
+	}
+	return &topKMinState{ids: ids, vals: vals, minIdx: 0, minVal: float32(math.Inf(-1))}
+}
+
+func (s *topKMinState) recomputeMin() {
+	if len(s.vals) == 0 {
+		s.minIdx = 0
+		s.minVal = float32(math.Inf(-1))
+		return
+	}
+	idx := 0
+	val := s.vals[0]
+	for i, v := range s.vals[1:] {
+		if v < val {
+			idx = i + 1
+			val = v
+		}
+	}
+	s.minIdx = idx
+	s.minVal = val
+}
+
+func (s *topKMinState) Insert(id int, val float32) {
+	if len(s.ids) == 0 || math.IsNaN(float64(val)) {
+		return
+	}
+	if s.filled < len(s.ids) {
+		s.ids[s.filled] = id
+		s.vals[s.filled] = val
+		s.filled++
+		if s.filled == len(s.ids) {
+			s.recomputeMin()
+		}
+		return
+	}
+	if val <= s.minVal {
+		return
+	}
+	s.ids[s.minIdx] = id
+	s.vals[s.minIdx] = val
+	s.recomputeMin()
+}
+
+func selectTopKMin(ids []int, vals []float32, scores []float32) {
+	state := newTopKMinState(ids, vals)
+	for id, score := range scores {
+		state.Insert(id, score)
+	}
 }
 
 func insertTopK(ids []int, vals []float32, id int, val float32) {
