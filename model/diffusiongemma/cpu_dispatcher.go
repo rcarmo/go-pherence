@@ -1718,6 +1718,29 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 	return out, nil
 }
 
+func exactEmbeddingDotF32(raw []byte, dtype string, x []float32, rowScratch []float32) (float32, error) {
+	if dtype == "BF16" {
+		if len(raw) < len(x)*2 {
+			return 0, fmt.Errorf("DiffusionGemma BF16 dot row bytes=%d want %d", len(raw), len(x)*2)
+		}
+		if len(x) == 0 {
+			return 0, nil
+		}
+		bf16 := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[0])), len(x))
+		if v, ok := simd.BF16DotF32To(bf16, x); ok {
+			return v, nil
+		}
+		return 0, fmt.Errorf("DiffusionGemma BF16 dot rejected row len=%d", len(x))
+	}
+	if len(rowScratch) < len(x) {
+		rowScratch = make([]float32, len(x))
+	}
+	if err := decodeFloatRowTo(rowScratch[:len(x)], raw, dtype); err != nil {
+		return 0, err
+	}
+	return k3Dot(x, rowScratch[:len(x)]), nil
+}
+
 func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma LM head missing weights")
@@ -1797,10 +1820,11 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 						if len(shape) != 1 || shape[0] != hiddenSize {
 							return fmt.Errorf("DiffusionGemma LM head rerank row shape %v want [%d]", shape, hiddenSize)
 						}
-						if err := decodeFloatRowTo(row, raw, dtype); err != nil {
+						score, err := exactEmbeddingDotF32(raw, dtype, hidden, row)
+						if err != nil {
 							return err
 						}
-						insertTopK(topIDs[pos], topVals[pos], vocabID, k3Dot(hidden, row))
+						insertTopK(topIDs[pos], topVals[pos], vocabID, score)
 					}
 				}
 			}
