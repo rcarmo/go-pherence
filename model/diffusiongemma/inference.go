@@ -8,11 +8,21 @@ import (
 // InferenceOptions controls text-only block-diffusion generation. The scaffold
 // currently supports token IDs only; processor/chat-template integration stays
 // outside the model package.
+// ProgressEvent is emitted during generation for streaming.
+type ProgressEvent struct {
+	Type        string      `json:"type"` // "step" or "canvas"
+	CanvasIndex int         `json:"canvas_index"`
+	Step        *CanvasStep `json:"step,omitempty"`
+	TokensSoFar int         `json:"tokens_so_far"`
+	PartialText string      `json:"partial_text,omitempty"` // decoded partial output
+}
+
 type InferenceOptions struct {
-	MaxNewTokens int              `json:"max_new_tokens"`
-	CanvasLength int              `json:"canvas_length"`
-	Denoising    *DenoisingConfig `json:"denoising,omitempty"`
-	Seed         int64            `json:"seed,omitempty"`
+	MaxNewTokens int                 `json:"max_new_tokens"`
+	CanvasLength int                 `json:"canvas_length"`
+	Denoising    *DenoisingConfig    `json:"denoising,omitempty"`
+	Seed         int64               `json:"seed,omitempty"`
+	OnProgress   func(ProgressEvent) `json:"-"` // streaming callback
 }
 
 // InferenceResult contains generated token IDs and per-canvas diagnostics.
@@ -53,6 +63,10 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 	if e.Denoiser == nil {
 		return InferenceResult{}, fmt.Errorf("DiffusionGemma denoiser is not implemented")
 	}
+	// Reset encoder KV cache so each request encodes its own prompt.
+	if td, ok := e.Denoiser.(*TextDenoiser); ok {
+		td.EncoderKV = nil
+	}
 	shape := e.Model.Shape
 	canvasLength := opts.CanvasLength
 	if canvasLength <= 0 {
@@ -86,7 +100,19 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 	canvases := make([]CanvasResult, 0, (maxNew+canvasLength-1)/canvasLength)
 	context := append([]int(nil), promptIDs...)
 	for len(generated) < maxNew {
-		canvas, err := GenerateCanvas(e.Denoiser, context, denoiseCfg, canvasLength, vocabSize, rng)
+		canvasIdx := len(canvases)
+		var stepCb func(CanvasStep, []int)
+		if opts.OnProgress != nil {
+			stepCb = func(cs CanvasStep, currentCanvas []int) {
+				opts.OnProgress(ProgressEvent{
+					Type:        "step",
+					CanvasIndex: canvasIdx,
+					Step:        &cs,
+					TokensSoFar: len(generated),
+				})
+			}
+		}
+		canvas, err := GenerateCanvasWithCallback(e.Denoiser, context, denoiseCfg, canvasLength, vocabSize, rng, stepCb)
 		if err != nil {
 			return InferenceResult{}, err
 		}
@@ -98,6 +124,13 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 		generated = append(generated, canvas.Canvas[:take]...)
 		context = append(context, canvas.Canvas[:take]...)
 		canvases = append(canvases, canvas)
+		if opts.OnProgress != nil {
+			opts.OnProgress(ProgressEvent{
+				Type:        "canvas",
+				CanvasIndex: canvasIdx,
+				TokensSoFar: len(generated),
+			})
+		}
 		if take == 0 {
 			break
 		}

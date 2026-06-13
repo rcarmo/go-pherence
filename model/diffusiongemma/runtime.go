@@ -61,6 +61,11 @@ type CanvasResult struct {
 // denoiser. It is model-agnostic scaffold code: correctness fixtures should be
 // built against Transformers before using it for real generation.
 func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, canvasLength, vocabSize int, rng *rand.Rand) (CanvasResult, error) {
+	return GenerateCanvasWithCallback(denoiser, promptIDs, cfg, canvasLength, vocabSize, rng, nil)
+}
+
+// GenerateCanvasWithCallback is GenerateCanvas with an optional per-step callback.
+func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, canvasLength, vocabSize int, rng *rand.Rand, onStep func(CanvasStep, []int)) (CanvasResult, error) {
 	if denoiser == nil {
 		return CanvasResult{}, fmt.Errorf("nil DiffusionGemma denoiser")
 	}
@@ -122,6 +127,9 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 			}
 		}
 		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: canvasLength, MeanEntropy: meanEntropy, Stopped: stopped})
+		if onStep != nil {
+			onStep(steps[len(steps)-1], canvas)
+		}
 		if stopped {
 			state.Stopped = true
 			break

@@ -1,6 +1,10 @@
 package diffusiongemma
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"time"
+)
 
 // TextDenoiser is the future native tensor-backed DiffusionGemma denoiser. It
 // currently validates and owns the metadata/weight binding needed by a forward
@@ -58,6 +62,7 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	}
 	// Encode prompt on first call if not already done
 	if d.EncoderKV == nil && len(in.PromptIDs) > 0 {
+		t0 := time.Now()
 		var encDispatcher CPUDispatcher
 		var fp8w *FP8TextWeights
 		var expertCache *ExpertLRUCache
@@ -76,10 +81,7 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 			return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
 		}
 		d.EncoderKV = kv
-		// Clear encoder experts from GPU cache so decoder has full cache capacity
-		if gd, ok := d.Dispatcher.(GPUDispatcher); ok && gd.ExpertCache != nil {
-			gd.ExpertCache.ClearAll()
-		}
+		log.Printf("encoder: %d tokens → KV in %.1fs", len(in.PromptIDs), time.Since(t0).Seconds())
 	}
 	encoderSeqLen := 0
 	if len(d.EncoderKV) > 0 {

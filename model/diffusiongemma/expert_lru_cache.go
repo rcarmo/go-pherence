@@ -304,6 +304,15 @@ func (c *ExpertLRUCache) ReportCacheStats() {
 	}
 }
 
+// ResetCounters zeroes hit/miss/eviction counters without touching the cache.
+func (c *ExpertLRUCache) ResetCounters() {
+	if c != nil {
+		c.hits = 0
+		c.misses = 0
+		c.evictions = 0
+	}
+}
+
 // ClearAll evicts all cached experts, freeing GPU memory.
 func (c *ExpertLRUCache) ClearAll() {
 	if c == nil {
