@@ -82,3 +82,31 @@ func TestSelfConditioningSoftEmbeddingAppliesTemperatureInverse(t *testing.T) {
 		t.Fatalf("got %.8f want %.8f", got[0], want)
 	}
 }
+
+func TestSelfConditioningSoftEmbeddingRowsF32MatchesRowHelper(t *testing.T) {
+	logits := [][]float32{{1, 2, -1}, {0.5, -0.25, 1.5}}
+	emb := []float32{
+		1, 2,
+		-3, 4,
+		5, -6,
+	}
+	got := make([]float32, 4)
+	if err := buildSelfConditioningSoftEmbeddingRowsF32(got, logits, emb, 2, 3, 2, 1.25); err != nil {
+		t.Fatal(err)
+	}
+	want := make([]float32, 4)
+	scratch := make([]float32, 2)
+	for pos := range logits {
+		if err := buildSelfConditioningSoftEmbeddingRow(want[pos*2:(pos+1)*2], logits[pos], 3, 2, 1.25, scratch, func(id int, dst []float32) error {
+			copy(dst, emb[id*2:(id+1)*2])
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := range got {
+		if math.Abs(float64(got[i]-want[i])) > 1e-6 {
+			t.Fatalf("got[%d]=%.8f want %.8f all got=%v want=%v", i, got[i], want[i], got, want)
+		}
+	}
+}
