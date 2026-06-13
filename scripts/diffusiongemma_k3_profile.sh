@@ -25,6 +25,7 @@ LOG="${LOG_DIR}/diffusiongemma-k3-profile-${TAG}.log"
 RUNNER_BIN="${RUNNER_BIN:-bin/diffusiongemmarun}"
 PROFILE_USE_GO_RUN="${PROFILE_USE_GO_RUN:-0}"
 KEEP_PROFILE_RUNNER="${KEEP_PROFILE_RUNNER:-0}"
+EXPECT_GENERATED="${EXPECT_GENERATED:-}"
 
 K3_HOME="${K3_HOME:-/home/me}"
 if [[ -z "${HOME:-}" || "${HOME}" == "/home/agent" ]]; then
@@ -157,4 +158,12 @@ END{
 printf '\n-- tail --\n'
 grep "completed tail op=lm_head\|completed self_conditioning" "${LOG}" || true
 printf '\n-- output --\n'
-awk 'BEGIN{s=0} /^\{/{s=1} s{print}' "${LOG}" | jq -c '{error:.error, generated:.result.generated, steps:.result.canvases[0].steps}' 2>/dev/null || true
+SUMMARY_JSON="$(awk 'BEGIN{s=0} /^\{/{s=1} s{print}' "${LOG}" | jq -c '{error:.error, generated:.result.generated, steps:.result.canvases[0].steps}' 2>/dev/null || true)"
+printf '%s\n' "${SUMMARY_JSON}"
+if [[ -n "${EXPECT_GENERATED}" ]]; then
+  ACTUAL_GENERATED="$(printf '%s\n' "${SUMMARY_JSON}" | jq -r '.generated | join(",")' 2>/dev/null || true)"
+  if [[ "${ACTUAL_GENERATED}" != "${EXPECT_GENERATED}" ]]; then
+    echo "expected generated=${EXPECT_GENERATED}, got ${ACTUAL_GENERATED}" >&2
+    exit 1
+  fi
+fi
