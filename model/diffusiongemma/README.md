@@ -496,3 +496,19 @@ and performance, but mirrors llama.cpp's unified `[prompt | canvas]` graph:
 
 `attention_flash_test.go` includes fixtures for the decode sliding prompt mask
 and keeps the streaming/flash attention path matched to the materialized path.
+
+### Native batched kernels and expert occupancy
+
+The K3 path groups selected MoE rows by expert and runs each expert as true
+batched M×K×N matrix multiplies instead of per-position GEMV loops. The active
+A100/Q80 path reports per-layer expert occupancy when
+`GO_PHERENCE_DIFFUSIONGEMMA_TIMING=1`:
+
+```text
+timing diffusiongemma experts_occupancy path=k3_a100_q80 positions=... top_k=... unique=... assignments=... avg_batch=... max_batch=... batch_hist=...
+```
+
+The F32 fallback uses the same occupancy grouping and batched `GemmRows` helper.
+Dense MLP, self-conditioning, and router fallback paths also use batched GEMM for
+multi-position canvases, avoiding accidental loops of independent row GEMVs on
+256-canvas runs.

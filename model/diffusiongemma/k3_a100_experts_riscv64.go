@@ -119,6 +119,7 @@ func k3RunPerExpertRowsA100(weights *TextWeights, layout expertWeightLayout, res
 		assignmentCount += len(rows)
 	}
 	sort.Ints(expertIDs)
+	reportExpertOccupancy("k3_a100_q80", assignments, positions, topK)
 	prepackNames := make([]string, 0, len(assignments)*3)
 	for _, expertID := range expertIDs {
 		for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {

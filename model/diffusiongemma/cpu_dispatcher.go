@@ -488,13 +488,8 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 		if err != nil {
 			return err
 		}
-		for pos := 0; pos < positions; pos++ {
-			cond := condAll[pos*hiddenSize : (pos+1)*hiddenSize]
-			gate := gateAll[pos*intermediate : (pos+1)*intermediate]
-			up := upAll[pos*intermediate : (pos+1)*intermediate]
-			if !simd.GemvRows(gate, cond, gateW, intermediate, hiddenSize) || !simd.GemvRows(up, cond, upW, intermediate, hiddenSize) {
-				return fmt.Errorf("DiffusionGemma self-conditioning gate/up GEMV rejected")
-			}
+		if !simd.GemmRows(gateAll, condAll, gateW, positions, intermediate, hiddenSize) || !simd.GemmRows(upAll, condAll, upW, positions, intermediate, hiddenSize) {
+			return fmt.Errorf("DiffusionGemma self-conditioning gate/up GEMM rejected")
 		}
 	}
 	actAll := make([]float32, positions*intermediate)
@@ -511,13 +506,8 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 		if err != nil {
 			return err
 		}
-		signal := make([]float32, hiddenSize)
-		for pos := 0; pos < positions; pos++ {
-			act := actAll[pos*intermediate : (pos+1)*intermediate]
-			if !simd.GemvRows(signal, act, downW, hiddenSize, intermediate) {
-				return fmt.Errorf("DiffusionGemma self-conditioning down GEMV rejected")
-			}
-			copy(signalAll[pos*hiddenSize:(pos+1)*hiddenSize], signal)
+		if !simd.GemmRows(signalAll, actAll, downW, positions, hiddenSize, intermediate) {
+			return fmt.Errorf("DiffusionGemma self-conditioning down GEMM rejected")
 		}
 	}
 	for pos := 0; pos < positions; pos++ {
@@ -1088,16 +1078,11 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 		if err != nil {
 			return err
 		}
-		for off, pos := 0, 0; off < len(scratch.Hidden); off, pos = off+hiddenSize, pos+1 {
-			row := scratch.Hidden[off : off+hiddenSize]
-			gate := gateAll[pos*intermediate : (pos+1)*intermediate]
-			up := upAll[pos*intermediate : (pos+1)*intermediate]
-			if !gateM.gemvRows(gate, row) {
-				return fmt.Errorf("DiffusionGemma dense MLP gate GEMV rejected layer %d", op.Layer)
-			}
-			if !upM.gemvRows(up, row) {
-				return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
-			}
+		if !gateM.gemmRows(gateAll, scratch.Hidden, positions) {
+			return fmt.Errorf("DiffusionGemma dense MLP gate GEMM rejected layer %d", op.Layer)
+		}
+		if !upM.gemmRows(upAll, scratch.Hidden, positions) {
+			return fmt.Errorf("DiffusionGemma dense MLP up GEMM rejected layer %d", op.Layer)
 		}
 	}
 	actAll := make([]float32, positions*intermediate)
@@ -1117,13 +1102,8 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 		if err != nil {
 			return err
 		}
-		out := make([]float32, hiddenSize)
-		for pos := 0; pos < positions; pos++ {
-			act := actAll[pos*intermediate : (pos+1)*intermediate]
-			if !downM.gemvRows(out, act) {
-				return fmt.Errorf("DiffusionGemma dense MLP down GEMV rejected layer %d", op.Layer)
-			}
-			copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
+		if !downM.gemmRows(scratch.Hidden, actAll, positions) {
+			return fmt.Errorf("DiffusionGemma dense MLP down GEMM rejected layer %d", op.Layer)
 		}
 	}
 	postNorm1, err := loadFloatVector(weights, lb.PostFFNLayerNorm1)
@@ -1335,10 +1315,8 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 		if projRows != numExperts || projCols != hiddenSize {
 			return fmt.Errorf("DiffusionGemma router fallback shape mismatch proj=[%d,%d] expected=[%d,%d]", projRows, projCols, numExperts, hiddenSize)
 		}
-		for pos := 0; pos < positions; pos++ {
-			if !simd.GemvRows(scoredAll[pos*numExperts:(pos+1)*numExperts], routerInput[pos*hiddenSize:(pos+1)*hiddenSize], projW, numExperts, hiddenSize) {
-				return fmt.Errorf("DiffusionGemma router GEMV rejected")
-			}
+		if !simd.GemmRows(scoredAll, routerInput, projW, positions, numExperts, hiddenSize) {
+			return fmt.Errorf("DiffusionGemma router GEMM rejected")
 		}
 	}
 	topK := scratch.TopKExperts
@@ -1434,6 +1412,37 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 	return nil
 }
 
+func reportExpertOccupancy(label string, assignments map[int][]expertAssignment, positions, topK int) {
+	if !diffusionGemmaTimingEnabled() || len(assignments) == 0 {
+		return
+	}
+	assignmentCount := 0
+	maxBatch := 0
+	hist := map[int]int{}
+	for _, rows := range assignments {
+		batch := len(rows)
+		assignmentCount += batch
+		if batch > maxBatch {
+			maxBatch = batch
+		}
+		hist[batch]++
+	}
+	keys := make([]int, 0, len(hist))
+	for k := range hist {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	var b strings.Builder
+	for i, k := range keys {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%d:%d", k, hist[k])
+	}
+	avg := float64(assignmentCount) / float64(len(assignments))
+	fmt.Fprintf(os.Stderr, "timing diffusiongemma experts_occupancy path=%s positions=%d top_k=%d unique=%d assignments=%d avg_batch=%.2f max_batch=%d batch_hist=%s\n", label, positions, topK, len(assignments), assignmentCount, avg, maxBatch, b.String())
+}
+
 func runBatchedExpertFallback(weights *TextWeights, lb TextLayerBindings, layout expertWeightLayout, scratch ForwardScratch, preNorm2 []float32, hiddenSize, positions, topK int) error {
 	normed := make([]float32, positions*hiddenSize)
 	for pos := 0; pos < positions; pos++ {
@@ -1459,6 +1468,7 @@ func runBatchedExpertFallback(weights *TextWeights, lb TextLayerBindings, layout
 		expertIDs = append(expertIDs, expertID)
 	}
 	sort.Ints(expertIDs)
+	reportExpertOccupancy("fallback_f32", assignments, positions, topK)
 
 	ensure := func(buf []float32, n int) []float32 {
 		if cap(buf) < n {
@@ -1669,6 +1679,21 @@ func (m *mixedMatrix) gemvRows(out, x []float32) bool {
 		return simd.GemvRowsBF16(out, x, m.bf16, m.rows, m.cols)
 	}
 	return simd.GemvRows(out, x, m.f32, m.rows, m.cols)
+}
+
+func (m *mixedMatrix) gemmRows(out, x []float32, batch int) bool {
+	if batch <= 0 {
+		return false
+	}
+	if m.bf16 == nil {
+		return simd.GemmRows(out, x, m.f32, batch, m.rows, m.cols)
+	}
+	for b := 0; b < batch; b++ {
+		if !simd.GemvRowsBF16(out[b*m.rows:(b+1)*m.rows], x[b*m.cols:(b+1)*m.cols], m.bf16, m.rows, m.cols) {
+			return false
+		}
+	}
+	return true
 }
 
 // loadMixedMatrix tries cached F32 first (fast GEMV), avoiding BF16 path
