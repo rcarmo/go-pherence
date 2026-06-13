@@ -82,9 +82,11 @@ Enable with `-k3` (or `GO_PHERENCE_DIFFUSIONGEMMA_K3=1`).
 When enabled, hot-path operations are replaced with K3-optimized implementations.
 Set `GO_PHERENCE_DIFFUSIONGEMMA_TIMING=1` to emit per-layer operation timing
 similar to the Ideogram4 timing traces. Use `make diffusiongemma-k3-smoke` for a
-short K3/A100 correctness smoke, and `make diffusiongemma-k3-profile` or
-`scripts/diffusiongemma_k3_profile.sh` for a repeatable full K3 profile run and
-summary. The profile helper defaults to dense Q80 residency plus selected expert
+short K3/A100 correctness smoke with expected-output checking
+(`DIFFUSIONGEMMA_K3_SMOKE_EXPECT_GENERATED`, default `239683`), and
+`make diffusiongemma-k3-profile` or `scripts/diffusiongemma_k3_profile.sh` for a
+repeatable full K3 profile run and summary. The profile helper defaults to dense
+Q80 residency plus selected expert
 retention for all layers (`RETAIN_SELECTED_EXPERT_LAYERS=30`, `SKIP_EVICTION=0`)
 as the current practical speed/memory tradeoff on the 31GB K3; set
 `SKIP_EVICTION=1` for the max-speed/full-cache profile.
