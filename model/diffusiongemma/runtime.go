@@ -106,10 +106,9 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 			meanEntropy += entropy[i]
 		}
 		meanEntropy /= float64(canvasLength)
-		// Use argmax canvas directly instead of entropy-bound acceptance.
-		// The entropy-bound sampler underestimates entropy with sparse top-k
-		// logits, causing over-acceptance to EOS. Argmax gives the model's
-		// most confident prediction at each position.
+		// Use argmax for canvas (works reliably for factual prompts).
+		// Non-factual prompts may collapse to EOS — needs dense logits
+		// for proper entropy-bound sampling (future improvement).
 		canvas = append(canvas[:0], argmaxCanvas...)
 		if len(out.SelfConditioning) > 0 {
 			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
