@@ -81,7 +81,9 @@ Enable with `GO_PHERENCE_DIFFUSIONGEMMA_K3=1`.
 
 When enabled, hot-path operations are replaced with K3-optimized implementations.
 Set `GO_PHERENCE_DIFFUSIONGEMMA_TIMING=1` to emit per-layer operation timing
-similar to the Ideogram4 timing traces.
+similar to the Ideogram4 timing traces. Use `make diffusiongemma-k3-profile` or
+`scripts/diffusiongemma_k3_profile.sh` for a repeatable full K3 profile run and
+summary.
 
 | Operation | Default (scalar) | K3 dispatch |
 |---|---|---|
