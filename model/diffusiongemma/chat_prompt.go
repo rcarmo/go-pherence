@@ -24,7 +24,8 @@ func BuildTemplateChatPromptIDs(messages []TextChatMessage, specials SpecialToke
 			return PromptIDs{}, fmt.Errorf("DiffusionGemma turn token IDs unavailable")
 		}
 		ids = append(ids, specials.BOT)
-		ids = append(ids, encode("system\n")...)
+		ids = append(ids, encode("system")...)
+		ids = append(ids, 107) // \n token
 		if opts.EnableThinking {
 			if specials.THINK < 0 {
 				return PromptIDs{}, fmt.Errorf("DiffusionGemma think token ID unavailable")
@@ -44,15 +45,19 @@ func BuildTemplateChatPromptIDs(messages []TextChatMessage, specials SpecialToke
 		}
 		role := normalizeTemplateRole(msg.Role)
 		ids = append(ids, specials.BOT)
-		ids = append(ids, encode(role+"\n"+msg.Content)...)
+		ids = append(ids, encode(role)...)
+		ids = append(ids, 107) // \n token
+		ids = append(ids, encode(msg.Content)...)
 		ids = append(ids, specials.EOT)
+		ids = append(ids, 107) // \n token after turn end
 	}
 	if opts.AddGenerationPrompt {
 		if specials.BOT < 0 {
 			return PromptIDs{}, fmt.Errorf("DiffusionGemma begin-turn token ID unavailable")
 		}
 		ids = append(ids, specials.BOT)
-		ids = append(ids, encode("model\n")...)
+		ids = append(ids, encode("model")...)
+		ids = append(ids, 107) // \n token
 	}
 	return PromptIDs{InputIDs: ids}, nil
 }

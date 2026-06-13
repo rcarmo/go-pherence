@@ -64,6 +64,7 @@ func writeTurnEnd(b *strings.Builder, proc *ProcessorMetadata) {
 	} else {
 		b.WriteString("<turn|>")
 	}
+	b.WriteByte('\n')
 }
 
 func firstRoleIsSystem(messages []TextChatMessage) bool {
