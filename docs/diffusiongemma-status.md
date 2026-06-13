@@ -973,3 +973,19 @@ All configurations produce correct factual output with thinking mode.
 Recommended: canvas=24, 4 denoise steps for general use.
 Shorter prompts work with canvas=16, 2 steps.
 Complex reasoning may need canvas=48+.
+
+
+## Adaptive stopping
+
+2026-06-13: The model self-determines convergence via entropy-bound stopping.
+With default stability_threshold=1 and confidence_threshold=0.005:
+
+| Max Steps | Actual Steps | Entropy at Stop | Output |
+|---|---|---|---|
+| 2 | 2 | n/a (no early stop) | Correct but may miss formatting |
+| 4 | 3 | 0.000001 | Correct, converged ✓ |
+| 8 | 3 | 0.000000 | Same result, stopped at step 6 ✓ |
+
+Recommendation: use `-denoise-steps 4` for general use.
+The adaptive stopper exits after 3 effective steps for most factual prompts,
+avoiding unnecessary computation while guaranteeing convergence.
