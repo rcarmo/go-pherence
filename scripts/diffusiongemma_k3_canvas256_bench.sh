@@ -11,13 +11,15 @@ HOST=${HOST:-127.0.0.1}
 PORT=${PORT:-18110}
 URL=${SERVER_URL:-http://${HOST}:${PORT}}
 PROMPT=${PROMPT:-Say hello briefly.}
-MAX_TOKENS=${MAX_TOKENS:-1}
+# Use enough generated tokens to evaluate coherence. Set MAX_TOKENS=1 only for
+# low-level microbenchmarks.
+MAX_TOKENS=${MAX_TOKENS:-16}
 CANVAS=${CANVAS:-256}
 # llama.cpp accepted --diffusion-steps 256 but DiffusionGemma EB metadata capped
 # max_steps at 48 and the reference prompt stopped after 11 effective steps.
 REQUESTED_DIFFUSION_STEPS=${REQUESTED_DIFFUSION_STEPS:-256}
 DENOISE_STEPS=${DENOISE_STEPS:-11}
-SAMPLER_MODE=${SAMPLER_MODE:-argmax}
+SAMPLER_MODE=${SAMPLER_MODE:-entropy_bound}
 SEED=${SEED:-1}
 LM_HEAD_TOP_K=${LM_HEAD_TOP_K:-64}
 RETURN_STEPS=${RETURN_STEPS:-0}
@@ -39,7 +41,7 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ -z "${SERVER_URL:-}" ]]; then
-  SERVER_ARGS=${SERVER_ARGS:-"-allow-slow-cpu -cpu-dispatcher -k3 -k3-a100-q8 -k3-a100-lmhead -k3-a100-lmhead-prefetch -lm-head-top-k ${LM_HEAD_TOP_K} -k3-q80-residency-budget-gib ${Q80_BUDGET_GIB:-2.0} -k3-q80-retain-selected-expert-layers ${RETAIN_SELECTED_EXPERT_LAYERS:-30} -k3-q80-selected-prefetch"}
+  SERVER_ARGS=${SERVER_ARGS:-"-allow-slow-cpu -cpu-dispatcher -add-bos -generation-prompt -k3 -k3-a100-q8 -k3-a100-lmhead -k3-a100-lmhead-prefetch -lm-head-top-k ${LM_HEAD_TOP_K} -k3-q80-residency-budget-gib ${Q80_BUDGET_GIB:-2.0} -k3-q80-retain-selected-expert-layers ${RETAIN_SELECTED_EXPERT_LAYERS:-30} -k3-q80-selected-prefetch"}
   echo "starting diffusiongemmaserver on ${HOST}:${PORT}" >&2
   # shellcheck disable=SC2086
   go run ./cmd/diffusiongemmaserver -model "${MODEL}" -listen "${HOST}:${PORT}" -max-new "${MAX_TOKENS}" -canvas "${CANVAS}" -denoise-steps "${DENOISE_STEPS}" ${SERVER_ARGS} >"${SERVER_LOG}" 2>&1 &
