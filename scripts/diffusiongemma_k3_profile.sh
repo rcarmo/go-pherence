@@ -22,6 +22,7 @@ TAG="${TAG:-$(date +%Y%m%d-%H%M%S)}"
 LOG="${LOG_DIR}/diffusiongemma-k3-profile-${TAG}.log"
 RUNNER_BIN="${RUNNER_BIN:-bin/diffusiongemmarun}"
 PROFILE_USE_GO_RUN="${PROFILE_USE_GO_RUN:-0}"
+KEEP_PROFILE_RUNNER="${KEEP_PROFILE_RUNNER:-0}"
 
 K3_HOME="${K3_HOME:-/home/me}"
 if [[ -z "${HOME:-}" || "${HOME}" == "/home/agent" ]]; then
@@ -73,12 +74,20 @@ runner_needs_rebuild() {
 }
 
 RUNNER=("${RUNNER_BIN}")
+BUILT_PROFILE_RUNNER=0
+cleanup_runner() {
+  if [[ "${BUILT_PROFILE_RUNNER}" == "1" && "${KEEP_PROFILE_RUNNER}" != "1" ]]; then
+    rm -f "${RUNNER_BIN}"
+  fi
+}
+trap cleanup_runner EXIT
 if [[ "${PROFILE_USE_GO_RUN}" == "1" ]]; then
   RUNNER=(go run ./cmd/diffusiongemmarun)
 elif runner_needs_rebuild; then
   mkdir -p "$(dirname "${RUNNER_BIN}")"
   echo "building ${RUNNER_BIN}..." >&2
   go build -o "${RUNNER_BIN}" ./cmd/diffusiongemmarun
+  BUILT_PROFILE_RUNNER=1
 fi
 
 PROFILE_START_NS="$(date +%s%N)"
