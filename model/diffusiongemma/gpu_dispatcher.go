@@ -204,26 +204,48 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 	}
 	lb := fp.Layers[op.Layer]
 
-	// Load attention projection weights
-	qW, qRows, _, err := loadFloatMatrix(weights, lb.QProj)
-	if err != nil {
-		return err
-	}
-	kW, kRows, _, err := loadFloatMatrix(weights, lb.KProj)
-	if err != nil {
-		return err
-	}
-	var vW []float32
-	vRows := kRows
-	if lb.VProj != nil {
-		vW, vRows, _, err = loadFloatMatrix(weights, lb.VProj)
+	// Load attention projection weights — skip BF16 decode when FP8 available
+	var qRows, kRows, vRows int
+	var oW, qW, kW, vW []float32
+	if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
+		fl := &d.FP8Model.Layers[op.Layer]
+		if fl.Q != nil {
+			qRows = fl.Q.OutDim
+		}
+		if fl.K != nil {
+			kRows = fl.K.OutDim
+		}
+		vRows = kRows
+		if fl.V != nil {
+			vRows = fl.V.OutDim
+		}
+		// O projection still needed on CPU for per-position attention output
+		var err error
+		oW, _, _, err = loadFloatMatrix(weights, lb.OProj)
 		if err != nil {
 			return err
 		}
-	}
-	oW, _, _, err := loadFloatMatrix(weights, lb.OProj)
-	if err != nil {
-		return err
+	} else {
+		var err error
+		qW, qRows, _, err = loadFloatMatrix(weights, lb.QProj)
+		if err != nil {
+			return err
+		}
+		kW, kRows, _, err = loadFloatMatrix(weights, lb.KProj)
+		if err != nil {
+			return err
+		}
+		vRows = kRows
+		if lb.VProj != nil {
+			vW, vRows, _, err = loadFloatMatrix(weights, lb.VProj)
+			if err != nil {
+				return err
+			}
+		}
+		oW, _, _, err = loadFloatMatrix(weights, lb.OProj)
+		if err != nil {
+			return err
+		}
 	}
 	qNorm, err := loadFloatVector(weights, lb.QNorm)
 	if err != nil {
