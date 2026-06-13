@@ -231,8 +231,14 @@ func main() {
 			fmt.Fprintf(os.Stderr, "diffusiongemmarun: residency budget %.2f GiB selects resident_layers=%d/%d resident_bytes=%d\n", *residencyBudgetGiB, budget.ResidentLayers, budget.TotalLayers, budget.ResidentBytes)
 		}
 		if *residentLayers > 0 {
-			if err := weights.PreloadLayerRange(0, *residentLayers); err != nil {
-				fatal(err)
+			if *useGPUDispatcher {
+				if err := weights.PreloadLayerRangeLightweight(0, *residentLayers); err != nil {
+					fatal(err)
+				}
+			} else {
+				if err := weights.PreloadLayerRange(0, *residentLayers); err != nil {
+					fatal(err)
+				}
 			}
 		}
 		if *preloadOnly {

@@ -219,12 +219,7 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 		if fl.V != nil {
 			vRows = fl.V.OutDim
 		}
-		// O projection still needed on CPU for per-position attention output
-		var err error
-		oW, _, _, err = loadFloatMatrix(weights, lb.OProj)
-		if err != nil {
-			return err
-		}
+		// O projection handled by batched FP8 GEMM below
 	} else {
 		var err error
 		qW, qRows, _, err = loadFloatMatrix(weights, lb.QProj)
@@ -355,8 +350,9 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 		copy(vConcat[(encSeq+j)*kvDim:(encSeq+j+1)*kvDim], vAll[j*vRows:j*vRows+kvDim])
 	}
 
-	attnCtx := make([]float32, qRows)
+	attnAll := make([]float32, positions*qRows)
 	for pos := 0; pos < positions; pos++ {
+		attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
 		qPos := qAll[pos*qRows : (pos+1)*qRows]
 		// Try GPU GQA attention
 		if err := gpu.F32GQAAttention(attnCtx, qPos, kConcat, vConcat, totalKV, heads, kvHeads, headDim, 1.0); err != nil {
@@ -382,10 +378,26 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 				}
 			}
 		}
-		// O projection
-		oOut := make([]float32, hiddenSize)
-		simd.GemvRows(oOut, attnCtx, oW, hiddenSize, qRows)
-		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], oOut)
+	}
+	// Batched O projection — FP8 GEMM if available, else per-position CPU
+	if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) && d.FP8Model.Layers[op.Layer].O != nil {
+		// Collect all attention contexts into contiguous batch
+		attnBatch := make([]float32, positions*qRows)
+		for pos := 0; pos < positions; pos++ {
+			copy(attnBatch[pos*qRows:(pos+1)*qRows], attnAll[pos*qRows:(pos+1)*qRows])
+		}
+		oOut := make([]float32, positions*hiddenSize)
+		if err := gpu.GemmFP8E4M3(oOut, attnBatch, positions, d.FP8Model.Layers[op.Layer].O); err != nil {
+			return fmt.Errorf("FP8 O GEMM: %w", err)
+		}
+		copy(scratch.Hidden[:positions*hiddenSize], oOut)
+	} else {
+		for pos := 0; pos < positions; pos++ {
+			oOut := make([]float32, hiddenSize)
+			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
+			simd.GemvRows(oOut, attnCtx, oW, hiddenSize, qRows)
+			copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], oOut)
+		}
 	}
 	return nil
 }
