@@ -140,3 +140,45 @@ func GemvRowsParallel(out, x, w []float32, rows, cols int) bool {
 	wg.Wait()
 	return true
 }
+
+// GemvRowsBF16BF16Parallel computes out[rows] = W[rows,cols] · x[cols] using
+// BF16 dot products across multiple goroutines.
+func GemvRowsBF16BF16Parallel(out []float32, x []uint16, w []uint16, rows, cols int) bool {
+	weightLen, ok := checked.MulInt(rows, cols)
+	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
+		return false
+	}
+	x = x[:cols]
+	nWorkers := runtime.GOMAXPROCS(0)
+	if nWorkers > 6 {
+		nWorkers = 6
+	}
+	if rows < nWorkers*64 {
+		// Too few rows to benefit from parallelism
+		for row := 0; row < rows; row++ {
+			out[row] = BF16DotAsm(w[row*cols:(row+1)*cols], x)
+		}
+		return true
+	}
+	chunk := (rows + nWorkers - 1) / nWorkers
+	var wg sync.WaitGroup
+	for wi := 0; wi < nWorkers; wi++ {
+		start := wi * chunk
+		end := start + chunk
+		if end > rows {
+			end = rows
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			defer wg.Done()
+			for row := s; row < e; row++ {
+				out[row] = BF16DotAsm(w[row*cols:(row+1)*cols], x)
+			}
+		}(start, end)
+	}
+	wg.Wait()
+	return true
+}

@@ -538,7 +538,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 // hidden→BF16 and using BF16DotAsm. Avoids F32 weight decode.
 func bf16GemvNarrow(out []float32, hidden []float32, wBF16 []uint16, rows, cols int) bool {
 	xBF16 := simd.BF16FromF32Slice(hidden[:cols])
-	return simd.GemvRowsBF16BF16(out, xBF16, wBF16, rows, cols)
+	return simd.GemvRowsBF16BF16Parallel(out, xBF16, wBF16, rows, cols)
 }
 
 // prefetchLayerWeights pre-warms the F32 cache for a layer's major projections
