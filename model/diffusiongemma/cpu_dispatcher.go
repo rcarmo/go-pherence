@@ -792,6 +792,86 @@ func runAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLay
 	if positions <= 0 || heads <= 0 || headDim <= 0 {
 		return
 	}
+	if k3FlashAttentionEnabled() {
+		runFlashAttentionContextK3(attnAll, qAll, kAll, vAll, enc, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
+		return
+	}
+	runMaterializedAttentionContextK3(attnAll, qAll, kAll, vAll, enc, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
+}
+
+func k3FlashAttentionEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_FLASH_ATTENTION")))
+	if v == "0" || v == "false" || v == "no" || v == "off" {
+		return false
+	}
+	return true
+}
+
+func runFlashAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLayer, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow int) {
+	work := func(start, end int) {
+		acc := make([]float64, headDim)
+		for pos := start; pos < end; pos++ {
+			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
+			for i := range attnCtx {
+				attnCtx[i] = 0
+			}
+			for h := 0; h < heads; h++ {
+				kvh := h / group
+				q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+				dst := attnCtx[h*headDim : (h+1)*headDim]
+				for i := range acc {
+					acc[i] = 0
+				}
+				m := math.Inf(-1)
+				l := 0.0
+				update := func(score float32, vv []float32) {
+					s := float64(score)
+					if l == 0 {
+						for i, v := range vv {
+							acc[i] = float64(v)
+						}
+						m = s
+						l = 1
+						return
+					}
+					if s <= m {
+						w := math.Exp(s - m)
+						for i, v := range vv {
+							acc[i] += float64(v) * w
+						}
+						l += w
+						return
+					}
+					scale := math.Exp(m - s)
+					for i, v := range vv {
+						acc[i] = acc[i]*scale + float64(v)
+					}
+					l = l*scale + 1
+					m = s
+				}
+				for j := 0; j < encSeq; j++ {
+					update(k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim]), enc.Values[j*vRows+kvh*headDim:j*vRows+(kvh+1)*headDim])
+				}
+				for canvasJ := 0; canvasJ < positions; canvasJ++ {
+					if slidingWindow > 0 && absInt(pos-canvasJ) >= slidingWindow {
+						continue
+					}
+					update(k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim]), vAll[canvasJ*vRows+kvh*headDim:canvasJ*vRows+(kvh+1)*headDim])
+				}
+				if l == 0 {
+					continue
+				}
+				inv := 1.0 / l
+				for i := range dst {
+					dst[i] = float32(acc[i] * inv)
+				}
+			}
+		}
+	}
+	parallelizeAttentionPositions(positions, heads, work)
+}
+
+func runMaterializedAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLayer, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow int) {
 	totalKV := encSeq + positions
 	work := func(start, end int) {
 		scores := make([]float32, totalKV)
@@ -830,6 +910,10 @@ func runAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLay
 			}
 		}
 	}
+	parallelizeAttentionPositions(positions, heads, work)
+}
+
+func parallelizeAttentionPositions(positions, heads int, work func(start, end int)) {
 	nw := 1
 	if k3Enabled() && positions*heads >= 32 {
 		nw = k3Threads()

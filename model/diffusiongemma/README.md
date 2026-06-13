@@ -53,7 +53,7 @@ worker pool, with X100 cores packing activations in parallel.
 | `weights.go` | Safetensors weight loading, tensor binding |
 | `tensors.go` | Tensor inventory, readiness checks |
 | `text_forward.go` | Text forward plan builder, layer binding |
-| `cpu_dispatcher.go` | Full CPU/SIMD forward: attention, MLP, MoE experts, router |
+| `cpu_dispatcher.go` | Full CPU/SIMD forward: flash/materialized attention, MLP, MoE experts, router |
 | `gpu_dispatcher.go` | GPU/CUDA dispatcher scaffold with CPU fallback |
 | `encoder.go` | Encoder integration |
 | `denoiser.go` | Block-diffusion denoiser (not yet implemented) |
@@ -107,7 +107,19 @@ make diffusiongemma-k3-profile   # repeatable full profile summary
 | Softmax exp | `math.Exp(...)` | `simdrt.SoftmaxInPlace` with FastExp (9× faster) |
 | SiLU activation | `x/(1+exp(-x))` | `rvv.FastSiLU(x)` — polynomial approximation (4× faster) |
 | V accumulation | scalar loop | `simdrt.Saxpy(w, v, out)` — SIMD/RVV SAXPY |
+| Attention context | materialized score row + softmax | flash-style streaming softmax context, default on |
 | GELUTanhMul | shared SIMD | already uses shared backend |
+
+`GO_PHERENCE_DIFFUSIONGEMMA_K3_FLASH_ATTENTION=0` disables the streaming
+attention context and restores the materialized score-buffer path for A/B timing
+or debugging. The flash path keeps a stable online `(m, l)` softmax state per
+query/head and updates the weighted value accumulator directly, avoiding the
+score-row allocation and second score pass. `attention_flash_test.go` compares
+flash and materialized context outputs with K3 dispatch enabled. On a focused
+Milk-V/K3 canvas-256, one-layer timing run, the optimized online update measured
+attention context at `533ms` versus `610ms` for the materialized path and reduced
+layer-0 time from `2.957s` to `2.911s`; full-layer speed remains dominated by
+selected-expert Q80 packing.
 
 ### K3 A100/Q80x32 acceleration
 
