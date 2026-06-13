@@ -51,6 +51,17 @@ type CanvasStep struct {
 }
 
 // CanvasResult is the output of a single block-diffusion canvas generation.
+// DiffusionStepSnapshot contains a renderable canvas snapshot emitted after one
+// denoising step. Canvas and AcceptedMask are copies owned by the receiver.
+type DiffusionStepSnapshot struct {
+	Step         int     `json:"step"`
+	Temperature  float64 `json:"temperature"`
+	Canvas       []int   `json:"canvas"`
+	AcceptedMask []bool  `json:"accepted_mask"`
+	MeanEntropy  float64 `json:"mean_entropy"`
+	Stopped      bool    `json:"stopped"`
+}
+
 type CanvasResult struct {
 	Canvas []int               `json:"canvas"`
 	Steps  []CanvasStep        `json:"steps"`
@@ -112,6 +123,23 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 		}
 		stopped := stopper.ShouldStop(argmaxCanvas, entropy)
 		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: canvasLength, MeanEntropy: meanEntropy, Stopped: stopped})
+		if cfg.StepCallback != nil {
+			acceptedMask := make([]bool, canvasLength)
+			for i := range acceptedMask {
+				acceptedMask[i] = true
+			}
+			snapshot := DiffusionStepSnapshot{
+				Step:         step,
+				Temperature:  temperature,
+				Canvas:       append([]int(nil), canvas...),
+				AcceptedMask: acceptedMask,
+				MeanEntropy:  meanEntropy,
+				Stopped:      stopped,
+			}
+			if err := cfg.StepCallback(snapshot); err != nil {
+				return CanvasResult{}, err
+			}
+		}
 		if stopped {
 			state.Stopped = true
 			break

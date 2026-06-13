@@ -15,12 +15,13 @@ type SamplerConfig struct {
 // DenoisingConfig captures the non-model generation controls needed by the
 // block-diffusion loop.
 type DenoisingConfig struct {
-	MaxDenoisingSteps   int           `json:"max_denoising_steps"`
-	TMin                float64       `json:"t_min"`
-	TMax                float64       `json:"t_max"`
-	StabilityThreshold  int           `json:"stability_threshold"`
-	ConfidenceThreshold float64       `json:"confidence_threshold"`
-	Sampler             SamplerConfig `json:"sampler"`
+	MaxDenoisingSteps   int                               `json:"max_denoising_steps"`
+	TMin                float64                           `json:"t_min"`
+	TMax                float64                           `json:"t_max"`
+	StabilityThreshold  int                               `json:"stability_threshold"`
+	ConfidenceThreshold float64                           `json:"confidence_threshold"`
+	Sampler             SamplerConfig                     `json:"sampler"`
+	StepCallback        func(DiffusionStepSnapshot) error `json:"-"`
 }
 
 func DefaultDenoisingConfig() DenoisingConfig {

@@ -326,3 +326,59 @@ fixtures.
 | `backends/spacemit/aicpu/aipool/` | A100 Q80x32 GEMM family, activation packing |
 | `backends/spacemit/ime2/` | Q80x32 packing, K3I8I8 kernels |
 | `backends/simd/runtime/` | `Sdot`, `Saxpy`, `SoftmaxInPlace`, `VecSiLUMul` |
+
+## OpenAI-compatible resident server
+
+`cmd/diffusiongemmaserver` keeps the DiffusionGemma metadata, weights,
+denoiser, tokenizer and K3 caches resident across HTTP requests so sequential
+client measurements include realistic API overhead and cache reuse instead of
+one-shot process startup.
+
+Example K3 launch for a bounded/full-weight run:
+
+```sh
+go run ./cmd/diffusiongemmaserver \
+  -model /home/me/models/diffusiongemma-26B-A4B-it-FP8 \
+  -listen 127.0.0.1:18080 \
+  -allow-slow-cpu -cpu-dispatcher \
+  -k3 -k3-a100-q8 \
+  -k3-q80-residency-budget-gib 2.0 \
+  -k3-q80-retain-selected-expert-layers 30 \
+  -k3-q80-selected-prefetch \
+  -max-new 1 -canvas 16 -denoise-steps 2
+```
+
+Supported endpoints:
+
+- `GET /healthz`
+- `GET /v1/models`
+- `POST /v1/completions`
+- `POST /v1/chat/completions`
+
+Requests may use normal OpenAI-style `prompt`/`messages` fields, or
+`prompt_ids` for exact token-level benchmarking. Non-streaming responses include
+OpenAI-shaped `choices`/`usage` plus `prompt_token_ids`, `generated_token_ids`,
+and, when `return_diffusion_steps=true`, a `diffusion_steps` array.
+
+Streaming requests (`stream=true`) emit renderable intermediate canvases as SSE
+custom events:
+
+```text
+event: diffusion_step
+data: {"generated_token_index":0,"step":2,"canvas":[...],"accepted_mask":[true,...],"text":"..."}
+```
+
+followed by an OpenAI-style final data chunk and `data: [DONE]`. This lets a
+client render the evolving diffusion canvas while preserving compatibility with
+clients that only consume the final completion.
+
+Sequential benchmark helper:
+
+```sh
+REQUESTS=3 MAX_TOKENS=1 CANVAS=16 DENOISE_STEPS=2 \
+  PROMPT_IDS=2,106,107 \
+  scripts/diffusiongemma_server_seq_bench.sh
+```
+
+Use `STREAM=1` to verify/count intermediate `diffusion_step` events, or set
+`SERVER_URL=http://host:port` to benchmark an already-running server.

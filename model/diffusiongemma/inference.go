@@ -9,10 +9,11 @@ import (
 // currently supports token IDs only; processor/chat-template integration stays
 // outside the model package.
 type InferenceOptions struct {
-	MaxNewTokens int              `json:"max_new_tokens"`
-	CanvasLength int              `json:"canvas_length"`
-	Denoising    *DenoisingConfig `json:"denoising,omitempty"`
-	Seed         int64            `json:"seed,omitempty"`
+	MaxNewTokens int                                                                 `json:"max_new_tokens"`
+	CanvasLength int                                                                 `json:"canvas_length"`
+	Denoising    *DenoisingConfig                                                    `json:"denoising,omitempty"`
+	Seed         int64                                                               `json:"seed,omitempty"`
+	StepCallback func(generatedTokenIndex int, snapshot DiffusionStepSnapshot) error `json:"-"`
 }
 
 // InferenceResult contains generated token IDs and per-canvas diagnostics.
@@ -86,7 +87,20 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 	canvases := make([]CanvasResult, 0, (maxNew+canvasLength-1)/canvasLength)
 	context := append([]int(nil), promptIDs...)
 	for len(generated) < maxNew {
-		canvas, err := GenerateCanvas(e.Denoiser, context, denoiseCfg, canvasLength, vocabSize, rng)
+		canvasDenoiseCfg := denoiseCfg
+		if opts.StepCallback != nil {
+			generatedIndex := len(generated)
+			previous := canvasDenoiseCfg.StepCallback
+			canvasDenoiseCfg.StepCallback = func(snapshot DiffusionStepSnapshot) error {
+				if previous != nil {
+					if err := previous(snapshot); err != nil {
+						return err
+					}
+				}
+				return opts.StepCallback(generatedIndex, snapshot)
+			}
+		}
+		canvas, err := GenerateCanvas(e.Denoiser, context, canvasDenoiseCfg, canvasLength, vocabSize, rng)
 		if err != nil {
 			return InferenceResult{}, err
 		}
