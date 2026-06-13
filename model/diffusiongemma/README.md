@@ -193,6 +193,33 @@ Implemented paths:
 - FP8 E4M3 weights are decoded with `.weight_scale` and packed into row-scale
   Q80x32 once per process; later calls reuse the cache.
 
+### Incremental prompt encoder opportunity
+
+`TextDenoiser` now invalidates encoder KV when the prompt context changes, which
+is correct for multi-canvas generation. The next high-impact optimization is an
+incremental append encoder: when `PromptIDs` grows by a suffix, previous causal
+encoder K/V can be reused because prefix tokens cannot attend to future suffix
+tokens. Only the appended suffix needs to pass through the encoder layers, using
+previous per-layer K/V as attention prefix and appending newly computed K/V.
+
+Measured cost that motivates this: a two-canvas debug run (`max-new=2`,
+`canvas=1`, `max-dispatch-layers=1`) rebuilt the one-layer encoder in ~208ms and
+~246ms for prompt lengths 2 and 3. Before respecting `max-dispatch-layers`, the
+same debug rebuild cost was ~12–14s because all 30 encoder layers ran. Full
+multi-canvas generation will benefit from append-only encoder K/V reuse.
+
+Correctness constraints for implementing it:
+
+- only use append mode when the previous prompt is an exact prefix of the new
+  prompt;
+- preserve causal masking for suffix tokens: suffix position `i` may attend to
+  all prefix K/V and suffix positions `≤ i`, never future suffix positions;
+- apply RoPE with absolute positions offset by previous prompt length;
+- append K/V per layer and keep deterministic expert order as in the full
+  encoder path;
+- compare append mode against full encoder rebuild for at least canvas=1 and
+  canvas>1 prompts before enabling by default.
+
 Current smoke numbers on Milk-V/K3, FP8 model, prompt IDs `2,3`, one generated
 token, one decoder layer (`-max-dispatch-layers 1`, `-lm-head-top-k 8`):
 
