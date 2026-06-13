@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 
@@ -74,7 +75,15 @@ func main() {
 	dispatchProgress := flag.Bool("dispatch-progress", false, "print CPU dispatcher layer/tail progress to stderr")
 	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
+	cpuProfile := flag.String("cpuprofile", "", "write CPU profile to file")
 	flag.Parse()
+	if *cpuProfile != "" {
+		f, _ := os.Create(*cpuProfile)
+		if f != nil {
+			pprof.StartCPUProfile(f)
+			defer pprof.StopCPUProfile()
+		}
+	}
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: diffusiongemmarun -model PATH [-prompt-ids 1,2] [-max-new N] [-json]")
 		os.Exit(2)
