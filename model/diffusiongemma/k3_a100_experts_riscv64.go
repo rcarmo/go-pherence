@@ -198,11 +198,8 @@ func k3StartSelectedExpertQ80Prefetch(weights *TextWeights, lb TextLayerBindings
 		return nil
 	}
 	positions := len(scratch.Residual) / hiddenSize
-	if positions <= 0 || len(scratch.TopKIDs)%positions != 0 {
-		return nil
-	}
-	topK := len(scratch.TopKIDs) / positions
-	if topK <= 0 {
+	topK := scratch.TopKExperts
+	if positions <= 0 || topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK {
 		return nil
 	}
 	layout, err := expertLayoutForLayer(weights, lb, hiddenSize)

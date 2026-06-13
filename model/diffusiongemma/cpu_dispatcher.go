@@ -109,6 +109,7 @@ type ForwardScratch struct {
 	Experts        []float32
 	TopKIDs        []int
 	TopKVals       []float32
+	TopKExperts    int
 	LMHeadTopK     int
 	ExpertPrefetch *k3SelectedExpertPrefetch
 }
@@ -116,7 +117,7 @@ type ForwardScratch struct {
 func NewForwardScratch(buffers ForwardBufferPlan) ForwardScratch {
 	topKSlots := maxNonNegative(buffers.CanvasLength * buffers.TopKExperts)
 	hiddenSize := maxNonNegative(buffers.Hidden)
-	return ForwardScratch{Hidden: make([]float32, hiddenSize), Residual: make([]float32, hiddenSize), MlpOut: make([]float32, hiddenSize), MoeOut: make([]float32, hiddenSize), Router: make([]float32, maxNonNegative(buffers.Router)), Experts: make([]float32, maxNonNegative(buffers.Experts)), TopKIDs: make([]int, topKSlots), TopKVals: make([]float32, topKSlots), Logits: makeLogitRows(buffers.CanvasLength, buffers.VocabSize)}
+	return ForwardScratch{Hidden: make([]float32, hiddenSize), Residual: make([]float32, hiddenSize), MlpOut: make([]float32, hiddenSize), MoeOut: make([]float32, hiddenSize), Router: make([]float32, maxNonNegative(buffers.Router)), Experts: make([]float32, maxNonNegative(buffers.Experts)), TopKIDs: make([]int, topKSlots), TopKVals: make([]float32, topKSlots), TopKExperts: maxNonNegative(buffers.TopKExperts), Logits: makeLogitRows(buffers.CanvasLength, buffers.VocabSize)}
 }
 
 func makeLogitRows(rows, cols int) [][]float32 {
@@ -1034,11 +1035,8 @@ func runRouter(op LayerOp, weights *TextWeights, scratch ForwardScratch) error {
 				out[i] *= perExpertScale[i]
 			}
 		}
-		topK := 0
-		if positions > 0 {
-			topK = len(scratch.TopKIDs) / positions
-		}
-		if topK > 0 && len(scratch.TopKVals) >= (pos+1)*topK {
+		topK := scratch.TopKExperts
+		if topK > 0 && len(scratch.TopKIDs) >= (pos+1)*topK && len(scratch.TopKVals) >= (pos+1)*topK {
 			selectTopK(out, scratch.TopKIDs[pos*topK:(pos+1)*topK], scratch.TopKVals[pos*topK:(pos+1)*topK])
 		}
 	}
@@ -1091,9 +1089,9 @@ func runExperts(op LayerOp, weights *TextWeights, scratch ForwardScratch) error 
 	if positions <= 0 || len(scratch.TopKIDs) < positions || len(scratch.TopKVals) < positions {
 		return fmt.Errorf("DiffusionGemma expert top-k scratch invalid positions=%d ids=%d vals=%d", positions, len(scratch.TopKIDs), len(scratch.TopKVals))
 	}
-	topK := len(scratch.TopKIDs) / positions
-	if topK <= 0 {
-		return fmt.Errorf("DiffusionGemma expert top-k is zero")
+	topK := scratch.TopKExperts
+	if topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK {
+		return fmt.Errorf("DiffusionGemma expert top-k scratch invalid positions=%d top_k=%d ids=%d vals=%d", positions, topK, len(scratch.TopKIDs), len(scratch.TopKVals))
 	}
 	gate := make([]float32, intermediate)
 	up := make([]float32, intermediate)
@@ -1190,13 +1188,13 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 			}
 		}
 	}
+	topK := scratch.TopKExperts
+	if topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK {
+		return fmt.Errorf("DiffusionGemma router top-k scratch invalid positions=%d top_k=%d ids=%d vals=%d", positions, topK, len(scratch.TopKIDs), len(scratch.TopKVals))
+	}
 	for pos := 0; pos < positions; pos++ {
 		scored := scoredAll[pos*numExperts : (pos+1)*numExperts]
 		k3SoftmaxInPlace(scored)
-		topK := len(scratch.TopKIDs) / positions
-		if topK <= 0 {
-			continue
-		}
 		ids := scratch.TopKIDs[pos*topK : (pos+1)*topK]
 		vals := scratch.TopKVals[pos*topK : (pos+1)*topK]
 		for i := range ids {
@@ -1264,7 +1262,10 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 	up := make([]float32, intermediate)
 	act := make([]float32, intermediate)
 	expertOut := make([]float32, hiddenSize)
-	topK := len(scratch.TopKIDs) / positions
+	topK := scratch.TopKExperts
+	if topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK {
+		return fmt.Errorf("DiffusionGemma expert top-k scratch invalid positions=%d top_k=%d ids=%d vals=%d", positions, topK, len(scratch.TopKIDs), len(scratch.TopKVals))
+	}
 
 	expertsDone, err := k3RunPerExpertA100(weights, lb, layout, scratch, preNorm2, hiddenSize, positions, topK)
 	if err != nil {
