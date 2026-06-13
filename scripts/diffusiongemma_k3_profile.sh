@@ -65,10 +65,17 @@ fi
 mkdir -p "${LOG_DIR}"
 echo "diffusiongemma K3 profile log: ${LOG}" >&2
 
+runner_needs_rebuild() {
+  [[ ! -x "${RUNNER_BIN}" ]] && return 0
+  local newest
+  newest="$(find cmd/diffusiongemmarun model/diffusiongemma backends/spacemit/aicpu/aipool backends/spacemit/ime2 -type f -name '*.go' -newer "${RUNNER_BIN}" -print -quit)"
+  [[ -n "${newest}" ]]
+}
+
 RUNNER=("${RUNNER_BIN}")
 if [[ "${PROFILE_USE_GO_RUN}" == "1" ]]; then
   RUNNER=(go run ./cmd/diffusiongemmarun)
-elif [[ ! -x "${RUNNER_BIN}" ]]; then
+elif runner_needs_rebuild; then
   mkdir -p "$(dirname "${RUNNER_BIN}")"
   echo "building ${RUNNER_BIN}..." >&2
   go build -o "${RUNNER_BIN}" ./cmd/diffusiongemmarun
