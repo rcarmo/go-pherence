@@ -14,7 +14,7 @@ import (
 // (weights are tied) and captures per-layer K,V projections as encoder KV
 // cache. The encoder uses causal attention (unlike the decoder which is
 // bidirectional) and does not use self-conditioning.
-func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) ([]EncoderKVLayer, error) {
+func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, _ ForwardOpPlan, buffers ForwardBufferPlan) ([]EncoderKVLayer, error) {
 	if weights == nil {
 		return nil, fmt.Errorf("DiffusionGemma encoder missing weights")
 	}
@@ -63,15 +63,7 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 	for layer := 0; layer < numLayers; layer++ {
 		layerStart := time.Now()
 		lb := fp.Layers[layer]
-		lt := ""
-		if layer < len(ops.Layers) {
-			for _, op := range ops.Layers {
-				if op.Layer == layer {
-					lt = op.Type
-					break
-				}
-			}
-		}
+		lt := lb.Type
 
 		// input_norm + save residual
 		copy(residual, hidden)
