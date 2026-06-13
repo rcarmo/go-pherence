@@ -109,6 +109,103 @@ func Argmax(logits []float32) int {
 	return best
 }
 
+func TokenStatsFromLogits(logits []float32, temperature float64, rng *rand.Rand) (argmaxID int, sampledID int, entropy float64) {
+	if len(logits) == 0 {
+		return -1, -1, 0
+	}
+	if rng == nil {
+		rng = rand.New(rand.NewSource(1))
+	}
+	invTemp := float32(1)
+	if temperature > 0 {
+		invTemp = float32(1.0 / temperature)
+	}
+	const sparseLimit = 4096
+	argmaxID = -1
+	maxLogit := float32(math.Inf(-1))
+	finiteIDs := make([]int, 0, 16)
+	finiteVals := make([]float32, 0, 16)
+	dense := false
+	for id, raw := range logits {
+		if math.IsNaN(float64(raw)) {
+			continue
+		}
+		v := raw * invTemp
+		if v > maxLogit {
+			maxLogit = v
+			argmaxID = id
+		}
+		if math.IsInf(float64(v), -1) {
+			continue
+		}
+		if len(finiteIDs) < sparseLimit {
+			finiteIDs = append(finiteIDs, id)
+			finiteVals = append(finiteVals, v)
+		} else {
+			dense = true
+		}
+	}
+	if argmaxID < 0 || math.IsInf(float64(maxLogit), -1) || math.IsNaN(float64(maxLogit)) {
+		return argmaxID, argmaxID, 0
+	}
+	var sum float64
+	var sumXLogX float64
+	if !dense {
+		weights := make([]float64, len(finiteVals))
+		for i, v := range finiteVals {
+			w := math.Exp(float64(v - maxLogit))
+			weights[i] = w
+			sum += w
+			if w > 0 {
+				sumXLogX += w * math.Log(w)
+			}
+		}
+		if sum <= 0 || math.IsNaN(sum) {
+			return argmaxID, argmaxID, 0
+		}
+		draw := rng.Float64() * sum
+		var cumulative float64
+		sampledID = argmaxID
+		for i, w := range weights {
+			cumulative += w
+			if draw <= cumulative {
+				sampledID = finiteIDs[i]
+				break
+			}
+		}
+		return argmaxID, sampledID, math.Log(sum) - sumXLogX/sum
+	}
+	for _, raw := range logits {
+		if math.IsNaN(float64(raw)) || math.IsInf(float64(raw), -1) {
+			continue
+		}
+		v := raw * invTemp
+		w := math.Exp(float64(v - maxLogit))
+		sum += w
+		if w > 0 {
+			sumXLogX += w * math.Log(w)
+		}
+	}
+	if sum <= 0 || math.IsNaN(sum) {
+		return argmaxID, argmaxID, 0
+	}
+	draw := rng.Float64() * sum
+	var cumulative float64
+	sampledID = argmaxID
+	for id, raw := range logits {
+		if math.IsNaN(float64(raw)) || math.IsInf(float64(raw), -1) {
+			continue
+		}
+		v := raw * invTemp
+		cumulative += math.Exp(float64(v - maxLogit))
+		if draw <= cumulative {
+			sampledID = id
+			break
+		}
+	}
+	return argmaxID, sampledID, math.Log(sum) - sumXLogX/sum
+}
+
 func SampleFromLogits(logits []float32, rng *rand.Rand) int {
 	if len(logits) == 0 {
 		return -1
