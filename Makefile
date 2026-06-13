@@ -1016,7 +1016,7 @@ diffusiongemma-ci-sparse-text-fast: diffusiongemma-check-sparse-text diffusionge
 	$(MAKE) diffusiongemma-run-sparse-text-json-check DIFFUSIONGEMMA_MODEL=$(DIFFUSIONGEMMA_MODEL) DIFFUSIONGEMMA_PROMPT=hi DIFFUSIONGEMMA_MAX_NEW=1 DIFFUSIONGEMMA_CANVAS=1 DIFFUSIONGEMMA_DENOISE_STEPS=1 DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB=16 DIFFUSIONGEMMA_RUN_OUT=$(TMPDIR)/diffusiongemma/ci_sparse_fast.json DIFFUSIONGEMMA_EXPECT_GENERATED=147485
 	go test ./cmd/diffusiongemmarun ./cmd/diffusiongemmainspect ./model/diffusiongemma ./loader/config -run '^$$'
 
-.PHONY: diffusiongemma-k3-profile
+.PHONY: diffusiongemma-k3-profile diffusiongemma-k3-smoke
 DIFFUSIONGEMMA_K3_MODEL ?= /home/me/models/diffusiongemma-26B-A4B-it-FP8
 DIFFUSIONGEMMA_K3_CANVAS ?= 16
 DIFFUSIONGEMMA_K3_STEPS ?= 2
@@ -1028,3 +1028,8 @@ diffusiongemma-k3-profile: TMPDIR := /tmp
 diffusiongemma-k3-profile: GOTMPDIR := /tmp
 diffusiongemma-k3-profile:
 	MODEL=$(DIFFUSIONGEMMA_K3_MODEL) CANVAS=$(DIFFUSIONGEMMA_K3_CANVAS) STEPS=$(DIFFUSIONGEMMA_K3_STEPS) Q80_BUDGET_GIB=$(DIFFUSIONGEMMA_K3_Q80_BUDGET_GIB) RETAIN_SELECTED_EXPERT_LAYERS=$(DIFFUSIONGEMMA_K3_RETAIN_SELECTED_EXPERT_LAYERS) SKIP_EVICTION=$(DIFFUSIONGEMMA_K3_SKIP_EVICTION) ./scripts/diffusiongemma_k3_profile.sh
+
+diffusiongemma-k3-smoke: TMPDIR := /tmp
+diffusiongemma-k3-smoke: GOTMPDIR := /tmp
+diffusiongemma-k3-smoke:
+	MODEL=$(DIFFUSIONGEMMA_K3_MODEL) CANVAS=1 STEPS=1 MAX_NEW=1 Q80_BUDGET_GIB=0.2 RETAIN_SELECTED_EXPERT_LAYERS=1 TAG=k3-smoke ./scripts/diffusiongemma_k3_profile.sh
