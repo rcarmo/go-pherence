@@ -98,12 +98,10 @@ as the current practical speed/memory tradeoff on the 31GB K3; set
 
 ### K3 A100/Q80x32 acceleration
 
-Enable with `-k3 -k3-a100-q8` plus optional worker/thread env overrides:
+Enable with `-k3 -k3-a100-q8` plus optional worker/thread flags:
 
 ```sh
-GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS=8 \
-GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS=6 \
-go run ./cmd/diffusiongemmarun ... -k3 -k3-a100-q8
+go run ./cmd/diffusiongemmarun ... -k3 -k3-threads 8 -k3-a100-q8 -k3-a100-workers 6
 ```
 
 Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:

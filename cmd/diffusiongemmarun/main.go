@@ -67,7 +67,9 @@ func main() {
 	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
 	residencyBudgetGiB := flag.Float64("residency-budget-gib", 0, "choose resident layer prefix from decoded float32 cache budget in GiB")
 	k3Native := flag.Bool("k3", false, "enable native K3/RVV dispatch for DiffusionGemma")
+	k3Threads := flag.Int("k3-threads", 0, "number of K3/X100 worker threads for DiffusionGemma native paths")
 	k3A100Q8 := flag.Bool("k3-a100-q8", false, "enable K3 A100 row-scale Q80x32 projection paths")
+	k3A100Workers := flag.Int("k3-a100-workers", 0, "number of K3 A100 worker threads for Q80x32 GEMMs")
 	q80PrewarmLayers := flag.Int("k3-q80-prewarm-layers", 0, "prepack first N text layers into the K3 A100 Q80 cache")
 	q80PrewarmExperts := flag.Bool("k3-q80-prewarm-experts", false, "include all per-expert tensors when using -k3-q80-prewarm-layers; memory-heavy")
 	q80ResidencyBudgetGiB := flag.Float64("k3-q80-residency-budget-gib", 0, "choose K3 Q80 prewarm layer count from a packed-weight cache budget in GiB")
@@ -89,8 +91,14 @@ func main() {
 	if *k3Native {
 		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3", "1")
 	}
+	if *k3Threads > 0 {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS", strconv.Itoa(*k3Threads))
+	}
 	if *k3A100Q8 {
 		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8", "1")
+	}
+	if *k3A100Workers > 0 {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS", strconv.Itoa(*k3A100Workers))
 	}
 	if *k3A100LMHead {
 		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD", "1")

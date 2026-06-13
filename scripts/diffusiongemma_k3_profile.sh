@@ -36,8 +36,6 @@ export GOMODCACHE="${GOMODCACHE:-${K3_HOME}/go/pkg/mod}"
 export IME2_Q80_TCM="${IME2_Q80_TCM:-1}"
 export GO_PHERENCE_DIFFUSIONGEMMA_K3="${GO_PHERENCE_DIFFUSIONGEMMA_K3:-1}"
 export GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8="${GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8:-1}"
-export GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS="${GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS:-${K3_THREADS}}"
-export GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS="${GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS:-${A100_WORKERS}}"
 
 EXTRA_FLAGS=()
 if [[ "${SKIP_EVICTION:-0}" == "1" ]]; then
@@ -74,7 +72,9 @@ go run ./cmd/diffusiongemmarun \
   -cpu-dispatcher \
   -allow-slow-cpu \
   -k3 \
+  -k3-threads "${K3_THREADS}" \
   -k3-a100-q8 \
+  -k3-a100-workers "${A100_WORKERS}" \
   -lm-head-top-k "${LM_HEAD_TOP_K}" \
   -dispatch-progress \
   -k3-q80-residency-budget-gib "${Q80_BUDGET_GIB}" \
