@@ -20,10 +20,15 @@ LOG_DIR="${LOG_DIR:-/tmp}"
 TAG="${TAG:-$(date +%Y%m%d-%H%M%S)}"
 LOG="${LOG_DIR}/diffusiongemma-k3-profile-${TAG}.log"
 
-export HOME="${HOME:-/home/me}"
-export TMPDIR="${TMPDIR:-/tmp}"
-export GOCACHE="${GOCACHE:-/home/me/.cache/go-build}"
-export GOMODCACHE="${GOMODCACHE:-/home/me/go/pkg/mod}"
+K3_HOME="${K3_HOME:-/home/me}"
+if [[ -z "${HOME:-}" || "${HOME}" == "/home/agent" ]]; then
+  export HOME="${K3_HOME}"
+fi
+if [[ -z "${TMPDIR:-}" || ! -d "${TMPDIR}" ]]; then
+  export TMPDIR="/tmp"
+fi
+export GOCACHE="${GOCACHE:-${K3_HOME}/.cache/go-build}"
+export GOMODCACHE="${GOMODCACHE:-${K3_HOME}/go/pkg/mod}"
 export IME2_Q80_TCM="${IME2_Q80_TCM:-1}"
 export GO_PHERENCE_DIFFUSIONGEMMA_K3="${GO_PHERENCE_DIFFUSIONGEMMA_K3:-1}"
 export GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8="${GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8:-1}"
