@@ -20,6 +20,8 @@ K3_THREADS="${K3_THREADS:-8}"
 LOG_DIR="${LOG_DIR:-/tmp}"
 TAG="${TAG:-$(date +%Y%m%d-%H%M%S)}"
 LOG="${LOG_DIR}/diffusiongemma-k3-profile-${TAG}.log"
+RUNNER_BIN="${RUNNER_BIN:-bin/diffusiongemmarun}"
+PROFILE_USE_GO_RUN="${PROFILE_USE_GO_RUN:-0}"
 
 K3_HOME="${K3_HOME:-/home/me}"
 if [[ -z "${HOME:-}" || "${HOME}" == "/home/agent" ]]; then
@@ -63,8 +65,17 @@ fi
 mkdir -p "${LOG_DIR}"
 echo "diffusiongemma K3 profile log: ${LOG}" >&2
 
+RUNNER=("${RUNNER_BIN}")
+if [[ "${PROFILE_USE_GO_RUN}" == "1" ]]; then
+  RUNNER=(go run ./cmd/diffusiongemmarun)
+elif [[ ! -x "${RUNNER_BIN}" ]]; then
+  mkdir -p "$(dirname "${RUNNER_BIN}")"
+  echo "building ${RUNNER_BIN}..." >&2
+  go build -o "${RUNNER_BIN}" ./cmd/diffusiongemmarun
+fi
+
 PROFILE_START_NS="$(date +%s%N)"
-go run ./cmd/diffusiongemmarun \
+"${RUNNER[@]}" \
   -model "${MODEL}" \
   -prompt-ids "${PROMPT_IDS}" \
   -max-new "${MAX_NEW}" \
@@ -87,7 +98,7 @@ PROFILE_WALL_MS="$(( (PROFILE_END_NS - PROFILE_START_NS) / 1000000 ))"
 
 printf '\n=== diffusiongemma K3 profile summary ===\n'
 printf 'log=%s\n' "${LOG}"
-printf 'config: canvas=%s steps=%s q80_budget_gib=%s retain_selected_expert_layers=%s skip_eviction=%s\n' "${CANVAS}" "${STEPS}" "${Q80_BUDGET_GIB}" "${RETAIN_SELECTED_EXPERT_LAYERS}" "${SKIP_EVICTION:-0}"
+printf 'config: canvas=%s steps=%s q80_budget_gib=%s retain_selected_expert_layers=%s skip_eviction=%s runner=%s\n' "${CANVAS}" "${STEPS}" "${Q80_BUDGET_GIB}" "${RETAIN_SELECTED_EXPERT_LAYERS}" "${SKIP_EVICTION:-0}" "${RUNNER[*]}"
 printf 'wall_ms=%s\n' "${PROFILE_WALL_MS}"
 grep "K3 Q80 residency budget\|K3 Q80 prewarmed\|K3 Q80 retaining selected" "${LOG}" || true
 printf '\n-- encoder cache --\n'
