@@ -320,3 +320,45 @@ func diffusionGemmaDTypeSize(dtype string) (int, bool) {
 		return 0, false
 	}
 }
+
+// PreloadLayerLightweight preloads only small tensors (norms, scalars, router)
+// for a layer, skipping large projection and MoE weights that the GPU path
+// handles via FP8.
+func (w *TextWeights) PreloadLayerLightweight(layer int) error {
+	if w == nil {
+		return fmt.Errorf("nil DiffusionGemma text weights")
+	}
+	if layer < 0 || layer >= len(w.Layers) {
+		return fmt.Errorf("DiffusionGemma layer %d outside [0,%d)", layer, len(w.Layers))
+	}
+	for _, b := range w.Layers[layer].Bindings {
+		switch b.Group {
+		case TensorAttention, TensorMoE:
+			continue // skip large projections handled by GPU FP8
+		}
+		// Also skip large decoder-layer tensors (MLP projections)
+		if b.Group == TensorDecoderLayer {
+			size := 1
+			for _, d := range b.Shape {
+				size *= d
+			}
+			if size > 1_000_000 {
+				continue
+			}
+		}
+		if _, err := w.CachedFloatTensor(b.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// PreloadLayerRangeLightweight preloads small tensors for a range of layers.
+func (w *TextWeights) PreloadLayerRangeLightweight(start, count int) error {
+	for i := 0; i < count; i++ {
+		if err := w.PreloadLayerLightweight(start + i); err != nil {
+			return err
+		}
+	}
+	return nil
+}

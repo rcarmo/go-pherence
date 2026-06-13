@@ -34,8 +34,15 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 
 	// Preload resident layer weights for the encoder pass
 	if d.ResidentLayerPrefix > 0 {
-		if err := weights.PreloadLayerRange(0, d.ResidentLayerPrefix); err != nil {
-			return nil, err
+		if fp8 != nil {
+			// GPU FP8 handles projections; only preload norms/scalars/router
+			if err := weights.PreloadLayerRangeLightweight(0, d.ResidentLayerPrefix); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := weights.PreloadLayerRange(0, d.ResidentLayerPrefix); err != nil {
+				return nil, err
+			}
 		}
 	}
 
