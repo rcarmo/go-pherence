@@ -33,7 +33,7 @@ func k3A100LMHeadPrefetchEnabled() bool {
 }
 
 func k3A100LMHeadCandidates(topK, vocab int) int {
-	candidates := topK * 4
+	candidates := topK * 2
 	if candidates < 32 {
 		candidates = 32
 	}
