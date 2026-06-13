@@ -946,3 +946,30 @@ Recommended configurations:
 - Refined output: canvas=24, 4 steps, ~3m44s
 
 All configurations produce correct factual output with thinking mode.
+
+
+## Comprehensive quality sweep
+
+2026-06-13: Quality results across prompt types:
+
+| Prompt | Canvas | Steps | Output | 
+|---|---|---|---|
+| Capital of France | 16 | 2 | **Paris**. ✓ |
+| Capital of Germany | 24 | 4 | **Berlin**. ✓ |
+| Capital of Japan | 16 | 2 | **Tokyo**. ✓ |
+| Capital of Spain | 16 | 2 | **Madrid** ✓ |
+| What is 2+2? | 24 | 4 | 2+2 is 4. ✓ |
+| Say hello in French | 24 | 2 | Bonjour! ✓ |
+| First US president | 24 | 2 | **George Washington**. ✓ |
+| Romeo and Juliet author | 24 | 2 | **William Shakespeare** ✓ |
+| Speed of light | 24 | 2 | ~299,999,999 m/s ✓ |
+| Language of Brazil | 24 | 2 | **Portuguese**. ✓ |
+| WW2 end year | 24 | 4 | **1945**. ✓ |
+| Spider legs | 48 | 4 | **8 legs**. ✓ |
+| H2O formula | 16 | 2 | **H2O** = water ✓ |
+| Largest ocean | 16 | 2 | **Pacific**. ✓ |
+| Sky color | 16 | 2 | blue ✓ |
+
+Recommended: canvas=24, 4 denoise steps for general use.
+Shorter prompts work with canvas=16, 2 steps.
+Complex reasoning may need canvas=48+.
