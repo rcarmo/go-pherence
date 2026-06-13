@@ -2,7 +2,9 @@ package diffusiongemma
 
 import (
 	"fmt"
+	"os"
 	"slices"
+	"time"
 )
 
 // TextDenoiser is the future native tensor-backed DiffusionGemma denoiser. It
@@ -47,6 +49,17 @@ func NewTextDenoiserWithDispatcher(shape Shape, weights *TextWeights, dispatcher
 	return &TextDenoiser{Shape: shape, Weights: weights, Plan: plan, Ops: ops, Buffers: BuildForwardBufferPlan(shape), Dispatcher: dispatcher}, nil
 }
 
+func denoiserProgress(dispatcher ForwardDispatcher) bool {
+	switch d := dispatcher.(type) {
+	case CPUDispatcher:
+		return d.Progress
+	case GPUDispatcher:
+		return d.Progress
+	default:
+		return false
+	}
+}
+
 func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	if d == nil {
 		return ForwardOutput{}, fmt.Errorf("nil DiffusionGemma text denoiser")
@@ -62,18 +75,29 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	}
 	// Encode prompt when needed and invalidate cached encoder KV if the prompt
 	// context changes between block-diffusion canvases.
+	progress := denoiserProgress(d.Dispatcher)
 	if len(in.PromptIDs) == 0 {
+		if progress && len(d.EncoderKV) > 0 {
+			fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: cleared previous_prompt_len=%d\n", len(d.EncoderPromptIDs))
+		}
 		d.EncoderKV = nil
 		d.EncoderPromptIDs = nil
 	} else if d.EncoderKV == nil || !slices.Equal(d.EncoderPromptIDs, in.PromptIDs) {
 		if cpuDisp, ok := d.Dispatcher.(CPUDispatcher); ok {
+			previousLen := len(d.EncoderPromptIDs)
+			started := time.Now()
 			kv, err := cpuDisp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
 			if err != nil {
 				return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
 			}
 			d.EncoderKV = kv
 			d.EncoderPromptIDs = append(d.EncoderPromptIDs[:0], in.PromptIDs...)
+			if progress {
+				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: rebuilt prompt_len=%d previous_prompt_len=%d elapsed=%s\n", len(in.PromptIDs), previousLen, time.Since(started).Round(time.Millisecond))
+			}
 		}
+	} else if progress {
+		fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: hit prompt_len=%d\n", len(in.PromptIDs))
 	}
 	encoderSeqLen := 0
 	if len(d.EncoderKV) > 0 {
