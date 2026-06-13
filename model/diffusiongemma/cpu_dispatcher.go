@@ -872,7 +872,7 @@ func runFlashAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc Encoder
 		attnAll[i] = 0
 	}
 	work := func(start, end int) {
-		acc := make([]float64, headDim)
+		acc := make([]float32, headDim)
 		for task := start; task < end; task++ {
 			pos := task / heads
 			h := task - pos*heads
@@ -882,29 +882,27 @@ func runFlashAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc Encoder
 			for i := range acc {
 				acc[i] = 0
 			}
-			m := math.Inf(-1)
-			l := 0.0
+			m := float32(math.Inf(-1))
+			l := float32(0)
 			update := func(score float32, vv []float32) {
-				s := float64(score)
+				s := score
 				if l == 0 {
-					for i, v := range vv {
-						acc[i] = float64(v)
-					}
+					copy(acc, vv)
 					m = s
 					l = 1
 					return
 				}
 				if s <= m {
-					w := math.Exp(s - m)
+					w := float32(math.Exp(float64(s - m)))
 					for i, v := range vv {
-						acc[i] += float64(v) * w
+						acc[i] += v * w
 					}
 					l += w
 					return
 				}
-				scale := math.Exp(m - s)
+				scale := float32(math.Exp(float64(m - s)))
 				for i, v := range vv {
-					acc[i] = acc[i]*scale + float64(v)
+					acc[i] = acc[i]*scale + v
 				}
 				l = l*scale + 1
 				m = s
@@ -924,9 +922,9 @@ func runFlashAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc Encoder
 			if l == 0 {
 				continue
 			}
-			inv := 1.0 / l
+			inv := float32(1) / l
 			for i := range dst {
-				dst[i] = float32(acc[i] * inv)
+				dst[i] = acc[i] * inv
 			}
 		}
 	}
