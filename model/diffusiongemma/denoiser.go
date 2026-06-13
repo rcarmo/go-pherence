@@ -83,8 +83,13 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 		d.EncoderKV = nil
 		d.EncoderPromptIDs = nil
 	} else if d.EncoderKV == nil || !slices.Equal(d.EncoderPromptIDs, in.PromptIDs) {
+		previousLen := len(d.EncoderPromptIDs)
+		appendOnly := previousLen > 0 && len(in.PromptIDs) > previousLen && slices.Equal(d.EncoderPromptIDs, in.PromptIDs[:previousLen])
+		appendLen := 0
+		if appendOnly {
+			appendLen = len(in.PromptIDs) - previousLen
+		}
 		if cpuDisp, ok := d.Dispatcher.(CPUDispatcher); ok {
-			previousLen := len(d.EncoderPromptIDs)
 			started := time.Now()
 			kv, err := cpuDisp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
 			if err != nil {
@@ -93,11 +98,11 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 			d.EncoderKV = kv
 			d.EncoderPromptIDs = append(d.EncoderPromptIDs[:0], in.PromptIDs...)
 			if progress {
-				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: rebuilt prompt_len=%d previous_prompt_len=%d elapsed=%s\n", len(in.PromptIDs), previousLen, time.Since(started).Round(time.Millisecond))
+				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: rebuilt prompt_len=%d previous_prompt_len=%d append_only=%v append_len=%d elapsed=%s\n", len(in.PromptIDs), previousLen, appendOnly, appendLen, time.Since(started).Round(time.Millisecond))
 			}
 		} else {
 			if progress && len(d.EncoderKV) > 0 {
-				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: invalidated prompt_len=%d previous_prompt_len=%d reason=unsupported_dispatcher\n", len(in.PromptIDs), len(d.EncoderPromptIDs))
+				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: invalidated prompt_len=%d previous_prompt_len=%d append_only=%v append_len=%d reason=unsupported_dispatcher\n", len(in.PromptIDs), previousLen, appendOnly, appendLen)
 			}
 			d.EncoderKV = nil
 			d.EncoderPromptIDs = nil
