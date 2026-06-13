@@ -242,14 +242,15 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	if d.MaxLayers > 0 && !d.TailAfterMaxLayers {
 		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
 	}
+	timing := diffusionGemmaTimingEnabled()
 	for _, op := range ops.Tail {
 		if d.Progress {
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: starting tail op=%s\n", op)
 		}
 		if op == OpLMHead && lmHeadPrefetch != nil {
 			res := <-lmHeadPrefetch
-			if d.Progress {
-				fmt.Fprintf(os.Stderr, "DiffusionGemma K3 Q80 prefetch: completed lm_head tensors=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", res.count, weights.Q80CacheEntries(), weights.Q80CacheBytes(), res.elapsed.Round(time.Millisecond))
+			if d.Progress || timing {
+				fmt.Fprintf(os.Stderr, "timing diffusiongemma lm_head_prefetch tensors=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", res.count, weights.Q80CacheEntries(), weights.Q80CacheBytes(), res.elapsed.Round(time.Millisecond))
 			}
 			if res.err != nil {
 				return ForwardOutput{}, res.err
@@ -260,8 +261,12 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		if err := dispatchTailOp(op, weights, scratch); err != nil {
 			return ForwardOutput{}, err
 		}
+		elapsed := time.Since(started)
+		if timing {
+			fmt.Fprintf(os.Stderr, "timing diffusiongemma tail op=%s elapsed=%s q80_entries=%d q80_bytes=%d\n", op, elapsed.Round(time.Millisecond), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+		}
 		if d.Progress {
-			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed tail op=%s cache_entries=%d cache_bytes=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", op, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes(), time.Since(started).Round(time.Millisecond))
+			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed tail op=%s cache_entries=%d cache_bytes=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", op, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes(), elapsed.Round(time.Millisecond))
 		}
 	}
 	if d.Progress && len(scratch.Logits) > 0 {
@@ -285,8 +290,12 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	if err != nil {
 		return ForwardOutput{}, err
 	}
+	selfCondElapsed := time.Since(selfCondStart)
+	if timing {
+		fmt.Fprintf(os.Stderr, "timing diffusiongemma self_conditioning elapsed=%s q80_entries=%d q80_bytes=%d\n", selfCondElapsed.Round(time.Millisecond), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+	}
 	if d.Progress {
-		fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed self_conditioning cache_entries=%d cache_bytes=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes(), time.Since(selfCondStart).Round(time.Millisecond))
+		fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed self_conditioning cache_entries=%d cache_bytes=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes(), selfCondElapsed.Round(time.Millisecond))
 	}
 	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning}, nil
 }
@@ -1864,6 +1873,8 @@ func exactEmbeddingDotF32(raw []byte, dtype string, x []float32, rowScratch []fl
 }
 
 func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
+	started := time.Now()
+	mode := "full_raw_rows"
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma LM head missing weights")
 	}
@@ -1910,12 +1921,14 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 		}
 	}
 	if topK > 0 {
+		mode = "topk_f32"
 		lmHeadDone := false
 		if k3A100LMHeadEnabled() {
 			scoresAll := make([]float32, positions*vocab)
 			if done, err := k3GemmRowsQ80(scoresAll, scratch.Hidden, positions, weights, fp.Globals.EmbedTokens); err != nil {
 				return err
 			} else if done {
+				mode = "topk_k3_a100_rerank"
 				lmHeadDone = true
 				candidateK := k3A100LMHeadCandidates(topK, vocab)
 				row := make([]float32, hiddenSize)
@@ -1999,6 +2012,9 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 				}
 			}
 		}
+	}
+	if diffusionGemmaTimingEnabled() {
+		fmt.Fprintf(os.Stderr, "timing diffusiongemma lm_head mode=%s positions=%d vocab=%d hidden=%d top_k=%d elapsed=%s\n", mode, positions, vocab, hiddenSize, topK, time.Since(started).Round(time.Millisecond))
 	}
 	return nil
 }

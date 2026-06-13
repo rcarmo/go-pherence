@@ -34,6 +34,31 @@ type report struct {
 	Error           string                             `json:"error,omitempty"`
 }
 
+func flagWasSet(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func applyK3LMHeadPreset(k3, k3A100Q8 *bool, lmHeadTopK *int, lmHead, lmHeadPrefetch *bool) {
+	if k3 == nil || k3A100Q8 == nil || !*k3 || !*k3A100Q8 {
+		return
+	}
+	if lmHeadTopK != nil && *lmHeadTopK == 0 && !flagWasSet("lm-head-top-k") {
+		*lmHeadTopK = 64
+	}
+	if lmHead != nil && !*lmHead && !flagWasSet("k3-a100-lmhead") {
+		*lmHead = true
+	}
+	if lmHeadPrefetch != nil && !*lmHeadPrefetch && !flagWasSet("k3-a100-lmhead-prefetch") {
+		*lmHeadPrefetch = true
+	}
+}
+
 func main() {
 	modelDir := flag.String("model", "", "DiffusionGemma model directory")
 	promptCSV := flag.String("prompt-ids", "", "comma-separated already-tokenized prompt IDs")
@@ -88,6 +113,7 @@ func main() {
 	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	flag.Parse()
+	applyK3LMHeadPreset(k3Native, k3A100Q8, lmHeadTopK, k3A100LMHead, k3A100LMHeadPrefetch)
 	if *k3Native {
 		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3", "1")
 	}

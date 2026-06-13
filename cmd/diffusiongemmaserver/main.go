@@ -152,6 +152,7 @@ func main() {
 	dispatchProgress := flag.Bool("dispatch-progress", false, "print dispatcher progress to stderr")
 	skipEviction := flag.Bool("skip-eviction", false, "keep decoded/Q80 layer caches across requests")
 	flag.Parse()
+	applyK3LMHeadPreset(k3Native, k3A100Q8, lmHeadTopK, k3A100LMHead, k3A100LMHeadPrefetch)
 	if *modelDir == "" {
 		log.Fatal("usage: diffusiongemmaserver -model PATH [-listen :8080] [-allow-slow-cpu]")
 	}
@@ -258,6 +259,31 @@ func main() {
 	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
 	log.Printf("diffusiongemmaserver: listening on %s model=%s", *listen, *modelID)
 	log.Fatal(http.ListenAndServe(*listen, logRequests(mux)))
+}
+
+func flagWasSet(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func applyK3LMHeadPreset(k3, k3A100Q8 *bool, lmHeadTopK *int, lmHead, lmHeadPrefetch *bool) {
+	if k3 == nil || k3A100Q8 == nil || !*k3 || !*k3A100Q8 {
+		return
+	}
+	if lmHeadTopK != nil && *lmHeadTopK == 0 && !flagWasSet("lm-head-top-k") {
+		*lmHeadTopK = 64
+	}
+	if lmHead != nil && !*lmHead && !flagWasSet("k3-a100-lmhead") {
+		*lmHead = true
+	}
+	if lmHeadPrefetch != nil && !*lmHeadPrefetch && !flagWasSet("k3-a100-lmhead-prefetch") {
+		*lmHeadPrefetch = true
+	}
 }
 
 func setK3Env(k3 bool, k3Threads int, k3A100Q8 bool, k3A100Workers int, lmHead bool, lmHeadPrefetch bool, lmHeadCandidates int, q80Prefetch bool, selectedPrefetch bool) {

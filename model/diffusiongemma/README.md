@@ -439,3 +439,15 @@ final response/chunk so go-pherence measurements report actual generated tokens,
 blocks, executed denoising steps, canvas-position evaluations, generated tok/s,
 and canvas-position tok/s. This mirrors the PR's later `STATS` commits and makes
 future runner-vs-server comparisons unambiguous.
+
+### Canonical K3 256-canvas benchmark
+
+Use `scripts/diffusiongemma_k3_canvas256_bench.sh` for apples-to-apples K3
+comparison runs. It refuses `PROMPT_IDS`, sends the text/chat prompt through the
+server tokenizer, defaults to `canvas=256`, records the llama.cpp public
+`REQUESTED_DIFFUSION_STEPS=256`, and uses the go-pherence K3 sparse LM-head
+preset (`-k3-a100-lmhead -k3-a100-lmhead-prefetch -lm-head-top-k 64`) so the
+run does not accidentally fall back to a full `256 × vocab × hidden` LM-head
+pass. Override `DENOISE_STEPS` when comparing an observed llama.cpp effective
+step count (the PR #24423 reference stopped after 11 steps on the "Say hello
+briefly." prompt).
