@@ -39,7 +39,25 @@ func k3PrepackExpertQ80Names(weights *TextWeights, names []string) (bool, error)
 	if len(names) == 0 {
 		return true, nil
 	}
-	workers := k3ExpertPrepackWorkers(len(names))
+	pending := make([]string, 0, len(names))
+	seen := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		if k3Q80CachedForTensorName(weights, name) {
+			continue
+		}
+		pending = append(pending, name)
+	}
+	if len(pending) == 0 {
+		return true, nil
+	}
+	workers := k3ExpertPrepackWorkers(len(pending))
 	jobs := make(chan string)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -62,7 +80,7 @@ func k3PrepackExpertQ80Names(weights *TextWeights, names []string) (bool, error)
 			}
 		}()
 	}
-	for _, name := range names {
+	for _, name := range pending {
 		jobs <- name
 	}
 	close(jobs)

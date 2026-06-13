@@ -436,6 +436,15 @@ func packK3FP8ToQ80x32RowScale(raw []byte, scales []float32, rows, cols int) ime
 	return ime2.Q80x32{M: rows, K: cols, BData: out, Valid: true}
 }
 
+func k3Q80CachedForTensorName(weights *TextWeights, name string) bool {
+	if weights == nil || name == "" {
+		return false
+	}
+	key := k3Q80CacheKey{weights: weights, name: name}
+	_, ok := k3Q80Cache.Load(key)
+	return ok
+}
+
 func k3Q80ForTensorName(weights *TextWeights, name string) (ime2.Q80x32, bool, error) {
 	if weights == nil || name == "" {
 		return ime2.Q80x32{}, false, nil

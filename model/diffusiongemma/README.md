@@ -150,7 +150,15 @@ steps. It is memory-heavy but can avoid selected-expert repacking: in a 2-step,
 `-k3-q80-retain-selected-expert-layers N`, which retains only on-demand selected
 expert Q80 caches for the first N layers; with `N=4` the same 4-layer 2-step
 smoke kept peak Q80 around `4.17GB` and improved both passes versus evicting
-selected experts every layer.
+selected experts every layer. The selected-expert prepack helper first filters
+already-resident Q80 tensors before scheduling X100 packing workers, so retained
+experts skip goroutine setup and repeated build attempts. In a focused
+4-layer, 2-step, canvas-16 run with retained selected experts, second-pass
+layer 0 hit `prepack=0s` and completed in `45ms`; later second-pass layers
+still spent roughly `56-62ms` packing newly selected experts not seen in the
+first pass. Selected-expert prefetch remained only a small win in that bounded
+case (`8.476s` to `8.412s` wall) and stays opt-in. Worker counts above the
+default 8 did not materially improve the residual new-expert pack tail.
 
 Full 30-layer, 2-step, canvas-16 profiles with dense Q80 residency (`2 GiB`
 budget selects all dense projections) and A100 LM-head prefetch:
@@ -158,8 +166,8 @@ budget selects all dense projections) and A100 LM-head prefetch:
 | Mode | Decoder pass 1 | Decoder pass 2 | Max Q80 | Notes |
 |---|---:|---:|---:|---|
 | bounded, evict selected experts | 16.8s | 15.9s | 2.85GB | safest memory |
-| retain selected experts all layers | 13.4s | 8.5s | 12.3GB | middle ground; no F32 cache growth |
-| `-skip-eviction` | 13.6s | 8.0s | 12.1GB | fastest measured; retains all caches |
+| retain selected experts all layers | 12.907s | 8.517s | 12.1GB | 38.073s wall after resident-name filter; no F32 cache growth |
+| `-skip-eviction` | 12.929s | 8.407s | 12.1GB | 38.210s wall after resident-name filter; retains all caches |
 
 All three produced the same sampled token in the recorded full-profile runs.
 
