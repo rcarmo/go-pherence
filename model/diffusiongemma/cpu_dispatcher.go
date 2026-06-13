@@ -432,47 +432,76 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 	if err != nil {
 		return err
 	}
-	gateW, gateRows, gateCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondGateProj)
-	if err != nil {
-		return err
+	if fp.Globals.SelfCondGateProj == nil || fp.Globals.SelfCondUpProj == nil || fp.Globals.SelfCondDownProj == nil || len(fp.Globals.SelfCondGateProj.Shape) != 2 || len(fp.Globals.SelfCondUpProj.Shape) != 2 || len(fp.Globals.SelfCondDownProj.Shape) != 2 {
+		return fmt.Errorf("DiffusionGemma self-conditioning missing projection bindings")
 	}
-	upW, upRows, upCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondUpProj)
-	if err != nil {
-		return err
-	}
-	downW, downRows, downCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondDownProj)
-	if err != nil {
-		return err
-	}
+	gateRows, gateCols := fp.Globals.SelfCondGateProj.Shape[0], fp.Globals.SelfCondGateProj.Shape[1]
+	upRows, upCols := fp.Globals.SelfCondUpProj.Shape[0], fp.Globals.SelfCondUpProj.Shape[1]
+	downRows, downCols := fp.Globals.SelfCondDownProj.Shape[0], fp.Globals.SelfCondDownProj.Shape[1]
 	if len(preNorm) != hiddenSize || gateCols != hiddenSize || upCols != hiddenSize || gateRows != upRows || downRows != hiddenSize || downCols != gateRows {
 		return fmt.Errorf("DiffusionGemma self-conditioning shape mismatch")
 	}
+	positions := len(scratch.Hidden) / hiddenSize
 	intermediate := gateRows
-	cond := make([]float32, hiddenSize)
-	gate := make([]float32, intermediate)
-	up := make([]float32, intermediate)
-	act := make([]float32, intermediate)
-	signal := make([]float32, hiddenSize)
-	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
-		copy(cond, ctx.SelfConditioning[off:off+hiddenSize])
+	condAll := make([]float32, positions*hiddenSize)
+	for pos := 0; pos < positions; pos++ {
+		cond := condAll[pos*hiddenSize : (pos+1)*hiddenSize]
+		copy(cond, ctx.SelfConditioning[pos*hiddenSize:(pos+1)*hiddenSize])
 		if !simd.RMSNormTo(cond, preNorm, 1e-6) {
-			return fmt.Errorf("DiffusionGemma self-conditioning pre norm rejected row at offset %d", off)
+			return fmt.Errorf("DiffusionGemma self-conditioning pre norm rejected row %d", pos)
 		}
-		if !simd.GemvRows(gate, cond, gateW, intermediate, hiddenSize) || !simd.GemvRows(up, cond, upW, intermediate, hiddenSize) {
-			return fmt.Errorf("DiffusionGemma self-conditioning gate/up GEMV rejected")
+	}
+	gateAll := make([]float32, positions*intermediate)
+	upAll := make([]float32, positions*intermediate)
+	if done, err := k3Gemm2RowsQ80(gateAll, upAll, condAll, positions, weights, fp.Globals.SelfCondGateProj, fp.Globals.SelfCondUpProj); err != nil {
+		return err
+	} else if !done {
+		gateW, _, _, err := loadFloatMatrix(weights, fp.Globals.SelfCondGateProj)
+		if err != nil {
+			return err
 		}
-		if !simd.GELUTanhMulTo(act, gate, up) {
+		upW, _, _, err := loadFloatMatrix(weights, fp.Globals.SelfCondUpProj)
+		if err != nil {
+			return err
+		}
+		for pos := 0; pos < positions; pos++ {
+			cond := condAll[pos*hiddenSize : (pos+1)*hiddenSize]
+			gate := gateAll[pos*intermediate : (pos+1)*intermediate]
+			up := upAll[pos*intermediate : (pos+1)*intermediate]
+			if !simd.GemvRows(gate, cond, gateW, intermediate, hiddenSize) || !simd.GemvRows(up, cond, upW, intermediate, hiddenSize) {
+				return fmt.Errorf("DiffusionGemma self-conditioning gate/up GEMV rejected")
+			}
+		}
+	}
+	actAll := make([]float32, positions*intermediate)
+	for pos := 0; pos < positions; pos++ {
+		if !simd.GELUTanhMulTo(actAll[pos*intermediate:(pos+1)*intermediate], gateAll[pos*intermediate:(pos+1)*intermediate], upAll[pos*intermediate:(pos+1)*intermediate]) {
 			return fmt.Errorf("DiffusionGemma self-conditioning activation rejected")
 		}
-		if !simd.GemvRows(signal, act, downW, hiddenSize, intermediate) {
-			return fmt.Errorf("DiffusionGemma self-conditioning down GEMV rejected")
+	}
+	signalAll := make([]float32, positions*hiddenSize)
+	if done, err := k3GemmRowsQ80(signalAll, actAll, positions, weights, fp.Globals.SelfCondDownProj); err != nil {
+		return err
+	} else if !done {
+		downW, _, _, err := loadFloatMatrix(weights, fp.Globals.SelfCondDownProj)
+		if err != nil {
+			return err
 		}
-		row := scratch.Hidden[off : off+hiddenSize]
-		for i := range row {
-			row[i] += signal[i]
+		signal := make([]float32, hiddenSize)
+		for pos := 0; pos < positions; pos++ {
+			act := actAll[pos*intermediate : (pos+1)*intermediate]
+			if !simd.GemvRows(signal, act, downW, hiddenSize, intermediate) {
+				return fmt.Errorf("DiffusionGemma self-conditioning down GEMV rejected")
+			}
+			copy(signalAll[pos*hiddenSize:(pos+1)*hiddenSize], signal)
 		}
+	}
+	for pos := 0; pos < positions; pos++ {
+		row := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		signal := signalAll[pos*hiddenSize : (pos+1)*hiddenSize]
+		k3SaxpyV(1, signal, row)
 		if !simd.RMSNormNoScaleTo(row, 1e-6) {
-			return fmt.Errorf("DiffusionGemma self-conditioning post norm rejected row at offset %d", off)
+			return fmt.Errorf("DiffusionGemma self-conditioning post norm rejected row %d", pos)
 		}
 	}
 	return nil

@@ -168,7 +168,8 @@ BF16/F32 dot products (`-k3-a100-lmhead-candidates`, default max(32, 4×topK)).
 decoder layers run; in a 4-layer 2-step smoke it moved the one-time 1.8s
 embedding Q80 pack out of the tail and kept LM-head tails near `904ms` with
 identical generated output. Sparse self-conditioning over top-k logits then
-completes in roughly `5ms`.
+completes in roughly `5ms`; the following step's self-conditioning prefix
+(gate/up/down) is batched through the same A100 Q80 path.
 
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 
