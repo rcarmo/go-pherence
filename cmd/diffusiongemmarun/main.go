@@ -69,6 +69,7 @@ func main() {
 	q80PrewarmLayers := flag.Int("k3-q80-prewarm-layers", 0, "prepack first N text layers into the K3 A100 Q80 cache")
 	q80PrewarmExperts := flag.Bool("k3-q80-prewarm-experts", false, "include all per-expert tensors when using -k3-q80-prewarm-layers; memory-heavy")
 	q80ResidencyBudgetGiB := flag.Float64("k3-q80-residency-budget-gib", 0, "choose K3 Q80 prewarm layer count from a packed-weight cache budget in GiB")
+	q80RetainSelectedExpertLayers := flag.Int("k3-q80-retain-selected-expert-layers", 0, "retain on-demand selected expert Q80 caches for first N layers across denoising steps without full expert prewarm")
 	maxDispatchLayers := flag.Int("max-dispatch-layers", 0, "debug: execute at most N text layers in CPU dispatcher")
 	tailAfterMaxLayers := flag.Bool("tail-after-max-layers", false, "debug: run tail ops after -max-dispatch-layers instead of returning before tail")
 	lmHeadTopK := flag.Int("lm-head-top-k", 0, "debug: keep only top-K LM head logits per position, storing -Inf elsewhere")
@@ -253,6 +254,10 @@ func main() {
 			}
 		}
 		q80Prewarmed := 0
+		if *q80RetainSelectedExpertLayers > 0 {
+			weights.RetainQ80ExpertLayerPrefix(*q80RetainSelectedExpertLayers)
+			fmt.Fprintf(os.Stderr, "diffusiongemmarun: K3 Q80 retaining selected expert caches for layers=%d\n", *q80RetainSelectedExpertLayers)
+		}
 		if *q80ResidencyBudgetGiB > 0 {
 			budgetBytes := int64(*q80ResidencyBudgetGiB * 1024 * 1024 * 1024)
 			budget := diffusiongemma.EstimateQ80ResidencyBudgetFromWeights(weights, *q80PrewarmExperts, budgetBytes)
@@ -275,7 +280,7 @@ func main() {
 			}
 			fmt.Printf("DiffusionGemma preload scaffold: %s\n", *modelDir)
 			fmt.Printf("  shards_ready=%v present=%d/%d\n", ready, present, expected)
-			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v k3_q80_prewarm_layers=%d k3_q80_residency_budget_gib=%.2f k3_q80_prewarm_tensors=%d k3_q80_prewarm_experts=%v float_cache_entries=%d float_cache_bytes=%d q80_cache_entries=%d q80_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, *q80PrewarmLayers, *q80ResidencyBudgetGiB, q80Prewarmed, *q80PrewarmExperts, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v k3_q80_prewarm_layers=%d k3_q80_residency_budget_gib=%.2f k3_q80_retain_selected_expert_layers=%d k3_q80_prewarm_tensors=%d k3_q80_prewarm_experts=%v float_cache_entries=%d float_cache_bytes=%d q80_cache_entries=%d q80_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, *q80PrewarmLayers, *q80ResidencyBudgetGiB, *q80RetainSelectedExpertLayers, q80Prewarmed, *q80PrewarmExperts, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes())
 			return
 		}
 		if *useGPUDispatcher {
@@ -358,7 +363,7 @@ func main() {
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
 	}
 	if weights != nil {
-		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f k3_q80_prewarm_layers=%d k3_q80_residency_budget_gib=%.2f max_dispatch_layers=%d tail_after_max_layers=%v lm_head_top_k=%d skip_eviction=%v float_cache_entries=%d float_cache_bytes=%d q80_cache_entries=%d q80_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *q80PrewarmLayers, *q80ResidencyBudgetGiB, *maxDispatchLayers, *tailAfterMaxLayers, *lmHeadTopK, *skipEviction, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f k3_q80_prewarm_layers=%d k3_q80_residency_budget_gib=%.2f k3_q80_retain_selected_expert_layers=%d max_dispatch_layers=%d tail_after_max_layers=%v lm_head_top_k=%d skip_eviction=%v float_cache_entries=%d float_cache_bytes=%d q80_cache_entries=%d q80_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *q80PrewarmLayers, *q80ResidencyBudgetGiB, *q80RetainSelectedExpertLayers, *maxDispatchLayers, *tailAfterMaxLayers, *lmHeadTopK, *skipEviction, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes())
 	}
 	if out.Error != "" {
 		fmt.Printf("  error: %s\n", out.Error)

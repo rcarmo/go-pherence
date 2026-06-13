@@ -168,6 +168,21 @@ func (w *TextWeights) EvictLayer(layer int) int {
 	return evicted
 }
 
+func (w *TextWeights) RetainQ80ExpertLayerPrefix(layers int) {
+	if w == nil {
+		return
+	}
+	if layers < 0 {
+		layers = 0
+	}
+	if layers > len(w.Layers) {
+		layers = len(w.Layers)
+	}
+	if layers > w.q80ExpertResidentLayerPrefix {
+		w.q80ExpertResidentLayerPrefix = layers
+	}
+}
+
 func (w *TextWeights) RetainGlobalsAndLayerPrefix(layers int) int {
 	if w == nil {
 		return 0

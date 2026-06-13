@@ -14,6 +14,7 @@ MAX_NEW="${MAX_NEW:-1}"
 PROMPT_IDS="${PROMPT_IDS:-2,3}"
 Q80_BUDGET_GIB="${Q80_BUDGET_GIB:-2.0}"
 LM_HEAD_TOP_K="${LM_HEAD_TOP_K:-8}"
+RETAIN_SELECTED_EXPERT_LAYERS="${RETAIN_SELECTED_EXPERT_LAYERS:-0}"
 A100_WORKERS="${A100_WORKERS:-6}"
 K3_THREADS="${K3_THREADS:-8}"
 LOG_DIR="${LOG_DIR:-/tmp}"
@@ -72,6 +73,7 @@ go run ./cmd/diffusiongemmarun \
   -lm-head-top-k "${LM_HEAD_TOP_K}" \
   -dispatch-progress \
   -k3-q80-residency-budget-gib "${Q80_BUDGET_GIB}" \
+  -k3-q80-retain-selected-expert-layers "${RETAIN_SELECTED_EXPERT_LAYERS}" \
   "${EXTRA_FLAGS[@]}" \
   -json 2>&1 | tee "${LOG}"
 

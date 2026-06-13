@@ -121,7 +121,11 @@ selected expert tensor across nonresident layers.
 For multi-step denoising, `-skip-eviction` keeps decoded/Q80 layer caches across
 steps. It is memory-heavy but can avoid selected-expert repacking: in a 2-step,
 4-layer canvas-16 smoke, second-step layers 1–2 improved from roughly
-`477ms/474ms` to `124ms/147ms` with identical output.
+`477ms/474ms` to `124ms/147ms` with identical output. A bounded middle ground is
+`-k3-q80-retain-selected-expert-layers N`, which retains only on-demand selected
+expert Q80 caches for the first N layers; with `N=4` the same 4-layer 2-step
+smoke kept peak Q80 around `4.17GB` and improved both passes versus evicting
+selected experts every layer.
 
 Async Q80 prefetch can interleave packing with compute:
 
