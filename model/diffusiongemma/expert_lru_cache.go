@@ -286,3 +286,24 @@ func (c *ExpertLRUCache) ReportCacheStats() {
 		fmt.Fprintf(os.Stderr, "DiffusionGemma expert LRU: %s\n", c.Stats())
 	}
 }
+
+// ClearAll evicts all cached experts, freeing GPU memory.
+func (c *ExpertLRUCache) ClearAll() {
+	if c == nil {
+		return
+	}
+	for _, e := range c.entries {
+		if e.gate != nil {
+			e.gate.Free()
+		}
+		if e.up != nil {
+			e.up.Free()
+		}
+		if e.down != nil {
+			e.down.Free()
+		}
+	}
+	c.entries = make(map[expertKey]*expertEntry)
+	c.order = c.order[:0]
+	c.usedBytes = 0
+}

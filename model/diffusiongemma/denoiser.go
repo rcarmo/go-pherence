@@ -76,6 +76,10 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 			return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
 		}
 		d.EncoderKV = kv
+		// Clear encoder experts from GPU cache so decoder has full cache capacity
+		if gd, ok := d.Dispatcher.(GPUDispatcher); ok && gd.ExpertCache != nil {
+			gd.ExpertCache.ClearAll()
+		}
 	}
 	encoderSeqLen := 0
 	if len(d.EncoderKV) > 0 {
