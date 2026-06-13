@@ -43,6 +43,7 @@ func EstimateQ80ResidencyBudgetFromWeights(weights *TextWeights, _ bool, budgetB
 	return out
 }
 
+func (w *TextWeights) PreloadSelfConditioningQ80() (int, error)   { return 0, nil }
 func (w *TextWeights) PreloadLayerQ80(_ int, _ bool) (int, error) { return 0, nil }
 func (w *TextWeights) PreloadLayerRangeQ80(_ int, _ int, _ bool) (int, error) {
 	return 0, nil

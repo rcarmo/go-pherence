@@ -167,6 +167,15 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		scratch.TopKVals = scratch.TopKVals[:actualTopK]
 	}
 	for _, op := range ops.Prefix {
+		if diffusionGemmaTimingEnabled() {
+			started := time.Now()
+			err := dispatchPrefixOp(op, ctx, weights, scratch)
+			fmt.Fprintf(os.Stderr, "timing diffusiongemma prefix op=%s elapsed=%s q80_entries=%d q80_bytes=%d\n", op, time.Since(started).Round(time.Millisecond), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+			if err != nil {
+				return ForwardOutput{}, err
+			}
+			continue
+		}
 		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
 		}

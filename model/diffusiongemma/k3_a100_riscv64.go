@@ -581,6 +581,25 @@ func EstimateQ80ResidencyBudgetFromWeights(weights *TextWeights, includeExperts 
 	return out
 }
 
+func (w *TextWeights) PreloadSelfConditioningQ80() (int, error) {
+	if w == nil {
+		return 0, fmt.Errorf("nil DiffusionGemma text weights")
+	}
+	fp := w.ForwardPlan()
+	count := 0
+	for _, b := range []*TensorBinding{fp.Globals.SelfCondGateProj, fp.Globals.SelfCondUpProj, fp.Globals.SelfCondDownProj} {
+		if b == nil {
+			continue
+		}
+		if _, ok, err := k3Q80ForBinding(w, b); err != nil {
+			return count, err
+		} else if ok {
+			count++
+		}
+	}
+	return count, nil
+}
+
 func (w *TextWeights) PreloadLayerQ80(layer int, includeExperts bool) (int, error) {
 	if w == nil {
 		return 0, fmt.Errorf("nil DiffusionGemma text weights")

@@ -270,6 +270,11 @@ func main() {
 			if err != nil {
 				fatal(err)
 			}
+			if n, err := weights.PreloadSelfConditioningQ80(); err != nil {
+				fatal(err)
+			} else {
+				q80Prewarmed += n
+			}
 			fmt.Fprintf(os.Stderr, "diffusiongemmarun: K3 Q80 prewarmed layers=%d tensors=%d include_experts=%v\n", *q80PrewarmLayers, q80Prewarmed, *q80PrewarmExperts)
 		}
 		if *preloadOnly {

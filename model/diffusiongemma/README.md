@@ -169,7 +169,10 @@ decoder layers run; in a 4-layer 2-step smoke it moved the one-time 1.8s
 embedding Q80 pack out of the tail and kept LM-head tails near `904ms` with
 identical generated output. Sparse self-conditioning over top-k logits then
 completes in roughly `5ms`; the following step's self-conditioning prefix
-(gate/up/down) is batched through the same A100 Q80 path.
+(gate/up/down) is batched through the same A100 Q80 path. Self-conditioning
+projection Q80 weights are prewarmed with the layer Q80 cache, reducing the
+step-2 prefix self-conditioning path from roughly `75ms` to `6ms` in a canvas-16
+2-step smoke.
 
 TCM staging for Q80 A100 tiles is controlled by `IME2_Q80_TCM`:
 
