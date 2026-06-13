@@ -74,8 +74,18 @@ echo "diffusiongemma K3 profile log: ${LOG}" >&2
 
 runner_needs_rebuild() {
   [[ ! -x "${RUNNER_BIN}" ]] && return 0
+  [[ go.mod -nt "${RUNNER_BIN}" || go.sum -nt "${RUNNER_BIN}" ]] && return 0
   local newest
-  newest="$(find cmd/diffusiongemmarun model/diffusiongemma backends/spacemit/aicpu/aipool backends/spacemit/ime2 -type f -name '*.go' -newer "${RUNNER_BIN}" -print -quit)"
+  newest="$(find \
+    cmd/diffusiongemmarun \
+    model/diffusiongemma \
+    loader \
+    backends/simd \
+    backends/spacemit/aicpu/aipool \
+    backends/spacemit/ime2 \
+    half \
+    internal \
+    -type f -name '*.go' -newer "${RUNNER_BIN}" -print -quit)"
   [[ -n "${newest}" ]]
 }
 
