@@ -1,18 +1,22 @@
 package diffusiongemma
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // TextDenoiser is the future native tensor-backed DiffusionGemma denoiser. It
 // currently validates and owns the metadata/weight binding needed by a forward
 // pass, but does not yet implement layer math.
 type TextDenoiser struct {
-	Shape      Shape
-	Weights    *TextWeights
-	Plan       TextForwardPlan
-	Ops        ForwardOpPlan
-	Buffers    ForwardBufferPlan
-	Dispatcher ForwardDispatcher
-	EncoderKV  []EncoderKVLayer
+	Shape            Shape
+	Weights          *TextWeights
+	Plan             TextForwardPlan
+	Ops              ForwardOpPlan
+	Buffers          ForwardBufferPlan
+	Dispatcher       ForwardDispatcher
+	EncoderKV        []EncoderKVLayer
+	EncoderPromptIDs []int
 }
 
 func NewTextDenoiser(shape Shape, weights *TextWeights) (*TextDenoiser, error) {
@@ -56,14 +60,19 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	if d.Dispatcher == nil {
 		return ForwardOutput{}, fmt.Errorf("DiffusionGemma text forward dispatcher is not configured")
 	}
-	// Encode prompt on first call if not already done
-	if d.EncoderKV == nil && len(in.PromptIDs) > 0 {
+	// Encode prompt when needed and invalidate cached encoder KV if the prompt
+	// context changes between block-diffusion canvases.
+	if len(in.PromptIDs) == 0 {
+		d.EncoderKV = nil
+		d.EncoderPromptIDs = nil
+	} else if d.EncoderKV == nil || !slices.Equal(d.EncoderPromptIDs, in.PromptIDs) {
 		if cpuDisp, ok := d.Dispatcher.(CPUDispatcher); ok {
 			kv, err := cpuDisp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
 			if err != nil {
 				return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
 			}
 			d.EncoderKV = kv
+			d.EncoderPromptIDs = append(d.EncoderPromptIDs[:0], in.PromptIDs...)
 		}
 	}
 	encoderSeqLen := 0
