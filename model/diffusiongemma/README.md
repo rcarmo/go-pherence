@@ -93,6 +93,14 @@ retention for all layers (`RETAIN_SELECTED_EXPERT_LAYERS=30`, `SKIP_EVICTION=0`)
 as the current practical speed/memory tradeoff on the 31GB K3; set
 `SKIP_EVICTION=1` for the max-speed/full-cache profile.
 
+Recommended K3 validation commands:
+
+```sh
+make diffusiongemma-k3-smoke     # short A100/Q80 path, expected token check
+make diffusiongemma-k3-check     # smoke + FP8 fallback + model-backed Q80/scale tests
+make diffusiongemma-k3-profile   # repeatable full profile summary
+```
+
 | Operation | Default (scalar) | K3 dispatch |
 |---|---|---|
 | Q·K dot product | `dot(a, b)` | `simdrt.Sdot(a, b)` — SIMD/RVV vector dot |
