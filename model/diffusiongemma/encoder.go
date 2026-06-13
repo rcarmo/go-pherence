@@ -75,7 +75,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 	for layer := 0; layer < numLayers; layer++ {
 		// Start prefetching layer+1 weights while this layer computes
 		if layer+1 < numLayers {
-			prefetchDone = prefetchLayerWeights(weights, fp, layer+1)
+			prefetchDone = prefetchLayerWeights(weights, fp, layer+1, fp8 != nil)
 		}
 		layerStart := time.Now()
 		lb := fp.Layers[layer]
@@ -544,7 +544,7 @@ func bf16GemvNarrow(out []float32, hidden []float32, wBF16 []uint16, rows, cols 
 // prefetchLayerWeights pre-warms the F32 cache for a layer's major projections
 // by triggering CachedFloatTensor in a background goroutine. Also issues
 // madvise(WILLNEED) on the raw mmap regions for kernel readahead.
-func prefetchLayerWeights(weights *TextWeights, fp TextForwardPlan, layer int) <-chan struct{} {
+func prefetchLayerWeights(weights *TextWeights, fp TextForwardPlan, layer int, gpuFP8 bool) <-chan struct{} {
 	done := make(chan struct{})
 	if layer < 0 || layer >= len(fp.Layers) {
 		close(done)
@@ -553,20 +553,27 @@ func prefetchLayerWeights(weights *TextWeights, fp TextForwardPlan, layer int) <
 	go func() {
 		defer close(done)
 		lb := fp.Layers[layer]
-		// Issue madvise WILLNEED for raw tensor regions first (non-blocking kernel readahead)
-		for _, b := range []*TensorBinding{
-			lb.QProj, lb.KProj, lb.VProj, lb.OProj,
-			lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj,
-		} {
-			if b != nil {
-				// RawTensor triggers mmap access; the OS prefetches surrounding pages
-				weights.RawTensor(b.Name)
+		if !gpuFP8 {
+			// CPU path: prefetch and decode all projection tensors
+			for _, b := range []*TensorBinding{
+				lb.QProj, lb.KProj, lb.VProj, lb.OProj,
+				lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj,
+			} {
+				if b != nil {
+					weights.RawTensor(b.Name)
+				}
+			}
+			for _, b := range []*TensorBinding{
+				lb.QProj, lb.KProj, lb.VProj, lb.OProj,
+				lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj,
+			} {
+				if b != nil {
+					weights.CachedFloatTensor(b.Name)
+				}
 			}
 		}
-		// Then decode to F32 cache (the actual work)
+		// Both paths: prefetch norms/scalars (small, needed by all)
 		for _, b := range []*TensorBinding{
-			lb.QProj, lb.KProj, lb.VProj, lb.OProj,
-			lb.MLPGateProj, lb.MLPUpProj, lb.MLPDownProj,
 			lb.InputLayerNorm, lb.PostAttentionLayerNorm,
 			lb.PreFFNLayerNorm, lb.QNorm, lb.KNorm,
 		} {
