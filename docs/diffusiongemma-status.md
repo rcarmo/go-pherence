@@ -885,3 +885,28 @@ Techniques applied:
 - Parallel GEMV with goroutine worker pool
 - SIMD AVX2+FMA BF16WidenToF32 for weight decode
 - Zero-copy mmap for FP8 expert weight bytes
+
+
+## Final optimization results
+
+2026-06-13: DiffusionGemma on i7-12700 + RTX 3060 (12 GB):
+
+| Prompt | Output | Time |
+|---|---|---|
+| Capital of France? | **Paris**. | 51s |
+| Capital of Spain? | **Madrid** | 51s |
+| Largest ocean? | **Pacific**. | 58s |
+| Chemical formula for water? | **H2O**. | 41s |
+
+Total speedup: **4m54s → 41-58s = 5.1-7.2×**
+
+All optimizations applied:
+- FP8 GPU projections (batched GEMM for Q/K/V and MLP)
+- Expert LRU GPU cache (7.2 GB, ~1265 FP8 experts on-demand)
+- Batched expert GEMM across canvas positions
+- GPU GQA attention kernel
+- BF16 native encoder (skip F32 decode, AVX2 BF16DotAsm)
+- BF16 native LM head from FP8 checkpoint (parallel multi-core scan)
+- Thread-safe weight cache with prefetch and madvise
+- Parallel GEMV with goroutine workers
+- SIMD AVX2+FMA throughout
