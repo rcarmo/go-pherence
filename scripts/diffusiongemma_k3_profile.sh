@@ -37,7 +37,7 @@ export GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS="${GO_PHERENCE_DIFFUSIONGEMMA_K3_TH
 export GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS="${GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS:-${A100_WORKERS}}"
 
 EXTRA_FLAGS=()
-if [[ "${SKIP_EVICTION:-1}" == "1" ]]; then
+if [[ "${SKIP_EVICTION:-0}" == "1" ]]; then
   EXTRA_FLAGS+=("-skip-eviction")
 fi
 if [[ "${A100_LMHEAD:-1}" == "1" ]]; then
@@ -79,7 +79,7 @@ go run ./cmd/diffusiongemmarun \
 
 printf '\n=== diffusiongemma K3 profile summary ===\n'
 printf 'log=%s\n' "${LOG}"
-printf 'config: canvas=%s steps=%s q80_budget_gib=%s retain_selected_expert_layers=%s skip_eviction=%s\n' "${CANVAS}" "${STEPS}" "${Q80_BUDGET_GIB}" "${RETAIN_SELECTED_EXPERT_LAYERS}" "${SKIP_EVICTION:-1}"
+printf 'config: canvas=%s steps=%s q80_budget_gib=%s retain_selected_expert_layers=%s skip_eviction=%s\n' "${CANVAS}" "${STEPS}" "${Q80_BUDGET_GIB}" "${RETAIN_SELECTED_EXPERT_LAYERS}" "${SKIP_EVICTION:-0}"
 grep "K3 Q80 residency budget\|K3 Q80 prewarmed\|K3 Q80 retaining selected" "${LOG}" || true
 printf '\n-- decoder layer totals --\n'
 grep "CPU dispatcher: completed layer" "${LOG}" | awk '
