@@ -95,6 +95,12 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 			if progress {
 				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: rebuilt prompt_len=%d previous_prompt_len=%d elapsed=%s\n", len(in.PromptIDs), previousLen, time.Since(started).Round(time.Millisecond))
 			}
+		} else {
+			if progress && len(d.EncoderKV) > 0 {
+				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: invalidated prompt_len=%d previous_prompt_len=%d reason=unsupported_dispatcher\n", len(in.PromptIDs), len(d.EncoderPromptIDs))
+			}
+			d.EncoderKV = nil
+			d.EncoderPromptIDs = nil
 		}
 	} else if progress {
 		fmt.Fprintf(os.Stderr, "DiffusionGemma encoder cache: hit prompt_len=%d\n", len(in.PromptIDs))
