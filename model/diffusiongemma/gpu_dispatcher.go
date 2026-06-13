@@ -204,6 +204,7 @@ func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *Tex
 	}
 	lb := fp.Layers[op.Layer]
 
+	// Load attention projection weights
 	qW, qRows, _, err := loadFloatMatrix(weights, lb.QProj)
 	if err != nil {
 		return err
@@ -373,26 +374,29 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 	}
 	lb := fp.Layers[op.Layer]
 
-	gateW, gateRows, gateCols, err := loadFloatMatrix(weights, lb.MLPGateProj)
-	if err != nil {
-		return err
+	var gateW, upW, downW []float32
+	var intermediate, gateCols int
+	if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
+		fl := &d.FP8Model.Layers[op.Layer]
+		if fl.Gate != nil {
+			intermediate = fl.Gate.OutDim
+			gateCols = fl.Gate.InDim
+		}
+	} else {
+		var err error
+		gateW, intermediate, gateCols, err = loadFloatMatrix(weights, lb.MLPGateProj)
+		if err != nil {
+			return err
+		}
+		upW, _, _, err = loadFloatMatrix(weights, lb.MLPUpProj)
+		if err != nil {
+			return err
+		}
+		downW, _, _, err = loadFloatMatrix(weights, lb.MLPDownProj)
+		if err != nil {
+			return err
+		}
 	}
-	upW, _, _, err := loadFloatMatrix(weights, lb.MLPUpProj)
-	if err != nil {
-		return err
-	}
-	downW, _, _, err := loadFloatMatrix(weights, lb.MLPDownProj)
-	if err != nil {
-		return err
-	}
-	intermediate := gateRows
-
-	gateBuf := gpu.NewDevBufFrom(gateW)
-	defer gateBuf.Free()
-	upBuf := gpu.NewDevBufFrom(upW)
-	defer upBuf.Free()
-	downBuf := gpu.NewDevBufFrom(downW)
-	defer downBuf.Free()
 
 	positions := len(scratch.Hidden) / hiddenSize
 	if d.FP8Model != nil && op.Layer < len(d.FP8Model.Layers) {
@@ -418,6 +422,12 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 		}
 		copy(scratch.Hidden[:positions*hiddenSize], downBatch)
 	} else {
+		gateBuf := gpu.NewDevBufFrom(gateW)
+		defer gateBuf.Free()
+		upBuf := gpu.NewDevBufFrom(upW)
+		defer upBuf.Free()
+		downBuf := gpu.NewDevBufFrom(downW)
+		defer downBuf.Free()
 		gate := make([]float32, intermediate)
 		up := make([]float32, intermediate)
 		act := make([]float32, intermediate)
