@@ -73,6 +73,8 @@ go run ./cmd/diffusiongemmarun \
   -denoise-steps "${STEPS}" \
   -cpu-dispatcher \
   -allow-slow-cpu \
+  -k3 \
+  -k3-a100-q8 \
   -lm-head-top-k "${LM_HEAD_TOP_K}" \
   -dispatch-progress \
   -k3-q80-residency-budget-gib "${Q80_BUDGET_GIB}" \

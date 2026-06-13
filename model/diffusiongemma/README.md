@@ -77,7 +77,7 @@ worker pool, with X100 cores packing activations in parallel.
 
 ## K3 native dispatch
 
-Enable with `GO_PHERENCE_DIFFUSIONGEMMA_K3=1`.
+Enable with `-k3` (or `GO_PHERENCE_DIFFUSIONGEMMA_K3=1`).
 
 When enabled, hot-path operations are replaced with K3-optimized implementations.
 Set `GO_PHERENCE_DIFFUSIONGEMMA_TIMING=1` to emit per-layer operation timing
@@ -98,13 +98,12 @@ as the current practical speed/memory tradeoff on the 31GB K3; set
 
 ### K3 A100/Q80x32 acceleration
 
-Enable with:
+Enable with `-k3 -k3-a100-q8` plus optional worker/thread env overrides:
 
 ```sh
-GO_PHERENCE_DIFFUSIONGEMMA_K3=1 \
-GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8=1 \
 GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS=8 \
-GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS=6
+GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS=6 \
+go run ./cmd/diffusiongemmarun ... -k3 -k3-a100-q8
 ```
 
 Optional prewarm flags move FP8→Q80 packing out of the hot denoising path:
