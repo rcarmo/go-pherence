@@ -14,6 +14,8 @@ MAX_NEW="${MAX_NEW:-1}"
 PROMPT_IDS="${PROMPT_IDS:-2,3}"
 Q80_BUDGET_GIB="${Q80_BUDGET_GIB:-2.0}"
 LM_HEAD_TOP_K="${LM_HEAD_TOP_K:-8}"
+MAX_DISPATCH_LAYERS="${MAX_DISPATCH_LAYERS:-0}"
+TAIL_AFTER_MAX_LAYERS="${TAIL_AFTER_MAX_LAYERS:-0}"
 RETAIN_SELECTED_EXPERT_LAYERS="${RETAIN_SELECTED_EXPERT_LAYERS:-30}"
 A100_WORKERS="${A100_WORKERS:-6}"
 K3_THREADS="${K3_THREADS:-8}"
@@ -62,6 +64,9 @@ fi
 if [[ "${Q80_SELECTED_PREFETCH:-0}" == "1" ]]; then
   EXTRA_FLAGS+=("-k3-q80-selected-prefetch")
 fi
+if [[ "${TAIL_AFTER_MAX_LAYERS}" == "1" ]]; then
+  EXTRA_FLAGS+=("-tail-after-max-layers")
+fi
 
 mkdir -p "${LOG_DIR}"
 echo "diffusiongemma K3 profile log: ${LOG}" >&2
@@ -104,6 +109,7 @@ PROFILE_START_NS="$(date +%s%N)"
   -k3-a100-q8 \
   -k3-a100-workers "${A100_WORKERS}" \
   -lm-head-top-k "${LM_HEAD_TOP_K}" \
+  -max-dispatch-layers "${MAX_DISPATCH_LAYERS}" \
   -dispatch-progress \
   -k3-q80-residency-budget-gib "${Q80_BUDGET_GIB}" \
   -k3-q80-retain-selected-expert-layers "${RETAIN_SELECTED_EXPERT_LAYERS}" \
@@ -114,7 +120,7 @@ PROFILE_WALL_MS="$(( (PROFILE_END_NS - PROFILE_START_NS) / 1000000 ))"
 
 printf '\n=== diffusiongemma K3 profile summary ===\n'
 printf 'log=%s\n' "${LOG}"
-printf 'config: canvas=%s steps=%s q80_budget_gib=%s retain_selected_expert_layers=%s skip_eviction=%s runner=%s\n' "${CANVAS}" "${STEPS}" "${Q80_BUDGET_GIB}" "${RETAIN_SELECTED_EXPERT_LAYERS}" "${SKIP_EVICTION:-0}" "${RUNNER[*]}"
+printf 'config: canvas=%s steps=%s max_dispatch_layers=%s tail_after_max_layers=%s q80_budget_gib=%s retain_selected_expert_layers=%s skip_eviction=%s runner=%s\n' "${CANVAS}" "${STEPS}" "${MAX_DISPATCH_LAYERS}" "${TAIL_AFTER_MAX_LAYERS}" "${Q80_BUDGET_GIB}" "${RETAIN_SELECTED_EXPERT_LAYERS}" "${SKIP_EVICTION:-0}" "${RUNNER[*]}"
 printf 'wall_ms=%s\n' "${PROFILE_WALL_MS}"
 grep "K3 Q80 residency budget\|K3 Q80 prewarmed\|K3 Q80 retaining selected" "${LOG}" || true
 printf '\n-- encoder cache --\n'
