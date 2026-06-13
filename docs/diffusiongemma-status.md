@@ -931,3 +931,18 @@ Results with canvas=24, 2-4 denoise steps:
 
 The model now enters thinking mode (`<|channel>thought`) before answering,
 matching the reference DiffusionGemma behavior.
+
+
+## Corrected timing with proper prompt template
+
+2026-06-13: After fixing newline tokens, timing is ~1m25s for canvas=16/2 steps
+(not the earlier 52s which used a broken prompt without newlines).
+The model now properly enters thinking mode, which uses canvas positions
+and produces higher-quality output.
+
+Recommended configurations:
+- Quick factual: canvas=16, 2 steps, ~1m25s
+- Full answers: canvas=24, 2 steps, ~1m30s
+- Refined output: canvas=24, 4 steps, ~3m44s
+
+All configurations produce correct factual output with thinking mode.
