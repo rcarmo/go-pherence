@@ -387,7 +387,10 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 				simd.GemvRows(scoredAll[pos*numExperts:(pos+1)*numExperts], routerInput[pos*hiddenSize:(pos+1)*hiddenSize], projW, numExperts, hiddenSize)
 			}
 		}
-		topK := 8 // from config
+		topK := buffers.TopKExperts
+		if topK <= 0 {
+			return nil, fmt.Errorf("DiffusionGemma encoder invalid top-k experts %d", topK)
+		}
 
 		preNorm2, err := loadFloatVector(weights, lb.PreFFNLayerNorm2)
 		if err != nil {
