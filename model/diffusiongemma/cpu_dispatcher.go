@@ -365,7 +365,7 @@ func decodeFloatRowTo(dst []float32, raw []byte, dtype string) error {
 			return fmt.Errorf("DiffusionGemma F8_E4M3 row bytes=%d want %d", len(raw), len(dst))
 		}
 		for i := range dst {
-			dst[i] = fp8DecodeE4M3(raw[i])
+			dst[i] = diffusionGemmaFP8E4M3Table[raw[i]]
 		}
 		return nil
 	default:
