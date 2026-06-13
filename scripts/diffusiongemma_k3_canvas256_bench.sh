@@ -17,6 +17,7 @@ CANVAS=${CANVAS:-256}
 # max_steps at 48 and the reference prompt stopped after 11 effective steps.
 REQUESTED_DIFFUSION_STEPS=${REQUESTED_DIFFUSION_STEPS:-256}
 DENOISE_STEPS=${DENOISE_STEPS:-11}
+SAMPLER_MODE=${SAMPLER_MODE:-argmax}
 SEED=${SEED:-1}
 LM_HEAD_TOP_K=${LM_HEAD_TOP_K:-64}
 RETURN_STEPS=${RETURN_STEPS:-0}
@@ -61,9 +62,10 @@ body=$(jq -cn \
   --argjson max_tokens "${MAX_TOKENS}" \
   --argjson canvas "${CANVAS}" \
   --argjson denoise_steps "${DENOISE_STEPS}" \
+  --arg sampler_mode "${SAMPLER_MODE}" \
   --argjson seed "${SEED}" \
   --argjson return_steps "$(if [[ "${RETURN_STEPS}" == "1" ]]; then echo true; else echo false; fi)" \
-  '{model:"diffusiongemma-k3",messages:[{role:"user",content:$prompt}],max_tokens:$max_tokens,canvas_length:$canvas,denoise_steps:$denoise_steps,seed:$seed,return_diffusion_steps:$return_steps,stream:false}')
+  '{model:"diffusiongemma-k3",messages:[{role:"user",content:$prompt}],max_tokens:$max_tokens,canvas_length:$canvas,denoise_steps:$denoise_steps,sampler_mode:$sampler_mode,seed:$seed,return_diffusion_steps:$return_steps,stream:false}')
 
 tmp=$(mktemp)
 start_ns=$(date +%s%N)
@@ -74,9 +76,10 @@ mkdir -p "$(dirname "${OUT}")"
 jq -c \
   --arg prompt "${PROMPT}" \
   --argjson wall_ms "${wall_ms}" \
+  --arg sampler_mode "${SAMPLER_MODE}" \
   --argjson requested_diffusion_steps "${REQUESTED_DIFFUSION_STEPS}" \
   --argjson lm_head_top_k "${LM_HEAD_TOP_K}" \
-  '{prompt:$prompt,wall_ms:$wall_ms,requested_diffusion_steps:$requested_diffusion_steps,lm_head_top_k:$lm_head_top_k,server_latency_ms:.usage.latency_ms,prompt_tokens:.usage.prompt_tokens,completion_tokens:.usage.completion_tokens,generated_token_ids:.generated_token_ids,text:.choices[0].message.content,diffusion_stats:.diffusion_stats,generated_tok_s:.diffusion_stats.generated_tokens_per_second,canvas_pos_s:.diffusion_stats.canvas_positions_per_second}' \
+  '{prompt:$prompt,wall_ms:$wall_ms,sampler_mode:$sampler_mode,requested_diffusion_steps:$requested_diffusion_steps,lm_head_top_k:$lm_head_top_k,server_latency_ms:.usage.latency_ms,prompt_tokens:.usage.prompt_tokens,completion_tokens:.usage.completion_tokens,generated_token_ids:.generated_token_ids,text:.choices[0].message.content,diffusion_stats:.diffusion_stats,generated_tok_s:.diffusion_stats.generated_tokens_per_second,canvas_pos_s:.diffusion_stats.canvas_positions_per_second}' \
   "${tmp}" | tee -a "${OUT}"
 rm -f "${tmp}"
 

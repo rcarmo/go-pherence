@@ -450,4 +450,20 @@ preset (`-k3-a100-lmhead -k3-a100-lmhead-prefetch -lm-head-top-k 64`) so the
 run does not accidentally fall back to a full `256 × vocab × hidden` LM-head
 pass. Override `DENOISE_STEPS` when comparing an observed llama.cpp effective
 step count (the PR #24423 reference stopped after 11 steps on the "Say hello
-briefly." prompt).
+briefly." prompt). Set `SAMPLER_MODE=entropy_bound` to use the llama.cpp-style
+sampled-token entropy-bound accept/renoise loop; the default remains `argmax`
+for existing fast/debug runs.
+
+### Sampler modes
+
+`DenoisingConfig.Sampler.Mode` selects the canvas update rule:
+
+- `argmax` — legacy go-pherence behavior: replace the full canvas with argmax
+  predictions each denoising step.
+- `entropy_bound` — llama.cpp-style correctness mode: pre-draw per-position
+  sampling and renoise tokens, sample from the temperature-scaled logits, accept
+  the low-entropy prefix using the entropy-bound rule, and renoise rejected
+  positions.
+
+The CLI exposes `-sampler-mode argmax|entropy_bound`; the OpenAI-compatible
+server accepts flat JSON `sampler_mode` or a structured `denoising.sampler.mode`.

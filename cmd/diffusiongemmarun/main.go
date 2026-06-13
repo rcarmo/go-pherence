@@ -74,6 +74,7 @@ func main() {
 	tMin := flag.Float64("t-min", -1, "override final denoising temperature")
 	tMax := flag.Float64("t-max", -1, "override initial denoising temperature")
 	entropyBound := flag.Float64("entropy-bound", -1, "override entropy-bound sampler threshold")
+	samplerMode := flag.String("sampler-mode", "", "denoising sampler mode: argmax or entropy_bound")
 	stabilityThreshold := flag.Int("stability", -1, "override stable-canvas stopping threshold")
 	confidenceThreshold := flag.Float64("confidence", -1, "override mean entropy confidence threshold")
 	seed := flag.Int64("seed", 1, "deterministic canvas RNG seed")
@@ -344,7 +345,7 @@ func main() {
 		fatal(err)
 	}
 	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed}
-	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *stabilityThreshold, *confidenceThreshold); denoising != nil {
+	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *samplerMode, *stabilityThreshold, *confidenceThreshold); denoising != nil {
 		opts.Denoising = denoising
 	}
 	caps := diffusiongemma.Capabilities()
@@ -384,7 +385,7 @@ func main() {
 	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v mock_token=%d mock_tokens=%q\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher, *mockToken, *mockTokensCSV)
 	if opts.Denoising != nil {
 		d := opts.Denoising
-		fmt.Printf("  denoising: steps=%d t=[%.3f, %.3f] entropy_bound=%.3f stability=%d confidence=%.6f\n", d.MaxDenoisingSteps, d.TMin, d.TMax, d.Sampler.EntropyBound, d.StabilityThreshold, d.ConfidenceThreshold)
+		fmt.Printf("  denoising: steps=%d t=[%.3f, %.3f] sampler_mode=%s entropy_bound=%.3f stability=%d confidence=%.6f\n", d.MaxDenoisingSteps, d.TMin, d.TMax, d.Sampler.Mode, d.Sampler.EntropyBound, d.StabilityThreshold, d.ConfidenceThreshold)
 	}
 	if len(out.PromptTokens) > 0 {
 		fmt.Printf("  prompt_tokens=%v\n", out.PromptTokens)
@@ -455,7 +456,7 @@ func parseFlagMessages(messages []string) ([]diffusiongemma.TextChatMessage, err
 	return out, nil
 }
 
-func buildDenoisingOverride(base diffusiongemma.DenoisingConfig, steps int, tMin, tMax, entropyBound float64, stability int, confidence float64) *diffusiongemma.DenoisingConfig {
+func buildDenoisingOverride(base diffusiongemma.DenoisingConfig, steps int, tMin, tMax, entropyBound float64, samplerMode string, stability int, confidence float64) *diffusiongemma.DenoisingConfig {
 	changed := false
 	cfg := base
 	if steps > 0 {
@@ -472,6 +473,10 @@ func buildDenoisingOverride(base diffusiongemma.DenoisingConfig, steps int, tMin
 	}
 	if entropyBound > 0 {
 		cfg.Sampler.EntropyBound = entropyBound
+		changed = true
+	}
+	if strings.TrimSpace(samplerMode) != "" {
+		cfg.Sampler.Mode = diffusiongemma.SamplerMode(strings.TrimSpace(samplerMode))
 		changed = true
 	}
 	if stability >= 0 {

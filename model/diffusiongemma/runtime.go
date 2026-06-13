@@ -84,6 +84,7 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 	if cfg.Sampler.EntropyBound <= 0 {
 		cfg.Sampler.EntropyBound = DefaultDenoisingConfig().Sampler.EntropyBound
 	}
+	cfg.Sampler.Mode = normalizeSamplerMode(cfg.Sampler.Mode)
 	if rng == nil {
 		rng = rand.New(rand.NewSource(1))
 	}
@@ -106,33 +107,52 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 		}
 		temperature := LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, step)
 		argmaxCanvas := make([]int, canvasLength)
+		sampledCanvas := make([]int, canvasLength)
 		entropy := make([]float64, canvasLength)
 		var meanEntropy float64
-		for i := 0; i < canvasLength; i++ {
-			argmaxCanvas[i], entropy[i] = ArgmaxEntropyFromLogits(out.Logits[i], temperature, rng)
-			meanEntropy += entropy[i]
+		acceptedMask := make([]bool, canvasLength)
+		accepted := canvasLength
+		if cfg.Sampler.Mode == SamplerModeEntropyBound {
+			draws := make([]float64, canvasLength)
+			renoise := make([]int, canvasLength)
+			for i := 0; i < canvasLength; i++ {
+				draws[i] = rng.Float64()
+				renoise[i] = rng.Intn(vocabSize)
+			}
+			for i := 0; i < canvasLength; i++ {
+				argmaxCanvas[i], sampledCanvas[i], entropy[i] = TokenStatsFromLogitsDraw(out.Logits[i], temperature, draws[i])
+				meanEntropy += entropy[i]
+			}
+			meanEntropy /= float64(canvasLength)
+			acceptedResult := AcceptCanvas(canvas, sampledCanvas, entropy, cfg.Sampler.EntropyBound)
+			acceptedMask = acceptedResult.AcceptedMask
+			accepted = acceptedResult.Accepted
+			canvas = append(canvas[:0], acceptedResult.Canvas...)
+			for i := range canvas {
+				if !acceptedMask[i] {
+					canvas[i] = renoise[i]
+				}
+			}
+		} else {
+			for i := 0; i < canvasLength; i++ {
+				argmaxCanvas[i], entropy[i] = ArgmaxEntropyFromLogits(out.Logits[i], temperature, rng)
+				meanEntropy += entropy[i]
+				acceptedMask[i] = true
+			}
+			meanEntropy /= float64(canvasLength)
+			canvas = append(canvas[:0], argmaxCanvas...)
 		}
-		meanEntropy /= float64(canvasLength)
-		// Use argmax canvas directly instead of entropy-bound acceptance.
-		// The entropy-bound sampler underestimates entropy with sparse top-k
-		// logits, causing over-acceptance to EOS. Argmax gives the model's
-		// most confident prediction at each position.
-		canvas = append(canvas[:0], argmaxCanvas...)
 		if len(out.SelfConditioning) > 0 {
 			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
 		}
 		stopped := stopper.ShouldStop(argmaxCanvas, entropy)
-		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: canvasLength, MeanEntropy: meanEntropy, Stopped: stopped})
+		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted, MeanEntropy: meanEntropy, Stopped: stopped})
 		if cfg.StepCallback != nil {
-			acceptedMask := make([]bool, canvasLength)
-			for i := range acceptedMask {
-				acceptedMask[i] = true
-			}
 			snapshot := DiffusionStepSnapshot{
 				Step:         step,
 				Temperature:  temperature,
 				Canvas:       append([]int(nil), canvas...),
-				AcceptedMask: acceptedMask,
+				AcceptedMask: append([]bool(nil), acceptedMask...),
 				MeanEntropy:  meanEntropy,
 				Stopped:      stopped,
 			}
@@ -144,7 +164,6 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 			state.Stopped = true
 			break
 		}
-		// No renoising with argmax decoding — canvas is the argmax prediction
 	}
 	return CanvasResult{Canvas: canvas, Steps: steps, State: state}, nil
 }

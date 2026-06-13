@@ -48,6 +48,7 @@ type completionRequest struct {
 	MaxNewTokens         int                             `json:"max_new_tokens,omitempty"`
 	CanvasLength         int                             `json:"canvas_length,omitempty"`
 	DenoiseSteps         int                             `json:"denoise_steps,omitempty"`
+	SamplerMode          string                          `json:"sampler_mode,omitempty"`
 	Seed                 int64                           `json:"seed,omitempty"`
 	Stream               bool                            `json:"stream,omitempty"`
 	ReturnDiffusionSteps bool                            `json:"return_diffusion_steps,omitempty"`
@@ -420,12 +421,15 @@ func (s *server) options(req completionRequest, cb func(int, diffusiongemma.Diff
 		seed = s.defaultSeed
 	}
 	denoise := req.Denoising
-	if denoise == nil && (req.DenoiseSteps > 0 || s.defaultDenoiseStep > 0) {
+	if denoise == nil && (req.DenoiseSteps > 0 || s.defaultDenoiseStep > 0 || strings.TrimSpace(req.SamplerMode) != "") {
 		cfg := s.model.Denoising
 		if req.DenoiseSteps > 0 {
 			cfg.MaxDenoisingSteps = req.DenoiseSteps
-		} else {
+		} else if s.defaultDenoiseStep > 0 {
 			cfg.MaxDenoisingSteps = s.defaultDenoiseStep
+		}
+		if strings.TrimSpace(req.SamplerMode) != "" {
+			cfg.Sampler.Mode = diffusiongemma.SamplerMode(strings.TrimSpace(req.SamplerMode))
 		}
 		denoise = &cfg
 	}
