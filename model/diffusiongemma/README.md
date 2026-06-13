@@ -136,7 +136,7 @@ budget selects all dense projections) and A100 LM-head prefetch:
 | Mode | Decoder pass 1 | Decoder pass 2 | Max Q80 | Notes |
 |---|---:|---:|---:|---|
 | bounded, evict selected experts | 16.8s | 15.9s | 2.85GB | safest memory |
-| retain selected experts all layers | 14.2s | 8.4s | 12.1GB | middle ground; no F32 cache growth |
+| retain selected experts all layers | 13.5s | 8.6s | 12.3GB | middle ground; no F32 cache growth |
 | `-skip-eviction` | 13.6s | 8.0s | 12.1GB | fastest measured; retains all caches |
 
 All three produced the same sampled token in the recorded full-profile runs.
@@ -168,9 +168,9 @@ The tied BF16 LM head can also use A100 Q80 with `-k3-a100-lmhead`. The A100
 pass is used as a shortlist generator and candidates are reranked with exact
 BF16/F32 dot products (`-k3-a100-lmhead-candidates`, default max(32, 4×topK)).
 `-k3-a100-lmhead-prefetch` starts packing the tied embedding Q80 cache while
-decoder layers run; in a 4-layer 2-step smoke it moved the one-time 1.8s
-embedding Q80 pack out of the tail and kept LM-head tails near `904ms` with
-identical generated output. Sparse self-conditioning over top-k logits then
+decoder layers run; after switching exact rerank to BF16×F32 dot, the default
+bounded profile keeps LM-head tails around `789–809ms` with identical generated
+output. Sparse self-conditioning over top-k logits then
 completes in roughly `5ms`; the following step's self-conditioning prefix
 (gate/up/down) is batched through the same A100 Q80 path. Self-conditioning
 projection Q80 weights are prewarmed with the layer Q80 cache, reducing the
