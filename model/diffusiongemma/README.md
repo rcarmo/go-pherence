@@ -136,7 +136,7 @@ budget selects all dense projections) and A100 LM-head prefetch:
 | Mode | Decoder pass 1 | Decoder pass 2 | Max Q80 | Notes |
 |---|---:|---:|---:|---|
 | bounded, evict selected experts | 16.8s | 15.9s | 2.85GB | safest memory |
-| retain selected experts all layers | 13.5s | 8.6s | 12.3GB | middle ground; no F32 cache growth |
+| retain selected experts all layers | 13.4s | 8.5s | 12.3GB | middle ground; no F32 cache growth |
 | `-skip-eviction` | 13.6s | 8.0s | 12.1GB | fastest measured; retains all caches |
 
 All three produced the same sampled token in the recorded full-profile runs.
