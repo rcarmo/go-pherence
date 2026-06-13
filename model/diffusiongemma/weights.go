@@ -3,6 +3,7 @@ package diffusiongemma
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -118,9 +119,58 @@ func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
 	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
 		return FloatTensor{}, err
 	}
+	if dtype == "F8_E4M3" || dtype == "F8_E4M3FN" {
+		if err := w.applyFP8Scales(name, shape, out); err != nil {
+			return FloatTensor{}, err
+		}
+	}
 	t := FloatTensor{Data: out, Shape: append([]int(nil), shape...), DType: dtype}
 	w.floatCache[name] = t
 	return t, nil
+}
+
+func diffusionGemmaWeightScaleName(weightName string) string {
+	if strings.HasSuffix(weightName, ".weight") {
+		return strings.TrimSuffix(weightName, ".weight") + ".weight_scale"
+	}
+	return weightName + "_scale"
+}
+
+func (w *TextWeights) applyFP8Scales(name string, shape []int, out []float32) error {
+	if len(shape) != 2 || shape[0] <= 0 || shape[1] <= 0 {
+		return fmt.Errorf("DiffusionGemma FP8 tensor %q shape %v cannot be scaled", name, shape)
+	}
+	rows, cols := shape[0], shape[1]
+	scaleName := diffusionGemmaWeightScaleName(name)
+	raw, dtype, scaleShape, err := w.RawTensor(scaleName)
+	if err != nil {
+		return fmt.Errorf("DiffusionGemma FP8 tensor %q missing scale %q: %w", name, scaleName, err)
+	}
+	nScale := 1
+	for _, dim := range scaleShape {
+		if dim <= 0 {
+			return fmt.Errorf("DiffusionGemma FP8 scale %q invalid shape %v", scaleName, scaleShape)
+		}
+		nScale *= dim
+	}
+	if nScale != 1 && nScale != rows {
+		return fmt.Errorf("DiffusionGemma FP8 scale %q shape %v gives %d values, want 1 or %d", scaleName, scaleShape, nScale, rows)
+	}
+	scales := make([]float32, nScale)
+	if err := decodeFloatRowTo(scales, raw, dtype); err != nil {
+		return err
+	}
+	for r := 0; r < rows; r++ {
+		scale := scales[0]
+		if len(scales) != 1 {
+			scale = scales[r]
+		}
+		row := out[r*cols : (r+1)*cols]
+		for c := range row {
+			row[c] *= scale
+		}
+	}
+	return nil
 }
 
 func (w *TextWeights) ClearFloatCache() {
