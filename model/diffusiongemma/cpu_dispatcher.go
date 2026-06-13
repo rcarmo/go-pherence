@@ -283,25 +283,8 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: logits pos=%d top_id=%d top_val=%.6f mean=%.6f\n", pos, bestID, bestVal, sum/float64(len(row)))
 		}
 	}
-	// Build self-conditioning from logits. With sparse top-k, this now uses only
-	// finite logits instead of scanning/softmaxing the whole vocabulary row.
-	selfCondStart := time.Now()
-	tempInv := float32(1)
-	if ctx.Temperature > 0 {
-		tempInv = float32(1.0 / ctx.Temperature)
-	}
-	selfConditioning, err := buildSelfConditioningFromLogits(weights, scratch, tempInv)
-	if err != nil {
-		return ForwardOutput{}, err
-	}
-	selfCondElapsed := time.Since(selfCondStart)
-	if timing {
-		fmt.Fprintf(os.Stderr, "timing diffusiongemma self_conditioning elapsed=%s q80_entries=%d q80_bytes=%d\n", selfCondElapsed.Round(time.Millisecond), weights.Q80CacheEntries(), weights.Q80CacheBytes())
-	}
-	if d.Progress {
-		fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed self_conditioning cache_entries=%d cache_bytes=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes(), selfCondElapsed.Round(time.Millisecond))
-	}
-	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning}, nil
+	return ForwardOutput{Logits: scratch.Logits}, nil
+
 }
 
 func dispatchPrefixOp(op OpKind, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
@@ -445,7 +428,19 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 	if hiddenSize <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
 		return fmt.Errorf("DiffusionGemma self-conditioning hidden len=%d hidden_size=%d", len(scratch.Hidden), hiddenSize)
 	}
-	if len(ctx.SelfConditioning) == 0 {
+	selfConditioning := ctx.SelfConditioning
+	if len(selfConditioning) == 0 && len(ctx.SelfConditioningLogits) > 0 {
+		tempInv := float32(1)
+		if ctx.SelfConditioningTemperature > 0 {
+			tempInv = float32(1.0 / ctx.SelfConditioningTemperature)
+		}
+		built, err := buildSelfConditioningFromLogitRows(weights, ctx.SelfConditioningLogits, tempInv)
+		if err != nil {
+			return err
+		}
+		selfConditioning = built
+	}
+	if len(selfConditioning) == 0 {
 		for off := 0; off < len(scratch.Hidden); off += hiddenSize {
 			if !simd.RMSNormNoScaleTo(scratch.Hidden[off:off+hiddenSize], 1e-6) {
 				return fmt.Errorf("DiffusionGemma self-conditioning post norm rejected row at offset %d", off)
@@ -453,8 +448,8 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 		}
 		return nil
 	}
-	if len(ctx.SelfConditioning) != len(scratch.Hidden) {
-		return fmt.Errorf("DiffusionGemma self-conditioning len=%d want %d", len(ctx.SelfConditioning), len(scratch.Hidden))
+	if len(selfConditioning) != len(scratch.Hidden) {
+		return fmt.Errorf("DiffusionGemma self-conditioning len=%d want %d", len(selfConditioning), len(scratch.Hidden))
 	}
 	preNorm, err := loadFloatVector(weights, fp.Globals.SelfCondPreNorm)
 	if err != nil {
@@ -474,7 +469,7 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 	condAll := make([]float32, positions*hiddenSize)
 	for pos := 0; pos < positions; pos++ {
 		cond := condAll[pos*hiddenSize : (pos+1)*hiddenSize]
-		copy(cond, ctx.SelfConditioning[pos*hiddenSize:(pos+1)*hiddenSize])
+		copy(cond, selfConditioning[pos*hiddenSize:(pos+1)*hiddenSize])
 		if !simd.RMSNormTo(cond, preNorm, 1e-6) {
 			return fmt.Errorf("DiffusionGemma self-conditioning pre norm rejected row %d", pos)
 		}
@@ -1795,8 +1790,8 @@ func runFinalNorm(weights *TextWeights, scratch ForwardScratch) error {
 	return nil
 }
 
-func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratch, tempInv float32) ([]float32, error) {
-	if weights == nil || len(scratch.Logits) == 0 {
+func buildSelfConditioningFromLogitRows(weights *TextWeights, logits [][]float32, tempInv float32) ([]float32, error) {
+	if weights == nil || len(logits) == 0 {
 		return nil, nil
 	}
 	fp := weights.ForwardPlan()
@@ -1808,12 +1803,12 @@ func buildSelfConditioningFromLogits(weights *TextWeights, scratch ForwardScratc
 	if vocab <= 0 || hiddenSize <= 0 {
 		return nil, nil
 	}
-	positions := len(scratch.Logits)
+	positions := len(logits)
 	out := make([]float32, positions*hiddenSize)
 	row := make([]float32, hiddenSize)
 	for pos := 0; pos < positions; pos++ {
 		dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
-		if err := buildSelfConditioningSoftEmbeddingRow(dst, scratch.Logits[pos], vocab, hiddenSize, tempInv, row, func(vocabID int, dst []float32) error {
+		if err := buildSelfConditioningSoftEmbeddingRow(dst, logits[pos], vocab, hiddenSize, tempInv, row, func(vocabID int, dst []float32) error {
 			raw, dtype, shape, err := weights.RawTensorRow(fp.Globals.EmbedTokens.Name, vocabID)
 			if err != nil {
 				return err

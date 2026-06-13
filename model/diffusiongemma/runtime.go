@@ -18,12 +18,15 @@ type BlockDiffusionState struct {
 // intentionally abstract at this layer; the concrete model runtime will decide
 // how to encode prior canvases and expose cross-attention/prompt-cache state.
 type ForwardInput struct {
-	PromptIDs        []int            `json:"prompt_ids,omitempty"`
-	Canvas           []int            `json:"canvas"`
-	Step             int              `json:"step"`
-	Temperature      float64          `json:"temperature,omitempty"`
-	SelfConditioning []float32        `json:"-"`
-	EncoderKV        []EncoderKVLayer `json:"-"`
+	PromptIDs                   []int            `json:"prompt_ids,omitempty"`
+	Canvas                      []int            `json:"canvas"`
+	Step                        int              `json:"step"`
+	Temperature                 float64          `json:"temperature,omitempty"`
+	SelfConditioning            []float32        `json:"-"`
+	SelfConditioningLogits      [][]float32      `json:"-"`
+	SelfConditioningTemperature float64          `json:"-"`
+	Graph                       ExecutionGraph   `json:"graph"`
+	EncoderKV                   []EncoderKVLayer `json:"-"`
 }
 
 // ForwardOutput contains per-canvas-position logits from the denoiser. Logits
@@ -97,11 +100,14 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 	stopper := NewStableConfidentStopper(cfg.StabilityThreshold, cfg.ConfidenceThreshold)
 	steps := make([]CanvasStep, 0, cfg.MaxDenoisingSteps)
 	var selfConditioning []float32
+	var selfConditioningLogits [][]float32
+	var selfConditioningTemperature float64
 	outputCanvas := append([]int(nil), canvas...)
+	graph := BuildExecutionGraph(ExecutionGraphDecode, len(promptIDs), canvasLength)
 	for step := cfg.MaxDenoisingSteps; step > 0; step-- {
 		state.Step = step
 		temperature := LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, step)
-		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, Temperature: temperature, SelfConditioning: selfConditioning})
+		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, Temperature: temperature, SelfConditioning: selfConditioning, SelfConditioningLogits: selfConditioningLogits, SelfConditioningTemperature: selfConditioningTemperature, Graph: graph})
 		if err != nil {
 			return CanvasResult{}, err
 		}
@@ -147,7 +153,11 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 		outputCanvas = append(outputCanvas[:0], argmaxCanvas...)
 		if len(out.SelfConditioning) > 0 {
 			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
+		} else {
+			selfConditioning = selfConditioning[:0]
 		}
+		selfConditioningLogits = out.Logits
+		selfConditioningTemperature = temperature
 		stopped := stopper.ShouldStop(argmaxCanvas, entropy)
 		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted, MeanEntropy: meanEntropy, Stopped: stopped})
 		if cfg.StepCallback != nil {

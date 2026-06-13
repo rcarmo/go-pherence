@@ -77,13 +77,16 @@ type EncoderKVLayer struct {
 }
 
 type ForwardContext struct {
-	PromptIDs        []int            `json:"prompt_ids,omitempty"`
-	Canvas           []int            `json:"canvas"`
-	Step             int              `json:"step"`
-	Temperature      float64          `json:"temperature,omitempty"`
-	SelfConditioning []float32        `json:"-"`
-	EncoderKV        []EncoderKVLayer `json:"-"`
-	EncoderSeqLen    int              `json:"encoder_seq_len,omitempty"`
+	PromptIDs                   []int            `json:"prompt_ids,omitempty"`
+	Canvas                      []int            `json:"canvas"`
+	Step                        int              `json:"step"`
+	Temperature                 float64          `json:"temperature,omitempty"`
+	SelfConditioning            []float32        `json:"-"`
+	SelfConditioningLogits      [][]float32      `json:"-"`
+	SelfConditioningTemperature float64          `json:"-"`
+	Graph                       ExecutionGraph   `json:"graph"`
+	EncoderKV                   []EncoderKVLayer `json:"-"`
+	EncoderSeqLen               int              `json:"encoder_seq_len,omitempty"`
 }
 
 // ForwardDispatcher is the explicit boundary where tensor-backed CPU/SIMD
