@@ -137,6 +137,7 @@ type ForwardScratch struct {
 	TopKExperts    int
 	LMHeadTopK     int
 	ExpertPrefetch *k3SelectedExpertPrefetch
+	ExpertAsync    chan error
 }
 
 func NewForwardScratch(buffers ForwardBufferPlan) ForwardScratch {
@@ -599,9 +600,27 @@ func dispatchLayerOpInner(op LayerOp, ctx ForwardContext, weights *TextWeights, 
 		fp := weights.ForwardPlan()
 		if op.Layer >= 0 && op.Layer < len(fp.Layers) {
 			scratch.ExpertPrefetch = k3StartSelectedExpertQ80Prefetch(weights, fp.Layers[op.Layer], *scratch)
+			expertOp := LayerOp{Layer: op.Layer, Type: op.Type, Kind: OpExperts}
+			snapshot := *scratch
+			scratch.ExpertAsync = make(chan error, 1)
+			go func() {
+				if snapshot.ExpertPrefetch != nil {
+					if err := snapshot.ExpertPrefetch.Wait(weights, diffusionGemmaTimingEnabled()); err != nil {
+						scratch.ExpertAsync <- err
+						return
+					}
+				}
+				scratch.ExpertAsync <- runExpertsFromResidual(expertOp, weights, snapshot)
+			}()
 		}
 		return nil
 	case OpExperts:
+		if scratch.ExpertAsync != nil {
+			err := <-scratch.ExpertAsync
+			scratch.ExpertAsync = nil
+			scratch.ExpertPrefetch = nil
+			return err
+		}
 		if scratch.ExpertPrefetch != nil {
 			if err := scratch.ExpertPrefetch.Wait(weights, diffusionGemmaTimingEnabled()); err != nil {
 				return err

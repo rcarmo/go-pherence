@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -32,6 +33,7 @@ type TextWeights struct {
 	Layers                       []LayerWeights  `json:"layers"`
 	shards                       *safetensors.ShardedFile
 	forwardPlan                  *TextForwardPlan
+	floatMu                      sync.Mutex
 	floatCache                   map[string]FloatTensor
 	q80ResidentLayerPrefix       int
 	q80ExpertResidentLayerPrefix int
@@ -107,9 +109,12 @@ func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
 	if w == nil {
 		return FloatTensor{}, fmt.Errorf("nil DiffusionGemma text weights")
 	}
+	w.floatMu.Lock()
 	if t, ok := w.floatCache[name]; ok {
+		w.floatMu.Unlock()
 		return t, nil
 	}
+	w.floatMu.Unlock()
 	raw, dtype, shape, err := w.RawTensor(name)
 	if err != nil {
 		return FloatTensor{}, err
@@ -131,7 +136,13 @@ func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
 		}
 	}
 	t := FloatTensor{Data: out, Shape: append([]int(nil), shape...), DType: dtype}
+	w.floatMu.Lock()
+	if existing, ok := w.floatCache[name]; ok {
+		w.floatMu.Unlock()
+		return existing, nil
+	}
 	w.floatCache[name] = t
+	w.floatMu.Unlock()
 	return t, nil
 }
 
