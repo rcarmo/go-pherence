@@ -528,6 +528,9 @@ func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 		if layer >= d.ResidentLayerPrefix {
 			weights.EvictLayer(layer)
 		}
+		if d.MaxLayers > 0 && layer+1 >= d.MaxLayers {
+			break
+		}
 	}
 
 	return kvLayers, nil
