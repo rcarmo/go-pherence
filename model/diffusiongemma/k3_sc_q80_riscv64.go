@@ -55,49 +55,61 @@ func buildSelfConditioningProbRows(probs []float32, logits [][]float32, position
 	if tempInv == 0 {
 		tempInv = 1
 	}
-	for pos := 0; pos < positions; pos++ {
-		row := logits[pos]
-		if len(row) < vocab {
-			return fmt.Errorf("DiffusionGemma SC logits row=%d len=%d want %d", pos, len(row), vocab)
-		}
-		maxLogit := float32(math.Inf(-1))
-		for vocabID := 0; vocabID < vocab; vocabID++ {
-			v := row[vocabID]
-			if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
-				continue
-			}
-			v *= tempInv
-			if v > maxLogit {
-				maxLogit = v
-			}
-		}
-		out := probs[pos*vocab : (pos+1)*vocab]
-		for i := range out {
-			out[i] = 0
-		}
-		if math.IsInf(float64(maxLogit), -1) {
-			continue
-		}
-		var sum float64
-		for vocabID := 0; vocabID < vocab; vocabID++ {
-			v := row[vocabID]
-			if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
-				continue
-			}
-			sum += math.Exp(float64(v*tempInv - maxLogit))
-		}
-		if sum <= 0 || math.IsNaN(sum) {
-			continue
-		}
-		inv := 1.0 / sum
-		for vocabID := 0; vocabID < vocab; vocabID++ {
-			v := row[vocabID]
-			if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
-				continue
-			}
-			out[vocabID] = float32(math.Exp(float64(v*tempInv-maxLogit)) * inv)
+	workers := 1
+	if k3Enabled() && positions >= 2 {
+		workers = k3Threads()
+		if workers > positions {
+			workers = positions
 		}
 	}
+	if workers <= 1 {
+		for pos := 0; pos < positions; pos++ {
+			if err := buildSelfConditioningProbRow(probs[pos*vocab:(pos+1)*vocab], logits[pos], vocab, tempInv); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	var wg sync.WaitGroup
+	errCh := make(chan error, workers)
+	wg.Add(workers)
+	for wid := 0; wid < workers; wid++ {
+		p0 := wid * positions / workers
+		p1 := (wid + 1) * positions / workers
+		go func(p0, p1 int) {
+			defer wg.Done()
+			for pos := p0; pos < p1; pos++ {
+				if err := buildSelfConditioningProbRow(probs[pos*vocab:(pos+1)*vocab], logits[pos], vocab, tempInv); err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}(p0, p1)
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func buildSelfConditioningProbRow(out []float32, row []float32, vocab int, tempInv float32) error {
+	if len(out) < vocab || len(row) < vocab {
+		return fmt.Errorf("DiffusionGemma SC logits row len=%d out=%d want %d", len(row), len(out), vocab)
+	}
+	out = out[:vocab]
+	for i := 0; i < vocab; i++ {
+		v := row[i]
+		if math.IsInf(float64(v), -1) || math.IsNaN(float64(v)) {
+			out[i] = float32(math.Inf(-1))
+		} else {
+			out[i] = v * tempInv
+		}
+	}
+	k3SoftmaxInPlace(out)
 	return nil
 }
 
