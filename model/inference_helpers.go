@@ -57,6 +57,14 @@ func (m *LlamaModel) ScaledTokenEmbeddingInto(dst []float32, tokenID int) error 
 // Returned per-layer slices share a single backing buffer and remain valid as
 // long as the returned [][]float32 is kept alive.
 func (m *LlamaModel) Gemma4PerLayerInputs(hidden []float32, tokenID int) ([][]float32, error) {
+	return m.Gemma4PerLayerInputsInto(nil, nil, hidden, tokenID)
+}
+
+// Gemma4PerLayerInputsInto is like Gemma4PerLayerInputs but writes into the
+// caller-provided projBuf (len totalDim) and slices header (len NumLayers),
+// avoiding a per-token allocation in the decode loop. Pass nil buffers to have
+// fresh ones allocated.
+func (m *LlamaModel) Gemma4PerLayerInputsInto(projBuf []float32, slices [][]float32, hidden []float32, tokenID int) ([][]float32, error) {
 	if m == nil {
 		return nil, fmt.Errorf("nil model")
 	}
@@ -100,7 +108,12 @@ func (m *LlamaModel) Gemma4PerLayerInputs(hidden []float32, tokenID int) ([][]fl
 		}
 	}
 
-	proj := make([]float32, totalDim)
+	var proj []float32
+	if cap(projBuf) >= totalDim {
+		proj = projBuf[:totalDim]
+	} else {
+		proj = make([]float32, totalDim)
+	}
 	gemvNT(proj, hidden, m.PerLayerModelProj, h, totalDim)
 	for i := range proj {
 		proj[i] *= m.PerLayerProjScale
@@ -116,7 +129,12 @@ func (m *LlamaModel) Gemma4PerLayerInputs(hidden []float32, tokenID int) ([][]fl
 		}
 	}
 
-	perLayerInputs := make([][]float32, nl)
+	var perLayerInputs [][]float32
+	if cap(slices) >= nl {
+		perLayerInputs = slices[:nl]
+	} else {
+		perLayerInputs = make([][]float32, nl)
+	}
 	for l := 0; l < nl; l++ {
 		perLayerInputs[l] = proj[l*hpl : (l+1)*hpl]
 	}

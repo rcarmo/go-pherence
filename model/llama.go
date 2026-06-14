@@ -838,13 +838,18 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			compressedKV[l] = kv.NewCompressedKVCache(layerKVDim, numKVHeads, layerHD, tq, tq.IsProtectedLayer(l))
 		}
 	} else {
+		seqCap := len(tokenIDs) + maxTokens
+		if seqCap < 1 {
+			seqCap = 1
+		}
 		for l := range kvCacheK {
 			layerHD := headDim
 			if m.Layers[l].HeadDimLocal > 0 {
 				layerHD = m.Layers[l].HeadDimLocal
 			}
 			layerKVDim, ok := checkedProduct(numKVHeads, layerHD)
-			cacheCap, okCap := checkedProduct(2048, layerKVDim)
+			// Size the cache to the full sequence so growth never reallocates.
+			cacheCap, okCap := checkedProduct(seqCap, layerKVDim)
 			if layerHD <= 0 || !ok || !okCap {
 				return output
 			}
@@ -925,9 +930,17 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	scratchUp := make([]float32, scInter)
 	scratchDown := make([]float32, h)
 	var scratchPLIGate, scratchPLIProj []float32
+	var pliProjBuf []float32
+	var pliSlices [][]float32
 	if cfg.HiddenPerLayer > 0 {
 		scratchPLIGate = make([]float32, cfg.HiddenPerLayer)
 		scratchPLIProj = make([]float32, h)
+		if m.PerLayerModelProj != nil {
+			if td, ok := checkedProduct(cfg.NumLayers, cfg.HiddenPerLayer); ok {
+				pliProjBuf = make([]float32, td)
+				pliSlices = make([][]float32, cfg.NumLayers)
+			}
+		}
 	}
 
 	// Process prompt + generate
@@ -952,7 +965,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 
 		// Gemma4: compute per-layer inputs for this token using the same helper
 		// exposed for verifier/MTP paths.
-		perLayerInputs, err := m.Gemma4PerLayerInputs(hidden, tokID)
+		perLayerInputs, err := m.Gemma4PerLayerInputsInto(pliProjBuf, pliSlices, hidden, tokID)
 		if err != nil {
 			panic(err)
 		}
