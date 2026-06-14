@@ -5,12 +5,6 @@ package model
 
 import "github.com/rcarmo/go-pherence/backends/simd/runtime"
 
-func toBF16(x float32) float32 {
-	buf := []float32{x}
-	simd.ToBF16(buf)
-	return buf[0]
-}
-
 func bf16Slice(x []float32) {
 	simd.ToBF16(x)
 }

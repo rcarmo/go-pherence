@@ -883,6 +883,53 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 		}
 	}
 
+	// Reusable per-token / per-layer scratch buffers. Each is sized for the
+	// widest layer and sliced to the prefix a layer needs; reusing them avoids
+	// re-allocating ~10 buffers per layer per generated token.
+	scQDim := numHeads * maxHeadDim
+	scKVDim := cfg.NumKVHeads * maxHeadDim
+	scInter := inter
+	for l := 0; l < cfg.NumLayers; l++ {
+		lhd := headDim
+		if m.Layers[l].HeadDimLocal > 0 {
+			lhd = m.Layers[l].HeadDimLocal
+		}
+		lkvh := gemmacfg.LayerKVHeads(cfg, l)
+		if q := numHeads * lhd; q > scQDim {
+			scQDim = q
+		}
+		if kv := lkvh * lhd; kv > scKVDim {
+			scKVDim = kv
+		}
+		if li := m.layerInterFor(&m.Layers[l]); li > scInter {
+			scInter = li
+		}
+	}
+	if scQDim < 1 {
+		scQDim = 1
+	}
+	if scKVDim < 1 {
+		scKVDim = 1
+	}
+	if scInter < 1 {
+		scInter = 1
+	}
+	hidden := make([]float32, h)
+	scratchResidual := make([]float32, h)
+	scratchQ := make([]float32, scQDim)
+	scratchK := make([]float32, scKVDim)
+	scratchV := make([]float32, scKVDim)
+	scratchO := make([]float32, h)
+	scratchMlp := make([]float32, h)
+	scratchGate := make([]float32, scInter)
+	scratchUp := make([]float32, scInter)
+	scratchDown := make([]float32, h)
+	var scratchPLIGate, scratchPLIProj []float32
+	if cfg.HiddenPerLayer > 0 {
+		scratchPLIGate = make([]float32, cfg.HiddenPerLayer)
+		scratchPLIProj = make([]float32, h)
+	}
+
 	// Process prompt + generate
 	for step := startStep; step < len(tokenIDs)+maxTokens-1; step++ {
 		var tokID int
@@ -893,7 +940,6 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 		}
 
 		// Embed single token using the same helper exposed for verifier/MTP paths.
-		hidden := make([]float32, h)
 		if err := m.ScaledTokenEmbeddingInto(hidden, tokID); err != nil {
 			panic(err)
 		}
@@ -924,7 +970,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			if debugCPUHiddenInOverrideHook != nil {
 				debugCPUHiddenInOverrideHook(step, l, hidden)
 			}
-			residual := make([]float32, h)
+			residual := scratchResidual
 			copy(residual, hidden)
 			if debugOpHook != nil {
 				debugOpHook("cpu", step, l, "hidden_in", hidden)
@@ -949,7 +995,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			}
 			layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
 			qDim := numHeads * layerHeadDim
-			q := make([]float32, qDim)
+			q := scratchQ[:qDim]
 			layerKVDim := layerKVHeads * layerHeadDim
 
 			// Always compute Q
@@ -964,8 +1010,8 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			// K, V: only compute for HasKV layers; shared layers reuse source KV cache
 			var k, v []float32
 			if layer.HasKV {
-				k = make([]float32, layerKVDim)
-				v = make([]float32, layerKVDim)
+				k = scratchK[:layerKVDim]
+				v = scratchV[:layerKVDim]
 				if layer.KWq != nil {
 					m.mvQ(k, hidden, layer.KWq)
 					m.mvQ(v, hidden, layer.VWq)
@@ -1136,7 +1182,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			}
 
 			// Output projection
-			oOut := make([]float32, h)
+			oOut := scratchO
 			if layer.OWq != nil {
 				m.mvQ(oOut, attnOut, layer.OWq)
 			} else if layer.OWm != nil {
@@ -1166,7 +1212,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			// MLP input: preFFNNorm for Gemma3, postNorm already applied for Qwen
 			mlpInput := hidden
 			if layer.PreFFNNorm != nil {
-				mlpInput = make([]float32, h)
+				mlpInput = scratchMlp
 				copy(mlpInput, hidden)
 				if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
 					simd.RMSNormBF16(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
@@ -1208,8 +1254,8 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				// REAP static expert masks applied before top-k selection.
 				down = moeForwardWithREAP(mlpInput, layer, cfg, m.REAP, l)
 			} else {
-				gate := make([]float32, layerInter)
-				up := make([]float32, layerInter)
+				gate := scratchGate[:layerInter]
+				up := scratchUp[:layerInter]
 				if layer.GateWq != nil {
 					m.mvQ(gate, mlpInput, layer.GateWq)
 					m.mvQ(up, mlpInput, layer.UpWq)
@@ -1241,7 +1287,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				}
 
 				// Down projection
-				down = make([]float32, h)
+				down = scratchDown
 				if layer.DownWq != nil {
 					m.mvQ(down, gate, layer.DownWq)
 				} else if layer.DownWm != nil {
@@ -1282,11 +1328,11 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				hpl := cfg.HiddenPerLayer
 				pli := perLayerInputs[l]
 				// gate = gelu(per_layer_input_gate(h)) * per_layer_input → [hiddenPerLayer]
-				gate2 := make([]float32, hpl)
+				gate2 := scratchPLIGate[:hpl]
 				gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
 				simd.GELUTanhMul(gate2, gate2, pli)
 				// proj = per_layer_projection(gate) → [hidden]
-				proj2 := make([]float32, h)
+				proj2 := scratchPLIProj
 				gemvNT(proj2, gate2, layer.PLIProj, hpl, h)
 				// norm
 				rmsNormInPlace(proj2, layer.PLIPostNorm, float32(cfg.RMSNormEps))

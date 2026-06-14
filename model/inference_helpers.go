@@ -44,8 +44,11 @@ func (m *LlamaModel) ScaledTokenEmbeddingInto(dst []float32, tokenID int) error 
 	if m.Config.ModelType == "gemma3_text" || m.Config.ModelType == "gemma4_text" {
 		scale := float32(math.Sqrt(float64(m.Config.HiddenSize)))
 		for i := range dst {
-			dst[i] = toBF16(dst[i] * scale)
+			dst[i] *= scale
 		}
+		// Truncate the whole row to BF16 in one pass instead of allocating a
+		// one-element slice per element.
+		simd.ToBF16(dst)
 	}
 	return nil
 }
