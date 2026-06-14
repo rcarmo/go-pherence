@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"math"
+
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // TokenEmbeddingInto copies the raw token embedding row into dst.
@@ -142,9 +144,12 @@ func (m *LlamaModel) LMHeadLogitsInto(logits, hidden []float32) error {
 	if len(lmData) != want {
 		return fmt.Errorf("LM head data len=%d, want %d", len(lmData), want)
 	}
-	for v := 0; v < vocab; v++ {
-		row := lmData[v*h : (v+1)*h]
-		logits[v] = simdDot(hidden, row)
+	// logits[v] = hidden · lmData[v]; parallelized across the (large) vocab
+	// dimension. Numerically identical to the per-row dot fallback below.
+	if !simd.GemvRowsParallel(logits, hidden, lmData, vocab, h) {
+		for v := 0; v < vocab; v++ {
+			logits[v] = simdDot(hidden, lmData[v*h:(v+1)*h])
+		}
 	}
 	return nil
 }

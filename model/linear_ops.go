@@ -43,5 +43,5 @@ func gemvNTParallel(out, x []float32, w []float32, inDim, outDim int) {
 	if len(out) < outDim {
 		return
 	}
-	simd.GemvRows(out[:outDim], x, w, outDim, inDim)
+	simd.GemvRowsParallel(out[:outDim], x, w, outDim, inDim)
 }
