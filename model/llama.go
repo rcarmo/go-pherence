@@ -1186,9 +1186,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			attnOut = attnOutScratch[:qDim]
 			attnScores := attnScoresScratch[:attnSeqLen]
 			if cfg.ModelType == "gemma4_text" {
-				gqaAttentionScaleInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, 1.0)
+				gqaAttentionHeadsParallel(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, 1.0)
 			} else {
-				gqaAttentionScaleInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))))
+				gqaAttentionHeadsParallel(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))))
 			}
 			if debugOpHook != nil {
 				debugOpHook("cpu", step, l, "attn", attnOut)

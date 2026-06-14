@@ -24,3 +24,10 @@ func gqaAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads
 func gqaAttentionScaleInto(out, scores, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) {
 	_ = simd.GQAAttentionScaleTo(out, scores, q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale)
 }
+
+// gqaAttentionHeadsParallel is the heads-parallel variant used by the
+// sequential autoregressive decode step. It reuses the provided scores buffer
+// for the serial fallback and is bit-identical to gqaAttentionScaleInto.
+func gqaAttentionHeadsParallel(out, scores, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) {
+	_ = simd.GQAAttentionHeadsParallelTo(out, scores, q, kCache, vCache, seqLen, numHeads, numKVHeads, headDim, scale)
+}
