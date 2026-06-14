@@ -52,7 +52,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	// Q projection
 	q := make([]float32, qDim)
 	if layer.QWm != nil {
-		mlx.Gemv(q, hidden, layer.QWm)
+		mlx.GemvParallel(q, hidden, layer.QWm)
 	} else if layer.QW != nil {
 		m.mv(q, hidden, layer.QW.Data(), h, qDim)
 	}
@@ -63,11 +63,11 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 		k = make([]float32, layerKVDim)
 		v = make([]float32, layerKVDim)
 		if layer.KWm != nil {
-			mlx.Gemv(k, hidden, layer.KWm)
+			mlx.GemvParallel(k, hidden, layer.KWm)
 			if layer.VWm == layer.KWm && cfg.AttentionKEqV {
 				copy(v, k)
 			} else {
-				mlx.Gemv(v, hidden, layer.VWm)
+				mlx.GemvParallel(v, hidden, layer.VWm)
 			}
 		} else if layer.KW != nil {
 			m.mv(k, hidden, layer.KW.Data(), h, layerKVDim)
@@ -174,7 +174,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	// Output projection
 	oOut := make([]float32, h)
 	if layer.OWm != nil {
-		mlx.Gemv(oOut, attnOut, layer.OWm)
+		mlx.GemvParallel(oOut, attnOut, layer.OWm)
 	} else if layer.OW != nil {
 		m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 	}
@@ -215,8 +215,8 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	gate := make([]float32, layerInter)
 	up := make([]float32, layerInter)
 	if layer.GateWm != nil {
-		mlx.Gemv(gate, mlpInput, layer.GateWm)
-		mlx.Gemv(up, mlpInput, layer.UpWm)
+		mlx.GemvParallel(gate, mlpInput, layer.GateWm)
+		mlx.GemvParallel(up, mlpInput, layer.UpWm)
 	} else if layer.GateW != nil {
 		m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
 		m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
@@ -236,7 +236,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 
 	down := make([]float32, h)
 	if layer.DownWm != nil {
-		mlx.Gemv(down, gate, layer.DownWm)
+		mlx.GemvParallel(down, gate, layer.DownWm)
 	} else if layer.DownW != nil {
 		m.mv(down, gate, layer.DownW.Data(), layerInter, h)
 	}

@@ -31,6 +31,19 @@ func gemvNT(out, x []float32, w []float32, inDim, outDim int) {
 	llmops.GemvNT(out, x, w, inDim, outDim)
 }
 
+// gemvParallel mirrors gemv (pre-transposed [inDim, outDim] layout) but spreads
+// the M=1 product across CPU cores by splitting the output columns. Numerics
+// are identical to gemv.
+func gemvParallel(out, x []float32, w []float32, inDim, outDim int) {
+	for i := range out {
+		out[i] = 0
+	}
+	if len(out) < outDim {
+		return
+	}
+	simd.SgemmNNParallelTo(out[:outDim], x, w, 1, outDim, inDim, 1.0, inDim, outDim, outDim)
+}
+
 func geluTanh(x float32) float32 {
 	return simd.GELUTanhScalar(x)
 }

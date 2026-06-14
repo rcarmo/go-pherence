@@ -1,5 +1,10 @@
 package mlx
 
+import (
+	"runtime"
+	"sync"
+)
+
 // Gemv performs matrix-vector multiply with MLX quantized weight.
 // out[outDim] = W_mlx[outDim, inDim] · x[inDim] (dequantized on-the-fly)
 func Gemv(out, x []float32, qw *QuantWeight) { _ = GemvTo(out, x, qw) }
@@ -20,11 +25,68 @@ func GemvTo(out, x []float32, qw *QuantWeight) bool {
 	return true
 }
 
+// GemvParallel computes the same result as GemvTo but distributes the output
+// rows across goroutines. It is intended for the single-vector autoregressive
+// decode projections, where each per-token GEMV otherwise runs on one core.
+// Numerics are identical to GemvTo (same per-row dot). Callers that already run
+// inside a goroutine pool (e.g. MoE experts) must keep using GemvTo/Gemv to
+// avoid oversubscription.
+func GemvParallel(out, x []float32, qw *QuantWeight) bool {
+	if err := ValidateQuantWeight(qw); err != nil || len(out) < qw.OutDim || len(x) < qw.InDim {
+		return false
+	}
+	rows := qw.OutDim
+	nWorkers := runtime.GOMAXPROCS(0)
+	if rows < 256 || nWorkers <= 1 {
+		return GemvTo(out, x, qw)
+	}
+	if nWorkers > rows/64 {
+		nWorkers = rows / 64
+	}
+	if nWorkers < 1 {
+		nWorkers = 1
+	}
+	four := qw.Bits == 4 && qw.GroupSize%8 == 0
+	var groupXSums []float32
+	if four {
+		groupXSums = make([]float32, qw.Groups)
+		gemv4XSums(x, qw, groupXSums)
+	}
+	chunk := (rows + nWorkers - 1) / nWorkers
+	var wg sync.WaitGroup
+	for w := 0; w < nWorkers; w++ {
+		r0 := w * chunk
+		r1 := r0 + chunk
+		if r1 > rows {
+			r1 = rows
+		}
+		if r0 >= r1 {
+			break
+		}
+		wg.Add(1)
+		go func(r0, r1 int) {
+			defer wg.Done()
+			if four {
+				gemv4Rows(out, x, qw, groupXSums, r0, r1)
+			} else {
+				gemvScalarRows(out, x, qw, r0, r1)
+			}
+		}(r0, r1)
+	}
+	wg.Wait()
+	return true
+}
+
 func gemvScalar(out, x []float32, qw *QuantWeight) {
+	gemvScalarRows(out, x, qw, 0, qw.OutDim)
+}
+
+// gemvScalarRows computes output rows [r0,r1) of a generic MLX quantized GEMV.
+func gemvScalarRows(out, x []float32, qw *QuantWeight, r0, r1 int) {
 	packFactor := 32 / qw.Bits
 	mask := uint32((1 << qw.Bits) - 1)
 
-	for row := 0; row < qw.OutDim; row++ {
+	for row := r0; row < r1; row++ {
 		packedOff := row * (qw.InDim / packFactor)
 		scaleOff := row * qw.Groups
 		sum := float32(0)
@@ -51,16 +113,9 @@ func gemvScalar(out, x []float32, qw *QuantWeight) {
 	}
 }
 
-func gemv4Scalar(out, x []float32, qw *QuantWeight) {
-	packedPerRow := qw.InDim / 8
+// gemv4XSums precomputes the per-group sums of x used by the 4-bit kernel.
+func gemv4XSums(x []float32, qw *QuantWeight, dst []float32) {
 	packsPerGroup := qw.GroupSize / 8
-	var groupXSumsStack [256]float32
-	groupXSums := groupXSumsStack[:]
-	if qw.Groups > len(groupXSumsStack) {
-		groupXSums = make([]float32, qw.Groups)
-	} else {
-		groupXSums = groupXSums[:qw.Groups]
-	}
 	for g := 0; g < qw.Groups; g++ {
 		xBase := g * qw.GroupSize
 		xsum := float32(0)
@@ -68,9 +123,28 @@ func gemv4Scalar(out, x []float32, qw *QuantWeight) {
 			xi := xBase + p*8
 			xsum += x[xi] + x[xi+1] + x[xi+2] + x[xi+3] + x[xi+4] + x[xi+5] + x[xi+6] + x[xi+7]
 		}
-		groupXSums[g] = xsum
+		dst[g] = xsum
 	}
-	for row := 0; row < qw.OutDim; row++ {
+}
+
+func gemv4Scalar(out, x []float32, qw *QuantWeight) {
+	var groupXSumsStack [256]float32
+	groupXSums := groupXSumsStack[:]
+	if qw.Groups > len(groupXSumsStack) {
+		groupXSums = make([]float32, qw.Groups)
+	} else {
+		groupXSums = groupXSums[:qw.Groups]
+	}
+	gemv4XSums(x, qw, groupXSums)
+	gemv4Rows(out, x, qw, groupXSums, 0, qw.OutDim)
+}
+
+// gemv4Rows computes output rows [r0,r1) of a 4-bit MLX quantized GEMV using the
+// shared per-group x sums.
+func gemv4Rows(out, x []float32, qw *QuantWeight, groupXSums []float32, r0, r1 int) {
+	packedPerRow := qw.InDim / 8
+	packsPerGroup := qw.GroupSize / 8
+	for row := r0; row < r1; row++ {
 		packedOff := row * packedPerRow
 		scaleOff := row * qw.Groups
 		sum := float32(0)

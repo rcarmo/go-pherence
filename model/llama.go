@@ -694,9 +694,9 @@ func (m *LlamaModel) mvQ(out, x []float32, qw *QuantWeight) {
 
 func (m *LlamaModel) mv(out, x, w []float32, inDim, outDim int) {
 	if m.Large {
-		gemvNT(out, x, w, inDim, outDim)
+		gemvNTParallel(out, x, w, inDim, outDim)
 	} else {
-		gemv(out, x, w, inDim, outDim)
+		gemvParallel(out, x, w, inDim, outDim)
 	}
 }
 
@@ -1002,7 +1002,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			if layer.QWq != nil {
 				m.mvQ(q, hidden, layer.QWq)
 			} else if layer.QWm != nil {
-				mlx.Gemv(q, hidden, layer.QWm)
+				mlx.GemvParallel(q, hidden, layer.QWm)
 			} else {
 				m.mv(q, hidden, layer.QW.Data(), h, qDim)
 			}
@@ -1016,11 +1016,11 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 					m.mvQ(k, hidden, layer.KWq)
 					m.mvQ(v, hidden, layer.VWq)
 				} else if layer.KWm != nil {
-					mlx.Gemv(k, hidden, layer.KWm)
+					mlx.GemvParallel(k, hidden, layer.KWm)
 					if layer.VWm == layer.KWm && cfg.AttentionKEqV {
 						copy(v, k)
 					} else {
-						mlx.Gemv(v, hidden, layer.VWm)
+						mlx.GemvParallel(v, hidden, layer.VWm)
 					}
 				} else {
 					m.mv(k, hidden, layer.KW.Data(), h, layerKVDim)
@@ -1186,7 +1186,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			if layer.OWq != nil {
 				m.mvQ(oOut, attnOut, layer.OWq)
 			} else if layer.OWm != nil {
-				mlx.Gemv(oOut, attnOut, layer.OWm)
+				mlx.GemvParallel(oOut, attnOut, layer.OWm)
 			} else {
 				m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 			}
@@ -1260,8 +1260,8 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 					m.mvQ(gate, mlpInput, layer.GateWq)
 					m.mvQ(up, mlpInput, layer.UpWq)
 				} else if layer.GateWm != nil {
-					mlx.Gemv(gate, mlpInput, layer.GateWm)
-					mlx.Gemv(up, mlpInput, layer.UpWm)
+					mlx.GemvParallel(gate, mlpInput, layer.GateWm)
+					mlx.GemvParallel(up, mlpInput, layer.UpWm)
 				} else {
 					m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
 					m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
@@ -1291,7 +1291,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				if layer.DownWq != nil {
 					m.mvQ(down, gate, layer.DownWq)
 				} else if layer.DownWm != nil {
-					mlx.Gemv(down, gate, layer.DownWm)
+					mlx.GemvParallel(down, gate, layer.DownWm)
 				} else {
 					m.mv(down, gate, layer.DownW.Data(), layerInter, h)
 				}
