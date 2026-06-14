@@ -867,8 +867,24 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	attnScoresScratch := make([]float32, maxSeqLen)
 	attnOutScratch := make([]float32, numHeads*maxHeadDim)
 
+	// Batched CPU prefill: process all prompt tokens together so each weight
+	// matrix is read once for the whole prompt instead of once per token. Only
+	// engaged on the validated subset (plain KV caches, non-MoE, no Gemma4
+	// per-layer inputs); otherwise the sequential loop below handles the prompt.
+	startStep := 0
+	if compressedKV == nil && maxTokens >= 1 && m.prefillCPUEligible(len(tokenIDs)) {
+		if lastHidden, ok := m.prefillCPU(tokenIDs, kvCacheK, kvCacheV); ok {
+			_, _, maxIdx, err := m.finishCPUDecodeStep(lastHidden)
+			if err != nil {
+				panic(err)
+			}
+			output = append(output, maxIdx)
+			startStep = len(tokenIDs)
+		}
+	}
+
 	// Process prompt + generate
-	for step := 0; step < len(tokenIDs)+maxTokens-1; step++ {
+	for step := startStep; step < len(tokenIDs)+maxTokens-1; step++ {
 		var tokID int
 		if step < len(tokenIDs) {
 			tokID = tokenIDs[step]
