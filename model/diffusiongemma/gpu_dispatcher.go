@@ -2621,6 +2621,11 @@ func diffusionGemmaGGUFGPUExpertTransientPointerEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func diffusionGemmaGGUFGPUExpertSkipDoomedAttemptsEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_SKIP_DOOMED")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
@@ -3384,6 +3389,12 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 	if le.gateUp.QType != gguf.QuantQ4_K || le.down.QType != gguf.QuantQ8_0 {
 		return false, nil
 	}
+	if !diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
+		// The current fused Q4_K expert kernels use tanh-GELU approximation, but
+		// DiffusionGemma/llama.cpp uses exact erf GELU. Keep this path opt-in until
+		// an exact-GELU Q4 expert kernel exists.
+		return false, nil
+	}
 	activeQ4Ptrs, activeQ4PtrsOK, err := activeQ4KGateUpPointerTable(idx, op.Layer, groupedArrays.ActiveExperts)
 	if err != nil {
 		return false, err
@@ -3554,7 +3565,7 @@ func runGGUFGPUExpertsGrouped(op LayerOp, weights *TextWeights, scratch ForwardS
 		}
 		nPos := end - start
 		var down []float32
-		deviceExpertPath := resident.GateUpQ4K != nil && resident.DownQ8 != nil
+		deviceExpertPath := diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() && resident.GateUpQ4K != nil && resident.DownQ8 != nil
 		if deviceExpertPath {
 			_, _, actBuf, _, _, _, _, _, _, _, unlockExpertScratch, err := ggufGPUExpertScratchBuffers(nPos, hiddenSize, intermediate)
 			if err != nil {

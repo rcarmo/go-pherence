@@ -36,6 +36,21 @@ func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
 
 func resetGGUFExpertResidencyTestState() { FreeGGUFGPUExpertCaches() }
 
+func TestGGUFGPUExpertAllowTanhGELUEnabled(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "")
+	if diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
+		t.Fatal("tanh GELU expert kernels should default off for fidelity")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "1")
+	if !diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
+		t.Fatal("tanh GELU expert kernel opt-in not honored")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "false")
+	if diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
+		t.Fatal("tanh GELU expert kernel disable not honored")
+	}
+}
+
 func TestGGUFGPUExpertPrewarmPlan(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN", "")
 	if got := diffusionGemmaGGUFGPUExpertPrewarmPlan(2, 4); len(got) != 0 {
