@@ -56,7 +56,7 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 | IME int8 matmul | `backends/spacemit/ime2`, `backends/spacemit/k3engine/aipool` | Yes for K3 when `WHISPER_INT8=1`; command defaults vary by build/runtime | Native K3 high-throughput path; validate parity against the native SIMD oracle with `make whisper-int8-compare`; non-K3 builds keep safe disabled stubs for validation. |
 | A100 Q8 FFN | `models/whisper/a100_int8.go`, `backends/spacemit/k3engine/aipool` | Opt-in | Row-scale native-Q8 mode is default-candidate, not automatic. |
 | NVIDIA SGEMM / LM-head / GPU encoder | `backends/nvidia`, `models/whisper/gpu_encoder.go` | GPU-assisted when requested/available | Full decoder GPU residency remains not default; unused placeholder-only GPU transpose hooks were removed so this row reflects real GPU-assisted surfaces only. |
-| CUDA/PTX mel/conv/attention/pool scaffolding | `backends/cuda/ptx` | No | Correctness-first mel, Conv1D k=3 stride 1/2, attention/cross-attention, and attentive-stat-pool PTX bodies now exist and contract-test load/fma/softmax/sqrt/log/store structure; optimized production GPU dispatch remains pending. |
+| CUDA/PTX mel/conv/attention/pool scaffolding | `backends/cuda/ptx` plus NVIDIA mega-module entries | No | Correctness-first mel, Conv1D k=3 stride 1/2, attention/cross-attention, and attentive-stat-pool PTX bodies now exist, are registered as loadable NVIDIA runtime entries, and contract-test load/fma/softmax/sqrt/log/store structure; optimized production GPU dispatch remains pending. |
 | SpeechBrain ECAPA | `models/speaker` | Opt-in speaker model | Fbank and ECAPA parity validated; broader labeled quality suite pending. |
 
 ## Default eligibility snapshot
