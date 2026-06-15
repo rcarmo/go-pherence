@@ -62,12 +62,20 @@ func (ge *GPUEncoder) ForwardGPU(mel []float32, T int) []float32 {
 	cfg := ge.cfg
 	dModel := cfg.EncoderDModel
 
-	// Conv stem still on CPU (small relative to attention)
-	h := conv1dForward(mel, ge.Encoder.Conv1Weight, ge.Encoder.Conv1Bias, cfg.NumMelBins, T, dModel, 3, 1, 1)
+	// Conv stem: CPU by default (small relative to attention), with an opt-in
+	// correctness-first CUDA PTX path for end-to-end GPU graph validation.
+	h, ok := conv1dForwardGPU(mel, ge.Encoder.Conv1Weight, ge.Encoder.Conv1Bias, cfg.NumMelBins, T, dModel, 1)
+	if !ok {
+		h = conv1dForward(mel, ge.Encoder.Conv1Weight, ge.Encoder.Conv1Bias, cfg.NumMelBins, T, dModel, 3, 1, 1)
+	}
 	T1 := T
 	gelu(h)
-	h = conv1dForward(h, ge.Encoder.Conv2Weight, ge.Encoder.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
 	T2 := (T1+2*1-3)/2 + 1
+	if h2, ok := conv1dForwardGPU(h, ge.Encoder.Conv2Weight, ge.Encoder.Conv2Bias, dModel, T1, dModel, 2); ok {
+		h = h2
+	} else {
+		h = conv1dForward(h, ge.Encoder.Conv2Weight, ge.Encoder.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
+	}
 	gelu(h)
 
 	// Transpose to [T2, d_model]
@@ -132,6 +140,63 @@ func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []f
 	}
 
 	return mlpOut
+}
+
+func conv1dForwardGPU(input, weight, bias []float32, inCh, inLen, outCh, stride int) ([]float32, bool) {
+	if os.Getenv("GO_PHERENCE_WHISPER_GPU_CONV1D") != "1" || !nv.SgemmReady() || stride <= 0 || inCh <= 0 || inLen <= 0 || outCh <= 0 || len(input) < inCh*inLen || len(weight) < outCh*inCh*3 {
+		return nil, false
+	}
+	outLen := (inLen+2*1-3)/stride + 1
+	if outLen <= 0 {
+		return nil, false
+	}
+	inBuf, err := nv.Malloc(len(input))
+	if err != nil {
+		return nil, false
+	}
+	defer inBuf.Free()
+	wBuf, err := nv.Malloc(len(weight))
+	if err != nil {
+		return nil, false
+	}
+	defer wBuf.Free()
+	outBuf, err := nv.Malloc(outCh * outLen)
+	if err != nil {
+		return nil, false
+	}
+	defer outBuf.Free()
+	var bBuf *nv.Buffer
+	if len(bias) >= outCh {
+		bBuf, err = nv.Malloc(outCh)
+		if err != nil {
+			return nil, false
+		}
+		defer bBuf.Free()
+		if err := bBuf.Upload(bias[:outCh]); err != nil {
+			return nil, false
+		}
+	}
+	if err := inBuf.Upload(input[:inCh*inLen]); err != nil {
+		return nil, false
+	}
+	if err := wBuf.Upload(weight[:outCh*inCh*3]); err != nil {
+		return nil, false
+	}
+	if stride == 1 {
+		err = nv.WhisperConv1DK3S1Buffer(outBuf, inBuf, wBuf, bBuf, inCh, inLen, outCh, outLen)
+	} else if stride == 2 {
+		err = nv.WhisperConv1DK3S2Buffer(outBuf, inBuf, wBuf, bBuf, inCh, inLen, outCh, outLen)
+	} else {
+		return nil, false
+	}
+	if err != nil {
+		return nil, false
+	}
+	out := make([]float32, outCh*outLen)
+	if err := outBuf.Download(out); err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 func gpuWeight(data []float32) *nv.DevBuf {
