@@ -12,8 +12,12 @@ func TestNewMTPVerifierBatchInputsZeroLayer(t *testing.T) {
 	if !sameInts(batch.Plan.VerifierTokens, []int{1, 2}) || !sameInts(batch.Plan.Positions, []int{5, 6}) {
 		t.Fatalf("batch plan=%+v", batch.Plan)
 	}
-	if len(batch.HiddenRows) != 2 || len(batch.HiddenRows[0]) != m.Config.HiddenSize || batch.HasPerLayerInputs {
-		t.Fatalf("batch hidden=%v hasPLI=%v", batch.HiddenRows, batch.HasPerLayerInputs)
+	if len(batch.HiddenFlat) != 2*m.Config.HiddenSize || len(batch.HiddenRows) != 2 || len(batch.HiddenRows[0]) != m.Config.HiddenSize || batch.HasPerLayerInputs {
+		t.Fatalf("batch hiddenFlat=%v hidden=%v hasPLI=%v", batch.HiddenFlat, batch.HiddenRows, batch.HasPerLayerInputs)
+	}
+	batch.HiddenRows[0][0] = 123
+	if batch.HiddenFlat[0] != 123 {
+		t.Fatal("hidden row does not view flat backing buffer")
 	}
 	batch.Plan.VerifierTokens[0] = 99
 	if plan.VerifierTokens[0] == 99 {
@@ -41,11 +45,14 @@ func TestNewMTPVerifierBatchInputsWithPLI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !batch.HasPerLayerInputs || len(batch.PerLayerInputs) != 2 || len(batch.PerLayerInputs[0]) != 1 || len(batch.PerLayerInputs[0][0]) != 2 {
+	if !batch.HasPerLayerInputs || len(batch.PerLayerInputFlat) != 4 || len(batch.PerLayerInputs) != 2 || len(batch.PerLayerInputs[0]) != 1 || len(batch.PerLayerInputs[0][0]) != 2 {
 		t.Fatalf("PLI batch=%+v", batch)
 	}
 	first := append([]float32(nil), batch.PerLayerInputs[0][0]...)
 	batch.PerLayerInputs[0][0][0] = 99
+	if batch.PerLayerInputFlat[0] != 99 {
+		t.Fatal("PLI row does not view flat backing buffer")
+	}
 	if batch.PerLayerInputs[1][0][0] == 99 {
 		t.Fatalf("PLI rows alias across verifier tokens: %+v", batch.PerLayerInputs)
 	}

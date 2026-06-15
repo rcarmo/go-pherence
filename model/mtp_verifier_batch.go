@@ -9,7 +9,9 @@ import "fmt"
 // runner that matches llama.cpp/LiteRT verify graph construction.
 type MTPVerifierBatchInputs struct {
 	Plan              MTPVerifierPlan
+	HiddenFlat        []float32
 	HiddenRows        [][]float32
+	PerLayerInputFlat []float32
 	PerLayerInputs    [][][]float32
 	HasPerLayerInputs bool
 	Attention         MTPVerifierAttentionPlan
@@ -20,11 +22,15 @@ func NewMTPVerifierBatchInputs(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifier
 	if err := validateMTPVerifierPlanForModel(m, plan); err != nil {
 		return MTPVerifierBatchInputs{}, err
 	}
-	rows := make([][]float32, len(plan.VerifierTokens))
-	pliRows := make([][][]float32, len(plan.VerifierTokens))
+	B := len(plan.VerifierTokens)
+	h := m.Config.HiddenSize
+	rows := make([][]float32, B)
+	hiddenFlat := make([]float32, B*h)
+	pliRows := make([][][]float32, B)
 	hasPLI := false
+	var pliFlat []float32
 	for i, tok := range plan.VerifierTokens {
-		hidden := make([]float32, m.Config.HiddenSize)
+		hidden := hiddenFlat[i*h : (i+1)*h]
 		if err := m.ScaledTokenEmbeddingInto(hidden, tok); err != nil {
 			return MTPVerifierBatchInputs{}, fmt.Errorf("verifier token %d embedding: %w", i, err)
 		}
@@ -35,14 +41,31 @@ func NewMTPVerifierBatchInputs(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifier
 		}
 		if pli != nil {
 			hasPLI = true
-			pliRows[i] = clonePerLayerInputs(pli)
+			if pliFlat == nil {
+				perTokenPLI, ok := checkedProduct(m.Config.NumLayers, m.Config.HiddenPerLayer)
+				if !ok {
+					return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI per-token dimension overflow")
+				}
+				totalPLI, ok := checkedProduct(B, perTokenPLI)
+				if !ok {
+					return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI batch dimension overflow")
+				}
+				pliFlat = make([]float32, totalPLI)
+			}
+			pliRows[i] = make([][]float32, len(pli))
+			rowBase := i * m.Config.NumLayers * m.Config.HiddenPerLayer
+			for l := range pli {
+				dst := pliFlat[rowBase+l*m.Config.HiddenPerLayer : rowBase+(l+1)*m.Config.HiddenPerLayer]
+				copy(dst, pli[l])
+				pliRows[i][l] = dst
+			}
 		}
 	}
 	attn, err := NewMTPVerifierAttentionPlan(m, plan)
 	if err != nil {
 		return MTPVerifierBatchInputs{}, err
 	}
-	out := MTPVerifierBatchInputs{Plan: cloneMTPVerifierPlanValue(plan), HiddenRows: rows, PerLayerInputs: pliRows, HasPerLayerInputs: hasPLI, Attention: attn}
+	out := MTPVerifierBatchInputs{Plan: cloneMTPVerifierPlanValue(plan), HiddenFlat: hiddenFlat, HiddenRows: rows, PerLayerInputFlat: pliFlat, PerLayerInputs: pliRows, HasPerLayerInputs: hasPLI, Attention: attn}
 	scratch, err := NewMTPVerifierBatchScratchPlan(m, out)
 	if err != nil {
 		return MTPVerifierBatchInputs{}, err
