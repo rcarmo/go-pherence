@@ -358,9 +358,37 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 		if (len(layer.QW) != qDim*d.Config.HiddenSize && layer.QWm == nil) || (len(layer.OW) != d.Config.HiddenSize*qDim && layer.OWm == nil) {
 			return fmt.Errorf("drafter layer %d attention weight dims Q/O=%d/%d, want %d/%d", i, len(layer.QW), len(layer.OW), qDim*d.Config.HiddenSize, d.Config.HiddenSize*qDim)
 		}
+		if err := validateDrafterMLXWeight(i, "q_proj", layer.QWm, qDim, d.Config.HiddenSize); err != nil {
+			return err
+		}
+		if err := validateDrafterMLXWeight(i, "o_proj", layer.OWm, d.Config.HiddenSize, qDim); err != nil {
+			return err
+		}
 		if (len(layer.GateW) != d.Config.Intermediate*d.Config.HiddenSize && layer.GateWm == nil) || (len(layer.UpW) != d.Config.Intermediate*d.Config.HiddenSize && layer.UpWm == nil) || (len(layer.DownW) != d.Config.HiddenSize*d.Config.Intermediate && layer.DownWm == nil) {
 			return fmt.Errorf("drafter layer %d MLP weight dims are invalid", i)
 		}
+		if err := validateDrafterMLXWeight(i, "gate_proj", layer.GateWm, d.Config.Intermediate, d.Config.HiddenSize); err != nil {
+			return err
+		}
+		if err := validateDrafterMLXWeight(i, "up_proj", layer.UpWm, d.Config.Intermediate, d.Config.HiddenSize); err != nil {
+			return err
+		}
+		if err := validateDrafterMLXWeight(i, "down_proj", layer.DownWm, d.Config.HiddenSize, d.Config.Intermediate); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDrafterMLXWeight(layerIdx int, name string, qw *mlx.QuantWeight, outDim, inDim int) error {
+	if qw == nil {
+		return nil
+	}
+	if qw.OutDim != outDim || qw.InDim != inDim {
+		return fmt.Errorf("drafter layer %d %s MLX dims out/in=%d/%d, want %d/%d", layerIdx, name, qw.OutDim, qw.InDim, outDim, inDim)
+	}
+	if err := mlx.ValidateQuantWeight(qw); err != nil {
+		return fmt.Errorf("drafter layer %d %s MLX weight: %w", layerIdx, name, err)
 	}
 	return nil
 }

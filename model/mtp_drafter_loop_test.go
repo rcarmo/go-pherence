@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -380,6 +381,20 @@ func TestRunMTPDrafterStepExternalKVValidation(t *testing.T) {
 	bad.Layers[0].QW = bad.Layers[0].QW[:1]
 	if _, err := m.RunMTPDrafterStepWithExternalKV(&bad, state, validKV); err == nil {
 		t.Fatal("accepted invalid q-only projection dims")
+	}
+	bad = *d
+	bad.Layers = append([]Gemma4MTPDrafterLayer(nil), d.Layers...)
+	bad.Layers[0].QW = nil
+	bad.Layers[0].QWm = &mlx.QuantWeight{OutDim: 1, InDim: 2, Bits: 4, GroupSize: 8, Groups: 1, Weight: []uint32{0}, Scales: []float32{1}, Biases: []float32{0}}
+	if _, err := m.RunMTPDrafterStepWithExternalKV(&bad, state, validKV); err == nil || !strings.Contains(err.Error(), "q_proj MLX dims") {
+		t.Fatalf("RunMTPDrafterStepWithExternalKV malformed q_proj MLX err=%v, want dimension rejection", err)
+	}
+	bad = *d
+	bad.Layers = append([]Gemma4MTPDrafterLayer(nil), d.Layers...)
+	bad.Layers[0].QW = nil
+	bad.Layers[0].QWm = &mlx.QuantWeight{OutDim: 2, InDim: 2, Bits: 4, GroupSize: 8, Groups: 1, Weight: []uint32{0}, Scales: []float32{1, 1}, Biases: []float32{0, 0}}
+	if _, err := m.RunMTPDrafterStepWithExternalKV(&bad, state, validKV); err == nil || !strings.Contains(err.Error(), "q_proj MLX weight") {
+		t.Fatalf("RunMTPDrafterStepWithExternalKV malformed q_proj MLX layout err=%v, want structural rejection", err)
 	}
 }
 
