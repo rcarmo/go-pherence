@@ -76,16 +76,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: llmgen -model <dir> [-prompt text] [-tokens N]")
 		os.Exit(1)
 	}
-	if *tokens < 0 {
-		fmt.Fprintln(os.Stderr, "tokens must be non-negative")
-		os.Exit(1)
-	}
-	if (*mtpSmoke || *mtpGenerate) && *mtpDrafter == "" {
-		fmt.Fprintln(os.Stderr, "-mtp-smoke/-mtp-generate requires -mtp-drafter <dir>")
-		os.Exit(1)
-	}
-	if *mtpSeq <= 0 {
-		fmt.Fprintln(os.Stderr, "-mtp-seq must be positive")
+	if err := validateMTPCLIFlags(*tokens, *mtpSmoke, *mtpGenerate, *mtpDrafter, *mtpSeq); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
@@ -183,6 +175,19 @@ func main() {
 		fmt.Printf("MTP bonus tokens:  %d\n", mtpStats.BonusTokens)
 	}
 	_ = genText
+}
+
+func validateMTPCLIFlags(tokens int, mtpSmoke, mtpGenerate bool, mtpDrafter string, mtpSeq int) error {
+	if tokens < 0 {
+		return fmt.Errorf("tokens must be non-negative")
+	}
+	if (mtpSmoke || mtpGenerate) && mtpDrafter == "" {
+		return fmt.Errorf("-mtp-smoke/-mtp-generate requires -mtp-drafter <dir>")
+	}
+	if mtpSeq <= 0 {
+		return fmt.Errorf("-mtp-seq must be positive")
+	}
+	return nil
 }
 
 var mtpPromptContextCache = map[string]model.MTPPromptContext{}
