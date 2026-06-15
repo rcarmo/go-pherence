@@ -55,6 +55,7 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	var graphTokens []int
 	var summaryDrafted int
 	var summaryVerified int
+	streamCursor := promptLen
 	for i, step := range r.Steps {
 		if step.KeepTokens <= 0 || len(step.OutputTokens) != step.KeepTokens || len(step.Positions) != step.KeepTokens {
 			return fmt.Errorf("MTP graph generation malformed commit step %d: %+v", i, step)
@@ -62,8 +63,14 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		graphCount += len(step.OutputTokens)
 		graphTokens = append(graphTokens, step.OutputTokens...)
 		summary := r.StepSummaries[i]
+		if streamCursor <= 0 || streamCursor > len(r.Output) {
+			return fmt.Errorf("MTP graph summary %d stream cursor=%d outside output len=%d", i, streamCursor, len(r.Output))
+		}
 		if summary.InputToken < 0 || (r.VocabSize > 0 && summary.InputToken >= r.VocabSize) {
 			return fmt.Errorf("MTP graph summary %d input token=%d out of range", i, summary.InputToken)
+		}
+		if summary.InputToken != r.Output[streamCursor-1] {
+			return fmt.Errorf("MTP graph summary %d input token=%d, want output cursor token %d at output[%d]", i, summary.InputToken, r.Output[streamCursor-1], streamCursor-1)
 		}
 		if err := validateMTPGraphSummaryTokens(i, "drafted", summary.DraftedTokens, r.VocabSize); err != nil {
 			return err
@@ -109,6 +116,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 			if pos < 0 {
 				return fmt.Errorf("MTP graph summary %d verifier position %d=%d out of range", i, j, pos)
 			}
+			if j == 0 && pos != streamCursor {
+				return fmt.Errorf("MTP graph summary %d first verifier position=%d, want stream cursor=%d", i, pos, streamCursor)
+			}
 			if j > 0 && pos != summary.VerifierPositions[j-1]+1 {
 				return fmt.Errorf("MTP graph summary %d verifier positions not contiguous: %v", i, summary.VerifierPositions)
 			}
@@ -134,6 +144,7 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		if summary.BonusToken != summary.VerifierOutputTokens[summary.AcceptedPrefixLen] {
 			return fmt.Errorf("MTP graph summary %d bonus token=%d, want verifier output %d", i, summary.BonusToken, summary.VerifierOutputTokens[summary.AcceptedPrefixLen])
 		}
+		streamCursor += len(summary.OutputTokens)
 		summaryDrafted += len(summary.DraftedTokens)
 		summaryVerified += summary.AcceptedPrefixLen
 	}

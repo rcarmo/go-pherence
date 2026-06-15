@@ -72,7 +72,7 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 
 func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	valid := MTPGraphGenerationResult{
-		Output:             []int{10, 1, 2, 3},
+		Output:             []int{9, 1, 2, 3},
 		VocabSize:          11,
 		RequestedMaxTokens: 3,
 		Stats:              MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
@@ -100,7 +100,12 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted wrong graph output total")
 	}
 	bad = valid
-	bad.Output = []int{10, 9, 9, 3}
+	bad.Output = []int{10, 1, 2, 3}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted cycle input token not matching output cursor")
+	}
+	bad = valid
+	bad.Output = []int{9, 9, 9, 3}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted graph output content mismatch")
 	}
@@ -179,6 +184,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.StepSummaries[0].VerifierPositions = []int{1}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted short verifier positions")
+	}
+	bad = valid
+	bad.StepSummaries[0].VerifierPositions = []int{2, 3, 4}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted verifier position not matching output cursor")
 	}
 	bad = valid
 	bad.StepSummaries[0].VerifierPositions = []int{1, 3, 4}
