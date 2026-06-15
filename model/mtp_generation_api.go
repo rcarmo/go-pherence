@@ -66,6 +66,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if len(r.StepSummaries) != len(r.Steps) {
 		return fmt.Errorf("MTP graph step summaries=%d, commit steps=%d", len(r.StepSummaries), len(r.Steps))
 	}
+	if len(r.Output) > 0 && !mtpSameStringSet(r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration()) {
+		return fmt.Errorf("MTP public-generation blockers=%v, want capabilities blockers=%v", r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration())
+	}
 	var graphCount int
 	var graphTokens []int
 	var summaryDrafted int
@@ -369,6 +372,23 @@ func mtpStatsDelta(total, initial MTPSpeculationStats) (MTPSpeculationStats, err
 		BonusTokens:    total.BonusTokens - initial.BonusTokens,
 		OutputTokens:   total.OutputTokens - initial.OutputTokens,
 	}, nil
+}
+
+func mtpSameStringSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[string]int, len(a))
+	for _, x := range a {
+		seen[x]++
+	}
+	for _, x := range b {
+		if seen[x] == 0 {
+			return false
+		}
+		seen[x]--
+	}
+	return true
 }
 
 func validateMTPGraphSummaryTokens(step int, label string, tokens []int, vocab int) error {

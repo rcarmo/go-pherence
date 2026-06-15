@@ -71,18 +71,21 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 }
 
 func TestMTPGraphGenerationResultValidate(t *testing.T) {
+	caps := MTPGraphCapabilities{PublicGenerationWiring: false, VerifierBatchLayersGated: true, VerifierBatchLayers: false}
 	valid := MTPGraphGenerationResult{
-		Output:              []int{9, 1, 2, 3},
-		VocabSize:           11,
-		HiddenSize:          2,
-		RequestedMaxTokens:  3,
-		Stats:               MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
-		FinalState:          MTPDrafterState{PreviousToken: 2, Activation: []float32{0.5, 0.25}},
-		FinalStateOutputLen: 3,
-		Steps:               []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
-		StepSummaries:       []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 3}, VerifierTokens: []int{9, 1, 3}, VerifierOutputTokens: []int{1, 2, 3}, VerifierPositions: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
-		GraphOutputTokens:   2,
-		GreedyTailTokens:    1,
+		Output:                     []int{9, 1, 2, 3},
+		VocabSize:                  11,
+		HiddenSize:                 2,
+		RequestedMaxTokens:         3,
+		Stats:                      MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
+		FinalState:                 MTPDrafterState{PreviousToken: 2, Activation: []float32{0.5, 0.25}},
+		FinalStateOutputLen:        3,
+		Steps:                      []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
+		StepSummaries:              []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 3}, VerifierTokens: []int{9, 1, 3}, VerifierOutputTokens: []int{1, 2, 3}, VerifierPositions: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
+		GraphOutputTokens:          2,
+		GreedyTailTokens:           1,
+		Capabilities:               caps,
+		MissingForPublicGeneration: caps.MissingForPublicGeneration(),
 	}
 	if err := valid.Validate(1); err != nil {
 		t.Fatalf("Validate valid: %v", err)
@@ -97,6 +100,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.Stats.Steps = 4
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted stats moving backward from initial stats")
+	}
+	bad = valid
+	bad.MissingForPublicGeneration = []string{"stale_blocker"}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted stale public-generation blocker list")
 	}
 	bad = valid
 	bad.VocabSize = 0
@@ -312,7 +320,7 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	if err := valid.Validate(99); err == nil {
 		t.Fatal("accepted bad prompt len")
 	}
-	zero := MTPGraphGenerationResult{Output: []int{10}, VocabSize: 11, HiddenSize: 2, InitialStats: MTPSpeculationStats{Steps: 2}, Stats: MTPSpeculationStats{Steps: 2}, FinalState: MTPDrafterState{PreviousToken: 10, Activation: []float32{1, 2}}, FinalStateOutputLen: 1}
+	zero := MTPGraphGenerationResult{Output: []int{10}, VocabSize: 11, HiddenSize: 2, InitialStats: MTPSpeculationStats{Steps: 2}, Stats: MTPSpeculationStats{Steps: 2}, FinalState: MTPDrafterState{PreviousToken: 10, Activation: []float32{1, 2}}, FinalStateOutputLen: 1, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
 	if err := zero.Validate(1); err != nil {
 		t.Fatalf("zero-cycle Validate: %v", err)
 	}
