@@ -6,6 +6,8 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -30,6 +32,50 @@ type CPUDispatcher struct {
 	ExpertIndex           *FP8ExpertIndex  // FP8 safetensor expert weights for optimized CPU MoE
 	GGUFExpertIndex       *GGUFExpertIndex // GGUF expert weights for encoder/denoiser MoE
 	FinalLogitSoftcapping float32
+}
+
+func diffusionGemmaLayerTraceRow() int {
+	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_LAYER_TRACE_ROW"))
+	if v == "" {
+		return -1
+	}
+	row, err := strconv.Atoi(v)
+	if err != nil {
+		return -1
+	}
+	return row
+}
+
+func traceForwardRow(stage string, layer int, row int, scratch ForwardScratch, hiddenSize int) {
+	if row < 0 || hiddenSize <= 0 {
+		return
+	}
+	start := row * hiddenSize
+	end := start + hiddenSize
+	if start < 0 || end > len(scratch.Hidden) {
+		return
+	}
+	h := scratch.Hidden[start:end]
+	var sumSq float64
+	maxAbs := float32(0)
+	maxIdx := 0
+	for i, v := range h {
+		av := v
+		if av < 0 {
+			av = -av
+		}
+		if av > maxAbs {
+			maxAbs = av
+			maxIdx = i
+		}
+		sumSq += float64(v) * float64(v)
+	}
+	rms := math.Sqrt(sumSq / float64(len(h)))
+	prefix := make([]float32, 0, 4)
+	for i := 0; i < len(h) && i < 4; i++ {
+		prefix = append(prefix, h[i])
+	}
+	fmt.Fprintf(os.Stderr, "DiffusionGemma row_trace: stage=%s layer=%d row=%d rms=%.9g max_abs=%.9g max_idx=%d first4=%v\n", stage, layer, row, rms, maxAbs, maxIdx, prefix)
 }
 
 type ForwardScratch struct {
@@ -118,11 +164,14 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			return ForwardOutput{}, err
 		}
 	}
+	traceRow := diffusionGemmaLayerTraceRow()
+	traceForwardRow("prefix", -1, traceRow, scratch, buffers.HiddenSize)
 	currentLayer := -1
 	completedLayers := 0
 	layerStarted := time.Now()
 	for _, op := range ops.Layers {
 		if currentLayer >= 0 && op.Layer != currentLayer {
+			traceForwardRow("layer", currentLayer, traceRow, scratch, buffers.HiddenSize)
 			completedLayers++
 			if d.Progress {
 				fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed layer=%d cache_entries=%d cache_bytes=%d elapsed=%s\n", currentLayer, weights.FloatCacheEntries(), weights.FloatCacheBytes(), time.Since(layerStarted).Round(time.Millisecond))
@@ -145,6 +194,9 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			return ForwardOutput{}, err
 		}
 	}
+	if currentLayer >= 0 {
+		traceForwardRow("layer", currentLayer, traceRow, scratch, buffers.HiddenSize)
+	}
 	if currentLayer >= 0 && currentLayer >= d.ResidentLayerPrefix {
 		weights.EvictLayer(currentLayer)
 	}
@@ -162,6 +214,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		if d.Progress {
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed tail op=%s cache_entries=%d cache_bytes=%d elapsed=%s\n", op, weights.FloatCacheEntries(), weights.FloatCacheBytes(), time.Since(started).Round(time.Millisecond))
 		}
+		traceForwardRow(string(op), currentLayer, traceRow, scratch, buffers.HiddenSize)
 	}
 	if d.Progress && len(scratch.Logits) > 0 {
 		for pos := 0; pos < len(scratch.Logits) && pos < 2; pos++ {
