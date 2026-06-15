@@ -54,6 +54,25 @@ func equalInts(a, b []int) bool {
 	return true
 }
 
+func firstIDMismatch(ref, got []int) (index, refID, gotID int) {
+	n := len(ref)
+	if len(got) < n {
+		n = len(got)
+	}
+	for i := 0; i < n; i++ {
+		if ref[i] != got[i] {
+			return i, ref[i], got[i]
+		}
+	}
+	if len(ref) != len(got) {
+		if len(ref) < len(got) {
+			return len(ref), -1, got[len(ref)]
+		}
+		return len(got), ref[len(got)], -1
+	}
+	return -1, -1, -1
+}
+
 func TestLlamaCppGGUFHi1x1GoldenResponseIDs(t *testing.T) {
 	data, err := os.ReadFile("testdata/gguf_hi_1x1_parity_status.json")
 	if err != nil {
@@ -77,6 +96,40 @@ func TestLlamaCppGGUFHi1x1GoldenResponseIDs(t *testing.T) {
 	}
 	if fixture.LlamaCppObservedSteps != 11 {
 		t.Fatalf("llama.cpp observed entropy-bound steps=%d want 11", fixture.LlamaCppObservedSteps)
+	}
+}
+
+func TestGGUFHi1x1GoTrimmedOutputComparisonGate(t *testing.T) {
+	data, err := os.ReadFile("testdata/gguf_hi_1x1_parity_status.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		LlamaCppTemplatedPromptIDs []int `json:"llamacpp_templated_prompt_ids"`
+		LlamaCppResponseIDs        []int `json:"llamacpp_response_ids"`
+		GoPromptIDs                []int `json:"go_prompt_ids"`
+		GoGeneratedIDs             []int `json:"go_generated_ids"`
+		GoTrimCut                  int   `json:"go_trim_cut"`
+		GoObservedSteps            int   `json:"go_observed_steps"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if !equalInts(fixture.GoPromptIDs, fixture.LlamaCppTemplatedPromptIDs) {
+		t.Fatalf("prompt IDs differ: go=%v llama=%v", fixture.GoPromptIDs, fixture.LlamaCppTemplatedPromptIDs)
+	}
+	if len(fixture.GoGeneratedIDs) != fixture.GoTrimCut {
+		t.Fatalf("go generated len=%d trim_cut=%d", len(fixture.GoGeneratedIDs), fixture.GoTrimCut)
+	}
+	if equalInts(fixture.GoGeneratedIDs, fixture.LlamaCppResponseIDs) {
+		t.Fatalf("fixture unexpectedly matches; promote this test to an equality golden and update parity status")
+	}
+	idx, ref, got := firstIDMismatch(fixture.LlamaCppResponseIDs, fixture.GoGeneratedIDs)
+	if idx != 3 || ref != 818 || got != 101 {
+		t.Fatalf("first mismatch index/ref/go=%d/%d/%d want 3/818/101", idx, ref, got)
+	}
+	if len(fixture.LlamaCppResponseIDs) != 64 || len(fixture.GoGeneratedIDs) != 13 || fixture.GoObservedSteps != 2 {
+		t.Fatalf("unexpected comparison dimensions: ref=%d go=%d steps=%d", len(fixture.LlamaCppResponseIDs), len(fixture.GoGeneratedIDs), fixture.GoObservedSteps)
 	}
 }
 
