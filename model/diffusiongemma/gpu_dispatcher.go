@@ -2861,6 +2861,11 @@ func diffusionGemmaGGUFGPUExpertPrewarmQ4OnlyEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func diffusionGemmaGGUFGPUExpertPrewarmPlanOnlyEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func diffusionGemmaGGUFGPUExpertPrewarmReserveBytes() uint64 {
 	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_RESERVE_MB"))
 	if v == "" {
@@ -4198,6 +4203,7 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 	cacheReserve := diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes()
 	cacheBudget := diffusionGemmaGGUFGPUExpertCacheBytes()
 	q4Only := diffusionGemmaGGUFGPUExpertPrewarmQ4OnlyEnabled()
+	planOnly := diffusionGemmaGGUFGPUExpertPrewarmPlanOnlyEnabled()
 	cacheID := ggufExpertIndexCacheID(idx)
 	prewarmed := make(map[ggufExpertPrewarmTarget]bool)
 	prewarmOne := func(layer, expert int) (bool, error) {
@@ -4278,7 +4284,8 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 		prewarmed[ggufExpertPrewarmTarget{Layer: layer, Expert: expert}] = true
 		return true, nil
 	}
-	for _, target := range diffusionGemmaGGUFGPUExpertPrewarmPlan(maxLayers, idx.NumExperts) {
+	plan := diffusionGemmaGGUFGPUExpertPrewarmPlan(maxLayers, idx.NumExperts)
+	for _, target := range plan {
 		ok, err := prewarmOne(target.Layer, target.Expert)
 		if err != nil {
 			return layers, experts, bytes, err
@@ -4286,6 +4293,9 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 		if !ok {
 			return layers, experts, bytes, nil
 		}
+	}
+	if planOnly && len(plan) > 0 {
+		return layers, experts, bytes, nil
 	}
 	for layer := 0; layer < maxLayers; layer++ {
 		layerComplete := true

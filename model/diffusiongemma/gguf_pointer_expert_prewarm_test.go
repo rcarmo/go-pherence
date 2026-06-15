@@ -116,6 +116,21 @@ func TestGGUFGPUExpertActiveTraceTop(t *testing.T) {
 	}
 }
 
+func TestGGUFGPUExpertPrewarmPlanOnlyEnabled(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY", "")
+	if diffusionGemmaGGUFGPUExpertPrewarmPlanOnlyEnabled() {
+		t.Fatal("plan-only prewarm should default off")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY", "1")
+	if !diffusionGemmaGGUFGPUExpertPrewarmPlanOnlyEnabled() {
+		t.Fatal("plan-only prewarm opt-in not honored")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY", "false")
+	if diffusionGemmaGGUFGPUExpertPrewarmPlanOnlyEnabled() {
+		t.Fatal("plan-only prewarm disable not honored")
+	}
+}
+
 func TestGGUFGPUExpertPrewarmCacheReserveBytes(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_CACHE_RESERVE_MB", "")
 	if got := diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes(); got != 0 {
@@ -192,6 +207,32 @@ func TestPrewarmGGUFGPUPointerExpertCachePlannedQ5Down(t *testing.T) {
 	}
 	if table, ok, err := activeQ5DownPointerTable(idx, 0, []int{1, 0}); err != nil || !ok || table == nil {
 		t.Fatalf("Q5 active pointer table table=%v ok=%v err=%v", table, ok, err)
+	}
+	FreeGGUFGPUExpertCaches()
+}
+
+func TestPrewarmGGUFGPUPointerExpertCachePlanOnlySkipsSequentialFill(t *testing.T) {
+	if !gpu.SgemmReady() {
+		t.Skip("CUDA not available")
+	}
+	resetGGUFExpertResidencyTestState()
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_CACHE_MB", "8192")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_RESERVE_MB", "0")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN", "0:1")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY", "1")
+	idx := syntheticPointerExpertIndex(t)
+	layers, experts, bytes, err := PrewarmGGUFGPUPointerExpertCache(idx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if layers != 0 || experts != 1 || bytes <= 0 {
+		t.Fatalf("plan-only prewarm layers=%d experts=%d bytes=%d, want 0/1/>0", layers, experts, bytes)
+	}
+	if got := countSyncMapEntries(&q4KGateUpExpertCache); got != 1 {
+		t.Fatalf("Q4 resident entries=%d want 1", got)
+	}
+	if got := countSyncMapEntries(&q8DownExpertCache); got != 1 {
+		t.Fatalf("Q8 resident entries=%d want 1", got)
 	}
 	FreeGGUFGPUExpertCaches()
 }
