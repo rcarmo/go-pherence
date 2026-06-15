@@ -54,6 +54,7 @@ whisper-a100-compare:
 
 whisper-a100-podcast-compare:
 	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4
+	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4 --timestamps
 
 .PHONY: ideogram4gen-k3 ideogram4-k3-check
 ideogram4gen-k3:

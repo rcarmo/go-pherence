@@ -52,6 +52,7 @@ python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 # scripts/whisper_a100_compare.py for broader/long-form clip sets.
 make whisper-a100-compare
 make whisper-a100-podcast-compare
+# podcast target compares both stdout and timestamp/VTT on a 12s long-form window.
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
 GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4
