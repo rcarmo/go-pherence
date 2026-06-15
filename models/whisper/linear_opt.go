@@ -141,17 +141,31 @@ func linearRowBlock(out, x, weight, bias []float32, s, e, inDim, outDim int) {
 		if ie > e {
 			ie = e
 		}
-		for j := 0; j < outDim; j++ {
-			wRow := weight[j*inDim : j*inDim+inDim]
-			var bj float32
-			if bias != nil && j < len(bias) {
-				bj = bias[j]
+		m := ie - ib
+		c := out[ib*outDim : (ie-1)*outDim+outDim]
+		for i := range c {
+			c[i] = 0
+		}
+		if bias != nil {
+			bn := len(bias)
+			if bn > outDim {
+				bn = outDim
 			}
-			for i := ib; i < ie; i++ {
-				xRow := x[i*inDim : i*inDim+inDim]
-				out[i*outDim+j] = simdrt.Sdot(xRow, wRow) + bj
+			for i := 0; i < m; i++ {
+				row := c[i*outDim : i*outDim+outDim]
+				copy(row, bias[:bn])
 			}
 		}
+		// Compute the whole frame tile as C = A * W^T + bias through the checked
+		// SIMD SGEMM facade. This makes the native SIMD path the production oracle
+		// for large-v3-turbo encoder/decoder linear layers while preserving the
+		// scalar fallback on hosts without an accelerated kernel.
+		if simdrt.SgemmNTTo(c, x[ib*inDim:], weight, m, outDim, inDim, 1, inDim, inDim, outDim) {
+			continue
+		}
+		// Defensive fallback for invalid dimensions/slices; normal callers are
+		// shape-checked before reaching this point.
+		scalarLinearBlock(c, x[ib*inDim:], weight, bias, m, inDim, outDim)
 	}
 }
 
