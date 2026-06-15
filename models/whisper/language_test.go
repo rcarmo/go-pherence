@@ -40,6 +40,23 @@ func TestDetectLanguage(t *testing.T) {
 	}
 }
 
+func TestTranscribeWithLanguageDetectSmoke(t *testing.T) {
+	cfg := Tiny()
+	cfg.EncoderLayers = 0
+	cfg.DecoderLayers = 0
+	cfg.MaxDecoderLength = 2
+	enc, dec := buildZeroWeightModel(t, cfg)
+	w := &Whisper{Encoder: enc, Decoder: dec, Config: cfg}
+	text, lang, err := w.TranscribeWithLanguageDetect(make([]float32, 16000))
+	if err != nil {
+		t.Fatalf("TranscribeWithLanguageDetect: %v", err)
+	}
+	if _, ok := LanguageTokens[lang]; !ok {
+		t.Fatalf("invalid detected language %q", lang)
+	}
+	t.Logf("language-detect smoke lang=%s text=%q", lang, text)
+}
+
 func TestLanguageTokensComplete(t *testing.T) {
 	// Verify token map is non-empty and bidirectional
 	if len(LanguageTokens) < 50 {
