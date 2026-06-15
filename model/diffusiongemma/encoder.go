@@ -703,6 +703,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			if !usedGPUExperts {
 				ggufExpertDispatchCounters.cpuFallback.Add(1)
 				cpuFallbackStart := time.Now()
+				cpuLayerStatsStart := ggufCPUExpertTimingSnapshot()
 				if len(normedRows) > 0 {
 					err = runGGUFCPUExpertsIndexedWithNormedRows(LayerOp{Layer: layer, Type: lt, Kind: OpExperts}, weights, moeScratch, d.GGUFExpertIndex, normedRows)
 				} else {
@@ -711,7 +712,12 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 				if err != nil {
 					return nil, err
 				}
-				ggufExpertDispatchCounters.cpuFallbackNS.Add(uint64(time.Since(cpuFallbackStart).Nanoseconds()))
+				fallbackElapsed := time.Since(cpuFallbackStart)
+				ggufExpertDispatchCounters.cpuFallbackNS.Add(uint64(fallbackElapsed.Nanoseconds()))
+				if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
+					cpuLayerStats := ggufCPUExpertTimingSnapshot().Sub(cpuLayerStatsStart)
+					fmt.Fprintf(os.Stderr, "DiffusionGemma encoder gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d\n", layer, cpuLayerStats.Positions, cpuLayerStats.WorkItems, cpuLayerStats.ActiveExperts, fallbackElapsed.Seconds(), float64(cpuLayerStats.GateNS)/1e9, float64(cpuLayerStats.DownNS)/1e9, cpuLayerStats.Q4DirectRows, cpuLayerStats.Q4DequantRows, cpuLayerStats.Q8DirectRows, cpuLayerStats.Q8DequantRows)
+				}
 			}
 		} else {
 			scaleVec, err := loadFloatVector(weights, lb.RouterScale)

@@ -342,6 +342,11 @@ func diffusionGemmaGGUFCPUQ4DirectEnabled() bool {
 	return diffusionGemmaGGUFCPUDirectPolicyEnabled("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q4_DIRECT")
 }
 
+func diffusionGemmaGGUFCPUExpertLayerTraceEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_EXPERT_LAYER_TRACE")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func diffusionGemmaGGUFCPUDirectPolicyEnabled(name string) bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
 	if v == "" {

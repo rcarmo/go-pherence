@@ -33,6 +33,21 @@ func TestGGUFExpertSdotBatchToMatchesSdot(t *testing.T) {
 	}
 }
 
+func TestGGUFCPUExpertLayerTraceCanBeEnabled(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_EXPERT_LAYER_TRACE", "")
+	if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
+		t.Fatal("CPU expert layer trace should default off")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_EXPERT_LAYER_TRACE", "1")
+	if !diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
+		t.Fatal("CPU expert layer trace did not honor enable")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_EXPERT_LAYER_TRACE", "false")
+	if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
+		t.Fatal("CPU expert layer trace did not honor disable")
+	}
+}
+
 func TestGGUFCPUDirectQuantPolicyDefaultsOnAndCanBeDisabled(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q4_DIRECT", "")
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q8_DIRECT", "")
