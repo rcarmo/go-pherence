@@ -1,6 +1,10 @@
 package model
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/rcarmo/go-pherence/runtime/kv"
+)
 
 func TestNewCPUDecodeStateFromMTPPromptContext(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
@@ -362,6 +366,26 @@ func TestMTPExternalKVForDecodeStateRefreshesKVSlicesAndSeqLen(t *testing.T) {
 	badDecode := &CPUDecodeState{Output: []int{1}, KVCacheK: [][]float32{{}}, KVCacheV: nil}
 	if _, err := mtpExternalKVForDecodeState(badDecode, base); err == nil {
 		t.Fatal("accepted mismatched decode/base KV layers")
+	}
+}
+
+func TestMTPExternalKVForDecodeStateRefreshesCompressedKVSlices(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	cache := kv.NewCompressedKVCache(2, 1, 2, nil, true)
+	cache.Append([]float32{1, 2}, []float32{3, 4})
+	cache.Append([]float32{5, 6}, []float32{7, 8})
+	decode := &CPUDecodeState{Model: m, Output: []int{1, 2}, KVDims: []int{2}, CompressedKV: []*kv.CompressedKVCache{cache}}
+	base := &MTPDrafterExternalKV{K: [][]float32{{1, 2}}, V: [][]float32{{3, 4}}, SourceLayers: []int{0}, SeqLen: 1}
+	got, err := mtpExternalKVForDecodeState(decode, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SeqLen != 2 || !sameFloat32s(got.K[0], []float32{1, 2, 5, 6}) || !sameFloat32s(got.V[0], []float32{3, 4, 7, 8}) || !sameInts(got.SourceLayers, []int{0}) {
+		t.Fatalf("compressed refreshed external KV=%+v", got)
+	}
+	got.K[0][0] = 99
+	if cache.GetK()[0] == 99 {
+		t.Fatal("refreshed compressed external KV aliases cache storage")
 	}
 }
 

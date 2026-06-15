@@ -410,12 +410,20 @@ func mtpExternalKVForDecodeState(decode *CPUDecodeState, base *MTPDrafterExterna
 	if decode == nil {
 		return nil, fmt.Errorf("nil decode state")
 	}
-	if len(decode.KVCacheK) != len(base.K) || len(decode.KVCacheV) != len(base.V) {
-		return nil, fmt.Errorf("decode KV layers K/V=%d/%d, base K/V=%d/%d", len(decode.KVCacheK), len(decode.KVCacheV), len(base.K), len(base.V))
+	kvK, kvV := decode.KVCacheK, decode.KVCacheV
+	if decode.CompressedKV != nil {
+		var err error
+		kvK, kvV, err = decode.materializeCompressedKVForVerifier(len(decode.Output))
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(kvK) != len(base.K) || len(kvV) != len(base.V) {
+		return nil, fmt.Errorf("decode KV layers K/V=%d/%d, base K/V=%d/%d", len(kvK), len(kvV), len(base.K), len(base.V))
 	}
 	return &MTPDrafterExternalKV{
-		K:            decode.KVCacheK,
-		V:            decode.KVCacheV,
+		K:            kvK,
+		V:            kvV,
 		SourceLayers: append([]int(nil), base.SourceLayers...),
 		SeqLen:       len(decode.Output),
 	}, nil
