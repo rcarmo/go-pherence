@@ -5,7 +5,6 @@ import (
 	"math"
 	"testing"
 
-	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
@@ -62,7 +61,7 @@ func TestGGUFQ8_0ExpertRowDotMatchesScalarDequantOracle(t *testing.T) {
 	}
 }
 
-func TestGGUFQ5_0ExpertRowDotMatchesDequant(t *testing.T) {
+func TestGGUFQ5_0ExpertRowDotMatchesScalarDequantOracle(t *testing.T) {
 	m := &gguf.ExpertMatrices{Name: "synthetic.q5", QType: gguf.QuantQ5_0, InDim: 64, OutDim: 3, Experts: 2}
 	rowBytes, err := m.RowBytes()
 	if err != nil {
@@ -89,7 +88,7 @@ func TestGGUFQ5_0ExpertRowDotMatchesDequant(t *testing.T) {
 			if err := m.DequantExpertRowTo(row, expert, r); err != nil {
 				t.Fatal(err)
 			}
-			want := simd.Sdot(row, x)
+			want := scalarDotForTest(row, x)
 			got, err := ggufQ5_0ExpertRowDot(m, expert, r, x)
 			if err != nil {
 				t.Fatal(err)

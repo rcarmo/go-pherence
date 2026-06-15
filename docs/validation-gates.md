@@ -66,8 +66,8 @@ make whisper-backend-podcast-compare
 # DiffusionGemma runnable llama.cpp GGUF golden/probe gate. This is fixture-only
 # and does not require local 48 GiB shards or CUDA; it locks prompt IDs,
 # reference response IDs, current Go-vs-llama mismatch metadata, first-step
-# top-logit probe values, plus Q4_K/Q8_0 direct expert row-dot parity against a
-# scalar dequantized CPU oracle.
+# top-logit probe values, plus Q4_K/Q8_0/Q5_0 direct expert row-dot parity
+# against a scalar dequantized CPU oracle.
 make diffusiongemma-golden-gate
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
