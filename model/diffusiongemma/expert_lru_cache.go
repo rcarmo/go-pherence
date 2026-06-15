@@ -484,7 +484,7 @@ func runLRUCachedExperts(op LayerOp, weights *TextWeights, scratch ForwardScratc
 		// Activation per position
 		aB := actBatch[:batch*intermediate]
 		for i := 0; i < batch; i++ {
-			if !simd.GELUExactMulTo(aB[i*intermediate:(i+1)*intermediate], gB[i*intermediate:(i+1)*intermediate], uB[i*intermediate:(i+1)*intermediate]) {
+			if !diffusionGemmaGELUMulTo(aB[i*intermediate:(i+1)*intermediate], gB[i*intermediate:(i+1)*intermediate], uB[i*intermediate:(i+1)*intermediate]) {
 				return fmt.Errorf("expert %d activation rejected batch row %d", eid, i)
 			}
 		}

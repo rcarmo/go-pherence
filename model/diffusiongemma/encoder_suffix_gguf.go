@@ -324,7 +324,7 @@ func (d CPUDispatcher) EncodePromptSuffixGGUF(suffixIDs []int, prefixKV []Encode
 					gateRow[m] = gateResult[m*positions+pos]
 					upRow[m] = upResult[m*positions+pos]
 				}
-				if !simd.GELUExactMulTo(actBatch[pos*intermediate:(pos+1)*intermediate], gateRow, upRow) {
+				if !diffusionGemmaGELUMulTo(actBatch[pos*intermediate:(pos+1)*intermediate], gateRow, upRow) {
 					return nil, fmt.Errorf("DiffusionGemma suffix GPU dense activation rejected layer=%d", layer)
 				}
 			}
@@ -343,7 +343,7 @@ func (d CPUDispatcher) EncodePromptSuffixGGUF(suffixIDs []int, prefixKV []Encode
 				if !simd.GemvRowsParallel(gate, row, gateW, intermediate, gateCols) || !simd.GemvRowsParallel(up, row, upW, intermediate, gateCols) {
 					return nil, fmt.Errorf("DiffusionGemma suffix encoder dense gate/up rejected layer=%d", layer)
 				}
-				if !simd.GELUExactMulTo(act, gate, up) || !simd.GemvRowsParallel(mlpOut, act, downW, hiddenSize, intermediate) {
+				if !diffusionGemmaGELUMulTo(act, gate, up) || !simd.GemvRowsParallel(mlpOut, act, downW, hiddenSize, intermediate) {
 					return nil, fmt.Errorf("DiffusionGemma suffix encoder dense down rejected layer=%d", layer)
 				}
 				copy(mlpResult[off:off+hiddenSize], mlpOut)

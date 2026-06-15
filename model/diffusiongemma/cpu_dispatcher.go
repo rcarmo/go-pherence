@@ -432,7 +432,7 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 		if !simd.GemvRows(gate, cond, gateW, intermediate, hiddenSize) || !simd.GemvRows(up, cond, upW, intermediate, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma self-conditioning gate/up GEMV rejected")
 		}
-		if !simd.GELUExactMulTo(act, gate, up) {
+		if !diffusionGemmaGELUMulTo(act, gate, up) {
 			return fmt.Errorf("DiffusionGemma self-conditioning activation rejected")
 		}
 		if !simd.GemvRows(signal, act, downW, hiddenSize, intermediate) {
@@ -813,7 +813,7 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 		if !upM.gemvRows(up, row) {
 			return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
 		}
-		if !simd.GELUExactMulTo(act, gate, up) {
+		if !diffusionGemmaGELUMulTo(act, gate, up) {
 			return fmt.Errorf("DiffusionGemma dense MLP activation rejected layer %d", op.Layer)
 		}
 		if !downM.gemvRows(out, act) {
@@ -1042,7 +1042,7 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 			if !simd.GemvRows(gate, normedRow, ew.gateW, intermediate, hiddenSize) || !simd.GemvRows(up, normedRow, ew.upW, intermediate, hiddenSize) {
 				return fmt.Errorf("DiffusionGemma expert GEMV rejected")
 			}
-			if !simd.GELUExactMulTo(act, gate, up) {
+			if !diffusionGemmaGELUMulTo(act, gate, up) {
 				return fmt.Errorf("DiffusionGemma expert activation rejected")
 			}
 			if !simd.GemvRows(expertOut, act, ew.downW, hiddenSize, intermediate) {

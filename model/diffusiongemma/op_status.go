@@ -38,11 +38,11 @@ func OperationDomainSummaries(ops []OpStatus) map[string]OpDomainSummary {
 func OperationStatuses() []OpStatus {
 	return []OpStatus{
 		{Kind: OpCanvasEmbedding, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "prompt embed*sqrt(n_embd); canvas RMSNormNoScale after optional self-conditioning"},
-		{Kind: OpSelfCondition, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "raw-logit softmax feedback with current temp_inv and exact GELU SC MLP"},
+		{Kind: OpSelfCondition, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "raw-logit softmax feedback with current temp_inv and ggml_gelu/tanh GELU SC MLP"},
 		{Kind: OpInputNorm, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "RMSNorm eps=1e-6"},
 		{Kind: OpSelfAttention, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "q/k norm, V no-scale norm, RoPE/proportional factors, causal prompt and bidirectional canvas masks"},
 		{Kind: OpPostAttention, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "RMSNorm eps=1e-6 + residual"},
-		{Kind: OpDenseMLP, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "Gemma4 shared dense MLP with exact ggml_gelu/GEGLU"},
+		{Kind: OpDenseMLP, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "Gemma4 shared dense MLP with llama.cpp ggml_gelu (tanh) GEGLU"},
 		{Kind: OpPreMoE, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "MoE pre-norms and router no-scale norm"},
 		{Kind: OpRouter, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "softmax top-k, selected-weight sum clamp, GGUF down-scale handling"},
 		{Kind: OpExperts, Domain: "text", Implemented: true, ReferenceComplete: true, Note: "GGUFExpertIndex keeps Q4_K/Q8_0 expert tensors quantized and applies per-expert down scales"},

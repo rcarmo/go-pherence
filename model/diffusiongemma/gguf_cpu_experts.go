@@ -1010,7 +1010,7 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					gateSlice := batchGU[b*outDimGU : b*outDimGU+intermediate]
 					upSlice := batchGU[b*outDimGU+intermediate : (b+1)*outDimGU]
 					actSlice := batchAct[b*intermediate : (b+1)*intermediate]
-					if !simd.GELUExactMulTo(actSlice, gateSlice, upSlice) {
+					if !diffusionGemmaGELUMulTo(actSlice, gateSlice, upSlice) {
 						errOnce.Do(func() { firstErr = fmt.Errorf("expert activation rejected") })
 						return
 					}
@@ -1286,7 +1286,7 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 					gateSlice := batchGU[b*outDimGU : b*outDimGU+intermediate]
 					upSlice := batchGU[b*outDimGU+intermediate : (b+1)*outDimGU]
 					actSlice := batchAct[b*intermediate : (b+1)*intermediate]
-					if !simd.GELUExactMulTo(actSlice, gateSlice, upSlice) {
+					if !diffusionGemmaGELUMulTo(actSlice, gateSlice, upSlice) {
 						errOnce.Do(func() { firstErr = fmt.Errorf("expert activation rejected") })
 						return
 					}
@@ -1441,7 +1441,7 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 
 	// Split gate and up, apply GELU(gate) * up
 	actOut := make([]float32, intermediate)
-	if !simd.GELUExactMulTo(actOut, guOut[:intermediate], guOut[intermediate:]) {
+	if !diffusionGemmaGELUMulTo(actOut, guOut[:intermediate], guOut[intermediate:]) {
 		return fmt.Errorf("GGUF expert MLP: activation rejected")
 	}
 

@@ -574,7 +574,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			}
 			actBatch := make([]float32, midLen)
 			for pos := 0; pos < positions; pos++ {
-				if !simd.GELUExactMulTo(actBatch[pos*intermediate:(pos+1)*intermediate], gateBatch[pos*intermediate:(pos+1)*intermediate], upBatch[pos*intermediate:(pos+1)*intermediate]) {
+				if !diffusionGemmaGELUMulTo(actBatch[pos*intermediate:(pos+1)*intermediate], gateBatch[pos*intermediate:(pos+1)*intermediate], upBatch[pos*intermediate:(pos+1)*intermediate]) {
 					return nil, fmt.Errorf("encoder GPU MLP activation rejected layer=%d pos=%d", layer, pos)
 				}
 			}
@@ -600,7 +600,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 					if err := gpu.GemvFP8E4M3(up, rowIn, fl.Up); err != nil {
 						return nil, fmt.Errorf("encoder FP8 MLP up rejected layer=%d offset=%d: %w", layer, off, err)
 					}
-					if !simd.GELUExactMulTo(act, gate, up) {
+					if !diffusionGemmaGELUMulTo(act, gate, up) {
 						return nil, fmt.Errorf("encoder FP8 MLP activation rejected layer=%d offset=%d", layer, off)
 					}
 					actIn := act
@@ -614,7 +614,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 					if !bf16GemvNarrow(gate, row, gateBF16, gateRows, gateCols) || !bf16GemvNarrow(up, row, upBF16, gateRows, gateCols) {
 						return nil, fmt.Errorf("encoder BF16 MLP gate/up GEMV rejected layer=%d offset=%d", layer, off)
 					}
-					if !simd.GELUExactMulTo(act, gate, up) {
+					if !diffusionGemmaGELUMulTo(act, gate, up) {
 						return nil, fmt.Errorf("encoder BF16 MLP activation rejected layer=%d offset=%d", layer, off)
 					}
 					if !bf16GemvNarrow(mlpOut, act, downBF16, hiddenSize, gateRows) {
@@ -624,7 +624,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 					if !simd.GemvRowsParallel(gate, row, gateW, intermediate, gateCols) || !simd.GemvRowsParallel(up, row, upW, intermediate, gateCols) {
 						return nil, fmt.Errorf("encoder MLP gate/up GEMV rejected layer=%d offset=%d", layer, off)
 					}
-					if !simd.GELUExactMulTo(act, gate, up) {
+					if !diffusionGemmaGELUMulTo(act, gate, up) {
 						return nil, fmt.Errorf("encoder MLP activation rejected layer=%d offset=%d", layer, off)
 					}
 					if !simd.GemvRowsParallel(mlpOut, act, downW, hiddenSize, intermediate) {
@@ -879,7 +879,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 							if err := gpu.GemvFP8E4M3(eUp, expertIn, upL); err != nil {
 								return nil, fmt.Errorf("DiffusionGemma encoder expert %d FP8 up: %w", expertID, err)
 							}
-							if !simd.GELUExactMulTo(eAct, eGate, eUp) {
+							if !diffusionGemmaGELUMulTo(eAct, eGate, eUp) {
 								return nil, fmt.Errorf("DiffusionGemma encoder expert %d activation rejected", expertID)
 							}
 							downIn := eAct
@@ -909,7 +909,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 							if err := ep.up.GemvTo(expertIn, eUp); err != nil {
 								return nil, fmt.Errorf("DiffusionGemma encoder expert %d indexed FP8 up: %w", expertID, err)
 							}
-							if !simd.GELUExactMulTo(eAct, eGate, eUp) {
+							if !diffusionGemmaGELUMulTo(eAct, eGate, eUp) {
 								return nil, fmt.Errorf("DiffusionGemma encoder expert %d activation rejected", expertID)
 							}
 							downIn := eAct
@@ -933,7 +933,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 							if !simd.GemvRows(eGate, normedRow, gW, moeIntermediate, hiddenSize) || !simd.GemvRows(eUp, normedRow, uW, moeIntermediate, hiddenSize) {
 								return nil, fmt.Errorf("DiffusionGemma encoder expert %d GEMV rejected", expertID)
 							}
-							if !simd.GELUExactMulTo(eAct, eGate, eUp) {
+							if !diffusionGemmaGELUMulTo(eAct, eGate, eUp) {
 								return nil, fmt.Errorf("DiffusionGemma encoder expert %d activation rejected", expertID)
 							}
 							if !simd.GemvRows(eOut, eAct, dSlice, hiddenSize, moeIntermediate) {

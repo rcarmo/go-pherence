@@ -342,7 +342,7 @@ func runFP8CPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardSc
 					g := batchGate[i*intermediate : (i+1)*intermediate]
 					u := batchUp[i*intermediate : (i+1)*intermediate]
 					a := batchAct[i*intermediate : (i+1)*intermediate]
-					if !simd.GELUExactMulTo(a, g, u) {
+					if !diffusionGemmaGELUMulTo(a, g, u) {
 						errOnce.Do(func() { firstErr = fmt.Errorf("expert activation rejected") })
 						return
 					}
