@@ -439,12 +439,17 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 				layer.DownW = loadMLXDeq(p+".mlp.down_proj", h, cfg.Intermediate)
 			}
 		} else if cfg.QuantBits > 0 && onTheFly {
+			kwq := loadQW(p+".self_attn.k_proj", kvDimL, h)
+			vwq := kwq
+			if hasVProj || !cfg.AttentionKEqV {
+				vwq = loadQW(p+".self_attn.v_proj", kvDimL, h)
+			}
 			layer = LlamaLayer{
 				InputNorm: load(p+".input_layernorm.weight", []int{h}),
 				PostNorm:  load(p+".post_attention_layernorm.weight", []int{h}),
 				QWq:       loadQW(p+".self_attn.q_proj", qDimL, h),
-				KWq:       loadQW(p+".self_attn.k_proj", kvDimL, h),
-				VWq:       loadQW(p+".self_attn.v_proj", kvDimL, h),
+				KWq:       kwq,
+				VWq:       vwq,
 				OWq:       loadQW(p+".self_attn.o_proj", h, oDimIn),
 			}
 			if !isMoELayer {
@@ -453,12 +458,17 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 				layer.DownWq = loadQW(p+".mlp.down_proj", h, cfg.Intermediate)
 			}
 		} else if cfg.QuantBits > 0 {
+			kw := loadQ(p+".self_attn.k_proj", kvDimL, h)
+			vw := kw
+			if hasVProj || !cfg.AttentionKEqV {
+				vw = loadQ(p+".self_attn.v_proj", kvDimL, h)
+			}
 			layer = LlamaLayer{
 				InputNorm: load(p+".input_layernorm.weight", []int{h}),
 				PostNorm:  load(p+".post_attention_layernorm.weight", []int{h}),
 				QW:        loadQ(p+".self_attn.q_proj", qDimL, h),
-				KW:        loadQ(p+".self_attn.k_proj", kvDimL, h),
-				VW:        loadQ(p+".self_attn.v_proj", kvDimL, h),
+				KW:        kw,
+				VW:        vw,
 				OW:        loadQ(p+".self_attn.o_proj", h, oDimIn),
 			}
 			if !isMoELayer {
