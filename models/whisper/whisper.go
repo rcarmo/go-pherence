@@ -64,6 +64,12 @@ func (w *Whisper) Transcribe(wavPath string) (string, error) {
 
 // TranscribeFromSamples takes pre-loaded 16kHz mono float32 samples.
 func (w *Whisper) TranscribeFromSamples(samples []float32) (string, error) {
+	return w.TranscribeFromSamplesPrompt(samples, TokenEnglish, TokenTranscribe)
+}
+
+// TranscribeFromSamplesPrompt takes pre-loaded 16kHz mono float32 samples and
+// decodes with an explicit Whisper language/task prompt.
+func (w *Whisper) TranscribeFromSamplesPrompt(samples []float32, languageToken, taskToken int) (string, error) {
 	melCfg := audio.MelConfig{
 		SampleRate: 16000,
 		FFTSize:    400,
@@ -88,7 +94,7 @@ func (w *Whisper) TranscribeFromSamples(samples []float32) (string, error) {
 
 	state := NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
 	stateDone := time.Now()
-	tokens := GreedyDecode(w.Decoder, state, w.Config)
+	tokens := GreedyDecodePrompt(w.Decoder, state, w.Config, languageToken, taskToken)
 	if os.Getenv("WHISPER_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr, "[timing] encoder+xkv=%.1fs decode=%.1fs tokens=%d\n",
 			stateDone.Sub(encStart).Seconds(), time.Since(stateDone).Seconds(), len(tokens))
