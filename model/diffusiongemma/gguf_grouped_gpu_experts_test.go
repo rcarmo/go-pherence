@@ -582,9 +582,9 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	oldHook := encoderGGUFMoEHook
 	defer func() { encoderGGUFMoEHook = oldHook }()
 	compared := false
-	var capturedKeptMaxAbs, capturedKeptMeanAbs, capturedPreMaxAbs, capturedPreMeanAbs, capturedPostMaxAbs, capturedPostMeanAbs float64
+	var capturedActMaxAbs, capturedActMeanAbs, capturedQ8MaxAbs, capturedQ8MeanAbs, capturedKeptMaxAbs, capturedKeptMeanAbs, capturedPreMaxAbs, capturedPreMeanAbs, capturedPostMaxAbs, capturedPostMeanAbs float64
 	var capturedKeptCPURaw, capturedKeptGPURaw, capturedCPUScale, capturedPartialScale, capturedCPURaw, capturedPartialRaw, capturedCPUPost, capturedPartialPost, capturedNormWeight float64
-	var capturedKeptMaxIndex, capturedPreMaxIndex, capturedPostMaxIndex int
+	var capturedActMaxIndex, capturedQ8MaxIndex, capturedKeptMaxIndex, capturedPreMaxIndex, capturedPostMaxIndex int
 	encoderGGUFMoEHook = func(hookLayer int, lt string, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex) error {
 		if hookLayer != layer {
 			return nil
@@ -651,6 +651,114 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 		if err := bufs.Upload(kept); err != nil {
 			return err
 		}
+		computeCPUAct := func() ([]float32, error) {
+			le := idx.entries[hookLayer]
+			out := make([]float32, len(kept.WorkPositions)*idx.Intermediate)
+			ws := ggufWorkerScratchPool.Get().(*ggufWorkerScratch)
+			defer ggufWorkerScratchPool.Put(ws)
+			maxBatch := 0
+			for groupIdx := range kept.ActiveExperts {
+				if n := kept.Offsets[groupIdx+1] - kept.Offsets[groupIdx]; n > maxBatch {
+					maxBatch = n
+				}
+			}
+			if err := ws.ensure(maxBatch, idx.HiddenSize, idx.Intermediate); err != nil {
+				return nil, err
+			}
+			for groupIdx, eid := range kept.ActiveExperts {
+				start, end := kept.Offsets[groupIdx], kept.Offsets[groupIdx+1]
+				nPos := end - start
+				batchIn := ws.batchIn[:nPos*idx.HiddenSize]
+				for i := 0; i < nPos; i++ {
+					pos := kept.WorkPositions[start+i]
+					copy(batchIn[i*idx.HiddenSize:(i+1)*idx.HiddenSize], normedRows[pos*idx.HiddenSize:(pos+1)*idx.HiddenSize])
+				}
+				batchGU := ws.batchGU[:nPos*idx.Intermediate*2]
+				outDimGU := idx.Intermediate * 2
+				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos <= 8 && le.gateUp.QType == gguf.QuantQ4_K
+				for r := 0; r < outDimGU; r++ {
+					if useDirectQ4GateUp {
+						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {
+							return nil, err
+						}
+						continue
+					}
+					if err := le.gateUp.DequantExpertRowTo(ws.wf32[:idx.HiddenSize], eid, r); err != nil {
+						return nil, err
+					}
+					if !ggufExpertSdotBatchTo(ws.wf32[:idx.HiddenSize], batchIn, nPos, idx.HiddenSize, batchGU[r:], outDimGU) {
+						return nil, fmt.Errorf("Sdot batch rejected")
+					}
+				}
+				batchAct := ws.batchAct[:nPos*idx.Intermediate]
+				for b := 0; b < nPos; b++ {
+					if !simd.GELUExactMulTo(batchAct[b*idx.Intermediate:(b+1)*idx.Intermediate], batchGU[b*outDimGU:b*outDimGU+idx.Intermediate], batchGU[b*outDimGU+idx.Intermediate:(b+1)*outDimGU]) {
+						return nil, fmt.Errorf("GELU rejected")
+					}
+				}
+				copy(out[start*idx.Intermediate:end*idx.Intermediate], batchAct)
+			}
+			return out, nil
+		}
+		cpuAct, err := computeCPUAct()
+		if err != nil {
+			return err
+		}
+		residualBuf, workInputBuf, actBuf, moeOutBuf, unlockStage, err := ggufGPUFusedExpertScratchBuffers(positions, len(kept.WorkPositions), idx.HiddenSize, idx.Intermediate)
+		if err != nil {
+			return err
+		}
+		if err := residualBuf.Upload(normedRows); err != nil {
+			unlockStage()
+			return err
+		}
+		if err := gpu.GatherRows(workInputBuf, residualBuf, bufs.WorkPositions, len(kept.WorkPositions), idx.HiddenSize); err != nil {
+			unlockStage()
+			return err
+		}
+		q4Ptrs, ok, err := activeQ4KGateUpPointerTable(idx, hookLayer, kept.ActiveExperts)
+		if err != nil || !ok {
+			unlockStage()
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("active Q4 pointer table unavailable")
+		}
+		if err := gpu.GateUpGELUQ4KByWorkPtrsToBuffer(actBuf, workInputBuf, bufs.WorkActive, len(kept.WorkPositions), idx.Intermediate, q4Ptrs); err != nil {
+			unlockStage()
+			return err
+		}
+		gpuAct := make([]float32, len(cpuAct))
+		if err := actBuf.Download(gpuAct); err != nil {
+			unlockStage()
+			return err
+		}
+		q8Ptrs, ok, err := activeQ8DownPointerTable(idx, hookLayer, kept.ActiveExperts)
+		if err != nil || !ok {
+			unlockStage()
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("active Q8 pointer table unavailable")
+		}
+		if err := actBuf.Upload(cpuAct); err != nil {
+			unlockStage()
+			return err
+		}
+		if err := gpu.ZeroFloat32Buffer(moeOutBuf, len(cpuKeptScratch.MoeOut)); err != nil {
+			unlockStage()
+			return err
+		}
+		if err := gpu.GemvQ8_0ScatterByWorkPtrs(moeOutBuf, actBuf, bufs.WorkActive, bufs.WorkPositions, bufs.EffectiveWeights, len(kept.WorkPositions), q8Ptrs); err != nil {
+			unlockStage()
+			return err
+		}
+		gpuQ8CPUActOut := make([]float32, len(cpuKeptScratch.MoeOut))
+		if err := moeOutBuf.Download(gpuQ8CPUActOut); err != nil {
+			unlockStage()
+			return err
+		}
+		unlockStage()
 		used, err := runGGUFGPUExpertsGroupedFused(op, partialScratch, idx, normedRows, kept, &bufs)
 		if err != nil {
 			return err
@@ -671,6 +779,8 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 			meanAbs /= float64(len(a))
 			return maxAbs, meanAbs, maxIndex
 		}
+		capturedActMaxAbs, capturedActMeanAbs, capturedActMaxIndex = compare(cpuAct, gpuAct)
+		capturedQ8MaxAbs, capturedQ8MeanAbs, capturedQ8MaxIndex = compare(cpuKeptScratch.MoeOut, gpuQ8CPUActOut)
 		capturedKeptMaxAbs, capturedKeptMeanAbs, capturedKeptMaxIndex = compare(cpuKeptScratch.MoeOut, partialScratch.MoeOut)
 		if capturedKeptMaxIndex >= 0 {
 			capturedKeptCPURaw = float64(cpuKeptScratch.MoeOut[capturedKeptMaxIndex])
@@ -734,7 +844,7 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	if !compared {
 		t.Fatal("layer-5 hook did not run")
 	}
-	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: kept_max=%g kept_mean=%g kept_row=%d kept_dim=%d kept_cpu=%g kept_gpu=%g pre_max=%g pre_mean=%g pre_row=%d pre_dim=%d post_max=%g post_mean=%g post_row=%d post_dim=%d cpu_scale=%g partial_scale=%g norm_w=%g raw_cpu=%g raw_partial=%g post_cpu=%g post_partial=%g", capturedKeptMaxAbs, capturedKeptMeanAbs, capturedKeptMaxIndex/idx.HiddenSize, capturedKeptMaxIndex%idx.HiddenSize, capturedKeptCPURaw, capturedKeptGPURaw, capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex/idx.HiddenSize, capturedPreMaxIndex%idx.HiddenSize, capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex/idx.HiddenSize, capturedPostMaxIndex%idx.HiddenSize, capturedCPUScale, capturedPartialScale, capturedNormWeight, capturedCPURaw, capturedPartialRaw, capturedCPUPost, capturedPartialPost)
+	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: act_max=%g act_mean=%g act_work=%d act_dim=%d q8_cpuact_max=%g q8_cpuact_mean=%g q8_row=%d q8_dim=%d kept_max=%g kept_mean=%g kept_row=%d kept_dim=%d kept_cpu=%g kept_gpu=%g pre_max=%g pre_mean=%g pre_row=%d pre_dim=%d post_max=%g post_mean=%g post_row=%d post_dim=%d cpu_scale=%g partial_scale=%g norm_w=%g raw_cpu=%g raw_partial=%g post_cpu=%g post_partial=%g", capturedActMaxAbs, capturedActMeanAbs, capturedActMaxIndex/idx.Intermediate, capturedActMaxIndex%idx.Intermediate, capturedQ8MaxAbs, capturedQ8MeanAbs, capturedQ8MaxIndex/idx.HiddenSize, capturedQ8MaxIndex%idx.HiddenSize, capturedKeptMaxAbs, capturedKeptMeanAbs, capturedKeptMaxIndex/idx.HiddenSize, capturedKeptMaxIndex%idx.HiddenSize, capturedKeptCPURaw, capturedKeptGPURaw, capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex/idx.HiddenSize, capturedPreMaxIndex%idx.HiddenSize, capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex/idx.HiddenSize, capturedPostMaxIndex%idx.HiddenSize, capturedCPUScale, capturedPartialScale, capturedNormWeight, capturedCPURaw, capturedPartialRaw, capturedCPUPost, capturedPartialPost)
 }
 
 func rmsNormForGroupedGPUTest(row, w []float32) bool { return simd.RMSNormTo(row, w, 1e-6) }
