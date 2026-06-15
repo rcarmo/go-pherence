@@ -79,6 +79,12 @@ def main() -> int:
             "expect_file": str(out_dir / "diarize_turbo_speaker_smoke.vtt"),
             "expect_file_contains": "<v Speaker 1>",
         },
+        {
+            "name": "diarize_vtt_transcribe_with_speaker",
+            "cmd": ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(out_dir / "diarize_turbo_transcribe_speaker_smoke.vtt"), "-task", "transcribe", "-language", "en", "-speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "-gpu=false", "-workers", "1", "-max-tokens", "8", "-progressive=false", "-resume=false"],
+            "expect_file": str(out_dir / "diarize_turbo_transcribe_speaker_smoke.vtt"),
+            "expect_file_contains": "<v Speaker 1>",
+        },
     ]
 
     failures = 0
