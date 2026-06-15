@@ -11,6 +11,7 @@ type MTPGraphGenerationOptions struct {
 type MTPGraphGenerationResult struct {
 	Output                     []int
 	VocabSize                  int
+	RequestedMaxTokens         int
 	Stats                      MTPSpeculationStats
 	FinalState                 MTPDrafterState
 	Steps                      []MTPKVCommitPlan
@@ -158,6 +159,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		}
 	}
 	generated := len(r.Output) - promptLen
+	if r.RequestedMaxTokens > 0 && generated != r.RequestedMaxTokens {
+		return fmt.Errorf("MTP generated tokens=%d, requested max tokens=%d", generated, r.RequestedMaxTokens)
+	}
 	if generated != r.GraphOutputTokens+r.GreedyTailTokens {
 		return fmt.Errorf("MTP generated tokens=%d, graph+greedy=%d+%d", generated, r.GraphOutputTokens, r.GreedyTailTokens)
 	}
@@ -267,7 +271,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, Stats: stats, FinalState: state, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
+	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, RequestedMaxTokens: opts.MaxTokens, Stats: stats, FinalState: state, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
 	if err := result.Validate(len(ctx.Tokens)); err != nil {
 		return MTPGraphGenerationResult{}, err
 	}

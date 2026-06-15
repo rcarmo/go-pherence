@@ -72,13 +72,14 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 
 func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	valid := MTPGraphGenerationResult{
-		Output:            []int{10, 1, 2, 3},
-		VocabSize:         11,
-		Stats:             MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
-		Steps:             []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
-		StepSummaries:     []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 3}, VerifierTokens: []int{9, 1, 3}, VerifierOutputTokens: []int{1, 2, 3}, VerifierPositions: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
-		GraphOutputTokens: 2,
-		GreedyTailTokens:  1,
+		Output:             []int{10, 1, 2, 3},
+		VocabSize:          11,
+		RequestedMaxTokens: 3,
+		Stats:              MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
+		Steps:              []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
+		StepSummaries:      []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 3}, VerifierTokens: []int{9, 1, 3}, VerifierOutputTokens: []int{1, 2, 3}, VerifierPositions: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
+		GraphOutputTokens:  2,
+		GreedyTailTokens:   1,
 	}
 	if err := valid.Validate(1); err != nil {
 		t.Fatalf("Validate valid: %v", err)
@@ -102,6 +103,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.Output = []int{10, 9, 9, 3}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted graph output content mismatch")
+	}
+	bad = valid
+	bad.RequestedMaxTokens = 2
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted requested token mismatch")
 	}
 	bad = valid
 	bad.GreedyTailTokens = 0
