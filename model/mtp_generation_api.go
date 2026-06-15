@@ -50,6 +50,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if r.HiddenSize < 0 {
 		return fmt.Errorf("MTP graph generation hidden size=%d out of range", r.HiddenSize)
 	}
+	if len(r.Output) > 0 && r.HiddenSize == 0 {
+		return fmt.Errorf("MTP graph generation hidden size is unset for non-empty output len=%d", len(r.Output))
+	}
 	if err := validateMTPGraphSummaryTokens(-1, "output", r.Output, r.VocabSize); err != nil {
 		return err
 	}

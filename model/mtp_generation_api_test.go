@@ -98,6 +98,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted negative hidden size")
 	}
 	bad = valid
+	bad.HiddenSize = 0
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted missing hidden size")
+	}
+	bad = valid
 	bad.StepSummaries[0].VerifierOutputTokens = []int{1, 11, 3}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted summary token outside vocab")
