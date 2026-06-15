@@ -201,7 +201,7 @@
     "An opt-in raw-logit self-conditioning seam now exists via GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS=1, matching llama.cpp's previous-raw-logits plus previous-temp-inv API, but the current all-F32 Go GGUF CPU path exceeds the host memory envelope on this real fixture when it retains a full previous [canvas][vocab] logits matrix.",
     "The remaining blocker is entropy-bound sampler/self-conditioning/logit numeric parity over the full 256-token canvas, not prompt IDs, RNG integer draws, or trimming.",
     "Layer-row trace comparison for canvas row 28 shows prefix and layer0 l_out match closely (rms\u22481.7998, max_abs\u224865), but by layer29 l_out Go is much larger (rms\u22481.1238 vs llama\u22480.6294, max_abs\u224839.7 vs llama\u224818.2), so the next parity target is a later-layer sub-op trace rather than layer0.",
-    "Layer29 row28 router top-k differs before expert math: llama selects [70,14,36,86,109,29,63,35], while Go selects [70,63,14,61,118,99,35,18] with only four common experts, localizing MoE divergence to router logits/inputs rather than only Q4/Q8 expert dot kernels."
+    "Layer29 row28 router top-k differs before expert math: llama selects [70,14,36,86,109,29,63,35] with raw logits [1.3266,1.3250,1.0259,0.9956,...], while Go selects [70,63,14,61,118,99,35,18] with raw logits [1.2142,0.9321,0.7654,0.6534,...], localizing MoE divergence to router input/logits rather than Q4/Q8/Q5 expert dot kernels."
   ],
   "next_required_action": "Trace/compare layer29 row28 router input (RMSNorm(attn_out) * router.scale / sqrt(n_embd)) and router logits against llama.cpp to find why top-k expert selection diverges.",
   "llamacpp_step_diagnostics": [
@@ -463,20 +463,40 @@
         18
       ],
       "go_top_vals": [
-        0.19847423,
-        0.14969361,
-        0.12670748,
+        0.19847411,
+        0.14969368,
+        0.12670754,
         0.113283426,
-        0.10699672,
-        0.106758624,
-        0.10146285,
-        0.09662312
+        0.106996536,
+        0.10675888,
+        0.101462916,
+        0.096622944
       ],
       "common_ids": [
         14,
         35,
         63,
         70
+      ],
+      "llama_raw_top_logits": [
+        1.32661319,
+        1.32502353,
+        1.0258882,
+        0.995578766,
+        0.773735225,
+        0.685079157,
+        0.650657773,
+        0.630189598
+      ],
+      "go_raw_top_logits": [
+        1.2141906,
+        0.93212306,
+        0.7654136,
+        0.6534248,
+        0.59632844,
+        0.5941049,
+        0.5432254,
+        0.49434814
       ]
     }
   },

@@ -880,6 +880,11 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 		if !simd.GemvRows(scored, normBuf, projW, numExperts, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma router GEMV rejected")
 		}
+		var rawTopIDs []int
+		var rawTopVals []float32
+		if diffusionGemmaLayerTraceOpsEnabled() && pos == diffusionGemmaLayerTraceRow() {
+			rawTopIDs, rawTopVals = topLogits(scored, 8)
+		}
 		softmaxInPlace(scored)
 		topK := scratch.TopKExperts
 		if topK <= 0 {
@@ -931,7 +936,7 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 			}
 		}
 		if diffusionGemmaLayerTraceOpsEnabled() && pos == diffusionGemmaLayerTraceRow() {
-			fmt.Fprintf(os.Stderr, "DiffusionGemma router_trace: layer=%d row=%d top_ids=%v top_vals=%v\n", op.Layer, pos, append([]int(nil), ids...), append([]float32(nil), vals...))
+			fmt.Fprintf(os.Stderr, "DiffusionGemma router_trace: layer=%d row=%d raw_top_ids=%v raw_top_logits=%v top_ids=%v top_vals=%v\n", op.Layer, pos, rawTopIDs, rawTopVals, append([]int(nil), ids...), append([]float32(nil), vals...))
 		}
 	}
 	return nil

@@ -224,9 +224,11 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 				GoMaxAbs    float64 `json:"go_max_abs"`
 			} `json:"layer29_l_out"`
 			Layer29Router struct {
-				LlamaTopIDs []int `json:"llama_top_ids"`
-				GoTopIDs    []int `json:"go_top_ids"`
-				CommonIDs   []int `json:"common_ids"`
+				LlamaTopIDs       []int     `json:"llama_top_ids"`
+				LlamaRawTopLogits []float32 `json:"llama_raw_top_logits"`
+				GoTopIDs          []int     `json:"go_top_ids"`
+				GoRawTopLogits    []float32 `json:"go_raw_top_logits"`
+				CommonIDs         []int     `json:"common_ids"`
 			} `json:"layer29_router"`
 		} `json:"row28_layer_trace_summary"`
 		KnownMatches       []string `json:"known_matches"`
@@ -256,8 +258,9 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 	if fixture.Row28LayerTraceSummary.Layer0.LlamaRMS < 1.79 || fixture.Row28LayerTraceSummary.Layer0.GoRMS < 1.79 || fixture.Row28LayerTraceSummary.Layer29.LlamaRMS > 0.64 || fixture.Row28LayerTraceSummary.Layer29.GoRMS < 1.12 || fixture.Row28LayerTraceSummary.Layer29.GoMaxAbs < 39 || fixture.Row28LayerTraceSummary.Layer29.LlamaMaxAbs > 19 {
 		t.Fatalf("row28 layer trace summary lost divergence target: %+v", fixture.Row28LayerTraceSummary)
 	}
-	if !equalInts(fixture.Row28LayerTraceSummary.Layer29Router.LlamaTopIDs, []int{70, 14, 36, 86, 109, 29, 63, 35}) || !equalInts(fixture.Row28LayerTraceSummary.Layer29Router.GoTopIDs, []int{70, 63, 14, 61, 118, 99, 35, 18}) || !equalInts(fixture.Row28LayerTraceSummary.Layer29Router.CommonIDs, []int{14, 35, 63, 70}) {
-		t.Fatalf("row28 layer29 router target changed: %+v", fixture.Row28LayerTraceSummary.Layer29Router)
+	router := fixture.Row28LayerTraceSummary.Layer29Router
+	if !equalInts(router.LlamaTopIDs, []int{70, 14, 36, 86, 109, 29, 63, 35}) || !equalInts(router.GoTopIDs, []int{70, 63, 14, 61, 118, 99, 35, 18}) || !equalInts(router.CommonIDs, []int{14, 35, 63, 70}) || len(router.LlamaRawTopLogits) != 8 || len(router.GoRawTopLogits) != 8 || router.LlamaRawTopLogits[0] < 1.32 || router.LlamaRawTopLogits[1] < 1.32 || router.GoRawTopLogits[0] < 1.21 || router.GoRawTopLogits[1] > 0.94 {
+		t.Fatalf("row28 layer29 router target changed: %+v", router)
 	}
 	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 5 || !strings.Contains(fixture.NextRequiredAction, "later layers") {
 		t.Fatalf("parity blocker is underspecified: %+v", fixture)
