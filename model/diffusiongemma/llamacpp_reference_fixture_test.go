@@ -79,9 +79,10 @@ func TestLlamaCppGGUFHi1x1GoldenResponseIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	var fixture struct {
-		LlamaCppTemplatedPromptIDs []int `json:"llamacpp_templated_prompt_ids"`
-		LlamaCppResponseIDs        []int `json:"llamacpp_response_ids"`
-		LlamaCppObservedSteps      int   `json:"llamacpp_observed_entropy_bound_steps"`
+		LlamaCppTemplatedPromptIDs []int        `json:"llamacpp_templated_prompt_ids"`
+		LlamaCppResponseIDs        []int        `json:"llamacpp_response_ids"`
+		LlamaCppObservedSteps      int          `json:"llamacpp_observed_entropy_bound_steps"`
+		LlamaCppStepDiagnostics    []CanvasStep `json:"llamacpp_step_diagnostics"`
 	}
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
@@ -94,8 +95,16 @@ func TestLlamaCppGGUFHi1x1GoldenResponseIDs(t *testing.T) {
 	if !equalInts(fixture.LlamaCppResponseIDs, wantResponse) {
 		t.Fatalf("llama.cpp response IDs changed:\n got=%v\nwant=%v", fixture.LlamaCppResponseIDs, wantResponse)
 	}
-	if fixture.LlamaCppObservedSteps != 11 {
-		t.Fatalf("llama.cpp observed entropy-bound steps=%d want 11", fixture.LlamaCppObservedSteps)
+	if fixture.LlamaCppObservedSteps != 11 || len(fixture.LlamaCppStepDiagnostics) != 11 {
+		t.Fatalf("llama.cpp observed entropy-bound steps=%d diagnostics=%d want 11", fixture.LlamaCppObservedSteps, len(fixture.LlamaCppStepDiagnostics))
+	}
+	first := fixture.LlamaCppStepDiagnostics[0]
+	last := fixture.LlamaCppStepDiagnostics[len(fixture.LlamaCppStepDiagnostics)-1]
+	if first.Step != 48 || first.Accepted != 20 || first.MeanEntropy < 1.30 || first.MeanEntropy > 1.31 || first.Stopped {
+		t.Fatalf("bad llama.cpp first step diagnostics: %+v", first)
+	}
+	if last.Step != 38 || last.Accepted != 254 || last.Held != 1 || !last.Confident || !last.Stopped {
+		t.Fatalf("bad llama.cpp final step diagnostics: %+v", last)
 	}
 }
 
@@ -105,12 +114,14 @@ func TestGGUFHi1x1GoTrimmedOutputComparisonGate(t *testing.T) {
 		t.Fatal(err)
 	}
 	var fixture struct {
-		LlamaCppTemplatedPromptIDs []int `json:"llamacpp_templated_prompt_ids"`
-		LlamaCppResponseIDs        []int `json:"llamacpp_response_ids"`
-		GoPromptIDs                []int `json:"go_prompt_ids"`
-		GoGeneratedIDs             []int `json:"go_generated_ids"`
-		GoTrimCut                  int   `json:"go_trim_cut"`
-		GoObservedSteps            int   `json:"go_observed_steps"`
+		LlamaCppTemplatedPromptIDs []int        `json:"llamacpp_templated_prompt_ids"`
+		LlamaCppResponseIDs        []int        `json:"llamacpp_response_ids"`
+		LlamaCppStepDiagnostics    []CanvasStep `json:"llamacpp_step_diagnostics"`
+		GoPromptIDs                []int        `json:"go_prompt_ids"`
+		GoGeneratedIDs             []int        `json:"go_generated_ids"`
+		GoTrimCut                  int          `json:"go_trim_cut"`
+		GoObservedSteps            int          `json:"go_observed_steps"`
+		GoStepDiagnostics          []CanvasStep `json:"go_step_diagnostics"`
 	}
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
@@ -130,6 +141,13 @@ func TestGGUFHi1x1GoTrimmedOutputComparisonGate(t *testing.T) {
 	}
 	if len(fixture.LlamaCppResponseIDs) != 64 || len(fixture.GoGeneratedIDs) != 13 || fixture.GoObservedSteps != 2 {
 		t.Fatalf("unexpected comparison dimensions: ref=%d go=%d steps=%d", len(fixture.LlamaCppResponseIDs), len(fixture.GoGeneratedIDs), fixture.GoObservedSteps)
+	}
+	if len(fixture.LlamaCppStepDiagnostics) == 0 || len(fixture.GoStepDiagnostics) == 0 {
+		t.Fatalf("missing step diagnostics: llama=%d go=%d", len(fixture.LlamaCppStepDiagnostics), len(fixture.GoStepDiagnostics))
+	}
+	lf, gf := fixture.LlamaCppStepDiagnostics[0], fixture.GoStepDiagnostics[0]
+	if lf.Step != gf.Step || lf.Accepted != 20 || gf.Accepted != 243 || lf.MeanEntropy < 1.30 || gf.MeanEntropy > 0.016 {
+		t.Fatalf("unexpected first-step gap: llama=%+v go=%+v", lf, gf)
 	}
 }
 
