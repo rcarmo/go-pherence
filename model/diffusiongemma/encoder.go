@@ -1048,11 +1048,12 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			if expertStats.Total() > 0 {
 				cacheUsed, cacheLimit := activeExpertMatrixCacheUsageBytes()
 				activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB := expertStats.ActiveSetSummary()
-				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d partial(calls kept/dropped experts work)=%d %d/%d %d/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts\n",
+				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d partial(calls kept/dropped experts work)=%d %d/%d %d/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts q5(ptr/budget)=%d/%d q5_budget=%.1fMiB/%dexperts\n",
 					expertStats.FusedUsed, expertStats.LegacyGroupedUsed, expertStats.CPUFallback, float64(expertStats.GPUAttemptNS)/1e9, float64(expertStats.CPUFallbackNS)/1e9, float64(cacheUsed)/(1024*1024), float64(cacheLimit)/(1024*1024),
 					expertStats.ActiveSetCalls, activeAvg, expertStats.ActiveSetMaxExperts, workAvg, expertStats.ActiveSetMaxWorkItems, expertStats.PartialCalls, expertStats.PartialKeptExperts, expertStats.PartialDroppedExperts, expertStats.PartialKeptWork, expertStats.PartialDroppedWork, missingAvg, expertStats.Q4MissingMaxExperts, missingMiB, missingMaxMiB, expertStats.Q4MissingBudgetExceeds,
 					expertStats.Q4PointerTable, expertStats.Q4PackedCache, expertStats.Q4TransientPointer, expertStats.Q4TransientPacked, expertStats.Q4BudgetFallback, float64(expertStats.Q4BudgetBytes)/(1024*1024), expertStats.Q4BudgetExperts,
-					expertStats.Q8PointerTable, expertStats.Q8PackedCache, expertStats.Q8TransientPointer, expertStats.Q8TransientPacked, expertStats.Q8BudgetFallback, float64(expertStats.Q8BudgetBytes)/(1024*1024), expertStats.Q8BudgetExperts)
+					expertStats.Q8PointerTable, expertStats.Q8PackedCache, expertStats.Q8TransientPointer, expertStats.Q8TransientPacked, expertStats.Q8BudgetFallback, float64(expertStats.Q8BudgetBytes)/(1024*1024), expertStats.Q8BudgetExperts,
+					expertStats.Q5PointerTable, expertStats.Q5BudgetFallback, float64(expertStats.Q5BudgetBytes)/(1024*1024), expertStats.Q5BudgetExperts)
 			}
 		}
 	}
