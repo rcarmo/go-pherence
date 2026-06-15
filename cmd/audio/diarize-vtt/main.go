@@ -131,7 +131,12 @@ func main() {
 	var gpuEnc *whisper.GPUEncoder
 	if *useGPU {
 		gpuEnc = whisper.NewGPUEncoder(enc, cfg)
-		fmt.Fprintf(os.Stderr, "GPU encoder enabled when CUDA SGEMM is available\n")
+		if gpuEnc.Ready() {
+			fmt.Fprintf(os.Stderr, "GPU encoder enabled\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "GPU encoder requested but unavailable; using CPU/SIMD path\n")
+			gpuEnc = nil
+		}
 	}
 
 	fmt.Fprintf(os.Stderr, "loading wav %s...\n", wavPath)
@@ -574,10 +579,14 @@ func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples
 
 	var encoderOutput []float32
 	var state *whisper.DecoderState
-	if gpuEnc != nil {
+	if gpuEnc != nil && gpuEnc.Ready() {
 		encoderOutput = gpuEnc.ForwardGPU(melFlat, T)
 		encLen := len(encoderOutput) / cfg.EncoderDModel
-		state = whisper.NewDecoderStateGPU(cfg, encoderOutput, encLen, w.Decoder)
+		if os.Getenv("GO_PHERENCE_WHISPER_GPU_CROSS_ATTN") == "1" {
+			state = whisper.NewDecoderStateGPU(cfg, encoderOutput, encLen, w.Decoder)
+		} else {
+			state = whisper.NewDecoderState(cfg, encoderOutput, encLen, w.Decoder)
+		}
 	} else {
 		encoderOutput = w.Encoder.Forward(melFlat, T)
 		encLen := len(encoderOutput) / cfg.EncoderDModel
