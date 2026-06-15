@@ -212,6 +212,22 @@ to keep all encoder layers on the exact-GELU partial-resident GPU path. Remainin
 dropped work is handled by the CPU/SIMD subset path, but the top-level encoder
 CPU fallback counter drops to zero for this profile.
 
+The remaining dropped CPU/SIMD subset is now the next concrete bottleneck. In the
+same planned raw-Q4 profile the encoder dropped subset reported:
+
+```text
+gguf_cpu_experts: calls=30 positions=2760 work_items=7665 active_experts=936
+q4_direct_rows=2509056 q4_dequant_rows=395648
+q8_direct_rows=2548480 q8_dequant_rows=430848
+q5_dequant_rows=1284096
+gate=6.2s down=4.6s
+```
+
+So the next path should either reduce the dropped subset through better resident
+coverage/replacement planning or speed up dropped-subset CPU/SIMD math. Q5_0 down
+projection is the largest remaining row count, while large-batch Q4/Q8 dequant
+still dominates gate/up/down worker time in the dropped subset.
+
 Budget scaling with the same exact partial-resident profile shows the structural
 trend clearly even when wall-clock varies with host load:
 
