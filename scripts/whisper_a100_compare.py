@@ -4,7 +4,8 @@
 This is a validation harness for K3/A100-capable hosts. On non-riscv/non-A100
 hosts the A100 env vars are harmless because the Go stubs keep the path disabled,
 so the script still works as a command/prompt regression smoke. Pass --audio
-multiple times to validate several clips in one run.
+multiple times to validate several clips in one run. Use --start/--duration to
+slice long recordings into practical validation windows.
 """
 
 from __future__ import annotations
@@ -30,38 +31,28 @@ def run_case(cmd: list[str], env: dict[str, str], timeout: int, output: Path | N
     file_text = ""
     if output is not None and output.exists():
         file_text = output.read_text(encoding="utf-8").strip()
-    return {
-        "cmd": cmd,
-        "returncode": proc.returncode,
-        "stdout": proc.stdout.strip(),
-        "stderr": proc.stderr,
-        "output": str(output) if output is not None else "",
-        "output_text": file_text,
-    }
+    return {"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout.strip(), "stderr": proc.stderr, "output": str(output) if output is not None else "", "output_text": file_text}
+
+
+def materialize_window(audio: str, idx: int, args: argparse.Namespace, out_dir: Path) -> tuple[str, str | None]:
+    if args.start <= 0 and args.duration <= 0:
+        return audio, None
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"whisper_a100_compare_{idx:02d}_window.wav"
+    cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
+    if args.start > 0:
+        cmd += ["-ss", str(args.start)]
+    if args.duration > 0:
+        cmd += ["-t", str(args.duration)]
+    cmd += ["-i", audio, "-ar", "16000", "-ac", "1", str(out)]
+    subprocess.run(cmd, check=True)
+    return str(out), str(out)
 
 
 def build_cmd(args: argparse.Namespace, audio: str, baseline_output: Path | None) -> tuple[list[str], str]:
     if args.diarize_vtt:
-        return [
-            "go", "run", "./cmd/audio/diarize-vtt",
-            "-input", audio,
-            "-output", str(baseline_output),
-            "-model", args.model,
-            "-size", args.size,
-            "-task", args.task,
-            "-language", args.language,
-            "-max-tokens", str(args.max_tokens),
-            "-gpu=false", "-workers", "1", "-progressive=false", "-resume=false",
-        ], "output_text"
-    cmd = [
-        "go", "run", "./cmd/audio/whisper",
-        "-audio", audio,
-        "-model", args.model,
-        "-size", args.size,
-        "-task", args.task,
-        "-language", args.language,
-        "-max-tokens", str(args.max_tokens),
-    ]
+        return ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(baseline_output), "-model", args.model, "-size", args.size, "-task", args.task, "-language", args.language, "-max-tokens", str(args.max_tokens), "-gpu=false", "-workers", "1", "-progressive=false", "-resume=false"], "output_text"
+    cmd = ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-model", args.model, "-size", args.size, "-task", args.task, "-language", args.language, "-max-tokens", str(args.max_tokens)]
     if args.timestamps:
         cmd.extend(["-timestamps", "-output", str(baseline_output)])
         return cmd, "output_text"
@@ -78,6 +69,8 @@ def main() -> int:
     ap.add_argument("--max-tokens", default="16")
     ap.add_argument("--timestamps", action="store_true", help="Compare standalone whisper timestamp/VTT output instead of stdout")
     ap.add_argument("--diarize-vtt", action="store_true", help="Compare cmd/audio/diarize-vtt VTT output")
+    ap.add_argument("--start", type=float, default=0.0, help="Optional start offset for every input audio")
+    ap.add_argument("--duration", type=float, default=0.0, help="Optional duration window for every input audio")
     ap.add_argument("--output-dir", default="/workspace/tmp")
     ap.add_argument("--timeout", type=int, default=300)
     ap.add_argument("--json", action="store_true")
@@ -90,7 +83,8 @@ def main() -> int:
     reports = []
     failures = 0
 
-    for idx, audio in enumerate(audios):
+    for idx, original_audio in enumerate(audios):
+        audio, window_path = materialize_window(original_audio, idx, args, out_dir)
         baseline_output = None
         a100_output = None
         if args.timestamps or args.diarize_vtt:
@@ -107,24 +101,10 @@ def main() -> int:
         ok = baseline["returncode"] == 0 and a100["returncode"] == 0 and baseline[compare_field] == a100[compare_field]
         if not ok:
             failures += 1
-        report = {
-            "ok": ok,
-            "audio": audio,
-            "model": args.model,
-            "size": args.size,
-            "task": args.task,
-            "language": args.language,
-            "max_tokens": args.max_tokens,
-            "timestamps": args.timestamps,
-            "diarize_vtt": args.diarize_vtt,
-            "compare_field": compare_field,
-            "a100_env": A100_ENV,
-            "baseline": baseline,
-            "a100": a100,
-        }
+        report = {"ok": ok, "audio": original_audio, "window_audio": window_path or "", "model": args.model, "size": args.size, "task": args.task, "language": args.language, "max_tokens": args.max_tokens, "start": args.start, "duration": args.duration, "timestamps": args.timestamps, "diarize_vtt": args.diarize_vtt, "compare_field": compare_field, "a100_env": A100_ENV, "baseline": baseline, "a100": a100}
         reports.append(report)
         if not args.json:
-            print("OK" if ok else "FAIL", audio, f"baseline={baseline[compare_field]!r}", f"a100={a100[compare_field]!r}")
+            print("OK" if ok else "FAIL", original_audio, f"baseline={baseline[compare_field]!r}", f"a100={a100[compare_field]!r}")
             if baseline["returncode"] != 0:
                 print("baseline stderr:", baseline["stderr"], file=sys.stderr)
             if a100["returncode"] != 0:

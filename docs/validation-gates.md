@@ -44,7 +44,8 @@ python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 # Optional A100 row-scale FFN default-candidate parity check; useful on K3/A100 hosts,
 # harmless on non-riscv hosts where A100 stubs keep the path disabled. Compares
 # plain stdout decode, standalone timestamp/VTT output, and diarize-vtt output.
-# Pass repeated --audio flags to scripts/whisper_a100_compare.py for broader clip sets.
+# Pass repeated --audio flags and optional --start/--duration to
+# scripts/whisper_a100_compare.py for broader/long-form clip sets.
 make whisper-a100-compare
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
