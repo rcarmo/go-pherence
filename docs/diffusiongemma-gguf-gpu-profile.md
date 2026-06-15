@@ -249,6 +249,14 @@ example `nPos=4` direct x4 ~1336ns vs dequant+Sdot ~740ns, `nPos=16` direct x4
 ~5367ns vs ~898ns). The useful batched Q5 path therefore needs real vectorized
 quantized dot or better residency planning, not scalar x4 accumulation.
 
+Modeling smaller Q5_0 resident scales is also only a modest structural lever once
+raw Q4_K is active. With `--raw-q4`, changing the Q5 cost model from
+`--q5-scale-bytes 4` to `--q5-scale-bytes 2` raises the 768MiB planned kept work
+from `14415/22080` to only `14568/22080`; at 2048MiB it moves from
+`20636/22080` to `20690/22080`. That is useful but not large enough by itself to
+solve the dropped subset. The next substantial path is still large-batch Q5/Q4/Q8
+SIMD/GPU math or better expert replacement planning.
+
 Budget scaling with the same exact partial-resident profile shows the structural
 trend clearly even when wall-clock varies with host load:
 
