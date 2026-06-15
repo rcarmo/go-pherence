@@ -2336,6 +2336,7 @@ func freeGPUBufferPtr(p **gpu.Buffer) {
 }
 
 func FreeGGUFGPUScratchBuffers() {
+	freeF32GELUExactMulScratch()
 	selectedExpertWorkGPUBuffers.Lock()
 	selectedExpertWorkGPUBuffers.bufs.Free()
 	selectedExpertWorkGPUBuffers.groupedBufs.Free()
