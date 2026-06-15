@@ -1,7 +1,7 @@
 package kv
 
 import (
-	"math"
+	"github.com/rcarmo/go-pherence/internal/floatcmp"
 	"testing"
 )
 
@@ -150,10 +150,10 @@ func TestCompressedKVCheckpointKeepAppendedAcrossCompression(t *testing.T) {
 	wantV := []float32{10, 20, 30, 40, 50, 60, 70, 80}
 	// KeepAppended may replay kept staged rows through Append, so tiny quantization
 	// differences are acceptable if the residual window recompresses rows again.
-	if !closeFloat32s(gotK, wantK, 0.1) {
+	if !floatcmp.Close(gotK, wantK, 0.1) {
 		t.Fatalf("kept K=%v want %v", gotK, wantK)
 	}
-	if !closeFloat32s(gotV, wantV, 0.1) {
+	if !floatcmp.Close(gotV, wantV, 0.1) {
 		t.Fatalf("kept V=%v want %v", gotV, wantV)
 	}
 }
@@ -176,19 +176,7 @@ func TestCompressedKVCheckpointSliceHelpers(t *testing.T) {
 }
 
 func sameFloat32s(a, b []float32) bool {
-	return closeFloat32s(a, b, 0)
-}
-
-func closeFloat32s(a, b []float32, tol float32) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if float32(math.Abs(float64(a[i]-b[i]))) > tol {
-			return false
-		}
-	}
-	return true
+	return floatcmp.Close(a, b, 0)
 }
 
 func TestFloatKVKeepAppendedOverflowGuards(t *testing.T) {
