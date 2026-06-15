@@ -54,7 +54,9 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	if layer.QWq != nil {
 		m.mvQ(q, hidden, layer.QWq)
 	} else if layer.QWm != nil {
-		mlx.GemvParallel(q, hidden, layer.QWm)
+		if !mlx.GemvParallel(q, hidden, layer.QWm) {
+			return nil
+		}
 	} else if layer.QW != nil {
 		m.mv(q, hidden, layer.QW.Data(), h, qDim)
 	}
@@ -74,11 +76,15 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 				return nil
 			}
 		} else if layer.KWm != nil {
-			mlx.GemvParallel(k, hidden, layer.KWm)
+			if !mlx.GemvParallel(k, hidden, layer.KWm) {
+				return nil
+			}
 			if cfg.AttentionKEqV && (layer.VWm == nil || layer.VWm == layer.KWm) {
 				copy(v, k)
 			} else if layer.VWm != nil {
-				mlx.GemvParallel(v, hidden, layer.VWm)
+				if !mlx.GemvParallel(v, hidden, layer.VWm) {
+					return nil
+				}
 			} else {
 				return nil
 			}
@@ -191,7 +197,9 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	if layer.OWq != nil {
 		m.mvQ(oOut, attnOut, layer.OWq)
 	} else if layer.OWm != nil {
-		mlx.GemvParallel(oOut, attnOut, layer.OWm)
+		if !mlx.GemvParallel(oOut, attnOut, layer.OWm) {
+			return nil
+		}
 	} else if layer.OW != nil {
 		m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 	}
@@ -235,8 +243,12 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 		m.mvQ(gate, mlpInput, layer.GateWq)
 		m.mvQ(up, mlpInput, layer.UpWq)
 	} else if layer.GateWm != nil {
-		mlx.GemvParallel(gate, mlpInput, layer.GateWm)
-		mlx.GemvParallel(up, mlpInput, layer.UpWm)
+		if !mlx.GemvParallel(gate, mlpInput, layer.GateWm) {
+			return nil
+		}
+		if !mlx.GemvParallel(up, mlpInput, layer.UpWm) {
+			return nil
+		}
 	} else if layer.GateW != nil {
 		m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
 		m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
@@ -258,7 +270,9 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	if layer.DownWq != nil {
 		m.mvQ(down, gate, layer.DownWq)
 	} else if layer.DownWm != nil {
-		mlx.GemvParallel(down, gate, layer.DownWm)
+		if !mlx.GemvParallel(down, gate, layer.DownWm) {
+			return nil
+		}
 	} else if layer.DownW != nil {
 		m.mv(down, gate, layer.DownW.Data(), layerInter, h)
 	}
