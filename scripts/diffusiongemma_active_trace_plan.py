@@ -60,6 +60,31 @@ def expert_cost_bytes(layer: int, q8_layers: set[int] | None, q5_layers: set[int
     return q4_gate_up + q8_down
 
 
+def trace_work_map(path: Path, q8_layers: set[int] | None, include_repeated_layers: bool, missing_only: bool = False) -> dict[tuple[int, int], int]:
+    seen_layers: set[int] = set()
+    work: dict[tuple[int, int], int] = {}
+    for line in path.read_text(errors="ignore").splitlines():
+        m = TRACE_RE.search(line)
+        if not m:
+            continue
+        layer = int(m.group(1))
+        if q8_layers is not None and layer not in q8_layers:
+            continue
+        if not include_repeated_layers and layer in seen_layers:
+            continue
+        seen_layers.add(layer)
+        for entry in m.group(2).split(","):
+            mm = TOP_RE.fullmatch(entry.strip())
+            if not mm:
+                continue
+            expert = int(mm.group(1))
+            missing = bool(mm.group(3))
+            if missing_only and not missing:
+                continue
+            work[(layer, expert)] = max(work.get((layer, expert), 0), int(mm.group(2)))
+    return work
+
+
 def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer", missing_only: bool = False) -> list[tuple[int, list[int]]]:
     seen_layers: set[int] = set()
     plan: list[tuple[int, list[int]]] = []
@@ -122,6 +147,10 @@ def group_flat_plan(entries: list[tuple[int, int]]) -> list[tuple[int, list[int]
     return grouped
 
 
+def plan_work(plan: list[tuple[int, list[int]]], work: dict[tuple[int, int], int]) -> int:
+    return sum(work.get((layer, expert), 0) for layer, expert in flatten_plan(plan))
+
+
 def apply_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: set[int] | None, q5_layers: set[int] | None) -> tuple[list[tuple[int, list[int]]], int, int]:
     if budget_mb <= 0:
         return plan, 0, len(flatten_plan(plan))
@@ -163,17 +192,20 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("--top must be positive")
     q8_layers = parse_layer_set(args.q8_layers)
     q5_layers = parse_layer_set(args.q5_layers)
+    work = trace_work_map(args.log, q8_layers, args.include_repeated_layers, args.missing_only)
     plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only)
     original_entries = len(flatten_plan(plan))
+    original_work = plan_work(plan, work)
     used = 0
     kept_entries = original_entries
     if args.budget_mb > 0:
         plan, used, kept_entries = apply_budget(plan, args.budget_mb, q8_layers, q5_layers)
+    kept_work = plan_work(plan, work)
     if args.summary:
         if args.budget_mb > 0:
-            print(f"entries={kept_entries}/{original_entries} used_mib={used / (1024 * 1024):.1f}/{args.budget_mb}", file=sys.stderr)
+            print(f"entries={kept_entries}/{original_entries} work={kept_work}/{original_work} used_mib={used / (1024 * 1024):.1f}/{args.budget_mb}", file=sys.stderr)
         else:
-            print(f"entries={original_entries}", file=sys.stderr)
+            print(f"entries={original_entries} work={original_work}", file=sys.stderr)
     sys.stdout.write(format_plan(plan))
     if plan:
         sys.stdout.write("\n")
