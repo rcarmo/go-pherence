@@ -20,8 +20,10 @@ var fp8Scratch = struct {
 	sync.Mutex
 	x    *Buffer
 	out  *Buffer
+	wt   *Buffer
 	xN   int
 	outN int
+	wtN  int
 	xPtr uintptr
 	xLen int
 }{}
@@ -215,6 +217,53 @@ func GemmFP8E4M3(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
 		if err := lin.GemvTo(x[b*w.InDim:(b+1)*w.InDim], out[b*w.OutDim:(b+1)*w.OutDim]); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func GemmFP8E4M3ViaSgemmBuffer(outBuf, xBuf *Buffer, batch int, w *GPUFP8E4M3Linear) error {
+	if !validGPUFP8E4M3Linear(w) || outBuf == nil || xBuf == nil {
+		return fmt.Errorf("invalid FP8 E4M3 SGEMM device buffers")
+	}
+	if w.HasBias {
+		return fmt.Errorf("FP8 E4M3 SGEMM buffer path does not support bias")
+	}
+	if fnFP8E4M3DequantTransposeF32 == 0 || !megaModuleOK || !SgemmReady() {
+		return fmt.Errorf("FP8 E4M3 dequant-transpose SGEMM not available")
+	}
+	inLen, okIn := checked.MulInt(batch, w.InDim)
+	outLen, okOut := checked.MulInt(batch, w.OutDim)
+	weightLen, okWeight := checked.MulInt(w.InDim, w.OutDim)
+	if batch <= 0 || !okIn || !okOut || !okWeight {
+		return fmt.Errorf("invalid FP8 E4M3 SGEMM dims batch=%d W=[%d,%d]", batch, w.OutDim, w.InDim)
+	}
+	if _, err := checkedByteSize(outLen, outBuf.Size); err != nil {
+		return fmt.Errorf("invalid FP8 E4M3 SGEMM output buffer: %w", err)
+	}
+	if _, err := checkedByteSize(inLen, xBuf.Size); err != nil {
+		return fmt.Errorf("invalid FP8 E4M3 SGEMM input buffer: %w", err)
+	}
+
+	fp8Scratch.Lock()
+	defer fp8Scratch.Unlock()
+	if fp8Scratch.wt == nil || fp8Scratch.wtN < weightLen {
+		if fp8Scratch.wt != nil {
+			fp8Scratch.wt.Free()
+			fp8Scratch.wt = nil
+			fp8Scratch.wtN = 0
+		}
+		buf, err := Malloc(weightLen)
+		if err != nil {
+			return fmt.Errorf("alloc FP8 E4M3 SGEMM weight scratch: %w", err)
+		}
+		fp8Scratch.wt = buf
+		fp8Scratch.wtN = weightLen
+	}
+	if err := dequantTransposeFP8E4M3(fp8Scratch.wt, w); err != nil {
+		return err
+	}
+	if err := Sgemm(batch, w.OutDim, w.InDim, 1, xBuf, fp8Scratch.wt, outBuf); err != nil {
+		return fmt.Errorf("FP8 E4M3 buffer SGEMM: %w", err)
 	}
 	return nil
 }
@@ -815,6 +864,7 @@ func Gemm2FP8E4M3SameInput(outA, outB, x []float32, batch int, wA, wB *GPUFP8E4M
 	if err := xBuf.Upload(x[:inLen]); err != nil {
 		return fmt.Errorf("upload FP8 E4M3 GEMM2 input: %w", err)
 	}
+	fp8ScratchInvalidateXLocked()
 	if err := GemmFP8E4M3Buffer(outABuf, xBuf, batch, wA); err != nil {
 		return fmt.Errorf("GEMM2 A: %w", err)
 	}
@@ -839,27 +889,21 @@ func gemmFP8E4M3ViaSgemm(out, x []float32, batch int, w *GPUFP8E4M3Linear) error
 	if fnFP8E4M3DequantTransposeF32 == 0 || !megaModuleOK {
 		return fmt.Errorf("FP8 E4M3 dequant-transpose kernel not available")
 	}
-	inLen := batch * w.InDim
-	outLen := batch * w.OutDim
-	weightLen := w.InDim * w.OutDim
-	xBuf, err := Malloc(inLen)
-	if err != nil {
-		return fmt.Errorf("alloc FP8 SGEMM input: %w", err)
+	inLen, okIn := checked.MulInt(batch, w.InDim)
+	outLen, okOut := checked.MulInt(batch, w.OutDim)
+	weightLen, okWeight := checked.MulInt(w.InDim, w.OutDim)
+	if batch <= 0 || !okIn || !okOut || !okWeight || len(x) < inLen || len(out) < outLen {
+		return fmt.Errorf("invalid FP8 SGEMM dimensions batch=%d W=[%d,%d] x=%d/%d out=%d/%d", batch, w.OutDim, w.InDim, len(x), inLen, len(out), outLen)
 	}
-	defer xBuf.Free()
-	wtBuf, err := Malloc(weightLen)
+	xBuf, wtBuf, outBuf, unlock, err := fp8SgemmScratchBuffers(inLen, weightLen, outLen)
 	if err != nil {
-		return fmt.Errorf("alloc FP8 SGEMM dequant weight: %w", err)
+		return err
 	}
-	defer wtBuf.Free()
-	outBuf, err := Malloc(outLen)
-	if err != nil {
-		return fmt.Errorf("alloc FP8 SGEMM output: %w", err)
-	}
-	defer outBuf.Free()
+	defer unlock()
 	if err := xBuf.Upload(x[:inLen]); err != nil {
 		return fmt.Errorf("upload FP8 SGEMM input: %w", err)
 	}
+	fp8ScratchInvalidateXLocked()
 	if err := dequantTransposeFP8E4M3(wtBuf, w); err != nil {
 		return err
 	}
@@ -872,11 +916,33 @@ func gemmFP8E4M3ViaSgemm(out, x []float32, batch int, w *GPUFP8E4M3Linear) error
 	return nil
 }
 
+func DequantTransposeFP8E4M3Linear(w *GPUFP8E4M3Linear) (*Buffer, error) {
+	if !validGPUFP8E4M3Linear(w) {
+		return nil, fmt.Errorf("invalid FP8 dequant-transpose linear")
+	}
+	weightLen, ok := checked.MulInt(w.InDim, w.OutDim)
+	if !ok {
+		return nil, fmt.Errorf("FP8 dequant-transpose weight size overflow out=%d in=%d", w.OutDim, w.InDim)
+	}
+	buf, err := Malloc(weightLen)
+	if err != nil {
+		return nil, err
+	}
+	if err := dequantTransposeFP8E4M3(buf, w); err != nil {
+		buf.Free()
+		return nil, err
+	}
+	return buf, nil
+}
+
 func dequantTransposeFP8E4M3(dst *Buffer, w *GPUFP8E4M3Linear) error {
 	if !validGPUFP8E4M3Linear(w) || dst == nil {
 		return fmt.Errorf("invalid FP8 dequant-transpose input")
 	}
-	weightLen := w.InDim * w.OutDim
+	weightLen, ok := checked.MulInt(w.InDim, w.OutDim)
+	if !ok {
+		return fmt.Errorf("FP8 dequant-transpose weight size overflow out=%d in=%d", w.OutDim, w.InDim)
+	}
 	if _, err := checkedByteSize(weightLen, dst.Size); err != nil {
 		return fmt.Errorf("invalid FP8 dequant-transpose output: %w", err)
 	}
@@ -897,8 +963,11 @@ func dequantTransposeFP8E4M3(dst *Buffer, w *GPUFP8E4M3Linear) error {
 }
 
 func gemmFP8E4M3CUDA(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
-	inLen := batch * w.InDim
-	outLen := batch * w.OutDim
+	inLen, okIn := checked.MulInt(batch, w.InDim)
+	outLen, okOut := checked.MulInt(batch, w.OutDim)
+	if batch <= 0 || !okIn || !okOut || len(x) < inLen || len(out) < outLen {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM CUDA dimensions batch=%d W=[%d,%d] x=%d/%d out=%d/%d", batch, w.OutDim, w.InDim, len(x), inLen, len(out), outLen)
+	}
 	xBuf, outBuf, unlock, err := fp8ScratchBuffers(inLen, outLen)
 	if err != nil {
 		return err
@@ -907,6 +976,7 @@ func gemmFP8E4M3CUDA(out, x []float32, batch int, w *GPUFP8E4M3Linear) error {
 	if err := xBuf.Upload(x[:inLen]); err != nil {
 		return fmt.Errorf("upload FP8 E4M3 GEMM input: %w", err)
 	}
+	fp8ScratchInvalidateXLocked()
 	if err := GemmFP8E4M3Buffer(outBuf, xBuf, batch, w); err != nil {
 		return err
 	}
@@ -982,33 +1052,77 @@ func gemvFP8E4M3CUDA(out, x []float32, w *GPUFP8E4M3Linear) error {
 func fp8ScratchBuffers(inDim, outDim int) (*Buffer, *Buffer, func(), error) {
 	fp8Scratch.Lock()
 	unlock := func() { fp8Scratch.Unlock() }
+	if err := fp8EnsureInputScratchLocked(inDim); err != nil {
+		unlock()
+		return nil, nil, nil, err
+	}
+	if err := fp8EnsureOutputScratchLocked(outDim); err != nil {
+		unlock()
+		return nil, nil, nil, err
+	}
+	return fp8Scratch.x, fp8Scratch.out, unlock, nil
+}
+
+func fp8SgemmScratchBuffers(inDim, weightDim, outDim int) (*Buffer, *Buffer, *Buffer, func(), error) {
+	fp8Scratch.Lock()
+	unlock := func() { fp8Scratch.Unlock() }
+	if err := fp8EnsureInputScratchLocked(inDim); err != nil {
+		unlock()
+		return nil, nil, nil, nil, err
+	}
+	if fp8Scratch.wt == nil || fp8Scratch.wtN < weightDim {
+		if fp8Scratch.wt != nil {
+			fp8Scratch.wt.Free()
+		}
+		buf, err := Malloc(weightDim)
+		if err != nil {
+			unlock()
+			return nil, nil, nil, nil, fmt.Errorf("alloc FP8 E4M3 SGEMM weight scratch: %w", err)
+		}
+		fp8Scratch.wt = buf
+		fp8Scratch.wtN = weightDim
+	}
+	if err := fp8EnsureOutputScratchLocked(outDim); err != nil {
+		unlock()
+		return nil, nil, nil, nil, err
+	}
+	return fp8Scratch.x, fp8Scratch.wt, fp8Scratch.out, unlock, nil
+}
+
+func fp8EnsureInputScratchLocked(inDim int) error {
 	if fp8Scratch.x == nil || fp8Scratch.xN < inDim {
 		if fp8Scratch.x != nil {
 			fp8Scratch.x.Free()
 		}
 		buf, err := Malloc(inDim)
 		if err != nil {
-			unlock()
-			return nil, nil, nil, fmt.Errorf("alloc FP8 E4M3 GEMV input scratch: %w", err)
+			return fmt.Errorf("alloc FP8 E4M3 GEMV input scratch: %w", err)
 		}
 		fp8Scratch.x = buf
 		fp8Scratch.xN = inDim
-		fp8Scratch.xPtr = 0
-		fp8Scratch.xLen = 0
+		fp8ScratchInvalidateXLocked()
 	}
+	return nil
+}
+
+func fp8EnsureOutputScratchLocked(outDim int) error {
 	if fp8Scratch.out == nil || fp8Scratch.outN < outDim {
 		if fp8Scratch.out != nil {
 			fp8Scratch.out.Free()
 		}
 		buf, err := Malloc(outDim)
 		if err != nil {
-			unlock()
-			return nil, nil, nil, fmt.Errorf("alloc FP8 E4M3 GEMV output scratch: %w", err)
+			return fmt.Errorf("alloc FP8 E4M3 GEMV output scratch: %w", err)
 		}
 		fp8Scratch.out = buf
 		fp8Scratch.outN = outDim
 	}
-	return fp8Scratch.x, fp8Scratch.out, unlock, nil
+	return nil
+}
+
+func fp8ScratchInvalidateXLocked() {
+	fp8Scratch.xPtr = 0
+	fp8Scratch.xLen = 0
 }
 
 func downloadFP8E4M3Linear(w *GPUFP8E4M3Linear) (*simdfp8.Linear, error) {

@@ -38,6 +38,8 @@ const (
 	QuantF16  QuantType = 1
 	QuantQ4_0 QuantType = 2
 	QuantQ4_1 QuantType = 3
+	QuantQ5_0 QuantType = 6
+	QuantQ5_1 QuantType = 7
 	QuantQ8_0 QuantType = 8
 	QuantQ2_K QuantType = 10
 	QuantQ3_K QuantType = 11
@@ -46,6 +48,40 @@ const (
 	QuantQ6_K QuantType = 14
 	QuantQ8_K QuantType = 15
 )
+
+// String returns a human-readable quant type name.
+func (qt QuantType) String() string {
+	switch qt {
+	case QuantF32:
+		return "F32"
+	case QuantF16:
+		return "F16"
+	case QuantQ4_0:
+		return "Q4_0"
+	case QuantQ4_1:
+		return "Q4_1"
+	case QuantQ5_0:
+		return "Q5_0"
+	case QuantQ5_1:
+		return "Q5_1"
+	case QuantQ8_0:
+		return "Q8_0"
+	case QuantQ2_K:
+		return "Q2_K"
+	case QuantQ3_K:
+		return "Q3_K"
+	case QuantQ4_K:
+		return "Q4_K"
+	case QuantQ5_K:
+		return "Q5_K"
+	case QuantQ6_K:
+		return "Q6_K"
+	case QuantQ8_K:
+		return "Q8_K"
+	default:
+		return fmt.Sprintf("UNKNOWN(%d)", qt)
+	}
+}
 
 // TensorInfo holds the index entry for one tensor.
 type TensorInfo struct {
@@ -298,6 +334,10 @@ func TensorRawBytes(qt QuantType, n int) (int, error) {
 		return (n / 32) * 18, nil
 	case QuantQ4_1:
 		return (n / 32) * 20, nil
+	case QuantQ5_0:
+		return (n / 32) * 22, nil
+	case QuantQ5_1:
+		return (n / 32) * 24, nil
 	case QuantQ8_0:
 		return (n / 32) * 34, nil
 	case QuantQ2_K:

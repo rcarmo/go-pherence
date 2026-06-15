@@ -11,6 +11,7 @@ import (
 	ptxmlx "github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx"
 	ptxnvfp4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4"
 	ptxq4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4"
+	ptxq8 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q8"
 )
 
 type moduleEntry struct {
@@ -55,7 +56,24 @@ func megaModuleEntries() []moduleEntry {
 		{"row_softmax_debug", ptx.SoftmaxRowsPTX},
 		{"gqa_attention", ptx.AttentionPTX},
 		{"gelu_tanh_mul", ptx.GELUTanhMulPTX},
+		{"split_gate_up", ptx.SplitGateUpPTX},
+		{"gate_up_gelu", ptx.GateUpGELUPTX},
+		{"scatter_weighted_rows", ptx.ScatterWeightedRowsPTX},
+		{"scatter_weighted_rows_batch", ptx.ScatterWeightedRowsBatchPTX},
+		{"gather_rows", ptx.GatherRowsPTX},
+		{"mul_weights", ptx.MulWeightsPTX},
+		{"expert_meta_reduce", ptx.ExpertMetaReducePTX},
 		{"gemv_q4sym", ptxq4.GemvQ4OptPTX},
+		{"gemv_q4_k", ptxq4.GemvQ4KPTX},
+		{"gemv_q4_k_batch", ptxq4.GemvQ4KBatchPTX},
+		{"gate_up_gelu_q4_k", ptxq4.GateUpGELUQ4KPTX},
+		{"gate_up_gelu_q4_k_by_work", ptxq4.GateUpGELUQ4KByWorkPTX},
+		{"gate_up_gelu_q4_k_by_work_ptrs", ptxq4.GateUpGELUQ4KByWorkPtrsPTX},
+		{"gemv_q8_0", ptxq8.GemvQ8_0PTX},
+		{"gemv_q8_0_batch", ptxq8.GemvQ8_0BatchPTX},
+		{"gemv_q8_0_scatter", ptxq8.GemvQ8_0ScatterPTX},
+		{"gemv_q8_0_scatter_by_work", ptxq8.GemvQ8_0ScatterByWorkPTX},
+		{"gemv_q8_0_scatter_by_work_ptrs", ptxq8.GemvQ8_0ScatterByWorkPtrsPTX},
 		{"fused_silu_mul", ptx.FusedSiLUMulPTX},
 		{"prefetch_l2", ptx.PrefetchPTX},
 		{"gemm_q4sym", ptxq4.GemmQ4PTX},

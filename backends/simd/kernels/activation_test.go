@@ -23,6 +23,24 @@ func TestSiLUAndSiLUMulGolden(t *testing.T) {
 	}
 }
 
+func TestGELUExactAndMulGolden(t *testing.T) {
+	a := []float32{-3, -1, 0, 1, 3}
+	b := []float32{1, 2, 3, 4, 5}
+	gelu := make([]float32, len(a))
+	GELUExact(gelu, a)
+	mul := make([]float32, len(a))
+	GELUExactMul(mul, a, b)
+	for i, x := range a {
+		want := 0.5 * x * (1 + float32(math.Erf(float64(x)*0.70710678118654752440)))
+		if math.Abs(float64(gelu[i]-want)) > ActivationReferenceTolerance {
+			t.Fatalf("GELUExact[%d]=%g want %g", i, gelu[i], want)
+		}
+		if math.Abs(float64(mul[i]-want*b[i])) > ActivationReferenceTolerance {
+			t.Fatalf("GELUExactMul[%d]=%g want %g", i, mul[i], want*b[i])
+		}
+	}
+}
+
 func TestGELUTanhAndMulGolden(t *testing.T) {
 	a := []float32{-3, -1, 0, 1, 3}
 	b := []float32{1, 2, 3, 4, 5}

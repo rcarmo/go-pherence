@@ -21,6 +21,18 @@ const (
 	OpSelfCondition   OpKind = "self_condition"
 	OpFinalNorm       OpKind = "final_norm"
 	OpLMHead          OpKind = "lm_head"
+
+	OpImagePreprocess       OpKind = "image_preprocess"
+	OpImageSoftTokenPrompt  OpKind = "image_soft_token_prompt"
+	OpVisionPatchEmbedding  OpKind = "vision_patch_embedding"
+	OpVisionEncoderTower    OpKind = "vision_encoder_tower"
+	OpVisionInputNorm       OpKind = "vision_input_norm"
+	OpVisionSelfAttention   OpKind = "vision_self_attention"
+	OpVisionPostAttention   OpKind = "vision_post_attention_norm"
+	OpVisionPreFFN          OpKind = "vision_pre_ffn_norm"
+	OpVisionDenseMLP        OpKind = "vision_dense_mlp"
+	OpVisionPostFFN         OpKind = "vision_post_ffn_norm"
+	OpVisionEmbeddingInsert OpKind = "vision_embedding_insert"
 )
 
 type LayerOp struct {
@@ -78,12 +90,14 @@ type ForwardContext struct {
 	Canvas           []int            `json:"canvas"`
 	Step             int              `json:"step"`
 	SelfConditioning []float32        `json:"-"`
+	SCTempInv        float32          `json:"-"` // 1/t for self-conditioning softmax
+	SampleDraws      []float64        `json:"-"`
 	EncoderKV        []EncoderKVLayer `json:"-"`
 	EncoderSeqLen    int              `json:"encoder_seq_len,omitempty"`
 }
 
-// ForwardDispatcher is the explicit boundary where tensor-backed CPU/SIMD
-// layer math will be implemented.
+// ForwardDispatcher is the explicit boundary for tensor-backed text forward
+// execution (CPU, GPU, GGUF, FP8, or test/mock dispatchers).
 type ForwardDispatcher interface {
 	RunTextForward(ctx ForwardContext, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) (ForwardOutput, error)
 }
@@ -91,5 +105,5 @@ type ForwardDispatcher interface {
 type NotImplementedDispatcher struct{}
 
 func (NotImplementedDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) (ForwardOutput, error) {
-	return ForwardOutput{}, fmt.Errorf("DiffusionGemma text forward dispatcher is not implemented")
+	return ForwardOutput{}, fmt.Errorf("DiffusionGemma text forward dispatcher is not configured")
 }

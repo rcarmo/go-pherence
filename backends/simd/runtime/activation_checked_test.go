@@ -13,6 +13,9 @@ func TestCheckedActivationEntrypoints(t *testing.T) {
 	if !SiLUMulTo(dst[:len(a)], a, b) {
 		t.Fatal("SiLUMulTo returned false for valid input")
 	}
+	if !GELUExactMulTo(dst[:len(a)], a, b) {
+		t.Fatal("GELUExactMulTo returned false for valid input")
+	}
 	if !GELUTanhTo(dst[:len(a)], a) {
 		t.Fatal("GELUTanhTo returned false for valid input")
 	}
@@ -31,6 +34,9 @@ func TestCheckedActivationEntrypoints(t *testing.T) {
 	}
 	if SiLUMulTo(nil, a, b) || SiLUMulTo(make([]float32, 4), a, b) || SiLUMulTo(make([]float32, 3), a, b[:2]) {
 		t.Fatal("SiLUMulTo accepted malformed input")
+	}
+	if GELUExactMulTo(nil, a, b) || GELUExactMulTo(make([]float32, 4), a, b) || GELUExactMulTo(make([]float32, 3), a, b[:2]) {
+		t.Fatal("GELUExactMulTo accepted malformed input")
 	}
 	if GELUTanhTo(nil, a) || GELUTanhTo(make([]float32, 4), a) {
 		t.Fatal("GELUTanhTo accepted malformed input")

@@ -6,9 +6,9 @@ import (
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 )
 
-// Model is the top-level DiffusionGemma runtime scaffold. It intentionally
-// contains metadata and readiness only until tensor loading/forward execution is
-// implemented.
+// Model is the top-level DiffusionGemma runtime descriptor. Text GGUF execution
+// is implemented through explicit dispatchers; RuntimeReady remains false until
+// broader reference fixtures and full image-sequence vision reference validation are complete.
 type Model struct {
 	Path               string                            `json:"path"`
 	Config             loaderconfig.DiffusionGemmaConfig `json:"-"`
@@ -18,6 +18,7 @@ type Model struct {
 	Tensors            *TensorInventory                  `json:"tensors,omitempty"`
 	Readiness          *TensorReadiness                  `json:"readiness,omitempty"`
 	TextTensorPlan     *TextTensorPlan                   `json:"text_tensor_plan,omitempty"`
+	VisionTensorPlan   *VisionTensorPlan                 `json:"vision_tensor_plan,omitempty"`
 	Processor          *ProcessorMetadata                `json:"processor,omitempty"`
 	Tokenizer          *TokenizerMetadata                `json:"tokenizer,omitempty"`
 	Shards             *ShardAvailability                `json:"shards,omitempty"`
@@ -51,6 +52,11 @@ func LoadMetadata(modelDir string) (*Model, error) {
 		return nil, err
 	} else if ok {
 		m.TextTensorPlan = &plan
+	}
+	if plan, ok, err := VisionTensorPlanFromModelDir(modelDir, shape); err != nil {
+		return nil, err
+	} else if ok {
+		m.VisionTensorPlan = &plan
 	}
 	if shards, ok, err := ShardAvailabilityFromModelDir(modelDir); err != nil {
 		return nil, err
@@ -98,5 +104,5 @@ func (m *Model) RequireRuntimeReady() error {
 	if m.Shape.RuntimeNote != "" {
 		return fmt.Errorf("%s", m.Shape.RuntimeNote)
 	}
-	return fmt.Errorf("DiffusionGemma runtime is not implemented")
+	return fmt.Errorf("DiffusionGemma runtime is not marked ready")
 }

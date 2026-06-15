@@ -11,6 +11,8 @@ import (
 type ProcessorMetadata struct {
 	TokenizerClass    string                `json:"tokenizer_class,omitempty"`
 	ProcessorClass    string                `json:"processor_class,omitempty"`
+	ImageProcessor    string                `json:"image_processor,omitempty"`
+	VideoProcessor    string                `json:"video_processor,omitempty"`
 	Backend           string                `json:"backend,omitempty"`
 	BOS               string                `json:"bos,omitempty"`
 	EOS               string                `json:"eos,omitempty"`
@@ -26,6 +28,14 @@ type ProcessorMetadata struct {
 	EOC               string                `json:"eoc,omitempty"`
 	ImageSeqLength    int                   `json:"image_seq_length,omitempty"`
 	PatchSize         int                   `json:"patch_size,omitempty"`
+	PoolingKernelSize int                   `json:"pooling_kernel_size,omitempty"`
+	DoConvertRGB      bool                  `json:"do_convert_rgb,omitempty"`
+	DoResize          bool                  `json:"do_resize,omitempty"`
+	DoRescale         bool                  `json:"do_rescale,omitempty"`
+	DoNormalize       bool                  `json:"do_normalize,omitempty"`
+	RescaleFactor     float32               `json:"rescale_factor,omitempty"`
+	ImageMean         []float32             `json:"image_mean,omitempty"`
+	ImageStd          []float32             `json:"image_std,omitempty"`
 	ChatTemplateBytes int                   `json:"chat_template_bytes,omitempty"`
 	ChatTemplate      *ChatTemplateMetadata `json:"chat_template,omitempty"`
 }
@@ -68,8 +78,18 @@ func ReadProcessorMetadata(modelDir string) (ProcessorMetadata, bool, error) {
 	} else if ok {
 		seen = true
 		out.ProcessorClass = proc.ProcessorClass
+		out.ImageProcessor = proc.ImageProcessorType
+		out.VideoProcessor = proc.VideoProcessorType
 		out.ImageSeqLength = proc.ImageSeqLength
 		out.PatchSize = proc.PatchSize
+		out.PoolingKernelSize = proc.PoolingKernelSize
+		out.DoConvertRGB = proc.DoConvertRGB
+		out.DoResize = proc.DoResize
+		out.DoRescale = proc.DoRescale
+		out.DoNormalize = proc.DoNormalize
+		out.RescaleFactor = proc.RescaleFactor
+		out.ImageMean = append([]float32(nil), proc.ImageMean...)
+		out.ImageStd = append([]float32(nil), proc.ImageStd...)
 	}
 	if meta, ok, err := ReadChatTemplateMetadata(modelDir); err != nil {
 		return out, false, err

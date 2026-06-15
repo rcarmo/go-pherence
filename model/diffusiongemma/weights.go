@@ -6,6 +6,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
@@ -27,12 +29,15 @@ type LayerWeights struct {
 // TextWeights is a non-eager binding of the DiffusionGemma text tensor plan to
 // a sharded safetensors file. It owns the open shard handles and must be closed.
 type TextWeights struct {
-	Plan       TextTensorPlan  `json:"plan"`
-	Globals    []TensorBinding `json:"globals"`
-	Layers     []LayerWeights  `json:"layers"`
-	shards     *safetensors.ShardedFile
-	floatCache map[string]FloatTensor
-	cacheMu    sync.RWMutex
+	Plan           TextTensorPlan  `json:"plan"`
+	Globals        []TensorBinding `json:"globals"`
+	Layers         []LayerWeights  `json:"layers"`
+	shards         *safetensors.ShardedFile
+	floatCache     map[string]FloatTensor
+	cacheMu        sync.RWMutex
+	noEvict        bool              // GGUF mode: all weights pre-cached, cannot reload from shards
+	ggufTokenEmbd  *gguf.QuantMatrix // original quantized tied token_embd.weight for GGUF LM-head parity
+	IndexedExperts bool              // FP8 mode: experts are per-expert tensors resolved by FP8ExpertIndex, not fused BF16 bindings
 }
 
 type FloatTensor struct {
@@ -57,7 +62,7 @@ func OpenTextWeights(modelDir string, shape Shape) (*TextWeights, error) {
 		return nil, err
 	}
 	infos := shards.TensorInfos()
-	out := &TextWeights{Plan: plan, shards: shards, floatCache: map[string]FloatTensor{}}
+	out := &TextWeights{Plan: plan, shards: shards, floatCache: map[string]FloatTensor{}, IndexedExperts: plan.IndexedExperts}
 	for _, h := range plan.Globals {
 		b, err := bindTensorHandle(h, infos)
 		if err != nil {
@@ -90,10 +95,19 @@ func bindTensorHandle(h TensorHandle, infos map[string]safetensors.TensorInfo) (
 }
 
 func (w *TextWeights) Close() error {
-	if w == nil || w.shards == nil {
+	if w == nil {
 		return nil
 	}
-	return w.shards.Close()
+	w.cacheMu.Lock()
+	w.floatCache = nil
+	w.ggufTokenEmbd = nil
+	w.cacheMu.Unlock()
+	if w.shards == nil {
+		return nil
+	}
+	err := w.shards.Close()
+	w.shards = nil
+	return err
 }
 
 func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
@@ -138,7 +152,7 @@ func (w *TextWeights) ClearFloatCache() {
 }
 
 func (w *TextWeights) EvictFloatTensor(name string) bool {
-	if w == nil || w.floatCache == nil {
+	if w == nil || w.floatCache == nil || w.noEvict {
 		return false
 	}
 	w.cacheMu.Lock()
@@ -164,7 +178,7 @@ func (w *TextWeights) EvictLayer(layer int) int {
 }
 
 func (w *TextWeights) RetainGlobalsAndLayerPrefix(layers int) int {
-	if w == nil {
+	if w == nil || w.noEvict {
 		return 0
 	}
 	keep := map[string]bool{}
@@ -262,10 +276,29 @@ func (w *TextWeights) EagerLoad() (int64, error) {
 }
 
 func (w *TextWeights) RawTensor(name string) ([]byte, string, []int, error) {
-	if w == nil || w.shards == nil {
+	if w == nil {
 		return nil, "", nil, fmt.Errorf("nil DiffusionGemma text weights")
 	}
-	return w.shards.GetRaw(name)
+	if w.shards != nil {
+		return w.shards.GetRaw(name)
+	}
+	// GGUF mode: no shards; synthesize raw bytes from float cache
+	w.cacheMu.RLock()
+	t, ok := w.floatCache[name]
+	w.cacheMu.RUnlock()
+	if !ok {
+		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q not in float cache (GGUF mode, no shards)", name)
+	}
+	// Return F32 data as raw bytes.
+	want, ok := tensorElementCount(t.Shape)
+	if !ok || want != len(t.Data) {
+		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q cached shape %v has %d elements", name, t.Shape, len(t.Data))
+	}
+	if len(t.Data) == 0 {
+		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q is empty", name)
+	}
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(&t.Data[0])), len(t.Data)*4)
+	return raw, "F32", t.Shape, nil
 }
 
 // RawBF16Tensor returns the raw BF16 weight data as []uint16 without decoding.
@@ -279,8 +312,15 @@ func (w *TextWeights) RawBF16Tensor(name string) ([]uint16, []int, error) {
 	if dtype != "BF16" {
 		return nil, nil, nil
 	}
-	n := len(raw) / 2
-	out := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[0])), n)
+	want, ok := tensorElementCount(shape)
+	if !ok || want <= 0 {
+		return nil, nil, fmt.Errorf("DiffusionGemma tensor %q invalid BF16 shape %v", name, shape)
+	}
+	needBytes, ok := checked.MulInt(want, 2)
+	if !ok || len(raw) < needBytes {
+		return nil, nil, fmt.Errorf("DiffusionGemma tensor %q BF16 bytes=%d want at least %d for shape %v", name, len(raw), needBytes, shape)
+	}
+	out := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[0])), want)
 	return out, shape, nil
 }
 
@@ -299,13 +339,31 @@ func (w *TextWeights) RawTensorRow(name string, row int) ([]byte, string, []int,
 	if !ok {
 		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q unsupported dtype %s", name, dtype)
 	}
-	rowBytes := shape[1] * elemSize
-	start := row * rowBytes
+	rowBytes, okRowBytes := checked.MulInt(shape[1], elemSize)
+	start, okStart := checked.MulInt(row, rowBytes)
 	end := start + rowBytes
-	if start < 0 || end < start || end > len(raw) {
+	if !okRowBytes || !okStart || start < 0 || end < start || end > len(raw) {
 		return nil, "", nil, fmt.Errorf("DiffusionGemma tensor %q row byte range [%d,%d) exceeds %d", name, start, end, len(raw))
 	}
 	return raw[start:end], dtype, []int{shape[1]}, nil
+}
+
+func tensorElementCount(shape []int) (int, bool) {
+	if len(shape) == 0 {
+		return 0, false
+	}
+	n := 1
+	for _, d := range shape {
+		if d <= 0 {
+			return 0, false
+		}
+		var ok bool
+		n, ok = checked.MulInt(n, d)
+		if !ok {
+			return 0, false
+		}
+	}
+	return n, true
 }
 
 func diffusionGemmaDTypeSize(dtype string) (int, bool) {

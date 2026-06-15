@@ -29,7 +29,7 @@ func BuildReadinessSummary(caps RuntimeCapabilities, shards *ShardAvailability, 
 
 func (s ReadinessSummary) String() string {
 	parts := []string{
-		"text_scaffold=" + boolString(s.TextScaffoldReady),
+		"text_runtime=" + boolString(s.TextScaffoldReady),
 		"shards=" + boolString(s.ShardsReady),
 		"reference_complete=" + boolString(s.ReferenceComplete),
 		"runtime_ready=" + boolString(s.RuntimeReady),

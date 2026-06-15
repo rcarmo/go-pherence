@@ -101,7 +101,16 @@ func ReadDiffusionGemmaConfig(dir string) (DiffusionGemmaConfig, error) {
 }
 
 func ReadDiffusionGemmaGenerationConfig(dir string) (DiffusionGemmaGenerationConfig, bool, error) {
-	var cfg DiffusionGemmaGenerationConfig
+	// Use negative sentinels for controls where zero is an explicit, valid
+	// DiffusionGemma setting. Missing JSON fields keep the sentinel so the model
+	// package can fall back to llama.cpp defaults; explicit 0 remains 0.
+	cfg := DiffusionGemmaGenerationConfig{
+		StabilityThreshold:  -1,
+		ConfidenceThreshold: -1,
+		SamplerConfig: DiffusionGemmaSamplerConfig{
+			EntropyBound: -1,
+		},
+	}
 	ok, err := ReadOptionalJSON(filepath.Join(dir, "generation_config.json"), &cfg)
 	return cfg, ok, err
 }

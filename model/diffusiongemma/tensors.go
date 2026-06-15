@@ -166,10 +166,29 @@ func TensorReadinessFromInventory(inv TensorInventory, shape Shape) TensorReadin
 			out.MissingRequired = append(out.MissingRequired, name)
 		}
 	}
+	indexedExpertLayer := func(layer int) bool {
+		if shape.NumExperts <= 0 {
+			return false
+		}
+		base := "model.decoder.layers." + itoa(layer) + ".experts."
+		for e := 0; e < shape.NumExperts; e++ {
+			p := base + itoa(e) + "."
+			for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
+				if !present[p+proj+".weight"] || !present[p+proj+".weight_scale"] {
+					return false
+				}
+			}
+		}
+		return true
+	}
 	observedLayers := map[int]bool{}
 	for layer := 0; layer < shape.TextLayers; layer++ {
 		base := "model.decoder.layers." + itoa(layer) + "."
+		indexedExperts := indexedExpertLayer(layer)
 		for _, suffix := range requiredLayerSuffixesForType(layerTypeAt(shape.LayerTypes, layer)) {
+			if indexedExperts && (suffix == "experts.down_proj" || suffix == "experts.gate_up_proj") {
+				continue
+			}
 			out.ExpectedLayerTensors++
 			if present[base+suffix] {
 				out.ObservedLayerTensors++
@@ -251,11 +270,12 @@ type LayerTensorPlan struct {
 }
 
 type TextTensorPlan struct {
-	IndexPath string            `json:"index_path"`
-	Globals   []TensorHandle    `json:"globals"`
-	Layers    []LayerTensorPlan `json:"layers"`
-	Ready     bool              `json:"ready"`
-	Missing   []string          `json:"missing,omitempty"`
+	IndexPath      string            `json:"index_path"`
+	Globals        []TensorHandle    `json:"globals"`
+	Layers         []LayerTensorPlan `json:"layers"`
+	IndexedExperts bool              `json:"indexed_experts,omitempty"` // FP8 checkpoints store experts as experts.{id}.{gate,up,down}_proj
+	Ready          bool              `json:"ready"`
+	Missing        []string          `json:"missing,omitempty"`
 }
 
 func TextTensorPlanFromModelDir(modelDir string, shape Shape) (TextTensorPlan, bool, error) {
@@ -276,6 +296,21 @@ func TextTensorPlanFromIndex(path string, shape Shape) (TextTensorPlan, error) {
 		return TextTensorPlan{}, err
 	}
 	plan := TextTensorPlan{IndexPath: path, Ready: true}
+	indexedExpertLayer := func(layer int) bool {
+		if shape.NumExperts <= 0 {
+			return false
+		}
+		base := "model.decoder.layers." + itoa(layer) + ".experts."
+		for e := 0; e < shape.NumExperts; e++ {
+			p := base + itoa(e) + "."
+			for _, proj := range []string{"gate_proj", "up_proj", "down_proj"} {
+				if weightMap[p+proj+".weight"] == "" || weightMap[p+proj+".weight_scale"] == "" {
+					return false
+				}
+			}
+		}
+		return true
+	}
 	for _, name := range diffusionGemmaRequiredGlobals {
 		h := TensorHandle{Name: name, Shard: weightMap[name], Group: ClassifyTensorName(name), Required: true}
 		if h.Shard == "" {
@@ -288,7 +323,14 @@ func TextTensorPlanFromIndex(path string, shape Shape) (TextTensorPlan, error) {
 		lt := layerTypeAt(shape.LayerTypes, layer)
 		lp := LayerTensorPlan{Layer: layer, Type: lt}
 		base := "model.decoder.layers." + itoa(layer) + "."
+		indexedExperts := indexedExpertLayer(layer)
+		if indexedExperts {
+			plan.IndexedExperts = true
+		}
 		for _, suffix := range requiredLayerSuffixesForType(lt) {
+			if indexedExperts && (suffix == "experts.down_proj" || suffix == "experts.gate_up_proj") {
+				continue
+			}
 			name := base + suffix
 			h := TensorHandle{Name: name, Shard: weightMap[name], Group: ClassifyTensorName(name), Required: true}
 			if h.Shard == "" {
@@ -298,6 +340,15 @@ func TextTensorPlanFromIndex(path string, shape Shape) (TextTensorPlan, error) {
 				}
 			}
 			lp.Handles = append(lp.Handles, h)
+		}
+		// DiffusionGemma safetensors carry a separate prompt/encoder layer
+		// output scale under model.encoder.language_model.layers.N.layer_scalar.
+		// It is optional for older checkpoints, but when present it must bind to
+		// EncLayerScalar; using the decoder layer_scalar in prompt encoding causes
+		// prompt-KV drift from layer 1 onward.
+		encScalarName := "model.encoder.language_model.layers." + itoa(layer) + ".layer_scalar"
+		if shard := weightMap[encScalarName]; shard != "" {
+			lp.Handles = append(lp.Handles, TensorHandle{Name: encScalarName, Shard: shard, Group: ClassifyTensorName(encScalarName), Required: false})
 		}
 		plan.Layers = append(plan.Layers, lp)
 	}

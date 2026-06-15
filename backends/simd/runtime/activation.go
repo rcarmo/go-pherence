@@ -27,6 +27,18 @@ func SiLUMulTo(dst, a, b []float32) bool {
 	return true
 }
 
+// GELUExact computes dst[i] = exact_gelu(a[i]) using erf, matching ggml_gelu.
+func GELUExact(dst, a []float32) { kernels.GELUExact(dst, a) }
+
+// GELUExactMulTo computes exact GELU(a)×b into caller-owned output and reports malformed inputs.
+func GELUExactMulTo(dst, a, b []float32) bool {
+	if len(dst) == 0 || len(a) < len(dst) || len(b) < len(dst) {
+		return false
+	}
+	kernels.GELUExactMul(dst, a, b)
+	return true
+}
+
 // GELUTanh computes dst[i] = gelu_tanh(a[i]).
 func GELUTanh(dst, a []float32) { kernels.GELUTanh(dst, a) }
 

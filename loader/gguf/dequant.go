@@ -9,6 +9,11 @@ import (
 )
 
 // dequantToF32 dequantizes raw GGUF tensor bytes to a []float32 of length n.
+// DequantToF32 dequantizes raw quantized data to a new F32 slice.
+func DequantToF32(raw []byte, qt QuantType, n int) ([]float32, error) {
+	return dequantToF32(raw, qt, n)
+}
+
 func dequantToF32(raw []byte, qt QuantType, n int) ([]float32, error) {
 	switch qt {
 	case QuantF32:
@@ -25,6 +30,10 @@ func dequantToF32(raw []byte, qt QuantType, n int) ([]float32, error) {
 		return dequantQ4K(raw, n)
 	case QuantQ6_K:
 		return dequantQ6K(raw, n)
+	case QuantQ5_0:
+		return dequantQ5_0(raw, n)
+	case QuantQ5_1:
+		return dequantQ5_1(raw, n)
 	default:
 		return nil, fmt.Errorf("dequant: unsupported quant type %d", qt)
 	}
@@ -317,6 +326,80 @@ func dequantQ6K(raw []byte, n int) ([]float32, error) {
 			scOff += 8
 		}
 		yBase += blockElems
+	}
+	return out, nil
+}
+
+// ── Q5_0 ──────────────────────────────────────────────────────────────────────
+// Block: 22 bytes per 32 elements
+//   d    f16 @ bytes[0:2]
+//   qh   uint32 @ bytes[2:6]  — 5th bit for each element
+//   qs   [16]byte @ bytes[6:22] — low 4 bits, 2 per byte
+
+func dequantQ5_0(raw []byte, n int) ([]float32, error) {
+	const blockElems = 32
+	const blockSize = 22
+	nBlocks := n / blockElems
+	if len(raw) < nBlocks*blockSize {
+		return nil, fmt.Errorf("dequantQ5_0: need %d bytes, have %d", nBlocks*blockSize, len(raw))
+	}
+	out := make([]float32, n)
+	for b := 0; b < nBlocks; b++ {
+		blk := raw[b*blockSize:]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		qh := binary.LittleEndian.Uint32(blk[2:6])
+		qs := blk[6:22]
+		base := b * blockElems
+		for i := 0; i < 16; i++ {
+			q0 := int(qs[i] & 0x0F)
+			q1 := int(qs[i] >> 4)
+			if qh&(1<<uint(i)) != 0 {
+				q0 |= 16
+			}
+			if qh&(1<<uint(i+16)) != 0 {
+				q1 |= 16
+			}
+			out[base+i] = d * float32(q0-16)
+			out[base+i+16] = d * float32(q1-16)
+		}
+	}
+	return out, nil
+}
+
+// ── Q5_1 ──────────────────────────────────────────────────────────────────────
+// Block: 24 bytes per 32 elements
+//   d    f16 @ bytes[0:2]
+//   m    f16 @ bytes[2:4]
+//   qh   uint32 @ bytes[4:8]
+//   qs   [16]byte @ bytes[8:24]
+
+func dequantQ5_1(raw []byte, n int) ([]float32, error) {
+	const blockElems = 32
+	const blockSize = 24
+	nBlocks := n / blockElems
+	if len(raw) < nBlocks*blockSize {
+		return nil, fmt.Errorf("dequantQ5_1: need %d bytes, have %d", nBlocks*blockSize, len(raw))
+	}
+	out := make([]float32, n)
+	for b := 0; b < nBlocks; b++ {
+		blk := raw[b*blockSize:]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		m := half.F16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
+		qh := binary.LittleEndian.Uint32(blk[4:8])
+		qs := blk[8:24]
+		base := b * blockElems
+		for i := 0; i < 16; i++ {
+			q0 := int(qs[i] & 0x0F)
+			q1 := int(qs[i] >> 4)
+			if qh&(1<<uint(i)) != 0 {
+				q0 |= 16
+			}
+			if qh&(1<<uint(i+16)) != 0 {
+				q1 |= 16
+			}
+			out[base+i] = d*float32(q0) + m
+			out[base+i+16] = d*float32(q1) + m
+		}
 	}
 	return out, nil
 }

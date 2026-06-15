@@ -6,6 +6,7 @@ import "strings"
 type TextGlobals struct {
 	EmbedTokens      *TensorBinding `json:"embed_tokens,omitempty"`
 	FinalNorm        *TensorBinding `json:"final_norm,omitempty"`
+	RopeFreqs        *TensorBinding `json:"rope_freqs,omitempty"`
 	SelfCondPreNorm  *TensorBinding `json:"self_conditioning_pre_norm,omitempty"`
 	SelfCondGateProj *TensorBinding `json:"self_conditioning_gate_proj,omitempty"`
 	SelfCondUpProj   *TensorBinding `json:"self_conditioning_up_proj,omitempty"`
@@ -27,6 +28,7 @@ type TextLayerBindings struct {
 	PostFFNLayerNorm1      *TensorBinding `json:"post_feedforward_layernorm_1,omitempty"`
 	PostFFNLayerNorm2      *TensorBinding `json:"post_feedforward_layernorm_2,omitempty"`
 	LayerScalar            *TensorBinding `json:"layer_scalar,omitempty"`
+	EncLayerScalar         *TensorBinding `json:"enc_layer_scalar,omitempty"`
 
 	QProj *TensorBinding `json:"q_proj,omitempty"`
 	KProj *TensorBinding `json:"k_proj,omitempty"`
@@ -48,14 +50,15 @@ type TextLayerBindings struct {
 
 // TextForwardPlan is a semantic view over TextWeights for future forward code.
 type TextForwardPlan struct {
-	Globals TextGlobals         `json:"globals"`
-	Layers  []TextLayerBindings `json:"layers"`
-	Ready   bool                `json:"ready"`
-	Missing []string            `json:"missing,omitempty"`
+	Globals        TextGlobals         `json:"globals"`
+	Layers         []TextLayerBindings `json:"layers"`
+	IndexedExperts bool                `json:"indexed_experts,omitempty"`
+	Ready          bool                `json:"ready"`
+	Missing        []string            `json:"missing,omitempty"`
 }
 
 func (w *TextWeights) ForwardPlan() TextForwardPlan {
-	plan := TextForwardPlan{Ready: true}
+	plan := TextForwardPlan{Ready: true, IndexedExperts: w.IndexedExperts}
 	if w == nil {
 		return TextForwardPlan{Ready: false, Missing: []string{"nil text weights"}}
 	}
@@ -66,6 +69,8 @@ func (w *TextWeights) ForwardPlan() TextForwardPlan {
 			plan.Globals.EmbedTokens = b
 		case strings.HasSuffix(b.Name, "decoder.norm.weight"):
 			plan.Globals.FinalNorm = b
+		case strings.Contains(b.Name, "rope_freqs"):
+			plan.Globals.RopeFreqs = b
 		case strings.Contains(b.Name, "self_conditioning.pre_norm"):
 			plan.Globals.SelfCondPreNorm = b
 		case strings.Contains(b.Name, "self_conditioning.gate_proj"):
@@ -118,6 +123,10 @@ func assignLayerBinding(lb *TextLayerBindings, b *TensorBinding) {
 		lb.PostFFNLayerNorm2 = b
 	case strings.Contains(name, "post_feedforward_layernorm.weight"):
 		lb.PostFFNLayerNorm = b
+	case strings.Contains(name, "model.encoder.language_model.layers.") && strings.HasSuffix(name, ".layer_scalar"):
+		lb.EncLayerScalar = b
+	case strings.Contains(name, "enc_layer_output_scale") || strings.Contains(name, "enc_layer_scalar"):
+		lb.EncLayerScalar = b
 	case strings.HasSuffix(name, ".layer_scalar"):
 		lb.LayerScalar = b
 	case strings.Contains(name, "self_attn.q_proj"):
@@ -180,6 +189,8 @@ func validateLayerBinding(plan *TextForwardPlan, lb TextLayerBindings) {
 	require("router_proj", lb.RouterProj)
 	require("router_scale", lb.RouterScale)
 	require("router_per_expert_scale", lb.RouterPerExpertScale)
-	require("experts_gate_up_proj", lb.ExpertsGateUpProj)
-	require("experts_down_proj", lb.ExpertsDownProj)
+	if !plan.IndexedExperts {
+		require("experts_gate_up_proj", lb.ExpertsGateUpProj)
+		require("experts_down_proj", lb.ExpertsDownProj)
+	}
 }

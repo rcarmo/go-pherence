@@ -42,10 +42,10 @@ func DenoisingConfigFromDefaults(g GenerationDefaults) DenoisingConfig {
 	if g.StabilityThreshold >= 0 {
 		cfg.StabilityThreshold = g.StabilityThreshold
 	}
-	if g.ConfidenceThreshold > 0 {
+	if g.ConfidenceThreshold >= 0 {
 		cfg.ConfidenceThreshold = g.ConfidenceThreshold
 	}
-	if g.EntropyBound > 0 {
+	if g.EntropyBound >= 0 {
 		cfg.Sampler.EntropyBound = g.EntropyBound
 	}
 	return cfg
@@ -111,11 +111,20 @@ func Argmax(logits []float32) int {
 }
 
 func SampleFromLogits(logits []float32, rng *rand.Rand) int {
+	if rng == nil {
+		rng = rand.New(rand.NewSource(1))
+	}
+	return SampleFromLogitsWithDraw(logits, rng.Float64())
+}
+
+func SampleFromLogitsWithDraw(logits []float32, unitDraw float64) int {
 	if len(logits) == 0 {
 		return -1
 	}
-	if rng == nil {
-		rng = rand.New(rand.NewSource(1))
+	if unitDraw < 0 {
+		unitDraw = 0
+	} else if unitDraw > 1 {
+		unitDraw = 1
 	}
 	maxLogit := float32(math.Inf(-1))
 	for _, v := range logits {
@@ -139,7 +148,7 @@ func SampleFromLogits(logits []float32, rng *rand.Rand) int {
 	if sum <= 0 || math.IsNaN(sum) {
 		return Argmax(logits)
 	}
-	draw := rng.Float64() * sum
+	draw := unitDraw * sum
 	var cumulative float64
 	for i, w := range weights {
 		cumulative += w
@@ -187,10 +196,19 @@ func RenoiseCanvas(acceptedCanvas []int, acceptedMask []bool, vocabSize int, rng
 	if vocabSize <= 0 || rng == nil {
 		return out
 	}
+	renoiseTokens := make([]int, len(out))
+	for i := range renoiseTokens {
+		renoiseTokens[i] = rng.Intn(vocabSize)
+	}
+	return RenoiseCanvasWithTokens(out, acceptedMask, renoiseTokens)
+}
+
+func RenoiseCanvasWithTokens(acceptedCanvas []int, acceptedMask []bool, renoiseTokens []int) []int {
+	out := append([]int(nil), acceptedCanvas...)
 	for i := range out {
 		accepted := i < len(acceptedMask) && acceptedMask[i]
-		if !accepted {
-			out[i] = rng.Intn(vocabSize)
+		if !accepted && i < len(renoiseTokens) {
+			out[i] = renoiseTokens[i]
 		}
 	}
 	return out

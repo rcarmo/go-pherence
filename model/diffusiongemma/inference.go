@@ -1,13 +1,10 @@
 package diffusiongemma
 
-import (
-	"fmt"
-	"math/rand"
-)
+import "fmt"
 
-// InferenceOptions controls text-only block-diffusion generation. The scaffold
-// currently supports token IDs only; processor/chat-template integration stays
-// outside the model package.
+// InferenceOptions controls text-only block-diffusion generation. The model
+// package operates on token IDs; processor/chat-template integration is handled
+// by callers such as the runner/server.
 // ProgressEvent is emitted during generation for streaming.
 type ProgressEvent struct {
 	Type        string      `json:"type"` // "step" or "canvas"
@@ -31,9 +28,9 @@ type InferenceResult struct {
 	Canvases  []CanvasResult `json:"canvases"`
 }
 
-// Engine ties DiffusionGemma metadata/weights to a denoiser implementation.
-// The native denoiser is intentionally injected: the block-diffusion control
-// loop is usable before the full tensor-backed forward path is complete.
+// Engine ties DiffusionGemma metadata/weights to a configured denoiser
+// implementation. The denoiser is injected so callers can choose CPU, GPU, GGUF,
+// FP8, or mock dispatch paths explicitly.
 type Engine struct {
 	Model    *Model
 	Weights  *TextWeights
@@ -61,11 +58,13 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 		return InferenceResult{}, fmt.Errorf("nil DiffusionGemma inference engine")
 	}
 	if e.Denoiser == nil {
-		return InferenceResult{}, fmt.Errorf("DiffusionGemma denoiser is not implemented")
+		return InferenceResult{}, fmt.Errorf("DiffusionGemma denoiser is not configured")
 	}
 	// Reset encoder KV cache so each request encodes its own prompt.
 	if td, ok := e.Denoiser.(*TextDenoiser); ok {
 		td.EncoderKV = nil
+		td.EncoderPromptIDs = nil
+		td.EncoderPromptLen = 0
 	}
 	shape := e.Model.Shape
 	canvasLength := opts.CanvasLength
@@ -74,6 +73,9 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 	}
 	if canvasLength <= 0 {
 		return InferenceResult{}, fmt.Errorf("invalid DiffusionGemma canvas length %d", canvasLength)
+	}
+	if shape.CanvasLength > 0 && canvasLength > shape.CanvasLength {
+		return InferenceResult{}, fmt.Errorf("DiffusionGemma canvas length %d exceeds model canvas_length %d", canvasLength, shape.CanvasLength)
 	}
 	maxNew := opts.MaxNewTokens
 	if maxNew <= 0 {
@@ -91,11 +93,7 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 	if opts.Denoising != nil {
 		denoiseCfg = *opts.Denoising
 	}
-	seed := opts.Seed
-	if seed == 0 {
-		seed = 1
-	}
-	rng := rand.New(rand.NewSource(seed))
+	rng := NewMT19937RNG(opts.Seed)
 	generated := make([]int, 0, maxNew)
 	canvases := make([]CanvasResult, 0, (maxNew+canvasLength-1)/canvasLength)
 	context := append([]int(nil), promptIDs...)

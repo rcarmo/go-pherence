@@ -59,6 +59,7 @@ var (
 	cuCtxSetCurrent          func(CUcontext) CUresult
 	cuMemcpyDtoD             func(CUdeviceptr, CUdeviceptr, uint64) CUresult
 	cuMemcpyDtoDAsync        func(CUdeviceptr, CUdeviceptr, uint64, uintptr) CUresult
+	cuMemsetD32              func(CUdeviceptr, uint32, uint64) CUresult
 )
 
 type Stats struct {
@@ -190,6 +191,7 @@ func Init() bool {
 		regFn(&cuCtxSetCurrent, lib, "cuCtxSetCurrent")
 		regFn(&cuMemcpyDtoD, lib, "cuMemcpyDtoD_v2", "cuMemcpyDtoD")
 		regFn(&cuMemcpyDtoDAsync, lib, "cuMemcpyDtoDAsync_v2", "cuMemcpyDtoDAsync")
+		regFn(&cuMemsetD32, lib, "cuMemsetD32_v2", "cuMemsetD32")
 
 		// Streams, events, graphs
 		regFn(&cuMemGetInfo, lib, "cuMemGetInfo_v2", "cuMemGetInfo")

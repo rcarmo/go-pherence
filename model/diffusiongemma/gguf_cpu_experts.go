@@ -1,0 +1,800 @@
+package diffusiongemma
+
+import (
+	"encoding/binary"
+	"fmt"
+	"log"
+	"math"
+	"os"
+	"runtime"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/half"
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"github.com/rcarmo/go-pherence/loader/gguf"
+)
+
+// GGUFExpertIndex holds the GGUF expert matrices for all layers, using the
+// same quantized weight format as llama.cpp (Q4_K for gate_up, mixed K/Q formats for down).
+// This matches the ggml_mul_mat_id strategy exactly.
+type GGUFExpertIndex struct {
+	NumLayers    int
+	NumExperts   int
+	Intermediate int // 704 for DiffusionGemma
+	HiddenSize   int // 2816
+	entries      []ggufLayerExperts
+}
+
+type ggufLayerExperts struct {
+	// gateUp is [InDim=2816, OutDim=1408, Experts=128] in Q4_K
+	// OutDim=1408 = 704(gate) + 704(up) fused
+	gateUp *gguf.ExpertMatrices
+	// down is [InDim=704, OutDim=2816, Experts=128] in the GGUF tensor's quant type
+	// (Q8_0/Q5_0 in the Q4_K_M DiffusionGemma checkpoint).
+	down *gguf.ExpertMatrices
+	// downScale is per-expert scale for down projection (optional)
+	downScale []float32
+}
+
+// BuildGGUFExpertIndex loads expert matrices from a GGUF file.
+// Tensor naming follows llama.cpp convention:
+//
+//	blk.{L}.ffn_gate_up_exps.weight  — fused gate+up [2816, 1408, 128] Q4_K
+//	blk.{L}.ffn_down_exps.weight     — down [704, 2816, 128] GGUF quant (e.g. Q8_0/Q5_0)
+//	blk.{L}.ffn_down_exps.scale      — per-expert scale [128] F32
+func BuildGGUFExpertIndex(g *gguf.GGUF, numLayers, numExperts int) (*GGUFExpertIndex, error) {
+	t0 := time.Now()
+	idx := &GGUFExpertIndex{
+		NumLayers:  numLayers,
+		NumExperts: numExperts,
+		entries:    make([]ggufLayerExperts, numLayers),
+	}
+
+	for l := 0; l < numLayers; l++ {
+		guName := fmt.Sprintf("blk.%d.ffn_gate_up_exps.weight", l)
+		guTensor, ok := g.TensorByName(guName)
+		if !ok {
+			return nil, fmt.Errorf("GGUF expert index: tensor %q not found", guName)
+		}
+		guMat, err := g.ExpertMatricesFromTensor(guTensor)
+		if err != nil {
+			return nil, fmt.Errorf("GGUF expert index layer %d gate_up: %w", l, err)
+		}
+
+		dnName := fmt.Sprintf("blk.%d.ffn_down_exps.weight", l)
+		dnTensor, ok := g.TensorByName(dnName)
+		if !ok {
+			return nil, fmt.Errorf("GGUF expert index: tensor %q not found", dnName)
+		}
+		dnMat, err := g.ExpertMatricesFromTensor(dnTensor)
+		if err != nil {
+			return nil, fmt.Errorf("GGUF expert index layer %d down: %w", l, err)
+		}
+
+		var downScale []float32
+		dsName := fmt.Sprintf("blk.%d.ffn_down_exps.scale", l)
+		if dsTensor, ok := g.TensorByName(dsName); ok {
+			raw, err := g.Raw(dsTensor)
+			if err != nil {
+				return nil, fmt.Errorf("GGUF expert index layer %d down scale: %w", l, err)
+			}
+			if len(raw) < numExperts*4 {
+				return nil, fmt.Errorf("GGUF expert index layer %d down scale raw bytes=%d want %d", l, len(raw), numExperts*4)
+			}
+			downScale = make([]float32, numExperts)
+			for i := 0; i < numExperts; i++ {
+				downScale[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[i*4 : i*4+4]))
+			}
+		}
+
+		if guMat.Experts != numExperts || dnMat.Experts != numExperts {
+			return nil, fmt.Errorf("GGUF expert index layer %d expert count gate_up=%d down=%d want %d", l, guMat.Experts, dnMat.Experts, numExperts)
+		}
+		if guMat.OutDim <= 0 || guMat.OutDim%2 != 0 || guMat.InDim <= 0 {
+			return nil, fmt.Errorf("GGUF expert index layer %d invalid gate_up dims in=%d out=%d", l, guMat.InDim, guMat.OutDim)
+		}
+		intermediate := guMat.OutDim / 2
+		if dnMat.InDim != intermediate || dnMat.OutDim != guMat.InDim {
+			return nil, fmt.Errorf("GGUF expert index layer %d down dims [%d,%d] want [%d,%d]", l, dnMat.InDim, dnMat.OutDim, intermediate, guMat.InDim)
+		}
+		if downScale != nil && len(downScale) != numExperts {
+			return nil, fmt.Errorf("GGUF expert index layer %d down scale len=%d want %d", l, len(downScale), numExperts)
+		}
+		if l == 0 {
+			idx.Intermediate = intermediate
+			idx.HiddenSize = guMat.InDim
+			log.Printf("GGUF experts: gate_up [%d,%d,%d] %s, down [%d,%d,%d] %s",
+				guMat.InDim, guMat.OutDim, guMat.Experts, guMat.QType,
+				dnMat.InDim, dnMat.OutDim, dnMat.Experts, dnMat.QType)
+		} else if idx.Intermediate != intermediate || idx.HiddenSize != guMat.InDim {
+			return nil, fmt.Errorf("GGUF expert index layer %d shape hidden=%d/%d intermediate=%d/%d", l, guMat.InDim, idx.HiddenSize, intermediate, idx.Intermediate)
+		}
+
+		idx.entries[l] = ggufLayerExperts{
+			gateUp:    guMat,
+			down:      dnMat,
+			downScale: downScale,
+		}
+	}
+
+	log.Printf("GGUF expert index: %d layers × %d experts built in %s",
+		numLayers, numExperts, time.Since(t0).Round(time.Millisecond))
+	return idx, nil
+}
+
+// ggufWorkerScratch holds pre-allocated buffers for one expert worker.
+type ggufWorkerScratch struct {
+	wf32      []float32
+	batchIn   []float32
+	batchGU   []float32
+	batchAct  []float32
+	batchDown []float32
+}
+
+var ggufWorkerScratchPool = sync.Pool{New: func() any { return &ggufWorkerScratch{} }}
+
+type ggufCPUPosWeight struct {
+	pos int
+	w   float32
+}
+
+type ggufCPUExpertGroupingScratch struct {
+	expertUsers [][]ggufCPUPosWeight
+	expertIDs   []int
+	workerIDs   [][]int
+	workerLoads []int
+}
+
+var ggufCPUExpertGroupingPool = sync.Pool{New: func() any { return &ggufCPUExpertGroupingScratch{} }}
+
+type ggufCPUExpertTimingStats struct {
+	Calls         uint64
+	Positions     uint64
+	WorkItems     uint64
+	ActiveExperts uint64
+	NormNS        uint64
+	CollectNS     uint64
+	ScheduleNS    uint64
+	GateNS        uint64
+	ActNS         uint64
+	DownNS        uint64
+	ScatterNS     uint64
+	PostNS        uint64
+}
+
+var ggufCPUExpertTimingCounters struct {
+	calls         atomic.Uint64
+	positions     atomic.Uint64
+	workItems     atomic.Uint64
+	activeExperts atomic.Uint64
+	normNS        atomic.Uint64
+	collectNS     atomic.Uint64
+	scheduleNS    atomic.Uint64
+	gateNS        atomic.Uint64
+	actNS         atomic.Uint64
+	downNS        atomic.Uint64
+	scatterNS     atomic.Uint64
+	postNS        atomic.Uint64
+}
+
+func ggufCPUExpertTimingSnapshot() ggufCPUExpertTimingStats {
+	return ggufCPUExpertTimingStats{
+		Calls:         ggufCPUExpertTimingCounters.calls.Load(),
+		Positions:     ggufCPUExpertTimingCounters.positions.Load(),
+		WorkItems:     ggufCPUExpertTimingCounters.workItems.Load(),
+		ActiveExperts: ggufCPUExpertTimingCounters.activeExperts.Load(),
+		NormNS:        ggufCPUExpertTimingCounters.normNS.Load(),
+		CollectNS:     ggufCPUExpertTimingCounters.collectNS.Load(),
+		ScheduleNS:    ggufCPUExpertTimingCounters.scheduleNS.Load(),
+		GateNS:        ggufCPUExpertTimingCounters.gateNS.Load(),
+		ActNS:         ggufCPUExpertTimingCounters.actNS.Load(),
+		DownNS:        ggufCPUExpertTimingCounters.downNS.Load(),
+		ScatterNS:     ggufCPUExpertTimingCounters.scatterNS.Load(),
+		PostNS:        ggufCPUExpertTimingCounters.postNS.Load(),
+	}
+}
+
+func ResetGGUFCPUExpertTimingStats() {
+	ggufCPUExpertTimingCounters.calls.Store(0)
+	ggufCPUExpertTimingCounters.positions.Store(0)
+	ggufCPUExpertTimingCounters.workItems.Store(0)
+	ggufCPUExpertTimingCounters.activeExperts.Store(0)
+	ggufCPUExpertTimingCounters.normNS.Store(0)
+	ggufCPUExpertTimingCounters.collectNS.Store(0)
+	ggufCPUExpertTimingCounters.scheduleNS.Store(0)
+	ggufCPUExpertTimingCounters.gateNS.Store(0)
+	ggufCPUExpertTimingCounters.actNS.Store(0)
+	ggufCPUExpertTimingCounters.downNS.Store(0)
+	ggufCPUExpertTimingCounters.scatterNS.Store(0)
+	ggufCPUExpertTimingCounters.postNS.Store(0)
+}
+
+func (s ggufCPUExpertTimingStats) Sub(base ggufCPUExpertTimingStats) ggufCPUExpertTimingStats {
+	return ggufCPUExpertTimingStats{
+		Calls:         s.Calls - base.Calls,
+		Positions:     s.Positions - base.Positions,
+		WorkItems:     s.WorkItems - base.WorkItems,
+		ActiveExperts: s.ActiveExperts - base.ActiveExperts,
+		NormNS:        s.NormNS - base.NormNS,
+		CollectNS:     s.CollectNS - base.CollectNS,
+		ScheduleNS:    s.ScheduleNS - base.ScheduleNS,
+		GateNS:        s.GateNS - base.GateNS,
+		ActNS:         s.ActNS - base.ActNS,
+		DownNS:        s.DownNS - base.DownNS,
+		ScatterNS:     s.ScatterNS - base.ScatterNS,
+		PostNS:        s.PostNS - base.PostNS,
+	}
+}
+
+func diffusionGemmaGGUFCPUQ8DirectEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q8_DIRECT")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func diffusionGemmaGGUFCPUQ4DirectEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q4_DIRECT")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func ggufQ4KExpertRowDot(m *gguf.ExpertMatrices, expert, row int, x []float32) (float32, error) {
+	if m == nil || m.QType != gguf.QuantQ4_K || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || len(x) < m.InDim || m.InDim%256 != 0 {
+		return 0, fmt.Errorf("invalid Q4_K expert row dot expert=%d row=%d", expert, row)
+	}
+	blocks := m.InDim / 256
+	rowBytes := blocks * 144
+	rowIndex := expert*m.OutDim + row
+	start := rowIndex * rowBytes
+	end := start + rowBytes
+	if start < 0 || end < start || end > len(m.Raw) {
+		return 0, fmt.Errorf("Q4_K expert row raw outside expert=%d row=%d", expert, row)
+	}
+	return ggufQ4KRawRowDot(m.Raw[start:end], m.InDim, x), nil
+}
+
+func ggufQ4KRawRowDot(raw []byte, inDim int, x []float32) float32 {
+	blocks := inDim / 256
+	var sum float32
+	for b := 0; b < blocks; b++ {
+		blk := raw[b*144 : (b+1)*144]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		dmin := half.F16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
+		sc := blk[4:16]
+		qs := blk[16:144]
+		var scales [8]float32
+		var mins [8]float32
+		for j := 0; j < 4; j++ {
+			scales[j] = float32(sc[j]&63) * d
+			mins[j] = float32(sc[j+4]&63) * dmin
+		}
+		for j := 4; j < 8; j++ {
+			k := j - 4
+			scales[j] = float32((sc[j+4]&0x0F)|((sc[k]>>6)<<4)) * d
+			mins[j] = float32((sc[j+4]>>4)|((sc[k+4]>>6)<<4)) * dmin
+		}
+		xb := x[b*256 : b*256+256]
+		for group := 0; group < 8; group++ {
+			scale := scales[group]
+			minv := mins[group]
+			qoff := (group / 2) * 32
+			for i := 0; i < 32; i++ {
+				qbyte := qs[qoff+i]
+				qv := qbyte & 0x0F
+				if group&1 != 0 {
+					qv = qbyte >> 4
+				}
+				sum += (float32(qv)*scale - minv) * xb[group*32+i]
+			}
+		}
+	}
+	return sum
+}
+
+func ggufQ4KExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []float32, nPos int, dst []float32, dstStride int) error {
+	if m == nil || m.QType != gguf.QuantQ4_K || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || nPos <= 0 || len(x) < nPos*m.InDim || len(dst) < (nPos-1)*dstStride+1 || dstStride <= 0 || m.InDim%256 != 0 {
+		return fmt.Errorf("invalid Q4_K expert row batch dot expert=%d row=%d nPos=%d", expert, row, nPos)
+	}
+	blocks := m.InDim / 256
+	rowBytes := blocks * 144
+	rowIndex := expert*m.OutDim + row
+	start := rowIndex * rowBytes
+	end := start + rowBytes
+	if start < 0 || end < start || end > len(m.Raw) {
+		return fmt.Errorf("Q4_K expert row batch raw outside expert=%d row=%d", expert, row)
+	}
+	raw := m.Raw[start:end]
+	for pos := 0; pos < nPos; pos++ {
+		dst[pos*dstStride] = ggufQ4KRawRowDot(raw, m.InDim, x[pos*m.InDim:(pos+1)*m.InDim])
+	}
+	return nil
+}
+
+func ggufQ8_0ExpertRowDot(m *gguf.ExpertMatrices, expert, row int, x []float32) (float32, error) {
+	if m == nil || m.QType != gguf.QuantQ8_0 || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || len(x) < m.InDim || m.InDim%32 != 0 {
+		return 0, fmt.Errorf("invalid Q8_0 expert row dot expert=%d row=%d", expert, row)
+	}
+	blocks := m.InDim / 32
+	rowBytes := blocks * 34
+	rowIndex := expert*m.OutDim + row
+	start := rowIndex * rowBytes
+	end := start + rowBytes
+	if start < 0 || end < start || end > len(m.Raw) {
+		return 0, fmt.Errorf("Q8_0 expert row raw outside expert=%d row=%d", expert, row)
+	}
+	return ggufQ8_0RawRowDot(m.Raw[start:end], m.InDim, x), nil
+}
+
+func ggufQ8_0RawRowDot(raw []byte, inDim int, x []float32) float32 {
+	blocks := inDim / 32
+	var sum float32
+	for b := 0; b < blocks; b++ {
+		blk := raw[b*34 : (b+1)*34]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[:2]))
+		qs := blk[2:34]
+		xb := x[b*32 : b*32+32]
+		var blockSum float32
+		for i := 0; i < 32; i++ {
+			blockSum += float32(int8(qs[i])) * xb[i]
+		}
+		sum += d * blockSum
+	}
+	return sum
+}
+
+func ggufQ8_0ExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []float32, nPos int, dst []float32, dstStride int, scale float32) error {
+	if m == nil || m.QType != gguf.QuantQ8_0 || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || nPos <= 0 || len(x) < nPos*m.InDim || len(dst) < (nPos-1)*dstStride+1 || dstStride <= 0 || m.InDim%32 != 0 {
+		return fmt.Errorf("invalid Q8_0 expert row batch dot expert=%d row=%d nPos=%d", expert, row, nPos)
+	}
+	blocks := m.InDim / 32
+	rowBytes := blocks * 34
+	rowIndex := expert*m.OutDim + row
+	start := rowIndex * rowBytes
+	end := start + rowBytes
+	if start < 0 || end < start || end > len(m.Raw) {
+		return fmt.Errorf("Q8_0 expert row batch raw outside expert=%d row=%d", expert, row)
+	}
+	raw := m.Raw[start:end]
+	for pos := 0; pos < nPos; pos++ {
+		dst[pos*dstStride] = scale * ggufQ8_0RawRowDot(raw, m.InDim, x[pos*m.InDim:(pos+1)*m.InDim])
+	}
+	return nil
+}
+
+func (s *ggufWorkerScratch) ensure(maxBatch, hiddenSize, intermediate int) error {
+	wfNeed := hiddenSize
+	inter2, okInter2 := checked.MulInt(intermediate, 2)
+	if !okInter2 {
+		return fmt.Errorf("GGUF expert scratch intermediate overflow %d", intermediate)
+	}
+	if inter2 > wfNeed {
+		wfNeed = inter2
+	}
+	inNeed, okIn := checked.MulInt(maxBatch, hiddenSize)
+	midNeed, okMid := checked.MulInt(maxBatch, intermediate)
+	guNeed, okGU := checked.MulInt(maxBatch, inter2)
+	if maxBatch <= 0 || hiddenSize <= 0 || intermediate <= 0 || !okIn || !okMid || !okGU {
+		return fmt.Errorf("GGUF expert scratch size overflow batch=%d hidden=%d intermediate=%d", maxBatch, hiddenSize, intermediate)
+	}
+	grow := func(buf *[]float32, n int) {
+		if cap(*buf) < n {
+			*buf = make([]float32, n)
+		} else {
+			*buf = (*buf)[:n]
+		}
+	}
+	grow(&s.wf32, wfNeed)
+	grow(&s.batchIn, inNeed)
+	grow(&s.batchGU, guNeed)
+	grow(&s.batchAct, midNeed)
+	grow(&s.batchDown, inNeed)
+	return nil
+}
+
+// runGGUFCPUExpertsIndexed runs MoE experts using GGUF quantized weights.
+// Uses dequant-once + SIMD Sdot for fast batched GEMV, matching the
+// ggml_mul_mat_id strategy from llama.cpp.
+func runGGUFCPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex) error {
+	if weights == nil || idx == nil {
+		return fmt.Errorf("GGUF CPU experts: missing weights or index")
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) || op.Layer >= idx.NumLayers {
+		return fmt.Errorf("layer %d outside plan/index", op.Layer)
+	}
+	lb := fp.Layers[op.Layer]
+	preNorm2, err := loadFloatVector(weights, lb.PreFFNLayerNorm2)
+	if err != nil {
+		return err
+	}
+	hiddenSize := len(preNorm2)
+	if hiddenSize <= 0 || len(scratch.Residual)%hiddenSize != 0 || len(scratch.MoeOut) < len(scratch.Residual) {
+		return fmt.Errorf("GGUF CPU experts: invalid hidden/residual size hidden=%d residual=%d moe=%d", hiddenSize, len(scratch.Residual), len(scratch.MoeOut))
+	}
+	positions := len(scratch.Residual) / hiddenSize
+	if positions <= 0 {
+		return fmt.Errorf("GGUF CPU experts: no positions")
+	}
+	topK := scratch.TopKExperts
+	if topK <= 0 {
+		topK = len(scratch.TopKIDs) / positions
+	}
+	if topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK {
+		return fmt.Errorf("GGUF CPU experts: invalid top-k scratch positions=%d topK=%d ids=%d vals=%d", positions, topK, len(scratch.TopKIDs), len(scratch.TopKVals))
+	}
+	intermediate := idx.Intermediate
+	if intermediate <= 0 || idx.HiddenSize != hiddenSize {
+		return fmt.Errorf("GGUF CPU experts: index shape hidden=%d/%d intermediate=%d", idx.HiddenSize, hiddenSize, intermediate)
+	}
+
+	// Pre-norm all positions
+	normStart := time.Now()
+	normedRows := make([]float32, positions*hiddenSize)
+	for pos := 0; pos < positions; pos++ {
+		resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
+		dst := normedRows[pos*hiddenSize : (pos+1)*hiddenSize]
+		copy(dst, resRow)
+		if !simd.RMSNormTo(dst, preNorm2, 1e-6) {
+			return fmt.Errorf("pre_norm_2 rejected")
+		}
+	}
+	ggufCPUExpertTimingCounters.normNS.Add(uint64(time.Since(normStart).Nanoseconds()))
+	return runGGUFCPUExpertsIndexedWithNormedRows(op, weights, scratch, idx, normedRows)
+}
+
+func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex, normedRows []float32) error {
+	if weights == nil || idx == nil {
+		return fmt.Errorf("GGUF CPU experts: missing weights or index")
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) || op.Layer >= idx.NumLayers {
+		return fmt.Errorf("layer %d outside plan/index", op.Layer)
+	}
+	lb := fp.Layers[op.Layer]
+	hiddenSize := idx.HiddenSize
+	if hiddenSize <= 0 || len(normedRows)%hiddenSize != 0 || len(scratch.MoeOut) < len(normedRows) {
+		return fmt.Errorf("GGUF CPU experts: invalid normed rows hidden=%d normed=%d moe=%d", hiddenSize, len(normedRows), len(scratch.MoeOut))
+	}
+	positions := len(normedRows) / hiddenSize
+	if positions <= 0 {
+		return fmt.Errorf("GGUF CPU experts: no positions")
+	}
+	topK := scratch.TopKExperts
+	if topK <= 0 {
+		topK = len(scratch.TopKIDs) / positions
+	}
+	if topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK {
+		return fmt.Errorf("GGUF CPU experts: invalid top-k scratch positions=%d topK=%d ids=%d vals=%d", positions, topK, len(scratch.TopKIDs), len(scratch.TopKVals))
+	}
+	intermediate := idx.Intermediate
+	if intermediate <= 0 {
+		return fmt.Errorf("GGUF CPU experts: invalid intermediate=%d", intermediate)
+	}
+	ggufCPUExpertTimingCounters.calls.Add(1)
+	ggufCPUExpertTimingCounters.positions.Add(uint64(positions))
+	for i := range scratch.MoeOut {
+		scratch.MoeOut[i] = 0
+	}
+
+	groupScratch := ggufCPUExpertGroupingPool.Get().(*ggufCPUExpertGroupingScratch)
+	defer func() {
+		for i := range groupScratch.expertUsers {
+			groupScratch.expertUsers[i] = groupScratch.expertUsers[i][:0]
+		}
+		groupScratch.expertIDs = groupScratch.expertIDs[:0]
+		for i := range groupScratch.workerIDs {
+			groupScratch.workerIDs[i] = groupScratch.workerIDs[i][:0]
+		}
+		for i := range groupScratch.workerLoads {
+			groupScratch.workerLoads[i] = 0
+		}
+		ggufCPUExpertGroupingPool.Put(groupScratch)
+	}()
+	if cap(groupScratch.expertUsers) < idx.NumExperts {
+		groupScratch.expertUsers = make([][]ggufCPUPosWeight, idx.NumExperts)
+	}
+	expertUsers := groupScratch.expertUsers[:idx.NumExperts]
+	for i := range expertUsers {
+		expertUsers[i] = expertUsers[i][:0]
+	}
+
+	// Collect experts and positions
+	collectStart := time.Now()
+	activeExperts := 0
+	for pos := 0; pos < positions; pos++ {
+		for k := 0; k < topK; k++ {
+			eid := scratch.TopKIDs[pos*topK+k]
+			if eid >= 0 && eid < idx.NumExperts {
+				if len(expertUsers[eid]) == 0 {
+					activeExperts++
+				}
+				expertUsers[eid] = append(expertUsers[eid], ggufCPUPosWeight{pos: pos, w: scratch.TopKVals[pos*topK+k]})
+			}
+		}
+	}
+	ggufCPUExpertTimingCounters.collectNS.Add(uint64(time.Since(collectStart).Nanoseconds()))
+	ggufCPUExpertTimingCounters.activeExperts.Add(uint64(activeExperts))
+	ggufCPUExpertTimingCounters.workItems.Add(uint64(positions * topK))
+
+	le := idx.entries[op.Layer]
+
+	scheduleStart := time.Now()
+	numWorkers := runtime.NumCPU()
+	if numWorkers > activeExperts {
+		numWorkers = activeExperts
+	}
+	expertIDs := groupScratch.expertIDs[:0]
+	for eid := range expertUsers {
+		if len(expertUsers[eid]) == 0 {
+			continue
+		}
+		expertIDs = append(expertIDs, eid)
+	}
+	groupScratch.expertIDs = expertIDs
+	sort.Slice(expertIDs, func(i, j int) bool {
+		li, lj := len(expertUsers[expertIDs[i]]), len(expertUsers[expertIDs[j]])
+		if li == lj {
+			return expertIDs[i] < expertIDs[j]
+		}
+		return li > lj
+	})
+	if cap(groupScratch.workerIDs) < numWorkers {
+		groupScratch.workerIDs = make([][]int, numWorkers)
+	}
+	workerExpertIDs := groupScratch.workerIDs[:numWorkers]
+	for i := range workerExpertIDs {
+		workerExpertIDs[i] = workerExpertIDs[i][:0]
+	}
+	if cap(groupScratch.workerLoads) < numWorkers {
+		groupScratch.workerLoads = make([]int, numWorkers)
+	}
+	workerLoads := groupScratch.workerLoads[:numWorkers]
+	for i := range workerLoads {
+		workerLoads[i] = 0
+	}
+	for _, eid := range expertIDs {
+		best := 0
+		for w := 1; w < numWorkers; w++ {
+			if workerLoads[w] < workerLoads[best] {
+				best = w
+			}
+		}
+		workerExpertIDs[best] = append(workerExpertIDs[best], eid)
+		workerLoads[best] += len(expertUsers[eid])
+	}
+	ggufCPUExpertTimingCounters.scheduleNS.Add(uint64(time.Since(scheduleStart).Nanoseconds()))
+
+	var mergeMu sync.Mutex
+	var wg sync.WaitGroup
+	var errOnce sync.Once
+	var firstErr error
+
+	for w := 0; w < numWorkers; w++ {
+		w := w
+		idsForWorker := workerExpertIDs[w]
+		if len(idsForWorker) == 0 {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			maxBatch := 0
+			for _, eid := range idsForWorker {
+				if n := len(expertUsers[eid]); n > maxBatch {
+					maxBatch = n
+				}
+			}
+
+			ws := ggufWorkerScratchPool.Get().(*ggufWorkerScratch)
+			defer ggufWorkerScratchPool.Put(ws)
+			if err := ws.ensure(maxBatch, hiddenSize, intermediate); err != nil {
+				errOnce.Do(func() { firstErr = err })
+				return
+			}
+
+			for _, eid := range idsForWorker {
+				users := expertUsers[eid]
+				nPos := len(users)
+
+				// Gather input rows
+				batchIn := ws.batchIn[:nPos*hiddenSize]
+				for i, u := range users {
+					copy(batchIn[i*hiddenSize:(i+1)*hiddenSize], normedRows[u.pos*hiddenSize:(u.pos+1)*hiddenSize])
+				}
+
+				// Fused gate+up: dequant each row and dot with all batch inputs.
+				// Output layout: [nPos, 1408] where [:704] is gate, [704:] is up.
+				gateStart := time.Now()
+				batchGU := ws.batchGU[:nPos*intermediate*2]
+				outDimGU := intermediate * 2 // 1408
+				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && le.gateUp.QType == gguf.QuantQ4_K
+				for r := 0; r < outDimGU; r++ {
+					if useDirectQ4GateUp {
+						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {
+							errOnce.Do(func() { firstErr = fmt.Errorf("expert %d gate_up row %d direct Q4_K batch: %w", eid, r, err) })
+							return
+						}
+						continue
+					}
+					if err := le.gateUp.DequantExpertRowTo(ws.wf32[:hiddenSize], eid, r); err != nil {
+						errOnce.Do(func() { firstErr = fmt.Errorf("expert %d gate_up row %d: %w", eid, r, err) })
+						return
+					}
+					wRow := ws.wf32[:hiddenSize]
+					for b := 0; b < nPos; b++ {
+						xRow := batchIn[b*hiddenSize : (b+1)*hiddenSize]
+						batchGU[b*outDimGU+r] = simd.Sdot(wRow, xRow)
+					}
+				}
+				ggufCPUExpertTimingCounters.gateNS.Add(uint64(time.Since(gateStart).Nanoseconds()))
+
+				// Split gate and up, apply activation: GELU(gate) * up
+				actStart := time.Now()
+				batchAct := ws.batchAct[:nPos*intermediate]
+				for b := 0; b < nPos; b++ {
+					gateSlice := batchGU[b*outDimGU : b*outDimGU+intermediate]
+					upSlice := batchGU[b*outDimGU+intermediate : (b+1)*outDimGU]
+					actSlice := batchAct[b*intermediate : (b+1)*intermediate]
+					if !simd.GELUExactMulTo(actSlice, gateSlice, upSlice) {
+						errOnce.Do(func() { firstErr = fmt.Errorf("expert activation rejected") })
+						return
+					}
+				}
+				ggufCPUExpertTimingCounters.actNS.Add(uint64(time.Since(actStart).Nanoseconds()))
+
+				// Down projection: dequant each row and dot with all batch act vectors
+				downStart := time.Now()
+				batchDown := ws.batchDown[:nPos*hiddenSize]
+				dnOutDim := le.down.OutDim // 2816
+				dnInDim := le.down.InDim   // 704
+				if dnOutDim != hiddenSize || dnInDim != intermediate {
+					errOnce.Do(func() {
+						firstErr = fmt.Errorf("expert %d down shape [%d,%d] want [%d,%d]", eid, dnOutDim, dnInDim, hiddenSize, intermediate)
+					})
+					return
+				}
+				if le.downScale != nil && eid >= len(le.downScale) {
+					errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down scale outside len=%d", eid, len(le.downScale)) })
+					return
+				}
+				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && le.down.QType == gguf.QuantQ8_0
+				for r := 0; r < dnOutDim; r++ {
+					if useDirectQ8Down {
+						scale := float32(1)
+						if le.downScale != nil {
+							scale = le.downScale[eid]
+						}
+						if err := ggufQ8_0ExpertRowDotBatchTo(le.down, eid, r, batchAct, nPos, batchDown[r:], hiddenSize, scale); err != nil {
+							errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d direct Q8 batch: %w", eid, r, err) })
+							return
+						}
+						continue
+					}
+					if err := le.down.DequantExpertRowTo(ws.wf32[:dnInDim], eid, r); err != nil {
+						errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d: %w", eid, r, err) })
+						return
+					}
+					if le.downScale != nil {
+						s := le.downScale[eid]
+						for j := 0; j < dnInDim; j++ {
+							ws.wf32[j] *= s
+						}
+					}
+					wRow := ws.wf32[:dnInDim]
+					for b := 0; b < nPos; b++ {
+						xRow := batchAct[b*dnInDim : (b+1)*dnInDim]
+						batchDown[b*hiddenSize+r] = simd.Sdot(wRow, xRow)
+					}
+				}
+				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
+
+				// Scatter weighted outputs directly into the shared MoE buffer. This avoids
+				// allocating one full [positions,hidden] output buffer per worker.
+				scatterStart := time.Now()
+				mergeMu.Lock()
+				for i, u := range users {
+					expertOut := batchDown[i*hiddenSize : (i+1)*hiddenSize]
+					dst := scratch.MoeOut[u.pos*hiddenSize : (u.pos+1)*hiddenSize]
+					simd.Saxpy(u.w, expertOut, dst)
+				}
+				mergeMu.Unlock()
+				ggufCPUExpertTimingCounters.scatterNS.Add(uint64(time.Since(scatterStart).Nanoseconds()))
+			}
+		}()
+	}
+	wg.Wait()
+	if firstErr != nil {
+		return firstErr
+	}
+
+	postStart := time.Now()
+	postNorm2, err := loadFloatVector(weights, lb.PostFFNLayerNorm2)
+	if err != nil {
+		return err
+	}
+	for off := 0; off < len(scratch.MoeOut); off += hiddenSize {
+		if !simd.RMSNormTo(scratch.MoeOut[off:off+hiddenSize], postNorm2, 1e-6) {
+			return fmt.Errorf("post_norm_2 rejected")
+		}
+	}
+	ggufCPUExpertTimingCounters.postNS.Add(uint64(time.Since(postStart).Nanoseconds()))
+	return nil
+}
+
+// RunGGUFExpertMLP runs a single expert MLP using GGUF quantized weights.
+// Input normedRow[hiddenSize], output expertOut[hiddenSize].
+// Dequants gate_up and down on the fly using Sdot.
+func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, expertOut []float32) error {
+	if idx == nil || layer < 0 || layer >= idx.NumLayers || expertID < 0 || expertID >= idx.NumExperts {
+		return fmt.Errorf("GGUF expert MLP: invalid layer %d expert %d", layer, expertID)
+	}
+	le := idx.entries[layer]
+	hiddenSize := idx.HiddenSize
+	intermediate := idx.Intermediate
+	if hiddenSize <= 0 || intermediate <= 0 || len(normedRow) < hiddenSize || len(expertOut) < hiddenSize || le.gateUp.InDim != hiddenSize || le.gateUp.OutDim != intermediate*2 || le.down.InDim != intermediate || le.down.OutDim != hiddenSize {
+		return fmt.Errorf("GGUF expert MLP: shape mismatch hidden=%d intermediate=%d normed=%d out=%d gate_up=[%d,%d] down=[%d,%d]", hiddenSize, intermediate, len(normedRow), len(expertOut), le.gateUp.OutDim, le.gateUp.InDim, le.down.OutDim, le.down.InDim)
+	}
+	outDimGU := intermediate * 2
+
+	// Dequant row buffer
+	wf32 := make([]float32, hiddenSize)
+
+	// Gate+up projection: dequant each output row, dot with input
+	guOut := make([]float32, outDimGU)
+	useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && le.gateUp.QType == gguf.QuantQ4_K
+	for r := 0; r < outDimGU; r++ {
+		if useDirectQ4GateUp {
+			v, err := ggufQ4KExpertRowDot(le.gateUp, expertID, r, normedRow)
+			if err != nil {
+				return err
+			}
+			guOut[r] = v
+			continue
+		}
+		if err := le.gateUp.DequantExpertRowTo(wf32[:hiddenSize], expertID, r); err != nil {
+			return fmt.Errorf("expert %d gate_up row %d: %w", expertID, r, err)
+		}
+		guOut[r] = simd.Sdot(wf32[:hiddenSize], normedRow)
+	}
+
+	// Split gate and up, apply GELU(gate) * up
+	actOut := make([]float32, intermediate)
+	if !simd.GELUExactMulTo(actOut, guOut[:intermediate], guOut[intermediate:]) {
+		return fmt.Errorf("GGUF expert MLP: activation rejected")
+	}
+
+	// Down projection: dequant each output row, dot with activation
+	downBuf := make([]float32, intermediate)
+	useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && le.down.QType == gguf.QuantQ8_0
+	for r := 0; r < hiddenSize; r++ {
+		if useDirectQ8Down {
+			v, err := ggufQ8_0ExpertRowDot(le.down, expertID, r, actOut)
+			if err != nil {
+				return err
+			}
+			expertOut[r] = v
+			continue
+		}
+		if err := le.down.DequantExpertRowTo(downBuf[:intermediate], expertID, r); err != nil {
+			return fmt.Errorf("expert %d down row %d: %w", expertID, r, err)
+		}
+		expertOut[r] = simd.Sdot(downBuf[:intermediate], actOut)
+	}
+
+	// Apply per-expert scale if present
+	if le.downScale != nil {
+		if expertID >= len(le.downScale) {
+			return fmt.Errorf("GGUF expert MLP: expert %d down scale outside len=%d", expertID, len(le.downScale))
+		}
+		scale := le.downScale[expertID]
+		for i := 0; i < hiddenSize; i++ {
+			expertOut[i] *= scale
+		}
+	}
+
+	return nil
+}

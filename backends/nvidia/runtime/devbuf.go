@@ -558,6 +558,24 @@ func CopyDtoD(dst, src CUdeviceptr, bytes uint64) error {
 	return nil
 }
 
+// ZeroFloat32Buffer clears the first n float32 elements of a device buffer.
+func ZeroFloat32Buffer(buf *Buffer, n int) error {
+	if n <= 0 {
+		return nil
+	}
+	if buf == nil || buf.Ptr == 0 || buf.Size < n*4 {
+		return fmt.Errorf("invalid zero buffer n=%d", n)
+	}
+	EnsureContext()
+	if cuMemsetD32 != nil {
+		if r := cuMemsetD32(buf.Ptr, 0, uint64(n)); r != CUDA_SUCCESS {
+			return fmt.Errorf("cuMemsetD32: error %d", r)
+		}
+		return nil
+	}
+	return buf.Upload(make([]float32, n))
+}
+
 // Fused SiLU*Mul
 var (
 	fnFusedSiLUMul CUfunction

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
@@ -98,8 +99,12 @@ func OpenFP8TextWeights(modelDir string, shape Shape) (*FP8TextWeights, error) {
 	if len(embedShape) != 2 {
 		return nil, fmt.Errorf("FP8 embed_tokens shape %v", embedShape)
 	}
+	embedElems, ok := checked.MulInt(embedShape[0], embedShape[1])
+	if embedShape[0] <= 0 || embedShape[1] <= 0 || !ok {
+		return nil, fmt.Errorf("FP8 embed_tokens invalid shape %v", embedShape)
+	}
 	out.EmbedShape = [2]int{embedShape[0], embedShape[1]}
-	out.EmbedTokens = make([]float32, embedShape[0]*embedShape[1])
+	out.EmbedTokens = make([]float32, embedElems)
 	if err := decodeFloatRowTo(out.EmbedTokens, embedRaw, embedDtype); err != nil {
 		return nil, fmt.Errorf("FP8 embed_tokens decode: %w", err)
 	}
@@ -110,10 +115,22 @@ func OpenFP8TextWeights(modelDir string, shape Shape) (*FP8TextWeights, error) {
 		return nil, fmt.Errorf("FP8 final norm: %w", err)
 	}
 
-	// Load self-conditioning
+	// Load self-conditioning (full precision; ignored by FP8 quantization config).
 	out.SelfCondPreNorm, err = loadF32Tensor(shards, "model.decoder.self_conditioning.pre_norm.weight")
 	if err != nil {
 		return nil, fmt.Errorf("FP8 self_cond pre_norm: %w", err)
+	}
+	out.SelfCondGate, out.SelfCondGateShape, err = loadF32MatrixTensor(shards, "model.decoder.self_conditioning.gate_proj.weight")
+	if err != nil {
+		return nil, fmt.Errorf("FP8 self_cond gate: %w", err)
+	}
+	out.SelfCondUp, out.SelfCondUpShape, err = loadF32MatrixTensor(shards, "model.decoder.self_conditioning.up_proj.weight")
+	if err != nil {
+		return nil, fmt.Errorf("FP8 self_cond up: %w", err)
+	}
+	out.SelfCondDown, out.SelfCondDownShape, err = loadF32MatrixTensor(shards, "model.decoder.self_conditioning.down_proj.weight")
+	if err != nil {
+		return nil, fmt.Errorf("FP8 self_cond down: %w", err)
 	}
 
 	// Load layers
@@ -225,22 +242,29 @@ func loadFP8Layer(shards *safetensors.ShardedFile, layer int) (FP8LayerWeights, 
 	if err != nil {
 		return lw, err
 	}
-	if len(routerShape) == 2 {
-		lw.RouterProjShape = [2]int{routerShape[0], routerShape[1]}
-		lw.RouterProj = make([]float32, routerShape[0]*routerShape[1])
-		if err := decodeFloatRowTo(lw.RouterProj, routerProjRaw, routerDtype); err != nil {
-			return lw, err
-		}
+	if len(routerShape) != 2 {
+		return lw, fmt.Errorf("FP8 router proj shape %v", routerShape)
+	}
+	routerElems, ok := checked.MulInt(routerShape[0], routerShape[1])
+	if routerShape[0] <= 0 || routerShape[1] <= 0 || !ok {
+		return lw, fmt.Errorf("FP8 router proj invalid shape %v", routerShape)
+	}
+	lw.RouterProjShape = [2]int{routerShape[0], routerShape[1]}
+	lw.RouterProj = make([]float32, routerElems)
+	if err := decodeFloatRowTo(lw.RouterProj, routerProjRaw, routerDtype); err != nil {
+		return lw, err
 	}
 
 	// Layer scalar
 	scalarRaw, scalarDtype, _, err := shards.GetRaw(prefix + ".layer_scalar")
-	if err == nil && len(scalarRaw) > 0 {
-		var buf [1]float32
-		if decodeFloatRowTo(buf[:], scalarRaw, scalarDtype) == nil {
-			lw.LayerScalar = buf[0]
-		}
+	if err != nil {
+		return lw, err
 	}
+	var buf [1]float32
+	if err := decodeFloatRowTo(buf[:], scalarRaw, scalarDtype); err != nil {
+		return lw, err
+	}
+	lw.LayerScalar = buf[0]
 
 	return lw, nil
 }
@@ -260,7 +284,11 @@ func loadFP8Proj(shards *safetensors.ShardedFile, prefix string) ([]byte, []floa
 	}
 	scaleN := 1
 	for _, d := range scaleShape {
-		scaleN *= d
+		var ok bool
+		scaleN, ok = checked.MulInt(scaleN, d)
+		if d <= 0 || !ok {
+			return nil, nil, [2]int{}, fmt.Errorf("FP8 scale %s invalid shape %v", prefix, scaleShape)
+		}
 	}
 	scale := make([]float32, scaleN)
 	if err := decodeFloatRowTo(scale, scaleRaw, scaleDtype); err != nil {
@@ -271,6 +299,25 @@ func loadFP8Proj(shards *safetensors.ShardedFile, prefix string) ([]byte, []floa
 	return weightRaw, scale, [2]int{weightShape[0], weightShape[1]}, nil
 }
 
+func loadF32MatrixTensor(shards *safetensors.ShardedFile, name string) ([]float32, [2]int, error) {
+	raw, dtype, shape, err := shards.GetRaw(name)
+	if err != nil {
+		return nil, [2]int{}, err
+	}
+	if len(shape) != 2 || shape[0] <= 0 || shape[1] <= 0 {
+		return nil, [2]int{}, fmt.Errorf("tensor %q shape %v is not rank-2", name, shape)
+	}
+	n, ok := checked.MulInt(shape[0], shape[1])
+	if !ok {
+		return nil, [2]int{}, fmt.Errorf("tensor %q size overflow shape %v", name, shape)
+	}
+	out := make([]float32, n)
+	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
+		return nil, [2]int{}, err
+	}
+	return out, [2]int{shape[0], shape[1]}, nil
+}
+
 // loadF32Tensor loads a tensor and decodes to F32.
 func loadF32Tensor(shards *safetensors.ShardedFile, name string) ([]float32, error) {
 	raw, dtype, shape, err := shards.GetRaw(name)
@@ -279,7 +326,11 @@ func loadF32Tensor(shards *safetensors.ShardedFile, name string) ([]float32, err
 	}
 	n := 1
 	for _, d := range shape {
-		n *= d
+		var ok bool
+		n, ok = checked.MulInt(n, d)
+		if d <= 0 || !ok {
+			return nil, fmt.Errorf("tensor %q invalid shape %v", name, shape)
+		}
 	}
 	out := make([]float32, n)
 	if err := decodeFloatRowTo(out, raw, dtype); err != nil {

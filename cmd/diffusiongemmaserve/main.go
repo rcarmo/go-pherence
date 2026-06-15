@@ -7,10 +7,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/diffusiongemma"
 )
@@ -98,14 +100,17 @@ type inferOpts struct {
 }
 
 func main() {
-	modelDir := flag.String("model", "", "DiffusionGemma BF16 model directory")
+	modelDir := flag.String("model", "", "DiffusionGemma metadata/tokenizer model directory")
 	fp8Model := flag.String("fp8-model", "", "FP8-dynamic checkpoint directory")
+	ggufModel := flag.String("gguf-model", "", "GGUF model file (Q4_K_M, same as llama.cpp)")
 	listen := flag.String("listen", ":8080", "HTTP listen address")
-	canvas := flag.Int("canvas", 16, "canvas length")
-	denoiseSteps := flag.Int("denoise-steps", 2, "max denoising steps")
-	lmHeadTopK := flag.Int("lm-head-top-k", 512, "LM head top-K")
+	canvas := flag.Int("canvas", 0, "canvas length (0 = model default)")
+	denoiseSteps := flag.Int("denoise-steps", 0, "max denoising steps (0 = model default)")
+	lmHeadTopK := flag.Int("lm-head-top-k", 0, "LM head top-K (0 = full vocabulary, parity with llama.cpp)")
 	residencyBudgetGiB := flag.Float64("residency-budget-gib", 16, "float cache budget in GiB")
-	seed := flag.Int64("seed", 42, "default RNG seed")
+	fp8ExpertPrewarmLayers := flag.Int("fp8-expert-prewarm-layers", 9, "pre-upload and pin all FP8 experts for the first N layers to GPU (0 disables)")
+	cpuExperts := flag.Bool("cpu-experts", false, "force CPU-only expert MoE (skip GPU LRU cache)")
+	seed := flag.Int64("seed", 0, "default RNG seed")
 	flag.Parse()
 
 	if *modelDir == "" {
@@ -129,14 +134,35 @@ func main() {
 		log.Fatal(err)
 	}
 
-	weights, err := diffusiongemma.OpenTextWeights(*modelDir, m.Shape)
-	if err != nil {
-		log.Fatal(err)
+	// ── Weight loading: GGUF-only or BF16+FP8 ────────────────────────────
+	var weights *diffusiongemma.TextWeights
+	var ggufFile *gguf.GGUF // keep alive for mmap
+
+	if *ggufModel != "" {
+		// GGUF-only path: use exactly the same Q4_K_M weights as llama.cpp
+		log.Printf("loading ALL weights from GGUF: %s", *ggufModel)
+		var err error
+		ggufFile, err = gguf.Open(*ggufModel)
+		if err != nil {
+			log.Fatal(err)
+		}
+		weights, err = diffusiongemma.OpenTextWeightsFromGGUF(ggufFile, m.Shape)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		// BF16 safetensors path (legacy)
+		var err error
+		weights, err = diffusiongemma.OpenTextWeights(*modelDir, m.Shape)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Residency budget
 	residentLayers := 0
-	if *residencyBudgetGiB > 0 {
+	if *residencyBudgetGiB > 0 && *ggufModel == "" {
+		// Only estimate residency for safetensors path; GGUF is fully pre-cached
 		budgetBytes := int64(*residencyBudgetGiB * 1024 * 1024 * 1024)
 		budget := diffusiongemma.EstimateResidencyBudgetFromWeights(weights, true, budgetBytes)
 		residentLayers = budget.ResidentLayers
@@ -148,12 +174,34 @@ func main() {
 		}
 	}
 
-	// GPU dispatcher with FP8
+	// GPU dispatcher
 	gpuDisp := diffusiongemma.GPUDispatcher{
-		ResidentLayerPrefix: residentLayers,
-		LMHeadTopK:          *lmHeadTopK,
+		ResidentLayerPrefix:   residentLayers,
+		LMHeadTopK:            *lmHeadTopK,
+		CPUExperts:            *cpuExperts || *ggufModel != "",
+		FinalLogitSoftcapping: float32(m.Shape.FinalLogitSoftcapping),
 	}
-	if *fp8Model != "" {
+
+	if *ggufModel != "" {
+		// GGUF expert index — same Q4_K weights as llama.cpp
+		ggufIdx, err := diffusiongemma.BuildGGUFExpertIndex(ggufFile, m.Shape.TextLayers, m.Shape.NumExperts)
+		if err != nil {
+			log.Fatalf("GGUF expert index build failed: %v", err)
+		}
+		gpuDisp.GGUFExpertIndex = ggufIdx
+		gpuDisp.SkipEviction = true // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
+		log.Printf("GGUF expert index ready: %d layers, %d experts, intermediate=%d",
+			ggufIdx.NumLayers, ggufIdx.NumExperts, ggufIdx.Intermediate)
+		if diffusionGemmaGGUFGPULMHeadEnabled() {
+			gpuDisp.F32LMHeadChunkSize = diffusionGemmaGGUFGPULMHeadChunkSize()
+			gpuDisp.F32LMHeadUseCache = diffusionGemmaGGUFGPULMHeadUseF32Cache()
+			source := "Q-row"
+			if gpuDisp.F32LMHeadUseCache {
+				source = "F32-cache"
+			}
+			log.Printf("GGUF F32 LM head chunked GPU mode enabled chunk=%d source=%s", gpuDisp.F32LMHeadChunkSize, source)
+		}
+	} else if *fp8Model != "" {
 		log.Printf("loading FP8 weights from %s", *fp8Model)
 		fp8Weights, err := diffusiongemma.OpenFP8TextWeights(*fp8Model, m.Shape)
 		if err != nil {
@@ -169,8 +217,61 @@ func main() {
 		}
 		gpuDisp.FP8Model = gpuModel
 		gpuDisp.FP8Weights = fp8Weights
-		gpuDisp.ExpertCache = diffusiongemma.NewExpertLRUCache(7200 * 1024 * 1024)
-		log.Printf("FP8 GPU ready: %d layers", len(gpuModel.Layers))
+		lmHeadBuf, lmVocab, lmHidden, err := diffusiongemma.UploadFP8LMHeadBuffer(fp8Weights)
+		if err != nil {
+			gpuModel.Free()
+			log.Fatal(err)
+		}
+		gpuDisp.FP8LMHead = lmHeadBuf
+		gpuDisp.FP8LMHeadVocab = lmVocab
+		gpuDisp.FP8LMHeadHidden = lmHidden
+		log.Printf("FP8 GPU ready: %d layers; LM head [%d,%d] resident", len(gpuModel.Layers), lmVocab, lmHidden)
+		var scEmbedBytes int64
+		if diffusionGemmaGPUSelfCondEnabled() {
+			log.Printf("WARNING: GPU self-conditioning is experimental and not reference-correct yet")
+			scBuf, scVocab, scHidden, err := diffusiongemma.UploadSelfConditioningEmbeddingBuffer(weights)
+			if err != nil {
+				gpuModel.Free()
+				lmHeadBuf.Free()
+				log.Fatal(err)
+			}
+			gpuDisp.SCEmbed = scBuf
+			gpuDisp.SCEmbedVocab = scVocab
+			gpuDisp.SCEmbedHidden = scHidden
+			scEmbedBytes = int64(scVocab) * int64(scHidden) * 4
+			log.Printf("SC embedding [%d,%d] resident (%.1f MB)", scVocab, scHidden, float64(scEmbedBytes)/1e6)
+		}
+		nExperts := m.Shape.NumExperts
+		if nExperts <= 0 {
+			nExperts = 128
+		}
+		prewarmedLayers := 0
+		if !*cpuExperts {
+			expertBudget := diffusionGemmaExpertCacheBudgetBytes(7200) - int64(lmVocab)*int64(lmHidden)*2 - scEmbedBytes - gpuModel.DenseTransposeBytes()
+			if expertBudget > 0 {
+				gpuDisp.ExpertCache = diffusiongemma.NewExpertLRUCache(expertBudget)
+				if *fp8ExpertPrewarmLayers > 0 {
+					layers, experts, err := gpuDisp.ExpertCache.PrewarmLayerPrefix(fp8Weights, *fp8ExpertPrewarmLayers, nExperts)
+					if err != nil {
+						log.Fatalf("FP8 expert prewarm failed: %v", err)
+					}
+					prewarmedLayers = layers
+					log.Printf("FP8 expert prewarm: layers=%d/%d experts=%d pinned_prefix=%d cache=%s", layers, *fp8ExpertPrewarmLayers, experts, gpuDisp.ExpertCache.PinnedLayerPrefix(nExperts), gpuDisp.ExpertCache.Stats())
+				}
+			} else if *fp8ExpertPrewarmLayers > 0 {
+				log.Printf("skipping FP8 expert prewarm; LM head leaves no expert cache budget")
+			}
+		}
+
+		// Build pre-indexed FP8 expert lookup for CPU expert path and pinned-prefix overflow fallback.
+		if *cpuExperts || *fp8ExpertPrewarmLayers > 0 || prewarmedLayers > 0 {
+			idx, err := diffusiongemma.BuildFP8ExpertIndex(fp8Weights, m.Shape.TextLayers, nExperts)
+			if err != nil {
+				log.Printf("WARNING: FP8 expert index build failed: %v", err)
+			} else {
+				gpuDisp.ExpertIndex = idx
+			}
+		}
 	}
 
 	expertCacheRef := gpuDisp.ExpertCache
@@ -186,6 +287,21 @@ func main() {
 
 	specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
 
+	serverCanvas := *canvas
+	if serverCanvas <= 0 {
+		serverCanvas = m.Shape.CanvasLength
+	}
+	if serverCanvas <= 0 {
+		serverCanvas = 256
+	}
+	serverDenoiseSteps := *denoiseSteps
+	if serverDenoiseSteps <= 0 {
+		serverDenoiseSteps = m.Denoising.MaxDenoisingSteps
+	}
+	if serverDenoiseSteps <= 0 {
+		serverDenoiseSteps = diffusiongemma.DefaultDenoisingConfig().MaxDenoisingSteps
+	}
+
 	srv := &server{
 		eng:         eng,
 		tok:         tok,
@@ -194,8 +310,8 @@ func main() {
 		specials:    specials,
 		expertCache: expertCacheRef,
 		opts: inferOpts{
-			canvas:       *canvas,
-			denoiseSteps: *denoiseSteps,
+			canvas:       serverCanvas,
+			denoiseSteps: serverDenoiseSteps,
 			lmHeadTopK:   *lmHeadTopK,
 			seed:         *seed,
 		},
@@ -209,7 +325,7 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	log.Printf("DiffusionGemma server on %s (canvas=%d, steps=%d, topk=%d)", *listen, *canvas, *denoiseSteps, *lmHeadTopK)
+	log.Printf("DiffusionGemma server on %s (canvas=%d, steps=%d, topk=%d)", *listen, serverCanvas, serverDenoiseSteps, *lmHeadTopK)
 	log.Fatal(http.ListenAndServe(*listen, nil))
 }
 
@@ -250,9 +366,13 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf(`{"error":{"message":"template: %s"}}`, err), 500)
 		return
 	}
-	promptIDs := framed.InputIDs
+	promptIDs, err := diffusiongemma.ExpandImagePlaceholderTokens(framed.InputIDs, s.specials, s.meta.Shape.VisionSoftTokens)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":{"message":"image prompt: %s"}}`, err), 500)
+		return
+	}
 
-	maxNew := 16
+	maxNew := 0 // 0 lets Engine use generation_config max_new_tokens or canvas length
 	if req.MaxTokens > 0 {
 		maxNew = req.MaxTokens
 	}
@@ -301,8 +421,11 @@ func (s *server) handleNonStreamingChat(w http.ResponseWriter, reqNum int, promp
 	tokPerSec := float64(len(res.Generated)) / elapsed.Seconds()
 	log.Printf("req #%d: %d tok in %.1fs (%.1f t/s) → %q", reqNum, len(res.Generated), elapsed.Seconds(), tokPerSec, text)
 	if s.expertCache != nil {
-		log.Printf("req #%d: cache %s", reqNum, s.expertCache.Stats())
+		s.mu.Lock()
+		cacheStats := s.expertCache.Stats()
 		s.expertCache.ResetCounters()
+		s.mu.Unlock()
+		log.Printf("req #%d: cache %s", reqNum, cacheStats)
 	}
 
 	stop := "stop"
@@ -396,7 +519,48 @@ func (s *server) handleStreamingChat(w http.ResponseWriter, reqNum int, promptID
 	flusher.Flush()
 
 	tokPerSec := float64(len(res.Generated)) / elapsed.Seconds()
+	if s.expertCache != nil {
+		s.mu.Lock()
+		cacheStats := s.expertCache.Stats()
+		s.expertCache.ResetCounters()
+		s.mu.Unlock()
+		log.Printf("req #%d: cache %s", reqNum, cacheStats)
+	}
 	log.Printf("req #%d: %d tok in %.1fs (%.1f t/s) streamed → %q", reqNum, len(res.Generated), elapsed.Seconds(), tokPerSec, fullText)
+}
+
+func diffusionGemmaExpertCacheBudgetBytes(defaultMB int64) int64 {
+	if v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_EXPERT_CACHE_MB")); v != "" {
+		if mb, err := strconv.ParseInt(v, 10, 64); err == nil && mb >= 0 {
+			return mb * 1024 * 1024
+		}
+	}
+	return defaultMB * 1024 * 1024
+}
+
+func diffusionGemmaGPUSelfCondEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GPU_SELFCOND")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func diffusionGemmaGGUFGPULMHeadEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_LMHEAD")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func diffusionGemmaGGUFGPULMHeadChunkSize() int {
+	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_LMHEAD_CHUNK"))
+	if v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 32768
+}
+
+func diffusionGemmaGGUFGPULMHeadUseF32Cache() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_LMHEAD_F32_CACHE")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func sendSSE(w http.ResponseWriter, f http.Flusher, id, model string, created int64, delta *chatDelta, finishReason *string) {

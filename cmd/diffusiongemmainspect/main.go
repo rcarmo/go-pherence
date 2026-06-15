@@ -10,27 +10,31 @@ import (
 )
 
 type report struct {
-	ModelPath          string                             `json:"model_path"`
-	Shape              diffusiongemma.Shape               `json:"shape"`
-	GenerationDefaults *diffusiongemma.GenerationDefaults `json:"generation_defaults,omitempty"`
-	Tensors            *diffusiongemma.TensorInventory    `json:"tensors,omitempty"`
-	Readiness          *diffusiongemma.TensorReadiness    `json:"readiness,omitempty"`
-	TextTensorPlan     *diffusiongemma.TextTensorPlan     `json:"text_tensor_plan,omitempty"`
-	TextWeightsOpened  bool                               `json:"text_weights_opened,omitempty"`
-	TextWeightsGlobals int                                `json:"text_weights_globals,omitempty"`
-	TextWeightsLayers  int                                `json:"text_weights_layers,omitempty"`
-	TextForwardPlan    *diffusiongemma.TextForwardPlan    `json:"text_forward_plan,omitempty"`
-	ResidencyEstimate  *diffusiongemma.ResidencyEstimate  `json:"residency_estimate,omitempty"`
-	ResidencyBudget    *diffusiongemma.ResidencyBudget    `json:"residency_budget,omitempty"`
-	ForwardBufferPlan  diffusiongemma.ForwardBufferPlan   `json:"forward_buffer_plan"`
-	ForwardOpPlan      diffusiongemma.ForwardOpPlan       `json:"forward_op_plan"`
-	Capabilities       diffusiongemma.RuntimeCapabilities `json:"capabilities"`
-	OperationStatus    []diffusiongemma.OpStatus          `json:"operation_status,omitempty"`
-	Processor          *diffusiongemma.ProcessorMetadata  `json:"processor,omitempty"`
-	Tokenizer          *diffusiongemma.TokenizerMetadata  `json:"tokenizer,omitempty"`
-	SpecialTokenIDs    *diffusiongemma.SpecialTokenIDs    `json:"special_token_ids,omitempty"`
-	Shards             *diffusiongemma.ShardAvailability  `json:"shards,omitempty"`
-	Summary            diffusiongemma.ReadinessSummary    `json:"summary"`
+	ModelPath           string                                    `json:"model_path"`
+	Shape               diffusiongemma.Shape                      `json:"shape"`
+	GenerationDefaults  *diffusiongemma.GenerationDefaults        `json:"generation_defaults,omitempty"`
+	Tensors             *diffusiongemma.TensorInventory           `json:"tensors,omitempty"`
+	Readiness           *diffusiongemma.TensorReadiness           `json:"readiness,omitempty"`
+	TextTensorPlan      *diffusiongemma.TextTensorPlan            `json:"text_tensor_plan,omitempty"`
+	VisionTensorPlan    *diffusiongemma.VisionTensorPlan          `json:"vision_tensor_plan,omitempty"`
+	VisionGuard         *diffusiongemma.VisionGuardReport         `json:"vision_guard,omitempty"`
+	TextWeightsOpened   bool                                      `json:"text_weights_opened,omitempty"`
+	TextWeightsGlobals  int                                       `json:"text_weights_globals,omitempty"`
+	TextWeightsLayers   int                                       `json:"text_weights_layers,omitempty"`
+	TextForwardPlan     *diffusiongemma.TextForwardPlan           `json:"text_forward_plan,omitempty"`
+	ResidencyEstimate   *diffusiongemma.ResidencyEstimate         `json:"residency_estimate,omitempty"`
+	ResidencyBudget     *diffusiongemma.ResidencyBudget           `json:"residency_budget,omitempty"`
+	ForwardBufferPlan   diffusiongemma.ForwardBufferPlan          `json:"forward_buffer_plan"`
+	ForwardOpPlan       diffusiongemma.ForwardOpPlan              `json:"forward_op_plan"`
+	VisionForwardOpPlan diffusiongemma.VisionForwardOpPlan        `json:"vision_forward_op_plan"`
+	Capabilities        diffusiongemma.RuntimeCapabilities        `json:"capabilities"`
+	OperationStatus     []diffusiongemma.OpStatus                 `json:"operation_status,omitempty"`
+	OperationDomains    map[string]diffusiongemma.OpDomainSummary `json:"operation_domains,omitempty"`
+	Processor           *diffusiongemma.ProcessorMetadata         `json:"processor,omitempty"`
+	Tokenizer           *diffusiongemma.TokenizerMetadata         `json:"tokenizer,omitempty"`
+	SpecialTokenIDs     *diffusiongemma.SpecialTokenIDs           `json:"special_token_ids,omitempty"`
+	Shards              *diffusiongemma.ShardAvailability         `json:"shards,omitempty"`
+	Summary             diffusiongemma.ReadinessSummary           `json:"summary"`
 }
 
 func main() {
@@ -56,7 +60,7 @@ func main() {
 	if *requireTextScaffold {
 		caps := diffusiongemma.Capabilities()
 		if !caps.TextOnlyScaffoldReady || m.Readiness == nil || !m.Readiness.TextReady || m.TextTensorPlan == nil || !m.TextTensorPlan.Ready {
-			fatal(fmt.Errorf("DiffusionGemma text scaffold is not ready"))
+			fatal(fmt.Errorf("DiffusionGemma text runtime metadata is not ready"))
 		}
 	}
 	caps := diffusiongemma.Capabilities()
@@ -90,11 +94,13 @@ func main() {
 			fatal(err)
 		}
 	}
-	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), Capabilities: caps, OperationStatus: diffusiongemma.OperationStatuses(), Processor: m.Processor, Tokenizer: m.Tokenizer, Shards: m.Shards, Summary: diffusiongemma.BuildReadinessSummary(caps, m.Shards, m.Readiness)}
+	operationStatus := diffusiongemma.OperationStatuses()
+	out := report{ModelPath: *modelDir, Shape: shape, GenerationDefaults: m.GenerationDefaults, Tensors: m.Tensors, Readiness: m.Readiness, TextTensorPlan: m.TextTensorPlan, VisionTensorPlan: m.VisionTensorPlan, ForwardBufferPlan: diffusiongemma.BuildForwardBufferPlan(shape), ForwardOpPlan: diffusiongemma.BuildForwardOpPlan(shape, nil), VisionForwardOpPlan: diffusiongemma.BuildVisionForwardOpPlan(shape, nil), Capabilities: caps, OperationStatus: operationStatus, OperationDomains: diffusiongemma.OperationDomainSummaries(operationStatus), Processor: m.Processor, Tokenizer: m.Tokenizer, Shards: m.Shards, Summary: diffusiongemma.BuildReadinessSummary(caps, m.Shards, m.Readiness)}
 	if m.Tokenizer != nil {
 		specials := m.Tokenizer.SpecialTokenIDs(m.Processor)
 		out.SpecialTokenIDs = &specials
 	}
+	out.VisionGuard = diffusiongemma.BuildVisionGuardReport(m.Processor, caps)
 	if *openWeights {
 		weights, err := diffusiongemma.OpenTextWeights(*modelDir, shape)
 		if err != nil {
@@ -139,6 +145,9 @@ func printText(r report) {
 	}
 	if r.Processor != nil {
 		fmt.Printf("  processor: tokenizer=%s processor=%s mask=%q image=%q think=%q chat_template_bytes=%d\n", r.Processor.TokenizerClass, r.Processor.ProcessorClass, r.Processor.Mask, r.Processor.Image, r.Processor.Think, r.Processor.ChatTemplateBytes)
+		if r.Processor.ImageProcessor != "" || r.Processor.VideoProcessor != "" {
+			fmt.Printf("  imageproc: image=%s video=%s image_seq=%d patch=%d pooling=%d resize=%v rescale=%v normalize=%v rescale_factor=%.9g\n", r.Processor.ImageProcessor, r.Processor.VideoProcessor, r.Processor.ImageSeqLength, r.Processor.PatchSize, r.Processor.PoolingKernelSize, r.Processor.DoResize, r.Processor.DoRescale, r.Processor.DoNormalize, r.Processor.RescaleFactor)
+		}
 		if r.Processor.ChatTemplate != nil {
 			ct := r.Processor.ChatTemplate
 			fmt.Printf("  template:  system=%v user=%v assistant=%v tools=%v thinking=%v markers=%v\n", ct.HasSystemRole, ct.HasUserRole, ct.HasAssistantRole, ct.HasToolSupport, ct.HasThinkingToken, ct.Markers)
@@ -166,9 +175,16 @@ func printText(r report) {
 	if r.TextTensorPlan != nil {
 		fmt.Printf("  text_plan: ready=%v globals=%d layers=%d missing=%d\n", r.TextTensorPlan.Ready, len(r.TextTensorPlan.Globals), len(r.TextTensorPlan.Layers), len(r.TextTensorPlan.Missing))
 	}
+	if r.VisionTensorPlan != nil {
+		fmt.Printf("  vision_plan: ready=%v globals=%d layers=%d missing=%d\n", r.VisionTensorPlan.Ready, len(r.VisionTensorPlan.Globals), len(r.VisionTensorPlan.Layers), len(r.VisionTensorPlan.Missing))
+	}
+	if r.VisionGuard != nil {
+		fmt.Printf("  vision_guard: processor_patches=%d max_patches=%d guarded=%v override=%v override_valid=%v\n", r.VisionGuard.ProcessorPatches, r.VisionGuard.MaxPatches, r.VisionGuard.Guarded, r.VisionGuard.Override, r.VisionGuard.OverrideValid)
+	}
 	fb := r.ForwardBufferPlan
 	fmt.Printf("  buffers:   hidden=%d residual=%d logits=%d router=%d experts=%d top_k=%d\n", fb.Hidden, fb.Residual, fb.Logits, fb.Router, fb.Experts, fb.TopKExperts)
 	fmt.Printf("  ops:       ready=%v prefix_ops=%d layer_ops=%d tail_ops=%d reason=%s\n", r.ForwardOpPlan.Ready, len(r.ForwardOpPlan.Prefix), len(r.ForwardOpPlan.Layers), len(r.ForwardOpPlan.Tail), r.ForwardOpPlan.Reason)
+	fmt.Printf("  vision_ops: ready=%v prefix_ops=%d layer_ops=%d tail_ops=%d reason=%s\n", r.VisionForwardOpPlan.Ready, len(r.VisionForwardOpPlan.Prefix), len(r.VisionForwardOpPlan.Layers), len(r.VisionForwardOpPlan.Tail), r.VisionForwardOpPlan.Reason)
 	if r.TextWeightsOpened {
 		fmt.Printf("  weights:   text_shards_opened=true globals=%d layers=%d\n", r.TextWeightsGlobals, r.TextWeightsLayers)
 	}
@@ -181,7 +197,7 @@ func printText(r report) {
 	if r.ResidencyBudget != nil {
 		fmt.Printf("  residency_budget: budget_bytes=%d resident_layers=%d/%d resident_bytes=%d remaining_bytes=%d all_layers=%v\n", r.ResidencyBudget.BudgetBytes, r.ResidencyBudget.ResidentLayers, r.ResidencyBudget.TotalLayers, r.ResidencyBudget.ResidentBytes, r.ResidencyBudget.RemainingBytes, r.ResidencyBudget.AllLayersResident)
 	}
-	fmt.Printf("  caps:      sampler=%v ops=%d/%d text_scaffold=%v text_sparse=%v sparse_topk_lm=%v attention_scaffold=%v rope=%v sliding_mask=%v encoder_kv=%v reference_complete=%v\n", r.Capabilities.Sampler, r.Capabilities.ImplementedOps, r.Capabilities.TotalOps, r.Capabilities.TextOnlyScaffoldReady, r.Capabilities.TextFullStackSparseReady, r.Capabilities.SparseTopKLMHead, r.Capabilities.SelfAttentionScaffold, r.Capabilities.RoPE, r.Capabilities.SlidingWindowMask, r.Capabilities.EncoderKVConcat, r.Capabilities.ReferenceComplete)
+	fmt.Printf("  caps:      sampler=%v ops=%d/%d text_ops=%d/%d vision_ops=%d/%d text_runtime=%v text_sparse=%v sparse_topk_lm=%v attention=%v rope=%v sliding_mask=%v encoder_kv=%v vision_plan=%v vision_forward=%v vision_prefix=%v vision_streaming=%v vision_max_patches=%d vision_override=%v vision_override_valid=%v vision_embed=%v reference_complete=%v\n", r.Capabilities.Sampler, r.Capabilities.ImplementedOps, r.Capabilities.TotalOps, r.Capabilities.TextReferenceCompleteOps, r.Capabilities.TextTotalOps, r.Capabilities.VisionReferenceCompleteOps, r.Capabilities.VisionTotalOps, r.Capabilities.TextOnlyScaffoldReady, r.Capabilities.TextFullStackSparseReady, r.Capabilities.SparseTopKLMHead, r.Capabilities.SelfAttentionScaffold, r.Capabilities.RoPE, r.Capabilities.SlidingWindowMask, r.Capabilities.EncoderKVConcat, r.Capabilities.VisionTensorPlan, r.Capabilities.VisionForwardPlan, r.Capabilities.VisionTowerPrefix, r.Capabilities.VisionStreamingPrefix, r.Capabilities.VisionFullStreamingMaxPatches, r.Capabilities.VisionFullStreamingOverride, r.Capabilities.VisionFullStreamingOverrideValid, r.Capabilities.VisionEmbeddingBoundary, r.Capabilities.ReferenceComplete)
 	if len(r.Capabilities.MissingForReference) > 0 {
 		fmt.Printf("  missing_reference: %v\n", r.Capabilities.MissingForReference)
 	}
@@ -195,7 +211,13 @@ func printText(r report) {
 				referenceComplete++
 			}
 		}
-		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(r.OperationStatus), referenceComplete, len(r.OperationStatus))
+		domains := r.OperationDomains
+		if domains == nil {
+			domains = diffusiongemma.OperationDomainSummaries(r.OperationStatus)
+		}
+		text := domains["text"]
+		vision := domains["vision"]
+		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d text_impl=%d/%d text_ref=%d/%d vision_impl=%d/%d vision_ref=%d/%d\n", implemented, len(r.OperationStatus), referenceComplete, len(r.OperationStatus), text.Implemented, text.Total, text.ReferenceComplete, text.Total, vision.Implemented, vision.Total, vision.ReferenceComplete, vision.Total)
 	}
 	fmt.Printf("  summary:   %s\n", r.Summary.String())
 	if s.RuntimeNote != "" {
