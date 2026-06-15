@@ -1,6 +1,7 @@
 package diffusiongemma
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -10,6 +11,7 @@ import (
 
 	gpu "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
@@ -583,6 +585,7 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	defer func() { encoderGGUFMoEHook = oldHook }()
 	compared := false
 	var capturedActMaxAbs, capturedActMeanAbs, capturedQ8MaxAbs, capturedQ8MeanAbs, capturedKeptMaxAbs, capturedKeptMeanAbs, capturedPreMaxAbs, capturedPreMeanAbs, capturedPostMaxAbs, capturedPostMeanAbs float64
+	var capturedActCPU, capturedActGPU, capturedActGPUOrder, capturedActTanh, capturedGateCPU, capturedGateGPUOrder, capturedUpCPU, capturedUpGPUOrder float64
 	var capturedKeptCPURaw, capturedKeptGPURaw, capturedCPUScale, capturedPartialScale, capturedCPURaw, capturedPartialRaw, capturedCPUPost, capturedPartialPost, capturedNormWeight float64
 	var capturedActMaxIndex, capturedQ8MaxIndex, capturedKeptMaxIndex, capturedPreMaxIndex, capturedPostMaxIndex int
 	encoderGGUFMoEHook = func(hookLayer int, lt string, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex) error {
@@ -780,6 +783,46 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 			return maxAbs, meanAbs, maxIndex
 		}
 		capturedActMaxAbs, capturedActMeanAbs, capturedActMaxIndex = compare(cpuAct, gpuAct)
+		if capturedActMaxIndex >= 0 {
+			workIdx := capturedActMaxIndex / idx.Intermediate
+			dim := capturedActMaxIndex % idx.Intermediate
+			groupIdx := kept.WorkActive[workIdx]
+			expert := kept.ActiveExperts[groupIdx]
+			pos := kept.WorkPositions[workIdx]
+			x := normedRows[pos*idx.HiddenSize : (pos+1)*idx.HiddenSize]
+			gateCPU, err := ggufQ4KExpertRowDot(idx.entries[hookLayer].gateUp, expert, dim, x)
+			if err != nil {
+				return err
+			}
+			upCPU, err := ggufQ4KExpertRowDot(idx.entries[hookLayer].gateUp, expert, dim+idx.Intermediate, x)
+			if err != nil {
+				return err
+			}
+			gateGPUOrder, err := ggufQ4KExpertRowDotGPUOrderForTest(idx.entries[hookLayer].gateUp, expert, dim, x)
+			if err != nil {
+				return err
+			}
+			upGPUOrder, err := ggufQ4KExpertRowDotGPUOrderForTest(idx.entries[hookLayer].gateUp, expert, dim+idx.Intermediate, x)
+			if err != nil {
+				return err
+			}
+			actCPU := []float32{0}
+			if !simd.GELUExactMulTo(actCPU, []float32{gateCPU}, []float32{upCPU}) {
+				return fmt.Errorf("scalar CPU activation rejected")
+			}
+			actGPUOrder := []float32{0}
+			if !simd.GELUExactMulTo(actGPUOrder, []float32{gateGPUOrder}, []float32{upGPUOrder}) {
+				return fmt.Errorf("scalar GPU-order activation rejected")
+			}
+			actTanh := []float32{0}
+			simd.GELUTanhMul(actTanh, []float32{gateGPUOrder}, []float32{upGPUOrder})
+			capturedGateCPU, capturedGateGPUOrder = float64(gateCPU), float64(gateGPUOrder)
+			capturedUpCPU, capturedUpGPUOrder = float64(upCPU), float64(upGPUOrder)
+			capturedActCPU = float64(actCPU[0])
+			capturedActGPU = float64(gpuAct[capturedActMaxIndex])
+			capturedActGPUOrder = float64(actGPUOrder[0])
+			capturedActTanh = float64(actTanh[0])
+		}
 		capturedQ8MaxAbs, capturedQ8MeanAbs, capturedQ8MaxIndex = compare(cpuKeptScratch.MoeOut, gpuQ8CPUActOut)
 		capturedKeptMaxAbs, capturedKeptMeanAbs, capturedKeptMaxIndex = compare(cpuKeptScratch.MoeOut, partialScratch.MoeOut)
 		if capturedKeptMaxIndex >= 0 {
@@ -844,7 +887,62 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	if !compared {
 		t.Fatal("layer-5 hook did not run")
 	}
-	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: act_max=%g act_mean=%g act_work=%d act_dim=%d q8_cpuact_max=%g q8_cpuact_mean=%g q8_row=%d q8_dim=%d kept_max=%g kept_mean=%g kept_row=%d kept_dim=%d kept_cpu=%g kept_gpu=%g pre_max=%g pre_mean=%g pre_row=%d pre_dim=%d post_max=%g post_mean=%g post_row=%d post_dim=%d cpu_scale=%g partial_scale=%g norm_w=%g raw_cpu=%g raw_partial=%g post_cpu=%g post_partial=%g", capturedActMaxAbs, capturedActMeanAbs, capturedActMaxIndex/idx.Intermediate, capturedActMaxIndex%idx.Intermediate, capturedQ8MaxAbs, capturedQ8MeanAbs, capturedQ8MaxIndex/idx.HiddenSize, capturedQ8MaxIndex%idx.HiddenSize, capturedKeptMaxAbs, capturedKeptMeanAbs, capturedKeptMaxIndex/idx.HiddenSize, capturedKeptMaxIndex%idx.HiddenSize, capturedKeptCPURaw, capturedKeptGPURaw, capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex/idx.HiddenSize, capturedPreMaxIndex%idx.HiddenSize, capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex/idx.HiddenSize, capturedPostMaxIndex%idx.HiddenSize, capturedCPUScale, capturedPartialScale, capturedNormWeight, capturedCPURaw, capturedPartialRaw, capturedCPUPost, capturedPartialPost)
+	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: act_max=%g act_mean=%g act_work=%d act_dim=%d act_cpu=%g act_gpu=%g act_exact_gpu_order=%g act_tanh=%g gate_cpu=%g gate_gpu_order=%g up_cpu=%g up_gpu_order=%g q8_cpuact_max=%g q8_cpuact_mean=%g q8_row=%d q8_dim=%d kept_max=%g kept_mean=%g kept_row=%d kept_dim=%d kept_cpu=%g kept_gpu=%g pre_max=%g pre_mean=%g pre_row=%d pre_dim=%d post_max=%g post_mean=%g post_row=%d post_dim=%d cpu_scale=%g partial_scale=%g norm_w=%g raw_cpu=%g raw_partial=%g post_cpu=%g post_partial=%g", capturedActMaxAbs, capturedActMeanAbs, capturedActMaxIndex/idx.Intermediate, capturedActMaxIndex%idx.Intermediate, capturedActCPU, capturedActGPU, capturedActGPUOrder, capturedActTanh, capturedGateCPU, capturedGateGPUOrder, capturedUpCPU, capturedUpGPUOrder, capturedQ8MaxAbs, capturedQ8MeanAbs, capturedQ8MaxIndex/idx.HiddenSize, capturedQ8MaxIndex%idx.HiddenSize, capturedKeptMaxAbs, capturedKeptMeanAbs, capturedKeptMaxIndex/idx.HiddenSize, capturedKeptMaxIndex%idx.HiddenSize, capturedKeptCPURaw, capturedKeptGPURaw, capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex/idx.HiddenSize, capturedPreMaxIndex%idx.HiddenSize, capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex/idx.HiddenSize, capturedPostMaxIndex%idx.HiddenSize, capturedCPUScale, capturedPartialScale, capturedNormWeight, capturedCPURaw, capturedPartialRaw, capturedCPUPost, capturedPartialPost)
+}
+
+func ggufQ4KExpertRowDotGPUOrderForTest(m *gguf.ExpertMatrices, expert, row int, x []float32) (float32, error) {
+	if m == nil || m.QType != gguf.QuantQ4_K || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || len(x) < m.InDim || m.InDim%256 != 0 {
+		return 0, fmt.Errorf("invalid Q4_K GPU-order expert row dot expert=%d row=%d", expert, row)
+	}
+	blocks := m.InDim / 256
+	rowBytes := blocks * 144
+	rowIndex := expert*m.OutDim + row
+	start := rowIndex * rowBytes
+	end := start + rowBytes
+	if start < 0 || end < start || end > len(m.Raw) {
+		return 0, fmt.Errorf("Q4_K GPU-order expert row raw outside expert=%d row=%d", expert, row)
+	}
+	raw := m.Raw[start:end]
+	var partial [256]float32
+	for tid := 0; tid < 256; tid++ {
+		var acc float32
+		for k := tid; k < m.InDim; k += 256 {
+			block := k >> 8
+			within := k & 255
+			group := within >> 5
+			elem := within & 31
+			qoff := (group / 2) * 32
+			blk := raw[block*144 : (block+1)*144]
+			d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+			dmin := half.F16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
+			sc := blk[4:16]
+			var scale, minv float32
+			if group < 4 {
+				scale = float32(sc[group]&63) * d
+				minv = float32(sc[group+4]&63) * dmin
+			} else {
+				base := group - 4
+				scale = float32((sc[group+4]&0x0F)|((sc[base]>>6)<<4)) * d
+				minv = float32((sc[group+4]>>4)|((sc[base+4]>>6)<<4)) * dmin
+			}
+			qbyte := blk[16+qoff+elem]
+			var qv uint8
+			if group&1 == 0 {
+				qv = qbyte & 0x0F
+			} else {
+				qv = qbyte >> 4
+			}
+			coeff := float32(math.FMA(float64(qv), float64(scale), float64(-minv)))
+			acc = float32(math.FMA(float64(coeff), float64(x[k]), float64(acc)))
+		}
+		partial[tid] = acc
+	}
+	for stride := 128; stride > 0; stride >>= 1 {
+		for tid := 0; tid < stride; tid++ {
+			partial[tid] += partial[tid+stride]
+		}
+	}
+	return partial[0], nil
 }
 
 func rmsNormForGroupedGPUTest(row, w []float32) bool { return simd.RMSNormTo(row, w, 1e-6) }
