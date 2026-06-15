@@ -391,6 +391,36 @@ func ggufQ8_0RawRowDot(raw []byte, inDim int, x []float32) float32 {
 	return sum
 }
 
+func ggufQ8_0RawRowDot4(raw []byte, inDim int, x []float32, stride int) (float32, float32, float32, float32, bool) {
+	if inDim%32 != 0 || stride < inDim || len(x) < 3*stride+inDim {
+		return 0, 0, 0, 0, false
+	}
+	blocks := inDim / 32
+	var s0, s1, s2, s3 float32
+	for b := 0; b < blocks; b++ {
+		blk := raw[b*34 : (b+1)*34]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[:2]))
+		qs := blk[2:34]
+		v0, v1, v2, v3, ok := simd.DotI8F32x4(qs, x[b*32:], stride)
+		if !ok {
+			v0, v1, v2, v3 = 0, 0, 0, 0
+			for i := 0; i < 32; i++ {
+				qv := float32(int8(qs[i]))
+				off := b*32 + i
+				v0 += qv * x[off]
+				v1 += qv * x[stride+off]
+				v2 += qv * x[2*stride+off]
+				v3 += qv * x[3*stride+off]
+			}
+		}
+		s0 += d * v0
+		s1 += d * v1
+		s2 += d * v2
+		s3 += d * v3
+	}
+	return s0, s1, s2, s3, true
+}
+
 func ggufQ8_0ExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []float32, nPos int, dst []float32, dstStride int, scale float32) error {
 	if m == nil || m.QType != gguf.QuantQ8_0 || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || nPos <= 0 || len(x) < nPos*m.InDim || len(dst) < (nPos-1)*dstStride+1 || dstStride <= 0 || m.InDim%32 != 0 {
 		return fmt.Errorf("invalid Q8_0 expert row batch dot expert=%d row=%d nPos=%d", expert, row, nPos)
@@ -404,7 +434,18 @@ func ggufQ8_0ExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []fl
 		return fmt.Errorf("Q8_0 expert row batch raw outside expert=%d row=%d", expert, row)
 	}
 	raw := m.Raw[start:end]
-	for pos := 0; pos < nPos; pos++ {
+	pos := 0
+	for ; pos+4 <= nPos; pos += 4 {
+		v0, v1, v2, v3, ok := ggufQ8_0RawRowDot4(raw, m.InDim, x[pos*m.InDim:], m.InDim)
+		if !ok {
+			break
+		}
+		dst[pos*dstStride] = scale * v0
+		dst[(pos+1)*dstStride] = scale * v1
+		dst[(pos+2)*dstStride] = scale * v2
+		dst[(pos+3)*dstStride] = scale * v3
+	}
+	for ; pos < nPos; pos++ {
 		dst[pos*dstStride] = scale * ggufQ8_0RawRowDot(raw, m.InDim, x[pos*m.InDim:(pos+1)*m.InDim])
 	}
 	return nil
@@ -724,9 +765,10 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down scale outside len=%d", eid, len(le.downScale)) })
 					return
 				}
-				// SIMD direct Q8_0 row-dot wins for small batches (nPos<=3), but larger
-				// expert-down batches are faster through dequant-once + Sdot reuse.
-				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos <= 3 && le.down.QType == gguf.QuantQ8_0
+				// SIMD direct Q8_0 row-dot uses a 4-output raw-row primitive and wins up
+				// through nPos<=8; larger expert-down batches still favor dequant-once +
+				// Sdot reuse.
+				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos <= 8 && le.down.QType == gguf.QuantQ8_0
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {
 						scale := float32(1)
