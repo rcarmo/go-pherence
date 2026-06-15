@@ -497,7 +497,7 @@ Useful flags:
 - `-language CODE` — default `en`; for turbo translated English, keep `en`.
 - `-timestamps` — emit timestamped segments; with `-output something.vtt`, writes WebVTT.
 - `-diarize` — add speaker labels when `-timestamps` is enabled and the speaker model is available.
-- `-chunk N -chunk-workers N` — long-form windowing controls.
+- `-chunk N -chunk-workers N` — long-form windowing controls; simple no-timestamp mode also chunks long inputs instead of sending over-length audio to the encoder.
 - `-max-tokens N` — cap decoder output for smokes/benchmarks.
 
 Quick turbo smoke:

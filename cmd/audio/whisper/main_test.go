@@ -6,6 +6,22 @@ import (
 	"github.com/rcarmo/go-pherence/models/whisper"
 )
 
+func TestShouldChunkSimple(t *testing.T) {
+	if shouldChunkSimple(make([]float32, 16000*10), 30) {
+		t.Fatal("short audio should not chunk")
+	}
+	if !shouldChunkSimple(make([]float32, 16000*31), 30) {
+		t.Fatal("long audio should chunk")
+	}
+}
+
+func TestTextFromSegments(t *testing.T) {
+	text := textFromSegments([]whisper.Segment{{Text: " hello "}, {Text: ""}, {Text: "world"}})
+	if text != "hello world" {
+		t.Fatalf("text=%q", text)
+	}
+}
+
 func TestFilterTimestampSegmentsDropsPunctuationOnly(t *testing.T) {
 	segments := []whisper.Segment{
 		{Start: 0, End: 1, Text: "Hello"},

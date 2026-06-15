@@ -183,10 +183,15 @@ func main() {
 		var err error
 		for r := 0; r < reps; r++ {
 			ps := time.Now()
-			text, err = w.TranscribeFromSamplesPrompt(samples, languageToken, taskToken)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error transcribing: %v\n", err)
-				os.Exit(1)
+			if shouldChunkSimple(samples, *chunkSec) {
+				segments := filterTimestampSegments(transcribeChunked(w, samples, *chunkSec, *chunkWorkers, languageToken, taskToken))
+				text = textFromSegments(segments)
+			} else {
+				text, err = w.TranscribeFromSamplesPrompt(samples, languageToken, taskToken)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error transcribing: %v\n", err)
+					os.Exit(1)
+				}
 			}
 			fmt.Fprintf(os.Stderr, "[pass %d] %.1fs\n", r, time.Since(ps).Seconds())
 		}
@@ -213,6 +218,22 @@ func materializeWAV(input string) (string, func(), error) {
 		return "", nil, err
 	}
 	return wav, cleanup, nil
+}
+
+func shouldChunkSimple(samples []float32, chunkSec float64) bool {
+	chunk := int(chunkSec * 16000)
+	return chunk > 0 && len(samples) > chunk
+}
+
+func textFromSegments(segments []whisper.Segment) string {
+	parts := make([]string, 0, len(segments))
+	for _, seg := range segments {
+		text := strings.TrimSpace(seg.Text)
+		if text != "" {
+			parts = append(parts, text)
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func filterTimestampSegments(in []whisper.Segment) []whisper.Segment {
