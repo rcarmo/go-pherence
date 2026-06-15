@@ -11,6 +11,9 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 	if caps.VerifierBatchLayers || !caps.VerifierBatchLayersGated {
 		t.Fatalf("batch layer gate state=%+v", caps)
 	}
+	if !caps.ReadyForExperimentalGeneration {
+		t.Fatalf("experimental generation unexpectedly not ready: %+v", caps)
+	}
 	if caps.PublicGenerationWiring || caps.ReadyForPublicGeneration {
 		t.Fatalf("public generation unexpectedly ready: %+v", caps)
 	}
@@ -23,7 +26,7 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 func TestGemma4MTPGraphCapabilitiesBatchLayerGate(t *testing.T) {
 	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
 	caps := Gemma4MTPGraphCapabilities()
-	if !caps.VerifierBatchLayers || !caps.VerifierBatchLayersGated {
+	if !caps.VerifierBatchLayers || !caps.VerifierBatchLayersGated || !caps.ReadyForExperimentalGeneration {
 		t.Fatalf("batch layer gate state=%+v", caps)
 	}
 	missing := caps.MissingForPublicGeneration()
