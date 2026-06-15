@@ -289,6 +289,18 @@ func TestGemvQ5_0ScatterByWorkPtrs(t *testing.T) {
 	}
 }
 
+func TestUploadQ5_0MatrixRowsRejectsInvalidInput(t *testing.T) {
+	if _, err := UploadQ5_0MatrixRows(nil, 31, 1); err == nil {
+		t.Fatal("accepted non-32-aligned Q5 input dimension")
+	}
+	if _, err := UploadQ5_0MatrixRows(make([]byte, 21), 32, 1); err == nil {
+		t.Fatal("accepted short Q5 raw row")
+	}
+	if _, err := UploadQ5_0MatrixRows(make([]byte, 22), 32, 0); err == nil {
+		t.Fatal("accepted zero Q5 output dimension")
+	}
+}
+
 func TestGemvQ5_0ScatterByWorkPtrsRejectsBadInputs(t *testing.T) {
 	validBuf := &Buffer{Ptr: 1, Size: 64}
 	shortBuf := &Buffer{Ptr: 1, Size: 2}
