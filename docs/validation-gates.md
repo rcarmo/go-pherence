@@ -39,6 +39,7 @@ GOTMPDIR=$PWD/.gotmp go test \
   ./backends/simd/fft \
   ./backends/simd/runtime
 python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
+python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
 GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4

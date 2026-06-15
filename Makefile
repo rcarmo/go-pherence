@@ -43,6 +43,7 @@ whisper-turbo-check:
 	mkdir -p $(GOTMPDIR)
 	GOTMPDIR=$(GOTMPDIR) go test ./models/whisper ./cmd/audio/... ./loader/audio ./backends/simd/fft ./backends/simd/runtime -count=1
 	$(PYTHON) scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
+	$(PYTHON) scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 
 .PHONY: ideogram4gen-k3 ideogram4-k3-check
 ideogram4gen-k3:

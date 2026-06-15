@@ -18,8 +18,8 @@ Suite format:
   ]
 }
 
-The runner shells out to `go run ./cmd/speakercheck -json` and fails if any
-case exits non-zero or reports pairwise_score below --min-pairwise.
+The runner shells out to `go run ./cmd/audio/speakercheck -json` and fails if
+any case exits non-zero or reports pairwise_score below --min-pairwise.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def main() -> int:
         cmd = [
             args.go,
             "run",
-            "./cmd/speakercheck",
+            "./cmd/audio/speakercheck",
             "-input",
             str(case["input"]),
             "-speaker-model",
