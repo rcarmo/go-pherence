@@ -235,8 +235,28 @@ func TestRunMTPVerifierBatchForwardValidation(t *testing.T) {
 		t.Fatal("accepted wrong hidden width")
 	}
 	bad = batch
+	bad.HiddenRows = cloneMTPVerifierHiddenRows(batch.HiddenRows)
+	bad.HiddenFlat = append([]float32(nil), batch.HiddenFlat...)
+	bad.HiddenFlat[0]++
+	if _, err := m.RunMTPVerifierBatchForward(bad, nil, nil); err == nil {
+		t.Fatal("accepted hidden rows that disagree with flat buffer")
+	}
+	bad = batch
+	bad.Scratch.Batch++
+	if _, err := m.RunMTPVerifierBatchForward(bad, nil, nil); err == nil {
+		t.Fatal("accepted stale verifier scratch plan")
+	}
+	bad = batch
 	bad.Attention.KVLen = 99
 	if _, err := m.RunMTPVerifierBatchForward(bad, nil, nil); err == nil {
 		t.Fatal("accepted bad attention plan")
 	}
+}
+
+func cloneMTPVerifierHiddenRows(in [][]float32) [][]float32 {
+	out := make([][]float32, len(in))
+	for i := range in {
+		out[i] = append([]float32(nil), in[i]...)
+	}
+	return out
 }

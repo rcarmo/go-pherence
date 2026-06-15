@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
@@ -289,16 +290,38 @@ func (m *LlamaModel) validateMTPVerifierBatchForwardInputs(batch MTPVerifierBatc
 	if len(batch.HiddenRows) != len(batch.Plan.VerifierTokens) {
 		return fmt.Errorf("MTP verifier batch hidden rows=%d, want verifier tokens=%d", len(batch.HiddenRows), len(batch.Plan.VerifierTokens))
 	}
+	B := len(batch.Plan.VerifierTokens)
+	h := m.Config.HiddenSize
+	wantHiddenFlat, ok := checkedProduct(B, h)
+	if !ok {
+		return fmt.Errorf("MTP verifier batch hidden flat size overflow")
+	}
+	if len(batch.HiddenFlat) != wantHiddenFlat {
+		return fmt.Errorf("MTP verifier batch hidden flat len=%d, want %d", len(batch.HiddenFlat), wantHiddenFlat)
+	}
 	for i, row := range batch.HiddenRows {
-		if len(row) != m.Config.HiddenSize {
-			return fmt.Errorf("MTP verifier batch hidden row %d len=%d, want %d", i, len(row), m.Config.HiddenSize)
+		if len(row) != h {
+			return fmt.Errorf("MTP verifier batch hidden row %d len=%d, want %d", i, len(row), h)
+		}
+		flat := batch.HiddenFlat[i*h : (i+1)*h]
+		for j, v := range row {
+			if v != flat[j] {
+				return fmt.Errorf("MTP verifier batch hidden row %d differs from flat buffer at col %d", i, j)
+			}
 		}
 	}
-	if batch.HasPerLayerInputs && len(batch.PerLayerInputs) != len(batch.Plan.VerifierTokens) {
-		return fmt.Errorf("MTP verifier batch PLI rows=%d, want verifier tokens=%d", len(batch.PerLayerInputs), len(batch.Plan.VerifierTokens))
+	if err := validateMTPVerifierBatchPLIFlat(m, batch); err != nil {
+		return err
 	}
 	if err := batch.Attention.ValidateAgainst(batch.Plan, m); err != nil {
 		return err
+	}
+	wantScratch, err := NewMTPVerifierBatchScratchPlan(m, batch)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(batch.Scratch, wantScratch) {
+		return fmt.Errorf("MTP verifier batch scratch plan does not match model/batch shapes")
 	}
 	if len(kvCacheK) != m.Config.NumLayers || len(kvCacheV) != m.Config.NumLayers {
 		return fmt.Errorf("KV cache layers K/V=%d/%d, want %d", len(kvCacheK), len(kvCacheV), m.Config.NumLayers)
@@ -334,6 +357,56 @@ func (m *LlamaModel) validateMTPVerifierBatchForwardInputs(batch MTPVerifierBatc
 		}
 		if len(kvCacheK[l]) != want || len(kvCacheV[l]) != want {
 			return fmt.Errorf("layer %d KV history K/V=%d/%d, want %d for start position %d", l, len(kvCacheK[l]), len(kvCacheV[l]), want, batch.Plan.StartPos)
+		}
+	}
+	return nil
+}
+
+func validateMTPVerifierBatchPLIFlat(m *LlamaModel, batch MTPVerifierBatchInputs) error {
+	B := len(batch.Plan.VerifierTokens)
+	if !batch.HasPerLayerInputs {
+		if len(batch.PerLayerInputFlat) != 0 {
+			return fmt.Errorf("MTP verifier batch has PLI flat len=%d while PLI is disabled", len(batch.PerLayerInputFlat))
+		}
+		for i, rows := range batch.PerLayerInputs {
+			if len(rows) != 0 {
+				return fmt.Errorf("MTP verifier batch has PLI rows for token %d while PLI is disabled", i)
+			}
+		}
+		return nil
+	}
+	if len(batch.PerLayerInputs) != B {
+		return fmt.Errorf("MTP verifier batch PLI rows=%d, want verifier tokens=%d", len(batch.PerLayerInputs), B)
+	}
+	hpl := m.Config.HiddenPerLayer
+	if hpl <= 0 {
+		return fmt.Errorf("MTP verifier batch PLI hidden width=%d", hpl)
+	}
+	perToken, ok := checkedProduct(m.Config.NumLayers, hpl)
+	if !ok {
+		return fmt.Errorf("MTP verifier batch PLI per-token size overflow")
+	}
+	wantFlat, ok := checkedProduct(B, perToken)
+	if !ok {
+		return fmt.Errorf("MTP verifier batch PLI flat size overflow")
+	}
+	if len(batch.PerLayerInputFlat) != wantFlat {
+		return fmt.Errorf("MTP verifier batch PLI flat len=%d, want %d", len(batch.PerLayerInputFlat), wantFlat)
+	}
+	for i, rows := range batch.PerLayerInputs {
+		if len(rows) != m.Config.NumLayers {
+			return fmt.Errorf("MTP verifier batch PLI token %d layers=%d, want %d", i, len(rows), m.Config.NumLayers)
+		}
+		for l, row := range rows {
+			if len(row) != hpl {
+				return fmt.Errorf("MTP verifier batch PLI token %d layer %d len=%d, want %d", i, l, len(row), hpl)
+			}
+			flat := batch.PerLayerInputFlat[i*perToken+l*hpl : i*perToken+(l+1)*hpl]
+			for j, v := range row {
+				if v != flat[j] {
+					return fmt.Errorf("MTP verifier batch PLI token %d layer %d differs from flat buffer at col %d", i, l, j)
+				}
+			}
 		}
 	}
 	return nil
