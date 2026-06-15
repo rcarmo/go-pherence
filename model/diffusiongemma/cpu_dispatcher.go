@@ -52,15 +52,19 @@ func diffusionGemmaLayerTraceOpsEnabled() bool {
 }
 
 func traceForwardRow(stage string, layer int, row int, scratch ForwardScratch, hiddenSize int) {
+	traceForwardData(stage, layer, row, scratch.Hidden, hiddenSize)
+}
+
+func traceForwardData(stage string, layer int, row int, data []float32, hiddenSize int) {
 	if row < 0 || hiddenSize <= 0 {
 		return
 	}
 	start := row * hiddenSize
 	end := start + hiddenSize
-	if start < 0 || end > len(scratch.Hidden) {
+	if start < 0 || end > len(data) {
 		return
 	}
-	h := scratch.Hidden[start:end]
+	h := data[start:end]
 	var sumSq float64
 	maxAbs := float32(0)
 	maxIdx := 0
@@ -468,7 +472,13 @@ func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scrat
 	case OpRouter:
 		return runRouterFromResidual(op, weights, scratch)
 	case OpExperts:
-		return runExpertsFromResidual(op, weights, scratch)
+		if err := runExpertsFromResidual(op, weights, scratch); err != nil {
+			return err
+		}
+		if diffusionGemmaLayerTraceOpsEnabled() && len(scratch.Logits) > 0 {
+			traceForwardData("op/moe_out", op.Layer, diffusionGemmaLayerTraceRow(), scratch.MoeOut, len(scratch.MoeOut)/len(scratch.Logits))
+		}
+		return nil
 	case OpPostMoE:
 		if err := runCombineMlpMoe(op, weights, scratch); err != nil {
 			return err
@@ -821,6 +831,7 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 		}
 	}
 	copy(scratch.MlpOut, scratch.Hidden)
+	traceForwardData("op/dense_mlp_out", op.Layer, diffusionGemmaLayerTraceRow(), scratch.MlpOut, hiddenSize)
 	copy(scratch.Hidden, scratch.Residual)
 	return nil
 }
@@ -1040,6 +1051,7 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 			return fmt.Errorf("DiffusionGemma expert post_norm_2 rejected")
 		}
 	}
+	traceForwardData("op/moe_out", op.Layer, diffusionGemmaLayerTraceRow(), scratch.MoeOut, hiddenSize)
 	return nil
 }
 
@@ -1060,6 +1072,7 @@ func runCombineMlpMoe(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 	for i := range scratch.Hidden {
 		scratch.Hidden[i] = scratch.MlpOut[i] + scratch.MoeOut[i]
 	}
+	traceForwardData("op/ffn_combined", op.Layer, diffusionGemmaLayerTraceRow(), scratch.Hidden, hiddenSize)
 	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
 		if !simd.RMSNormTo(scratch.Hidden[off:off+hiddenSize], postNorm, 1e-6) {
 			return fmt.Errorf("DiffusionGemma combine post_norm rejected")
