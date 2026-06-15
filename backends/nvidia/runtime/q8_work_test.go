@@ -200,6 +200,23 @@ func TestGemvQ8_0ScatterByWorkPtrs(t *testing.T) {
 	}
 }
 
+func TestGemvQ8_0ScatterByWorkPtrsRejectsBadInputs(t *testing.T) {
+	validBuf := &Buffer{Ptr: 1, Size: 64}
+	shortBuf := &Buffer{Ptr: 1, Size: 2}
+	table := &GPUQ8_0PointerTable{QPtrs: validBuf, ScalePtrs: validBuf, InDim: 32, OutDim: 4, Count: 1}
+	if err := GemvQ8_0ScatterByWorkPtrs(validBuf, validBuf, validBuf, validBuf, validBuf, 1, nil); err == nil {
+		t.Fatal("accepted nil Q8 pointer table")
+	}
+	if err := GemvQ8_0ScatterByWorkPtrs(validBuf, shortBuf, validBuf, validBuf, validBuf, 1, table); err == nil {
+		t.Fatal("accepted short x buffer")
+	}
+	badTable := *table
+	badTable.ScalePtrs = nil
+	if err := GemvQ8_0ScatterByWorkPtrs(validBuf, validBuf, validBuf, validBuf, validBuf, 1, &badTable); err == nil {
+		t.Fatal("accepted table missing scale pointers")
+	}
+}
+
 func TestUploadQ8_0MatrixRowsIntoReusesBuffers(t *testing.T) {
 	if !SgemmReady() {
 		t.Skip("CUDA not available")
