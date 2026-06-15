@@ -44,8 +44,26 @@ func RenderSimpleChatTemplate(messages []TextChatMessage, proc *ProcessorMetadat
 	}
 	if opts.AddGenerationPrompt {
 		writeTurnStart(&b, proc, "model")
+		if !opts.EnableThinking {
+			writeThoughtChannelPrompt(&b, proc)
+		}
 	}
 	return b.String()
+}
+
+func writeThoughtChannelPrompt(b *strings.Builder, proc *ProcessorMetadata) {
+	if proc != nil && proc.BOC != "" {
+		b.WriteString(proc.BOC)
+	} else {
+		b.WriteString("<|channel>")
+	}
+	b.WriteString("thought")
+	b.WriteByte('\n')
+	if proc != nil && proc.EOC != "" {
+		b.WriteString(proc.EOC)
+	} else {
+		b.WriteString("<channel|>")
+	}
 }
 
 func writeTurnStart(b *strings.Builder, proc *ProcessorMetadata, role string) {

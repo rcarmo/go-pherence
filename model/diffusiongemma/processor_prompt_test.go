@@ -58,9 +58,10 @@ func TestLocalDiffusionGemmaTemplateChatPromptIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Locks down the runner/server native text chat path used for local GGUF
-	// validation. This is the same prompt prefix used in bounded CLI smokes.
-	want := []int{105, 2364, 107, 98357, 4142, 563, 9639, 573, 106, 107, 105, 4368, 107}
+	// Locks down the runner/server native text chat path against the HF/Jinja
+	// generation prompt. With thinking disabled, add_generation_prompt appends
+	// the empty thought-channel scaffold after the model turn header.
+	want := []int{105, 2364, 107, 98357, 4142, 563, 9639, 573, 106, 107, 105, 4368, 107, 100, 45518, 107, 101}
 	if len(framed.InputIDs) != len(want) {
 		t.Fatalf("prompt len=%d want %d ids=%v", len(framed.InputIDs), len(want), framed.InputIDs)
 	}

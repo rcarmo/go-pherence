@@ -58,6 +58,24 @@ func BuildTemplateChatPromptIDs(messages []TextChatMessage, specials SpecialToke
 		ids = append(ids, specials.BOT)
 		ids = append(ids, encode("model")...)
 		ids = append(ids, 107) // \n token
+		if !opts.EnableThinking {
+			var err error
+			ids, err = appendThoughtChannelPromptIDs(ids, specials, encode)
+			if err != nil {
+				return PromptIDs{}, err
+			}
+		}
 	}
 	return PromptIDs{InputIDs: ids}, nil
+}
+
+func appendThoughtChannelPromptIDs(ids []int, specials SpecialTokenIDs, encode EncodeTextFunc) ([]int, error) {
+	if specials.BOC < 0 || specials.EOC < 0 {
+		return nil, fmt.Errorf("DiffusionGemma channel token IDs unavailable")
+	}
+	ids = append(ids, specials.BOC)
+	ids = append(ids, encode("thought")...)
+	ids = append(ids, 107) // \n token
+	ids = append(ids, specials.EOC)
+	return ids, nil
 }

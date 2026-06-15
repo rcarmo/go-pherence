@@ -204,6 +204,15 @@ func main() {
 				promptIDs = append(promptIDs, specials.BOT)
 				promptIDs = append(promptIDs, tok.Encode("model")...)
 				promptIDs = append(promptIDs, 107) // newline token, matching BuildTemplateChatPromptIDs
+				if !*enableThinking {
+					if specials.BOC < 0 || specials.EOC < 0 {
+						fatal(fmt.Errorf("DiffusionGemma channel token IDs unavailable"))
+					}
+					promptIDs = append(promptIDs, specials.BOC)
+					promptIDs = append(promptIDs, tok.Encode("thought")...)
+					promptIDs = append(promptIDs, 107) // newline token, matching BuildTemplateChatPromptIDs
+					promptIDs = append(promptIDs, specials.EOC)
+				}
 			}
 		}
 	} else if *addBOS || *enableThinking || *addGenerationPrompt {
@@ -228,6 +237,15 @@ func main() {
 			promptIDs = append(promptIDs, specials.BOT)
 			promptIDs = append(promptIDs, tok.Encode("model")...)
 			promptIDs = append(promptIDs, 107) // newline token, matching BuildTemplateChatPromptIDs
+			if !*enableThinking {
+				if specials.BOC < 0 || specials.EOC < 0 {
+					fatal(fmt.Errorf("DiffusionGemma channel token IDs unavailable"))
+				}
+				promptIDs = append(promptIDs, specials.BOC)
+				promptIDs = append(promptIDs, tok.Encode("thought")...)
+				promptIDs = append(promptIDs, 107) // newline token, matching BuildTemplateChatPromptIDs
+				promptIDs = append(promptIDs, specials.EOC)
+			}
 		}
 	}
 	if m.Tokenizer != nil {
