@@ -43,6 +43,12 @@ func TestNewCPUDecodeStateFromMTPPromptContextValidation(t *testing.T) {
 	if _, err := NewCPUDecodeStateFromMTPPromptContext(m, bad, 1); err == nil {
 		t.Fatal("accepted bad KV width")
 	}
+	maxInt := int(^uint(0) >> 1)
+	overflowModel := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: maxInt/2 + 1, HeadDim: 3}, Layers: []LlamaLayer{{HasKV: true}}}
+	overflow := MTPPromptContext{Tokens: []int{1, 2}, PreviousToken: 2, Activation: []float32{0.5, 0.25}, SeqLen: 2, KVCacheK: [][]float32{{}}, KVCacheV: [][]float32{{}}}
+	if _, err := NewCPUDecodeStateFromMTPPromptContext(overflowModel, overflow, 1); err == nil {
+		t.Fatal("accepted overflowing prompt-context KV width")
+	}
 }
 
 func TestGenerateMTPGraphFromPromptContext(t *testing.T) {

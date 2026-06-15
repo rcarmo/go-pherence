@@ -261,7 +261,10 @@ func NewCPUDecodeStateFromMTPPromptContext(m *LlamaModel, ctx MTPPromptContext, 
 			}
 			continue
 		}
-		want := ctx.SeqLen * dim
+		want, ok := checkedProduct(ctx.SeqLen, dim)
+		if !ok {
+			return nil, fmt.Errorf("prompt context layer %d KV length overflows seq=%d dim=%d", l, ctx.SeqLen, dim)
+		}
 		if len(ctx.KVCacheK[l]) != want || len(ctx.KVCacheV[l]) != want {
 			return nil, fmt.Errorf("prompt context layer %d KV K/V=%d/%d, want %d", l, len(ctx.KVCacheK[l]), len(ctx.KVCacheV[l]), want)
 		}
