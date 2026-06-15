@@ -2,6 +2,18 @@ package main
 
 import "testing"
 
+func TestMTPEffectivePromptTokenCount(t *testing.T) {
+	if got := mtpEffectivePromptTokenCount(1, 12, true, 1, 1); got != 10 {
+		t.Fatalf("MTP prompt tokens=%d want templated prompt 10", got)
+	}
+	if got := mtpEffectivePromptTokenCount(3, 5, false, 99, 99); got != 3 {
+		t.Fatalf("regular prompt tokens=%d want input ids", got)
+	}
+	if got := mtpEffectivePromptTokenCount(3, 2, true, 9, 9); got != 3 {
+		t.Fatalf("invalid MTP accounting prompt tokens=%d want fallback input ids", got)
+	}
+}
+
 func TestFormatMTPFinalStateCoverage(t *testing.T) {
 	if got := formatMTPFinalStateCoverage(4, 4); got != "4/4 tokens" {
 		t.Fatalf("coverage=%q", got)

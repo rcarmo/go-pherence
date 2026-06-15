@@ -154,15 +154,16 @@ func main() {
 	}
 	elapsed := time.Since(start)
 
+	promptTokenCount := mtpEffectivePromptTokenCount(len(ids), len(output), *mtpGenerate, mtpGraphOutput, mtpGreedyTail)
 	generated := output
-	if len(output) >= len(ids) {
-		generated = output[len(ids):]
+	if len(output) >= promptTokenCount {
+		generated = output[promptTokenCount:]
 	}
 	text := tok.Decode(output)
 	genText := tok.Decode(generated)
 
 	fmt.Printf("--- Output ---\n%s\n--- End ---\n\n", text)
-	fmt.Printf("Prompt tokens:    %d\n", len(ids))
+	fmt.Printf("Prompt tokens:    %d\n", promptTokenCount)
 	fmt.Printf("Generated tokens: %d\n", len(generated))
 	fmt.Printf("Total time:       %.2fs\n", elapsed.Seconds())
 
@@ -197,6 +198,17 @@ func main() {
 		}
 	}
 	_ = genText
+}
+
+func mtpEffectivePromptTokenCount(inputIDs, outputLen int, mtpGenerate bool, graphOutput, greedyTail int) int {
+	if !mtpGenerate {
+		return inputIDs
+	}
+	prompt := outputLen - graphOutput - greedyTail
+	if prompt < 0 || prompt > outputLen {
+		return inputIDs
+	}
+	return prompt
 }
 
 func formatMTPFinalStateCoverage(finalStateOutputLen, outputLen int) string {
