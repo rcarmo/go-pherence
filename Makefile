@@ -59,6 +59,7 @@ whisper-a100-compare:
 whisper-a100-podcast-compare:
 	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4
 	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4 --timestamps
+	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4 --diarize-vtt
 
 whisper-int8-compare:
 	$(PYTHON) scripts/whisper_a100_compare.py --backend int8 --audio testdata/jfk.wav --max-tokens 16
@@ -69,6 +70,7 @@ whisper-int8-compare:
 whisper-int8-podcast-compare:
 	$(PYTHON) scripts/whisper_a100_compare.py --backend int8 --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4
 	$(PYTHON) scripts/whisper_a100_compare.py --backend int8 --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4 --timestamps
+	$(PYTHON) scripts/whisper_a100_compare.py --backend int8 --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4 --diarize-vtt
 
 .PHONY: ideogram4gen-k3 ideogram4-k3-check
 ideogram4gen-k3:
