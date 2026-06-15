@@ -5,6 +5,25 @@ import (
 	"testing"
 )
 
+func TestDevCopyNCopiesPrefixOnly(t *testing.T) {
+	src := NewDevBufFrom([]float32{1, 2, 3, 4})
+	dst := NewDevBufFrom([]float32{9, 9, 9, 9})
+	DevCopyN(dst, src, 2)
+	want := []float32{1, 2, 9, 9}
+	for i, v := range dst.Data() {
+		if v != want[i] {
+			t.Fatalf("dst[%d]=%v want %v", i, v, want[i])
+		}
+	}
+	DevCopyN(dst, src, 99)
+	want = []float32{1, 2, 3, 4}
+	for i, v := range dst.Data() {
+		if v != want[i] {
+			t.Fatalf("clamped dst[%d]=%v want %v", i, v, want[i])
+		}
+	}
+}
+
 func TestDevBufAdd(t *testing.T) {
 	a := NewDevBufFrom([]float32{1, 2, 3, 4})
 	b := NewDevBufFrom([]float32{5, 6, 7, 8})

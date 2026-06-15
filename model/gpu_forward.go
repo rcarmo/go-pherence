@@ -993,7 +993,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 							nvidia.GemvMLX(g.k, g.normed, layer.KWmg)
 						}
 						if cfg.AttentionKEqV && (layer.VWmg == nil || layer.VWmg == layer.KWmg) {
-							nvidia.DevCopy(g.v, g.k)
+							nvidia.DevCopyN(g.v, g.k, layerKVDim)
 						} else if layer.VWmg != nil {
 							if !gpuMLXWeightDims(layer.VWmg, layerKVDim, h) {
 								return nil
@@ -1012,7 +1012,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						}
 						nvidia.GemvQ4(g.k, g.normed, layer.KWg)
 						if cfg.AttentionKEqV && (layer.VWg == nil || layer.VWg == layer.KWg) {
-							nvidia.DevCopy(g.v, g.k)
+							nvidia.DevCopyN(g.v, g.k, layerKVDim)
 						} else if layer.VWg != nil {
 							if !gpuQ4WeightDims(layer.VWg, layerKVDim, h) {
 								return nil
@@ -1048,7 +1048,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					} else if layer.KW != nil {
 						g.gemv(g.k, g.normed, layer.KW, h, layerKVDim)
 						if cfg.AttentionKEqV && (layer.VW == nil || layer.VW == layer.KW) {
-							nvidia.DevCopy(g.v, g.k)
+							nvidia.DevCopyN(g.v, g.k, layerKVDim)
 						} else if layer.VW != nil {
 							g.gemv(g.v, g.normed, layer.VW, h, layerKVDim)
 						} else {

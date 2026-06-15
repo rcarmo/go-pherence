@@ -479,9 +479,22 @@ func DevCopy(dst, src *DevBuf) {
 	if dst == nil || src == nil {
 		return
 	}
-	n := commonLen(dst, src)
-	if n <= 0 {
+	DevCopyN(dst, src, commonLen(dst, src))
+}
+
+// DevCopyN copies the first n float32 elements from src to dst and marks dst
+// authoritative on the device where the copy completed. It is useful for shared
+// max-sized work buffers whose active row width is smaller than the allocation.
+func DevCopyN(dst, src *DevBuf, n int) {
+	if dst == nil || src == nil || n <= 0 {
 		return
+	}
+	common := commonLen(dst, src)
+	if common <= 0 {
+		return
+	}
+	if n > common {
+		n = common
 	}
 	if src.gpu != nil && dst.gpu != nil && n >= 2048 {
 		bytes, err := checkedByteSize(n, -1)
@@ -496,6 +509,7 @@ func DevCopy(dst, src *DevBuf) {
 	src.ToCPU()
 	dst.ToCPU()
 	copy(dst.cpu[:n], src.cpu[:n])
+	dst.dev = CPU
 }
 
 // MarkDirty marks CPU data as authoritative (will re-upload on next GPU access).
