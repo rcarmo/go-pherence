@@ -109,6 +109,31 @@ func TestNewMTPVerifierResultRowsForModel(t *testing.T) {
 	}
 }
 
+func TestMTPVerifierResultCommittedActivationRejectsMutatedAcceptance(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2}}
+	result, err := NewMTPVerifierResultRowsForModel(m, 0, []int{1, 2}, [][]float32{
+		{0, 9, 0, 0},
+		{0, 0, 0, 8},
+		{7, 0, 0, 0},
+	}, [][]float32{{10, 11}, {20, 21}, {30, 31}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result.Acceptance = MTPAcceptance{
+		DraftedCount:       2,
+		VerifiedCount:      2,
+		AcceptedPrefixLen:  2,
+		AcceptedTokens:     []int{1, 2},
+		BonusToken:         0,
+		OutputTokens:       []int{1, 2, 0},
+		AllDraftsAccepted:  true,
+		FirstRejectedIndex: -1,
+	}
+	if _, err := result.CommittedActivation(); err == nil {
+		t.Fatal("accepted forged acceptance for committed activation row")
+	}
+}
+
 func TestMTPVerifierResultCommitFloatKV(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
 	result, err := NewMTPVerifierResult(9, []int{1, 2}, [][]float32{{0, 9, 0}, {0, 8, 0}, {0, 0, 7}}, nil)

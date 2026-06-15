@@ -141,6 +141,9 @@ func (r MTPVerifierResult) CommittedActivation() ([]float32, error) {
 	if err := r.Acceptance.Validate(); err != nil {
 		return nil, err
 	}
+	if err := r.validateAcceptanceMatchesLogits(); err != nil {
+		return nil, err
+	}
 	idx := r.Acceptance.AcceptedPrefixLen
 	if len(r.ActivationRows) > 0 {
 		if idx >= len(r.ActivationRows) {
