@@ -13,10 +13,21 @@ type MTPGraphGenerationResult struct {
 	Stats                      MTPSpeculationStats
 	FinalState                 MTPDrafterState
 	Steps                      []MTPKVCommitPlan
+	StepSummaries              []MTPGraphGenerationStepSummary
 	GraphOutputTokens          int
 	GreedyTailTokens           int
 	Capabilities               MTPGraphCapabilities
 	MissingForPublicGeneration []string
+}
+
+type MTPGraphGenerationStepSummary struct {
+	DraftedTokens     []int
+	VerifierTokens    []int
+	Positions         []int
+	AcceptedPrefixLen int
+	BonusToken        int
+	OutputTokens      []int
+	AllDraftsAccepted bool
 }
 
 func (r MTPGraphGenerationResult) Validate(promptLen int) error {
@@ -26,12 +37,24 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if r.GraphOutputTokens < 0 || r.GreedyTailTokens < 0 {
 		return fmt.Errorf("MTP graph generation negative output accounting graph=%d greedy=%d", r.GraphOutputTokens, r.GreedyTailTokens)
 	}
+	if len(r.StepSummaries) != 0 && len(r.StepSummaries) != len(r.Steps) {
+		return fmt.Errorf("MTP graph step summaries=%d, commit steps=%d", len(r.StepSummaries), len(r.Steps))
+	}
 	var graphCount int
 	for i, step := range r.Steps {
 		if step.KeepTokens <= 0 || len(step.OutputTokens) != step.KeepTokens || len(step.Positions) != step.KeepTokens {
 			return fmt.Errorf("MTP graph generation malformed commit step %d: %+v", i, step)
 		}
 		graphCount += len(step.OutputTokens)
+		if len(r.StepSummaries) > 0 {
+			summary := r.StepSummaries[i]
+			if !mtpSameInts(summary.Positions, step.Positions) || !mtpSameInts(summary.OutputTokens, step.OutputTokens) {
+				return fmt.Errorf("MTP graph summary %d does not match commit step summary=%+v commit=%+v", i, summary, step)
+			}
+			if len(summary.OutputTokens) != summary.AcceptedPrefixLen+1 || summary.BonusToken < 0 || summary.OutputTokens[summary.AcceptedPrefixLen] != summary.BonusToken {
+				return fmt.Errorf("MTP graph summary %d invalid acceptance/output accounting: %+v", i, summary)
+			}
+		}
 	}
 	if graphCount != r.GraphOutputTokens {
 		return fmt.Errorf("MTP graph output accounting=%d, commit outputs=%d", r.GraphOutputTokens, graphCount)
@@ -112,6 +135,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 	}
 	stats := opts.Stats
 	commits := make([]MTPKVCommitPlan, 0)
+	summaries := make([]MTPGraphGenerationStepSummary, 0)
 	graphOutputTokens := 0
 	greedyTailTokens := 0
 	for len(decode.Output)-len(ctx.Tokens) < opts.MaxTokens {
@@ -138,17 +162,30 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		state = step.FinalState
 		stats = step.Stats
 		commits = append(commits, step.Commit)
+		summaries = append(summaries, newMTPGraphGenerationStepSummary(step))
 		graphOutputTokens += len(step.Commit.OutputTokens)
 		if len(step.Commit.OutputTokens) == 0 {
 			break
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
+	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
 	if err := result.Validate(len(ctx.Tokens)); err != nil {
 		return MTPGraphGenerationResult{}, err
 	}
 	return result, nil
+}
+
+func newMTPGraphGenerationStepSummary(step MTPGraphDecodeStepResult) MTPGraphGenerationStepSummary {
+	return MTPGraphGenerationStepSummary{
+		DraftedTokens:     append([]int(nil), step.Step.Drafts.Tokens...),
+		VerifierTokens:    append([]int(nil), step.Step.Plan.VerifierTokens...),
+		Positions:         append([]int(nil), step.Commit.Positions...),
+		AcceptedPrefixLen: step.Step.Verifier.Acceptance.AcceptedPrefixLen,
+		BonusToken:        step.Step.Verifier.Acceptance.BonusToken,
+		OutputTokens:      append([]int(nil), step.Commit.OutputTokens...),
+		AllDraftsAccepted: step.Step.Verifier.Acceptance.AllDraftsAccepted,
+	}
 }
 
 func mtpExternalKVForDecodeState(decode *CPUDecodeState, base *MTPDrafterExternalKV) (*MTPDrafterExternalKV, error) {

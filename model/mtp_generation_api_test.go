@@ -50,7 +50,7 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Steps) != 1 || res.GraphOutputTokens != len(res.Steps[0].OutputTokens) || res.GreedyTailTokens != 0 || res.Stats.Steps != 1 || res.Stats.DraftedTokens != 2 {
+	if len(res.Steps) != 1 || len(res.StepSummaries) != 1 || res.GraphOutputTokens != len(res.Steps[0].OutputTokens) || res.GreedyTailTokens != 0 || res.Stats.Steps != 1 || res.Stats.DraftedTokens != 2 {
 		t.Fatalf("result steps=%v stats=%+v", res.Steps, res.Stats)
 	}
 	if !sameInts(res.Output[:len(ctx.Tokens)], ctx.Tokens) {
@@ -58,6 +58,9 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	}
 	if len(res.Output) != len(ctx.Tokens)+len(res.Steps[0].OutputTokens) {
 		t.Fatalf("output=%v step=%+v", res.Output, res.Steps[0])
+	}
+	if !sameInts(res.StepSummaries[0].OutputTokens, res.Steps[0].OutputTokens) || !sameInts(res.StepSummaries[0].Positions, res.Steps[0].Positions) || len(res.StepSummaries[0].DraftedTokens) != 2 || len(res.StepSummaries[0].VerifierTokens) != 3 {
+		t.Fatalf("step summary=%+v commit=%+v", res.StepSummaries[0], res.Steps[0])
 	}
 	if res.FinalState.PreviousToken < 0 || res.FinalState.PreviousToken >= m.Config.VocabSize {
 		t.Fatalf("final state=%+v", res.FinalState)
@@ -72,6 +75,7 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		Output:            []int{10, 1, 2, 3},
 		Stats:             MTPSpeculationStats{OutputTokens: 2},
 		Steps:             []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
+		StepSummaries:     []MTPGraphGenerationStepSummary{{DraftedTokens: []int{1, 2}, VerifierTokens: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
 		GraphOutputTokens: 2,
 		GreedyTailTokens:  1,
 	}
@@ -97,6 +101,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.Steps[0].KeepTokens = 3
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted malformed commit plan")
+	}
+	bad = valid
+	bad.StepSummaries[0].OutputTokens = []int{9, 9}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted summary/commit mismatch")
 	}
 	if err := valid.Validate(99); err == nil {
 		t.Fatal("accepted bad prompt len")
