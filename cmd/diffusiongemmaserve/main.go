@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/rcarmo/go-pherence/cmd/internal/dgflags"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -192,9 +192,9 @@ func main() {
 		gpuDisp.SkipEviction = true // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
 		log.Printf("GGUF expert index ready: %d layers, %d experts, intermediate=%d",
 			ggufIdx.NumLayers, ggufIdx.NumExperts, ggufIdx.Intermediate)
-		if diffusionGemmaGGUFGPULMHeadEnabled() {
-			gpuDisp.F32LMHeadChunkSize = diffusionGemmaGGUFGPULMHeadChunkSize()
-			gpuDisp.F32LMHeadUseCache = diffusionGemmaGGUFGPULMHeadUseF32Cache()
+		if dgflags.GGUFGPULMHeadEnabled() {
+			gpuDisp.F32LMHeadChunkSize = dgflags.GGUFGPULMHeadChunkSize()
+			gpuDisp.F32LMHeadUseCache = dgflags.GGUFGPULMHeadUseF32Cache()
 			source := "Q-row"
 			if gpuDisp.F32LMHeadUseCache {
 				source = "F32-cache"
@@ -227,7 +227,7 @@ func main() {
 		gpuDisp.FP8LMHeadHidden = lmHidden
 		log.Printf("FP8 GPU ready: %d layers; LM head [%d,%d] resident", len(gpuModel.Layers), lmVocab, lmHidden)
 		var scEmbedBytes int64
-		if diffusionGemmaGPUSelfCondEnabled() {
+		if dgflags.GPUSelfCondEnabled() {
 			log.Printf("WARNING: GPU self-conditioning is experimental and not reference-correct yet")
 			scBuf, scVocab, scHidden, err := diffusiongemma.UploadSelfConditioningEmbeddingBuffer(weights)
 			if err != nil {
@@ -247,7 +247,7 @@ func main() {
 		}
 		prewarmedLayers := 0
 		if !*cpuExperts {
-			expertBudget := diffusionGemmaExpertCacheBudgetBytes(7200) - int64(lmVocab)*int64(lmHidden)*2 - scEmbedBytes - gpuModel.DenseTransposeBytes()
+			expertBudget := dgflags.ExpertCacheBudgetBytes(7200) - int64(lmVocab)*int64(lmHidden)*2 - scEmbedBytes - gpuModel.DenseTransposeBytes()
 			if expertBudget > 0 {
 				gpuDisp.ExpertCache = diffusiongemma.NewExpertLRUCache(expertBudget)
 				if *fp8ExpertPrewarmLayers > 0 {
@@ -527,40 +527,6 @@ func (s *server) handleStreamingChat(w http.ResponseWriter, reqNum int, promptID
 		log.Printf("req #%d: cache %s", reqNum, cacheStats)
 	}
 	log.Printf("req #%d: %d tok in %.1fs (%.1f t/s) streamed → %q", reqNum, len(res.Generated), elapsed.Seconds(), tokPerSec, fullText)
-}
-
-func diffusionGemmaExpertCacheBudgetBytes(defaultMB int64) int64 {
-	if v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_EXPERT_CACHE_MB")); v != "" {
-		if mb, err := strconv.ParseInt(v, 10, 64); err == nil && mb >= 0 {
-			return mb * 1024 * 1024
-		}
-	}
-	return defaultMB * 1024 * 1024
-}
-
-func diffusionGemmaGPUSelfCondEnabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GPU_SELFCOND")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
-}
-
-func diffusionGemmaGGUFGPULMHeadEnabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_LMHEAD")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
-}
-
-func diffusionGemmaGGUFGPULMHeadChunkSize() int {
-	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_LMHEAD_CHUNK"))
-	if v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return n
-		}
-	}
-	return 32768
-}
-
-func diffusionGemmaGGUFGPULMHeadUseF32Cache() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_LMHEAD_F32_CACHE")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func sendSSE(w http.ResponseWriter, f http.Flusher, id, model string, created int64, delta *chatDelta, finishReason *string) {
