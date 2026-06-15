@@ -3817,7 +3817,7 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 	}
 	var activeQ4 *gpu.GPUQ4KMatrix
 	var activeQ4Transient bool
-	if !activeQ4PtrsOK {
+	if !activeQ4PtrsOK && !activeQ4RawPtrsOK {
 		activeQ4, err = activeQ4KGateUpMatrix(idx, op.Layer, groupedArrays.ActiveExperts)
 		if err != nil {
 			if errors.Is(err, errActiveExpertMatrixCacheBudget) {
