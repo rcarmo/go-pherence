@@ -11,6 +11,7 @@ import (
 	ptxmlx "github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx"
 	ptxnvfp4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4"
 	ptxq4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4"
+	ptxq5 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q5"
 	ptxq8 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q8"
 )
 
@@ -70,6 +71,7 @@ func megaModuleEntries() []moduleEntry {
 		{"gate_up_gelu_q4_k_by_work", ptxq4.GateUpGELUQ4KByWorkPTX},
 		{"gate_up_gelu_q4_k_by_work_ptrs", ptxq4.GateUpGELUQ4KByWorkPtrsPTX},
 		{"gate_up_q4_k_by_work_ptrs", ptxq4.GateUpQ4KByWorkPtrsPTX},
+		{"gemv_q5_0_batch", ptxq5.GemvQ5_0BatchPTX},
 		{"gemv_q8_0", ptxq8.GemvQ8_0PTX},
 		{"gemv_q8_0_batch", ptxq8.GemvQ8_0BatchPTX},
 		{"gemv_q8_0_scatter", ptxq8.GemvQ8_0ScatterPTX},
