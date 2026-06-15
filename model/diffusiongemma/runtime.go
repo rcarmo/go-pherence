@@ -50,13 +50,17 @@ type Denoiser interface {
 // CanvasStep records one denoising iteration for diagnostics and future
 // streaming hooks.
 type CanvasStep struct {
-	Step        int     `json:"step"`
-	Temperature float64 `json:"temperature"`
-	Accepted    int     `json:"accepted"`
-	MeanEntropy float64 `json:"mean_entropy"`
-	Held        int     `json:"held,omitempty"`
-	Confident   bool    `json:"confident,omitempty"`
-	Stopped     bool    `json:"stopped"`
+	Step          int     `json:"step"`
+	Temperature   float64 `json:"temperature"`
+	Accepted      int     `json:"accepted"`
+	MeanEntropy   float64 `json:"mean_entropy"`
+	FirstArgmax   int     `json:"first_argmax,omitempty"`
+	FirstEntropy  float64 `json:"first_entropy,omitempty"`
+	FirstSampled  int     `json:"first_sampled,omitempty"`
+	FirstAccepted bool    `json:"first_accepted,omitempty"`
+	Held          int     `json:"held,omitempty"`
+	Confident     bool    `json:"confident,omitempty"`
+	Stopped       bool    `json:"stopped"`
 }
 
 // CanvasResult is the output of a single block-diffusion canvas generation.
@@ -222,11 +226,20 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		// Always use entropy-bound acceptance + renoise for the next input canvas
 		// (same as llama.cpp); do not return this working canvas as generated text.
 		accepted := AcceptCanvas(canvas, denoiserCanvas, entropy, cfg.Sampler.EntropyBound)
+		firstArgmax, firstSampled := 0, 0
+		var firstEntropy float64
+		var firstAccepted bool
+		if canvasLength > 0 {
+			firstArgmax = argmaxCanvas[0]
+			firstSampled = denoiserCanvas[0]
+			firstEntropy = entropy[0]
+			firstAccepted = len(accepted.AcceptedMask) > 0 && accepted.AcceptedMask[0]
+		}
 		canvas = accepted.Canvas
 		if !stopped {
 			canvas = RenoiseCanvasWithTokens(canvas, accepted.AcceptedMask, renoiseTokens)
 		}
-		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, Held: held, Confident: confident, Stopped: stopped})
+		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, FirstArgmax: firstArgmax, FirstEntropy: firstEntropy, FirstSampled: firstSampled, FirstAccepted: firstAccepted, Held: held, Confident: confident, Stopped: stopped})
 		if onStep != nil {
 			onStep(steps[len(steps)-1], canvas)
 		}
