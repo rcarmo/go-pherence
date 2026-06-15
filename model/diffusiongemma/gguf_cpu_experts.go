@@ -542,21 +542,49 @@ func ggufExpertSdotBatchTo(wRow, x []float32, nPos, inDim int, dst []float32, ds
 	if len(wRow) < inDim || nPos <= 0 || inDim <= 0 || len(x) < nPos*inDim || dstStride <= 0 || len(dst) < (nPos-1)*dstStride+1 {
 		return false
 	}
-	pos := 0
-	for ; pos+4 <= nPos; pos += 4 {
-		d0, d1, d2, d3, ok := simd.Sdotx4(wRow[:inDim], x[pos*inDim:], inDim)
-		if !ok {
-			break
-		}
-		dst[pos*dstStride] = d0
-		dst[(pos+1)*dstStride] = d1
-		dst[(pos+2)*dstStride] = d2
-		dst[(pos+3)*dstStride] = d3
-	}
-	for ; pos < nPos; pos++ {
-		dst[pos*dstStride] = simd.Sdot(wRow[:inDim], x[pos*inDim:(pos+1)*inDim])
+	q8Scratch := make([]float32, inDim)
+	for pos := 0; pos < nPos; pos++ {
+		xRow := x[pos*inDim : (pos+1)*inDim]
+		quantizeDequantQ8KForExpertDot(q8Scratch, xRow)
+		dst[pos*dstStride] = simd.Sdot(wRow[:inDim], q8Scratch[:inDim])
 	}
 	return true
+}
+
+func quantizeDequantQ8KForExpertDot(dst, x []float32) {
+	const block = 256
+	for b := 0; b+block <= len(x); b += block {
+		xb := x[b : b+block]
+		maxVal, amax := float32(0), float32(0)
+		for _, v := range xb {
+			av := v
+			if av < 0 {
+				av = -av
+			}
+			if av > amax {
+				amax = av
+				maxVal = v
+			}
+		}
+		if amax == 0 {
+			for i := 0; i < block; i++ {
+				dst[b+i] = 0
+			}
+			continue
+		}
+		iscale := float32(-127) / maxVal
+		d := 1 / iscale
+		for i, v := range xb {
+			q := int(math.Round(float64(iscale * v)))
+			if q > 127 {
+				q = 127
+			}
+			if q < -128 {
+				q = -128
+			}
+			dst[b+i] = float32(int8(q)) * d
+		}
+	}
 }
 
 func ggufQ8_0ExpertRowDot(m *gguf.ExpertMatrices, expert, row int, x []float32) (float32, error) {
