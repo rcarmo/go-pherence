@@ -836,16 +836,17 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 
 		compressedKV = make([]*kv.CompressedKVCache, cfg.NumLayers)
 		for l := range compressedKV {
-			layerHD := headDim
-			if m.Layers[l].HeadDimLocal > 0 {
-				layerHD = m.Layers[l].HeadDimLocal
+			layerHD, err := m.LayerHeadDim(l)
+			if err != nil {
+				return output
 			}
-			layerKVDim, ok := checkedProduct(numKVHeads, layerHD)
-			if layerHD <= 0 || !ok {
+			layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
+			layerKVDim, err := m.LayerKVDim(l)
+			if err != nil || layerKVHeads < 0 {
 				return output
 			}
 			tq := getTQ(layerHD)
-			compressedKV[l] = kv.NewCompressedKVCache(layerKVDim, numKVHeads, layerHD, tq, tq.IsProtectedLayer(l))
+			compressedKV[l] = kv.NewCompressedKVCache(layerKVDim, layerKVHeads, layerHD, tq, tq.IsProtectedLayer(l))
 		}
 	} else {
 		seqCap := len(tokenIDs) + maxTokens
@@ -853,14 +854,13 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			seqCap = 1
 		}
 		for l := range kvCacheK {
-			layerHD := headDim
-			if m.Layers[l].HeadDimLocal > 0 {
-				layerHD = m.Layers[l].HeadDimLocal
+			layerKVDim, err := m.LayerKVDim(l)
+			if err != nil {
+				return output
 			}
-			layerKVDim, ok := checkedProduct(numKVHeads, layerHD)
 			// Size the cache to the full sequence so growth never reallocates.
 			cacheCap, okCap := checkedProduct(seqCap, layerKVDim)
-			if layerHD <= 0 || !ok || !okCap {
+			if !okCap {
 				return output
 			}
 			kvCacheK[l] = make([]float32, 0, cacheCap)
@@ -871,8 +871,12 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	// Reusable CPU decode scratch for GQA attention.
 	maxHeadDim := headDim
 	for i := range m.Layers {
-		if m.Layers[i].HeadDimLocal > maxHeadDim {
-			maxHeadDim = m.Layers[i].HeadDimLocal
+		layerHD, err := m.LayerHeadDim(i)
+		if err != nil {
+			return output
+		}
+		if layerHD > maxHeadDim {
+			maxHeadDim = layerHD
 		}
 	}
 	maxSeqLen := len(tokenIDs) + maxTokens
@@ -905,9 +909,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	scKVDim := cfg.NumKVHeads * maxHeadDim
 	scInter := inter
 	for l := 0; l < cfg.NumLayers; l++ {
-		lhd := headDim
-		if m.Layers[l].HeadDimLocal > 0 {
-			lhd = m.Layers[l].HeadDimLocal
+		lhd, err := m.LayerHeadDim(l)
+		if err != nil {
+			return output
 		}
 		lkvh := gemmacfg.LayerKVHeads(cfg, l)
 		if q := numHeads * lhd; q > scQDim {
@@ -1012,14 +1016,17 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			// BF16 embed scaling was already applied above
 
 			// Q, K, V projections (single token: [1, h] @ [h, dim])
-			layerHeadDim := headDim
-			if layer.HeadDimLocal > 0 {
-				layerHeadDim = layer.HeadDimLocal
+			layerHeadDim, err := m.LayerHeadDim(l)
+			if err != nil {
+				return output
 			}
 			layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
-			qDim := numHeads * layerHeadDim
+			qDim, okQDim := checkedProduct(numHeads, layerHeadDim)
+			layerKVDim, okKVDim := checkedProduct(layerKVHeads, layerHeadDim)
+			if layerKVHeads <= 0 || !okQDim || !okKVDim {
+				return output
+			}
 			q := scratchQ[:qDim]
-			layerKVDim := layerKVHeads * layerHeadDim
 
 			// Always compute Q
 			if layer.QWq != nil {

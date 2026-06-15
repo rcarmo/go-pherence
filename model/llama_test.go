@@ -207,6 +207,51 @@ func TestGenerateRejectsMissingKNormWithoutPanic(t *testing.T) {
 	}
 }
 
+func TestGenerateTurboQuantGemma4FullAttentionUsesGlobalKVDim(t *testing.T) {
+	identity4 := []float32{
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
+	m := &LlamaModel{
+		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 2, HiddenSize: 4, NumLayers: 1, NumHeads: 1, NumKVHeads: 2, NumGlobalKVHeads: 1, HeadDim: 2, GlobalHeadDim: 4, Intermediate: 4, RMSNormEps: 1e-6, LayerTypes: []string{"full_attention"}},
+		EmbedTokens: tensor.FromFloat32([]float32{
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+		}, []int{2, 4}),
+		Norm:   tensor.Ones([]int{4}),
+		LMHead: tensor.FromFloat32([]float32{1, 0, 0, 0, 0, 1, 0, 0}, []int{2, 4}),
+		Layers: []LlamaLayer{{
+			InputNorm:   tensor.Ones([]int{4}),
+			PostNorm:    tensor.Ones([]int{4}),
+			PostFFNNorm: tensor.Ones([]int{4}),
+			LayerScalar: 1,
+			HasKV:       true,
+			QW:          tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			KW:          tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			VW:          tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			OW:          tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			GateW:       tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			UpW:         tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			DownW:       tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+		}},
+		EnableTurboQuant: true,
+	}
+	if got, err := m.LayerKVDim(0); err != nil || got != 4 {
+		t.Fatalf("full LayerKVDim=%d err=%v want 4", got, err)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Generate panicked with TurboQuant full-attention KV dims: %v", r)
+		}
+	}()
+	out := m.Generate([]int{0}, 1)
+	if len(out) != 2 || out[0] != 0 || out[1] < 0 || out[1] >= m.Config.VocabSize {
+		t.Fatalf("Generate output=%v", out)
+	}
+}
+
 func TestLoadSmolLM(t *testing.T) {
 	dir := smolLMPath()
 	if _, err := os.Stat(dir + "/model.safetensors"); err != nil {
