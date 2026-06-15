@@ -79,10 +79,11 @@ func TestLlamaCppGGUFHi1x1GoldenResponseIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	var fixture struct {
-		LlamaCppTemplatedPromptIDs []int        `json:"llamacpp_templated_prompt_ids"`
-		LlamaCppResponseIDs        []int        `json:"llamacpp_response_ids"`
-		LlamaCppObservedSteps      int          `json:"llamacpp_observed_entropy_bound_steps"`
-		LlamaCppStepDiagnostics    []CanvasStep `json:"llamacpp_step_diagnostics"`
+		LlamaCppTemplatedPromptIDs []int          `json:"llamacpp_templated_prompt_ids"`
+		LlamaCppResponseIDs        []int          `json:"llamacpp_response_ids"`
+		LlamaCppObservedSteps      int            `json:"llamacpp_observed_entropy_bound_steps"`
+		LlamaCppStepDiagnostics    []CanvasStep   `json:"llamacpp_step_diagnostics"`
+		LlamaCppTopProbes          []EntropyProbe `json:"llamacpp_first_step_top_probes"`
 	}
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
@@ -105,6 +106,15 @@ func TestLlamaCppGGUFHi1x1GoldenResponseIDs(t *testing.T) {
 	}
 	if last.Step != 38 || last.Accepted != 254 || last.FirstArgmax != 100 || last.FirstSampled != 100 || !last.FirstAccepted || last.Held != 1 || !last.Confident || !last.Stopped {
 		t.Fatalf("bad llama.cpp final step diagnostics: %+v", last)
+	}
+	if len(fixture.LlamaCppTopProbes) != 2 {
+		t.Fatalf("llama.cpp top probes=%d want 2", len(fixture.LlamaCppTopProbes))
+	}
+	if p := fixture.LlamaCppTopProbes[0]; p.Position != 9 || p.Argmax != 107 || p.Sampled != 107 || p.Accepted || p.Entropy < 1.16 || p.Entropy > 1.18 || !equalInts(p.TopIDs, []int{107, 3056, 1174, 108, 140}) {
+		t.Fatalf("bad llama.cpp pos9 top probe: %+v", p)
+	}
+	if p := fixture.LlamaCppTopProbes[1]; p.Position != 28 || p.Argmax != 139 || p.Sampled != 139 || p.Accepted || p.Entropy < 4.03 || p.Entropy > 4.04 || !equalInts(p.TopIDs, []int{139, 236829, 236761, 107, 140}) {
+		t.Fatalf("bad llama.cpp pos28 top probe: %+v", p)
 	}
 }
 
@@ -191,7 +201,7 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 	if fixture.GoTrimCut != len(wantGenerated) || fixture.GoTrimReason != "eog" || fixture.GoObservedSteps != 2 || len(fixture.GoStepDiagnostics) != 2 || !fixture.GoStepDiagnostics[1].Stopped || fixture.GoStepDiagnostics[1].Held != 1 || !fixture.GoStepDiagnostics[1].Confident {
 		t.Fatalf("Go trim/step diagnostics lost: cut=%d reason=%q observed=%d steps=%+v", fixture.GoTrimCut, fixture.GoTrimReason, fixture.GoObservedSteps, fixture.GoStepDiagnostics)
 	}
-	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 4 || !strings.Contains(fixture.NextRequiredAction, "first-step logits/entropy") {
+	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 4 || !strings.Contains(fixture.NextRequiredAction, "first differing layer") {
 		t.Fatalf("parity blocker is underspecified: %+v", fixture)
 	}
 }
