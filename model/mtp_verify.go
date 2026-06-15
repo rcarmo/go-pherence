@@ -108,9 +108,70 @@ func (r MTPVerifierResult) CommitFloatKV(m *LlamaModel, kvCacheK, kvCacheV [][]f
 	return m.CommitAcceptedFloatKV(kvCacheK, kvCacheV, cp, r.Acceptance)
 }
 
+// CommitGraphFloatKV applies acceptance through the explicit MTPExecutionGraph,
+// then commits exactly the graph's accepted-prefix+bonus KV window.
+func (r MTPVerifierResult) CommitGraphFloatKV(m *LlamaModel, graph MTPExecutionGraph, kvCacheK, kvCacheV [][]float32, cp kv.FloatKVCheckpoint) (MTPKVCommitPlan, error) {
+	if m == nil {
+		return MTPKVCommitPlan{}, fmt.Errorf("nil model")
+	}
+	if err := r.validateGraph(graph); err != nil {
+		return MTPKVCommitPlan{}, err
+	}
+	commit, err := graph.CommitPlan(r.Acceptance)
+	if err != nil {
+		return MTPKVCommitPlan{}, err
+	}
+	if err := m.CommitAcceptedFloatKV(kvCacheK, kvCacheV, cp, r.Acceptance); err != nil {
+		return MTPKVCommitPlan{}, err
+	}
+	return commit, nil
+}
+
 // CommitCompressedKV applies the verifier result's acceptance to staged
 // compressed/TurboQuant KV caches. The checkpoints must be from immediately
 // before the verifier pass.
 func (r MTPVerifierResult) CommitCompressedKV(caches []*kv.CompressedKVCache, cp []kv.CompressedKVCheckpoint) error {
 	return CommitAcceptedCompressedKV(caches, cp, r.Acceptance)
+}
+
+// CommitGraphCompressedKV is the compressed/TurboQuant counterpart to
+// CommitGraphFloatKV. It validates the explicit graph before retaining the
+// accepted-prefix+bonus compressed KV window.
+func (r MTPVerifierResult) CommitGraphCompressedKV(graph MTPExecutionGraph, caches []*kv.CompressedKVCache, cp []kv.CompressedKVCheckpoint) (MTPKVCommitPlan, error) {
+	if err := r.validateGraph(graph); err != nil {
+		return MTPKVCommitPlan{}, err
+	}
+	commit, err := graph.CommitPlan(r.Acceptance)
+	if err != nil {
+		return MTPKVCommitPlan{}, err
+	}
+	if err := CommitAcceptedCompressedKV(caches, cp, r.Acceptance); err != nil {
+		return MTPKVCommitPlan{}, err
+	}
+	return commit, nil
+}
+
+func (r MTPVerifierResult) validateGraph(graph MTPExecutionGraph) error {
+	if r.InputToken != graph.InputToken || graph.Verifier.InputToken != r.InputToken {
+		return fmt.Errorf("MTP graph input token mismatch result=%d graph=%d verifier=%d", r.InputToken, graph.InputToken, graph.Verifier.InputToken)
+	}
+	if !mtpSameInts(r.DraftedTokens, graph.DraftedTokens) || !mtpSameInts(r.DraftedTokens, graph.Verifier.DraftedTokens) {
+		return fmt.Errorf("MTP graph drafted tokens mismatch result=%v graph=%v verifier=%v", r.DraftedTokens, graph.DraftedTokens, graph.Verifier.DraftedTokens)
+	}
+	if !mtpSameInts(r.VerifierTokens, graph.Verifier.VerifierTokens) {
+		return fmt.Errorf("MTP graph verifier tokens mismatch result=%v graph=%v", r.VerifierTokens, graph.Verifier.VerifierTokens)
+	}
+	return nil
+}
+
+func mtpSameInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
