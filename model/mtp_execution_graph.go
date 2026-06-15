@@ -132,6 +132,9 @@ func (g MTPExecutionGraph) Validate() error {
 				return fmt.Errorf("MTP graph drafter step %d external KV view seq/layers=%d/%v, want %d/%v", i, step.ExternalKVSeqLen, step.ExternalKVLayers, externalKVSeqLen, externalKVLayers)
 			}
 		}
+		if (step.ExternalKVSeqLen != 0 || len(step.ExternalKVLayers) != 0) && step.ExternalKVSeqLen != g.StartPos {
+			return fmt.Errorf("MTP graph drafter step %d external KV seq len=%d, want graph start position=%d", i, step.ExternalKVSeqLen, g.StartPos)
+		}
 		seenExternalLayers := map[int]bool{}
 		for j, layer := range step.ExternalKVLayers {
 			if layer < 0 {

@@ -10,17 +10,17 @@ func TestNewMTPExecutionGraph(t *testing.T) {
 		t.Fatal(err)
 	}
 	externalKV := &MTPDrafterExternalKV{K: [][]float32{{1, 0}}, V: [][]float32{{0, 1}}, SourceLayers: []int{0}, SeqLen: 1}
-	graph, err := NewMTPExecutionGraph(m, d, state, externalKV, []int{2, 3, 1}, 10)
+	graph, err := NewMTPExecutionGraph(m, d, state, externalKV, []int{2, 3, 1}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if graph.InputToken != 1 || graph.StartPos != 10 || graph.MaxKVKeepTokens != 4 {
+	if graph.InputToken != 1 || graph.StartPos != 1 || graph.MaxKVKeepTokens != 4 {
 		t.Fatalf("graph header=%+v", graph)
 	}
 	if !sameInts(graph.DraftedTokens, []int{2, 3, 1}) {
 		t.Fatalf("drafted=%v", graph.DraftedTokens)
 	}
-	if !sameInts(graph.Verifier.VerifierTokens, []int{1, 2, 3, 1}) || !sameInts(graph.Verifier.Positions, []int{10, 11, 12, 13}) {
+	if !sameInts(graph.Verifier.VerifierTokens, []int{1, 2, 3, 1}) || !sameInts(graph.Verifier.Positions, []int{1, 2, 3, 4}) {
 		t.Fatalf("verifier tokens=%v positions=%v", graph.Verifier.VerifierTokens, graph.Verifier.Positions)
 	}
 	wantInputs := []int{1, 2, 3}
@@ -72,6 +72,14 @@ func TestMTPExecutionGraphValidateRejectsMalformed(t *testing.T) {
 	bad.DrafterSteps[1].ExternalKVSeqLen++
 	if err := bad.Validate(); err == nil {
 		t.Fatal("accepted inconsistent external KV seq len")
+	}
+	bad = makeGraph()
+	for i := range bad.DrafterSteps {
+		bad.DrafterSteps[i].ExternalKVSeqLen = bad.StartPos - 1
+		bad.DrafterSteps[i].ExternalKVLayers = []int{0}
+	}
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted external KV seq len that does not match graph start position")
 	}
 	bad = makeGraph()
 	bad.DrafterSteps[1].ExternalKVLayers = []int{99}
