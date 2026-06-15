@@ -44,6 +44,10 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 | Chunked/streaming transcription | `models/whisper/chunked.go`, `models/whisper/batched.go`, `cmd/audio/whisper`, `cmd/audio/diarize-vtt` | VAD-packed chunks, overlap, progressive write, resume; all chunk/language-detect mel paths now route through `loader/audio.MelSpectrogram` instead of placeholder features; standalone no-timestamp mode chunks long inputs instead of over-length encoder passes; standalone timestamp output filters empty/punctuation-only cues. |
 | Speculative decode | `models/whisper/speculative*.go` | Correctness scaffold only; target verifier state now rolls back rejected draft KV and replays only accepted tokens plus bonus; no speedup until verifier batching or smaller drafter is integrated. |
 
+## Native SIMD oracle policy
+
+For large-v3-turbo backend work, the native CPU/SIMD path is the correctness oracle for refining NEON, RISC-V/IME, A100, NVIDIA, and CUDA/PTX variants. New hardware kernels should either compare directly against the checked SIMD/scalar facade on synthetic fixtures or preserve transcript/VTT parity through `make whisper-turbo-check`, `make whisper-a100-compare`, and windowed `scripts/whisper_a100_compare.py` runs before being considered for default use.
+
 ## Custom kernel coverage
 
 | Kernel family | Location | Default? | Notes |

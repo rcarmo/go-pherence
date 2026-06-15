@@ -28,7 +28,9 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/runtime ./backends/nvidia/ioctl
 # Vulkan wrapper phase without a Vulkan device
 GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 
-# Whisper large-v3-turbo execution graph (audio commands, mel, SIMD, prompt/timestamp/speculative scaffolds)
+# Whisper large-v3-turbo execution graph (audio commands, mel, SIMD, prompt/timestamp/speculative scaffolds).
+# Treat the native CPU/SIMD path as the oracle for NEON, RISC-V/IME, A100,
+# NVIDIA, and CUDA/PTX refinements; hardware paths must preserve these results.
 make whisper-turbo-check
 
 # Equivalent explicit form:
