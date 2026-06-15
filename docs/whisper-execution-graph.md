@@ -38,7 +38,7 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 | Modality | Entry point | Status |
 |---|---|---|
 | Single audio transcription | `cmd/audio/whisper` and `Whisper.TranscribeWithLanguageDetect` | Native/optimized STT path; large-v3/turbo supported by `-size`; language-detect transcription now uses the shared mel path and standard prompt decode helper. |
-| Long-form translated VTT | `cmd/audio/diarize-vtt` | Default user-facing path; now defaults to turbo + English translation prompt. |
+| Long-form translated VTT | `cmd/audio/diarize-vtt` | Default user-facing path; now defaults to turbo + English translation prompt; JFK smoke with `-gpu=false -workers 1 -max-tokens 16` emits one translated cue at RTF≈0.98. |
 | Speaker-only validation | `cmd/audio/speakercheck` | VAD/ECAPA/clustering without Whisper; supports WAV and ffmpeg-readable inputs, JSON, and `-expect`. |
 | Batched encoder | `Encoder.BatchedForward` and `BatchedChunkedTranscribe` | Present for multiple chunks; batched chunk mel extraction now uses `loader/audio.MelSpectrogram` instead of placeholder zero features. |
 | Chunked/streaming transcription | `models/whisper/chunked.go`, `models/whisper/batched.go`, `cmd/audio/diarize-vtt` | VAD-packed chunks, overlap, progressive write, resume; all chunk/language-detect mel paths now route through `loader/audio.MelSpectrogram` instead of placeholder features. |
