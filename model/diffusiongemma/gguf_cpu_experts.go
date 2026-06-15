@@ -152,7 +152,7 @@ type ggufCPUExpertGroupingScratch struct {
 
 var ggufCPUExpertGroupingPool = sync.Pool{New: func() any { return &ggufCPUExpertGroupingScratch{} }}
 
-type ggufCPUExpertBatchBuckets [6]uint64
+type ggufCPUExpertBatchBuckets [10]uint64
 
 type ggufCPUExpertTimingStats struct {
 	Calls            uint64
@@ -186,10 +186,10 @@ var ggufCPUExpertTimingCounters struct {
 	q4DequantRows    atomic.Uint64
 	q8DirectRows     atomic.Uint64
 	q8DequantRows    atomic.Uint64
-	q4DirectBatches  [6]atomic.Uint64
-	q4DequantBatches [6]atomic.Uint64
-	q8DirectBatches  [6]atomic.Uint64
-	q8DequantBatches [6]atomic.Uint64
+	q4DirectBatches  [10]atomic.Uint64
+	q4DequantBatches [10]atomic.Uint64
+	q8DirectBatches  [10]atomic.Uint64
+	q8DequantBatches [10]atomic.Uint64
 	normNS           atomic.Uint64
 	collectNS        atomic.Uint64
 	scheduleNS       atomic.Uint64
@@ -206,18 +206,26 @@ func ggufCPUExpertBatchBucket(nPos int) int {
 		return 0
 	case nPos <= 3:
 		return 1
-	case nPos <= 8:
+	case nPos == 4:
 		return 2
-	case nPos <= 12:
+	case nPos == 5:
 		return 3
-	case nPos <= 15:
+	case nPos == 6:
 		return 4
-	default:
+	case nPos == 7:
 		return 5
+	case nPos == 8:
+		return 6
+	case nPos <= 12:
+		return 7
+	case nPos <= 15:
+		return 8
+	default:
+		return 9
 	}
 }
 
-func ggufCPUExpertLoadBuckets(c *[6]atomic.Uint64) ggufCPUExpertBatchBuckets {
+func ggufCPUExpertLoadBuckets(c *[10]atomic.Uint64) ggufCPUExpertBatchBuckets {
 	var out ggufCPUExpertBatchBuckets
 	for i := range out {
 		out[i] = c[i].Load()
@@ -225,7 +233,7 @@ func ggufCPUExpertLoadBuckets(c *[6]atomic.Uint64) ggufCPUExpertBatchBuckets {
 	return out
 }
 
-func ggufCPUExpertStoreZeroBuckets(c *[6]atomic.Uint64) {
+func ggufCPUExpertStoreZeroBuckets(c *[10]atomic.Uint64) {
 	for i := range c {
 		c[i].Store(0)
 	}
@@ -240,7 +248,7 @@ func ggufCPUExpertSubBuckets(a, b ggufCPUExpertBatchBuckets) ggufCPUExpertBatchB
 }
 
 func ggufCPUExpertBatchBucketsString(b ggufCPUExpertBatchBuckets) string {
-	return fmt.Sprintf("1:%d,2-3:%d,4-8:%d,9-12:%d,13-15:%d,16+:%d", b[0], b[1], b[2], b[3], b[4], b[5])
+	return fmt.Sprintf("1:%d,2-3:%d,4:%d,5:%d,6:%d,7:%d,8:%d,9-12:%d,13-15:%d,16+:%d", b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9])
 }
 
 func ggufCPUExpertTimingSnapshot() ggufCPUExpertTimingStats {
@@ -865,9 +873,9 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				gateStart := time.Now()
 				batchGU := ws.batchGU[:nPos*intermediate*2]
 				outDimGU := intermediate * 2 // 1408
-				// SIMD direct Q4_K row-dot uses a 4-output raw-row primitive and wins up
-				// through nPos<=8; larger gate/up batches still favor dequant-once +
-				// Sdot reuse.
+				// SIMD direct Q4_K row-dot uses a 4-output raw-row primitive and remains
+				// the better full-path policy through nPos<=8; larger gate/up batches
+				// favor dequant-once + Sdotx4 reuse end-to-end.
 				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos <= 8 && le.gateUp.QType == gguf.QuantQ4_K
 				for r := 0; r < outDimGU; r++ {
 					if useDirectQ4GateUp {
@@ -928,9 +936,9 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down scale outside len=%d", eid, len(le.downScale)) })
 					return
 				}
-				// SIMD direct Q8_0 row-dot uses a 4-output raw-row primitive and wins up
-				// through nPos<=8 in the full GGUF expert path; larger expert-down batches
-				// still favor dequant-once + Sdot reuse end-to-end.
+				// SIMD direct Q8_0 row-dot uses a 4-output raw-row primitive and remains
+				// the better full-path policy through nPos<=8; larger expert-down batches
+				// favor dequant-once + Sdotx4 reuse end-to-end.
 				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos <= 8 && le.down.QType == gguf.QuantQ8_0
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {

@@ -47,13 +47,13 @@ func TestGGUFCPUDirectQuantPolicyDefaultsOnAndCanBeDisabled(t *testing.T) {
 }
 
 func TestGGUFCPUExpertBatchBuckets(t *testing.T) {
-	cases := map[int]int{0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 8: 2, 9: 3, 12: 3, 13: 4, 15: 4, 16: 5, 64: 5}
+	cases := map[int]int{0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 3, 6: 4, 7: 5, 8: 6, 9: 7, 12: 7, 13: 8, 15: 8, 16: 9, 64: 9}
 	for nPos, want := range cases {
 		if got := ggufCPUExpertBatchBucket(nPos); got != want {
 			t.Fatalf("bucket(%d)=%d, want %d", nPos, got, want)
 		}
 	}
-	if got := ggufCPUExpertBatchBucketsString(ggufCPUExpertBatchBuckets{1, 2, 3, 4, 5, 6}); got != "1:1,2-3:2,4-8:3,9-12:4,13-15:5,16+:6" {
+	if got := ggufCPUExpertBatchBucketsString(ggufCPUExpertBatchBuckets{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}); got != "1:1,2-3:2,4:3,5:4,6:5,7:6,8:7,9-12:8,13-15:9,16+:10" {
 		t.Fatalf("unexpected bucket string %q", got)
 	}
 }
@@ -71,17 +71,17 @@ func TestResetGGUFCPUExpertTimingStats(t *testing.T) {
 	ggufCPUExpertTimingCounters.q4DirectBatches[0].Add(10)
 	ggufCPUExpertTimingCounters.q4DequantBatches[1].Add(11)
 	ggufCPUExpertTimingCounters.q8DirectBatches[2].Add(12)
-	ggufCPUExpertTimingCounters.q8DequantBatches[5].Add(13)
+	ggufCPUExpertTimingCounters.q8DequantBatches[9].Add(13)
 	ggufCPUExpertTimingCounters.gateNS.Add(14)
 	before := ggufCPUExpertTimingSnapshot()
-	if before.Calls != 2 || before.Positions != 3 || before.WorkItems != 4 || before.ActiveExperts != 5 || before.Q4DirectRows != 6 || before.Q4DequantRows != 7 || before.Q8DirectRows != 8 || before.Q8DequantRows != 9 || before.Q4DirectBatches[0] != 10 || before.Q4DequantBatches[1] != 11 || before.Q8DirectBatches[2] != 12 || before.Q8DequantBatches[5] != 13 || before.GateNS != 14 {
+	if before.Calls != 2 || before.Positions != 3 || before.WorkItems != 4 || before.ActiveExperts != 5 || before.Q4DirectRows != 6 || before.Q4DequantRows != 7 || before.Q8DirectRows != 8 || before.Q8DequantRows != 9 || before.Q4DirectBatches[0] != 10 || before.Q4DequantBatches[1] != 11 || before.Q8DirectBatches[2] != 12 || before.Q8DequantBatches[9] != 13 || before.GateNS != 14 {
 		t.Fatalf("unexpected stats before reset: %+v", before)
 	}
 	base := before
 	ggufCPUExpertTimingCounters.q4DirectBatches[0].Add(3)
-	ggufCPUExpertTimingCounters.q8DequantBatches[5].Add(5)
+	ggufCPUExpertTimingCounters.q8DequantBatches[9].Add(5)
 	delta := ggufCPUExpertTimingSnapshot().Sub(base)
-	if delta.Q4DirectBatches[0] != 3 || delta.Q8DequantBatches[5] != 5 {
+	if delta.Q4DirectBatches[0] != 3 || delta.Q8DequantBatches[9] != 5 {
 		t.Fatalf("unexpected stats delta: %+v", delta)
 	}
 	ResetGGUFCPUExpertTimingStats()
