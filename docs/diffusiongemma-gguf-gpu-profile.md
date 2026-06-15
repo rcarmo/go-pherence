@@ -223,10 +223,24 @@ q5_dequant_rows=1284096
 gate=6.2s down=4.6s
 ```
 
-So the next path should either reduce the dropped subset through better resident
-coverage/replacement planning or speed up dropped-subset CPU/SIMD math. Q5_0 down
-projection is the largest remaining row count, while large-batch Q4/Q8 dequant
-still dominates gate/up/down worker time in the dropped subset.
+A correctness-first direct Q5_0 row-dot helper was added after microbenchmarks
+showed it only wins for `nPos=1`; larger batches still favor dequant-once plus
+SIMD Sdot reuse. With that conservative policy enabled, the same planned raw-Q4
+profile preserved `[144]` and shifted single-position Q5 rows into the direct
+bucket:
+
+```text
+gguf_cpu_experts: calls=30 positions=2760 work_items=7665 active_experts=936
+q5_direct_rows=354816 q5_dequant_rows=929280
+q5_batches(d=1:126 dq=2-3:117,4:29,5:19,6:12,7:14,8:11,9-12:39,13-15:18,16+:71)
+generated=[144] canvases=1
+```
+
+So the remaining path should either reduce the dropped subset through better
+resident coverage/replacement planning or speed up large-batch CPU/SIMD math. Q5
+single-position work is now covered by the direct helper; the largest remaining
+Q5 cost is batched down projection, while large-batch Q4/Q8 dequant still
+dominates gate/up/down worker time in the dropped subset.
 
 Budget scaling with the same exact partial-resident profile shows the structural
 trend clearly even when wall-clock varies with host load:
