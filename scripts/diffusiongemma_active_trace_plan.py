@@ -46,10 +46,24 @@ def parse_layer_set(text: str) -> set[int] | None:
     return out
 
 
-def extract_plan(path: Path, top: int, q8_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer") -> list[tuple[int, list[int]]]:
+def expert_cost_bytes(layer: int, q8_layers: set[int] | None, q5_layers: set[int] | None) -> int:
+    # DiffusionGemma-26B-A4B GGUF expert device representation:
+    # Q4_K gate/up [1408,2816]: 1408 * 11 blocks * (128 q + 8 scale f32 + 8 min f32)
+    q4_gate_up = 1408 * 11 * (128 + 8 * 4 + 8 * 4)
+    q8_down = 2816 * (704 + 22 * 4)
+    q5_down = 2816 * (704 // 2 + 22 * (4 + 4))
+    if q5_layers is not None and layer in q5_layers:
+        return q4_gate_up + q5_down
+    if q8_layers is not None and layer in q8_layers:
+        return q4_gate_up + q8_down
+    # If no layer typing was supplied, use the conservative larger estimate.
+    return q4_gate_up + q8_down
+
+
+def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer") -> list[tuple[int, list[int]]]:
     seen_layers: set[int] = set()
     plan: list[tuple[int, list[int]]] = []
-    flat: list[tuple[int, int, int, int]] = []  # (-work, layer, rank, expert)
+    flat: list[tuple[float, int, int, int]] = []  # sort-key, layer, rank, expert
     for line in path.read_text(errors="ignore").splitlines():
         m = TRACE_RE.search(line)
         if not m:
@@ -72,12 +86,16 @@ def extract_plan(path: Path, top: int, q8_layers: set[int] | None, include_repea
                 continue
             seen_experts.add(expert)
             experts.append(expert)
-            flat.append((-work, layer, rank, expert))
+            if order == "efficiency":
+                cost = expert_cost_bytes(layer, q8_layers, q5_layers)
+                flat.append((-float(work) / float(cost), layer, rank, expert))
+            else:
+                flat.append((-float(work), layer, rank, expert))
             if len(experts) >= top:
                 break
         if experts:
             plan.append((layer, experts))
-    if order == "global-work":
+    if order in {"global-work", "efficiency"}:
         flat.sort()
         return [(layer, [expert]) for _, layer, _, expert in flat]
     return plan
@@ -91,15 +109,17 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("log", type=Path, help="dispatch-progress log containing gguf_expert_active_trace lines")
     ap.add_argument("--top", type=int, default=6, help="experts per layer to emit (default: 6)")
-    ap.add_argument("--q8-layers", default="", help="optional comma/range list of pointer-compatible Q8_0 down layers, e.g. 0-2,5,8,11")
+    ap.add_argument("--q8-layers", default="", help="optional comma/range list of Q8_0 down layers, e.g. 0-2,5,8,11")
+    ap.add_argument("--q5-layers", default="", help="optional comma/range list of Q5_0 down layers for cost-aware planning")
     ap.add_argument("--include-repeated-layers", action="store_true", help="include repeated layer traces instead of only the first row per layer")
-    ap.add_argument("--order", choices=("layer", "global-work"), default="layer", help="emit layer-major groups or globally sort layer/expert entries by observed work (default: layer)")
+    ap.add_argument("--order", choices=("layer", "global-work", "efficiency"), default="layer", help="emit layer-major groups, globally sort by work, or sort by work/estimated resident byte (default: layer)")
     args = ap.parse_args(argv)
 
     if args.top <= 0:
         ap.error("--top must be positive")
     q8_layers = parse_layer_set(args.q8_layers)
-    plan = extract_plan(args.log, args.top, q8_layers, args.include_repeated_layers, args.order)
+    q5_layers = parse_layer_set(args.q5_layers)
+    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order)
     sys.stdout.write(format_plan(plan))
     if plan:
         sys.stdout.write("\n")
