@@ -64,6 +64,32 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	}
 }
 
+func TestMTPExternalKVForDecodeStateRefreshesKVSlicesAndSeqLen(t *testing.T) {
+	decode := &CPUDecodeState{Output: []int{1, 2, 3}, KVCacheK: [][]float32{{1, 2, 3, 4, 9, 10}}, KVCacheV: [][]float32{{5, 6, 7, 8, 11, 12}}}
+	base := &MTPDrafterExternalKV{K: [][]float32{{1, 2}}, V: [][]float32{{3, 4}}, SourceLayers: []int{0}, SeqLen: 1}
+	got, err := mtpExternalKVForDecodeState(decode, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SeqLen != len(decode.Output) || !sameFloat32s(got.K[0], decode.KVCacheK[0]) || !sameFloat32s(got.V[0], decode.KVCacheV[0]) || !sameInts(got.SourceLayers, base.SourceLayers) {
+		t.Fatalf("refreshed external KV=%+v", got)
+	}
+	got.SourceLayers[0] = 99
+	if base.SourceLayers[0] == 99 {
+		t.Fatal("source layers alias base")
+	}
+	if nilKV, err := mtpExternalKVForDecodeState(decode, nil); err != nil || nilKV != nil {
+		t.Fatalf("nil base got=%v err=%v", nilKV, err)
+	}
+	if _, err := mtpExternalKVForDecodeState(nil, base); err == nil {
+		t.Fatal("accepted nil decode state")
+	}
+	badDecode := &CPUDecodeState{Output: []int{1}, KVCacheK: [][]float32{{}}, KVCacheV: nil}
+	if _, err := mtpExternalKVForDecodeState(badDecode, base); err == nil {
+		t.Fatal("accepted mismatched decode/base KV layers")
+	}
+}
+
 func TestGenerateMTPGraphFromPromptContextGreedyDecodesSingleTokenTail(t *testing.T) {
 	m := newZeroLayerVerifierModel()
 	d := validProjectionOnlyDrafter()

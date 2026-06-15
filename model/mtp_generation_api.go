@@ -93,7 +93,11 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 			}
 			break
 		}
-		step, err := decode.RunMTPGraphDecodeStep(d, state, externalKV, MTPGraphDecodeStepOptions{RemainingTokens: remaining, Policy: opts.Policy}, stats)
+		stepExternalKV, err := mtpExternalKVForDecodeState(decode, externalKV)
+		if err != nil {
+			return MTPGraphGenerationResult{}, err
+		}
+		step, err := decode.RunMTPGraphDecodeStep(d, state, stepExternalKV, MTPGraphDecodeStepOptions{RemainingTokens: remaining, Policy: opts.Policy}, stats)
 		if err != nil {
 			return MTPGraphGenerationResult{}, err
 		}
@@ -105,4 +109,22 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	return MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits}, nil
+}
+
+func mtpExternalKVForDecodeState(decode *CPUDecodeState, base *MTPDrafterExternalKV) (*MTPDrafterExternalKV, error) {
+	if base == nil {
+		return nil, nil
+	}
+	if decode == nil {
+		return nil, fmt.Errorf("nil decode state")
+	}
+	if len(decode.KVCacheK) != len(base.K) || len(decode.KVCacheV) != len(base.V) {
+		return nil, fmt.Errorf("decode KV layers K/V=%d/%d, base K/V=%d/%d", len(decode.KVCacheK), len(decode.KVCacheV), len(base.K), len(base.V))
+	}
+	return &MTPDrafterExternalKV{
+		K:            decode.KVCacheK,
+		V:            decode.KVCacheV,
+		SourceLayers: append([]int(nil), base.SourceLayers...),
+		SeqLen:       len(decode.Output),
+	}, nil
 }
