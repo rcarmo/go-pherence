@@ -2,7 +2,7 @@
 //
 // Usage:
 //
-//	whisper -model /path/to/model.safetensors -audio input.wav [-diarize]
+//	whisper -audio input.m4a [-model /path/to/model.safetensors] [-diarize]
 //
 // The default -size is large-v3-turbo (full large-v3 encoder + 4-layer distilled
 // decoder): on-par transcript quality with much cheaper decode. Pass -size
@@ -15,8 +15,10 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,7 +29,7 @@ import (
 
 func main() {
 	modelPath := flag.String("model", "models/whisper-large-v3-turbo-hf/model.safetensors", "Path to Whisper safetensors model")
-	audioPath := flag.String("audio", "", "Path to input WAV file")
+	audioPath := flag.String("audio", "", "Path to input audio file (WAV directly, other formats via ffmpeg)")
 	modelSize := flag.String("size", "turbo", "Model size: tiny, base, small, medium, large-v3, turbo (default large-v3-turbo: same encoder as large-v3, 4-layer distilled decoder)")
 	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
@@ -92,8 +94,16 @@ func main() {
 	}
 
 	// Load audio
-	fmt.Fprintf(os.Stderr, "Loading audio from %s...\n", *audioPath)
-	samples, sampleRate, err := audio.WAV(*audioPath)
+	wavPath, cleanup, err := materializeWAV(*audioPath)
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error decoding audio: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Fprintf(os.Stderr, "Loading audio from %s...\n", wavPath)
+	samples, sampleRate, err := audio.WAV(wavPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading audio: %v\n", err)
 		os.Exit(1)
@@ -158,6 +168,27 @@ func main() {
 		}
 		fmt.Println(text)
 	}
+}
+
+func materializeWAV(input string) (string, func(), error) {
+	isURL := strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://")
+	if !isURL && strings.EqualFold(filepath.Ext(input), ".wav") {
+		return input, nil, nil
+	}
+	tmp, err := os.MkdirTemp("", "go-pherence-whisper-*")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() { _ = os.RemoveAll(tmp) }
+	wav := filepath.Join(tmp, "input.wav")
+	cmd := exec.Command("ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", input, "-ac", "1", "-ar", "16000", wav)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return wav, cleanup, nil
 }
 
 func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.Segment {
