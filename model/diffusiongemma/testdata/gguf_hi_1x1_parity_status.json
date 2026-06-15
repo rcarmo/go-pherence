@@ -1,0 +1,19 @@
+{
+  "case": "gguf_hi_1x1",
+  "status": "mismatch_blocked",
+  "purpose": "Track the smallest real-weight llama.cpp-vs-Go comparison until prompt templating and denoising/sampler semantics are aligned.",
+  "llamacpp_fixture": "llamacpp_gguf_hi_1x1_reference.json",
+  "go_command": "/tmp/diffusiongemmarun-dg -model models/diffusiongemma-26B-A4B-it-FP8 -gguf-model /workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf -cpu-dispatcher -allow-slow-cpu -prompt hi -max-new 1 -canvas 256 -denoise-steps 1 -seed 1 -json -decode",
+  "go_prompt_ids": [2202],
+  "go_prompt_tokens": ["hi"],
+  "go_generated_ids": [236761],
+  "go_generated_tokens": ["."],
+  "llamacpp_prompt": "hi",
+  "llamacpp_decoded_response_contains": "Hello! How can I help you today?",
+  "known_differences": [
+    "llama.cpp -p hi applies its DiffusionGemma chat/template path and emits a thought/channel response; the Go comparison run used raw -prompt tokenization and generated a single '.' token.",
+    "llama.cpp entropy-bound generation reported 11 denoise steps for --diffusion-steps 1, while Go currently interprets -denoise-steps 1 as one denoiser iteration.",
+    "The local llama.cpp build does not include llama-tokenize, so exact llama.cpp prompt IDs for the templated prompt have not yet been captured."
+  ],
+  "next_required_action": "Capture exact llama.cpp templated prompt IDs and match entropy-bound denoising/sampler semantics before treating this as a pass/fail parity fixture."
+}

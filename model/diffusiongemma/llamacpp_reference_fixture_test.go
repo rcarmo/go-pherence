@@ -41,3 +41,34 @@ func TestLlamaCppGGUFHi1x1ReferenceFixture(t *testing.T) {
 		t.Fatalf("HF reference environment/blocker not captured: %+v", fixture.HFReferenceEnv)
 	}
 }
+
+func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
+	data, err := os.ReadFile("testdata/gguf_hi_1x1_parity_status.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Status                          string   `json:"status"`
+		GoPromptIDs                     []int    `json:"go_prompt_ids"`
+		GoGeneratedIDs                  []int    `json:"go_generated_ids"`
+		GoGeneratedTokens               []string `json:"go_generated_tokens"`
+		LlamaCppDecodedResponseContains string   `json:"llamacpp_decoded_response_contains"`
+		KnownDifferences                []string `json:"known_differences"`
+		NextRequiredAction              string   `json:"next_required_action"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.Status != "mismatch_blocked" {
+		t.Fatalf("status=%q want mismatch_blocked until prompt/sampler parity is aligned", fixture.Status)
+	}
+	if len(fixture.GoPromptIDs) != 1 || fixture.GoPromptIDs[0] != 2202 {
+		t.Fatalf("Go prompt IDs=%v want [2202]", fixture.GoPromptIDs)
+	}
+	if len(fixture.GoGeneratedIDs) != 1 || fixture.GoGeneratedIDs[0] != 236761 || len(fixture.GoGeneratedTokens) != 1 || fixture.GoGeneratedTokens[0] != "." {
+		t.Fatalf("Go generated fixture lost mismatch details: ids=%v tokens=%v", fixture.GoGeneratedIDs, fixture.GoGeneratedTokens)
+	}
+	if !strings.Contains(fixture.LlamaCppDecodedResponseContains, "Hello!") || len(fixture.KnownDifferences) < 3 || !strings.Contains(fixture.NextRequiredAction, "prompt IDs") {
+		t.Fatalf("parity blocker is underspecified: %+v", fixture)
+	}
+}
