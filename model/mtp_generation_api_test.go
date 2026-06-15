@@ -50,7 +50,7 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Steps) != 1 || res.Stats.Steps != 1 || res.Stats.DraftedTokens != 2 {
+	if len(res.Steps) != 1 || res.GreedyTailTokens != 0 || res.Stats.Steps != 1 || res.Stats.DraftedTokens != 2 {
 		t.Fatalf("result steps=%v stats=%+v", res.Steps, res.Stats)
 	}
 	if !sameInts(res.Output[:len(ctx.Tokens)], ctx.Tokens) {
@@ -102,7 +102,7 @@ func TestGenerateMTPGraphFromPromptContextGreedyDecodesSingleTokenTail(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Steps) != 0 || len(res.Output) != len(ctx.Tokens)+1 || !sameInts(res.Output[:len(ctx.Tokens)], ctx.Tokens) {
+	if len(res.Steps) != 0 || res.GreedyTailTokens != 1 || len(res.Output) != len(ctx.Tokens)+1 || !sameInts(res.Output[:len(ctx.Tokens)], ctx.Tokens) {
 		t.Fatalf("single-tail result=%+v", res)
 	}
 }

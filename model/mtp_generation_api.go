@@ -13,6 +13,7 @@ type MTPGraphGenerationResult struct {
 	Stats                      MTPSpeculationStats
 	FinalState                 MTPDrafterState
 	Steps                      []MTPKVCommitPlan
+	GreedyTailTokens           int
 	Capabilities               MTPGraphCapabilities
 	MissingForPublicGeneration []string
 }
@@ -83,6 +84,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 	}
 	stats := opts.Stats
 	commits := make([]MTPKVCommitPlan, 0)
+	greedyTailTokens := 0
 	for len(decode.Output)-len(ctx.Tokens) < opts.MaxTokens {
 		remaining := opts.MaxTokens - (len(decode.Output) - len(ctx.Tokens))
 		if remaining <= 1 {
@@ -93,6 +95,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 			if _, err := decode.DecodeOneGreedy(); err != nil {
 				return MTPGraphGenerationResult{}, err
 			}
+			greedyTailTokens++
 			break
 		}
 		stepExternalKV, err := mtpExternalKVForDecodeState(decode, externalKV)
@@ -111,7 +114,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	return MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}, nil
+	return MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}, nil
 }
 
 func mtpExternalKVForDecodeState(decode *CPUDecodeState, base *MTPDrafterExternalKV) (*MTPDrafterExternalKV, error) {
