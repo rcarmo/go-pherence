@@ -50,6 +50,11 @@ def main() -> int:
             "expect_stdout_contains": "And",
         },
         {
+            "name": "standalone_chunked_notimestamps",
+            "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-task", "translate", "-language", "en", "-chunk", "5", "-chunk-workers", "1", "-max-tokens", "4"],
+            "expect_stdout_contains": "And",
+        },
+        {
             "name": "standalone_timestamp_vtt",
             "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-timestamps", "-task", "translate", "-language", "en", "-max-tokens", "8", "-output", str(out_dir / "whisper_turbo_smoke.vtt")],
             "expect_file": str(out_dir / "whisper_turbo_smoke.vtt"),
