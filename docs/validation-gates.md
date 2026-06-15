@@ -47,6 +47,7 @@ python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 # Pass repeated --audio flags and optional --start/--duration to
 # scripts/whisper_a100_compare.py for broader/long-form clip sets.
 make whisper-a100-compare
+python3 scripts/whisper_a100_compare.py --audio testdata/podcast.wav --start 300 --duration 12 --max-tokens 4
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
 GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4

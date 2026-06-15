@@ -70,7 +70,7 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 ## Remaining high-impact gaps
 
 1. Build a broader labeled validation suite for turbo VTT + speaker labels, including the voice-memo M4A windows.
-2. Validate A100 row-scale fused FFN on multiple long-form clips with `make whisper-a100-compare` or repeated `--audio` plus optional `--start/--duration` arguments to `scripts/whisper_a100_compare.py`, comparing transcript/token counts to native int8.
+2. Validate A100 row-scale fused FFN on multiple long-form clips with `make whisper-a100-compare` or repeated `--audio` plus optional `--start/--duration` arguments to `scripts/whisper_a100_compare.py`, comparing transcript/token counts to native int8. Current non-riscv smoke coverage includes JFK and a 12s podcast window at 300s (`This one here is`) matching baseline.
 3. Decide whether `WHISPER_A100_FFN_FUSED=1 WHISPER_A100_X100_PACK=1 WHISPER_A100_NATIVE_Q8=1` can become default on K3/A100-capable hosts.
 4. Implement or reject fused GPU mel and resident decoder kernels based on whole-pipeline measurements, not isolated kernel timings.
 5. Turn speculative decode from sequential correctness scaffold into a batched verifier path if a drafter/reference split becomes available.
