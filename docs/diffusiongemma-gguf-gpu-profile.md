@@ -172,16 +172,23 @@ how many selected experts still land in the dropped CPU subset.
 Budget scaling with the same exact partial-resident profile shows the structural
 trend clearly even when wall-clock varies with host load:
 
-| Expert cache | Prewarmed experts | Kept/dropped work | Q4 dequant rows | Q8 dequant rows | Q5 dequant rows | Notes |
-|---:|---:|---:|---:|---:|---:|---|
-| 768MiB | 168 | 12871/9209 | 440704 | 459008 | 1346048 | Current bounded default diagnostic target. |
-| 1024MiB | 225 | 15389/6691 | 360448 | 399872 | 1244672 | Optimized plan-only profile; more resident work, still broad dropped subset. |
-| 1536MiB | 334 | 18425/3655 | 206976 | 222464 | 1115136 | Much less dropped work; exact-GELU boundary grows. |
+| Expert cache | Plan source | Prewarmed experts | Kept/dropped work | Q4 dequant rows | Q8 dequant rows | Q5 dequant rows | Notes |
+|---:|---|---:|---:|---:|---:|---:|---|
+| 768MiB | measured | 168 | 12908/9172 | 439296 | 470272 | 1331968 | Current bounded diagnostic target. |
+| 1024MiB | measured | 225 | 15389/6691 | 360448 | 399872 | 1244672 | Optimized plan-only profile; more resident work, still broad dropped subset. |
+| 1536MiB | measured | 335 | 18444/3636 | 205568 | 225280 | 1109504 | Much less dropped work; exact-GELU boundary grows. |
+| 1792MiB | simulated | 390 | 19338/2742 | n/a | n/a | n/a | Budget simulation only; not yet profiled. |
+| 2048MiB | simulated | 447 | 19978/2102 | n/a | n/a | n/a | Keeps ~90.5% of traced work. |
+| 2560MiB | simulated | 556 | 20810/1270 | n/a | n/a | n/a | Keeps ~94.2% of traced work. |
+| 3072MiB | simulated | 667 | 21299/781 | n/a | n/a | n/a | Keeps ~96.5% of traced work. |
 
-At 1536MiB, the remaining dropped work is mostly residual Q5_0 rows plus the
-larger exact-GELU boundary for the kept set. This points toward either more
-resident expert budget, smaller Q4_K/Q5_0 resident representation, or a native
-exact-GELU device kernel to remove the host boundary as coverage grows.
+At 1536MiB, the remaining measured dropped work is mostly residual Q5_0 rows plus
+the larger exact-GELU boundary for the kept set. The simulation suggests that
+additional expert-cache budget continues to reduce dropped work, but with
+diminishing returns. This points toward either more resident expert budget,
+smaller Q4_K/Q5_0 resident representation, better replacement planning under a
+fixed budget, or a native exact-GELU device kernel to remove the host boundary as
+coverage grows.
 
 ## Why this is opt-in
 
