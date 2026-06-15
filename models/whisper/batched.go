@@ -1,10 +1,6 @@
 package whisper
 
-import (
-	"sync"
-
-	"github.com/rcarmo/go-pherence/loader/audio"
-)
+import "sync"
 
 // BatchedEncoderForward processes multiple mel chunks through the encoder in parallel.
 // mels: slice of mel spectrograms, each [numMelBins * T] flat (channel-first)
@@ -139,20 +135,5 @@ type melCfgHelper struct {
 }
 
 func computeMelFlatWithT(samples []float32, numMels int, cfg melCfgHelper) ([]float32, int) {
-	mel := audio.MelSpectrogram(samples, audio.MelConfig{
-		SampleRate: cfg.SampleRate,
-		FFTSize:    cfg.FFTSize,
-		HopLength:  cfg.HopLength,
-		NumMels:    numMels,
-		NFFTPadded: cfg.NFFTPadded,
-	})
-	if len(mel) == 0 || len(mel[0]) == 0 {
-		return nil, 0
-	}
-	T := len(mel[0])
-	melFlat := make([]float32, numMels*T)
-	for m := 0; m < numMels && m < len(mel); m++ {
-		copy(melFlat[m*T:(m+1)*T], mel[m])
-	}
-	return melFlat, T
+	return MelFlatFromSamples(samples, Config{NumMelBins: numMels})
 }

@@ -341,22 +341,9 @@ func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.S
 // offsets the resulting segment timestamps by offsetSec. Encoder/decoder state
 // is per-call, so multiple windows can run concurrently.
 func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64, languageToken, taskToken int) []whisper.Segment {
-	melCfg := audio.MelConfig{
-		SampleRate: 16000,
-		FFTSize:    400,
-		HopLength:  160,
-		NumMels:    w.Config.NumMelBins,
-		NFFTPadded: 512,
-	}
-	mel := audio.MelSpectrogram(samples, melCfg)
-	if mel == nil || len(mel) == 0 || len(mel[0]) == 0 {
+	melFlat, T := whisper.MelFlatFromSamples(samples, w.Config)
+	if len(melFlat) == 0 || T == 0 {
 		return nil
-	}
-
-	T := len(mel[0])
-	melFlat := make([]float32, w.Config.NumMelBins*T)
-	for m := 0; m < w.Config.NumMelBins; m++ {
-		copy(melFlat[m*T:], mel[m])
 	}
 
 	var encoderOutput []float32

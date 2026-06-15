@@ -1,9 +1,5 @@
 package whisper
 
-import (
-	"github.com/rcarmo/go-pherence/loader/audio"
-)
-
 // ChunkedTranscribe handles audio longer than 30s by splitting into overlapping chunks.
 // Each chunk is 30s with configurable overlap for boundary continuity.
 func (w *Whisper) ChunkedTranscribe(samples []float32, overlapSec float64) ([]Segment, error) {
@@ -52,22 +48,9 @@ func (w *Whisper) ChunkedTranscribe(samples []float32, overlapSec float64) ([]Se
 // transcribeChunk transcribes a single ≤30s audio chunk with timestamp decoding.
 func (w *Whisper) transcribeChunk(samples []float32, timeOffset float64) []Segment {
 	cfg := w.Config
-	melCfg := audio.MelConfig{
-		SampleRate: 16000,
-		FFTSize:    400,
-		HopLength:  160,
-		NumMels:    cfg.NumMelBins,
-		NFFTPadded: 512,
-	}
-	mel := audio.MelSpectrogram(samples, melCfg)
-	if mel == nil || len(mel[0]) == 0 {
+	melFlat, T := MelFlatFromSamples(samples, cfg)
+	if len(melFlat) == 0 || T == 0 {
 		return nil
-	}
-
-	T := len(mel[0])
-	melFlat := make([]float32, cfg.NumMelBins*T)
-	for m := 0; m < cfg.NumMelBins; m++ {
-		copy(melFlat[m*T:], mel[m])
 	}
 
 	encoderOutput := w.Encoder.Forward(melFlat, T)

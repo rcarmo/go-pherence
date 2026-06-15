@@ -1,7 +1,5 @@
 package whisper
 
-import "github.com/rcarmo/go-pherence/loader/audio"
-
 // Language tokens for Whisper multilingual models.
 // Token IDs follow the HuggingFace Whisper convention: SOT + 1 + language_index.
 var LanguageTokens = map[string]int{
@@ -104,22 +102,8 @@ func (w *Whisper) TranscribeWithLanguageDetect(samples []float32) (text string, 
 }
 
 func computeMelFromSamples(samples []float32, numMels int, cfg melCfgHelper) []float32 {
-	mel := audio.MelSpectrogram(samples, audio.MelConfig{
-		SampleRate: cfg.SampleRate,
-		FFTSize:    cfg.FFTSize,
-		HopLength:  cfg.HopLength,
-		NumMels:    numMels,
-		NFFTPadded: cfg.NFFTPadded,
-	})
-	if len(mel) == 0 || len(mel[0]) == 0 {
-		return nil
-	}
-	T := len(mel[0])
-	melFlat := make([]float32, numMels*T)
-	for m := 0; m < numMels && m < len(mel); m++ {
-		copy(melFlat[m*T:(m+1)*T], mel[m])
-	}
-	return melFlat
+	flat, _ := MelFlatFromSamples(samples, Config{NumMelBins: numMels})
+	return flat
 }
 
 func melConfigAudio(cfg Config) melCfgHelper {

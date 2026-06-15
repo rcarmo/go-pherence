@@ -41,22 +41,9 @@ func (w *Whisper) TranscribeFromSamples(samples []float32) (string, error) {
 // TranscribeFromSamplesPrompt takes pre-loaded 16kHz mono float32 samples and
 // decodes with an explicit Whisper language/task prompt.
 func (w *Whisper) TranscribeFromSamplesPrompt(samples []float32, languageToken, taskToken int) (string, error) {
-	melCfg := audio.MelConfig{
-		SampleRate: 16000,
-		FFTSize:    400,
-		HopLength:  160,
-		NumMels:    w.Config.NumMelBins,
-		NFFTPadded: 512,
-	}
-	mel := audio.MelSpectrogram(samples, melCfg)
-	if mel == nil {
+	melFlat, T := MelFlatFromSamples(samples, w.Config)
+	if len(melFlat) == 0 || T == 0 {
 		return "", nil
-	}
-
-	T := len(mel[0])
-	melFlat := make([]float32, w.Config.NumMelBins*T)
-	for m := 0; m < w.Config.NumMelBins; m++ {
-		copy(melFlat[m*T:], mel[m])
 	}
 
 	encStart := time.Now()

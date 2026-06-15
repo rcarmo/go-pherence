@@ -567,15 +567,9 @@ func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples
 	if maxTokens > 0 && maxTokens < cfg.MaxDecoderLength {
 		cfg.MaxDecoderLength = maxTokens
 	}
-	melCfg := audio.MelConfig{SampleRate: 16000, FFTSize: 400, HopLength: 160, NumMels: cfg.NumMelBins, NFFTPadded: 512}
-	mel := audio.MelSpectrogram(samples, melCfg)
-	if mel == nil || len(mel) == 0 || len(mel[0]) == 0 {
+	melFlat, T := whisper.MelFlatFromSamples(samples, cfg)
+	if len(melFlat) == 0 || T == 0 {
 		return "", nil
-	}
-	T := len(mel[0])
-	melFlat := make([]float32, cfg.NumMelBins*T)
-	for m := 0; m < cfg.NumMelBins; m++ {
-		copy(melFlat[m*T:], mel[m])
 	}
 
 	var encoderOutput []float32
