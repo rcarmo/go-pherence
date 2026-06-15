@@ -178,8 +178,8 @@ export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1
 export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT=1
 ```
 
-The bounded 92-token `canvas=1` smoke preserved token parity and proved the raw
-pointer path was used:
+The first bounded 92-token `canvas=1` smoke preserved token parity and proved the
+raw pointer path was used:
 
 ```text
 prewarmed GGUF pointer expert cache layers=1 experts=180 bytes=0.75 GiB
@@ -189,12 +189,28 @@ q8(ptr/cache/transient_ptr/transient_pack/budget)=2/0/0/0/0
 partial(calls kept/dropped experts work)=1 20/40 345/391
 ```
 
+Using the planner with `--q4-scale-bytes 1 --order efficiency
+--ensure-layer-coverage --optimize-budget --budget-mb 768` produced a 200-entry
+raw-Q4 plan with modeled kept work `14415/22080`. Running that plan with
+`GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY=1` preserved token
+parity and converted every encoder expert layer to fused partial-resident GPU
+execution:
+
+```text
+prewarmed GGUF pointer expert cache layers=0 experts=200 bytes=0.75 GiB
+generated=[144] canvases=1
+DiffusionGemma encoder gguf_experts: fused=30 legacy_grouped=0 cpu_fallback=0
+partial(calls kept/dropped experts work)=30 200/936 14415/7665
+q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=0/30/0/0/0/0
+q8(ptr/cache/transient_ptr/transient_pack/budget)=14/0/0/0/0
+q5(ptr/budget)=16/0
+```
+
 The important structural change versus the default F32-derived Q4 residency is
-that the same 768MiB expert cache now admits more resident Q4_K gate/up experts
-before down-projection residency becomes the next limiter. This smoke is not yet
-the best all-layer planned profile; it is the first bounded end-to-end proof that
-raw compact Q4_K preserves `[144]` and enters the exact-GELU partial-resident GPU
-path (`raw_ptr=2`).
+that the same 768MiB expert cache now admits enough resident Q4_K gate/up experts
+to keep all encoder layers on the exact-GELU partial-resident GPU path. Remaining
+dropped work is handled by the CPU/SIMD subset path, but the top-level encoder
+CPU fallback counter drops to zero for this profile.
 
 Budget scaling with the same exact partial-resident profile shows the structural
 trend clearly even when wall-clock varies with host load:
