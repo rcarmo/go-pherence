@@ -212,6 +212,27 @@ func TestUploadQ8_0MatrixRowsRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+func TestUploadQ8_0PointerTableRejectsInvalidMatrices(t *testing.T) {
+	validBuf := &Buffer{Ptr: 1, Size: 64}
+	valid := &GPUQ8_0Matrix{Q: validBuf, Scales: validBuf, InDim: 32, OutDim: 4}
+	if _, err := UploadQ8_0PointerTable(nil); err == nil {
+		t.Fatal("accepted empty Q8_0 pointer table")
+	}
+	if _, err := UploadQ8_0PointerTable([]*GPUQ8_0Matrix{valid, nil}); err == nil {
+		t.Fatal("accepted nil Q8_0 matrix")
+	}
+	badDims := *valid
+	badDims.InDim = 64
+	if _, err := UploadQ8_0PointerTable([]*GPUQ8_0Matrix{valid, &badDims}); err == nil {
+		t.Fatal("accepted mismatched Q8_0 matrix dimensions")
+	}
+	badBuf := *valid
+	badBuf.Scales = nil
+	if _, err := UploadQ8_0PointerTable([]*GPUQ8_0Matrix{valid, &badBuf}); err == nil {
+		t.Fatal("accepted Q8_0 matrix missing scale buffer")
+	}
+}
+
 func TestGemvQ8_0ScatterByWorkPtrsRejectsBadInputs(t *testing.T) {
 	validBuf := &Buffer{Ptr: 1, Size: 64}
 	shortBuf := &Buffer{Ptr: 1, Size: 2}
