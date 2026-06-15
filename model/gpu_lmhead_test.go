@@ -38,6 +38,10 @@ func TestGPUPackedWeightDimGuards(t *testing.T) {
 	if cpuQ4WeightDims(&QuantWeight{OutDim: 4, InDim: 8}, 8, 8) {
 		t.Fatal("mismatched CPU Q4 dims accepted")
 	}
+	badQ4 := &QuantWeight{OutDim: 4, InDim: 8, QWeight: []int32{0}, GIdx: []int32{0, 0, 0, 0, 0, 0, 0, 0}, Scales: []float32{1, 1, 1, 1}}
+	if !cpuQ4WeightDims(badQ4, 4, 8) {
+		t.Fatal("CPU Q4 metadata guard should only check dims")
+	}
 	vocab, hidden := 16, 4
 	if !gpuMLXWeightDims(&nvidia.GPUMLXWeight{OutDim: vocab, InDim: hidden}, vocab, hidden) {
 		t.Fatal("valid GPU MLX LM head dims rejected")

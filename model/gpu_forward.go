@@ -973,7 +973,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					}
 					nd := g.normed.Data()
 					qd := g.q.Data()
-					simdq4.GemvSym(qd, nd, layer.QWq.QWeight, layer.QWq.GIdx, layer.QWq.Scales, layer.QWq.InDim, layer.QWq.OutDim)
+					if !simdq4.GemvSymTo(qd, nd, layer.QWq.QWeight, layer.QWq.GIdx, layer.QWq.Scales, layer.QWq.InDim, layer.QWq.OutDim) {
+						return nil
+					}
 					g.q.MarkDirty()
 				} else if layer.QW != nil {
 					g.gemv(g.q, g.normed, layer.QW, h, qDim)
@@ -1026,14 +1028,18 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						nd := g.normed.Data()
 						kd := g.k.Data()
 						vd := g.v.Data()
-						simdq4.GemvSym(kd, nd, layer.KWq.QWeight, layer.KWq.GIdx, layer.KWq.Scales, layer.KWq.InDim, layer.KWq.OutDim)
+						if !simdq4.GemvSymTo(kd, nd, layer.KWq.QWeight, layer.KWq.GIdx, layer.KWq.Scales, layer.KWq.InDim, layer.KWq.OutDim) {
+							return nil
+						}
 						if cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
 							copy(vd[:layerKVDim], kd[:layerKVDim])
 						} else if layer.VWq != nil {
 							if !cpuQ4WeightDims(layer.VWq, layerKVDim, h) {
 								return nil
 							}
-							simdq4.GemvSym(vd, nd, layer.VWq.QWeight, layer.VWq.GIdx, layer.VWq.Scales, layer.VWq.InDim, layer.VWq.OutDim)
+							if !simdq4.GemvSymTo(vd, nd, layer.VWq.QWeight, layer.VWq.GIdx, layer.VWq.Scales, layer.VWq.InDim, layer.VWq.OutDim) {
+								return nil
+							}
 						} else {
 							return nil
 						}
@@ -1293,7 +1299,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					}
 					ad := g.attnOut.Data()
 					od := g.oOut.Data()
-					simdq4.GemvSym(od, ad, layer.OWq.QWeight, layer.OWq.GIdx, layer.OWq.Scales, layer.OWq.InDim, layer.OWq.OutDim)
+					if !simdq4.GemvSymTo(od, ad, layer.OWq.QWeight, layer.OWq.GIdx, layer.OWq.Scales, layer.OWq.InDim, layer.OWq.OutDim) {
+						return nil
+					}
 					g.oOut.MarkDirty()
 				} else if layer.OW != nil {
 					g.gemv(g.oOut, g.attnOut, layer.OW, qDim, h)
@@ -1369,8 +1377,12 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						nd := g.normed.Data()
 						gd := g.gate.Data()
 						ud := g.up.Data()
-						simdq4.GemvSym(gd, nd, layer.GateWq.QWeight, layer.GateWq.GIdx, layer.GateWq.Scales, layer.GateWq.InDim, layer.GateWq.OutDim)
-						simdq4.GemvSym(ud, nd, layer.UpWq.QWeight, layer.UpWq.GIdx, layer.UpWq.Scales, layer.UpWq.InDim, layer.UpWq.OutDim)
+						if !simdq4.GemvSymTo(gd, nd, layer.GateWq.QWeight, layer.GateWq.GIdx, layer.GateWq.Scales, layer.GateWq.InDim, layer.GateWq.OutDim) {
+							return nil
+						}
+						if !simdq4.GemvSymTo(ud, nd, layer.UpWq.QWeight, layer.UpWq.GIdx, layer.UpWq.Scales, layer.UpWq.InDim, layer.UpWq.OutDim) {
+							return nil
+						}
 						g.gate.MarkDirty()
 						g.up.MarkDirty()
 					} else {
@@ -1425,7 +1437,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						}
 						gd := g.gate.Data()
 						dd := g.down.Data()
-						simdq4.GemvSym(dd, gd, layer.DownWq.QWeight, layer.DownWq.GIdx, layer.DownWq.Scales, layer.DownWq.InDim, layer.DownWq.OutDim)
+						if !simdq4.GemvSymTo(dd, gd, layer.DownWq.QWeight, layer.DownWq.GIdx, layer.DownWq.Scales, layer.DownWq.InDim, layer.DownWq.OutDim) {
+							return nil
+						}
 						g.down.MarkDirty()
 					} else {
 						g.gemv(g.down, g.gate, layer.DownW, layerInter, h)
