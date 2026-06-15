@@ -128,6 +128,7 @@ func main() {
 	var mtpMissing []string
 	var mtpGraphOutput int
 	var mtpGreedyTail int
+	var mtpStepSummaries []model.MTPGraphGenerationStepSummary
 	if *mtpGenerate {
 		result, err := runGemma4MTPGenerate(m, gpuMod, *mtpDrafter, ids, *tokens, *mtpKVReuse, model.MTPAdaptiveDraftPolicy{MinDrafts: *mtpDraftMin, InitialDrafts: *mtpDraftInitial, MaxDrafts: *mtpDraftMax})
 		if err != nil {
@@ -139,6 +140,7 @@ func main() {
 		mtpMissing = result.MissingForPublicGeneration
 		mtpGraphOutput = result.GraphOutputTokens
 		mtpGreedyTail = result.GreedyTailTokens
+		mtpStepSummaries = result.StepSummaries
 	} else if gpuMod != nil {
 		output = append(ids, gpuMod.Generate(ids, *tokens)...)
 	} else if *speculative {
@@ -181,6 +183,9 @@ func main() {
 		fmt.Printf("MTP bonus tokens:  %d\n", mtpStats.BonusTokens)
 		fmt.Printf("MTP graph output:  %d\n", mtpGraphOutput)
 		fmt.Printf("MTP greedy tail:   %d\n", mtpGreedyTail)
+		for i, s := range mtpStepSummaries {
+			fmt.Printf("MTP cycle %-3d: drafted=%v verifier=%v accepted=%d bonus=%d output=%v positions=%v all=%v\n", i, s.DraftedTokens, s.VerifierTokens, s.AcceptedPrefixLen, s.BonusToken, s.OutputTokens, s.Positions, s.AllDraftsAccepted)
+		}
 		if len(mtpMissing) > 0 {
 			fmt.Printf("MTP public blockers: %v\n", mtpMissing)
 		}
