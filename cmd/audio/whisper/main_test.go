@@ -15,6 +15,12 @@ func TestShouldChunkSimple(t *testing.T) {
 	}
 }
 
+func TestJoinTexts(t *testing.T) {
+	if got := joinTexts([]string{" hello ", "", "world"}); got != "hello world" {
+		t.Fatalf("joinTexts=%q", got)
+	}
+}
+
 func TestTextFromSegments(t *testing.T) {
 	text := textFromSegments([]whisper.Segment{{Text: " hello "}, {Text: ""}, {Text: "world"}})
 	if text != "hello world" {

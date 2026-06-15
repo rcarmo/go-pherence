@@ -184,8 +184,11 @@ func main() {
 		for r := 0; r < reps; r++ {
 			ps := time.Now()
 			if shouldChunkSimple(samples, *chunkSec) {
-				segments := filterTimestampSegments(transcribeChunked(w, samples, *chunkSec, *chunkWorkers, languageToken, taskToken))
-				text = textFromSegments(segments)
+				text, err = transcribeTextChunked(w, samples, *chunkSec, *chunkWorkers, languageToken, taskToken)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error transcribing chunks: %v\n", err)
+					os.Exit(1)
+				}
 			} else {
 				text, err = w.TranscribeFromSamplesPrompt(samples, languageToken, taskToken)
 				if err != nil {
@@ -223,6 +226,65 @@ func materializeWAV(input string) (string, func(), error) {
 func shouldChunkSimple(samples []float32, chunkSec float64) bool {
 	chunk := int(chunkSec * 16000)
 	return chunk > 0 && len(samples) > chunk
+}
+
+func joinTexts(parts []string) string {
+	out := parts[:0]
+	for _, part := range parts {
+		text := strings.TrimSpace(part)
+		if text != "" {
+			out = append(out, text)
+		}
+	}
+	return strings.Join(out, " ")
+}
+
+func transcribeTextChunked(w *whisper.Whisper, samples []float32, chunkSec float64, workers int, languageToken, taskToken int) (string, error) {
+	const sr = 16000
+	chunk := int(chunkSec * sr)
+	if chunk <= 0 || len(samples) <= chunk {
+		return w.TranscribeFromSamplesPrompt(samples, languageToken, taskToken)
+	}
+	type span struct{ s, e int }
+	var spans []span
+	for s := 0; s < len(samples); s += chunk {
+		e := s + chunk
+		if e > len(samples) {
+			e = len(samples)
+		}
+		spans = append(spans, span{s, e})
+	}
+	if workers <= 1 {
+		texts := make([]string, 0, len(spans))
+		for _, sp := range spans {
+			text, err := w.TranscribeFromSamplesPrompt(samples[sp.s:sp.e], languageToken, taskToken)
+			if err != nil {
+				return "", err
+			}
+			texts = append(texts, text)
+		}
+		return joinTexts(texts), nil
+	}
+	texts := make([]string, len(spans))
+	errs := make([]error, len(spans))
+	sem := make(chan struct{}, workers)
+	var wg sync.WaitGroup
+	for i, sp := range spans {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(i int, sp span) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			texts[i], errs[i] = w.TranscribeFromSamplesPrompt(samples[sp.s:sp.e], languageToken, taskToken)
+		}(i, sp)
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return "", err
+		}
+	}
+	return joinTexts(texts), nil
 }
 
 func textFromSegments(segments []whisper.Segment) string {
