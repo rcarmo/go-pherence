@@ -132,10 +132,15 @@ func (g MTPExecutionGraph) Validate() error {
 				return fmt.Errorf("MTP graph drafter step %d external KV view seq/layers=%d/%v, want %d/%v", i, step.ExternalKVSeqLen, step.ExternalKVLayers, externalKVSeqLen, externalKVLayers)
 			}
 		}
+		seenExternalLayers := map[int]bool{}
 		for j, layer := range step.ExternalKVLayers {
 			if layer < 0 {
 				return fmt.Errorf("MTP graph drafter step %d external KV layer %d=%d out of range", i, j, layer)
 			}
+			if seenExternalLayers[layer] {
+				return fmt.Errorf("MTP graph drafter step %d reuses external KV layer %d", i, layer)
+			}
+			seenExternalLayers[layer] = true
 		}
 	}
 	if g.Verifier.InputToken != g.InputToken || !mtpSameInts(g.Verifier.DraftedTokens, g.DraftedTokens) {

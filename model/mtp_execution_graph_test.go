@@ -79,6 +79,12 @@ func TestMTPExecutionGraphValidateRejectsMalformed(t *testing.T) {
 		t.Fatal("accepted inconsistent external KV layers")
 	}
 	bad = makeGraph()
+	bad.DrafterSteps[0].ExternalKVLayers = []int{0, 0}
+	bad.DrafterSteps[1].ExternalKVLayers = []int{0, 0}
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted duplicate external KV layers in graph step")
+	}
+	bad = makeGraph()
 	bad.Verifier.VerifierTokens = []int{1, 2}
 	if err := bad.Validate(); err == nil {
 		t.Fatal("accepted short verifier token batch")
