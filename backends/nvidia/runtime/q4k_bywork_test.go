@@ -297,6 +297,27 @@ func TestUploadQ4KMatrixRowsRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+func TestUploadQ4KPointerTableRejectsInvalidMatrices(t *testing.T) {
+	validBuf := &Buffer{Ptr: 1, Size: 64}
+	valid := &GPUQ4KMatrix{Q: validBuf, Scales: validBuf, Mins: validBuf, InDim: 256, OutDim: 4}
+	if _, err := UploadQ4KPointerTable(nil); err == nil {
+		t.Fatal("accepted empty Q4_K pointer table")
+	}
+	if _, err := UploadQ4KPointerTable([]*GPUQ4KMatrix{valid, nil}); err == nil {
+		t.Fatal("accepted nil Q4_K matrix")
+	}
+	badDims := *valid
+	badDims.OutDim = 8
+	if _, err := UploadQ4KPointerTable([]*GPUQ4KMatrix{valid, &badDims}); err == nil {
+		t.Fatal("accepted mismatched Q4_K matrix dimensions")
+	}
+	badBuf := *valid
+	badBuf.Mins = nil
+	if _, err := UploadQ4KPointerTable([]*GPUQ4KMatrix{valid, &badBuf}); err == nil {
+		t.Fatal("accepted Q4_K matrix missing min buffer")
+	}
+}
+
 func TestGateUpQ4KByWorkPtrsToBuffersRejectsBadInputs(t *testing.T) {
 	validBuf := &Buffer{Ptr: 1, Size: 4096}
 	shortBuf := &Buffer{Ptr: 1, Size: 2}
