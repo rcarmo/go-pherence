@@ -58,7 +58,7 @@ python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 make whisper-backend-compare
 make whisper-a100-podcast-compare
 make whisper-int8-podcast-compare
-# podcast targets compare stdout, standalone timestamp/VTT, and diarize-vtt VTT on a 12s long-form window.
+# podcast targets compare stdout, standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT on a 12s long-form window.
 # Pass repeated --audio flags and optional --start/--duration to
 # scripts/whisper_a100_compare.py for broader/long-form clip sets.
 
