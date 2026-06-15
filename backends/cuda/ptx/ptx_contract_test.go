@@ -77,5 +77,11 @@ func TestAttentivePoolPTXContract(t *testing.T) {
 		".param .u64 attn_b_ptr",
 		".param .u32 channels",
 		".param .u32 length",
+		"ex2.approx.ftz.f32",
+		"sqrt.rn.f32",
+		"st.global.f32",
 	)
+	if strings.Contains(AttentivePoolPTX, "TODO") {
+		t.Fatalf("AttentivePoolPTX still advertises TODO-only body")
+	}
 }
