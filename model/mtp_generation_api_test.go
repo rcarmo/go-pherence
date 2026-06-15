@@ -64,7 +64,7 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	}
 }
 
-func TestGenerateMTPGraphFromPromptContextLeavesSingleTokenTail(t *testing.T) {
+func TestGenerateMTPGraphFromPromptContextGreedyDecodesSingleTokenTail(t *testing.T) {
 	m := newZeroLayerVerifierModel()
 	d := validProjectionOnlyDrafter()
 	d.Config.VocabSize = m.Config.VocabSize
@@ -73,7 +73,7 @@ func TestGenerateMTPGraphFromPromptContextLeavesSingleTokenTail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Steps) != 0 || !sameInts(res.Output, ctx.Tokens) {
+	if len(res.Steps) != 0 || len(res.Output) != len(ctx.Tokens)+1 || !sameInts(res.Output[:len(ctx.Tokens)], ctx.Tokens) {
 		t.Fatalf("single-tail result=%+v", res)
 	}
 }

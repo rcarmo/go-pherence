@@ -84,7 +84,14 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 	for len(decode.Output)-len(ctx.Tokens) < opts.MaxTokens {
 		remaining := opts.MaxTokens - (len(decode.Output) - len(ctx.Tokens))
 		if remaining <= 1 {
-			break // leave single-token tail to ordinary decode until MTP verifier tail policy is public
+			// A graph verifier pass with G drafts can emit up to G+1 tokens, so a
+			// one-token tail is ordinary greedy decode territory. This mirrors
+			// speculative generation fallback behavior while preserving the graph
+			// contract for multi-token steps.
+			if _, err := decode.DecodeOneGreedy(); err != nil {
+				return MTPGraphGenerationResult{}, err
+			}
+			break
 		}
 		step, err := decode.RunMTPGraphDecodeStep(d, state, externalKV, MTPGraphDecodeStepOptions{RemainingTokens: remaining, Policy: opts.Policy}, stats)
 		if err != nil {
