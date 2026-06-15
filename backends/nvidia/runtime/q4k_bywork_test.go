@@ -285,6 +285,35 @@ func TestGateUpQ4KByWorkPtrsToBuffers(t *testing.T) {
 	}
 }
 
+func TestUploadQ4KMatrixRowsRejectsInvalidInput(t *testing.T) {
+	if _, err := UploadQ4KMatrixRows(nil, 255, 1); err == nil {
+		t.Fatal("accepted non-256-aligned Q4_K input dimension")
+	}
+	if _, err := UploadQ4KMatrixRows(make([]byte, 143), 256, 1); err == nil {
+		t.Fatal("accepted short Q4_K raw row")
+	}
+	if _, err := UploadQ4KMatrixRows(make([]byte, 144), 256, 0); err == nil {
+		t.Fatal("accepted zero Q4_K output dimension")
+	}
+}
+
+func TestGateUpQ4KByWorkPtrsToBuffersRejectsBadInputs(t *testing.T) {
+	validBuf := &Buffer{Ptr: 1, Size: 4096}
+	shortBuf := &Buffer{Ptr: 1, Size: 2}
+	table := &GPUQ4KPointerTable{QPtrs: validBuf, ScalePtrs: validBuf, MinPtrs: validBuf, InDim: 256, OutDim: 4, Count: 1}
+	if err := GateUpQ4KByWorkPtrsToBuffers(validBuf, validBuf, validBuf, validBuf, 1, 2, nil); err == nil {
+		t.Fatal("accepted nil Q4_K pointer table")
+	}
+	if err := GateUpQ4KByWorkPtrsToBuffers(validBuf, validBuf, shortBuf, validBuf, 1, 2, table); err == nil {
+		t.Fatal("accepted short x buffer")
+	}
+	badTable := *table
+	badTable.MinPtrs = nil
+	if err := GateUpQ4KByWorkPtrsToBuffers(validBuf, validBuf, validBuf, validBuf, 1, 2, &badTable); err == nil {
+		t.Fatal("accepted table missing min pointers")
+	}
+}
+
 func TestUploadQ4KMatrixRowsIntoReusesBuffers(t *testing.T) {
 	if !SgemmReady() {
 		t.Skip("CUDA not available")
