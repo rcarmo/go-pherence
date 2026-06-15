@@ -5,6 +5,7 @@ import "testing"
 func TestResetGGUFGPUDiagnosticStats(t *testing.T) {
 	ResetGGUFGPUDiagnosticStats()
 	ggufExpertDispatchCounters.fusedUsed.Add(1)
+	ggufExpertDispatchCounters.q4RawPointerTable.Add(11)
 	ggufExpertDispatchCounters.q4BudgetBytes.Add(2)
 	ggufExpertDispatchCounters.activeSetCalls.Add(2)
 	ggufExpertDispatchCounters.activeSetExperts.Add(10)
@@ -24,7 +25,7 @@ func TestResetGGUFGPUDiagnosticStats(t *testing.T) {
 	ggufAttentionTimingCounters.calls.Add(8)
 	ggufAttentionTimingCounters.totalNS.Add(9)
 
-	if s := ggufExpertDispatchStatsSnapshot(); s.FusedUsed != 1 || s.Q4BudgetBytes != 2 || s.GPUAttemptNS != 3 || s.ActiveSetCalls != 2 || s.ActiveSetExperts != 10 || s.ActiveSetMaxExperts != 7 || s.ActiveSetWorkItems != 24 || s.ActiveSetMaxWorkItems != 16 || s.Q4MissingExperts != 6 || s.Q4MissingMaxExperts != 4 || s.Q4MissingBytes != 8*1024*1024 || s.Q4MissingMaxBytes != 5*1024*1024 || s.Q4MissingBudgetExceeds != 1 {
+	if s := ggufExpertDispatchStatsSnapshot(); s.FusedUsed != 1 || s.Q4RawPointerTable != 11 || s.Q4BudgetBytes != 2 || s.GPUAttemptNS != 3 || s.ActiveSetCalls != 2 || s.ActiveSetExperts != 10 || s.ActiveSetMaxExperts != 7 || s.ActiveSetWorkItems != 24 || s.ActiveSetMaxWorkItems != 16 || s.Q4MissingExperts != 6 || s.Q4MissingMaxExperts != 4 || s.Q4MissingBytes != 8*1024*1024 || s.Q4MissingMaxBytes != 5*1024*1024 || s.Q4MissingBudgetExceeds != 1 {
 		t.Fatalf("expert stats before reset=%+v", s)
 	} else if activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB := s.ActiveSetSummary(); activeAvg != 5 || workAvg != 12 || missingAvg != 3 || missingMiB != 8 || missingMaxMiB != 5 {
 		t.Fatalf("expert summary active=%g work=%g missing=%g mib=%g max=%g", activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB)

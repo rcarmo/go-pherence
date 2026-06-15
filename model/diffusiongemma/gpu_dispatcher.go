@@ -405,10 +405,10 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			if stats.Total() > 0 {
 				cacheUsed, cacheLimit := activeExpertMatrixCacheUsageBytes()
 				activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB := stats.ActiveSetSummary()
-				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d partial(calls kept/dropped experts work)=%d %d/%d %d/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts q5(ptr/budget)=%d/%d q5_budget=%.1fMiB/%dexperts",
+				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d partial(calls kept/dropped experts work)=%d %d/%d %d/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts q5(ptr/budget)=%d/%d q5_budget=%.1fMiB/%dexperts",
 					stats.FusedUsed, stats.LegacyGroupedUsed, stats.CPUFallback, float64(stats.GPUAttemptNS)/1e9, float64(stats.CPUFallbackNS)/1e9, float64(cacheUsed)/(1024*1024), float64(cacheLimit)/(1024*1024),
 					stats.ActiveSetCalls, activeAvg, stats.ActiveSetMaxExperts, workAvg, stats.ActiveSetMaxWorkItems, stats.PartialCalls, stats.PartialKeptExperts, stats.PartialDroppedExperts, stats.PartialKeptWork, stats.PartialDroppedWork, missingAvg, stats.Q4MissingMaxExperts, missingMiB, missingMaxMiB, stats.Q4MissingBudgetExceeds,
-					stats.Q4PointerTable, stats.Q4PackedCache, stats.Q4TransientPointer, stats.Q4TransientPacked, stats.Q4BudgetFallback, float64(stats.Q4BudgetBytes)/(1024*1024), stats.Q4BudgetExperts,
+					stats.Q4PointerTable, stats.Q4RawPointerTable, stats.Q4PackedCache, stats.Q4TransientPointer, stats.Q4TransientPacked, stats.Q4BudgetFallback, float64(stats.Q4BudgetBytes)/(1024*1024), stats.Q4BudgetExperts,
 					stats.Q8PointerTable, stats.Q8PackedCache, stats.Q8TransientPointer, stats.Q8TransientPacked, stats.Q8BudgetFallback, float64(stats.Q8BudgetBytes)/(1024*1024), stats.Q8BudgetExperts,
 					stats.Q5PointerTable, stats.Q5BudgetFallback, float64(stats.Q5BudgetBytes)/(1024*1024), stats.Q5BudgetExperts)
 			}
@@ -1276,6 +1276,7 @@ type ggufExpertDispatchStats struct {
 	LegacyGroupedUsed      uint64
 	CPUFallback            uint64
 	Q4PointerTable         uint64
+	Q4RawPointerTable      uint64
 	Q4PackedCache          uint64
 	Q4TransientPacked      uint64
 	Q4TransientPointer     uint64
@@ -1317,6 +1318,7 @@ var ggufExpertDispatchCounters struct {
 	legacyGroupedUsed      atomic.Uint64
 	cpuFallback            atomic.Uint64
 	q4PointerTable         atomic.Uint64
+	q4RawPointerTable      atomic.Uint64
 	q4PackedCache          atomic.Uint64
 	q4TransientPacked      atomic.Uint64
 	q4TransientPointer     atomic.Uint64
@@ -1359,6 +1361,7 @@ func ggufExpertDispatchStatsSnapshot() ggufExpertDispatchStats {
 		LegacyGroupedUsed:      ggufExpertDispatchCounters.legacyGroupedUsed.Load(),
 		CPUFallback:            ggufExpertDispatchCounters.cpuFallback.Load(),
 		Q4PointerTable:         ggufExpertDispatchCounters.q4PointerTable.Load(),
+		Q4RawPointerTable:      ggufExpertDispatchCounters.q4RawPointerTable.Load(),
 		Q4PackedCache:          ggufExpertDispatchCounters.q4PackedCache.Load(),
 		Q4TransientPacked:      ggufExpertDispatchCounters.q4TransientPacked.Load(),
 		Q4TransientPointer:     ggufExpertDispatchCounters.q4TransientPointer.Load(),
@@ -1409,6 +1412,7 @@ func (s ggufExpertDispatchStats) Sub(base ggufExpertDispatchStats) ggufExpertDis
 		LegacyGroupedUsed:      s.LegacyGroupedUsed - base.LegacyGroupedUsed,
 		CPUFallback:            s.CPUFallback - base.CPUFallback,
 		Q4PointerTable:         s.Q4PointerTable - base.Q4PointerTable,
+		Q4RawPointerTable:      s.Q4RawPointerTable - base.Q4RawPointerTable,
 		Q4PackedCache:          s.Q4PackedCache - base.Q4PackedCache,
 		Q4TransientPacked:      s.Q4TransientPacked - base.Q4TransientPacked,
 		Q4TransientPointer:     s.Q4TransientPointer - base.Q4TransientPointer,
@@ -1466,6 +1470,7 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufExpertDispatchCounters.legacyGroupedUsed.Store(0)
 	ggufExpertDispatchCounters.cpuFallback.Store(0)
 	ggufExpertDispatchCounters.q4PointerTable.Store(0)
+	ggufExpertDispatchCounters.q4RawPointerTable.Store(0)
 	ggufExpertDispatchCounters.q4PackedCache.Store(0)
 	ggufExpertDispatchCounters.q4TransientPacked.Store(0)
 	ggufExpertDispatchCounters.q4TransientPointer.Store(0)
@@ -3850,7 +3855,7 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 		return false, err
 	}
 	if activeQ4RawPtrsOK {
-		ggufExpertDispatchCounters.q4PointerTable.Add(1)
+		ggufExpertDispatchCounters.q4RawPointerTable.Add(1)
 		if err := gpu.GateUpQ4KByWorkPtrsRawToBuffers(actBuf, upBuf, workInput, metadata.WorkActive, workLen, intermediate, activeQ4RawPtrs); err != nil {
 			return false, err
 		}
