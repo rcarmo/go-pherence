@@ -42,6 +42,20 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 	if err := bad.Validate(); err == nil {
 		t.Fatal("accepted stale public readiness")
 	}
+	publicBlocked := caps
+	publicBlocked.PublicGenerationWiring = true
+	publicBlocked.ReadyForPublicGeneration = false
+	if err := publicBlocked.Validate(); err != nil {
+		t.Fatalf("rejected public wiring blocked only by gated batch layers: %v", err)
+	}
+	if !sameStringSet(publicBlocked.MissingForPublicGeneration(), []string{"full_layer_batch_verifier_default_enablement"}) {
+		t.Fatalf("public blocked missing=%v", publicBlocked.MissingForPublicGeneration())
+	}
+	bad = publicBlocked
+	bad.ReadyForPublicGeneration = true
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted public readiness while batch verifier layers are still gated off")
+	}
 }
 
 func TestGemma4MTPGraphCapabilitiesBatchLayerGate(t *testing.T) {

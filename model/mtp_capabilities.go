@@ -56,7 +56,7 @@ func Gemma4MTPGraphCapabilities() MTPGraphCapabilities {
 		PublicGenerationWiring:       false,
 	}
 	caps.ReadyForExperimentalGeneration = caps.ExperimentalGenerationWiring && caps.PromptContextAPI && caps.ExternalKVRefresh && caps.ExactTokenBudget && caps.GraphKVCommit && caps.AcceptanceBonusSemantics && caps.HiddenStateDrafterLoop && caps.AdaptiveDraftPolicy
-	caps.ReadyForPublicGeneration = caps.PublicGenerationWiring && caps.ReadyForExperimentalGeneration
+	caps.ReadyForPublicGeneration = caps.PublicGenerationWiring && caps.ReadyForExperimentalGeneration && (!caps.VerifierBatchLayersGated || caps.VerifierBatchLayers)
 	return caps
 }
 
@@ -65,7 +65,7 @@ func (c MTPGraphCapabilities) Validate() error {
 	if c.ReadyForExperimentalGeneration != wantExperimental {
 		return fmt.Errorf("MTP experimental readiness=%v, want %v from capability flags", c.ReadyForExperimentalGeneration, wantExperimental)
 	}
-	wantPublic := c.PublicGenerationWiring && c.ReadyForExperimentalGeneration
+	wantPublic := c.PublicGenerationWiring && c.ReadyForExperimentalGeneration && (!c.VerifierBatchLayersGated || c.VerifierBatchLayers)
 	if c.ReadyForPublicGeneration != wantPublic {
 		return fmt.Errorf("MTP public readiness=%v, want %v from public wiring and experimental readiness", c.ReadyForPublicGeneration, wantPublic)
 	}
