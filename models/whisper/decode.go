@@ -104,34 +104,29 @@ func GreedyDecodeWithTimestamps(dec *Decoder, state *DecoderState, cfg Config) [
 	for _, tok := range prompt {
 		logits = dec.ForwardToken(tok, state)
 	}
+	flushCurrent := func(end float64) {
+		if len(currentTokens) == 0 {
+			return
+		}
+		segments = append(segments, Segment{
+			Start:  startTime,
+			End:    end,
+			Text:   TokensToText(currentTokens),
+			Tokens: currentTokens,
+		})
+		currentTokens = nil
+	}
 	for i := 0; i < maxTokens; i++ {
 		nextTok := argmax(logits)
 
 		if nextTok == TokenEOT {
-			// Flush remaining segment
-			if len(currentTokens) > 0 {
-				segments = append(segments, Segment{
-					Start:  startTime,
-					End:    startTime + 30.0, // end of chunk
-					Text:   TokensToText(currentTokens),
-					Tokens: currentTokens,
-				})
-			}
+			flushCurrent(startTime + 30.0)
 			break
 		}
 
 		if IsTimestamp(nextTok) {
 			t := TimestampToSeconds(nextTok)
-			if len(currentTokens) > 0 {
-				// End of a segment
-				segments = append(segments, Segment{
-					Start:  startTime,
-					End:    t,
-					Text:   TokensToText(currentTokens),
-					Tokens: currentTokens,
-				})
-				currentTokens = nil
-			}
+			flushCurrent(t)
 			startTime = t
 		} else {
 			currentTokens = append(currentTokens, nextTok)
@@ -140,6 +135,7 @@ func GreedyDecodeWithTimestamps(dec *Decoder, state *DecoderState, cfg Config) [
 		logits = dec.ForwardToken(nextTok, state)
 	}
 
+	flushCurrent(startTime + 30.0)
 	return segments
 }
 

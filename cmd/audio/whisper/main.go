@@ -241,6 +241,15 @@ func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64) 
 	state := whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
 
 	segs := whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
+	windowDur := float64(len(samples)) / 16000.0
+	for i := range segs {
+		if segs[i].End > windowDur {
+			segs[i].End = windowDur
+		}
+		if segs[i].Start > segs[i].End {
+			segs[i].Start = segs[i].End
+		}
+	}
 	if os.Getenv("WHISPER_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr, "[timing] xkv+decode=%.2fs\n", time.Since(dt0).Seconds())
 	}
