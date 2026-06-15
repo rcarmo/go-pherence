@@ -104,6 +104,9 @@ func (s *CPUDecodeState) RunMTPGraphDecodeStep(d *Gemma4MTPDrafter, state MTPDra
 	if opts.RemainingTokens <= 0 {
 		return MTPGraphDecodeStepResult{}, fmt.Errorf("remaining tokens %d out of range", opts.RemainingTokens)
 	}
+	if s.CompressedKV != nil {
+		return MTPGraphDecodeStepResult{}, fmt.Errorf("MTP graph decode compressed KV staging is not implemented; use float KV verifier staging")
+	}
 	draftCount := opts.DraftCount
 	if draftCount == 0 {
 		draftCount = opts.Policy.NextDraftCount(opts.RemainingTokens, stats)

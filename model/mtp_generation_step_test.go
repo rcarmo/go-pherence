@@ -1,6 +1,11 @@
 package model
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/rcarmo/go-pherence/runtime/kv"
+)
 
 func TestMTPAdaptiveDraftPolicyNextDraftCount(t *testing.T) {
 	p := MTPAdaptiveDraftPolicy{MinDrafts: 1, InitialDrafts: 2, MaxDrafts: 4}
@@ -96,6 +101,28 @@ func TestMTPDrafterStateFromVerifierCommitUsesAcceptedRow(t *testing.T) {
 	verifier.ActivationRows[0][0] = 99
 	if state.Activation[0] == 99 {
 		t.Fatal("state aliases verifier activation row")
+	}
+}
+
+func TestCPUDecodeStateRunMTPGraphDecodeStepRejectsCompressedKVUntilVerifierStagingExists(t *testing.T) {
+	m := newZeroLayerVerifierModel()
+	d := validProjectionOnlyDrafter()
+	d.Config.VocabSize = m.Config.VocabSize
+	state, err := NewMTPDrafterState(1, []float32{0.5, 0.25}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := NewCPUDecodeStateForSpeculative(m, []int{1}, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.CompressedKV = []*kv.CompressedKVCache{}
+	_, err = st.RunMTPGraphDecodeStep(d, state, nil, MTPGraphDecodeStepOptions{RemainingTokens: 3, DraftCount: 2}, MTPSpeculationStats{})
+	if err == nil || !strings.Contains(err.Error(), "compressed KV staging") {
+		t.Fatalf("error=%v, want compressed KV staging guard", err)
+	}
+	if !sameInts(st.Output, []int{1}) {
+		t.Fatalf("output mutated after compressed KV guard: %v", st.Output)
 	}
 }
 
