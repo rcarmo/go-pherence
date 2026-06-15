@@ -27,12 +27,18 @@ import (
 	"github.com/rcarmo/go-pherence/models/whisper"
 )
 
+const (
+	defaultWhisperModelPath = "models/whisper-large-v3-turbo-hf/model.safetensors"
+	defaultWhisperSize      = "turbo"
+	defaultWhisperLanguage  = "en"
+)
+
 func main() {
-	modelPath := flag.String("model", "models/whisper-large-v3-turbo-hf/model.safetensors", "Path to Whisper safetensors model")
+	modelPath := flag.String("model", defaultWhisperModelPath, "Path to Whisper safetensors model")
 	audioPath := flag.String("audio", "", "Path to input audio file (WAV directly, other formats via ffmpeg)")
-	modelSize := flag.String("size", "turbo", "Model size: tiny, base, small, medium, large-v3, turbo (default large-v3-turbo: same encoder as large-v3, 4-layer distilled decoder)")
+	modelSize := flag.String("size", defaultWhisperSize, "Model size: tiny, base, small, medium, large-v3, turbo (default large-v3-turbo: same encoder as large-v3, 4-layer distilled decoder)")
 	task := flag.String("task", "transcribe", "Whisper task: transcribe or translate")
-	language := flag.String("language", "en", "Whisper language prompt; use en for turbo English translation")
+	language := flag.String("language", defaultWhisperLanguage, "Whisper language prompt; use en for turbo English translation")
 	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
 	speakerModel := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
