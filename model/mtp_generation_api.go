@@ -45,6 +45,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if r.GraphOutputTokens < 0 || r.GreedyTailTokens < 0 {
 		return fmt.Errorf("MTP graph generation negative output accounting graph=%d greedy=%d", r.GraphOutputTokens, r.GreedyTailTokens)
 	}
+	if r.RequestedMaxTokens < 0 {
+		return fmt.Errorf("MTP graph generation requested max tokens=%d out of range", r.RequestedMaxTokens)
+	}
 	if r.VocabSize < 0 {
 		return fmt.Errorf("MTP graph generation vocab size=%d out of range", r.VocabSize)
 	}
@@ -183,7 +186,7 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		}
 	}
 	generated := len(r.Output) - promptLen
-	if r.RequestedMaxTokens > 0 && generated != r.RequestedMaxTokens {
+	if generated != r.RequestedMaxTokens {
 		return fmt.Errorf("MTP generated tokens=%d, requested max tokens=%d", generated, r.RequestedMaxTokens)
 	}
 	if generated != r.GraphOutputTokens+r.GreedyTailTokens {

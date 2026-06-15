@@ -134,6 +134,16 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted graph output content mismatch")
 	}
 	bad = valid
+	bad.RequestedMaxTokens = -1
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted negative requested token budget")
+	}
+	bad = valid
+	bad.RequestedMaxTokens = 0
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted generated tokens with zero requested budget")
+	}
+	bad = valid
 	bad.RequestedMaxTokens = 2
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted requested token mismatch")
