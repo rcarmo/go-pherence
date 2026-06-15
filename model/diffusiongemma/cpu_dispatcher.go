@@ -877,6 +877,9 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 		for i := range normBuf {
 			normBuf[i] *= scaleVec[i] * scalarRootSize
 		}
+		if diffusionGemmaLayerTraceOpsEnabled() && pos == diffusionGemmaLayerTraceRow() {
+			traceForwardData("op/router_input", op.Layer, 0, normBuf, hiddenSize)
+		}
 		if !simd.GemvRows(scored, normBuf, projW, numExperts, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma router GEMV rejected")
 		}

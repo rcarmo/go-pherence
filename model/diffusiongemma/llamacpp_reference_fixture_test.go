@@ -229,6 +229,14 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 				GoTopIDs          []int     `json:"go_top_ids"`
 				GoRawTopLogits    []float32 `json:"go_raw_top_logits"`
 				CommonIDs         []int     `json:"common_ids"`
+				LlamaRouterInput  struct {
+					RMS    float64 `json:"rms"`
+					MaxIdx int     `json:"max_idx"`
+				} `json:"llama_router_input"`
+				GoRouterInput struct {
+					RMS    float64 `json:"rms"`
+					MaxIdx int     `json:"max_idx"`
+				} `json:"go_router_input"`
 			} `json:"layer29_router"`
 		} `json:"row28_layer_trace_summary"`
 		KnownMatches       []string `json:"known_matches"`
@@ -259,7 +267,7 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 		t.Fatalf("row28 layer trace summary lost divergence target: %+v", fixture.Row28LayerTraceSummary)
 	}
 	router := fixture.Row28LayerTraceSummary.Layer29Router
-	if !equalInts(router.LlamaTopIDs, []int{70, 14, 36, 86, 109, 29, 63, 35}) || !equalInts(router.GoTopIDs, []int{70, 63, 14, 61, 118, 99, 35, 18}) || !equalInts(router.CommonIDs, []int{14, 35, 63, 70}) || len(router.LlamaRawTopLogits) != 8 || len(router.GoRawTopLogits) != 8 || router.LlamaRawTopLogits[0] < 1.32 || router.LlamaRawTopLogits[1] < 1.32 || router.GoRawTopLogits[0] < 1.21 || router.GoRawTopLogits[1] > 0.94 {
+	if !equalInts(router.LlamaTopIDs, []int{70, 14, 36, 86, 109, 29, 63, 35}) || !equalInts(router.GoTopIDs, []int{70, 63, 14, 61, 118, 99, 35, 18}) || !equalInts(router.CommonIDs, []int{14, 35, 63, 70}) || len(router.LlamaRawTopLogits) != 8 || len(router.GoRawTopLogits) != 8 || router.LlamaRawTopLogits[0] < 1.32 || router.LlamaRawTopLogits[1] < 1.32 || router.GoRawTopLogits[0] < 1.21 || router.GoRawTopLogits[1] > 0.94 || router.LlamaRouterInput.MaxIdx != 175 || router.GoRouterInput.MaxIdx != 1749 || router.LlamaRouterInput.RMS < 0.60 || router.GoRouterInput.RMS < 0.60 {
 		t.Fatalf("row28 layer29 router target changed: %+v", router)
 	}
 	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 5 || !strings.Contains(fixture.NextRequiredAction, "later layers") {
