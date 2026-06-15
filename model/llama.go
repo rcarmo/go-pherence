@@ -1032,7 +1032,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			if layer.QWq != nil {
 				m.mvQ(q, hidden, layer.QWq)
 			} else if layer.QWm != nil {
-				mlx.GemvParallel(q, hidden, layer.QWm)
+				if !mlx.GemvParallel(q, hidden, layer.QWm) {
+					return output
+				}
 			} else {
 				m.mv(q, hidden, layer.QW.Data(), h, qDim)
 			}
@@ -1052,11 +1054,15 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 						return output
 					}
 				} else if layer.KWm != nil {
-					mlx.GemvParallel(k, hidden, layer.KWm)
+					if !mlx.GemvParallel(k, hidden, layer.KWm) {
+						return output
+					}
 					if cfg.AttentionKEqV && (layer.VWm == nil || layer.VWm == layer.KWm) {
 						copy(v, k)
 					} else if layer.VWm != nil {
-						mlx.GemvParallel(v, hidden, layer.VWm)
+						if !mlx.GemvParallel(v, hidden, layer.VWm) {
+							return output
+						}
 					} else {
 						return output
 					}
@@ -1229,7 +1235,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			if layer.OWq != nil {
 				m.mvQ(oOut, attnOut, layer.OWq)
 			} else if layer.OWm != nil {
-				mlx.GemvParallel(oOut, attnOut, layer.OWm)
+				if !mlx.GemvParallel(oOut, attnOut, layer.OWm) {
+					return output
+				}
 			} else {
 				m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 			}
@@ -1303,8 +1311,12 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 					m.mvQ(gate, mlpInput, layer.GateWq)
 					m.mvQ(up, mlpInput, layer.UpWq)
 				} else if layer.GateWm != nil {
-					mlx.GemvParallel(gate, mlpInput, layer.GateWm)
-					mlx.GemvParallel(up, mlpInput, layer.UpWm)
+					if !mlx.GemvParallel(gate, mlpInput, layer.GateWm) {
+						return output
+					}
+					if !mlx.GemvParallel(up, mlpInput, layer.UpWm) {
+						return output
+					}
 				} else {
 					m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
 					m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
@@ -1334,7 +1346,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				if layer.DownWq != nil {
 					m.mvQ(down, gate, layer.DownWq)
 				} else if layer.DownWm != nil {
-					mlx.GemvParallel(down, gate, layer.DownWm)
+					if !mlx.GemvParallel(down, gate, layer.DownWm) {
+						return output
+					}
 				} else {
 					m.mv(down, gate, layer.DownW.Data(), layerInter, h)
 				}
