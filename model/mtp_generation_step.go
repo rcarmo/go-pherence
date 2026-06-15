@@ -220,6 +220,18 @@ func (s *CPUDecodeState) stageCompressedVerifierKV(kvCacheK, kvCacheV [][]float3
 		if cache.SeqLen() != startPos {
 			return fmt.Errorf("compressed verifier layer %d seq len=%d, want start position %d", l, cache.SeqLen(), startPos)
 		}
+		if base > 0 {
+			prefixK := cache.GetK()
+			prefixV := cache.GetV()
+			if len(prefixK) != base || len(prefixV) != base {
+				return fmt.Errorf("compressed verifier layer %d prefix K/V=%d/%d, want %d", l, len(prefixK), len(prefixV), base)
+			}
+			for i := 0; i < base; i++ {
+				if kvCacheK[l][i] != prefixK[i] || kvCacheV[l][i] != prefixV[i] {
+					return fmt.Errorf("compressed verifier layer %d staged prefix differs at offset %d", l, i)
+				}
+			}
+		}
 		for off := base; off < len(kvCacheK[l]); off += dim {
 			cache.Append(kvCacheK[l][off:off+dim], kvCacheV[l][off:off+dim])
 		}

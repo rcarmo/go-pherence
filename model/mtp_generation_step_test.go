@@ -181,6 +181,16 @@ func TestCPUDecodeStateCompressedVerifierStagingValidation(t *testing.T) {
 	if err := st.stageCompressedVerifierKV(badK, badV, 3); err == nil {
 		t.Fatal("accepted malformed staged compressed verifier K/V")
 	}
+	st = &CPUDecodeState{Model: m, KVDims: []int{2}, CompressedKV: []*kv.CompressedKVCache{kv.NewCompressedKVCache(2, 1, 2, nil, true)}}
+	st.CompressedKV[0].Append([]float32{1, 2}, []float32{3, 4})
+	badK = [][]float32{{9, 2, 5, 6}}
+	badV = [][]float32{{3, 4, 7, 8}}
+	if err := st.stageCompressedVerifierKV(badK, badV, 1); err == nil {
+		t.Fatal("accepted compressed verifier shadow whose prefix differs from cache")
+	}
+	if got := st.CompressedKV[0].SeqLen(); got != 1 {
+		t.Fatalf("compressed cache mutated after prefix mismatch: seq=%d", got)
+	}
 }
 
 func TestCPUDecodeStateRunMTPGraphDecodeStepRestoresOnCommitError(t *testing.T) {
