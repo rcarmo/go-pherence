@@ -478,6 +478,34 @@ go run ./cmd/llm/speccheck -model models/smollm2-135m \
 
 `specbench` emits normal/speculative rows with output parity, speedup, verifier backend, proposer, acceptance/fallback counters, emitted tokens, tokens/step, average proposal length, and aggregate total rows. `speccheck` emits JSON and exits non-zero on mismatch; use `-write-golden` / `-golden` to save and compare baselines.
 
+## `whisper` — standalone turbo STT/translation
+
+`cmd/audio/whisper` is the simpler single-command Whisper entry point. It defaults to local `openai/whisper-large-v3-turbo` weights and accepts WAV directly or other audio formats through `ffmpeg`.
+
+```bash
+go run ./cmd/audio/whisper \
+  -audio meeting.m4a \
+  -task translate \
+  -language en
+```
+
+Useful flags:
+
+- `-model PATH` — default `models/whisper-large-v3-turbo-hf/model.safetensors`.
+- `-size turbo|large-v3|...` — default `turbo`.
+- `-task transcribe|translate` — default `transcribe`; use `translate` for English translation.
+- `-language CODE` — default `en`; for turbo translated English, keep `en`.
+- `-timestamps` — emit timestamped segments; with `-output something.vtt`, writes WebVTT.
+- `-diarize` — add speaker labels when `-timestamps` is enabled and the speaker model is available.
+- `-chunk N -chunk-workers N` — long-form windowing controls.
+- `-max-tokens N` — cap decoder output for smokes/benchmarks.
+
+Quick turbo smoke:
+
+```bash
+go run ./cmd/audio/whisper -audio testdata/jfk.wav -task translate -language en -max-tokens 4
+```
+
 ## `diarize-vtt` — turbo translated WebVTT
 
 `cmd/audio/diarize-vtt` is the current long-form audio command. It now defaults to Whisper large-v3-turbo translation, VAD-packed chunks, progressive writes, and resume support:
