@@ -19,6 +19,9 @@ type GPUEncoder struct {
 	ready bool
 }
 
+// Ready reports whether this GPU encoder can run GPU-assisted paths.
+func (ge *GPUEncoder) Ready() bool { return ge != nil && ge.ready }
+
 type gpuEncoderLayer struct {
 	qW, kW, vW, oW  *nv.DevBuf
 	fc1W, fc2W      *nv.DevBuf

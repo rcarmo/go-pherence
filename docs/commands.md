@@ -510,6 +510,7 @@ Useful flags:
 - `-diarize` — add speaker labels when `-timestamps` is enabled and the speaker model is available.
 - `-chunk N -chunk-workers N` — long-form windowing controls; simple no-timestamp mode also chunks long inputs instead of sending over-length audio to the encoder.
 - `-max-tokens N` — cap decoder output for smokes/benchmarks.
+- `-gpu` — opt into GPU-assisted encoder/cross-KV paths when CUDA SGEMM is available; falls back to CPU/SIMD otherwise.
 
 Quick turbo smoke:
 

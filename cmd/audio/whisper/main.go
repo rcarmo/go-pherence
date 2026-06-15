@@ -41,6 +41,7 @@ func main() {
 	task := flag.String("task", "transcribe", "Whisper task: transcribe or translate")
 	language := flag.String("language", defaultWhisperLanguage, "Whisper language prompt; use en for turbo English translation")
 	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
+	useGPU := flag.Bool("gpu", false, "Use GPU-assisted encoder/cross-KV path when CUDA SGEMM is available")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
 	speakerModel := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
 	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine threshold for speaker clustering")
@@ -116,6 +117,15 @@ func main() {
 		Decoder: dec,
 		Config:  cfg,
 	}
+	var gpuEnc *whisper.GPUEncoder
+	if *useGPU {
+		gpuEnc = whisper.NewGPUEncoder(enc, cfg)
+		if gpuEnc.Ready() {
+			fmt.Fprintf(os.Stderr, "GPU encoder enabled\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "GPU encoder requested but unavailable; using CPU/SIMD path\n")
+		}
+	}
 
 	// Load audio
 	wavPath, cleanup, err := materializeWAV(*audioPath)
@@ -143,7 +153,7 @@ func main() {
 
 	if *timestamps {
 		// Transcribe with timestamps (chunked + parallel for long audio).
-		segments := filterTimestampSegments(transcribeChunked(w, samples, *chunkSec, *chunkWorkers, languageToken, taskToken))
+		segments := filterTimestampSegments(transcribeChunked(w, gpuEnc, samples, *chunkSec, *chunkWorkers, languageToken, taskToken))
 		if *diarize {
 			diarized := diarizeSegments(samples, segments, *speakerModel, float32(*speakerThreshold))
 			if *output != "" {
@@ -184,13 +194,13 @@ func main() {
 		for r := 0; r < reps; r++ {
 			ps := time.Now()
 			if shouldChunkSimple(samples, *chunkSec) {
-				text, err = transcribeTextChunked(w, samples, *chunkSec, *chunkWorkers, languageToken, taskToken)
+				text, err = transcribeTextChunked(w, gpuEnc, samples, *chunkSec, *chunkWorkers, languageToken, taskToken)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Error transcribing chunks: %v\n", err)
 					os.Exit(1)
 				}
 			} else {
-				text, err = w.TranscribeFromSamplesPrompt(samples, languageToken, taskToken)
+				text, err = transcribeTextWindow(w, gpuEnc, samples, languageToken, taskToken)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Error transcribing: %v\n", err)
 					os.Exit(1)
@@ -239,11 +249,29 @@ func joinTexts(parts []string) string {
 	return strings.Join(out, " ")
 }
 
-func transcribeTextChunked(w *whisper.Whisper, samples []float32, chunkSec float64, workers int, languageToken, taskToken int) (string, error) {
+func transcribeTextWindow(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, languageToken, taskToken int) (string, error) {
+	if gpuEnc == nil || !gpuEnc.Ready() {
+		return w.TranscribeFromSamplesPrompt(samples, languageToken, taskToken)
+	}
+	melFlat, T := whisper.MelFlatFromSamples(samples, w.Config)
+	if len(melFlat) == 0 || T == 0 {
+		return "", nil
+	}
+	encoderOutput := gpuEnc.ForwardGPU(melFlat, T)
+	encLen := len(encoderOutput) / w.Config.EncoderDModel
+	state := whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
+	if os.Getenv("GO_PHERENCE_WHISPER_GPU_CROSS_ATTN") == "1" {
+		state = whisper.NewDecoderStateGPU(w.Config, encoderOutput, encLen, w.Decoder)
+	}
+	tokens := whisper.GreedyDecodePrompt(w.Decoder, state, w.Config, languageToken, taskToken)
+	return whisper.TokensToText(tokens), nil
+}
+
+func transcribeTextChunked(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, chunkSec float64, workers int, languageToken, taskToken int) (string, error) {
 	const sr = 16000
 	chunk := int(chunkSec * sr)
 	if chunk <= 0 || len(samples) <= chunk {
-		return w.TranscribeFromSamplesPrompt(samples, languageToken, taskToken)
+		return transcribeTextWindow(w, gpuEnc, samples, languageToken, taskToken)
 	}
 	type span struct{ s, e int }
 	var spans []span
@@ -257,7 +285,7 @@ func transcribeTextChunked(w *whisper.Whisper, samples []float32, chunkSec float
 	if workers <= 1 {
 		texts := make([]string, 0, len(spans))
 		for _, sp := range spans {
-			text, err := w.TranscribeFromSamplesPrompt(samples[sp.s:sp.e], languageToken, taskToken)
+			text, err := transcribeTextWindow(w, gpuEnc, samples[sp.s:sp.e], languageToken, taskToken)
 			if err != nil {
 				return "", err
 			}
@@ -275,7 +303,7 @@ func transcribeTextChunked(w *whisper.Whisper, samples []float32, chunkSec float
 		go func(i int, sp span) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			texts[i], errs[i] = w.TranscribeFromSamplesPrompt(samples[sp.s:sp.e], languageToken, taskToken)
+			texts[i], errs[i] = transcribeTextWindow(w, gpuEnc, samples[sp.s:sp.e], languageToken, taskToken)
 		}(i, sp)
 	}
 	wg.Wait()
@@ -334,19 +362,20 @@ func punctuationOnly(text string) bool {
 }
 
 func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.Segment {
-	return transcribeWindow(w, samples, 0, whisper.TokenEnglish, whisper.TokenTranscribe)
+	return transcribeWindow(w, nil, samples, 0, whisper.TokenEnglish, whisper.TokenTranscribe)
 }
 
 // transcribeWindow runs one <=30s window (mel -> encoder -> greedy decode) and
 // offsets the resulting segment timestamps by offsetSec. Encoder/decoder state
 // is per-call, so multiple windows can run concurrently.
-func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64, languageToken, taskToken int) []whisper.Segment {
+func transcribeWindow(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, offsetSec float64, languageToken, taskToken int) []whisper.Segment {
 	melFlat, T := whisper.MelFlatFromSamples(samples, w.Config)
 	if len(melFlat) == 0 || T == 0 {
 		return nil
 	}
 
 	var encoderOutput []float32
+	useGPUState := false
 	if hp := os.Getenv("WHISPER_ENC_H"); hp != "" {
 		// Inject a precomputed encoder hidden state (e.g. from the NPU encoder),
 		// raw float32 [seq, EncoderDModel] row-major. Skips the CPU encoder.
@@ -362,12 +391,20 @@ func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64, 
 		if os.Getenv("WHISPER_DEBUG") != "" {
 			fmt.Fprintf(os.Stderr, "[enc] injected %d floats from %s (skipping CPU encoder)\n", len(encoderOutput), hp)
 		}
+	} else if gpuEnc != nil && gpuEnc.Ready() {
+		encoderOutput = gpuEnc.ForwardGPU(melFlat, T)
+		useGPUState = os.Getenv("GO_PHERENCE_WHISPER_GPU_CROSS_ATTN") == "1"
 	} else {
 		encoderOutput = w.Encoder.Forward(melFlat, T)
 	}
 	encLen := len(encoderOutput) / w.Config.EncoderDModel
 	dt0 := time.Now()
-	state := whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
+	var state *whisper.DecoderState
+	if useGPUState {
+		state = whisper.NewDecoderStateGPU(w.Config, encoderOutput, encLen, w.Decoder)
+	} else {
+		state = whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
+	}
 
 	segs := whisper.GreedyDecodeWithTimestampsPrompt(w.Decoder, state, w.Config, languageToken, taskToken)
 	windowDur := float64(len(samples)) / 16000.0
@@ -395,7 +432,7 @@ func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64, 
 // across `workers` goroutines. Whisper's encoder is a fixed 30s window, so
 // long-form throughput comes from running independent windows concurrently;
 // pair with a small per-window WHISPER_THREADS so workers*threads ~= cores.
-func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, workers int, languageToken, taskToken int) []whisper.Segment {
+func transcribeChunked(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []float32, chunkSec float64, workers int, languageToken, taskToken int) []whisper.Segment {
 	const sr = 16000
 	chunk := int(chunkSec * sr)
 	if chunk <= 0 || len(samples) <= chunk || workers <= 1 {
@@ -407,11 +444,11 @@ func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, 
 				if e > len(samples) {
 					e = len(samples)
 				}
-				all = append(all, transcribeWindow(w, samples[s:e], float64(s)/sr, languageToken, taskToken)...)
+				all = append(all, transcribeWindow(w, gpuEnc, samples[s:e], float64(s)/sr, languageToken, taskToken)...)
 			}
 			return all
 		}
-		return transcribeWindow(w, samples, 0, languageToken, taskToken)
+		return transcribeWindow(w, gpuEnc, samples, 0, languageToken, taskToken)
 	}
 
 	type span struct{ s, e int }
@@ -432,7 +469,7 @@ func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, 
 		go func(i, s, e int) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results[i] = transcribeWindow(w, samples[s:e], float64(s)/sr, languageToken, taskToken)
+			results[i] = transcribeWindow(w, gpuEnc, samples[s:e], float64(s)/sr, languageToken, taskToken)
 		}(i, sp.s, sp.e)
 	}
 	wg.Wait()
