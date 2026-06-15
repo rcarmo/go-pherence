@@ -289,6 +289,23 @@ func TestGemvQ5_0ScatterByWorkPtrs(t *testing.T) {
 	}
 }
 
+func TestGemvQ5_0ScatterByWorkPtrsRejectsBadInputs(t *testing.T) {
+	validBuf := &Buffer{Ptr: 1, Size: 64}
+	shortBuf := &Buffer{Ptr: 1, Size: 2}
+	table := &GPUQ5_0PointerTable{QPtrs: validBuf, HighPtrs: validBuf, ScalePtrs: validBuf, InDim: 32, OutDim: 4, Count: 1}
+	if err := GemvQ5_0ScatterByWorkPtrs(validBuf, validBuf, validBuf, validBuf, validBuf, 1, nil); err == nil {
+		t.Fatal("accepted nil Q5 pointer table")
+	}
+	if err := GemvQ5_0ScatterByWorkPtrs(validBuf, shortBuf, validBuf, validBuf, validBuf, 1, table); err == nil {
+		t.Fatal("accepted short x buffer")
+	}
+	badTable := *table
+	badTable.HighPtrs = nil
+	if err := GemvQ5_0ScatterByWorkPtrs(validBuf, validBuf, validBuf, validBuf, validBuf, 1, &badTable); err == nil {
+		t.Fatal("accepted table missing high-bit pointers")
+	}
+}
+
 func dequantQ5_0Test(raw []byte, n int) []float32 {
 	out := make([]float32, n)
 	for b := 0; b < n/32; b++ {
