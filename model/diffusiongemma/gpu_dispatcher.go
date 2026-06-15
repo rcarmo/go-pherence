@@ -392,10 +392,10 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			stats := ggufExpertDispatchStatsSnapshot().Sub(ggufExpertStatsStart)
 			if stats.Total() > 0 {
 				cacheUsed, cacheLimit := activeExpertMatrixCacheUsageBytes()
-				activeAvg, missingAvg, missingMiB, missingMaxMiB := stats.ActiveSetSummary()
-				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts",
+				activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB := stats.ActiveSetSummary()
+				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts",
 					stats.FusedUsed, stats.LegacyGroupedUsed, stats.CPUFallback, float64(stats.GPUAttemptNS)/1e9, float64(stats.CPUFallbackNS)/1e9, float64(cacheUsed)/(1024*1024), float64(cacheLimit)/(1024*1024),
-					stats.ActiveSetCalls, activeAvg, stats.ActiveSetMaxExperts, missingAvg, stats.Q4MissingMaxExperts, missingMiB, missingMaxMiB, stats.Q4MissingBudgetExceeds,
+					stats.ActiveSetCalls, activeAvg, stats.ActiveSetMaxExperts, workAvg, stats.ActiveSetMaxWorkItems, missingAvg, stats.Q4MissingMaxExperts, missingMiB, missingMaxMiB, stats.Q4MissingBudgetExceeds,
 					stats.Q4PointerTable, stats.Q4PackedCache, stats.Q4TransientPointer, stats.Q4TransientPacked, stats.Q4BudgetFallback, float64(stats.Q4BudgetBytes)/(1024*1024), stats.Q4BudgetExperts,
 					stats.Q8PointerTable, stats.Q8PackedCache, stats.Q8TransientPointer, stats.Q8TransientPacked, stats.Q8BudgetFallback, float64(stats.Q8BudgetBytes)/(1024*1024), stats.Q8BudgetExperts)
 			}
@@ -1279,6 +1279,8 @@ type ggufExpertDispatchStats struct {
 	ActiveSetCalls         uint64
 	ActiveSetExperts       uint64
 	ActiveSetMaxExperts    uint64
+	ActiveSetWorkItems     uint64
+	ActiveSetMaxWorkItems  uint64
 	Q4MissingExperts       uint64
 	Q4MissingMaxExperts    uint64
 	Q4MissingBytes         uint64
@@ -1309,6 +1311,8 @@ var ggufExpertDispatchCounters struct {
 	activeSetCalls         atomic.Uint64
 	activeSetExperts       atomic.Uint64
 	activeSetMaxExperts    atomic.Uint64
+	activeSetWorkItems     atomic.Uint64
+	activeSetMaxWorkItems  atomic.Uint64
 	q4MissingExperts       atomic.Uint64
 	q4MissingMaxExperts    atomic.Uint64
 	q4MissingBytes         atomic.Uint64
@@ -1340,6 +1344,8 @@ func ggufExpertDispatchStatsSnapshot() ggufExpertDispatchStats {
 		ActiveSetCalls:         ggufExpertDispatchCounters.activeSetCalls.Load(),
 		ActiveSetExperts:       ggufExpertDispatchCounters.activeSetExperts.Load(),
 		ActiveSetMaxExperts:    ggufExpertDispatchCounters.activeSetMaxExperts.Load(),
+		ActiveSetWorkItems:     ggufExpertDispatchCounters.activeSetWorkItems.Load(),
+		ActiveSetMaxWorkItems:  ggufExpertDispatchCounters.activeSetMaxWorkItems.Load(),
 		Q4MissingExperts:       ggufExpertDispatchCounters.q4MissingExperts.Load(),
 		Q4MissingMaxExperts:    ggufExpertDispatchCounters.q4MissingMaxExperts.Load(),
 		Q4MissingBytes:         ggufExpertDispatchCounters.q4MissingBytes.Load(),
@@ -1379,6 +1385,8 @@ func (s ggufExpertDispatchStats) Sub(base ggufExpertDispatchStats) ggufExpertDis
 		ActiveSetCalls:         s.ActiveSetCalls - base.ActiveSetCalls,
 		ActiveSetExperts:       s.ActiveSetExperts - base.ActiveSetExperts,
 		ActiveSetMaxExperts:    ggufMaxSince(s.ActiveSetMaxExperts, base.ActiveSetMaxExperts),
+		ActiveSetWorkItems:     s.ActiveSetWorkItems - base.ActiveSetWorkItems,
+		ActiveSetMaxWorkItems:  ggufMaxSince(s.ActiveSetMaxWorkItems, base.ActiveSetMaxWorkItems),
 		Q4MissingExperts:       s.Q4MissingExperts - base.Q4MissingExperts,
 		Q4MissingMaxExperts:    ggufMaxSince(s.Q4MissingMaxExperts, base.Q4MissingMaxExperts),
 		Q4MissingBytes:         s.Q4MissingBytes - base.Q4MissingBytes,
@@ -1393,14 +1401,15 @@ func (s ggufExpertDispatchStats) Total() uint64 {
 	return s.FusedUsed + s.LegacyGroupedUsed + s.CPUFallback
 }
 
-func (s ggufExpertDispatchStats) ActiveSetSummary() (activeAvg float64, missingAvg float64, missingMiB float64, missingMaxMiB float64) {
+func (s ggufExpertDispatchStats) ActiveSetSummary() (activeAvg float64, workAvg float64, missingAvg float64, missingMiB float64, missingMaxMiB float64) {
 	if s.ActiveSetCalls > 0 {
 		activeAvg = float64(s.ActiveSetExperts) / float64(s.ActiveSetCalls)
+		workAvg = float64(s.ActiveSetWorkItems) / float64(s.ActiveSetCalls)
 		missingAvg = float64(s.Q4MissingExperts) / float64(s.ActiveSetCalls)
 	}
 	missingMiB = float64(s.Q4MissingBytes) / (1024 * 1024)
 	missingMaxMiB = float64(s.Q4MissingMaxBytes) / (1024 * 1024)
-	return activeAvg, missingAvg, missingMiB, missingMaxMiB
+	return activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB
 }
 
 func ResetGGUFGPUDiagnosticStats() {
@@ -1424,6 +1433,8 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufExpertDispatchCounters.activeSetCalls.Store(0)
 	ggufExpertDispatchCounters.activeSetExperts.Store(0)
 	ggufExpertDispatchCounters.activeSetMaxExperts.Store(0)
+	ggufExpertDispatchCounters.activeSetWorkItems.Store(0)
+	ggufExpertDispatchCounters.activeSetMaxWorkItems.Store(0)
 	ggufExpertDispatchCounters.q4MissingExperts.Store(0)
 	ggufExpertDispatchCounters.q4MissingMaxExperts.Store(0)
 	ggufExpertDispatchCounters.q4MissingBytes.Store(0)
@@ -1648,13 +1659,17 @@ func ggufAtomicMaxUint64(dst *atomic.Uint64, v uint64) {
 	}
 }
 
-func recordGGUFActiveExpertSetTelemetry(idx *GGUFExpertIndex, layer int, active []int, missingExperts int, missingBytes int64, budgetExceeds bool) {
+func recordGGUFActiveExpertSetTelemetry(idx *GGUFExpertIndex, layer int, active []int, workItems int, missingExperts int, missingBytes int64, budgetExceeds bool) {
 	if len(active) == 0 {
 		return
 	}
 	ggufExpertDispatchCounters.activeSetCalls.Add(1)
 	ggufExpertDispatchCounters.activeSetExperts.Add(uint64(len(active)))
 	ggufAtomicMaxUint64(&ggufExpertDispatchCounters.activeSetMaxExperts, uint64(len(active)))
+	if workItems > 0 {
+		ggufExpertDispatchCounters.activeSetWorkItems.Add(uint64(workItems))
+		ggufAtomicMaxUint64(&ggufExpertDispatchCounters.activeSetMaxWorkItems, uint64(workItems))
+	}
 	if missingExperts > 0 {
 		ggufExpertDispatchCounters.q4MissingExperts.Add(uint64(missingExperts))
 		ggufAtomicMaxUint64(&ggufExpertDispatchCounters.q4MissingMaxExperts, uint64(missingExperts))
@@ -2028,9 +2043,9 @@ func shouldSkipDoomedGGUFGPUExpertAttempt(idx *GGUFExpertIndex, layer int) bool 
 	return limit <= 0 || used >= limit
 }
 
-func shouldSkipDoomedGGUFActiveExpertSet(idx *GGUFExpertIndex, layer int, active []int) bool {
+func shouldSkipDoomedGGUFActiveExpertSet(idx *GGUFExpertIndex, layer int, active []int, workItems int) bool {
 	missingExperts, missingBytes, exceeds := ggufActiveExpertSetQ4MissingStats(idx, layer, active)
-	recordGGUFActiveExpertSetTelemetry(idx, layer, active, missingExperts, missingBytes, exceeds)
+	recordGGUFActiveExpertSetTelemetry(idx, layer, active, workItems, missingExperts, missingBytes, exceeds)
 	return !diffusionGemmaGGUFGPUExpertTransientActiveEnabled() && !diffusionGemmaGGUFGPUExpertTransientPointerEnabled() && exceeds
 }
 
@@ -3589,7 +3604,7 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 	if err := groupedArrays.Validate(); err != nil {
 		return false, nil, err
 	}
-	if shouldSkipDoomedGGUFActiveExpertSet(idx, op.Layer, groupedArrays.ActiveExperts) {
+	if shouldSkipDoomedGGUFActiveExpertSet(idx, op.Layer, groupedArrays.ActiveExperts, len(groupedArrays.WorkPositions)) {
 		recordQ4BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
 		return false, normedRows, nil
 	}

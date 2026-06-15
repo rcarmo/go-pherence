@@ -9,6 +9,8 @@ func TestResetGGUFGPUDiagnosticStats(t *testing.T) {
 	ggufExpertDispatchCounters.activeSetCalls.Add(2)
 	ggufExpertDispatchCounters.activeSetExperts.Add(10)
 	ggufExpertDispatchCounters.activeSetMaxExperts.Store(7)
+	ggufExpertDispatchCounters.activeSetWorkItems.Add(24)
+	ggufExpertDispatchCounters.activeSetMaxWorkItems.Store(16)
 	ggufExpertDispatchCounters.q4MissingExperts.Add(6)
 	ggufExpertDispatchCounters.q4MissingMaxExperts.Store(4)
 	ggufExpertDispatchCounters.q4MissingBytes.Add(8 * 1024 * 1024)
@@ -22,11 +24,11 @@ func TestResetGGUFGPUDiagnosticStats(t *testing.T) {
 	ggufAttentionTimingCounters.calls.Add(8)
 	ggufAttentionTimingCounters.totalNS.Add(9)
 
-	if s := ggufExpertDispatchStatsSnapshot(); s.FusedUsed != 1 || s.Q4BudgetBytes != 2 || s.GPUAttemptNS != 3 || s.ActiveSetCalls != 2 || s.ActiveSetExperts != 10 || s.ActiveSetMaxExperts != 7 || s.Q4MissingExperts != 6 || s.Q4MissingMaxExperts != 4 || s.Q4MissingBytes != 8*1024*1024 || s.Q4MissingMaxBytes != 5*1024*1024 || s.Q4MissingBudgetExceeds != 1 {
+	if s := ggufExpertDispatchStatsSnapshot(); s.FusedUsed != 1 || s.Q4BudgetBytes != 2 || s.GPUAttemptNS != 3 || s.ActiveSetCalls != 2 || s.ActiveSetExperts != 10 || s.ActiveSetMaxExperts != 7 || s.ActiveSetWorkItems != 24 || s.ActiveSetMaxWorkItems != 16 || s.Q4MissingExperts != 6 || s.Q4MissingMaxExperts != 4 || s.Q4MissingBytes != 8*1024*1024 || s.Q4MissingMaxBytes != 5*1024*1024 || s.Q4MissingBudgetExceeds != 1 {
 		t.Fatalf("expert stats before reset=%+v", s)
-	} else if activeAvg, missingAvg, missingMiB, missingMaxMiB := s.ActiveSetSummary(); activeAvg != 5 || missingAvg != 3 || missingMiB != 8 || missingMaxMiB != 5 {
-		t.Fatalf("expert summary active=%g missing=%g mib=%g max=%g", activeAvg, missingAvg, missingMiB, missingMaxMiB)
-	} else if delta := s.Sub(ggufExpertDispatchStats{ActiveSetCalls: 1, ActiveSetExperts: 4, Q4MissingExperts: 2, Q4MissingBytes: 2 * 1024 * 1024, Q4MissingBudgetExceeds: 1}); delta.ActiveSetCalls != 1 || delta.ActiveSetExperts != 6 || delta.ActiveSetMaxExperts != 7 || delta.Q4MissingExperts != 4 || delta.Q4MissingBytes != 6*1024*1024 || delta.Q4MissingBudgetExceeds != 0 {
+	} else if activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB := s.ActiveSetSummary(); activeAvg != 5 || workAvg != 12 || missingAvg != 3 || missingMiB != 8 || missingMaxMiB != 5 {
+		t.Fatalf("expert summary active=%g work=%g missing=%g mib=%g max=%g", activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB)
+	} else if delta := s.Sub(ggufExpertDispatchStats{ActiveSetCalls: 1, ActiveSetExperts: 4, ActiveSetMaxExperts: 7, ActiveSetWorkItems: 8, ActiveSetMaxWorkItems: 16, Q4MissingExperts: 2, Q4MissingMaxExperts: 4, Q4MissingBytes: 2 * 1024 * 1024, Q4MissingMaxBytes: 5 * 1024 * 1024, Q4MissingBudgetExceeds: 1}); delta.ActiveSetCalls != 1 || delta.ActiveSetExperts != 6 || delta.ActiveSetMaxExperts != 0 || delta.ActiveSetWorkItems != 16 || delta.ActiveSetMaxWorkItems != 0 || delta.Q4MissingExperts != 4 || delta.Q4MissingMaxExperts != 0 || delta.Q4MissingBytes != 6*1024*1024 || delta.Q4MissingMaxBytes != 0 || delta.Q4MissingBudgetExceeds != 0 {
 		t.Fatalf("expert stats delta=%+v", delta)
 	}
 	if s := ggufChunkedLMHeadSnapshot(); s.Chunks != 4 || s.UploadNS != 5 {
