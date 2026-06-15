@@ -51,8 +51,8 @@ python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 # Optional backend parity checks against the native SIMD oracle. A100 comparisons
 # cover plain stdout decode for translate/transcribe, standalone timestamp/VTT
 # for translate/transcribe, diarize-vtt output, and diarize-vtt with speaker
-# labels for translate/transcribe. K3/RISC-V int8 checks compare stdout and
-# timestamp/VTT; on non-riscv hosts, stubs keep this a command/prompt smoke.
+# labels for translate/transcribe. K3/RISC-V int8 checks compare stdout,
+# standalone timestamp/VTT, and diarize-vtt VTT; on non-riscv hosts, stubs keep this a command/prompt smoke.
 make whisper-backend-compare
 make whisper-a100-podcast-compare
 # podcast target compares both stdout and timestamp/VTT on a 12s long-form window.
