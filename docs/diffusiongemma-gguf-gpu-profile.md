@@ -178,17 +178,16 @@ trend clearly even when wall-clock varies with host load:
 | 1024MiB | measured | 225 | 15389/6691 | 360448 | 399872 | 1244672 | Optimized plan-only profile; more resident work, still broad dropped subset. |
 | 1536MiB | measured | 335 | 18444/3636 | 205568 | 225280 | 1109504 | Much less dropped work; exact-GELU boundary grows. |
 | 1792MiB | simulated | 390 | 19338/2742 | n/a | n/a | n/a | Budget simulation only; not yet profiled. |
-| 2048MiB | simulated | 447 | 19978/2102 | n/a | n/a | n/a | Keeps ~90.5% of traced work. |
-| 2560MiB | simulated | 556 | 20810/1270 | n/a | n/a | n/a | Keeps ~94.2% of traced work. |
+| 2048MiB | measured | 447 | 19978/2102 | 47872 | 84480 | 934912 | Keeps ~90.5% traced work; remaining fallback mostly Q5_0. |
+| 2560MiB | measured | 556 | 20810/1270 | 0 | 0 | 819456 | Q4/Q8 dropped dequant eliminated; remaining fallback is Q5_0. |
 | 3072MiB | simulated | 667 | 21299/781 | n/a | n/a | n/a | Keeps ~96.5% of traced work. |
 
-At 1536MiB, the remaining measured dropped work is mostly residual Q5_0 rows plus
-the larger exact-GELU boundary for the kept set. The simulation suggests that
-additional expert-cache budget continues to reduce dropped work, but with
-diminishing returns. This points toward either more resident expert budget,
-smaller Q4_K/Q5_0 resident representation, better replacement planning under a
-fixed budget, or a native exact-GELU device kernel to remove the host boundary as
-coverage grows.
+At 2560MiB, Q4 and Q8 dropped dequant work are eliminated for this trace; the
+remaining measured dropped work is entirely Q5_0. Additional expert-cache budget
+continues to reduce dropped work, but with diminishing returns. This points
+toward either more resident expert budget, smaller Q4_K/Q5_0 resident
+representation, better replacement planning under a fixed budget, or a native
+exact-GELU device kernel to remove the host boundary as coverage grows.
 
 ## Why this is opt-in
 
