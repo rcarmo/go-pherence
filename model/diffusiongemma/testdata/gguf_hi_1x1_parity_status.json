@@ -203,9 +203,9 @@
     "The remaining blocker is entropy-bound sampler/self-conditioning/logit numeric parity over the full 256-token canvas, not prompt IDs, RNG integer draws, or trimming.",
     "Layer-row trace comparison for canvas row 28 shows prefix and layer0 l_out match closely (rms\u22481.7998, max_abs\u224865), but by layer29 l_out Go is much larger (rms\u22481.1238 vs llama\u22480.6294, max_abs\u224839.7 vs llama\u224818.2), so the next parity target is a later-layer sub-op trace rather than layer0.",
     "Layer29 row28 router input already differs before projection despite similar RMS: llama router_input max_idx=175/first4=[-0.4267,-0.1648,-0.1326,-1.2702], while Go max_idx=1749/first4=[-1.1856,0.1663,0.4981,-1.3003]. Router logits/top-k divergence is therefore caused by upstream hidden-state/router-input differences before the router projection.",
-    "Layer7 row28 is the first l_out with >0.1 RMS drift. Its attention residual remains close (llama rms\u22481.846/max\u224844.6 vs Go rms\u22481.764/max\u224844.9), but FFN components and post-FFN norm diverge (ffn_combined max\u2248296.6 llama vs \u2248389.4 Go; post_norm rms\u22481.56 llama vs \u22482.57 Go), making layer7 FFN/MoE the earliest material sub-op target."
+    "After Q8_K expert-input quantization, row28 layer7 ffn_combined is close to llama (Go rms\u224816.25/max\u2248293 vs llama rms\u224816.19/max\u2248296), moving the first material l_out RMS drift to layer12: Go layer12 l_out rms\u22481.936/max\u224849.1 vs llama rms\u22481.816/max\u224846.5. Layer12 FFN/MoE remains the next numeric target."
   ],
-  "next_required_action": "Trace/compare layer7 row28 FFN/MoE inputs and selected experts, since layer7 is the first material l_out divergence and attention is still close there.",
+  "next_required_action": "Trace/compare layer12 row28 FFN/MoE inputs and selected experts, since Q8_K expert-input quantization moved the first material l_out drift from layer7 to layer12.",
   "llamacpp_step_diagnostics": [
     {
       "step": 48,
@@ -529,50 +529,85 @@
         "max_abs": 44.6269
       },
       "go_attn_out": {
-        "rms": 1.76433,
-        "max_abs": 44.9195
-      },
-      "llama_ffn_mlp": {
-        "rms": 10.1908,
-        "max_abs": 280.91
-      },
-      "go_ffn_mlp": {
-        "rms": 11.0786,
-        "max_abs": 333.8
-      },
-      "llama_ffn_moe": {
-        "rms": 12.015,
-        "max_abs": 164.377
-      },
-      "go_ffn_moe": {
-        "rms": 11.8977,
-        "max_abs": 188.439
+        "rms": 1.75179,
+        "max_abs": 34.2841
       },
       "llama_ffn_combined": {
         "rms": 16.194,
         "max_abs": 296.618
       },
       "go_ffn_combined": {
-        "rms": 17.2107,
-        "max_abs": 389.352
+        "rms": 16.254,
+        "max_abs": 293.053
       },
       "llama_ffn_post_norm": {
         "rms": 1.56161,
         "max_abs": 23.3076
       },
       "go_ffn_post_norm": {
-        "rms": 2.57016,
-        "max_abs": 50.8155
+        "rms": 2.59906,
+        "max_abs": 53.3027
       },
       "llama_l_out": {
         "rms": 1.95603,
         "max_abs": 36.6455
       },
       "go_l_out": {
-        "rms": 1.83726,
-        "max_abs": 36.3251
+        "rms": 1.85792,
+        "max_abs": 38.1031
       },
-      "note": "First material row28 RMS drift (>0.1) appears by layer7 l_out; attention residual is still close, while FFN/MoE/post-FFN norm are the first useful sub-op targets."
+      "note": "After Q8_K expert-input quantization, layer7 ffn_combined is close; l_out drift is below the prior >0.1 threshold, but post-residual norm/scale still differs."
+    },
+    "layer12_subops": {
+      "llama_attn_out": {
+        "rms": 2.05106,
+        "max_abs": 55.7596
+      },
+      "go_attn_out": {
+        "rms": 2.01597,
+        "max_abs": 41.7148
+      },
+      "llama_ffn_mlp": {
+        "rms": 7.64631,
+        "max_abs": 258.839
+      },
+      "go_ffn_mlp": {
+        "rms": 9.42881,
+        "max_abs": 269.246
+      },
+      "llama_ffn_moe": {
+        "rms": 7.52846,
+        "max_abs": 173.174
+      },
+      "go_ffn_moe": {
+        "rms": 6.63161,
+        "max_abs": 144.504
+      },
+      "llama_ffn_combined": {
+        "rms": 11.4983,
+        "max_abs": 370.725
+      },
+      "go_ffn_combined": {
+        "rms": 13.0711,
+        "max_abs": 306.736
+      },
+      "llama_ffn_post_norm": {
+        "rms": 1.08848,
+        "max_abs": 12.7638
+      },
+      "go_post_residual_norm": {
+        "rms": 2.66443,
+        "max_abs": 67.556
+      },
+      "llama_l_out": {
+        "rms": 1.81567,
+        "max_abs": 46.4508
+      },
+      "go_l_out": {
+        "rms": 1.93588,
+        "max_abs": 49.0837
+      },
+      "note": "Current first material row28 l_out RMS drift after Q8_K expert-input fix: layer12 (Go rms\u22481.936 vs llama\u22481.816)."
     }
   },
   "go_first_step_top_probes": [
