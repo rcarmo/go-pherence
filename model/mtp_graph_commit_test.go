@@ -87,6 +87,9 @@ func TestMTPVerifierResultCommitGraphFloatKVRejectsModelRangeDrift(t *testing.T)
 	if _, err := result.CommitGraphFloatKV(m, graph, [][]float32{{1, 2, 3, 4}}, [][]float32{{5, 6, 7, 8}}, kv.CheckpointFloatKV([][]float32{{}}, [][]float32{{}})); err == nil {
 		t.Fatal("accepted verifier graph token/logit rows outside model vocab")
 	}
+	if _, err := result.CommitGraphCompressedKVForModel(m, graph, nil, nil); err == nil {
+		t.Fatal("model-aware compressed commit accepted verifier graph token/logit rows outside model vocab")
+	}
 }
 
 func TestMTPVerifierResultCommitGraphRejectsMalformedVerifierRows(t *testing.T) {

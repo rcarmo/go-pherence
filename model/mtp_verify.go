@@ -194,11 +194,29 @@ func (r MTPVerifierResult) CommitCompressedKV(caches []*kv.CompressedKVCache, cp
 
 // CommitGraphCompressedKV is the compressed/TurboQuant counterpart to
 // CommitGraphFloatKV. It validates the explicit graph before retaining the
-// accepted-prefix+bonus compressed KV window.
+// accepted-prefix+bonus compressed KV window. Callers that own a verifier model
+// should prefer CommitGraphCompressedKVForModel so token/logit/activation widths
+// are checked against model metadata before KV mutation.
 func (r MTPVerifierResult) CommitGraphCompressedKV(graph MTPExecutionGraph, caches []*kv.CompressedKVCache, cp []kv.CompressedKVCheckpoint) (MTPKVCommitPlan, error) {
 	if err := r.validateGraph(graph); err != nil {
 		return MTPKVCommitPlan{}, err
 	}
+	return r.commitGraphCompressedKVUncheckedModel(graph, caches, cp)
+}
+
+// CommitGraphCompressedKVForModel applies compressed/TurboQuant graph commits
+// with the same model-aware verifier metadata checks as CommitGraphFloatKV.
+func (r MTPVerifierResult) CommitGraphCompressedKVForModel(m *LlamaModel, graph MTPExecutionGraph, caches []*kv.CompressedKVCache, cp []kv.CompressedKVCheckpoint) (MTPKVCommitPlan, error) {
+	if m == nil {
+		return MTPKVCommitPlan{}, fmt.Errorf("nil model")
+	}
+	if err := r.validateGraphForModel(m, graph); err != nil {
+		return MTPKVCommitPlan{}, err
+	}
+	return r.commitGraphCompressedKVUncheckedModel(graph, caches, cp)
+}
+
+func (r MTPVerifierResult) commitGraphCompressedKVUncheckedModel(graph MTPExecutionGraph, caches []*kv.CompressedKVCache, cp []kv.CompressedKVCheckpoint) (MTPKVCommitPlan, error) {
 	commit, err := graph.CommitPlan(r.Acceptance)
 	if err != nil {
 		return MTPKVCommitPlan{}, err

@@ -198,13 +198,10 @@ func (s *CPUDecodeState) CommitGraphAccepted(cp CPUDecodeCheckpoint, graph MTPEx
 	if cp.OutputLen != graph.StartPos {
 		return MTPKVCommitPlan{}, fmt.Errorf("checkpoint output len=%d does not match MTP graph start position=%d", cp.OutputLen, graph.StartPos)
 	}
-	if err := verifier.validateGraphForModel(s.Model, graph); err != nil {
-		return MTPKVCommitPlan{}, err
-	}
 	var commit MTPKVCommitPlan
 	var err error
 	if s.CompressedKV != nil {
-		commit, err = verifier.CommitGraphCompressedKV(graph, s.CompressedKV, cp.CompressedKV)
+		commit, err = verifier.CommitGraphCompressedKVForModel(s.Model, graph, s.CompressedKV, cp.CompressedKV)
 	} else {
 		commit, err = verifier.CommitGraphFloatKV(s.Model, graph, s.KVCacheK, s.KVCacheV, cp.FloatKV)
 	}
