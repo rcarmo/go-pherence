@@ -76,9 +76,9 @@ func (d GPUDispatcher) cpuFallback() CPUDispatcher {
 //
 // This is the GPU-dispatcher-owned prompt prefill entrypoint. It currently
 // reuses the existing prefill implementation while preserving GPU dispatcher
-// context (FP8 model/weights/expert cache and GGUF expert index). Do not route
-// callers through CPUDispatcher.EncodePrompt; that public CPU entrypoint remains
-// disabled so prompt prefill work stays visible as GPU-backend work.
+// context (FP8 model/weights/expert cache and GGUF expert index). CPUDispatcher
+// remains available as an explicit CPU/SIMD reference path, while this method
+// requires CUDA so GPU prompt-prefill gaps stay visible.
 func (d GPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) ([]EncoderKVLayer, error) {
 	if !gpu.SgemmReady() {
 		return nil, fmt.Errorf("DiffusionGemma GPU prompt prefill requires CUDA SGEMM")

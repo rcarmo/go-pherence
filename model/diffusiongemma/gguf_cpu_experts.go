@@ -430,9 +430,17 @@ func runGGUFCPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 		return fmt.Errorf("GGUF CPU experts: index shape hidden=%d/%d intermediate=%d", idx.HiddenSize, hiddenSize, intermediate)
 	}
 
-	// Pre-norm all positions
+	// Pre-norm all positions. Prefer the reusable ForwardScratch.Experts buffer
+	// so CPU/SIMD GGUF expert fallback does not allocate a full
+	// [positions,hidden] row block on every MoE call.
 	normStart := time.Now()
-	normedRows := make([]float32, positions*hiddenSize)
+	normedLen := positions * hiddenSize
+	normedRows := scratch.Experts
+	if len(normedRows) < normedLen {
+		normedRows = make([]float32, normedLen)
+	} else {
+		normedRows = normedRows[:normedLen]
+	}
 	for pos := 0; pos < positions; pos++ {
 		resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
 		dst := normedRows[pos*hiddenSize : (pos+1)*hiddenSize]

@@ -174,6 +174,11 @@ func BuildForwardBufferPlan(shape Shape) ForwardBufferPlan {
 	logitElems := checkedMulOrZero(canvas, vocab)
 	routerElems := checkedMulOrZero(canvas, shape.NumExperts)
 	expertElems := checkedMulOrZero(checkedMulOrZero(canvas, shape.TopKExperts), shape.MoEIntermediateSize)
+	// Experts scratch is also used as the reusable GGUF CPU/SIMD pre-norm row
+	// buffer, so size it for the larger of expert activations and full hidden rows.
+	if hiddenElems > expertElems {
+		expertElems = hiddenElems
+	}
 	return ForwardBufferPlan{
 		CanvasLength:  canvas,
 		HiddenSize:    hidden,
