@@ -6,7 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/tensor"
 )
 
 // RunMTPVerifierBatchForward is the verifier-batch execution entry point. It
@@ -117,7 +119,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			}
 			gqaAttentionScaleInto(bAttnOut[b*qkv.QDim:(b+1)*qkv.QDim], attnScores[:attnSeqLen], qkv.Q[b*qkv.QDim:(b+1)*qkv.QDim], kvCacheK[l][kOff:kEnd], kvCacheV[l][kOff:kEnd], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale)
 		}
-		if !m.projBatch(bOOut[:B*h], bAttnOut[:B*qkv.QDim], B, layer.OW, layer.OWm, qkv.QDim, h) {
+		if !m.projBatchAny(bOOut[:B*h], bAttnOut[:B*qkv.QDim], B, layer.OW, layer.OWm, layer.OWq, qkv.QDim, h) {
 			return nil, true, fmt.Errorf("verifier batch layer %d O projection rejected", l)
 		}
 		if layer.PreFFNNorm != nil {
@@ -149,7 +151,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			copy(bMlpIn, bHidden)
 		}
 		inter := m.layerInterFor(layer)
-		if !m.projBatch(bGate[:B*inter], bMlpIn[:B*h], B, layer.GateW, layer.GateWm, h, inter) || !m.projBatch(bUp[:B*inter], bMlpIn[:B*h], B, layer.UpW, layer.UpWm, h, inter) {
+		if !m.projBatchAny(bGate[:B*inter], bMlpIn[:B*h], B, layer.GateW, layer.GateWm, layer.GateWq, h, inter) || !m.projBatchAny(bUp[:B*inter], bMlpIn[:B*h], B, layer.UpW, layer.UpWm, layer.UpWq, h, inter) {
 			return nil, true, fmt.Errorf("verifier batch layer %d MLP gate/up rejected", l)
 		}
 		for b := 0; b < B; b++ {
@@ -168,7 +170,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 				simd.VecSiLUMul(gate, gate, up)
 			}
 		}
-		if !m.projBatch(bDown[:B*h], bGate[:B*inter], B, layer.DownW, layer.DownWm, inter, h) {
+		if !m.projBatchAny(bDown[:B*h], bGate[:B*inter], B, layer.DownW, layer.DownWm, layer.DownWq, inter, h) {
 			return nil, true, fmt.Errorf("verifier batch layer %d MLP down rejected", l)
 		}
 		for b := 0; b < B; b++ {
@@ -200,6 +202,23 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 	return out, true, nil
 }
 
+func (m *LlamaModel) projBatchAny(out, x []float32, B int, dense *tensor.Tensor, mlxw *mlx.QuantWeight, qw *QuantWeight, inDim, outDim int) bool {
+	if qw != nil {
+		if B <= 0 || inDim <= 0 || outDim <= 0 || len(out) < B*outDim || len(x) < B*inDim || qw.InDim != inDim || qw.OutDim != outDim {
+			return false
+		}
+		for b := 0; b < B; b++ {
+			m.mvQ(out[b*outDim:(b+1)*outDim], x[b*inDim:(b+1)*inDim], qw)
+		}
+		return true
+	}
+	return m.projBatch(out, x, B, dense, mlxw, inDim, outDim)
+}
+
+func hasMTPVerifierProjection(dense *tensor.Tensor, mlxw *mlx.QuantWeight, qw *QuantWeight) bool {
+	return dense != nil || mlxw != nil || qw != nil
+}
+
 func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs) bool {
 	// Keep full-layer batch lowering behind a correctness gate until the row-loop
 	// parity suite is complete. The QKV projection primitive is tested and ready,
@@ -210,13 +229,13 @@ func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs)
 	}
 	for l := 0; l < m.Config.NumLayers; l++ {
 		layer := &m.Layers[l]
-		if !layer.HasKV || layer.IsMoE || layer.QWq != nil || layer.KWq != nil || layer.VWq != nil || layer.OWq != nil || layer.GateWq != nil || layer.UpWq != nil || layer.DownWq != nil {
+		if !layer.HasKV || layer.IsMoE {
 			return false
 		}
-		if layer.QW == nil && layer.QWm == nil || layer.KW == nil && layer.KWm == nil || layer.OW == nil && layer.OWm == nil || layer.GateW == nil && layer.GateWm == nil || layer.UpW == nil && layer.UpWm == nil || layer.DownW == nil && layer.DownWm == nil {
+		if !hasMTPVerifierProjection(layer.QW, layer.QWm, layer.QWq) || !hasMTPVerifierProjection(layer.KW, layer.KWm, layer.KWq) || !hasMTPVerifierProjection(layer.OW, layer.OWm, layer.OWq) || !hasMTPVerifierProjection(layer.GateW, layer.GateWm, layer.GateWq) || !hasMTPVerifierProjection(layer.UpW, layer.UpWm, layer.UpWq) || !hasMTPVerifierProjection(layer.DownW, layer.DownWm, layer.DownWq) {
 			return false
 		}
-		if !(m.Config.AttentionKEqV && ((layer.VW != nil && layer.VW == layer.KW) || (layer.VWm != nil && layer.VWm == layer.KWm))) && layer.VW == nil && layer.VWm == nil {
+		if !(m.Config.AttentionKEqV && ((layer.VW != nil && layer.VW == layer.KW) || (layer.VWm != nil && layer.VWm == layer.KWm) || (layer.VWq != nil && layer.VWq == layer.KWq))) && !hasMTPVerifierProjection(layer.VW, layer.VWm, layer.VWq) {
 			return false
 		}
 		if layer.InputNorm == nil || layer.PostNorm == nil {

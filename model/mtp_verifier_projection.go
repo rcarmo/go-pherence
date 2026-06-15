@@ -79,7 +79,11 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 		if layer.KWq != nil {
 			for b := 0; b < B; b++ {
 				m.mvQ(k[b*kvDim:(b+1)*kvDim], normed[b*h:(b+1)*h], layer.KWq)
-				m.mvQ(v[b*kvDim:(b+1)*kvDim], normed[b*h:(b+1)*h], layer.VWq)
+				if layer.VWq == layer.KWq && m.Config.AttentionKEqV {
+					copy(v[b*kvDim:(b+1)*kvDim], k[b*kvDim:(b+1)*kvDim])
+				} else {
+					m.mvQ(v[b*kvDim:(b+1)*kvDim], normed[b*h:(b+1)*h], layer.VWq)
+				}
 			}
 		} else if layer.KWm != nil {
 			if !m.projBatch(k, normed, B, layer.KW, layer.KWm, h, kvDim) {
