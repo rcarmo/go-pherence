@@ -163,11 +163,13 @@ type ggufCPUExpertTimingStats struct {
 	Q4DequantRows    uint64
 	Q8DirectRows     uint64
 	Q8DequantRows    uint64
+	Q5DirectRows     uint64
 	Q5DequantRows    uint64
 	Q4DirectBatches  ggufCPUExpertBatchBuckets
 	Q4DequantBatches ggufCPUExpertBatchBuckets
 	Q8DirectBatches  ggufCPUExpertBatchBuckets
 	Q8DequantBatches ggufCPUExpertBatchBuckets
+	Q5DirectBatches  ggufCPUExpertBatchBuckets
 	Q5DequantBatches ggufCPUExpertBatchBuckets
 	NormNS           uint64
 	CollectNS        uint64
@@ -188,11 +190,13 @@ var ggufCPUExpertTimingCounters struct {
 	q4DequantRows    atomic.Uint64
 	q8DirectRows     atomic.Uint64
 	q8DequantRows    atomic.Uint64
+	q5DirectRows     atomic.Uint64
 	q5DequantRows    atomic.Uint64
 	q4DirectBatches  [10]atomic.Uint64
 	q4DequantBatches [10]atomic.Uint64
 	q8DirectBatches  [10]atomic.Uint64
 	q8DequantBatches [10]atomic.Uint64
+	q5DirectBatches  [10]atomic.Uint64
 	q5DequantBatches [10]atomic.Uint64
 	normNS           atomic.Uint64
 	collectNS        atomic.Uint64
@@ -275,11 +279,13 @@ func ggufCPUExpertTimingSnapshot() ggufCPUExpertTimingStats {
 		Q4DequantRows:    ggufCPUExpertTimingCounters.q4DequantRows.Load(),
 		Q8DirectRows:     ggufCPUExpertTimingCounters.q8DirectRows.Load(),
 		Q8DequantRows:    ggufCPUExpertTimingCounters.q8DequantRows.Load(),
+		Q5DirectRows:     ggufCPUExpertTimingCounters.q5DirectRows.Load(),
 		Q5DequantRows:    ggufCPUExpertTimingCounters.q5DequantRows.Load(),
 		Q4DirectBatches:  ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q4DirectBatches),
 		Q4DequantBatches: ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q4DequantBatches),
 		Q8DirectBatches:  ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q8DirectBatches),
 		Q8DequantBatches: ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q8DequantBatches),
+		Q5DirectBatches:  ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q5DirectBatches),
 		Q5DequantBatches: ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q5DequantBatches),
 		NormNS:           ggufCPUExpertTimingCounters.normNS.Load(),
 		CollectNS:        ggufCPUExpertTimingCounters.collectNS.Load(),
@@ -301,11 +307,13 @@ func ResetGGUFCPUExpertTimingStats() {
 	ggufCPUExpertTimingCounters.q4DequantRows.Store(0)
 	ggufCPUExpertTimingCounters.q8DirectRows.Store(0)
 	ggufCPUExpertTimingCounters.q8DequantRows.Store(0)
+	ggufCPUExpertTimingCounters.q5DirectRows.Store(0)
 	ggufCPUExpertTimingCounters.q5DequantRows.Store(0)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q4DirectBatches)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q4DequantBatches)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q8DirectBatches)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q8DequantBatches)
+	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q5DirectBatches)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q5DequantBatches)
 	ggufCPUExpertTimingCounters.normNS.Store(0)
 	ggufCPUExpertTimingCounters.collectNS.Store(0)
@@ -327,11 +335,13 @@ func (s ggufCPUExpertTimingStats) Sub(base ggufCPUExpertTimingStats) ggufCPUExpe
 		Q4DequantRows:    s.Q4DequantRows - base.Q4DequantRows,
 		Q8DirectRows:     s.Q8DirectRows - base.Q8DirectRows,
 		Q8DequantRows:    s.Q8DequantRows - base.Q8DequantRows,
+		Q5DirectRows:     s.Q5DirectRows - base.Q5DirectRows,
 		Q5DequantRows:    s.Q5DequantRows - base.Q5DequantRows,
 		Q4DirectBatches:  ggufCPUExpertSubBuckets(s.Q4DirectBatches, base.Q4DirectBatches),
 		Q4DequantBatches: ggufCPUExpertSubBuckets(s.Q4DequantBatches, base.Q4DequantBatches),
 		Q8DirectBatches:  ggufCPUExpertSubBuckets(s.Q8DirectBatches, base.Q8DirectBatches),
 		Q8DequantBatches: ggufCPUExpertSubBuckets(s.Q8DequantBatches, base.Q8DequantBatches),
+		Q5DirectBatches:  ggufCPUExpertSubBuckets(s.Q5DirectBatches, base.Q5DirectBatches),
 		Q5DequantBatches: ggufCPUExpertSubBuckets(s.Q5DequantBatches, base.Q5DequantBatches),
 		NormNS:           s.NormNS - base.NormNS,
 		CollectNS:        s.CollectNS - base.CollectNS,
@@ -639,6 +649,67 @@ func ggufQ8_0ExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []fl
 	}
 	for ; pos < nPos; pos++ {
 		dst[pos*dstStride] = scale * ggufQ8_0RawRowDot(raw, m.InDim, x[pos*m.InDim:(pos+1)*m.InDim])
+	}
+	return nil
+}
+
+func ggufQ5_0ExpertRowDot(m *gguf.ExpertMatrices, expert, row int, x []float32) (float32, error) {
+	if m == nil || m.QType != gguf.QuantQ5_0 || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || len(x) < m.InDim || m.InDim%32 != 0 {
+		return 0, fmt.Errorf("invalid Q5_0 expert row dot expert=%d row=%d", expert, row)
+	}
+	blocks := m.InDim / 32
+	rowBytes := blocks * 22
+	rowIndex := expert*m.OutDim + row
+	start := rowIndex * rowBytes
+	end := start + rowBytes
+	if start < 0 || end < start || end > len(m.Raw) {
+		return 0, fmt.Errorf("Q5_0 expert row raw outside expert=%d row=%d", expert, row)
+	}
+	return ggufQ5_0RawRowDot(m.Raw[start:end], m.InDim, x), nil
+}
+
+func ggufQ5_0RawRowDot(raw []byte, inDim int, x []float32) float32 {
+	blocks := inDim / 32
+	var sum float32
+	for b := 0; b < blocks; b++ {
+		blk := raw[b*22 : (b+1)*22]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[:2]))
+		qh := binary.LittleEndian.Uint32(blk[2:6])
+		qs := blk[6:22]
+		xb := x[b*32 : b*32+32]
+		var blockSum float32
+		for i := 0; i < 16; i++ {
+			q0 := int(qs[i] & 0x0f)
+			q1 := int(qs[i] >> 4)
+			if qh&(1<<uint(i)) != 0 {
+				q0 |= 16
+			}
+			if qh&(1<<uint(i+16)) != 0 {
+				q1 |= 16
+			}
+			blockSum += float32(q0-16) * xb[i]
+			blockSum += float32(q1-16) * xb[i+16]
+		}
+		sum += d * blockSum
+	}
+	return sum
+}
+
+func ggufQ5_0ExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []float32, nPos int, dst []float32, dstStride int, scale float32) error {
+	if m == nil || m.QType != gguf.QuantQ5_0 || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || nPos <= 0 || len(x) < nPos*m.InDim || len(dst) < (nPos-1)*dstStride+1 || dstStride <= 0 || m.InDim%32 != 0 {
+		return fmt.Errorf("invalid Q5_0 expert row batch dot expert=%d row=%d nPos=%d", expert, row, nPos)
+	}
+	blocks := m.InDim / 32
+	rowBytes := blocks * 22
+	rowIndex := expert*m.OutDim + row
+	start := rowIndex * rowBytes
+	end := start + rowBytes
+	if start < 0 || end < start || end > len(m.Raw) {
+		return fmt.Errorf("Q5_0 expert row batch raw outside expert=%d row=%d", expert, row)
+	}
+	raw := m.Raw[start:end]
+	for pos := 0; pos < nPos; pos++ {
+		dst[pos*dstStride] = scale * ggufQ5_0RawRowDot(raw, m.InDim, x[pos*m.InDim:(pos+1)*m.InDim])
 	}
 	return nil
 }
@@ -965,6 +1036,7 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				// the better full-path policy through nPos<=8; larger expert-down batches
 				// favor dequant-once + Sdotx4 reuse end-to-end.
 				useDirectQ8Down := useDirectQ8DownRows(le, nPos)
+				useDirectQ5Down := le.down.QType == gguf.QuantQ5_0 && nPos == 1
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {
 						scale := float32(1)
@@ -973,6 +1045,17 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 						}
 						if err := ggufQ8_0ExpertRowDotBatchTo(le.down, eid, r, batchAct, nPos, batchDown[r:], hiddenSize, scale); err != nil {
 							errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d direct Q8 batch: %w", eid, r, err) })
+							return
+						}
+						continue
+					}
+					if useDirectQ5Down {
+						scale := float32(1)
+						if le.downScale != nil {
+							scale = le.downScale[eid]
+						}
+						if err := ggufQ5_0ExpertRowDotBatchTo(le.down, eid, r, batchAct, nPos, batchDown[r:], hiddenSize, scale); err != nil {
+							errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d direct Q5 batch: %w", eid, r, err) })
 							return
 						}
 						continue
@@ -1004,8 +1087,13 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					}
 				} else if le.down.QType == gguf.QuantQ5_0 {
 					bucket := ggufCPUExpertBatchBucket(nPos)
-					ggufCPUExpertTimingCounters.q5DequantRows.Add(uint64(dnOutDim))
-					ggufCPUExpertTimingCounters.q5DequantBatches[bucket].Add(1)
+					if useDirectQ5Down {
+						ggufCPUExpertTimingCounters.q5DirectRows.Add(uint64(dnOutDim * nPos))
+						ggufCPUExpertTimingCounters.q5DirectBatches[bucket].Add(1)
+					} else {
+						ggufCPUExpertTimingCounters.q5DequantRows.Add(uint64(dnOutDim))
+						ggufCPUExpertTimingCounters.q5DequantBatches[bucket].Add(1)
+					}
 				}
 				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
 
@@ -1220,6 +1308,7 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 					return
 				}
 				useDirectQ8Down := useDirectQ8DownRows(le, nPos)
+				useDirectQ5Down := le.down.QType == gguf.QuantQ5_0 && nPos == 1
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {
 						scale := float32(1)
@@ -1228,6 +1317,17 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 						}
 						if err := ggufQ8_0ExpertRowDotBatchTo(le.down, eid, r, batchAct, nPos, batchDown[r:], hiddenSize, scale); err != nil {
 							errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d direct Q8 batch: %w", eid, r, err) })
+							return
+						}
+						continue
+					}
+					if useDirectQ5Down {
+						scale := float32(1)
+						if le.downScale != nil {
+							scale = le.downScale[eid]
+						}
+						if err := ggufQ5_0ExpertRowDotBatchTo(le.down, eid, r, batchAct, nPos, batchDown[r:], hiddenSize, scale); err != nil {
+							errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d direct Q5 batch: %w", eid, r, err) })
 							return
 						}
 						continue
@@ -1258,8 +1358,13 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 					}
 				} else if le.down.QType == gguf.QuantQ5_0 {
 					bucket := ggufCPUExpertBatchBucket(nPos)
-					ggufCPUExpertTimingCounters.q5DequantRows.Add(uint64(dnOutDim))
-					ggufCPUExpertTimingCounters.q5DequantBatches[bucket].Add(1)
+					if useDirectQ5Down {
+						ggufCPUExpertTimingCounters.q5DirectRows.Add(uint64(dnOutDim * nPos))
+						ggufCPUExpertTimingCounters.q5DirectBatches[bucket].Add(1)
+					} else {
+						ggufCPUExpertTimingCounters.q5DequantRows.Add(uint64(dnOutDim))
+						ggufCPUExpertTimingCounters.q5DequantBatches[bucket].Add(1)
+					}
 				}
 				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
 
@@ -1284,7 +1389,7 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 	}
 	if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
 		stats := ggufCPUExpertTimingSnapshot().Sub(traceStatsStart)
-		fmt.Fprintf(os.Stderr, "DiffusionGemma grouped gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d q5_dequant=%d\n", op.Layer, stats.Positions, stats.WorkItems, stats.ActiveExperts, time.Since(traceStart).Seconds(), float64(stats.GateNS)/1e9, float64(stats.DownNS)/1e9, stats.Q4DirectRows, stats.Q4DequantRows, stats.Q8DirectRows, stats.Q8DequantRows, stats.Q5DequantRows)
+		fmt.Fprintf(os.Stderr, "DiffusionGemma grouped gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d q5_direct/dequant=%d/%d\n", op.Layer, stats.Positions, stats.WorkItems, stats.ActiveExperts, time.Since(traceStart).Seconds(), float64(stats.GateNS)/1e9, float64(stats.DownNS)/1e9, stats.Q4DirectRows, stats.Q4DequantRows, stats.Q8DirectRows, stats.Q8DequantRows, stats.Q5DirectRows, stats.Q5DequantRows)
 	}
 	return nil
 }

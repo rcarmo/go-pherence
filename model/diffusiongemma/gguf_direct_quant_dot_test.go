@@ -54,6 +54,53 @@ func TestGGUFQ8_0ExpertRowDotMatchesDequant(t *testing.T) {
 	}
 }
 
+func TestGGUFQ5_0ExpertRowDotMatchesDequant(t *testing.T) {
+	m := &gguf.ExpertMatrices{Name: "synthetic.q5", QType: gguf.QuantQ5_0, InDim: 64, OutDim: 3, Experts: 2}
+	rowBytes, err := m.RowBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Raw = make([]byte, m.Experts*m.OutDim*rowBytes)
+	for r := 0; r < m.Experts*m.OutDim; r++ {
+		for b := 0; b < m.InDim/32; b++ {
+			blk := m.Raw[r*rowBytes+b*22 : r*rowBytes+(b+1)*22]
+			binary.LittleEndian.PutUint16(blk[:2], half.F32ToF16(0.05+float32(r+b)*0.01))
+			binary.LittleEndian.PutUint32(blk[2:6], uint32(0xa5a50000|r<<3|b))
+			for i := 0; i < 16; i++ {
+				blk[6+i] = byte((r*13 + b*17 + i*7) & 0xff)
+			}
+		}
+	}
+	x := make([]float32, m.InDim)
+	for i := range x {
+		x[i] = float32((i%13)-6) * 0.03
+	}
+	row := make([]float32, m.InDim)
+	for expert := 0; expert < m.Experts; expert++ {
+		for r := 0; r < m.OutDim; r++ {
+			if err := m.DequantExpertRowTo(row, expert, r); err != nil {
+				t.Fatal(err)
+			}
+			want := simd.Sdot(row, x)
+			got, err := ggufQ5_0ExpertRowDot(m, expert, r, x)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if math.Abs(float64(got-want)) > 1e-4 {
+				t.Fatalf("expert=%d row=%d got=%g want=%g", expert, r, got, want)
+			}
+			batchIn := append(append([]float32(nil), x...), x...)
+			batchOut := make([]float32, 2*m.OutDim)
+			if err := ggufQ5_0ExpertRowDotBatchTo(m, expert, r, batchIn, 2, batchOut[r:], m.OutDim, 1); err != nil {
+				t.Fatal(err)
+			}
+			if math.Abs(float64(batchOut[r]-want)) > 1e-4 || math.Abs(float64(batchOut[m.OutDim+r]-want)) > 1e-4 {
+				t.Fatalf("batch expert=%d row=%d got=%g/%g want=%g", expert, r, batchOut[r], batchOut[m.OutDim+r], want)
+			}
+		}
+	}
+}
+
 func TestGGUFQ4KExpertRowDotMatchesDequant(t *testing.T) {
 	m := &gguf.ExpertMatrices{Name: "synthetic.q4k", QType: gguf.QuantQ4_K, InDim: 256, OutDim: 4, Experts: 2}
 	rowBytes, err := m.RowBytes()
