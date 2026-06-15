@@ -91,10 +91,22 @@ func GreedyDecodePrompt(dec *Decoder, state *DecoderState, cfg Config, languageT
 
 // GreedyDecodeWithTimestamps performs greedy decoding and returns timed segments.
 func GreedyDecodeWithTimestamps(dec *Decoder, state *DecoderState, cfg Config) []Segment {
+	return GreedyDecodeWithTimestampsPrompt(dec, state, cfg, TokenEnglish, TokenTranscribe)
+}
+
+// GreedyDecodeWithTimestampsPrompt performs greedy timestamp decoding with an
+// explicit Whisper language/task prompt.
+func GreedyDecodeWithTimestampsPrompt(dec *Decoder, state *DecoderState, cfg Config, languageToken, taskToken int) []Segment {
 	maxTokens := cfg.MaxDecoderLength
+	if languageToken == 0 {
+		languageToken = TokenEnglish
+	}
+	if taskToken == 0 {
+		taskToken = TokenTranscribe
+	}
 
 	// Start with SOT + language + task (allow timestamps)
-	prompt := []int{TokenSOT, TokenEnglish, TokenTranscribe}
+	prompt := []int{TokenSOT, languageToken, taskToken}
 
 	var segments []Segment
 	var currentTokens []int

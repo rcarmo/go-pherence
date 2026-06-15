@@ -2,6 +2,18 @@ package whisper
 
 import "testing"
 
+func TestGreedyDecodeWithTimestampsPromptAcceptsTranslatePrompt(t *testing.T) {
+	cfg := Tiny()
+	cfg.DecoderLayers = 0
+	cfg.MaxDecoderLength = 2
+	dec := newZeroDecoderForTest(cfg)
+	state := NewDecoderState(cfg, make([]float32, cfg.EncoderDModel), 1, dec)
+	segments := GreedyDecodeWithTimestampsPrompt(dec, state, cfg, LanguageTokens["en"], TokenTranslate)
+	if len(segments) == 0 {
+		t.Fatal("expected timestamp prompt decode to flush at least one segment")
+	}
+}
+
 func TestGreedyDecodeWithTimestampsFlushesAtTokenLimit(t *testing.T) {
 	cfg := Tiny()
 	cfg.MaxDecoderLength = 3

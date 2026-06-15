@@ -136,7 +136,7 @@ func main() {
 
 	if *timestamps {
 		// Transcribe with timestamps (chunked + parallel for long audio).
-		segments := transcribeChunked(w, samples, *chunkSec, *chunkWorkers)
+		segments := transcribeChunked(w, samples, *chunkSec, *chunkWorkers, languageToken, taskToken)
 		if *diarize {
 			diarized := diarizeSegments(samples, segments, *speakerModel, float32(*speakerThreshold))
 			if *output != "" {
@@ -209,13 +209,13 @@ func materializeWAV(input string) (string, func(), error) {
 }
 
 func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.Segment {
-	return transcribeWindow(w, samples, 0)
+	return transcribeWindow(w, samples, 0, whisper.TokenEnglish, whisper.TokenTranscribe)
 }
 
 // transcribeWindow runs one <=30s window (mel -> encoder -> greedy decode) and
 // offsets the resulting segment timestamps by offsetSec. Encoder/decoder state
 // is per-call, so multiple windows can run concurrently.
-func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64) []whisper.Segment {
+func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64, languageToken, taskToken int) []whisper.Segment {
 	melCfg := audio.MelConfig{
 		SampleRate: 16000,
 		FFTSize:    400,
@@ -257,7 +257,7 @@ func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64) 
 	dt0 := time.Now()
 	state := whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
 
-	segs := whisper.GreedyDecodeWithTimestamps(w.Decoder, state, w.Config)
+	segs := whisper.GreedyDecodeWithTimestampsPrompt(w.Decoder, state, w.Config, languageToken, taskToken)
 	windowDur := float64(len(samples)) / 16000.0
 	for i := range segs {
 		if segs[i].End > windowDur {
@@ -283,7 +283,7 @@ func transcribeWindow(w *whisper.Whisper, samples []float32, offsetSec float64) 
 // across `workers` goroutines. Whisper's encoder is a fixed 30s window, so
 // long-form throughput comes from running independent windows concurrently;
 // pair with a small per-window WHISPER_THREADS so workers*threads ~= cores.
-func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, workers int) []whisper.Segment {
+func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, workers int, languageToken, taskToken int) []whisper.Segment {
 	const sr = 16000
 	chunk := int(chunkSec * sr)
 	if chunk <= 0 || len(samples) <= chunk || workers <= 1 {
@@ -295,11 +295,11 @@ func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, 
 				if e > len(samples) {
 					e = len(samples)
 				}
-				all = append(all, transcribeWindow(w, samples[s:e], float64(s)/sr)...)
+				all = append(all, transcribeWindow(w, samples[s:e], float64(s)/sr, languageToken, taskToken)...)
 			}
 			return all
 		}
-		return transcribeWindow(w, samples, 0)
+		return transcribeWindow(w, samples, 0, languageToken, taskToken)
 	}
 
 	type span struct{ s, e int }
@@ -320,7 +320,7 @@ func transcribeChunked(w *whisper.Whisper, samples []float32, chunkSec float64, 
 		go func(i, s, e int) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results[i] = transcribeWindow(w, samples[s:e], float64(s)/sr)
+			results[i] = transcribeWindow(w, samples[s:e], float64(s)/sr, languageToken, taskToken)
 		}(i, sp.s, sp.e)
 	}
 	wg.Wait()
