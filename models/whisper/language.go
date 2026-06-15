@@ -1,5 +1,7 @@
 package whisper
 
+import "github.com/rcarmo/go-pherence/loader/audio"
+
 // Language tokens for Whisper multilingual models.
 // Token IDs follow the HuggingFace Whisper convention: SOT + 1 + language_index.
 var LanguageTokens = map[string]int{
@@ -96,35 +98,27 @@ func (w *Whisper) TranscribeWithLanguageDetect(samples []float32) (text string, 
 		langTok = TokenEnglish
 	}
 
-	// Feed prompt with detected language
-	prompt := []int{TokenSOT, langTok, TokenTranscribe, TokenNoTimestamps}
-	for _, tok := range prompt {
-		w.Decoder.ForwardToken(tok, state)
-	}
-
-	tokens := make([]int, 0, cfg.MaxDecoderLength)
-	prevTok := prompt[len(prompt)-1]
-	for i := 0; i < cfg.MaxDecoderLength; i++ {
-		logits := w.Decoder.ForwardToken(prevTok, state)
-		nextTok := argmax(logits)
-		if nextTok == TokenEOT {
-			break
-		}
-		tokens = append(tokens, nextTok)
-		prevTok = nextTok
-	}
-
+	tokens := GreedyDecodePrompt(w.Decoder, state, cfg, langTok, TokenTranscribe)
 	_ = confidence
 	return TokensToText(tokens), lang, nil
 }
 
 func computeMelFromSamples(samples []float32, numMels int, cfg melCfgHelper) []float32 {
-	numFrames := (len(samples) - cfg.FFTSize) / cfg.HopLength
-	if numFrames <= 0 {
+	mel := audio.MelSpectrogram(samples, audio.MelConfig{
+		SampleRate: cfg.SampleRate,
+		FFTSize:    cfg.FFTSize,
+		HopLength:  cfg.HopLength,
+		NumMels:    numMels,
+		NFFTPadded: cfg.NFFTPadded,
+	})
+	if len(mel) == 0 || len(mel[0]) == 0 {
 		return nil
 	}
-	// Placeholder: use audio.MelSpectrogram would be better but avoid import cycle
-	melFlat := make([]float32, numMels*numFrames)
+	T := len(mel[0])
+	melFlat := make([]float32, numMels*T)
+	for m := 0; m < numMels && m < len(mel); m++ {
+		copy(melFlat[m*T:(m+1)*T], mel[m])
+	}
 	return melFlat
 }
 
