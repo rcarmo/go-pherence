@@ -66,9 +66,14 @@ func (m *LlamaModel) prefillCPUEligible(B int) bool {
 			return false
 		}
 		if (L.QWm == nil && L.QW == nil) || (L.KWm == nil && L.KW == nil) ||
-			(L.VWm == nil && L.VW == nil) || (L.OWm == nil && L.OW == nil) ||
-			(L.GateWm == nil && L.GateW == nil) || (L.UpWm == nil && L.UpW == nil) ||
-			(L.DownWm == nil && L.DownW == nil) {
+			(L.OWm == nil && L.OW == nil) || (L.GateWm == nil && L.GateW == nil) ||
+			(L.UpWm == nil && L.UpW == nil) || (L.DownWm == nil && L.DownW == nil) {
+			return false
+		}
+		if !cfg.AttentionKEqV && L.VWm == nil && L.VW == nil {
+			return false
+		}
+		if cfg.AttentionKEqV && L.VWm == nil && L.VW == nil && L.KWm == nil && L.KW == nil {
 			return false
 		}
 		if L.InputNorm == nil || L.PostNorm == nil {
@@ -230,9 +235,8 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 		if !m.projBatch(bK, bNormed, B, layer.KW, layer.KWm, h, layerKVDim) {
 			return nil, false
 		}
-		// V can alias K when AttentionKEqV and the same weight is shared.
-		if (layer.VWm != nil && layer.VWm == layer.KWm && cfg.AttentionKEqV) ||
-			(layer.VW != nil && layer.VW == layer.KW && cfg.AttentionKEqV) {
+		// V can alias or be omitted when AttentionKEqV; copy K in either case.
+		if cfg.AttentionKEqV && ((layer.KWm != nil && (layer.VWm == nil || layer.VWm == layer.KWm)) || (layer.KW != nil && (layer.VW == nil || layer.VW == layer.KW))) {
 			copy(bV[:B*layerKVDim], bK[:B*layerKVDim])
 		} else if !m.projBatch(bV, bNormed, B, layer.VW, layer.VWm, h, layerKVDim) {
 			return nil, false

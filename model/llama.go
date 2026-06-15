@@ -1027,20 +1027,33 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				v = scratchV[:layerKVDim]
 				if layer.KWq != nil {
 					m.mvQ(k, hidden, layer.KWq)
-					m.mvQ(v, hidden, layer.VWq)
+					if cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
+						copy(v, k)
+					} else if layer.VWq != nil {
+						m.mvQ(v, hidden, layer.VWq)
+					} else {
+						return output
+					}
 				} else if layer.KWm != nil {
 					mlx.GemvParallel(k, hidden, layer.KWm)
-					if layer.VWm == layer.KWm && cfg.AttentionKEqV {
+					if cfg.AttentionKEqV && (layer.VWm == nil || layer.VWm == layer.KWm) {
 						copy(v, k)
-					} else {
+					} else if layer.VWm != nil {
 						mlx.GemvParallel(v, hidden, layer.VWm)
+					} else {
+						return output
 					}
 				} else {
+					if layer.KW == nil {
+						return output
+					}
 					m.mv(k, hidden, layer.KW.Data(), h, layerKVDim)
-					if layer.VW == layer.KW && cfg.AttentionKEqV {
+					if cfg.AttentionKEqV && (layer.VW == nil || layer.VW == layer.KW) {
 						copy(v, k)
-					} else {
+					} else if layer.VW != nil {
 						m.mv(v, hidden, layer.VW.Data(), h, layerKVDim)
+					} else {
+						return output
 					}
 				}
 			}

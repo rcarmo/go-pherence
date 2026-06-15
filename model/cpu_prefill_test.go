@@ -194,3 +194,35 @@ func TestCPUPrefillIneligibleCases(t *testing.T) {
 		t.Fatal("kill switch should disable prefill")
 	}
 }
+
+func TestGeneratePreparedDenseKEqVOmittedV(t *testing.T) {
+	m := buildPrefillTestModel("llama", false, false, false)
+	m.Config.AttentionKEqV = true
+	for i := range m.Layers {
+		m.Layers[i].VW = nil
+	}
+	t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "1")
+	out := m.Generate([]int{1, 5, 9}, 2)
+	if len(out) != 5 {
+		t.Fatalf("Generate len=%d output=%v", len(out), out)
+	}
+}
+
+func TestCPUPrefillDenseKEqVOmittedVMatchesSequential(t *testing.T) {
+	prompt := []int{1, 5, 9, 2, 7, 3}
+	m := buildPrefillTestModel("llama", false, false, false)
+	m.Config.AttentionKEqV = true
+	for i := range m.Layers {
+		m.Layers[i].VW = nil
+	}
+	if !m.prefillCPUEligible(len(prompt)) {
+		t.Fatal("omitted V K=V model should be prefill eligible")
+	}
+	t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "1")
+	seq := m.Generate(append([]int(nil), prompt...), 3)
+	t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "0")
+	pre := m.Generate(append([]int(nil), prompt...), 3)
+	if !equalInts(seq, pre) {
+		t.Fatalf("omitted V K=V prefill mismatch seq=%v pre=%v", seq, pre)
+	}
+}
