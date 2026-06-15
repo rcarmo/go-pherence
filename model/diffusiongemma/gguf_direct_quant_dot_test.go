@@ -10,7 +10,15 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
-func TestGGUFQ8_0ExpertRowDotMatchesDequant(t *testing.T) {
+func scalarDotForTest(a, b []float32) float32 {
+	var sum float32
+	for i := range a {
+		sum += a[i] * b[i]
+	}
+	return sum
+}
+
+func TestGGUFQ8_0ExpertRowDotMatchesScalarDequantOracle(t *testing.T) {
 	m := &gguf.ExpertMatrices{Name: "synthetic.q8", QType: gguf.QuantQ8_0, InDim: 32, OutDim: 3, Experts: 2}
 	rowBytes, err := m.RowBytes()
 	if err != nil {
@@ -34,7 +42,7 @@ func TestGGUFQ8_0ExpertRowDotMatchesDequant(t *testing.T) {
 			if err := m.DequantExpertRowTo(row, expert, r); err != nil {
 				t.Fatal(err)
 			}
-			want := simd.Sdot(row, x)
+			want := scalarDotForTest(row, x)
 			got, err := ggufQ8_0ExpertRowDot(m, expert, r, x)
 			if err != nil {
 				t.Fatal(err)
@@ -101,7 +109,7 @@ func TestGGUFQ5_0ExpertRowDotMatchesDequant(t *testing.T) {
 	}
 }
 
-func TestGGUFQ4KExpertRowDotMatchesDequant(t *testing.T) {
+func TestGGUFQ4KExpertRowDotMatchesScalarDequantOracle(t *testing.T) {
 	m := &gguf.ExpertMatrices{Name: "synthetic.q4k", QType: gguf.QuantQ4_K, InDim: 256, OutDim: 4, Experts: 2}
 	rowBytes, err := m.RowBytes()
 	if err != nil {
@@ -129,7 +137,7 @@ func TestGGUFQ4KExpertRowDotMatchesDequant(t *testing.T) {
 			if err := m.DequantExpertRowTo(row, expert, r); err != nil {
 				t.Fatal(err)
 			}
-			want := simd.Sdot(row, x)
+			want := scalarDotForTest(row, x)
 			got, err := ggufQ4KExpertRowDot(m, expert, r, x)
 			if err != nil {
 				t.Fatal(err)
