@@ -37,7 +37,8 @@ GOTMPDIR=$PWD/.gotmp go test \
   ./cmd/audio/... \
   ./loader/audio \
   ./backends/simd/fft \
-  ./backends/simd/runtime
+  ./backends/simd/runtime \
+  ./backends/cuda/ptx
 python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
 python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 
