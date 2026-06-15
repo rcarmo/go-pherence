@@ -47,45 +47,77 @@ def main() -> int:
     ap.add_argument("--task", default="translate", choices=("translate", "transcribe"))
     ap.add_argument("--language", default="en")
     ap.add_argument("--max-tokens", default="16")
-    ap.add_argument("--timestamps", action="store_true", help="Compare timestamp/VTT output instead of stdout")
+    ap.add_argument("--timestamps", action="store_true", help="Compare standalone whisper timestamp/VTT output instead of stdout")
+    ap.add_argument("--diarize-vtt", action="store_true", help="Compare cmd/audio/diarize-vtt VTT output")
     ap.add_argument("--output-dir", default="/workspace/tmp")
     ap.add_argument("--timeout", type=int, default=300)
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    base_cmd = [
-        "go",
-        "run",
-        "./cmd/audio/whisper",
-        "-audio",
-        args.audio,
-        "-model",
-        args.model,
-        "-size",
-        args.size,
-        "-task",
-        args.task,
-        "-language",
-        args.language,
-        "-max-tokens",
-        str(args.max_tokens),
-    ]
+    out_dir = Path(args.output_dir)
     baseline_output = None
     a100_output = None
     compare_field = "stdout"
-    if args.timestamps:
-        out_dir = Path(args.output_dir)
+
+    if args.diarize_vtt:
         out_dir.mkdir(parents=True, exist_ok=True)
-        baseline_output = out_dir / "whisper_a100_compare_baseline.vtt"
-        a100_output = out_dir / "whisper_a100_compare_a100.vtt"
-        base_cmd.extend(["-timestamps", "-output", str(baseline_output)])
+        baseline_output = out_dir / "whisper_a100_compare_diarize_baseline.vtt"
+        a100_output = out_dir / "whisper_a100_compare_diarize_a100.vtt"
+        base_cmd = [
+            "go",
+            "run",
+            "./cmd/audio/diarize-vtt",
+            "-input",
+            args.audio,
+            "-output",
+            str(baseline_output),
+            "-model",
+            args.model,
+            "-size",
+            args.size,
+            "-task",
+            args.task,
+            "-language",
+            args.language,
+            "-max-tokens",
+            str(args.max_tokens),
+            "-gpu=false",
+            "-workers",
+            "1",
+            "-progressive=false",
+            "-resume=false",
+        ]
         compare_field = "output_text"
+    else:
+        base_cmd = [
+            "go",
+            "run",
+            "./cmd/audio/whisper",
+            "-audio",
+            args.audio,
+            "-model",
+            args.model,
+            "-size",
+            args.size,
+            "-task",
+            args.task,
+            "-language",
+            args.language,
+            "-max-tokens",
+            str(args.max_tokens),
+        ]
+        if args.timestamps:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            baseline_output = out_dir / "whisper_a100_compare_baseline.vtt"
+            a100_output = out_dir / "whisper_a100_compare_a100.vtt"
+            base_cmd.extend(["-timestamps", "-output", str(baseline_output)])
+            compare_field = "output_text"
 
     env = os.environ.copy()
     baseline = run_case(base_cmd, env, args.timeout, baseline_output)
     a100_cmd = list(base_cmd)
-    if args.timestamps and a100_output is not None:
-        a100_cmd[-1] = str(a100_output)
+    if compare_field == "output_text" and a100_output is not None:
+        a100_cmd[a100_cmd.index(str(baseline_output))] = str(a100_output)
     a100_env = env | A100_ENV
     a100 = run_case(a100_cmd, a100_env, args.timeout, a100_output)
 
@@ -99,6 +131,7 @@ def main() -> int:
         "language": args.language,
         "max_tokens": args.max_tokens,
         "timestamps": args.timestamps,
+        "diarize_vtt": args.diarize_vtt,
         "compare_field": compare_field,
         "a100_env": A100_ENV,
         "baseline": baseline,

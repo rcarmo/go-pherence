@@ -62,7 +62,7 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 | `large-v3-turbo` VTT model | **Default** with `-language en`. |
 | Full `large-v3` | Reference/fallback for source-language prompt behavior and quality comparisons. |
 | K3 native int8 | Safe/validated optimized path for K3 native runs. |
-| A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `make whisper-a100-compare` / `scripts/whisper_a100_compare.py` across broader audio before automatic default. |
+| A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `make whisper-a100-compare` / `scripts/whisper_a100_compare.py` across standalone stdout, timestamp VTT, and diarize-vtt outputs before automatic default. |
 | GPU decoder MLP / cross-attn | Keep opt-in; prior measurements regressed due to launch/transfer overhead. |
 | Whisper speculative decode | Keep correctness-only until verifier batching/drafter integration. |
 | ECAPA speaker labels | Keep opt-in until broader labeled multi-speaker validation passes. |
