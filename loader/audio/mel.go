@@ -45,6 +45,11 @@ func MelSpectrogram(samples []float32, cfg MelConfig) [][]float32 {
 	numBins := cfg.NFFTPadded/2 + 1
 	filters := melFilterbank(cfg.NumMels, numBins, cfg.SampleRate, cfg.NFFTPadded)
 
+	if mel, ok := melSpectrogramFused(samples, cfg, numFrames, filters); ok {
+		normalizeWhisperMel(mel)
+		return mel
+	}
+
 	// Allocate output
 	mel := make([][]float32, cfg.NumMels)
 	for i := range mel {
@@ -83,30 +88,34 @@ func MelSpectrogram(samples []float32, cfg MelConfig) [][]float32 {
 		}
 	}
 
+	normalizeWhisperMel(mel)
+	return mel
+}
+
+func normalizeWhisperMel(mel [][]float32) {
 	// Whisper normalization: log10 mel, clamp to max-8dB, then (x+4)/4.
 	// This matches OpenAI Whisper's log_mel_spectrogram normalization.
-	if mel != nil {
-		maxVal := mel[0][0]
-		for _, row := range mel {
-			for _, v := range row {
-				if v > maxVal {
-					maxVal = v
-				}
-			}
-		}
-		floor := maxVal - 8.0
-		for m := range mel {
-			for t := range mel[m] {
-				v := mel[m][t]
-				if v < floor {
-					v = floor
-				}
-				mel[m][t] = (v + 4.0) / 4.0
+	if len(mel) == 0 || len(mel[0]) == 0 {
+		return
+	}
+	maxVal := mel[0][0]
+	for _, row := range mel {
+		for _, v := range row {
+			if v > maxVal {
+				maxVal = v
 			}
 		}
 	}
-
-	return mel
+	floor := maxVal - 8.0
+	for m := range mel {
+		for t := range mel[m] {
+			v := mel[m][t]
+			if v < floor {
+				v = floor
+			}
+			mel[m][t] = (v + 4.0) / 4.0
+		}
+	}
 }
 
 // hannWindow computes a periodic Hann window of length n.
