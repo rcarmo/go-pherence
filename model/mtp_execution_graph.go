@@ -7,12 +7,13 @@ import "fmt"
 // hidden-state-conditioned drafter steps, verify [input]+drafted in one main
 // model pass, then keep accepted-prefix plus verifier bonus KV.
 type MTPExecutionGraph struct {
-	InputToken      int
-	DraftedTokens   []int
-	StartPos        int
-	DrafterSteps    []MTPDrafterGraphStep
-	Verifier        MTPVerifierPlan
-	MaxKVKeepTokens int
+	InputToken         int
+	DraftedTokens      []int
+	StartPos           int
+	DrafterSteps       []MTPDrafterGraphStep
+	Verifier           MTPVerifierPlan
+	MaxKVKeepTokens    int
+	ExternalKVRequired bool
 }
 
 type MTPDrafterGraphStep struct {
@@ -45,6 +46,10 @@ func NewMTPExecutionGraph(m *LlamaModel, d *Gemma4MTPDrafter, state MTPDrafterSt
 	if d.BackboneHiddenSize <= 0 || len(state.Activation) != d.BackboneHiddenSize {
 		return MTPExecutionGraph{}, fmt.Errorf("drafter activation width=%d want backbone=%d", len(state.Activation), d.BackboneHiddenSize)
 	}
+	externalKVRequired := d.Config.NumLayers > 0 && len(drafted) > 0
+	if externalKVRequired && externalKV == nil {
+		return MTPExecutionGraph{}, fmt.Errorf("MTP graph requires external KV for q-only drafter layers")
+	}
 	if externalKV != nil {
 		if err := validateMTPDrafterExternalKV(d, externalKV); err != nil {
 			return MTPExecutionGraph{}, err
@@ -75,12 +80,13 @@ func NewMTPExecutionGraph(m *LlamaModel, d *Gemma4MTPDrafter, state MTPDrafterSt
 		}
 	}
 	graph := MTPExecutionGraph{
-		InputToken:      state.PreviousToken,
-		DraftedTokens:   append([]int(nil), drafted...),
-		StartPos:        startPos,
-		DrafterSteps:    steps,
-		Verifier:        verifier,
-		MaxKVKeepTokens: len(drafted) + 1,
+		InputToken:         state.PreviousToken,
+		DraftedTokens:      append([]int(nil), drafted...),
+		StartPos:           startPos,
+		DrafterSteps:       steps,
+		Verifier:           verifier,
+		MaxKVKeepTokens:    len(drafted) + 1,
+		ExternalKVRequired: externalKVRequired,
 	}
 	if err := graph.Validate(); err != nil {
 		return MTPExecutionGraph{}, err
@@ -131,6 +137,9 @@ func (g MTPExecutionGraph) Validate() error {
 			if step.ExternalKVSeqLen != externalKVSeqLen || !mtpSameInts(step.ExternalKVLayers, externalKVLayers) {
 				return fmt.Errorf("MTP graph drafter step %d external KV view seq/layers=%d/%v, want %d/%v", i, step.ExternalKVSeqLen, step.ExternalKVLayers, externalKVSeqLen, externalKVLayers)
 			}
+		}
+		if g.ExternalKVRequired && (step.ExternalKVSeqLen <= 0 || len(step.ExternalKVLayers) == 0) {
+			return fmt.Errorf("MTP graph drafter step %d missing required external KV view", i)
 		}
 		if (step.ExternalKVSeqLen != 0 || len(step.ExternalKVLayers) != 0) && step.ExternalKVSeqLen != g.StartPos {
 			return fmt.Errorf("MTP graph drafter step %d external KV seq len=%d, want graph start position=%d", i, step.ExternalKVSeqLen, g.StartPos)

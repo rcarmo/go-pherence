@@ -14,7 +14,7 @@ func TestNewMTPExecutionGraph(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if graph.InputToken != 1 || graph.StartPos != 1 || graph.MaxKVKeepTokens != 4 {
+	if graph.InputToken != 1 || graph.StartPos != 1 || graph.MaxKVKeepTokens != 4 || !graph.ExternalKVRequired {
 		t.Fatalf("graph header=%+v", graph)
 	}
 	if !sameInts(graph.DraftedTokens, []int{2, 3, 1}) {
@@ -32,6 +32,9 @@ func TestNewMTPExecutionGraph(t *testing.T) {
 	graph.DrafterSteps[0].ExternalKVLayers[0] = 99
 	if graph.DrafterSteps[1].ExternalKVLayers[0] != 0 {
 		t.Fatalf("external KV layer slice aliases across steps: %+v", graph.DrafterSteps)
+	}
+	if _, err := NewMTPExecutionGraph(m, d, state, nil, []int{2}, 1); err == nil {
+		t.Fatal("accepted q-only drafter graph without external KV")
 	}
 }
 
@@ -85,6 +88,11 @@ func TestMTPExecutionGraphValidateRejectsMalformed(t *testing.T) {
 	bad.DrafterSteps[1].ExternalKVLayers = []int{99}
 	if err := bad.Validate(); err == nil {
 		t.Fatal("accepted inconsistent external KV layers")
+	}
+	bad = makeGraph()
+	bad.ExternalKVRequired = true
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted graph missing required external KV view")
 	}
 	bad = makeGraph()
 	bad.DrafterSteps[0].ExternalKVLayers = []int{0, 0}
