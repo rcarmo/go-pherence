@@ -183,3 +183,29 @@ func (s *CPUDecodeState) CommitAccepted(cp CPUDecodeCheckpoint, acceptance MTPAc
 	s.Output = append(s.Output, acceptance.OutputTokens...)
 	return nil
 }
+
+// CommitGraphAccepted is the production-facing MTP commit bridge: a verifier
+// result must match the explicit execution graph before accepted-prefix+bonus KV
+// and output tokens are retained. This is the path future Gemma4 MTP generation
+// should use instead of committing a bare MTPAcceptance.
+func (s *CPUDecodeState) CommitGraphAccepted(cp CPUDecodeCheckpoint, graph MTPExecutionGraph, verifier MTPVerifierResult) (MTPKVCommitPlan, error) {
+	if s == nil || s.Model == nil {
+		return MTPKVCommitPlan{}, fmt.Errorf("nil decode state/model")
+	}
+	if cp.OutputLen < 0 || cp.OutputLen > len(s.Output) {
+		return MTPKVCommitPlan{}, fmt.Errorf("checkpoint output len=%d outside current len=%d", cp.OutputLen, len(s.Output))
+	}
+	var commit MTPKVCommitPlan
+	var err error
+	if s.CompressedKV != nil {
+		commit, err = verifier.CommitGraphCompressedKV(graph, s.CompressedKV, cp.CompressedKV)
+	} else {
+		commit, err = verifier.CommitGraphFloatKV(s.Model, graph, s.KVCacheK, s.KVCacheV, cp.FloatKV)
+	}
+	if err != nil {
+		return MTPKVCommitPlan{}, err
+	}
+	s.Output = s.Output[:cp.OutputLen]
+	s.Output = append(s.Output, commit.OutputTokens...)
+	return commit, nil
+}
