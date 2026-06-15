@@ -336,9 +336,11 @@ func ggufQ8_0RawRowDot(raw []byte, inDim int, x []float32) float32 {
 		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[:2]))
 		qs := blk[2:34]
 		xb := x[b*32 : b*32+32]
-		var blockSum float32
-		for i := 0; i < 32; i++ {
-			blockSum += float32(int8(qs[i])) * xb[i]
+		blockSum, ok := simd.DotI8F32(qs, xb)
+		if !ok {
+			for i := 0; i < 32; i++ {
+				blockSum += float32(int8(qs[i])) * xb[i]
+			}
 		}
 		sum += d * blockSum
 	}
@@ -669,7 +671,11 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down scale outside len=%d", eid, len(le.downScale)) })
 					return
 				}
-				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && le.down.QType == gguf.QuantQ8_0
+				// SIMD direct Q8_0 row-dot wins for a single activation row, but batched
+				// expert-down rows are faster through dequant-once + Sdot reuse. Keep the
+				// default executor unchanged and only use direct Q8 in the explicit opt-in
+				// path when the current expert batch has one position.
+				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos == 1 && le.down.QType == gguf.QuantQ8_0
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {
 						scale := float32(1)
