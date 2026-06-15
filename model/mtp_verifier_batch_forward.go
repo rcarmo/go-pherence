@@ -241,7 +241,9 @@ func (m *LlamaModel) projBatchAny(out, x []float32, B int, dense *tensor.Tensor,
 			return false
 		}
 		for b := 0; b < B; b++ {
-			m.mvQ(out[b*outDim:(b+1)*outDim], x[b*inDim:(b+1)*inDim], qw)
+			if !m.mvQ(out[b*outDim:(b+1)*outDim], x[b*inDim:(b+1)*inDim], qw) {
+				return false
+			}
 		}
 		return true
 	}

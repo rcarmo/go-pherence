@@ -7,6 +7,21 @@ import (
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
+func TestForwardLayerRejectsQuantProjectionFailure(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{ModelType: "gemma4_text", HiddenSize: 2, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 1e-6},
+		Layers: []LlamaLayer{{
+			InputNorm: tensor.Ones([]int{2}),
+			PostNorm:  tensor.Ones([]int{2}),
+			HasKV:     true,
+			QWq:       &QuantWeight{InDim: 2, OutDim: 2, QWeight: []int32{0}, GIdx: []int32{0, 0}, Scales: []float32{1, 1}},
+		}},
+	}
+	if got := m.ForwardLayer([]float32{0.5, 0.25}, 0, 0, 0, make([][]float32, 1), make([][]float32, 1)); got != nil {
+		t.Fatalf("ForwardLayer malformed quantized output=%v, want nil", got)
+	}
+}
+
 func TestForwardLayerRejectsMLXProjectionFailure(t *testing.T) {
 	m := &LlamaModel{
 		Config: LlamaConfig{ModelType: "gemma4_text", HiddenSize: 2, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 1e-6},

@@ -52,7 +52,9 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	// Q projection
 	q := make([]float32, qDim)
 	if layer.QWq != nil {
-		m.mvQ(q, hidden, layer.QWq)
+		if !m.mvQ(q, hidden, layer.QWq) {
+			return nil
+		}
 	} else if layer.QWm != nil {
 		if !mlx.GemvParallel(q, hidden, layer.QWm) {
 			return nil
@@ -67,11 +69,15 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 		k = make([]float32, layerKVDim)
 		v = make([]float32, layerKVDim)
 		if layer.KWq != nil {
-			m.mvQ(k, hidden, layer.KWq)
+			if !m.mvQ(k, hidden, layer.KWq) {
+				return nil
+			}
 			if cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
 				copy(v, k)
 			} else if layer.VWq != nil {
-				m.mvQ(v, hidden, layer.VWq)
+				if !m.mvQ(v, hidden, layer.VWq) {
+					return nil
+				}
 			} else {
 				return nil
 			}
@@ -195,7 +201,9 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	// Output projection
 	oOut := make([]float32, h)
 	if layer.OWq != nil {
-		m.mvQ(oOut, attnOut, layer.OWq)
+		if !m.mvQ(oOut, attnOut, layer.OWq) {
+			return nil
+		}
 	} else if layer.OWm != nil {
 		if !mlx.GemvParallel(oOut, attnOut, layer.OWm) {
 			return nil
@@ -240,8 +248,9 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	gate := make([]float32, layerInter)
 	up := make([]float32, layerInter)
 	if layer.GateWq != nil {
-		m.mvQ(gate, mlpInput, layer.GateWq)
-		m.mvQ(up, mlpInput, layer.UpWq)
+		if !m.mvQ(gate, mlpInput, layer.GateWq) || !m.mvQ(up, mlpInput, layer.UpWq) {
+			return nil
+		}
 	} else if layer.GateWm != nil {
 		if !mlx.GemvParallel(gate, mlpInput, layer.GateWm) {
 			return nil
@@ -268,7 +277,9 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 
 	down := make([]float32, h)
 	if layer.DownWq != nil {
-		m.mvQ(down, gate, layer.DownWq)
+		if !m.mvQ(down, gate, layer.DownWq) {
+			return nil
+		}
 	} else if layer.DownWm != nil {
 		if !mlx.GemvParallel(down, gate, layer.DownWm) {
 			return nil

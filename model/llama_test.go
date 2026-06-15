@@ -208,6 +208,34 @@ func TestGenerateRejectsMissingKNormWithoutPanic(t *testing.T) {
 	}
 }
 
+func TestGenerateRejectsQuantProjectionFailureWithoutExtraToken(t *testing.T) {
+	identity2 := []float32{1, 0, 0, 1}
+	m := &LlamaModel{
+		Config:      LlamaConfig{ModelType: "gemma4_text", VocabSize: 2, HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 1e-6},
+		EmbedTokens: tensor.FromFloat32([]float32{1, 0, 0, 1}, []int{2, 2}),
+		Norm:        tensor.Ones([]int{2}),
+		LMHead:      tensor.FromFloat32([]float32{1, 0, 0, 1}, []int{2, 2}),
+		Layers: []LlamaLayer{{
+			InputNorm:   tensor.Ones([]int{2}),
+			PostNorm:    tensor.Ones([]int{2}),
+			PostFFNNorm: tensor.Ones([]int{2}),
+			LayerScalar: 1,
+			HasKV:       true,
+			QWq:         &QuantWeight{InDim: 2, OutDim: 2, QWeight: []int32{0}, GIdx: []int32{0, 0}, Scales: []float32{1, 1}},
+			KW:          tensor.FromFloat32(append([]float32(nil), identity2...), []int{2, 2}),
+			VW:          tensor.FromFloat32(append([]float32(nil), identity2...), []int{2, 2}),
+			OW:          tensor.FromFloat32(append([]float32(nil), identity2...), []int{2, 2}),
+			GateW:       tensor.FromFloat32(append([]float32(nil), identity2...), []int{2, 2}),
+			UpW:         tensor.FromFloat32(append([]float32(nil), identity2...), []int{2, 2}),
+			DownW:       tensor.FromFloat32(append([]float32(nil), identity2...), []int{2, 2}),
+		}},
+	}
+	out := m.Generate([]int{0}, 1)
+	if !sameInts(out, []int{0}) {
+		t.Fatalf("Generate output=%v want prompt only after quantized projection failure", out)
+	}
+}
+
 func TestGenerateRejectsMLXProjectionFailureWithoutExtraToken(t *testing.T) {
 	identity2 := []float32{1, 0, 0, 1}
 	m := &LlamaModel{

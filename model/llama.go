@@ -696,10 +696,11 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 }
 
 // Generate produces tokens autoregressively.
-func (m *LlamaModel) mvQ(out, x []float32, qw *QuantWeight) {
-	if qw != nil {
-		simdq4.GemvSym(out, x, qw.QWeight, qw.GIdx, qw.Scales, qw.InDim, qw.OutDim)
+func (m *LlamaModel) mvQ(out, x []float32, qw *QuantWeight) bool {
+	if qw == nil {
+		return false
 	}
+	return simdq4.GemvSymTo(out, x, qw.QWeight, qw.GIdx, qw.Scales, qw.InDim, qw.OutDim)
 }
 
 func (m *LlamaModel) mv(out, x, w []float32, inDim, outDim int) {
@@ -1030,7 +1031,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 
 			// Always compute Q
 			if layer.QWq != nil {
-				m.mvQ(q, hidden, layer.QWq)
+				if !m.mvQ(q, hidden, layer.QWq) {
+					return output
+				}
 			} else if layer.QWm != nil {
 				if !mlx.GemvParallel(q, hidden, layer.QWm) {
 					return output
@@ -1045,11 +1048,15 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				k = scratchK[:layerKVDim]
 				v = scratchV[:layerKVDim]
 				if layer.KWq != nil {
-					m.mvQ(k, hidden, layer.KWq)
+					if !m.mvQ(k, hidden, layer.KWq) {
+						return output
+					}
 					if cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
 						copy(v, k)
 					} else if layer.VWq != nil {
-						m.mvQ(v, hidden, layer.VWq)
+						if !m.mvQ(v, hidden, layer.VWq) {
+							return output
+						}
 					} else {
 						return output
 					}
@@ -1233,7 +1240,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			// Output projection
 			oOut := scratchO
 			if layer.OWq != nil {
-				m.mvQ(oOut, attnOut, layer.OWq)
+				if !m.mvQ(oOut, attnOut, layer.OWq) {
+					return output
+				}
 			} else if layer.OWm != nil {
 				if !mlx.GemvParallel(oOut, attnOut, layer.OWm) {
 					return output
@@ -1308,8 +1317,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				gate := scratchGate[:layerInter]
 				up := scratchUp[:layerInter]
 				if layer.GateWq != nil {
-					m.mvQ(gate, mlpInput, layer.GateWq)
-					m.mvQ(up, mlpInput, layer.UpWq)
+					if !m.mvQ(gate, mlpInput, layer.GateWq) || !m.mvQ(up, mlpInput, layer.UpWq) {
+						return output
+					}
 				} else if layer.GateWm != nil {
 					if !mlx.GemvParallel(gate, mlpInput, layer.GateWm) {
 						return output
@@ -1344,7 +1354,9 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				// Down projection
 				down = scratchDown
 				if layer.DownWq != nil {
-					m.mvQ(down, gate, layer.DownWq)
+					if !m.mvQ(down, gate, layer.DownWq) {
+						return output
+					}
 				} else if layer.DownWm != nil {
 					if !mlx.GemvParallel(down, gate, layer.DownWm) {
 						return output
