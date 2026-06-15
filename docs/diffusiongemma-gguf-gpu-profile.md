@@ -189,8 +189,8 @@ q8(ptr/cache/transient_ptr/transient_pack/budget)=2/0/0/0/0
 partial(calls kept/dropped experts work)=1 20/40 345/391
 ```
 
-Using the planner with `--q4-scale-bytes 1 --order efficiency
---ensure-layer-coverage --optimize-budget --budget-mb 768` produced a 200-entry
+Using the planner with `--raw-q4 --order efficiency --ensure-layer-coverage
+--optimize-budget --budget-mb 768` produced a 200-entry
 raw-Q4 plan with modeled kept work `14415/22080`. Running that plan with
 `GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY=1` preserved token
 parity and converted every encoder expert layer to fused partial-resident GPU
@@ -265,7 +265,7 @@ The implemented fidelity-preserving compact path instead stores the original
 Q4_K row-block metadata (`d`, `dmin`, and the 12 packed scale/min bytes) alongside
 the packed quants, then reconstructs scale/min values inside the pointer-table
 kernel exactly as `unpackQ4KMatrixRows` does. In planner simulations this is
-modeled with `--q4-scale-bytes 1`. It is opt-in at runtime:
+modeled with `--raw-q4` (or the equivalent `--q4-scale-bytes 1`). It is opt-in at runtime:
 
 ```bash
 export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1

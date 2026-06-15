@@ -271,7 +271,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--order", choices=("layer", "global-work", "efficiency"), default="layer", help="emit layer-major groups, globally sort by work, or sort by work/estimated resident byte (default: layer)")
     ap.add_argument("--budget-mb", type=int, default=0, help="truncate the emitted plan to the prefix that fits this expert-cache budget")
     ap.add_argument("--optimize-budget", action="store_true", help="with --budget-mb, choose entries that maximize traced work instead of taking a sorted prefix")
-    ap.add_argument("--q4-scale-bytes", type=int, default=4, choices=(1, 2, 4), help="bytes per Q4_K scale/min value in resident cost model (default: 4; use 2 to model compact fp16 scales, 1 to model raw Q4_K metadata residency)")
+    ap.add_argument("--q4-scale-bytes", type=int, default=None, choices=(1, 2, 4), help="bytes per Q4_K scale/min value in resident cost model (default: 4; use 2 to model compact fp16 scales, 1 to model raw Q4_K metadata residency)")
+    ap.add_argument("--raw-q4", action="store_true", help="model the implemented raw Q4_K metadata residency path (equivalent to --q4-scale-bytes 1 unless --q4-scale-bytes is explicit)")
     ap.add_argument("--q8-scale-bytes", type=int, default=4, choices=(2, 4), help="bytes per Q8_0 scale in resident cost model (default: 4)")
     ap.add_argument("--q5-scale-bytes", type=int, default=4, choices=(2, 4), help="bytes per Q5_0 scale in resident cost model (default: 4)")
     ap.add_argument("--summary", action="store_true", help="print budget/entry summary to stderr")
@@ -279,19 +280,22 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.top <= 0:
         ap.error("--top must be positive")
+    q4_scale_bytes = args.q4_scale_bytes
+    if q4_scale_bytes is None:
+        q4_scale_bytes = 1 if args.raw_q4 else 4
     q8_layers = parse_layer_set(args.q8_layers)
     q5_layers = parse_layer_set(args.q5_layers)
     work = trace_work_map(args.log, q8_layers, q5_layers, args.include_repeated_layers, args.missing_only)
-    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only, args.ensure_layer_coverage, args.q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
+    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only, args.ensure_layer_coverage, q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
     original_entries = len(flatten_plan(plan))
     original_work = plan_work(plan, work)
     used = 0
     kept_entries = original_entries
     if args.budget_mb > 0:
         if args.optimize_budget:
-            plan, used, kept_entries = optimize_budget(plan, args.budget_mb, q8_layers, q5_layers, work, args.ensure_layer_coverage, args.q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
+            plan, used, kept_entries = optimize_budget(plan, args.budget_mb, q8_layers, q5_layers, work, args.ensure_layer_coverage, q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
         else:
-            plan, used, kept_entries = apply_budget(plan, args.budget_mb, q8_layers, q5_layers, args.q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
+            plan, used, kept_entries = apply_budget(plan, args.budget_mb, q8_layers, q5_layers, q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
     kept_work = plan_work(plan, work)
     if args.summary:
         if args.budget_mb > 0:
