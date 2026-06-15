@@ -1744,7 +1744,7 @@ func recordGGUFActiveExpertSetTelemetry(idx *GGUFExpertIndex, layer int, active 
 
 func recordQ4BudgetFallback(idx *GGUFExpertIndex, layer int, active []int) {
 	ggufExpertDispatchCounters.q4BudgetFallback.Add(1)
-	if b, err := q4KGateUpExpertDeviceBytes(idx, layer); err == nil && b > 0 {
+	if b, err := q4KGateUpExpertResidentBytes(idx, layer); err == nil && b > 0 {
 		ggufExpertDispatchCounters.q4BudgetBytes.Add(uint64(b) * uint64(len(active)))
 		ggufExpertDispatchCounters.q4BudgetExperts.Add(uint64(len(active)))
 	}
@@ -2197,7 +2197,11 @@ func ggufPointerExpertLayerFullyResident(idx *GGUFExpertIndex, layer int) bool {
 	}
 	index := ggufExpertIndexCacheID(idx)
 	for expert := 0; expert < idx.NumExperts; expert++ {
-		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+			if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+				return false
+			}
+		} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
 			return false
 		}
 		if _, ok := q8DownExpertCache.Load(q8DownExpertKey{index: index, layer: layer, expert: expert}); !ok {
@@ -2223,7 +2227,7 @@ func traceGGUFActiveExpertSet(idx *GGUFExpertIndex, layer int, groupedArrays Sel
 	if topN <= 0 || idx == nil || len(groupedArrays.ActiveExperts) == 0 || len(groupedArrays.Offsets) != len(groupedArrays.ActiveExperts)+1 {
 		return
 	}
-	perExpert, err := q4KGateUpExpertDeviceBytes(idx, layer)
+	perExpert, err := q4KGateUpExpertResidentBytes(idx, layer)
 	if err != nil || perExpert <= 0 {
 		return
 	}
@@ -2242,7 +2246,13 @@ func traceGGUFActiveExpertSet(idx *GGUFExpertIndex, layer int, groupedArrays Sel
 		}
 		work := groupedArrays.Offsets[i+1] - groupedArrays.Offsets[i]
 		missing := false
-		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+			if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+				missing = true
+				missingExperts++
+				missingBytes += perExpert
+			}
+		} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
 			missing = true
 			missingExperts++
 			missingBytes += perExpert
@@ -2287,7 +2297,7 @@ func ggufActiveExpertSetQ4MissingStats(idx *GGUFExpertIndex, layer int, active [
 	if ggufPointerExpertLayerFullyResident(idx, layer) {
 		return 0, 0, false
 	}
-	perExpert, err := q4KGateUpExpertDeviceBytes(idx, layer)
+	perExpert, err := q4KGateUpExpertResidentBytes(idx, layer)
 	if err != nil || perExpert <= 0 {
 		return 0, 0, false
 	}
@@ -2296,7 +2306,12 @@ func ggufActiveExpertSetQ4MissingStats(idx *GGUFExpertIndex, layer int, active [
 		if expert < 0 || expert >= idx.NumExperts {
 			continue
 		}
-		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+			if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+				missingExperts++
+				missingBytes += perExpert
+			}
+		} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
 			missingExperts++
 			missingBytes += perExpert
 		}
@@ -2487,7 +2502,7 @@ func activeQ4KGateUpPointerTable(idx *GGUFExpertIndex, layer int, active []int) 
 			return nil, false, fmt.Errorf("active Q4_K expert %d outside %d", expert, idx.NumExperts)
 		}
 		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: ggufExpertIndexCacheID(idx), layer: layer, expert: expert}); !ok {
-			b, err := q4KGateUpExpertDeviceBytes(idx, layer)
+			b, err := q4KGateUpExpertResidentBytes(idx, layer)
 			if err != nil {
 				return nil, false, err
 			}
@@ -3947,7 +3962,11 @@ func ggufPointerExpertResident(idx *GGUFExpertIndex, layer, expert int) bool {
 		return false
 	}
 	cacheID := ggufExpertIndexCacheID(idx)
-	if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+	if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+		if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+			return false
+		}
+	} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
 		return false
 	}
 	if idx.entries[layer].down.QType == gguf.QuantQ8_0 {
@@ -4303,6 +4322,21 @@ func q4KGateUpExpertDeviceBytes(idx *GGUFExpertIndex, layer int) (int64, error) 
 	return int64(le.gateUp.OutDim * blocks * (128 + 8*4 + 8*4)), nil
 }
 
+func q4KGateUpExpertResidentBytes(idx *GGUFExpertIndex, layer int) (int64, error) {
+	if idx == nil || layer < 0 || layer >= idx.NumLayers {
+		return 0, fmt.Errorf("invalid Q4_K resident byte request layer=%d", layer)
+	}
+	le := idx.entries[layer]
+	if le.gateUp.QType != gguf.QuantQ4_K {
+		return 0, fmt.Errorf("Q4_K gate/up expert residency requires Q4_K, got %s", le.gateUp.QType)
+	}
+	blocks := le.gateUp.InDim / 256
+	if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+		return int64(le.gateUp.OutDim * blocks * 144), nil
+	}
+	return int64(le.gateUp.OutDim * blocks * (128 + 8*4 + 8*4)), nil
+}
+
 func q8DownExpertDeviceBytes(idx *GGUFExpertIndex, layer int) (int64, error) {
 	if idx == nil || layer < 0 || layer >= idx.NumLayers {
 		return 0, fmt.Errorf("invalid Q8 down byte request layer=%d", layer)
@@ -4344,8 +4378,16 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 	prewarmed := make(map[ggufExpertPrewarmTarget]bool)
 	prewarmOne := func(layer, expert int) (bool, error) {
 		need := int64(0)
-		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
-			b, err := q4KGateUpExpertDeviceBytes(idx, layer)
+		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+			if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+				b, err := q4KGateUpExpertResidentBytes(idx, layer)
+				if err != nil {
+					return false, err
+				}
+				need += b
+			}
+		} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+			b, err := q4KGateUpExpertResidentBytes(idx, layer)
 			if err != nil {
 				return false, err
 			}
@@ -4391,7 +4433,14 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 				return false, nil
 			}
 		}
-		if _, err := residentQ4KGateUpExpertMatrixWithReservation(idx, layer, expert, false); err != nil {
+		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+			if _, err := residentQ4KGateUpExpertRawMatrixWithReservation(idx, layer, expert, false); err != nil {
+				if need > 0 {
+					releaseActiveExpertMatrixCacheBytes(need)
+				}
+				return false, err
+			}
+		} else if _, err := residentQ4KGateUpExpertMatrixWithReservation(idx, layer, expert, false); err != nil {
 			if need > 0 {
 				releaseActiveExpertMatrixCacheBytes(need)
 			}
