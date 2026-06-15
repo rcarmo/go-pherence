@@ -133,7 +133,8 @@ experts.
 
 The current high-fidelity path uses a Q4_K pointer-table dot-only GPU kernel,
 then applies exact erf GELU through the explicit exact-GELU boundary before the
-Q8_0 down/scatter stage. The partial-resident executor is opt-in:
+down/scatter stage. Down experts support both Q8_0 and Q5_0 pointer-table paths.
+The partial-resident executor is opt-in:
 
 ```bash
 export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT=1
@@ -149,12 +150,26 @@ Current exact partial-resident top-N sweep with the same 768MiB expert cache:
 | top10 | 2.45s | 14/16 | 14036 | 475904 | 261888 | Best current structural balance. |
 | top12 | 2.68s | 13/17 | 14194 | 460416 | 230912 | Loses one fused layer, so not better despite fewer rows. |
 
-Top10 is the current recommended diagnostic plan for this exact partial-resident
-profile: it keeps fused coverage at 14 encoder layers while reducing dropped CPU
-work the most. The exact-GELU host boundary is measurable but not dominant in the
-current profile (roughly a few tenths of a second for encoder fused calls); the
-remaining bottleneck is dropped-subset CPU fallback and broad active expert
-coverage.
+After Q5_0 pointer support, the all-layer/global top10 plan is the current
+recommended diagnostic target for exact partial-resident execution at 768MiB:
+it preserves `[144]`, reaches `fused=30`, and reports
+`partial kept/dropped work=12871/9209`. The exact-GELU host boundary is
+measurable but not dominant in the 768MiB profile; the remaining bottleneck is
+how many selected experts still land in the dropped CPU subset.
+
+Budget scaling with the same exact partial-resident profile shows the structural
+trend clearly even when wall-clock varies with host load:
+
+| Expert cache | Prewarmed experts | Kept/dropped work | Q4 dequant rows | Q8 dequant rows | Q5 dequant rows | Notes |
+|---:|---:|---:|---:|---:|---:|---|
+| 768MiB | 168 | 12871/9209 | 440704 | 459008 | 1346048 | Current bounded default diagnostic target. |
+| 1024MiB | 223 | 15345/6735 | 363264 | 377344 | 1272832 | More resident work; still broad dropped subset. |
+| 1536MiB | 334 | 18425/3655 | 206976 | 222464 | 1115136 | Much less dropped work; exact-GELU boundary grows. |
+
+At 1536MiB, the remaining dropped work is mostly residual Q5_0 rows plus the
+larger exact-GELU boundary for the kept set. This points toward either more
+resident expert budget, smaller Q4_K/Q5_0 resident representation, or a native
+exact-GELU device kernel to remove the host boundary as coverage grows.
 
 ## Why this is opt-in
 
