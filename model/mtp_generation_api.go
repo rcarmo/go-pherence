@@ -21,14 +21,15 @@ type MTPGraphGenerationResult struct {
 }
 
 type MTPGraphGenerationStepSummary struct {
-	InputToken        int
-	DraftedTokens     []int
-	VerifierTokens    []int
-	Positions         []int
-	AcceptedPrefixLen int
-	BonusToken        int
-	OutputTokens      []int
-	AllDraftsAccepted bool
+	InputToken           int
+	DraftedTokens        []int
+	VerifierTokens       []int // verifier input batch: [input] + drafted
+	VerifierOutputTokens []int // greedy verifier outputs from logits, len drafted+1
+	Positions            []int
+	AcceptedPrefixLen    int
+	BonusToken           int
+	OutputTokens         []int
+	AllDraftsAccepted    bool
 }
 
 func (r MTPGraphGenerationResult) Validate(promptLen int) error {
@@ -38,7 +39,7 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if r.GraphOutputTokens < 0 || r.GreedyTailTokens < 0 {
 		return fmt.Errorf("MTP graph generation negative output accounting graph=%d greedy=%d", r.GraphOutputTokens, r.GreedyTailTokens)
 	}
-	if len(r.StepSummaries) != 0 && len(r.StepSummaries) != len(r.Steps) {
+	if len(r.StepSummaries) != len(r.Steps) {
 		return fmt.Errorf("MTP graph step summaries=%d, commit steps=%d", len(r.StepSummaries), len(r.Steps))
 	}
 	var graphCount int
@@ -51,36 +52,45 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		}
 		graphCount += len(step.OutputTokens)
 		graphTokens = append(graphTokens, step.OutputTokens...)
-		if len(r.StepSummaries) > 0 {
-			summary := r.StepSummaries[i]
-			if !mtpSameInts(summary.Positions, step.Positions) || !mtpSameInts(summary.OutputTokens, step.OutputTokens) {
-				return fmt.Errorf("MTP graph summary %d does not match commit step summary=%+v commit=%+v", i, summary, step)
-			}
-			if len(summary.VerifierTokens) != len(summary.DraftedTokens)+1 || summary.VerifierTokens[0] != summary.InputToken {
-				return fmt.Errorf("MTP graph summary %d verifier batch is not [input]+drafted: %+v", i, summary)
-			}
-			for j, tok := range summary.DraftedTokens {
-				if summary.VerifierTokens[j+1] != tok {
-					return fmt.Errorf("MTP graph summary %d verifier token %d=%d, want drafted %d", i, j+1, summary.VerifierTokens[j+1], tok)
-				}
-			}
-			if len(summary.OutputTokens) != summary.AcceptedPrefixLen+1 || summary.BonusToken < 0 || summary.OutputTokens[summary.AcceptedPrefixLen] != summary.BonusToken {
-				return fmt.Errorf("MTP graph summary %d invalid acceptance/output accounting: %+v", i, summary)
-			}
-			if summary.AcceptedPrefixLen < 0 || summary.AcceptedPrefixLen > len(summary.DraftedTokens) {
-				return fmt.Errorf("MTP graph summary %d accepted prefix=%d drafted=%d", i, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
-			}
-			for j := 0; j < summary.AcceptedPrefixLen; j++ {
-				if summary.OutputTokens[j] != summary.DraftedTokens[j] {
-					return fmt.Errorf("MTP graph summary %d output token %d=%d, want accepted draft %d", i, j, summary.OutputTokens[j], summary.DraftedTokens[j])
-				}
-			}
-			if summary.AllDraftsAccepted != (summary.AcceptedPrefixLen == len(summary.DraftedTokens)) {
-				return fmt.Errorf("MTP graph summary %d all-accepted=%v inconsistent with accepted=%d drafted=%d", i, summary.AllDraftsAccepted, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
-			}
-			summaryDrafted += len(summary.DraftedTokens)
-			summaryVerified += summary.AcceptedPrefixLen
+		summary := r.StepSummaries[i]
+		if !mtpSameInts(summary.Positions, step.Positions) || !mtpSameInts(summary.OutputTokens, step.OutputTokens) {
+			return fmt.Errorf("MTP graph summary %d does not match commit step summary=%+v commit=%+v", i, summary, step)
 		}
+		if len(summary.VerifierTokens) != len(summary.DraftedTokens)+1 || summary.VerifierTokens[0] != summary.InputToken {
+			return fmt.Errorf("MTP graph summary %d verifier batch is not [input]+drafted: %+v", i, summary)
+		}
+		for j, tok := range summary.DraftedTokens {
+			if summary.VerifierTokens[j+1] != tok {
+				return fmt.Errorf("MTP graph summary %d verifier token %d=%d, want drafted %d", i, j+1, summary.VerifierTokens[j+1], tok)
+			}
+		}
+		if len(summary.OutputTokens) != summary.AcceptedPrefixLen+1 || summary.BonusToken < 0 || summary.OutputTokens[summary.AcceptedPrefixLen] != summary.BonusToken {
+			return fmt.Errorf("MTP graph summary %d invalid acceptance/output accounting: %+v", i, summary)
+		}
+		if summary.AcceptedPrefixLen < 0 || summary.AcceptedPrefixLen > len(summary.DraftedTokens) {
+			return fmt.Errorf("MTP graph summary %d accepted prefix=%d drafted=%d", i, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
+		}
+		for j := 0; j < summary.AcceptedPrefixLen; j++ {
+			if summary.OutputTokens[j] != summary.DraftedTokens[j] {
+				return fmt.Errorf("MTP graph summary %d output token %d=%d, want accepted draft %d", i, j, summary.OutputTokens[j], summary.DraftedTokens[j])
+			}
+		}
+		if summary.AllDraftsAccepted != (summary.AcceptedPrefixLen == len(summary.DraftedTokens)) {
+			return fmt.Errorf("MTP graph summary %d all-accepted=%v inconsistent with accepted=%d drafted=%d", i, summary.AllDraftsAccepted, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
+		}
+		if len(summary.VerifierOutputTokens) != len(summary.DraftedTokens)+1 {
+			return fmt.Errorf("MTP graph summary %d verifier outputs len=%d, want drafted+1=%d", i, len(summary.VerifierOutputTokens), len(summary.DraftedTokens)+1)
+		}
+		for j := 0; j < summary.AcceptedPrefixLen; j++ {
+			if summary.VerifierOutputTokens[j] != summary.DraftedTokens[j] {
+				return fmt.Errorf("MTP graph summary %d verifier output %d=%d, want accepted draft %d", i, j, summary.VerifierOutputTokens[j], summary.DraftedTokens[j])
+			}
+		}
+		if summary.BonusToken != summary.VerifierOutputTokens[summary.AcceptedPrefixLen] {
+			return fmt.Errorf("MTP graph summary %d bonus token=%d, want verifier output %d", i, summary.BonusToken, summary.VerifierOutputTokens[summary.AcceptedPrefixLen])
+		}
+		summaryDrafted += len(summary.DraftedTokens)
+		summaryVerified += summary.AcceptedPrefixLen
 	}
 	if len(r.StepSummaries) > 0 {
 		if r.Stats.Steps != len(r.StepSummaries) {
@@ -223,15 +233,24 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 }
 
 func newMTPGraphGenerationStepSummary(step MTPGraphDecodeStepResult) MTPGraphGenerationStepSummary {
+	verifierOutputs := make([]int, 0, len(step.Step.Verifier.Logits))
+	for _, logits := range step.Step.Verifier.Logits {
+		id, _, err := ArgmaxLogits(logits)
+		if err != nil {
+			id = -1
+		}
+		verifierOutputs = append(verifierOutputs, id)
+	}
 	return MTPGraphGenerationStepSummary{
-		InputToken:        step.Step.Graph.InputToken,
-		DraftedTokens:     append([]int(nil), step.Step.Drafts.Tokens...),
-		VerifierTokens:    append([]int(nil), step.Step.Plan.VerifierTokens...),
-		Positions:         append([]int(nil), step.Commit.Positions...),
-		AcceptedPrefixLen: step.Step.Verifier.Acceptance.AcceptedPrefixLen,
-		BonusToken:        step.Step.Verifier.Acceptance.BonusToken,
-		OutputTokens:      append([]int(nil), step.Commit.OutputTokens...),
-		AllDraftsAccepted: step.Step.Verifier.Acceptance.AllDraftsAccepted,
+		InputToken:           step.Step.Graph.InputToken,
+		DraftedTokens:        append([]int(nil), step.Step.Drafts.Tokens...),
+		VerifierTokens:       append([]int(nil), step.Step.Plan.VerifierTokens...),
+		VerifierOutputTokens: verifierOutputs,
+		Positions:            append([]int(nil), step.Commit.Positions...),
+		AcceptedPrefixLen:    step.Step.Verifier.Acceptance.AcceptedPrefixLen,
+		BonusToken:           step.Step.Verifier.Acceptance.BonusToken,
+		OutputTokens:         append([]int(nil), step.Commit.OutputTokens...),
+		AllDraftsAccepted:    step.Step.Verifier.Acceptance.AllDraftsAccepted,
 	}
 }
 

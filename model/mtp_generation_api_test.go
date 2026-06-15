@@ -75,7 +75,7 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		Output:            []int{10, 1, 2, 3},
 		Stats:             MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
 		Steps:             []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
-		StepSummaries:     []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 2}, VerifierTokens: []int{9, 1, 2}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
+		StepSummaries:     []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 2}, VerifierTokens: []int{9, 1, 2}, VerifierOutputTokens: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
 		GraphOutputTokens: 2,
 		GreedyTailTokens:  1,
 	}
@@ -147,6 +147,21 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.StepSummaries[0].VerifierTokens = []int{9, 1, 7}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted summary verifier/drafted mismatch")
+	}
+	bad = valid
+	bad.StepSummaries[0].VerifierOutputTokens = []int{1}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted short verifier outputs")
+	}
+	bad = valid
+	bad.StepSummaries[0].VerifierOutputTokens = []int{7, 2, 3}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted verifier output prefix not matching drafted prefix")
+	}
+	bad = valid
+	bad.StepSummaries[0].VerifierOutputTokens = []int{1, 7, 3}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted bonus not matching verifier output")
 	}
 	bad = valid
 	bad.StepSummaries[0].AllDraftsAccepted = true
