@@ -582,7 +582,8 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	oldHook := encoderGGUFMoEHook
 	defer func() { encoderGGUFMoEHook = oldHook }()
 	compared := false
-	var capturedMaxAbs, capturedMeanAbs float64
+	var capturedPreMaxAbs, capturedPreMeanAbs, capturedPostMaxAbs, capturedPostMeanAbs float64
+	var capturedPreMaxIndex, capturedPostMaxIndex int
 	encoderGGUFMoEHook = func(hookLayer int, lt string, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex) error {
 		if hookLayer != layer {
 			return nil
@@ -635,6 +636,10 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 				return fmt.Errorf("rms norm failed")
 			}
 		}
+		cpuNoPostScratch := ForwardScratch{Residual: append([]float32(nil), scratch.Residual...), MoeOut: make([]float32, len(scratch.MoeOut)), TopKIDs: append([]int(nil), scratch.TopKIDs...), TopKVals: append([]float32(nil), scratch.TopKVals...), TopKExperts: topK, GGUFExpertIndex: idx}
+		if err := runGGUFCPUExpertsGroupedNoPostNorm(op, cpuNoPostScratch, idx, normedRows, ga); err != nil {
+			return err
+		}
 		partialScratch := ForwardScratch{Residual: append([]float32(nil), scratch.Residual...), MoeOut: make([]float32, len(scratch.MoeOut)), TopKIDs: append([]int(nil), scratch.TopKIDs...), TopKVals: append([]float32(nil), scratch.TopKVals...), TopKExperts: topK, GGUFExpertIndex: idx}
 		var bufs SelectedExpertGroupedArraysGPUBuffers
 		defer bufs.Free()
@@ -651,27 +656,35 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 		if err := runGGUFCPUExpertsGroupedNoPostNorm(op, partialScratch, idx, normedRows, dropped); err != nil {
 			return err
 		}
+		compare := func(a, b []float32) (maxAbs float64, meanAbs float64, maxIndex int) {
+			maxIndex = -1
+			for i := range a {
+				d := math.Abs(float64(a[i] - b[i]))
+				if d > maxAbs {
+					maxAbs = d
+					maxIndex = i
+				}
+				meanAbs += d
+			}
+			meanAbs /= float64(len(a))
+			return maxAbs, meanAbs, maxIndex
+		}
+		capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex = compare(cpuNoPostScratch.MoeOut, partialScratch.MoeOut)
 		postNorm2, err := loadFloatVector(weights, weights.ForwardPlan().Layers[hookLayer].PostFFNLayerNorm2)
 		if err != nil {
 			return err
 		}
 		for off := 0; off < len(partialScratch.MoeOut); off += idx.HiddenSize {
+			if !simd.RMSNormTo(cpuNoPostScratch.MoeOut[off:off+idx.HiddenSize], postNorm2, 1e-6) {
+				return fmt.Errorf("cpu post norm failed")
+			}
 			if !simd.RMSNormTo(partialScratch.MoeOut[off:off+idx.HiddenSize], postNorm2, 1e-6) {
-				return fmt.Errorf("post norm failed")
+				return fmt.Errorf("partial post norm failed")
 			}
 		}
-		var maxAbs, meanAbs float64
-		for i := range cpuScratch.MoeOut {
-			d := math.Abs(float64(cpuScratch.MoeOut[i] - partialScratch.MoeOut[i]))
-			if d > maxAbs {
-				maxAbs = d
-			}
-			meanAbs += d
-		}
-		meanAbs /= float64(len(cpuScratch.MoeOut))
-		capturedMaxAbs, capturedMeanAbs = maxAbs, meanAbs
-		if maxAbs > 0.35 || meanAbs > 0.02 {
-			return fmt.Errorf("layer-5 exact-input partial grouped GPU+CPU experts unexpectedly diverged: max=%g mean=%g kept=%d dropped=%d", maxAbs, meanAbs, len(kept.ActiveExperts), len(dropped.ActiveExperts))
+		capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex = compare(cpuNoPostScratch.MoeOut, partialScratch.MoeOut)
+		if capturedPostMaxAbs > 0.35 || capturedPostMeanAbs > 0.02 {
+			return fmt.Errorf("layer-5 exact-input partial grouped GPU+CPU experts unexpectedly diverged: pre_max=%g pre_mean=%g post_max=%g post_mean=%g kept=%d dropped=%d", capturedPreMaxAbs, capturedPreMeanAbs, capturedPostMaxAbs, capturedPostMeanAbs, len(kept.ActiveExperts), len(dropped.ActiveExperts))
 		}
 		return stop
 	}
@@ -690,7 +703,7 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	if !compared {
 		t.Fatal("layer-5 hook did not run")
 	}
-	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: max=%g mean=%g", capturedMaxAbs, capturedMeanAbs)
+	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: pre_max=%g pre_mean=%g pre_row=%d pre_dim=%d post_max=%g post_mean=%g post_row=%d post_dim=%d", capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex/idx.HiddenSize, capturedPreMaxIndex%idx.HiddenSize, capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex/idx.HiddenSize, capturedPostMaxIndex%idx.HiddenSize)
 }
 
 func rmsNormForGroupedGPUTest(row, w []float32) bool { return simd.RMSNormTo(row, w, 1e-6) }
