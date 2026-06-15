@@ -21,6 +21,7 @@ type MTPGraphGenerationResult struct {
 }
 
 type MTPGraphGenerationStepSummary struct {
+	InputToken        int
 	DraftedTokens     []int
 	VerifierTokens    []int
 	Positions         []int
@@ -52,6 +53,14 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 			summary := r.StepSummaries[i]
 			if !mtpSameInts(summary.Positions, step.Positions) || !mtpSameInts(summary.OutputTokens, step.OutputTokens) {
 				return fmt.Errorf("MTP graph summary %d does not match commit step summary=%+v commit=%+v", i, summary, step)
+			}
+			if len(summary.VerifierTokens) != len(summary.DraftedTokens)+1 || summary.VerifierTokens[0] != summary.InputToken {
+				return fmt.Errorf("MTP graph summary %d verifier batch is not [input]+drafted: %+v", i, summary)
+			}
+			for j, tok := range summary.DraftedTokens {
+				if summary.VerifierTokens[j+1] != tok {
+					return fmt.Errorf("MTP graph summary %d verifier token %d=%d, want drafted %d", i, j+1, summary.VerifierTokens[j+1], tok)
+				}
 			}
 			if len(summary.OutputTokens) != summary.AcceptedPrefixLen+1 || summary.BonusToken < 0 || summary.OutputTokens[summary.AcceptedPrefixLen] != summary.BonusToken {
 				return fmt.Errorf("MTP graph summary %d invalid acceptance/output accounting: %+v", i, summary)
@@ -196,6 +205,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 
 func newMTPGraphGenerationStepSummary(step MTPGraphDecodeStepResult) MTPGraphGenerationStepSummary {
 	return MTPGraphGenerationStepSummary{
+		InputToken:        step.Step.Graph.InputToken,
 		DraftedTokens:     append([]int(nil), step.Step.Drafts.Tokens...),
 		VerifierTokens:    append([]int(nil), step.Step.Plan.VerifierTokens...),
 		Positions:         append([]int(nil), step.Commit.Positions...),

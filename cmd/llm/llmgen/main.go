@@ -184,7 +184,7 @@ func main() {
 		fmt.Printf("MTP graph output:  %d\n", mtpGraphOutput)
 		fmt.Printf("MTP greedy tail:   %d\n", mtpGreedyTail)
 		for i, s := range mtpStepSummaries {
-			fmt.Printf("MTP cycle %-3d: drafted=%v verifier=%v accepted=%d bonus=%d output=%v positions=%v all=%v\n", i, s.DraftedTokens, s.VerifierTokens, s.AcceptedPrefixLen, s.BonusToken, s.OutputTokens, s.Positions, s.AllDraftsAccepted)
+			fmt.Printf("MTP cycle %-3d: input=%d drafted=%v verifier=%v accepted=%d bonus=%d output=%v positions=%v all=%v\n", i, s.InputToken, s.DraftedTokens, s.VerifierTokens, s.AcceptedPrefixLen, s.BonusToken, s.OutputTokens, s.Positions, s.AllDraftsAccepted)
 		}
 		if len(mtpMissing) > 0 {
 			fmt.Printf("MTP public blockers: %v\n", mtpMissing)
