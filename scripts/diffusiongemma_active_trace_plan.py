@@ -60,7 +60,19 @@ def expert_cost_bytes(layer: int, q8_layers: set[int] | None, q5_layers: set[int
     return q4_gate_up + q8_down
 
 
-def trace_work_map(path: Path, q8_layers: set[int] | None, include_repeated_layers: bool, missing_only: bool = False) -> dict[tuple[int, int], int]:
+def allowed_layers(q8_layers: set[int] | None, q5_layers: set[int] | None) -> set[int] | None:
+    if q8_layers is None and q5_layers is None:
+        return None
+    out: set[int] = set()
+    if q8_layers is not None:
+        out.update(q8_layers)
+    if q5_layers is not None:
+        out.update(q5_layers)
+    return out
+
+
+def trace_work_map(path: Path, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, missing_only: bool = False) -> dict[tuple[int, int], int]:
+    layer_filter = allowed_layers(q8_layers, q5_layers)
     seen_layers: set[int] = set()
     work: dict[tuple[int, int], int] = {}
     for line in path.read_text(errors="ignore").splitlines():
@@ -68,7 +80,7 @@ def trace_work_map(path: Path, q8_layers: set[int] | None, include_repeated_laye
         if not m:
             continue
         layer = int(m.group(1))
-        if q8_layers is not None and layer not in q8_layers:
+        if layer_filter is not None and layer not in layer_filter:
             continue
         if not include_repeated_layers and layer in seen_layers:
             continue
@@ -86,6 +98,7 @@ def trace_work_map(path: Path, q8_layers: set[int] | None, include_repeated_laye
 
 
 def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer", missing_only: bool = False) -> list[tuple[int, list[int]]]:
+    layer_filter = allowed_layers(q8_layers, q5_layers)
     seen_layers: set[int] = set()
     plan: list[tuple[int, list[int]]] = []
     flat: list[tuple[float, int, int, int]] = []  # sort-key, layer, rank, expert
@@ -94,7 +107,7 @@ def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: se
         if not m:
             continue
         layer = int(m.group(1))
-        if q8_layers is not None and layer not in q8_layers:
+        if layer_filter is not None and layer not in layer_filter:
             continue
         if not include_repeated_layers and layer in seen_layers:
             continue
@@ -192,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("--top must be positive")
     q8_layers = parse_layer_set(args.q8_layers)
     q5_layers = parse_layer_set(args.q5_layers)
-    work = trace_work_map(args.log, q8_layers, args.include_repeated_layers, args.missing_only)
+    work = trace_work_map(args.log, q8_layers, q5_layers, args.include_repeated_layers, args.missing_only)
     plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only)
     original_entries = len(flatten_plan(plan))
     original_work = plan_work(plan, work)
