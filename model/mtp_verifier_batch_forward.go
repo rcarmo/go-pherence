@@ -86,6 +86,11 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 	bGate := make([]float32, B*batch.Scratch.MaxIntermediate)
 	bUp := make([]float32, B*batch.Scratch.MaxIntermediate)
 	bDown := make([]float32, B*h)
+	var bPLIGate, bPLIProj []float32
+	if batch.HasPerLayerInputs && m.Config.HiddenPerLayer > 0 {
+		bPLIGate = make([]float32, B*m.Config.HiddenPerLayer)
+		bPLIProj = make([]float32, B*h)
+	}
 	attnScores := make([]float32, batch.Scratch.MaxAttentionRows)
 	isGemma := m.Config.ModelType == "gemma3_text" || m.Config.ModelType == "gemma4_text"
 	eps := float32(m.Config.RMSNormEps)
@@ -187,6 +192,34 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			}
 			hid := bHidden[b*h : (b+1)*h]
 			simd.VecAdd(hid, bResidual[b*h:(b+1)*h], down)
+		}
+		if batch.HasPerLayerInputs && layer.PLIGate != nil {
+			hpl := m.Config.HiddenPerLayer
+			if hpl <= 0 || len(layer.PLIGate) < hpl*h || len(layer.PLIProj) < h*hpl || len(layer.PLIPostNorm) < h || len(bPLIGate) < B*hpl || len(bPLIProj) < B*h {
+				return nil, true, fmt.Errorf("verifier batch layer %d invalid PLI dims", l)
+			}
+			if !simd.GemmRowsParallel(bPLIGate[:B*hpl], bHidden[:B*h], layer.PLIGate, B, hpl, h) {
+				return nil, true, fmt.Errorf("verifier batch layer %d PLI gate rejected", l)
+			}
+			for b := 0; b < B; b++ {
+				gate := bPLIGate[b*hpl : (b+1)*hpl]
+				if l >= len(batch.PerLayerInputs[b]) || len(batch.PerLayerInputs[b][l]) < hpl {
+					return nil, true, fmt.Errorf("verifier batch layer %d row %d missing PLI row", l, b)
+				}
+				simd.GELUTanhMul(gate, gate, batch.PerLayerInputs[b][l][:hpl])
+			}
+			if !simd.GemmRowsParallel(bPLIProj[:B*h], bPLIGate[:B*hpl], layer.PLIProj, B, h, hpl) {
+				return nil, true, fmt.Errorf("verifier batch layer %d PLI projection rejected", l)
+			}
+			for b := 0; b < B; b++ {
+				proj := bPLIProj[b*h : (b+1)*h]
+				rmsNormInPlace(proj, layer.PLIPostNorm, eps)
+				hid := bHidden[b*h : (b+1)*h]
+				simd.VecAdd(hid, hid, proj)
+			}
+		}
+		for b := 0; b < B; b++ {
+			hid := bHidden[b*h : (b+1)*h]
 			if layer.LayerScalar != 1.0 {
 				simd.VecScale(hid, hid, layer.LayerScalar)
 			}
@@ -224,7 +257,7 @@ func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs)
 	// parity suite is complete. The QKV projection primitive is tested and ready,
 	// but the complete attention+MLP layer replacement must not silently change
 	// verifier acceptance.
-	if !mtpVerifierBatchLayerLoweringEnabled() || batch.HasPerLayerInputs || m == nil || m.Config.NumLayers <= 0 || m.Config.HiddenSize <= 0 || m.Config.NumHeads <= 0 || m.Config.HeadDim <= 0 {
+	if !mtpVerifierBatchLayerLoweringEnabled() || m == nil || m.Config.NumLayers <= 0 || m.Config.HiddenSize <= 0 || m.Config.NumHeads <= 0 || m.Config.HeadDim <= 0 {
 		return false
 	}
 	for l := 0; l < m.Config.NumLayers; l++ {

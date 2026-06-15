@@ -121,6 +121,46 @@ func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan M
 	}
 }
 
+func TestRunMTPVerifierBatchForwardLayeredExperimentalPLIMatchesSequential(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
+	m := newSingleLayerVerifierModel()
+	m.Config.ModelType = "gemma4_text"
+	m.Config.HiddenPerLayer = 2
+	m.PerLayerModelProj = []float32{1, 0, 0, 1}
+	m.PerLayerProjNorm = []float32{1, 1}
+	m.PerLayerProjScale = 1
+	m.PerLayerInputScale = 1
+	m.EmbedPerLayerScale = 1
+	m.Layers[0].PLIGate = []float32{1, 0, 0, 1}
+	m.Layers[0].PLIProj = []float32{1, 0, 0, 1}
+	m.Layers[0].PLIPostNorm = []float32{1, 1}
+	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 0)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.mtpVerifierBatchLayerEligible(batch) {
+		t.Fatal("PLI verifier batch layer should be eligible when gated on")
+	}
+	kvCacheK := make([][]float32, len(m.Layers))
+	kvCacheV := make([][]float32, len(m.Layers))
+	got, err := m.RunMTPVerifierBatchForward(batch, kvCacheK, kvCacheV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seqK := make([][]float32, len(m.Layers))
+	seqV := make([][]float32, len(m.Layers))
+	seqHidden, err := m.runMTPVerifierBatchRowsSequential(batch, seqK, seqV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, seqLogits, _, err := m.FinishCPUDecodeBatch(seqHidden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
+}
+
 func TestRunMTPVerifierBatchForwardLayeredExperimentalQuantizedMatchesSequential(t *testing.T) {
 	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
 	m := &LlamaModel{
