@@ -1,11 +1,29 @@
 package model
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/runtime/kv"
 	"github.com/rcarmo/go-pherence/tensor"
 )
+
+func TestForwardMTPPromptLayerRejectsMLXProjectionFailure(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{ModelType: "gemma4_text", HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 1e-6},
+		Layers: []LlamaLayer{{
+			InputNorm: tensor.Ones([]int{2}),
+			PostNorm:  tensor.Ones([]int{2}),
+			HasKV:     true,
+			QWm:       &mlx.QuantWeight{OutDim: 2, InDim: 2, Bits: 4, GroupSize: 8, Groups: 1, Weight: []uint32{0}, Scales: []float32{1, 1}, Biases: []float32{0, 0}},
+		}},
+	}
+	_, err := m.forwardMTPPromptLayer([]float32{0.5, 0.25}, nil, 0, 0, make([][]float32, 1), make([][]float32, 1), make([]float32, 1), make([]float32, 2))
+	if err == nil || !strings.Contains(err.Error(), "MLX Q projection failed") {
+		t.Fatalf("forwardMTPPromptLayer malformed MLX err=%v, want Q projection failure", err)
+	}
+}
 
 func TestRunMTPVerifierForwardZeroDraftZeroLayer(t *testing.T) {
 	m := newZeroLayerVerifierModel()

@@ -124,7 +124,9 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	if layer.QWq != nil {
 		m.mvQ(q, hidden, layer.QWq)
 	} else if layer.QWm != nil {
-		mlx.Gemv(q, hidden, layer.QWm)
+		if !mlx.GemvTo(q, hidden, layer.QWm) {
+			return nil, fmt.Errorf("layer %d MLX Q projection failed", layerIdx)
+		}
 	} else {
 		m.mv(q, hidden, layer.QW.Data(), h, qDim)
 	}
@@ -142,11 +144,15 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 				return nil, fmt.Errorf("layer %d missing quantized V projection", layerIdx)
 			}
 		} else if layer.KWm != nil {
-			mlx.Gemv(k, hidden, layer.KWm)
+			if !mlx.GemvTo(k, hidden, layer.KWm) {
+				return nil, fmt.Errorf("layer %d MLX K projection failed", layerIdx)
+			}
 			if cfg.AttentionKEqV && (layer.VWm == nil || layer.VWm == layer.KWm) {
 				copy(v, k)
 			} else if layer.VWm != nil {
-				mlx.Gemv(v, hidden, layer.VWm)
+				if !mlx.GemvTo(v, hidden, layer.VWm) {
+					return nil, fmt.Errorf("layer %d MLX V projection failed", layerIdx)
+				}
 			} else {
 				return nil, fmt.Errorf("layer %d missing MLX V projection", layerIdx)
 			}
@@ -261,7 +267,9 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	if layer.OWq != nil {
 		m.mvQ(oOut, attnOut, layer.OWq)
 	} else if layer.OWm != nil {
-		mlx.Gemv(oOut, attnOut, layer.OWm)
+		if !mlx.GemvTo(oOut, attnOut, layer.OWm) {
+			return nil, fmt.Errorf("layer %d MLX O projection failed", layerIdx)
+		}
 	} else {
 		m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 	}
@@ -311,8 +319,12 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 			m.mvQ(gate, mlpInput, layer.GateWq)
 			m.mvQ(up, mlpInput, layer.UpWq)
 		} else if layer.GateWm != nil {
-			mlx.Gemv(gate, mlpInput, layer.GateWm)
-			mlx.Gemv(up, mlpInput, layer.UpWm)
+			if !mlx.GemvTo(gate, mlpInput, layer.GateWm) {
+				return nil, fmt.Errorf("layer %d MLX gate projection failed", layerIdx)
+			}
+			if !mlx.GemvTo(up, mlpInput, layer.UpWm) {
+				return nil, fmt.Errorf("layer %d MLX up projection failed", layerIdx)
+			}
 		} else {
 			m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
 			m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
@@ -331,7 +343,9 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		if layer.DownWq != nil {
 			m.mvQ(down, gate, layer.DownWq)
 		} else if layer.DownWm != nil {
-			mlx.Gemv(down, gate, layer.DownWm)
+			if !mlx.GemvTo(down, gate, layer.DownWm) {
+				return nil, fmt.Errorf("layer %d MLX down projection failed", layerIdx)
+			}
 		} else {
 			m.mv(down, gate, layer.DownW.Data(), layerInter, h)
 		}
