@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	ptxwhisper "github.com/rcarmo/go-pherence/backends/cuda/ptx"
 	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
 	ptxbf16 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16"
 	ptxfp8 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/fp8"
@@ -93,6 +94,12 @@ func megaModuleEntries() []moduleEntry {
 		{"bf16_silu_mul", ptxbf16.BF16SiLUMulPTX},
 		{"bf16_gelu_tanh_mul", ptxbf16.BF16GELUTanhMulPTX},
 		{"bf16_lm_head_gemv", ptxbf16.BF16LMHeadPTX},
+		{"whisper_mel_spectrogram", ptxwhisper.FFTPTX},
+		{"whisper_conv1d_k3_s1", ptxwhisper.Conv1DK3S1PTX},
+		{"whisper_conv1d_k3_s2", ptxwhisper.Conv1DK3S2PTX},
+		{"whisper_attention_full", ptxwhisper.AttentionFullPTX},
+		{"whisper_cross_attention", ptxwhisper.CrossAttentionPTX},
+		{"whisper_attentive_stat_pool", ptxwhisper.AttentivePoolPTX},
 		{"rms_norm_no_scale", ptx.RmsNormNoScalePTX},
 		{"nvfp4_dequant_f32", ptxnvfp4.NVFP4DequantF32PTX},
 		{"nvfp4_gemv_f32", ptxnvfp4.NVFP4GemvF32PTX},
