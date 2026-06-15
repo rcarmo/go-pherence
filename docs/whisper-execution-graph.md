@@ -46,7 +46,7 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 
 ## Native SIMD oracle policy
 
-For large-v3-turbo backend work, the native CPU/SIMD path is the correctness oracle for refining NEON, RISC-V/IME, A100, NVIDIA, and CUDA/PTX variants. New hardware kernels should either compare directly against the checked SIMD/scalar facade on synthetic fixtures or preserve transcript/VTT parity through `make whisper-turbo-check`, `make whisper-a100-compare`, and windowed `scripts/whisper_a100_compare.py` runs before being considered for default use.
+For large-v3-turbo backend work, the native CPU/SIMD path is the correctness oracle for refining NEON, RISC-V/IME, A100, NVIDIA, and CUDA/PTX variants. New hardware kernels should either compare directly against the checked SIMD/scalar facade on synthetic fixtures or preserve transcript/VTT parity through `make whisper-turbo-check`, `make whisper-backend-compare`, and windowed `scripts/whisper_a100_compare.py` runs before being considered for default use.
 
 ## Custom kernel coverage
 
@@ -66,7 +66,7 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 | `large-v3-turbo` VTT model | **Default** with `-language en`. |
 | Full `large-v3` | Reference/fallback for source-language prompt behavior and quality comparisons. |
 | K3 native int8 | Safe/validated optimized path for K3 native runs; `make whisper-int8-compare` checks stdout and timestamp/VTT parity against the native SIMD oracle. |
-| A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `make whisper-a100-compare` / `scripts/whisper_a100_compare.py` across standalone stdout, timestamp VTT, diarize-vtt, and speaker-tagged diarize-vtt outputs for translate/transcribe before automatic default. |
+| A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `make whisper-backend-compare` / `make whisper-a100-compare` / `scripts/whisper_a100_compare.py` across standalone stdout, timestamp VTT, diarize-vtt, and speaker-tagged diarize-vtt outputs for translate/transcribe before automatic default. |
 | GPU decoder MLP / cross-attn | Keep opt-in; prior measurements regressed due to launch/transfer overhead. |
 | Whisper speculative decode | Keep correctness-only until verifier batching/drafter integration. |
 | ECAPA speaker labels | Keep opt-in until broader labeled multi-speaker validation passes. |
@@ -74,7 +74,7 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 ## Remaining high-impact gaps
 
 1. Build a broader labeled validation suite for turbo VTT + speaker labels, including the voice-memo M4A windows.
-2. Validate A100 row-scale fused FFN on multiple long-form clips with `make whisper-a100-compare` or repeated `--audio` plus optional `--start/--duration` arguments to `scripts/whisper_a100_compare.py`, comparing transcript/token counts to native int8. Current non-riscv smoke coverage includes JFK and a 12s podcast window at 300s; both stdout (`This one here is`) and timestamp/VTT (`: This one here`) podcast comparisons match baseline.
+2. Validate A100 row-scale fused FFN on multiple long-form clips with `make whisper-backend-compare`, `make whisper-a100-compare`, or repeated `--audio` plus optional `--start/--duration` arguments to `scripts/whisper_a100_compare.py`, comparing transcript/token counts to native int8. Current non-riscv smoke coverage includes JFK and a 12s podcast window at 300s; both stdout (`This one here is`) and timestamp/VTT (`This one here`) podcast comparisons match baseline.
 3. Decide whether `WHISPER_A100_FFN_FUSED=1 WHISPER_A100_X100_PACK=1 WHISPER_A100_NATIVE_Q8=1` can become default on K3/A100-capable hosts.
 4. Implement or reject fused GPU mel and resident decoder kernels based on whole-pipeline measurements, not isolated kernel timings.
 5. Turn speculative decode from sequential correctness scaffold into a batched verifier path if a drafter/reference split becomes available.
