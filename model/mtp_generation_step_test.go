@@ -56,12 +56,46 @@ func TestCPUDecodeStateRunMTPGraphDecodeStep(t *testing.T) {
 	if res.FinalState.PreviousToken != lastOutput {
 		t.Fatalf("final state previous token=%d, want committed output %d", res.FinalState.PreviousToken, lastOutput)
 	}
-	if !sameFloat32s(res.FinalState.Activation, res.Step.Verifier.FinalActivation) {
-		t.Fatalf("final state activation=%v, want verifier activation %v", res.FinalState.Activation, res.Step.Verifier.FinalActivation)
+	committedActivation, err := res.Step.Verifier.CommittedActivation()
+	if err != nil {
+		t.Fatal(err)
 	}
-	res.Step.Verifier.FinalActivation[0] = 99
+	if !sameFloat32s(res.FinalState.Activation, committedActivation) {
+		t.Fatalf("final state activation=%v, want committed verifier activation %v", res.FinalState.Activation, committedActivation)
+	}
+	committedActivation[0] = 99
 	if res.FinalState.Activation[0] == 99 {
-		t.Fatal("final state aliases verifier final activation")
+		t.Fatal("final state aliases verifier committed activation")
+	}
+}
+
+func TestMTPDrafterStateFromVerifierCommitUsesAcceptedRow(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2}}
+	d := validProjectionOnlyDrafter()
+	d.Config.VocabSize = m.Config.VocabSize
+	verifier, err := NewMTPVerifierResultRowsForModel(m, 0, []int{1, 2}, [][]float32{
+		{0, 0, 9, 0}, // mismatch at draft 0, bonus token 2
+		{0, 9, 0, 0},
+		{0, 0, 8, 0},
+	}, [][]float32{
+		{10, 11},
+		{20, 21},
+		{30, 31},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit := MTPKVCommitPlan{KeepTokens: 1, Positions: []int{4}, OutputTokens: []int{2}}
+	state, err := newMTPDrafterStateFromVerifierCommit(d, verifier, commit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.PreviousToken != 2 || !sameFloat32s(state.Activation, []float32{10, 11}) {
+		t.Fatalf("state=%+v, want token 2 and accepted-row activation [10 11]", state)
+	}
+	verifier.ActivationRows[0][0] = 99
+	if state.Activation[0] == 99 {
+		t.Fatal("state aliases verifier activation row")
 	}
 }
 

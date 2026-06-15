@@ -140,5 +140,9 @@ func newMTPDrafterStateFromVerifierCommit(d *Gemma4MTPDrafter, verifier MTPVerif
 	if len(commit.OutputTokens) == 0 {
 		return MTPDrafterState{}, fmt.Errorf("empty MTP commit output tokens")
 	}
-	return NewMTPDrafterState(commit.OutputTokens[len(commit.OutputTokens)-1], verifier.FinalActivation, d.BackboneHiddenSize)
+	activation, err := verifier.CommittedActivation()
+	if err != nil {
+		return MTPDrafterState{}, err
+	}
+	return NewMTPDrafterState(commit.OutputTokens[len(commit.OutputTokens)-1], activation, d.BackboneHiddenSize)
 }

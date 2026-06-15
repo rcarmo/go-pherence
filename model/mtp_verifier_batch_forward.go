@@ -34,8 +34,7 @@ func (m *LlamaModel) RunMTPVerifierBatchForward(batch MTPVerifierBatchInputs, kv
 	if err != nil {
 		return MTPVerifierResult{}, fmt.Errorf("verifier batch decode finish: %w", err)
 	}
-	finalActivation := finalActivations[len(finalActivations)-1]
-	return NewMTPVerifierResultForModel(m, batch.Plan.InputToken, batch.Plan.DraftedTokens, logitsRows, finalActivation)
+	return NewMTPVerifierResultRowsForModel(m, batch.Plan.InputToken, batch.Plan.DraftedTokens, logitsRows, finalActivations)
 }
 
 func (m *LlamaModel) runMTPVerifierBatchRowsSequential(batch MTPVerifierBatchInputs, kvCacheK, kvCacheV [][]float32) ([][]float32, error) {

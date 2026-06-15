@@ -25,13 +25,16 @@ func MTPVerifierTokens(inputToken int, drafted []int) ([]int, error) {
 
 // MTPVerifierResult is the contract filled by a main-model verifier forward.
 // Logits must contain one row per verifier position: G+1 rows for G drafted
-// tokens. FinalActivation is the main-model activation that seeds the next
-// drafter call.
+// tokens. ActivationRows, when present, contains the final main-model activation
+// for each verifier row. FinalActivation is kept as the final verifier-row
+// activation for compatibility; MTP graph generation seeds the next drafter
+// from the committed activation row selected by acceptance.
 type MTPVerifierResult struct {
 	InputToken      int
 	DraftedTokens   []int
 	VerifierTokens  []int // [inputToken] + draftedTokens
 	Logits          [][]float32
+	ActivationRows  [][]float32
 	FinalActivation []float32
 	Acceptance      MTPAcceptance
 }
@@ -39,25 +42,43 @@ type MTPVerifierResult struct {
 // NewMTPVerifierResult validates verifier outputs, derives greedy acceptance,
 // and copies slice headers/data that callers commonly mutate after verification.
 func NewMTPVerifierResult(inputToken int, drafted []int, logits [][]float32, finalActivation []float32) (MTPVerifierResult, error) {
-	return newMTPVerifierResult(inputToken, drafted, logits, finalActivation, 0, 0)
+	return newMTPVerifierResult(inputToken, drafted, logits, finalActivation, nil, 0, 0)
 }
 
 // NewMTPVerifierResultForModel validates verifier outputs against model-owned
 // dimensions. It is intended for the real verifier path; tests and low-level
 // helpers may keep using NewMTPVerifierResult when no model is available.
 func NewMTPVerifierResultForModel(m *LlamaModel, inputToken int, drafted []int, logits [][]float32, finalActivation []float32) (MTPVerifierResult, error) {
-	if m == nil {
-		return MTPVerifierResult{}, fmt.Errorf("nil model")
+	vocab, hidden, err := mtpVerifierModelDims(m)
+	if err != nil {
+		return MTPVerifierResult{}, err
 	}
-	vocab := m.Config.VocabSize
-	hidden := m.Config.HiddenSize
-	if vocab <= 0 || hidden <= 0 {
-		return MTPVerifierResult{}, fmt.Errorf("invalid verifier model dims vocab=%d hidden=%d", vocab, hidden)
-	}
-	return newMTPVerifierResult(inputToken, drafted, logits, finalActivation, vocab, hidden)
+	return newMTPVerifierResult(inputToken, drafted, logits, finalActivation, nil, vocab, hidden)
 }
 
-func newMTPVerifierResult(inputToken int, drafted []int, logits [][]float32, finalActivation []float32, vocab, hidden int) (MTPVerifierResult, error) {
+// NewMTPVerifierResultRowsForModel validates a full verifier batch result with
+// one final activation row per verifier position. This is the graph-generation
+// path: acceptance selects which activation row seeds the next drafter cycle.
+func NewMTPVerifierResultRowsForModel(m *LlamaModel, inputToken int, drafted []int, logits [][]float32, activationRows [][]float32) (MTPVerifierResult, error) {
+	vocab, hidden, err := mtpVerifierModelDims(m)
+	if err != nil {
+		return MTPVerifierResult{}, err
+	}
+	return newMTPVerifierResult(inputToken, drafted, logits, nil, activationRows, vocab, hidden)
+}
+
+func mtpVerifierModelDims(m *LlamaModel) (vocab, hidden int, err error) {
+	if m == nil {
+		return 0, 0, fmt.Errorf("nil model")
+	}
+	vocab, hidden = m.Config.VocabSize, m.Config.HiddenSize
+	if vocab <= 0 || hidden <= 0 {
+		return 0, 0, fmt.Errorf("invalid verifier model dims vocab=%d hidden=%d", vocab, hidden)
+	}
+	return vocab, hidden, nil
+}
+
+func newMTPVerifierResult(inputToken int, drafted []int, logits [][]float32, finalActivation []float32, activationRows [][]float32, vocab, hidden int) (MTPVerifierResult, error) {
 	verifierTokens, err := MTPVerifierTokens(inputToken, drafted)
 	if err != nil {
 		return MTPVerifierResult{}, err
@@ -69,11 +90,23 @@ func newMTPVerifierResult(inputToken int, drafted []int, logits [][]float32, fin
 			}
 		}
 	}
-	if hidden > 0 && len(finalActivation) != hidden {
-		return MTPVerifierResult{}, fmt.Errorf("final activation len=%d, want %d", len(finalActivation), hidden)
-	}
 	if len(logits) != len(drafted)+1 {
 		return MTPVerifierResult{}, fmt.Errorf("verifier logits rows=%d, want drafted+1=%d", len(logits), len(drafted)+1)
+	}
+	copiedActivationRows := make([][]float32, 0, len(activationRows))
+	if len(activationRows) > 0 {
+		if len(activationRows) != len(logits) {
+			return MTPVerifierResult{}, fmt.Errorf("verifier activation rows=%d, want logits rows=%d", len(activationRows), len(logits))
+		}
+		for i, row := range activationRows {
+			if hidden > 0 && len(row) != hidden {
+				return MTPVerifierResult{}, fmt.Errorf("verifier activation row %d len=%d, want %d", i, len(row), hidden)
+			}
+			copiedActivationRows = append(copiedActivationRows, append([]float32(nil), row...))
+		}
+		finalActivation = copiedActivationRows[len(copiedActivationRows)-1]
+	} else if hidden > 0 && len(finalActivation) != hidden {
+		return MTPVerifierResult{}, fmt.Errorf("final activation len=%d, want %d", len(finalActivation), hidden)
 	}
 	copiedLogits := make([][]float32, len(logits))
 	for i, row := range logits {
@@ -94,9 +127,34 @@ func newMTPVerifierResult(inputToken int, drafted []int, logits [][]float32, fin
 		DraftedTokens:   append([]int(nil), drafted...),
 		VerifierTokens:  verifierTokens,
 		Logits:          copiedLogits,
+		ActivationRows:  copiedActivationRows,
 		FinalActivation: append([]float32(nil), finalActivation...),
 		Acceptance:      acceptance,
 	}, nil
+}
+
+// CommittedActivation returns the verifier activation row corresponding to the
+// accepted-prefix+bonus commit. The row index is AcceptedPrefixLen because that
+// verifier row's logits emitted the bonus/next output token. Legacy verifier
+// results without ActivationRows can only describe the all-drafts-accepted row.
+func (r MTPVerifierResult) CommittedActivation() ([]float32, error) {
+	if err := r.Acceptance.Validate(); err != nil {
+		return nil, err
+	}
+	idx := r.Acceptance.AcceptedPrefixLen
+	if len(r.ActivationRows) > 0 {
+		if idx >= len(r.ActivationRows) {
+			return nil, fmt.Errorf("committed activation row=%d outside rows=%d", idx, len(r.ActivationRows))
+		}
+		return r.ActivationRows[idx], nil
+	}
+	if idx != len(r.DraftedTokens) {
+		return nil, fmt.Errorf("missing committed activation row for accepted prefix=%d drafted=%d", idx, len(r.DraftedTokens))
+	}
+	if len(r.FinalActivation) == 0 {
+		return nil, fmt.Errorf("missing verifier final activation")
+	}
+	return r.FinalActivation, nil
 }
 
 // CommitFloatKV applies the verifier result's acceptance to staged uncompressed

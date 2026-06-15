@@ -87,6 +87,28 @@ func TestNewMTPVerifierResultForModelValidation(t *testing.T) {
 	}
 }
 
+func TestNewMTPVerifierResultRowsForModel(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2}}
+	rows := [][]float32{{1, 2}, {3, 4}}
+	got, err := NewMTPVerifierResultRowsForModel(m, 1, []int{2}, [][]float32{{0, 0, 9, 0}, {0, 0, 0, 8}}, rows)
+	if err != nil {
+		t.Fatalf("NewMTPVerifierResultRowsForModel: %v", err)
+	}
+	if len(got.ActivationRows) != 2 || !sameFloat32s(got.FinalActivation, []float32{3, 4}) {
+		t.Fatalf("activation rows=%v final=%v", got.ActivationRows, got.FinalActivation)
+	}
+	rows[0][0] = 99
+	if got.ActivationRows[0][0] == 99 {
+		t.Fatal("activation rows alias caller rows")
+	}
+	if _, err := NewMTPVerifierResultRowsForModel(m, 1, []int{2}, [][]float32{{0, 0, 9, 0}, {0, 0, 0, 8}}, [][]float32{{1, 2}}); err == nil {
+		t.Fatal("accepted activation row count mismatch")
+	}
+	if _, err := NewMTPVerifierResultRowsForModel(m, 1, []int{2}, [][]float32{{0, 0, 9, 0}, {0, 0, 0, 8}}, [][]float32{{1, 2}, {3}}); err == nil {
+		t.Fatal("accepted activation row width mismatch")
+	}
+}
+
 func TestMTPVerifierResultCommitFloatKV(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
 	result, err := NewMTPVerifierResult(9, []int{1, 2}, [][]float32{{0, 9, 0}, {0, 8, 0}, {0, 0, 7}}, nil)
