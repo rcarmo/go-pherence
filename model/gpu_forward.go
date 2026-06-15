@@ -926,17 +926,35 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						} else {
 							nvidia.GemvMLX(g.k, g.normed, layer.KWmg)
 						}
-						if useDirectMLX {
-							nvidia.GemvMLXDirect(g.v, g.normed, layer.VWmg)
+						if cfg.AttentionKEqV && (layer.VWmg == nil || layer.VWmg == layer.KWmg) {
+							nvidia.DevCopy(g.v, g.k)
+						} else if layer.VWmg != nil {
+							if useDirectMLX {
+								nvidia.GemvMLXDirect(g.v, g.normed, layer.VWmg)
+							} else {
+								nvidia.GemvMLX(g.v, g.normed, layer.VWmg)
+							}
 						} else {
-							nvidia.GemvMLX(g.v, g.normed, layer.VWmg)
+							return nil
 						}
 					} else if layer.KWg != nil {
 						nvidia.GemvQ4(g.k, g.normed, layer.KWg)
-						nvidia.GemvQ4(g.v, g.normed, layer.VWg)
+						if cfg.AttentionKEqV && (layer.VWg == nil || layer.VWg == layer.KWg) {
+							nvidia.DevCopy(g.v, g.k)
+						} else if layer.VWg != nil {
+							nvidia.GemvQ4(g.v, g.normed, layer.VWg)
+						} else {
+							return nil
+						}
 					} else if layer.KW != nil {
 						g.gemv(g.k, g.normed, layer.KW, h, layerKVDim)
-						g.gemv(g.v, g.normed, layer.VW, h, layerKVDim)
+						if cfg.AttentionKEqV && (layer.VW == nil || layer.VW == layer.KW) {
+							nvidia.DevCopy(g.v, g.k)
+						} else if layer.VW != nil {
+							g.gemv(g.v, g.normed, layer.VW, h, layerKVDim)
+						} else {
+							return nil
+						}
 					}
 				}
 

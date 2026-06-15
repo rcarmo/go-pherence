@@ -126,7 +126,13 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 			nvidia.PrefetchWeights(layer.OWg, layer.GateWg, layer.UpWg, layer.DownWg)
 			nvidia.GemmQ4(bQ, bNormed, layer.QWg, B)
 			nvidia.GemmQ4(bK, bNormed, layer.KWg, B)
-			nvidia.GemmQ4(bV, bNormed, layer.VWg, B)
+			if cfg.AttentionKEqV && (layer.VWg == nil || layer.VWg == layer.KWg) {
+				nvidia.DevCopy(bV, bK)
+			} else if layer.VWg != nil {
+				nvidia.GemmQ4(bV, bNormed, layer.VWg, B)
+			} else {
+				return nil
+			}
 			nvidia.WaitPrefetch()
 		} else {
 			// CPU fallback for this layer — shouldn't happen for 7B
