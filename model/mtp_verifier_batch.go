@@ -45,11 +45,11 @@ func NewMTPVerifierBatchInputs(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifier
 		}
 		if pli != nil {
 			hasPLI = true
+			perTokenPLI, okPerToken := checkedProduct(m.Config.NumLayers, m.Config.HiddenPerLayer)
+			if !okPerToken {
+				return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI per-token dimension overflow")
+			}
 			if pliFlat == nil {
-				perTokenPLI, ok := checkedProduct(m.Config.NumLayers, m.Config.HiddenPerLayer)
-				if !ok {
-					return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI per-token dimension overflow")
-				}
 				totalPLI, ok := checkedProduct(B, perTokenPLI)
 				if !ok {
 					return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI batch dimension overflow")
@@ -57,9 +57,21 @@ func NewMTPVerifierBatchInputs(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifier
 				pliFlat = make([]float32, totalPLI)
 			}
 			pliRows[i] = make([][]float32, len(pli))
-			rowBase := i * m.Config.NumLayers * m.Config.HiddenPerLayer
+			rowBase, okRowBase := checkedProduct(i, perTokenPLI)
+			if !okRowBase {
+				return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI row offset overflow token=%d perToken=%d", i, perTokenPLI)
+			}
 			for l := range pli {
-				dst := pliFlat[rowBase+l*m.Config.HiddenPerLayer : rowBase+(l+1)*m.Config.HiddenPerLayer]
+				layerOff, okLayerOff := checkedProduct(l, m.Config.HiddenPerLayer)
+				if !okLayerOff {
+					return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI layer offset overflow layer=%d hiddenPerLayer=%d", l, m.Config.HiddenPerLayer)
+				}
+				start := rowBase + layerOff
+				end := start + m.Config.HiddenPerLayer
+				if start < rowBase || end < start || end > len(pliFlat) {
+					return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI flat range [%d,%d) outside len=%d", start, end, len(pliFlat))
+				}
+				dst := pliFlat[start:end]
 				copy(dst, pli[l])
 				pliRows[i][l] = dst
 			}
