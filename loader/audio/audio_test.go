@@ -128,6 +128,70 @@ func TestMelSpectrogram(t *testing.T) {
 	t.Logf("1kHz tone peak at mel bin %d, value %.2f", maxBin, maxVal)
 }
 
+func TestMelSpectrogramMatchesReferencePath(t *testing.T) {
+	cfg := DefaultMelConfig()
+	cfg.NumMels = 32
+	samples := make([]float32, cfg.SampleRate/2)
+	for i := range samples {
+		samples[i] = 0.6*float32(math.Sin(2*math.Pi*440*float64(i)/float64(cfg.SampleRate))) +
+			0.2*float32(math.Sin(2*math.Pi*1200*float64(i)/float64(cfg.SampleRate)))
+	}
+	got := MelSpectrogram(samples, cfg)
+	want := referenceMelSpectrogram(samples, cfg)
+	if len(got) != len(want) || len(got[0]) != len(want[0]) {
+		t.Fatalf("shape got=%dx%d want=%dx%d", len(got), len(got[0]), len(want), len(want[0]))
+	}
+	var maxDiff float64
+	for m := range got {
+		for t := range got[m] {
+			d := math.Abs(float64(got[m][t] - want[m][t]))
+			if d > maxDiff {
+				maxDiff = d
+			}
+		}
+	}
+	if maxDiff > 1e-4 {
+		t.Fatalf("mel max diff=%g want <=1e-4", maxDiff)
+	}
+}
+
+func referenceMelSpectrogram(samples []float32, cfg MelConfig) [][]float32 {
+	numFrames := (len(samples) - cfg.FFTSize) / cfg.HopLength
+	if numFrames <= 0 {
+		numFrames = 1
+	}
+	window := hannWindow(cfg.FFTSize)
+	numBins := cfg.NFFTPadded/2 + 1
+	filters := melFilterbank(cfg.NumMels, numBins, cfg.SampleRate, cfg.NFFTPadded)
+	mel := make([][]float32, cfg.NumMels)
+	for i := range mel {
+		mel[i] = make([]float32, numFrames)
+	}
+	frameBuf := make([]float32, cfg.NFFTPadded)
+	for frame := 0; frame < numFrames; frame++ {
+		offset := frame * cfg.HopLength
+		for i := range frameBuf {
+			frameBuf[i] = 0
+		}
+		for i := 0; i < cfg.FFTSize && offset+i < len(samples); i++ {
+			frameBuf[i] = samples[offset+i] * window[i]
+		}
+		power := fftpkg.PowerSpectrumSIMD(frameBuf)
+		for m := 0; m < cfg.NumMels; m++ {
+			var energy float64
+			for k := 0; k < numBins && k < len(power); k++ {
+				energy += float64(filters[m][k]) * float64(power[k])
+			}
+			if energy < 1e-10 {
+				energy = 1e-10
+			}
+			mel[m][frame] = float32(math.Log10(energy))
+		}
+	}
+	normalizeWhisperMel(mel)
+	return mel
+}
+
 func TestFFT(t *testing.T) {
 	// FFT of a simple signal: DC + single frequency
 	n := 8
