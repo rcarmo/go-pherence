@@ -127,6 +127,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted stats/output mismatch")
 	}
 	bad = valid
+	bad.FinalStateOutputLen = 0
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted missing final state cursor")
+	}
+	bad = valid
 	bad.FinalStateOutputLen = 4
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted final state covering greedy tail")

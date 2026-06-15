@@ -180,6 +180,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if r.Stats.OutputTokens != r.GraphOutputTokens {
 		return fmt.Errorf("MTP stats output tokens=%d, graph output tokens=%d", r.Stats.OutputTokens, r.GraphOutputTokens)
 	}
+	if len(r.Output) > 0 && r.FinalStateOutputLen == 0 {
+		return fmt.Errorf("MTP final state output len is unset for non-empty output len=%d", len(r.Output))
+	}
 	if r.FinalStateOutputLen != 0 {
 		wantFinalStateOutputLen := promptLen + r.GraphOutputTokens
 		if r.FinalStateOutputLen != wantFinalStateOutputLen {
