@@ -62,6 +62,9 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	if res.FinalState.PreviousToken < 0 || res.FinalState.PreviousToken >= m.Config.VocabSize {
 		t.Fatalf("final state=%+v", res.FinalState)
 	}
+	if !res.Capabilities.ExperimentalGenerationWiring || res.Capabilities.ReadyForPublicGeneration || !sameStringSet(res.MissingForPublicGeneration, []string{"public_generation_wiring", "full_layer_batch_verifier_default_enablement"}) {
+		t.Fatalf("capabilities=%+v missing=%v", res.Capabilities, res.MissingForPublicGeneration)
+	}
 }
 
 func TestMTPExternalKVForDecodeStateRefreshesKVSlicesAndSeqLen(t *testing.T) {

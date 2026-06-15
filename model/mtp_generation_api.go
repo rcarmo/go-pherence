@@ -9,10 +9,12 @@ type MTPGraphGenerationOptions struct {
 }
 
 type MTPGraphGenerationResult struct {
-	Output     []int
-	Stats      MTPSpeculationStats
-	FinalState MTPDrafterState
-	Steps      []MTPKVCommitPlan
+	Output                     []int
+	Stats                      MTPSpeculationStats
+	FinalState                 MTPDrafterState
+	Steps                      []MTPKVCommitPlan
+	Capabilities               MTPGraphCapabilities
+	MissingForPublicGeneration []string
 }
 
 // NewCPUDecodeStateFromMTPPromptContext creates a graph-decode state from a
@@ -108,7 +110,8 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 			break
 		}
 	}
-	return MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits}, nil
+	caps := Gemma4MTPGraphCapabilities()
+	return MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}, nil
 }
 
 func mtpExternalKVForDecodeState(decode *CPUDecodeState, base *MTPDrafterExternalKV) (*MTPDrafterExternalKV, error) {

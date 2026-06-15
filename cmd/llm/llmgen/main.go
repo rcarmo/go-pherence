@@ -125,6 +125,7 @@ func main() {
 	start := time.Now()
 	var output []int
 	var mtpStats model.MTPSpeculationStats
+	var mtpMissing []string
 	if *mtpGenerate {
 		result, err := runGemma4MTPGenerate(m, gpuMod, *mtpDrafter, ids, *tokens, *mtpKVReuse, model.MTPAdaptiveDraftPolicy{MinDrafts: *mtpDraftMin, InitialDrafts: *mtpDraftInitial, MaxDrafts: *mtpDraftMax})
 		if err != nil {
@@ -133,6 +134,7 @@ func main() {
 		}
 		output = result.Output
 		mtpStats = result.Stats
+		mtpMissing = result.MissingForPublicGeneration
 	} else if gpuMod != nil {
 		output = append(ids, gpuMod.Generate(ids, *tokens)...)
 	} else if *speculative {
@@ -173,6 +175,9 @@ func main() {
 		fmt.Printf("MTP verified:      %d\n", mtpStats.VerifiedTokens)
 		fmt.Printf("MTP acceptance:    %.2f\n", mtpStats.AcceptanceRate())
 		fmt.Printf("MTP bonus tokens:  %d\n", mtpStats.BonusTokens)
+		if len(mtpMissing) > 0 {
+			fmt.Printf("MTP public blockers: %v\n", mtpMissing)
+		}
 	}
 	_ = genText
 }
