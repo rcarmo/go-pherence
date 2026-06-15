@@ -2850,8 +2850,8 @@ func diffusionGemmaGGUFGPUExpertActiveTraceTop() int {
 	if err != nil || n <= 0 {
 		return 0
 	}
-	if n > 32 {
-		return 32
+	if n > 128 {
+		return 128
 	}
 	return n
 }

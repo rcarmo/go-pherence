@@ -107,8 +107,12 @@ func TestGGUFGPUExpertActiveTraceTop(t *testing.T) {
 		t.Fatalf("active trace top=%d, want 4", got)
 	}
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP", "64")
-	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 32 {
-		t.Fatalf("active trace top cap=%d, want 32", got)
+	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 64 {
+		t.Fatalf("active trace top=%d, want 64", got)
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP", "512")
+	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 128 {
+		t.Fatalf("active trace top cap=%d, want 128", got)
 	}
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP", "bad")
 	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 0 {
