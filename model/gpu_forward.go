@@ -350,7 +350,9 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 			gl.QWg = uq("q_proj", layer.QWq)
 			if nvidia.Q4Ready() {
 				gl.KWg = uq("k_proj", layer.KWq)
-				gl.VWg = uq("v_proj", layer.VWq)
+				if !(cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq)) {
+					gl.VWg = uq("v_proj", layer.VWq)
+				}
 				gl.OWg = uq("o_proj", layer.OWq)
 				gl.GateWg = uq("gate_proj", layer.GateWq)
 				gl.UpWg = uq("up_proj", layer.UpWq)
@@ -376,7 +378,9 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 				}
 				gl.QWmg = um(layer.QWm)
 				gl.KWmg = um(layer.KWm)
-				gl.VWmg = um(layer.VWm)
+				if !(cfg.AttentionKEqV && (layer.VWm == nil || layer.VWm == layer.KWm)) {
+					gl.VWmg = um(layer.VWm)
+				}
 				gl.OWmg = um(layer.OWm)
 				if layer.GateWm != nil {
 					gl.GateWmg = um(layer.GateWm)
@@ -387,7 +391,9 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		} else {
 			gl.QW = wrapTensor(layer.QW)
 			gl.KW = wrapTensor(layer.KW)
-			gl.VW = wrapTensor(layer.VW)
+			if !(cfg.AttentionKEqV && (layer.VW == nil || layer.VW == layer.KW)) {
+				gl.VW = wrapTensor(layer.VW)
+			}
 			gl.OW = wrapTensor(layer.OW)
 			gl.GateW = wrapTensor(layer.GateW)
 			gl.UpW = wrapTensor(layer.UpW)
