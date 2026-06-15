@@ -57,6 +57,10 @@ make whisper-a100-compare
 make whisper-a100-podcast-compare
 # podcast target compares both stdout and timestamp/VTT on a 12s long-form window.
 
+# Optional K3/RISC-V int8/IME parity check against the native SIMD oracle.
+# On non-riscv hosts, int8 stubs keep this a command/prompt smoke.
+make whisper-int8-compare
+
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
 GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4
 

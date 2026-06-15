@@ -17,10 +17,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-A100_ENV = {
-    "WHISPER_A100_FFN_FUSED": "1",
-    "WHISPER_A100_X100_PACK": "1",
-    "WHISPER_A100_NATIVE_Q8": "1",
+BACKEND_ENVS = {
+    "a100": {
+        "WHISPER_A100_FFN_FUSED": "1",
+        "WHISPER_A100_X100_PACK": "1",
+        "WHISPER_A100_NATIVE_Q8": "1",
+    },
+    "int8": {
+        "WHISPER_INT8": "1",
+    },
 }
 
 
@@ -65,6 +70,7 @@ def build_cmd(args: argparse.Namespace, audio: str, baseline_output: Path | None
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--audio", action="append", default=[], help="Audio file to compare; repeatable (default: testdata/jfk.wav)")
+    ap.add_argument("--backend", choices=sorted(BACKEND_ENVS), default="a100", help="Backend env preset to compare against baseline")
     ap.add_argument("--model", default="models/whisper-large-v3-turbo-hf/model.safetensors")
     ap.add_argument("--size", default="turbo")
     ap.add_argument("--task", default="translate", choices=("translate", "transcribe"))
@@ -83,7 +89,8 @@ def main() -> int:
     audios = args.audio or ["testdata/jfk.wav"]
     out_dir = Path(args.output_dir)
     env = os.environ.copy()
-    a100_env = env | A100_ENV
+    backend_env = BACKEND_ENVS[args.backend]
+    compare_env = env | backend_env
     reports = []
     failures = 0
 
@@ -101,18 +108,18 @@ def main() -> int:
         a100_cmd = list(base_cmd)
         if compare_field == "output_text" and baseline_output is not None and a100_output is not None:
             a100_cmd[a100_cmd.index(str(baseline_output))] = str(a100_output)
-        a100 = run_case(a100_cmd, a100_env, args.timeout, a100_output)
+        a100 = run_case(a100_cmd, compare_env, args.timeout, a100_output)
         ok = baseline["returncode"] == 0 and a100["returncode"] == 0 and baseline[compare_field] == a100[compare_field]
         if not ok:
             failures += 1
-        report = {"ok": ok, "audio": original_audio, "window_audio": window_path or "", "model": args.model, "size": args.size, "task": args.task, "language": args.language, "max_tokens": args.max_tokens, "start": args.start, "duration": args.duration, "timestamps": args.timestamps, "diarize_vtt": args.diarize_vtt, "speaker_model": args.speaker_model, "compare_field": compare_field, "a100_env": A100_ENV, "baseline": baseline, "a100": a100}
+        report = {"ok": ok, "audio": original_audio, "window_audio": window_path or "", "model": args.model, "size": args.size, "task": args.task, "language": args.language, "max_tokens": args.max_tokens, "start": args.start, "duration": args.duration, "timestamps": args.timestamps, "diarize_vtt": args.diarize_vtt, "speaker_model": args.speaker_model, "backend": args.backend, "backend_env": backend_env, "compare_field": compare_field, "baseline": baseline, "backend_run": a100}
         reports.append(report)
         if not args.json:
-            print("OK" if ok else "FAIL", original_audio, f"baseline={baseline[compare_field]!r}", f"a100={a100[compare_field]!r}")
+            print("OK" if ok else "FAIL", original_audio, f"baseline={baseline[compare_field]!r}", f"{args.backend}={a100[compare_field]!r}")
             if baseline["returncode"] != 0:
                 print("baseline stderr:", baseline["stderr"], file=sys.stderr)
             if a100["returncode"] != 0:
-                print("a100 stderr:", a100["stderr"], file=sys.stderr)
+                print(f"{args.backend} stderr:", a100["stderr"], file=sys.stderr)
 
     if args.json:
         print(json.dumps({"ok": failures == 0, "cases": reports}, indent=2))
