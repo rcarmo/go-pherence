@@ -195,6 +195,38 @@ func TestCPUPrefillIneligibleCases(t *testing.T) {
 	}
 }
 
+func TestCPUPrefillRejectsOverflowingScratchWithoutPanic(t *testing.T) {
+	m := buildPrefillTestModel("llama", false, false, false)
+	maxInt := int(^uint(0) >> 1)
+	m.Layers[0].HeadDimLocal = maxInt/2 + 1
+	kvK := make([][]float32, len(m.Layers))
+	kvV := make([][]float32, len(m.Layers))
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("prefillCPU panicked on overflowing scratch dims: %v", r)
+		}
+	}()
+	if hidden, ok := m.prefillCPU([]int{1, 2}, kvK, kvV); ok || hidden != nil {
+		t.Fatalf("prefillCPU hidden=%v ok=%v, want fallback", hidden, ok)
+	}
+}
+
+func TestCPUPrefillRejectsOverflowingBatchBuffersWithoutPanic(t *testing.T) {
+	m := buildPrefillTestModel("llama", false, false, false)
+	maxInt := int(^uint(0) >> 1)
+	m.Config.HiddenSize = maxInt/2 + 1
+	kvK := make([][]float32, len(m.Layers))
+	kvV := make([][]float32, len(m.Layers))
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("prefillCPU panicked on overflowing batch dims: %v", r)
+		}
+	}()
+	if hidden, ok := m.prefillCPU([]int{1, 2}, kvK, kvV); ok || hidden != nil {
+		t.Fatalf("prefillCPU hidden=%v ok=%v, want fallback", hidden, ok)
+	}
+}
+
 func TestGeneratePreparedDenseKEqVOmittedV(t *testing.T) {
 	m := buildPrefillTestModel("llama", false, false, false)
 	m.Config.AttentionKEqV = true

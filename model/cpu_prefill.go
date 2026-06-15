@@ -156,8 +156,13 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 	}
 	isGemma := cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text"
 
+	batchHidden, okBatchHidden := checkedProduct(B, h)
+	if !okBatchHidden {
+		return nil, false
+	}
+
 	// Embed all prompt tokens: bHidden[B, h].
-	bHidden := make([]float32, B*h)
+	bHidden := make([]float32, batchHidden)
 	for i, tokID := range tokenIDs {
 		if err := m.ScaledTokenEmbeddingInto(bHidden[i*h:(i+1)*h], tokID); err != nil {
 			return nil, false
@@ -165,19 +170,27 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 	}
 
 	// Batched scratch reused across layers.
-	bResidual := make([]float32, B*h)
-	bNormed := make([]float32, B*h)
-	bMlpIn := make([]float32, B*h)
-	maxQDim := numHeads * headDim
-	maxKVDim := cfg.NumKVHeads * headDim
+	bResidual := make([]float32, batchHidden)
+	bNormed := make([]float32, batchHidden)
+	bMlpIn := make([]float32, batchHidden)
+	maxQDim, okMaxQ := checkedProduct(numHeads, headDim)
+	maxKVDim, okMaxKV := checkedProduct(cfg.NumKVHeads, headDim)
+	if !okMaxQ || !okMaxKV {
+		return nil, false
+	}
 	maxInter := cfg.Intermediate
 	for l := 0; l < cfg.NumLayers; l++ {
 		if d := m.Layers[l].HeadDimLocal; d > headDim {
-			if numHeads*d > maxQDim {
-				maxQDim = numHeads * d
+			q, okQ := checkedProduct(numHeads, d)
+			kv, okKV := checkedProduct(cfg.NumKVHeads, d)
+			if !okQ || !okKV {
+				return nil, false
 			}
-			if cfg.NumKVHeads*d > maxKVDim {
-				maxKVDim = cfg.NumKVHeads * d
+			if q > maxQDim {
+				maxQDim = q
+			}
+			if kv > maxKVDim {
+				maxKVDim = kv
 			}
 		}
 		if li := m.layerInterFor(&m.Layers[l]); li > maxInter {
@@ -187,14 +200,20 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 	if maxQDim <= 0 || maxKVDim <= 0 || maxInter <= 0 {
 		return nil, false
 	}
-	bQ := make([]float32, B*maxQDim)
-	bK := make([]float32, B*maxKVDim)
-	bV := make([]float32, B*maxKVDim)
-	bAttnOut := make([]float32, B*maxQDim)
-	bOOut := make([]float32, B*h)
-	bGate := make([]float32, B*maxInter)
-	bUp := make([]float32, B*maxInter)
-	bDown := make([]float32, B*h)
+	batchQ, okBatchQ := checkedProduct(B, maxQDim)
+	batchKV, okBatchKV := checkedProduct(B, maxKVDim)
+	batchInter, okBatchInter := checkedProduct(B, maxInter)
+	if !okBatchQ || !okBatchKV || !okBatchInter {
+		return nil, false
+	}
+	bQ := make([]float32, batchQ)
+	bK := make([]float32, batchKV)
+	bV := make([]float32, batchKV)
+	bAttnOut := make([]float32, batchQ)
+	bOOut := make([]float32, batchHidden)
+	bGate := make([]float32, batchInter)
+	bUp := make([]float32, batchInter)
+	bDown := make([]float32, batchHidden)
 
 	eps := float32(cfg.RMSNormEps)
 	normFn := rmsNormInPlace
@@ -209,9 +228,9 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 			layerHeadDim = layer.HeadDimLocal
 		}
 		layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
-		qDim := numHeads * layerHeadDim
-		layerKVDim := layerKVHeads * layerHeadDim
-		if qDim <= 0 || layerKVDim <= 0 {
+		qDim, okQDim := checkedProduct(numHeads, layerHeadDim)
+		layerKVDim, okKVDim := checkedProduct(layerKVHeads, layerHeadDim)
+		if qDim <= 0 || layerKVDim <= 0 || !okQDim || !okKVDim {
 			return nil, false
 		}
 
@@ -321,9 +340,9 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 			}
 			q := bQ[b*qDim : (b+1)*qDim]
 			out := bAttnOut[b*qDim : (b+1)*qDim]
-			off := attnKVOffset * layerKVHeads * layerHeadDim
-			end := seqLen * layerKVHeads * layerHeadDim
-			if end > len(kCacheL) || end > len(vCacheL) {
+			off, okOff := checkedProduct(attnKVOffset, layerKVDim)
+			end, okEnd := checkedProduct(seqLen, layerKVDim)
+			if !okOff || !okEnd || end > len(kCacheL) || end > len(vCacheL) || off > end {
 				return false
 			}
 			gqaAttentionScaleInto(out, scores[:attnSeqLen], q, kCacheL[off:end], vCacheL[off:end], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, scale)
