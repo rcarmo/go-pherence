@@ -262,8 +262,8 @@ func diffusionGemmaGGUFCPUQ4DirectEnabled() bool {
 func diffusionGemmaGGUFCPUDirectPolicyEnabled(name string) bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
 	if v == "" {
-		// SIMD direct quantized row-dot is the default for single-position expert
-		// work; callers still gate on the platform capability and nPos==1 so batched
+		// SIMD direct quantized row-dot is the default for small expert batches;
+		// callers still gate on platform capability and batch size so larger batched
 		// rows keep the faster dequant-once + Sdot reuse path.
 		return true
 	}
@@ -665,9 +665,9 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				gateStart := time.Now()
 				batchGU := ws.batchGU[:nPos*intermediate*2]
 				outDimGU := intermediate * 2 // 1408
-				// SIMD direct Q4_K wins for a single row-dot, but dequant-once + Sdot
-				// remains faster when the same raw row is reused across a batch.
-				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos == 1 && le.gateUp.QType == gguf.QuantQ4_K
+				// SIMD direct Q4_K wins for small batches (nPos<=3), but dequant-once
+				// + Sdot remains faster when the same raw row is reused more broadly.
+				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos <= 3 && le.gateUp.QType == gguf.QuantQ4_K
 				for r := 0; r < outDimGU; r++ {
 					if useDirectQ4GateUp {
 						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {
@@ -724,11 +724,9 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down scale outside len=%d", eid, len(le.downScale)) })
 					return
 				}
-				// SIMD direct Q8_0 row-dot wins for a single activation row, but batched
-				// expert-down rows are faster through dequant-once + Sdot reuse. Keep the
-				// default executor unchanged and only use direct Q8 in the explicit opt-in
-				// path when the current expert batch has one position.
-				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos == 1 && le.down.QType == gguf.QuantQ8_0
+				// SIMD direct Q8_0 row-dot wins for small batches (nPos<=3), but larger
+				// expert-down batches are faster through dequant-once + Sdot reuse.
+				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos <= 3 && le.down.QType == gguf.QuantQ8_0
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {
 						scale := float32(1)
