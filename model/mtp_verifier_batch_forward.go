@@ -2,21 +2,47 @@ package model
 
 import "fmt"
 
-// RunMTPVerifierBatchForward is the verifier-batch execution entry point. The
-// first implemented lowering handles the no-layer/tail-only graph directly from
-// MTPVerifierBatchInputs. Nonzero-layer batches still use RunMTPVerifierForward's
-// sequential layer loop until the full batched verifier layer runner is landed.
+// RunMTPVerifierBatchForward is the verifier-batch execution entry point. It
+// consumes materialized MTPVerifierBatchInputs for all verifier rows. The current
+// lowering executes rows/layers sequentially while preserving the explicit batch
+// and attention-plan contract; future SIMD/GPU work can replace the inner layer
+// loop without changing callers.
 func (m *LlamaModel) RunMTPVerifierBatchForward(batch MTPVerifierBatchInputs, kvCacheK, kvCacheV [][]float32) (MTPVerifierResult, error) {
 	if err := m.validateMTPVerifierBatchForwardInputs(batch, kvCacheK, kvCacheV); err != nil {
 		return MTPVerifierResult{}, err
 	}
-	if m.Config.NumLayers != 0 {
-		return MTPVerifierResult{}, fmt.Errorf("MTP verifier batched layer execution not implemented for %d layers", m.Config.NumLayers)
-	}
 	logitsRows := make([][]float32, len(batch.HiddenRows))
 	var finalActivation []float32
+	maxSeqLen := batch.Plan.StartPos + len(batch.Plan.VerifierTokens)
+	if maxSeqLen < 1 {
+		maxSeqLen = 1
+	}
+	attnScoresScratch := make([]float32, maxSeqLen)
+	maxHeadDim := m.Config.HeadDim
+	for i := range m.Layers {
+		if m.Layers[i].HeadDimLocal > maxHeadDim {
+			maxHeadDim = m.Layers[i].HeadDimLocal
+		}
+	}
+	attnOutScratch := make([]float32, m.Config.NumHeads*maxHeadDim)
 	for i, row := range batch.HiddenRows {
 		hidden := append([]float32(nil), row...)
+		pos := batch.Plan.Positions[i]
+		perLayerInputs := batch.PerLayerInputs[i]
+		for l := 0; l < m.Config.NumLayers; l++ {
+			if perLayerInputs != nil {
+				var err error
+				hidden, err = m.forwardMTPPromptLayer(hidden, perLayerInputs, l, pos, kvCacheK, kvCacheV, attnScoresScratch, attnOutScratch)
+				if err != nil {
+					return MTPVerifierResult{}, fmt.Errorf("verifier batch forward layer %d at position %d: %w", l, pos, err)
+				}
+				continue
+			}
+			hidden = m.ForwardLayer(hidden, l, pos, pos, kvCacheK, kvCacheV)
+			if hidden == nil {
+				return MTPVerifierResult{}, fmt.Errorf("verifier batch forward layer %d at position %d failed", l, pos)
+			}
+		}
 		activation, logits, _, err := m.FinishCPUDecodeStep(hidden)
 		if err != nil {
 			return MTPVerifierResult{}, fmt.Errorf("verifier batch decode finish row %d: %w", i, err)
@@ -58,12 +84,25 @@ func (m *LlamaModel) validateMTPVerifierBatchForwardInputs(batch MTPVerifierBatc
 			if layer.HasKV {
 				return fmt.Errorf("layer %d has invalid zero KV dim", l)
 			}
+			if layer.KVSourceLayer < 0 || layer.KVSourceLayer >= m.Config.NumLayers {
+				return fmt.Errorf("shared-KV layer %d source %d out of range [0,%d)", l, layer.KVSourceLayer, m.Config.NumLayers)
+			}
+			sourceDim, err := m.LayerKVDim(layer.KVSourceLayer)
+			if err != nil {
+				return err
+			}
+			if sourceDim == 0 {
+				return fmt.Errorf("shared-KV layer %d source %d does not append KV", l, layer.KVSourceLayer)
+			}
 			if len(kvCacheK[l]) != 0 || len(kvCacheV[l]) != 0 {
 				return fmt.Errorf("shared/non-KV layer %d owns unexpected K/V cache entries %d/%d", l, len(kvCacheK[l]), len(kvCacheV[l]))
 			}
 			continue
 		}
-		want := batch.Plan.StartPos * kvDim
+		want, ok := checkedProduct(batch.Plan.StartPos, kvDim)
+		if !ok {
+			return fmt.Errorf("verifier KV history length overflows for layer %d start=%d kvDim=%d", l, batch.Plan.StartPos, kvDim)
+		}
 		if len(kvCacheK[l]) != want || len(kvCacheV[l]) != want {
 			return fmt.Errorf("layer %d KV history K/V=%d/%d, want %d for start position %d", l, len(kvCacheK[l]), len(kvCacheV[l]), want, batch.Plan.StartPos)
 		}

@@ -25,15 +25,28 @@ func TestRunMTPVerifierBatchForwardZeroLayer(t *testing.T) {
 	}
 }
 
-func TestRunMTPVerifierBatchForwardRejectsLayeredUntilLowered(t *testing.T) {
+func TestRunMTPVerifierBatchForwardLayeredSequentialLowering(t *testing.T) {
 	m := newSingleLayerVerifierModel()
 	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 0)
 	batch, err := NewMTPVerifierBatchInputs(m, plan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := m.RunMTPVerifierBatchForward(batch, make([][]float32, len(m.Layers)), make([][]float32, len(m.Layers))); err == nil {
-		t.Fatal("accepted nonzero-layer batch forward before batched layer lowering")
+	kvCacheK := make([][]float32, len(m.Layers))
+	kvCacheV := make([][]float32, len(m.Layers))
+	got, err := m.RunMTPVerifierBatchForward(batch, kvCacheK, kvCacheV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Logits) != len(plan.VerifierTokens) || len(got.FinalActivation) != m.Config.HiddenSize {
+		t.Fatalf("batch result logits=%d activation=%d", len(got.Logits), len(got.FinalActivation))
+	}
+	kvDim, err := m.LayerKVDim(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(kvCacheK[0]), len(plan.VerifierTokens)*kvDim; got != want {
+		t.Fatalf("batch staged K len=%d want %d", got, want)
 	}
 }
 
