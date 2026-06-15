@@ -45,6 +45,11 @@ def main() -> int:
             "expect_stdout_contains": "And",
         },
         {
+            "name": "standalone_transcribe_short",
+            "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-task", "transcribe", "-language", "en", "-max-tokens", "4"],
+            "expect_stdout_contains": "And",
+        },
+        {
             "name": "standalone_timestamp_vtt",
             "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-timestamps", "-task", "translate", "-language", "en", "-max-tokens", "8", "-output", str(out_dir / "whisper_turbo_smoke.vtt")],
             "expect_file": str(out_dir / "whisper_turbo_smoke.vtt"),
