@@ -49,6 +49,9 @@ func TestAttentionPTXContracts(t *testing.T) {
 		".param .u32 seq_q",
 		".param .u32 seq_kv",
 		".param .u32 head_dim",
+		"fma.rn.f32",
+		"ex2.approx.ftz.f32",
+		"st.global.f32",
 	)
 	assertPTXContains(t, "CrossAttentionPTX", CrossAttentionPTX,
 		".visible .entry cross_attention",
@@ -56,7 +59,13 @@ func TestAttentionPTXContracts(t *testing.T) {
 		".param .u64 q_ptr",
 		".param .u64 k_ptr",
 		".param .u64 v_ptr",
+		"fma.rn.f32",
+		"ex2.approx.ftz.f32",
+		"st.global.f32",
 	)
+	if strings.Contains(AttentionFullPTX, "TODO") || strings.Contains(CrossAttentionPTX, "TODO") {
+		t.Fatalf("attention PTX still advertises TODO-only body")
+	}
 }
 
 func TestAttentivePoolPTXContract(t *testing.T) {
