@@ -129,6 +129,11 @@ func GreedyDecodeWithTimestampsPrompt(dec *Decoder, state *DecoderState, cfg Con
 		currentTokens = nil
 	}
 	for i := 0; i < maxTokens; i++ {
+		suppressTimestampPromptSpecials(logits)
+		suppressTokenIDs(logits, dec.SuppressTokens)
+		if i == 0 {
+			suppressTokenIDs(logits, dec.BeginSuppressTokens)
+		}
 		nextTok := argmax(logits)
 
 		if nextTok == TokenEOT {
@@ -201,6 +206,15 @@ func repeatedNGram(tokens []int, nextTok, n int) bool {
 		}
 	}
 	return false
+}
+
+func suppressTimestampPromptSpecials(logits []float32) {
+	// Timestamp mode must allow timestamp IDs (>= TokenTimestampBegin) while
+	// suppressing prompt/control/language/task IDs that can otherwise be emitted
+	// by raw greedy argmax.
+	for tok := TokenSOT; tok < TokenTimestampBegin && tok < len(logits); tok++ {
+		logits[tok] = -1e30
+	}
 }
 
 func suppressNonTextSpecials(logits []float32) {

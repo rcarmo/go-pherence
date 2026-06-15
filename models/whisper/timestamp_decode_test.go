@@ -2,6 +2,20 @@ package whisper
 
 import "testing"
 
+func TestSuppressTimestampPromptSpecialsAllowsTimestamps(t *testing.T) {
+	logits := make([]float32, TokenTimestampBegin+3)
+	for i := range logits {
+		logits[i] = 1
+	}
+	suppressTimestampPromptSpecials(logits)
+	if logits[TokenSOT] > -1e20 || logits[TokenTranslate] > -1e20 || logits[TokenNoTimestamps] > -1e20 {
+		t.Fatalf("prompt/control tokens not suppressed")
+	}
+	if logits[TokenTimestampBegin] != 1 || logits[TokenTimestampBegin+2] != 1 {
+		t.Fatalf("timestamp tokens were suppressed")
+	}
+}
+
 func TestGreedyDecodeWithTimestampsPromptAcceptsTranslatePrompt(t *testing.T) {
 	cfg := Tiny()
 	cfg.DecoderLayers = 0
