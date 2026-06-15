@@ -233,6 +233,31 @@ func TestUploadQ8_0PointerTableRejectsInvalidMatrices(t *testing.T) {
 	}
 }
 
+func TestQ8_0PointerTableFreeIsIdempotent(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("CUDA not available")
+	}
+	raw := make([]byte, 2*34)
+	for r := 0; r < 2; r++ {
+		row := raw[r*34 : (r+1)*34]
+		binary.LittleEndian.PutUint16(row[:2], half.F32ToF16(0.05+float32(r)*0.01))
+	}
+	m, err := UploadQ8_0MatrixRows(raw, 32, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Free()
+	table, err := UploadQ8_0PointerTable([]*GPUQ8_0Matrix{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table.Free()
+	table.Free()
+	if table.QPtrs != nil || table.ScalePtrs != nil {
+		t.Fatal("Q8_0 pointer table Free did not clear buffers")
+	}
+}
+
 func TestGemvQ8_0ScatterByWorkPtrsRejectsBadInputs(t *testing.T) {
 	validBuf := &Buffer{Ptr: 1, Size: 64}
 	shortBuf := &Buffer{Ptr: 1, Size: 2}

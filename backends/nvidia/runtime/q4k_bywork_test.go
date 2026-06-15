@@ -318,6 +318,32 @@ func TestUploadQ4KPointerTableRejectsInvalidMatrices(t *testing.T) {
 	}
 }
 
+func TestQ4KPointerTableFreeIsIdempotent(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("CUDA not available")
+	}
+	raw := make([]byte, 2*144)
+	for r := 0; r < 2; r++ {
+		blk := raw[r*144 : (r+1)*144]
+		binary.LittleEndian.PutUint16(blk[0:2], half.F32ToF16(0.03+float32(r)*0.01))
+		binary.LittleEndian.PutUint16(blk[2:4], half.F32ToF16(0.005))
+	}
+	m, err := UploadQ4KMatrixRows(raw, 256, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Free()
+	table, err := UploadQ4KPointerTable([]*GPUQ4KMatrix{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table.Free()
+	table.Free()
+	if table.QPtrs != nil || table.ScalePtrs != nil || table.MinPtrs != nil {
+		t.Fatal("Q4_K pointer table Free did not clear buffers")
+	}
+}
+
 func TestGateUpQ4KByWorkPtrsToBuffersRejectsBadInputs(t *testing.T) {
 	validBuf := &Buffer{Ptr: 1, Size: 4096}
 	shortBuf := &Buffer{Ptr: 1, Size: 2}
