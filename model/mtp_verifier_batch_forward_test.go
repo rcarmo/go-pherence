@@ -42,6 +42,7 @@ func TestMTPVerifierBatchLayerLoweringDefaultOff(t *testing.T) {
 }
 
 func TestRunMTPVerifierBatchForwardLayeredSequentialFallback(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "")
 	m := newSingleLayerVerifierModel()
 	plan := mustMTPVerifierPlan(t, m, 0, []int{0}, 0)
 	batch, err := NewMTPVerifierBatchInputs(m, plan)
@@ -64,6 +65,38 @@ func TestRunMTPVerifierBatchForwardLayeredSequentialFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
+}
+
+func TestRunMTPVerifierBatchForwardLayeredExperimentalMatchesSequential(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
+	m := newSingleLayerVerifierModel()
+	plan := mustMTPVerifierPlan(t, m, 0, []int{0}, 0)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kvCacheK := make([][]float32, len(m.Layers))
+	kvCacheV := make([][]float32, len(m.Layers))
+	got, err := m.RunMTPVerifierBatchForward(batch, kvCacheK, kvCacheV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seqK := make([][]float32, len(m.Layers))
+	seqV := make([][]float32, len(m.Layers))
+	seqHidden, err := m.runMTPVerifierBatchRowsSequential(batch, seqK, seqV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, seqLogits, _, err := m.FinishCPUDecodeBatch(seqHidden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
+}
+
+func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan MTPVerifierPlan, got MTPVerifierResult, kvCacheK, kvCacheV [][]float32, seqLogits [][]float32, seqK, seqV [][]float32) {
+	t.Helper()
 	if len(got.Logits) != len(plan.VerifierTokens) || len(got.FinalActivation) != m.Config.HiddenSize {
 		t.Fatalf("batch result logits=%d activation=%d", len(got.Logits), len(got.FinalActivation))
 	}

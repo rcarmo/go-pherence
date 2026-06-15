@@ -185,7 +185,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			}
 			hid := bHidden[b*h : (b+1)*h]
 			simd.VecAdd(hid, bResidual[b*h:(b+1)*h], down)
-			if layer.LayerScalar != 1.0 && layer.LayerScalar != 0 {
+			if layer.LayerScalar != 1.0 {
 				simd.VecScale(hid, hid, layer.LayerScalar)
 			}
 			if isGemma {
