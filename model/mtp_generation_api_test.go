@@ -164,6 +164,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted short verifier positions")
 	}
 	bad = valid
+	bad.StepSummaries[0].VerifierPositions = []int{1, 3, 4}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted non-contiguous verifier positions")
+	}
+	bad = valid
 	bad.StepSummaries[0].Positions = []int{2, 3}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted committed positions not matching verifier prefix")

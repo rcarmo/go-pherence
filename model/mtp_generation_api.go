@@ -97,6 +97,14 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		if len(summary.VerifierPositions) != len(summary.DraftedTokens)+1 {
 			return fmt.Errorf("MTP graph summary %d verifier positions len=%d, want drafted+1=%d", i, len(summary.VerifierPositions), len(summary.DraftedTokens)+1)
 		}
+		for j, pos := range summary.VerifierPositions {
+			if pos < 0 {
+				return fmt.Errorf("MTP graph summary %d verifier position %d=%d out of range", i, j, pos)
+			}
+			if j > 0 && pos != summary.VerifierPositions[j-1]+1 {
+				return fmt.Errorf("MTP graph summary %d verifier positions not contiguous: %v", i, summary.VerifierPositions)
+			}
+		}
 		if !mtpSameInts(summary.Positions, summary.VerifierPositions[:len(summary.Positions)]) {
 			return fmt.Errorf("MTP graph summary %d committed positions=%v are not verifier prefix %v", i, summary.Positions, summary.VerifierPositions)
 		}
