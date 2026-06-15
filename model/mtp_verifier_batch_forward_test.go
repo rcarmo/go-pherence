@@ -256,6 +256,41 @@ func TestRunMTPVerifierBatchForwardValidation(t *testing.T) {
 	if _, err := m.RunMTPVerifierBatchForward(bad, nil, nil); err == nil {
 		t.Fatal("accepted bad attention plan")
 	}
+
+	mPLI := newSingleLayerVerifierModel()
+	mPLI.Config.ModelType = "gemma4_text"
+	mPLI.Config.HiddenPerLayer = 2
+	mPLI.PerLayerModelProj = []float32{1, 0, 0, 1}
+	mPLI.PerLayerProjNorm = []float32{1, 1}
+	mPLI.PerLayerProjScale = 1
+	mPLI.PerLayerInputScale = 1
+	mPLI.EmbedPerLayerScale = 1
+	mPLI.EmbedPerLayer = []float32{
+		0, 0,
+		10, 20,
+		30, 40,
+	}
+	mPLI.Config.VocabPerLayer = 3
+	planPLI := mustMTPVerifierPlan(t, mPLI, 0, []int{1}, 0)
+	batchPLI, err := NewMTPVerifierBatchInputs(mPLI, planPLI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	badPLI := batchPLI
+	badPLI.PerLayerInputs = cloneMTPVerifierPLIRows(batchPLI.PerLayerInputs)
+	badPLI.PerLayerInputFlat = append([]float32(nil), batchPLI.PerLayerInputFlat...)
+	badPLI.PerLayerInputFlat[0]++
+	if _, err := mPLI.RunMTPVerifierBatchForward(badPLI, nil, nil); err == nil {
+		t.Fatal("accepted PLI rows that disagree with flat buffer")
+	}
+}
+
+func cloneMTPVerifierPLIRows(in [][][]float32) [][][]float32 {
+	out := make([][][]float32, len(in))
+	for i := range in {
+		out[i] = clonePerLayerInputs(in[i])
+	}
+	return out
 }
 
 func cloneMTPVerifierHiddenRows(in [][]float32) [][]float32 {

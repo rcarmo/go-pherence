@@ -67,9 +67,45 @@ func TestMTPVerifierAttentionPlanValidation(t *testing.T) {
 	if err := bad.ValidateAgainst(plan, m); err == nil {
 		t.Fatal("accepted bad layer count")
 	}
-	bad = mask
+	bad = cloneMTPVerifierAttentionPlan(mask)
 	bad.Layers[0].KVStart[0] = -1
 	if err := bad.ValidateAgainst(plan, m); err == nil {
 		t.Fatal("accepted bad range")
 	}
+
+	mSliding := newZeroLayerVerifierModel()
+	mSliding.Config.NumLayers = 1
+	mSliding.Config.SlidingWindow = 3
+	mSliding.Config.LayerTypes = []string{"sliding_attention"}
+	mSliding.Layers = []LlamaLayer{{}}
+	planSliding := mustMTPVerifierPlan(t, mSliding, 1, []int{2}, 4)
+	maskSliding, err := NewMTPVerifierAttentionPlan(mSliding, planSliding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad = cloneMTPVerifierAttentionPlan(maskSliding)
+	bad.Layers[0].KVStart[0] = 0 // range-valid, but not the Gemma4 sliding-window start.
+	if err := bad.ValidateAgainst(planSliding, mSliding); err == nil {
+		t.Fatal("accepted wrong sliding attention range")
+	}
+	bad = cloneMTPVerifierAttentionPlan(maskSliding)
+	bad.Layers[0].Sliding = false
+	bad.Layers[0].SlidingWindow = 0
+	if err := bad.ValidateAgainst(planSliding, mSliding); err == nil {
+		t.Fatal("accepted wrong sliding attention metadata")
+	}
+}
+
+func cloneMTPVerifierAttentionPlan(in MTPVerifierAttentionPlan) MTPVerifierAttentionPlan {
+	out := MTPVerifierAttentionPlan{Positions: append([]int(nil), in.Positions...), KVLen: in.KVLen, Layers: make([]MTPVerifierLayerAttentionPlan, len(in.Layers))}
+	for i, lp := range in.Layers {
+		out.Layers[i] = MTPVerifierLayerAttentionPlan{
+			Layer:          lp.Layer,
+			Sliding:        lp.Sliding,
+			SlidingWindow:  lp.SlidingWindow,
+			KVStart:        append([]int(nil), lp.KVStart...),
+			KVEndExclusive: append([]int(nil), lp.KVEndExclusive...),
+		}
+	}
+	return out
 }

@@ -53,27 +53,26 @@ func NewMTPVerifierAttentionPlan(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifi
 }
 
 func (p MTPVerifierAttentionPlan) ValidateAgainst(plan MTPVerifierPlan, m *LlamaModel) error {
-	if err := validateMTPVerifierPlanForModel(m, plan); err != nil {
+	want, err := NewMTPVerifierAttentionPlan(m, plan)
+	if err != nil {
 		return err
 	}
-	if !mtpSameInts(p.Positions, plan.Positions) {
-		return fmt.Errorf("MTP verifier mask positions=%v, want %v", p.Positions, plan.Positions)
+	if !mtpSameInts(p.Positions, want.Positions) {
+		return fmt.Errorf("MTP verifier mask positions=%v, want %v", p.Positions, want.Positions)
 	}
-	wantKVLen := plan.Positions[len(plan.Positions)-1] + 1
-	if p.KVLen != wantKVLen {
-		return fmt.Errorf("MTP verifier mask kvLen=%d, want %d", p.KVLen, wantKVLen)
+	if p.KVLen != want.KVLen {
+		return fmt.Errorf("MTP verifier mask kvLen=%d, want %d", p.KVLen, want.KVLen)
 	}
-	if len(p.Layers) != m.Config.NumLayers {
-		return fmt.Errorf("MTP verifier mask layers=%d, want %d", len(p.Layers), m.Config.NumLayers)
+	if len(p.Layers) != len(want.Layers) {
+		return fmt.Errorf("MTP verifier mask layers=%d, want %d", len(p.Layers), len(want.Layers))
 	}
 	for l, lp := range p.Layers {
-		if lp.Layer != l || len(lp.KVStart) != len(plan.Positions) || len(lp.KVEndExclusive) != len(plan.Positions) {
-			return fmt.Errorf("MTP verifier mask malformed layer=%d plan=%+v", l, lp)
+		wantLP := want.Layers[l]
+		if lp.Layer != wantLP.Layer || lp.Sliding != wantLP.Sliding || lp.SlidingWindow != wantLP.SlidingWindow {
+			return fmt.Errorf("MTP verifier mask layer %d metadata=%+v, want %+v", l, lp, wantLP)
 		}
-		for i := range plan.Positions {
-			if lp.KVStart[i] < 0 || lp.KVStart[i] > lp.KVEndExclusive[i] || lp.KVEndExclusive[i] > p.KVLen {
-				return fmt.Errorf("MTP verifier mask invalid layer=%d row=%d range=[%d,%d) kvLen=%d", l, i, lp.KVStart[i], lp.KVEndExclusive[i], p.KVLen)
-			}
+		if !mtpSameInts(lp.KVStart, wantLP.KVStart) || !mtpSameInts(lp.KVEndExclusive, wantLP.KVEndExclusive) {
+			return fmt.Errorf("MTP verifier mask layer %d ranges start/end=%v/%v, want %v/%v", l, lp.KVStart, lp.KVEndExclusive, wantLP.KVStart, wantLP.KVEndExclusive)
 		}
 	}
 	return nil
