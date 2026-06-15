@@ -190,9 +190,9 @@ better replacement planning under a fixed budget, or a native exact-GELU device
 kernel to remove the host boundary as coverage grows.
 
 The plan simulator can model compact resident representations. For example,
-current Q4_K resident experts store scale/min values as F32. Modeling those Q4
-scale/min values as fp16 with `--q4-scale-bytes 2` shows a structural kept-work
-improvement at every tested budget:
+current Q4_K resident experts in the default path store derived scale/min values
+as F32. Modeling those Q4 scale/min values with a smaller byte count shows a
+structural kept-work improvement at every tested budget:
 
 | Expert cache | Current Q4 F32 scale/min | Modeled compact Q4 fp16 scale/min |
 |---:|---:|---:|
@@ -207,19 +207,33 @@ improvement at every tested budget:
 
 At the bounded 768MiB target, compact Q4 would keep roughly 992 additional traced
 work items. At about 5GiB, compact Q4 would fit the entire traced expert set,
-where the current representation still leaves a small tail. That makes a compact
-Q4_K resident representation a concrete next kernel/runtime target, provided the
-pointer-table kernels preserve llama.cpp/CPU parity.
+where the current representation still leaves a small tail.
 
 A direct attempt to store the already-derived per-subblock scale/min values as
 fp16 was rejected by a non-skipped CUDA parity check: the half-scale kernel loaded
 and ran, but its Q4_K gate/up dot output drifted from the existing F32-derived
 scale/min pointer-table path (for example, an up value differed by about
 `6.8e-4`). Given the earlier RMSNorm amplification issue, that representation is
-not acceptable as the high-fidelity path. The fidelity-preserving compact target
-is therefore to store the original Q4_K metadata (`d`, `dmin`, and the 12 packed
-scale/min bytes) alongside the packed quants, and reconstruct the F32 scale/min
-values inside the pointer-table kernel exactly as `unpackQ4KMatrixRows` does.
+not acceptable as the high-fidelity path.
+
+The implemented fidelity-preserving compact path instead stores the original
+Q4_K row-block metadata (`d`, `dmin`, and the 12 packed scale/min bytes) alongside
+the packed quants, then reconstructs scale/min values inside the pointer-table
+kernel exactly as `unpackQ4KMatrixRows` does. It is opt-in:
+
+```bash
+export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1
+```
+
+The raw compact path keeps the default exact-GELU policy: Q4_K gate/up dot runs
+on GPU, exact erf GELU remains at the host boundary, and Q8_0/Q5_0 down/scatter
+runs on GPU when resident. Focused validation passed for:
+
+```bash
+go test ./backends/nvidia/runtime -run 'TestGateUpQ4KByWorkPtrsCompactScaleParity' -count=1 -v
+GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1 \
+  go test ./model/diffusiongemma -run 'Test(GGUFGPUExpertRawQ4Enabled|PrewarmGGUFGPUPointerExpertCacheRawQ4UsesRawResidency|LocalGGUFGroupedGPUExpertsQ5DownMatchCPUSelected|LocalGGUFFusedGPUExpertsQ5DownMatchCPUSelected|LocalGGUFPartialGroupedGPUCPUExpertsPromptScale|LocalGGUFPartialGroupedGPUCPUExpertsPromptScaleLayer5)$' -count=1 -v
+```
 
 ## Why this is opt-in
 
