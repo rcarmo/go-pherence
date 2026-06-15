@@ -223,6 +223,12 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 				LlamaMaxAbs float64 `json:"llama_max_abs"`
 				GoMaxAbs    float64 `json:"go_max_abs"`
 			} `json:"layer29_l_out"`
+			Layer7Subops struct {
+				LlamaAttnOut struct{ RMS, MaxAbs float64 } `json:"llama_attn_out"`
+				GoAttnOut    struct{ RMS, MaxAbs float64 } `json:"go_attn_out"`
+				LlamaFFNPost struct{ RMS, MaxAbs float64 } `json:"llama_ffn_post_norm"`
+				GoFFNPost    struct{ RMS, MaxAbs float64 } `json:"go_ffn_post_norm"`
+			} `json:"layer7_subops"`
 			Layer29Router struct {
 				LlamaTopIDs       []int     `json:"llama_top_ids"`
 				LlamaRawTopLogits []float32 `json:"llama_raw_top_logits"`
@@ -265,6 +271,9 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 	}
 	if fixture.Row28LayerTraceSummary.Layer0.LlamaRMS < 1.79 || fixture.Row28LayerTraceSummary.Layer0.GoRMS < 1.79 || fixture.Row28LayerTraceSummary.Layer29.LlamaRMS > 0.64 || fixture.Row28LayerTraceSummary.Layer29.GoRMS < 1.12 || fixture.Row28LayerTraceSummary.Layer29.GoMaxAbs < 39 || fixture.Row28LayerTraceSummary.Layer29.LlamaMaxAbs > 19 {
 		t.Fatalf("row28 layer trace summary lost divergence target: %+v", fixture.Row28LayerTraceSummary)
+	}
+	if fixture.Row28LayerTraceSummary.Layer7Subops.LlamaAttnOut.RMS < 1.84 || fixture.Row28LayerTraceSummary.Layer7Subops.GoAttnOut.RMS < 1.76 || fixture.Row28LayerTraceSummary.Layer7Subops.LlamaFFNPost.RMS > 1.57 || fixture.Row28LayerTraceSummary.Layer7Subops.GoFFNPost.RMS < 2.56 {
+		t.Fatalf("row28 layer7 sub-op target changed: %+v", fixture.Row28LayerTraceSummary.Layer7Subops)
 	}
 	router := fixture.Row28LayerTraceSummary.Layer29Router
 	if !equalInts(router.LlamaTopIDs, []int{70, 14, 36, 86, 109, 29, 63, 35}) || !equalInts(router.GoTopIDs, []int{70, 63, 14, 61, 118, 99, 35, 18}) || !equalInts(router.CommonIDs, []int{14, 35, 63, 70}) || len(router.LlamaRawTopLogits) != 8 || len(router.GoRawTopLogits) != 8 || router.LlamaRawTopLogits[0] < 1.32 || router.LlamaRawTopLogits[1] < 1.32 || router.GoRawTopLogits[0] < 1.21 || router.GoRawTopLogits[1] > 0.94 || router.LlamaRouterInput.MaxIdx != 175 || router.GoRouterInput.MaxIdx != 1749 || router.LlamaRouterInput.RMS < 0.60 || router.GoRouterInput.RMS < 0.60 {
