@@ -78,6 +78,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		}
 	}
 	if len(r.StepSummaries) > 0 {
+		if r.Stats.Steps != len(r.StepSummaries) {
+			return fmt.Errorf("MTP stats steps=%d, summary steps=%d", r.Stats.Steps, len(r.StepSummaries))
+		}
 		if r.Stats.DraftedTokens != summaryDrafted {
 			return fmt.Errorf("MTP stats drafted tokens=%d, summary drafted=%d", r.Stats.DraftedTokens, summaryDrafted)
 		}

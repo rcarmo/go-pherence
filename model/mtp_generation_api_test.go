@@ -73,7 +73,7 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	valid := MTPGraphGenerationResult{
 		Output:            []int{10, 1, 2, 3},
-		Stats:             MTPSpeculationStats{DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
+		Stats:             MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
 		Steps:             []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
 		StepSummaries:     []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 2}, VerifierTokens: []int{9, 1, 2}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
 		GraphOutputTokens: 2,
@@ -101,6 +101,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.Stats.OutputTokens = 99
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted stats/output mismatch")
+	}
+	bad = valid
+	bad.Stats.Steps = 99
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted stats/summary step mismatch")
 	}
 	bad = valid
 	bad.Stats.DraftedTokens = 99
