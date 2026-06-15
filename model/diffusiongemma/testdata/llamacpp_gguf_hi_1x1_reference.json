@@ -1,0 +1,28 @@
+{
+  "reference": "llama.cpp llama-diffusion-cli",
+  "created_from": "/workspace/projects/llama.cpp/build/bin/llama-diffusion-cli",
+  "model": "/workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf",
+  "command": "build/bin/llama-diffusion-cli -m models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf -p hi -n 1 --seed 1 --diffusion-steps 1 --no-conversation -ngl 0 -t 8",
+  "prompt": "hi",
+  "n_predict": 1,
+  "seed": 1,
+  "diffusion_steps_arg": 1,
+  "observed_entropy_bound_steps": 11,
+  "canvas_length": 256,
+  "cpu_only": true,
+  "exit_code": 0,
+  "stdout": "\n<|channel>thought\nThe user said \"hi\".\nThis is a greeting.\nI should respond politely and offer assistance.\n\nPlan:\n1. Say back (\"Hello!\" or \"Hi there!\").\n2. Ask \"How can I help you today?\".<channel|>Hello! How can I help you today?\ntotal time: 17229.72ms, time per step: 1566.34ms (11 steps over 1 blocks, entropy-bound)\nthroughput: 14.9 tok/s (256 tok in 17229.72ms), in-step parallel 163 tok/s (256-tok canvas x 11.0 steps/block)\n",
+  "decoded_response": "<|channel>thought\nThe user said \"hi\".\nThis is a greeting.\nI should respond politely and offer assistance.\n\nPlan:\n1. Say back (\"Hello!\" or \"Hi there!\").\n2. Ask \"How can I help you today?\".<channel|>Hello! How can I help you today?",
+  "stderr_summary": {
+    "diffusion_params": "steps=1 schedule=0 algorithm=4 temperature=0.800 eps=0.001000 mask_token=4",
+    "diffusion_eb": "max_steps=48 t=[0.400,0.800] entropy_bound=0.1000 stability=1 confidence=0.0050 kv_cache=on gpu_sampling=on sample_reduce=on",
+    "backend_note": "CUDA load OOMed for this 16GiB GGUF on RTX 3060, so the reference fixture was captured with -ngl 0 CPU loading."
+  },
+  "hf_reference_env": {
+    "venv": "/workspace/tmp/dg-ref-venv",
+    "torch": "2.12.0+cu130",
+    "transformers": "5.12.0",
+    "diffusiongemma_class_present": true,
+    "local_fp8_load_blocker": "Transformers sees the local FP8 checkpoint as incompatible/corrupted due tied-weight and compressed-tensors tensor-name mismatches; full HF reference capture still needs the canonical HF 11-shard checkpoint or a matching loader."
+  }
+}
