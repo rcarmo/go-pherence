@@ -51,7 +51,10 @@ def materialize_window(audio: str, idx: int, args: argparse.Namespace, out_dir: 
 
 def build_cmd(args: argparse.Namespace, audio: str, baseline_output: Path | None) -> tuple[list[str], str]:
     if args.diarize_vtt:
-        return ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(baseline_output), "-model", args.model, "-size", args.size, "-task", args.task, "-language", args.language, "-max-tokens", str(args.max_tokens), "-gpu=false", "-workers", "1", "-progressive=false", "-resume=false"], "output_text"
+        cmd = ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(baseline_output), "-model", args.model, "-size", args.size, "-task", args.task, "-language", args.language, "-max-tokens", str(args.max_tokens), "-gpu=false", "-workers", "1", "-progressive=false", "-resume=false"]
+        if args.speaker_model:
+            cmd.extend(["-speaker-model", args.speaker_model])
+        return cmd, "output_text"
     cmd = ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-model", args.model, "-size", args.size, "-task", args.task, "-language", args.language, "-max-tokens", str(args.max_tokens)]
     if args.timestamps:
         cmd.extend(["-timestamps", "-output", str(baseline_output)])
@@ -69,6 +72,7 @@ def main() -> int:
     ap.add_argument("--max-tokens", default="16")
     ap.add_argument("--timestamps", action="store_true", help="Compare standalone whisper timestamp/VTT output instead of stdout")
     ap.add_argument("--diarize-vtt", action="store_true", help="Compare cmd/audio/diarize-vtt VTT output")
+    ap.add_argument("--speaker-model", default="", help="Optional speaker model passed to --diarize-vtt")
     ap.add_argument("--start", type=float, default=0.0, help="Optional start offset for every input audio")
     ap.add_argument("--duration", type=float, default=0.0, help="Optional duration window for every input audio")
     ap.add_argument("--output-dir", default="/workspace/tmp")
@@ -101,7 +105,7 @@ def main() -> int:
         ok = baseline["returncode"] == 0 and a100["returncode"] == 0 and baseline[compare_field] == a100[compare_field]
         if not ok:
             failures += 1
-        report = {"ok": ok, "audio": original_audio, "window_audio": window_path or "", "model": args.model, "size": args.size, "task": args.task, "language": args.language, "max_tokens": args.max_tokens, "start": args.start, "duration": args.duration, "timestamps": args.timestamps, "diarize_vtt": args.diarize_vtt, "compare_field": compare_field, "a100_env": A100_ENV, "baseline": baseline, "a100": a100}
+        report = {"ok": ok, "audio": original_audio, "window_audio": window_path or "", "model": args.model, "size": args.size, "task": args.task, "language": args.language, "max_tokens": args.max_tokens, "start": args.start, "duration": args.duration, "timestamps": args.timestamps, "diarize_vtt": args.diarize_vtt, "speaker_model": args.speaker_model, "compare_field": compare_field, "a100_env": A100_ENV, "baseline": baseline, "a100": a100}
         reports.append(report)
         if not args.json:
             print("OK" if ok else "FAIL", original_audio, f"baseline={baseline[compare_field]!r}", f"a100={a100[compare_field]!r}")
