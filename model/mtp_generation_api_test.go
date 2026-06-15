@@ -138,6 +138,12 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted summary verifier batch without input token")
 	}
 	bad = valid
+	bad.Steps[0].OutputTokens = []int{2, 2}
+	bad.StepSummaries[0].OutputTokens = []int{2, 2}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted summary output prefix not matching drafted prefix")
+	}
+	bad = valid
 	bad.StepSummaries[0].VerifierTokens = []int{9, 1, 7}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted summary verifier/drafted mismatch")

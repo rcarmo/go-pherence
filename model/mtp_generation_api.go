@@ -70,6 +70,11 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 			if summary.AcceptedPrefixLen < 0 || summary.AcceptedPrefixLen > len(summary.DraftedTokens) {
 				return fmt.Errorf("MTP graph summary %d accepted prefix=%d drafted=%d", i, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
 			}
+			for j := 0; j < summary.AcceptedPrefixLen; j++ {
+				if summary.OutputTokens[j] != summary.DraftedTokens[j] {
+					return fmt.Errorf("MTP graph summary %d output token %d=%d, want accepted draft %d", i, j, summary.OutputTokens[j], summary.DraftedTokens[j])
+				}
+			}
 			if summary.AllDraftsAccepted != (summary.AcceptedPrefixLen == len(summary.DraftedTokens)) {
 				return fmt.Errorf("MTP graph summary %d all-accepted=%v inconsistent with accepted=%d drafted=%d", i, summary.AllDraftsAccepted, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
 			}
