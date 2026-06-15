@@ -65,7 +65,7 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 |---|---|
 | `large-v3-turbo` VTT model | **Default** with `-language en`. |
 | Full `large-v3` | Reference/fallback for source-language prompt behavior and quality comparisons. |
-| K3 native int8 | Safe/validated optimized path for K3 native runs; `make whisper-int8-compare` checks stdout, standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT parity against the native SIMD oracle. |
+| K3 native int8 | Safe/validated optimized path for K3 native runs; `make whisper-int8-compare` checks stdout, standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT parity for translate/transcribe against the native SIMD oracle. |
 | A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `make whisper-backend-compare` / `make whisper-a100-compare` / `scripts/whisper_a100_compare.py` across standalone stdout, timestamp VTT, diarize-vtt, and speaker-tagged diarize-vtt outputs for translate/transcribe before automatic default. |
 | GPU decoder MLP / cross-attn | Keep opt-in; prior measurements regressed due to launch/transfer overhead. |
 | Whisper speculative decode | Keep correctness-only until verifier batching/drafter integration. |
