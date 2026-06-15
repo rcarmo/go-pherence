@@ -67,6 +67,42 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	}
 }
 
+func TestMTPGraphGenerationResultValidate(t *testing.T) {
+	valid := MTPGraphGenerationResult{
+		Output:            []int{10, 1, 2, 3},
+		Stats:             MTPSpeculationStats{OutputTokens: 2},
+		Steps:             []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
+		GraphOutputTokens: 2,
+		GreedyTailTokens:  1,
+	}
+	if err := valid.Validate(1); err != nil {
+		t.Fatalf("Validate valid: %v", err)
+	}
+	bad := valid
+	bad.GraphOutputTokens = 1
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted wrong graph output total")
+	}
+	bad = valid
+	bad.GreedyTailTokens = 0
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted wrong generated accounting")
+	}
+	bad = valid
+	bad.Stats.OutputTokens = 99
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted stats/output mismatch")
+	}
+	bad = valid
+	bad.Steps[0].KeepTokens = 3
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted malformed commit plan")
+	}
+	if err := valid.Validate(99); err == nil {
+		t.Fatal("accepted bad prompt len")
+	}
+}
+
 func TestMTPExternalKVForDecodeStateRefreshesKVSlicesAndSeqLen(t *testing.T) {
 	decode := &CPUDecodeState{Output: []int{1, 2, 3}, KVCacheK: [][]float32{{1, 2, 3, 4, 9, 10}}, KVCacheV: [][]float32{{5, 6, 7, 8, 11, 12}}}
 	base := &MTPDrafterExternalKV{K: [][]float32{{1, 2}}, V: [][]float32{{3, 4}}, SourceLayers: []int{0}, SeqLen: 1}

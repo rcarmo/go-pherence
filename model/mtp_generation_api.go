@@ -19,6 +19,33 @@ type MTPGraphGenerationResult struct {
 	MissingForPublicGeneration []string
 }
 
+func (r MTPGraphGenerationResult) Validate(promptLen int) error {
+	if promptLen < 0 || promptLen > len(r.Output) {
+		return fmt.Errorf("MTP graph generation prompt len=%d outside output len=%d", promptLen, len(r.Output))
+	}
+	if r.GraphOutputTokens < 0 || r.GreedyTailTokens < 0 {
+		return fmt.Errorf("MTP graph generation negative output accounting graph=%d greedy=%d", r.GraphOutputTokens, r.GreedyTailTokens)
+	}
+	var graphCount int
+	for i, step := range r.Steps {
+		if step.KeepTokens <= 0 || len(step.OutputTokens) != step.KeepTokens || len(step.Positions) != step.KeepTokens {
+			return fmt.Errorf("MTP graph generation malformed commit step %d: %+v", i, step)
+		}
+		graphCount += len(step.OutputTokens)
+	}
+	if graphCount != r.GraphOutputTokens {
+		return fmt.Errorf("MTP graph output accounting=%d, commit outputs=%d", r.GraphOutputTokens, graphCount)
+	}
+	generated := len(r.Output) - promptLen
+	if generated != r.GraphOutputTokens+r.GreedyTailTokens {
+		return fmt.Errorf("MTP generated tokens=%d, graph+greedy=%d+%d", generated, r.GraphOutputTokens, r.GreedyTailTokens)
+	}
+	if r.Stats.OutputTokens != r.GraphOutputTokens {
+		return fmt.Errorf("MTP stats output tokens=%d, graph output tokens=%d", r.Stats.OutputTokens, r.GraphOutputTokens)
+	}
+	return nil
+}
+
 // NewCPUDecodeStateFromMTPPromptContext creates a graph-decode state from a
 // prompt context produced by BuildMTPPromptContext. It copies tokens and KV so a
 // failed speculative step can restore safely without mutating the prompt context.
@@ -117,7 +144,11 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	return MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}, nil
+	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
+	if err := result.Validate(len(ctx.Tokens)); err != nil {
+		return MTPGraphGenerationResult{}, err
+	}
+	return result, nil
 }
 
 func mtpExternalKVForDecodeState(decode *CPUDecodeState, base *MTPDrafterExternalKV) (*MTPDrafterExternalKV, error) {
