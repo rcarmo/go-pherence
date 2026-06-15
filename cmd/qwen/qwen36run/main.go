@@ -936,7 +936,7 @@ func (r *runner) generateWithNativeMTP(verifierNext int, hidden []float32, maxTo
 	out := make([]int, 0, maxTokens)
 	stats := mtpGenerateStats{}
 	curVerifier := verifierNext
-	curHidden := append([]float32(nil), hidden...)
+	var curHidden []float32
 	lastToken := -1
 	var lastH []float32
 	var logit float32
@@ -1179,11 +1179,6 @@ func applyMTPDiagnostics(rep *Report, r *runner, h []float32, prefillVerifierNex
 
 func draftMTPIDs(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int) ([]int, error) {
 	ids, _, _, err := draftMTPIDsDetailedWithPast(head, emb, lm, nil, tokenID, hidden, pos, ropeFreqs, meta, steps, nil, nil)
-	return ids, err
-}
-
-func draftMTPIDsWithPast(head *qwen.QwenNativeMTPHead, emb, lm rawTensor, tokenID int, hidden []float32, pos int, ropeFreqs []float32, meta loaderconfig.QwenNativeMTPMetadata, steps int, initialK, initialV []float32) ([]int, error) {
-	ids, _, _, err := draftMTPIDsDetailedWithPast(head, emb, lm, nil, tokenID, hidden, pos, ropeFreqs, meta, steps, initialK, initialV)
 	return ids, err
 }
 
@@ -1539,14 +1534,6 @@ func check(what string, err error) {
 		os.Exit(2)
 	}
 }
-func mustRaw(src interface {
-	GetRaw(string) ([]byte, string, []int, error)
-}, name string) rawTensor {
-	r, d, s, e := src.GetRaw(name)
-	check(name, e)
-	return rawTensor{raw: r, dtype: d, shape: s}
-}
-
 func mustRawCandidate(src interface {
 	GetRaw(string) ([]byte, string, []int, error)
 }, names ...string) rawTensor {
