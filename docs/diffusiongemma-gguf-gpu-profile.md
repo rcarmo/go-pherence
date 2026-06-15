@@ -211,6 +211,16 @@ where the current representation still leaves a small tail. That makes a compact
 Q4_K resident representation a concrete next kernel/runtime target, provided the
 pointer-table kernels preserve llama.cpp/CPU parity.
 
+A direct attempt to store the already-derived per-subblock scale/min values as
+fp16 was rejected by a non-skipped CUDA parity check: the half-scale kernel loaded
+and ran, but its Q4_K gate/up dot output drifted from the existing F32-derived
+scale/min pointer-table path (for example, an up value differed by about
+`6.8e-4`). Given the earlier RMSNorm amplification issue, that representation is
+not acceptable as the high-fidelity path. The fidelity-preserving compact target
+is therefore to store the original Q4_K metadata (`d`, `dmin`, and the 12 packed
+scale/min bytes) alongside the packed quants, and reconstruct the F32 scale/min
+values inside the pointer-table kernel exactly as `unpackQ4KMatrixRows` does.
+
 ## Why this is opt-in
 
 The active experts are prompt- and layer-dependent. The same cache-reserve or
