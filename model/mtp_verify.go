@@ -172,7 +172,7 @@ func (r MTPVerifierResult) CommitGraphFloatKV(m *LlamaModel, graph MTPExecutionG
 	if m == nil {
 		return MTPKVCommitPlan{}, fmt.Errorf("nil model")
 	}
-	if err := r.validateGraph(graph); err != nil {
+	if err := r.validateGraphForModel(m, graph); err != nil {
 		return MTPKVCommitPlan{}, err
 	}
 	commit, err := graph.CommitPlan(r.Acceptance)
@@ -207,6 +207,38 @@ func (r MTPVerifierResult) CommitGraphCompressedKV(graph MTPExecutionGraph, cach
 		return MTPKVCommitPlan{}, err
 	}
 	return commit, nil
+}
+
+func (r MTPVerifierResult) validateGraphForModel(m *LlamaModel, graph MTPExecutionGraph) error {
+	if m == nil {
+		return fmt.Errorf("nil model")
+	}
+	if err := r.validateGraph(graph); err != nil {
+		return err
+	}
+	vocab, hidden := m.Config.VocabSize, m.Config.HiddenSize
+	if vocab <= 0 || hidden <= 0 {
+		return fmt.Errorf("invalid MTP verifier model dims vocab=%d hidden=%d", vocab, hidden)
+	}
+	for i, tok := range r.VerifierTokens {
+		if tok >= vocab {
+			return fmt.Errorf("MTP verifier token %d at index %d out of range [0,%d)", tok, i, vocab)
+		}
+	}
+	for i, row := range r.Logits {
+		if len(row) != vocab {
+			return fmt.Errorf("MTP verifier logits row %d len=%d, want vocab=%d", i, len(row), vocab)
+		}
+	}
+	for i, row := range r.ActivationRows {
+		if len(row) != hidden {
+			return fmt.Errorf("MTP verifier activation row %d len=%d, want hidden=%d", i, len(row), hidden)
+		}
+	}
+	if len(r.FinalActivation) > 0 && len(r.FinalActivation) != hidden {
+		return fmt.Errorf("MTP verifier final activation len=%d, want hidden=%d", len(r.FinalActivation), hidden)
+	}
+	return nil
 }
 
 func (r MTPVerifierResult) validateGraph(graph MTPExecutionGraph) error {

@@ -70,6 +70,25 @@ func TestMTPVerifierResultCommitGraphRejectsMismatchedGraph(t *testing.T) {
 	}
 }
 
+func TestMTPVerifierResultCommitGraphFloatKVRejectsModelRangeDrift(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	graph := MTPExecutionGraph{
+		InputToken:      9,
+		DraftedTokens:   []int{1},
+		StartPos:        0,
+		DrafterSteps:    []MTPDrafterGraphStep{{Index: 0, InputToken: 9, ActivationWidth: 2}},
+		Verifier:        MTPVerifierPlan{InputToken: 9, DraftedTokens: []int{1}, VerifierTokens: []int{9, 1}, StartPos: 0, Positions: []int{0, 1}},
+		MaxKVKeepTokens: 2,
+	}
+	result, err := NewMTPVerifierResult(9, []int{1}, [][]float32{{0, 9, 0, 0, 0, 0, 0, 0, 0, 0}, {7, 0, 0, 0, 0, 0, 0, 0, 0, 0}}, []float32{1, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := result.CommitGraphFloatKV(m, graph, [][]float32{{1, 2, 3, 4}}, [][]float32{{5, 6, 7, 8}}, kv.CheckpointFloatKV([][]float32{{}}, [][]float32{{}})); err == nil {
+		t.Fatal("accepted verifier graph token/logit rows outside model vocab")
+	}
+}
+
 func TestMTPVerifierResultCommitGraphRejectsMalformedVerifierRows(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
 	d := validProjectionOnlyDrafter()
