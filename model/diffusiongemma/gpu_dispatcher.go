@@ -392,8 +392,10 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			stats := ggufExpertDispatchStatsSnapshot().Sub(ggufExpertStatsStart)
 			if stats.Total() > 0 {
 				cacheUsed, cacheLimit := activeExpertMatrixCacheUsageBytes()
-				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts",
+				activeAvg, missingAvg, missingMiB, missingMaxMiB := stats.ActiveSetSummary()
+				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts",
 					stats.FusedUsed, stats.LegacyGroupedUsed, stats.CPUFallback, float64(stats.GPUAttemptNS)/1e9, float64(stats.CPUFallbackNS)/1e9, float64(cacheUsed)/(1024*1024), float64(cacheLimit)/(1024*1024),
+					stats.ActiveSetCalls, activeAvg, stats.ActiveSetMaxExperts, missingAvg, stats.Q4MissingMaxExperts, missingMiB, missingMaxMiB, stats.Q4MissingBudgetExceeds,
 					stats.Q4PointerTable, stats.Q4PackedCache, stats.Q4TransientPointer, stats.Q4TransientPacked, stats.Q4BudgetFallback, float64(stats.Q4BudgetBytes)/(1024*1024), stats.Q4BudgetExperts,
 					stats.Q8PointerTable, stats.Q8PackedCache, stats.Q8TransientPointer, stats.Q8TransientPacked, stats.Q8BudgetFallback, float64(stats.Q8BudgetBytes)/(1024*1024), stats.Q8BudgetExperts)
 			}
@@ -1257,99 +1259,148 @@ func residentGGUFGPUMLPWeights(layer int, lb TextLayerBindings, gateW, upW, down
 var errActiveExpertMatrixCacheBudget = errors.New("active expert matrix cache budget exceeded")
 
 type ggufExpertDispatchStats struct {
-	FusedUsed          uint64
-	LegacyGroupedUsed  uint64
-	CPUFallback        uint64
-	Q4PointerTable     uint64
-	Q4PackedCache      uint64
-	Q4TransientPacked  uint64
-	Q4TransientPointer uint64
-	Q4BudgetFallback   uint64
-	Q4BudgetBytes      uint64
-	Q4BudgetExperts    uint64
-	Q8PointerTable     uint64
-	Q8PackedCache      uint64
-	Q8TransientPacked  uint64
-	Q8TransientPointer uint64
-	Q8BudgetFallback   uint64
-	Q8BudgetBytes      uint64
-	Q8BudgetExperts    uint64
-	GPUAttemptNS       uint64
-	CPUFallbackNS      uint64
+	FusedUsed              uint64
+	LegacyGroupedUsed      uint64
+	CPUFallback            uint64
+	Q4PointerTable         uint64
+	Q4PackedCache          uint64
+	Q4TransientPacked      uint64
+	Q4TransientPointer     uint64
+	Q4BudgetFallback       uint64
+	Q4BudgetBytes          uint64
+	Q4BudgetExperts        uint64
+	Q8PointerTable         uint64
+	Q8PackedCache          uint64
+	Q8TransientPacked      uint64
+	Q8TransientPointer     uint64
+	Q8BudgetFallback       uint64
+	Q8BudgetBytes          uint64
+	Q8BudgetExperts        uint64
+	ActiveSetCalls         uint64
+	ActiveSetExperts       uint64
+	ActiveSetMaxExperts    uint64
+	Q4MissingExperts       uint64
+	Q4MissingMaxExperts    uint64
+	Q4MissingBytes         uint64
+	Q4MissingMaxBytes      uint64
+	Q4MissingBudgetExceeds uint64
+	GPUAttemptNS           uint64
+	CPUFallbackNS          uint64
 }
 
 var ggufExpertDispatchCounters struct {
-	fusedUsed          atomic.Uint64
-	legacyGroupedUsed  atomic.Uint64
-	cpuFallback        atomic.Uint64
-	q4PointerTable     atomic.Uint64
-	q4PackedCache      atomic.Uint64
-	q4TransientPacked  atomic.Uint64
-	q4TransientPointer atomic.Uint64
-	q4BudgetFallback   atomic.Uint64
-	q4BudgetBytes      atomic.Uint64
-	q4BudgetExperts    atomic.Uint64
-	q8PointerTable     atomic.Uint64
-	q8PackedCache      atomic.Uint64
-	q8TransientPacked  atomic.Uint64
-	q8TransientPointer atomic.Uint64
-	q8BudgetFallback   atomic.Uint64
-	q8BudgetBytes      atomic.Uint64
-	q8BudgetExperts    atomic.Uint64
-	gpuAttemptNS       atomic.Uint64
-	cpuFallbackNS      atomic.Uint64
+	fusedUsed              atomic.Uint64
+	legacyGroupedUsed      atomic.Uint64
+	cpuFallback            atomic.Uint64
+	q4PointerTable         atomic.Uint64
+	q4PackedCache          atomic.Uint64
+	q4TransientPacked      atomic.Uint64
+	q4TransientPointer     atomic.Uint64
+	q4BudgetFallback       atomic.Uint64
+	q4BudgetBytes          atomic.Uint64
+	q4BudgetExperts        atomic.Uint64
+	q8PointerTable         atomic.Uint64
+	q8PackedCache          atomic.Uint64
+	q8TransientPacked      atomic.Uint64
+	q8TransientPointer     atomic.Uint64
+	q8BudgetFallback       atomic.Uint64
+	q8BudgetBytes          atomic.Uint64
+	q8BudgetExperts        atomic.Uint64
+	activeSetCalls         atomic.Uint64
+	activeSetExperts       atomic.Uint64
+	activeSetMaxExperts    atomic.Uint64
+	q4MissingExperts       atomic.Uint64
+	q4MissingMaxExperts    atomic.Uint64
+	q4MissingBytes         atomic.Uint64
+	q4MissingMaxBytes      atomic.Uint64
+	q4MissingBudgetExceeds atomic.Uint64
+	gpuAttemptNS           atomic.Uint64
+	cpuFallbackNS          atomic.Uint64
 }
 
 func ggufExpertDispatchStatsSnapshot() ggufExpertDispatchStats {
 	return ggufExpertDispatchStats{
-		FusedUsed:          ggufExpertDispatchCounters.fusedUsed.Load(),
-		LegacyGroupedUsed:  ggufExpertDispatchCounters.legacyGroupedUsed.Load(),
-		CPUFallback:        ggufExpertDispatchCounters.cpuFallback.Load(),
-		Q4PointerTable:     ggufExpertDispatchCounters.q4PointerTable.Load(),
-		Q4PackedCache:      ggufExpertDispatchCounters.q4PackedCache.Load(),
-		Q4TransientPacked:  ggufExpertDispatchCounters.q4TransientPacked.Load(),
-		Q4TransientPointer: ggufExpertDispatchCounters.q4TransientPointer.Load(),
-		Q4BudgetFallback:   ggufExpertDispatchCounters.q4BudgetFallback.Load(),
-		Q4BudgetBytes:      ggufExpertDispatchCounters.q4BudgetBytes.Load(),
-		Q4BudgetExperts:    ggufExpertDispatchCounters.q4BudgetExperts.Load(),
-		Q8PointerTable:     ggufExpertDispatchCounters.q8PointerTable.Load(),
-		Q8PackedCache:      ggufExpertDispatchCounters.q8PackedCache.Load(),
-		Q8TransientPacked:  ggufExpertDispatchCounters.q8TransientPacked.Load(),
-		Q8TransientPointer: ggufExpertDispatchCounters.q8TransientPointer.Load(),
-		Q8BudgetFallback:   ggufExpertDispatchCounters.q8BudgetFallback.Load(),
-		Q8BudgetBytes:      ggufExpertDispatchCounters.q8BudgetBytes.Load(),
-		Q8BudgetExperts:    ggufExpertDispatchCounters.q8BudgetExperts.Load(),
-		GPUAttemptNS:       ggufExpertDispatchCounters.gpuAttemptNS.Load(),
-		CPUFallbackNS:      ggufExpertDispatchCounters.cpuFallbackNS.Load(),
+		FusedUsed:              ggufExpertDispatchCounters.fusedUsed.Load(),
+		LegacyGroupedUsed:      ggufExpertDispatchCounters.legacyGroupedUsed.Load(),
+		CPUFallback:            ggufExpertDispatchCounters.cpuFallback.Load(),
+		Q4PointerTable:         ggufExpertDispatchCounters.q4PointerTable.Load(),
+		Q4PackedCache:          ggufExpertDispatchCounters.q4PackedCache.Load(),
+		Q4TransientPacked:      ggufExpertDispatchCounters.q4TransientPacked.Load(),
+		Q4TransientPointer:     ggufExpertDispatchCounters.q4TransientPointer.Load(),
+		Q4BudgetFallback:       ggufExpertDispatchCounters.q4BudgetFallback.Load(),
+		Q4BudgetBytes:          ggufExpertDispatchCounters.q4BudgetBytes.Load(),
+		Q4BudgetExperts:        ggufExpertDispatchCounters.q4BudgetExperts.Load(),
+		Q8PointerTable:         ggufExpertDispatchCounters.q8PointerTable.Load(),
+		Q8PackedCache:          ggufExpertDispatchCounters.q8PackedCache.Load(),
+		Q8TransientPacked:      ggufExpertDispatchCounters.q8TransientPacked.Load(),
+		Q8TransientPointer:     ggufExpertDispatchCounters.q8TransientPointer.Load(),
+		Q8BudgetFallback:       ggufExpertDispatchCounters.q8BudgetFallback.Load(),
+		Q8BudgetBytes:          ggufExpertDispatchCounters.q8BudgetBytes.Load(),
+		Q8BudgetExperts:        ggufExpertDispatchCounters.q8BudgetExperts.Load(),
+		ActiveSetCalls:         ggufExpertDispatchCounters.activeSetCalls.Load(),
+		ActiveSetExperts:       ggufExpertDispatchCounters.activeSetExperts.Load(),
+		ActiveSetMaxExperts:    ggufExpertDispatchCounters.activeSetMaxExperts.Load(),
+		Q4MissingExperts:       ggufExpertDispatchCounters.q4MissingExperts.Load(),
+		Q4MissingMaxExperts:    ggufExpertDispatchCounters.q4MissingMaxExperts.Load(),
+		Q4MissingBytes:         ggufExpertDispatchCounters.q4MissingBytes.Load(),
+		Q4MissingMaxBytes:      ggufExpertDispatchCounters.q4MissingMaxBytes.Load(),
+		Q4MissingBudgetExceeds: ggufExpertDispatchCounters.q4MissingBudgetExceeds.Load(),
+		GPUAttemptNS:           ggufExpertDispatchCounters.gpuAttemptNS.Load(),
+		CPUFallbackNS:          ggufExpertDispatchCounters.cpuFallbackNS.Load(),
 	}
+}
+
+func ggufMaxSince(current, base uint64) uint64 {
+	if current > base {
+		return current
+	}
+	return 0
 }
 
 func (s ggufExpertDispatchStats) Sub(base ggufExpertDispatchStats) ggufExpertDispatchStats {
 	return ggufExpertDispatchStats{
-		FusedUsed:          s.FusedUsed - base.FusedUsed,
-		LegacyGroupedUsed:  s.LegacyGroupedUsed - base.LegacyGroupedUsed,
-		CPUFallback:        s.CPUFallback - base.CPUFallback,
-		Q4PointerTable:     s.Q4PointerTable - base.Q4PointerTable,
-		Q4PackedCache:      s.Q4PackedCache - base.Q4PackedCache,
-		Q4TransientPacked:  s.Q4TransientPacked - base.Q4TransientPacked,
-		Q4TransientPointer: s.Q4TransientPointer - base.Q4TransientPointer,
-		Q4BudgetFallback:   s.Q4BudgetFallback - base.Q4BudgetFallback,
-		Q4BudgetBytes:      s.Q4BudgetBytes - base.Q4BudgetBytes,
-		Q4BudgetExperts:    s.Q4BudgetExperts - base.Q4BudgetExperts,
-		Q8PointerTable:     s.Q8PointerTable - base.Q8PointerTable,
-		Q8PackedCache:      s.Q8PackedCache - base.Q8PackedCache,
-		Q8TransientPacked:  s.Q8TransientPacked - base.Q8TransientPacked,
-		Q8TransientPointer: s.Q8TransientPointer - base.Q8TransientPointer,
-		Q8BudgetFallback:   s.Q8BudgetFallback - base.Q8BudgetFallback,
-		Q8BudgetBytes:      s.Q8BudgetBytes - base.Q8BudgetBytes,
-		Q8BudgetExperts:    s.Q8BudgetExperts - base.Q8BudgetExperts,
-		GPUAttemptNS:       s.GPUAttemptNS - base.GPUAttemptNS,
-		CPUFallbackNS:      s.CPUFallbackNS - base.CPUFallbackNS,
+		FusedUsed:              s.FusedUsed - base.FusedUsed,
+		LegacyGroupedUsed:      s.LegacyGroupedUsed - base.LegacyGroupedUsed,
+		CPUFallback:            s.CPUFallback - base.CPUFallback,
+		Q4PointerTable:         s.Q4PointerTable - base.Q4PointerTable,
+		Q4PackedCache:          s.Q4PackedCache - base.Q4PackedCache,
+		Q4TransientPacked:      s.Q4TransientPacked - base.Q4TransientPacked,
+		Q4TransientPointer:     s.Q4TransientPointer - base.Q4TransientPointer,
+		Q4BudgetFallback:       s.Q4BudgetFallback - base.Q4BudgetFallback,
+		Q4BudgetBytes:          s.Q4BudgetBytes - base.Q4BudgetBytes,
+		Q4BudgetExperts:        s.Q4BudgetExperts - base.Q4BudgetExperts,
+		Q8PointerTable:         s.Q8PointerTable - base.Q8PointerTable,
+		Q8PackedCache:          s.Q8PackedCache - base.Q8PackedCache,
+		Q8TransientPacked:      s.Q8TransientPacked - base.Q8TransientPacked,
+		Q8TransientPointer:     s.Q8TransientPointer - base.Q8TransientPointer,
+		Q8BudgetFallback:       s.Q8BudgetFallback - base.Q8BudgetFallback,
+		Q8BudgetBytes:          s.Q8BudgetBytes - base.Q8BudgetBytes,
+		Q8BudgetExperts:        s.Q8BudgetExperts - base.Q8BudgetExperts,
+		ActiveSetCalls:         s.ActiveSetCalls - base.ActiveSetCalls,
+		ActiveSetExperts:       s.ActiveSetExperts - base.ActiveSetExperts,
+		ActiveSetMaxExperts:    ggufMaxSince(s.ActiveSetMaxExperts, base.ActiveSetMaxExperts),
+		Q4MissingExperts:       s.Q4MissingExperts - base.Q4MissingExperts,
+		Q4MissingMaxExperts:    ggufMaxSince(s.Q4MissingMaxExperts, base.Q4MissingMaxExperts),
+		Q4MissingBytes:         s.Q4MissingBytes - base.Q4MissingBytes,
+		Q4MissingMaxBytes:      ggufMaxSince(s.Q4MissingMaxBytes, base.Q4MissingMaxBytes),
+		Q4MissingBudgetExceeds: s.Q4MissingBudgetExceeds - base.Q4MissingBudgetExceeds,
+		GPUAttemptNS:           s.GPUAttemptNS - base.GPUAttemptNS,
+		CPUFallbackNS:          s.CPUFallbackNS - base.CPUFallbackNS,
 	}
 }
 
 func (s ggufExpertDispatchStats) Total() uint64 {
 	return s.FusedUsed + s.LegacyGroupedUsed + s.CPUFallback
+}
+
+func (s ggufExpertDispatchStats) ActiveSetSummary() (activeAvg float64, missingAvg float64, missingMiB float64, missingMaxMiB float64) {
+	if s.ActiveSetCalls > 0 {
+		activeAvg = float64(s.ActiveSetExperts) / float64(s.ActiveSetCalls)
+		missingAvg = float64(s.Q4MissingExperts) / float64(s.ActiveSetCalls)
+	}
+	missingMiB = float64(s.Q4MissingBytes) / (1024 * 1024)
+	missingMaxMiB = float64(s.Q4MissingMaxBytes) / (1024 * 1024)
+	return activeAvg, missingAvg, missingMiB, missingMaxMiB
 }
 
 func ResetGGUFGPUDiagnosticStats() {
@@ -1370,6 +1421,14 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufExpertDispatchCounters.q8BudgetFallback.Store(0)
 	ggufExpertDispatchCounters.q8BudgetBytes.Store(0)
 	ggufExpertDispatchCounters.q8BudgetExperts.Store(0)
+	ggufExpertDispatchCounters.activeSetCalls.Store(0)
+	ggufExpertDispatchCounters.activeSetExperts.Store(0)
+	ggufExpertDispatchCounters.activeSetMaxExperts.Store(0)
+	ggufExpertDispatchCounters.q4MissingExperts.Store(0)
+	ggufExpertDispatchCounters.q4MissingMaxExperts.Store(0)
+	ggufExpertDispatchCounters.q4MissingBytes.Store(0)
+	ggufExpertDispatchCounters.q4MissingMaxBytes.Store(0)
+	ggufExpertDispatchCounters.q4MissingBudgetExceeds.Store(0)
 	ggufExpertDispatchCounters.gpuAttemptNS.Store(0)
 	ggufExpertDispatchCounters.cpuFallbackNS.Store(0)
 
@@ -1578,6 +1637,35 @@ func recordGGUFAttentionTiming(total, proj, normRoPE, kvBuild, attn, oProj time.
 	ggufAttentionTimingCounters.kvBuildNS.Add(uint64(kvBuild.Nanoseconds()))
 	ggufAttentionTimingCounters.attnNS.Add(uint64(attn.Nanoseconds()))
 	ggufAttentionTimingCounters.oProjNS.Add(uint64(oProj.Nanoseconds()))
+}
+
+func ggufAtomicMaxUint64(dst *atomic.Uint64, v uint64) {
+	for {
+		cur := dst.Load()
+		if v <= cur || dst.CompareAndSwap(cur, v) {
+			return
+		}
+	}
+}
+
+func recordGGUFActiveExpertSetTelemetry(idx *GGUFExpertIndex, layer int, active []int, missingExperts int, missingBytes int64, budgetExceeds bool) {
+	if len(active) == 0 {
+		return
+	}
+	ggufExpertDispatchCounters.activeSetCalls.Add(1)
+	ggufExpertDispatchCounters.activeSetExperts.Add(uint64(len(active)))
+	ggufAtomicMaxUint64(&ggufExpertDispatchCounters.activeSetMaxExperts, uint64(len(active)))
+	if missingExperts > 0 {
+		ggufExpertDispatchCounters.q4MissingExperts.Add(uint64(missingExperts))
+		ggufAtomicMaxUint64(&ggufExpertDispatchCounters.q4MissingMaxExperts, uint64(missingExperts))
+	}
+	if missingBytes > 0 {
+		ggufExpertDispatchCounters.q4MissingBytes.Add(uint64(missingBytes))
+		ggufAtomicMaxUint64(&ggufExpertDispatchCounters.q4MissingMaxBytes, uint64(missingBytes))
+	}
+	if budgetExceeds {
+		ggufExpertDispatchCounters.q4MissingBudgetExceeds.Add(1)
+	}
 }
 
 func recordQ4BudgetFallback(idx *GGUFExpertIndex, layer int, active []int) {
@@ -1941,38 +2029,42 @@ func shouldSkipDoomedGGUFGPUExpertAttempt(idx *GGUFExpertIndex, layer int) bool 
 }
 
 func shouldSkipDoomedGGUFActiveExpertSet(idx *GGUFExpertIndex, layer int, active []int) bool {
-	if !diffusionGemmaGGUFGPUExpertTransientActiveEnabled() && !diffusionGemmaGGUFGPUExpertTransientPointerEnabled() && ggufActiveExpertSetQ4MissingBytesExceedsBudget(idx, layer, active) {
-		return true
-	}
-	return false
+	missingExperts, missingBytes, exceeds := ggufActiveExpertSetQ4MissingStats(idx, layer, active)
+	recordGGUFActiveExpertSetTelemetry(idx, layer, active, missingExperts, missingBytes, exceeds)
+	return !diffusionGemmaGGUFGPUExpertTransientActiveEnabled() && !diffusionGemmaGGUFGPUExpertTransientPointerEnabled() && exceeds
 }
 
 func ggufActiveExpertSetQ4MissingBytesExceedsBudget(idx *GGUFExpertIndex, layer int, active []int) bool {
-	if len(active) == 0 {
-		return false
+	_, _, exceeds := ggufActiveExpertSetQ4MissingStats(idx, layer, active)
+	return exceeds
+}
+
+func ggufActiveExpertSetQ4MissingStats(idx *GGUFExpertIndex, layer int, active []int) (missingExperts int, missingBytes int64, exceeds bool) {
+	if idx == nil || len(active) == 0 {
+		return 0, 0, false
 	}
 	if ggufPointerExpertLayerFullyResident(idx, layer) {
-		return false
+		return 0, 0, false
 	}
 	perExpert, err := q4KGateUpExpertDeviceBytes(idx, layer)
 	if err != nil || perExpert <= 0 {
-		return false
+		return 0, 0, false
 	}
 	index := ggufExpertIndexCacheID(idx)
-	missing := int64(0)
 	for _, expert := range active {
-		if expert < 0 || idx == nil || expert >= idx.NumExperts {
+		if expert < 0 || expert >= idx.NumExperts {
 			continue
 		}
 		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
-			missing += perExpert
+			missingExperts++
+			missingBytes += perExpert
 		}
 	}
-	if missing <= 0 {
-		return false
+	if missingBytes <= 0 {
+		return missingExperts, missingBytes, false
 	}
 	used, limit := activeExpertMatrixCacheUsageBytes()
-	return limit <= 0 || used+missing > limit
+	return missingExperts, missingBytes, limit <= 0 || used+missingBytes > limit
 }
 
 func shouldEarlySkipDoomedGGUFExpertAttempt(idx *GGUFExpertIndex, layer int, topKIDs []int, positions, topK int) ([]int, bool) {
