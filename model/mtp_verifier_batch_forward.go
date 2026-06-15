@@ -11,8 +11,7 @@ func (m *LlamaModel) RunMTPVerifierBatchForward(batch MTPVerifierBatchInputs, kv
 	if err := m.validateMTPVerifierBatchForwardInputs(batch, kvCacheK, kvCacheV); err != nil {
 		return MTPVerifierResult{}, err
 	}
-	logitsRows := make([][]float32, len(batch.HiddenRows))
-	var finalActivation []float32
+	finalHiddenRows := make([][]float32, len(batch.HiddenRows))
 	attnRows := batch.Scratch.MaxAttentionRows
 	if attnRows < 1 {
 		attnRows = 1
@@ -41,13 +40,13 @@ func (m *LlamaModel) RunMTPVerifierBatchForward(batch MTPVerifierBatchInputs, kv
 				return MTPVerifierResult{}, fmt.Errorf("verifier batch forward layer %d at position %d failed", l, pos)
 			}
 		}
-		activation, logits, _, err := m.FinishCPUDecodeStep(hidden)
-		if err != nil {
-			return MTPVerifierResult{}, fmt.Errorf("verifier batch decode finish row %d: %w", i, err)
-		}
-		logitsRows[i] = logits
-		finalActivation = activation
+		finalHiddenRows[i] = hidden
 	}
+	finalActivations, logitsRows, _, err := m.FinishCPUDecodeBatch(finalHiddenRows)
+	if err != nil {
+		return MTPVerifierResult{}, fmt.Errorf("verifier batch decode finish: %w", err)
+	}
+	finalActivation := finalActivations[len(finalActivations)-1]
 	return NewMTPVerifierResultForModel(m, batch.Plan.InputToken, batch.Plan.DraftedTokens, logitsRows, finalActivation)
 }
 
