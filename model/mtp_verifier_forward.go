@@ -18,6 +18,9 @@ func (m *LlamaModel) RunMTPVerifierForward(plan MTPVerifierPlan, kvCacheK, kvCac
 	if err != nil {
 		return MTPVerifierResult{}, err
 	}
+	if m.Config.NumLayers == 0 {
+		return m.RunMTPVerifierBatchForward(batch, kvCacheK, kvCacheV)
+	}
 	logitsRows := make([][]float32, len(plan.VerifierTokens))
 	var finalActivation []float32
 	maxSeqLen := plan.StartPos + len(plan.VerifierTokens)
