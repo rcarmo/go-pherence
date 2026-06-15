@@ -14,6 +14,7 @@ type MTPGraphGenerationResult struct {
 	RequestedMaxTokens         int
 	Stats                      MTPSpeculationStats
 	FinalState                 MTPDrafterState
+	FinalStateOutputLen        int // number of Output tokens covered by FinalState; greedy-tail fallback is not covered
 	Steps                      []MTPKVCommitPlan
 	StepSummaries              []MTPGraphGenerationStepSummary
 	GraphOutputTokens          int
@@ -179,6 +180,21 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if r.Stats.OutputTokens != r.GraphOutputTokens {
 		return fmt.Errorf("MTP stats output tokens=%d, graph output tokens=%d", r.Stats.OutputTokens, r.GraphOutputTokens)
 	}
+	if r.FinalStateOutputLen != 0 {
+		wantFinalStateOutputLen := promptLen + r.GraphOutputTokens
+		if r.FinalStateOutputLen != wantFinalStateOutputLen {
+			return fmt.Errorf("MTP final state output len=%d, want prompt+graph output=%d", r.FinalStateOutputLen, wantFinalStateOutputLen)
+		}
+		if r.FinalStateOutputLen < 0 || r.FinalStateOutputLen > len(r.Output) {
+			return fmt.Errorf("MTP final state output len=%d outside output len=%d", r.FinalStateOutputLen, len(r.Output))
+		}
+		if r.FinalStateOutputLen > 0 {
+			wantToken := r.Output[r.FinalStateOutputLen-1]
+			if r.FinalState.PreviousToken != wantToken {
+				return fmt.Errorf("MTP final state previous token=%d, want output[%d]=%d", r.FinalState.PreviousToken, r.FinalStateOutputLen-1, wantToken)
+			}
+		}
+	}
 	return nil
 }
 
@@ -251,6 +267,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 	summaries := make([]MTPGraphGenerationStepSummary, 0)
 	graphOutputTokens := 0
 	greedyTailTokens := 0
+	finalStateOutputLen := len(ctx.Tokens)
 	for len(decode.Output)-len(ctx.Tokens) < opts.MaxTokens {
 		remaining := opts.MaxTokens - (len(decode.Output) - len(ctx.Tokens))
 		if remaining <= 1 {
@@ -273,6 +290,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 			return MTPGraphGenerationResult{}, err
 		}
 		state = step.FinalState
+		finalStateOutputLen = len(decode.Output)
 		stats = step.Stats
 		commits = append(commits, step.Commit)
 		summaries = append(summaries, newMTPGraphGenerationStepSummary(step))
@@ -282,7 +300,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, RequestedMaxTokens: opts.MaxTokens, Stats: stats, FinalState: state, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
+	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, RequestedMaxTokens: opts.MaxTokens, Stats: stats, FinalState: state, FinalStateOutputLen: finalStateOutputLen, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
 	if err := result.Validate(len(ctx.Tokens)); err != nil {
 		return MTPGraphGenerationResult{}, err
 	}
