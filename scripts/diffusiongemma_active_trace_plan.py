@@ -60,7 +60,7 @@ def expert_cost_bytes(layer: int, q8_layers: set[int] | None, q5_layers: set[int
     return q4_gate_up + q8_down
 
 
-def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer") -> list[tuple[int, list[int]]]:
+def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer", missing_only: bool = False) -> list[tuple[int, list[int]]]:
     seen_layers: set[int] = set()
     plan: list[tuple[int, list[int]]] = []
     flat: list[tuple[float, int, int, int]] = []  # sort-key, layer, rank, expert
@@ -82,6 +82,9 @@ def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: se
                 continue
             expert = int(mm.group(1))
             work = int(mm.group(2))
+            missing = bool(mm.group(3))
+            if missing_only and not missing:
+                continue
             if expert in seen_experts:
                 continue
             seen_experts.add(expert)
@@ -112,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--q8-layers", default="", help="optional comma/range list of Q8_0 down layers, e.g. 0-2,5,8,11")
     ap.add_argument("--q5-layers", default="", help="optional comma/range list of Q5_0 down layers for cost-aware planning")
     ap.add_argument("--include-repeated-layers", action="store_true", help="include repeated layer traces instead of only the first row per layer")
+    ap.add_argument("--missing-only", action="store_true", help="only emit experts marked missing with ! in the active trace; useful for incremental plan refinement")
     ap.add_argument("--order", choices=("layer", "global-work", "efficiency"), default="layer", help="emit layer-major groups, globally sort by work, or sort by work/estimated resident byte (default: layer)")
     args = ap.parse_args(argv)
 
@@ -119,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("--top must be positive")
     q8_layers = parse_layer_set(args.q8_layers)
     q5_layers = parse_layer_set(args.q5_layers)
-    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order)
+    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only)
     sys.stdout.write(format_plan(plan))
     if plan:
         sys.stdout.write("\n")
