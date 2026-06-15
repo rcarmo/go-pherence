@@ -76,6 +76,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if err := r.Capabilities.Validate(); err != nil {
 		return err
 	}
+	if r.UsedCompressedKV && !r.Capabilities.VerifierCompressedKVStaging {
+		return fmt.Errorf("MTP graph generation used compressed KV but capability verifier_compressed_kv_staging is false")
+	}
 	if !mtpSameStringSet(r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration()) {
 		return fmt.Errorf("MTP public-generation blockers=%v, want capabilities blockers=%v", r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration())
 	}

@@ -165,6 +165,13 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted stale capability readiness")
 	}
 	bad = valid
+	bad.UsedCompressedKV = true
+	bad.Capabilities.VerifierCompressedKVStaging = false
+	bad.MissingForPublicGeneration = bad.Capabilities.MissingForPublicGeneration()
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted compressed result without compressed-staging capability")
+	}
+	bad = valid
 	bad.VocabSize = 0
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted missing vocab size")
