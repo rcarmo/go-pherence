@@ -63,21 +63,32 @@ gguf_expert_active_trace: layer=1 active=60 work=736 missing_q4=60 missing_q4_by
 
 ## Build a layer-aware prewarm plan
 
-Pointer-table fused experts currently require Q4_K gate/up and Q8_0 down. The
-Q4_K_M checkpoint uses Q8_0 down experts only on these layers:
+Pointer-table fused experts currently require Q4_K gate/up and a supported
+quantized down path. The Q4_K_M checkpoint uses Q8_0 down experts on these
+layers:
 
 ```text
 0-2,5,8,11,14,17,20,23,26-29
 ```
 
-Generate a top-6 plan for those compatible layers:
+Generate a plan for the compatible layers. For the current exact partial-resident
+path, use a full active trace and keep at least one resident expert per traced
+layer before applying efficiency ordering:
 
 ```bash
 PLAN=$(scripts/diffusiongemma_active_trace_plan.py \
-  /tmp/dg-92-active-trace-top8.log \
-  --top 6 \
-  --q8-layers '0-2,5,8,11,14,17,20,23,26-29')
+  /tmp/dg-92-full-active-trace.log \
+  --top 128 \
+  --q8-layers '0-2,5,8,11,14,17,20,23,26-29' \
+  --q5-layers '3-4,6-7,9-10,12-13,15-16,18-19,21-22,24-25' \
+  --order efficiency \
+  --ensure-layer-coverage \
+  --budget-mb 768 \
+  --summary)
 ```
+
+Older Q8-only top-N plans are still useful for historical comparison, but they do
+not cover the Q5_0 down layers that now have pointer-table GPU support.
 
 Then run with the planned prewarm:
 
@@ -99,8 +110,10 @@ GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN="$PLAN" \
 
 `GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN` accepts
 `layer:expert,expert;layer:expert,...`. Planned entries are attempted before
-sequential fallback prewarm. Duplicate and invalid IDs are ignored. Layers whose
-down experts are not Q8_0 are skipped for pointer prewarm unless
+sequential fallback prewarm, unless
+`GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY=1` is set. Duplicate
+and invalid IDs are ignored. Q8_0 and Q5_0 down experts have pointer-table GPU
+paths; unsupported down quantization is skipped unless
 `GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_Q4_ONLY=1` is explicitly set.
 
 ## Current measurements
@@ -142,18 +155,16 @@ export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT=1
 
 Current exact partial-resident top-N sweep with the same 768MiB expert cache:
 
-| Plan | Encoder MoE | Fused/CPU | Dropped CPU work | Q4 dequant rows | Q8 dequant rows | Notes |
-|---:|---:|---:|---:|---:|---:|---|
-| top4 | 3.71s | 14/16 | 17223 | 573056 | 456192 | Preserves token but leaves more CPU work. |
-| top6 | 3.83s | 14/16 | 15728 | 542080 | 394240 | More resident work, still significant dropped fallback. |
-| top8 | 3.63s | 14/16 | 14726 | 508288 | 326656 | Better dropped-work profile. |
-| top10 | 2.45s | 14/16 | 14036 | 475904 | 261888 | Best current structural balance. |
-| top12 | 2.68s | 13/17 | 14194 | 460416 | 230912 | Loses one fused layer, so not better despite fewer rows. |
+| Plan | Encoder MoE | Fused/CPU | Dropped CPU work | Q4 dequant rows | Q8 dequant rows | Q5 dequant rows | Notes |
+|---:|---:|---:|---:|---:|---:|---:|---|
+| Q8-only top10 (historical) | 2.45s | 14/16 | 14036 | 475904 | 261888 | n/a | Best Q8-only structural balance before Q5 pointer support. |
+| all-layer global top10 | load-sensitive | 30/0 | 9209 | 440704 | 459008 | 1346048 | Q5 pointer support active; all encoder layers enter fused dispatch. |
+| all-layer efficiency + coverage | load-sensitive | 30/0 | 9172 | 439296 | 470272 | 1331968 | Current 768MiB structural target; +37 kept work items over global top10. |
 
-After Q5_0 pointer support, the all-layer/global top10 plan is the current
-recommended diagnostic target for exact partial-resident execution at 768MiB:
-it preserves `[144]`, reaches `fused=30`, and reports
-`partial kept/dropped work=12871/9209`. The exact-GELU host boundary is
+After Q5_0 pointer support, all-layer plans are the current recommended
+diagnostic target for exact partial-resident execution at 768MiB. The latest
+layer-coverage-aware efficiency plan preserves `[144]`, reaches `fused=30`, and
+reports `partial kept/dropped work=12908/9172`. The exact-GELU host boundary is
 measurable but not dominant in the 768MiB profile; the remaining bottleneck is
 how many selected experts still land in the dropped CPU subset.
 
