@@ -106,19 +106,55 @@ down experts are not Q8_0 are skipped for pointer prewarm unless
 ## Current measurements
 
 All rows below used the exact 92-token `canvas=1` profile and preserved
-`generated=[144]`.
+`generated=[144]`. Wall-clock values are host-load-sensitive; prefer stable
+structural counters such as fused coverage, dropped CPU work, and row counts when
+comparing close runs.
+
+### Historical approximate fused-Q4 profile
+
+The original fused Q4_K pointer kernels used tanh-GELU approximation. Those
+measurements were useful for residency planning but are no longer the
+high-fidelity default:
 
 | Expert profile | Encoder MoE | Notes |
 |---|---:|---|
 | Sequential layer-0 pointer prewarm | ~3.10s | Full layer-0 prewarm, 128 experts / ~0.62GiB. |
 | Trace-derived Q8-compatible top4 plan | 2.205s | Better than sequential, but less coverage than top6. |
-| Trace-derived Q8-compatible top6 plan | 2.154s | Best observed balance in the current sweep. |
+| Trace-derived Q8-compatible top6 plan | 2.154s | Best approximate-fused balance in that sweep. |
 | Trace-derived Q8-compatible top8 plan | 3.006s | Too much prewarm; worsened CPU fallback/runtime balance. |
 | No expert prewarm | 4.463s | More CPU fallback time despite some opportunistic GPU coverage. |
 
-The top6 planned profile prewarmed 154 layer/expert entries, approximately
-0.75GiB, within the 768MiB expert cache. It reduced costly partial GPU attempts
-and shifted the hot path toward CPU SIMD fallback for still-missing experts.
+The approximate top6 planned profile prewarmed 154 layer/expert entries,
+approximately 0.75GiB, within the 768MiB expert cache. It reduced costly partial
+GPU attempts and shifted the hot path toward CPU SIMD fallback for still-missing
+experts.
+
+### Exact-GELU partial-resident profile
+
+The current high-fidelity path uses a Q4_K pointer-table dot-only GPU kernel,
+then applies exact erf GELU through the explicit exact-GELU boundary before the
+Q8_0 down/scatter stage. The partial-resident executor is opt-in:
+
+```bash
+export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT=1
+```
+
+Current exact partial-resident top-N sweep with the same 768MiB expert cache:
+
+| Plan | Encoder MoE | Fused/CPU | Dropped CPU work | Q4 dequant rows | Q8 dequant rows | Notes |
+|---:|---:|---:|---:|---:|---:|---|
+| top4 | 3.71s | 14/16 | 17223 | 573056 | 456192 | Preserves token but leaves more CPU work. |
+| top6 | 3.83s | 14/16 | 15728 | 542080 | 394240 | More resident work, still significant dropped fallback. |
+| top8 | 3.63s | 14/16 | 14726 | 508288 | 326656 | Better dropped-work profile. |
+| top10 | 2.45s | 14/16 | 14036 | 475904 | 261888 | Best current structural balance. |
+| top12 | 2.68s | 13/17 | 14194 | 460416 | 230912 | Loses one fused layer, so not better despite fewer rows. |
+
+Top10 is the current recommended diagnostic plan for this exact partial-resident
+profile: it keeps fused coverage at 14 encoder layers while reducing dropped CPU
+work the most. The exact-GELU host boundary is measurable but not dominant in the
+current profile (roughly a few tenths of a second for encoder fused calls); the
+remaining bottleneck is dropped-subset CPU fallback and broad active expert
+coverage.
 
 ## Why this is opt-in
 
@@ -136,8 +172,11 @@ profiling tool, not a production default.
 
 ## Next work
 
-- Use trace-derived plans to identify a reusable layer-aware hot expert policy.
+- Use the exact partial-resident top10 profile as the current structural target
+  for further optimization, not as a default.
+- Reduce dropped-subset CPU fallback time or increase resident coverage without
+  losing fused layers.
 - Reduce Q4_K expert residency footprint or make active-set materialization cheap
-enough that broad active expert coverage no longer falls back to CPU.
+  enough that broad active expert coverage no longer falls back to CPU.
 - Keep CPU/SIMD fallback faithful to llama.cpp `ggml_mul_mat_id` semantics while
   GPU residency catches up.
