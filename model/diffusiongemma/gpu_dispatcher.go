@@ -384,8 +384,8 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			}
 			cpuStats := ggufCPUExpertTimingSnapshot().Sub(ggufCPUExpertStatsStart)
 			if cpuStats.Calls > 0 {
-				log.Printf("gguf_cpu_experts: calls=%d positions=%d work_items=%d active_experts=%d norm=%.1fs collect=%.1fs schedule=%.1fs gate=%.1fs act=%.1fs down=%.1fs scatter=%.1fs post=%.1fs",
-					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, float64(cpuStats.NormNS)/1e9, float64(cpuStats.CollectNS)/1e9, float64(cpuStats.ScheduleNS)/1e9, float64(cpuStats.GateNS)/1e9, float64(cpuStats.ActNS)/1e9, float64(cpuStats.DownNS)/1e9, float64(cpuStats.ScatterNS)/1e9, float64(cpuStats.PostNS)/1e9)
+				log.Printf("gguf_cpu_experts: calls=%d positions=%d work_items=%d active_experts=%d q4_direct_rows=%d q4_dequant_rows=%d q8_direct_rows=%d q8_dequant_rows=%d norm=%.1fs collect=%.1fs schedule=%.1fs gate=%.1fs act=%.1fs down=%.1fs scatter=%.1fs post=%.1fs",
+					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, cpuStats.Q4DirectRows, cpuStats.Q4DequantRows, cpuStats.Q8DirectRows, cpuStats.Q8DequantRows, float64(cpuStats.NormNS)/1e9, float64(cpuStats.CollectNS)/1e9, float64(cpuStats.ScheduleNS)/1e9, float64(cpuStats.GateNS)/1e9, float64(cpuStats.ActNS)/1e9, float64(cpuStats.DownNS)/1e9, float64(cpuStats.ScatterNS)/1e9, float64(cpuStats.PostNS)/1e9)
 			}
 			stats := ggufExpertDispatchStatsSnapshot().Sub(ggufExpertStatsStart)
 			if stats.Total() > 0 {

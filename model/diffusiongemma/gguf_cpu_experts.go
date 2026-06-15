@@ -157,6 +157,10 @@ type ggufCPUExpertTimingStats struct {
 	Positions     uint64
 	WorkItems     uint64
 	ActiveExperts uint64
+	Q4DirectRows  uint64
+	Q4DequantRows uint64
+	Q8DirectRows  uint64
+	Q8DequantRows uint64
 	NormNS        uint64
 	CollectNS     uint64
 	ScheduleNS    uint64
@@ -172,6 +176,10 @@ var ggufCPUExpertTimingCounters struct {
 	positions     atomic.Uint64
 	workItems     atomic.Uint64
 	activeExperts atomic.Uint64
+	q4DirectRows  atomic.Uint64
+	q4DequantRows atomic.Uint64
+	q8DirectRows  atomic.Uint64
+	q8DequantRows atomic.Uint64
 	normNS        atomic.Uint64
 	collectNS     atomic.Uint64
 	scheduleNS    atomic.Uint64
@@ -188,6 +196,10 @@ func ggufCPUExpertTimingSnapshot() ggufCPUExpertTimingStats {
 		Positions:     ggufCPUExpertTimingCounters.positions.Load(),
 		WorkItems:     ggufCPUExpertTimingCounters.workItems.Load(),
 		ActiveExperts: ggufCPUExpertTimingCounters.activeExperts.Load(),
+		Q4DirectRows:  ggufCPUExpertTimingCounters.q4DirectRows.Load(),
+		Q4DequantRows: ggufCPUExpertTimingCounters.q4DequantRows.Load(),
+		Q8DirectRows:  ggufCPUExpertTimingCounters.q8DirectRows.Load(),
+		Q8DequantRows: ggufCPUExpertTimingCounters.q8DequantRows.Load(),
 		NormNS:        ggufCPUExpertTimingCounters.normNS.Load(),
 		CollectNS:     ggufCPUExpertTimingCounters.collectNS.Load(),
 		ScheduleNS:    ggufCPUExpertTimingCounters.scheduleNS.Load(),
@@ -204,6 +216,10 @@ func ResetGGUFCPUExpertTimingStats() {
 	ggufCPUExpertTimingCounters.positions.Store(0)
 	ggufCPUExpertTimingCounters.workItems.Store(0)
 	ggufCPUExpertTimingCounters.activeExperts.Store(0)
+	ggufCPUExpertTimingCounters.q4DirectRows.Store(0)
+	ggufCPUExpertTimingCounters.q4DequantRows.Store(0)
+	ggufCPUExpertTimingCounters.q8DirectRows.Store(0)
+	ggufCPUExpertTimingCounters.q8DequantRows.Store(0)
 	ggufCPUExpertTimingCounters.normNS.Store(0)
 	ggufCPUExpertTimingCounters.collectNS.Store(0)
 	ggufCPUExpertTimingCounters.scheduleNS.Store(0)
@@ -220,6 +236,10 @@ func (s ggufCPUExpertTimingStats) Sub(base ggufCPUExpertTimingStats) ggufCPUExpe
 		Positions:     s.Positions - base.Positions,
 		WorkItems:     s.WorkItems - base.WorkItems,
 		ActiveExperts: s.ActiveExperts - base.ActiveExperts,
+		Q4DirectRows:  s.Q4DirectRows - base.Q4DirectRows,
+		Q4DequantRows: s.Q4DequantRows - base.Q4DequantRows,
+		Q8DirectRows:  s.Q8DirectRows - base.Q8DirectRows,
+		Q8DequantRows: s.Q8DequantRows - base.Q8DequantRows,
 		NormNS:        s.NormNS - base.NormNS,
 		CollectNS:     s.CollectNS - base.CollectNS,
 		ScheduleNS:    s.ScheduleNS - base.ScheduleNS,
@@ -657,6 +677,13 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 						batchGU[b*outDimGU+r] = simd.Sdot(wRow, xRow)
 					}
 				}
+				if le.gateUp.QType == gguf.QuantQ4_K {
+					if useDirectQ4GateUp {
+						ggufCPUExpertTimingCounters.q4DirectRows.Add(uint64(outDimGU * nPos))
+					} else {
+						ggufCPUExpertTimingCounters.q4DequantRows.Add(uint64(outDimGU))
+					}
+				}
 				ggufCPUExpertTimingCounters.gateNS.Add(uint64(time.Since(gateStart).Nanoseconds()))
 
 				// Split gate and up, apply activation: GELU(gate) * up
@@ -719,6 +746,13 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					for b := 0; b < nPos; b++ {
 						xRow := batchAct[b*dnInDim : (b+1)*dnInDim]
 						batchDown[b*hiddenSize+r] = simd.Sdot(wRow, xRow)
+					}
+				}
+				if le.down.QType == gguf.QuantQ8_0 {
+					if useDirectQ8Down {
+						ggufCPUExpertTimingCounters.q8DirectRows.Add(uint64(dnOutDim * nPos))
+					} else {
+						ggufCPUExpertTimingCounters.q8DequantRows.Add(uint64(dnOutDim))
 					}
 				}
 				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
@@ -791,6 +825,13 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 		}
 		guOut[r] = simd.Sdot(wf32[:hiddenSize], normedRow)
 	}
+	if le.gateUp.QType == gguf.QuantQ4_K {
+		if useDirectQ4GateUp {
+			ggufCPUExpertTimingCounters.q4DirectRows.Add(uint64(outDimGU))
+		} else {
+			ggufCPUExpertTimingCounters.q4DequantRows.Add(uint64(outDimGU))
+		}
+	}
 
 	// Split gate and up, apply GELU(gate) * up
 	actOut := make([]float32, intermediate)
@@ -814,6 +855,13 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 			return fmt.Errorf("expert %d down row %d: %w", expertID, r, err)
 		}
 		expertOut[r] = simd.Sdot(downBuf[:intermediate], actOut)
+	}
+	if le.down.QType == gguf.QuantQ8_0 {
+		if useDirectQ8Down {
+			ggufCPUExpertTimingCounters.q8DirectRows.Add(uint64(hiddenSize))
+		} else {
+			ggufCPUExpertTimingCounters.q8DequantRows.Add(uint64(hiddenSize))
+		}
 	}
 
 	// Apply per-expert scale if present

@@ -1019,8 +1019,8 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 		if d.GGUFExpertIndex != nil {
 			cpuStats := ggufCPUExpertTimingSnapshot().Sub(encoderCPUExpertStatsStart)
 			if cpuStats.Calls > 0 {
-				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder gguf_cpu_experts: calls=%d positions=%d work_items=%d active_experts=%d norm=%.1fs collect=%.1fs schedule=%.1fs gate=%.1fs act=%.1fs down=%.1fs scatter=%.1fs post=%.1fs\n",
-					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, float64(cpuStats.NormNS)/1e9, float64(cpuStats.CollectNS)/1e9, float64(cpuStats.ScheduleNS)/1e9, float64(cpuStats.GateNS)/1e9, float64(cpuStats.ActNS)/1e9, float64(cpuStats.DownNS)/1e9, float64(cpuStats.ScatterNS)/1e9, float64(cpuStats.PostNS)/1e9)
+				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder gguf_cpu_experts: calls=%d positions=%d work_items=%d active_experts=%d q4_direct_rows=%d q4_dequant_rows=%d q8_direct_rows=%d q8_dequant_rows=%d norm=%.1fs collect=%.1fs schedule=%.1fs gate=%.1fs act=%.1fs down=%.1fs scatter=%.1fs post=%.1fs\n",
+					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, cpuStats.Q4DirectRows, cpuStats.Q4DequantRows, cpuStats.Q8DirectRows, cpuStats.Q8DequantRows, float64(cpuStats.NormNS)/1e9, float64(cpuStats.CollectNS)/1e9, float64(cpuStats.ScheduleNS)/1e9, float64(cpuStats.GateNS)/1e9, float64(cpuStats.ActNS)/1e9, float64(cpuStats.DownNS)/1e9, float64(cpuStats.ScatterNS)/1e9, float64(cpuStats.PostNS)/1e9)
 			}
 			expertStats := ggufExpertDispatchStatsSnapshot().Sub(encoderGGUFExpertStatsStart)
 			if expertStats.Total() > 0 {
