@@ -27,9 +27,10 @@ func TestFilterTimestampSegmentsDropsPunctuationOnly(t *testing.T) {
 		{Start: 0, End: 1, Text: "Hello"},
 		{Start: 1, End: 2, Text: ",,,,"},
 		{Start: 2, End: 3, Text: "  world  "},
+		{Start: 3, End: 4, Text: ": This one here"},
 	}
 	out := filterTimestampSegments(segments)
-	if len(out) != 2 || out[0].Text != "Hello" || out[1].Text != "world" {
+	if len(out) != 3 || out[0].Text != "Hello" || out[1].Text != "world" || out[2].Text != "This one here" {
 		t.Fatalf("filtered=%+v", out)
 	}
 }

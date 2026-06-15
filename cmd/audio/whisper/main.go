@@ -239,7 +239,7 @@ func textFromSegments(segments []whisper.Segment) string {
 func filterTimestampSegments(in []whisper.Segment) []whisper.Segment {
 	out := make([]whisper.Segment, 0, len(in))
 	for _, seg := range in {
-		text := strings.TrimSpace(seg.Text)
+		text := cleanTimestampText(seg.Text)
 		if text == "" || punctuationOnly(text) {
 			continue
 		}
@@ -247,6 +247,14 @@ func filterTimestampSegments(in []whisper.Segment) []whisper.Segment {
 		out = append(out, seg)
 	}
 	return out
+}
+
+func cleanTimestampText(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.TrimLeftFunc(text, func(r rune) bool {
+		return unicode.IsPunct(r) || unicode.IsSymbol(r)
+	})
+	return strings.TrimSpace(text)
 }
 
 func punctuationOnly(text string) bool {
