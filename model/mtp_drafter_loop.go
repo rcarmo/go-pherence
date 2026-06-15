@@ -421,8 +421,13 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 		if len(layer.InputNorm.Data()) < d.Config.HiddenSize || len(layer.PostNorm.Data()) < d.Config.HiddenSize || len(layer.PreFFNNorm.Data()) < d.Config.HiddenSize || len(layer.PostFFNNorm.Data()) < d.Config.HiddenSize || len(layer.QNorm.Data()) < headDim {
 			return fmt.Errorf("drafter layer %d norm dims are too small", i)
 		}
-		if (len(layer.QW) != qDim*d.Config.HiddenSize && layer.QWm == nil) || (len(layer.OW) != d.Config.HiddenSize*qDim && layer.OWm == nil) {
-			return fmt.Errorf("drafter layer %d attention weight dims Q/O=%d/%d, want %d/%d", i, len(layer.QW), len(layer.OW), qDim*d.Config.HiddenSize, d.Config.HiddenSize*qDim)
+		qWeightLen, okQWeight := checkedProduct(qDim, d.Config.HiddenSize)
+		oWeightLen, okOWeight := checkedProduct(d.Config.HiddenSize, qDim)
+		if !okQWeight || !okOWeight {
+			return fmt.Errorf("drafter layer %d attention weight dims overflow qDim=%d hidden=%d", i, qDim, d.Config.HiddenSize)
+		}
+		if (len(layer.QW) != qWeightLen && layer.QWm == nil) || (len(layer.OW) != oWeightLen && layer.OWm == nil) {
+			return fmt.Errorf("drafter layer %d attention weight dims Q/O=%d/%d, want %d/%d", i, len(layer.QW), len(layer.OW), qWeightLen, oWeightLen)
 		}
 		if err := validateDrafterMLXWeight(i, "q_proj", layer.QWm, qDim, d.Config.HiddenSize); err != nil {
 			return err
@@ -430,7 +435,12 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 		if err := validateDrafterMLXWeight(i, "o_proj", layer.OWm, d.Config.HiddenSize, qDim); err != nil {
 			return err
 		}
-		if (len(layer.GateW) != d.Config.Intermediate*d.Config.HiddenSize && layer.GateWm == nil) || (len(layer.UpW) != d.Config.Intermediate*d.Config.HiddenSize && layer.UpWm == nil) || (len(layer.DownW) != d.Config.HiddenSize*d.Config.Intermediate && layer.DownWm == nil) {
+		gateWeightLen, okGateWeight := checkedProduct(d.Config.Intermediate, d.Config.HiddenSize)
+		downWeightLen, okDownWeight := checkedProduct(d.Config.HiddenSize, d.Config.Intermediate)
+		if !okGateWeight || !okDownWeight {
+			return fmt.Errorf("drafter layer %d MLP weight dims overflow intermediate=%d hidden=%d", i, d.Config.Intermediate, d.Config.HiddenSize)
+		}
+		if (len(layer.GateW) != gateWeightLen && layer.GateWm == nil) || (len(layer.UpW) != gateWeightLen && layer.UpWm == nil) || (len(layer.DownW) != downWeightLen && layer.DownWm == nil) {
 			return fmt.Errorf("drafter layer %d MLP weight dims are invalid", i)
 		}
 		if err := validateDrafterMLXWeight(i, "gate_proj", layer.GateWm, d.Config.Intermediate, d.Config.HiddenSize); err != nil {

@@ -297,6 +297,20 @@ func TestDrafterLayerDimsDeriveGemma4FullAttentionDim(t *testing.T) {
 	}
 }
 
+func TestMTPDrafterExternalKVValidationRejectsDenseWeightOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	d := &Gemma4MTPDrafter{
+		Config: LlamaConfig{NumLayers: 1, HiddenSize: 3, NumHeads: maxInt/2 + 1, NumKVHeads: 1, HeadDim: 1, Intermediate: 2, RMSNormEps: 1e-6},
+		Layers: []Gemma4MTPDrafterLayer{{
+			InputNorm: tensor.Ones([]int{3}), PostNorm: tensor.Ones([]int{3}), PreFFNNorm: tensor.Ones([]int{3}), PostFFNNorm: tensor.Ones([]int{3}), QNorm: tensor.Ones([]int{1}), KVSourceLayer: -1,
+		}},
+	}
+	ext := &MTPDrafterExternalKV{K: [][]float32{{0}}, V: [][]float32{{0}}, SourceLayers: []int{0}, SeqLen: 1}
+	if err := validateMTPDrafterExternalKV(d, ext); err == nil || !strings.Contains(err.Error(), "attention weight dims overflow") {
+		t.Fatalf("validateMTPDrafterExternalKV err=%v, want attention overflow", err)
+	}
+}
+
 func TestRunMTPDrafterStepExternalKVValidationUsesGlobalFullAttentionDim(t *testing.T) {
 	m := &LlamaModel{
 		Config: LlamaConfig{VocabSize: 4, HiddenSize: 4},
