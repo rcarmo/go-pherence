@@ -1,6 +1,10 @@
 package model
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/rcarmo/go-pherence/tensor"
+)
 
 func TestRunMTPVerifierBatchForwardZeroLayer(t *testing.T) {
 	m := newZeroLayerVerifierModel()
@@ -115,6 +119,61 @@ func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan M
 	if !sameFloat32s(kvCacheK[0], seqK[0]) || !sameFloat32s(kvCacheV[0], seqV[0]) {
 		t.Fatalf("KV batch K/V=%v/%v seq=%v/%v", kvCacheK[0], kvCacheV[0], seqK[0], seqV[0])
 	}
+}
+
+func TestRunMTPVerifierBatchForwardLayeredExperimentalQuantizedMatchesSequential(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
+	m := &LlamaModel{
+		Config: LlamaConfig{VocabSize: 3, HiddenSize: 8, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 8, Intermediate: 8, RMSNormEps: 1e-6},
+		EmbedTokens: tensor.FromFloat32([]float32{
+			1, 0, 0, 0, 0, 0, 0, 0,
+			0, 1, 0, 0, 0, 0, 0, 0,
+			0, 0, 1, 0, 0, 0, 0, 0,
+		}, []int{3, 8}),
+		Norm: tensor.Ones([]int{8}),
+		LMHead: tensor.FromFloat32([]float32{
+			1, 0, 0, 0, 0, 0, 0, 0,
+			0, 1, 0, 0, 0, 0, 0, 0,
+			0, 0, 1, 0, 0, 0, 0, 0,
+		}, []int{3, 8}),
+		Layers: []LlamaLayer{{
+			InputNorm: tensor.Ones([]int{8}),
+			PostNorm:  tensor.Ones([]int{8}),
+			HasKV:     true,
+			QWq:       syntheticSymQ4Weight(8, 8, 9),
+			KWq:       syntheticSymQ4Weight(8, 8, 10),
+			VWq:       syntheticSymQ4Weight(8, 8, 9),
+			OWq:       syntheticSymQ4Weight(8, 8, 9),
+			GateWq:    syntheticSymQ4Weight(8, 8, 9),
+			UpWq:      syntheticSymQ4Weight(8, 8, 10),
+			DownWq:    syntheticSymQ4Weight(8, 8, 9),
+		}},
+	}
+	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 0)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.mtpVerifierBatchLayerEligible(batch) {
+		t.Fatal("quantized verifier batch layer should be eligible when gated on")
+	}
+	kvCacheK := make([][]float32, len(m.Layers))
+	kvCacheV := make([][]float32, len(m.Layers))
+	got, err := m.RunMTPVerifierBatchForward(batch, kvCacheK, kvCacheV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seqK := make([][]float32, len(m.Layers))
+	seqV := make([][]float32, len(m.Layers))
+	seqHidden, err := m.runMTPVerifierBatchRowsSequential(batch, seqK, seqV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, seqLogits, _, err := m.FinishCPUDecodeBatch(seqHidden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
 }
 
 func TestRunMTPVerifierBatchForwardValidation(t *testing.T) {
