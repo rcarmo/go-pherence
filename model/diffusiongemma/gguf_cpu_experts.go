@@ -163,10 +163,12 @@ type ggufCPUExpertTimingStats struct {
 	Q4DequantRows    uint64
 	Q8DirectRows     uint64
 	Q8DequantRows    uint64
+	Q5DequantRows    uint64
 	Q4DirectBatches  ggufCPUExpertBatchBuckets
 	Q4DequantBatches ggufCPUExpertBatchBuckets
 	Q8DirectBatches  ggufCPUExpertBatchBuckets
 	Q8DequantBatches ggufCPUExpertBatchBuckets
+	Q5DequantBatches ggufCPUExpertBatchBuckets
 	NormNS           uint64
 	CollectNS        uint64
 	ScheduleNS       uint64
@@ -186,10 +188,12 @@ var ggufCPUExpertTimingCounters struct {
 	q4DequantRows    atomic.Uint64
 	q8DirectRows     atomic.Uint64
 	q8DequantRows    atomic.Uint64
+	q5DequantRows    atomic.Uint64
 	q4DirectBatches  [10]atomic.Uint64
 	q4DequantBatches [10]atomic.Uint64
 	q8DirectBatches  [10]atomic.Uint64
 	q8DequantBatches [10]atomic.Uint64
+	q5DequantBatches [10]atomic.Uint64
 	normNS           atomic.Uint64
 	collectNS        atomic.Uint64
 	scheduleNS       atomic.Uint64
@@ -271,10 +275,12 @@ func ggufCPUExpertTimingSnapshot() ggufCPUExpertTimingStats {
 		Q4DequantRows:    ggufCPUExpertTimingCounters.q4DequantRows.Load(),
 		Q8DirectRows:     ggufCPUExpertTimingCounters.q8DirectRows.Load(),
 		Q8DequantRows:    ggufCPUExpertTimingCounters.q8DequantRows.Load(),
+		Q5DequantRows:    ggufCPUExpertTimingCounters.q5DequantRows.Load(),
 		Q4DirectBatches:  ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q4DirectBatches),
 		Q4DequantBatches: ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q4DequantBatches),
 		Q8DirectBatches:  ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q8DirectBatches),
 		Q8DequantBatches: ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q8DequantBatches),
+		Q5DequantBatches: ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q5DequantBatches),
 		NormNS:           ggufCPUExpertTimingCounters.normNS.Load(),
 		CollectNS:        ggufCPUExpertTimingCounters.collectNS.Load(),
 		ScheduleNS:       ggufCPUExpertTimingCounters.scheduleNS.Load(),
@@ -295,10 +301,12 @@ func ResetGGUFCPUExpertTimingStats() {
 	ggufCPUExpertTimingCounters.q4DequantRows.Store(0)
 	ggufCPUExpertTimingCounters.q8DirectRows.Store(0)
 	ggufCPUExpertTimingCounters.q8DequantRows.Store(0)
+	ggufCPUExpertTimingCounters.q5DequantRows.Store(0)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q4DirectBatches)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q4DequantBatches)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q8DirectBatches)
 	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q8DequantBatches)
+	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q5DequantBatches)
 	ggufCPUExpertTimingCounters.normNS.Store(0)
 	ggufCPUExpertTimingCounters.collectNS.Store(0)
 	ggufCPUExpertTimingCounters.scheduleNS.Store(0)
@@ -319,10 +327,12 @@ func (s ggufCPUExpertTimingStats) Sub(base ggufCPUExpertTimingStats) ggufCPUExpe
 		Q4DequantRows:    s.Q4DequantRows - base.Q4DequantRows,
 		Q8DirectRows:     s.Q8DirectRows - base.Q8DirectRows,
 		Q8DequantRows:    s.Q8DequantRows - base.Q8DequantRows,
+		Q5DequantRows:    s.Q5DequantRows - base.Q5DequantRows,
 		Q4DirectBatches:  ggufCPUExpertSubBuckets(s.Q4DirectBatches, base.Q4DirectBatches),
 		Q4DequantBatches: ggufCPUExpertSubBuckets(s.Q4DequantBatches, base.Q4DequantBatches),
 		Q8DirectBatches:  ggufCPUExpertSubBuckets(s.Q8DirectBatches, base.Q8DirectBatches),
 		Q8DequantBatches: ggufCPUExpertSubBuckets(s.Q8DequantBatches, base.Q8DequantBatches),
+		Q5DequantBatches: ggufCPUExpertSubBuckets(s.Q5DequantBatches, base.Q5DequantBatches),
 		NormNS:           s.NormNS - base.NormNS,
 		CollectNS:        s.CollectNS - base.CollectNS,
 		ScheduleNS:       s.ScheduleNS - base.ScheduleNS,
@@ -992,6 +1002,10 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 						ggufCPUExpertTimingCounters.q8DequantRows.Add(uint64(dnOutDim))
 						ggufCPUExpertTimingCounters.q8DequantBatches[bucket].Add(1)
 					}
+				} else if le.down.QType == gguf.QuantQ5_0 {
+					bucket := ggufCPUExpertBatchBucket(nPos)
+					ggufCPUExpertTimingCounters.q5DequantRows.Add(uint64(dnOutDim))
+					ggufCPUExpertTimingCounters.q5DequantBatches[bucket].Add(1)
 				}
 				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
 
@@ -1240,6 +1254,10 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 						ggufCPUExpertTimingCounters.q8DequantRows.Add(uint64(dnOutDim))
 						ggufCPUExpertTimingCounters.q8DequantBatches[bucket].Add(1)
 					}
+				} else if le.down.QType == gguf.QuantQ5_0 {
+					bucket := ggufCPUExpertBatchBucket(nPos)
+					ggufCPUExpertTimingCounters.q5DequantRows.Add(uint64(dnOutDim))
+					ggufCPUExpertTimingCounters.q5DequantBatches[bucket].Add(1)
 				}
 				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
 
@@ -1341,6 +1359,9 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 			ggufCPUExpertTimingCounters.q8DequantRows.Add(uint64(hiddenSize))
 			ggufCPUExpertTimingCounters.q8DequantBatches[0].Add(1)
 		}
+	} else if le.down.QType == gguf.QuantQ5_0 {
+		ggufCPUExpertTimingCounters.q5DequantRows.Add(uint64(hiddenSize))
+		ggufCPUExpertTimingCounters.q5DequantBatches[0].Add(1)
 	}
 
 	// Apply per-expert scale if present

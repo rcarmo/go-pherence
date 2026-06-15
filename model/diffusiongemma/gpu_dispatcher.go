@@ -295,7 +295,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 					ggufExpertDispatchCounters.cpuFallbackNS.Add(uint64(fallbackElapsed.Nanoseconds()))
 					if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
 						cpuLayerStats := ggufCPUExpertTimingSnapshot().Sub(cpuLayerStatsStart)
-						log.Printf("gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d", op.Layer, cpuLayerStats.Positions, cpuLayerStats.WorkItems, cpuLayerStats.ActiveExperts, fallbackElapsed.Seconds(), float64(cpuLayerStats.GateNS)/1e9, float64(cpuLayerStats.DownNS)/1e9, cpuLayerStats.Q4DirectRows, cpuLayerStats.Q4DequantRows, cpuLayerStats.Q8DirectRows, cpuLayerStats.Q8DequantRows)
+						log.Printf("gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d q5_dequant=%d", op.Layer, cpuLayerStats.Positions, cpuLayerStats.WorkItems, cpuLayerStats.ActiveExperts, fallbackElapsed.Seconds(), float64(cpuLayerStats.GateNS)/1e9, float64(cpuLayerStats.DownNS)/1e9, cpuLayerStats.Q4DirectRows, cpuLayerStats.Q4DequantRows, cpuLayerStats.Q8DirectRows, cpuLayerStats.Q8DequantRows, cpuLayerStats.Q5DequantRows)
 					}
 				}
 				tExpert += time.Since(t0)
@@ -392,9 +392,9 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			}
 			cpuStats := ggufCPUExpertTimingSnapshot().Sub(ggufCPUExpertStatsStart)
 			if cpuStats.Calls > 0 {
-				log.Printf("gguf_cpu_experts: calls=%d positions=%d work_items=%d active_experts=%d q4_direct_rows=%d q4_dequant_rows=%d q8_direct_rows=%d q8_dequant_rows=%d q4_batches(d=%s dq=%s) q8_batches(d=%s dq=%s) norm=%.1fs collect=%.1fs schedule=%.1fs gate=%.1fs act=%.1fs down=%.1fs scatter=%.1fs post=%.1fs",
-					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, cpuStats.Q4DirectRows, cpuStats.Q4DequantRows, cpuStats.Q8DirectRows, cpuStats.Q8DequantRows,
-					ggufCPUExpertBatchBucketsString(cpuStats.Q4DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q4DequantBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DequantBatches),
+				log.Printf("gguf_cpu_experts: calls=%d positions=%d work_items=%d active_experts=%d q4_direct_rows=%d q4_dequant_rows=%d q8_direct_rows=%d q8_dequant_rows=%d q5_dequant_rows=%d q4_batches(d=%s dq=%s) q8_batches(d=%s dq=%s) q5_batches(dq=%s) norm=%.1fs collect=%.1fs schedule=%.1fs gate=%.1fs act=%.1fs down=%.1fs scatter=%.1fs post=%.1fs",
+					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, cpuStats.Q4DirectRows, cpuStats.Q4DequantRows, cpuStats.Q8DirectRows, cpuStats.Q8DequantRows, cpuStats.Q5DequantRows,
+					ggufCPUExpertBatchBucketsString(cpuStats.Q4DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q4DequantBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DequantBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q5DequantBatches),
 					float64(cpuStats.NormNS)/1e9, float64(cpuStats.CollectNS)/1e9, float64(cpuStats.ScheduleNS)/1e9, float64(cpuStats.GateNS)/1e9, float64(cpuStats.ActNS)/1e9, float64(cpuStats.DownNS)/1e9, float64(cpuStats.ScatterNS)/1e9, float64(cpuStats.PostNS)/1e9)
 			}
 			exactGELUStats := f32GELUExactMulSnapshot().Sub(exactGELUStatsStart)

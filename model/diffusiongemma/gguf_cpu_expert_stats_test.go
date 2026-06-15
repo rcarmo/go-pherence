@@ -83,20 +83,23 @@ func TestResetGGUFCPUExpertTimingStats(t *testing.T) {
 	ggufCPUExpertTimingCounters.q4DequantRows.Add(7)
 	ggufCPUExpertTimingCounters.q8DirectRows.Add(8)
 	ggufCPUExpertTimingCounters.q8DequantRows.Add(9)
-	ggufCPUExpertTimingCounters.q4DirectBatches[0].Add(10)
-	ggufCPUExpertTimingCounters.q4DequantBatches[1].Add(11)
-	ggufCPUExpertTimingCounters.q8DirectBatches[2].Add(12)
-	ggufCPUExpertTimingCounters.q8DequantBatches[9].Add(13)
-	ggufCPUExpertTimingCounters.gateNS.Add(14)
+	ggufCPUExpertTimingCounters.q5DequantRows.Add(10)
+	ggufCPUExpertTimingCounters.q4DirectBatches[0].Add(11)
+	ggufCPUExpertTimingCounters.q4DequantBatches[1].Add(12)
+	ggufCPUExpertTimingCounters.q8DirectBatches[2].Add(13)
+	ggufCPUExpertTimingCounters.q8DequantBatches[9].Add(14)
+	ggufCPUExpertTimingCounters.q5DequantBatches[3].Add(15)
+	ggufCPUExpertTimingCounters.gateNS.Add(16)
 	before := ggufCPUExpertTimingSnapshot()
-	if before.Calls != 2 || before.Positions != 3 || before.WorkItems != 4 || before.ActiveExperts != 5 || before.Q4DirectRows != 6 || before.Q4DequantRows != 7 || before.Q8DirectRows != 8 || before.Q8DequantRows != 9 || before.Q4DirectBatches[0] != 10 || before.Q4DequantBatches[1] != 11 || before.Q8DirectBatches[2] != 12 || before.Q8DequantBatches[9] != 13 || before.GateNS != 14 {
+	if before.Calls != 2 || before.Positions != 3 || before.WorkItems != 4 || before.ActiveExperts != 5 || before.Q4DirectRows != 6 || before.Q4DequantRows != 7 || before.Q8DirectRows != 8 || before.Q8DequantRows != 9 || before.Q5DequantRows != 10 || before.Q4DirectBatches[0] != 11 || before.Q4DequantBatches[1] != 12 || before.Q8DirectBatches[2] != 13 || before.Q8DequantBatches[9] != 14 || before.Q5DequantBatches[3] != 15 || before.GateNS != 16 {
 		t.Fatalf("unexpected stats before reset: %+v", before)
 	}
 	base := before
 	ggufCPUExpertTimingCounters.q4DirectBatches[0].Add(3)
 	ggufCPUExpertTimingCounters.q8DequantBatches[9].Add(5)
+	ggufCPUExpertTimingCounters.q5DequantBatches[3].Add(7)
 	delta := ggufCPUExpertTimingSnapshot().Sub(base)
-	if delta.Q4DirectBatches[0] != 3 || delta.Q8DequantBatches[9] != 5 {
+	if delta.Q4DirectBatches[0] != 3 || delta.Q8DequantBatches[9] != 5 || delta.Q5DequantBatches[3] != 7 {
 		t.Fatalf("unexpected stats delta: %+v", delta)
 	}
 	ResetGGUFCPUExpertTimingStats()
