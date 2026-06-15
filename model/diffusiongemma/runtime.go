@@ -3,6 +3,7 @@ package diffusiongemma
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -47,22 +48,31 @@ type Denoiser interface {
 	Denoise(ForwardInput) (ForwardOutput, error)
 }
 
+type EntropyProbe struct {
+	Position int     `json:"position"`
+	Argmax   int     `json:"argmax"`
+	Sampled  int     `json:"sampled"`
+	Entropy  float64 `json:"entropy"`
+	Accepted bool    `json:"accepted"`
+}
+
 // CanvasStep records one denoising iteration for diagnostics and future
 // streaming hooks.
 type CanvasStep struct {
-	Step          int     `json:"step"`
-	Temperature   float64 `json:"temperature"`
-	Accepted      int     `json:"accepted"`
-	MeanEntropy   float64 `json:"mean_entropy"`
-	FirstArgmax   int     `json:"first_argmax,omitempty"`
-	FirstEntropy  float64 `json:"first_entropy,omitempty"`
-	FirstSampled  int     `json:"first_sampled,omitempty"`
-	FirstAccepted bool    `json:"first_accepted,omitempty"`
-	MaxEntropy    float64 `json:"max_entropy,omitempty"`
-	MaxEntropyPos int     `json:"max_entropy_pos,omitempty"`
-	Held          int     `json:"held,omitempty"`
-	Confident     bool    `json:"confident,omitempty"`
-	Stopped       bool    `json:"stopped"`
+	Step          int            `json:"step"`
+	Temperature   float64        `json:"temperature"`
+	Accepted      int            `json:"accepted"`
+	MeanEntropy   float64        `json:"mean_entropy"`
+	FirstArgmax   int            `json:"first_argmax,omitempty"`
+	FirstEntropy  float64        `json:"first_entropy,omitempty"`
+	FirstSampled  int            `json:"first_sampled,omitempty"`
+	FirstAccepted bool           `json:"first_accepted,omitempty"`
+	MaxEntropy    float64        `json:"max_entropy,omitempty"`
+	MaxEntropyPos int            `json:"max_entropy_pos,omitempty"`
+	EntropyProbes []EntropyProbe `json:"entropy_probes,omitempty"`
+	Held          int            `json:"held,omitempty"`
+	Confident     bool           `json:"confident,omitempty"`
+	Stopped       bool           `json:"stopped"`
 }
 
 // CanvasResult is the output of a single block-diffusion canvas generation.
@@ -84,6 +94,24 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 func diffusionGemmaRawSelfConditioningLogitsEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func diffusionGemmaEntropyProbePositions(canvasLength int) []int {
+	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_ENTROPY_PROBE_POSITIONS"))
+	if v == "" || canvasLength <= 0 {
+		return nil
+	}
+	seen := map[int]bool{}
+	out := make([]int, 0)
+	for _, part := range strings.Split(v, ",") {
+		pos, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || pos < 0 || pos >= canvasLength || seen[pos] {
+			continue
+		}
+		seen[pos] = true
+		out = append(out, pos)
+	}
+	return out
 }
 
 func equalIntSlices(a, b []int) bool {
@@ -159,6 +187,7 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 	var selfConditioningLogits [][]float32
 	prevTempInv := float32(1)
 	rawSelfConditioning := diffusionGemmaRawSelfConditioningLogitsEnabled()
+	probePositions := diffusionGemmaEntropyProbePositions(canvasLength)
 	for step := cfg.MaxDenoisingSteps; step > 0; step-- {
 		state.Step = step
 		temperature := LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, step)
@@ -246,11 +275,15 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 				}
 			}
 		}
+		probes := make([]EntropyProbe, 0, len(probePositions))
+		for _, pos := range probePositions {
+			probes = append(probes, EntropyProbe{Position: pos, Argmax: argmaxCanvas[pos], Sampled: denoiserCanvas[pos], Entropy: entropy[pos], Accepted: len(accepted.AcceptedMask) > pos && accepted.AcceptedMask[pos]})
+		}
 		canvas = accepted.Canvas
 		if !stopped {
 			canvas = RenoiseCanvasWithTokens(canvas, accepted.AcceptedMask, renoiseTokens)
 		}
-		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, FirstArgmax: firstArgmax, FirstEntropy: firstEntropy, FirstSampled: firstSampled, FirstAccepted: firstAccepted, MaxEntropy: maxEntropy, MaxEntropyPos: maxEntropyPos, Held: held, Confident: confident, Stopped: stopped})
+		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, FirstArgmax: firstArgmax, FirstEntropy: firstEntropy, FirstSampled: firstSampled, FirstAccepted: firstAccepted, MaxEntropy: maxEntropy, MaxEntropyPos: maxEntropyPos, EntropyProbes: probes, Held: held, Confident: confident, Stopped: stopped})
 		if onStep != nil {
 			onStep(steps[len(steps)-1], canvas)
 		}

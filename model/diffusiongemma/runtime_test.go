@@ -168,6 +168,24 @@ func TestGenerateCanvasUsesPrecomputedSamplerOutputs(t *testing.T) {
 	}
 }
 
+func TestGenerateCanvasRecordsEntropyProbes(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_ENTROPY_PROBE_POSITIONS", "1,0,1,bad,9")
+	cfg := DenoisingConfig{MaxDenoisingSteps: 1, TMin: 1, TMax: 1, StabilityThreshold: 99, ConfidenceThreshold: 0, Sampler: SamplerConfig{EntropyBound: 0}}
+	res, err := GenerateCanvas(precomputedSamplerDenoiser{}, nil, cfg, 2, 8, NewMT19937RNG(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Steps) != 1 || len(res.Steps[0].EntropyProbes) != 2 {
+		t.Fatalf("entropy probes=%+v", res.Steps)
+	}
+	if res.Steps[0].EntropyProbes[0] != (EntropyProbe{Position: 1, Argmax: 4, Sampled: 2, Entropy: 0.02, Accepted: false}) {
+		t.Fatalf("probe[0]=%+v", res.Steps[0].EntropyProbes[0])
+	}
+	if res.Steps[0].EntropyProbes[1] != (EntropyProbe{Position: 0, Argmax: 3, Sampled: 1, Entropy: 0.01, Accepted: true}) {
+		t.Fatalf("probe[1]=%+v", res.Steps[0].EntropyProbes[1])
+	}
+}
+
 func TestGenerateTokenIDsPreservesSeedZero(t *testing.T) {
 	mk := func() (*Engine, *seedCanvasDenoiser) {
 		den := &seedCanvasDenoiser{}
