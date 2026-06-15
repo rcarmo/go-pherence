@@ -19,6 +19,7 @@ This directory contains the durable backend, model, validation, and research not
 - [commands.md](commands.md) — CLI usage, GGUF REAP/TurboQuant validation, MTP smokes, Qwen MTP triage, and benchmark harnesses.
 - [whisper-diarize-vtt.md](whisper-diarize-vtt.md) — current Whisper turbo translated VTT pipeline, performance, resume behavior, and diarization limitations.
 - [whisper-model-assets.md](whisper-model-assets.md) — exact Whisper model names, local weight paths, shape configs, and default/turbo status.
+- [whisper-execution-graph.md](whisper-execution-graph.md) — large-v3-turbo execution graph coverage across CPU/SIMD, K3 IME/A100, NVIDIA, and diarization paths.
 - [final-coverage-acceptance.md](final-coverage-acceptance.md) — final backend coverage acceptance tracker.
 - [performance.md](performance.md) — benchmark notes and current snapshots.
 - [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and refreshed snapshot status.
