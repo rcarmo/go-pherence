@@ -223,9 +223,10 @@ func TestRunMTPDrafterStepRealAssetContract(t *testing.T) {
 	k := make([][]float32, d.Config.NumLayers)
 	v := make([][]float32, d.Config.NumLayers)
 	for i := range d.Layers {
-		headDim := drafterLayerHeadDim(d, i)
-		kvHeads := drafterLayerKVHeads(d, i)
-		kvDim := kvHeads * headDim
+		kvDim, err := d.LayerKVDim(i)
+		if err != nil {
+			t.Fatalf("LayerKVDim(%d): %v", i, err)
+		}
 		k[i] = make([]float32, kvDim)
 		v[i] = make([]float32, kvDim)
 	}
