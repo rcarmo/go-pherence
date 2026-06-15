@@ -198,27 +198,29 @@ func buildMTPPromptContextCached(m *model.LlamaModel, gpuMod *model.GPUModel, id
 }
 
 type gemma4MTPSmokeResult struct {
-	DrafterDir         string  `json:"drafter_dir"`
-	ModelHidden        int     `json:"model_hidden"`
-	ModelLayers        int     `json:"model_layers"`
-	DrafterHidden      int     `json:"drafter_hidden"`
-	DrafterBackbone    int     `json:"drafter_backbone"`
-	DrafterLayers      int     `json:"drafter_layers"`
-	PackedEmbedding    bool    `json:"packed_embedding"`
-	PackedProjection   bool    `json:"packed_projection"`
-	PackedLayerWeights bool    `json:"packed_layer_weights"`
-	PreviousToken      int     `json:"previous_token"`
-	Token              int     `json:"token"`
-	LogitsLen          int     `json:"logits_len"`
-	NextActivationLen  int     `json:"next_activation_len"`
-	LoadSeconds        float64 `json:"load_seconds"`
-	PromptTokens       int     `json:"prompt_tokens,omitempty"`
-	PromptSeconds      float64 `json:"prompt_seconds,omitempty"`
-	RealPrompt         bool    `json:"real_prompt"`
-	KVReuse            bool    `json:"kv_reuse,omitempty"`
-	KVCacheHit         bool    `json:"kv_cache_hit,omitempty"`
-	KVRepeat           int     `json:"kv_repeat,omitempty"`
-	StepSeconds        float64 `json:"step_seconds"`
+	DrafterDir                    string                     `json:"drafter_dir"`
+	ModelHidden                   int                        `json:"model_hidden"`
+	ModelLayers                   int                        `json:"model_layers"`
+	DrafterHidden                 int                        `json:"drafter_hidden"`
+	DrafterBackbone               int                        `json:"drafter_backbone"`
+	DrafterLayers                 int                        `json:"drafter_layers"`
+	PackedEmbedding               bool                       `json:"packed_embedding"`
+	PackedProjection              bool                       `json:"packed_projection"`
+	PackedLayerWeights            bool                       `json:"packed_layer_weights"`
+	PreviousToken                 int                        `json:"previous_token"`
+	Token                         int                        `json:"token"`
+	LogitsLen                     int                        `json:"logits_len"`
+	NextActivationLen             int                        `json:"next_activation_len"`
+	LoadSeconds                   float64                    `json:"load_seconds"`
+	PromptTokens                  int                        `json:"prompt_tokens,omitempty"`
+	PromptSeconds                 float64                    `json:"prompt_seconds,omitempty"`
+	RealPrompt                    bool                       `json:"real_prompt"`
+	KVReuse                       bool                       `json:"kv_reuse,omitempty"`
+	KVCacheHit                    bool                       `json:"kv_cache_hit,omitempty"`
+	KVRepeat                      int                        `json:"kv_repeat,omitempty"`
+	StepSeconds                   float64                    `json:"step_seconds"`
+	MTPGraphCapabilities          model.MTPGraphCapabilities `json:"mtp_graph_capabilities"`
+	MTPMissingForPublicGeneration []string                   `json:"mtp_missing_for_public_generation,omitempty"`
 }
 
 func mapDrafterSourcesByWidth(m *model.LlamaModel, d *model.Gemma4MTPDrafter, seqLen int) ([]int, error) {
@@ -334,28 +336,31 @@ func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir s
 	}
 	stepElapsed := time.Since(stepStart)
 	packedLayer := len(d.Layers) > 0 && d.Layers[0].QWm != nil && d.Layers[0].OWm != nil && d.Layers[0].GateWm != nil && d.Layers[0].UpWm != nil && d.Layers[0].DownWm != nil
+	caps := model.Gemma4MTPGraphCapabilities()
 	res := gemma4MTPSmokeResult{
-		DrafterDir:         drafterDir,
-		ModelHidden:        m.Config.HiddenSize,
-		ModelLayers:        len(m.Layers),
-		DrafterHidden:      d.Config.HiddenSize,
-		DrafterBackbone:    d.BackboneHiddenSize,
-		DrafterLayers:      len(d.Layers),
-		PackedEmbedding:    d.EmbedTokensMLX != nil,
-		PackedProjection:   d.PreProjectionMLX != nil && d.PostProjectionMLX != nil,
-		PackedLayerWeights: packedLayer,
-		PreviousToken:      previousToken,
-		Token:              step.Token,
-		LogitsLen:          len(step.Logits),
-		NextActivationLen:  len(step.NextActivation),
-		LoadSeconds:        loadElapsed.Seconds(),
-		PromptTokens:       promptCtx.SeqLen,
-		PromptSeconds:      promptSeconds,
-		RealPrompt:         realPrompt,
-		KVReuse:            kvReuse,
-		KVCacheHit:         cacheHit,
-		KVRepeat:           kvRepeat,
-		StepSeconds:        stepElapsed.Seconds(),
+		DrafterDir:                    drafterDir,
+		ModelHidden:                   m.Config.HiddenSize,
+		ModelLayers:                   len(m.Layers),
+		DrafterHidden:                 d.Config.HiddenSize,
+		DrafterBackbone:               d.BackboneHiddenSize,
+		DrafterLayers:                 len(d.Layers),
+		PackedEmbedding:               d.EmbedTokensMLX != nil,
+		PackedProjection:              d.PreProjectionMLX != nil && d.PostProjectionMLX != nil,
+		PackedLayerWeights:            packedLayer,
+		PreviousToken:                 previousToken,
+		Token:                         step.Token,
+		LogitsLen:                     len(step.Logits),
+		NextActivationLen:             len(step.NextActivation),
+		LoadSeconds:                   loadElapsed.Seconds(),
+		PromptTokens:                  promptCtx.SeqLen,
+		PromptSeconds:                 promptSeconds,
+		RealPrompt:                    realPrompt,
+		KVReuse:                       kvReuse,
+		KVCacheHit:                    cacheHit,
+		KVRepeat:                      kvRepeat,
+		StepSeconds:                   stepElapsed.Seconds(),
+		MTPGraphCapabilities:          caps,
+		MTPMissingForPublicGeneration: caps.MissingForPublicGeneration(),
 	}
 	if realPrompt {
 		fmt.Printf("MTP prompt prefill: %.2fs (%d tokens, next=%d)\n", promptSeconds, promptCtx.SeqLen, promptCtx.FinalToken)

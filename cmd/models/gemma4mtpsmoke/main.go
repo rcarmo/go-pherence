@@ -11,21 +11,23 @@ import (
 )
 
 type smokeResult struct {
-	ModelDir           string  `json:"model_dir"`
-	DrafterDir         string  `json:"drafter_dir"`
-	ModelHidden        int     `json:"model_hidden"`
-	ModelLayers        int     `json:"model_layers"`
-	DrafterHidden      int     `json:"drafter_hidden"`
-	DrafterBackbone    int     `json:"drafter_backbone"`
-	DrafterLayers      int     `json:"drafter_layers"`
-	PackedEmbedding    bool    `json:"packed_embedding"`
-	PackedProjection   bool    `json:"packed_projection"`
-	PackedLayerWeights bool    `json:"packed_layer_weights"`
-	Token              int     `json:"token"`
-	LogitsLen          int     `json:"logits_len"`
-	NextActivationLen  int     `json:"next_activation_len"`
-	LoadSeconds        float64 `json:"load_seconds"`
-	StepSeconds        float64 `json:"step_seconds"`
+	ModelDir                      string                     `json:"model_dir"`
+	DrafterDir                    string                     `json:"drafter_dir"`
+	ModelHidden                   int                        `json:"model_hidden"`
+	ModelLayers                   int                        `json:"model_layers"`
+	DrafterHidden                 int                        `json:"drafter_hidden"`
+	DrafterBackbone               int                        `json:"drafter_backbone"`
+	DrafterLayers                 int                        `json:"drafter_layers"`
+	PackedEmbedding               bool                       `json:"packed_embedding"`
+	PackedProjection              bool                       `json:"packed_projection"`
+	PackedLayerWeights            bool                       `json:"packed_layer_weights"`
+	Token                         int                        `json:"token"`
+	LogitsLen                     int                        `json:"logits_len"`
+	NextActivationLen             int                        `json:"next_activation_len"`
+	LoadSeconds                   float64                    `json:"load_seconds"`
+	StepSeconds                   float64                    `json:"step_seconds"`
+	MTPGraphCapabilities          model.MTPGraphCapabilities `json:"mtp_graph_capabilities"`
+	MTPMissingForPublicGeneration []string                   `json:"mtp_missing_for_public_generation,omitempty"`
 }
 
 func main() {
@@ -95,22 +97,25 @@ func main() {
 	stepElapsed := time.Since(stepStart)
 
 	packedLayer := len(d.Layers) > 0 && d.Layers[0].QWm != nil && d.Layers[0].OWm != nil && d.Layers[0].GateWm != nil && d.Layers[0].UpWm != nil && d.Layers[0].DownWm != nil
+	caps := model.Gemma4MTPGraphCapabilities()
 	res := smokeResult{
-		ModelDir:           *modelDir,
-		DrafterDir:         *drafterDir,
-		ModelHidden:        m.Config.HiddenSize,
-		ModelLayers:        len(m.Layers),
-		DrafterHidden:      d.Config.HiddenSize,
-		DrafterBackbone:    d.BackboneHiddenSize,
-		DrafterLayers:      len(d.Layers),
-		PackedEmbedding:    d.EmbedTokensMLX != nil,
-		PackedProjection:   d.PreProjectionMLX != nil && d.PostProjectionMLX != nil,
-		PackedLayerWeights: packedLayer,
-		Token:              step.Token,
-		LogitsLen:          len(step.Logits),
-		NextActivationLen:  len(step.NextActivation),
-		LoadSeconds:        loadElapsed.Seconds(),
-		StepSeconds:        stepElapsed.Seconds(),
+		ModelDir:                      *modelDir,
+		DrafterDir:                    *drafterDir,
+		ModelHidden:                   m.Config.HiddenSize,
+		ModelLayers:                   len(m.Layers),
+		DrafterHidden:                 d.Config.HiddenSize,
+		DrafterBackbone:               d.BackboneHiddenSize,
+		DrafterLayers:                 len(d.Layers),
+		PackedEmbedding:               d.EmbedTokensMLX != nil,
+		PackedProjection:              d.PreProjectionMLX != nil && d.PostProjectionMLX != nil,
+		PackedLayerWeights:            packedLayer,
+		Token:                         step.Token,
+		LogitsLen:                     len(step.Logits),
+		NextActivationLen:             len(step.NextActivation),
+		LoadSeconds:                   loadElapsed.Seconds(),
+		StepSeconds:                   stepElapsed.Seconds(),
+		MTPGraphCapabilities:          caps,
+		MTPMissingForPublicGeneration: caps.MissingForPublicGeneration(),
 	}
 	var out []byte
 	if *pretty {
