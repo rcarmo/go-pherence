@@ -1,6 +1,8 @@
 package diffusiongemma
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -534,6 +536,161 @@ func TestLocalGGUFPartialGroupedGPUCPUExpertsPromptScaleLayer5(t *testing.T) {
 	if maxAbs > 0.25 || meanAbs > 0.02 {
 		t.Fatalf("layer-5 prompt-scale partial grouped GPU+CPU experts diverged: max=%g mean=%g kept=%d dropped=%d", maxAbs, meanAbs, len(kept.ActiveExperts), len(dropped.ActiveExperts))
 	}
+}
+
+func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
+	if !gpu.SgemmReady() {
+		t.Skip("CUDA not available")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_CACHE_MB", "1024")
+	ggufPath := filepath.Join("..", "..", "..", "llama.cpp", "models", "diffusiongemma-gguf", "diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
+	if _, err := os.Stat(ggufPath); err != nil {
+		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
+	}
+	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := gguf.Open(ggufPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	weights, err := OpenTextWeightsFromGGUF(g, meta.Shape)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer weights.Close()
+	idx, err := BuildGGUFExpertIndex(g, meta.Shape.TextLayers, meta.Shape.NumExperts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer FreeGGUFGPUExpertCaches()
+	layer := 5
+	hot := []int{99, 126, 58, 73, 100, 75, 28, 63}
+	keep := map[int]bool{}
+	for _, expert := range hot {
+		keep[expert] = true
+		if _, err := residentQ4KGateUpExpertMatrix(idx, layer, expert); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := residentQ8DownExpertMatrix(idx, layer, expert); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stop := errors.New("captured layer 5 exact input")
+	oldHook := encoderGGUFMoEHook
+	defer func() { encoderGGUFMoEHook = oldHook }()
+	compared := false
+	var capturedMaxAbs, capturedMeanAbs float64
+	encoderGGUFMoEHook = func(hookLayer int, lt string, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex) error {
+		if hookLayer != layer {
+			return nil
+		}
+		compared = true
+		positions := len(scratch.Residual) / idx.HiddenSize
+		topK := scratch.TopKExperts
+		if positions != 92 || topK != 8 {
+			return fmt.Errorf("unexpected layer-5 capture shape positions=%d topK=%d", positions, topK)
+		}
+		op := LayerOp{Layer: hookLayer, Type: lt, Kind: OpExperts}
+		cpuScratch := ForwardScratch{Residual: append([]float32(nil), scratch.Residual...), MoeOut: make([]float32, len(scratch.MoeOut)), TopKIDs: append([]int(nil), scratch.TopKIDs...), TopKVals: append([]float32(nil), scratch.TopKVals...), TopKExperts: topK, GGUFExpertIndex: idx}
+		if err := runGGUFCPUExpertsIndexed(op, weights, cpuScratch, idx); err != nil {
+			return err
+		}
+		work, err := FlattenSelectedExperts(scratch.TopKIDs, scratch.TopKVals, positions, topK, idx.NumExperts)
+		if err != nil {
+			return err
+		}
+		arr := BuildSelectedExpertWorkArrays(work)
+		grouped, err := BuildSelectedExpertGroupedWork(arr, idx.NumExperts)
+		if err != nil {
+			return err
+		}
+		ga, err := BuildSelectedExpertGroupedArrays(arr, grouped)
+		if err != nil {
+			return err
+		}
+		if idx.entries[hookLayer].downScale != nil {
+			if err := ga.ApplyDownScalesByExpert(idx.entries[hookLayer].downScale); err != nil {
+				return err
+			}
+		}
+		kept, dropped, err := SplitSelectedExpertGroupedArrays(ga, func(expert int) bool { return keep[expert] })
+		if err != nil {
+			return err
+		}
+		if len(kept.ActiveExperts) == 0 || len(dropped.ActiveExperts) == 0 {
+			return fmt.Errorf("unexpected split kept=%d dropped=%d", len(kept.ActiveExperts), len(dropped.ActiveExperts))
+		}
+		preNorm2, err := loadFloatVector(weights, weights.ForwardPlan().Layers[hookLayer].PreFFNLayerNorm2)
+		if err != nil {
+			return err
+		}
+		normedRows := make([]float32, len(scratch.Residual))
+		for pos := 0; pos < positions; pos++ {
+			row := normedRows[pos*idx.HiddenSize : (pos+1)*idx.HiddenSize]
+			copy(row, scratch.Residual[pos*idx.HiddenSize:(pos+1)*idx.HiddenSize])
+			if !rmsNormForGroupedGPUTest(row, preNorm2) {
+				return fmt.Errorf("rms norm failed")
+			}
+		}
+		partialScratch := ForwardScratch{Residual: append([]float32(nil), scratch.Residual...), MoeOut: make([]float32, len(scratch.MoeOut)), TopKIDs: append([]int(nil), scratch.TopKIDs...), TopKVals: append([]float32(nil), scratch.TopKVals...), TopKExperts: topK, GGUFExpertIndex: idx}
+		var bufs SelectedExpertGroupedArraysGPUBuffers
+		defer bufs.Free()
+		if err := bufs.Upload(kept); err != nil {
+			return err
+		}
+		used, err := runGGUFGPUExpertsGroupedFused(op, partialScratch, idx, normedRows, kept, &bufs)
+		if err != nil {
+			return err
+		}
+		if !used {
+			return fmt.Errorf("layer-5 exact-input partial GPU kept executor not used")
+		}
+		if err := runGGUFCPUExpertsGroupedNoPostNorm(op, partialScratch, idx, normedRows, dropped); err != nil {
+			return err
+		}
+		postNorm2, err := loadFloatVector(weights, weights.ForwardPlan().Layers[hookLayer].PostFFNLayerNorm2)
+		if err != nil {
+			return err
+		}
+		for off := 0; off < len(partialScratch.MoeOut); off += idx.HiddenSize {
+			if !simd.RMSNormTo(partialScratch.MoeOut[off:off+idx.HiddenSize], postNorm2, 1e-6) {
+				return fmt.Errorf("post norm failed")
+			}
+		}
+		var maxAbs, meanAbs float64
+		for i := range cpuScratch.MoeOut {
+			d := math.Abs(float64(cpuScratch.MoeOut[i] - partialScratch.MoeOut[i]))
+			if d > maxAbs {
+				maxAbs = d
+			}
+			meanAbs += d
+		}
+		meanAbs /= float64(len(cpuScratch.MoeOut))
+		capturedMaxAbs, capturedMeanAbs = maxAbs, meanAbs
+		if maxAbs > 0.35 || meanAbs > 0.02 {
+			return fmt.Errorf("layer-5 exact-input partial grouped GPU+CPU experts unexpectedly diverged: max=%g mean=%g kept=%d dropped=%d", maxAbs, meanAbs, len(kept.ActiveExperts), len(dropped.ActiveExperts))
+		}
+		return stop
+	}
+	prompt := make([]int, 92)
+	for i := range prompt {
+		prompt[i] = 100 + i
+	}
+	disp := CPUDispatcher{GGUFExpertIndex: idx, SkipEviction: true}
+	ops := BuildForwardOpPlan(meta.Shape, nil)
+	buffers := BuildForwardBufferPlan(meta.Shape)
+	buffers.TopKExperts = 8
+	_, err = disp.EncodePrompt(prompt, weights, ops, buffers)
+	if !errors.Is(err, stop) {
+		t.Fatalf("EncodePrompt err=%v want sentinel", err)
+	}
+	if !compared {
+		t.Fatal("layer-5 hook did not run")
+	}
+	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: max=%g mean=%g", capturedMaxAbs, capturedMeanAbs)
 }
 
 func rmsNormForGroupedGPUTest(row, w []float32) bool { return simd.RMSNormTo(row, w, 1e-6) }

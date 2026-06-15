@@ -11,6 +11,10 @@ import (
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
+type encoderGGUFMoEHookFunc func(layer int, layerType string, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex) error
+
+var encoderGGUFMoEHook encoderGGUFMoEHookFunc
+
 // EncodePrompt runs the CPU/reference prompt encoder.
 //
 // This path is intentionally kept available for llama.cpp parity checks and
@@ -679,6 +683,11 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			routerOp := LayerOp{Layer: layer, Type: lt, Kind: OpRouter}
 			if err := runRouterFromResidual(routerOp, weights, moeScratch); err != nil {
 				return nil, err
+			}
+			if encoderGGUFMoEHook != nil {
+				if err := encoderGGUFMoEHook(layer, lt, weights, moeScratch, d.GGUFExpertIndex); err != nil {
+					return nil, err
+				}
 			}
 			usedGPUExperts := false
 			var normedRows []float32
