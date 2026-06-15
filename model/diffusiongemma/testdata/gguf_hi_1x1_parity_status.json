@@ -192,11 +192,12 @@
     "Go now runs the same one-block 256-token canvas shape for this fixture (-max-new 256) and trims generated output at the first EOG like llama.cpp.",
     "The trimmed Go output starts with the same channel/thought marker and ends with the same user-facing greeting/question.",
     "The MT19937 uniform integer path now matches libstdc++ for the 262144-token DiffusionGemma vocab, including random canvas init and renoise draws.",
-    "The sampler reports llama.cpp-style held/confident stop diagnostics per step."
+    "The sampler reports llama.cpp-style held/confident stop diagnostics per step.",
+    "Committed Go first-step entropy probes now include top-5 raw logit IDs/values for positions 9 and 28, so the current mismatch is a runnable gate rather than a /tmp-only diagnostic."
   ],
   "known_differences": [
     "Full denoised text is still not matched: llama.cpp emits a longer thought body before the final response, while Go emits an empty thought channel followed directly by the final greeting.",
-    "llama.cpp entropy-bound generation reported 11 effective denoise steps; Go stops after 2 steps for this exact prompt/canvas/seed with held=1 and confident=true. The first-step gap is broad-canvas uncertainty: llama.cpp accepted=20, mean_entropy\u22481.3065, max_entropy\u22484.03 at pos 28 with top ids [139,236829,236761,107,140]; Go accepted=243, mean_entropy\u22480.0151, max_entropy\u22481.02 at pos 9 and Go pos28 is near-certain EOS. Both agree first_argmax=100/first_sampled=100 for canvas position 0, so the mismatch is not isolated to the first token.",
+    "llama.cpp entropy-bound generation reported 11 effective denoise steps; Go stops after 2 steps for this exact prompt/canvas/seed with held=1 and confident=true. The first-step gap is broad-canvas uncertainty: llama.cpp pos28 top ids [139,236829,236761,107,140] with entropy\u22484.03, while Go pos28 top ids [1,106,564,107,236764] with entropy\u22480.0013/EOS. Go pos9 top ids [1601,564,740,1,3124] also differ from llama pos9 [107,3056,1174,108,140].",
     "An opt-in raw-logit self-conditioning seam now exists via GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS=1, matching llama.cpp's previous-raw-logits plus previous-temp-inv API, but the current all-F32 Go GGUF CPU path exceeds the host memory envelope on this real fixture when it retains a full previous [canvas][vocab] logits matrix.",
     "The remaining blocker is entropy-bound sampler/self-conditioning/logit numeric parity over the full 256-token canvas, not prompt IDs, RNG integer draws, or trimming.",
     "Layer-row trace comparison for canvas row 28 shows prefix and layer0 l_out match closely (rms\u22481.7998, max_abs\u224865), but by layer29 l_out Go is much larger (rms\u22481.1238 vs llama\u22480.6294, max_abs\u224839.7 vs llama\u224818.2), so the next parity target is a later-layer sub-op trace rather than layer0."
@@ -429,5 +430,49 @@
       "go_max_abs": 39.6642
     },
     "next_target": "Layer 0 is close, so compare later layer sub-ops; layer 29 l_out row28 has large rms/max_abs divergence before the LM head."
-  }
+  },
+  "go_first_step_top_probes": [
+    {
+      "position": 9,
+      "argmax": 1601,
+      "sampled": 564,
+      "entropy": 1.0238225433286774,
+      "accepted": false,
+      "top_ids": [
+        1601,
+        564,
+        740,
+        1,
+        3124
+      ],
+      "top_logits": [
+        24.111994,
+        24.065763,
+        22.057732,
+        21.566626,
+        20.53034
+      ]
+    },
+    {
+      "position": 28,
+      "argmax": 1,
+      "sampled": 1,
+      "entropy": 0.001340325751953862,
+      "accepted": true,
+      "top_ids": [
+        1,
+        106,
+        564,
+        107,
+        236764
+      ],
+      "top_logits": [
+        29.37196,
+        20.48538,
+        20.05294,
+        20.040842,
+        19.910925
+      ]
+    }
+  ]
 }

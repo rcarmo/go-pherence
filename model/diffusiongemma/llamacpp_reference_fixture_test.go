@@ -118,6 +118,41 @@ func TestLlamaCppGGUFHi1x1GoldenResponseIDs(t *testing.T) {
 	}
 }
 
+func assertProbeTop(t *testing.T, p EntropyProbe, pos, argmax, sampled int, entropyLo, entropyHi float64, accepted bool, wantIDs []int, wantLogits []float32, tol float64) {
+	t.Helper()
+	if p.Position != pos || p.Argmax != argmax || p.Sampled != sampled || p.Accepted != accepted || p.Entropy < entropyLo || p.Entropy > entropyHi || !equalInts(p.TopIDs, wantIDs) || len(p.TopLogits) != len(wantLogits) {
+		t.Fatalf("bad probe header: got=%+v want pos=%d argmax=%d sampled=%d accepted=%v ids=%v logits=%v", p, pos, argmax, sampled, accepted, wantIDs, wantLogits)
+	}
+	for i := range wantLogits {
+		got := float64(p.TopLogits[i])
+		want := float64(wantLogits[i])
+		if got < want-tol || got > want+tol {
+			t.Fatalf("probe pos=%d top_logit[%d]=%g want %g±%g (probe=%+v)", pos, i, got, want, tol, p)
+		}
+	}
+}
+
+func TestGGUFHi1x1TopLogitProbeGate(t *testing.T) {
+	data, err := os.ReadFile("testdata/gguf_hi_1x1_parity_status.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		LlamaCppTopProbes []EntropyProbe `json:"llamacpp_first_step_top_probes"`
+		GoTopProbes       []EntropyProbe `json:"go_first_step_top_probes"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if len(fixture.LlamaCppTopProbes) != 2 || len(fixture.GoTopProbes) != 2 {
+		t.Fatalf("top probes llama=%d go=%d", len(fixture.LlamaCppTopProbes), len(fixture.GoTopProbes))
+	}
+	assertProbeTop(t, fixture.LlamaCppTopProbes[0], 9, 107, 107, 1.16, 1.18, false, []int{107, 3056, 1174, 108, 140}, []float32{29.030109, 28.334581, 26.1243, 25.532812, 25.434307}, 1e-4)
+	assertProbeTop(t, fixture.LlamaCppTopProbes[1], 28, 139, 139, 4.03, 4.04, false, []int{139, 236829, 236761, 107, 140}, []float32{27.190184, 27.168499, 27.115316, 27.045607, 26.939913}, 1e-4)
+	assertProbeTop(t, fixture.GoTopProbes[0], 9, 1601, 564, 1.02, 1.03, false, []int{1601, 564, 740, 1, 3124}, []float32{24.111994, 24.065763, 22.057732, 21.566626, 20.53034}, 1e-4)
+	assertProbeTop(t, fixture.GoTopProbes[1], 28, 1, 1, 0.0013, 0.0014, true, []int{1, 106, 564, 107, 236764}, []float32{29.37196, 20.48538, 20.05294, 20.040842, 19.910925}, 1e-4)
+}
+
 func TestGGUFHi1x1GoTrimmedOutputComparisonGate(t *testing.T) {
 	data, err := os.ReadFile("testdata/gguf_hi_1x1_parity_status.json")
 	if err != nil {

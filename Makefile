@@ -666,7 +666,7 @@ diffusiongemma-reference-dry-run:
 diffusiongemma-reference:
 	python3 scripts/diffusiongemma_reference.py --model $(DIFFUSIONGEMMA_MODEL) --prompt '$(DIFFUSIONGEMMA_REF_PROMPT)' $(if $(DIFFUSIONGEMMA_REF_MESSAGES_JSON),--messages-json '$(DIFFUSIONGEMMA_REF_MESSAGES_JSON)',) $(if $(DIFFUSIONGEMMA_REF_MESSAGES_FILE),--messages-file $(DIFFUSIONGEMMA_REF_MESSAGES_FILE),) --max-new-tokens $(DIFFUSIONGEMMA_REF_MAX_NEW) --max-denoising-steps $(DIFFUSIONGEMMA_REF_STEPS) --out $(DIFFUSIONGEMMA_REF_OUT)
 
-.PHONY: diffusiongemma-check-scaffold
+.PHONY: diffusiongemma-check-scaffold diffusiongemma-golden-gate
 
 diffusiongemma-check-scaffold:
 	mkdir -p $(GOTMPDIR)
@@ -675,9 +675,12 @@ diffusiongemma-check-scaffold:
 	go run ./cmd/diffusiongemmarun -model $(DIFFUSIONGEMMA_MODEL) -messages-json '[{"role":"user","content":"$(DIFFUSIONGEMMA_PROMPT)"}]' -add-bos -chat-template -generation-prompt -mock-token $(DIFFUSIONGEMMA_MOCK_TOKEN) $(if $(DIFFUSIONGEMMA_MOCK_TOKENS),-mock-tokens $(DIFFUSIONGEMMA_MOCK_TOKENS),) -canvas 2 -max-new 2 -decode
 	go test ./cmd/diffusiongemmarun ./cmd/diffusiongemmainspect ./model/diffusiongemma ./loader/config -run '^$$'
 
+diffusiongemma-golden-gate:
+	go test ./model/diffusiongemma -run 'TestLlamaCppGGUFHi1x1(GoldenResponseIDs|ReferenceFixture)|TestGGUFHi1x1(GoTrimmedOutputComparisonGate|TopLogitProbeGate|ParityStatusDocumentsCurrentBlocker)|TestMT19937' -count=1 -v
+
 .PHONY: diffusiongemma-ci-scaffold
 
-diffusiongemma-ci-scaffold: diffusiongemma-check-scaffold diffusiongemma-reference-dry-run diffusiongemma-mock-compare diffusiongemma-ci-structured-messages diffusiongemma-status-json diffusiongemma-status-summary
+diffusiongemma-ci-scaffold: diffusiongemma-check-scaffold diffusiongemma-golden-gate diffusiongemma-reference-dry-run diffusiongemma-mock-compare diffusiongemma-ci-structured-messages diffusiongemma-status-json diffusiongemma-status-summary
 
 .PHONY: diffusiongemma-check-shards
 
