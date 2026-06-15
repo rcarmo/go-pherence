@@ -48,18 +48,23 @@ func TestLoadGemma4MTPDrafterLocalAsset(t *testing.T) {
 	}
 
 	for i, layer := range d.Layers {
-		headDim := d.Config.HeadDim
-		if d.Config.LayerTypes[i] == "full_attention" && d.Config.GlobalHeadDim > 0 {
-			headDim = d.Config.GlobalHeadDim
+		headDim := d.LayerHeadDim(i)
+		qDim, ok := checkedProduct(d.Config.NumHeads, headDim)
+		if !ok {
+			t.Fatalf("layer %d Q dim overflow heads=%d headDim=%d", i, d.Config.NumHeads, headDim)
 		}
-		qDim := d.Config.NumHeads * headDim
 		if layer.HeadDimLocal != headDim {
 			t.Fatalf("layer %d HeadDimLocal = %d, want %d", i, layer.HeadDimLocal, headDim)
 		}
-		if got, want := len(layer.QW), qDim*256; got != want {
+		qWeightLen, okQ := checkedProduct(qDim, d.Config.HiddenSize)
+		oWeightLen, okO := checkedProduct(d.Config.HiddenSize, qDim)
+		if !okQ || !okO {
+			t.Fatalf("layer %d Q/O expected len overflow qDim=%d hidden=%d", i, qDim, d.Config.HiddenSize)
+		}
+		if got, want := len(layer.QW), qWeightLen; got != want {
 			t.Fatalf("layer %d QW len = %d, want %d", i, got, want)
 		}
-		if got, want := len(layer.OW), 256*qDim; got != want {
+		if got, want := len(layer.OW), oWeightLen; got != want {
 			t.Fatalf("layer %d OW len = %d, want %d", i, got, want)
 		}
 		if got, want := layer.QNorm.Shape()[0], headDim; got != want {

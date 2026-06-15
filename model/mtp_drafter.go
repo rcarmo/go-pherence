@@ -211,7 +211,10 @@ func LoadGemma4MTPDrafter(dir string) (*Gemma4MTPDrafter, error) {
 		if l < len(cfg.LayerTypes) && cfg.LayerTypes[l] == "full_attention" && cfg.GlobalHeadDim > 0 {
 			headDim = cfg.GlobalHeadDim
 		}
-		qDim := cfg.NumHeads * headDim
+		qDim, ok := checkedProduct(cfg.NumHeads, headDim)
+		if headDim <= 0 || !ok {
+			return nil, fmt.Errorf("drafter layer %d Q dim overflows heads=%d headDim=%d", l, cfg.NumHeads, headDim)
+		}
 
 		layer := Gemma4MTPDrafterLayer{
 			LayerScalar:   1,
