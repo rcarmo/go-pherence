@@ -2670,6 +2670,46 @@ func diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes() int64 {
 	return int64(n) * 1024 * 1024
 }
 
+type ggufExpertPrewarmTarget struct {
+	Layer  int
+	Expert int
+}
+
+func diffusionGemmaGGUFGPUExpertPrewarmPlan(maxLayers, numExperts int) []ggufExpertPrewarmTarget {
+	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN"))
+	if v == "" || maxLayers <= 0 || numExperts <= 0 {
+		return nil
+	}
+	seen := make(map[ggufExpertPrewarmTarget]bool)
+	out := make([]ggufExpertPrewarmTarget, 0)
+	for _, group := range strings.Split(v, ";") {
+		group = strings.TrimSpace(group)
+		if group == "" {
+			continue
+		}
+		parts := strings.SplitN(group, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		layer, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil || layer < 0 || layer >= maxLayers {
+			continue
+		}
+		for _, expertText := range strings.Split(parts[1], ",") {
+			expert, err := strconv.Atoi(strings.TrimSpace(expertText))
+			if err != nil || expert < 0 || expert >= numExperts {
+				continue
+			}
+			t := ggufExpertPrewarmTarget{Layer: layer, Expert: expert}
+			if !seen[t] {
+				seen[t] = true
+				out = append(out, t)
+			}
+		}
+	}
+	return out
+}
+
 func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggufGPUExpertWeights, bool, error) {
 	budget := diffusionGemmaGGUFGPUExpertCacheBytes()
 	if budget <= 0 || idx == nil || layer < 0 || layer >= idx.NumLayers || expert < 0 || expert >= idx.NumExperts {
@@ -3789,63 +3829,89 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 	cacheReserve := diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes()
 	cacheBudget := diffusionGemmaGGUFGPUExpertCacheBytes()
 	q4Only := diffusionGemmaGGUFGPUExpertPrewarmQ4OnlyEnabled()
-	for layer := 0; layer < maxLayers; layer++ {
-		layerComplete := true
-		for expert := 0; expert < idx.NumExperts; expert++ {
-			need := int64(0)
-			if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: ggufExpertIndexCacheID(idx), layer: layer, expert: expert}); !ok {
-				b, err := q4KGateUpExpertDeviceBytes(idx, layer)
+	cacheID := ggufExpertIndexCacheID(idx)
+	prewarmed := make(map[ggufExpertPrewarmTarget]bool)
+	prewarmOne := func(layer, expert int) (bool, error) {
+		need := int64(0)
+		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+			b, err := q4KGateUpExpertDeviceBytes(idx, layer)
+			if err != nil {
+				return false, err
+			}
+			need += b
+		}
+		if !q4Only {
+			if _, ok := q8DownExpertCache.Load(q8DownExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+				b, err := q8DownExpertDeviceBytes(idx, layer)
 				if err != nil {
-					return layers, experts, bytes, err
+					return false, err
 				}
 				need += b
 			}
-			if !q4Only {
-				if _, ok := q8DownExpertCache.Load(q8DownExpertKey{index: ggufExpertIndexCacheID(idx), layer: layer, expert: expert}); !ok {
-					b, err := q8DownExpertDeviceBytes(idx, layer)
-					if err != nil {
-						return layers, experts, bytes, err
-					}
-					need += b
+		}
+		if need > 0 {
+			if cacheReserve > 0 {
+				used, _ := activeExpertMatrixCacheUsageBytes()
+				prewarmLimit := cacheBudget - cacheReserve
+				if prewarmLimit <= 0 || used+need > prewarmLimit {
+					return false, nil
 				}
 			}
+			if freeReserve > 0 {
+				free, _ := gpu.MemInfo()
+				if free > 0 && (free <= freeReserve || uint64(need) > free-freeReserve) {
+					return false, nil
+				}
+			}
+			if !reserveActiveExpertMatrixCacheBytes(need) {
+				return false, nil
+			}
+		}
+		if _, err := residentQ4KGateUpExpertMatrixWithReservation(idx, layer, expert, false); err != nil {
 			if need > 0 {
-				if cacheReserve > 0 {
-					used, _ := activeExpertMatrixCacheUsageBytes()
-					prewarmLimit := cacheBudget - cacheReserve
-					if prewarmLimit <= 0 || used+need > prewarmLimit {
-						layerComplete = false
-						break
-					}
-				}
-				if freeReserve > 0 {
-					free, _ := gpu.MemInfo()
-					if free > 0 && (free <= freeReserve || uint64(need) > free-freeReserve) {
-						layerComplete = false
-						break
-					}
-				}
-				if !reserveActiveExpertMatrixCacheBytes(need) {
-					layerComplete = false
-					break
-				}
+				releaseActiveExpertMatrixCacheBytes(need)
 			}
-			if _, err := residentQ4KGateUpExpertMatrixWithReservation(idx, layer, expert, false); err != nil {
+			return false, err
+		}
+		if !q4Only {
+			if _, err := residentQ8DownExpertMatrixWithReservation(idx, layer, expert, false); err != nil {
 				if need > 0 {
 					releaseActiveExpertMatrixCacheBytes(need)
 				}
+				return false, err
+			}
+		}
+		bytes += need
+		experts++
+		prewarmed[ggufExpertPrewarmTarget{Layer: layer, Expert: expert}] = true
+		return true, nil
+	}
+	for _, target := range diffusionGemmaGGUFGPUExpertPrewarmPlan(maxLayers, idx.NumExperts) {
+		if !q4Only && idx.entries[target.Layer].down.QType != gguf.QuantQ8_0 {
+			continue
+		}
+		ok, err := prewarmOne(target.Layer, target.Expert)
+		if err != nil {
+			return layers, experts, bytes, err
+		}
+		if !ok {
+			return layers, experts, bytes, nil
+		}
+	}
+	for layer := 0; layer < maxLayers; layer++ {
+		layerComplete := true
+		for expert := 0; expert < idx.NumExperts; expert++ {
+			if prewarmed[ggufExpertPrewarmTarget{Layer: layer, Expert: expert}] {
+				continue
+			}
+			ok, err := prewarmOne(layer, expert)
+			if err != nil {
 				return layers, experts, bytes, err
 			}
-			if !q4Only {
-				if _, err := residentQ8DownExpertMatrixWithReservation(idx, layer, expert, false); err != nil {
-					if need > 0 {
-						releaseActiveExpertMatrixCacheBytes(need)
-					}
-					return layers, experts, bytes, err
-				}
+			if !ok {
+				layerComplete = false
+				break
 			}
-			bytes += need
-			experts++
 		}
 		if !layerComplete {
 			break

@@ -36,6 +36,24 @@ func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
 
 func resetGGUFExpertResidencyTestState() { FreeGGUFGPUExpertCaches() }
 
+func TestGGUFGPUExpertPrewarmPlan(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN", "")
+	if got := diffusionGemmaGGUFGPUExpertPrewarmPlan(2, 4); len(got) != 0 {
+		t.Fatalf("empty prewarm plan=%v, want none", got)
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN", "0:3,1,3,bad; 2:0; 1:4,2; bad; 1:2")
+	got := diffusionGemmaGGUFGPUExpertPrewarmPlan(2, 4)
+	want := []ggufExpertPrewarmTarget{{Layer: 0, Expert: 3}, {Layer: 0, Expert: 1}, {Layer: 1, Expert: 2}}
+	if len(got) != len(want) {
+		t.Fatalf("prewarm plan len=%d got=%v want=%v", len(got), got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("prewarm plan=%v want=%v", got, want)
+		}
+	}
+}
+
 func TestGGUFGPUExpertActiveTraceTop(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP", "")
 	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 0 {
