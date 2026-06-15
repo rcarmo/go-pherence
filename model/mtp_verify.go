@@ -163,10 +163,7 @@ func (r MTPVerifierResult) CommittedActivation() ([]float32, error) {
 // CommitFloatKV applies the verifier result's acceptance to staged uncompressed
 // KV caches. The checkpoint must be from immediately before the verifier pass.
 func (r MTPVerifierResult) CommitFloatKV(m *LlamaModel, kvCacheK, kvCacheV [][]float32, cp kv.FloatKVCheckpoint) error {
-	if m == nil {
-		return fmt.Errorf("nil model")
-	}
-	if err := r.validateAcceptanceMatchesLogits(); err != nil {
+	if err := r.validateForModel(m); err != nil {
 		return err
 	}
 	return m.CommitAcceptedFloatKV(kvCacheK, kvCacheV, cp, r.Acceptance)
@@ -237,25 +234,45 @@ func (r MTPVerifierResult) commitGraphCompressedKVUncheckedModel(graph MTPExecut
 }
 
 func (r MTPVerifierResult) validateGraphForModel(m *LlamaModel, graph MTPExecutionGraph) error {
-	if m == nil {
-		return fmt.Errorf("nil model")
+	if err := r.validateForModel(m); err != nil {
+		return err
 	}
 	if err := r.validateGraph(graph); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (r MTPVerifierResult) validateForModel(m *LlamaModel) error {
+	if m == nil {
+		return fmt.Errorf("nil model")
 	}
 	vocab, hidden := m.Config.VocabSize, m.Config.HiddenSize
 	if vocab <= 0 || hidden <= 0 {
 		return fmt.Errorf("invalid MTP verifier model dims vocab=%d hidden=%d", vocab, hidden)
 	}
+	wantTokens, err := MTPVerifierTokens(r.InputToken, r.DraftedTokens)
+	if err != nil {
+		return err
+	}
+	if !mtpSameInts(r.VerifierTokens, wantTokens) {
+		return fmt.Errorf("MTP verifier tokens=%v, want %v", r.VerifierTokens, wantTokens)
+	}
 	for i, tok := range r.VerifierTokens {
-		if tok >= vocab {
+		if tok < 0 || tok >= vocab {
 			return fmt.Errorf("MTP verifier token %d at index %d out of range [0,%d)", tok, i, vocab)
 		}
+	}
+	if len(r.Logits) != len(r.VerifierTokens) {
+		return fmt.Errorf("MTP verifier logits rows=%d, verifier tokens=%d", len(r.Logits), len(r.VerifierTokens))
 	}
 	for i, row := range r.Logits {
 		if len(row) != vocab {
 			return fmt.Errorf("MTP verifier logits row %d len=%d, want vocab=%d", i, len(row), vocab)
 		}
+	}
+	if len(r.ActivationRows) > 0 && len(r.ActivationRows) != len(r.VerifierTokens) {
+		return fmt.Errorf("MTP verifier activation rows=%d, verifier tokens=%d", len(r.ActivationRows), len(r.VerifierTokens))
 	}
 	for i, row := range r.ActivationRows {
 		if len(row) != hidden {
@@ -264,6 +281,9 @@ func (r MTPVerifierResult) validateGraphForModel(m *LlamaModel, graph MTPExecuti
 	}
 	if len(r.FinalActivation) > 0 && len(r.FinalActivation) != hidden {
 		return fmt.Errorf("MTP verifier final activation len=%d, want hidden=%d", len(r.FinalActivation), hidden)
+	}
+	if err := r.validateAcceptanceMatchesLogits(); err != nil {
+		return err
 	}
 	return nil
 }

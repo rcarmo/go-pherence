@@ -135,8 +135,8 @@ func TestMTPVerifierResultCommittedActivationRejectsMutatedAcceptance(t *testing
 }
 
 func TestMTPVerifierResultCommitFloatKV(t *testing.T) {
-	m := &LlamaModel{Config: LlamaConfig{NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
-	result, err := NewMTPVerifierResult(9, []int{1, 2}, [][]float32{{0, 9, 0}, {0, 8, 0}, {0, 0, 7}}, nil)
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 3, HiddenSize: 2, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	result, err := NewMTPVerifierResult(0, []int{1, 2}, [][]float32{{0, 9, 0}, {0, 8, 0}, {0, 0, 7}}, nil)
 	if err != nil {
 		t.Fatalf("NewMTPVerifierResult: %v", err)
 	}
@@ -148,6 +148,22 @@ func TestMTPVerifierResultCommitFloatKV(t *testing.T) {
 	}
 	if want := []float32{1, 2, 10, 11, 12, 13}; !sameFloat32s(k[0], want) {
 		t.Fatalf("K=%v want %v", k[0], want)
+	}
+}
+
+func TestMTPVerifierResultCommitFloatKVRejectsModelDimDrift(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	result, err := NewMTPVerifierResult(0, []int{1}, [][]float32{{0, 9, 0, 0, 0}, {7, 0, 0, 0, 0}}, []float32{1, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := [][]float32{{1, 2, 10, 11}}
+	v := [][]float32{{3, 4, 20, 21}}
+	if err := result.CommitFloatKV(m, k, v, kv.FloatKVCheckpoint{KLen: []int{2}, VLen: []int{2}}); err == nil {
+		t.Fatal("accepted logits width that disagrees with model vocab")
+	}
+	if len(k[0]) != 4 || len(v[0]) != 4 {
+		t.Fatalf("KV mutated on failed model-dim check K=%v V=%v", k[0], v[0])
 	}
 }
 
