@@ -1,6 +1,7 @@
 package whisper
 
 import (
+	"math"
 	"os"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -114,8 +115,13 @@ func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []f
 	k := gemvGPU(normed, gl.kW, layer.KBias, seqLen, dModel, dModel)
 	v := gemvGPU(normed, gl.vW, layer.VBias, seqLen, dModel, dModel)
 
-	// Full attention (CPU for now — GPU attention kernel needs sequence-level parallelism)
-	attnOut := fullAttention(q, k, v, seqLen, seqLen, cfg.EncoderHeads, cfg.HeadDim)
+	// Full attention: CPU by default. Opt-in correctness-first CUDA/PTX dispatch
+	// validates the GPU graph body but is not expected to be faster than the
+	// optimized CPU/SIMD path until a tiled attention kernel lands.
+	attnOut, ok := fullAttentionGPU(q, k, v, seqLen, cfg.EncoderHeads, cfg.HeadDim)
+	if !ok {
+		attnOut = fullAttention(q, k, v, seqLen, seqLen, cfg.EncoderHeads, cfg.HeadDim)
+	}
 
 	// Output projection via GPU
 	projected := gemvGPU(attnOut, gl.oW, layer.OBias, seqLen, dModel, dModel)
@@ -193,6 +199,54 @@ func conv1dForwardGPU(input, weight, bias []float32, inCh, inLen, outCh, stride 
 		return nil, false
 	}
 	out := make([]float32, outCh*outLen)
+	if err := outBuf.Download(out); err != nil {
+		return nil, false
+	}
+	return out, true
+}
+
+func fullAttentionGPU(q, k, v []float32, seqLen, numHeads, headDim int) ([]float32, bool) {
+	if os.Getenv("GO_PHERENCE_WHISPER_GPU_ATTENTION") != "1" || !nv.SgemmReady() || seqLen <= 0 || numHeads <= 0 || headDim <= 0 {
+		return nil, false
+	}
+	n := seqLen * numHeads * headDim
+	if len(q) < n || len(k) < n || len(v) < n {
+		return nil, false
+	}
+	qBuf, err := nv.Malloc(n)
+	if err != nil {
+		return nil, false
+	}
+	defer qBuf.Free()
+	kBuf, err := nv.Malloc(n)
+	if err != nil {
+		return nil, false
+	}
+	defer kBuf.Free()
+	vBuf, err := nv.Malloc(n)
+	if err != nil {
+		return nil, false
+	}
+	defer vBuf.Free()
+	outBuf, err := nv.Malloc(n)
+	if err != nil {
+		return nil, false
+	}
+	defer outBuf.Free()
+	if err := qBuf.Upload(q[:n]); err != nil {
+		return nil, false
+	}
+	if err := kBuf.Upload(k[:n]); err != nil {
+		return nil, false
+	}
+	if err := vBuf.Upload(v[:n]); err != nil {
+		return nil, false
+	}
+	scale := float32(1.0 / math.Sqrt(float64(headDim)))
+	if err := nv.WhisperAttentionFullBuffer(outBuf, qBuf, kBuf, vBuf, seqLen, seqLen, numHeads, headDim, scale); err != nil {
+		return nil, false
+	}
+	out := make([]float32, n)
 	if err := outBuf.Download(out); err != nil {
 		return nil, false
 	}
