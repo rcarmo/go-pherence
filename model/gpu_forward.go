@@ -1538,6 +1538,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				nvidia.DevToBF16(g.hidden, h)
 			}
 			if g.lmHeadMLXGPU != nil {
+				if !gpuMLXWeightDims(g.lmHeadMLXGPU, g.vocabSize, h) {
+					return nil
+				}
 				nvidia.GemvMLX(g.logitsGPU, g.hidden, g.lmHeadMLXGPU)
 			} else {
 				// logits = lmHead[vocab,h] × hidden[h] → [vocab]

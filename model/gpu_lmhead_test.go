@@ -38,6 +38,13 @@ func TestGPUPackedWeightDimGuards(t *testing.T) {
 	if cpuQ4WeightDims(&QuantWeight{OutDim: 4, InDim: 8}, 8, 8) {
 		t.Fatal("mismatched CPU Q4 dims accepted")
 	}
+	vocab, hidden := 16, 4
+	if !gpuMLXWeightDims(&nvidia.GPUMLXWeight{OutDim: vocab, InDim: hidden}, vocab, hidden) {
+		t.Fatal("valid GPU MLX LM head dims rejected")
+	}
+	if gpuMLXWeightDims(&nvidia.GPUMLXWeight{OutDim: hidden, InDim: vocab}, vocab, hidden) {
+		t.Fatal("transposed GPU MLX LM head dims accepted")
+	}
 }
 
 func TestLayerKVHeadsForGPUKVBuffersUsesGemmaFullAttentionHeads(t *testing.T) {
