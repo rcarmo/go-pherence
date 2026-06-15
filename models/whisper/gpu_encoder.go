@@ -1,7 +1,6 @@
 package whisper
 
 import (
-	"math"
 	"os"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -195,16 +194,9 @@ func gemvGPU(x []float32, W *nv.DevBuf, bias []float32, seqLen, inDim, outDim in
 	return linearForwardOpt(x, W.Data(), bias, seqLen, inDim, outDim)
 }
 
-// transpose2DGPU is a placeholder for GPU-accelerated transpose.
-func transpose2DGPU(data []float32, channels, length int) []float32 {
-	return transpose2D(data, channels, length)
-}
-
 func init() {
-	// Warm up CUDA context on package init if available
-	if nv.SgemmReady() {
-		_ = math.Pi // prevent unused import
-	}
+	// Warm up CUDA context on package init if available.
+	_ = nv.SgemmReady()
 }
 
 // NewDecoderStateGPU pre-computes cross-attention K/V using GPU SGEMM.
