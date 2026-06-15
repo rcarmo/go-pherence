@@ -69,7 +69,7 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if err := r.Capabilities.Validate(); err != nil {
 		return err
 	}
-	if len(r.Output) > 0 && !mtpSameStringSet(r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration()) {
+	if !mtpSameStringSet(r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration()) {
 		return fmt.Errorf("MTP public-generation blockers=%v, want capabilities blockers=%v", r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration())
 	}
 	var graphCount int

@@ -333,6 +333,10 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	if err := zero.Validate(1); err == nil {
 		t.Fatal("accepted stale nonzero stats on zero-cycle result")
 	}
+	empty := MTPGraphGenerationResult{Capabilities: caps, MissingForPublicGeneration: []string{"stale"}}
+	if err := empty.Validate(0); err == nil {
+		t.Fatal("accepted stale public-generation blockers on empty output")
+	}
 }
 
 func TestMTPExternalKVForDecodeStateRefreshesKVSlicesAndSeqLen(t *testing.T) {
