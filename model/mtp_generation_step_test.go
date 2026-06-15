@@ -125,6 +125,38 @@ func TestCPUDecodeStateRunMTPGraphDecodeStepCompressedKVZeroLayer(t *testing.T) 
 	}
 }
 
+func TestCPUDecodeStateRunMTPGraphDecodeStepCompressedKVStagesVerifierRows(t *testing.T) {
+	m := newSingleLayerVerifierModel()
+	d := validProjectionOnlyDrafter()
+	d.Config.VocabSize = m.Config.VocabSize
+	state, err := NewMTPDrafterState(1, []float32{0.5, 0.25}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := NewCPUDecodeStateForSpeculative(m, []int{1}, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.CompressedKV = []*kv.CompressedKVCache{kv.NewCompressedKVCache(2, 1, 2, nil, true)}
+	st.CompressedKV[0].Append([]float32{0.1, 0.2}, []float32{0.3, 0.4})
+	st.KVCacheK[0] = nil
+	st.KVCacheV[0] = nil
+	res, err := st.RunMTPGraphDecodeStep(d, state, nil, MTPGraphDecodeStepOptions{RemainingTokens: 3, DraftCount: 2}, MTPSpeculationStats{})
+	if err != nil {
+		t.Fatalf("RunMTPGraphDecodeStep compressed single-layer: %v", err)
+	}
+	wantSeq := 1 + res.Commit.KeepTokens
+	if got := st.CompressedKV[0].SeqLen(); got != wantSeq {
+		t.Fatalf("compressed seq len=%d want prompt+keep=%d commit=%+v", got, wantSeq, res.Commit)
+	}
+	if len(st.KVCacheK[0]) != 0 || len(st.KVCacheV[0]) != 0 {
+		t.Fatalf("float KV mutated for compressed decode K/V=%v/%v", st.KVCacheK[0], st.KVCacheV[0])
+	}
+	if !sameInts(st.Output, append([]int{1}, res.Commit.OutputTokens...)) {
+		t.Fatalf("decode output=%v commit=%v", st.Output, res.Commit.OutputTokens)
+	}
+}
+
 func TestCPUDecodeStateCompressedVerifierStagingValidation(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
 	st := &CPUDecodeState{Model: m, KVDims: []int{2}, CompressedKV: []*kv.CompressedKVCache{kv.NewCompressedKVCache(2, 1, 2, nil, true)}}
