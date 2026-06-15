@@ -99,6 +99,40 @@ func TestRunMTPVerifierBatchForwardLayeredExperimentalMatchesSequential(t *testi
 	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
 }
 
+func TestRunMTPVerifierBatchForwardLayeredExperimentalSlidingWindowMatchesSequential(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
+	m := newSingleLayerVerifierModel()
+	m.Config.SlidingWindow = 2
+	m.Config.LayerTypes = []string{"sliding_attention"}
+	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 4)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameInts(batch.Attention.Layers[0].KVStart, []int{3, 4}) || !sameInts(batch.Attention.Layers[0].KVEndExclusive, []int{5, 6}) {
+		t.Fatalf("sliding verifier attention=%+v", batch.Attention.Layers[0])
+	}
+	initialK := []float32{1, 0, 0, 1, 1, 1, -1, 1}
+	initialV := []float32{0, 1, 1, 0, -1, 1, 1, 1}
+	kvCacheK := [][]float32{append([]float32(nil), initialK...)}
+	kvCacheV := [][]float32{append([]float32(nil), initialV...)}
+	got, err := m.RunMTPVerifierBatchForward(batch, kvCacheK, kvCacheV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seqK := [][]float32{append([]float32(nil), initialK...)}
+	seqV := [][]float32{append([]float32(nil), initialV...)}
+	seqHidden, err := m.runMTPVerifierBatchRowsSequential(batch, seqK, seqV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, seqLogits, _, err := m.FinishCPUDecodeBatch(seqHidden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
+}
+
 func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan MTPVerifierPlan, got MTPVerifierResult, kvCacheK, kvCacheV [][]float32, seqLogits [][]float32, seqK, seqV [][]float32) {
 	t.Helper()
 	if len(got.Logits) != len(plan.VerifierTokens) || len(got.FinalActivation) != m.Config.HiddenSize {
@@ -113,7 +147,8 @@ func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan M
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(kvCacheK[0]), len(plan.VerifierTokens)*kvDim; got != want {
+	wantKVTokens := plan.StartPos + len(plan.VerifierTokens)
+	if got, want := len(kvCacheK[0]), wantKVTokens*kvDim; got != want {
 		t.Fatalf("batch staged K len=%d want %d", got, want)
 	}
 	if !sameFloat32s(kvCacheK[0], seqK[0]) || !sameFloat32s(kvCacheV[0], seqV[0]) {
