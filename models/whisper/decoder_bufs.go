@@ -113,7 +113,17 @@ func (b *decoderBufs) attentionGPU(out, q []float32, kBufs, vBufs []*nv.DevBuf, 
 	}
 	copy(b.gpuX.Data()[:dModel], q[:dModel])
 	b.gpuX.MarkDirty()
-	nv.DevAttention(b.gpuAttnOut, b.gpuX, kBufs[layer], vBufs[layer], seqLen, numHeads, numHeads, headDim, float32(1.0/math.Sqrt(float64(headDim))))
+	qBuf := b.gpuX.GPUPtr()
+	outBuf := b.gpuAttnOut.GPUPtr()
+	kBuf := kBufs[layer].GPUPtr()
+	vBuf := vBufs[layer].GPUPtr()
+	if qBuf == nil || outBuf == nil || kBuf == nil || vBuf == nil {
+		return false
+	}
+	if err := nv.WhisperCrossAttentionBuffer(outBuf, qBuf, kBuf, vBuf, 1, seqLen, numHeads, headDim, float32(1.0/math.Sqrt(float64(headDim)))); err != nil {
+		return false
+	}
+	b.gpuAttnOut.ToCPU()
 	copy(out[:dModel], b.gpuAttnOut.Data()[:dModel])
 	return true
 }
