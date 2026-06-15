@@ -194,20 +194,22 @@ current Q4_K resident experts in the default path store derived scale/min values
 as F32. Modeling those Q4 scale/min values with a smaller byte count shows a
 structural kept-work improvement at every tested budget:
 
-| Expert cache | Current Q4 F32 scale/min | Modeled compact Q4 fp16 scale/min |
-|---:|---:|---:|
-| 768MiB | 12908/22080 | 13900/22080 |
-| 1024MiB | 15389/22080 | 16265/22080 |
-| 1536MiB | 18444/22080 | 19091/22080 |
-| 2048MiB | 19978/22080 | 20422/22080 |
-| 2560MiB | 20810/22080 | 21118/22080 |
-| 3072MiB | 21299/22080 | 21528/22080 |
-| 4096MiB | 21829/22080 | 21943/22080 |
-| 5120MiB | 22057/22080 | 22080/22080 |
+| Expert cache | Current Q4 F32 scale/min | Rejected fp16-derived scale/min model | Implemented raw Q4 metadata model |
+|---:|---:|---:|---:|
+| 768MiB | 12908/22080 | 13900/22080 | 14415/22080 |
+| 1024MiB | 15389/22080 | 16265/22080 | 16739/22080 |
+| 1536MiB | 18444/22080 | 19091/22080 | 19411/22080 |
+| 2048MiB | 19978/22080 | 20422/22080 | 20636/22080 |
+| 2560MiB | 20810/22080 | 21118/22080 | 21264/22080 |
+| 3072MiB | 21299/22080 | 21528/22080 | 21633/22080 |
+| 4096MiB | 21829/22080 | 21943/22080 | 22002/22080 |
+| 5120MiB | 22057/22080 | 22080/22080 | 22080/22080 |
 
-At the bounded 768MiB target, compact Q4 would keep roughly 992 additional traced
-work items. At about 5GiB, compact Q4 would fit the entire traced expert set,
-where the current representation still leaves a small tail.
+At the bounded 768MiB target, the implemented raw metadata model keeps roughly
+1507 additional traced work items versus the default F32-derived scale/min cache.
+At about 4.4GiB of modeled expert cache, raw Q4 metadata can fit the entire
+traced expert set, where the current representation still leaves a small tail at
+5GiB.
 
 A direct attempt to store the already-derived per-subblock scale/min values as
 fp16 was rejected by a non-skipped CUDA parity check: the half-scale kernel loaded
@@ -219,7 +221,8 @@ not acceptable as the high-fidelity path.
 The implemented fidelity-preserving compact path instead stores the original
 Q4_K row-block metadata (`d`, `dmin`, and the 12 packed scale/min bytes) alongside
 the packed quants, then reconstructs scale/min values inside the pointer-table
-kernel exactly as `unpackQ4KMatrixRows` does. It is opt-in:
+kernel exactly as `unpackQ4KMatrixRows` does. In planner simulations this is
+modeled with `--q4-scale-bytes 1`. It is opt-in at runtime:
 
 ```bash
 export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1

@@ -271,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--order", choices=("layer", "global-work", "efficiency"), default="layer", help="emit layer-major groups, globally sort by work, or sort by work/estimated resident byte (default: layer)")
     ap.add_argument("--budget-mb", type=int, default=0, help="truncate the emitted plan to the prefix that fits this expert-cache budget")
     ap.add_argument("--optimize-budget", action="store_true", help="with --budget-mb, choose entries that maximize traced work instead of taking a sorted prefix")
-    ap.add_argument("--q4-scale-bytes", type=int, default=4, choices=(2, 4), help="bytes per Q4_K scale/min value in resident cost model (default: 4; use 2 to model compact fp16 scales)")
+    ap.add_argument("--q4-scale-bytes", type=int, default=4, choices=(1, 2, 4), help="bytes per Q4_K scale/min value in resident cost model (default: 4; use 2 to model compact fp16 scales, 1 to model raw Q4_K metadata residency)")
     ap.add_argument("--q8-scale-bytes", type=int, default=4, choices=(2, 4), help="bytes per Q8_0 scale in resident cost model (default: 4)")
     ap.add_argument("--q5-scale-bytes", type=int, default=4, choices=(2, 4), help="bytes per Q5_0 scale in resident cost model (default: 4)")
     ap.add_argument("--summary", action="store_true", help="print budget/entry summary to stderr")
