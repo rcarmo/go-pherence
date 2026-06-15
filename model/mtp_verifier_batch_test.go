@@ -77,4 +77,9 @@ func TestNewMTPVerifierBatchInputsValidation(t *testing.T) {
 	if _, err := NewMTPVerifierBatchInputs(m, bad); err == nil {
 		t.Fatal("accepted out-of-vocab token")
 	}
+	overflow := &LlamaModel{Config: LlamaConfig{VocabSize: 3, HiddenSize: int(^uint(0)>>1)/2 + 1, NumLayers: 0}, Layers: nil}
+	overflowPlan := MTPVerifierPlan{InputToken: 1, DraftedTokens: []int{2}, VerifierTokens: []int{1, 2}, Positions: []int{0, 1}}
+	if _, err := NewMTPVerifierBatchInputs(overflow, overflowPlan); err == nil {
+		t.Fatal("accepted overflowing hidden batch size")
+	}
 }

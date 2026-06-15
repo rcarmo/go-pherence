@@ -24,8 +24,12 @@ func NewMTPVerifierBatchInputs(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifier
 	}
 	B := len(plan.VerifierTokens)
 	h := m.Config.HiddenSize
+	hiddenN, okHidden := checkedProduct(B, h)
+	if !okHidden {
+		return MTPVerifierBatchInputs{}, fmt.Errorf("verifier hidden batch dimension overflow B=%d hidden=%d", B, h)
+	}
 	rows := make([][]float32, B)
-	hiddenFlat := make([]float32, B*h)
+	hiddenFlat := make([]float32, hiddenN)
 	pliRows := make([][][]float32, B)
 	hasPLI := false
 	var pliFlat []float32
