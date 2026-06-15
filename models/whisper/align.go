@@ -22,10 +22,19 @@ func ForceAlign(dec *Decoder, state *DecoderState, tokens []int, cfg Config, aud
 		return nil
 	}
 
+	if len(dec.Layers) == 0 || len(state.CrossK) == 0 || len(state.CrossK[0]) == 0 {
+		return nil
+	}
 	dModel := cfg.DecoderDModel
 	numHeads := cfg.DecoderHeads
 	headDim := cfg.HeadDim
+	if dModel <= 0 || numHeads <= 0 || headDim <= 0 {
+		return nil
+	}
 	encLen := len(state.CrossK[0]) / dModel
+	if encLen <= 0 {
+		return nil
+	}
 
 	// Feed prompt
 	prompt := []int{TokenSOT, TokenEnglish, TokenTranscribe, TokenNoTimestamps}
@@ -44,13 +53,21 @@ func ForceAlign(dec *Decoder, state *DecoderState, tokens []int, cfg Config, aud
 		// Compute cross-attention scores for alignment
 		// The last decoder layer's cross-attention is most informative
 		lastLayer := len(dec.Layers) - 1
+		if lastLayer >= len(state.SelfKCache) || lastLayer >= len(state.CrossK) {
+			return alignments[:i]
+		}
 		layer := &dec.Layers[lastLayer]
 
 		// Get decoder hidden state for this position (approximate from KV cache)
 		// Since we just ran ForwardToken, the cross-attention Q was computed internally.
 		// For alignment, we re-compute the cross-attention scores.
+		end := state.Pos * dModel
+		start := end - dModel
+		if start < 0 || end > len(state.SelfKCache[lastLayer]) {
+			return alignments[:i]
+		}
 		normed := layerNorm(
-			state.SelfKCache[lastLayer][state.Pos*dModel-dModel:state.Pos*dModel],
+			state.SelfKCache[lastLayer][start:end],
 			layer.CrossAttnLNWeight, layer.CrossAttnLNBias, 1, dModel)
 		crossQ := linearForwardOpt(normed, layer.CrossQWeight, layer.CrossQBias, 1, dModel, dModel)
 
