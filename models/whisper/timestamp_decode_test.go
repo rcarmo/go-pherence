@@ -28,6 +28,21 @@ func TestGreedyDecodeWithTimestampsPromptAcceptsTranslatePrompt(t *testing.T) {
 	}
 }
 
+func TestGreedyDecodeWithTimestampsStopsRepeatedTextRun(t *testing.T) {
+	cfg := Tiny()
+	cfg.DecoderLayers = 0
+	cfg.MaxDecoderLength = 16
+	dec := newZeroDecoderForTest(cfg)
+	state := NewDecoderState(cfg, make([]float32, cfg.EncoderDModel), 1, dec)
+	segments := GreedyDecodeWithTimestampsPrompt(dec, state, cfg, LanguageTokens["en"], TokenTranslate)
+	if len(segments) != 1 {
+		t.Fatalf("segments=%d want 1", len(segments))
+	}
+	if got := len(segments[0].Tokens); got >= cfg.MaxDecoderLength {
+		t.Fatalf("timestamp text repeated until token limit: emitted %d tokens", got)
+	}
+}
+
 func TestGreedyDecodeWithTimestampsFlushesAtTokenLimit(t *testing.T) {
 	cfg := Tiny()
 	cfg.MaxDecoderLength = 3

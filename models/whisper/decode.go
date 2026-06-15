@@ -134,9 +134,14 @@ func GreedyDecodeWithTimestampsPrompt(dec *Decoder, state *DecoderState, cfg Con
 		if i == 0 {
 			suppressTokenIDs(logits, dec.BeginSuppressTokens)
 		}
+		suppressRecentRepeats(logits, currentTokens, 6)
 		nextTok := argmax(logits)
 
 		if nextTok == TokenEOT {
+			flushCurrent(startTime + 30.0)
+			break
+		}
+		if !IsTimestamp(nextTok) && (wouldRepeatRun(currentTokens, nextTok, 6) || repeatedNGram(currentTokens, nextTok, 3)) {
 			flushCurrent(startTime + 30.0)
 			break
 		}
