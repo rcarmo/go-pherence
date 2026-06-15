@@ -177,9 +177,21 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 		GoTrimReason               string       `json:"go_trim_reason"`
 		GoObservedSteps            int          `json:"go_observed_steps"`
 		GoStepDiagnostics          []CanvasStep `json:"go_step_diagnostics"`
-		KnownMatches               []string     `json:"known_matches"`
-		KnownDifferences           []string     `json:"known_differences"`
-		NextRequiredAction         string       `json:"next_required_action"`
+		Row28LayerTraceSummary     struct {
+			Layer0 struct {
+				LlamaRMS float64 `json:"llama_rms"`
+				GoRMS    float64 `json:"go_rms"`
+			} `json:"layer0_l_out"`
+			Layer29 struct {
+				LlamaRMS    float64 `json:"llama_rms"`
+				GoRMS       float64 `json:"go_rms"`
+				LlamaMaxAbs float64 `json:"llama_max_abs"`
+				GoMaxAbs    float64 `json:"go_max_abs"`
+			} `json:"layer29_l_out"`
+		} `json:"row28_layer_trace_summary"`
+		KnownMatches       []string `json:"known_matches"`
+		KnownDifferences   []string `json:"known_differences"`
+		NextRequiredAction string   `json:"next_required_action"`
 	}
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
@@ -201,7 +213,10 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 	if fixture.GoTrimCut != len(wantGenerated) || fixture.GoTrimReason != "eog" || fixture.GoObservedSteps != 2 || len(fixture.GoStepDiagnostics) != 2 || !fixture.GoStepDiagnostics[1].Stopped || fixture.GoStepDiagnostics[1].Held != 1 || !fixture.GoStepDiagnostics[1].Confident {
 		t.Fatalf("Go trim/step diagnostics lost: cut=%d reason=%q observed=%d steps=%+v", fixture.GoTrimCut, fixture.GoTrimReason, fixture.GoObservedSteps, fixture.GoStepDiagnostics)
 	}
-	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 4 || !strings.Contains(fixture.NextRequiredAction, "first differing layer") {
+	if fixture.Row28LayerTraceSummary.Layer0.LlamaRMS < 1.79 || fixture.Row28LayerTraceSummary.Layer0.GoRMS < 1.79 || fixture.Row28LayerTraceSummary.Layer29.LlamaRMS > 0.64 || fixture.Row28LayerTraceSummary.Layer29.GoRMS < 1.12 || fixture.Row28LayerTraceSummary.Layer29.GoMaxAbs < 39 || fixture.Row28LayerTraceSummary.Layer29.LlamaMaxAbs > 19 {
+		t.Fatalf("row28 layer trace summary lost divergence target: %+v", fixture.Row28LayerTraceSummary)
+	}
+	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 5 || !strings.Contains(fixture.NextRequiredAction, "later layers") {
 		t.Fatalf("parity blocker is underspecified: %+v", fixture)
 	}
 }
