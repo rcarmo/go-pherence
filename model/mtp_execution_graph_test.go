@@ -35,6 +35,53 @@ func TestNewMTPExecutionGraph(t *testing.T) {
 	}
 }
 
+func TestMTPExecutionGraphValidateRejectsMalformed(t *testing.T) {
+	m := validDrafterStepBackboneModel()
+	d := validProjectionOnlyDrafter()
+	state, err := NewMTPDrafterState(1, []float32{0.5, 0.25}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	makeGraph := func() MTPExecutionGraph {
+		graph, err := NewMTPExecutionGraph(m, d, state, nil, []int{2, 3}, 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return graph
+	}
+	graph := makeGraph()
+	if err := graph.Validate(); err != nil {
+		t.Fatalf("Validate graph: %v", err)
+	}
+	bad := makeGraph()
+	bad.MaxKVKeepTokens = 99
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted stale max KV keep count")
+	}
+	bad = makeGraph()
+	bad.DrafterSteps[1].InputToken = 99
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted broken drafter step input chain")
+	}
+	bad = makeGraph()
+	bad.Verifier.VerifierTokens = []int{1, 2}
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted short verifier token batch")
+	}
+	bad = makeGraph()
+	bad.Verifier.Positions = []int{20, 22, 23}
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted non-contiguous verifier positions")
+	}
+	acceptance, err := AcceptMTPDraft([]int{2, 3}, []int{2, 4, 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bad.CommitPlan(acceptance); err == nil {
+		t.Fatal("CommitPlan accepted malformed graph")
+	}
+}
+
 func TestMTPExecutionGraphCommitPlan(t *testing.T) {
 	m := validDrafterStepBackboneModel()
 	d := validProjectionOnlyDrafter()

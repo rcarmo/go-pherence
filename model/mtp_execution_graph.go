@@ -74,14 +74,77 @@ func NewMTPExecutionGraph(m *LlamaModel, d *Gemma4MTPDrafter, state MTPDrafterSt
 			ExternalKVLayers: append([]int(nil), extLayers...),
 		}
 	}
-	return MTPExecutionGraph{
+	graph := MTPExecutionGraph{
 		InputToken:      state.PreviousToken,
 		DraftedTokens:   append([]int(nil), drafted...),
 		StartPos:        startPos,
 		DrafterSteps:    steps,
 		Verifier:        verifier,
 		MaxKVKeepTokens: len(drafted) + 1,
-	}, nil
+	}
+	if err := graph.Validate(); err != nil {
+		return MTPExecutionGraph{}, err
+	}
+	return graph, nil
+}
+
+func (g MTPExecutionGraph) Validate() error {
+	if g.InputToken < 0 {
+		return fmt.Errorf("MTP graph input token=%d out of range", g.InputToken)
+	}
+	if g.StartPos < 0 {
+		return fmt.Errorf("MTP graph start position=%d out of range", g.StartPos)
+	}
+	if len(g.DraftedTokens) > maxMTPDraftCount {
+		return fmt.Errorf("MTP graph draft count=%d out of range [0,%d]", len(g.DraftedTokens), maxMTPDraftCount)
+	}
+	for i, tok := range g.DraftedTokens {
+		if tok < 0 {
+			return fmt.Errorf("MTP graph drafted token %d=%d out of range", i, tok)
+		}
+	}
+	if g.MaxKVKeepTokens != len(g.DraftedTokens)+1 {
+		return fmt.Errorf("MTP graph max KV keep=%d, want drafted+1=%d", g.MaxKVKeepTokens, len(g.DraftedTokens)+1)
+	}
+	if len(g.DrafterSteps) != len(g.DraftedTokens) {
+		return fmt.Errorf("MTP graph drafter steps=%d, drafted tokens=%d", len(g.DrafterSteps), len(g.DraftedTokens))
+	}
+	for i, step := range g.DrafterSteps {
+		wantInput := g.InputToken
+		if i > 0 {
+			wantInput = g.DraftedTokens[i-1]
+		}
+		if step.Index != i || step.InputToken != wantInput || step.ActivationWidth <= 0 || step.ExternalKVSeqLen < 0 {
+			return fmt.Errorf("MTP graph malformed drafter step %d: %+v want input=%d", i, step, wantInput)
+		}
+		for j, layer := range step.ExternalKVLayers {
+			if layer < 0 {
+				return fmt.Errorf("MTP graph drafter step %d external KV layer %d=%d out of range", i, j, layer)
+			}
+		}
+	}
+	if g.Verifier.InputToken != g.InputToken || !mtpSameInts(g.Verifier.DraftedTokens, g.DraftedTokens) {
+		return fmt.Errorf("MTP graph verifier/input mismatch graph input=%d drafted=%v verifier=%+v", g.InputToken, g.DraftedTokens, g.Verifier)
+	}
+	wantVerifierTokens, err := MTPVerifierTokens(g.InputToken, g.DraftedTokens)
+	if err != nil {
+		return err
+	}
+	if !mtpSameInts(g.Verifier.VerifierTokens, wantVerifierTokens) {
+		return fmt.Errorf("MTP graph verifier tokens=%v, want %v", g.Verifier.VerifierTokens, wantVerifierTokens)
+	}
+	if g.Verifier.StartPos != g.StartPos {
+		return fmt.Errorf("MTP graph verifier start=%d, graph start=%d", g.Verifier.StartPos, g.StartPos)
+	}
+	if len(g.Verifier.Positions) != len(g.DraftedTokens)+1 {
+		return fmt.Errorf("MTP graph verifier positions=%d, want drafted+1=%d", len(g.Verifier.Positions), len(g.DraftedTokens)+1)
+	}
+	for i, pos := range g.Verifier.Positions {
+		if pos != g.StartPos+i {
+			return fmt.Errorf("MTP graph verifier position %d=%d, want %d", i, pos, g.StartPos+i)
+		}
+	}
+	return nil
 }
 
 // CommitPlan returns the exact verifier KV window to retain after acceptance:
@@ -89,6 +152,9 @@ func NewMTPExecutionGraph(m *LlamaModel, d *Gemma4MTPDrafter, state MTPDrafterSt
 // are a prefix of the verifier pass positions and are safe to pass to KV commit
 // helpers that retain appended positions.
 func (g MTPExecutionGraph) CommitPlan(acceptance MTPAcceptance) (MTPKVCommitPlan, error) {
+	if err := g.Validate(); err != nil {
+		return MTPKVCommitPlan{}, err
+	}
 	if err := acceptance.Validate(); err != nil {
 		return MTPKVCommitPlan{}, err
 	}
