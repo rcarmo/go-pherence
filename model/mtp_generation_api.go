@@ -25,7 +25,8 @@ type MTPGraphGenerationStepSummary struct {
 	DraftedTokens        []int
 	VerifierTokens       []int // verifier input batch: [input] + drafted
 	VerifierOutputTokens []int // greedy verifier outputs from logits, len drafted+1
-	Positions            []int
+	VerifierPositions    []int // full verifier batch positions, len drafted+1
+	Positions            []int // committed positions, accepted prefix + bonus
 	AcceptedPrefixLen    int
 	BonusToken           int
 	OutputTokens         []int
@@ -77,6 +78,12 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		}
 		if summary.AllDraftsAccepted != (summary.AcceptedPrefixLen == len(summary.DraftedTokens)) {
 			return fmt.Errorf("MTP graph summary %d all-accepted=%v inconsistent with accepted=%d drafted=%d", i, summary.AllDraftsAccepted, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
+		}
+		if len(summary.VerifierPositions) != len(summary.DraftedTokens)+1 {
+			return fmt.Errorf("MTP graph summary %d verifier positions len=%d, want drafted+1=%d", i, len(summary.VerifierPositions), len(summary.DraftedTokens)+1)
+		}
+		if !mtpSameInts(summary.Positions, summary.VerifierPositions[:len(summary.Positions)]) {
+			return fmt.Errorf("MTP graph summary %d committed positions=%v are not verifier prefix %v", i, summary.Positions, summary.VerifierPositions)
 		}
 		if len(summary.VerifierOutputTokens) != len(summary.DraftedTokens)+1 {
 			return fmt.Errorf("MTP graph summary %d verifier outputs len=%d, want drafted+1=%d", i, len(summary.VerifierOutputTokens), len(summary.DraftedTokens)+1)
@@ -253,6 +260,7 @@ func newMTPGraphGenerationStepSummary(step MTPGraphDecodeStepResult) MTPGraphGen
 		DraftedTokens:        append([]int(nil), step.Step.Drafts.Tokens...),
 		VerifierTokens:       append([]int(nil), step.Step.Plan.VerifierTokens...),
 		VerifierOutputTokens: verifierOutputs,
+		VerifierPositions:    append([]int(nil), step.Step.Plan.Positions...),
 		Positions:            append([]int(nil), step.Commit.Positions...),
 		AcceptedPrefixLen:    step.Step.Verifier.Acceptance.AcceptedPrefixLen,
 		BonusToken:           step.Step.Verifier.Acceptance.BonusToken,
