@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/models/speaker"
@@ -502,13 +503,21 @@ func segmentsFromResults(results []result) []whisper.DiarizedSegment {
 			fmt.Fprintf(os.Stderr, "chunk %d failed: %v\n", r.idx, r.err)
 			continue
 		}
-		text := strings.TrimSpace(r.text)
+		text := cleanCueText(r.text)
 		if text == "" || degenerateCueText(text) {
 			continue
 		}
 		segments = append(segments, whisper.DiarizedSegment{Start: r.startSec, End: r.endSec, Speaker: r.speaker, Text: text})
 	}
 	return mergeDiarized(segments)
+}
+
+func cleanCueText(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.TrimLeftFunc(text, func(r rune) bool {
+		return unicode.IsPunct(r) || unicode.IsSymbol(r)
+	})
+	return strings.TrimSpace(text)
 }
 
 func degenerateCueText(text string) bool {
@@ -531,7 +540,7 @@ func lowValueShortCue(words []string) bool {
 	if len(words) == 0 {
 		return true
 	}
-	filler := map[string]bool{"and": true, "or": true, "the": true, "a": true, "um": true, "uh": true, "eh": true, "ah": true}
+	filler := map[string]bool{"and": true, "or": true, "the": true, "a": true, "i": true, "um": true, "uh": true, "eh": true, "ah": true}
 	if len(words) == 1 {
 		return filler[strings.Trim(words[0], ".,!?;:")]
 	}

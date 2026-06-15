@@ -33,6 +33,16 @@ func TestDegenerateCueText(t *testing.T) {
 	}
 }
 
+func TestSegmentsFromResultsCleansLowValuePunctuationCue(t *testing.T) {
+	segments := segmentsFromResults([]result{
+		{idx: 0, startSec: 0, endSec: 1, text: ".... I,"},
+		{idx: 1, startSec: 1, endSec: 2, text: ": Hello world"},
+	})
+	if len(segments) != 1 || segments[0].Text != "Hello world" {
+		t.Fatalf("segments=%+v", segments)
+	}
+}
+
 func TestSegmentsFromResultsSortsByTime(t *testing.T) {
 	segments := segmentsFromResults([]result{
 		{idx: 9, startSec: 10, endSec: 11, text: "later"},
