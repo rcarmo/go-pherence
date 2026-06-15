@@ -189,6 +189,13 @@ small. This points toward either smaller Q4_K/Q5_0 resident representation,
 better replacement planning under a fixed budget, or a native exact-GELU device
 kernel to remove the host boundary as coverage grows.
 
+The plan simulator can model compact resident representations. For example,
+current Q4_K resident experts store scale/min values as F32. Modeling those Q4
+scale/min values as fp16 with `--q4-scale-bytes 2` raises the 768MiB simulated
+kept work from `12908/22080` to `13900/22080` without increasing cache use. That
+makes a compact Q4_K resident representation a concrete next kernel/runtime
+target, provided the pointer-table kernels preserve llama.cpp/CPU parity.
+
 ## Why this is opt-in
 
 The active experts are prompt- and layer-dependent. The same cache-reserve or
