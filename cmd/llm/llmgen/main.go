@@ -229,11 +229,10 @@ func runGemma4MTPGenerate(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDi
 	if err != nil {
 		return model.MTPGraphGenerationResult{}, fmt.Errorf("prompt context: %w", err)
 	}
-	sources, err := mapDrafterSourcesByWidth(m, d, ctx.SeqLen)
+	externalKV, err := model.NewMTPDrafterExternalKVFromPromptContext(m, d, ctx)
 	if err != nil {
-		return model.MTPGraphGenerationResult{}, fmt.Errorf("map external KV: %w", err)
+		return model.MTPGraphGenerationResult{}, fmt.Errorf("external KV: %w", err)
 	}
-	externalKV := &model.MTPDrafterExternalKV{K: ctx.KVCacheK, V: ctx.KVCacheV, SourceLayers: sources, SeqLen: ctx.SeqLen}
 	return m.GenerateMTPGraphFromPromptContext(d, ctx, externalKV, model.MTPGraphGenerationOptions{MaxTokens: maxTokens, Policy: policy})
 }
 
@@ -261,46 +260,6 @@ type gemma4MTPSmokeResult struct {
 	StepSeconds                   float64                    `json:"step_seconds"`
 	MTPGraphCapabilities          model.MTPGraphCapabilities `json:"mtp_graph_capabilities"`
 	MTPMissingForPublicGeneration []string                   `json:"mtp_missing_for_public_generation,omitempty"`
-}
-
-func mapDrafterSourcesByWidth(m *model.LlamaModel, d *model.Gemma4MTPDrafter, seqLen int) ([]int, error) {
-	if m == nil || d == nil || seqLen <= 0 {
-		return nil, fmt.Errorf("invalid source mapping inputs")
-	}
-	sources := make([]int, d.Config.NumLayers)
-	used := make(map[int]bool)
-	for i := 0; i < d.Config.NumLayers; i++ {
-		headDim := d.Config.HeadDim
-		if i < len(d.Layers) && d.Layers[i].HeadDimLocal > 0 {
-			headDim = d.Layers[i].HeadDimLocal
-		}
-		kvHeads := d.Config.NumKVHeads
-		if i < len(d.Config.LayerTypes) && d.Config.LayerTypes[i] == "full_attention" && d.Config.NumGlobalKVHeads > 0 {
-			kvHeads = d.Config.NumGlobalKVHeads
-		}
-		wantDim := kvHeads * headDim
-		wantLen := seqLen * wantDim
-		best := -1
-		for l := 0; l < len(m.Layers); l++ {
-			if used[l] {
-				continue
-			}
-			dim, err := m.LayerKVDim(l)
-			if err != nil {
-				return nil, err
-			}
-			if dim == wantDim {
-				best = l
-				break
-			}
-		}
-		if best < 0 {
-			return nil, fmt.Errorf("no main KV source for drafter layer %d width=%d len=%d", i, wantDim, wantLen)
-		}
-		sources[i] = best
-		used[best] = true
-	}
-	return sources, nil
 }
 
 func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir string, ids []int, seqLen int, realPrompt bool, kvReuse bool, kvRepeat int) error {
@@ -334,11 +293,10 @@ func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir s
 			cacheHit = cacheHit || hit
 		}
 		promptSeconds = time.Since(prefillStart).Seconds()
-		sources, err := mapDrafterSourcesByWidth(m, d, promptCtx.SeqLen)
+		externalKV, err = model.NewMTPDrafterExternalKVFromPromptContext(m, d, promptCtx)
 		if err != nil {
-			return fmt.Errorf("map external KV: %w", err)
+			return fmt.Errorf("external KV: %w", err)
 		}
-		externalKV = &model.MTPDrafterExternalKV{K: promptCtx.KVCacheK, V: promptCtx.KVCacheV, SourceLayers: sources, SeqLen: promptCtx.SeqLen}
 		previousToken = promptCtx.PreviousToken
 		state, err = model.NewMTPDrafterState(previousToken, promptCtx.Activation, d.BackboneHiddenSize)
 		if err != nil {
