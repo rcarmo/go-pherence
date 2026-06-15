@@ -100,7 +100,7 @@ func TestLlamaCppGGUFHi1x1GoldenResponseIDs(t *testing.T) {
 	}
 	first := fixture.LlamaCppStepDiagnostics[0]
 	last := fixture.LlamaCppStepDiagnostics[len(fixture.LlamaCppStepDiagnostics)-1]
-	if first.Step != 48 || first.Accepted != 20 || first.MeanEntropy < 1.30 || first.MeanEntropy > 1.31 || first.FirstArgmax != 100 || first.FirstSampled != 100 || !first.FirstAccepted || first.FirstEntropy < 0.007 || first.FirstEntropy > 0.008 || first.Stopped {
+	if first.Step != 48 || first.Accepted != 20 || first.MeanEntropy < 1.30 || first.MeanEntropy > 1.31 || first.FirstArgmax != 100 || first.FirstSampled != 100 || !first.FirstAccepted || first.FirstEntropy < 0.007 || first.FirstEntropy > 0.008 || first.MaxEntropy < 4.03 || first.MaxEntropy > 4.04 || first.MaxEntropyPos != 28 || first.Stopped {
 		t.Fatalf("bad llama.cpp first step diagnostics: %+v", first)
 	}
 	if last.Step != 38 || last.Accepted != 254 || last.FirstArgmax != 100 || last.FirstSampled != 100 || !last.FirstAccepted || last.Held != 1 || !last.Confident || !last.Stopped {
@@ -146,7 +146,7 @@ func TestGGUFHi1x1GoTrimmedOutputComparisonGate(t *testing.T) {
 		t.Fatalf("missing step diagnostics: llama=%d go=%d", len(fixture.LlamaCppStepDiagnostics), len(fixture.GoStepDiagnostics))
 	}
 	lf, gf := fixture.LlamaCppStepDiagnostics[0], fixture.GoStepDiagnostics[0]
-	if lf.Step != gf.Step || lf.Accepted != 20 || gf.Accepted != 243 || lf.MeanEntropy < 1.30 || gf.MeanEntropy > 0.016 || lf.FirstArgmax != 100 || gf.FirstArgmax != 100 || lf.FirstSampled != 100 || gf.FirstSampled != 100 || !lf.FirstAccepted || gf.FirstAccepted {
+	if lf.Step != gf.Step || lf.Accepted != 20 || gf.Accepted != 243 || lf.MeanEntropy < 1.30 || gf.MeanEntropy > 0.016 || lf.FirstArgmax != 100 || gf.FirstArgmax != 100 || lf.FirstSampled != 100 || gf.FirstSampled != 100 || !lf.FirstAccepted || gf.FirstAccepted || lf.MaxEntropyPos != 28 || gf.MaxEntropyPos != 9 || lf.MaxEntropy < 4.03 || gf.MaxEntropy > 1.03 {
 		t.Fatalf("unexpected first-step gap: llama=%+v go=%+v", lf, gf)
 	}
 }

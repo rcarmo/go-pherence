@@ -168,7 +168,9 @@
       "first_accepted": false,
       "held": 0,
       "confident": false,
-      "stopped": false
+      "stopped": false,
+      "max_entropy": 1.0238207993707151,
+      "max_entropy_pos": 9
     },
     {
       "step": 47,
@@ -194,11 +196,11 @@
   ],
   "known_differences": [
     "Full denoised text is still not matched: llama.cpp emits a longer thought body before the final response, while Go emits an empty thought channel followed directly by the final greeting.",
-    "llama.cpp entropy-bound generation reported 11 effective denoise steps; Go stops after 2 steps for this exact prompt/canvas/seed with held=1 and confident=true. The first-step gap is broad-canvas uncertainty: llama.cpp accepted=20 and mean_entropy\u22481.3065 while Go accepted=243 and mean_entropy\u22480.0151; both agree first_argmax=100/first_sampled=100 for canvas position 0, so the mismatch is not isolated to the first token.",
+    "llama.cpp entropy-bound generation reported 11 effective denoise steps; Go stops after 2 steps for this exact prompt/canvas/seed with held=1 and confident=true. The first-step gap is broad-canvas uncertainty: llama.cpp accepted=20, mean_entropy\u22481.3065, max_entropy\u22484.03 at pos 28; Go accepted=243, mean_entropy\u22480.0151, max_entropy\u22481.02 at pos 9. Both agree first_argmax=100/first_sampled=100 for canvas position 0, so the mismatch is not isolated to the first token.",
     "An opt-in raw-logit self-conditioning seam now exists via GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS=1, matching llama.cpp's previous-raw-logits plus previous-temp-inv API, but the current all-F32 Go GGUF CPU path exceeds the host memory envelope on this real fixture when it retains a full previous [canvas][vocab] logits matrix.",
     "The remaining blocker is entropy-bound sampler/self-conditioning/logit numeric parity over the full 256-token canvas, not prompt IDs, RNG integer draws, or trimming."
   ],
-  "next_required_action": "Compare first-step logits/entropy for later canvas positions against Go now that prompt IDs, RNG draws, and first-position argmax/sample match; the remaining blocker is broad canvas-row forward/logit numeric parity before self-conditioning can matter.",
+  "next_required_action": "Compare first-step logits/entropy for high-entropy canvas rows (e.g. llama pos 28 vs Go pos 9/28) against Go now that prompt IDs, RNG draws, and first-position argmax/sample match; the remaining blocker is broad canvas-row forward/logit numeric parity before self-conditioning can matter.",
   "llamacpp_step_diagnostics": [
     {
       "step": 48,
@@ -208,6 +210,8 @@
       "first_entropy": 0.00731799006,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 4.03258801,
+      "max_entropy_pos": 28,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -220,6 +224,8 @@
       "first_entropy": 0.000446843362,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 3.60126948,
+      "max_entropy_pos": 21,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -232,6 +238,8 @@
       "first_entropy": 0.00041969461,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 3.51042771,
+      "max_entropy_pos": 30,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -244,6 +252,8 @@
       "first_entropy": 0.000215168533,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 3.39156008,
+      "max_entropy_pos": 43,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -256,6 +266,8 @@
       "first_entropy": 0.000580590742,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 2.89993548,
+      "max_entropy_pos": 45,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -268,6 +280,8 @@
       "first_entropy": 0.000414597162,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 1.87658763,
+      "max_entropy_pos": 37,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -280,6 +294,8 @@
       "first_entropy": 0.000143434052,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 1.58750474,
+      "max_entropy_pos": 37,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -292,6 +308,8 @@
       "first_entropy": 9.43824925e-05,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 1.23707068,
+      "max_entropy_pos": 52,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -304,6 +322,8 @@
       "first_entropy": 2.40361601e-06,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 1.21648014,
+      "max_entropy_pos": 51,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -316,6 +336,8 @@
       "first_entropy": 4.88052574e-05,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 0.648380339,
+      "max_entropy_pos": 60,
       "held": 0,
       "confident": false,
       "stopped": false
@@ -328,6 +350,8 @@
       "first_entropy": 5.70227849e-06,
       "first_sampled": 100,
       "first_accepted": true,
+      "max_entropy": 0.472080052,
+      "max_entropy_pos": 63,
       "held": 1,
       "confident": true,
       "stopped": true

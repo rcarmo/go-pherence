@@ -58,6 +58,8 @@ type CanvasStep struct {
 	FirstEntropy  float64 `json:"first_entropy,omitempty"`
 	FirstSampled  int     `json:"first_sampled,omitempty"`
 	FirstAccepted bool    `json:"first_accepted,omitempty"`
+	MaxEntropy    float64 `json:"max_entropy,omitempty"`
+	MaxEntropyPos int     `json:"max_entropy_pos,omitempty"`
 	Held          int     `json:"held,omitempty"`
 	Confident     bool    `json:"confident,omitempty"`
 	Stopped       bool    `json:"stopped"`
@@ -229,17 +231,26 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		firstArgmax, firstSampled := 0, 0
 		var firstEntropy float64
 		var firstAccepted bool
+		var maxEntropy float64
+		maxEntropyPos := 0
 		if canvasLength > 0 {
 			firstArgmax = argmaxCanvas[0]
 			firstSampled = denoiserCanvas[0]
 			firstEntropy = entropy[0]
 			firstAccepted = len(accepted.AcceptedMask) > 0 && accepted.AcceptedMask[0]
+			maxEntropy = entropy[0]
+			for i := 1; i < canvasLength; i++ {
+				if entropy[i] > maxEntropy {
+					maxEntropy = entropy[i]
+					maxEntropyPos = i
+				}
+			}
 		}
 		canvas = accepted.Canvas
 		if !stopped {
 			canvas = RenoiseCanvasWithTokens(canvas, accepted.AcceptedMask, renoiseTokens)
 		}
-		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, FirstArgmax: firstArgmax, FirstEntropy: firstEntropy, FirstSampled: firstSampled, FirstAccepted: firstAccepted, Held: held, Confident: confident, Stopped: stopped})
+		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, FirstArgmax: firstArgmax, FirstEntropy: firstEntropy, FirstSampled: firstSampled, FirstAccepted: firstAccepted, MaxEntropy: maxEntropy, MaxEntropyPos: maxEntropyPos, Held: held, Confident: confident, Stopped: stopped})
 		if onStep != nil {
 			onStep(steps[len(steps)-1], canvas)
 		}

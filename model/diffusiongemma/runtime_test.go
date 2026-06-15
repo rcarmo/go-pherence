@@ -163,6 +163,9 @@ func TestGenerateCanvasUsesPrecomputedSamplerOutputs(t *testing.T) {
 	if res.Steps[0].FirstArgmax != 3 || res.Steps[0].FirstSampled != 1 || res.Steps[0].FirstEntropy != 0.01 || !res.Steps[0].FirstAccepted {
 		t.Fatalf("first-position diagnostics=%+v", res.Steps[0])
 	}
+	if res.Steps[0].MaxEntropy != 0.02 || res.Steps[0].MaxEntropyPos != 1 {
+		t.Fatalf("max-entropy diagnostics=%+v", res.Steps[0])
+	}
 }
 
 func TestGenerateTokenIDsPreservesSeedZero(t *testing.T) {
