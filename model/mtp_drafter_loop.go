@@ -221,7 +221,9 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	drafterRMSNormInPlace(d, normed, layer.InputNorm.Data())
 	q := make([]float32, qDim)
 	if layer.QWm != nil {
-		mlx.Gemv(q, normed, layer.QWm)
+		if !mlx.GemvTo(q, normed, layer.QWm) {
+			return nil, fmt.Errorf("drafter layer %d Q MLX projection failed", layerIdx)
+		}
 	} else {
 		gemvNT(q, normed, layer.QW, h, qDim)
 	}
@@ -236,7 +238,9 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	}
 	oOut := make([]float32, h)
 	if layer.OWm != nil {
-		mlx.Gemv(oOut, attnOut, layer.OWm)
+		if !mlx.GemvTo(oOut, attnOut, layer.OWm) {
+			return nil, fmt.Errorf("drafter layer %d O MLX projection failed", layerIdx)
+		}
 	} else {
 		gemvNT(oOut, attnOut, layer.OW, qDim, h)
 	}
@@ -261,12 +265,16 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	gate := make([]float32, d.Config.Intermediate)
 	up := make([]float32, d.Config.Intermediate)
 	if layer.GateWm != nil {
-		mlx.Gemv(gate, mlpInput, layer.GateWm)
+		if !mlx.GemvTo(gate, mlpInput, layer.GateWm) {
+			return nil, fmt.Errorf("drafter layer %d gate MLX projection failed", layerIdx)
+		}
 	} else {
 		gemvNT(gate, mlpInput, layer.GateW, h, d.Config.Intermediate)
 	}
 	if layer.UpWm != nil {
-		mlx.Gemv(up, mlpInput, layer.UpWm)
+		if !mlx.GemvTo(up, mlpInput, layer.UpWm) {
+			return nil, fmt.Errorf("drafter layer %d up MLX projection failed", layerIdx)
+		}
 	} else {
 		gemvNT(up, mlpInput, layer.UpW, h, d.Config.Intermediate)
 	}
@@ -275,7 +283,9 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	}
 	down := make([]float32, h)
 	if layer.DownWm != nil {
-		mlx.Gemv(down, gate, layer.DownWm)
+		if !mlx.GemvTo(down, gate, layer.DownWm) {
+			return nil, fmt.Errorf("drafter layer %d down MLX projection failed", layerIdx)
+		}
 	} else {
 		gemvNT(down, gate, layer.DownW, d.Config.Intermediate, h)
 	}
