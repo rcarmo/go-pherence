@@ -884,8 +884,12 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	if maxSeqLen < 1 {
 		maxSeqLen = 1
 	}
+	attnOutDim, okAttnOutDim := checkedProduct(numHeads, maxHeadDim)
+	if !okAttnOutDim || attnOutDim <= 0 {
+		return output
+	}
 	attnScoresScratch := make([]float32, maxSeqLen)
-	attnOutScratch := make([]float32, numHeads*maxHeadDim)
+	attnOutScratch := make([]float32, attnOutDim)
 
 	// Batched CPU prefill: process all prompt tokens together so each weight
 	// matrix is read once for the whole prompt instead of once per token. Only
