@@ -1,11 +1,17 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
+	"github.com/rcarmo/go-pherence/runtime/kv"
+)
 
 type MTPGraphGenerationOptions struct {
-	MaxTokens int
-	Policy    MTPAdaptiveDraftPolicy
-	Stats     MTPSpeculationStats
+	MaxTokens       int
+	Policy          MTPAdaptiveDraftPolicy
+	Stats           MTPSpeculationStats
+	UseCompressedKV bool
 }
 
 type MTPGraphGenerationResult struct {
@@ -255,23 +261,83 @@ func NewCPUDecodeStateFromMTPPromptContext(m *LlamaModel, ctx MTPPromptContext, 
 		return nil, fmt.Errorf("prompt context KV layers K/V=%d/%d, want %d", len(ctx.KVCacheK), len(ctx.KVCacheV), len(state.KVCacheK))
 	}
 	for l, dim := range state.KVDims {
+		if err := validateMTPPromptContextLayerKV(ctx, l, dim); err != nil {
+			return nil, err
+		}
 		if dim <= 0 {
-			if len(ctx.KVCacheK[l]) != 0 || len(ctx.KVCacheV[l]) != 0 {
-				return nil, fmt.Errorf("prompt context shared/non-KV layer %d has K/V entries %d/%d", l, len(ctx.KVCacheK[l]), len(ctx.KVCacheV[l]))
-			}
 			continue
-		}
-		want, ok := checkedProduct(ctx.SeqLen, dim)
-		if !ok {
-			return nil, fmt.Errorf("prompt context layer %d KV length overflows seq=%d dim=%d", l, ctx.SeqLen, dim)
-		}
-		if len(ctx.KVCacheK[l]) != want || len(ctx.KVCacheV[l]) != want {
-			return nil, fmt.Errorf("prompt context layer %d KV K/V=%d/%d, want %d", l, len(ctx.KVCacheK[l]), len(ctx.KVCacheV[l]), want)
 		}
 		state.KVCacheK[l] = append(state.KVCacheK[l], ctx.KVCacheK[l]...)
 		state.KVCacheV[l] = append(state.KVCacheV[l], ctx.KVCacheV[l]...)
 	}
 	return state, nil
+}
+
+func validateMTPPromptContextLayerKV(ctx MTPPromptContext, layerIdx, dim int) error {
+	if dim <= 0 {
+		if len(ctx.KVCacheK[layerIdx]) != 0 || len(ctx.KVCacheV[layerIdx]) != 0 {
+			return fmt.Errorf("prompt context shared/non-KV layer %d has K/V entries %d/%d", layerIdx, len(ctx.KVCacheK[layerIdx]), len(ctx.KVCacheV[layerIdx]))
+		}
+		return nil
+	}
+	want, ok := checkedProduct(ctx.SeqLen, dim)
+	if !ok {
+		return fmt.Errorf("prompt context layer %d KV length overflows seq=%d dim=%d", layerIdx, ctx.SeqLen, dim)
+	}
+	if len(ctx.KVCacheK[layerIdx]) != want || len(ctx.KVCacheV[layerIdx]) != want {
+		return fmt.Errorf("prompt context layer %d KV K/V=%d/%d, want %d", layerIdx, len(ctx.KVCacheK[layerIdx]), len(ctx.KVCacheV[layerIdx]), want)
+	}
+	return nil
+}
+
+func (m *LlamaModel) seedCompressedKVFromPromptContext(st *CPUDecodeState, ctx MTPPromptContext) error {
+	if m == nil || st == nil {
+		return fmt.Errorf("nil model/decode state")
+	}
+	if len(st.KVDims) != len(m.Layers) || len(ctx.KVCacheK) != len(m.Layers) || len(ctx.KVCacheV) != len(m.Layers) {
+		return fmt.Errorf("compressed prompt KV layers dims/K/V=%d/%d/%d, want %d", len(st.KVDims), len(ctx.KVCacheK), len(ctx.KVCacheV), len(m.Layers))
+	}
+	tqCfg := kv.DefaultTurboQuantConfig()
+	if m.TurboQuantConfig != nil {
+		tqCfg = *m.TurboQuantConfig
+	}
+	states := map[int]*kv.TurboQuantState{}
+	getTQ := func(headDim int) *kv.TurboQuantState {
+		if tq := states[headDim]; tq != nil {
+			return tq
+		}
+		tq := kv.NewTurboQuantState(headDim, len(m.Layers), tqCfg)
+		states[headDim] = tq
+		return tq
+	}
+	compressed := make([]*kv.CompressedKVCache, len(m.Layers))
+	for l, dim := range st.KVDims {
+		if err := validateMTPPromptContextLayerKV(ctx, l, dim); err != nil {
+			return err
+		}
+		st.KVCacheK[l] = nil
+		st.KVCacheV[l] = nil
+		if dim <= 0 {
+			continue
+		}
+		headDim, err := m.LayerHeadDim(l)
+		if err != nil {
+			return err
+		}
+		kvHeads := gemmacfg.LayerKVHeads(m.Config, l)
+		if checkDim, ok := checkedProduct(kvHeads, headDim); !ok || checkDim != dim {
+			return fmt.Errorf("compressed prompt layer %d dim mismatch kvHeads=%d headDim=%d dim=%d", l, kvHeads, headDim, dim)
+		}
+		tq := getTQ(headDim)
+		cache := kv.NewCompressedKVCache(dim, kvHeads, headDim, tq, tq.IsProtectedLayer(l))
+		for pos := 0; pos < ctx.SeqLen; pos++ {
+			off := pos * dim
+			cache.Append(ctx.KVCacheK[l][off:off+dim], ctx.KVCacheV[l][off:off+dim])
+		}
+		compressed[l] = cache
+	}
+	st.CompressedKV = compressed
+	return nil
 }
 
 // GenerateMTPGraphFromPromptContext runs the internal graph-backed MTP cycle
@@ -290,6 +356,11 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 	decode, err := NewCPUDecodeStateFromMTPPromptContext(m, ctx, opts.MaxTokens)
 	if err != nil {
 		return MTPGraphGenerationResult{}, err
+	}
+	if opts.UseCompressedKV || m.EnableTurboQuant || m.TurboQuantConfig != nil {
+		if err := m.seedCompressedKVFromPromptContext(decode, ctx); err != nil {
+			return MTPGraphGenerationResult{}, err
+		}
 	}
 	state, err := NewMTPDrafterState(ctx.PreviousToken, ctx.Activation, d.BackboneHiddenSize)
 	if err != nil {

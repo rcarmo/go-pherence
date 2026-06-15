@@ -131,7 +131,7 @@ func main() {
 	var mtpFinalStateOutputLen int
 	var mtpStepSummaries []model.MTPGraphGenerationStepSummary
 	if *mtpGenerate {
-		result, err := runGemma4MTPGenerate(m, gpuMod, *mtpDrafter, ids, *tokens, *mtpKVReuse, model.MTPAdaptiveDraftPolicy{MinDrafts: *mtpDraftMin, InitialDrafts: *mtpDraftInitial, MaxDrafts: *mtpDraftMax})
+		result, err := runGemma4MTPGenerate(m, gpuMod, *mtpDrafter, ids, *tokens, *mtpKVReuse, *turboQuant, model.MTPAdaptiveDraftPolicy{MinDrafts: *mtpDraftMin, InitialDrafts: *mtpDraftInitial, MaxDrafts: *mtpDraftMax})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "mtp generate: %v\n", err)
 			os.Exit(1)
@@ -245,7 +245,7 @@ func buildMTPPromptContextCached(m *model.LlamaModel, gpuMod *model.GPUModel, id
 	return ctx, false, nil
 }
 
-func runGemma4MTPGenerate(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir string, ids []int, maxTokens int, kvReuse bool, policy model.MTPAdaptiveDraftPolicy) (model.MTPGraphGenerationResult, error) {
+func runGemma4MTPGenerate(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir string, ids []int, maxTokens int, kvReuse bool, useCompressedKV bool, policy model.MTPAdaptiveDraftPolicy) (model.MTPGraphGenerationResult, error) {
 	if maxTokens < 0 {
 		return model.MTPGraphGenerationResult{}, fmt.Errorf("maxTokens=%d must be non-negative", maxTokens)
 	}
@@ -264,7 +264,7 @@ func runGemma4MTPGenerate(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDi
 	if err != nil {
 		return model.MTPGraphGenerationResult{}, fmt.Errorf("external KV: %w", err)
 	}
-	return m.GenerateMTPGraphFromPromptContext(d, ctx, externalKV, model.MTPGraphGenerationOptions{MaxTokens: maxTokens, Policy: policy})
+	return m.GenerateMTPGraphFromPromptContext(d, ctx, externalKV, model.MTPGraphGenerationOptions{MaxTokens: maxTokens, Policy: policy, UseCompressedKV: useCompressedKV})
 }
 
 type gemma4MTPSmokeResult struct {

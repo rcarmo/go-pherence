@@ -51,6 +51,41 @@ func TestNewCPUDecodeStateFromMTPPromptContextValidation(t *testing.T) {
 	}
 }
 
+func TestSeedCompressedKVFromPromptContext(t *testing.T) {
+	m := newSingleLayerVerifierModel()
+	ctx := MTPPromptContext{Tokens: []int{1}, PreviousToken: 1, Activation: []float32{0.5, 0.25}, SeqLen: 1, KVCacheK: [][]float32{{1, 2}}, KVCacheV: [][]float32{{3, 4}}}
+	st, err := NewCPUDecodeStateFromMTPPromptContext(m, ctx, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.seedCompressedKVFromPromptContext(st, ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st.CompressedKV == nil || len(st.CompressedKV) != 1 || st.CompressedKV[0] == nil || st.CompressedKV[0].SeqLen() != 1 {
+		t.Fatalf("compressed state=%+v", st.CompressedKV)
+	}
+	if len(st.KVCacheK[0]) != 0 || len(st.KVCacheV[0]) != 0 {
+		t.Fatalf("float KV retained after compressed seed K/V=%v/%v", st.KVCacheK[0], st.KVCacheV[0])
+	}
+	if !sameFloat32s(st.CompressedKV[0].GetK(), []float32{1, 2}) || !sameFloat32s(st.CompressedKV[0].GetV(), []float32{3, 4}) {
+		t.Fatalf("compressed prompt K/V=%v/%v", st.CompressedKV[0].GetK(), st.CompressedKV[0].GetV())
+	}
+}
+
+func TestGenerateMTPGraphFromPromptContextCompressedKV(t *testing.T) {
+	m := newSingleLayerVerifierModel()
+	d := validProjectionOnlyDrafter()
+	d.Config.VocabSize = m.Config.VocabSize
+	ctx := MTPPromptContext{Tokens: []int{1}, PreviousToken: 1, Activation: []float32{0.5, 0.25}, SeqLen: 1, KVCacheK: [][]float32{{1, 2}}, KVCacheV: [][]float32{{3, 4}}}
+	res, err := m.GenerateMTPGraphFromPromptContext(d, ctx, nil, MTPGraphGenerationOptions{MaxTokens: 3, UseCompressedKV: true, Policy: MTPAdaptiveDraftPolicy{InitialDrafts: 2, MaxDrafts: 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Steps) == 0 || res.GraphOutputTokens == 0 || len(res.Output) != len(ctx.Tokens)+3 {
+		t.Fatalf("compressed MTP result steps=%v graph=%d output=%v", res.Steps, res.GraphOutputTokens, res.Output)
+	}
+}
+
 func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	m := newZeroLayerVerifierModel()
 	d := validProjectionOnlyDrafter()
