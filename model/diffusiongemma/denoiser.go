@@ -121,7 +121,7 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 		var err error
 		switch disp := d.Dispatcher.(type) {
 		case CPUDispatcher:
-			return ForwardOutput{}, fmt.Errorf("DiffusionGemma CPU prompt encoding is disabled: use/implement GPU prompt prefill")
+			kv, err = disp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
 		case GPUDispatcher:
 			kv, err = disp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
 		default:

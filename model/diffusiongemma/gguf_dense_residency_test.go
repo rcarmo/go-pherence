@@ -16,8 +16,8 @@ func TestGGUFDenseLayerResidentPolicy(t *testing.T) {
 	if bounded.ggufDenseLayerResident(2) || bounded.ggufDenseLayerResident(29) {
 		t.Fatalf("positive prefix should make layers at/above prefix temporary")
 	}
-	enc := bounded.cpuFallback()
-	if !enc.ggufDenseLayerResident(1) || enc.ggufDenseLayerResident(2) {
-		t.Fatalf("encoder dispatcher fallback should use identical GGUF dense residency policy")
+	cpu := CPUDispatcher{ResidentLayerPrefix: 2}
+	if cpu.ggufDenseLayerResident(0) || cpu.ggufDenseLayerResident(1) || cpu.ggufDenseLayerResident(2) {
+		t.Fatalf("CPU/SIMD dispatcher must not claim GGUF GPU dense residency")
 	}
 }

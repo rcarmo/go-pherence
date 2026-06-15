@@ -15,12 +15,11 @@ import (
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
-// CPUDispatcher is retired for DiffusionGemma generation.
+// CPUDispatcher is the CPU/SIMD DiffusionGemma reference dispatcher.
 //
-// Do not use or develop this path further. It existed as an early correctness
-// scaffold, but the project goal is GGUF Q4_K_M backend-graph execution on GPU.
-// Keeping CPU generation available caused misleading progress and unacceptable
-// performance; callers must use/implement GPU-resident paths instead.
+// It is intentionally available for llama.cpp parity, golden fixtures, and CPU
+// environments. Performance-critical paths should use the SIMD kernels and GGUF
+// quantized expert implementations rather than scalar fallbacks.
 type CPUDispatcher struct {
 	ResidentLayerPrefix   int
 	MaxLayers             int
@@ -86,7 +85,6 @@ func maxNonNegative(n int) int {
 }
 
 func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) (ForwardOutput, error) {
-	return ForwardOutput{}, fmt.Errorf("DiffusionGemma CPUDispatcher is disabled: CPU generation is not to be used or developed further; implement/use the GPU backend graph")
 	if weights == nil {
 		return ForwardOutput{}, fmt.Errorf("DiffusionGemma CPU dispatcher missing text weights")
 	}

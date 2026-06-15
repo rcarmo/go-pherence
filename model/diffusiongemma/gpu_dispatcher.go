@@ -51,11 +51,11 @@ type GPUDispatcher struct {
 }
 
 func (d CPUDispatcher) ggufDenseLayerResident(layer int) bool {
-	return d.ResidentLayerPrefix <= 0 || layer < d.ResidentLayerPrefix
+	return false
 }
 
 func (d GPUDispatcher) ggufDenseLayerResident(layer int) bool {
-	return d.cpuFallback().ggufDenseLayerResident(layer)
+	return d.ResidentLayerPrefix <= 0 || layer < d.ResidentLayerPrefix
 }
 
 func (d GPUDispatcher) cpuFallback() CPUDispatcher {

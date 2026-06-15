@@ -82,13 +82,13 @@ func main() {
 	decode := flag.Bool("decode", false, "decode prompt/generated IDs through exact tokenizer vocabulary entries")
 	mockToken := flag.Int("mock-token", -1, "use deterministic mock denoiser that always favors this token ID")
 	mockTokensCSV := flag.String("mock-tokens", "", "comma-separated deterministic mock denoiser token ID pattern")
-	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "disabled: CPU DiffusionGemma generation is not to be used or developed further")
-	useGPUDispatcher := flag.Bool("gpu-dispatcher", false, "open local text weights and use GPU/CUDA dispatcher (falls back to CPU if no GPU)")
+	useCPUDispatcher := flag.Bool("cpu-dispatcher", false, "use CPU/SIMD DiffusionGemma dispatcher as a parity/reference path")
+	useGPUDispatcher := flag.Bool("gpu-dispatcher", false, "open local text weights and use GPU/CUDA dispatcher")
 	fp8Model := flag.String("fp8-model", "", "path to FP8-dynamic DiffusionGemma checkpoint directory for GPU inference")
 	residentExpertLayers := flag.Int("resident-expert-layers", -1, "deprecated alias for -fp8-expert-prewarm-layers")
 	fp8ExpertPrewarmLayers := flag.Int("fp8-expert-prewarm-layers", 9, "pre-upload and pin all FP8 experts for the first N layers to GPU (0 disables)")
 	cpuExperts := flag.Bool("cpu-experts", false, "force CPU-only expert MoE (skip GPU expert cache/prewarm)")
-	allowSlowCPU := flag.Bool("allow-slow-cpu", false, "disabled: CPU DiffusionGemma generation is not to be used or developed further")
+	allowSlowCPU := flag.Bool("allow-slow-cpu", false, "allow explicit CPU/SIMD reference generation when -cpu-dispatcher is selected")
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault all mapped safetensor shards before CPU dispatcher run")
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
 	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
@@ -102,8 +102,8 @@ func main() {
 	asJSON := flag.Bool("json", false, "emit JSON")
 	cpuProfile := flag.String("cpuprofile", "", "write CPU profile to file")
 	flag.Parse()
-	if *useCPUDispatcher || *allowSlowCPU {
-		fatal(fmt.Errorf("DiffusionGemma CPU generation is disabled: do not use or develop CPU runtime paths; implement/use the GPU backend graph"))
+	if *allowSlowCPU && !*useCPUDispatcher {
+		fmt.Fprintf(os.Stderr, "diffusiongemmarun: -allow-slow-cpu is accepted for compatibility; use -cpu-dispatcher to select the CPU/SIMD reference dispatcher\n")
 	}
 	if *residentExpertLayers >= 0 {
 		*fp8ExpertPrewarmLayers = *residentExpertLayers
@@ -357,7 +357,17 @@ func main() {
 				gpuDisp.SCEmbed = nil
 			}
 		} else {
-			fatal(fmt.Errorf("DiffusionGemma GGUF CPU dispatcher is disabled: pass -gpu-dispatcher and implement missing GPU backend graph pieces instead of using CPU generation"))
+			cpuDisp := diffusiongemma.CPUDispatcher{
+				ResidentLayerPrefix:   *residentLayers,
+				GGUFExpertIndex:       ggufIdx,
+				MaxLayers:             *maxDispatchLayers,
+				TailAfterMaxLayers:    *tailAfterMaxLayers,
+				LMHeadTopK:            *lmHeadTopK,
+				Progress:              *dispatchProgress,
+				SkipEviction:          true, // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
+				FinalLogitSoftcapping: float32(m.Config.TextConfig.FinalLogitSoftcapping),
+			}
+			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, cpuDisp)
 		}
 		if err != nil {
 			fatal(err)
@@ -529,7 +539,8 @@ func main() {
 				gpuDisp.SCEmbed = nil
 			}
 		} else {
-			fatal(fmt.Errorf("DiffusionGemma CPU dispatcher is disabled: pass -gpu-dispatcher and implement missing GPU backend graph pieces instead of using CPU generation"))
+			cpuDisp := diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap}
+			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, cpuDisp)
 		}
 		if err != nil {
 			fatal(err)

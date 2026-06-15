@@ -69,7 +69,7 @@ func TestDenoiseRequireIncrementalPromptKVStillRequiresGPUPrefill(t *testing.T) 
 	}
 }
 
-func TestDenoiseCPUIncrementalKVFallbackDisabled(t *testing.T) {
+func TestDenoiseCPUIncrementalKVReferencePathValidatesInputs(t *testing.T) {
 	d := &TextDenoiser{
 		Shape:            Shape{VocabSize: 8},
 		Dispatcher:       CPUDispatcher{GGUFExpertIndex: &GGUFExpertIndex{}},
@@ -78,7 +78,7 @@ func TestDenoiseCPUIncrementalKVFallbackDisabled(t *testing.T) {
 		EncoderPromptLen: 2,
 	}
 	_, err := d.Denoise(ForwardInput{PromptIDs: []int{10, 11, 12}, Canvas: []int{1}})
-	if err == nil || !strings.Contains(err.Error(), "CPU prompt encoding is disabled") {
-		t.Fatalf("expected CPU prompt encoding disabled error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "encoder missing weights") {
+		t.Fatalf("expected CPU prompt encoder input validation error, got %v", err)
 	}
 }

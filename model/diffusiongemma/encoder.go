@@ -11,13 +11,13 @@ import (
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
-// EncodePrompt is disabled with the rest of the CPU DiffusionGemma runtime.
+// EncodePrompt runs the CPU/reference prompt encoder.
 //
-// Do not use or develop CPU prompt-KV generation further. Prompt prefill must be
-// implemented as part of the GPU backend graph; silently falling back to CPU is
-// the performance failure this codebase is now avoiding.
+// This path is intentionally kept available for llama.cpp parity checks and
+// golden fixture generation. Production generation should still prefer the GPU
+// backend graph; callers must opt into CPUDispatcher explicitly.
 func (d CPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) ([]EncoderKVLayer, error) {
-	return nil, fmt.Errorf("DiffusionGemma CPU prompt encoder is disabled: implement/use GPU prompt prefill")
+	return d.EncodePromptWithFP8(promptIDs, weights, ops, buffers, nil, nil, nil)
 }
 
 func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan, fp8 *GPUFP8Model, fp8w *FP8TextWeights, expertCache *ExpertLRUCache) ([]EncoderKVLayer, error) {
@@ -238,7 +238,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 		ropeFreqs := simd.BuildRoPEFreqsWithFactors(positions, ropeHalf, headDim, ropeTheta, ropeFactors)
 
 		qAct := make([]float32, hiddenSize)
-		ggufPrefillGPUQKV := fp8 == nil && !useBF16
+		ggufPrefillGPUQKV := fp8 == nil && !useBF16 && gpu.SgemmReady()
 		var prefillAttn *GGUFGPUAttentionWeights
 		if ggufPrefillGPUQKV {
 			oWForCache, oRowsForCache, oColsForCache, err := loadFloatMatrix(weights, lb.OProj)
@@ -525,7 +525,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 		}
 		intermediate := gateRows
 		mlpResult := make([]float32, len(hidden))
-		ggufPrefillGPUMlp := fp8 == nil && !useBF16MLP
+		ggufPrefillGPUMlp := fp8 == nil && !useBF16MLP && gpu.SgemmReady()
 		if ggufPrefillGPUMlp {
 			var resident *GGUFGPUMLPWeights
 			if d.ggufDenseLayerResident(layer) {

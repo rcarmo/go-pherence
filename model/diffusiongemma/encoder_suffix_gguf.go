@@ -16,13 +16,12 @@ func diffusionGemmaGGUFGPUSuffixEncoderEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
-// EncodePromptSuffixGGUF is disabled with the CPU DiffusionGemma runtime.
+// EncodePromptSuffixGGUF appends prompt suffix KV on the CPU/reference path.
 //
-// Do not use or develop this CPU suffix encoder further. Incremental prompt KV
-// append must be implemented in the GPU backend graph; CPU suffix append hides
-// the real performance gap.
+// Keep this available for llama.cpp parity and incremental-KV fixture checks.
+// Production generation should still prefer GPU prompt prefill/append when
+// available; callers must opt into CPUDispatcher explicitly.
 func (d CPUDispatcher) EncodePromptSuffixGGUF(suffixIDs []int, prefixKV []EncoderKVLayer, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) ([]EncoderKVLayer, error) {
-	return nil, fmt.Errorf("DiffusionGemma CPU GGUF suffix encoder is disabled: implement/use GPU incremental prompt KV append")
 	if len(suffixIDs) == 0 {
 		out := make([]EncoderKVLayer, len(prefixKV))
 		copy(out, prefixKV)

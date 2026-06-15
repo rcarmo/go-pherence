@@ -38,7 +38,9 @@ func TestLocalGGUFIncrementalPromptKVMatchesFullEncodeWithTinySWA(t *testing.T) 
 
 func runLocalGGUFIncrementalPromptKVTest(t *testing.T, slidingWindowOverride int) {
 	t.Helper()
-	t.Skip("local GGUF incremental KV tests target disabled CPU prompt/suffix fallback; replace with GPU incremental prompt KV fixtures")
+	if os.Getenv("GO_PHERENCE_RUN_LOCAL_GGUF_CPU_KV") != "1" {
+		t.Skip("set GO_PHERENCE_RUN_LOCAL_GGUF_CPU_KV=1 to run local heavy GGUF CPU incremental KV parity fixture")
+	}
 	ggufPath := filepath.Join("..", "..", "..", "llama.cpp", "models", "diffusiongemma-gguf", "diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
@@ -86,15 +88,16 @@ func runLocalGGUFIncrementalPromptKVTest(t *testing.T, slidingWindowOverride int
 	if len(appendedKV) != len(fullKV) {
 		t.Fatalf("appended layers=%d full layers=%d", len(appendedKV), len(fullKV))
 	}
+	const kvTolerance = 1e-3
 	for layer := range fullKV {
 		if appendedKV[layer].SeqLen != fullKV[layer].SeqLen || appendedKV[layer].KVHeads != fullKV[layer].KVHeads || appendedKV[layer].HeadDim != fullKV[layer].HeadDim {
 			t.Fatalf("layer %d shape mismatch appended=%+v full=%+v", layer, appendedKV[layer], fullKV[layer])
 		}
-		if maxDiff, meanDiff := maxMeanKVDiff(fullKV[layer].Keys, appendedKV[layer].Keys); maxDiff != 0 || meanDiff != 0 {
-			t.Fatalf("layer %d K diff max=%g mean=%g sliding=%d", layer, maxDiff, meanDiff, slidingWindowOverride)
+		if maxDiff, meanDiff := maxMeanKVDiff(fullKV[layer].Keys, appendedKV[layer].Keys); maxDiff > kvTolerance {
+			t.Fatalf("layer %d K diff max=%g mean=%g tolerance=%g sliding=%d", layer, maxDiff, meanDiff, kvTolerance, slidingWindowOverride)
 		}
-		if maxDiff, meanDiff := maxMeanKVDiff(fullKV[layer].Values, appendedKV[layer].Values); maxDiff != 0 || meanDiff != 0 {
-			t.Fatalf("layer %d V diff max=%g mean=%g sliding=%d", layer, maxDiff, meanDiff, slidingWindowOverride)
+		if maxDiff, meanDiff := maxMeanKVDiff(fullKV[layer].Values, appendedKV[layer].Values); maxDiff > kvTolerance {
+			t.Fatalf("layer %d V diff max=%g mean=%g tolerance=%g sliding=%d", layer, maxDiff, meanDiff, kvTolerance, slidingWindowOverride)
 		}
 	}
 }

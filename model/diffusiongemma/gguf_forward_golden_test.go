@@ -126,7 +126,7 @@ func assertCanvasStepDiagnostics(t *testing.T, canvases []CanvasResult, wantEntr
 
 func openLocalGGUFTinyGoldenDenoiser(t *testing.T) *TextDenoiser {
 	t.Helper()
-	t.Skip("local GGUF golden tests still target disabled CPU prompt/runtime fallback; replace with GPU prompt golden fixtures")
+	t.Skip("local GGUF golden tests are heavy CPU/SIMD reference fixtures; replace/augment with GPU prompt golden fixtures before enabling by default")
 	ggufPath := filepath.Join("..", "..", "..", "llama.cpp", "models", "diffusiongemma-gguf", "diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
