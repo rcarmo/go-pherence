@@ -11,6 +11,7 @@ type MTPGraphGenerationOptions struct {
 type MTPGraphGenerationResult struct {
 	Output                     []int
 	VocabSize                  int
+	HiddenSize                 int
 	RequestedMaxTokens         int
 	Stats                      MTPSpeculationStats
 	FinalState                 MTPDrafterState
@@ -45,6 +46,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	}
 	if r.VocabSize < 0 {
 		return fmt.Errorf("MTP graph generation vocab size=%d out of range", r.VocabSize)
+	}
+	if r.HiddenSize < 0 {
+		return fmt.Errorf("MTP graph generation hidden size=%d out of range", r.HiddenSize)
 	}
 	if err := validateMTPGraphSummaryTokens(-1, "output", r.Output, r.VocabSize); err != nil {
 		return err
@@ -196,6 +200,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 			if r.FinalState.PreviousToken != wantToken {
 				return fmt.Errorf("MTP final state previous token=%d, want output[%d]=%d", r.FinalState.PreviousToken, r.FinalStateOutputLen-1, wantToken)
 			}
+			if r.HiddenSize > 0 && len(r.FinalState.Activation) != r.HiddenSize {
+				return fmt.Errorf("MTP final state activation len=%d, want hidden size=%d", len(r.FinalState.Activation), r.HiddenSize)
+			}
 		}
 	}
 	return nil
@@ -303,7 +310,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, RequestedMaxTokens: opts.MaxTokens, Stats: stats, FinalState: state, FinalStateOutputLen: finalStateOutputLen, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
+	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, HiddenSize: m.Config.HiddenSize, RequestedMaxTokens: opts.MaxTokens, Stats: stats, FinalState: state, FinalStateOutputLen: finalStateOutputLen, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
 	if err := result.Validate(len(ctx.Tokens)); err != nil {
 		return MTPGraphGenerationResult{}, err
 	}

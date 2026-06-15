@@ -62,8 +62,8 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	if !sameInts(res.StepSummaries[0].OutputTokens, res.Steps[0].OutputTokens) || !sameInts(res.StepSummaries[0].Positions, res.Steps[0].Positions) || len(res.StepSummaries[0].DraftedTokens) != 2 || len(res.StepSummaries[0].VerifierTokens) != 3 {
 		t.Fatalf("step summary=%+v commit=%+v", res.StepSummaries[0], res.Steps[0])
 	}
-	if res.FinalState.PreviousToken < 0 || res.FinalState.PreviousToken >= m.Config.VocabSize || res.FinalStateOutputLen != len(res.Output) {
-		t.Fatalf("final state=%+v covers=%d output=%v", res.FinalState, res.FinalStateOutputLen, res.Output)
+	if res.HiddenSize != m.Config.HiddenSize || res.FinalState.PreviousToken < 0 || res.FinalState.PreviousToken >= m.Config.VocabSize || len(res.FinalState.Activation) != m.Config.HiddenSize || res.FinalStateOutputLen != len(res.Output) {
+		t.Fatalf("hidden=%d final state=%+v covers=%d output=%v", res.HiddenSize, res.FinalState, res.FinalStateOutputLen, res.Output)
 	}
 	if !res.Capabilities.ExperimentalGenerationWiring || res.Capabilities.ReadyForPublicGeneration || !sameStringSet(res.MissingForPublicGeneration, []string{"public_generation_wiring", "full_layer_batch_verifier_default_enablement"}) {
 		t.Fatalf("capabilities=%+v missing=%v", res.Capabilities, res.MissingForPublicGeneration)
@@ -74,9 +74,10 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	valid := MTPGraphGenerationResult{
 		Output:              []int{9, 1, 2, 3},
 		VocabSize:           11,
+		HiddenSize:          2,
 		RequestedMaxTokens:  3,
 		Stats:               MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
-		FinalState:          MTPDrafterState{PreviousToken: 2},
+		FinalState:          MTPDrafterState{PreviousToken: 2, Activation: []float32{0.5, 0.25}},
 		FinalStateOutputLen: 3,
 		Steps:               []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
 		StepSummaries:       []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 3}, VerifierTokens: []int{9, 1, 3}, VerifierOutputTokens: []int{1, 2, 3}, VerifierPositions: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
@@ -90,6 +91,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.VocabSize = 3
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted output token outside vocab")
+	}
+	bad = valid
+	bad.HiddenSize = -1
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted negative hidden size")
 	}
 	bad = valid
 	bad.StepSummaries[0].VerifierOutputTokens = []int{1, 11, 3}
@@ -140,6 +146,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.FinalState.PreviousToken = 1
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted final state previous-token mismatch")
+	}
+	bad = valid
+	bad.FinalState.Activation = []float32{1}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted final state activation width mismatch")
 	}
 	bad = valid
 	bad.Stats.Steps = 99
@@ -270,7 +281,7 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	if err := valid.Validate(99); err == nil {
 		t.Fatal("accepted bad prompt len")
 	}
-	zero := MTPGraphGenerationResult{Output: []int{10}, VocabSize: 11, FinalState: MTPDrafterState{PreviousToken: 10}, FinalStateOutputLen: 1}
+	zero := MTPGraphGenerationResult{Output: []int{10}, VocabSize: 11, HiddenSize: 2, FinalState: MTPDrafterState{PreviousToken: 10, Activation: []float32{1, 2}}, FinalStateOutputLen: 1}
 	if err := zero.Validate(1); err != nil {
 		t.Fatalf("zero-cycle Validate: %v", err)
 	}
@@ -318,7 +329,7 @@ func TestGenerateMTPGraphFromPromptContextGreedyDecodesSingleTokenTail(t *testin
 	if len(res.Steps) != 0 || res.GraphOutputTokens != 0 || res.GreedyTailTokens != 1 || len(res.Output) != len(ctx.Tokens)+1 || !sameInts(res.Output[:len(ctx.Tokens)], ctx.Tokens) {
 		t.Fatalf("single-tail result=%+v", res)
 	}
-	if res.FinalStateOutputLen != len(ctx.Tokens) || res.FinalState.PreviousToken != ctx.PreviousToken {
-		t.Fatalf("single-tail final state=%+v covers=%d, want prompt cursor %d", res.FinalState, res.FinalStateOutputLen, len(ctx.Tokens))
+	if res.HiddenSize != m.Config.HiddenSize || res.FinalStateOutputLen != len(ctx.Tokens) || res.FinalState.PreviousToken != ctx.PreviousToken || len(res.FinalState.Activation) != m.Config.HiddenSize {
+		t.Fatalf("single-tail hidden=%d final state=%+v covers=%d, want prompt cursor %d", res.HiddenSize, res.FinalState, res.FinalStateOutputLen, len(ctx.Tokens))
 	}
 }
