@@ -9,7 +9,10 @@ import (
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
-var fnQ5_0GemvBatch CUfunction
+var (
+	fnQ5_0GemvBatch         CUfunction
+	fnQ5_0GemvScatterByWork CUfunction
+)
 
 type GPUQ5_0Matrix struct {
 	Q      *Buffer // packed low nibbles [outDim, inDim/32, 16]
@@ -101,6 +104,23 @@ func (m *GPUQ5_0Matrix) Free() {
 		m.Scales.Free()
 		m.Scales = nil
 	}
+}
+
+func GemvQ5_0ScatterByWork(dstBuf, xBuf, workActive, workPos, workWeight *Buffer, workLen, activeExperts int, m *GPUQ5_0Matrix) error {
+	if workLen <= 0 {
+		return nil
+	}
+	if activeExperts <= 0 || m == nil || m.Q == nil || m.High == nil || m.Scales == nil || dstBuf == nil || xBuf == nil || workActive == nil || workPos == nil || workWeight == nil || dstBuf.Ptr == 0 || xBuf.Ptr == 0 || workActive.Ptr == 0 || workPos.Ptr == 0 || workWeight.Ptr == 0 || xBuf.Size < workLen*m.InDim*4 || workActive.Size < workLen*4 || workPos.Size < workLen*4 || workWeight.Size < workLen*4 || m.OutDim <= 0 || m.OutDim%activeExperts != 0 || fnQ5_0GemvScatterByWork == 0 {
+		return fmt.Errorf("invalid Q5_0 scatter-by-work buffers")
+	}
+	expertOutDim := m.OutDim / activeExperts
+	inDim := uint32(m.InDim)
+	matrixRows := uint32(m.OutDim)
+	expertOut := uint32(expertOutDim)
+	work := uint32(workLen)
+	active := uint32(activeExperts)
+	args := []unsafe.Pointer{unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&workActive.Ptr), unsafe.Pointer(&workPos.Ptr), unsafe.Pointer(&workWeight.Ptr), unsafe.Pointer(&m.Q.Ptr), unsafe.Pointer(&m.High.Ptr), unsafe.Pointer(&m.Scales.Ptr), unsafe.Pointer(&dstBuf.Ptr), unsafe.Pointer(&inDim), unsafe.Pointer(&matrixRows), unsafe.Pointer(&expertOut), unsafe.Pointer(&work), unsafe.Pointer(&active)}
+	return LaunchKernel(fnQ5_0GemvScatterByWork, uint32(expertOutDim), uint32(workLen), 1, 256, 1, 1, 0, args...)
 }
 
 func GemvQ5_0Batch(out, x []float32, batch int, m *GPUQ5_0Matrix) error {

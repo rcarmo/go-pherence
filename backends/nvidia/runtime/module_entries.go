@@ -72,6 +72,7 @@ func megaModuleEntries() []moduleEntry {
 		{"gate_up_gelu_q4_k_by_work_ptrs", ptxq4.GateUpGELUQ4KByWorkPtrsPTX},
 		{"gate_up_q4_k_by_work_ptrs", ptxq4.GateUpQ4KByWorkPtrsPTX},
 		{"gemv_q5_0_batch", ptxq5.GemvQ5_0BatchPTX},
+		{"gemv_q5_0_scatter_by_work", ptxq5.GemvQ5_0ScatterByWorkPTX},
 		{"gemv_q8_0", ptxq8.GemvQ8_0PTX},
 		{"gemv_q8_0_batch", ptxq8.GemvQ8_0BatchPTX},
 		{"gemv_q8_0_scatter", ptxq8.GemvQ8_0ScatterPTX},

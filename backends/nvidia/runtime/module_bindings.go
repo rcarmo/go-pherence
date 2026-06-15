@@ -26,6 +26,7 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnQ4KGateUpGELUByWorkPtrs = f.get("gate_up_gelu_q4_k_by_work_ptrs")
 	fnQ4KGateUpByWorkPtrs = f.get("gate_up_q4_k_by_work_ptrs")
 	fnQ5_0GemvBatch = f.get("gemv_q5_0_batch")
+	fnQ5_0GemvScatterByWork = f.get("gemv_q5_0_scatter_by_work")
 	fnQ8_0Gemv = f.get("gemv_q8_0")
 	fnQ8_0GemvBatch = f.get("gemv_q8_0_batch")
 	fnQ8_0GemvScatter = f.get("gemv_q8_0_scatter")
