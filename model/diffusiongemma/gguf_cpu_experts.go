@@ -338,6 +338,68 @@ func ggufQ4KRawRowDot(raw []byte, inDim int, x []float32) float32 {
 	return sum
 }
 
+func ggufQ4KRawRowDot4(raw []byte, inDim int, x []float32, stride int) (float32, float32, float32, float32, bool) {
+	if inDim%256 != 0 || stride < inDim || len(x) < 3*stride+inDim {
+		return 0, 0, 0, 0, false
+	}
+	blocks := inDim / 256
+	var s0, s1, s2, s3 float32
+	for b := 0; b < blocks; b++ {
+		blk := raw[b*144 : (b+1)*144]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		dmin := half.F16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
+		sc := blk[4:16]
+		qs := blk[16:144]
+		var scales [8]float32
+		var mins [8]float32
+		for j := 0; j < 4; j++ {
+			scales[j] = float32(sc[j]&63) * d
+			mins[j] = float32(sc[j+4]&63) * dmin
+		}
+		for j := 4; j < 8; j++ {
+			k := j - 4
+			scales[j] = float32((sc[j+4]&0x0F)|((sc[k]>>6)<<4)) * d
+			mins[j] = float32((sc[j+4]>>4)|((sc[k+4]>>6)<<4)) * dmin
+		}
+		xb := x[b*256:]
+		for group := 0; group < 8; group++ {
+			scale := scales[group]
+			minv := mins[group]
+			qoff := (group / 2) * 32
+			qbytes := qs[qoff : qoff+32]
+			xg := xb[group*32:]
+			var d0, xs0, d1, xs1, d2, xs2, d3, xs3 float32
+			var ok bool
+			if group&1 == 0 {
+				d0, xs0, d1, xs1, d2, xs2, d3, xs3, ok = simd.DotU4F32LowAndSumx4(qbytes, xg, stride)
+			} else {
+				d0, xs0, d1, xs1, d2, xs2, d3, xs3, ok = simd.DotU4F32HighAndSumx4(qbytes, xg, stride)
+			}
+			if ok {
+				s0 += scale*d0 - minv*xs0
+				s1 += scale*d1 - minv*xs1
+				s2 += scale*d2 - minv*xs2
+				s3 += scale*d3 - minv*xs3
+				continue
+			}
+			for i := 0; i < 32; i++ {
+				qbyte := qbytes[i]
+				qv := qbyte & 0x0F
+				if group&1 != 0 {
+					qv = qbyte >> 4
+				}
+				coeff := float32(qv)*scale - minv
+				off := b*256 + group*32 + i
+				s0 += coeff * x[off]
+				s1 += coeff * x[stride+off]
+				s2 += coeff * x[2*stride+off]
+				s3 += coeff * x[3*stride+off]
+			}
+		}
+	}
+	return s0, s1, s2, s3, true
+}
+
 func ggufQ4KExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []float32, nPos int, dst []float32, dstStride int) error {
 	if m == nil || m.QType != gguf.QuantQ4_K || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || nPos <= 0 || len(x) < nPos*m.InDim || len(dst) < (nPos-1)*dstStride+1 || dstStride <= 0 || m.InDim%256 != 0 {
 		return fmt.Errorf("invalid Q4_K expert row batch dot expert=%d row=%d nPos=%d", expert, row, nPos)
@@ -351,7 +413,18 @@ func ggufQ4KExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []flo
 		return fmt.Errorf("Q4_K expert row batch raw outside expert=%d row=%d", expert, row)
 	}
 	raw := m.Raw[start:end]
-	for pos := 0; pos < nPos; pos++ {
+	pos := 0
+	for ; pos+4 <= nPos; pos += 4 {
+		v0, v1, v2, v3, ok := ggufQ4KRawRowDot4(raw, m.InDim, x[pos*m.InDim:], m.InDim)
+		if !ok {
+			break
+		}
+		dst[pos*dstStride] = v0
+		dst[(pos+1)*dstStride] = v1
+		dst[(pos+2)*dstStride] = v2
+		dst[(pos+3)*dstStride] = v3
+	}
+	for ; pos < nPos; pos++ {
 		dst[pos*dstStride] = ggufQ4KRawRowDot(raw, m.InDim, x[pos*m.InDim:(pos+1)*m.InDim])
 	}
 	return nil
@@ -706,9 +779,10 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				gateStart := time.Now()
 				batchGU := ws.batchGU[:nPos*intermediate*2]
 				outDimGU := intermediate * 2 // 1408
-				// SIMD direct Q4_K wins for small batches (nPos<=3), but dequant-once
-				// + Sdot remains faster when the same raw row is reused more broadly.
-				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos <= 3 && le.gateUp.QType == gguf.QuantQ4_K
+				// SIMD direct Q4_K row-dot uses a 4-output raw-row primitive and wins up
+				// through nPos<=8; larger gate/up batches still favor dequant-once +
+				// Sdot reuse.
+				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos <= 8 && le.gateUp.QType == gguf.QuantQ4_K
 				for r := 0; r < outDimGU; r++ {
 					if useDirectQ4GateUp {
 						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {
