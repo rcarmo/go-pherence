@@ -84,6 +84,7 @@ PLAN=$(scripts/diffusiongemma_active_trace_plan.py \
   --order efficiency \
   --ensure-layer-coverage \
   --budget-mb 768 \
+  --optimize-budget \
   --summary)
 ```
 
@@ -174,7 +175,7 @@ trend clearly even when wall-clock varies with host load:
 | Expert cache | Prewarmed experts | Kept/dropped work | Q4 dequant rows | Q8 dequant rows | Q5 dequant rows | Notes |
 |---:|---:|---:|---:|---:|---:|---|
 | 768MiB | 168 | 12871/9209 | 440704 | 459008 | 1346048 | Current bounded default diagnostic target. |
-| 1024MiB | 223 | 15345/6735 | 363264 | 377344 | 1272832 | More resident work; still broad dropped subset. |
+| 1024MiB | 225 | 15389/6691 | 360448 | 399872 | 1244672 | Optimized plan-only profile; more resident work, still broad dropped subset. |
 | 1536MiB | 334 | 18425/3655 | 206976 | 222464 | 1115136 | Much less dropped work; exact-GELU boundary grows. |
 
 At 1536MiB, the remaining dropped work is mostly residual Q5_0 rows plus the
@@ -198,8 +199,8 @@ profiling tool, not a production default.
 
 ## Next work
 
-- Use the exact partial-resident top10 profile as the current structural target
-  for further optimization, not as a default.
+- Use the exact partial-resident layer-coverage-aware optimized plan as the
+  current structural target for further optimization, not as a default.
 - Reduce dropped-subset CPU fallback time or increase resident coverage without
   losing fused layers.
 - Reduce Q4_K expert residency footprint or make active-set materialization cheap
