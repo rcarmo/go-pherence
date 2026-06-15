@@ -42,6 +42,7 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		return fmt.Errorf("MTP graph step summaries=%d, commit steps=%d", len(r.StepSummaries), len(r.Steps))
 	}
 	var graphCount int
+	var graphTokens []int
 	var summaryDrafted int
 	var summaryVerified int
 	for i, step := range r.Steps {
@@ -49,6 +50,7 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 			return fmt.Errorf("MTP graph generation malformed commit step %d: %+v", i, step)
 		}
 		graphCount += len(step.OutputTokens)
+		graphTokens = append(graphTokens, step.OutputTokens...)
 		if len(r.StepSummaries) > 0 {
 			summary := r.StepSummaries[i]
 			if !mtpSameInts(summary.Positions, step.Positions) || !mtpSameInts(summary.OutputTokens, step.OutputTokens) {
@@ -88,6 +90,12 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	}
 	if graphCount != r.GraphOutputTokens {
 		return fmt.Errorf("MTP graph output accounting=%d, commit outputs=%d", r.GraphOutputTokens, graphCount)
+	}
+	if len(graphTokens) > 0 {
+		end := promptLen + len(graphTokens)
+		if end > len(r.Output) || !mtpSameInts(r.Output[promptLen:end], graphTokens) {
+			return fmt.Errorf("MTP graph output tokens do not match output stream: output=%v graph=%v promptLen=%d", r.Output, graphTokens, promptLen)
+		}
 	}
 	generated := len(r.Output) - promptLen
 	if generated != r.GraphOutputTokens+r.GreedyTailTokens {

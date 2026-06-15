@@ -88,6 +88,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted wrong graph output total")
 	}
 	bad = valid
+	bad.Output = []int{10, 9, 9, 3}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted graph output content mismatch")
+	}
+	bad = valid
 	bad.GreedyTailTokens = 0
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted wrong generated accounting")
