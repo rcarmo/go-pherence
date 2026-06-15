@@ -55,7 +55,7 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 | RVV/SIMD SGEMM, dot, norm | `backends/simd/runtime`, `backends/spacemit/rvv` | Yes where available | Core CPU path and oracle for encoder/decoder; Whisper linear tiles route through checked `SgemmNTTo` with scalar fallback, and RVV asm wrappers are riscv64-only with scalar non-riscv fallbacks so tests build on development hosts. |
 | IME int8 matmul | `backends/spacemit/ime2`, `backends/spacemit/k3engine/aipool` | Yes for K3 when `WHISPER_INT8=1`; command defaults vary by build/runtime | Native K3 high-throughput path; non-K3 builds keep safe disabled stubs for validation. |
 | A100 Q8 FFN | `models/whisper/a100_int8.go`, `backends/spacemit/k3engine/aipool` | Opt-in | Row-scale native-Q8 mode is default-candidate, not automatic. |
-| NVIDIA SGEMM / LM-head / GPU encoder | `backends/nvidia`, `models/whisper/gpu_encoder.go` | GPU-assisted when requested/available | Full decoder GPU residency remains not default. |
+| NVIDIA SGEMM / LM-head / GPU encoder | `backends/nvidia`, `models/whisper/gpu_encoder.go` | GPU-assisted when requested/available | Full decoder GPU residency remains not default; unused placeholder-only GPU transpose hooks were removed so this row reflects real GPU-assisted surfaces only. |
 | CUDA/PTX mel/conv/attention scaffolding | `backends/cuda/ptx` | No | Assets/scaffolding exist; fused production mel/decoder graph still pending. |
 | SpeechBrain ECAPA | `models/speaker` | Opt-in speaker model | Fbank and ECAPA parity validated; broader labeled quality suite pending. |
 
