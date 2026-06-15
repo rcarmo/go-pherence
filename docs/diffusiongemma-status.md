@@ -460,6 +460,10 @@ With the full checkpoint present, `diffusiongemmarun -preload-only -preload-glob
 Sparse top-k LM-head mode now decodes `model.decoder.embed_tokens.weight` into the `TextWeights` float cache once and scans that resident matrix for top-k candidate scores. Dense LM-head mode still streams rows via `RawTensorRow`. This trades roughly 2.75 GiB of decoded embedding residency for avoiding hundreds of thousands of mmap row decode calls during top-k probes.
 
 
+## Direct quantized expert SIMD oracle policy
+
+The GGUF Q4_K gate/up and Q8_0 down expert paths now share explicit CPU policy helpers for choosing the native direct quantized row-dot kernels. The policy is locked to positive batches up to `diffusionGemmaDirectQuantMaxBatch` (`8`) when the relevant SIMD primitive is available (`HasDotU4F32SIMD` for Q4_K, `HasDotI8F32SIMD` for Q8_0) and the tensor quant type matches. CPU-only tests compare direct Q4/Q8 batched row dots for `nPos=1,3,8` against the dequantized `simd.Sdot` oracle, giving AVX2/FMA, NEON, RVV, and GPU refinements a single reference contract for active expert QAT-style execution.
+
 ## SIMD sparse top-k LM-head smoke
 
 Sparse top-k LM-head now uses the decoded cached tied embedding matrix plus `simd.GemvRows` instead of per-row mmap/decode. The 1-layer top-k smoke still returns `generated=[236991]`, and the previously timing-out four-layer top-k probe now completes with `generated=[59475]`, decoded as ` 싶`, under `-residency-budget-gib 16 -max-dispatch-layers 4 -tail-after-max-layers -lm-head-top-k 8`. `make diffusiongemma-run-cpu-layer4-topk-smoke` wraps this bounded tail+LM-head probe.
