@@ -128,6 +128,7 @@ func main() {
 	var mtpMissing []string
 	var mtpGraphOutput int
 	var mtpGreedyTail int
+	var mtpFinalStateOutputLen int
 	var mtpStepSummaries []model.MTPGraphGenerationStepSummary
 	if *mtpGenerate {
 		result, err := runGemma4MTPGenerate(m, gpuMod, *mtpDrafter, ids, *tokens, *mtpKVReuse, model.MTPAdaptiveDraftPolicy{MinDrafts: *mtpDraftMin, InitialDrafts: *mtpDraftInitial, MaxDrafts: *mtpDraftMax})
@@ -140,6 +141,7 @@ func main() {
 		mtpMissing = result.MissingForPublicGeneration
 		mtpGraphOutput = result.GraphOutputTokens
 		mtpGreedyTail = result.GreedyTailTokens
+		mtpFinalStateOutputLen = result.FinalStateOutputLen
 		mtpStepSummaries = result.StepSummaries
 	} else if gpuMod != nil {
 		output = append(ids, gpuMod.Generate(ids, *tokens)...)
@@ -183,6 +185,7 @@ func main() {
 		fmt.Printf("MTP bonus tokens:  %d\n", mtpStats.BonusTokens)
 		fmt.Printf("MTP graph output:  %d\n", mtpGraphOutput)
 		fmt.Printf("MTP greedy tail:   %d\n", mtpGreedyTail)
+		fmt.Printf("MTP state covers:  %s\n", formatMTPFinalStateCoverage(mtpFinalStateOutputLen, len(output)))
 		for i, s := range mtpStepSummaries {
 			fmt.Printf("MTP cycle %-3d: input=%d drafted=%v verifier_in=%v verifier_out=%v accepted=%d bonus=%d output=%v commit_pos=%v verifier_pos=%v all=%v\n", i, s.InputToken, s.DraftedTokens, s.VerifierTokens, s.VerifierOutputTokens, s.AcceptedPrefixLen, s.BonusToken, s.OutputTokens, s.Positions, s.VerifierPositions, s.AllDraftsAccepted)
 		}
@@ -191,6 +194,13 @@ func main() {
 		}
 	}
 	_ = genText
+}
+
+func formatMTPFinalStateCoverage(finalStateOutputLen, outputLen int) string {
+	if finalStateOutputLen == outputLen {
+		return fmt.Sprintf("%d/%d tokens", finalStateOutputLen, outputLen)
+	}
+	return fmt.Sprintf("%d/%d tokens (greedy tail not covered)", finalStateOutputLen, outputLen)
 }
 
 func validateMTPCLIFlags(tokens int, mtpSmoke, mtpGenerate bool, mtpDrafter string, mtpSeq int) error {

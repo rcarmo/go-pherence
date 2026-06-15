@@ -2,6 +2,15 @@ package main
 
 import "testing"
 
+func TestFormatMTPFinalStateCoverage(t *testing.T) {
+	if got := formatMTPFinalStateCoverage(4, 4); got != "4/4 tokens" {
+		t.Fatalf("coverage=%q", got)
+	}
+	if got := formatMTPFinalStateCoverage(3, 4); got != "3/4 tokens (greedy tail not covered)" {
+		t.Fatalf("tail coverage=%q", got)
+	}
+}
+
 func TestValidateMTPCLIFlags(t *testing.T) {
 	cases := []struct {
 		name        string
