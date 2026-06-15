@@ -70,6 +70,43 @@ func TestMTPVerifierResultCommitGraphRejectsMismatchedGraph(t *testing.T) {
 	}
 }
 
+func TestMTPVerifierResultCommitGraphRejectsMutatedAcceptance(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	d := validProjectionOnlyDrafter()
+	state, err := NewMTPDrafterState(0, []float32{0.5, 0.25}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph, err := NewMTPExecutionGraph(m, d, state, nil, []int{1, 2}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := NewMTPVerifierResultForModel(m, 0, []int{1, 2}, [][]float32{
+		{0, 9, 0, 0},
+		{0, 0, 0, 8},
+		{7, 0, 0, 0},
+	}, []float32{1, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result.Acceptance = MTPAcceptance{
+		DraftedCount:       2,
+		VerifiedCount:      2,
+		AcceptedPrefixLen:  2,
+		AcceptedTokens:     []int{1, 2},
+		BonusToken:         0,
+		OutputTokens:       []int{1, 2, 0},
+		AllDraftsAccepted:  true,
+		FirstRejectedIndex: -1,
+	}
+	if _, err := result.CommitGraphCompressedKV(graph, nil, nil); err == nil {
+		t.Fatal("compressed graph commit accepted forged acceptance that disagrees with logits")
+	}
+	if _, err := result.CommitGraphFloatKV(m, graph, nil, nil, kv.FloatKVCheckpoint{}); err == nil {
+		t.Fatal("float graph commit accepted forged acceptance that disagrees with logits")
+	}
+}
+
 func TestMTPVerifierResultCommitGraphFloatKVRejectsModelRangeDrift(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
 	graph := MTPExecutionGraph{

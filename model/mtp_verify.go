@@ -278,7 +278,32 @@ func (r MTPVerifierResult) validateGraph(graph MTPExecutionGraph) error {
 	if len(r.ActivationRows) > 0 && len(r.ActivationRows) != len(r.VerifierTokens) {
 		return fmt.Errorf("MTP verifier activation rows=%d, verifier tokens=%d", len(r.ActivationRows), len(r.VerifierTokens))
 	}
+	if err := r.validateAcceptanceMatchesLogits(); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (r MTPVerifierResult) validateAcceptanceMatchesLogits() error {
+	want, err := AcceptMTPDraftFromLogits(r.DraftedTokens, r.Logits)
+	if err != nil {
+		return err
+	}
+	if !sameMTPAcceptance(r.Acceptance, want) {
+		return fmt.Errorf("MTP verifier acceptance %+v does not match logits-derived acceptance %+v", r.Acceptance, want)
+	}
+	return nil
+}
+
+func sameMTPAcceptance(a, b MTPAcceptance) bool {
+	return a.DraftedCount == b.DraftedCount &&
+		a.VerifiedCount == b.VerifiedCount &&
+		a.AcceptedPrefixLen == b.AcceptedPrefixLen &&
+		a.BonusToken == b.BonusToken &&
+		a.AllDraftsAccepted == b.AllDraftsAccepted &&
+		a.FirstRejectedIndex == b.FirstRejectedIndex &&
+		mtpSameInts(a.AcceptedTokens, b.AcceptedTokens) &&
+		mtpSameInts(a.OutputTokens, b.OutputTokens)
 }
 
 func mtpSameInts(a, b []int) bool {
