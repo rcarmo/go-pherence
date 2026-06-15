@@ -171,6 +171,70 @@ def plan_work(plan: list[tuple[int, list[int]]], work: dict[tuple[int, int], int
     return sum(work.get((layer, expert), 0) for layer, expert in flatten_plan(plan))
 
 
+def optimize_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: set[int] | None, q5_layers: set[int] | None, work: dict[tuple[int, int], int], ensure_layer_coverage: bool = False) -> tuple[list[tuple[int, list[int]]], int, int]:
+    if budget_mb <= 0:
+        return plan, 0, len(flatten_plan(plan))
+    full_budget = budget_mb * 1024 * 1024
+    mandatory: list[tuple[int, int, int, int]] = []
+    mandatory_layers: set[int] = set()
+    if ensure_layer_coverage:
+        for layer, expert in flatten_plan(plan):
+            if layer in mandatory_layers:
+                continue
+            key = (layer, expert)
+            bytes_ = expert_cost_bytes(layer, q8_layers, q5_layers)
+            mandatory.append((layer, expert, work.get(key, 0), bytes_))
+            mandatory_layers.add(layer)
+    mandatory_used = sum(x[3] for x in mandatory)
+    if mandatory_used > full_budget:
+        return group_flat_plan([(layer, expert) for layer, expert, _, _ in mandatory if False]), 0, 0
+    candidates: list[tuple[int, int, int, int]] = []  # layer, expert, work, bytes
+    seen: set[tuple[int, int]] = {(layer, expert) for layer, expert, _, _ in mandatory}
+    for layer, expert in flatten_plan(plan):
+        key = (layer, expert)
+        if key in seen:
+            continue
+        seen.add(key)
+        bytes_ = expert_cost_bytes(layer, q8_layers, q5_layers)
+        candidates.append((layer, expert, work.get(key, 0), bytes_))
+    # Exact 0/1 knapsack over traced work values. Total traced work is small
+    # (tens of thousands), so minimizing bytes for each achievable work is cheap
+    # and avoids coarse byte-bucket artifacts.
+    budget = full_budget - mandatory_used
+    max_work = sum(max(0, c[2]) for c in candidates)
+    inf = 1 << 62
+    dp = [inf] * (max_work + 1)
+    dp[0] = 0
+    parent: list[dict[int, int]] = []
+    for i, (_, _, w, bytes_) in enumerate(candidates):
+        changes: dict[int, int] = {}
+        if w <= 0:
+            parent.append(changes)
+            continue
+        for cur in range(max_work - w, -1, -1):
+            if dp[cur] == inf:
+                continue
+            new_bytes = dp[cur] + bytes_
+            if new_bytes < dp[cur+w]:
+                dp[cur+w] = new_bytes
+                changes[cur+w] = cur
+        parent.append(changes)
+    best_work = max(w for w, bytes_ in enumerate(dp) if bytes_ <= budget)
+    selected: list[tuple[int, int, int, int]] = []
+    cur = best_work
+    for i in range(len(candidates) - 1, -1, -1):
+        prev = parent[i].get(cur)
+        if prev is not None:
+            layer, expert, w, bytes_ = candidates[i]
+            selected.append((layer, expert, w, bytes_))
+            cur = prev
+    selected.reverse()
+    selected = mandatory + selected
+    used = sum(x[3] for x in selected)
+    selected.sort(key=lambda x: (-x[2], x[0], x[1]))
+    return group_flat_plan([(layer, expert) for layer, expert, _, _ in selected]), used, len(selected)
+
+
 def apply_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: set[int] | None, q5_layers: set[int] | None) -> tuple[list[tuple[int, list[int]]], int, int]:
     if budget_mb <= 0:
         return plan, 0, len(flatten_plan(plan))
@@ -206,6 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ensure-layer-coverage", action="store_true", help="for global/efficiency ordering, emit each traced layer's hottest expert before the remaining ranked entries")
     ap.add_argument("--order", choices=("layer", "global-work", "efficiency"), default="layer", help="emit layer-major groups, globally sort by work, or sort by work/estimated resident byte (default: layer)")
     ap.add_argument("--budget-mb", type=int, default=0, help="truncate the emitted plan to the prefix that fits this expert-cache budget")
+    ap.add_argument("--optimize-budget", action="store_true", help="with --budget-mb, choose entries that maximize traced work instead of taking a sorted prefix")
     ap.add_argument("--summary", action="store_true", help="print budget/entry summary to stderr")
     args = ap.parse_args(argv)
 
@@ -220,7 +285,10 @@ def main(argv: list[str] | None = None) -> int:
     used = 0
     kept_entries = original_entries
     if args.budget_mb > 0:
-        plan, used, kept_entries = apply_budget(plan, args.budget_mb, q8_layers, q5_layers)
+        if args.optimize_budget:
+            plan, used, kept_entries = optimize_budget(plan, args.budget_mb, q8_layers, q5_layers, work, args.ensure_layer_coverage)
+        else:
+            plan, used, kept_entries = apply_budget(plan, args.budget_mb, q8_layers, q5_layers)
     kept_work = plan_work(plan, work)
     if args.summary:
         if args.budget_mb > 0:
