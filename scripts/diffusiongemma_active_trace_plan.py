@@ -46,9 +46,10 @@ def parse_layer_set(text: str) -> set[int] | None:
     return out
 
 
-def extract_plan(path: Path, top: int, q8_layers: set[int] | None, include_repeated_layers: bool) -> list[tuple[int, list[int]]]:
+def extract_plan(path: Path, top: int, q8_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer") -> list[tuple[int, list[int]]]:
     seen_layers: set[int] = set()
     plan: list[tuple[int, list[int]]] = []
+    flat: list[tuple[int, int, int, int]] = []  # (-work, layer, rank, expert)
     for line in path.read_text(errors="ignore").splitlines():
         m = TRACE_RE.search(line)
         if not m:
@@ -61,19 +62,24 @@ def extract_plan(path: Path, top: int, q8_layers: set[int] | None, include_repea
         seen_layers.add(layer)
         experts: list[int] = []
         seen_experts: set[int] = set()
-        for entry in m.group(2).split(","):
+        for rank, entry in enumerate(m.group(2).split(",")):
             mm = TOP_RE.fullmatch(entry.strip())
             if not mm:
                 continue
             expert = int(mm.group(1))
+            work = int(mm.group(2))
             if expert in seen_experts:
                 continue
             seen_experts.add(expert)
             experts.append(expert)
+            flat.append((-work, layer, rank, expert))
             if len(experts) >= top:
                 break
         if experts:
             plan.append((layer, experts))
+    if order == "global-work":
+        flat.sort()
+        return [(layer, [expert]) for _, layer, _, expert in flat]
     return plan
 
 
@@ -87,12 +93,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--top", type=int, default=6, help="experts per layer to emit (default: 6)")
     ap.add_argument("--q8-layers", default="", help="optional comma/range list of pointer-compatible Q8_0 down layers, e.g. 0-2,5,8,11")
     ap.add_argument("--include-repeated-layers", action="store_true", help="include repeated layer traces instead of only the first row per layer")
+    ap.add_argument("--order", choices=("layer", "global-work"), default="layer", help="emit layer-major groups or globally sort layer/expert entries by observed work (default: layer)")
     args = ap.parse_args(argv)
 
     if args.top <= 0:
         ap.error("--top must be positive")
     q8_layers = parse_layer_set(args.q8_layers)
-    plan = extract_plan(args.log, args.top, q8_layers, args.include_repeated_layers)
+    plan = extract_plan(args.log, args.top, q8_layers, args.include_repeated_layers, args.order)
     sys.stdout.write(format_plan(plan))
     if plan:
         sys.stdout.write("\n")
