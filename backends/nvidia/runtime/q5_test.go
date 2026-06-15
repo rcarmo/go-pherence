@@ -168,6 +168,127 @@ func TestGemvQ5_0ScatterByWork(t *testing.T) {
 	}
 }
 
+func TestGemvQ5_0ScatterByWorkPtrs(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("CUDA not available")
+	}
+	inDim, outDim, active, workLen := 64, 5, 2, 4
+	rowBytes := (inDim / 32) * 22
+	raw := make([]byte, active*outDim*rowBytes)
+	for r := 0; r < active*outDim; r++ {
+		for b := 0; b < inDim/32; b++ {
+			blk := raw[r*rowBytes+b*22:]
+			binary.LittleEndian.PutUint16(blk[:2], half.F32ToF16(0.02+float32(r+b)*0.0025))
+			var high uint32
+			for i := 0; i < 32; i++ {
+				q := (i*5 + r*3 + b*11) % 32
+				if q >= 16 {
+					high |= 1 << uint(i)
+				}
+				if i < 16 {
+					blk[6+i] = (blk[6+i] & 0xF0) | byte(q&0x0F)
+				} else {
+					blk[6+i-16] = (blk[6+i-16] & 0x0F) | byte((q&0x0F)<<4)
+				}
+			}
+			binary.LittleEndian.PutUint32(blk[2:6], high)
+		}
+	}
+	packed, err := UploadQ5_0MatrixRows(raw, inDim, active*outDim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer packed.Free()
+	mats := make([]*GPUQ5_0Matrix, active)
+	for a := 0; a < active; a++ {
+		m, err := UploadQ5_0MatrixRows(raw[a*outDim*rowBytes:(a+1)*outDim*rowBytes], inDim, outDim)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer m.Free()
+		mats[a] = m
+	}
+	table, err := UploadQ5_0PointerTable(mats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer table.Free()
+	x := make([]float32, workLen*inDim)
+	for i := range x {
+		x[i] = float32((i%13)-6) * 0.023
+	}
+	workActive := []uint32{0, 1, 0, 1}
+	workPos := []uint32{0, 1, 1, 0}
+	workWeight := []float32{0.5, 0.25, 0.75, 1.25}
+	xBuf, err := Malloc(len(x))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer xBuf.Free()
+	waBuf, err := MallocBytes(workLen * 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer waBuf.Free()
+	wpBuf, err := MallocBytes(workLen * 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wpBuf.Free()
+	wwBuf, err := Malloc(workLen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wwBuf.Free()
+	wantBuf, err := Malloc(2 * outDim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wantBuf.Free()
+	gotBuf, err := Malloc(2 * outDim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gotBuf.Free()
+	if err := xBuf.Upload(x); err != nil {
+		t.Fatal(err)
+	}
+	if err := waBuf.UploadUint32(workActive); err != nil {
+		t.Fatal(err)
+	}
+	if err := wpBuf.UploadUint32(workPos); err != nil {
+		t.Fatal(err)
+	}
+	if err := wwBuf.Upload(workWeight); err != nil {
+		t.Fatal(err)
+	}
+	if err := ZeroFloat32Buffer(wantBuf, 2*outDim); err != nil {
+		t.Fatal(err)
+	}
+	if err := ZeroFloat32Buffer(gotBuf, 2*outDim); err != nil {
+		t.Fatal(err)
+	}
+	if err := GemvQ5_0ScatterByWork(wantBuf, xBuf, waBuf, wpBuf, wwBuf, workLen, active, packed); err != nil {
+		t.Fatal(err)
+	}
+	if err := GemvQ5_0ScatterByWorkPtrs(gotBuf, xBuf, waBuf, wpBuf, wwBuf, workLen, table); err != nil {
+		t.Fatal(err)
+	}
+	want := make([]float32, 2*outDim)
+	got := make([]float32, 2*outDim)
+	if err := wantBuf.Download(want); err != nil {
+		t.Fatal(err)
+	}
+	if err := gotBuf.Download(got); err != nil {
+		t.Fatal(err)
+	}
+	for i := range want {
+		if math.Abs(float64(got[i]-want[i])) > 1e-4 {
+			t.Fatalf("i=%d got=%g want=%g", i, got[i], want[i])
+		}
+	}
+}
+
 func dequantQ5_0Test(raw []byte, n int) []float32 {
 	out := make([]float32, n)
 	for b := 0; b < n/32; b++ {

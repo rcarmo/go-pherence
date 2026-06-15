@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	fnQ5_0GemvBatch         CUfunction
-	fnQ5_0GemvScatterByWork CUfunction
+	fnQ5_0GemvBatch             CUfunction
+	fnQ5_0GemvScatterByWork     CUfunction
+	fnQ5_0GemvScatterByWorkPtrs CUfunction
 )
 
 type GPUQ5_0Matrix struct {
@@ -20,6 +21,82 @@ type GPUQ5_0Matrix struct {
 	Scales *Buffer // F32 scales [outDim, inDim/32]
 	InDim  int
 	OutDim int
+}
+
+type GPUQ5_0PointerTable struct {
+	QPtrs     *Buffer
+	HighPtrs  *Buffer
+	ScalePtrs *Buffer
+	InDim     int
+	OutDim    int
+	Count     int
+}
+
+func UploadQ5_0PointerTable(mats []*GPUQ5_0Matrix) (*GPUQ5_0PointerTable, error) {
+	if len(mats) == 0 {
+		return nil, fmt.Errorf("empty Q5_0 pointer table")
+	}
+	inDim, outDim := mats[0].InDim, mats[0].OutDim
+	qPtrs := make([]byte, len(mats)*8)
+	hPtrs := make([]byte, len(mats)*8)
+	sPtrs := make([]byte, len(mats)*8)
+	for i, m := range mats {
+		if m == nil || m.Q == nil || m.High == nil || m.Scales == nil || m.Q.Ptr == 0 || m.High.Ptr == 0 || m.Scales.Ptr == 0 || m.InDim != inDim || m.OutDim != outDim {
+			return nil, fmt.Errorf("invalid Q5_0 matrix %d for pointer table", i)
+		}
+		binary.LittleEndian.PutUint64(qPtrs[i*8:(i+1)*8], uint64(m.Q.Ptr))
+		binary.LittleEndian.PutUint64(hPtrs[i*8:(i+1)*8], uint64(m.High.Ptr))
+		binary.LittleEndian.PutUint64(sPtrs[i*8:(i+1)*8], uint64(m.Scales.Ptr))
+	}
+	qBuf, err := MallocBytes(len(qPtrs))
+	if err != nil {
+		return nil, err
+	}
+	if err := qBuf.UploadBytes(qPtrs); err != nil {
+		qBuf.Free()
+		return nil, err
+	}
+	hBuf, err := MallocBytes(len(hPtrs))
+	if err != nil {
+		qBuf.Free()
+		return nil, err
+	}
+	if err := hBuf.UploadBytes(hPtrs); err != nil {
+		qBuf.Free()
+		hBuf.Free()
+		return nil, err
+	}
+	sBuf, err := MallocBytes(len(sPtrs))
+	if err != nil {
+		qBuf.Free()
+		hBuf.Free()
+		return nil, err
+	}
+	if err := sBuf.UploadBytes(sPtrs); err != nil {
+		qBuf.Free()
+		hBuf.Free()
+		sBuf.Free()
+		return nil, err
+	}
+	return &GPUQ5_0PointerTable{QPtrs: qBuf, HighPtrs: hBuf, ScalePtrs: sBuf, InDim: inDim, OutDim: outDim, Count: len(mats)}, nil
+}
+
+func (t *GPUQ5_0PointerTable) Free() {
+	if t == nil {
+		return
+	}
+	if t.QPtrs != nil {
+		t.QPtrs.Free()
+		t.QPtrs = nil
+	}
+	if t.HighPtrs != nil {
+		t.HighPtrs.Free()
+		t.HighPtrs = nil
+	}
+	if t.ScalePtrs != nil {
+		t.ScalePtrs.Free()
+		t.ScalePtrs = nil
+	}
 }
 
 func unpackQ5_0MatrixRows(raw []byte, inDim, outDim int) ([]byte, []uint32, []float32, error) {
@@ -121,6 +198,21 @@ func GemvQ5_0ScatterByWork(dstBuf, xBuf, workActive, workPos, workWeight *Buffer
 	active := uint32(activeExperts)
 	args := []unsafe.Pointer{unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&workActive.Ptr), unsafe.Pointer(&workPos.Ptr), unsafe.Pointer(&workWeight.Ptr), unsafe.Pointer(&m.Q.Ptr), unsafe.Pointer(&m.High.Ptr), unsafe.Pointer(&m.Scales.Ptr), unsafe.Pointer(&dstBuf.Ptr), unsafe.Pointer(&inDim), unsafe.Pointer(&matrixRows), unsafe.Pointer(&expertOut), unsafe.Pointer(&work), unsafe.Pointer(&active)}
 	return LaunchKernel(fnQ5_0GemvScatterByWork, uint32(expertOutDim), uint32(workLen), 1, 256, 1, 1, 0, args...)
+}
+
+func GemvQ5_0ScatterByWorkPtrs(dstBuf, xBuf, workActive, workPos, workWeight *Buffer, workLen int, table *GPUQ5_0PointerTable) error {
+	if workLen <= 0 {
+		return nil
+	}
+	if table == nil || table.QPtrs == nil || table.HighPtrs == nil || table.ScalePtrs == nil || table.Count <= 0 || table.InDim <= 0 || table.OutDim <= 0 || dstBuf == nil || xBuf == nil || workActive == nil || workPos == nil || workWeight == nil || dstBuf.Ptr == 0 || xBuf.Ptr == 0 || workActive.Ptr == 0 || workPos.Ptr == 0 || workWeight.Ptr == 0 || table.QPtrs.Ptr == 0 || table.HighPtrs.Ptr == 0 || table.ScalePtrs.Ptr == 0 || xBuf.Size < workLen*table.InDim*4 || workActive.Size < workLen*4 || workPos.Size < workLen*4 || workWeight.Size < workLen*4 || fnQ5_0GemvScatterByWorkPtrs == 0 {
+		return fmt.Errorf("invalid Q5_0 scatter-by-work pointer-table buffers")
+	}
+	inDim := uint32(table.InDim)
+	expertOut := uint32(table.OutDim)
+	work := uint32(workLen)
+	active := uint32(table.Count)
+	args := []unsafe.Pointer{unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&workActive.Ptr), unsafe.Pointer(&workPos.Ptr), unsafe.Pointer(&workWeight.Ptr), unsafe.Pointer(&table.QPtrs.Ptr), unsafe.Pointer(&table.HighPtrs.Ptr), unsafe.Pointer(&table.ScalePtrs.Ptr), unsafe.Pointer(&dstBuf.Ptr), unsafe.Pointer(&inDim), unsafe.Pointer(&expertOut), unsafe.Pointer(&work), unsafe.Pointer(&active)}
+	return LaunchKernel(fnQ5_0GemvScatterByWorkPtrs, uint32(table.OutDim), uint32(workLen), 1, 256, 1, 1, 0, args...)
 }
 
 func GemvQ5_0Batch(out, x []float32, batch int, m *GPUQ5_0Matrix) error {
