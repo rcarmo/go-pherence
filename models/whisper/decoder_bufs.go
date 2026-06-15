@@ -2,6 +2,7 @@ package whisper
 
 import (
 	"math"
+	"os"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -95,6 +96,53 @@ func layerNormInto(out, x, weight, bias []float32, dim int) {
 		}
 		out[d] = normed
 	}
+}
+
+func (b *decoderBufs) selfAttentionGPU(out, q, kCache, vCache []float32, seqLen, numHeads, headDim int) bool {
+	if os.Getenv("GO_PHERENCE_WHISPER_GPU_SELF_ATTN") != "1" || b == nil || seqLen <= 0 || numHeads <= 0 || headDim <= 0 || !nv.SgemmReady() {
+		return false
+	}
+	dModel := numHeads * headDim
+	need := seqLen * dModel
+	if len(out) < dModel || len(q) < dModel || len(kCache) < need || len(vCache) < need {
+		return false
+	}
+	qBuf, err := nv.Malloc(dModel)
+	if err != nil {
+		return false
+	}
+	defer qBuf.Free()
+	kBuf, err := nv.Malloc(need)
+	if err != nil {
+		return false
+	}
+	defer kBuf.Free()
+	vBuf, err := nv.Malloc(need)
+	if err != nil {
+		return false
+	}
+	defer vBuf.Free()
+	outBuf, err := nv.Malloc(dModel)
+	if err != nil {
+		return false
+	}
+	defer outBuf.Free()
+	if err := qBuf.Upload(q[:dModel]); err != nil {
+		return false
+	}
+	if err := kBuf.Upload(kCache[:need]); err != nil {
+		return false
+	}
+	if err := vBuf.Upload(vCache[:need]); err != nil {
+		return false
+	}
+	if err := nv.WhisperAttentionFullBuffer(outBuf, qBuf, kBuf, vBuf, 1, seqLen, numHeads, headDim, float32(1.0/math.Sqrt(float64(headDim)))); err != nil {
+		return false
+	}
+	if err := outBuf.Download(out[:dModel]); err != nil {
+		return false
+	}
+	return true
 }
 
 func (b *decoderBufs) attentionGPU(out, q []float32, kBufs, vBufs []*nv.DevBuf, layer, seqLen, numHeads, headDim int) bool {

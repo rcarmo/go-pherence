@@ -193,9 +193,13 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		state.SelfKCache[l] = append(state.SelfKCache[l], bufs.k...)
 		state.SelfVCache[l] = append(state.SelfVCache[l], bufs.v...)
 
-		// Causal attention: query attends to all cached positions (0..pos)
+		// Causal attention for a single current query: with only one query row, it
+		// attends to the cached prefix (0..pos), so the non-causal GPU attention
+		// wrapper is equivalent. Keep CPU/SIMD as the default oracle/fallback.
 		seqKV := pos + 1
-		attentionSingleInto(bufs.selfOut, bufs.q, state.SelfKCache[l], state.SelfVCache[l], seqKV, numHeads, headDim, bufs.scores)
+		if !bufs.selfAttentionGPU(bufs.selfOut, bufs.q, state.SelfKCache[l], state.SelfVCache[l], seqKV, numHeads, headDim) {
+			attentionSingleInto(bufs.selfOut, bufs.q, state.SelfKCache[l], state.SelfVCache[l], seqKV, numHeads, headDim, bufs.scores)
+		}
 
 		linearInto(bufs.proj, bufs.selfOut, layer.SelfOWeight, layer.SelfOBias, dModel, dModel)
 		for d := range x {
