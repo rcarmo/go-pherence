@@ -29,13 +29,15 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/runtime ./backends/nvidia/ioctl
 GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 
 # Whisper large-v3-turbo execution graph (audio commands, mel, SIMD, prompt/timestamp/speculative scaffolds)
+make whisper-turbo-check
+
+# Equivalent explicit form:
 GOTMPDIR=$PWD/.gotmp go test \
   ./models/whisper \
   ./cmd/audio/... \
   ./loader/audio \
   ./backends/simd/fft \
   ./backends/simd/runtime
-
 python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
