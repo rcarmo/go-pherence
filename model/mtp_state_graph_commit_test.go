@@ -102,3 +102,45 @@ func TestCPUDecodeStateCommitGraphAcceptedRejectsMismatchWithoutOutputMutation(t
 		t.Fatalf("output mutated on failed graph commit: %v", st.Output)
 	}
 }
+
+func TestCPUDecodeStateCommitGraphAcceptedCompressedKVRejectsModelDriftWithoutOutputMutation(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	graph := MTPExecutionGraph{
+		InputToken:    9,
+		DraftedTokens: []int{1},
+		StartPos:      3,
+		DrafterSteps: []MTPDrafterGraphStep{{
+			Index:           0,
+			InputToken:      9,
+			ActivationWidth: 2,
+		}},
+		Verifier: MTPVerifierPlan{
+			InputToken:     9,
+			DraftedTokens:  []int{1},
+			VerifierTokens: []int{9, 1},
+			StartPos:       3,
+			Positions:      []int{3, 4},
+		},
+		MaxKVKeepTokens: 2,
+	}
+	verifier, err := NewMTPVerifierResult(9, []int{1}, [][]float32{
+		{0, 8, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 7, 0, 0, 0, 0, 0, 0, 0},
+	}, []float32{1, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := &CPUDecodeState{
+		Model:        m,
+		Output:       []int{10, 11, 12},
+		CompressedKV: []*kv.CompressedKVCache{},
+		KVDims:       []int{2},
+	}
+	cp := st.Checkpoint()
+	if _, err := st.CommitGraphAccepted(cp, graph, verifier); err == nil {
+		t.Fatal("compressed graph commit accepted verifier rows outside owning model dims")
+	}
+	if !sameInts(st.Output, []int{10, 11, 12}) {
+		t.Fatalf("output mutated on failed compressed graph commit: %v", st.Output)
+	}
+}
