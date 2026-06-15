@@ -90,7 +90,7 @@ func BenchmarkGGUFQ8_0RowDotDirectVsDequant(b *testing.B) {
 func BenchmarkGGUFQ8_0RowDotBatchDirectVsDequant(b *testing.B) {
 	m := syntheticBenchQ8Matrix(b, 2816)
 	row := make([]float32, m.InDim)
-	for _, nPos := range []int{1, 2, 3, 4, 8, 9, 12, 15, 16} {
+	for _, nPos := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 15, 16} {
 		x := make([]float32, nPos*m.InDim)
 		directOut := make([]float32, nPos*m.OutDim)
 		dequantOut := make([]float32, nPos*m.OutDim)
@@ -111,8 +111,8 @@ func BenchmarkGGUFQ8_0RowDotBatchDirectVsDequant(b *testing.B) {
 				if err := m.DequantExpertRowTo(row, 0, r); err != nil {
 					b.Fatal(err)
 				}
-				for pos := 0; pos < nPos; pos++ {
-					dequantOut[pos*m.OutDim+r] = simd.Sdot(row, x[pos*m.InDim:(pos+1)*m.InDim])
+				if !ggufExpertSdotBatchTo(row, x, nPos, m.InDim, dequantOut[r:], m.OutDim) {
+					b.Fatal("Sdot batch rejected")
 				}
 			}
 		})
@@ -122,7 +122,7 @@ func BenchmarkGGUFQ8_0RowDotBatchDirectVsDequant(b *testing.B) {
 func BenchmarkGGUFQ4KRowDotBatchDirectVsDequant(b *testing.B) {
 	m := syntheticBenchQ4KMatrix(b, 1408)
 	row := make([]float32, m.InDim)
-	for _, nPos := range []int{1, 2, 3, 4, 8, 9, 12, 15, 16} {
+	for _, nPos := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 15, 16} {
 		x := make([]float32, nPos*m.InDim)
 		directOut := make([]float32, nPos*m.OutDim)
 		dequantOut := make([]float32, nPos*m.OutDim)
@@ -143,8 +143,8 @@ func BenchmarkGGUFQ4KRowDotBatchDirectVsDequant(b *testing.B) {
 				if err := m.DequantExpertRowTo(row, 0, r); err != nil {
 					b.Fatal(err)
 				}
-				for pos := 0; pos < nPos; pos++ {
-					dequantOut[pos*m.OutDim+r] = simd.Sdot(row, x[pos*m.InDim:(pos+1)*m.InDim])
+				if !ggufExpertSdotBatchTo(row, x, nPos, m.InDim, dequantOut[r:], m.OutDim) {
+					b.Fatal("Sdot batch rejected")
 				}
 			}
 		})

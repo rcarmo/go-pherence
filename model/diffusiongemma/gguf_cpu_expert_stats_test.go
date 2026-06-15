@@ -1,6 +1,37 @@
 package diffusiongemma
 
-import "testing"
+import (
+	"math"
+	"testing"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+)
+
+func TestGGUFExpertSdotBatchToMatchesSdot(t *testing.T) {
+	for _, nPos := range []int{1, 2, 3, 4, 8, 9, 16} {
+		inDim := 64
+		dstStride := 11
+		w := make([]float32, inDim)
+		x := make([]float32, nPos*inDim)
+		dst := make([]float32, nPos*dstStride)
+		for i := range w {
+			w[i] = float32((i%13)-6) * 0.03125
+		}
+		for i := range x {
+			x[i] = float32((i%17)-8) * 0.015625
+		}
+		if !ggufExpertSdotBatchTo(w, x, nPos, inDim, dst, dstStride) {
+			t.Fatalf("Sdot batch rejected nPos=%d", nPos)
+		}
+		for pos := 0; pos < nPos; pos++ {
+			want := simd.Sdot(w, x[pos*inDim:(pos+1)*inDim])
+			got := dst[pos*dstStride]
+			if math.Abs(float64(got-want)) > 1e-4 {
+				t.Fatalf("nPos=%d pos=%d got=%g want=%g", nPos, pos, got, want)
+			}
+		}
+	}
+}
 
 func TestGGUFCPUDirectQuantPolicyDefaultsOnAndCanBeDisabled(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q4_DIRECT", "")

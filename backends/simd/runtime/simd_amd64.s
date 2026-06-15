@@ -141,3 +141,85 @@ saxpy_scalar:
 saxpy_done:
     VZEROUPPER
     RET
+
+// func sdotx4Asm(w []float32, x []float32, stride int) (dot0,dot1,dot2,dot3 float32)
+// Computes dot(w, x[row]) for four contiguous rows separated by stride.
+// Requires len(w)%16==0; Go wrapper validates shape and falls back otherwise.
+TEXT ·sdotx4Asm(SB), NOSPLIT, $0-72
+    MOVQ    w_base+0(FP), SI
+    MOVQ    w_len+8(FP), CX
+    MOVQ    x_base+24(FP), DI
+    MOVQ    stride+48(FP), R8
+    SHLQ    $2, R8
+
+    LEAQ    (DI)(R8*1), BX
+    LEAQ    (BX)(R8*1), DX
+    LEAQ    (DX)(R8*1), R9
+
+    VXORPS  Y0, Y0, Y0      // row0 acc a
+    VXORPS  Y1, Y1, Y1      // row0 acc b
+    VXORPS  Y2, Y2, Y2      // row1 acc a
+    VXORPS  Y3, Y3, Y3      // row1 acc b
+    VXORPS  Y4, Y4, Y4      // row2 acc a
+    VXORPS  Y5, Y5, Y5      // row2 acc b
+    VXORPS  Y6, Y6, Y6      // row3 acc a
+    VXORPS  Y7, Y7, Y7      // row3 acc b
+
+    TESTQ   CX, CX
+    JZ      sdotx4_reduce
+
+sdotx4_loop16:
+    VMOVUPS (SI), Y8
+    VMOVUPS 32(SI), Y9
+
+    VFMADD231PS (DI), Y8, Y0
+    VFMADD231PS 32(DI), Y9, Y1
+
+    VFMADD231PS (BX), Y8, Y2
+    VFMADD231PS 32(BX), Y9, Y3
+
+    VFMADD231PS (DX), Y8, Y4
+    VFMADD231PS 32(DX), Y9, Y5
+
+    VFMADD231PS (R9), Y8, Y6
+    VFMADD231PS 32(R9), Y9, Y7
+
+    ADDQ    $64, SI
+    ADDQ    $64, DI
+    ADDQ    $64, BX
+    ADDQ    $64, DX
+    ADDQ    $64, R9
+    SUBQ    $16, CX
+    JNZ     sdotx4_loop16
+
+sdotx4_reduce:
+    VADDPS  Y1, Y0, Y0
+    VEXTRACTF128 $1, Y0, X10
+    VADDPS  X10, X0, X0
+    VHADDPS X0, X0, X0
+    VHADDPS X0, X0, X0
+
+    VADDPS  Y3, Y2, Y2
+    VEXTRACTF128 $1, Y2, X10
+    VADDPS  X10, X2, X2
+    VHADDPS X2, X2, X2
+    VHADDPS X2, X2, X2
+
+    VADDPS  Y5, Y4, Y4
+    VEXTRACTF128 $1, Y4, X10
+    VADDPS  X10, X4, X4
+    VHADDPS X4, X4, X4
+    VHADDPS X4, X4, X4
+
+    VADDPS  Y7, Y6, Y6
+    VEXTRACTF128 $1, Y6, X10
+    VADDPS  X10, X6, X6
+    VHADDPS X6, X6, X6
+    VHADDPS X6, X6, X6
+
+    VMOVSS  X0, dot0+56(FP)
+    VMOVSS  X2, dot1+60(FP)
+    VMOVSS  X4, dot2+64(FP)
+    VMOVSS  X6, dot3+68(FP)
+    VZEROUPPER
+    RET

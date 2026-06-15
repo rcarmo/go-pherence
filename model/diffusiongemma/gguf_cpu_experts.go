@@ -495,6 +495,27 @@ func ggufQ4KExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []flo
 	return nil
 }
 
+func ggufExpertSdotBatchTo(wRow, x []float32, nPos, inDim int, dst []float32, dstStride int) bool {
+	if len(wRow) < inDim || nPos <= 0 || inDim <= 0 || len(x) < nPos*inDim || dstStride <= 0 || len(dst) < (nPos-1)*dstStride+1 {
+		return false
+	}
+	pos := 0
+	for ; pos+4 <= nPos; pos += 4 {
+		d0, d1, d2, d3, ok := simd.Sdotx4(wRow[:inDim], x[pos*inDim:], inDim)
+		if !ok {
+			break
+		}
+		dst[pos*dstStride] = d0
+		dst[(pos+1)*dstStride] = d1
+		dst[(pos+2)*dstStride] = d2
+		dst[(pos+3)*dstStride] = d3
+	}
+	for ; pos < nPos; pos++ {
+		dst[pos*dstStride] = simd.Sdot(wRow[:inDim], x[pos*inDim:(pos+1)*inDim])
+	}
+	return true
+}
+
 func ggufQ8_0ExpertRowDot(m *gguf.ExpertMatrices, expert, row int, x []float32) (float32, error) {
 	if m == nil || m.QType != gguf.QuantQ8_0 || expert < 0 || expert >= m.Experts || row < 0 || row >= m.OutDim || len(x) < m.InDim || m.InDim%32 != 0 {
 		return 0, fmt.Errorf("invalid Q8_0 expert row dot expert=%d row=%d", expert, row)
@@ -861,9 +882,9 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 						return
 					}
 					wRow := ws.wf32[:hiddenSize]
-					for b := 0; b < nPos; b++ {
-						xRow := batchIn[b*hiddenSize : (b+1)*hiddenSize]
-						batchGU[b*outDimGU+r] = simd.Sdot(wRow, xRow)
+					if !ggufExpertSdotBatchTo(wRow, batchIn, nPos, hiddenSize, batchGU[r:], outDimGU) {
+						errOnce.Do(func() { firstErr = fmt.Errorf("expert %d gate_up row %d Sdot batch rejected", eid, r) })
+						return
 					}
 				}
 				if le.gateUp.QType == gguf.QuantQ4_K {
@@ -934,9 +955,9 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 						}
 					}
 					wRow := ws.wf32[:dnInDim]
-					for b := 0; b < nPos; b++ {
-						xRow := batchAct[b*dnInDim : (b+1)*dnInDim]
-						batchDown[b*hiddenSize+r] = simd.Sdot(wRow, xRow)
+					if !ggufExpertSdotBatchTo(wRow, batchAct, nPos, dnInDim, batchDown[r:], hiddenSize) {
+						errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d Sdot batch rejected", eid, r) })
+						return
 					}
 				}
 				if le.down.QType == gguf.QuantQ8_0 {
