@@ -68,12 +68,17 @@ func main() {
 
 	k := make([][]float32, d.Config.NumLayers)
 	v := make([][]float32, d.Config.NumLayers)
+	maxInt := int(^uint(0) >> 1)
 	for i := range d.Layers {
-		headDim := d.Config.HeadDim
-		if d.Layers[i].HeadDimLocal > 0 {
-			headDim = d.Layers[i].HeadDimLocal
+		kvDim, err := d.LayerKVDim(i)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "drafter layer %d KV dim: %v\n", i, err)
+			os.Exit(1)
 		}
-		kvDim := d.Config.NumKVHeads * headDim
+		if *seqLen > maxInt/kvDim {
+			fmt.Fprintf(os.Stderr, "external KV allocation overflows layer %d seq=%d kvDim=%d\n", i, *seqLen, kvDim)
+			os.Exit(1)
+		}
 		k[i] = make([]float32, (*seqLen)*kvDim)
 		v[i] = make([]float32, (*seqLen)*kvDim)
 	}
