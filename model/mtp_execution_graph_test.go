@@ -64,6 +64,21 @@ func TestMTPExecutionGraphValidateRejectsMalformed(t *testing.T) {
 		t.Fatal("accepted broken drafter step input chain")
 	}
 	bad = makeGraph()
+	bad.DrafterSteps[1].ActivationWidth++
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted inconsistent drafter activation widths")
+	}
+	bad = makeGraph()
+	bad.DrafterSteps[1].ExternalKVSeqLen++
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted inconsistent external KV seq len")
+	}
+	bad = makeGraph()
+	bad.DrafterSteps[1].ExternalKVLayers = []int{99}
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted inconsistent external KV layers")
+	}
+	bad = makeGraph()
 	bad.Verifier.VerifierTokens = []int{1, 2}
 	if err := bad.Validate(); err == nil {
 		t.Fatal("accepted short verifier token batch")

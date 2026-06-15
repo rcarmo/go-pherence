@@ -109,6 +109,9 @@ func (g MTPExecutionGraph) Validate() error {
 	if len(g.DrafterSteps) != len(g.DraftedTokens) {
 		return fmt.Errorf("MTP graph drafter steps=%d, drafted tokens=%d", len(g.DrafterSteps), len(g.DraftedTokens))
 	}
+	var activationWidth int
+	var externalKVSeqLen int
+	var externalKVLayers []int
 	for i, step := range g.DrafterSteps {
 		wantInput := g.InputToken
 		if i > 0 {
@@ -116,6 +119,18 @@ func (g MTPExecutionGraph) Validate() error {
 		}
 		if step.Index != i || step.InputToken != wantInput || step.ActivationWidth <= 0 || step.ExternalKVSeqLen < 0 {
 			return fmt.Errorf("MTP graph malformed drafter step %d: %+v want input=%d", i, step, wantInput)
+		}
+		if i == 0 {
+			activationWidth = step.ActivationWidth
+			externalKVSeqLen = step.ExternalKVSeqLen
+			externalKVLayers = step.ExternalKVLayers
+		} else {
+			if step.ActivationWidth != activationWidth {
+				return fmt.Errorf("MTP graph drafter step %d activation width=%d, want %d", i, step.ActivationWidth, activationWidth)
+			}
+			if step.ExternalKVSeqLen != externalKVSeqLen || !mtpSameInts(step.ExternalKVLayers, externalKVLayers) {
+				return fmt.Errorf("MTP graph drafter step %d external KV view seq/layers=%d/%v, want %d/%v", i, step.ExternalKVSeqLen, step.ExternalKVLayers, externalKVSeqLen, externalKVLayers)
+			}
 		}
 		for j, layer := range step.ExternalKVLayers {
 			if layer < 0 {
