@@ -52,8 +52,16 @@ func TestCPUDecodeStateRunMTPGraphDecodeStep(t *testing.T) {
 	if res.Stats.Steps != 1 || res.Stats.DraftedTokens != 2 || res.Stats.BonusTokens != 1 {
 		t.Fatalf("stats=%+v", res.Stats)
 	}
-	if res.FinalState.PreviousToken != res.Step.Drafts.Tokens[len(res.Step.Drafts.Tokens)-1] {
-		t.Fatalf("final state=%+v drafts=%v", res.FinalState, res.Step.Drafts.Tokens)
+	lastOutput := res.Commit.OutputTokens[len(res.Commit.OutputTokens)-1]
+	if res.FinalState.PreviousToken != lastOutput {
+		t.Fatalf("final state previous token=%d, want committed output %d", res.FinalState.PreviousToken, lastOutput)
+	}
+	if !sameFloat32s(res.FinalState.Activation, res.Step.Verifier.FinalActivation) {
+		t.Fatalf("final state activation=%v, want verifier activation %v", res.FinalState.Activation, res.Step.Verifier.FinalActivation)
+	}
+	res.Step.Verifier.FinalActivation[0] = 99
+	if res.FinalState.Activation[0] == 99 {
+		t.Fatal("final state aliases verifier final activation")
 	}
 }
 

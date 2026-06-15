@@ -125,5 +125,20 @@ func (s *CPUDecodeState) RunMTPGraphDecodeStep(d *Gemma4MTPDrafter, state MTPDra
 		_ = s.Restore(cp)
 		return MTPGraphDecodeStepResult{}, err
 	}
-	return MTPGraphDecodeStepResult{Step: step, Commit: commit, Stats: step.Stats, FinalState: step.Drafts.FinalState}, nil
+	nextState, err := newMTPDrafterStateFromVerifierCommit(d, step.Verifier, commit)
+	if err != nil {
+		_ = s.Restore(cp)
+		return MTPGraphDecodeStepResult{}, err
+	}
+	return MTPGraphDecodeStepResult{Step: step, Commit: commit, Stats: step.Stats, FinalState: nextState}, nil
+}
+
+func newMTPDrafterStateFromVerifierCommit(d *Gemma4MTPDrafter, verifier MTPVerifierResult, commit MTPKVCommitPlan) (MTPDrafterState, error) {
+	if d == nil {
+		return MTPDrafterState{}, fmt.Errorf("nil drafter")
+	}
+	if len(commit.OutputTokens) == 0 {
+		return MTPDrafterState{}, fmt.Errorf("empty MTP commit output tokens")
+	}
+	return NewMTPDrafterState(commit.OutputTokens[len(commit.OutputTokens)-1], verifier.FinalActivation, d.BackboneHiddenSize)
 }
