@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"math"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/backends/mlx"
 )
 
 func TestMoeForwardRejectsMalformedInputs(t *testing.T) {
@@ -41,6 +43,14 @@ func (s switchMLXRawSource) GetRaw(name string) ([]byte, string, []int, error) {
 type errSwitchMLXMissing string
 
 func (e errSwitchMLXMissing) Error() string { return "missing " + string(e) }
+
+func TestMoeForwardRejectsMalformedMLXRouter(t *testing.T) {
+	cfg := LlamaConfig{NumExperts: 2, NumExpertsPerTok: 1, MoEIntermediate: 2}
+	layer := &LlamaLayer{RouterW: &mlx.QuantWeight{OutDim: 2, InDim: 8, Bits: 4, GroupSize: 8, Groups: 1, Weight: []uint32{0}, Scales: []float32{1, 1}, Biases: []float32{0, 0}}}
+	if got := moeForward(make([]float32, 8), layer, cfg); got != nil {
+		t.Fatalf("malformed router output=%v, want nil", got)
+	}
+}
 
 func TestLoadSwitchMLXExpertsSupportsF32ScalesAndBiases(t *testing.T) {
 	const (

@@ -217,7 +217,9 @@ func moeForwardWithREAP(x []float32, layer *LlamaLayer, cfg LlamaConfig, reap *R
 	// Router: compute logits for each expert
 	routerLogits := make([]float32, numExperts)
 	if layer.RouterW != nil {
-		mlx.Gemv(routerLogits, x, layer.RouterW)
+		if !mlx.GemvTo(routerLogits, x, layer.RouterW) {
+			return nil
+		}
 	}
 
 	// Softmax over router logits.
@@ -298,11 +300,14 @@ func moeForwardWithREAP(x []float32, layer *LlamaLayer, cfg LlamaConfig, reap *R
 			// Expert MLP: gate_proj → SiLU × up_proj → down_proj
 			gate := make([]float32, moeInter)
 			up := make([]float32, moeInter)
-			mlx.Gemv(gate, x, layer.ExpertGateW[expertID])
-			mlx.Gemv(up, x, layer.ExpertUpW[expertID])
+			if !mlx.GemvTo(gate, x, layer.ExpertGateW[expertID]) || !mlx.GemvTo(up, x, layer.ExpertUpW[expertID]) {
+				return
+			}
 			simd.VecSiLUMul(gate, gate, up)
 			down := make([]float32, h)
-			mlx.Gemv(down, gate, layer.ExpertDownW[expertID])
+			if !mlx.GemvTo(down, gate, layer.ExpertDownW[expertID]) {
+				return
+			}
 			results[idx] = expertResult{down: down, weight: w}
 		}(si, eid, exp.score)
 	}

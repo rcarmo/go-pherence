@@ -74,21 +74,30 @@ func moeForwardGPU(outDev, xDev *nvidia.DevBuf, layer *LlamaLayer, cfg LlamaConf
 	routerLogits := make([]float32, numExperts)
 	if routerGPU != nil {
 		routerOut, err := nvidia.NewDevBufGPU(numExperts)
-		if err == nil && xDev != nil {
+		if err == nil && xDev != nil && gpuMLXWeightDims(routerGPU, numExperts, h) {
 			nvidia.GemvMLXDirect(routerOut, xDev, routerGPU)
 			copy(routerLogits, routerOut.Data()[:numExperts])
 		} else if layer.RouterW != nil {
-			mlx.Gemv(routerLogits, getXCPU(), layer.RouterW)
+			if !mlx.GemvTo(routerLogits, getXCPU(), layer.RouterW) {
+				if routerOut != nil {
+					routerOut.Free()
+				}
+				return nil
+			}
 		}
 		if routerOut != nil {
 			routerOut.Free()
 		}
 	} else if layer.RouterW != nil {
-		mlx.Gemv(routerLogits, getXCPU(), layer.RouterW)
+		if !mlx.GemvTo(routerLogits, getXCPU(), layer.RouterW) {
+			return nil
+		}
 	}
 
 	// Softmax over router logits.
-	simd.SoftmaxInPlace(routerLogits)
+	if !simd.SoftmaxInPlace(routerLogits) {
+		return nil
+	}
 
 	// Top-k selection
 	type expertScore struct {
@@ -202,7 +211,7 @@ func moeForwardGPU(outDev, xDev *nvidia.DevBuf, layer *LlamaLayer, cfg LlamaConf
 			}
 		}
 
-		if gpuEntry != nil && gpuEntry.GateW != nil && xBuf != nil && gpuOutBuf != nil {
+		if gpuEntry != nil && gpuEntry.GateW != nil && gpuEntry.UpW != nil && gpuEntry.DownW != nil && xBuf != nil && gpuOutBuf != nil && gpuMLXWeightDims(gpuEntry.GateW, moeInter, h) && gpuMLXWeightDims(gpuEntry.UpW, moeInter, h) && gpuMLXWeightDims(gpuEntry.DownW, h, moeInter) {
 			// GPU path: reuse pre-allocated buffers
 			nvidia.GemvMLXDirect(gateBuf, xBuf, gpuEntry.GateW)
 			nvidia.GemvMLXDirect(upBuf, xBuf, gpuEntry.UpW)
@@ -229,11 +238,14 @@ func moeForwardGPU(outDev, xDev *nvidia.DevBuf, layer *LlamaLayer, cfg LlamaConf
 				defer wg.Done()
 				gate := make([]float32, moeInter)
 				up := make([]float32, moeInter)
-				mlx.Gemv(gate, xIn, layer.ExpertGateW[expertID])
-				mlx.Gemv(up, xIn, layer.ExpertUpW[expertID])
+				if !mlx.GemvTo(gate, xIn, layer.ExpertGateW[expertID]) || !mlx.GemvTo(up, xIn, layer.ExpertUpW[expertID]) {
+					return
+				}
 				simd.VecSiLUMul(gate, gate, up)
 				down := make([]float32, h)
-				mlx.Gemv(down, gate, layer.ExpertDownW[expertID])
+				if !mlx.GemvTo(down, gate, layer.ExpertDownW[expertID]) {
+					return
+				}
 				results[idx] = expertResult{down: down, weight: w}
 			}(si, eid, exp.score, xForCPU)
 		}
