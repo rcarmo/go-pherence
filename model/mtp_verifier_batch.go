@@ -13,6 +13,7 @@ type MTPVerifierBatchInputs struct {
 	PerLayerInputs    [][][]float32
 	HasPerLayerInputs bool
 	Attention         MTPVerifierAttentionPlan
+	Scratch           MTPVerifierBatchScratchPlan
 }
 
 func NewMTPVerifierBatchInputs(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifierBatchInputs, error) {
@@ -41,7 +42,13 @@ func NewMTPVerifierBatchInputs(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifier
 	if err != nil {
 		return MTPVerifierBatchInputs{}, err
 	}
-	return MTPVerifierBatchInputs{Plan: cloneMTPVerifierPlanValue(plan), HiddenRows: rows, PerLayerInputs: pliRows, HasPerLayerInputs: hasPLI, Attention: attn}, nil
+	out := MTPVerifierBatchInputs{Plan: cloneMTPVerifierPlanValue(plan), HiddenRows: rows, PerLayerInputs: pliRows, HasPerLayerInputs: hasPLI, Attention: attn}
+	scratch, err := NewMTPVerifierBatchScratchPlan(m, out)
+	if err != nil {
+		return MTPVerifierBatchInputs{}, err
+	}
+	out.Scratch = scratch
+	return out, nil
 }
 
 func validateMTPVerifierPlanForModel(m *LlamaModel, plan MTPVerifierPlan) error {

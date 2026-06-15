@@ -13,18 +13,16 @@ func (m *LlamaModel) RunMTPVerifierBatchForward(batch MTPVerifierBatchInputs, kv
 	}
 	logitsRows := make([][]float32, len(batch.HiddenRows))
 	var finalActivation []float32
-	maxSeqLen := batch.Plan.StartPos + len(batch.Plan.VerifierTokens)
-	if maxSeqLen < 1 {
-		maxSeqLen = 1
+	attnRows := batch.Scratch.MaxAttentionRows
+	if attnRows < 1 {
+		attnRows = 1
 	}
-	attnScoresScratch := make([]float32, maxSeqLen)
-	maxHeadDim := m.Config.HeadDim
-	for i := range m.Layers {
-		if m.Layers[i].HeadDimLocal > maxHeadDim {
-			maxHeadDim = m.Layers[i].HeadDimLocal
-		}
+	attnOutWidth := batch.Scratch.MaxQDim
+	if attnOutWidth < 1 {
+		attnOutWidth = m.Config.NumHeads * m.Config.HeadDim
 	}
-	attnOutScratch := make([]float32, m.Config.NumHeads*maxHeadDim)
+	attnScoresScratch := make([]float32, attnRows)
+	attnOutScratch := make([]float32, attnOutWidth)
 	for i, row := range batch.HiddenRows {
 		hidden := append([]float32(nil), row...)
 		pos := batch.Plan.Positions[i]
