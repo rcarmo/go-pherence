@@ -261,6 +261,13 @@ func TestRunMTPDrafterStepExternalKVValidation(t *testing.T) {
 	if _, err := m.RunMTPDrafterStepWithExternalKV(d, state, &badKV); err == nil {
 		t.Fatal("accepted wrong external KV width")
 	}
+	twoLayer := *d
+	twoLayer.Config.NumLayers = 2
+	twoLayer.Layers = append(append([]Gemma4MTPDrafterLayer(nil), d.Layers...), d.Layers[0])
+	dupKV := &MTPDrafterExternalKV{K: [][]float32{{1, 0}}, V: [][]float32{{0, 1}}, SourceLayers: []int{0, 0}, SeqLen: 1}
+	if err := validateMTPDrafterExternalKV(&twoLayer, dupKV); err == nil {
+		t.Fatal("accepted duplicate external KV source mapping")
+	}
 	bad := *d
 	bad.Layers = append([]Gemma4MTPDrafterLayer(nil), d.Layers...)
 	bad.Layers[0].KVSourceLayer = 0

@@ -305,6 +305,7 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 	if d.Config.NumHeads <= 0 || d.Config.NumKVHeads <= 0 || d.Config.HeadDim <= 0 || d.Config.Intermediate <= 0 {
 		return fmt.Errorf("invalid drafter q-only dims heads=%d kvHeads=%d headDim=%d intermediate=%d", d.Config.NumHeads, d.Config.NumKVHeads, d.Config.HeadDim, d.Config.Intermediate)
 	}
+	usedSources := map[int]bool{}
 	for i := range d.Layers {
 		layer := &d.Layers[i]
 		headDim := d.Config.HeadDim
@@ -327,6 +328,10 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 		if source < 0 || source >= len(externalKV.K) || source >= len(externalKV.V) {
 			return fmt.Errorf("drafter layer %d external KV source %d out of range K/V=%d/%d", i, source, len(externalKV.K), len(externalKV.V))
 		}
+		if usedSources[source] {
+			return fmt.Errorf("drafter layer %d reuses external KV source %d", i, source)
+		}
+		usedSources[source] = true
 		wantKV, ok := checkedProduct(externalKV.SeqLen, kvDim)
 		if !ok {
 			return fmt.Errorf("drafter layer %d external KV length overflows seq=%d kvDim=%d", i, externalKV.SeqLen, kvDim)
