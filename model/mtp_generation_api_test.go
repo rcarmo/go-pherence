@@ -87,7 +87,18 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	if err := valid.Validate(1); err != nil {
 		t.Fatalf("Validate valid: %v", err)
 	}
-	bad := valid
+	seeded := valid
+	seeded.InitialStats = MTPSpeculationStats{Steps: 5, DraftedTokens: 7, VerifiedTokens: 3, BonusTokens: 5, OutputTokens: 11}
+	seeded.Stats = MTPSpeculationStats{Steps: 6, DraftedTokens: 9, VerifiedTokens: 4, BonusTokens: 6, OutputTokens: 13}
+	if err := seeded.Validate(1); err != nil {
+		t.Fatalf("Validate seeded stats: %v", err)
+	}
+	bad := seeded
+	bad.Stats.Steps = 4
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted stats moving backward from initial stats")
+	}
+	bad = valid
 	bad.VocabSize = 3
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted output token outside vocab")
@@ -286,7 +297,7 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	if err := valid.Validate(99); err == nil {
 		t.Fatal("accepted bad prompt len")
 	}
-	zero := MTPGraphGenerationResult{Output: []int{10}, VocabSize: 11, HiddenSize: 2, FinalState: MTPDrafterState{PreviousToken: 10, Activation: []float32{1, 2}}, FinalStateOutputLen: 1}
+	zero := MTPGraphGenerationResult{Output: []int{10}, VocabSize: 11, HiddenSize: 2, InitialStats: MTPSpeculationStats{Steps: 2}, Stats: MTPSpeculationStats{Steps: 2}, FinalState: MTPDrafterState{PreviousToken: 10, Activation: []float32{1, 2}}, FinalStateOutputLen: 1}
 	if err := zero.Validate(1); err != nil {
 		t.Fatalf("zero-cycle Validate: %v", err)
 	}

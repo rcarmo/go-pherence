@@ -13,6 +13,7 @@ type MTPGraphGenerationResult struct {
 	VocabSize                  int
 	HiddenSize                 int
 	RequestedMaxTokens         int
+	InitialStats               MTPSpeculationStats
 	Stats                      MTPSpeculationStats
 	FinalState                 MTPDrafterState
 	FinalStateOutputLen        int // number of Output tokens covered by FinalState; greedy-tail fallback is not covered
@@ -63,6 +64,10 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	var graphTokens []int
 	var summaryDrafted int
 	var summaryVerified int
+	statsDelta, err := mtpStatsDelta(r.Stats, r.InitialStats)
+	if err != nil {
+		return err
+	}
 	streamCursor := promptLen
 	for i, step := range r.Steps {
 		if step.KeepTokens <= 0 || len(step.OutputTokens) != step.KeepTokens || len(step.Positions) != step.KeepTokens {
@@ -156,17 +161,17 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		summaryDrafted += len(summary.DraftedTokens)
 		summaryVerified += summary.AcceptedPrefixLen
 	}
-	if r.Stats.Steps != len(r.StepSummaries) {
-		return fmt.Errorf("MTP stats steps=%d, summary steps=%d", r.Stats.Steps, len(r.StepSummaries))
+	if statsDelta.Steps != len(r.StepSummaries) {
+		return fmt.Errorf("MTP stats steps delta=%d, summary steps=%d", statsDelta.Steps, len(r.StepSummaries))
 	}
-	if r.Stats.DraftedTokens != summaryDrafted {
-		return fmt.Errorf("MTP stats drafted tokens=%d, summary drafted=%d", r.Stats.DraftedTokens, summaryDrafted)
+	if statsDelta.DraftedTokens != summaryDrafted {
+		return fmt.Errorf("MTP stats drafted tokens delta=%d, summary drafted=%d", statsDelta.DraftedTokens, summaryDrafted)
 	}
-	if r.Stats.VerifiedTokens != summaryVerified {
-		return fmt.Errorf("MTP stats verified tokens=%d, summary verified=%d", r.Stats.VerifiedTokens, summaryVerified)
+	if statsDelta.VerifiedTokens != summaryVerified {
+		return fmt.Errorf("MTP stats verified tokens delta=%d, summary verified=%d", statsDelta.VerifiedTokens, summaryVerified)
 	}
-	if r.Stats.BonusTokens != len(r.StepSummaries) {
-		return fmt.Errorf("MTP stats bonus tokens=%d, summary steps=%d", r.Stats.BonusTokens, len(r.StepSummaries))
+	if statsDelta.BonusTokens != len(r.StepSummaries) {
+		return fmt.Errorf("MTP stats bonus tokens delta=%d, summary steps=%d", statsDelta.BonusTokens, len(r.StepSummaries))
 	}
 	if graphCount != r.GraphOutputTokens {
 		return fmt.Errorf("MTP graph output accounting=%d, commit outputs=%d", r.GraphOutputTokens, graphCount)
@@ -184,8 +189,8 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if generated != r.GraphOutputTokens+r.GreedyTailTokens {
 		return fmt.Errorf("MTP generated tokens=%d, graph+greedy=%d+%d", generated, r.GraphOutputTokens, r.GreedyTailTokens)
 	}
-	if r.Stats.OutputTokens != r.GraphOutputTokens {
-		return fmt.Errorf("MTP stats output tokens=%d, graph output tokens=%d", r.Stats.OutputTokens, r.GraphOutputTokens)
+	if statsDelta.OutputTokens != r.GraphOutputTokens {
+		return fmt.Errorf("MTP stats output tokens delta=%d, graph output tokens=%d", statsDelta.OutputTokens, r.GraphOutputTokens)
 	}
 	if len(r.Output) > 0 && r.FinalStateOutputLen == 0 {
 		return fmt.Errorf("MTP final state output len is unset for non-empty output len=%d", len(r.Output))
@@ -313,7 +318,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, HiddenSize: m.Config.HiddenSize, RequestedMaxTokens: opts.MaxTokens, Stats: stats, FinalState: state, FinalStateOutputLen: finalStateOutputLen, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
+	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, HiddenSize: m.Config.HiddenSize, RequestedMaxTokens: opts.MaxTokens, InitialStats: opts.Stats, Stats: stats, FinalState: state, FinalStateOutputLen: finalStateOutputLen, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
 	if err := result.Validate(len(ctx.Tokens)); err != nil {
 		return MTPGraphGenerationResult{}, err
 	}
@@ -341,6 +346,23 @@ func newMTPGraphGenerationStepSummary(step MTPGraphDecodeStepResult) MTPGraphGen
 		OutputTokens:         append([]int(nil), step.Commit.OutputTokens...),
 		AllDraftsAccepted:    step.Step.Verifier.Acceptance.AllDraftsAccepted,
 	}
+}
+
+func mtpStatsDelta(total, initial MTPSpeculationStats) (MTPSpeculationStats, error) {
+	if total.Steps < 0 || total.DraftedTokens < 0 || total.VerifiedTokens < 0 || total.BonusTokens < 0 || total.OutputTokens < 0 ||
+		initial.Steps < 0 || initial.DraftedTokens < 0 || initial.VerifiedTokens < 0 || initial.BonusTokens < 0 || initial.OutputTokens < 0 {
+		return MTPSpeculationStats{}, fmt.Errorf("invalid MTP stats counters total=%+v initial=%+v", total, initial)
+	}
+	if total.Steps < initial.Steps || total.DraftedTokens < initial.DraftedTokens || total.VerifiedTokens < initial.VerifiedTokens || total.BonusTokens < initial.BonusTokens || total.OutputTokens < initial.OutputTokens {
+		return MTPSpeculationStats{}, fmt.Errorf("MTP stats counters moved backwards total=%+v initial=%+v", total, initial)
+	}
+	return MTPSpeculationStats{
+		Steps:          total.Steps - initial.Steps,
+		DraftedTokens:  total.DraftedTokens - initial.DraftedTokens,
+		VerifiedTokens: total.VerifiedTokens - initial.VerifiedTokens,
+		BonusTokens:    total.BonusTokens - initial.BonusTokens,
+		OutputTokens:   total.OutputTokens - initial.OutputTokens,
+	}, nil
 }
 
 func validateMTPGraphSummaryTokens(step int, label string, tokens []int, vocab int) error {
