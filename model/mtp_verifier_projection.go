@@ -79,17 +79,19 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 		if layer.KWq != nil {
 			for b := 0; b < B; b++ {
 				m.mvQ(k[b*kvDim:(b+1)*kvDim], normed[b*h:(b+1)*h], layer.KWq)
-				if layer.VWq == layer.KWq && m.Config.AttentionKEqV {
+				if m.Config.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
 					copy(v[b*kvDim:(b+1)*kvDim], k[b*kvDim:(b+1)*kvDim])
-				} else {
+				} else if layer.VWq != nil {
 					m.mvQ(v[b*kvDim:(b+1)*kvDim], normed[b*h:(b+1)*h], layer.VWq)
+				} else {
+					return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d missing quantized V projection", layerIdx)
 				}
 			}
 		} else if layer.KWm != nil {
 			if !m.projBatch(k, normed, B, layer.KW, layer.KWm, h, kvDim) {
 				return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d K batch projection rejected", layerIdx)
 			}
-			if layer.VWm == layer.KWm && m.Config.AttentionKEqV {
+			if m.Config.AttentionKEqV && (layer.VWm == nil || layer.VWm == layer.KWm) {
 				copy(v, k)
 			} else if !m.projBatch(v, normed, B, layer.VW, layer.VWm, h, kvDim) {
 				return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d V batch projection rejected", layerIdx)
@@ -98,7 +100,7 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 			if !m.projBatch(k, normed, B, layer.KW, nil, h, kvDim) {
 				return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d K batch projection rejected", layerIdx)
 			}
-			if layer.VW == layer.KW && m.Config.AttentionKEqV {
+			if m.Config.AttentionKEqV && (layer.VW == nil || layer.VW == layer.KW) {
 				copy(v, k)
 			} else if !m.projBatch(v, normed, B, layer.VW, nil, h, kvDim) {
 				return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d V batch projection rejected", layerIdx)

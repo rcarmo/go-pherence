@@ -267,7 +267,7 @@ func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs)
 		if !hasMTPVerifierProjection(layer.QW, layer.QWm, layer.QWq) || !hasMTPVerifierProjection(layer.KW, layer.KWm, layer.KWq) || !hasMTPVerifierProjection(layer.OW, layer.OWm, layer.OWq) || !hasMTPVerifierProjection(layer.GateW, layer.GateWm, layer.GateWq) || !hasMTPVerifierProjection(layer.UpW, layer.UpWm, layer.UpWq) || !hasMTPVerifierProjection(layer.DownW, layer.DownWm, layer.DownWq) {
 			return false
 		}
-		if !(m.Config.AttentionKEqV && ((layer.VW != nil && layer.VW == layer.KW) || (layer.VWm != nil && layer.VWm == layer.KWm) || (layer.VWq != nil && layer.VWq == layer.KWq))) && !hasMTPVerifierProjection(layer.VW, layer.VWm, layer.VWq) {
+		if !(m.Config.AttentionKEqV && ((layer.KW != nil && (layer.VW == nil || layer.VW == layer.KW)) || (layer.KWm != nil && (layer.VWm == nil || layer.VWm == layer.KWm)) || (layer.KWq != nil && (layer.VWq == nil || layer.VWq == layer.KWq)))) && !hasMTPVerifierProjection(layer.VW, layer.VWm, layer.VWq) {
 			return false
 		}
 		if layer.InputNorm == nil || layer.PostNorm == nil {

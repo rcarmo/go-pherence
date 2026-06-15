@@ -53,7 +53,6 @@ func TestProjectMTPVerifierLayerQKVBatchQuantKEqV(t *testing.T) {
 			KWq: syntheticSymQ4Weight(8, 8, 10),
 		}},
 	}
-	m.Layers[0].VWq = m.Layers[0].KWq
 	batch := MTPVerifierBatchInputs{Plan: MTPVerifierPlan{InputToken: 0, VerifierTokens: []int{0, 1}, DraftedTokens: []int{1}, Positions: []int{0, 1}}, HiddenFlat: make([]float32, 16), HiddenRows: make([][]float32, 2)}
 	for i := range batch.HiddenFlat {
 		batch.HiddenFlat[i] = float32((i%7)-3) * 0.25
@@ -69,5 +68,40 @@ func TestProjectMTPVerifierLayerQKVBatchQuantKEqV(t *testing.T) {
 	}
 	if !sameFloat32s(got.K, got.V) {
 		t.Fatalf("quant K=V path diverged K=%v V=%v", got.K, got.V)
+	}
+	m.Layers[0].VWq = m.Layers[0].KWq
+	got, err = m.ProjectMTPVerifierLayerQKVBatch(batch, 0, batch.HiddenFlat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameFloat32s(got.K, got.V) {
+		t.Fatalf("quant shared-pointer K=V path diverged K=%v V=%v", got.K, got.V)
+	}
+}
+
+func TestForwardMTPPromptLayerQuantKEqV(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{VocabSize: 3, HiddenSize: 8, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 8, Intermediate: 8, AttentionKEqV: true, RMSNormEps: 1e-6},
+		Layers: []LlamaLayer{{
+			InputNorm: tensor.Ones([]int{8}), PostNorm: tensor.Ones([]int{8}), HasKV: true,
+			QWq: syntheticSymQ4Weight(8, 8, 9), KWq: syntheticSymQ4Weight(8, 8, 10),
+			OWq: syntheticSymQ4Weight(8, 8, 9), GateWq: syntheticSymQ4Weight(8, 8, 9), UpWq: syntheticSymQ4Weight(8, 8, 9), DownWq: syntheticSymQ4Weight(8, 8, 9),
+		}},
+	}
+	hidden := []float32{1, -2, 3, -4, 5, -6, 7, -8}
+	kvK, kvV := make([][]float32, 1), make([][]float32, 1)
+	if _, err := m.forwardMTPPromptLayer(append([]float32(nil), hidden...), nil, 0, 0, kvK, kvV, make([]float32, 1), make([]float32, 8)); err != nil {
+		t.Fatal(err)
+	}
+	if len(kvK[0]) != 8 || len(kvV[0]) != 8 || !sameFloat32s(kvK[0], kvV[0]) {
+		t.Fatalf("prompt QAT K=V omitted-V path K=%v V=%v", kvK[0], kvV[0])
+	}
+	m.Layers[0].VWq = m.Layers[0].KWq
+	kvK, kvV = make([][]float32, 1), make([][]float32, 1)
+	if _, err := m.forwardMTPPromptLayer(append([]float32(nil), hidden...), nil, 0, 0, kvK, kvV, make([]float32, 1), make([]float32, 8)); err != nil {
+		t.Fatal(err)
+	}
+	if len(kvK[0]) != 8 || len(kvV[0]) != 8 || !sameFloat32s(kvK[0], kvV[0]) {
+		t.Fatalf("prompt QAT K=V shared-pointer path K=%v V=%v", kvK[0], kvV[0])
 	}
 }
