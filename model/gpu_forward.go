@@ -151,6 +151,18 @@ type gpuLayerBufs struct {
 	PLIGate, PLIProj, PLIPostNorm *nvidia.DevBuf
 }
 
+func gpuMLXWeightDims(w *nvidia.GPUMLXWeight, outDim, inDim int) bool {
+	return w != nil && w.OutDim == outDim && w.InDim == inDim
+}
+
+func gpuQ4WeightDims(w *nvidia.GPUQuantWeight, outDim, inDim int) bool {
+	return w != nil && w.OutDim == outDim && w.InDim == inDim
+}
+
+func cpuQ4WeightDims(w *QuantWeight, outDim, inDim int) bool {
+	return w != nil && w.OutDim == outDim && w.InDim == inDim
+}
+
 func freeDevBufs(bufs ...*nvidia.DevBuf) {
 	for _, b := range bufs {
 		if b != nil {
@@ -942,14 +954,23 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 				// Q projection (always)
 				if layer.QWmg != nil {
+					if !gpuMLXWeightDims(layer.QWmg, qDim, h) {
+						return nil
+					}
 					if useDirectMLX {
 						nvidia.GemvMLXDirect(g.q, g.normed, layer.QWmg)
 					} else {
 						nvidia.GemvMLX(g.q, g.normed, layer.QWmg)
 					}
 				} else if layer.QWg != nil {
+					if !gpuQ4WeightDims(layer.QWg, qDim, h) {
+						return nil
+					}
 					nvidia.GemvQ4(g.q, g.normed, layer.QWg)
 				} else if layer.QWq != nil {
+					if !cpuQ4WeightDims(layer.QWq, qDim, h) {
+						return nil
+					}
 					nd := g.normed.Data()
 					qd := g.q.Data()
 					simdq4.GemvSym(qd, nd, layer.QWq.QWeight, layer.QWq.GIdx, layer.QWq.Scales, layer.QWq.InDim, layer.QWq.OutDim)
@@ -961,6 +982,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				// K/V projections (only for HasKV layers)
 				if cpuLayer.HasKV {
 					if layer.KWmg != nil {
+						if !gpuMLXWeightDims(layer.KWmg, layerKVDim, h) {
+							return nil
+						}
 						if useDirectMLX {
 							nvidia.GemvMLXDirect(g.k, g.normed, layer.KWmg)
 						} else {
@@ -969,6 +993,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						if cfg.AttentionKEqV && (layer.VWmg == nil || layer.VWmg == layer.KWmg) {
 							nvidia.DevCopy(g.v, g.k)
 						} else if layer.VWmg != nil {
+							if !gpuMLXWeightDims(layer.VWmg, layerKVDim, h) {
+								return nil
+							}
 							if useDirectMLX {
 								nvidia.GemvMLXDirect(g.v, g.normed, layer.VWmg)
 							} else {
@@ -978,15 +1005,24 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 							return nil
 						}
 					} else if layer.KWg != nil {
+						if !gpuQ4WeightDims(layer.KWg, layerKVDim, h) {
+							return nil
+						}
 						nvidia.GemvQ4(g.k, g.normed, layer.KWg)
 						if cfg.AttentionKEqV && (layer.VWg == nil || layer.VWg == layer.KWg) {
 							nvidia.DevCopy(g.v, g.k)
 						} else if layer.VWg != nil {
+							if !gpuQ4WeightDims(layer.VWg, layerKVDim, h) {
+								return nil
+							}
 							nvidia.GemvQ4(g.v, g.normed, layer.VWg)
 						} else {
 							return nil
 						}
 					} else if layer.KWq != nil {
+						if !cpuQ4WeightDims(layer.KWq, layerKVDim, h) {
+							return nil
+						}
 						nd := g.normed.Data()
 						kd := g.k.Data()
 						vd := g.v.Data()
@@ -994,6 +1030,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						if cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
 							copy(vd[:layerKVDim], kd[:layerKVDim])
 						} else if layer.VWq != nil {
+							if !cpuQ4WeightDims(layer.VWq, layerKVDim, h) {
+								return nil
+							}
 							simdq4.GemvSym(vd, nd, layer.VWq.QWeight, layer.VWq.GIdx, layer.VWq.Scales, layer.VWq.InDim, layer.VWq.OutDim)
 						} else {
 							return nil
@@ -1234,15 +1273,24 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 				// Output projection
 				if layer.OWmg != nil {
+					if !gpuMLXWeightDims(layer.OWmg, h, qDim) {
+						return nil
+					}
 					if useDirectMLX {
 						nvidia.GemvMLXDirect(g.oOut, g.attnOut, layer.OWmg)
 					} else {
 						nvidia.GemvMLX(g.oOut, g.attnOut, layer.OWmg)
 					}
 				} else if layer.OWg != nil {
+					if !gpuQ4WeightDims(layer.OWg, h, qDim) {
+						return nil
+					}
 					g.attnOut.ToGPU()
 					nvidia.GemvQ4(g.oOut, g.attnOut, layer.OWg)
 				} else if layer.OWq != nil {
+					if !cpuQ4WeightDims(layer.OWq, h, qDim) {
+						return nil
+					}
 					ad := g.attnOut.Data()
 					od := g.oOut.Data()
 					simdq4.GemvSym(od, ad, layer.OWq.QWeight, layer.OWq.GIdx, layer.OWq.Scales, layer.OWq.InDim, layer.OWq.OutDim)
@@ -1294,10 +1342,16 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				// MLP: gate + up projections (skip for MoE layers)
 				if !cpuLayer.IsMoE {
 					if layer.GateWg != nil {
+						if !gpuQ4WeightDims(layer.GateWg, layerInter, h) || !gpuQ4WeightDims(layer.UpWg, layerInter, h) {
+							return nil
+						}
 						g.normed.ToGPU()
 						nvidia.GemvQ4(g.gate, g.normed, layer.GateWg)
 						nvidia.GemvQ4(g.up, g.normed, layer.UpWg)
 					} else if layer.GateWmg != nil {
+						if !gpuMLXWeightDims(layer.GateWmg, layerInter, h) || !gpuMLXWeightDims(layer.UpWmg, layerInter, h) {
+							return nil
+						}
 						if useDirectMLX {
 							nvidia.GemvMLXDirect(g.gate, g.normed, layer.GateWmg)
 						} else {
@@ -1309,6 +1363,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 							nvidia.GemvMLX(g.up, g.normed, layer.UpWmg)
 						}
 					} else if layer.GateWq != nil {
+						if !cpuQ4WeightDims(layer.GateWq, layerInter, h) || !cpuQ4WeightDims(layer.UpWq, layerInter, h) {
+							return nil
+						}
 						nd := g.normed.Data()
 						gd := g.gate.Data()
 						ud := g.up.Data()
@@ -1348,15 +1405,24 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 					// Down projection
 					if layer.DownWmg != nil {
+						if !gpuMLXWeightDims(layer.DownWmg, h, layerInter) {
+							return nil
+						}
 						if useDirectMLX && !forceFastDown {
 							nvidia.GemvMLXDirect(g.down, g.gate, layer.DownWmg)
 						} else {
 							nvidia.GemvMLX(g.down, g.gate, layer.DownWmg)
 						}
 					} else if layer.DownWg != nil {
+						if !gpuQ4WeightDims(layer.DownWg, h, layerInter) {
+							return nil
+						}
 						g.gate.ToGPU()
 						nvidia.GemvQ4(g.down, g.gate, layer.DownWg)
 					} else if layer.DownWq != nil {
+						if !cpuQ4WeightDims(layer.DownWq, h, layerInter) {
+							return nil
+						}
 						gd := g.gate.Data()
 						dd := g.down.Data()
 						simdq4.GemvSym(dd, gd, layer.DownWq.QWeight, layer.DownWq.GIdx, layer.DownWq.Scales, layer.DownWq.InDim, layer.DownWq.OutDim)

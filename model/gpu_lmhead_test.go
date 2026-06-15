@@ -1,10 +1,11 @@
 package model
 
 import (
-	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -15,6 +16,27 @@ func TestTiedMLXEmbeddingCanBackCompactLMHead(t *testing.T) {
 	m.LMHeadMLX = emb
 	if m.LMHeadMLX != emb {
 		t.Fatal("tied MLX embedding was not retained for compact LM head")
+	}
+}
+
+func TestGPUPackedWeightDimGuards(t *testing.T) {
+	if !gpuMLXWeightDims(&nvidia.GPUMLXWeight{OutDim: 4, InDim: 8}, 4, 8) {
+		t.Fatal("valid GPU MLX dims rejected")
+	}
+	if gpuMLXWeightDims(&nvidia.GPUMLXWeight{OutDim: 4, InDim: 8}, 8, 4) {
+		t.Fatal("mismatched GPU MLX dims accepted")
+	}
+	if !gpuQ4WeightDims(&nvidia.GPUQuantWeight{OutDim: 4, InDim: 8}, 4, 8) {
+		t.Fatal("valid GPU Q4 dims rejected")
+	}
+	if gpuQ4WeightDims(&nvidia.GPUQuantWeight{OutDim: 4, InDim: 8}, 4, 4) {
+		t.Fatal("mismatched GPU Q4 dims accepted")
+	}
+	if !cpuQ4WeightDims(&QuantWeight{OutDim: 4, InDim: 8}, 4, 8) {
+		t.Fatal("valid CPU Q4 dims rejected")
+	}
+	if cpuQ4WeightDims(&QuantWeight{OutDim: 4, InDim: 8}, 8, 8) {
+		t.Fatal("mismatched CPU Q4 dims accepted")
 	}
 }
 
