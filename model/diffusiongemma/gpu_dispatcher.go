@@ -405,9 +405,9 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			if stats.Total() > 0 {
 				cacheUsed, cacheLimit := activeExpertMatrixCacheUsageBytes()
 				activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB := stats.ActiveSetSummary()
-				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts",
+				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d partial(calls kept/dropped experts work)=%d %d/%d %d/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts",
 					stats.FusedUsed, stats.LegacyGroupedUsed, stats.CPUFallback, float64(stats.GPUAttemptNS)/1e9, float64(stats.CPUFallbackNS)/1e9, float64(cacheUsed)/(1024*1024), float64(cacheLimit)/(1024*1024),
-					stats.ActiveSetCalls, activeAvg, stats.ActiveSetMaxExperts, workAvg, stats.ActiveSetMaxWorkItems, missingAvg, stats.Q4MissingMaxExperts, missingMiB, missingMaxMiB, stats.Q4MissingBudgetExceeds,
+					stats.ActiveSetCalls, activeAvg, stats.ActiveSetMaxExperts, workAvg, stats.ActiveSetMaxWorkItems, stats.PartialCalls, stats.PartialKeptExperts, stats.PartialDroppedExperts, stats.PartialKeptWork, stats.PartialDroppedWork, missingAvg, stats.Q4MissingMaxExperts, missingMiB, missingMaxMiB, stats.Q4MissingBudgetExceeds,
 					stats.Q4PointerTable, stats.Q4PackedCache, stats.Q4TransientPointer, stats.Q4TransientPacked, stats.Q4BudgetFallback, float64(stats.Q4BudgetBytes)/(1024*1024), stats.Q4BudgetExperts,
 					stats.Q8PointerTable, stats.Q8PackedCache, stats.Q8TransientPointer, stats.Q8TransientPacked, stats.Q8BudgetFallback, float64(stats.Q8BudgetBytes)/(1024*1024), stats.Q8BudgetExperts)
 			}
@@ -1298,6 +1298,11 @@ type ggufExpertDispatchStats struct {
 	Q4MissingBytes         uint64
 	Q4MissingMaxBytes      uint64
 	Q4MissingBudgetExceeds uint64
+	PartialCalls           uint64
+	PartialKeptExperts     uint64
+	PartialDroppedExperts  uint64
+	PartialKeptWork        uint64
+	PartialDroppedWork     uint64
 	GPUAttemptNS           uint64
 	CPUFallbackNS          uint64
 }
@@ -1330,6 +1335,11 @@ var ggufExpertDispatchCounters struct {
 	q4MissingBytes         atomic.Uint64
 	q4MissingMaxBytes      atomic.Uint64
 	q4MissingBudgetExceeds atomic.Uint64
+	partialCalls           atomic.Uint64
+	partialKeptExperts     atomic.Uint64
+	partialDroppedExperts  atomic.Uint64
+	partialKeptWork        atomic.Uint64
+	partialDroppedWork     atomic.Uint64
 	gpuAttemptNS           atomic.Uint64
 	cpuFallbackNS          atomic.Uint64
 }
@@ -1363,6 +1373,11 @@ func ggufExpertDispatchStatsSnapshot() ggufExpertDispatchStats {
 		Q4MissingBytes:         ggufExpertDispatchCounters.q4MissingBytes.Load(),
 		Q4MissingMaxBytes:      ggufExpertDispatchCounters.q4MissingMaxBytes.Load(),
 		Q4MissingBudgetExceeds: ggufExpertDispatchCounters.q4MissingBudgetExceeds.Load(),
+		PartialCalls:           ggufExpertDispatchCounters.partialCalls.Load(),
+		PartialKeptExperts:     ggufExpertDispatchCounters.partialKeptExperts.Load(),
+		PartialDroppedExperts:  ggufExpertDispatchCounters.partialDroppedExperts.Load(),
+		PartialKeptWork:        ggufExpertDispatchCounters.partialKeptWork.Load(),
+		PartialDroppedWork:     ggufExpertDispatchCounters.partialDroppedWork.Load(),
 		GPUAttemptNS:           ggufExpertDispatchCounters.gpuAttemptNS.Load(),
 		CPUFallbackNS:          ggufExpertDispatchCounters.cpuFallbackNS.Load(),
 	}
@@ -1404,6 +1419,11 @@ func (s ggufExpertDispatchStats) Sub(base ggufExpertDispatchStats) ggufExpertDis
 		Q4MissingBytes:         s.Q4MissingBytes - base.Q4MissingBytes,
 		Q4MissingMaxBytes:      ggufMaxSince(s.Q4MissingMaxBytes, base.Q4MissingMaxBytes),
 		Q4MissingBudgetExceeds: s.Q4MissingBudgetExceeds - base.Q4MissingBudgetExceeds,
+		PartialCalls:           s.PartialCalls - base.PartialCalls,
+		PartialKeptExperts:     s.PartialKeptExperts - base.PartialKeptExperts,
+		PartialDroppedExperts:  s.PartialDroppedExperts - base.PartialDroppedExperts,
+		PartialKeptWork:        s.PartialKeptWork - base.PartialKeptWork,
+		PartialDroppedWork:     s.PartialDroppedWork - base.PartialDroppedWork,
 		GPUAttemptNS:           s.GPUAttemptNS - base.GPUAttemptNS,
 		CPUFallbackNS:          s.CPUFallbackNS - base.CPUFallbackNS,
 	}
@@ -1452,6 +1472,11 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufExpertDispatchCounters.q4MissingBytes.Store(0)
 	ggufExpertDispatchCounters.q4MissingMaxBytes.Store(0)
 	ggufExpertDispatchCounters.q4MissingBudgetExceeds.Store(0)
+	ggufExpertDispatchCounters.partialCalls.Store(0)
+	ggufExpertDispatchCounters.partialKeptExperts.Store(0)
+	ggufExpertDispatchCounters.partialDroppedExperts.Store(0)
+	ggufExpertDispatchCounters.partialKeptWork.Store(0)
+	ggufExpertDispatchCounters.partialDroppedWork.Store(0)
 	ggufExpertDispatchCounters.gpuAttemptNS.Store(0)
 	ggufExpertDispatchCounters.cpuFallbackNS.Store(0)
 	resetF32GELUExactMulStats()
@@ -3785,6 +3810,11 @@ func runGGUFGPUExpertsGroupedPartialResident(op LayerOp, scratch ForwardScratch,
 	if len(kept.ActiveExperts) == 0 || len(dropped.ActiveExperts) == 0 {
 		return false, nil
 	}
+	ggufExpertDispatchCounters.partialCalls.Add(1)
+	ggufExpertDispatchCounters.partialKeptExperts.Add(uint64(len(kept.ActiveExperts)))
+	ggufExpertDispatchCounters.partialDroppedExperts.Add(uint64(len(dropped.ActiveExperts)))
+	ggufExpertDispatchCounters.partialKeptWork.Add(uint64(len(kept.WorkPositions)))
+	ggufExpertDispatchCounters.partialDroppedWork.Add(uint64(len(dropped.WorkPositions)))
 	if err := metadata.Upload(kept); err != nil {
 		return false, err
 	}
