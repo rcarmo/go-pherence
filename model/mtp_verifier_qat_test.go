@@ -79,6 +79,33 @@ func TestProjectMTPVerifierLayerQKVBatchQuantKEqV(t *testing.T) {
 	}
 }
 
+func TestForwardLayerQuantKEqV(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{VocabSize: 3, HiddenSize: 8, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 8, Intermediate: 8, AttentionKEqV: true, RMSNormEps: 1e-6},
+		Layers: []LlamaLayer{{
+			InputNorm: tensor.Ones([]int{8}), PostNorm: tensor.Ones([]int{8}), HasKV: true,
+			QWq: syntheticSymQ4Weight(8, 8, 9), KWq: syntheticSymQ4Weight(8, 8, 10),
+			OWq: syntheticSymQ4Weight(8, 8, 9), GateWq: syntheticSymQ4Weight(8, 8, 9), UpWq: syntheticSymQ4Weight(8, 8, 9), DownWq: syntheticSymQ4Weight(8, 8, 9),
+		}},
+	}
+	hidden := []float32{1, -2, 3, -4, 5, -6, 7, -8}
+	kvK, kvV := make([][]float32, 1), make([][]float32, 1)
+	if got := m.ForwardLayer(append([]float32(nil), hidden...), 0, 0, 0, kvK, kvV); got == nil {
+		t.Fatal("ForwardLayer rejected omitted-V QAT K=V path")
+	}
+	if len(kvK[0]) != 8 || len(kvV[0]) != 8 || !sameFloat32s(kvK[0], kvV[0]) {
+		t.Fatalf("ForwardLayer QAT K=V omitted-V path K=%v V=%v", kvK[0], kvV[0])
+	}
+	m.Layers[0].VWq = m.Layers[0].KWq
+	kvK, kvV = make([][]float32, 1), make([][]float32, 1)
+	if got := m.ForwardLayer(append([]float32(nil), hidden...), 0, 0, 0, kvK, kvV); got == nil {
+		t.Fatal("ForwardLayer rejected shared-pointer QAT K=V path")
+	}
+	if len(kvK[0]) != 8 || len(kvV[0]) != 8 || !sameFloat32s(kvK[0], kvV[0]) {
+		t.Fatalf("ForwardLayer QAT K=V shared-pointer path K=%v V=%v", kvK[0], kvV[0])
+	}
+}
+
 func TestForwardMTPPromptLayerQuantKEqV(t *testing.T) {
 	m := &LlamaModel{
 		Config: LlamaConfig{VocabSize: 3, HiddenSize: 8, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 8, Intermediate: 8, AttentionKEqV: true, RMSNormEps: 1e-6},
