@@ -347,8 +347,8 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 				}
 				return w
 			}
-			gl.QWg = uq("q_proj", layer.QWq)
 			if nvidia.Q4Ready() {
+				gl.QWg = uq("q_proj", layer.QWq)
 				gl.KWg = uq("k_proj", layer.KWq)
 				if !(cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq)) {
 					gl.VWg = uq("v_proj", layer.VWq)
@@ -920,6 +920,11 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					}
 				} else if layer.QWg != nil {
 					nvidia.GemvQ4(g.q, g.normed, layer.QWg)
+				} else if layer.QWq != nil {
+					nd := g.normed.Data()
+					qd := g.q.Data()
+					simdq4.GemvSym(qd, nd, layer.QWq.QWeight, layer.QWq.GIdx, layer.QWq.Scales, layer.QWq.InDim, layer.QWq.OutDim)
+					g.q.MarkDirty()
 				} else if layer.QW != nil {
 					g.gemv(g.q, g.normed, layer.QW, h, qDim)
 				}
@@ -952,6 +957,20 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 						} else {
 							return nil
 						}
+					} else if layer.KWq != nil {
+						nd := g.normed.Data()
+						kd := g.k.Data()
+						vd := g.v.Data()
+						simdq4.GemvSym(kd, nd, layer.KWq.QWeight, layer.KWq.GIdx, layer.KWq.Scales, layer.KWq.InDim, layer.KWq.OutDim)
+						if cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
+							copy(vd[:layerKVDim], kd[:layerKVDim])
+						} else if layer.VWq != nil {
+							simdq4.GemvSym(vd, nd, layer.VWq.QWeight, layer.VWq.GIdx, layer.VWq.Scales, layer.VWq.InDim, layer.VWq.OutDim)
+						} else {
+							return nil
+						}
+						g.k.MarkDirty()
+						g.v.MarkDirty()
 					} else if layer.KW != nil {
 						g.gemv(g.k, g.normed, layer.KW, h, layerKVDim)
 						if cfg.AttentionKEqV && (layer.VW == nil || layer.VW == layer.KW) {
@@ -1194,6 +1213,11 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				} else if layer.OWg != nil {
 					g.attnOut.ToGPU()
 					nvidia.GemvQ4(g.oOut, g.attnOut, layer.OWg)
+				} else if layer.OWq != nil {
+					ad := g.attnOut.Data()
+					od := g.oOut.Data()
+					simdq4.GemvSym(od, ad, layer.OWq.QWeight, layer.OWq.GIdx, layer.OWq.Scales, layer.OWq.InDim, layer.OWq.OutDim)
+					g.oOut.MarkDirty()
 				} else if layer.OW != nil {
 					g.gemv(g.oOut, g.attnOut, layer.OW, qDim, h)
 				}
