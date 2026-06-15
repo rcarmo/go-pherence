@@ -232,6 +232,43 @@ func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan M
 	}
 }
 
+func TestRunMTPVerifierBatchForwardLayeredExperimentalSharedKVMatchesSequential(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
+	m := newSingleLayerVerifierModel()
+	second := m.Layers[0]
+	second.HasKV = false
+	second.KVSourceLayer = 0
+	second.KW = nil
+	second.VW = nil
+	m.Config.NumLayers = 2
+	m.Layers = append(m.Layers, second)
+	plan := mustMTPVerifierPlan(t, m, 0, []int{0}, 0)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.mtpVerifierBatchLayerEligible(batch) {
+		t.Fatal("shared-KV verifier batch layer should be eligible when gated on")
+	}
+	kvCacheK := make([][]float32, len(m.Layers))
+	kvCacheV := make([][]float32, len(m.Layers))
+	got, err := m.RunMTPVerifierBatchForward(batch, kvCacheK, kvCacheV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seqK := make([][]float32, len(m.Layers))
+	seqV := make([][]float32, len(m.Layers))
+	seqHidden, err := m.runMTPVerifierBatchRowsSequential(batch, seqK, seqV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, seqLogits, _, err := m.FinishCPUDecodeBatch(seqHidden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
+}
+
 func TestRunMTPVerifierBatchLayersRejectsOverflowingKVRange(t *testing.T) {
 	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
 	m := newSingleLayerVerifierModel()

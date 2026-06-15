@@ -9,6 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -101,10 +102,23 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 		if err != nil {
 			return nil, true, err
 		}
+		kvLayer := l
 		if qkv.HasKV {
 			for b := 0; b < B; b++ {
 				kvCacheK[l] = append(kvCacheK[l], qkv.K[b*qkv.KVDim:(b+1)*qkv.KVDim]...)
 				kvCacheV[l] = append(kvCacheV[l], qkv.V[b*qkv.KVDim:(b+1)*qkv.KVDim]...)
+			}
+		} else {
+			kvLayer = layer.KVSourceLayer
+			if kvLayer < 0 || kvLayer >= len(kvCacheK) || kvLayer >= len(kvCacheV) {
+				return nil, true, fmt.Errorf("verifier batch layer %d shared KV source %d out of range", l, kvLayer)
+			}
+			sourceDim, err := m.LayerKVDim(kvLayer)
+			if err != nil {
+				return nil, true, err
+			}
+			if sourceDim != qkv.KVDim {
+				return nil, true, fmt.Errorf("verifier batch layer %d shared KV source dim=%d, want layer attention dim=%d", l, sourceDim, qkv.KVDim)
 			}
 		}
 		lp := batch.Attention.Layers[l]
@@ -116,14 +130,14 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			}
 			kOff, okOff := checkedProduct(start, qkv.KVDim)
 			kEnd, okEnd := checkedProduct(end, qkv.KVDim)
-			if !okOff || !okEnd || kOff < 0 || kEnd < kOff || kEnd > len(kvCacheK[l]) || kEnd > len(kvCacheV[l]) {
-				return nil, true, fmt.Errorf("verifier batch layer %d row %d KV range [%d,%d) exceeds K/V=%d/%d", l, b, kOff, kEnd, len(kvCacheK[l]), len(kvCacheV[l]))
+			if !okOff || !okEnd || kOff < 0 || kEnd < kOff || kEnd > len(kvCacheK[kvLayer]) || kEnd > len(kvCacheV[kvLayer]) {
+				return nil, true, fmt.Errorf("verifier batch layer %d row %d KV range [%d,%d) exceeds source layer %d K/V=%d/%d", l, b, kOff, kEnd, kvLayer, len(kvCacheK[kvLayer]), len(kvCacheV[kvLayer]))
 			}
 			scale := float32(1.0 / math.Sqrt(float64(qkv.HeadDim)))
 			if m.Config.ModelType == "gemma4_text" {
 				scale = 1.0
 			}
-			gqaAttentionScaleInto(bAttnOut[b*qkv.QDim:(b+1)*qkv.QDim], attnScores[:attnSeqLen], qkv.Q[b*qkv.QDim:(b+1)*qkv.QDim], kvCacheK[l][kOff:kEnd], kvCacheV[l][kOff:kEnd], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale)
+			gqaAttentionScaleInto(bAttnOut[b*qkv.QDim:(b+1)*qkv.QDim], attnScores[:attnSeqLen], qkv.Q[b*qkv.QDim:(b+1)*qkv.QDim], kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale)
 		}
 		if !m.projBatchAny(bOOut[:B*h], bAttnOut[:B*qkv.QDim], B, layer.OW, layer.OWm, layer.OWq, qkv.QDim, h) {
 			return nil, true, fmt.Errorf("verifier batch layer %d O projection rejected", l)
@@ -265,14 +279,36 @@ func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs)
 	}
 	for l := 0; l < m.Config.NumLayers; l++ {
 		layer := &m.Layers[l]
-		if !layer.HasKV || layer.IsMoE {
+		if layer.IsMoE {
 			return false
 		}
-		if !hasMTPVerifierProjection(layer.QW, layer.QWm, layer.QWq) || !hasMTPVerifierProjection(layer.KW, layer.KWm, layer.KWq) || !hasMTPVerifierProjection(layer.OW, layer.OWm, layer.OWq) || !hasMTPVerifierProjection(layer.GateW, layer.GateWm, layer.GateWq) || !hasMTPVerifierProjection(layer.UpW, layer.UpWm, layer.UpWq) || !hasMTPVerifierProjection(layer.DownW, layer.DownWm, layer.DownWq) {
+		if !hasMTPVerifierProjection(layer.QW, layer.QWm, layer.QWq) || !hasMTPVerifierProjection(layer.OW, layer.OWm, layer.OWq) || !hasMTPVerifierProjection(layer.GateW, layer.GateWm, layer.GateWq) || !hasMTPVerifierProjection(layer.UpW, layer.UpWm, layer.UpWq) || !hasMTPVerifierProjection(layer.DownW, layer.DownWm, layer.DownWq) {
 			return false
 		}
-		if !(m.Config.AttentionKEqV && ((layer.KW != nil && (layer.VW == nil || layer.VW == layer.KW)) || (layer.KWm != nil && (layer.VWm == nil || layer.VWm == layer.KWm)) || (layer.KWq != nil && (layer.VWq == nil || layer.VWq == layer.KWq)))) && !hasMTPVerifierProjection(layer.VW, layer.VWm, layer.VWq) {
-			return false
+		if layer.HasKV {
+			if !hasMTPVerifierProjection(layer.KW, layer.KWm, layer.KWq) {
+				return false
+			}
+			if !(m.Config.AttentionKEqV && ((layer.KW != nil && (layer.VW == nil || layer.VW == layer.KW)) || (layer.KWm != nil && (layer.VWm == nil || layer.VWm == layer.KWm)) || (layer.KWq != nil && (layer.VWq == nil || layer.VWq == layer.KWq)))) && !hasMTPVerifierProjection(layer.VW, layer.VWm, layer.VWq) {
+				return false
+			}
+		} else {
+			if layer.KVSourceLayer < 0 || layer.KVSourceLayer >= m.Config.NumLayers {
+				return false
+			}
+			sourceDim, err := m.LayerKVDim(layer.KVSourceLayer)
+			if err != nil || sourceDim <= 0 {
+				return false
+			}
+			headDim, err := m.LayerHeadDim(l)
+			if err != nil {
+				return false
+			}
+			kvHeads := gemmacfg.LayerKVHeads(m.Config, l)
+			layerAttnDim, ok := checkedProduct(kvHeads, headDim)
+			if !ok || layerAttnDim != sourceDim {
+				return false
+			}
 		}
 		if layer.InputNorm == nil || layer.PostNorm == nil {
 			return false
