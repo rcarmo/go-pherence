@@ -207,6 +207,10 @@ profiling tool, not a production default.
 
 - Use the exact partial-resident layer-coverage-aware optimized plan as the
   current structural target for further optimization, not as a default.
+- Keep the host-boundary exact-GELU path as the fidelity baseline. A first native
+  CUDA erf-approximation attempt produced ~3.6e-4 activation max error versus
+  `simd.GELUExactMulTo`, which is too high for DiffusionGemma's high-gain
+  post-norm dimensions and was not committed.
 - Reduce dropped-subset CPU fallback time or increase resident coverage without
   losing fused layers.
 - Reduce Q4_K expert residency footprint or make active-set materialization cheap
