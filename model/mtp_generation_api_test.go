@@ -99,6 +99,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted stats moving backward from initial stats")
 	}
 	bad = valid
+	bad.VocabSize = 0
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted missing vocab size")
+	}
+	bad = valid
 	bad.VocabSize = 3
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted output token outside vocab")
