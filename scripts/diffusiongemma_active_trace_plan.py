@@ -104,6 +104,44 @@ def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: se
     return plan
 
 
+def flatten_plan(plan: list[tuple[int, list[int]]]) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    for layer, experts in plan:
+        out.extend((layer, expert) for expert in experts)
+    return out
+
+
+def group_flat_plan(entries: list[tuple[int, int]]) -> list[tuple[int, list[int]]]:
+    grouped: list[tuple[int, list[int]]] = []
+    index: dict[int, int] = {}
+    for layer, expert in entries:
+        if layer not in index:
+            index[layer] = len(grouped)
+            grouped.append((layer, []))
+        grouped[index[layer]][1].append(expert)
+    return grouped
+
+
+def apply_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: set[int] | None, q5_layers: set[int] | None) -> tuple[list[tuple[int, list[int]]], int, int]:
+    if budget_mb <= 0:
+        return plan, 0, len(flatten_plan(plan))
+    budget = budget_mb * 1024 * 1024
+    used = 0
+    kept: list[tuple[int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for layer, expert in flatten_plan(plan):
+        key = (layer, expert)
+        if key in seen:
+            continue
+        seen.add(key)
+        cost = expert_cost_bytes(layer, q8_layers, q5_layers)
+        if used + cost > budget:
+            break
+        used += cost
+        kept.append(key)
+    return group_flat_plan(kept), used, len(kept)
+
+
 def format_plan(plan: list[tuple[int, list[int]]]) -> str:
     return ";".join(f"{layer}:{','.join(str(e) for e in experts)}" for layer, experts in plan)
 
@@ -117,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--include-repeated-layers", action="store_true", help="include repeated layer traces instead of only the first row per layer")
     ap.add_argument("--missing-only", action="store_true", help="only emit experts marked missing with ! in the active trace; useful for incremental plan refinement")
     ap.add_argument("--order", choices=("layer", "global-work", "efficiency"), default="layer", help="emit layer-major groups, globally sort by work, or sort by work/estimated resident byte (default: layer)")
+    ap.add_argument("--budget-mb", type=int, default=0, help="truncate the emitted plan to the prefix that fits this expert-cache budget")
+    ap.add_argument("--summary", action="store_true", help="print budget/entry summary to stderr")
     args = ap.parse_args(argv)
 
     if args.top <= 0:
@@ -124,6 +164,16 @@ def main(argv: list[str] | None = None) -> int:
     q8_layers = parse_layer_set(args.q8_layers)
     q5_layers = parse_layer_set(args.q5_layers)
     plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only)
+    original_entries = len(flatten_plan(plan))
+    used = 0
+    kept_entries = original_entries
+    if args.budget_mb > 0:
+        plan, used, kept_entries = apply_budget(plan, args.budget_mb, q8_layers, q5_layers)
+    if args.summary:
+        if args.budget_mb > 0:
+            print(f"entries={kept_entries}/{original_entries} used_mib={used / (1024 * 1024):.1f}/{args.budget_mb}", file=sys.stderr)
+        else:
+            print(f"entries={original_entries}", file=sys.stderr)
     sys.stdout.write(format_plan(plan))
     if plan:
         sys.stdout.write("\n")
