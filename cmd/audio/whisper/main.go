@@ -10,10 +10,10 @@
 package main
 
 import (
-	"math"
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,7 +26,7 @@ import (
 )
 
 func main() {
-	modelPath := flag.String("model", "", "Path to Whisper safetensors model")
+	modelPath := flag.String("model", "models/whisper-large-v3-turbo-hf/model.safetensors", "Path to Whisper safetensors model")
 	audioPath := flag.String("audio", "", "Path to input WAV file")
 	modelSize := flag.String("size", "turbo", "Model size: tiny, base, small, medium, large-v3, turbo (default large-v3-turbo: same encoder as large-v3, 4-layer distilled decoder)")
 	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
@@ -39,8 +39,8 @@ func main() {
 	output := flag.String("output", "", "Output file path (supports .vtt)")
 	flag.Parse()
 
-	if *modelPath == "" || *audioPath == "" {
-		fmt.Fprintf(os.Stderr, "Usage: whisper -model MODEL -audio AUDIO [-size SIZE] [-diarize] [-timestamps]\n")
+	if *audioPath == "" {
+		fmt.Fprintf(os.Stderr, "Usage: whisper -audio AUDIO [-model MODEL] [-size SIZE] [-diarize] [-timestamps]\n")
 		os.Exit(1)
 	}
 
