@@ -136,19 +136,17 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		summaryDrafted += len(summary.DraftedTokens)
 		summaryVerified += summary.AcceptedPrefixLen
 	}
-	if len(r.StepSummaries) > 0 {
-		if r.Stats.Steps != len(r.StepSummaries) {
-			return fmt.Errorf("MTP stats steps=%d, summary steps=%d", r.Stats.Steps, len(r.StepSummaries))
-		}
-		if r.Stats.DraftedTokens != summaryDrafted {
-			return fmt.Errorf("MTP stats drafted tokens=%d, summary drafted=%d", r.Stats.DraftedTokens, summaryDrafted)
-		}
-		if r.Stats.VerifiedTokens != summaryVerified {
-			return fmt.Errorf("MTP stats verified tokens=%d, summary verified=%d", r.Stats.VerifiedTokens, summaryVerified)
-		}
-		if r.Stats.BonusTokens != len(r.StepSummaries) {
-			return fmt.Errorf("MTP stats bonus tokens=%d, summary steps=%d", r.Stats.BonusTokens, len(r.StepSummaries))
-		}
+	if r.Stats.Steps != len(r.StepSummaries) {
+		return fmt.Errorf("MTP stats steps=%d, summary steps=%d", r.Stats.Steps, len(r.StepSummaries))
+	}
+	if r.Stats.DraftedTokens != summaryDrafted {
+		return fmt.Errorf("MTP stats drafted tokens=%d, summary drafted=%d", r.Stats.DraftedTokens, summaryDrafted)
+	}
+	if r.Stats.VerifiedTokens != summaryVerified {
+		return fmt.Errorf("MTP stats verified tokens=%d, summary verified=%d", r.Stats.VerifiedTokens, summaryVerified)
+	}
+	if r.Stats.BonusTokens != len(r.StepSummaries) {
+		return fmt.Errorf("MTP stats bonus tokens=%d, summary steps=%d", r.Stats.BonusTokens, len(r.StepSummaries))
 	}
 	if graphCount != r.GraphOutputTokens {
 		return fmt.Errorf("MTP graph output accounting=%d, commit outputs=%d", r.GraphOutputTokens, graphCount)

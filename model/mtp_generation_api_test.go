@@ -237,6 +237,14 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	if err := valid.Validate(99); err == nil {
 		t.Fatal("accepted bad prompt len")
 	}
+	zero := MTPGraphGenerationResult{Output: []int{10}, VocabSize: 11}
+	if err := zero.Validate(1); err != nil {
+		t.Fatalf("zero-cycle Validate: %v", err)
+	}
+	zero.Stats.Steps = 1
+	if err := zero.Validate(1); err == nil {
+		t.Fatal("accepted stale nonzero stats on zero-cycle result")
+	}
 }
 
 func TestMTPExternalKVForDecodeStateRefreshesKVSlicesAndSeqLen(t *testing.T) {
