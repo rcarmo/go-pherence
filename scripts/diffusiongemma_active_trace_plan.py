@@ -46,12 +46,12 @@ def parse_layer_set(text: str) -> set[int] | None:
     return out
 
 
-def expert_cost_bytes(layer: int, q8_layers: set[int] | None, q5_layers: set[int] | None) -> int:
+def expert_cost_bytes(layer: int, q8_layers: set[int] | None, q5_layers: set[int] | None, q4_scale_bytes: int = 4, q8_scale_bytes: int = 4, q5_scale_bytes: int = 4) -> int:
     # DiffusionGemma-26B-A4B GGUF expert device representation:
-    # Q4_K gate/up [1408,2816]: 1408 * 11 blocks * (128 q + 8 scale f32 + 8 min f32)
-    q4_gate_up = 1408 * 11 * (128 + 8 * 4 + 8 * 4)
-    q8_down = 2816 * (704 + 22 * 4)
-    q5_down = 2816 * (704 // 2 + 22 * (4 + 4))
+    # Q4_K gate/up [1408,2816]: 1408 * 11 blocks * (128 q + 8 scale + 8 min)
+    q4_gate_up = 1408 * 11 * (128 + 8 * q4_scale_bytes + 8 * q4_scale_bytes)
+    q8_down = 2816 * (704 + 22 * q8_scale_bytes)
+    q5_down = 2816 * (704 // 2 + 22 * (4 + q5_scale_bytes))
     if q5_layers is not None and layer in q5_layers:
         return q4_gate_up + q5_down
     if q8_layers is not None and layer in q8_layers:
@@ -97,7 +97,7 @@ def trace_work_map(path: Path, q8_layers: set[int] | None, q5_layers: set[int] |
     return work
 
 
-def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer", missing_only: bool = False, ensure_layer_coverage: bool = False) -> list[tuple[int, list[int]]]:
+def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer", missing_only: bool = False, ensure_layer_coverage: bool = False, q4_scale_bytes: int = 4, q8_scale_bytes: int = 4, q5_scale_bytes: int = 4) -> list[tuple[int, list[int]]]:
     layer_filter = allowed_layers(q8_layers, q5_layers)
     seen_layers: set[int] = set()
     plan: list[tuple[int, list[int]]] = []
@@ -129,7 +129,7 @@ def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: se
             seen_experts.add(expert)
             experts.append(expert)
             if order == "efficiency":
-                cost = expert_cost_bytes(layer, q8_layers, q5_layers)
+                cost = expert_cost_bytes(layer, q8_layers, q5_layers, q4_scale_bytes, q8_scale_bytes, q5_scale_bytes)
                 flat.append((-float(work) / float(cost), layer, rank, expert))
             else:
                 flat.append((-float(work), layer, rank, expert))
@@ -171,7 +171,7 @@ def plan_work(plan: list[tuple[int, list[int]]], work: dict[tuple[int, int], int
     return sum(work.get((layer, expert), 0) for layer, expert in flatten_plan(plan))
 
 
-def optimize_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: set[int] | None, q5_layers: set[int] | None, work: dict[tuple[int, int], int], ensure_layer_coverage: bool = False) -> tuple[list[tuple[int, list[int]]], int, int]:
+def optimize_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: set[int] | None, q5_layers: set[int] | None, work: dict[tuple[int, int], int], ensure_layer_coverage: bool = False, q4_scale_bytes: int = 4, q8_scale_bytes: int = 4, q5_scale_bytes: int = 4) -> tuple[list[tuple[int, list[int]]], int, int]:
     if budget_mb <= 0:
         return plan, 0, len(flatten_plan(plan))
     full_budget = budget_mb * 1024 * 1024
@@ -182,7 +182,7 @@ def optimize_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers
             if layer in mandatory_layers:
                 continue
             key = (layer, expert)
-            bytes_ = expert_cost_bytes(layer, q8_layers, q5_layers)
+            bytes_ = expert_cost_bytes(layer, q8_layers, q5_layers, q4_scale_bytes, q8_scale_bytes, q5_scale_bytes)
             mandatory.append((layer, expert, work.get(key, 0), bytes_))
             mandatory_layers.add(layer)
     mandatory_used = sum(x[3] for x in mandatory)
@@ -195,7 +195,7 @@ def optimize_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers
         if key in seen:
             continue
         seen.add(key)
-        bytes_ = expert_cost_bytes(layer, q8_layers, q5_layers)
+        bytes_ = expert_cost_bytes(layer, q8_layers, q5_layers, q4_scale_bytes, q8_scale_bytes, q5_scale_bytes)
         candidates.append((layer, expert, work.get(key, 0), bytes_))
     # Exact 0/1 knapsack over traced work values. Total traced work is small
     # (tens of thousands), so minimizing bytes for each achievable work is cheap
@@ -235,7 +235,7 @@ def optimize_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers
     return group_flat_plan([(layer, expert) for layer, expert, _, _ in selected]), used, len(selected)
 
 
-def apply_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: set[int] | None, q5_layers: set[int] | None) -> tuple[list[tuple[int, list[int]]], int, int]:
+def apply_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: set[int] | None, q5_layers: set[int] | None, q4_scale_bytes: int = 4, q8_scale_bytes: int = 4, q5_scale_bytes: int = 4) -> tuple[list[tuple[int, list[int]]], int, int]:
     if budget_mb <= 0:
         return plan, 0, len(flatten_plan(plan))
     budget = budget_mb * 1024 * 1024
@@ -247,7 +247,7 @@ def apply_budget(plan: list[tuple[int, list[int]]], budget_mb: int, q8_layers: s
         if key in seen:
             continue
         seen.add(key)
-        cost = expert_cost_bytes(layer, q8_layers, q5_layers)
+        cost = expert_cost_bytes(layer, q8_layers, q5_layers, q4_scale_bytes, q8_scale_bytes, q5_scale_bytes)
         if used + cost > budget:
             break
         used += cost
@@ -271,6 +271,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--order", choices=("layer", "global-work", "efficiency"), default="layer", help="emit layer-major groups, globally sort by work, or sort by work/estimated resident byte (default: layer)")
     ap.add_argument("--budget-mb", type=int, default=0, help="truncate the emitted plan to the prefix that fits this expert-cache budget")
     ap.add_argument("--optimize-budget", action="store_true", help="with --budget-mb, choose entries that maximize traced work instead of taking a sorted prefix")
+    ap.add_argument("--q4-scale-bytes", type=int, default=4, choices=(2, 4), help="bytes per Q4_K scale/min value in resident cost model (default: 4; use 2 to model compact fp16 scales)")
+    ap.add_argument("--q8-scale-bytes", type=int, default=4, choices=(2, 4), help="bytes per Q8_0 scale in resident cost model (default: 4)")
+    ap.add_argument("--q5-scale-bytes", type=int, default=4, choices=(2, 4), help="bytes per Q5_0 scale in resident cost model (default: 4)")
     ap.add_argument("--summary", action="store_true", help="print budget/entry summary to stderr")
     args = ap.parse_args(argv)
 
@@ -279,16 +282,16 @@ def main(argv: list[str] | None = None) -> int:
     q8_layers = parse_layer_set(args.q8_layers)
     q5_layers = parse_layer_set(args.q5_layers)
     work = trace_work_map(args.log, q8_layers, q5_layers, args.include_repeated_layers, args.missing_only)
-    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only, args.ensure_layer_coverage)
+    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only, args.ensure_layer_coverage, args.q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
     original_entries = len(flatten_plan(plan))
     original_work = plan_work(plan, work)
     used = 0
     kept_entries = original_entries
     if args.budget_mb > 0:
         if args.optimize_budget:
-            plan, used, kept_entries = optimize_budget(plan, args.budget_mb, q8_layers, q5_layers, work, args.ensure_layer_coverage)
+            plan, used, kept_entries = optimize_budget(plan, args.budget_mb, q8_layers, q5_layers, work, args.ensure_layer_coverage, args.q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
         else:
-            plan, used, kept_entries = apply_budget(plan, args.budget_mb, q8_layers, q5_layers)
+            plan, used, kept_entries = apply_budget(plan, args.budget_mb, q8_layers, q5_layers, args.q4_scale_bytes, args.q8_scale_bytes, args.q5_scale_bytes)
     kept_work = plan_work(plan, work)
     if args.summary:
         if args.budget_mb > 0:
