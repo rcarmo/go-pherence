@@ -242,6 +242,13 @@ single-position work is now covered by the direct helper; the largest remaining
 Q5 cost is batched down projection, while large-batch Q4/Q8 dequant still
 dominates gate/up/down worker time in the dropped subset.
 
+A scalar batched direct-Q5 x4 prototype was tested and rejected: it improved over
+repeating the single-output scalar direct helper but was still slower than
+current dequant-once plus SIMD Sdot for every tested `nPos>=2` bucket (for
+example `nPos=4` direct x4 ~1336ns vs dequant+Sdot ~740ns, `nPos=16` direct x4
+~5367ns vs ~898ns). The useful batched Q5 path therefore needs real vectorized
+quantized dot or better residency planning, not scalar x4 accumulation.
+
 Budget scaling with the same exact partial-resident profile shows the structural
 trend clearly even when wall-clock varies with host load:
 
