@@ -42,6 +42,21 @@ func TestSpeculativeDecodePromptFeedsTranslatePrompt(t *testing.T) {
 	}
 }
 
+func TestDecoderStateCheckpointRestore(t *testing.T) {
+	cfg := Tiny()
+	cfg.DecoderLayers = 0
+	dec := NewDecoder(cfg)
+	state := NewDecoderState(cfg, make([]float32, cfg.EncoderDModel), 1, dec)
+	dec.ForwardToken(TokenSOT, state)
+	cp := checkpointDecoderState(state)
+	dec.ForwardToken(TokenEnglish, state)
+	dec.ForwardToken(TokenTranslate, state)
+	restoreDecoderState(state, cp)
+	if state.Pos != 1 || state.LastToken != TokenSOT {
+		t.Fatalf("restored pos=%d last=%d want pos=1 last=SOT", state.Pos, state.LastToken)
+	}
+}
+
 func TestSpeculativeStepUsesTrackedLastToken(t *testing.T) {
 	cfg := Tiny()
 	cfg.DecoderLayers = 0

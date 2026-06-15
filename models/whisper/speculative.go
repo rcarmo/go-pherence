@@ -52,26 +52,27 @@ func (sd *SpeculativeDecoder) Step(draftState, targetState *DecoderState) Specul
 	// Step 2: Run verifier over [last target token] + draft tokens. This currently
 	// uses a sequential implementation under ForwardTokens, but has the right
 	// G+1 verifier shape for a future fused/batched decoder.
+	cp := checkpointDecoderState(targetState)
 	_, verifier := sd.Target.Decoder.VerifyDraftSequential(lastToken(targetState), draftTokens, targetState)
 	acceptance, err := AcceptDraftTokens(draftTokens, verifier)
+	restoreDecoderState(targetState, cp)
 	if err != nil {
-		// Defensive fallback: emit one ordinary target token.
+		// Defensive fallback: emit one ordinary target token from the restored state.
 		logits := sd.Target.Decoder.ForwardToken(lastToken(targetState), targetState)
 		return SpeculativeResult{Bonus: argmax(logits)}
 	}
-	if !acceptance.AllAccepted {
-		return SpeculativeResult{Accepted: acceptance.Accepted, Bonus: acceptance.Bonus}
+
+	// The verifier pass speculatively advanced targetState through all drafts.
+	// Keep target KV/state faithful by replaying only the emitted sequence:
+	// accepted prefix plus the verifier bonus token. This mirrors the future
+	// batched verifier contract without retaining rejected draft KV.
+	for _, tok := range acceptance.Accepted {
+		sd.Target.Decoder.ForwardToken(tok, targetState)
 	}
+	sd.Target.Decoder.ForwardToken(acceptance.Bonus, targetState)
 
-	bonus := acceptance.Bonus
-
-	// Also advance draft state past accepted tokens (already done above)
 	_ = cfg
-
-	return SpeculativeResult{
-		Accepted: acceptance.Accepted,
-		Bonus:    bonus,
-	}
+	return SpeculativeResult{Accepted: acceptance.Accepted, Bonus: acceptance.Bonus}
 }
 
 // SpeculativeDecode runs full speculative decoding until EOT using the default
@@ -122,6 +123,41 @@ func (sd *SpeculativeDecoder) SpeculativeDecodePrompt(encoderOutput []float32, e
 	}
 
 	return tokens
+}
+
+type decoderStateCheckpoint struct {
+	pos       int
+	lastToken int
+	selfKLen  []int
+	selfVLen  []int
+}
+
+func checkpointDecoderState(state *DecoderState) decoderStateCheckpoint {
+	cp := decoderStateCheckpoint{pos: state.Pos, lastToken: state.LastToken}
+	cp.selfKLen = make([]int, len(state.SelfKCache))
+	cp.selfVLen = make([]int, len(state.SelfVCache))
+	for i := range state.SelfKCache {
+		cp.selfKLen[i] = len(state.SelfKCache[i])
+	}
+	for i := range state.SelfVCache {
+		cp.selfVLen[i] = len(state.SelfVCache[i])
+	}
+	return cp
+}
+
+func restoreDecoderState(state *DecoderState, cp decoderStateCheckpoint) {
+	state.Pos = cp.pos
+	state.LastToken = cp.lastToken
+	for i, n := range cp.selfKLen {
+		if i < len(state.SelfKCache) && n <= len(state.SelfKCache[i]) {
+			state.SelfKCache[i] = state.SelfKCache[i][:n]
+		}
+	}
+	for i, n := range cp.selfVLen {
+		if i < len(state.SelfVCache) && n <= len(state.SelfVCache[i]) {
+			state.SelfVCache[i] = state.SelfVCache[i][:n]
+		}
+	}
 }
 
 func lastToken(state *DecoderState) int {
