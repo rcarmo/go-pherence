@@ -73,7 +73,7 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	valid := MTPGraphGenerationResult{
 		Output:            []int{10, 1, 2, 3},
-		Stats:             MTPSpeculationStats{OutputTokens: 2},
+		Stats:             MTPSpeculationStats{DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
 		Steps:             []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
 		StepSummaries:     []MTPGraphGenerationStepSummary{{DraftedTokens: []int{1, 2}, VerifierTokens: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
 		GraphOutputTokens: 2,
@@ -96,6 +96,21 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.Stats.OutputTokens = 99
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted stats/output mismatch")
+	}
+	bad = valid
+	bad.Stats.DraftedTokens = 99
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted stats/summary drafted mismatch")
+	}
+	bad = valid
+	bad.Stats.VerifiedTokens = 99
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted stats/summary verified mismatch")
+	}
+	bad = valid
+	bad.Stats.BonusTokens = 99
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted stats/summary bonus mismatch")
 	}
 	bad = valid
 	bad.Steps[0].KeepTokens = 3
