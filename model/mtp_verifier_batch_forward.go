@@ -365,6 +365,9 @@ func (m *LlamaModel) validateMTPVerifierBatchForwardInputs(batch MTPVerifierBatc
 func validateMTPVerifierBatchPLIFlat(m *LlamaModel, batch MTPVerifierBatchInputs) error {
 	B := len(batch.Plan.VerifierTokens)
 	if !batch.HasPerLayerInputs {
+		if len(batch.PerLayerInputs) != B {
+			return fmt.Errorf("MTP verifier batch PLI row slots=%d, want verifier tokens=%d even when PLI is disabled", len(batch.PerLayerInputs), B)
+		}
 		if len(batch.PerLayerInputFlat) != 0 {
 			return fmt.Errorf("MTP verifier batch has PLI flat len=%d while PLI is disabled", len(batch.PerLayerInputFlat))
 		}

@@ -242,6 +242,11 @@ func TestRunMTPVerifierBatchForwardValidation(t *testing.T) {
 		t.Fatal("accepted hidden rows that disagree with flat buffer")
 	}
 	bad = batch
+	bad.PerLayerInputs = nil
+	if _, err := m.RunMTPVerifierBatchForward(bad, nil, nil); err == nil {
+		t.Fatal("accepted missing disabled-PLI row slots")
+	}
+	bad = batch
 	bad.Scratch.Batch++
 	if _, err := m.RunMTPVerifierBatchForward(bad, nil, nil); err == nil {
 		t.Fatal("accepted stale verifier scratch plan")
