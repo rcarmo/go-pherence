@@ -200,6 +200,18 @@ func TestGemvQ8_0ScatterByWorkPtrs(t *testing.T) {
 	}
 }
 
+func TestUploadQ8_0MatrixRowsRejectsInvalidInput(t *testing.T) {
+	if _, err := UploadQ8_0MatrixRows(nil, 31, 1); err == nil {
+		t.Fatal("accepted non-32-aligned Q8 input dimension")
+	}
+	if _, err := UploadQ8_0MatrixRows(make([]byte, 33), 32, 1); err == nil {
+		t.Fatal("accepted short Q8 raw row")
+	}
+	if _, err := UploadQ8_0MatrixRows(make([]byte, 34), 32, 0); err == nil {
+		t.Fatal("accepted zero Q8 output dimension")
+	}
+}
+
 func TestGemvQ8_0ScatterByWorkPtrsRejectsBadInputs(t *testing.T) {
 	validBuf := &Buffer{Ptr: 1, Size: 64}
 	shortBuf := &Buffer{Ptr: 1, Size: 2}
