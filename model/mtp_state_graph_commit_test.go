@@ -53,6 +53,31 @@ func TestCPUDecodeStateCommitGraphAcceptedFloatKV(t *testing.T) {
 	}
 }
 
+func TestCPUDecodeStateCommitGraphAcceptedRejectsCheckpointGraphCursorMismatch(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	d := validProjectionOnlyDrafter()
+	state, err := NewMTPDrafterState(0, []float32{0.5, 0.25}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph, err := NewMTPExecutionGraph(m, d, state, nil, []int{1}, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier, err := NewMTPVerifierResultForModel(m, 0, []int{1}, [][]float32{{0, 9, 0, 0}, {7, 0, 0, 0}}, []float32{1, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := &CPUDecodeState{Model: m, Output: []int{10, 11}, KVCacheK: [][]float32{{}}, KVCacheV: [][]float32{{}}, KVDims: []int{2}}
+	cp := CPUDecodeCheckpoint{OutputLen: len(st.Output), FloatKV: kv.CheckpointFloatKV(st.KVCacheK, st.KVCacheV)}
+	if _, err := st.CommitGraphAccepted(cp, graph, verifier); err == nil {
+		t.Fatal("accepted graph whose start position does not match checkpoint cursor")
+	}
+	if !sameInts(st.Output, []int{10, 11}) {
+		t.Fatalf("output mutated on failed cursor check: %v", st.Output)
+	}
+}
+
 func TestCPUDecodeStateCommitGraphAcceptedRejectsMismatchWithoutOutputMutation(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
 	d := validProjectionOnlyDrafter()

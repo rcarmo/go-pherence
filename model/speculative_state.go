@@ -195,6 +195,9 @@ func (s *CPUDecodeState) CommitGraphAccepted(cp CPUDecodeCheckpoint, graph MTPEx
 	if cp.OutputLen < 0 || cp.OutputLen > len(s.Output) {
 		return MTPKVCommitPlan{}, fmt.Errorf("checkpoint output len=%d outside current len=%d", cp.OutputLen, len(s.Output))
 	}
+	if cp.OutputLen != graph.StartPos {
+		return MTPKVCommitPlan{}, fmt.Errorf("checkpoint output len=%d does not match MTP graph start position=%d", cp.OutputLen, graph.StartPos)
+	}
 	var commit MTPKVCommitPlan
 	var err error
 	if s.CompressedKV != nil {
