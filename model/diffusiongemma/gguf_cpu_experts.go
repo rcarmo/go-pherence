@@ -251,6 +251,16 @@ func ggufCPUExpertBatchBucketsString(b ggufCPUExpertBatchBuckets) string {
 	return fmt.Sprintf("1:%d,2-3:%d,4:%d,5:%d,6:%d,7:%d,8:%d,9-12:%d,13-15:%d,16+:%d", b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9])
 }
 
+const diffusionGemmaDirectQuantMaxBatch = 8
+
+func useDirectQ4GateUpRows(le ggufLayerExperts, nPos int) bool {
+	return diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos > 0 && nPos <= diffusionGemmaDirectQuantMaxBatch && le.gateUp != nil && le.gateUp.QType == gguf.QuantQ4_K
+}
+
+func useDirectQ8DownRows(le ggufLayerExperts, nPos int) bool {
+	return diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos > 0 && nPos <= diffusionGemmaDirectQuantMaxBatch && le.down != nil && le.down.QType == gguf.QuantQ8_0
+}
+
 func ggufCPUExpertTimingSnapshot() ggufCPUExpertTimingStats {
 	return ggufCPUExpertTimingStats{
 		Calls:            ggufCPUExpertTimingCounters.calls.Load(),
@@ -876,7 +886,7 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				// SIMD direct Q4_K row-dot uses a 4-output raw-row primitive and remains
 				// the better full-path policy through nPos<=8; larger gate/up batches
 				// favor dequant-once + Sdotx4 reuse end-to-end.
-				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos <= 8 && le.gateUp.QType == gguf.QuantQ4_K
+				useDirectQ4GateUp := useDirectQ4GateUpRows(le, nPos)
 				for r := 0; r < outDimGU; r++ {
 					if useDirectQ4GateUp {
 						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {
@@ -939,7 +949,7 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				// SIMD direct Q8_0 row-dot uses a 4-output raw-row primitive and remains
 				// the better full-path policy through nPos<=8; larger expert-down batches
 				// favor dequant-once + Sdotx4 reuse end-to-end.
-				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos <= 8 && le.down.QType == gguf.QuantQ8_0
+				useDirectQ8Down := useDirectQ8DownRows(le, nPos)
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {
 						scale := float32(1)
@@ -1131,7 +1141,7 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 				gateStart := time.Now()
 				batchGU := ws.batchGU[:nPos*intermediate*2]
 				outDimGU := intermediate * 2
-				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos <= 8 && le.gateUp.QType == gguf.QuantQ4_K
+				useDirectQ4GateUp := useDirectQ4GateUpRows(le, nPos)
 				for r := 0; r < outDimGU; r++ {
 					if useDirectQ4GateUp {
 						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {
@@ -1188,7 +1198,7 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 					errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down scale outside len=%d", eid, len(le.downScale)) })
 					return
 				}
-				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos <= 8 && le.down.QType == gguf.QuantQ8_0
+				useDirectQ8Down := useDirectQ8DownRows(le, nPos)
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {
 						scale := float32(1)
@@ -1270,7 +1280,7 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 
 	// Gate+up projection: dequant each output row, dot with input
 	guOut := make([]float32, outDimGU)
-	useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && le.gateUp.QType == gguf.QuantQ4_K
+	useDirectQ4GateUp := useDirectQ4GateUpRows(le, 1)
 	for r := 0; r < outDimGU; r++ {
 		if useDirectQ4GateUp {
 			v, err := ggufQ4KExpertRowDot(le.gateUp, expertID, r, normedRow)
@@ -1303,7 +1313,7 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 
 	// Down projection: dequant each output row, dot with activation
 	downBuf := make([]float32, intermediate)
-	useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && le.down.QType == gguf.QuantQ8_0
+	useDirectQ8Down := useDirectQ8DownRows(le, 1)
 	for r := 0; r < hiddenSize; r++ {
 		if useDirectQ8Down {
 			v, err := ggufQ8_0ExpertRowDot(le.down, expertID, r, actOut)
