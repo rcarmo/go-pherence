@@ -43,9 +43,9 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 	if layer.InputNorm == nil {
 		return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d missing input norm", layerIdx)
 	}
-	headDim := m.Config.HeadDim
-	if layer.HeadDimLocal > 0 {
-		headDim = layer.HeadDimLocal
+	headDim, err := m.LayerHeadDim(layerIdx)
+	if err != nil {
+		return MTPVerifierLayerQKVBatch{}, err
 	}
 	kvHeads := gemmacfg.LayerKVHeads(m.Config, layerIdx)
 	qDim, okQ := checkedProduct(m.Config.NumHeads, headDim)

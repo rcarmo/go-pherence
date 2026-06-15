@@ -45,9 +45,9 @@ func NewMTPVerifierBatchScratchPlan(m *LlamaModel, batch MTPVerifierBatchInputs)
 	out := MTPVerifierBatchScratchPlan{Batch: B, HiddenSize: h, Layers: make([]MTPVerifierLayerScratchPlan, m.Config.NumLayers)}
 	for l := 0; l < m.Config.NumLayers; l++ {
 		layer := &m.Layers[l]
-		headDim := m.Config.HeadDim
-		if layer.HeadDimLocal > 0 {
-			headDim = layer.HeadDimLocal
+		headDim, err := m.LayerHeadDim(l)
+		if err != nil {
+			return MTPVerifierBatchScratchPlan{}, err
 		}
 		qDim, ok := checkedProduct(m.Config.NumHeads, headDim)
 		if headDim <= 0 || !ok {

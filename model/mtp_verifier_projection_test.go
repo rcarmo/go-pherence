@@ -42,6 +42,48 @@ func TestProjectMTPVerifierLayerQKVBatchMatchesRows(t *testing.T) {
 	}
 }
 
+func TestProjectMTPVerifierLayerQKVBatchDerivesGemma4FullHeadDim(t *testing.T) {
+	identity4 := []float32{
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
+	m := &LlamaModel{
+		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 2, HiddenSize: 4, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, NumGlobalKVHeads: 1, HeadDim: 2, GlobalHeadDim: 4, LayerTypes: []string{"full_attention"}},
+		EmbedTokens: tensor.FromFloat32([]float32{
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+		}, []int{2, 4}),
+		Norm:   tensor.Ones([]int{4}),
+		LMHead: tensor.FromFloat32([]float32{1, 0, 0, 0, 0, 1, 0, 0}, []int{2, 4}),
+		Layers: []LlamaLayer{{
+			InputNorm: tensor.Ones([]int{4}),
+			PostNorm:  tensor.Ones([]int{4}),
+			HasKV:     true,
+			QW:        tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			KW:        tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			VW:        tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			OW:        tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			GateW:     tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			UpW:       tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+			DownW:     tensor.FromFloat32(append([]float32(nil), identity4...), []int{4, 4}),
+		}},
+	}
+	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 0)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := m.ProjectMTPVerifierLayerQKVBatch(batch, 0, batch.HiddenFlat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.HeadDim != 4 || got.QDim != 4 || got.KVDim != 4 || len(got.Q) != 8 || len(got.K) != 8 || len(got.V) != 8 {
+		t.Fatalf("derived full-attention shape=%+v lens q/k/v=%d/%d/%d", got, len(got.Q), len(got.K), len(got.V))
+	}
+}
+
 func TestProjectMTPVerifierLayerQKVBatchGemma4KEqV(t *testing.T) {
 	m := newSingleLayerVerifierModel()
 	m.Config.ModelType = "gemma4_text"

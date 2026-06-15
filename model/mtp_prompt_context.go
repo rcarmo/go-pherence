@@ -58,8 +58,12 @@ func (m *LlamaModel) BuildMTPPromptContext(tokenIDs []int) (MTPPromptContext, er
 	}
 	maxHeadDim := cfg.HeadDim
 	for i := range m.Layers {
-		if m.Layers[i].HeadDimLocal > maxHeadDim {
-			maxHeadDim = m.Layers[i].HeadDimLocal
+		layerHeadDim, err := m.LayerHeadDim(i)
+		if err != nil {
+			return MTPPromptContext{}, err
+		}
+		if layerHeadDim > maxHeadDim {
+			maxHeadDim = layerHeadDim
 		}
 	}
 	attnScoresScratch := make([]float32, len(prepared))
@@ -101,9 +105,9 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	}
 	residual := make([]float32, h)
 	copy(residual, hidden[:h])
-	layerHeadDim := cfg.HeadDim
-	if layer.HeadDimLocal > 0 {
-		layerHeadDim = layer.HeadDimLocal
+	layerHeadDim, err := m.LayerHeadDim(layerIdx)
+	if err != nil {
+		return nil, err
 	}
 	layerKVHeads := gemmacfg.LayerKVHeads(cfg, layerIdx)
 	qDim, ok := checkedProduct(cfg.NumHeads, layerHeadDim)

@@ -55,6 +55,26 @@ func TestLayerKVDimsAndModelCommitAcceptedFloatKV(t *testing.T) {
 	}
 }
 
+func TestLayerHeadDimDerivesGemma4FullAttentionDim(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{NumKVHeads: 16, NumGlobalKVHeads: 4, HeadDim: 256, GlobalHeadDim: 512, LayerTypes: []string{"sliding_attention", "full_attention"}},
+		Layers: []LlamaLayer{{HasKV: true}, {HasKV: true}},
+	}
+	if got, err := m.LayerHeadDim(0); err != nil || got != 256 {
+		t.Fatalf("sliding LayerHeadDim=%d err=%v want 256", got, err)
+	}
+	if got, err := m.LayerHeadDim(1); err != nil || got != 512 {
+		t.Fatalf("full LayerHeadDim=%d err=%v want 512", got, err)
+	}
+	if got, err := m.LayerKVDim(1); err != nil || got != 2048 {
+		t.Fatalf("full LayerKVDim=%d err=%v want 2048", got, err)
+	}
+	m.Layers[1].HeadDimLocal = 768
+	if got, err := m.LayerHeadDim(1); err != nil || got != 768 {
+		t.Fatalf("explicit full LayerHeadDim=%d err=%v want 768", got, err)
+	}
+}
+
 func TestLayerKVDimValidation(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{NumKVHeads: 0, HeadDim: 4}, Layers: []LlamaLayer{{HasKV: true}}}
 	if _, err := m.LayerKVDim(0); err == nil {

@@ -29,9 +29,9 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	copy(residual, hidden[:h])
 
 	// Per-layer dims
-	layerHeadDim := cfg.HeadDim
-	if layer.HeadDimLocal > 0 {
-		layerHeadDim = layer.HeadDimLocal
+	layerHeadDim, err := m.LayerHeadDim(layerIdx)
+	if err != nil {
+		return nil
 	}
 	qDim, ok := checkedProduct(numHeads, layerHeadDim)
 	if layerHeadDim <= 0 || !ok {
