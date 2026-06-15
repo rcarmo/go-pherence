@@ -81,8 +81,16 @@ func TestGenerateMTPGraphFromPromptContextCompressedKV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Steps) == 0 || res.GraphOutputTokens == 0 || len(res.Output) != len(ctx.Tokens)+3 {
-		t.Fatalf("compressed MTP result steps=%v graph=%d output=%v", res.Steps, res.GraphOutputTokens, res.Output)
+	if len(res.Steps) == 0 || res.GraphOutputTokens == 0 || len(res.Output) != len(ctx.Tokens)+3 || !res.UsedCompressedKV {
+		t.Fatalf("compressed MTP result steps=%v graph=%d compressed=%v output=%v", res.Steps, res.GraphOutputTokens, res.UsedCompressedKV, res.Output)
+	}
+	m.EnableTurboQuant = true
+	res, err = m.GenerateMTPGraphFromPromptContext(d, ctx, nil, MTPGraphGenerationOptions{MaxTokens: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.UsedCompressedKV {
+		t.Fatal("EnableTurboQuant did not mark graph generation as compressed")
 	}
 }
 

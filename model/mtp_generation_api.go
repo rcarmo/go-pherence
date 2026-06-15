@@ -27,6 +27,7 @@ type MTPGraphGenerationResult struct {
 	StepSummaries              []MTPGraphGenerationStepSummary
 	GraphOutputTokens          int
 	GreedyTailTokens           int
+	UsedCompressedKV           bool
 	Capabilities               MTPGraphCapabilities
 	MissingForPublicGeneration []string
 }
@@ -357,7 +358,8 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 	if err != nil {
 		return MTPGraphGenerationResult{}, err
 	}
-	if opts.UseCompressedKV || m.EnableTurboQuant || m.TurboQuantConfig != nil {
+	useCompressedKV := opts.UseCompressedKV || m.EnableTurboQuant || m.TurboQuantConfig != nil
+	if useCompressedKV {
 		if err := m.seedCompressedKVFromPromptContext(decode, ctx); err != nil {
 			return MTPGraphGenerationResult{}, err
 		}
@@ -404,7 +406,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, HiddenSize: m.Config.HiddenSize, RequestedMaxTokens: opts.MaxTokens, InitialStats: opts.Stats, Stats: stats, FinalState: state, FinalStateOutputLen: finalStateOutputLen, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
+	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, HiddenSize: m.Config.HiddenSize, RequestedMaxTokens: opts.MaxTokens, InitialStats: opts.Stats, Stats: stats, FinalState: state, FinalStateOutputLen: finalStateOutputLen, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, UsedCompressedKV: useCompressedKV, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
 	if err := result.Validate(len(ctx.Tokens)); err != nil {
 		return MTPGraphGenerationResult{}, err
 	}
