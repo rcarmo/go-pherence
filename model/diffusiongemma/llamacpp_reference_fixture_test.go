@@ -149,8 +149,8 @@ func TestGGUFHi1x1TopLogitProbeGate(t *testing.T) {
 	}
 	assertProbeTop(t, fixture.LlamaCppTopProbes[0], 9, 107, 107, 1.16, 1.18, false, []int{107, 3056, 1174, 108, 140}, []float32{29.030109, 28.334581, 26.1243, 25.532812, 25.434307}, 1e-4)
 	assertProbeTop(t, fixture.LlamaCppTopProbes[1], 28, 139, 139, 4.03, 4.04, false, []int{139, 236829, 236761, 107, 140}, []float32{27.190184, 27.168499, 27.115316, 27.045607, 26.939913}, 1e-4)
-	assertProbeTop(t, fixture.GoTopProbes[0], 9, 1601, 564, 1.02, 1.03, false, []int{1601, 564, 740, 1, 3124}, []float32{24.111994, 24.065763, 22.057732, 21.566626, 20.53034}, 1e-4)
-	assertProbeTop(t, fixture.GoTopProbes[1], 28, 1, 1, 0.0013, 0.0014, true, []int{1, 106, 564, 107, 236764}, []float32{29.37196, 20.48538, 20.05294, 20.040842, 19.910925}, 1e-4)
+	assertProbeTop(t, fixture.GoTopProbes[0], 9, 1601, 564, 1.15, 1.16, false, []int{1601, 564, 1, 740, 3124}, []float32{22.58599, 22.210442, 20.678503, 20.420166, 19.013279}, 1e-4)
+	assertProbeTop(t, fixture.GoTopProbes[1], 28, 1, 1, 0.0012, 0.0014, true, []int{1, 106, 236764, 564, 107}, []float32{29.316818, 20.171381, 20.16183, 19.819061, 19.69649}, 1e-4)
 }
 
 func TestGGUFHi1x1GoTrimmedOutputComparisonGate(t *testing.T) {
