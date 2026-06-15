@@ -583,6 +583,7 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	defer func() { encoderGGUFMoEHook = oldHook }()
 	compared := false
 	var capturedPreMaxAbs, capturedPreMeanAbs, capturedPostMaxAbs, capturedPostMeanAbs float64
+	var capturedCPUScale, capturedPartialScale, capturedCPURaw, capturedPartialRaw, capturedCPUPost, capturedPartialPost, capturedNormWeight float64
 	var capturedPreMaxIndex, capturedPostMaxIndex int
 	encoderGGUFMoEHook = func(hookLayer int, lt string, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex) error {
 		if hookLayer != layer {
@@ -669,7 +670,9 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 			meanAbs /= float64(len(a))
 			return maxAbs, meanAbs, maxIndex
 		}
-		capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex = compare(cpuNoPostScratch.MoeOut, partialScratch.MoeOut)
+		cpuPreNorm := append([]float32(nil), cpuNoPostScratch.MoeOut...)
+		partialPreNorm := append([]float32(nil), partialScratch.MoeOut...)
+		capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex = compare(cpuPreNorm, partialPreNorm)
 		postNorm2, err := loadFloatVector(weights, weights.ForwardPlan().Layers[hookLayer].PostFFNLayerNorm2)
 		if err != nil {
 			return err
@@ -683,6 +686,25 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 			}
 		}
 		capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex = compare(cpuNoPostScratch.MoeOut, partialScratch.MoeOut)
+		if capturedPostMaxIndex >= 0 {
+			row := capturedPostMaxIndex / idx.HiddenSize
+			dim := capturedPostMaxIndex % idx.HiddenSize
+			rowScale := func(x []float32) float64 {
+				start := row * idx.HiddenSize
+				var ss float64
+				for _, v := range x[start : start+idx.HiddenSize] {
+					ss += float64(v) * float64(v)
+				}
+				return 1 / math.Sqrt(ss/float64(idx.HiddenSize)+1e-6)
+			}
+			capturedCPUScale = rowScale(cpuPreNorm)
+			capturedPartialScale = rowScale(partialPreNorm)
+			capturedCPURaw = float64(cpuPreNorm[capturedPostMaxIndex])
+			capturedPartialRaw = float64(partialPreNorm[capturedPostMaxIndex])
+			capturedCPUPost = float64(cpuNoPostScratch.MoeOut[capturedPostMaxIndex])
+			capturedPartialPost = float64(partialScratch.MoeOut[capturedPostMaxIndex])
+			capturedNormWeight = float64(postNorm2[dim])
+		}
 		if capturedPostMaxAbs > 0.35 || capturedPostMeanAbs > 0.02 {
 			return fmt.Errorf("layer-5 exact-input partial grouped GPU+CPU experts unexpectedly diverged: pre_max=%g pre_mean=%g post_max=%g post_mean=%g kept=%d dropped=%d", capturedPreMaxAbs, capturedPreMeanAbs, capturedPostMaxAbs, capturedPostMeanAbs, len(kept.ActiveExperts), len(dropped.ActiveExperts))
 		}
@@ -703,7 +725,7 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	if !compared {
 		t.Fatal("layer-5 hook did not run")
 	}
-	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: pre_max=%g pre_mean=%g pre_row=%d pre_dim=%d post_max=%g post_mean=%g post_row=%d post_dim=%d", capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex/idx.HiddenSize, capturedPreMaxIndex%idx.HiddenSize, capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex/idx.HiddenSize, capturedPostMaxIndex%idx.HiddenSize)
+	t.Logf("layer-5 exact-input partial grouped GPU+CPU delta: pre_max=%g pre_mean=%g pre_row=%d pre_dim=%d post_max=%g post_mean=%g post_row=%d post_dim=%d cpu_scale=%g partial_scale=%g norm_w=%g raw_cpu=%g raw_partial=%g post_cpu=%g post_partial=%g", capturedPreMaxAbs, capturedPreMeanAbs, capturedPreMaxIndex/idx.HiddenSize, capturedPreMaxIndex%idx.HiddenSize, capturedPostMaxAbs, capturedPostMeanAbs, capturedPostMaxIndex/idx.HiddenSize, capturedPostMaxIndex%idx.HiddenSize, capturedCPUScale, capturedPartialScale, capturedNormWeight, capturedCPURaw, capturedPartialRaw, capturedCPUPost, capturedPartialPost)
 }
 
 func rmsNormForGroupedGPUTest(row, w []float32) bool { return simd.RMSNormTo(row, w, 1e-6) }
