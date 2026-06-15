@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/models/speaker"
@@ -142,7 +143,7 @@ func main() {
 
 	if *timestamps {
 		// Transcribe with timestamps (chunked + parallel for long audio).
-		segments := transcribeChunked(w, samples, *chunkSec, *chunkWorkers, languageToken, taskToken)
+		segments := filterTimestampSegments(transcribeChunked(w, samples, *chunkSec, *chunkWorkers, languageToken, taskToken))
 		if *diarize {
 			diarized := diarizeSegments(samples, segments, *speakerModel, float32(*speakerThreshold))
 			if *output != "" {
@@ -212,6 +213,33 @@ func materializeWAV(input string) (string, func(), error) {
 		return "", nil, err
 	}
 	return wav, cleanup, nil
+}
+
+func filterTimestampSegments(in []whisper.Segment) []whisper.Segment {
+	out := make([]whisper.Segment, 0, len(in))
+	for _, seg := range in {
+		text := strings.TrimSpace(seg.Text)
+		if text == "" || punctuationOnly(text) {
+			continue
+		}
+		seg.Text = text
+		out = append(out, seg)
+	}
+	return out
+}
+
+func punctuationOnly(text string) bool {
+	seen := false
+	for _, r := range text {
+		if unicode.IsSpace(r) {
+			continue
+		}
+		seen = true
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return seen
 }
 
 func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.Segment {
