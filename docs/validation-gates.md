@@ -56,9 +56,8 @@ python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 # for translate/transcribe;
 # on non-riscv hosts, stubs keep this a command/prompt smoke.
 make whisper-backend-compare
-make whisper-a100-podcast-compare
-make whisper-int8-podcast-compare
-# podcast targets compare stdout, standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT on a 12s long-form window.
+make whisper-backend-podcast-compare
+# podcast target compares stdout, standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT on a 12s long-form window for A100 and int8 backends.
 # Pass repeated --audio flags and optional --start/--duration to
 # scripts/whisper_a100_compare.py for broader/long-form clip sets.
 
