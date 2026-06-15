@@ -97,11 +97,12 @@ def trace_work_map(path: Path, q8_layers: set[int] | None, q5_layers: set[int] |
     return work
 
 
-def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer", missing_only: bool = False) -> list[tuple[int, list[int]]]:
+def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: set[int] | None, include_repeated_layers: bool, order: str = "layer", missing_only: bool = False, ensure_layer_coverage: bool = False) -> list[tuple[int, list[int]]]:
     layer_filter = allowed_layers(q8_layers, q5_layers)
     seen_layers: set[int] = set()
     plan: list[tuple[int, list[int]]] = []
     flat: list[tuple[float, int, int, int]] = []  # sort-key, layer, rank, expert
+    layer_first: list[tuple[int, int]] = []
     for line in path.read_text(errors="ignore").splitlines():
         m = TRACE_RE.search(line)
         if not m:
@@ -136,8 +137,14 @@ def extract_plan(path: Path, top: int, q8_layers: set[int] | None, q5_layers: se
                 break
         if experts:
             plan.append((layer, experts))
+            layer_first.append((layer, experts[0]))
     if order in {"global-work", "efficiency"}:
         flat.sort()
+        if ensure_layer_coverage:
+            emitted = set(layer_first)
+            ordered = list(layer_first)
+            ordered.extend((layer, expert) for _, layer, _, expert in flat if (layer, expert) not in emitted)
+            return [(layer, [expert]) for layer, expert in ordered]
         return [(layer, [expert]) for _, layer, _, expert in flat]
     return plan
 
@@ -196,6 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--q5-layers", default="", help="optional comma/range list of Q5_0 down layers for cost-aware planning")
     ap.add_argument("--include-repeated-layers", action="store_true", help="include repeated layer traces instead of only the first row per layer")
     ap.add_argument("--missing-only", action="store_true", help="only emit experts marked missing with ! in the active trace; useful for incremental plan refinement")
+    ap.add_argument("--ensure-layer-coverage", action="store_true", help="for global/efficiency ordering, emit each traced layer's hottest expert before the remaining ranked entries")
     ap.add_argument("--order", choices=("layer", "global-work", "efficiency"), default="layer", help="emit layer-major groups, globally sort by work, or sort by work/estimated resident byte (default: layer)")
     ap.add_argument("--budget-mb", type=int, default=0, help="truncate the emitted plan to the prefix that fits this expert-cache budget")
     ap.add_argument("--summary", action="store_true", help="print budget/entry summary to stderr")
@@ -206,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     q8_layers = parse_layer_set(args.q8_layers)
     q5_layers = parse_layer_set(args.q5_layers)
     work = trace_work_map(args.log, q8_layers, q5_layers, args.include_repeated_layers, args.missing_only)
-    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only)
+    plan = extract_plan(args.log, args.top, q8_layers, q5_layers, args.include_repeated_layers, args.order, args.missing_only, args.ensure_layer_coverage)
     original_entries = len(flatten_plan(plan))
     original_work = plan_work(plan, work)
     used = 0
