@@ -52,7 +52,8 @@ python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 # cover plain stdout decode for translate/transcribe, standalone timestamp/VTT
 # for translate/transcribe, diarize-vtt output, and diarize-vtt with speaker
 # labels for translate/transcribe. K3/RISC-V int8 checks compare stdout,
-# standalone timestamp/VTT, and diarize-vtt VTT; on non-riscv hosts, stubs keep this a command/prompt smoke.
+# standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT;
+# on non-riscv hosts, stubs keep this a command/prompt smoke.
 make whisper-backend-compare
 make whisper-a100-podcast-compare
 # podcast target compares both stdout and timestamp/VTT on a 12s long-form window.

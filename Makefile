@@ -64,6 +64,7 @@ whisper-int8-compare:
 	$(PYTHON) scripts/whisper_a100_compare.py --backend int8 --audio testdata/jfk.wav --max-tokens 16
 	$(PYTHON) scripts/whisper_a100_compare.py --backend int8 --audio testdata/jfk.wav --max-tokens 8 --timestamps
 	$(PYTHON) scripts/whisper_a100_compare.py --backend int8 --audio testdata/jfk.wav --max-tokens 8 --diarize-vtt
+	$(PYTHON) scripts/whisper_a100_compare.py --backend int8 --audio testdata/jfk.wav --max-tokens 8 --diarize-vtt --speaker-model $(SPEAKER_SAFETENSORS)
 
 .PHONY: ideogram4gen-k3 ideogram4-k3-check
 ideogram4gen-k3:
