@@ -15,6 +15,7 @@ var (
 	fnQ4KGateUpGELU           CUfunction
 	fnQ4KGateUpGELUByWork     CUfunction
 	fnQ4KGateUpGELUByWorkPtrs CUfunction
+	fnQ4KGateUpByWorkPtrs     CUfunction
 )
 
 type GPUQ4KMatrix struct {
@@ -213,6 +214,21 @@ func (m *GPUQ4KMatrix) Free() {
 		m.Mins.Free()
 		m.Mins = nil
 	}
+}
+
+func GateUpQ4KByWorkPtrsToBuffers(gateBuf, upBuf, xBuf, workExperts *Buffer, workLen, intermediate int, table *GPUQ4KPointerTable) error {
+	if workLen <= 0 {
+		return nil
+	}
+	if table == nil || table.QPtrs == nil || table.ScalePtrs == nil || table.MinPtrs == nil || table.Count <= 0 || table.InDim <= 0 || table.OutDim < intermediate*2 || xBuf == nil || gateBuf == nil || upBuf == nil || workExperts == nil || xBuf.Ptr == 0 || gateBuf.Ptr == 0 || upBuf.Ptr == 0 || workExperts.Ptr == 0 || table.QPtrs.Ptr == 0 || table.ScalePtrs.Ptr == 0 || table.MinPtrs.Ptr == 0 || xBuf.Size < workLen*table.InDim*4 || gateBuf.Size < workLen*intermediate*4 || upBuf.Size < workLen*intermediate*4 || workExperts.Size < workLen*4 || fnQ4KGateUpByWorkPtrs == 0 {
+		return fmt.Errorf("invalid Q4_K gate/up by-work pointer-table buffers")
+	}
+	inDim := uint32(table.InDim)
+	inter := uint32(intermediate)
+	work := uint32(workLen)
+	active := uint32(table.Count)
+	args := []unsafe.Pointer{unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&workExperts.Ptr), unsafe.Pointer(&table.QPtrs.Ptr), unsafe.Pointer(&table.ScalePtrs.Ptr), unsafe.Pointer(&table.MinPtrs.Ptr), unsafe.Pointer(&gateBuf.Ptr), unsafe.Pointer(&upBuf.Ptr), unsafe.Pointer(&inDim), unsafe.Pointer(&inter), unsafe.Pointer(&work), unsafe.Pointer(&active)}
+	return LaunchKernel(fnQ4KGateUpByWorkPtrs, uint32(intermediate), uint32(workLen), 1, 256, 1, 1, 0, args...)
 }
 
 func GateUpGELUQ4KByWorkPtrsToBuffer(outBuf, xBuf, workExperts *Buffer, workLen, intermediate int, table *GPUQ4KPointerTable) error {

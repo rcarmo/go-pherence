@@ -2363,9 +2363,10 @@ func FreeGGUFGPUScratchBuffers() {
 	freeGPUBufferPtr(&ggufGPUFusedExpertScratch.residual)
 	freeGPUBufferPtr(&ggufGPUFusedExpertScratch.workInput)
 	freeGPUBufferPtr(&ggufGPUFusedExpertScratch.act)
+	freeGPUBufferPtr(&ggufGPUFusedExpertScratch.up)
 	freeGPUBufferPtr(&ggufGPUFusedExpertScratch.moeOut)
 	ggufGPUFusedExpertScratch.residualN, ggufGPUFusedExpertScratch.workN = 0, 0
-	ggufGPUFusedExpertScratch.actN, ggufGPUFusedExpertScratch.moeOutN = 0, 0
+	ggufGPUFusedExpertScratch.actN, ggufGPUFusedExpertScratch.upN, ggufGPUFusedExpertScratch.moeOutN = 0, 0, 0
 	ggufGPUFusedExpertScratch.Unlock()
 
 	residentGemmScratch.Lock()
@@ -2412,6 +2413,7 @@ func GGUFGPUScratchStats() (buffers int, bytes int64) {
 	count(ggufGPUFusedExpertScratch.residual)
 	count(ggufGPUFusedExpertScratch.workInput)
 	count(ggufGPUFusedExpertScratch.act)
+	count(ggufGPUFusedExpertScratch.up)
 	count(ggufGPUFusedExpertScratch.moeOut)
 	ggufGPUFusedExpertScratch.Unlock()
 	residentGemmScratch.Lock()
@@ -3247,14 +3249,16 @@ var ggufGPUFusedExpertScratch = struct {
 	residual  *gpu.Buffer
 	workInput *gpu.Buffer
 	act       *gpu.Buffer
+	up        *gpu.Buffer
 	moeOut    *gpu.Buffer
 	residualN int
 	workN     int
 	actN      int
+	upN       int
 	moeOutN   int
 }{}
 
-func ggufGPUFusedExpertScratchBuffers(positions, workLen, hidden, intermediate int) (residual, workInput, act, moeOut *gpu.Buffer, unlock func(), err error) {
+func ggufGPUFusedExpertScratchBuffers(positions, workLen, hidden, intermediate int) (residual, workInput, act, up, moeOut *gpu.Buffer, unlock func(), err error) {
 	ggufGPUFusedExpertScratch.Lock()
 	unlock = func() { ggufGPUFusedExpertScratch.Unlock() }
 	ensureFloat := func(cur **gpu.Buffer, curN *int, need int, label string) error {
@@ -3279,21 +3283,25 @@ func ggufGPUFusedExpertScratchBuffers(positions, workLen, hidden, intermediate i
 	}
 	if err := ensureFloat(&ggufGPUFusedExpertScratch.residual, &ggufGPUFusedExpertScratch.residualN, positions*hidden, "residual"); err != nil {
 		unlock()
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := ensureFloat(&ggufGPUFusedExpertScratch.workInput, &ggufGPUFusedExpertScratch.workN, workLen*hidden, "work_input"); err != nil {
 		unlock()
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := ensureFloat(&ggufGPUFusedExpertScratch.act, &ggufGPUFusedExpertScratch.actN, workLen*intermediate, "activation"); err != nil {
 		unlock()
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
+	}
+	if err := ensureFloat(&ggufGPUFusedExpertScratch.up, &ggufGPUFusedExpertScratch.upN, workLen*intermediate, "up"); err != nil {
+		unlock()
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := ensureFloat(&ggufGPUFusedExpertScratch.moeOut, &ggufGPUFusedExpertScratch.moeOutN, positions*hidden, "moe_out"); err != nil {
 		unlock()
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
-	return ggufGPUFusedExpertScratch.residual, ggufGPUFusedExpertScratch.workInput, ggufGPUFusedExpertScratch.act, ggufGPUFusedExpertScratch.moeOut, unlock, nil
+	return ggufGPUFusedExpertScratch.residual, ggufGPUFusedExpertScratch.workInput, ggufGPUFusedExpertScratch.act, ggufGPUFusedExpertScratch.up, ggufGPUFusedExpertScratch.moeOut, unlock, nil
 }
 
 func ggufGPUExpertScratchBuffers(nPos, hidden, intermediate int) (x, gu, act, up, down, pos, weights *gpu.Buffer, hostBatchIn []float32, hostPosIDs []uint32, hostWeights []float32, unlock func(), err error) {
@@ -3389,12 +3397,7 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 	if le.gateUp.QType != gguf.QuantQ4_K || le.down.QType != gguf.QuantQ8_0 {
 		return false, nil
 	}
-	if !diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
-		// The current fused Q4_K expert kernels use tanh-GELU approximation, but
-		// DiffusionGemma/llama.cpp uses exact erf GELU. Keep this path opt-in until
-		// an exact-GELU Q4 expert kernel exists.
-		return false, nil
-	}
+	allowTanhGELU := diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled()
 	activeQ4Ptrs, activeQ4PtrsOK, err := activeQ4KGateUpPointerTable(idx, op.Layer, groupedArrays.ActiveExperts)
 	if err != nil {
 		return false, err
@@ -3409,6 +3412,12 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 		defer cleanup()
 		activeQ4PtrsOK = true
 		activeQ4PtrsTransient = true
+	}
+	if !activeQ4PtrsOK && !allowTanhGELU {
+		// Exact-GELU Q4 expert execution currently requires the pointer-table path,
+		// because only that path has a dot-only gate/up kernel. Packed active-set
+		// kernels still fuse tanh-GELU and remain explicit opt-in only.
+		return false, nil
 	}
 	var activeQ4 *gpu.GPUQ4KMatrix
 	var activeQ4Transient bool
@@ -3438,7 +3447,7 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 	if positions <= 0 || len(normedRows) != positions*hidden || len(scratch.MoeOut) != positions*hidden {
 		return false, fmt.Errorf("invalid fused GGUF expert dimensions: normed=%d moe=%d hidden=%d", len(normedRows), len(scratch.MoeOut), hidden)
 	}
-	residualBuf, workInput, actBuf, moeOutBuf, unlockFusedScratch, err := ggufGPUFusedExpertScratchBuffers(positions, workLen, hidden, intermediate)
+	residualBuf, workInput, actBuf, upBuf, moeOutBuf, unlockFusedScratch, err := ggufGPUFusedExpertScratchBuffers(positions, workLen, hidden, intermediate)
 	if err != nil {
 		return false, err
 	}
@@ -3455,8 +3464,17 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 		} else {
 			ggufExpertDispatchCounters.q4PointerTable.Add(1)
 		}
-		if err := gpu.GateUpGELUQ4KByWorkPtrsToBuffer(actBuf, workInput, metadata.WorkActive, workLen, intermediate, activeQ4Ptrs); err != nil {
-			return false, err
+		if allowTanhGELU {
+			if err := gpu.GateUpGELUQ4KByWorkPtrsToBuffer(actBuf, workInput, metadata.WorkActive, workLen, intermediate, activeQ4Ptrs); err != nil {
+				return false, err
+			}
+		} else {
+			if err := gpu.GateUpQ4KByWorkPtrsToBuffers(actBuf, upBuf, workInput, metadata.WorkActive, workLen, intermediate, activeQ4Ptrs); err != nil {
+				return false, err
+			}
+			if err := f32GELUExactMulBuffer(actBuf, upBuf, workLen*intermediate); err != nil {
+				return false, err
+			}
 		}
 	} else {
 		if activeQ4Transient {

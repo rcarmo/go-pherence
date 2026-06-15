@@ -128,7 +128,6 @@ func TestLocalGGUFPartialGroupedGPUCPUExpertsMatchCPUSelected(t *testing.T) {
 	if !gpu.SgemmReady() {
 		t.Skip("CUDA not available")
 	}
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "1")
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_CACHE_MB", "1024")
 	ggufPath := filepath.Join("..", "..", "..", "llama.cpp", "models", "diffusiongemma-gguf", "diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
 	if _, err := os.Stat(ggufPath); err != nil {
@@ -712,7 +711,7 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		residualBuf, workInputBuf, actBuf, moeOutBuf, unlockStage, err := ggufGPUFusedExpertScratchBuffers(positions, len(kept.WorkPositions), idx.HiddenSize, idx.Intermediate)
+		residualBuf, workInputBuf, actBuf, _, moeOutBuf, unlockStage, err := ggufGPUFusedExpertScratchBuffers(positions, len(kept.WorkPositions), idx.HiddenSize, idx.Intermediate)
 		if err != nil {
 			return err
 		}

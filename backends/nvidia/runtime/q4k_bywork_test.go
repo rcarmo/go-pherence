@@ -190,6 +190,101 @@ func TestGateUpGELUQ4KByWorkPtrsToBuffer(t *testing.T) {
 	}
 }
 
+func TestGateUpQ4KByWorkPtrsToBuffers(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("CUDA not available")
+	}
+	inDim, inter, active := 256, 3, 2
+	raw := make([]byte, active*inter*2*144)
+	for r := 0; r < active*inter*2; r++ {
+		blk := raw[r*144 : (r+1)*144]
+		binary.LittleEndian.PutUint16(blk[0:2], half.F32ToF16(0.025+float32(r)*0.002))
+		binary.LittleEndian.PutUint16(blk[2:4], half.F32ToF16(0.006))
+		for i := 0; i < 12; i++ {
+			blk[4+i] = byte(1 + (i+r)%13)
+		}
+		for i := 0; i < 128; i++ {
+			blk[16+i] = byte((i*7 + r*3) & 0xff)
+		}
+	}
+	mats := make([]*GPUQ4KMatrix, active)
+	for a := 0; a < active; a++ {
+		m, err := UploadQ4KMatrixRows(raw[a*inter*2*144:(a+1)*inter*2*144], inDim, inter*2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer m.Free()
+		mats[a] = m
+	}
+	table, err := UploadQ4KPointerTable(mats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer table.Free()
+	workLen := 3
+	x := make([]float32, workLen*inDim)
+	for i := range x {
+		x[i] = float32((i%19)-9) * 0.017
+	}
+	xb, err := Malloc(len(x))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer xb.Free()
+	we, err := MallocBytes(workLen * 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer we.Free()
+	gateBuf, err := Malloc(workLen * inter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gateBuf.Free()
+	upBuf, err := Malloc(workLen * inter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upBuf.Free()
+	workExperts := []uint32{0, 1, 0}
+	if err := xb.Upload(x); err != nil {
+		t.Fatal(err)
+	}
+	if err := we.UploadUint32(workExperts); err != nil {
+		t.Fatal(err)
+	}
+	if err := GateUpQ4KByWorkPtrsToBuffers(gateBuf, upBuf, xb, we, workLen, inter, table); err != nil {
+		t.Fatal(err)
+	}
+	gotGate := make([]float32, workLen*inter)
+	gotUp := make([]float32, workLen*inter)
+	if err := gateBuf.Download(gotGate); err != nil {
+		t.Fatal(err)
+	}
+	if err := upBuf.Download(gotUp); err != nil {
+		t.Fatal(err)
+	}
+	for w := 0; w < workLen; w++ {
+		expert := int(workExperts[w])
+		xrow := x[w*inDim : (w+1)*inDim]
+		for r := 0; r < inter; r++ {
+			gateRow := raw[(expert*inter*2+r)*144 : (expert*inter*2+r+1)*144]
+			upRow := raw[(expert*inter*2+inter+r)*144 : (expert*inter*2+inter+r+1)*144]
+			gateDeq := dequantQ4KTest(gateRow, inDim)
+			upDeq := dequantQ4KTest(upRow, inDim)
+			var wantGate, wantUp float32
+			for i := range xrow {
+				wantGate += gateDeq[i] * xrow[i]
+				wantUp += upDeq[i] * xrow[i]
+			}
+			idx := w*inter + r
+			if math.Abs(float64(gotGate[idx]-wantGate)) > 1e-4 || math.Abs(float64(gotUp[idx]-wantUp)) > 1e-4 {
+				t.Fatalf("work=%d row=%d gate=%g/%g up=%g/%g", w, r, gotGate[idx], wantGate, gotUp[idx], wantUp)
+			}
+		}
+	}
+}
+
 func TestUploadQ4KMatrixRowsIntoReusesBuffers(t *testing.T) {
 	if !SgemmReady() {
 		t.Skip("CUDA not available")
