@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/rcarmo/go-pherence/cmd/image/internal/k3flags"
 	"image"
 	"image/color"
 	"image/png"
@@ -37,7 +38,7 @@ func main() {
 	flag.Parse()
 
 	applyGPUFlags(*gpu, *gpuStrict, *gpuFP8, *gpuFP8Cache, *gpuFP8SGEMM, *gpuResidency)
-	applyK3Flags(*k3, *k3Threads, *k3Prewarm)
+	k3flags.Apply(*k3, *k3Threads, *k3Prewarm)
 	if *timing {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_TIMING", "1")
 	}
@@ -149,18 +150,6 @@ func applyGPUFlags(gpu, strict, fp8, fp8Cache, fp8SGEMM bool, residency string) 
 	}
 	if residency != "" {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_RESIDENCY", residency)
-	}
-}
-
-func applyK3Flags(k3 bool, threads int, prewarm bool) {
-	if k3 {
-		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
-	}
-	if threads > 0 {
-		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3_THREADS", fmt.Sprintf("%d", threads))
-	}
-	if prewarm {
-		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3_PREWARM", "1")
 	}
 }
 

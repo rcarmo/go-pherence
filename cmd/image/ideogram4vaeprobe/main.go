@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/rcarmo/go-pherence/cmd/image/internal/k3flags"
 	"math/rand"
 	"os"
 	"time"
@@ -29,7 +30,7 @@ func main() {
 	if *gpu {
 		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_GPU_VAE", "1")
 	}
-	applyK3Flags(*k3, *k3Threads, *k3Prewarm)
+	k3flags.Apply(*k3, *k3Threads, *k3Prewarm)
 	pipe, err := ideogram4.LoadNativePipeline(*modelDir)
 	if err != nil {
 		fatal(err)
@@ -81,18 +82,6 @@ func main() {
 			after.Frees-before.Frees,
 			after.FreeBytes-before.FreeBytes,
 			after.Syncs-before.Syncs)
-	}
-}
-
-func applyK3Flags(k3 bool, threads int, prewarm bool) {
-	if k3 {
-		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3", "1")
-	}
-	if threads > 0 {
-		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3_THREADS", fmt.Sprintf("%d", threads))
-	}
-	if prewarm {
-		_ = os.Setenv("GO_PHERENCE_IDEOGRAM4_K3_PREWARM", "1")
 	}
 }
 
