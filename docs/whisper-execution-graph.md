@@ -48,8 +48,8 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 
 | Kernel family | Location | Default? | Notes |
 |---|---|---|---|
-| RVV/SIMD SGEMM, dot, norm | `backends/simd/runtime` | Yes where available | Core CPU path for encoder/decoder. |
-| IME int8 matmul | `backends/spacemit/ime2`, `backends/spacemit/k3engine/aipool` | Yes for K3 when `WHISPER_INT8=1`; command defaults vary by build/runtime | Native K3 high-throughput path. |
+| RVV/SIMD SGEMM, dot, norm | `backends/simd/runtime`, `backends/spacemit/rvv` | Yes where available | Core CPU path for encoder/decoder; RVV asm wrappers are riscv64-only with scalar non-riscv fallbacks so Whisper tests build on development hosts. |
+| IME int8 matmul | `backends/spacemit/ime2`, `backends/spacemit/k3engine/aipool` | Yes for K3 when `WHISPER_INT8=1`; command defaults vary by build/runtime | Native K3 high-throughput path; non-K3 builds keep safe disabled stubs for validation. |
 | A100 Q8 FFN | `models/whisper/a100_int8.go`, `backends/spacemit/k3engine/aipool` | Opt-in | Row-scale native-Q8 mode is default-candidate, not automatic. |
 | NVIDIA SGEMM / LM-head / GPU encoder | `backends/nvidia`, `models/whisper/gpu_encoder.go` | GPU-assisted when requested/available | Full decoder GPU residency remains not default. |
 | CUDA/PTX mel/conv/attention scaffolding | `backends/cuda/ptx` | No | Assets/scaffolding exist; fused production mel/decoder graph still pending. |

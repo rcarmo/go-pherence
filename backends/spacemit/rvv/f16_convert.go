@@ -1,3 +1,5 @@
+//go:build riscv64
+
 package rvv
 
 // f32ToF16RVV converts n float32 values to IEEE-754 fp16 bits using RVV/Zvfh.

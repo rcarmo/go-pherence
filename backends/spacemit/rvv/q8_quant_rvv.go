@@ -1,3 +1,5 @@
+//go:build riscv64
+
 package rvv
 
 var Q8QuantDivisor = float32(127.0)

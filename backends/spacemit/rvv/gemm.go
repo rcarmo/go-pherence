@@ -1,3 +1,5 @@
+//go:build riscv64
+
 // Package rvv hosts pure-Go (Go asm, no cgo) RVV int8 microkernels for the
 // SpaceMIT K3 X60 cores. The "NPU" is RVV; these kernels reimplement the EP's
 // spe_mmt4d_transb path. Vector instructions are WORD-encoded in the .s files.

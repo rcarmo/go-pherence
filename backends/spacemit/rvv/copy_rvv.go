@@ -1,3 +1,5 @@
+//go:build riscv64
+
 package rvv
 
 import "unsafe"
