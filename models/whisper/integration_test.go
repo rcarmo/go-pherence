@@ -1,7 +1,10 @@
 package whisper
 
 import (
+	"encoding/binary"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -29,6 +32,17 @@ func TestEndToEndPipelineShape(t *testing.T) {
 }
 
 // TestEndToEndTimestamps verifies timestamp decoding produces valid segments.
+func TestTranscribePromptWAVSmoke(t *testing.T) {
+	cfg := Tiny()
+	cfg.MaxDecoderLength = 2
+	enc, dec := buildZeroWeightModel(t, cfg)
+	w := &Whisper{Encoder: enc, Decoder: dec, Config: cfg}
+	path := writeTinyWAV(t, 16000)
+	if _, err := w.TranscribePrompt(path, LanguageTokens["en"], TokenTranslate); err != nil {
+		t.Fatalf("TranscribePrompt: %v", err)
+	}
+}
+
 func TestEndToEndTimestamps(t *testing.T) {
 	cfg := Tiny()
 	enc, dec := buildZeroWeightModel(t, cfg)
@@ -91,6 +105,35 @@ func TestSpecialTokenConstants(t *testing.T) {
 	if TokenTimestampBegin <= TokenNoTimestamps {
 		t.Fatal("timestamp begin should be after notimestamps")
 	}
+}
+
+func writeTinyWAV(t *testing.T, n int) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "tiny.wav")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	dataSize := n * 2
+	f.WriteString("RIFF")
+	_ = binary.Write(f, binary.LittleEndian, uint32(36+dataSize))
+	f.WriteString("WAVE")
+	f.WriteString("fmt ")
+	_ = binary.Write(f, binary.LittleEndian, uint32(16))
+	_ = binary.Write(f, binary.LittleEndian, uint16(1))
+	_ = binary.Write(f, binary.LittleEndian, uint16(1))
+	_ = binary.Write(f, binary.LittleEndian, uint32(16000))
+	_ = binary.Write(f, binary.LittleEndian, uint32(32000))
+	_ = binary.Write(f, binary.LittleEndian, uint16(2))
+	_ = binary.Write(f, binary.LittleEndian, uint16(16))
+	f.WriteString("data")
+	_ = binary.Write(f, binary.LittleEndian, uint32(dataSize))
+	for i := 0; i < n; i++ {
+		v := int16(12000 * math.Sin(2*math.Pi*440*float64(i)/16000))
+		_ = binary.Write(f, binary.LittleEndian, v)
+	}
+	return path
 }
 
 func buildZeroWeightModel(t *testing.T, cfg Config) (*Encoder, *Decoder) {
