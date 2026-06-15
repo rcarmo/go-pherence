@@ -2484,6 +2484,18 @@ func diffusionGemmaGGUFGPUExpertPrewarmReserveBytes() uint64 {
 	return uint64(n) * 1024 * 1024
 }
 
+func diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes() int64 {
+	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_CACHE_RESERVE_MB"))
+	if v == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return int64(n) * 1024 * 1024
+}
+
 func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggufGPUExpertWeights, bool, error) {
 	budget := diffusionGemmaGGUFGPUExpertCacheBytes()
 	if budget <= 0 || idx == nil || layer < 0 || layer >= idx.NumLayers || expert < 0 || expert >= idx.NumExperts {
@@ -3599,6 +3611,8 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 		maxLayers = idx.NumLayers
 	}
 	freeReserve := diffusionGemmaGGUFGPUExpertPrewarmReserveBytes()
+	cacheReserve := diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes()
+	cacheBudget := diffusionGemmaGGUFGPUExpertCacheBytes()
 	q4Only := diffusionGemmaGGUFGPUExpertPrewarmQ4OnlyEnabled()
 	for layer := 0; layer < maxLayers; layer++ {
 		layerComplete := true
@@ -3621,6 +3635,14 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 				}
 			}
 			if need > 0 {
+				if cacheReserve > 0 {
+					used, _ := activeExpertMatrixCacheUsageBytes()
+					prewarmLimit := cacheBudget - cacheReserve
+					if prewarmLimit <= 0 || used+need > prewarmLimit {
+						layerComplete = false
+						break
+					}
+				}
 				if freeReserve > 0 {
 					free, _ := gpu.MemInfo()
 					if free > 0 && (free <= freeReserve || uint64(need) > free-freeReserve) {

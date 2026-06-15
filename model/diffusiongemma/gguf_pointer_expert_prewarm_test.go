@@ -36,6 +36,21 @@ func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
 
 func resetGGUFExpertResidencyTestState() { FreeGGUFGPUExpertCaches() }
 
+func TestGGUFGPUExpertPrewarmCacheReserveBytes(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_CACHE_RESERVE_MB", "")
+	if got := diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes(); got != 0 {
+		t.Fatalf("empty cache reserve=%d, want 0", got)
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_CACHE_RESERVE_MB", "256")
+	if got := diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes(); got != 256*1024*1024 {
+		t.Fatalf("cache reserve=%d, want 256MiB", got)
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_CACHE_RESERVE_MB", "bad")
+	if got := diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes(); got != 0 {
+		t.Fatalf("invalid cache reserve=%d, want 0", got)
+	}
+}
+
 func TestPrewarmGGUFGPUPointerExpertCacheSynthetic(t *testing.T) {
 	if !gpu.SgemmReady() {
 		t.Skip("CUDA not available")
@@ -117,6 +132,27 @@ func TestActivePointerTableBudgetFailureDoesNotPolluteResidentCaches(t *testing.
 	used, _ := activeExpertMatrixCacheUsageBytes()
 	if used != 0 {
 		t.Fatalf("budget bytes after failed active pointer tables=%d, want 0", used)
+	}
+}
+
+func TestPrewarmGGUFGPUPointerExpertCacheHonorsCacheReserve(t *testing.T) {
+	if !gpu.SgemmReady() {
+		t.Skip("CUDA not available")
+	}
+	resetGGUFExpertResidencyTestState()
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_CACHE_MB", "1")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_RESERVE_MB", "0")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_CACHE_RESERVE_MB", "1")
+	idx := syntheticPointerExpertIndex(t)
+	layers, experts, bytes, err := PrewarmGGUFGPUPointerExpertCache(idx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if layers != 0 || experts != 0 || bytes != 0 {
+		t.Fatalf("cache-reserved prewarm layers=%d experts=%d bytes=%d, want zero", layers, experts, bytes)
+	}
+	if used, _ := activeExpertMatrixCacheUsageBytes(); used != 0 {
+		t.Fatalf("cache-reserved prewarm used bytes=%d, want 0", used)
 	}
 }
 
