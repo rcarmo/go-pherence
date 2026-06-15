@@ -1,19 +1,28 @@
 {
   "case": "gguf_hi_1x1",
-  "status": "mismatch_blocked",
+  "status": "partial_token_match_blocked",
   "purpose": "Track the smallest real-weight llama.cpp-vs-Go comparison until prompt templating and denoising/sampler semantics are aligned.",
   "llamacpp_fixture": "llamacpp_gguf_hi_1x1_reference.json",
-  "go_command": "/tmp/diffusiongemmarun-dg -model models/diffusiongemma-26B-A4B-it-FP8 -gguf-model /workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf -cpu-dispatcher -allow-slow-cpu -prompt hi -max-new 1 -canvas 256 -denoise-steps 1 -seed 1 -json -decode",
-  "go_prompt_ids": [2202],
-  "go_prompt_tokens": ["hi"],
-  "go_generated_ids": [236761],
-  "go_generated_tokens": ["."],
   "llamacpp_prompt": "hi",
+  "llamacpp_raw_prompt_ids": [2, 2202],
+  "llamacpp_templated_prompt": "<|turn>user\nhi<turn|>\n<|turn>model\n",
+  "llamacpp_templated_prompt_ids": [2, 105, 2364, 107, 2202, 106, 107, 105, 4368, 107],
   "llamacpp_decoded_response_contains": "Hello! How can I help you today?",
-  "known_differences": [
-    "llama.cpp -p hi applies its DiffusionGemma chat/template path and emits a thought/channel response; the Go comparison run used raw -prompt tokenization and generated a single '.' token.",
-    "llama.cpp entropy-bound generation reported 11 denoise steps for --diffusion-steps 1, while Go currently interprets -denoise-steps 1 as one denoiser iteration.",
-    "The local llama.cpp build does not include llama-tokenize, so exact llama.cpp prompt IDs for the templated prompt have not yet been captured."
+  "go_command": "/tmp/diffusiongemmarun-dg -model models/diffusiongemma-26B-A4B-it-FP8 -gguf-model /workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf -cpu-dispatcher -allow-slow-cpu -prompt-ids 2,105,2364,107,2202,106,107,105,4368,107 -max-new 1 -canvas 256 -seed 1 -json -decode",
+  "go_prompt_ids": [2, 105, 2364, 107, 2202, 106, 107, 105, 4368, 107],
+  "go_prompt_tokens": ["<bos><|turn>user\nhi<turn|>\n<|turn>model\n"],
+  "go_generated_ids": [100],
+  "go_generated_tokens": ["<|channel>"],
+  "go_canvas_prefix": [100, 45518, 107, 101, 9259, 236888, 2088, 740, 564, 1601, 611, 3124, 236881, 1, 1, 1],
+  "known_matches": [
+    "llama.cpp raw tokenization for prompt 'hi' is [2,2202] (BOS + token 2202).",
+    "llama.cpp templated prompt tokenization matches Go native template IDs exactly: [2,105,2364,107,2202,106,107,105,4368,107].",
+    "With exact templated prompt IDs and default denoise options, Go generates first token 100 '<|channel>', matching the start marker of the llama.cpp decoded response."
   ],
-  "next_required_action": "Capture exact llama.cpp templated prompt IDs and match entropy-bound denoising/sampler semantics before treating this as a pass/fail parity fixture."
+  "known_differences": [
+    "Full denoised text is not yet matched: llama.cpp emits a complete thought/channel response ending in 'Hello! How can I help you today?', while the current Go one-token fixture only records the first accepted token/canvas prefix.",
+    "llama.cpp entropy-bound generation reported 11 effective denoise steps for this case; Go JSON currently does not expose the effective step count/cut reason needed for a structural sampler comparison.",
+    "The remaining blocker is no longer prompt IDs; it is full entropy-bound sampler/canvas trimming parity and then full text/token comparison."
+  ],
+  "next_required_action": "Expose Go entropy-bound step/cut diagnostics and compare the full denoised canvas/token sequence against the llama.cpp fixture."
 }

@@ -42,33 +42,51 @@ func TestLlamaCppGGUFHi1x1ReferenceFixture(t *testing.T) {
 	}
 }
 
+func equalInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 	data, err := os.ReadFile("testdata/gguf_hi_1x1_parity_status.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var fixture struct {
-		Status                          string   `json:"status"`
-		GoPromptIDs                     []int    `json:"go_prompt_ids"`
-		GoGeneratedIDs                  []int    `json:"go_generated_ids"`
-		GoGeneratedTokens               []string `json:"go_generated_tokens"`
-		LlamaCppDecodedResponseContains string   `json:"llamacpp_decoded_response_contains"`
-		KnownDifferences                []string `json:"known_differences"`
-		NextRequiredAction              string   `json:"next_required_action"`
+		Status                     string   `json:"status"`
+		LlamaCppRawPromptIDs       []int    `json:"llamacpp_raw_prompt_ids"`
+		LlamaCppTemplatedPromptIDs []int    `json:"llamacpp_templated_prompt_ids"`
+		GoPromptIDs                []int    `json:"go_prompt_ids"`
+		GoGeneratedIDs             []int    `json:"go_generated_ids"`
+		GoGeneratedTokens          []string `json:"go_generated_tokens"`
+		KnownMatches               []string `json:"known_matches"`
+		KnownDifferences           []string `json:"known_differences"`
+		NextRequiredAction         string   `json:"next_required_action"`
 	}
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	if fixture.Status != "mismatch_blocked" {
-		t.Fatalf("status=%q want mismatch_blocked until prompt/sampler parity is aligned", fixture.Status)
+	if fixture.Status != "partial_token_match_blocked" {
+		t.Fatalf("status=%q want partial_token_match_blocked until full sampler/canvas parity is aligned", fixture.Status)
 	}
-	if len(fixture.GoPromptIDs) != 1 || fixture.GoPromptIDs[0] != 2202 {
-		t.Fatalf("Go prompt IDs=%v want [2202]", fixture.GoPromptIDs)
+	if !equalInts(fixture.LlamaCppRawPromptIDs, []int{2, 2202}) {
+		t.Fatalf("llama.cpp raw prompt IDs=%v want [2 2202]", fixture.LlamaCppRawPromptIDs)
 	}
-	if len(fixture.GoGeneratedIDs) != 1 || fixture.GoGeneratedIDs[0] != 236761 || len(fixture.GoGeneratedTokens) != 1 || fixture.GoGeneratedTokens[0] != "." {
-		t.Fatalf("Go generated fixture lost mismatch details: ids=%v tokens=%v", fixture.GoGeneratedIDs, fixture.GoGeneratedTokens)
+	wantPrompt := []int{2, 105, 2364, 107, 2202, 106, 107, 105, 4368, 107}
+	if !equalInts(fixture.LlamaCppTemplatedPromptIDs, wantPrompt) || !equalInts(fixture.GoPromptIDs, wantPrompt) {
+		t.Fatalf("templated prompt IDs diverged: llama.cpp=%v Go=%v want=%v", fixture.LlamaCppTemplatedPromptIDs, fixture.GoPromptIDs, wantPrompt)
 	}
-	if !strings.Contains(fixture.LlamaCppDecodedResponseContains, "Hello!") || len(fixture.KnownDifferences) < 3 || !strings.Contains(fixture.NextRequiredAction, "prompt IDs") {
+	if len(fixture.GoGeneratedIDs) != 1 || fixture.GoGeneratedIDs[0] != 100 || len(fixture.GoGeneratedTokens) != 1 || fixture.GoGeneratedTokens[0] != "<|channel>" {
+		t.Fatalf("Go generated fixture lost first-token match details: ids=%v tokens=%v", fixture.GoGeneratedIDs, fixture.GoGeneratedTokens)
+	}
+	if len(fixture.KnownMatches) < 3 || len(fixture.KnownDifferences) < 3 || !strings.Contains(fixture.NextRequiredAction, "full denoised canvas") {
 		t.Fatalf("parity blocker is underspecified: %+v", fixture)
 	}
 }
