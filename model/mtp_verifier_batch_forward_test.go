@@ -25,9 +25,25 @@ func TestRunMTPVerifierBatchForwardZeroLayer(t *testing.T) {
 	}
 }
 
-func TestRunMTPVerifierBatchForwardLayeredSequentialLowering(t *testing.T) {
+func TestMTPVerifierBatchLayerLoweringDefaultOff(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "")
+	if mtpVerifierBatchLayerLoweringEnabled() {
+		t.Fatal("batch layer lowering enabled by default")
+	}
 	m := newSingleLayerVerifierModel()
-	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 0)
+	plan := mustMTPVerifierPlan(t, m, 0, []int{0}, 0)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.mtpVerifierBatchLayerEligible(batch) {
+		t.Fatal("eligible batch layer path should be gated off by default")
+	}
+}
+
+func TestRunMTPVerifierBatchForwardLayeredSequentialFallback(t *testing.T) {
+	m := newSingleLayerVerifierModel()
+	plan := mustMTPVerifierPlan(t, m, 0, []int{0}, 0)
 	batch, err := NewMTPVerifierBatchInputs(m, plan)
 	if err != nil {
 		t.Fatal(err)
@@ -38,8 +54,23 @@ func TestRunMTPVerifierBatchForwardLayeredSequentialLowering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	seqK := make([][]float32, len(m.Layers))
+	seqV := make([][]float32, len(m.Layers))
+	seqHidden, err := m.runMTPVerifierBatchRowsSequential(batch, seqK, seqV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, seqLogits, _, err := m.FinishCPUDecodeBatch(seqHidden)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got.Logits) != len(plan.VerifierTokens) || len(got.FinalActivation) != m.Config.HiddenSize {
 		t.Fatalf("batch result logits=%d activation=%d", len(got.Logits), len(got.FinalActivation))
+	}
+	for i := range got.Logits {
+		if !sameFloat32s(got.Logits[i], seqLogits[i]) {
+			t.Fatalf("logits row %d batch=%v seq=%v", i, got.Logits[i], seqLogits[i])
+		}
 	}
 	kvDim, err := m.LayerKVDim(0)
 	if err != nil {
@@ -47,6 +78,9 @@ func TestRunMTPVerifierBatchForwardLayeredSequentialLowering(t *testing.T) {
 	}
 	if got, want := len(kvCacheK[0]), len(plan.VerifierTokens)*kvDim; got != want {
 		t.Fatalf("batch staged K len=%d want %d", got, want)
+	}
+	if !sameFloat32s(kvCacheK[0], seqK[0]) || !sameFloat32s(kvCacheV[0], seqV[0]) {
+		t.Fatalf("KV batch K/V=%v/%v seq=%v/%v", kvCacheK[0], kvCacheV[0], seqK[0], seqV[0])
 	}
 }
 
