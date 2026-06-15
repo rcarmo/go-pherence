@@ -48,18 +48,16 @@ python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
 # and transcribe.
 python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 
-# Optional A100 row-scale FFN default-candidate parity check; useful on K3/A100 hosts,
-# harmless on non-riscv hosts where A100 stubs keep the path disabled. Compares
-# plain stdout decode for translate/transcribe, standalone timestamp/VTT output for translate/transcribe, diarize-vtt output, and diarize-vtt with speaker labels for translate/transcribe.
-# Pass repeated --audio flags and optional --start/--duration to
-# scripts/whisper_a100_compare.py for broader/long-form clip sets.
-make whisper-a100-compare
+# Optional backend parity checks against the native SIMD oracle. A100 comparisons
+# cover plain stdout decode for translate/transcribe, standalone timestamp/VTT
+# for translate/transcribe, diarize-vtt output, and diarize-vtt with speaker
+# labels for translate/transcribe. K3/RISC-V int8 checks compare stdout and
+# timestamp/VTT; on non-riscv hosts, stubs keep this a command/prompt smoke.
+make whisper-backend-compare
 make whisper-a100-podcast-compare
 # podcast target compares both stdout and timestamp/VTT on a 12s long-form window.
-
-# Optional K3/RISC-V int8/IME parity check against the native SIMD oracle.
-# On non-riscv hosts, int8 stubs keep this a command/prompt smoke.
-make whisper-int8-compare
+# Pass repeated --audio flags and optional --start/--duration to
+# scripts/whisper_a100_compare.py for broader/long-form clip sets.
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
 GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4
