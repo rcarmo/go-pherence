@@ -55,7 +55,16 @@ go run ./cmd/audio/diarize-vtt \
   -output meeting.vtt
 ```
 
-Equivalent explicit form:
+Default standalone `whisper` usage for turbo English translation:
+
+```bash
+go run ./cmd/audio/whisper \
+  -audio meeting.m4a \
+  -task translate \
+  -language en
+```
+
+Equivalent explicit `diarize-vtt` form:
 
 ```bash
 go run ./cmd/audio/diarize-vtt \
