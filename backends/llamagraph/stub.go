@@ -4,8 +4,6 @@ package llamagraph
 
 import "fmt"
 
-const maxLayers = 0
-
 type Config struct {
 	NVocab, NEmbd, NHeads, NHeadsKV     int
 	NLayers, NFF, NCtx                  int
