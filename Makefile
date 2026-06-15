@@ -47,6 +47,7 @@ whisper-turbo-check:
 
 whisper-a100-compare:
 	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/jfk.wav --max-tokens 16
+	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/jfk.wav --max-tokens 16 --task transcribe --language en
 	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/jfk.wav --max-tokens 8 --timestamps
 	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/jfk.wav --max-tokens 8 --diarize-vtt
 	$(PYTHON) scripts/whisper_a100_compare.py --audio testdata/jfk.wav --max-tokens 8 --diarize-vtt --speaker-model $(SPEAKER_SAFETENSORS)
