@@ -28,6 +28,14 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/runtime ./backends/nvidia/ioctl
 # Vulkan wrapper phase without a Vulkan device
 GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 
+# Whisper large-v3-turbo execution graph (audio commands, mel, SIMD, prompt/timestamp/speculative scaffolds)
+GOTMPDIR=$PWD/.gotmp go test \
+  ./models/whisper \
+  ./cmd/audio/... \
+  ./loader/audio \
+  ./backends/simd/fft \
+  ./backends/simd/runtime
+
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
 GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4
 
