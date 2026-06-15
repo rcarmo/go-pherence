@@ -8,7 +8,7 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
-func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
+func syntheticPointerExpertIndexWithDownType(t *testing.T, downType gguf.QuantType) *GGUFExpertIndex {
 	t.Helper()
 	gateUp := &gguf.ExpertMatrices{Name: "synthetic.gate_up", QType: gguf.QuantQ4_K, InDim: 256, OutDim: 2, Experts: 2}
 	gateRowBytes, err := gateUp.RowBytes()
@@ -16,7 +16,7 @@ func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
 		t.Fatal(err)
 	}
 	gateUp.Raw = make([]byte, gateRowBytes*gateUp.OutDim*gateUp.Experts)
-	down := &gguf.ExpertMatrices{Name: "synthetic.down", QType: gguf.QuantQ8_0, InDim: 32, OutDim: 4, Experts: 2}
+	down := &gguf.ExpertMatrices{Name: "synthetic.down", QType: downType, InDim: 32, OutDim: 4, Experts: 2}
 	downRowBytes, err := down.RowBytes()
 	if err != nil {
 		t.Fatal(err)
@@ -32,6 +32,11 @@ func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
 			down:   down,
 		}},
 	}
+}
+
+func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
+	t.Helper()
+	return syntheticPointerExpertIndexWithDownType(t, gguf.QuantQ8_0)
 }
 
 func resetGGUFExpertResidencyTestState() { FreeGGUFGPUExpertCaches() }
@@ -161,6 +166,34 @@ func countSyncMapEntries(m *sync.Map) int {
 		return true
 	})
 	return count
+}
+
+func TestPrewarmGGUFGPUPointerExpertCachePlannedQ5Down(t *testing.T) {
+	if !gpu.SgemmReady() {
+		t.Skip("CUDA not available")
+	}
+	resetGGUFExpertResidencyTestState()
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_CACHE_MB", "8192")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_RESERVE_MB", "0")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN", "0:1,0")
+	idx := syntheticPointerExpertIndexWithDownType(t, gguf.QuantQ5_0)
+	layers, experts, bytes, err := PrewarmGGUFGPUPointerExpertCache(idx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if layers != 1 || experts != 2 || bytes <= 0 {
+		t.Fatalf("planned Q5 prewarm layers=%d experts=%d bytes=%d, want 1/2/>0", layers, experts, bytes)
+	}
+	if got := countSyncMapEntries(&q4KGateUpExpertCache); got != 2 {
+		t.Fatalf("Q4 resident entries=%d want 2", got)
+	}
+	if got := countSyncMapEntries(&q5DownExpertCache); got != 2 {
+		t.Fatalf("Q5 resident entries=%d want 2", got)
+	}
+	if table, ok, err := activeQ5DownPointerTable(idx, 0, []int{1, 0}); err != nil || !ok || table == nil {
+		t.Fatalf("Q5 active pointer table table=%v ok=%v err=%v", table, ok, err)
+	}
+	FreeGGUFGPUExpertCaches()
 }
 
 func TestPrewarmGGUFGPUPointerExpertCacheQ4OnlySkipsQ8(t *testing.T) {
