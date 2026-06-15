@@ -152,6 +152,32 @@ func (m *LlamaModel) validateMTPDrafterStepModel(d *Gemma4MTPDrafter, state MTPD
 	if (len(d.PreProjection) == 0 && d.PreProjectionMLX == nil) || (len(d.PostProjection) == 0 && d.PostProjectionMLX == nil) {
 		return fmt.Errorf("drafter projection weights are not loaded")
 	}
+	preWidth, ok := checkedProduct(2, d.BackboneHiddenSize)
+	if !ok {
+		return fmt.Errorf("drafter pre_projection width overflows for backbone=%d", d.BackboneHiddenSize)
+	}
+	if d.PreProjectionMLX == nil {
+		wantPre, ok := checkedProduct(d.Config.HiddenSize, preWidth)
+		if !ok {
+			return fmt.Errorf("drafter pre_projection size overflows hidden=%d backbone=%d", d.Config.HiddenSize, d.BackboneHiddenSize)
+		}
+		if len(d.PreProjection) < wantPre {
+			return fmt.Errorf("drafter pre_projection len=%d, want at least %d", len(d.PreProjection), wantPre)
+		}
+	} else if err := validateDrafterMLXWeight(-1, "pre_projection", d.PreProjectionMLX, d.Config.HiddenSize, preWidth); err != nil {
+		return err
+	}
+	if d.PostProjectionMLX == nil {
+		wantPost, ok := checkedProduct(d.BackboneHiddenSize, d.Config.HiddenSize)
+		if !ok {
+			return fmt.Errorf("drafter post_projection size overflows hidden=%d backbone=%d", d.Config.HiddenSize, d.BackboneHiddenSize)
+		}
+		if len(d.PostProjection) < wantPost {
+			return fmt.Errorf("drafter post_projection len=%d, want at least %d", len(d.PostProjection), wantPost)
+		}
+	} else if err := validateDrafterMLXWeight(-1, "post_projection", d.PostProjectionMLX, d.BackboneHiddenSize, d.Config.HiddenSize); err != nil {
+		return err
+	}
 	return m.validateMTPDrafterStepModelShell(d, state)
 }
 

@@ -112,6 +112,23 @@ func TestRunMTPDrafterStepContractValidation(t *testing.T) {
 	if _, err := m.RunMTPDrafterStep(&bad, state); err == nil {
 		t.Fatal("accepted missing projection weights")
 	}
+	bad = *d
+	bad.PreProjection = []float32{1}
+	if _, err := m.RunMTPDrafterStep(&bad, state); err == nil || !strings.Contains(err.Error(), "pre_projection len") {
+		t.Fatalf("RunMTPDrafterStep short pre_projection err=%v, want length rejection", err)
+	}
+	bad = *d
+	bad.PreProjection = nil
+	bad.PreProjectionMLX = &mlx.QuantWeight{OutDim: 1, InDim: 4, Bits: 4, GroupSize: 8, Groups: 1, Weight: []uint32{0}, Scales: []float32{1}, Biases: []float32{0}}
+	if _, err := m.RunMTPDrafterStep(&bad, state); err == nil || !strings.Contains(err.Error(), "pre_projection MLX dims") {
+		t.Fatalf("RunMTPDrafterStep malformed pre_projection MLX dims err=%v, want dimension rejection", err)
+	}
+	bad = *d
+	bad.PreProjection = nil
+	bad.PreProjectionMLX = &mlx.QuantWeight{OutDim: 2, InDim: 4, Bits: 4, GroupSize: 8, Groups: 1, Weight: []uint32{0, 0}, Scales: []float32{1, 1}, Biases: []float32{0, 0}}
+	if _, err := m.RunMTPDrafterStep(&bad, state); err == nil || !strings.Contains(err.Error(), "pre_projection MLX weight") {
+		t.Fatalf("RunMTPDrafterStep malformed pre_projection MLX layout err=%v, want structural rejection", err)
+	}
 }
 
 func TestMTPDrafterGQAAttentionUsesGemmaScale(t *testing.T) {
