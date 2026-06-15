@@ -11,6 +11,7 @@ import (
 // restoring staged verifier KV via Verifier.Commit*KV.
 type MTPSpeculativeStepResult struct {
 	Draft    MTPDrafterStepResult
+	Graph    MTPExecutionGraph
 	Plan     MTPVerifierPlan
 	Verifier MTPVerifierResult
 	Stats    MTPSpeculationStats
@@ -20,6 +21,7 @@ type MTPSpeculativeStepResult struct {
 // bounded multi-step drafter pass followed by one verifier pass.
 type MTPMultiDraftSpeculativeResult struct {
 	Drafts   MTPDrafterRunResult
+	Graph    MTPExecutionGraph
 	Plan     MTPVerifierPlan
 	Verifier MTPVerifierResult
 	Stats    MTPSpeculationStats
@@ -42,7 +44,7 @@ func (m *LlamaModel) RunMTPSpeculativeStep(d *Gemma4MTPDrafter, state MTPDrafter
 		NextActivation: append([]float32(nil), multi.Drafts.Activations[0]...),
 		NextState:      multi.Drafts.FinalState,
 	}
-	return MTPSpeculativeStepResult{Draft: draft, Plan: multi.Plan, Verifier: multi.Verifier, Stats: multi.Stats}, nil
+	return MTPSpeculativeStepResult{Draft: draft, Graph: multi.Graph, Plan: multi.Plan, Verifier: multi.Verifier, Stats: multi.Stats}, nil
 }
 
 // RunMTPMultiDraftSpeculativeStep runs one internal speculative iteration with
@@ -65,10 +67,11 @@ func (m *LlamaModel) RunMTPMultiDraftSpeculativeStep(d *Gemma4MTPDrafter, state 
 	if len(drafts.Tokens) != draftCount {
 		return MTPMultiDraftSpeculativeResult{}, fmt.Errorf("MTP drafter produced %d tokens, want %d", len(drafts.Tokens), draftCount)
 	}
-	plan, err := NewMTPVerifierPlan(m, state.PreviousToken, drafts.Tokens, startPos)
+	graph, err := NewMTPExecutionGraph(m, d, state, externalKV, drafts.Tokens, startPos)
 	if err != nil {
-		return MTPMultiDraftSpeculativeResult{}, fmt.Errorf("MTP verifier plan: %w", err)
+		return MTPMultiDraftSpeculativeResult{}, fmt.Errorf("MTP execution graph: %w", err)
 	}
+	plan := graph.Verifier
 	cp := kv.CheckpointFloatKV(kvCacheK, kvCacheV)
 	verifier, err := m.RunMTPVerifierForward(plan, kvCacheK, kvCacheV)
 	if err != nil {
@@ -83,5 +86,5 @@ func (m *LlamaModel) RunMTPMultiDraftSpeculativeStep(d *Gemma4MTPDrafter, state 
 		}
 		return MTPMultiDraftSpeculativeResult{}, fmt.Errorf("MTP stats: %w", err)
 	}
-	return MTPMultiDraftSpeculativeResult{Drafts: drafts, Plan: plan, Verifier: verifier, Stats: stats}, nil
+	return MTPMultiDraftSpeculativeResult{Drafts: drafts, Graph: graph, Plan: plan, Verifier: verifier, Stats: stats}, nil
 }

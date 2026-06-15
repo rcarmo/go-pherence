@@ -300,7 +300,7 @@ func validDrafterStepBackboneModel() *LlamaModel {
 
 func validProjectionOnlyDrafter() *Gemma4MTPDrafter {
 	return &Gemma4MTPDrafter{
-		Config:             LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 0},
+		Config:             LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 0, RMSNormEps: 1e-6},
 		BackboneHiddenSize: 2,
 		PreProjection: []float32{
 			1, 0, 0, 0,
