@@ -71,14 +71,25 @@ func (r *mt19937RNG) Intn(n int) int {
 	if n <= 0 || uint64(n) > (uint64(1)<<32) {
 		return 0
 	}
-	// Unbiased rejection sampling over the full 2^32 MT output domain.
 	bound := uint64(n)
-	domain := uint64(1) << 32
-	limit := domain - domain%bound
+	if bound&(bound-1) == 0 {
+		// libstdc++ std::uniform_int_distribution maps power-of-two ranges from
+		// the high bits (effectively floor(U*n/2^32)), not U % n. DiffusionGemma's
+		// vocab size is 262144, so matching this path is required for llama.cpp
+		// seed/canvas/renoise parity.
+		return int((uint64(r.Uint32()) * bound) >> 32)
+	}
+	// General unbiased multiply-high rejection path for the full 2^32 domain.
 	for {
 		x := uint64(r.Uint32())
-		if x < limit {
-			return int(x % bound)
+		m := x * bound
+		lo := uint32(m)
+		if uint64(lo) >= bound {
+			return int(m >> 32)
+		}
+		threshold := uint32(-uint32(bound)) % uint32(bound)
+		if lo >= threshold {
+			return int(m >> 32)
 		}
 	}
 }

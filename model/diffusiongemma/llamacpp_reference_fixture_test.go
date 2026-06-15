@@ -91,7 +91,7 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 	if !equalInts(fixture.GoGeneratedIDs, wantGenerated) || len(fixture.GoGeneratedTokens) != len(wantGenerated) || fixture.GoGeneratedTokens[0] != "<|channel>" {
 		t.Fatalf("Go generated fixture lost trimmed-output mismatch details: ids=%v tokens=%v", fixture.GoGeneratedIDs, fixture.GoGeneratedTokens)
 	}
-	if fixture.GoTrimCut != len(wantGenerated) || fixture.GoTrimReason != "eog" || fixture.GoObservedSteps != 3 || len(fixture.GoStepDiagnostics) != 3 || !fixture.GoStepDiagnostics[2].Stopped || fixture.GoStepDiagnostics[2].Held != 1 || !fixture.GoStepDiagnostics[2].Confident {
+	if fixture.GoTrimCut != len(wantGenerated) || fixture.GoTrimReason != "eog" || fixture.GoObservedSteps != 2 || len(fixture.GoStepDiagnostics) != 2 || !fixture.GoStepDiagnostics[1].Stopped || fixture.GoStepDiagnostics[1].Held != 1 || !fixture.GoStepDiagnostics[1].Confident {
 		t.Fatalf("Go trim/step diagnostics lost: cut=%d reason=%q observed=%d steps=%+v", fixture.GoTrimCut, fixture.GoTrimReason, fixture.GoObservedSteps, fixture.GoStepDiagnostics)
 	}
 	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 4 || !strings.Contains(fixture.NextRequiredAction, "raw-logit self-conditioning") {

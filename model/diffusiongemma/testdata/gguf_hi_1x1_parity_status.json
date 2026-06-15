@@ -1,7 +1,7 @@
 {
   "case": "gguf_hi_1x1",
   "status": "trimmed_output_mismatch_blocked",
-  "purpose": "Track the smallest real-weight llama.cpp-vs-Go comparison until prompt templating, canvas trimming, and denoising/sampler semantics are aligned.",
+  "purpose": "Track the smallest real-weight llama.cpp-vs-Go comparison until prompt templating, RNG, canvas trimming, and denoising/sampler semantics are aligned.",
   "llamacpp_fixture": "llamacpp_gguf_hi_1x1_reference.json",
   "llamacpp_prompt": "hi",
   "llamacpp_raw_prompt_ids": [2, 2202],
@@ -18,24 +18,24 @@
   "go_canvas_prefix": [100, 45518, 107, 101, 9259, 236888, 2088, 740, 564, 1601, 611, 3124, 236881, 1, 1, 1],
   "go_trim_cut": 13,
   "go_trim_reason": "eog",
-  "go_observed_steps": 3,
+  "go_observed_steps": 2,
   "go_step_diagnostics": [
-    {"step": 48, "temperature": 0.8, "accepted": 246, "mean_entropy": 0.01930582155425237, "held": 0, "confident": false, "stopped": false},
-    {"step": 47, "temperature": 0.7916666666666667, "accepted": 256, "mean_entropy": 0.0011494159150362078, "held": 0, "confident": true, "stopped": false},
-    {"step": 46, "temperature": 0.7833333333333334, "accepted": 256, "mean_entropy": 0.0013503857652484522, "held": 1, "confident": true, "stopped": true}
+    {"step": 48, "temperature": 0.8, "accepted": 243, "mean_entropy": 0.015065360578768922, "held": 0, "confident": false, "stopped": false},
+    {"step": 47, "temperature": 0.7916666666666667, "accepted": 256, "mean_entropy": 0.0017086062528736384, "held": 1, "confident": true, "stopped": true}
   ],
   "known_matches": [
     "llama.cpp raw tokenization for prompt 'hi' is [2,2202] (BOS + token 2202).",
     "llama.cpp templated prompt tokenization matches Go native template IDs exactly: [2,105,2364,107,2202,106,107,105,4368,107].",
     "Go now runs the same one-block 256-token canvas shape for this fixture (-max-new 256) and trims generated output at the first EOG like llama.cpp.",
     "The trimmed Go output starts with the same channel/thought marker and ends with the same user-facing greeting/question.",
-    "The sampler now reports llama.cpp-style held/confident stop diagnostics per step."
+    "The MT19937 uniform integer path now matches libstdc++ for the 262144-token DiffusionGemma vocab, including random canvas init and renoise draws.",
+    "The sampler reports llama.cpp-style held/confident stop diagnostics per step."
   ],
   "known_differences": [
     "Full denoised text is still not matched: llama.cpp emits a longer thought body before the final response, while Go emits an empty thought channel followed directly by the final greeting.",
-    "llama.cpp entropy-bound generation reported 11 effective denoise steps; Go stops after 3 steps for this exact prompt/canvas/seed with held=1 and confident=true.",
+    "llama.cpp entropy-bound generation reported 11 effective denoise steps; Go stops after 2 steps for this exact prompt/canvas/seed with held=1 and confident=true.",
     "An opt-in raw-logit self-conditioning seam now exists via GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS=1, matching llama.cpp's previous-raw-logits plus previous-temp-inv API, but the current all-F32 Go GGUF CPU path exceeds the host memory envelope on this real fixture when it retains a full previous [canvas][vocab] logits matrix.",
-    "The remaining blocker is entropy-bound sampler/renoise/self-conditioning parity over the full 256-token canvas, not prompt IDs or trimming."
+    "The remaining blocker is entropy-bound sampler/self-conditioning/logit numeric parity over the full 256-token canvas, not prompt IDs, RNG integer draws, or trimming."
   ],
-  "next_required_action": "Capture llama.cpp per-step accepted/mean-entropy/held diagnostics or run the raw-logit self-conditioning seam in a lower-memory path, then align sampler stop/renoise/self-conditioning semantics before treating this as a pass/fail parity fixture."
+  "next_required_action": "Capture llama.cpp per-step accepted/mean-entropy/held diagnostics or compare first-step logits/entropy against Go now that RNG draws match, then align sampler/self-conditioning semantics before treating this as a pass/fail parity fixture."
 }
