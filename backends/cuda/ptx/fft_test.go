@@ -17,20 +17,25 @@ func TestMelSpectrogramPTXContract(t *testing.T) {
 		".param .u32 hop_length",
 		".param .u32 num_mels",
 		".param .u32 num_bins",
-		"sh_re[512]",
-		"sh_im[512]",
+		"cos.approx.ftz.f32",
+		"sin.approx.ftz.f32",
+		"lg2.approx.ftz.f32",
+		"st.global.f32",
 	} {
 		if !strings.Contains(FFTPTX, want) {
 			t.Fatalf("FFTPTX missing %q", want)
 		}
 	}
+	if strings.Contains(FFTPTX, "TODO") {
+		t.Fatalf("FFTPTX still advertises TODO-only body")
+	}
 }
 
 func TestMelSpectrogramPTXTracksWhisperLogContract(t *testing.T) {
-	if !strings.Contains(FFTPTX, "log(max(mel[m], 1e-10))") {
-		t.Fatalf("FFTPTX should document mel log clamp contract")
+	if !strings.Contains(FFTPTX, "log10(max(mel[m], 1e-10))") {
+		t.Fatalf("FFTPTX should document mel log10 clamp contract")
 	}
-	if !strings.Contains(FFTPTX, "out[m * num_frames + frame]") {
-		t.Fatalf("FFTPTX should document mel-major output layout")
+	if !strings.Contains(FFTPTX, "mad.lo.u32 %out_idx, %m, %num_frames_u, %frame") {
+		t.Fatalf("FFTPTX should write mel-major output layout")
 	}
 }
