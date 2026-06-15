@@ -64,6 +64,21 @@ func TestGGUFGPUExpertPartialResidentEnabled(t *testing.T) {
 	}
 }
 
+func TestGGUFGPUExpertRawQ4Enabled(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4", "")
+	if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+		t.Fatal("raw Q4 expert path should default off")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4", "1")
+	if !diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+		t.Fatal("raw Q4 expert opt-in not honored")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4", "false")
+	if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
+		t.Fatal("raw Q4 expert disable not honored")
+	}
+}
+
 func TestGGUFGPUExpertAllowTanhGELUEnabled(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "")
 	if diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {

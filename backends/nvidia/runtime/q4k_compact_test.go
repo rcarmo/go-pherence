@@ -12,23 +12,27 @@ func TestGateUpQ4KByWorkPtrsCompactScaleParity(t *testing.T) {
 	if !SgemmReady() {
 		t.Skip("CUDA not available")
 	}
-	inDim, inter, active := 256, 3, 2
-	raw := make([]byte, active*inter*2*144)
+	inDim, inter, active := 512, 3, 2
+	blocks := inDim / 256
+	rowBytes := blocks * 144
+	raw := make([]byte, active*inter*2*rowBytes)
 	for r := 0; r < active*inter*2; r++ {
-		blk := raw[r*144 : (r+1)*144]
-		binary.LittleEndian.PutUint16(blk[0:2], half.F32ToF16(0.025+float32(r)*0.0025))
-		binary.LittleEndian.PutUint16(blk[2:4], half.F32ToF16(0.006+float32(r%3)*0.001))
-		for i := 0; i < 12; i++ {
-			blk[4+i] = byte(1 + (i+r)%13)
-		}
-		for i := 0; i < 128; i++ {
-			blk[16+i] = byte((i*7 + r*3) & 0xff)
+		for b := 0; b < blocks; b++ {
+			blk := raw[r*rowBytes+b*144 : r*rowBytes+(b+1)*144]
+			binary.LittleEndian.PutUint16(blk[0:2], half.F32ToF16(0.025+float32(r+b)*0.0025))
+			binary.LittleEndian.PutUint16(blk[2:4], half.F32ToF16(0.006+float32((r+b)%3)*0.001))
+			for i := 0; i < 12; i++ {
+				blk[4+i] = byte((0x40 + i*17 + r*29 + b*31) & 0xff)
+			}
+			for i := 0; i < 128; i++ {
+				blk[16+i] = byte((i*7 + r*3 + b*11) & 0xff)
+			}
 		}
 	}
 	mats := make([]*GPUQ4KMatrix, active)
 	matsRaw := make([]*GPUQ4KMatrixRaw, active)
 	for a := 0; a < active; a++ {
-		sub := raw[a*inter*2*144 : (a+1)*inter*2*144]
+		sub := raw[a*inter*2*rowBytes : (a+1)*inter*2*rowBytes]
 		m, err := UploadQ4KMatrixRows(sub, inDim, inter*2)
 		if err != nil {
 			t.Fatal(err)
