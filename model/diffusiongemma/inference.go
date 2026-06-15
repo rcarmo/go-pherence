@@ -93,6 +93,7 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 	if opts.Denoising != nil {
 		denoiseCfg = *opts.Denoising
 	}
+	eog := e.modelEOGTokenSet()
 	rng := NewMT19937RNG(opts.Seed)
 	generated := make([]int, 0, maxNew)
 	canvases := make([]CanvasResult, 0, (maxNew+canvasLength-1)/canvasLength)
@@ -114,8 +115,11 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 		if err != nil {
 			return InferenceResult{}, err
 		}
+		trimCut, trimReason := trimCanvasLikeLlama(canvas.Canvas, eog)
+		canvas.TrimCut = trimCut
+		canvas.TrimReason = trimReason
 		remaining := maxNew - len(generated)
-		take := len(canvas.Canvas)
+		take := trimCut
 		if take > remaining {
 			take = remaining
 		}
@@ -129,9 +133,53 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 				TokensSoFar: len(generated),
 			})
 		}
-		if take == 0 {
+		if take == 0 || trimCut < len(canvas.Canvas) {
 			break
 		}
 	}
 	return InferenceResult{Generated: generated, Canvases: canvases}, nil
+}
+
+func (e *Engine) modelEOGTokenSet() map[int]bool {
+	out := map[int]bool{}
+	if e == nil || e.Model == nil {
+		return out
+	}
+	if e.Model.GenerationDefaults != nil {
+		for _, id := range e.Model.GenerationDefaults.EOSTokenID {
+			if id >= 0 {
+				out[id] = true
+			}
+		}
+	}
+	if e.Model.Tokenizer != nil {
+		specials := e.Model.Tokenizer.SpecialTokenIDs(e.Model.Processor)
+		if specials.EOS >= 0 {
+			out[specials.EOS] = true
+		}
+	}
+	return out
+}
+
+func trimCanvasLikeLlama(canvas []int, eog map[int]bool) (int, string) {
+	cut := len(canvas)
+	for i, token := range canvas {
+		if eog[token] {
+			return i, "eog"
+		}
+	}
+	for i := 0; i+1 < cut; i++ {
+		loop := false
+		for stride := 1; stride <= 2 && !loop; stride++ {
+			reps := 0
+			for j := i; j+stride < len(canvas) && canvas[j] == canvas[j+stride]; j += stride {
+				reps++
+			}
+			loop = reps >= 6
+		}
+		if loop {
+			return i, "repetition"
+		}
+	}
+	return cut, ""
 }

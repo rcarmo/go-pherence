@@ -54,9 +54,11 @@ type CanvasStep struct {
 
 // CanvasResult is the output of a single block-diffusion canvas generation.
 type CanvasResult struct {
-	Canvas []int               `json:"canvas"`
-	Steps  []CanvasStep        `json:"steps"`
-	State  BlockDiffusionState `json:"state"`
+	Canvas     []int               `json:"canvas"`
+	Steps      []CanvasStep        `json:"steps"`
+	State      BlockDiffusionState `json:"state"`
+	TrimCut    int                 `json:"trim_cut"`
+	TrimReason string              `json:"trim_reason,omitempty"`
 }
 
 // GenerateCanvas runs the reference block-diffusion loop around an abstract
@@ -173,5 +175,5 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 			break
 		}
 	}
-	return CanvasResult{Canvas: outputCanvas, Steps: steps, State: state}, nil
+	return CanvasResult{Canvas: outputCanvas, Steps: steps, State: state, TrimCut: len(outputCanvas)}, nil
 }
