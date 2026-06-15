@@ -16,6 +16,7 @@ var (
 	fnQ4KGateUpGELUByWork     CUfunction
 	fnQ4KGateUpGELUByWorkPtrs CUfunction
 	fnQ4KGateUpByWorkPtrs     CUfunction
+	fnQ4KGateUpByWorkPtrsRaw  CUfunction
 )
 
 type GPUQ4KMatrix struct {
@@ -24,6 +25,19 @@ type GPUQ4KMatrix struct {
 	Mins   *Buffer // [outDim, inDim/256, 8]
 	InDim  int
 	OutDim int
+}
+
+type GPUQ4KMatrixRaw struct {
+	Raw    *Buffer // raw Q4_K row blocks [outDim, inDim/256, 144]
+	InDim  int
+	OutDim int
+}
+
+type GPUQ4KPointerTableRaw struct {
+	RawPtrs *Buffer // uint64 device pointers, one per active expert
+	InDim   int
+	OutDim  int
+	Count   int
 }
 
 type GPUQ4KPointerTable struct {
@@ -84,6 +98,36 @@ func UploadQ4KPointerTable(mats []*GPUQ4KMatrix) (*GPUQ4KPointerTable, error) {
 	return &GPUQ4KPointerTable{QPtrs: qBuf, ScalePtrs: sBuf, MinPtrs: mBuf, InDim: inDim, OutDim: outDim, Count: len(mats)}, nil
 }
 
+func UploadQ4KPointerTableRaw(mats []*GPUQ4KMatrixRaw) (*GPUQ4KPointerTableRaw, error) {
+	if len(mats) == 0 {
+		return nil, fmt.Errorf("empty Q4_K raw pointer table")
+	}
+	inDim, outDim := mats[0].InDim, mats[0].OutDim
+	rPtrs := make([]byte, len(mats)*8)
+	for i, m := range mats {
+		if m == nil || m.Raw == nil || m.Raw.Ptr == 0 || m.InDim != inDim || m.OutDim != outDim {
+			return nil, fmt.Errorf("invalid Q4_K raw matrix %d for pointer table", i)
+		}
+		binary.LittleEndian.PutUint64(rPtrs[i*8:(i+1)*8], uint64(m.Raw.Ptr))
+	}
+	rBuf, err := MallocBytes(len(rPtrs))
+	if err != nil {
+		return nil, err
+	}
+	if err := rBuf.UploadBytes(rPtrs); err != nil {
+		rBuf.Free()
+		return nil, err
+	}
+	return &GPUQ4KPointerTableRaw{RawPtrs: rBuf, InDim: inDim, OutDim: outDim, Count: len(mats)}, nil
+}
+
+func (t *GPUQ4KPointerTableRaw) Free() {
+	if t != nil && t.RawPtrs != nil {
+		t.RawPtrs.Free()
+		t.RawPtrs = nil
+	}
+}
+
 func (t *GPUQ4KPointerTable) Free() {
 	if t == nil {
 		return
@@ -138,6 +182,33 @@ func unpackQ4KMatrixRows(raw []byte, inDim, outDim int) ([]byte, []float32, []fl
 		}
 	}
 	return q, scales, mins, nil
+}
+
+func UploadQ4KMatrixRowsRaw(raw []byte, inDim, outDim int) (*GPUQ4KMatrixRaw, error) {
+	if inDim <= 0 || outDim <= 0 || inDim%256 != 0 {
+		return nil, fmt.Errorf("invalid Q4_K raw dims in=%d out=%d", inDim, outDim)
+	}
+	blocks := inDim / 256
+	needRaw, ok := checked.MulInt(blocks*144, outDim)
+	if !ok || len(raw) < needRaw {
+		return nil, fmt.Errorf("invalid Q4_K raw len=%d need=%d", len(raw), needRaw)
+	}
+	buf, err := MallocBytes(needRaw)
+	if err != nil {
+		return nil, err
+	}
+	if err := buf.UploadBytes(raw[:needRaw]); err != nil {
+		buf.Free()
+		return nil, err
+	}
+	return &GPUQ4KMatrixRaw{Raw: buf, InDim: inDim, OutDim: outDim}, nil
+}
+
+func (m *GPUQ4KMatrixRaw) Free() {
+	if m != nil && m.Raw != nil {
+		m.Raw.Free()
+		m.Raw = nil
+	}
 }
 
 func UploadQ4KMatrixRows(raw []byte, inDim, outDim int) (*GPUQ4KMatrix, error) {
@@ -214,6 +285,21 @@ func (m *GPUQ4KMatrix) Free() {
 		m.Mins.Free()
 		m.Mins = nil
 	}
+}
+
+func GateUpQ4KByWorkPtrsRawToBuffers(gateBuf, upBuf, xBuf, workExperts *Buffer, workLen, intermediate int, table *GPUQ4KPointerTableRaw) error {
+	if workLen <= 0 {
+		return nil
+	}
+	if table == nil || table.RawPtrs == nil || table.Count <= 0 || table.InDim <= 0 || table.OutDim < intermediate*2 || xBuf == nil || gateBuf == nil || upBuf == nil || workExperts == nil || xBuf.Ptr == 0 || gateBuf.Ptr == 0 || upBuf.Ptr == 0 || workExperts.Ptr == 0 || table.RawPtrs.Ptr == 0 || xBuf.Size < workLen*table.InDim*4 || gateBuf.Size < workLen*intermediate*4 || upBuf.Size < workLen*intermediate*4 || workExperts.Size < workLen*4 || fnQ4KGateUpByWorkPtrsRaw == 0 {
+		return fmt.Errorf("invalid Q4_K raw gate/up by-work pointer-table buffers")
+	}
+	inDim := uint32(table.InDim)
+	inter := uint32(intermediate)
+	work := uint32(workLen)
+	active := uint32(table.Count)
+	args := []unsafe.Pointer{unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&workExperts.Ptr), unsafe.Pointer(&table.RawPtrs.Ptr), unsafe.Pointer(&gateBuf.Ptr), unsafe.Pointer(&upBuf.Ptr), unsafe.Pointer(&inDim), unsafe.Pointer(&inter), unsafe.Pointer(&work), unsafe.Pointer(&active)}
+	return LaunchKernel(fnQ4KGateUpByWorkPtrsRaw, uint32(intermediate), uint32(workLen), 1, 256, 1, 1, 0, args...)
 }
 
 func GateUpQ4KByWorkPtrsToBuffers(gateBuf, upBuf, xBuf, workExperts *Buffer, workLen, intermediate int, table *GPUQ4KPointerTable) error {
