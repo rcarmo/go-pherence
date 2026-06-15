@@ -133,6 +133,74 @@ func TestRunMTPVerifierBatchForwardLayeredExperimentalSlidingWindowMatchesSequen
 	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
 }
 
+func TestRunMTPVerifierBatchForwardLayeredExperimentalGemma4MixedAttentionMatchesSequential(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
+	identity2 := []float32{1, 0, 0, 1}
+	identity4 := []float32{
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
+	dense := func(data []float32, shape ...int) *tensor.Tensor {
+		return tensor.FromFloat32(append([]float32(nil), data...), shape)
+	}
+	m := &LlamaModel{
+		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 3, HiddenSize: 4, NumLayers: 2, NumHeads: 1, NumKVHeads: 1, NumGlobalKVHeads: 1, HeadDim: 2, GlobalHeadDim: 4, Intermediate: 4, RMSNormEps: 1e-6, HiddenAct: "gelu_pytorch_tanh", LayerTypes: []string{"sliding_attention", "full_attention"}, SlidingWindow: 2},
+		EmbedTokens: tensor.FromFloat32([]float32{
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1, 0,
+		}, []int{3, 4}),
+		Norm:   tensor.Ones([]int{4}),
+		LMHead: tensor.FromFloat32([]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0}, []int{3, 4}),
+		Layers: []LlamaLayer{
+			{
+				InputNorm: tensor.Ones([]int{4}), PostNorm: tensor.Ones([]int{4}), PostFFNNorm: tensor.Ones([]int{4}), LayerScalar: 1, HasKV: true,
+				QW: dense([]float32{1, 0, 0, 0, 0, 1, 0, 0}, 4, 2), KW: dense([]float32{1, 0, 0, 0, 0, 1, 0, 0}, 4, 2), VW: dense([]float32{1, 0, 0, 0, 0, 1, 0, 0}, 4, 2), OW: dense([]float32{1, 0, 0, 0, 0, 1, 0, 0}, 2, 4),
+				GateW: dense(identity4, 4, 4), UpW: dense(identity4, 4, 4), DownW: dense(identity4, 4, 4), QNorm: tensor.Ones([]int{2}), KNorm: tensor.Ones([]int{2}),
+			},
+			{
+				InputNorm: tensor.Ones([]int{4}), PostNorm: tensor.Ones([]int{4}), PostFFNNorm: tensor.Ones([]int{4}), LayerScalar: 1, HasKV: true,
+				QW: dense(identity4, 4, 4), KW: dense(identity4, 4, 4), VW: dense(identity4, 4, 4), OW: dense(identity4, 4, 4), GateW: dense(identity4, 4, 4), UpW: dense(identity4, 4, 4), DownW: dense(identity4, 4, 4), QNorm: tensor.Ones([]int{4}), KNorm: tensor.Ones([]int{4}),
+			},
+		},
+	}
+	m.RopeFreqsSWA = nil
+	m.RopeFreqsFull = nil
+	m.RopeFreqs = nil
+	_ = identity2
+	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 2)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.mtpVerifierBatchLayerEligible(batch) {
+		t.Fatal("mixed Gemma4 verifier batch layer should be eligible when gated on")
+	}
+	initialK0 := []float32{1, 0, 0, 1}
+	initialV0 := []float32{0, 1, 1, 0}
+	initialK1 := []float32{1, 0, 0, 1, 1, 1, 0, 0}
+	initialV1 := []float32{0, 1, 1, 0, 0, 0, 1, 1}
+	kvCacheK := [][]float32{append([]float32(nil), initialK0...), append([]float32(nil), initialK1...)}
+	kvCacheV := [][]float32{append([]float32(nil), initialV0...), append([]float32(nil), initialV1...)}
+	got, err := m.RunMTPVerifierBatchForward(batch, kvCacheK, kvCacheV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seqK := [][]float32{append([]float32(nil), initialK0...), append([]float32(nil), initialK1...)}
+	seqV := [][]float32{append([]float32(nil), initialV0...), append([]float32(nil), initialV1...)}
+	seqHidden, err := m.runMTPVerifierBatchRowsSequential(batch, seqK, seqV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, seqLogits, _, err := m.FinishCPUDecodeBatch(seqHidden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMTPVerifierBatchMatchesSequential(t, m, plan, got, kvCacheK, kvCacheV, seqLogits, seqK, seqV)
+}
+
 func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan MTPVerifierPlan, got MTPVerifierResult, kvCacheK, kvCacheV [][]float32, seqLogits [][]float32, seqK, seqV [][]float32) {
 	t.Helper()
 	if len(got.Logits) != len(plan.VerifierTokens) || len(got.FinalActivation) != m.Config.HiddenSize {
@@ -143,16 +211,24 @@ func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan M
 			t.Fatalf("logits row %d batch=%v seq=%v", i, got.Logits[i], seqLogits[i])
 		}
 	}
-	kvDim, err := m.LayerKVDim(0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	wantKVTokens := plan.StartPos + len(plan.VerifierTokens)
-	if got, want := len(kvCacheK[0]), wantKVTokens*kvDim; got != want {
-		t.Fatalf("batch staged K len=%d want %d", got, want)
-	}
-	if !sameFloat32s(kvCacheK[0], seqK[0]) || !sameFloat32s(kvCacheV[0], seqV[0]) {
-		t.Fatalf("KV batch K/V=%v/%v seq=%v/%v", kvCacheK[0], kvCacheV[0], seqK[0], seqV[0])
+	for l := range m.Layers {
+		kvDim, err := m.LayerKVDim(l)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if kvDim == 0 {
+			if len(kvCacheK[l]) != 0 || len(kvCacheV[l]) != 0 || len(seqK[l]) != 0 || len(seqV[l]) != 0 {
+				t.Fatalf("shared/non-KV layer %d has KV batch=%v/%v seq=%v/%v", l, kvCacheK[l], kvCacheV[l], seqK[l], seqV[l])
+			}
+			continue
+		}
+		if got, want := len(kvCacheK[l]), wantKVTokens*kvDim; got != want {
+			t.Fatalf("layer %d batch staged K len=%d want %d", l, got, want)
+		}
+		if !sameFloat32s(kvCacheK[l], seqK[l]) || !sameFloat32s(kvCacheV[l], seqV[l]) {
+			t.Fatalf("layer %d KV batch K/V=%v/%v seq=%v/%v", l, kvCacheK[l], kvCacheV[l], seqK[l], seqV[l])
+		}
 	}
 }
 
