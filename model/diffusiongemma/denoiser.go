@@ -133,7 +133,7 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 		d.EncoderKV = kv
 		d.EncoderPromptIDs = append(d.EncoderPromptIDs[:0], in.PromptIDs...)
 		d.EncoderPromptLen = len(in.PromptIDs)
-		log.Printf("encoder: %d tokens → GPU KV in %.1fs", len(in.PromptIDs), time.Since(t0).Seconds())
+		log.Printf("encoder: %d tokens → prompt KV in %.1fs", len(in.PromptIDs), time.Since(t0).Seconds())
 	}
 	encoderSeqLen := 0
 	if len(d.EncoderKV) > 0 {
