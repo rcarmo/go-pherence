@@ -57,6 +57,18 @@ func NewMTPVerifierBatchScratchPlan(m *LlamaModel, batch MTPVerifierBatchInputs)
 		if err != nil {
 			return MTPVerifierBatchScratchPlan{}, err
 		}
+		if kvDim == 0 && !layer.HasKV {
+			if layer.KVSourceLayer < 0 || layer.KVSourceLayer >= m.Config.NumLayers {
+				return MTPVerifierBatchScratchPlan{}, fmt.Errorf("shared-KV verifier scratch layer %d source %d out of range", l, layer.KVSourceLayer)
+			}
+			kvDim, err = m.LayerKVDim(layer.KVSourceLayer)
+			if err != nil {
+				return MTPVerifierBatchScratchPlan{}, err
+			}
+			if kvDim == 0 {
+				return MTPVerifierBatchScratchPlan{}, fmt.Errorf("shared-KV verifier scratch layer %d source %d does not append KV", l, layer.KVSourceLayer)
+			}
+		}
 		inter := m.layerInterFor(layer)
 		if inter < 0 {
 			return MTPVerifierBatchScratchPlan{}, fmt.Errorf("invalid verifier scratch intermediate layer=%d intermediate=%d", l, inter)

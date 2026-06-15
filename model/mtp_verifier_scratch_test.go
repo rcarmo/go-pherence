@@ -24,6 +24,29 @@ func TestMTPVerifierBatchScratchPlan(t *testing.T) {
 	}
 }
 
+func TestMTPVerifierBatchScratchPlanSharedKVUsesSourceDim(t *testing.T) {
+	m := newSingleLayerVerifierModel()
+	shared := m.Layers[0]
+	shared.HasKV = false
+	shared.KVSourceLayer = 0
+	shared.KW = nil
+	shared.VW = nil
+	m.Config.NumLayers = 2
+	m.Layers = append(m.Layers, shared)
+	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 0)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(batch.Scratch.Layers) != 2 {
+		t.Fatalf("scratch layers=%d", len(batch.Scratch.Layers))
+	}
+	lp := batch.Scratch.Layers[1]
+	if lp.KVDim != 2 || lp.HasKV || !lp.SharedKV || batch.Scratch.MaxKVDim != 2 {
+		t.Fatalf("shared-KV scratch=%+v plan=%+v", lp, batch.Scratch)
+	}
+}
+
 func TestMTPVerifierBatchScratchPlanWithPLI(t *testing.T) {
 	m := newSingleLayerVerifierModel()
 	m.Config.ModelType = "gemma4_text"

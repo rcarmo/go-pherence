@@ -34,7 +34,7 @@ func TestMTPVerifierBatchInputsCarriesAttentionPlan(t *testing.T) {
 	m.Config.NumLayers = 1
 	m.Config.SlidingWindow = 2
 	m.Config.LayerTypes = []string{"sliding_attention"}
-	m.Layers = []LlamaLayer{{}}
+	m.Layers = []LlamaLayer{{HasKV: true}}
 	plan := mustMTPVerifierPlan(t, m, 1, []int{2}, 2)
 	batch, err := NewMTPVerifierBatchInputs(m, plan)
 	if err != nil {
