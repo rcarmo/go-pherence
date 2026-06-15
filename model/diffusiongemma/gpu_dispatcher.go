@@ -16,6 +16,7 @@ import (
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"math"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -2043,6 +2044,57 @@ func shouldSkipDoomedGGUFGPUExpertAttempt(idx *GGUFExpertIndex, layer int) bool 
 	return limit <= 0 || used >= limit
 }
 
+func traceGGUFActiveExpertSet(idx *GGUFExpertIndex, layer int, groupedArrays SelectedExpertGroupedArrays) {
+	topN := diffusionGemmaGGUFGPUExpertActiveTraceTop()
+	if topN <= 0 || idx == nil || len(groupedArrays.ActiveExperts) == 0 || len(groupedArrays.Offsets) != len(groupedArrays.ActiveExperts)+1 {
+		return
+	}
+	perExpert, err := q4KGateUpExpertDeviceBytes(idx, layer)
+	if err != nil || perExpert <= 0 {
+		return
+	}
+	index := ggufExpertIndexCacheID(idx)
+	type expertTrace struct {
+		id      int
+		work    int
+		missing bool
+	}
+	items := make([]expertTrace, 0, len(groupedArrays.ActiveExperts))
+	missingExperts := 0
+	missingBytes := int64(0)
+	for i, expert := range groupedArrays.ActiveExperts {
+		if expert < 0 || expert >= idx.NumExperts {
+			continue
+		}
+		work := groupedArrays.Offsets[i+1] - groupedArrays.Offsets[i]
+		missing := false
+		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+			missing = true
+			missingExperts++
+			missingBytes += perExpert
+		}
+		items = append(items, expertTrace{id: expert, work: work, missing: missing})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].work == items[j].work {
+			return items[i].id < items[j].id
+		}
+		return items[i].work > items[j].work
+	})
+	if topN > len(items) {
+		topN = len(items)
+	}
+	parts := make([]string, 0, topN)
+	for _, item := range items[:topN] {
+		flag := ""
+		if item.missing {
+			flag = "!"
+		}
+		parts = append(parts, fmt.Sprintf("%d:%d%s", item.id, item.work, flag))
+	}
+	log.Printf("gguf_expert_active_trace: layer=%d active=%d work=%d missing_q4=%d missing_q4_bytes=%.1fMiB top=%s", layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions), missingExperts, float64(missingBytes)/(1024*1024), strings.Join(parts, ","))
+}
+
 func shouldSkipDoomedGGUFActiveExpertSet(idx *GGUFExpertIndex, layer int, active []int, workItems int) bool {
 	missingExperts, missingBytes, exceeds := ggufActiveExpertSetQ4MissingStats(idx, layer, active)
 	recordGGUFActiveExpertSetTelemetry(idx, layer, active, workItems, missingExperts, missingBytes, exceeds)
@@ -2572,6 +2624,21 @@ func diffusionGemmaGGUFGPUExpertTransientPointerEnabled() bool {
 func diffusionGemmaGGUFGPUExpertSkipDoomedAttemptsEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_SKIP_DOOMED")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func diffusionGemmaGGUFGPUExpertActiveTraceTop() int {
+	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP"))
+	if v == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	if n > 32 {
+		return 32
+	}
+	return n
 }
 
 func diffusionGemmaGGUFGPUExpertPrewarmQ4OnlyEnabled() bool {
@@ -3604,6 +3671,7 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 	if err := groupedArrays.Validate(); err != nil {
 		return false, nil, err
 	}
+	traceGGUFActiveExpertSet(idx, op.Layer, groupedArrays)
 	if shouldSkipDoomedGGUFActiveExpertSet(idx, op.Layer, groupedArrays.ActiveExperts, len(groupedArrays.WorkPositions)) {
 		recordQ4BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
 		return false, normedRows, nil

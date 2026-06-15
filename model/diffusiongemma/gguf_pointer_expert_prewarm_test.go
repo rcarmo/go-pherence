@@ -36,6 +36,25 @@ func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
 
 func resetGGUFExpertResidencyTestState() { FreeGGUFGPUExpertCaches() }
 
+func TestGGUFGPUExpertActiveTraceTop(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP", "")
+	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 0 {
+		t.Fatalf("empty active trace top=%d, want 0", got)
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP", "4")
+	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 4 {
+		t.Fatalf("active trace top=%d, want 4", got)
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP", "64")
+	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 32 {
+		t.Fatalf("active trace top cap=%d, want 32", got)
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ACTIVE_TRACE_TOP", "bad")
+	if got := diffusionGemmaGGUFGPUExpertActiveTraceTop(); got != 0 {
+		t.Fatalf("invalid active trace top=%d, want 0", got)
+	}
+}
+
 func TestGGUFGPUExpertPrewarmCacheReserveBytes(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_CACHE_RESERVE_MB", "")
 	if got := diffusionGemmaGGUFGPUExpertPrewarmCacheReserveBytes(); got != 0 {
