@@ -85,7 +85,7 @@ func MelSpectrogramFused(output, samples, window []float32, filters []float32, n
 			if energy < 1e-10 {
 				energy = 1e-10
 			}
-			output[m*numFrames+frame] = float32(math.Log(energy))
+			output[m*numFrames+frame] = float32(math.Log10(energy))
 		}
 	}
 }

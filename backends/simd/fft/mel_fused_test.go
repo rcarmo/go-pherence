@@ -7,6 +7,22 @@ import (
 	"testing"
 )
 
+func TestMelSpectrogramFusedUsesLog10(t *testing.T) {
+	samples := []float32{2}
+	window := []float32{1}
+	filters := []float32{1}
+	output := make([]float32, 1)
+	MelSpectrogramFused(output, samples, window, filters, 1, 1, 1, 1, 1, 1)
+	want := float32(math.Log10(4))
+	if math.Abs(float64(output[0]-want)) > 1e-6 {
+		t.Fatalf("fused mel log=%f want log10 power=%f", output[0], want)
+	}
+	MelSpectrogramSIMD(output, samples, window, filters, 1, 1, 1, 1, 1, 1)
+	if math.Abs(float64(output[0]-want)) > 1e-6 {
+		t.Fatalf("simd mel log=%f want log10 power=%f", output[0], want)
+	}
+}
+
 func TestMelSpectrogramFused(t *testing.T) {
 	// 1 second of 1kHz tone at 16kHz
 	sampleRate := 16000
