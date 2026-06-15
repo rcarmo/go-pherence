@@ -73,6 +73,7 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	valid := MTPGraphGenerationResult{
 		Output:            []int{10, 1, 2, 3},
+		VocabSize:         11,
 		Stats:             MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
 		Steps:             []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
 		StepSummaries:     []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 3}, VerifierTokens: []int{9, 1, 3}, VerifierOutputTokens: []int{1, 2, 3}, VerifierPositions: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
@@ -83,6 +84,16 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatalf("Validate valid: %v", err)
 	}
 	bad := valid
+	bad.VocabSize = 3
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted output token outside vocab")
+	}
+	bad = valid
+	bad.StepSummaries[0].VerifierOutputTokens = []int{1, 11, 3}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted summary token outside vocab")
+	}
+	bad = valid
 	bad.GraphOutputTokens = 1
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted wrong graph output total")

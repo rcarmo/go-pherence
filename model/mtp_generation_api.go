@@ -10,6 +10,7 @@ type MTPGraphGenerationOptions struct {
 
 type MTPGraphGenerationResult struct {
 	Output                     []int
+	VocabSize                  int
 	Stats                      MTPSpeculationStats
 	FinalState                 MTPDrafterState
 	Steps                      []MTPKVCommitPlan
@@ -40,6 +41,12 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if r.GraphOutputTokens < 0 || r.GreedyTailTokens < 0 {
 		return fmt.Errorf("MTP graph generation negative output accounting graph=%d greedy=%d", r.GraphOutputTokens, r.GreedyTailTokens)
 	}
+	if r.VocabSize < 0 {
+		return fmt.Errorf("MTP graph generation vocab size=%d out of range", r.VocabSize)
+	}
+	if err := validateMTPGraphSummaryTokens(-1, "output", r.Output, r.VocabSize); err != nil {
+		return err
+	}
 	if len(r.StepSummaries) != len(r.Steps) {
 		return fmt.Errorf("MTP graph step summaries=%d, commit steps=%d", len(r.StepSummaries), len(r.Steps))
 	}
@@ -54,19 +61,19 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		graphCount += len(step.OutputTokens)
 		graphTokens = append(graphTokens, step.OutputTokens...)
 		summary := r.StepSummaries[i]
-		if summary.InputToken < 0 {
+		if summary.InputToken < 0 || (r.VocabSize > 0 && summary.InputToken >= r.VocabSize) {
 			return fmt.Errorf("MTP graph summary %d input token=%d out of range", i, summary.InputToken)
 		}
-		if err := validateMTPGraphSummaryTokens(i, "drafted", summary.DraftedTokens); err != nil {
+		if err := validateMTPGraphSummaryTokens(i, "drafted", summary.DraftedTokens, r.VocabSize); err != nil {
 			return err
 		}
-		if err := validateMTPGraphSummaryTokens(i, "verifier", summary.VerifierTokens); err != nil {
+		if err := validateMTPGraphSummaryTokens(i, "verifier", summary.VerifierTokens, r.VocabSize); err != nil {
 			return err
 		}
-		if err := validateMTPGraphSummaryTokens(i, "verifier output", summary.VerifierOutputTokens); err != nil {
+		if err := validateMTPGraphSummaryTokens(i, "verifier output", summary.VerifierOutputTokens, r.VocabSize); err != nil {
 			return err
 		}
-		if err := validateMTPGraphSummaryTokens(i, "output", summary.OutputTokens); err != nil {
+		if err := validateMTPGraphSummaryTokens(i, "output", summary.OutputTokens, r.VocabSize); err != nil {
 			return err
 		}
 		if !mtpSameInts(summary.Positions, step.Positions) || !mtpSameInts(summary.OutputTokens, step.OutputTokens) {
@@ -262,7 +269,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 		}
 	}
 	caps := Gemma4MTPGraphCapabilities()
-	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), Stats: stats, FinalState: state, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
+	result := MTPGraphGenerationResult{Output: append([]int(nil), decode.Output...), VocabSize: m.Config.VocabSize, Stats: stats, FinalState: state, Steps: commits, StepSummaries: summaries, GraphOutputTokens: graphOutputTokens, GreedyTailTokens: greedyTailTokens, Capabilities: caps, MissingForPublicGeneration: caps.MissingForPublicGeneration()}
 	if err := result.Validate(len(ctx.Tokens)); err != nil {
 		return MTPGraphGenerationResult{}, err
 	}
@@ -292,9 +299,9 @@ func newMTPGraphGenerationStepSummary(step MTPGraphDecodeStepResult) MTPGraphGen
 	}
 }
 
-func validateMTPGraphSummaryTokens(step int, label string, tokens []int) error {
+func validateMTPGraphSummaryTokens(step int, label string, tokens []int, vocab int) error {
 	for i, tok := range tokens {
-		if tok < 0 {
+		if tok < 0 || (vocab > 0 && tok >= vocab) {
 			return fmt.Errorf("MTP graph summary %d %s token %d=%d out of range", step, label, i, tok)
 		}
 	}
