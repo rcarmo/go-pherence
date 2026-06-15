@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 A100_ENV = {
     "WHISPER_A100_FFN_FUSED": "1",
@@ -21,13 +22,20 @@ A100_ENV = {
 }
 
 
-def run_case(cmd: list[str], env: dict[str, str], timeout: int) -> dict:
+def run_case(cmd: list[str], env: dict[str, str], timeout: int, output: Path | None = None) -> dict:
+    if output is not None and output.exists():
+        output.unlink()
     proc = subprocess.run(cmd, text=True, capture_output=True, env=env, timeout=timeout)
+    file_text = ""
+    if output is not None and output.exists():
+        file_text = output.read_text(encoding="utf-8").strip()
     return {
         "cmd": cmd,
         "returncode": proc.returncode,
         "stdout": proc.stdout.strip(),
         "stderr": proc.stderr,
+        "output": str(output) if output is not None else "",
+        "output_text": file_text,
     }
 
 
@@ -39,6 +47,8 @@ def main() -> int:
     ap.add_argument("--task", default="translate", choices=("translate", "transcribe"))
     ap.add_argument("--language", default="en")
     ap.add_argument("--max-tokens", default="16")
+    ap.add_argument("--timestamps", action="store_true", help="Compare timestamp/VTT output instead of stdout")
+    ap.add_argument("--output-dir", default="/workspace/tmp")
     ap.add_argument("--timeout", type=int, default=300)
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
@@ -60,12 +70,26 @@ def main() -> int:
         "-max-tokens",
         str(args.max_tokens),
     ]
-    env = os.environ.copy()
-    baseline = run_case(base_cmd, env, args.timeout)
-    a100_env = env | A100_ENV
-    a100 = run_case(base_cmd, a100_env, args.timeout)
+    baseline_output = None
+    a100_output = None
+    compare_field = "stdout"
+    if args.timestamps:
+        out_dir = Path(args.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        baseline_output = out_dir / "whisper_a100_compare_baseline.vtt"
+        a100_output = out_dir / "whisper_a100_compare_a100.vtt"
+        base_cmd.extend(["-timestamps", "-output", str(baseline_output)])
+        compare_field = "output_text"
 
-    ok = baseline["returncode"] == 0 and a100["returncode"] == 0 and baseline["stdout"] == a100["stdout"]
+    env = os.environ.copy()
+    baseline = run_case(base_cmd, env, args.timeout, baseline_output)
+    a100_cmd = list(base_cmd)
+    if args.timestamps and a100_output is not None:
+        a100_cmd[-1] = str(a100_output)
+    a100_env = env | A100_ENV
+    a100 = run_case(a100_cmd, a100_env, args.timeout, a100_output)
+
+    ok = baseline["returncode"] == 0 and a100["returncode"] == 0 and baseline[compare_field] == a100[compare_field]
     report = {
         "ok": ok,
         "audio": args.audio,
@@ -74,6 +98,8 @@ def main() -> int:
         "task": args.task,
         "language": args.language,
         "max_tokens": args.max_tokens,
+        "timestamps": args.timestamps,
+        "compare_field": compare_field,
         "a100_env": A100_ENV,
         "baseline": baseline,
         "a100": a100,
@@ -81,7 +107,7 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, indent=2))
     else:
-        print("OK" if ok else "FAIL", f"baseline={baseline['stdout']!r}", f"a100={a100['stdout']!r}")
+        print("OK" if ok else "FAIL", f"baseline={baseline[compare_field]!r}", f"a100={a100[compare_field]!r}")
         if baseline["returncode"] != 0:
             print("baseline stderr:", baseline["stderr"], file=sys.stderr)
         if a100["returncode"] != 0:

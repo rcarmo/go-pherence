@@ -42,7 +42,8 @@ python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
 python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 
 # Optional A100 row-scale FFN default-candidate parity check; useful on K3/A100 hosts,
-# harmless on non-riscv hosts where A100 stubs keep the path disabled.
+# harmless on non-riscv hosts where A100 stubs keep the path disabled. Compares
+# both plain stdout decode and timestamp/VTT output.
 make whisper-a100-compare
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
