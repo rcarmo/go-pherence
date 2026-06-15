@@ -15,7 +15,7 @@ so the grouping is purely organisational.
 | `qwen/` | Qwen model runners & MTP experiments | `qwen36run`, `qwen3ttsinspect`, `qwenmtpmeta`, `qwenmtpsmoke`, `qwenmtpsynth` |
 | `audio/` | Speech transcription / diarization | `whisper`, `diarize-vtt`, `speakercheck` |
 | `image/` | Image / 3D generation & inspection | `ideogram4gen`, `ideogram4inspect`, `ideogram4vaesmoke`, `zimageinspect`, `hy3dinspect` |
-| `models/` | GGUF / model format inspection & coverage | `ggufinspect`, `ggufsmoke`, `lfm2inspect`, `modelcoverage`, `embcheck`, `shapecheck`, `gemma4mtpsmoke` |
+| `models/` | GGUF / model format inspection & coverage | `ggufinspect`, `ggufsmoke`, `lfm2inspect`, `modelcoverage`, `embcheck`, `shapecheck`, `gemma4mtpsmoke`, `gemma4mtpparity` |
 | _(top level)_ | misc | `tinydemo` |
 
 ## Kernel migration — done
