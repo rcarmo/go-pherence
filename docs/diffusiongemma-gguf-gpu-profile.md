@@ -169,6 +169,33 @@ reports `partial kept/dropped work=12908/9172`. The exact-GELU host boundary is
 measurable but not dominant in the 768MiB profile; the remaining bottleneck is
 how many selected experts still land in the dropped CPU subset.
 
+### Raw compact Q4_K smoke
+
+With raw compact Q4_K enabled and partial-resident execution on:
+
+```bash
+export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1
+export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT=1
+```
+
+The bounded 92-token `canvas=1` smoke preserved token parity and proved the raw
+pointer path was used:
+
+```text
+prewarmed GGUF pointer expert cache layers=1 experts=180 bytes=0.75 GiB
+generated=[144] canvases=1
+q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=0/2/0/0/0/28
+q8(ptr/cache/transient_ptr/transient_pack/budget)=2/0/0/0/0
+partial(calls kept/dropped experts work)=1 20/40 345/391
+```
+
+The important structural change versus the default F32-derived Q4 residency is
+that the same 768MiB expert cache now admits more resident Q4_K gate/up experts
+before down-projection residency becomes the next limiter. This smoke is not yet
+the best all-layer planned profile; it is the first bounded end-to-end proof that
+raw compact Q4_K preserves `[144]` and enters the exact-GELU partial-resident GPU
+path (`raw_ptr=2`).
+
 Budget scaling with the same exact partial-resident profile shows the structural
 trend clearly even when wall-clock varies with host load:
 
