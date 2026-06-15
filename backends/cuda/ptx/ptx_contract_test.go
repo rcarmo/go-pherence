@@ -31,7 +31,12 @@ func TestConv1DPTXContracts(t *testing.T) {
 		".param .u64 in_ptr",
 		".param .u64 wt_ptr",
 		".param .u64 bias_ptr",
+		"fma.rn.f32",
+		"st.global.f32",
 	)
+	if strings.Contains(Conv1DK3S2PTX, "TODO") {
+		t.Fatalf("Conv1DK3S2PTX still advertises TODO-only body")
+	}
 }
 
 func TestAttentionPTXContracts(t *testing.T) {
