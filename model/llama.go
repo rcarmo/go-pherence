@@ -910,8 +910,11 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	// Reusable per-token / per-layer scratch buffers. Each is sized for the
 	// widest layer and sliced to the prefix a layer needs; reusing them avoids
 	// re-allocating ~10 buffers per layer per generated token.
-	scQDim := numHeads * maxHeadDim
-	scKVDim := cfg.NumKVHeads * maxHeadDim
+	scQDim, okScQ := checkedProduct(numHeads, maxHeadDim)
+	scKVDim, okScKV := checkedProduct(cfg.NumKVHeads, maxHeadDim)
+	if !okScQ || !okScKV {
+		return output
+	}
 	scInter := inter
 	for l := 0; l < cfg.NumLayers; l++ {
 		lhd, err := m.LayerHeadDim(l)
@@ -919,10 +922,15 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			return output
 		}
 		lkvh := gemmacfg.LayerKVHeads(cfg, l)
-		if q := numHeads * lhd; q > scQDim {
+		q, okQ := checkedProduct(numHeads, lhd)
+		kv, okKV := checkedProduct(lkvh, lhd)
+		if !okQ || !okKV {
+			return output
+		}
+		if q > scQDim {
 			scQDim = q
 		}
-		if kv := lkvh * lhd; kv > scKVDim {
+		if kv > scKVDim {
 			scKVDim = kv
 		}
 		if li := m.layerInterFor(&m.Layers[l]); li > scInter {

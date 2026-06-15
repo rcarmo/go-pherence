@@ -163,6 +163,7 @@ func TestGenerateRejectsMalformedConfigBeforeAllocation(t *testing.T) {
 		{"bad dims", &LlamaModel{Config: LlamaConfig{NumLayers: 0, HiddenSize: 0, NumHeads: 1, NumKVHeads: 1, HeadDim: 1}}, 1},
 		{"kv dim overflow", &LlamaModel{Config: LlamaConfig{NumLayers: 1, HiddenSize: 1, NumHeads: 1, NumKVHeads: maxInt/2 + 1, HeadDim: 3, Intermediate: 1}, Layers: []LlamaLayer{{HasKV: true}}}, 1},
 		{"attention scratch dim overflow", &LlamaModel{Config: LlamaConfig{NumLayers: 1, HiddenSize: 1, NumHeads: maxInt/2 + 1, NumKVHeads: 1, HeadDim: 3, Intermediate: 1}, Layers: []LlamaLayer{{HasKV: true}}}, 1},
+		{"shared kv scratch dim overflow", &LlamaModel{Config: LlamaConfig{NumLayers: 1, HiddenSize: 1, NumHeads: 1, NumKVHeads: maxInt/2 + 1, HeadDim: 3, Intermediate: 1}, Layers: []LlamaLayer{{HasKV: false, KVSourceLayer: 0}}}, 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
