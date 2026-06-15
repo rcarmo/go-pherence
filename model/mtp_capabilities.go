@@ -21,6 +21,8 @@ type MTPGraphCapabilities struct {
 	GraphKVCommit                bool `json:"graph_kv_commit"`
 	AdaptiveDraftPolicy          bool `json:"adaptive_draft_policy"`
 	PromptContextAPI             bool `json:"prompt_context_api"`
+	ExternalKVRefresh            bool `json:"external_kv_refresh"`
+	ExactTokenBudget             bool `json:"exact_token_budget"`
 	ExperimentalGenerationWiring bool `json:"experimental_generation_wiring"`
 	PublicGenerationWiring       bool `json:"public_generation_wiring"`
 	ReadyForPublicGeneration     bool `json:"ready_for_public_generation"`
@@ -45,6 +47,8 @@ func Gemma4MTPGraphCapabilities() MTPGraphCapabilities {
 		GraphKVCommit:                true,
 		AdaptiveDraftPolicy:          true,
 		PromptContextAPI:             true,
+		ExternalKVRefresh:            true,
+		ExactTokenBudget:             true,
 		ExperimentalGenerationWiring: true,
 		PublicGenerationWiring:       false,
 	}

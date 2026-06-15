@@ -5,7 +5,7 @@ import "testing"
 func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "")
 	caps := Gemma4MTPGraphCapabilities()
-	if !caps.DrafterLoader || !caps.HiddenStateDrafterLoop || !caps.VerifierBatchInputs || !caps.VerifierAttentionPlan || !caps.VerifierTailBatch || !caps.VerifierBatchQATProjection || !caps.VerifierBatchPLI || !caps.GraphKVCommit || !caps.AdaptiveDraftPolicy || !caps.PromptContextAPI || !caps.ExperimentalGenerationWiring {
+	if !caps.DrafterLoader || !caps.HiddenStateDrafterLoop || !caps.VerifierBatchInputs || !caps.VerifierAttentionPlan || !caps.VerifierTailBatch || !caps.VerifierBatchQATProjection || !caps.VerifierBatchPLI || !caps.GraphKVCommit || !caps.AdaptiveDraftPolicy || !caps.PromptContextAPI || !caps.ExternalKVRefresh || !caps.ExactTokenBudget || !caps.ExperimentalGenerationWiring {
 		t.Fatalf("missing implemented capability: %+v", caps)
 	}
 	if caps.VerifierBatchLayers || !caps.VerifierBatchLayersGated {
