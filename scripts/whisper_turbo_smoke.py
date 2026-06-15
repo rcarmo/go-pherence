@@ -61,6 +61,12 @@ def main() -> int:
             "expect_file_contains": "WEBVTT",
         },
         {
+            "name": "standalone_timestamp_transcribe_vtt",
+            "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-timestamps", "-task", "transcribe", "-language", "en", "-max-tokens", "8", "-output", str(out_dir / "whisper_turbo_transcribe_smoke.vtt")],
+            "expect_file": str(out_dir / "whisper_turbo_transcribe_smoke.vtt"),
+            "expect_file_contains": "WEBVTT",
+        },
+        {
             "name": "standalone_timestamp_diarize_vtt",
             "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-timestamps", "-diarize", "-speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "-task", "translate", "-language", "en", "-max-tokens", "8", "-output", str(out_dir / "whisper_turbo_diarize_smoke.vtt")],
             "expect_file": str(out_dir / "whisper_turbo_diarize_smoke.vtt"),

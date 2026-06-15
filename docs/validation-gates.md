@@ -43,14 +43,14 @@ GOTMPDIR=$PWD/.gotmp go test \
   ./backends/cuda/ptx
 python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
 # whisper_turbo_smoke covers standalone translate/transcribe, standalone chunked
-# no-timestamp, standalone timestamp VTT, standalone timestamp+diarize VTT,
+# no-timestamp, standalone timestamp VTT for translate/transcribe, standalone timestamp+diarize VTT,
 # diarize-vtt translate/transcribe, and diarize-vtt+speaker for both translate
 # and transcribe.
 python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 
 # Optional A100 row-scale FFN default-candidate parity check; useful on K3/A100 hosts,
 # harmless on non-riscv hosts where A100 stubs keep the path disabled. Compares
-# plain stdout decode for translate/transcribe, standalone timestamp/VTT output, diarize-vtt output, and diarize-vtt with speaker labels for translate/transcribe.
+# plain stdout decode for translate/transcribe, standalone timestamp/VTT output for translate/transcribe, diarize-vtt output, and diarize-vtt with speaker labels for translate/transcribe.
 # Pass repeated --audio flags and optional --start/--duration to
 # scripts/whisper_a100_compare.py for broader/long-form clip sets.
 make whisper-a100-compare
