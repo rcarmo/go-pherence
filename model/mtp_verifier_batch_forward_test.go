@@ -156,6 +156,24 @@ func assertMTPVerifierBatchMatchesSequential(t *testing.T, m *LlamaModel, plan M
 	}
 }
 
+func TestRunMTPVerifierBatchLayersRejectsOverflowingKVRange(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
+	m := newSingleLayerVerifierModel()
+	plan := mustMTPVerifierPlan(t, m, 0, []int{0}, 0)
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	maxInt := int(^uint(0) >> 1)
+	batch.Attention.Layers[0].KVStart[0] = maxInt/2 + 1
+	batch.Attention.Layers[0].KVEndExclusive[0] = maxInt/2 + 2
+	kvCacheK := make([][]float32, len(m.Layers))
+	kvCacheV := make([][]float32, len(m.Layers))
+	if _, ok, err := m.runMTPVerifierBatchLayers(batch, kvCacheK, kvCacheV); !ok || err == nil {
+		t.Fatalf("runMTPVerifierBatchLayers ok=%v err=%v, want checked range rejection", ok, err)
+	}
+}
+
 func TestRunMTPVerifierBatchForwardLayeredExperimentalPLIMatchesSequential(t *testing.T) {
 	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
 	m := newSingleLayerVerifierModel()

@@ -114,8 +114,9 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			if attnSeqLen <= 0 {
 				return nil, true, fmt.Errorf("verifier batch layer %d row %d invalid attention range [%d,%d)", l, b, start, end)
 			}
-			kOff, kEnd := start*qkv.KVDim, end*qkv.KVDim
-			if kEnd > len(kvCacheK[l]) || kEnd > len(kvCacheV[l]) {
+			kOff, okOff := checkedProduct(start, qkv.KVDim)
+			kEnd, okEnd := checkedProduct(end, qkv.KVDim)
+			if !okOff || !okEnd || kOff < 0 || kEnd < kOff || kEnd > len(kvCacheK[l]) || kEnd > len(kvCacheV[l]) {
 				return nil, true, fmt.Errorf("verifier batch layer %d row %d KV range [%d,%d) exceeds K/V=%d/%d", l, b, kOff, kEnd, len(kvCacheK[l]), len(kvCacheV[l]))
 			}
 			scale := float32(1.0 / math.Sqrt(float64(qkv.HeadDim)))
