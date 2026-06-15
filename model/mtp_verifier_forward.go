@@ -8,21 +8,44 @@ import "fmt"
 //
 // Current contract: float KV only. kvCacheK/V must already contain exactly
 // plan.StartPos prompt/history tokens for every layer that appends K/V. Gemma4
-// per-layer-input gating is rejected until the verifier loop can share the full
-// Generate per-layer-input semantics.
+// per-layer-input gating uses the same per-token helper and layer path as prompt
+// context construction.
 func (m *LlamaModel) RunMTPVerifierForward(plan MTPVerifierPlan, kvCacheK, kvCacheV [][]float32) (MTPVerifierResult, error) {
 	if err := m.validateMTPVerifierForwardInputs(plan, kvCacheK, kvCacheV); err != nil {
 		return MTPVerifierResult{}, err
 	}
 	logitsRows := make([][]float32, len(plan.VerifierTokens))
 	var finalActivation []float32
+	maxSeqLen := plan.StartPos + len(plan.VerifierTokens)
+	if maxSeqLen < 1 {
+		maxSeqLen = 1
+	}
+	attnScoresScratch := make([]float32, maxSeqLen)
+	maxHeadDim := m.Config.HeadDim
+	for i := range m.Layers {
+		if m.Layers[i].HeadDimLocal > maxHeadDim {
+			maxHeadDim = m.Layers[i].HeadDimLocal
+		}
+	}
+	attnOutScratch := make([]float32, m.Config.NumHeads*maxHeadDim)
 	for i, tok := range plan.VerifierTokens {
 		hidden := make([]float32, m.Config.HiddenSize)
 		if err := m.ScaledTokenEmbeddingInto(hidden, tok); err != nil {
 			return MTPVerifierResult{}, fmt.Errorf("verifier token %d embedding: %w", i, err)
 		}
 		pos := plan.Positions[i]
+		perLayerInputs, err := m.Gemma4PerLayerInputs(hidden, tok)
+		if err != nil {
+			return MTPVerifierResult{}, fmt.Errorf("verifier token %d per-layer inputs: %w", i, err)
+		}
 		for l := 0; l < m.Config.NumLayers; l++ {
+			if perLayerInputs != nil {
+				hidden, err = m.forwardMTPPromptLayer(hidden, perLayerInputs, l, pos, kvCacheK, kvCacheV, attnScoresScratch, attnOutScratch)
+				if err != nil {
+					return MTPVerifierResult{}, fmt.Errorf("verifier forward layer %d at position %d: %w", l, pos, err)
+				}
+				continue
+			}
 			hidden = m.ForwardLayer(hidden, l, pos, pos, kvCacheK, kvCacheV)
 			if hidden == nil {
 				return MTPVerifierResult{}, fmt.Errorf("verifier forward layer %d at position %d failed", l, pos)
@@ -76,9 +99,6 @@ func (m *LlamaModel) validateMTPVerifierForwardInputs(plan MTPVerifierPlan, kvCa
 		if pos != wantPositions[i] {
 			return fmt.Errorf("verifier plan position %d=%d, want %d", i, pos, wantPositions[i])
 		}
-	}
-	if m.PerLayerModelProj != nil || m.Config.HiddenPerLayer > 0 || m.EmbedPerLayer != nil {
-		return fmt.Errorf("MTP verifier forward does not yet support Gemma4 per-layer input gating")
 	}
 	if len(kvCacheK) != m.Config.NumLayers || len(kvCacheV) != m.Config.NumLayers {
 		return fmt.Errorf("KV cache layers K/V=%d/%d, want %d", len(kvCacheK), len(kvCacheV), m.Config.NumLayers)

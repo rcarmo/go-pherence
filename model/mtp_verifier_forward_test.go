@@ -138,12 +138,34 @@ func TestRunMTPVerifierForwardRequiresPromptHistoryKV(t *testing.T) {
 	}
 }
 
-func TestRunMTPVerifierForwardRejectsGemma4PLIUntilSupported(t *testing.T) {
-	m := newZeroLayerVerifierModel()
+func TestRunMTPVerifierForwardSupportsGemma4PLI(t *testing.T) {
+	m := newSingleLayerVerifierModel()
+	m.Config.ModelType = "gemma4_text"
 	m.Config.HiddenPerLayer = 2
-	plan := mustMTPVerifierPlan(t, m, 1, nil, 0)
-	if _, err := m.RunMTPVerifierForward(plan, nil, nil); err == nil {
-		t.Fatal("accepted Gemma4 per-layer input gating")
+	m.PerLayerModelProj = []float32{1, 0, 0, 1}
+	m.PerLayerProjNorm = []float32{1, 1}
+	m.PerLayerProjScale = 1
+	m.PerLayerInputScale = 1
+	m.EmbedPerLayerScale = 1
+	m.Layers[0].PLIGate = []float32{1, 0, 0, 1}
+	m.Layers[0].PLIProj = []float32{1, 0, 0, 1}
+	m.Layers[0].PLIPostNorm = []float32{1, 1}
+	plan := mustMTPVerifierPlan(t, m, 0, []int{1}, 0)
+	kvCacheK := make([][]float32, len(m.Layers))
+	kvCacheV := make([][]float32, len(m.Layers))
+	result, err := m.RunMTPVerifierForward(plan, kvCacheK, kvCacheV)
+	if err != nil {
+		t.Fatalf("RunMTPVerifierForward with PLI: %v", err)
+	}
+	if len(result.Logits) != 2 || len(result.FinalActivation) != m.Config.HiddenSize {
+		t.Fatalf("result logits=%d activation=%d", len(result.Logits), len(result.FinalActivation))
+	}
+	kvDim, err := m.LayerKVDim(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(kvCacheK[0]), len(plan.VerifierTokens)*kvDim; got != want {
+		t.Fatalf("PLI verifier K len=%d want %d", got, want)
 	}
 }
 
