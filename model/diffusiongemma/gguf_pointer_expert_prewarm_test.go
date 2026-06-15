@@ -36,6 +36,29 @@ func syntheticPointerExpertIndex(t *testing.T) *GGUFExpertIndex {
 
 func resetGGUFExpertResidencyTestState() { FreeGGUFGPUExpertCaches() }
 
+func TestGGUFGPUExpertPartialResidentEnabled(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT", "")
+	if diffusionGemmaGGUFGPUExpertPartialResidentEnabled() {
+		t.Fatal("partial resident should default off")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT", "1")
+	if !diffusionGemmaGGUFGPUExpertPartialResidentEnabled() {
+		t.Fatal("partial resident opt-in not honored")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT", "false")
+	if diffusionGemmaGGUFGPUExpertPartialResidentEnabled() {
+		t.Fatal("partial resident disable not honored")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT_LAYERS", "3")
+	if got := diffusionGemmaGGUFGPUExpertPartialResidentLayers(); got != 3 {
+		t.Fatalf("partial resident layers=%d want 3", got)
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT_LAYERS", "bad")
+	if got := diffusionGemmaGGUFGPUExpertPartialResidentLayers(); got != 0 {
+		t.Fatalf("bad partial resident layers=%d want 0", got)
+	}
+}
+
 func TestGGUFGPUExpertAllowTanhGELUEnabled(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "")
 	if diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {

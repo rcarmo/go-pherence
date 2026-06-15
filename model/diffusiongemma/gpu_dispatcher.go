@@ -2628,6 +2628,23 @@ func diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func diffusionGemmaGGUFGPUExpertPartialResidentEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func diffusionGemmaGGUFGPUExpertPartialResidentLayers() int {
+	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT_LAYERS"))
+	if v == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n
+}
+
 func diffusionGemmaGGUFGPUExpertSkipDoomedAttemptsEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_SKIP_DOOMED")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
@@ -3538,6 +3555,52 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 	return true, moeOutBuf.Download(scratch.MoeOut)
 }
 
+func ggufPointerExpertResident(idx *GGUFExpertIndex, layer, expert int) bool {
+	if idx == nil || layer < 0 || layer >= idx.NumLayers || expert < 0 || expert >= idx.NumExperts {
+		return false
+	}
+	if idx.entries[layer].gateUp.QType != gguf.QuantQ4_K || idx.entries[layer].down.QType != gguf.QuantQ8_0 {
+		return false
+	}
+	cacheID := ggufExpertIndexCacheID(idx)
+	if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+		return false
+	}
+	if _, ok := q8DownExpertCache.Load(q8DownExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+		return false
+	}
+	return true
+}
+
+func runGGUFGPUExpertsGroupedPartialResident(op LayerOp, scratch ForwardScratch, idx *GGUFExpertIndex, normedRows []float32, groupedArrays SelectedExpertGroupedArrays, metadata *SelectedExpertGroupedArraysGPUBuffers) (bool, error) {
+	if !diffusionGemmaGGUFGPUExpertPartialResidentEnabled() || idx == nil || metadata == nil || len(groupedArrays.ActiveExperts) == 0 {
+		return false, nil
+	}
+	if n := diffusionGemmaGGUFGPUExpertPartialResidentLayers(); n > 0 && op.Layer >= n {
+		return false, nil
+	}
+	kept, dropped, err := SplitSelectedExpertGroupedArrays(groupedArrays, func(expert int) bool {
+		return ggufPointerExpertResident(idx, op.Layer, expert)
+	})
+	if err != nil {
+		return false, err
+	}
+	if len(kept.ActiveExperts) == 0 || len(dropped.ActiveExperts) == 0 {
+		return false, nil
+	}
+	if err := metadata.Upload(kept); err != nil {
+		return false, err
+	}
+	usedGPU, err := runGGUFGPUExpertsGroupedFused(op, scratch, idx, normedRows, kept, metadata)
+	if err != nil || !usedGPU {
+		return usedGPU, err
+	}
+	if err := runGGUFCPUExpertsGroupedNoPostNorm(op, scratch, idx, normedRows, dropped); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func runGGUFGPUExpertsGrouped(op LayerOp, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex, normedRows []float32, groupedArrays SelectedExpertGroupedArrays, metadata *SelectedExpertGroupedArraysGPUBuffers) (bool, error) {
 	hiddenSize, intermediate := idx.HiddenSize, idx.Intermediate
 	residualBuf, err := gpu.Malloc(len(normedRows))
@@ -3742,6 +3805,22 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 	}
 	traceGGUFActiveExpertSet(idx, op.Layer, groupedArrays)
 	if shouldSkipDoomedGGUFActiveExpertSet(idx, op.Layer, groupedArrays.ActiveExperts, len(groupedArrays.WorkPositions)) {
+		usedPartial, err := runGGUFGPUExpertsGroupedPartialResident(op, scratch, idx, normedRows, groupedArrays, &selectedExpertWorkGPUBuffers.groupedArrays)
+		if err != nil {
+			return false, nil, err
+		}
+		if usedPartial {
+			postNorm2, err := loadFloatVector(weights, fp.Layers[op.Layer].PostFFNLayerNorm2)
+			if err != nil {
+				return false, nil, err
+			}
+			for off := 0; off < len(scratch.MoeOut); off += hiddenSize {
+				if !simd.RMSNormTo(scratch.MoeOut[off:off+hiddenSize], postNorm2, 1e-6) {
+					return false, nil, fmt.Errorf("GGUF GPU experts post_norm_2 rejected")
+				}
+			}
+			return true, nil, nil
+		}
 		recordQ4BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
 		return false, normedRows, nil
 	}
