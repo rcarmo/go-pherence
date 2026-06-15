@@ -220,7 +220,6 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 
 	cfg := m.Config
 	h := cfg.HiddenSize
-	kvDim := cfg.HeadDim * cfg.NumKVHeads
 	inter := cfg.Intermediate
 
 	if gpuLayers < 0 {
@@ -233,16 +232,30 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		vocabSize: cfg.VocabSize,
 	}
 
-	// Work buffers — sized for max across all layer types
-	maxHeadDim := cfg.HeadDim
-	if cfg.GlobalHeadDim > maxHeadDim {
-		maxHeadDim = cfg.GlobalHeadDim
-	}
-	maxQDim := cfg.NumHeads * maxHeadDim
-	maxKVDim := cfg.NumKVHeads * maxHeadDim
+	// Work buffers — sized for the maximum effective per-layer dimensions.
+	maxQDim := 1
+	maxKVDim := 1
 	// Max intermediate (Gemma4 double-wide MLP for shared layers)
 	maxInter := inter
-	for _, layer := range m.Layers {
+	for l, layer := range m.Layers {
+		layerHeadDim, err := m.LayerHeadDim(l)
+		if err != nil {
+			return nil, err
+		}
+		qDim, ok := checkedProduct(cfg.NumHeads, layerHeadDim)
+		if !ok || qDim <= 0 {
+			return nil, fmt.Errorf("invalid GPU Q dim layer %d heads=%d headDim=%d", l, cfg.NumHeads, layerHeadDim)
+		}
+		if qDim > maxQDim {
+			maxQDim = qDim
+		}
+		kvDim, err := m.LayerKVDim(l)
+		if err != nil {
+			return nil, err
+		}
+		if kvDim > maxKVDim {
+			maxKVDim = kvDim
+		}
 		if layer.GateWm != nil && layer.GateWm.OutDim > maxInter {
 			maxInter = layer.GateWm.OutDim
 		}
@@ -426,16 +439,22 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	g.perLayerModelProj = wrapSlice(m.PerLayerModelProj)
 	g.perLayerProjNorm = wrapSlice(m.PerLayerProjNorm)
 
-	// KV cache (per-layer kvDim for Gemma4)
+	// KV cache (per-layer effective KV width for Gemma4 full/sliding layers).
 	g.kvCacheK = make([][]float32, len(m.Layers))
 	g.kvCacheV = make([][]float32, len(m.Layers))
 	for l := range g.kvCacheK {
-		lkv := kvDim
-		if m.Layers[l].HeadDimLocal > 0 {
-			lkv = cfg.NumKVHeads * m.Layers[l].HeadDimLocal
+		lkv, err := m.LayerKVDim(l)
+		if err != nil {
+			g.Close()
+			return nil, err
 		}
-		g.kvCacheK[l] = make([]float32, 0, 2048*lkv)
-		g.kvCacheV[l] = make([]float32, 0, 2048*lkv)
+		capHint, ok := checkedProduct(2048, lkv)
+		if !ok {
+			g.Close()
+			return nil, fmt.Errorf("invalid CPU KV cache capacity layer %d seq=2048 kvDim=%d", l, lkv)
+		}
+		g.kvCacheK[l] = make([]float32, 0, capHint)
+		g.kvCacheV[l] = make([]float32, 0, capHint)
 	}
 
 	// Final layers stay CPU
@@ -514,12 +533,21 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	g.kvGPU_K = make([]*nvidia.DevBuf, len(m.Layers))
 	g.kvGPU_V = make([]*nvidia.DevBuf, len(m.Layers))
 	for i := 0; i < g.GPULayers && i < len(g.kvGPU_K); i++ {
-		lkv := kvDim
-		if m.Layers[i].HeadDimLocal > 0 {
-			lkv = gemmacfg.LayerKVHeads(cfg, i) * m.Layers[i].HeadDimLocal
+		lkv, err := m.LayerKVDim(i)
+		if err != nil {
+			g.Close()
+			return nil, err
 		}
-		g.kvGPU_K[i] = nvidia.NewDevBuf(maxSeq * lkv)
-		g.kvGPU_V[i] = nvidia.NewDevBuf(maxSeq * lkv)
+		if lkv == 0 {
+			continue
+		}
+		bufElems, ok := checkedProduct(maxSeq, lkv)
+		if !ok {
+			g.Close()
+			return nil, fmt.Errorf("invalid GPU KV cache capacity layer %d seq=%d kvDim=%d", i, maxSeq, lkv)
+		}
+		g.kvGPU_K[i] = nvidia.NewDevBuf(bufElems)
+		g.kvGPU_V[i] = nvidia.NewDevBuf(bufElems)
 		if err := g.kvGPU_K[i].ToGPU(); err != nil {
 			g.Close()
 			return nil, fmt.Errorf("upload GPU KV key buffer layer %d: %w", i, err)
@@ -681,9 +709,6 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 	}
 	h := cfg.HiddenSize
 	numHeads := cfg.NumHeads
-	numKVHeads := cfg.NumKVHeads
-	headDim := cfg.HeadDim
-	_ = headDim * numKVHeads
 	inter := cfg.Intermediate
 	m := g.CPU
 
@@ -884,12 +909,16 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 
 				// Per-layer dims
-				layerHeadDim := headDim
-				if cpuLayer.HeadDimLocal > 0 {
-					layerHeadDim = cpuLayer.HeadDimLocal
+				layerHeadDim, err := m.LayerHeadDim(l)
+				if err != nil {
+					return nil
 				}
-				qDim := numHeads * layerHeadDim
-				layerKVDim := numKVHeads * layerHeadDim
+				layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
+				qDim, okQDim := checkedProduct(numHeads, layerHeadDim)
+				layerKVDim, okKVDim := checkedProduct(layerKVHeads, layerHeadDim)
+				if layerKVHeads <= 0 || !okQDim || !okKVDim {
+					return nil
+				}
 				layerInter := inter
 				if cpuLayer.GateWm != nil {
 					layerInter = cpuLayer.GateWm.OutDim
@@ -1011,7 +1040,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				// V norm (Gemma4: RMSNormNoScale — no learned weight)
 				if cfg.ModelType == "gemma4_text" && cpuLayer.HasKV {
 					eps := float32(cfg.RMSNormEps)
-					for head := 0; head < numKVHeads; head++ {
+					for head := 0; head < layerKVHeads; head++ {
 						vSlice := g.v.Slice(head*layerHeadDim, layerHeadDim)
 						nvidia.DevRMSNormNoScale(vSlice, vSlice, eps)
 					}
@@ -1029,7 +1058,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					}
 					g.q.MarkOnGPU()
 					if cpuLayer.HasKV {
-						for head := 0; head < numKVHeads; head++ {
+						for head := 0; head < layerKVHeads; head++ {
 							kSlice := g.k.Slice(head*layerHeadDim, layerHeadDim)
 							nvidia.DevRMSNorm(kSlice, kSlice, layer.KNorm, float32(cfg.RMSNormEps))
 							if cfg.ModelType == "gemma4_text" {
@@ -1061,9 +1090,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 							g.q.MarkDirty()
 						}
 						if cpuLayer.HasKV {
-							if !nvidia.DevRoPEPartial(g.k, g.ropeCosSinSWA, pos, numKVHeads, layerHeadDim, m.RopeHalfSWA) {
+							if !nvidia.DevRoPEPartial(g.k, g.ropeCosSinSWA, pos, layerKVHeads, layerHeadDim, m.RopeHalfSWA) {
 								kd3 := g.k.Data()
-								applyRoPEPartial(kd3, m.RopeFreqsSWA, pos, numKVHeads, layerHeadDim, m.RopeHalfSWA)
+								applyRoPEPartial(kd3, m.RopeFreqsSWA, pos, layerKVHeads, layerHeadDim, m.RopeHalfSWA)
 								g.k.MarkDirty()
 							}
 						}
@@ -1074,33 +1103,33 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 							g.q.MarkDirty()
 						}
 						if cpuLayer.HasKV {
-							if !nvidia.DevRoPEPartial(g.k, g.ropeCosSinFull, pos, numKVHeads, layerHeadDim, m.RopeHalfFull) {
+							if !nvidia.DevRoPEPartial(g.k, g.ropeCosSinFull, pos, layerKVHeads, layerHeadDim, m.RopeHalfFull) {
 								kd3 := g.k.Data()
-								applyRoPEPartial(kd3, m.RopeFreqsFull, pos, numKVHeads, layerHeadDim, m.RopeHalfFull)
+								applyRoPEPartial(kd3, m.RopeFreqsFull, pos, layerKVHeads, layerHeadDim, m.RopeHalfFull)
 								g.k.MarkDirty()
 							}
 						}
 					}
 				} else if g.ropeCosSin != nil && g.ropeCosSin.GPUPtr() != nil {
-					if !nvidia.DevRoPE(g.q, g.ropeCosSin, pos, numHeads, headDim) {
+					if !nvidia.DevRoPE(g.q, g.ropeCosSin, pos, numHeads, layerHeadDim) {
 						qd := g.q.Data()
-						applyRoPE(qd, m.RopeFreqs, pos, numHeads, headDim)
+						applyRoPE(qd, m.RopeFreqs, pos, numHeads, layerHeadDim)
 						g.q.MarkDirty()
 					}
 					if cpuLayer.HasKV {
-						if !nvidia.DevRoPE(g.k, g.ropeCosSin, pos, numKVHeads, headDim) {
+						if !nvidia.DevRoPE(g.k, g.ropeCosSin, pos, layerKVHeads, layerHeadDim) {
 							kd2 := g.k.Data()
-							applyRoPE(kd2, m.RopeFreqs, pos, numKVHeads, headDim)
+							applyRoPE(kd2, m.RopeFreqs, pos, layerKVHeads, layerHeadDim)
 							g.k.MarkDirty()
 						}
 					}
 				} else {
 					qd := g.q.Data()
-					applyRoPE(qd, m.RopeFreqs, pos, numHeads, headDim)
+					applyRoPE(qd, m.RopeFreqs, pos, numHeads, layerHeadDim)
 					g.q.MarkDirty()
 					if cpuLayer.HasKV {
 						kd2 := g.k.Data()
-						applyRoPE(kd2, m.RopeFreqs, pos, numKVHeads, headDim)
+						applyRoPE(kd2, m.RopeFreqs, pos, layerKVHeads, layerHeadDim)
 						g.k.MarkDirty()
 					}
 				}
@@ -1191,10 +1220,10 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					attnKVPtr = g.kvGPU_K[kvLayer].GPUPtr()
 				}
 				if !forceLayerCPUAttn && attnKVPtr != nil && g.kvGPU_V[kvLayer] != nil && g.kvGPU_V[kvLayer].GPUPtr() != nil {
-					nvidia.DevAttention(g.attnOut, g.q, g.kvGPU_K[kvLayer], g.kvGPU_V[kvLayer], seqLen, numHeads, numKVHeads, layerHeadDim, attnScale)
+					nvidia.DevAttention(g.attnOut, g.q, g.kvGPU_K[kvLayer], g.kvGPU_V[kvLayer], seqLen, numHeads, layerKVHeads, layerHeadDim, attnScale)
 				} else {
 					qd := g.q.Data()
-					attnCPU := gqaAttentionScale(qd[:qDim], g.kvCacheK[kvLayer], g.kvCacheV[kvLayer], seqLen, numHeads, numKVHeads, layerHeadDim, attnScale)
+					attnCPU := gqaAttentionScale(qd[:qDim], g.kvCacheK[kvLayer], g.kvCacheV[kvLayer], seqLen, numHeads, layerKVHeads, layerHeadDim, attnScale)
 					copy(g.attnOut.Data(), attnCPU)
 					g.attnOut.MarkDirty()
 				}
