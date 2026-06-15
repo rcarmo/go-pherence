@@ -184,11 +184,11 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	}
 	layer := &d.Layers[layerIdx]
 	h := d.Config.HiddenSize
-	headDim := d.Config.HeadDim
-	if layer.HeadDimLocal > 0 {
-		headDim = layer.HeadDimLocal
+	headDim := drafterLayerHeadDim(d, layerIdx)
+	qDim, ok := checkedProduct(d.Config.NumHeads, headDim)
+	if headDim <= 0 || !ok {
+		return nil, fmt.Errorf("invalid drafter layer %d q dim heads=%d headDim=%d", layerIdx, d.Config.NumHeads, headDim)
 	}
-	qDim := d.Config.NumHeads * headDim
 	source := externalKV.SourceLayers[layerIdx]
 	residual := append([]float32(nil), hidden...)
 	normed := append([]float32(nil), hidden...)
@@ -267,6 +267,19 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	return hidden, nil
 }
 
+func drafterLayerHeadDim(d *Gemma4MTPDrafter, layerIdx int) int {
+	if d == nil {
+		return 0
+	}
+	if layerIdx >= 0 && layerIdx < len(d.Layers) && d.Layers[layerIdx].HeadDimLocal > 0 {
+		return d.Layers[layerIdx].HeadDimLocal
+	}
+	if layerIdx >= 0 && layerIdx < len(d.Config.LayerTypes) && d.Config.LayerTypes[layerIdx] == "full_attention" && d.Config.GlobalHeadDim > 0 {
+		return d.Config.GlobalHeadDim
+	}
+	return d.Config.HeadDim
+}
+
 func drafterLayerKVHeads(d *Gemma4MTPDrafter, layerIdx int) int {
 	if d == nil {
 		return 0
@@ -308,10 +321,7 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 	usedSources := map[int]bool{}
 	for i := range d.Layers {
 		layer := &d.Layers[i]
-		headDim := d.Config.HeadDim
-		if layer.HeadDimLocal > 0 {
-			headDim = layer.HeadDimLocal
-		}
+		headDim := drafterLayerHeadDim(d, i)
 		qDim, ok := checkedProduct(d.Config.NumHeads, headDim)
 		if headDim <= 0 || !ok {
 			return fmt.Errorf("invalid drafter layer %d q dim heads=%d headDim=%d", i, d.Config.NumHeads, headDim)

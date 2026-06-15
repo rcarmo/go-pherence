@@ -205,11 +205,9 @@ func TestRunMTPDrafterStepRealAssetContract(t *testing.T) {
 	k := make([][]float32, d.Config.NumLayers)
 	v := make([][]float32, d.Config.NumLayers)
 	for i := range d.Layers {
-		headDim := d.Config.HeadDim
-		if d.Layers[i].HeadDimLocal > 0 {
-			headDim = d.Layers[i].HeadDimLocal
-		}
-		kvDim := d.Config.NumKVHeads * headDim
+		headDim := drafterLayerHeadDim(d, i)
+		kvHeads := drafterLayerKVHeads(d, i)
+		kvDim := kvHeads * headDim
 		k[i] = make([]float32, kvDim)
 		v[i] = make([]float32, kvDim)
 	}
@@ -230,6 +228,104 @@ func TestRunMTPDrafterStepRealAssetContract(t *testing.T) {
 	}
 	if len(result.Logits) != m.Config.VocabSize || len(result.NextActivation) != d.BackboneHiddenSize || len(result.NextState.Activation) != d.BackboneHiddenSize {
 		t.Fatalf("result shapes logits/activation/state=%d/%d/%d", len(result.Logits), len(result.NextActivation), len(result.NextState.Activation))
+	}
+}
+
+func TestDrafterLayerDimsDeriveGemma4FullAttentionDim(t *testing.T) {
+	d := validDrafterStepScaffold()
+	d.Config.ModelType = "gemma4_text"
+	d.Config.NumLayers = 2
+	d.Config.LayerTypes = []string{"sliding_attention", "full_attention"}
+	d.Config.NumKVHeads = 2
+	d.Config.NumGlobalKVHeads = 1
+	d.Config.HeadDim = 2
+	d.Config.GlobalHeadDim = 4
+	d.Layers = []Gemma4MTPDrafterLayer{{KVSourceLayer: -1}, {KVSourceLayer: -1}}
+	if got := drafterLayerHeadDim(d, 0); got != 2 {
+		t.Fatalf("sliding drafter headDim=%d want 2", got)
+	}
+	if got := drafterLayerKVHeads(d, 0); got != 2 {
+		t.Fatalf("sliding drafter kvHeads=%d want 2", got)
+	}
+	if got := drafterLayerHeadDim(d, 1); got != 4 {
+		t.Fatalf("full drafter headDim=%d want 4", got)
+	}
+	if got := drafterLayerKVHeads(d, 1); got != 1 {
+		t.Fatalf("full drafter kvHeads=%d want 1", got)
+	}
+	d.Layers[1].HeadDimLocal = 6
+	if got := drafterLayerHeadDim(d, 1); got != 6 {
+		t.Fatalf("explicit full drafter headDim=%d want 6", got)
+	}
+}
+
+func TestRunMTPDrafterStepExternalKVValidationUsesGlobalFullAttentionDim(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{VocabSize: 4, HiddenSize: 4},
+		EmbedTokens: tensor.FromFloat32([]float32{
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		}, []int{4, 4}),
+		LMHead: tensor.FromFloat32([]float32{
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		}, []int{4, 4}),
+	}
+	d := validDrafterStepScaffold()
+	d.Config.ModelType = "gemma4_text"
+	d.Config.VocabSize = 4
+	d.Config.HiddenSize = 4
+	d.Config.NumHeads = 1
+	d.Config.NumKVHeads = 2
+	d.Config.NumGlobalKVHeads = 1
+	d.Config.HeadDim = 2
+	d.Config.GlobalHeadDim = 4
+	d.Config.LayerTypes = []string{"full_attention"}
+	d.Config.Intermediate = 4
+	d.BackboneHiddenSize = 4
+	d.Norm = tensor.Ones([]int{4})
+	identity4 := []float32{
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
+	d.PreProjection = []float32{
+		1, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 1, 0, 0, 0,
+		0, 1, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 1, 0, 0,
+	}
+	d.PostProjection = append([]float32(nil), identity4...)
+	d.Layers = []Gemma4MTPDrafterLayer{{
+		InputNorm:     tensor.Ones([]int{4}),
+		PostNorm:      tensor.Ones([]int{4}),
+		PreFFNNorm:    tensor.Ones([]int{4}),
+		PostFFNNorm:   tensor.Ones([]int{4}),
+		QNorm:         tensor.Ones([]int{4}),
+		LayerScalar:   1,
+		KVSourceLayer: -1,
+		QW:            append([]float32(nil), identity4...),
+		OW:            append([]float32(nil), identity4...),
+		GateW:         append([]float32(nil), identity4...),
+		UpW:           append([]float32(nil), identity4...),
+		DownW:         append([]float32(nil), identity4...),
+	}}
+	state, err := NewMTPDrafterState(0, []float32{0.25, 0.5, 0.75, 1}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatalf("NewMTPDrafterState: %v", err)
+	}
+	validKV := &MTPDrafterExternalKV{K: [][]float32{{1, 0, 0, 0}}, V: [][]float32{{0, 1, 0, 0}}, SourceLayers: []int{0}, SeqLen: 1}
+	if _, err := m.RunMTPDrafterStepWithExternalKV(d, state, validKV); err != nil {
+		t.Fatalf("RunMTPDrafterStepWithExternalKV with full-attention global dim: %v", err)
+	}
+	badKV := &MTPDrafterExternalKV{K: [][]float32{{1, 0}}, V: [][]float32{{0, 1}}, SourceLayers: []int{0}, SeqLen: 1}
+	if _, err := m.RunMTPDrafterStepWithExternalKV(d, state, badKV); err == nil {
+		t.Fatal("accepted full-attention external KV sized with sliding head dim")
 	}
 }
 
