@@ -1043,6 +1043,8 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 }
 
 func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx *GGUFExpertIndex, normedRows []float32, groupedArrays SelectedExpertGroupedArrays) error {
+	traceStart := time.Now()
+	traceStatsStart := ggufCPUExpertTimingSnapshot()
 	if idx == nil {
 		return fmt.Errorf("GGUF CPU grouped experts: missing index")
 	}
@@ -1279,6 +1281,10 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 	wg.Wait()
 	if firstErr != nil {
 		return firstErr
+	}
+	if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
+		stats := ggufCPUExpertTimingSnapshot().Sub(traceStatsStart)
+		fmt.Fprintf(os.Stderr, "DiffusionGemma grouped gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d q5_dequant=%d\n", op.Layer, stats.Positions, stats.WorkItems, stats.ActiveExperts, time.Since(traceStart).Seconds(), float64(stats.GateNS)/1e9, float64(stats.DownNS)/1e9, stats.Q4DirectRows, stats.Q4DequantRows, stats.Q8DirectRows, stats.Q8DequantRows, stats.Q5DequantRows)
 	}
 	return nil
 }
