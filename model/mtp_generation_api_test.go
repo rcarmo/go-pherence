@@ -75,7 +75,7 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		Output:            []int{10, 1, 2, 3},
 		Stats:             MTPSpeculationStats{Steps: 1, DraftedTokens: 2, VerifiedTokens: 1, BonusTokens: 1, OutputTokens: 2},
 		Steps:             []MTPKVCommitPlan{{KeepTokens: 2, Positions: []int{1, 2}, OutputTokens: []int{1, 2}}},
-		StepSummaries:     []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 2}, VerifierTokens: []int{9, 1, 2}, VerifierOutputTokens: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
+		StepSummaries:     []MTPGraphGenerationStepSummary{{InputToken: 9, DraftedTokens: []int{1, 3}, VerifierTokens: []int{9, 1, 3}, VerifierOutputTokens: []int{1, 2, 3}, Positions: []int{1, 2}, AcceptedPrefixLen: 1, BonusToken: 2, OutputTokens: []int{1, 2}}},
 		GraphOutputTokens: 2,
 		GreedyTailTokens:  1,
 	}
@@ -162,6 +162,21 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	bad.StepSummaries[0].VerifierOutputTokens = []int{1, 7, 3}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted bonus not matching verifier output")
+	}
+	bad = valid
+	bad.StepSummaries[0].VerifierOutputTokens = []int{1, 3, 3}
+	bad.StepSummaries[0].AcceptedPrefixLen = 0
+	bad.StepSummaries[0].OutputTokens = []int{1}
+	bad.StepSummaries[0].BonusToken = 1
+	bad.Steps[0].KeepTokens = 1
+	bad.Steps[0].Positions = []int{1}
+	bad.Steps[0].OutputTokens = []int{1}
+	bad.GraphOutputTokens = 1
+	bad.GreedyTailTokens = 2
+	bad.Stats.VerifiedTokens = 0
+	bad.Stats.OutputTokens = 1
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted non-maximal accepted prefix")
 	}
 	bad = valid
 	bad.StepSummaries[0].AllDraftsAccepted = true

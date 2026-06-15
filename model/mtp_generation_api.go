@@ -81,6 +81,13 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		if len(summary.VerifierOutputTokens) != len(summary.DraftedTokens)+1 {
 			return fmt.Errorf("MTP graph summary %d verifier outputs len=%d, want drafted+1=%d", i, len(summary.VerifierOutputTokens), len(summary.DraftedTokens)+1)
 		}
+		maxAccepted := 0
+		for maxAccepted < len(summary.DraftedTokens) && summary.VerifierOutputTokens[maxAccepted] == summary.DraftedTokens[maxAccepted] {
+			maxAccepted++
+		}
+		if summary.AcceptedPrefixLen != maxAccepted {
+			return fmt.Errorf("MTP graph summary %d accepted prefix=%d, want maximal verifier/draft match=%d", i, summary.AcceptedPrefixLen, maxAccepted)
+		}
 		for j := 0; j < summary.AcceptedPrefixLen; j++ {
 			if summary.VerifierOutputTokens[j] != summary.DraftedTokens[j] {
 				return fmt.Errorf("MTP graph summary %d verifier output %d=%d, want accepted draft %d", i, j, summary.VerifierOutputTokens[j], summary.DraftedTokens[j])
