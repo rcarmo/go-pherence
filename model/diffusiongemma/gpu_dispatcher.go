@@ -110,6 +110,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	ggufCPUExpertStatsStart := ggufCPUExpertTimingSnapshot()
 	ggufAttentionStatsStart := ggufAttentionTimingSnapshot()
 	ggufTempDenseStatsStart := ggufTempDenseUploadSnapshot()
+	exactGELUStatsStart := f32GELUExactMulSnapshot()
 
 	fp := weights.ForwardPlan()
 	hiddenSize := buffers.HiddenSize
@@ -389,6 +390,10 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, cpuStats.Q4DirectRows, cpuStats.Q4DequantRows, cpuStats.Q8DirectRows, cpuStats.Q8DequantRows,
 					ggufCPUExpertBatchBucketsString(cpuStats.Q4DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q4DequantBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DequantBatches),
 					float64(cpuStats.NormNS)/1e9, float64(cpuStats.CollectNS)/1e9, float64(cpuStats.ScheduleNS)/1e9, float64(cpuStats.GateNS)/1e9, float64(cpuStats.ActNS)/1e9, float64(cpuStats.DownNS)/1e9, float64(cpuStats.ScatterNS)/1e9, float64(cpuStats.PostNS)/1e9)
+			}
+			exactGELUStats := f32GELUExactMulSnapshot().Sub(exactGELUStatsStart)
+			if exactGELUStats.Calls > 0 {
+				log.Printf("gguf_exact_gelu: calls=%d elements=%d download=%.1fs gelu=%.1fs upload=%.1fs", exactGELUStats.Calls, exactGELUStats.Elements, float64(exactGELUStats.DownloadNS)/1e9, float64(exactGELUStats.GELUNS)/1e9, float64(exactGELUStats.UploadNS)/1e9)
 			}
 			stats := ggufExpertDispatchStatsSnapshot().Sub(ggufExpertStatsStart)
 			if stats.Total() > 0 {
@@ -1443,6 +1448,7 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufExpertDispatchCounters.q4MissingBudgetExceeds.Store(0)
 	ggufExpertDispatchCounters.gpuAttemptNS.Store(0)
 	ggufExpertDispatchCounters.cpuFallbackNS.Store(0)
+	resetF32GELUExactMulStats()
 
 	ggufChunkedLMHeadCounters.calls.Store(0)
 	ggufChunkedLMHeadCounters.chunks.Store(0)

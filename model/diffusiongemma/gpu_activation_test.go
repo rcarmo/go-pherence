@@ -2,6 +2,27 @@ package diffusiongemma
 
 import "testing"
 
+func TestF32GELUExactMulStatsResetAndSub(t *testing.T) {
+	resetF32GELUExactMulStats()
+	f32GELUExactMulCounters.calls.Add(2)
+	f32GELUExactMulCounters.elements.Add(3)
+	f32GELUExactMulCounters.downloadNS.Add(4)
+	f32GELUExactMulCounters.geluNS.Add(5)
+	f32GELUExactMulCounters.uploadNS.Add(6)
+	before := f32GELUExactMulSnapshot()
+	if before.Calls != 2 || before.Elements != 3 || before.DownloadNS != 4 || before.GELUNS != 5 || before.UploadNS != 6 {
+		t.Fatalf("unexpected exact GELU stats before reset: %+v", before)
+	}
+	delta := before.Sub(f32GELUExactMulStats{Calls: 1, Elements: 1, DownloadNS: 1, GELUNS: 2, UploadNS: 3})
+	if delta.Calls != 1 || delta.Elements != 2 || delta.DownloadNS != 3 || delta.GELUNS != 3 || delta.UploadNS != 3 {
+		t.Fatalf("unexpected exact GELU stats delta: %+v", delta)
+	}
+	resetF32GELUExactMulStats()
+	if after := f32GELUExactMulSnapshot(); after != (f32GELUExactMulStats{}) {
+		t.Fatalf("exact GELU stats after reset: %+v", after)
+	}
+}
+
 func TestF32GELUExactMulScratchReuseAndFree(t *testing.T) {
 	freeF32GELUExactMulScratch()
 	gate, up := ensureF32GELUExactMulScratch(4)

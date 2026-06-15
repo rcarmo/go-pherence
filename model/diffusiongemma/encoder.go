@@ -86,6 +86,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 	encoderTempDenseStatsStart := ggufTempDenseUploadSnapshot()
 	encoderGGUFExpertStatsStart := ggufExpertDispatchStatsSnapshot()
 	encoderCPUExpertStatsStart := ggufCPUExpertTimingSnapshot()
+	encoderExactGELUStatsStart := f32GELUExactMulSnapshot()
 	var totalNorm, totalAttention, totalDense, totalMoE, totalOther, totalPrefetchWait time.Duration
 	var encoderMoeResult []float32
 	var encoderGGUFRouter []float32
@@ -1032,6 +1033,10 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, cpuStats.Q4DirectRows, cpuStats.Q4DequantRows, cpuStats.Q8DirectRows, cpuStats.Q8DequantRows,
 					ggufCPUExpertBatchBucketsString(cpuStats.Q4DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q4DequantBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DequantBatches),
 					float64(cpuStats.NormNS)/1e9, float64(cpuStats.CollectNS)/1e9, float64(cpuStats.ScheduleNS)/1e9, float64(cpuStats.GateNS)/1e9, float64(cpuStats.ActNS)/1e9, float64(cpuStats.DownNS)/1e9, float64(cpuStats.ScatterNS)/1e9, float64(cpuStats.PostNS)/1e9)
+			}
+			exactGELUStats := f32GELUExactMulSnapshot().Sub(encoderExactGELUStatsStart)
+			if exactGELUStats.Calls > 0 {
+				fmt.Fprintf(os.Stderr, "DiffusionGemma encoder gguf_exact_gelu: calls=%d elements=%d download=%.1fs gelu=%.1fs upload=%.1fs\n", exactGELUStats.Calls, exactGELUStats.Elements, float64(exactGELUStats.DownloadNS)/1e9, float64(exactGELUStats.GELUNS)/1e9, float64(exactGELUStats.UploadNS)/1e9)
 			}
 			expertStats := ggufExpertDispatchStatsSnapshot().Sub(encoderGGUFExpertStatsStart)
 			if expertStats.Total() > 0 {
