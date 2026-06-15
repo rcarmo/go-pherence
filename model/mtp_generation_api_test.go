@@ -280,6 +280,20 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted summary/commit mismatch")
 	}
 	bad = valid
+	bad.StepSummaries[0].AcceptedPrefixLen = -1
+	bad.StepSummaries[0].OutputTokens = nil
+	bad.StepSummaries[0].BonusToken = 0
+	bad.Steps[0].KeepTokens = 0
+	bad.Steps[0].Positions = nil
+	bad.Steps[0].OutputTokens = nil
+	bad.GraphOutputTokens = 0
+	bad.GreedyTailTokens = 3
+	bad.Stats.OutputTokens = 0
+	bad.Stats.VerifiedTokens = 0
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted negative summary accepted prefix")
+	}
+	bad = valid
 	bad.StepSummaries[0].InputToken = -1
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted negative summary input token")

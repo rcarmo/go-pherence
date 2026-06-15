@@ -127,11 +127,11 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 				return fmt.Errorf("MTP graph summary %d verifier token %d=%d, want drafted %d", i, j+1, summary.VerifierTokens[j+1], tok)
 			}
 		}
-		if len(summary.OutputTokens) != summary.AcceptedPrefixLen+1 || summary.BonusToken < 0 || summary.OutputTokens[summary.AcceptedPrefixLen] != summary.BonusToken {
-			return fmt.Errorf("MTP graph summary %d invalid acceptance/output accounting: %+v", i, summary)
-		}
 		if summary.AcceptedPrefixLen < 0 || summary.AcceptedPrefixLen > len(summary.DraftedTokens) {
 			return fmt.Errorf("MTP graph summary %d accepted prefix=%d drafted=%d", i, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
+		}
+		if len(summary.OutputTokens) != summary.AcceptedPrefixLen+1 || summary.BonusToken < 0 || summary.OutputTokens[summary.AcceptedPrefixLen] != summary.BonusToken {
+			return fmt.Errorf("MTP graph summary %d invalid acceptance/output accounting: %+v", i, summary)
 		}
 		for j := 0; j < summary.AcceptedPrefixLen; j++ {
 			if summary.OutputTokens[j] != summary.DraftedTokens[j] {
