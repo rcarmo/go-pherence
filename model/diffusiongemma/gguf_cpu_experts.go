@@ -252,12 +252,21 @@ func (s ggufCPUExpertTimingStats) Sub(base ggufCPUExpertTimingStats) ggufCPUExpe
 }
 
 func diffusionGemmaGGUFCPUQ8DirectEnabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q8_DIRECT")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
+	return diffusionGemmaGGUFCPUDirectPolicyEnabled("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q8_DIRECT")
 }
 
 func diffusionGemmaGGUFCPUQ4DirectEnabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q4_DIRECT")))
+	return diffusionGemmaGGUFCPUDirectPolicyEnabled("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q4_DIRECT")
+}
+
+func diffusionGemmaGGUFCPUDirectPolicyEnabled(name string) bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
+	if v == "" {
+		// SIMD direct quantized row-dot is the default for single-position expert
+		// work; callers still gate on the platform capability and nPos==1 so batched
+		// rows keep the faster dequant-once + Sdot reuse path.
+		return true
+	}
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 

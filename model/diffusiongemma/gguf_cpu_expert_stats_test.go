@@ -2,6 +2,19 @@ package diffusiongemma
 
 import "testing"
 
+func TestGGUFCPUDirectQuantPolicyDefaultsOnAndCanBeDisabled(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q4_DIRECT", "")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q8_DIRECT", "")
+	if !diffusionGemmaGGUFCPUQ4DirectEnabled() || !diffusionGemmaGGUFCPUQ8DirectEnabled() {
+		t.Fatal("direct quant policy should default on; platform/nPos gates decide actual use")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q4_DIRECT", "0")
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_Q8_DIRECT", "false")
+	if diffusionGemmaGGUFCPUQ4DirectEnabled() || diffusionGemmaGGUFCPUQ8DirectEnabled() {
+		t.Fatal("direct quant policy did not honor explicit disable")
+	}
+}
+
 func TestResetGGUFCPUExpertTimingStats(t *testing.T) {
 	ResetGGUFCPUExpertTimingStats()
 	ggufCPUExpertTimingCounters.calls.Add(2)
