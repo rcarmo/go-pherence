@@ -72,12 +72,27 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -prompt "Hello"
 
 # Recommended real-prompt Gemma4 E4B smoke on the local RTX 3060 profile
+# If the main verifier snapshot is missing, fetch it with:
+#   python3 scripts/download_models.py --only gemma4-e4b-it-4bit
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
   -model models/gemma4-e4b-it-4bit \
   -mtp-drafter models/gemma4-e4b-mtp-drafter \
   -mtp-smoke -mtp-real-prompt \
   -prompt "Hi"
+
+# Gemma4 QAT+MTP llama.cpp parity gate.
+# First export a llama.cpp/LiteRT reference JSON using the schema documented in
+# docs/mtp-speculative.md, then run both the standalone token/logit report and
+# the Go test selected-logit gate:
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
+  -fixture tmp/gemma4-mtp-llamacpp-fixture.json \
+  -model models/gemma4-e4b-it-4bit \
+  -drafter models/gemma4-e4b-mtp-drafter
+GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
+GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-4bit \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-mtp-drafter \
+GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture
 
 # 31B stress smoke, when VRAM headroom permits
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
