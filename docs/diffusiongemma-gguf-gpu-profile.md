@@ -191,10 +191,25 @@ kernel to remove the host boundary as coverage grows.
 
 The plan simulator can model compact resident representations. For example,
 current Q4_K resident experts store scale/min values as F32. Modeling those Q4
-scale/min values as fp16 with `--q4-scale-bytes 2` raises the 768MiB simulated
-kept work from `12908/22080` to `13900/22080` without increasing cache use. That
-makes a compact Q4_K resident representation a concrete next kernel/runtime
-target, provided the pointer-table kernels preserve llama.cpp/CPU parity.
+scale/min values as fp16 with `--q4-scale-bytes 2` shows a structural kept-work
+improvement at every tested budget:
+
+| Expert cache | Current Q4 F32 scale/min | Modeled compact Q4 fp16 scale/min |
+|---:|---:|---:|
+| 768MiB | 12908/22080 | 13900/22080 |
+| 1024MiB | 15389/22080 | 16265/22080 |
+| 1536MiB | 18444/22080 | 19091/22080 |
+| 2048MiB | 19978/22080 | 20422/22080 |
+| 2560MiB | 20810/22080 | 21118/22080 |
+| 3072MiB | 21299/22080 | 21528/22080 |
+| 4096MiB | 21829/22080 | 21943/22080 |
+| 5120MiB | 22057/22080 | 22080/22080 |
+
+At the bounded 768MiB target, compact Q4 would keep roughly 992 additional traced
+work items. At about 5GiB, compact Q4 would fit the entire traced expert set,
+where the current representation still leaves a small tail. That makes a compact
+Q4_K resident representation a concrete next kernel/runtime target, provided the
+pointer-table kernels preserve llama.cpp/CPU parity.
 
 ## Why this is opt-in
 
