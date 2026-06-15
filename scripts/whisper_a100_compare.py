@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Compare Whisper baseline output against the opt-in A100 row-scale FFN mode.
+"""Compare Whisper baseline output against opt-in backend modes.
 
-This is a validation harness for K3/A100-capable hosts. On non-riscv/non-A100
-hosts the A100 env vars are harmless because the Go stubs keep the path disabled,
-so the script still works as a command/prompt regression smoke. Pass --audio
+This is a validation harness for K3/A100-capable hosts. It compares the native
+SIMD/default baseline against backend env presets such as A100 row-scale FFN or
+K3/RISC-V int8/IME. On unsupported hosts, stubs keep those paths disabled, so
+the script still works as a command/prompt regression smoke. Pass --audio
 multiple times to validate several clips in one run. Use --start/--duration to
 slice long recordings into practical validation windows.
 """
@@ -97,18 +98,18 @@ def main() -> int:
     for idx, original_audio in enumerate(audios):
         audio, window_path = materialize_window(original_audio, idx, args, out_dir)
         baseline_output = None
-        a100_output = None
+        backend_output = None
         if args.timestamps or args.diarize_vtt:
             out_dir.mkdir(parents=True, exist_ok=True)
             mode = "diarize" if args.diarize_vtt else "timestamps"
             baseline_output = out_dir / f"whisper_a100_compare_{idx:02d}_{mode}_baseline.vtt"
-            a100_output = out_dir / f"whisper_a100_compare_{idx:02d}_{mode}_a100.vtt"
+            backend_output = out_dir / f"whisper_a100_compare_{idx:02d}_{mode}_{args.backend}.vtt"
         base_cmd, compare_field = build_cmd(args, audio, baseline_output)
         baseline = run_case(base_cmd, env, args.timeout, baseline_output)
         a100_cmd = list(base_cmd)
-        if compare_field == "output_text" and baseline_output is not None and a100_output is not None:
-            a100_cmd[a100_cmd.index(str(baseline_output))] = str(a100_output)
-        a100 = run_case(a100_cmd, compare_env, args.timeout, a100_output)
+        if compare_field == "output_text" and baseline_output is not None and backend_output is not None:
+            a100_cmd[a100_cmd.index(str(baseline_output))] = str(backend_output)
+        a100 = run_case(a100_cmd, compare_env, args.timeout, backend_output)
         ok = baseline["returncode"] == 0 and a100["returncode"] == 0 and baseline[compare_field] == a100[compare_field]
         if not ok:
             failures += 1
