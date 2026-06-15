@@ -161,7 +161,7 @@ Important difference vs the initial go-pherence plan:
 
 ### llama.cpp MTP parity fixture
 
-`TestGemma4MTPLlamaCPPParityFixture` is the real-asset parity gate for the Gemma4 QAT+MTP path. It is skipped unless `GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE` points at a JSON fixture exported from a llama.cpp/LiteRT reference run. The fixture supplies prompt tokens, main/drafter paths (or use `GO_PHERENCE_GEMMA4_MAIN` and `GO_PHERENCE_GEMMA4_MTP_DRAFTER`), draft count, expected drafted/verifier/output tokens, and optional selected drafter/verifier logits by token id. The test builds the Go prompt context with real weights, runs one graph decode cycle, and requires accepted-token/output parity plus selected-logit parity within `logit_tolerance`.
+`TestGemma4MTPLlamaCPPParityFixture` is the real-asset parity gate for the Gemma4 QAT+MTP path. It is skipped unless `GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE` points at a JSON fixture exported from a llama.cpp/LiteRT reference run. The fixture supplies prompt tokens, main/drafter paths (or use `GO_PHERENCE_GEMMA4_MAIN` and `GO_PHERENCE_GEMMA4_MTP_DRAFTER`), draft count, expected drafted/verifier/output tokens, and optional selected drafter/verifier logits by token id. The test and `cmd/models/gemma4mtpparity` build the Go prompt context with real weights, run one graph decode cycle, and require accepted-token/output parity plus selected-logit parity within `logit_tolerance` when logit probes are present.
 
 Minimal fixture shape:
 

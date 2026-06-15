@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"os"
+	"strconv"
 
 	"github.com/rcarmo/go-pherence/model"
 )
@@ -16,18 +18,21 @@ type parityFixture struct {
 	MaxTokens  int         `json:"max_tokens"`
 	DraftCount int         `json:"draft_count"`
 	Compressed bool        `json:"compressed_kv"`
+	Tolerance  float64     `json:"logit_tolerance"`
 	Cycle      parityCycle `json:"cycle"`
 }
 
 type parityCycle struct {
-	InputToken           int   `json:"input_token"`
-	DraftedTokens        []int `json:"drafted_tokens"`
-	VerifierTokens       []int `json:"verifier_tokens"`
-	VerifierOutputTokens []int `json:"verifier_output_tokens"`
-	AcceptedPrefixLen    int   `json:"accepted_prefix_len"`
-	BonusToken           int   `json:"bonus_token"`
-	OutputTokens         []int `json:"output_tokens"`
-	AllDraftsAccepted    bool  `json:"all_drafts_accepted"`
+	InputToken           int                  `json:"input_token"`
+	DraftedTokens        []int                `json:"drafted_tokens"`
+	VerifierTokens       []int                `json:"verifier_tokens"`
+	VerifierOutputTokens []int                `json:"verifier_output_tokens"`
+	AcceptedPrefixLen    int                  `json:"accepted_prefix_len"`
+	BonusToken           int                  `json:"bonus_token"`
+	OutputTokens         []int                `json:"output_tokens"`
+	AllDraftsAccepted    bool                 `json:"all_drafts_accepted"`
+	DrafterLogits        []map[string]float64 `json:"drafter_logits"`
+	VerifierLogits       []map[string]float64 `json:"verifier_logits"`
 }
 
 type parityReport struct {
@@ -38,6 +43,7 @@ type parityReport struct {
 	Matched          bool                                `json:"matched"`
 	Got              model.MTPGraphGenerationStepSummary `json:"got"`
 	Want             parityCycle                         `json:"want"`
+	LogitMismatches  []string                            `json:"logit_mismatches,omitempty"`
 	Capabilities     model.MTPGraphCapabilities          `json:"capabilities"`
 	MissingForPublic []string                            `json:"missing_for_public_generation,omitempty"`
 }
@@ -114,6 +120,9 @@ func loadParityFixture(path string) (parityFixture, error) {
 	if fx.DraftCount <= 0 || fx.MaxTokens <= fx.DraftCount {
 		return parityFixture{}, fmt.Errorf("invalid draft/max tokens draft=%d max=%d", fx.DraftCount, fx.MaxTokens)
 	}
+	if fx.Tolerance == 0 {
+		fx.Tolerance = 1e-3
+	}
 	return fx, nil
 }
 
@@ -135,23 +144,28 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 	if err != nil {
 		return parityReport{}, fmt.Errorf("external KV: %w", err)
 	}
-	res, err := m.GenerateMTPGraphFromPromptContext(d, ctx, ext, model.MTPGraphGenerationOptions{
-		MaxTokens:       fx.MaxTokens,
-		UseCompressedKV: fx.Compressed,
-		Policy: model.MTPAdaptiveDraftPolicy{
-			MinDrafts:     fx.DraftCount,
-			InitialDrafts: fx.DraftCount,
-			MaxDrafts:     fx.DraftCount,
-		},
-	})
+	decode, err := model.NewCPUDecodeStateFromMTPPromptContext(m, ctx, fx.MaxTokens)
 	if err != nil {
-		return parityReport{}, fmt.Errorf("generate MTP graph: %w", err)
+		return parityReport{}, fmt.Errorf("decode state: %w", err)
 	}
-	if len(res.StepSummaries) == 0 {
-		return parityReport{}, fmt.Errorf("no MTP graph cycle produced")
+	if fx.Compressed {
+		m.EnableTurboQuant = true
+		if err := m.SeedCompressedKVFromPromptContext(decode, ctx); err != nil {
+			return parityReport{}, fmt.Errorf("compressed prompt seed: %w", err)
+		}
 	}
-	got := res.StepSummaries[0]
-	matched := sameInts(got.DraftedTokens, fx.Cycle.DraftedTokens) &&
+	state, err := model.NewMTPDrafterState(ctx.PreviousToken, ctx.Activation, d.BackboneHiddenSize)
+	if err != nil {
+		return parityReport{}, fmt.Errorf("drafter state: %w", err)
+	}
+	step, err := decode.RunMTPGraphDecodeStep(d, state, ext, model.MTPGraphDecodeStepOptions{RemainingTokens: fx.MaxTokens, DraftCount: fx.DraftCount}, model.MTPSpeculationStats{})
+	if err != nil {
+		return parityReport{}, fmt.Errorf("MTP graph decode step: %w", err)
+	}
+	got := newStepSummary(step)
+	mismatches := compareSelectedLogits("drafter", step.Step.Drafts.Logits, fx.Cycle.DrafterLogits, fx.Tolerance)
+	mismatches = append(mismatches, compareSelectedLogits("verifier", step.Step.Verifier.Logits, fx.Cycle.VerifierLogits, fx.Tolerance)...)
+	matched := len(mismatches) == 0 && sameInts(got.DraftedTokens, fx.Cycle.DraftedTokens) &&
 		sameInts(got.VerifierTokens, fx.Cycle.VerifierTokens) &&
 		sameInts(got.VerifierOutputTokens, fx.Cycle.VerifierOutputTokens) &&
 		sameInts(got.OutputTokens, fx.Cycle.OutputTokens) &&
@@ -159,7 +173,59 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 		got.AcceptedPrefixLen == fx.Cycle.AcceptedPrefixLen &&
 		got.BonusToken == fx.Cycle.BonusToken &&
 		got.AllDraftsAccepted == fx.Cycle.AllDraftsAccepted
-	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: res.UsedCompressedKV, Matched: matched, Got: got, Want: fx.Cycle, Capabilities: res.Capabilities, MissingForPublic: res.MissingForPublicGeneration}, nil
+	caps := model.Gemma4MTPGraphCapabilities()
+	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+}
+
+func newStepSummary(step model.MTPGraphDecodeStepResult) model.MTPGraphGenerationStepSummary {
+	verifierOutputs := make([]int, 0, len(step.Step.Verifier.Logits))
+	for _, logits := range step.Step.Verifier.Logits {
+		id, _, err := model.ArgmaxLogits(logits)
+		if err != nil {
+			id = -1
+		}
+		verifierOutputs = append(verifierOutputs, id)
+	}
+	return model.MTPGraphGenerationStepSummary{
+		InputToken:           step.Step.Graph.InputToken,
+		DraftedTokens:        append([]int(nil), step.Step.Drafts.Tokens...),
+		VerifierTokens:       append([]int(nil), step.Step.Plan.VerifierTokens...),
+		VerifierOutputTokens: verifierOutputs,
+		VerifierPositions:    append([]int(nil), step.Step.Plan.Positions...),
+		Positions:            append([]int(nil), step.Commit.Positions...),
+		AcceptedPrefixLen:    step.Step.Verifier.Acceptance.AcceptedPrefixLen,
+		BonusToken:           step.Step.Verifier.Acceptance.BonusToken,
+		OutputTokens:         append([]int(nil), step.Commit.OutputTokens...),
+		AllDraftsAccepted:    step.Step.Verifier.Acceptance.AllDraftsAccepted,
+	}
+}
+
+func compareSelectedLogits(name string, got [][]float32, want []map[string]float64, tol float64) []string {
+	var mismatches []string
+	if len(want) == 0 {
+		return mismatches
+	}
+	if len(got) < len(want) {
+		return append(mismatches, fmt.Sprintf("%s logits rows=%d want_at_least=%d", name, len(got), len(want)))
+	}
+	for row, probes := range want {
+		for key, wantLogit := range probes {
+			id, err := strconv.Atoi(key)
+			if err != nil {
+				mismatches = append(mismatches, fmt.Sprintf("%s row=%d invalid_token_key=%q", name, row, key))
+				continue
+			}
+			if id < 0 || id >= len(got[row]) {
+				mismatches = append(mismatches, fmt.Sprintf("%s row=%d token=%d outside_width=%d", name, row, id, len(got[row])))
+				continue
+			}
+			gotLogit := float64(got[row][id])
+			if math.Abs(gotLogit-wantLogit) > tol {
+				mismatches = append(mismatches, fmt.Sprintf("%s row=%d token=%d got=%g want=%g tol=%g", name, row, id, gotLogit, wantLogit, tol))
+			}
+		}
+	}
+	return mismatches
 }
 
 func sameInts(a, b []int) bool {

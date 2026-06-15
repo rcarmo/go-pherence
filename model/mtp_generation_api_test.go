@@ -58,7 +58,7 @@ func TestSeedCompressedKVFromPromptContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := m.seedCompressedKVFromPromptContext(st, ctx); err != nil {
+	if err := m.SeedCompressedKVFromPromptContext(st, ctx); err != nil {
 		t.Fatal(err)
 	}
 	if st.CompressedKV == nil || len(st.CompressedKV) != 1 || st.CompressedKV[0] == nil || st.CompressedKV[0].SeqLen() != 1 {

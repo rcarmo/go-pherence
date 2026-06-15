@@ -294,7 +294,9 @@ func validateMTPPromptContextLayerKV(ctx MTPPromptContext, layerIdx, dim int) er
 	return nil
 }
 
-func (m *LlamaModel) seedCompressedKVFromPromptContext(st *CPUDecodeState, ctx MTPPromptContext) error {
+// SeedCompressedKVFromPromptContext replays a validated prompt context's float
+// KV into TurboQuant/compressed caches for graph-backed MTP decode state.
+func (m *LlamaModel) SeedCompressedKVFromPromptContext(st *CPUDecodeState, ctx MTPPromptContext) error {
 	if m == nil || st == nil {
 		return fmt.Errorf("nil model/decode state")
 	}
@@ -363,7 +365,7 @@ func (m *LlamaModel) GenerateMTPGraphFromPromptContext(d *Gemma4MTPDrafter, ctx 
 	}
 	useCompressedKV := opts.UseCompressedKV || m.EnableTurboQuant || m.TurboQuantConfig != nil
 	if useCompressedKV {
-		if err := m.seedCompressedKVFromPromptContext(decode, ctx); err != nil {
+		if err := m.SeedCompressedKVFromPromptContext(decode, ctx); err != nil {
 			return MTPGraphGenerationResult{}, err
 		}
 	}
