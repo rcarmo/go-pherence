@@ -53,7 +53,7 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 | Kernel family | Location | Default? | Notes |
 |---|---|---|---|
 | RVV/SIMD SGEMM, dot, norm | `backends/simd/runtime`, `backends/spacemit/rvv` | Yes where available | Core CPU path and oracle for encoder/decoder; Whisper linear tiles route through checked `SgemmNTTo` with scalar fallback, and RVV asm wrappers are riscv64-only with scalar non-riscv fallbacks so tests build on development hosts. |
-| IME int8 matmul | `backends/spacemit/ime2`, `backends/spacemit/k3engine/aipool` | Yes for K3 when `WHISPER_INT8=1`; command defaults vary by build/runtime | Native K3 high-throughput path; non-K3 builds keep safe disabled stubs for validation. |
+| IME int8 matmul | `backends/spacemit/ime2`, `backends/spacemit/k3engine/aipool` | Yes for K3 when `WHISPER_INT8=1`; command defaults vary by build/runtime | Native K3 high-throughput path; validate parity against the native SIMD oracle with `make whisper-int8-compare`; non-K3 builds keep safe disabled stubs for validation. |
 | A100 Q8 FFN | `models/whisper/a100_int8.go`, `backends/spacemit/k3engine/aipool` | Opt-in | Row-scale native-Q8 mode is default-candidate, not automatic. |
 | NVIDIA SGEMM / LM-head / GPU encoder | `backends/nvidia`, `models/whisper/gpu_encoder.go` | GPU-assisted when requested/available | Full decoder GPU residency remains not default; unused placeholder-only GPU transpose hooks were removed so this row reflects real GPU-assisted surfaces only. |
 | CUDA/PTX mel/conv/attention scaffolding | `backends/cuda/ptx` | No | Assets/scaffolding exist; fused production mel/decoder graph still pending. |
@@ -65,7 +65,7 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 |---|---|
 | `large-v3-turbo` VTT model | **Default** with `-language en`. |
 | Full `large-v3` | Reference/fallback for source-language prompt behavior and quality comparisons. |
-| K3 native int8 | Safe/validated optimized path for K3 native runs. |
+| K3 native int8 | Safe/validated optimized path for K3 native runs; `make whisper-int8-compare` checks stdout and timestamp/VTT parity against the native SIMD oracle. |
 | A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `make whisper-a100-compare` / `scripts/whisper_a100_compare.py` across standalone stdout, timestamp VTT, diarize-vtt, and speaker-tagged diarize-vtt outputs for translate/transcribe before automatic default. |
 | GPU decoder MLP / cross-attn | Keep opt-in; prior measurements regressed due to launch/transfer overhead. |
 | Whisper speculative decode | Keep correctness-only until verifier batching/drafter integration. |
