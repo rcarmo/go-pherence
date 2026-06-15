@@ -69,3 +69,34 @@ func TestMTPVerifierResultCommitGraphRejectsMismatchedGraph(t *testing.T) {
 		t.Fatal("compressed graph commit accepted mismatched graph/result")
 	}
 }
+
+func TestMTPVerifierResultCommitGraphRejectsMalformedVerifierRows(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	d := validProjectionOnlyDrafter()
+	state, err := NewMTPDrafterState(0, []float32{0.5, 0.25}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph, err := NewMTPExecutionGraph(m, d, state, nil, []int{1, 2}, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := NewMTPVerifierResultRowsForModel(m, 0, []int{1, 2}, [][]float32{
+		{0, 9, 0, 0},
+		{0, 0, 0, 8},
+		{7, 0, 0, 0},
+	}, [][]float32{{1, 2}, {3, 4}, {5, 6}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := result
+	bad.Logits = bad.Logits[:2]
+	if _, err := bad.CommitGraphFloatKV(m, graph, [][]float32{{}}, [][]float32{{}}, kv.FloatKVCheckpoint{}); err == nil {
+		t.Fatal("accepted verifier result with short logits rows")
+	}
+	bad = result
+	bad.ActivationRows = bad.ActivationRows[:2]
+	if _, err := bad.CommitGraphFloatKV(m, graph, [][]float32{{}}, [][]float32{{}}, kv.FloatKVCheckpoint{}); err == nil {
+		t.Fatal("accepted verifier result with short activation rows")
+	}
+}

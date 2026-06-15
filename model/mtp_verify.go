@@ -219,6 +219,15 @@ func (r MTPVerifierResult) validateGraph(graph MTPExecutionGraph) error {
 	if !mtpSameInts(r.VerifierTokens, graph.Verifier.VerifierTokens) {
 		return fmt.Errorf("MTP graph verifier tokens mismatch result=%v graph=%v", r.VerifierTokens, graph.Verifier.VerifierTokens)
 	}
+	if len(graph.Verifier.Positions) != len(r.VerifierTokens) {
+		return fmt.Errorf("MTP graph verifier positions=%d, verifier tokens=%d", len(graph.Verifier.Positions), len(r.VerifierTokens))
+	}
+	if len(r.Logits) != len(r.VerifierTokens) {
+		return fmt.Errorf("MTP verifier logits rows=%d, verifier tokens=%d", len(r.Logits), len(r.VerifierTokens))
+	}
+	if len(r.ActivationRows) > 0 && len(r.ActivationRows) != len(r.VerifierTokens) {
+		return fmt.Errorf("MTP verifier activation rows=%d, verifier tokens=%d", len(r.ActivationRows), len(r.VerifierTokens))
+	}
 	return nil
 }
 
