@@ -85,6 +85,54 @@ func (a *SelectedExpertGroupedArrays) ApplyDownScalesByExpert(downScale []float3
 	return nil
 }
 
+func SplitSelectedExpertGroupedArrays(a SelectedExpertGroupedArrays, keepExpert func(expert int) bool) (kept SelectedExpertGroupedArrays, dropped SelectedExpertGroupedArrays, err error) {
+	if err := a.Validate(); err != nil {
+		return SelectedExpertGroupedArrays{}, SelectedExpertGroupedArrays{}, err
+	}
+	if keepExpert == nil {
+		return SelectedExpertGroupedArrays{}, SelectedExpertGroupedArrays{}, fmt.Errorf("nil grouped-array split predicate")
+	}
+	appendGroup := func(dst *SelectedExpertGroupedArrays, expert int, srcGroup int) {
+		newGroup := len(dst.ActiveExperts)
+		dst.ActiveExperts = append(dst.ActiveExperts, expert)
+		dst.ActiveExpertsU = append(dst.ActiveExpertsU, uint32(expert))
+		if len(dst.Offsets) == 0 {
+			dst.Offsets = append(dst.Offsets, 0)
+			dst.OffsetsU = append(dst.OffsetsU, 0)
+		}
+		for i := a.Offsets[srcGroup]; i < a.Offsets[srcGroup+1]; i++ {
+			dst.WorkPositions = append(dst.WorkPositions, a.WorkPositions[i])
+			dst.WorkPositionsU = append(dst.WorkPositionsU, a.WorkPositionsU[i])
+			dst.WorkWeights = append(dst.WorkWeights, a.WorkWeights[i])
+			dst.WorkDownScales = append(dst.WorkDownScales, a.WorkDownScales[i])
+			dst.WorkSlots = append(dst.WorkSlots, a.WorkSlots[i])
+			dst.WorkSlotsU = append(dst.WorkSlotsU, a.WorkSlotsU[i])
+			dst.WorkActive = append(dst.WorkActive, newGroup)
+			dst.WorkActiveU = append(dst.WorkActiveU, uint32(newGroup))
+		}
+		dst.Offsets = append(dst.Offsets, len(dst.WorkPositions))
+		dst.OffsetsU = append(dst.OffsetsU, uint32(len(dst.WorkPositions)))
+	}
+	kept.Offsets = []int{0}
+	kept.OffsetsU = []uint32{0}
+	dropped.Offsets = []int{0}
+	dropped.OffsetsU = []uint32{0}
+	for groupIdx, expert := range a.ActiveExperts {
+		if keepExpert(expert) {
+			appendGroup(&kept, expert, groupIdx)
+		} else {
+			appendGroup(&dropped, expert, groupIdx)
+		}
+	}
+	if err := kept.Validate(); err != nil {
+		return SelectedExpertGroupedArrays{}, SelectedExpertGroupedArrays{}, fmt.Errorf("kept grouped arrays invalid: %w", err)
+	}
+	if err := dropped.Validate(); err != nil {
+		return SelectedExpertGroupedArrays{}, SelectedExpertGroupedArrays{}, fmt.Errorf("dropped grouped arrays invalid: %w", err)
+	}
+	return kept, dropped, nil
+}
+
 func (a SelectedExpertGroupedArrays) Validate() error {
 	n := len(a.WorkPositions)
 	if len(a.WorkPositionsU) != n || len(a.WorkWeights) != n || len(a.WorkDownScales) != n || len(a.WorkSlots) != n || len(a.WorkSlotsU) != n || len(a.WorkActive) != n || len(a.WorkActiveU) != n {
