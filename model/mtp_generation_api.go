@@ -68,6 +68,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 			if summary.AcceptedPrefixLen < 0 || summary.AcceptedPrefixLen > len(summary.DraftedTokens) {
 				return fmt.Errorf("MTP graph summary %d accepted prefix=%d drafted=%d", i, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
 			}
+			if summary.AllDraftsAccepted != (summary.AcceptedPrefixLen == len(summary.DraftedTokens)) {
+				return fmt.Errorf("MTP graph summary %d all-accepted=%v inconsistent with accepted=%d drafted=%d", i, summary.AllDraftsAccepted, summary.AcceptedPrefixLen, len(summary.DraftedTokens))
+			}
 			summaryDrafted += len(summary.DraftedTokens)
 			summaryVerified += summary.AcceptedPrefixLen
 		}

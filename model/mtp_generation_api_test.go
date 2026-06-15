@@ -132,6 +132,25 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted summary verifier/drafted mismatch")
 	}
+	bad = valid
+	bad.StepSummaries[0].AllDraftsAccepted = true
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted inconsistent all-drafts-accepted=true")
+	}
+	bad = valid
+	bad.StepSummaries[0].AcceptedPrefixLen = 2
+	bad.StepSummaries[0].OutputTokens = []int{1, 2, 3}
+	bad.StepSummaries[0].BonusToken = 3
+	bad.Steps[0].KeepTokens = 3
+	bad.Steps[0].Positions = []int{1, 2, 3}
+	bad.Steps[0].OutputTokens = []int{1, 2, 3}
+	bad.GraphOutputTokens = 3
+	bad.GreedyTailTokens = 0
+	bad.Stats.VerifiedTokens = 2
+	bad.Stats.OutputTokens = 3
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted inconsistent all-drafts-accepted=false")
+	}
 	if err := valid.Validate(99); err == nil {
 		t.Fatal("accepted bad prompt len")
 	}
