@@ -21,6 +21,27 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 	if !sameStringSet(missing, []string{"public_generation_wiring", "full_layer_batch_verifier_default_enablement"}) {
 		t.Fatalf("missing=%v", missing)
 	}
+	if err := caps.Validate(); err != nil {
+		t.Fatalf("Validate default caps: %v", err)
+	}
+	bad := caps
+	bad.ReadyForExperimentalGeneration = false
+	bad.ExperimentalGenerationWiring = true
+	bad.PromptContextAPI = true
+	bad.ExternalKVRefresh = true
+	bad.ExactTokenBudget = true
+	bad.GraphKVCommit = true
+	bad.AcceptanceBonusSemantics = true
+	bad.HiddenStateDrafterLoop = true
+	bad.AdaptiveDraftPolicy = true
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted stale experimental readiness")
+	}
+	bad = caps
+	bad.ReadyForPublicGeneration = true
+	if err := bad.Validate(); err == nil {
+		t.Fatal("accepted stale public readiness")
+	}
 }
 
 func TestGemma4MTPGraphCapabilitiesBatchLayerGate(t *testing.T) {

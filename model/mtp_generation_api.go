@@ -66,6 +66,9 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 	if len(r.StepSummaries) != len(r.Steps) {
 		return fmt.Errorf("MTP graph step summaries=%d, commit steps=%d", len(r.StepSummaries), len(r.Steps))
 	}
+	if err := r.Capabilities.Validate(); err != nil {
+		return err
+	}
 	if len(r.Output) > 0 && !mtpSameStringSet(r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration()) {
 		return fmt.Errorf("MTP public-generation blockers=%v, want capabilities blockers=%v", r.MissingForPublicGeneration, r.Capabilities.MissingForPublicGeneration())
 	}

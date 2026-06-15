@@ -1,5 +1,7 @@
 package model
 
+import "fmt"
+
 // MTPGraphCapabilities reports the current Gemma4 MTP backend-graph support
 // surface. It deliberately separates production-safe graph pieces from gated
 // experimental full-layer batch lowering.
@@ -56,6 +58,18 @@ func Gemma4MTPGraphCapabilities() MTPGraphCapabilities {
 	caps.ReadyForExperimentalGeneration = caps.ExperimentalGenerationWiring && caps.PromptContextAPI && caps.ExternalKVRefresh && caps.ExactTokenBudget && caps.GraphKVCommit && caps.AcceptanceBonusSemantics && caps.HiddenStateDrafterLoop && caps.AdaptiveDraftPolicy
 	caps.ReadyForPublicGeneration = caps.PublicGenerationWiring && caps.ReadyForExperimentalGeneration
 	return caps
+}
+
+func (c MTPGraphCapabilities) Validate() error {
+	wantExperimental := c.ExperimentalGenerationWiring && c.PromptContextAPI && c.ExternalKVRefresh && c.ExactTokenBudget && c.GraphKVCommit && c.AcceptanceBonusSemantics && c.HiddenStateDrafterLoop && c.AdaptiveDraftPolicy
+	if c.ReadyForExperimentalGeneration != wantExperimental {
+		return fmt.Errorf("MTP experimental readiness=%v, want %v from capability flags", c.ReadyForExperimentalGeneration, wantExperimental)
+	}
+	wantPublic := c.PublicGenerationWiring && c.ReadyForExperimentalGeneration
+	if c.ReadyForPublicGeneration != wantPublic {
+		return fmt.Errorf("MTP public readiness=%v, want %v from public wiring and experimental readiness", c.ReadyForPublicGeneration, wantPublic)
+	}
+	return nil
 }
 
 func (c MTPGraphCapabilities) MissingForPublicGeneration() []string {

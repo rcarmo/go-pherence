@@ -107,6 +107,11 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted stale public-generation blocker list")
 	}
 	bad = valid
+	bad.Capabilities.ReadyForPublicGeneration = true
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted stale capability readiness")
+	}
+	bad = valid
 	bad.VocabSize = 0
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted missing vocab size")
