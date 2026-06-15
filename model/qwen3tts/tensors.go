@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rcarmo/go-pherence/model/inspect"
+	tensorinspect "github.com/rcarmo/go-pherence/model/internal/tensorinspect"
 )
 
 var requiredTensorMarkers = map[string][]string{
@@ -28,12 +28,7 @@ type TensorCoverage struct {
 	Readiness       TensorReadiness   `json:"readiness"`
 }
 
-type TensorReadiness struct {
-	Ready           bool            `json:"ready"`
-	PresentRequired map[string]bool `json:"present_required"`
-	MissingRequired []string        `json:"missing_required,omitempty"`
-	PresentOptional map[string]bool `json:"present_optional,omitempty"`
-}
+type TensorReadiness = tensorinspect.TensorReadiness
 
 func InspectTensorNames(names []string) TensorCoverage {
 	cov := TensorCoverage{Total: len(names), Examples: map[string]string{}}
@@ -65,21 +60,7 @@ func InspectTensorNames(names []string) TensorCoverage {
 }
 
 func InspectTensorReadiness(names []string) TensorReadiness {
-	presentRequired := make(map[string]bool, len(requiredTensorMarkers))
-	var missing []string
-	for group, markers := range requiredTensorMarkers {
-		present := inspect.AnyTensorMarker(names, markers)
-		presentRequired[group] = present
-		if !present {
-			missing = append(missing, group)
-		}
-	}
-	sort.Strings(missing)
-	presentOptional := make(map[string]bool, len(optionalTensorMarkers))
-	for group, markers := range optionalTensorMarkers {
-		presentOptional[group] = inspect.AnyTensorMarker(names, markers)
-	}
-	return TensorReadiness{Ready: len(missing) == 0, PresentRequired: presentRequired, MissingRequired: missing, PresentOptional: presentOptional}
+	return tensorinspect.InspectTensorReadiness(names, requiredTensorMarkers, optionalTensorMarkers)
 }
 
 func TensorGroup(name string) string {
