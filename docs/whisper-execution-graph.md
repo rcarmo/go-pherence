@@ -62,7 +62,7 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 | `large-v3-turbo` VTT model | **Default** with `-language en`. |
 | Full `large-v3` | Reference/fallback for source-language prompt behavior and quality comparisons. |
 | K3 native int8 | Safe/validated optimized path for K3 native runs. |
-| A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `scripts/whisper_a100_compare.py` across broader audio before automatic default. |
+| A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `make whisper-a100-compare` / `scripts/whisper_a100_compare.py` across broader audio before automatic default. |
 | GPU decoder MLP / cross-attn | Keep opt-in; prior measurements regressed due to launch/transfer overhead. |
 | Whisper speculative decode | Keep correctness-only until verifier batching/drafter integration. |
 | ECAPA speaker labels | Keep opt-in until broader labeled multi-speaker validation passes. |
@@ -70,7 +70,7 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 ## Remaining high-impact gaps
 
 1. Build a broader labeled validation suite for turbo VTT + speaker labels, including the voice-memo M4A windows.
-2. Validate A100 row-scale fused FFN on multiple long-form clips with `scripts/whisper_a100_compare.py`, comparing transcript/token counts to native int8.
+2. Validate A100 row-scale fused FFN on multiple long-form clips with `make whisper-a100-compare` or `scripts/whisper_a100_compare.py`, comparing transcript/token counts to native int8.
 3. Decide whether `WHISPER_A100_FFN_FUSED=1 WHISPER_A100_X100_PACK=1 WHISPER_A100_NATIVE_Q8=1` can become default on K3/A100-capable hosts.
 4. Implement or reject fused GPU mel and resident decoder kernels based on whole-pipeline measurements, not isolated kernel timings.
 5. Turn speculative decode from sequential correctness scaffold into a batched verifier path if a drafter/reference split becomes available.
