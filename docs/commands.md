@@ -256,7 +256,18 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -prompt "Hi"
 ```
 
-`-mtp-smoke` proves the drafter/runtime seam; it is not full speculative generation yet. Full MTP generation remains pending verifier batching, adaptive draft policy, and accepted-KV commit wiring.
+`-mtp-smoke` proves the drafter/runtime seam and prints `mtp_graph_capabilities`/public-generation blockers. Experimental graph-backed MTP generation is available on the CPU verifier path:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
+  -model models/gemma4-e4b-it-4bit \
+  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -mtp-generate \
+  -tokens 16 \
+  -prompt "Hi"
+```
+
+`-mtp-generate` builds a prompt context, maps external KV into the q-only drafter, and invokes `GenerateMTPGraphFromPromptContext` with adaptive draft policy. It remains experimental until real-asset verifier-batch parity/default enablement is complete; regular generation is unchanged unless this flag is set.
 
 ## Qwen3.6 native MTP triage
 

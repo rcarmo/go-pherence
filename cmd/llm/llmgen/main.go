@@ -30,10 +30,14 @@ func main() {
 	eagerLoad := flag.Bool("eager-load", false, "pre-fault mmap'd model weights at startup")
 	mtpDrafter := flag.String("mtp-drafter", "", "Gemma4 MTP assistant/drafter directory (experimental)")
 	mtpSmoke := flag.Bool("mtp-smoke", false, "load -mtp-drafter and run one packed 4-bit MTP drafter step instead of generation")
+	mtpGenerate := flag.Bool("mtp-generate", false, "experimental Gemma4 MTP graph generation using -mtp-drafter (CPU verifier path)")
 	mtpSeq := flag.Int("mtp-seq", 1, "external KV sequence length for -mtp-smoke when -mtp-real-prompt is false")
 	mtpRealPrompt := flag.Bool("mtp-real-prompt", false, "for -mtp-smoke, prefill the prompt with the main model and feed real activation/KV to the drafter")
-	mtpKVReuse := flag.Bool("mtp-kv-reuse", false, "for -mtp-smoke -mtp-real-prompt, build/reuse an in-process prompt KV context cache")
+	mtpKVReuse := flag.Bool("mtp-kv-reuse", false, "for -mtp-smoke/-mtp-generate, build/reuse an in-process prompt KV context cache")
 	mtpKVRepeat := flag.Int("mtp-kv-repeat", 1, "repeat MTP real-prompt context build N times to validate -mtp-kv-reuse hits")
+	mtpDraftMin := flag.Int("mtp-draft-min", 1, "minimum draft count for -mtp-generate")
+	mtpDraftInitial := flag.Int("mtp-draft-initial", 2, "initial draft count for -mtp-generate")
+	mtpDraftMax := flag.Int("mtp-draft-max", 4, "maximum draft count for -mtp-generate")
 	flag.Parse()
 
 	if *eagerLoad {
@@ -45,7 +49,7 @@ func main() {
 	if *useGPU && *mtpSmoke && *mtpRealPrompt && *gpuKVMaxSeq == 0 && os.Getenv("GO_PHERENCE_GPU_KV_MAX_SEQ") == "" {
 		os.Setenv("GO_PHERENCE_GPU_KV_MAX_SEQ", "256")
 	}
-	if *useGPU || *mtpSmoke {
+	if *useGPU || *mtpSmoke || *mtpGenerate {
 		model.ForceOnTheFly = true
 	}
 	if *useGPU {
@@ -76,8 +80,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "tokens must be non-negative")
 		os.Exit(1)
 	}
-	if *mtpSmoke && *mtpDrafter == "" {
-		fmt.Fprintln(os.Stderr, "-mtp-smoke requires -mtp-drafter <dir>")
+	if (*mtpSmoke || *mtpGenerate) && *mtpDrafter == "" {
+		fmt.Fprintln(os.Stderr, "-mtp-smoke/-mtp-generate requires -mtp-drafter <dir>")
 		os.Exit(1)
 	}
 	if *mtpSeq <= 0 {
@@ -122,16 +126,22 @@ func main() {
 		}
 		return
 	}
-	if *mtpDrafter != "" {
-		fmt.Fprintln(os.Stderr, "warning: -mtp-drafter is currently only wired for -mtp-smoke; generation uses the regular path")
-	}
 
 	fmt.Printf("Prompt: '%s' (%d tokens)\n", *prompt, len(ids))
 	fmt.Printf("Generating %d tokens...\n\n", *tokens)
 
 	start := time.Now()
 	var output []int
-	if gpuMod != nil {
+	var mtpStats model.MTPSpeculationStats
+	if *mtpGenerate {
+		result, err := runGemma4MTPGenerate(m, gpuMod, *mtpDrafter, ids, *tokens, *mtpKVReuse, model.MTPAdaptiveDraftPolicy{MinDrafts: *mtpDraftMin, InitialDrafts: *mtpDraftInitial, MaxDrafts: *mtpDraftMax})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "mtp generate: %v\n", err)
+			os.Exit(1)
+		}
+		output = result.Output
+		mtpStats = result.Stats
+	} else if gpuMod != nil {
 		output = append(ids, gpuMod.Generate(ids, *tokens)...)
 	} else if *speculative {
 		output = m.GenerateSpeculative(ids, *tokens, model.SpeculativeConfigFromEnv())
@@ -165,6 +175,13 @@ func main() {
 		fmt.Printf("Tokens/sec:       %.1f\n", tokPerSec)
 		fmt.Printf("ms/token:         %.1f\n", msPerTok)
 	}
+	if *mtpGenerate {
+		fmt.Printf("MTP graph steps:   %d\n", mtpStats.Steps)
+		fmt.Printf("MTP drafted:       %d\n", mtpStats.DraftedTokens)
+		fmt.Printf("MTP verified:      %d\n", mtpStats.VerifiedTokens)
+		fmt.Printf("MTP acceptance:    %.2f\n", mtpStats.AcceptanceRate())
+		fmt.Printf("MTP bonus tokens:  %d\n", mtpStats.BonusTokens)
+	}
 	_ = genText
 }
 
@@ -195,6 +212,29 @@ func buildMTPPromptContextCached(m *model.LlamaModel, gpuMod *model.GPUModel, id
 		mtpPromptContextCache[key] = ctx
 	}
 	return ctx, false, nil
+}
+
+func runGemma4MTPGenerate(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir string, ids []int, maxTokens int, kvReuse bool, policy model.MTPAdaptiveDraftPolicy) (model.MTPGraphGenerationResult, error) {
+	if maxTokens < 0 {
+		return model.MTPGraphGenerationResult{}, fmt.Errorf("maxTokens=%d must be non-negative", maxTokens)
+	}
+	d, err := model.LoadGemma4MTPDrafter(drafterDir)
+	if err != nil {
+		return model.MTPGraphGenerationResult{}, fmt.Errorf("load drafter: %w", err)
+	}
+	if m.Config.HiddenSize != d.BackboneHiddenSize || m.Config.VocabSize != d.Config.VocabSize {
+		return model.MTPGraphGenerationResult{}, fmt.Errorf("model/drafter mismatch model h/vocab=%d/%d drafter backbone/vocab=%d/%d", m.Config.HiddenSize, m.Config.VocabSize, d.BackboneHiddenSize, d.Config.VocabSize)
+	}
+	ctx, _, err := buildMTPPromptContextCached(m, gpuMod, ids, kvReuse)
+	if err != nil {
+		return model.MTPGraphGenerationResult{}, fmt.Errorf("prompt context: %w", err)
+	}
+	sources, err := mapDrafterSourcesByWidth(m, d, ctx.SeqLen)
+	if err != nil {
+		return model.MTPGraphGenerationResult{}, fmt.Errorf("map external KV: %w", err)
+	}
+	externalKV := &model.MTPDrafterExternalKV{K: ctx.KVCacheK, V: ctx.KVCacheV, SourceLayers: sources, SeqLen: ctx.SeqLen}
+	return m.GenerateMTPGraphFromPromptContext(d, ctx, externalKV, model.MTPGraphGenerationOptions{MaxTokens: maxTokens, Policy: policy})
 }
 
 type gemma4MTPSmokeResult struct {
