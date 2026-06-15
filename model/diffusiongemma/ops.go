@@ -86,14 +86,15 @@ type EncoderKVLayer struct {
 }
 
 type ForwardContext struct {
-	PromptIDs        []int            `json:"prompt_ids,omitempty"`
-	Canvas           []int            `json:"canvas"`
-	Step             int              `json:"step"`
-	SelfConditioning []float32        `json:"-"`
-	SCTempInv        float32          `json:"-"` // 1/t for self-conditioning softmax
-	SampleDraws      []float64        `json:"-"`
-	EncoderKV        []EncoderKVLayer `json:"-"`
-	EncoderSeqLen    int              `json:"encoder_seq_len,omitempty"`
+	PromptIDs              []int            `json:"prompt_ids,omitempty"`
+	Canvas                 []int            `json:"canvas"`
+	Step                   int              `json:"step"`
+	SelfConditioning       []float32        `json:"-"`
+	SelfConditioningLogits [][]float32      `json:"-"` // previous raw canvas logits [canvas][vocab], llama.cpp SC input
+	SCTempInv              float32          `json:"-"` // 1/t for self-conditioning softmax
+	SampleDraws            []float64        `json:"-"`
+	EncoderKV              []EncoderKVLayer `json:"-"`
+	EncoderSeqLen          int              `json:"encoder_seq_len,omitempty"`
 }
 
 // ForwardDispatcher is the explicit boundary for tensor-backed text forward

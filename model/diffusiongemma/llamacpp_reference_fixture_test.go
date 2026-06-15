@@ -60,21 +60,25 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 		t.Fatal(err)
 	}
 	var fixture struct {
-		Status                     string   `json:"status"`
-		LlamaCppRawPromptIDs       []int    `json:"llamacpp_raw_prompt_ids"`
-		LlamaCppTemplatedPromptIDs []int    `json:"llamacpp_templated_prompt_ids"`
-		GoPromptIDs                []int    `json:"go_prompt_ids"`
-		GoGeneratedIDs             []int    `json:"go_generated_ids"`
-		GoGeneratedTokens          []string `json:"go_generated_tokens"`
-		KnownMatches               []string `json:"known_matches"`
-		KnownDifferences           []string `json:"known_differences"`
-		NextRequiredAction         string   `json:"next_required_action"`
+		Status                     string       `json:"status"`
+		LlamaCppRawPromptIDs       []int        `json:"llamacpp_raw_prompt_ids"`
+		LlamaCppTemplatedPromptIDs []int        `json:"llamacpp_templated_prompt_ids"`
+		GoPromptIDs                []int        `json:"go_prompt_ids"`
+		GoGeneratedIDs             []int        `json:"go_generated_ids"`
+		GoGeneratedTokens          []string     `json:"go_generated_tokens"`
+		GoTrimCut                  int          `json:"go_trim_cut"`
+		GoTrimReason               string       `json:"go_trim_reason"`
+		GoObservedSteps            int          `json:"go_observed_steps"`
+		GoStepDiagnostics          []CanvasStep `json:"go_step_diagnostics"`
+		KnownMatches               []string     `json:"known_matches"`
+		KnownDifferences           []string     `json:"known_differences"`
+		NextRequiredAction         string       `json:"next_required_action"`
 	}
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	if fixture.Status != "partial_token_match_blocked" {
-		t.Fatalf("status=%q want partial_token_match_blocked until full sampler/canvas parity is aligned", fixture.Status)
+	if fixture.Status != "trimmed_output_mismatch_blocked" {
+		t.Fatalf("status=%q want trimmed_output_mismatch_blocked until full sampler/canvas parity is aligned", fixture.Status)
 	}
 	if !equalInts(fixture.LlamaCppRawPromptIDs, []int{2, 2202}) {
 		t.Fatalf("llama.cpp raw prompt IDs=%v want [2 2202]", fixture.LlamaCppRawPromptIDs)
@@ -83,10 +87,14 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 	if !equalInts(fixture.LlamaCppTemplatedPromptIDs, wantPrompt) || !equalInts(fixture.GoPromptIDs, wantPrompt) {
 		t.Fatalf("templated prompt IDs diverged: llama.cpp=%v Go=%v want=%v", fixture.LlamaCppTemplatedPromptIDs, fixture.GoPromptIDs, wantPrompt)
 	}
-	if len(fixture.GoGeneratedIDs) != 1 || fixture.GoGeneratedIDs[0] != 100 || len(fixture.GoGeneratedTokens) != 1 || fixture.GoGeneratedTokens[0] != "<|channel>" {
-		t.Fatalf("Go generated fixture lost first-token match details: ids=%v tokens=%v", fixture.GoGeneratedIDs, fixture.GoGeneratedTokens)
+	wantGenerated := []int{100, 45518, 107, 101, 9259, 236888, 2088, 740, 564, 1601, 611, 3124, 236881}
+	if !equalInts(fixture.GoGeneratedIDs, wantGenerated) || len(fixture.GoGeneratedTokens) != len(wantGenerated) || fixture.GoGeneratedTokens[0] != "<|channel>" {
+		t.Fatalf("Go generated fixture lost trimmed-output mismatch details: ids=%v tokens=%v", fixture.GoGeneratedIDs, fixture.GoGeneratedTokens)
 	}
-	if len(fixture.KnownMatches) < 3 || len(fixture.KnownDifferences) < 3 || !strings.Contains(fixture.NextRequiredAction, "full denoised canvas") {
+	if fixture.GoTrimCut != len(wantGenerated) || fixture.GoTrimReason != "eog" || fixture.GoObservedSteps != 3 || len(fixture.GoStepDiagnostics) != 3 || !fixture.GoStepDiagnostics[2].Stopped || fixture.GoStepDiagnostics[2].Held != 1 || !fixture.GoStepDiagnostics[2].Confident {
+		t.Fatalf("Go trim/step diagnostics lost: cut=%d reason=%q observed=%d steps=%+v", fixture.GoTrimCut, fixture.GoTrimReason, fixture.GoObservedSteps, fixture.GoStepDiagnostics)
+	}
+	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 4 || !strings.Contains(fixture.NextRequiredAction, "raw-logit self-conditioning") {
 		t.Fatalf("parity blocker is underspecified: %+v", fixture)
 	}
 }

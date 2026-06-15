@@ -1,6 +1,10 @@
 package diffusiongemma
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"strings"
+)
 
 // BlockDiffusionState keeps block-diffusion decoding state separate from
 // autoregressive KV state. DiffusionGemma denoises a fixed-size token canvas
@@ -15,13 +19,14 @@ type BlockDiffusionState struct {
 // intentionally abstract at this layer; the concrete model runtime will decide
 // how to encode prior canvases and expose cross-attention/prompt-cache state.
 type ForwardInput struct {
-	PromptIDs        []int            `json:"prompt_ids,omitempty"`
-	Canvas           []int            `json:"canvas"`
-	Step             int              `json:"step"`
-	SelfConditioning []float32        `json:"-"`
-	SCTempInv        float32          `json:"-"` // 1/t for self-conditioning softmax (set by runtime loop)
-	SampleDraws      []float64        `json:"-"` // pre-drawn per-position multinomial uniforms for backend/device sampling
-	EncoderKV        []EncoderKVLayer `json:"-"`
+	PromptIDs              []int            `json:"prompt_ids,omitempty"`
+	Canvas                 []int            `json:"canvas"`
+	Step                   int              `json:"step"`
+	SelfConditioning       []float32        `json:"-"`
+	SelfConditioningLogits [][]float32      `json:"-"` // previous raw canvas logits [canvas][vocab], matching llama.cpp sc_logits
+	SCTempInv              float32          `json:"-"` // 1/t for self-conditioning softmax (set by runtime loop)
+	SampleDraws            []float64        `json:"-"` // pre-drawn per-position multinomial uniforms for backend/device sampling
+	EncoderKV              []EncoderKVLayer `json:"-"`
 }
 
 // ForwardOutput contains per-canvas-position logits from the denoiser. Logits
@@ -49,6 +54,8 @@ type CanvasStep struct {
 	Temperature float64 `json:"temperature"`
 	Accepted    int     `json:"accepted"`
 	MeanEntropy float64 `json:"mean_entropy"`
+	Held        int     `json:"held,omitempty"`
+	Confident   bool    `json:"confident,omitempty"`
 	Stopped     bool    `json:"stopped"`
 }
 
@@ -66,6 +73,35 @@ type CanvasResult struct {
 // built against Transformers before using it for real generation.
 func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, canvasLength, vocabSize int, rng canvasRNG) (CanvasResult, error) {
 	return GenerateCanvasWithCallback(denoiser, promptIDs, cfg, canvasLength, vocabSize, rng, nil)
+}
+
+func diffusionGemmaRawSelfConditioningLogitsEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func equalIntSlices(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func retainLogitRows(rows [][]float32, n int) [][]float32 {
+	if n <= 0 || len(rows) < n {
+		return nil
+	}
+	for i := 0; i < n; i++ {
+		if len(rows[i]) == 0 {
+			return nil
+		}
+	}
+	return rows[:n]
 }
 
 // GenerateCanvasWithCallback is GenerateCanvas with an optional per-step callback.
@@ -107,9 +143,16 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 	// next step, while output_tokens stores the argmax canvas from the latest
 	// model forward. Return the latter for text generation correctness.
 	outputCanvas := append([]int(nil), canvas...)
-	stopper := NewStableConfidentStopper(cfg.StabilityThreshold, cfg.ConfidenceThreshold)
+	prevArgmax := make([]int, canvasLength)
+	for i := range prevArgmax {
+		prevArgmax[i] = -1
+	}
+	held := 0
 	steps := make([]CanvasStep, 0, cfg.MaxDenoisingSteps)
 	var selfConditioning []float32
+	var selfConditioningLogits [][]float32
+	prevTempInv := float32(1)
+	rawSelfConditioning := diffusionGemmaRawSelfConditioningLogitsEnabled()
 	for step := cfg.MaxDenoisingSteps; step > 0; step-- {
 		state.Step = step
 		temperature := LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, step)
@@ -124,7 +167,11 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 			sampleDraws[i] = rng.Float64()
 			renoiseTokens[i] = rng.Intn(vocabSize)
 		}
-		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, SelfConditioning: selfConditioning, SCTempInv: tempInv, SampleDraws: sampleDraws})
+		scTempInv := tempInv
+		if rawSelfConditioning {
+			scTempInv = prevTempInv
+		}
+		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, SelfConditioning: selfConditioning, SelfConditioningLogits: selfConditioningLogits, SCTempInv: scTempInv, SampleDraws: sampleDraws})
 		if err != nil {
 			return CanvasResult{}, err
 		}
@@ -157,8 +204,21 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		} else {
 			selfConditioning = nil
 		}
+		if rawSelfConditioning {
+			selfConditioningLogits = retainLogitRows(out.Logits, canvasLength)
+			prevTempInv = tempInv
+		} else {
+			selfConditioningLogits = nil
+		}
 		copy(outputCanvas, argmaxCanvas)
-		stopped := stopper.ShouldStop(argmaxCanvas, entropy)
+		if equalIntSlices(prevArgmax, argmaxCanvas) {
+			held++
+		} else {
+			held = 0
+		}
+		confident := cfg.ConfidenceThreshold > 0 && meanEntropy < cfg.ConfidenceThreshold
+		stopped := held >= cfg.StabilityThreshold && confident
+		copy(prevArgmax, argmaxCanvas)
 		// Always use entropy-bound acceptance + renoise for the next input canvas
 		// (same as llama.cpp); do not return this working canvas as generated text.
 		accepted := AcceptCanvas(canvas, denoiserCanvas, entropy, cfg.Sampler.EntropyBound)
@@ -166,7 +226,7 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		if !stopped {
 			canvas = RenoiseCanvasWithTokens(canvas, accepted.AcceptedMask, renoiseTokens)
 		}
-		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, Stopped: stopped})
+		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, Held: held, Confident: confident, Stopped: stopped})
 		if onStep != nil {
 			onStep(steps[len(steps)-1], canvas)
 		}
