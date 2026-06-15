@@ -1390,6 +1390,9 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 	if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
 		stats := ggufCPUExpertTimingSnapshot().Sub(traceStatsStart)
 		fmt.Fprintf(os.Stderr, "DiffusionGemma grouped gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d q5_direct/dequant=%d/%d\n", op.Layer, stats.Positions, stats.WorkItems, stats.ActiveExperts, time.Since(traceStart).Seconds(), float64(stats.GateNS)/1e9, float64(stats.DownNS)/1e9, stats.Q4DirectRows, stats.Q4DequantRows, stats.Q8DirectRows, stats.Q8DequantRows, stats.Q5DirectRows, stats.Q5DequantRows)
+		if traceRow := diffusionGemmaLayerTraceRow(); traceRow >= 0 {
+			fmt.Fprintf(os.Stderr, "DiffusionGemma grouped gguf_cpu_expert_row: layer=%d row=%d work=%+v\n", op.Layer, traceRow, groupedArrays.RowWork(traceRow))
+		}
 	}
 	return nil
 }

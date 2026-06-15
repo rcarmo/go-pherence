@@ -17,6 +17,39 @@ type SelectedExpertGroupedArrays struct {
 	OffsetsU       []uint32
 }
 
+type SelectedExpertRowWork struct {
+	WorkIndex int
+	Position  int
+	Slot      int
+	Active    int
+	Expert    int
+	Weight    float32
+	DownScale float32
+}
+
+func (a SelectedExpertGroupedArrays) RowWork(row int) []SelectedExpertRowWork {
+	if row < 0 || len(a.WorkPositions) == 0 {
+		return nil
+	}
+	out := make([]SelectedExpertRowWork, 0)
+	for i, pos := range a.WorkPositions {
+		if pos != row || i >= len(a.WorkActive) || i >= len(a.WorkWeights) || i >= len(a.WorkSlots) {
+			continue
+		}
+		active := a.WorkActive[i]
+		expert := -1
+		if active >= 0 && active < len(a.ActiveExperts) {
+			expert = a.ActiveExperts[active]
+		}
+		downScale := float32(1)
+		if i < len(a.WorkDownScales) {
+			downScale = a.WorkDownScales[i]
+		}
+		out = append(out, SelectedExpertRowWork{WorkIndex: i, Position: pos, Slot: a.WorkSlots[i], Active: active, Expert: expert, Weight: a.WorkWeights[i], DownScale: downScale})
+	}
+	return out
+}
+
 func BuildSelectedExpertGroupedArrays(arr SelectedExpertWorkArrays, grouped SelectedExpertGroupedWork) (SelectedExpertGroupedArrays, error) {
 	if err := arr.Validate(); err != nil {
 		return SelectedExpertGroupedArrays{}, err

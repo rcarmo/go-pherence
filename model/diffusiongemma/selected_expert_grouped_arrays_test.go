@@ -60,6 +60,13 @@ func TestBuildSelectedExpertGroupedArrays(t *testing.T) {
 			t.Fatalf("work active=%v/%v", ga.WorkActive, ga.WorkActiveU)
 		}
 	}
+	row1 := ga.RowWork(1)
+	if len(row1) != 2 || row1[0].Expert != 0 || row1[0].Slot != 1 || row1[0].Weight != 0.125 || row1[0].DownScale != 1.5 || row1[1].Expert != 2 || row1[1].Slot != 0 || row1[1].Weight != 0.75 || row1[1].DownScale != 2 {
+		t.Fatalf("row1 work=%+v", row1)
+	}
+	if got := ga.RowWork(99); len(got) != 0 {
+		t.Fatalf("unexpected missing-row work=%+v", got)
+	}
 }
 
 func TestSplitSelectedExpertGroupedArrays(t *testing.T) {
