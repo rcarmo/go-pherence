@@ -158,3 +158,14 @@ run: baseline `40.6s/37.2s/36.0s` versus A100 row-scale `37.4s/35.7s/35.5s` for
 passes 0/1/2. This supersedes the earlier block-scale default-eligibility
 finding: row-scale A100 is now a strong opt-in/default-candidate path, but should
 be validated on a broader audio set before becoming the automatic default.
+
+Current oracle/validation harness: native CPU/SIMD is the correctness oracle for
+A100 and K3 int8/IME refinements. `make whisper-turbo-check` runs the focused
+large-v3-turbo graph tests and command smokes. `make whisper-backend-compare`
+compares A100 row-scale and K3 int8/IME env presets against the native SIMD
+baseline across standalone stdout, standalone timestamp VTT, diarize-vtt VTT,
+and speaker-tagged diarize-vtt VTT for translate/transcribe. `make
+whisper-a100-podcast-compare` and `make whisper-int8-podcast-compare` run the
+same backend comparisons on a 12s long-form podcast window using `--start` /
+`--duration`, which is preferable to full-file benchmarking when host load or
+run time would obscure obvious parity/performance trends.
