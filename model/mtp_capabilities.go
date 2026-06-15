@@ -19,6 +19,7 @@ type MTPGraphCapabilities struct {
 	VerifierBatchPLI               bool `json:"verifier_batch_pli"`
 	VerifierBatchLayers            bool `json:"verifier_batch_layers"`
 	VerifierBatchLayersGated       bool `json:"verifier_batch_layers_gated"`
+	VerifierCompressedKVStaging    bool `json:"verifier_compressed_kv_staging"`
 	AcceptanceBonusSemantics       bool `json:"acceptance_bonus_semantics"`
 	GraphKVCommit                  bool `json:"graph_kv_commit"`
 	AdaptiveDraftPolicy            bool `json:"adaptive_draft_policy"`
@@ -46,6 +47,7 @@ func Gemma4MTPGraphCapabilities() MTPGraphCapabilities {
 		VerifierBatchPLI:             true,
 		VerifierBatchLayers:          mtpVerifierBatchLayerLoweringEnabled(),
 		VerifierBatchLayersGated:     true,
+		VerifierCompressedKVStaging:  false,
 		AcceptanceBonusSemantics:     true,
 		GraphKVCommit:                true,
 		AdaptiveDraftPolicy:          true,
@@ -56,7 +58,7 @@ func Gemma4MTPGraphCapabilities() MTPGraphCapabilities {
 		PublicGenerationWiring:       false,
 	}
 	caps.ReadyForExperimentalGeneration = caps.ExperimentalGenerationWiring && caps.PromptContextAPI && caps.ExternalKVRefresh && caps.ExactTokenBudget && caps.GraphKVCommit && caps.AcceptanceBonusSemantics && caps.HiddenStateDrafterLoop && caps.AdaptiveDraftPolicy
-	caps.ReadyForPublicGeneration = caps.PublicGenerationWiring && caps.ReadyForExperimentalGeneration && (!caps.VerifierBatchLayersGated || caps.VerifierBatchLayers)
+	caps.ReadyForPublicGeneration = caps.PublicGenerationWiring && caps.ReadyForExperimentalGeneration && caps.VerifierCompressedKVStaging && (!caps.VerifierBatchLayersGated || caps.VerifierBatchLayers)
 	return caps
 }
 
@@ -65,7 +67,7 @@ func (c MTPGraphCapabilities) Validate() error {
 	if c.ReadyForExperimentalGeneration != wantExperimental {
 		return fmt.Errorf("MTP experimental readiness=%v, want %v from capability flags", c.ReadyForExperimentalGeneration, wantExperimental)
 	}
-	wantPublic := c.PublicGenerationWiring && c.ReadyForExperimentalGeneration && (!c.VerifierBatchLayersGated || c.VerifierBatchLayers)
+	wantPublic := c.PublicGenerationWiring && c.ReadyForExperimentalGeneration && c.VerifierCompressedKVStaging && (!c.VerifierBatchLayersGated || c.VerifierBatchLayers)
 	if c.ReadyForPublicGeneration != wantPublic {
 		return fmt.Errorf("MTP public readiness=%v, want %v from public wiring and experimental readiness", c.ReadyForPublicGeneration, wantPublic)
 	}
@@ -76,6 +78,9 @@ func (c MTPGraphCapabilities) MissingForPublicGeneration() []string {
 	var missing []string
 	if !c.PublicGenerationWiring {
 		missing = append(missing, "public_generation_wiring")
+	}
+	if !c.VerifierCompressedKVStaging {
+		missing = append(missing, "compressed_kv_verifier_staging")
 	}
 	if !c.ReadyForPublicGeneration && c.VerifierBatchLayersGated && !c.VerifierBatchLayers {
 		missing = append(missing, "full_layer_batch_verifier_default_enablement")

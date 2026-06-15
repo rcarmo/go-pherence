@@ -65,7 +65,7 @@ func TestGenerateMTPGraphFromPromptContext(t *testing.T) {
 	if res.HiddenSize != m.Config.HiddenSize || res.FinalState.PreviousToken < 0 || res.FinalState.PreviousToken >= m.Config.VocabSize || len(res.FinalState.Activation) != m.Config.HiddenSize || res.FinalStateOutputLen != len(res.Output) {
 		t.Fatalf("hidden=%d final state=%+v covers=%d output=%v", res.HiddenSize, res.FinalState, res.FinalStateOutputLen, res.Output)
 	}
-	if !res.Capabilities.ExperimentalGenerationWiring || res.Capabilities.ReadyForPublicGeneration || !sameStringSet(res.MissingForPublicGeneration, []string{"public_generation_wiring", "full_layer_batch_verifier_default_enablement"}) {
+	if !res.Capabilities.ExperimentalGenerationWiring || res.Capabilities.ReadyForPublicGeneration || !sameStringSet(res.MissingForPublicGeneration, []string{"public_generation_wiring", "compressed_kv_verifier_staging", "full_layer_batch_verifier_default_enablement"}) {
 		t.Fatalf("capabilities=%+v missing=%v", res.Capabilities, res.MissingForPublicGeneration)
 	}
 }
