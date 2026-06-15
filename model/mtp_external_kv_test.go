@@ -4,15 +4,16 @@ import "testing"
 
 func TestMapMTPDrafterKVSourceLayersByWidth(t *testing.T) {
 	m := &LlamaModel{
-		Config: LlamaConfig{NumKVHeads: 1, NumGlobalKVHeads: 2, HeadDim: 2, LayerTypes: []string{"sliding_attention", "full_attention"}},
+		Config: LlamaConfig{NumKVHeads: 2, NumGlobalKVHeads: 1, HeadDim: 2, GlobalHeadDim: 4, LayerTypes: []string{"sliding_attention", "full_attention"}},
 		Layers: []LlamaLayer{{HasKV: true}, {HasKV: true}},
 	}
 	d := validDrafterStepScaffold()
 	d.Config.NumLayers = 2
 	d.Config.LayerTypes = []string{"sliding_attention", "full_attention"}
-	d.Config.NumKVHeads = 1
-	d.Config.NumGlobalKVHeads = 2
+	d.Config.NumKVHeads = 2
+	d.Config.NumGlobalKVHeads = 1
 	d.Config.HeadDim = 2
+	d.Config.GlobalHeadDim = 4
 	d.Layers = []Gemma4MTPDrafterLayer{{KVSourceLayer: -1}, {KVSourceLayer: -1}}
 	sources, err := MapMTPDrafterKVSourceLayersByWidth(m, d, 3)
 	if err != nil {

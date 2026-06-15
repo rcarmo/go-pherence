@@ -15,14 +15,8 @@ func MapMTPDrafterKVSourceLayersByWidth(m *LlamaModel, d *Gemma4MTPDrafter, seqL
 	sources := make([]int, d.Config.NumLayers)
 	used := make(map[int]bool)
 	for i := 0; i < d.Config.NumLayers; i++ {
-		headDim := d.Config.HeadDim
-		if d.Layers[i].HeadDimLocal > 0 {
-			headDim = d.Layers[i].HeadDimLocal
-		}
-		kvHeads := d.Config.NumKVHeads
-		if i < len(d.Config.LayerTypes) && d.Config.LayerTypes[i] == "full_attention" && d.Config.NumGlobalKVHeads > 0 {
-			kvHeads = d.Config.NumGlobalKVHeads
-		}
+		headDim := drafterLayerHeadDim(d, i)
+		kvHeads := drafterLayerKVHeads(d, i)
 		if headDim <= 0 || kvHeads <= 0 {
 			return nil, fmt.Errorf("invalid drafter layer %d KV dims heads=%d headDim=%d", i, kvHeads, headDim)
 		}
