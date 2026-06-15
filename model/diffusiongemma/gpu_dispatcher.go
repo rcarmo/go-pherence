@@ -957,7 +957,7 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 			}
 			actBatch := make([]float32, midLen)
 			for i := 0; i < positions; i++ {
-				if !simd.GELUExactMulTo(actBatch[i*intermediate:(i+1)*intermediate], gateBatch[i*intermediate:(i+1)*intermediate], upBatch[i*intermediate:(i+1)*intermediate]) {
+				if !diffusionGemmaGELUMulTo(actBatch[i*intermediate:(i+1)*intermediate], gateBatch[i*intermediate:(i+1)*intermediate], upBatch[i*intermediate:(i+1)*intermediate]) {
 					return fmt.Errorf("FP8 MLP activation rejected")
 				}
 			}
@@ -1016,7 +1016,7 @@ func (d GPUDispatcher) gpuDenseMLP(op LayerOp, weights *TextWeights, scratch For
 		}
 		actBatch := make([]float32, midLen)
 		for pos := 0; pos < positions; pos++ {
-			if !simd.GELUExactMulTo(actBatch[pos*intermediate:(pos+1)*intermediate], gateBatch[pos*intermediate:(pos+1)*intermediate], upBatch[pos*intermediate:(pos+1)*intermediate]) {
+			if !diffusionGemmaGELUMulTo(actBatch[pos*intermediate:(pos+1)*intermediate], gateBatch[pos*intermediate:(pos+1)*intermediate], upBatch[pos*intermediate:(pos+1)*intermediate]) {
 				return fmt.Errorf("GPU MLP activation rejected")
 			}
 		}
@@ -4106,7 +4106,7 @@ func runGGUFGPUExpertsGrouped(op LayerOp, weights *TextWeights, scratch ForwardS
 			}
 			act := make([]float32, nPos*intermediate)
 			for i := 0; i < nPos; i++ {
-				if !simd.GELUExactMulTo(act[i*intermediate:(i+1)*intermediate], gu[i*intermediate*2:i*intermediate*2+intermediate], gu[i*intermediate*2+intermediate:(i+1)*intermediate*2]) {
+				if !diffusionGemmaGELUMulTo(act[i*intermediate:(i+1)*intermediate], gu[i*intermediate*2:i*intermediate*2+intermediate], gu[i*intermediate*2+intermediate:(i+1)*intermediate*2]) {
 					return false, fmt.Errorf("GGUF GPU expert activation rejected")
 				}
 			}

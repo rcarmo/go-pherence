@@ -7,7 +7,6 @@ import (
 	"time"
 
 	gpu "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
-	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 var f32GELUExactMulScratch = struct {
@@ -77,11 +76,10 @@ func resetF32GELUExactMulStats() {
 	f32GELUExactMulCounters.uploadNS.Store(0)
 }
 
-// f32GELUExactMulBuffer computes gate = exact_gelu(gate) * up in-place.
-// llama.cpp's Gemma4/DiffusionGemma graph uses ggml_gelu (erf-based), not the
-// tanh approximation. Until we add an exact CUDA activation kernel, keep
-// opt-in device-resident MLP paths numerically aligned by making this explicit
-// host boundary rather than silently using the faster gelu_tanh kernel.
+// f32GELUExactMulBuffer computes gate = gelu(gate) * up in-place using the
+// DiffusionGemma activation selected by diffusionGemmaGELUMulTo. The historical
+// name is kept to avoid a broad rename of diagnostics/scratch helpers, but the
+// math must follow llama.cpp's ggml_gelu behavior for fidelity.
 func f32GELUExactMulBuffer(gate, up *gpu.Buffer, n int) error {
 	if gate == nil || up == nil || n <= 0 {
 		return fmt.Errorf("invalid exact GELU device activation buffers")
@@ -106,8 +104,8 @@ func f32GELUExactMulBuffer(gate, up *gpu.Buffer, n int) error {
 	}
 	f32GELUExactMulCounters.downloadNS.Add(uint64(time.Since(downloadStart).Nanoseconds()))
 	geluStart := time.Now()
-	if !simd.GELUExactMulTo(gateHost, gateHost, upHost) {
-		return fmt.Errorf("exact GELU activation rejected n=%d", n)
+	if !diffusionGemmaGELUMulTo(gateHost, gateHost, upHost) {
+		return fmt.Errorf("DiffusionGemma GELU activation rejected n=%d", n)
 	}
 	f32GELUExactMulCounters.geluNS.Add(uint64(time.Since(geluStart).Nanoseconds()))
 	uploadStart := time.Now()
