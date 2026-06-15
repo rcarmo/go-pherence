@@ -168,6 +168,20 @@ func TestGenerateCanvasUsesPrecomputedSamplerOutputs(t *testing.T) {
 	}
 }
 
+func TestTopLogitsReturnsDescendingIDsAndValues(t *testing.T) {
+	ids, vals := topLogits([]float32{0.5, 2.0, -1.0, 2.5, 1.5}, 3)
+	wantIDs := []int{3, 1, 4}
+	wantVals := []float32{2.5, 2.0, 1.5}
+	if len(ids) != len(wantIDs) || len(vals) != len(wantVals) {
+		t.Fatalf("topLogits len ids=%v vals=%v", ids, vals)
+	}
+	for i := range wantIDs {
+		if ids[i] != wantIDs[i] || vals[i] != wantVals[i] {
+			t.Fatalf("topLogits=%v/%v want %v/%v", ids, vals, wantIDs, wantVals)
+		}
+	}
+}
+
 func TestGenerateCanvasRecordsEntropyProbes(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_ENTROPY_PROBE_POSITIONS", "1,0,1,bad,9")
 	cfg := DenoisingConfig{MaxDenoisingSteps: 1, TMin: 1, TMax: 1, StabilityThreshold: 99, ConfidenceThreshold: 0, Sampler: SamplerConfig{EntropyBound: 0}}
@@ -178,11 +192,13 @@ func TestGenerateCanvasRecordsEntropyProbes(t *testing.T) {
 	if len(res.Steps) != 1 || len(res.Steps[0].EntropyProbes) != 2 {
 		t.Fatalf("entropy probes=%+v", res.Steps)
 	}
-	if res.Steps[0].EntropyProbes[0] != (EntropyProbe{Position: 1, Argmax: 4, Sampled: 2, Entropy: 0.02, Accepted: false}) {
-		t.Fatalf("probe[0]=%+v", res.Steps[0].EntropyProbes[0])
+	p0 := res.Steps[0].EntropyProbes[0]
+	if p0.Position != 1 || p0.Argmax != 4 || p0.Sampled != 2 || p0.Entropy != 0.02 || p0.Accepted || len(p0.TopIDs) != 0 || len(p0.TopLogits) != 0 {
+		t.Fatalf("probe[0]=%+v", p0)
 	}
-	if res.Steps[0].EntropyProbes[1] != (EntropyProbe{Position: 0, Argmax: 3, Sampled: 1, Entropy: 0.01, Accepted: true}) {
-		t.Fatalf("probe[1]=%+v", res.Steps[0].EntropyProbes[1])
+	p1 := res.Steps[0].EntropyProbes[1]
+	if p1.Position != 0 || p1.Argmax != 3 || p1.Sampled != 1 || p1.Entropy != 0.01 || !p1.Accepted || len(p1.TopIDs) != 0 || len(p1.TopLogits) != 0 {
+		t.Fatalf("probe[1]=%+v", p1)
 	}
 }
 

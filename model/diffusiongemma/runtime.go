@@ -49,11 +49,13 @@ type Denoiser interface {
 }
 
 type EntropyProbe struct {
-	Position int     `json:"position"`
-	Argmax   int     `json:"argmax"`
-	Sampled  int     `json:"sampled"`
-	Entropy  float64 `json:"entropy"`
-	Accepted bool    `json:"accepted"`
+	Position  int       `json:"position"`
+	Argmax    int       `json:"argmax"`
+	Sampled   int       `json:"sampled"`
+	Entropy   float64   `json:"entropy"`
+	Accepted  bool      `json:"accepted"`
+	TopIDs    []int     `json:"top_ids,omitempty"`
+	TopLogits []float32 `json:"top_logits,omitempty"`
 }
 
 // CanvasStep records one denoising iteration for diagnostics and future
@@ -136,6 +138,37 @@ func retainLogitRows(rows [][]float32, n int) [][]float32 {
 		}
 	}
 	return rows[:n]
+}
+
+func topLogits(row []float32, k int) ([]int, []float32) {
+	if k <= 0 || len(row) == 0 {
+		return nil, nil
+	}
+	if k > len(row) {
+		k = len(row)
+	}
+	ids := make([]int, 0, k)
+	vals := make([]float32, 0, k)
+	for id, v := range row {
+		insert := len(vals)
+		for insert > 0 && v > vals[insert-1] {
+			insert--
+		}
+		if insert >= k {
+			continue
+		}
+		ids = append(ids, 0)
+		vals = append(vals, 0)
+		copy(ids[insert+1:], ids[insert:])
+		copy(vals[insert+1:], vals[insert:])
+		ids[insert] = id
+		vals[insert] = v
+		if len(ids) > k {
+			ids = ids[:k]
+			vals = vals[:k]
+		}
+	}
+	return ids, vals
 }
 
 // GenerateCanvasWithCallback is GenerateCanvas with an optional per-step callback.
@@ -277,7 +310,11 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		}
 		probes := make([]EntropyProbe, 0, len(probePositions))
 		for _, pos := range probePositions {
-			probes = append(probes, EntropyProbe{Position: pos, Argmax: argmaxCanvas[pos], Sampled: denoiserCanvas[pos], Entropy: entropy[pos], Accepted: len(accepted.AcceptedMask) > pos && accepted.AcceptedMask[pos]})
+			probe := EntropyProbe{Position: pos, Argmax: argmaxCanvas[pos], Sampled: denoiserCanvas[pos], Entropy: entropy[pos], Accepted: len(accepted.AcceptedMask) > pos && accepted.AcceptedMask[pos]}
+			if len(out.Logits) > pos {
+				probe.TopIDs, probe.TopLogits = topLogits(out.Logits[pos], 5)
+			}
+			probes = append(probes, probe)
 		}
 		canvas = accepted.Canvas
 		if !stopped {
