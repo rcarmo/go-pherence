@@ -39,6 +39,36 @@ func TestLocalDiffusionGemmaProcessorSpecialTokenIDs(t *testing.T) {
 	}
 }
 
+func TestLocalDiffusionGemmaTemplateChatPromptIDsThinkingEnabled(t *testing.T) {
+	dir := localDiffusionGemmaModelDir(t)
+	meta, err := LoadMetadata(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := tokenizer.Load(filepath.Join(dir, "tokenizer.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	framed, err := BuildTemplateChatPromptIDs(
+		[]TextChatMessage{{Role: "user", Content: "hi"}},
+		meta.Tokenizer.SpecialTokenIDs(meta.Processor),
+		tok.Encode,
+		ChatRenderOptions{AddBOS: true, AddGenerationPrompt: true, EnableThinking: true},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []int{2, 105, 9731, 107, 98, 107, 106, 107, 105, 2364, 107, 2202, 106, 107, 105, 4368, 107}
+	if len(framed.InputIDs) != len(want) {
+		t.Fatalf("prompt len=%d want %d ids=%v", len(framed.InputIDs), len(want), framed.InputIDs)
+	}
+	for i := range want {
+		if framed.InputIDs[i] != want[i] {
+			t.Fatalf("prompt[%d]=%d want %d ids=%v", i, framed.InputIDs[i], want[i], framed.InputIDs)
+		}
+	}
+}
+
 func TestLocalDiffusionGemmaTemplateChatPromptIDs(t *testing.T) {
 	dir := localDiffusionGemmaModelDir(t)
 	meta, err := LoadMetadata(dir)

@@ -31,13 +31,14 @@ func BuildTemplateChatPromptIDs(messages []TextChatMessage, specials SpecialToke
 				return PromptIDs{}, fmt.Errorf("DiffusionGemma think token ID unavailable")
 			}
 			ids = append(ids, specials.THINK)
-			ids = append(ids, encode("\n")...)
+			ids = append(ids, 107) // \n token after <|think|>
 		}
 		if firstRoleIsSystem(messages) {
 			ids = append(ids, encode(messages[0].Content)...)
 			start = 1
 		}
 		ids = append(ids, specials.EOT)
+		ids = append(ids, 107) // \n token after system turn end
 	}
 	for _, msg := range messages[start:] {
 		if specials.BOT < 0 || specials.EOT < 0 {
