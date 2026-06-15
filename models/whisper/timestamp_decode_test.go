@@ -1,0 +1,61 @@
+package whisper
+
+import "testing"
+
+func TestGreedyDecodeWithTimestampsFlushesAtTokenLimit(t *testing.T) {
+	cfg := Tiny()
+	cfg.MaxDecoderLength = 3
+	dec := newZeroDecoderForTest(cfg)
+	encLen := 2
+	state := NewDecoderState(cfg, make([]float32, encLen*cfg.EncoderDModel), encLen, dec)
+
+	segments := GreedyDecodeWithTimestamps(dec, state, cfg)
+	if len(segments) != 1 {
+		t.Fatalf("segments=%d want 1", len(segments))
+	}
+	if len(segments[0].Tokens) == 0 {
+		t.Fatalf("expected flushed text tokens")
+	}
+	if segments[0].End <= segments[0].Start {
+		t.Fatalf("invalid segment timing: %+v", segments[0])
+	}
+}
+
+func newZeroDecoderForTest(cfg Config) *Decoder {
+	dec := NewDecoder(cfg)
+	dModel := cfg.DecoderDModel
+	dec.TokenEmbed = make([]float32, cfg.VocabSize*dModel)
+	dec.PosEmbed = make([]float32, cfg.MaxDecoderLength*dModel)
+	dec.FinalLNWeight = ones(dModel)
+	dec.FinalLNBias = make([]float32, dModel)
+	for i := range dec.Layers {
+		l := &dec.Layers[i]
+		l.SelfAttnLNWeight = ones(dModel)
+		l.SelfAttnLNBias = make([]float32, dModel)
+		l.SelfQWeight = make([]float32, dModel*dModel)
+		l.SelfQBias = make([]float32, dModel)
+		l.SelfKWeight = make([]float32, dModel*dModel)
+		l.SelfKBias = make([]float32, dModel)
+		l.SelfVWeight = make([]float32, dModel*dModel)
+		l.SelfVBias = make([]float32, dModel)
+		l.SelfOWeight = make([]float32, dModel*dModel)
+		l.SelfOBias = make([]float32, dModel)
+		l.CrossAttnLNWeight = ones(dModel)
+		l.CrossAttnLNBias = make([]float32, dModel)
+		l.CrossQWeight = make([]float32, dModel*dModel)
+		l.CrossQBias = make([]float32, dModel)
+		l.CrossKWeight = make([]float32, dModel*dModel)
+		l.CrossKBias = make([]float32, dModel)
+		l.CrossVWeight = make([]float32, dModel*dModel)
+		l.CrossVBias = make([]float32, dModel)
+		l.CrossOWeight = make([]float32, dModel*dModel)
+		l.CrossOBias = make([]float32, dModel)
+		l.MLPLNWeight = ones(dModel)
+		l.MLPLNBias = make([]float32, dModel)
+		l.FC1Weight = make([]float32, cfg.DecoderFFNDim*dModel)
+		l.FC1Bias = make([]float32, cfg.DecoderFFNDim)
+		l.FC2Weight = make([]float32, dModel*cfg.DecoderFFNDim)
+		l.FC2Bias = make([]float32, dModel)
+	}
+	return dec
+}
