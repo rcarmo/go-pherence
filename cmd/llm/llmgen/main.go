@@ -337,11 +337,10 @@ func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir s
 		k := make([][]float32, d.Config.NumLayers)
 		v := make([][]float32, d.Config.NumLayers)
 		for i := range d.Layers {
-			headDim := d.Config.HeadDim
-			if d.Layers[i].HeadDimLocal > 0 {
-				headDim = d.Layers[i].HeadDimLocal
+			kvDim, err := d.LayerKVDim(i)
+			if err != nil {
+				return fmt.Errorf("drafter layer %d KV dim: %w", i, err)
 			}
-			kvDim := d.Config.NumKVHeads * headDim
 			k[i] = make([]float32, seqLen*kvDim)
 			v[i] = make([]float32, seqLen*kvDim)
 		}

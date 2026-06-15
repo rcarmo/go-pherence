@@ -281,9 +281,18 @@ func TestDrafterLayerDimsDeriveGemma4FullAttentionDim(t *testing.T) {
 	if got := drafterLayerKVHeads(d, 1); got != 1 {
 		t.Fatalf("full drafter kvHeads=%d want 1", got)
 	}
+	if got, err := d.LayerKVDim(1); err != nil || got != 4 {
+		t.Fatalf("full drafter LayerKVDim=%d err=%v want 4", got, err)
+	}
 	d.Layers[1].HeadDimLocal = 6
 	if got := drafterLayerHeadDim(d, 1); got != 6 {
 		t.Fatalf("explicit full drafter headDim=%d want 6", got)
+	}
+	if got, err := d.LayerKVDim(1); err != nil || got != 6 {
+		t.Fatalf("explicit full drafter LayerKVDim=%d err=%v want 6", got, err)
+	}
+	if _, err := d.LayerKVDim(2); err == nil {
+		t.Fatal("LayerKVDim accepted out-of-range drafter layer")
 	}
 }
 

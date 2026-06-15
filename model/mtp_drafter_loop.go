@@ -303,7 +303,10 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	return hidden, nil
 }
 
-func drafterLayerHeadDim(d *Gemma4MTPDrafter, layerIdx int) int {
+// LayerHeadDim returns the effective per-head width for a drafter layer.
+// Gemma4 full-attention layers use GlobalHeadDim when HeadDimLocal is absent,
+// matching the main-model LayerHeadDim contract used by verifier paths.
+func (d *Gemma4MTPDrafter) LayerHeadDim(layerIdx int) int {
 	if d == nil {
 		return 0
 	}
@@ -316,7 +319,8 @@ func drafterLayerHeadDim(d *Gemma4MTPDrafter, layerIdx int) int {
 	return d.Config.HeadDim
 }
 
-func drafterLayerKVHeads(d *Gemma4MTPDrafter, layerIdx int) int {
+// LayerKVHeads returns the effective K/V head count for a drafter layer.
+func (d *Gemma4MTPDrafter) LayerKVHeads(layerIdx int) int {
 	if d == nil {
 		return 0
 	}
@@ -324,6 +328,32 @@ func drafterLayerKVHeads(d *Gemma4MTPDrafter, layerIdx int) int {
 		return d.Config.NumGlobalKVHeads
 	}
 	return d.Config.NumKVHeads
+}
+
+// LayerKVDim returns the flat per-token external K/V width consumed by a
+// q-only drafter layer.
+func (d *Gemma4MTPDrafter) LayerKVDim(layerIdx int) (int, error) {
+	if d == nil {
+		return 0, fmt.Errorf("nil drafter")
+	}
+	if layerIdx < 0 || layerIdx >= d.Config.NumLayers || layerIdx >= len(d.Layers) {
+		return 0, fmt.Errorf("drafter layer %d out of range", layerIdx)
+	}
+	headDim := d.LayerHeadDim(layerIdx)
+	kvHeads := d.LayerKVHeads(layerIdx)
+	kvDim, ok := checkedProduct(kvHeads, headDim)
+	if headDim <= 0 || kvHeads <= 0 || !ok {
+		return 0, fmt.Errorf("invalid drafter layer %d KV dim kvHeads=%d headDim=%d", layerIdx, kvHeads, headDim)
+	}
+	return kvDim, nil
+}
+
+func drafterLayerHeadDim(d *Gemma4MTPDrafter, layerIdx int) int {
+	return d.LayerHeadDim(layerIdx)
+}
+
+func drafterLayerKVHeads(d *Gemma4MTPDrafter, layerIdx int) int {
+	return d.LayerKVHeads(layerIdx)
 }
 
 func drafterGQAAttention(d *Gemma4MTPDrafter, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int) []float32 {
