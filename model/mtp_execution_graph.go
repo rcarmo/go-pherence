@@ -181,6 +181,16 @@ func (g MTPExecutionGraph) CommitPlan(acceptance MTPAcceptance) (MTPKVCommitPlan
 	if acceptance.DraftedCount != len(g.DraftedTokens) {
 		return MTPKVCommitPlan{}, fmt.Errorf("acceptance drafted count=%d, graph drafted count=%d", acceptance.DraftedCount, len(g.DraftedTokens))
 	}
+	for i, tok := range acceptance.AcceptedTokens {
+		if i >= len(g.DraftedTokens) || tok != g.DraftedTokens[i] {
+			return MTPKVCommitPlan{}, fmt.Errorf("acceptance token %d=%d does not match graph draft %d", i, tok, g.DraftedTokens[i])
+		}
+	}
+	for i := 0; i < acceptance.AcceptedPrefixLen; i++ {
+		if acceptance.OutputTokens[i] != g.DraftedTokens[i] {
+			return MTPKVCommitPlan{}, fmt.Errorf("acceptance output token %d=%d does not match graph draft %d", i, acceptance.OutputTokens[i], g.DraftedTokens[i])
+		}
+	}
 	keep := acceptance.KVKeepTokens()
 	if keep <= 0 || keep > len(g.Verifier.Positions) {
 		return MTPKVCommitPlan{}, fmt.Errorf("KV keep tokens=%d outside verifier positions len=%d", keep, len(g.Verifier.Positions))

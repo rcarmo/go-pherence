@@ -143,6 +143,22 @@ func TestMTPExecutionGraphCommitPlan(t *testing.T) {
 	if _, err := graph.CommitPlan(wrong); err == nil {
 		t.Fatal("accepted mismatched acceptance draft count")
 	}
+	forged := MTPAcceptance{
+		DraftedCount:       3,
+		VerifiedCount:      1,
+		AcceptedPrefixLen:  1,
+		AcceptedTokens:     []int{99},
+		BonusToken:         8,
+		OutputTokens:       []int{99, 8},
+		AllDraftsAccepted:  false,
+		FirstRejectedIndex: 1,
+	}
+	if err := forged.Validate(); err != nil {
+		t.Fatalf("forged acceptance should be structurally valid: %v", err)
+	}
+	if _, err := graph.CommitPlan(forged); err == nil {
+		t.Fatal("accepted prefix tokens that do not match graph drafts")
+	}
 }
 
 func TestNewMTPExecutionGraphValidation(t *testing.T) {
