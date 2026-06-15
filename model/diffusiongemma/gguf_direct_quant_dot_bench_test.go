@@ -90,7 +90,7 @@ func BenchmarkGGUFQ8_0RowDotDirectVsDequant(b *testing.B) {
 func BenchmarkGGUFQ8_0RowDotBatchDirectVsDequant(b *testing.B) {
 	m := syntheticBenchQ8Matrix(b, 2816)
 	row := make([]float32, m.InDim)
-	for _, nPos := range []int{1, 2, 3, 4, 8, 16} {
+	for _, nPos := range []int{1, 2, 3, 4, 8, 9, 12, 15, 16} {
 		x := make([]float32, nPos*m.InDim)
 		directOut := make([]float32, nPos*m.OutDim)
 		dequantOut := make([]float32, nPos*m.OutDim)
@@ -122,7 +122,7 @@ func BenchmarkGGUFQ8_0RowDotBatchDirectVsDequant(b *testing.B) {
 func BenchmarkGGUFQ4KRowDotBatchDirectVsDequant(b *testing.B) {
 	m := syntheticBenchQ4KMatrix(b, 1408)
 	row := make([]float32, m.InDim)
-	for _, nPos := range []int{1, 2, 3, 4, 8, 16} {
+	for _, nPos := range []int{1, 2, 3, 4, 8, 9, 12, 15, 16} {
 		x := make([]float32, nPos*m.InDim)
 		directOut := make([]float32, nPos*m.OutDim)
 		dequantOut := make([]float32, nPos*m.OutDim)

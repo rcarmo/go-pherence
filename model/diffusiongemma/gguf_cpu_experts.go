@@ -152,62 +152,119 @@ type ggufCPUExpertGroupingScratch struct {
 
 var ggufCPUExpertGroupingPool = sync.Pool{New: func() any { return &ggufCPUExpertGroupingScratch{} }}
 
+type ggufCPUExpertBatchBuckets [6]uint64
+
 type ggufCPUExpertTimingStats struct {
-	Calls         uint64
-	Positions     uint64
-	WorkItems     uint64
-	ActiveExperts uint64
-	Q4DirectRows  uint64
-	Q4DequantRows uint64
-	Q8DirectRows  uint64
-	Q8DequantRows uint64
-	NormNS        uint64
-	CollectNS     uint64
-	ScheduleNS    uint64
-	GateNS        uint64
-	ActNS         uint64
-	DownNS        uint64
-	ScatterNS     uint64
-	PostNS        uint64
+	Calls            uint64
+	Positions        uint64
+	WorkItems        uint64
+	ActiveExperts    uint64
+	Q4DirectRows     uint64
+	Q4DequantRows    uint64
+	Q8DirectRows     uint64
+	Q8DequantRows    uint64
+	Q4DirectBatches  ggufCPUExpertBatchBuckets
+	Q4DequantBatches ggufCPUExpertBatchBuckets
+	Q8DirectBatches  ggufCPUExpertBatchBuckets
+	Q8DequantBatches ggufCPUExpertBatchBuckets
+	NormNS           uint64
+	CollectNS        uint64
+	ScheduleNS       uint64
+	GateNS           uint64
+	ActNS            uint64
+	DownNS           uint64
+	ScatterNS        uint64
+	PostNS           uint64
 }
 
 var ggufCPUExpertTimingCounters struct {
-	calls         atomic.Uint64
-	positions     atomic.Uint64
-	workItems     atomic.Uint64
-	activeExperts atomic.Uint64
-	q4DirectRows  atomic.Uint64
-	q4DequantRows atomic.Uint64
-	q8DirectRows  atomic.Uint64
-	q8DequantRows atomic.Uint64
-	normNS        atomic.Uint64
-	collectNS     atomic.Uint64
-	scheduleNS    atomic.Uint64
-	gateNS        atomic.Uint64
-	actNS         atomic.Uint64
-	downNS        atomic.Uint64
-	scatterNS     atomic.Uint64
-	postNS        atomic.Uint64
+	calls            atomic.Uint64
+	positions        atomic.Uint64
+	workItems        atomic.Uint64
+	activeExperts    atomic.Uint64
+	q4DirectRows     atomic.Uint64
+	q4DequantRows    atomic.Uint64
+	q8DirectRows     atomic.Uint64
+	q8DequantRows    atomic.Uint64
+	q4DirectBatches  [6]atomic.Uint64
+	q4DequantBatches [6]atomic.Uint64
+	q8DirectBatches  [6]atomic.Uint64
+	q8DequantBatches [6]atomic.Uint64
+	normNS           atomic.Uint64
+	collectNS        atomic.Uint64
+	scheduleNS       atomic.Uint64
+	gateNS           atomic.Uint64
+	actNS            atomic.Uint64
+	downNS           atomic.Uint64
+	scatterNS        atomic.Uint64
+	postNS           atomic.Uint64
+}
+
+func ggufCPUExpertBatchBucket(nPos int) int {
+	switch {
+	case nPos <= 1:
+		return 0
+	case nPos <= 3:
+		return 1
+	case nPos <= 8:
+		return 2
+	case nPos <= 12:
+		return 3
+	case nPos <= 15:
+		return 4
+	default:
+		return 5
+	}
+}
+
+func ggufCPUExpertLoadBuckets(c *[6]atomic.Uint64) ggufCPUExpertBatchBuckets {
+	var out ggufCPUExpertBatchBuckets
+	for i := range out {
+		out[i] = c[i].Load()
+	}
+	return out
+}
+
+func ggufCPUExpertStoreZeroBuckets(c *[6]atomic.Uint64) {
+	for i := range c {
+		c[i].Store(0)
+	}
+}
+
+func ggufCPUExpertSubBuckets(a, b ggufCPUExpertBatchBuckets) ggufCPUExpertBatchBuckets {
+	var out ggufCPUExpertBatchBuckets
+	for i := range out {
+		out[i] = a[i] - b[i]
+	}
+	return out
+}
+
+func ggufCPUExpertBatchBucketsString(b ggufCPUExpertBatchBuckets) string {
+	return fmt.Sprintf("1:%d,2-3:%d,4-8:%d,9-12:%d,13-15:%d,16+:%d", b[0], b[1], b[2], b[3], b[4], b[5])
 }
 
 func ggufCPUExpertTimingSnapshot() ggufCPUExpertTimingStats {
 	return ggufCPUExpertTimingStats{
-		Calls:         ggufCPUExpertTimingCounters.calls.Load(),
-		Positions:     ggufCPUExpertTimingCounters.positions.Load(),
-		WorkItems:     ggufCPUExpertTimingCounters.workItems.Load(),
-		ActiveExperts: ggufCPUExpertTimingCounters.activeExperts.Load(),
-		Q4DirectRows:  ggufCPUExpertTimingCounters.q4DirectRows.Load(),
-		Q4DequantRows: ggufCPUExpertTimingCounters.q4DequantRows.Load(),
-		Q8DirectRows:  ggufCPUExpertTimingCounters.q8DirectRows.Load(),
-		Q8DequantRows: ggufCPUExpertTimingCounters.q8DequantRows.Load(),
-		NormNS:        ggufCPUExpertTimingCounters.normNS.Load(),
-		CollectNS:     ggufCPUExpertTimingCounters.collectNS.Load(),
-		ScheduleNS:    ggufCPUExpertTimingCounters.scheduleNS.Load(),
-		GateNS:        ggufCPUExpertTimingCounters.gateNS.Load(),
-		ActNS:         ggufCPUExpertTimingCounters.actNS.Load(),
-		DownNS:        ggufCPUExpertTimingCounters.downNS.Load(),
-		ScatterNS:     ggufCPUExpertTimingCounters.scatterNS.Load(),
-		PostNS:        ggufCPUExpertTimingCounters.postNS.Load(),
+		Calls:            ggufCPUExpertTimingCounters.calls.Load(),
+		Positions:        ggufCPUExpertTimingCounters.positions.Load(),
+		WorkItems:        ggufCPUExpertTimingCounters.workItems.Load(),
+		ActiveExperts:    ggufCPUExpertTimingCounters.activeExperts.Load(),
+		Q4DirectRows:     ggufCPUExpertTimingCounters.q4DirectRows.Load(),
+		Q4DequantRows:    ggufCPUExpertTimingCounters.q4DequantRows.Load(),
+		Q8DirectRows:     ggufCPUExpertTimingCounters.q8DirectRows.Load(),
+		Q8DequantRows:    ggufCPUExpertTimingCounters.q8DequantRows.Load(),
+		Q4DirectBatches:  ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q4DirectBatches),
+		Q4DequantBatches: ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q4DequantBatches),
+		Q8DirectBatches:  ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q8DirectBatches),
+		Q8DequantBatches: ggufCPUExpertLoadBuckets(&ggufCPUExpertTimingCounters.q8DequantBatches),
+		NormNS:           ggufCPUExpertTimingCounters.normNS.Load(),
+		CollectNS:        ggufCPUExpertTimingCounters.collectNS.Load(),
+		ScheduleNS:       ggufCPUExpertTimingCounters.scheduleNS.Load(),
+		GateNS:           ggufCPUExpertTimingCounters.gateNS.Load(),
+		ActNS:            ggufCPUExpertTimingCounters.actNS.Load(),
+		DownNS:           ggufCPUExpertTimingCounters.downNS.Load(),
+		ScatterNS:        ggufCPUExpertTimingCounters.scatterNS.Load(),
+		PostNS:           ggufCPUExpertTimingCounters.postNS.Load(),
 	}
 }
 
@@ -220,6 +277,10 @@ func ResetGGUFCPUExpertTimingStats() {
 	ggufCPUExpertTimingCounters.q4DequantRows.Store(0)
 	ggufCPUExpertTimingCounters.q8DirectRows.Store(0)
 	ggufCPUExpertTimingCounters.q8DequantRows.Store(0)
+	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q4DirectBatches)
+	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q4DequantBatches)
+	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q8DirectBatches)
+	ggufCPUExpertStoreZeroBuckets(&ggufCPUExpertTimingCounters.q8DequantBatches)
 	ggufCPUExpertTimingCounters.normNS.Store(0)
 	ggufCPUExpertTimingCounters.collectNS.Store(0)
 	ggufCPUExpertTimingCounters.scheduleNS.Store(0)
@@ -232,22 +293,26 @@ func ResetGGUFCPUExpertTimingStats() {
 
 func (s ggufCPUExpertTimingStats) Sub(base ggufCPUExpertTimingStats) ggufCPUExpertTimingStats {
 	return ggufCPUExpertTimingStats{
-		Calls:         s.Calls - base.Calls,
-		Positions:     s.Positions - base.Positions,
-		WorkItems:     s.WorkItems - base.WorkItems,
-		ActiveExperts: s.ActiveExperts - base.ActiveExperts,
-		Q4DirectRows:  s.Q4DirectRows - base.Q4DirectRows,
-		Q4DequantRows: s.Q4DequantRows - base.Q4DequantRows,
-		Q8DirectRows:  s.Q8DirectRows - base.Q8DirectRows,
-		Q8DequantRows: s.Q8DequantRows - base.Q8DequantRows,
-		NormNS:        s.NormNS - base.NormNS,
-		CollectNS:     s.CollectNS - base.CollectNS,
-		ScheduleNS:    s.ScheduleNS - base.ScheduleNS,
-		GateNS:        s.GateNS - base.GateNS,
-		ActNS:         s.ActNS - base.ActNS,
-		DownNS:        s.DownNS - base.DownNS,
-		ScatterNS:     s.ScatterNS - base.ScatterNS,
-		PostNS:        s.PostNS - base.PostNS,
+		Calls:            s.Calls - base.Calls,
+		Positions:        s.Positions - base.Positions,
+		WorkItems:        s.WorkItems - base.WorkItems,
+		ActiveExperts:    s.ActiveExperts - base.ActiveExperts,
+		Q4DirectRows:     s.Q4DirectRows - base.Q4DirectRows,
+		Q4DequantRows:    s.Q4DequantRows - base.Q4DequantRows,
+		Q8DirectRows:     s.Q8DirectRows - base.Q8DirectRows,
+		Q8DequantRows:    s.Q8DequantRows - base.Q8DequantRows,
+		Q4DirectBatches:  ggufCPUExpertSubBuckets(s.Q4DirectBatches, base.Q4DirectBatches),
+		Q4DequantBatches: ggufCPUExpertSubBuckets(s.Q4DequantBatches, base.Q4DequantBatches),
+		Q8DirectBatches:  ggufCPUExpertSubBuckets(s.Q8DirectBatches, base.Q8DirectBatches),
+		Q8DequantBatches: ggufCPUExpertSubBuckets(s.Q8DequantBatches, base.Q8DequantBatches),
+		NormNS:           s.NormNS - base.NormNS,
+		CollectNS:        s.CollectNS - base.CollectNS,
+		ScheduleNS:       s.ScheduleNS - base.ScheduleNS,
+		GateNS:           s.GateNS - base.GateNS,
+		ActNS:            s.ActNS - base.ActNS,
+		DownNS:           s.DownNS - base.DownNS,
+		ScatterNS:        s.ScatterNS - base.ScatterNS,
+		PostNS:           s.PostNS - base.PostNS,
 	}
 }
 
@@ -802,10 +867,13 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					}
 				}
 				if le.gateUp.QType == gguf.QuantQ4_K {
+					bucket := ggufCPUExpertBatchBucket(nPos)
 					if useDirectQ4GateUp {
 						ggufCPUExpertTimingCounters.q4DirectRows.Add(uint64(outDimGU * nPos))
+						ggufCPUExpertTimingCounters.q4DirectBatches[bucket].Add(1)
 					} else {
 						ggufCPUExpertTimingCounters.q4DequantRows.Add(uint64(outDimGU))
+						ggufCPUExpertTimingCounters.q4DequantBatches[bucket].Add(1)
 					}
 				}
 				ggufCPUExpertTimingCounters.gateNS.Add(uint64(time.Since(gateStart).Nanoseconds()))
@@ -840,8 +908,8 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					return
 				}
 				// SIMD direct Q8_0 row-dot uses a 4-output raw-row primitive and wins up
-				// through nPos<=8; larger expert-down batches still favor dequant-once +
-				// Sdot reuse.
+				// through nPos<=8 in the full GGUF expert path; larger expert-down batches
+				// still favor dequant-once + Sdot reuse end-to-end.
 				useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && nPos <= 8 && le.down.QType == gguf.QuantQ8_0
 				for r := 0; r < dnOutDim; r++ {
 					if useDirectQ8Down {
@@ -872,10 +940,13 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 					}
 				}
 				if le.down.QType == gguf.QuantQ8_0 {
+					bucket := ggufCPUExpertBatchBucket(nPos)
 					if useDirectQ8Down {
 						ggufCPUExpertTimingCounters.q8DirectRows.Add(uint64(dnOutDim * nPos))
+						ggufCPUExpertTimingCounters.q8DirectBatches[bucket].Add(1)
 					} else {
 						ggufCPUExpertTimingCounters.q8DequantRows.Add(uint64(dnOutDim))
+						ggufCPUExpertTimingCounters.q8DequantBatches[bucket].Add(1)
 					}
 				}
 				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
@@ -951,8 +1022,10 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 	if le.gateUp.QType == gguf.QuantQ4_K {
 		if useDirectQ4GateUp {
 			ggufCPUExpertTimingCounters.q4DirectRows.Add(uint64(outDimGU))
+			ggufCPUExpertTimingCounters.q4DirectBatches[0].Add(1)
 		} else {
 			ggufCPUExpertTimingCounters.q4DequantRows.Add(uint64(outDimGU))
+			ggufCPUExpertTimingCounters.q4DequantBatches[0].Add(1)
 		}
 	}
 
@@ -982,8 +1055,10 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 	if le.down.QType == gguf.QuantQ8_0 {
 		if useDirectQ8Down {
 			ggufCPUExpertTimingCounters.q8DirectRows.Add(uint64(hiddenSize))
+			ggufCPUExpertTimingCounters.q8DirectBatches[0].Add(1)
 		} else {
 			ggufCPUExpertTimingCounters.q8DequantRows.Add(uint64(hiddenSize))
+			ggufCPUExpertTimingCounters.q8DequantBatches[0].Add(1)
 		}
 	}
 
