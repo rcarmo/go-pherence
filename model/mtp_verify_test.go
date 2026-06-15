@@ -156,6 +156,47 @@ func TestMTPVerifierResultForModelAcceptanceAndFloatKVCommit(t *testing.T) {
 	}
 }
 
+func TestMTPVerifierResultCommitKVRejectsMutatedAcceptance(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	result, err := NewMTPVerifierResultForModel(m, 0, []int{1, 2}, [][]float32{
+		{0, 9, 0, 0},
+		{0, 0, 0, 8},
+		{7, 0, 0, 0},
+	}, []float32{1, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result.Acceptance = MTPAcceptance{
+		DraftedCount:       2,
+		VerifiedCount:      2,
+		AcceptedPrefixLen:  2,
+		AcceptedTokens:     []int{1, 2},
+		BonusToken:         0,
+		OutputTokens:       []int{1, 2, 0},
+		AllDraftsAccepted:  true,
+		FirstRejectedIndex: -1,
+	}
+	k := [][]float32{{1, 2, 10, 11, 12, 13, 14, 15}}
+	v := [][]float32{{3, 4, 20, 21, 22, 23, 24, 25}}
+	if err := result.CommitFloatKV(m, k, v, kv.FloatKVCheckpoint{KLen: []int{2}, VLen: []int{2}}); err == nil {
+		t.Fatal("float commit accepted forged acceptance that disagrees with logits")
+	}
+	if len(k[0]) != 8 || len(v[0]) != 8 {
+		t.Fatalf("float KV mutated on failed acceptance check K=%v V=%v", k[0], v[0])
+	}
+	cache := kv.NewCompressedKVCache(2, 1, 2, nil, true)
+	cache.Append([]float32{1, 2}, []float32{10, 20})
+	cp := kv.CheckpointCompressedKV([]*kv.CompressedKVCache{cache})
+	cache.Append([]float32{3, 4}, []float32{30, 40})
+	cache.Append([]float32{5, 6}, []float32{50, 60})
+	if err := result.CommitCompressedKV([]*kv.CompressedKVCache{cache}, cp); err == nil {
+		t.Fatal("compressed commit accepted forged acceptance that disagrees with logits")
+	}
+	if got, want := cache.SeqLen(), 3; got != want {
+		t.Fatalf("compressed KV mutated on failed acceptance check seq=%d want %d", got, want)
+	}
+}
+
 func TestMTPVerifierResultForModelAcceptanceAndCompressedKVCommit(t *testing.T) {
 	m := &LlamaModel{Config: LlamaConfig{VocabSize: 5, HiddenSize: 2}}
 	result, err := NewMTPVerifierResultForModel(m, 0, []int{1, 2}, [][]float32{

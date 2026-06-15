@@ -163,6 +163,9 @@ func (r MTPVerifierResult) CommitFloatKV(m *LlamaModel, kvCacheK, kvCacheV [][]f
 	if m == nil {
 		return fmt.Errorf("nil model")
 	}
+	if err := r.validateAcceptanceMatchesLogits(); err != nil {
+		return err
+	}
 	return m.CommitAcceptedFloatKV(kvCacheK, kvCacheV, cp, r.Acceptance)
 }
 
@@ -189,6 +192,9 @@ func (r MTPVerifierResult) CommitGraphFloatKV(m *LlamaModel, graph MTPExecutionG
 // compressed/TurboQuant KV caches. The checkpoints must be from immediately
 // before the verifier pass.
 func (r MTPVerifierResult) CommitCompressedKV(caches []*kv.CompressedKVCache, cp []kv.CompressedKVCheckpoint) error {
+	if err := r.validateAcceptanceMatchesLogits(); err != nil {
+		return err
+	}
 	return CommitAcceptedCompressedKV(caches, cp, r.Acceptance)
 }
 
