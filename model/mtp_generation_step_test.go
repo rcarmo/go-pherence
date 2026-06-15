@@ -1,7 +1,6 @@
 package model
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/runtime/kv"
@@ -104,7 +103,7 @@ func TestMTPDrafterStateFromVerifierCommitUsesAcceptedRow(t *testing.T) {
 	}
 }
 
-func TestCPUDecodeStateRunMTPGraphDecodeStepRejectsCompressedKVUntilVerifierStagingExists(t *testing.T) {
+func TestCPUDecodeStateRunMTPGraphDecodeStepCompressedKVZeroLayer(t *testing.T) {
 	m := newZeroLayerVerifierModel()
 	d := validProjectionOnlyDrafter()
 	d.Config.VocabSize = m.Config.VocabSize
@@ -117,12 +116,38 @@ func TestCPUDecodeStateRunMTPGraphDecodeStepRejectsCompressedKVUntilVerifierStag
 		t.Fatal(err)
 	}
 	st.CompressedKV = []*kv.CompressedKVCache{}
-	_, err = st.RunMTPGraphDecodeStep(d, state, nil, MTPGraphDecodeStepOptions{RemainingTokens: 3, DraftCount: 2}, MTPSpeculationStats{})
-	if err == nil || !strings.Contains(err.Error(), "compressed KV staging") {
-		t.Fatalf("error=%v, want compressed KV staging guard", err)
+	res, err := st.RunMTPGraphDecodeStep(d, state, nil, MTPGraphDecodeStepOptions{RemainingTokens: 3, DraftCount: 2}, MTPSpeculationStats{})
+	if err != nil {
+		t.Fatalf("RunMTPGraphDecodeStep compressed zero-layer: %v", err)
 	}
-	if !sameInts(st.Output, []int{1}) {
-		t.Fatalf("output mutated after compressed KV guard: %v", st.Output)
+	if !sameInts(st.Output, append([]int{1}, res.Commit.OutputTokens...)) {
+		t.Fatalf("decode output=%v commit=%v", st.Output, res.Commit.OutputTokens)
+	}
+}
+
+func TestCPUDecodeStateCompressedVerifierStagingValidation(t *testing.T) {
+	m := &LlamaModel{Config: LlamaConfig{NumLayers: 1, NumKVHeads: 1, HeadDim: 2}, Layers: []LlamaLayer{{HasKV: true}}}
+	st := &CPUDecodeState{Model: m, KVDims: []int{2}, CompressedKV: []*kv.CompressedKVCache{kv.NewCompressedKVCache(2, 1, 2, nil, true)}}
+	st.CompressedKV[0].Append([]float32{1, 2}, []float32{3, 4})
+	k, v, err := st.materializeCompressedKVForVerifier(1)
+	if err != nil {
+		t.Fatalf("materializeCompressedKVForVerifier: %v", err)
+	}
+	if !sameFloat32s(k[0], []float32{1, 2}) || !sameFloat32s(v[0], []float32{3, 4}) {
+		t.Fatalf("materialized K/V=%v/%v", k[0], v[0])
+	}
+	k[0] = append(k[0], 5, 6, 7, 8)
+	v[0] = append(v[0], 9, 10, 11, 12)
+	if err := st.stageCompressedVerifierKV(k, v, 1); err != nil {
+		t.Fatalf("stageCompressedVerifierKV: %v", err)
+	}
+	if got := st.CompressedKV[0].SeqLen(); got != 3 {
+		t.Fatalf("compressed seq len=%d want 3", got)
+	}
+	badK := [][]float32{{1, 2, 3}}
+	badV := [][]float32{{4, 5}}
+	if err := st.stageCompressedVerifierKV(badK, badV, 3); err == nil {
+		t.Fatal("accepted malformed staged compressed verifier K/V")
 	}
 }
 

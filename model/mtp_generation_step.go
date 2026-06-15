@@ -104,9 +104,6 @@ func (s *CPUDecodeState) RunMTPGraphDecodeStep(d *Gemma4MTPDrafter, state MTPDra
 	if opts.RemainingTokens <= 0 {
 		return MTPGraphDecodeStepResult{}, fmt.Errorf("remaining tokens %d out of range", opts.RemainingTokens)
 	}
-	if s.CompressedKV != nil {
-		return MTPGraphDecodeStepResult{}, fmt.Errorf("MTP graph decode compressed KV staging is not implemented; use float KV verifier staging")
-	}
 	draftCount := opts.DraftCount
 	if draftCount == 0 {
 		draftCount = opts.Policy.NextDraftCount(opts.RemainingTokens, stats)
@@ -118,10 +115,25 @@ func (s *CPUDecodeState) RunMTPGraphDecodeStep(d *Gemma4MTPDrafter, state MTPDra
 		return MTPGraphDecodeStepResult{}, fmt.Errorf("draft count %d would exceed remaining output budget %d including bonus", draftCount, opts.RemainingTokens)
 	}
 	cp := s.Checkpoint()
-	step, err := s.Model.RunMTPMultiDraftSpeculativeStep(d, state, externalKV, len(s.Output), draftCount, s.KVCacheK, s.KVCacheV, stats)
+	verifierK, verifierV := s.KVCacheK, s.KVCacheV
+	if s.CompressedKV != nil {
+		var err error
+		verifierK, verifierV, err = s.materializeCompressedKVForVerifier(len(s.Output))
+		if err != nil {
+			_ = s.Restore(cp)
+			return MTPGraphDecodeStepResult{}, err
+		}
+	}
+	step, err := s.Model.RunMTPMultiDraftSpeculativeStep(d, state, externalKV, len(s.Output), draftCount, verifierK, verifierV, stats)
 	if err != nil {
 		_ = s.Restore(cp)
 		return MTPGraphDecodeStepResult{}, err
+	}
+	if s.CompressedKV != nil {
+		if err := s.stageCompressedVerifierKV(verifierK, verifierV, len(s.Output)); err != nil {
+			_ = s.Restore(cp)
+			return MTPGraphDecodeStepResult{}, err
+		}
 	}
 	commit, err := s.CommitGraphAccepted(cp, step.Graph, step.Verifier)
 	if err != nil {
@@ -134,6 +146,85 @@ func (s *CPUDecodeState) RunMTPGraphDecodeStep(d *Gemma4MTPDrafter, state MTPDra
 		return MTPGraphDecodeStepResult{}, err
 	}
 	return MTPGraphDecodeStepResult{Step: step, Commit: commit, Stats: step.Stats, FinalState: nextState}, nil
+}
+
+func (s *CPUDecodeState) materializeCompressedKVForVerifier(startPos int) ([][]float32, [][]float32, error) {
+	if s == nil || s.Model == nil {
+		return nil, nil, fmt.Errorf("nil decode state/model")
+	}
+	if startPos < 0 {
+		return nil, nil, fmt.Errorf("negative compressed verifier start position %d", startPos)
+	}
+	if len(s.KVDims) != len(s.Model.Layers) {
+		return nil, nil, fmt.Errorf("compressed verifier KV dims=%d, want layers=%d", len(s.KVDims), len(s.Model.Layers))
+	}
+	if len(s.CompressedKV) != len(s.Model.Layers) {
+		return nil, nil, fmt.Errorf("compressed verifier KV layers=%d, want %d", len(s.CompressedKV), len(s.Model.Layers))
+	}
+	k := make([][]float32, len(s.Model.Layers))
+	v := make([][]float32, len(s.Model.Layers))
+	for l, dim := range s.KVDims {
+		if dim == 0 {
+			continue
+		}
+		cache := s.CompressedKV[l]
+		if cache == nil {
+			return nil, nil, fmt.Errorf("compressed verifier layer %d cache is nil", l)
+		}
+		if cache.SeqLen() != startPos {
+			return nil, nil, fmt.Errorf("compressed verifier layer %d seq len=%d, want start position %d", l, cache.SeqLen(), startPos)
+		}
+		want, ok := checkedProduct(startPos, dim)
+		if !ok {
+			return nil, nil, fmt.Errorf("compressed verifier layer %d length overflows start=%d dim=%d", l, startPos, dim)
+		}
+		kd := cache.GetK()
+		vd := cache.GetV()
+		if len(kd) != want || len(vd) != want {
+			return nil, nil, fmt.Errorf("compressed verifier layer %d materialized K/V=%d/%d, want %d", l, len(kd), len(vd), want)
+		}
+		k[l] = append([]float32(nil), kd...)
+		v[l] = append([]float32(nil), vd...)
+	}
+	return k, v, nil
+}
+
+func (s *CPUDecodeState) stageCompressedVerifierKV(kvCacheK, kvCacheV [][]float32, startPos int) error {
+	if s == nil || s.Model == nil {
+		return fmt.Errorf("nil decode state/model")
+	}
+	if startPos < 0 {
+		return fmt.Errorf("negative compressed verifier start position %d", startPos)
+	}
+	if len(kvCacheK) != len(s.Model.Layers) || len(kvCacheV) != len(s.Model.Layers) || len(s.KVDims) != len(s.Model.Layers) || len(s.CompressedKV) != len(s.Model.Layers) {
+		return fmt.Errorf("compressed verifier staging layers K/V/dims/caches=%d/%d/%d/%d, want %d", len(kvCacheK), len(kvCacheV), len(s.KVDims), len(s.CompressedKV), len(s.Model.Layers))
+	}
+	for l, dim := range s.KVDims {
+		if dim == 0 {
+			if len(kvCacheK[l]) != 0 || len(kvCacheV[l]) != 0 {
+				return fmt.Errorf("compressed verifier shared layer %d staged unexpected K/V=%d/%d", l, len(kvCacheK[l]), len(kvCacheV[l]))
+			}
+			continue
+		}
+		cache := s.CompressedKV[l]
+		if cache == nil {
+			return fmt.Errorf("compressed verifier layer %d cache is nil", l)
+		}
+		base, ok := checkedProduct(startPos, dim)
+		if !ok {
+			return fmt.Errorf("compressed verifier layer %d base length overflows start=%d dim=%d", l, startPos, dim)
+		}
+		if len(kvCacheK[l]) < base || len(kvCacheV[l]) < base || (len(kvCacheK[l])-base)%dim != 0 || (len(kvCacheV[l])-base)%dim != 0 || len(kvCacheK[l]) != len(kvCacheV[l]) {
+			return fmt.Errorf("compressed verifier layer %d staged K/V=%d/%d incompatible with base=%d dim=%d", l, len(kvCacheK[l]), len(kvCacheV[l]), base, dim)
+		}
+		if cache.SeqLen() != startPos {
+			return fmt.Errorf("compressed verifier layer %d seq len=%d, want start position %d", l, cache.SeqLen(), startPos)
+		}
+		for off := base; off < len(kvCacheK[l]); off += dim {
+			cache.Append(kvCacheK[l][off:off+dim], kvCacheV[l][off:off+dim])
+		}
+	}
+	return nil
 }
 
 func newMTPDrafterStateFromVerifierCommit(d *Gemma4MTPDrafter, verifier MTPVerifierResult, commit MTPKVCommitPlan) (MTPDrafterState, error) {

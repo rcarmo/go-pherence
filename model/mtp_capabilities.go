@@ -47,7 +47,7 @@ func Gemma4MTPGraphCapabilities() MTPGraphCapabilities {
 		VerifierBatchPLI:             true,
 		VerifierBatchLayers:          mtpVerifierBatchLayerLoweringEnabled(),
 		VerifierBatchLayersGated:     true,
-		VerifierCompressedKVStaging:  false,
+		VerifierCompressedKVStaging:  true,
 		AcceptanceBonusSemantics:     true,
 		GraphKVCommit:                true,
 		AdaptiveDraftPolicy:          true,
