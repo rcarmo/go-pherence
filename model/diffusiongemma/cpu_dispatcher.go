@@ -46,6 +46,11 @@ func diffusionGemmaLayerTraceRow() int {
 	return row
 }
 
+func diffusionGemmaLayerTraceOpsEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_LAYER_TRACE_OPS")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func traceForwardRow(stage string, layer int, row int, scratch ForwardScratch, hiddenSize int) {
 	if row < 0 || hiddenSize <= 0 {
 		return
@@ -165,6 +170,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		}
 	}
 	traceRow := diffusionGemmaLayerTraceRow()
+	traceOps := diffusionGemmaLayerTraceOpsEnabled()
 	traceForwardRow("prefix", -1, traceRow, scratch, buffers.HiddenSize)
 	currentLayer := -1
 	completedLayers := 0
@@ -192,6 +198,9 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		}
 		if err := dispatchLayerOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
+		}
+		if traceOps {
+			traceForwardRow("op/"+string(op.Kind), op.Layer, traceRow, scratch, buffers.HiddenSize)
 		}
 	}
 	if currentLayer >= 0 {

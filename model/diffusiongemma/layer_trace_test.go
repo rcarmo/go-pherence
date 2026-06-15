@@ -17,6 +17,21 @@ func TestDiffusionGemmaLayerTraceRowEnv(t *testing.T) {
 	}
 }
 
+func TestDiffusionGemmaLayerTraceOpsEnabled(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_LAYER_TRACE_OPS", "")
+	if diffusionGemmaLayerTraceOpsEnabled() {
+		t.Fatal("op trace should default off")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_LAYER_TRACE_OPS", "yes")
+	if !diffusionGemmaLayerTraceOpsEnabled() {
+		t.Fatal("op trace opt-in not honored")
+	}
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_LAYER_TRACE_OPS", "false")
+	if diffusionGemmaLayerTraceOpsEnabled() {
+		t.Fatal("op trace false should disable")
+	}
+}
+
 func TestTraceForwardRowBoundsAreSafe(t *testing.T) {
 	traceForwardRow("test", 0, -1, ForwardScratch{}, 4)
 	traceForwardRow("test", 0, 10, ForwardScratch{Hidden: make([]float32, 8)}, 4)
