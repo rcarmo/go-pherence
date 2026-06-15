@@ -1,6 +1,10 @@
 package whisper
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/rcarmo/go-pherence/loader/audio"
+)
 
 // BatchedEncoderForward processes multiple mel chunks through the encoder in parallel.
 // mels: slice of mel spectrograms, each [numMelBins * T] flat (channel-first)
@@ -135,17 +139,20 @@ type melCfgHelper struct {
 }
 
 func computeMelFlatWithT(samples []float32, numMels int, cfg melCfgHelper) ([]float32, int) {
-	numFrames := (len(samples) - cfg.FFTSize) / cfg.HopLength
-	if numFrames <= 0 {
+	mel := audio.MelSpectrogram(samples, audio.MelConfig{
+		SampleRate: cfg.SampleRate,
+		FFTSize:    cfg.FFTSize,
+		HopLength:  cfg.HopLength,
+		NumMels:    numMels,
+		NFFTPadded: cfg.NFFTPadded,
+	})
+	if len(mel) == 0 || len(mel[0]) == 0 {
 		return nil, 0
 	}
-
-	// Use the fused mel from simd/fft package directly would be ideal,
-	// but for now use the audio package
-	// Import avoided to prevent circular dependency — inline simple version
-	T := numFrames
+	T := len(mel[0])
 	melFlat := make([]float32, numMels*T)
-	// Zero mel (weights will produce zeros with zero input anyway)
-	// Real implementation should call the audio.MelSpectrogram or fused path
+	for m := 0; m < numMels && m < len(mel); m++ {
+		copy(melFlat[m*T:(m+1)*T], mel[m])
+	}
 	return melFlat, T
 }
