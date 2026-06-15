@@ -41,7 +41,7 @@ GOTMPDIR=$PWD/.gotmp go test \
   ./backends/cuda/ptx
 python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
 # whisper_turbo_smoke covers standalone translate/transcribe, standalone timestamp VTT,
-# standalone timestamp+diarize VTT, default diarize-vtt, and diarize-vtt+speaker.
+# standalone timestamp+diarize VTT, diarize-vtt translate/transcribe, and diarize-vtt+speaker.
 python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 
 # Optional A100 row-scale FFN default-candidate parity check; useful on K3/A100 hosts,
