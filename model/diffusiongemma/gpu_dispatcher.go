@@ -2508,6 +2508,9 @@ func FreeGGUFGPUExpertCaches() {
 		if w.DownQ8 != nil {
 			w.DownQ8.Free()
 		}
+		if w.DownQ5 != nil {
+			w.DownQ5.Free()
+		}
 	}
 	ggufGPUExpertCache.items = map[ggufGPUExpertKey]*ggufGPUExpertWeights{}
 	ggufGPUExpertCache.bytes = 0
@@ -2592,6 +2595,7 @@ type ggufGPUExpertWeights struct {
 	GateUpQ4K *gpu.GPUQ4KMatrix
 	Down      *gpu.Buffer
 	DownQ8    *gpu.GPUQ8_0Matrix
+	DownQ5    *gpu.GPUQ5_0Matrix
 	DownScale float32
 	Bytes     int64
 }
@@ -2792,6 +2796,7 @@ func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggu
 
 	var downF32 []float32
 	var downQ8 *gpu.GPUQ8_0Matrix
+	var downQ5 *gpu.GPUQ5_0Matrix
 	downScale := float32(1)
 	if le.downScale != nil {
 		downScale = le.downScale[expert]
@@ -2813,6 +2818,29 @@ func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggu
 			return nil, false, fmt.Errorf("GGUF GPU expert Q8 down raw range invalid expert=%d", expert)
 		}
 		downQ8, err = gpu.UploadQ8_0MatrixRows(le.down.Raw[start:end], le.down.InDim, le.down.OutDim)
+		if err != nil {
+			if gateQ4K != nil {
+				gateQ4K.Free()
+			}
+			return nil, false, err
+		}
+	} else if le.down.QType == gguf.QuantQ5_0 {
+		rowBytes, err := le.down.RowBytes()
+		if err != nil {
+			if gateQ4K != nil {
+				gateQ4K.Free()
+			}
+			return nil, false, err
+		}
+		start := expert * le.down.OutDim * rowBytes
+		end := start + le.down.OutDim*rowBytes
+		if start < 0 || end < start || end > len(le.down.Raw) {
+			if gateQ4K != nil {
+				gateQ4K.Free()
+			}
+			return nil, false, fmt.Errorf("GGUF GPU expert Q5 down raw range invalid expert=%d", expert)
+		}
+		downQ5, err = gpu.UploadQ5_0MatrixRows(le.down.Raw[start:end], le.down.InDim, le.down.OutDim)
 		if err != nil {
 			if gateQ4K != nil {
 				gateQ4K.Free()
@@ -2845,6 +2873,8 @@ func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggu
 	}
 	if downQ8 != nil {
 		bytes += int64(le.down.OutDim*le.down.InDim + (le.down.InDim/32)*le.down.OutDim*4)
+	} else if downQ5 != nil {
+		bytes += int64(le.down.OutDim*(le.down.InDim/2) + (le.down.InDim/32)*le.down.OutDim*(4+4))
 	} else {
 		bytes += int64(len(downF32) * 4)
 	}
@@ -2857,6 +2887,9 @@ func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggu
 		if downQ8 != nil {
 			downQ8.Free()
 		}
+		if downQ5 != nil {
+			downQ5.Free()
+		}
 		return existing, true, nil
 	}
 	if ggufGPUExpertCache.bytes+bytes > budget {
@@ -2866,6 +2899,9 @@ func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggu
 		}
 		if downQ8 != nil {
 			downQ8.Free()
+		}
+		if downQ5 != nil {
+			downQ5.Free()
 		}
 		return nil, false, nil
 	}
@@ -2880,11 +2916,14 @@ func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggu
 			if downQ8 != nil {
 				downQ8.Free()
 			}
+			if downQ5 != nil {
+				downQ5.Free()
+			}
 			return nil, false, err
 		}
 	}
 	var downBuf *gpu.Buffer
-	if downQ8 == nil {
+	if downQ8 == nil && downQ5 == nil {
 		var err error
 		downBuf, err = uploadTransposedF32Matrix(downF32, hidden, intermediate)
 		if err != nil {
@@ -2897,7 +2936,7 @@ func residentGGUFGPUExpertWeights(idx *GGUFExpertIndex, layer, expert int) (*ggu
 			return nil, false, err
 		}
 	}
-	w := &ggufGPUExpertWeights{GateUp: gateBuf, GateUpQ4K: gateQ4K, Down: downBuf, DownQ8: downQ8, DownScale: downScale, Bytes: bytes}
+	w := &ggufGPUExpertWeights{GateUp: gateBuf, GateUpQ4K: gateQ4K, Down: downBuf, DownQ8: downQ8, DownQ5: downQ5, DownScale: downScale, Bytes: bytes}
 	ggufGPUExpertCache.Lock()
 	ggufGPUExpertCache.items[key] = w
 	ggufGPUExpertCache.Unlock()
@@ -3709,6 +3748,15 @@ func runGGUFGPUExpertsGrouped(op LayerOp, weights *TextWeights, scratch ForwardS
 			down = make([]float32, nPos*hiddenSize)
 			if resident.DownQ8 != nil {
 				if err := gpu.GemvQ8_0Batch(down, act, nPos, resident.DownQ8); err != nil {
+					return false, err
+				}
+				if resident.DownScale != 1 {
+					for i := range down {
+						down[i] *= resident.DownScale
+					}
+				}
+			} else if resident.DownQ5 != nil {
+				if err := gpu.GemvQ5_0Batch(down, act, nPos, resident.DownQ5); err != nil {
 					return false, err
 				}
 				if resident.DownScale != 1 {
