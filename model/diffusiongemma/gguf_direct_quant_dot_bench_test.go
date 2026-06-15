@@ -119,6 +119,38 @@ func BenchmarkGGUFQ8_0RowDotBatchDirectVsDequant(b *testing.B) {
 	}
 }
 
+func BenchmarkGGUFQ4KRowDotBatchDirectVsDequant(b *testing.B) {
+	m := syntheticBenchQ4KMatrix(b, 1408)
+	row := make([]float32, m.InDim)
+	for _, nPos := range []int{1, 4, 8} {
+		x := make([]float32, nPos*m.InDim)
+		directOut := make([]float32, nPos*m.OutDim)
+		dequantOut := make([]float32, nPos*m.OutDim)
+		for i := range x {
+			x[i] = float32((i%19)-9) * 0.011
+		}
+		b.Run(fmt.Sprintf("direct_npos_%d", nPos), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				r := i % m.OutDim
+				if err := ggufQ4KExpertRowDotBatchTo(m, 0, r, x, nPos, directOut[r:], m.OutDim); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+		b.Run(fmt.Sprintf("dequant_sdot_npos_%d", nPos), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				r := i % m.OutDim
+				if err := m.DequantExpertRowTo(row, 0, r); err != nil {
+					b.Fatal(err)
+				}
+				for pos := 0; pos < nPos; pos++ {
+					dequantOut[pos*m.OutDim+r] = simd.Sdot(row, x[pos*m.InDim:(pos+1)*m.InDim])
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkGGUFQ4KRowDotDirectVsDequant(b *testing.B) {
 	m := syntheticBenchQ4KMatrix(b, 1408)
 	x := make([]float32, m.InDim)

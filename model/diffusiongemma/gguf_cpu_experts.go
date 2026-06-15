@@ -281,13 +281,28 @@ func ggufQ4KRawRowDot(raw []byte, inDim int, x []float32) float32 {
 			scale := scales[group]
 			minv := mins[group]
 			qoff := (group / 2) * 32
+			qbytes := qs[qoff : qoff+32]
+			xg := xb[group*32 : group*32+32]
+			if group&1 == 0 {
+				qdot, xsum, ok := simd.DotU4F32LowAndSum(qbytes, xg)
+				if ok {
+					sum += scale*qdot - minv*xsum
+					continue
+				}
+			} else {
+				qdot, xsum, ok := simd.DotU4F32HighAndSum(qbytes, xg)
+				if ok {
+					sum += scale*qdot - minv*xsum
+					continue
+				}
+			}
 			for i := 0; i < 32; i++ {
-				qbyte := qs[qoff+i]
+				qbyte := qbytes[i]
 				qv := qbyte & 0x0F
 				if group&1 != 0 {
 					qv = qbyte >> 4
 				}
-				sum += (float32(qv)*scale - minv) * xb[group*32+i]
+				sum += (float32(qv)*scale - minv) * xg[i]
 			}
 		}
 	}
@@ -621,7 +636,9 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				gateStart := time.Now()
 				batchGU := ws.batchGU[:nPos*intermediate*2]
 				outDimGU := intermediate * 2 // 1408
-				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && le.gateUp.QType == gguf.QuantQ4_K
+				// SIMD direct Q4_K wins for a single row-dot, but dequant-once + Sdot
+				// remains faster when the same raw row is reused across a batch.
+				useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && nPos == 1 && le.gateUp.QType == gguf.QuantQ4_K
 				for r := 0; r < outDimGU; r++ {
 					if useDirectQ4GateUp {
 						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {
@@ -759,7 +776,7 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 
 	// Gate+up projection: dequant each output row, dot with input
 	guOut := make([]float32, outDimGU)
-	useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && le.gateUp.QType == gguf.QuantQ4_K
+	useDirectQ4GateUp := diffusionGemmaGGUFCPUQ4DirectEnabled() && simd.HasDotU4F32SIMD && le.gateUp.QType == gguf.QuantQ4_K
 	for r := 0; r < outDimGU; r++ {
 		if useDirectQ4GateUp {
 			v, err := ggufQ4KExpertRowDot(le.gateUp, expertID, r, normedRow)
@@ -783,7 +800,7 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 
 	// Down projection: dequant each output row, dot with activation
 	downBuf := make([]float32, intermediate)
-	useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && le.down.QType == gguf.QuantQ8_0
+	useDirectQ8Down := diffusionGemmaGGUFCPUQ8DirectEnabled() && simd.HasDotI8F32SIMD && le.down.QType == gguf.QuantQ8_0
 	for r := 0; r < hiddenSize; r++ {
 		if useDirectQ8Down {
 			v, err := ggufQ8_0ExpertRowDot(le.down, expertID, r, actOut)
