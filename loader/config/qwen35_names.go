@@ -16,9 +16,7 @@ func Qwen35TensorNameCandidates(name string) []string {
 		return []string{norm}
 	}
 	base := []string{norm}
-	for _, alias := range qwen35CanonicalTensorAliases(norm) {
-		base = append(base, alias)
-	}
+	base = append(base, qwen35CanonicalTensorAliases(norm)...)
 	out := make([]string, 0, len(base)*4)
 	seen := map[string]bool{}
 	for _, n := range base {

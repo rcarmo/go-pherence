@@ -312,17 +312,6 @@ func (t *Tokenizer) VocabSize() int {
 	return len(t.Vocab)
 }
 
-// byteToToken converts a byte to its BPE token representation.
-func byteToToken(b byte) string {
-	// GPT-2 byte-level BPE: bytes 0-255 map to Unicode characters
-	// See: https://github.com/openai/gpt-2/blob/master/src/encoder.py
-	byteEncoder := getByteEncoder()
-	if r, ok := byteEncoder[b]; ok {
-		return string(r)
-	}
-	return string(rune(b))
-}
-
 var (
 	_byteEncoder     map[byte]rune
 	_byteEncoderOnce sync.Once
