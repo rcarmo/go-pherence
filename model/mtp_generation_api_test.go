@@ -133,6 +133,16 @@ func TestMTPGraphGenerationResultValidate(t *testing.T) {
 		t.Fatal("accepted summary/commit mismatch")
 	}
 	bad = valid
+	bad.StepSummaries[0].InputToken = -1
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted negative summary input token")
+	}
+	bad = valid
+	bad.StepSummaries[0].DraftedTokens = []int{1, -2}
+	if err := bad.Validate(1); err == nil {
+		t.Fatal("accepted negative drafted token")
+	}
+	bad = valid
 	bad.StepSummaries[0].VerifierTokens = []int{8, 1, 2}
 	if err := bad.Validate(1); err == nil {
 		t.Fatal("accepted summary verifier batch without input token")

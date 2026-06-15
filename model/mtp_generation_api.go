@@ -54,6 +54,21 @@ func (r MTPGraphGenerationResult) Validate(promptLen int) error {
 		graphCount += len(step.OutputTokens)
 		graphTokens = append(graphTokens, step.OutputTokens...)
 		summary := r.StepSummaries[i]
+		if summary.InputToken < 0 {
+			return fmt.Errorf("MTP graph summary %d input token=%d out of range", i, summary.InputToken)
+		}
+		if err := validateMTPGraphSummaryTokens(i, "drafted", summary.DraftedTokens); err != nil {
+			return err
+		}
+		if err := validateMTPGraphSummaryTokens(i, "verifier", summary.VerifierTokens); err != nil {
+			return err
+		}
+		if err := validateMTPGraphSummaryTokens(i, "verifier output", summary.VerifierOutputTokens); err != nil {
+			return err
+		}
+		if err := validateMTPGraphSummaryTokens(i, "output", summary.OutputTokens); err != nil {
+			return err
+		}
 		if !mtpSameInts(summary.Positions, step.Positions) || !mtpSameInts(summary.OutputTokens, step.OutputTokens) {
 			return fmt.Errorf("MTP graph summary %d does not match commit step summary=%+v commit=%+v", i, summary, step)
 		}
@@ -267,6 +282,15 @@ func newMTPGraphGenerationStepSummary(step MTPGraphDecodeStepResult) MTPGraphGen
 		OutputTokens:         append([]int(nil), step.Commit.OutputTokens...),
 		AllDraftsAccepted:    step.Step.Verifier.Acceptance.AllDraftsAccepted,
 	}
+}
+
+func validateMTPGraphSummaryTokens(step int, label string, tokens []int) error {
+	for i, tok := range tokens {
+		if tok < 0 {
+			return fmt.Errorf("MTP graph summary %d %s token %d=%d out of range", step, label, i, tok)
+		}
+	}
+	return nil
 }
 
 func mtpExternalKVForDecodeState(decode *CPUDecodeState, base *MTPDrafterExternalKV) (*MTPDrafterExternalKV, error) {
