@@ -167,7 +167,9 @@ func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 		fx.Tolerance = 1e-3
 	}
 
+	oldForceOnTheFly := ForceOnTheFly
 	ForceOnTheFly = true
+	defer func() { ForceOnTheFly = oldForceOnTheFly }()
 	var m *LlamaModel
 	if strings.HasSuffix(strings.ToLower(fx.MainModel), ".gguf") {
 		m, err = LoadGemma4GGUFAsLlama(fx.MainModel)
