@@ -220,3 +220,29 @@ Timing summary:
 | mean graph cycle time | 11.867s |
 
 This is the best current apples-to-apples MTP graph-cycle throughput number excluding model load. It is still CPU/GGUF verifier-bound and far from llama.cpp performance, but the accepted-token contract is stable.
+
+### Steady-state MTP graph-cycle with gated verifier batch layers
+
+`GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS=1` was measured with the same temporary steady-state graph-cycle harness.
+
+Log: `logs/mtp-cycle-steady-batchlayers-20260617-002807.log`
+
+Result: PASS for accepted-token semantics on every iteration, but this path is still not strict selected-logit safe.
+
+```text
+iter=0 elapsed=11.879827470s output=[564 236789 236757] accepted=2 bonus=236757
+iter=1 elapsed=11.908227961s output=[564 236789 236757] accepted=2 bonus=236757
+iter=2 elapsed=12.001955533s output=[564 236789 236757] accepted=2 bonus=236757
+iter=3 elapsed=12.198878912s output=[564 236789 236757] accepted=2 bonus=236757
+iter=4 elapsed=12.014943740s output=[564 236789 236757] accepted=2 bonus=236757
+```
+
+| Metric | Value |
+|---|---:|
+| graph cycles | 5 |
+| graph total | 60.004s |
+| output tokens | 15 |
+| steady-state graph throughput | 0.250 tok/s |
+| mean graph cycle time | 12.001s |
+
+The gated batch-layer scaffold is slightly slower than the baseline steady-state run (`0.250 tok/s` vs `0.253 tok/s`) and remains less numerically faithful in strict selected-logit comparisons, so it should stay disabled by default.
