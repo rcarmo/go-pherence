@@ -9,6 +9,15 @@ import (
 	"github.com/rcarmo/go-pherence/loader/audio"
 )
 
+func TestWhisperCUDARuntimeReadyOnCUDAHost(t *testing.T) {
+	if !nv.Available() {
+		t.Skip("CUDA GPU not available")
+	}
+	if !nv.SgemmReady() {
+		t.Fatalf("CUDA GPU is available but Whisper/NVIDIA mega-module did not load; parity tests would silently skip")
+	}
+}
+
 func TestWhisperCUDAMelParity(t *testing.T) {
 	if !nv.SgemmReady() {
 		t.Skip("CUDA SGEMM not available")
