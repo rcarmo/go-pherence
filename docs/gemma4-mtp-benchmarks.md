@@ -246,3 +246,30 @@ iter=4 elapsed=12.014943740s output=[564 236789 236757] accepted=2 bonus=236757
 | mean graph cycle time | 12.001s |
 
 The gated batch-layer scaffold is slightly slower than the baseline steady-state run (`0.250 tok/s` vs `0.253 tok/s`) and remains less numerically faithful in strict selected-logit comparisons, so it should stay disabled by default.
+
+### CPU profile of one strict-fixture MTP graph cycle
+
+A one-cycle CPU profile was captured with a temporary `runtime/pprof` harness after loading the Gemma4 E4B QAT GGUF verifier and BF16 MTP drafter once.
+
+Profile files:
+
+- `logs/mtp-cycle-cpu.pprof`
+- `logs/mtp-cycle-cpu-top-20260617-003003.txt`
+
+Top samples:
+
+```text
+Duration: 11.83s, Total samples = 11.82s
+flat      flat%   cum      cum%
+7.55s     63.87%  7.82s    66.16%  loader/gguf.DotQ4_0Q8_0
+3.88s     32.83%  3.90s    32.99%  loader/gguf.DotQ6KQ8K
+0.11s      0.93%  0.11s     0.93%  encoding/binary.littleEndian.Uint16
+0.10s      0.85%  0.19s     1.61%  half.F16ToF32
+```
+
+Call-path summary:
+
+- `RunMTPVerifierBatchForward` → `forwardMTPPromptLayer` → Q4_0×Q8_0 GGUF projections account for roughly two thirds of the graph cycle.
+- `FinishCPUDecodeBatch` → `LMHeadLogitsInto` → Q6_K×Q8_K tied LM-head dot accounts for roughly one third.
+
+This confirms steady-state MTP graph throughput is dominated by quantized GGUF row-dot kernels, not MTP drafter overhead or acceptance accounting. Correctness work should stay on the baseline path, but performance parity with llama.cpp needs faster Q4_0×Q8_0 projection kernels and Q6_K×Q8_K LM-head kernels, likely batched/repacked to match llama.cpp's CPU backend strategy.
