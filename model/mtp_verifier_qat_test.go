@@ -3,6 +3,7 @@ package model
 import (
 	"testing"
 
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -29,7 +30,7 @@ func TestMTPVerifierProjBatchAnyQuantMatchesRows(t *testing.T) {
 		-1, -2, 3, 4, -5, 6, -7, 8,
 	}
 	out := make([]float32, 4)
-	if !m.projBatchAny(out, x, 2, nil, nil, qw, 8, 2) {
+	if !m.projBatchAny(out, x, 2, nil, nil, qw, nil, 8, 2) {
 		t.Fatal("projBatchAny quant rejected")
 	}
 	for b := 0; b < 2; b++ {
@@ -39,8 +40,32 @@ func TestMTPVerifierProjBatchAnyQuantMatchesRows(t *testing.T) {
 			t.Fatalf("row %d batch=%v row=%v", b, out[b*2:(b+1)*2], row)
 		}
 	}
-	if m.projBatchAny(make([]float32, 1), x, 2, nil, nil, qw, 8, 2) {
+	if m.projBatchAny(make([]float32, 1), x, 2, nil, nil, qw, nil, 8, 2) {
 		t.Fatal("projBatchAny quant accepted short output")
+	}
+}
+
+func TestMTPVerifierBatchLayerEligibleAcceptsGGUFProjections(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "1")
+	m := &LlamaModel{
+		Config: LlamaConfig{VocabSize: 3, HiddenSize: 8, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 8, Intermediate: 8, RMSNormEps: 1e-6},
+		Layers: []LlamaLayer{{
+			InputNorm:  tensor.Ones([]int{8}),
+			PostNorm:   tensor.Ones([]int{8}),
+			PreFFNNorm: tensor.Ones([]int{8}),
+			HasKV:      true,
+			QWGGUF:     &gguf.QuantMatrix{InDim: 8, OutDim: 8},
+			KWGGUF:     &gguf.QuantMatrix{InDim: 8, OutDim: 8},
+			VWGGUF:     &gguf.QuantMatrix{InDim: 8, OutDim: 8},
+			OWGGUF:     &gguf.QuantMatrix{InDim: 8, OutDim: 8},
+			GateWGGUF:  &gguf.QuantMatrix{InDim: 8, OutDim: 8},
+			UpWGGUF:    &gguf.QuantMatrix{InDim: 8, OutDim: 8},
+			DownWGGUF:  &gguf.QuantMatrix{InDim: 8, OutDim: 8},
+		}},
+	}
+	plan := mustMTPVerifierPlan(t, m, 1, []int{2}, 2)
+	if !m.mtpVerifierBatchLayerEligible(MTPVerifierBatchInputs{Plan: plan}) {
+		t.Fatal("GGUF projections should be eligible for gated verifier batch lowering")
 	}
 }
 

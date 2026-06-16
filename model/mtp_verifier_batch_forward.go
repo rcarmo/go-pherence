@@ -9,6 +9,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 	"github.com/rcarmo/go-pherence/tensor"
 )
@@ -221,7 +222,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			}
 			gqaAttentionScaleInto(bAttnOut[b*qkv.QDim:(b+1)*qkv.QDim], attnScores[:attnSeqLen], qkv.Q[b*qkv.QDim:(b+1)*qkv.QDim], kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale)
 		}
-		if !m.projBatchAny(bOOut[:B*h], bAttnOut[:B*qkv.QDim], B, layer.OW, layer.OWm, layer.OWq, qkv.QDim, h) {
+		if !m.projBatchAny(bOOut[:B*h], bAttnOut[:B*qkv.QDim], B, layer.OW, layer.OWm, layer.OWq, layer.OWGGUF, qkv.QDim, h) {
 			return nil, true, fmt.Errorf("verifier batch layer %d O projection rejected", l)
 		}
 		if layer.PreFFNNorm != nil {
@@ -253,7 +254,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			copy(bMlpIn, bHidden)
 		}
 		inter := m.layerInterFor(layer)
-		if !m.projBatchAny(bGate[:B*inter], bMlpIn[:B*h], B, layer.GateW, layer.GateWm, layer.GateWq, h, inter) || !m.projBatchAny(bUp[:B*inter], bMlpIn[:B*h], B, layer.UpW, layer.UpWm, layer.UpWq, h, inter) {
+		if !m.projBatchAny(bGate[:B*inter], bMlpIn[:B*h], B, layer.GateW, layer.GateWm, layer.GateWq, layer.GateWGGUF, h, inter) || !m.projBatchAny(bUp[:B*inter], bMlpIn[:B*h], B, layer.UpW, layer.UpWm, layer.UpWq, layer.UpWGGUF, h, inter) {
 			return nil, true, fmt.Errorf("verifier batch layer %d MLP gate/up rejected", l)
 		}
 		for b := 0; b < B; b++ {
@@ -276,7 +277,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 				simd.VecSiLUMul(gate, gate, up)
 			}
 		}
-		if !m.projBatchAny(bDown[:B*h], bGate[:B*inter], B, layer.DownW, layer.DownWm, layer.DownWq, inter, h) {
+		if !m.projBatchAny(bDown[:B*h], bGate[:B*inter], B, layer.DownW, layer.DownWm, layer.DownWq, layer.DownWGGUF, inter, h) {
 			return nil, true, fmt.Errorf("verifier batch layer %d MLP down rejected", l)
 		}
 		for b := 0; b < B; b++ {
@@ -356,7 +357,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 	return out, true, nil
 }
 
-func (m *LlamaModel) projBatchAny(out, x []float32, B int, dense *tensor.Tensor, mlxw *mlx.QuantWeight, qw *QuantWeight, inDim, outDim int) bool {
+func (m *LlamaModel) projBatchAny(out, x []float32, B int, dense *tensor.Tensor, mlxw *mlx.QuantWeight, qw *QuantWeight, ggufw *gguf.QuantMatrix, inDim, outDim int) bool {
 	if qw != nil {
 		if B <= 0 || inDim <= 0 || outDim <= 0 || len(out) < B*outDim || len(x) < B*inDim || qw.InDim != inDim || qw.OutDim != outDim {
 			return false
@@ -368,11 +369,22 @@ func (m *LlamaModel) projBatchAny(out, x []float32, B int, dense *tensor.Tensor,
 		}
 		return true
 	}
+	if ggufw != nil {
+		if B <= 0 || inDim <= 0 || outDim <= 0 || len(out) < B*outDim || len(x) < B*inDim || ggufw.InDim != inDim || ggufw.OutDim != outDim {
+			return false
+		}
+		for b := 0; b < B; b++ {
+			if !gemvGGUFTo(out[b*outDim:(b+1)*outDim], x[b*inDim:(b+1)*inDim], ggufw, inDim, outDim) {
+				return false
+			}
+		}
+		return true
+	}
 	return m.projBatch(out, x, B, dense, mlxw, inDim, outDim)
 }
 
-func hasMTPVerifierProjection(dense *tensor.Tensor, mlxw *mlx.QuantWeight, qw *QuantWeight) bool {
-	return dense != nil || mlxw != nil || qw != nil
+func hasMTPVerifierProjection(dense *tensor.Tensor, mlxw *mlx.QuantWeight, qw *QuantWeight, ggufw *gguf.QuantMatrix) bool {
+	return dense != nil || mlxw != nil || qw != nil || ggufw != nil
 }
 
 func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs) bool {
@@ -388,14 +400,14 @@ func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs)
 		if layer.IsMoE {
 			return false
 		}
-		if !hasMTPVerifierProjection(layer.QW, layer.QWm, layer.QWq) || !hasMTPVerifierProjection(layer.OW, layer.OWm, layer.OWq) || !hasMTPVerifierProjection(layer.GateW, layer.GateWm, layer.GateWq) || !hasMTPVerifierProjection(layer.UpW, layer.UpWm, layer.UpWq) || !hasMTPVerifierProjection(layer.DownW, layer.DownWm, layer.DownWq) {
+		if !hasMTPVerifierProjection(layer.QW, layer.QWm, layer.QWq, layer.QWGGUF) || !hasMTPVerifierProjection(layer.OW, layer.OWm, layer.OWq, layer.OWGGUF) || !hasMTPVerifierProjection(layer.GateW, layer.GateWm, layer.GateWq, layer.GateWGGUF) || !hasMTPVerifierProjection(layer.UpW, layer.UpWm, layer.UpWq, layer.UpWGGUF) || !hasMTPVerifierProjection(layer.DownW, layer.DownWm, layer.DownWq, layer.DownWGGUF) {
 			return false
 		}
 		if layer.HasKV {
-			if !hasMTPVerifierProjection(layer.KW, layer.KWm, layer.KWq) {
+			if !hasMTPVerifierProjection(layer.KW, layer.KWm, layer.KWq, layer.KWGGUF) {
 				return false
 			}
-			if !(m.Config.AttentionKEqV && ((layer.KW != nil && (layer.VW == nil || layer.VW == layer.KW)) || (layer.KWm != nil && (layer.VWm == nil || layer.VWm == layer.KWm)) || (layer.KWq != nil && (layer.VWq == nil || layer.VWq == layer.KWq)))) && !hasMTPVerifierProjection(layer.VW, layer.VWm, layer.VWq) {
+			if !(m.Config.AttentionKEqV && ((layer.KW != nil && (layer.VW == nil || layer.VW == layer.KW)) || (layer.KWm != nil && (layer.VWm == nil || layer.VWm == layer.KWm)) || (layer.KWq != nil && (layer.VWq == nil || layer.VWq == layer.KWq)) || (layer.KWGGUF != nil && (layer.VWGGUF == nil || layer.VWGGUF == layer.KWGGUF)))) && !hasMTPVerifierProjection(layer.VW, layer.VWm, layer.VWq, layer.VWGGUF) {
 				return false
 			}
 		} else {
