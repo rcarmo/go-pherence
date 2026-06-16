@@ -65,6 +65,25 @@ func TestWhisperCUDAConv1DParity(t *testing.T) {
 	}
 }
 
+func TestWhisperCUDAEncoderGEMVParity(t *testing.T) {
+	if !nv.SgemmReady() {
+		t.Skip("CUDA SGEMM not available")
+	}
+	seqLen, inDim, outDim := 9, 7, 11
+	x := make([]float32, seqLen*inDim)
+	for i := range x {
+		x[i] = float32((i%13)-6) * 0.037
+	}
+	_, weight, bias := deterministicLinearInputs(inDim, outDim)
+	want := linearForwardOpt(x, weight, bias, seqLen, inDim, outDim)
+	wDev := nv.NewDevBufFrom(weight)
+	if err := wDev.ToGPU(); err != nil {
+		t.Fatalf("weight ToGPU: %v", err)
+	}
+	got := gemvGPU(x, wDev, bias, seqLen, inDim, outDim)
+	assertClose(t, got, want, 2e-4)
+}
+
 func TestWhisperCUDAEncoderAttentionParity(t *testing.T) {
 	if !nv.SgemmReady() {
 		t.Skip("CUDA SGEMM not available")
