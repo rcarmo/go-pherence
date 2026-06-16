@@ -83,7 +83,6 @@ func ggufQ6KRawRowDotPrequant(raw []byte, inDim int, q8d []float32, q8qs []int8)
 		scales := blk[192:208]
 		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[208:210]))
 		q8 := q8qs[b*256 : (b+1)*256]
-		var aux32 [8]int32
 		qlOff, qhOff := 0, 0
 		var q6 [256]int8
 		for j := 0; j < 256; j += 128 {
@@ -96,6 +95,7 @@ func ggufQ6KRawRowDotPrequant(raw []byte, inDim int, q8d []float32, q8qs []int8)
 			qlOff += 64
 			qhOff += 32
 		}
+		var isum int32
 		for group := 0; group < 16; group++ {
 			scale := int32(int8(scales[group]))
 			base := group * 16
@@ -103,13 +103,9 @@ func ggufQ6KRawRowDotPrequant(raw []byte, inDim int, q8d []float32, q8qs []int8)
 			for i := 0; i < 16; i++ {
 				acc += int32(q8[base+i]) * int32(q6[base+i])
 			}
-			aux32[group/2] += scale * acc
+			isum += scale * acc
 		}
-		s := float32(0)
-		for i := range aux32 {
-			s += float32(aux32[i])
-		}
-		total += d * q8d[b] * s
+		total += d * q8d[b] * float32(isum)
 	}
 	return total, nil
 }
@@ -131,7 +127,6 @@ func ggufQ6KRawRowDotQ8K(raw []byte, inDim int, x []float32) (float32, error) {
 		scales := blk[192:208]
 		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[208:210]))
 		q8d, q8 := quantizeQ8KBlockForLMHeadDot(x[b*256 : b*256+256])
-		var aux32 [8]int32
 		qlOff, qhOff := 0, 0
 		var q6 [256]int8
 		for j := 0; j < 256; j += 128 {
@@ -144,6 +139,7 @@ func ggufQ6KRawRowDotQ8K(raw []byte, inDim int, x []float32) (float32, error) {
 			qlOff += 64
 			qhOff += 32
 		}
+		var isum int32
 		for group := 0; group < 16; group++ {
 			scale := int32(int8(scales[group]))
 			base := group * 16
@@ -151,13 +147,9 @@ func ggufQ6KRawRowDotQ8K(raw []byte, inDim int, x []float32) (float32, error) {
 			for i := 0; i < 16; i++ {
 				acc += int32(q8[base+i]) * int32(q6[base+i])
 			}
-			aux32[group/2] += scale * acc
+			isum += scale * acc
 		}
-		s := float32(0)
-		for i := range aux32 {
-			s += float32(aux32[i])
-		}
-		total += d * q8d * s
+		total += d * q8d * float32(isum)
 	}
 	return total, nil
 }
@@ -195,7 +187,7 @@ func ggufQ6KRawRowDotPrequantRows(raw []byte, inDim int, q8 *q8KPrequantRows, ou
 		for pos := 0; pos < q8.positions; pos++ {
 			q8base := (pos*blocks + b) * 256
 			q8q := q8.qs[q8base : q8base+256]
-			var aux32 [8]int32
+			var isum int32
 			for group := 0; group < 16; group++ {
 				scale := int32(int8(scales[group]))
 				base := group * 16
@@ -203,13 +195,9 @@ func ggufQ6KRawRowDotPrequantRows(raw []byte, inDim int, q8 *q8KPrequantRows, ou
 				for i := 0; i < 16; i++ {
 					acc += int32(q8q[base+i]) * int32(q6[base+i])
 				}
-				aux32[group/2] += scale * acc
+				isum += scale * acc
 			}
-			s := float32(0)
-			for i := range aux32 {
-				s += float32(aux32[i])
-			}
-			out[pos] += d * q8.ds[pos*blocks+b] * s
+			out[pos] += d * q8.ds[pos*blocks+b] * float32(isum)
 		}
 	}
 	return nil
