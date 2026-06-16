@@ -50,6 +50,11 @@ def main() -> int:
             "expect_stdout_contains": "And",
         },
         {
+            "name": "standalone_gpu_graph_translate_short",
+            "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-gpu-graph", "-task", "translate", "-language", "en", "-max-tokens", "4"],
+            "expect_stdout_contains": "And",
+        },
+        {
             "name": "standalone_chunked_notimestamps",
             "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-task", "translate", "-language", "en", "-chunk", "5", "-chunk-workers", "1", "-max-tokens", "4"],
             "expect_stdout_contains": "And",
