@@ -1,0 +1,27 @@
+{
+  "case": "gguf_hi_phase_aligned_row28_input_norm",
+  "prompt_ids": [2, 105, 9731, 107, 98, 107, 106, 107, 105, 2364, 107, 2202, 106, 107, 105, 4368, 107],
+  "row": 28,
+  "go_step": 48,
+  "enc_seq": 17,
+  "llama": {
+    "inp_scaled": {"rms": 1.77571627, "max_abs": 6.50126505, "max_idx": 1369, "first4": [-4.41896152, 2.76185083, -0.138092548, -0.138092548]},
+    "attn_norm_0": {"rms": 5.35485785, "max_abs": 96.9195557, "max_idx": 2240, "first4": [-7.58230114, 4.9819603, -0.262464285, -0.273400277]},
+    "l_out_0": {"rms": 1.7997809, "max_abs": 65.0869522, "max_idx": 1559, "first4": [-0.0840229839, 0.0772840455, 0.0249844901, -0.0821459442]}
+  },
+  "go": {
+    "prefix": {"rms": 0.999999892, "max_abs": 3.66120672, "max_idx": 1369, "first4": [-2.4885514, 1.5553445, -0.07776723, -0.07776723]},
+    "input_norm_0": {"rms": 5.35485874, "max_abs": 96.9195709, "max_idx": 2240, "first4": [-7.582302, 4.981961, -0.2624643, -0.2734003]},
+    "l_out_0": {"rms": 1.80022072, "max_abs": 65.0379333, "max_idx": 1559, "first4": [-0.08224873, 0.08054817, 0.022717599, -0.079564326]}
+  },
+  "tolerances": {
+    "input_norm_rms": 0.00001,
+    "input_norm_max_abs": 0.001,
+    "l_out_rms": 0.005,
+    "l_out_max_abs": 0.5
+  },
+  "notes": [
+    "Row28 op/input_norm max_abs≈96.91957 is shared by llama.cpp and Go for the aligned first cached decode. It is not divergence.",
+    "llama inp_scaled is embedding*sqrt(d_model) before canvas no-scale RMSNorm; Go prefix is after canvas no-scale RMSNorm, so these are not directly compared."
+  ]
+}
