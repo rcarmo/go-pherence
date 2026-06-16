@@ -1667,6 +1667,52 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 			if err != nil {
 				return err
 			}
+			if topK <= 0 {
+				nWorkers := runtime.GOMAXPROCS(0)
+				if nWorkers < 1 {
+					nWorkers = 1
+				}
+				if nWorkers > vocab {
+					nWorkers = vocab
+				}
+				chunk := (vocab + nWorkers - 1) / nWorkers
+				var wg sync.WaitGroup
+				var errOnce sync.Once
+				var firstErr error
+				for w := 0; w < nWorkers; w++ {
+					start := w * chunk
+					end := start + chunk
+					if end > vocab {
+						end = vocab
+					}
+					if start >= end {
+						continue
+					}
+					wg.Add(1)
+					go func(v0, v1 int) {
+						defer wg.Done()
+						for vocabID := v0; vocabID < v1; vocabID++ {
+							for pos := 0; pos < positions; pos++ {
+								q8d := q8Rows.ds[pos*q8Rows.blocks : (pos+1)*q8Rows.blocks]
+								q8qs := q8Rows.qs[pos*q8Rows.blocks*256 : (pos+1)*q8Rows.blocks*256]
+								v, err := ggufQ6KMatrixRowDotPrequant(qm, vocabID, q8d, q8qs)
+								if err != nil {
+									errOnce.Do(func() { firstErr = err })
+									return
+								}
+								scratch.Logits[pos][vocabID] = v
+							}
+						}
+					}(start, end)
+				}
+				wg.Wait()
+				if firstErr != nil {
+					return firstErr
+				}
+				applyFinalLogitSoftcapping(scratch, positions, vocab)
+				traceLMHeadTopLogits(scratch)
+				return nil
+			}
 		}
 		for vocabID := 0; vocabID < vocab; vocabID++ {
 			if !useQ6K {

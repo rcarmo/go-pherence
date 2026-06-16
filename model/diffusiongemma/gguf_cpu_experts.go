@@ -958,12 +958,12 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 	le := idx.entries[op.Layer]
 
 	scheduleStart := time.Now()
-	numWorkers := 1
-	if diffusionGemmaGGUFCPUExpertParallelEnabled() {
-		numWorkers = runtime.NumCPU()
-		if numWorkers > activeExperts {
-			numWorkers = activeExperts
-		}
+	numWorkers := runtime.NumCPU()
+	if numWorkers > activeExperts {
+		numWorkers = activeExperts
+	}
+	if numWorkers < 1 {
+		numWorkers = 1
 	}
 	expertIDs := groupScratch.expertIDs[:0]
 	for eid := range expertUsers {
@@ -1006,7 +1006,14 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 	}
 	ggufCPUExpertTimingCounters.scheduleNS.Add(uint64(time.Since(scheduleStart).Nanoseconds()))
 
-	var mergeMu sync.Mutex
+	workerOuts := make([][]float32, numWorkers)
+	if numWorkers == 1 {
+		workerOuts[0] = scratch.MoeOut
+	} else {
+		for w := range workerOuts {
+			workerOuts[w] = make([]float32, len(scratch.MoeOut))
+		}
+	}
 	var wg sync.WaitGroup
 	var errOnce sync.Once
 	var firstErr error
@@ -1018,7 +1025,7 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 			continue
 		}
 		wg.Add(1)
-		go func() {
+		go func(worker int) {
 			defer wg.Done()
 
 			maxBatch := 0
@@ -1181,24 +1188,33 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				}
 				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
 
-				// Scatter weighted outputs directly into the shared MoE buffer. This avoids
-				// allocating one full [positions,hidden] output buffer per worker.
+				// Scatter weighted outputs into a worker-local MoE buffer. After all
+				// workers finish, buffers are reduced in fixed worker order, preserving
+				// deterministic floating-point accumulation while keeping expert math parallel.
 				scatterStart := time.Now()
-				mergeMu.Lock()
+				workerOut := workerOuts[worker]
 				for i, u := range users {
 					expertOut := batchDown[i*hiddenSize : (i+1)*hiddenSize]
 					traceGGUFCPUExpertContribution(op.Layer, op.Type, u.pos, eid, -1, nPos, u.w, expertOut)
-					dst := scratch.MoeOut[u.pos*hiddenSize : (u.pos+1)*hiddenSize]
+					dst := workerOut[u.pos*hiddenSize : (u.pos+1)*hiddenSize]
 					simd.Saxpy(u.w, expertOut, dst)
 				}
-				mergeMu.Unlock()
 				ggufCPUExpertTimingCounters.scatterNS.Add(uint64(time.Since(scatterStart).Nanoseconds()))
 			}
-		}()
+		}(w)
 	}
 	wg.Wait()
 	if firstErr != nil {
 		return firstErr
+	}
+	if numWorkers > 1 {
+		reduceStart := time.Now()
+		for w := 0; w < numWorkers; w++ {
+			for i, v := range workerOuts[w] {
+				scratch.MoeOut[i] += v
+			}
+		}
+		ggufCPUExpertTimingCounters.scatterNS.Add(uint64(time.Since(reduceStart).Nanoseconds()))
 	}
 
 	postStart := time.Now()
@@ -1280,12 +1296,12 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 		}
 		return groups[i].workItemCnt > groups[j].workItemCnt
 	})
-	numWorkers := 1
-	if diffusionGemmaGGUFCPUExpertParallelEnabled() {
-		numWorkers = runtime.NumCPU()
-		if numWorkers > len(groups) {
-			numWorkers = len(groups)
-		}
+	numWorkers := runtime.NumCPU()
+	if numWorkers > len(groups) {
+		numWorkers = len(groups)
+	}
+	if numWorkers < 1 {
+		numWorkers = 1
 	}
 	workerGroups := make([][]int, numWorkers)
 	workerLoads := make([]int, numWorkers)
@@ -1301,7 +1317,14 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 	}
 	ggufCPUExpertTimingCounters.scheduleNS.Add(uint64(time.Since(scheduleStart).Nanoseconds()))
 
-	var mergeMu sync.Mutex
+	workerOuts := make([][]float32, numWorkers)
+	if numWorkers == 1 {
+		workerOuts[0] = scratch.MoeOut
+	} else {
+		for w := range workerOuts {
+			workerOuts[w] = make([]float32, len(scratch.MoeOut))
+		}
+	}
 	var wg sync.WaitGroup
 	var errOnce sync.Once
 	var firstErr error
@@ -1311,7 +1334,7 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 			continue
 		}
 		wg.Add(1)
-		go func(groupIndexes []int) {
+		go func(worker int, groupIndexes []int) {
 			defer wg.Done()
 			maxBatch := 0
 			for _, gi := range groupIndexes {
@@ -1460,7 +1483,7 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 				ggufCPUExpertTimingCounters.downNS.Add(uint64(time.Since(downStart).Nanoseconds()))
 
 				scatterStart := time.Now()
-				mergeMu.Lock()
+				workerOut := workerOuts[worker]
 				for i := 0; i < nPos; i++ {
 					workIdx := group.start + i
 					pos := groupedArrays.WorkPositions[workIdx]
@@ -1471,17 +1494,25 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 					}
 					expertOut := batchDown[i*hiddenSize : (i+1)*hiddenSize]
 					traceGGUFCPUExpertContribution(op.Layer, op.Type, pos, group.expert, slot, nPos, weight, expertOut)
-					dst := scratch.MoeOut[pos*hiddenSize : (pos+1)*hiddenSize]
+					dst := workerOut[pos*hiddenSize : (pos+1)*hiddenSize]
 					simd.Saxpy(weight, expertOut, dst)
 				}
-				mergeMu.Unlock()
 				ggufCPUExpertTimingCounters.scatterNS.Add(uint64(time.Since(scatterStart).Nanoseconds()))
 			}
-		}(idsForWorker)
+		}(w, idsForWorker)
 	}
 	wg.Wait()
 	if firstErr != nil {
 		return firstErr
+	}
+	if numWorkers > 1 {
+		reduceStart := time.Now()
+		for w := 0; w < numWorkers; w++ {
+			for i, v := range workerOuts[w] {
+				scratch.MoeOut[i] += v
+			}
+		}
+		ggufCPUExpertTimingCounters.scatterNS.Add(uint64(time.Since(reduceStart).Nanoseconds()))
 	}
 	if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
 		stats := ggufCPUExpertTimingSnapshot().Sub(traceStatsStart)
