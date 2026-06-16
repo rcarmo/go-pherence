@@ -136,6 +136,10 @@ GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
   -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestDequantRowQ8_0ToMatchesScaleTimesInt8|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestQuantizeQ8KComputesScaleQuantsAndBlockSums|TestDequantRowQ6KToMatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' \
   -count=1 -v
 
+# Required tagged Gemma4 GPU↔CPU compute parity gate. This uses the shared
+# GPU lock, real RTX/CUDA execution, diagnostic fixtures, and bounded KV memory.
+make gemma4-gpu-cpu-parity GOTMPDIR=$PWD/.gotmp
+
 # Strict selected-logit gate. First export a llama.cpp/LiteRT reference JSON using
 # the schema documented in docs/mtp-speculative.md. This target intentionally
 # fails loudly if GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE is unset, and it is

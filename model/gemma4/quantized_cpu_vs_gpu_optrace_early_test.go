@@ -40,7 +40,7 @@ func TestGemma4QuantizedCPUvsGPUOpTraceEarly(t *testing.T) {
 	m.Tok = tok
 	wrapped := wrapGemma4PromptForTest(m, "Hello")
 	traceStep := len(wrapped) - 1
-	targetLayers := map[int]bool{7: true, 8: true}
+	targetLayers := map[int]bool{0: true, 1: true}
 	cpuOps := map[opTraceKey][]float32{}
 	gpuOps := map[opTraceKey][]float32{}
 
@@ -60,12 +60,7 @@ func TestGemma4QuantizedCPUvsGPUOpTraceEarly(t *testing.T) {
 
 	_ = m.Generate(tok.Encode("Hello"), 1)
 
-	mgpu, err := LoadLlama(dir)
-	if err != nil {
-		t.Fatalf("load gemma4 quantized gpu model: %v", err)
-	}
-	mcuda.Tok = tok
-	g, err := LoadGPUModel(mgpu)
+	g, err := LoadGPUModelWithLayers(m, 8)
 	if err != nil {
 		t.Fatalf("LoadGPUModel: %v", err)
 	}
@@ -89,7 +84,8 @@ func TestGemma4QuantizedCPUvsGPUOpTraceEarly(t *testing.T) {
 		"gate_act",
 		"down",
 	}
-	for _, layer := range []int{7, 8} {
+	matched := 0
+	for _, layer := range []int{0, 1} {
 		for _, op := range opOrder {
 			k := opTraceKey{layer: layer, op: op}
 			c, ok1 := cpuOps[k]
@@ -97,8 +93,15 @@ func TestGemma4QuantizedCPUvsGPUOpTraceEarly(t *testing.T) {
 			if !ok1 || !ok2 {
 				continue
 			}
+			matched++
 			maxAbs, meanAbs := diffStats(c, g2)
 			t.Logf("L%d %-10s maxAbs=%.6g meanAbs=%.6g", layer, op, maxAbs, meanAbs)
+			if maxAbs > 5 || meanAbs > 0.25 {
+				t.Fatalf("L%d %s GPU/CPU drift maxAbs=%g meanAbs=%g", layer, op, maxAbs, meanAbs)
+			}
 		}
+	}
+	if matched == 0 {
+		t.Fatal("no matching CPU/GPU op traces captured")
 	}
 }

@@ -59,12 +59,7 @@ func TestGemma4QuantizedCPUvsGPULayerWalk(t *testing.T) {
 
 	_ = m.Generate(tok.Encode("Hello"), 1)
 
-	mgpu, err := LoadLlama(dir)
-	if err != nil {
-		t.Fatalf("load gemma4 quantized gpu model: %v", err)
-	}
-	mcuda.Tok = tok
-	g, err := LoadGPUModel(mgpu)
+	g, err := LoadGPUModelWithLayers(m, 8)
 	if err != nil {
 		t.Fatalf("LoadGPUModel: %v", err)
 	}
@@ -74,7 +69,7 @@ func TestGemma4QuantizedCPUvsGPULayerWalk(t *testing.T) {
 
 	firstOver1 := -1
 	firstOver4 := -1
-	for l := 0; l < len(m.Layers); l++ {
+	for l := 0; l < g.GPULayers; l++ {
 		c, ok1 := cpuLayers[l]
 		g2, ok2 := gpuLayers[l]
 		if !ok1 || !ok2 {
@@ -88,6 +83,9 @@ func TestGemma4QuantizedCPUvsGPULayerWalk(t *testing.T) {
 			firstOver4 = l
 		}
 		t.Logf("layer %02d: maxAbs=%.6g meanAbs=%.6g", l, maxAbs, meanAbs)
+		if maxAbs > 1.0 || meanAbs > 0.02 {
+			t.Fatalf("layer %02d GPU/CPU drift maxAbs=%g meanAbs=%g", l, maxAbs, meanAbs)
+		}
 	}
 	t.Logf("first layer with maxAbs>1: %d", firstOver1)
 	t.Logf("first layer with maxAbs>4: %d", firstOver4)

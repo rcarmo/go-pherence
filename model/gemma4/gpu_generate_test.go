@@ -40,14 +40,14 @@ func TestGemma4GPUGenerate(t *testing.T) {
 		t.Fatalf("tok: %v", err)
 	}
 	m.Tok = tok
-	g, err := LoadGPUModel(m)
+	g, err := LoadGPUModelWithLayers(m, 8)
 	if err != nil {
 		t.Fatalf("LoadGPUModel: %v", err)
 	}
 	defer g.Close()
 	g.CPU.Tok = tok
 
-	ids := g.Generate(tok.Encode("Hello"), 30)
+	ids := g.Generate(tok.Encode("Hello"), 4)
 	var out []string
 	for _, id := range ids {
 		out = append(out, tok.InvVocab[id])

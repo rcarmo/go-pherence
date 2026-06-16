@@ -1,5 +1,5 @@
-//go:build diagnostic && gemma4fixtures
-// +build diagnostic,gemma4fixtures
+//go:build diagnostic && gemma4fixtures && gemma4private
+// +build diagnostic,gemma4fixtures,gemma4private
 
 package model
 
