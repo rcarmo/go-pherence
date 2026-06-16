@@ -51,6 +51,16 @@ func diffusionGemmaLayerTraceOpsEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+var diffusionGemmaTracePhase = struct {
+	step int
+	seq  int
+}{}
+
+func setDiffusionGemmaTracePhase(ctx ForwardContext) {
+	diffusionGemmaTracePhase.step = ctx.Step
+	diffusionGemmaTracePhase.seq = ctx.EncoderSeqLen
+}
+
 func traceForwardRow(stage string, layer int, row int, scratch ForwardScratch, hiddenSize int) {
 	traceForwardData(stage, layer, row, scratch.Hidden, hiddenSize)
 }
@@ -84,7 +94,7 @@ func traceForwardData(stage string, layer int, row int, data []float32, hiddenSi
 	for i := 0; i < len(h) && i < 4; i++ {
 		prefix = append(prefix, h[i])
 	}
-	fmt.Fprintf(os.Stderr, "DiffusionGemma row_trace: stage=%s layer=%d row=%d rms=%.9g max_abs=%.9g max_idx=%d first4=%v\n", stage, layer, row, rms, maxAbs, maxIdx, prefix)
+	fmt.Fprintf(os.Stderr, "DiffusionGemma row_trace: stage=%s layer=%d step=%d enc_seq=%d row=%d rms=%.9g max_abs=%.9g max_idx=%d first4=%v\n", stage, layer, diffusionGemmaTracePhase.step, diffusionGemmaTracePhase.seq, row, rms, maxAbs, maxIdx, prefix)
 }
 
 type ForwardScratch struct {
@@ -150,6 +160,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		return ForwardOutput{}, fmt.Errorf("DiffusionGemma CPU dispatcher empty canvas")
 	}
 	scratch := NewForwardScratch(buffers)
+	setDiffusionGemmaTracePhase(ctx)
 	scratch.LMHeadTopK = d.LMHeadTopK
 	scratch.FP8ExpertIndex = d.ExpertIndex
 	scratch.GGUFExpertIndex = d.GGUFExpertIndex
@@ -939,7 +950,7 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 			}
 		}
 		if diffusionGemmaLayerTraceOpsEnabled() && pos == diffusionGemmaLayerTraceRow() {
-			fmt.Fprintf(os.Stderr, "DiffusionGemma router_trace: layer=%d type=%s row=%d raw_top_ids=%v raw_top_logits=%v top_ids=%v top_vals=%v\n", op.Layer, op.Type, pos, rawTopIDs, rawTopVals, append([]int(nil), ids...), append([]float32(nil), vals...))
+			fmt.Fprintf(os.Stderr, "DiffusionGemma router_trace: layer=%d type=%s step=%d enc_seq=%d row=%d raw_top_ids=%v raw_top_logits=%v top_ids=%v top_vals=%v\n", op.Layer, op.Type, diffusionGemmaTracePhase.step, diffusionGemmaTracePhase.seq, pos, rawTopIDs, rawTopVals, append([]int(nil), ids...), append([]float32(nil), vals...))
 		}
 	}
 	return nil

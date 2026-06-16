@@ -390,7 +390,7 @@ func traceGGUFCPUExpertContribution(layer int, layerType string, row, expert, sl
 	if n > 4 {
 		n = 4
 	}
-	fmt.Fprintf(os.Stderr, "DiffusionGemma gguf_cpu_expert_contrib: layer=%d type=%s row=%d expert=%d slot=%d batch=%d weight=%.9g rms=%.9g max_abs=%.9g max_idx=%d weighted_rms=%.9g weighted_max_abs=%.9g first4=%v\n", layer, layerType, row, expert, slot, batchSize, weight, rms, maxAbs, maxIdx, rms*math.Abs(float64(weight)), float64(maxAbs)*math.Abs(float64(weight)), append([]float32(nil), out[:n]...))
+	fmt.Fprintf(os.Stderr, "DiffusionGemma gguf_cpu_expert_contrib: layer=%d type=%s step=%d enc_seq=%d row=%d expert=%d slot=%d batch=%d weight=%.9g rms=%.9g max_abs=%.9g max_idx=%d weighted_rms=%.9g weighted_max_abs=%.9g first4=%v\n", layer, layerType, diffusionGemmaTracePhase.step, diffusionGemmaTracePhase.seq, row, expert, slot, batchSize, weight, rms, maxAbs, maxIdx, rms*math.Abs(float64(weight)), float64(maxAbs)*math.Abs(float64(weight)), append([]float32(nil), out[:n]...))
 }
 
 func diffusionGemmaGGUFCPUDirectPolicyEnabled(name string) bool {
