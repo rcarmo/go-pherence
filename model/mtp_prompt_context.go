@@ -2,11 +2,11 @@ package model
 
 import (
 	"fmt"
-	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
+	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 )
 
 // MTPPromptContext is the real verifier-side state needed to seed a q-only
@@ -115,11 +115,12 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	if layerHeadDim <= 0 || !ok || !okKV {
 		return nil, fmt.Errorf("invalid attention dims")
 	}
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		simd.RMSNormBF16(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
 	} else {
 		rmsNormInPlace(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
 	}
+	traceMTPVerifierLayer0Internal("attn_norm", layerIdx, pos, hidden)
 	q := make([]float32, qDim)
 	if layer.QWq != nil {
 		if !m.mvQ(q, hidden, layer.QWq) {
@@ -129,9 +130,14 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		if !mlx.GemvTo(q, hidden, layer.QWm) {
 			return nil, fmt.Errorf("layer %d MLX Q projection failed", layerIdx)
 		}
+	} else if layer.QWGGUF != nil {
+		if !gemvGGUFTo(q, hidden, layer.QWGGUF, h, qDim) {
+			return nil, fmt.Errorf("layer %d GGUF Q projection failed", layerIdx)
+		}
 	} else {
 		m.mv(q, hidden, layer.QW.Data(), h, qDim)
 	}
+	traceMTPVerifierLayer0Internal("q_proj", layerIdx, pos, q)
 	var k, v []float32
 	if layer.HasKV {
 		k = make([]float32, layerKVDim)
@@ -162,6 +168,19 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 			} else {
 				return nil, fmt.Errorf("layer %d missing MLX V projection", layerIdx)
 			}
+		} else if layer.KWGGUF != nil {
+			if !gemvGGUFTo(k, hidden, layer.KWGGUF, h, layerKVDim) {
+				return nil, fmt.Errorf("layer %d GGUF K projection failed", layerIdx)
+			}
+			if cfg.AttentionKEqV && (layer.VWGGUF == nil || layer.VWGGUF == layer.KWGGUF) {
+				copy(v, k)
+			} else if layer.VWGGUF != nil {
+				if !gemvGGUFTo(v, hidden, layer.VWGGUF, h, layerKVDim) {
+					return nil, fmt.Errorf("layer %d GGUF V projection failed", layerIdx)
+				}
+			} else {
+				return nil, fmt.Errorf("layer %d missing GGUF V projection", layerIdx)
+			}
 		} else {
 			if layer.KW == nil {
 				return nil, fmt.Errorf("layer %d missing K projection", layerIdx)
@@ -175,8 +194,10 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 				return nil, fmt.Errorf("layer %d missing V projection", layerIdx)
 			}
 		}
+		traceMTPVerifierLayer0Internal("k_proj", layerIdx, pos, k)
+		traceMTPVerifierLayer0Internal("v_proj", layerIdx, pos, v)
 	}
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		simd.ToBF16(q)
 		if k != nil {
 			simd.ToBF16(k)
@@ -191,7 +212,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		}
 	}
 	normFn := rmsNormInPlace
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		normFn = rmsNormBF16
 	}
 	if cfg.ModelType == "gemma4_text" && v != nil {
@@ -220,6 +241,11 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 			}
 		}
 	}
+	traceMTPVerifierLayer0Internal("q_norm", layerIdx, pos, q)
+	if k != nil {
+		traceMTPVerifierLayer0Internal("k_norm", layerIdx, pos, k)
+		traceMTPVerifierLayer0Internal("v_norm", layerIdx, pos, v)
+	}
 	if cfg.ModelType == "gemma4_text" && m.RopeFreqsSWA != nil {
 		isSWA := true
 		if len(cfg.LayerTypes) > layerIdx {
@@ -241,6 +267,10 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		if k != nil {
 			applyRoPE(k, m.RopeFreqs, pos, layerKVHeads, layerHeadDim)
 		}
+	}
+	traceMTPVerifierLayer0Internal("q_pos", layerIdx, pos, q)
+	if k != nil {
+		traceMTPVerifierLayer0Internal("k_pos", layerIdx, pos, k)
 	}
 	kvLayer := layerIdx
 	if !layer.HasKV {
@@ -269,6 +299,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	} else {
 		gqaAttentionScaleInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))))
 	}
+	traceMTPVerifierLayer0Internal("attn_pre_o", layerIdx, pos, attnOut)
 	oOut := make([]float32, h)
 	if layer.OWq != nil {
 		if !m.mvQ(oOut, attnOut, layer.OWq) {
@@ -278,15 +309,21 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		if !mlx.GemvTo(oOut, attnOut, layer.OWm) {
 			return nil, fmt.Errorf("layer %d MLX O projection failed", layerIdx)
 		}
+	} else if layer.OWGGUF != nil {
+		if !gemvGGUFTo(oOut, attnOut, layer.OWGGUF, qDim, h) {
+			return nil, fmt.Errorf("layer %d GGUF O projection failed", layerIdx)
+		}
 	} else {
 		m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 	}
 	if layer.PreFFNNorm != nil {
 		rmsNormInPlace(oOut, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
 		simd.VecAdd(hidden, residual, oOut)
+		traceMTPVerifierLayer0Internal("attn_out", layerIdx, pos, hidden)
 		copy(residual, hidden)
 	} else {
 		simd.VecAdd(hidden, residual, oOut)
+		traceMTPVerifierLayer0Internal("attn_out", layerIdx, pos, hidden)
 		copy(residual, hidden)
 		rmsNormInPlace(hidden, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
 	}
@@ -294,7 +331,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	if layer.PreFFNNorm != nil {
 		mlpInput = make([]float32, h)
 		copy(mlpInput, hidden)
-		if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+		if cfg.ModelType == "gemma3_text" {
 			simd.RMSNormBF16(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
 		} else {
 			rmsNormInPlace(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
@@ -334,17 +371,30 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 			if !mlx.GemvTo(up, mlpInput, layer.UpWm) {
 				return nil, fmt.Errorf("layer %d MLX up projection failed", layerIdx)
 			}
+		} else if layer.GateWGGUF != nil {
+			if !gemvGGUFTo(gate, mlpInput, layer.GateWGGUF, h, layerInter) {
+				return nil, fmt.Errorf("layer %d GGUF gate projection failed", layerIdx)
+			}
+			if !gemvGGUFTo(up, mlpInput, layer.UpWGGUF, h, layerInter) {
+				return nil, fmt.Errorf("layer %d GGUF up projection failed", layerIdx)
+			}
 		} else {
 			m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
 			m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
 		}
-		if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+		if cfg.ModelType == "gemma3_text" {
 			simd.ToBF16(gate)
 			simd.ToBF16(up)
 		}
 		if cfg.HiddenAct == "gelu_pytorch_tanh" {
-			simd.GELUTanhMul(gate, gate, up)
-			simd.ToBF16(gate)
+			if cfg.ModelType == "gemma4_text" {
+				ggmlGELUMulInPlace(gate, up)
+			} else {
+				simd.GELUTanhMul(gate, gate, up)
+				if cfg.ModelType == "gemma3_text" {
+					simd.ToBF16(gate)
+				}
+			}
 		} else {
 			simd.VecSiLUMul(gate, gate, up)
 		}
@@ -357,37 +407,60 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 			if !mlx.GemvTo(down, gate, layer.DownWm) {
 				return nil, fmt.Errorf("layer %d MLX down projection failed", layerIdx)
 			}
+		} else if layer.DownWGGUF != nil {
+			if !gemvGGUFTo(down, gate, layer.DownWGGUF, layerInter, h) {
+				return nil, fmt.Errorf("layer %d GGUF down projection failed", layerIdx)
+			}
 		} else {
 			m.mv(down, gate, layer.DownW.Data(), layerInter, h)
 		}
 	}
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		simd.ToBF16(down)
 	}
 	if layer.PostFFNNorm != nil {
-		if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+		if cfg.ModelType == "gemma3_text" {
 			rmsNormBF16(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
 		} else {
 			rmsNormInPlace(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
 		}
 	}
 	simd.VecAdd(hidden, residual, down)
-	if layer.PLIGate != nil && perLayerInputs != nil && layerIdx < len(perLayerInputs) {
+	traceMTPVerifierLayer0Internal("ffn_resid", layerIdx, pos, hidden)
+	if (layer.PLIGate != nil || layer.PLIGateGGUF != nil) && perLayerInputs != nil && layerIdx < len(perLayerInputs) {
 		hpl := cfg.HiddenPerLayer
 		pli := perLayerInputs[layerIdx]
 		gate2 := make([]float32, hpl)
-		gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
-		simd.GELUTanhMul(gate2, gate2, pli)
+		if layer.PLIGateGGUF != nil {
+			if !gemvGGUFTo(gate2, hidden, layer.PLIGateGGUF, h, hpl) {
+				return nil, fmt.Errorf("layer %d GGUF PLI gate projection failed", layerIdx)
+			}
+		} else {
+			gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
+		}
+		if cfg.ModelType == "gemma4_text" {
+			ggmlGELUMulInPlace(gate2, pli)
+		} else {
+			simd.GELUTanhMul(gate2, gate2, pli)
+		}
 		proj2 := make([]float32, h)
-		gemvNT(proj2, gate2, layer.PLIProj, hpl, h)
+		if layer.PLIProjGGUF != nil {
+			if !gemvGGUFTo(proj2, gate2, layer.PLIProjGGUF, hpl, h) {
+				return nil, fmt.Errorf("layer %d GGUF PLI projection failed", layerIdx)
+			}
+		} else {
+			gemvNT(proj2, gate2, layer.PLIProj, hpl, h)
+		}
 		rmsNormInPlace(proj2, layer.PLIPostNorm, float32(cfg.RMSNormEps))
+		traceMTPVerifierLayer0Internal("pli_out", layerIdx, pos, proj2)
 		simd.VecAdd(hidden, hidden, proj2)
 	}
 	if layer.LayerScalar != 1.0 {
 		simd.VecScale(hidden, hidden, layer.LayerScalar)
 	}
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		simd.ToBF16(hidden)
 	}
+	traceMTPVerifierLayer0Internal("l0_out", layerIdx, pos, hidden)
 	return hidden, nil
 }

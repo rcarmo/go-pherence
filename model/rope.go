@@ -24,6 +24,26 @@ func (m *LlamaModel) precomputeRoPE() {
 	m.RopeFreqs = buildRoPEFreqs(maxSeq, halfDim, headDim, cfg.RopeTheta)
 }
 
+func (m *LlamaModel) precomputeGemma4RoPE() {
+	cfg := m.Config
+	if cfg.ModelType != "gemma4_text" {
+		return
+	}
+	maxSeq := cfg.MaxSeqLen
+	if maxSeq > 2048 {
+		maxSeq = 2048
+	}
+	if cfg.HeadDim > 0 {
+		m.RopeHalfSWA = cfg.HeadDim / 2
+		m.RopeFreqsSWA = buildRoPEFreqs(maxSeq, m.RopeHalfSWA, cfg.HeadDim, 10000)
+	}
+	if cfg.GlobalHeadDim > 0 {
+		rotatedDims := int(float64(cfg.GlobalHeadDim) * 0.25)
+		m.RopeHalfFull = rotatedDims / 2
+		m.RopeFreqsFull = buildRoPEFreqs(maxSeq, m.RopeHalfFull, cfg.GlobalHeadDim, 1000000)
+	}
+}
+
 func buildRoPEFreqs(maxSeq, halfDim, headDim int, theta float64) []float32 {
 	return simd.BuildRoPEFreqs(maxSeq, halfDim, headDim, theta)
 }

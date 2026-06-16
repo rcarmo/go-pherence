@@ -666,30 +666,9 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 
 	// Pre-compute RoPE frequencies
 	m.precomputeRoPE()
-
-	// Gemma4: precompute separate RoPE for SWA and full attention
+	m.precomputeGemma4RoPE()
 	if cfg.ModelType == "gemma4_text" {
-		maxSeq := cfg.MaxSeqLen
-		if maxSeq > 2048 {
-			maxSeq = 2048
-		}
-
-		// SWA: head_dim=256, theta=10000, partial_rotary_factor=1.0
-		swaHD := cfg.HeadDim // 256
-		swaHalf := swaHD / 2 // 128 rotated pairs
-		m.RopeHalfSWA = swaHalf
-		// exponent denominator uses full head_dim (MLX: arange(0, rotated_dims, 2) / dims)
-		m.RopeFreqsSWA = buildRoPEFreqs(maxSeq, swaHalf, swaHD, 10000)
-
-		// Full: head_dim=512, theta=1000000, partial_rotary_factor=0.25
-		fullHD := cfg.GlobalHeadDim                // 512
-		rotatedDims := int(float64(fullHD) * 0.25) // 128
-		fullHalf := rotatedDims / 2                // 64 rotated pairs
-		m.RopeHalfFull = fullHalf
-		// Proportional RoPE: inv_freq = 1/(base^(arange(0, 2*rope_angles, 2) / head_dim))
-		// Per HuggingFace modeling_rope_utils.py: denominator is head_dim (512), NOT rotated_dims
-		m.RopeFreqsFull = buildRoPEFreqs(maxSeq, fullHalf, fullHD, 1000000)
-		loaderDebugf("  RoPE: SWA half=%d (theta=10k), Full half=%d (theta=1M, partial=0.25)\n", swaHalf, fullHalf)
+		loaderDebugf("  RoPE: SWA half=%d (theta=10k), Full half=%d (theta=1M, partial=0.25)\n", m.RopeHalfSWA, m.RopeHalfFull)
 	}
 
 	return m, nil
@@ -1050,6 +1029,10 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				if !mlx.GemvParallel(q, hidden, layer.QWm) {
 					return output
 				}
+			} else if layer.QWGGUF != nil {
+				if !gemvGGUFTo(q, hidden, layer.QWGGUF, h, qDim) {
+					return output
+				}
 			} else {
 				m.mv(q, hidden, layer.QW.Data(), h, qDim)
 			}
@@ -1080,6 +1063,19 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 						copy(v, k)
 					} else if layer.VWm != nil {
 						if !mlx.GemvParallel(v, hidden, layer.VWm) {
+							return output
+						}
+					} else {
+						return output
+					}
+				} else if layer.KWGGUF != nil {
+					if !gemvGGUFTo(k, hidden, layer.KWGGUF, h, layerKVDim) {
+						return output
+					}
+					if cfg.AttentionKEqV && (layer.VWGGUF == nil || layer.VWGGUF == layer.KWGGUF) {
+						copy(v, k)
+					} else if layer.VWGGUF != nil {
+						if !gemvGGUFTo(v, hidden, layer.VWGGUF, h, layerKVDim) {
 							return output
 						}
 					} else {
@@ -1259,6 +1255,10 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				if !mlx.GemvParallel(oOut, attnOut, layer.OWm) {
 					return output
 				}
+			} else if layer.OWGGUF != nil {
+				if !gemvGGUFTo(oOut, attnOut, layer.OWGGUF, qDim, h) {
+					return output
+				}
 			} else {
 				m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 			}
@@ -1339,12 +1339,16 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 					if !mlx.GemvParallel(up, mlpInput, layer.UpWm) {
 						return output
 					}
+				} else if layer.GateWGGUF != nil {
+					if !gemvGGUFTo(gate, mlpInput, layer.GateWGGUF, h, layerInter) || !gemvGGUFTo(up, mlpInput, layer.UpWGGUF, h, layerInter) {
+						return output
+					}
 				} else {
 					m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
 					m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
 				}
 
-				if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+				if cfg.ModelType == "gemma3_text" {
 					simd.ToBF16(gate)
 					simd.ToBF16(up)
 				}
@@ -1354,8 +1358,12 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				}
 				// Activation(gate) * up
 				if cfg.HiddenAct == "gelu_pytorch_tanh" {
-					simd.GELUTanhMul(gate, gate, up)
-					simd.ToBF16(gate)
+					if cfg.ModelType == "gemma4_text" {
+						ggmlGELUMulInPlace(gate, up)
+					} else {
+						simd.GELUTanhMul(gate, gate, up)
+						simd.ToBF16(gate)
+					}
 				} else {
 					simd.VecSiLUMul(gate, gate, up)
 				}
@@ -1371,6 +1379,10 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 					}
 				} else if layer.DownWm != nil {
 					if !mlx.GemvParallel(down, gate, layer.DownWm) {
+						return output
+					}
+				} else if layer.DownWGGUF != nil {
+					if !gemvGGUFTo(down, gate, layer.DownWGGUF, layerInter, h) {
 						return output
 					}
 				} else {
@@ -1411,7 +1423,11 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				// gate = gelu(per_layer_input_gate(h)) * per_layer_input → [hiddenPerLayer]
 				gate2 := scratchPLIGate[:hpl]
 				gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
-				simd.GELUTanhMul(gate2, gate2, pli)
+				if cfg.ModelType == "gemma4_text" {
+					ggmlGELUMulInPlace(gate2, pli)
+				} else {
+					simd.GELUTanhMul(gate2, gate2, pli)
+				}
 				// proj = per_layer_projection(gate) → [hidden]
 				proj2 := scratchPLIProj
 				gemvNT(proj2, gate2, layer.PLIProj, hpl, h)
