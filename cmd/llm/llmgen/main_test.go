@@ -2,6 +2,30 @@ package main
 
 import "testing"
 
+func TestGeneratedSuffixFromFullOutput(t *testing.T) {
+	if got := generatedSuffixFromFullOutput(2, 3, []int{10, 11, 12, 13, 14}); !sameIntsForLLMGenTest(got, []int{12, 13, 14}) {
+		t.Fatalf("unwrapped suffix=%v", got)
+	}
+	if got := generatedSuffixFromFullOutput(1, 1, []int{2, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109}); !sameIntsForLLMGenTest(got, []int{109}) {
+		t.Fatalf("templated suffix=%v", got)
+	}
+	if got := generatedSuffixFromFullOutput(3, 0, []int{1, 2, 3}); len(got) != 0 {
+		t.Fatalf("zero-token suffix=%v", got)
+	}
+}
+
+func sameIntsForLLMGenTest(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestMTPEffectivePromptTokenCount(t *testing.T) {
 	if got := mtpEffectivePromptTokenCount(1, 12, true, 1, 1); got != 10 {
 		t.Fatalf("MTP prompt tokens=%d want templated prompt 10", got)

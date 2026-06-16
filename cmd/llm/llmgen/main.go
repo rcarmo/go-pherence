@@ -148,9 +148,9 @@ func main() {
 	} else if gpuMod != nil {
 		output = append(ids, gpuMod.Generate(ids, *tokens)...)
 	} else if *speculative {
-		output = m.GenerateSpeculative(ids, *tokens, model.SpeculativeConfigFromEnv())
+		output = append(ids, generatedSuffixFromFullOutput(len(ids), *tokens, m.GenerateSpeculative(ids, *tokens, model.SpeculativeConfigFromEnv()))...)
 	} else {
-		output = m.Generate(ids, *tokens)
+		output = append(ids, generatedSuffixFromFullOutput(len(ids), *tokens, m.Generate(ids, *tokens))...)
 	}
 	elapsed := time.Since(start)
 
@@ -198,6 +198,22 @@ func main() {
 		}
 	}
 	_ = genText
+}
+
+func generatedSuffixFromFullOutput(inputIDs, maxTokens int, output []int) []int {
+	if maxTokens <= 0 || len(output) == 0 {
+		return nil
+	}
+	if len(output) >= inputIDs {
+		generated := len(output) - inputIDs
+		if generated >= 0 && generated <= maxTokens {
+			return append([]int(nil), output[inputIDs:]...)
+		}
+	}
+	if len(output) <= maxTokens {
+		return append([]int(nil), output...)
+	}
+	return append([]int(nil), output[len(output)-maxTokens:]...)
 }
 
 func mtpEffectivePromptTokenCount(inputIDs, outputLen int, mtpGenerate bool, graphOutput, greedyTail int) int {
