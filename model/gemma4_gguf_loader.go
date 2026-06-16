@@ -170,7 +170,14 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 	m.PerLayerProjScale = float32(1 / math.Sqrt(float64(cfg.HiddenSize)))
 	m.EmbedPerLayerScale = float32(math.Sqrt(float64(cfg.HiddenPerLayer)))
 	m.precomputeRoPE()
-	m.precomputeGemma4RoPE()
+	var fullRoPEFactors []float32
+	if t, ok := g.TensorByName("rope_freqs.weight"); ok {
+		fullRoPEFactors, err = g.DequantF32(t)
+		if err != nil {
+			return nil, fmt.Errorf("load rope_freqs.weight: %w", err)
+		}
+	}
+	m.precomputeGemma4RoPEWithFullFactors(fullRoPEFactors)
 	return m, nil
 }
 

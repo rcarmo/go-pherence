@@ -81,7 +81,7 @@ func (m *LlamaModel) FinishCPUDecodeBatch(hiddenRows [][]float32) (finalActivati
 	if cfg.HiddenSize <= 0 || cfg.VocabSize <= 0 {
 		return nil, nil, nil, fmt.Errorf("invalid decode dims hidden=%d vocab=%d", cfg.HiddenSize, cfg.VocabSize)
 	}
-	if m.Norm == nil || m.LMHead == nil {
+	if m.Norm == nil || (m.LMHead == nil && m.LMHeadGGUF == nil) {
 		return nil, nil, nil, fmt.Errorf("model final norm or LM head is not loaded")
 	}
 	h, vocab := cfg.HiddenSize, cfg.VocabSize
@@ -103,25 +103,29 @@ func (m *LlamaModel) FinishCPUDecodeBatch(hiddenRows [][]float32) (finalActivati
 		}
 		dst := flatHidden[i*h : (i+1)*h]
 		copy(dst, row)
-		if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+		if cfg.ModelType == "gemma3_text" {
 			simd.RMSNormBF16(dst, norm, float32(cfg.RMSNormEps))
 		} else {
 			rmsNormInPlace(dst, norm, float32(cfg.RMSNormEps))
 		}
 		finalActivations[i] = append([]float32(nil), dst...)
 	}
-	lmData := m.LMHead.Data()
-	if len(lmData) != lmLen {
-		return nil, nil, nil, fmt.Errorf("LM head data len=%d, want %d", len(lmData), lmLen)
-	}
 	flatLogits := make([]float32, flatLogitsLen)
-	if !simd.SgemmNTTo(flatLogits, flatHidden, lmData, B, vocab, h, 1.0, h, h, vocab) {
-		for i := 0; i < B; i++ {
-			if err := m.LMHeadLogitsInto(flatLogits[i*vocab:(i+1)*vocab], flatHidden[i*h:(i+1)*h]); err != nil {
-				return nil, nil, nil, err
-			}
+	if m.LMHead != nil {
+		lmData := m.LMHead.Data()
+		if len(lmData) != lmLen {
+			return nil, nil, nil, fmt.Errorf("LM head data len=%d, want %d", len(lmData), lmLen)
+		}
+		if simd.SgemmNTTo(flatLogits, flatHidden, lmData, B, vocab, h, 1.0, h, h, vocab) {
+			goto logitsDone
 		}
 	}
+	for i := 0; i < B; i++ {
+		if err := m.LMHeadLogitsInto(flatLogits[i*vocab:(i+1)*vocab], flatHidden[i*h:(i+1)*h]); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+logitsDone:
 	logitsRows = make([][]float32, B)
 	tokens = make([]int, B)
 	for i := 0; i < B; i++ {
