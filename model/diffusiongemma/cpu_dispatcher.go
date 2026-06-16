@@ -939,7 +939,7 @@ func runRouterFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScra
 			}
 		}
 		if diffusionGemmaLayerTraceOpsEnabled() && pos == diffusionGemmaLayerTraceRow() {
-			fmt.Fprintf(os.Stderr, "DiffusionGemma router_trace: layer=%d row=%d raw_top_ids=%v raw_top_logits=%v top_ids=%v top_vals=%v\n", op.Layer, pos, rawTopIDs, rawTopVals, append([]int(nil), ids...), append([]float32(nil), vals...))
+			fmt.Fprintf(os.Stderr, "DiffusionGemma router_trace: layer=%d type=%s row=%d raw_top_ids=%v raw_top_logits=%v top_ids=%v top_vals=%v\n", op.Layer, op.Type, pos, rawTopIDs, rawTopVals, append([]int(nil), ids...), append([]float32(nil), vals...))
 		}
 	}
 	return nil
