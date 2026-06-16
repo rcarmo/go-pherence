@@ -23,10 +23,12 @@ type MTPPromptContext struct {
 	LogitsComputed bool
 }
 
-// BuildMTPPromptContext runs the prompt through the same CPU token/layer path
-// used by Generate, including Gemma4 per-layer inputs, and returns copied final
-// activation plus float KV caches. It is intended for MTP wiring/smokes, not as
-// a high-throughput prefill implementation.
+// BuildMTPPromptContext runs the prompt through the CPU Gemma4 MTP
+// prompt/verifier layer contract, including Gemma4 per-layer inputs, and returns
+// copied final activation plus float KV caches. This path intentionally tracks
+// the llama.cpp/LiteRT MTP graph contract rather than ordinary Generate's
+// implementation details. It is intended for MTP wiring/smokes, not as a
+// high-throughput prefill implementation.
 func (m *LlamaModel) BuildMTPPromptContext(tokenIDs []int) (MTPPromptContext, error) {
 	if m == nil {
 		return MTPPromptContext{}, fmt.Errorf("nil model")
