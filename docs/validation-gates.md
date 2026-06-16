@@ -92,13 +92,14 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -prompt "Hi"
 
 # Gemma4 QAT+MTP llama.cpp parity gate.
-# Default committed fixture: always runs, validating token/acceptance parity when
-# local GGUF assets are present and a trimmed token/acceptance contract otherwise.
+# Required default gate: committed MTP token/acceptance fixture + standalone
+# runner + GGUF quant primitive oracles in one target.
+make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp
+
+# Expanded default commands, if the Makefile target is not available:
 GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
   -fixture model/testdata/gemma4-mtp-llamacpp-fixture.json
-
-# GGUF quant primitive oracles used by the Gemma4 QAT+MTP path.
 GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
   -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' \
   -count=1 -v
