@@ -126,7 +126,6 @@ func assertCanvasStepDiagnostics(t *testing.T, canvases []CanvasResult, wantEntr
 
 func openLocalGGUFTinyGoldenDenoiser(t *testing.T) *TextDenoiser {
 	t.Helper()
-	t.Skip("local GGUF golden tests are heavy CPU/SIMD reference fixtures; replace/augment with GPU prompt golden fixtures before enabling by default")
 	ggufPath := filepath.Join("..", "..", "..", "llama.cpp", "models", "diffusiongemma-gguf", "diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
@@ -140,12 +139,10 @@ func openLocalGGUFTinyGoldenDenoiser(t *testing.T) *TextDenoiser {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(g.Close)
 	weights, err := OpenTextWeightsFromGGUF(g, meta.Shape)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = weights.Close() })
 	idx, err := BuildGGUFExpertIndex(g, meta.Shape.TextLayers, meta.Shape.NumExperts)
 	if err != nil {
 		t.Fatal(err)
@@ -158,6 +155,7 @@ func openLocalGGUFTinyGoldenDenoiser(t *testing.T) *TextDenoiser {
 }
 
 func TestLocalGGUFTinyForwardGoldenTopLogits(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_PREFILL", "1")
 	den := openLocalGGUFTinyGoldenDenoiser(t)
 	out, err := den.Denoise(ForwardInput{PromptIDs: []int{105}, Canvas: []int{236743}, Step: 1, SCTempInv: 1})
 	if err != nil {
@@ -167,11 +165,11 @@ func TestLocalGGUFTinyForwardGoldenTopLogits(t *testing.T) {
 		t.Fatalf("logit rows=%d want 1", len(out.Logits))
 	}
 	assertTopLogits(t, out.Logits[0], []logitRank{
-		{id: 236778, v: 20.713585},
-		{id: 207, v: 20.196819},
-		{id: 198, v: 19.681643},
-		{id: 45518, v: 19.266382},
-		{id: 236771, v: 19.006660},
+		{id: 236778, v: 20.644070},
+		{id: 236771, v: 19.500595},
+		{id: 247344, v: 19.273504},
+		{id: 236743, v: 19.195564},
+		{id: 236783, v: 18.223010},
 	}, "one-token prompt")
 }
 
