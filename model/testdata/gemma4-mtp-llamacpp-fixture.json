@@ -1,0 +1,39 @@
+{
+  "main_model": "models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf",
+  "drafter": "models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf",
+  "prompt_tokens": [
+    10979,
+    236764
+  ],
+  "max_tokens": 3,
+  "draft_count": 2,
+  "compressed_kv": false,
+  "logit_tolerance": 0.001,
+  "cycle": {
+    "input_token": 236764,
+    "drafted_tokens": [
+      564,
+      236789
+    ],
+    "verifier_tokens": [
+      236764,
+      564,
+      236789
+    ],
+    "verifier_output_tokens": [
+      564,
+      236789,
+      236757
+    ],
+    "accepted_prefix_len": 2,
+    "bonus_token": 236757,
+    "output_tokens": [
+      564,
+      236789,
+      236757
+    ],
+    "all_drafts_accepted": true,
+    "drafter_logits": [],
+    "verifier_logits": []
+  }
+}

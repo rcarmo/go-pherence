@@ -75,7 +75,7 @@ func findMTPParityRepoRoot() string {
 func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	fixturePath := os.Getenv("GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE")
 	if fixturePath == "" {
-		t.Skip("set GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE to a llama.cpp MTP parity JSON fixture")
+		fixturePath = filepath.Join("testdata", "gemma4-mtp-llamacpp-fixture.json")
 	}
 	data, err := os.ReadFile(fixturePath)
 	if err != nil {
