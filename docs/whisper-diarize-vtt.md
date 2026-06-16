@@ -24,7 +24,8 @@ Important defaults:
 | `-workers` | `min(16, runtime.NumCPU())` | 16 workers was the best local stress setting; 20 regressed. |
 | `-max-tokens` | `40` | Tuned decoder cap for short translated cues. |
 | `-tokens-per-sec` | `4` | Dynamic per-cue token budget; short cues get smaller caps. |
-| `-gpu` | `true` | Uses GPU-assisted encoder, cross-KV precompute, and LM head when available. |
+| `-gpu` | `true` | Uses GPU-assisted encoder and LM head when available; cross-K/V precompute is separately gated. |
+| `-gpu-graph` | `false` | Enables `GO_PHERENCE_WHISPER_GPU_GRAPH=1`, implies `-gpu`, and turns on currently wired opt-in GPU graph surfaces behind parity/fallback guards. |
 | `-progressive` | `true` | Rewrites the VTT after each completed chunk. |
 | `-resume` | `true` | Loads an existing partial VTT and skips covered intervals. |
 
@@ -33,8 +34,8 @@ Important defaults:
 The production/default path is **GPU-assisted**, not fully GPU-resident:
 
 - GPU encoder linear projections via NVIDIA SGEMM.
-- GPU decoder cross-K/V precompute via SGEMM.
 - GPU LM-head projection.
+- Optional GPU decoder cross-K/V precompute via `GO_PHERENCE_WHISPER_GPU_CROSS_KV=1` or `-gpu-graph`.
 - CPU decoder layers, MLPs, self-attention, and cross-attention remain the main bottleneck.
 - CPU decoder attention score dots use SIMD; value accumulation uses SIMD SAXPY.
 
@@ -42,6 +43,8 @@ Experimental paths exist but are disabled by default because they are slower on 
 
 | Env flag | Status |
 |----------|--------|
+| `GO_PHERENCE_WHISPER_GPU_GRAPH=1` | Umbrella flag for all currently wired opt-in GPU graph surfaces; available through `-gpu-graph` and guarded by transcript/numeric parity gates. |
+| `GO_PHERENCE_WHISPER_GPU_CROSS_KV=1` | GPU SGEMM decoder cross-K/V precompute; separate from per-token GPU cross-attention. |
 | `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1` | Resident GPU decoder MLP weights; rejected as default because per-token launches regressed stress RTF from ≈0.79 to ≈0.83. |
 | `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1` | GPU cross-attention over resident cross-K/V; rejected as default because q/out transfer plus per-layer launches regressed stress RTF from ≈0.68 to ≈0.75. |
 

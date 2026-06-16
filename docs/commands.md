@@ -510,7 +510,7 @@ Useful flags:
 - `-diarize` — add speaker labels when `-timestamps` is enabled and the speaker model is available.
 - `-chunk N -chunk-workers N` — long-form windowing controls; simple no-timestamp mode also chunks long inputs instead of sending over-length audio to the encoder.
 - `-max-tokens N` — cap decoder output for smokes/benchmarks.
-- `-gpu` — opt into GPU-assisted encoder/cross-KV paths when CUDA SGEMM is available; falls back to CPU/SIMD otherwise.
+- `-gpu` — opt into the GPU-assisted encoder/LM-head path when CUDA SGEMM is available; falls back to CPU/SIMD otherwise.
 - `-gpu-graph` — enable `GO_PHERENCE_WHISPER_GPU_GRAPH=1` for the full opt-in Whisper GPU graph surface; implies `-gpu` and remains parity/fallback guarded.
 
 Quick turbo smoke:
@@ -537,7 +537,7 @@ Useful flags:
 - `-chunk 10 -overlap 1 -vad-pack=true` — default VAD-packed chunk profile.
 - `-max-tokens 40 -tokens-per-sec 4` — tuned decoder token budget.
 - `-progressive=true -resume=true` — preserve and resume partial VTTs.
-- `-gpu=true` — GPU-assisted encoder, cross-KV precompute, and LM head.
+- `-gpu=true` — GPU-assisted encoder and LM head when CUDA SGEMM is available; cross-K/V precompute remains separately gated by `-gpu-graph` or `GO_PHERENCE_WHISPER_GPU_CROSS_KV=1`.
 - `-gpu-graph=true` — enable `GO_PHERENCE_WHISPER_GPU_GRAPH=1` for all currently wired opt-in Whisper GPU graph surfaces; implies `-gpu=true`.
 - `-speaker-model PATH` — optional converted ECAPA safetensors speaker embedding model.
 - `-speaker-threshold 0.3` — cosine similarity threshold for speaker clustering.

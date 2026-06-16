@@ -10,7 +10,7 @@
 
 Both `whisper` and `diarize-vtt` expose conservative GPU switches:
 
-- `-gpu` enables the GPU-assisted encoder path when CUDA SGEMM is available and falls back to CPU/SIMD otherwise.
+- `-gpu` enables the GPU-assisted encoder path when CUDA SGEMM is available and falls back to CPU/SIMD otherwise; decoder cross-K/V precompute is separately gated by `GO_PHERENCE_WHISPER_GPU_CROSS_KV=1` or `-gpu-graph`.
 - `-gpu-graph` sets `GO_PHERENCE_WHISPER_GPU_GRAPH=1`, implies `-gpu`, and enables the currently wired opt-in Whisper GPU graph surfaces behind their parity/fallback guards.
 
 Per-surface flags remain available for isolated debugging:

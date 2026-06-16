@@ -19,6 +19,21 @@ Whisper-specific orchestration and quantization tuned for byte-exact transcripts
 Production sub-1.0 RTF path: EP-encoder + Go int8 turbo-decoder hybrid
 (`WHISPER_ENC_H` seam in `cmd/audio/whisper`). See `research/aicpu-whisper`.
 
+GPU graph status: `cmd/audio/whisper -gpu` and `cmd/audio/diarize-vtt -gpu`
+request GPU-assisted encoder/LM-head execution when CUDA SGEMM is available and
+fall back to CPU/SIMD otherwise. `-gpu-graph` sets
+`GO_PHERENCE_WHISPER_GPU_GRAPH=1` and enables the currently wired opt-in CUDA
+surfaces behind the same fallback/parity policy. Individual debug flags are
+`GO_PHERENCE_WHISPER_GPU_MEL=1`, `GO_PHERENCE_WHISPER_GPU_CONV1D=1`,
+`GO_PHERENCE_WHISPER_GPU_ATTENTION=1`,
+`GO_PHERENCE_WHISPER_GPU_SELF_ATTN=1`,
+`GO_PHERENCE_WHISPER_GPU_CROSS_KV=1`,
+`GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1`, and
+`GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1`. Keep CPU/SIMD as the oracle: run
+`make whisper-turbo-parity`, `make whisper-cuda-parity`,
+`make whisper-gpu-graph-parity`, and `make whisper-turbo-check` before landing
+Whisper graph changes.
+
 Native K3 path status: `WHISPER_INT8=1` enables the full native IME/RVV int8
 encoder+turbo decoder. `WHISPER_FP16_ATTN=1` is an experimental X100 RVV/Zvfh
 attention path (QKᵀ and softmax·V in FP16 with F32 accumulation). On `pod_30.wav`,
