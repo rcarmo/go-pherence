@@ -1,8 +1,10 @@
 package diffusiongemma
 
 import (
+	"encoding/json"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"testing"
@@ -155,22 +157,47 @@ func openLocalGGUFTinyGoldenDenoiser(t *testing.T) *TextDenoiser {
 }
 
 func TestLocalGGUFTinyForwardGoldenTopLogits(t *testing.T) {
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_PREFILL", "1")
-	den := openLocalGGUFTinyGoldenDenoiser(t)
-	out, err := den.Denoise(ForwardInput{PromptIDs: []int{105}, Canvas: []int{236743}, Step: 1, SCTempInv: 1})
-	if err != nil {
+	ggufPath := filepath.Join("..", "..", "..", "llama.cpp", "models", "diffusiongemma-gguf", "diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
+	if _, err := os.Stat(ggufPath); err != nil {
+		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
+	}
+	root := filepath.Join("..", "..")
+	helper := filepath.Join(t.TempDir(), "dg_local_gguf_golden.go")
+	if err := os.WriteFile(helper, []byte(localGGUFGoldenHelperSource), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.Logits) != 1 {
-		t.Fatalf("logit rows=%d want 1", len(out.Logits))
+	cmd := exec.Command("go", "run", helper)
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_PREFILL=1")
+	out, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("local GGUF helper failed: %v\n%s", err, ee.Stderr)
+		}
+		t.Fatalf("local GGUF helper failed: %v", err)
 	}
-	assertTopLogits(t, out.Logits[0], []logitRank{
+	var got []struct {
+		ID int     `json:"id"`
+		V  float32 `json:"v"`
+	}
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("decode helper JSON: %v\n%s", err, out)
+	}
+	want := []logitRank{
 		{id: 236778, v: 20.644070},
 		{id: 236771, v: 19.500595},
 		{id: 247344, v: 19.273504},
 		{id: 236743, v: 19.195564},
 		{id: 236783, v: 18.223010},
-	}, "one-token prompt")
+	}
+	if len(got) != len(want) {
+		t.Fatalf("helper top logits len=%d want %d: %v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i].ID != want[i].id || math.Abs(float64(got[i].V-want[i].v)) > 1e-3 {
+			t.Fatalf("one-token prompt top[%d]=(%d,%g) want (%d,%g); all=%v", i, got[i].ID, got[i].V, want[i].id, want[i].v, got)
+		}
+	}
 }
 
 func TestLocalGGUFTinyForwardMultiPromptGoldenTopLogits(t *testing.T) {
@@ -455,3 +482,55 @@ func TestLocalGGUFSelfConditioningGoldenTopLogits(t *testing.T) {
 		{id: 236778, v: 24.773499},
 	}, "one-token self-conditioning")
 }
+
+const localGGUFGoldenHelperSource = `package main
+
+import (
+    "encoding/json"
+    "fmt"
+
+    dg "github.com/rcarmo/go-pherence/model/diffusiongemma"
+    "github.com/rcarmo/go-pherence/loader/gguf"
+)
+
+type logitRankJSON struct {
+    ID int
+    V float32
+}
+
+func main() {
+    meta, err := dg.LoadMetadata("models/diffusiongemma-26B-A4B-it-FP8")
+    if err != nil { panic(err) }
+    g, err := gguf.Open("/workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
+    if err != nil { panic(err) }
+    w, err := dg.OpenTextWeightsFromGGUF(g, meta.Shape)
+    if err != nil { panic(err) }
+    idx, err := dg.BuildGGUFExpertIndex(g, meta.Shape.TextLayers, meta.Shape.NumExperts)
+    if err != nil { panic(err) }
+    den, err := dg.NewTextDenoiserWithDispatcher(meta.Shape, w, dg.CPUDispatcher{GGUFExpertIndex: idx, FinalLogitSoftcapping: float32(meta.Config.TextConfig.FinalLogitSoftcapping), SkipEviction: true})
+    if err != nil { panic(err) }
+    out, err := den.Denoise(dg.ForwardInput{PromptIDs: []int{105}, Canvas: []int{236743}, Step: 1, SCTempInv: 1})
+    if err != nil { panic(err) }
+    if len(out.Logits) != 1 { panic(fmt.Sprintf("logit rows=%d", len(out.Logits))) }
+    top := topFinite(out.Logits[0], 5)
+    b, err := json.Marshal(top)
+    if err != nil { panic(err) }
+    fmt.Println(string(b))
+}
+
+func topFinite(row []float32, n int) []logitRankJSON {
+    out := make([]logitRankJSON, 0, n)
+    for id, v := range row {
+        if len(out) < n {
+            out = append(out, logitRankJSON{ID: id, V: v})
+            for i := len(out)-1; i > 0 && out[i].V > out[i-1].V; i-- { out[i], out[i-1] = out[i-1], out[i] }
+            continue
+        }
+        if n > 0 && v > out[len(out)-1].V {
+            out[len(out)-1] = logitRankJSON{ID: id, V: v}
+            for i := len(out)-1; i > 0 && out[i].V > out[i-1].V; i-- { out[i], out[i-1] = out[i-1], out[i] }
+        }
+    }
+    return out
+}
+`

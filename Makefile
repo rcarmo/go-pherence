@@ -700,7 +700,7 @@ diffusiongemma-check-scaffold:
 
 diffusiongemma-golden-gate:
 	go test ./model/diffusiongemma -run 'TestLlamaCppGGUFHi1x1(GoldenResponseIDs|ReferenceFixture)|TestGGUFHi1x1(GoTrimmedOutputComparisonGate|TopLogitProbeGate|ParityStatusDocumentsCurrentBlocker)|TestGGUFHiPhaseAlignedTrace|TestGGUFHiPhaseAlignedInputNormParityGate|TestGGUFHiPhaseAlignedLayer0OpsParityGate|TestMT19937|TestGGUFQ(4K|8_0|5_0)ExpertRowDotMatchesScalarDequantOracle|TestGGUFQ6KLMHeadRowDotMatchesQ8KRoundedDequantOracle|TestQ6I8DotAVX2MatchesScalar' -count=1 -v
-	go test ./model/diffusiongemma -run 'TestLocalGGUFTinyForwardGoldenTopLogits' -count=1 -v
+	DIFFUSIONGEMMA_LOCAL_GGUF_GOLDEN_EXIT=1 go test ./model/diffusiongemma -run 'TestLocalGGUFTinyForwardGoldenTopLogits' -count=1 -v
 
 .PHONY: diffusiongemma-ci-scaffold
 
