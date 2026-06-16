@@ -98,6 +98,11 @@ GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -co
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
   -fixture model/testdata/gemma4-mtp-llamacpp-fixture.json
 
+# GGUF quant primitive oracles used by the Gemma4 QAT+MTP path.
+GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
+  -run 'TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' \
+  -count=1 -v
+
 # Strict selected-logit gate. First export a llama.cpp/LiteRT reference JSON using
 # the schema documented in docs/mtp-speculative.md, then run both the standalone
 # token/logit report and the Go test selected-logit gate:
