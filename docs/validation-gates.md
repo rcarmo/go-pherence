@@ -105,8 +105,14 @@ GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
   -count=1 -v
 
 # Strict selected-logit gate. First export a llama.cpp/LiteRT reference JSON using
-# the schema documented in docs/mtp-speculative.md, then run both the standalone
-# token/logit report and the Go test selected-logit gate:
+# the schema documented in docs/mtp-speculative.md. This target intentionally
+# fails loudly if GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE is unset:
+GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
+GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-4bit \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-mtp-drafter \
+make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp
+
+# Expanded strict commands, if the Makefile target is not available:
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
   -fixture tmp/gemma4-mtp-llamacpp-fixture.json \
   -model models/gemma4-e4b-it-4bit \
