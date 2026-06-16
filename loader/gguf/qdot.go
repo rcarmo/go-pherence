@@ -110,7 +110,7 @@ func QuantizeQ8_0(x []float32) ([]q8_0Block, error) {
 	return blocks, nil
 }
 
-// DotQ4_0Q8_0 computes llama.cpp's scalar ggml_vec_dot_q4_0_q8_0 over one
+// DotQ4_0Q8_0 computes llama.cpp's AVX/VNNI-lane ggml_vec_dot_q4_0_q8_0 over one
 // Q4_0 row and a pre-quantized Q8_0 activation row.
 func DotQ4_0Q8_0(raw []byte, y []q8_0Block, n int) (float32, error) {
 	if n%qk8_0 != 0 {
@@ -121,22 +121,29 @@ func DotQ4_0Q8_0(raw []byte, y []q8_0Block, n int) (float32, error) {
 	if len(raw) < nb*blockSize || len(y) < nb {
 		return 0, fmt.Errorf("Q4_0 dot raw/activation short raw=%d y=%d nb=%d", len(raw), len(y), nb)
 	}
-	var sum float32
+	var acc [8]float32
 	for bi := 0; bi < nb; bi++ {
 		blk := raw[bi*blockSize : (bi+1)*blockSize]
 		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2])) * y[bi].d
 		qs := blk[2:18]
-		s0 := 0
-		s1 := 0
-		for j := 0; j < qk8_0/2; j++ {
-			v0 := int(qs[j]&0x0F) - 8
-			v1 := int(qs[j]>>4) - 8
-			s0 += v0 * int(y[bi].qs[j])
-			s1 += v1 * int(y[bi].qs[j+qk8_0/2])
+		for lane := 0; lane < 4; lane++ {
+			j := lane * 4
+			s := (int(qs[j+0]&0x0F)-8)*int(y[bi].qs[j+0]) + (int(qs[j+1]&0x0F)-8)*int(y[bi].qs[j+1]) + (int(qs[j+2]&0x0F)-8)*int(y[bi].qs[j+2]) + (int(qs[j+3]&0x0F)-8)*int(y[bi].qs[j+3])
+			acc[lane] = float32(math.FMA(float64(d), float64(float32(s)), float64(acc[lane])))
 		}
-		sum += float32(s0+s1) * d
+		for lane := 0; lane < 4; lane++ {
+			j := lane * 4
+			s := (int(qs[j+0]>>4)-8)*int(y[bi].qs[j+16]) + (int(qs[j+1]>>4)-8)*int(y[bi].qs[j+17]) + (int(qs[j+2]>>4)-8)*int(y[bi].qs[j+18]) + (int(qs[j+3]>>4)-8)*int(y[bi].qs[j+19])
+			acc[lane+4] = float32(math.FMA(float64(d), float64(float32(s)), float64(acc[lane+4])))
+		}
 	}
-	return sum, nil
+	r0 := acc[0] + acc[4]
+	r1 := acc[1] + acc[5]
+	r2 := acc[2] + acc[6]
+	r3 := acc[3] + acc[7]
+	r0 = r0 + r2
+	r1 = r1 + r3
+	return r0 + r1, nil
 }
 
 // GemvQ4_0Q8_0Rows computes all rows of a Q4_0 matrix against x using llama.cpp's
@@ -164,7 +171,7 @@ func GemvQ4_0Q8_0Rows(out, x []float32, m *QuantMatrix) bool {
 	return true
 }
 
-// DotQ6KQ8K computes llama.cpp's scalar ggml_vec_dot_q6_K_q8_K over one
+// DotQ6KQ8K computes llama.cpp's AVX-style ggml_vec_dot_q6_K_q8_K over one
 // Q6_K row and a pre-quantized Q8_K activation row.
 func DotQ6KQ8K(raw []byte, y []q8KBlock, n int) (float32, error) {
 	if n%qkK != 0 {
@@ -217,14 +224,16 @@ func DotQ6KQ8K(raw []byte, y []q8KBlock, n int) (float32, error) {
 		}
 		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[208:210])) * y[bi].d
 		for l := 0; l < 8; l++ {
-			sums[l] += d * float32(aux32[l])
+			sums[l] = float32(math.FMA(float64(d), float64(float32(aux32[l])), float64(sums[l])))
 		}
 	}
-	var sum float32
-	for l := 0; l < 8; l++ {
-		sum += sums[l]
-	}
-	return sum, nil
+	r0 := sums[0] + sums[4]
+	r1 := sums[1] + sums[5]
+	r2 := sums[2] + sums[6]
+	r3 := sums[3] + sums[7]
+	r0 = r0 + r2
+	r1 = r1 + r3
+	return r0 + r1, nil
 }
 
 // GemvQ6KQ8KRows computes all rows of a Q6_K matrix against x using llama.cpp's
