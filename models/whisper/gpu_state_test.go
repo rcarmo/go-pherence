@@ -56,11 +56,10 @@ func syntheticDecoderStateFixture() (Config, *Decoder, []float32, int) {
 	}
 	layer.CrossKBias = []float32{0.01, -0.02, 0.03, -0.04}
 	layer.CrossVBias = []float32{-0.03, 0.02, -0.01, 0.04}
-	encLen := 3
-	encoderOutput := []float32{
-		0.1, -0.2, 0.3, 0.4,
-		-0.5, 0.6, -0.7, 0.8,
-		0.9, -1.0, 1.1, -1.2,
+	encLen := 9
+	encoderOutput := make([]float32, encLen*cfg.EncoderDModel)
+	for i := range encoderOutput {
+		encoderOutput[i] = float32((i%17)-8) * 0.073
 	}
 	return cfg, dec, encoderOutput, encLen
 }
