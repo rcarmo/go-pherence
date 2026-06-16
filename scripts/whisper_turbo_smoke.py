@@ -89,6 +89,12 @@ def main() -> int:
             "expect_file_contains": "WEBVTT",
         },
         {
+            "name": "diarize_vtt_gpu_turbo",
+            "cmd": ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(out_dir / "diarize_turbo_gpu_smoke.vtt"), "-gpu=true", "-workers", "1", "-max-tokens", "8", "-progressive=false", "-resume=false"],
+            "expect_file": str(out_dir / "diarize_turbo_gpu_smoke.vtt"),
+            "expect_file_contains": "WEBVTT",
+        },
+        {
             "name": "diarize_vtt_transcribe_turbo",
             "cmd": ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(out_dir / "diarize_turbo_transcribe_smoke.vtt"), "-task", "transcribe", "-language", "en", "-gpu=false", "-workers", "1", "-max-tokens", "8", "-progressive=false", "-resume=false"],
             "expect_file": str(out_dir / "diarize_turbo_transcribe_smoke.vtt"),
