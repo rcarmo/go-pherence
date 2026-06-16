@@ -167,6 +167,26 @@ When regenerating llama.cpp reference traces from recent `llama-server` builds, 
 
 Current status: `make gemma4-mtp-parity` is the required green default gate (accepted-token MTP fixture plus GGUF quant oracles). `make gemma4-mtp-strict-parity` is the red 1:1 selected-logit gate and currently reports six verifier-logit mismatches against the local `--flash-attn on` llama.cpp fixture; leave `RealAssetAcceptanceParity=false` until that strict gate is green.
 
+Latest strict-parity localization:
+
+- The llama.cpp fixture is generated with prompt KV `[2,10979]`, input token `236764`, draft tokens `[564,236789]`, verifier batch `[236764,564,236789]`, accepted prefix length `2`, and bonus token `236757`.
+- Layer-0 verifier input summaries match llama.cpp; drift starts inside layer 0 and is visible by layer 1 input.
+- Q projection, K projection/norm, RoPE position application, V no-scale RMSNorm requirement, attention scale `1.0`, and O projection are not the primary remaining gap. Existing `LLAMA_MTP_TRACE_ATTN_WO` vs Go `attn_wo` summaries are already close at layer 0; the first substantial amplification is at `attn_post_norm(attn_wo) + residual`.
+- llama.cpp `build_norm` for Gemma4 RMSNorm is plain `ggml_rms_norm(x) * weight`; Go uses the same semantic formula. A GGML-style double-accumulating RMSNorm experiment and a forced non-assembly RMSNorm path both worsened selected-logit parity, so RMSNorm accumulation precision/dispatch is not the fix.
+- Forcing dequantized-F32 GGUF GEMV with `GO_PHERENCE_GGUF_DEQUANT_GEMV=1` changes the mismatch pattern and improves/overshoots some selected logits while worsening others. The fast Q4_0×Q8_0/Q6_K×Q8_K path is therefore not a simple sole culprit.
+- Other rejected candidates include changing Gemma4 attention scale, removing V RMSNorm, changing Q/K BF16 rounding, changing final norm BF16/F32 handling, switching KV cache F16/F32, online/flash-style attention recurrence in Go, dequantized O projection as a blanket fix, and final LM-head/softcap-only explanations.
+
+Current strict mismatch set for the local fixture:
+
+```text
+row0 token236751 got=14.1096830368042 want=14.126071
+row0 token236757 got=15.128488540649414 want=15.1981421
+row1 token236751 got=7.351251125335693 want=7.34865713
+row1 token236757 got=13.789809226989746 want=13.9382925
+row2 token236751 got=20.40302085876465 want=20.2557411
+row2 token236757 got=28.634824752807617 want=28.6220856
+```
+
 Minimal fixture shape:
 
 ```json

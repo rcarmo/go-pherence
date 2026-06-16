@@ -82,7 +82,8 @@ go run ./cmd/audio/diarize-vtt -input meeting.m4a -output meeting.vtt -language 
 # Gemma4 QAT+MTP default parity + GGUF quant oracle gate
 make gemma4-mtp-parity
 
-# Strict Gemma4 QAT+MTP selected-logit parity, with an exported llama.cpp fixture
+# Strict Gemma4 QAT+MTP selected-logit parity, with an exported llama.cpp fixture.
+# This is intentionally red until selected verifier logits match llama.cpp 1:1.
 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
   make gemma4-mtp-strict-parity
 

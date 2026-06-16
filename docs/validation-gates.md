@@ -121,7 +121,9 @@ GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
 
 # Strict selected-logit gate. First export a llama.cpp/LiteRT reference JSON using
 # the schema documented in docs/mtp-speculative.md. This target intentionally
-# fails loudly if GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE is unset:
+# fails loudly if GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE is unset, and it is
+# currently expected to fail until real-asset selected verifier logits match
+# llama.cpp --flash-attn on 1:1:
 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
 GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-4bit \
 GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-mtp-drafter \
@@ -136,6 +138,14 @@ GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
 GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-4bit \
 GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-mtp-drafter \
 GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
+
+
+Strict Gemma4 QAT+MTP status notes:
+
+- `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp` is the required green default gate.
+- `make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` remains the red 1:1 selected-logit gate for the local `llama.cpp --flash-attn on` fixture.
+- The strict fixture currently matches prompt/draft/verifier tokens and acceptance/bonus-token semantics, but still reports six selected verifier-logit mismatches.
+- Keep `RealAssetAcceptanceParity=false`, public/default MTP generation not-ready, and full-layer verifier batch default enablement gated until the strict gate is green.
 
 # 31B stress smoke, when VRAM headroom permits
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
