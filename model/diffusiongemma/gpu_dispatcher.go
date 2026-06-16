@@ -179,6 +179,9 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		return ForwardOutput{}, err
 	}
 
+	traceRow := diffusionGemmaLayerTraceRow()
+	traceOps := diffusionGemmaLayerTraceOpsEnabled()
+	traceForwardRow("prefix", -1, traceRow, scratch, buffers.HiddenSize)
 	currentLayer := -1
 	completedLayers := 0
 	layerStarted := time.Now()
@@ -189,6 +192,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			}
 		}
 		if currentLayer >= 0 && op.Layer != currentLayer {
+			traceForwardRow("layer", currentLayer, traceRow, scratch, buffers.HiddenSize)
 			completedLayers++
 			if d.Progress {
 				fmt.Fprintf(os.Stderr, "DiffusionGemma GPU: completed layer=%d elapsed=%s\n", currentLayer, time.Since(layerStarted).Round(time.Millisecond))
@@ -351,9 +355,15 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		default:
 			return ForwardOutput{}, fmt.Errorf("DiffusionGemma GPU unknown op %q", op.Kind)
 		}
+		if traceOps {
+			traceForwardRow("op/"+string(op.Kind), op.Layer, traceRow, scratch, buffers.HiddenSize)
+		}
 	}
 	if err := waitDense(); err != nil {
 		return ForwardOutput{}, err
+	}
+	if currentLayer >= 0 {
+		traceForwardRow("layer", currentLayer, traceRow, scratch, buffers.HiddenSize)
 	}
 	if currentLayer >= 0 && !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
 		weights.EvictLayer(currentLayer)
