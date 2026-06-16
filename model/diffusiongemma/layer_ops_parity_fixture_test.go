@@ -46,6 +46,7 @@ func TestGGUFHiPhaseAlignedLayerOpsParityGate(t *testing.T) {
 		{path: "testdata/gguf_hi_phase_aligned_row28_layer3_ops.json", name: "gguf_hi_phase_aligned_row28_layer3_ops", layer: 3},
 		{path: "testdata/gguf_hi_phase_aligned_row28_layer4_ops.json", name: "gguf_hi_phase_aligned_row28_layer4_ops", layer: 4},
 		{path: "testdata/gguf_hi_phase_aligned_row28_layer5_ops.json", name: "gguf_hi_phase_aligned_row28_layer5_ops", layer: 5},
+		{path: "testdata/gguf_hi_phase_aligned_row28_layer6_ops.json", name: "gguf_hi_phase_aligned_row28_layer6_ops", layer: 6},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
