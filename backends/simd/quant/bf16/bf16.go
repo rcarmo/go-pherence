@@ -18,9 +18,13 @@ func BF16ToF32(b BF16) float32 {
 	return math.Float32frombits(uint32(b) << 16)
 }
 
-// F32ToBF16 converts a single float32 to BF16 (truncate, no rounding).
+// F32ToBF16 converts a single float32 to BF16 using round-to-nearest-even,
+// matching GGML/llama.cpp BF16 narrowing semantics.
 func F32ToBF16(f float32) BF16 {
-	return BF16(math.Float32bits(f) >> 16)
+	bits := math.Float32bits(f)
+	lsb := (bits >> 16) & 1
+	bits += 0x7FFF + lsb
+	return BF16(bits >> 16)
 }
 
 // BF16DotF32 computes dot(bf16_x, f32_y) accumulating in F32.

@@ -16,6 +16,19 @@ func TestBF16Convert(t *testing.T) {
 			t.Errorf("BF16 round-trip: %f → %04x → %f (%.2f%% error)", v, b, back, 100*math.Abs(float64(back-v)/float64(v)))
 		}
 	}
+	cases := []struct {
+		bits uint32
+		want uint16
+	}{
+		{0x3c3e8000, 0x3c3e}, // exact half-way, BF16 LSB even: round down
+		{0x3c3f8000, 0x3c40}, // exact half-way, BF16 LSB odd: round up to even
+		{0x3c3e8001, 0x3c3f}, // just above half: round up
+	}
+	for _, tc := range cases {
+		if got := uint16(F32ToBF16(math.Float32frombits(tc.bits))); got != tc.want {
+			t.Fatalf("F32ToBF16(%08x)=%04x want %04x", tc.bits, got, tc.want)
+		}
+	}
 	t.Log("BF16 convert: OK")
 }
 

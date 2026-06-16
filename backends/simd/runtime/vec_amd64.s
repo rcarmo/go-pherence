@@ -522,6 +522,12 @@ TEXT ·toBF16Asm(SB), NOSPLIT, $0-24
     MOVL    $0xFFFF0000, R10
     MOVL    R10, X7
     VPBROADCASTD X7, Y7
+    MOVL    $0x00007FFF, R10
+    MOVL    R10, X8
+    VPBROADCASTD X8, Y8
+    MOVL    $0x00000001, R10
+    MOVL    R10, X9
+    VPBROADCASTD X9, Y9
 
     CMPQ    CX, $16
     JL      bf16_tail8
@@ -529,8 +535,16 @@ TEXT ·toBF16Asm(SB), NOSPLIT, $0-24
 bf16_loop16:
     VMOVUPS (SI), Y0
     VMOVUPS 32(SI), Y1
-    VANDPS  Y7, Y0, Y0
-    VANDPS  Y7, Y1, Y1
+    VPSRLD  $16, Y0, Y2
+    VPSRLD  $16, Y1, Y3
+    VPAND   Y9, Y2, Y2
+    VPAND   Y9, Y3, Y3
+    VPADDD  Y8, Y0, Y0
+    VPADDD  Y8, Y1, Y1
+    VPADDD  Y2, Y0, Y0
+    VPADDD  Y3, Y1, Y1
+    VPAND   Y7, Y0, Y0
+    VPAND   Y7, Y1, Y1
     VMOVUPS Y0, (SI)
     VMOVUPS Y1, 32(SI)
     ADDQ    $64, SI
@@ -542,7 +556,11 @@ bf16_tail8:
     CMPQ    CX, $8
     JL      bf16_scalar_check
     VMOVUPS (SI), Y0
-    VANDPS  Y7, Y0, Y0
+    VPSRLD  $16, Y0, Y2
+    VPAND   Y9, Y2, Y2
+    VPADDD  Y8, Y0, Y0
+    VPADDD  Y2, Y0, Y0
+    VPAND   Y7, Y0, Y0
     VMOVUPS Y0, (SI)
     ADDQ    $32, SI
     SUBQ    $8, CX
@@ -553,6 +571,11 @@ bf16_scalar_check:
 
 bf16_scalar:
     MOVL    (SI), R11
+    MOVL    R11, R12
+    SHRL    $16, R12
+    ANDL    $1, R12
+    ADDL    $0x7FFF, R11
+    ADDL    R12, R11
     ANDL    $0xFFFF0000, R11
     MOVL    R11, (SI)
     ADDQ    $4, SI

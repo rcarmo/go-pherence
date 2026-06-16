@@ -104,7 +104,13 @@ func toBF16Go(x []float32) {
 }
 
 func toBF16Single(x float32) float32 {
-	return math.Float32frombits(math.Float32bits(x) & 0xFFFF0000)
+	bits := math.Float32bits(x)
+	// Round-to-nearest-even when narrowing F32 to BF16. This matches GGML/llama.cpp
+	// BF16 conversion semantics and avoids systematic truncation drift in Gemma4
+	// layer-scalar outputs.
+	lsb := (bits >> 16) & 1
+	bits += 0x7FFF + lsb
+	return math.Float32frombits(bits & 0xFFFF0000)
 }
 
 func float32Sqrt(x float32) float32 {
