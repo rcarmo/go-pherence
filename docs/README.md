@@ -16,6 +16,7 @@ This directory contains the durable backend, model, validation, and research not
 ## Validation and performance
 
 - [validation-gates.md](validation-gates.md) — phase-level test, vet, CPU-only, and hardware smoke gates.
+- [gemma4-mtp-benchmarks.md](gemma4-mtp-benchmarks.md) — Gemma4 QAT+MTP validation matrix, benchmark timings, GPU coordination windows, and current strict-parity blocker.
 - [commands.md](commands.md) — CLI usage, GGUF REAP/TurboQuant validation, MTP smokes, Qwen MTP triage, and benchmark harnesses.
 - [whisper-diarize-vtt.md](whisper-diarize-vtt.md) — current Whisper turbo translated VTT pipeline, performance, resume behavior, and diarization limitations.
 - [whisper-model-assets.md](whisper-model-assets.md) — exact Whisper model names, local weight paths, shape configs, and default/turbo status.
