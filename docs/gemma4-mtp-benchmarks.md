@@ -315,3 +315,23 @@ Log references:
 | 8 | 3.604s | 0.832 tok/s |
 
 On the local i7-12700 container allocation, `GOMAXPROCS=6` is the best measured setting. Oversubscribing to 8 workers slows the MTP graph cycle despite more goroutines. Use this as the default comparison point for future tok/s measurements on this host.
+
+### Strict selected-logit gate with best measured thread setting
+
+After the parallel GGUF row-GEMV change, the strict selected-logit test was run with the best local thread setting from the scaling sweep:
+
+```bash
+GOMAXPROCS=6 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=$PWD/tmp/gemma4-mtp-llamacpp-fixture.json \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=$PWD/models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
+GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1 -v
+```
+
+Log: `logs/mtp-strict-parallel-gemv-gmp6-20260617-004505.log`
+
+Result remains expected FAIL with the same six selected-logit mismatches, but the current strict-gate effective throughput is:
+
+| Setting | Elapsed | Effective output tokens | Effective throughput | Sum abs error | Max abs error |
+|---|---:|---:|---:|---:|---:|
+| `GOMAXPROCS=6` | 9.897s | 3 | 0.303 tok/s | 0.397138 | 0.148483 |
+
+This is slower than the isolated steady-state graph-cycle result (`1.075 tok/s` at `GOMAXPROCS=6`) because the strict `go test` path includes test harness/model setup overhead. The selected-logit values are unchanged from baseline, confirming the row-GEMV parallelization is performance-only.
