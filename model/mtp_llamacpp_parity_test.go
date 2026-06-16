@@ -244,6 +244,7 @@ func assertMTPParityLogits(t *testing.T, name string, got [][]float32, want []ma
 	if len(got) < len(want) {
 		t.Fatalf("%s logits rows=%d, want at least %d", name, len(got), len(want))
 	}
+	var mismatches []string
 	for row, probes := range want {
 		for key, wantLogit := range probes {
 			id, err := strconv.Atoi(key)
@@ -255,9 +256,12 @@ func assertMTPParityLogits(t *testing.T, name string, got [][]float32, want []ma
 			}
 			gotLogit := float64(got[row][id])
 			if math.Abs(gotLogit-wantLogit) > tol {
-				t.Fatalf("%s logits row %d token %d=%g, want %g (tol %g)", name, row, id, gotLogit, wantLogit, tol)
+				mismatches = append(mismatches, fmt.Sprintf("row %d token %d=%g, want %g (tol %g)", row, id, gotLogit, wantLogit, tol))
 			}
 		}
+	}
+	if len(mismatches) > 0 {
+		t.Fatalf("%s logits mismatches:\n  %s", name, strings.Join(mismatches, "\n  "))
 	}
 }
 
