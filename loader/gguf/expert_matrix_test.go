@@ -68,3 +68,41 @@ func TestExpertMatricesFromTensorQ4K(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestExpertMatricesQ4KGemvMatchesDequantScalar(t *testing.T) {
+	m := &ExpertMatrices{Name: "experts", QType: QuantQ4_K, Raw: make([]byte, 144*2), InDim: 256, OutDim: 2, Experts: 1}
+	for r := 0; r < 2; r++ {
+		raw := m.Raw[r*144 : (r+1)*144]
+		binary.LittleEndian.PutUint16(raw[0:2], 0x3c00) // d = 1
+		binary.LittleEndian.PutUint16(raw[2:4], 0)      // dmin = 0
+		scales := raw[4:16]
+		for i := 0; i < 4; i++ {
+			scales[i] = 1
+			scales[i+8] = 1
+		}
+		qs := raw[16:144]
+		for i := 0; i < len(qs); i++ {
+			lo := byte((i + r) & 0x0f)
+			hi := byte((i*3 + r) & 0x0f)
+			qs[i] = lo | hi<<4
+		}
+	}
+	x := make([]float32, 256)
+	for i := range x {
+		x[i] = float32((i%17)-8) * 0.125
+	}
+	out := make([]float32, 2)
+	if err := m.GemvExpertTo(out, x, 0); err != nil {
+		t.Fatal(err)
+	}
+	row := make([]float32, 256)
+	for r := 0; r < 2; r++ {
+		if err := m.DequantExpertRowTo(row, 0, r); err != nil {
+			t.Fatal(err)
+		}
+		want := dotExpertRow(row, x)
+		if out[r] != want {
+			t.Fatalf("row %d gemv=%g want dequant scalar %g", r, out[r], want)
+		}
+	}
+}
