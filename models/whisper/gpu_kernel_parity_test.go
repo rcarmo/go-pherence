@@ -192,6 +192,9 @@ func TestWhisperGPUGraphUmbrellaEnablesKernelDispatch(t *testing.T) {
 	if !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_ATTENTION") {
 		t.Fatalf("GPU graph umbrella did not enable attention dispatch")
 	}
+	if !UseGPULMHead() {
+		t.Fatalf("GPU graph umbrella did not enable LM-head dispatch")
+	}
 	if !UseGPUCrossKV() {
 		t.Fatalf("GPU graph umbrella did not enable cross-K/V dispatch")
 	}

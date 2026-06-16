@@ -74,6 +74,9 @@ func main() {
 		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "1")
 		*useGPU = true
 	}
+	if *useGPU {
+		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD", "1")
+	}
 
 	if *input == "" {
 		fatalf("-input is required")

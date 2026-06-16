@@ -44,6 +44,7 @@ Experimental paths exist but are disabled by default because they are slower on 
 | Env flag | Status |
 |----------|--------|
 | `GO_PHERENCE_WHISPER_GPU_GRAPH=1` | Umbrella flag for all currently wired opt-in GPU graph surfaces; available through `-gpu-graph` and guarded by transcript/numeric parity gates. |
+| `GO_PHERENCE_WHISPER_GPU_LM_HEAD=1` | NVIDIA LM-head projection; enabled by `-gpu` and `-gpu-graph`. |
 | `GO_PHERENCE_WHISPER_GPU_CROSS_KV=1` | GPU SGEMM decoder cross-K/V precompute; separate from per-token GPU cross-attention. |
 | `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1` | Resident GPU decoder MLP weights; rejected as default because per-token launches regressed stress RTF from ≈0.79 to ≈0.83. |
 | `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1` | GPU cross-attention over resident cross-K/V; rejected as default because q/out transfer plus per-layer launches regressed stress RTF from ≈0.68 to ≈0.75. |

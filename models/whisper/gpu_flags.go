@@ -8,6 +8,12 @@ func whisperGPUFeatureEnabled(envName string) bool {
 	return os.Getenv(envWhisperGPUGraph) == "1" || os.Getenv(envName) == "1"
 }
 
+// UseGPULMHead reports whether the decoder vocabulary projection should use
+// the NVIDIA LM-head helper when available.
+func UseGPULMHead() bool {
+	return whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_LM_HEAD")
+}
+
 // UseGPUCrossKV reports whether decoder cross-attention K/V projection should
 // try the GPU SGEMM path. It is separate from per-token cross-attention launch
 // because the precompute stage can be worthwhile even when per-token GPU

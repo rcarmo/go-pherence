@@ -128,7 +128,7 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 	// Decoder
 	dec := NewDecoder(cfg)
 	dec.TokenEmbed, _ = get("model.decoder.embed_tokens.weight")
-	if len(dec.TokenEmbed) >= cfg.VocabSize*cfg.DecoderDModel && nv.SgemmReady() {
+	if UseGPULMHead() && len(dec.TokenEmbed) >= cfg.VocabSize*cfg.DecoderDModel && nv.SgemmReady() {
 		dec.lmHeadGPU = nv.NewDevBufFrom(dec.TokenEmbed)
 		if err := dec.lmHeadGPU.ToGPU(); err != nil {
 			dec.lmHeadGPU = nil
