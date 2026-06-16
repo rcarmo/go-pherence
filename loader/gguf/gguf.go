@@ -47,6 +47,7 @@ const (
 	QuantQ5_K QuantType = 13
 	QuantQ6_K QuantType = 14
 	QuantQ8_K QuantType = 15
+	QuantBF16 QuantType = 30
 )
 
 // String returns a human-readable quant type name.
@@ -78,6 +79,8 @@ func (qt QuantType) String() string {
 		return "Q6_K"
 	case QuantQ8_K:
 		return "Q8_K"
+	case QuantBF16:
+		return "BF16"
 	default:
 		return fmt.Sprintf("UNKNOWN(%d)", qt)
 	}
@@ -328,7 +331,7 @@ func TensorRawBytes(qt QuantType, n int) (int, error) {
 	switch qt {
 	case QuantF32:
 		return n * 4, nil
-	case QuantF16:
+	case QuantF16, QuantBF16:
 		return n * 2, nil
 	case QuantQ4_0:
 		return (n / 32) * 18, nil

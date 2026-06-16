@@ -68,6 +68,16 @@ func dequantRowTo(dst []float32, raw []byte, qt QuantType, n int) error {
 			dst[i] = half.F16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
 		}
 		return nil
+	case QuantBF16:
+		if len(raw) < n*2 {
+			return fmt.Errorf("BF16 row raw short")
+		}
+		for i := 0; i < n; i++ {
+			dst[i] = math.Float32frombits(uint32(binary.LittleEndian.Uint16(raw[i*2:])) << 16)
+		}
+		return nil
+	case QuantQ4_0:
+		return dequantRowQ4_0To(dst, raw, n)
 	case QuantQ2_K:
 		return dequantRowQ2KTo(dst, raw, n)
 	case QuantQ3_K:
@@ -85,6 +95,30 @@ func dequantRowTo(dst []float32, raw []byte, qt QuantType, n int) error {
 	default:
 		return fmt.Errorf("unsupported row quant type %d", qt)
 	}
+}
+
+func dequantRowQ4_0To(dst []float32, raw []byte, n int) error {
+	const blockElems = 32
+	const blockSize = 18
+	if n%blockElems != 0 {
+		return fmt.Errorf("Q4_0 row n=%d not multiple of 32", n)
+	}
+	nBlocks := n / blockElems
+	if len(raw) < nBlocks*blockSize {
+		return fmt.Errorf("Q4_0 row raw short")
+	}
+	for b := 0; b < nBlocks; b++ {
+		blk := raw[b*blockSize:]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		qs := blk[2:18]
+		base := b * blockElems
+		for i := 0; i < 16; i++ {
+			q := qs[i]
+			dst[base+i] = d * float32(int(q&0x0f)-8)
+			dst[base+16+i] = d * float32(int(q>>4)-8)
+		}
+	}
+	return nil
 }
 
 func dequantRowQ8_0To(dst []float32, raw []byte, n int) error {

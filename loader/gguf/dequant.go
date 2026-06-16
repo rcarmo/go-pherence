@@ -20,6 +20,10 @@ func dequantToF32(raw []byte, qt QuantType, n int) ([]float32, error) {
 		return dequantF32(raw, n)
 	case QuantF16:
 		return dequantF16(raw, n)
+	case QuantBF16:
+		return dequantBF16(raw, n)
+	case QuantQ4_0:
+		return dequantQ4_0(raw, n)
 	case QuantQ8_0:
 		return dequantQ8_0(raw, n)
 	case QuantQ2_K:
@@ -63,6 +67,44 @@ func dequantF16(raw []byte, n int) ([]float32, error) {
 	for i := range out {
 		u := binary.LittleEndian.Uint16(raw[i*2:])
 		out[i] = half.F16ToF32(u)
+	}
+	return out, nil
+}
+
+func dequantBF16(raw []byte, n int) ([]float32, error) {
+	if len(raw) < n*2 {
+		return nil, fmt.Errorf("dequantBF16: need %d bytes, have %d", n*2, len(raw))
+	}
+	out := make([]float32, n)
+	for i := range out {
+		out[i] = math.Float32frombits(uint32(binary.LittleEndian.Uint16(raw[i*2:])) << 16)
+	}
+	return out, nil
+}
+
+// ── Q4_0 ──────────────────────────────────────────────────────────────────────
+// Block: 18 bytes per 32 elements
+//   d    f16 @ bytes[0:2]
+//   qs   uint4[32] @ bytes[2:18], low nibble first, value biased by -8
+
+func dequantQ4_0(raw []byte, n int) ([]float32, error) {
+	const blockElems = 32
+	const blockSize = 18
+	nBlocks := n / blockElems
+	if len(raw) < nBlocks*blockSize {
+		return nil, fmt.Errorf("dequantQ4_0: need %d bytes, have %d", nBlocks*blockSize, len(raw))
+	}
+	out := make([]float32, n)
+	for b := 0; b < nBlocks; b++ {
+		blk := raw[b*blockSize:]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		qs := blk[2:18]
+		base := b * blockElems
+		for i := 0; i < 16; i++ {
+			q := qs[i]
+			out[base+i] = d * float32(int(q&0x0f)-8)
+			out[base+16+i] = d * float32(int(q>>4)-8)
+		}
 	}
 	return out, nil
 }

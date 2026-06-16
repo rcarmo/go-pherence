@@ -551,6 +551,11 @@ func ggufExpertSdotBatchTo(wRow, x []float32, nPos, inDim int, dst []float32, ds
 	return true
 }
 
+func ggmlNearestInt(f float32) int {
+	bits := math.Float32bits(f + 12582912.0)
+	return int(bits&0x007fffff) - 0x00400000
+}
+
 func quantizeDequantQ8KRowsInPlace(rows []float32, nRows, rowDim int) {
 	if nRows <= 0 || rowDim <= 0 || len(rows) < nRows*rowDim {
 		return
@@ -586,7 +591,7 @@ func quantizeDequantQ8KForExpertDot(dst, x []float32) {
 		iscale := float32(-127) / maxVal
 		d := 1 / iscale
 		for i, v := range xb {
-			q := int(math.Round(float64(iscale * v)))
+			q := ggmlNearestInt(iscale * v)
 			if q > 127 {
 				q = 127
 			}
