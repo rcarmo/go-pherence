@@ -11,15 +11,20 @@ import (
 )
 
 func TestGPURTFEstimate(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	if os.Getenv("WHISPER_RUN_GPU_RTF") != "1" {
+		t.Skip("set WHISPER_RUN_GPU_RTF=1 to run optional GPU RTF estimate")
+	}
+	modelPath := "../../models/whisper-large-v3-turbo-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
-		t.Skip("whisper-tiny model not available")
+		t.Skip("whisper-large-v3-turbo model not available")
 	}
 	if !nv.SgemmReady() {
 		t.Skip("GPU not available")
 	}
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD", "1")
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_CROSS_KV", "1")
 
-	cfg := Tiny()
+	cfg := LargeV3Turbo()
 	enc, dec, err := LoadModel(modelPath, cfg)
 	if err != nil {
 		t.Fatalf("LoadModel: %v", err)
@@ -56,13 +61,14 @@ func TestGPURTFEstimate(t *testing.T) {
 	encoderOutput := gpuEnc.ForwardGPU(melFlat, T)
 	encLen := len(encoderOutput) / cfg.EncoderDModel
 
-	// Decoder (CPU — would need GPU DevBuf integration for full GPU path)
+	// Decoder remains CPU/SIMD by default apart from explicitly gated graph
+	// surfaces; this optional smoke is a coarse end-to-end RTF estimate, not a
+	// pass/fail performance gate because host load can dominate timings.
 	state := NewDecoderStateGPU(cfg, encoderOutput, encLen, dec)
 	GreedyDecode(dec, state, cfg)
 
 	elapsed := time.Since(start)
 	rtf := elapsed.Seconds() / audioDuration
 
-	t.Logf("GPU Encoder + CPU Decoder RTF: %.2f (%.1fs for %.1fs audio)", rtf, elapsed.Seconds(), audioDuration)
-	t.Logf("Speedup vs pure CPU (RTF=6.3): %.2fx", 6.3/rtf)
+	t.Logf("GPU-assisted turbo RTF: %.2f (%.1fs for %.1fs audio)", rtf, elapsed.Seconds(), audioDuration)
 }

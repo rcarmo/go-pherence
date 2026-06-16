@@ -42,6 +42,11 @@ make whisper-cuda-parity
 make whisper-gpu-graph-parity
 make whisper-turbo-check
 
+# Optional, non-gating GPU timing smoke. This uses the current turbo assets and
+# is intentionally opt-in because host load can dominate RTF measurements.
+WHISPER_RUN_GPU_RTF=1 GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
+  -run TestGPURTFEstimate -count=1 -v
+
 # Equivalent explicit form:
 GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
   -run 'TestGPUEncoderForwardNotReadyFallbackMatchesCPU|TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestWhisperGPUFeatureFlags|TestNewDecoderStateGPU' \
