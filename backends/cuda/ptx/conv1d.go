@@ -22,7 +22,7 @@ const Conv1DK3S1PTX = `
 ) {
     .reg .pred %p_oob, %p_bias_nil, %p_loop_done;
     .reg .pred %p0_ge0, %p0_lt, %p0_ok, %p1_ge0, %p1_lt, %p1_ok, %p2_ge0, %p2_lt, %p2_ok;
-    .reg .u32 %oc, %j, %ic, %tid, %bid;
+    .reg .u32 %oc, %j, %ic, %tidx, %bid;
     .reg .u32 %in_ch, %in_len, %out_len;
     .reg .u32 %elem, %chan_base, %w_base, %idx_u;
     .reg .s32 %j_s, %in_len_s, %i0, %i1, %i2;
@@ -38,9 +38,9 @@ const Conv1DK3S1PTX = `
     ld.param.u32 %out_len, [out_length];
 
     mov.u32 %oc, %ctaid.y;
-    mov.u32 %tid, %tid.x;
+    mov.u32 %tidx, %tid.x;
     mov.u32 %bid, %ctaid.x;
-    mad.lo.u32 %j, %bid, 256, %tid;
+    mad.lo.u32 %j, %bid, 256, %tidx;
     setp.ge.u32 %p_oob, %j, %out_len;
     @%p_oob bra DONE;
 
@@ -155,7 +155,7 @@ const Conv1DK3S2PTX = `
 ) {
     .reg .pred %p_oob, %p_bias_nil, %p_loop_done;
     .reg .pred %p0_ge0, %p0_lt, %p0_ok, %p1_ge0, %p1_lt, %p1_ok, %p2_ge0, %p2_lt, %p2_ok;
-    .reg .u32 %oc, %j, %ic, %tid, %bid;
+    .reg .u32 %oc, %j, %ic, %tidx, %bid;
     .reg .u32 %in_ch, %in_len, %out_len;
     .reg .u32 %elem, %chan_base, %w_base, %idx_u;
     .reg .s32 %j_s, %j2_s, %in_len_s, %i0, %i1, %i2;
@@ -171,9 +171,9 @@ const Conv1DK3S2PTX = `
     ld.param.u32 %out_len, [out_length];
 
     mov.u32 %oc, %ctaid.y;
-    mov.u32 %tid, %tid.x;
+    mov.u32 %tidx, %tid.x;
     mov.u32 %bid, %ctaid.x;
-    mad.lo.u32 %j, %bid, 256, %tid;
+    mad.lo.u32 %j, %bid, 256, %tidx;
     setp.ge.u32 %p_oob, %j, %out_len;
     @%p_oob bra DONE;
 

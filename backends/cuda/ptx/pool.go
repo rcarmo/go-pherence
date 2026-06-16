@@ -25,7 +25,7 @@ const AttentivePoolPTX = `
     .param .u32 attn_dim
 ) {
     .reg .pred %p_tid, %p_c_oob, %p_t_done, %p_a_done, %p_ch_done;
-    .reg .u32 %tid, %c, %t, %a, %ch, %channels_u, %length_u, %attn_dim_u;
+    .reg .u32 %tidx, %c, %t, %a, %ch, %channels_u, %length_u, %attn_dim_u;
     .reg .u32 %idx, %hidx, %widx;
     .reg .u64 %outp, %hp, %wp, %bp, %vp, %addr, %off;
     .reg .f32 %v_bias_r, %score, %inner, %w_attn, %b_attn, %v_attn;
@@ -42,8 +42,8 @@ const AttentivePoolPTX = `
     ld.param.u32 %length_u, [length];
     ld.param.u32 %attn_dim_u, [attn_dim];
 
-    mov.u32 %tid, %tid.x;
-    setp.ne.u32 %p_tid, %tid, 0;
+    mov.u32 %tidx, %tid.x;
+    setp.ne.u32 %p_tid, %tidx, 0;
     @%p_tid bra DONE;
     mov.u32 %c, %ctaid.x;
     setp.ge.u32 %p_c_oob, %c, %channels_u;

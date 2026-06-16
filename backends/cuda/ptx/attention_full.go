@@ -23,7 +23,7 @@ const AttentionFullPTX = `
     .param .f32 scale
 ) {
     .reg .pred %p_tid, %p_q_oob, %p_h_oob, %p_done, %p_d_done;
-    .reg .u32 %tid, %h, %qpos, %seqQ, %seqKV, %heads, %hdim, %kv, %d;
+    .reg .u32 %tidx, %h, %qpos, %seqQ, %seqKV, %heads, %hdim, %kv, %d;
     .reg .u32 %q_base, %kv_base, %idx, %out_idx;
     .reg .u64 %outp, %qp, %kp, %vp, %addr, %off;
     .reg .f32 %scalev, %dot, %score, %maxv, %sumw, %w, %acc, %qv, %kvv, %vv, %tmp;
@@ -38,8 +38,8 @@ const AttentionFullPTX = `
     ld.param.u32 %hdim, [head_dim];
     ld.param.f32 %scalev, [scale];
 
-    mov.u32 %tid, %tid.x;
-    setp.ne.u32 %p_tid, %tid, 0;
+    mov.u32 %tidx, %tid.x;
+    setp.ne.u32 %p_tid, %tidx, 0;
     @%p_tid bra DONE;
     mov.u32 %h, %ctaid.x;
     mov.u32 %qpos, %ctaid.y;
@@ -158,7 +158,7 @@ const CrossAttentionPTX = `
     .param .f32 scale
 ) {
     .reg .pred %p_tid, %p_q_oob, %p_h_oob, %p_done, %p_d_done;
-    .reg .u32 %tid, %h, %qpos, %seqQ, %seqKV, %heads, %hdim, %kv, %d;
+    .reg .u32 %tidx, %h, %qpos, %seqQ, %seqKV, %heads, %hdim, %kv, %d;
     .reg .u32 %q_base, %kv_base, %idx, %out_idx;
     .reg .u64 %outp, %qp, %kp, %vp, %addr, %off;
     .reg .f32 %scalev, %dot, %score, %maxv, %sumw, %w, %acc, %qv, %kvv, %vv, %tmp;
@@ -173,8 +173,8 @@ const CrossAttentionPTX = `
     ld.param.u32 %hdim, [head_dim];
     ld.param.f32 %scalev, [scale];
 
-    mov.u32 %tid, %tid.x;
-    setp.ne.u32 %p_tid, %tid, 0;
+    mov.u32 %tidx, %tid.x;
+    setp.ne.u32 %p_tid, %tidx, 0;
     @%p_tid bra DONE;
     mov.u32 %h, %ctaid.x;
     mov.u32 %qpos, %ctaid.y;

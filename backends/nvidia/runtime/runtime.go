@@ -13,6 +13,7 @@ import (
 	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -52,6 +53,7 @@ var (
 	cuMemcpyHtoDAsync        func(CUdeviceptr, unsafe.Pointer, uint64, uintptr) CUresult
 	cuMemcpyDtoHAsync        func(unsafe.Pointer, CUdeviceptr, uint64, uintptr) CUresult
 	cuModuleLoadData         func(*CUmodule, unsafe.Pointer) CUresult
+	cuModuleLoadDataEx       func(*CUmodule, unsafe.Pointer, uint32, unsafe.Pointer, unsafe.Pointer) CUresult
 	cuModuleUnload           func(CUmodule) CUresult
 	cuModuleGetFunction      func(*CUfunction, CUmodule, unsafe.Pointer) CUresult
 	cuLaunchKernel           func(CUfunction, uint32, uint32, uint32, uint32, uint32, uint32, uint32, uintptr, unsafe.Pointer, unsafe.Pointer) CUresult
@@ -184,6 +186,7 @@ func Init() bool {
 		regFn(&cuMemcpyHtoDAsync, lib, "cuMemcpyHtoDAsync_v2", "cuMemcpyHtoDAsync")
 		regFn(&cuMemcpyDtoHAsync, lib, "cuMemcpyDtoHAsync_v2", "cuMemcpyDtoHAsync")
 		regFn(&cuModuleLoadData, lib, "cuModuleLoadData")
+		regFn(&cuModuleLoadDataEx, lib, "cuModuleLoadDataEx")
 		regFn(&cuModuleUnload, lib, "cuModuleUnload")
 		regFn(&cuModuleGetFunction, lib, "cuModuleGetFunction")
 		regFn(&cuLaunchKernel, lib, "cuLaunchKernel")
@@ -530,6 +533,26 @@ func SyncErr() error {
 
 var extraModules []CUmodule
 
+func loadModuleDataWithLog(mod *CUmodule, image unsafe.Pointer) CUresult {
+	if cuModuleLoadDataEx == nil {
+		return cuModuleLoadData(mod, image)
+	}
+	const (
+		cuJITErrorLogBuffer          = 5
+		cuJITErrorLogBufferSizeBytes = 6
+	)
+	errLog := make([]byte, 8192)
+	opts := []uint32{cuJITErrorLogBuffer, cuJITErrorLogBufferSizeBytes}
+	vals := []unsafe.Pointer{unsafe.Pointer(&errLog[0]), unsafe.Pointer(uintptr(len(errLog)))}
+	r := cuModuleLoadDataEx(mod, image, uint32(len(opts)), unsafe.Pointer(&opts[0]), unsafe.Pointer(&vals[0]))
+	if r != CUDA_SUCCESS {
+		if msg := strings.TrimRight(string(errLog), "\x00"); msg != "" {
+			fmt.Printf("[gpu] PTX JIT error: %s\n", msg)
+		}
+	}
+	return r
+}
+
 func loadPTXModule(ptx string, kernelName string) (CUmodule, CUfunction, error) {
 	if ptx == "" {
 		return 0, 0, fmt.Errorf("empty PTX module")
@@ -539,7 +562,7 @@ func loadPTXModule(ptx string, kernelName string) (CUmodule, CUfunction, error) 
 	}
 	ptxBytes := append([]byte(ptx), 0) // null-terminate
 	var mod CUmodule
-	if r := cuModuleLoadData(&mod, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
+	if r := loadModuleDataWithLog(&mod, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
 		return 0, 0, fmt.Errorf("cuModuleLoadData: error %d", r)
 	}
 	nameBytes := append([]byte(kernelName), 0)

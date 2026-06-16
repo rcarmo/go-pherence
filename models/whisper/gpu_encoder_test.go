@@ -36,15 +36,15 @@ func TestGPUEncoderForwardNotReadyFallbackMatchesCPU(t *testing.T) {
 }
 
 func TestGPUEncoderForward(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../models/whisper-large-v3-turbo-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
-		t.Skip("whisper-tiny model not available")
+		t.Skip("whisper-large-v3-turbo model not available")
 	}
 	if !nv.SgemmReady() {
 		t.Skip("GPU not available")
 	}
 
-	cfg := Tiny()
+	cfg := LargeV3Turbo()
 	enc, _, err := LoadModel(modelPath, cfg)
 	if err != nil {
 		t.Fatalf("LoadModel: %v", err)
@@ -55,11 +55,12 @@ func TestGPUEncoderForward(t *testing.T) {
 		t.Skip("GPU encoder not ready")
 	}
 
-	// 3 seconds of mel input
-	T := 187
+	// Small synthetic mel input keeps this live-GPU parity smoke modest for the
+	// shared GPU while still exercising all encoder layers/projections.
+	T := 16
 	melFlat := make([]float32, cfg.NumMelBins*T)
 	for i := range melFlat {
-		melFlat[i] = float32(i%80) * 0.01
+		melFlat[i] = float32((i%17)-8) * 0.01
 	}
 
 	// CPU baseline
