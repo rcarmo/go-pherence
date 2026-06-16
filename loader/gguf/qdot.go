@@ -97,7 +97,7 @@ func QuantizeQ8_0(x []float32) ([]q8_0Block, error) {
 		}
 		blocks[bi].d = half.F16ToF32(half.F32ToF16(d))
 		for j, v := range row {
-			q := nearestIntGGML(v * id)
+			q := int(math.Round(float64(v * id)))
 			if q > 127 {
 				q = 127
 			}
