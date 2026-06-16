@@ -497,6 +497,9 @@ func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scrat
 		for i := range scratch.Hidden {
 			scratch.Hidden[i] += scratch.Residual[i]
 		}
+		if diffusionGemmaLayerTraceOpsEnabled() && len(scratch.Logits) > 0 {
+			traceForwardData("op/ffn_residual", op.Layer, diffusionGemmaLayerTraceRow(), scratch.Hidden, len(scratch.Hidden)/len(scratch.Logits))
+		}
 		return nil
 	case OpLayerScalar:
 		return runLayerScalar(op, weights, scratch)
@@ -1100,6 +1103,7 @@ func runCombineMlpMoe(op LayerOp, weights *TextWeights, scratch ForwardScratch) 
 			return fmt.Errorf("DiffusionGemma combine post_norm rejected")
 		}
 	}
+	traceForwardData("op/ffn_post_norm", op.Layer, diffusionGemmaLayerTraceRow(), scratch.Hidden, hiddenSize)
 	return nil
 }
 
