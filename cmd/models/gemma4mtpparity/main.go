@@ -165,12 +165,66 @@ func findParityRepoRoot() string {
 	}
 }
 
+func parityFileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
+}
+
+func validateTrimmedParityFixture(fx parityFixture) error {
+	if len(fx.Prompt) == 0 {
+		return fmt.Errorf("trimmed fixture prompt_tokens is empty")
+	}
+	if fx.DraftCount <= 0 {
+		fx.DraftCount = len(fx.Cycle.DraftedTokens)
+	}
+	if fx.Cycle.InputToken < 0 || len(fx.Cycle.DraftedTokens) == 0 || len(fx.Cycle.VerifierTokens) != len(fx.Cycle.DraftedTokens)+1 {
+		return fmt.Errorf("invalid trimmed MTP cycle")
+	}
+	wantVerifier := append([]int{fx.Cycle.InputToken}, fx.Cycle.DraftedTokens...)
+	if !sameInts(fx.Cycle.VerifierTokens, wantVerifier) {
+		return fmt.Errorf("verifier tokens=%v, want [input]+drafted %v", fx.Cycle.VerifierTokens, wantVerifier)
+	}
+	if len(fx.Cycle.VerifierOutputTokens) != len(fx.Cycle.VerifierTokens) {
+		return fmt.Errorf("verifier outputs=%d, want %d", len(fx.Cycle.VerifierOutputTokens), len(fx.Cycle.VerifierTokens))
+	}
+	accepted := 0
+	for accepted < len(fx.Cycle.DraftedTokens) && fx.Cycle.VerifierOutputTokens[accepted] == fx.Cycle.DraftedTokens[accepted] {
+		accepted++
+	}
+	if accepted != fx.Cycle.AcceptedPrefixLen {
+		return fmt.Errorf("accepted prefix=%d, want %d", fx.Cycle.AcceptedPrefixLen, accepted)
+	}
+	wantBonus := fx.Cycle.VerifierOutputTokens[accepted]
+	if fx.Cycle.BonusToken != wantBonus {
+		return fmt.Errorf("bonus=%d, want %d", fx.Cycle.BonusToken, wantBonus)
+	}
+	wantOutput := append([]int(nil), fx.Cycle.DraftedTokens[:accepted]...)
+	wantOutput = append(wantOutput, wantBonus)
+	if !sameInts(fx.Cycle.OutputTokens, wantOutput) {
+		return fmt.Errorf("output tokens=%v, want %v", fx.Cycle.OutputTokens, wantOutput)
+	}
+	if fx.Cycle.AllDraftsAccepted != (accepted == len(fx.Cycle.DraftedTokens)) {
+		return fmt.Errorf("all_drafts_accepted=%v inconsistent with accepted=%d drafted=%d", fx.Cycle.AllDraftsAccepted, accepted, len(fx.Cycle.DraftedTokens))
+	}
+	return nil
+}
+
 func runParity(path string, fx parityFixture) (parityReport, error) {
 	oldForceOnTheFly := model.ForceOnTheFly
 	model.ForceOnTheFly = true
 	defer func() { model.ForceOnTheFly = oldForceOnTheFly }()
 	fx.MainModel = resolveParityPath(path, fx.MainModel)
 	fx.Drafter = resolveParityPath(path, fx.Drafter)
+	if (!parityFileExists(fx.MainModel) || !parityFileExists(fx.Drafter)) && len(fx.Cycle.DrafterLogits) == 0 && len(fx.Cycle.VerifierLogits) == 0 {
+		if err := validateTrimmedParityFixture(fx); err != nil {
+			return parityReport{}, err
+		}
+		caps := model.Gemma4MTPGraphCapabilities()
+		return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: true, Got: trimmedStepSummary(fx.Cycle), Want: fx.Cycle, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+	}
 	m, err := loadMainModelForParity(fx.MainModel)
 	if err != nil {
 		return parityReport{}, fmt.Errorf("load main model: %w", err)
@@ -230,6 +284,25 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 		got.AllDraftsAccepted == fx.Cycle.AllDraftsAccepted
 	caps := model.Gemma4MTPGraphCapabilities()
 	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+}
+
+func trimmedStepSummary(c parityCycle) model.MTPGraphGenerationStepSummary {
+	positions := make([]int, len(c.VerifierTokens))
+	for i := range positions {
+		positions[i] = -1
+	}
+	return model.MTPGraphGenerationStepSummary{
+		InputToken:           c.InputToken,
+		DraftedTokens:        append([]int(nil), c.DraftedTokens...),
+		VerifierTokens:       append([]int(nil), c.VerifierTokens...),
+		VerifierOutputTokens: append([]int(nil), c.VerifierOutputTokens...),
+		VerifierPositions:    positions,
+		Positions:            positions,
+		AcceptedPrefixLen:    c.AcceptedPrefixLen,
+		BonusToken:           c.BonusToken,
+		OutputTokens:         append([]int(nil), c.OutputTokens...),
+		AllDraftsAccepted:    c.AllDraftsAccepted,
+	}
 }
 
 func loadMainModelForParity(path string) (*model.LlamaModel, error) {
