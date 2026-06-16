@@ -42,6 +42,7 @@ func main() {
 	language := flag.String("language", defaultWhisperLanguage, "Whisper language prompt; use en for turbo English translation")
 	maxTokens := flag.Int("max-tokens", 0, "Maximum decoder tokens to generate (default: model config)")
 	useGPU := flag.Bool("gpu", false, "Use GPU-assisted encoder/cross-KV path when CUDA SGEMM is available")
+	useGPUGraph := flag.Bool("gpu-graph", false, "Enable the full opt-in Whisper GPU graph flag set when CUDA is available; implies -gpu")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
 	speakerModel := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
 	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine threshold for speaker clustering")
@@ -54,6 +55,10 @@ func main() {
 	if *audioPath == "" {
 		fmt.Fprintf(os.Stderr, "Usage: whisper -audio AUDIO [-model MODEL] [-size SIZE] [-diarize] [-timestamps]\n")
 		os.Exit(1)
+	}
+	if *useGPUGraph {
+		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "1")
+		*useGPU = true
 	}
 
 	// Select config

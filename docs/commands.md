@@ -511,6 +511,7 @@ Useful flags:
 - `-chunk N -chunk-workers N` — long-form windowing controls; simple no-timestamp mode also chunks long inputs instead of sending over-length audio to the encoder.
 - `-max-tokens N` — cap decoder output for smokes/benchmarks.
 - `-gpu` — opt into GPU-assisted encoder/cross-KV paths when CUDA SGEMM is available; falls back to CPU/SIMD otherwise.
+- `-gpu-graph` — enable `GO_PHERENCE_WHISPER_GPU_GRAPH=1` for the full opt-in Whisper GPU graph surface; implies `-gpu` and remains parity/fallback guarded.
 
 Quick turbo smoke:
 
@@ -537,10 +538,11 @@ Useful flags:
 - `-max-tokens 40 -tokens-per-sec 4` — tuned decoder token budget.
 - `-progressive=true -resume=true` — preserve and resume partial VTTs.
 - `-gpu=true` — GPU-assisted encoder, cross-KV precompute, and LM head.
+- `-gpu-graph=true` — enable `GO_PHERENCE_WHISPER_GPU_GRAPH=1` for all currently wired opt-in Whisper GPU graph surfaces; implies `-gpu=true`.
 - `-speaker-model PATH` — optional converted ECAPA safetensors speaker embedding model.
 - `-speaker-threshold 0.3` — cosine similarity threshold for speaker clustering.
 
-Current limitations: speaker labels remain a single-speaker fallback unless `-speaker-model` points to converted ECAPA weights; `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1` and `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1` are experimental and slower on the current stress sample. See [whisper-diarize-vtt.md](whisper-diarize-vtt.md).
+Current limitations: speaker labels remain a single-speaker fallback unless `-speaker-model` points to converted ECAPA weights; `GO_PHERENCE_WHISPER_GPU_GRAPH=1`, `GO_PHERENCE_WHISPER_GPU_DECODER_MLP=1`, and `GO_PHERENCE_WHISPER_GPU_CROSS_ATTN=1` are experimental and slower on the current stress sample. See [whisper-diarize-vtt.md](whisper-diarize-vtt.md).
 
 ## `speakercheck` — speaker-only ECAPA validation
 

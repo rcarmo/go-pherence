@@ -63,12 +63,17 @@ func main() {
 	tokensPerSec := flag.Float64("tokens-per-sec", 4.0, "Dynamic decoder token budget per second of cue audio")
 	minSpeech := flag.Float64("min-speech", 0.35, "Minimum VAD speech overlap ratio required to transcribe a chunk")
 	useGPU := flag.Bool("gpu", true, "Use GPU encoder path when CUDA SGEMM is available")
+	useGPUGraph := flag.Bool("gpu-graph", false, "Enable the full opt-in Whisper GPU graph flag set when CUDA is available; implies -gpu")
 	progressive := flag.Bool("progressive", true, "Write VTT after each completed chunk")
 	resume := flag.Bool("resume", true, "Resume from existing output VTT by skipping completed cue intervals")
 	speakerModel := flag.String("speaker-model", "", "Optional converted ECAPA safetensors speaker embedding model")
 	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine similarity threshold for speaker clustering")
 	keepWav := flag.Bool("keep-wav", false, "Keep converted temporary WAV")
 	flag.Parse()
+	if *useGPUGraph {
+		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "1")
+		*useGPU = true
+	}
 
 	if *input == "" {
 		fatalf("-input is required")
