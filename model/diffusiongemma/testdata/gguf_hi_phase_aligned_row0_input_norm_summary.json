@@ -1,0 +1,27 @@
+{
+  "case": "gguf_hi_phase_aligned_row0_input_norm",
+  "prompt_ids": [2, 105, 9731, 107, 98, 107, 106, 107, 105, 2364, 107, 2202, 106, 107, 105, 4368, 107],
+  "row": 0,
+  "go_step": 48,
+  "enc_seq": 17,
+  "llama": {
+    "inp_scaled": {"rms": 1.70541455, "max_abs": 7.15147257, "max_idx": 2596, "first4": [3.5938158, 0.231859088, -1.50708401, -0.695577264]},
+    "attn_norm_0": {"rms": 5.26215274, "max_abs": 79.2812805, "max_idx": 2575, "first4": [6.42066813, 0.435479581, -2.98250413, -1.43389618]},
+    "l_out_0": {"rms": 1.41412542, "max_abs": 39.4821548, "max_idx": 1559, "first4": [0.208115801, 0.05907185, -0.0454160236, 0.270003766]}
+  },
+  "go": {
+    "prefix": {"rms": 0.999999848, "max_abs": 4.1933918, "max_idx": 2596, "first4": [2.1072972, 0.13595466, -0.88370526, -0.40786397]},
+    "input_norm_0": {"rms": 5.26215372, "max_abs": 79.2812958, "max_idx": 2575, "first4": [6.4206696, 0.43547967, -2.9825044, -1.4338964]},
+    "l_out_0": {"rms": 1.41568825, "max_abs": 39.6558418, "max_idx": 1559, "first4": [0.20832251, 0.05718286, -0.046149913, 0.2700848]}
+  },
+  "tolerances": {
+    "input_norm_rms": 0.00001,
+    "input_norm_max_abs": 0.001,
+    "l_out_rms": 0.005,
+    "l_out_max_abs": 0.5
+  },
+  "notes": [
+    "llama inp_scaled is embedding*sqrt(d_model) before canvas no-scale RMSNorm; Go prefix is after canvas no-scale RMSNorm, so these are not directly compared.",
+    "The first directly comparable boundary is llama attn_norm-0 vs Go op/input_norm layer=0 for decode step 48 enc_seq 17."
+  ]
+}
