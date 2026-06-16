@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -255,7 +256,20 @@ func assertMTPParityLogits(t *testing.T, name string, got [][]float32, want []ma
 	}
 	var mismatches []string
 	for row, probes := range want {
-		for key, wantLogit := range probes {
+		keys := make([]string, 0, len(probes))
+		for key := range probes {
+			keys = append(keys, key)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			iID, iErr := strconv.Atoi(keys[i])
+			jID, jErr := strconv.Atoi(keys[j])
+			if iErr == nil && jErr == nil {
+				return iID < jID
+			}
+			return keys[i] < keys[j]
+		})
+		for _, key := range keys {
+			wantLogit := probes[key]
 			id, err := strconv.Atoi(key)
 			if err != nil {
 				t.Fatalf("%s logits row %d token key %q: %v", name, row, key, err)
