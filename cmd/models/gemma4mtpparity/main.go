@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -127,10 +128,49 @@ func loadParityFixture(path string) (parityFixture, error) {
 	return fx, nil
 }
 
+func resolveParityPath(fixturePath, path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	fixtureRelative := filepath.Join(filepath.Dir(fixturePath), path)
+	if _, err := os.Stat(fixtureRelative); err == nil {
+		return fixtureRelative
+	}
+	if root := findParityRepoRoot(); root != "" {
+		repoRelative := filepath.Join(root, path)
+		if _, err := os.Stat(repoRelative); err == nil {
+			return repoRelative
+		}
+	}
+	return path
+}
+
+func findParityRepoRoot() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 func runParity(path string, fx parityFixture) (parityReport, error) {
 	oldForceOnTheFly := model.ForceOnTheFly
 	model.ForceOnTheFly = true
 	defer func() { model.ForceOnTheFly = oldForceOnTheFly }()
+	fx.MainModel = resolveParityPath(path, fx.MainModel)
+	fx.Drafter = resolveParityPath(path, fx.Drafter)
 	m, err := loadMainModelForParity(fx.MainModel)
 	if err != nil {
 		return parityReport{}, fmt.Errorf("load main model: %w", err)
