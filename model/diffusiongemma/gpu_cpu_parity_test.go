@@ -12,7 +12,10 @@ import (
 
 func TestLocalGGUFGPUCPUCanvas1Parity(t *testing.T) {
 	if !gpu.SgemmReady() {
-		t.Skip("CUDA SGEMM unavailable")
+		if gpu.Available() {
+			t.Fatal("CUDA device is available but SGEMM/PTX runtime is not ready")
+		}
+		t.Skip("CUDA device unavailable")
 	}
 	ggufPath := filepath.Join("..", "..", "..", "llama.cpp", "models", "diffusiongemma-gguf", "diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
 	if _, err := os.Stat(ggufPath); err != nil {
