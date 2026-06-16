@@ -183,48 +183,53 @@ func DotQ6KQ8K(raw []byte, y []q8KBlock, n int) (float32, error) {
 		return 0, fmt.Errorf("Q6_K dot raw/activation short raw=%d y=%d nb=%d", len(raw), len(y), nb)
 	}
 	var sums [8]float32
-	var aux8 [qkK]int8
 	for bi := 0; bi < nb; bi++ {
 		blk := raw[bi*blockSize : (bi+1)*blockSize]
-		q4 := blk[0:128]
+		ql := blk[0:128]
 		qh := blk[128:192]
 		sc := blk[192:208]
-		a := 0
-		q4Off, qhOff := 0, 0
-		for j := 0; j < qkK; j += 128 {
-			_ = j
-			for l := 0; l < 32; l++ {
-				aux8[a+l+0] = int8((q4[q4Off+l+0]&0x0F)|(((qh[qhOff+l]>>0)&3)<<4)) - 32
-				aux8[a+l+32] = int8((q4[q4Off+l+32]&0x0F)|(((qh[qhOff+l]>>2)&3)<<4)) - 32
-				aux8[a+l+64] = int8((q4[q4Off+l+0]>>4)|(((qh[qhOff+l]>>4)&3)<<4)) - 32
-				aux8[a+l+96] = int8((q4[q4Off+l+32]>>4)|(((qh[qhOff+l]>>6)&3)<<4)) - 32
-			}
-			a += 128
-			q4Off += 64
-			qhOff += 32
+		var sumi [8]int32
+		var q8sclsub [8]int32
+		for l := 0; l < 8; l++ {
+			q8sclsub[l] = int32((int(y[bi].bsums[2*l])*int(int8(sc[2*l])) + int(y[bi].bsums[2*l+1])*int(int8(sc[2*l+1]))) << 5)
 		}
-		var aux32 [8]int32
-		a = 0
-		q8 := 0
-		is := 0
-		for j := 0; j < qkK/16; j++ {
-			_ = j
-			scale := int(int8(sc[is]))
-			is++
-			for l := 0; l < 8; l++ {
-				aux32[l] += int32(scale * int(y[bi].qs[q8+l]) * int(aux8[a+l]))
+		for halfBlock := 0; halfBlock < 2; halfBlock++ {
+			qlOff := halfBlock * 64
+			qhOff := halfBlock * 32
+			q8Base := halfBlock * 128
+			scaleBase := halfBlock * 8
+			for vec := 0; vec < 4; vec++ {
+				for lane := 0; lane < 8; lane++ {
+					scale := int(int8(sc[scaleBase+vec*2]))
+					if lane >= 4 {
+						scale = int(int8(sc[scaleBase+vec*2+1]))
+					}
+					seg := 0
+					for p := 0; p < 4; p++ {
+						idx := vec*32 + lane*4 + p
+						var q int
+						switch vec {
+						case 0:
+							q = int((ql[qlOff+idx] & 0x0F) | (((qh[qhOff+idx] >> 0) & 3) << 4))
+						case 1:
+							q = int((ql[qlOff+idx] & 0x0F) | (((qh[qhOff+idx-32] >> 2) & 3) << 4))
+						case 2:
+							q = int((ql[qlOff+idx-64] >> 4) | (((qh[qhOff+idx-64] >> 4) & 3) << 4))
+						case 3:
+							q = int((ql[qlOff+idx-64] >> 4) | (((qh[qhOff+idx-96] >> 6) & 3) << 4))
+						}
+						seg += q * int(y[bi].qs[q8Base+idx])
+					}
+					sumi[lane] += int32(scale * seg)
+				}
 			}
-			q8 += 8
-			a += 8
-			for l := 0; l < 8; l++ {
-				aux32[l] += int32(scale * int(y[bi].qs[q8+l]) * int(aux8[a+l]))
-			}
-			q8 += 8
-			a += 8
+		}
+		for l := 0; l < 8; l++ {
+			sumi[l] -= q8sclsub[l]
 		}
 		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[208:210])) * y[bi].d
 		for l := 0; l < 8; l++ {
-			sums[l] = float32(math.FMA(float64(d), float64(float32(aux32[l])), float64(sums[l])))
+			sums[l] = float32(math.FMA(float64(d), float64(float32(sumi[l])), float64(sums[l])))
 		}
 	}
 	r0 := sums[0] + sums[4]
