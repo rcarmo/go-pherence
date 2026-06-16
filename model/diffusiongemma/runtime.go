@@ -95,7 +95,13 @@ func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, can
 
 func diffusionGemmaRawSelfConditioningLogitsEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
+	if v == "0" || v == "false" || v == "no" || v == "off" {
+		return false
+	}
+	// llama.cpp feeds the previous step's raw canvas logits plus previous
+	// temp_inv into the self-conditioning graph. Keep that fidelity path on by
+	// default; callers can opt out for memory-constrained diagnostic runs.
+	return true
 }
 
 func diffusionGemmaEntropyProbePositions(canvasLength int) []int {

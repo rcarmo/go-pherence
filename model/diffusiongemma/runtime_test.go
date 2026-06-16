@@ -24,8 +24,8 @@ func (d *recordingDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	return ForwardOutput{Logits: logits, SelfConditioning: []float32{1}}, nil
 }
 
-func TestGenerateCanvasPassesPreviousStepTempInvForRawSelfConditioning(t *testing.T) {
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS", "1")
+func TestGenerateCanvasPassesPreviousStepTempInvForDefaultRawSelfConditioning(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS", "")
 	den := &recordingDenoiser{vocab: 5}
 	cfg := DefaultDenoisingConfig()
 	cfg.MaxDenoisingSteps = 3
@@ -53,7 +53,8 @@ func TestGenerateCanvasPassesPreviousStepTempInvForRawSelfConditioning(t *testin
 	}
 }
 
-func TestGenerateCanvasDefaultSelfConditioningUsesCurrentTempInv(t *testing.T) {
+func TestGenerateCanvasSelfConditioningOptOutUsesCurrentTempInv(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS", "0")
 	den := &recordingDenoiser{vocab: 5}
 	cfg := DefaultDenoisingConfig()
 	cfg.MaxDenoisingSteps = 2
