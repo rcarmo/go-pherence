@@ -259,7 +259,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	// sparse top-k, softmax naturally zeros -Inf positions, producing a weighted
 	// average of only the top-k token embeddings. The final step has no consumer.
 	var selfConditioning []float32
-	if ctx.Step > 1 {
+	if ctx.Step > 1 && !diffusionGemmaRawSelfConditioningLogitsEnabled() {
 		var err error
 		selfConditioning, err = buildSelfConditioningFromLogits(weights, scratch)
 		if err != nil {
