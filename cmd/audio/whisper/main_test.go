@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/models/whisper"
@@ -39,33 +38,6 @@ func TestFilterTimestampSegmentsDropsPunctuationOnly(t *testing.T) {
 	out := filterTimestampSegments(segments)
 	if len(out) != 3 || out[0].Text != "Hello" || out[1].Text != "world" || out[2].Text != "This one here" {
 		t.Fatalf("filtered=%+v", out)
-	}
-}
-
-func TestApplyWhisperGPUCLIFlags(t *testing.T) {
-	for _, k := range []string{"GO_PHERENCE_WHISPER_GPU_GRAPH", "GO_PHERENCE_WHISPER_GPU_LM_HEAD"} {
-		t.Setenv(k, "")
-	}
-	useGPU := false
-	applyWhisperGPUCLIFlags(&useGPU, false)
-	if useGPU || os.Getenv("GO_PHERENCE_WHISPER_GPU_GRAPH") == "1" || os.Getenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD") == "1" {
-		t.Fatal("default flags should not enable GPU env")
-	}
-	useGPU = true
-	applyWhisperGPUCLIFlags(&useGPU, false)
-	if os.Getenv("GO_PHERENCE_WHISPER_GPU_GRAPH") == "1" {
-		t.Fatal("-gpu should not enable full GPU graph")
-	}
-	if os.Getenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD") != "1" {
-		t.Fatal("-gpu should enable LM-head GPU policy before model load")
-	}
-	for _, k := range []string{"GO_PHERENCE_WHISPER_GPU_GRAPH", "GO_PHERENCE_WHISPER_GPU_LM_HEAD"} {
-		t.Setenv(k, "")
-	}
-	useGPU = false
-	applyWhisperGPUCLIFlags(&useGPU, true)
-	if !useGPU || os.Getenv("GO_PHERENCE_WHISPER_GPU_GRAPH") != "1" || os.Getenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD") != "1" {
-		t.Fatal("-gpu-graph should imply -gpu and enable graph + LM-head policy")
 	}
 }
 

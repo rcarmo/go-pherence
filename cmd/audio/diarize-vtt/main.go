@@ -20,6 +20,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/rcarmo/go-pherence/cmd/audio/internal/whisperflags"
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/models/speaker"
 	"github.com/rcarmo/go-pherence/models/whisper"
@@ -70,7 +71,7 @@ func main() {
 	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine similarity threshold for speaker clustering")
 	keepWav := flag.Bool("keep-wav", false, "Keep converted temporary WAV")
 	flag.Parse()
-	applyWhisperGPUCLIFlags(useGPU, *useGPUGraph)
+	whisperflags.ApplyWhisperGPUCLIFlags(useGPU, *useGPUGraph)
 
 	if *input == "" {
 		fatalf("-input is required")
@@ -758,17 +759,6 @@ func min(a, b int) int {
 		return a
 	}
 	return b
-}
-func applyWhisperGPUCLIFlags(useGPU *bool, useGPUGraph bool) {
-	if useGPUGraph {
-		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "1")
-		if useGPU != nil {
-			*useGPU = true
-		}
-	}
-	if useGPU != nil && *useGPU {
-		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD", "1")
-	}
 }
 
 func minf(a, b float64) float64 {
