@@ -45,7 +45,7 @@ whisper-turbo-parity:
 
 whisper-cuda-parity:
 	mkdir -p $(GOTMPDIR)
-	GOTMPDIR=$(GOTMPDIR) go test ./models/whisper -run 'TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestNewDecoderStateGPUKeepsCPUCrossAttentionFallback' -count=1 -v
+	GOTMPDIR=$(GOTMPDIR) go test ./models/whisper -run 'TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestNewDecoderStateGPU' -count=1 -v
 	GOTMPDIR=$(GOTMPDIR) go test ./backends/nvidia/runtime -run TestWhisperAttentivePoolParity -count=1 -v
 
 whisper-gpu-graph-parity:

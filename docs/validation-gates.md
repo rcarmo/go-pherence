@@ -44,7 +44,7 @@ make whisper-turbo-check
 
 # Equivalent explicit form:
 GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
-  -run 'TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestNewDecoderStateGPUKeepsCPUCrossAttentionFallback' \
+  -run 'TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestNewDecoderStateGPU' \
   -count=1 -v
 GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/runtime \
   -run TestWhisperAttentivePoolParity -count=1 -v

@@ -3,6 +3,30 @@ package whisper
 import "testing"
 
 func TestNewDecoderStateGPUKeepsCPUCrossAttentionFallback(t *testing.T) {
+	cfg, dec, encoderOutput, encLen := syntheticDecoderStateFixture()
+	cpu := NewDecoderState(cfg, encoderOutput, encLen, dec)
+	gpu := NewDecoderStateGPU(cfg, encoderOutput, encLen, dec)
+	if len(gpu.CrossKHead) != cfg.DecoderLayers || len(gpu.CrossVHead) != cfg.DecoderLayers {
+		t.Fatalf("GPU state missing CPU fallback cross-attention slices")
+	}
+	assertClose(t, gpu.CrossK[0], cpu.CrossK[0], 1e-6)
+	assertClose(t, gpu.CrossV[0], cpu.CrossV[0], 1e-6)
+	assertClose(t, gpu.CrossKHead[0], cpu.CrossKHead[0], 1e-6)
+	assertClose(t, gpu.CrossVHead[0], cpu.CrossVHead[0], 1e-6)
+}
+
+func TestNewDecoderStateGPUCrossKVFlagMatchesCPUOracle(t *testing.T) {
+	cfg, dec, encoderOutput, encLen := syntheticDecoderStateFixture()
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_CROSS_KV", "1")
+	cpu := NewDecoderState(cfg, encoderOutput, encLen, dec)
+	gpu := NewDecoderStateGPU(cfg, encoderOutput, encLen, dec)
+	assertClose(t, gpu.CrossK[0], cpu.CrossK[0], 2e-4)
+	assertClose(t, gpu.CrossV[0], cpu.CrossV[0], 2e-4)
+	assertClose(t, gpu.CrossKHead[0], cpu.CrossKHead[0], 2e-4)
+	assertClose(t, gpu.CrossVHead[0], cpu.CrossVHead[0], 2e-4)
+}
+
+func syntheticDecoderStateFixture() (Config, *Decoder, []float32, int) {
 	cfg := Config{
 		EncoderDModel:    4,
 		DecoderDModel:    4,
@@ -38,14 +62,5 @@ func TestNewDecoderStateGPUKeepsCPUCrossAttentionFallback(t *testing.T) {
 		-0.5, 0.6, -0.7, 0.8,
 		0.9, -1.0, 1.1, -1.2,
 	}
-
-	cpu := NewDecoderState(cfg, encoderOutput, encLen, dec)
-	gpu := NewDecoderStateGPU(cfg, encoderOutput, encLen, dec)
-	if len(gpu.CrossKHead) != cfg.DecoderLayers || len(gpu.CrossVHead) != cfg.DecoderLayers {
-		t.Fatalf("GPU state missing CPU fallback cross-attention slices")
-	}
-	assertClose(t, gpu.CrossK[0], cpu.CrossK[0], 1e-6)
-	assertClose(t, gpu.CrossV[0], cpu.CrossV[0], 1e-6)
-	assertClose(t, gpu.CrossKHead[0], cpu.CrossKHead[0], 1e-6)
-	assertClose(t, gpu.CrossVHead[0], cpu.CrossVHead[0], 1e-6)
+	return cfg, dec, encoderOutput, encLen
 }
