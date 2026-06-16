@@ -34,14 +34,21 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 # The transcript parity target fails loudly if local turbo weights/tokenizer/JFK audio are missing.
 # The CUDA parity target is a numeric CPU-oracle gate for the opt-in CUDA graph
 # surfaces; it skips unavailable CUDA kernels on CPU-only hosts but runs on CUDA hosts.
+# The GPU graph parity target runs the same JFK transcript contract with the
+# umbrella GPU graph flag enabled, exercising real CUDA dispatch on CUDA hosts
+# while preserving CPU/SIMD fallback behavior on CPU-only hosts.
 make whisper-turbo-parity
 make whisper-cuda-parity
+make whisper-gpu-graph-parity
 make whisper-turbo-check
 
 # Equivalent explicit form:
 GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
   -run 'TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestNewDecoderStateGPUKeepsCPUCrossAttentionFallback' \
   -count=1 -v
+WHISPER_REQUIRE_TURBO_PARITY=1 GO_PHERENCE_WHISPER_GPU_GRAPH=1 \
+  GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
+  -run TestLargeV3TurboJFKCPUTranscriptParity -count=1 -v
 GOTMPDIR=$PWD/.gotmp go test \
   ./models/whisper \
   ./cmd/audio/... \
