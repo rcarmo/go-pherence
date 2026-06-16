@@ -8,6 +8,33 @@ import (
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
 
+func TestGPUEncoderForwardNotReadyFallbackMatchesCPU(t *testing.T) {
+	cfg := Config{NumMelBins: 2, MaxLength: 8, EncoderLayers: 0, EncoderDModel: 2, EncoderHeads: 1, EncoderFFNDim: 4, DecoderDModel: 2, DecoderHeads: 1, HeadDim: 2}
+	enc := NewEncoder(cfg)
+	enc.Conv1Weight = []float32{
+		0.10, -0.05, 0.20,
+		-0.10, 0.15, 0.05,
+		0.07, 0.03, -0.08,
+		0.02, -0.04, 0.06,
+	}
+	enc.Conv1Bias = []float32{0.01, -0.02}
+	enc.Conv2Weight = []float32{
+		0.05, 0.02, -0.03,
+		-0.04, 0.06, 0.01,
+		0.03, -0.02, 0.04,
+		0.01, 0.05, -0.06,
+	}
+	enc.Conv2Bias = []float32{0.03, -0.01}
+	mel := []float32{
+		0.1, -0.2, 0.3, -0.4, 0.5,
+		-0.5, 0.4, -0.3, 0.2, -0.1,
+	}
+	cpu := enc.Forward(mel, 5)
+	ge := &GPUEncoder{Encoder: enc, cfg: cfg, ready: false}
+	got := ge.ForwardGPU(mel, 5)
+	assertClose(t, got, cpu, 1e-7)
+}
+
 func TestGPUEncoderForward(t *testing.T) {
 	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
