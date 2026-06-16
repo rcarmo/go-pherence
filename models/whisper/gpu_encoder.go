@@ -335,6 +335,7 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 		LastToken:  -1,
 		Bufs:       newDecoderBufs(cfg),
 	}
+	gpuCrossKV := UseGPUCrossKV() && nv.SgemmReady()
 	gpuCrossAttn := UseGPUCrossAttention() && nv.SgemmReady()
 	if gpuCrossAttn {
 		state.CrossKGPU = make([]*nv.DevBuf, numLayers)
@@ -347,11 +348,11 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 	}
 
 	// Pre-compute cross-attention K/V. Keep CPU/SIMD as the default oracle;
-	// use GPU SGEMM only when the cross-attention graph path is explicitly
-	// enabled and available.
+	// use GPU SGEMM only when the cross-K/V graph path is explicitly enabled
+	// and available. Per-token GPU cross-attention remains separately gated.
 	for l := 0; l < numLayers; l++ {
 		layer := &dec.Layers[l]
-		if gpuCrossAttn {
+		if gpuCrossKV {
 			wK := nv.NewDevBufFrom(layer.CrossKWeight)
 			wV := nv.NewDevBufFrom(layer.CrossVWeight)
 			state.CrossK[l] = gemvGPU(encoderOutput, wK, layer.CrossKBias, encLen, dModel, dModel)
