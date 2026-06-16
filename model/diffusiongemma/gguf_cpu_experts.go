@@ -570,16 +570,66 @@ func ggufQ4KExpertRowDotBatchTo(m *gguf.ExpertMatrices, expert, row int, x []flo
 }
 
 func ggufExpertSdotBatchTo(wRow, x []float32, nPos, inDim int, dst []float32, dstStride int) bool {
-	if len(wRow) < inDim || nPos <= 0 || inDim <= 0 || len(x) < nPos*inDim || dstStride <= 0 || len(dst) < (nPos-1)*dstStride+1 {
+	return ggufExpertSdotBatchQuantTo(wRow, x, nPos, inDim, dst, dstStride, quantizeDequantQ8KForExpertDot)
+}
+
+func ggufExpertSdotBatchQ8_0To(wRow, x []float32, nPos, inDim int, dst []float32, dstStride int) bool {
+	return ggufExpertSdotBatchQuantTo(wRow, x, nPos, inDim, dst, dstStride, quantizeDequantQ8_0ForExpertDot)
+}
+
+func ggufExpertSdotBatchQuantTo(wRow, x []float32, nPos, inDim int, dst []float32, dstStride int, quantize func([]float32, []float32)) bool {
+	if len(wRow) < inDim || nPos <= 0 || inDim <= 0 || len(x) < nPos*inDim || dstStride <= 0 || len(dst) < (nPos-1)*dstStride+1 || quantize == nil {
 		return false
 	}
 	q8Scratch := make([]float32, inDim)
 	for pos := 0; pos < nPos; pos++ {
 		xRow := x[pos*inDim : (pos+1)*inDim]
-		quantizeDequantQ8KForExpertDot(q8Scratch, xRow)
+		quantize(q8Scratch, xRow)
 		dst[pos*dstStride] = simd.Sdot(wRow[:inDim], q8Scratch[:inDim])
 	}
 	return true
+}
+
+func quantizeDequantQ8_0ForExpertDot(dst, x []float32) {
+	const block = 32
+	b := 0
+	for ; b+block <= len(x); b += block {
+		xb := x[b : b+block]
+		amax := float32(0)
+		for _, v := range xb {
+			av := v
+			if av < 0 {
+				av = -av
+			}
+			if av > amax {
+				amax = av
+			}
+		}
+		if amax == 0 {
+			for i := 0; i < block; i++ {
+				dst[b+i] = 0
+			}
+			continue
+		}
+		d := half.F16ToF32(half.F32ToF16(amax / 127))
+		id := float32(0)
+		if d != 0 {
+			id = 1 / d
+		}
+		for i, v := range xb {
+			q := int(math.Round(float64(v * id)))
+			if q > 127 {
+				q = 127
+			}
+			if q < -128 {
+				q = -128
+			}
+			dst[b+i] = float32(int8(q)) * d
+		}
+	}
+	if b < len(x) {
+		copy(dst[b:], x[b:])
+	}
 }
 
 func ggmlNearestInt(f float32) int {
@@ -1162,7 +1212,13 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 						}
 					}
 					wRow := ws.wf32[:dnInDim]
-					if !ggufExpertSdotBatchTo(wRow, batchAct, nPos, dnInDim, batchDown[r:], hiddenSize) {
+					ok := false
+					if le.down.QType == gguf.QuantQ8_0 || le.down.QType == gguf.QuantQ5_0 {
+						ok = ggufExpertSdotBatchQ8_0To(wRow, batchAct, nPos, dnInDim, batchDown[r:], hiddenSize)
+					} else {
+						ok = ggufExpertSdotBatchTo(wRow, batchAct, nPos, dnInDim, batchDown[r:], hiddenSize)
+					}
+					if !ok {
 						errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d Sdot batch rejected", eid, r) })
 						return
 					}
@@ -1456,7 +1512,13 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 							ws.wf32[j] *= s
 						}
 					}
-					if !ggufExpertSdotBatchTo(ws.wf32[:dnInDim], batchAct, nPos, dnInDim, batchDown[r:], hiddenSize) {
+					ok := false
+					if le.down.QType == gguf.QuantQ8_0 || le.down.QType == gguf.QuantQ5_0 {
+						ok = ggufExpertSdotBatchQ8_0To(ws.wf32[:dnInDim], batchAct, nPos, dnInDim, batchDown[r:], hiddenSize)
+					} else {
+						ok = ggufExpertSdotBatchTo(ws.wf32[:dnInDim], batchAct, nPos, dnInDim, batchDown[r:], hiddenSize)
+					}
+					if !ok {
 						errOnce.Do(func() { firstErr = fmt.Errorf("expert %d down row %d Sdot batch rejected", eid, r) })
 						return
 					}
