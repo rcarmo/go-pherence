@@ -57,6 +57,34 @@ func TestDecoderStateCheckpointRestore(t *testing.T) {
 	}
 }
 
+func TestSpeculativeStepReplaysDraftStateToEmittedPrefix(t *testing.T) {
+	cfg := Tiny()
+	cfg.DecoderLayers = 0
+	cfg.MaxDecoderLength = 8
+	draft := &Whisper{Decoder: NewDecoder(cfg), Config: cfg}
+	target := &Whisper{Decoder: NewDecoder(cfg), Config: cfg}
+	encLen := 1
+	enc := make([]float32, encLen*cfg.EncoderDModel)
+	draftState := NewDecoderState(cfg, enc, encLen, draft.Decoder)
+	targetState := NewDecoderState(cfg, enc, encLen, target.Decoder)
+	for _, tok := range []int{TokenSOT, TokenEnglish, TokenTranslate, TokenNoTimestamps} {
+		draft.Decoder.ForwardToken(tok, draftState)
+		target.Decoder.ForwardToken(tok, targetState)
+	}
+	res := (&SpeculativeDecoder{Draft: draft, Target: target, K: 3}).Step(draftState, targetState)
+	if res.Bonus < 0 {
+		t.Fatalf("invalid bonus token %d", res.Bonus)
+	}
+	if draftState.Pos != targetState.Pos || draftState.LastToken != targetState.LastToken {
+		t.Fatalf("draft state diverged pos=%d last=%d target pos=%d last=%d", draftState.Pos, draftState.LastToken, targetState.Pos, targetState.LastToken)
+	}
+	for l := range targetState.SelfKCache {
+		if len(draftState.SelfKCache[l]) != len(targetState.SelfKCache[l]) || len(draftState.SelfVCache[l]) != len(targetState.SelfVCache[l]) {
+			t.Fatalf("layer %d draft KV lens k=%d v=%d target k=%d v=%d", l, len(draftState.SelfKCache[l]), len(draftState.SelfVCache[l]), len(targetState.SelfKCache[l]), len(targetState.SelfVCache[l]))
+		}
+	}
+}
+
 func TestSpeculativeStepUsesTrackedLastToken(t *testing.T) {
 	cfg := Tiny()
 	cfg.DecoderLayers = 0

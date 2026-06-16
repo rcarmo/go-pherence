@@ -26,7 +26,10 @@ func (sd *SpeculativeDecoder) Step(draftState, targetState *DecoderState) Specul
 		k = 4
 	}
 
-	// Step 1: Draft K tokens
+	// Step 1: Draft K tokens. Checkpoint the drafter first so rejected
+	// draft KV can be discarded and the next step starts from the actual
+	// emitted sequence, mirroring llama.cpp/MTP verifier state hygiene.
+	draftCP := checkpointDecoderState(draftState)
 	draftTokens := make([]int, 0, k)
 	draftLogits := make([][]float32, 0, k)
 
@@ -43,9 +46,13 @@ func (sd *SpeculativeDecoder) Step(draftState, targetState *DecoderState) Specul
 	}
 
 	if len(draftTokens) == 0 {
-		// Draft immediately hit EOT — just verify one token
+		// Draft immediately hit EOT — just verify one token. Restore the draft
+		// checkpoint and replay the verifier input so both states keep the same
+		// feed-token contract for the next step.
 		logits := sd.Target.Decoder.ForwardToken(lastToken(targetState), targetState)
 		tok := argmax(logits)
+		restoreDecoderState(draftState, draftCP)
+		sd.Draft.Decoder.ForwardToken(lastToken(draftState), draftState)
 		return SpeculativeResult{Bonus: tok}
 	}
 
@@ -57,19 +64,28 @@ func (sd *SpeculativeDecoder) Step(draftState, targetState *DecoderState) Specul
 	acceptance, err := AcceptDraftTokens(draftTokens, verifier)
 	restoreDecoderState(targetState, cp)
 	if err != nil {
-		// Defensive fallback: emit one ordinary target token from the restored state.
+		// Defensive fallback: emit one ordinary target token from the restored state
+		// and keep the draft state aligned with the same verifier input.
 		logits := sd.Target.Decoder.ForwardToken(lastToken(targetState), targetState)
+		restoreDecoderState(draftState, draftCP)
+		sd.Draft.Decoder.ForwardToken(lastToken(draftState), draftState)
 		return SpeculativeResult{Bonus: argmax(logits)}
 	}
 
 	// The verifier pass speculatively advanced targetState through all drafts.
-	// Keep target KV/state faithful by replaying only the emitted sequence:
-	// accepted prefix plus the verifier bonus token. This mirrors the future
-	// batched verifier contract without retaining rejected draft KV.
-	for _, tok := range acceptance.Accepted {
+	// Keep target and draft KV/state faithful by replaying only the emitted
+	// sequence: accepted prefix plus the verifier bonus token. This mirrors the
+	// future batched verifier contract without retaining rejected draft KV.
+	emitted := make([]int, 0, len(acceptance.Accepted)+1)
+	emitted = append(emitted, acceptance.Accepted...)
+	emitted = append(emitted, acceptance.Bonus)
+	for _, tok := range emitted {
 		sd.Target.Decoder.ForwardToken(tok, targetState)
 	}
-	sd.Target.Decoder.ForwardToken(acceptance.Bonus, targetState)
+	restoreDecoderState(draftState, draftCP)
+	for _, tok := range emitted {
+		sd.Draft.Decoder.ForwardToken(tok, draftState)
+	}
 
 	_ = cfg
 	return SpeculativeResult{Accepted: acceptance.Accepted, Bonus: acceptance.Bonus}
@@ -117,9 +133,6 @@ func (sd *SpeculativeDecoder) SpeculativeDecodePrompt(encoderOutput []float32, e
 		}
 		tokens = append(tokens, result.Bonus)
 
-		// Rollback draft state to match accepted length
-		// (simplified: we don't actually rollback KV cache here,
-		// which means draft may diverge — acceptable for quality)
 	}
 
 	return tokens

@@ -42,7 +42,7 @@ Turbo parity note: on a Portuguese voice-memo clip, both Transformers and Go pro
 | Speaker-only validation | `cmd/audio/speakercheck` | VAD/ECAPA/clustering without Whisper; supports WAV and ffmpeg-readable inputs, JSON, and `-expect`. |
 | Batched encoder | `Encoder.BatchedForward` and `BatchedChunkedTranscribe` | Present for multiple chunks; batched chunk mel extraction now uses `loader/audio.MelSpectrogram` instead of placeholder zero features. |
 | Chunked/streaming transcription | `models/whisper/chunked.go`, `models/whisper/batched.go`, `cmd/audio/whisper`, `cmd/audio/diarize-vtt` | VAD-packed chunks, overlap, progressive write, resume; all chunk/language-detect mel paths now route through `loader/audio.MelSpectrogram` instead of placeholder features; standalone no-timestamp mode chunks long inputs with no-timestamp per-window decode instead of over-length encoder passes and is covered by `whisper_turbo_smoke`; standalone timestamp output filters empty/punctuation-only cues. |
-| Speculative decode | `models/whisper/speculative*.go` | Correctness scaffold only; target verifier state now rolls back rejected draft KV and replays only accepted tokens plus bonus; no speedup until verifier batching or smaller drafter is integrated. |
+| Speculative decode | `models/whisper/speculative*.go` | Correctness scaffold only; target and draft verifier states now roll back rejected draft KV and replay only accepted tokens plus bonus; no speedup until verifier batching or smaller drafter is integrated. |
 
 ## Native SIMD oracle policy
 
@@ -68,7 +68,7 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 | K3 native int8 | Safe/validated optimized path for K3 native runs; `make whisper-int8-compare` checks stdout, standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT parity for translate/transcribe against the native SIMD oracle. |
 | A100 row-scale fused FFN | Strong opt-in/default candidate; validate with `make whisper-backend-compare` / `make whisper-a100-compare` / `scripts/whisper_a100_compare.py` across standalone stdout, timestamp VTT, diarize-vtt, and speaker-tagged diarize-vtt outputs for translate/transcribe before automatic default. |
 | GPU decoder MLP / cross-attn | Keep opt-in; prior measurements regressed due to launch/transfer overhead. |
-| Whisper speculative decode | Keep correctness-only until verifier batching/drafter integration. |
+| Whisper speculative decode | Keep correctness-only until verifier batching/drafter integration; state rollback/replay is now correct for both target and draft caches. |
 | ECAPA speaker labels | Keep opt-in until broader labeled multi-speaker validation passes. |
 
 ## Remaining high-impact gaps
@@ -77,4 +77,4 @@ For large-v3-turbo backend work, the native CPU/SIMD path is the correctness ora
 2. Validate A100 row-scale fused FFN and K3 int8/IME on multiple long-form clips with `make whisper-backend-compare`, `make whisper-backend-podcast-compare`, or repeated `--audio` plus optional `--start/--duration` arguments to `scripts/whisper_a100_compare.py`. Current non-riscv smoke coverage includes JFK and repeated 12s podcast-window parity at 300s for A100 and int8; stdout (`This one here is`), timestamp/VTT (`This one here`), diarize-vtt, and speaker-tagged diarize-vtt podcast comparisons match baseline.
 3. Decide whether `WHISPER_A100_FFN_FUSED=1 WHISPER_A100_X100_PACK=1 WHISPER_A100_NATIVE_Q8=1` can become default on K3/A100-capable hosts.
 4. Implement or reject fused GPU mel and resident decoder kernels based on whole-pipeline measurements, not isolated kernel timings.
-5. Turn speculative decode from sequential correctness scaffold into a batched verifier path if a drafter/reference split becomes available.
+5. Turn speculative decode from sequential correctness scaffold into a batched verifier path if a drafter/reference split becomes available; current scaffold now preserves both target and draft cache state across rejected drafts.
