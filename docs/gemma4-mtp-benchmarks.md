@@ -347,3 +347,18 @@ Log: `logs/mtp-strict-current-gmp6-20260617-004858.log`
 | `GOMAXPROCS=6` | 7.679s | 3 | 0.391 tok/s | 0.397138 | 0.148483 |
 
 The six selected-logit mismatches are unchanged, so the performance improvement remains numerically neutral relative to the baseline strict path.
+
+### Additional strict-parity hypotheses ruled out after parallel row-GEMV
+
+After the parallel row-GEMV performance change, several narrow correctness hypotheses were retested against the strict selected-logit fixture. All were worse than the committed baseline, so none should be adopted:
+
+| Experiment | Effective tok/s | Sum abs error | Max abs error | Log |
+|---|---:|---:|---:|---|
+| Q4_0×Q8_0 no-FMA accumulation | 0.152 | 0.500195 | 0.149985 | `logs/mtp-strict-q4-no-fma-20260617-002234.log` |
+| Q8_0 nearest-int rounding | 0.137 | 0.601656 | 0.216660 | `logs/mtp-strict-q8-nearest-20260617-002308.log` |
+| Q8_0 rounded-scale inverse | 0.136 | 0.513401 | 0.221303 | `logs/mtp-strict-q8-rounded-id-20260617-002343.log` |
+| LM-head-only dequantized projection | 0.358 | 0.412106 | 0.162596 | `logs/mtp-strict-lmhead-dequant-20260617-004120.log` |
+| float64 final-logit softcap | 0.312 | 0.397139 | 0.148483 | `logs/mtp-strict-softcap-f64-20260617-005035.log` |
+| no Gemma4 MTP verifier layer-output BF16 | 0.346 | 0.513223 | 0.304503 | `logs/mtp-strict-no-layer-bf16-after-parallel-20260617-005123.log` |
+
+Current best strict baseline remains the committed parallel row-GEMV path with `GOMAXPROCS=6` (`0.391 tok/s`, sum abs error `0.397138`, max abs error `0.148483`).
