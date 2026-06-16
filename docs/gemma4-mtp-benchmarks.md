@@ -335,3 +335,15 @@ Result remains expected FAIL with the same six selected-logit mismatches, but th
 | `GOMAXPROCS=6` | 9.897s | 3 | 0.303 tok/s | 0.397138 | 0.148483 |
 
 This is slower than the isolated steady-state graph-cycle result (`1.075 tok/s` at `GOMAXPROCS=6`) because the strict `go test` path includes test harness/model setup overhead. The selected-logit values are unchanged from baseline, confirming the row-GEMV parallelization is performance-only.
+
+### Best observed strict-gate throughput after parallel row-GEMV
+
+A later strict selected-logit run with the committed parallel row-GEMV implementation and `GOMAXPROCS=6` produced the best observed strict-gate effective throughput so far.
+
+Log: `logs/mtp-strict-current-gmp6-20260617-004858.log`
+
+| Setting | Elapsed | Effective output tokens | Effective throughput | Sum abs error | Max abs error |
+|---|---:|---:|---:|---:|---:|
+| `GOMAXPROCS=6` | 7.679s | 3 | 0.391 tok/s | 0.397138 | 0.148483 |
+
+The six selected-logit mismatches are unchanged, so the performance improvement remains numerically neutral relative to the baseline strict path.
