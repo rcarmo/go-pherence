@@ -119,6 +119,46 @@ func TestWhisperCUDADecoderCrossAttentionParity(t *testing.T) {
 	assertClose(t, got, want, 3e-4)
 }
 
+func TestWhisperCUDADecoderLinearParity(t *testing.T) {
+	if !nv.SgemmReady() {
+		t.Skip("CUDA SGEMM not available")
+	}
+	inDim, outDim := 7, 11
+	x, weight, bias := deterministicLinearInputs(inDim, outDim)
+	want := make([]float32, outDim)
+	linearInto(want, x, weight, bias, inDim, outDim)
+	got := make([]float32, outDim)
+	wDev := nv.NewDevBufFrom(weight)
+	if err := wDev.ToGPU(); err != nil {
+		t.Fatalf("weight ToGPU: %v", err)
+	}
+	bufs := newDecoderBufs(Config{DecoderDModel: inDim, EncoderFFNDim: outDim})
+	if !bufs.linearGPU(got, x, wDev, bias, inDim, outDim) {
+		t.Fatalf("linearGPU returned fallback")
+	}
+	assertClose(t, got, want, 2e-4)
+}
+
+func TestWhisperCUDALMHeadParity(t *testing.T) {
+	if !nv.SgemmReady() {
+		t.Skip("CUDA SGEMM not available")
+	}
+	h, vocab := 9, 13
+	x, weight, _ := deterministicLinearInputs(h, vocab)
+	want := make([]float32, vocab)
+	linearInto(want, x, weight, nil, h, vocab)
+	got := make([]float32, vocab)
+	wDev := nv.NewDevBufFrom(weight)
+	if err := wDev.ToGPU(); err != nil {
+		t.Fatalf("weight ToGPU: %v", err)
+	}
+	bufs := newDecoderBufs(Config{DecoderDModel: h, EncoderFFNDim: vocab})
+	if !bufs.lmHeadGPU(got, x, wDev, vocab, h) {
+		t.Fatalf("lmHeadGPU returned fallback")
+	}
+	assertClose(t, got, want, 2e-4)
+}
+
 func TestWhisperGPUGraphUmbrellaEnablesKernelDispatch(t *testing.T) {
 	oldConv := os.Getenv("GO_PHERENCE_WHISPER_GPU_CONV1D")
 	oldAttn := os.Getenv("GO_PHERENCE_WHISPER_GPU_ATTENTION")
@@ -133,6 +173,22 @@ func TestWhisperGPUGraphUmbrellaEnablesKernelDispatch(t *testing.T) {
 	if !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_ATTENTION") {
 		t.Fatalf("GPU graph umbrella did not enable attention dispatch")
 	}
+}
+
+func deterministicLinearInputs(inDim, outDim int) ([]float32, []float32, []float32) {
+	x := make([]float32, inDim)
+	weight := make([]float32, outDim*inDim)
+	bias := make([]float32, outDim)
+	for i := range x {
+		x[i] = float32((i%11)-5) * 0.041
+	}
+	for i := range weight {
+		weight[i] = float32((i%17)-8) * 0.029
+	}
+	for i := range bias {
+		bias[i] = float32((i%7)-3) * 0.037
+	}
+	return x, weight, bias
 }
 
 func deterministicQKV(seqQ, seqKV, numHeads, headDim int) ([]float32, []float32, []float32) {
