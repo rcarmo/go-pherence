@@ -72,9 +72,60 @@ func findMTPParityRepoRoot() string {
 	}
 }
 
+func mtpParityFileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
+}
+
+func assertMTPTrimmedParityFixture(t *testing.T, fx mtpLlamaCPPParityFixture) {
+	t.Helper()
+	if len(fx.Prompt) == 0 {
+		t.Fatalf("trimmed fixture prompt_tokens is empty")
+	}
+	if fx.DraftCount <= 0 {
+		fx.DraftCount = len(fx.Cycle.DraftedTokens)
+	}
+	if fx.MaxTokens <= 1 {
+		fx.MaxTokens = len(fx.Cycle.OutputTokens)
+	}
+	if fx.Cycle.InputToken < 0 || len(fx.Cycle.DraftedTokens) == 0 || len(fx.Cycle.VerifierTokens) != len(fx.Cycle.DraftedTokens)+1 {
+		t.Fatalf("invalid trimmed MTP cycle: %+v", fx.Cycle)
+	}
+	wantVerifierTokens := append([]int{fx.Cycle.InputToken}, fx.Cycle.DraftedTokens...)
+	if !sameInts(fx.Cycle.VerifierTokens, wantVerifierTokens) {
+		t.Fatalf("trimmed verifier tokens=%v, want [input]+drafted %v", fx.Cycle.VerifierTokens, wantVerifierTokens)
+	}
+	if len(fx.Cycle.VerifierOutputTokens) != len(fx.Cycle.VerifierTokens) {
+		t.Fatalf("trimmed verifier outputs=%d, want %d", len(fx.Cycle.VerifierOutputTokens), len(fx.Cycle.VerifierTokens))
+	}
+	accepted := 0
+	for accepted < len(fx.Cycle.DraftedTokens) && fx.Cycle.VerifierOutputTokens[accepted] == fx.Cycle.DraftedTokens[accepted] {
+		accepted++
+	}
+	if accepted != fx.Cycle.AcceptedPrefixLen {
+		t.Fatalf("trimmed accepted prefix=%d, want %d", fx.Cycle.AcceptedPrefixLen, accepted)
+	}
+	wantBonus := fx.Cycle.VerifierOutputTokens[accepted]
+	if fx.Cycle.BonusToken != wantBonus {
+		t.Fatalf("trimmed bonus=%d, want verifier output %d", fx.Cycle.BonusToken, wantBonus)
+	}
+	wantOutput := append([]int(nil), fx.Cycle.DraftedTokens[:accepted]...)
+	wantOutput = append(wantOutput, wantBonus)
+	if !sameInts(fx.Cycle.OutputTokens, wantOutput) {
+		t.Fatalf("trimmed output tokens=%v, want %v", fx.Cycle.OutputTokens, wantOutput)
+	}
+	if fx.Cycle.AllDraftsAccepted != (accepted == len(fx.Cycle.DraftedTokens)) {
+		t.Fatalf("trimmed all_drafts_accepted=%v inconsistent with accepted=%d drafted=%d", fx.Cycle.AllDraftsAccepted, accepted, len(fx.Cycle.DraftedTokens))
+	}
+}
+
 func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	fixturePath := os.Getenv("GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE")
-	if fixturePath == "" {
+	usingDefaultFixture := fixturePath == ""
+	if usingDefaultFixture {
 		fixturePath = filepath.Join("testdata", "gemma4-mtp-llamacpp-fixture.json")
 	}
 	data, err := os.ReadFile(fixturePath)
@@ -96,6 +147,10 @@ func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	}
 	fx.MainModel = resolveMTPParityPath(fixturePath, fx.MainModel)
 	fx.Drafter = resolveMTPParityPath(fixturePath, fx.Drafter)
+	if usingDefaultFixture && (!mtpParityFileExists(fx.MainModel) || !mtpParityFileExists(fx.Drafter)) {
+		assertMTPTrimmedParityFixture(t, fx)
+		return
+	}
 	if len(fx.Prompt) == 0 {
 		t.Fatalf("fixture prompt_tokens is empty")
 	}
