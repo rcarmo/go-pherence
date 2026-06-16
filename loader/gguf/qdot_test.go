@@ -92,6 +92,57 @@ func dotQ4_0Q8_0ScalarReference(raw []byte, y []q8_0Block, n int) float32 {
 	return sum
 }
 
+func TestDequantRowQ6KToMatchesScalarReference(t *testing.T) {
+	raw := make([]byte, 210)
+	for i := 0; i < 128; i++ {
+		raw[i] = byte((i*19 + 5) & 0xff)
+	}
+	for i := 0; i < 64; i++ {
+		raw[128+i] = byte((i*31 + 7) & 0xff)
+	}
+	for i := 0; i < 16; i++ {
+		raw[192+i] = byte(int8((i*9)%63 - 31))
+	}
+	binary.LittleEndian.PutUint16(raw[208:], half.F32ToF16(0.25))
+	got := make([]float32, qkK)
+	if err := dequantRowQ6KTo(got, raw, qkK); err != nil {
+		t.Fatal(err)
+	}
+	want := dequantQ6KScalarReference(raw)
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("dst[%d]=%g want %g", i, got[i], want[i])
+		}
+	}
+}
+
+func dequantQ6KScalarReference(raw []byte) []float32 {
+	out := make([]float32, qkK)
+	ql, qh, sc := raw[:128], raw[128:192], raw[192:208]
+	d := half.F16ToF32(binary.LittleEndian.Uint16(raw[208:210]))
+	a := 0
+	qlOff, qhOff, scOff := 0, 0, 0
+	for y := 0; y < qkK; y += 128 {
+		for l := 0; l < 32; l++ {
+			is := l / 16
+			q1 := int8((ql[qlOff+l+0]&0x0f)|(((qh[qhOff+l]>>0)&3)<<4)) - 32
+			q2 := int8((ql[qlOff+l+32]&0x0f)|(((qh[qhOff+l]>>2)&3)<<4)) - 32
+			q3 := int8((ql[qlOff+l+0]>>4)|(((qh[qhOff+l]>>4)&3)<<4)) - 32
+			q4 := int8((ql[qlOff+l+32]>>4)|(((qh[qhOff+l]>>6)&3)<<4)) - 32
+			out[y+l+0] = d * float32(int8(sc[scOff+is+0])) * float32(q1)
+			out[y+l+32] = d * float32(int8(sc[scOff+is+2])) * float32(q2)
+			out[y+l+64] = d * float32(int8(sc[scOff+is+4])) * float32(q3)
+			out[y+l+96] = d * float32(int8(sc[scOff+is+6])) * float32(q4)
+		}
+		a += 128
+		qlOff += 64
+		qhOff += 32
+		scOff += 8
+		_ = a
+	}
+	return out
+}
+
 func TestDotQ6KQ8KMatchesScalarReference(t *testing.T) {
 	n := qkK * 2
 	nb := n / qkK
