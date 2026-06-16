@@ -46,6 +46,8 @@ make whisper-turbo-check
 GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
   -run 'TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestNewDecoderStateGPUKeepsCPUCrossAttentionFallback' \
   -count=1 -v
+GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/runtime \
+  -run TestWhisperAttentivePoolParity -count=1 -v
 WHISPER_REQUIRE_TURBO_PARITY=1 GO_PHERENCE_WHISPER_GPU_GRAPH=1 \
   GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
   -run TestLargeV3TurboJFKCPUTranscriptParity -count=1 -v
