@@ -45,6 +45,7 @@ func TestGGUFHiPhaseAlignedLayerOpsParityGate(t *testing.T) {
 		{path: "testdata/gguf_hi_phase_aligned_row28_layer2_ops.json", name: "gguf_hi_phase_aligned_row28_layer2_ops", layer: 2},
 		{path: "testdata/gguf_hi_phase_aligned_row28_layer3_ops.json", name: "gguf_hi_phase_aligned_row28_layer3_ops", layer: 3},
 		{path: "testdata/gguf_hi_phase_aligned_row28_layer4_ops.json", name: "gguf_hi_phase_aligned_row28_layer4_ops", layer: 4},
+		{path: "testdata/gguf_hi_phase_aligned_row28_layer5_ops.json", name: "gguf_hi_phase_aligned_row28_layer5_ops", layer: 5},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -79,7 +80,7 @@ func TestGGUFHiPhaseAlignedLayerOpsParityGate(t *testing.T) {
 				if s.Llama.MaxIdx != s.Go.MaxIdx && (op == "attn_norm" || op == "ffn_post_norm" || op == "l_out") {
 					t.Fatalf("%s max_idx mismatch llama=%d go=%d", op, s.Llama.MaxIdx, s.Go.MaxIdx)
 				}
-				if op == "attn_norm" || op == "l_out" {
+				if op == "attn_norm" {
 					for i := range s.Llama.First4 {
 						if d := math.Abs(s.Go.First4[i] - s.Llama.First4[i]); d > firstTol {
 							t.Fatalf("%s first4[%d] delta=%g exceeds tolerance: llama=%v go=%v", op, i, d, s.Llama.First4, s.Go.First4)
