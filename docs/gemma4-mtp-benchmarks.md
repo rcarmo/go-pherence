@@ -273,3 +273,31 @@ Call-path summary:
 - `FinishCPUDecodeBatch` → `LMHeadLogitsInto` → Q6_K×Q8_K tied LM-head dot accounts for roughly one third.
 
 This confirms steady-state MTP graph throughput is dominated by quantized GGUF row-dot kernels, not MTP drafter overhead or acceptance accounting. Correctness work should stay on the baseline path, but performance parity with llama.cpp needs faster Q4_0×Q8_0 projection kernels and Q6_K×Q8_K LM-head kernels, likely batched/repacked to match llama.cpp's CPU backend strategy.
+
+### Parallel GGUF row-GEMV performance update
+
+`loader/gguf.GemvQ4_0Q8_0Rows` and `GemvQ6KQ8KRows` now parallelize large output-row loops across `GOMAXPROCS` workers. This preserves per-row dot numerics while improving the MTP verifier and LM-head throughput because the profile showed roughly 99% of steady-state graph-cycle samples in Q4_0×Q8_0 and Q6_K×Q8_K row-dot calls.
+
+Validation:
+
+```bash
+make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp
+make gemma4-gpu-cpu-parity GOTMPDIR=$PWD/.gotmp
+```
+
+Both passed after the change. Strict selected-logit values are unchanged from baseline.
+
+Steady-state strict fixture graph-cycle throughput improved from `0.253 tok/s` to `1.144 tok/s`:
+
+| Run | Mean cycle | Output tokens | Throughput |
+|---|---:|---:|---:|
+| before parallel row-GEMV | 11.867s | 15 / 5 cycles | 0.253 tok/s |
+| after parallel row-GEMV | 2.622s | 15 / 5 cycles | 1.144 tok/s |
+
+Strict selected-logit gate timing improved from about `0.141 tok/s` to `0.357 tok/s` while preserving the same remaining six selected-logit mismatches.
+
+Log references:
+
+- `logs/mtp-cycle-steady-20260617-002600.log` (before)
+- `logs/mtp-cycle-steady-parallel-gemv-20260617-003209.log` (after)
+- `logs/mtp-strict-parallel-gemv-20260617-003242.log`

@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
 
 	"github.com/rcarmo/go-pherence/half"
 )
@@ -160,15 +162,15 @@ func GemvQ4_0Q8_0Rows(out, x []float32, m *QuantMatrix) bool {
 	if err != nil {
 		return false
 	}
-	for r := 0; r < m.OutDim; r++ {
+	return gemvRowsParallel(m.OutDim, rowBytes, func(r int) bool {
 		start := r * rowBytes
 		v, err := DotQ4_0Q8_0(m.Raw[start:start+rowBytes], q8, m.InDim)
 		if err != nil {
 			return false
 		}
 		out[r] = v
-	}
-	return true
+		return true
+	})
 }
 
 // DotQ6KQ8K computes llama.cpp's AVX-style ggml_vec_dot_q6_K_q8_K over one
@@ -255,13 +257,59 @@ func GemvQ6KQ8KRows(out, x []float32, m *QuantMatrix) bool {
 	if err != nil {
 		return false
 	}
-	for r := 0; r < m.OutDim; r++ {
+	return gemvRowsParallel(m.OutDim, rowBytes, func(r int) bool {
 		start := r * rowBytes
 		v, err := DotQ6KQ8K(m.Raw[start:start+rowBytes], q8, m.InDim)
 		if err != nil {
 			return false
 		}
 		out[r] = v
+		return true
+	})
+}
+
+func gemvRowsParallel(outDim, rowBytes int, fn func(row int) bool) bool {
+	if outDim <= 0 || rowBytes <= 0 {
+		return false
+	}
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 2 || outDim < 256 {
+		for r := 0; r < outDim; r++ {
+			if !fn(r) {
+				return false
+			}
+		}
+		return true
+	}
+	if workers > outDim {
+		workers = outDim
+	}
+	chunk := (outDim + workers - 1) / workers
+	var wg sync.WaitGroup
+	okCh := make(chan bool, workers)
+	for start := 0; start < outDim; start += chunk {
+		end := start + chunk
+		if end > outDim {
+			end = outDim
+		}
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			for r := start; r < end; r++ {
+				if !fn(r) {
+					okCh <- false
+					return
+				}
+			}
+			okCh <- true
+		}(start, end)
+	}
+	wg.Wait()
+	close(okCh)
+	for ok := range okCh {
+		if !ok {
+			return false
+		}
 	}
 	return true
 }
