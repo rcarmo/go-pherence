@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -34,6 +35,43 @@ type mtpLlamaCPPCycleFixture struct {
 	VerifierLogits       []map[string]float64 `json:"verifier_logits"`
 }
 
+func resolveMTPParityPath(fixturePath, path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	fixtureRelative := filepath.Join(filepath.Dir(fixturePath), path)
+	if _, err := os.Stat(fixtureRelative); err == nil {
+		return fixtureRelative
+	}
+	if root := findMTPParityRepoRoot(); root != "" {
+		repoRelative := filepath.Join(root, path)
+		if _, err := os.Stat(repoRelative); err == nil {
+			return repoRelative
+		}
+	}
+	return path
+}
+
+func findMTPParityRepoRoot() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	fixturePath := os.Getenv("GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE")
 	if fixturePath == "" {
@@ -56,6 +94,8 @@ func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	if fx.MainModel == "" || fx.Drafter == "" {
 		t.Fatalf("fixture or env must supply main_model/drafter paths")
 	}
+	fx.MainModel = resolveMTPParityPath(fixturePath, fx.MainModel)
+	fx.Drafter = resolveMTPParityPath(fixturePath, fx.Drafter)
 	if len(fx.Prompt) == 0 {
 		t.Fatalf("fixture prompt_tokens is empty")
 	}
