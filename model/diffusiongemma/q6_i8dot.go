@@ -40,9 +40,16 @@ func q6KBlockCoeffISum(q8 []int8, coeff *[256]int16) (int32, bool) {
 	if len(q8) < 256 || coeff == nil {
 		return 0, false
 	}
+	if hasQ6KBlockCoeffISumSIMD {
+		return q6KBlockCoeffISumFast(q8[:256], coeff), true
+	}
+	return q6KBlockCoeffISumScalar(q8[:256], coeff), true
+}
+
+func q6KBlockCoeffISumScalar(q8 []int8, coeff *[256]int16) int32 {
 	var sum int32
 	for i := 0; i < 256; i++ {
 		sum += int32(q8[i]) * int32(coeff[i])
 	}
-	return sum, true
+	return sum
 }
