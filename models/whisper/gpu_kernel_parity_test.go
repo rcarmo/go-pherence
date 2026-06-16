@@ -6,7 +6,33 @@ import (
 	"testing"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	"github.com/rcarmo/go-pherence/loader/audio"
 )
+
+func TestWhisperCUDAMelParity(t *testing.T) {
+	if !nv.SgemmReady() {
+		t.Skip("CUDA SGEMM not available")
+	}
+	cfg := LargeV3Turbo()
+	samples := make([]float32, 16000/5)
+	for i := range samples {
+		// Deterministic, low-amplitude mixture that exercises multiple FFT bins
+		// without clipping or denorm-heavy silence.
+		samples[i] = 0.08*float32(math.Sin(2*math.Pi*440*float64(i)/16000)) + 0.03*float32(math.Sin(2*math.Pi*880*float64(i)/16000))
+	}
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_MEL", "0")
+	want, wantFrames := MelFlatFromSamples(samples, cfg)
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_MEL", "1")
+	melCfg := audio.MelConfig{SampleRate: 16000, FFTSize: 400, HopLength: 160, NumMels: cfg.NumMelBins, NFFTPadded: 512}
+	got, gotFrames, ok := melFlatGPU(samples, melCfg)
+	if !ok {
+		t.Fatalf("melFlatGPU returned fallback")
+	}
+	if gotFrames != wantFrames {
+		t.Fatalf("frame mismatch: got=%d want=%d", gotFrames, wantFrames)
+	}
+	assertClose(t, got, want, 8e-2)
+}
 
 func TestWhisperCUDAConv1DParity(t *testing.T) {
 	if !nv.SgemmReady() {
