@@ -1013,3 +1013,44 @@ Resource usage:
 - RAM: 27 GB FP8 eager-loaded + 5 GB BF16 encoder pages
 
 Total speedup from CPU BF16 baseline (4m54s): **3.5-3.7×** with correct thinking-mode output.
+
+## Current GGUF parity gates (2026-06-16)
+
+`make diffusiongemma-golden-gate` now includes both lightweight committed
+fixtures and a real local GGUF forward golden when
+`../llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf`
+is present.
+
+The required fixture gates now cover:
+
+- exact llama.cpp prompt/reference response IDs for the `hi` GGUF fixture;
+- first-step top-logit probes and current mismatch metadata;
+- phase-aligned row28 structural trace parity for `ffn_post_norm` and `l_out`;
+- row0 and row28 input-norm parity for the aligned first cached decode;
+- row28 op-boundary parity for layers 0 through 6;
+- Q4_K, Q8_0, Q5_0 expert row-dot oracles and Q6_K tied-LM-head row-dot oracle.
+
+The local real-weight gate `TestLocalGGUFTinyForwardGoldenTopLogits` is no
+longer unconditionally skipped. It falls through to the GGUF file-presence guard,
+forces CPU prompt prefill for the CPU/SIMD reference path, and runs in a separate
+`go test` process from the smaller fixture gates to avoid cleanup-time mmap/raw
+slice lifetime hazards. The current deterministic top logits for
+`PromptIDs=[105]`, `Canvas=[236743]`, `Step=1` are:
+
+```text
+[{236778 20.644070}
+ {236771 19.500595}
+ {247344 19.273504}
+ {236743 19.195564}
+ {236783 18.223010}]
+```
+
+Raw-logit self-conditioning is now the default runtime handoff, matching
+llama.cpp's previous-raw-logits plus previous-temp-inv graph. Set
+`GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS=0` only for memory-saving diagnostic
+runs.
+
+The remaining practical blocker for full 256-canvas end-to-end parity is runtime
+throughput/resource use, not the early layer graph: the Q6_K×Q8_K tied LM-head
+has an AVX2 block primitive and an oracle, but full-canvas runs still need a
+coordinated GPU window or further tail optimization.

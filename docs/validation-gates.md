@@ -93,12 +93,14 @@ make whisper-backend-podcast-compare
 # Pass repeated --audio flags and optional --start/--duration to
 # scripts/whisper_a100_compare.py for broader/long-form clip sets.
 
-# DiffusionGemma runnable llama.cpp GGUF golden/probe gate. This is fixture-only
-# and does not require local 48 GiB shards or CUDA; it locks prompt IDs,
-# reference response IDs, current Go-vs-llama mismatch metadata, first-step
+# DiffusionGemma runnable llama.cpp GGUF golden/probe gate. The first part is
+# fixture-only and does not require local 48 GiB shards or CUDA; it locks prompt
+# IDs, reference response IDs, current Go-vs-llama mismatch metadata, first-step
 # top-logit probe values, phase-aligned row28 structural trace parity
-# (ffn_post_norm/l_out across all text layers), plus Q4_K/Q8_0/Q5_0 direct
-# expert row-dot parity against a scalar dequantized CPU oracle.
+# (ffn_post_norm/l_out across all text layers), row28 input-norm and layer-op
+# parity gates, plus Q4_K/Q8_0/Q5_0/Q6_K direct quant oracles. The second part
+# runs the local Q4_K_M GGUF tiny forward golden when that GGUF is present,
+# isolated in its own go test process because it owns mmap-backed GGUF buffers.
 make diffusiongemma-golden-gate
 
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
