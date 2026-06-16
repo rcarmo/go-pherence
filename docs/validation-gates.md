@@ -31,11 +31,17 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 # Whisper large-v3-turbo execution graph (CPU/SIMD transcript parity, audio commands, mel, SIMD, prompt/timestamp/speculative scaffolds).
 # Treat the native CPU/SIMD path as the oracle for NEON, RISC-V/IME, A100,
 # NVIDIA, and CUDA/PTX refinements; hardware paths must preserve these results.
-# The parity target fails loudly if local turbo weights/tokenizer/JFK audio are missing.
+# The transcript parity target fails loudly if local turbo weights/tokenizer/JFK audio are missing.
+# The CUDA parity target is a numeric CPU-oracle gate for the opt-in CUDA graph
+# surfaces; it skips unavailable CUDA kernels on CPU-only hosts but runs on CUDA hosts.
 make whisper-turbo-parity
+make whisper-cuda-parity
 make whisper-turbo-check
 
 # Equivalent explicit form:
+GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
+  -run 'TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestNewDecoderStateGPUKeepsCPUCrossAttentionFallback' \
+  -count=1 -v
 GOTMPDIR=$PWD/.gotmp go test \
   ./models/whisper \
   ./cmd/audio/... \
