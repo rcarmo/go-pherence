@@ -8,6 +8,28 @@ import (
 	"github.com/rcarmo/go-pherence/half"
 )
 
+func TestDequantRowQ8_0ToMatchesScaleTimesInt8(t *testing.T) {
+	raw := make([]byte, 34*2)
+	binary.LittleEndian.PutUint16(raw[0:2], half.F32ToF16(0.25))
+	binary.LittleEndian.PutUint16(raw[34:36], half.F32ToF16(0.5))
+	for i := 0; i < qk8_0; i++ {
+		raw[2+i] = byte(int8(i - 16))
+		raw[34+2+i] = byte(int8(16 - i))
+	}
+	dst := make([]float32, 64)
+	if err := dequantRowQ8_0To(dst, raw, 64); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < qk8_0; i++ {
+		if want := float32(i-16) * 0.25; dst[i] != want {
+			t.Fatalf("dst[%d]=%g want %g", i, dst[i], want)
+		}
+		if want := float32(16-i) * 0.5; dst[qk8_0+i] != want {
+			t.Fatalf("dst[%d]=%g want %g", qk8_0+i, dst[qk8_0+i], want)
+		}
+	}
+}
+
 func TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale(t *testing.T) {
 	// amax=127 gives d=1 exactly, so these probe C roundf(x) semantics directly:
 	// halves round away from zero, not to even.

@@ -129,7 +129,7 @@ test-cpu:
 gemma4-mtp-parity:
 	GOTMPDIR=$(GOTMPDIR) go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
 	GOTMPDIR=$(GOTMPDIR) go run ./cmd/models/gemma4mtpparity -fixture model/testdata/gemma4-mtp-llamacpp-fixture.json -pretty=false
-	GOTMPDIR=$(GOTMPDIR) go test ./loader/gguf -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' -count=1
+	GOTMPDIR=$(GOTMPDIR) go test ./loader/gguf -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestDequantRowQ8_0ToMatchesScaleTimesInt8|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' -count=1
 
 test-model-coverage: model-coverage-tmpdir
 	go test -count=1 -timeout=120s ./docs ./loader/safetensors ./model/qwen3tts ./model/lfm2 ./cmd/qwen/qwen3ttsinspect ./cmd/models/lfm2inspect ./cmd/models/modelcoverage
