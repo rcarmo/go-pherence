@@ -92,6 +92,42 @@ func dotQ4_0Q8_0ScalarReference(raw []byte, y []q8_0Block, n int) float32 {
 	return sum
 }
 
+func TestQuantizeQ8KComputesScaleQuantsAndBlockSums(t *testing.T) {
+	x := make([]float32, qkK)
+	x[0] = -2
+	x[1] = 1
+	x[2] = 0.5
+	x[15] = -0.25
+	x[16] = 2
+	x[17] = -1
+	blocks, err := QuantizeQ8K(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("blocks=%d want 1", len(blocks))
+	}
+	b := blocks[0]
+	wantD := float32(2.0 / 127.0)
+	if b.d != wantD {
+		t.Fatalf("d=%g want %g", b.d, wantD)
+	}
+	wantQS := map[int]int8{0: -127, 1: 64, 2: 32, 15: -16, 16: 127, 17: -64}
+	for i, want := range wantQS {
+		if got := b.qs[i]; got != want {
+			t.Fatalf("qs[%d]=%d want %d", i, got, want)
+		}
+	}
+	var sum0, sum1 int16
+	for i := 0; i < 16; i++ {
+		sum0 += int16(b.qs[i])
+		sum1 += int16(b.qs[16+i])
+	}
+	if b.bsums[0] != sum0 || b.bsums[1] != sum1 {
+		t.Fatalf("bsums[0:2]=%v,%v want %v,%v", b.bsums[0], b.bsums[1], sum0, sum1)
+	}
+}
+
 func TestDequantRowQ6KToMatchesScalarReference(t *testing.T) {
 	raw := make([]byte, 210)
 	for i := 0; i < 128; i++ {

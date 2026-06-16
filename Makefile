@@ -129,7 +129,7 @@ test-cpu:
 gemma4-mtp-parity:
 	GOTMPDIR=$(GOTMPDIR) go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
 	GOTMPDIR=$(GOTMPDIR) go run ./cmd/models/gemma4mtpparity -fixture model/testdata/gemma4-mtp-llamacpp-fixture.json -pretty=false
-	GOTMPDIR=$(GOTMPDIR) go test ./loader/gguf -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestDequantRowQ8_0ToMatchesScaleTimesInt8|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestDequantRowQ6KToMatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' -count=1
+	GOTMPDIR=$(GOTMPDIR) go test ./loader/gguf -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestDequantRowQ8_0ToMatchesScaleTimesInt8|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestQuantizeQ8KComputesScaleQuantsAndBlockSums|TestDequantRowQ6KToMatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' -count=1
 
 gemma4-mtp-strict-parity:
 	@test -n "$(GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE)" || (echo "GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE is required for strict selected-logit parity" >&2; exit 2)
