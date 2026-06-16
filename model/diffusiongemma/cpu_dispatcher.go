@@ -1341,6 +1341,9 @@ func runFinalNorm(weights *TextWeights, scratch ForwardScratch) error {
 			return fmt.Errorf("DiffusionGemma final norm rejected row at offset %d", off)
 		}
 	}
+	if diffusionGemmaLayerTraceOpsEnabled() {
+		traceForwardData("op/final_norm", -1, diffusionGemmaLayerTraceRow(), scratch.Hidden, hiddenSize)
+	}
 	return nil
 }
 
@@ -1739,6 +1742,13 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	}
 	// Final logit softcapping: tanh(x/c)*c (same as llama.cpp)
 	applyFinalLogitSoftcapping(scratch, positions, vocab)
+	if diffusionGemmaLayerTraceOpsEnabled() {
+		row := diffusionGemmaLayerTraceRow()
+		if row >= 0 && row < len(scratch.Logits) {
+			ids, vals := topLogits(scratch.Logits[row], 8)
+			fmt.Fprintf(os.Stderr, "DiffusionGemma lmhead_trace: step=%d enc_seq=%d row=%d top_ids=%v top_logits=%v\n", diffusionGemmaTracePhase.step, diffusionGemmaTracePhase.seq, row, ids, vals)
+		}
+	}
 	return nil
 }
 
