@@ -367,6 +367,11 @@ func diffusionGemmaGGUFCPUExpertLayerTraceEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func diffusionGemmaGGUFCPUExpertParallelEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_EXPERT_PARALLEL")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func traceGGUFCPUExpertContribution(layer int, layerType string, row, expert, slot, batchSize int, weight float32, out []float32) {
 	if !diffusionGemmaGGUFCPUExpertLayerTraceEnabled() || row != diffusionGemmaLayerTraceRow() || len(out) == 0 {
 		return
@@ -953,9 +958,12 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 	le := idx.entries[op.Layer]
 
 	scheduleStart := time.Now()
-	numWorkers := runtime.NumCPU()
-	if numWorkers > activeExperts {
-		numWorkers = activeExperts
+	numWorkers := 1
+	if diffusionGemmaGGUFCPUExpertParallelEnabled() {
+		numWorkers = runtime.NumCPU()
+		if numWorkers > activeExperts {
+			numWorkers = activeExperts
+		}
 	}
 	expertIDs := groupScratch.expertIDs[:0]
 	for eid := range expertUsers {
@@ -1272,9 +1280,12 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 		}
 		return groups[i].workItemCnt > groups[j].workItemCnt
 	})
-	numWorkers := runtime.NumCPU()
-	if numWorkers > len(groups) {
-		numWorkers = len(groups)
+	numWorkers := 1
+	if diffusionGemmaGGUFCPUExpertParallelEnabled() {
+		numWorkers = runtime.NumCPU()
+		if numWorkers > len(groups) {
+			numWorkers = len(groups)
+		}
 	}
 	workerGroups := make([][]int, numWorkers)
 	workerLoads := make([]int, numWorkers)

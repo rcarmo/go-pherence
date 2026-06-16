@@ -42,6 +42,78 @@ func quantizeQ8KBlockForLMHeadDot(x []float32) (d float32, qs [256]int8) {
 	return d, qs
 }
 
+type q8KPrequantRows struct {
+	positions int
+	blocks    int
+	ds        []float32
+	qs        []int8
+}
+
+func prequantizeQ8KRowsForLMHead(hidden []float32, positions, hiddenSize int) (*q8KPrequantRows, error) {
+	if positions <= 0 || hiddenSize <= 0 || hiddenSize%256 != 0 || len(hidden) < positions*hiddenSize {
+		return nil, fmt.Errorf("invalid Q8_K prequant rows positions=%d hidden=%d len=%d", positions, hiddenSize, len(hidden))
+	}
+	blocks := hiddenSize / 256
+	out := &q8KPrequantRows{positions: positions, blocks: blocks, ds: make([]float32, positions*blocks), qs: make([]int8, positions*blocks*256)}
+	for pos := 0; pos < positions; pos++ {
+		row := hidden[pos*hiddenSize : (pos+1)*hiddenSize]
+		for b := 0; b < blocks; b++ {
+			d, q := quantizeQ8KBlockForLMHeadDot(row[b*256 : b*256+256])
+			out.ds[pos*blocks+b] = d
+			copy(out.qs[(pos*blocks+b)*256:(pos*blocks+b+1)*256], q[:])
+		}
+	}
+	return out, nil
+}
+
+func ggufQ6KRawRowDotPrequant(raw []byte, inDim int, q8d []float32, q8qs []int8) (float32, error) {
+	if inDim <= 0 || inDim%256 != 0 || len(q8d) < inDim/256 || len(q8qs) < inDim {
+		return 0, fmt.Errorf("invalid Q6_K prequant row dot inDim=%d q8d=%d q8qs=%d", inDim, len(q8d), len(q8qs))
+	}
+	const blockSize = 210
+	blocks := inDim / 256
+	if len(raw) < blocks*blockSize {
+		return 0, fmt.Errorf("Q6_K row raw short bytes=%d want=%d", len(raw), blocks*blockSize)
+	}
+	var total float32
+	for b := 0; b < blocks; b++ {
+		blk := raw[b*blockSize : (b+1)*blockSize]
+		ql := blk[0:128]
+		qh := blk[128:192]
+		scales := blk[192:208]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[208:210]))
+		q8 := q8qs[b*256 : (b+1)*256]
+		var aux32 [8]int32
+		qlOff, qhOff := 0, 0
+		var q6 [256]int8
+		for j := 0; j < 256; j += 128 {
+			for l := 0; l < 32; l++ {
+				q6[j+l+0] = int8((ql[qlOff+l+0]&0x0F)|(((qh[qhOff+l]>>0)&3)<<4)) - 32
+				q6[j+l+32] = int8((ql[qlOff+l+32]&0x0F)|(((qh[qhOff+l]>>2)&3)<<4)) - 32
+				q6[j+l+64] = int8((ql[qlOff+l+0]>>4)|(((qh[qhOff+l]>>4)&3)<<4)) - 32
+				q6[j+l+96] = int8((ql[qlOff+l+32]>>4)|(((qh[qhOff+l]>>6)&3)<<4)) - 32
+			}
+			qlOff += 64
+			qhOff += 32
+		}
+		for group := 0; group < 16; group++ {
+			scale := int32(int8(scales[group]))
+			base := group * 16
+			acc := int32(0)
+			for i := 0; i < 16; i++ {
+				acc += int32(q8[base+i]) * int32(q6[base+i])
+			}
+			aux32[group/2] += scale * acc
+		}
+		s := float32(0)
+		for i := range aux32 {
+			s += float32(aux32[i])
+		}
+		total += d * q8d[b] * s
+	}
+	return total, nil
+}
+
 func ggufQ6KRawRowDotQ8K(raw []byte, inDim int, x []float32) (float32, error) {
 	if inDim <= 0 || inDim%256 != 0 || len(x) < inDim {
 		return 0, fmt.Errorf("invalid Q6_K row dot inDim=%d x=%d", inDim, len(x))
@@ -88,6 +160,22 @@ func ggufQ6KRawRowDotQ8K(raw []byte, inDim int, x []float32) (float32, error) {
 		total += d * q8d * s
 	}
 	return total, nil
+}
+
+func ggufQ6KMatrixRowDotPrequant(m *gguf.QuantMatrix, row int, q8d []float32, q8qs []int8) (float32, error) {
+	if m == nil || m.QType != gguf.QuantQ6_K || row < 0 || row >= m.OutDim {
+		return 0, fmt.Errorf("invalid Q6_K matrix prequant row dot row=%d", row)
+	}
+	rowBytes, err := m.RowBytes()
+	if err != nil {
+		return 0, err
+	}
+	start := row * rowBytes
+	end := start + rowBytes
+	if start < 0 || end > len(m.Raw) {
+		return 0, fmt.Errorf("Q6_K matrix row outside raw row=%d", row)
+	}
+	return ggufQ6KRawRowDotPrequant(m.Raw[start:end], m.InDim, q8d, q8qs)
 }
 
 func ggufQ6KMatrixRowDotQ8K(m *gguf.QuantMatrix, row int, x []float32) (float32, error) {

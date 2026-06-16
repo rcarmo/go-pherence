@@ -1659,8 +1659,16 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	}
 	if qm := weights.ggufTokenEmbd; qm != nil && qm.OutDim == vocab && qm.InDim == hiddenSize {
 		row := make([]float32, hiddenSize)
+		useQ6K := qm.QType == gguf.QuantQ6_K
+		var q8Rows *q8KPrequantRows
+		if useQ6K {
+			var err error
+			q8Rows, err = prequantizeQ8KRowsForLMHead(scratch.Hidden, positions, hiddenSize)
+			if err != nil {
+				return err
+			}
+		}
 		for vocabID := 0; vocabID < vocab; vocabID++ {
-			useQ6K := qm.QType == gguf.QuantQ6_K
 			if !useQ6K {
 				if err := qm.DequantRowTo(row, vocabID); err != nil {
 					return err
@@ -1669,7 +1677,9 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 			for pos := 0; pos < positions; pos++ {
 				var score float32
 				if useQ6K {
-					v, err := ggufQ6KMatrixRowDotQ8K(qm, vocabID, scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize])
+					q8d := q8Rows.ds[pos*q8Rows.blocks : (pos+1)*q8Rows.blocks]
+					q8qs := q8Rows.qs[pos*q8Rows.blocks*256 : (pos+1)*q8Rows.blocks*256]
+					v, err := ggufQ6KMatrixRowDotPrequant(qm, vocabID, q8d, q8qs)
 					if err != nil {
 						return err
 					}

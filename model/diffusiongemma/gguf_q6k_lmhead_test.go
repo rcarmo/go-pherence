@@ -36,6 +36,10 @@ func TestGGUFQ6KLMHeadRowDotMatchesQ8KRoundedDequantOracle(t *testing.T) {
 	q8x := append([]float32(nil), x...)
 	quantizeDequantQ8KForExpertDot(q8x, q8x)
 	row := make([]float32, m.InDim)
+	pre, err := prequantizeQ8KRowsForLMHead(x, 1, m.InDim)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for r := 0; r < m.OutDim; r++ {
 		if err := m.DequantRowTo(row, r); err != nil {
 			t.Fatal(err)
@@ -48,8 +52,15 @@ func TestGGUFQ6KLMHeadRowDotMatchesQ8KRoundedDequantOracle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		gotPre, err := ggufQ6KMatrixRowDotPrequant(m, r, pre.ds, pre.qs)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if math.Abs(float64(got-want)) > 2e-4 {
 			t.Fatalf("row=%d got=%g want=%g", r, got, want)
+		}
+		if math.Abs(float64(gotPre-got)) > 1e-6 {
+			t.Fatalf("row=%d prequant=%g single=%g", r, gotPre, got)
 		}
 	}
 }
