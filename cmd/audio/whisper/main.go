@@ -56,13 +56,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: whisper -audio AUDIO [-model MODEL] [-size SIZE] [-diarize] [-timestamps]\n")
 		os.Exit(1)
 	}
-	if *useGPUGraph {
-		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "1")
-		*useGPU = true
-	}
-	if *useGPU {
-		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD", "1")
-	}
+	applyWhisperGPUCLIFlags(useGPU, *useGPUGraph)
 
 	// Select config
 	var cfg whisper.Config
@@ -523,4 +517,16 @@ func diarizeSegments(samples []float32, segments []whisper.Segment, modelPath st
 		result[i] = whisper.DiarizedSegment{Start: a.Start, End: a.End, Speaker: a.Speaker, Text: a.Text}
 	}
 	return result
+}
+
+func applyWhisperGPUCLIFlags(useGPU *bool, useGPUGraph bool) {
+	if useGPUGraph {
+		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "1")
+		if useGPU != nil {
+			*useGPU = true
+		}
+	}
+	if useGPU != nil && *useGPU {
+		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD", "1")
+	}
 }

@@ -70,13 +70,7 @@ func main() {
 	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine similarity threshold for speaker clustering")
 	keepWav := flag.Bool("keep-wav", false, "Keep converted temporary WAV")
 	flag.Parse()
-	if *useGPUGraph {
-		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "1")
-		*useGPU = true
-	}
-	if *useGPU {
-		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD", "1")
-	}
+	applyWhisperGPUCLIFlags(useGPU, *useGPUGraph)
 
 	if *input == "" {
 		fatalf("-input is required")
@@ -765,6 +759,18 @@ func min(a, b int) int {
 	}
 	return b
 }
+func applyWhisperGPUCLIFlags(useGPU *bool, useGPUGraph bool) {
+	if useGPUGraph {
+		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "1")
+		if useGPU != nil {
+			*useGPU = true
+		}
+	}
+	if useGPU != nil && *useGPU {
+		_ = os.Setenv("GO_PHERENCE_WHISPER_GPU_LM_HEAD", "1")
+	}
+}
+
 func minf(a, b float64) float64 {
 	if a < b {
 		return a
