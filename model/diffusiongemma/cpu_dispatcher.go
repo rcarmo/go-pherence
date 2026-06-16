@@ -1611,6 +1611,44 @@ func traceLMHeadTopLogits(scratch ForwardScratch) {
 	}
 }
 
+func traceGGUFQ6LMHeadRow(qm *gguf.QuantMatrix, scratch ForwardScratch, hiddenSize, vocab int) error {
+	if !diffusionGemmaLayerTraceOpsEnabled() || qm == nil || qm.QType != gguf.QuantQ6_K {
+		return nil
+	}
+	row := diffusionGemmaLayerTraceRow()
+	positions := len(scratch.Hidden) / hiddenSize
+	if row < 0 || row >= positions {
+		return nil
+	}
+	q8, err := prequantizeQ8KRowsForLMHead(scratch.Hidden[row*hiddenSize:(row+1)*hiddenSize], 1, hiddenSize)
+	if err != nil {
+		return err
+	}
+	ids := make([]int, 8)
+	vals := make([]float32, 8)
+	for i := range ids {
+		ids[i] = -1
+		vals[i] = float32(math.Inf(-1))
+	}
+	score := make([]float32, 1)
+	for vocabID := 0; vocabID < vocab; vocabID++ {
+		if err := ggufQ6KMatrixRowDotPrequantRows(qm, vocabID, q8, score); err != nil {
+			return err
+		}
+		insertTopK(ids, vals, vocabID, score[0])
+	}
+	if c := scratch.FinalLogitSoftcapping; c > 0 {
+		invC := float32(1.0) / c
+		for i, v := range vals {
+			if !math.IsInf(float64(v), -1) && !math.IsNaN(float64(v)) {
+				vals[i] = float32(math.Tanh(float64(v*invC))) * c
+			}
+		}
+	}
+	fmt.Fprintf(os.Stderr, "DiffusionGemma lmhead_q6_trace: step=%d enc_seq=%d row=%d top_ids=%v top_logits=%v\n", diffusionGemmaTracePhase.step, diffusionGemmaTracePhase.seq, row, ids, vals)
+	return nil
+}
+
 func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma LM head missing weights")
@@ -1662,6 +1700,9 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 		useQ6K := qm.QType == gguf.QuantQ6_K
 		var q8Rows *q8KPrequantRows
 		if useQ6K {
+			if err := traceGGUFQ6LMHeadRow(qm, scratch, hiddenSize, vocab); err != nil {
+				return err
+			}
 			var err error
 			q8Rows, err = prequantizeQ8KRowsForLMHead(scratch.Hidden, positions, hiddenSize)
 			if err != nil {
