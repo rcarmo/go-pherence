@@ -261,6 +261,22 @@ func assertMTPParityLogits(t *testing.T, name string, got [][]float32, want []ma
 	}
 }
 
+func TestGemma4MTPLlamaCPPDefaultFixtureTrimmedValidation(t *testing.T) {
+	fixturePath := filepath.Join("testdata", "gemma4-mtp-llamacpp-fixture.json")
+	data, err := os.ReadFile(fixturePath)
+	if err != nil {
+		t.Fatalf("read default fixture: %v", err)
+	}
+	var fx mtpLlamaCPPParityFixture
+	if err := json.Unmarshal(data, &fx); err != nil {
+		t.Fatalf("parse default fixture: %v", err)
+	}
+	assertMTPTrimmedParityFixture(t, fx)
+	if len(fx.Cycle.VerifierLogits) != 0 || len(fx.Cycle.DrafterLogits) != 0 {
+		t.Fatalf("default fixture must remain a trimmed token/acceptance gate; got drafter probes=%d verifier probes=%d", len(fx.Cycle.DrafterLogits), len(fx.Cycle.VerifierLogits))
+	}
+}
+
 func TestGemma4MTPLlamaCPPParityFixtureSchema(t *testing.T) {
 	fixture := mtpLlamaCPPParityFixture{Prompt: []int{1}, MaxTokens: 3, DraftCount: 2, Cycle: mtpLlamaCPPCycleFixture{InputToken: 1, DraftedTokens: []int{2, 3}, VerifierTokens: []int{1, 2, 3}, VerifierOutputTokens: []int{2, 4, 5}, AcceptedPrefixLen: 1, BonusToken: 4, OutputTokens: []int{2, 4}, DrafterLogits: []map[string]float64{{"2": 1.25}}, VerifierLogits: []map[string]float64{{"2": 2.5}}}}
 	data, err := json.Marshal(fixture)
