@@ -100,7 +100,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
 
 # GGUF quant primitive oracles used by the Gemma4 QAT+MTP path.
 GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
-  -run 'TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' \
+  -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesScalarReference|TestDotQ6KQ8KMatchesScalarReference' \
   -count=1 -v
 
 # Strict selected-logit gate. First export a llama.cpp/LiteRT reference JSON using
