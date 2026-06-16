@@ -330,6 +330,8 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 		SelfVCache: make([][]float32, numLayers),
 		CrossK:     make([][]float32, numLayers),
 		CrossV:     make([][]float32, numLayers),
+		CrossKHead: make([][]float32, numLayers),
+		CrossVHead: make([][]float32, numLayers),
 		LastToken:  -1,
 		Bufs:       newDecoderBufs(cfg),
 	}
@@ -351,6 +353,8 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 		wV := nv.NewDevBufFrom(layer.CrossVWeight)
 		state.CrossK[l] = gemvGPU(encoderOutput, wK, layer.CrossKBias, encLen, dModel, dModel)
 		state.CrossV[l] = gemvGPU(encoderOutput, wV, layer.CrossVBias, encLen, dModel, dModel)
+		state.CrossKHead[l] = toHeadMajor(state.CrossK[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
+		state.CrossVHead[l] = toHeadMajor(state.CrossV[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
 		if gpuCrossAttn {
 			state.CrossKGPU[l] = nv.NewDevBufFrom(state.CrossK[l])
 			if err := state.CrossKGPU[l].ToGPU(); err != nil {
