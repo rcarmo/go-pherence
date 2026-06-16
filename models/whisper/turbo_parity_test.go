@@ -33,6 +33,9 @@ func TestLargeV3TurboJFKCPUTranscriptParity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadModel: %v", err)
 	}
+	if !UseGPULMHead() && dec.lmHeadGPU != nil {
+		t.Fatalf("LoadModel enabled GPU LM-head without GO_PHERENCE_WHISPER_GPU_LM_HEAD or GPU graph flag")
+	}
 	samples, sr, err := audio.WAV(audioPath)
 	if err != nil {
 		t.Fatalf("WAV: %v", err)
