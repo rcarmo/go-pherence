@@ -346,13 +346,20 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 		state.SelfVCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
 	}
 
-	// Pre-compute cross-attention K/V using GPU SGEMM
+	// Pre-compute cross-attention K/V. Keep CPU/SIMD as the default oracle;
+	// use GPU SGEMM only when the cross-attention graph path is explicitly
+	// enabled and available.
 	for l := 0; l < numLayers; l++ {
 		layer := &dec.Layers[l]
-		wK := nv.NewDevBufFrom(layer.CrossKWeight)
-		wV := nv.NewDevBufFrom(layer.CrossVWeight)
-		state.CrossK[l] = gemvGPU(encoderOutput, wK, layer.CrossKBias, encLen, dModel, dModel)
-		state.CrossV[l] = gemvGPU(encoderOutput, wV, layer.CrossVBias, encLen, dModel, dModel)
+		if gpuCrossAttn {
+			wK := nv.NewDevBufFrom(layer.CrossKWeight)
+			wV := nv.NewDevBufFrom(layer.CrossVWeight)
+			state.CrossK[l] = gemvGPU(encoderOutput, wK, layer.CrossKBias, encLen, dModel, dModel)
+			state.CrossV[l] = gemvGPU(encoderOutput, wV, layer.CrossVBias, encLen, dModel, dModel)
+		} else {
+			state.CrossK[l] = linearForwardOpt(encoderOutput, layer.CrossKWeight, layer.CrossKBias, encLen, dModel, dModel)
+			state.CrossV[l] = linearForwardOpt(encoderOutput, layer.CrossVWeight, layer.CrossVBias, encLen, dModel, dModel)
+		}
 		state.CrossKHead[l] = toHeadMajor(state.CrossK[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
 		state.CrossVHead[l] = toHeadMajor(state.CrossV[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
 		if gpuCrossAttn {
