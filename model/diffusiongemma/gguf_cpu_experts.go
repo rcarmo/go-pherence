@@ -367,6 +367,32 @@ func diffusionGemmaGGUFCPUExpertLayerTraceEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+func traceGGUFCPUExpertContribution(layer, row, expert, slot, batchSize int, weight float32, out []float32) {
+	if !diffusionGemmaGGUFCPUExpertLayerTraceEnabled() || row != diffusionGemmaLayerTraceRow() || len(out) == 0 {
+		return
+	}
+	var sumSq float64
+	maxAbs := float32(0)
+	maxIdx := 0
+	for i, v := range out {
+		av := v
+		if av < 0 {
+			av = -av
+		}
+		if av > maxAbs {
+			maxAbs = av
+			maxIdx = i
+		}
+		sumSq += float64(v) * float64(v)
+	}
+	rms := math.Sqrt(sumSq / float64(len(out)))
+	n := len(out)
+	if n > 4 {
+		n = 4
+	}
+	fmt.Fprintf(os.Stderr, "DiffusionGemma gguf_cpu_expert_contrib: layer=%d row=%d expert=%d slot=%d batch=%d weight=%.9g rms=%.9g max_abs=%.9g max_idx=%d weighted_rms=%.9g weighted_max_abs=%.9g first4=%v\n", layer, row, expert, slot, batchSize, weight, rms, maxAbs, maxIdx, rms*math.Abs(float64(weight)), float64(maxAbs)*math.Abs(float64(weight)), append([]float32(nil), out[:n]...))
+}
+
 func diffusionGemmaGGUFCPUDirectPolicyEnabled(name string) bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
 	if v == "" {
@@ -1153,6 +1179,7 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				mergeMu.Lock()
 				for i, u := range users {
 					expertOut := batchDown[i*hiddenSize : (i+1)*hiddenSize]
+					traceGGUFCPUExpertContribution(op.Layer, u.pos, eid, -1, nPos, u.w, expertOut)
 					dst := scratch.MoeOut[u.pos*hiddenSize : (u.pos+1)*hiddenSize]
 					simd.Saxpy(u.w, expertOut, dst)
 				}
@@ -1427,7 +1454,12 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 					workIdx := group.start + i
 					pos := groupedArrays.WorkPositions[workIdx]
 					weight := groupedArrays.WorkWeights[workIdx]
+					slot := -1
+					if workIdx < len(groupedArrays.WorkSlots) {
+						slot = groupedArrays.WorkSlots[workIdx]
+					}
 					expertOut := batchDown[i*hiddenSize : (i+1)*hiddenSize]
+					traceGGUFCPUExpertContribution(op.Layer, pos, group.expert, slot, nPos, weight, expertOut)
 					dst := scratch.MoeOut[pos*hiddenSize : (pos+1)*hiddenSize]
 					simd.Saxpy(weight, expertOut, dst)
 				}
