@@ -15,6 +15,7 @@ import (
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/internal/checked"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
 // CPUDispatcher is the CPU/SIMD DiffusionGemma reference dispatcher.
@@ -1599,6 +1600,17 @@ func applyFinalLogitSoftcapping(scratch ForwardScratch, positions, vocab int) {
 	}
 }
 
+func traceLMHeadTopLogits(scratch ForwardScratch) {
+	if !diffusionGemmaLayerTraceOpsEnabled() {
+		return
+	}
+	row := diffusionGemmaLayerTraceRow()
+	if row >= 0 && row < len(scratch.Logits) {
+		ids, vals := topLogits(scratch.Logits[row], 8)
+		fmt.Fprintf(os.Stderr, "DiffusionGemma lmhead_trace: step=%d enc_seq=%d row=%d top_ids=%v top_logits=%v\n", diffusionGemmaTracePhase.step, diffusionGemmaTracePhase.seq, row, ids, vals)
+	}
+}
+
 func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma LM head missing weights")
@@ -1648,11 +1660,23 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	if qm := weights.ggufTokenEmbd; qm != nil && qm.OutDim == vocab && qm.InDim == hiddenSize {
 		row := make([]float32, hiddenSize)
 		for vocabID := 0; vocabID < vocab; vocabID++ {
-			if err := qm.DequantRowTo(row, vocabID); err != nil {
-				return err
+			useQ6K := qm.QType == gguf.QuantQ6_K
+			if !useQ6K {
+				if err := qm.DequantRowTo(row, vocabID); err != nil {
+					return err
+				}
 			}
 			for pos := 0; pos < positions; pos++ {
-				score := dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
+				var score float32
+				if useQ6K {
+					v, err := ggufQ6KMatrixRowDotQ8K(qm, vocabID, scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize])
+					if err != nil {
+						return err
+					}
+					score = v
+				} else {
+					score = dot(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], row)
+				}
 				if topK > 0 {
 					insertTopK(topIDs[pos], topVals[pos], vocabID, score)
 				} else {
@@ -1673,6 +1697,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 			}
 		}
 		applyFinalLogitSoftcapping(scratch, positions, vocab)
+		traceLMHeadTopLogits(scratch)
 		return nil
 	}
 	if topK > 0 {
@@ -1742,13 +1767,7 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 	}
 	// Final logit softcapping: tanh(x/c)*c (same as llama.cpp)
 	applyFinalLogitSoftcapping(scratch, positions, vocab)
-	if diffusionGemmaLayerTraceOpsEnabled() {
-		row := diffusionGemmaLayerTraceRow()
-		if row >= 0 && row < len(scratch.Logits) {
-			ids, vals := topLogits(scratch.Logits[row], 8)
-			fmt.Fprintf(os.Stderr, "DiffusionGemma lmhead_trace: step=%d enc_seq=%d row=%d top_ids=%v top_logits=%v\n", diffusionGemmaTracePhase.step, diffusionGemmaTracePhase.seq, row, ids, vals)
-		}
-	}
+	traceLMHeadTopLogits(scratch)
 	return nil
 }
 
