@@ -190,3 +190,33 @@ Process wall:     11.204s
 ```
 
 GPU memory returned to ~255 MiB after process exit.
+
+### GGUF strict-fixture steady-state MTP graph-cycle throughput
+
+`tmp/mtp_cycle_bench.go` was used as a temporary one-off benchmark to load the Gemma4 E4B QAT GGUF verifier and BF16 MTP drafter once, build the prompt context once, then run the strict fixture graph cycle five times from fresh decode states.
+
+Log: `logs/mtp-cycle-steady-20260617-002600.log`
+
+Result: PASS for accepted-token semantics on every iteration.
+
+```text
+iter=0 elapsed=11.893803613s output=[564 236789 236757] accepted=2 bonus=236757
+iter=1 elapsed=11.826009510s output=[564 236789 236757] accepted=2 bonus=236757
+iter=2 elapsed=11.845546187s output=[564 236789 236757] accepted=2 bonus=236757
+iter=3 elapsed=11.919657652s output=[564 236789 236757] accepted=2 bonus=236757
+iter=4 elapsed=11.851677704s output=[564 236789 236757] accepted=2 bonus=236757
+```
+
+Timing summary:
+
+| Metric | Value |
+|---|---:|
+| model + drafter load | 3.574s |
+| prompt context build | 5.249s |
+| graph cycles | 5 |
+| graph total | 59.337s |
+| output tokens | 15 |
+| steady-state graph throughput | 0.253 tok/s |
+| mean graph cycle time | 11.867s |
+
+This is the best current apples-to-apples MTP graph-cycle throughput number excluding model load. It is still CPU/GGUF verifier-bound and far from llama.cpp performance, but the accepted-token contract is stable.
