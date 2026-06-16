@@ -165,6 +165,8 @@ Important difference vs the initial go-pherence plan:
 
 When regenerating llama.cpp reference traces from recent `llama-server` builds, pass the MTP speculative type explicitly. `--spec-default` may select only n-gram speculation and leave the draft model unused (`speculative.types: none,ngram-mod`). A minimal CPU trace invocation should include `--spec-type draft-mtp --spec-draft-n-max <G> --spec-draft-n-min <G> --spec-draft-p-min 0` together with the main model (`-m`) and drafter (`-md`/`--model-draft`). Keep `--flash-attn on` when regenerating the current selected-logit fixture: on the local Gemma4 QAT+MTP trace, `--flash-attn on` reproduces the fixture logits exactly while `--flash-attn off` produces the same accepted tokens but different selected logits.
 
+Current status: `make gemma4-mtp-parity` is the required green default gate (accepted-token MTP fixture plus GGUF quant oracles). `make gemma4-mtp-strict-parity` is the red 1:1 selected-logit gate and currently reports six verifier-logit mismatches against the local `--flash-attn on` llama.cpp fixture; leave `RealAssetAcceptanceParity=false` until that strict gate is green.
+
 Minimal fixture shape:
 
 ```json
