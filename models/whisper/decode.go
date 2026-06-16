@@ -110,6 +110,7 @@ func GreedyDecodeWithTimestampsPrompt(dec *Decoder, state *DecoderState, cfg Con
 
 	var segments []Segment
 	var currentTokens []int
+	var generated []int
 	var startTime float64
 
 	var logits []float32
@@ -134,6 +135,7 @@ func GreedyDecodeWithTimestampsPrompt(dec *Decoder, state *DecoderState, cfg Con
 		if i == 0 {
 			suppressTokenIDs(logits, dec.BeginSuppressTokens)
 		}
+		suppressInvalidTimestampTransitions(logits, generated)
 		suppressRecentRepeats(logits, currentTokens, 6)
 		nextTok := argmax(logits)
 
@@ -153,6 +155,7 @@ func GreedyDecodeWithTimestampsPrompt(dec *Decoder, state *DecoderState, cfg Con
 		} else {
 			currentTokens = append(currentTokens, nextTok)
 		}
+		generated = append(generated, nextTok)
 
 		logits = dec.ForwardToken(nextTok, state)
 	}
@@ -211,6 +214,44 @@ func repeatedNGram(tokens []int, nextTok, n int) bool {
 		}
 	}
 	return false
+}
+
+func suppressInvalidTimestampTransitions(logits []float32, generated []int) {
+	if len(logits) <= TokenTimestampBegin || len(generated) == 0 {
+		return
+	}
+	last := generated[len(generated)-1]
+	lastWasTimestamp := IsTimestamp(last)
+	penultimateWasTimestamp := len(generated) >= 2 && IsTimestamp(generated[len(generated)-2])
+
+	lastTimestamp := -1
+	for i := len(generated) - 1; i >= 0; i-- {
+		if IsTimestamp(generated[i]) {
+			lastTimestamp = generated[i]
+			break
+		}
+	}
+	if lastTimestamp >= TokenTimestampBegin {
+		for tok := TokenTimestampBegin; tok < lastTimestamp && tok < len(logits); tok++ {
+			logits[tok] = -1e30
+		}
+	}
+
+	if lastWasTimestamp && !penultimateWasTimestamp {
+		// Whisper timestamp tokens are emitted as pairs. After a single timestamp,
+		// force the next token to be a timestamp so the segment boundary closes.
+		for tok := 0; tok < TokenTimestampBegin && tok < len(logits); tok++ {
+			logits[tok] = -1e30
+		}
+		return
+	}
+	if lastWasTimestamp && penultimateWasTimestamp {
+		// A completed timestamp pair must be followed by text/EOT, not another
+		// timestamp run.
+		for tok := TokenTimestampBegin; tok < len(logits); tok++ {
+			logits[tok] = -1e30
+		}
+	}
 }
 
 func suppressTimestampPromptSpecials(logits []float32) {

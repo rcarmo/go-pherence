@@ -16,6 +16,37 @@ func TestSuppressTimestampPromptSpecialsAllowsTimestamps(t *testing.T) {
 	}
 }
 
+func TestSuppressInvalidTimestampTransitionsForcesTimestampPair(t *testing.T) {
+	logits := make([]float32, TokenTimestampBegin+8)
+	for i := range logits {
+		logits[i] = 1
+	}
+	suppressInvalidTimestampTransitions(logits, []int{42, TokenTimestampBegin + 5})
+	if logits[42] > -1e20 || logits[TokenEOT] > -1e20 {
+		t.Fatalf("text/EOT logits were not suppressed after unpaired timestamp")
+	}
+	if logits[TokenTimestampBegin+4] > -1e20 {
+		t.Fatalf("decreasing timestamp was not suppressed")
+	}
+	if logits[TokenTimestampBegin+5] < 0 || logits[TokenTimestampBegin+7] < 0 {
+		t.Fatalf("valid timestamp pair candidates were suppressed")
+	}
+}
+
+func TestSuppressInvalidTimestampTransitionsStopsTimestampRunAfterPair(t *testing.T) {
+	logits := make([]float32, TokenTimestampBegin+8)
+	for i := range logits {
+		logits[i] = 1
+	}
+	suppressInvalidTimestampTransitions(logits, []int{TokenTimestampBegin + 3, TokenTimestampBegin + 5})
+	if logits[42] != 1 || logits[TokenEOT] != 1 {
+		t.Fatalf("text/EOT logits should remain available after timestamp pair")
+	}
+	if logits[TokenTimestampBegin+5] > -1e20 || logits[TokenTimestampBegin+7] > -1e20 {
+		t.Fatalf("timestamp logits were not suppressed after completed pair")
+	}
+}
+
 func TestGreedyDecodeWithTimestampsPromptAcceptsTranslatePrompt(t *testing.T) {
 	cfg := Tiny()
 	cfg.DecoderLayers = 0
