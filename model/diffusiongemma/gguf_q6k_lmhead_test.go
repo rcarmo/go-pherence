@@ -36,10 +36,19 @@ func TestGGUFQ6KLMHeadRowDotMatchesQ8KRoundedDequantOracle(t *testing.T) {
 	q8x := append([]float32(nil), x...)
 	quantizeDequantQ8KForExpertDot(q8x, q8x)
 	row := make([]float32, m.InDim)
+	x2 := append(append([]float32(nil), x...), x...)
+	for i := range x {
+		x2[len(x)+i] *= 0.75
+	}
 	pre, err := prequantizeQ8KRowsForLMHead(x, 1, m.InDim)
 	if err != nil {
 		t.Fatal(err)
 	}
+	pre2, err := prequantizeQ8KRowsForLMHead(x2, 2, m.InDim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scores := make([]float32, 2)
 	for r := 0; r < m.OutDim; r++ {
 		if err := m.DequantRowTo(row, r); err != nil {
 			t.Fatal(err)
@@ -61,6 +70,16 @@ func TestGGUFQ6KLMHeadRowDotMatchesQ8KRoundedDequantOracle(t *testing.T) {
 		}
 		if math.Abs(float64(gotPre-got)) > 1e-6 {
 			t.Fatalf("row=%d prequant=%g single=%g", r, gotPre, got)
+		}
+		if err := ggufQ6KMatrixRowDotPrequantRows(m, r, pre2, scores); err != nil {
+			t.Fatal(err)
+		}
+		gotSecond, err := ggufQ6KMatrixRowDotQ8K(m, r, x2[m.InDim:])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if math.Abs(float64(scores[0]-got)) > 1e-6 || math.Abs(float64(scores[1]-gotSecond)) > 1e-6 {
+			t.Fatalf("row=%d scores=%v want [%g %g]", r, scores, got, gotSecond)
 		}
 	}
 }

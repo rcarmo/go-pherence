@@ -1691,15 +1691,13 @@ func runLMHead(weights *TextWeights, scratch ForwardScratch) error {
 					wg.Add(1)
 					go func(v0, v1 int) {
 						defer wg.Done()
+						scores := make([]float32, positions)
 						for vocabID := v0; vocabID < v1; vocabID++ {
-							for pos := 0; pos < positions; pos++ {
-								q8d := q8Rows.ds[pos*q8Rows.blocks : (pos+1)*q8Rows.blocks]
-								q8qs := q8Rows.qs[pos*q8Rows.blocks*256 : (pos+1)*q8Rows.blocks*256]
-								v, err := ggufQ6KMatrixRowDotPrequant(qm, vocabID, q8d, q8qs)
-								if err != nil {
-									errOnce.Do(func() { firstErr = err })
-									return
-								}
+							if err := ggufQ6KMatrixRowDotPrequantRows(qm, vocabID, q8Rows, scores); err != nil {
+								errOnce.Do(func() { firstErr = err })
+								return
+							}
+							for pos, v := range scores {
 								scratch.Logits[pos][vocabID] = v
 							}
 						}
