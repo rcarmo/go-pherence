@@ -95,15 +95,9 @@ func ggufQ6KRawRowDotPrequant(raw []byte, inDim int, q8d []float32, q8qs []int8)
 			qlOff += 64
 			qhOff += 32
 		}
-		var isum int32
-		for group := 0; group < 16; group++ {
-			scale := int32(int8(scales[group]))
-			base := group * 16
-			acc := int32(0)
-			for i := 0; i < 16; i++ {
-				acc += int32(q8[base+i]) * int32(q6[base+i])
-			}
-			isum += scale * acc
+		isum, ok := q6KBlockISum(q8, &q6, scales)
+		if !ok {
+			return 0, fmt.Errorf("Q6_K/Q8_K block dot rejected")
 		}
 		total += d * q8d[b] * float32(isum)
 	}
@@ -139,15 +133,9 @@ func ggufQ6KRawRowDotQ8K(raw []byte, inDim int, x []float32) (float32, error) {
 			qlOff += 64
 			qhOff += 32
 		}
-		var isum int32
-		for group := 0; group < 16; group++ {
-			scale := int32(int8(scales[group]))
-			base := group * 16
-			acc := int32(0)
-			for i := 0; i < 16; i++ {
-				acc += int32(q8[base+i]) * int32(q6[base+i])
-			}
-			isum += scale * acc
+		isum, ok := q6KBlockISum(q8[:], &q6, scales)
+		if !ok {
+			return 0, fmt.Errorf("Q6_K/Q8_K block dot rejected")
 		}
 		total += d * q8d * float32(isum)
 	}
@@ -187,15 +175,9 @@ func ggufQ6KRawRowDotPrequantRows(raw []byte, inDim int, q8 *q8KPrequantRows, ou
 		for pos := 0; pos < q8.positions; pos++ {
 			q8base := (pos*blocks + b) * 256
 			q8q := q8.qs[q8base : q8base+256]
-			var isum int32
-			for group := 0; group < 16; group++ {
-				scale := int32(int8(scales[group]))
-				base := group * 16
-				acc := int32(0)
-				for i := 0; i < 16; i++ {
-					acc += int32(q8q[base+i]) * int32(q6[base+i])
-				}
-				isum += scale * acc
+			isum, ok := q6KBlockISum(q8q, &q6, scales)
+			if !ok {
+				return fmt.Errorf("Q6_K/Q8_K block dot rejected")
 			}
 			out[pos] += d * q8.ds[pos*blocks+b] * float32(isum)
 		}
