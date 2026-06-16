@@ -128,7 +128,9 @@ func loadParityFixture(path string) (parityFixture, error) {
 }
 
 func runParity(path string, fx parityFixture) (parityReport, error) {
+	oldForceOnTheFly := model.ForceOnTheFly
 	model.ForceOnTheFly = true
+	defer func() { model.ForceOnTheFly = oldForceOnTheFly }()
 	m, err := loadMainModelForParity(fx.MainModel)
 	if err != nil {
 		return parityReport{}, fmt.Errorf("load main model: %w", err)
