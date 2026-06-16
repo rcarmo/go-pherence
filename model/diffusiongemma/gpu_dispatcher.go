@@ -117,6 +117,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	positions := len(ctx.Canvas)
 
 	scratch := NewForwardScratch(buffers)
+	setDiffusionGemmaTracePhase(ctx)
 	scratch.LMHeadTopK = d.LMHeadTopK
 	scratch.FP8ExpertIndex = d.ExpertIndex
 	scratch.GGUFExpertIndex = d.GGUFExpertIndex
