@@ -74,6 +74,13 @@ func linearInto(out, x, weight, bias []float32, inDim, outDim int) {
 // layerNormInto applies LayerNorm into a pre-allocated buffer.
 func layerNormInto(out, x, weight, bias []float32, dim int) {
 	const eps = 1e-5
+	if simdrt.LayerNormLastAxisTo(out[:dim], x[:dim], 1, dim, weight, bias, eps) {
+		return
+	}
+	layerNormScalarOracleInto(out, x, weight, bias, dim, eps)
+}
+
+func layerNormScalarOracleInto(out, x, weight, bias []float32, dim int, eps float32) {
 	var sum float64
 	for d := 0; d < dim; d++ {
 		sum += float64(x[d])
@@ -84,7 +91,7 @@ func layerNormInto(out, x, weight, bias []float32, dim int) {
 		diff := float64(x[d]) - mean
 		varSum += diff * diff
 	}
-	invStd := float32(1.0 / math.Sqrt(varSum/float64(dim)+eps))
+	invStd := float32(1.0 / math.Sqrt(varSum/float64(dim)+float64(eps)))
 	for d := 0; d < dim; d++ {
 		normed := (x[d] - float32(mean)) * invStd
 		if weight != nil {

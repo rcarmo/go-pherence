@@ -286,9 +286,22 @@ func attentionSingleInto(out, q, kCache, vCache []float32, seqKV, numHeads, head
 	for h := 0; h < numHeads; h++ {
 		hOff := h * headDim
 
-		// Compute attention scores with unrolled dot product
+		// Compute attention scores with SIMD dot products. Sdotx4 covers four
+		// time rows at once while preserving the scalar tail path.
 		qHead := q[hOff : hOff+headDim]
-		for tkv := 0; tkv < seqKV; tkv++ {
+		tkv := 0
+		for ; tkv+3 < seqKV; tkv += 4 {
+			kOff := tkv*dModel + hOff
+			d0, d1, d2, d3, ok := simdrt.Sdotx4(qHead, kCache[kOff:], dModel)
+			if !ok {
+				break
+			}
+			scores[tkv+0] = d0 * scale
+			scores[tkv+1] = d1 * scale
+			scores[tkv+2] = d2 * scale
+			scores[tkv+3] = d3 * scale
+		}
+		for ; tkv < seqKV; tkv++ {
 			kOff := tkv*dModel + hOff
 			scores[tkv] = simdrt.Sdot(qHead, kCache[kOff:kOff+headDim]) * scale
 		}
@@ -328,7 +341,19 @@ func crossAttentionHeadMajor(out, q, kHead, vHead []float32, seqKV, numHeads, he
 		hOff := h * headDim
 		qHead := q[hOff : hOff+headDim]
 		base := h * seqKV * headDim // contiguous block for this head
-		for tkv := 0; tkv < seqKV; tkv++ {
+		tkv := 0
+		for ; tkv+3 < seqKV; tkv += 4 {
+			ko := base + tkv*headDim
+			d0, d1, d2, d3, ok := simdrt.Sdotx4(qHead, kHead[ko:], headDim)
+			if !ok {
+				break
+			}
+			scores[tkv+0] = d0 * scale
+			scores[tkv+1] = d1 * scale
+			scores[tkv+2] = d2 * scale
+			scores[tkv+3] = d3 * scale
+		}
+		for ; tkv < seqKV; tkv++ {
 			ko := base + tkv*headDim
 			scores[tkv] = simdrt.Sdot(qHead, kHead[ko:ko+headDim]) * scale
 		}

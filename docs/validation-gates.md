@@ -32,12 +32,15 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 # Treat the native CPU/SIMD path as the oracle for NEON, RISC-V/IME, A100,
 # NVIDIA, and CUDA/PTX refinements; hardware paths must preserve these results.
 # The transcript parity target fails loudly if local turbo weights/tokenizer/JFK audio are missing.
+# The SIMD parity target is a required scalar-oracle gate for locally runnable
+# Whisper vectorized paths (mel/filterbank, conv1d, attention/GEMV, dot kernels).
 # The CUDA parity target is a numeric CPU-oracle gate for the opt-in CUDA graph
 # surfaces; it skips unavailable CUDA kernels on CPU-only hosts but runs on CUDA hosts.
 # The GPU graph parity target runs the same JFK transcript contract with the
 # umbrella GPU graph flag enabled, exercising real CUDA dispatch on CUDA hosts
 # while preserving CPU/SIMD fallback behavior on CPU-only hosts.
 make whisper-turbo-parity
+make whisper-simd-parity
 make whisper-cuda-parity
 make whisper-gpu-graph-parity
 make whisper-turbo-check
@@ -48,6 +51,9 @@ WHISPER_RUN_GPU_RTF=1 GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
   -run TestGPURTFEstimate -count=1 -v
 
 # Equivalent explicit form:
+GOTMPDIR=$PWD/.gotmp go test ./models/whisper ./loader/audio ./backends/simd/fft ./backends/simd/runtime \
+  -run 'TestWhisperConv1DFastMatchesScalarOracle|TestWhisperLayerNormUsesSIMDOracleMatchesScalar|TestWhisperFullAttentionMatchesScalarOracle|TestLinearRowBlockUsesSIMDOracleMatchesScalar|TestMelSpectrogramMatchesReferencePath|TestMelSpectrogramFusedUsesLog10|TestDotI8F32|TestDotI8F32x4|TestSdotx4|TestQ4RowDot' \
+  -count=1 -v
 GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
   -run 'TestGPUEncoderForwardNotReadyFallbackMatchesCPU|TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestWhisperGPUFeatureFlags|TestNewDecoderStateGPU' \
   -count=1 -v
