@@ -92,9 +92,15 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -prompt "Hi"
 
 # Gemma4 QAT+MTP llama.cpp parity gate.
-# First export a llama.cpp/LiteRT reference JSON using the schema documented in
-# docs/mtp-speculative.md, then run both the standalone token/logit report and
-# the Go test selected-logit gate:
+# Default committed fixture: always runs, validating token/acceptance parity when
+# local GGUF assets are present and a trimmed token/acceptance contract otherwise.
+GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
+  -fixture model/testdata/gemma4-mtp-llamacpp-fixture.json
+
+# Strict selected-logit gate. First export a llama.cpp/LiteRT reference JSON using
+# the schema documented in docs/mtp-speculative.md, then run both the standalone
+# token/logit report and the Go test selected-logit gate:
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
   -fixture tmp/gemma4-mtp-llamacpp-fixture.json \
   -model models/gemma4-e4b-it-4bit \
@@ -102,7 +108,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
 GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-4bit \
 GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-mtp-drafter \
-GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture
+GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
 
 # 31B stress smoke, when VRAM headroom permits
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
