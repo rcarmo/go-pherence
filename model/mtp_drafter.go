@@ -292,6 +292,33 @@ func (d *Gemma4MTPDrafter) AssistantTokenEmbeddingInto(dst []float32, tokenID in
 	return nil
 }
 
+// AssistantLogitsInto computes assistant tied-output logits from the assistant
+// hidden row. Gemma4 assistant llama.cpp uses token_embd.weight directly for
+// result_output; nextn.post_projection is only the recurrent h_nextn handoff.
+func (d *Gemma4MTPDrafter) AssistantLogitsInto(dst, assistantHidden []float32) error {
+	if d == nil || (d.EmbedTokens == nil && d.EmbedTokensMLX == nil) {
+		return fmt.Errorf("drafter embeddings/output head are not loaded")
+	}
+	h := d.Config.HiddenSize
+	vocab := d.Config.VocabSize
+	if len(dst) != vocab || len(assistantHidden) != h {
+		return fmt.Errorf("assistant logits dims logits/hidden=%d/%d want %d/%d", len(dst), len(assistantHidden), vocab, h)
+	}
+	if d.EmbedTokensMLX != nil {
+		if !mlx.GemvTo(dst, assistantHidden, d.EmbedTokensMLX) {
+			return fmt.Errorf("assistant MLX output GEMV failed")
+		}
+		return nil
+	}
+	emb := d.EmbedTokens.Data()
+	want, ok := checkedProduct(vocab, h)
+	if !ok || len(emb) < want {
+		return fmt.Errorf("assistant output head len=%d, want at least %d", len(emb), want)
+	}
+	gemvNT(dst, assistantHidden, emb, h, vocab)
+	return nil
+}
+
 // MaskedEmbeddingOrder returns the masked-embedding ordering entry for tokenID.
 func (d *Gemma4MTPDrafter) MaskedEmbeddingOrder(tokenID int) (int, error) {
 	if d == nil || d.MaskedEmbeddingOrdering == nil {

@@ -2,8 +2,10 @@ package model
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
+	simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // MTPDrafterState carries the hidden-state-conditioned drafter inputs between
@@ -93,13 +95,19 @@ func (m *LlamaModel) RunMTPDrafterStepWithExternalKV(d *Gemma4MTPDrafter, state 
 	if err := m.TokenEmbeddingInto(backboneEmbedding, state.PreviousToken); err != nil {
 		return MTPDrafterStepResult{}, fmt.Errorf("drafter backbone embedding: %w", err)
 	}
+	if m.Config.ModelType == "gemma3_text" || m.Config.ModelType == "gemma4_text" {
+		scale := float32(math.Sqrt(float64(m.Config.HiddenSize)))
+		for i := range backboneEmbedding {
+			backboneEmbedding[i] *= scale
+		}
+	}
 	assistantHidden := make([]float32, d.Config.HiddenSize)
 	if err := d.PreProjectInto(assistantHidden, backboneEmbedding, state.Activation); err != nil {
 		return MTPDrafterStepResult{}, err
 	}
 	for l := 0; l < d.Config.NumLayers; l++ {
 		var err error
-		assistantHidden, err = runMTPDrafterQOnlyLayer(d, assistantHidden, l, externalKV)
+		assistantHidden, err = runMTPDrafterQOnlyLayer(m, d, assistantHidden, l, externalKV)
 		if err != nil {
 			return MTPDrafterStepResult{}, err
 		}
@@ -115,8 +123,12 @@ func (m *LlamaModel) RunMTPDrafterStepWithExternalKV(d *Gemma4MTPDrafter, state 
 	if err := d.PostProjectInto(nextActivation, assistantHidden); err != nil {
 		return MTPDrafterStepResult{}, err
 	}
-	logits := make([]float32, m.Config.VocabSize)
-	if err := m.LMHeadLogitsInto(logits, nextActivation); err != nil {
+	logits := make([]float32, d.Config.VocabSize)
+	if d.EmbedTokens != nil || d.EmbedTokensMLX != nil {
+		if err := d.AssistantLogitsInto(logits, assistantHidden); err != nil {
+			return MTPDrafterStepResult{}, err
+		}
+	} else if err := m.LMHeadLogitsInto(logits, nextActivation); err != nil {
 		return MTPDrafterStepResult{}, err
 	}
 	tok, _, err := ArgmaxLogits(logits)
@@ -204,7 +216,7 @@ func (m *LlamaModel) validateMTPDrafterStepModelFull(d *Gemma4MTPDrafter, state 
 	return validateMTPDrafterExternalKV(d, externalKV)
 }
 
-func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int, externalKV *MTPDrafterExternalKV) ([]float32, error) {
+func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float32, layerIdx int, externalKV *MTPDrafterExternalKV) ([]float32, error) {
 	if d == nil || layerIdx < 0 || layerIdx >= len(d.Layers) {
 		return nil, fmt.Errorf("invalid drafter layer %d", layerIdx)
 	}
@@ -230,6 +242,34 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	qNorm := layer.QNorm.Data()
 	for head := 0; head < d.Config.NumHeads; head++ {
 		drafterRMSNormInPlace(d, q[head*headDim:(head+1)*headDim], qNorm)
+	}
+	if d.Config.ModelType == "gemma4_text" {
+		pos := externalKV.SeqLen
+		isSWA := true
+		if layerIdx >= 0 && layerIdx < len(d.Config.LayerTypes) {
+			isSWA = d.Config.LayerTypes[layerIdx] != "full_attention"
+		}
+		if isSWA {
+			rotHalf := headDim / 2
+			freqs := []float32(nil)
+			if m != nil && len(m.RopeFreqsSWA) > 0 && m.RopeHalfSWA > 0 {
+				rotHalf = m.RopeHalfSWA
+				freqs = m.RopeFreqsSWA
+			} else {
+				freqs = buildRoPEFreqs(pos+1, rotHalf, headDim, 10000)
+			}
+			applyRoPEPartial(q, freqs, pos, d.Config.NumHeads, headDim, rotHalf)
+		} else {
+			rotHalf := int(float64(headDim)*0.25) / 2
+			freqs := []float32(nil)
+			if m != nil && len(m.RopeFreqsFull) > 0 && m.RopeHalfFull > 0 {
+				rotHalf = m.RopeHalfFull
+				freqs = m.RopeFreqsFull
+			} else {
+				freqs = buildRoPEFreqs(pos+1, rotHalf, headDim, 1000000)
+			}
+			applyRoPEPartial(q, freqs, pos, d.Config.NumHeads, headDim, rotHalf)
+		}
 	}
 	kvHeads := drafterLayerKVHeads(d, layerIdx)
 	attnOut := drafterGQAAttention(d, q, externalKV.K[source], externalKV.V[source], externalKV.SeqLen, d.Config.NumHeads, kvHeads, headDim)
@@ -278,8 +318,14 @@ func runMTPDrafterQOnlyLayer(d *Gemma4MTPDrafter, hidden []float32, layerIdx int
 	} else {
 		gemvNT(up, mlpInput, layer.UpW, h, d.Config.Intermediate)
 	}
-	for i := range gate {
-		gate[i] = geluTanh(gate[i]) * up[i]
+	if d.Config.ModelType == "gemma4_text" {
+		if !simdruntime.GELUExactMulTo(gate, gate, up) {
+			return nil, fmt.Errorf("drafter layer %d exact GELU×up failed", layerIdx)
+		}
+	} else {
+		for i := range gate {
+			gate[i] = geluTanh(gate[i]) * up[i]
+		}
 	}
 	down := make([]float32, h)
 	if layer.DownWm != nil {
@@ -384,6 +430,7 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 	if d.Config.NumHeads <= 0 || d.Config.NumKVHeads <= 0 || d.Config.HeadDim <= 0 || d.Config.Intermediate <= 0 {
 		return fmt.Errorf("invalid drafter q-only dims heads=%d kvHeads=%d headDim=%d intermediate=%d", d.Config.NumHeads, d.Config.NumKVHeads, d.Config.HeadDim, d.Config.Intermediate)
 	}
+	allowDuplicateSources := d.Config.ModelType == "gemma4_text"
 	usedSources := map[int]bool{}
 	for i := range d.Layers {
 		layer := &d.Layers[i]
@@ -404,10 +451,12 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 		if source < 0 || source >= len(externalKV.K) || source >= len(externalKV.V) {
 			return fmt.Errorf("drafter layer %d external KV source %d out of range K/V=%d/%d", i, source, len(externalKV.K), len(externalKV.V))
 		}
-		if usedSources[source] {
-			return fmt.Errorf("drafter layer %d reuses external KV source %d", i, source)
+		if !allowDuplicateSources {
+			if usedSources[source] {
+				return fmt.Errorf("drafter layer %d reuses external KV source %d", i, source)
+			}
+			usedSources[source] = true
 		}
-		usedSources[source] = true
 		wantKV, ok := checkedProduct(externalKV.SeqLen, kvDim)
 		if !ok {
 			return fmt.Errorf("drafter layer %d external KV length overflows seq=%d kvDim=%d", i, externalKV.SeqLen, kvDim)

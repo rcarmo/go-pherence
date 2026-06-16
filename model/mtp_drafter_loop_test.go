@@ -255,7 +255,7 @@ func TestRunMTPDrafterQOnlyLayerRejectsMLXProjectionFailure(t *testing.T) {
 	d.Layers[0].QW = nil
 	d.Layers[0].QWm = &mlx.QuantWeight{OutDim: 2, InDim: 2, Bits: 4, GroupSize: 8, Groups: 1, Weight: []uint32{0}, Scales: []float32{1, 1}, Biases: []float32{0, 0}}
 	externalKV := &MTPDrafterExternalKV{K: [][]float32{{1, 0}}, V: [][]float32{{0, 1}}, SourceLayers: []int{0}, SeqLen: 1}
-	if _, err := runMTPDrafterQOnlyLayer(d, []float32{0.5, 0.25}, 0, externalKV); err == nil || !strings.Contains(err.Error(), "Q MLX projection failed") {
+	if _, err := runMTPDrafterQOnlyLayer(nil, d, []float32{0.5, 0.25}, 0, externalKV); err == nil || !strings.Contains(err.Error(), "Q MLX projection failed") {
 		t.Fatalf("runMTPDrafterQOnlyLayer malformed MLX err=%v, want projection failure", err)
 	}
 }

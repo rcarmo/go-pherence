@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/rcarmo/go-pherence/backends/mlx"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/common"
 	"github.com/rcarmo/go-pherence/runtime/kv"
@@ -24,9 +25,11 @@ type LlamaModel struct {
 	Config LlamaConfig
 	Tok    *tokenizer.Tokenizer // optional, for chat templates
 
-	EmbedTokens *tensor.Tensor // [vocab, hidden]
+	EmbedTokens     *tensor.Tensor    // [vocab, hidden]
+	EmbedTokensGGUF *gguf.QuantMatrix // [vocab, hidden] quantized GGUF matrix
 
 	EmbedPerLayer      []float32
+	EmbedPerLayerGGUF  *gguf.QuantMatrix
 	PerLayerModelProj  []float32
 	PerLayerProjNorm   []float32
 	PerLayerInputScale float32
@@ -35,6 +38,7 @@ type LlamaModel struct {
 	Norm               *tensor.Tensor
 	LMHead             *tensor.Tensor
 	LMHeadMLX          *mlx.QuantWeight
+	LMHeadGGUF         *gguf.QuantMatrix
 
 	Layers []LlamaLayer
 
@@ -65,12 +69,15 @@ type LlamaLayer struct {
 
 	PLIGate     []float32
 	PLIProj     []float32
+	PLIGateGGUF *gguf.QuantMatrix
+	PLIProjGGUF *gguf.QuantMatrix
 	PLIPostNorm []float32
 	PostFFNNorm *tensor.Tensor
 
-	QW, KW, VW, OW *tensor.Tensor
-	QB, KB, VB     *tensor.Tensor
-	QNorm, KNorm   *tensor.Tensor
+	QW, KW, VW, OW                 *tensor.Tensor
+	QWGGUF, KWGGUF, VWGGUF, OWGGUF *gguf.QuantMatrix
+	QB, KB, VB                     *tensor.Tensor
+	QNorm, KNorm                   *tensor.Tensor
 
 	QWq, KWq, VWq, OWq   *QuantWeight
 	GateWq, UpWq, DownWq *QuantWeight
@@ -78,7 +85,8 @@ type LlamaLayer struct {
 	QWm, KWm, VWm, OWm   *mlx.QuantWeight
 	GateWm, UpWm, DownWm *mlx.QuantWeight
 
-	GateW, UpW, DownW *tensor.Tensor
+	GateW, UpW, DownW             *tensor.Tensor
+	GateWGGUF, UpWGGUF, DownWGGUF *gguf.QuantMatrix
 
 	IsMoE       bool
 	RouterW     *mlx.QuantWeight

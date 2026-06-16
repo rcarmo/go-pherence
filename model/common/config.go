@@ -36,6 +36,7 @@ type Config struct {
 	LinearNumValueHeads   int      `json:"linear_num_value_heads"`
 	LinearValueHeadDim    int      `json:"linear_value_head_dim"`
 	AttentionKEqV         bool     `json:"attention_k_eq_v"`
+	FinalLogitSoftcapping float64  `json:"final_logit_softcapping"`
 
 	MTPNumHiddenLayers        int  `json:"mtp_num_hidden_layers"`
 	MTPUseDedicatedEmbeddings bool `json:"mtp_use_dedicated_embeddings"`
