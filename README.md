@@ -79,6 +79,9 @@ go run ./cmd/llm/specbench -model models/smollm2-135m -prompt-file prompts.txt -
 # Large-v3 translated WebVTT from audio (GPU-assisted, resumable)
 go run ./cmd/audio/diarize-vtt -input meeting.m4a -output meeting.vtt -language es
 
+# Gemma4 QAT+MTP default parity + GGUF quant oracle gate
+make gemma4-mtp-parity
+
 # Native pure Go/SIMD GGUF REAP/TurboQuant validation and benchmark
 make gguf-inspect-qwen36-reap
 make gguf-smoke-qwen36-reap
