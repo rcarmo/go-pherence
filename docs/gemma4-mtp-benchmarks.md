@@ -160,3 +160,32 @@ Logs:
 - `tmp/bench-gemma4-e4b-mtp-generate-2tok-20260616-220832.log`
 
 So speculative-decode tokens/sec for the public CLI path is not yet benchmarkable on this asset pair. Use the llama.cpp fixture acceptance contract and `-mtp-smoke` drafter-step timings until this external-KV handoff gap is fixed.
+
+### Gemma4 E4B GPU-only 8-token smoke
+
+`tmp/bench-gemma4-e4b-gpu-gen8-20260616-221034.log` provides a bounded GPU-only generation timing after the `llmgen` accounting fix:
+
+```bash
+flock /tmp/go-pherence-gpu.lock -c \
+  "GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
+    -gpu -gpu-layers 0 \
+    -model models/gemma4-e4b-it-4bit \
+    -tokens 8 \
+    -prompt 'Hello'"
+```
+
+Result: PASS.
+
+```text
+Output: HelloHello! How can I help you today
+Prompt tokens:    1
+Generated tokens: 8
+Model load:       4.96s
+Total time:       0.98s
+Generation time:  0.87s
+Tokens/sec:       9.2
+ms/token:         108.5
+Process wall:     11.204s
+```
+
+GPU memory returned to ~255 MiB after process exit.
