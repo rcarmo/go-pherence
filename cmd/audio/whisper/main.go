@@ -364,10 +364,6 @@ func punctuationOnly(text string) bool {
 	return seen
 }
 
-func transcribeWithTimestamps(w *whisper.Whisper, samples []float32) []whisper.Segment {
-	return transcribeWindow(w, nil, samples, 0, whisper.TokenEnglish, whisper.TokenTranscribe)
-}
-
 // transcribeWindow runs one <=30s window (mel -> encoder -> greedy decode) and
 // offsets the resulting segment timestamps by offsetSec. Encoder/decoder state
 // is per-call, so multiple windows can run concurrently.
