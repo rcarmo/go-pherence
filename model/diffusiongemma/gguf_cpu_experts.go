@@ -1462,13 +1462,15 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 
 	// Dequant row buffer
 	wf32 := make([]float32, hiddenSize)
+	normedQ8 := append([]float32(nil), normedRow[:hiddenSize]...)
+	quantizeDequantQ8KForExpertDot(normedQ8, normedQ8)
 
 	// Gate+up projection: dequant each output row, dot with input
 	guOut := make([]float32, outDimGU)
 	useDirectQ4GateUp := useDirectQ4GateUpRows(le, 1)
 	for r := 0; r < outDimGU; r++ {
 		if useDirectQ4GateUp {
-			v, err := ggufQ4KExpertRowDot(le.gateUp, expertID, r, normedRow)
+			v, err := ggufQ4KExpertRowDot(le.gateUp, expertID, r, normedQ8)
 			if err != nil {
 				return err
 			}
@@ -1478,7 +1480,7 @@ func (idx *GGUFExpertIndex) RunGGUFExpertMLP(layer, expertID int, normedRow, exp
 		if err := le.gateUp.DequantExpertRowTo(wf32[:hiddenSize], expertID, r); err != nil {
 			return fmt.Errorf("expert %d gate_up row %d: %w", expertID, r, err)
 		}
-		guOut[r] = simd.Sdot(wf32[:hiddenSize], normedRow)
+		guOut[r] = simd.Sdot(wf32[:hiddenSize], normedQ8)
 	}
 	if le.gateUp.QType == gguf.QuantQ4_K {
 		if useDirectQ4GateUp {
