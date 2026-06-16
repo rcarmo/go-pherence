@@ -56,6 +56,7 @@ func (m *LlamaModel) runMTPVerifierBatchRowsSequential(batch MTPVerifierBatchInp
 		pos := batch.Plan.Positions[i]
 		perLayerInputs := batch.PerLayerInputs[i]
 		for l := 0; l < m.Config.NumLayers; l++ {
+			traceMTPVerifierLayerInput(i, l, pos, hidden)
 			if perLayerInputs != nil {
 				var err error
 				hidden, err = m.forwardMTPPromptLayer(hidden, perLayerInputs, l, pos, kvCacheK, kvCacheV, attnScoresScratch, attnOutScratch)
@@ -72,6 +73,87 @@ func (m *LlamaModel) runMTPVerifierBatchRowsSequential(batch MTPVerifierBatchInp
 		finalHiddenRows[i] = hidden
 	}
 	return finalHiddenRows, nil
+}
+
+func traceMTPVerifierLayerInput(row, layer, pos int, hidden []float32) {
+	if os.Getenv("GO_PHERENCE_MTP_TRACE_LAYER_INP") == "" || len(hidden) == 0 {
+		return
+	}
+	var sum, sumsq float64
+	var maxabs float32
+	for _, v := range hidden {
+		fv := float64(v)
+		sum += fv
+		sumsq += fv * fv
+		av := v
+		if av < 0 {
+			av = -av
+		}
+		if av > maxabs {
+			maxabs = av
+		}
+	}
+	h0, h1, h2, h3 := float32(0), float32(0), float32(0), float32(0)
+	if len(hidden) > 0 {
+		h0 = hidden[0]
+	}
+	if len(hidden) > 1 {
+		h1 = hidden[1]
+	}
+	if len(hidden) > 2 {
+		h2 = hidden[2]
+	}
+	if len(hidden) > 3 {
+		h3 = hidden[3]
+	}
+	fmt.Fprintf(os.Stderr, "GO_MTP_LAYER_INP row=%d layer=%d pos=%d mean=%.9g rms=%.9g maxabs=%.9g h0=%.9g h1=%.9g h2=%.9g h3=%.9g\n", row, layer, pos, sum/float64(len(hidden)), math.Sqrt(sumsq/float64(len(hidden))), maxabs, h0, h1, h2, h3)
+}
+
+func traceMTPVerifierLayer0Internal(label string, layer, pos int, hidden []float32) {
+	if os.Getenv("GO_PHERENCE_MTP_TRACE_LAYER0_INTERNAL") == "" || len(hidden) == 0 || pos < 2 || pos > 4 {
+		return
+	}
+	var sum, sumsq float64
+	var maxabs float32
+	for _, v := range hidden {
+		fv := float64(v)
+		sum += fv
+		sumsq += fv * fv
+		av := v
+		if av < 0 {
+			av = -av
+		}
+		if av > maxabs {
+			maxabs = av
+		}
+	}
+	h0, h1, h2, h3 := float32(0), float32(0), float32(0), float32(0)
+	if len(hidden) > 0 {
+		h0 = hidden[0]
+	}
+	if len(hidden) > 1 {
+		h1 = hidden[1]
+	}
+	if len(hidden) > 2 {
+		h2 = hidden[2]
+	}
+	if len(hidden) > 3 {
+		h3 = hidden[3]
+	}
+	mid0, mid1, mid2, mid3 := float32(0), float32(0), float32(0), float32(0)
+	if len(hidden) > 128 {
+		mid0 = hidden[128]
+	}
+	if len(hidden) > 129 {
+		mid1 = hidden[129]
+	}
+	if len(hidden) > 130 {
+		mid2 = hidden[130]
+	}
+	if len(hidden) > 131 {
+		mid3 = hidden[131]
+	}
+	fmt.Fprintf(os.Stderr, "GO_MTP_LAYER_INTERNAL label=%s layer=%d pos=%d mean=%.9g rms=%.9g maxabs=%.9g h0=%.9g h1=%.9g h2=%.9g h3=%.9g h128=%.9g h129=%.9g h130=%.9g h131=%.9g\n", label, layer, pos, sum/float64(len(hidden)), math.Sqrt(sumsq/float64(len(hidden))), maxabs, h0, h1, h2, h3, mid0, mid1, mid2, mid3)
 }
 
 func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvCacheK, kvCacheV [][]float32) ([][]float32, bool, error) {
@@ -93,7 +175,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 		bPLIProj = make([]float32, B*h)
 	}
 	attnScores := make([]float32, batch.Scratch.MaxAttentionRows)
-	isGemma := m.Config.ModelType == "gemma3_text" || m.Config.ModelType == "gemma4_text"
+	isGemma3 := m.Config.ModelType == "gemma3_text"
 	eps := float32(m.Config.RMSNormEps)
 	for l := 0; l < m.Config.NumLayers; l++ {
 		layer := &m.Layers[l]
@@ -153,7 +235,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			for b := 0; b < B; b++ {
 				in := bMlpIn[b*h : (b+1)*h]
 				copy(in, bHidden[b*h:(b+1)*h])
-				if isGemma {
+				if isGemma3 {
 					simd.RMSNormBF16(in, layer.PreFFNNorm.Data(), eps)
 				} else {
 					rmsNormInPlace(in, layer.PreFFNNorm.Data(), eps)
@@ -177,14 +259,18 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 		for b := 0; b < B; b++ {
 			gate := bGate[b*inter : (b+1)*inter]
 			up := bUp[b*inter : (b+1)*inter]
-			if isGemma {
+			if isGemma3 {
 				simd.ToBF16(gate)
 				simd.ToBF16(up)
 			}
 			if m.Config.HiddenAct == "gelu_pytorch_tanh" {
-				simd.GELUTanhMul(gate, gate, up)
-				if isGemma {
-					simd.ToBF16(gate)
+				if m.Config.ModelType == "gemma4_text" {
+					ggmlGELUMulInPlace(gate, up)
+				} else {
+					simd.GELUTanhMul(gate, gate, up)
+					if isGemma3 {
+						simd.ToBF16(gate)
+					}
 				}
 			} else {
 				simd.VecSiLUMul(gate, gate, up)
@@ -195,11 +281,11 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 		}
 		for b := 0; b < B; b++ {
 			down := bDown[b*h : (b+1)*h]
-			if isGemma {
+			if isGemma3 {
 				simd.ToBF16(down)
 			}
 			if layer.PostFFNNorm != nil {
-				if isGemma {
+				if isGemma3 {
 					rmsNormBF16(down, layer.PostFFNNorm.Data(), eps)
 				} else {
 					rmsNormInPlace(down, layer.PostFFNNorm.Data(), eps)
@@ -208,23 +294,43 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			hid := bHidden[b*h : (b+1)*h]
 			simd.VecAdd(hid, bResidual[b*h:(b+1)*h], down)
 		}
-		if batch.HasPerLayerInputs && layer.PLIGate != nil {
+		if batch.HasPerLayerInputs && (layer.PLIGate != nil || layer.PLIGateGGUF != nil) {
 			hpl := m.Config.HiddenPerLayer
-			if hpl <= 0 || len(layer.PLIGate) < hpl*h || len(layer.PLIProj) < h*hpl || len(layer.PLIPostNorm) < h || len(bPLIGate) < B*hpl || len(bPLIProj) < B*h {
+			if hpl <= 0 || len(layer.PLIPostNorm) < h || len(bPLIGate) < B*hpl || len(bPLIProj) < B*h {
 				return nil, true, fmt.Errorf("verifier batch layer %d invalid PLI dims", l)
 			}
-			if !simd.GemmRowsParallel(bPLIGate[:B*hpl], bHidden[:B*h], layer.PLIGate, B, hpl, h) {
-				return nil, true, fmt.Errorf("verifier batch layer %d PLI gate rejected", l)
+			if layer.PLIGateGGUF != nil {
+				for b := 0; b < B; b++ {
+					if !gemvGGUFTo(bPLIGate[b*hpl:(b+1)*hpl], bHidden[b*h:(b+1)*h], layer.PLIGateGGUF, h, hpl) {
+						return nil, true, fmt.Errorf("verifier batch layer %d GGUF PLI gate rejected", l)
+					}
+				}
+			} else {
+				if len(layer.PLIGate) < hpl*h || !simd.GemmRowsParallel(bPLIGate[:B*hpl], bHidden[:B*h], layer.PLIGate, B, hpl, h) {
+					return nil, true, fmt.Errorf("verifier batch layer %d PLI gate rejected", l)
+				}
 			}
 			for b := 0; b < B; b++ {
 				gate := bPLIGate[b*hpl : (b+1)*hpl]
 				if l >= len(batch.PerLayerInputs[b]) || len(batch.PerLayerInputs[b][l]) < hpl {
 					return nil, true, fmt.Errorf("verifier batch layer %d row %d missing PLI row", l, b)
 				}
-				simd.GELUTanhMul(gate, gate, batch.PerLayerInputs[b][l][:hpl])
+				if m.Config.ModelType == "gemma4_text" {
+					ggmlGELUMulInPlace(gate, batch.PerLayerInputs[b][l][:hpl])
+				} else {
+					simd.GELUTanhMul(gate, gate, batch.PerLayerInputs[b][l][:hpl])
+				}
 			}
-			if !simd.GemmRowsParallel(bPLIProj[:B*h], bPLIGate[:B*hpl], layer.PLIProj, B, h, hpl) {
-				return nil, true, fmt.Errorf("verifier batch layer %d PLI projection rejected", l)
+			if layer.PLIProjGGUF != nil {
+				for b := 0; b < B; b++ {
+					if !gemvGGUFTo(bPLIProj[b*h:(b+1)*h], bPLIGate[b*hpl:(b+1)*hpl], layer.PLIProjGGUF, hpl, h) {
+						return nil, true, fmt.Errorf("verifier batch layer %d GGUF PLI projection rejected", l)
+					}
+				}
+			} else {
+				if len(layer.PLIProj) < h*hpl || !simd.GemmRowsParallel(bPLIProj[:B*h], bPLIGate[:B*hpl], layer.PLIProj, B, h, hpl) {
+					return nil, true, fmt.Errorf("verifier batch layer %d PLI projection rejected", l)
+				}
 			}
 			for b := 0; b < B; b++ {
 				proj := bPLIProj[b*h : (b+1)*h]
@@ -238,7 +344,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			if layer.LayerScalar != 1.0 {
 				simd.VecScale(hid, hid, layer.LayerScalar)
 			}
-			if isGemma {
+			if isGemma3 {
 				simd.ToBF16(hid)
 			}
 		}

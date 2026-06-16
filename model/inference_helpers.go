@@ -9,7 +9,7 @@ import (
 
 // TokenEmbeddingInto copies the raw token embedding row into dst.
 func (m *LlamaModel) TokenEmbeddingInto(dst []float32, tokenID int) error {
-	if m == nil || m.EmbedTokens == nil {
+	if m == nil || (m.EmbedTokens == nil && m.EmbedTokensGGUF == nil) {
 		return fmt.Errorf("model embeddings are not loaded")
 	}
 	h := m.Config.HiddenSize
@@ -21,6 +21,12 @@ func (m *LlamaModel) TokenEmbeddingInto(dst []float32, tokenID int) error {
 	}
 	if tokenID < 0 || tokenID >= m.Config.VocabSize {
 		return fmt.Errorf("token id %d out of range [0,%d)", tokenID, m.Config.VocabSize)
+	}
+	if m.EmbedTokensGGUF != nil {
+		if m.EmbedTokensGGUF.InDim != h || m.EmbedTokensGGUF.OutDim != m.Config.VocabSize {
+			return fmt.Errorf("GGUF embedding dims out/in=%d/%d, want %d/%d", m.EmbedTokensGGUF.OutDim, m.EmbedTokensGGUF.InDim, m.Config.VocabSize, h)
+		}
+		return m.EmbedTokensGGUF.DequantRowTo(dst, tokenID)
 	}
 	emb := m.EmbedTokens.Data()
 	start, ok := checkedProduct(tokenID, h)
@@ -46,9 +52,11 @@ func (m *LlamaModel) ScaledTokenEmbeddingInto(dst []float32, tokenID int) error 
 		for i := range dst {
 			dst[i] *= scale
 		}
-		// Truncate the whole row to BF16 in one pass instead of allocating a
-		// one-element slice per element.
-		simd.ToBF16(dst)
+		// Gemma3 decode path historically matches BF16-scaled embeddings, but
+		// llama.cpp Gemma4 keeps the scaled embedding row in F32 at layer 0.
+		if m.Config.ModelType == "gemma3_text" {
+			simd.ToBF16(dst)
+		}
 	}
 	return nil
 }
@@ -107,6 +115,11 @@ func (m *LlamaModel) Gemma4PerLayerInputsInto(projBuf []float32, slices [][]floa
 			return nil, fmt.Errorf("per-layer embedding len=%d, want at least %d", len(m.EmbedPerLayer), need)
 		}
 	}
+	if m.EmbedPerLayerGGUF != nil && tokenID < cfg.VocabPerLayer {
+		if m.EmbedPerLayerGGUF.InDim != totalDim || m.EmbedPerLayerGGUF.OutDim != cfg.VocabPerLayer {
+			return nil, fmt.Errorf("GGUF per-layer embedding dims out/in=%d/%d, want %d/%d", m.EmbedPerLayerGGUF.OutDim, m.EmbedPerLayerGGUF.InDim, cfg.VocabPerLayer, totalDim)
+		}
+	}
 
 	var proj []float32
 	if cap(projBuf) >= totalDim {
@@ -122,7 +135,15 @@ func (m *LlamaModel) Gemma4PerLayerInputsInto(projBuf []float32, slices [][]floa
 		sl := proj[l*hpl : (l+1)*hpl]
 		rmsNormInPlace(sl, m.PerLayerProjNorm, float32(cfg.RMSNormEps))
 	}
-	if m.EmbedPerLayer != nil && tokenID < cfg.VocabPerLayer {
+	if m.EmbedPerLayerGGUF != nil && tokenID < cfg.VocabPerLayer {
+		embRow := make([]float32, totalDim)
+		if err := m.EmbedPerLayerGGUF.DequantRowTo(embRow, tokenID); err != nil {
+			return nil, err
+		}
+		for i := range proj {
+			proj[i] = (proj[i] + embRow[i]*m.EmbedPerLayerScale) * m.PerLayerInputScale
+		}
+	} else if m.EmbedPerLayer != nil && tokenID < cfg.VocabPerLayer {
 		embRow := m.EmbedPerLayer[tokenID*totalDim : (tokenID+1)*totalDim]
 		for i := range proj {
 			proj[i] = (proj[i] + embRow[i]*m.EmbedPerLayerScale) * m.PerLayerInputScale
@@ -143,7 +164,7 @@ func (m *LlamaModel) Gemma4PerLayerInputsInto(projBuf []float32, slices [][]floa
 
 // LMHeadLogitsInto computes logits = hidden · lm_head^T.
 func (m *LlamaModel) LMHeadLogitsInto(logits, hidden []float32) error {
-	if m == nil || m.LMHead == nil {
+	if m == nil || (m.LMHead == nil && m.LMHeadGGUF == nil) {
 		return fmt.Errorf("model LM head is not loaded")
 	}
 	h := m.Config.HiddenSize
@@ -161,6 +182,16 @@ func (m *LlamaModel) LMHeadLogitsInto(logits, hidden []float32) error {
 	if len(logits) != vocab {
 		return fmt.Errorf("logits len=%d, want %d", len(logits), vocab)
 	}
+	if m.LMHeadGGUF != nil {
+		if m.LMHeadGGUF.InDim != h || m.LMHeadGGUF.OutDim != vocab {
+			return fmt.Errorf("GGUF LM head dims out/in=%d/%d, want %d/%d", m.LMHeadGGUF.OutDim, m.LMHeadGGUF.InDim, vocab, h)
+		}
+		if err := gemvGGUFQuantRows(logits, hidden, m.LMHeadGGUF, h, vocab); err != nil {
+			return err
+		}
+		applyLlamaFinalLogitSoftcap(logits, m.Config.FinalLogitSoftcapping)
+		return nil
+	}
 	lmData := m.LMHead.Data()
 	if len(lmData) != want {
 		return fmt.Errorf("LM head data len=%d, want %d", len(lmData), want)
@@ -172,7 +203,19 @@ func (m *LlamaModel) LMHeadLogitsInto(logits, hidden []float32) error {
 			logits[v] = simdDot(hidden, lmData[v*h:(v+1)*h])
 		}
 	}
+	applyLlamaFinalLogitSoftcap(logits, m.Config.FinalLogitSoftcapping)
 	return nil
+}
+
+func applyLlamaFinalLogitSoftcap(logits []float32, c float64) {
+	if c <= 0 {
+		return
+	}
+	capF := float32(c)
+	inv := float32(1.0 / c)
+	for i, v := range logits {
+		logits[i] = float32(math.Tanh(float64(v*inv))) * capF
+	}
 }
 
 // ArgmaxLogits returns the index and value of the maximum logit.

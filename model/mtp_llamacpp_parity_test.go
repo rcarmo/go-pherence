@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -46,11 +47,11 @@ func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	if err := json.Unmarshal(data, &fx); err != nil {
 		t.Fatalf("parse fixture: %v", err)
 	}
-	if fx.MainModel == "" {
-		fx.MainModel = os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if envMain := os.Getenv("GO_PHERENCE_GEMMA4_MAIN"); envMain != "" {
+		fx.MainModel = envMain
 	}
-	if fx.Drafter == "" {
-		fx.Drafter = os.Getenv("GO_PHERENCE_GEMMA4_MTP_DRAFTER")
+	if envDrafter := os.Getenv("GO_PHERENCE_GEMMA4_MTP_DRAFTER"); envDrafter != "" {
+		fx.Drafter = envDrafter
 	}
 	if fx.MainModel == "" || fx.Drafter == "" {
 		t.Fatalf("fixture or env must supply main_model/drafter paths")
@@ -72,18 +73,36 @@ func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	}
 
 	ForceOnTheFly = true
-	m, err := LoadLlama(fx.MainModel)
+	var m *LlamaModel
+	if strings.HasSuffix(strings.ToLower(fx.MainModel), ".gguf") {
+		m, err = LoadGemma4GGUFAsLlama(fx.MainModel)
+	} else {
+		m, err = LoadLlama(fx.MainModel)
+	}
 	if err != nil {
 		t.Fatalf("load main model: %v", err)
 	}
-	d, err := LoadGemma4MTPDrafter(fx.Drafter)
+	var d *Gemma4MTPDrafter
+	if strings.HasSuffix(strings.ToLower(fx.Drafter), ".gguf") {
+		d, err = LoadGemma4MTPDrafterGGUF(fx.Drafter)
+	} else {
+		d, err = LoadGemma4MTPDrafter(fx.Drafter)
+	}
 	if err != nil {
 		t.Fatalf("load MTP drafter: %v", err)
 	}
 	if m.Config.HiddenSize != d.BackboneHiddenSize || m.Config.VocabSize != d.Config.VocabSize {
 		t.Fatalf("model/drafter mismatch h/vocab=%d/%d backbone/vocab=%d/%d", m.Config.HiddenSize, m.Config.VocabSize, d.BackboneHiddenSize, d.Config.VocabSize)
 	}
-	ctx, err := m.BuildMTPPromptContext(fx.Prompt)
+	promptForContext := append([]int(nil), fx.Prompt...)
+	inputToken := fx.Cycle.InputToken
+	if inputToken < 0 {
+		inputToken = promptForContext[len(promptForContext)-1]
+	}
+	if len(promptForContext) > 1 && promptForContext[len(promptForContext)-1] == inputToken {
+		promptForContext = promptForContext[:len(promptForContext)-1]
+	}
+	ctx, err := m.BuildMTPPromptContext(promptForContext)
 	if err != nil {
 		t.Fatalf("prompt context: %v", err)
 	}
@@ -100,7 +119,7 @@ func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 			t.Fatalf("compressed prompt seed: %v", err)
 		}
 	}
-	state, err := NewMTPDrafterState(ctx.PreviousToken, ctx.Activation, d.BackboneHiddenSize)
+	state, err := NewMTPDrafterState(inputToken, ctx.Activation, d.BackboneHiddenSize)
 	if err != nil {
 		t.Fatalf("drafter state: %v", err)
 	}

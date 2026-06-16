@@ -43,7 +43,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	}
 
 	// RMSNorm
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		rmsNormBF16(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
 	} else {
 		rmsNormInPlace(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
@@ -106,8 +106,8 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 		}
 	}
 
-	// BF16 truncation for Gemma
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	// BF16 truncation for Gemma3. llama.cpp Gemma4 keeps Q/K/V F32 here.
+	if cfg.ModelType == "gemma3_text" {
 		bf16Slice(q)
 		if k != nil {
 			bf16Slice(k)
@@ -125,7 +125,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 
 	// QK-Norm
 	normFn := rmsNormInPlace
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		normFn = rmsNormBF16
 	}
 	if layer.QNorm != nil {
@@ -228,7 +228,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	if layer.PreFFNNorm != nil {
 		mlpInput = make([]float32, h)
 		copy(mlpInput, hidden)
-		if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+		if cfg.ModelType == "gemma3_text" {
 			rmsNormBF16(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
 		} else {
 			rmsNormInPlace(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
@@ -263,14 +263,18 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 		m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
 	}
 
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		bf16Slice(gate)
 		bf16Slice(up)
 	}
 
 	if cfg.HiddenAct == "gelu_pytorch_tanh" {
-		simd.GELUTanhMul(gate, gate, up)
-		bf16Slice(gate)
+		if cfg.ModelType == "gemma4_text" {
+			ggmlGELUMulInPlace(gate, up)
+		} else {
+			simd.GELUTanhMul(gate, gate, up)
+			bf16Slice(gate)
+		}
 	} else {
 		simd.VecSiLUMul(gate, gate, up)
 	}
@@ -288,13 +292,13 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 		m.mv(down, gate, layer.DownW.Data(), layerInter, h)
 	}
 
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		bf16Slice(down)
 	}
 
 	// Post-FFN norm
 	if layer.PostFFNNorm != nil {
-		if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+		if cfg.ModelType == "gemma3_text" {
 			rmsNormBF16(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
 		} else {
 			rmsNormInPlace(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
@@ -308,7 +312,7 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	if layer.LayerScalar != 1.0 {
 		simd.VecScale(hidden, hidden, layer.LayerScalar)
 	}
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		bf16Slice(hidden)
 	}
 

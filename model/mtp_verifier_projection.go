@@ -55,10 +55,10 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 	}
 	normed := make([]float32, B*h)
 	copy(normed, hiddenFlat[:B*h])
-	isGemma := m.Config.ModelType == "gemma3_text" || m.Config.ModelType == "gemma4_text"
+	isGemma3 := m.Config.ModelType == "gemma3_text"
 	for b := 0; b < B; b++ {
 		row := normed[b*h : (b+1)*h]
-		if isGemma {
+		if isGemma3 {
 			simd.RMSNormBF16(row, layer.InputNorm.Data(), float32(m.Config.RMSNormEps))
 		} else {
 			rmsNormInPlace(row, layer.InputNorm.Data(), float32(m.Config.RMSNormEps))
@@ -127,8 +127,8 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 
 func postProcessMTPVerifierQKV(m *LlamaModel, layer *LlamaLayer, layerIdx int, q, k, v []float32, pos, headDim, kvHeads int) {
 	cfg := m.Config
-	isGemma := cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text"
-	if isGemma {
+	isGemma3 := cfg.ModelType == "gemma3_text"
+	if isGemma3 {
 		simd.ToBF16(q)
 		if k != nil {
 			simd.ToBF16(k)
@@ -143,7 +143,7 @@ func postProcessMTPVerifierQKV(m *LlamaModel, layer *LlamaLayer, layerIdx int, q
 		}
 	}
 	normFn := rmsNormInPlace
-	if isGemma {
+	if isGemma3 {
 		normFn = rmsNormBF16
 	}
 	if cfg.ModelType == "gemma4_text" && v != nil {

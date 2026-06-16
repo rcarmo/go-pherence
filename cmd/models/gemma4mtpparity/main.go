@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/rcarmo/go-pherence/model"
 )
@@ -128,15 +129,27 @@ func loadParityFixture(path string) (parityFixture, error) {
 
 func runParity(path string, fx parityFixture) (parityReport, error) {
 	model.ForceOnTheFly = true
-	m, err := model.LoadLlama(fx.MainModel)
+	m, err := loadMainModelForParity(fx.MainModel)
 	if err != nil {
 		return parityReport{}, fmt.Errorf("load main model: %w", err)
 	}
-	d, err := model.LoadGemma4MTPDrafter(fx.Drafter)
+	d, err := loadDrafterForParity(fx.Drafter)
 	if err != nil {
 		return parityReport{}, fmt.Errorf("load drafter: %w", err)
 	}
-	ctx, err := m.BuildMTPPromptContext(fx.Prompt)
+	promptForContext := append([]int(nil), fx.Prompt...)
+	inputToken := fx.Cycle.InputToken
+	if inputToken < 0 {
+		inputToken = promptForContext[len(promptForContext)-1]
+	}
+	// llama.cpp speculative MTP uses target prompt K/V and the target hidden row
+	// that produced id_last, then feeds id_last as the assistant token at
+	// dp.n_past. Some historical fixtures stored id_last as the last
+	// prompt_tokens entry; keep that token out of the prompt-context KV.
+	if len(promptForContext) > 1 && promptForContext[len(promptForContext)-1] == inputToken {
+		promptForContext = promptForContext[:len(promptForContext)-1]
+	}
+	ctx, err := m.BuildMTPPromptContext(promptForContext)
 	if err != nil {
 		return parityReport{}, fmt.Errorf("prompt context: %w", err)
 	}
@@ -154,7 +167,7 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 			return parityReport{}, fmt.Errorf("compressed prompt seed: %w", err)
 		}
 	}
-	state, err := model.NewMTPDrafterState(ctx.PreviousToken, ctx.Activation, d.BackboneHiddenSize)
+	state, err := model.NewMTPDrafterState(inputToken, ctx.Activation, d.BackboneHiddenSize)
 	if err != nil {
 		return parityReport{}, fmt.Errorf("drafter state: %w", err)
 	}
@@ -175,6 +188,20 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 		got.AllDraftsAccepted == fx.Cycle.AllDraftsAccepted
 	caps := model.Gemma4MTPGraphCapabilities()
 	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+}
+
+func loadMainModelForParity(path string) (*model.LlamaModel, error) {
+	if strings.HasSuffix(strings.ToLower(path), ".gguf") {
+		return model.LoadGemma4GGUFAsLlama(path)
+	}
+	return model.LoadLlama(path)
+}
+
+func loadDrafterForParity(path string) (*model.Gemma4MTPDrafter, error) {
+	if strings.HasSuffix(strings.ToLower(path), ".gguf") {
+		return model.LoadGemma4MTPDrafterGGUF(path)
+	}
+	return model.LoadGemma4MTPDrafter(path)
 }
 
 func newStepSummary(step model.MTPGraphDecodeStepResult) model.MTPGraphGenerationStepSummary {
