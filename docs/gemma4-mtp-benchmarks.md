@@ -115,3 +115,48 @@ Current agreed windows:
 - Whisper: minute `:40-:55`
 
 Always verify `nvidia-smi` before starting a large model run and release the GPU promptly.
+
+### MTP smoke with prompt-KV reuse
+
+`tmp/bench-gemma4-e4b-mtp-smoke-kvreuse-20260616-220916.log` measures the supported real-prompt MTP smoke with the in-process prompt-context cache enabled:
+
+```bash
+flock /tmp/go-pherence-gpu.lock -c \
+  "GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
+    -gpu -gpu-layers 0 \
+    -model models/gemma4-e4b-it-4bit \
+    -mtp-drafter models/gemma4-e4b-mtp-drafter \
+    -mtp-smoke -mtp-real-prompt \
+    -mtp-kv-reuse -mtp-kv-repeat 3 \
+    -prompt 'Hello'"
+```
+
+Result: PASS.
+
+| Metric | Value |
+|---|---:|
+| main model load | 5.49s |
+| drafter load | 0.218s |
+| prompt prefill | 0.562s for 10 tokens |
+| prompt KV cache hit | true |
+| `kv_repeat` | 3 |
+| drafter step | 0.0118s |
+| process wall | 11.563s |
+
+The smoke produced token `9259`, preserved `ready_for_experimental_generation=true`, and still reports public blockers `public_generation_wiring`, `real_asset_acceptance_parity`, and `full_layer_batch_verifier_default_enablement`.
+
+### Experimental `-mtp-generate` benchmark status
+
+Attempts to benchmark `llmgen -mtp-generate` with the local E4B MLX pair currently fail before generation because the prompt-context external-KV mapping supplies empty K/V for drafter layer 0:
+
+```text
+mtp generate: MTP drafter steps: MTP drafter step 0: drafter layer 0 external KV K/V=0/0, want 5120
+mtp generate: MTP drafter steps: MTP drafter step 0: drafter layer 0 external KV K/V=0/0, want 5632
+```
+
+Logs:
+
+- `tmp/bench-gemma4-e4b-mtp-generate-20260616-220751.log`
+- `tmp/bench-gemma4-e4b-mtp-generate-2tok-20260616-220832.log`
+
+So speculative-decode tokens/sec for the public CLI path is not yet benchmarkable on this asset pair. Use the llama.cpp fixture acceptance contract and `-mtp-smoke` drafter-step timings until this external-KV handoff gap is fixed.
