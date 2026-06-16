@@ -27,7 +27,7 @@ func (m *LlamaModel) FinishCPUActivation(hidden []float32) ([]float32, error) {
 	if len(norm) < cfg.HiddenSize {
 		return nil, fmt.Errorf("final norm len=%d, want at least %d", len(norm), cfg.HiddenSize)
 	}
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+	if cfg.ModelType == "gemma3_text" {
 		simd.RMSNormBF16(hidden, norm, float32(cfg.RMSNormEps))
 	} else {
 		rmsNormInPlace(hidden, norm, float32(cfg.RMSNormEps))
