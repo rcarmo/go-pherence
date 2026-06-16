@@ -301,3 +301,17 @@ Log references:
 - `logs/mtp-cycle-steady-20260617-002600.log` (before)
 - `logs/mtp-cycle-steady-parallel-gemv-20260617-003209.log` (after)
 - `logs/mtp-strict-parallel-gemv-20260617-003242.log`
+
+### GOMAXPROCS scaling for parallel GGUF row-GEMV
+
+`logs/mtp-cycle-gomaxprocs-scaling-20260617-004223.log` measures the strict-fixture MTP graph cycle after row-level parallelization while varying `GOMAXPROCS`.
+
+| GOMAXPROCS | Mean cycle | Throughput |
+|---:|---:|---:|
+| 1 | 11.856s | 0.253 tok/s |
+| 2 | 6.222s | 0.482 tok/s |
+| 4 | 3.473s | 0.864 tok/s |
+| 6 | 2.791s | 1.075 tok/s |
+| 8 | 3.604s | 0.832 tok/s |
+
+On the local i7-12700 container allocation, `GOMAXPROCS=6` is the best measured setting. Oversubscribing to 8 workers slows the MTP graph cycle despite more goroutines. Use this as the default comparison point for future tok/s measurements on this host.
