@@ -35,5 +35,11 @@
     "all_drafts_accepted": true,
     "drafter_logits": [],
     "verifier_logits": []
+  },
+  "reference": {
+    "source": "llama.cpp Gemma4 QAT+MTP trace",
+    "spec_type": "draft-mtp",
+    "flash_attn": "on",
+    "description": "Trimmed default fixture: token/acceptance contract only; strict selected-logit probes live in env-provided fixtures."
   }
 }
