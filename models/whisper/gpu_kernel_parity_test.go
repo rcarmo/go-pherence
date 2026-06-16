@@ -45,19 +45,50 @@ func TestWhisperCUDAEncoderAttentionParity(t *testing.T) {
 	}
 	t.Setenv("GO_PHERENCE_WHISPER_GPU_ATTENTION", "1")
 	seqLen, numHeads, headDim := 5, 2, 4
-	n := seqLen * numHeads * headDim
-	q := make([]float32, n)
-	k := make([]float32, n)
-	v := make([]float32, n)
-	for i := 0; i < n; i++ {
-		q[i] = float32((i%17)-8) * 0.031
-		k[i] = float32((i%19)-9) * 0.027
-		v[i] = float32((i%23)-11) * 0.023
-	}
+	q, k, v := deterministicQKV(seqLen, seqLen, numHeads, headDim)
 	want := fullAttention(q, k, v, seqLen, seqLen, numHeads, headDim)
 	got, ok := fullAttentionGPU(q, k, v, seqLen, numHeads, headDim)
 	if !ok {
 		t.Fatalf("fullAttentionGPU returned fallback")
+	}
+	assertClose(t, got, want, 3e-4)
+}
+
+func TestWhisperCUDADecoderSelfAttentionParity(t *testing.T) {
+	if !nv.SgemmReady() {
+		t.Skip("CUDA SGEMM not available")
+	}
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_SELF_ATTN", "1")
+	seqKV, numHeads, headDim := 6, 2, 4
+	q, k, v := deterministicQKV(1, seqKV, numHeads, headDim)
+	want := fullAttention(q, k, v, 1, seqKV, numHeads, headDim)
+	got := make([]float32, numHeads*headDim)
+	bufs := newDecoderBufs(Config{DecoderDModel: numHeads * headDim, EncoderFFNDim: 16})
+	if !bufs.selfAttentionGPU(got, q, k, v, seqKV, numHeads, headDim) {
+		t.Fatalf("selfAttentionGPU returned fallback")
+	}
+	assertClose(t, got, want, 3e-4)
+}
+
+func TestWhisperCUDADecoderCrossAttentionParity(t *testing.T) {
+	if !nv.SgemmReady() {
+		t.Skip("CUDA SGEMM not available")
+	}
+	seqKV, numHeads, headDim := 6, 2, 4
+	q, k, v := deterministicQKV(1, seqKV, numHeads, headDim)
+	want := fullAttention(q, k, v, 1, seqKV, numHeads, headDim)
+	got := make([]float32, numHeads*headDim)
+	kDev := nv.NewDevBufFrom(k)
+	if err := kDev.ToGPU(); err != nil {
+		t.Fatalf("k ToGPU: %v", err)
+	}
+	vDev := nv.NewDevBufFrom(v)
+	if err := vDev.ToGPU(); err != nil {
+		t.Fatalf("v ToGPU: %v", err)
+	}
+	bufs := newDecoderBufs(Config{DecoderDModel: numHeads * headDim, EncoderFFNDim: 16})
+	if !bufs.attentionGPU(got, q, []*nv.DevBuf{kDev}, []*nv.DevBuf{vDev}, 0, seqKV, numHeads, headDim) {
+		t.Fatalf("attentionGPU returned fallback")
 	}
 	assertClose(t, got, want, 3e-4)
 }
@@ -76,6 +107,22 @@ func TestWhisperGPUGraphUmbrellaEnablesKernelDispatch(t *testing.T) {
 	if !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_ATTENTION") {
 		t.Fatalf("GPU graph umbrella did not enable attention dispatch")
 	}
+}
+
+func deterministicQKV(seqQ, seqKV, numHeads, headDim int) ([]float32, []float32, []float32) {
+	q := make([]float32, seqQ*numHeads*headDim)
+	k := make([]float32, seqKV*numHeads*headDim)
+	v := make([]float32, seqKV*numHeads*headDim)
+	for i := range q {
+		q[i] = float32((i%17)-8) * 0.031
+	}
+	for i := range k {
+		k[i] = float32((i%19)-9) * 0.027
+	}
+	for i := range v {
+		v[i] = float32((i%23)-11) * 0.023
+	}
+	return q, k, v
 }
 
 func assertClose(t *testing.T, got, want []float32, tol float64) {
