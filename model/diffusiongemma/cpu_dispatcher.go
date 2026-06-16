@@ -827,11 +827,21 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 		if !upM.gemvRows(up, row) {
 			return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
 		}
+		if diffusionGemmaLayerTraceOpsEnabled() && off/hiddenSize == diffusionGemmaLayerTraceRow() {
+			traceForwardData("op/ffn_gate", op.Layer, 0, gate, intermediate)
+			traceForwardData("op/ffn_up", op.Layer, 0, up, intermediate)
+		}
 		if !diffusionGemmaGELUMulTo(act, gate, up) {
 			return fmt.Errorf("DiffusionGemma dense MLP activation rejected layer %d", op.Layer)
 		}
+		if diffusionGemmaLayerTraceOpsEnabled() && off/hiddenSize == diffusionGemmaLayerTraceRow() {
+			traceForwardData("op/ffn_geglu", op.Layer, 0, act, intermediate)
+		}
 		if !downM.gemvRows(out, act) {
 			return fmt.Errorf("DiffusionGemma dense MLP down GEMV rejected layer %d", op.Layer)
+		}
+		if diffusionGemmaLayerTraceOpsEnabled() && off/hiddenSize == diffusionGemmaLayerTraceRow() {
+			traceForwardData("op/ffn_down", op.Layer, 0, out, hiddenSize)
 		}
 		copy(row, out)
 	}
