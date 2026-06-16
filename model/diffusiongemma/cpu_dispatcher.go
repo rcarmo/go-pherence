@@ -1600,11 +1600,23 @@ func applyFinalLogitSoftcapping(scratch ForwardScratch, positions, vocab int) {
 	}
 }
 
-func traceLMHeadTopLogits(scratch ForwardScratch) {
-	if !diffusionGemmaLayerTraceOpsEnabled() {
-		return
+func diffusionGemmaLMHeadTraceRow() int {
+	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_LMHEAD_TRACE_ROW"))
+	if v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
 	}
-	row := diffusionGemmaLayerTraceRow()
+	if diffusionGemmaLayerTraceOpsEnabled() {
+		return diffusionGemmaLayerTraceRow()
+	}
+	return -1
+}
+
+func diffusionGemmaLMHeadTraceEnabled() bool { return diffusionGemmaLMHeadTraceRow() >= 0 }
+
+func traceLMHeadTopLogits(scratch ForwardScratch) {
+	row := diffusionGemmaLMHeadTraceRow()
 	if row >= 0 && row < len(scratch.Logits) {
 		ids, vals := topLogits(scratch.Logits[row], 8)
 		fmt.Fprintf(os.Stderr, "DiffusionGemma lmhead_trace: step=%d enc_seq=%d row=%d top_ids=%v top_logits=%v\n", diffusionGemmaTracePhase.step, diffusionGemmaTracePhase.seq, row, ids, vals)
@@ -1612,10 +1624,10 @@ func traceLMHeadTopLogits(scratch ForwardScratch) {
 }
 
 func traceGGUFQ6LMHeadRow(qm *gguf.QuantMatrix, scratch ForwardScratch, hiddenSize, vocab int) error {
-	if !diffusionGemmaLayerTraceOpsEnabled() || qm == nil || qm.QType != gguf.QuantQ6_K {
+	if !diffusionGemmaLMHeadTraceEnabled() || qm == nil || qm.QType != gguf.QuantQ6_K {
 		return nil
 	}
-	row := diffusionGemmaLayerTraceRow()
+	row := diffusionGemmaLMHeadTraceRow()
 	positions := len(scratch.Hidden) / hiddenSize
 	if row < 0 || row >= positions {
 		return nil
