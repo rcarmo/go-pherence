@@ -194,7 +194,7 @@
     "The MT19937 uniform integer path now matches libstdc++ for the 262144-token DiffusionGemma vocab, including random canvas init and renoise draws.",
     "The sampler reports llama.cpp-style held/confident stop diagnostics per step.",
     "Committed Go first-step entropy probes now include top-5 raw logit IDs/values for positions 9 and 28, so the current mismatch is a runnable gate rather than a /tmp-only diagnostic.",
-    "GGUF CPU expert fallback now quantizes expert batch input/activation rows through a Q8_K-style round-trip before dequantized Sdot reuse, matching llama.cpp Q4_K/Q8_K matmul input precision more closely and improving first-step entropy."
+    "GGUF CPU expert fallback now quantizes expert batch input rows through a Q8_K-style round-trip before Q4_K gate/up matmuls, including the SIMD direct row-dot path, matching llama.cpp Q4_K/Q8_K input precision more closely and improving first-step/layer-row parity."
   ],
   "known_differences": [
     "Full denoised text is still not matched: llama.cpp emits a longer thought body before the final response, while Go emits an empty thought channel followed directly by the final greeting.",
@@ -203,9 +203,9 @@
     "The remaining blocker is entropy-bound sampler/self-conditioning/logit numeric parity over the full 256-token canvas, not prompt IDs, RNG integer draws, or trimming.",
     "Layer-row trace comparison for canvas row 28 shows prefix and layer0 l_out match closely (rms\u22481.7998, max_abs\u224865), but by layer29 l_out Go is much larger (rms\u22481.1238 vs llama\u22480.6294, max_abs\u224839.7 vs llama\u224818.2), so the next parity target is a later-layer sub-op trace rather than layer0.",
     "Layer29 row28 router input already differs before projection despite similar RMS: llama router_input max_idx=175/first4=[-0.4267,-0.1648,-0.1326,-1.2702], while Go max_idx=1749/first4=[-1.1856,0.1663,0.4981,-1.3003]. Router logits/top-k divergence is therefore caused by upstream hidden-state/router-input differences before the router projection.",
-    "After Q8_K expert-input quantization, row28 layer7 ffn_combined is close to llama (Go rms\u224816.25/max\u2248293 vs llama rms\u224816.19/max\u2248296), moving the first material l_out RMS drift to layer12: Go layer12 l_out rms\u22481.936/max\u224849.1 vs llama rms\u22481.816/max\u224846.5. Layer12 FFN/MoE remains the next numeric target."
+    "After Q8_K expert-input quantization and extending it to direct Q4_K gate/up rows, row28 layer7 ffn_combined is close to llama (Go rms\u224816.25/max\u2248293 vs llama rms\u224816.19/max\u2248296), and the first material l_out RMS drift remains layer12 but is smaller: Go layer12 l_out rms\u22481.855/max\u224846.55 vs llama rms\u22481.816/max\u224846.45. Layer12 FFN/MoE remains the next numeric target."
   ],
-  "next_required_action": "Trace/compare layer12 row28 FFN/MoE inputs and selected experts, since Q8_K expert-input quantization moved the first material l_out drift from layer7 to layer12.",
+  "next_required_action": "Trace/compare layer12 row28 FFN/MoE inputs, selected experts, and remaining shared dense-vs-MoE contribution because Q8_K-rounded direct Q4_K gate/up input moved layer12 l_out closer to llama.cpp but did not close parity.",
   "llamacpp_step_diagnostics": [
     {
       "step": 48,
@@ -572,42 +572,42 @@
         "max_abs": 258.839
       },
       "go_ffn_mlp": {
-        "rms": 9.42881,
-        "max_abs": 269.246
+        "rms": 8.77877,
+        "max_abs": 262.13
       },
       "llama_ffn_moe": {
         "rms": 7.52846,
         "max_abs": 173.174
       },
       "go_ffn_moe": {
-        "rms": 6.63161,
-        "max_abs": 144.504
+        "rms": 6.76387,
+        "max_abs": 151.435
       },
       "llama_ffn_combined": {
         "rms": 11.4983,
         "max_abs": 370.725
       },
       "go_ffn_combined": {
-        "rms": 13.0711,
-        "max_abs": 306.736
+        "rms": 12.4427,
+        "max_abs": 325.621
       },
       "llama_ffn_post_norm": {
         "rms": 1.08848,
         "max_abs": 12.7638
       },
       "go_post_residual_norm": {
-        "rms": 2.66443,
-        "max_abs": 67.556
+        "rms": 2.55278,
+        "max_abs": 64.068
       },
       "llama_l_out": {
         "rms": 1.81567,
         "max_abs": 46.4508
       },
       "go_l_out": {
-        "rms": 1.93588,
-        "max_abs": 49.0837
+        "rms": 1.85475,
+        "max_abs": 46.5494
       },
-      "note": "Current first material row28 l_out RMS drift after Q8_K expert-input fix: layer12 (Go rms\u22481.936 vs llama\u22481.816)."
+      "note": "After Q8_K-rounding direct Q4_K gate/up inputs, the current first material row28 l_out drift remains layer12 but is closer to llama.cpp (Go rms\u22481.855/max\u224846.55 vs llama rms\u22481.816/max\u224846.45)."
     }
   },
   "go_first_step_top_probes": [

@@ -7,9 +7,9 @@ import (
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
-func TestGGUFExpertSdotBatchToMatchesSdot(t *testing.T) {
+func TestGGUFExpertSdotBatchToMatchesQ8KRoundedSdot(t *testing.T) {
 	for _, nPos := range []int{1, 2, 3, 4, 8, 9, 16} {
-		inDim := 64
+		inDim := 320
 		dstStride := 11
 		w := make([]float32, inDim)
 		x := make([]float32, nPos*inDim)
@@ -23,13 +23,33 @@ func TestGGUFExpertSdotBatchToMatchesSdot(t *testing.T) {
 		if !ggufExpertSdotBatchTo(w, x, nPos, inDim, dst, dstStride) {
 			t.Fatalf("Sdot batch rejected nPos=%d", nPos)
 		}
+		q8 := make([]float32, inDim)
 		for pos := 0; pos < nPos; pos++ {
-			want := simd.Sdot(w, x[pos*inDim:(pos+1)*inDim])
+			quantizeDequantQ8KForExpertDot(q8, x[pos*inDim:(pos+1)*inDim])
+			want := simd.Sdot(w, q8)
 			got := dst[pos*dstStride]
 			if math.Abs(float64(got-want)) > 1e-4 {
 				t.Fatalf("nPos=%d pos=%d got=%g want=%g", nPos, pos, got, want)
 			}
 		}
+	}
+}
+
+func TestQuantizeDequantQ8KRowsInPlacePreservesTail(t *testing.T) {
+	const rowDim = 320
+	rows := make([]float32, 2*rowDim)
+	for i := range rows {
+		rows[i] = float32((i%29)-14) * 0.03125
+	}
+	wantTail := append([]float32(nil), rows[256:rowDim]...)
+	quantizeDequantQ8KRowsInPlace(rows, 2, rowDim)
+	for i, want := range wantTail {
+		if got := rows[256+i]; got != want {
+			t.Fatalf("row0 tail[%d]=%g want preserved %g", i, got, want)
+		}
+	}
+	if rows[rowDim] == 0 && rows[rowDim+1] == 0 {
+		t.Fatal("row1 full block was unexpectedly zeroed")
 	}
 }
 

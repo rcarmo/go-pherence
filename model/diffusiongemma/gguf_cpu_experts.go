@@ -551,9 +551,20 @@ func ggufExpertSdotBatchTo(wRow, x []float32, nPos, inDim int, dst []float32, ds
 	return true
 }
 
+func quantizeDequantQ8KRowsInPlace(rows []float32, nRows, rowDim int) {
+	if nRows <= 0 || rowDim <= 0 || len(rows) < nRows*rowDim {
+		return
+	}
+	for r := 0; r < nRows; r++ {
+		row := rows[r*rowDim : (r+1)*rowDim]
+		quantizeDequantQ8KForExpertDot(row, row)
+	}
+}
+
 func quantizeDequantQ8KForExpertDot(dst, x []float32) {
 	const block = 256
-	for b := 0; b+block <= len(x); b += block {
+	b := 0
+	for ; b+block <= len(x); b += block {
 		xb := x[b : b+block]
 		maxVal, amax := float32(0), float32(0)
 		for _, v := range xb {
@@ -584,6 +595,9 @@ func quantizeDequantQ8KForExpertDot(dst, x []float32) {
 			}
 			dst[b+i] = float32(int8(q)) * d
 		}
+	}
+	if b < len(x) {
+		copy(dst[b:], x[b:])
 	}
 }
 
@@ -1001,6 +1015,9 @@ func runGGUFCPUExpertsIndexedWithNormedRows(op LayerOp, weights *TextWeights, sc
 				// the better full-path policy through nPos<=8; larger gate/up batches
 				// favor dequant-once + Sdotx4 reuse end-to-end.
 				useDirectQ4GateUp := useDirectQ4GateUpRows(le, nPos)
+				if useDirectQ4GateUp {
+					quantizeDequantQ8KRowsInPlace(batchIn, nPos, hiddenSize)
+				}
 				for r := 0; r < outDimGU; r++ {
 					if useDirectQ4GateUp {
 						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {
@@ -1279,6 +1296,9 @@ func runGGUFCPUExpertsGroupedNoPostNorm(op LayerOp, scratch ForwardScratch, idx 
 				batchGU := ws.batchGU[:nPos*intermediate*2]
 				outDimGU := intermediate * 2
 				useDirectQ4GateUp := useDirectQ4GateUpRows(le, nPos)
+				if useDirectQ4GateUp {
+					quantizeDequantQ8KRowsInPlace(batchIn, nPos, hiddenSize)
+				}
 				for r := 0; r < outDimGU; r++ {
 					if useDirectQ4GateUp {
 						if err := ggufQ4KExpertRowDotBatchTo(le.gateUp, eid, r, batchIn, nPos, batchGU[r:], outDimGU); err != nil {

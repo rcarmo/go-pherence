@@ -224,12 +224,12 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 				GoMaxAbs    float64 `json:"go_max_abs"`
 			} `json:"layer29_l_out"`
 			Layer7Subops struct {
-				LlamaAttnOut      struct{ RMS, MaxAbs float64 } `json:"llama_attn_out"`
-				GoAttnOut         struct{ RMS, MaxAbs float64 } `json:"go_attn_out"`
-				LlamaFFNCombined  struct{ RMS, MaxAbs float64 } `json:"llama_ffn_combined"`
-				GoFFNCombined     struct{ RMS, MaxAbs float64 } `json:"go_ffn_combined"`
-				LlamaFFNPost      struct{ RMS, MaxAbs float64 } `json:"llama_ffn_post_norm"`
-				GoFFNPost         struct{ RMS, MaxAbs float64 } `json:"go_ffn_post_norm"`
+				LlamaAttnOut     struct{ RMS, MaxAbs float64 } `json:"llama_attn_out"`
+				GoAttnOut        struct{ RMS, MaxAbs float64 } `json:"go_attn_out"`
+				LlamaFFNCombined struct{ RMS, MaxAbs float64 } `json:"llama_ffn_combined"`
+				GoFFNCombined    struct{ RMS, MaxAbs float64 } `json:"go_ffn_combined"`
+				LlamaFFNPost     struct{ RMS, MaxAbs float64 } `json:"llama_ffn_post_norm"`
+				GoFFNPost        struct{ RMS, MaxAbs float64 } `json:"go_ffn_post_norm"`
 			} `json:"layer7_subops"`
 			Layer12Subops struct {
 				LlamaAttnOut     struct{ RMS, MaxAbs float64 } `json:"llama_attn_out"`
@@ -285,14 +285,14 @@ func TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker(t *testing.T) {
 	if fixture.Row28LayerTraceSummary.Layer7Subops.LlamaFFNCombined.RMS < 16.1 || fixture.Row28LayerTraceSummary.Layer7Subops.GoFFNCombined.RMS < 16.2 || fixture.Row28LayerTraceSummary.Layer7Subops.GoFFNCombined.RMS > 16.4 {
 		t.Fatalf("row28 layer7 improved FFN target changed: %+v", fixture.Row28LayerTraceSummary.Layer7Subops)
 	}
-	if fixture.Row28LayerTraceSummary.Layer12Subops.LlamaLOut.RMS < 1.81 || fixture.Row28LayerTraceSummary.Layer12Subops.GoLOut.RMS < 1.93 || fixture.Row28LayerTraceSummary.Layer12Subops.GoFFNCombined.RMS < 13.0 {
+	if fixture.Row28LayerTraceSummary.Layer12Subops.LlamaLOut.RMS < 1.81 || fixture.Row28LayerTraceSummary.Layer12Subops.GoLOut.RMS < 1.85 || fixture.Row28LayerTraceSummary.Layer12Subops.GoFFNCombined.RMS < 12.4 {
 		t.Fatalf("row28 layer12 current divergence target changed: %+v", fixture.Row28LayerTraceSummary.Layer12Subops)
 	}
 	router := fixture.Row28LayerTraceSummary.Layer29Router
 	if !equalInts(router.LlamaTopIDs, []int{70, 14, 36, 86, 109, 29, 63, 35}) || !equalInts(router.GoTopIDs, []int{70, 63, 14, 61, 118, 99, 35, 18}) || !equalInts(router.CommonIDs, []int{14, 35, 63, 70}) || len(router.LlamaRawTopLogits) != 8 || len(router.GoRawTopLogits) != 8 || router.LlamaRawTopLogits[0] < 1.32 || router.LlamaRawTopLogits[1] < 1.32 || router.GoRawTopLogits[0] < 1.21 || router.GoRawTopLogits[1] > 0.94 || router.LlamaRouterInput.MaxIdx != 175 || router.GoRouterInput.MaxIdx != 1749 || router.LlamaRouterInput.RMS < 0.60 || router.GoRouterInput.RMS < 0.60 {
 		t.Fatalf("row28 layer29 router target changed: %+v", router)
 	}
-	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 5 || (!strings.Contains(fixture.NextRequiredAction, "later layers") && !strings.Contains(fixture.NextRequiredAction, "layer7")) {
+	if len(fixture.KnownMatches) < 4 || len(fixture.KnownDifferences) < 5 || !strings.Contains(fixture.NextRequiredAction, "layer12") {
 		t.Fatalf("parity blocker is underspecified: %+v", fixture)
 	}
 }
