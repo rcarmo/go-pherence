@@ -32,6 +32,34 @@ func TestQ6KBlockISumMatchesScalar(t *testing.T) {
 	}
 }
 
+func TestQ6KBlockCoeffISumMatchesBlockISum(t *testing.T) {
+	q8 := make([]int8, 256)
+	var q6 [256]int8
+	scales := make([]byte, 16)
+	for i := range q8 {
+		q8[i] = int8((i*11)%127 - 63)
+		q6[i] = int8((i*7)%63 - 31)
+	}
+	for i := range scales {
+		scales[i] = byte(int8((i % 9) - 4))
+	}
+	want, ok := q6KBlockISum(q8, &q6, scales)
+	if !ok {
+		t.Fatal("q6KBlockISum rejected valid inputs")
+	}
+	coeff, ok := q6KBlockScaledCoeffs(&q6, scales)
+	if !ok {
+		t.Fatal("q6KBlockScaledCoeffs rejected valid inputs")
+	}
+	got, ok := q6KBlockCoeffISum(q8, &coeff)
+	if !ok {
+		t.Fatal("q6KBlockCoeffISum rejected valid inputs")
+	}
+	if got != want {
+		t.Fatalf("coeff dot=%d want %d", got, want)
+	}
+}
+
 func TestQ6KBlockISumRejectsBadInputs(t *testing.T) {
 	var q6 [256]int8
 	if _, ok := q6KBlockISum(nil, &q6, make([]byte, 16)); ok {

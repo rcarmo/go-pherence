@@ -172,12 +172,16 @@ func ggufQ6KRawRowDotPrequantRows(raw []byte, inDim int, q8 *q8KPrequantRows, ou
 			qlOff += 64
 			qhOff += 32
 		}
+		coeff, ok := q6KBlockScaledCoeffs(&q6, scales)
+		if !ok {
+			return fmt.Errorf("Q6_K scaled coefficient build rejected")
+		}
 		for pos := 0; pos < q8.positions; pos++ {
 			q8base := (pos*blocks + b) * 256
 			q8q := q8.qs[q8base : q8base+256]
-			isum, ok := q6KBlockISum(q8q, &q6, scales)
+			isum, ok := q6KBlockCoeffISum(q8q, &coeff)
 			if !ok {
-				return fmt.Errorf("Q6_K/Q8_K block dot rejected")
+				return fmt.Errorf("Q6_K/Q8_K coeff block dot rejected")
 			}
 			out[pos] += d * q8.ds[pos*blocks+b] * float32(isum)
 		}

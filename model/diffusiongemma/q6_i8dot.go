@@ -20,3 +20,29 @@ func q6KBlockISumScalar(q8 []int8, q6 *[256]int8, scales []byte) (int32, bool) {
 func q6KBlockISum(q8 []int8, q6 *[256]int8, scales []byte) (int32, bool) {
 	return q6KBlockISumScalar(q8, q6, scales)
 }
+
+func q6KBlockScaledCoeffs(q6 *[256]int8, scales []byte) ([256]int16, bool) {
+	var coeff [256]int16
+	if q6 == nil || len(scales) < 16 {
+		return coeff, false
+	}
+	for group := 0; group < 16; group++ {
+		scale := int16(int8(scales[group]))
+		base := group * 16
+		for i := 0; i < 16; i++ {
+			coeff[base+i] = scale * int16(q6[base+i])
+		}
+	}
+	return coeff, true
+}
+
+func q6KBlockCoeffISum(q8 []int8, coeff *[256]int16) (int32, bool) {
+	if len(q8) < 256 || coeff == nil {
+		return 0, false
+	}
+	var sum int32
+	for i := 0; i < 256; i++ {
+		sum += int32(q8[i]) * int32(coeff[i])
+	}
+	return sum, true
+}
