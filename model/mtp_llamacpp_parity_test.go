@@ -80,10 +80,9 @@ func mtpParityFileExists(path string) bool {
 	return err == nil && !st.IsDir()
 }
 
-func assertMTPTrimmedParityFixture(t *testing.T, fx mtpLlamaCPPParityFixture) {
-	t.Helper()
+func validateMTPTrimmedParityFixture(fx mtpLlamaCPPParityFixture) error {
 	if len(fx.Prompt) == 0 {
-		t.Fatalf("trimmed fixture prompt_tokens is empty")
+		return fmt.Errorf("trimmed fixture prompt_tokens is empty")
 	}
 	if fx.DraftCount <= 0 {
 		fx.DraftCount = len(fx.Cycle.DraftedTokens)
@@ -92,33 +91,41 @@ func assertMTPTrimmedParityFixture(t *testing.T, fx mtpLlamaCPPParityFixture) {
 		fx.MaxTokens = len(fx.Cycle.OutputTokens)
 	}
 	if fx.Cycle.InputToken < 0 || len(fx.Cycle.DraftedTokens) == 0 || len(fx.Cycle.VerifierTokens) != len(fx.Cycle.DraftedTokens)+1 {
-		t.Fatalf("invalid trimmed MTP cycle: %+v", fx.Cycle)
+		return fmt.Errorf("invalid trimmed MTP cycle: %+v", fx.Cycle)
 	}
 	wantVerifierTokens := append([]int{fx.Cycle.InputToken}, fx.Cycle.DraftedTokens...)
 	if !sameInts(fx.Cycle.VerifierTokens, wantVerifierTokens) {
-		t.Fatalf("trimmed verifier tokens=%v, want [input]+drafted %v", fx.Cycle.VerifierTokens, wantVerifierTokens)
+		return fmt.Errorf("trimmed verifier tokens=%v, want [input]+drafted %v", fx.Cycle.VerifierTokens, wantVerifierTokens)
 	}
 	if len(fx.Cycle.VerifierOutputTokens) != len(fx.Cycle.VerifierTokens) {
-		t.Fatalf("trimmed verifier outputs=%d, want %d", len(fx.Cycle.VerifierOutputTokens), len(fx.Cycle.VerifierTokens))
+		return fmt.Errorf("trimmed verifier outputs=%d, want %d", len(fx.Cycle.VerifierOutputTokens), len(fx.Cycle.VerifierTokens))
 	}
 	accepted := 0
 	for accepted < len(fx.Cycle.DraftedTokens) && fx.Cycle.VerifierOutputTokens[accepted] == fx.Cycle.DraftedTokens[accepted] {
 		accepted++
 	}
 	if accepted != fx.Cycle.AcceptedPrefixLen {
-		t.Fatalf("trimmed accepted prefix=%d, want %d", fx.Cycle.AcceptedPrefixLen, accepted)
+		return fmt.Errorf("trimmed accepted prefix=%d, want %d", fx.Cycle.AcceptedPrefixLen, accepted)
 	}
 	wantBonus := fx.Cycle.VerifierOutputTokens[accepted]
 	if fx.Cycle.BonusToken != wantBonus {
-		t.Fatalf("trimmed bonus=%d, want verifier output %d", fx.Cycle.BonusToken, wantBonus)
+		return fmt.Errorf("trimmed bonus=%d, want verifier output %d", fx.Cycle.BonusToken, wantBonus)
 	}
 	wantOutput := append([]int(nil), fx.Cycle.DraftedTokens[:accepted]...)
 	wantOutput = append(wantOutput, wantBonus)
 	if !sameInts(fx.Cycle.OutputTokens, wantOutput) {
-		t.Fatalf("trimmed output tokens=%v, want %v", fx.Cycle.OutputTokens, wantOutput)
+		return fmt.Errorf("trimmed output tokens=%v, want %v", fx.Cycle.OutputTokens, wantOutput)
 	}
 	if fx.Cycle.AllDraftsAccepted != (accepted == len(fx.Cycle.DraftedTokens)) {
-		t.Fatalf("trimmed all_drafts_accepted=%v inconsistent with accepted=%d drafted=%d", fx.Cycle.AllDraftsAccepted, accepted, len(fx.Cycle.DraftedTokens))
+		return fmt.Errorf("trimmed all_drafts_accepted=%v inconsistent with accepted=%d drafted=%d", fx.Cycle.AllDraftsAccepted, accepted, len(fx.Cycle.DraftedTokens))
+	}
+	return nil
+}
+
+func assertMTPTrimmedParityFixture(t *testing.T, fx mtpLlamaCPPParityFixture) {
+	t.Helper()
+	if err := validateMTPTrimmedParityFixture(fx); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -280,6 +287,27 @@ func TestGemma4MTPLlamaCPPDefaultFixtureTrimmedValidation(t *testing.T) {
 	assertMTPTrimmedParityFixture(t, fx)
 	if len(fx.Cycle.VerifierLogits) != 0 || len(fx.Cycle.DrafterLogits) != 0 {
 		t.Fatalf("default fixture must remain a trimmed token/acceptance gate; got drafter probes=%d verifier probes=%d", len(fx.Cycle.DrafterLogits), len(fx.Cycle.VerifierLogits))
+	}
+}
+
+func TestGemma4MTPLlamaCPPTrimmedValidationRejectsBadBonus(t *testing.T) {
+	fx := mtpLlamaCPPParityFixture{
+		Prompt:     []int{10, 11},
+		MaxTokens:  3,
+		DraftCount: 2,
+		Cycle: mtpLlamaCPPCycleFixture{
+			InputToken:           11,
+			DraftedTokens:        []int{20, 21},
+			VerifierTokens:       []int{11, 20, 21},
+			VerifierOutputTokens: []int{20, 21, 22},
+			AcceptedPrefixLen:    2,
+			BonusToken:           99,
+			OutputTokens:         []int{20, 21, 99},
+			AllDraftsAccepted:    true,
+		},
+	}
+	if err := validateMTPTrimmedParityFixture(fx); err == nil {
+		t.Fatal("trimmed fixture validation unexpectedly accepted malformed bonus token")
 	}
 }
 
