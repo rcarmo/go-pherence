@@ -681,7 +681,7 @@ diffusiongemma-check-scaffold:
 	go test ./cmd/diffusiongemmarun ./cmd/diffusiongemmainspect ./model/diffusiongemma ./loader/config -run '^$$'
 
 diffusiongemma-golden-gate:
-	go test ./model/diffusiongemma -run 'TestLlamaCppGGUFHi1x1(GoldenResponseIDs|ReferenceFixture)|TestGGUFHi1x1(GoTrimmedOutputComparisonGate|TopLogitProbeGate|ParityStatusDocumentsCurrentBlocker)|TestGGUFHiPhaseAlignedTrace|TestMT19937|TestGGUFQ(4K|8_0|5_0)ExpertRowDotMatchesScalarDequantOracle' -count=1 -v
+	go test ./model/diffusiongemma -run 'TestLlamaCppGGUFHi1x1(GoldenResponseIDs|ReferenceFixture)|TestGGUFHi1x1(GoTrimmedOutputComparisonGate|TopLogitProbeGate|ParityStatusDocumentsCurrentBlocker)|TestGGUFHiPhaseAlignedTrace|TestMT19937|TestGGUFQ(4K|8_0|5_0)ExpertRowDotMatchesScalarDequantOracle|TestGGUFQ6KLMHeadRowDotMatchesQ8KRoundedDequantOracle' -count=1 -v
 
 .PHONY: diffusiongemma-ci-scaffold
 
