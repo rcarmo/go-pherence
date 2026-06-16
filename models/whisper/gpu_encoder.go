@@ -2,7 +2,6 @@ package whisper
 
 import (
 	"math"
-	"os"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 )
@@ -152,7 +151,7 @@ func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []f
 }
 
 func conv1dForwardGPU(input, weight, bias []float32, inCh, inLen, outCh, stride int) ([]float32, bool) {
-	if os.Getenv("GO_PHERENCE_WHISPER_GPU_CONV1D") != "1" || !nv.SgemmReady() || stride <= 0 || inCh <= 0 || inLen <= 0 || outCh <= 0 || len(input) < inCh*inLen || len(weight) < outCh*inCh*3 {
+	if !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_CONV1D") || !nv.SgemmReady() || stride <= 0 || inCh <= 0 || inLen <= 0 || outCh <= 0 || len(input) < inCh*inLen || len(weight) < outCh*inCh*3 {
 		return nil, false
 	}
 	outLen := (inLen+2*1-3)/stride + 1
@@ -209,7 +208,7 @@ func conv1dForwardGPU(input, weight, bias []float32, inCh, inLen, outCh, stride 
 }
 
 func fullAttentionGPU(q, k, v []float32, seqLen, numHeads, headDim int) ([]float32, bool) {
-	if os.Getenv("GO_PHERENCE_WHISPER_GPU_ATTENTION") != "1" || !nv.SgemmReady() || seqLen <= 0 || numHeads <= 0 || headDim <= 0 {
+	if !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_ATTENTION") || !nv.SgemmReady() || seqLen <= 0 || numHeads <= 0 || headDim <= 0 {
 		return nil, false
 	}
 	n := seqLen * numHeads * headDim
@@ -334,7 +333,7 @@ func NewDecoderStateGPU(cfg Config, encoderOutput []float32, encLen int, dec *De
 		LastToken:  -1,
 		Bufs:       newDecoderBufs(cfg),
 	}
-	gpuCrossAttn := os.Getenv("GO_PHERENCE_WHISPER_GPU_CROSS_ATTN") == "1" && nv.SgemmReady()
+	gpuCrossAttn := UseGPUCrossAttention() && nv.SgemmReady()
 	if gpuCrossAttn {
 		state.CrossKGPU = make([]*nv.DevBuf, numLayers)
 		state.CrossVGPU = make([]*nv.DevBuf, numLayers)

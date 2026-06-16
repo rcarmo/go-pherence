@@ -582,7 +582,7 @@ func transcribeChunkFast(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples
 	if gpuEnc != nil && gpuEnc.Ready() {
 		encoderOutput = gpuEnc.ForwardGPU(melFlat, T)
 		encLen := len(encoderOutput) / cfg.EncoderDModel
-		if os.Getenv("GO_PHERENCE_WHISPER_GPU_CROSS_ATTN") == "1" {
+		if whisper.UseGPUCrossAttention() {
 			state = whisper.NewDecoderStateGPU(cfg, encoderOutput, encLen, w.Decoder)
 		} else {
 			state = whisper.NewDecoderState(cfg, encoderOutput, encLen, w.Decoder)

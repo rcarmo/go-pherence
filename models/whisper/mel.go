@@ -1,8 +1,6 @@
 package whisper
 
 import (
-	"os"
-
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simdfft "github.com/rcarmo/go-pherence/backends/simd/fft"
 	"github.com/rcarmo/go-pherence/loader/audio"
@@ -37,7 +35,7 @@ func flattenMel(mel [][]float32, numMels int) ([]float32, int) {
 }
 
 func melFlatGPU(samples []float32, cfg audio.MelConfig) ([]float32, int, bool) {
-	if os.Getenv("GO_PHERENCE_WHISPER_GPU_MEL") != "1" || len(samples) == 0 || cfg.SampleRate != 16000 || cfg.FFTSize <= 0 || cfg.HopLength <= 0 || cfg.NumMels <= 0 || cfg.NFFTPadded != 512 || !nv.SgemmReady() {
+	if !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_MEL") || len(samples) == 0 || cfg.SampleRate != 16000 || cfg.FFTSize <= 0 || cfg.HopLength <= 0 || cfg.NumMels <= 0 || cfg.NFFTPadded != 512 || !nv.SgemmReady() {
 		return nil, 0, false
 	}
 	numFrames := (len(samples) - cfg.FFTSize) / cfg.HopLength

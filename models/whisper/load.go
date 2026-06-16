@@ -139,7 +139,7 @@ func LoadModel(path string, cfg Config) (*Encoder, *Decoder, error) {
 	dec.FinalLNWeight, _ = get("model.decoder.layer_norm.weight")
 	dec.FinalLNBias, _ = get("model.decoder.layer_norm.bias")
 
-	uploadDecoderMLP := os.Getenv("GO_PHERENCE_WHISPER_GPU_DECODER_MLP") == "1"
+	uploadDecoderMLP := whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_DECODER_MLP")
 	for i := 0; i < cfg.DecoderLayers; i++ {
 		l := &dec.Layers[i]
 		prefix := fmt.Sprintf("model.decoder.layers.%d", i)

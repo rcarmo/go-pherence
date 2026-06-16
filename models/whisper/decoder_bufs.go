@@ -2,7 +2,6 @@ package whisper
 
 import (
 	"math"
-	"os"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -99,7 +98,7 @@ func layerNormInto(out, x, weight, bias []float32, dim int) {
 }
 
 func (b *decoderBufs) selfAttentionGPU(out, q, kCache, vCache []float32, seqLen, numHeads, headDim int) bool {
-	if os.Getenv("GO_PHERENCE_WHISPER_GPU_SELF_ATTN") != "1" || b == nil || seqLen <= 0 || numHeads <= 0 || headDim <= 0 || !nv.SgemmReady() {
+	if !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_SELF_ATTN") || b == nil || seqLen <= 0 || numHeads <= 0 || headDim <= 0 || !nv.SgemmReady() {
 		return false
 	}
 	dModel := numHeads * headDim

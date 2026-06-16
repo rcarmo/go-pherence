@@ -260,7 +260,7 @@ func transcribeTextWindow(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, sample
 	encoderOutput := gpuEnc.ForwardGPU(melFlat, T)
 	encLen := len(encoderOutput) / w.Config.EncoderDModel
 	state := whisper.NewDecoderState(w.Config, encoderOutput, encLen, w.Decoder)
-	if os.Getenv("GO_PHERENCE_WHISPER_GPU_CROSS_ATTN") == "1" {
+	if whisper.UseGPUCrossAttention() {
 		state = whisper.NewDecoderStateGPU(w.Config, encoderOutput, encLen, w.Decoder)
 	}
 	tokens := whisper.GreedyDecodePrompt(w.Decoder, state, w.Config, languageToken, taskToken)
@@ -393,7 +393,7 @@ func transcribeWindow(w *whisper.Whisper, gpuEnc *whisper.GPUEncoder, samples []
 		}
 	} else if gpuEnc != nil && gpuEnc.Ready() {
 		encoderOutput = gpuEnc.ForwardGPU(melFlat, T)
-		useGPUState = os.Getenv("GO_PHERENCE_WHISPER_GPU_CROSS_ATTN") == "1"
+		useGPUState = whisper.UseGPUCrossAttention()
 	} else {
 		encoderOutput = w.Encoder.Forward(melFlat, T)
 	}
