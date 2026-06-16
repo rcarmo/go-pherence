@@ -35,7 +35,11 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 # The SIMD parity target is a required scalar-oracle gate for locally runnable
 # Whisper vectorized paths (mel/filterbank, conv1d, attention/GEMV, dot kernels).
 # The CUDA parity target is a numeric CPU-oracle gate for the opt-in CUDA graph
-# surfaces; it skips unavailable CUDA kernels on CPU-only hosts but runs on CUDA hosts.
+# surfaces; it may skip on CPU-only hosts, but on CUDA hosts it must initialize
+# the NVIDIA runtime, load the Whisper PTX entries, and run real numeric assertions
+# instead of silently falling back. Current shared-host evidence: RTX 3060 loads
+# all 78 mega-module kernels and TestGPUEncoderForward passes on large-v3-turbo
+# with max_diff≈1.9e-4.
 # The GPU graph parity target runs the same JFK transcript contract with the
 # umbrella GPU graph flag enabled, exercising real CUDA dispatch on CUDA hosts
 # while preserving CPU/SIMD fallback behavior on CPU-only hosts.
