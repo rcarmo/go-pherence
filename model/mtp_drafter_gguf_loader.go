@@ -69,6 +69,9 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 		if err != nil {
 			return nil, fmt.Errorf("load rope_freqs.weight: %w", err)
 		}
+		if want := cfg.GlobalHeadDim / 2; want > 0 && len(fullRoPEFactors) != want {
+			return nil, fmt.Errorf("rope_freqs.weight len=%d, want assistant global_head_dim/2=%d", len(fullRoPEFactors), want)
+		}
 	}
 	d := &Gemma4MTPDrafter{Config: cfg, BackboneHiddenSize: backboneHidden, Layers: make([]Gemma4MTPDrafterLayer, cfg.NumLayers)}
 	d.precomputeGemma4RoPEWithFullFactors(fullRoPEFactors)
