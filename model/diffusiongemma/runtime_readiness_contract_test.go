@@ -4,7 +4,7 @@ import "testing"
 
 func TestRuntimeReadinessContractRequiresReferenceGaps(t *testing.T) {
 	caps := Capabilities()
-	if !caps.TextFullStackSparseReady || !caps.TextOnlyScaffoldReady {
+	if !caps.TextOnlyScaffoldReady {
 		t.Fatalf("text runtime should remain implemented/ready while global readiness is gated: %+v", caps)
 	}
 	if caps.ImplementedOps != caps.TotalOps {

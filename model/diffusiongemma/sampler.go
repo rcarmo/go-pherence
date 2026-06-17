@@ -21,7 +21,6 @@ type DenoisingConfig struct {
 	StabilityThreshold  int           `json:"stability_threshold"`
 	ConfidenceThreshold float64       `json:"confidence_threshold"`
 	Sampler             SamplerConfig `json:"sampler"`
-	SparseTopK          int           `json:"sparse_top_k,omitempty"`
 }
 
 func DefaultDenoisingConfig() DenoisingConfig {

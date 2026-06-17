@@ -13,9 +13,7 @@ import (
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/internal/checked"
 	"github.com/rcarmo/go-pherence/loader/gguf"
-	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"math"
-	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -465,13 +463,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				}
 				sampledArgmax, sampledEntropy, sampledTokens, deviceSelfConditioning = arg, ent, samp, sc
 			} else if err := runDenseGPULMHead(d.FP8Weights, scratch, buffers.HiddenSize, d.FP8LMHead, d.FP8LMHeadVocab, d.FP8LMHeadHidden); err != nil {
-				if scratch.LMHeadTopK <= 0 {
-					return ForwardOutput{}, fmt.Errorf("dense FP8 GPU LM head failed and no sparse top-k fallback was requested: %w", err)
-				}
-				// Explicit debug/approximate mode: fall back to sparse BF16 scan.
-				if err2 := runLMHeadFromShards(d.FP8Weights.shards, scratch, "model.decoder.embed_tokens.weight"); err2 != nil {
-					return ForwardOutput{}, fmt.Errorf("dense FP8 GPU LM head failed (%v), sparse fallback also failed: %w", err, err2)
-				}
+				return ForwardOutput{}, fmt.Errorf("dense FP8 GPU LM head failed: %w", err)
 			}
 		} else {
 			if op == OpLMHead && diffusionGemmaRequireGroupedExpertGraph() && d.GGUFExpertIndex != nil {
@@ -4699,166 +4691,6 @@ func scatterGemmResult(dst []float32, result []float32, M, N int) {
 			dst[pos*M+m] = result[m*N+pos]
 		}
 	}
-}
-
-// runLMHeadFromShards runs the sparse top-k LM head using BF16 embed_tokens
-// from a specific safetensors file (e.g. the FP8 checkpoint).
-func runLMHeadFromShards(shards *safetensors.ShardedFile, scratch ForwardScratch, embedName string) error {
-	raw, dtype, shape, err := shards.GetRaw(embedName)
-	if err != nil {
-		return fmt.Errorf("LM head embed %s: %w", embedName, err)
-	}
-	if dtype != "BF16" || len(shape) != 2 {
-		return fmt.Errorf("LM head embed %s: dtype=%s shape=%v (need BF16 rank-2)", embedName, dtype, shape)
-	}
-	vocab, hiddenSize := shape[0], shape[1]
-	if vocab <= 0 || hiddenSize <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
-		return fmt.Errorf("LM head embed invalid shape [%d,%d] hidden_len=%d", vocab, hiddenSize, len(scratch.Hidden))
-	}
-	needElems, okElems := checked.MulInt(vocab, hiddenSize)
-	needBytes, okBytes := checked.MulInt(needElems, 2)
-	if !okElems || !okBytes || len(raw) < needBytes {
-		return fmt.Errorf("LM head embed raw BF16 bytes=%d want at least %d for shape [%d,%d]", len(raw), needBytes, vocab, hiddenSize)
-	}
-	positions := len(scratch.Hidden) / hiddenSize
-	if positions <= 0 {
-		return nil
-	}
-	bf16Embed := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[0])), needElems)
-	topK := scratch.LMHeadTopK
-	if topK > vocab {
-		topK = vocab
-	}
-	if topK <= 0 {
-		return fmt.Errorf("sparse LM head fallback requires LMHeadTopK > 0")
-	}
-	for pos := 0; pos < positions; pos++ {
-		if len(scratch.Logits[pos]) < vocab {
-			return fmt.Errorf("LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
-		}
-		for i := 0; i < vocab; i++ {
-			scratch.Logits[pos][i] = float32(math.Inf(-1))
-		}
-	}
-	topIDs := make([][]int, positions)
-	topVals := make([][]float32, positions)
-	for pos := 0; pos < positions; pos++ {
-		topIDs[pos] = make([]int, topK)
-		topVals[pos] = make([]float32, topK)
-		for i := range topIDs[pos] {
-			topIDs[pos][i] = -1
-			topVals[pos][i] = float32(math.Inf(-1))
-		}
-	}
-	for pos := 0; pos < positions; pos++ {
-		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
-		hiddenBF16 := simd.BF16FromF32Slice(hidden)
-		// Parallel vocab scan across cores
-		nWorkers := runtime.GOMAXPROCS(0)
-		if nWorkers > 12 {
-			nWorkers = 12
-		}
-		chunk := (vocab + nWorkers - 1) / nWorkers
-		type topKResult struct {
-			ids  []int
-			vals []float32
-		}
-		results := make([]topKResult, nWorkers)
-		var wg sync.WaitGroup
-		for w := 0; w < nWorkers; w++ {
-			start := w * chunk
-			end := start + chunk
-			if end > vocab {
-				end = vocab
-			}
-			if start >= end {
-				break
-			}
-			wg.Add(1)
-			go func(s, e, wi int) {
-				defer wg.Done()
-				ids := make([]int, topK)
-				vals := make([]float32, topK)
-				for i := range ids {
-					ids[i] = -1
-					vals[i] = float32(math.Inf(-1))
-				}
-				for vocabID := s; vocabID < e; vocabID++ {
-					row := bf16Embed[vocabID*hiddenSize : (vocabID+1)*hiddenSize]
-					score := simd.BF16DotAsm(row, hiddenBF16)
-					insertTopK(ids, vals, vocabID, score)
-				}
-				results[wi] = topKResult{ids, vals}
-			}(start, end, w)
-		}
-		wg.Wait()
-		// Merge worker top-k results
-		for _, r := range results {
-			for i, id := range r.ids {
-				if id >= 0 {
-					insertTopK(topIDs[pos], topVals[pos], id, r.vals[i])
-				}
-			}
-		}
-	}
-	for pos := 0; pos < positions; pos++ {
-		for i, id := range topIDs[pos] {
-			if id >= 0 {
-				scratch.Logits[pos][id] = topVals[pos][i]
-			}
-		}
-	}
-	applyFinalLogitSoftcapping(scratch, positions, vocab)
-	return nil
-}
-
-func UploadTiedLMHeadTransposeBuffer(weights *TextWeights) (*gpu.Buffer, int, int, error) {
-	if weights == nil {
-		return nil, 0, 0, fmt.Errorf("nil weights for tied LM head")
-	}
-	if !gpu.SgemmReady() {
-		return nil, 0, 0, fmt.Errorf("GPU SGEMM not available for tied LM head upload")
-	}
-	fp := weights.ForwardPlan()
-	if fp.Globals.EmbedTokens == nil || len(fp.Globals.EmbedTokens.Shape) != 2 {
-		return nil, 0, 0, fmt.Errorf("missing embed_tokens for tied LM head")
-	}
-	vocab, hidden := fp.Globals.EmbedTokens.Shape[0], fp.Globals.EmbedTokens.Shape[1]
-	if vocab <= 0 || hidden <= 0 {
-		return nil, 0, 0, fmt.Errorf("invalid tied LM head embedding shape [%d,%d]", vocab, hidden)
-	}
-	t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	elems, ok := checked.MulInt(vocab, hidden)
-	if !ok || len(t.Shape) != 2 || t.Shape[0] != vocab || t.Shape[1] != hidden || len(t.Data) < elems {
-		return nil, 0, 0, fmt.Errorf("tied LM head cache shape %v len=%d want [%d,%d]", t.Shape, len(t.Data), vocab, hidden)
-	}
-	bytes, okBytes := checked.MulInt(elems, 4)
-	// Keep this conservative until the GGUF LM-head island is chunked/streamed;
-	// a full DiffusionGemma tied embedding transpose is ~2.95GB and can exceed
-	// practical per-allocation/runtime limits on the current CUDA wrapper.
-	const maxTiedLMHeadUploadBytes = 2_500_000_000
-	if !okBytes || bytes > maxTiedLMHeadUploadBytes {
-		return nil, 0, 0, fmt.Errorf("tied LM head upload too large: %d bytes (limit %d)", bytes, maxTiedLMHeadUploadBytes)
-	}
-	transposed := make([]float32, elems)
-	for v := 0; v < vocab; v++ {
-		row := t.Data[v*hidden : (v+1)*hidden]
-		for h := 0; h < hidden; h++ {
-			transposed[h*vocab+v] = row[h]
-		}
-	}
-	buf, err := gpu.Malloc(elems)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	if err := buf.Upload(transposed); err != nil {
-		buf.Free()
-		return nil, 0, 0, err
-	}
-	return buf, vocab, hidden, nil
 }
 
 func UploadSelfConditioningEmbeddingBuffer(weights *TextWeights) (*gpu.Buffer, int, int, error) {
