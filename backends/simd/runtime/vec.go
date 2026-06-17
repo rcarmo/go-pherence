@@ -67,13 +67,15 @@ func rmsNormGo(x, w []float32, eps float32) {
 	if n == 0 || len(w) < n {
 		return
 	}
-	ss := float32(0)
+	var sum float64
 	for _, v := range x {
-		ss += v * v
+		fv := float64(v)
+		sum += fv * fv
 	}
-	ss = 1.0 / float32Sqrt(ss/float32(n)+eps)
+	mean := float32(sum / float64(n))
+	scale := float32(1.0 / math.Sqrt(float64(mean+eps)))
 	for i := range x {
-		x[i] = w[i] * x[i] * ss
+		x[i] = w[i] * x[i] * scale
 	}
 }
 
@@ -87,13 +89,15 @@ func rmsNormNoScaleGo(x []float32, eps float32) {
 	if n == 0 {
 		return
 	}
-	ss := float32(0)
+	var sum float64
 	for _, v := range x {
-		ss += v * v
+		fv := float64(v)
+		sum += fv * fv
 	}
-	ss = float32(1.0 / math.Sqrt(float64(ss/float32(n)+eps)))
+	mean := float32(sum / float64(n))
+	scale := float32(1.0 / math.Sqrt(float64(mean+eps)))
 	for i := range x {
-		x[i] *= ss
+		x[i] *= scale
 	}
 }
 
