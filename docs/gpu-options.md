@@ -26,7 +26,7 @@ Loaded as one mega module + optional native BF16 module.
 - **DevBuf**: device-agnostic buffers with lazy CPU↔GPU transfer; vector/norm/dense GEMV/LM-head fast paths preflight kernel operands before launching and fall back or no-op safely if upload/allocation fails; GPU-only scratch buffers avoid zero host uploads for temporary MoE workspaces
 - **Quantized dispatch**: Q4/MLX upload paths validate dimensions, packed-weight sizes, scale layouts, and group indices before allocating GPU buffers; native MLX uploads can copy packed `uint32` weights directly when transposed GPTQ-compatible buffers are not needed; Q4 asymmetric and NVFP4 packed/native boundaries are documented in [nvidia-quant-boundaries.md](nvidia-quant-boundaries.md)
 - **LM-head placement**: F32 LM-head is preferred for moderate heads when it fits; compact MLX LM-head is used for very large heads or low-VRAM-headroom cases
-- **ExpertPool**: LRU cache for MoE expert weights with auto-sized VRAM budget; disabled and replacement cases return GPU resources for explicit release; Qwen-style MoE uses native-only MLX expert uploads, immediate GPU use on cache miss, and device-side expert-output accumulation; DiffusionGemma GGUF planned pointer-expert prewarm is documented in [diffusiongemma-gguf-gpu-profile.md](diffusiongemma-gguf-gpu-profile.md), including the opt-in raw compact Q4_K resident expert path (`GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1`) that stores original Q4_K metadata and reconstructs scale/min values in-kernel for fidelity.
+- **ExpertPool**: LRU cache for MoE expert weights with auto-sized VRAM budget; disabled and replacement cases return GPU resources for explicit release; Qwen-style MoE uses native-only MLX expert uploads, immediate GPU use on cache miss, and device-side expert-output accumulation; DiffusionGemma GGUF pointer-expert prewarm is documented in [diffusiongemma-gguf-gpu-profile.md](diffusiongemma-gguf-gpu-profile.md); current production graph uses grouped pointer-table Q4_K/Q8_0/Q5_0 GPU expert ops.
 - **BudgetManager**: 4-tier memory tracking (resident/layer/stream/expert), now owned by `backends/placement`
 - **MmapAdvisor**: `runtime/memory` page-level madvise tracking for eager loading and future weight streaming
 - **Layer placement**: `backends/placement` auto-fit/manual policy (`--gpu-layers N`) with caller-supplied device memory availability
@@ -95,7 +95,6 @@ Library/backend progress diagnostics are quiet by default. Opt in when debugging
 - `GO_PHERENCE_GPU_DEBUG=1` — NVIDIA backend init, module, stream, native-BF16, and experimental direct-NVIDIA ioctl diagnostics.
 - `GO_PHERENCE_VULKAN_DEBUG=1` — Vulkan discovery, CPU-device rejection, device creation, and pending-SPIR-V diagnostics.
 - `GO_PHERENCE_LOAD_DEBUG=1` — model loader, quantization detection, GPU placement, LM-head, expert-pool, and VRAM budget diagnostics.
-- `GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1` — opt into DiffusionGemma GGUF raw compact Q4_K expert residency for the exact-GELU pointer-table path; default remains the F32-derived scale/min representation.
 - `GO_PHERENCE_PREFILL_DEBUG=1` — batched-prefill progress diagnostics.
 - `GO_PHERENCE_VULKAN_ALLOW_CPU=1` — allows CPU/software Vulkan implementations such as llvmpipe for shader/backend debugging; by default these are rejected so `--gpu` does not silently select a CPU device.
 

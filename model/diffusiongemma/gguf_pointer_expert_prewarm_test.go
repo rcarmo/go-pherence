@@ -64,21 +64,6 @@ func TestGGUFGPUExpertPartialResidentEnabled(t *testing.T) {
 	}
 }
 
-func TestGGUFGPUExpertRawQ4Enabled(t *testing.T) {
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4", "")
-	if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-		t.Fatal("raw Q4 expert path should default off")
-	}
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4", "1")
-	if !diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-		t.Fatal("raw Q4 expert opt-in not honored")
-	}
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4", "false")
-	if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-		t.Fatal("raw Q4 expert disable not honored")
-	}
-}
-
 func TestGGUFGPUExpertAllowTanhGELUEnabled(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "")
 	if !diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
@@ -200,45 +185,6 @@ func countSyncMapEntries(m *sync.Map) int {
 		return true
 	})
 	return count
-}
-
-func TestPrewarmGGUFGPUPointerExpertCacheRawQ4UsesRawResidency(t *testing.T) {
-	if !gpu.SgemmReady() {
-		t.Skip("CUDA not available")
-	}
-	resetGGUFExpertResidencyTestState()
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_CACHE_MB", "8192")
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_RESERVE_MB", "0")
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4", "1")
-	idx := syntheticPointerExpertIndex(t)
-	f32Bytes, err := q4KGateUpExpertDeviceBytes(idx, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rawBytes, err := q4KGateUpExpertResidentBytes(idx, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rawBytes <= 0 || rawBytes >= f32Bytes {
-		t.Fatalf("raw Q4 bytes=%d f32 bytes=%d, want compact positive raw", rawBytes, f32Bytes)
-	}
-	layers, experts, bytes, err := PrewarmGGUFGPUPointerExpertCache(idx, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if layers != 1 || experts != 2 || bytes <= 0 {
-		t.Fatalf("raw Q4 prewarm layers=%d experts=%d bytes=%d, want 1/2/>0", layers, experts, bytes)
-	}
-	if got := countSyncMapEntries(&q4KGateUpExpertRawCache); got != 2 {
-		t.Fatalf("raw Q4 resident entries=%d want 2", got)
-	}
-	if got := countSyncMapEntries(&q4KGateUpExpertCache); got != 0 {
-		t.Fatalf("F32 Q4 resident entries=%d want 0 in raw mode", got)
-	}
-	if table, ok, err := activeQ4KGateUpRawPointerTable(idx, 0, []int{1, 0}); err != nil || !ok || table == nil {
-		t.Fatalf("raw Q4 active pointer table table=%v ok=%v err=%v", table, ok, err)
-	}
-	FreeGGUFGPUExpertCaches()
 }
 
 func TestPrewarmGGUFGPUPointerExpertCachePlannedQ5Down(t *testing.T) {

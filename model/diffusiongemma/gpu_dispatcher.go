@@ -413,10 +413,10 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			if stats.Total() > 0 {
 				cacheUsed, cacheLimit := activeExpertMatrixCacheUsageBytes()
 				activeAvg, workAvg, missingAvg, missingMiB, missingMaxMiB := stats.ActiveSetSummary()
-				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d partial(calls kept/dropped experts work)=%d %d/%d %d/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts q5(ptr/budget)=%d/%d q5_budget=%.1fMiB/%dexperts",
+				log.Printf("gguf_experts: fused=%d legacy_grouped=%d cpu_fallback=%d gpu_attempt=%.1fs cpu_fallback_time=%.1fs cache=%.1f/%.1fMiB active_sets=%d active(avg/max)=%.1f/%d work(avg/max)=%.1f/%d partial(calls kept/dropped experts work)=%d %d/%d %d/%d q4_missing(avg/max)=%.1f/%d q4_missing_bytes=%.1fMiB max=%.1fMiB exceeds=%d q4(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q4_budget=%.1fMiB/%dexperts q8(ptr/cache/transient_ptr/transient_pack/budget)=%d/%d/%d/%d/%d q8_budget=%.1fMiB/%dexperts q5(ptr/budget)=%d/%d q5_budget=%.1fMiB/%dexperts",
 					stats.FusedUsed, stats.LegacyGroupedUsed, stats.CPUFallback, float64(stats.GPUAttemptNS)/1e9, float64(stats.CPUFallbackNS)/1e9, float64(cacheUsed)/(1024*1024), float64(cacheLimit)/(1024*1024),
 					stats.ActiveSetCalls, activeAvg, stats.ActiveSetMaxExperts, workAvg, stats.ActiveSetMaxWorkItems, stats.PartialCalls, stats.PartialKeptExperts, stats.PartialDroppedExperts, stats.PartialKeptWork, stats.PartialDroppedWork, missingAvg, stats.Q4MissingMaxExperts, missingMiB, missingMaxMiB, stats.Q4MissingBudgetExceeds,
-					stats.Q4PointerTable, stats.Q4RawPointerTable, stats.Q4PackedCache, stats.Q4TransientPointer, stats.Q4TransientPacked, stats.Q4BudgetFallback, float64(stats.Q4BudgetBytes)/(1024*1024), stats.Q4BudgetExperts,
+					stats.Q4PointerTable, stats.Q4PackedCache, stats.Q4TransientPointer, stats.Q4TransientPacked, stats.Q4BudgetFallback, float64(stats.Q4BudgetBytes)/(1024*1024), stats.Q4BudgetExperts,
 					stats.Q8PointerTable, stats.Q8PackedCache, stats.Q8TransientPointer, stats.Q8TransientPacked, stats.Q8BudgetFallback, float64(stats.Q8BudgetBytes)/(1024*1024), stats.Q8BudgetExperts,
 					stats.Q5PointerTable, stats.Q5BudgetFallback, float64(stats.Q5BudgetBytes)/(1024*1024), stats.Q5BudgetExperts)
 			}
@@ -1447,7 +1447,6 @@ type ggufExpertDispatchStats struct {
 	LegacyGroupedUsed      uint64
 	CPUFallback            uint64
 	Q4PointerTable         uint64
-	Q4RawPointerTable      uint64
 	Q4PackedCache          uint64
 	Q4TransientPacked      uint64
 	Q4TransientPointer     uint64
@@ -1489,7 +1488,6 @@ var ggufExpertDispatchCounters struct {
 	legacyGroupedUsed      atomic.Uint64
 	cpuFallback            atomic.Uint64
 	q4PointerTable         atomic.Uint64
-	q4RawPointerTable      atomic.Uint64
 	q4PackedCache          atomic.Uint64
 	q4TransientPacked      atomic.Uint64
 	q4TransientPointer     atomic.Uint64
@@ -1532,7 +1530,6 @@ func ggufExpertDispatchStatsSnapshot() ggufExpertDispatchStats {
 		LegacyGroupedUsed:      ggufExpertDispatchCounters.legacyGroupedUsed.Load(),
 		CPUFallback:            ggufExpertDispatchCounters.cpuFallback.Load(),
 		Q4PointerTable:         ggufExpertDispatchCounters.q4PointerTable.Load(),
-		Q4RawPointerTable:      ggufExpertDispatchCounters.q4RawPointerTable.Load(),
 		Q4PackedCache:          ggufExpertDispatchCounters.q4PackedCache.Load(),
 		Q4TransientPacked:      ggufExpertDispatchCounters.q4TransientPacked.Load(),
 		Q4TransientPointer:     ggufExpertDispatchCounters.q4TransientPointer.Load(),
@@ -1583,7 +1580,6 @@ func (s ggufExpertDispatchStats) Sub(base ggufExpertDispatchStats) ggufExpertDis
 		LegacyGroupedUsed:      s.LegacyGroupedUsed - base.LegacyGroupedUsed,
 		CPUFallback:            s.CPUFallback - base.CPUFallback,
 		Q4PointerTable:         s.Q4PointerTable - base.Q4PointerTable,
-		Q4RawPointerTable:      s.Q4RawPointerTable - base.Q4RawPointerTable,
 		Q4PackedCache:          s.Q4PackedCache - base.Q4PackedCache,
 		Q4TransientPacked:      s.Q4TransientPacked - base.Q4TransientPacked,
 		Q4TransientPointer:     s.Q4TransientPointer - base.Q4TransientPointer,
@@ -1641,7 +1637,6 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufExpertDispatchCounters.legacyGroupedUsed.Store(0)
 	ggufExpertDispatchCounters.cpuFallback.Store(0)
 	ggufExpertDispatchCounters.q4PointerTable.Store(0)
-	ggufExpertDispatchCounters.q4RawPointerTable.Store(0)
 	ggufExpertDispatchCounters.q4PackedCache.Store(0)
 	ggufExpertDispatchCounters.q4TransientPacked.Store(0)
 	ggufExpertDispatchCounters.q4TransientPointer.Store(0)
@@ -2409,10 +2404,8 @@ type q4KGateUpExpertKey struct {
 	layer, expert int
 }
 
-var q4KGateUpExpertCache sync.Map                // map[q4KGateUpExpertKey]*gpu.GPUQ4KMatrix
-var q4KGateUpExpertRawCache sync.Map             // map[q4KGateUpExpertKey]*gpu.GPUQ4KMatrixRaw
-var activeQ4KGateUpPointerTableCache sync.Map    // map[activeQ4KGateUpKey]*gpu.GPUQ4KPointerTable
-var activeQ4KGateUpRawPointerTableCache sync.Map // map[activeQ4KGateUpKey]*gpu.GPUQ4KPointerTableRaw
+var q4KGateUpExpertCache sync.Map             // map[q4KGateUpExpertKey]*gpu.GPUQ4KMatrix
+var activeQ4KGateUpPointerTableCache sync.Map // map[activeQ4KGateUpKey]*gpu.GPUQ4KPointerTable
 
 func ggufPointerExpertLayerFullyResident(idx *GGUFExpertIndex, layer int) bool {
 	if idx == nil || layer < 0 || layer >= idx.NumLayers || idx.NumExperts <= 0 {
@@ -2420,11 +2413,7 @@ func ggufPointerExpertLayerFullyResident(idx *GGUFExpertIndex, layer int) bool {
 	}
 	index := ggufExpertIndexCacheID(idx)
 	for expert := 0; expert < idx.NumExperts; expert++ {
-		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-			if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
-				return false
-			}
-		} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
 			return false
 		}
 		if _, ok := q8DownExpertCache.Load(q8DownExpertKey{index: index, layer: layer, expert: expert}); !ok {
@@ -2469,13 +2458,7 @@ func traceGGUFActiveExpertSet(idx *GGUFExpertIndex, layer int, groupedArrays Sel
 		}
 		work := groupedArrays.Offsets[i+1] - groupedArrays.Offsets[i]
 		missing := false
-		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-			if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
-				missing = true
-				missingExperts++
-				missingBytes += perExpert
-			}
-		} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
 			missing = true
 			missingExperts++
 			missingBytes += perExpert
@@ -2529,12 +2512,7 @@ func ggufActiveExpertSetQ4MissingStats(idx *GGUFExpertIndex, layer int, active [
 		if expert < 0 || expert >= idx.NumExperts {
 			continue
 		}
-		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-			if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
-				missingExperts++
-				missingBytes += perExpert
-			}
-		} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
+		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: index, layer: layer, expert: expert}); !ok {
 			missingExperts++
 			missingBytes += perExpert
 		}
@@ -2566,99 +2544,6 @@ func shouldEarlySkipDoomedGGUFExpertAttempt(idx *GGUFExpertIndex, layer int, top
 
 func residentQ4KGateUpExpertMatrix(idx *GGUFExpertIndex, layer, expert int) (*gpu.GPUQ4KMatrix, error) {
 	return residentQ4KGateUpExpertMatrixWithReservation(idx, layer, expert, true)
-}
-
-func residentQ4KGateUpExpertRawMatrixWithReservation(idx *GGUFExpertIndex, layer, expert int, reserve bool) (*gpu.GPUQ4KMatrixRaw, error) {
-	if idx == nil || layer < 0 || layer >= idx.NumLayers || expert < 0 || expert >= idx.NumExperts {
-		return nil, fmt.Errorf("invalid resident raw Q4_K gate/up expert layer=%d expert=%d", layer, expert)
-	}
-	key := q4KGateUpExpertKey{index: ggufExpertIndexCacheID(idx), layer: layer, expert: expert}
-	if cached, ok := q4KGateUpExpertRawCache.Load(key); ok {
-		return cached.(*gpu.GPUQ4KMatrixRaw), nil
-	}
-	le := idx.entries[layer]
-	if le.gateUp.QType != gguf.QuantQ4_K {
-		return nil, fmt.Errorf("resident raw Q4_K gate/up requires Q4_K, got %s", le.gateUp.QType)
-	}
-	rowBytes, err := le.gateUp.RowBytes()
-	if err != nil {
-		return nil, err
-	}
-	rows := le.gateUp.OutDim
-	start := expert * rows * rowBytes
-	end := start + rows*rowBytes
-	if start < 0 || end < start || end > len(le.gateUp.Raw) {
-		return nil, fmt.Errorf("resident raw Q4_K gate/up expert %d raw outside", expert)
-	}
-	blocks := le.gateUp.InDim / 256
-	cacheBytes := int64(rows * blocks * 144)
-	if reserve && !reserveActiveExpertMatrixCacheBytes(cacheBytes) {
-		return nil, errActiveExpertMatrixCacheBudget
-	}
-	m, err := gpu.UploadQ4KMatrixRowsRaw(le.gateUp.Raw[start:end], le.gateUp.InDim, rows)
-	if err != nil {
-		if reserve {
-			releaseActiveExpertMatrixCacheBytes(cacheBytes)
-		}
-		return nil, err
-	}
-	actual, loaded := q4KGateUpExpertRawCache.LoadOrStore(key, m)
-	if loaded {
-		m.Free()
-		if reserve {
-			releaseActiveExpertMatrixCacheBytes(cacheBytes)
-		}
-		return actual.(*gpu.GPUQ4KMatrixRaw), nil
-	}
-	return m, nil
-}
-
-func activeQ4KGateUpRawPointerTable(idx *GGUFExpertIndex, layer int, active []int) (*gpu.GPUQ4KPointerTableRaw, bool, error) {
-	if idx == nil || layer < 0 || layer >= idx.NumLayers || len(active) == 0 {
-		return nil, false, fmt.Errorf("invalid active raw Q4_K pointer table request")
-	}
-	var h uint64 = 1469598103934665603
-	for _, expert := range active {
-		h ^= uint64(uint32(expert) + 0x9e3779b9)
-		h *= 1099511628211
-	}
-	key := activeQ4KGateUpKey{index: ggufExpertIndexCacheID(idx), layer: layer, hash: h, count: len(active)}
-	if cached, ok := activeQ4KGateUpRawPointerTableCache.Load(key); ok {
-		return cached.(*gpu.GPUQ4KPointerTableRaw), true, nil
-	}
-	missingBytes := int64(0)
-	blocks := idx.entries[layer].gateUp.InDim / 256
-	rows := idx.entries[layer].gateUp.OutDim
-	perExpert := int64(rows * blocks * 144)
-	for _, expert := range active {
-		if expert < 0 || expert >= idx.NumExperts {
-			return nil, false, fmt.Errorf("active raw Q4_K expert %d outside %d", expert, idx.NumExperts)
-		}
-		if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: ggufExpertIndexCacheID(idx), layer: layer, expert: expert}); !ok {
-			missingBytes += perExpert
-		}
-	}
-	if missingBytes > 0 && !reserveActiveExpertMatrixCacheBytes(missingBytes) {
-		return nil, false, nil
-	}
-	mats := make([]*gpu.GPUQ4KMatrixRaw, len(active))
-	for i, expert := range active {
-		m, err := residentQ4KGateUpExpertRawMatrixWithReservation(idx, layer, expert, false)
-		if err != nil {
-			return nil, false, err
-		}
-		mats[i] = m
-	}
-	table, err := gpu.UploadQ4KPointerTableRaw(mats)
-	if err != nil {
-		return nil, false, err
-	}
-	actual, loaded := activeQ4KGateUpRawPointerTableCache.LoadOrStore(key, table)
-	if loaded {
-		table.Free()
-		return actual.(*gpu.GPUQ4KPointerTableRaw), true, nil
-	}
-	return table, true, nil
 }
 
 func residentQ4KGateUpExpertMatrixWithReservation(idx *GGUFExpertIndex, layer, expert int, reserve bool) (*gpu.GPUQ4KMatrix, error) {
@@ -2941,12 +2826,6 @@ func FreeGGUFGPUExpertCaches() {
 		}
 		return true
 	})
-	activeQ4KGateUpRawPointerTableCache.Range(func(_, v any) bool {
-		if t, ok := v.(*gpu.GPUQ4KPointerTableRaw); ok && t != nil {
-			t.Free()
-		}
-		return true
-	})
 	activeQ4KGateUpPointerTableCache.Range(func(_, v any) bool {
 		if t, ok := v.(*gpu.GPUQ4KPointerTable); ok && t != nil {
 			t.Free()
@@ -2977,12 +2856,6 @@ func FreeGGUFGPUExpertCaches() {
 		}
 		return true
 	})
-	q4KGateUpExpertRawCache.Range(func(_, v any) bool {
-		if m, ok := v.(*gpu.GPUQ4KMatrixRaw); ok && m != nil {
-			m.Free()
-		}
-		return true
-	})
 	q4KGateUpExpertCache.Range(func(_, v any) bool {
 		if m, ok := v.(*gpu.GPUQ4KMatrix); ok && m != nil {
 			m.Free()
@@ -2992,13 +2865,11 @@ func FreeGGUFGPUExpertCaches() {
 	activeQ5DownPointerTableCache = sync.Map{}
 	activeQ8DownPointerTableCache = sync.Map{}
 	activeQ4KGateUpPointerTableCache = sync.Map{}
-	activeQ4KGateUpRawPointerTableCache = sync.Map{}
 	activeQ8DownCache = sync.Map{}
 	activeQ4KGateUpCache = sync.Map{}
 	q8DownExpertCache = sync.Map{}
 	q5DownExpertCache = sync.Map{}
 	q4KGateUpExpertCache = sync.Map{}
-	q4KGateUpExpertRawCache = sync.Map{}
 	for _, m := range ggufTransientPointerExpertScratch.q4 {
 		if m != nil {
 			m.Free()
@@ -3158,11 +3029,6 @@ func diffusionGemmaGGUFGPUExpertTransientActiveEnabled() bool {
 func diffusionGemmaGGUFGPUExpertTransientPointerEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_TRANSIENT_POINTER")))
 	return v == "1" || v == "true" || v == "yes" || v == "on" || diffusionGemmaRequireGroupedExpertGraph()
-}
-
-func diffusionGemmaGGUFGPUExpertRawQ4Enabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() bool {
@@ -4107,11 +3973,7 @@ func ggufPointerExpertResident(idx *GGUFExpertIndex, layer, expert int) bool {
 		return false
 	}
 	cacheID := ggufExpertIndexCacheID(idx)
-	if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-		if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
-			return false
-		}
-	} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+	if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
 		return false
 	}
 	if idx.entries[layer].down.QType == gguf.QuantQ8_0 {
@@ -4326,9 +4188,6 @@ func q4KGateUpExpertResidentBytes(idx *GGUFExpertIndex, layer int) (int64, error
 		return 0, fmt.Errorf("Q4_K gate/up expert residency requires Q4_K, got %s", le.gateUp.QType)
 	}
 	blocks := le.gateUp.InDim / 256
-	if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-		return int64(le.gateUp.OutDim * blocks * 144), nil
-	}
 	return int64(le.gateUp.OutDim * blocks * (128 + 8*4 + 8*4)), nil
 }
 
@@ -4373,15 +4232,7 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 	prewarmed := make(map[ggufExpertPrewarmTarget]bool)
 	prewarmOne := func(layer, expert int) (bool, error) {
 		need := int64(0)
-		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-			if _, ok := q4KGateUpExpertRawCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
-				b, err := q4KGateUpExpertResidentBytes(idx, layer)
-				if err != nil {
-					return false, err
-				}
-				need += b
-			}
-		} else if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
+		if _, ok := q4KGateUpExpertCache.Load(q4KGateUpExpertKey{index: cacheID, layer: layer, expert: expert}); !ok {
 			b, err := q4KGateUpExpertResidentBytes(idx, layer)
 			if err != nil {
 				return false, err
@@ -4428,14 +4279,7 @@ func PrewarmGGUFGPUPointerExpertCache(idx *GGUFExpertIndex, maxLayers int) (laye
 				return false, nil
 			}
 		}
-		if diffusionGemmaGGUFGPUExpertRawQ4Enabled() {
-			if _, err := residentQ4KGateUpExpertRawMatrixWithReservation(idx, layer, expert, false); err != nil {
-				if need > 0 {
-					releaseActiveExpertMatrixCacheBytes(need)
-				}
-				return false, err
-			}
-		} else if _, err := residentQ4KGateUpExpertMatrixWithReservation(idx, layer, expert, false); err != nil {
+		if _, err := residentQ4KGateUpExpertMatrixWithReservation(idx, layer, expert, false); err != nil {
 			if need > 0 {
 				releaseActiveExpertMatrixCacheBytes(need)
 			}

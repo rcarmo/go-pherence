@@ -171,10 +171,8 @@ how many selected experts still land in the dropped CPU subset.
 
 ### Raw compact Q4_K smoke
 
-With raw compact Q4_K enabled and partial-resident execution on:
 
 ```bash
-export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1
 export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PARTIAL_RESIDENT=1
 ```
 
@@ -189,7 +187,6 @@ q8(ptr/cache/transient_ptr/transient_pack/budget)=2/0/0/0/0
 partial(calls kept/dropped experts work)=1 20/40 345/391
 ```
 
-Using the planner with `--raw-q4 --order efficiency --ensure-layer-coverage
 --optimize-budget --budget-mb 768` produced a 200-entry
 raw-Q4 plan with modeled kept work `14415/22080`. Running that plan with
 `GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_PREWARM_PLAN_ONLY=1` preserved token
@@ -250,7 +247,6 @@ example `nPos=4` direct x4 ~1336ns vs dequant+Sdot ~740ns, `nPos=16` direct x4
 quantized dot or better residency planning, not scalar x4 accumulation.
 
 Modeling smaller Q5_0 resident scales is also only a modest structural lever once
-raw Q4_K is active. With `--raw-q4`, changing the Q5 cost model from
 `--q5-scale-bytes 4` to `--q5-scale-bytes 2` raises the 768MiB planned kept work
 from `14415/22080` to only `14568/22080`; at 2048MiB it moves from
 `20636/22080` to `20690/22080`. That is useful but not large enough by itself to
@@ -282,7 +278,6 @@ current Q4_K resident experts in the default path store derived scale/min values
 as F32. Modeling those Q4 scale/min values with a smaller byte count shows a
 structural kept-work improvement at every tested budget:
 
-| Expert cache | Current Q4 F32 scale/min | Rejected fp16-derived scale/min model | Implemented raw Q4 metadata model |
 |---:|---:|---:|---:|
 | 768MiB | 12908/22080 | 13900/22080 | 14415/22080 |
 | 1024MiB | 15389/22080 | 16265/22080 | 16739/22080 |
@@ -295,7 +290,6 @@ structural kept-work improvement at every tested budget:
 
 At the bounded 768MiB target, the implemented raw metadata model keeps roughly
 1507 additional traced work items versus the default F32-derived scale/min cache.
-At about 4.4GiB of modeled expert cache, raw Q4 metadata can fit the entire
 traced expert set, where the current representation still leaves a small tail at
 5GiB.
 
@@ -310,10 +304,8 @@ The implemented fidelity-preserving compact path instead stores the original
 Q4_K row-block metadata (`d`, `dmin`, and the 12 packed scale/min bytes) alongside
 the packed quants, then reconstructs scale/min values inside the pointer-table
 kernel exactly as `unpackQ4KMatrixRows` does. In planner simulations this is
-modeled with `--raw-q4` (or the equivalent `--q4-scale-bytes 1`). It is opt-in at runtime:
 
 ```bash
-export GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1
 ```
 
 The raw compact path keeps the default exact-GELU policy: Q4_K gate/up dot runs
@@ -322,8 +314,6 @@ runs on GPU when resident. Focused validation passed for:
 
 ```bash
 go test ./backends/nvidia/runtime -run 'TestGateUpQ4KByWorkPtrsCompactScaleParity' -count=1 -v
-GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_RAW_Q4=1 \
-  go test ./model/diffusiongemma -run 'Test(GGUFGPUExpertRawQ4Enabled|PrewarmGGUFGPUPointerExpertCacheRawQ4UsesRawResidency|LocalGGUFGroupedGPUExpertsQ5DownMatchCPUSelected|LocalGGUFFusedGPUExpertsQ5DownMatchCPUSelected|LocalGGUFPartialGroupedGPUCPUExpertsPromptScale|LocalGGUFPartialGroupedGPUCPUExpertsPromptScaleLayer5)$' -count=1 -v
 ```
 
 ## Why this is opt-in
