@@ -413,3 +413,20 @@ A cutoff sweep tested whether only early layers need the improved Gemma4 MTP ver
 | 42 / all layers | 0.279 in that run | **0.237515** | **0.093098** |
 
 Conclusion: applying layer scalar after BF16 for all Gemma4 MTP verifier layers remains the best correctness setting. Partial early-layer application regresses selected-logit parity.
+
+### Layer-scalar ordering prompt/verifier isolation
+
+The `BF16(hidden) -> layer_output_scale` improvement was isolated across prompt-context seed rows and verifier rows.
+
+| Scope using scalar-after-BF16 | Effective tok/s | Sum abs error | Max abs error |
+|---|---:|---:|---:|
+| verifier rows only (`pos >= 2`) | 0.308 | 0.357792 | 0.163836 |
+| prompt seed rows only (`pos < 2`) | 0.275 | 0.445313 | 0.213539 |
+| all prompt + verifier rows | current best | **0.237515** | **0.093098** |
+
+Logs:
+
+- `logs/mtp-strict-layer-scalar-verifier-only-20260617-012532.log`
+- `logs/mtp-strict-layer-scalar-prompt-only-20260617-012541.log`
+
+Conclusion: the improved ordering needs to apply consistently to both prompt-context seed and verifier batch rows in `forwardMTPPromptLayer`. Applying it only to one side regresses selected-logit parity.
