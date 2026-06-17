@@ -342,6 +342,13 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 		}
 		for b := 0; b < B; b++ {
 			hid := bHidden[b*h : (b+1)*h]
+			if batch.HasPerLayerInputs && m.Config.ModelType == "gemma4_text" {
+				simd.ToBF16(hid)
+				if layer.LayerScalar != 1.0 {
+					simd.VecScale(hid, hid, layer.LayerScalar)
+				}
+				continue
+			}
 			if layer.LayerScalar != 1.0 {
 				simd.VecScale(hid, hid, layer.LayerScalar)
 			}

@@ -676,3 +676,17 @@ Current exact-workload benchmark remains CPU-only:
 | QAT GGUF GPU/PTX decode | n/a | unsupported by `GPUModel` until GGUF embeddings/weights are handled on the GPU path |
 
 Closing this GPU/PTX benchmark gap requires implementing GGUF-aware GPU decode support (at minimum `TokenEmbeddingInto`/`EmbedTokensGGUF` handling, and then GGUF quantized layer/LM-head GPU dispatch) or creating a separate GGUF GPU verifier path. Do not report MLX GPU numbers as QAT GGUF GPU parity.
+
+### Gated batch verifier PLI layer-scalar ordering alignment
+
+The experimental full-layer batch verifier now uses the same improved Gemma4 MTP ordering (`BF16(hidden) -> layer_output_scale`) when the batch carries Gemma4 per-layer inputs. Non-PLI/synthetic verifier batches retain their existing row-loop oracle ordering to preserve exact batch-vs-sequential tests.
+
+Validation:
+
+```bash
+go test ./model -run 'TestRunMTPVerifierBatchForwardLayeredExperimentalGemma4MixedAttentionMatchesSequential|TestRunMTPVerifierBatchForwardLayeredExperimentalSharedKVMatchesSequential|TestRunMTPVerifierBatchForwardLayeredExperimentalGemma4PLIMatchesSequential' -count=1
+make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp
+make gemma4-gpu-cpu-parity GOTMPDIR=$PWD/.gotmp
+```
+
+Strict selected-logit behavior with `GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS=1` now matches the improved baseline error profile (`sum_abs=0.237515`, `max_abs=0.093098`), while the path remains gated because strict parity is still not green.
