@@ -96,7 +96,7 @@ func TestDenseF32GPULMHeadDeviceGraphSamplesAndBuildsSC(t *testing.T) {
 		t.Fatalf("bad device SC state: %+v", state)
 	}
 	defer state.Free()
-	if len(arg) != positions || len(ent) != positions || len(samp) != positions || len(sc) != positions*hidden {
+	if len(arg) != positions || len(ent) != positions || len(samp) != positions || len(sc) != 0 {
 		t.Fatalf("bad device graph lengths arg=%d ent=%d samp=%d sc=%d", len(arg), len(ent), len(samp), len(sc))
 	}
 	for i, v := range ent {

@@ -152,7 +152,10 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 
 	for _, op := range ops.Prefix {
 		if op == OpSelfCondition && ctx.DeviceSelfConditioning != nil && diffusionGemmaRequireGroupedExpertGraph() && d.GGUFExpertIndex != nil {
-			return ForwardOutput{}, fmt.Errorf("GGUF backend graph has device self-conditioning state but device prefix SC MLP is not implemented")
+			if err := d.runGGUFDeviceSelfCondition(ctx, weights, scratch, positions, hiddenSize); err != nil {
+				return ForwardOutput{}, err
+			}
+			continue
 		}
 		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
@@ -526,6 +529,147 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		}
 	}
 	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning, DeviceSelfConditioning: deviceSelfConditioningState, ArgmaxCanvas: sampledArgmax, SampledCanvas: sampledTokens, Entropy: sampledEntropy}, nil
+}
+
+func (d GPUDispatcher) runGGUFDeviceSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardScratch, positions, hiddenSize int) error {
+	state, ok := ctx.DeviceSelfConditioning.(*GGUFGPUDeviceSelfConditioning)
+	if !ok || state == nil || state.Logits == nil || state.Logits.Ptr == 0 {
+		return fmt.Errorf("GGUF device self-conditioning state missing")
+	}
+	if d.SCEmbed == nil || d.SCEmbed.Ptr == 0 || d.SCEmbedVocab != state.Vocab || d.SCEmbedHidden != hiddenSize {
+		return fmt.Errorf("GGUF device self-conditioning resident embedding [%d,%d] incompatible with state vocab=%d hidden=%d", d.SCEmbedVocab, d.SCEmbedHidden, state.Vocab, hiddenSize)
+	}
+	if positions != state.Positions || state.Hidden != hiddenSize || len(scratch.Hidden) < positions*hiddenSize {
+		return fmt.Errorf("GGUF device self-conditioning shape mismatch positions=%d/%d hidden=%d/%d", positions, state.Positions, hiddenSize, state.Hidden)
+	}
+	fp := weights.ForwardPlan()
+	preNorm, err := loadFloatVector(weights, fp.Globals.SelfCondPreNorm)
+	if err != nil {
+		return err
+	}
+	gateW, gateRows, gateCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondGateProj)
+	if err != nil {
+		return err
+	}
+	upW, upRows, upCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondUpProj)
+	if err != nil {
+		return err
+	}
+	downW, downRows, downCols, err := loadFloatMatrix(weights, fp.Globals.SelfCondDownProj)
+	if err != nil {
+		return err
+	}
+	if len(preNorm) != hiddenSize || gateCols != hiddenSize || upRows != gateRows || upCols != hiddenSize || downRows != hiddenSize || downCols != gateRows {
+		return fmt.Errorf("GGUF device self-conditioning projection shape mismatch")
+	}
+	intermediate := gateRows
+	hidLen, okHid := checked.MulInt(positions, hiddenSize)
+	midLen, okMid := checked.MulInt(positions, intermediate)
+	probLen, okProb := checked.MulInt(positions, state.Vocab)
+	if !okHid || !okMid || !okProb {
+		return fmt.Errorf("GGUF device self-conditioning size overflow")
+	}
+	probBuf, err := gpu.Malloc(probLen)
+	if err != nil {
+		return err
+	}
+	defer probBuf.Free()
+	if err := gpu.DiffusionSoftmaxRows(state.Logits, probBuf, positions, state.Vocab, state.TempInv); err != nil {
+		return err
+	}
+	scBuf, err := gpu.Malloc(hidLen)
+	if err != nil {
+		return err
+	}
+	defer scBuf.Free()
+	if err := gpu.Sgemm(positions, hiddenSize, state.Vocab, float32(math.Sqrt(float64(hiddenSize))), probBuf, d.SCEmbed, scBuf); err != nil {
+		return fmt.Errorf("GGUF device self-conditioning embedding SGEMM: %w", err)
+	}
+	preNormBuf, err := gpu.Malloc(len(preNorm))
+	if err != nil {
+		return err
+	}
+	defer preNormBuf.Free()
+	if err := preNormBuf.Upload(preNorm); err != nil {
+		return err
+	}
+	normBuf, err := gpu.Malloc(hidLen)
+	if err != nil {
+		return err
+	}
+	defer normBuf.Free()
+	if err := gpu.IdeogramRMSNormRowsBuffer(normBuf, scBuf, preNormBuf, nil, positions, hiddenSize, 1e-6, false); err != nil {
+		return fmt.Errorf("GGUF device self-conditioning pre-norm: %w", err)
+	}
+	gateBuf, err := gpu.Malloc(midLen)
+	if err != nil {
+		return err
+	}
+	defer gateBuf.Free()
+	upBuf, err := gpu.Malloc(midLen)
+	if err != nil {
+		return err
+	}
+	defer upBuf.Free()
+	gateT, err := uploadTransposedF32Matrix(gateW, intermediate, hiddenSize)
+	if err != nil {
+		return err
+	}
+	defer gateT.Free()
+	upT, err := uploadTransposedF32Matrix(upW, intermediate, hiddenSize)
+	if err != nil {
+		return err
+	}
+	defer upT.Free()
+	if err := gpu.Sgemm(positions, intermediate, hiddenSize, 1, normBuf, gateT, gateBuf); err != nil {
+		return fmt.Errorf("GGUF device self-conditioning gate SGEMM: %w", err)
+	}
+	if err := gpu.Sgemm(positions, intermediate, hiddenSize, 1, normBuf, upT, upBuf); err != nil {
+		return fmt.Errorf("GGUF device self-conditioning up SGEMM: %w", err)
+	}
+	if err := gpu.GELUTanhMulBuffer(gateBuf, upBuf, midLen); err != nil {
+		return err
+	}
+	downT, err := uploadTransposedF32Matrix(downW, hiddenSize, intermediate)
+	if err != nil {
+		return err
+	}
+	defer downT.Free()
+	signalBuf, err := gpu.Malloc(hidLen)
+	if err != nil {
+		return err
+	}
+	defer signalBuf.Free()
+	if err := gpu.Sgemm(positions, hiddenSize, intermediate, 1, gateBuf, downT, signalBuf); err != nil {
+		return fmt.Errorf("GGUF device self-conditioning down SGEMM: %w", err)
+	}
+	hiddenBuf, err := gpu.Malloc(hidLen)
+	if err != nil {
+		return err
+	}
+	defer hiddenBuf.Free()
+	if err := hiddenBuf.Upload(scratch.Hidden[:hidLen]); err != nil {
+		return err
+	}
+	if err := gpu.VecAddF32Buffer(hiddenBuf, signalBuf, hiddenBuf, hidLen); err != nil {
+		return err
+	}
+	ones := make([]float32, hiddenSize)
+	for i := range ones {
+		ones[i] = 1
+	}
+	onesBuf, err := gpu.Malloc(hiddenSize)
+	if err != nil {
+		return err
+	}
+	defer onesBuf.Free()
+	if err := onesBuf.Upload(ones); err != nil {
+		return err
+	}
+	if err := gpu.IdeogramRMSNormRowsBuffer(hiddenBuf, hiddenBuf, onesBuf, nil, positions, hiddenSize, 1e-6, false); err != nil {
+		return fmt.Errorf("GGUF device self-conditioning post-norm: %w", err)
+	}
+	return hiddenBuf.Download(scratch.Hidden[:hidLen])
 }
 
 func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch, fp TextForwardPlan, hiddenSize, positions int) error {
@@ -5407,43 +5551,12 @@ func runDenseF32GPULMHeadDeviceGraph(scratch ForwardScratch, hiddenSize int, cac
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	var sc []float32
-	if needSC {
-		if scEmbed == nil || scVocab != cachedVocab || scHidden != hiddenSize {
-			return nil, nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning embedding [%d,%d] want [%d,%d]", scVocab, scHidden, cachedVocab, hiddenSize)
-		}
-		probBuf, err := gpu.Malloc(outLen)
-		if err != nil {
-			return nil, nil, nil, nil, nil, err
-		}
-		defer probBuf.Free()
-		if err := gpu.DiffusionSoftmaxRows(logitsBuf, probBuf, positions, cachedVocab, scratch.SCTempInv); err != nil {
-			return nil, nil, nil, nil, nil, err
-		}
-		scLen, okSC := checked.MulInt(positions, hiddenSize)
-		if !okSC {
-			return nil, nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning output overflow")
-		}
-		scBuf, err := gpu.Malloc(scLen)
-		if err != nil {
-			return nil, nil, nil, nil, nil, err
-		}
-		defer scBuf.Free()
-		if err := gpu.Sgemm(positions, hiddenSize, cachedVocab, 1, probBuf, scEmbed, scBuf); err != nil {
-			return nil, nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning SGEMM: %w", err)
-		}
-		sc = make([]float32, scLen)
-		if err := scBuf.Download(sc); err != nil {
-			return nil, nil, nil, nil, nil, err
-		}
-		scale := float32(math.Sqrt(float64(hiddenSize)))
-		for i := range sc {
-			sc[i] *= scale
-		}
+	if needSC && (scEmbed == nil || scVocab != cachedVocab || scHidden != hiddenSize) {
+		return nil, nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning embedding [%d,%d] want [%d,%d]", scVocab, scHidden, cachedVocab, hiddenSize)
 	}
 	state := &GGUFGPUDeviceSelfConditioning{Logits: logitsBuf, Positions: positions, Vocab: cachedVocab, Hidden: hiddenSize, TempInv: scratch.SCTempInv}
 	freeLogits = false
-	return arg, ent, samp, sc, state, nil
+	return arg, ent, samp, nil, state, nil
 }
 
 func UploadFP8LMHeadBuffer(fp8w *FP8TextWeights) (*gpu.Buffer, int, int, error) {
