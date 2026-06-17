@@ -181,6 +181,18 @@ func gemma4MTPDrafterGGUFConfig(g *gguf.GGUF) (LlamaConfig, int, error) {
 	if err != nil {
 		return LlamaConfig{}, 0, err
 	}
+	if v, err := u("attention.value_length_swa"); err == nil && v != headDim {
+		return LlamaConfig{}, 0, fmt.Errorf("%s attention.value_length_swa=%d, want key_length_swa=%d", p, v, headDim)
+	}
+	if v, err := u("attention.value_length"); err == nil && v != globalHeadDim {
+		return LlamaConfig{}, 0, fmt.Errorf("%s attention.value_length=%d, want key_length=%d", p, v, globalHeadDim)
+	}
+	if v, err := u("rope.dimension_count_swa"); err == nil && v != headDim {
+		return LlamaConfig{}, 0, fmt.Errorf("%s rope.dimension_count_swa=%d, want key_length_swa=%d", p, v, headDim)
+	}
+	if v, err := u("rope.dimension_count"); err == nil && v != globalHeadDim {
+		return LlamaConfig{}, 0, fmt.Errorf("%s rope.dimension_count=%d, want key_length=%d", p, v, globalHeadDim)
+	}
 	sw, err := u("attention.sliding_window")
 	if err != nil {
 		return LlamaConfig{}, 0, err

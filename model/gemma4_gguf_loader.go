@@ -236,6 +236,18 @@ func gemma4GGUFConfig(g *gguf.GGUF) (common.Config, error) {
 	if err != nil {
 		return common.Config{}, err
 	}
+	if v, err := req("gemma4.attention.value_length_swa"); err == nil && v != keyLen {
+		return common.Config{}, fmt.Errorf("gemma4 value_length_swa=%d, want key_length_swa=%d", v, keyLen)
+	}
+	if v, err := req("gemma4.attention.value_length"); err == nil && v != globalKeyLen {
+		return common.Config{}, fmt.Errorf("gemma4 value_length=%d, want key_length=%d", v, globalKeyLen)
+	}
+	if v, err := req("gemma4.rope.dimension_count_swa"); err == nil && v != keyLen {
+		return common.Config{}, fmt.Errorf("gemma4 rope.dimension_count_swa=%d, want key_length_swa=%d", v, keyLen)
+	}
+	if v, err := req("gemma4.rope.dimension_count"); err == nil && v != globalKeyLen {
+		return common.Config{}, fmt.Errorf("gemma4 rope.dimension_count=%d, want key_length=%d", v, globalKeyLen)
+	}
 	sliding, _ := req("gemma4.attention.sliding_window")
 	shared, _ := req("gemma4.attention.shared_kv_layers")
 	hpl, _ := req("gemma4.embedding_length_per_layer_input")
