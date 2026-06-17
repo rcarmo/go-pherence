@@ -161,6 +161,12 @@ flock /tmp/go-pherence-gpu.lock -c \
 
 Full-canvas log artifact: `logs/diffusiongemma_gpu_fullcanvas_20260617-160247.log`; JSON artifact: `logs/diffusiongemma_gpu_fullcanvas_20260617-160247.json`. The run reported encoder prompt KV in 26.3s, denoise forward attention 2.6s, dense MLP 0.8s, LM-head 2.9s, self-conditioning build 15.2s, and expert time 465.9s. Expert dispatch fell back to CPU/SIMD for all 30 layers (`fused=0`, `cpu_fallback=30`) because the full 256-row active sets exceeded the bounded expert GPU cache, so the proper full-canvas GPU workload is currently bottlenecked by GGUF CPU expert fallback rather than PTX attention or Q6_K LM-head.
 
+## Backend graph re-audit: MoE expert fallback mismatch
+
+The full-canvas benchmark exposed an execution-graph mismatch rather than just a performance problem. llama.cpp does not implement DiffusionGemma/Gemma4 experts as model-level “try GPU, else CPU fallback” branches. In `src/models/diffusion-gemma.cpp`, every layer calls `gemma4_build_ffn_moe`; `src/models/gemma4-common.h` delegates the MoE block to `llm_graph_context::build_moe_ffn`; and `src/llama-graph.cpp` lowers the selected experts to graph operations including `ggml_argsort_top_k`, `ggml_get_rows`, `ggml_mul_mat_id` for gate/up and down experts, `ggml_mul` for weights/scales, and `ggml_add` aggregation. Backend placement/fallback is therefore a ggml scheduler/backend concern under one graph, not an explicit DiffusionGemma model branch.
+
+The Go GGUF GPU path now exposes this difference with strict graph mode. When `GO_PHERENCE_DIFFUSIONGEMMA_BACKEND_GRAPH=1` or `GO_PHERENCE_DIFFUSIONGEMMA_REQUIRE_GROUPED_EXPERT_GRAPH=1` is set, `OpExperts` must be handled by the grouped selected-expert backend path; cache/budget/materialization misses now return a graph-mismatch error instead of silently falling back to `runGGUFCPUExpertsIndexed`. This keeps normal development smokes runnable, but makes 1:1 graph validation fail closed until the remaining work is implemented: a `ggml_mul_mat_id`-style grouped expert op that accepts the selected-expert metadata and runs gate/up, activation, down, weighting, and aggregation as one backend graph boundary across all active experts.
+
 ## Remaining before real/reference-complete inference
 
 1. Download/prepare full 11 safetensor shards locally.

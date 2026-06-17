@@ -276,7 +276,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				usedGPU := false
 				var normedRows []float32
 				var err error
-				if !shouldSkipDoomedGGUFGPUExpertAttempt(d.GGUFExpertIndex, op.Layer) {
+				if diffusionGemmaRequireGroupedExpertGraph() || !shouldSkipDoomedGGUFGPUExpertAttempt(d.GGUFExpertIndex, op.Layer) {
 					gpuAttemptStart := time.Now()
 					usedGPU, normedRows, err = runGGUFGPUExpertsIndexed(op, weights, scratch, d.GGUFExpertIndex)
 					ggufExpertDispatchCounters.gpuAttemptNS.Add(uint64(time.Since(gpuAttemptStart).Nanoseconds()))
@@ -1058,6 +1058,11 @@ func diffusionGemmaDeviceSamplerEnabled() bool {
 func diffusionGemmaBackendGraphEnabled() bool {
 	v := os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_BACKEND_GRAPH")
 	return v == "1" || v == "true" || v == "TRUE" || v == "yes" || v == "on"
+}
+
+func diffusionGemmaRequireGroupedExpertGraph() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_REQUIRE_GROUPED_EXPERT_GRAPH")))
+	return v == "1" || v == "true" || v == "yes" || v == "on" || diffusionGemmaBackendGraphEnabled()
 }
 
 func diffusionGemmaDenseDeviceMLPEnabled() bool {
@@ -4176,6 +4181,9 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 	}
 	if active, skip := shouldEarlySkipDoomedGGUFExpertAttempt(idx, op.Layer, scratch.TopKIDs, positions, topK); skip {
 		recordQ4BudgetFallback(idx, op.Layer, active)
+		if diffusionGemmaRequireGroupedExpertGraph() {
+			return false, nil, fmt.Errorf("GGUF grouped expert graph required: layer=%d active experts cannot fit grouped backend before dispatch (active=%d)", op.Layer, len(active))
+		}
 		return false, nil, nil
 	}
 	fp := weights.ForwardPlan()
@@ -4242,6 +4250,9 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 	}
 	traceGGUFActiveExpertSet(idx, op.Layer, groupedArrays)
 	if shouldSkipDoomedGGUFActiveExpertSet(idx, op.Layer, groupedArrays.ActiveExperts, len(groupedArrays.WorkPositions)) {
+		if diffusionGemmaRequireGroupedExpertGraph() && !diffusionGemmaGGUFGPUExpertPartialResidentEnabled() {
+			return false, nil, fmt.Errorf("GGUF grouped expert graph required: layer=%d active set cannot fit grouped backend (active=%d work=%d)", op.Layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions))
+		}
 		usedPartial, err := runGGUFGPUExpertsGroupedPartialResident(op, scratch, idx, normedRows, groupedArrays, &selectedExpertWorkGPUBuffers.groupedArrays)
 		if err != nil {
 			return false, nil, err
@@ -4259,6 +4270,9 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 			return true, nil, nil
 		}
 		recordQ4BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
+		if diffusionGemmaRequireGroupedExpertGraph() {
+			return false, nil, fmt.Errorf("GGUF grouped expert graph required: layer=%d active set fell through without grouped backend coverage (active=%d work=%d)", op.Layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions))
+		}
 		return false, normedRows, nil
 	}
 	if workArrays.Len() > 0 {
@@ -4311,6 +4325,9 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 		return false, nil, err
 	}
 	if !used {
+		if diffusionGemmaRequireGroupedExpertGraph() {
+			return false, nil, fmt.Errorf("GGUF grouped expert graph required: layer=%d no grouped expert backend accepted active=%d work=%d", op.Layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions))
+		}
 		return false, normedRows, nil
 	}
 	ggufExpertDispatchCounters.legacyGroupedUsed.Add(1)

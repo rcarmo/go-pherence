@@ -698,7 +698,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			}
 			usedGPUExperts := false
 			var normedRows []float32
-			if !shouldSkipDoomedGGUFGPUExpertAttempt(d.GGUFExpertIndex, layer) {
+			if diffusionGemmaRequireGroupedExpertGraph() || !shouldSkipDoomedGGUFGPUExpertAttempt(d.GGUFExpertIndex, layer) {
 				gpuAttemptStart := time.Now()
 				usedGPUExperts, normedRows, err = runGGUFGPUExpertsIndexed(LayerOp{Layer: layer, Type: lt, Kind: OpExperts}, weights, moeScratch, d.GGUFExpertIndex)
 				ggufExpertDispatchCounters.gpuAttemptNS.Add(uint64(time.Since(gpuAttemptStart).Nanoseconds()))
