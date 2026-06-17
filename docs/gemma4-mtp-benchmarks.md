@@ -583,3 +583,17 @@ BenchmarkGemma4MTPGraphCycleGGUF-6  3479929795 ns/op  0.8621 tok/s  38280136 B/o
 ```
 
 This benchmark includes decode-state allocation/setup per iteration and is therefore lower than the one-off steady-state harness, but it is now reproducible through standard `go test -bench` tooling.
+
+### Repeated reusable graph benchmark sample
+
+A repeated `BenchmarkGemma4MTPGraphCycleGGUF` sample at `GOMAXPROCS=6` produced:
+
+```text
+BenchmarkGemma4MTPGraphCycleGGUF-6  2839437099 ns/op  1.057 tok/s  38256552 B/op  18174 allocs/op
+BenchmarkGemma4MTPGraphCycleGGUF-6  2520769542 ns/op  1.190 tok/s  38243112 B/op  18146 allocs/op
+BenchmarkGemma4MTPGraphCycleGGUF-6  2490898384 ns/op  1.204 tok/s  38243112 B/op  18146 allocs/op
+```
+
+Log: `logs/bench-gemma4-mtp-graphcycle-count3-20260617-020422.log`
+
+This confirms the reusable benchmark's steady range is roughly `1.06-1.20 tok/s` on the local host after warm-up. The benchmark currently allocates about `38.2 MB` and `18.1k` objects per graph cycle because each iteration creates a fresh decode state and verifier buffers; reducing those allocations is a future performance target, but correctness gates should take priority over allocation tuning.
