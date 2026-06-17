@@ -61,6 +61,16 @@ Local 110s stress sample, `large-v3` translate, VAD-packed chunks:
 | 16 workers | RTF≈0.72 before SIMD attention, ≈0.68–0.69 after current decoder optimizations |
 | 20 workers | RTF≈0.74 (regression) |
 
+Serialized large-v3-turbo CPU/GPU snapshot on the shared host, with the GPU runs held under `flock /tmp/go-pherence-gpu.lock` and CPU runs held under `flock /tmp/go-pherence-cpu-bench.lock` where available:
+
+| Clip / command shape | CPU RTF | GPU/PTX RTF | GPU speedup | Decode budget throughput | Evidence |
+|----------------------|---------|-------------|-------------|--------------------------|----------|
+| `testdata/jfk.wav`, `diarize-vtt -workers 1 -max-tokens 40` | 1.42 | 0.91 | 1.56× | 4.4 budget tok/s on GPU (40-token cap / 9.1s audio-normalized run) | `logs/whisper-cpu-bench-jfk-20260617.log`, `logs/whisper-gpu-bench-jfk-20260617-092148.log` |
+| `testdata/jfk.wav`, standalone `whisper -max-tokens 40` | 1.63 warm pass / 1.75 wall | 0.73 warm pass / 1.01 wall | 2.24× warm pass / 1.74× wall | 5.0 budget tok/s on GPU warm pass (40-token cap / 8.0s pass) | `logs/whisper-cpu-bench-whisper-text-jfk-20260617.log`, `logs/whisper-cpu-bench-whisper-jfk-20260617.log`, `logs/whisper-gpu-bench-whisper-jfk-20260617-092059.log` |
+| `tmp/bench/podcast-300s.wav`, `diarize-vtt -workers 6 -max-tokens 40` | not completed in prior CPU run | 0.30 | n/a | 13.3 budget tok/s on GPU (30 chunks × 40 cap / 90.3s wall) | `logs/whisper-cpu-bench-podcast-300s-20260617.log`, `logs/whisper-gpu-bench-podcast-300s-20260617-091844.log` |
+
+The GPU/PTX path here means `-gpu`/`GO_PHERENCE_GPU=1`: GPU encoder, GPU LM-head/cross-KV surfaces, and PTX/CUDA kernels where currently wired. Per-token resident decoder MLP/cross-attention remain opt-in/rejected as defaults due to launch/transfer overhead, so the useful headline is end-to-end RTF rather than isolated kernel throughput. The `tok/s` entries above are conservative decoder-budget rates from the configured `-max-tokens` cap; emitted-token instrumentation is still needed for exact generated-token rates.
+
 Other relevant findings:
 
 - VAD-packed 10s chunks reduced the stress sample from 13 to 12 chunks and improved RTF from ≈0.83 to ≈0.79 before later decoder optimizations.
