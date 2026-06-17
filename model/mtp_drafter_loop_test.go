@@ -376,7 +376,7 @@ func TestBF16DrafterDotUsesGGMLAVX2ReductionOrder(t *testing.T) {
 		1, 1, 1, 1, 1, 1, 1, 1,
 		1, 1, 1,
 	})
-	got := bf16DotGGMLAVX2Order(x, y)
+	got := simd.BF16DotGGMLAVX2Order(x, y)
 	want := float32(16 + 6) // 16 small ones in the 32-wide chunk plus scalar tail 3-2+5.
 	if got != want {
 		t.Fatalf("bf16DotGGMLAVX2Order=%g want %g", got, want)

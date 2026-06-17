@@ -149,6 +149,32 @@ func TestBF16DotAsm(t *testing.T) {
 	t.Logf("BF16DotAsm: %f (ref=%f, HasVecAsm=%v)", got, ref, HasVecAsm)
 }
 
+func TestBF16DotGGMLAVX2Order(t *testing.T) {
+	x := BF16FromF32Slice([]float32{
+		4096, 1, -4096, 1, 2048, 1, -2048, 1,
+		1024, 1, -1024, 1, 512, 1, -512, 1,
+		256, 1, -256, 1, 128, 1, -128, 1,
+		64, 1, -64, 1, 32, 1, -32, 1,
+		3, -2, 5,
+	})
+	y := BF16FromF32Slice([]float32{
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1,
+	})
+	got := BF16DotGGMLAVX2Order(x, y)
+	want := float32(22)
+	if got != want {
+		t.Fatalf("BF16DotGGMLAVX2Order=%g want %g", got, want)
+	}
+	out := make([]float32, 1)
+	if !GemvRowsBF16BF16GGMLAVX2Order(out, y, x, 1, len(y)) || out[0] != want {
+		t.Fatalf("GemvRowsBF16BF16GGMLAVX2Order out=%v want %g", out, want)
+	}
+}
+
 func TestBF16VecAddAsm(t *testing.T) {
 	a := BF16FromF32Slice([]float32{1, 2, 3, 4, 5, 6, 7, 8, 9})
 	b := BF16FromF32Slice([]float32{10, 20, 30, 40, 50, 60, 70, 80, 90})

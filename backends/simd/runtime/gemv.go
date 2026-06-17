@@ -52,6 +52,47 @@ func GemvRowsBF16BF16(out []float32, x []uint16, w []uint16, rows, cols int) boo
 	return true
 }
 
+// GemvRowsBF16BF16GGMLAVX2Order computes BF16 rows using the same visible
+// reduction order as ggml's AVX2 ggml_vec_dot_bf16: four 8-lane F32
+// accumulators over 32-element chunks followed by the same horizontal sum shape.
+func GemvRowsBF16BF16GGMLAVX2Order(out []float32, x []uint16, w []uint16, rows, cols int) bool {
+	weightLen, ok := checked.MulInt(rows, cols)
+	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
+		return false
+	}
+	x = x[:cols]
+	for row := 0; row < rows; row++ {
+		out[row] = BF16DotGGMLAVX2Order(w[row*cols:(row+1)*cols], x)
+	}
+	return true
+}
+
+func BF16DotGGMLAVX2Order(x, y []uint16) float32 {
+	n := len(x)
+	if len(y) < n {
+		n = len(y)
+	}
+	var c [4][8]float32
+	i := 0
+	for ; i+32 <= n; i += 32 {
+		for lane := 0; lane < 8; lane++ {
+			c[0][lane] += BF16ToF32(x[i+lane]) * BF16ToF32(y[i+lane])
+			c[1][lane] += BF16ToF32(x[i+8+lane]) * BF16ToF32(y[i+8+lane])
+			c[2][lane] += BF16ToF32(x[i+16+lane]) * BF16ToF32(y[i+16+lane])
+			c[3][lane] += BF16ToF32(x[i+24+lane]) * BF16ToF32(y[i+24+lane])
+		}
+	}
+	var v [8]float32
+	for lane := 0; lane < 8; lane++ {
+		v[lane] = (c[0][lane] + c[2][lane]) + (c[1][lane] + c[3][lane])
+	}
+	sum := (((v[0] + v[4]) + (v[1] + v[5])) + ((v[2] + v[6]) + (v[3] + v[7])))
+	for ; i < n; i++ {
+		sum += BF16ToF32(x[i]) * BF16ToF32(y[i])
+	}
+	return sum
+}
+
 // GemvCols computes out[cols] = x[rows] · W[rows,cols], where W is row-major.
 func GemvCols(out, x, w []float32, rows, cols int) bool {
 	weightLen, ok := checked.MulInt(rows, cols)
