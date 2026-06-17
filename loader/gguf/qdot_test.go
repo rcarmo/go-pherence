@@ -50,8 +50,33 @@ func TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale(t *testing.T) {
 	}
 }
 
+func TestDotQ4_0Q8_0MatchesAVX2Reference(t *testing.T) {
+	n := qk8_0 * 7
+	raw, y := syntheticQ4_0Q8_0DotInputs(n)
+	got, err := DotQ4_0Q8_0(raw, y, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dotQ4_0Q8_0AVX2Reference(raw, y, n)
+	if got != want {
+		t.Fatalf("dot=%g want avx2 %g diff=%g", got, want, got-want)
+	}
+}
+
 func TestDotQ4_0Q8_0MatchesScalarReference(t *testing.T) {
 	n := qk8_0 * 3
+	raw, y := syntheticQ4_0Q8_0DotInputs(n)
+	got, err := DotQ4_0Q8_0(raw, y, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dotQ4_0Q8_0ScalarReference(raw, y, n)
+	if got != want {
+		t.Fatalf("dot=%g want scalar %g diff=%g", got, want, got-want)
+	}
+}
+
+func syntheticQ4_0Q8_0DotInputs(n int) ([]byte, []q8_0Block) {
 	nb := n / qk8_0
 	raw := make([]byte, nb*18)
 	y := make([]q8_0Block, nb)
@@ -65,14 +90,40 @@ func TestDotQ4_0Q8_0MatchesScalarReference(t *testing.T) {
 			y[bi].qs[j] = int8((bi*11+j*7)%127 - 63)
 		}
 	}
-	got, err := DotQ4_0Q8_0(raw, y, n)
-	if err != nil {
-		t.Fatal(err)
+	return raw, y
+}
+
+func dotQ4_0Q8_0AVX2Reference(raw []byte, y []q8_0Block, n int) float32 {
+	nb := n / qk8_0
+	var acc [8]float32
+	for bi := 0; bi < nb; bi++ {
+		blk := raw[bi*18 : (bi+1)*18]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[:2])) * y[bi].d
+		qs := blk[2:18]
+		for lane := 0; lane < 4; lane++ {
+			j := lane * 4
+			s := (int(qs[j+0]&0x0F)-8)*int(y[bi].qs[j+0]) +
+				(int(qs[j+1]&0x0F)-8)*int(y[bi].qs[j+1]) +
+				(int(qs[j+2]&0x0F)-8)*int(y[bi].qs[j+2]) +
+				(int(qs[j+3]&0x0F)-8)*int(y[bi].qs[j+3])
+			acc[lane] = float32(math.FMA(float64(d), float64(float32(s)), float64(acc[lane])))
+		}
+		for lane := 0; lane < 4; lane++ {
+			j := lane * 4
+			s := (int(qs[j+0]>>4)-8)*int(y[bi].qs[j+16]) +
+				(int(qs[j+1]>>4)-8)*int(y[bi].qs[j+17]) +
+				(int(qs[j+2]>>4)-8)*int(y[bi].qs[j+18]) +
+				(int(qs[j+3]>>4)-8)*int(y[bi].qs[j+19])
+			acc[lane+4] = float32(math.FMA(float64(d), float64(float32(s)), float64(acc[lane+4])))
+		}
 	}
-	want := dotQ4_0Q8_0ScalarReference(raw, y, n)
-	if got != want {
-		t.Fatalf("dot=%g want scalar %g diff=%g", got, want, got-want)
-	}
+	r0 := acc[0] + acc[4]
+	r1 := acc[1] + acc[5]
+	r2 := acc[2] + acc[6]
+	r3 := acc[3] + acc[7]
+	r0 = r0 + r2
+	r1 = r1 + r3
+	return r0 + r1
 }
 
 func dotQ4_0Q8_0ScalarReference(raw []byte, y []q8_0Block, n int) float32 {
