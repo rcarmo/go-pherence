@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -305,6 +306,44 @@ func TestDrafterLayerDimsDeriveGemma4FullAttentionDim(t *testing.T) {
 	if _, err := d.LayerKVDim(2); err == nil {
 		t.Fatal("LayerKVDim accepted out-of-range drafter layer")
 	}
+}
+
+func TestGemma4MTPDrafterGGUFConfigUsesAssistantSlidingWindowPattern(t *testing.T) {
+	g := &gguf.GGUF{Meta: map[string]any{
+		"gemma4-assistant.block_count":                      uint32(4),
+		"gemma4-assistant.embedding_length":                 uint32(8),
+		"gemma4-assistant.embedding_length_out":             uint32(16),
+		"gemma4-assistant.feed_forward_length":              uint32(32),
+		"gemma4-assistant.context_length":                   uint32(64),
+		"gemma4-assistant.attention.head_count":             uint32(2),
+		"gemma4-assistant.attention.head_count_kv":          uint32(1),
+		"gemma4-assistant.attention.key_length_swa":         uint32(4),
+		"gemma4-assistant.attention.key_length":             uint32(8),
+		"gemma4-assistant.attention.sliding_window":         uint32(16),
+		"gemma4-assistant.attention.layer_norm_rms_epsilon": float32(1e-6),
+		"gemma4-assistant.attention.sliding_window_pattern": []any{true, false, true, false},
+		"tokenizer.ggml.tokens":                             []any{"<bos>", "a", "b"},
+	}}
+	cfg, _, err := gemma4MTPDrafterGGUFConfig(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"sliding_attention", "full_attention", "sliding_attention", "full_attention"}
+	if !sameStrings(cfg.LayerTypes, want) {
+		t.Fatalf("assistant layer types=%v want %v", cfg.LayerTypes, want)
+	}
+}
+
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestMTPDrafterExternalKVValidationRejectsDenseWeightOverflow(t *testing.T) {

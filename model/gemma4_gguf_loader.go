@@ -252,11 +252,15 @@ func gemma4GGUFConfig(g *gguf.GGUF) (common.Config, error) {
 }
 
 func gemma4GGUFLayerTypes(g *gguf.GGUF, n int) []string {
+	return gemma4GGUFLayerTypesForKey(g, "gemma4.attention.sliding_window_pattern", n)
+}
+
+func gemma4GGUFLayerTypesForKey(g *gguf.GGUF, key string, n int) []string {
 	out := make([]string, n)
 	for i := range out {
 		out[i] = "sliding_attention"
 	}
-	arr, ok := g.Meta["gemma4.attention.sliding_window_pattern"].([]any)
+	arr, ok := g.Meta[key].([]any)
 	if ok && len(arr) >= n {
 		for i := 0; i < n; i++ {
 			if b, ok := arr[i].(bool); ok && !b {
@@ -265,7 +269,7 @@ func gemma4GGUFLayerTypes(g *gguf.GGUF, n int) []string {
 		}
 		return out
 	}
-	if arrb, ok := g.Meta["gemma4.attention.sliding_window_pattern"].([]bool); ok && len(arrb) >= n {
+	if arrb, ok := g.Meta[key].([]bool); ok && len(arrb) >= n {
 		for i := 0; i < n; i++ {
 			if !arrb[i] {
 				out[i] = "full_attention"

@@ -198,13 +198,7 @@ func gemma4MTPDrafterGGUFConfig(g *gguf.GGUF) (LlamaConfig, int, error) {
 	if vocab == 0 {
 		return LlamaConfig{}, 0, fmt.Errorf("missing tokenizer vocabulary")
 	}
-	layerTypes := make([]string, layers)
-	for i := range layerTypes {
-		layerTypes[i] = "sliding_attention"
-	}
-	if layers > 0 {
-		layerTypes[layers-1] = "full_attention"
-	}
+	layerTypes := gemma4GGUFLayerTypesForKey(g, p+".attention.sliding_window_pattern", layers)
 	bos := 2
 	if v, ok := g.MetaUint32("tokenizer.ggml.bos_token_id"); ok {
 		bos = int(v)
