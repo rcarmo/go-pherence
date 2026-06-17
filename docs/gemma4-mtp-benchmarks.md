@@ -637,3 +637,42 @@ MTP outputs were stable across iterations:
 ```
 
 Interpretation: the MTP path achieves perfect acceptance on this strict-fixture-like workload, but the current CPU verifier/drafter graph overhead makes it slightly slower than plain CPU decode (`0.92x`). This reinforces the existing conclusion that performance parity needs an efficient batched/GPU verifier or llama.cpp-style repacked CPU verifier; acceptance alone is not enough.
+
+### QAT GGUF verifier on `GPUModel` status
+
+Rui requested the same CPU workload (Gemma4 E4B QAT GGUF verifier + BF16 MTP drafter) on the GPU/PTX path. A direct harness attempted to instantiate `GPUModel` from `LoadGemma4GGUFAsLlama` and run plain decode plus MTP graph decode under:
+
+```bash
+flock /tmp/go-pherence-gpu.lock -c \
+  'GO_PHERENCE_GPU=1 GOMAXPROCS=$(nproc) GOTMPDIR=$PWD/.gotmp go run ./tmp/gemma4_gpu_mtp_vs_plain.go'
+```
+
+Log: `logs/gemma4-gpu-plain-vs-mtp-20260617-091856.log`
+
+Result: unsupported/panic before token generation:
+
+```text
+gomaxprocs=6 num_cpu=6 gpu_layers=1
+load=3.70691587s gpu_layers=1
+panic: runtime error: slice bounds out of range [:7680] with capacity 0
+model.(*GPUModel).Generate ... model/gpu_forward.go:817
+```
+
+The panic site is the GPU decode embedding path:
+
+```go
+embData := m.EmbedTokens.Data()
+copy(hd, embData[tokID*h:(tokID+1)*h])
+```
+
+The QAT GGUF loader stores token embeddings as `EmbedTokensGGUF`, not dense `EmbedTokens`, and the GPU layer upload path also does not upload GGUF quantized transformer weights. Therefore there is currently no valid GPU/PTX throughput number for the exact QAT GGUF verifier workload. Existing GPU numbers are for the MLX 4-bit E4B path, not the QAT GGUF verifier.
+
+Current exact-workload benchmark remains CPU-only:
+
+| Path | tok/s | Notes |
+|---|---:|---|
+| QAT GGUF plain CPU decode | 0.745 tok/s | `logs/gemma4-cpu-plain-vs-mtp-20260617-071120.log` |
+| QAT GGUF MTP CPU decode | 0.686 tok/s | 100% acceptance, `0.92x` vs plain CPU |
+| QAT GGUF GPU/PTX decode | n/a | unsupported by `GPUModel` until GGUF embeddings/weights are handled on the GPU path |
+
+Closing this GPU/PTX benchmark gap requires implementing GGUF-aware GPU decode support (at minimum `TokenEmbeddingInto`/`EmbedTokensGGUF` handling, and then GGUF quantized layer/LM-head GPU dispatch) or creating a separate GGUF GPU verifier path. Do not report MLX GPU numbers as QAT GGUF GPU parity.
