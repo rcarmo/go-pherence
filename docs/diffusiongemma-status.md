@@ -1106,10 +1106,7 @@ slice lifetime hazards. The current deterministic top logits for
  {236783 18.223010}]
 ```
 
-Raw-logit self-conditioning is now the default runtime handoff, matching
-llama.cpp's previous-raw-logits plus previous-temp-inv graph. Set
-`GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS=0` only for memory-saving diagnostic
-runs.
+Raw-logit self-conditioning is now mandatory, matching llama.cpp's previous-raw-logits plus previous-temp-inv graph. The older memory-saving embedding handoff has been removed from production semantics.
 
 The remaining practical blocker for full 256-canvas end-to-end parity is runtime
 throughput/resource use, not the early layer graph: the Q6_K×Q8_K tied LM-head

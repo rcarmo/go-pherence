@@ -24,8 +24,7 @@ func (d *recordingDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 	return ForwardOutput{Logits: logits, SelfConditioning: []float32{1}}, nil
 }
 
-func TestGenerateCanvasPassesPreviousStepTempInvForDefaultRawSelfConditioning(t *testing.T) {
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS", "")
+func TestGenerateCanvasPassesPreviousStepTempInvForRawSelfConditioning(t *testing.T) {
 	den := &recordingDenoiser{vocab: 5}
 	cfg := DefaultDenoisingConfig()
 	cfg.MaxDenoisingSteps = 3
@@ -45,34 +44,6 @@ func TestGenerateCanvasPassesPreviousStepTempInvForDefaultRawSelfConditioning(t 
 		1.0,
 		float32(1.0 / LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, 3)),
 		float32(1.0 / LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, 2)),
-	}
-	for i := range want {
-		if math.Abs(float64(den.tempInvs[i]-want[i])) > 1e-6 {
-			t.Fatalf("tempInv[%d]=%.8f want %.8f (all=%v)", i, den.tempInvs[i], want[i], den.tempInvs)
-		}
-	}
-}
-
-func TestGenerateCanvasSelfConditioningOptOutUsesCurrentTempInv(t *testing.T) {
-	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS", "0")
-	den := &recordingDenoiser{vocab: 5}
-	cfg := DefaultDenoisingConfig()
-	cfg.MaxDenoisingSteps = 2
-	cfg.TMin = 0.4
-	cfg.TMax = 0.8
-	cfg.StabilityThreshold = 100
-	cfg.ConfidenceThreshold = 0
-
-	_, err := GenerateCanvas(den, []int{1, 2}, cfg, 2, den.vocab, rand.New(rand.NewSource(7)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []float32{
-		float32(1.0 / LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, 2)),
-		float32(1.0 / LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, 1)),
-	}
-	if len(den.tempInvs) != len(want) {
-		t.Fatalf("recorded %d temp invs, want %d", len(den.tempInvs), len(want))
 	}
 	for i := range want {
 		if math.Abs(float64(den.tempInvs[i]-want[i])) > 1e-6 {

@@ -255,18 +255,7 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: logits pos=%d top_id=%d top_val=%.6f mean=%.6f\n", pos, bestID, bestVal, sum/float64(len(row)))
 		}
 	}
-	// Build self-conditioning from logits for the next denoising step. With
-	// sparse top-k, softmax naturally zeros -Inf positions, producing a weighted
-	// average of only the top-k token embeddings. The final step has no consumer.
-	var selfConditioning []float32
-	if ctx.Step > 1 && !diffusionGemmaRawSelfConditioningLogitsEnabled() {
-		var err error
-		selfConditioning, err = buildSelfConditioningFromLogits(weights, scratch)
-		if err != nil {
-			return ForwardOutput{}, err
-		}
-	}
-	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning}, nil
+	return ForwardOutput{Logits: scratch.Logits}, nil
 }
 
 func dispatchPrefixOp(op OpKind, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {

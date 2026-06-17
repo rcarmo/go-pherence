@@ -127,12 +127,12 @@
     "<channel|>",
     "Hello",
     "!",
-    "\u2581How",
-    "\u2581can",
-    "\u2581I",
-    "\u2581help",
-    "\u2581you",
-    "\u2581today",
+    "▁How",
+    "▁can",
+    "▁I",
+    "▁help",
+    "▁you",
+    "▁today",
     "?"
   ],
   "go_canvas_prefix": [
@@ -198,12 +198,12 @@
   ],
   "known_differences": [
     "Full denoised text is still not matched: llama.cpp emits a longer thought body before the final response, while Go emits an empty thought channel followed directly by the final greeting.",
-    "llama.cpp entropy-bound generation reported 11 effective denoise steps. After aligning GGUF expert paths to quantize activations like llama.cpp Q8_K, Go first-step uncertainty improved materially but still diverges: llama accepted=20/mean_entropy\u22481.3065/max_entropy\u22484.03@pos28, while Go accepted=128/mean_entropy\u22480.1509/max_entropy\u22483.11@pos11; Go pos28 remains EOS-biased though less certain than before.",
-    "An opt-in raw-logit self-conditioning seam now exists via GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS=1, matching llama.cpp's previous-raw-logits plus previous-temp-inv API, but the current all-F32 Go GGUF CPU path exceeds the host memory envelope on this real fixture when it retains a full previous [canvas][vocab] logits matrix.",
+    "llama.cpp entropy-bound generation reported 11 effective denoise steps. After aligning GGUF expert paths to quantize activations like llama.cpp Q8_K, Go first-step uncertainty improved materially but still diverges: llama accepted=20/mean_entropy≈1.3065/max_entropy≈4.03@pos28, while Go accepted=128/mean_entropy≈0.1509/max_entropy≈3.11@pos11; Go pos28 remains EOS-biased though less certain than before.",
+    "Raw-logit self-conditioning is now mandatory to match llama.cpp's previous-raw-logits plus previous-temp-inv API; memory-saving embedding handoff diagnostics have been removed from production semantics.",
     "The remaining blocker is entropy-bound sampler/self-conditioning/logit numeric parity over the full 256-token canvas, not prompt IDs, RNG integer draws, or trimming.",
-    "Layer-row trace comparison for canvas row 28 shows prefix and layer0 l_out match closely (rms\u22481.7998, max_abs\u224865), but by layer29 l_out Go is much larger (rms\u22481.1238 vs llama\u22480.6294, max_abs\u224839.7 vs llama\u224818.2), so the next parity target is a later-layer sub-op trace rather than layer0.",
+    "Layer-row trace comparison for canvas row 28 shows prefix and layer0 l_out match closely (rms≈1.7998, max_abs≈65), but by layer29 l_out Go is much larger (rms≈1.1238 vs llama≈0.6294, max_abs≈39.7 vs llama≈18.2), so the next parity target is a later-layer sub-op trace rather than layer0.",
     "Layer29 row28 router input already differs before projection despite similar RMS: llama router_input max_idx=175/first4=[-0.4267,-0.1648,-0.1326,-1.2702], while Go max_idx=1749/first4=[-1.1856,0.1663,0.4981,-1.3003]. Router logits/top-k divergence is therefore caused by upstream hidden-state/router-input differences before the router projection.",
-    "After Q8_K expert-input quantization and extending it to direct Q4_K gate/up rows, row28 layer7 ffn_combined is close to llama (Go rms\u224816.25/max\u2248293 vs llama rms\u224816.19/max\u2248296), and the first material l_out RMS drift remains layer12 but is smaller: Go layer12 l_out rms\u22481.855/max\u224846.55 vs llama rms\u22481.816/max\u224846.45. Layer12 FFN/MoE remains the next numeric target."
+    "After Q8_K expert-input quantization and extending it to direct Q4_K gate/up rows, row28 layer7 ffn_combined is close to llama (Go rms≈16.25/max≈293 vs llama rms≈16.19/max≈296), and the first material l_out RMS drift remains layer12 but is smaller: Go layer12 l_out rms≈1.855/max≈46.55 vs llama rms≈1.816/max≈46.45. Layer12 FFN/MoE remains the next numeric target."
   ],
   "next_required_action": "Trace/compare layer12 row28 FFN/MoE inputs, selected experts, and remaining shared dense-vs-MoE contribution because Q8_K-rounded direct Q4_K gate/up input moved layer12 l_out closer to llama.cpp but did not close parity.",
   "llamacpp_step_diagnostics": [
@@ -607,7 +607,7 @@
         "rms": 1.85475,
         "max_abs": 46.5494
       },
-      "note": "After Q8_K-rounding direct Q4_K gate/up inputs, the current first material row28 l_out drift remains layer12 but is closer to llama.cpp (Go rms\u22481.855/max\u224846.55 vs llama rms\u22481.816/max\u224846.45)."
+      "note": "After Q8_K-rounding direct Q4_K gate/up inputs, the current first material row28 l_out drift remains layer12 but is closer to llama.cpp (Go rms≈1.855/max≈46.55 vs llama rms≈1.816/max≈46.45)."
     }
   },
   "go_first_step_top_probes": [

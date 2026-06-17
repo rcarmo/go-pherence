@@ -35,12 +35,12 @@ type ForwardInput struct {
 // is laid out as [canvas_length][vocab_size]. SelfConditioning, when present,
 // is the hidden-size soft embedding signal to feed into the next denoising step.
 type ForwardOutput struct {
-	Logits           [][]float32 `json:"-"`
-	SelfConditioning       []float32 `json:"-"`
-	DeviceSelfConditioning any       `json:"-"` // backend-owned state to feed the next denoise step without host copy
-	ArgmaxCanvas           []int     `json:"-"` // optional backend/device-computed argmax per canvas position
-	SampledCanvas    []int       `json:"-"` // optional backend/device-computed multinomial sample per canvas position
-	Entropy          []float64   `json:"-"` // optional backend/device-computed entropy per canvas position
+	Logits                 [][]float32 `json:"-"`
+	SelfConditioning       []float32   `json:"-"`
+	DeviceSelfConditioning any         `json:"-"` // backend-owned state to feed the next denoise step without host copy
+	ArgmaxCanvas           []int       `json:"-"` // optional backend/device-computed argmax per canvas position
+	SampledCanvas          []int       `json:"-"` // optional backend/device-computed multinomial sample per canvas position
+	Entropy                []float64   `json:"-"` // optional backend/device-computed entropy per canvas position
 }
 
 // Denoiser is the narrow interface needed by the block-diffusion sampler. A
@@ -93,17 +93,6 @@ type CanvasResult struct {
 // built against Transformers before using it for real generation.
 func GenerateCanvas(denoiser Denoiser, promptIDs []int, cfg DenoisingConfig, canvasLength, vocabSize int, rng canvasRNG) (CanvasResult, error) {
 	return GenerateCanvasWithCallback(denoiser, promptIDs, cfg, canvasLength, vocabSize, rng, nil)
-}
-
-func diffusionGemmaRawSelfConditioningLogitsEnabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_RAW_SC_LOGITS")))
-	if v == "0" || v == "false" || v == "no" || v == "off" {
-		return false
-	}
-	// llama.cpp feeds the previous step's raw canvas logits plus previous
-	// temp_inv into the self-conditioning graph. Keep that fidelity path on by
-	// default; callers can opt out for memory-constrained diagnostic runs.
-	return true
 }
 
 func diffusionGemmaEntropyProbePositions(canvasLength int) []int {
@@ -233,26 +222,21 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		}
 	}()
 	prevTempInv := float32(1)
-	rawSelfConditioning := diffusionGemmaRawSelfConditioningLogitsEnabled()
 	probePositions := diffusionGemmaEntropyProbePositions(canvasLength)
 	for step := cfg.MaxDenoisingSteps; step > 0; step-- {
 		state.Step = step
 		temperature := LinearTemperature(cfg.TMin, cfg.TMax, cfg.MaxDenoisingSteps, step)
 		tempInv := float32(1.0 / temperature)
-		// Go stores the already-softened self-conditioning embedding, not raw
-		// logits. Therefore the embedding returned from this denoise call must be
-		// built from this step's logits with this step's temp_inv; it will be fed
-		// into the next forward where the SC MLP is gated on.
+		// llama.cpp feeds the previous step's raw canvas logits plus the previous
+		// step's temp_inv into the self-conditioning graph. Device backends may carry
+		// those logits as an opaque resident buffer instead of host rows.
 		sampleDraws := make([]float64, canvasLength)
 		renoiseTokens := make([]int, canvasLength)
 		for i := 0; i < canvasLength; i++ {
 			sampleDraws[i] = rng.Float64()
 			renoiseTokens[i] = rng.Intn(vocabSize)
 		}
-		scTempInv := tempInv
-		if rawSelfConditioning {
-			scTempInv = prevTempInv
-		}
+		scTempInv := prevTempInv
 		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, SelfConditioning: selfConditioning, SelfConditioningLogits: selfConditioningLogits, DeviceSelfConditioning: deviceSelfConditioning, SCTempInv: scTempInv, SampleDraws: sampleDraws})
 		if err != nil {
 			return CanvasResult{}, err
@@ -290,12 +274,8 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		} else {
 			selfConditioning = nil
 		}
-		if rawSelfConditioning {
-			selfConditioningLogits = retainLogitRows(out.Logits, canvasLength)
-			prevTempInv = tempInv
-		} else {
-			selfConditioningLogits = nil
-		}
+		selfConditioningLogits = retainLogitRows(out.Logits, canvasLength)
+		prevTempInv = tempInv
 		copy(outputCanvas, argmaxCanvas)
 		if equalIntSlices(prevArgmax, argmaxCanvas) {
 			held++
