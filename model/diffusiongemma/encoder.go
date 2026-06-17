@@ -696,34 +696,14 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 					return nil, err
 				}
 			}
-			usedGPUExperts := false
-			var normedRows []float32
-			if diffusionGemmaRequireGroupedExpertGraph() || !shouldSkipDoomedGGUFGPUExpertAttempt(d.GGUFExpertIndex, layer) {
-				gpuAttemptStart := time.Now()
-				usedGPUExperts, normedRows, err = runGGUFGPUExpertsIndexed(LayerOp{Layer: layer, Type: lt, Kind: OpExperts}, weights, moeScratch, d.GGUFExpertIndex)
-				ggufExpertDispatchCounters.gpuAttemptNS.Add(uint64(time.Since(gpuAttemptStart).Nanoseconds()))
-				if err != nil {
-					return nil, err
-				}
+			gpuAttemptStart := time.Now()
+			usedGroupedExperts, _, err := runGGUFGPUExpertsIndexed(LayerOp{Layer: layer, Type: lt, Kind: OpExperts}, weights, moeScratch, d.GGUFExpertIndex)
+			ggufExpertDispatchCounters.gpuAttemptNS.Add(uint64(time.Since(gpuAttemptStart).Nanoseconds()))
+			if err != nil {
+				return nil, err
 			}
-			if !usedGPUExperts {
-				ggufExpertDispatchCounters.cpuFallback.Add(1)
-				cpuFallbackStart := time.Now()
-				cpuLayerStatsStart := ggufCPUExpertTimingSnapshot()
-				if len(normedRows) > 0 {
-					err = runGGUFCPUExpertsIndexedWithNormedRows(LayerOp{Layer: layer, Type: lt, Kind: OpExperts}, weights, moeScratch, d.GGUFExpertIndex, normedRows)
-				} else {
-					err = runGGUFCPUExpertsIndexed(LayerOp{Layer: layer, Type: lt, Kind: OpExperts}, weights, moeScratch, d.GGUFExpertIndex)
-				}
-				if err != nil {
-					return nil, err
-				}
-				fallbackElapsed := time.Since(cpuFallbackStart)
-				ggufExpertDispatchCounters.cpuFallbackNS.Add(uint64(fallbackElapsed.Nanoseconds()))
-				if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
-					cpuLayerStats := ggufCPUExpertTimingSnapshot().Sub(cpuLayerStatsStart)
-					fmt.Fprintf(os.Stderr, "DiffusionGemma encoder gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d q5_direct/dequant=%d/%d\n", layer, cpuLayerStats.Positions, cpuLayerStats.WorkItems, cpuLayerStats.ActiveExperts, fallbackElapsed.Seconds(), float64(cpuLayerStats.GateNS)/1e9, float64(cpuLayerStats.DownNS)/1e9, cpuLayerStats.Q4DirectRows, cpuLayerStats.Q4DequantRows, cpuLayerStats.Q8DirectRows, cpuLayerStats.Q8DequantRows, cpuLayerStats.Q5DirectRows, cpuLayerStats.Q5DequantRows)
-				}
+			if !usedGroupedExperts {
+				return nil, fmt.Errorf("DiffusionGemma encoder GGUF grouped expert backend did not handle layer %d", layer)
 			}
 		} else {
 			scaleVec, err := loadFloatVector(weights, lb.RouterScale)

@@ -270,38 +270,19 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		case OpExperts:
 			t0 := time.Now()
 			if d.GGUFExpertIndex != nil {
-				// Prefer resident GPU selected-expert execution. If the bounded GPU
-				// expert cache is full, fall back to the batched GGUF CPU expert path
-				// (similar to llama.cpp -cmoe) rather than re-uploading every call.
-				usedGPU := false
-				var normedRows []float32
-				var err error
-				if diffusionGemmaRequireGroupedExpertGraph() || !shouldSkipDoomedGGUFGPUExpertAttempt(d.GGUFExpertIndex, op.Layer) {
-					gpuAttemptStart := time.Now()
-					usedGPU, normedRows, err = runGGUFGPUExpertsIndexed(op, weights, scratch, d.GGUFExpertIndex)
-					ggufExpertDispatchCounters.gpuAttemptNS.Add(uint64(time.Since(gpuAttemptStart).Nanoseconds()))
-					if err != nil {
-						return finishWithErr(err)
-					}
+				// llama.cpp lowers MoE to one graph boundary built from selected-expert
+				// metadata and ggml_mul_mat_id-style grouped expert matmuls. Mirror that:
+				// runGGUFGPUExpertsIndexed may choose GPU or CPU/SIMD grouped backend
+				// implementations internally, but this model layer no longer falls back
+				// to the legacy indexed per-expert executor.
+				gpuAttemptStart := time.Now()
+				usedGrouped, _, err := runGGUFGPUExpertsIndexed(op, weights, scratch, d.GGUFExpertIndex)
+				ggufExpertDispatchCounters.gpuAttemptNS.Add(uint64(time.Since(gpuAttemptStart).Nanoseconds()))
+				if err != nil {
+					return finishWithErr(err)
 				}
-				if !usedGPU {
-					ggufExpertDispatchCounters.cpuFallback.Add(1)
-					cpuFallbackStart := time.Now()
-					cpuLayerStatsStart := ggufCPUExpertTimingSnapshot()
-					if len(normedRows) > 0 {
-						err = runGGUFCPUExpertsIndexedWithNormedRows(op, weights, scratch, d.GGUFExpertIndex, normedRows)
-					} else {
-						err = runGGUFCPUExpertsIndexed(op, weights, scratch, d.GGUFExpertIndex)
-					}
-					if err != nil {
-						return finishWithErr(err)
-					}
-					fallbackElapsed := time.Since(cpuFallbackStart)
-					ggufExpertDispatchCounters.cpuFallbackNS.Add(uint64(fallbackElapsed.Nanoseconds()))
-					if diffusionGemmaGGUFCPUExpertLayerTraceEnabled() {
-						cpuLayerStats := ggufCPUExpertTimingSnapshot().Sub(cpuLayerStatsStart)
-						log.Printf("gguf_cpu_expert_layer: layer=%d positions=%d work_items=%d active_experts=%d elapsed=%.3fs gate=%.3fs down=%.3fs q4_direct/dequant=%d/%d q8_direct/dequant=%d/%d q5_direct/dequant=%d/%d", op.Layer, cpuLayerStats.Positions, cpuLayerStats.WorkItems, cpuLayerStats.ActiveExperts, fallbackElapsed.Seconds(), float64(cpuLayerStats.GateNS)/1e9, float64(cpuLayerStats.DownNS)/1e9, cpuLayerStats.Q4DirectRows, cpuLayerStats.Q4DequantRows, cpuLayerStats.Q8DirectRows, cpuLayerStats.Q8DequantRows, cpuLayerStats.Q5DirectRows, cpuLayerStats.Q5DequantRows)
-					}
+				if !usedGrouped {
+					return finishWithErr(fmt.Errorf("GGUF grouped expert backend did not handle layer %d", op.Layer))
 				}
 				tExpert += time.Since(t0)
 				break
@@ -4179,13 +4160,6 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 	if positions <= 0 || topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK || len(scratch.MoeOut) < len(scratch.Residual) {
 		return false, nil, fmt.Errorf("GGUF GPU experts invalid scratch positions=%d topK=%d", positions, topK)
 	}
-	if active, skip := shouldEarlySkipDoomedGGUFExpertAttempt(idx, op.Layer, scratch.TopKIDs, positions, topK); skip {
-		recordQ4BudgetFallback(idx, op.Layer, active)
-		if diffusionGemmaRequireGroupedExpertGraph() {
-			return false, nil, fmt.Errorf("GGUF grouped expert graph required: layer=%d active experts cannot fit grouped backend before dispatch (active=%d)", op.Layer, len(active))
-		}
-		return false, nil, nil
-	}
 	fp := weights.ForwardPlan()
 	if op.Layer >= len(fp.Layers) {
 		return false, nil, fmt.Errorf("GGUF GPU experts layer %d outside plan", op.Layer)
@@ -4250,9 +4224,6 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 	}
 	traceGGUFActiveExpertSet(idx, op.Layer, groupedArrays)
 	if shouldSkipDoomedGGUFActiveExpertSet(idx, op.Layer, groupedArrays.ActiveExperts, len(groupedArrays.WorkPositions)) {
-		if diffusionGemmaRequireGroupedExpertGraph() && !diffusionGemmaGGUFGPUExpertPartialResidentEnabled() {
-			return false, nil, fmt.Errorf("GGUF grouped expert graph required: layer=%d active set cannot fit grouped backend (active=%d work=%d)", op.Layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions))
-		}
 		usedPartial, err := runGGUFGPUExpertsGroupedPartialResident(op, scratch, idx, normedRows, groupedArrays, &selectedExpertWorkGPUBuffers.groupedArrays)
 		if err != nil {
 			return false, nil, err
@@ -4270,10 +4241,11 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 			return true, nil, nil
 		}
 		recordQ4BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
-		if diffusionGemmaRequireGroupedExpertGraph() {
-			return false, nil, fmt.Errorf("GGUF grouped expert graph required: layer=%d active set fell through without grouped backend coverage (active=%d work=%d)", op.Layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions))
+		if err := runGGUFCPUExpertsGroupedGraphBackend(op, weights, scratch, idx, normedRows, groupedArrays); err != nil {
+			return false, nil, err
 		}
-		return false, normedRows, nil
+		ggufExpertDispatchCounters.legacyGroupedUsed.Add(1)
+		return true, nil, nil
 	}
 	if workArrays.Len() > 0 {
 		if err := selectedExpertWorkGPUBuffers.bufs.Upload(workArrays); err != nil {
@@ -4325,10 +4297,11 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 		return false, nil, err
 	}
 	if !used {
-		if diffusionGemmaRequireGroupedExpertGraph() {
-			return false, nil, fmt.Errorf("GGUF grouped expert graph required: layer=%d no grouped expert backend accepted active=%d work=%d", op.Layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions))
+		if err := runGGUFCPUExpertsGroupedGraphBackend(op, weights, scratch, idx, normedRows, groupedArrays); err != nil {
+			return false, nil, err
 		}
-		return false, normedRows, nil
+		ggufExpertDispatchCounters.legacyGroupedUsed.Add(1)
+		return true, nil, nil
 	}
 	ggufExpertDispatchCounters.legacyGroupedUsed.Add(1)
 	postNorm2, err := loadFloatVector(weights, fp.Layers[op.Layer].PostFFNLayerNorm2)
@@ -4341,6 +4314,33 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 		}
 	}
 	return true, nil, nil
+}
+
+func runGGUFCPUExpertsGroupedGraphBackend(op LayerOp, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex, normedRows []float32, groupedArrays SelectedExpertGroupedArrays) error {
+	if idx == nil || weights == nil {
+		return fmt.Errorf("GGUF grouped expert graph CPU backend missing weights/index")
+	}
+	if err := runGGUFCPUExpertsGroupedNoPostNorm(op, scratch, idx, normedRows, groupedArrays); err != nil {
+		return err
+	}
+	fp := weights.ForwardPlan()
+	if op.Layer < 0 || op.Layer >= len(fp.Layers) {
+		return fmt.Errorf("GGUF grouped expert graph CPU backend layer %d outside plan", op.Layer)
+	}
+	postNorm2, err := loadFloatVector(weights, fp.Layers[op.Layer].PostFFNLayerNorm2)
+	if err != nil {
+		return err
+	}
+	hiddenSize := idx.HiddenSize
+	if hiddenSize <= 0 || len(scratch.MoeOut)%hiddenSize != 0 {
+		return fmt.Errorf("GGUF grouped expert graph CPU backend invalid hidden=%d moe=%d", hiddenSize, len(scratch.MoeOut))
+	}
+	for off := 0; off < len(scratch.MoeOut); off += hiddenSize {
+		if !simd.RMSNormTo(scratch.MoeOut[off:off+hiddenSize], postNorm2, 1e-6) {
+			return fmt.Errorf("GGUF grouped expert graph CPU backend post_norm_2 rejected")
+		}
+	}
+	return nil
 }
 
 func q4KGateUpExpertDeviceBytes(idx *GGUFExpertIndex, layer int) (int64, error) {
