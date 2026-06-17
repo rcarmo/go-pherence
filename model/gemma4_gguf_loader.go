@@ -62,7 +62,15 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 	if m.EmbedTokensGGUF, err = loadQMatrix("token_embd.weight"); err != nil {
 		return nil, err
 	}
-	m.LMHeadGGUF = m.EmbedTokensGGUF
+	if _, ok := g.TensorByName("output.weight"); ok {
+		if m.LMHeadGGUF, err = loadQMatrix("output.weight"); err != nil {
+			return nil, err
+		}
+	} else {
+		// llama.cpp creates output.weight as optional and ties it to tok_embd
+		// only when the GGUF omits a separate LM head.
+		m.LMHeadGGUF = m.EmbedTokensGGUF
+	}
 	if m.Norm, err = loadTensor("output_norm.weight", []int{cfg.HiddenSize}); err != nil {
 		return nil, err
 	}
