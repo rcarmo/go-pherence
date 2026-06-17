@@ -525,3 +525,40 @@ MTP greedy tail:   1
 ```
 
 Interpretation: the experimental MTP generation path proves graph/acceptance semantics but is currently far slower than ordinary generation because the verifier path is CPU-bound and still performs a full prompt-context/verifier graph cycle. Performance parity requires moving verifier execution to an efficient batched/GPU path or otherwise matching llama.cpp's repacked CPU backend; the drafter acceptance itself is not the limiting factor in this sample.
+
+### Experimental MTP generation with GPU prompt-context capture
+
+Running `llmgen -mtp-generate` with `-gpu -gpu-layers 0` uses the hybrid GPU prompt-context capture before entering the current CPU verifier graph path.
+
+Log: `logs/mtp-generate-e4b-gpu-prompt-gmp6-20260617-015925.log`
+
+Command:
+
+```bash
+flock /tmp/go-pherence-gpu.lock -c \
+  "GOMAXPROCS=6 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
+    -gpu -gpu-layers 0 \
+    -model models/gemma4-e4b-it-4bit \
+    -mtp-drafter models/gemma4-e4b-mtp-drafter \
+    -mtp-generate \
+    -tokens 4 \
+    -prompt 'Hello world'"
+```
+
+Result: PASS with the same token stream as the CPU-prompt MTP run.
+
+```text
+Generated tokens: 4
+Total time:       14.62s
+Generation time:  12.67s
+Tokens/sec:       0.3
+ms/token:         3168.6
+MTP graph steps:   1
+MTP drafted:       2
+MTP verified:      2
+MTP acceptance:    1.00
+MTP graph output:  3
+MTP greedy tail:   1
+```
+
+Compared with the CPU-prompt MTP run (`0.1 tok/s`), GPU prompt-context capture improves end-to-end MTP generation to `0.3 tok/s`, but the path is still far slower than ordinary GPU generation (`7.7 tok/s`) because the verifier graph itself remains CPU-bound.
