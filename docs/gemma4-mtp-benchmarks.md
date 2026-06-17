@@ -459,3 +459,43 @@ cb(cur, "l_out", il);
 ```
 
 That is: add the per-layer input residual first, then apply `layer_output_scale` late. The Go MTP verifier now mirrors this by applying `layer_output_scale` after final hidden BF16 narrowing and after the PLI residual is included. Experiments that moved PLI after the scalar, applied the scalar on only prompt or verifier rows, or added an extra BF16 after the scalar all regressed parity.
+
+### Experimental `llmgen -mtp-generate` unblocked for local E4B MLX pair
+
+`mtpExternalKVForDecodeState` now rebuilds logical shared-KV aliases from the committed decode state, matching `NewMTPDrafterExternalKVFromPromptContext`. This fixes the earlier `K/V=0/0` external-KV failure for q-only drafter layers after the first graph commit.
+
+Validation log: `logs/mtp-generate-dirty-sharedkv-20260617-015346.log`
+
+Command:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
+  -model models/gemma4-e4b-it-4bit \
+  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -mtp-generate \
+  -tokens 4 \
+  -prompt 'Hello world'
+```
+
+Result: PASS.
+
+```text
+Prompt tokens:    11
+Generated tokens: 4
+Total time:       38.49s
+Generation time:  33.36s
+Tokens/sec:       0.1
+ms/token:         8340.0
+MTP graph steps:   1
+MTP drafted:       2
+MTP verified:      2
+MTP acceptance:    1.00
+MTP bonus tokens:  1
+MTP graph output:  3
+MTP greedy tail:   1
+MTP compressed KV: false
+MTP state covers:  14/15 tokens (greedy tail not covered)
+MTP cycle 0: input=107 drafted=[9259 236888] verifier_in=[107 9259 236888] verifier_out=[9259 236888 2088] accepted=2 bonus=2088 output=[9259 236888 2088]
+```
+
+This confirms the public experimental MTP generation path can now run end-to-end on the local E4B MLX pair, but throughput is still very low (~0.1 tok/s) because the CPU verifier path is still dominant and the command includes model load/prompt setup. Public blockers remain `public_generation_wiring`, `real_asset_acceptance_parity`, and `full_layer_batch_verifier_default_enablement`.

@@ -72,6 +72,34 @@ func TestSeedCompressedKVFromPromptContext(t *testing.T) {
 	}
 }
 
+func TestMTPExternalKVForDecodeStateAliasesSharedKVLayers(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{VocabSize: 4, HiddenSize: 2, NumLayers: 3, NumKVHeads: 1, HeadDim: 2},
+		Layers: []LlamaLayer{
+			{HasKV: true},
+			{HasKV: true},
+			{HasKV: false, KVSourceLayer: 1},
+		},
+	}
+	decode := &CPUDecodeState{
+		Model:    m,
+		Output:   []int{1, 2},
+		KVCacheK: [][]float32{{1, 2, 3, 4}, {10, 11, 12, 13}, nil},
+		KVCacheV: [][]float32{{5, 6, 7, 8}, {20, 21, 22, 23}, nil},
+	}
+	base := &MTPDrafterExternalKV{K: make([][]float32, 3), V: make([][]float32, 3), SourceLayers: []int{2}, SeqLen: 2}
+	ext, err := mtpExternalKVForDecodeState(decode, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ext.K[2]) == 0 || !sameFloat32s(ext.K[2], decode.KVCacheK[1]) || !sameFloat32s(ext.V[2], decode.KVCacheV[1]) {
+		t.Fatalf("shared layer alias K=%v V=%v", ext.K[2], ext.V[2])
+	}
+	if len(decode.KVCacheK[2]) != 0 || len(decode.KVCacheV[2]) != 0 {
+		t.Fatalf("decode physical KV mutated K=%v V=%v", decode.KVCacheK[2], decode.KVCacheV[2])
+	}
+}
+
 func TestGenerateMTPGraphFromPromptContextCompressedKV(t *testing.T) {
 	m := newSingleLayerVerifierModel()
 	d := validProjectionOnlyDrafter()

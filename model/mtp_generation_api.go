@@ -502,6 +502,20 @@ func mtpExternalKVForDecodeState(decode *CPUDecodeState, base *MTPDrafterExterna
 	if len(kvK) != len(base.K) || len(kvV) != len(base.V) {
 		return nil, fmt.Errorf("decode KV layers K/V=%d/%d, base K/V=%d/%d", len(kvK), len(kvV), len(base.K), len(base.V))
 	}
+	// Decode states store KV only on physical KV-producing layers. Gemma4 shared-KV
+	// layers point at an earlier source layer, so rebuild the same logical layer
+	// aliases that NewMTPDrafterExternalKVFromPromptContext exposes for prompt
+	// contexts before handing the view to the q-only drafter.
+	if decode.Model != nil && len(kvK) == len(decode.Model.Layers) && len(kvV) == len(decode.Model.Layers) {
+		kvK = append([][]float32(nil), kvK...)
+		kvV = append([][]float32(nil), kvV...)
+		for i, layer := range decode.Model.Layers {
+			if !layer.HasKV && layer.KVSourceLayer >= 0 && layer.KVSourceLayer < len(kvK) {
+				kvK[i] = kvK[layer.KVSourceLayer]
+				kvV[i] = kvV[layer.KVSourceLayer]
+			}
+		}
+	}
 	return &MTPDrafterExternalKV{
 		K:            kvK,
 		V:            kvV,
