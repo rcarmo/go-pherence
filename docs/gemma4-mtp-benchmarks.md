@@ -398,3 +398,18 @@ Log: `logs/mtp-strict-layer-scalar-after-bf16-final-20260617-010441.log`
 | layer scalar after BF16 | 0.385 | 0.237515 | 0.093098 |
 
 The strict selected-logit gate is still red, but this is the best correctness result so far and reduces total selected-logit error by about 40%.
+
+### Layer-scalar ordering cutoff sweep
+
+A cutoff sweep tested whether only early layers need the improved Gemma4 MTP verifier ordering (`BF16(hidden)` before `layer_output_scale`) while later layers retain the old ordering. Lower `sum_abs` is better.
+
+| Cutoff (`layerIdx < N` uses scalar-after-BF16) | Effective tok/s | Sum abs error | Max abs error |
+|---:|---:|---:|---:|
+| 1 | 0.301 | 0.709618 | 0.263121 |
+| 2 | 0.341 | 0.452253 | 0.188639 |
+| 4 | 0.337 | 0.620001 | 0.162198 |
+| 8 | 0.333 | 0.497538 | 0.144478 |
+| 16 | 0.311 | 0.369923 | 0.122774 |
+| 42 / all layers | 0.279 in that run | **0.237515** | **0.093098** |
+
+Conclusion: applying layer scalar after BF16 for all Gemma4 MTP verifier layers remains the best correctness setting. Partial early-layer application regresses selected-logit parity.
