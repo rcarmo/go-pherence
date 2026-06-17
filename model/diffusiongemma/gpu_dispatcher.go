@@ -42,7 +42,6 @@ type GPUDispatcher struct {
 	LMHeadTopK            int
 	Progress              bool
 	SkipEviction          bool
-	CPUExperts            bool // force CPU-only expert path (skip GPU LRU cache)
 	FP8Model              *GPUFP8Model
 	FP8Weights            *FP8TextWeights
 	FP8LMHead             *gpu.Buffer // persistent BF16 embed_tokens buffer for dense full-vocab LM head
@@ -165,7 +164,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		defer backendGraph.Free()
 	}
 	expertsUseGPUForLayer := func(layer int) bool {
-		if d.GGUFExpertIndex != nil || d.CPUExperts {
+		if d.GGUFExpertIndex != nil {
 			return false
 		}
 		return d.ExpertCache != nil && d.FP8Weights != nil
@@ -295,33 +294,13 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				}
 				tExpert += time.Since(t0)
 				break
-			} else if d.CPUExperts && d.ExpertIndex != nil {
-				if err := runFP8CPUExpertsIndexed(op, weights, scratch, d.ExpertIndex); err != nil {
-					return finishWithErr(err)
-				}
-				tExpert += time.Since(t0)
-				break
-			} else if d.CPUExperts {
-				if err := runExpertsFromResidual(op, weights, scratch); err != nil {
-					return finishWithErr(err)
-				}
-				tExpert += time.Since(t0)
-				break
 			}
 			if d.ExpertCache != nil && d.FP8Weights != nil {
 				if err := runLRUCachedExperts(op, weights, scratch, d.FP8Weights, d.ExpertCache); err != nil {
-					if errors.Is(err, ErrExpertCacheFull) {
-						if err := runExpertsFromResidual(op, weights, scratch); err != nil {
-							return finishWithErr(err)
-						}
-					} else {
-						return finishWithErr(err)
-					}
-				}
-			} else {
-				if err := runExpertsFromResidual(op, weights, scratch); err != nil {
 					return finishWithErr(err)
 				}
+			} else {
+				return finishWithErr(fmt.Errorf("GPU expert backend graph unavailable for layer %d", op.Layer))
 			}
 			tExpert += time.Since(t0)
 		case OpPostMoE:

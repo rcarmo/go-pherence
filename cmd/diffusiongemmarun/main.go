@@ -87,7 +87,6 @@ func main() {
 	fp8Model := flag.String("fp8-model", "", "path to FP8-dynamic DiffusionGemma checkpoint directory for GPU inference")
 	residentExpertLayers := flag.Int("resident-expert-layers", -1, "deprecated alias for -fp8-expert-prewarm-layers")
 	fp8ExpertPrewarmLayers := flag.Int("fp8-expert-prewarm-layers", 9, "pre-upload and pin all FP8 experts for the first N layers to GPU (0 disables)")
-	cpuExperts := flag.Bool("cpu-experts", false, "force CPU-only expert MoE (skip GPU expert cache/prewarm)")
 	allowSlowCPU := flag.Bool("allow-slow-cpu", false, "allow explicit CPU/SIMD reference generation when -cpu-dispatcher is selected")
 	eagerMmap := flag.Bool("eager-mmap", false, "prefault all mapped safetensor shards before CPU dispatcher run")
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
@@ -321,7 +320,6 @@ func main() {
 			gpuDisp := diffusiongemma.GPUDispatcher{
 				ResidentLayerPrefix:   *residentLayers,
 				GGUFExpertIndex:       ggufIdx,
-				CPUExperts:            true,
 				LMHeadTopK:            *lmHeadTopK,
 				Progress:              *dispatchProgress,
 				SkipEviction:          true, // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
@@ -455,7 +453,7 @@ func main() {
 			finalSoftcap = float32(m.Config.TextConfig.FinalLogitSoftcapping)
 		}
 		if *useGPUDispatcher {
-			gpuDisp := diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap, CPUExperts: *cpuExperts}
+			gpuDisp := diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap}
 			if *fp8Model != "" {
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: loading FP8 weights from %s\n", *fp8Model)
 				fp8Weights, err := diffusiongemma.OpenFP8TextWeights(*fp8Model, m.Shape)
@@ -533,7 +531,7 @@ func main() {
 				if nExperts <= 0 {
 					nExperts = 128
 				}
-				if expertBudget > 0 && !*cpuExperts {
+				if expertBudget > 0 {
 					gpuDisp.ExpertCache = diffusiongemma.NewExpertLRUCache(expertBudget)
 					if *fp8ExpertPrewarmLayers > 0 {
 						layers, experts, err := gpuDisp.ExpertCache.PrewarmLayerPrefix(fp8Weights, *fp8ExpertPrewarmLayers, nExperts)
@@ -543,18 +541,7 @@ func main() {
 						fmt.Fprintf(os.Stderr, "diffusiongemmarun: prewarmed FP8 experts layers=%d/%d experts=%d pinned_prefix=%d cache=%s\n", layers, *fp8ExpertPrewarmLayers, experts, gpuDisp.ExpertCache.PinnedLayerPrefix(nExperts), gpuDisp.ExpertCache.Stats())
 					}
 				} else if *fp8ExpertPrewarmLayers > 0 {
-					if *cpuExperts {
-						fmt.Fprintf(os.Stderr, "diffusiongemmarun: skipping FP8 expert prewarm; -cpu-experts enabled\n")
-					} else {
-						fmt.Fprintf(os.Stderr, "diffusiongemmarun: skipping FP8 expert prewarm; LM head leaves no expert cache budget\n")
-					}
-				}
-				if *fp8ExpertPrewarmLayers > 0 || *cpuExperts {
-					if idx, err := diffusiongemma.BuildFP8ExpertIndex(fp8Weights, m.Shape.TextLayers, nExperts); err != nil {
-						fmt.Fprintf(os.Stderr, "diffusiongemmarun: WARNING: FP8 expert index build failed: %v\n", err)
-					} else {
-						gpuDisp.ExpertIndex = idx
-					}
+					fmt.Fprintf(os.Stderr, "diffusiongemmarun: skipping FP8 expert prewarm; LM head leaves no expert cache budget\n")
 				}
 			}
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, gpuDisp)
