@@ -362,3 +362,17 @@ After the parallel row-GEMV performance change, several narrow correctness hypot
 | no Gemma4 MTP verifier layer-output BF16 | 0.346 | 0.513223 | 0.304503 | `logs/mtp-strict-no-layer-bf16-after-parallel-20260617-005123.log` |
 
 Current best strict baseline remains the committed parallel row-GEMV path with `GOMAXPROCS=6` (`0.391 tok/s`, sum abs error `0.397138`, max abs error `0.148483`).
+
+### Refined GOMAXPROCS 5/6/7 sample
+
+A later 5-cycle repeat around the best local thread setting showed the same ordering but lower absolute throughput under current host load:
+
+Log: `logs/mtp-cycle-gomaxprocs-5-7-20260617-005955.log`
+
+| GOMAXPROCS | Mean cycle | Throughput |
+|---:|---:|---:|
+| 5 | 3.551s | 0.845 tok/s |
+| 6 | 3.157s | 0.950 tok/s |
+| 7 | 3.876s | 0.774 tok/s |
+
+`GOMAXPROCS=6` remains the best local setting among nearby values. The absolute tok/s varies materially with host load, so compare variants using adjacent runs and preserve the same `GOMAXPROCS` setting.
