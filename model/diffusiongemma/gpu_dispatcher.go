@@ -419,10 +419,16 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	for _, op := range ops.Tail {
 		t0 := time.Now()
 		if op == OpLMHead && d.F32LMHeadChunkSize > 0 {
+			if diffusionGemmaRequireGroupedExpertGraph() && d.GGUFExpertIndex != nil {
+				return ForwardOutput{}, fmt.Errorf("GGUF backend graph requires device-resident LM-head/self-conditioning path; chunked host-visible LM head is disabled")
+			}
 			if err := runChunkedF32GPULMHead(weights, scratch, buffers.HiddenSize, d.F32LMHeadChunkSize, d.F32LMHeadUseCache); err != nil {
 				return ForwardOutput{}, err
 			}
 		} else if op == OpLMHead && d.F32LMHead != nil {
+			if diffusionGemmaRequireGroupedExpertGraph() && d.GGUFExpertIndex != nil {
+				return ForwardOutput{}, fmt.Errorf("GGUF backend graph requires device-resident LM-head/self-conditioning path; dense host-visible F32 LM head is disabled")
+			}
 			if err := runDenseF32GPULMHead(scratch, buffers.HiddenSize, d.F32LMHead, d.F32LMHeadVocab, d.F32LMHeadHidden); err != nil {
 				return ForwardOutput{}, err
 			}
@@ -444,6 +450,9 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				}
 			}
 		} else {
+			if op == OpLMHead && diffusionGemmaRequireGroupedExpertGraph() && d.GGUFExpertIndex != nil {
+				return ForwardOutput{}, fmt.Errorf("GGUF backend graph requires device-resident LM-head/self-conditioning path; CPU/host LM head is disabled")
+			}
 			if err := dispatchTailOp(op, weights, scratch); err != nil {
 				return ForwardOutput{}, err
 			}
