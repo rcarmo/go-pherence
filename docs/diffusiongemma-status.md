@@ -109,7 +109,7 @@ This runs:
 
 ## CPU throughput snapshot
 
-The following CPU-only measurement was serialized with the shared host lock requested for cross-session benchmarking:
+The following CPU-only and GPU/PTX measurements were serialized with the shared host/GPU locks requested for cross-session benchmarking:
 
 ```bash
 flock /tmp/go-pherence-cpu-bench.lock -c \
@@ -119,17 +119,26 @@ flock /tmp/go-pherence-cpu-bench.lock -c \
      -gguf-model /workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf \
      -prompt hi -max-new 1 -canvas 1 -seed 1234 \
      -cpu-dispatcher -allow-slow-cpu -decode -dispatch-progress'
+
+flock /tmp/go-pherence-gpu.lock -c \
+  'time env GOMAXPROCS=$(nproc) GO_PHERENCE_GPU=1 \
+   go run ./cmd/diffusiongemmarun \
+     -model models/diffusiongemma-26B-A4B-it \
+     -gguf-model /workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf \
+     -prompt hi -max-new 1 -canvas 1 -seed 1234 \
+     -gpu-dispatcher -decode -dispatch-progress'
 ```
 
-| Date | Host CPU threads | Quant/model | Workload | Batch/canvas | Run mode | Prompt prefill | End-to-end wall | Throughput |
-| --- | ---: | --- | --- | --- | --- | ---: | ---: | ---: |
-| 2026-06-17 | `GOMAXPROCS=$(nproc)` = 6 | DiffusionGemma 26B A4B IT `Q4_K_M` GGUF | prompt `hi`, `max-new=1`, seed `1234`, default denoise schedule | prompt tokens=1, canvas=1 | CPU/SIMD dispatcher, NVIDIA disabled, no GPU residency | 1 prompt token in ~0.5s (~2.0 prompt tok/s, from dispatcher log) | 45.250s for 1 generated canvas/token | 0.0221 canvas/s (0.0221 generated tok/s) |
+| Date | Host CPU threads | Quant/model | Workload | Batch/canvas | CPU/SIMD mode | CPU wall | CPU throughput | GPU/PTX mode | GPU wall | GPU throughput | GPU vs CPU |
+| --- | ---: | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: |
+| 2026-06-17 | `GOMAXPROCS=$(nproc)` = 6 | DiffusionGemma 26B A4B IT `Q4_K_M` GGUF | prompt `hi`, `max-new=1`, seed `1234`, default denoise schedule | prompt tokens=1, canvas=1 | CPU/SIMD dispatcher, NVIDIA disabled, no GPU residency | 45.250s for 1 generated canvas/token | 0.0221 canvas/s (0.0221 generated tok/s) | GPU/CUDA dispatcher on NVIDIA GeForce RTX 3060, GGUF prompt encoder + denoise forward; no explicit dense/expert prewarm | 42.360s for 1 generated canvas/token | 0.0236 canvas/s (0.0236 generated tok/s) | 1.07× |
 
 Notes:
 
-- The lock was held for the entire command, so sibling benchmark sessions wait rather than contending for CPU.
-- This is an end-to-end `go run` measurement and includes GGUF open/mmap, tokenizer/model setup, prompt prefill, denoising forwards, and LM-head work.
-- Log artifact: `logs/diffusiongemma_cpu_bench_20260617.log`.
+- The CPU lock or GPU lock was held for the entire corresponding command, so sibling benchmark sessions wait rather than contending for the measured device.
+- These are end-to-end `go run` measurements and include GGUF open/mmap, tokenizer/model setup, prompt prefill, denoising forwards, and LM-head work.
+- CPU log artifact: `logs/diffusiongemma_cpu_bench_20260617.log`.
+- GPU log artifact: `logs/diffusiongemma_gpu_bench_20260617-091841.log`. The GPU run reported `DiffusionGemma GPU: using NVIDIA GeForce RTX 3060`, encoder prompt KV in 9.7s, repeated denoise forwards at ~0.1s attention/~0.2s expert plus ~0.2s LM-head tail, and shell `real 0m42.360s`.
 
 ## Remaining before real/reference-complete inference
 
