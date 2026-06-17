@@ -79,6 +79,49 @@ func TestLoadGemma4MTPDrafterLocalAsset(t *testing.T) {
 	}
 }
 
+func TestLoadGemma4MTPDrafterGGUFPopulatesBF16Matrices(t *testing.T) {
+	path := filepath.Join("..", "models", "gemma4-e4b-it-google-qat-gguf", "MTP", "gemma-4-E4B-it-BF16-MTP.gguf")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("local Gemma4 MTP GGUF drafter not available: %v", err)
+	}
+	d, err := LoadGemma4MTPDrafterGGUF(path)
+	if err != nil {
+		t.Fatalf("LoadGemma4MTPDrafterGGUF: %v", err)
+	}
+	if got, want := len(d.EmbedTokensBF16), d.Config.VocabSize*d.Config.HiddenSize; got != want {
+		t.Fatalf("EmbedTokensBF16 len=%d want %d", got, want)
+	}
+	if got, want := len(d.PreProjectionBF16), d.Config.HiddenSize*2*d.BackboneHiddenSize; got != want {
+		t.Fatalf("PreProjectionBF16 len=%d want %d", got, want)
+	}
+	if got, want := len(d.PostProjectionBF16), d.BackboneHiddenSize*d.Config.HiddenSize; got != want {
+		t.Fatalf("PostProjectionBF16 len=%d want %d", got, want)
+	}
+	for i, layer := range d.Layers {
+		headDim := d.LayerHeadDim(i)
+		qDim, ok := checkedProduct(d.Config.NumHeads, headDim)
+		if !ok {
+			t.Fatalf("layer %d qDim overflow", i)
+		}
+		checks := []struct {
+			name string
+			got  int
+			want int
+		}{
+			{"QWBF16", len(layer.QWBF16), qDim * d.Config.HiddenSize},
+			{"OWBF16", len(layer.OWBF16), d.Config.HiddenSize * qDim},
+			{"GateWBF16", len(layer.GateWBF16), d.Config.Intermediate * d.Config.HiddenSize},
+			{"UpWBF16", len(layer.UpWBF16), d.Config.Intermediate * d.Config.HiddenSize},
+			{"DownWBF16", len(layer.DownWBF16), d.Config.HiddenSize * d.Config.Intermediate},
+		}
+		for _, c := range checks {
+			if c.got != c.want {
+				t.Fatalf("layer %d %s len=%d want %d", i, c.name, c.got, c.want)
+			}
+		}
+	}
+}
+
 func TestValidateShapeRejectsTransposedShape(t *testing.T) {
 	if err := validateShape("weight", []int{256, 3072}, []int{3072, 256}, 256*3072); err == nil {
 		t.Fatal("validateShape accepted a transposed shape with the same element count")
