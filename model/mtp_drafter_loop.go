@@ -235,6 +235,10 @@ func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float3
 		if !mlx.GemvTo(q, normed, layer.QWm) {
 			return nil, fmt.Errorf("drafter layer %d Q MLX projection failed", layerIdx)
 		}
+	} else if len(layer.QWBF16) >= qDim*h {
+		if !gemvBF16BF16(q, normed, layer.QWBF16, h, qDim) {
+			return nil, fmt.Errorf("drafter layer %d Q BF16 projection failed", layerIdx)
+		}
 	} else {
 		gemvNT(q, normed, layer.QW, h, qDim)
 	}
@@ -286,6 +290,10 @@ func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float3
 		if !mlx.GemvTo(oOut, attnOut, layer.OWm) {
 			return nil, fmt.Errorf("drafter layer %d O MLX projection failed", layerIdx)
 		}
+	} else if len(layer.OWBF16) >= h*qDim {
+		if !gemvBF16BF16(oOut, attnOut, layer.OWBF16, qDim, h) {
+			return nil, fmt.Errorf("drafter layer %d O BF16 projection failed", layerIdx)
+		}
 	} else {
 		gemvNT(oOut, attnOut, layer.OW, qDim, h)
 	}
@@ -313,12 +321,20 @@ func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float3
 		if !mlx.GemvTo(gate, mlpInput, layer.GateWm) {
 			return nil, fmt.Errorf("drafter layer %d gate MLX projection failed", layerIdx)
 		}
+	} else if len(layer.GateWBF16) >= d.Config.Intermediate*h {
+		if !gemvBF16BF16(gate, mlpInput, layer.GateWBF16, h, d.Config.Intermediate) {
+			return nil, fmt.Errorf("drafter layer %d gate BF16 projection failed", layerIdx)
+		}
 	} else {
 		gemvNT(gate, mlpInput, layer.GateW, h, d.Config.Intermediate)
 	}
 	if layer.UpWm != nil {
 		if !mlx.GemvTo(up, mlpInput, layer.UpWm) {
 			return nil, fmt.Errorf("drafter layer %d up MLX projection failed", layerIdx)
+		}
+	} else if len(layer.UpWBF16) >= d.Config.Intermediate*h {
+		if !gemvBF16BF16(up, mlpInput, layer.UpWBF16, h, d.Config.Intermediate) {
+			return nil, fmt.Errorf("drafter layer %d up BF16 projection failed", layerIdx)
 		}
 	} else {
 		gemvNT(up, mlpInput, layer.UpW, h, d.Config.Intermediate)
@@ -334,6 +350,10 @@ func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float3
 	if layer.DownWm != nil {
 		if !mlx.GemvTo(down, gate, layer.DownWm) {
 			return nil, fmt.Errorf("drafter layer %d down MLX projection failed", layerIdx)
+		}
+	} else if len(layer.DownWBF16) >= h*d.Config.Intermediate {
+		if !gemvBF16BF16(down, gate, layer.DownWBF16, d.Config.Intermediate, h) {
+			return nil, fmt.Errorf("drafter layer %d down BF16 projection failed", layerIdx)
 		}
 	} else {
 		gemvNT(down, gate, layer.DownW, d.Config.Intermediate, h)

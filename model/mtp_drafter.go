@@ -25,14 +25,17 @@ type Gemma4MTPDrafter struct {
 	UseOrderedEmbeds   bool
 
 	EmbedTokens              *tensor.Tensor   // [vocab, hidden]
+	EmbedTokensBF16          []uint16         // [vocab, hidden] raw BF16 rows for GGUF assistant matmuls
 	EmbedTokensMLX           *mlx.QuantWeight // packed [vocab, hidden] for 4-bit assistant weights
 	MaskedEmbeddingCentroids *tensor.Tensor   // [numCentroids, hidden]
 	MaskedEmbeddingOrdering  []int            // [vocab]
 
-	PreProjection     []float32        // [hidden, 2*backboneHidden]
-	PreProjectionMLX  *mlx.QuantWeight // packed [hidden, 2*backboneHidden]
-	PostProjection    []float32        // [backboneHidden, hidden]
-	PostProjectionMLX *mlx.QuantWeight // packed [backboneHidden, hidden]
+	PreProjection      []float32        // [hidden, 2*backboneHidden]
+	PreProjectionBF16  []uint16         // [hidden, 2*backboneHidden] raw BF16 rows
+	PreProjectionMLX   *mlx.QuantWeight // packed [hidden, 2*backboneHidden]
+	PostProjection     []float32        // [backboneHidden, hidden]
+	PostProjectionBF16 []uint16         // [backboneHidden, hidden] raw BF16 rows
+	PostProjectionMLX  *mlx.QuantWeight // packed [backboneHidden, hidden]
 
 	Norm   *tensor.Tensor // [hidden]
 	Layers []Gemma4MTPDrafterLayer
@@ -59,18 +62,23 @@ type Gemma4MTPDrafterLayer struct {
 	// forward pass must map each layer to external/main-model K/V state.
 	KVSourceLayer int
 
-	QW    []float32        // [numHeads*headDim, hidden]
-	QWm   *mlx.QuantWeight // packed [numHeads*headDim, hidden]
-	QNorm *tensor.Tensor
-	OW    []float32        // [hidden, numHeads*headDim]
-	OWm   *mlx.QuantWeight // packed [hidden, numHeads*headDim]
+	QW     []float32        // [numHeads*headDim, hidden]
+	QWBF16 []uint16         // [numHeads*headDim, hidden] raw BF16 rows
+	QWm    *mlx.QuantWeight // packed [numHeads*headDim, hidden]
+	QNorm  *tensor.Tensor
+	OW     []float32        // [hidden, numHeads*headDim]
+	OWBF16 []uint16         // [hidden, numHeads*headDim] raw BF16 rows
+	OWm    *mlx.QuantWeight // packed [hidden, numHeads*headDim]
 
-	GateW  []float32        // [intermediate, hidden]
-	GateWm *mlx.QuantWeight // packed [intermediate, hidden]
-	UpW    []float32        // [intermediate, hidden]
-	UpWm   *mlx.QuantWeight // packed [intermediate, hidden]
-	DownW  []float32        // [hidden, intermediate]
-	DownWm *mlx.QuantWeight // packed [hidden, intermediate]
+	GateW     []float32        // [intermediate, hidden]
+	GateWBF16 []uint16         // [intermediate, hidden] raw BF16 rows
+	GateWm    *mlx.QuantWeight // packed [intermediate, hidden]
+	UpW       []float32        // [intermediate, hidden]
+	UpWBF16   []uint16         // [intermediate, hidden] raw BF16 rows
+	UpWm      *mlx.QuantWeight // packed [intermediate, hidden]
+	DownW     []float32        // [hidden, intermediate]
+	DownWBF16 []uint16         // [hidden, intermediate] raw BF16 rows
+	DownWm    *mlx.QuantWeight // packed [hidden, intermediate]
 }
 
 type gemma4AssistantConfig struct {
@@ -324,6 +332,12 @@ func (d *Gemma4MTPDrafter) AssistantLogitsInto(dst, assistantHidden []float32) e
 		}
 		return nil
 	}
+	if len(d.EmbedTokensBF16) >= vocab*h {
+		if !gemvBF16BF16(dst, assistantHidden, d.EmbedTokensBF16, h, vocab) {
+			return fmt.Errorf("assistant BF16 output GEMV failed")
+		}
+		return nil
+	}
 	emb := d.EmbedTokens.Data()
 	want, ok := checkedProduct(vocab, h)
 	if !ok || len(emb) < want {
@@ -381,6 +395,15 @@ func (d *Gemma4MTPDrafter) PreProjectInto(dst, backboneTokenEmbedding, activatio
 		}
 		return nil
 	}
+	if len(d.PreProjectionBF16) >= want {
+		in := make([]float32, preWidth)
+		copy(in, backboneTokenEmbedding)
+		copy(in[bh:], activation)
+		if !gemvBF16BF16(dst, in, d.PreProjectionBF16, preWidth, h) {
+			return fmt.Errorf("pre_projection BF16 GEMV failed")
+		}
+		return nil
+	}
 	if len(d.PreProjection) < want {
 		return fmt.Errorf("pre_projection len=%d, want at least %d", len(d.PreProjection), want)
 	}
@@ -420,6 +443,12 @@ func (d *Gemma4MTPDrafter) PostProjectInto(dst, assistantHidden []float32) error
 		}
 		return nil
 	}
+	if len(d.PostProjectionBF16) >= want {
+		if !gemvBF16BF16(dst, assistantHidden, d.PostProjectionBF16, h, bh) {
+			return fmt.Errorf("post_projection BF16 GEMV failed")
+		}
+		return nil
+	}
 	if len(d.PostProjection) < want {
 		return fmt.Errorf("post_projection len=%d, want at least %d", len(d.PostProjection), want)
 	}
@@ -431,6 +460,14 @@ func (d *Gemma4MTPDrafter) PostProjectInto(dst, assistantHidden []float32) error
 
 func simdDot(a, b []float32) float32 {
 	return simd.Sdot(a, b)
+}
+
+func gemvBF16BF16(out, x []float32, w []uint16, inDim, outDim int) bool {
+	if len(out) < outDim || len(x) < inDim || len(w) < inDim*outDim {
+		return false
+	}
+	xBF16 := simd.BF16FromF32Slice(x[:inDim])
+	return simd.GemvRowsBF16BF16(out[:outDim], xBF16, w[:inDim*outDim], outDim, inDim)
 }
 
 func validateShape(name string, expected, actual []int, n int) error {

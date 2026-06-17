@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/rcarmo/go-pherence/loader/gguf"
@@ -25,28 +26,40 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 	if err != nil {
 		return nil, err
 	}
-	loadRows := func(name string, inDim, outDim int) ([]float32, error) {
+	loadRowsBF16 := func(name string, inDim, outDim int) ([]float32, []uint16, error) {
 		t, ok := g.TensorByName(name)
 		if !ok {
-			return nil, fmt.Errorf("tensor %q not found", name)
+			return nil, nil, fmt.Errorf("tensor %q not found", name)
 		}
 		if t.QType != gguf.QuantBF16 {
-			return nil, fmt.Errorf("tensor %s type=%s, want BF16 for Gemma4 MTP drafter graph", name, t.QType)
+			return nil, nil, fmt.Errorf("tensor %s type=%s, want BF16 for Gemma4 MTP drafter graph", name, t.QType)
+		}
+		raw, err := g.Raw(t)
+		if err != nil {
+			return nil, nil, err
+		}
+		wantElems := inDim * outDim
+		if len(raw) < wantElems*2 {
+			return nil, nil, fmt.Errorf("tensor %s raw BF16 bytes=%d, want %d", name, len(raw), wantElems*2)
+		}
+		bf16 := make([]uint16, wantElems)
+		for i := range bf16 {
+			bf16[i] = binary.LittleEndian.Uint16(raw[i*2:])
 		}
 		m, err := g.MatrixFromTensor(t)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if m.InDim != inDim || m.OutDim != outDim {
-			return nil, fmt.Errorf("tensor %s dims out/in=%d/%d, want %d/%d", name, m.OutDim, m.InDim, outDim, inDim)
+			return nil, nil, fmt.Errorf("tensor %s dims out/in=%d/%d, want %d/%d", name, m.OutDim, m.InDim, outDim, inDim)
 		}
-		out := make([]float32, outDim*inDim)
+		f32 := make([]float32, outDim*inDim)
 		for row := 0; row < outDim; row++ {
-			if err := m.DequantRowTo(out[row*inDim:(row+1)*inDim], row); err != nil {
-				return nil, err
+			if err := m.DequantRowTo(f32[row*inDim:(row+1)*inDim], row); err != nil {
+				return nil, nil, err
 			}
 		}
-		return out, nil
+		return f32, bf16, nil
 	}
 	loadTensor := func(name string, shape []int) (*tensor.Tensor, error) {
 		t, ok := g.TensorByName(name)
@@ -78,19 +91,20 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 	}
 	d := &Gemma4MTPDrafter{Config: cfg, BackboneHiddenSize: backboneHidden, Layers: make([]Gemma4MTPDrafterLayer, cfg.NumLayers)}
 	d.precomputeGemma4RoPEWithFullFactors(fullRoPEFactors)
-	if emb, err := loadRows("token_embd.weight", cfg.HiddenSize, cfg.VocabSize); err != nil {
+	if emb, embBF16, err := loadRowsBF16("token_embd.weight", cfg.HiddenSize, cfg.VocabSize); err != nil {
 		return nil, err
 	} else {
 		d.EmbedTokens = tensor.FromFloat32(emb, []int{cfg.VocabSize, cfg.HiddenSize})
+		d.EmbedTokensBF16 = embBF16
 	}
 	if d.Norm, err = loadTensor("output_norm.weight", []int{cfg.HiddenSize}); err != nil {
 		return nil, err
 	}
 	preWidth := 2 * backboneHidden
-	if d.PreProjection, err = loadRows("nextn.pre_projection.weight", preWidth, cfg.HiddenSize); err != nil {
+	if d.PreProjection, d.PreProjectionBF16, err = loadRowsBF16("nextn.pre_projection.weight", preWidth, cfg.HiddenSize); err != nil {
 		return nil, err
 	}
-	if d.PostProjection, err = loadRows("nextn.post_projection.weight", cfg.HiddenSize, backboneHidden); err != nil {
+	if d.PostProjection, d.PostProjectionBF16, err = loadRowsBF16("nextn.post_projection.weight", cfg.HiddenSize, backboneHidden); err != nil {
 		return nil, err
 	}
 	for l := 0; l < cfg.NumLayers; l++ {
@@ -123,19 +137,19 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 		} else {
 			layer.LayerScalar = s.Data()[0]
 		}
-		if layer.QW, err = loadRows(p+"attn_q.weight", cfg.HiddenSize, qDim); err != nil {
+		if layer.QW, layer.QWBF16, err = loadRowsBF16(p+"attn_q.weight", cfg.HiddenSize, qDim); err != nil {
 			return nil, err
 		}
-		if layer.OW, err = loadRows(p+"attn_output.weight", qDim, cfg.HiddenSize); err != nil {
+		if layer.OW, layer.OWBF16, err = loadRowsBF16(p+"attn_output.weight", qDim, cfg.HiddenSize); err != nil {
 			return nil, err
 		}
-		if layer.GateW, err = loadRows(p+"ffn_gate.weight", cfg.HiddenSize, cfg.Intermediate); err != nil {
+		if layer.GateW, layer.GateWBF16, err = loadRowsBF16(p+"ffn_gate.weight", cfg.HiddenSize, cfg.Intermediate); err != nil {
 			return nil, err
 		}
-		if layer.UpW, err = loadRows(p+"ffn_up.weight", cfg.HiddenSize, cfg.Intermediate); err != nil {
+		if layer.UpW, layer.UpWBF16, err = loadRowsBF16(p+"ffn_up.weight", cfg.HiddenSize, cfg.Intermediate); err != nil {
 			return nil, err
 		}
-		if layer.DownW, err = loadRows(p+"ffn_down.weight", cfg.Intermediate, cfg.HiddenSize); err != nil {
+		if layer.DownW, layer.DownWBF16, err = loadRowsBF16(p+"ffn_down.weight", cfg.Intermediate, cfg.HiddenSize); err != nil {
 			return nil, err
 		}
 	}
