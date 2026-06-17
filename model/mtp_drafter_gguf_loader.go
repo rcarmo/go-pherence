@@ -30,6 +30,9 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 		if !ok {
 			return nil, fmt.Errorf("tensor %q not found", name)
 		}
+		if t.QType != gguf.QuantBF16 {
+			return nil, fmt.Errorf("tensor %s type=%s, want BF16 for Gemma4 MTP drafter graph", name, t.QType)
+		}
 		m, err := g.MatrixFromTensor(t)
 		if err != nil {
 			return nil, err
