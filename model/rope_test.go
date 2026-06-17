@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/model/common"
 )
 
@@ -29,6 +30,23 @@ func TestBuildRoPEFreqsNegativeThetaFallsBack(t *testing.T) {
 		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
 			t.Fatalf("freqs[%d]=%v, want finite", i, v)
 		}
+	}
+}
+
+func TestGemma4RoPEUsesLocalGGMLThetaProgression(t *testing.T) {
+	maxSeq, headDim := 1024, 512
+	factors := synthesizedGemma4FullAttentionRoPEFactors(headDim)
+	got := buildGemma4GGMLRoPEFreqsWithFactors(maxSeq, headDim/2, headDim, 1000000, factors)
+	generic := simd.BuildRoPEFreqsWithFactors(maxSeq, headDim/2, headDim, 1000000, factors)
+	if len(got) != len(generic) || len(got) == 0 {
+		t.Fatalf("bad RoPE table lens got=%d generic=%d", len(got), len(generic))
+	}
+	// High positions make ggml's float32 iterative theta progression diverge from
+	// the shared generic pow-based table. Keep this local to Gemma4 so other model
+	// families retain the shared runtime builder they were validated against.
+	idx := ((maxSeq-1)*(headDim/2) + 63) * 2
+	if got[idx] == generic[idx] && got[idx+1] == generic[idx+1] {
+		t.Fatalf("Gemma4 local RoPE unexpectedly matches shared generic table at idx=%d", idx)
 	}
 }
 
