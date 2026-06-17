@@ -125,7 +125,6 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	ggufCPUExpertStatsStart := ggufCPUExpertTimingSnapshot()
 	ggufAttentionStatsStart := ggufAttentionTimingSnapshot()
 	ggufTempDenseStatsStart := ggufTempDenseUploadSnapshot()
-	exactGELUStatsStart := f32GELUExactMulSnapshot()
 
 	fp := weights.ForwardPlan()
 	hiddenSize := buffers.HiddenSize
@@ -409,10 +408,6 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 					cpuStats.Calls, cpuStats.Positions, cpuStats.WorkItems, cpuStats.ActiveExperts, cpuStats.Q4DirectRows, cpuStats.Q4DequantRows, cpuStats.Q8DirectRows, cpuStats.Q8DequantRows, cpuStats.Q5DirectRows, cpuStats.Q5DequantRows,
 					ggufCPUExpertBatchBucketsString(cpuStats.Q4DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q4DequantBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q8DequantBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q5DirectBatches), ggufCPUExpertBatchBucketsString(cpuStats.Q5DequantBatches),
 					float64(cpuStats.NormNS)/1e9, float64(cpuStats.CollectNS)/1e9, float64(cpuStats.ScheduleNS)/1e9, float64(cpuStats.GateNS)/1e9, float64(cpuStats.ActNS)/1e9, float64(cpuStats.DownNS)/1e9, float64(cpuStats.ScatterNS)/1e9, float64(cpuStats.PostNS)/1e9)
-			}
-			exactGELUStats := f32GELUExactMulSnapshot().Sub(exactGELUStatsStart)
-			if exactGELUStats.Calls > 0 {
-				log.Printf("gguf_exact_gelu: calls=%d elements=%d download=%.1fs gelu=%.1fs upload=%.1fs", exactGELUStats.Calls, exactGELUStats.Elements, float64(exactGELUStats.DownloadNS)/1e9, float64(exactGELUStats.GELUNS)/1e9, float64(exactGELUStats.UploadNS)/1e9)
 			}
 			stats := ggufExpertDispatchStatsSnapshot().Sub(ggufExpertStatsStart)
 			if stats.Total() > 0 {
@@ -1274,8 +1269,8 @@ func runFP8DenseMLPDevice(fl *GPUFP8Layer, scratch ForwardScratch, positions, hi
 	if err := gpu.GemmFP8E4M3ViaSgemmBuffer(upBuf, xBuf, positions, fl.Up); err != nil {
 		return fmt.Errorf("up SGEMM: %w", err)
 	}
-	if err := f32GELUExactMulBuffer(gateBuf, upBuf, midLen); err != nil {
-		return fmt.Errorf("exact GELU activation: %w", err)
+	if err := gpu.GELUTanhMulBuffer(gateBuf, upBuf, midLen); err != nil {
+		return fmt.Errorf("tanh GELU activation: %w", err)
 	}
 	if diffusionGemmaFP8DynamicActivationEnabled() {
 		act := make([]float32, midLen)
@@ -1681,8 +1676,6 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufExpertDispatchCounters.partialDroppedWork.Store(0)
 	ggufExpertDispatchCounters.gpuAttemptNS.Store(0)
 	ggufExpertDispatchCounters.cpuFallbackNS.Store(0)
-	resetF32GELUExactMulStats()
-
 	ggufChunkedLMHeadCounters.calls.Store(0)
 	ggufChunkedLMHeadCounters.chunks.Store(0)
 	ggufChunkedLMHeadCounters.bytes.Store(0)
@@ -2848,7 +2841,6 @@ func freeGPUBufferPtr(p **gpu.Buffer) {
 }
 
 func FreeGGUFGPUScratchBuffers() {
-	freeF32GELUExactMulScratch()
 	selectedExpertWorkGPUBuffers.Lock()
 	selectedExpertWorkGPUBuffers.bufs.Free()
 	selectedExpertWorkGPUBuffers.groupedBufs.Free()

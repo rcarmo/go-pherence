@@ -15,7 +15,7 @@ import (
 //
 //	hidden[batch, H]
 //	  -> FP8 gate/up dequant-SGEMM
-//	  -> exact GELU(gate) * up (host boundary until exact CUDA GELU exists)
+//	  -> device tanh-GELU(gate) * up (llama.cpp ggml_gelu)
 //	  -> FP8 down dequant-SGEMM
 //	  -> hidden[batch, H]
 //
@@ -120,8 +120,8 @@ func (g *DiffusionGemmaBackendGraph) DenseMLP(hidden []float32, fl *GPUFP8Layer)
 			return fmt.Errorf("backend graph up SGEMM: %w", err)
 		}
 	}
-	if err := f32GELUExactMulBuffer(g.gate, g.up, g.midLen); err != nil {
-		return fmt.Errorf("backend graph exact GELU activation: %w", err)
+	if err := gpu.GELUTanhMulBuffer(g.gate, g.up, g.midLen); err != nil {
+		return fmt.Errorf("backend graph tanh GELU activation: %w", err)
 	}
 	if diffusionGemmaFP8DynamicActivationEnabled() {
 		act := make([]float32, g.midLen)
