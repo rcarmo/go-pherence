@@ -123,7 +123,7 @@ func (m *LlamaModel) RunMTPDrafterStepWithExternalKV(d *Gemma4MTPDrafter, state 
 		return MTPDrafterStepResult{}, err
 	}
 	logits := make([]float32, d.Config.VocabSize)
-	if d.EmbedTokens != nil || d.EmbedTokensMLX != nil {
+	if d.EmbedTokens != nil || len(d.EmbedTokensBF16) > 0 || d.EmbedTokensMLX != nil {
 		if err := d.AssistantLogitsInto(logits, assistantHidden); err != nil {
 			return MTPDrafterStepResult{}, err
 		}
@@ -160,33 +160,31 @@ func (m *LlamaModel) validateMTPDrafterStepModel(d *Gemma4MTPDrafter, state MTPD
 	if len(state.Activation) != d.BackboneHiddenSize {
 		return fmt.Errorf("state activation len=%d, want %d", len(state.Activation), d.BackboneHiddenSize)
 	}
-	if (len(d.PreProjection) == 0 && d.PreProjectionMLX == nil) || (len(d.PostProjection) == 0 && d.PostProjectionMLX == nil) {
+	if (len(d.PreProjection) == 0 && len(d.PreProjectionBF16) == 0 && d.PreProjectionMLX == nil) || (len(d.PostProjection) == 0 && len(d.PostProjectionBF16) == 0 && d.PostProjectionMLX == nil) {
 		return fmt.Errorf("drafter projection weights are not loaded")
 	}
 	preWidth, ok := checkedProduct(2, d.BackboneHiddenSize)
 	if !ok {
 		return fmt.Errorf("drafter pre_projection width overflows for backbone=%d", d.BackboneHiddenSize)
 	}
-	if d.PreProjectionMLX == nil {
-		wantPre, ok := checkedProduct(d.Config.HiddenSize, preWidth)
-		if !ok {
-			return fmt.Errorf("drafter pre_projection size overflows hidden=%d backbone=%d", d.Config.HiddenSize, d.BackboneHiddenSize)
-		}
-		if len(d.PreProjection) < wantPre {
-			return fmt.Errorf("drafter pre_projection len=%d, want at least %d", len(d.PreProjection), wantPre)
-		}
-	} else if err := validateDrafterMLXWeight(-1, "pre_projection", d.PreProjectionMLX, d.Config.HiddenSize, preWidth); err != nil {
+	wantPre, ok := checkedProduct(d.Config.HiddenSize, preWidth)
+	if !ok {
+		return fmt.Errorf("drafter pre_projection size overflows hidden=%d backbone=%d", d.Config.HiddenSize, d.BackboneHiddenSize)
+	}
+	if d.PreProjectionMLX == nil && len(d.PreProjection) < wantPre && len(d.PreProjectionBF16) < wantPre {
+		return fmt.Errorf("drafter pre_projection len F32/BF16=%d/%d, want at least %d", len(d.PreProjection), len(d.PreProjectionBF16), wantPre)
+	}
+	if err := validateDrafterMLXWeight(-1, "pre_projection", d.PreProjectionMLX, d.Config.HiddenSize, preWidth); err != nil {
 		return err
 	}
-	if d.PostProjectionMLX == nil {
-		wantPost, ok := checkedProduct(d.BackboneHiddenSize, d.Config.HiddenSize)
-		if !ok {
-			return fmt.Errorf("drafter post_projection size overflows hidden=%d backbone=%d", d.Config.HiddenSize, d.BackboneHiddenSize)
-		}
-		if len(d.PostProjection) < wantPost {
-			return fmt.Errorf("drafter post_projection len=%d, want at least %d", len(d.PostProjection), wantPost)
-		}
-	} else if err := validateDrafterMLXWeight(-1, "post_projection", d.PostProjectionMLX, d.BackboneHiddenSize, d.Config.HiddenSize); err != nil {
+	wantPost, ok := checkedProduct(d.BackboneHiddenSize, d.Config.HiddenSize)
+	if !ok {
+		return fmt.Errorf("drafter post_projection size overflows hidden=%d backbone=%d", d.Config.HiddenSize, d.BackboneHiddenSize)
+	}
+	if d.PostProjectionMLX == nil && len(d.PostProjection) < wantPost && len(d.PostProjectionBF16) < wantPost {
+		return fmt.Errorf("drafter post_projection len F32/BF16=%d/%d, want at least %d", len(d.PostProjection), len(d.PostProjectionBF16), wantPost)
+	}
+	if err := validateDrafterMLXWeight(-1, "post_projection", d.PostProjectionMLX, d.BackboneHiddenSize, d.Config.HiddenSize); err != nil {
 		return err
 	}
 	return m.validateMTPDrafterStepModelShell(d, state)
@@ -498,8 +496,8 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 		if !okQWeight || !okOWeight {
 			return fmt.Errorf("drafter layer %d attention weight dims overflow qDim=%d hidden=%d", i, qDim, d.Config.HiddenSize)
 		}
-		if (len(layer.QW) != qWeightLen && layer.QWm == nil) || (len(layer.OW) != oWeightLen && layer.OWm == nil) {
-			return fmt.Errorf("drafter layer %d attention weight dims Q/O=%d/%d, want %d/%d", i, len(layer.QW), len(layer.OW), qWeightLen, oWeightLen)
+		if (len(layer.QW) != qWeightLen && len(layer.QWBF16) != qWeightLen && layer.QWm == nil) || (len(layer.OW) != oWeightLen && len(layer.OWBF16) != oWeightLen && layer.OWm == nil) {
+			return fmt.Errorf("drafter layer %d attention weight dims Q/O F32=%d/%d BF16=%d/%d, want %d/%d", i, len(layer.QW), len(layer.OW), len(layer.QWBF16), len(layer.OWBF16), qWeightLen, oWeightLen)
 		}
 		if err := validateDrafterMLXWeight(i, "q_proj", layer.QWm, qDim, d.Config.HiddenSize); err != nil {
 			return err
@@ -512,7 +510,7 @@ func validateMTPDrafterExternalKV(d *Gemma4MTPDrafter, externalKV *MTPDrafterExt
 		if !okGateWeight || !okDownWeight {
 			return fmt.Errorf("drafter layer %d MLP weight dims overflow intermediate=%d hidden=%d", i, d.Config.Intermediate, d.Config.HiddenSize)
 		}
-		if (len(layer.GateW) != gateWeightLen && layer.GateWm == nil) || (len(layer.UpW) != gateWeightLen && layer.UpWm == nil) || (len(layer.DownW) != downWeightLen && layer.DownWm == nil) {
+		if (len(layer.GateW) != gateWeightLen && len(layer.GateWBF16) != gateWeightLen && layer.GateWm == nil) || (len(layer.UpW) != gateWeightLen && len(layer.UpWBF16) != gateWeightLen && layer.UpWm == nil) || (len(layer.DownW) != downWeightLen && len(layer.DownWBF16) != downWeightLen && layer.DownWm == nil) {
 			return fmt.Errorf("drafter layer %d MLP weight dims are invalid", i)
 		}
 		if err := validateDrafterMLXWeight(i, "gate_proj", layer.GateWm, d.Config.Intermediate, d.Config.HiddenSize); err != nil {

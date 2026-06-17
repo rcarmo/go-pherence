@@ -122,6 +122,48 @@ func TestLoadGemma4MTPDrafterGGUFPopulatesBF16Matrices(t *testing.T) {
 	}
 }
 
+func TestGemma4MTPDrafterGGUFCanRunFromBF16BuffersWithoutF32Shadows(t *testing.T) {
+	path := filepath.Join("..", "models", "gemma4-e4b-it-google-qat-gguf", "MTP", "gemma-4-E4B-it-BF16-MTP.gguf")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("local Gemma4 MTP GGUF drafter not available: %v", err)
+	}
+	d, err := LoadGemma4MTPDrafterGGUF(path)
+	if err != nil {
+		t.Fatalf("LoadGemma4MTPDrafterGGUF: %v", err)
+	}
+	m := &LlamaModel{Config: LlamaConfig{VocabSize: d.Config.VocabSize, HiddenSize: d.BackboneHiddenSize, ModelType: "gemma4_text"}, EmbedTokens: tensor.FromFloat32(make([]float32, d.Config.VocabSize*d.BackboneHiddenSize), []int{d.Config.VocabSize, d.BackboneHiddenSize})}
+	m.EmbedTokens.Data()[0] = 1
+	state, err := NewMTPDrafterState(0, make([]float32, d.BackboneHiddenSize), d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extK := make([][]float32, d.Config.NumLayers)
+	extV := make([][]float32, d.Config.NumLayers)
+	for l := 0; l < d.Config.NumLayers; l++ {
+		kvDim, err := d.LayerKVDim(l)
+		if err != nil {
+			t.Fatal(err)
+		}
+		extK[l] = make([]float32, kvDim)
+		extV[l] = make([]float32, kvDim)
+	}
+	externalKV := &MTPDrafterExternalKV{K: extK, V: extV, SourceLayers: []int{0, 1, 2, 3}, SeqLen: 1}
+	// Remove F32 matrix shadows; the GGUF BF16 graph path must remain executable.
+	d.EmbedTokens = nil
+	d.PreProjection = nil
+	d.PostProjection = nil
+	for i := range d.Layers {
+		d.Layers[i].QW = nil
+		d.Layers[i].OW = nil
+		d.Layers[i].GateW = nil
+		d.Layers[i].UpW = nil
+		d.Layers[i].DownW = nil
+	}
+	if _, err := m.RunMTPDrafterStepWithExternalKV(d, state, externalKV); err != nil {
+		t.Fatalf("RunMTPDrafterStepWithExternalKV BF16-only: %v", err)
+	}
+}
+
 func TestValidateShapeRejectsTransposedShape(t *testing.T) {
 	if err := validateShape("weight", []int{256, 3072}, []int{3072, 256}, 256*3072); err == nil {
 		t.Fatal("validateShape accepted a transposed shape with the same element count")

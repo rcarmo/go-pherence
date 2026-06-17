@@ -318,7 +318,7 @@ func (d *Gemma4MTPDrafter) AssistantTokenEmbeddingInto(dst []float32, tokenID in
 // hidden row. Gemma4 assistant llama.cpp uses token_embd.weight directly for
 // result_output; nextn.post_projection is only the recurrent h_nextn handoff.
 func (d *Gemma4MTPDrafter) AssistantLogitsInto(dst, assistantHidden []float32) error {
-	if d == nil || (d.EmbedTokens == nil && d.EmbedTokensMLX == nil) {
+	if d == nil || (d.EmbedTokens == nil && len(d.EmbedTokensBF16) == 0 && d.EmbedTokensMLX == nil) {
 		return fmt.Errorf("drafter embeddings/output head are not loaded")
 	}
 	h := d.Config.HiddenSize
