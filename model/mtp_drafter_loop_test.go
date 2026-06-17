@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/tensor"
 )
@@ -357,6 +358,28 @@ func TestMTPDrafterExternalKVValidationRejectsDenseWeightOverflow(t *testing.T) 
 	ext := &MTPDrafterExternalKV{K: [][]float32{{0}}, V: [][]float32{{0}}, SourceLayers: []int{0}, SeqLen: 1}
 	if err := validateMTPDrafterExternalKV(d, ext); err == nil || !strings.Contains(err.Error(), "attention weight dims overflow") {
 		t.Fatalf("validateMTPDrafterExternalKV err=%v, want attention overflow", err)
+	}
+}
+
+func TestBF16DrafterDotUsesGGMLAVX2ReductionOrder(t *testing.T) {
+	x := simd.BF16FromF32Slice([]float32{
+		4096, 1, -4096, 1, 2048, 1, -2048, 1,
+		1024, 1, -1024, 1, 512, 1, -512, 1,
+		256, 1, -256, 1, 128, 1, -128, 1,
+		64, 1, -64, 1, 32, 1, -32, 1,
+		3, -2, 5,
+	})
+	y := simd.BF16FromF32Slice([]float32{
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1,
+	})
+	got := bf16DotGGMLAVX2Order(x, y)
+	want := float32(16 + 6) // 16 small ones in the 32-wide chunk plus scalar tail 3-2+5.
+	if got != want {
+		t.Fatalf("bf16DotGGMLAVX2Order=%g want %g", got, want)
 	}
 }
 
