@@ -63,7 +63,15 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 		}
 		return tensor.FromFloat32(data, shape), nil
 	}
+	var fullRoPEFactors []float32
+	if t, ok := g.TensorByName("rope_freqs.weight"); ok {
+		fullRoPEFactors, err = g.DequantF32(t)
+		if err != nil {
+			return nil, fmt.Errorf("load rope_freqs.weight: %w", err)
+		}
+	}
 	d := &Gemma4MTPDrafter{Config: cfg, BackboneHiddenSize: backboneHidden, Layers: make([]Gemma4MTPDrafterLayer, cfg.NumLayers)}
+	d.precomputeGemma4RoPEWithFullFactors(fullRoPEFactors)
 	if emb, err := loadRows("token_embd.weight", cfg.HiddenSize, cfg.VocabSize); err != nil {
 		return nil, err
 	} else {

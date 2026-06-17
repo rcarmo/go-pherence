@@ -251,7 +251,10 @@ func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float3
 		if isSWA {
 			rotHalf := headDim / 2
 			freqs := []float32(nil)
-			if m != nil && len(m.RopeFreqsSWA) > 0 && m.RopeHalfSWA > 0 {
+			if len(d.RopeFreqsSWA) > 0 && d.RopeHalfSWA > 0 {
+				rotHalf = d.RopeHalfSWA
+				freqs = d.RopeFreqsSWA
+			} else if m != nil && len(m.RopeFreqsSWA) > 0 && m.RopeHalfSWA > 0 {
 				rotHalf = m.RopeHalfSWA
 				freqs = m.RopeFreqsSWA
 			} else {
@@ -261,7 +264,10 @@ func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float3
 		} else {
 			rotHalf := int(float64(headDim)*0.25) / 2
 			freqs := []float32(nil)
-			if m != nil && len(m.RopeFreqsFull) > 0 && m.RopeHalfFull > 0 {
+			if len(d.RopeFreqsFull) > 0 && d.RopeHalfFull > 0 {
+				rotHalf = d.RopeHalfFull
+				freqs = d.RopeFreqsFull
+			} else if m != nil && len(m.RopeFreqsFull) > 0 && m.RopeHalfFull > 0 {
 				rotHalf = m.RopeHalfFull
 				freqs = m.RopeFreqsFull
 			} else {

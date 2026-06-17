@@ -33,13 +33,24 @@ func (m *LlamaModel) precomputeGemma4RoPEWithFullFactors(fullFactors []float32) 
 	if cfg.ModelType != "gemma4_text" {
 		return
 	}
+	m.RopeFreqsSWA, m.RopeHalfSWA, m.RopeFreqsFull, m.RopeHalfFull = gemma4RoPETables(cfg, fullFactors)
+}
+
+func (d *Gemma4MTPDrafter) precomputeGemma4RoPEWithFullFactors(fullFactors []float32) {
+	if d == nil || d.Config.ModelType != "gemma4_text" {
+		return
+	}
+	d.RopeFreqsSWA, d.RopeHalfSWA, d.RopeFreqsFull, d.RopeHalfFull = gemma4RoPETables(d.Config, fullFactors)
+}
+
+func gemma4RoPETables(cfg LlamaConfig, fullFactors []float32) (swa []float32, swaHalf int, full []float32, fullHalf int) {
 	maxSeq := cfg.MaxSeqLen
 	if maxSeq > 2048 {
 		maxSeq = 2048
 	}
 	if cfg.HeadDim > 0 {
-		m.RopeHalfSWA = cfg.HeadDim / 2
-		m.RopeFreqsSWA = buildRoPEFreqs(maxSeq, m.RopeHalfSWA, cfg.HeadDim, 10000)
+		swaHalf = cfg.HeadDim / 2
+		swa = buildRoPEFreqs(maxSeq, swaHalf, cfg.HeadDim, 10000)
 	}
 	if cfg.GlobalHeadDim > 0 {
 		// llama.cpp applies Gemma4 full-attention RoPE across the whole global
@@ -47,12 +58,13 @@ func (m *LlamaModel) precomputeGemma4RoPEWithFullFactors(fullFactors []float32) 
 		// proportional factors. The first quarter of pairs normally has factor 1;
 		// the rest has a very large factor, making them effectively identity while
 		// preserving llama.cpp's full-head pairing layout.
-		m.RopeHalfFull = cfg.GlobalHeadDim / 2
+		fullHalf = cfg.GlobalHeadDim / 2
 		if len(fullFactors) == 0 {
 			fullFactors = synthesizedGemma4FullAttentionRoPEFactors(cfg.GlobalHeadDim)
 		}
-		m.RopeFreqsFull = simd.BuildRoPEFreqsWithFactors(maxSeq, m.RopeHalfFull, cfg.GlobalHeadDim, 1000000, fullFactors)
+		full = simd.BuildRoPEFreqsWithFactors(maxSeq, fullHalf, cfg.GlobalHeadDim, 1000000, fullFactors)
 	}
+	return swa, swaHalf, full, fullHalf
 }
 
 func synthesizedGemma4FullAttentionRoPEFactors(headDim int) []float32 {

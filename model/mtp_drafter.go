@@ -36,6 +36,15 @@ type Gemma4MTPDrafter struct {
 
 	Norm   *tensor.Tensor // [hidden]
 	Layers []Gemma4MTPDrafterLayer
+
+	// Assistant-owned RoPE tables. llama.cpp's gemma4-assistant graph creates
+	// rope_freqs on the assistant model and passes model.layers[il].rope_freqs to
+	// ggml_rope_ext for non-SWA layers; do not borrow the verifier/main model's
+	// proportional factors for drafter Q RoPE.
+	RopeFreqsSWA  []float32
+	RopeFreqsFull []float32
+	RopeHalfSWA   int
+	RopeHalfFull  int
 }
 
 // Gemma4MTPDrafterLayer is one q-only assistant layer.
@@ -164,6 +173,11 @@ func LoadGemma4MTPDrafter(dir string) (*Gemma4MTPDrafter, error) {
 		NumCentroids:       acfg.NumCentroids,
 		UseOrderedEmbeds:   acfg.UseOrderedEmbeddings,
 		Layers:             make([]Gemma4MTPDrafterLayer, cfg.NumLayers),
+	}
+	if ropeFactors, err := loadData("model.rope_freqs.weight", []int{cfg.GlobalHeadDim / 2}); err == nil {
+		d.precomputeGemma4RoPEWithFullFactors(ropeFactors)
+	} else {
+		d.precomputeGemma4RoPEWithFullFactors(nil)
 	}
 
 	if d.BackboneHiddenSize == 0 {
