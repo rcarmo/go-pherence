@@ -17,13 +17,14 @@ func BuildRoPEFreqs(maxSeq, halfDim, headDim int, theta float64) []float32 {
 		theta = 10000
 	}
 	freqs := make([]float32, n)
+	thetaScale := float32(math.Pow(theta, -2.0/float64(headDim)))
 	for pos := 0; pos < maxSeq; pos++ {
+		thetaCur := float32(pos)
 		for i := 0; i < halfDim; i++ {
-			freq := 1.0 / math.Pow(theta, float64(2*i)/float64(headDim))
-			angle := float64(pos) * freq
 			off := (pos*halfDim + i) * 2
-			freqs[off] = float32(math.Cos(angle))
-			freqs[off+1] = float32(math.Sin(angle))
+			freqs[off] = float32(math.Cos(float64(thetaCur)))
+			freqs[off+1] = float32(math.Sin(float64(thetaCur)))
+			thetaCur *= thetaScale
 		}
 	}
 	return freqs
