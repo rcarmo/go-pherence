@@ -430,3 +430,15 @@ Logs:
 - `logs/mtp-strict-layer-scalar-prompt-only-20260617-012541.log`
 
 Conclusion: the improved ordering needs to apply consistently to both prompt-context seed and verifier batch rows in `forwardMTPPromptLayer`. Applying it only to one side regresses selected-logit parity.
+
+### Boundary retests after layer-scalar ordering improvement
+
+After the `BF16(hidden) -> layer_output_scale` improvement, two previously ruled-out boundary hypotheses were retested against the improved baseline.
+
+| Experiment | Effective tok/s | Sum abs error | Max abs error | Log |
+|---|---:|---:|---:|---|
+| current improved baseline | ~0.36-0.39 | **0.237515** | **0.093098** | `logs/post-scope-mtp-strict-gmp6-20260617-012726.log` |
+| post-attention RMSNorm multiply order `(x * scale) * weight` | 0.352 | 0.409490 | 0.278289 | `logs/mtp-strict-current-postnorm-order-20260617-012814.log` |
+| O-projection dequantized GEMV only | 0.352 | 0.545766 | 0.315370 | `logs/mtp-strict-current-oproj-dequant-20260617-012838.log` |
+
+Both remain worse than the improved baseline. Keep the committed MTP verifier path and do not switch post-attention RMSNorm order or O-projection dequantization.
