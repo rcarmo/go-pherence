@@ -25,8 +25,6 @@ import (
 // quantized expert implementations rather than scalar fallbacks.
 type CPUDispatcher struct {
 	ResidentLayerPrefix   int
-	MaxLayers             int
-	TailAfterMaxLayers    bool
 	LMHeadTopK            int
 	Progress              bool
 	SkipEviction          bool
@@ -201,9 +199,6 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			if !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
 				weights.EvictLayer(currentLayer)
 			}
-			if d.MaxLayers > 0 && completedLayers >= d.MaxLayers {
-				break
-			}
 			layerStarted = time.Now()
 		}
 		if op.Layer != currentLayer {
@@ -224,9 +219,6 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 	if currentLayer >= 0 && currentLayer >= d.ResidentLayerPrefix {
 		weights.EvictLayer(currentLayer)
-	}
-	if d.MaxLayers > 0 && !d.TailAfterMaxLayers {
-		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
 	}
 	for _, op := range ops.Tail {
 		if d.Progress {

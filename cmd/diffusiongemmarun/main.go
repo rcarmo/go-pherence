@@ -93,8 +93,6 @@ func main() {
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
 	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
 	residencyBudgetGiB := flag.Float64("residency-budget-gib", 0, "choose resident layer prefix from decoded float32 cache budget in GiB")
-	maxDispatchLayers := flag.Int("max-dispatch-layers", 0, "debug: execute at most N text layers in CPU dispatcher")
-	tailAfterMaxLayers := flag.Bool("tail-after-max-layers", false, "debug: run tail ops after -max-dispatch-layers instead of returning before tail")
 	lmHeadTopK := flag.Int("lm-head-top-k", 0, "debug: keep only top-K LM head logits per position, storing -Inf elsewhere")
 	dispatchProgress := flag.Bool("dispatch-progress", false, "print GPU/backend dispatcher layer/tail progress to stderr")
 	ggufModel := flag.String("gguf-model", "", "GGUF model file (Q4_K_M, same as llama.cpp) — replaces safetensor weights")
@@ -324,8 +322,6 @@ func main() {
 				ResidentLayerPrefix:   *residentLayers,
 				GGUFExpertIndex:       ggufIdx,
 				CPUExperts:            true,
-				MaxLayers:             *maxDispatchLayers,
-				TailAfterMaxLayers:    *tailAfterMaxLayers,
 				LMHeadTopK:            *lmHeadTopK,
 				Progress:              *dispatchProgress,
 				SkipEviction:          true, // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
@@ -390,8 +386,6 @@ func main() {
 			cpuDisp := diffusiongemma.CPUDispatcher{
 				ResidentLayerPrefix:   *residentLayers,
 				GGUFExpertIndex:       ggufIdx,
-				MaxLayers:             *maxDispatchLayers,
-				TailAfterMaxLayers:    *tailAfterMaxLayers,
 				LMHeadTopK:            *lmHeadTopK,
 				Progress:              *dispatchProgress,
 				SkipEviction:          true, // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
@@ -461,7 +455,7 @@ func main() {
 			finalSoftcap = float32(m.Config.TextConfig.FinalLogitSoftcapping)
 		}
 		if *useGPUDispatcher {
-			gpuDisp := diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap, CPUExperts: *cpuExperts}
+			gpuDisp := diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap, CPUExperts: *cpuExperts}
 			if *fp8Model != "" {
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: loading FP8 weights from %s\n", *fp8Model)
 				fp8Weights, err := diffusiongemma.OpenFP8TextWeights(*fp8Model, m.Shape)
@@ -569,7 +563,7 @@ func main() {
 				gpuDisp.SCEmbed = nil
 			}
 		} else {
-			cpuDisp := diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap}
+			cpuDisp := diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap}
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, cpuDisp)
 		}
 		if err != nil {
@@ -647,7 +641,7 @@ func main() {
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
 	}
 	if weights != nil {
-		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f max_dispatch_layers=%d tail_after_max_layers=%v lm_head_top_k=%d float_cache_entries=%d float_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *maxDispatchLayers, *tailAfterMaxLayers, *lmHeadTopK, weights.FloatCacheEntries(), weights.FloatCacheBytes())
+		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f lm_head_top_k=%d float_cache_entries=%d float_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *lmHeadTopK, weights.FloatCacheEntries(), weights.FloatCacheBytes())
 	}
 	if *useGPUDispatcher && *fp8Model != "" {
 		gpuDisp, ok := denoiser.(*diffusiongemma.TextDenoiser)

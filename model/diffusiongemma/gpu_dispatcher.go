@@ -39,8 +39,6 @@ func (s *GGUFGPUDeviceSelfConditioning) Free() {
 
 type GPUDispatcher struct {
 	ResidentLayerPrefix   int
-	MaxLayers             int
-	TailAfterMaxLayers    bool
 	LMHeadTopK            int
 	Progress              bool
 	SkipEviction          bool
@@ -73,8 +71,6 @@ func (d GPUDispatcher) ggufDenseLayerResident(layer int) bool {
 func (d GPUDispatcher) cpuFallback() CPUDispatcher {
 	return CPUDispatcher{
 		ResidentLayerPrefix:   d.ResidentLayerPrefix,
-		MaxLayers:             d.MaxLayers,
-		TailAfterMaxLayers:    d.TailAfterMaxLayers,
 		LMHeadTopK:            d.LMHeadTopK,
 		Progress:              d.Progress,
 		SkipEviction:          d.SkipEviction,
@@ -215,9 +211,6 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			}
 			if !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
 				weights.EvictLayer(currentLayer)
-			}
-			if d.MaxLayers > 0 && completedLayers >= d.MaxLayers {
-				break
 			}
 			layerStarted = time.Now()
 		}
@@ -418,10 +411,6 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			}
 		}
 	}
-	if d.MaxLayers > 0 && !d.TailAfterMaxLayers {
-		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
-	}
-
 	var tLMHead, tTailOther, tSelfCondBuild time.Duration
 	var sampledArgmax []int
 	var sampledTokens []int
