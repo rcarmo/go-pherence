@@ -10,9 +10,9 @@ import (
 )
 
 // LoadGemma4GGUFAsLlama loads a Gemma4 GGUF checkpoint into the existing
-// LlamaModel execution graph. This is intentionally CPU/reference-oriented: it
-// dequantizes GGUF tensors to dense F32 so parity work can compare the exact
-// llama.cpp artifact before adding packed GGUF kernels.
+// LlamaModel execution graph. The hot matrices stay in their original GGUF
+// quantized form and execute through direct GGUF/QAT row-dot helpers; scalar
+// norms, RoPE factors, and layer scales are validated as F32 graph tensors.
 func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 	g, err := gguf.Open(path)
 	if err != nil {
