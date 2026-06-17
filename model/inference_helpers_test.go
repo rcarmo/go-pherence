@@ -1,9 +1,10 @@
 package model
 
 import (
-	"github.com/rcarmo/go-pherence/internal/floatcmp"
+	"math"
 	"testing"
 
+	"github.com/rcarmo/go-pherence/internal/floatcmp"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -131,6 +132,25 @@ func TestLMHeadLogitsAndArgmax(t *testing.T) {
 	}
 	if err := m.LMHeadLogitsInto(make([]float32, 2), []float32{2, 3}); err == nil {
 		t.Fatal("LMHeadLogitsInto accepted short logits")
+	}
+}
+
+func TestLMHeadLogitsSuppressTokens(t *testing.T) {
+	m := &LlamaModel{
+		Config:         LlamaConfig{VocabSize: 3, HiddenSize: 2},
+		SuppressTokens: []int{1, 99, -1},
+		LMHead: tensor.FromFloat32([]float32{
+			1, 0,
+			0, 1,
+			1, 1,
+		}, []int{3, 2}),
+	}
+	logits := make([]float32, 3)
+	if err := m.LMHeadLogitsInto(logits, []float32{2, 3}); err != nil {
+		t.Fatalf("LMHeadLogitsInto: %v", err)
+	}
+	if logits[0] != 2 || !math.IsInf(float64(logits[1]), -1) || logits[2] != 5 {
+		t.Fatalf("suppressed logits=%v", logits)
 	}
 }
 

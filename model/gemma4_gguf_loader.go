@@ -65,7 +65,7 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 		}
 		return g.MatrixFromTensor(t)
 	}
-	m := &LlamaModel{Config: cfg, Large: cfg.HiddenSize >= 3000, Quantized: true}
+	m := &LlamaModel{Config: cfg, Large: cfg.HiddenSize >= 3000, Quantized: true, SuppressTokens: ggufIntArray(g.Meta["tokenizer.ggml.suppress_tokens"])}
 	if m.EmbedTokensGGUF, err = loadQMatrix("token_embd.weight"); err != nil {
 		return nil, err
 	}
@@ -298,6 +298,43 @@ func gemma4GGUFConfig(g *gguf.GGUF) (common.Config, error) {
 		softcap = v
 	}
 	return common.Config{VocabSize: vocab, HiddenSize: h, Intermediate: inter, NumLayers: layers, NumHeads: heads, NumKVHeads: kvHeads, NumGlobalKVHeads: kvHeads, MaxSeqLen: ctx, RopeTheta: ropeTheta, RMSNormEps: eps, ModelType: "gemma4_text", HeadDim: keyLen, GlobalHeadDim: globalKeyLen, SlidingWindow: sliding, BOSTokenID: bos, LayerTypes: lt, NumKVSharedLayers: shared, HiddenPerLayer: hpl, VocabPerLayer: vocab, HiddenAct: "gelu_pytorch_tanh", AttentionKEqV: false, FinalLogitSoftcapping: float64(softcap)}, nil
+}
+
+func ggufIntArray(v any) []int {
+	switch arr := v.(type) {
+	case []any:
+		out := make([]int, 0, len(arr))
+		for _, x := range arr {
+			switch n := x.(type) {
+			case int:
+				out = append(out, n)
+			case int32:
+				out = append(out, int(n))
+			case uint32:
+				out = append(out, int(n))
+			case int64:
+				out = append(out, int(n))
+			case uint64:
+				out = append(out, int(n))
+			case float64:
+				out = append(out, int(n))
+			}
+		}
+		return out
+	case []int32:
+		out := make([]int, len(arr))
+		for i, x := range arr {
+			out[i] = int(x)
+		}
+		return out
+	case []uint32:
+		out := make([]int, len(arr))
+		for i, x := range arr {
+			out[i] = int(x)
+		}
+		return out
+	}
+	return nil
 }
 
 func gemma4GGUFLayerTypes(g *gguf.GGUF, n int) []string {

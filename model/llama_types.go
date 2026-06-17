@@ -39,6 +39,7 @@ type LlamaModel struct {
 	LMHead             *tensor.Tensor
 	LMHeadMLX          *mlx.QuantWeight
 	LMHeadGGUF         *gguf.QuantMatrix
+	SuppressTokens     []int
 
 	Layers []LlamaLayer
 

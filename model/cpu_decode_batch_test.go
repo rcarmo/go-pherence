@@ -8,8 +8,9 @@ import (
 
 func TestFinishCPUDecodeBatchMatchesRows(t *testing.T) {
 	m := &LlamaModel{
-		Config: LlamaConfig{VocabSize: 3, HiddenSize: 2, RMSNormEps: 0, FinalLogitSoftcapping: 2},
-		Norm:   tensor.Ones([]int{2}),
+		Config:         LlamaConfig{VocabSize: 3, HiddenSize: 2, RMSNormEps: 0, FinalLogitSoftcapping: 2},
+		SuppressTokens: []int{1},
+		Norm:           tensor.Ones([]int{2}),
 		LMHead: tensor.FromFloat32([]float32{
 			1, 0,
 			0, 1,

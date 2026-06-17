@@ -130,6 +130,9 @@ func (m *LlamaModel) FinishCPUDecodeBatch(hiddenRows [][]float32) (finalActivati
 logitsDone:
 	if softcapNeeded {
 		applyLlamaFinalLogitSoftcap(flatLogits, cfg.FinalLogitSoftcapping)
+		for i := 0; i < B; i++ {
+			applyLlamaSuppressTokens(flatLogits[i*vocab:(i+1)*vocab], m.SuppressTokens)
+		}
 	}
 	logitsRows = make([][]float32, B)
 	tokens = make([]int, B)

@@ -190,6 +190,7 @@ func (m *LlamaModel) LMHeadLogitsInto(logits, hidden []float32) error {
 			return err
 		}
 		applyLlamaFinalLogitSoftcap(logits, m.Config.FinalLogitSoftcapping)
+		applyLlamaSuppressTokens(logits, m.SuppressTokens)
 		return nil
 	}
 	lmData := m.LMHead.Data()
@@ -204,7 +205,16 @@ func (m *LlamaModel) LMHeadLogitsInto(logits, hidden []float32) error {
 		}
 	}
 	applyLlamaFinalLogitSoftcap(logits, m.Config.FinalLogitSoftcapping)
+	applyLlamaSuppressTokens(logits, m.SuppressTokens)
 	return nil
+}
+
+func applyLlamaSuppressTokens(logits []float32, ids []int) {
+	for _, id := range ids {
+		if id >= 0 && id < len(logits) {
+			logits[id] = float32(math.Inf(-1))
+		}
+	}
 }
 
 func applyLlamaFinalLogitSoftcap(logits []float32, c float64) {
