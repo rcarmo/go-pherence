@@ -75,6 +75,7 @@ func (d GPUDispatcher) cpuFallback() CPUDispatcher {
 		SkipEviction:          d.SkipEviction,
 		ExpertIndex:           d.ExpertIndex,
 		GGUFExpertIndex:       d.GGUFExpertIndex,
+		UseGGUFGPUExperts:     d.GGUFExpertIndex != nil,
 		FinalLogitSoftcapping: d.FinalLogitSoftcapping,
 	}
 }

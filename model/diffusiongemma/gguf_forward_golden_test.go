@@ -168,7 +168,7 @@ func TestLocalGGUFTinyForwardGoldenTopLogits(t *testing.T) {
 	}
 	cmd := exec.Command("go", "run", helper)
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_PREFILL=1")
+	cmd.Env = os.Environ()
 	out, err := cmd.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {

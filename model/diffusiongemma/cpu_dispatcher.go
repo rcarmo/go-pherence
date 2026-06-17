@@ -30,6 +30,7 @@ type CPUDispatcher struct {
 	SkipEviction          bool
 	ExpertIndex           *FP8ExpertIndex  // FP8 safetensor expert weights for optimized CPU MoE
 	GGUFExpertIndex       *GGUFExpertIndex // GGUF expert weights for encoder/denoiser MoE
+	UseGGUFGPUExperts     bool             // set by GPUDispatcher for prompt-prefill backend graph; CPUDispatcher default stays CPU/SIMD
 	FinalLogitSoftcapping float32
 }
 

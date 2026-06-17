@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"strings"
 	"time"
 
 	gpu "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -15,11 +14,6 @@ import (
 type encoderGGUFMoEHookFunc func(layer int, layerType string, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex) error
 
 var encoderGGUFMoEHook encoderGGUFMoEHookFunc
-
-func diffusionGemmaGGUFCPUPrefillOnlyEnabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_CPU_PREFILL")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
-}
 
 // EncodePrompt runs the CPU/reference prompt encoder.
 //
@@ -248,7 +242,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 		ropeFreqs := simd.BuildRoPEFreqsWithFactors(positions, ropeHalf, headDim, ropeTheta, ropeFactors)
 
 		qAct := make([]float32, hiddenSize)
-		ggufPrefillGPUQKV := fp8 == nil && !useBF16 && gpu.SgemmReady() && !diffusionGemmaGGUFCPUPrefillOnlyEnabled()
+		ggufPrefillGPUQKV := d.UseGGUFGPUExperts && fp8 == nil && !useBF16 && gpu.SgemmReady()
 		var prefillAttn *GGUFGPUAttentionWeights
 		if ggufPrefillGPUQKV {
 			oWForCache, oRowsForCache, oColsForCache, err := loadFloatMatrix(weights, lb.OProj)
@@ -535,7 +529,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 		}
 		intermediate := gateRows
 		mlpResult := make([]float32, len(hidden))
-		ggufPrefillGPUMlp := fp8 == nil && !useBF16MLP && gpu.SgemmReady() && !diffusionGemmaGGUFCPUPrefillOnlyEnabled()
+		ggufPrefillGPUMlp := d.UseGGUFGPUExperts && fp8 == nil && !useBF16MLP && gpu.SgemmReady()
 		if ggufPrefillGPUMlp {
 			var resident *GGUFGPUMLPWeights
 			if d.ggufDenseLayerResident(layer) {
@@ -655,7 +649,7 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 		for i := range moeResult {
 			moeResult[i] = 0
 		}
-		if d.GGUFExpertIndex != nil {
+		if d.GGUFExpertIndex != nil && d.UseGGUFGPUExperts {
 			topK := buffers.TopKExperts
 			if topK <= 0 {
 				topK = 8
