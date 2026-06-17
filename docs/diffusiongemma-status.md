@@ -140,6 +140,27 @@ Notes:
 - CPU log artifact: `logs/diffusiongemma_cpu_bench_20260617.log`.
 - GPU log artifact: `logs/diffusiongemma_gpu_bench_20260617-091841.log`. The GPU run reported `DiffusionGemma GPU: using NVIDIA GeForce RTX 3060`, encoder prompt KV in 9.7s, repeated denoise forwards at ~0.1s attention/~0.2s expert plus ~0.2s LM-head tail, and shell `real 0m42.360s`.
 
+### Full-canvas GPU benchmark
+
+Rui requested a proper prompt with the full canvas on GPU. The following run was serialized with the shared GPU lock and exercises the real 256-row denoise forward plus Q6_K GGUF LM head:
+
+```bash
+flock /tmp/go-pherence-gpu.lock -c \
+  'time env GOMAXPROCS=6 GO_PHERENCE_GPU=1 \
+   go run ./cmd/diffusiongemmarun \
+     -model models/diffusiongemma-26B-A4B-it \
+     -gguf-model /workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf \
+     -prompt "Explain in one concise paragraph why the sky is blue, and include one short analogy." \
+     -max-new 1 -canvas 256 -seed 1234 \
+     -gpu-dispatcher -decode -dispatch-progress -json'
+```
+
+| Date | Host CPU threads | Quant/model | Workload | Canvas | GPU/PTX mode | Wall | Throughput | Output note |
+| --- | ---: | --- | --- | ---: | --- | ---: | ---: | --- |
+| 2026-06-17 | `GOMAXPROCS=6` | DiffusionGemma 26B A4B IT `Q4_K_M` GGUF | prompt: “Explain in one concise paragraph why the sky is blue, and include one short analogy.”, `max-new=1`, seed `1234`, default denoise schedule | 256 | GPU/CUDA dispatcher on NVIDIA GeForce RTX 3060; full-canvas GGUF prompt encoder + denoise forward + Q6_K LM head, no explicit dense/expert prewarm | 2461.658s for 1 full-canvas generated token attempt | 0.1040 canvas rows/s; 0.000406 generated-token attempts/s | Denoising selected EOG/EOS, so decoded generated text is empty, but the full 256-row forward/LM-head path ran successfully. |
+
+Full-canvas log artifact: `logs/diffusiongemma_gpu_fullcanvas_20260617-160247.log`; JSON artifact: `logs/diffusiongemma_gpu_fullcanvas_20260617-160247.json`. The run reported encoder prompt KV in 26.3s, denoise forward attention 2.6s, dense MLP 0.8s, LM-head 2.9s, self-conditioning build 15.2s, and expert time 465.9s. Expert dispatch fell back to CPU/SIMD for all 30 layers (`fused=0`, `cpu_fallback=30`) because the full 256-row active sets exceeded the bounded expert GPU cache, so the proper full-canvas GPU workload is currently bottlenecked by GGUF CPU expert fallback rather than PTX attention or Q6_K LM-head.
+
 ## Remaining before real/reference-complete inference
 
 1. Download/prepare full 11 safetensor shards locally.

@@ -1,0 +1,220 @@
+2026/06/17 16:02:48 loading ALL weights from GGUF: /workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf
+2026/06/17 16:02:54 GGUF→TextWeights: 632 tensors dequantized to F32 in 5.196s
+2026/06/17 16:02:54 GGUF experts: gate_up [2816,1408,128] Q4_K, down [704,2816,128] Q8_0
+2026/06/17 16:02:59 GGUF expert index: 30 layers × 128 experts built in 4.896s
+2026/06/17 16:02:59 GGUF expert index: 30 layers × 128 experts, intermediate=704
+diffusiongemmarun: prewarmed resident GGUF GPU dense weights layers=30 bytes=6.13 GiB elapsed=10.3s
+DiffusionGemma encoder: completed layer=0 elapsed=599ms norm=0s attn=198ms dense=84ms moe=318ms other=0s
+DiffusionGemma encoder: completed layer=1 elapsed=644ms norm=0s attn=200ms dense=75ms moe=369ms other=0s
+DiffusionGemma encoder: completed layer=2 elapsed=677ms norm=0s attn=204ms dense=77ms moe=395ms other=0s
+DiffusionGemma encoder: completed layer=3 elapsed=734ms norm=0s attn=197ms dense=76ms moe=461ms other=0s
+DiffusionGemma encoder: completed layer=4 elapsed=921ms norm=0s attn=200ms dense=78ms moe=643ms other=0s
+DiffusionGemma encoder: completed layer=5 elapsed=910ms norm=0s attn=353ms dense=77ms moe=480ms other=0s
+DiffusionGemma encoder: completed layer=6 elapsed=844ms norm=0s attn=243ms dense=75ms moe=526ms other=0s
+DiffusionGemma encoder: completed layer=7 elapsed=831ms norm=0s attn=216ms dense=77ms moe=539ms other=0s
+DiffusionGemma encoder: completed layer=8 elapsed=683ms norm=0s attn=228ms dense=77ms moe=378ms other=0s
+DiffusionGemma encoder: completed layer=9 elapsed=823ms norm=0s attn=230ms dense=78ms moe=515ms other=0s
+DiffusionGemma encoder: completed layer=10 elapsed=922ms norm=0s attn=236ms dense=77ms moe=608ms other=0s
+DiffusionGemma encoder: completed layer=11 elapsed=987ms norm=0s attn=351ms dense=78ms moe=558ms other=0s
+DiffusionGemma encoder: completed layer=12 elapsed=903ms norm=0s attn=223ms dense=76ms moe=604ms other=0s
+DiffusionGemma encoder: completed layer=13 elapsed=1.185s norm=0s attn=225ms dense=80ms moe=880ms other=0s
+DiffusionGemma encoder: completed layer=14 elapsed=1.345s norm=0s attn=253ms dense=87ms moe=1.004s other=0s
+DiffusionGemma encoder: completed layer=15 elapsed=1.001s norm=0s attn=234ms dense=78ms moe=689ms other=0s
+DiffusionGemma encoder: completed layer=16 elapsed=908ms norm=0s attn=221ms dense=76ms moe=611ms other=0s
+DiffusionGemma encoder: completed layer=17 elapsed=922ms norm=0s attn=353ms dense=78ms moe=491ms other=0s
+DiffusionGemma encoder: completed layer=18 elapsed=862ms norm=0s attn=225ms dense=76ms moe=561ms other=0s
+DiffusionGemma encoder: completed layer=19 elapsed=908ms norm=0s attn=227ms dense=78ms moe=604ms other=0s
+DiffusionGemma encoder: completed layer=20 elapsed=812ms norm=0s attn=230ms dense=78ms moe=504ms other=0s
+DiffusionGemma encoder: completed layer=21 elapsed=905ms norm=0s attn=237ms dense=75ms moe=593ms other=0s
+DiffusionGemma encoder: completed layer=22 elapsed=893ms norm=0s attn=219ms dense=78ms moe=596ms other=0s
+DiffusionGemma encoder: completed layer=23 elapsed=886ms norm=0s attn=362ms dense=80ms moe=444ms other=0s
+DiffusionGemma encoder: completed layer=24 elapsed=837ms norm=0s attn=220ms dense=78ms moe=539ms other=0s
+DiffusionGemma encoder: completed layer=25 elapsed=748ms norm=0s attn=231ms dense=79ms moe=438ms other=0s
+DiffusionGemma encoder: completed layer=26 elapsed=907ms norm=0s attn=254ms dense=78ms moe=575ms other=0s
+DiffusionGemma encoder: completed layer=27 elapsed=832ms norm=0s attn=228ms dense=78ms moe=526ms other=0s
+DiffusionGemma encoder: completed layer=28 elapsed=854ms norm=0s attn=232ms dense=77ms moe=545ms other=0s
+DiffusionGemma encoder: completed layer=29 elapsed=1.061s norm=0s attn=355ms dense=77ms moe=629ms other=0s
+DiffusionGemma encoder summary: total=26.346s norm=0s attn=7.383s dense=2.336s moe=16.623s other=2ms prefetch_wait=0s unaccounted=1ms temp_dense_calls=205 hits=0 misses=205 temp_dense_bytes=6276.9MiB temp_transpose=8.9s temp_upload=0.6s e_attn=0/115 e_mlp=0/90
+DiffusionGemma encoder gguf_cpu_experts: calls=30 positions=510 work_items=4080 active_experts=1165 q4_direct_rows=3486208 q4_dequant_rows=185856 q8_direct_rows=3362304 q8_dequant_rows=168960 q5_direct_rows=642048 q5_dequant_rows=1022208 q4_batches(d=1:470,2-3:333,4:81,5:60,6:38,7:27,8:24,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:78,13-15:35,16+:19) q8_batches(d=1:242,2-3:164,4:38,5:31,6:17,7:13,8:9,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:39,13-15:16,16+:5) q5_batches(d=1:228,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:0,13-15:0,16+:0 dq=1:0,2-3:169,4:43,5:29,6:21,7:14,8:15,9-12:39,13-15:19,16+:14) norm=0.0s collect=0.0s schedule=0.0s gate=36.0s act=0.0s down=32.8s scatter=0.0s post=0.0s
+DiffusionGemma encoder gguf_experts: fused=0 legacy_grouped=0 cpu_fallback=30 gpu_attempt=0.0s cpu_fallback_time=16.6s cache=0.0/0.0MiB active_sets=30 active(avg/max)=38.8/63 work(avg/max)=136.0/136 partial(calls kept/dropped experts work)=0 0/0 0/0 q4_missing(avg/max)=38.8/63 q4_missing_bytes=3303.9MiB max=178.7MiB exceeds=30 q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0/30 q4_budget=3303.9MiB/1165experts q8(ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0 q8_budget=0.0MiB/0experts q5(ptr/budget)=0/0 q5_budget=0.0MiB/0experts
+2026/06/17 16:03:35 encoder: 17 tokens → prompt KV in 26.3s
+DiffusionGemma GPU: using NVIDIA GeForce RTX 3060
+2026/06/17 16:03:35 attn[L0]: proj=21.6ms norm_rope=2.3ms kv_build=1.5ms attn=72.3ms oproj=9.7ms
+DiffusionGemma GPU: completed layer=0 elapsed=12.548s
+DiffusionGemma GPU: completed layer=1 elapsed=14.982s
+DiffusionGemma GPU: completed layer=2 elapsed=13.374s
+DiffusionGemma GPU: completed layer=3 elapsed=15.199s
+DiffusionGemma GPU: completed layer=4 elapsed=18.917s
+DiffusionGemma GPU: completed layer=5 elapsed=14.701s
+DiffusionGemma GPU: completed layer=6 elapsed=13.037s
+DiffusionGemma GPU: completed layer=7 elapsed=14.582s
+DiffusionGemma GPU: completed layer=8 elapsed=12.824s
+DiffusionGemma GPU: completed layer=9 elapsed=13.712s
+DiffusionGemma GPU: completed layer=10 elapsed=14.93s
+DiffusionGemma GPU: completed layer=11 elapsed=13.767s
+DiffusionGemma GPU: completed layer=12 elapsed=14.997s
+DiffusionGemma GPU: completed layer=13 elapsed=13.603s
+DiffusionGemma GPU: completed layer=14 elapsed=16.091s
+DiffusionGemma GPU: completed layer=15 elapsed=13.507s
+DiffusionGemma GPU: completed layer=16 elapsed=15.102s
+DiffusionGemma GPU: completed layer=17 elapsed=13.962s
+DiffusionGemma GPU: completed layer=18 elapsed=14.662s
+DiffusionGemma GPU: completed layer=19 elapsed=15.132s
+DiffusionGemma GPU: completed layer=20 elapsed=14.721s
+DiffusionGemma GPU: completed layer=21 elapsed=15.405s
+DiffusionGemma GPU: completed layer=22 elapsed=14.569s
+DiffusionGemma GPU: completed layer=23 elapsed=15.034s
+DiffusionGemma GPU: completed layer=24 elapsed=14.271s
+DiffusionGemma GPU: completed layer=25 elapsed=15.382s
+DiffusionGemma GPU: completed layer=26 elapsed=14.535s
+DiffusionGemma GPU: completed layer=27 elapsed=15.286s
+DiffusionGemma GPU: completed layer=28 elapsed=14.498s
+2026/06/17 16:10:52 forward: attn=2.5s expert=433.6s norm=0.1s router=0.2s dense=0.8s other=0.1s
+2026/06/17 16:10:52 gguf_attention: calls=30 total=2.5s setup_other=0.1s proj=0.6s norm_rope=0.1s kv_build=0.0s attn=1.3s oproj=0.3s
+2026/06/17 16:10:52 gguf_cpu_experts: calls=30 positions=7680 work_items=61440 active_experts=1432 q4_direct_rows=2980736 q4_dequant_rows=961664 q8_direct_rows=2540032 q8_dequant_rows=878592 q5_direct_rows=487168 q5_dequant_rows=1768448 q4_batches(d=1:298,2-3:216,4:80,5:46,6:42,7:31,8:36,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:68,13-15:42,16+:573) q8_batches(d=1:125,2-3:95,4:27,5:22,6:25,7:14,8:11,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:23,13-15:13,16+:276) q5_batches(d=1:173,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:0,13-15:0,16+:0 dq=1:0,2-3:121,4:53,5:24,6:17,7:17,8:25,9-12:45,13-15:29,16+:297) norm=0.0s collect=0.0s schedule=0.0s gate=1413.6s act=0.4s down=1073.4s scatter=0.3s post=0.0s
+2026/06/17 16:10:52 gguf_experts: fused=0 legacy_grouped=0 cpu_fallback=30 gpu_attempt=0.0s cpu_fallback_time=433.6s cache=0.0/0.0MiB active_sets=30 active(avg/max)=47.7/76 work(avg/max)=2048.0/2048 partial(calls kept/dropped experts work)=0 0/0 0/0 q4_missing(avg/max)=47.7/76 q4_missing_bytes=4061.1MiB max=215.5MiB exceeds=30 q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0/30 q4_budget=4061.1MiB/1432experts q8(ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0 q8_budget=0.0MiB/0experts q5(ptr/budget)=0/0 q5_budget=0.0MiB/0experts
+2026/06/17 16:11:02 tail: lm_head=3.1s tail_other=0.0s selfcond=6.8s
+DiffusionGemma GPU: using NVIDIA GeForce RTX 3060
+2026/06/17 16:11:11 attn[L0]: proj=29.9ms norm_rope=3.2ms kv_build=0.7ms attn=32.2ms oproj=9.7ms
+DiffusionGemma GPU: completed layer=0 elapsed=14.296s
+DiffusionGemma GPU: completed layer=1 elapsed=19.389s
+DiffusionGemma GPU: completed layer=2 elapsed=14.459s
+DiffusionGemma GPU: completed layer=3 elapsed=15.011s
+DiffusionGemma GPU: completed layer=4 elapsed=20.358s
+DiffusionGemma GPU: completed layer=5 elapsed=13.665s
+DiffusionGemma GPU: completed layer=6 elapsed=15.331s
+DiffusionGemma GPU: completed layer=7 elapsed=15.421s
+DiffusionGemma GPU: completed layer=8 elapsed=14.845s
+DiffusionGemma GPU: completed layer=9 elapsed=17.144s
+DiffusionGemma GPU: completed layer=10 elapsed=15.512s
+DiffusionGemma GPU: completed layer=11 elapsed=15.76s
+DiffusionGemma GPU: completed layer=12 elapsed=15.77s
+DiffusionGemma GPU: completed layer=13 elapsed=16.132s
+DiffusionGemma GPU: completed layer=14 elapsed=16.222s
+DiffusionGemma GPU: completed layer=15 elapsed=16.521s
+DiffusionGemma GPU: completed layer=16 elapsed=15.171s
+DiffusionGemma GPU: completed layer=17 elapsed=15.72s
+DiffusionGemma GPU: completed layer=18 elapsed=15s
+DiffusionGemma GPU: completed layer=19 elapsed=15.671s
+DiffusionGemma GPU: completed layer=20 elapsed=14.962s
+DiffusionGemma GPU: completed layer=21 elapsed=16.011s
+DiffusionGemma GPU: completed layer=22 elapsed=14.876s
+DiffusionGemma GPU: completed layer=23 elapsed=15.7s
+DiffusionGemma GPU: completed layer=24 elapsed=15.396s
+DiffusionGemma GPU: completed layer=25 elapsed=16.248s
+DiffusionGemma GPU: completed layer=26 elapsed=14.609s
+DiffusionGemma GPU: completed layer=27 elapsed=15.824s
+DiffusionGemma GPU: completed layer=28 elapsed=14.206s
+2026/06/17 16:19:02 forward: attn=2.5s expert=468.6s norm=0.1s router=0.2s dense=0.7s other=0.1s
+2026/06/17 16:19:02 gguf_attention: calls=30 total=2.5s setup_other=0.1s proj=0.7s norm_rope=0.1s kv_build=0.0s attn=1.3s oproj=0.3s
+2026/06/17 16:19:02 gguf_cpu_experts: calls=30 positions=7680 work_items=61440 active_experts=891 q4_direct_rows=1481216 q4_dequant_rows=749056 q8_direct_rows=1512192 q8_dequant_rows=698368 q5_direct_rows=214016 q5_dequant_rows=1101056 q4_batches(d=1:142,2-3:100,4:28,5:24,6:25,7:24,8:16,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:37,13-15:25,16+:470) q8_batches(d=1:66,2-3:48,4:12,5:16,6:15,7:10,8:9,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:16,13-15:13,16+:219) q5_batches(d=1:76,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:0,13-15:0,16+:0 dq=1:0,2-3:52,4:16,5:8,6:10,7:14,8:7,9-12:21,13-15:12,16+:251) norm=0.0s collect=0.0s schedule=0.0s gate=1516.9s act=0.4s down=1127.8s scatter=0.2s post=0.0s
+2026/06/17 16:19:02 gguf_experts: fused=0 legacy_grouped=0 cpu_fallback=30 gpu_attempt=0.0s cpu_fallback_time=468.5s cache=0.0/0.0MiB active_sets=30 active(avg/max)=29.7/0 work(avg/max)=2048.0/0 partial(calls kept/dropped experts work)=0 0/0 0/0 q4_missing(avg/max)=29.7/0 q4_missing_bytes=2526.8MiB max=0.0MiB exceeds=30 q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0/30 q4_budget=2526.8MiB/891experts q8(ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0 q8_budget=0.0MiB/0experts q5(ptr/budget)=0/0 q5_budget=0.0MiB/0experts
+2026/06/17 16:19:12 tail: lm_head=3.7s tail_other=0.0s selfcond=6.2s
+DiffusionGemma GPU: using NVIDIA GeForce RTX 3060
+2026/06/17 16:19:29 attn[L0]: proj=29.9ms norm_rope=2.6ms kv_build=0.6ms attn=41.8ms oproj=9.5ms
+DiffusionGemma GPU: completed layer=0 elapsed=15.743s
+DiffusionGemma GPU: completed layer=1 elapsed=15.536s
+DiffusionGemma GPU: completed layer=2 elapsed=17.178s
+DiffusionGemma GPU: completed layer=3 elapsed=14.946s
+DiffusionGemma GPU: completed layer=4 elapsed=15.786s
+DiffusionGemma GPU: completed layer=5 elapsed=14.991s
+DiffusionGemma GPU: completed layer=6 elapsed=15.275s
+DiffusionGemma GPU: completed layer=7 elapsed=15.759s
+DiffusionGemma GPU: completed layer=8 elapsed=15.764s
+DiffusionGemma GPU: completed layer=9 elapsed=15.222s
+DiffusionGemma GPU: completed layer=10 elapsed=15.958s
+DiffusionGemma GPU: completed layer=11 elapsed=14.661s
+DiffusionGemma GPU: completed layer=12 elapsed=16.547s
+DiffusionGemma GPU: completed layer=13 elapsed=14.591s
+DiffusionGemma GPU: completed layer=14 elapsed=15.624s
+DiffusionGemma GPU: completed layer=15 elapsed=15.983s
+DiffusionGemma GPU: completed layer=16 elapsed=15.634s
+DiffusionGemma GPU: completed layer=17 elapsed=15.546s
+DiffusionGemma GPU: completed layer=18 elapsed=15.3s
+DiffusionGemma GPU: completed layer=19 elapsed=15.531s
+DiffusionGemma GPU: completed layer=20 elapsed=14.729s
+DiffusionGemma GPU: completed layer=21 elapsed=15.578s
+DiffusionGemma GPU: completed layer=22 elapsed=14.741s
+DiffusionGemma GPU: completed layer=23 elapsed=15.632s
+DiffusionGemma GPU: completed layer=24 elapsed=14.553s
+DiffusionGemma GPU: completed layer=25 elapsed=15.562s
+DiffusionGemma GPU: completed layer=26 elapsed=14.431s
+DiffusionGemma GPU: completed layer=27 elapsed=15.896s
+DiffusionGemma GPU: completed layer=28 elapsed=14.88s
+2026/06/17 16:27:12 forward: attn=2.6s expert=460.6s norm=0.1s router=0.2s dense=0.8s other=0.1s
+2026/06/17 16:27:12 gguf_attention: calls=30 total=2.6s setup_other=0.1s proj=0.7s norm_rope=0.1s kv_build=0.0s attn=1.4s oproj=0.3s
+2026/06/17 16:27:12 gguf_cpu_experts: calls=30 positions=7680 work_items=61440 active_experts=1612 q4_direct_rows=3434112 q4_dequant_rows=1119360 q8_direct_rows=2855424 q8_dequant_rows=1013760 q5_direct_rows=428032 q5_dequant_rows=2126080 q4_batches(d=1:278,2-3:261,4:93,5:60,6:47,7:40,8:38,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:127,13-15:60,16+:608) q8_batches(d=1:126,2-3:102,4:35,5:32,6:19,7:15,8:16,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:49,13-15:29,16+:282) q5_batches(d=1:152,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:0,13-15:0,16+:0 dq=1:0,2-3:159,4:58,5:28,6:28,7:25,8:22,9-12:78,13-15:31,16+:326) norm=0.0s collect=0.0s schedule=0.0s gate=1513.8s act=0.4s down=1149.5s scatter=0.2s post=0.0s
+2026/06/17 16:27:12 gguf_experts: fused=0 legacy_grouped=0 cpu_fallback=30 gpu_attempt=0.0s cpu_fallback_time=460.6s cache=0.0/0.0MiB active_sets=30 active(avg/max)=53.7/98 work(avg/max)=2048.0/0 partial(calls kept/dropped experts work)=0 0/0 0/0 q4_missing(avg/max)=53.7/98 q4_missing_bytes=4571.5MiB max=277.9MiB exceeds=30 q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0/30 q4_budget=4571.5MiB/1612experts q8(ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0 q8_budget=0.0MiB/0experts q5(ptr/budget)=0/0 q5_budget=0.0MiB/0experts
+2026/06/17 16:27:21 tail: lm_head=2.9s tail_other=0.0s selfcond=6.1s
+DiffusionGemma GPU: using NVIDIA GeForce RTX 3060
+2026/06/17 16:27:31 attn[L0]: proj=31.1ms norm_rope=2.7ms kv_build=0.7ms attn=30.3ms oproj=9.5ms
+DiffusionGemma GPU: completed layer=0 elapsed=15.535s
+DiffusionGemma GPU: completed layer=1 elapsed=14.042s
+DiffusionGemma GPU: completed layer=2 elapsed=15.784s
+DiffusionGemma GPU: completed layer=3 elapsed=14.448s
+DiffusionGemma GPU: completed layer=4 elapsed=15.761s
+DiffusionGemma GPU: completed layer=5 elapsed=15.412s
+DiffusionGemma GPU: completed layer=6 elapsed=16.339s
+DiffusionGemma GPU: completed layer=7 elapsed=16.045s
+DiffusionGemma GPU: completed layer=8 elapsed=15.514s
+DiffusionGemma GPU: completed layer=9 elapsed=16.101s
+DiffusionGemma GPU: completed layer=10 elapsed=15.654s
+DiffusionGemma GPU: completed layer=11 elapsed=16.157s
+DiffusionGemma GPU: completed layer=12 elapsed=15.999s
+DiffusionGemma GPU: completed layer=13 elapsed=15.923s
+DiffusionGemma GPU: completed layer=14 elapsed=15.676s
+DiffusionGemma GPU: completed layer=15 elapsed=16.657s
+DiffusionGemma GPU: completed layer=16 elapsed=15.659s
+DiffusionGemma GPU: completed layer=17 elapsed=15.827s
+DiffusionGemma GPU: completed layer=18 elapsed=15.155s
+DiffusionGemma GPU: completed layer=19 elapsed=16.161s
+DiffusionGemma GPU: completed layer=20 elapsed=14.749s
+DiffusionGemma GPU: completed layer=21 elapsed=16.185s
+DiffusionGemma GPU: completed layer=22 elapsed=15.109s
+DiffusionGemma GPU: completed layer=23 elapsed=15.836s
+DiffusionGemma GPU: completed layer=24 elapsed=14.755s
+DiffusionGemma GPU: completed layer=25 elapsed=16.022s
+DiffusionGemma GPU: completed layer=26 elapsed=15.205s
+DiffusionGemma GPU: completed layer=27 elapsed=16.349s
+DiffusionGemma GPU: completed layer=28 elapsed=15.943s
+2026/06/17 16:35:20 forward: attn=2.6s expert=466.5s norm=0.1s router=0.2s dense=0.7s other=0.1s
+2026/06/17 16:35:20 gguf_attention: calls=30 total=2.6s setup_other=0.1s proj=0.7s norm_rope=0.1s kv_build=0.0s attn=1.4s oproj=0.3s
+2026/06/17 16:35:20 gguf_cpu_experts: calls=30 positions=7680 work_items=61440 active_experts=1354 q4_direct_rows=2566784 q4_dequant_rows=987008 q8_direct_rows=2069760 q8_dequant_rows=895488 q5_direct_rows=422400 q5_dequant_rows=1734656 q4_batches(d=1:256,2-3:212,4:52,5:37,6:31,7:31,8:34,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:85,13-15:49,16+:567) q8_batches(d=1:106,2-3:94,4:18,5:15,6:12,7:12,8:13,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:34,13-15:19,16+:265) q5_batches(d=1:150,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:0,13-15:0,16+:0 dq=1:0,2-3:118,4:34,5:22,6:19,7:19,8:21,9-12:51,13-15:30,16+:302) norm=0.0s collect=0.0s schedule=0.0s gate=1554.4s act=0.4s down=1174.7s scatter=0.2s post=0.0s
+2026/06/17 16:35:20 gguf_experts: fused=0 legacy_grouped=0 cpu_fallback=30 gpu_attempt=0.0s cpu_fallback_time=466.4s cache=0.0/0.0MiB active_sets=30 active(avg/max)=45.1/0 work(avg/max)=2048.0/0 partial(calls kept/dropped experts work)=0 0/0 0/0 q4_missing(avg/max)=45.1/0 q4_missing_bytes=3839.9MiB max=0.0MiB exceeds=30 q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0/30 q4_budget=3839.9MiB/1354experts q8(ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0 q8_budget=0.0MiB/0experts q5(ptr/budget)=0/0 q5_budget=0.0MiB/0experts
+2026/06/17 16:35:29 tail: lm_head=2.9s tail_other=0.0s selfcond=6.2s
+DiffusionGemma GPU: using NVIDIA GeForce RTX 3060
+2026/06/17 16:35:38 attn[L0]: proj=29.8ms norm_rope=2.6ms kv_build=0.7ms attn=35.8ms oproj=9.5ms
+DiffusionGemma GPU: completed layer=0 elapsed=15.646s
+DiffusionGemma GPU: completed layer=1 elapsed=15.495s
+DiffusionGemma GPU: completed layer=2 elapsed=15.72s
+DiffusionGemma GPU: completed layer=3 elapsed=15.427s
+DiffusionGemma GPU: completed layer=4 elapsed=15.788s
+DiffusionGemma GPU: completed layer=5 elapsed=14.559s
+DiffusionGemma GPU: completed layer=6 elapsed=15.13s
+DiffusionGemma GPU: completed layer=7 elapsed=18.923s
+DiffusionGemma GPU: completed layer=8 elapsed=15.518s
+DiffusionGemma GPU: completed layer=9 elapsed=15.548s
+DiffusionGemma GPU: completed layer=10 elapsed=15.621s
+DiffusionGemma GPU: completed layer=11 elapsed=15.846s
+DiffusionGemma GPU: completed layer=12 elapsed=16.115s
+DiffusionGemma GPU: completed layer=13 elapsed=15.903s
+DiffusionGemma GPU: completed layer=14 elapsed=16.185s
+DiffusionGemma GPU: completed layer=15 elapsed=15.716s
+DiffusionGemma GPU: completed layer=16 elapsed=15.827s
+DiffusionGemma GPU: completed layer=17 elapsed=15.794s
+DiffusionGemma GPU: completed layer=18 elapsed=15.962s
+DiffusionGemma GPU: completed layer=19 elapsed=15.254s
+DiffusionGemma GPU: completed layer=20 elapsed=15.357s
+DiffusionGemma GPU: completed layer=21 elapsed=15.234s
+DiffusionGemma GPU: completed layer=22 elapsed=15.702s
+DiffusionGemma GPU: completed layer=23 elapsed=15.544s
+DiffusionGemma GPU: completed layer=24 elapsed=14.949s
+DiffusionGemma GPU: completed layer=25 elapsed=15.159s
+DiffusionGemma GPU: completed layer=26 elapsed=15.154s
+DiffusionGemma GPU: completed layer=27 elapsed=15.758s
+DiffusionGemma GPU: completed layer=28 elapsed=14.949s
+2026/06/17 16:43:27 forward: attn=2.6s expert=465.9s norm=0.1s router=0.2s dense=0.8s other=0.1s
+2026/06/17 16:43:27 gguf_attention: calls=30 total=2.6s setup_other=0.1s proj=0.7s norm_rope=0.1s kv_build=0.0s attn=1.4s oproj=0.3s
+2026/06/17 16:43:27 gguf_cpu_experts: calls=30 positions=7680 work_items=61440 active_experts=1490 q4_direct_rows=3242624 q4_dequant_rows=982784 q8_direct_rows=2559744 q8_dequant_rows=923648 q5_direct_rows=428032 q5_dequant_rows=1897984 q4_batches(d=1:280,2-3:260,4:66,5:75,6:48,7:32,8:31,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:108,13-15:39,16+:551) q8_batches(d=1:128,2-3:117,4:20,5:32,6:19,7:12,8:8,9-12:0,13-15:0,16+:0 dq=1:0,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:50,13-15:19,16+:259) q5_batches(d=1:152,2-3:0,4:0,5:0,6:0,7:0,8:0,9-12:0,13-15:0,16+:0 dq=1:0,2-3:143,4:46,5:43,6:29,7:20,8:23,9-12:58,13-15:20,16+:292) norm=0.0s collect=0.0s schedule=0.0s gate=1544.3s act=0.4s down=1157.3s scatter=0.2s post=0.0s
+2026/06/17 16:43:27 gguf_experts: fused=0 legacy_grouped=0 cpu_fallback=30 gpu_attempt=0.0s cpu_fallback_time=465.9s cache=0.0/0.0MiB active_sets=30 active(avg/max)=49.7/0 work(avg/max)=2048.0/0 partial(calls kept/dropped experts work)=0 0/0 0/0 q4_missing(avg/max)=49.7/0 q4_missing_bytes=4225.5MiB max=0.0MiB exceeds=30 q4(ptr/raw_ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0/30 q4_budget=4225.5MiB/1490experts q8(ptr/cache/transient_ptr/transient_pack/budget)=0/0/0/0/0 q8_budget=0.0MiB/0experts q5(ptr/budget)=0/0 q5_budget=0.0MiB/0experts
+2026/06/17 16:43:45 tail: lm_head=2.9s tail_other=0.0s selfcond=15.2s
