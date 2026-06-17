@@ -24,6 +24,21 @@ import (
 
 // GPUDispatcher offloads GEMV projections to GPU via DevBuf/DevGemv,
 // keeping attention math, norms, and sampling on CPU.
+type GGUFGPUDeviceSelfConditioning struct {
+	Logits    *gpu.Buffer
+	Positions int
+	Vocab     int
+	Hidden    int
+	TempInv   float32
+}
+
+func (s *GGUFGPUDeviceSelfConditioning) Free() {
+	if s != nil && s.Logits != nil {
+		s.Logits.Free()
+		s.Logits = nil
+	}
+}
+
 type GPUDispatcher struct {
 	ResidentLayerPrefix   int
 	MaxLayers             int
@@ -136,6 +151,9 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 
 	for _, op := range ops.Prefix {
+		if op == OpSelfCondition && ctx.DeviceSelfConditioning != nil && diffusionGemmaRequireGroupedExpertGraph() && d.GGUFExpertIndex != nil {
+			return ForwardOutput{}, fmt.Errorf("GGUF backend graph has device self-conditioning state but device prefix SC MLP is not implemented")
+		}
 		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
 		}
@@ -416,6 +434,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	var sampledTokens []int
 	var sampledEntropy []float64
 	var deviceSelfConditioning []float32
+	var deviceSelfConditioningState any
 	for _, op := range ops.Tail {
 		t0 := time.Now()
 		if op == OpLMHead && d.F32LMHeadChunkSize > 0 {
@@ -431,11 +450,11 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 				if len(ctx.SampleDraws) < positions || (ctx.Step > 1 && !needDeviceSC) {
 					return ForwardOutput{}, fmt.Errorf("GGUF backend graph requires device-resident LM-head/self-conditioning path")
 				}
-				arg, ent, samp, sc, err := runDenseF32GPULMHeadDeviceGraph(scratch, buffers.HiddenSize, d.F32LMHead, d.F32LMHeadVocab, d.F32LMHeadHidden, ctx.SampleDraws[:positions], d.SCEmbed, d.SCEmbedVocab, d.SCEmbedHidden, needDeviceSC)
+				arg, ent, samp, sc, scState, err := runDenseF32GPULMHeadDeviceGraph(scratch, buffers.HiddenSize, d.F32LMHead, d.F32LMHeadVocab, d.F32LMHeadHidden, ctx.SampleDraws[:positions], d.SCEmbed, d.SCEmbedVocab, d.SCEmbedHidden, needDeviceSC)
 				if err != nil {
 					return ForwardOutput{}, err
 				}
-				sampledArgmax, sampledEntropy, sampledTokens, deviceSelfConditioning = arg, ent, samp, sc
+				sampledArgmax, sampledEntropy, sampledTokens, deviceSelfConditioning, deviceSelfConditioningState = arg, ent, samp, sc, scState
 			} else if err := runDenseF32GPULMHead(scratch, buffers.HiddenSize, d.F32LMHead, d.F32LMHeadVocab, d.F32LMHeadHidden); err != nil {
 				return ForwardOutput{}, err
 			}
@@ -506,7 +525,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			}
 		}
 	}
-	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning, ArgmaxCanvas: sampledArgmax, SampledCanvas: sampledTokens, Entropy: sampledEntropy}, nil
+	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning, DeviceSelfConditioning: deviceSelfConditioningState, ArgmaxCanvas: sampledArgmax, SampledCanvas: sampledTokens, Entropy: sampledEntropy}, nil
 }
 
 func (d GPUDispatcher) gpuAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch, fp TextForwardPlan, hiddenSize, positions int) error {
@@ -5338,41 +5357,46 @@ func runDenseF32GPULMHead(scratch ForwardScratch, hiddenSize int, cached *gpu.Bu
 	return nil
 }
 
-func runDenseF32GPULMHeadDeviceGraph(scratch ForwardScratch, hiddenSize int, cached *gpu.Buffer, cachedVocab, cachedHidden int, sampleDraws []float64, scEmbed *gpu.Buffer, scVocab, scHidden int, needSC bool) ([]int, []float64, []int, []float32, error) {
+func runDenseF32GPULMHeadDeviceGraph(scratch ForwardScratch, hiddenSize int, cached *gpu.Buffer, cachedVocab, cachedHidden int, sampleDraws []float64, scEmbed *gpu.Buffer, scVocab, scHidden int, needSC bool) ([]int, []float64, []int, []float32, *GGUFGPUDeviceSelfConditioning, error) {
 	if cached == nil || cachedVocab <= 0 || cachedHidden <= 0 {
-		return nil, nil, nil, nil, fmt.Errorf("dense F32 LM head device graph missing cached weight")
+		return nil, nil, nil, nil, nil, fmt.Errorf("dense F32 LM head device graph missing cached weight")
 	}
 	if cachedHidden != hiddenSize || hiddenSize <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
-		return nil, nil, nil, nil, fmt.Errorf("dense F32 LM head device graph shape mismatch cached=[%d,%d] hidden=%d hidden_len=%d", cachedVocab, cachedHidden, hiddenSize, len(scratch.Hidden))
+		return nil, nil, nil, nil, nil, fmt.Errorf("dense F32 LM head device graph shape mismatch cached=[%d,%d] hidden=%d hidden_len=%d", cachedVocab, cachedHidden, hiddenSize, len(scratch.Hidden))
 	}
 	positions := len(scratch.Hidden) / hiddenSize
 	if len(sampleDraws) < positions {
-		return nil, nil, nil, nil, fmt.Errorf("GGUF device sampler uniforms=%d want %d", len(sampleDraws), positions)
+		return nil, nil, nil, nil, nil, fmt.Errorf("GGUF device sampler uniforms=%d want %d", len(sampleDraws), positions)
 	}
 	hidLen, okHid := checked.MulInt(positions, hiddenSize)
 	outLen, okOut := checked.MulInt(positions, cachedVocab)
 	if positions <= 0 || !okHid || !okOut {
-		return nil, nil, nil, nil, fmt.Errorf("dense F32 LM head device graph invalid sizes positions=%d vocab=%d hidden=%d", positions, cachedVocab, hiddenSize)
+		return nil, nil, nil, nil, nil, fmt.Errorf("dense F32 LM head device graph invalid sizes positions=%d vocab=%d hidden=%d", positions, cachedVocab, hiddenSize)
 	}
 	xBuf, err := gpu.Malloc(hidLen)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	defer xBuf.Free()
 	logitsBuf, err := gpu.Malloc(outLen)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
-	defer logitsBuf.Free()
+	freeLogits := true
+	defer func() {
+		if freeLogits {
+			logitsBuf.Free()
+		}
+	}()
 	if err := xBuf.Upload(scratch.Hidden[:hidLen]); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := gpu.Sgemm(positions, cachedVocab, hiddenSize, 1, xBuf, cached, logitsBuf); err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("dense F32 LM head device graph SGEMM: %w", err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("dense F32 LM head device graph SGEMM: %w", err)
 	}
 	if scratch.FinalLogitSoftcapping > 0 {
 		if err := gpu.LogitSoftcapF32(logitsBuf, outLen, scratch.FinalLogitSoftcapping); err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 	}
 	uniforms := make([]float32, positions)
@@ -5381,43 +5405,45 @@ func runDenseF32GPULMHeadDeviceGraph(scratch ForwardScratch, hiddenSize int, cac
 	}
 	arg, ent, samp, err := gpu.DiffusionDenseSample(logitsBuf, uniforms, positions, cachedVocab, scratch.SCTempInv)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	var sc []float32
 	if needSC {
 		if scEmbed == nil || scVocab != cachedVocab || scHidden != hiddenSize {
-			return nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning embedding [%d,%d] want [%d,%d]", scVocab, scHidden, cachedVocab, hiddenSize)
+			return nil, nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning embedding [%d,%d] want [%d,%d]", scVocab, scHidden, cachedVocab, hiddenSize)
 		}
 		probBuf, err := gpu.Malloc(outLen)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		defer probBuf.Free()
 		if err := gpu.DiffusionSoftmaxRows(logitsBuf, probBuf, positions, cachedVocab, scratch.SCTempInv); err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		scLen, okSC := checked.MulInt(positions, hiddenSize)
 		if !okSC {
-			return nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning output overflow")
+			return nil, nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning output overflow")
 		}
 		scBuf, err := gpu.Malloc(scLen)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		defer scBuf.Free()
 		if err := gpu.Sgemm(positions, hiddenSize, cachedVocab, 1, probBuf, scEmbed, scBuf); err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning SGEMM: %w", err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("GGUF device self-conditioning SGEMM: %w", err)
 		}
 		sc = make([]float32, scLen)
 		if err := scBuf.Download(sc); err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		scale := float32(math.Sqrt(float64(hiddenSize)))
 		for i := range sc {
 			sc[i] *= scale
 		}
 	}
-	return arg, ent, samp, sc, nil
+	state := &GGUFGPUDeviceSelfConditioning{Logits: logitsBuf, Positions: positions, Vocab: cachedVocab, Hidden: hiddenSize, TempInv: scratch.SCTempInv}
+	freeLogits = false
+	return arg, ent, samp, sc, state, nil
 }
 
 func UploadFP8LMHeadBuffer(fp8w *FP8TextWeights) (*gpu.Buffer, int, int, error) {

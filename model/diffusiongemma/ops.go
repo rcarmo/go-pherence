@@ -91,6 +91,7 @@ type ForwardContext struct {
 	Step                   int              `json:"step"`
 	SelfConditioning       []float32        `json:"-"`
 	SelfConditioningLogits [][]float32      `json:"-"` // previous raw canvas logits [canvas][vocab], llama.cpp SC input
+	DeviceSelfConditioning any              `json:"-"` // backend-owned previous canvas logits/state (llama.cpp sc_dev analogue)
 	SCTempInv              float32          `json:"-"` // 1/t for self-conditioning softmax
 	SampleDraws            []float64        `json:"-"`
 	EncoderKV              []EncoderKVLayer `json:"-"`

@@ -88,10 +88,14 @@ func TestDenseF32GPULMHeadDeviceGraphSamplesAndBuildsSC(t *testing.T) {
 		t.Fatal(err)
 	}
 	scratch := ForwardScratch{Hidden: []float32{0.5, -1, 2, 1.5, 0.25, -0.5}, SCTempInv: 1, FinalLogitSoftcapping: 30}
-	arg, ent, samp, sc, err := runDenseF32GPULMHeadDeviceGraph(scratch, hidden, cached, vocab, hidden, []float64{0.1, 0.9}, scEmbed, vocab, hidden, true)
+	arg, ent, samp, sc, state, err := runDenseF32GPULMHeadDeviceGraph(scratch, hidden, cached, vocab, hidden, []float64{0.1, 0.9}, scEmbed, vocab, hidden, true)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if state == nil || state.Logits == nil || state.Positions != positions || state.Vocab != vocab || state.Hidden != hidden {
+		t.Fatalf("bad device SC state: %+v", state)
+	}
+	defer state.Free()
 	if len(arg) != positions || len(ent) != positions || len(samp) != positions || len(sc) != positions*hidden {
 		t.Fatalf("bad device graph lengths arg=%d ent=%d samp=%d sc=%d", len(arg), len(ent), len(samp), len(sc))
 	}

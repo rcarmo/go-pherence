@@ -25,6 +25,7 @@ type ForwardInput struct {
 	Step                   int              `json:"step"`
 	SelfConditioning       []float32        `json:"-"`
 	SelfConditioningLogits [][]float32      `json:"-"` // previous raw canvas logits [canvas][vocab], matching llama.cpp sc_logits
+	DeviceSelfConditioning any              `json:"-"` // backend-owned previous canvas logits/state (llama.cpp sc_dev analogue)
 	SCTempInv              float32          `json:"-"` // 1/t for self-conditioning softmax (set by runtime loop)
 	SampleDraws            []float64        `json:"-"` // pre-drawn per-position multinomial uniforms for backend/device sampling
 	EncoderKV              []EncoderKVLayer `json:"-"`
@@ -35,8 +36,9 @@ type ForwardInput struct {
 // is the hidden-size soft embedding signal to feed into the next denoising step.
 type ForwardOutput struct {
 	Logits           [][]float32 `json:"-"`
-	SelfConditioning []float32   `json:"-"`
-	ArgmaxCanvas     []int       `json:"-"` // optional backend/device-computed argmax per canvas position
+	SelfConditioning       []float32 `json:"-"`
+	DeviceSelfConditioning any       `json:"-"` // backend-owned state to feed the next denoise step without host copy
+	ArgmaxCanvas           []int     `json:"-"` // optional backend/device-computed argmax per canvas position
 	SampledCanvas    []int       `json:"-"` // optional backend/device-computed multinomial sample per canvas position
 	Entropy          []float64   `json:"-"` // optional backend/device-computed entropy per canvas position
 }
@@ -224,6 +226,12 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 	steps := make([]CanvasStep, 0, cfg.MaxDenoisingSteps)
 	var selfConditioning []float32
 	var selfConditioningLogits [][]float32
+	var deviceSelfConditioning any
+	defer func() {
+		if closer, ok := deviceSelfConditioning.(interface{ Free() }); ok {
+			closer.Free()
+		}
+	}()
 	prevTempInv := float32(1)
 	rawSelfConditioning := diffusionGemmaRawSelfConditioningLogitsEnabled()
 	probePositions := diffusionGemmaEntropyProbePositions(canvasLength)
@@ -245,7 +253,7 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		if rawSelfConditioning {
 			scTempInv = prevTempInv
 		}
-		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, SelfConditioning: selfConditioning, SelfConditioningLogits: selfConditioningLogits, SCTempInv: scTempInv, SampleDraws: sampleDraws})
+		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, SelfConditioning: selfConditioning, SelfConditioningLogits: selfConditioningLogits, DeviceSelfConditioning: deviceSelfConditioning, SCTempInv: scTempInv, SampleDraws: sampleDraws})
 		if err != nil {
 			return CanvasResult{}, err
 		}
@@ -273,6 +281,10 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 			}
 		}
 		meanEntropy /= float64(canvasLength)
+		if closer, ok := deviceSelfConditioning.(interface{ Free() }); ok && out.DeviceSelfConditioning != deviceSelfConditioning {
+			closer.Free()
+		}
+		deviceSelfConditioning = out.DeviceSelfConditioning
 		if len(out.SelfConditioning) > 0 {
 			selfConditioning = append(selfConditioning[:0], out.SelfConditioning...)
 		} else {
