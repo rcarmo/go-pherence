@@ -1,6 +1,8 @@
 package model
 
 import (
+	"math"
+
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
 )
@@ -50,7 +52,7 @@ func gemma4RoPETables(cfg LlamaConfig, fullFactors []float32) (swa []float32, sw
 	}
 	if cfg.HeadDim > 0 {
 		swaHalf = cfg.HeadDim / 2
-		swa = buildRoPEFreqs(maxSeq, swaHalf, cfg.HeadDim, 10000)
+		swa = buildGemma4GGMLRoPEFreqs(maxSeq, swaHalf, cfg.HeadDim, 10000)
 	}
 	if cfg.GlobalHeadDim > 0 {
 		// llama.cpp applies Gemma4 full-attention RoPE across the whole global
@@ -62,7 +64,7 @@ func gemma4RoPETables(cfg LlamaConfig, fullFactors []float32) (swa []float32, sw
 		if len(fullFactors) == 0 {
 			fullFactors = synthesizedGemma4FullAttentionRoPEFactors(cfg.GlobalHeadDim)
 		}
-		full = simd.BuildRoPEFreqsWithFactors(maxSeq, fullHalf, cfg.GlobalHeadDim, 1000000, fullFactors)
+		full = buildGemma4GGMLRoPEFreqsWithFactors(maxSeq, fullHalf, cfg.GlobalHeadDim, 1000000, fullFactors)
 	}
 	return swa, swaHalf, full, fullHalf
 }
@@ -88,6 +90,55 @@ func synthesizedGemma4FullAttentionRoPEFactors(headDim int) []float32 {
 		}
 	}
 	return factors
+}
+
+func buildGemma4GGMLRoPEFreqs(maxSeq, halfDim, headDim int, theta float64) []float32 {
+	n, ok := simd.CheckedRoPEFreqLen(maxSeq, halfDim)
+	if !ok || headDim <= 0 {
+		return nil
+	}
+	if theta <= 0 {
+		theta = 10000
+	}
+	freqs := make([]float32, n)
+	thetaScale := float32(math.Pow(theta, -2.0/float64(headDim)))
+	for pos := 0; pos < maxSeq; pos++ {
+		thetaCur := float32(pos)
+		for i := 0; i < halfDim; i++ {
+			off := (pos*halfDim + i) * 2
+			freqs[off] = float32(math.Cos(float64(thetaCur)))
+			freqs[off+1] = float32(math.Sin(float64(thetaCur)))
+			thetaCur *= thetaScale
+		}
+	}
+	return freqs
+}
+
+func buildGemma4GGMLRoPEFreqsWithFactors(maxSeq, halfDim, nDims int, theta float64, factors []float32) []float32 {
+	n, ok := simd.CheckedRoPEFreqLen(maxSeq, halfDim)
+	if !ok || nDims <= 0 {
+		return nil
+	}
+	if theta <= 0 {
+		theta = 10000
+	}
+	freqs := make([]float32, n)
+	thetaScale := float32(math.Pow(theta, -2.0/float64(nDims)))
+	for pos := 0; pos < maxSeq; pos++ {
+		thetaCur := float32(pos)
+		for i := 0; i < halfDim; i++ {
+			factor := float32(1)
+			if i < len(factors) && factors[i] != 0 {
+				factor = factors[i]
+			}
+			angle := thetaCur / factor
+			off := (pos*halfDim + i) * 2
+			freqs[off] = float32(math.Cos(float64(angle)))
+			freqs[off+1] = float32(math.Sin(float64(angle)))
+			thetaCur *= thetaScale
+		}
+	}
+	return freqs
 }
 
 func buildRoPEFreqs(maxSeq, halfDim, headDim int, theta float64) []float32 {

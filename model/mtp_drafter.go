@@ -467,7 +467,36 @@ func gemvBF16BF16(out, x []float32, w []uint16, inDim, outDim int) bool {
 		return false
 	}
 	xBF16 := simd.BF16FromF32Slice(x[:inDim])
-	return simd.GemvRowsBF16BF16GGMLAVX2Order(out[:outDim], xBF16, w[:inDim*outDim], outDim, inDim)
+	for row := 0; row < outDim; row++ {
+		out[row] = bf16DrafterDotGGMLAVX2Order(w[row*inDim:(row+1)*inDim], xBF16)
+	}
+	return true
+}
+
+func bf16DrafterDotGGMLAVX2Order(x, y []uint16) float32 {
+	n := len(x)
+	if len(y) < n {
+		n = len(y)
+	}
+	var c [4][8]float32
+	i := 0
+	for ; i+32 <= n; i += 32 {
+		for lane := 0; lane < 8; lane++ {
+			c[0][lane] += simd.BF16ToF32(x[i+lane]) * simd.BF16ToF32(y[i+lane])
+			c[1][lane] += simd.BF16ToF32(x[i+8+lane]) * simd.BF16ToF32(y[i+8+lane])
+			c[2][lane] += simd.BF16ToF32(x[i+16+lane]) * simd.BF16ToF32(y[i+16+lane])
+			c[3][lane] += simd.BF16ToF32(x[i+24+lane]) * simd.BF16ToF32(y[i+24+lane])
+		}
+	}
+	var v [8]float32
+	for lane := 0; lane < 8; lane++ {
+		v[lane] = (c[0][lane] + c[2][lane]) + (c[1][lane] + c[3][lane])
+	}
+	sum := (((v[0] + v[4]) + (v[1] + v[5])) + ((v[2] + v[6]) + (v[3] + v[7])))
+	for ; i < n; i++ {
+		sum += simd.BF16ToF32(x[i]) * simd.BF16ToF32(y[i])
+	}
+	return sum
 }
 
 func validateShape(name string, expected, actual []int, n int) error {
