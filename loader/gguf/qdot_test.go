@@ -179,8 +179,33 @@ func dequantQ6KScalarReference(raw []byte) []float32 {
 	return out
 }
 
+func TestDotQ6KQ8KMatchesAVX2Reference(t *testing.T) {
+	n := qkK * 2
+	raw, y := syntheticQ6KQ8KDotInputs(n)
+	got, err := DotQ6KQ8K(raw, y, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dotQ6KQ8KAVX2Reference(raw, y, n)
+	if got != want {
+		t.Fatalf("dot=%g want avx2 %g diff=%g", got, want, got-want)
+	}
+}
+
 func TestDotQ6KQ8KMatchesScalarReference(t *testing.T) {
 	n := qkK * 2
+	raw, y := syntheticQ6KQ8KDotInputs(n)
+	got, err := DotQ6KQ8K(raw, y, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dotQ6KQ8KScalarReference(raw, y, n)
+	if math.Abs(float64(got-want)) > 1e-4 {
+		t.Fatalf("dot=%g want scalar %g diff=%g", got, want, got-want)
+	}
+}
+
+func syntheticQ6KQ8KDotInputs(n int) ([]byte, []q8KBlock) {
 	nb := n / qkK
 	raw := make([]byte, nb*210)
 	y := make([]q8KBlock, nb)
@@ -208,14 +233,68 @@ func TestDotQ6KQ8KMatchesScalarReference(t *testing.T) {
 			y[bi].bsums[i] = int16(s)
 		}
 	}
-	got, err := DotQ6KQ8K(raw, y, n)
-	if err != nil {
-		t.Fatal(err)
+	return raw, y
+}
+
+func dotQ6KQ8KAVX2Reference(raw []byte, y []q8KBlock, n int) float32 {
+	nb := n / qkK
+	var sums [8]float32
+	for bi := 0; bi < nb; bi++ {
+		blk := raw[bi*210 : (bi+1)*210]
+		ql, qh, sc := blk[:128], blk[128:192], blk[192:208]
+		var sumi [8]int32
+		var q8sclsub [8]int32
+		for l := 0; l < 8; l++ {
+			q8sclsub[l] = int32((int(y[bi].bsums[2*l])*int(int8(sc[2*l])) + int(y[bi].bsums[2*l+1])*int(int8(sc[2*l+1]))) << 5)
+		}
+		qlOff, qhOff, q8Base, scalePair := 0, 0, 0, 0
+		for j := 0; j < qkK/128; j++ {
+			for vec := 0; vec < 4; vec++ {
+				for lane := 0; lane < 8; lane++ {
+					scaleOff := (scalePair + vec) * 2
+					scale := int(int8(sc[scaleOff]))
+					if lane >= 4 {
+						scale = int(int8(sc[scaleOff+1]))
+					}
+					seg := 0
+					for p := 0; p < 4; p++ {
+						idx := vec*32 + lane*4 + p
+						var q int
+						switch vec {
+						case 0:
+							q = int((ql[qlOff+idx] & 0x0F) | (((qh[qhOff+idx] >> 0) & 3) << 4))
+						case 1:
+							q = int((ql[qlOff+idx] & 0x0F) | (((qh[qhOff+idx-32] >> 2) & 3) << 4))
+						case 2:
+							q = int((ql[qlOff+idx-64] >> 4) | (((qh[qhOff+idx-64] >> 4) & 3) << 4))
+						case 3:
+							q = int((ql[qlOff+idx-64] >> 4) | (((qh[qhOff+idx-96] >> 6) & 3) << 4))
+						}
+						seg += q * int(y[bi].qs[q8Base+idx])
+					}
+					sumi[lane] += int32(scale * seg)
+				}
+			}
+			qlOff += 64
+			qhOff += 32
+			q8Base += 128
+			scalePair += 4
+		}
+		for l := 0; l < 8; l++ {
+			sumi[l] -= q8sclsub[l]
+		}
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[208:210])) * y[bi].d
+		for l := 0; l < 8; l++ {
+			sums[l] = float32(math.FMA(float64(d), float64(float32(sumi[l])), float64(sums[l])))
+		}
 	}
-	want := dotQ6KQ8KScalarReference(raw, y, n)
-	if math.Abs(float64(got-want)) > 1e-4 {
-		t.Fatalf("dot=%g want scalar %g diff=%g", got, want, got-want)
-	}
+	r0 := sums[0] + sums[4]
+	r1 := sums[1] + sums[5]
+	r2 := sums[2] + sums[6]
+	r3 := sums[3] + sums[7]
+	r0 = r0 + r2
+	r1 = r1 + r3
+	return r0 + r1
 }
 
 func dotQ6KQ8KScalarReference(raw []byte, y []q8KBlock, n int) float32 {
