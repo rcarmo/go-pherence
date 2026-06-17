@@ -27,10 +27,13 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 	if err != nil {
 		return nil, err
 	}
-	load := func(name string) ([]float32, error) {
+	loadTyped := func(name string, wantType gguf.QuantType) ([]float32, error) {
 		t, ok := g.TensorByName(name)
 		if !ok {
 			return nil, fmt.Errorf("tensor %q not found", name)
+		}
+		if t.QType != wantType {
+			return nil, fmt.Errorf("tensor %s type=%s, want %s for Gemma4 graph", name, t.QType, wantType)
 		}
 		return g.DequantF32(t)
 	}
@@ -183,15 +186,15 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 			if layer.PLIProjGGUF, err = loadQMatrix(p + "proj.weight"); err != nil {
 				return nil, err
 			}
-			if layer.PLIPostNorm, err = load(p + "post_norm.weight"); err != nil {
+			if layer.PLIPostNorm, err = loadTyped(p+"post_norm.weight", gguf.QuantF32); err != nil {
 				return nil, err
 			}
 		}
 	}
-	if m.PerLayerModelProj, err = load("per_layer_model_proj.weight"); err != nil {
+	if m.PerLayerModelProj, err = loadTyped("per_layer_model_proj.weight", gguf.QuantF16); err != nil {
 		return nil, err
 	}
-	if m.PerLayerProjNorm, err = load("per_layer_proj_norm.weight"); err != nil {
+	if m.PerLayerProjNorm, err = loadTyped("per_layer_proj_norm.weight", gguf.QuantF32); err != nil {
 		return nil, err
 	}
 	if m.EmbedPerLayerGGUF, err = loadQMatrix("per_layer_token_embd.weight"); err != nil {
