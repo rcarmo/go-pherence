@@ -2995,8 +2995,11 @@ func diffusionGemmaGGUFGPUExpertRawQ4Enabled() bool {
 }
 
 func diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
+	// llama.cpp's LLM_FFN_GELU lowers to ggml_gelu, the tanh-approximation
+	// GELU. Do not allow the old dot-only + host activation boundary in the
+	// production GGUF GPU expert path: it is both slower and no longer the
+	// llama.cpp graph we are matching.
+	return true
 }
 
 func diffusionGemmaGGUFGPUExpertPartialResidentEnabled() bool {
@@ -3825,27 +3828,13 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 	if le.gateUp.QType != gguf.QuantQ4_K || (le.down.QType != gguf.QuantQ8_0 && le.down.QType != gguf.QuantQ5_0) {
 		return false, nil
 	}
-	allowTanhGELU := diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled()
-	useRawQ4 := diffusionGemmaGGUFGPUExpertRawQ4Enabled() && !allowTanhGELU
-	var activeQ4RawPtrs *gpu.GPUQ4KPointerTableRaw
-	var activeQ4RawPtrsOK bool
 	var err error
-	if useRawQ4 {
-		activeQ4RawPtrs, activeQ4RawPtrsOK, err = activeQ4KGateUpRawPointerTable(idx, op.Layer, groupedArrays.ActiveExperts)
-		if err != nil {
-			return false, err
-		}
+	activeQ4Ptrs, activeQ4PtrsOK, err := activeQ4KGateUpPointerTable(idx, op.Layer, groupedArrays.ActiveExperts)
+	if err != nil {
+		return false, err
 	}
-	var activeQ4Ptrs *gpu.GPUQ4KPointerTable
-	var activeQ4PtrsOK bool
-	if !activeQ4RawPtrsOK {
-		activeQ4Ptrs, activeQ4PtrsOK, err = activeQ4KGateUpPointerTable(idx, op.Layer, groupedArrays.ActiveExperts)
-		if err != nil {
-			return false, err
-		}
-	}
-	var activeQ4PtrsTransient bool
-	if !activeQ4PtrsOK && diffusionGemmaGGUFGPUExpertTransientPointerEnabled() {
+	activeQ4PtrsTransient := false
+	if !activeQ4PtrsOK {
 		var cleanup func()
 		activeQ4Ptrs, cleanup, err = transientActiveQ4KGateUpPointerTable(idx, op.Layer, groupedArrays.ActiveExperts)
 		if err != nil {
@@ -3855,41 +3844,15 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 		activeQ4PtrsOK = true
 		activeQ4PtrsTransient = true
 	}
-	if !activeQ4PtrsOK && !activeQ4RawPtrsOK && !allowTanhGELU {
-		// Exact-GELU Q4 expert execution currently requires the pointer-table path,
-		// because only that path has a dot-only gate/up kernel. Packed active-set
-		// kernels still fuse tanh-GELU and remain explicit opt-in only.
-		return false, nil
-	}
-	var activeQ4 *gpu.GPUQ4KMatrix
-	var activeQ4Transient bool
-	if !activeQ4PtrsOK && !activeQ4RawPtrsOK {
-		activeQ4, err = activeQ4KGateUpMatrix(idx, op.Layer, groupedArrays.ActiveExperts)
-		if err != nil {
-			if errors.Is(err, errActiveExpertMatrixCacheBudget) {
-				if !diffusionGemmaGGUFGPUExpertTransientActiveEnabled() {
-					recordQ4BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
-					return false, nil
-				}
-				activeQ4, err = transientActiveQ4KGateUpMatrix(idx, op.Layer, groupedArrays.ActiveExperts)
-				activeQ4Transient = activeQ4 != nil && err == nil
-			} else {
-				return false, err
-			}
-		}
-		if err != nil {
-			return false, err
-		}
-		if activeQ4Transient {
-			defer activeQ4.Free()
-		}
+	if !activeQ4PtrsOK {
+		return false, fmt.Errorf("Q4_K gate/up pointer-table expert op required")
 	}
 	workLen := len(groupedArrays.WorkPositions)
 	positions := len(scratch.MoeOut) / hidden
 	if positions <= 0 || len(normedRows) != positions*hidden || len(scratch.MoeOut) != positions*hidden {
 		return false, fmt.Errorf("invalid fused GGUF expert dimensions: normed=%d moe=%d hidden=%d", len(normedRows), len(scratch.MoeOut), hidden)
 	}
-	residualBuf, workInput, actBuf, upBuf, moeOutBuf, unlockFusedScratch, err := ggufGPUFusedExpertScratchBuffers(positions, workLen, hidden, intermediate)
+	residualBuf, workInput, actBuf, _, moeOutBuf, unlockFusedScratch, err := ggufGPUFusedExpertScratchBuffers(positions, workLen, hidden, intermediate)
 	if err != nil {
 		return false, err
 	}
@@ -3900,41 +3863,13 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 	if err := gpu.GatherRows(workInput, residualBuf, metadata.WorkPositions, workLen, hidden); err != nil {
 		return false, err
 	}
-	if activeQ4RawPtrsOK {
-		ggufExpertDispatchCounters.q4RawPointerTable.Add(1)
-		if err := gpu.GateUpQ4KByWorkPtrsRawToBuffers(actBuf, upBuf, workInput, metadata.WorkActive, workLen, intermediate, activeQ4RawPtrs); err != nil {
-			return false, err
-		}
-		if err := f32GELUExactMulBuffer(actBuf, upBuf, workLen*intermediate); err != nil {
-			return false, err
-		}
-	} else if activeQ4PtrsOK {
-		if activeQ4PtrsTransient {
-			ggufExpertDispatchCounters.q4TransientPointer.Add(1)
-		} else {
-			ggufExpertDispatchCounters.q4PointerTable.Add(1)
-		}
-		if allowTanhGELU {
-			if err := gpu.GateUpGELUQ4KByWorkPtrsToBuffer(actBuf, workInput, metadata.WorkActive, workLen, intermediate, activeQ4Ptrs); err != nil {
-				return false, err
-			}
-		} else {
-			if err := gpu.GateUpQ4KByWorkPtrsToBuffers(actBuf, upBuf, workInput, metadata.WorkActive, workLen, intermediate, activeQ4Ptrs); err != nil {
-				return false, err
-			}
-			if err := f32GELUExactMulBuffer(actBuf, upBuf, workLen*intermediate); err != nil {
-				return false, err
-			}
-		}
+	if activeQ4PtrsTransient {
+		ggufExpertDispatchCounters.q4TransientPointer.Add(1)
 	} else {
-		if activeQ4Transient {
-			ggufExpertDispatchCounters.q4TransientPacked.Add(1)
-		} else {
-			ggufExpertDispatchCounters.q4PackedCache.Add(1)
-		}
-		if err := gpu.GateUpGELUQ4KByWorkToBuffer(actBuf, workInput, metadata.WorkActive, workLen, intermediate, len(groupedArrays.ActiveExperts), activeQ4); err != nil {
-			return false, err
-		}
+		ggufExpertDispatchCounters.q4PointerTable.Add(1)
+	}
+	if err := gpu.GateUpGELUQ4KByWorkPtrsToBuffer(actBuf, workInput, metadata.WorkActive, workLen, intermediate, activeQ4Ptrs); err != nil {
+		return false, err
 	}
 	if err := gpu.ZeroFloat32Buffer(moeOutBuf, len(scratch.MoeOut)); err != nil {
 		return false, err
@@ -3986,32 +3921,8 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 			return false, err
 		}
 	} else {
-		activeQ8, err := activeQ8DownMatrix(idx, op.Layer, groupedArrays.ActiveExperts)
-		activeQ8Transient := false
-		if err != nil {
-			if errors.Is(err, errActiveExpertMatrixCacheBudget) {
-				if !diffusionGemmaGGUFGPUExpertTransientActiveEnabled() {
-					recordQ8BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
-					return false, nil
-				}
-				activeQ8, err = transientActiveQ8DownMatrix(idx, op.Layer, groupedArrays.ActiveExperts)
-				activeQ8Transient = activeQ8 != nil && err == nil
-			} else {
-				return false, err
-			}
-		}
-		if err != nil {
-			return false, err
-		}
-		if activeQ8Transient {
-			ggufExpertDispatchCounters.q8TransientPacked.Add(1)
-			defer activeQ8.Free()
-		} else {
-			ggufExpertDispatchCounters.q8PackedCache.Add(1)
-		}
-		if err := gpu.GemvQ8_0ScatterByWork(moeOutBuf, actBuf, metadata.WorkActive, metadata.WorkPositions, metadata.EffectiveWeights, workLen, len(groupedArrays.ActiveExperts), activeQ8); err != nil {
-			return false, err
-		}
+		recordQ8BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
+		return false, fmt.Errorf("Q8_0 down pointer-table expert op required")
 	}
 	ggufExpertDispatchCounters.fusedUsed.Add(1)
 	return true, moeOutBuf.Download(scratch.MoeOut)
@@ -4302,11 +4213,7 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 			return true, nil, nil
 		}
 		recordQ4BudgetFallback(idx, op.Layer, groupedArrays.ActiveExperts)
-		if err := runGGUFCPUExpertsGroupedGraphBackend(op, weights, scratch, idx, normedRows, groupedArrays); err != nil {
-			return false, nil, err
-		}
-		ggufExpertDispatchCounters.legacyGroupedUsed.Add(1)
-		return true, nil, nil
+		return false, nil, fmt.Errorf("GGUF GPU expert fused pointer-table op required: layer=%d active=%d work=%d", op.Layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions))
 	}
 	if workArrays.Len() > 0 {
 		if err := selectedExpertWorkGPUBuffers.bufs.Upload(workArrays); err != nil {
@@ -4353,28 +4260,7 @@ func runGGUFGPUExpertsIndexed(op LayerOp, weights *TextWeights, scratch ForwardS
 		}
 		return true, nil, nil
 	}
-	used, err = runGGUFGPUExpertsGrouped(op, weights, scratch, idx, normedRows, groupedArrays, &selectedExpertWorkGPUBuffers.groupedArrays)
-	if err != nil {
-		return false, nil, err
-	}
-	if !used {
-		if err := runGGUFCPUExpertsGroupedGraphBackend(op, weights, scratch, idx, normedRows, groupedArrays); err != nil {
-			return false, nil, err
-		}
-		ggufExpertDispatchCounters.legacyGroupedUsed.Add(1)
-		return true, nil, nil
-	}
-	ggufExpertDispatchCounters.legacyGroupedUsed.Add(1)
-	postNorm2, err := loadFloatVector(weights, fp.Layers[op.Layer].PostFFNLayerNorm2)
-	if err != nil {
-		return false, nil, err
-	}
-	for off := 0; off < len(scratch.MoeOut); off += hiddenSize {
-		if !simd.RMSNormTo(scratch.MoeOut[off:off+hiddenSize], postNorm2, 1e-6) {
-			return false, nil, fmt.Errorf("GGUF GPU experts post_norm_2 rejected")
-		}
-	}
-	return true, nil, nil
+	return false, nil, fmt.Errorf("GGUF GPU expert fused pointer-table op did not handle layer=%d active=%d work=%d", op.Layer, len(groupedArrays.ActiveExperts), len(groupedArrays.WorkPositions))
 }
 
 func runGGUFCPUExpertsGroupedGraphBackend(op LayerOp, weights *TextWeights, scratch ForwardScratch, idx *GGUFExpertIndex, normedRows []float32, groupedArrays SelectedExpertGroupedArrays) error {

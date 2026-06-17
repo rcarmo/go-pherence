@@ -81,16 +81,16 @@ func TestGGUFGPUExpertRawQ4Enabled(t *testing.T) {
 
 func TestGGUFGPUExpertAllowTanhGELUEnabled(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "")
-	if diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
-		t.Fatal("tanh GELU expert kernels should default off for fidelity")
+	if !diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
+		t.Fatal("tanh GELU expert kernels should default on to match llama.cpp ggml_gelu")
 	}
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "1")
 	if !diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
 		t.Fatal("tanh GELU expert kernel opt-in not honored")
 	}
 	t.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_ALLOW_TANH_GELU", "false")
-	if diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
-		t.Fatal("tanh GELU expert kernel disable not honored")
+	if !diffusionGemmaGGUFGPUExpertAllowTanhGELUEnabled() {
+		t.Fatal("tanh GELU expert kernel must remain enabled for production graph fidelity")
 	}
 }
 
