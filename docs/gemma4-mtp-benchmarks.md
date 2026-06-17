@@ -376,3 +376,25 @@ Log: `logs/mtp-cycle-gomaxprocs-5-7-20260617-005955.log`
 | 7 | 3.876s | 0.774 tok/s |
 
 `GOMAXPROCS=6` remains the best local setting among nearby values. The absolute tok/s varies materially with host load, so compare variants using adjacent runs and preserve the same `GOMAXPROCS` setting.
+
+### Gemma4 layer scalar after BF16 in MTP verifier path
+
+Moving Gemma4 MTP verifier layer scalar application after the final BF16 narrowing in `forwardMTPPromptLayer` materially improves strict selected-logit fidelity while preserving accepted-token parity.
+
+Validation:
+
+```bash
+make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp
+GOMAXPROCS=6 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=$PWD/tmp/gemma4-mtp-llamacpp-fixture.json \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=$PWD/models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
+GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1 -v
+```
+
+Log: `logs/mtp-strict-layer-scalar-after-bf16-final-20260617-010441.log`
+
+| Path | Effective tok/s | Sum abs error | Max abs error |
+|---|---:|---:|---:|
+| previous best baseline | 0.391 | 0.397138 | 0.148483 |
+| layer scalar after BF16 | 0.385 | 0.237515 | 0.093098 |
+
+The strict selected-logit gate is still red, but this is the best correctness result so far and reduces total selected-logit error by about 40%.
