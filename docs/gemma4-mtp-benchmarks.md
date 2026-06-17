@@ -442,3 +442,20 @@ After the `BF16(hidden) -> layer_output_scale` improvement, two previously ruled
 | O-projection dequantized GEMV only | 0.352 | 0.545766 | 0.315370 | `logs/mtp-strict-current-oproj-dequant-20260617-012838.log` |
 
 Both remain worse than the improved baseline. Keep the committed MTP verifier path and do not switch post-attention RMSNorm order or O-projection dequantization.
+
+### C++ graph correspondence for MTP layer-scalar ordering
+
+The improved Go MTP verifier ordering matches the current llama.cpp Gemma4 graph structure in `/tmp/llama.cpp-gemma4-mtp/src/models/gemma4.cpp`:
+
+```cpp
+cur = ggml_add(ctx0, pe_in, cur);
+...
+if (model.layers[il].out_scale) {
+    cur = ggml_mul(ctx0, cur, model.layers[il].out_scale);
+    cb(cur, "out_scaled", il);
+}
+cur = build_cvec(cur, il);
+cb(cur, "l_out", il);
+```
+
+That is: add the per-layer input residual first, then apply `layer_output_scale` late. The Go MTP verifier now mirrors this by applying `layer_output_scale` after final hidden BF16 narrowing and after the PLI residual is included. Experiments that moved PLI after the scalar, applied the scalar on only prompt or verifier rows, or added an extra BF16 after the scalar all regressed parity.
