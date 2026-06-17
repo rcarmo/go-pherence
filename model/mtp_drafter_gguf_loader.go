@@ -66,6 +66,9 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 		if !ok {
 			return nil, fmt.Errorf("tensor %q not found", name)
 		}
+		if t.QType != gguf.QuantF32 {
+			return nil, fmt.Errorf("tensor %s type=%s, want F32 for Gemma4 MTP drafter graph", name, t.QType)
+		}
 		data, err := g.DequantF32(t)
 		if err != nil {
 			return nil, err
@@ -81,6 +84,9 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 	}
 	var fullRoPEFactors []float32
 	if t, ok := g.TensorByName("rope_freqs.weight"); ok {
+		if t.QType != gguf.QuantF32 {
+			return nil, fmt.Errorf("rope_freqs.weight type=%s, want F32 for Gemma4 MTP drafter graph", t.QType)
+		}
 		fullRoPEFactors, err = g.DequantF32(t)
 		if err != nil {
 			return nil, fmt.Errorf("load rope_freqs.weight: %w", err)

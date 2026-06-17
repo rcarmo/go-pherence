@@ -35,7 +35,14 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 		return g.DequantF32(t)
 	}
 	loadTensor := func(name string, shape []int) (*tensor.Tensor, error) {
-		data, err := load(name)
+		t, ok := g.TensorByName(name)
+		if !ok {
+			return nil, fmt.Errorf("tensor %q not found", name)
+		}
+		if t.QType != gguf.QuantF32 {
+			return nil, fmt.Errorf("tensor %s type=%s, want F32 for Gemma4 graph", name, t.QType)
+		}
+		data, err := g.DequantF32(t)
 		if err != nil {
 			return nil, err
 		}
@@ -155,8 +162,17 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 		if layer.DownWGGUF, err = loadQMatrix(p + "ffn_down.weight"); err != nil {
 			return nil, err
 		}
-		if sc, err := load(p + "layer_output_scale.weight"); err == nil && len(sc) > 0 {
-			layer.LayerScalar = sc[0]
+		if t, ok := g.TensorByName(p + "layer_output_scale.weight"); ok {
+			if t.QType != gguf.QuantF32 {
+				return nil, fmt.Errorf("tensor %slayer_output_scale.weight type=%s, want F32 for Gemma4 graph", p, t.QType)
+			}
+			if sc, err := g.DequantF32(t); err == nil && len(sc) > 0 {
+				layer.LayerScalar = sc[0]
+			} else if err != nil {
+				return nil, err
+			} else {
+				layer.LayerScalar = 1
+			}
 		} else {
 			layer.LayerScalar = 1
 		}
@@ -187,6 +203,9 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 	m.precomputeRoPE()
 	var fullRoPEFactors []float32
 	if t, ok := g.TensorByName("rope_freqs.weight"); ok {
+		if t.QType != gguf.QuantF32 {
+			return nil, fmt.Errorf("rope_freqs.weight type=%s, want F32 for Gemma4 graph", t.QType)
+		}
 		fullRoPEFactors, err = g.DequantF32(t)
 		if err != nil {
 			return nil, fmt.Errorf("load rope_freqs.weight: %w", err)
