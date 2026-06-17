@@ -148,15 +148,25 @@ func TestMTPDrafterGQAAttentionUsesGemmaScale(t *testing.T) {
 	}
 }
 
-func TestMTPDrafterRMSNormUsesGemmaBF16Path(t *testing.T) {
+func TestMTPDrafterRMSNormUsesLlamaGemma4F32Path(t *testing.T) {
 	d := validDrafterStepScaffold()
 	d.Config.ModelType = "gemma4_text"
 	x := []float32{1.0001, 2.0001}
 	want := append([]float32(nil), x...)
-	rmsNormBF16(want, []float32{1, 1}, float32(d.Config.RMSNormEps))
+	rmsNormInPlace(want, []float32{1, 1}, float32(d.Config.RMSNormEps))
 	drafterRMSNormInPlace(d, x, []float32{1, 1})
 	if !sameFloat32s(x, want) {
-		t.Fatalf("drafter norm=%v want BF16 path %v", x, want)
+		t.Fatalf("drafter norm=%v want llama.cpp Gemma4 F32 path %v", x, want)
+	}
+
+	gemma3 := validDrafterStepScaffold()
+	gemma3.Config.ModelType = "gemma3_text"
+	gotBF16 := []float32{1.0001, 2.0001}
+	wantBF16 := append([]float32(nil), gotBF16...)
+	rmsNormBF16(wantBF16, []float32{1, 1}, float32(gemma3.Config.RMSNormEps))
+	drafterRMSNormInPlace(gemma3, gotBF16, []float32{1, 1})
+	if !sameFloat32s(gotBF16, wantBF16) {
+		t.Fatalf("Gemma3 drafter norm=%v want BF16 path %v", gotBF16, wantBF16)
 	}
 }
 

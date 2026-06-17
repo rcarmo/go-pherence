@@ -407,7 +407,7 @@ func drafterGQAAttention(d *Gemma4MTPDrafter, q, kCache, vCache []float32, seqLe
 }
 
 func drafterRMSNormInPlace(d *Gemma4MTPDrafter, x, weight []float32) {
-	if d != nil && (d.Config.ModelType == "gemma3_text" || d.Config.ModelType == "gemma4_text") {
+	if d != nil && d.Config.ModelType == "gemma3_text" {
 		rmsNormBF16(x, weight, float32(d.Config.RMSNormEps))
 		return
 	}
