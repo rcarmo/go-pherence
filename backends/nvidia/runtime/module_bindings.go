@@ -62,6 +62,7 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnGatherRows = f.get("gather_rows")
 	fnMulWeights = f.get("mul_weights")
 	fnExpertMetaReduce = f.get("expert_meta_reduce")
+	fnLogitSoftcapF32 = f.get("logit_softcap_f32")
 	fnNVFP4DequantF32 = f.get("nvfp4_dequant_f32")
 	fnNVFP4GemvF32 = f.get("nvfp4_gemv_f32")
 	fnFP8E4M3GemvF32 = f.get("fp8_e4m3_gemv_f32")

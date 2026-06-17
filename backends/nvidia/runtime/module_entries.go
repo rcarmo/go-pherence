@@ -65,6 +65,7 @@ func megaModuleEntries() []moduleEntry {
 		{"gather_rows", ptx.GatherRowsPTX},
 		{"mul_weights", ptx.MulWeightsPTX},
 		{"expert_meta_reduce", ptx.ExpertMetaReducePTX},
+		{"logit_softcap_f32", ptx.LogitSoftcapPTX},
 		{"gemv_q4sym", ptxq4.GemvQ4OptPTX},
 		{"gemv_q4_k", ptxq4.GemvQ4KPTX},
 		{"gemv_q4_k_batch", ptxq4.GemvQ4KBatchPTX},
