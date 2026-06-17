@@ -499,3 +499,29 @@ MTP cycle 0: input=107 drafted=[9259 236888] verifier_in=[107 9259 236888] verif
 ```
 
 This confirms the public experimental MTP generation path can now run end-to-end on the local E4B MLX pair, but throughput is still very low (~0.1 tok/s) because the CPU verifier path is still dominant and the command includes model load/prompt setup. Public blockers remain `public_generation_wiring`, `real_asset_acceptance_parity`, and `full_layer_batch_verifier_default_enablement`.
+
+### Experimental MTP generation vs ordinary generation on the same prompt
+
+After fixing shared-KV refresh, `llmgen -mtp-generate` can run end-to-end on the local E4B MLX pair, but it is not performance-competitive yet.
+
+Prompt: `Hello world`, generated tokens: `4`.
+
+| Path | Prompt tokens reported | Generated tokens | Generation time | Tokens/sec | Process wall | Log |
+|---|---:|---:|---:|---:|---:|---|
+| ordinary CPU | 2 | 4 | 6.17s | 0.6 tok/s | 51.477s | `logs/gemma4-e4b-ordinary-cpu-gpu-hello-world-20260617-015710.log` |
+| ordinary GPU | 2 | 4 | 0.52s | 7.7 tok/s | 11.329s | `logs/gemma4-e4b-ordinary-cpu-gpu-hello-world-20260617-015710.log` |
+| experimental MTP CPU verifier (`GOMAXPROCS=6`) | 11 | 4 | 33.54s | 0.1 tok/s | 44.919s | `logs/mtp-generate-e4b-gmp6-20260617-015613.log` |
+
+MTP sample details:
+
+```text
+MTP graph steps:   1
+MTP drafted:       2
+MTP verified:      2
+MTP acceptance:    1.00
+MTP bonus tokens:  1
+MTP graph output:  3
+MTP greedy tail:   1
+```
+
+Interpretation: the experimental MTP generation path proves graph/acceptance semantics but is currently far slower than ordinary generation because the verifier path is CPU-bound and still performs a full prompt-context/verifier graph cycle. Performance parity requires moving verifier execution to an efficient batched/GPU path or otherwise matching llama.cpp's repacked CPU backend; the drafter acceptance itself is not the limiting factor in this sample.
