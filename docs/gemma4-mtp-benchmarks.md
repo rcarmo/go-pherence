@@ -562,3 +562,24 @@ MTP greedy tail:   1
 ```
 
 Compared with the CPU-prompt MTP run (`0.1 tok/s`), GPU prompt-context capture improves end-to-end MTP generation to `0.3 tok/s`, but the path is still far slower than ordinary GPU generation (`7.7 tok/s`) because the verifier graph itself remains CPU-bound.
+
+### Reusable Go benchmark harness
+
+`BenchmarkGemma4MTPGraphCycleGGUF` now provides a reusable local-assets benchmark for the strict-fixture Gemma4 E4B QAT GGUF verifier + BF16 MTP drafter graph cycle. It skips cleanly when the local GGUF assets are absent and reports `tok/s` as a benchmark metric.
+
+Example:
+
+```bash
+GOMAXPROCS=6 GOTMPDIR=$PWD/.gotmp go test ./model \
+  -run '^$' \
+  -bench 'BenchmarkGemma4MTPGraphCycleGGUF' \
+  -benchtime=1x -count=1 -benchmem -v
+```
+
+Sample result on the local i7-12700 container:
+
+```text
+BenchmarkGemma4MTPGraphCycleGGUF-6  3479929795 ns/op  0.8621 tok/s  38280136 B/op  18214 allocs/op
+```
+
+This benchmark includes decode-state allocation/setup per iteration and is therefore lower than the one-off steady-state harness, but it is now reproducible through standard `go test -bench` tooling.
