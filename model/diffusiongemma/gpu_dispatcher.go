@@ -5256,6 +5256,42 @@ func runChunkedF32GPULMHead(weights *TextWeights, scratch ForwardScratch, hidden
 	return nil
 }
 
+func UploadGGUFF32LMHeadBuffer(weights *TextWeights) (*gpu.Buffer, int, int, error) {
+	if weights == nil {
+		return nil, 0, 0, fmt.Errorf("nil weights for GGUF F32 LM head")
+	}
+	fp := weights.ForwardPlan()
+	if fp.Globals.EmbedTokens.Name == "" {
+		return nil, 0, 0, fmt.Errorf("GGUF F32 LM head missing embed_tokens binding")
+	}
+	t, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	if len(t.Shape) != 2 {
+		return nil, 0, 0, fmt.Errorf("GGUF F32 LM head embed shape=%v", t.Shape)
+	}
+	vocab, hidden := t.Shape[0], t.Shape[1]
+	if vocab <= 0 || hidden <= 0 || len(t.Data) < vocab*hidden {
+		return nil, 0, 0, fmt.Errorf("GGUF F32 LM head bad shape/data shape=%v data=%d", t.Shape, len(t.Data))
+	}
+	transposed := make([]float32, hidden*vocab)
+	for v := 0; v < vocab; v++ {
+		for h := 0; h < hidden; h++ {
+			transposed[h*vocab+v] = t.Data[v*hidden+h]
+		}
+	}
+	buf, err := gpu.Malloc(len(transposed))
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	if err := buf.Upload(transposed); err != nil {
+		buf.Free()
+		return nil, 0, 0, err
+	}
+	return buf, vocab, hidden, nil
+}
+
 func runDenseF32GPULMHead(scratch ForwardScratch, hiddenSize int, cached *gpu.Buffer, cachedVocab, cachedHidden int) error {
 	if cached == nil || cachedVocab <= 0 || cachedHidden <= 0 {
 		return fmt.Errorf("dense F32 GPU LM head missing cached weight")

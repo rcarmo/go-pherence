@@ -286,6 +286,7 @@ func main() {
 		log.Printf("GGUF expert index: %d layers × %d experts, intermediate=%d",
 			ggufIdx.NumLayers, ggufIdx.NumExperts, ggufIdx.Intermediate)
 		if *useGPUDispatcher {
+			strictGGUFGraph := diffusionGemmaBackendGraphRequired()
 			ggufRuntimeCleaned := false
 			cleanupGGUFRuntime := func() {
 				if !ggufRuntimeCleaned {
@@ -339,7 +340,26 @@ func main() {
 				SkipEviction:          true, // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
 				FinalLogitSoftcapping: float32(m.Config.TextConfig.FinalLogitSoftcapping),
 			}
-			if dgflags.GGUFGPULMHeadEnabled() {
+			if strictGGUFGraph {
+				lmStart := time.Now()
+				lmBuf, lmVocab, lmHidden, err := diffusiongemma.UploadGGUFF32LMHeadBuffer(weights)
+				if err != nil {
+					fatal(err)
+				}
+				gpuDisp.F32LMHead = lmBuf
+				gpuDisp.F32LMHeadVocab = lmVocab
+				gpuDisp.F32LMHeadHidden = lmHidden
+				lmCleaned := false
+				cleanupLM := func() {
+					if !lmCleaned {
+						lmCleaned = true
+						lmBuf.Free()
+					}
+				}
+				defer cleanupLM()
+				registerFatalCleanup(cleanupLM)
+				fmt.Fprintf(os.Stderr, "diffusiongemmarun: GGUF dense F32 LM-head [%d,%d] resident for backend graph (%.2f GiB) elapsed=%.1fs\n", lmVocab, lmHidden, float64(lmVocab)*float64(lmHidden)*4/(1024*1024*1024), time.Since(lmStart).Seconds())
+			} else if dgflags.GGUFGPULMHeadEnabled() {
 				chunk := dgflags.GGUFGPULMHeadChunkSize()
 				gpuDisp.F32LMHeadChunkSize = chunk
 				gpuDisp.F32LMHeadUseCache = dgflags.GGUFGPULMHeadUseF32Cache()
@@ -349,8 +369,12 @@ func main() {
 				}
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: GGUF F32 LM head chunked GPU mode enabled chunk=%d source=%s\n", chunk, source)
 			}
-			if dgflags.GPUSelfCondEnabled() {
-				fmt.Fprintf(os.Stderr, "diffusiongemmarun: WARNING: GGUF GPU self-conditioning is experimental; enabling resident F32 embed_tokens for SC\n")
+			if strictGGUFGraph || dgflags.GPUSelfCondEnabled() {
+				if strictGGUFGraph {
+					fmt.Fprintf(os.Stderr, "diffusiongemmarun: GGUF GPU self-conditioning resident for backend graph\n")
+				} else {
+					fmt.Fprintf(os.Stderr, "diffusiongemmarun: WARNING: GGUF GPU self-conditioning is experimental; enabling resident F32 embed_tokens for SC\n")
+				}
 				scBuf, scVocab, scHidden, err := diffusiongemma.UploadSelfConditioningEmbeddingBuffer(weights)
 				if err != nil {
 					fatal(err)
@@ -370,9 +394,15 @@ func main() {
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: GGUF SC embedding [%d,%d] resident (%.2f GiB)\n", scVocab, scHidden, float64(scVocab)*float64(scHidden)*4/(1024*1024*1024))
 			}
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, gpuDisp)
-			if err != nil && gpuDisp.SCEmbed != nil {
-				gpuDisp.SCEmbed.Free()
-				gpuDisp.SCEmbed = nil
+			if err != nil {
+				if gpuDisp.SCEmbed != nil {
+					gpuDisp.SCEmbed.Free()
+					gpuDisp.SCEmbed = nil
+				}
+				if gpuDisp.F32LMHead != nil {
+					gpuDisp.F32LMHead.Free()
+					gpuDisp.F32LMHead = nil
+				}
 			}
 		} else {
 			cpuDisp := diffusiongemma.CPUDispatcher{
@@ -687,6 +717,16 @@ func parseFlagMessages(messages []string) ([]diffusiongemma.TextChatMessage, err
 		out = append(out, diffusiongemma.TextChatMessage{Role: strings.TrimSpace(role), Content: content})
 	}
 	return out, nil
+}
+
+func diffusionGemmaBackendGraphRequired() bool {
+	for _, name := range []string{"GO_PHERENCE_DIFFUSIONGEMMA_BACKEND_GRAPH", "GO_PHERENCE_DIFFUSIONGEMMA_REQUIRE_GROUPED_EXPERT_GRAPH"} {
+		v := strings.TrimSpace(strings.ToLower(os.Getenv(name)))
+		if v == "1" || v == "true" || v == "yes" || v == "on" {
+			return true
+		}
+	}
+	return false
 }
 
 func diffusionGemmaGGUFDenseTransposeCacheMB() int {
