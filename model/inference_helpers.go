@@ -214,7 +214,8 @@ func applyLlamaFinalLogitSoftcap(logits []float32, c float64) {
 	capF := float32(c)
 	inv := float32(1.0 / c)
 	for i, v := range logits {
-		logits[i] = float32(math.Tanh(float64(v*inv))) * capF
+		scaled := float32(v * inv)
+		logits[i] = float32(math.Tanh(float64(scaled))) * capF
 	}
 }
 
