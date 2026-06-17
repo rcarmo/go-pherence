@@ -17,8 +17,6 @@ func TestResetGGUFGPUDiagnosticStats(t *testing.T) {
 	ggufExpertDispatchCounters.q4MissingMaxBytes.Store(5 * 1024 * 1024)
 	ggufExpertDispatchCounters.q4MissingBudgetExceeds.Add(1)
 	ggufExpertDispatchCounters.gpuAttemptNS.Add(3)
-	ggufChunkedLMHeadCounters.chunks.Add(4)
-	ggufChunkedLMHeadCounters.uploadNS.Add(5)
 	ggufTempDenseUploadCounters.calls.Add(6)
 	ggufTempDenseUploadCounters.encoderMLPHits.Add(7)
 	ggufAttentionTimingCounters.calls.Add(8)
@@ -31,9 +29,6 @@ func TestResetGGUFGPUDiagnosticStats(t *testing.T) {
 	} else if delta := s.Sub(ggufExpertDispatchStats{ActiveSetCalls: 1, ActiveSetExperts: 4, ActiveSetMaxExperts: 7, ActiveSetWorkItems: 8, ActiveSetMaxWorkItems: 16, Q4MissingExperts: 2, Q4MissingMaxExperts: 4, Q4MissingBytes: 2 * 1024 * 1024, Q4MissingMaxBytes: 5 * 1024 * 1024, Q4MissingBudgetExceeds: 1}); delta.ActiveSetCalls != 1 || delta.ActiveSetExperts != 6 || delta.ActiveSetMaxExperts != 0 || delta.ActiveSetWorkItems != 16 || delta.ActiveSetMaxWorkItems != 0 || delta.Q4MissingExperts != 4 || delta.Q4MissingMaxExperts != 0 || delta.Q4MissingBytes != 6*1024*1024 || delta.Q4MissingMaxBytes != 0 || delta.Q4MissingBudgetExceeds != 0 {
 		t.Fatalf("expert stats delta=%+v", delta)
 	}
-	if s := ggufChunkedLMHeadSnapshot(); s.Chunks != 4 || s.UploadNS != 5 {
-		t.Fatalf("lmhead stats before reset=%+v", s)
-	}
 	if s := ggufTempDenseUploadSnapshot(); s.Calls != 6 || s.EncoderMLPHits != 7 {
 		t.Fatalf("temp dense stats before reset=%+v", s)
 	}
@@ -44,9 +39,6 @@ func TestResetGGUFGPUDiagnosticStats(t *testing.T) {
 	ResetGGUFGPUDiagnosticStats()
 	if s := ggufExpertDispatchStatsSnapshot(); s != (ggufExpertDispatchStats{}) {
 		t.Fatalf("expert stats after reset=%+v", s)
-	}
-	if s := ggufChunkedLMHeadSnapshot(); s != (ggufChunkedLMHeadStats{}) {
-		t.Fatalf("lmhead stats after reset=%+v", s)
 	}
 	if s := ggufTempDenseUploadSnapshot(); s != (ggufTempDenseUploadStats{}) {
 		t.Fatalf("temp dense stats after reset=%+v", s)

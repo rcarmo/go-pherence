@@ -312,15 +312,6 @@ func main() {
 				cacheEntries, cacheBytes := diffusiongemma.GGUFDenseTransposeCacheStats()
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: prewarmed GGUF dense transpose cache matrices=%d bytes=%.2f GiB cache_entries=%d cache_bytes=%.2f GiB budget=%dMiB elapsed=%.1fs\n", matrices, float64(transposeBytes)/(1024*1024*1024), cacheEntries, float64(cacheBytes)/(1024*1024*1024), denseTransposeBudget, time.Since(transposeStart).Seconds())
 			}
-			if dgflags.GGUFGPULMHeadEnabled() && dgflags.GGUFGPULMHeadUseF32Cache() {
-				lmStart := time.Now()
-				chunk := dgflags.GGUFGPULMHeadChunkSize()
-				chunks, lmBytes, err := diffusiongemma.PrewarmGGUFF32LMHeadChunks(weights, chunk)
-				if err != nil {
-					fatal(err)
-				}
-				fmt.Fprintf(os.Stderr, "diffusiongemmarun: prewarmed GGUF F32 LM-head chunks chunks=%d bytes=%.2f GiB elapsed=%.1fs\n", chunks, float64(lmBytes)/(1024*1024*1024), time.Since(lmStart).Seconds())
-			}
 			if expertLayers := diffusionGemmaGGUFGPUExpertPrewarmLayers(); expertLayers != 0 {
 				expertStart := time.Now()
 				layers, experts, expertBytes, err := diffusiongemma.PrewarmGGUFGPUPointerExpertCache(ggufIdx, expertLayers)
@@ -359,15 +350,6 @@ func main() {
 				defer cleanupLM()
 				registerFatalCleanup(cleanupLM)
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: GGUF dense F32 LM-head [%d,%d] resident for backend graph (%.2f GiB) elapsed=%.1fs\n", lmVocab, lmHidden, float64(lmVocab)*float64(lmHidden)*4/(1024*1024*1024), time.Since(lmStart).Seconds())
-			} else if dgflags.GGUFGPULMHeadEnabled() {
-				chunk := dgflags.GGUFGPULMHeadChunkSize()
-				gpuDisp.F32LMHeadChunkSize = chunk
-				gpuDisp.F32LMHeadUseCache = dgflags.GGUFGPULMHeadUseF32Cache()
-				source := "Q-row"
-				if gpuDisp.F32LMHeadUseCache {
-					source = "F32-cache"
-				}
-				fmt.Fprintf(os.Stderr, "diffusiongemmarun: GGUF F32 LM head chunked GPU mode enabled chunk=%d source=%s\n", chunk, source)
 			}
 			if strictGGUFGraph || dgflags.GPUSelfCondEnabled() {
 				if strictGGUFGraph {

@@ -53,8 +53,6 @@ type GPUDispatcher struct {
 	F32LMHead             *gpu.Buffer // optional persistent F32 tied LM head [hidden,vocab] for GGUF/F32 paths
 	F32LMHeadVocab        int
 	F32LMHeadHidden       int
-	F32LMHeadChunkSize    int         // optional streamed F32 tied LM-head chunk size for GGUF/F32 paths
-	F32LMHeadUseCache     bool        // use already-dequantized F32 embed cache for GGUF chunked LM head instead of Q-row streaming
 	SCEmbed               *gpu.Buffer // optional persistent F32 embed_tokens [vocab,hidden] for GPU self-conditioning
 	SCEmbedVocab          int
 	SCEmbedHidden         int
@@ -425,7 +423,6 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 
 	var tLMHead, tTailOther, tSelfCondBuild time.Duration
-	ggufLMHeadStatsStart := ggufChunkedLMHeadSnapshot()
 	var sampledArgmax []int
 	var sampledTokens []int
 	var sampledEntropy []float64
@@ -433,14 +430,7 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	var deviceSelfConditioningState any
 	for _, op := range ops.Tail {
 		t0 := time.Now()
-		if op == OpLMHead && d.F32LMHeadChunkSize > 0 {
-			if diffusionGemmaRequireGroupedExpertGraph() && d.GGUFExpertIndex != nil {
-				return ForwardOutput{}, fmt.Errorf("GGUF backend graph requires device-resident LM-head/self-conditioning path; chunked host-visible LM head is disabled")
-			}
-			if err := runChunkedF32GPULMHead(weights, scratch, buffers.HiddenSize, d.F32LMHeadChunkSize, d.F32LMHeadUseCache); err != nil {
-				return ForwardOutput{}, err
-			}
-		} else if op == OpLMHead && d.F32LMHead != nil {
+		if op == OpLMHead && d.F32LMHead != nil {
 			needDeviceSC := ctx.Step > 1 && d.SCEmbed != nil
 			if diffusionGemmaRequireGroupedExpertGraph() && d.GGUFExpertIndex != nil {
 				if len(ctx.SampleDraws) < positions || (ctx.Step > 1 && !needDeviceSC) {
@@ -502,18 +492,6 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	}
 	if d.Progress {
 		log.Printf("tail: lm_head=%.1fs tail_other=%.1fs selfcond=%.1fs", tLMHead.Seconds(), tTailOther.Seconds(), tSelfCondBuild.Seconds())
-		if d.GGUFExpertIndex != nil {
-			lmStats := ggufChunkedLMHeadSnapshot().Sub(ggufLMHeadStatsStart)
-			if lmStats.Calls > 0 {
-				log.Printf("gguf_lmhead: calls=%d chunks=%d bytes=%.1fMiB prepare=%.1fs upload=%.1fs sgemm=%.1fs download=%.1fs copy=%.1fs",
-					lmStats.Calls, lmStats.Chunks, float64(lmStats.Bytes)/(1024*1024),
-					float64(lmStats.PrepareNS)/1e9,
-					float64(lmStats.UploadNS)/1e9,
-					float64(lmStats.SgemmNS)/1e9,
-					float64(lmStats.DownloadNS)/1e9,
-					float64(lmStats.CopyNS)/1e9)
-			}
-		}
 	}
 	return ForwardOutput{Logits: scratch.Logits, SelfConditioning: selfConditioning, DeviceSelfConditioning: deviceSelfConditioningState, ArgmaxCanvas: sampledArgmax, SampledCanvas: sampledTokens, Entropy: sampledEntropy}, nil
 }
@@ -1663,15 +1641,6 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufExpertDispatchCounters.partialDroppedWork.Store(0)
 	ggufExpertDispatchCounters.gpuAttemptNS.Store(0)
 	ggufExpertDispatchCounters.cpuFallbackNS.Store(0)
-	ggufChunkedLMHeadCounters.calls.Store(0)
-	ggufChunkedLMHeadCounters.chunks.Store(0)
-	ggufChunkedLMHeadCounters.bytes.Store(0)
-	ggufChunkedLMHeadCounters.prepareNS.Store(0)
-	ggufChunkedLMHeadCounters.uploadNS.Store(0)
-	ggufChunkedLMHeadCounters.sgemmNS.Store(0)
-	ggufChunkedLMHeadCounters.downloadNS.Store(0)
-	ggufChunkedLMHeadCounters.copyNS.Store(0)
-
 	ggufTempDenseUploadCounters.calls.Store(0)
 	ggufTempDenseUploadCounters.bytes.Store(0)
 	ggufTempDenseUploadCounters.transposeNS.Store(0)
@@ -1694,54 +1663,6 @@ func ResetGGUFGPUDiagnosticStats() {
 	ggufAttentionTimingCounters.kvBuildNS.Store(0)
 	ggufAttentionTimingCounters.attnNS.Store(0)
 	ggufAttentionTimingCounters.oProjNS.Store(0)
-}
-
-type ggufChunkedLMHeadStats struct {
-	Calls      uint64
-	Chunks     uint64
-	Bytes      uint64
-	PrepareNS  uint64
-	UploadNS   uint64
-	SgemmNS    uint64
-	DownloadNS uint64
-	CopyNS     uint64
-}
-
-var ggufChunkedLMHeadCounters struct {
-	calls      atomic.Uint64
-	chunks     atomic.Uint64
-	bytes      atomic.Uint64
-	prepareNS  atomic.Uint64
-	uploadNS   atomic.Uint64
-	sgemmNS    atomic.Uint64
-	downloadNS atomic.Uint64
-	copyNS     atomic.Uint64
-}
-
-func ggufChunkedLMHeadSnapshot() ggufChunkedLMHeadStats {
-	return ggufChunkedLMHeadStats{
-		Calls:      ggufChunkedLMHeadCounters.calls.Load(),
-		Chunks:     ggufChunkedLMHeadCounters.chunks.Load(),
-		Bytes:      ggufChunkedLMHeadCounters.bytes.Load(),
-		PrepareNS:  ggufChunkedLMHeadCounters.prepareNS.Load(),
-		UploadNS:   ggufChunkedLMHeadCounters.uploadNS.Load(),
-		SgemmNS:    ggufChunkedLMHeadCounters.sgemmNS.Load(),
-		DownloadNS: ggufChunkedLMHeadCounters.downloadNS.Load(),
-		CopyNS:     ggufChunkedLMHeadCounters.copyNS.Load(),
-	}
-}
-
-func (s ggufChunkedLMHeadStats) Sub(base ggufChunkedLMHeadStats) ggufChunkedLMHeadStats {
-	return ggufChunkedLMHeadStats{
-		Calls:      s.Calls - base.Calls,
-		Chunks:     s.Chunks - base.Chunks,
-		Bytes:      s.Bytes - base.Bytes,
-		PrepareNS:  s.PrepareNS - base.PrepareNS,
-		UploadNS:   s.UploadNS - base.UploadNS,
-		SgemmNS:    s.SgemmNS - base.SgemmNS,
-		DownloadNS: s.DownloadNS - base.DownloadNS,
-		CopyNS:     s.CopyNS - base.CopyNS,
-	}
 }
 
 type ggufTempDenseUploadStats struct {
@@ -2705,7 +2626,6 @@ func FreeGGUFGPURuntimeCaches() {
 	FreeGGUFGPUScratchBuffers()
 	FreeGGUFTempDenseUploadScratch()
 	FreeGGUFDenseTransposeCache()
-	FreeGGUFChunkedLMHeadScratch()
 	ResetGGUFGPUDiagnosticStats()
 	ResetGGUFCPUExpertTimingStats()
 }
@@ -4790,301 +4710,6 @@ func buildSelfConditioningFromLogitsGPU(weights *TextWeights, scratch ForwardScr
 		out[i] *= scale
 	}
 	return out, nil
-}
-
-var ggufChunkedLMHeadScratch = struct {
-	sync.Mutex
-	x             *gpu.Buffer
-	wt            *gpu.Buffer
-	out           *gpu.Buffer
-	xN            int
-	wtN           int
-	outN          int
-	wtHost        []float32
-	outHost       []float32
-	cachePtr      uintptr
-	cacheVocab    int
-	cacheHidden   int
-	cacheChunk    int
-	cacheF32Chunk [][]float32
-}{}
-
-func ggufChunkedLMHeadScratchBuffers(xLen, wtLen, outLen int) (*gpu.Buffer, *gpu.Buffer, *gpu.Buffer, []float32, []float32, func(), error) {
-	ggufChunkedLMHeadScratch.Lock()
-	unlock := func() { ggufChunkedLMHeadScratch.Unlock() }
-	ensure := func(cur **gpu.Buffer, curN *int, need int, label string) error {
-		if need <= 0 {
-			return fmt.Errorf("GGUF chunked LM head invalid %s size %d", label, need)
-		}
-		if *cur != nil && *curN >= need {
-			return nil
-		}
-		if *cur != nil {
-			(*cur).Free()
-			*cur = nil
-			*curN = 0
-		}
-		buf, err := gpu.Malloc(need)
-		if err != nil {
-			return fmt.Errorf("alloc GGUF chunked LM head %s scratch: %w", label, err)
-		}
-		*cur = buf
-		*curN = need
-		return nil
-	}
-	if err := ensure(&ggufChunkedLMHeadScratch.x, &ggufChunkedLMHeadScratch.xN, xLen, "hidden"); err != nil {
-		unlock()
-		return nil, nil, nil, nil, nil, nil, err
-	}
-	if err := ensure(&ggufChunkedLMHeadScratch.wt, &ggufChunkedLMHeadScratch.wtN, wtLen, "weight"); err != nil {
-		unlock()
-		return nil, nil, nil, nil, nil, nil, err
-	}
-	if err := ensure(&ggufChunkedLMHeadScratch.out, &ggufChunkedLMHeadScratch.outN, outLen, "output"); err != nil {
-		unlock()
-		return nil, nil, nil, nil, nil, nil, err
-	}
-	if len(ggufChunkedLMHeadScratch.wtHost) < wtLen {
-		ggufChunkedLMHeadScratch.wtHost = make([]float32, wtLen)
-	}
-	if len(ggufChunkedLMHeadScratch.outHost) < outLen {
-		ggufChunkedLMHeadScratch.outHost = make([]float32, outLen)
-	}
-	return ggufChunkedLMHeadScratch.x, ggufChunkedLMHeadScratch.wt, ggufChunkedLMHeadScratch.out, ggufChunkedLMHeadScratch.wtHost[:wtLen], ggufChunkedLMHeadScratch.outHost[:outLen], unlock, nil
-}
-
-func GGUFChunkedLMHeadScratchStats() (cachedChunks int, cachedBytes int64) {
-	ggufChunkedLMHeadScratch.Lock()
-	defer ggufChunkedLMHeadScratch.Unlock()
-	for _, chunk := range ggufChunkedLMHeadScratch.cacheF32Chunk {
-		if len(chunk) > 0 {
-			cachedChunks++
-			cachedBytes += int64(len(chunk)) * 4
-		}
-	}
-	return cachedChunks, cachedBytes
-}
-
-func FreeGGUFChunkedLMHeadScratch() {
-	ggufChunkedLMHeadScratch.Lock()
-	defer ggufChunkedLMHeadScratch.Unlock()
-	if ggufChunkedLMHeadScratch.x != nil {
-		ggufChunkedLMHeadScratch.x.Free()
-		ggufChunkedLMHeadScratch.x = nil
-	}
-	if ggufChunkedLMHeadScratch.wt != nil {
-		ggufChunkedLMHeadScratch.wt.Free()
-		ggufChunkedLMHeadScratch.wt = nil
-	}
-	if ggufChunkedLMHeadScratch.out != nil {
-		ggufChunkedLMHeadScratch.out.Free()
-		ggufChunkedLMHeadScratch.out = nil
-	}
-	ggufChunkedLMHeadScratch.xN = 0
-	ggufChunkedLMHeadScratch.wtN = 0
-	ggufChunkedLMHeadScratch.outN = 0
-	ggufChunkedLMHeadScratch.wtHost = nil
-	ggufChunkedLMHeadScratch.outHost = nil
-	ggufChunkedLMHeadScratch.cachePtr = 0
-	ggufChunkedLMHeadScratch.cacheVocab = 0
-	ggufChunkedLMHeadScratch.cacheHidden = 0
-	ggufChunkedLMHeadScratch.cacheChunk = 0
-	ggufChunkedLMHeadScratch.cacheF32Chunk = nil
-}
-
-func cachedF32LMHeadChunk(embed []float32, vocab, hidden, chunkSize, chunkIndex, start, end int) []float32 {
-	if len(embed) == 0 {
-		return nil
-	}
-	ptr := uintptr(unsafe.Pointer(&embed[0]))
-	nChunks := (vocab + chunkSize - 1) / chunkSize
-	if ggufChunkedLMHeadScratch.cachePtr != ptr || ggufChunkedLMHeadScratch.cacheVocab != vocab || ggufChunkedLMHeadScratch.cacheHidden != hidden || ggufChunkedLMHeadScratch.cacheChunk != chunkSize || len(ggufChunkedLMHeadScratch.cacheF32Chunk) != nChunks {
-		ggufChunkedLMHeadScratch.cachePtr = ptr
-		ggufChunkedLMHeadScratch.cacheVocab = vocab
-		ggufChunkedLMHeadScratch.cacheHidden = hidden
-		ggufChunkedLMHeadScratch.cacheChunk = chunkSize
-		ggufChunkedLMHeadScratch.cacheF32Chunk = make([][]float32, nChunks)
-	}
-	if ggufChunkedLMHeadScratch.cacheF32Chunk[chunkIndex] != nil {
-		return ggufChunkedLMHeadScratch.cacheF32Chunk[chunkIndex]
-	}
-	chunk := end - start
-	wtLen := hidden * chunk
-	wt := make([]float32, wtLen)
-	for v := start; v < end; v++ {
-		row := embed[v*hidden : (v+1)*hidden]
-		col := v - start
-		for h := 0; h < hidden; h++ {
-			wt[h*chunk+col] = row[h]
-		}
-	}
-	ggufChunkedLMHeadScratch.cacheF32Chunk[chunkIndex] = wt
-	return wt
-}
-
-// PrewarmGGUFF32LMHeadChunks builds the host-side transposed F32 LM-head chunk
-// cache before inference. The GPU path still streams chunks through a reusable
-// device weight buffer, but this removes first-step host transpose/cache cost
-// from the inference timeline.
-func PrewarmGGUFF32LMHeadChunks(weights *TextWeights, chunkSize int) (chunks int, bytes int64, err error) {
-	if weights == nil {
-		return 0, 0, fmt.Errorf("DiffusionGemma GGUF LM-head chunk prewarm missing weights")
-	}
-	if chunkSize <= 0 {
-		return 0, 0, fmt.Errorf("DiffusionGemma GGUF LM-head chunk prewarm invalid chunk size %d", chunkSize)
-	}
-	fp := weights.ForwardPlan()
-	if fp.Globals.EmbedTokens == nil || len(fp.Globals.EmbedTokens.Shape) != 2 {
-		return 0, 0, fmt.Errorf("DiffusionGemma GGUF LM-head chunk prewarm missing embed_tokens")
-	}
-	vocab, hidden := fp.Globals.EmbedTokens.Shape[0], fp.Globals.EmbedTokens.Shape[1]
-	embed, err := weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
-	if err != nil {
-		return 0, 0, err
-	}
-	elems, ok := checked.MulInt(vocab, hidden)
-	if vocab <= 0 || hidden <= 0 || !ok || len(embed.Data) < elems {
-		return 0, 0, fmt.Errorf("DiffusionGemma GGUF LM-head chunk prewarm shape %v len=%d", embed.Shape, len(embed.Data))
-	}
-	if chunkSize > vocab {
-		chunkSize = vocab
-	}
-	ggufChunkedLMHeadScratch.Lock()
-	defer ggufChunkedLMHeadScratch.Unlock()
-	for chunkIndex, start := 0, 0; start < vocab; chunkIndex, start = chunkIndex+1, start+chunkSize {
-		end := start + chunkSize
-		if end > vocab {
-			end = vocab
-		}
-		chunk := cachedF32LMHeadChunk(embed.Data, vocab, hidden, chunkSize, chunkIndex, start, end)
-		bytes += int64(len(chunk)) * 4
-		chunks++
-	}
-	return chunks, bytes, nil
-}
-
-func runChunkedF32GPULMHead(weights *TextWeights, scratch ForwardScratch, hiddenSize, chunkSize int, useF32Cache bool) error {
-	if weights == nil {
-		return fmt.Errorf("chunked F32 GPU LM head missing weights")
-	}
-	if chunkSize <= 0 {
-		return fmt.Errorf("chunked F32 GPU LM head invalid chunk size %d", chunkSize)
-	}
-	fp := weights.ForwardPlan()
-	if fp.Globals.EmbedTokens == nil || len(fp.Globals.EmbedTokens.Shape) != 2 {
-		return fmt.Errorf("chunked F32 GPU LM head missing embed_tokens")
-	}
-	vocab, hidden := fp.Globals.EmbedTokens.Shape[0], fp.Globals.EmbedTokens.Shape[1]
-	if vocab <= 0 || hidden <= 0 || hidden != hiddenSize || len(scratch.Hidden)%hiddenSize != 0 {
-		return fmt.Errorf("chunked F32 GPU LM head shape mismatch vocab=%d hidden=%d want_hidden=%d hidden_len=%d", vocab, hidden, hiddenSize, len(scratch.Hidden))
-	}
-	positions := len(scratch.Hidden) / hiddenSize
-	if len(scratch.Logits) < positions {
-		return fmt.Errorf("chunked F32 GPU LM head logits rows=%d want %d", len(scratch.Logits), positions)
-	}
-	hidLen, okHid := checked.MulInt(positions, hiddenSize)
-	if positions <= 0 || !okHid {
-		return fmt.Errorf("chunked F32 GPU LM head invalid hidden size positions=%d hidden=%d", positions, hiddenSize)
-	}
-	var embed FloatTensor
-	var useQuantRows bool
-	if qm := weights.ggufTokenEmbd; !useF32Cache && qm != nil && qm.OutDim == vocab && qm.InDim == hidden {
-		useQuantRows = true
-	} else {
-		var err error
-		embed, err = weights.CachedFloatTensor(fp.Globals.EmbedTokens.Name)
-		if err != nil {
-			return err
-		}
-		elems, okElems := checked.MulInt(vocab, hidden)
-		if !okElems || len(embed.Shape) != 2 || embed.Shape[0] != vocab || embed.Shape[1] != hidden || len(embed.Data) < elems {
-			return fmt.Errorf("chunked F32 GPU LM head embed shape %v len=%d want [%d,%d]", embed.Shape, len(embed.Data), vocab, hidden)
-		}
-	}
-	if chunkSize > vocab {
-		chunkSize = vocab
-	}
-	maxWtLen, okWtMax := checked.MulInt(hidden, chunkSize)
-	maxOutLen, okOutMax := checked.MulInt(positions, chunkSize)
-	if !okWtMax || !okOutMax {
-		return fmt.Errorf("chunked F32 GPU LM head buffer overflow hidden=%d positions=%d chunk=%d", hidden, positions, chunkSize)
-	}
-	xBuf, wtBuf, outBuf, wt, chunkOut, unlock, err := ggufChunkedLMHeadScratchBuffers(hidLen, maxWtLen, maxOutLen)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	if err := xBuf.Upload(scratch.Hidden[:hidLen]); err != nil {
-		return err
-	}
-	ggufChunkedLMHeadCounters.calls.Add(1)
-	row := make([]float32, hidden)
-	for chunkIndex, start := 0, 0; start < vocab; chunkIndex, start = chunkIndex+1, start+chunkSize {
-		end := start + chunkSize
-		if end > vocab {
-			end = vocab
-		}
-		chunk := end - start
-		wtLen, okWt := checked.MulInt(hidden, chunk)
-		outLen, okOut := checked.MulInt(positions, chunk)
-		if !okWt || !okOut {
-			return fmt.Errorf("chunked F32 GPU LM head chunk overflow hidden=%d chunk=%d positions=%d", hidden, chunk, positions)
-		}
-		prepareStart := time.Now()
-		wtChunk := wt[:wtLen]
-		if useF32Cache {
-			cached := cachedF32LMHeadChunk(embed.Data, vocab, hidden, chunkSize, chunkIndex, start, end)
-			if len(cached) != wtLen {
-				return fmt.Errorf("chunked F32 GPU LM head cached chunk len=%d want %d", len(cached), wtLen)
-			}
-			wtChunk = cached
-		} else {
-			for v := start; v < end; v++ {
-				var rowData []float32
-				if useQuantRows {
-					if err := weights.ggufTokenEmbd.DequantRowTo(row, v); err != nil {
-						return err
-					}
-					rowData = row
-				} else {
-					rowData = embed.Data[v*hidden : (v+1)*hidden]
-				}
-				col := v - start
-				for h := 0; h < hidden; h++ {
-					wtChunk[h*chunk+col] = rowData[h]
-				}
-			}
-		}
-		ggufChunkedLMHeadCounters.prepareNS.Add(uint64(time.Since(prepareStart).Nanoseconds()))
-		uploadStart := time.Now()
-		if err := wtBuf.Upload(wtChunk); err != nil {
-			return err
-		}
-		ggufChunkedLMHeadCounters.uploadNS.Add(uint64(time.Since(uploadStart).Nanoseconds()))
-		ggufChunkedLMHeadCounters.bytes.Add(uint64(wtLen * 4))
-		ggufChunkedLMHeadCounters.chunks.Add(1)
-		sgemmStart := time.Now()
-		if err := gpu.Sgemm(positions, chunk, hidden, 1, xBuf, wtBuf, outBuf); err != nil {
-			return fmt.Errorf("chunked F32 GPU LM head SGEMM chunk [%d,%d): %w", start, end, err)
-		}
-		ggufChunkedLMHeadCounters.sgemmNS.Add(uint64(time.Since(sgemmStart).Nanoseconds()))
-		chunkOutSlice := chunkOut[:outLen]
-		downloadStart := time.Now()
-		if err := outBuf.Download(chunkOutSlice); err != nil {
-			return err
-		}
-		ggufChunkedLMHeadCounters.downloadNS.Add(uint64(time.Since(downloadStart).Nanoseconds()))
-		copyStart := time.Now()
-		for pos := 0; pos < positions; pos++ {
-			if len(scratch.Logits[pos]) < vocab {
-				return fmt.Errorf("chunked F32 GPU LM head logits row=%d len=%d want %d", pos, len(scratch.Logits[pos]), vocab)
-			}
-			copy(scratch.Logits[pos][start:end], chunkOutSlice[pos*chunk:(pos+1)*chunk])
-		}
-		ggufChunkedLMHeadCounters.copyNS.Add(uint64(time.Since(copyStart).Nanoseconds()))
-	}
-	applyFinalLogitSoftcapping(scratch, positions, vocab)
-	return nil
 }
 
 func UploadGGUFF32LMHeadBuffer(weights *TextWeights) (*gpu.Buffer, int, int, error) {

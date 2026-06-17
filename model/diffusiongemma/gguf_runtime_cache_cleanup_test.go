@@ -18,11 +18,6 @@ func TestFreeGGUFGPURuntimeCachesResetsHostCachesAndStats(t *testing.T) {
 	// Populate temp dense upload stats/counters (without requiring CUDA buffers).
 	ggufTempDenseUploadCounters.calls.Add(1)
 	ggufTempDenseUploadCounters.bytes.Add(16)
-	// Populate chunked LM-head host cache.
-	embed := []float32{1, 2, 3, 4, 5, 6}
-	ggufChunkedLMHeadScratch.Lock()
-	_ = cachedF32LMHeadChunk(embed, 3, 2, 2, 0, 0, 2)
-	ggufChunkedLMHeadScratch.Unlock()
 	// Populate resident dense GPU weight cache maps without requiring CUDA buffers.
 	ggufGPUAttentionCache.Store(ggufGPUAttentionKey{layer: 99, qName: "q", kName: "k", oName: "o"}, &GGUFGPUAttentionWeights{QRows: 1, KRows: 1, VRows: 1, Hidden: 1})
 	ggufGPUMLPCache.Store(ggufGPUMLPKey{layer: 99, gate: "g", up: "u", down: "d"}, &GGUFGPUMLPWeights{Hidden: 1, Intermediate: 1})
@@ -50,10 +45,6 @@ func TestFreeGGUFGPURuntimeCachesResetsHostCachesAndStats(t *testing.T) {
 	if entries == 0 || denseBytes == 0 {
 		t.Fatalf("dense cache was not populated entries=%d bytes=%d", entries, denseBytes)
 	}
-	chunks, chunkBytes := GGUFChunkedLMHeadScratchStats()
-	if chunks == 0 || chunkBytes == 0 {
-		t.Fatalf("lmhead cache was not populated chunks=%d bytes=%d", chunks, chunkBytes)
-	}
 	scratchBuffers, scratchBytes := GGUFGPUScratchStats()
 	if scratchBuffers == 0 || scratchBytes == 0 {
 		t.Fatalf("gpu scratch was not populated buffers=%d bytes=%d", scratchBuffers, scratchBytes)
@@ -71,10 +62,6 @@ func TestFreeGGUFGPURuntimeCachesResetsHostCachesAndStats(t *testing.T) {
 	entries, denseBytes = GGUFDenseTransposeCacheStats()
 	if entries != 0 || denseBytes != 0 {
 		t.Fatalf("dense cache after cleanup entries=%d bytes=%d", entries, denseBytes)
-	}
-	chunks, chunkBytes = GGUFChunkedLMHeadScratchStats()
-	if chunks != 0 || chunkBytes != 0 {
-		t.Fatalf("lmhead cache after cleanup chunks=%d bytes=%d", chunks, chunkBytes)
 	}
 	scratchBuffers, scratchBytes = GGUFGPUScratchStats()
 	if scratchBuffers != 0 || scratchBytes != 0 {
@@ -94,9 +81,8 @@ func TestFreeGGUFGPURuntimeCachesResetsHostCachesAndStats(t *testing.T) {
 	}
 	FreeGGUFGPURuntimeCaches()
 	entries, denseBytes = GGUFDenseTransposeCacheStats()
-	chunks, chunkBytes = GGUFChunkedLMHeadScratchStats()
 	scratchBuffers, scratchBytes = GGUFGPUScratchStats()
-	if entries != 0 || denseBytes != 0 || chunks != 0 || chunkBytes != 0 || scratchBuffers != 0 || scratchBytes != 0 {
-		t.Fatalf("second cleanup left state dense=%d/%d chunks=%d/%d scratch=%d/%d", entries, denseBytes, chunks, chunkBytes, scratchBuffers, scratchBytes)
+	if entries != 0 || denseBytes != 0 || scratchBuffers != 0 || scratchBytes != 0 {
+		t.Fatalf("second cleanup left state dense=%d/%d scratch=%d/%d", entries, denseBytes, scratchBuffers, scratchBytes)
 	}
 }
