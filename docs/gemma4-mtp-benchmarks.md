@@ -597,3 +597,43 @@ BenchmarkGemma4MTPGraphCycleGGUF-6  2490898384 ns/op  1.204 tok/s  38243112 B/op
 Log: `logs/bench-gemma4-mtp-graphcycle-count3-20260617-020422.log`
 
 This confirms the reusable benchmark's steady range is roughly `1.06-1.20 tok/s` on the local host after warm-up. The benchmark currently allocates about `38.2 MB` and `18.1k` objects per graph cycle because each iteration creates a fresh decode state and verifier buffers; reducing those allocations is a future performance target, but correctness gates should take priority over allocation tuning.
+
+## CPU plain decode vs MTP speculative decode benchmark
+
+Rui requested a CPU-only benchmark serialized across sessions with the shared CPU lock. This run used:
+
+```bash
+flock /tmp/go-pherence-cpu-bench.lock -c \
+  'GOMAXPROCS=$(nproc) GOTMPDIR=$PWD/.gotmp go run ./tmp/gemma4_cpu_mtp_vs_plain.go'
+```
+
+Workload:
+
+- verifier: `models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf`
+- drafter: `models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf`
+- `GOMAXPROCS=6`, `NumCPU=6`
+- prompt token IDs: `[10979]`
+- plain decode: 3 generated tokens per iteration
+- MTP decode: draft count 2, max output 3 tokens per iteration
+- repeats: 3
+
+Log: `logs/gemma4-cpu-plain-vs-mtp-20260617-071120.log`
+
+| Path | Tokens | Total decode time | Per iteration | tok/s | Acceptance | Speedup vs plain |
+|---|---:|---:|---:|---:|---:|---:|
+| plain CPU decode | 9 | 12.0739s | 4.0246s | **0.745 tok/s** | n/a | 1.00x |
+| MTP speculative CPU decode | 9 | 13.1214s | 4.3738s | **0.686 tok/s** | 100% (6/6 drafted) | 0.92x |
+
+Plain decode outputs were stable across iterations:
+
+```text
+[2196 62624 829]
+```
+
+MTP outputs were stable across iterations:
+
+```text
+[564 236789 236757]
+```
+
+Interpretation: the MTP path achieves perfect acceptance on this strict-fixture-like workload, but the current CPU verifier/drafter graph overhead makes it slightly slower than plain CPU decode (`0.92x`). This reinforces the existing conclusion that performance parity needs an efficient batched/GPU verifier or llama.cpp-style repacked CPU verifier; acceptance alone is not enough.
