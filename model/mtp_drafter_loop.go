@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
-	simdruntime "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // MTPDrafterState carries the hidden-state-conditioned drafter inputs between
@@ -319,9 +318,7 @@ func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float3
 		gemvNT(up, mlpInput, layer.UpW, h, d.Config.Intermediate)
 	}
 	if d.Config.ModelType == "gemma4_text" {
-		if !simdruntime.GELUExactMulTo(gate, gate, up) {
-			return nil, fmt.Errorf("drafter layer %d exact GELU×up failed", layerIdx)
-		}
+		ggmlGELUMulInPlace(gate, up)
 	} else {
 		for i := range gate {
 			gate[i] = geluTanh(gate[i]) * up[i]
