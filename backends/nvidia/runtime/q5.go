@@ -165,6 +165,26 @@ func UploadQ5_0MatrixRows(raw []byte, inDim, outDim int) (*GPUQ5_0Matrix, error)
 	return &GPUQ5_0Matrix{Q: qBuf, High: hBuf, Scales: sBuf, InDim: inDim, OutDim: outDim}, nil
 }
 
+func UploadQ5_0MatrixRowsInto(m *GPUQ5_0Matrix, raw []byte, inDim, outDim int) error {
+	if m == nil || m.Q == nil || m.High == nil || m.Scales == nil || m.Q.Ptr == 0 || m.High.Ptr == 0 || m.Scales.Ptr == 0 || m.InDim != inDim || m.OutDim != outDim {
+		return fmt.Errorf("invalid destination Q5_0 matrix for in-place upload")
+	}
+	q, high, scales, err := unpackQ5_0MatrixRows(raw, inDim, outDim)
+	if err != nil {
+		return err
+	}
+	if m.Q.Size < len(q) || m.High.Size < len(high)*4 || m.Scales.Size < len(scales)*4 {
+		return fmt.Errorf("Q5_0 destination buffers too small q=%d/%d high=%d/%d scales=%d/%d", m.Q.Size, len(q), m.High.Size, len(high)*4, m.Scales.Size, len(scales)*4)
+	}
+	if err := m.Q.UploadBytes(q); err != nil {
+		return err
+	}
+	if err := m.High.UploadUint32(high); err != nil {
+		return err
+	}
+	return m.Scales.Upload(scales)
+}
+
 func (m *GPUQ5_0Matrix) Free() {
 	if m == nil {
 		return

@@ -1837,6 +1837,7 @@ var activeQ5DownPointerTableCache sync.Map // map[activeQ5DownKey]*gpu.GPUQ5_0Po
 var ggufTransientPointerExpertScratch = struct {
 	q4 []*gpu.GPUQ4KMatrix
 	q8 []*gpu.GPUQ8_0Matrix
+	q5 []*gpu.GPUQ5_0Matrix
 }{}
 
 func residentQ8DownExpertMatrix(idx *GGUFExpertIndex, layer, expert int) (*gpu.GPUQ8_0Matrix, error) {
@@ -2034,6 +2035,54 @@ func activeQ5DownPointerTable(idx *GGUFExpertIndex, layer int, active []int) (*g
 		return actual.(*gpu.GPUQ5_0PointerTable), true, nil
 	}
 	return table, true, nil
+}
+
+func transientActiveQ5DownPointerTable(idx *GGUFExpertIndex, layer int, active []int) (*gpu.GPUQ5_0PointerTable, func(), error) {
+	if idx == nil || layer < 0 || layer >= idx.NumLayers || len(active) == 0 {
+		return nil, nil, fmt.Errorf("invalid transient active Q5 pointer table request")
+	}
+	le := idx.entries[layer]
+	if le.down.QType != gguf.QuantQ5_0 {
+		return nil, nil, fmt.Errorf("transient active Q5 down requires Q5_0, got %s", le.down.QType)
+	}
+	rowBytes, err := le.down.RowBytes()
+	if err != nil {
+		return nil, nil, err
+	}
+	rows := le.down.OutDim
+	for len(ggufTransientPointerExpertScratch.q5) < len(active) {
+		ggufTransientPointerExpertScratch.q5 = append(ggufTransientPointerExpertScratch.q5, nil)
+	}
+	mats := make([]*gpu.GPUQ5_0Matrix, len(active))
+	for i, expert := range active {
+		start := expert * rows * rowBytes
+		end := start + rows*rowBytes
+		if start < 0 || end < start || end > len(le.down.Raw) {
+			return nil, nil, fmt.Errorf("transient active Q5 expert %d raw outside", expert)
+		}
+		m := ggufTransientPointerExpertScratch.q5[i]
+		if m != nil && (m.InDim != le.down.InDim || m.OutDim != rows) {
+			m.Free()
+			m = nil
+			ggufTransientPointerExpertScratch.q5[i] = nil
+		}
+		if m == nil {
+			m, err = gpu.UploadQ5_0MatrixRows(le.down.Raw[start:end], le.down.InDim, rows)
+			if err != nil {
+				return nil, nil, err
+			}
+			ggufTransientPointerExpertScratch.q5[i] = m
+		} else if err := gpu.UploadQ5_0MatrixRowsInto(m, le.down.Raw[start:end], le.down.InDim, rows); err != nil {
+			return nil, nil, err
+		}
+		mats[i] = m
+	}
+	table, err := gpu.UploadQ5_0PointerTable(mats)
+	if err != nil {
+		return nil, nil, err
+	}
+	cleanup := func() { table.Free() }
+	return table, cleanup, nil
 }
 
 func transientQ8DownExpertMatrix(idx *GGUFExpertIndex, layer, expert int) (*gpu.GPUQ8_0Matrix, error) {
@@ -2937,7 +2986,7 @@ func diffusionGemmaGGUFGPUExpertTransientActiveEnabled() bool {
 
 func diffusionGemmaGGUFGPUExpertTransientPointerEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_GGUF_GPU_EXPERT_TRANSIENT_POINTER")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
+	return v == "1" || v == "true" || v == "yes" || v == "on" || diffusionGemmaRequireGroupedExpertGraph()
 }
 
 func diffusionGemmaGGUFGPUExpertRawQ4Enabled() bool {
@@ -3895,6 +3944,16 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 		if err != nil {
 			return false, err
 		}
+		var cleanup func()
+		if !ok && diffusionGemmaGGUFGPUExpertTransientPointerEnabled() {
+			activeQ5Ptrs, cleanup, err = transientActiveQ5DownPointerTable(idx, op.Layer, groupedArrays.ActiveExperts)
+			if err != nil {
+				return false, err
+			}
+			defer cleanup()
+			ok = true
+			ggufExpertDispatchCounters.q5PointerTable.Add(1)
+		}
 		if !ok {
 			ggufExpertDispatchCounters.q5BudgetFallback.Add(1)
 			if b, err := q5DownExpertDeviceBytes(idx, op.Layer); err == nil && b > 0 {
@@ -3903,7 +3962,9 @@ func runGGUFGPUExpertsGroupedFused(op LayerOp, scratch ForwardScratch, idx *GGUF
 			}
 			return false, nil
 		}
-		ggufExpertDispatchCounters.q5PointerTable.Add(1)
+		if cleanup == nil {
+			ggufExpertDispatchCounters.q5PointerTable.Add(1)
+		}
 		if err := gpu.GemvQ5_0ScatterByWorkPtrs(moeOutBuf, actBuf, metadata.WorkActive, metadata.WorkPositions, metadata.EffectiveWeights, workLen, activeQ5Ptrs); err != nil {
 			return false, err
 		}
