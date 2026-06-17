@@ -149,6 +149,12 @@ func gemma4MTPDrafterGGUFConfig(g *gguf.GGUF) (LlamaConfig, int, error) {
 	if err != nil {
 		return LlamaConfig{}, 0, err
 	}
+	if nextn, err := u("nextn_predict_layers"); err == nil && nextn != layers {
+		return LlamaConfig{}, 0, fmt.Errorf("%s nextn_predict_layers=%d, want block_count=%d", p, nextn, layers)
+	}
+	if shared, err := u("attention.shared_kv_layers"); err == nil && shared != layers {
+		return LlamaConfig{}, 0, fmt.Errorf("%s attention.shared_kv_layers=%d, want block_count=%d for q-only assistant", p, shared, layers)
+	}
 	hidden, err := u("embedding_length")
 	if err != nil {
 		return LlamaConfig{}, 0, err
@@ -156,6 +162,9 @@ func gemma4MTPDrafterGGUFConfig(g *gguf.GGUF) (LlamaConfig, int, error) {
 	backbone, err := u("embedding_length_out")
 	if err != nil {
 		return LlamaConfig{}, 0, err
+	}
+	if backbone == hidden {
+		return LlamaConfig{}, 0, fmt.Errorf("%s embedding_length_out=%d must differ from assistant embedding_length", p, backbone)
 	}
 	inter, err := u("feed_forward_length")
 	if err != nil {
