@@ -9,9 +9,9 @@ import (
 )
 
 // LoadGemma4MTPDrafterGGUF loads the compact Gemma4 assistant/MTP GGUF into
-// the existing q-only drafter graph. The GGUF tensor shapes are [in, out], with
-// contiguous output rows; this loader dequantizes the small BF16 projection and
-// layer matrices to the dense [out, in] layout consumed by gemvNT.
+// the existing q-only drafter graph. The GGUF BF16 tensor shapes are [in, out]
+// with contiguous output rows; this loader preserves raw BF16 rows for the
+// runtime matmul path and also keeps F32 mirrors for validation/fallback tests.
 func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 	g, err := gguf.Open(path)
 	if err != nil {
