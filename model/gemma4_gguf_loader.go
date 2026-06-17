@@ -125,7 +125,14 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 				return nil, err
 			}
 			if layer.VWGGUF, err = loadQMatrix(p + "attn_v.weight"); err != nil {
-				return nil, err
+				if _, ok := g.TensorByName(p + "attn_v.weight"); ok {
+					return nil, err
+				}
+				// llama.cpp Gemma4 treats v_proj as optional and uses Kcur as Vcur
+				// when it is absent (use_alternative_attention / K=V).
+				layer.VWGGUF = layer.KWGGUF
+				cfg.AttentionKEqV = true
+				m.Config.AttentionKEqV = true
 			}
 		}
 		if layer.OWGGUF, err = loadQMatrix(p + "attn_output.weight"); err != nil {
