@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/runtime/kv"
 	"github.com/rcarmo/go-pherence/tensor"
 )
@@ -23,6 +24,51 @@ func TestForwardMTPPromptLayerRejectsQuantProjectionFailure(t *testing.T) {
 	_, err := m.forwardMTPPromptLayer([]float32{0.5, 0.25}, nil, 0, 0, make([][]float32, 1), make([][]float32, 1), make([]float32, 1), make([]float32, 2))
 	if err == nil || !strings.Contains(err.Error(), "quantized Q projection failed") {
 		t.Fatalf("forwardMTPPromptLayer malformed quantized err=%v, want Q projection failure", err)
+	}
+}
+
+func TestForwardMTPPromptLayerGemma4AttentionUsesUnitScale(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 0, HiddenAct: "gelu_pytorch_tanh"},
+		Layers: []LlamaLayer{{
+			InputNorm:   tensor.Ones([]int{2}),
+			PostNorm:    tensor.Ones([]int{2}),
+			PreFFNNorm:  tensor.Ones([]int{2}),
+			PostFFNNorm: tensor.Ones([]int{2}),
+			HasKV:       true,
+			QW:          tensor.FromFloat32([]float32{1, 0, 0, 1}, []int{2, 2}),
+			KW:          tensor.FromFloat32([]float32{1, 0, 0, 1}, []int{2, 2}),
+			VW:          tensor.FromFloat32([]float32{1, 0, 0, 1}, []int{2, 2}),
+			OW:          tensor.FromFloat32([]float32{1, 0, 0, 1}, []int{2, 2}),
+			GateW:       tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			UpW:         tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			DownW:       tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			QNorm:       tensor.Ones([]int{2}),
+			KNorm:       tensor.Ones([]int{2}),
+			LayerScalar: 1,
+		}},
+	}
+	prev := float32(math.Sqrt2)
+	kvK := [][]float32{{0, prev}}
+	kvV := [][]float32{{0, prev}}
+	hiddenIn := []float32{1, 0}
+	got, err := m.forwardMTPPromptLayer(append([]float32(nil), hiddenIn...), nil, 0, 1, kvK, kvV, make([]float32, 2), make([]float32, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := []float32{prev, 0}
+	k := []float32{0, prev, prev, 0}
+	v := []float32{0, prev, prev, 0}
+	attnUnit := gqaAttentionScale(q, k, v, 2, 1, 1, 2, 1.0)
+	attnDefault := gqaAttention(q, k, v, 2, 1, 1, 2)
+	if sameFloat32s(attnUnit, attnDefault) {
+		t.Fatalf("unit and default attention unexpectedly equal: %v", attnUnit)
+	}
+	rmsNormInPlace(attnUnit, []float32{1, 1}, 0)
+	want := []float32{1 + attnUnit[0], attnUnit[1]}
+	simd.ToBF16(want)
+	if !sameFloat32s(got, want) {
+		t.Fatalf("Gemma4 verifier attention hidden=%v want unit-scale path %v; default attention would be %v", got, want, attnDefault)
 	}
 }
 
