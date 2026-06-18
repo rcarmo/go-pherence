@@ -1,10 +1,12 @@
 package model
 
 import (
+	"encoding/binary"
 	"math"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/internal/floatcmp"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -84,6 +86,32 @@ func TestGemma4PerLayerInputs(t *testing.T) {
 	inputs, err = m.Gemma4PerLayerInputs([]float32{1, 2}, 1)
 	if err != nil || inputs != nil {
 		t.Fatalf("disabled per-layer inputs = %v, %v; want nil, nil", inputs, err)
+	}
+}
+
+func TestGemma4PerLayerInputsGGUFEmbeddingRows(t *testing.T) {
+	raw := make([]byte, 4*4)
+	for i, v := range []float32{0, 0, 10, 20} {
+		binary.LittleEndian.PutUint32(raw[i*4:(i+1)*4], math.Float32bits(v))
+	}
+	m := &LlamaModel{
+		Config: LlamaConfig{HiddenSize: 2, NumLayers: 1, HiddenPerLayer: 2, VocabPerLayer: 2, RMSNormEps: 0},
+		PerLayerModelProj: []float32{
+			1, 0,
+			1, 0,
+		},
+		PerLayerProjNorm:   []float32{1, 1},
+		PerLayerProjScale:  1,
+		PerLayerInputScale: 0.5,
+		EmbedPerLayerScale: 1,
+		EmbedPerLayerGGUF:  &gguf.QuantMatrix{Name: "synthetic.per_layer_token_embd", QType: gguf.QuantF32, Raw: raw, InDim: 2, OutDim: 2},
+	}
+	inputs, err := m.Gemma4PerLayerInputs([]float32{1, 99}, 1)
+	if err != nil {
+		t.Fatalf("Gemma4PerLayerInputs GGUF: %v", err)
+	}
+	if len(inputs) != 1 || !sameFloat32s(inputs[0], []float32{5.5, 10.5}) {
+		t.Fatalf("GGUF per-layer inputs=%v want [[5.5 10.5]]", inputs)
 	}
 }
 
