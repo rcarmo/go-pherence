@@ -795,7 +795,10 @@ func flashAttnF16VecDotReference(q []float32, kF16 []uint16, vCache []float32, s
 			}
 			vHead := vCache[t*kvDim+kvHead*headDim : t*kvDim+(kvHead+1)*headDim]
 			for d := 0; d < headDim; d++ {
-				acc[d] = half.F16ToF32(half.F32ToF16(float32(math.FMA(float64(vHead[d]), float64(vs), float64(acc[d])))))
+				// ggml's non-FP16-vector x86 path loads F16 lanes as F32, runs F32
+				// arithmetic, then stores F16. Use ordinary float32 multiply-add here
+				// (not float64 math.FMA) to mirror that fallback lane behavior.
+				acc[d] = half.F16ToF32(half.F32ToF16(acc[d] + vHead[d]*vs))
 			}
 			S += vs
 		}
