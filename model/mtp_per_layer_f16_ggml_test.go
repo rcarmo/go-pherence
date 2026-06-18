@@ -375,6 +375,58 @@ func TestGemma4GGMLGEGLUSplitOracle(t *testing.T) {
 	}
 }
 
+func TestGemma4Layer0ActualQKVProjectionRealGGMLQ4Oracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, _, batch, _, _, _ := gemma4LayerQKVAndKVForFlashOracle(t, 0)
+	layer := m.Layers[0]
+	in := append([]float32(nil), batch.HiddenRows[1]...)
+	rmsNormInPlace(in, layer.InputNorm.Data(), float32(m.Config.RMSNormEps))
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	for _, tc := range []struct {
+		name string
+		mat  *gguf.QuantMatrix
+	}{
+		{"blk.0.attn_q.weight", layer.QWGGUF},
+		{"blk.0.attn_k.weight", layer.KWGGUF},
+		{"blk.0.attn_v.weight", layer.VWGGUF},
+	} {
+		tensor, ok := g.TensorByName(tc.name)
+		if !ok {
+			t.Fatalf("%s not found", tc.name)
+		}
+		raw, err := g.Raw(tensor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := make([]float32, tc.mat.OutDim)
+		if err := ggmlcompute.MulMatQuantF32(int(tensor.QType), want, raw, in, tc.mat.InDim, tc.mat.OutDim); err != nil {
+			t.Fatal(err)
+		}
+		got := make([]float32, tc.mat.OutDim)
+		if !gemvGGUFTo(got, in, tc.mat, tc.mat.InDim, tc.mat.OutDim) {
+			t.Fatalf("%s rejected", tc.name)
+		}
+		maxDiff, meanDiff := maxMeanAbsDiff(want, got)
+		t.Logf("%s actual input ggml-vs-go max=%g mean=%g", tc.name, maxDiff, meanDiff)
+		if maxDiff > 1e-4 {
+			t.Fatalf("%s actual input max=%g mean=%g", tc.name, maxDiff, meanDiff)
+		}
+	}
+}
+
 func TestGemma4Layer0ActualFFNRealGGMLOracles(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {

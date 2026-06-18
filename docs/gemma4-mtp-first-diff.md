@@ -276,7 +276,15 @@ full __fattn__ rows (2,3,4): max≈0.000590742 mean≈1.49e-6
   row4 max≈0.000053577 mean≈2.25e-7
 ```
 
-So the current first non-trivial refreshed drift remains a very small `attn_pre_o` residual, and the largest local amplification is visible by `ffn_post_norm`; cache row layout is not the active gap.
+So the current first non-trivial refreshed drift remains a very small `attn_pre_o` residual, and the largest local amplification is visible by `ffn_post_norm`; cache row layout is not the active gap. A real-asset actual-input Q/K/V projection oracle also compares Go `gemvGGUFTo` against ggml `mul_mat` exactly for layer0 row1 after `attn_norm`:
+
+```text
+blk.0.attn_q.weight actual input ggml-vs-go max=0 mean=0
+blk.0.attn_k.weight actual input ggml-vs-go max=0 mean=0
+blk.0.attn_v.weight actual input ggml-vs-go max=0 mean=0
+```
+
+Thus any small refreshed `q_proj` dump delta is not a Go Q/K/V projection kernel error.
 
 A real-asset Go-vs-ggml oracle using the actual layer0 row1 `attn_out` input now covers the FFN kernels. Findings:
 
