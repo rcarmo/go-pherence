@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -57,8 +58,9 @@ func TestRunMTPVerifierForwardZeroDraftZeroLayer(t *testing.T) {
 	if len(result.Logits) != 1 || len(result.Logits[0]) != m.Config.VocabSize {
 		t.Fatalf("logits shape=%d/%d", len(result.Logits), len(result.Logits[0]))
 	}
-	if len(result.FinalActivation) != 2 || result.FinalActivation[0] != 0 || result.FinalActivation[1] < 1.41 || result.FinalActivation[1] > 1.42 {
-		t.Fatalf("FinalActivation=%v want approximately [0 sqrt(2)]", result.FinalActivation)
+	wantActivation := []float32{0, float32(math.Sqrt(2))}
+	if !sameFloat32s(result.FinalActivation, wantActivation) {
+		t.Fatalf("FinalActivation=%v want %v", result.FinalActivation, wantActivation)
 	}
 }
 
