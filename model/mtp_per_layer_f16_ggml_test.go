@@ -73,6 +73,55 @@ func TestGemma4FullRoPEExtRealGGUFOracle(t *testing.T) {
 	}
 }
 
+func TestGemma4Layer0VerifierBatchedFlashMatchesRows(t *testing.T) {
+	m, ctx, batch, qkv := gemma4LayerQKVForFlashOracle(t, 0)
+	seqLen, nTokens := ctx.SeqLen+len(batch.Plan.VerifierTokens), len(batch.Plan.VerifierTokens)
+	kCache := append([]float32(nil), ctx.KVCacheK[0]...)
+	vCache := append([]float32(nil), ctx.KVCacheV[0]...)
+	kCache = append(kCache, qkv.K...)
+	vCache = append(vCache, qkv.V...)
+	kF16, vF16, _, _ := ggmlF16KVFromGoCache(kCache, vCache, seqLen, qkv.KVHeads, qkv.HeadDim)
+	qGGML := make([]float32, len(qkv.Q))
+	for row := 0; row < nTokens; row++ {
+		for head := 0; head < m.Config.NumHeads; head++ {
+			for d := 0; d < qkv.HeadDim; d++ {
+				goIdx := row*qkv.QDim + head*qkv.HeadDim + d
+				ggmlIdx := head*nTokens*qkv.HeadDim + row*qkv.HeadDim + d
+				qGGML[ggmlIdx] = qkv.Q[goIdx]
+			}
+		}
+	}
+	mask := make([]uint16, seqLen*nTokens)
+	for row := 0; row < nTokens; row++ {
+		qPos := ctx.SeqLen + row
+		for key := 0; key < seqLen; key++ {
+			if key > qPos {
+				mask[row*seqLen+key] = half.F32ToF16(float32(math.Inf(-1)))
+			}
+		}
+	}
+	batched := make([]float32, len(qkv.Q))
+	if err := ggmlcompute.FlashAttnF32F16Batch(batched, qGGML, kF16, vF16, mask, qkv.HeadDim, seqLen, nTokens, m.Config.NumHeads, qkv.KVHeads, 1.0); err != nil {
+		t.Fatal(err)
+	}
+	for row := 0; row < nTokens; row++ {
+		rowSeq := ctx.SeqLen + row + 1
+		rowK := kCache[:rowSeq*qkv.KVDim]
+		rowV := vCache[:rowSeq*qkv.KVDim]
+		rowKF16, rowVF16, _, _ := ggmlF16KVFromGoCache(rowK, rowV, rowSeq, qkv.KVHeads, qkv.HeadDim)
+		rowOut := make([]float32, qkv.QDim)
+		if err := ggmlcompute.FlashAttnF32F16(rowOut, qkv.Q[row*qkv.QDim:(row+1)*qkv.QDim], rowKF16, rowVF16, nil, qkv.HeadDim, rowSeq, m.Config.NumHeads, qkv.KVHeads, 1.0); err != nil {
+			t.Fatal(err)
+		}
+		got := batched[row*qkv.QDim : (row+1)*qkv.QDim]
+		maxDiff, meanDiff := maxMeanAbsDiff(got, rowOut)
+		t.Logf("layer0 batched-vs-row flash row=%d max=%g mean=%g", row, maxDiff, meanDiff)
+		if maxDiff > 1e-6 {
+			t.Fatalf("layer0 batched-vs-row flash row=%d max=%g mean=%g", row, maxDiff, meanDiff)
+		}
+	}
+}
+
 func TestGemma4Layer24VerifierSharedKVAttentionRealGGMLFlashOracle(t *testing.T) {
 	testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t, 24)
 }
@@ -86,37 +135,7 @@ func TestGemma4Layer0VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
 }
 
 func testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t *testing.T, targetLayer int) {
-	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
-	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
-		if root := findMTPParityRepoRoot(); root != "" {
-			path = filepath.Join(root, path)
-		}
-	}
-	if st, err := os.Stat(path); err != nil || st.IsDir() {
-		t.Skipf("Gemma4 GGUF not available at %s", path)
-	}
-	m, err := LoadGemma4GGUFAsLlama(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, err := m.BuildMTPPromptContext([]int{10979})
-	if err != nil {
-		t.Fatal(err)
-	}
-	plan := MTPVerifierPlan{InputToken: 236764, DraftedTokens: []int{564, 236789}, VerifierTokens: []int{236764, 564, 236789}, StartPos: ctx.SeqLen, Positions: []int{ctx.SeqLen, ctx.SeqLen + 1, ctx.SeqLen + 2}}
-	batch, err := NewMTPVerifierBatchInputs(m, plan)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hiddenFlat, kvK, kvV, err := verifierHiddenAtLayerForOracle(m, ctx, batch, targetLayer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	qkv, err := m.ProjectMTPVerifierLayerQKVBatch(batch, targetLayer, hiddenFlat)
-	if err != nil {
-		t.Fatal(err)
-	}
+	m, ctx, batch, qkv, kvK, kvV := gemma4LayerQKVAndKVForFlashOracle(t, targetLayer)
 	kvLayer := targetLayer
 	if !qkv.HasKV {
 		kvLayer = m.Layers[targetLayer].KVSourceLayer
@@ -126,7 +145,7 @@ func testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t *testing.T, targetLay
 	}
 	promptK := append([]float32(nil), kvK[kvLayer]...)
 	promptV := append([]float32(nil), kvV[kvLayer]...)
-	for row := range plan.VerifierTokens {
+	for row := range batch.Plan.VerifierTokens {
 		seqLen := ctx.SeqLen + row + 1
 		kCache := append([]float32(nil), promptK...)
 		vCache := append([]float32(nil), promptV...)
@@ -668,6 +687,47 @@ func verifierHiddenAtLayerForOracle(m *LlamaModel, ctx MTPPromptContext, batch M
 		copy(hiddenFlat[i*h:(i+1)*h], hidden)
 	}
 	return hiddenFlat, kvK, kvV, nil
+}
+
+func gemma4LayerQKVForFlashOracle(t *testing.T, targetLayer int) (*LlamaModel, MTPPromptContext, MTPVerifierBatchInputs, MTPVerifierLayerQKVBatch) {
+	m, ctx, batch, qkv, _, _ := gemma4LayerQKVAndKVForFlashOracle(t, targetLayer)
+	return m, ctx, batch, qkv
+}
+
+func gemma4LayerQKVAndKVForFlashOracle(t *testing.T, targetLayer int) (*LlamaModel, MTPPromptContext, MTPVerifierBatchInputs, MTPVerifierLayerQKVBatch, [][]float32, [][]float32) {
+	t.Helper()
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.BuildMTPPromptContext([]int{10979})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := MTPVerifierPlan{InputToken: 236764, DraftedTokens: []int{564, 236789}, VerifierTokens: []int{236764, 564, 236789}, StartPos: ctx.SeqLen, Positions: []int{ctx.SeqLen, ctx.SeqLen + 1, ctx.SeqLen + 2}}
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hiddenFlat, kvK, kvV, err := verifierHiddenAtLayerForOracle(m, ctx, batch, targetLayer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	qkv, err := m.ProjectMTPVerifierLayerQKVBatch(batch, targetLayer, hiddenFlat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m, ctx, batch, qkv, kvK, kvV
 }
 
 func ggmlF16KVFromGoCache(kCache, vCache []float32, seqLen, nKV, headDim int) ([]uint16, []uint16, []float32, []float32) {

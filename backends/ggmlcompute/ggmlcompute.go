@@ -195,6 +195,57 @@ static int gp_rope_ext_f32(const float * x_f32, const int32_t * pos_i32, const f
     return 0;
 }
 
+static int gp_flash_attn_f32_f16_batch(const float * q_f32, const uint16_t * k_f16, const uint16_t * v_f16, const uint16_t * mask_f16, float * out, int head_dim, int seq_len, int n_tokens, int n_head, int n_kv, float scale) {
+    if (!q_f32 || !k_f16 || !v_f16 || !out || head_dim <= 0 || seq_len <= 0 || n_tokens <= 0 || n_head <= 0 || n_kv <= 0) {
+        return -1;
+    }
+    ggml_cpu_init();
+    size_t q_count = (size_t) head_dim * (size_t) n_tokens * (size_t) n_head;
+    size_t kv_count = (size_t) head_dim * (size_t) seq_len * (size_t) n_kv;
+    size_t mask_count = (size_t) seq_len * (size_t) n_tokens;
+    size_t mem_size = q_count*sizeof(float) + kv_count*sizeof(uint16_t)*2 + mask_count*sizeof(uint16_t) + q_count*sizeof(float) + 32*1024*1024;
+    struct ggml_init_params params = {
+        .mem_size   = mem_size,
+        .mem_buffer = NULL,
+        .no_alloc   = false,
+    };
+    struct ggml_context * ctx = ggml_init(params);
+    if (!ctx) {
+        return -2;
+    }
+    struct ggml_tensor * q = ggml_new_tensor_4d(ctx, GGML_TYPE_F32, head_dim, n_tokens, n_head, 1);
+    struct ggml_tensor * k = ggml_new_tensor_4d(ctx, GGML_TYPE_F16, head_dim, seq_len, n_kv, 1);
+    struct ggml_tensor * v = ggml_new_tensor_4d(ctx, GGML_TYPE_F16, head_dim, seq_len, n_kv, 1);
+    struct ggml_tensor * m = ggml_new_tensor_4d(ctx, GGML_TYPE_F16, seq_len, n_tokens, 1, 1);
+    memcpy(q->data, q_f32, q_count*sizeof(float));
+    memcpy(k->data, k_f16, kv_count*sizeof(uint16_t));
+    memcpy(v->data, v_f16, kv_count*sizeof(uint16_t));
+    if (mask_f16) {
+        memcpy(m->data, mask_f16, mask_count*sizeof(uint16_t));
+    } else {
+        memset(m->data, 0, mask_count*sizeof(uint16_t));
+    }
+    struct ggml_tensor * y = ggml_flash_attn_ext(ctx, q, k, v, m, scale, 0.0f, 0.0f);
+    ggml_flash_attn_ext_set_prec(y, GGML_PREC_F32);
+    struct ggml_cgraph * gf = ggml_new_graph(ctx);
+    ggml_build_forward_expand(gf, y);
+    struct ggml_backend * backend = ggml_backend_cpu_init();
+    if (!backend) {
+        ggml_free(ctx);
+        return -3;
+    }
+    enum ggml_status st = ggml_backend_graph_compute(backend, gf);
+    if (st != GGML_STATUS_SUCCESS) {
+        ggml_backend_free(backend);
+        ggml_free(ctx);
+        return -4;
+    }
+    memcpy(out, y->data, q_count*sizeof(float));
+    ggml_backend_free(backend);
+    ggml_free(ctx);
+    return 0;
+}
+
 static int gp_flash_attn_f32_f16(const float * q_f32, const uint16_t * k_f16, const uint16_t * v_f16, const uint16_t * mask_f16, float * out, int head_dim, int seq_len, int n_head, int n_kv, float scale) {
     if (!q_f32 || !k_f16 || !v_f16 || !out || head_dim <= 0 || seq_len <= 0 || n_head <= 0 || n_kv <= 0) {
         return -1;
@@ -463,6 +514,27 @@ func RoPEExtF32(out, x []float32, positions []int32, factors []float32, headDim,
 	rc := C.gp_rope_ext_f32((*C.float)(unsafe.Pointer(&x[0])), (*C.int32_t)(unsafe.Pointer(&positions[0])), factorsPtr, (*C.float)(unsafe.Pointer(&out[0])), C.int(headDim), C.int(nHead), C.int(nTokens), C.int(nDims), C.int(mode), C.int(nCtxOrig), C.float(freqBase), C.float(freqScale), C.float(extFactor), C.float(attnFactor), C.float(betaFast), C.float(betaSlow))
 	if rc != 0 {
 		return fmt.Errorf("ggml rope_ext failed rc=%d", int(rc))
+	}
+	return nil
+}
+
+func FlashAttnF32F16Batch(out, q []float32, kF16, vF16, maskF16 []uint16, headDim, seqLen, nTokens, nHead, nKV int, scale float32) error {
+	qCount := headDim * nTokens * nHead
+	kvCount := headDim * seqLen * nKV
+	maskCount := seqLen * nTokens
+	if headDim <= 0 || seqLen <= 0 || nTokens <= 0 || nHead <= 0 || nKV <= 0 || len(out) < qCount || len(q) < qCount || len(kF16) < kvCount || len(vF16) < kvCount {
+		return fmt.Errorf("bad FlashAttnF32F16Batch sizes")
+	}
+	var maskPtr *C.uint16_t
+	if len(maskF16) > 0 {
+		if len(maskF16) < maskCount {
+			return fmt.Errorf("bad FlashAttnF32F16Batch mask size")
+		}
+		maskPtr = (*C.uint16_t)(unsafe.Pointer(&maskF16[0]))
+	}
+	rc := C.gp_flash_attn_f32_f16_batch((*C.float)(unsafe.Pointer(&q[0])), (*C.uint16_t)(unsafe.Pointer(&kF16[0])), (*C.uint16_t)(unsafe.Pointer(&vF16[0])), maskPtr, (*C.float)(unsafe.Pointer(&out[0])), C.int(headDim), C.int(seqLen), C.int(nTokens), C.int(nHead), C.int(nKV), C.float(scale))
+	if rc != 0 {
+		return fmt.Errorf("ggml flash_attn_ext batch failed rc=%d", int(rc))
 	}
 	return nil
 }
