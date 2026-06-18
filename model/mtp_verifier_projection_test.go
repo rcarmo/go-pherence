@@ -3,6 +3,7 @@ package model
 import (
 	"testing"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -101,11 +102,24 @@ func TestProjectMTPVerifierLayerQKVBatchGemma4KEqV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sameFloat32s(got.K, got.V) {
-		t.Fatalf("Gemma4 V should be no-scale normalized after K=V copy; got identical K/V %v", got.K)
-	}
 	if len(got.K) != len(got.V) || len(got.K) != len(batch.HiddenFlat) {
 		t.Fatalf("K/V lengths K=%d V=%d hidden=%d", len(got.K), len(got.V), len(batch.HiddenFlat))
+	}
+	wantK := make([]float32, len(got.K))
+	wantV := make([]float32, len(got.V))
+	for b := range batch.HiddenRows {
+		proj := make([]float32, got.KVDim)
+		m.mv(proj, got.NormedIn[b*m.Config.HiddenSize:(b+1)*m.Config.HiddenSize], m.Layers[0].KW.Data(), m.Config.HiddenSize, got.KVDim)
+		copy(wantK[b*got.KVDim:(b+1)*got.KVDim], proj)
+		copy(wantV[b*got.KVDim:(b+1)*got.KVDim], proj)
+		rmsNormInPlace(wantK[b*got.KVDim:(b+1)*got.KVDim], m.Layers[0].KNorm.Data(), float32(m.Config.RMSNormEps))
+		simd.RMSNormNoScale(wantV[b*got.KVDim:(b+1)*got.KVDim], float32(m.Config.RMSNormEps))
+	}
+	if !sameFloat32s(got.K, wantK) || !sameFloat32s(got.V, wantV) {
+		t.Fatalf("Gemma4 K=V post-processing K/V=%v/%v, want K-norm/no-scale-V %v/%v", got.K, got.V, wantK, wantV)
+	}
+	if sameFloat32s(got.K, got.V) {
+		t.Fatalf("Gemma4 V should be no-scale normalized from the K projection, not aliased after K norm; got identical K/V %v", got.K)
 	}
 }
 
