@@ -996,7 +996,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			}
 
 			// RMS Norm (BF16 for Gemma3)
-			if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+			if cfg.ModelType == "gemma3_text" {
 				simd.RMSNormBF16(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
 			} else {
 				rmsNormInPlace(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
@@ -1096,7 +1096,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				}
 			}
 
-			if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+			if cfg.ModelType == "gemma3_text" {
 				simd.ToBF16(q)
 				if k != nil {
 					simd.ToBF16(k)
@@ -1124,7 +1124,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 
 			// Select norm function
 			normFn := rmsNormInPlace
-			if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+			if cfg.ModelType == "gemma3_text" {
 				normFn = rmsNormBF16
 			}
 
@@ -1286,7 +1286,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			if layer.PreFFNNorm != nil {
 				mlpInput = scratchMlp
 				copy(mlpInput, hidden)
-				if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+				if cfg.ModelType == "gemma3_text" {
 					simd.RMSNormBF16(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
 					// mlpInput is already BF16 from RMSNormBF16
 				} else {
@@ -1391,7 +1391,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			}
 
 			// BF16 down projection output for Gemma3
-			if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+			if cfg.ModelType == "gemma3_text" {
 				simd.ToBF16(down)
 			}
 			if debugOpHook != nil {
@@ -1400,7 +1400,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 
 			// Post-FFN norm (Gemma3)
 			if layer.PostFFNNorm != nil {
-				if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+				if cfg.ModelType == "gemma3_text" {
 					rmsNormBF16(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
 				} else {
 					rmsNormInPlace(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
@@ -1443,7 +1443,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			if layer.LayerScalar != 1.0 {
 				simd.VecScale(hidden, hidden, layer.LayerScalar)
 			}
-			if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+			if cfg.ModelType == "gemma3_text" {
 				simd.ToBF16(hidden)
 			}
 			if debugLayerHook != nil {
