@@ -14,6 +14,68 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4Layer0ProjectionRealGGMLQ4Oracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	l0 := m.Layers[0]
+	cases := []struct {
+		name string
+		mat  *gguf.QuantMatrix
+		in   []float32
+	}{
+		{name: "blk.0.attn_q.weight", mat: l0.QWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.017)},
+		{name: "blk.0.attn_k.weight", mat: l0.KWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.019)},
+		{name: "blk.0.attn_v.weight", mat: l0.VWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.023)},
+		{name: "blk.0.attn_output.weight", mat: l0.OWGGUF, in: syntheticOracleVec(m.Config.NumHeads*l0.HeadDimLocal, -0.029)},
+		{name: "blk.0.ffn_gate.weight", mat: l0.GateWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.031)},
+		{name: "blk.0.ffn_up.weight", mat: l0.UpWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, -0.037)},
+		{name: "blk.0.ffn_down.weight", mat: l0.DownWGGUF, in: syntheticOracleVec(l0.DownWGGUF.InDim, 0.043)},
+	}
+	for _, tc := range cases {
+		if tc.mat == nil {
+			t.Fatalf("%s not loaded", tc.name)
+		}
+		tensor, ok := g.TensorByName(tc.name)
+		if !ok {
+			t.Fatalf("%s not found", tc.name)
+		}
+		raw, err := g.Raw(tensor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotGGML := make([]float32, tc.mat.OutDim)
+		if err := ggmlcompute.MulMatQuantF32(int(tensor.QType), gotGGML, raw, tc.in, tc.mat.InDim, tc.mat.OutDim); err != nil {
+			t.Fatalf("ggml %s mul_mat: %v", tc.name, err)
+		}
+		gotGo := make([]float32, tc.mat.OutDim)
+		if !gemvGGUFTo(gotGo, tc.in, tc.mat, tc.mat.InDim, tc.mat.OutDim) {
+			t.Fatalf("go %s gemv rejected", tc.name)
+		}
+		maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+		t.Logf("%s ggml-vs-go max=%g mean=%g", tc.name, maxDiff, meanDiff)
+		if maxDiff > 1e-4 {
+			t.Fatalf("%s ggml-vs-go max=%g mean=%g", tc.name, maxDiff, meanDiff)
+		}
+	}
+}
+
 func TestGemma4PLIGateProjectionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
