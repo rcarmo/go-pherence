@@ -50,12 +50,12 @@ There are no intentional semantic divergences in the Gemma4 E4B QAT GGUF + BF16 
 - The strict local `llama.cpp --flash-attn on` selected verifier logits still mismatch at tolerance `0.001`. Live strict run after removing the Gemma4 layer-output BF16 graph deviation and enabling the ggml-style F16 flash path by default:
 
 ```text
-row0 token236751 got=13.99431324005127  want=14.126071   delta=-0.131758
-row0 token236757 got=15.062721252441406 want=15.1981421 delta=-0.135421
-row1 token236751 got= 7.268852233886719 want= 7.34865713 delta=-0.079805
-row1 token236757 got=13.671273231506348 want=13.9382925 delta=-0.267019
-row2 token236751 got=20.173765182495117 want=20.2557411 delta=-0.081976
-row2 token236757 got=28.622596740722656 want=28.6220856 delta=+0.000511 (within tolerance)
+row0 token236751 got=14.035722732543945 want=14.126071   delta=-0.0903483
+row0 token236757 got=15.131451606750488 want=15.1981421 delta=-0.0666905
+row1 token236751 got= 7.386068344116211 want= 7.34865713 delta=+0.0374112
+row1 token236757 got=13.750082969665527 want=13.9382925 delta=-0.188210
+row2 token236751 got=20.25649070739746  want=20.2557411 delta=+0.000750 (within tolerance)
+row2 token236757 got=28.630298614501953 want=28.6220856 delta=+0.0082130
 ```
 
 The fixture still reports `real_asset_acceptance_parity:false`, and that is intentional until this strict selected-logit gate is green. Closing the gap means finding the remaining exact llama.cpp/ggml numeric semantic difference in the verifier graph and making `make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` pass against the local fixture, without relaxing tolerance or changing the fixture. Only then should `RealAssetAcceptanceParity`, public/default generation readiness, or full-layer verifier batch default enablement be promoted.

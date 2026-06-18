@@ -142,6 +142,39 @@ func TestGemma4Layer0VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
 	testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t, 0)
 }
 
+func TestGemma4Layer0VerifierFlashScoresMatchGGMLVecDot(t *testing.T) {
+	m, ctx, batch, qkv, kvK, _ := gemma4LayerQKVAndKVForFlashOracle(t, 0)
+	row := 1
+	seqLen := ctx.SeqLen + row + 1
+	kCache := append([]float32(nil), kvK[0]...)
+	for i := 0; i <= row; i++ {
+		kCache = append(kCache, qkv.K[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+	}
+	kF16, _, kRounded, _ := ggmlF16KVFromGoCache(kCache, kCache, seqLen, qkv.KVHeads, qkv.HeadDim)
+	headsPerKV := m.Config.NumHeads / qkv.KVHeads
+	for head := 0; head < m.Config.NumHeads; head++ {
+		kvHead := head / headsPerKV
+		qH := make([]uint16, qkv.HeadDim)
+		q := qkv.Q[row*qkv.QDim+head*qkv.HeadDim : row*qkv.QDim+(head+1)*qkv.HeadDim]
+		for d, v := range q {
+			qH[d] = half.F32ToF16(v)
+		}
+		for tpos := 0; tpos < seqLen; tpos++ {
+			kH := kF16[kvHead*seqLen*qkv.HeadDim+tpos*qkv.HeadDim : kvHead*seqLen*qkv.HeadDim+(tpos+1)*qkv.HeadDim]
+			want, err := ggmlcompute.VecDotF16(kH, qH)
+			if err != nil {
+				t.Fatal(err)
+			}
+			goK := kRounded[tpos*qkv.KVDim+kvHead*qkv.HeadDim : tpos*qkv.KVDim+(kvHead+1)*qkv.HeadDim]
+			got := ggmlF16VecDotX86(qH, goK, qkv.HeadDim)
+			if got != want {
+				t.Fatalf("head=%d t=%d vecdot go=%g want=%g diff=%g", head, tpos, got, want, got-want)
+			}
+		}
+	}
+	_ = batch
+}
+
 func testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t *testing.T, targetLayer int) {
 	m, ctx, batch, qkv, kvK, kvV := gemma4LayerQKVAndKVForFlashOracle(t, targetLayer)
 	kvLayer := targetLayer

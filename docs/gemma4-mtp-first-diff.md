@@ -225,7 +225,7 @@ pure flash all layers/positions:
   row0 max≈0.1354, row1 token236757≈-0.2670, row2 token236757≈+0.00051 but row2 token236751≈-0.0820
 ```
 
-The ggml-style pure flash path is now the default Gemma4 MTP verifier attention path because llama.cpp uses `ggml_flash_attn_ext` and the default accepted-token gate stays green. `GO_PHERENCE_MTP_PURE_FLASH=0` remains as an explicit diagnostic opt-out. With pure flash default, strict selected-logit parity has five residual mismatches; row2 token236757 is now within tolerance. Layer0/pos2 had been the best bounded diagnostic for row1+row2 before making flash default, but it worsened row0, reinforcing that the remaining issue is verifier-row coupling/state propagation rather than a local attention-only fix.
+The ggml-style pure flash path is now the default Gemma4 MTP verifier attention path because llama.cpp uses `ggml_flash_attn_ext` and the default accepted-token gate stays green. `GO_PHERENCE_MTP_PURE_FLASH=0` remains as an explicit diagnostic opt-out. Matching the exact AVX `GGML_F32x8_REDUCE` tree in the F16 vecdot port further improved strict selected logits: row2 token236751 is now within tolerance, row1 token236757 shrank to about `-0.1882`, and five residual strict mismatches remain. Layer0/pos2 had been the best bounded diagnostic for row1+row2 before making flash default, but it worsened row0, reinforcing that the remaining issue is verifier-row coupling/state propagation rather than a local attention-only fix.
 
 With the graph-aligned default (Gemma4 no layer-output BF16 store), the layer0/pos3 trace ladder is:
 
@@ -234,7 +234,7 @@ default F32 attention:
   llama l_out-0 row1 vs Go l_out layer0/pos3 max≈0.0121098 mean≈0.00111134
 
 pure flash layer0/pos3:
-  llama __fattn__-0 row1 vs Go attn_pre_o max≈0.00059104 mean≈0.000003126
+  llama __fattn__-0 row1 vs Go attn_pre_o max≈0.00059104 mean≈0.000003126 before exact AVX reduction-tree matching; real ggml flash-oracle tests now show layer0 row1 PureRef max≈9.54e-7 against cgo ggml
   llama attn_out-0 row1 vs Go attn_out max≈0.0263062 mean≈0.000401663
   llama l_out-0 row1 vs Go l_out max≈0.00790989 mean≈0.000793528
 ```

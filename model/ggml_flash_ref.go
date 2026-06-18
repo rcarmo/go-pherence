@@ -159,16 +159,18 @@ func ggmlF16VecDotX86(qH []uint16, k []float32, n int) float32 {
 		}
 	}
 	var lanes [8]float32
-	for j := 0; j < 4; j++ {
-		for lane := 0; lane < 8; lane++ {
-			lanes[lane] += sums[j][lane]
-		}
-	}
-	// Match the AVX horizontal reduction tree closely enough for ggml's F32x8 reduce.
-	var sum float32
 	for lane := 0; lane < 8; lane++ {
-		sum += lanes[lane]
+		// GGML_F32x8_REDUCE first folds the four AVX accumulators as x0+=x2,
+		// x1+=x3, then x0+=x1 before the 128-bit horizontal hadd tree.
+		lanes[lane] = (sums[0][lane] + sums[2][lane]) + (sums[1][lane] + sums[3][lane])
 	}
+	lo0 := lanes[0] + lanes[4]
+	lo1 := lanes[1] + lanes[5]
+	lo2 := lanes[2] + lanes[6]
+	lo3 := lanes[3] + lanes[7]
+	h0 := lo0 + lo1
+	h1 := lo2 + lo3
+	sum := h0 + h1
 	for i := np; i < n; i++ {
 		sum += half.F16ToF32(qH[i]) * half.F16ToF32(half.F32ToF16(k[i]))
 	}
