@@ -129,7 +129,9 @@ func ggmlF16VecDotX86(qH []uint16, k []float32, n int) float32 {
 		for j := 0; j < 4; j++ {
 			base := i + j*8
 			for lane := 0; lane < 8; lane++ {
-				sums[j][lane] += half.F16ToF32(qH[base+lane]) * half.F16ToF32(half.F32ToF16(k[base+lane]))
+				qy := half.F16ToF32(qH[base+lane])
+				kx := half.F16ToF32(half.F32ToF16(k[base+lane]))
+				sums[j][lane] = float32(math.FMA(float64(qy), float64(kx), float64(sums[j][lane])))
 			}
 		}
 	}
