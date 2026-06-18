@@ -34,15 +34,18 @@ static int has_from_float(int typ) {
     return tr->from_float != 0;
 }
 static void from_float_cpu(int typ, const float * x, void * y, int64_t k) {
+    ggml_cpu_init();
     const struct ggml_type_traits_cpu * tr = ggml_get_type_traits_cpu((enum ggml_type)typ);
     tr->from_float(x, y, k);
 }
 static void vecdot(int typ, int n, float * s, const void * x, const void * y) {
+    ggml_cpu_init();
     const struct ggml_type_traits_cpu * tr = ggml_get_type_traits_cpu((enum ggml_type)typ);
     tr->vec_dot(n, s, 0, x, 0, y, 0, 1);
 }
 
 static void vecdot_rows(int typ, int n, float * out, const void * x_rows, size_t row_bytes, const void * y, int nrows) {
+    ggml_cpu_init();
     const struct ggml_type_traits_cpu * tr = ggml_get_type_traits_cpu((enum ggml_type)typ);
     for (int r = 0; r < nrows; r++) {
         const char * xr = (const char *)x_rows + (size_t)r * row_bytes;

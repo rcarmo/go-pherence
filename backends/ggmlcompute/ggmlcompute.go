@@ -9,6 +9,7 @@ package ggmlcompute
 #include <stdint.h>
 #include <stddef.h>
 #include <ggml.h>
+#include <ggml-cpu.h>
 
 // These are exported by libggml-cpu.so but not declared in public headers.
 extern void quantize_row_q8_K(const float * x, void * vy, int64_t k);
@@ -21,10 +22,12 @@ static int gp_blck_size(int typ) { return ggml_blck_size((enum ggml_type)typ); }
 static const char * gp_type_name(int typ) { return ggml_type_name((enum ggml_type)typ); }
 
 static void gp_quantize_q8k(const float * x, void * y, int64_t k) {
+    ggml_cpu_init();
     quantize_row_q8_K(x, y, k);
 }
 
 static int gp_vecdot_rows_direct(int typ, int n, float * out, const void * rows, size_t row_bytes, const void * q8, int nrows) {
+    ggml_cpu_init();
     for (int r = 0; r < nrows; r++) {
         const char * row = (const char *) rows + (size_t) r * row_bytes;
         float s = 0.0f;

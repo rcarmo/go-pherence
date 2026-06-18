@@ -586,7 +586,7 @@ func gemvGGUFQuantRows(out, x []float32, w *gguf.QuantMatrix, inDim, outDim int)
 	if w == nil || w.InDim != inDim || w.OutDim != outDim || len(out) < outDim || len(x) < inDim {
 		return fmt.Errorf("bad quant matrix dims")
 	}
-	if os.Getenv("GO_PHERENCE_GGUF_DEQUANT_GEMV") == "" {
+	if os.Getenv("GO_PHERENCE_GGUF_DEQUANT_GEMV") == "" && os.Getenv("GO_PHERENCE_GGUF_GGMLQUANT_FIRST") == "" {
 		if gguf.GemvQ4_0Q8_0Rows(out[:outDim], x[:inDim], w) {
 			return nil
 		}
