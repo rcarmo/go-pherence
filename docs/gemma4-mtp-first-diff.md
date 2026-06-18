@@ -321,6 +321,20 @@ layer16 l_out                max≈0.349350 mean≈0.0287527
 
 Thus layer16 is an amplification point in the accumulated trajectory, not the first local semantic mismatch.
 
+Final-tail row1 comparison with occurrence-indexed llama dumps confirms the strict selected-logit deltas are primarily inherited hidden-state drift, not a new LM-head-only issue:
+
+```text
+result_norm row1:   max≈0.492623 mean≈0.0854791
+result_output row1: max≈0.521339 mean≈0.0991913
+selected logits:
+  token236751 llama=7.3486571 go=7.3860683 delta=+0.0374112
+  token236757 llama=13.9382925 go=13.7500830 delta=-0.1882095
+  token236789 llama=27.4089108 go=27.4293861 delta=+0.0204754
+  token564    llama=13.4591370 go=13.4725132 delta=+0.0133762
+```
+
+The LM-head/tail path is therefore not the next isolated kernel target; the hidden trajectory entering final norm is already off.
+
 A strengthened real layer0 flash oracle now also compares the production pure-Go flash reference against cgo ggml batched `FlashAttnF32F16Batch` on actual verifier rows:
 
 ```text

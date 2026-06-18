@@ -108,6 +108,7 @@ func (m *LlamaModel) FinishCPUDecodeBatch(hiddenRows [][]float32) (finalActivati
 		} else {
 			rmsNormInPlace(dst, norm, float32(cfg.RMSNormEps))
 		}
+		traceMTPSummary("result_norm", i, -1, -1, dst)
 		finalActivations[i] = append([]float32(nil), dst...)
 	}
 	flatLogits := make([]float32, flatLogitsLen)
@@ -138,6 +139,7 @@ logitsDone:
 	tokens = make([]int, B)
 	for i := 0; i < B; i++ {
 		row := append([]float32(nil), flatLogits[i*vocab:(i+1)*vocab]...)
+		traceMTPSummary("result_output", i, -1, -1, row)
 		logitsRows[i] = row
 		tok, _, err := ArgmaxLogits(row)
 		if err != nil {
