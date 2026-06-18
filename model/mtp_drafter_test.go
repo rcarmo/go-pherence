@@ -172,6 +172,25 @@ func TestLoadGemma4MTPDrafterGGUFPopulatesBF16Matrices(t *testing.T) {
 	}
 }
 
+func TestAssistantLogitsIntoDoesNotApplyVerifierSoftcapOrSuppressBias(t *testing.T) {
+	d := &Gemma4MTPDrafter{
+		Config: LlamaConfig{VocabSize: 3, HiddenSize: 2, FinalLogitSoftcapping: 2},
+		EmbedTokens: tensor.FromFloat32([]float32{
+			10, 0,
+			0, 10,
+			10, 10,
+		}, []int{3, 2}),
+	}
+	logits := make([]float32, 3)
+	if err := d.AssistantLogitsInto(logits, []float32{3, 4}); err != nil {
+		t.Fatal(err)
+	}
+	want := []float32{30, 40, 70}
+	if !sameFloat32s(logits, want) {
+		t.Fatalf("assistant logits=%v want raw tied-output logits %v", logits, want)
+	}
+}
+
 func TestGemma4MTPDrafterGGUFCanRunFromBF16BuffersWithoutF32Shadows(t *testing.T) {
 	path := filepath.Join("..", "models", "gemma4-e4b-it-google-qat-gguf", "MTP", "gemma-4-E4B-it-BF16-MTP.gguf")
 	if _, err := os.Stat(path); err != nil {
