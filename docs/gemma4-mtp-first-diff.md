@@ -171,6 +171,34 @@ skip all layer0 verifier positions:
 
 This reinforces that the BF16 boundary affects the verifier rows through the batched graph composition and next-row state, not as a globally removable layer rule.
 
+Direct inspection of llama.cpp `src/models/gemma4.cpp` shows the Gemma4 graph does **not** cast layer output to BF16 after `out_scaled` / `l_out`; it does:
+
+```cpp
+if (model.layers[il].out_scale) {
+    cur = ggml_mul(ctx0, cur, model.layers[il].out_scale);
+    cb(cur, "out_scaled", il);
+}
+cur = build_cvec(cur, il);
+cb(cur, "l_out", il);
+inpL = cur;
+```
+
+No `ggml_cast(..., GGML_TYPE_BF16)` appears at that boundary. A default-off all-layer/all-position skip of Go's Gemma4 layer BF16 store gives:
+
+```text
+GO_PHERENCE_MTP_SKIP_LAYER_BF16=1:
+  row0 max≈0.0429
+  row1 token236757≈-0.3045
+  row2 token236751≈-0.1024
+
+GO_PHERENCE_MTP_SKIP_LAYER_BF16=1 + GO_PHERENCE_MTP_PURE_FLASH=1:
+  row0 max≈0.1354
+  row1 token236757≈-0.2670
+  row2 token236757≈+0.00051 but row2 token236751≈-0.0820
+```
+
+So Go's Gemma4 layer BF16 boundary is likely a graph deviation from llama.cpp, but simply removing it everywhere is not sufficient to solve strict selected-logit parity; it interacts with remaining flash/composition differences and row state.
+
 This then amplifies:
 
 - layer 0 `attn_out` max abs ≈ `0.1384`
