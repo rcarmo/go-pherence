@@ -61,7 +61,7 @@ func (m *LlamaModel) runMTPVerifierBatchRowsSequential(batch MTPVerifierBatchInp
 			traceMTPSummary("layer_in", i, l, pos, hidden)
 			if perLayerInputs != nil {
 				var err error
-				hidden, err = m.forwardMTPPromptLayer(hidden, perLayerInputs, l, pos, kvCacheK, kvCacheV, attnScoresScratch, attnOutScratch)
+				hidden, err = m.forwardMTPPromptLayerForRow(hidden, perLayerInputs, i, l, pos, kvCacheK, kvCacheV, attnScoresScratch, attnOutScratch)
 				if err != nil {
 					return nil, fmt.Errorf("verifier batch forward layer %d at position %d: %w", l, pos, err)
 				}

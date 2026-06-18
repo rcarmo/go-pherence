@@ -99,6 +99,10 @@ func (m *LlamaModel) BuildMTPPromptContext(tokenIDs []int) (MTPPromptContext, er
 }
 
 func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]float32, layerIdx, pos int, kvCacheK, kvCacheV [][]float32, attnScoresScratch, attnOutScratch []float32) ([]float32, error) {
+	return m.forwardMTPPromptLayerForRow(hidden, perLayerInputs, -1, layerIdx, pos, kvCacheK, kvCacheV, attnScoresScratch, attnOutScratch)
+}
+
+func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInputs [][]float32, traceRow, layerIdx, pos int, kvCacheK, kvCacheV [][]float32, attnScoresScratch, attnOutScratch []float32) ([]float32, error) {
 	cfg := m.Config
 	h := cfg.HiddenSize
 	layer := &m.Layers[layerIdx]
@@ -123,7 +127,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		rmsNormInPlace(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
 	}
 	traceMTPVerifierLayer0Internal("attn_norm", layerIdx, pos, hidden)
-	traceMTPSummary("attn_norm", -1, layerIdx, pos, hidden)
+	traceMTPSummary("attn_norm", traceRow, layerIdx, pos, hidden)
 	q := make([]float32, qDim)
 	if layer.QWq != nil {
 		if !m.mvQ(q, hidden, layer.QWq) {
@@ -141,7 +145,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		m.mv(q, hidden, layer.QW.Data(), h, qDim)
 	}
 	traceMTPVerifierLayer0Internal("q_proj", layerIdx, pos, q)
-	traceMTPSummary("q_proj", -1, layerIdx, pos, q)
+	traceMTPSummary("q_proj", traceRow, layerIdx, pos, q)
 	var k, v []float32
 	if layer.HasKV {
 		k = make([]float32, layerKVDim)
@@ -199,9 +203,9 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 			}
 		}
 		traceMTPVerifierLayer0Internal("k_proj", layerIdx, pos, k)
-		traceMTPSummary("k_proj", -1, layerIdx, pos, k)
+		traceMTPSummary("k_proj", traceRow, layerIdx, pos, k)
 		traceMTPVerifierLayer0Internal("v_proj", layerIdx, pos, v)
-		traceMTPSummary("v_proj", -1, layerIdx, pos, v)
+		traceMTPSummary("v_proj", traceRow, layerIdx, pos, v)
 	}
 	if cfg.ModelType == "gemma3_text" {
 		simd.ToBF16(q)
@@ -248,12 +252,12 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		}
 	}
 	traceMTPVerifierLayer0Internal("q_norm", layerIdx, pos, q)
-	traceMTPSummary("q_norm", -1, layerIdx, pos, q)
+	traceMTPSummary("q_norm", traceRow, layerIdx, pos, q)
 	if k != nil {
 		traceMTPVerifierLayer0Internal("k_norm", layerIdx, pos, k)
-		traceMTPSummary("k_norm", -1, layerIdx, pos, k)
+		traceMTPSummary("k_norm", traceRow, layerIdx, pos, k)
 		traceMTPVerifierLayer0Internal("v_norm", layerIdx, pos, v)
-		traceMTPSummary("v_norm", -1, layerIdx, pos, v)
+		traceMTPSummary("v_norm", traceRow, layerIdx, pos, v)
 	}
 	if cfg.ModelType == "gemma4_text" && m.RopeFreqsSWA != nil {
 		isSWA := true
@@ -278,10 +282,10 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		}
 	}
 	traceMTPVerifierLayer0Internal("q_pos", layerIdx, pos, q)
-	traceMTPSummary("q_pos", -1, layerIdx, pos, q)
+	traceMTPSummary("q_pos", traceRow, layerIdx, pos, q)
 	if k != nil {
 		traceMTPVerifierLayer0Internal("k_pos", layerIdx, pos, k)
-		traceMTPSummary("k_pos", -1, layerIdx, pos, k)
+		traceMTPSummary("k_pos", traceRow, layerIdx, pos, k)
 	}
 	kvLayer := layerIdx
 	if !layer.HasKV {
@@ -313,7 +317,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		gqaAttentionScaleInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))))
 	}
 	traceMTPVerifierLayer0Internal("attn_pre_o", layerIdx, pos, attnOut)
-	traceMTPSummary("attn_pre_o", -1, layerIdx, pos, attnOut)
+	traceMTPSummary("attn_pre_o", traceRow, layerIdx, pos, attnOut)
 	oOut := make([]float32, h)
 	if layer.OWq != nil {
 		if !m.mvQ(oOut, attnOut, layer.OWq) {
@@ -331,17 +335,17 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 	}
 	traceMTPVerifierLayer0Internal("o_proj", layerIdx, pos, oOut)
-	traceMTPSummary("o_proj", -1, layerIdx, pos, oOut)
+	traceMTPSummary("o_proj", traceRow, layerIdx, pos, oOut)
 	if layer.PreFFNNorm != nil {
 		rmsNormInPlace(oOut, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
 		simd.VecAdd(hidden, residual, oOut)
 		traceMTPVerifierLayer0Internal("attn_out", layerIdx, pos, hidden)
-		traceMTPSummary("attn_out", -1, layerIdx, pos, hidden)
+		traceMTPSummary("attn_out", traceRow, layerIdx, pos, hidden)
 		copy(residual, hidden)
 	} else {
 		simd.VecAdd(hidden, residual, oOut)
 		traceMTPVerifierLayer0Internal("attn_out", layerIdx, pos, hidden)
-		traceMTPSummary("attn_out", -1, layerIdx, pos, hidden)
+		traceMTPSummary("attn_out", traceRow, layerIdx, pos, hidden)
 		copy(residual, hidden)
 		rmsNormInPlace(hidden, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
 	}
@@ -445,7 +449,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	}
 	simd.VecAdd(hidden, residual, down)
 	traceMTPVerifierLayer0Internal("ffn_resid", layerIdx, pos, hidden)
-	traceMTPSummary("ffn_resid", -1, layerIdx, pos, hidden)
+	traceMTPSummary("ffn_resid", traceRow, layerIdx, pos, hidden)
 	if (layer.PLIGate != nil || layer.PLIGateGGUF != nil) && perLayerInputs != nil && layerIdx < len(perLayerInputs) {
 		hpl := cfg.HiddenPerLayer
 		pli := perLayerInputs[layerIdx]
@@ -477,11 +481,11 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	if layer.LayerScalar != 1.0 {
 		simd.VecScale(hidden, hidden, layer.LayerScalar)
 	}
-	traceMTPSummary("l_out_pre_bf16", -1, layerIdx, pos, hidden)
+	traceMTPSummary("l_out_pre_bf16", traceRow, layerIdx, pos, hidden)
 	if cfg.ModelType == "gemma3_text" && !mtpSkipLayerBF16(layerIdx, pos) {
 		simd.ToBF16(hidden)
 	}
 	traceMTPVerifierLayer0Internal("l0_out", layerIdx, pos, hidden)
-	traceMTPSummary("l_out", -1, layerIdx, pos, hidden)
+	traceMTPSummary("l_out", traceRow, layerIdx, pos, hidden)
 	return hidden, nil
 }
