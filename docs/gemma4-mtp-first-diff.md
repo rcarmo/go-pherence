@@ -387,6 +387,8 @@ So the FFN kernels themselves are not the active gap; the observed `ffn_post_nor
 
 `build_cvec` was inspected as a possible row-coupled state source. In llama.cpp it is only `llama_adapter_cvec::apply_to`, which adds a control-vector tensor when one is configured; otherwise `tensor_for(il)` returns `nullptr` and the input tensor is returned unchanged. The local parity harness does not pass `--control-vector`, so control vectors are inactive and Go's lack of an explicit cvec add is not a current parity gap.
 
+The real `per_layer_model_proj` oracle showed that rounding the projection input to F16 matches local cgo ggml more closely than the current F32-input path, but making that the production behavior worsened strict end-to-end selected-logit parity back to six mismatches (`row1 token236757≈-0.2196`, row2 token236751≈-0.0685`, row2 token236757≈+0.0133`). This is therefore documented as a local oracle insight, not a safe standalone fix.
+
 This then amplifies:
 
 - layer 0 `attn_out` max abs ≈ `0.1384`
