@@ -259,6 +259,8 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 	}
 	if fx.Compressed {
 		m.EnableTurboQuant = true
+	}
+	if fx.Compressed || m.EnableTurboQuant || m.TurboQuantConfig != nil {
 		if err := m.SeedCompressedKVFromPromptContext(decode, ctx); err != nil {
 			return parityReport{}, fmt.Errorf("compressed prompt seed: %w", err)
 		}
