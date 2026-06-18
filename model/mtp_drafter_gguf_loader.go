@@ -26,6 +26,17 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 	if err != nil {
 		return nil, err
 	}
+	validateShape := func(t gguf.TensorInfo, want ...int) error {
+		if len(t.Shape) != len(want) {
+			return fmt.Errorf("tensor %s shape=%v, want %v for Gemma4 MTP drafter graph", t.Name, t.Shape, want)
+		}
+		for i, dim := range want {
+			if dim <= 0 || t.Shape[i] != uint64(dim) {
+				return fmt.Errorf("tensor %s shape=%v, want %v for Gemma4 MTP drafter graph", t.Name, t.Shape, want)
+			}
+		}
+		return nil
+	}
 	loadRowsBF16 := func(name string, inDim, outDim int) ([]float32, []uint16, error) {
 		t, ok := g.TensorByName(name)
 		if !ok {
@@ -33,6 +44,9 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 		}
 		if t.QType != gguf.QuantBF16 {
 			return nil, nil, fmt.Errorf("tensor %s type=%s, want BF16 for Gemma4 MTP drafter graph", name, t.QType)
+		}
+		if err := validateShape(t, inDim, outDim); err != nil {
+			return nil, nil, err
 		}
 		raw, err := g.Raw(t)
 		if err != nil {
@@ -68,6 +82,9 @@ func LoadGemma4MTPDrafterGGUF(path string) (*Gemma4MTPDrafter, error) {
 		}
 		if t.QType != gguf.QuantF32 {
 			return nil, fmt.Errorf("tensor %s type=%s, want F32 for Gemma4 MTP drafter graph", name, t.QType)
+		}
+		if err := validateShape(t, shape...); err != nil {
+			return nil, err
 		}
 		data, err := g.DequantF32(t)
 		if err != nil {

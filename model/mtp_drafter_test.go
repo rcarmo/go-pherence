@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -97,11 +98,60 @@ func TestLoadGemma4MTPDrafterGGUFPopulatesBF16Matrices(t *testing.T) {
 	if got, want := len(d.PostProjectionBF16), d.BackboneHiddenSize*d.Config.HiddenSize; got != want {
 		t.Fatalf("PostProjectionBF16 len=%d want %d", got, want)
 	}
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	for _, check := range []struct {
+		name  string
+		qtype gguf.QuantType
+		shape []uint64
+	}{
+		{"token_embd.weight", gguf.QuantBF16, []uint64{uint64(d.Config.HiddenSize), uint64(d.Config.VocabSize)}},
+		{"output_norm.weight", gguf.QuantF32, []uint64{uint64(d.Config.HiddenSize)}},
+		{"nextn.pre_projection.weight", gguf.QuantBF16, []uint64{uint64(2 * d.BackboneHiddenSize), uint64(d.Config.HiddenSize)}},
+		{"nextn.post_projection.weight", gguf.QuantBF16, []uint64{uint64(d.Config.HiddenSize), uint64(d.BackboneHiddenSize)}},
+	} {
+		tensorInfo, ok := g.TensorByName(check.name)
+		if !ok {
+			t.Fatalf("missing %s", check.name)
+		}
+		if tensorInfo.QType != check.qtype || !sameUint64s(tensorInfo.Shape, check.shape) {
+			t.Fatalf("%s qtype/shape=%s/%v, want %s/%v", check.name, tensorInfo.QType, tensorInfo.Shape, check.qtype, check.shape)
+		}
+	}
 	for i, layer := range d.Layers {
 		headDim := d.LayerHeadDim(i)
 		qDim, ok := checkedProduct(d.Config.NumHeads, headDim)
 		if !ok {
 			t.Fatalf("layer %d qDim overflow", i)
+		}
+		prefix := "blk." + itoa(i) + "."
+		for _, check := range []struct {
+			name  string
+			qtype gguf.QuantType
+			shape []uint64
+		}{
+			{prefix + "attn_norm.weight", gguf.QuantF32, []uint64{uint64(d.Config.HiddenSize)}},
+			{prefix + "post_attention_norm.weight", gguf.QuantF32, []uint64{uint64(d.Config.HiddenSize)}},
+			{prefix + "ffn_norm.weight", gguf.QuantF32, []uint64{uint64(d.Config.HiddenSize)}},
+			{prefix + "post_ffw_norm.weight", gguf.QuantF32, []uint64{uint64(d.Config.HiddenSize)}},
+			{prefix + "attn_q_norm.weight", gguf.QuantF32, []uint64{uint64(headDim)}},
+			{prefix + "layer_output_scale.weight", gguf.QuantF32, []uint64{1}},
+			{prefix + "attn_q.weight", gguf.QuantBF16, []uint64{uint64(d.Config.HiddenSize), uint64(qDim)}},
+			{prefix + "attn_output.weight", gguf.QuantBF16, []uint64{uint64(qDim), uint64(d.Config.HiddenSize)}},
+			{prefix + "ffn_gate.weight", gguf.QuantBF16, []uint64{uint64(d.Config.HiddenSize), uint64(d.Config.Intermediate)}},
+			{prefix + "ffn_up.weight", gguf.QuantBF16, []uint64{uint64(d.Config.HiddenSize), uint64(d.Config.Intermediate)}},
+			{prefix + "ffn_down.weight", gguf.QuantBF16, []uint64{uint64(d.Config.Intermediate), uint64(d.Config.HiddenSize)}},
+		} {
+			tensorInfo, ok := g.TensorByName(check.name)
+			if !ok {
+				t.Fatalf("missing %s", check.name)
+			}
+			if tensorInfo.QType != check.qtype || !sameUint64s(tensorInfo.Shape, check.shape) {
+				t.Fatalf("%s qtype/shape=%s/%v, want %s/%v", check.name, tensorInfo.QType, tensorInfo.Shape, check.qtype, check.shape)
+			}
 		}
 		checks := []struct {
 			name string
