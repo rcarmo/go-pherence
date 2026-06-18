@@ -197,7 +197,18 @@ GO_PHERENCE_MTP_SKIP_LAYER_BF16=1 + GO_PHERENCE_MTP_PURE_FLASH=1:
   row2 token236757≈+0.00051 but row2 token236751≈-0.0820
 ```
 
-So Go's Gemma4 layer BF16 boundary is likely a graph deviation from llama.cpp, but simply removing it everywhere is not sufficient to solve strict selected-logit parity; it interacts with remaining flash/composition differences and row state.
+So Go's Gemma4 layer BF16 boundary is a graph deviation from llama.cpp. It was removed from the default Gemma4 MTP layer path after confirming default accepted-token parity stays green. The strict selected-logit baseline then becomes 6 mismatches:
+
+```text
+row0 token236751 got=14.1446142 want=14.1260710 delta=+0.0185432
+row0 token236757 got=15.2410393 want=15.1981421 delta=+0.0428972
+row1 token236751 got= 7.3078938 want= 7.3486571 delta=-0.0407634
+row1 token236757 got=13.6337891 want=13.9382925 delta=-0.3045034
+row2 token236751 got=20.1533260 want=20.2557411 delta=-0.1024151
+row2 token236757 got=28.6179848 want=28.6220856 delta=-0.0041008
+```
+
+That is not strict-green, but it is a closer backend graph: the previous Gemma4 BF16 store was compensating for other remaining differences and has been removed from the production Gemma4 path. The default-off skip gate remains mostly useful for Gemma3 or future diagnostic toggles, not as the Gemma4 production behavior.
 
 This then amplifies:
 
