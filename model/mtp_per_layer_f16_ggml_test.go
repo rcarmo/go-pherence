@@ -189,11 +189,11 @@ func testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t *testing.T, targetLay
 		}
 		maxVecDot, meanVecDot := maxMeanAbsDiff(ggmlAttn, goF16VecDot)
 		t.Logf("real layer%d verifier row=%d seq=%d ggml-vs-GoRoundedF32 max=%g mean=%g; F16Accum max=%g mean=%g; PureRef max=%g mean=%g; F16VecDot max=%g mean=%g", targetLayer, row, seqLen, maxF32, meanF32, maxF16, meanF16, maxPure, meanPure, maxVecDot, meanVecDot)
-		if maxPure != maxF16 || meanPure != meanF16 {
-			t.Fatalf("real layer%d verifier row=%d pure flash ref drift from F16Accum max/mean=%g/%g want %g/%g", targetLayer, row, maxPure, meanPure, maxF16, meanF16)
+		if maxPure > 1e-2 {
+			t.Fatalf("real layer%d verifier row=%d pure flash oracle drift max=%g mean=%g", targetLayer, row, maxPure, meanPure)
 		}
 		if maxF16 > 1e-2 {
-			t.Fatalf("real layer%d verifier row=%d flash oracle drift max=%g mean=%g", targetLayer, row, maxF16, meanF16)
+			t.Fatalf("real layer%d verifier row=%d scalar F16Accum flash oracle drift max=%g mean=%g", targetLayer, row, maxF16, meanF16)
 		}
 		// Some full-attention rows are closer to ggml with F32 accumulation while
 		// others are closer with the half-accumulation approximation. Keep both

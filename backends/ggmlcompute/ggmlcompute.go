@@ -33,6 +33,7 @@ static int gp_vec_scale_f16(int n, uint16_t * y, float v) {
     if (!y || n <= 0) {
         return -1;
     }
+    ggml_cpu_init();
     ggml_vec_scale_f16(n, (ggml_fp16_t *) y, v);
     return 0;
 }
@@ -41,6 +42,7 @@ static int gp_vec_mad_f16(int n, uint16_t * y, const uint16_t * x, float v) {
     if (!y || !x || n <= 0) {
         return -1;
     }
+    ggml_cpu_init();
     ggml_vec_mad_f16(n, (ggml_fp16_t *) y, (const ggml_fp16_t *) x, v);
     return 0;
 }
