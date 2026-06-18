@@ -65,6 +65,11 @@ With exact tokens and row selection fixed, Go and llama match exactly or within 
 - layer 0 `q_norm`
 - layer 0 `q_pos`
 
+Additional K/V dump comparison confirms the attention inputs are aligned:
+
+- layer 0 `k_norm` / `k_pos`: max abs about `9e-8`
+- layer 0 `v_norm`: max abs about `7e-7`
+
 First meaningful divergence:
 
 - llama: `__fattn__-0`
