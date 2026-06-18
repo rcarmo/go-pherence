@@ -3,6 +3,7 @@ package model
 import (
 	"math"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/rcarmo/go-pherence/half"
@@ -13,8 +14,29 @@ func mtpPureGoFlashEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
-func tryPureGoFlashAttentionInto(out, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) bool {
+func mtpPureGoFlashFilter(name string) int {
+	v := strings.TrimSpace(os.Getenv(name))
+	if v == "" {
+		return -1
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return -1
+	}
+	return n
+}
+
+func mtpPureGoFlashLayerFilter() int { return mtpPureGoFlashFilter("GO_PHERENCE_MTP_PURE_FLASH_LAYER") }
+func mtpPureGoFlashPosFilter() int   { return mtpPureGoFlashFilter("GO_PHERENCE_MTP_PURE_FLASH_POS") }
+
+func tryPureGoFlashAttentionInto(out, q, kCache, vCache []float32, layerIdx, pos, seqLen, numHeads, numKVHeads, headDim int, scale float32) bool {
 	if !mtpPureGoFlashEnabled() {
+		return false
+	}
+	if lf := mtpPureGoFlashLayerFilter(); lf >= 0 && lf != layerIdx {
+		return false
+	}
+	if pf := mtpPureGoFlashPosFilter(); pf >= 0 && pf != pos {
 		return false
 	}
 	qDim := numHeads * headDim

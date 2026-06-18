@@ -306,7 +306,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	kCache := kvCacheK[kvLayer]
 	vCache := kvCacheV[kvLayer]
 	if cfg.ModelType == "gemma4_text" {
-		if !tryPureGoFlashAttentionInto(attnOut, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, 1.0) {
+		if !tryPureGoFlashAttentionInto(attnOut, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], layerIdx, pos, attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, 1.0) {
 			gqaAttentionScaleInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, 1.0)
 		}
 	} else {
