@@ -90,7 +90,7 @@ First meaningful divergence:
 - mean abs ≈ `0.0002053`
 - top lane: head 3, dim 29
 
-Top lanes from the `__fattn__` vs `attn_pre_o` dump include:
+Top lanes from the original `__fattn__` vs default Go `attn_pre_o` dump include:
 
 ```text
 idx=797  head=3 dim=29   llama=13.2350025  go=13.2410440  delta=+0.0060415
@@ -99,6 +99,20 @@ idx=1174 head=4 dim=150  llama= 2.0064831  go= 2.0036089  delta=-0.0028741
 idx=541  head=2 dim=29   llama=10.3588076  go=10.3614120  delta=+0.0026045
 idx=29   head=0 dim=29   llama=13.8169575  go=13.8147545  delta=-0.0022030
 ```
+
+After porting ggml's AVX-style F16 `vec_scale`, `vec_mad`, and `vec_dot` semantics into the default-off pure flash diagnostic path, the same saved llama `__fattn__-0` row1 dump compared to a regenerated Go layer0/pos3 `attn_pre_o` dump improves to:
+
+```text
+max_abs ≈ 0.00059104
+mean_abs ≈ 0.000003126
+idx=598 llama=0.60993665 go=0.60934561 delta=-0.00059104
+idx=908 llama=0.42969593 go=0.42923722 delta=-0.00045872
+idx=299 llama=0.42867798 go=0.42836937 delta=-0.00030860
+idx=379 llama=0.43676037 go=0.43645179 delta=-0.00030857
+idx=548 llama=-0.40136808 go=-0.40107319 delta=+0.00029489
+```
+
+This confirms the local layer0/pos3 attention kernel is now about an order of magnitude closer, but still not bit-exact; the strict selected-logit A/B improves row1's dominant token while still trading off row2, so the path remains diagnostic/default-off.
 
 This then amplifies:
 
