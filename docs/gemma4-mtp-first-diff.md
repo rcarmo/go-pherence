@@ -36,7 +36,7 @@ The local `/tmp/llama.cpp-gemma4-mtp/examples/speculative-simple` was temporaril
 - `LLAMA_SPEC_TRACE_ROW=1`
 - `LLAMA_SPEC_DEBUG_TENSORS=1`
 - `LLAMA_SPEC_DEBUG_FILTER=...`
-- `LLAMA_SPEC_DUMP_DIR=/tmp/llama_mtp_dump`
+- `LLAMA_SPEC_DUMP_DIR=/tmp/llama_mtp_dump` (patched filenames include an occurrence index for repeated callbacks, e.g. `llama_result_output_occ1_row1_n262144.f32`)
 
 The important point is that BOS **must** be included in `LLAMA_SPEC_PROMPT_TOKENS`; otherwise the apparent first divergence shifts to RoPE because positions are off by one.
 

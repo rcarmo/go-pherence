@@ -14,6 +14,7 @@ index d87ba48..994465f 100644
  #include <vector>
  #include <utility>
 +#include <optional>
++#include <map>
 +#include <sstream>
 +#include <cmath>
 +#include <regex>
@@ -24,6 +25,7 @@ index d87ba48..994465f 100644
 +struct summary_cb_data {
 +    std::vector<std::regex> filters;
 +    std::vector<uint8_t> data;
++    std::map<std::string, int> counts;
 +    int trace_row = -1;
 +};
 +
@@ -96,7 +98,8 @@ index d87ba48..994465f 100644
 +        std::filesystem::create_directories(dump_dir);
 +        std::string safe = t->name;
 +        for (char & c : safe) { if (!(std::isalnum((unsigned char)c) || c == '-' || c == '_')) c = '_'; }
-+        std::filesystem::path path = std::filesystem::path(dump_dir) / ("llama_" + safe + "_row" + std::to_string(row_filter) + "_n" + std::to_string(idx) + ".f32");
++        int occurrence = cb->counts[safe]++;
++        std::filesystem::path path = std::filesystem::path(dump_dir) / ("llama_" + safe + "_occ" + std::to_string(occurrence) + "_row" + std::to_string(row_filter) + "_n" + std::to_string(idx) + ".f32");
 +        std::ofstream f(path, std::ios::binary);
 +        for (int64_t i3 = 0; i3 < t->ne[3]; i3++) for (int64_t i2 = 0; i2 < t->ne[2]; i2++) for (int64_t i1 = 0; i1 < t->ne[1]; i1++) for (int64_t i0 = 0; i0 < t->ne[0]; i0++) {
 +            if (row_filter >= 0) {
