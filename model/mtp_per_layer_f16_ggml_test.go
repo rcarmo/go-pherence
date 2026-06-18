@@ -106,6 +106,87 @@ func TestGemma4GGMLGEGLUSplitOracle(t *testing.T) {
 	}
 }
 
+func TestGemma4RepresentativeLayerProjectionRealGGMLQ4Oracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	layers := []int{0, 6, 22, 23, 24, 41}
+	for _, layerIdx := range layers {
+		if layerIdx < 0 || layerIdx >= len(m.Layers) {
+			t.Fatalf("layer %d outside model layers=%d", layerIdx, len(m.Layers))
+		}
+		l := m.Layers[layerIdx]
+		cases := []struct {
+			name string
+			mat  *gguf.QuantMatrix
+			in   []float32
+		}{
+			{name: "attn_q.weight", mat: l.QWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.017+float64(layerIdx)*0.001)},
+			{name: "attn_output.weight", mat: l.OWGGUF, in: syntheticOracleVec(m.Config.NumHeads*l.HeadDimLocal, -0.029-float64(layerIdx)*0.001)},
+			{name: "ffn_gate.weight", mat: l.GateWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.031+float64(layerIdx)*0.001)},
+			{name: "ffn_up.weight", mat: l.UpWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, -0.037-float64(layerIdx)*0.001)},
+			{name: "ffn_down.weight", mat: l.DownWGGUF, in: syntheticOracleVec(l.DownWGGUF.InDim, 0.043+float64(layerIdx)*0.001)},
+		}
+		if l.HasKV {
+			cases = append(cases,
+				struct {
+					name string
+					mat  *gguf.QuantMatrix
+					in   []float32
+				}{name: "attn_k.weight", mat: l.KWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.019+float64(layerIdx)*0.001)},
+				struct {
+					name string
+					mat  *gguf.QuantMatrix
+					in   []float32
+				}{name: "attn_v.weight", mat: l.VWGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.023+float64(layerIdx)*0.001)},
+			)
+		}
+		for _, tc := range cases {
+			if tc.mat == nil {
+				t.Fatalf("layer %d %s not loaded", layerIdx, tc.name)
+			}
+			fullName := "blk." + itoa(layerIdx) + "." + tc.name
+			tensor, ok := g.TensorByName(fullName)
+			if !ok {
+				t.Fatalf("%s not found", fullName)
+			}
+			raw, err := g.Raw(tensor)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotGGML := make([]float32, tc.mat.OutDim)
+			if err := ggmlcompute.MulMatQuantF32(int(tensor.QType), gotGGML, raw, tc.in, tc.mat.InDim, tc.mat.OutDim); err != nil {
+				t.Fatalf("ggml %s mul_mat: %v", fullName, err)
+			}
+			gotGo := make([]float32, tc.mat.OutDim)
+			if !gemvGGUFTo(gotGo, tc.in, tc.mat, tc.mat.InDim, tc.mat.OutDim) {
+				t.Fatalf("go %s gemv rejected", fullName)
+			}
+			maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+			t.Logf("%s ggml-vs-go max=%g mean=%g", fullName, maxDiff, meanDiff)
+			if maxDiff > 1e-4 {
+				t.Fatalf("%s ggml-vs-go max=%g mean=%g", fullName, maxDiff, meanDiff)
+			}
+		}
+	}
+}
+
 func TestGemma4Layer0ProjectionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
