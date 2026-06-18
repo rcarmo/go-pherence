@@ -27,6 +27,46 @@ func TestForwardMTPPromptLayerRejectsQuantProjectionFailure(t *testing.T) {
 	}
 }
 
+func TestForwardMTPPromptLayerGemma4LayerScalarPrecedesBF16Rounding(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 0, HiddenAct: "gelu_pytorch_tanh"},
+		Layers: []LlamaLayer{{
+			InputNorm:   tensor.Ones([]int{2}),
+			PostNorm:    tensor.Ones([]int{2}),
+			PreFFNNorm:  tensor.Ones([]int{2}),
+			PostFFNNorm: tensor.Ones([]int{2}),
+			HasKV:       true,
+			QW:          tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			KW:          tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			VW:          tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			OW:          tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			GateW:       tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			UpW:         tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			DownW:       tensor.FromFloat32([]float32{0, 0, 0, 0}, []int{2, 2}),
+			QNorm:       tensor.Ones([]int{2}),
+			KNorm:       tensor.Ones([]int{2}),
+			LayerScalar: 0.3,
+		}},
+	}
+	got, err := m.forwardMTPPromptLayer([]float32{1.001, 0.25}, nil, 0, 0, make([][]float32, 1), make([][]float32, 1), make([]float32, 1), make([]float32, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []float32{1.001 * 0.3, 0.25 * 0.3}
+	simd.ToBF16(want)
+	oldOrder := []float32{1.001, 0.25}
+	simd.ToBF16(oldOrder)
+	for i := range oldOrder {
+		oldOrder[i] *= 0.3
+	}
+	if sameFloat32s(want, oldOrder) {
+		t.Fatalf("test values do not distinguish scalar/BF16 ordering: %v", want)
+	}
+	if !sameFloat32s(got, want) {
+		t.Fatalf("Gemma4 MTP layer output=%v want scalar-before-BF16 %v; old BF16-before-scalar would be %v", got, want, oldOrder)
+	}
+}
+
 func TestForwardMTPPromptLayerGemma4AttentionUsesUnitScale(t *testing.T) {
 	m := &LlamaModel{
 		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 0, HiddenAct: "gelu_pytorch_tanh"},

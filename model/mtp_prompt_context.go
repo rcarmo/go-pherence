@@ -457,11 +457,11 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		traceMTPVerifierLayer0Internal("pli_out", layerIdx, pos, proj2)
 		simd.VecAdd(hidden, hidden, proj2)
 	}
-	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
-		simd.ToBF16(hidden)
-	}
 	if layer.LayerScalar != 1.0 {
 		simd.VecScale(hidden, hidden, layer.LayerScalar)
+	}
+	if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
+		simd.ToBF16(hidden)
 	}
 	traceMTPVerifierLayer0Internal("l0_out", layerIdx, pos, hidden)
 	return hidden, nil
