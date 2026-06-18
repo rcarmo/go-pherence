@@ -267,7 +267,16 @@ ffn_post_norm  max≈0.0592184         mean≈0.0068006
 l_out          max≈0.0079099         mean≈0.0007935
 ```
 
-`q_proj`/`q_norm`/`q_pos` were not emitted by that refreshed llama filter despite existing Go row-aware dumps, but historical dumps showed them aligned within ~2e-6. The current first non-trivial refreshed drift remains `attn_pre_o`, and the largest local amplification is visible by `ffn_post_norm`.
+`q_proj`/`q_norm`/`q_pos` were not emitted by that refreshed llama filter despite existing Go row-aware dumps, but historical dumps showed them aligned within ~2e-6. Full-row verifier dump mapping was also clarified: llama's layer0 `Kcur_pos`/`Vcur_normed` `n1536` tensors map to Go verifier positions `(2,3,4)`, not prompt rows, and match Go within `~1.7e-6` max for V and `~1.8e-7` max for K. Llama's full `__fattn__-0` `n6144` dump likewise maps to Go `attn_pre_o` rows `(2,3,4)`:
+
+```text
+full __fattn__ rows (2,3,4): max≈0.000590742 mean≈1.49e-6
+  row2 max≈0.000554383 mean≈1.15e-6
+  row3 max≈0.000590742 mean≈3.08e-6
+  row4 max≈0.000053577 mean≈2.25e-7
+```
+
+So the current first non-trivial refreshed drift remains a very small `attn_pre_o` residual, and the largest local amplification is visible by `ffn_post_norm`; cache row layout is not the active gap.
 
 A real-asset Go-vs-ggml oracle using the actual layer0 row1 `attn_out` input now covers the FFN kernels. Findings:
 
