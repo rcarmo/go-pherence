@@ -390,13 +390,13 @@ selected logits:
   token564    llama=13.4591370 go=13.4725132 delta=+0.0133762
 ```
 
-The LM-head/tail path is therefore not the next isolated kernel target; the hidden trajectory entering final norm is already off. A ggml-tagged strict-fixture oracle now confirms Go's final RMSNorm exactly matches cgo ggml on the actual verifier hidden rows:
+The LM-head/tail path is therefore not the next isolated kernel target; the hidden trajectory entering final norm is already off. A ggml-tagged strict-fixture oracle now obtains the actual pre-final-norm verifier hidden rows and confirms Go's final RMSNorm exactly matches cgo ggml on them:
 
 ```text
 strict fixture verifier row0 final norm ggml-vs-go max=0 mean=0
 strict fixture verifier row1 final norm ggml-vs-go max=0 mean=0
 strict fixture verifier row2 final norm ggml-vs-go max=0 mean=0
-selected LM-head probes from the same normalized rows also match cgo ggml exactly (tokens 564, 236751, 236757, 236789; all rows diff=0)
+selected LM-head probes from those cgo/Go normalized rows also match cgo ggml exactly (tokens 564, 236751, 236757, 236789; all rows diff=0)
 ```
 
 A strengthened real layer0 flash oracle now also compares the production pure-Go flash reference against cgo ggml batched `FlashAttnF32F16Batch` on actual verifier rows:
