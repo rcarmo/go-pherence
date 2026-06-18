@@ -342,6 +342,56 @@ func TestGemma4GGMLGEGLUSplitOracle(t *testing.T) {
 	}
 }
 
+func TestGemma4Layer0OProjectionActualAttentionRealGGMLQ4Oracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, ctx, batch, qkv, kvK, kvV := gemma4LayerQKVAndKVForFlashOracle(t, 0)
+	_ = batch
+	seqLen := ctx.SeqLen + 2 // verifier row 1 / position 3
+	kCache := append([]float32(nil), kvK[0]...)
+	vCache := append([]float32(nil), kvV[0]...)
+	for i := 0; i <= 1; i++ {
+		kCache = append(kCache, qkv.K[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+		vCache = append(vCache, qkv.V[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+	}
+	_, _, kRounded, vRounded := ggmlF16KVFromGoCache(kCache, vCache, seqLen, qkv.KVHeads, qkv.HeadDim)
+	attn := ggmlFlashAttnF16KVReference(qkv.Q[qkv.QDim:2*qkv.QDim], kRounded, vRounded, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	tensor, ok := g.TensorByName("blk.0.attn_output.weight")
+	if !ok {
+		t.Fatal("blk.0.attn_output.weight not found")
+	}
+	raw, err := g.Raw(tensor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotGGML := make([]float32, m.Config.HiddenSize)
+	if err := ggmlcompute.MulMatQuantF32(int(tensor.QType), gotGGML, raw, attn, qkv.QDim, m.Config.HiddenSize); err != nil {
+		t.Fatal(err)
+	}
+	gotGo := make([]float32, m.Config.HiddenSize)
+	if !gemvGGUFTo(gotGo, attn, m.Layers[0].OWGGUF, qkv.QDim, m.Config.HiddenSize) {
+		t.Fatal("Go O projection rejected")
+	}
+	maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+	t.Logf("layer0 actual-attn O projection ggml-vs-go max=%g mean=%g", maxDiff, meanDiff)
+	if maxDiff > 1e-4 {
+		t.Fatalf("layer0 actual-attn O projection drift max=%g mean=%g", maxDiff, meanDiff)
+	}
+}
+
 func TestGemma4RepresentativeLayerProjectionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
