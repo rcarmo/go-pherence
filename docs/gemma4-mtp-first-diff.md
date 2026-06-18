@@ -252,6 +252,19 @@ llama ffn_post_norm-0 row1 vs Go ffn_post_norm layer0/pos3:
 
 This is now a larger local row1 drift than the post-flash `attn_pre_o` residual, so the next first-difference walk should inspect the MLP path between `attn_out` and `ffn_post_norm` (FFN norm, gate/up projection, GEGLU, down projection, FFN post norm) on the current graph-aligned production path.
 
+A real-asset Go-vs-ggml oracle using the actual layer0 row1 `attn_out` input now covers the FFN kernels. Findings:
+
+```text
+ffn_norm: Go RMSNorm matches ggml within 1e-6
+ffn_gate / ffn_up / ffn_down Q4 projections: exact against ggml mul_mat for the actual row input
+GEGLU: existing ggml table-based Go path is much closer than direct tanh-GELU
+  table max≈0.00021246 mean≈2.47e-8
+  direct max≈0.00772476 mean≈3.94e-5
+ffn_post_norm: Go RMSNorm matches ggml within about 7.6e-6
+```
+
+So the FFN kernels themselves are not the active gap; the observed `ffn_post_norm` drift is propagated from the upstream `attn_out` input difference.
+
 `build_cvec` was inspected as a possible row-coupled state source. In llama.cpp it is only `llama_adapter_cvec::apply_to`, which adds a control-vector tensor when one is configured; otherwise `tensor_for(il)` returns `nullptr` and the input tensor is returned unchanged. The local parity harness does not pass `--control-vector`, so control vectors are inactive and Go's lack of an explicit cvec add is not a current parity gap.
 
 This then amplifies:

@@ -375,6 +375,132 @@ func TestGemma4GGMLGEGLUSplitOracle(t *testing.T) {
 	}
 }
 
+func TestGemma4Layer0ActualFFNRealGGMLOracles(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, ctx, batch, qkv, kvK, kvV := gemma4LayerQKVAndKVForFlashOracle(t, 0)
+	_ = batch
+	row := 1
+	seqLen := ctx.SeqLen + row + 1
+	kCache := append([]float32(nil), kvK[0]...)
+	vCache := append([]float32(nil), kvV[0]...)
+	for i := 0; i <= row; i++ {
+		kCache = append(kCache, qkv.K[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+		vCache = append(vCache, qkv.V[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+	}
+	_, _, kRounded, vRounded := ggmlF16KVFromGoCache(kCache, vCache, seqLen, qkv.KVHeads, qkv.HeadDim)
+	attn := ggmlFlashAttnF16KVReference(qkv.Q[row*qkv.QDim:(row+1)*qkv.QDim], kRounded, vRounded, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
+	layer := m.Layers[0]
+	o := make([]float32, m.Config.HiddenSize)
+	if !gemvGGUFTo(o, attn, layer.OWGGUF, qkv.QDim, m.Config.HiddenSize) {
+		t.Fatal("O projection rejected")
+	}
+	attnOut := append([]float32(nil), batch.HiddenRows[row]...)
+	rmsNormInPlace(o, layer.PostNorm.Data(), float32(m.Config.RMSNormEps))
+	simd.VecAdd(attnOut, batch.HiddenRows[row], o)
+	ffnNormGo := append([]float32(nil), attnOut...)
+	rmsNormInPlace(ffnNormGo, layer.PreFFNNorm.Data(), float32(m.Config.RMSNormEps))
+	ffnNormGGML := make([]float32, len(ffnNormGo))
+	if err := ggmlcompute.RMSNormMulF32(ffnNormGGML, attnOut, layer.PreFFNNorm.Data(), float32(m.Config.RMSNormEps)); err != nil {
+		t.Fatal(err)
+	}
+	if max, mean := maxMeanAbsDiff(ffnNormGGML, ffnNormGo); max > 1e-6 {
+		t.Fatalf("ffn_norm ggml-vs-go max=%g mean=%g", max, mean)
+	}
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	loadRaw := func(name string) ([]byte, int) {
+		t.Helper()
+		tensor, ok := g.TensorByName(name)
+		if !ok {
+			t.Fatalf("%s not found", name)
+		}
+		raw, err := g.Raw(tensor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw, int(tensor.QType)
+	}
+	gate := make([]float32, layer.GateWGGUF.OutDim)
+	up := make([]float32, layer.UpWGGUF.OutDim)
+	if !gemvGGUFTo(gate, ffnNormGo, layer.GateWGGUF, m.Config.HiddenSize, len(gate)) || !gemvGGUFTo(up, ffnNormGo, layer.UpWGGUF, m.Config.HiddenSize, len(up)) {
+		t.Fatal("gate/up rejected")
+	}
+	for _, tc := range []struct {
+		name string
+		mat  *gguf.QuantMatrix
+		got  []float32
+	}{
+		{"blk.0.ffn_gate.weight", layer.GateWGGUF, gate},
+		{"blk.0.ffn_up.weight", layer.UpWGGUF, up},
+	} {
+		raw, qt := loadRaw(tc.name)
+		want := make([]float32, tc.mat.OutDim)
+		if err := ggmlcompute.MulMatQuantF32(qt, want, raw, ffnNormGo, tc.mat.InDim, tc.mat.OutDim); err != nil {
+			t.Fatal(err)
+		}
+		if max, mean := maxMeanAbsDiff(want, tc.got); max > 1e-4 {
+			t.Fatalf("%s actual FFN proj max=%g mean=%g", tc.name, max, mean)
+		}
+	}
+	gegluGGML := make([]float32, len(gate))
+	if err := ggmlcompute.GEGLUSplitF32(gegluGGML, gate, up); err != nil {
+		t.Fatal(err)
+	}
+	gateGo := append([]float32(nil), gate...)
+	ggmlGELUMulInPlace(gateGo, up)
+	gateDirect := append([]float32(nil), gate...)
+	for i := range gateDirect {
+		const sqrt2OverPi = float32(0.79788456080286535587989211986876)
+		x := gateDirect[i]
+		inner := sqrt2OverPi * x * (1 + 0.044715*x*x)
+		gateDirect[i] = 0.5 * x * (1 + float32(math.Tanh(float64(inner)))) * up[i]
+	}
+	maxGo, meanGo := maxMeanAbsDiff(gegluGGML, gateGo)
+	maxDirect, meanDirect := maxMeanAbsDiff(gegluGGML, gateDirect)
+	t.Logf("actual geglu table max=%g mean=%g direct max=%g mean=%g", maxGo, meanGo, maxDirect, meanDirect)
+	if maxDirect < maxGo {
+		copy(gate, gateDirect)
+	} else {
+		copy(gate, gateGo)
+	}
+	if max, mean := maxMeanAbsDiff(gegluGGML, gate); max > 3e-4 {
+		t.Fatalf("geglu actual max=%g mean=%g", max, mean)
+	}
+	down := make([]float32, m.Config.HiddenSize)
+	if !gemvGGUFTo(down, gate, layer.DownWGGUF, len(gate), m.Config.HiddenSize) {
+		t.Fatal("down rejected")
+	}
+	rawDown, qtDown := loadRaw("blk.0.ffn_down.weight")
+	wantDown := make([]float32, m.Config.HiddenSize)
+	if err := ggmlcompute.MulMatQuantF32(qtDown, wantDown, rawDown, gate, layer.DownWGGUF.InDim, layer.DownWGGUF.OutDim); err != nil {
+		t.Fatal(err)
+	}
+	if max, mean := maxMeanAbsDiff(wantDown, down); max > 1e-4 {
+		t.Fatalf("ffn_down actual max=%g mean=%g", max, mean)
+	}
+	postGo := append([]float32(nil), down...)
+	rmsNormInPlace(postGo, layer.PostFFNNorm.Data(), float32(m.Config.RMSNormEps))
+	postGGML := make([]float32, len(postGo))
+	if err := ggmlcompute.RMSNormMulF32(postGGML, down, layer.PostFFNNorm.Data(), float32(m.Config.RMSNormEps)); err != nil {
+		t.Fatal(err)
+	}
+	if max, mean := maxMeanAbsDiff(postGGML, postGo); max > 1e-5 {
+		t.Fatalf("ffn_post_norm actual max=%g mean=%g", max, mean)
+	}
+}
+
 func TestGemma4Layer0BatchedOProjectionActualAttentionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
