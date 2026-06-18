@@ -208,7 +208,7 @@ row2 token236751 got=20.1533260 want=20.2557411 delta=-0.1024151
 row2 token236757 got=28.6179848 want=28.6220856 delta=-0.0041008
 ```
 
-That is not strict-green, but it is a closer backend graph: the previous Gemma4 BF16 store was compensating for other remaining differences and has been removed from the production Gemma4 path. The default-off skip gate remains mostly useful for Gemma3 or future diagnostic toggles, not as the Gemma4 production behavior.
+That is not strict-green, but it is a closer backend graph: the previous Gemma4 BF16 store was compensating for other remaining differences and has been removed from the production Gemma4 MTP prompt/verifier path. A code audit confirms `forwardMTPPromptLayer` now only applies BF16 stores for `gemma3_text` at input/FFN/output boundaries; Gemma4 remains F32 through those layer boundaries and only uses the ggml-compatible F16/BF16 semantics where llama.cpp does (flash K/V, GELU table/quantized tensors). Other ordinary generation/GPU paths still contain Gemma4 BF16 behavior and need separate audits before being treated as llama.cpp-equivalent, but they are not the current strict MTP verifier path. The default-off skip gate remains mostly useful for Gemma3 or future diagnostic toggles, not as the Gemma4 MTP production behavior.
 
 After removing the Gemma4 BF16 layer-store deviation, the pure-flash diagnostic A/B shifts:
 
