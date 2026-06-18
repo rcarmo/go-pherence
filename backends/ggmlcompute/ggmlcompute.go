@@ -137,6 +137,45 @@ static int gp_get_row_to_f32(int typ, const void * raw, size_t raw_bytes, int in
     return 0;
 }
 
+static int gp_geglu_split_f32(const float * gate, const float * up, float * out, int n) {
+    if (!gate || !up || !out || n <= 0) {
+        return -1;
+    }
+    ggml_cpu_init();
+    size_t mem_size = (size_t) n * sizeof(float) * 3 + 16*1024*1024;
+    struct ggml_init_params params = {
+        .mem_size   = mem_size,
+        .mem_buffer = NULL,
+        .no_alloc   = false,
+    };
+    struct ggml_context * ctx = ggml_init(params);
+    if (!ctx) {
+        return -2;
+    }
+    struct ggml_tensor * g = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, n);
+    struct ggml_tensor * u = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, n);
+    memcpy(g->data, gate, (size_t) n * sizeof(float));
+    memcpy(u->data, up, (size_t) n * sizeof(float));
+    struct ggml_tensor * y = ggml_geglu_split(ctx, g, u);
+    struct ggml_cgraph * gf = ggml_new_graph(ctx);
+    ggml_build_forward_expand(gf, y);
+    struct ggml_backend * backend = ggml_backend_cpu_init();
+    if (!backend) {
+        ggml_free(ctx);
+        return -3;
+    }
+    enum ggml_status st = ggml_backend_graph_compute(backend, gf);
+    if (st != GGML_STATUS_SUCCESS) {
+        ggml_backend_free(backend);
+        ggml_free(ctx);
+        return -4;
+    }
+    memcpy(out, y->data, (size_t) n * sizeof(float));
+    ggml_backend_free(backend);
+    ggml_free(ctx);
+    return 0;
+}
+
 static int gp_mul_mat_quant_f32(int typ, const void * raw, size_t raw_bytes, const float * x_f32, float * out, int in_dim, int out_dim) {
     if (!raw || !x_f32 || !out || in_dim <= 0 || out_dim <= 0) {
         return -1;
@@ -244,6 +283,17 @@ func GetRowToF32(qtype int, out []float32, raw []byte, inDim, outDim, row int) e
 	rc := C.gp_get_row_to_f32(C.int(qtype), unsafe.Pointer(&raw[0]), C.size_t(len(raw)), C.int(inDim), C.int(outDim), C.int(row), (*C.float)(unsafe.Pointer(&out[0])))
 	if rc != 0 {
 		return fmt.Errorf("ggml get_rows failed rc=%d", int(rc))
+	}
+	return nil
+}
+
+func GEGLUSplitF32(out, gate, up []float32) error {
+	if len(out) == 0 || len(gate) < len(out) || len(up) < len(out) {
+		return fmt.Errorf("bad GEGLUSplitF32 sizes")
+	}
+	rc := C.gp_geglu_split_f32((*C.float)(unsafe.Pointer(&gate[0])), (*C.float)(unsafe.Pointer(&up[0])), (*C.float)(unsafe.Pointer(&out[0])), C.int(len(out)))
+	if rc != 0 {
+		return fmt.Errorf("ggml geglu_split failed rc=%d", int(rc))
 	}
 	return nil
 }

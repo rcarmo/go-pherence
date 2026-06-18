@@ -14,6 +14,22 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4GGMLGEGLUSplitOracle(t *testing.T) {
+	gate := syntheticOracleVec(257, 0.083)
+	up := syntheticOracleVec(257, -0.047)
+	gotGGML := make([]float32, len(gate))
+	if err := ggmlcompute.GEGLUSplitF32(gotGGML, gate, up); err != nil {
+		t.Fatal(err)
+	}
+	gotGo := append([]float32(nil), gate...)
+	ggmlGELUMulInPlace(gotGo, up)
+	maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+	t.Logf("ggml_geglu_split-vs-go max=%g mean=%g", maxDiff, meanDiff)
+	if maxDiff > 1e-6 {
+		t.Fatalf("ggml_geglu_split-vs-go max=%g mean=%g", maxDiff, meanDiff)
+	}
+}
+
 func TestGemma4Layer0ProjectionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
