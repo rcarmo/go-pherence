@@ -13,8 +13,8 @@ func mtpTraceSummaryEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
-func mtpTraceSummaryRow() int {
-	v := strings.TrimSpace(os.Getenv("GO_PHERENCE_MTP_TRACE_ROW"))
+func mtpTraceSummaryInt(name string) int {
+	v := strings.TrimSpace(os.Getenv(name))
 	if v == "" {
 		return -1
 	}
@@ -25,19 +25,20 @@ func mtpTraceSummaryRow() int {
 	return n
 }
 
+func mtpTraceSummaryRow() int { return mtpTraceSummaryInt("GO_PHERENCE_MTP_TRACE_ROW") }
+func mtpTraceSummaryPos() int { return mtpTraceSummaryInt("GO_PHERENCE_MTP_TRACE_POS") }
+
 func traceMTPSummary(label string, row, layer, pos int, x []float32) {
 	if !mtpTraceSummaryEnabled() || len(x) == 0 {
 		return
 	}
 	wantRow := mtpTraceSummaryRow()
-	if wantRow >= 0 {
-		if row >= 0 {
-			if row != wantRow {
-				return
-			}
-		} else if pos != wantRow {
-			return
-		}
+	if wantRow >= 0 && row >= 0 && row != wantRow {
+		return
+	}
+	wantPos := mtpTraceSummaryPos()
+	if wantPos >= 0 && pos != wantPos {
+		return
 	}
 	var sum, sumsq float64
 	maxAbs := 0.0
