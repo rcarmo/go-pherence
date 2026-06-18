@@ -1,35 +1,61 @@
-# Gemma4 ↔ llama.cpp Alignment Report
+# Gemma4 llama.cpp alignment report
 
-Date: 2026-06-18
+_Last updated: 2026-06-18._
 
-## 1. Alignment against the 4-dimension rubric
+This is a fit/gap summary for the Gemma4 E4B QAT GGUF verifier plus BF16 MTP drafter path. The implementation goal is a direct port of the llama.cpp Gemma4/MTP backend graph, with no deliberate semantic deviations. The default accepted-token gate is green, but the strict selected-logit fixture is still the active blocker.
 
-| Dimension | Concrete gate / test | What is compared to llama.cpp / ggml | Tolerance | Status |
-|---|---|---|---:|---|
-| Output fidelity — MTP strict llama.cpp parity fixture | `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp`; strict gate: `GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=... make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` | Default fixture checks prompt-context contract, drafter tokens, verifier `[input]+drafted` batch, accepted prefix, bonus/output tokens, and selected logits captured from llama.cpp. Strict real-asset fixture also checks selected verifier logits for the local Gemma4 E4B QAT + BF16 MTP drafter pair. | Token IDs: exact. Selected logits: fixture tolerance; current strict run has stable residual mismatches up to ~0.148. | **Partial**: accepted-token fixture passes; strict selected-logit real-asset parity remains the blocker. |
-| C++/ggml structural correspondence — QAT decode + MTP speculative path | `TestGemma4MTPLlamaCPPParityFixture`, `cmd/models/gemma4mtpparity`, `llmgen -mtp-smoke`, `llmgen -mtp-generate -mtp-drafter`; related loader/binding tests for GGUF verifier/drafter tensors | Mirrors llama.cpp graph structure: q-only assistant/drafter with external main-model KV, verifier `[input]+drafted` batch, prompt-context token split, shared target-layer mapping, SWA/full attention windows, per-layer input construction, tied assistant logits before post-projection, and compressed-KV float-shadow verifier staging. | Mostly exact structural invariants; numerical equality checked through fixture gates. | **Partial / structurally aligned**: graph contracts are explicit and guarded; selected-logit parity is not yet exact. |
-| SIMD ↔ CPU oracle — GGUF quant kernels | `go test ./loader/gguf -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestDequantRowQ8_0ToMatchesScaleTimesInt8|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesAVX2Reference|TestDotQ4_0Q8_0MatchesScalarReference|TestQuantizeQ8KComputesScaleQuantsAndBlockSums|TestDequantRowQ6KToMatchesScalarReference|TestDotQ6KQ8KMatchesAVX2Reference|TestDotQ6KQ8KMatchesScalarReference' -count=1 -v` | Q4_K, Q6_K, Q8_0, Q8_K packing/dequantization and Q4_0×Q8_0 / Q6_K×Q8_K dot paths are compared against scalar ggml-order or AVX2-order oracles. | Exact integer/block decode where applicable; float dot comparisons use the test-local exact/near-equality thresholds. | **PASS** for the covered quant formats and qdot paths. |
-| GPU ↔ CPU oracle — CPU-vs-GPU op trace | `make gemma4-gpu-cpu-parity GOTMPDIR=$PWD/.gotmp`; focused boundary: `TestGemma4MTPVerifierPostAttentionRMSNormGPUParity` | Tagged diagnostic tests compare Gemma4 generation, quantized CPU-vs-GPU layer walks, projection traces, full/early op traces, and the MTP verifier `attn_wo -> attn_post_norm` RMSNorm boundary against CPU/SIMD reference execution. | Op-trace tolerances are test-local and account for GPU reduction-order drift; focused RMSNorm boundary is exact/near-exact per test. | **PASS** for current diagnostic GPU gates; not a proof of strict llama.cpp selected-logit equality. |
+## 1. Rubric alignment
 
-## 2. Structural correspondence
+| Dimension | Gate / test | What it compares | Tolerance | Status |
+| --- | --- | --- | --- | --- |
+| Output fidelity: MTP strict llama.cpp parity fixture | `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp`; strict: `make gemma4-mtp-strict-parity` with `GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json` | Default gate checks committed llama.cpp token/acceptance contract plus real-asset graph cycle when assets exist. Strict gate compares selected verifier logits from local `llama.cpp --flash-attn on` for prompt KV `[2,10979]`, input `236764`, draft `[564,236789]`, verifier batch `[236764,564,236789]`, accepted prefix `2`, bonus `236757`. | Strict fixture `logit_tolerance=0.001`; accepted-token parity exact. | **Partial / gap**: default accepted-token/bonus parity is green; strict selected verifier logits are red with six mismatches. `RealAssetAcceptanceParity=false` is correct. |
+| ggml structural correspondence: QAT decode + MTP speculative graph | Focused model tests around `TestGemma4MTPLlamaCPPParityFixture`, `TestAssistantLogitsIntoDoesNotApplyVerifierSoftcapOrSuppressBias`, `TestRunMTPDrafterStepUsesAssistantHiddenForLogitsAndPostProjectionForHandoff`, `TestRunMTPDrafterStepScalesBackboneEmbeddingByBackboneWidth`, `TestMapGemma4MTPDrafterKVSourceLayersUsesLlamaCppSharedTargets`, `TestMTPVerifierAttentionPlanMixedSlidingAndFullRanges`, `TestForwardMTPPromptLayerGemma4AttentionUsesUnitScale`, `TestProjectMTPVerifierLayerQKVBatchGemma4KEqV` | Direct structural parity with llama.cpp/ggml graph pieces: assistant BF16 drafter data flow, verifier `[input]+drafted` batch, PLI order, external KV source mapping, K=V handling, unit attention scale, mixed SWA/full windows, logits-vs-handoff split. | Mostly exact structural invariants and row-wise oracle equality in unit tests; selected-logit tolerance only in strict fixture. | **PASS for covered structure; partial for end-to-end numeric graph**. The explicit graph shape is represented and guarded, but strict final selected logits still drift. |
+| SIMD ↔ CPU oracle: Q4_K/Q6_K/Q8_0/Q8_K and GGUF qdots | `make gemma4-mtp-parity` includes `go test ./loader/gguf -run '...TestDotQ4_0Q8_0MatchesAVX2Reference...TestDotQ6KQ8KMatchesAVX2Reference...TestDotQ6KQ8KMatchesScalarReference...'`; related coverage includes Q4_K dequant/GEMV, Q8_0 quant/dequant, Q8_K scale/sums. | Quant decode and dot-product helpers used by GGUF/QAT projection paths are checked against scalar/dequantized or AVX2-order references matching ggml block layouts and rounding expectations. | Test-specific exact/near-exact numeric equality; failures are hard assertions. | **PASS for covered quant primitives**. This does not by itself prove whole-model selected-logit parity. |
+| GPU ↔ CPU oracle: CPU-vs-GPU op trace | `make gemma4-gpu-cpu-parity GOTMPDIR=$PWD/.gotmp` runs diagnostic, GPU-locked tests including `TestGemma4GPUGenerate`, `TestGemma4QuantizedCPUvsGPULayerWalk`, `TestGemma4CPUvsGPUProjectionTrace`, and `TestGemma4QuantizedCPUvsGPUOpTrace`. | CPU and CUDA/GPU execution paths for Gemma4 generation/projection/op-trace surfaces under bounded KV memory. This is an implementation-oracle gate, not a llama.cpp selected-logit fixture. | Test-specific trace tolerances/hard assertions. | **Covered by required gate, not re-run for this report**. It validates CPU↔GPU consistency, but the current strict blocker is CPU/ggml-vs-llama selected logits. |
 
-The Go MTP path now deliberately follows the llama.cpp/ggml data flow: the prompt fixture contract keeps `[2, 10979]` in prompt KV and uses `236764` as the verifier input token; assistant tied-output logits are taken from the assistant hidden state before `post_projection` produces `h_nextn`; external KV is sourced from llama.cpp-style shared target layers (`n_layer-2` for SWA, `n_layer-1` for full attention); verifier batches are `[input]+drafted` with contiguous positions and mixed sliding/full attention windows; K=V is handled as separate K-norm and V no-scale RMSNorm views over the K projection; verifier attention scale is llama.cpp unit scale; per-layer input rows include `per_layer_token_embd.weight`; and GGUF RoPE, tensor dtypes, scalar norms, `layer_output_scale.weight`, q-only graph metadata, BF16 drafter matrices, and output-head binding are validated at load time.
+## 2. Structural correspondence to llama.cpp/ggml
 
-Numerically, the recent alignment work locked down ggml-style F32 softcap boundaries, fallback RMSNorm double accumulation, iterative RoPE theta progression, BF16 drafter dot reduction order, AVX2 qdot reduction-order regressions, assistant embedding scale `sqrt(n_embd_backbone)`, and GELU/per-layer input ordering. Deliberate divergences remain: Go keeps an explicit typed execution graph and validation layer instead of replaying ggml nodes directly; compressed/TurboQuant MTP verifier staging uses a float-shadow replay bridge; and experimental full-layer verifier batching is still gated rather than default-public.
+The current implementation mirrors the llama.cpp graph in the following places:
+
+- **MTP execution graph**: `MTPExecutionGraph` represents hidden-state-conditioned drafter steps, verifier `[input]+drafted` batch, contiguous verifier positions, and acceptance-dependent KV keep window (`accepted_prefix + bonus`). Commit helpers recompute acceptance from verifier logits before mutating float or compressed KV.
+- **BF16 MTP drafter**: GGUF BF16 assistant matrices are required and executed through BF16 rows; the drafter can run without F32 matrix shadows. Assistant logits come from the assistant tied `token_embd.weight`, while `post_projection` only produces `h_nextn` for handoff, matching llama.cpp.
+- **RoPE and positions**: Gemma4-local llama.cpp-style RoPE progression and GGUF `rope_freqs.weight` validation are in the Gemma4/MTP path. Prompt fixture contract is `[10979,236764]` -> prompt KV `[2,10979]` plus input token `236764`.
+- **Embedding scale**: assistant pre-projection uses token embedding scaling by `sqrt(n_embd_backbone)`, matching the llama.cpp assistant graph.
+- **Verifier QKV norms and K=V**: Q/K norm validation follows the sequential llama.cpp-style path. When V projection is omitted/shared, V is derived from the original K projection with Gemma4 no-scale RMSNorm while K receives K-norm; this is locked for verifier batch projection and ordinary generation paths.
+- **KV sharing and attention windows**: Gemma4 assistant external KV source mapping follows llama.cpp shared targets (`n_layer-2` for SWA, `n_layer-1` for full attention), including duplicate source layers. Mixed sliding/full verifier ranges are locked for `[input]+drafted` batches.
+- **Attention scale**: Gemma4 verifier attention uses llama.cpp's unit scale (`f_attention_scale = 1.0f`), not `1/sqrt(head_dim)`.
+- **PLI and GELU/FFN order**: per-layer input construction follows `norm(project(hidden) / sqrt(hidden)) + per_layer_token_embd[token] * sqrt(hidden_per_layer)`, then `1/sqrt(2)`. The prompt/verifier layer path applies PLI, attention residual/post-norm, FFN norm/GELU-gated MLP/post-norm, residual, and layer output scale in llama.cpp order for the covered dense/QAT path.
+- **Verifier tail/logits**: dense batched decode tail applies final norm and GGUF LM-head paths correctly, including separate `output.weight` when present and verifier-only softcap/suppress-token behavior; assistant logits explicitly do not inherit verifier final-logit softcap or suppress bias.
+
+There are no intentional semantic divergences in the Gemma4 E4B QAT GGUF + BF16 MTP path. Remaining non-finalized surfaces are implementation staging choices: the production verifier full-layer path still lowers nonzero verifier batch rows through the sequential row/layer oracle by default, while the full-layer batch scaffold is gated behind `GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS`; public/default MTP generation remains gated until strict real-asset parity is solved.
 
 ## 3. Fit / gap analysis
 
-**Fully done:** accepted-token fixture parity for the captured MTP cycle; structural graph validation for drafter/verifier/KV commit; GGUF verifier/drafter metadata and dtype guards; quant SIMD-vs-scalar oracles for the listed Q formats; and diagnostic GPU-vs-CPU op-trace gates.
+**Done / fit:**
 
-**Partial:** real-asset end-to-end MTP parity. The runner is valuable and repeatable, and accepted-token parity is green, but the fixture still self-reports `real_asset_acceptance_parity:false` because strict selected-logit parity has six stable mismatches:
+- Default MTP accepted-token and bonus-token parity is green via `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp`.
+- The default fixture remains trimmed and committed, so ordinary CI locks token/acceptance semantics without requiring local selected-logit probes.
+- The strict fixture path exists and fails loudly when the fixture env is missing.
+- Loader and graph contracts validate GGUF verifier/drafter tensor presence, dtypes, shapes, attention/RoPE metadata, BF16 drafter matrices, layer scales, PLI tensors, and compressed-KV staging consistency.
+- Quant primitive gates cover the QAT/GGUF dot/dequant surfaces used by the verifier path.
+
+**Partial:**
+
+- ggml graph structure is represented and guarded, but the strict selected-logit comparison is not yet green.
+- GPU↔CPU consistency is represented by a dedicated diagnostic gate, but it is orthogonal to the active llama.cpp selected-logit blocker.
+- Full-layer verifier batch lowering exists as a gated scaffold with synthetic parity; it is not default-enabled and is not the basis for the current public-readiness claim.
+
+**Not covered / active blocker:**
+
+- The strict local `llama.cpp --flash-attn on` selected verifier logits still mismatch at tolerance `0.001`:
 
 ```text
-row0 token236751 got=14.1096830368042 want=14.126071
-row0 token236757 got=15.128488540649414 want=15.1981421
-row1 token236751 got=7.351251125335693 want=7.34865713
-row1 token236757 got=13.789809226989746 want=13.9382925
-row2 token236751 got=20.40302085876465 want=20.2557411
-row2 token236757 got=28.634824752807617 want=28.6220856
+row0 token236751 got=14.141362190246582 want=14.126071
+row0 token236757 got=15.260643005371094 want=15.1981421
+row1 token236751 got=7.356825828552246 want=7.34865713
+row1 token236757 got=13.845194816589355 want=13.9382925
+row2 token236751 got=20.2935791015625 want=20.2557411
+row2 token236757 got=28.642704010009766 want=28.6220856
 ```
 
-**Not covered / still blocked:** a full real-asset end-to-end acceptance-parity claim across broader prompts, layers, and generation lengths; strict selected-logit equality against llama.cpp for the current captured fixture; and default/public enablement of full-layer verifier batching. Closing the blocker means continuing the direct-port audit at the remaining mismatch path until the verifier selected logits match llama.cpp within the strict fixture tolerance, then expanding fixture coverage before flipping `real_asset_acceptance_parity` and public-readiness flags.
+The fixture still reports `real_asset_acceptance_parity:false`, and that is intentional until this strict selected-logit gate is green. Closing the gap means finding the remaining exact llama.cpp/ggml numeric semantic difference in the verifier graph and making `make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` pass against the local fixture, without relaxing tolerance or changing the fixture. Only then should `RealAssetAcceptanceParity`, public/default generation readiness, or full-layer verifier batch default enablement be promoted.
