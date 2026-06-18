@@ -15,6 +15,47 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4GGMLFlashAttentionF16Oracle(t *testing.T) {
+	const headDim, seqLen, nHead, nKV = 8, 5, 4, 2
+	q := syntheticOracleVec(headDim*nHead, 0.113)
+	k := syntheticOracleVec(headDim*seqLen*nKV, -0.071)
+	v := syntheticOracleVec(headDim*seqLen*nKV, 0.091)
+	kF16 := make([]uint16, len(k))
+	vF16 := make([]uint16, len(v))
+	kRounded := make([]float32, len(k))
+	vRounded := make([]float32, len(v))
+	// Go attention cache layout is [seq][kv_head][dim]. ggml tensor layout for
+	// flash attention is [dim][seq][kv_head] with dim contiguous, i.e.
+	// [kv_head][seq][dim] in flat row-major storage.
+	for seq := 0; seq < seqLen; seq++ {
+		for kvh := 0; kvh < nKV; kvh++ {
+			for d := 0; d < headDim; d++ {
+				goIdx := seq*nKV*headDim + kvh*headDim + d
+				ggmlIdx := kvh*seqLen*headDim + seq*headDim + d
+				kF16[ggmlIdx] = half.F32ToF16(k[goIdx])
+				vF16[ggmlIdx] = half.F32ToF16(v[goIdx])
+				kRounded[goIdx] = half.F16ToF32(kF16[ggmlIdx])
+				vRounded[goIdx] = half.F16ToF32(vF16[ggmlIdx])
+			}
+		}
+	}
+	gotGGML := make([]float32, headDim*nHead)
+	if err := ggmlcompute.FlashAttnF32F16(gotGGML, q, kF16, vF16, nil, headDim, seqLen, nHead, nKV, 1.0); err != nil {
+		t.Fatal(err)
+	}
+	gotGoF32Accum := gqaAttentionScale(q, kRounded, vRounded, seqLen, nHead, nKV, headDim, 1.0)
+	maxF32, meanF32 := maxMeanAbsDiff(gotGGML, gotGoF32Accum)
+	gotGoF16Accum := flashAttnF16AccumReference(q, kRounded, vRounded, seqLen, nHead, nKV, headDim, 1.0)
+	maxF16, meanF16 := maxMeanAbsDiff(gotGGML, gotGoF16Accum)
+	t.Logf("ggml flash_attn_ext F16 KV vs Go F32-accum max=%g mean=%g; F16-accum max=%g mean=%g", maxF32, meanF32, maxF16, meanF16)
+	if maxF16 > 5e-4 {
+		t.Fatalf("ggml flash_attn_ext F16 KV vs F16-accum reference max=%g mean=%g", maxF16, meanF16)
+	}
+	if maxF32 <= maxF16 {
+		t.Fatalf("F32 accumulation unexpectedly no farther from ggml than F16 accumulation: f32=%g f16=%g", maxF32, maxF16)
+	}
+}
+
 func TestGemma4RealGGMLRMSNormOracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
@@ -427,6 +468,56 @@ func TestGemma4PerLayerModelProjRealGGMLF16Oracle(t *testing.T) {
 	if maxGo < 1e-6 {
 		t.Fatal("current Go unexpectedly matches ggml F16 mul_mat exactly; oracle no longer distinguishes input rounding")
 	}
+}
+
+func flashAttnF16AccumReference(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) []float32 {
+	out := make([]float32, numHeads*headDim)
+	headsPerKV := numHeads / numKVHeads
+	kvDim := numKVHeads * headDim
+	for head := 0; head < numHeads; head++ {
+		kvHead := head / headsPerKV
+		qHead := q[head*headDim : (head+1)*headDim]
+		qRounded := make([]float32, headDim)
+		for i, v := range qHead {
+			qRounded[i] = half.F16ToF32(half.F32ToF16(v))
+		}
+		S := float32(0)
+		M := float32(math.Inf(-1))
+		acc := make([]float32, headDim)
+		for t := 0; t < seqLen; t++ {
+			kHead := kCache[t*kvDim+kvHead*headDim : t*kvDim+(kvHead+1)*headDim]
+			var score float32
+			for d := 0; d < headDim; d++ {
+				score += qRounded[d] * kHead[d]
+			}
+			score *= scale
+			Mold := M
+			vs := float32(1)
+			if score > M {
+				M = score
+				ms := float32(math.Exp(float64(Mold - M)))
+				for d := 0; d < headDim; d++ {
+					acc[d] = half.F16ToF32(half.F32ToF16(acc[d] * ms))
+				}
+				S *= ms
+			} else {
+				vs = float32(math.Exp(float64(score - M)))
+			}
+			vHead := vCache[t*kvDim+kvHead*headDim : t*kvDim+(kvHead+1)*headDim]
+			for d := 0; d < headDim; d++ {
+				acc[d] = half.F16ToF32(half.F32ToF16(acc[d] + vHead[d]*vs))
+			}
+			S += vs
+		}
+		invS := float32(0)
+		if S != 0 {
+			invS = 1 / S
+		}
+		for d := 0; d < headDim; d++ {
+			out[head*headDim+d] = acc[d] * invS
+		}
+	}
+	return out
 }
 
 func syntheticOracleVec(n int, scale float64) []float32 {
