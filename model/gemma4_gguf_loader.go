@@ -169,12 +169,15 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 			if t.QType != gguf.QuantF32 {
 				return nil, fmt.Errorf("tensor %slayer_output_scale.weight type=%s, want F32 for Gemma4 graph", p, t.QType)
 			}
-			if sc, err := g.DequantF32(t); err == nil && len(sc) > 0 {
+			if gguf.TensorElements(t.Shape) != 1 {
+				return nil, fmt.Errorf("tensor %slayer_output_scale.weight shape=%v, want scalar [1] for Gemma4 graph", p, t.Shape)
+			}
+			if sc, err := g.DequantF32(t); err == nil && len(sc) == 1 {
 				layer.LayerScalar = sc[0]
 			} else if err != nil {
 				return nil, err
 			} else {
-				layer.LayerScalar = 1
+				return nil, fmt.Errorf("tensor %slayer_output_scale.weight decoded len=%d, want 1", p, len(sc))
 			}
 		} else {
 			layer.LayerScalar = 1
