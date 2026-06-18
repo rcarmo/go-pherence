@@ -16,10 +16,18 @@ import (
 )
 
 func TestGemma4GGMLFlashAttentionF16Oracle(t *testing.T) {
-	const headDim, seqLen, nHead, nKV = 8, 5, 4, 2
-	q := syntheticOracleVec(headDim*nHead, 0.113)
-	k := syntheticOracleVec(headDim*seqLen*nKV, -0.071)
-	v := syntheticOracleVec(headDim*seqLen*nKV, 0.091)
+	assertFlashAttentionF16Oracle(t, "compact", 8, 5, 4, 2, 0.113, -0.071, 0.091, 5e-4)
+}
+
+func TestGemma4GGMLFlashAttentionF16OracleGemma4Sized(t *testing.T) {
+	assertFlashAttentionF16Oracle(t, "gemma4-sized", 256, 5, 8, 2, 0.011, -0.007, 0.009, 7e-4)
+}
+
+func assertFlashAttentionF16Oracle(t *testing.T, name string, headDim, seqLen, nHead, nKV int, qScale, kScale, vScale float64, tol float64) {
+	t.Helper()
+	q := syntheticOracleVec(headDim*nHead, qScale)
+	k := syntheticOracleVec(headDim*seqLen*nKV, kScale)
+	v := syntheticOracleVec(headDim*seqLen*nKV, vScale)
 	kF16 := make([]uint16, len(k))
 	vF16 := make([]uint16, len(v))
 	kRounded := make([]float32, len(k))
@@ -47,12 +55,12 @@ func TestGemma4GGMLFlashAttentionF16Oracle(t *testing.T) {
 	maxF32, meanF32 := maxMeanAbsDiff(gotGGML, gotGoF32Accum)
 	gotGoF16Accum := flashAttnF16AccumReference(q, kRounded, vRounded, seqLen, nHead, nKV, headDim, 1.0)
 	maxF16, meanF16 := maxMeanAbsDiff(gotGGML, gotGoF16Accum)
-	t.Logf("ggml flash_attn_ext F16 KV vs Go F32-accum max=%g mean=%g; F16-accum max=%g mean=%g", maxF32, meanF32, maxF16, meanF16)
-	if maxF16 > 5e-4 {
-		t.Fatalf("ggml flash_attn_ext F16 KV vs F16-accum reference max=%g mean=%g", maxF16, meanF16)
+	t.Logf("%s ggml flash_attn_ext F16 KV vs Go F32-accum max=%g mean=%g; F16-accum max=%g mean=%g", name, maxF32, meanF32, maxF16, meanF16)
+	if maxF16 > tol {
+		t.Fatalf("%s ggml flash_attn_ext F16 KV vs F16-accum reference max=%g mean=%g tol=%g", name, maxF16, meanF16, tol)
 	}
 	if maxF32 <= maxF16 {
-		t.Fatalf("F32 accumulation unexpectedly no farther from ggml than F16 accumulation: f32=%g f16=%g", maxF32, maxF16)
+		t.Fatalf("%s F32 accumulation unexpectedly no farther from ggml than F16 accumulation: f32=%g f16=%g", name, maxF32, maxF16)
 	}
 }
 
