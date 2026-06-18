@@ -90,6 +90,42 @@ func TestGemma4GGUFTensorPatternCoverage(t *testing.T) {
 	}
 }
 
+func TestGemma4GGUFSharedKVSourceMapping(t *testing.T) {
+	g := openLocalGemma4GGUFForTest(t)
+	defer g.Close()
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = "models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+		if _, err := os.Stat(path); err != nil {
+			if _, parentErr := os.Stat("../" + path); parentErr == nil {
+				path = "../" + path
+			}
+		}
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Config.NumKVSharedLayers != 18 || m.Config.NumLayers != 42 {
+		t.Fatalf("layers/shared=%d/%d want 42/18", m.Config.NumLayers, m.Config.NumKVSharedLayers)
+	}
+	for _, l := range []int{0, 22, 23} {
+		if !m.Layers[l].HasKV {
+			t.Fatalf("layer %d should own KV", l)
+		}
+	}
+	for _, l := range []int{24, 25, 40} {
+		if m.Layers[l].HasKV || m.Layers[l].KVSourceLayer != 22 {
+			t.Fatalf("sliding shared layer %d hasKV/src=%v/%d want false/22", l, m.Layers[l].HasKV, m.Layers[l].KVSourceLayer)
+		}
+	}
+	for _, l := range []int{29, 35, 41} {
+		if m.Layers[l].HasKV || m.Layers[l].KVSourceLayer != 23 {
+			t.Fatalf("full shared layer %d hasKV/src=%v/%d want false/23", l, m.Layers[l].HasKV, m.Layers[l].KVSourceLayer)
+		}
+	}
+}
+
 func TestGemma4GGUFPerLayerInputTensorShapes(t *testing.T) {
 	g := openLocalGemma4GGUFForTest(t)
 	defer g.Close()
