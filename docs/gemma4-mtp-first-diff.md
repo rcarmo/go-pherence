@@ -70,6 +70,17 @@ Additional K/V dump comparison confirms the attention inputs are aligned:
 - layer 0 `k_norm` / `k_pos`: max abs about `9e-8`
 - layer 0 `v_norm`: max abs about `7e-7`
 
+Exact row-vector dump comparison for row 1 / position 3 / layer 0:
+
+```text
+attn_norm: max=0         mean=0
+q_norm:    max≈1.9e-6    mean≈1.1e-7
+q_pos:     max≈1.9e-6    mean≈1.2e-7
+k_norm:    max≈9e-8      mean≈1.3e-8
+k_pos:     max≈9e-8      mean≈1.4e-8
+v_norm:    max≈7e-7      mean≈1.3e-7
+```
+
 First meaningful divergence:
 
 - llama: `__fattn__-0`
@@ -78,6 +89,16 @@ First meaningful divergence:
 - max abs ≈ `0.0060415`
 - mean abs ≈ `0.0002053`
 - top lane: head 3, dim 29
+
+Top lanes from the `__fattn__` vs `attn_pre_o` dump include:
+
+```text
+idx=797  head=3 dim=29   llama=13.2350025  go=13.2410440  delta=+0.0060415
+idx=693  head=2 dim=181  llama= 2.9872022  go= 2.9902635  delta=+0.0030613
+idx=1174 head=4 dim=150  llama= 2.0064831  go= 2.0036089  delta=-0.0028741
+idx=541  head=2 dim=29   llama=10.3588076  go=10.3614120  delta=+0.0026045
+idx=29   head=0 dim=29   llama=13.8169575  go=13.8147545  delta=-0.0022030
+```
 
 This then amplifies:
 
