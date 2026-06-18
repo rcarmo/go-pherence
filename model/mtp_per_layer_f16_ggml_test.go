@@ -73,6 +73,10 @@ func TestGemma4FullRoPEExtRealGGUFOracle(t *testing.T) {
 	}
 }
 
+func TestGemma4Layer24VerifierSharedKVAttentionRealGGMLFlashOracle(t *testing.T) {
+	testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t, 24)
+}
+
 func TestGemma4Layer6VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
 	testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t, 6)
 }
@@ -113,18 +117,31 @@ func testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t *testing.T, targetLay
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !qkv.HasKV || qkv.KVHeads != 2 || m.Config.NumHeads != 8 {
-		t.Fatalf("unexpected layer%d qkv shape: %+v heads=%d", targetLayer, qkv, m.Config.NumHeads)
+	kvLayer := targetLayer
+	if !qkv.HasKV {
+		kvLayer = m.Layers[targetLayer].KVSourceLayer
 	}
-	promptK := append([]float32(nil), kvK[targetLayer]...)
-	promptV := append([]float32(nil), kvV[targetLayer]...)
+	if kvLayer < 0 || kvLayer >= len(kvK) || qkv.KVHeads != 2 || m.Config.NumHeads != 8 {
+		t.Fatalf("unexpected layer%d qkv/kv source shape: %+v heads=%d kvLayer=%d", targetLayer, qkv, m.Config.NumHeads, kvLayer)
+	}
+	promptK := append([]float32(nil), kvK[kvLayer]...)
+	promptV := append([]float32(nil), kvV[kvLayer]...)
 	for row := range plan.VerifierTokens {
 		seqLen := ctx.SeqLen + row + 1
 		kCache := append([]float32(nil), promptK...)
 		vCache := append([]float32(nil), promptV...)
-		for i := 0; i <= row; i++ {
-			kCache = append(kCache, qkv.K[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
-			vCache = append(vCache, qkv.V[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+		if qkv.HasKV {
+			for i := 0; i <= row; i++ {
+				kCache = append(kCache, qkv.K[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+				vCache = append(vCache, qkv.V[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+			}
+		} else {
+			wantElems := seqLen * qkv.KVDim
+			if len(kCache) < wantElems || len(vCache) < wantElems {
+				t.Fatalf("layer%d row%d shared KV len K/V=%d/%d want %d", targetLayer, row, len(kCache), len(vCache), wantElems)
+			}
+			kCache = kCache[:wantElems]
+			vCache = vCache[:wantElems]
 		}
 		q := qkv.Q[row*qkv.QDim : (row+1)*qkv.QDim]
 		goAttn := gqaAttentionScale(q, kCache, vCache, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
