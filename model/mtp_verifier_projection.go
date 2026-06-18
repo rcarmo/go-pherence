@@ -141,12 +141,14 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 			kRow = k[b*kvDim : (b+1)*kvDim]
 			vRow = v[b*kvDim : (b+1)*kvDim]
 		}
-		postProcessMTPVerifierQKV(m, layer, layerIdx, qRow, kRow, vRow, batch.Plan.Positions[b], headDim, kvHeads)
+		if err := postProcessMTPVerifierQKV(m, layer, layerIdx, qRow, kRow, vRow, batch.Plan.Positions[b], headDim, kvHeads); err != nil {
+			return MTPVerifierLayerQKVBatch{}, err
+		}
 	}
 	return MTPVerifierLayerQKVBatch{Q: q, K: k, V: v, QDim: qDim, KVDim: kvDim, HeadDim: headDim, KVHeads: kvHeads, HasKV: layer.HasKV, NormedIn: normed}, nil
 }
 
-func postProcessMTPVerifierQKV(m *LlamaModel, layer *LlamaLayer, layerIdx int, q, k, v []float32, pos, headDim, kvHeads int) {
+func postProcessMTPVerifierQKV(m *LlamaModel, layer *LlamaLayer, layerIdx int, q, k, v []float32, pos, headDim, kvHeads int) error {
 	cfg := m.Config
 	isGemma3 := cfg.ModelType == "gemma3_text"
 	if isGemma3 {
@@ -183,7 +185,10 @@ func postProcessMTPVerifierQKV(m *LlamaModel, layer *LlamaLayer, layerIdx int, q
 		for head := 0; head < cfg.NumHeads; head++ {
 			normFn(q[head*headDim:(head+1)*headDim], qNorm, float32(cfg.RMSNormEps))
 		}
-		if k != nil && layer.KNorm != nil {
+		if k != nil {
+			if layer.KNorm == nil {
+				return fmt.Errorf("layer %d missing K norm", layerIdx)
+			}
 			kNorm := layer.KNorm.Data()
 			for head := 0; head < kvHeads; head++ {
 				normFn(k[head*headDim:(head+1)*headDim], kNorm, float32(cfg.RMSNormEps))
@@ -212,4 +217,5 @@ func postProcessMTPVerifierQKV(m *LlamaModel, layer *LlamaLayer, layerIdx int, q
 			applyRoPE(k, m.RopeFreqs, pos, kvHeads, headDim)
 		}
 	}
+	return nil
 }

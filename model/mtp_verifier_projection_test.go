@@ -131,4 +131,11 @@ func TestProjectMTPVerifierLayerQKVBatchValidation(t *testing.T) {
 	if _, err := (&bad).ProjectMTPVerifierLayerQKVBatch(batch, 0, batch.HiddenFlat); err == nil {
 		t.Fatal("accepted missing Q weight")
 	}
+	bad = *m
+	bad.Layers = append([]LlamaLayer(nil), m.Layers...)
+	bad.Layers[0].QNorm = tensor.Ones([]int{m.Config.HeadDim})
+	bad.Layers[0].KNorm = nil
+	if _, err := (&bad).ProjectMTPVerifierLayerQKVBatch(batch, 0, batch.HiddenFlat); err == nil {
+		t.Fatal("accepted QNorm without required KNorm")
+	}
 }
