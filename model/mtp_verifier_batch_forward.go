@@ -224,9 +224,11 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			outRow := bAttnOut[b*qkv.QDim : (b+1)*qkv.QDim]
 			qRow := qkv.Q[b*qkv.QDim : (b+1)*qkv.QDim]
 			if m.Config.ModelType == "gemma4_text" && tryPureGoFlashAttentionInto(outRow, qRow, kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], l, batch.Plan.Positions[b], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale) {
+				traceMTPSummary("attn_pre_o", b, l, batch.Plan.Positions[b], outRow)
 				continue
 			}
 			gqaAttentionScaleInto(outRow, attnScores[:attnSeqLen], qRow, kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale)
+			traceMTPSummary("attn_pre_o", b, l, batch.Plan.Positions[b], outRow)
 		}
 		if !m.projBatchAny(bOOut[:B*h], bAttnOut[:B*qkv.QDim], B, layer.OW, layer.OWm, layer.OWq, layer.OWGGUF, qkv.QDim, h) {
 			return nil, true, fmt.Errorf("verifier batch layer %d O projection rejected", l)
