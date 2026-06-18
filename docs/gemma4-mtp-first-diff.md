@@ -252,6 +252,23 @@ llama ffn_post_norm-0 row1 vs Go ffn_post_norm layer0/pos3:
 
 This is now a larger local row1 drift than the post-flash `attn_pre_o` residual, so the next first-difference walk should inspect the MLP path between `attn_out` and `ffn_post_norm` (FFN norm, gate/up projection, GEGLU, down projection, FFN post norm) on the current graph-aligned production path.
 
+A refreshed llama trace with broader filters (`attn_norm`, K/V norm/pos, `__fattn__`, `attn_out`, `ffn_norm`, `ffn_out`, `ffn_post_norm`, `l_out`) compared to the current row-aware Go trace gives this layer0 row1 ladder:
+
+```text
+attn_norm      max=0                 mean=0
+k_norm         max≈8.94e-8           mean≈1.31e-8
+k_pos          max≈8.94e-8           mean≈1.36e-8
+v_norm         max≈7.15e-7           mean≈1.28e-7
+attn_pre_o     max≈0.000590742       mean≈3.08e-6
+attn_out       max≈0.0263062         mean≈0.000401663
+ffn_norm       max≈0.0011330         mean≈0.0000983
+ffn_out        max≈0.0105557         mean≈0.0016610
+ffn_post_norm  max≈0.0592184         mean≈0.0068006
+l_out          max≈0.0079099         mean≈0.0007935
+```
+
+`q_proj`/`q_norm`/`q_pos` were not emitted by that refreshed llama filter despite existing Go row-aware dumps, but historical dumps showed them aligned within ~2e-6. The current first non-trivial refreshed drift remains `attn_pre_o`, and the largest local amplification is visible by `ffn_post_norm`.
+
 A real-asset Go-vs-ggml oracle using the actual layer0 row1 `attn_out` input now covers the FFN kernels. Findings:
 
 ```text
