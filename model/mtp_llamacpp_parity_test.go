@@ -291,6 +291,26 @@ func assertMTPParityLogits(t *testing.T, name string, got [][]float32, want []ma
 	}
 }
 
+func TestGemma4MTPLlamaCPPFixturePromptContextTokens(t *testing.T) {
+	fx := mtpLlamaCPPParityFixture{Prompt: []int{10979, 236764}, Cycle: mtpLlamaCPPCycleFixture{InputToken: 236764}}
+	promptForContext := append([]int(nil), fx.Prompt...)
+	inputToken := fx.Cycle.InputToken
+	if inputToken < 0 {
+		inputToken = promptForContext[len(promptForContext)-1]
+	}
+	if len(promptForContext) > 1 && promptForContext[len(promptForContext)-1] == inputToken {
+		promptForContext = promptForContext[:len(promptForContext)-1]
+	}
+	m := &LlamaModel{Config: LlamaConfig{ModelType: "gemma4_text", BOSTokenID: 2}}
+	prepared := m.prepareGenerateTokens(promptForContext)
+	if !sameInts(prepared, []int{2, 10979}) {
+		t.Fatalf("prepared prompt context=%v, want llama.cpp prompt KV [2 10979]", prepared)
+	}
+	if inputToken != 236764 {
+		t.Fatalf("input token=%d, want 236764", inputToken)
+	}
+}
+
 func TestGemma4MTPLlamaCPPDefaultFixtureTrimmedValidation(t *testing.T) {
 	fixturePath := filepath.Join("testdata", "gemma4-mtp-llamacpp-fixture.json")
 	data, err := os.ReadFile(fixturePath)
