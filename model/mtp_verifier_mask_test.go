@@ -2,6 +2,33 @@ package model
 
 import "testing"
 
+func TestMTPVerifierAttentionPlanMatchesLlamaStandardSWA(t *testing.T) {
+	m := newZeroLayerVerifierModel()
+	m.Config.NumLayers = 1
+	m.Config.SlidingWindow = 4
+	m.Config.LayerTypes = []string{"sliding_attention"}
+	m.Layers = []LlamaLayer{{}}
+	plan := MTPVerifierPlan{InputToken: 0, DraftedTokens: []int{1, 2}, VerifierTokens: []int{0, 1, 2}, StartPos: 5, Positions: []int{5, 6, 7}}
+	attn, err := NewMTPVerifierAttentionPlan(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lp := attn.Layers[0]
+	for row, qPos := range plan.Positions {
+		var wantStart int
+		for keyPos := 0; keyPos <= qPos; keyPos++ {
+			masked := qPos-keyPos >= m.Config.SlidingWindow // llama_hparams::is_masked_swa STANDARD
+			if !masked {
+				wantStart = keyPos
+				break
+			}
+		}
+		if lp.KVStart[row] != wantStart || lp.KVEndExclusive[row] != qPos+1 {
+			t.Fatalf("row=%d qPos=%d ranges=[%d,%d), want [%d,%d)", row, qPos, lp.KVStart[row], lp.KVEndExclusive[row], wantStart, qPos+1)
+		}
+	}
+}
+
 func TestNewMTPVerifierAttentionPlanFullAndSliding(t *testing.T) {
 	m := newZeroLayerVerifierModel()
 	m.Config.NumLayers = 2
