@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -353,7 +354,20 @@ func compareSelectedLogits(name string, got [][]float32, want []map[string]float
 		return append(mismatches, fmt.Sprintf("%s logits rows=%d want_at_least=%d", name, len(got), len(want)))
 	}
 	for row, probes := range want {
-		for key, wantLogit := range probes {
+		keys := make([]string, 0, len(probes))
+		for key := range probes {
+			keys = append(keys, key)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			ai, aerr := strconv.Atoi(keys[i])
+			bj, berr := strconv.Atoi(keys[j])
+			if aerr == nil && berr == nil {
+				return ai < bj
+			}
+			return keys[i] < keys[j]
+		})
+		for _, key := range keys {
+			wantLogit := probes[key]
 			id, err := strconv.Atoi(key)
 			if err != nil {
 				mismatches = append(mismatches, fmt.Sprintf("%s row=%d invalid_token_key=%q", name, row, key))
