@@ -284,7 +284,26 @@ blk.0.attn_k.weight actual input ggml-vs-go max=0 mean=0
 blk.0.attn_v.weight actual input ggml-vs-go max=0 mean=0
 ```
 
-Thus any small refreshed `q_proj` dump delta is not a Go Q/K/V projection kernel error. A strengthened real layer0 flash oracle now also compares the production pure-Go flash reference against cgo ggml batched `FlashAttnF32F16Batch` on actual verifier rows:
+Thus any small refreshed `q_proj` dump delta is not a Go Q/K/V projection kernel error. An all-layer row1 `l_out` trace comparison shows the residual accumulates across layers rather than appearing as a single abrupt post-layer0 break:
+
+```text
+layer00 max≈0.00791 mean≈0.000794
+layer01 max≈0.00837 mean≈0.000628
+layer02 max≈0.01996 mean≈0.00225
+layer03 max≈0.04304 mean≈0.00437
+layer04 max≈0.05171 mean≈0.00529
+layer08 max≈0.05936 mean≈0.00386
+layer10 max≈0.10193 mean≈0.00695
+layer11 max≈0.10535 mean≈0.00963
+layer16 max≈0.34935 mean≈0.02875  # peak in this trace
+layer20 max≈0.18275 mean≈0.02874
+layer24 max≈0.17304 mean≈0.03319
+layer32 max≈0.24638 mean≈0.02854
+layer40 max≈0.14312 mean≈0.02779
+layer41 max≈0.10824 mean≈0.01598
+```
+
+A strengthened real layer0 flash oracle now also compares the production pure-Go flash reference against cgo ggml batched `FlashAttnF32F16Batch` on actual verifier rows:
 
 ```text
 layer0 batched-vs-row ggml flash row0/1/2 max=0
