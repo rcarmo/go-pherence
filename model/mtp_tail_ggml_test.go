@@ -72,12 +72,24 @@ func TestGemma4MTPStrictFixtureTailNormGGMLOracle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := m.RunMTPVerifierBatchForward(batch, cloneMTPFloatCacheForTest(ctx.KVCacheK), cloneMTPFloatCacheForTest(ctx.KVCacheV))
+	kvK := cloneMTPFloatCacheForTest(ctx.KVCacheK)
+	kvV := cloneMTPFloatCacheForTest(ctx.KVCacheV)
+	finalHiddenRows, ok, err := m.runMTPVerifierBatchLayers(batch, kvK, kvV)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.ActivationRows) != len(plan.VerifierTokens) {
-		t.Fatalf("activation rows=%d want %d", len(res.ActivationRows), len(plan.VerifierTokens))
+	if !ok {
+		finalHiddenRows, err = m.runMTPVerifierBatchRowsSequential(batch, kvK, kvV)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(finalHiddenRows) != len(plan.VerifierTokens) {
+		t.Fatalf("final hidden rows=%d want %d", len(finalHiddenRows), len(plan.VerifierTokens))
+	}
+	goActs, goRows, _, err := m.FinishCPUDecodeBatch(finalHiddenRows)
+	if err != nil {
+		t.Fatal(err)
 	}
 	g, err := gguf.Open(fx.MainModel)
 	if err != nil {
@@ -96,7 +108,7 @@ func TestGemma4MTPStrictFixtureTailNormGGMLOracle(t *testing.T) {
 		t.Fatal(err)
 	}
 	probes := []int{564, 236751, 236757, 236789}
-	for row, hidden := range res.ActivationRows {
+	for row, hidden := range finalHiddenRows {
 		goNorm := append([]float32(nil), hidden...)
 		rmsNormInPlace(goNorm, m.Norm.Data(), float32(m.Config.RMSNormEps))
 		ggNorm := make([]float32, len(hidden))
@@ -108,10 +120,10 @@ func TestGemma4MTPStrictFixtureTailNormGGMLOracle(t *testing.T) {
 		if maxDiff > 1e-5 {
 			t.Fatalf("strict fixture verifier row=%d final norm max=%g mean=%g", row, maxDiff, meanDiff)
 		}
-		goLogits := make([]float32, m.Config.VocabSize)
-		if err := m.LMHeadLogitsInto(goLogits, goNorm); err != nil {
-			t.Fatal(err)
+		if maxAct, meanAct := maxMeanAbsDiff(goNorm, goActs[row]); maxAct > 0 {
+			t.Fatalf("FinishCPUDecodeBatch activation row=%d differs from direct norm max=%g mean=%g", row, maxAct, meanAct)
 		}
+		goLogits := goRows[row]
 		ggLogits := make([]float32, m.Config.VocabSize)
 		if err := ggmlcompute.MulMatQuantF32(int(lmTensor.QType), ggLogits, lmRaw, ggNorm, m.Config.HiddenSize, m.Config.VocabSize); err != nil {
 			t.Fatal(err)
