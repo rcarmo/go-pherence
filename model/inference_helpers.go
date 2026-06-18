@@ -77,7 +77,7 @@ func (m *LlamaModel) Gemma4PerLayerInputsInto(projBuf []float32, slices [][]floa
 		return nil, fmt.Errorf("nil model")
 	}
 	cfg := m.Config
-	if m.PerLayerModelProj == nil || cfg.HiddenPerLayer == 0 {
+	if mtpDisablePLIEnabled() || m.PerLayerModelProj == nil || cfg.HiddenPerLayer == 0 {
 		return nil, nil
 	}
 	h := cfg.HiddenSize
