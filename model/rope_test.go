@@ -50,6 +50,32 @@ func TestGemma4RoPEUsesLocalGGMLThetaProgression(t *testing.T) {
 	}
 }
 
+func TestGemma4RealGGUFFullAttentionRoPEFactors(t *testing.T) {
+	g := openLocalGemma4GGUFForTest(t)
+	defer g.Close()
+	tensor, ok := g.TensorByName("rope_freqs.weight")
+	if !ok {
+		t.Fatal("missing rope_freqs.weight")
+	}
+	factors, err := g.DequantF32(tensor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(factors) != 256 {
+		t.Fatalf("rope_freqs.weight len=%d want 256", len(factors))
+	}
+	for i := 0; i < 64; i++ {
+		if factors[i] != 1 {
+			t.Fatalf("rope_freqs[%d]=%g, want active factor 1", i, factors[i])
+		}
+	}
+	for i := 64; i < len(factors); i++ {
+		if factors[i] < 1e20 {
+			t.Fatalf("rope_freqs[%d]=%g, want disabled large factor", i, factors[i])
+		}
+	}
+}
+
 func TestGemma4FullAttentionRoPEUsesFullHeadFactors(t *testing.T) {
 	m := &LlamaModel{Config: common.Config{ModelType: "gemma4_text", MaxSeqLen: 8, HeadDim: 256, GlobalHeadDim: 512}}
 	m.precomputeGemma4RoPE()
