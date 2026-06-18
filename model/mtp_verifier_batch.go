@@ -62,6 +62,7 @@ func NewMTPVerifierBatchInputs(m *LlamaModel, plan MTPVerifierPlan) (MTPVerifier
 				return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI row offset overflow token=%d perToken=%d", i, perTokenPLI)
 			}
 			for l := range pli {
+				traceMTPSummary("inp_per_layer", i, l, plan.Positions[i], pli[l])
 				layerOff, okLayerOff := checkedProduct(l, m.Config.HiddenPerLayer)
 				if !okLayerOff {
 					return MTPVerifierBatchInputs{}, fmt.Errorf("verifier PLI layer offset overflow layer=%d hiddenPerLayer=%d", l, m.Config.HiddenPerLayer)

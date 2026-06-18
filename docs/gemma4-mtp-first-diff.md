@@ -389,7 +389,17 @@ So the FFN kernels themselves are not the active gap; the observed `ffn_post_nor
 
 The real `per_layer_model_proj` oracle showed that rounding the projection input to F16 matches local cgo ggml more closely than the current F32-input path, but making that the production behavior worsened strict end-to-end selected-logit parity back to six mismatches (`row1 token236757≈-0.2196`, `row2 token236751≈-0.0685`, `row2 token236757≈+0.0133`). This is therefore documented as a local oracle insight, not a safe standalone fix.
 
-Row-aware PLI trace labels matching llama's `pe_in` and `per_layer_embd_out` were added. For the matching verifier occurrence (`occ1` in the llama dump), layer0 row1 compares as:
+Row-aware PLI trace labels matching llama's `inp_per_layer`, `pe_in`, and `per_layer_embd_out` were added. The llama `inp_per_layer` dump emits one 256-wide slice per layer and per graph occurrence; for the matching verifier occurrence, the best mapping is `occ = 42 + layer`, which matches Go per-layer inputs closely:
+
+```text
+layer0  inp_per_layer best occ=42 max≈0.0002766 mean≈1.67e-5
+layer1  inp_per_layer best occ=43 max≈0.0001190 mean≈1.79e-5
+layer2  inp_per_layer best occ=44 max≈0.0003152 mean≈2.18e-5
+layer16 inp_per_layer best occ=58 max≈0.0004044 mean≈2.32e-5
+layer41 inp_per_layer best occ=83 max≈0.0008812 mean≈2.56e-5
+```
+
+For the matching verifier occurrence (`occ1` in the llama PLI branch dump), layer0 row1 compares as:
 
 ```text
 pe_in              max≈0.0594177 mean≈0.00685975
