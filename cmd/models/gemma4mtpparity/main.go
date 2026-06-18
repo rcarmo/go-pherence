@@ -48,6 +48,7 @@ type parityReport struct {
 	Want             parityCycle                         `json:"want"`
 	LogitMismatches  []string                            `json:"logit_mismatches,omitempty"`
 	LogitDeltas      []selectedLogitDelta                `json:"logit_deltas,omitempty"`
+	LogitSummary     []selectedLogitSummary              `json:"logit_summary,omitempty"`
 	Capabilities     model.MTPGraphCapabilities          `json:"capabilities"`
 	MissingForPublic []string                            `json:"missing_for_public_generation,omitempty"`
 }
@@ -61,6 +62,14 @@ type selectedLogitDelta struct {
 	Delta float64 `json:"delta"`
 	Abs   float64 `json:"abs"`
 	Tol   float64 `json:"tol"`
+}
+
+type selectedLogitSummary struct {
+	Name    string  `json:"name"`
+	Row     int     `json:"row"`
+	Count   int     `json:"count"`
+	MaxAbs  float64 `json:"max_abs"`
+	MeanAbs float64 `json:"mean_abs"`
 }
 
 func main() {
@@ -299,7 +308,7 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 		got.BonusToken == fx.Cycle.BonusToken &&
 		got.AllDraftsAccepted == fx.Cycle.AllDraftsAccepted
 	caps := model.Gemma4MTPGraphCapabilities()
-	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, LogitDeltas: deltas, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, LogitDeltas: deltas, LogitSummary: selectedLogitSummaries(deltas), Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
 }
 
 func trimmedStepSummary(c parityCycle) model.MTPGraphGenerationStepSummary {
@@ -398,6 +407,49 @@ func selectedLogitMismatches(deltas []selectedLogitDelta) []string {
 		}
 	}
 	return mismatches
+}
+
+func selectedLogitSummaries(deltas []selectedLogitDelta) []selectedLogitSummary {
+	type acc struct {
+		name string
+		row  int
+		n    int
+		max  float64
+		sum  float64
+	}
+	byKey := map[string]*acc{}
+	keys := make([]string, 0)
+	for _, d := range deltas {
+		key := d.Name + ":" + strconv.Itoa(d.Row)
+		a := byKey[key]
+		if a == nil {
+			a = &acc{name: d.Name, row: d.Row}
+			byKey[key] = a
+			keys = append(keys, key)
+		}
+		a.n++
+		a.sum += d.Abs
+		if d.Abs > a.max {
+			a.max = d.Abs
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		ai, aj := byKey[keys[i]], byKey[keys[j]]
+		if ai.name == aj.name {
+			return ai.row < aj.row
+		}
+		return ai.name < aj.name
+	})
+	out := make([]selectedLogitSummary, 0, len(keys))
+	for _, key := range keys {
+		a := byKey[key]
+		mean := 0.0
+		if a.n > 0 {
+			mean = a.sum / float64(a.n)
+		}
+		out = append(out, selectedLogitSummary{Name: a.name, Row: a.row, Count: a.n, MaxAbs: a.max, MeanAbs: mean})
+	}
+	return out
 }
 
 func sameInts(a, b []int) bool {
