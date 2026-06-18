@@ -295,6 +295,14 @@ layer0 batched-vs-pure flash row2 max=0
 
 So the pure-Go flash implementation is effectively matching the local cgo ggml oracle; the remaining saved llama trace residual (`~5.9e-4`) is no longer explained by Go-side flash math or K/V cache layout alone.
 
+The gated full-layer batch verifier path was also re-tested after the graph/flash fixes:
+
+```bash
+GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS=1 go run ./cmd/models/gemma4mtpparity -fixture tmp/gemma4-mtp-llamacpp-fixture.json
+```
+
+It produces the same strict selected-logit deltas as the default sequential row fallback (row1 token236757 about `-0.1882`, row2 token236751 within tolerance). Therefore the current gap is not caused by sequential verifier-row lowering versus the gated full-layer batch scaffold.
+
 A real-asset Go-vs-ggml oracle using the actual layer0 row1 `attn_out` input now covers the FFN kernels. Findings:
 
 ```text
