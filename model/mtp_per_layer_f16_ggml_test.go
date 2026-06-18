@@ -15,6 +15,68 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4Layer0VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.BuildMTPPromptContext([]int{10979})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := MTPVerifierPlan{InputToken: 236764, DraftedTokens: []int{564, 236789}, VerifierTokens: []int{236764, 564, 236789}, StartPos: ctx.SeqLen, Positions: []int{ctx.SeqLen, ctx.SeqLen + 1, ctx.SeqLen + 2}}
+	batch, err := NewMTPVerifierBatchInputs(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	qkv, err := m.ProjectMTPVerifierLayerQKVBatch(batch, 0, batch.HiddenFlat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !qkv.HasKV || qkv.HeadDim != 256 || qkv.KVHeads != 2 || m.Config.NumHeads != 8 {
+		t.Fatalf("unexpected layer0 qkv shape: %+v heads=%d", qkv, m.Config.NumHeads)
+	}
+	promptK := append([]float32(nil), ctx.KVCacheK[0]...)
+	promptV := append([]float32(nil), ctx.KVCacheV[0]...)
+	for row := range plan.VerifierTokens {
+		seqLen := ctx.SeqLen + row + 1
+		kCache := append([]float32(nil), promptK...)
+		vCache := append([]float32(nil), promptV...)
+		for i := 0; i <= row; i++ {
+			kCache = append(kCache, qkv.K[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+			vCache = append(vCache, qkv.V[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+		}
+		q := qkv.Q[row*qkv.QDim : (row+1)*qkv.QDim]
+		goAttn := gqaAttentionScale(q, kCache, vCache, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
+		kF16, vF16, kRounded, vRounded := ggmlF16KVFromGoCache(kCache, vCache, seqLen, qkv.KVHeads, qkv.HeadDim)
+		ggmlAttn := make([]float32, len(goAttn))
+		if err := ggmlcompute.FlashAttnF32F16(ggmlAttn, q, kF16, vF16, nil, qkv.HeadDim, seqLen, m.Config.NumHeads, qkv.KVHeads, 1.0); err != nil {
+			t.Fatal(err)
+		}
+		goRoundedAttn := gqaAttentionScale(q, kRounded, vRounded, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
+		maxF32, meanF32 := maxMeanAbsDiff(ggmlAttn, goRoundedAttn)
+		goF16Accum := flashAttnF16AccumReference(q, kRounded, vRounded, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
+		maxF16, meanF16 := maxMeanAbsDiff(ggmlAttn, goF16Accum)
+		t.Logf("real layer0 verifier row=%d seq=%d ggml-vs-GoRoundedF32 max=%g mean=%g; ggml-vs-F16Accum max=%g mean=%g", row, seqLen, maxF32, meanF32, maxF16, meanF16)
+		if maxF16 > 1e-2 {
+			t.Fatalf("real layer0 verifier row=%d flash oracle drift max=%g mean=%g", row, maxF16, meanF16)
+		}
+		if maxF32 <= maxF16 {
+			t.Fatalf("real layer0 verifier row=%d F16 accumulator reference did not improve over F32 accumulation: f32=%g f16=%g", row, maxF32, maxF16)
+		}
+	}
+}
+
 func TestGemma4GGMLFlashAttentionF16Oracle(t *testing.T) {
 	assertFlashAttentionF16Oracle(t, "compact", 8, 5, 4, 2, 0.113, -0.071, 0.091, 5e-4)
 }
@@ -476,6 +538,26 @@ func TestGemma4PerLayerModelProjRealGGMLF16Oracle(t *testing.T) {
 	if maxGo < 1e-6 {
 		t.Fatal("current Go unexpectedly matches ggml F16 mul_mat exactly; oracle no longer distinguishes input rounding")
 	}
+}
+
+func ggmlF16KVFromGoCache(kCache, vCache []float32, seqLen, nKV, headDim int) ([]uint16, []uint16, []float32, []float32) {
+	kF16 := make([]uint16, len(kCache))
+	vF16 := make([]uint16, len(vCache))
+	kRounded := make([]float32, len(kCache))
+	vRounded := make([]float32, len(vCache))
+	for seq := 0; seq < seqLen; seq++ {
+		for kvh := 0; kvh < nKV; kvh++ {
+			for d := 0; d < headDim; d++ {
+				goIdx := seq*nKV*headDim + kvh*headDim + d
+				ggmlIdx := kvh*seqLen*headDim + seq*headDim + d
+				kF16[ggmlIdx] = half.F32ToF16(kCache[goIdx])
+				vF16[ggmlIdx] = half.F32ToF16(vCache[goIdx])
+				kRounded[goIdx] = half.F16ToF32(kF16[ggmlIdx])
+				vRounded[goIdx] = half.F16ToF32(vF16[ggmlIdx])
+			}
+		}
+	}
+	return kF16, vF16, kRounded, vRounded
 }
 
 func flashAttnF16AccumReference(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) []float32 {
