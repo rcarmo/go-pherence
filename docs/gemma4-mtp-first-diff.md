@@ -303,6 +303,24 @@ layer40 max≈0.14312 mean≈0.02779
 layer41 max≈0.10824 mean≈0.01598
 ```
 
+A focused row1 layer16 refresh (where the max drift peaks) confirms the drift is inherited into the layer rather than created by one isolated layer16 op:
+
+```text
+layer15 l_out -> layer16 input max≈0.236385 mean≈0.0252965
+layer16 attn_norm            max≈0.633961 mean≈0.0509786
+layer16 k_norm               max≈0.0100745 mean≈0.0015274
+layer16 k_pos                max≈0.0100646 mean≈0.0015347
+layer16 v_norm               max≈0.122396 mean≈0.0214687
+layer16 attn_pre_o           max≈0.0885595 mean≈0.0090426
+layer16 attn_out             max≈0.356415 mean≈0.0266757
+layer16 ffn_norm             max≈0.0638602 mean≈0.0061099
+layer16 ffn_out              max≈0.0086391 mean≈0.0014295
+layer16 ffn_post_norm        max≈0.235194 mean≈0.0377614
+layer16 l_out                max≈0.349350 mean≈0.0287527
+```
+
+Thus layer16 is an amplification point in the accumulated trajectory, not the first local semantic mismatch.
+
 A strengthened real layer0 flash oracle now also compares the production pure-Go flash reference against cgo ggml batched `FlashAttnF32F16Batch` on actual verifier rows:
 
 ```text
