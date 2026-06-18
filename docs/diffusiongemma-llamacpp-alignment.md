@@ -1,24 +1,60 @@
-# DiffusionGemma llama.cpp Alignment Report
+# DiffusionGemma llama.cpp alignment report
 
-## 1. Alignment against the four-dimension rubric
+_Date: 2026-06-18_
 
-| Dimension | Gate / evidence | What it compares | Tolerance | Status |
-| --- | --- | --- | --- | --- |
-| Output fidelity | `make diffusiongemma-golden-gate`: `TestLlamaCppGGUFHi1x1GoldenResponseIDs`, `TestGGUFHi1x1GoTrimmedOutputComparisonGate`, `TestGGUFHi1x1TopLogitProbeGate`, `TestGGUFHi1x1ParityStatusDocumentsCurrentBlocker` | Checked-in llama.cpp GGUF fixture: exact prompt IDs, response IDs/metadata, step-1 sampler/top-logit probes, and the documented current Go-vs-llama mismatch. | Exact IDs/metadata; top logits `±1e-4`; entropy bands from the fixture. | **Partial**: fixture is required and non-skipping, but it documents the current mismatch rather than claiming full response parity. |
-| C++/ggml structural correspondence | `TestGGUFHiPhaseAlignedTraceStructuralParityGate`, `TestGGUFHiPhaseAlignedTraceBranchDriftIsBounded`, `TestGGUFHiPhaseAlignedInputNormParityGate`, `TestGGUFHiPhaseAlignedLayerOpsParityGate`, plus strict grouped-expert smoke (`GO_PHERENCE_DIFFUSIONGEMMA_BACKEND_GRAPH=1`) | Phase-aligned row-28 decode traces against llama.cpp boundaries, input norms, layer-0 ops, branch summaries, and the `ggml_mul_mat_id`-style grouped expert boundary. | Structural ops `rms<=0.15`, `max_abs<=10`; branch drift `rms<=1.5`, `max_abs<=120`; layer/input fixtures carry their own RMS/max/first-value bounds. | **Partial/PASS for covered slice**: graph boundaries and covered row/op traces line up; no full 256-canvas end-to-end llama golden yet. |
-| SIMD↔CPU oracle | `TestGGUFQ4KExpertRowDotMatchesScalarDequantOracle`, `TestGGUFQ8_0ExpertRowDotMatchesScalarDequantOracle`, `TestGGUFQ5_0ExpertRowDotMatchesScalarDequantOracle`, `TestGGUFQ6KLMHeadRowDotMatchesQ8KRoundedDequantOracle`, `TestQ6I8DotAVX2MatchesScalar` | AVX2/direct quantized expert and LM-head row-dot paths against scalar dequantized or Q8_K-rounded references. | Q8 `1e-5`; Q4/Q5 `1e-4`; Q6/K helper checks `1e-6` where applicable. | **PASS for covered quant kernels**. |
-| GPU↔CPU oracle | `TestLocalGGUFGPUCPUCanvas1Parity`; focused CUDA pointer-table tests for Q4_K gate/up and Q8_0/Q5_0 down grouped experts. | Real Q4_K_M GGUF canvas=1 CPU dispatcher vs CUDA dispatcher: generated canvas token, first argmax/sample, acceptance decisions; expert pointer-table kernels against CPU selected-expert output. | Token/sampler decisions exact; entropy logged but not strict; expert parity uses focused numeric tolerances in the CUDA tests. | **Partial**: CUDA smoke is real and required when CUDA/GGUF are present, but skips on GPU-less or asset-less hosts and is not a full-canvas llama.cpp golden. |
+## Headline
 
-## 2. Structural correspondence
+The Go DiffusionGemma text/GGUF path now follows the llama.cpp execution-graph shape for the main denoise stack: prompt/canvas embedding semantics, RMSNorm/softcap/tanh-GELU choices, router/top-k weighting, grouped MoE expert execution, dense LM-head/device sampling, and raw-logit self-conditioning have all been moved toward the llama.cpp graph. The required gate `make diffusiongemma-golden-gate` is green locally, including the local real-GGUF smoke and CUDA GPU↔CPU smoke when CUDA is present. The remaining gaps are not hidden: the local fast GGUF smoke is not a full `canvas_length=256` llama.cpp golden, full-canvas end-to-end parity is still represented by per-op/fixture gates plus smoke checks, and vision/multimodal coverage remains partial.
 
-The Go GGUF path now mirrors the llama.cpp DiffusionGemma execution graph at the important model boundaries: prompt IDs use the HF/Jinja-compatible DiffusionGemma generation prompt; embeddings apply the `sqrt(d_model)` scale; RMSNorm is float32; final logits use the configured softcap; random canvas initialization and renoise use MT19937/libstdc++-style integer mapping; raw-logit self-conditioning is the default handoff; and `OpExperts` always builds grouped selected-expert metadata before dispatching through a grouped backend, matching the `gemma4_build_ffn_moe` / `llm_graph_context::build_moe_ffn` / `ggml_mul_mat_id` shape instead of a model-level “try GPU else CPU experts” branch.
+## Four-dimension alignment matrix
 
-The main deliberate implementation divergences are backend residency choices and bounded fallbacks, not graph semantics: resident/transient GPU expert pointer tables, CPU/SIMD grouped backend execution for missing experts, host-side cache/prewarm controls, and asset-dependent skips exist so the model can run on constrained hosts. The fused expert activation was corrected to llama.cpp/ggml tanh-GELU for the production Q4_K path; earlier exact-erf/host-boundary experiments remain historical diagnostics, not the default. Device-side LM-head sampling and raw-logit self-conditioning state are wired, but strict device self-conditioning MLP consumption remains a named gap.
+| Dimension | Current gate | What it compares | Tolerance / contract | Status |
+|---|---|---|---|---|
+| Output fidelity | `TestLlamaCppGGUFHi1x1GoldenResponseIDs`, `TestGGUFHi1x1GoTrimmedOutputComparisonGate`, `TestGGUFHi1x1TopLogitProbeGate`, `TestLocalGGUFTinyForwardGoldenTopLogits` via `make diffusiongemma-golden-gate` | Checked-in llama.cpp response/token/logit fixtures and a local real-GGUF smoke. The local smoke currently locks a fast one-row diagnostic top token/logit, not a full 256-canvas graph. | Exact IDs for committed fixtures; local smoke top-1 ID and logit within `1e-3` of its current local reference. | **Partial/pass**: gates are green, but full-canvas real llama.cpp golden is not yet in the fast gate. |
+| ggml structural correspondence | `TestDiffusionGemmaTextForwardOpPlanMatchesLlamaCppOrder`, `TestGGUFHiPhaseAlignedTraceStructuralParityGate`, `TestGGUFHiPhaseAlignedLayer0OpsParityGate`, `TestGGUFHiPhaseAlignedInputNormParityGate` | Go op order and phase-aligned row summaries versus llama.cpp: embedding → SC → attention → post-attn → dense MLP + MoE → post-FFN/residual → layer scalar → final norm → LM head. | Exact op order; bounded branch-drift fixture tolerances for committed row-trace summaries. | **Pass/partial**: text graph order is locked; full numerical row-by-row all-layer parity is still not complete. |
+| SIMD↔CPU oracle | `TestGGUFQ(4K|8_0|5_0)ExpertRowDotMatchesScalarDequantOracle`, `TestGGUFQ6KLMHeadRowDotMatchesQ8KRoundedDequantOracle`, `TestQ6I8DotAVX2MatchesScalar` | Quantized expert row dots and Q6_K×Q8_K LM-head primitives against scalar dequantized references and AVX2/scalar agreement. | Scalar-oracle tolerances used by the tests; exact ID/shape contracts for malformed input checks. | **Pass** for covered Q4_K/Q5_0/Q8_0/Q6_K CPU/SIMD kernels. |
+| GPU↔CPU oracle | `TestLocalGGUFGPUCPUCanvas1Parity` in `make diffusiongemma-golden-gate` under `flock /tmp/go-pherence-gpu.lock` | Local real Q4_K_M GGUF, same prompt/seed/canvas=1, CPU dispatcher versus GPU dispatcher. | Generated token, first argmax, sampled token, accepted count/mask decision must match. Entropy delta is logged, not failed. CUDA hosts fail if CUDA is present but SGEMM/PTX is unavailable. | **Pass/partial**: token/sample/acceptance parity is locked for canvas=1; strict entropy/logit parity and full-canvas GPU↔CPU parity remain gaps. |
 
-## 3. Fit / gap analysis
+## Structural correspondence to llama.cpp
 
-Fully done for the audited slice: deterministic prompt/RNG/scaffold metadata gates; committed llama.cpp fixture gates; phase-aligned structural row/op trace gates; SIMD scalar-oracle coverage for Q4_K/Q8_0/Q5_0 expert dots and Q6_K LM-head dots; grouped expert backend boundary in encoder and denoise; strict graph mode that fails closed; and CUDA canvas=1 GPU↔CPU smoke/parity coverage when local assets are available.
+Implemented correspondence points:
 
-Partial: output fidelity is measured and guarded, but the committed Go-vs-llama gate still records a known response/logit mismatch rather than full equality. Structural correspondence is strong at traced boundaries and `OpExperts`, but it is not yet a whole-graph golden over `canvas_length=256`. GPU parity is a fast real smoke plus kernel oracles, not an exhaustive full-canvas llama.cpp comparison. Quant coverage is strongest for Q4_K_M GGUF expert/LM-head paths; FP8 and other quant variants are not equivalently parity-gated.
+- **Text op order:** `BuildForwardOpPlan` matches the llama.cpp `diffusion-gemma.cpp`/`gemma4-common.h` layer sequence: input norm, QKV attention, post-attention norm/residual, dense shared MLP, MoE router/experts, post-FFN norm/residual, region-aware layer scalar, final norm, LM head.
+- **Embedding semantics:** prompt embeddings use `embed * sqrt(n_embd)`; canvas embeddings use no-scale RMSNorm semantics after optional self-conditioning.
+- **RMSNorm:** epsilon and no-scale variants are represented explicitly; the op-order gate prevents reordering.
+- **Activation:** DiffusionGemma MLP/expert activation now uses llama.cpp/ggml tanh-GELU (`LLM_FFN_GELU` / `ggml_gelu`) rather than the removed host “exact-GELU” path.
+- **Softcap:** final-logit softcap is implemented as `tanh(x / c) * c`, including a GPU buffer kernel for device sampling paths.
+- **MoE routing and experts:** selected experts are grouped once and routed through a `ggml_mul_mat_id`-style backend boundary. Model-level GGUF expert CPU fallback, raw-Q4 alternate residency, sparse LM-head, chunked GGUF LM-head, CPU expert bypass, and partial-layer execution knobs have been removed from the production graph surface.
+- **Self-conditioning:** raw-logit self-conditioning with previous-step `temp_inv` is mandatory; the embedding handoff opt-out has been removed. GGUF device LM-head now returns retained device logits state, and `OpSelfCondition` can consume that device state.
 
-Not covered / next closure work: implement and validate the device-side self-conditioning consumer (`GGUFGPUDeviceSelfConditioning` through softmax + SC MLP + add/post-norm) so strict backend graph mode can keep the whole feedback path on device; capture a full-canvas (`canvas=256`) llama.cpp reference and compare end-to-end logits/tokens, not just row/op probes and fast smoke decisions; expand GPU↔CPU oracle coverage from canvas=1 to representative full-canvas workloads; add parity gates for FP8 and any non-Q4_K_M paths; and replace local-asset/GPU skips with CI-provisioned assets if these gates must be mandatory on every host.
+Deliberate remaining non-production/reference surfaces:
+
+- Explicit CPU/SIMD dispatcher and CPU expert implementations remain as reference/oracle code paths.
+- Trace/fixture tests remain for auditing, not as production graph alternatives.
+- The local fast GGUF smoke remains one-row diagnostic because a full `canvas_length=256` CPU unit gate exceeds the normal Go test timeout.
+
+## Fit / gap analysis
+
+### Fully done for the text/GGUF path
+
+- Locked text forward op order against the llama.cpp graph shape.
+- Removed known invalid production alternatives: raw Q4 expert mode, host exact-GELU, sparse/top-k LM-head, chunked host GGUF LM-head, raw-SC opt-out, partial-layer graph execution, GPU CPU-expert bypass, and GGUF CPU-prefill env override.
+- Covered CPU/SIMD quantized expert and Q6_K LM-head primitive correctness with scalar oracles.
+- Covered bounded GPU↔CPU canvas=1 token/sample/acceptance parity on real GGUF.
+
+### Partial / still open
+
+- **Full-canvas llama.cpp golden:** not yet a fast gate. A valid llama.cpp exactness helper requires the model’s `diffusion.canvas_length=256`; the current local unit smoke is intentionally diagnostic and not a full graph golden.
+- **Strict entropy/logit parity:** GPU↔CPU smoke still logs entropy drift rather than failing. This must become a stricter sampler/logit oracle after the device `sc_dev` path is fully validated.
+- **Full-canvas end-to-end parity:** current confidence comes from per-op fixtures, llama.cpp response fixtures, and bounded smokes, not from a single full-canvas local golden in the required gate.
+- **FP8/safetensor path:** several FP8 GPU paths exist, but the main llama.cpp parity target for this report is GGUF Q4_K_M. FP8 is not equivalent coverage for the GGUF backend graph.
+- **Vision/multimodal:** operation surfaces exist and some preprocessing/boundary tests pass, but full image-sequence vision reference fixtures are still missing; `ReferenceComplete` remains false for vision tower/insertion.
+- **GPU-less hosts:** CUDA-dependent gates skip when no GPU is present, but on CUDA hosts they run/fail as required.
+
+### What closes the gaps
+
+1. Add a committed full-canvas reference artifact generated by llama.cpp’s `llama-diffusion-gemma-eval` for a bounded prompt/canvas and a Go comparison that is suitable for CI time limits, or split it into an explicit slow/reference target outside the fast gate.
+2. Promote GPU entropy/logit parity from logged diagnostic to a bounded failing oracle once the device self-conditioning/sampler path is proven against that full-canvas reference.
+3. Extend the structural trace fixture beyond the currently locked rows/layers until first-difference analysis is no longer needed for text.
+4. Add full multimodal/vision fixtures before marking vision reference-complete.
+5. Re-run performance only after the full graph and sampler/logit parity gates are green; performance is not evidence of graph fidelity by itself.
