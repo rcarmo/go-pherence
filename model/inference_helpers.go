@@ -134,17 +134,24 @@ func (m *LlamaModel) Gemma4PerLayerInputsInto(projBuf []float32, slices [][]floa
 	for l := 0; l < nl; l++ {
 		sl := proj[l*hpl : (l+1)*hpl]
 		rmsNormInPlace(sl, m.PerLayerProjNorm, float32(cfg.RMSNormEps))
+		traceMTPSummary("per_layer_proj", -1, l, tokenID, sl)
 	}
 	if m.EmbedPerLayerGGUF != nil && tokenID < cfg.VocabPerLayer {
 		embRow := make([]float32, totalDim)
 		if err := m.EmbedPerLayerGGUF.DequantRowTo(embRow, tokenID); err != nil {
 			return nil, err
 		}
+		for l := 0; l < nl; l++ {
+			traceMTPSummary("inp_per_layer_selected", -1, l, tokenID, embRow[l*hpl:(l+1)*hpl])
+		}
 		for i := range proj {
 			proj[i] = (proj[i] + embRow[i]*m.EmbedPerLayerScale) * m.PerLayerInputScale
 		}
 	} else if m.EmbedPerLayer != nil && tokenID < cfg.VocabPerLayer {
 		embRow := m.EmbedPerLayer[tokenID*totalDim : (tokenID+1)*totalDim]
+		for l := 0; l < nl; l++ {
+			traceMTPSummary("inp_per_layer_selected", -1, l, tokenID, embRow[l*hpl:(l+1)*hpl])
+		}
 		for i := range proj {
 			proj[i] = (proj[i] + embRow[i]*m.EmbedPerLayerScale) * m.PerLayerInputScale
 		}
