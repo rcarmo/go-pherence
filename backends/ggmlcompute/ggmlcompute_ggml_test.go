@@ -10,6 +10,23 @@ import (
 	"github.com/rcarmo/go-pherence/half"
 )
 
+func TestF32ToF16MatchesGGML(t *testing.T) {
+	vals := []float32{0, -0, 1, -1, 0.33325195, 65504, 1e-8, -1e-8, float32(math.Inf(1)), float32(math.Inf(-1))}
+	for i := 0; i < 2048; i++ {
+		vals = append(vals, float32(math.Sin(float64(i)*0.119))*1000)
+	}
+	got, err := F32ToF16(vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, v := range vals {
+		want := half.F32ToF16(v)
+		if got[i] != want {
+			t.Fatalf("value %d %g ggml=%04x go=%04x", i, v, got[i], want)
+		}
+	}
+}
+
 func TestVecDotF16DiffersFromScalarReduction(t *testing.T) {
 	const n = 256
 	x := make([]uint16, n)

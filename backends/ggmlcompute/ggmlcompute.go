@@ -29,6 +29,16 @@ static void gp_quantize_q8k(const float * x, void * y, int64_t k) {
     quantize_row_q8_K(x, y, k);
 }
 
+static int gp_f32_to_f16(int n, const float * x, uint16_t * out) {
+    if (!x || !out || n <= 0) {
+        return -1;
+    }
+    for (int i = 0; i < n; ++i) {
+        out[i] = ggml_fp32_to_fp16(x[i]);
+    }
+    return 0;
+}
+
 static int gp_vecdot_f16(int n, float * out, const uint16_t * x, const uint16_t * y) {
     if (!out || !x || !y || n <= 0) {
         return -1;
@@ -441,6 +451,18 @@ func TypeName(t int) string     { return C.GoString(C.gp_type_name(C.int(t))) }
 func TypeSize(t int) int        { return int(C.gp_type_size(C.int(t))) }
 func BlockSize(t int) int       { return int(C.gp_blck_size(C.int(t))) }
 func RawBytes(t int, n int) int { return ggmlutil.RawBytes(n, BlockSize(t), TypeSize(t)) }
+
+func F32ToF16(x []float32) ([]uint16, error) {
+	if len(x) == 0 {
+		return nil, fmt.Errorf("empty F32ToF16 input")
+	}
+	out := make([]uint16, len(x))
+	rc := C.gp_f32_to_f16(C.int(len(x)), (*C.float)(unsafe.Pointer(&x[0])), (*C.uint16_t)(unsafe.Pointer(&out[0])))
+	if rc != 0 {
+		return nil, fmt.Errorf("ggml F32ToF16 failed rc=%d", int(rc))
+	}
+	return out, nil
+}
 
 func VecDotF16(x, y []uint16) (float32, error) {
 	if len(x) == 0 || len(x) != len(y) {
