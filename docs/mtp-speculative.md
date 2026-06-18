@@ -165,7 +165,7 @@ Important difference vs the initial go-pherence plan:
 
 When regenerating llama.cpp reference traces from recent `llama-server` builds, pass the MTP speculative type explicitly. `--spec-default` may select only n-gram speculation and leave the draft model unused (`speculative.types: none,ngram-mod`). A minimal CPU trace invocation should include `--spec-type draft-mtp --spec-draft-n-max <G> --spec-draft-n-min <G> --spec-draft-p-min 0` together with the main model (`-m`) and drafter (`-md`/`--model-draft`). Keep `--flash-attn on` when regenerating the current selected-logit fixture: on the local Gemma4 QAT+MTP trace, `--flash-attn on` reproduces the fixture logits exactly while `--flash-attn off` produces the same accepted tokens but different selected logits.
 
-Current status: `make gemma4-mtp-parity` is the required green default gate (accepted-token MTP fixture plus GGUF quant oracles). `make gemma4-mtp-strict-parity` is the red 1:1 selected-logit gate and currently reports six verifier-logit mismatches against the local `--flash-attn on` llama.cpp fixture; leave `RealAssetAcceptanceParity=false` until that strict gate is green.
+Current status: `make gemma4-mtp-parity` is the required green default gate (accepted-token MTP fixture plus GGUF quant oracles). `make gemma4-mtp-strict-parity` is the red 1:1 selected-logit gate and currently reports five verifier-logit mismatches against the local `--flash-attn on` llama.cpp fixture; leave `RealAssetAcceptanceParity=false` until that strict gate is green.
 
 Latest strict-parity localization:
 
@@ -174,17 +174,17 @@ Latest strict-parity localization:
 - Q projection, K projection/norm, RoPE position application, V no-scale RMSNorm requirement, attention scale `1.0`, and O projection are not the primary remaining gap. Existing `LLAMA_MTP_TRACE_ATTN_WO` vs Go `attn_wo` summaries are already close at layer 0; the first substantial amplification is at `attn_post_norm(attn_wo) + residual`.
 - llama.cpp `build_norm` for Gemma4 RMSNorm is plain `ggml_rms_norm(x) * weight`; Go uses the same semantic formula. A GGML-style double-accumulating RMSNorm experiment and a forced non-assembly RMSNorm path both worsened selected-logit parity, so RMSNorm accumulation precision/dispatch is not the fix.
 - Forcing dequantized-F32 GGUF GEMV with `GO_PHERENCE_GGUF_DEQUANT_GEMV=1` changes the mismatch pattern and improves/overshoots some selected logits while worsening others. The fast Q4_0×Q8_0/Q6_K×Q8_K path is therefore not a simple sole culprit.
-- Other rejected candidates include changing Gemma4 attention scale, removing V RMSNorm, changing Q/K BF16 rounding, changing final norm BF16/F32 handling, switching KV cache F16/F32, online/flash-style attention recurrence in Go, dequantized O projection as a blanket fix, and final LM-head/softcap-only explanations.
+- Other rejected candidates include changing Gemma4 attention scale, removing V RMSNorm, changing Q/K BF16 rounding, changing final norm BF16/F32 handling, switching KV cache F16/F32, online/flash-style attention recurrence in Go, dequantized O projection as a blanket fix, exact-erf GELU in place of the current ggml FP16 GELU-table path, and final LM-head/softcap-only explanations.
+- Applying `layer_output_scale` before the existing Gemma4 verifier layer-output BF16 boundary matches the llama.cpp `out_scale` node ordering and reduced the strict mismatch set from six to five; `row0 token236751` now passes.
 
 Current strict mismatch set for the local fixture:
 
 ```text
-row0 token236751 got=14.141362190246582 want=14.126071
-row0 token236757 got=15.260643005371094 want=15.1981421
-row1 token236751 got=7.356825828552246 want=7.34865713
-row1 token236757 got=13.845194816589355 want=13.9382925
-row2 token236751 got=20.2935791015625 want=20.2557411
-row2 token236757 got=28.642704010009766 want=28.6220856
+row0 token236757 got=15.183377265930176 want=15.1981421
+row1 token236751 got=7.3939433097839355 want=7.34865713
+row1 token236757 got=13.55457878112793 want=13.9382925
+row2 token236751 got=20.27935791015625 want=20.2557411
+row2 token236757 got=28.63353729248047 want=28.6220856
 ```
 
 Minimal fixture shape:

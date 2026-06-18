@@ -164,7 +164,7 @@ Strict Gemma4 QAT+MTP status notes:
 
 - `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp` is the required green default gate.
 - `make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` remains the red 1:1 selected-logit gate for the local `llama.cpp --flash-attn on` fixture.
-- The strict fixture currently matches prompt/draft/verifier tokens and acceptance/bonus-token semantics, but still reports six selected verifier-logit mismatches.
+- The strict fixture currently matches prompt/draft/verifier tokens and acceptance/bonus-token semantics, but still reports five selected verifier-logit mismatches after the Gemma4 verifier `layer_output_scale` ordering fix.
 - Keep `RealAssetAcceptanceParity=false`, public/default MTP generation not-ready, and full-layer verifier batch default enablement gated until the strict gate is green.
 
 # 31B stress smoke, when VRAM headroom permits
