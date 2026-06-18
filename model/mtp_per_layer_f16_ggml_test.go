@@ -14,6 +14,55 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4PerLayerTokenEmbeddingRealGGMLGetRowsOracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	tensor, ok := g.TensorByName("per_layer_token_embd.weight")
+	if !ok {
+		t.Fatal("per_layer_token_embd.weight not found")
+	}
+	raw, err := g.Raw(tensor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.EmbedPerLayerGGUF == nil {
+		t.Fatal("Go per-layer GGUF embedding not loaded")
+	}
+	probeTokens := []int{10979, 236764, 564, 236789}
+	for _, tok := range probeTokens {
+		gotGGML := make([]float32, m.EmbedPerLayerGGUF.InDim)
+		if err := ggmlcompute.GetRowToF32(int(tensor.QType), gotGGML, raw, m.EmbedPerLayerGGUF.InDim, m.EmbedPerLayerGGUF.OutDim, tok); err != nil {
+			t.Fatalf("ggml get row token %d: %v", tok, err)
+		}
+		gotGo := make([]float32, m.EmbedPerLayerGGUF.InDim)
+		if err := m.EmbedPerLayerGGUF.DequantRowTo(gotGo, tok); err != nil {
+			t.Fatalf("go dequant row token %d: %v", tok, err)
+		}
+		maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+		t.Logf("per_layer_token_embd token=%d ggml-vs-go max=%g mean=%g", tok, maxDiff, meanDiff)
+		if maxDiff > 1e-6 {
+			t.Fatalf("per_layer_token_embd token=%d ggml-vs-go max=%g mean=%g", tok, maxDiff, meanDiff)
+		}
+	}
+}
+
 func TestGemma4PerLayerModelProjRealGGMLF16Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {

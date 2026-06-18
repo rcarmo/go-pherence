@@ -92,6 +92,50 @@ static int gp_mul_mat_f16_f32(const uint16_t * w_f16, const float * x_f32, float
     ggml_free(ctx);
     return 0;
 }
+
+static int gp_get_row_to_f32(int typ, const void * raw, size_t raw_bytes, int in_dim, int out_dim, int row, float * out) {
+    if (!raw || !out || in_dim <= 0 || out_dim <= 0 || row < 0 || row >= out_dim) {
+        return -1;
+    }
+    ggml_cpu_init();
+    enum ggml_type gt = (enum ggml_type) typ;
+    size_t tensor_bytes = ggml_row_size(gt, in_dim) * (size_t) out_dim;
+    if (raw_bytes < tensor_bytes) {
+        return -2;
+    }
+    size_t mem_size = tensor_bytes + (size_t) in_dim * sizeof(float) + 16*1024*1024;
+    struct ggml_init_params params = {
+        .mem_size   = mem_size,
+        .mem_buffer = NULL,
+        .no_alloc   = false,
+    };
+    struct ggml_context * ctx = ggml_init(params);
+    if (!ctx) {
+        return -3;
+    }
+    struct ggml_tensor * w = ggml_new_tensor_2d(ctx, gt, in_dim, out_dim);
+    struct ggml_tensor * ids = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, 1);
+    memcpy(w->data, raw, tensor_bytes);
+    ((int32_t *) ids->data)[0] = row;
+    struct ggml_tensor * y = ggml_get_rows(ctx, w, ids);
+    struct ggml_cgraph * gf = ggml_new_graph(ctx);
+    ggml_build_forward_expand(gf, y);
+    struct ggml_backend * backend = ggml_backend_cpu_init();
+    if (!backend) {
+        ggml_free(ctx);
+        return -4;
+    }
+    enum ggml_status st = ggml_backend_graph_compute(backend, gf);
+    if (st != GGML_STATUS_SUCCESS) {
+        ggml_backend_free(backend);
+        ggml_free(ctx);
+        return -5;
+    }
+    memcpy(out, y->data, (size_t) in_dim * sizeof(float));
+    ggml_backend_free(backend);
+    ggml_free(ctx);
+    return 0;
+}
 */
 import "C"
 
@@ -145,6 +189,17 @@ func MulMatF16F32(out []float32, wF16 []uint16, x []float32, inDim, outDim int) 
 	rc := C.gp_mul_mat_f16_f32((*C.uint16_t)(unsafe.Pointer(&wF16[0])), (*C.float)(unsafe.Pointer(&x[0])), (*C.float)(unsafe.Pointer(&out[0])), C.int(inDim), C.int(outDim))
 	if rc != 0 {
 		return fmt.Errorf("ggml F16 mul_mat failed rc=%d", int(rc))
+	}
+	return nil
+}
+
+func GetRowToF32(qtype int, out []float32, raw []byte, inDim, outDim, row int) error {
+	if inDim <= 0 || outDim <= 0 || row < 0 || row >= outDim || len(out) < inDim || len(raw) == 0 {
+		return fmt.Errorf("bad GetRowToF32 sizes")
+	}
+	rc := C.gp_get_row_to_f32(C.int(qtype), unsafe.Pointer(&raw[0]), C.size_t(len(raw)), C.int(inDim), C.int(outDim), C.int(row), (*C.float)(unsafe.Pointer(&out[0])))
+	if rc != 0 {
+		return fmt.Errorf("ggml get_rows failed rc=%d", int(rc))
 	}
 	return nil
 }
