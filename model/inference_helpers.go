@@ -142,7 +142,11 @@ func (m *LlamaModel) Gemma4PerLayerInputsInto(projBuf []float32, slices [][]floa
 			return nil, err
 		}
 		for l := 0; l < nl; l++ {
-			traceMTPSummary("inp_per_layer_selected", -1, l, tokenID, embRow[l*hpl:(l+1)*hpl])
+			selected := append([]float32(nil), embRow[l*hpl:(l+1)*hpl]...)
+			for i := range selected {
+				selected[i] *= m.EmbedPerLayerScale
+			}
+			traceMTPSummary("inp_per_layer_selected", -1, l, tokenID, selected)
 		}
 		for i := range proj {
 			proj[i] = (proj[i] + embRow[i]*m.EmbedPerLayerScale) * m.PerLayerInputScale
@@ -150,7 +154,11 @@ func (m *LlamaModel) Gemma4PerLayerInputsInto(projBuf []float32, slices [][]floa
 	} else if m.EmbedPerLayer != nil && tokenID < cfg.VocabPerLayer {
 		embRow := m.EmbedPerLayer[tokenID*totalDim : (tokenID+1)*totalDim]
 		for l := 0; l < nl; l++ {
-			traceMTPSummary("inp_per_layer_selected", -1, l, tokenID, embRow[l*hpl:(l+1)*hpl])
+			selected := append([]float32(nil), embRow[l*hpl:(l+1)*hpl]...)
+			for i := range selected {
+				selected[i] *= m.EmbedPerLayerScale
+			}
+			traceMTPSummary("inp_per_layer_selected", -1, l, tokenID, selected)
 		}
 		for i := range proj {
 			proj[i] = (proj[i] + embRow[i]*m.EmbedPerLayerScale) * m.PerLayerInputScale
