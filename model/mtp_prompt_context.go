@@ -199,7 +199,9 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 			}
 		}
 		traceMTPVerifierLayer0Internal("k_proj", layerIdx, pos, k)
+		traceMTPSummary("k_proj", -1, layerIdx, pos, k)
 		traceMTPVerifierLayer0Internal("v_proj", layerIdx, pos, v)
+		traceMTPSummary("v_proj", -1, layerIdx, pos, v)
 	}
 	if cfg.ModelType == "gemma3_text" {
 		simd.ToBF16(q)
@@ -249,7 +251,9 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	traceMTPSummary("q_norm", -1, layerIdx, pos, q)
 	if k != nil {
 		traceMTPVerifierLayer0Internal("k_norm", layerIdx, pos, k)
+		traceMTPSummary("k_norm", -1, layerIdx, pos, k)
 		traceMTPVerifierLayer0Internal("v_norm", layerIdx, pos, v)
+		traceMTPSummary("v_norm", -1, layerIdx, pos, v)
 	}
 	if cfg.ModelType == "gemma4_text" && m.RopeFreqsSWA != nil {
 		isSWA := true
@@ -277,6 +281,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	traceMTPSummary("q_pos", -1, layerIdx, pos, q)
 	if k != nil {
 		traceMTPVerifierLayer0Internal("k_pos", layerIdx, pos, k)
+		traceMTPSummary("k_pos", -1, layerIdx, pos, k)
 	}
 	kvLayer := layerIdx
 	if !layer.HasKV {
