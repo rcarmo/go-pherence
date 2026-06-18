@@ -1,7 +1,9 @@
 package model
 
 import (
+	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"math"
 	"os"
 	"strconv"
@@ -43,7 +45,11 @@ func traceMTPSummary(label string, row, layer, pos int, x []float32) {
 	var sum, sumsq float64
 	maxAbs := 0.0
 	maxIdx := 0
+	h := fnv.New64a()
+	var buf [4]byte
 	for i, v := range x {
+		binary.LittleEndian.PutUint32(buf[:], math.Float32bits(v))
+		_, _ = h.Write(buf[:])
 		fv := float64(v)
 		sum += fv
 		sumsq += fv * fv
@@ -57,5 +63,5 @@ func traceMTPSummary(label string, row, layer, pos int, x []float32) {
 	if len(x) < first {
 		first = len(x)
 	}
-	fmt.Fprintf(os.Stderr, "GO_MTP_SUMMARY label=%s row=%d layer=%d pos=%d n=%d mean=%.9g rms=%.9g max_abs=%.9g max_idx=%d first=%v\n", label, row, layer, pos, len(x), sum/float64(len(x)), math.Sqrt(sumsq/float64(len(x))), maxAbs, maxIdx, append([]float32(nil), x[:first]...))
+	fmt.Fprintf(os.Stderr, "GO_MTP_SUMMARY label=%s row=%d layer=%d pos=%d n=%d mean=%.9g rms=%.9g max_abs=%.9g max_idx=%d hash=%016x first=%v\n", label, row, layer, pos, len(x), sum/float64(len(x)), math.Sqrt(sumsq/float64(len(x))), maxAbs, maxIdx, h.Sum64(), append([]float32(nil), x[:first]...))
 }
