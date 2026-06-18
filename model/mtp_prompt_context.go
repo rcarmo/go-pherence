@@ -360,6 +360,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 		} else {
 			rmsNormInPlace(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
 		}
+		traceMTPSummary("ffn_norm", traceRow, layerIdx, pos, mlpInput)
 	}
 	layerInter := cfg.Intermediate
 	if layer.GateWq != nil && layer.GateWq.OutDim > 0 {
@@ -406,6 +407,8 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 			m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
 			m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
 		}
+		traceMTPSummary("ffn_gate", traceRow, layerIdx, pos, gate)
+		traceMTPSummary("ffn_up", traceRow, layerIdx, pos, up)
 		if cfg.ModelType == "gemma3_text" {
 			simd.ToBF16(gate)
 			simd.ToBF16(up)
@@ -422,6 +425,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 		} else {
 			simd.VecSiLUMul(gate, gate, up)
 		}
+		traceMTPSummary("ffn_geglu", traceRow, layerIdx, pos, gate)
 		down = make([]float32, h)
 		if layer.DownWq != nil {
 			if !m.mvQ(down, gate, layer.DownWq) {
@@ -438,6 +442,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 		} else {
 			m.mv(down, gate, layer.DownW.Data(), layerInter, h)
 		}
+		traceMTPSummary("ffn_down", traceRow, layerIdx, pos, down)
 	}
 	if cfg.ModelType == "gemma3_text" {
 		simd.ToBF16(down)
