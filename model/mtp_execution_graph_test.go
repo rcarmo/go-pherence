@@ -38,6 +38,30 @@ func TestNewMTPExecutionGraph(t *testing.T) {
 	}
 }
 
+func TestNewMTPExecutionGraphAllowsGemma4SharedExternalKVSources(t *testing.T) {
+	m := validDrafterStepBackboneModel()
+	m.Config.ModelType = "gemma4_text"
+	d := validDrafterStepScaffold()
+	d.Config.ModelType = "gemma4_text"
+	d.Config.NumLayers = 2
+	d.Config.LayerTypes = []string{"sliding_attention", "sliding_attention"}
+	d.Layers = append([]Gemma4MTPDrafterLayer(nil), d.Layers[0], d.Layers[0])
+	state, err := NewMTPDrafterState(1, []float32{0.5, 0.25}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	externalKV := &MTPDrafterExternalKV{K: [][]float32{{1, 0}}, V: [][]float32{{0, 1}}, SourceLayers: []int{0, 0}, SeqLen: 1}
+	graph, err := NewMTPExecutionGraph(m, d, state, externalKV, []int{2, 3}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, step := range graph.DrafterSteps {
+		if !sameInts(step.ExternalKVLayers, []int{0, 0}) {
+			t.Fatalf("step %d external layers=%v, want duplicated Gemma4 shared sources", i, step.ExternalKVLayers)
+		}
+	}
+}
+
 func TestMTPExecutionGraphValidateRejectsMalformed(t *testing.T) {
 	m := validDrafterStepBackboneModel()
 	d := validProjectionOnlyDrafter()
