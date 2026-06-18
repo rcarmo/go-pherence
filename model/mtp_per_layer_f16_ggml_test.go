@@ -33,6 +33,46 @@ func TestGemma4GGMLRoPEExtOracle(t *testing.T) {
 	}
 }
 
+func TestGemma4FullRoPEExtRealGGUFOracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	tensor, ok := g.TensorByName("rope_freqs.weight")
+	if !ok {
+		t.Fatal("missing rope_freqs.weight")
+	}
+	factors, err := g.DequantF32(tensor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const headDim, nHead, nTokens, pos = 512, 8, 1, 4
+	x := syntheticOracleVec(headDim*nHead*nTokens, 0.0037)
+	gotGGML := make([]float32, len(x))
+	if err := ggmlcompute.RoPEExtF32(gotGGML, x, []int32{pos}, factors, headDim, nHead, nTokens, headDim, 2, 8192, 1000000, 1, 0, 1, 32, 1); err != nil {
+		t.Fatal(err)
+	}
+	freqs := buildGemma4GGMLRoPEFreqsWithFactors(pos+1, headDim/2, headDim, 1000000, factors)
+	gotGo := append([]float32(nil), x...)
+	applyRoPEPartial(gotGo, freqs, pos, nHead, headDim, headDim/2)
+	maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+	t.Logf("real full rope_ext-vs-Go max=%g mean=%g", maxDiff, meanDiff)
+	if maxDiff > 2e-6 {
+		t.Fatalf("real full rope_ext-vs-Go max=%g mean=%g", maxDiff, meanDiff)
+	}
+}
+
 func TestGemma4Layer6VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
 	testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t, 6)
 }
