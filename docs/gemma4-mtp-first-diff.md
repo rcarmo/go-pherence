@@ -284,7 +284,16 @@ blk.0.attn_k.weight actual input ggml-vs-go max=0 mean=0
 blk.0.attn_v.weight actual input ggml-vs-go max=0 mean=0
 ```
 
-Thus any small refreshed `q_proj` dump delta is not a Go Q/K/V projection kernel error.
+Thus any small refreshed `q_proj` dump delta is not a Go Q/K/V projection kernel error. A strengthened real layer0 flash oracle now also compares the production pure-Go flash reference against cgo ggml batched `FlashAttnF32F16Batch` on actual verifier rows:
+
+```text
+layer0 batched-vs-row ggml flash row0/1/2 max=0
+layer0 batched-vs-pure flash row0 max≈1.43e-6 mean≈2.34e-8
+layer0 batched-vs-pure flash row1 max≈9.54e-7 mean≈2.44e-9
+layer0 batched-vs-pure flash row2 max=0
+```
+
+So the pure-Go flash implementation is effectively matching the local cgo ggml oracle; the remaining saved llama trace residual (`~5.9e-4`) is no longer explained by Go-side flash math or K/V cache layout alone.
 
 A real-asset Go-vs-ggml oracle using the actual layer0 row1 `attn_out` input now covers the FFN kernels. Findings:
 

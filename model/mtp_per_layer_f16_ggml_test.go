@@ -108,7 +108,7 @@ func TestGemma4Layer0VerifierBatchedFlashMatchesRows(t *testing.T) {
 		rowSeq := ctx.SeqLen + row + 1
 		rowK := kCache[:rowSeq*qkv.KVDim]
 		rowV := vCache[:rowSeq*qkv.KVDim]
-		rowKF16, rowVF16, _, _ := ggmlF16KVFromGoCache(rowK, rowV, rowSeq, qkv.KVHeads, qkv.HeadDim)
+		rowKF16, rowVF16, kRounded, vRounded := ggmlF16KVFromGoCache(rowK, rowV, rowSeq, qkv.KVHeads, qkv.HeadDim)
 		rowOut := make([]float32, qkv.QDim)
 		if err := ggmlcompute.FlashAttnF32F16(rowOut, qkv.Q[row*qkv.QDim:(row+1)*qkv.QDim], rowKF16, rowVF16, nil, qkv.HeadDim, rowSeq, m.Config.NumHeads, qkv.KVHeads, 1.0); err != nil {
 			t.Fatal(err)
@@ -118,6 +118,12 @@ func TestGemma4Layer0VerifierBatchedFlashMatchesRows(t *testing.T) {
 		t.Logf("layer0 batched-vs-row flash row=%d max=%g mean=%g", row, maxDiff, meanDiff)
 		if maxDiff > 1e-6 {
 			t.Fatalf("layer0 batched-vs-row flash row=%d max=%g mean=%g", row, maxDiff, meanDiff)
+		}
+		pure := ggmlFlashAttnF16KVReference(qkv.Q[row*qkv.QDim:(row+1)*qkv.QDim], kRounded, vRounded, rowSeq, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
+		maxPure, meanPure := maxMeanAbsDiff(got, pure)
+		t.Logf("layer0 batched-vs-pure flash row=%d max=%g mean=%g", row, maxPure, meanPure)
+		if maxPure > 2e-6 {
+			t.Fatalf("layer0 batched-vs-pure flash row=%d max=%g mean=%g", row, maxPure, meanPure)
 		}
 	}
 }
