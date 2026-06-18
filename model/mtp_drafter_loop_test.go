@@ -172,6 +172,39 @@ func TestMTPDrafterRMSNormUsesLlamaGemma4F32Path(t *testing.T) {
 	}
 }
 
+func TestRunMTPDrafterStepUsesAssistantHiddenForLogitsAndPostProjectionForHandoff(t *testing.T) {
+	m := validDrafterStepBackboneModel()
+	d := validProjectionOnlyDrafter()
+	d.EmbedTokens = tensor.FromFloat32([]float32{
+		1, 0,
+		0, 1,
+		1, 1,
+		-1, 0,
+	}, []int{4, 2})
+	state, err := NewMTPDrafterState(1, []float32{0.5, 0.25}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatalf("NewMTPDrafterState: %v", err)
+	}
+	got, err := m.RunMTPDrafterStep(d, state)
+	if err != nil {
+		t.Fatalf("RunMTPDrafterStep: %v", err)
+	}
+	d.PostProjection = []float32{
+		2, 0,
+		0, -3,
+	}
+	withDifferentHandoff, err := m.RunMTPDrafterStep(d, state)
+	if err != nil {
+		t.Fatalf("RunMTPDrafterStep with changed post_projection: %v", err)
+	}
+	if !sameFloat32s(got.Logits, withDifferentHandoff.Logits) || got.Token != withDifferentHandoff.Token {
+		t.Fatalf("post_projection changed assistant logits/token: logits %v -> %v token %d -> %d", got.Logits, withDifferentHandoff.Logits, got.Token, withDifferentHandoff.Token)
+	}
+	if sameFloat32s(got.NextActivation, withDifferentHandoff.NextActivation) {
+		t.Fatalf("post_projection did not affect h_nextn handoff: %v", got.NextActivation)
+	}
+}
+
 func TestRunMTPDrafterStepAppliesFinalNormBeforePostProjection(t *testing.T) {
 	m := validDrafterStepBackboneModel()
 	d := validDrafterStepScaffold()
