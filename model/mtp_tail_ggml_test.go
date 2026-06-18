@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rcarmo/go-pherence/backends/ggmlcompute"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
 func cloneMTPFloatCacheForTest(in [][]float32) [][]float32 {
@@ -78,6 +79,23 @@ func TestGemma4MTPStrictFixtureTailNormGGMLOracle(t *testing.T) {
 	if len(res.ActivationRows) != len(plan.VerifierTokens) {
 		t.Fatalf("activation rows=%d want %d", len(res.ActivationRows), len(plan.VerifierTokens))
 	}
+	g, err := gguf.Open(fx.MainModel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	lmTensor, ok := g.TensorByName("output.weight")
+	if !ok {
+		lmTensor, ok = g.TensorByName("token_embd.weight")
+	}
+	if !ok {
+		t.Fatal("output.weight/token_embd.weight not found")
+	}
+	lmRaw, err := g.Raw(lmTensor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	probes := []int{564, 236751, 236757, 236789}
 	for row, hidden := range res.ActivationRows {
 		goNorm := append([]float32(nil), hidden...)
 		rmsNormInPlace(goNorm, m.Norm.Data(), float32(m.Config.RMSNormEps))
@@ -89,6 +107,29 @@ func TestGemma4MTPStrictFixtureTailNormGGMLOracle(t *testing.T) {
 		t.Logf("strict fixture verifier row=%d final norm ggml-vs-go max=%g mean=%g", row, maxDiff, meanDiff)
 		if maxDiff > 1e-5 {
 			t.Fatalf("strict fixture verifier row=%d final norm max=%g mean=%g", row, maxDiff, meanDiff)
+		}
+		goLogits := make([]float32, m.Config.VocabSize)
+		if err := m.LMHeadLogitsInto(goLogits, goNorm); err != nil {
+			t.Fatal(err)
+		}
+		ggLogits := make([]float32, m.Config.VocabSize)
+		if err := ggmlcompute.MulMatQuantF32(int(lmTensor.QType), ggLogits, lmRaw, ggNorm, m.Config.HiddenSize, m.Config.VocabSize); err != nil {
+			t.Fatal(err)
+		}
+		applyLlamaFinalLogitSoftcap(ggLogits, m.Config.FinalLogitSoftcapping)
+		applyLlamaSuppressTokens(ggLogits, m.SuppressTokens)
+		for _, id := range probes {
+			if id >= len(goLogits) || id >= len(ggLogits) {
+				t.Fatalf("probe id %d outside logits", id)
+			}
+			diff := goLogits[id] - ggLogits[id]
+			if diff < 0 {
+				diff = -diff
+			}
+			t.Logf("strict fixture verifier row=%d token=%d LM-head ggml=%g go=%g diff=%g", row, id, ggLogits[id], goLogits[id], diff)
+			if diff > 1e-5 {
+				t.Fatalf("strict fixture verifier row=%d token=%d LM-head diff=%g", row, id, diff)
+			}
 		}
 	}
 }

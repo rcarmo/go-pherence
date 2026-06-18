@@ -339,6 +339,7 @@ The LM-head/tail path is therefore not the next isolated kernel target; the hidd
 strict fixture verifier row0 final norm ggml-vs-go max=0 mean=0
 strict fixture verifier row1 final norm ggml-vs-go max=0 mean=0
 strict fixture verifier row2 final norm ggml-vs-go max=0 mean=0
+selected LM-head probes from the same normalized rows also match cgo ggml exactly (tokens 564, 236751, 236757, 236789; all rows diff=0)
 ```
 
 A strengthened real layer0 flash oracle now also compares the production pure-Go flash reference against cgo ggml batched `FlashAttnF32F16Batch` on actual verifier rows:
