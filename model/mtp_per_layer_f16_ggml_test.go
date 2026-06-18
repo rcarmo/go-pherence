@@ -4,6 +4,7 @@ package model
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -15,7 +16,15 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4Layer6VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
+	testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t, 6)
+}
+
 func TestGemma4Layer0VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
+	testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t, 0)
+}
+
+func testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t *testing.T, targetLayer int) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
 		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
@@ -39,15 +48,19 @@ func TestGemma4Layer0VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	qkv, err := m.ProjectMTPVerifierLayerQKVBatch(batch, 0, batch.HiddenFlat)
+	hiddenFlat, kvK, kvV, err := verifierHiddenAtLayerForOracle(m, ctx, batch, targetLayer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !qkv.HasKV || qkv.HeadDim != 256 || qkv.KVHeads != 2 || m.Config.NumHeads != 8 {
-		t.Fatalf("unexpected layer0 qkv shape: %+v heads=%d", qkv, m.Config.NumHeads)
+	qkv, err := m.ProjectMTPVerifierLayerQKVBatch(batch, targetLayer, hiddenFlat)
+	if err != nil {
+		t.Fatal(err)
 	}
-	promptK := append([]float32(nil), ctx.KVCacheK[0]...)
-	promptV := append([]float32(nil), ctx.KVCacheV[0]...)
+	if !qkv.HasKV || qkv.KVHeads != 2 || m.Config.NumHeads != 8 {
+		t.Fatalf("unexpected layer%d qkv shape: %+v heads=%d", targetLayer, qkv, m.Config.NumHeads)
+	}
+	promptK := append([]float32(nil), kvK[targetLayer]...)
+	promptV := append([]float32(nil), kvV[targetLayer]...)
 	for row := range plan.VerifierTokens {
 		seqLen := ctx.SeqLen + row + 1
 		kCache := append([]float32(nil), promptK...)
@@ -67,12 +80,12 @@ func TestGemma4Layer0VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
 		maxF32, meanF32 := maxMeanAbsDiff(ggmlAttn, goRoundedAttn)
 		goF16Accum := flashAttnF16AccumReference(q, kRounded, vRounded, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
 		maxF16, meanF16 := maxMeanAbsDiff(ggmlAttn, goF16Accum)
-		t.Logf("real layer0 verifier row=%d seq=%d ggml-vs-GoRoundedF32 max=%g mean=%g; ggml-vs-F16Accum max=%g mean=%g", row, seqLen, maxF32, meanF32, maxF16, meanF16)
+		t.Logf("real layer%d verifier row=%d seq=%d ggml-vs-GoRoundedF32 max=%g mean=%g; ggml-vs-F16Accum max=%g mean=%g", targetLayer, row, seqLen, maxF32, meanF32, maxF16, meanF16)
 		if maxF16 > 1e-2 {
-			t.Fatalf("real layer0 verifier row=%d flash oracle drift max=%g mean=%g", row, maxF16, meanF16)
+			t.Fatalf("real layer%d verifier row=%d flash oracle drift max=%g mean=%g", targetLayer, row, maxF16, meanF16)
 		}
 		if maxF32 <= maxF16 {
-			t.Fatalf("real layer0 verifier row=%d F16 accumulator reference did not improve over F32 accumulation: f32=%g f16=%g", row, maxF32, maxF16)
+			t.Fatalf("real layer%d verifier row=%d F16 accumulator reference did not improve over F32 accumulation: f32=%g f16=%g", targetLayer, row, maxF32, maxF16)
 		}
 	}
 }
@@ -538,6 +551,44 @@ func TestGemma4PerLayerModelProjRealGGMLF16Oracle(t *testing.T) {
 	if maxGo < 1e-6 {
 		t.Fatal("current Go unexpectedly matches ggml F16 mul_mat exactly; oracle no longer distinguishes input rounding")
 	}
+}
+
+func verifierHiddenAtLayerForOracle(m *LlamaModel, ctx MTPPromptContext, batch MTPVerifierBatchInputs, targetLayer int) ([]float32, [][]float32, [][]float32, error) {
+	if targetLayer < 0 || targetLayer >= m.Config.NumLayers {
+		return nil, nil, nil, fmt.Errorf("target layer %d out of range", targetLayer)
+	}
+	kvK := make([][]float32, len(ctx.KVCacheK))
+	kvV := make([][]float32, len(ctx.KVCacheV))
+	for i := range kvK {
+		kvK[i] = append([]float32(nil), ctx.KVCacheK[i]...)
+		kvV[i] = append([]float32(nil), ctx.KVCacheV[i]...)
+	}
+	h := m.Config.HiddenSize
+	hiddenFlat := make([]float32, len(batch.HiddenRows)*h)
+	attnRows := batch.Scratch.MaxAttentionRows
+	if attnRows < 1 {
+		attnRows = 1
+	}
+	attnOutWidth := batch.Scratch.MaxQDim
+	if attnOutWidth < 1 {
+		attnOutWidth = m.Config.NumHeads * m.Config.HeadDim
+	}
+	attnScoresScratch := make([]float32, attnRows)
+	attnOutScratch := make([]float32, attnOutWidth)
+	for i, row := range batch.HiddenRows {
+		hidden := append([]float32(nil), row...)
+		pos := batch.Plan.Positions[i]
+		perLayerInputs := batch.PerLayerInputs[i]
+		for l := 0; l < targetLayer; l++ {
+			var err error
+			hidden, err = m.forwardMTPPromptLayer(hidden, perLayerInputs, l, pos, kvK, kvV, attnScoresScratch, attnOutScratch)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
+		copy(hiddenFlat[i*h:(i+1)*h], hidden)
+	}
+	return hiddenFlat, kvK, kvV, nil
 }
 
 func ggmlF16KVFromGoCache(kCache, vCache []float32, seqLen, nKV, headDim int) ([]uint16, []uint16, []float32, []float32) {
