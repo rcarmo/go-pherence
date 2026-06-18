@@ -123,6 +123,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		rmsNormInPlace(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
 	}
 	traceMTPVerifierLayer0Internal("attn_norm", layerIdx, pos, hidden)
+	traceMTPSummary("attn_norm", -1, layerIdx, pos, hidden)
 	q := make([]float32, qDim)
 	if layer.QWq != nil {
 		if !m.mvQ(q, hidden, layer.QWq) {
@@ -140,6 +141,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		m.mv(q, hidden, layer.QW.Data(), h, qDim)
 	}
 	traceMTPVerifierLayer0Internal("q_proj", layerIdx, pos, q)
+	traceMTPSummary("q_proj", -1, layerIdx, pos, q)
 	var k, v []float32
 	if layer.HasKV {
 		k = make([]float32, layerKVDim)
@@ -244,6 +246,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		}
 	}
 	traceMTPVerifierLayer0Internal("q_norm", layerIdx, pos, q)
+	traceMTPSummary("q_norm", -1, layerIdx, pos, q)
 	if k != nil {
 		traceMTPVerifierLayer0Internal("k_norm", layerIdx, pos, k)
 		traceMTPVerifierLayer0Internal("v_norm", layerIdx, pos, v)
@@ -271,6 +274,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		}
 	}
 	traceMTPVerifierLayer0Internal("q_pos", layerIdx, pos, q)
+	traceMTPSummary("q_pos", -1, layerIdx, pos, q)
 	if k != nil {
 		traceMTPVerifierLayer0Internal("k_pos", layerIdx, pos, k)
 	}
@@ -302,6 +306,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		gqaAttentionScaleInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))))
 	}
 	traceMTPVerifierLayer0Internal("attn_pre_o", layerIdx, pos, attnOut)
+	traceMTPSummary("attn_pre_o", -1, layerIdx, pos, attnOut)
 	oOut := make([]float32, h)
 	if layer.OWq != nil {
 		if !m.mvQ(oOut, attnOut, layer.OWq) {
@@ -322,10 +327,12 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		rmsNormInPlace(oOut, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
 		simd.VecAdd(hidden, residual, oOut)
 		traceMTPVerifierLayer0Internal("attn_out", layerIdx, pos, hidden)
+		traceMTPSummary("attn_out", -1, layerIdx, pos, hidden)
 		copy(residual, hidden)
 	} else {
 		simd.VecAdd(hidden, residual, oOut)
 		traceMTPVerifierLayer0Internal("attn_out", layerIdx, pos, hidden)
+		traceMTPSummary("attn_out", -1, layerIdx, pos, hidden)
 		copy(residual, hidden)
 		rmsNormInPlace(hidden, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
 	}
@@ -429,6 +436,7 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	}
 	simd.VecAdd(hidden, residual, down)
 	traceMTPVerifierLayer0Internal("ffn_resid", layerIdx, pos, hidden)
+	traceMTPSummary("ffn_resid", -1, layerIdx, pos, hidden)
 	if (layer.PLIGate != nil || layer.PLIGateGGUF != nil) && perLayerInputs != nil && layerIdx < len(perLayerInputs) {
 		hpl := cfg.HiddenPerLayer
 		pli := perLayerInputs[layerIdx]
@@ -464,5 +472,6 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 		simd.ToBF16(hidden)
 	}
 	traceMTPVerifierLayer0Internal("l0_out", layerIdx, pos, hidden)
+	traceMTPSummary("l_out", -1, layerIdx, pos, hidden)
 	return hidden, nil
 }
