@@ -459,6 +459,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 	traceMTPVerifierLayer0Internal("ffn_resid", layerIdx, pos, hidden)
 	traceMTPSummary("ffn_resid", traceRow, layerIdx, pos, hidden)
 	if (layer.PLIGate != nil || layer.PLIGateGGUF != nil) && perLayerInputs != nil && layerIdx < len(perLayerInputs) {
+		traceMTPSummary("pe_in", traceRow, layerIdx, pos, hidden)
 		hpl := cfg.HiddenPerLayer
 		pli := perLayerInputs[layerIdx]
 		gate2 := make([]float32, hpl)
@@ -484,6 +485,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 		}
 		rmsNormInPlace(proj2, layer.PLIPostNorm, float32(cfg.RMSNormEps))
 		traceMTPVerifierLayer0Internal("pli_out", layerIdx, pos, proj2)
+		traceMTPSummary("per_layer_embd_out", traceRow, layerIdx, pos, proj2)
 		simd.VecAdd(hidden, hidden, proj2)
 	}
 	if layer.LayerScalar != 1.0 {

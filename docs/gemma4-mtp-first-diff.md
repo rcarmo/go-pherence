@@ -387,7 +387,17 @@ So the FFN kernels themselves are not the active gap; the observed `ffn_post_nor
 
 `build_cvec` was inspected as a possible row-coupled state source. In llama.cpp it is only `llama_adapter_cvec::apply_to`, which adds a control-vector tensor when one is configured; otherwise `tensor_for(il)` returns `nullptr` and the input tensor is returned unchanged. The local parity harness does not pass `--control-vector`, so control vectors are inactive and Go's lack of an explicit cvec add is not a current parity gap.
 
-The real `per_layer_model_proj` oracle showed that rounding the projection input to F16 matches local cgo ggml more closely than the current F32-input path, but making that the production behavior worsened strict end-to-end selected-logit parity back to six mismatches (`row1 token236757≈-0.2196`, row2 token236751≈-0.0685`, row2 token236757≈+0.0133`). This is therefore documented as a local oracle insight, not a safe standalone fix.
+The real `per_layer_model_proj` oracle showed that rounding the projection input to F16 matches local cgo ggml more closely than the current F32-input path, but making that the production behavior worsened strict end-to-end selected-logit parity back to six mismatches (`row1 token236757≈-0.2196`, `row2 token236751≈-0.0685`, `row2 token236757≈+0.0133`). This is therefore documented as a local oracle insight, not a safe standalone fix.
+
+Row-aware PLI trace labels matching llama's `pe_in` and `per_layer_embd_out` were added. For the matching verifier occurrence (`occ1` in the llama dump), layer0 row1 compares as:
+
+```text
+pe_in              max≈0.0594177 mean≈0.00685975
+per_layer_embd_out max≈0.106006  mean≈0.00722661
+l_out              max≈0.0079099 mean≈0.00079353
+```
+
+This shows the PLI branch amplifies the upstream `pe_in` difference locally, but the final layer residual/scale reduces the max at `l_out`. The PLI matmul/embedding local kernels themselves are covered by ggml oracles, so the branch appears to propagate existing hidden drift rather than introducing a standalone kernel mismatch.
 
 The original, pre-fix layer0 attention drift amplified into downstream layer0 checkpoints:
 
