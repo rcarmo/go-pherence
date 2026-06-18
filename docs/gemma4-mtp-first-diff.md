@@ -322,6 +322,14 @@ layer16 l_out                max≈0.349350 mean≈0.0287527
 
 Thus layer16 is an amplification point in the accumulated trajectory, not the first local semantic mismatch. It is also a dense `sliding_attention` layer (`hasKV=true`, no MoE/router/expert tensors), so the peak is not a MoE-specific routing/expert issue.
 
+Prompt-context activation was also compared against a prompt-only llama `h_nextn/result_norm` dump for `[2,10979]`. The matching occurrence (`row0 occ1` in the prompt-only harness run) already differs from Go `BuildMTPPromptContext([]int{10979}).Activation` by about the same amount as the later verifier tail:
+
+```text
+prompt h_nextn/result_norm vs Go ctx.Activation: max≈0.493537 mean≈0.091993
+```
+
+This indicates the hidden trajectory drift is already present at the seeded prompt context before the verifier rows, not introduced only during `[input]+drafted` verification.
+
 Final-tail comparison with occurrence-indexed llama dumps confirms the strict selected-logit deltas are primarily inherited hidden-state drift, not a new LM-head-only issue. Across all three verifier rows:
 
 ```text
