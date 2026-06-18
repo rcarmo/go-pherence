@@ -330,6 +330,8 @@ func (m *LlamaModel) forwardMTPPromptLayer(hidden []float32, perLayerInputs [][]
 	} else {
 		m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
 	}
+	traceMTPVerifierLayer0Internal("o_proj", layerIdx, pos, oOut)
+	traceMTPSummary("o_proj", -1, layerIdx, pos, oOut)
 	if layer.PreFFNNorm != nil {
 		rmsNormInPlace(oOut, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
 		simd.VecAdd(hidden, residual, oOut)

@@ -231,6 +231,9 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 		if !m.projBatchAny(bOOut[:B*h], bAttnOut[:B*qkv.QDim], B, layer.OW, layer.OWm, layer.OWq, layer.OWGGUF, qkv.QDim, h) {
 			return nil, true, fmt.Errorf("verifier batch layer %d O projection rejected", l)
 		}
+		for b := 0; b < B; b++ {
+			traceMTPSummary("o_proj", b, l, batch.Plan.Positions[b], bOOut[b*h:(b+1)*h])
+		}
 		if layer.PreFFNNorm != nil {
 			for b := 0; b < B; b++ {
 				o := bOOut[b*h : (b+1)*h]
