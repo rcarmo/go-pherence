@@ -270,6 +270,7 @@ l_out          max≈0.0079099         mean≈0.0007935
 `q_proj`/`q_norm`/`q_pos` were not emitted by that refreshed llama filter despite existing Go row-aware dumps, but historical dumps showed them aligned within ~2e-6. Full-row K/V dump mapping was also clarified: llama's layer0 `Kcur_pos`/`Vcur_normed` `n1024` tensors map to Go prompt positions `(0,1)` and match within `~1.9e-6` max; llama's `n1536` tensors map to Go verifier positions `(2,3,4)` and match within `~1.7e-6` max for V and `~1.8e-7` max for K. Llama's full `__fattn__-0` `n6144` dump likewise maps to Go `attn_pre_o` rows `(2,3,4)`:
 
 ```text
+fresh occurrence-indexed row1 `__fattn__-0`: occ0 is a different stage; occ1 is the verifier row and matches the prior residual (max≈0.000590742 mean≈3.08e-6)
 full __fattn__ rows (2,3,4): max≈0.000590742 mean≈1.49e-6
   row2 max≈0.000554383 mean≈1.15e-6
   row3 max≈0.000590742 mean≈3.08e-6
