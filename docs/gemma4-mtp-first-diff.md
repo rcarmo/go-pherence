@@ -370,7 +370,7 @@ The gated full-layer batch verifier path was also re-tested after the graph/flas
 GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS=1 go run ./cmd/models/gemma4mtpparity -fixture tmp/gemma4-mtp-llamacpp-fixture.json
 ```
 
-It produces the same strict selected-logit deltas as the default sequential row fallback (row1 token236757 about `-0.1882`, row2 token236751 within tolerance). Therefore the current gap is not caused by sequential verifier-row lowering versus the gated full-layer batch scaffold.
+It produces the same strict selected-logit deltas as the default sequential row fallback (row1 token236757 about `-0.1882`, row2 token236751 within tolerance). A direct Go trace comparison of row1 `l_out` for all 42 layers also shows sequential fallback and gated full-layer batch outputs are bit-identical (`max overall = 0`). Therefore the current gap is not caused by sequential verifier-row lowering versus the gated full-layer batch scaffold.
 
 A real-asset Go-vs-ggml oracle using the actual layer0 row1 `attn_out` input now covers the FFN kernels. Findings:
 
