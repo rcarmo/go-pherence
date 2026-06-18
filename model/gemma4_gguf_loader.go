@@ -27,6 +27,17 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 	if err != nil {
 		return nil, err
 	}
+	validateShape := func(t gguf.TensorInfo, want ...int) error {
+		if len(t.Shape) != len(want) {
+			return fmt.Errorf("tensor %s shape=%v, want %v for Gemma4 graph", t.Name, t.Shape, want)
+		}
+		for i, dim := range want {
+			if dim <= 0 || t.Shape[i] != uint64(dim) {
+				return fmt.Errorf("tensor %s shape=%v, want %v for Gemma4 graph", t.Name, t.Shape, want)
+			}
+		}
+		return nil
+	}
 	loadTyped := func(name string, wantType gguf.QuantType) ([]float32, error) {
 		t, ok := g.TensorByName(name)
 		if !ok {
@@ -194,10 +205,29 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 			}
 		}
 	}
+	totalPerLayerDim, ok := checkedProduct(cfg.NumLayers, cfg.HiddenPerLayer)
+	if !ok || totalPerLayerDim <= 0 {
+		return nil, fmt.Errorf("Gemma4 per-layer input dimension overflow layers=%d hiddenPerLayer=%d", cfg.NumLayers, cfg.HiddenPerLayer)
+	}
+	if t, ok := g.TensorByName("per_layer_model_proj.weight"); !ok {
+		return nil, fmt.Errorf("tensor %q not found", "per_layer_model_proj.weight")
+	} else if err := validateShape(t, cfg.HiddenSize, totalPerLayerDim); err != nil {
+		return nil, err
+	}
 	if m.PerLayerModelProj, err = loadTyped("per_layer_model_proj.weight", gguf.QuantF16); err != nil {
 		return nil, err
 	}
+	if t, ok := g.TensorByName("per_layer_proj_norm.weight"); !ok {
+		return nil, fmt.Errorf("tensor %q not found", "per_layer_proj_norm.weight")
+	} else if err := validateShape(t, cfg.HiddenPerLayer); err != nil {
+		return nil, err
+	}
 	if m.PerLayerProjNorm, err = loadTyped("per_layer_proj_norm.weight", gguf.QuantF32); err != nil {
+		return nil, err
+	}
+	if t, ok := g.TensorByName("per_layer_token_embd.weight"); !ok {
+		return nil, fmt.Errorf("tensor %q not found", "per_layer_token_embd.weight")
+	} else if err := validateShape(t, totalPerLayerDim, cfg.VocabPerLayer); err != nil {
 		return nil, err
 	}
 	if m.EmbedPerLayerGGUF, err = loadQMatrix("per_layer_token_embd.weight"); err != nil {
