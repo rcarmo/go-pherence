@@ -154,7 +154,12 @@ func testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t *testing.T, targetLay
 		maxF32, meanF32 := maxMeanAbsDiff(ggmlAttn, goRoundedAttn)
 		goF16Accum := flashAttnF16AccumReference(q, kRounded, vRounded, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
 		maxF16, meanF16 := maxMeanAbsDiff(ggmlAttn, goF16Accum)
-		t.Logf("real layer%d verifier row=%d seq=%d ggml-vs-GoRoundedF32 max=%g mean=%g; ggml-vs-F16Accum max=%g mean=%g", targetLayer, row, seqLen, maxF32, meanF32, maxF16, meanF16)
+		goF16VecDot, err := flashAttnF16VecDotReference(q, kF16, vRounded, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		maxVecDot, meanVecDot := maxMeanAbsDiff(ggmlAttn, goF16VecDot)
+		t.Logf("real layer%d verifier row=%d seq=%d ggml-vs-GoRoundedF32 max=%g mean=%g; F16Accum max=%g mean=%g; F16VecDot max=%g mean=%g", targetLayer, row, seqLen, maxF32, meanF32, maxF16, meanF16, maxVecDot, meanVecDot)
 		if maxF16 > 1e-2 {
 			t.Fatalf("real layer%d verifier row=%d flash oracle drift max=%g mean=%g", targetLayer, row, maxF16, meanF16)
 		}
@@ -683,6 +688,57 @@ func ggmlF16KVFromGoCache(kCache, vCache []float32, seqLen, nKV, headDim int) ([
 		}
 	}
 	return kF16, vF16, kRounded, vRounded
+}
+
+func flashAttnF16VecDotReference(q []float32, kF16 []uint16, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) ([]float32, error) {
+	out := make([]float32, numHeads*headDim)
+	headsPerKV := numHeads / numKVHeads
+	kvDim := numKVHeads * headDim
+	qF16 := make([]uint16, headDim)
+	acc := make([]float32, headDim)
+	for head := 0; head < numHeads; head++ {
+		kvHead := head / headsPerKV
+		qHead := q[head*headDim : (head+1)*headDim]
+		for d, v := range qHead {
+			qF16[d] = half.F32ToF16(v)
+			acc[d] = 0
+		}
+		S := float32(0)
+		M := float32(math.Inf(-1))
+		for t := 0; t < seqLen; t++ {
+			kHead := kF16[kvHead*seqLen*headDim+t*headDim : kvHead*seqLen*headDim+(t+1)*headDim]
+			s, err := ggmlcompute.VecDotF16(kHead, qF16)
+			if err != nil {
+				return nil, err
+			}
+			s *= scale
+			Mold := M
+			vs := float32(1)
+			if s > M {
+				M = s
+				ms := float32(math.Exp(float64(Mold - M)))
+				for d := 0; d < headDim; d++ {
+					acc[d] = half.F16ToF32(half.F32ToF16(acc[d] * ms))
+				}
+				S *= ms
+			} else {
+				vs = float32(math.Exp(float64(s - M)))
+			}
+			vHead := vCache[t*kvDim+kvHead*headDim : t*kvDim+(kvHead+1)*headDim]
+			for d := 0; d < headDim; d++ {
+				acc[d] = half.F16ToF32(half.F32ToF16(acc[d] + vHead[d]*vs))
+			}
+			S += vs
+		}
+		invS := float32(0)
+		if S != 0 {
+			invS = 1 / S
+		}
+		for d := 0; d < headDim; d++ {
+			out[head*headDim+d] = acc[d] * invS
+		}
+	}
+	return out, nil
 }
 
 func flashAttnF16AccumReference(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) []float32 {
