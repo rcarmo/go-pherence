@@ -146,6 +146,16 @@ llama l_out-0 row1 vs Go post-BF16 l_out layer0/pos3:
 
 That means part of the apparent `l_out` mismatch is trace-boundary naming: llama's trace is likely pre-store/pre-BF16, while Go's historical `l_out` trace was after the Gemma4 BF16 store boundary. The runtime BF16 boundary may still be correct, but future trace comparisons should use `l_out_pre_bf16` when comparing against llama's `l_out-*` dumps.
 
+A default-off diagnostic gate can now skip the final layer BF16 store for selected layer/position:
+
+```bash
+GO_PHERENCE_MTP_SKIP_LAYER_BF16=1
+GO_PHERENCE_MTP_SKIP_LAYER_BF16_LAYER=0
+GO_PHERENCE_MTP_SKIP_LAYER_BF16_POS=3
+```
+
+For layer0/pos3 alone, this improves the row1 dominant selected-logit delta from about `-0.3837` to about `-0.0648`, while row2 worsens (`token236751` about `+0.0922`). Combining this with the pure-flash diagnostic worsens row1 again (`token236757` about `-0.4117`) while improving row2, so the residual is a graph-composition interaction rather than a single independent replacement rule.
+
 This then amplifies:
 
 - layer 0 `attn_out` max abs ≈ `0.1384`

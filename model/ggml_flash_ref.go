@@ -29,6 +29,24 @@ func mtpPureGoFlashFilter(name string) int {
 func mtpPureGoFlashLayerFilter() int { return mtpPureGoFlashFilter("GO_PHERENCE_MTP_PURE_FLASH_LAYER") }
 func mtpPureGoFlashPosFilter() int   { return mtpPureGoFlashFilter("GO_PHERENCE_MTP_PURE_FLASH_POS") }
 
+func mtpSkipLayerBF16Enabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_MTP_SKIP_LAYER_BF16")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func mtpSkipLayerBF16(layerIdx, pos int) bool {
+	if !mtpSkipLayerBF16Enabled() {
+		return false
+	}
+	if lf := mtpPureGoFlashFilter("GO_PHERENCE_MTP_SKIP_LAYER_BF16_LAYER"); lf >= 0 && lf != layerIdx {
+		return false
+	}
+	if pf := mtpPureGoFlashFilter("GO_PHERENCE_MTP_SKIP_LAYER_BF16_POS"); pf >= 0 && pf != pos {
+		return false
+	}
+	return true
+}
+
 func tryPureGoFlashAttentionInto(out, q, kCache, vCache []float32, layerIdx, pos, seqLen, numHeads, numKVHeads, headDim int, scale float32) bool {
 	if !mtpPureGoFlashEnabled() {
 		return false
