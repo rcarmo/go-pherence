@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/rcarmo/go-pherence/backends/ggmlcompute"
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
@@ -52,6 +53,40 @@ func TestGemma4RealGGMLRMSNormOracle(t *testing.T) {
 		if maxDiff > 2e-6 {
 			t.Fatalf("%s ggml-vs-go max=%g mean=%g", tc.name, maxDiff, meanDiff)
 		}
+	}
+}
+
+func TestGemma4RealGGMLRMSNormNoScaleOracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headDim := m.Layers[0].HeadDimLocal
+	x := syntheticOracleVec(headDim, 0.071)
+	ones := make([]float32, headDim)
+	for i := range ones {
+		ones[i] = 1
+	}
+	gotGGML := make([]float32, headDim)
+	if err := ggmlcompute.RMSNormMulF32(gotGGML, x, ones, float32(m.Config.RMSNormEps)); err != nil {
+		t.Fatal(err)
+	}
+	gotGo := append([]float32(nil), x...)
+	simd.RMSNormNoScale(gotGo, float32(m.Config.RMSNormEps))
+	maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+	t.Logf("Gemma4 no-scale RMSNorm ggml-vs-go max=%g mean=%g", maxDiff, meanDiff)
+	if maxDiff > 2e-6 {
+		t.Fatalf("Gemma4 no-scale RMSNorm ggml-vs-go max=%g mean=%g", maxDiff, meanDiff)
 	}
 }
 
