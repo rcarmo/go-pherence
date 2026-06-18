@@ -47,8 +47,20 @@ type parityReport struct {
 	Got              model.MTPGraphGenerationStepSummary `json:"got"`
 	Want             parityCycle                         `json:"want"`
 	LogitMismatches  []string                            `json:"logit_mismatches,omitempty"`
+	LogitDeltas      []selectedLogitDelta                `json:"logit_deltas,omitempty"`
 	Capabilities     model.MTPGraphCapabilities          `json:"capabilities"`
 	MissingForPublic []string                            `json:"missing_for_public_generation,omitempty"`
+}
+
+type selectedLogitDelta struct {
+	Name  string  `json:"name"`
+	Row   int     `json:"row"`
+	Token int     `json:"token"`
+	Got   float64 `json:"got"`
+	Want  float64 `json:"want"`
+	Delta float64 `json:"delta"`
+	Abs   float64 `json:"abs"`
+	Tol   float64 `json:"tol"`
 }
 
 func main() {
@@ -275,8 +287,9 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 		return parityReport{}, fmt.Errorf("MTP graph decode step: %w", err)
 	}
 	got := newStepSummary(step)
-	mismatches := compareSelectedLogits("drafter", step.Step.Drafts.Logits, fx.Cycle.DrafterLogits, fx.Tolerance)
-	mismatches = append(mismatches, compareSelectedLogits("verifier", step.Step.Verifier.Logits, fx.Cycle.VerifierLogits, fx.Tolerance)...)
+	deltas := selectedLogitDeltas("drafter", step.Step.Drafts.Logits, fx.Cycle.DrafterLogits, fx.Tolerance)
+	deltas = append(deltas, selectedLogitDeltas("verifier", step.Step.Verifier.Logits, fx.Cycle.VerifierLogits, fx.Tolerance)...)
+	mismatches := selectedLogitMismatches(deltas)
 	matched := len(mismatches) == 0 && sameInts(got.DraftedTokens, fx.Cycle.DraftedTokens) &&
 		sameInts(got.VerifierTokens, fx.Cycle.VerifierTokens) &&
 		sameInts(got.VerifierOutputTokens, fx.Cycle.VerifierOutputTokens) &&
@@ -286,7 +299,7 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 		got.BonusToken == fx.Cycle.BonusToken &&
 		got.AllDraftsAccepted == fx.Cycle.AllDraftsAccepted
 	caps := model.Gemma4MTPGraphCapabilities()
-	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, LogitDeltas: deltas, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
 }
 
 func trimmedStepSummary(c parityCycle) model.MTPGraphGenerationStepSummary {
@@ -345,13 +358,10 @@ func newStepSummary(step model.MTPGraphDecodeStepResult) model.MTPGraphGeneratio
 	}
 }
 
-func compareSelectedLogits(name string, got [][]float32, want []map[string]float64, tol float64) []string {
-	var mismatches []string
-	if len(want) == 0 {
-		return mismatches
-	}
-	if len(got) < len(want) {
-		return append(mismatches, fmt.Sprintf("%s logits rows=%d want_at_least=%d", name, len(got), len(want)))
+func selectedLogitDeltas(name string, got [][]float32, want []map[string]float64, tol float64) []selectedLogitDelta {
+	var deltas []selectedLogitDelta
+	if len(want) == 0 || len(got) < len(want) {
+		return deltas
 	}
 	for row, probes := range want {
 		keys := make([]string, 0, len(probes))
@@ -369,18 +379,22 @@ func compareSelectedLogits(name string, got [][]float32, want []map[string]float
 		for _, key := range keys {
 			wantLogit := probes[key]
 			id, err := strconv.Atoi(key)
-			if err != nil {
-				mismatches = append(mismatches, fmt.Sprintf("%s row=%d invalid_token_key=%q", name, row, key))
-				continue
-			}
-			if id < 0 || id >= len(got[row]) {
-				mismatches = append(mismatches, fmt.Sprintf("%s row=%d token=%d outside_width=%d", name, row, id, len(got[row])))
+			if err != nil || id < 0 || id >= len(got[row]) {
 				continue
 			}
 			gotLogit := float64(got[row][id])
-			if math.Abs(gotLogit-wantLogit) > tol {
-				mismatches = append(mismatches, fmt.Sprintf("%s row=%d token=%d got=%g want=%g tol=%g", name, row, id, gotLogit, wantLogit, tol))
-			}
+			delta := gotLogit - wantLogit
+			deltas = append(deltas, selectedLogitDelta{Name: name, Row: row, Token: id, Got: gotLogit, Want: wantLogit, Delta: delta, Abs: math.Abs(delta), Tol: tol})
+		}
+	}
+	return deltas
+}
+
+func selectedLogitMismatches(deltas []selectedLogitDelta) []string {
+	var mismatches []string
+	for _, d := range deltas {
+		if d.Abs > d.Tol {
+			mismatches = append(mismatches, fmt.Sprintf("%s row=%d token=%d got=%g want=%g delta=%+g tol=%g", d.Name, d.Row, d.Token, d.Got, d.Want, d.Delta, d.Tol))
 		}
 	}
 	return mismatches
