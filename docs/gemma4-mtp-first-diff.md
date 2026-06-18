@@ -328,7 +328,24 @@ Prompt-context activation was also compared against a prompt-only llama `h_nextn
 prompt h_nextn/result_norm vs Go ctx.Activation: max≈0.493537 mean≈0.091993
 ```
 
-This indicates the hidden trajectory drift is already present at the seeded prompt context before the verifier rows, not introduced only during `[input]+drafted` verification.
+This indicates the hidden trajectory drift is already present at the seeded prompt context before the verifier rows, not introduced only during `[input]+drafted` verification. A prompt-only all-layer `l_out` comparison for token `10979` shows the drift starts tiny and then accumulates:
+
+```text
+prompt layer00 max≈0.000309 mean≈1.58e-5
+prompt layer01 max≈0.005997 mean≈0.000317
+prompt layer02 max≈0.01794  mean≈0.00206
+prompt layer03 max≈0.03136  mean≈0.00392
+prompt layer04 max≈0.03801  mean≈0.00531
+prompt layer10 max≈0.18367  mean≈0.00818
+prompt layer16 max≈0.14913  mean≈0.02290
+prompt layer20 max≈0.18754  mean≈0.02608
+prompt layer24 max≈0.25299  mean≈0.03515
+prompt layer26 max≈0.34244  mean≈0.03680  # peak in this prompt trace
+prompt layer32 max≈0.25827  mean≈0.03062
+prompt layer41 max≈0.12163  mean≈0.01512
+```
+
+So the next root-cause pass should focus on the ordinary prompt-context layer trajectory starting at layer0/1, not on verifier-only mechanics.
 
 Final-tail comparison with occurrence-indexed llama dumps confirms the strict selected-logit deltas are primarily inherited hidden-state drift, not a new LM-head-only issue. Across all three verifier rows:
 
