@@ -2,6 +2,8 @@ package model
 
 import (
 	"os"
+	"regexp"
+	"sort"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/loader/gguf"
@@ -45,6 +47,49 @@ func TestGemma4GGUFLayerOutputScaleIsScalarF32(t *testing.T) {
 	}
 }
 
+func TestGemma4GGUFTensorPatternCoverage(t *testing.T) {
+	g := openLocalGemma4GGUFForTest(t)
+	defer g.Close()
+	want := map[string]int{
+		"blk.*.attn_k.weight":              24,
+		"blk.*.attn_k_norm.weight":         24,
+		"blk.*.attn_norm.weight":           42,
+		"blk.*.attn_output.weight":         42,
+		"blk.*.attn_q.weight":              42,
+		"blk.*.attn_q_norm.weight":         42,
+		"blk.*.attn_v.weight":              24,
+		"blk.*.ffn_down.weight":            42,
+		"blk.*.ffn_gate.weight":            42,
+		"blk.*.ffn_norm.weight":            42,
+		"blk.*.ffn_up.weight":              42,
+		"blk.*.inp_gate.weight":            42,
+		"blk.*.layer_output_scale.weight":  42,
+		"blk.*.post_attention_norm.weight": 42,
+		"blk.*.post_ffw_norm.weight":       42,
+		"blk.*.post_norm.weight":           42,
+		"blk.*.proj.weight":                42,
+		"output_norm.weight":               1,
+		"per_layer_model_proj.weight":      1,
+		"per_layer_proj_norm.weight":       1,
+		"per_layer_token_embd.weight":      1,
+		"rope_freqs.weight":                1,
+		"token_embd.weight":                1,
+	}
+	re := regexp.MustCompile(`^blk\.[0-9]+\.`)
+	got := map[string]int{}
+	for _, tensor := range g.Tensors {
+		got[re.ReplaceAllString(tensor.Name, "blk.*.")]++
+	}
+	if len(got) != len(want) {
+		t.Fatalf("Gemma4 tensor pattern count=%d want %d got=%v", len(got), len(want), sortedPatternCounts(got))
+	}
+	for pattern, wantCount := range want {
+		if got[pattern] != wantCount {
+			t.Fatalf("Gemma4 tensor pattern %s count=%d want %d; all=%v", pattern, got[pattern], wantCount, sortedPatternCounts(got))
+		}
+	}
+}
+
 func TestGemma4GGUFPerLayerInputTensorShapes(t *testing.T) {
 	g := openLocalGemma4GGUFForTest(t)
 	defer g.Close()
@@ -71,6 +116,15 @@ func TestGemma4GGUFPerLayerInputTensorShapes(t *testing.T) {
 			t.Fatalf("%s qtype/shape=%s/%v, want %s/%v", check.name, tensor.QType, tensor.Shape, check.qtype, check.shape)
 		}
 	}
+}
+
+func sortedPatternCounts(m map[string]int) []string {
+	out := make([]string, 0, len(m))
+	for k, v := range m {
+		out = append(out, k+"="+itoa(v))
+	}
+	sort.Strings(out)
+	return out
 }
 
 func sameUint64s(a, b []uint64) bool {
