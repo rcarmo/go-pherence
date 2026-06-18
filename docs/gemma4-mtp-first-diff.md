@@ -210,6 +210,23 @@ row2 token236757 got=28.6179848 want=28.6220856 delta=-0.0041008
 
 That is not strict-green, but it is a closer backend graph: the previous Gemma4 BF16 store was compensating for other remaining differences and has been removed from the production Gemma4 path. The default-off skip gate remains mostly useful for Gemma3 or future diagnostic toggles, not as the Gemma4 production behavior.
 
+After removing the Gemma4 BF16 layer-store deviation, the pure-flash diagnostic A/B shifts:
+
+```text
+pure flash layer0 pos2:
+  row0 token236757≈+0.0742, row1 token236757≈-0.0805, row2 max≈0.0178
+pure flash layer0 pos3:
+  row0 unchanged, row1 token236757≈-0.1939, row2 token236751≈+0.0408
+pure flash layer0 pos4:
+  row0/row1 unchanged, row2 token236751≈-0.1587
+pure flash all layer0 positions:
+  row0 token236751≈-0.1841, row1 token236757≈-0.2357, row2 max≈0.0481
+pure flash all layers/positions:
+  row0 max≈0.1354, row1 token236757≈-0.2670, row2 token236757≈+0.00051 but row2 token236751≈-0.0820
+```
+
+So layer0/pos2 is now the best bounded flash diagnostic for row1+row2, but it worsens row0. This points at verifier-row coupling/state propagation rather than a local attention-only fix.
+
 This then amplifies:
 
 - layer 0 `attn_out` max abs ≈ `0.1384`
