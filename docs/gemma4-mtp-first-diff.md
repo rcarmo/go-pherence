@@ -345,7 +345,27 @@ prompt layer32 max≈0.25827  mean≈0.03062
 prompt layer41 max≈0.12163  mean≈0.01512
 ```
 
-So the next root-cause pass should focus on the ordinary prompt-context layer trajectory starting at layer0/1, not on verifier-only mechanics.
+So the next root-cause pass should focus on the ordinary prompt-context layer trajectory starting at layer0/1, not on verifier-only mechanics. A prompt-only layer0 checkpoint ladder for token `10979` shows the first meaningful local amplification is in the PLI branch:
+
+```text
+attn_norm          max≈1.53e-5   mean≈9.18e-7
+q_proj             max≈3.05e-5   mean≈2.20e-6
+q_norm             max≈1.43e-6   mean≈1.27e-7
+q_pos              max≈1.19e-6   mean≈1.29e-7
+k_norm             max≈1.49e-7   mean≈1.52e-8
+k_pos              max≈1.49e-7   mean≈1.53e-8
+v_norm             max≈9.54e-7   mean≈1.48e-7
+attn_pre_o         max≈0.000230  mean≈5.86e-7
+attn_out           max≈3.05e-5   mean≈2.29e-7
+ffn_norm           max≈8.94e-7   mean≈5.19e-8
+ffn_out            max≈1.91e-6   mean≈1.73e-7
+ffn_post_norm      max≈2.10e-5   mean≈1.36e-6
+pe_in              max≈3.05e-5   mean≈1.44e-6
+per_layer_embd_out max≈0.00421   mean≈0.000216
+l_out              max≈0.000309  mean≈1.58e-5
+```
+
+This suggests the PLI branch is the first notable local amplifier in prompt prefill, even though its standalone projection/embedding kernels are covered by ggml oracles.
 
 Final-tail comparison with occurrence-indexed llama dumps confirms the strict selected-logit deltas are primarily inherited hidden-state drift, not a new LM-head-only issue. Across all three verifier rows:
 
