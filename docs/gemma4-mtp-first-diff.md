@@ -225,7 +225,7 @@ pure flash all layers/positions:
   row0 max≈0.1354, row1 token236757≈-0.2670, row2 token236757≈+0.00051 but row2 token236751≈-0.0820
 ```
 
-So layer0/pos2 is now the best bounded flash diagnostic for row1+row2, but it worsens row0. This points at verifier-row coupling/state propagation rather than a local attention-only fix.
+The ggml-style pure flash path is now the default Gemma4 MTP verifier attention path because llama.cpp uses `ggml_flash_attn_ext` and the default accepted-token gate stays green. `GO_PHERENCE_MTP_PURE_FLASH=0` remains as an explicit diagnostic opt-out. With pure flash default, strict selected-logit parity has five residual mismatches; row2 token236757 is now within tolerance. Layer0/pos2 had been the best bounded diagnostic for row1+row2 before making flash default, but it worsened row0, reinforcing that the remaining issue is verifier-row coupling/state propagation rather than a local attention-only fix.
 
 With the graph-aligned default (Gemma4 no layer-output BF16 store), the layer0/pos3 trace ladder is:
 

@@ -11,7 +11,12 @@ import (
 
 func mtpPureGoFlashEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_MTP_PURE_FLASH")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
+	if v == "0" || v == "false" || v == "no" || v == "off" {
+		return false
+	}
+	// llama.cpp Gemma4 uses ggml_flash_attn_ext for this verifier path; keep the
+	// ggml-style Go reference enabled by default and allow only explicit opt-out.
+	return true
 }
 
 func mtpPureGoFlashFilter(name string) int {
