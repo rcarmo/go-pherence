@@ -1,0 +1,19 @@
+{
+  "reference": "llama.cpp llama-diffusion-gemma-eval",
+  "model": "diffusiongemma-26B-A4B-it-Q4_K_M.gguf",
+  "prompt_ids": [105],
+  "canvas_token": 236743,
+  "canvas_length": 256,
+  "row": 0,
+  "top_logits": [
+    {"id": 236743, "v": 28.092376708984375},
+    {"id": 236812, "v": 20.782846450805664},
+    {"id": 900, "v": 20.734893798828125},
+    {"id": 753, "v": 20.631696701049805},
+    {"id": 236828, "v": 20.26319694519043}
+  ],
+  "notes": [
+    "Captured with llama.cpp build/bin/llama-diffusion-gemma-eval using prompt_ids=[105] and a 256-token canvas filled with 236743.",
+    "This fixture is a compact full-canvas graph reference for row-0 logits; it is not the fast one-row diagnostic smoke."
+  ]
+}
