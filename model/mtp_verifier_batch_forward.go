@@ -240,6 +240,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 				rmsNormInPlace(o, layer.PostNorm.Data(), eps)
 				hid := bHidden[b*h : (b+1)*h]
 				simd.VecAdd(hid, bResidual[b*h:(b+1)*h], o)
+				traceMTPSummary("attn_out", b, l, batch.Plan.Positions[b], hid)
 			}
 			copy(bResidual, bHidden)
 			for b := 0; b < B; b++ {
@@ -255,6 +256,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			for b := 0; b < B; b++ {
 				hid := bHidden[b*h : (b+1)*h]
 				simd.VecAdd(hid, bResidual[b*h:(b+1)*h], bOOut[b*h:(b+1)*h])
+				traceMTPSummary("attn_out", b, l, batch.Plan.Positions[b], hid)
 			}
 			copy(bResidual, bHidden)
 			for b := 0; b < B; b++ {
@@ -303,6 +305,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			}
 			hid := bHidden[b*h : (b+1)*h]
 			simd.VecAdd(hid, bResidual[b*h:(b+1)*h], down)
+			traceMTPSummary("ffn_resid", b, l, batch.Plan.Positions[b], hid)
 		}
 		if batch.HasPerLayerInputs && (layer.PLIGate != nil || layer.PLIGateGGUF != nil) {
 			hpl := m.Config.HiddenPerLayer
@@ -357,6 +360,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			if isGemma3 || (batch.HasPerLayerInputs && m.Config.ModelType == "gemma4_text") {
 				simd.ToBF16(hid)
 			}
+			traceMTPSummary("l_out", b, l, batch.Plan.Positions[b], hid)
 		}
 	}
 	out := make([][]float32, B)
