@@ -10,6 +10,28 @@ import (
 	"github.com/rcarmo/go-pherence/half"
 )
 
+func TestVecDotF16DiffersFromScalarReduction(t *testing.T) {
+	const n = 256
+	x := make([]uint16, n)
+	y := make([]uint16, n)
+	for i := 0; i < n; i++ {
+		x[i] = half.F32ToF16(float32(math.Sin(float64(i)*0.031)) * 2)
+		y[i] = half.F32ToF16(float32(math.Cos(float64(i)*0.047)) * 3)
+	}
+	got, err := VecDotF16(x, y)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scalar float32
+	for i := 0; i < n; i++ {
+		scalar += half.F16ToF32(x[i]) * half.F16ToF32(y[i])
+	}
+	t.Logf("ggml F16 vecdot=%g scalar=%g delta=%g", got, scalar, got-scalar)
+	if math.Abs(float64(got-scalar)) < 1e-6 {
+		t.Fatal("ggml F16 vecdot unexpectedly matched scalar reduction exactly")
+	}
+}
+
 func TestVecDotRowsDirectInitializesCPUTables(t *testing.T) {
 	x := make([]float32, 256)
 	for i := range x {
