@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,24 @@ func TestRunMTPDrafterStepProjectionOnly(t *testing.T) {
 	got.NextActivation[0] = 99
 	if got.NextState.Activation[0] == 99 {
 		t.Fatal("NextState activation aliases result activation")
+	}
+}
+
+func TestRunMTPDrafterStepScalesBackboneEmbeddingByBackboneWidth(t *testing.T) {
+	m := validDrafterStepBackboneModel()
+	m.Config.ModelType = "gemma4_text"
+	d := validProjectionOnlyDrafter()
+	state, err := NewMTPDrafterState(0, []float32{0, 0}, d.BackboneHiddenSize)
+	if err != nil {
+		t.Fatalf("NewMTPDrafterState: %v", err)
+	}
+	got, err := m.RunMTPDrafterStep(d, state)
+	if err != nil {
+		t.Fatalf("RunMTPDrafterStep: %v", err)
+	}
+	want := float32(math.Sqrt(2))
+	if len(got.NextActivation) != 2 || got.NextActivation[0] != want || got.NextActivation[1] != 0 {
+		t.Fatalf("NextActivation=%v, want scaled backbone embedding [%g 0]", got.NextActivation, want)
 	}
 }
 

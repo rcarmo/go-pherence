@@ -95,7 +95,9 @@ func (m *LlamaModel) RunMTPDrafterStepWithExternalKV(d *Gemma4MTPDrafter, state 
 		return MTPDrafterStepResult{}, fmt.Errorf("drafter backbone embedding: %w", err)
 	}
 	if m.Config.ModelType == "gemma3_text" || m.Config.ModelType == "gemma4_text" {
-		scale := float32(math.Sqrt(float64(m.Config.HiddenSize)))
+		// llama.cpp gemma4-assistant scales the target token embedding by
+		// sqrt(n_embd_backbone) before concatenating it with inp_h.
+		scale := float32(math.Sqrt(float64(d.BackboneHiddenSize)))
 		for i := range backboneEmbedding {
 			backboneEmbedding[i] *= scale
 		}
