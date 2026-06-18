@@ -219,6 +219,9 @@ func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode state: %v", err)
 	}
+	if fx.Compressed {
+		m.EnableTurboQuant = true
+	}
 	if fx.Compressed || m.EnableTurboQuant || m.TurboQuantConfig != nil {
 		if err := m.SeedCompressedKVFromPromptContext(decode, ctx); err != nil {
 			t.Fatalf("compressed prompt seed: %v", err)
