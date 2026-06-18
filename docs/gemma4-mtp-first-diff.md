@@ -227,6 +227,20 @@ pure flash all layers/positions:
 
 So layer0/pos2 is now the best bounded flash diagnostic for row1+row2, but it worsens row0. This points at verifier-row coupling/state propagation rather than a local attention-only fix.
 
+With the graph-aligned default (Gemma4 no layer-output BF16 store), the layer0/pos3 trace ladder is:
+
+```text
+default F32 attention:
+  llama l_out-0 row1 vs Go l_out layer0/pos3 max≈0.0121098 mean≈0.00111134
+
+pure flash layer0/pos3:
+  llama __fattn__-0 row1 vs Go attn_pre_o max≈0.00059104 mean≈0.000003126
+  llama attn_out-0 row1 vs Go attn_out max≈0.0263062 mean≈0.000401663
+  llama l_out-0 row1 vs Go l_out max≈0.00790989 mean≈0.000793528
+```
+
+This confirms the BF16 boundary is no longer obscuring trace comparisons; the remaining layer0 local mismatch is now dominated by post-attention composition/MLP propagation, not by the layer-output store.
+
 `build_cvec` was inspected as a possible row-coupled state source. In llama.cpp it is only `llama_adapter_cvec::apply_to`, which adds a control-vector tensor when one is configured; otherwise `tensor_for(il)` returns `nullptr` and the input tensor is returned unchanged. The local parity harness does not pass `--control-vector`, so control vectors are inactive and Go's lack of an explicit cvec add is not a current parity gap.
 
 This then amplifies:
