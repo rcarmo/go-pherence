@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -64,4 +65,33 @@ func traceMTPSummary(label string, row, layer, pos int, x []float32) {
 		first = len(x)
 	}
 	fmt.Fprintf(os.Stderr, "GO_MTP_SUMMARY label=%s row=%d layer=%d pos=%d n=%d mean=%.9g rms=%.9g max_abs=%.9g max_idx=%d hash=%016x first=%v\n", label, row, layer, pos, len(x), sum/float64(len(x)), math.Sqrt(sumsq/float64(len(x))), maxAbs, maxIdx, h.Sum64(), append([]float32(nil), x[:first]...))
+	traceMTPSummaryDump(label, row, layer, pos, x)
+}
+
+func traceMTPSummaryDump(label string, row, layer, pos int, x []float32) {
+	dir := strings.TrimSpace(os.Getenv("GO_PHERENCE_MTP_TRACE_DUMP_DIR"))
+	if dir == "" || len(x) == 0 {
+		return
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "GO_MTP_SUMMARY_DUMP_ERROR mkdir=%q err=%v\n", dir, err)
+		return
+	}
+	safeLabel := strings.NewReplacer("/", "_", "\\", "_", " ", "_", "(", "_", ")", "_", ":", "_").Replace(label)
+	path := filepath.Join(dir, fmt.Sprintf("go_%s_layer%02d_pos%d_row%d_n%d.f32", safeLabel, layer, pos, row, len(x)))
+	f, err := os.Create(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "GO_MTP_SUMMARY_DUMP_ERROR create=%q err=%v\n", path, err)
+		return
+	}
+	defer f.Close()
+	var buf [4]byte
+	for _, v := range x {
+		binary.LittleEndian.PutUint32(buf[:], math.Float32bits(v))
+		if _, err := f.Write(buf[:]); err != nil {
+			fmt.Fprintf(os.Stderr, "GO_MTP_SUMMARY_DUMP_ERROR write=%q err=%v\n", path, err)
+			return
+		}
+	}
+	fmt.Fprintf(os.Stderr, "GO_MTP_SUMMARY_DUMP path=%s\n", path)
 }
