@@ -137,6 +137,52 @@ static int gp_get_row_to_f32(int typ, const void * raw, size_t raw_bytes, int in
     return 0;
 }
 
+static int gp_rope_ext_f32(const float * x_f32, const int32_t * pos_i32, const float * factors_f32, float * out, int head_dim, int n_head, int n_tokens, int n_dims, int mode, int n_ctx_orig, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow) {
+    if (!x_f32 || !pos_i32 || !out || head_dim <= 0 || n_head <= 0 || n_tokens <= 0 || n_dims <= 0) {
+        return -1;
+    }
+    ggml_cpu_init();
+    size_t x_count = (size_t) head_dim * (size_t) n_head * (size_t) n_tokens;
+    size_t factor_count = (size_t) n_dims / 2;
+    size_t mem_size = x_count*sizeof(float)*2 + (size_t)n_tokens*sizeof(int32_t) + factor_count*sizeof(float) + 16*1024*1024;
+    struct ggml_init_params params = {
+        .mem_size   = mem_size,
+        .mem_buffer = NULL,
+        .no_alloc   = false,
+    };
+    struct ggml_context * ctx = ggml_init(params);
+    if (!ctx) {
+        return -2;
+    }
+    struct ggml_tensor * x = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, head_dim, n_head, n_tokens);
+    struct ggml_tensor * p = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, n_tokens);
+    struct ggml_tensor * f = NULL;
+    memcpy(x->data, x_f32, x_count*sizeof(float));
+    memcpy(p->data, pos_i32, (size_t)n_tokens*sizeof(int32_t));
+    if (factors_f32) {
+        f = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, factor_count);
+        memcpy(f->data, factors_f32, factor_count*sizeof(float));
+    }
+    struct ggml_tensor * y = ggml_rope_ext(ctx, x, p, f, n_dims, mode, n_ctx_orig, freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow);
+    struct ggml_cgraph * gf = ggml_new_graph(ctx);
+    ggml_build_forward_expand(gf, y);
+    struct ggml_backend * backend = ggml_backend_cpu_init();
+    if (!backend) {
+        ggml_free(ctx);
+        return -3;
+    }
+    enum ggml_status st = ggml_backend_graph_compute(backend, gf);
+    if (st != GGML_STATUS_SUCCESS) {
+        ggml_backend_free(backend);
+        ggml_free(ctx);
+        return -4;
+    }
+    memcpy(out, y->data, x_count*sizeof(float));
+    ggml_backend_free(backend);
+    ggml_free(ctx);
+    return 0;
+}
+
 static int gp_flash_attn_f32_f16(const float * q_f32, const uint16_t * k_f16, const uint16_t * v_f16, const uint16_t * mask_f16, float * out, int head_dim, int seq_len, int n_head, int n_kv, float scale) {
     if (!q_f32 || !k_f16 || !v_f16 || !out || head_dim <= 0 || seq_len <= 0 || n_head <= 0 || n_kv <= 0) {
         return -1;
@@ -374,6 +420,25 @@ func GetRowToF32(qtype int, out []float32, raw []byte, inDim, outDim, row int) e
 	rc := C.gp_get_row_to_f32(C.int(qtype), unsafe.Pointer(&raw[0]), C.size_t(len(raw)), C.int(inDim), C.int(outDim), C.int(row), (*C.float)(unsafe.Pointer(&out[0])))
 	if rc != 0 {
 		return fmt.Errorf("ggml get_rows failed rc=%d", int(rc))
+	}
+	return nil
+}
+
+func RoPEExtF32(out, x []float32, positions []int32, factors []float32, headDim, nHead, nTokens, nDims, mode, nCtxOrig int, freqBase, freqScale, extFactor, attnFactor, betaFast, betaSlow float32) error {
+	count := headDim * nHead * nTokens
+	if headDim <= 0 || nHead <= 0 || nTokens <= 0 || nDims <= 0 || len(out) < count || len(x) < count || len(positions) < nTokens {
+		return fmt.Errorf("bad RoPEExtF32 sizes")
+	}
+	var factorsPtr *C.float
+	if len(factors) > 0 {
+		if len(factors) < nDims/2 {
+			return fmt.Errorf("bad RoPEExtF32 factors size")
+		}
+		factorsPtr = (*C.float)(unsafe.Pointer(&factors[0]))
+	}
+	rc := C.gp_rope_ext_f32((*C.float)(unsafe.Pointer(&x[0])), (*C.int32_t)(unsafe.Pointer(&positions[0])), factorsPtr, (*C.float)(unsafe.Pointer(&out[0])), C.int(headDim), C.int(nHead), C.int(nTokens), C.int(nDims), C.int(mode), C.int(nCtxOrig), C.float(freqBase), C.float(freqScale), C.float(extFactor), C.float(attnFactor), C.float(betaFast), C.float(betaSlow))
+	if rc != 0 {
+		return fmt.Errorf("ggml rope_ext failed rc=%d", int(rc))
 	}
 	return nil
 }

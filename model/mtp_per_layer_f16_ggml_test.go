@@ -16,6 +16,23 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4GGMLRoPEExtOracle(t *testing.T) {
+	const headDim, nHead, nTokens, pos = 8, 3, 1, 4
+	x := syntheticOracleVec(headDim*nHead*nTokens, 0.127)
+	gotGGML := make([]float32, len(x))
+	if err := ggmlcompute.RoPEExtF32(gotGGML, x, []int32{pos}, nil, headDim, nHead, nTokens, headDim, 2, 8192, 10000, 1, 0, 1, 32, 1); err != nil {
+		t.Fatal(err)
+	}
+	freqs := buildGemma4GGMLRoPEFreqsWithFactors(pos+1, headDim/2, headDim, 10000, nil)
+	gotGo := append([]float32(nil), x...)
+	applyRoPEPartial(gotGo, freqs, pos, nHead, headDim, headDim/2)
+	maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+	t.Logf("ggml rope_ext-vs-Go max=%g mean=%g", maxDiff, meanDiff)
+	if maxDiff > 2e-6 {
+		t.Fatalf("ggml rope_ext-vs-Go max=%g mean=%g", maxDiff, meanDiff)
+	}
+}
+
 func TestGemma4Layer6VerifierAttentionRealGGMLFlashOracle(t *testing.T) {
 	testGemma4VerifierLayerAttentionRealGGMLFlashOracle(t, 6)
 }
