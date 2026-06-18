@@ -227,6 +227,8 @@ pure flash all layers/positions:
 
 So layer0/pos2 is now the best bounded flash diagnostic for row1+row2, but it worsens row0. This points at verifier-row coupling/state propagation rather than a local attention-only fix.
 
+`build_cvec` was inspected as a possible row-coupled state source. In llama.cpp it is only `llama_adapter_cvec::apply_to`, which adds a control-vector tensor when one is configured; otherwise `tensor_for(il)` returns `nullptr` and the input tensor is returned unchanged. The local parity harness does not pass `--control-vector`, so control vectors are inactive and Go's lack of an explicit cvec add is not a current parity gap.
+
 This then amplifies:
 
 - layer 0 `attn_out` max abs ≈ `0.1384`
