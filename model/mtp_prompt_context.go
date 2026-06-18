@@ -6,6 +6,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/half"
 	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 )
 
@@ -476,7 +477,14 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 				gate2[i] = ggmlGELUF32(gate2[i])
 			}
 			traceMTPSummary("per_layer_gate_gelu", traceRow, layerIdx, pos, gate2)
-			simd.VecMul(gate2, gate2, pli)
+			pliMul := pli
+			if mtpRoundPLIRowEnabled() {
+				pliMul = make([]float32, len(pli))
+				for i, v := range pli {
+					pliMul[i] = half.F16ToF32(half.F32ToF16(v))
+				}
+			}
+			simd.VecMul(gate2, gate2, pliMul)
 		} else {
 			simd.GELUTanhMul(gate2, gate2, pli)
 			traceMTPSummary("per_layer_gate_gelu", traceRow, layerIdx, pos, gate2)

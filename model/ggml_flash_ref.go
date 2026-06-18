@@ -34,6 +34,11 @@ func mtpPureGoFlashFilter(name string) int {
 func mtpPureGoFlashLayerFilter() int { return mtpPureGoFlashFilter("GO_PHERENCE_MTP_PURE_FLASH_LAYER") }
 func mtpPureGoFlashPosFilter() int   { return mtpPureGoFlashFilter("GO_PHERENCE_MTP_PURE_FLASH_POS") }
 
+func mtpRoundPLIRowEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_MTP_ROUND_PLI_ROW")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
 func mtpSkipLayerBF16Enabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_MTP_SKIP_LAYER_BF16")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
