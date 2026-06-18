@@ -56,8 +56,12 @@ static int gp_mul_mat_f16_f32(const uint16_t * w_f16, const float * x_f32, float
         return -1;
     }
     ggml_cpu_init();
+    size_t mem_size = (size_t) in_dim * (size_t) out_dim * sizeof(uint16_t) +
+                      (size_t) in_dim * sizeof(float) +
+                      (size_t) out_dim * sizeof(float) +
+                      32*1024*1024;
     struct ggml_init_params params = {
-        .mem_size   = 16*1024*1024,
+        .mem_size   = mem_size,
         .mem_buffer = NULL,
         .no_alloc   = false,
     };
