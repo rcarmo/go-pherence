@@ -422,7 +422,7 @@ The current strict gap is **not** explained by:
 
 - tokenizer/prompt trimming
 - Q/K/V/O/FFN projections or quant matmuls (actual-row ggml oracles pass)
-- per-layer token embedding rows, PLI gate/proj matmuls, or local PLI projection kernels
+- per-layer token embedding rows, `inp_per_layer` row construction, PLI gate/proj matmuls, or local PLI projection kernels
 - RMSNorm / no-scale RMSNorm / final norm (actual-row ggml oracles pass)
 - RoPE ordering/factors for the traced rows
 - GEGLU local kernel (table path is the correct ggml mode)
