@@ -74,10 +74,10 @@ Drafter loop (K iterations):
   hidden_draft = pre_projection(embedding(prev_token) || activation) [256]
   for layer in drafter_layers:
     hidden_draft = q-only layer(hidden_draft, KV=external main-model KV)
-  hidden_main = post_projection(hidden_draft)                         [1536]
-  logits = LM_head(hidden_main)                   [vocab]
+  logits = assistant_token_embd_head(hidden_draft)                     [vocab]
+  hidden_main = post_projection(hidden_draft)                          [1536]
   draft_token = argmax(logits)
-  carry projected activation and drafted token into the next iteration
+  carry projected activation (h_nextn) and drafted token into the next iteration
   → candidate_tokens[K]
 
 Verifier (current internal CPU path):
