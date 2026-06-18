@@ -14,6 +14,47 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4RealGGMLRMSNormOracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name string
+		w    []float32
+		x    []float32
+	}{
+		{name: "blk.0.attn_norm", w: m.Layers[0].InputNorm.Data(), x: syntheticOracleVec(m.Config.HiddenSize, 0.011)},
+		{name: "blk.0.post_attention_norm", w: m.Layers[0].PostNorm.Data(), x: syntheticOracleVec(m.Config.HiddenSize, -0.013)},
+		{name: "blk.0.ffn_norm", w: m.Layers[0].PreFFNNorm.Data(), x: syntheticOracleVec(m.Config.HiddenSize, 0.017)},
+		{name: "blk.0.post_ffw_norm", w: m.Layers[0].PostFFNNorm.Data(), x: syntheticOracleVec(m.Config.HiddenSize, -0.019)},
+		{name: "output_norm", w: m.Norm.Data(), x: syntheticOracleVec(m.Config.HiddenSize, 0.023)},
+	}
+	for _, tc := range cases {
+		gotGGML := make([]float32, len(tc.x))
+		if err := ggmlcompute.RMSNormMulF32(gotGGML, tc.x, tc.w, float32(m.Config.RMSNormEps)); err != nil {
+			t.Fatalf("ggml %s rms_norm: %v", tc.name, err)
+		}
+		gotGo := append([]float32(nil), tc.x...)
+		rmsNormInPlace(gotGo, tc.w, float32(m.Config.RMSNormEps))
+		maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+		t.Logf("%s ggml-vs-go max=%g mean=%g", tc.name, maxDiff, meanDiff)
+		if maxDiff > 2e-6 {
+			t.Fatalf("%s ggml-vs-go max=%g mean=%g", tc.name, maxDiff, meanDiff)
+		}
+	}
+}
+
 func TestGemma4GGMLGEGLUSplitOracle(t *testing.T) {
 	gate := syntheticOracleVec(257, 0.083)
 	up := syntheticOracleVec(257, -0.047)

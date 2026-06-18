@@ -137,6 +137,46 @@ static int gp_get_row_to_f32(int typ, const void * raw, size_t raw_bytes, int in
     return 0;
 }
 
+static int gp_rms_norm_mul_f32(const float * x_f32, const float * w_f32, float * out, int n, float eps) {
+    if (!x_f32 || !w_f32 || !out || n <= 0) {
+        return -1;
+    }
+    ggml_cpu_init();
+    size_t mem_size = (size_t) n * sizeof(float) * 4 + 16*1024*1024;
+    struct ggml_init_params params = {
+        .mem_size   = mem_size,
+        .mem_buffer = NULL,
+        .no_alloc   = false,
+    };
+    struct ggml_context * ctx = ggml_init(params);
+    if (!ctx) {
+        return -2;
+    }
+    struct ggml_tensor * x = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, n);
+    struct ggml_tensor * w = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, n);
+    memcpy(x->data, x_f32, (size_t) n * sizeof(float));
+    memcpy(w->data, w_f32, (size_t) n * sizeof(float));
+    struct ggml_tensor * y = ggml_rms_norm(ctx, x, eps);
+    y = ggml_mul(ctx, y, w);
+    struct ggml_cgraph * gf = ggml_new_graph(ctx);
+    ggml_build_forward_expand(gf, y);
+    struct ggml_backend * backend = ggml_backend_cpu_init();
+    if (!backend) {
+        ggml_free(ctx);
+        return -3;
+    }
+    enum ggml_status st = ggml_backend_graph_compute(backend, gf);
+    if (st != GGML_STATUS_SUCCESS) {
+        ggml_backend_free(backend);
+        ggml_free(ctx);
+        return -4;
+    }
+    memcpy(out, y->data, (size_t) n * sizeof(float));
+    ggml_backend_free(backend);
+    ggml_free(ctx);
+    return 0;
+}
+
 static int gp_geglu_split_f32(const float * gate, const float * up, float * out, int n) {
     if (!gate || !up || !out || n <= 0) {
         return -1;
@@ -283,6 +323,17 @@ func GetRowToF32(qtype int, out []float32, raw []byte, inDim, outDim, row int) e
 	rc := C.gp_get_row_to_f32(C.int(qtype), unsafe.Pointer(&raw[0]), C.size_t(len(raw)), C.int(inDim), C.int(outDim), C.int(row), (*C.float)(unsafe.Pointer(&out[0])))
 	if rc != 0 {
 		return fmt.Errorf("ggml get_rows failed rc=%d", int(rc))
+	}
+	return nil
+}
+
+func RMSNormMulF32(out, x, w []float32, eps float32) error {
+	if len(out) == 0 || len(x) < len(out) || len(w) < len(out) {
+		return fmt.Errorf("bad RMSNormMulF32 sizes")
+	}
+	rc := C.gp_rms_norm_mul_f32((*C.float)(unsafe.Pointer(&x[0])), (*C.float)(unsafe.Pointer(&w[0])), (*C.float)(unsafe.Pointer(&out[0])), C.int(len(out)), C.float(eps))
+	if rc != 0 {
+		return fmt.Errorf("ggml rms_norm+mul failed rc=%d", int(rc))
 	}
 	return nil
 }
