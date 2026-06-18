@@ -726,7 +726,7 @@ func flashAttnF16VecDotReference(q []float32, kF16 []uint16, vCache []float32, s
 			}
 			vHead := vCache[t*kvDim+kvHead*headDim : t*kvDim+(kvHead+1)*headDim]
 			for d := 0; d < headDim; d++ {
-				acc[d] = half.F16ToF32(half.F32ToF16(acc[d] + vHead[d]*vs))
+				acc[d] = half.F16ToF32(half.F32ToF16(float32(math.FMA(float64(vHead[d]), float64(vs), float64(acc[d])))))
 			}
 			S += vs
 		}
