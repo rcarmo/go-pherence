@@ -113,13 +113,12 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -mtp-smoke \
   -prompt "Hello"
 
-# Recommended real-prompt Gemma4 E4B smoke on the local RTX 3060 profile
-# If the main verifier snapshot is missing, fetch it with:
-#   python3 scripts/download_models.py --only gemma4-e4b-it-4bit
+# Recommended real-prompt Gemma4 E4B QAT GGUF + BF16 MTP smoke on the local RTX 3060 profile
+# If the verifier/drafter snapshots are missing, fetch/provision the local GGUF pair first.
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
-  -model models/gemma4-e4b-it-4bit \
-  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -model models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+  -mtp-drafter models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
   -mtp-smoke -mtp-real-prompt \
   -prompt "Hi"
 
@@ -146,18 +145,18 @@ make gemma4-gpu-cpu-parity GOTMPDIR=$PWD/.gotmp
 # currently expected to fail until real-asset selected verifier logits match
 # llama.cpp --flash-attn on 1:1:
 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
-GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-4bit \
-GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-mtp-drafter \
+GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
 make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp
 
 # Expanded strict commands, if the Makefile target is not available:
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
   -fixture tmp/gemma4-mtp-llamacpp-fixture.json \
-  -model models/gemma4-e4b-it-4bit \
-  -drafter models/gemma4-e4b-mtp-drafter
+  -model models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+  -drafter models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf
 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
-GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-4bit \
-GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-mtp-drafter \
+GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
 GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
 
 
