@@ -365,7 +365,7 @@ per_layer_embd_out max≈0.00421   mean≈0.000216
 l_out              max≈0.000309  mean≈1.58e-5
 ```
 
-This suggests the PLI branch is the first notable local amplifier in prompt prefill, even though its standalone projection/embedding kernels are covered by ggml oracles.
+This suggests the PLI branch is the first notable local amplifier in prompt prefill, even though its standalone projection/embedding kernels are covered by ggml oracles. The residual/scalar composition itself is aligned: for both Go and llama, `(pe_in + per_layer_embd_out) * layer_scalar` reconstructs `l_out` within about `1.2e-6` max on layer0 row1, so the PLI branch difference comes from the branch input/output values rather than residual-add or scalar ordering.
 
 Final-tail comparison with occurrence-indexed llama dumps confirms the strict selected-logit deltas are primarily inherited hidden-state drift, not a new LM-head-only issue. Across all three verifier rows:
 
