@@ -357,6 +357,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			if layer.LayerScalar != 1.0 {
 				simd.VecScale(hid, hid, layer.LayerScalar)
 			}
+			traceMTPSummary("l_out_pre_bf16", b, l, batch.Plan.Positions[b], hid)
 			if isGemma3 || (batch.HasPerLayerInputs && m.Config.ModelType == "gemma4_text") {
 				simd.ToBF16(hid)
 			}

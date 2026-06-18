@@ -130,6 +130,22 @@ llama l_out-0 row1 vs Go l_out layer0/pos3:
 
 So after the flash kernel improvement, the next fidelity target is the composition around O projection, post-attention residual/norm/layer-scalar/BF16 store boundaries rather than broad Q/K/V/RoPE or LM-head logic.
 
+A new Go `l_out_pre_bf16` trace point shows that llama's saved `l_out-0` row1 dump corresponds much more closely to Go's pre-BF16 layer output than to Go's post-BF16 stored layer output:
+
+```text
+llama l_out-0 row1 vs Go l_out_pre_bf16 layer0/pos3:
+  max_abs ≈ 0.00790989
+  mean_abs ≈ 0.000793528
+  idx30 llama=18.1525288 go=18.1536274 delta=+0.00109863
+
+llama l_out-0 row1 vs Go post-BF16 l_out layer0/pos3:
+  max_abs ≈ 0.0275288
+  mean_abs ≈ 0.000981535
+  idx30 llama=18.1525288 go=18.1250000 delta=-0.0275288
+```
+
+That means part of the apparent `l_out` mismatch is trace-boundary naming: llama's trace is likely pre-store/pre-BF16, while Go's historical `l_out` trace was after the Gemma4 BF16 store boundary. The runtime BF16 boundary may still be correct, but future trace comparisons should use `l_out_pre_bf16` when comparing against llama's `l_out-*` dumps.
+
 This then amplifies:
 
 - layer 0 `attn_out` max abs ≈ `0.1384`
