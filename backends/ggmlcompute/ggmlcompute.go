@@ -10,6 +10,8 @@ package ggmlcompute
 #include <stddef.h>
 #include <ggml.h>
 #include <ggml-cpu.h>
+#include <stdlib.h>
+#include <string.h>
 
 // These are exported by libggml-cpu.so but not declared in public headers.
 extern void quantize_row_q8_K(const float * x, void * vy, int64_t k);
@@ -48,6 +50,44 @@ static int gp_vecdot_rows_direct(int typ, int n, float * out, const void * rows,
     }
     return 0;
 }
+
+static int gp_mul_mat_f16_f32(const uint16_t * w_f16, const float * x_f32, float * out, int in_dim, int out_dim) {
+    if (!w_f16 || !x_f32 || !out || in_dim <= 0 || out_dim <= 0) {
+        return -1;
+    }
+    ggml_cpu_init();
+    struct ggml_init_params params = {
+        .mem_size   = 16*1024*1024,
+        .mem_buffer = NULL,
+        .no_alloc   = false,
+    };
+    struct ggml_context * ctx = ggml_init(params);
+    if (!ctx) {
+        return -2;
+    }
+    struct ggml_tensor * w = ggml_new_tensor_2d(ctx, GGML_TYPE_F16, in_dim, out_dim);
+    struct ggml_tensor * x = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, in_dim);
+    memcpy(w->data, w_f16, (size_t) in_dim * (size_t) out_dim * sizeof(uint16_t));
+    memcpy(x->data, x_f32, (size_t) in_dim * sizeof(float));
+    struct ggml_tensor * y = ggml_mul_mat(ctx, w, x);
+    struct ggml_cgraph * gf = ggml_new_graph(ctx);
+    ggml_build_forward_expand(gf, y);
+    struct ggml_backend * backend = ggml_backend_cpu_init();
+    if (!backend) {
+        ggml_free(ctx);
+        return -3;
+    }
+    enum ggml_status st = ggml_backend_graph_compute(backend, gf);
+    if (st != GGML_STATUS_SUCCESS) {
+        ggml_backend_free(backend);
+        ggml_free(ctx);
+        return -4;
+    }
+    memcpy(out, y->data, (size_t) out_dim * sizeof(float));
+    ggml_backend_free(backend);
+    ggml_free(ctx);
+    return 0;
+}
 */
 import "C"
 
@@ -59,6 +99,7 @@ import (
 )
 
 const (
+	F16 = 1
 	Q2K = 10
 	Q3K = 11
 	Q6K = 14
@@ -89,6 +130,17 @@ func VecDotRowsDirect(qtype int, out []float32, rows []byte, rowBytes int, q8 []
 	rc := C.gp_vecdot_rows_direct(C.int(qtype), C.int(n), (*C.float)(unsafe.Pointer(&out[0])), unsafe.Pointer(&rows[0]), C.size_t(rowBytes), unsafe.Pointer(&q8[0]), C.int(nrows))
 	if rc != 0 {
 		return fmt.Errorf("unsupported qtype %d", qtype)
+	}
+	return nil
+}
+
+func MulMatF16F32(out []float32, wF16 []uint16, x []float32, inDim, outDim int) error {
+	if inDim <= 0 || outDim <= 0 || len(out) < outDim || len(wF16) < inDim*outDim || len(x) < inDim {
+		return fmt.Errorf("bad MulMatF16F32 sizes")
+	}
+	rc := C.gp_mul_mat_f16_f32((*C.uint16_t)(unsafe.Pointer(&wF16[0])), (*C.float)(unsafe.Pointer(&x[0])), (*C.float)(unsafe.Pointer(&out[0])), C.int(inDim), C.int(outDim))
+	if rc != 0 {
+		return fmt.Errorf("ggml F16 mul_mat failed rc=%d", int(rc))
 	}
 	return nil
 }
