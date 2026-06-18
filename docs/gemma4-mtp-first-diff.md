@@ -389,23 +389,28 @@ So the FFN kernels themselves are not the active gap; the observed `ffn_post_nor
 
 The real `per_layer_model_proj` oracle showed that rounding the projection input to F16 matches local cgo ggml more closely than the current F32-input path, but making that the production behavior worsened strict end-to-end selected-logit parity back to six mismatches (`row1 token236757≈-0.2196`, row2 token236751≈-0.0685`, row2 token236757≈+0.0133`). This is therefore documented as a local oracle insight, not a safe standalone fix.
 
-This then amplifies:
+The original, pre-fix layer0 attention drift amplified into downstream layer0 checkpoints:
 
-- layer 0 `attn_out` max abs ≈ `0.1384`
-- layer 0 `l_out` max abs ≈ `0.0275`
+- layer 0 `attn_out` max abs was about `0.1384`
+- layer 0 `l_out` max abs was about `0.0275`
+
+After the graph/flash fixes, layer0 row1 `attn_pre_o` is within about `5.9e-4` of the saved llama dump and within `1e-5` of the local cgo ggml oracle on real rows; the larger strict-logit gap is now explained by accumulated hidden-state trajectory drift across layers.
 
 ## Interpretation
 
-The strict gap is rooted in the verifier attention output composition, not in:
+The current strict gap is **not** explained by:
 
 - tokenizer/prompt trimming
-- projections / quant matmuls
-- per-layer input rows/projection
-- RMSNorm / no-scale RMSNorm
-- RoPE ordering/factors
-- GEGLU
-- tail LM head / softcap
+- Q/K/V/O/FFN projections or quant matmuls (actual-row ggml oracles pass)
+- per-layer token embedding rows, PLI gate/proj matmuls, or local PLI projection kernels
+- RMSNorm / no-scale RMSNorm / final norm (actual-row ggml oracles pass)
+- RoPE ordering/factors for the traced rows
+- GEGLU local kernel (table path is the correct ggml mode)
+- tail LM head / softcap / suppress-token handling (actual-row ggml probes pass)
 - shared-KV source mapping
 - SWA mask ranges
+- verifier sequential-row fallback vs gated full-layer batch lowering
+- cvec/control vectors (inactive in the local harness)
+- MoE routing at the observed layer16 drift peak (layer16 is dense sliding attention)
 
-A simple replacement with exact ggml `flash_attn_ext` is not sufficient when applied globally, verifier-only, or late-layer-only; those attempts improve some rows/tokens but create tradeoffs. The likely remaining work is a faithful pure-Go port of the relevant `ggml_flash_attn_ext` F16 K/V online-softmax composition, especially `ggml_vec_scale_f16` / `ggml_vec_mad_f16` lane/store behavior.
+The remaining problem is an accumulated hidden-trajectory mismatch: small residual differences are present from the first attention block, then compound through dense layers and are visible at final `result_norm`. Local replacements that improve a single oracle (e.g. F16-rounded per-layer projection input) can worsen the end-to-end strict fixture, so future fixes should be validated against the full strict selected-logit gate, not only one local tensor distance.
