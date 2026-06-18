@@ -470,10 +470,16 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 		} else {
 			gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
 		}
+		traceMTPSummary("per_layer_gate", traceRow, layerIdx, pos, gate2)
 		if cfg.ModelType == "gemma4_text" {
-			ggmlGELUMulInPlace(gate2, pli)
+			for i := range gate2 {
+				gate2[i] = ggmlGELUF32(gate2[i])
+			}
+			traceMTPSummary("per_layer_gate_gelu", traceRow, layerIdx, pos, gate2)
+			simd.VecMul(gate2, gate2, pli)
 		} else {
 			simd.GELUTanhMul(gate2, gate2, pli)
+			traceMTPSummary("per_layer_gate_gelu", traceRow, layerIdx, pos, gate2)
 		}
 		proj2 := make([]float32, h)
 		if layer.PLIProjGGUF != nil {

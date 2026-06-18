@@ -286,3 +286,17 @@ index d87ba48..994465f 100644
          // this is the most important part of the speculation. the more probable tokens that are provided here
          // the better the performance will be. in theory, this computation can be performed asynchronously and even
          // offloaded to a remote device. it doesn't even have to be based on an LLM. instead, it can provide tokens
+
+diff --git a/src/models/gemma4.cpp b/src/models/gemma4.cpp
+index 6a96979..179d71e 100644
+--- a/src/models/gemma4.cpp
++++ b/src/models/gemma4.cpp
+@@ -370,7 +370,9 @@ llama_model_gemma4::graph::graph(const llama_model & model, const llm_graph_para
+             cb(cur, "pe_in", il);
+ 
+             cur = build_lora_mm(model.layers[il].per_layer_inp_gate, cur); // [n_embd_per_layer, n_tokens]
++            cb(cur, "per_layer_gate", il);
+             cur = ggml_gelu(ctx0, cur);
++            cb(cur, "per_layer_gate_gelu", il);
+ 
+             ggml_tensor * inp_this_layer = ggml_view_2d_slice(ctx0, inp_per_layer, il); // [n_embd_per_layer, n_tokens]
