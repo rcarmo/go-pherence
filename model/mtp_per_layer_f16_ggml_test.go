@@ -14,6 +14,62 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
+func TestGemma4PLIGateProjectionRealGGMLQ4Oracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, err := LoadGemma4GGUFAsLlama(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	cases := []struct {
+		name string
+		mat  *gguf.QuantMatrix
+		in   []float32
+	}{
+		{name: "blk.0.inp_gate.weight", mat: m.Layers[0].PLIGateGGUF, in: syntheticOracleVec(m.Config.HiddenSize, 0.019)},
+		{name: "blk.0.proj.weight", mat: m.Layers[0].PLIProjGGUF, in: syntheticOracleVec(m.Config.HiddenPerLayer, -0.041)},
+	}
+	for _, tc := range cases {
+		if tc.mat == nil {
+			t.Fatalf("%s not loaded", tc.name)
+		}
+		tensor, ok := g.TensorByName(tc.name)
+		if !ok {
+			t.Fatalf("%s not found", tc.name)
+		}
+		raw, err := g.Raw(tensor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotGGML := make([]float32, tc.mat.OutDim)
+		if err := ggmlcompute.MulMatQuantF32(int(tensor.QType), gotGGML, raw, tc.in, tc.mat.InDim, tc.mat.OutDim); err != nil {
+			t.Fatalf("ggml %s mul_mat: %v", tc.name, err)
+		}
+		gotGo := make([]float32, tc.mat.OutDim)
+		if !gemvGGUFTo(gotGo, tc.in, tc.mat, tc.mat.InDim, tc.mat.OutDim) {
+			t.Fatalf("go %s gemv rejected", tc.name)
+		}
+		maxDiff, meanDiff := maxMeanAbsDiff(gotGGML, gotGo)
+		t.Logf("%s ggml-vs-go max=%g mean=%g", tc.name, maxDiff, meanDiff)
+		if maxDiff > 1e-4 {
+			t.Fatalf("%s ggml-vs-go max=%g mean=%g", tc.name, maxDiff, meanDiff)
+		}
+	}
+}
+
 func TestGemma4PerLayerTokenEmbeddingRealGGMLGetRowsOracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
@@ -136,6 +192,14 @@ func TestGemma4PerLayerModelProjRealGGMLF16Oracle(t *testing.T) {
 	if maxGo < 1e-6 {
 		t.Fatal("current Go unexpectedly matches ggml F16 mul_mat exactly; oracle no longer distinguishes input rounding")
 	}
+}
+
+func syntheticOracleVec(n int, scale float64) []float32 {
+	out := make([]float32, n)
+	for i := range out {
+		out[i] = float32(math.Sin(float64(i)*scale) * math.Cos(float64(i)*scale*0.37))
+	}
+	return out
 }
 
 func maxMeanAbsDiff(a, b []float32) (float64, float64) {
