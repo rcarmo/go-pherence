@@ -61,6 +61,37 @@ func TestNewMTPVerifierBatchInputsWithPLI(t *testing.T) {
 	}
 }
 
+func TestMTPVerifierAttentionPlanMixedSlidingAndFullRanges(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{VocabSize: 8, HiddenSize: 2, NumLayers: 2, SlidingWindow: 3, LayerTypes: []string{"sliding_attention", "full_attention"}},
+		Layers: []LlamaLayer{{HasKV: true}, {HasKV: true}},
+	}
+	plan := MTPVerifierPlan{InputToken: 1, DraftedTokens: []int{2, 3}, VerifierTokens: []int{1, 2, 3}, StartPos: 4, Positions: []int{4, 5, 6}}
+	attn, err := NewMTPVerifierAttentionPlan(m, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attn.KVLen != 7 || !sameInts(attn.Positions, []int{4, 5, 6}) {
+		t.Fatalf("attention plan header=%+v", attn)
+	}
+	if len(attn.Layers) != 2 {
+		t.Fatalf("attention layers=%d", len(attn.Layers))
+	}
+	if !attn.Layers[0].Sliding || attn.Layers[0].SlidingWindow != 3 || !sameInts(attn.Layers[0].KVStart, []int{2, 3, 4}) || !sameInts(attn.Layers[0].KVEndExclusive, []int{5, 6, 7}) {
+		t.Fatalf("sliding layer ranges=%+v", attn.Layers[0])
+	}
+	if attn.Layers[1].Sliding || attn.Layers[1].SlidingWindow != 0 || !sameInts(attn.Layers[1].KVStart, []int{0, 0, 0}) || !sameInts(attn.Layers[1].KVEndExclusive, []int{5, 6, 7}) {
+		t.Fatalf("full layer ranges=%+v", attn.Layers[1])
+	}
+	bad := attn
+	bad.Layers = append([]MTPVerifierLayerAttentionPlan(nil), attn.Layers...)
+	bad.Layers[0].KVStart = append([]int(nil), attn.Layers[0].KVStart...)
+	bad.Layers[0].KVStart[1]++
+	if err := bad.ValidateAgainst(plan, m); err == nil {
+		t.Fatal("accepted mutated verifier attention range")
+	}
+}
+
 func TestNewMTPVerifierBatchInputsValidation(t *testing.T) {
 	m := newZeroLayerVerifierModel()
 	plan := mustMTPVerifierPlan(t, m, 1, []int{2}, 5)
