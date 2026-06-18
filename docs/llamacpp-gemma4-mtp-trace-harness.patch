@@ -1,0 +1,285 @@
+diff --git a/examples/speculative-simple/speculative-simple.cpp b/examples/speculative-simple/speculative-simple.cpp
+index d87ba48..994465f 100644
+--- a/examples/speculative-simple/speculative-simple.cpp
++++ b/examples/speculative-simple/speculative-simple.cpp
+@@ -1,5 +1,6 @@
+ #include "arg.h"
+ #include "common.h"
++#include "debug.h"
+ #include "sampling.h"
+ #include "speculative.h"
+ #include "log.h"
+@@ -12,6 +13,103 @@
+ #include <string>
+ #include <vector>
+ #include <utility>
++#include <optional>
++#include <sstream>
++#include <cmath>
++#include <regex>
++#include <cctype>
++#include <fstream>
++#include <filesystem>
++
++struct summary_cb_data {
++    std::vector<std::regex> filters;
++    std::vector<uint8_t> data;
++    int trace_row = -1;
++};
++
++static float summary_tensor_value(const uint8_t * data, ggml_type type, const size_t * nb, int64_t i0, int64_t i1, int64_t i2, int64_t i3) {
++    size_t off = i3*nb[3] + i2*nb[2] + i1*nb[1] + i0*nb[0];
++    switch (type) {
++        case GGML_TYPE_F32:  return *(const float *) &data[off];
++        case GGML_TYPE_F16:  return ggml_fp16_to_fp32(*(const ggml_fp16_t *) &data[off]);
++        case GGML_TYPE_BF16: return ggml_bf16_to_fp32(*(const ggml_bf16_t *) &data[off]);
++        default: return 0.0f;
++    }
++}
++
++static bool summary_cb_eval(struct ggml_tensor * t, bool ask, void * user_data) {
++    auto * cb = (summary_cb_data *) user_data;
++    bool match = cb->filters.empty();
++    if (!match) {
++        for (const auto & re : cb->filters) {
++            if (std::regex_search(t->name, re)) { match = true; break; }
++        }
++    }
++    if (ask) {
++        return match;
++    }
++    if (!match || ggml_is_quantized(t->type)) {
++        return true;
++    }
++    if (!(t->type == GGML_TYPE_F32 || t->type == GGML_TYPE_F16 || t->type == GGML_TYPE_BF16)) {
++        return true;
++    }
++    const bool is_host = ggml_backend_buffer_is_host(t->buffer);
++    const uint8_t * data = nullptr;
++    if (is_host) {
++        data = (const uint8_t *) t->data;
++    } else {
++        size_t n_bytes = ggml_nbytes(t);
++        cb->data.resize(n_bytes);
++        ggml_backend_tensor_get(t, cb->data.data(), 0, n_bytes);
++        data = cb->data.data();
++    }
++    const int row_filter = cb->trace_row;
++    double sum = 0, sumsq = 0, maxabs = 0;
++    uint64_t hash = 1469598103934665603ULL;
++    int64_t maxidx = 0, idx = 0;
++    float first[4] = {0,0,0,0};
++    const bool token_dim2 = std::strstr(t->name, "Qcur") != nullptr || std::strstr(t->name, "Kcur") != nullptr || std::strstr(t->name, "Vcur") != nullptr || std::strstr(t->name, "fattn") != nullptr;
++    for (int64_t i3 = 0; i3 < t->ne[3]; i3++) for (int64_t i2 = 0; i2 < t->ne[2]; i2++) for (int64_t i1 = 0; i1 < t->ne[1]; i1++) for (int64_t i0 = 0; i0 < t->ne[0]; i0++) {
++        if (row_filter >= 0) {
++            if (token_dim2) {
++                if (t->ne[2] > row_filter && i2 != row_filter) continue;
++            } else if (t->ne[1] > row_filter && i1 != row_filter) {
++                continue;
++            }
++        }
++        float v = summary_tensor_value(data, t->type, t->nb, i0, i1, i2, i3);
++        if (idx < 4) first[idx] = v;
++        uint32_t bits;
++        static_assert(sizeof(bits) == sizeof(v), "float size");
++        memcpy(&bits, &v, sizeof(bits));
++        for (int hb = 0; hb < 4; ++hb) { hash ^= (uint8_t)((bits >> (8*hb)) & 0xff); hash *= 1099511628211ULL; }
++        double dv = v;
++        sum += dv; sumsq += dv*dv;
++        double av = std::fabs(dv);
++        if (av > maxabs) { maxabs = av; maxidx = idx; }
++        idx++;
++    }
++    double n = idx > 0 ? (double) idx : 1.0;
++    LOG("LLAMA_MTP_SUMMARY name=%s type=%s row=%d n=%lld mean=%.9g rms=%.9g max_abs=%.9g max_idx=%lld hash=%016llx first=[%.9g %.9g %.9g %.9g]\n", t->name, ggml_type_name(t->type), row_filter, (long long)idx, sum/n, std::sqrt(sumsq/n), maxabs, (long long)maxidx, (unsigned long long)hash, first[0], first[1], first[2], first[3]);
++    if (const char * dump_dir = std::getenv("LLAMA_SPEC_DUMP_DIR")) {
++        std::filesystem::create_directories(dump_dir);
++        std::string safe = t->name;
++        for (char & c : safe) { if (!(std::isalnum((unsigned char)c) || c == '-' || c == '_')) c = '_'; }
++        std::filesystem::path path = std::filesystem::path(dump_dir) / ("llama_" + safe + "_row" + std::to_string(row_filter) + "_n" + std::to_string(idx) + ".f32");
++        std::ofstream f(path, std::ios::binary);
++        for (int64_t i3 = 0; i3 < t->ne[3]; i3++) for (int64_t i2 = 0; i2 < t->ne[2]; i2++) for (int64_t i1 = 0; i1 < t->ne[1]; i1++) for (int64_t i0 = 0; i0 < t->ne[0]; i0++) {
++            if (row_filter >= 0) {
++                if (token_dim2) { if (t->ne[2] > row_filter && i2 != row_filter) continue; }
++                else if (t->ne[1] > row_filter && i1 != row_filter) continue;
++            }
++            float v = summary_tensor_value(data, t->type, t->nb, i0, i1, i2, i3);
++            f.write(reinterpret_cast<const char *>(&v), sizeof(v));
++        }
++        LOG("LLAMA_MTP_SUMMARY_DUMP path=%s\n", path.string().c_str());
++    }
++    return true;
++}
+ 
+ int main(int argc, char ** argv) {
+     std::setlocale(LC_NUMERIC, "C");
+@@ -33,6 +131,26 @@ int main(int argc, char ** argv) {
+     llama_backend_init();
+     llama_numa_init(params.numa);
+ 
++    summary_cb_data cb_data;
++    if (std::getenv("LLAMA_SPEC_DEBUG_TENSORS") != nullptr) {
++        const char * filter_env = std::getenv("LLAMA_SPEC_DEBUG_FILTER");
++        if (filter_env != nullptr) {
++            std::stringstream ss(filter_env);
++            std::string item;
++            while (std::getline(ss, item, ',')) {
++                if (!item.empty()) {
++                    cb_data.filters.emplace_back(item, std::regex::optimize);
++                }
++            }
++        }
++        if (const char * row_env = std::getenv("LLAMA_SPEC_TRACE_ROW")) {
++            cb_data.trace_row = std::atoi(row_env);
++        }
++        params.cb_eval = summary_cb_eval;
++        params.cb_eval_user_data = &cb_data;
++        params.warmup = false;
++    }
++
+     llama_model * model_tgt = NULL;
+ 
+     llama_context * ctx_tgt = NULL;
+@@ -45,6 +163,47 @@ int main(int argc, char ** argv) {
+ 
+     const llama_vocab * vocab = llama_model_get_vocab(model_tgt);
+ 
++    if (std::getenv("LLAMA_SPEC_TRACE_ONCE") != nullptr) {
++        std::vector<llama_token> trace_tokens;
++        if (const char * token_env = std::getenv("LLAMA_SPEC_PROMPT_TOKENS")) {
++            std::stringstream ss(token_env);
++            std::string item;
++            while (std::getline(ss, item, ',')) {
++                size_t b = 0;
++                while (b < item.size() && std::isspace((unsigned char)item[b])) b++;
++                size_t e = item.size();
++                while (e > b && std::isspace((unsigned char)item[e-1])) e--;
++                if (e > b) trace_tokens.push_back((llama_token) std::stoi(item.substr(b, e-b)));
++            }
++        }
++        if (trace_tokens.size() < 2) {
++            LOG_ERR("LLAMA_SPEC_TRACE_ONCE requires LLAMA_SPEC_PROMPT_TOKENS with at least 2 ids\n");
++            return 1;
++        }
++        llama_decode(ctx_tgt, llama_batch_get_one(trace_tokens.data(), trace_tokens.size() - 1));
++        llama_token id_last = trace_tokens.back();
++        int n_past = (int) trace_tokens.size() - 1;
++        llama_batch batch_tgt = llama_batch_init(llama_n_batch(ctx_tgt), 0, 1);
++        common_batch_clear(batch_tgt);
++        common_batch_add(batch_tgt, id_last, n_past, { 0 }, true);
++        if (const char * draft_env = std::getenv("LLAMA_SPEC_DRAFT_TOKENS")) {
++            std::stringstream ss(draft_env);
++            std::string item;
++            int i = 0;
++            while (std::getline(ss, item, ',')) {
++                size_t b = 0;
++                while (b < item.size() && std::isspace((unsigned char)item[b])) b++;
++                size_t e = item.size();
++                while (e > b && std::isspace((unsigned char)item[e-1])) e--;
++                if (e > b) common_batch_add(batch_tgt, (llama_token) std::stoi(item.substr(b, e-b)), n_past + 1 + i++, { 0 }, true);
++            }
++        }
++        llama_decode(ctx_tgt, batch_tgt);
++        llama_batch_free(batch_tgt);
++        llama_backend_free();
++        return 0;
++    }
++
+     // load the draft model
+     llama_model_ptr model_dft;
+     llama_context_ptr ctx_dft;
+@@ -54,6 +213,10 @@ int main(int argc, char ** argv) {
+         const auto & params_spec = params.speculative.draft;
+ 
+         auto params_dft = params;
++        // Keep the trace callback target-only; the MTP assistant context uses
++        // custom token+embd batches and is not needed for verifier first-diff.
++        params_dft.cb_eval = nullptr;
++        params_dft.cb_eval_user_data = nullptr;
+ 
+         params_dft.devices      = params_spec.devices;
+         params_dft.model        = params_spec.mparams;
+@@ -89,9 +252,23 @@ int main(int argc, char ** argv) {
+         LOG_INF("speculative decoding will use checkpoints (context does not support partial sequence removal)\n");
+     }
+ 
+-    // Tokenize the prompt
++    // Tokenize the prompt, or accept exact fixture token IDs from env.
+     std::vector<llama_token> inp;
+-    inp = common_tokenize(ctx_tgt, params.prompt, true, true);
++    if (const char * token_env = std::getenv("LLAMA_SPEC_PROMPT_TOKENS")) {
++        std::stringstream ss(token_env);
++        std::string item;
++        while (std::getline(ss, item, ',')) {
++            size_t b = 0;
++            while (b < item.size() && std::isspace((unsigned char)item[b])) b++;
++            size_t e = item.size();
++            while (e > b && std::isspace((unsigned char)item[e-1])) e--;
++            if (e > b) {
++                inp.push_back((llama_token) std::stoi(item.substr(b, e-b)));
++            }
++        }
++    } else {
++        inp = common_tokenize(ctx_tgt, params.prompt, true, true);
++    }
+ 
+     if (llama_n_ctx(ctx_tgt) < (uint32_t) inp.size()) {
+         LOG_ERR("%s: the prompt exceeds the context size (%d tokens, ctx %d)\n", __func__, (int) inp.size(), llama_n_ctx(ctx_tgt));
+@@ -151,6 +328,33 @@ int main(int argc, char ** argv) {
+ 
+     llama_batch batch_tgt = llama_batch_init(llama_n_batch(ctx_tgt), 0, 1);
+ 
++    if (const char * once_env = std::getenv("LLAMA_SPEC_TRACE_ONCE")) {
++        GGML_UNUSED(once_env);
++        llama_tokens forced_draft;
++        if (const char * draft_env = std::getenv("LLAMA_SPEC_DRAFT_TOKENS")) {
++            std::stringstream ss(draft_env);
++            std::string item;
++            while (std::getline(ss, item, ',')) {
++                size_t b = 0;
++                while (b < item.size() && std::isspace((unsigned char)item[b])) b++;
++                size_t e = item.size();
++                while (e > b && std::isspace((unsigned char)item[e-1])) e--;
++                if (e > b) forced_draft.push_back((llama_token) std::stoi(item.substr(b, e-b)));
++            }
++        }
++        common_batch_clear(batch_tgt);
++        common_batch_add(batch_tgt, id_last, n_past, { seq_id }, true);
++        for (size_t i = 0; i < forced_draft.size(); ++i) {
++            common_batch_add(batch_tgt, forced_draft[i], n_past + 1 + i, { seq_id }, true);
++        }
++        if (llama_decode(ctx_tgt, batch_tgt)) {
++            LOG_ERR("trace-once target decode failed\n");
++            return 1;
++        }
++        llama_backend_free();
++        return 0;
++    }
++
+     size_t n_draft = 0;
+ 
+     llama_tokens draft;
+@@ -163,6 +367,23 @@ int main(int argc, char ** argv) {
+     while (true) {
+         // generate or reuse draft tokens
+         //
++        // local fixture hook: force exact draft token IDs for trace/diff work
++        if (draft.empty()) {
++            if (const char * draft_env = std::getenv("LLAMA_SPEC_DRAFT_TOKENS")) {
++                std::stringstream ss(draft_env);
++                std::string item;
++                while (std::getline(ss, item, ',')) {
++                    size_t b = 0;
++                    while (b < item.size() && std::isspace((unsigned char)item[b])) b++;
++                    size_t e = item.size();
++                    while (e > b && std::isspace((unsigned char)item[e-1])) e--;
++                    if (e > b) {
++                        draft.push_back((llama_token) std::stoi(item.substr(b, e-b)));
++                    }
++                }
++            }
++        }
++        //
+         // this is the most important part of the speculation. the more probable tokens that are provided here
+         // the better the performance will be. in theory, this computation can be performed asynchronously and even
+         // offloaded to a remote device. it doesn't even have to be based on an LLM. instead, it can provide tokens
