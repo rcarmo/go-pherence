@@ -342,6 +342,61 @@ func TestGemma4GGMLGEGLUSplitOracle(t *testing.T) {
 	}
 }
 
+func TestGemma4Layer0BatchedOProjectionActualAttentionRealGGMLQ4Oracle(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
+	if path == "" {
+		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		if root := findMTPParityRepoRoot(); root != "" {
+			path = filepath.Join(root, path)
+		}
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		t.Skipf("Gemma4 GGUF not available at %s", path)
+	}
+	m, ctx, batch, qkv, kvK, kvV := gemma4LayerQKVAndKVForFlashOracle(t, 0)
+	B := len(batch.Plan.VerifierTokens)
+	attnRows := make([]float32, B*qkv.QDim)
+	for row := 0; row < B; row++ {
+		seqLen := ctx.SeqLen + row + 1
+		kCache := append([]float32(nil), kvK[0]...)
+		vCache := append([]float32(nil), kvV[0]...)
+		for i := 0; i <= row; i++ {
+			kCache = append(kCache, qkv.K[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+			vCache = append(vCache, qkv.V[i*qkv.KVDim:(i+1)*qkv.KVDim]...)
+		}
+		_, _, kRounded, vRounded := ggmlF16KVFromGoCache(kCache, vCache, seqLen, qkv.KVHeads, qkv.HeadDim)
+		copy(attnRows[row*qkv.QDim:(row+1)*qkv.QDim], ggmlFlashAttnF16KVReference(qkv.Q[row*qkv.QDim:(row+1)*qkv.QDim], kRounded, vRounded, seqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, 1.0))
+	}
+	gotBatch := make([]float32, B*m.Config.HiddenSize)
+	if !m.projBatchAny(gotBatch, attnRows, B, nil, nil, nil, m.Layers[0].OWGGUF, qkv.QDim, m.Config.HiddenSize) {
+		t.Fatal("batched O projection rejected")
+	}
+	g, err := gguf.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	tensor, ok := g.TensorByName("blk.0.attn_output.weight")
+	if !ok {
+		t.Fatal("blk.0.attn_output.weight not found")
+	}
+	raw, err := g.Raw(tensor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for row := 0; row < B; row++ {
+		want := make([]float32, m.Config.HiddenSize)
+		if err := ggmlcompute.MulMatQuantF32(int(tensor.QType), want, raw, attnRows[row*qkv.QDim:(row+1)*qkv.QDim], qkv.QDim, m.Config.HiddenSize); err != nil {
+			t.Fatal(err)
+		}
+		maxDiff, meanDiff := maxMeanAbsDiff(want, gotBatch[row*m.Config.HiddenSize:(row+1)*m.Config.HiddenSize])
+		t.Logf("layer0 actual-attn batched O row=%d ggml-vs-go max=%g mean=%g", row, maxDiff, meanDiff)
+		if maxDiff > 1e-4 {
+			t.Fatalf("layer0 actual-attn batched O row=%d drift max=%g mean=%g", row, maxDiff, meanDiff)
+		}
+	}
+}
+
 func TestGemma4Layer0OProjectionActualAttentionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
