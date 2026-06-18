@@ -338,6 +338,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 	traceMTPSummary("o_proj", traceRow, layerIdx, pos, oOut)
 	if layer.PreFFNNorm != nil {
 		rmsNormInPlace(oOut, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
+		traceMTPSummary("attn_post_norm", traceRow, layerIdx, pos, oOut)
 		simd.VecAdd(hidden, residual, oOut)
 		traceMTPVerifierLayer0Internal("attn_out", layerIdx, pos, hidden)
 		traceMTPSummary("attn_out", traceRow, layerIdx, pos, hidden)
@@ -348,6 +349,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 		traceMTPSummary("attn_out", traceRow, layerIdx, pos, hidden)
 		copy(residual, hidden)
 		rmsNormInPlace(hidden, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
+		traceMTPSummary("attn_post_norm", traceRow, layerIdx, pos, hidden)
 	}
 	mlpInput := hidden
 	if layer.PreFFNNorm != nil {
@@ -446,6 +448,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 		} else {
 			rmsNormInPlace(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
 		}
+		traceMTPSummary("ffn_post_norm", traceRow, layerIdx, pos, down)
 	}
 	simd.VecAdd(hidden, residual, down)
 	traceMTPVerifierLayer0Internal("ffn_resid", layerIdx, pos, hidden)

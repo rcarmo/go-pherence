@@ -241,6 +241,17 @@ pure flash layer0/pos3:
 
 This confirms the BF16 boundary is no longer obscuring trace comparisons; the remaining layer0 local mismatch is now dominated by post-attention composition/MLP propagation, not by the layer-output store.
 
+After adding row-aware production-path trace labels for `attn_post_norm` and `ffn_post_norm`, the saved llama layer0 row1 `ffn_post_norm` dump compares to Go as:
+
+```text
+llama ffn_post_norm-0 row1 vs Go ffn_post_norm layer0/pos3:
+  max_abs ≈ 0.0592184
+  mean_abs ≈ 0.00680059
+  top lane idx=355 llama=-0.5546291 go=-0.4954108 delta=+0.0592184
+```
+
+This is now a larger local row1 drift than the post-flash `attn_pre_o` residual, so the next first-difference walk should inspect the MLP path between `attn_out` and `ffn_post_norm` (FFN norm, gate/up projection, GEGLU, down projection, FFN post norm) on the current graph-aligned production path.
+
 `build_cvec` was inspected as a possible row-coupled state source. In llama.cpp it is only `llama_adapter_cvec::apply_to`, which adds a control-vector tensor when one is configured; otherwise `tensor_for(il)` returns `nullptr` and the input tensor is returned unchanged. The local parity harness does not pass `--control-vector`, so control vectors are inactive and Go's lack of an explicit cvec add is not a current parity gap.
 
 This then amplifies:
