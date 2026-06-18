@@ -147,7 +147,7 @@ gemma4-mtp-parity:
 gemma4-mtp-strict-parity:
 	@test -n "$(GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE)" || (echo "GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE is required for strict selected-logit parity" >&2; exit 2)
 	GOTMPDIR=$(GOTMPDIR) go run ./cmd/models/gemma4mtpparity -fixture "$(GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE)" $(if $(GO_PHERENCE_GEMMA4_MAIN),-model "$(GO_PHERENCE_GEMMA4_MAIN)",) $(if $(GO_PHERENCE_GEMMA4_MTP_DRAFTER),-drafter "$(GO_PHERENCE_GEMMA4_MTP_DRAFTER)",)
-	GOTMPDIR=$(GOTMPDIR) go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
+	GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE="$(GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE)" $(if $(GO_PHERENCE_GEMMA4_MAIN),GO_PHERENCE_GEMMA4_MAIN="$(GO_PHERENCE_GEMMA4_MAIN)",) $(if $(GO_PHERENCE_GEMMA4_MTP_DRAFTER),GO_PHERENCE_GEMMA4_MTP_DRAFTER="$(GO_PHERENCE_GEMMA4_MTP_DRAFTER)",) GOTMPDIR=$(GOTMPDIR) go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
 
 gemma4-gpu-cpu-parity:
 	flock /tmp/go-pherence-gpu.lock -c 'GO_PHERENCE_GPU_DEBUG=1 GEMMA4_TRACE_TEST=1 GO_PHERENCE_GPU_KV_MAX_SEQ=64 GOTMPDIR=$(GOTMPDIR) go test -tags "diagnostic gemma4fixtures" ./model/gemma4 -run "^TestGemma4GPUGenerate$$" -count=1 -v'
