@@ -321,7 +321,18 @@ layer16 l_out                max≈0.349350 mean≈0.0287527
 
 Thus layer16 is an amplification point in the accumulated trajectory, not the first local semantic mismatch.
 
-Final-tail row1 comparison with occurrence-indexed llama dumps confirms the strict selected-logit deltas are primarily inherited hidden-state drift, not a new LM-head-only issue:
+Final-tail comparison with occurrence-indexed llama dumps confirms the strict selected-logit deltas are primarily inherited hidden-state drift, not a new LM-head-only issue. Across all three verifier rows:
+
+```text
+row0 result_norm   max≈0.420859 mean≈0.0806129
+row0 result_output max≈0.622573 mean≈0.105793
+row1 result_norm   max≈0.492623 mean≈0.0854791
+row1 result_output max≈0.521339 mean≈0.0991913
+row2 result_norm   max≈0.418368 mean≈0.0843934
+row2 result_output max≈0.464146 mean≈0.0796333
+```
+
+Detailed row1 selected-logit comparison:
 
 ```text
 result_norm row1:   max≈0.492623 mean≈0.0854791
