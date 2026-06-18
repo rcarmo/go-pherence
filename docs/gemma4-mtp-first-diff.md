@@ -156,6 +156,21 @@ GO_PHERENCE_MTP_SKIP_LAYER_BF16_POS=3
 
 For layer0/pos3 alone, this improves the row1 dominant selected-logit delta from about `-0.3837` to about `-0.0648`, while row2 worsens (`token236751` about `+0.0922`). Combining this with the pure-flash diagnostic worsens row1 again (`token236757` about `-0.4117`) while improving row2, so the residual is a graph-composition interaction rather than a single independent replacement rule.
 
+Layer0 BF16-store skip matrix without pure-flash substitution:
+
+```text
+skip layer0 pos2:
+  row0 max≈0.0542, row1 token236757≈-0.3651, row2 max≈0.0443
+skip layer0 pos3:
+  row0 unchanged, row1 token236757≈-0.0648, row2 token236751≈+0.0922
+skip layer0 pos4:
+  row0 unchanged, row1 unchanged, row2 max≈0.0399
+skip all layer0 verifier positions:
+  row0 max≈0.1062, row1 token236757≈-0.0837, row2 token236751≈-0.1077
+```
+
+This reinforces that the BF16 boundary affects the verifier rows through the batched graph composition and next-row state, not as a globally removable layer rule.
+
 This then amplifies:
 
 - layer 0 `attn_out` max abs ≈ `0.1384`
