@@ -319,7 +319,7 @@ layer16 ffn_post_norm        max≈0.235194 mean≈0.0377614
 layer16 l_out                max≈0.349350 mean≈0.0287527
 ```
 
-Thus layer16 is an amplification point in the accumulated trajectory, not the first local semantic mismatch.
+Thus layer16 is an amplification point in the accumulated trajectory, not the first local semantic mismatch. It is also a dense `sliding_attention` layer (`hasKV=true`, no MoE/router/expert tensors), so the peak is not a MoE-specific routing/expert issue.
 
 Final-tail comparison with occurrence-indexed llama dumps confirms the strict selected-logit deltas are primarily inherited hidden-state drift, not a new LM-head-only issue. Across all three verifier rows:
 
