@@ -114,6 +114,22 @@ idx=548 llama=-0.40136808 go=-0.40107319 delta=+0.00029489
 
 This confirms the local layer0/pos3 attention kernel is now about an order of magnitude closer, but still not bit-exact; the strict selected-logit A/B improves row1's dominant token while still trading off row2, so the path remains diagnostic/default-off.
 
+The same regenerated pure-flash layer0/pos3 trace still shows downstream amplification after the O projection/residual path:
+
+```text
+llama attn_out-0 row1 vs Go attn_out layer0/pos3:
+  max_abs ≈ 0.0263062
+  mean_abs ≈ 0.000401663
+  top lane idx=30 llama=286.9996948 go=287.0260010 delta=+0.0263062
+
+llama l_out-0 row1 vs Go l_out layer0/pos3:
+  max_abs ≈ 0.0275288
+  mean_abs ≈ 0.000981535
+  top lane idx=30 llama=18.1525288 go=18.1250000 delta=-0.0275288
+```
+
+So after the flash kernel improvement, the next fidelity target is the composition around O projection, post-attention residual/norm/layer-scalar/BF16 store boundaries rather than broad Q/K/V/RoPE or LM-head logic.
+
 This then amplifies:
 
 - layer 0 `attn_out` max abs ≈ `0.1384`
