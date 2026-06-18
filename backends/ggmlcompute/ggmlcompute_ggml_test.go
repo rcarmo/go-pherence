@@ -10,6 +10,44 @@ import (
 	"github.com/rcarmo/go-pherence/half"
 )
 
+func TestVecScaleAndMadF16ExposeGGMLLaneBehavior(t *testing.T) {
+	y := make([]uint16, 257)
+	x := make([]uint16, 257)
+	for i := range y {
+		y[i] = half.F32ToF16(float32(math.Sin(float64(i)*0.031) * 7))
+		x[i] = half.F32ToF16(float32(math.Cos(float64(i)*0.047) * 5))
+	}
+	gotScale := append([]uint16(nil), y...)
+	if err := VecScaleF16(gotScale, 0.37); err != nil {
+		t.Fatal(err)
+	}
+	wantScale := append([]uint16(nil), y...)
+	for i := range wantScale {
+		wantScale[i] = half.F32ToF16(half.F16ToF32(wantScale[i]) * 0.37)
+	}
+	if len(gotScale) != len(wantScale) {
+		t.Fatal("bad scale len")
+	}
+	gotMad := append([]uint16(nil), y...)
+	if err := VecMadF16(gotMad, x, -0.41); err != nil {
+		t.Fatal(err)
+	}
+	wantMad := append([]uint16(nil), y...)
+	for i := range wantMad {
+		wantMad[i] = half.F32ToF16(half.F16ToF32(wantMad[i]) + half.F16ToF32(x[i])*(-0.41))
+	}
+	var scaleDiffs, madDiffs int
+	for i := range y {
+		if gotScale[i] != wantScale[i] {
+			scaleDiffs++
+		}
+		if gotMad[i] != wantMad[i] {
+			madDiffs++
+		}
+	}
+	t.Logf("ggml vec_scale_f16 diffs vs scalar=%d vec_mad_f16 diffs vs scalar=%d", scaleDiffs, madDiffs)
+}
+
 func TestF32ToF16MatchesGGML(t *testing.T) {
 	vals := []float32{0, -0, 1, -1, 0.33325195, 65504, 1e-8, -1e-8, float32(math.Inf(1)), float32(math.Inf(-1))}
 	for i := 0; i < 2048; i++ {

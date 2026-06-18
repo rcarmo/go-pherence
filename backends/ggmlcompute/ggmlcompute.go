@@ -9,13 +9,13 @@ package ggmlcompute
 #include <stdint.h>
 #include <stddef.h>
 #include <ggml.h>
+#include <ggml-cpu/vec.h>
 #include <ggml-cpu.h>
 #include <stdlib.h>
 #include <string.h>
 
 // These are exported by libggml-cpu.so but not declared in public headers.
 extern void quantize_row_q8_K(const float * x, void * vy, int64_t k);
-extern void ggml_vec_dot_f16(int n, float * s, size_t bs, const void * vx, size_t bx, const void * vy, size_t by, int nrc);
 extern void ggml_vec_dot_q2_K_q8_K(int n, float * s, size_t bs, const void * vx, size_t bx, const void * vy, size_t by, int nrc);
 extern void ggml_vec_dot_q3_K_q8_K(int n, float * s, size_t bs, const void * vx, size_t bx, const void * vy, size_t by, int nrc);
 extern void ggml_vec_dot_q6_K_q8_K(int n, float * s, size_t bs, const void * vx, size_t bx, const void * vy, size_t by, int nrc);
@@ -27,6 +27,22 @@ static const char * gp_type_name(int typ) { return ggml_type_name((enum ggml_typ
 static void gp_quantize_q8k(const float * x, void * y, int64_t k) {
     ggml_cpu_init();
     quantize_row_q8_K(x, y, k);
+}
+
+static int gp_vec_scale_f16(int n, uint16_t * y, float v) {
+    if (!y || n <= 0) {
+        return -1;
+    }
+    ggml_vec_scale_f16(n, (ggml_fp16_t *) y, v);
+    return 0;
+}
+
+static int gp_vec_mad_f16(int n, uint16_t * y, const uint16_t * x, float v) {
+    if (!y || !x || n <= 0) {
+        return -1;
+    }
+    ggml_vec_mad_f16(n, (ggml_fp16_t *) y, (const ggml_fp16_t *) x, v);
+    return 0;
 }
 
 static int gp_f32_to_f16(int n, const float * x, uint16_t * out) {
@@ -45,7 +61,7 @@ static int gp_vecdot_f16(int n, float * out, const uint16_t * x, const uint16_t 
     }
     ggml_cpu_init();
     float s = 0.0f;
-    ggml_vec_dot_f16(n, &s, 0, x, 0, y, 0, 1);
+    ggml_vec_dot_f16(n, &s, 0, (ggml_fp16_t *) x, 0, (ggml_fp16_t *) y, 0, 1);
     *out = s;
     return 0;
 }
@@ -451,6 +467,28 @@ func TypeName(t int) string     { return C.GoString(C.gp_type_name(C.int(t))) }
 func TypeSize(t int) int        { return int(C.gp_type_size(C.int(t))) }
 func BlockSize(t int) int       { return int(C.gp_blck_size(C.int(t))) }
 func RawBytes(t int, n int) int { return ggmlutil.RawBytes(n, BlockSize(t), TypeSize(t)) }
+
+func VecScaleF16(y []uint16, v float32) error {
+	if len(y) == 0 {
+		return fmt.Errorf("empty VecScaleF16 input")
+	}
+	rc := C.gp_vec_scale_f16(C.int(len(y)), (*C.uint16_t)(unsafe.Pointer(&y[0])), C.float(v))
+	if rc != 0 {
+		return fmt.Errorf("ggml VecScaleF16 failed rc=%d", int(rc))
+	}
+	return nil
+}
+
+func VecMadF16(y, x []uint16, v float32) error {
+	if len(y) == 0 || len(y) != len(x) {
+		return fmt.Errorf("bad VecMadF16 input len y=%d x=%d", len(y), len(x))
+	}
+	rc := C.gp_vec_mad_f16(C.int(len(y)), (*C.uint16_t)(unsafe.Pointer(&y[0])), (*C.uint16_t)(unsafe.Pointer(&x[0])), C.float(v))
+	if rc != 0 {
+		return fmt.Errorf("ggml VecMadF16 failed rc=%d", int(rc))
+	}
+	return nil
+}
 
 func F32ToF16(x []float32) ([]uint16, error) {
 	if len(x) == 0 {
