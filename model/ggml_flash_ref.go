@@ -118,27 +118,56 @@ func ggmlF16VecMadX86(y, x []uint16, v float32) {
 	}
 }
 
+func ggmlF16VecDotX86(qH []uint16, k []float32, n int) float32 {
+	if len(qH) < n || len(k) < n {
+		return 0
+	}
+	const step = 32
+	var sums [4][8]float32
+	np := n & ^(step - 1)
+	for i := 0; i < np; i += step {
+		for j := 0; j < 4; j++ {
+			base := i + j*8
+			for lane := 0; lane < 8; lane++ {
+				sums[j][lane] += half.F16ToF32(qH[base+lane]) * half.F16ToF32(half.F32ToF16(k[base+lane]))
+			}
+		}
+	}
+	var lanes [8]float32
+	for j := 0; j < 4; j++ {
+		for lane := 0; lane < 8; lane++ {
+			lanes[lane] += sums[j][lane]
+		}
+	}
+	// Match the AVX horizontal reduction tree closely enough for ggml's F32x8 reduce.
+	var sum float32
+	for lane := 0; lane < 8; lane++ {
+		sum += lanes[lane]
+	}
+	for i := np; i < n; i++ {
+		sum += half.F16ToF32(qH[i]) * half.F16ToF32(half.F32ToF16(k[i]))
+	}
+	return sum
+}
+
 func ggmlFlashAttnF16KVReference(q []float32, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32) []float32 {
 	out := make([]float32, numHeads*headDim)
 	headsPerKV := numHeads / numKVHeads
 	kvDim := numKVHeads * headDim
-	qF16 := make([]float32, headDim)
+	qH := make([]uint16, headDim)
 	accH := make([]uint16, headDim)
 	vH := make([]uint16, headDim)
 	for head := 0; head < numHeads; head++ {
 		kvHead := head / headsPerKV
 		for d, v := range q[head*headDim : (head+1)*headDim] {
-			qF16[d] = half.F16ToF32(half.F32ToF16(v))
+			qH[d] = half.F32ToF16(v)
 			accH[d] = 0
 		}
 		S := float32(0)
 		M := float32(math.Inf(-1))
 		for t := 0; t < seqLen; t++ {
 			kHead := kCache[t*kvDim+kvHead*headDim : t*kvDim+(kvHead+1)*headDim]
-			var s float32
-			for d := 0; d < headDim; d++ {
-				s += qF16[d] * half.F16ToF32(half.F32ToF16(kHead[d]))
-			}
+			s := ggmlF16VecDotX86(qH[:headDim], kHead, headDim)
 			s *= scale
 			Mold := M
 			vs := float32(1)

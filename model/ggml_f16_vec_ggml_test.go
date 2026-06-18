@@ -10,6 +10,27 @@ import (
 	"github.com/rcarmo/go-pherence/half"
 )
 
+func TestGGMLF16VecDotX86OracleAgainstGGML(t *testing.T) {
+	q := make([]uint16, 257)
+	k := make([]uint16, 257)
+	kF32 := make([]float32, 257)
+	for i := range q {
+		q[i] = half.F32ToF16(float32(math.Sin(float64(i)*0.019) * 3))
+		kF32[i] = half.F16ToF32(half.F32ToF16(float32(math.Cos(float64(i)*0.041) * 4)))
+		k[i] = half.F32ToF16(kF32[i])
+	}
+	got, err := ggmlcompute.VecDotF16(q, k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := ggmlF16VecDotX86(q, kF32, len(q))
+	diff := math.Abs(float64(got - want))
+	t.Logf("Go x86 F16 vecdot oracle ggml=%g go=%g diff=%g", got, want, diff)
+	if diff > 1e-6 {
+		t.Fatalf("vecdot diff=%g", diff)
+	}
+}
+
 func TestGGMLF16VecX86OracleAgainstGGML(t *testing.T) {
 	y := make([]uint16, 257)
 	x := make([]uint16, 257)
