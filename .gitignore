@@ -29,3 +29,7 @@ models/*
 !models/speaker/
 !models/speaker/**
 /whisper
+
+# Local generated command binaries and benchmark logs.
+/bin/
+/logs/
