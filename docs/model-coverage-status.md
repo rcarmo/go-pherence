@@ -70,8 +70,9 @@ Status: metadata, tokenizer/processor/generation sidecars, image/audio prompt pl
 Implemented package/command surface:
 
 - `loader/config/minicpmv*.go` — MiniCPM-V/O config, processor, tokenizer/chat-template, generation, and audio metadata sidecar parsing.
-- `model/minicpmv` — image/audio/multimodal prompt planning, image preprocessing and image-file decode, slice plan, special-token resolution, tensor inventory/header summaries/shape validation, text/vision/resampler/audio plans, resampler tensor binding, capability/runtime-status summary, readiness report, embedding injection boundary, and aggregate metadata loader.
+- `model/minicpmv` — image/audio/multimodal prompt planning, image preprocessing and image-file decode, slice plan, special-token resolution, tensor inventory/header summaries/shape validation, text/vision/resampler/audio plans, resampler tensor binding, capability/runtime-status summary, readiness report, committed MiniCPM-O fixture helpers/expected summary, embedding injection boundary, and aggregate metadata loader.
 - `cmd/minicpmvinspect` — metadata/prompt/tensor/image inspector with `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready`, and expected-failing `-require-runtime-ready` gates.
+- `make minicpmv-fixture-path` / `make minicpmv-fixture-summary` — committed fixture discovery and expected-summary reporting.
 - `make minicpmv-fixture-check` — committed MiniCPM-O fixture validation, including audio feature-frame estimation.
 - `make minicpmv-check` — focused scaffold validation with synthetic MiniCPM-O sidecars plus a tiny explicit safetensors fixture.
 
@@ -81,6 +82,8 @@ Useful commands:
 make models-download-minicpmv
 make models-download-minicpmo
 make minicpmv-check
+make minicpmv-fixture-path
+make minicpmv-fixture-summary
 bin/minicpmvinspect -capabilities
 bin/minicpmvinspect -model models/minicpm-v-2.6 -json
 bin/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.6/model.safetensors -require-shapes-ready
