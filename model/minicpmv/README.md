@@ -52,7 +52,7 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
 
 ## Validation
 
-A compact committed MiniCPM-O fixture lives under `testdata/minicpmo_fixture` and exercises aggregate metadata, audio metadata, special-token resolution, and multimodal prompt preview construction. Its `expected_summary.json` captures stable fixture expectations for future runtime work.
+A compact committed MiniCPM-O fixture lives under `testdata/minicpmo_fixture` and exercises aggregate metadata, audio metadata, special-token resolution, and multimodal prompt preview construction. Use `LoadMiniCPMOFixtureMetadata` to load it from tests/tools. Its `expected_summary.json` captures stable fixture expectations for future runtime work.
 
 Use the project-level gate:
 

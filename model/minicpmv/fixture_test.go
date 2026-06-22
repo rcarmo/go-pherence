@@ -24,7 +24,7 @@ type fixtureExpectedSummary struct {
 }
 
 func TestMiniCPMOFixtureMetadata(t *testing.T) {
-	meta, err := LoadMetadata("testdata/minicpmo_fixture")
+	meta, err := LoadMiniCPMOFixtureMetadata()
 	if err != nil {
 		t.Fatalf("LoadMetadata fixture: %v", err)
 	}
