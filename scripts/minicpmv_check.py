@@ -146,6 +146,8 @@ def main(argv: list[str]) -> int:
         run(["go", "build", "-o", "bin/minicpmvinspect", "./cmd/minicpmvinspect"], repo)
     run(["go", "run", "./cmd/minicpmvinspect", "-version"], repo)
     run(["go", "run", "./cmd/minicpmvinspect", "-version", "-json"], repo)
+    run(["go", "run", "./cmd/minicpmvinspect", "-pending-runtime-steps"], repo)
+    run(["go", "run", "./cmd/minicpmvinspect", "-pending-runtime-steps", "-json"], repo)
     run(["go", "run", "./cmd/minicpmvinspect", "-capabilities", "-require-capabilities-ready"], repo)
     run(["go", "run", "./cmd/minicpmvinspect", "-capabilities", "-json", "-require-capabilities-ready"], repo)
     run(["go", "run", "./cmd/minicpmvinspect", "-fixture-path"], repo)

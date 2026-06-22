@@ -44,6 +44,7 @@ func main() {
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
 	capabilitiesOnly := flag.Bool("capabilities", false, "print MiniCPM-V/O implementation capability summary without requiring -model")
 	showVersion := flag.Bool("version", false, "print MiniCPM-V/O support version/status without requiring -model")
+	pendingSteps := flag.Bool("pending-runtime-steps", false, "print pending MiniCPM-V/O runtime implementation steps without requiring -model")
 	fixturePath := flag.Bool("fixture-path", false, "print committed MiniCPM-O metadata fixture path without requiring -model")
 	fixtureSummary := flag.Bool("fixture-summary", false, "print committed MiniCPM-O expected summary without requiring -model")
 	requireCapabilities := flag.Bool("require-capabilities-ready", false, "with -capabilities, fail unless scaffold capabilities are present and runtime capabilities remain pending")
@@ -69,6 +70,21 @@ func main() {
 			return
 		}
 		fmt.Printf("%s %s\n", minicpmv.SupportVersion, minicpmv.RuntimeStatusPending)
+		return
+	}
+	if *pendingSteps {
+		steps := minicpmv.PendingRuntimeSteps()
+		if *asJSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(map[string][]string{"pending_runtime_steps": steps}); err != nil {
+				fatal(err)
+			}
+			return
+		}
+		for _, step := range steps {
+			fmt.Println(step)
+		}
 		return
 	}
 	if *fixtureSummary {
