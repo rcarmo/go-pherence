@@ -19,6 +19,7 @@ type report struct {
 	SpecialTokenIDs      *minicpmv.SpecialTokenIDs           `json:"special_token_ids,omitempty"`
 	AudioSpecialTokenIDs *minicpmv.AudioSpecialTokenIDs      `json:"audio_special_token_ids,omitempty"`
 	Tensors              *minicpmv.TensorInventory           `json:"tensors,omitempty"`
+	TensorInfoSummary    *minicpmv.TensorInfoSummary         `json:"tensor_info_summary,omitempty"`
 	Readiness            *minicpmv.TensorReadiness           `json:"tensor_readiness,omitempty"`
 	ShapeValidation      minicpmv.TensorShapeValidation      `json:"shape_validation,omitempty"`
 	Capabilities         minicpmv.Capabilities               `json:"capabilities"`
@@ -104,6 +105,7 @@ func main() {
 		SpecialTokenIDs:      meta.SpecialTokenIDs,
 		AudioSpecialTokenIDs: meta.AudioSpecialTokenIDs,
 		Tensors:              meta.Tensors,
+		TensorInfoSummary:    meta.TensorInfoSummary,
 		Readiness:            meta.TensorReadiness,
 		ShapeValidation:      meta.ShapeValidation,
 		Capabilities:         meta.Capabilities,
@@ -189,6 +191,10 @@ func printText(r report) {
 	}
 	if r.Tensors != nil {
 		fmt.Printf("  tensors:   total=%d groups=%v\n", r.Tensors.Total, r.Tensors.Groups)
+	}
+	if r.TensorInfoSummary != nil {
+		sum := r.TensorInfoSummary
+		fmt.Printf("  tensorinfo: dtypes=%v ranks=%v elements=%d\n", sum.DTypes, sum.Ranks, sum.TotalElements)
 	}
 	if r.Readiness != nil {
 		fmt.Printf("  readiness: text=%v vision=%v resampler=%v metadata=%v runtime=%v\n", r.Readiness.HasTextEmbedding && r.Readiness.HasTextLayers, r.Readiness.HasVisionTower, r.Readiness.HasResampler, r.Readiness.MetadataReady, r.Readiness.RuntimeReady)

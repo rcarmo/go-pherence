@@ -20,6 +20,7 @@ type Metadata struct {
 	SpecialTokenIDs      *SpecialTokenIDs                  `json:"special_token_ids,omitempty"`
 	AudioSpecialTokenIDs *AudioSpecialTokenIDs             `json:"audio_special_token_ids,omitempty"`
 	Tensors              *TensorInventory                  `json:"tensors,omitempty"`
+	TensorInfoSummary    *TensorInfoSummary                `json:"tensor_info_summary,omitempty"`
 	TensorReadiness      *TensorReadiness                  `json:"tensor_readiness,omitempty"`
 	ShapeValidation      TensorShapeValidation             `json:"shape_validation,omitempty"`
 	Capabilities         Capabilities                      `json:"capabilities"`
@@ -74,6 +75,8 @@ func LoadMetadataWithOptions(modelDir string, opts MetadataOptions) (Metadata, e
 		readiness := TensorReadinessFromInventory(inv)
 		meta.TensorReadiness = &readiness
 		if infos, err := safetensors.TensorInfosFrom(modelDir, opts.SafetensorsPath); err == nil {
+			infoSummary := SummarizeTensorInfos(infos)
+			meta.TensorInfoSummary = &infoSummary
 			meta.ShapeValidation = ValidateTensorShapes(summary, infos)
 		}
 		needsKV := summary.VisionHiddenSize > 0 && summary.HiddenSize > 0 && summary.VisionHiddenSize != summary.HiddenSize

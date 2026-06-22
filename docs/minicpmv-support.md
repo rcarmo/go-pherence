@@ -39,7 +39,7 @@ make models-download-minicpmo   # MiniCPM-O only
 - Prompt text placeholder builders for `<im_start><im_patch>...<im_end>` image sentinels, MiniCPM-O `<audio_start><audio_patch>...<audio_end>` audio sentinels, and combined image+audio multimodal prompt previews, with optional user/assistant prefixes for future chat-template integration.
 - Safetensors header/index inventory for local checkpoints.
   - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
-  - Reports metadata readiness without loading tensor payloads.
+  - Reports dtype/rank/element-count summaries and metadata readiness without loading tensor payloads.
 - Safetensors shape validation for key text, vision patch-embedding, MiniCPM-O audio encoder, resampler, and projector tensors against normalized MiniCPM-V/O config dimensions; `make minicpmv-check` includes capability text/JSON smokes plus a tiny explicit safetensors fixture that exercises `-require-tensors-ready` and `-require-shapes-ready`.
 - Text-backbone execution plan scaffold.
   - Reports text dimensions, embedding/layer/LM-head tensor inventory, generation-config presence, and pending prefill/decode/sampling stages.
