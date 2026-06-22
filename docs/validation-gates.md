@@ -103,6 +103,14 @@ make whisper-backend-podcast-compare
 # isolated in its own go test process because it owns mmap-backed GGUF buffers.
 make diffusiongemma-golden-gate
 
+# MiniCPM-V/O scaffold gate. This is metadata/readiness coverage only: config,
+# processor/tokenizer/generation sidecars, image preprocessing/inspection,
+# prompt placeholders, special-token resolution, safetensor inventory/shape
+# checks (including MiniCPM-O audio metadata/tensors), runtime/text/vision/
+# resampler/audio planning, and minicpmvinspect readiness flags. It intentionally
+# does not claim full tensor execution yet.
+make minicpmv-check
+
 # Diagnostic package import/build boundary, when local diagnostic assets permit it
 GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4
 
