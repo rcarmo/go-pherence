@@ -69,6 +69,7 @@ make models-download-minicpmo   # MiniCPM-O only
 
 ```bash
 make minicpmv-check
+make minicpmv-fixture-check
 make minicpmv-inspect
 make minicpmv-capabilities
 make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-require-metadata-ready'
