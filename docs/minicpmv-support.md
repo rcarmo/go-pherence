@@ -56,7 +56,8 @@ make models-download-minicpmo   # MiniCPM-O only
 - Resampler tensor binding plan.
   - Classifies local safetensor names into query, position embedding, KV projection, attention projection, norm, MLP, and other resampler roles.
   - Reports missing required query/KV-projection bindings before numeric resampler execution is implemented.
-- Audio execution/tensor plan scaffold for MiniCPM-O.
+- Audio feature/execution/tensor plan scaffold for MiniCPM-O.
+  - Records sample-rate, mel-bin, feature-size, and optional duration-to-frame assumptions.
   - Classifies audio encoder tensors into convolution, attention, MLP, norm, projector, and other roles.
   - Reports metadata/tensor readiness while keeping audio feature extraction, encoder execution, and audio embedding integration explicitly pending.
 - Aggregate metadata loader (`minicpmv.LoadMetadata`) that wires config, processor/tokenizer sidecars, special tokens, safetensor inventory/shape checks, runtime plan, text plan, vision plan, audio plan, and resampler plan into one API.

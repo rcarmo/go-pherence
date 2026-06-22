@@ -29,6 +29,7 @@ type Metadata struct {
 	TextPlan             TextExecutionPlan                 `json:"text_plan"`
 	VisionPlan           VisionExecutionPlan               `json:"vision_plan"`
 	AudioPlan            AudioExecutionPlan                `json:"audio_plan"`
+	AudioFeaturePlan     AudioFeaturePlan                  `json:"audio_feature_plan"`
 	SlicePlan            SlicePlan                         `json:"slice_plan"`
 	ResamplerPlan        *ResamplerTensorPlan              `json:"resampler_plan,omitempty"`
 }
@@ -94,6 +95,9 @@ func LoadMetadataWithOptions(modelDir string, opts MetadataOptions) (Metadata, e
 	meta.TextPlan = BuildTextExecutionPlan(summary, meta.Generation, meta.Tensors)
 	meta.VisionPlan = BuildVisionExecutionPlan(summary, meta.Tensors)
 	meta.AudioPlan = BuildAudioExecutionPlan(summary, tensorNames)
+	if plan, err := BuildAudioFeaturePlan(summary, 0); err == nil {
+		meta.AudioFeaturePlan = plan
+	}
 	meta.SlicePlan = BuildSlicePlan(summary, summary.ImageSize, summary.ImageSize)
 	meta.RuntimePlan = BuildRuntimePlan(summary, meta.Processor, meta.Tokenizer, meta.Tensors)
 	meta.ReadinessReport = BuildReadinessReport(summary, meta.RuntimePlan, meta.TensorReadiness, meta.ShapeValidation, meta.TextPlan, meta.VisionPlan, meta.AudioPlan, meta.ResamplerPlan)

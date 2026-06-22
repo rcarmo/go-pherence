@@ -30,6 +30,7 @@ type report struct {
 	TextPlan             minicpmv.TextExecutionPlan          `json:"text_plan"`
 	VisionPlan           minicpmv.VisionExecutionPlan        `json:"vision_plan"`
 	AudioPlan            minicpmv.AudioExecutionPlan         `json:"audio_plan"`
+	AudioFeaturePlan     minicpmv.AudioFeaturePlan           `json:"audio_feature_plan"`
 	SlicePlan            minicpmv.SlicePlan                  `json:"slice_plan"`
 	ResamplerPlan        *minicpmv.ResamplerTensorPlan       `json:"resampler_plan,omitempty"`
 	RuntimePlan          minicpmv.RuntimePlan                `json:"runtime_plan"`
@@ -142,6 +143,7 @@ func main() {
 		TextPlan:             meta.TextPlan,
 		VisionPlan:           meta.VisionPlan,
 		AudioPlan:            meta.AudioPlan,
+		AudioFeaturePlan:     meta.AudioFeaturePlan,
 		SlicePlan:            meta.SlicePlan,
 		ResamplerPlan:        meta.ResamplerPlan,
 		RuntimePlan:          meta.RuntimePlan,
@@ -249,6 +251,9 @@ func printText(r report) {
 	fmt.Printf("  visionplan: model=%s patch_grid=%d vision_tokens=%d resampler_query=%d needs_kv_proj=%v ready=%v\n", r.VisionPlan.VisionModelType, r.VisionPlan.PatchGrid, r.VisionPlan.VisionTokens, r.VisionPlan.ResamplerQuery, r.VisionPlan.NeedsKVProj, r.VisionPlan.Ready)
 	if r.AudioPlan.MetadataReady || len(r.AudioPlan.Bindings) > 0 {
 		fmt.Printf("  audioplan: model=%s mel_bins=%d sampling_rate=%d bindings=%d tensor_ready=%v ready=%v\n", r.AudioPlan.AudioModelType, r.AudioPlan.MelBins, r.AudioPlan.SamplingRate, len(r.AudioPlan.Bindings), r.AudioPlan.TensorReady, r.AudioPlan.Ready)
+	}
+	if r.AudioFeaturePlan.Ready {
+		fmt.Printf("  audiofeat: sample_rate=%d mel_bins=%d feature=%d\n", r.AudioFeaturePlan.SamplingRate, r.AudioFeaturePlan.MelBins, r.AudioFeaturePlan.FeatureSize)
 	}
 	fmt.Printf("  sliceplan: enabled=%v scale=%d max=%d estimated=%d ready=%v\n", r.SlicePlan.Enabled, r.SlicePlan.ScaleResolution, r.SlicePlan.MaxSliceNums, r.SlicePlan.EstimatedSlices, r.SlicePlan.Ready)
 	if r.ResamplerPlan != nil {
