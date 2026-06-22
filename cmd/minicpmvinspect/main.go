@@ -20,6 +20,7 @@ type report struct {
 	Tensors         *minicpmv.TensorInventory         `json:"tensors,omitempty"`
 	Readiness       *minicpmv.TensorReadiness         `json:"tensor_readiness,omitempty"`
 	ShapeValidation minicpmv.TensorShapeValidation    `json:"shape_validation,omitempty"`
+	PromptText      *minicpmv.PromptText              `json:"prompt_text,omitempty"`
 	RuntimePlan     minicpmv.RuntimePlan              `json:"runtime_plan"`
 	Config          config.MiniCPMVConfig             `json:"config,omitempty"`
 }
@@ -68,6 +69,9 @@ func main() {
 			out.ShapeValidation = minicpmv.ValidateTensorShapes(summary, infos)
 		}
 	}
+	if prompt, err := minicpmv.BuildPromptText("Describe the image.", 1, summary, out.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
+		out.PromptText = &prompt
+	}
 	out.RuntimePlan = minicpmv.BuildRuntimePlan(summary, out.Processor, out.Tokenizer, out.Tensors)
 	if *showConfig {
 		out.Config = cfg
@@ -111,6 +115,9 @@ func printText(r report) {
 	}
 	if len(r.ShapeValidation.Issues) > 0 || r.ShapeValidation.Valid {
 		fmt.Printf("  shapes:    valid=%v issues=%d\n", r.ShapeValidation.Valid, len(r.ShapeValidation.Issues))
+	}
+	if r.PromptText != nil {
+		fmt.Printf("  prompt:    images=%d patch_tokens=%d placeholder_bytes=%d\n", r.PromptText.Images, r.PromptText.PatchTokens, len(r.PromptText.ImagePlaceholder))
 	}
 	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
