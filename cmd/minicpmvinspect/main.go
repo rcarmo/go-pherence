@@ -71,7 +71,7 @@ func main() {
 			printSupportSummary(minicpmv.CurrentSupportSummary(), true)
 			return
 		}
-		fmt.Printf("%s %s\n", minicpmv.SupportVersion, minicpmv.RuntimeStatusPending)
+		fmt.Printf("%s %s %s\n", minicpmv.SupportVersion, minicpmv.RuntimeStatusPending, minicpmv.RuntimeRoadmapPath)
 		return
 	}
 	if *requireFixture {
