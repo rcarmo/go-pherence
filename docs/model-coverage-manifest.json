@@ -218,6 +218,7 @@
         "capability_summary": true,
         "runtime_status_constant": true,
         "metadata_fixture": true,
+        "fixture_path_constant": true,
         "fixture_check_make_target": true,
         "runtime_readiness_gate": true,
         "embedding_injection_boundary": true,
