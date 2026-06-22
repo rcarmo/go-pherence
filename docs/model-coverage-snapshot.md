@@ -3,7 +3,7 @@
 | family | status | covered | pending | coverage | references | runtime | execution | parity | readiness |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | lfm2_moe | metadata_schedule_inspector_coverage | 71 | 2 | 97.3% | 12/0 (100.0%) | 21/2 (91.3%) | 0/2 (0.0%) | 2/0 (100.0%) | 5/0 (100.0%) |
-| minicpmv | metadata_prompt_tensor_inspector_coverage | 59 | 5 | 92.2% | 9/0 (100.0%) | 7/4 (63.6%) | 0/1 (0.0%) | 0/0 (100.0%) | 5/0 (100.0%) |
+| minicpmv | metadata_prompt_tensor_inspector_coverage | 61 | 5 | 92.4% | 9/0 (100.0%) | 7/4 (63.6%) | 0/1 (0.0%) | 0/0 (100.0%) | 5/0 (100.0%) |
 | qwen3_tts | metadata_token_prompt_inspector_coverage | 72 | 5 | 93.5% | 9/0 (100.0%) | 22/5 (81.5%) | 0/5 (0.0%) | 2/0 (100.0%) | 5/0 (100.0%) |
 
 # Runtime roadmap
