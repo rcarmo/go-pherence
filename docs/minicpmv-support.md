@@ -30,6 +30,7 @@ Implemented:
 make models-download-minicpmv
 ```
 
+- Processor sidecar metadata loading from `preprocessor_config.json` or `processor_config.json`, including nested `image_processor` fields, square resize size, mean/std, rescale factor, patch size, and image sequence length.
 - Local config inspection command:
 
 ```bash
@@ -56,7 +57,6 @@ The original OpenBMB code path is:
 
 Not implemented yet:
 
-- Processor JSON auto-loading for checkpoint-specific image mean/std/resize fields.
 - Full EVA02/SigLIP vision tower tensor loading/execution.
 - Resampler tensor loading/execution.
 - MiniCPM/Qwen2/Mistral text-backbone weight mapping for MiniCPM-V checkpoints.

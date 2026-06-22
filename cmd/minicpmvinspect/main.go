@@ -10,9 +10,10 @@ import (
 )
 
 type report struct {
-	ModelPath string                 `json:"model_path"`
-	Summary   config.MiniCPMVSummary `json:"summary"`
-	Config    config.MiniCPMVConfig  `json:"config,omitempty"`
+	ModelPath string                          `json:"model_path"`
+	Summary   config.MiniCPMVSummary          `json:"summary"`
+	Processor *config.MiniCPMVProcessorConfig `json:"processor,omitempty"`
+	Config    config.MiniCPMVConfig           `json:"config,omitempty"`
 }
 
 func main() {
@@ -34,6 +35,11 @@ func main() {
 		fatal(fmt.Errorf("MiniCPM-V config metadata is not ready"))
 	}
 	out := report{ModelPath: *modelDir, Summary: summary}
+	if proc, ok, err := config.ReadMiniCPMVProcessorConfig(*modelDir); err != nil {
+		fatal(err)
+	} else if ok {
+		out.Processor = &proc
+	}
 	if *showConfig {
 		out.Config = cfg
 	}
@@ -56,6 +62,10 @@ func printText(r report) {
 	fmt.Printf("  vision:    type=%s hidden=%d layers=%d heads=%d image=%d patch=%d slice_mode=%v\n", s.VisionModelType, s.VisionHiddenSize, s.VisionLayers, s.VisionHeads, s.ImageSize, s.PatchSize, s.SliceMode)
 	fmt.Printf("  resampler: num_query=%d grid=%d heads=%d\n", s.NumQuery, s.ResamplerGrid, s.ResamplerHeads)
 	fmt.Printf("  tokens:    image=%d start=%d end=%d use_start_end=%v\n", s.ImageTokenID, s.ImageStartTokenID, s.ImageEndTokenID, s.UseImageStartEnd)
+	if r.Processor != nil {
+		p := r.Processor
+		fmt.Printf("  processor: class=%s image=%s size=%d resize=%v rescale=%v normalize=%v patch=%d image_seq=%d\n", p.ProcessorClass, p.ImageProcessorType, p.NormalizedSize, p.DoResize, p.DoRescale, p.DoNormalize, p.PatchSize, p.ImageSeqLength)
+	}
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
 }
 
