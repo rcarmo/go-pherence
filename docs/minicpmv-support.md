@@ -66,6 +66,7 @@ make models-download-minicpmo   # MiniCPM-O only
 - Embedding-injection boundary helpers.
   - Validate flattened `[sequence][hidden]` token embeddings plus `[image][num_query][hidden]` resampler outputs or future `[audio][patch_tokens][hidden]` audio outputs.
   - Replace planned image/audio patch spans without mutating caller-owned token embeddings.
+  - Summarize combined image+audio embedding replacement counts before numeric runtime integration.
 - Local validation gate and config inspection command:
 
 ```bash
