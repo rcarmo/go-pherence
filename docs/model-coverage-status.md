@@ -82,6 +82,7 @@ Useful commands:
 make models-download-minicpmv
 make models-download-minicpmo
 make minicpmv-check
+make minicpmv-version
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 bin/minicpmvinspect -capabilities
