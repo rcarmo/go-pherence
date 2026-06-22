@@ -224,6 +224,7 @@
         "capability_summary": true,
         "support_summary_api": true,
         "support_summary_inspect_mode": true,
+        "support_summary_make_target": true,
         "runtime_status_constant": true,
         "support_version_output": true,
         "version_make_target": true,
@@ -256,6 +257,7 @@
       "commands": [
         "make minicpmv-check",
         "make minicpmv-version",
+        "make minicpmv-support-summary",
         "make minicpmv-pending-runtime",
         "make minicpmv-coverage-pending",
         "make minicpmv-fixture-path",
