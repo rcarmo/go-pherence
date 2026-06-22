@@ -74,6 +74,7 @@ make minicpmv-fixture-check
 make minicpmv-inspect
 make minicpmv-version
 make minicpmv-capabilities
+make minicpmv-pending-runtime
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-require-metadata-ready'
