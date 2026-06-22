@@ -147,6 +147,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"runtime_stage_interfaces":              "../model/minicpmv/runtime_interfaces.go",
 		"runtime_readiness_report":              "../model/minicpmv/readiness.go",
 		"capability_summary":                    "../model/minicpmv/capabilities.go",
+		"support_summary_api":                   "../model/minicpmv/support_summary.go",
 		"runtime_status_constant":               "../model/minicpmv/capabilities.go",
 		"support_version_output":                "../model/minicpmv/version.go",
 		"version_make_target":                   "../Makefile",

@@ -222,6 +222,7 @@
         "runtime_stage_interfaces": true,
         "runtime_readiness_report": true,
         "capability_summary": true,
+        "support_summary_api": true,
         "runtime_status_constant": true,
         "support_version_output": true,
         "version_make_target": true,
