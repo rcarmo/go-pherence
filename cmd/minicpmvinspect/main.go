@@ -42,6 +42,7 @@ func main() {
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
 	capabilitiesOnly := flag.Bool("capabilities", false, "print MiniCPM-V/O implementation capability summary without requiring -model")
+	showVersion := flag.Bool("version", false, "print MiniCPM-V/O support version/status without requiring -model")
 	fixturePath := flag.Bool("fixture-path", false, "print committed MiniCPM-O metadata fixture path without requiring -model")
 	requireCapabilities := flag.Bool("require-capabilities-ready", false, "with -capabilities, fail unless scaffold capabilities are present and runtime capabilities remain pending")
 	safetensorsPath := flag.String("safetensors", "", "optional safetensors file path; defaults to model.safetensors or sharded index in -model")
@@ -55,6 +56,18 @@ func main() {
 	requireShapes := flag.Bool("require-shapes-ready", false, "fail unless local safetensor header shapes match normalized MiniCPM-V/O config dimensions")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless full MiniCPM-V/O runtime tensor execution is ready")
 	flag.Parse()
+	if *showVersion {
+		if *asJSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(map[string]string{"support_version": minicpmv.SupportVersion, "runtime_status": minicpmv.RuntimeStatusPending}); err != nil {
+				fatal(err)
+			}
+			return
+		}
+		fmt.Printf("%s %s\n", minicpmv.SupportVersion, minicpmv.RuntimeStatusPending)
+		return
+	}
 	if *fixturePath {
 		if *asJSON {
 			enc := json.NewEncoder(os.Stdout)
