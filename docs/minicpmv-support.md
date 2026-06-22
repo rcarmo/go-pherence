@@ -32,6 +32,7 @@ make models-download-minicpmv
 
 - Processor sidecar metadata loading from `preprocessor_config.json` or `processor_config.json`, including nested `image_processor` fields, square resize size, mean/std, rescale factor, patch size, and image sequence length.
 - Tokenizer sidecar metadata loading from `tokenizer_config.json` and `tokenizer.json`, including chat-template byte count and MiniCPM image sentinel token IDs when present.
+- Special-token resolver that merges config/tokenizer metadata into the prompt planner's image patch/start/end token IDs.
 - Safetensors header/index inventory for local checkpoints.
   - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
   - Reports metadata readiness without loading tensor payloads.
