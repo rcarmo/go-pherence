@@ -230,6 +230,7 @@
         "support_version_output": true,
         "version_make_target": true,
         "pending_runtime_steps": true,
+        "runtime_roadmap_doc": true,
         "pending_runtime_make_target": true,
         "coverage_pending_make_target": true,
         "metadata_fixture": true,

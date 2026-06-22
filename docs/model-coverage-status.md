@@ -75,6 +75,7 @@ Implemented package/command surface:
 - `cmd/minicpmvinspect` — metadata/prompt/tensor/image inspector with `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready`, and expected-failing `-require-runtime-ready` gates.
 - `make minicpmv-fixture-path` / `make minicpmv-fixture-summary` — committed fixture discovery and expected-summary reporting.
 - `make minicpmv-fixture-check` — committed MiniCPM-O fixture validation, including audio feature-frame estimation.
+- `docs/minicpmv-runtime-roadmap.md` — ordered runtime implementation path from scaffold to full text/vision/resampler/audio generation.
 - `make minicpmv-check` — focused scaffold validation with synthetic MiniCPM-O sidecars plus a tiny explicit safetensors fixture.
 
 Useful commands:
