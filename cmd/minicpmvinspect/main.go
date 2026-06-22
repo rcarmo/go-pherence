@@ -22,6 +22,7 @@ type report struct {
 	ShapeValidation minicpmv.TensorShapeValidation      `json:"shape_validation,omitempty"`
 	PromptText      *minicpmv.PromptText                `json:"prompt_text,omitempty"`
 	ImagePreprocess *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
+	TextPlan        minicpmv.TextExecutionPlan          `json:"text_plan"`
 	VisionPlan      minicpmv.VisionExecutionPlan        `json:"vision_plan"`
 	AudioPlan       minicpmv.AudioExecutionPlan         `json:"audio_plan"`
 	SlicePlan       minicpmv.SlicePlan                  `json:"slice_plan"`
@@ -73,6 +74,7 @@ func main() {
 		Tensors:         meta.Tensors,
 		Readiness:       meta.TensorReadiness,
 		ShapeValidation: meta.ShapeValidation,
+		TextPlan:        meta.TextPlan,
 		VisionPlan:      meta.VisionPlan,
 		AudioPlan:       meta.AudioPlan,
 		SlicePlan:       meta.SlicePlan,
@@ -151,6 +153,7 @@ func printText(r report) {
 		img := r.ImagePreprocess
 		fmt.Printf("  image:     path=%s format=%s shape=%v patch_grid=%v patch_count=%d\n", img.Path, img.Format, img.Result.Shape, img.Result.PatchGrid, img.Result.PatchCount)
 	}
+	fmt.Printf("  textplan:  model=%s layers=%d embedding=%v layers_ready=%v lm_head=%v generation=%v ready=%v\n", r.TextPlan.TextModelType, r.TextPlan.Layers, r.TextPlan.HasEmbedding, r.TextPlan.HasLayers, r.TextPlan.HasLMHead, r.TextPlan.Generation, r.TextPlan.Ready)
 	fmt.Printf("  visionplan: model=%s patch_grid=%d vision_tokens=%d resampler_query=%d needs_kv_proj=%v ready=%v\n", r.VisionPlan.VisionModelType, r.VisionPlan.PatchGrid, r.VisionPlan.VisionTokens, r.VisionPlan.ResamplerQuery, r.VisionPlan.NeedsKVProj, r.VisionPlan.Ready)
 	if r.AudioPlan.MetadataReady || len(r.AudioPlan.Bindings) > 0 {
 		fmt.Printf("  audioplan: model=%s mel_bins=%d sampling_rate=%d bindings=%d tensor_ready=%v ready=%v\n", r.AudioPlan.AudioModelType, r.AudioPlan.MelBins, r.AudioPlan.SamplingRate, len(r.AudioPlan.Bindings), r.AudioPlan.TensorReady, r.AudioPlan.Ready)

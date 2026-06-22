@@ -40,6 +40,8 @@ make models-download-minicpmv
   - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
   - Reports metadata readiness without loading tensor payloads.
 - Safetensors shape validation for key text, vision patch-embedding, MiniCPM-O audio encoder, resampler, and projector tensors against normalized MiniCPM-V/O config dimensions.
+- Text-backbone execution plan scaffold.
+  - Reports text dimensions, embedding/layer/LM-head tensor inventory, generation-config presence, and pending prefill/decode/sampling stages.
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.
   - Config, processor, tokenizer, special tokens, tensor inventory, image preprocessing, and prompt planning are checked independently.
   - Vision-tower execution, resampler execution, embedding injection, and text generation remain marked not ready.
@@ -54,7 +56,7 @@ make models-download-minicpmv
 - Audio execution/tensor plan scaffold for MiniCPM-O.
   - Classifies audio encoder tensors into convolution, attention, MLP, norm, projector, and other roles.
   - Reports metadata/tensor readiness while keeping audio feature extraction, encoder execution, and audio embedding integration explicitly pending.
-- Aggregate metadata loader (`minicpmv.LoadMetadata`) that wires config, processor/tokenizer sidecars, special tokens, safetensor inventory/shape checks, runtime plan, vision plan, audio plan, and resampler plan into one API.
+- Aggregate metadata loader (`minicpmv.LoadMetadata`) that wires config, processor/tokenizer sidecars, special tokens, safetensor inventory/shape checks, runtime plan, text plan, vision plan, audio plan, and resampler plan into one API.
 - Embedding-injection boundary helper.
   - Validates flattened `[sequence][hidden]` token embeddings and `[image][num_query][hidden]` resampler outputs.
   - Replaces planned image patch spans without mutating caller-owned token embeddings.
