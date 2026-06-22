@@ -36,7 +36,7 @@ make models-download-minicpmo   # MiniCPM-O only
 - Tokenizer sidecar metadata loading from `tokenizer_config.json` and `tokenizer.json`, including chat-template byte count/role/tool/image/audio markers plus MiniCPM image and MiniCPM-O audio sentinel token IDs when present.
 - Generation sidecar metadata loading from `generation_config.json`, including max tokens, sampling defaults, penalties, token IDs, and stop strings.
 - Special-token resolvers that merge config/tokenizer metadata into image patch/start/end token IDs and MiniCPM-O audio sentinel token IDs.
-- Prompt text placeholder builders for `<im_start><im_patch>...<im_end>` image sentinels and MiniCPM-O `<audio_start><audio_patch>...<audio_end>` audio sentinels, with optional user/assistant prefixes for future chat-template integration.
+- Prompt text placeholder builders for `<im_start><im_patch>...<im_end>` image sentinels, MiniCPM-O `<audio_start><audio_patch>...<audio_end>` audio sentinels, and combined image+audio multimodal prompt previews, with optional user/assistant prefixes for future chat-template integration.
 - Safetensors header/index inventory for local checkpoints.
   - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
   - Reports metadata readiness without loading tensor payloads.

@@ -23,6 +23,7 @@ type report struct {
 	ShapeValidation      minicpmv.TensorShapeValidation      `json:"shape_validation,omitempty"`
 	PromptText           *minicpmv.PromptText                `json:"prompt_text,omitempty"`
 	AudioPromptText      *minicpmv.AudioPromptText           `json:"audio_prompt_text,omitempty"`
+	MultiModalPrompt     *minicpmv.MultiModalPromptPlan      `json:"multimodal_prompt,omitempty"`
 	ImagePreprocess      *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
 	TextPlan             minicpmv.TextExecutionPlan          `json:"text_plan"`
 	VisionPlan           minicpmv.VisionExecutionPlan        `json:"vision_plan"`
@@ -96,6 +97,9 @@ func main() {
 	if meta.Summary.AudioModelType != "" || meta.AudioSpecialTokenIDs != nil {
 		if prompt, err := minicpmv.BuildAudioPromptText(*promptText, 1, meta.Summary.NumQuery, meta.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
 			out.AudioPromptText = &prompt
+		}
+		if prompt, err := minicpmv.BuildMultiModalPromptPlan(meta.Summary, meta.Tokenizer, minicpmv.MultiModalPromptOptions{Question: *promptText, Images: *promptImages, Audios: 1}); err == nil {
+			out.MultiModalPrompt = &prompt
 		}
 	}
 	if *imagePath != "" {
@@ -173,6 +177,9 @@ func printText(r report) {
 	}
 	if r.AudioPromptText != nil {
 		fmt.Printf("  audioprompt: audios=%d patch_tokens=%d placeholder_bytes=%d\n", r.AudioPromptText.Audios, r.AudioPromptText.PatchTokens, len(r.AudioPromptText.AudioPlaceholder))
+	}
+	if r.MultiModalPrompt != nil {
+		fmt.Printf("  multimodal: images=%d audios=%d text_bytes=%d\n", r.MultiModalPrompt.Images, r.MultiModalPrompt.Audios, len(r.MultiModalPrompt.Text))
 	}
 	if r.ImagePreprocess != nil {
 		img := r.ImagePreprocess
