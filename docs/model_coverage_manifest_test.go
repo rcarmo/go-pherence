@@ -158,6 +158,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"fixture_metadata_helper":            "../model/minicpmv/fixtures.go",
 		"fixture_path_make_target":           "../Makefile",
 		"fixture_check_make_target":          "../Makefile",
+		"fixture_readiness_gate":             "../cmd/minicpmvinspect/main.go",
 		"embedding_injection_boundary":       "../model/minicpmv/embedding_injection.go",
 		"make_inspect_target":                "../Makefile",
 		"scaffold_check_make_target":         "../Makefile",

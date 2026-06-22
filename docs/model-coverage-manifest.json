@@ -233,6 +233,7 @@
         "fixture_metadata_helper": true,
         "fixture_path_make_target": true,
         "fixture_check_make_target": true,
+        "fixture_readiness_gate": true,
         "runtime_readiness_gate": true,
         "embedding_injection_boundary": true,
         "download_registry": true,

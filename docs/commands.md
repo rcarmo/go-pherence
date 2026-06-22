@@ -341,6 +341,9 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
   -fixture-summary
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
+  -require-fixture-ready
+
+GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
   -model models/minicpm-v-2.6 \
   -json
 
@@ -364,6 +367,7 @@ Useful flags:
 - `-capabilities` — print implemented-vs-pending MiniCPM-V/O capability summary without requiring `-model`; combine with `-require-capabilities-ready` for a model-free CI consistency gate.
 - `-fixture-path` — print the committed MiniCPM-O metadata fixture path without requiring `-model`.
 - `-fixture-summary` — print the committed MiniCPM-O expected summary without requiring `-model`.
+- `-require-fixture-ready` — validate the committed MiniCPM-O fixture against its expected summary without requiring `-model`.
 - `-json` — emit the full machine-readable report.
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 - `-image PATH` — decode PNG/JPEG and run the configured pure-Go BCHW image preprocessing path.
