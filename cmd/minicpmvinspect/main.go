@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/rcarmo/go-pherence/loader/config"
+	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"github.com/rcarmo/go-pherence/model/minicpmv"
 )
 
@@ -18,6 +19,7 @@ type report struct {
 	SpecialTokenIDs *minicpmv.SpecialTokenIDs         `json:"special_token_ids,omitempty"`
 	Tensors         *minicpmv.TensorInventory         `json:"tensors,omitempty"`
 	Readiness       *minicpmv.TensorReadiness         `json:"tensor_readiness,omitempty"`
+	ShapeValidation minicpmv.TensorShapeValidation    `json:"shape_validation,omitempty"`
 	RuntimePlan     minicpmv.RuntimePlan              `json:"runtime_plan"`
 	Config          config.MiniCPMVConfig             `json:"config,omitempty"`
 }
@@ -62,6 +64,9 @@ func main() {
 		out.Tensors = &inv
 		readiness := minicpmv.TensorReadinessFromInventory(inv)
 		out.Readiness = &readiness
+		if infos, err := safetensors.TensorInfosFrom(*modelDir, ""); err == nil {
+			out.ShapeValidation = minicpmv.ValidateTensorShapes(summary, infos)
+		}
 	}
 	out.RuntimePlan = minicpmv.BuildRuntimePlan(summary, out.Processor, out.Tokenizer, out.Tensors)
 	if *showConfig {
@@ -103,6 +108,9 @@ func printText(r report) {
 	}
 	if r.Readiness != nil {
 		fmt.Printf("  readiness: text=%v vision=%v resampler=%v metadata=%v runtime=%v\n", r.Readiness.HasTextEmbedding && r.Readiness.HasTextLayers, r.Readiness.HasVisionTower, r.Readiness.HasResampler, r.Readiness.MetadataReady, r.Readiness.RuntimeReady)
+	}
+	if len(r.ShapeValidation.Issues) > 0 || r.ShapeValidation.Valid {
+		fmt.Printf("  shapes:    valid=%v issues=%d\n", r.ShapeValidation.Valid, len(r.ShapeValidation.Issues))
 	}
 	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
