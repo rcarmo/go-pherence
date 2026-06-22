@@ -140,6 +140,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"resampler_tensor_plan":        "../model/minicpmv/resampler_plan.go",
 		"audio_execution_plan":         "../model/minicpmv/audio_plan.go",
 		"audio_feature_plan":           "../model/minicpmv/audio_features.go",
+		"audio_feature_frame_estimate": "../model/minicpmv/audio_features.go",
 		"runtime_stage_interfaces":     "../model/minicpmv/runtime_interfaces.go",
 		"runtime_readiness_report":     "../model/minicpmv/readiness.go",
 		"capability_summary":           "../model/minicpmv/capabilities.go",
