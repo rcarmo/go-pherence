@@ -18,6 +18,7 @@ type report struct {
 	SpecialTokenIDs *minicpmv.SpecialTokenIDs         `json:"special_token_ids,omitempty"`
 	Tensors         *minicpmv.TensorInventory         `json:"tensors,omitempty"`
 	Readiness       *minicpmv.TensorReadiness         `json:"tensor_readiness,omitempty"`
+	RuntimePlan     minicpmv.RuntimePlan              `json:"runtime_plan"`
 	Config          config.MiniCPMVConfig             `json:"config,omitempty"`
 }
 
@@ -62,6 +63,7 @@ func main() {
 		readiness := minicpmv.TensorReadinessFromInventory(inv)
 		out.Readiness = &readiness
 	}
+	out.RuntimePlan = minicpmv.BuildRuntimePlan(summary, out.Processor, out.Tokenizer, out.Tensors)
 	if *showConfig {
 		out.Config = cfg
 	}
@@ -102,6 +104,7 @@ func printText(r report) {
 	if r.Readiness != nil {
 		fmt.Printf("  readiness: text=%v vision=%v resampler=%v metadata=%v runtime=%v\n", r.Readiness.HasTextEmbedding && r.Readiness.HasTextLayers, r.Readiness.HasVisionTower, r.Readiness.HasResampler, r.Readiness.MetadataReady, r.Readiness.RuntimeReady)
 	}
+	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
 }
 
