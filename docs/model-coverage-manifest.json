@@ -200,6 +200,7 @@
         "image_special_tokens": true,
         "audio_special_tokens": true,
         "image_prompt_builder": true,
+        "image_token_span_planning": true,
         "audio_prompt_builder": true,
         "audio_token_span_planning": true,
         "multimodal_prompt_builder": true,
