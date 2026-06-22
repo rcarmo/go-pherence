@@ -211,7 +211,7 @@ func printText(r report) {
 	}
 	if r.TensorInfoSummary != nil {
 		sum := r.TensorInfoSummary
-		fmt.Printf("  tensorinfo: dtypes=%v ranks=%v elements=%d\n", sum.DTypes, sum.Ranks, sum.TotalElements)
+		fmt.Printf("  tensorinfo: dtypes=%v ranks=%v elements=%d bytes=%d\n", sum.DTypes, sum.Ranks, sum.TotalElements, sum.TotalBytes)
 	}
 	if r.Readiness != nil {
 		fmt.Printf("  readiness: text=%v vision=%v resampler=%v metadata=%v runtime=%v\n", r.Readiness.HasTextEmbedding && r.Readiness.HasTextLayers, r.Readiness.HasVisionTower, r.Readiness.HasResampler, r.Readiness.MetadataReady, r.Readiness.RuntimeReady)

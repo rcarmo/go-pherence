@@ -7,6 +7,7 @@ type TensorInfoSummary struct {
 	DTypes        map[string]int `json:"dtypes,omitempty"`
 	Ranks         map[int]int    `json:"ranks,omitempty"`
 	TotalElements int64          `json:"total_elements,omitempty"`
+	TotalBytes    int64          `json:"total_bytes,omitempty"`
 }
 
 func SummarizeTensorInfos(infos map[string]safetensors.TensorInfo) TensorInfoSummary {
@@ -16,6 +17,9 @@ func SummarizeTensorInfos(infos map[string]safetensors.TensorInfo) TensorInfoSum
 		out.Ranks[len(info.Shape)]++
 		if n := tensorNumel(info.Shape); n > 0 {
 			out.TotalElements += int64(n)
+		}
+		if info.DataOffsets[1] > info.DataOffsets[0] {
+			out.TotalBytes += int64(info.DataOffsets[1] - info.DataOffsets[0])
 		}
 	}
 	return out
