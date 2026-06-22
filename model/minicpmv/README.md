@@ -29,6 +29,7 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
   - resampler binding plan
   - MiniCPM-O audio tensor plan
 - Runtime/readiness planning:
+  - capability summary with `RuntimeStatusPending` until tensor execution lands
   - text execution plan
   - vision/resampler execution plan
   - MiniCPM-O audio execution plan

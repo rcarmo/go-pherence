@@ -243,6 +243,7 @@ func printCapabilities(c minicpmv.Capabilities) {
 	fmt.Printf("  prompts:   image=%v audio=%v multimodal=%v special_tokens=%v/%v\n", c.ImagePromptPlanning, c.AudioPromptPlanning, c.MultimodalPromptPlanning, c.ImageSpecialTokens, c.AudioSpecialTokens)
 	fmt.Printf("  tensors:   inventory=%v shapes=%v explicit_safetensors=%v\n", c.TensorInventory, c.TensorShapeValidation, c.ExplicitSafetensorsPath)
 	fmt.Printf("  plans:     text=%v vision=%v resampler=%v audio=%v readiness=%v\n", c.TextExecutionPlan, c.VisionExecutionPlan, c.ResamplerTensorPlan, c.AudioExecutionPlan, c.ReadinessReport)
+	fmt.Printf("  status:    %s\n", c.RuntimeStatus)
 	fmt.Printf("  runtime:   text=%v vision=%v resampler=%v audio=%v end_to_end=%v\n", c.TextRuntimeGeneration, c.VisionTowerRuntime, c.ResamplerRuntime, c.AudioEncoderRuntime, c.EndToEndGeneration)
 }
 
