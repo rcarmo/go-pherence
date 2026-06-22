@@ -22,6 +22,7 @@ type report struct {
 	ShapeValidation minicpmv.TensorShapeValidation      `json:"shape_validation,omitempty"`
 	PromptText      *minicpmv.PromptText                `json:"prompt_text,omitempty"`
 	ImagePreprocess *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
+	VisionPlan      minicpmv.VisionExecutionPlan        `json:"vision_plan"`
 	RuntimePlan     minicpmv.RuntimePlan                `json:"runtime_plan"`
 	Config          config.MiniCPMVConfig               `json:"config,omitempty"`
 }
@@ -85,6 +86,7 @@ func main() {
 		}
 		out.ImagePreprocess = &res
 	}
+	out.VisionPlan = minicpmv.BuildVisionExecutionPlan(summary, out.Tensors)
 	out.RuntimePlan = minicpmv.BuildRuntimePlan(summary, out.Processor, out.Tokenizer, out.Tensors)
 	if *showConfig {
 		out.Config = cfg
@@ -136,6 +138,7 @@ func printText(r report) {
 		img := r.ImagePreprocess
 		fmt.Printf("  image:     path=%s format=%s shape=%v patch_grid=%v patch_count=%d\n", img.Path, img.Format, img.Result.Shape, img.Result.PatchGrid, img.Result.PatchCount)
 	}
+	fmt.Printf("  visionplan: model=%s patch_grid=%d vision_tokens=%d resampler_query=%d needs_kv_proj=%v ready=%v\n", r.VisionPlan.VisionModelType, r.VisionPlan.PatchGrid, r.VisionPlan.VisionTokens, r.VisionPlan.ResamplerQuery, r.VisionPlan.NeedsKVProj, r.VisionPlan.Ready)
 	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
 }

@@ -42,6 +42,8 @@ make models-download-minicpmv
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.
   - Config, processor, tokenizer, special tokens, tensor inventory, image preprocessing, and prompt planning are checked independently.
   - Vision-tower execution, resampler execution, embedding injection, and text generation remain marked not ready.
+- Vision/resampler execution plan scaffold.
+  - Reports patch grid, raw vision-token count, resampler query count/grid/heads, hidden-size projection need, and per-stage readiness from tensor inventory.
 - Embedding-injection boundary helper.
   - Validates flattened `[sequence][hidden]` token embeddings and `[image][num_query][hidden]` resampler outputs.
   - Replaces planned image patch spans without mutating caller-owned token embeddings.
