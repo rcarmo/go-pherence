@@ -198,6 +198,13 @@ func printText(r report) {
 	}
 	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
 	fmt.Printf("  readiness: metadata=%v tensors=%v shapes=%v runtime=%v blockers=%d\n", r.ReadinessReport.MetadataReady, r.ReadinessReport.TensorReady, r.ReadinessReport.ShapesReady, r.ReadinessReport.RuntimeReady, len(r.ReadinessReport.Blockers))
+	for i, blocker := range r.ReadinessReport.Blockers {
+		if i >= 5 {
+			fmt.Printf("  blocker:   ... %d more\n", len(r.ReadinessReport.Blockers)-i)
+			break
+		}
+		fmt.Printf("  blocker:   %s\n", blocker)
+	}
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
 }
 
