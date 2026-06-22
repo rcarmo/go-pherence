@@ -223,6 +223,7 @@
         "pending_runtime_steps": true,
         "metadata_fixture": true,
         "fixture_path_constant": true,
+        "fixture_path_make_target": true,
         "fixture_check_make_target": true,
         "runtime_readiness_gate": true,
         "embedding_injection_boundary": true,
@@ -238,6 +239,7 @@
       "commands": [
         "make minicpmv-check",
         "make minicpmv-version",
+        "make minicpmv-fixture-path",
         "make minicpmv-fixture-check",
         "make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS=-json",
         "GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.6/model.safetensors -require-shapes-ready"
