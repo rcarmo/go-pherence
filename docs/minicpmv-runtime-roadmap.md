@@ -65,6 +65,9 @@ Not implemented:
 Before any capability flips from false to true:
 
 ```bash
+make minicpmv-version
+make minicpmv-support-summary
+make minicpmv-pending-runtime
 make minicpmv-check
 go test ./model/minicpmv ./cmd/minicpmvinspect -count=1
 ```
