@@ -25,6 +25,14 @@ Implemented:
 make models-download-minicpmv
 ```
 
+- Local config inspection command:
+
+```bash
+make minicpmv-inspect
+bin/minicpmvinspect -model models/minicpm-v-2.6
+bin/minicpmvinspect -model models/minicpm-v-2.6 -json -require-config-ready
+```
+
 Some OpenBMB Hugging Face repositories are gated; set `HF_TOKEN` or `HUGGINGFACE_TOKEN` before downloading when required.
 
 ## Upstream execution graph reference
