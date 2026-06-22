@@ -40,7 +40,7 @@ make models-download-minicpmo   # MiniCPM-O only
 - Safetensors header/index inventory for local checkpoints.
   - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
   - Reports metadata readiness without loading tensor payloads.
-- Safetensors shape validation for key text, vision patch-embedding, MiniCPM-O audio encoder, resampler, and projector tensors against normalized MiniCPM-V/O config dimensions.
+- Safetensors shape validation for key text, vision patch-embedding, MiniCPM-O audio encoder, resampler, and projector tensors against normalized MiniCPM-V/O config dimensions; `make minicpmv-check` includes a tiny explicit safetensors fixture that exercises `-require-tensors-ready` and `-require-shapes-ready`.
 - Text-backbone execution plan scaffold.
   - Reports text dimensions, embedding/layer/LM-head tensor inventory, generation-config presence, and pending prefill/decode/sampling stages.
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.

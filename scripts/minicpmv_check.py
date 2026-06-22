@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import struct
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,55 @@ from pathlib import Path
 def run(cmd: list[str], cwd: Path) -> None:
     print("+", " ".join(cmd))
     subprocess.run(cmd, cwd=cwd, check=True)
+
+
+def write_tiny_safetensors(path: Path) -> None:
+    tensors: dict[str, dict[str, object]] = {}
+    offset = 0
+    specs = {
+        "llm.model.embed_tokens.weight": [100, 4],
+        "llm.model.layers.0.self_attn.q_proj.weight": [4, 4],
+        "vpm.embeddings.patch_embedding.weight": [3, 3, 14, 14],
+        "resampler.query.weight": [1, 4],
+        "resampler.kv_proj.weight": [4, 3],
+    }
+    for name, shape in specs.items():
+        n = 1
+        for dim in shape:
+            n *= dim
+        byte_len = n * 4
+        tensors[name] = {"dtype": "F32", "shape": shape, "data_offsets": [offset, offset + byte_len]}
+        offset += byte_len
+    header = json.dumps(tensors, separators=(",", ":")).encode("utf-8")
+    path.write_bytes(struct.pack("<Q", len(header)) + header + (b"\x00" * offset))
+
+
+def write_tiny_tensor_model(root: Path) -> Path:
+    (root / "config.json").write_text(json.dumps({
+        "architectures": ["MiniCPMVForCausalLM"],
+        "model_type": "minicpmv",
+        "text_config": {
+            "model_type": "qwen2",
+            "hidden_size": 4,
+            "num_hidden_layers": 1,
+            "num_attention_heads": 1,
+            "num_key_value_heads": 1,
+            "intermediate_size": 8,
+            "vocab_size": 100,
+        },
+        "vision_config": {
+            "model_type": "siglip_vision_model",
+            "hidden_size": 3,
+            "num_hidden_layers": 1,
+            "num_attention_heads": 1,
+            "image_size": 14,
+            "patch_size": 14,
+        },
+        "resampler_config": {"num_query": 1, "num_heads": 1, "kv_dim": 3},
+    }), encoding="utf-8")
+    st = root / "tiny.safetensors"
+    write_tiny_safetensors(st)
+    return st
 
 
 def write_synthetic_model(root: Path) -> None:
@@ -99,6 +149,10 @@ def main(argv: list[str]) -> int:
         model_dir = Path(td)
         write_synthetic_model(model_dir)
         run(["go", "run", "./cmd/minicpmvinspect", "-model", str(model_dir), "-require-config-ready", "-require-metadata-ready"], repo)
+    with tempfile.TemporaryDirectory(prefix="minicpmv-tensors-") as td:
+        model_dir = Path(td)
+        safetensors_path = write_tiny_tensor_model(model_dir)
+        run(["go", "run", "./cmd/minicpmvinspect", "-model", str(model_dir), "-safetensors", str(safetensors_path), "-require-tensors-ready", "-require-shapes-ready"], repo)
     return 0
 
 
