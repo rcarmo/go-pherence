@@ -14,6 +14,11 @@ Implemented:
   - Validates the upstream `<im_start> <im_patch>... <im_end>` contract.
   - Supports patch-only spans for checkpoints that do not use start/end tokens.
   - Reports exact replacement spans for injecting vision/resampler embeddings into the language embedding stream.
+- Pure-Go image preprocessing in `model/minicpmv`.
+  - Converts arbitrary Go `image.Image` inputs to RGB/NRGBA.
+  - Optional square bilinear resize.
+  - Rescale + normalize into BCHW `float32` pixel values.
+  - Validates patch-grid divisibility and reports the vision patch count before tensor execution.
 - Resampler shape validation matching the upstream `Resampler` contract:
   - `num_query = grid_size^2`
   - `embed_dim = language hidden size`
@@ -51,6 +56,7 @@ The original OpenBMB code path is:
 
 Not implemented yet:
 
+- Processor JSON auto-loading for checkpoint-specific image mean/std/resize fields.
 - Full EVA02/SigLIP vision tower tensor loading/execution.
 - Resampler tensor loading/execution.
 - MiniCPM/Qwen2/Mistral text-backbone weight mapping for MiniCPM-V checkpoints.
