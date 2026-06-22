@@ -59,6 +59,10 @@ def write_synthetic_model(root: Path) -> None:
         "image_std": [0.5, 0.5, 0.5],
         "rescale_factor": 1.0 / 255.0,
     }), encoding="utf-8")
+    (root / "tokenizer_config.json").write_text(json.dumps({
+        "tokenizer_class": "Qwen2Tokenizer",
+        "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}<image>{{ message['content'] }}{% elif message['role'] == 'assistant' %}{{ message['content'] }}{% endif %}{% endfor %}",
+    }), encoding="utf-8")
     (root / "tokenizer.json").write_text(json.dumps({
         "added_tokens": [
             {"id": 151640, "content": "<im_start>"},

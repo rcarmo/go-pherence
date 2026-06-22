@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type MiniCPMVTokenizerConfig struct {
@@ -20,17 +21,28 @@ type MiniCPMVTokenizerConfig struct {
 }
 
 type MiniCPMVTokenizerMetadata struct {
-	TokenizerClass    string         `json:"tokenizer_class,omitempty"`
-	BOS               string         `json:"bos,omitempty"`
-	EOS               string         `json:"eos,omitempty"`
-	Pad               string         `json:"pad,omitempty"`
-	UNK               string         `json:"unk,omitempty"`
-	Image             string         `json:"image,omitempty"`
-	ImageStart        string         `json:"image_start,omitempty"`
-	ImageEnd          string         `json:"image_end,omitempty"`
-	ImagePatch        string         `json:"image_patch,omitempty"`
-	TokenIDs          map[string]int `json:"token_ids,omitempty"`
-	ChatTemplateBytes int            `json:"chat_template_bytes,omitempty"`
+	TokenizerClass    string                        `json:"tokenizer_class,omitempty"`
+	BOS               string                        `json:"bos,omitempty"`
+	EOS               string                        `json:"eos,omitempty"`
+	Pad               string                        `json:"pad,omitempty"`
+	UNK               string                        `json:"unk,omitempty"`
+	Image             string                        `json:"image,omitempty"`
+	ImageStart        string                        `json:"image_start,omitempty"`
+	ImageEnd          string                        `json:"image_end,omitempty"`
+	ImagePatch        string                        `json:"image_patch,omitempty"`
+	TokenIDs          map[string]int                `json:"token_ids,omitempty"`
+	ChatTemplateBytes int                           `json:"chat_template_bytes,omitempty"`
+	ChatTemplate      *MiniCPMVChatTemplateMetadata `json:"chat_template,omitempty"`
+}
+
+type MiniCPMVChatTemplateMetadata struct {
+	Bytes            int      `json:"bytes"`
+	HasSystemRole    bool     `json:"has_system_role"`
+	HasUserRole      bool     `json:"has_user_role"`
+	HasAssistantRole bool     `json:"has_assistant_role"`
+	HasImageMarker   bool     `json:"has_image_marker"`
+	HasToolSupport   bool     `json:"has_tool_support"`
+	Markers          []string `json:"markers,omitempty"`
 }
 
 func ReadMiniCPMVTokenizerMetadata(dir string) (MiniCPMVTokenizerMetadata, bool, error) {
@@ -51,6 +63,10 @@ func ReadMiniCPMVTokenizerMetadata(dir string) (MiniCPMVTokenizerMetadata, bool,
 		out.ImageEnd = tok.ImageEnd
 		out.ImagePatch = tok.ImagePatch
 		out.ChatTemplateBytes = len(tok.ChatTemplate)
+		if tok.ChatTemplate != "" {
+			meta := SummarizeMiniCPMVChatTemplate(tok.ChatTemplate)
+			out.ChatTemplate = &meta
+		}
 	}
 	ids, ok, err := readMiniCPMVTokenIDs(filepath.Join(dir, "tokenizer.json"))
 	if err != nil {
@@ -61,6 +77,24 @@ func ReadMiniCPMVTokenizerMetadata(dir string) (MiniCPMVTokenizerMetadata, bool,
 		out.TokenIDs = ids
 	}
 	return out, seen, nil
+}
+
+func SummarizeMiniCPMVChatTemplate(tpl string) MiniCPMVChatTemplateMetadata {
+	contains := func(x string) bool { return strings.Contains(tpl, x) }
+	meta := MiniCPMVChatTemplateMetadata{
+		Bytes:            len(tpl),
+		HasSystemRole:    contains("system"),
+		HasUserRole:      contains("user"),
+		HasAssistantRole: contains("assistant"),
+		HasImageMarker:   contains("<image>") || contains("<im_start>") || contains("image"),
+		HasToolSupport:   contains("tools") || contains("tool_calls") || contains("function"),
+	}
+	for _, marker := range []string{"system", "user", "assistant", "<image>", "<im_start>", "<im_end>", "tools", "tool_calls"} {
+		if contains(marker) {
+			meta.Markers = append(meta.Markers, marker)
+		}
+	}
+	return meta
 }
 
 func tokenString(v any) string {

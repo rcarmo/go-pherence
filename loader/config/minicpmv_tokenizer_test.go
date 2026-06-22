@@ -13,7 +13,7 @@ func TestReadMiniCPMVTokenizerMetadata(t *testing.T) {
   "bos_token":{"content":"<s>"},
   "eos_token":"</s>",
   "pad_token":"<pad>",
-  "chat_template":"{% for message in messages %}{{ message['role'] }}{% endfor %}",
+  "chat_template":"{% for message in messages %}{% if message['role'] == 'user' %}<image>{{ message['content'] }}{% elif message['role'] == 'assistant' %}{{ message['content'] }}{% endif %}{% endfor %}",
   "image_token":"<image>",
   "im_start":"<im_start>",
   "im_end":"<im_end>",
@@ -36,8 +36,11 @@ func TestReadMiniCPMVTokenizerMetadata(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("ReadMiniCPMVTokenizerMetadata ok=%v err=%v", ok, err)
 	}
-	if meta.TokenizerClass != "Qwen2Tokenizer" || meta.BOS != "<s>" || meta.EOS != "</s>" || meta.ChatTemplateBytes == 0 {
+	if meta.TokenizerClass != "Qwen2Tokenizer" || meta.BOS != "<s>" || meta.EOS != "</s>" || meta.ChatTemplateBytes == 0 || meta.ChatTemplate == nil {
 		t.Fatalf("bad tokenizer fields: %+v", meta)
+	}
+	if !meta.ChatTemplate.HasUserRole || !meta.ChatTemplate.HasAssistantRole || !meta.ChatTemplate.HasImageMarker {
+		t.Fatalf("bad chat template metadata: %+v", meta.ChatTemplate)
 	}
 	if meta.TokenIDs["<im_start>"] != 151640 || meta.TokenIDs["<image>"] != 151643 {
 		t.Fatalf("bad token ids: %+v", meta.TokenIDs)
