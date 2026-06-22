@@ -11,13 +11,14 @@ import (
 )
 
 type report struct {
-	ModelPath string                            `json:"model_path"`
-	Summary   config.MiniCPMVSummary            `json:"summary"`
-	Processor *config.MiniCPMVProcessorConfig   `json:"processor,omitempty"`
-	Tokenizer *config.MiniCPMVTokenizerMetadata `json:"tokenizer,omitempty"`
-	Tensors   *minicpmv.TensorInventory         `json:"tensors,omitempty"`
-	Readiness *minicpmv.TensorReadiness         `json:"tensor_readiness,omitempty"`
-	Config    config.MiniCPMVConfig             `json:"config,omitempty"`
+	ModelPath       string                            `json:"model_path"`
+	Summary         config.MiniCPMVSummary            `json:"summary"`
+	Processor       *config.MiniCPMVProcessorConfig   `json:"processor,omitempty"`
+	Tokenizer       *config.MiniCPMVTokenizerMetadata `json:"tokenizer,omitempty"`
+	SpecialTokenIDs *minicpmv.SpecialTokenIDs         `json:"special_token_ids,omitempty"`
+	Tensors         *minicpmv.TensorInventory         `json:"tensors,omitempty"`
+	Readiness       *minicpmv.TensorReadiness         `json:"tensor_readiness,omitempty"`
+	Config          config.MiniCPMVConfig             `json:"config,omitempty"`
 }
 
 func main() {
@@ -48,6 +49,11 @@ func main() {
 		fatal(err)
 	} else if ok {
 		out.Tokenizer = &tok
+		if ids, err := minicpmv.ResolveSpecialTokenIDs(summary, &tok); err == nil {
+			out.SpecialTokenIDs = &ids
+		}
+	} else if ids, err := minicpmv.ResolveSpecialTokenIDs(summary, nil); err == nil {
+		out.SpecialTokenIDs = &ids
 	}
 	if inv, ok, err := minicpmv.TensorInventoryFromModelDir(*modelDir); err != nil {
 		fatal(err)
@@ -85,6 +91,10 @@ func printText(r report) {
 	if r.Tokenizer != nil {
 		t := r.Tokenizer
 		fmt.Printf("  tokenizer: class=%s bos=%q eos=%q pad=%q image=%q ids=%v template_bytes=%d\n", t.TokenizerClass, t.BOS, t.EOS, t.Pad, t.Image, t.TokenIDs, t.ChatTemplateBytes)
+	}
+	if r.SpecialTokenIDs != nil {
+		ids := r.SpecialTokenIDs
+		fmt.Printf("  specials:  image=%d patch=%d start=%d end=%d use_start_end=%v\n", ids.Image, ids.ImagePatch, ids.ImageStart, ids.ImageEnd, ids.UseStartEnd)
 	}
 	if r.Tensors != nil {
 		fmt.Printf("  tensors:   total=%d groups=%v\n", r.Tensors.Total, r.Tensors.Groups)
