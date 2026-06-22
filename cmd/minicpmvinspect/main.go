@@ -42,6 +42,7 @@ func main() {
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
 	capabilitiesOnly := flag.Bool("capabilities", false, "print MiniCPM-V/O implementation capability summary without requiring -model")
+	requireCapabilities := flag.Bool("require-capabilities-ready", false, "with -capabilities, fail unless scaffold capabilities are present and runtime capabilities remain pending")
 	safetensorsPath := flag.String("safetensors", "", "optional safetensors file path; defaults to model.safetensors or sharded index in -model")
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
 	promptText := flag.String("prompt", "Describe the image.", "prompt text used for the MiniCPM-V/O image-placeholder preview")
@@ -55,6 +56,9 @@ func main() {
 	flag.Parse()
 	if *capabilitiesOnly {
 		caps := minicpmv.CurrentCapabilities()
+		if *requireCapabilities && (!caps.ConfigParsing || !caps.ProcessorMetadata || !caps.TokenizerMetadata || !caps.MultimodalPromptPlanning || !caps.TensorShapeValidation || !caps.ValidationGate || caps.EndToEndGeneration || caps.TextRuntimeGeneration || caps.VisionTowerRuntime || caps.ResamplerRuntime || caps.AudioEncoderRuntime) {
+			fatal(fmt.Errorf("MiniCPM-V/O capabilities are inconsistent: %+v", caps))
+		}
 		if *asJSON {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")

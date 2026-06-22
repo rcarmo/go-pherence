@@ -144,8 +144,8 @@ def main(argv: list[str]) -> int:
         run(["go", "test", "./loader/config", "./model/minicpmv", "./cmd/minicpmvinspect", "-count=1"], repo)
     if not args.skip_build:
         run(["go", "build", "-o", "bin/minicpmvinspect", "./cmd/minicpmvinspect"], repo)
-    run(["go", "run", "./cmd/minicpmvinspect", "-capabilities"], repo)
-    run(["go", "run", "./cmd/minicpmvinspect", "-capabilities", "-json"], repo)
+    run(["go", "run", "./cmd/minicpmvinspect", "-capabilities", "-require-capabilities-ready"], repo)
+    run(["go", "run", "./cmd/minicpmvinspect", "-capabilities", "-json", "-require-capabilities-ready"], repo)
     run([sys.executable, "scripts/download_models.py", "--group", "minicpmv", "--group", "minicpmo", "--dry-run"], repo)
     with tempfile.TemporaryDirectory(prefix="minicpmv-check-") as td:
         model_dir = Path(td)

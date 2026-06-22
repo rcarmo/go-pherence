@@ -340,7 +340,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
 
 Useful flags:
 
-- `-capabilities` — print implemented-vs-pending MiniCPM-V/O capability summary without requiring `-model`.
+- `-capabilities` — print implemented-vs-pending MiniCPM-V/O capability summary without requiring `-model`; combine with `-require-capabilities-ready` for a model-free CI consistency gate.
 - `-json` — emit the full machine-readable report.
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 - `-image PATH` — decode PNG/JPEG and run the configured pure-Go BCHW image preprocessing path.

@@ -74,6 +74,7 @@ make minicpmv-capabilities
 make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-require-metadata-ready'
 bin/minicpmvinspect -capabilities
 bin/minicpmvinspect -capabilities -json
+bin/minicpmvinspect -capabilities -require-capabilities-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6
 bin/minicpmvinspect -model models/minicpm-v-2.6 -json -require-config-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6 -require-metadata-ready
