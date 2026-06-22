@@ -207,6 +207,7 @@
         "slice_mode_plan": true,
         "tensor_group_readiness": true,
         "tensor_shape_validation": true,
+        "tensor_info_summary": true,
         "explicit_safetensors_path": true,
         "text_execution_plan": true,
         "vision_execution_plan": true,
