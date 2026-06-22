@@ -7,7 +7,7 @@
       "validation_target": "make test-model-coverage",
       "packages": [
         "model/qwen3tts",
-        "cmd/qwen3ttsinspect"
+        "cmd/qwen/qwen3ttsinspect"
       ],
       "coverage": {
         "config_parsing": true,
@@ -100,7 +100,7 @@
       "validation_target": "make test-model-coverage",
       "packages": [
         "model/lfm2",
-        "cmd/lfm2inspect"
+        "cmd/models/lfm2inspect"
       ],
       "coverage": {
         "config_parsing": true,
@@ -181,6 +181,54 @@
         "make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b",
         "make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b",
         "GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect -model models/lfm2.5-8b-a1b -strict -json"
+      ]
+    },
+    "minicpmv": {
+      "status": "metadata_prompt_tensor_inspector_coverage",
+      "runtime_generation": false,
+      "validation_target": "make minicpmv-check",
+      "packages": [
+        "model/minicpmv",
+        "cmd/minicpmvinspect"
+      ],
+      "coverage": {
+        "config_parsing": true,
+        "processor_metadata": true,
+        "tokenizer_metadata": true,
+        "generation_metadata": true,
+        "chat_template_summary": true,
+        "image_special_tokens": true,
+        "audio_special_tokens": true,
+        "image_prompt_builder": true,
+        "audio_prompt_builder": true,
+        "multimodal_prompt_builder": true,
+        "image_preprocessing": true,
+        "image_file_inspection": true,
+        "slice_mode_plan": true,
+        "tensor_group_readiness": true,
+        "tensor_shape_validation": true,
+        "explicit_safetensors_path": true,
+        "text_execution_plan": true,
+        "vision_execution_plan": true,
+        "resampler_tensor_plan": true,
+        "audio_execution_plan": true,
+        "runtime_stage_interfaces": true,
+        "runtime_readiness_report": true,
+        "runtime_readiness_gate": true,
+        "embedding_injection_boundary": true,
+        "download_registry": true,
+        "make_inspect_target": true,
+        "scaffold_check_make_target": true,
+        "cpu_text_runtime": false,
+        "vision_tower_runtime": false,
+        "resampler_runtime": false,
+        "audio_encoder_runtime": false,
+        "end_to_end_generation": false
+      },
+      "commands": [
+        "make minicpmv-check",
+        "make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS=-json",
+        "GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.6/model.safetensors -require-shapes-ready"
       ]
     }
   }
