@@ -318,6 +318,7 @@ make minicpmv-check
 make minicpmv-fixture-check
 make minicpmv-inspect
 make minicpmv-version
+make minicpmv-support-summary
 make minicpmv-capabilities
 make minicpmv-pending-runtime
 make minicpmv-coverage-pending
