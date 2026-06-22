@@ -226,6 +226,7 @@
         "pending_runtime_steps": true,
         "metadata_fixture": true,
         "metadata_expected_summary": true,
+        "fixture_expected_summary_helper": true,
         "fixture_path_constant": true,
         "fixture_metadata_helper": true,
         "fixture_path_make_target": true,
