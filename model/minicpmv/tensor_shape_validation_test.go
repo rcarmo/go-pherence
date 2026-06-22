@@ -24,6 +24,24 @@ func TestValidateTensorShapesValid(t *testing.T) {
 	}
 }
 
+func TestValidateTensorShapesAudio(t *testing.T) {
+	summary := config.MiniCPMVSummary{AudioHiddenSize: 4, AudioFeatureSize: 80}
+	valid := ValidateTensorShapes(summary, map[string]safetensors.TensorInfo{
+		"audio_encoder.conv1.weight":                     {Shape: []int{4, 80, 3}},
+		"audio_encoder.layers.0.self_attn.q_proj.weight": {Shape: []int{4, 4}},
+	})
+	if !valid.Valid {
+		t.Fatalf("expected valid audio shapes: %+v", valid)
+	}
+	bad := ValidateTensorShapes(summary, map[string]safetensors.TensorInfo{
+		"audio_encoder.conv1.weight":                     {Shape: []int{8, 80, 3}},
+		"audio_encoder.layers.0.self_attn.q_proj.weight": {Shape: []int{8, 8}},
+	})
+	if bad.Valid || len(bad.Issues) < 2 {
+		t.Fatalf("expected audio shape issues: %+v", bad)
+	}
+}
+
 func TestValidateTensorShapesRejectsMismatches(t *testing.T) {
 	summary := config.MiniCPMVSummary{HiddenSize: 4, KVHeads: 1, HeadDim: 2, IntermediateSize: 8, VisionHiddenSize: 3, NumQuery: 2, PatchSize: 14}
 	infos := map[string]safetensors.TensorInfo{

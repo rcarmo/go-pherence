@@ -38,7 +38,7 @@ make models-download-minicpmv
 - Safetensors header/index inventory for local checkpoints.
   - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
   - Reports metadata readiness without loading tensor payloads.
-- Safetensors shape validation for key text, vision patch-embedding, resampler, and projector tensors against normalized MiniCPM-V/O config dimensions.
+- Safetensors shape validation for key text, vision patch-embedding, MiniCPM-O audio encoder, resampler, and projector tensors against normalized MiniCPM-V/O config dimensions.
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.
   - Config, processor, tokenizer, special tokens, tensor inventory, image preprocessing, and prompt planning are checked independently.
   - Vision-tower execution, resampler execution, embedding injection, and text generation remain marked not ready.

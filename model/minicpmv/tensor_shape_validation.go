@@ -36,6 +36,8 @@ func ValidateTensorShapes(summary config.MiniCPMVSummary, infos map[string]safet
 			if strings.Contains(lower, "patch") && strings.Contains(lower, "weight") && summary.PatchSize > 0 && len(shape) >= 3 && !containsDim(shape, summary.PatchSize) {
 				v.Add(fmt.Sprintf("%s shape=%v want patch_size=%d in patch embedding", name, shape, summary.PatchSize))
 			}
+		case TensorAudioEncoder:
+			validateAudioTensorShape(&v, name, shape, summary)
 		case TensorTextLayer:
 			validateTextLayerShape(&v, name, shape, summary)
 		}
@@ -64,6 +66,30 @@ func validateTextLayerShape(v *TensorShapeValidation, name string, shape []int, 
 	if strings.Contains(lower, "gate_proj") || strings.Contains(lower, "up_proj") || strings.Contains(lower, "down_proj") {
 		if summary.IntermediateSize > 0 && !inspect.MatrixMatches(shape, summary.HiddenSize, summary.IntermediateSize) {
 			v.Add(fmt.Sprintf("%s shape=%v want matrix using hidden=%d and intermediate=%d", name, shape, summary.HiddenSize, summary.IntermediateSize))
+		}
+	}
+}
+
+func validateAudioTensorShape(v *TensorShapeValidation, name string, shape []int, summary config.MiniCPMVSummary) {
+	lower := strings.ToLower(name)
+	if summary.AudioHiddenSize <= 0 {
+		return
+	}
+	if strings.Contains(lower, "conv") && strings.Contains(lower, "weight") {
+		if len(shape) < 2 || !containsDim(shape, summary.AudioHiddenSize) {
+			v.Add(fmt.Sprintf("%s shape=%v want audio_hidden=%d in convolution weight", name, shape, summary.AudioHiddenSize))
+		}
+		return
+	}
+	if strings.Contains(lower, "q_proj") || strings.Contains(lower, "k_proj") || strings.Contains(lower, "v_proj") || strings.Contains(lower, "out_proj") || strings.Contains(lower, "o_proj") {
+		if !inspect.MatrixMatches(shape, summary.AudioHiddenSize, summary.AudioHiddenSize) {
+			v.Add(fmt.Sprintf("%s shape=%v want matrix using audio_hidden=%d", name, shape, summary.AudioHiddenSize))
+		}
+		return
+	}
+	if strings.Contains(lower, "fc") || strings.Contains(lower, "gate_proj") || strings.Contains(lower, "up_proj") || strings.Contains(lower, "down_proj") {
+		if summary.AudioFeatureSize > 0 && len(shape) == 2 && !containsDim(shape, summary.AudioHiddenSize) {
+			v.Add(fmt.Sprintf("%s shape=%v want audio_hidden=%d", name, shape, summary.AudioHiddenSize))
 		}
 	}
 }
