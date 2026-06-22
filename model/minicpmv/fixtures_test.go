@@ -13,6 +13,16 @@ func TestMiniCPMOFixturePath(t *testing.T) {
 	}
 }
 
+func TestLoadMiniCPMOFixtureExpectedSummary(t *testing.T) {
+	s, err := LoadMiniCPMOFixtureExpectedSummary()
+	if err != nil {
+		t.Fatalf("LoadMiniCPMOFixtureExpectedSummary: %v", err)
+	}
+	if s.ModelType != "minicpm-o" || s.AudioPatchTokenID != 151653 || s.RuntimeReady {
+		t.Fatalf("bad expected summary: %+v", s)
+	}
+}
+
 func TestLoadMiniCPMOFixtureMetadata(t *testing.T) {
 	meta, err := LoadMiniCPMOFixtureMetadata()
 	if err != nil {
