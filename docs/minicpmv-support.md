@@ -43,7 +43,7 @@ make models-download-minicpmo   # MiniCPM-O only
 - Safetensors shape validation for key text, vision patch-embedding, MiniCPM-O audio encoder, resampler, and projector tensors against normalized MiniCPM-V/O config dimensions; `make minicpmv-check` includes capability text/JSON smokes, fixture-path text/JSON smokes, plus a tiny explicit safetensors fixture that exercises `-require-tensors-ready` and `-require-shapes-ready`.
 - Text-backbone execution plan scaffold.
   - Reports text dimensions, embedding/layer/LM-head tensor inventory, generation-config presence, and pending prefill/decode/sampling stages.
-- Support/capability summary APIs (`minicpmv.CurrentSupportSummary`, `minicpmv.CurrentCapabilities`) that mark implemented scaffold surfaces true, numeric runtime/end-to-end generation surfaces false, and report bounded pending runtime steps until execution lands.
+- Support/capability summary APIs (`minicpmv.CurrentSupportSummary`, `minicpmv.CurrentCapabilities`, `minicpmv.ValidateSupportSummary`) that mark implemented scaffold surfaces true, numeric runtime/end-to-end generation surfaces false, validate that contract, and report bounded pending runtime steps until execution lands.
 - Combined readiness report summarizing metadata, tensor inventory, shape validation, runtime readiness, and bounded blocker details for inspector/CI consumers.
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.
   - Config, processor, tokenizer, special tokens, tensor inventory, image preprocessing, and prompt planning are checked independently.

@@ -142,8 +142,12 @@ func main() {
 	}
 	if *capabilitiesOnly {
 		caps := minicpmv.CurrentCapabilities()
-		if *requireCapabilities && (!caps.ConfigParsing || !caps.ProcessorMetadata || !caps.TokenizerMetadata || !caps.MultimodalPromptPlanning || !caps.TensorShapeValidation || !caps.ValidationGate || caps.EndToEndGeneration || caps.TextRuntimeGeneration || caps.VisionTowerRuntime || caps.ResamplerRuntime || caps.AudioEncoderRuntime) {
-			fatal(fmt.Errorf("MiniCPM-V/O capabilities are inconsistent: %+v", caps))
+		if *requireCapabilities {
+			summary := minicpmv.CurrentSupportSummary()
+			summary.Capabilities = caps
+			if err := minicpmv.ValidateSupportSummary(summary); err != nil {
+				fatal(err)
+			}
 		}
 		if *asJSON {
 			enc := json.NewEncoder(os.Stdout)
