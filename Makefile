@@ -7,6 +7,7 @@ MODEL_DOWNLOAD_FLAGS ?=
 MINICPMV_MODEL ?=
 MINICPMV_SAFETENSORS ?=
 MINICPMV_IMAGE ?=
+MINICPMV_AUDIO_DURATION_MS ?=
 MINICPMV_FLAGS ?=
 export TMPDIR GOTMPDIR
 
@@ -38,8 +39,8 @@ minicpmv-fixture-path:
 	go run ./cmd/minicpmvinspect -fixture-path $(MINICPMV_FLAGS)
 
 minicpmv-inspect-model:
-	@if [ -z "$(MINICPMV_MODEL)" ]; then echo "usage: make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 [MINICPMV_SAFETENSORS=...] [MINICPMV_IMAGE=...] [MINICPMV_FLAGS='-json']"; exit 2; fi
-	go run ./cmd/minicpmvinspect -model $(MINICPMV_MODEL) $(if $(MINICPMV_SAFETENSORS),-safetensors $(MINICPMV_SAFETENSORS),) $(if $(MINICPMV_IMAGE),-image $(MINICPMV_IMAGE),) $(MINICPMV_FLAGS)
+	@if [ -z "$(MINICPMV_MODEL)" ]; then echo "usage: make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 [MINICPMV_SAFETENSORS=...] [MINICPMV_IMAGE=...] [MINICPMV_AUDIO_DURATION_MS=1234] [MINICPMV_FLAGS='-json']"; exit 2; fi
+	go run ./cmd/minicpmvinspect -model $(MINICPMV_MODEL) $(if $(MINICPMV_SAFETENSORS),-safetensors $(MINICPMV_SAFETENSORS),) $(if $(MINICPMV_IMAGE),-image $(MINICPMV_IMAGE),) $(if $(MINICPMV_AUDIO_DURATION_MS),-audio-duration-ms $(MINICPMV_AUDIO_DURATION_MS),) $(MINICPMV_FLAGS)
 
 minicpmv-fixture-check:
 	go test ./model/minicpmv -run TestMiniCPMOFixtureMetadata -count=1
