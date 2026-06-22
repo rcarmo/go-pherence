@@ -1,6 +1,6 @@
 # MiniCPM-V / MiniCPM-O support
 
-This note tracks support for OpenBMB MiniCPM-V and MiniCPM-O checkpoints from <https://github.com/openbmb/MiniCPM-V>.
+This note tracks support for OpenBMB MiniCPM-V and MiniCPM-O checkpoints from <https://github.com/openbmb/MiniCPM-V>. See [minicpmv-runtime-roadmap.md](minicpmv-runtime-roadmap.md) for the ordered path from scaffold coverage to full tensor execution.
 
 ## Current scope
 

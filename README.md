@@ -126,6 +126,7 @@ Start here:
 - [docs/qwen36-mtp.md](docs/qwen36-mtp.md) — Qwen3.6 native-MTP checkpoint findings.
 - [docs/ideogram4-support.md](docs/ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, and current GPU limitation.
 - [docs/minicpmv-support.md](docs/minicpmv-support.md) — OpenBMB MiniCPM-V/O config/processor/tokenizer/generation metadata, image/audio prompt planning, tensor readiness, capabilities, and remaining tensor execution work.
+- [docs/minicpmv-runtime-roadmap.md](docs/minicpmv-runtime-roadmap.md) — ordered path from MiniCPM-V/O scaffold coverage to full text/vision/resampler/audio generation.
 - [docs/diffusiongemma-support.md](docs/diffusiongemma-support.md) — DiffusionGemma block-diffusion metadata, sparse native text path, references, controls, and implementation plan.
 - [docs/diffusiongemma-status.md](docs/diffusiongemma-status.md) — current DiffusionGemma scaffold/sparse-native status, operation coverage, CI targets, and remaining reference-complete gaps.
 - [docs/validation-gates.md](docs/validation-gates.md) — standard validation gates.
