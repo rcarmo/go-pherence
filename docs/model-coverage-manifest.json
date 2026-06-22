@@ -239,6 +239,7 @@
         "fixture_ready_make_target": true,
         "runtime_readiness_gate": true,
         "embedding_injection_boundary": true,
+        "audio_embedding_injection_boundary": true,
         "download_registry": true,
         "make_inspect_target": true,
         "scaffold_check_make_target": true,

@@ -163,6 +163,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"fixture_readiness_gate":             "../cmd/minicpmvinspect/main.go",
 		"fixture_ready_make_target":          "../Makefile",
 		"embedding_injection_boundary":       "../model/minicpmv/embedding_injection.go",
+		"audio_embedding_injection_boundary": "../model/minicpmv/audio_embedding_injection.go",
 		"make_inspect_target":                "../Makefile",
 		"scaffold_check_make_target":         "../Makefile",
 	} {
