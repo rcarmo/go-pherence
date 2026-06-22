@@ -10,23 +10,24 @@ type MetadataOptions struct {
 }
 
 type Metadata struct {
-	ModelDir        string                            `json:"model_dir"`
-	SafetensorsPath string                            `json:"safetensors_path,omitempty"`
-	Config          config.MiniCPMVConfig             `json:"config"`
-	Summary         config.MiniCPMVSummary            `json:"summary"`
-	Processor       *config.MiniCPMVProcessorConfig   `json:"processor,omitempty"`
-	Tokenizer       *config.MiniCPMVTokenizerMetadata `json:"tokenizer,omitempty"`
-	Generation      *config.MiniCPMVGenerationConfig  `json:"generation,omitempty"`
-	SpecialTokenIDs *SpecialTokenIDs                  `json:"special_token_ids,omitempty"`
-	Tensors         *TensorInventory                  `json:"tensors,omitempty"`
-	TensorReadiness *TensorReadiness                  `json:"tensor_readiness,omitempty"`
-	ShapeValidation TensorShapeValidation             `json:"shape_validation,omitempty"`
-	RuntimePlan     RuntimePlan                       `json:"runtime_plan"`
-	TextPlan        TextExecutionPlan                 `json:"text_plan"`
-	VisionPlan      VisionExecutionPlan               `json:"vision_plan"`
-	AudioPlan       AudioExecutionPlan                `json:"audio_plan"`
-	SlicePlan       SlicePlan                         `json:"slice_plan"`
-	ResamplerPlan   *ResamplerTensorPlan              `json:"resampler_plan,omitempty"`
+	ModelDir             string                            `json:"model_dir"`
+	SafetensorsPath      string                            `json:"safetensors_path,omitempty"`
+	Config               config.MiniCPMVConfig             `json:"config"`
+	Summary              config.MiniCPMVSummary            `json:"summary"`
+	Processor            *config.MiniCPMVProcessorConfig   `json:"processor,omitempty"`
+	Tokenizer            *config.MiniCPMVTokenizerMetadata `json:"tokenizer,omitempty"`
+	Generation           *config.MiniCPMVGenerationConfig  `json:"generation,omitempty"`
+	SpecialTokenIDs      *SpecialTokenIDs                  `json:"special_token_ids,omitempty"`
+	AudioSpecialTokenIDs *AudioSpecialTokenIDs             `json:"audio_special_token_ids,omitempty"`
+	Tensors              *TensorInventory                  `json:"tensors,omitempty"`
+	TensorReadiness      *TensorReadiness                  `json:"tensor_readiness,omitempty"`
+	ShapeValidation      TensorShapeValidation             `json:"shape_validation,omitempty"`
+	RuntimePlan          RuntimePlan                       `json:"runtime_plan"`
+	TextPlan             TextExecutionPlan                 `json:"text_plan"`
+	VisionPlan           VisionExecutionPlan               `json:"vision_plan"`
+	AudioPlan            AudioExecutionPlan                `json:"audio_plan"`
+	SlicePlan            SlicePlan                         `json:"slice_plan"`
+	ResamplerPlan        *ResamplerTensorPlan              `json:"resampler_plan,omitempty"`
 }
 
 func LoadMetadata(modelDir string) (Metadata, error) {
@@ -51,6 +52,9 @@ func LoadMetadataWithOptions(modelDir string, opts MetadataOptions) (Metadata, e
 		meta.Tokenizer = &tok
 		if ids, err := ResolveSpecialTokenIDs(summary, &tok); err == nil {
 			meta.SpecialTokenIDs = &ids
+		}
+		if ids, ok, err := ResolveAudioSpecialTokenIDs(&tok); err == nil && ok {
+			meta.AudioSpecialTokenIDs = &ids
 		}
 	} else if ids, err := ResolveSpecialTokenIDs(summary, nil); err == nil {
 		meta.SpecialTokenIDs = &ids

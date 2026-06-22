@@ -11,24 +11,25 @@ import (
 )
 
 type report struct {
-	ModelPath       string                              `json:"model_path"`
-	Summary         config.MiniCPMVSummary              `json:"summary"`
-	Processor       *config.MiniCPMVProcessorConfig     `json:"processor,omitempty"`
-	Tokenizer       *config.MiniCPMVTokenizerMetadata   `json:"tokenizer,omitempty"`
-	Generation      *config.MiniCPMVGenerationConfig    `json:"generation,omitempty"`
-	SpecialTokenIDs *minicpmv.SpecialTokenIDs           `json:"special_token_ids,omitempty"`
-	Tensors         *minicpmv.TensorInventory           `json:"tensors,omitempty"`
-	Readiness       *minicpmv.TensorReadiness           `json:"tensor_readiness,omitempty"`
-	ShapeValidation minicpmv.TensorShapeValidation      `json:"shape_validation,omitempty"`
-	PromptText      *minicpmv.PromptText                `json:"prompt_text,omitempty"`
-	ImagePreprocess *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
-	TextPlan        minicpmv.TextExecutionPlan          `json:"text_plan"`
-	VisionPlan      minicpmv.VisionExecutionPlan        `json:"vision_plan"`
-	AudioPlan       minicpmv.AudioExecutionPlan         `json:"audio_plan"`
-	SlicePlan       minicpmv.SlicePlan                  `json:"slice_plan"`
-	ResamplerPlan   *minicpmv.ResamplerTensorPlan       `json:"resampler_plan,omitempty"`
-	RuntimePlan     minicpmv.RuntimePlan                `json:"runtime_plan"`
-	Config          config.MiniCPMVConfig               `json:"config,omitempty"`
+	ModelPath            string                              `json:"model_path"`
+	Summary              config.MiniCPMVSummary              `json:"summary"`
+	Processor            *config.MiniCPMVProcessorConfig     `json:"processor,omitempty"`
+	Tokenizer            *config.MiniCPMVTokenizerMetadata   `json:"tokenizer,omitempty"`
+	Generation           *config.MiniCPMVGenerationConfig    `json:"generation,omitempty"`
+	SpecialTokenIDs      *minicpmv.SpecialTokenIDs           `json:"special_token_ids,omitempty"`
+	AudioSpecialTokenIDs *minicpmv.AudioSpecialTokenIDs      `json:"audio_special_token_ids,omitempty"`
+	Tensors              *minicpmv.TensorInventory           `json:"tensors,omitempty"`
+	Readiness            *minicpmv.TensorReadiness           `json:"tensor_readiness,omitempty"`
+	ShapeValidation      minicpmv.TensorShapeValidation      `json:"shape_validation,omitempty"`
+	PromptText           *minicpmv.PromptText                `json:"prompt_text,omitempty"`
+	ImagePreprocess      *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
+	TextPlan             minicpmv.TextExecutionPlan          `json:"text_plan"`
+	VisionPlan           minicpmv.VisionExecutionPlan        `json:"vision_plan"`
+	AudioPlan            minicpmv.AudioExecutionPlan         `json:"audio_plan"`
+	SlicePlan            minicpmv.SlicePlan                  `json:"slice_plan"`
+	ResamplerPlan        *minicpmv.ResamplerTensorPlan       `json:"resampler_plan,omitempty"`
+	RuntimePlan          minicpmv.RuntimePlan                `json:"runtime_plan"`
+	Config               config.MiniCPMVConfig               `json:"config,omitempty"`
 }
 
 func main() {
@@ -71,21 +72,22 @@ func main() {
 		}
 	}
 	out := report{
-		ModelPath:       *modelDir,
-		Summary:         meta.Summary,
-		Processor:       meta.Processor,
-		Tokenizer:       meta.Tokenizer,
-		Generation:      meta.Generation,
-		SpecialTokenIDs: meta.SpecialTokenIDs,
-		Tensors:         meta.Tensors,
-		Readiness:       meta.TensorReadiness,
-		ShapeValidation: meta.ShapeValidation,
-		TextPlan:        meta.TextPlan,
-		VisionPlan:      meta.VisionPlan,
-		AudioPlan:       meta.AudioPlan,
-		SlicePlan:       meta.SlicePlan,
-		ResamplerPlan:   meta.ResamplerPlan,
-		RuntimePlan:     meta.RuntimePlan,
+		ModelPath:            *modelDir,
+		Summary:              meta.Summary,
+		Processor:            meta.Processor,
+		Tokenizer:            meta.Tokenizer,
+		Generation:           meta.Generation,
+		SpecialTokenIDs:      meta.SpecialTokenIDs,
+		AudioSpecialTokenIDs: meta.AudioSpecialTokenIDs,
+		Tensors:              meta.Tensors,
+		Readiness:            meta.TensorReadiness,
+		ShapeValidation:      meta.ShapeValidation,
+		TextPlan:             meta.TextPlan,
+		VisionPlan:           meta.VisionPlan,
+		AudioPlan:            meta.AudioPlan,
+		SlicePlan:            meta.SlicePlan,
+		ResamplerPlan:        meta.ResamplerPlan,
+		RuntimePlan:          meta.RuntimePlan,
 	}
 	if prompt, err := minicpmv.BuildPromptText(*promptText, *promptImages, meta.Summary, meta.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
 		out.PromptText = &prompt
@@ -142,6 +144,10 @@ func printText(r report) {
 	if r.SpecialTokenIDs != nil {
 		ids := r.SpecialTokenIDs
 		fmt.Printf("  specials:  image=%d patch=%d start=%d end=%d use_start_end=%v\n", ids.Image, ids.ImagePatch, ids.ImageStart, ids.ImageEnd, ids.UseStartEnd)
+	}
+	if r.AudioSpecialTokenIDs != nil {
+		ids := r.AudioSpecialTokenIDs
+		fmt.Printf("  audiospec: audio=%d patch=%d start=%d end=%d\n", ids.Audio, ids.AudioPatch, ids.AudioStart, ids.AudioEnd)
 	}
 	if r.Generation != nil {
 		g := r.Generation

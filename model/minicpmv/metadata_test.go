@@ -18,16 +18,16 @@ func TestLoadMetadataSyntheticConfig(t *testing.T) {
   "resampler_config":{"num_query":64,"num_heads":28,"kv_dim":1152}
 }`)
 	writeFile(t, filepath.Join(dir, "preprocessor_config.json"), `{"image_processor_type":"SiglipImageProcessor","size":{"height":448,"width":448},"patch_size":14,"do_resize":true,"do_rescale":true,"do_normalize":true}`)
-	writeFile(t, filepath.Join(dir, "tokenizer.json"), `{"added_tokens":[{"id":151640,"content":"<im_start>"},{"id":151641,"content":"<im_end>"},{"id":151642,"content":"<im_patch>"},{"id":151643,"content":"<image>"}],"model":{"vocab":{}}}`)
+	writeFile(t, filepath.Join(dir, "tokenizer.json"), `{"added_tokens":[{"id":151640,"content":"<im_start>"},{"id":151641,"content":"<im_end>"},{"id":151642,"content":"<im_patch>"},{"id":151643,"content":"<image>"},{"id":151650,"content":"<audio>"},{"id":151651,"content":"<audio_start>"},{"id":151652,"content":"<audio_end>"},{"id":151653,"content":"<audio_patch>"}],"model":{"vocab":{}}}`)
 	writeFile(t, filepath.Join(dir, "generation_config.json"), `{"max_new_tokens":256,"do_sample":true,"temperature":0.7,"top_p":0.9}`)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatalf("LoadMetadata: %v", err)
 	}
-	if meta.Summary.ModelType != "minicpm-o" || meta.Processor == nil || meta.Tokenizer == nil || meta.Generation == nil || meta.SpecialTokenIDs == nil {
+	if meta.Summary.ModelType != "minicpm-o" || meta.Processor == nil || meta.Tokenizer == nil || meta.Generation == nil || meta.SpecialTokenIDs == nil || meta.AudioSpecialTokenIDs == nil {
 		t.Fatalf("missing loaded metadata: %+v", meta)
 	}
-	if meta.SpecialTokenIDs.ImagePatch != 151642 || meta.Generation.MaxNewTokens != 256 || meta.VisionPlan.PatchGrid != 32 || !meta.AudioPlan.MetadataReady || meta.AudioPlan.MelBins != 128 || !meta.RuntimePlan.ConfigReady || !meta.RuntimePlan.ProcessorReady || !meta.RuntimePlan.SpecialTokensReady {
+	if meta.SpecialTokenIDs.ImagePatch != 151642 || meta.AudioSpecialTokenIDs.AudioPatch != 151653 || meta.Generation.MaxNewTokens != 256 || meta.VisionPlan.PatchGrid != 32 || !meta.AudioPlan.MetadataReady || meta.AudioPlan.MelBins != 128 || !meta.RuntimePlan.ConfigReady || !meta.RuntimePlan.ProcessorReady || !meta.RuntimePlan.SpecialTokensReady {
 		t.Fatalf("bad aggregate metadata: %+v", meta)
 	}
 	if err := meta.RequireRuntimeReady(); err == nil {
