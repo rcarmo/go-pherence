@@ -63,9 +63,9 @@ make models-download-minicpmo   # MiniCPM-O only
 - Aggregate metadata loader (`minicpmv.LoadMetadata`) that wires config, processor/tokenizer sidecars, special tokens, safetensor inventory/shape checks, runtime plan, text plan, vision plan, audio plan, and resampler plan into one API.
 - Runtime interface stubs for future tensor execution.
   - Stable `VisionTower`, `Resampler`, `TextBackbone`, and `AudioEncoder` interfaces return a shared `ErrRuntimeNotImplemented` sentinel until numeric execution is wired.
-- Embedding-injection boundary helper.
-  - Validates flattened `[sequence][hidden]` token embeddings and `[image][num_query][hidden]` resampler outputs.
-  - Replaces planned image patch spans without mutating caller-owned token embeddings.
+- Embedding-injection boundary helpers.
+  - Validate flattened `[sequence][hidden]` token embeddings plus `[image][num_query][hidden]` resampler outputs or future `[audio][patch_tokens][hidden]` audio outputs.
+  - Replace planned image/audio patch spans without mutating caller-owned token embeddings.
 - Local validation gate and config inspection command:
 
 ```bash
