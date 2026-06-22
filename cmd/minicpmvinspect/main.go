@@ -45,6 +45,7 @@ func main() {
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
 	promptText := flag.String("prompt", "Describe the image.", "prompt text used for the MiniCPM-V/O image-placeholder preview")
 	promptImages := flag.Int("images", 1, "number of image placeholders to include in the prompt preview")
+	strict := flag.Bool("strict", false, "fail unless metadata, tensor inventory, and safetensor shapes are ready; does not require full runtime execution")
 	requireConfig := flag.Bool("require-config-ready", false, "fail unless MiniCPM-V config and prompt-planning metadata are valid")
 	requireMetadata := flag.Bool("require-metadata-ready", false, "fail unless config, processor, tokenizer, special-token, image-preprocess, and prompt-planning metadata are ready")
 	requireTensors := flag.Bool("require-tensors-ready", false, "fail unless local safetensor inventory has text, vision, and resampler metadata")
@@ -71,6 +72,11 @@ func main() {
 	meta, err := minicpmv.LoadMetadataWithOptions(*modelDir, minicpmv.MetadataOptions{SafetensorsPath: *safetensorsPath})
 	if err != nil {
 		fatal(err)
+	}
+	if *strict {
+		*requireMetadata = true
+		*requireTensors = true
+		*requireShapes = true
 	}
 	if *requireConfig && meta.Summary.NumQuery <= 0 {
 		fatal(fmt.Errorf("MiniCPM-V config metadata is not ready"))

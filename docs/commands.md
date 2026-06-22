@@ -346,6 +346,7 @@ Useful flags:
 - `-image PATH` — decode PNG/JPEG and run the configured pure-Go BCHW image preprocessing path.
 - `-prompt TEXT` / `-images N` — customize image/audio placeholder preview construction.
 - `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready` — exit non-zero for progressively stricter scaffold readiness checks.
+- `-strict` — shortcut for metadata + tensor inventory + safetensor shape readiness; does not require runtime execution.
 - `-require-runtime-ready` — expected to fail until full MiniCPM-V/O tensor execution lands.
 
 ## `qwen3ttsinspect` — Qwen3-TTS metadata and prompt inspection

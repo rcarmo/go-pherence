@@ -80,7 +80,8 @@ bin/minicpmvinspect -model models/minicpm-v-2.6 -require-metadata-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.6/model.safetensors
 bin/minicpmvinspect -model models/minicpm-v-2.6 -require-tensors-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6 -require-shapes-ready
-bin/minicpmvinspect -model models/minicpm-v-2.6 -require-runtime-ready   # expected to fail until tensor execution lands
+bin/minicpmvinspect -model models/minicpm-v-2.6 -strict                 # metadata + tensors + shapes, but not runtime
+bin/minicpmvinspect -model models/minicpm-v-2.6 -require-runtime-ready  # expected to fail until tensor execution lands
 bin/minicpmvinspect -model models/minicpm-v-2.6 -image testdata/example.png
 bin/minicpmvinspect -model models/minicpm-v-2.6 -prompt "Compare these images." -images 2
 ```
