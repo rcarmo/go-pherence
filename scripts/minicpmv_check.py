@@ -69,6 +69,10 @@ def write_synthetic_model(root: Path) -> None:
             {"id": 151641, "content": "<im_end>"},
             {"id": 151642, "content": "<im_patch>"},
             {"id": 151643, "content": "<image>"},
+            {"id": 151650, "content": "<audio>"},
+            {"id": 151651, "content": "<audio_start>"},
+            {"id": 151652, "content": "<audio_end>"},
+            {"id": 151653, "content": "<audio_patch>"},
         ],
         "model": {"vocab": {}},
     }), encoding="utf-8")

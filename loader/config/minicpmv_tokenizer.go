@@ -18,6 +18,10 @@ type MiniCPMVTokenizerConfig struct {
 	ImageStart     string `json:"im_start"`
 	ImageEnd       string `json:"im_end"`
 	ImagePatch     string `json:"im_patch"`
+	AudioToken     string `json:"audio_token"`
+	AudioStart     string `json:"audio_start"`
+	AudioEnd       string `json:"audio_end"`
+	AudioPatch     string `json:"audio_patch"`
 }
 
 type MiniCPMVTokenizerMetadata struct {
@@ -30,6 +34,10 @@ type MiniCPMVTokenizerMetadata struct {
 	ImageStart        string                        `json:"image_start,omitempty"`
 	ImageEnd          string                        `json:"image_end,omitempty"`
 	ImagePatch        string                        `json:"image_patch,omitempty"`
+	Audio             string                        `json:"audio,omitempty"`
+	AudioStart        string                        `json:"audio_start,omitempty"`
+	AudioEnd          string                        `json:"audio_end,omitempty"`
+	AudioPatch        string                        `json:"audio_patch,omitempty"`
 	TokenIDs          map[string]int                `json:"token_ids,omitempty"`
 	ChatTemplateBytes int                           `json:"chat_template_bytes,omitempty"`
 	ChatTemplate      *MiniCPMVChatTemplateMetadata `json:"chat_template,omitempty"`
@@ -62,6 +70,10 @@ func ReadMiniCPMVTokenizerMetadata(dir string) (MiniCPMVTokenizerMetadata, bool,
 		out.ImageStart = tok.ImageStart
 		out.ImageEnd = tok.ImageEnd
 		out.ImagePatch = tok.ImagePatch
+		out.Audio = tok.AudioToken
+		out.AudioStart = tok.AudioStart
+		out.AudioEnd = tok.AudioEnd
+		out.AudioPatch = tok.AudioPatch
 		out.ChatTemplateBytes = len(tok.ChatTemplate)
 		if tok.ChatTemplate != "" {
 			meta := SummarizeMiniCPMVChatTemplate(tok.ChatTemplate)
@@ -86,10 +98,10 @@ func SummarizeMiniCPMVChatTemplate(tpl string) MiniCPMVChatTemplateMetadata {
 		HasSystemRole:    contains("system"),
 		HasUserRole:      contains("user"),
 		HasAssistantRole: contains("assistant"),
-		HasImageMarker:   contains("<image>") || contains("<im_start>") || contains("image"),
+		HasImageMarker:   contains("<image>") || contains("<im_start>") || contains("image") || contains("<audio>") || contains("audio"),
 		HasToolSupport:   contains("tools") || contains("tool_calls") || contains("function"),
 	}
-	for _, marker := range []string{"system", "user", "assistant", "<image>", "<im_start>", "<im_end>", "tools", "tool_calls"} {
+	for _, marker := range []string{"system", "user", "assistant", "<image>", "<im_start>", "<im_end>", "<audio>", "<audio_start>", "<audio_end>", "tools", "tool_calls"} {
 		if contains(marker) {
 			meta.Markers = append(meta.Markers, marker)
 		}
@@ -129,7 +141,7 @@ func readMiniCPMVTokenIDs(path string) (map[string]int, bool, error) {
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return nil, false, err
 	}
-	want := map[string]bool{"<image>": true, "<im_start>": true, "<im_end>": true, "<im_patch>": true, "<|im_start|>": true, "<|im_end|>": true}
+	want := map[string]bool{"<image>": true, "<im_start>": true, "<im_end>": true, "<im_patch>": true, "<|im_start|>": true, "<|im_end|>": true, "<audio>": true, "<audio_start>": true, "<audio_end>": true, "<audio_patch>": true, "<|audio_start|>": true, "<|audio_end|>": true}
 	ids := map[string]int{}
 	for _, t := range raw.AddedTokens {
 		if want[t.Content] {

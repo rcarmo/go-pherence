@@ -133,7 +133,7 @@ func printText(r report) {
 	}
 	if r.Tokenizer != nil {
 		t := r.Tokenizer
-		fmt.Printf("  tokenizer: class=%s bos=%q eos=%q pad=%q image=%q ids=%v template_bytes=%d\n", t.TokenizerClass, t.BOS, t.EOS, t.Pad, t.Image, t.TokenIDs, t.ChatTemplateBytes)
+		fmt.Printf("  tokenizer: class=%s bos=%q eos=%q pad=%q image=%q audio=%q ids=%v template_bytes=%d\n", t.TokenizerClass, t.BOS, t.EOS, t.Pad, t.Image, t.Audio, t.TokenIDs, t.ChatTemplateBytes)
 		if t.ChatTemplate != nil {
 			ct := t.ChatTemplate
 			fmt.Printf("  template:  system=%v user=%v assistant=%v image=%v tools=%v markers=%v\n", ct.HasSystemRole, ct.HasUserRole, ct.HasAssistantRole, ct.HasImageMarker, ct.HasToolSupport, ct.Markers)
