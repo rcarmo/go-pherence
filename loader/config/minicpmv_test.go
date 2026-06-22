@@ -57,6 +57,7 @@ func TestMiniCPMOConfigNestedSummary(t *testing.T) {
 		ModelType:       "minicpm-o",
 		TextConfig:      &MiniCPMVTextConfig{ModelType: "qwen2", HiddenSize: 3584, NumHiddenLayers: 28, NumAttentionHeads: 28, NumKeyValueHeads: 4, IntermediateSize: 18944, VocabSize: 151666},
 		VisionConfig:    &MiniCPMVVisionConfig{ModelType: "siglip_vision_model", HiddenSize: 1152, NumHiddenLayers: 27, NumAttentionHeads: 16, ImageSize: 448, PatchSize: 14},
+		AudioConfig:     &MiniCPMOAudioConfig{ModelType: "whisper_encoder", HiddenSize: 1280, NumHiddenLayers: 32, NumAttentionHeads: 20, FeatureSize: 128, NumMelBins: 128, SamplingRate: 16000},
 		ResamplerConfig: &MiniCPMVResamplerConfig{NumQuery: 64, NumHeads: 28, KVDim: 1152},
 	}
 	if err := ValidateMiniCPMVConfig(cfg); err != nil {
@@ -65,6 +66,9 @@ func TestMiniCPMOConfigNestedSummary(t *testing.T) {
 	s := cfg.MiniCPMVSummary()
 	if s.ModelType != "minicpm-o" || s.Architecture != "MiniCPMOForCausalLM" || s.TextModelType != "qwen2" {
 		t.Fatalf("bad MiniCPM-O summary: %+v", s)
+	}
+	if s.AudioModelType != "whisper_encoder" || s.AudioHiddenSize != 1280 || s.AudioMelBins != 128 || s.AudioSamplingRate != 16000 {
+		t.Fatalf("bad MiniCPM-O audio summary: %+v", s)
 	}
 }
 

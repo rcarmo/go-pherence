@@ -49,6 +49,9 @@ func BuildRuntimePlan(summary config.MiniCPMVSummary, processor *config.MiniCPMV
 		plan.TensorMetadataReady = ready.MetadataReady
 	}
 	add("tensor_inventory", plan.TensorMetadataReady, reasonIf(!plan.TensorMetadataReady, "missing text/vision/resampler tensor metadata"))
+	if summary.AudioModelType != "" || summary.AudioHiddenSize > 0 || summary.AudioMelBins > 0 {
+		add("audio_encoder_execution", false, "MiniCPM-O audio encoder tensor execution pending")
+	}
 	add("vision_tower_execution", false, "EVA02/SigLIP tensor execution pending")
 	add("resampler_execution", false, "perceiver resampler tensor execution pending")
 	add("embedding_injection", false, "image embedding injection into text embeddings pending")

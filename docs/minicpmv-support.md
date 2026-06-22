@@ -8,7 +8,7 @@ Implemented:
 
 - Hugging Face config parsing for the MiniCPM-V/MiniCPM-O family in `loader/config`.
   - Accepts original `omnilmm` / `OmniLMMForCausalLM` style configs.
-  - Accepts newer nested `MiniCPMV*` configs with `text_config`, `vision_config`, and `resampler_config`.
+  - Accepts newer nested `MiniCPMV*`/`MiniCPMO*` configs with `text_config`, `vision_config`, optional MiniCPM-O `audio_config`, and `resampler_config`.
 - Normalized readiness summary with text dimensions, vision dimensions, resampler shape, image token IDs, slice-mode flag, and runtime note.
 - Prompt/image-token planning in `model/minicpmv`.
   - Validates the upstream `<im_start> <im_patch>... <im_end>` contract.
@@ -82,6 +82,7 @@ The original OpenBMB code path is:
 
 Not implemented yet:
 
+- MiniCPM-O audio encoder tensor loading/execution.
 - Full EVA02/SigLIP vision tower tensor loading/execution.
 - Resampler tensor loading/execution beyond tensor-name inventory.
 - Applying full checkpoint chat templates and tokenizing natural-language conversations end-to-end.

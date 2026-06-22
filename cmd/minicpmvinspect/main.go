@@ -106,6 +106,9 @@ func printText(r report) {
 	fmt.Printf("  arch:      %s model_type=%s runtime_ready=%v\n", s.Architecture, s.ModelType, s.RuntimeReady)
 	fmt.Printf("  text:      type=%s hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d intermediate=%d vocab=%d\n", s.TextModelType, s.HiddenSize, s.Layers, s.Heads, s.KVHeads, s.HeadDim, s.IntermediateSize, s.VocabSize)
 	fmt.Printf("  vision:    type=%s hidden=%d layers=%d heads=%d image=%d patch=%d slice_mode=%v\n", s.VisionModelType, s.VisionHiddenSize, s.VisionLayers, s.VisionHeads, s.ImageSize, s.PatchSize, s.SliceMode)
+	if s.AudioModelType != "" || s.AudioHiddenSize > 0 || s.AudioMelBins > 0 {
+		fmt.Printf("  audio:     type=%s hidden=%d layers=%d heads=%d feature=%d mel_bins=%d sampling_rate=%d\n", s.AudioModelType, s.AudioHiddenSize, s.AudioLayers, s.AudioHeads, s.AudioFeatureSize, s.AudioMelBins, s.AudioSamplingRate)
+	}
 	fmt.Printf("  resampler: num_query=%d grid=%d heads=%d\n", s.NumQuery, s.ResamplerGrid, s.ResamplerHeads)
 	fmt.Printf("  tokens:    image=%d start=%d end=%d use_start_end=%v\n", s.ImageTokenID, s.ImageStartTokenID, s.ImageEndTokenID, s.UseImageStartEnd)
 	if r.Processor != nil {

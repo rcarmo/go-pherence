@@ -37,6 +37,15 @@ def write_synthetic_model(root: Path) -> None:
             "image_size": 448,
             "patch_size": 14,
         },
+        "audio_config": {
+            "model_type": "whisper_encoder",
+            "hidden_size": 1280,
+            "num_hidden_layers": 32,
+            "num_attention_heads": 20,
+            "feature_size": 128,
+            "num_mel_bins": 128,
+            "sampling_rate": 16000,
+        },
         "resampler_config": {"num_query": 64, "num_heads": 28, "kv_dim": 1152},
     }), encoding="utf-8")
     (root / "preprocessor_config.json").write_text(json.dumps({

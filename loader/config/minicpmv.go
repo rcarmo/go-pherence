@@ -40,6 +40,7 @@ type MiniCPMVConfig struct {
 	SliceConfig         MiniCPMVSliceConfig      `json:"slice_config"`
 	TextConfig          *MiniCPMVTextConfig      `json:"text_config"`
 	VisionConfig        *MiniCPMVVisionConfig    `json:"vision_config"`
+	AudioConfig         *MiniCPMOAudioConfig     `json:"audio_config"`
 	ResamplerConfig     *MiniCPMVResamplerConfig `json:"resampler_config"`
 	TransformersVersion string                   `json:"transformers_version"`
 }
@@ -67,6 +68,17 @@ type MiniCPMVVisionConfig struct {
 	IntermediateSize  int    `json:"intermediate_size"`
 	ProjectionDim     int    `json:"projection_dim"`
 	DType             string `json:"torch_dtype"`
+}
+
+type MiniCPMOAudioConfig struct {
+	ModelType         string `json:"model_type"`
+	HiddenSize        int    `json:"hidden_size"`
+	NumHiddenLayers   int    `json:"num_hidden_layers"`
+	NumAttentionHeads int    `json:"num_attention_heads"`
+	IntermediateSize  int    `json:"intermediate_size"`
+	FeatureSize       int    `json:"feature_size"`
+	NumMelBins        int    `json:"num_mel_bins"`
+	SamplingRate      int    `json:"sampling_rate"`
 }
 
 type MiniCPMVResamplerConfig struct {
@@ -102,6 +114,13 @@ type MiniCPMVSummary struct {
 	VisionHiddenSize  int    `json:"vision_hidden_size"`
 	VisionLayers      int    `json:"vision_layers"`
 	VisionHeads       int    `json:"vision_heads"`
+	AudioModelType    string `json:"audio_model_type,omitempty"`
+	AudioHiddenSize   int    `json:"audio_hidden_size,omitempty"`
+	AudioLayers       int    `json:"audio_layers,omitempty"`
+	AudioHeads        int    `json:"audio_heads,omitempty"`
+	AudioFeatureSize  int    `json:"audio_feature_size,omitempty"`
+	AudioMelBins      int    `json:"audio_mel_bins,omitempty"`
+	AudioSamplingRate int    `json:"audio_sampling_rate,omitempty"`
 	NumQuery          int    `json:"num_query"`
 	ResamplerGrid     int    `json:"resampler_grid"`
 	ResamplerHeads    int    `json:"resampler_heads"`
@@ -171,6 +190,15 @@ func (cfg MiniCPMVConfig) MiniCPMVSummary() MiniCPMVSummary {
 	} else {
 		s.ImageSize = cfg.ImageSize
 		s.PatchSize = cfg.PatchSize
+	}
+	if cfg.AudioConfig != nil {
+		s.AudioModelType = cfg.AudioConfig.ModelType
+		s.AudioHiddenSize = cfg.AudioConfig.HiddenSize
+		s.AudioLayers = cfg.AudioConfig.NumHiddenLayers
+		s.AudioHeads = cfg.AudioConfig.NumAttentionHeads
+		s.AudioFeatureSize = cfg.AudioConfig.FeatureSize
+		s.AudioMelBins = cfg.AudioConfig.NumMelBins
+		s.AudioSamplingRate = cfg.AudioConfig.SamplingRate
 	}
 	s.NumQuery = firstPositive(cfg.NumQuery, resamplerInt(cfg.ResamplerConfig, "numquery"))
 	s.ResamplerGrid = firstPositive(resamplerInt(cfg.ResamplerConfig, "grid"), sqrtInt(s.NumQuery))
