@@ -51,9 +51,10 @@ make models-download-minicpmv
 - Embedding-injection boundary helper.
   - Validates flattened `[sequence][hidden]` token embeddings and `[image][num_query][hidden]` resampler outputs.
   - Replaces planned image patch spans without mutating caller-owned token embeddings.
-- Local config inspection command:
+- Local validation gate and config inspection command:
 
 ```bash
+make minicpmv-check
 make minicpmv-inspect
 bin/minicpmvinspect -model models/minicpm-v-2.6
 bin/minicpmvinspect -model models/minicpm-v-2.6 -json -require-config-ready
