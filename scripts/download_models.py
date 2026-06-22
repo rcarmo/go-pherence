@@ -50,6 +50,11 @@ MODELS: tuple[ModelSpec, ...] = (
     # LFM2 hybrid conv/full-attention MoE checkpoint for metadata and future CPU parity work.
     ModelSpec("lfm2.5-8b-a1b", "LiquidAI/LFM2.5-8B-A1B", "lfm2", "LFM2.5 hybrid conv/full-attention MoE"),
 
+    # OpenBMB MiniCPM-V vision-language checkpoints. Some upstream repos are
+    # gated and require HUGGINGFACE_TOKEN/HF_TOKEN; keep downloads opt-in.
+    ModelSpec("minicpm-v-2.6", "openbmb/MiniCPM-V-2_6", "minicpmv", "MiniCPM-V 2.6 vision-language checkpoint"),
+    ModelSpec("minicpm-v-2.0", "openbmb/MiniCPM-V-2", "minicpmv", "MiniCPM-V 2.0 OmniLMM checkpoint"),
+
     # Speaker embedding assets for diarization conversion. These are source
     # checkpoints; run scripts/convert_speechbrain_ecapa.py before using them
     # with cmd/diarize-vtt -speaker-model.

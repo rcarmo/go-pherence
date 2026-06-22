@@ -31,7 +31,7 @@ go run ./cmd/llm/llmgen -gpu -model models/qwen3-0.6b -tokens 50 -prompt "The me
 
 - **Backends:** NVIDIA PTX runtime, AVX2/NEON SIMD CPU runtime, Vulkan scaffolding, and embedded accelerator experiments such as SpacemiT K3 IME2.
 - **Weight formats:** MLX affine 4-bit, GPTQ/Q4, BF16, F16, F32, and model-specific packed paths where useful.
-- **Architectures:** LLaMA-family, Qwen2/3/Qwen3Next, Qwen3 MoE, Gemma3/Gemma4, BERT/GTE encoders, Whisper large-v3 translated VTT pipeline, and experimental 3D/vision runtime scaffolding for Hunyuan3D.
+- **Architectures:** LLaMA-family, Qwen2/3/Qwen3Next, Qwen3 MoE, Gemma3/Gemma4, BERT/GTE encoders, Whisper large-v3 translated VTT pipeline, MiniCPM-V metadata/prompt scaffolding, and experimental 3D/vision runtime scaffolding for Hunyuan3D.
 - **Hybrid placement:** `--gpu-layers N`, compact LM-head placement, reusable GPU caches, and planner-driven windowing for models larger than available VRAM.
 - **Embedded scenarios:** low-allocation CPU execution, quantized kernels, RISC-V IME2 INT8 matmul work, and static-binary deployment goals.
 - **Speculative/MTP work:** Gemma4 assistant loader, packed 4-bit assistant execution, real prompt activation/KV smoke, and Qwen3.6 native-MTP diagnostics.
@@ -125,6 +125,7 @@ Start here:
 - [docs/gemma4-31b-runbook.md](docs/gemma4-31b-runbook.md) — Gemma4 E4B/31B local run strategy and smoke results.
 - [docs/qwen36-mtp.md](docs/qwen36-mtp.md) — Qwen3.6 native-MTP checkpoint findings.
 - [docs/ideogram4-support.md](docs/ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, and current GPU limitation.
+- [docs/minicpmv-support.md](docs/minicpmv-support.md) — OpenBMB MiniCPM-V config parsing, prompt/image-token planning, and remaining vision-language tensor execution work.
 - [docs/diffusiongemma-support.md](docs/diffusiongemma-support.md) — DiffusionGemma block-diffusion metadata, sparse native text path, references, controls, and implementation plan.
 - [docs/diffusiongemma-status.md](docs/diffusiongemma-status.md) — current DiffusionGemma scaffold/sparse-native status, operation coverage, CI targets, and remaining reference-complete gaps.
 - [docs/validation-gates.md](docs/validation-gates.md) — standard validation gates.
