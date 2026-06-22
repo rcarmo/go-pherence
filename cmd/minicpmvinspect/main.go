@@ -50,6 +50,7 @@ func main() {
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
 	promptText := flag.String("prompt", "Describe the image.", "prompt text used for the MiniCPM-V/O image-placeholder preview")
 	promptImages := flag.Int("images", 1, "number of image placeholders to include in the prompt preview")
+	audioDurationMS := flag.Int("audio-duration-ms", 0, "optional audio duration in milliseconds for MiniCPM-O feature-frame estimate")
 	strict := flag.Bool("strict", false, "fail unless metadata, tensor inventory, and safetensor shapes are ready; does not require full runtime execution")
 	requireConfig := flag.Bool("require-config-ready", false, "fail unless MiniCPM-V config and prompt-planning metadata are valid")
 	requireMetadata := flag.Bool("require-metadata-ready", false, "fail unless config, processor, tokenizer, special-token, image-preprocess, and prompt-planning metadata are ready")
@@ -125,6 +126,11 @@ func main() {
 	if *requireRuntime {
 		if err := meta.RequireRuntimeReady(); err != nil {
 			fatal(err)
+		}
+	}
+	if *audioDurationMS > 0 {
+		if plan, err := minicpmv.BuildAudioFeaturePlan(meta.Summary, *audioDurationMS); err == nil {
+			meta.AudioFeaturePlan = plan
 		}
 	}
 	out := report{
@@ -253,7 +259,7 @@ func printText(r report) {
 		fmt.Printf("  audioplan: model=%s mel_bins=%d sampling_rate=%d bindings=%d tensor_ready=%v ready=%v\n", r.AudioPlan.AudioModelType, r.AudioPlan.MelBins, r.AudioPlan.SamplingRate, len(r.AudioPlan.Bindings), r.AudioPlan.TensorReady, r.AudioPlan.Ready)
 	}
 	if r.AudioFeaturePlan.Ready {
-		fmt.Printf("  audiofeat: sample_rate=%d mel_bins=%d feature=%d\n", r.AudioFeaturePlan.SamplingRate, r.AudioFeaturePlan.MelBins, r.AudioFeaturePlan.FeatureSize)
+		fmt.Printf("  audiofeat: sample_rate=%d mel_bins=%d feature=%d duration_ms=%d frames=%d\n", r.AudioFeaturePlan.SamplingRate, r.AudioFeaturePlan.MelBins, r.AudioFeaturePlan.FeatureSize, r.AudioFeaturePlan.DurationMS, r.AudioFeaturePlan.EstimatedFrames)
 	}
 	fmt.Printf("  sliceplan: enabled=%v scale=%d max=%d estimated=%d ready=%v\n", r.SlicePlan.Enabled, r.SlicePlan.ScaleResolution, r.SlicePlan.MaxSliceNums, r.SlicePlan.EstimatedSlices, r.SlicePlan.Ready)
 	if r.ResamplerPlan != nil {
