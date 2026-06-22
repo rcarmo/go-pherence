@@ -41,11 +41,14 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
 
 ## Not implemented yet
 
-- EVA02/SigLIP vision-tower numeric execution.
-- Perceiver resampler numeric execution.
-- MiniCPM/Qwen2/Mistral text-backbone generation binding for MiniCPM-V/O checkpoints.
-- MiniCPM-O audio feature extraction and audio encoder execution.
-- End-to-end image/audio/text generation.
+`CurrentCapabilities().RuntimeStatus` is `RuntimeStatusPending` / `tensor_execution_pending` until these steps land:
+
+- Bind MiniCPM/Qwen2/Mistral text-backbone weights and prefill/decode.
+- Execute EVA02/SigLIP vision tower.
+- Execute perceiver resampler and KV projection.
+- Inject image/audio embeddings into the text backbone.
+- Execute MiniCPM-O audio feature extraction and audio encoder.
+- Add end-to-end MiniCPM-V/O generation parity gates.
 
 ## Validation
 
