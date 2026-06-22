@@ -33,11 +33,12 @@ type Capabilities struct {
 	InspectorReadinessGates    bool   `json:"inspector_readiness_gates"`
 	ValidationGate             bool   `json:"validation_gate"`
 
-	TextRuntimeGeneration bool `json:"text_runtime_generation"`
-	VisionTowerRuntime    bool `json:"vision_tower_runtime"`
-	ResamplerRuntime      bool `json:"resampler_runtime"`
-	AudioEncoderRuntime   bool `json:"audio_encoder_runtime"`
-	EndToEndGeneration    bool `json:"end_to_end_generation"`
+	TextRuntimeGeneration bool     `json:"text_runtime_generation"`
+	VisionTowerRuntime    bool     `json:"vision_tower_runtime"`
+	ResamplerRuntime      bool     `json:"resampler_runtime"`
+	AudioEncoderRuntime   bool     `json:"audio_encoder_runtime"`
+	EndToEndGeneration    bool     `json:"end_to_end_generation"`
+	PendingRuntimeSteps   []string `json:"pending_runtime_steps,omitempty"`
 }
 
 func CurrentCapabilities() Capabilities {
@@ -68,5 +69,6 @@ func CurrentCapabilities() Capabilities {
 		EmbeddingInjectionBoundary: true,
 		InspectorReadinessGates:    true,
 		ValidationGate:             true,
+		PendingRuntimeSteps:        PendingRuntimeSteps(),
 	}
 }

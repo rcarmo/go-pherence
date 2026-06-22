@@ -262,6 +262,13 @@ func printCapabilities(c minicpmv.Capabilities) {
 	fmt.Printf("  plans:     text=%v vision=%v resampler=%v audio=%v readiness=%v\n", c.TextExecutionPlan, c.VisionExecutionPlan, c.ResamplerTensorPlan, c.AudioExecutionPlan, c.ReadinessReport)
 	fmt.Printf("  status:    %s\n", c.RuntimeStatus)
 	fmt.Printf("  runtime:   text=%v vision=%v resampler=%v audio=%v end_to_end=%v\n", c.TextRuntimeGeneration, c.VisionTowerRuntime, c.ResamplerRuntime, c.AudioEncoderRuntime, c.EndToEndGeneration)
+	for i, step := range c.PendingRuntimeSteps {
+		if i >= 5 {
+			fmt.Printf("  pending:   ... %d more\n", len(c.PendingRuntimeSteps)-i)
+			break
+		}
+		fmt.Printf("  pending:   %s\n", step)
+	}
 }
 
 func fatal(err error) {
