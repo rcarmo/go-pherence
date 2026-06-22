@@ -65,7 +65,7 @@ func main() {
 		if *asJSON {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
-			if err := enc.Encode(map[string]string{"support_version": minicpmv.SupportVersion, "runtime_status": minicpmv.RuntimeStatusPending}); err != nil {
+			if err := enc.Encode(minicpmv.CurrentSupportSummary()); err != nil {
 				fatal(err)
 			}
 			return
