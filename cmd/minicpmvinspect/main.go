@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/rcarmo/go-pherence/loader/config"
-	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"github.com/rcarmo/go-pherence/model/minicpmv"
 )
 
@@ -39,52 +38,33 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: minicpmvinspect -model PATH [-json] [-require-config-ready]")
 		os.Exit(2)
 	}
-	cfg, err := config.ReadMiniCPMVConfig(*modelDir)
+	meta, err := minicpmv.LoadMetadata(*modelDir)
 	if err != nil {
 		fatal(err)
 	}
-	summary := cfg.MiniCPMVSummary()
-	if *requireConfig && summary.NumQuery <= 0 {
+	if *requireConfig && meta.Summary.NumQuery <= 0 {
 		fatal(fmt.Errorf("MiniCPM-V config metadata is not ready"))
 	}
-	out := report{ModelPath: *modelDir, Summary: summary}
-	if proc, ok, err := config.ReadMiniCPMVProcessorConfig(*modelDir); err != nil {
-		fatal(err)
-	} else if ok {
-		out.Processor = &proc
+	out := report{
+		ModelPath:       *modelDir,
+		Summary:         meta.Summary,
+		Processor:       meta.Processor,
+		Tokenizer:       meta.Tokenizer,
+		SpecialTokenIDs: meta.SpecialTokenIDs,
+		Tensors:         meta.Tensors,
+		Readiness:       meta.TensorReadiness,
+		ShapeValidation: meta.ShapeValidation,
+		VisionPlan:      meta.VisionPlan,
+		ResamplerPlan:   meta.ResamplerPlan,
+		RuntimePlan:     meta.RuntimePlan,
 	}
-	if tok, ok, err := config.ReadMiniCPMVTokenizerMetadata(*modelDir); err != nil {
-		fatal(err)
-	} else if ok {
-		out.Tokenizer = &tok
-		if ids, err := minicpmv.ResolveSpecialTokenIDs(summary, &tok); err == nil {
-			out.SpecialTokenIDs = &ids
-		}
-	} else if ids, err := minicpmv.ResolveSpecialTokenIDs(summary, nil); err == nil {
-		out.SpecialTokenIDs = &ids
-	}
-	if inv, ok, err := minicpmv.TensorInventoryFromModelDir(*modelDir); err != nil {
-		fatal(err)
-	} else if ok {
-		out.Tensors = &inv
-		readiness := minicpmv.TensorReadinessFromInventory(inv)
-		out.Readiness = &readiness
-		if infos, err := safetensors.TensorInfosFrom(*modelDir, ""); err == nil {
-			out.ShapeValidation = minicpmv.ValidateTensorShapes(summary, infos)
-		}
-		if names, err := safetensors.NamesFrom(*modelDir, ""); err == nil {
-			needsKV := summary.VisionHiddenSize > 0 && summary.HiddenSize > 0 && summary.VisionHiddenSize != summary.HiddenSize
-			plan := minicpmv.BuildResamplerTensorPlan(names, needsKV)
-			out.ResamplerPlan = &plan
-		}
-	}
-	if prompt, err := minicpmv.BuildPromptText("Describe the image.", 1, summary, out.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
+	if prompt, err := minicpmv.BuildPromptText("Describe the image.", 1, meta.Summary, meta.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
 		out.PromptText = &prompt
 	}
 	if *imagePath != "" {
-		cfg := minicpmv.DefaultImagePreprocessConfig(summary.ImageSize, summary.PatchSize)
-		if out.Processor != nil {
-			cfg = minicpmv.ImagePreprocessConfigFromProcessor(*out.Processor, summary.ImageSize, summary.PatchSize)
+		cfg := minicpmv.DefaultImagePreprocessConfig(meta.Summary.ImageSize, meta.Summary.PatchSize)
+		if meta.Processor != nil {
+			cfg = minicpmv.ImagePreprocessConfigFromProcessor(*meta.Processor, meta.Summary.ImageSize, meta.Summary.PatchSize)
 		}
 		res, err := minicpmv.PreprocessImageFile(*imagePath, cfg)
 		if err != nil {
@@ -92,10 +72,8 @@ func main() {
 		}
 		out.ImagePreprocess = &res
 	}
-	out.VisionPlan = minicpmv.BuildVisionExecutionPlan(summary, out.Tensors)
-	out.RuntimePlan = minicpmv.BuildRuntimePlan(summary, out.Processor, out.Tokenizer, out.Tensors)
 	if *showConfig {
-		out.Config = cfg
+		out.Config = meta.Config
 	}
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)

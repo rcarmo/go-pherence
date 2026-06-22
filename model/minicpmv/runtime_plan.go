@@ -1,6 +1,11 @@
 package minicpmv
 
-import "github.com/rcarmo/go-pherence/loader/config"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/rcarmo/go-pherence/loader/config"
+)
 
 type RuntimeOpStatus struct {
 	Name   string `json:"name"`
@@ -57,6 +62,26 @@ func reasonIf(cond bool, reason string) string {
 		return reason
 	}
 	return ""
+}
+
+func (p RuntimePlan) RequireReady() error {
+	if p.RuntimeReady {
+		return nil
+	}
+	var pending []string
+	for _, op := range p.Ops {
+		if !op.Ready {
+			if op.Reason != "" {
+				pending = append(pending, op.Name+": "+op.Reason)
+			} else {
+				pending = append(pending, op.Name)
+			}
+		}
+	}
+	if len(pending) == 0 {
+		pending = append(pending, "runtime execution is not implemented")
+	}
+	return fmt.Errorf("MiniCPM-V/O runtime is not ready: %s", strings.Join(pending, "; "))
 }
 
 func processorPatch(p *config.MiniCPMVProcessorConfig) int {

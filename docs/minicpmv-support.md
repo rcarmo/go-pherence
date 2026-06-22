@@ -47,6 +47,7 @@ make models-download-minicpmv
 - Resampler tensor binding plan.
   - Classifies local safetensor names into query, position embedding, KV projection, attention projection, norm, MLP, and other resampler roles.
   - Reports missing required query/KV-projection bindings before numeric resampler execution is implemented.
+- Aggregate metadata loader (`minicpmv.LoadMetadata`) that wires config, processor/tokenizer sidecars, special tokens, safetensor inventory/shape checks, runtime plan, vision plan, and resampler plan into one API.
 - Embedding-injection boundary helper.
   - Validates flattened `[sequence][hidden]` token embeddings and `[image][num_query][hidden]` resampler outputs.
   - Replaces planned image patch spans without mutating caller-owned token embeddings.
