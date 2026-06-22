@@ -216,6 +216,7 @@
         "audio_execution_plan": true,
         "audio_feature_plan": true,
         "audio_feature_frame_estimate": true,
+        "inspect_audio_duration_make_target": true,
         "runtime_stage_interfaces": true,
         "runtime_readiness_report": true,
         "capability_summary": true,
