@@ -70,3 +70,5 @@ make minicpmv-inspect-model \
   MINICPMV_SAFETENSORS=models/minicpm-v-2.6/model.safetensors \
   MINICPMV_FLAGS='-require-shapes-ready'
 ```
+
+Use `-strict` only when metadata sidecars and tensors are both present. Tensor-only fixtures should use `-require-tensors-ready -require-shapes-ready`.
