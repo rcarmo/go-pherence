@@ -154,6 +154,8 @@ def main(argv: list[str]) -> int:
     run(["go", "run", "./cmd/minicpmvinspect", "-fixture-path", "-json"], repo)
     run(["go", "run", "./cmd/minicpmvinspect", "-fixture-summary"], repo)
     run(["go", "run", "./cmd/minicpmvinspect", "-fixture-summary", "-json"], repo)
+    run(["go", "run", "./cmd/minicpmvinspect", "-require-fixture-ready"], repo)
+    run(["go", "run", "./cmd/minicpmvinspect", "-require-fixture-ready", "-json"], repo)
     run([sys.executable, "scripts/download_models.py", "--group", "minicpmv", "--group", "minicpmo", "--dry-run"], repo)
     with tempfile.TemporaryDirectory(prefix="minicpmv-check-") as td:
         model_dir = Path(td)

@@ -47,6 +47,7 @@ func main() {
 	pendingSteps := flag.Bool("pending-runtime-steps", false, "print pending MiniCPM-V/O runtime implementation steps without requiring -model")
 	fixturePath := flag.Bool("fixture-path", false, "print committed MiniCPM-O metadata fixture path without requiring -model")
 	fixtureSummary := flag.Bool("fixture-summary", false, "print committed MiniCPM-O expected summary without requiring -model")
+	requireFixture := flag.Bool("require-fixture-ready", false, "validate committed MiniCPM-O fixture metadata against expected summary without requiring -model")
 	requireCapabilities := flag.Bool("require-capabilities-ready", false, "with -capabilities, fail unless scaffold capabilities are present and runtime capabilities remain pending")
 	safetensorsPath := flag.String("safetensors", "", "optional safetensors file path; defaults to model.safetensors or sharded index in -model")
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
@@ -70,6 +71,29 @@ func main() {
 			return
 		}
 		fmt.Printf("%s %s\n", minicpmv.SupportVersion, minicpmv.RuntimeStatusPending)
+		return
+	}
+	if *requireFixture {
+		meta, err := minicpmv.LoadMiniCPMOFixtureMetadata()
+		if err != nil {
+			fatal(err)
+		}
+		expected, err := minicpmv.LoadMiniCPMOFixtureExpectedSummary()
+		if err != nil {
+			fatal(err)
+		}
+		if meta.Summary.ModelType != expected.ModelType || meta.Summary.AudioModelType != expected.AudioModelType || meta.SpecialTokenIDs == nil || meta.SpecialTokenIDs.ImagePatch != expected.ImagePatchTokenID || meta.AudioSpecialTokenIDs == nil || meta.AudioSpecialTokenIDs.AudioPatch != expected.AudioPatchTokenID || meta.ReadinessReport.MetadataReady != expected.MetadataReady || meta.ReadinessReport.RuntimeReady != expected.RuntimeReady {
+			fatal(fmt.Errorf("MiniCPM-O fixture is not ready: summary=%+v expected=%+v readiness=%+v", meta.Summary, expected, meta.ReadinessReport))
+		}
+		if *asJSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(map[string]any{"fixture_ready": true, "expected": expected}); err != nil {
+				fatal(err)
+			}
+			return
+		}
+		fmt.Println("MiniCPM-O fixture ready")
 		return
 	}
 	if *pendingSteps {

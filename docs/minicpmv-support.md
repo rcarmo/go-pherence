@@ -83,6 +83,7 @@ bin/minicpmvinspect -version
 bin/minicpmvinspect -pending-runtime-steps
 bin/minicpmvinspect -fixture-path
 bin/minicpmvinspect -fixture-summary
+bin/minicpmvinspect -require-fixture-ready
 bin/minicpmvinspect -capabilities
 bin/minicpmvinspect -capabilities -json
 bin/minicpmvinspect -capabilities -require-capabilities-ready
