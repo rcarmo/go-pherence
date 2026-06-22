@@ -11,12 +11,13 @@ import (
 )
 
 type report struct {
-	ModelPath string                          `json:"model_path"`
-	Summary   config.MiniCPMVSummary          `json:"summary"`
-	Processor *config.MiniCPMVProcessorConfig `json:"processor,omitempty"`
-	Tensors   *minicpmv.TensorInventory       `json:"tensors,omitempty"`
-	Readiness *minicpmv.TensorReadiness       `json:"tensor_readiness,omitempty"`
-	Config    config.MiniCPMVConfig           `json:"config,omitempty"`
+	ModelPath string                            `json:"model_path"`
+	Summary   config.MiniCPMVSummary            `json:"summary"`
+	Processor *config.MiniCPMVProcessorConfig   `json:"processor,omitempty"`
+	Tokenizer *config.MiniCPMVTokenizerMetadata `json:"tokenizer,omitempty"`
+	Tensors   *minicpmv.TensorInventory         `json:"tensors,omitempty"`
+	Readiness *minicpmv.TensorReadiness         `json:"tensor_readiness,omitempty"`
+	Config    config.MiniCPMVConfig             `json:"config,omitempty"`
 }
 
 func main() {
@@ -42,6 +43,11 @@ func main() {
 		fatal(err)
 	} else if ok {
 		out.Processor = &proc
+	}
+	if tok, ok, err := config.ReadMiniCPMVTokenizerMetadata(*modelDir); err != nil {
+		fatal(err)
+	} else if ok {
+		out.Tokenizer = &tok
 	}
 	if inv, ok, err := minicpmv.TensorInventoryFromModelDir(*modelDir); err != nil {
 		fatal(err)
@@ -75,6 +81,10 @@ func printText(r report) {
 	if r.Processor != nil {
 		p := r.Processor
 		fmt.Printf("  processor: class=%s image=%s size=%d resize=%v rescale=%v normalize=%v patch=%d image_seq=%d\n", p.ProcessorClass, p.ImageProcessorType, p.NormalizedSize, p.DoResize, p.DoRescale, p.DoNormalize, p.PatchSize, p.ImageSeqLength)
+	}
+	if r.Tokenizer != nil {
+		t := r.Tokenizer
+		fmt.Printf("  tokenizer: class=%s bos=%q eos=%q pad=%q image=%q ids=%v template_bytes=%d\n", t.TokenizerClass, t.BOS, t.EOS, t.Pad, t.Image, t.TokenIDs, t.ChatTemplateBytes)
 	}
 	if r.Tensors != nil {
 		fmt.Printf("  tensors:   total=%d groups=%v\n", r.Tensors.Total, r.Tensors.Groups)

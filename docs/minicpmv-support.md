@@ -31,6 +31,7 @@ make models-download-minicpmv
 ```
 
 - Processor sidecar metadata loading from `preprocessor_config.json` or `processor_config.json`, including nested `image_processor` fields, square resize size, mean/std, rescale factor, patch size, and image sequence length.
+- Tokenizer sidecar metadata loading from `tokenizer_config.json` and `tokenizer.json`, including chat-template byte count and MiniCPM image sentinel token IDs when present.
 - Safetensors header/index inventory for local checkpoints.
   - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
   - Reports metadata readiness without loading tensor payloads.
@@ -62,6 +63,7 @@ Not implemented yet:
 
 - Full EVA02/SigLIP vision tower tensor loading/execution.
 - Resampler tensor loading/execution beyond tensor-name inventory.
+- Applying chat templates and tokenizing natural-language conversations end-to-end.
 - MiniCPM/Qwen2/Mistral text-backbone weight mapping for MiniCPM-V/O checkpoints.
 - End-to-end image+text generation command.
 - GPU/SIMD parity gates for the vision tower and resampler.
