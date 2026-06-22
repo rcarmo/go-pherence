@@ -382,6 +382,7 @@ Useful flags:
 - `-audio-duration-ms N` — estimate MiniCPM-O audio feature frames for a given duration.
 - `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready` — exit non-zero for progressively stricter scaffold readiness checks.
 - `-strict` — shortcut for metadata + tensor inventory + safetensor shape readiness; does not require runtime execution.
+- For tensor-only fixtures/checks without processor/tokenizer sidecars, use `-require-tensors-ready -require-shapes-ready` rather than `-strict`.
 - `-require-runtime-ready` — expected to fail until full MiniCPM-V/O tensor execution lands.
 
 ## `qwen3ttsinspect` — Qwen3-TTS metadata and prompt inspection
