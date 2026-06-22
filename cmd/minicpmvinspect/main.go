@@ -40,6 +40,7 @@ func main() {
 	requireConfig := flag.Bool("require-config-ready", false, "fail unless MiniCPM-V config and prompt-planning metadata are valid")
 	requireMetadata := flag.Bool("require-metadata-ready", false, "fail unless config, processor, tokenizer, special-token, image-preprocess, and prompt-planning metadata are ready")
 	requireTensors := flag.Bool("require-tensors-ready", false, "fail unless local safetensor inventory has text, vision, and resampler metadata")
+	requireShapes := flag.Bool("require-shapes-ready", false, "fail unless local safetensor header shapes match normalized MiniCPM-V/O config dimensions")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless full MiniCPM-V/O runtime tensor execution is ready")
 	flag.Parse()
 	if *modelDir == "" {
@@ -58,6 +59,9 @@ func main() {
 	}
 	if *requireTensors && (meta.TensorReadiness == nil || !meta.TensorReadiness.MetadataReady) {
 		fatal(fmt.Errorf("MiniCPM-V/O tensor metadata is not ready"))
+	}
+	if *requireShapes && (!meta.ShapeValidation.Valid || len(meta.ShapeValidation.Issues) > 0) {
+		fatal(fmt.Errorf("MiniCPM-V/O safetensor shape validation failed: valid=%v issues=%d", meta.ShapeValidation.Valid, len(meta.ShapeValidation.Issues)))
 	}
 	if *requireRuntime {
 		if err := meta.RequireRuntimeReady(); err != nil {
