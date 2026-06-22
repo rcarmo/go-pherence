@@ -75,6 +75,7 @@ make minicpmv-inspect
 make minicpmv-version
 make minicpmv-capabilities
 make minicpmv-fixture-path
+make minicpmv-fixture-summary
 make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-require-metadata-ready'
 make minicpmv-inspect-model MINICPMV_MODEL=model/minicpmv/testdata/minicpmo_fixture MINICPMV_AUDIO_DURATION_MS=1234
 bin/minicpmvinspect -version
