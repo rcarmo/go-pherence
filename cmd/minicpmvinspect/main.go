@@ -22,6 +22,7 @@ type report struct {
 	PromptText      *minicpmv.PromptText                `json:"prompt_text,omitempty"`
 	ImagePreprocess *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
 	VisionPlan      minicpmv.VisionExecutionPlan        `json:"vision_plan"`
+	AudioPlan       minicpmv.AudioExecutionPlan         `json:"audio_plan"`
 	ResamplerPlan   *minicpmv.ResamplerTensorPlan       `json:"resampler_plan,omitempty"`
 	RuntimePlan     minicpmv.RuntimePlan                `json:"runtime_plan"`
 	Config          config.MiniCPMVConfig               `json:"config,omitempty"`
@@ -69,6 +70,7 @@ func main() {
 		Readiness:       meta.TensorReadiness,
 		ShapeValidation: meta.ShapeValidation,
 		VisionPlan:      meta.VisionPlan,
+		AudioPlan:       meta.AudioPlan,
 		ResamplerPlan:   meta.ResamplerPlan,
 		RuntimePlan:     meta.RuntimePlan,
 	}
@@ -140,6 +142,9 @@ func printText(r report) {
 		fmt.Printf("  image:     path=%s format=%s shape=%v patch_grid=%v patch_count=%d\n", img.Path, img.Format, img.Result.Shape, img.Result.PatchGrid, img.Result.PatchCount)
 	}
 	fmt.Printf("  visionplan: model=%s patch_grid=%d vision_tokens=%d resampler_query=%d needs_kv_proj=%v ready=%v\n", r.VisionPlan.VisionModelType, r.VisionPlan.PatchGrid, r.VisionPlan.VisionTokens, r.VisionPlan.ResamplerQuery, r.VisionPlan.NeedsKVProj, r.VisionPlan.Ready)
+	if r.AudioPlan.MetadataReady || len(r.AudioPlan.Bindings) > 0 {
+		fmt.Printf("  audioplan: model=%s mel_bins=%d sampling_rate=%d bindings=%d tensor_ready=%v ready=%v\n", r.AudioPlan.AudioModelType, r.AudioPlan.MelBins, r.AudioPlan.SamplingRate, len(r.AudioPlan.Bindings), r.AudioPlan.TensorReady, r.AudioPlan.Ready)
+	}
 	if r.ResamplerPlan != nil {
 		fmt.Printf("  resampler: bindings=%d ready=%v missing=%v counts=%v\n", len(r.ResamplerPlan.Bindings), r.ResamplerPlan.Ready, r.ResamplerPlan.MissingRequired, r.ResamplerPlan.Counts)
 	}

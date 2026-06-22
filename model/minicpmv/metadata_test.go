@@ -13,6 +13,7 @@ func TestLoadMetadataSyntheticConfig(t *testing.T) {
   "model_type":"minicpm-o",
   "text_config":{"model_type":"qwen2","hidden_size":3584,"num_hidden_layers":28,"num_attention_heads":28,"num_key_value_heads":4,"intermediate_size":18944,"vocab_size":151666},
   "vision_config":{"model_type":"siglip_vision_model","hidden_size":1152,"num_hidden_layers":27,"num_attention_heads":16,"image_size":448,"patch_size":14},
+  "audio_config":{"model_type":"whisper_encoder","hidden_size":1280,"num_hidden_layers":32,"num_attention_heads":20,"feature_size":128,"num_mel_bins":128,"sampling_rate":16000},
   "resampler_config":{"num_query":64,"num_heads":28,"kv_dim":1152}
 }`)
 	writeFile(t, filepath.Join(dir, "preprocessor_config.json"), `{"image_processor_type":"SiglipImageProcessor","size":{"height":448,"width":448},"patch_size":14,"do_resize":true,"do_rescale":true,"do_normalize":true}`)
@@ -24,7 +25,7 @@ func TestLoadMetadataSyntheticConfig(t *testing.T) {
 	if meta.Summary.ModelType != "minicpm-o" || meta.Processor == nil || meta.Tokenizer == nil || meta.SpecialTokenIDs == nil {
 		t.Fatalf("missing loaded metadata: %+v", meta)
 	}
-	if meta.SpecialTokenIDs.ImagePatch != 151642 || meta.VisionPlan.PatchGrid != 32 || !meta.RuntimePlan.ConfigReady || !meta.RuntimePlan.ProcessorReady || !meta.RuntimePlan.SpecialTokensReady {
+	if meta.SpecialTokenIDs.ImagePatch != 151642 || meta.VisionPlan.PatchGrid != 32 || !meta.AudioPlan.MetadataReady || meta.AudioPlan.MelBins != 128 || !meta.RuntimePlan.ConfigReady || !meta.RuntimePlan.ProcessorReady || !meta.RuntimePlan.SpecialTokensReady {
 		t.Fatalf("bad aggregate metadata: %+v", meta)
 	}
 	if err := meta.RequireRuntimeReady(); err == nil {

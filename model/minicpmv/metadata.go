@@ -17,6 +17,7 @@ type Metadata struct {
 	ShapeValidation TensorShapeValidation             `json:"shape_validation,omitempty"`
 	RuntimePlan     RuntimePlan                       `json:"runtime_plan"`
 	VisionPlan      VisionExecutionPlan               `json:"vision_plan"`
+	AudioPlan       AudioExecutionPlan                `json:"audio_plan"`
 	ResamplerPlan   *ResamplerTensorPlan              `json:"resampler_plan,omitempty"`
 }
 
@@ -42,6 +43,7 @@ func LoadMetadata(modelDir string) (Metadata, error) {
 	} else if ids, err := ResolveSpecialTokenIDs(summary, nil); err == nil {
 		meta.SpecialTokenIDs = &ids
 	}
+	var tensorNames []string
 	if inv, ok, err := TensorInventoryFromModelDir(modelDir); err != nil {
 		return meta, err
 	} else if ok {
@@ -52,12 +54,14 @@ func LoadMetadata(modelDir string) (Metadata, error) {
 			meta.ShapeValidation = ValidateTensorShapes(summary, infos)
 		}
 		if names, err := safetensors.NamesFrom(modelDir, ""); err == nil {
+			tensorNames = names
 			needsKV := summary.VisionHiddenSize > 0 && summary.HiddenSize > 0 && summary.VisionHiddenSize != summary.HiddenSize
 			plan := BuildResamplerTensorPlan(names, needsKV)
 			meta.ResamplerPlan = &plan
 		}
 	}
 	meta.VisionPlan = BuildVisionExecutionPlan(summary, meta.Tensors)
+	meta.AudioPlan = BuildAudioExecutionPlan(summary, tensorNames)
 	meta.RuntimePlan = BuildRuntimePlan(summary, meta.Processor, meta.Tokenizer, meta.Tensors)
 	return meta, nil
 }

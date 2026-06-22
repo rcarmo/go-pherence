@@ -9,6 +9,7 @@ func TestClassifyTensorName(t *testing.T) {
 		"llm.lm_head.weight":                                        TensorTextLMHead,
 		"vpm.encoder.layers.0.self_attn.q_proj.weight":              TensorVisionTower,
 		"vision_tower.vision_model.encoder.layers.0.mlp.fc1.weight": TensorVisionTower,
+		"audio_encoder.layers.0.self_attn.q_proj.weight":            TensorAudioEncoder,
 		"resampler.query.weight":                                    TensorResampler,
 		"resampler.pos_embed":                                       TensorResampler,
 		"mm_projector.0.weight":                                     TensorProjector,

@@ -14,6 +14,7 @@ const (
 	TensorTextLayer     TensorGroup = "text_layer"
 	TensorTextLMHead    TensorGroup = "text_lm_head"
 	TensorVisionTower   TensorGroup = "vision_tower"
+	TensorAudioEncoder  TensorGroup = "audio_encoder"
 	TensorResampler     TensorGroup = "resampler"
 	TensorProjector     TensorGroup = "projector"
 	TensorNorm          TensorGroup = "norm"
@@ -31,6 +32,7 @@ type TensorReadiness struct {
 	HasTextLayers    bool `json:"has_text_layers"`
 	HasLMHead        bool `json:"has_lm_head"`
 	HasVisionTower   bool `json:"has_vision_tower"`
+	HasAudioEncoder  bool `json:"has_audio_encoder"`
 	HasResampler     bool `json:"has_resampler"`
 	HasProjector     bool `json:"has_projector"`
 	MetadataReady    bool `json:"metadata_ready"`
@@ -64,6 +66,8 @@ func ClassifyTensorName(name string) TensorGroup {
 	switch {
 	case strings.Contains(n, "resampler") || strings.Contains(n, "query_tokens") || strings.Contains(n, "pos_embed"):
 		return TensorResampler
+	case strings.Contains(n, "audio") || strings.Contains(n, "whisper") || strings.Contains(n, "apm") || strings.Contains(n, "audio_tower") || strings.Contains(n, "audio_encoder"):
+		return TensorAudioEncoder
 	case strings.Contains(n, "vision_tower") || strings.Contains(n, "vpm") || strings.Contains(n, "vision_model") || strings.Contains(n, "clip") || strings.Contains(n, "siglip") || strings.Contains(n, "eva"):
 		return TensorVisionTower
 	case strings.Contains(n, "mm_projector") || strings.Contains(n, "multi_modal_projector") || strings.Contains(n, "vision_proj"):
@@ -87,6 +91,7 @@ func TensorReadinessFromInventory(inv TensorInventory) TensorReadiness {
 		HasTextLayers:    inv.Groups[TensorTextLayer] > 0,
 		HasLMHead:        inv.Groups[TensorTextLMHead] > 0,
 		HasVisionTower:   inv.Groups[TensorVisionTower] > 0,
+		HasAudioEncoder:  inv.Groups[TensorAudioEncoder] > 0,
 		HasResampler:     inv.Groups[TensorResampler] > 0,
 		HasProjector:     inv.Groups[TensorProjector] > 0,
 	}
