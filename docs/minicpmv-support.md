@@ -42,6 +42,9 @@ make models-download-minicpmv
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.
   - Config, processor, tokenizer, special tokens, tensor inventory, image preprocessing, and prompt planning are checked independently.
   - Vision-tower execution, resampler execution, embedding injection, and text generation remain marked not ready.
+- Slice-mode planning scaffold for MiniCPM-V/O high-resolution image configs.
+  - Preserves `slice_config` max slices, scale resolution, and patch size.
+  - Estimates slice counts for image dimensions while keeping actual sliced vision execution pending.
 - Vision/resampler execution plan scaffold.
   - Reports patch grid, raw vision-token count, resampler query count/grid/heads, hidden-size projection need, and per-stage readiness from tensor inventory.
 - Resampler tensor binding plan.

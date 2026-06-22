@@ -23,6 +23,7 @@ type report struct {
 	ImagePreprocess *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
 	VisionPlan      minicpmv.VisionExecutionPlan        `json:"vision_plan"`
 	AudioPlan       minicpmv.AudioExecutionPlan         `json:"audio_plan"`
+	SlicePlan       minicpmv.SlicePlan                  `json:"slice_plan"`
 	ResamplerPlan   *minicpmv.ResamplerTensorPlan       `json:"resampler_plan,omitempty"`
 	RuntimePlan     minicpmv.RuntimePlan                `json:"runtime_plan"`
 	Config          config.MiniCPMVConfig               `json:"config,omitempty"`
@@ -72,6 +73,7 @@ func main() {
 		ShapeValidation: meta.ShapeValidation,
 		VisionPlan:      meta.VisionPlan,
 		AudioPlan:       meta.AudioPlan,
+		SlicePlan:       meta.SlicePlan,
 		ResamplerPlan:   meta.ResamplerPlan,
 		RuntimePlan:     meta.RuntimePlan,
 	}
@@ -88,6 +90,7 @@ func main() {
 			fatal(err)
 		}
 		out.ImagePreprocess = &res
+		out.SlicePlan = minicpmv.BuildSlicePlan(meta.Summary, res.Result.Width, res.Result.Height)
 	}
 	if *showConfig {
 		out.Config = meta.Config
@@ -146,6 +149,7 @@ func printText(r report) {
 	if r.AudioPlan.MetadataReady || len(r.AudioPlan.Bindings) > 0 {
 		fmt.Printf("  audioplan: model=%s mel_bins=%d sampling_rate=%d bindings=%d tensor_ready=%v ready=%v\n", r.AudioPlan.AudioModelType, r.AudioPlan.MelBins, r.AudioPlan.SamplingRate, len(r.AudioPlan.Bindings), r.AudioPlan.TensorReady, r.AudioPlan.Ready)
 	}
+	fmt.Printf("  sliceplan: enabled=%v scale=%d max=%d estimated=%d ready=%v\n", r.SlicePlan.Enabled, r.SlicePlan.ScaleResolution, r.SlicePlan.MaxSliceNums, r.SlicePlan.EstimatedSlices, r.SlicePlan.Ready)
 	if r.ResamplerPlan != nil {
 		fmt.Printf("  resampler: bindings=%d ready=%v missing=%v counts=%v\n", len(r.ResamplerPlan.Bindings), r.ResamplerPlan.Ready, r.ResamplerPlan.MissingRequired, r.ResamplerPlan.Counts)
 	}

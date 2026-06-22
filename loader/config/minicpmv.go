@@ -129,6 +129,9 @@ type MiniCPMVSummary struct {
 	ImageStartTokenID int    `json:"image_start_token_id"`
 	ImageEndTokenID   int    `json:"image_end_token_id"`
 	SliceMode         bool   `json:"slice_mode"`
+	MaxSliceNums      int    `json:"max_slice_nums,omitempty"`
+	ScaleResolution   int    `json:"scale_resolution,omitempty"`
+	SlicePatchSize    int    `json:"slice_patch_size,omitempty"`
 	RuntimeReady      bool   `json:"runtime_ready"`
 	RuntimeNote       string `json:"runtime_note"`
 }
@@ -214,6 +217,9 @@ func (cfg MiniCPMVConfig) MiniCPMVSummary() MiniCPMVSummary {
 	if cfg.SliceMode != nil {
 		s.SliceMode = *cfg.SliceMode
 	}
+	s.MaxSliceNums = cfg.SliceConfig.MaxSliceNums
+	s.ScaleResolution = cfg.SliceConfig.ScaleResolution
+	s.SlicePatchSize = cfg.SliceConfig.PatchSize
 	s.RuntimeNote = "config/prompt planning supported for MiniCPM-V/O; full EVA/SigLIP vision tower and language generation tensor execution pending"
 	return s
 }

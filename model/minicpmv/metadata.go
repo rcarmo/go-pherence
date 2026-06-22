@@ -23,6 +23,7 @@ type Metadata struct {
 	RuntimePlan     RuntimePlan                       `json:"runtime_plan"`
 	VisionPlan      VisionExecutionPlan               `json:"vision_plan"`
 	AudioPlan       AudioExecutionPlan                `json:"audio_plan"`
+	SlicePlan       SlicePlan                         `json:"slice_plan"`
 	ResamplerPlan   *ResamplerTensorPlan              `json:"resampler_plan,omitempty"`
 }
 
@@ -76,6 +77,7 @@ func LoadMetadataWithOptions(modelDir string, opts MetadataOptions) (Metadata, e
 	}
 	meta.VisionPlan = BuildVisionExecutionPlan(summary, meta.Tensors)
 	meta.AudioPlan = BuildAudioExecutionPlan(summary, tensorNames)
+	meta.SlicePlan = BuildSlicePlan(summary, summary.ImageSize, summary.ImageSize)
 	meta.RuntimePlan = BuildRuntimePlan(summary, meta.Processor, meta.Tokenizer, meta.Tensors)
 	return meta, nil
 }

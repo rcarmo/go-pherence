@@ -37,6 +37,7 @@ func TestMiniCPMVConfigNestedSummary(t *testing.T) {
 		ModelType:       "minicpmv",
 		TextConfig:      &MiniCPMVTextConfig{ModelType: "qwen2", HiddenSize: 3584, NumHiddenLayers: 28, NumAttentionHeads: 28, NumKeyValueHeads: 4, IntermediateSize: 18944, VocabSize: 151666},
 		VisionConfig:    &MiniCPMVVisionConfig{ModelType: "siglip_vision_model", HiddenSize: 1152, NumHiddenLayers: 27, NumAttentionHeads: 16, ImageSize: 448, PatchSize: 14},
+		SliceConfig:     MiniCPMVSliceConfig{MaxSliceNums: 9, ScaleResolution: 448, PatchSize: 14},
 		ResamplerConfig: &MiniCPMVResamplerConfig{NumQuery: 64, NumHeads: 28, KVDim: 1152},
 	}
 	if err := ValidateMiniCPMVConfig(cfg); err != nil {
@@ -48,6 +49,9 @@ func TestMiniCPMVConfigNestedSummary(t *testing.T) {
 	}
 	if s.HiddenSize != 3584 || s.VisionHiddenSize != 1152 || s.ImageSize != 448 || s.PatchSize != 14 {
 		t.Fatalf("unexpected nested dims: %+v", s)
+	}
+	if s.MaxSliceNums != 9 || s.ScaleResolution != 448 || s.SlicePatchSize != 14 {
+		t.Fatalf("unexpected slice summary: %+v", s)
 	}
 }
 
