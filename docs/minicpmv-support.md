@@ -99,6 +99,8 @@ bin/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.
 bin/minicpmvinspect -model models/minicpm-v-2.6 -require-tensors-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6 -require-shapes-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6 -strict                 # metadata + tensors + shapes, but not runtime
+# Tiny tensor-only fixtures should use the narrower tensor/shape gates:
+bin/minicpmvinspect -model models/minicpm-v-2.6 -require-tensors-ready -require-shapes-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6 -require-runtime-ready  # expected to fail until tensor execution lands
 bin/minicpmvinspect -model models/minicpm-v-2.6 -image testdata/example.png
 bin/minicpmvinspect -model models/minicpm-v-2.6 -prompt "Compare these images." -images 2

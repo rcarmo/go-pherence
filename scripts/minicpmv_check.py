@@ -166,7 +166,7 @@ def main(argv: list[str]) -> int:
     with tempfile.TemporaryDirectory(prefix="minicpmv-tensors-") as td:
         model_dir = Path(td)
         safetensors_path = write_tiny_tensor_model(model_dir)
-        run(["go", "run", "./cmd/minicpmvinspect", "-model", str(model_dir), "-safetensors", str(safetensors_path), "-strict"], repo)
+        run(["go", "run", "./cmd/minicpmvinspect", "-model", str(model_dir), "-safetensors", str(safetensors_path), "-require-tensors-ready", "-require-shapes-ready"], repo)
     return 0
 
 
