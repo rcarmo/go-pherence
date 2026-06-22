@@ -10,10 +10,10 @@ Implemented:
   - Accepts original `omnilmm` / `OmniLMMForCausalLM` style configs.
   - Accepts newer nested `MiniCPMV*`/`MiniCPMO*` configs with `text_config`, `vision_config`, optional MiniCPM-O `audio_config`, and `resampler_config`.
 - Normalized readiness summary with text dimensions, vision dimensions, resampler shape, image token IDs, slice-mode flag, and runtime note.
-- Prompt/image-token planning in `model/minicpmv`.
-  - Validates the upstream `<im_start> <im_patch>... <im_end>` contract.
+- Prompt image/audio-token planning in `model/minicpmv`.
+  - Validates the upstream `<im_start> <im_patch>... <im_end>` image contract and MiniCPM-O `<audio_start> <audio_patch>... <audio_end>` audio contract.
   - Supports patch-only spans for checkpoints that do not use start/end tokens.
-  - Reports exact replacement spans for injecting vision/resampler embeddings into the language embedding stream.
+  - Reports exact replacement spans for injecting vision/resampler or future audio embeddings into the language embedding stream.
 - Pure-Go image preprocessing in `model/minicpmv`.
   - Converts arbitrary Go `image.Image` inputs to RGB/NRGBA.
   - Optional square bilinear resize.
