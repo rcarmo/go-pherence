@@ -23,6 +23,7 @@ type report struct {
 	PromptText      *minicpmv.PromptText                `json:"prompt_text,omitempty"`
 	ImagePreprocess *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
 	VisionPlan      minicpmv.VisionExecutionPlan        `json:"vision_plan"`
+	ResamplerPlan   *minicpmv.ResamplerTensorPlan       `json:"resampler_plan,omitempty"`
 	RuntimePlan     minicpmv.RuntimePlan                `json:"runtime_plan"`
 	Config          config.MiniCPMVConfig               `json:"config,omitempty"`
 }
@@ -70,6 +71,11 @@ func main() {
 		out.Readiness = &readiness
 		if infos, err := safetensors.TensorInfosFrom(*modelDir, ""); err == nil {
 			out.ShapeValidation = minicpmv.ValidateTensorShapes(summary, infos)
+		}
+		if names, err := safetensors.NamesFrom(*modelDir, ""); err == nil {
+			needsKV := summary.VisionHiddenSize > 0 && summary.HiddenSize > 0 && summary.VisionHiddenSize != summary.HiddenSize
+			plan := minicpmv.BuildResamplerTensorPlan(names, needsKV)
+			out.ResamplerPlan = &plan
 		}
 	}
 	if prompt, err := minicpmv.BuildPromptText("Describe the image.", 1, summary, out.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
@@ -139,6 +145,9 @@ func printText(r report) {
 		fmt.Printf("  image:     path=%s format=%s shape=%v patch_grid=%v patch_count=%d\n", img.Path, img.Format, img.Result.Shape, img.Result.PatchGrid, img.Result.PatchCount)
 	}
 	fmt.Printf("  visionplan: model=%s patch_grid=%d vision_tokens=%d resampler_query=%d needs_kv_proj=%v ready=%v\n", r.VisionPlan.VisionModelType, r.VisionPlan.PatchGrid, r.VisionPlan.VisionTokens, r.VisionPlan.ResamplerQuery, r.VisionPlan.NeedsKVProj, r.VisionPlan.Ready)
+	if r.ResamplerPlan != nil {
+		fmt.Printf("  resampler: bindings=%d ready=%v missing=%v counts=%v\n", len(r.ResamplerPlan.Bindings), r.ResamplerPlan.Ready, r.ResamplerPlan.MissingRequired, r.ResamplerPlan.Counts)
+	}
 	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
 }

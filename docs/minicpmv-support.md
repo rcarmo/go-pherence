@@ -44,6 +44,9 @@ make models-download-minicpmv
   - Vision-tower execution, resampler execution, embedding injection, and text generation remain marked not ready.
 - Vision/resampler execution plan scaffold.
   - Reports patch grid, raw vision-token count, resampler query count/grid/heads, hidden-size projection need, and per-stage readiness from tensor inventory.
+- Resampler tensor binding plan.
+  - Classifies local safetensor names into query, position embedding, KV projection, attention projection, norm, MLP, and other resampler roles.
+  - Reports missing required query/KV-projection bindings before numeric resampler execution is implemented.
 - Embedding-injection boundary helper.
   - Validates flattened `[sequence][hidden]` token embeddings and `[image][num_query][hidden]` resampler outputs.
   - Replaces planned image patch spans without mutating caller-owned token embeddings.
