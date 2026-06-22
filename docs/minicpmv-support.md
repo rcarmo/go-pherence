@@ -79,6 +79,7 @@ make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='
 make minicpmv-inspect-model MINICPMV_MODEL=model/minicpmv/testdata/minicpmo_fixture MINICPMV_AUDIO_DURATION_MS=1234
 bin/minicpmvinspect -version
 bin/minicpmvinspect -fixture-path
+bin/minicpmvinspect -fixture-summary
 bin/minicpmvinspect -capabilities
 bin/minicpmvinspect -capabilities -json
 bin/minicpmvinspect -capabilities -require-capabilities-ready

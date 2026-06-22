@@ -45,6 +45,7 @@ func main() {
 	capabilitiesOnly := flag.Bool("capabilities", false, "print MiniCPM-V/O implementation capability summary without requiring -model")
 	showVersion := flag.Bool("version", false, "print MiniCPM-V/O support version/status without requiring -model")
 	fixturePath := flag.Bool("fixture-path", false, "print committed MiniCPM-O metadata fixture path without requiring -model")
+	fixtureSummary := flag.Bool("fixture-summary", false, "print committed MiniCPM-O expected summary without requiring -model")
 	requireCapabilities := flag.Bool("require-capabilities-ready", false, "with -capabilities, fail unless scaffold capabilities are present and runtime capabilities remain pending")
 	safetensorsPath := flag.String("safetensors", "", "optional safetensors file path; defaults to model.safetensors or sharded index in -model")
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
@@ -68,6 +69,22 @@ func main() {
 			return
 		}
 		fmt.Printf("%s %s\n", minicpmv.SupportVersion, minicpmv.RuntimeStatusPending)
+		return
+	}
+	if *fixtureSummary {
+		summary, err := minicpmv.LoadMiniCPMOFixtureExpectedSummary()
+		if err != nil {
+			fatal(err)
+		}
+		if *asJSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(summary); err != nil {
+				fatal(err)
+			}
+			return
+		}
+		fmt.Printf("MiniCPM-O fixture: model=%s arch=%s text=%s vision=%s audio=%s num_query=%d runtime_ready=%v\n", summary.ModelType, summary.Architecture, summary.TextModelType, summary.VisionModelType, summary.AudioModelType, summary.NumQuery, summary.RuntimeReady)
 		return
 	}
 	if *fixturePath {
