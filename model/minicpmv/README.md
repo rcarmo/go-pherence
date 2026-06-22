@@ -11,7 +11,7 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
   - image placeholder construction
   - MiniCPM-O audio placeholder construction
   - combined image+audio multimodal prompt previews
-  - prompt token-span planning for image embedding replacement
+  - prompt token-span planning for image and MiniCPM-O audio embedding replacement
 - Sidecar-derived contracts:
   - processor metadata to image preprocessing config
   - tokenizer image/audio sentinel token resolution
@@ -37,7 +37,9 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
   - combined readiness report
   - not-implemented runtime interfaces with `ErrRuntimeNotImplemented`
 - Embedding boundary:
-  - validated replacement of planned image patch token embeddings with resampler outputs.
+  - validated replacement of planned image patch token embeddings with resampler outputs
+  - validated replacement of planned MiniCPM-O audio patch token embeddings with future audio outputs
+  - combined image+audio replacement-count planning before numeric runtime integration.
 
 ## Not implemented yet
 
