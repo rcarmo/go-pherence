@@ -43,7 +43,7 @@ minicpmv-inspect-model:
 
 minicpmv-fixture-check:
 	go test ./model/minicpmv -run TestMiniCPMOFixtureMetadata -count=1
-	go run ./cmd/minicpmvinspect -model model/minicpmv/testdata/minicpmo_fixture -require-metadata-ready
+	go run ./cmd/minicpmvinspect -model model/minicpmv/testdata/minicpmo_fixture -require-metadata-ready -audio-duration-ms 1234
 
 minicpmv-check:
 	$(PYTHON) scripts/minicpmv_check.py
