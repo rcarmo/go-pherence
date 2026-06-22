@@ -218,6 +218,7 @@
         "runtime_readiness_report": true,
         "capability_summary": true,
         "runtime_status_constant": true,
+        "support_version_output": true,
         "pending_runtime_steps": true,
         "metadata_fixture": true,
         "fixture_path_constant": true,

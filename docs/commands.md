@@ -321,6 +321,9 @@ make minicpmv-capabilities
 make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-json'
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
+  -version
+
+GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
   -capabilities
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
@@ -344,6 +347,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
 
 Useful flags:
 
+- `-version` — print the MiniCPM-V/O support scaffold version and runtime status without requiring `-model`.
 - `-capabilities` — print implemented-vs-pending MiniCPM-V/O capability summary without requiring `-model`; combine with `-require-capabilities-ready` for a model-free CI consistency gate.
 - `-fixture-path` — print the committed MiniCPM-O metadata fixture path without requiring `-model`.
 - `-json` — emit the full machine-readable report.
