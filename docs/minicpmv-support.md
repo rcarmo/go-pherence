@@ -73,6 +73,7 @@ bin/minicpmvinspect -model models/minicpm-v-2.6 -require-tensors-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6 -require-shapes-ready
 bin/minicpmvinspect -model models/minicpm-v-2.6 -require-runtime-ready   # expected to fail until tensor execution lands
 bin/minicpmvinspect -model models/minicpm-v-2.6 -image testdata/example.png
+bin/minicpmvinspect -model models/minicpm-v-2.6 -prompt "Compare these images." -images 2
 ```
 
 Some OpenBMB Hugging Face repositories are gated; set `HF_TOKEN` or `HUGGINGFACE_TOKEN` before downloading when required.

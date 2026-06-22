@@ -37,6 +37,8 @@ func main() {
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
 	safetensorsPath := flag.String("safetensors", "", "optional safetensors file path; defaults to model.safetensors or sharded index in -model")
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
+	promptText := flag.String("prompt", "Describe the image.", "prompt text used for the MiniCPM-V/O image-placeholder preview")
+	promptImages := flag.Int("images", 1, "number of image placeholders to include in the prompt preview")
 	requireConfig := flag.Bool("require-config-ready", false, "fail unless MiniCPM-V config and prompt-planning metadata are valid")
 	requireMetadata := flag.Bool("require-metadata-ready", false, "fail unless config, processor, tokenizer, special-token, image-preprocess, and prompt-planning metadata are ready")
 	requireTensors := flag.Bool("require-tensors-ready", false, "fail unless local safetensor inventory has text, vision, and resampler metadata")
@@ -85,7 +87,7 @@ func main() {
 		ResamplerPlan:   meta.ResamplerPlan,
 		RuntimePlan:     meta.RuntimePlan,
 	}
-	if prompt, err := minicpmv.BuildPromptText("Describe the image.", 1, meta.Summary, meta.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
+	if prompt, err := minicpmv.BuildPromptText(*promptText, *promptImages, meta.Summary, meta.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
 		out.PromptText = &prompt
 	}
 	if *imagePath != "" {
