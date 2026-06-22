@@ -12,6 +12,7 @@ make models-download-qwen3tts
 make models-download-lfm2
 make models-download-minicpmv
 make models-download-minicpmo
+make minicpmv-assets-check
 make models-download-gemma4
 make models-download-speaker
 make models-download-one MODEL=qwen3.6-27b-mlx4-mtp
@@ -322,6 +323,7 @@ make minicpmv-support-summary
 make minicpmv-capabilities
 make minicpmv-pending-runtime
 make minicpmv-coverage-pending
+make minicpmv-assets-check
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 make minicpmv-fixture-ready

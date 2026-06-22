@@ -30,6 +30,7 @@ Implemented:
 ```bash
 make models-download-minicpmv   # MiniCPM-V + MiniCPM-O
 make models-download-minicpmo   # MiniCPM-O only
+make minicpmv-assets-check      # discover/inspect local MiniCPM-V/O dirs under models/
 ```
 
 - Processor sidecar metadata loading from `preprocessor_config.json` or `processor_config.json`, including nested `image_processor` fields, square resize size, mean/std, rescale factor, patch size, and image sequence length.
@@ -78,6 +79,7 @@ make minicpmv-support-summary
 make minicpmv-capabilities
 make minicpmv-pending-runtime
 make minicpmv-coverage-pending
+make minicpmv-assets-check
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 make minicpmv-fixture-ready
