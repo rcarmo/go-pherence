@@ -32,6 +32,7 @@ func main() {
 	modelDir := flag.String("model", "", "MiniCPM-V/O Hugging Face model directory")
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
+	safetensorsPath := flag.String("safetensors", "", "optional safetensors file path; defaults to model.safetensors or sharded index in -model")
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
 	requireConfig := flag.Bool("require-config-ready", false, "fail unless MiniCPM-V config and prompt-planning metadata are valid")
 	requireMetadata := flag.Bool("require-metadata-ready", false, "fail unless config, processor, tokenizer, special-token, image-preprocess, and prompt-planning metadata are ready")
@@ -42,7 +43,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: minicpmvinspect -model PATH [-json] [-require-config-ready]")
 		os.Exit(2)
 	}
-	meta, err := minicpmv.LoadMetadata(*modelDir)
+	meta, err := minicpmv.LoadMetadataWithOptions(*modelDir, minicpmv.MetadataOptions{SafetensorsPath: *safetensorsPath})
 	if err != nil {
 		fatal(err)
 	}

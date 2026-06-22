@@ -5,8 +5,13 @@ import (
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
+type MetadataOptions struct {
+	SafetensorsPath string `json:"safetensors_path,omitempty"`
+}
+
 type Metadata struct {
 	ModelDir        string                            `json:"model_dir"`
+	SafetensorsPath string                            `json:"safetensors_path,omitempty"`
 	Config          config.MiniCPMVConfig             `json:"config"`
 	Summary         config.MiniCPMVSummary            `json:"summary"`
 	Processor       *config.MiniCPMVProcessorConfig   `json:"processor,omitempty"`
@@ -22,12 +27,16 @@ type Metadata struct {
 }
 
 func LoadMetadata(modelDir string) (Metadata, error) {
+	return LoadMetadataWithOptions(modelDir, MetadataOptions{})
+}
+
+func LoadMetadataWithOptions(modelDir string, opts MetadataOptions) (Metadata, error) {
 	cfg, err := config.ReadMiniCPMVConfig(modelDir)
 	if err != nil {
 		return Metadata{}, err
 	}
 	summary := cfg.MiniCPMVSummary()
-	meta := Metadata{ModelDir: modelDir, Config: cfg, Summary: summary}
+	meta := Metadata{ModelDir: modelDir, SafetensorsPath: opts.SafetensorsPath, Config: cfg, Summary: summary}
 	if proc, ok, err := config.ReadMiniCPMVProcessorConfig(modelDir); err != nil {
 		return meta, err
 	} else if ok {
@@ -44,21 +53,26 @@ func LoadMetadata(modelDir string) (Metadata, error) {
 		meta.SpecialTokenIDs = &ids
 	}
 	var tensorNames []string
-	if inv, ok, err := TensorInventoryFromModelDir(modelDir); err != nil {
+	if names, err := safetensors.NamesFrom(modelDir, opts.SafetensorsPath); err == nil {
+		tensorNames = names
+		inv := SummarizeTensors(names)
+		meta.Tensors = &inv
+		readiness := TensorReadinessFromInventory(inv)
+		meta.TensorReadiness = &readiness
+		if infos, err := safetensors.TensorInfosFrom(modelDir, opts.SafetensorsPath); err == nil {
+			meta.ShapeValidation = ValidateTensorShapes(summary, infos)
+		}
+		needsKV := summary.VisionHiddenSize > 0 && summary.HiddenSize > 0 && summary.VisionHiddenSize != summary.HiddenSize
+		plan := BuildResamplerTensorPlan(names, needsKV)
+		meta.ResamplerPlan = &plan
+	} else if opts.SafetensorsPath != "" {
+		return meta, err
+	} else if inv, ok, err := TensorInventoryFromModelDir(modelDir); err != nil {
 		return meta, err
 	} else if ok {
 		meta.Tensors = &inv
 		readiness := TensorReadinessFromInventory(inv)
 		meta.TensorReadiness = &readiness
-		if infos, err := safetensors.TensorInfosFrom(modelDir, ""); err == nil {
-			meta.ShapeValidation = ValidateTensorShapes(summary, infos)
-		}
-		if names, err := safetensors.NamesFrom(modelDir, ""); err == nil {
-			tensorNames = names
-			needsKV := summary.VisionHiddenSize > 0 && summary.HiddenSize > 0 && summary.VisionHiddenSize != summary.HiddenSize
-			plan := BuildResamplerTensorPlan(names, needsKV)
-			meta.ResamplerPlan = &plan
-		}
 	}
 	meta.VisionPlan = BuildVisionExecutionPlan(summary, meta.Tensors)
 	meta.AudioPlan = BuildAudioExecutionPlan(summary, tensorNames)
