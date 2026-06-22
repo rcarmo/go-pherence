@@ -223,6 +223,7 @@
         "runtime_readiness_report": true,
         "capability_summary": true,
         "support_summary_api": true,
+        "support_summary_roadmap_path": true,
         "support_summary_validation": true,
         "support_summary_inspect_mode": true,
         "support_summary_make_target": true,
