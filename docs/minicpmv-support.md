@@ -28,7 +28,8 @@ Implemented:
 - Opt-in model download group:
 
 ```bash
-make models-download-minicpmv
+make models-download-minicpmv   # MiniCPM-V + MiniCPM-O
+make models-download-minicpmo   # MiniCPM-O only
 ```
 
 - Processor sidecar metadata loading from `preprocessor_config.json` or `processor_config.json`, including nested `image_processor` fields, square resize size, mean/std, rescale factor, patch size, and image sequence length.

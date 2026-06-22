@@ -54,7 +54,7 @@ MODELS: tuple[ModelSpec, ...] = (
     # repos are gated and require HUGGINGFACE_TOKEN/HF_TOKEN; keep downloads opt-in.
     ModelSpec("minicpm-v-2.6", "openbmb/MiniCPM-V-2_6", "minicpmv", "MiniCPM-V 2.6 vision-language checkpoint"),
     ModelSpec("minicpm-v-2.0", "openbmb/MiniCPM-V-2", "minicpmv", "MiniCPM-V 2.0 OmniLMM checkpoint"),
-    ModelSpec("minicpm-o-2.6", "openbmb/MiniCPM-o-2_6", "minicpmv", "MiniCPM-O 2.6 omni vision-language checkpoint"),
+    ModelSpec("minicpm-o-2.6", "openbmb/MiniCPM-o-2_6", "minicpmo", "MiniCPM-O 2.6 omni vision-language checkpoint"),
 
     # Speaker embedding assets for diarization conversion. These are source
     # checkpoints; run scripts/convert_speechbrain_ecapa.py before using them

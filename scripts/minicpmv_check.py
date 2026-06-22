@@ -90,7 +90,7 @@ def main(argv: list[str]) -> int:
         run(["go", "test", "./loader/config", "./model/minicpmv", "./cmd/minicpmvinspect", "-count=1"], repo)
     if not args.skip_build:
         run(["go", "build", "-o", "bin/minicpmvinspect", "./cmd/minicpmvinspect"], repo)
-    run([sys.executable, "scripts/download_models.py", "--group", "minicpmv", "--dry-run"], repo)
+    run([sys.executable, "scripts/download_models.py", "--group", "minicpmv", "--group", "minicpmo", "--dry-run"], repo)
     with tempfile.TemporaryDirectory(prefix="minicpmv-check-") as td:
         model_dir = Path(td)
         write_synthetic_model(model_dir)
