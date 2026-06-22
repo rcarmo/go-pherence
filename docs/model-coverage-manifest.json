@@ -249,6 +249,8 @@
         "audio_embedding_injection_boundary": true,
         "multimodal_embedding_replacement_plan": true,
         "download_registry": true,
+        "local_asset_discovery": true,
+        "asset_check_make_target": true,
         "make_inspect_target": true,
         "scaffold_check_make_target": true,
         "cpu_text_runtime": false,
@@ -259,6 +261,7 @@
       },
       "commands": [
         "make minicpmv-check",
+        "make minicpmv-assets-check",
         "make minicpmv-version",
         "make minicpmv-support-summary",
         "make minicpmv-pending-runtime",

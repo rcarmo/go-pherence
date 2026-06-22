@@ -172,6 +172,8 @@ func TestModelCoverageManifest(t *testing.T) {
 		"embedding_injection_boundary":          "../model/minicpmv/embedding_injection.go",
 		"audio_embedding_injection_boundary":    "../model/minicpmv/audio_embedding_injection.go",
 		"multimodal_embedding_replacement_plan": "../model/minicpmv/multimodal_embedding.go",
+		"local_asset_discovery":                 "../scripts/minicpmv_assets_check.py",
+		"asset_check_make_target":               "../Makefile",
 		"make_inspect_target":                   "../Makefile",
 		"scaffold_check_make_target":            "../Makefile",
 	} {
