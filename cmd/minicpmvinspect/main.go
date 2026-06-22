@@ -7,12 +7,15 @@ import (
 	"os"
 
 	"github.com/rcarmo/go-pherence/loader/config"
+	"github.com/rcarmo/go-pherence/model/minicpmv"
 )
 
 type report struct {
 	ModelPath string                          `json:"model_path"`
 	Summary   config.MiniCPMVSummary          `json:"summary"`
 	Processor *config.MiniCPMVProcessorConfig `json:"processor,omitempty"`
+	Tensors   *minicpmv.TensorInventory       `json:"tensors,omitempty"`
+	Readiness *minicpmv.TensorReadiness       `json:"tensor_readiness,omitempty"`
 	Config    config.MiniCPMVConfig           `json:"config,omitempty"`
 }
 
@@ -40,6 +43,13 @@ func main() {
 	} else if ok {
 		out.Processor = &proc
 	}
+	if inv, ok, err := minicpmv.TensorInventoryFromModelDir(*modelDir); err != nil {
+		fatal(err)
+	} else if ok {
+		out.Tensors = &inv
+		readiness := minicpmv.TensorReadinessFromInventory(inv)
+		out.Readiness = &readiness
+	}
 	if *showConfig {
 		out.Config = cfg
 	}
@@ -65,6 +75,12 @@ func printText(r report) {
 	if r.Processor != nil {
 		p := r.Processor
 		fmt.Printf("  processor: class=%s image=%s size=%d resize=%v rescale=%v normalize=%v patch=%d image_seq=%d\n", p.ProcessorClass, p.ImageProcessorType, p.NormalizedSize, p.DoResize, p.DoRescale, p.DoNormalize, p.PatchSize, p.ImageSeqLength)
+	}
+	if r.Tensors != nil {
+		fmt.Printf("  tensors:   total=%d groups=%v\n", r.Tensors.Total, r.Tensors.Groups)
+	}
+	if r.Readiness != nil {
+		fmt.Printf("  readiness: text=%v vision=%v resampler=%v metadata=%v runtime=%v\n", r.Readiness.HasTextEmbedding && r.Readiness.HasTextLayers, r.Readiness.HasVisionTower, r.Readiness.HasResampler, r.Readiness.MetadataReady, r.Readiness.RuntimeReady)
 	}
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
 }

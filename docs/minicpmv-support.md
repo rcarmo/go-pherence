@@ -31,6 +31,9 @@ make models-download-minicpmv
 ```
 
 - Processor sidecar metadata loading from `preprocessor_config.json` or `processor_config.json`, including nested `image_processor` fields, square resize size, mean/std, rescale factor, patch size, and image sequence length.
+- Safetensors header/index inventory for local checkpoints.
+  - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
+  - Reports metadata readiness without loading tensor payloads.
 - Local config inspection command:
 
 ```bash
@@ -58,7 +61,7 @@ The original OpenBMB code path is:
 Not implemented yet:
 
 - Full EVA02/SigLIP vision tower tensor loading/execution.
-- Resampler tensor loading/execution.
+- Resampler tensor loading/execution beyond tensor-name inventory.
 - MiniCPM/Qwen2/Mistral text-backbone weight mapping for MiniCPM-V checkpoints.
 - End-to-end image+text generation command.
 - GPU/SIMD parity gates for the vision tower and resampler.
