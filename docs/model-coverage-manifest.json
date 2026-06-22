@@ -215,6 +215,8 @@
         "audio_execution_plan": true,
         "runtime_stage_interfaces": true,
         "runtime_readiness_report": true,
+        "capability_summary": true,
+        "runtime_status_constant": true,
         "runtime_readiness_gate": true,
         "embedding_injection_boundary": true,
         "download_registry": true,

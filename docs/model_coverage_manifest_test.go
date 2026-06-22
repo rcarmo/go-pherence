@@ -140,6 +140,8 @@ func TestModelCoverageManifest(t *testing.T) {
 		"audio_execution_plan":         "../model/minicpmv/audio_plan.go",
 		"runtime_stage_interfaces":     "../model/minicpmv/runtime_interfaces.go",
 		"runtime_readiness_report":     "../model/minicpmv/readiness.go",
+		"capability_summary":           "../model/minicpmv/capabilities.go",
+		"runtime_status_constant":      "../model/minicpmv/capabilities.go",
 		"embedding_injection_boundary": "../model/minicpmv/embedding_injection.go",
 		"make_inspect_target":          "../Makefile",
 		"scaffold_check_make_target":   "../Makefile",
