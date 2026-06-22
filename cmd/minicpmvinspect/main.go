@@ -33,6 +33,9 @@ func main() {
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
 	requireConfig := flag.Bool("require-config-ready", false, "fail unless MiniCPM-V config and prompt-planning metadata are valid")
+	requireMetadata := flag.Bool("require-metadata-ready", false, "fail unless config, processor, tokenizer, special-token, image-preprocess, and prompt-planning metadata are ready")
+	requireTensors := flag.Bool("require-tensors-ready", false, "fail unless local safetensor inventory has text, vision, and resampler metadata")
+	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless full MiniCPM-V/O runtime tensor execution is ready")
 	flag.Parse()
 	if *modelDir == "" {
 		fmt.Fprintln(os.Stderr, "usage: minicpmvinspect -model PATH [-json] [-require-config-ready]")
@@ -44,6 +47,17 @@ func main() {
 	}
 	if *requireConfig && meta.Summary.NumQuery <= 0 {
 		fatal(fmt.Errorf("MiniCPM-V config metadata is not ready"))
+	}
+	if *requireMetadata && (!meta.RuntimePlan.ConfigReady || !meta.RuntimePlan.ProcessorReady || !meta.RuntimePlan.TokenizerReady || !meta.RuntimePlan.SpecialTokensReady || !meta.RuntimePlan.ImagePreprocessReady || !meta.RuntimePlan.PromptPlanningReady) {
+		fatal(fmt.Errorf("MiniCPM-V/O metadata is not ready: config=%v processor=%v tokenizer=%v specials=%v preprocess=%v prompt=%v", meta.RuntimePlan.ConfigReady, meta.RuntimePlan.ProcessorReady, meta.RuntimePlan.TokenizerReady, meta.RuntimePlan.SpecialTokensReady, meta.RuntimePlan.ImagePreprocessReady, meta.RuntimePlan.PromptPlanningReady))
+	}
+	if *requireTensors && (meta.TensorReadiness == nil || !meta.TensorReadiness.MetadataReady) {
+		fatal(fmt.Errorf("MiniCPM-V/O tensor metadata is not ready"))
+	}
+	if *requireRuntime {
+		if err := meta.RequireRuntimeReady(); err != nil {
+			fatal(err)
+		}
 	}
 	out := report{
 		ModelPath:       *modelDir,

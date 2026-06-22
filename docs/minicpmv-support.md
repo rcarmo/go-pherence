@@ -58,6 +58,9 @@ make minicpmv-check
 make minicpmv-inspect
 bin/minicpmvinspect -model models/minicpm-v-2.6
 bin/minicpmvinspect -model models/minicpm-v-2.6 -json -require-config-ready
+bin/minicpmvinspect -model models/minicpm-v-2.6 -require-metadata-ready
+bin/minicpmvinspect -model models/minicpm-v-2.6 -require-tensors-ready
+bin/minicpmvinspect -model models/minicpm-v-2.6 -require-runtime-ready   # expected to fail until tensor execution lands
 bin/minicpmvinspect -model models/minicpm-v-2.6 -image testdata/example.png
 ```
 

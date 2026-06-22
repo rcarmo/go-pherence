@@ -75,7 +75,7 @@ def main(argv: list[str]) -> int:
     with tempfile.TemporaryDirectory(prefix="minicpmv-check-") as td:
         model_dir = Path(td)
         write_synthetic_model(model_dir)
-        run(["go", "run", "./cmd/minicpmvinspect", "-model", str(model_dir), "-require-config-ready"], repo)
+        run(["go", "run", "./cmd/minicpmvinspect", "-model", str(model_dir), "-require-config-ready", "-require-metadata-ready"], repo)
     return 0
 
 
