@@ -217,6 +217,7 @@
         "runtime_readiness_report": true,
         "capability_summary": true,
         "runtime_status_constant": true,
+        "metadata_fixture": true,
         "runtime_readiness_gate": true,
         "embedding_injection_boundary": true,
         "download_registry": true,
