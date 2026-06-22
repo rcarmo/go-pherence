@@ -12,23 +12,25 @@ import (
 )
 
 type report struct {
-	ModelPath       string                            `json:"model_path"`
-	Summary         config.MiniCPMVSummary            `json:"summary"`
-	Processor       *config.MiniCPMVProcessorConfig   `json:"processor,omitempty"`
-	Tokenizer       *config.MiniCPMVTokenizerMetadata `json:"tokenizer,omitempty"`
-	SpecialTokenIDs *minicpmv.SpecialTokenIDs         `json:"special_token_ids,omitempty"`
-	Tensors         *minicpmv.TensorInventory         `json:"tensors,omitempty"`
-	Readiness       *minicpmv.TensorReadiness         `json:"tensor_readiness,omitempty"`
-	ShapeValidation minicpmv.TensorShapeValidation    `json:"shape_validation,omitempty"`
-	PromptText      *minicpmv.PromptText              `json:"prompt_text,omitempty"`
-	RuntimePlan     minicpmv.RuntimePlan              `json:"runtime_plan"`
-	Config          config.MiniCPMVConfig             `json:"config,omitempty"`
+	ModelPath       string                              `json:"model_path"`
+	Summary         config.MiniCPMVSummary              `json:"summary"`
+	Processor       *config.MiniCPMVProcessorConfig     `json:"processor,omitempty"`
+	Tokenizer       *config.MiniCPMVTokenizerMetadata   `json:"tokenizer,omitempty"`
+	SpecialTokenIDs *minicpmv.SpecialTokenIDs           `json:"special_token_ids,omitempty"`
+	Tensors         *minicpmv.TensorInventory           `json:"tensors,omitempty"`
+	Readiness       *minicpmv.TensorReadiness           `json:"tensor_readiness,omitempty"`
+	ShapeValidation minicpmv.TensorShapeValidation      `json:"shape_validation,omitempty"`
+	PromptText      *minicpmv.PromptText                `json:"prompt_text,omitempty"`
+	ImagePreprocess *minicpmv.ImageFilePreprocessResult `json:"image_preprocess,omitempty"`
+	RuntimePlan     minicpmv.RuntimePlan                `json:"runtime_plan"`
+	Config          config.MiniCPMVConfig               `json:"config,omitempty"`
 }
 
 func main() {
 	modelDir := flag.String("model", "", "MiniCPM-V/O Hugging Face model directory")
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
+	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
 	requireConfig := flag.Bool("require-config-ready", false, "fail unless MiniCPM-V config and prompt-planning metadata are valid")
 	flag.Parse()
 	if *modelDir == "" {
@@ -71,6 +73,17 @@ func main() {
 	}
 	if prompt, err := minicpmv.BuildPromptText("Describe the image.", 1, summary, out.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
 		out.PromptText = &prompt
+	}
+	if *imagePath != "" {
+		cfg := minicpmv.DefaultImagePreprocessConfig(summary.ImageSize, summary.PatchSize)
+		if out.Processor != nil {
+			cfg = minicpmv.ImagePreprocessConfigFromProcessor(*out.Processor, summary.ImageSize, summary.PatchSize)
+		}
+		res, err := minicpmv.PreprocessImageFile(*imagePath, cfg)
+		if err != nil {
+			fatal(err)
+		}
+		out.ImagePreprocess = &res
 	}
 	out.RuntimePlan = minicpmv.BuildRuntimePlan(summary, out.Processor, out.Tokenizer, out.Tensors)
 	if *showConfig {
@@ -118,6 +131,10 @@ func printText(r report) {
 	}
 	if r.PromptText != nil {
 		fmt.Printf("  prompt:    images=%d patch_tokens=%d placeholder_bytes=%d\n", r.PromptText.Images, r.PromptText.PatchTokens, len(r.PromptText.ImagePlaceholder))
+	}
+	if r.ImagePreprocess != nil {
+		img := r.ImagePreprocess
+		fmt.Printf("  image:     path=%s format=%s shape=%v patch_grid=%v patch_count=%d\n", img.Path, img.Format, img.Result.Shape, img.Result.PatchGrid, img.Result.PatchCount)
 	}
 	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)

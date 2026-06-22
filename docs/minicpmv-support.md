@@ -19,6 +19,7 @@ Implemented:
   - Optional square bilinear resize.
   - Rescale + normalize into BCHW `float32` pixel values.
   - Validates patch-grid divisibility and reports the vision patch count before tensor execution.
+  - Decodes PNG/JPEG image files for CLI/local checkpoint smoke tests.
 - Resampler shape validation matching the upstream `Resampler` contract:
   - `num_query = grid_size^2`
   - `embed_dim = language hidden size`
@@ -50,6 +51,7 @@ make models-download-minicpmv
 make minicpmv-inspect
 bin/minicpmvinspect -model models/minicpm-v-2.6
 bin/minicpmvinspect -model models/minicpm-v-2.6 -json -require-config-ready
+bin/minicpmvinspect -model models/minicpm-v-2.6 -image testdata/example.png
 ```
 
 Some OpenBMB Hugging Face repositories are gated; set `HF_TOKEN` or `HUGGINGFACE_TOKEN` before downloading when required.
