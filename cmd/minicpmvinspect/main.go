@@ -42,6 +42,7 @@ func main() {
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
 	capabilitiesOnly := flag.Bool("capabilities", false, "print MiniCPM-V/O implementation capability summary without requiring -model")
+	fixturePath := flag.Bool("fixture-path", false, "print committed MiniCPM-O metadata fixture path without requiring -model")
 	requireCapabilities := flag.Bool("require-capabilities-ready", false, "with -capabilities, fail unless scaffold capabilities are present and runtime capabilities remain pending")
 	safetensorsPath := flag.String("safetensors", "", "optional safetensors file path; defaults to model.safetensors or sharded index in -model")
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
@@ -54,6 +55,18 @@ func main() {
 	requireShapes := flag.Bool("require-shapes-ready", false, "fail unless local safetensor header shapes match normalized MiniCPM-V/O config dimensions")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless full MiniCPM-V/O runtime tensor execution is ready")
 	flag.Parse()
+	if *fixturePath {
+		if *asJSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(map[string]string{"minicpmo_fixture": minicpmv.MiniCPMOFixturePath}); err != nil {
+				fatal(err)
+			}
+			return
+		}
+		fmt.Println(minicpmv.MiniCPMOFixturePath)
+		return
+	}
 	if *capabilitiesOnly {
 		caps := minicpmv.CurrentCapabilities()
 		if *requireCapabilities && (!caps.ConfigParsing || !caps.ProcessorMetadata || !caps.TokenizerMetadata || !caps.MultimodalPromptPlanning || !caps.TensorShapeValidation || !caps.ValidationGate || caps.EndToEndGeneration || caps.TextRuntimeGeneration || caps.VisionTowerRuntime || caps.ResamplerRuntime || caps.AudioEncoderRuntime) {
