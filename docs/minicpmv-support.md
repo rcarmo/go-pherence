@@ -33,6 +33,7 @@ make models-download-minicpmv
 
 - Processor sidecar metadata loading from `preprocessor_config.json` or `processor_config.json`, including nested `image_processor` fields, square resize size, mean/std, rescale factor, patch size, and image sequence length.
 - Tokenizer sidecar metadata loading from `tokenizer_config.json` and `tokenizer.json`, including chat-template byte count and MiniCPM image sentinel token IDs when present.
+- Generation sidecar metadata loading from `generation_config.json`, including max tokens, sampling defaults, penalties, token IDs, and stop strings.
 - Special-token resolver that merges config/tokenizer metadata into the prompt planner's image patch/start/end token IDs.
 - Prompt text placeholder builder for `<im_start><im_patch>...<im_end>` or patch-only MiniCPM image sentinels, with optional user/assistant prefixes for future chat-template integration.
 - Safetensors header/index inventory for local checkpoints.

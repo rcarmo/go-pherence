@@ -16,6 +16,7 @@ type Metadata struct {
 	Summary         config.MiniCPMVSummary            `json:"summary"`
 	Processor       *config.MiniCPMVProcessorConfig   `json:"processor,omitempty"`
 	Tokenizer       *config.MiniCPMVTokenizerMetadata `json:"tokenizer,omitempty"`
+	Generation      *config.MiniCPMVGenerationConfig  `json:"generation,omitempty"`
 	SpecialTokenIDs *SpecialTokenIDs                  `json:"special_token_ids,omitempty"`
 	Tensors         *TensorInventory                  `json:"tensors,omitempty"`
 	TensorReadiness *TensorReadiness                  `json:"tensor_readiness,omitempty"`
@@ -52,6 +53,11 @@ func LoadMetadataWithOptions(modelDir string, opts MetadataOptions) (Metadata, e
 		}
 	} else if ids, err := ResolveSpecialTokenIDs(summary, nil); err == nil {
 		meta.SpecialTokenIDs = &ids
+	}
+	if gen, ok, err := config.ReadMiniCPMVGenerationConfig(modelDir); err != nil {
+		return meta, err
+	} else if ok {
+		meta.Generation = &gen
 	}
 	var tensorNames []string
 	if names, err := safetensors.NamesFrom(modelDir, opts.SafetensorsPath); err == nil {

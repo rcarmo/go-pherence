@@ -15,6 +15,7 @@ type report struct {
 	Summary         config.MiniCPMVSummary              `json:"summary"`
 	Processor       *config.MiniCPMVProcessorConfig     `json:"processor,omitempty"`
 	Tokenizer       *config.MiniCPMVTokenizerMetadata   `json:"tokenizer,omitempty"`
+	Generation      *config.MiniCPMVGenerationConfig    `json:"generation,omitempty"`
 	SpecialTokenIDs *minicpmv.SpecialTokenIDs           `json:"special_token_ids,omitempty"`
 	Tensors         *minicpmv.TensorInventory           `json:"tensors,omitempty"`
 	Readiness       *minicpmv.TensorReadiness           `json:"tensor_readiness,omitempty"`
@@ -67,6 +68,7 @@ func main() {
 		Summary:         meta.Summary,
 		Processor:       meta.Processor,
 		Tokenizer:       meta.Tokenizer,
+		Generation:      meta.Generation,
 		SpecialTokenIDs: meta.SpecialTokenIDs,
 		Tensors:         meta.Tensors,
 		Readiness:       meta.TensorReadiness,
@@ -128,6 +130,10 @@ func printText(r report) {
 	if r.SpecialTokenIDs != nil {
 		ids := r.SpecialTokenIDs
 		fmt.Printf("  specials:  image=%d patch=%d start=%d end=%d use_start_end=%v\n", ids.Image, ids.ImagePatch, ids.ImageStart, ids.ImageEnd, ids.UseStartEnd)
+	}
+	if r.Generation != nil {
+		g := r.Generation
+		fmt.Printf("  generate:  max_new=%d max_len=%d sample=%v temp=%.3g top_p=%.3g top_k=%d repeat=%.3g stops=%d\n", g.MaxNewTokens, g.MaxLength, g.DoSample, g.Temperature, g.TopP, g.TopK, g.RepetitionPenalty, len(g.StopStrings))
 	}
 	if r.Tensors != nil {
 		fmt.Printf("  tensors:   total=%d groups=%v\n", r.Tensors.Total, r.Tensors.Groups)
