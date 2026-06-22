@@ -21,6 +21,7 @@ type report struct {
 	Tensors              *minicpmv.TensorInventory           `json:"tensors,omitempty"`
 	Readiness            *minicpmv.TensorReadiness           `json:"tensor_readiness,omitempty"`
 	ShapeValidation      minicpmv.TensorShapeValidation      `json:"shape_validation,omitempty"`
+	Capabilities         minicpmv.Capabilities               `json:"capabilities"`
 	PromptText           *minicpmv.PromptText                `json:"prompt_text,omitempty"`
 	AudioPromptText      *minicpmv.AudioPromptText           `json:"audio_prompt_text,omitempty"`
 	MultiModalPrompt     *minicpmv.MultiModalPromptPlan      `json:"multimodal_prompt,omitempty"`
@@ -85,6 +86,7 @@ func main() {
 		Tensors:              meta.Tensors,
 		Readiness:            meta.TensorReadiness,
 		ShapeValidation:      meta.ShapeValidation,
+		Capabilities:         meta.Capabilities,
 		TextPlan:             meta.TextPlan,
 		VisionPlan:           meta.VisionPlan,
 		AudioPlan:            meta.AudioPlan,
@@ -197,6 +199,7 @@ func printText(r report) {
 		fmt.Printf("  resampler: bindings=%d ready=%v missing=%v counts=%v\n", len(r.ResamplerPlan.Bindings), r.ResamplerPlan.Ready, r.ResamplerPlan.MissingRequired, r.ResamplerPlan.Counts)
 	}
 	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
+	fmt.Printf("  caps:      metadata=%v prompts=%v tensors=%v runtime=%v end_to_end=%v\n", r.Capabilities.ConfigParsing && r.Capabilities.ProcessorMetadata && r.Capabilities.TokenizerMetadata, r.Capabilities.MultimodalPromptPlanning, r.Capabilities.TensorInventory && r.Capabilities.TensorShapeValidation, r.Capabilities.TextRuntimeGeneration || r.Capabilities.VisionTowerRuntime || r.Capabilities.ResamplerRuntime || r.Capabilities.AudioEncoderRuntime, r.Capabilities.EndToEndGeneration)
 	fmt.Printf("  readiness: metadata=%v tensors=%v shapes=%v runtime=%v blockers=%d\n", r.ReadinessReport.MetadataReady, r.ReadinessReport.TensorReady, r.ReadinessReport.ShapesReady, r.ReadinessReport.RuntimeReady, len(r.ReadinessReport.Blockers))
 	for i, blocker := range r.ReadinessReport.Blockers {
 		if i >= 5 {

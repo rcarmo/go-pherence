@@ -22,6 +22,7 @@ type Metadata struct {
 	Tensors              *TensorInventory                  `json:"tensors,omitempty"`
 	TensorReadiness      *TensorReadiness                  `json:"tensor_readiness,omitempty"`
 	ShapeValidation      TensorShapeValidation             `json:"shape_validation,omitempty"`
+	Capabilities         Capabilities                      `json:"capabilities"`
 	RuntimePlan          RuntimePlan                       `json:"runtime_plan"`
 	ReadinessReport      ReadinessReport                   `json:"readiness_report"`
 	TextPlan             TextExecutionPlan                 `json:"text_plan"`
@@ -41,7 +42,7 @@ func LoadMetadataWithOptions(modelDir string, opts MetadataOptions) (Metadata, e
 		return Metadata{}, err
 	}
 	summary := cfg.MiniCPMVSummary()
-	meta := Metadata{ModelDir: modelDir, SafetensorsPath: opts.SafetensorsPath, Config: cfg, Summary: summary}
+	meta := Metadata{ModelDir: modelDir, SafetensorsPath: opts.SafetensorsPath, Config: cfg, Summary: summary, Capabilities: CurrentCapabilities()}
 	if proc, ok, err := config.ReadMiniCPMVProcessorConfig(modelDir); err != nil {
 		return meta, err
 	} else if ok {
