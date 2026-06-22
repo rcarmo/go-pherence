@@ -86,6 +86,7 @@ make minicpmv-check
 make model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
 make minicpmv-coverage-pending
 make minicpmv-version
+make minicpmv-support-summary
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 bin/minicpmvinspect -capabilities
