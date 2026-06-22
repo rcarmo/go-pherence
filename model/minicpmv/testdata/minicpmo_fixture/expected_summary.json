@@ -1,0 +1,16 @@
+{
+  "model_type": "minicpm-o",
+  "architecture": "MiniCPMOForCausalLM",
+  "text_model_type": "qwen2",
+  "vision_model_type": "siglip_vision_model",
+  "audio_model_type": "whisper_encoder",
+  "hidden_size": 3584,
+  "vision_hidden_size": 1152,
+  "audio_hidden_size": 1280,
+  "num_query": 64,
+  "resampler_grid": 8,
+  "image_patch_token_id": 151642,
+  "audio_patch_token_id": 151653,
+  "metadata_ready": true,
+  "runtime_ready": false
+}
