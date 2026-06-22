@@ -10,6 +10,8 @@ make models-download-small
 make models-download-qwen
 make models-download-qwen3tts
 make models-download-lfm2
+make models-download-minicpmv
+make models-download-minicpmo
 make models-download-gemma4
 make models-download-speaker
 make models-download-one MODEL=qwen3.6-27b-mlx4-mtp
@@ -22,9 +24,13 @@ make models-download-one MODEL=qwen3.6-27b-mlx4-mtp MODEL_DOWNLOAD_FLAGS='--forc
 make models-list MODEL_DOWNLOAD_FLAGS='--group qwen'
 make models-list MODEL_DOWNLOAD_FLAGS='--group qwen3tts'
 make models-list MODEL_DOWNLOAD_FLAGS='--group lfm2'
+make models-list MODEL_DOWNLOAD_FLAGS='--group minicpmv'
+make models-list MODEL_DOWNLOAD_FLAGS='--group minicpmo'
 python3 scripts/download_models.py --dry-run --group gemma4
 python3 scripts/download_models.py --dry-run --group speaker
 ```
+
+MiniCPM-V/O checkpoints are gated on some Hugging Face mirrors. `make models-download-minicpmv` fetches the combined MiniCPM-V/O group, while `make models-download-minicpmo` fetches only MiniCPM-O.
 
 The downloader uses `huggingface_hub.snapshot_download`; install it with:
 
@@ -302,6 +308,39 @@ go run ./cmd/qwen/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -
 ```
 
 `qwenmtpmeta` inspects config/tensor metadata without entering the full model loader. `qwenmtpsynth` runs a tiny deterministic native-MTP synthetic path. `qwenmtpsmoke` loads a real native-MTP head and runs a synthetic hidden-state forward pass. `qwen36run` is the real-checkpoint CPU smoke runner.
+
+## `minicpmvinspect` — MiniCPM-V/O metadata and prompt inspection
+
+`cmd/minicpmvinspect` is the safe first step for OpenBMB MiniCPM-V and MiniCPM-O checkpoints. It reads `config.json`, processor/tokenizer/generation sidecars, optional safetensors headers, and optional image files, then reports prompt placeholders, image/audio special tokens, text/vision/resampler/audio plans, slice-mode planning, and readiness gates without running full tensor execution.
+
+```bash
+make minicpmv-check
+make minicpmv-inspect
+
+GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
+  -model models/minicpm-v-2.6 \
+  -json
+
+GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
+  -model models/minicpm-v-2.6 \
+  -safetensors models/minicpm-v-2.6/model.safetensors \
+  -require-tensors-ready \
+  -require-shapes-ready
+
+GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
+  -model models/minicpm-o-2.6 \
+  -prompt "Compare these inputs." \
+  -images 2
+```
+
+Useful flags:
+
+- `-json` — emit the full machine-readable report.
+- `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
+- `-image PATH` — decode PNG/JPEG and run the configured pure-Go BCHW image preprocessing path.
+- `-prompt TEXT` / `-images N` — customize image/audio placeholder preview construction.
+- `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready` — exit non-zero for progressively stricter scaffold readiness checks.
+- `-require-runtime-ready` — expected to fail until full MiniCPM-V/O tensor execution lands.
 
 ## `qwen3ttsinspect` — Qwen3-TTS metadata and prompt inspection
 
