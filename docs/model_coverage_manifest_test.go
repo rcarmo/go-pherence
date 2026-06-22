@@ -134,6 +134,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"tensor_group_readiness":       "../model/minicpmv/tensors.go",
 		"tensor_shape_validation":      "../model/minicpmv/tensor_shape_validation.go",
 		"tensor_info_summary":          "../model/minicpmv/tensor_info_summary.go",
+		"tensor_header_byte_summary":   "../model/minicpmv/tensor_info_summary.go",
 		"text_execution_plan":          "../model/minicpmv/text_plan.go",
 		"vision_execution_plan":        "../model/minicpmv/vision_plan.go",
 		"resampler_tensor_plan":        "../model/minicpmv/resampler_plan.go",
