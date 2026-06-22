@@ -316,6 +316,7 @@ go run ./cmd/qwen/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -
 ```bash
 make minicpmv-check
 make minicpmv-inspect
+make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-json'
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
   -model models/minicpm-v-2.6 \
