@@ -31,6 +31,7 @@ type report struct {
 	SlicePlan            minicpmv.SlicePlan                  `json:"slice_plan"`
 	ResamplerPlan        *minicpmv.ResamplerTensorPlan       `json:"resampler_plan,omitempty"`
 	RuntimePlan          minicpmv.RuntimePlan                `json:"runtime_plan"`
+	ReadinessReport      minicpmv.ReadinessReport            `json:"readiness_report"`
 	Config               config.MiniCPMVConfig               `json:"config,omitempty"`
 }
 
@@ -90,6 +91,7 @@ func main() {
 		SlicePlan:            meta.SlicePlan,
 		ResamplerPlan:        meta.ResamplerPlan,
 		RuntimePlan:          meta.RuntimePlan,
+		ReadinessReport:      meta.ReadinessReport,
 	}
 	if prompt, err := minicpmv.BuildPromptText(*promptText, *promptImages, meta.Summary, meta.Tokenizer, minicpmv.PromptTextOptions{}); err == nil {
 		out.PromptText = &prompt
@@ -195,6 +197,7 @@ func printText(r report) {
 		fmt.Printf("  resampler: bindings=%d ready=%v missing=%v counts=%v\n", len(r.ResamplerPlan.Bindings), r.ResamplerPlan.Ready, r.ResamplerPlan.MissingRequired, r.ResamplerPlan.Counts)
 	}
 	fmt.Printf("  plan:      config=%v processor=%v tokenizer=%v specials=%v tensors=%v preprocess=%v prompt=%v runtime=%v\n", r.RuntimePlan.ConfigReady, r.RuntimePlan.ProcessorReady, r.RuntimePlan.TokenizerReady, r.RuntimePlan.SpecialTokensReady, r.RuntimePlan.TensorMetadataReady, r.RuntimePlan.ImagePreprocessReady, r.RuntimePlan.PromptPlanningReady, r.RuntimePlan.RuntimeReady)
+	fmt.Printf("  readiness: metadata=%v tensors=%v shapes=%v runtime=%v blockers=%d\n", r.ReadinessReport.MetadataReady, r.ReadinessReport.TensorReady, r.ReadinessReport.ShapesReady, r.ReadinessReport.RuntimeReady, len(r.ReadinessReport.Blockers))
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
 }
 
