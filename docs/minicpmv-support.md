@@ -76,6 +76,7 @@ make minicpmv-inspect
 make minicpmv-version
 make minicpmv-capabilities
 make minicpmv-pending-runtime
+make minicpmv-coverage-pending
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 make minicpmv-fixture-ready

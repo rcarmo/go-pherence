@@ -84,6 +84,7 @@ make models-download-minicpmv
 make models-download-minicpmo
 make minicpmv-check
 make model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
+make minicpmv-coverage-pending
 make minicpmv-version
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
