@@ -23,6 +23,7 @@ make model-coverage-next-runtime-json
 # add -blocker-package model/qwen3tts, model/lfm2, or backends/nvidia, or -blocker-kind cpu/nvidia/streaming, to scope roadmap/next-runtime output
 # emits phase/kind-numbered, dependency-ordered runtime blocker checklists with package/fixture hints, short descriptions, prerequisites, and validation hints
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
+make model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
 make model-coverage-references-pending
 make model-coverage-runtime-pending
 make model-coverage-execution-pending
@@ -82,6 +83,7 @@ Useful commands:
 make models-download-minicpmv
 make models-download-minicpmo
 make minicpmv-check
+make model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
 make minicpmv-version
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
