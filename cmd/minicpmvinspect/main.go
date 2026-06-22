@@ -40,6 +40,7 @@ func main() {
 	modelDir := flag.String("model", "", "MiniCPM-V/O Hugging Face model directory")
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
+	capabilitiesOnly := flag.Bool("capabilities", false, "print MiniCPM-V/O implementation capability summary without requiring -model")
 	safetensorsPath := flag.String("safetensors", "", "optional safetensors file path; defaults to model.safetensors or sharded index in -model")
 	imagePath := flag.String("image", "", "optional image path to decode/preprocess using MiniCPM-V/O metadata")
 	promptText := flag.String("prompt", "Describe the image.", "prompt text used for the MiniCPM-V/O image-placeholder preview")
@@ -50,8 +51,21 @@ func main() {
 	requireShapes := flag.Bool("require-shapes-ready", false, "fail unless local safetensor header shapes match normalized MiniCPM-V/O config dimensions")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless full MiniCPM-V/O runtime tensor execution is ready")
 	flag.Parse()
+	if *capabilitiesOnly {
+		caps := minicpmv.CurrentCapabilities()
+		if *asJSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(caps); err != nil {
+				fatal(err)
+			}
+			return
+		}
+		printCapabilities(caps)
+		return
+	}
 	if *modelDir == "" {
-		fmt.Fprintln(os.Stderr, "usage: minicpmvinspect -model PATH [-json] [-require-config-ready]")
+		fmt.Fprintln(os.Stderr, "usage: minicpmvinspect -model PATH [-json] [-require-config-ready] or minicpmvinspect -capabilities [-json]")
 		os.Exit(2)
 	}
 	meta, err := minicpmv.LoadMetadataWithOptions(*modelDir, minicpmv.MetadataOptions{SafetensorsPath: *safetensorsPath})
@@ -209,6 +223,15 @@ func printText(r report) {
 		fmt.Printf("  blocker:   %s\n", blocker)
 	}
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
+}
+
+func printCapabilities(c minicpmv.Capabilities) {
+	fmt.Printf("MiniCPM-V/O capabilities:\n")
+	fmt.Printf("  metadata:  config=%v processor=%v tokenizer=%v generation=%v template=%v\n", c.ConfigParsing, c.ProcessorMetadata, c.TokenizerMetadata, c.GenerationMetadata, c.ChatTemplateSummary)
+	fmt.Printf("  prompts:   image=%v audio=%v multimodal=%v special_tokens=%v/%v\n", c.ImagePromptPlanning, c.AudioPromptPlanning, c.MultimodalPromptPlanning, c.ImageSpecialTokens, c.AudioSpecialTokens)
+	fmt.Printf("  tensors:   inventory=%v shapes=%v explicit_safetensors=%v\n", c.TensorInventory, c.TensorShapeValidation, c.ExplicitSafetensorsPath)
+	fmt.Printf("  plans:     text=%v vision=%v resampler=%v audio=%v readiness=%v\n", c.TextExecutionPlan, c.VisionExecutionPlan, c.ResamplerTensorPlan, c.AudioExecutionPlan, c.ReadinessReport)
+	fmt.Printf("  runtime:   text=%v vision=%v resampler=%v audio=%v end_to_end=%v\n", c.TextRuntimeGeneration, c.VisionTowerRuntime, c.ResamplerRuntime, c.AudioEncoderRuntime, c.EndToEndGeneration)
 }
 
 func fatal(err error) {

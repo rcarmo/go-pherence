@@ -319,6 +319,9 @@ make minicpmv-inspect
 make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-json'
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
+  -capabilities
+
+GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
   -model models/minicpm-v-2.6 \
   -json
 
@@ -336,6 +339,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
 
 Useful flags:
 
+- `-capabilities` — print implemented-vs-pending MiniCPM-V/O capability summary without requiring `-model`.
 - `-json` — emit the full machine-readable report.
 - `-safetensors PATH` — inspect one explicit safetensors file; otherwise the command tries `model.safetensors.index.json` and `model.safetensors` under `-model`.
 - `-image PATH` — decode PNG/JPEG and run the configured pure-Go BCHW image preprocessing path.
