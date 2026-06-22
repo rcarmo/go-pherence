@@ -44,6 +44,7 @@ func main() {
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
 	capabilitiesOnly := flag.Bool("capabilities", false, "print MiniCPM-V/O implementation capability summary without requiring -model")
 	showVersion := flag.Bool("version", false, "print MiniCPM-V/O support version/status without requiring -model")
+	supportSummary := flag.Bool("support-summary", false, "print MiniCPM-V/O support summary without requiring -model")
 	pendingSteps := flag.Bool("pending-runtime-steps", false, "print pending MiniCPM-V/O runtime implementation steps without requiring -model")
 	fixturePath := flag.Bool("fixture-path", false, "print committed MiniCPM-O metadata fixture path without requiring -model")
 	fixtureSummary := flag.Bool("fixture-summary", false, "print committed MiniCPM-O expected summary without requiring -model")
@@ -61,13 +62,13 @@ func main() {
 	requireShapes := flag.Bool("require-shapes-ready", false, "fail unless local safetensor header shapes match normalized MiniCPM-V/O config dimensions")
 	requireRuntime := flag.Bool("require-runtime-ready", false, "fail unless full MiniCPM-V/O runtime tensor execution is ready")
 	flag.Parse()
+	if *supportSummary {
+		printSupportSummary(minicpmv.CurrentSupportSummary(), *asJSON)
+		return
+	}
 	if *showVersion {
 		if *asJSON {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(minicpmv.CurrentSupportSummary()); err != nil {
-				fatal(err)
-			}
+			printSupportSummary(minicpmv.CurrentSupportSummary(), true)
 			return
 		}
 		fmt.Printf("%s %s\n", minicpmv.SupportVersion, minicpmv.RuntimeStatusPending)
@@ -333,6 +334,18 @@ func printText(r report) {
 		fmt.Printf("  blocker:   %s\n", blocker)
 	}
 	fmt.Printf("  status:    %s\n", s.RuntimeNote)
+}
+
+func printSupportSummary(s minicpmv.SupportSummary, asJSON bool) {
+	if asJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(s); err != nil {
+			fatal(err)
+		}
+		return
+	}
+	fmt.Printf("MiniCPM-V/O support: version=%s status=%s pending=%d\n", s.SupportVersion, s.RuntimeStatus, len(s.PendingRuntimeSteps))
 }
 
 func printCapabilities(c minicpmv.Capabilities) {

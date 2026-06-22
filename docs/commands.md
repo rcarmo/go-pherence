@@ -331,6 +331,9 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
   -version
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
+  -support-summary
+
+GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
   -capabilities
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
@@ -365,6 +368,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
 Useful flags:
 
 - `-version` — print the MiniCPM-V/O support scaffold version and runtime status without requiring `-model`.
+- `-support-summary` — print version, runtime status, capabilities, and pending runtime steps without requiring `-model`.
 - `-pending-runtime-steps` — print the remaining MiniCPM-V/O runtime implementation steps without requiring `-model`.
 - `-capabilities` — print implemented-vs-pending MiniCPM-V/O capability summary without requiring `-model`; combine with `-require-capabilities-ready` for a model-free CI consistency gate.
 - `-fixture-path` — print the committed MiniCPM-O metadata fixture path without requiring `-model`.
