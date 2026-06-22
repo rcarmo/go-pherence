@@ -20,7 +20,7 @@ type report struct {
 }
 
 func main() {
-	modelDir := flag.String("model", "", "MiniCPM-V Hugging Face model directory")
+	modelDir := flag.String("model", "", "MiniCPM-V/O Hugging Face model directory")
 	asJSON := flag.Bool("json", false, "emit JSON report")
 	showConfig := flag.Bool("show-config", false, "include decoded config in JSON output")
 	requireConfig := flag.Bool("require-config-ready", false, "fail unless MiniCPM-V config and prompt-planning metadata are valid")
@@ -66,7 +66,7 @@ func main() {
 
 func printText(r report) {
 	s := r.Summary
-	fmt.Printf("MiniCPM-V model: %s\n", r.ModelPath)
+	fmt.Printf("MiniCPM-V/O model: %s\n", r.ModelPath)
 	fmt.Printf("  arch:      %s model_type=%s runtime_ready=%v\n", s.Architecture, s.ModelType, s.RuntimeReady)
 	fmt.Printf("  text:      type=%s hidden=%d layers=%d heads=%d kv_heads=%d head_dim=%d intermediate=%d vocab=%d\n", s.TextModelType, s.HiddenSize, s.Layers, s.Heads, s.KVHeads, s.HeadDim, s.IntermediateSize, s.VocabSize)
 	fmt.Printf("  vision:    type=%s hidden=%d layers=%d heads=%d image=%d patch=%d slice_mode=%v\n", s.VisionModelType, s.VisionHiddenSize, s.VisionLayers, s.VisionHeads, s.ImageSize, s.PatchSize, s.SliceMode)

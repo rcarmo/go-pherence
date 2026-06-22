@@ -1,12 +1,12 @@
-# MiniCPM-V support
+# MiniCPM-V / MiniCPM-O support
 
-This note tracks support for OpenBMB MiniCPM-V checkpoints from <https://github.com/openbmb/MiniCPM-V>.
+This note tracks support for OpenBMB MiniCPM-V and MiniCPM-O checkpoints from <https://github.com/openbmb/MiniCPM-V>.
 
 ## Current scope
 
 Implemented:
 
-- Hugging Face config parsing for the MiniCPM-V family in `loader/config`.
+- Hugging Face config parsing for the MiniCPM-V/MiniCPM-O family in `loader/config`.
   - Accepts original `omnilmm` / `OmniLMMForCausalLM` style configs.
   - Accepts newer nested `MiniCPMV*` configs with `text_config`, `vision_config`, and `resampler_config`.
 - Normalized readiness summary with text dimensions, vision dimensions, resampler shape, image token IDs, slice-mode flag, and runtime note.
@@ -62,7 +62,7 @@ Not implemented yet:
 
 - Full EVA02/SigLIP vision tower tensor loading/execution.
 - Resampler tensor loading/execution beyond tensor-name inventory.
-- MiniCPM/Qwen2/Mistral text-backbone weight mapping for MiniCPM-V checkpoints.
+- MiniCPM/Qwen2/Mistral text-backbone weight mapping for MiniCPM-V/O checkpoints.
 - End-to-end image+text generation command.
 - GPU/SIMD parity gates for the vision tower and resampler.
 

@@ -5,10 +5,11 @@ import (
 	"path/filepath"
 )
 
-// MiniCPMVConfig captures the Hugging Face/OpenBMB MiniCPM-V family config
-// shape. Published checkpoints use trust_remote_code and have evolved from the
-// original OmniLMM/Mistral text stack to MiniCPM/Qwen2 text backbones, so this
-// struct intentionally accepts both top-level and nested text/vision fields.
+// MiniCPMVConfig captures the Hugging Face/OpenBMB MiniCPM-V/MiniCPM-O family
+// config shape. Published checkpoints use trust_remote_code and have evolved
+// from the original OmniLMM/Mistral text stack to MiniCPM/Qwen2 text backbones,
+// so this struct intentionally accepts both top-level and nested text/vision
+// fields.
 type MiniCPMVConfig struct {
 	Architectures       []string                 `json:"architectures"`
 	ModelType           string                   `json:"model_type"`
@@ -125,7 +126,7 @@ func ReadMiniCPMVConfig(dir string) (MiniCPMVConfig, error) {
 func ValidateMiniCPMVConfig(cfg MiniCPMVConfig) error {
 	s := cfg.MiniCPMVSummary()
 	if !isMiniCPMVModelType(s.ModelType) && !hasMiniCPMVArchitecture(cfg.Architectures) {
-		return fmt.Errorf("unsupported MiniCPM-V model_type=%q architectures=%v", cfg.ModelType, cfg.Architectures)
+		return fmt.Errorf("unsupported MiniCPM-V/O model_type=%q architectures=%v", cfg.ModelType, cfg.Architectures)
 	}
 	if s.HiddenSize <= 0 || s.Layers <= 0 || s.Heads <= 0 || s.VocabSize <= 0 {
 		return fmt.Errorf("invalid MiniCPM-V text dimensions: hidden=%d layers=%d heads=%d vocab=%d", s.HiddenSize, s.Layers, s.Heads, s.VocabSize)
@@ -185,13 +186,13 @@ func (cfg MiniCPMVConfig) MiniCPMVSummary() MiniCPMVSummary {
 	if cfg.SliceMode != nil {
 		s.SliceMode = *cfg.SliceMode
 	}
-	s.RuntimeNote = "config/prompt planning supported; full EVA/SigLIP vision tower and language generation tensor execution pending"
+	s.RuntimeNote = "config/prompt planning supported for MiniCPM-V/O; full EVA/SigLIP vision tower and language generation tensor execution pending"
 	return s
 }
 
 func isMiniCPMVModelType(t string) bool {
 	switch t {
-	case "minicpmv", "minicpm_v", "minicpm-v", "omnilmm":
+	case "minicpmv", "minicpm_v", "minicpm-v", "minicpmo", "minicpm_o", "minicpm-o", "omnilmm":
 		return true
 	default:
 		return false
@@ -201,7 +202,7 @@ func isMiniCPMVModelType(t string) bool {
 func hasMiniCPMVArchitecture(arch []string) bool {
 	for _, a := range arch {
 		switch a {
-		case "MiniCPMV", "MiniCPMVForCausalLM", "MiniCPMVChatModel", "OmniLMMForCausalLM":
+		case "MiniCPMV", "MiniCPMVForCausalLM", "MiniCPMVChatModel", "MiniCPMO", "MiniCPMOForCausalLM", "MiniCPMOChatModel", "OmniLMMForCausalLM":
 			return true
 		}
 	}

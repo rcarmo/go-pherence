@@ -51,6 +51,23 @@ func TestMiniCPMVConfigNestedSummary(t *testing.T) {
 	}
 }
 
+func TestMiniCPMOConfigNestedSummary(t *testing.T) {
+	cfg := MiniCPMVConfig{
+		Architectures:   []string{"MiniCPMOForCausalLM"},
+		ModelType:       "minicpm-o",
+		TextConfig:      &MiniCPMVTextConfig{ModelType: "qwen2", HiddenSize: 3584, NumHiddenLayers: 28, NumAttentionHeads: 28, NumKeyValueHeads: 4, IntermediateSize: 18944, VocabSize: 151666},
+		VisionConfig:    &MiniCPMVVisionConfig{ModelType: "siglip_vision_model", HiddenSize: 1152, NumHiddenLayers: 27, NumAttentionHeads: 16, ImageSize: 448, PatchSize: 14},
+		ResamplerConfig: &MiniCPMVResamplerConfig{NumQuery: 64, NumHeads: 28, KVDim: 1152},
+	}
+	if err := ValidateMiniCPMVConfig(cfg); err != nil {
+		t.Fatalf("ValidateMiniCPMVConfig MiniCPM-O: %v", err)
+	}
+	s := cfg.MiniCPMVSummary()
+	if s.ModelType != "minicpm-o" || s.Architecture != "MiniCPMOForCausalLM" || s.TextModelType != "qwen2" {
+		t.Fatalf("bad MiniCPM-O summary: %+v", s)
+	}
+}
+
 func TestMiniCPMVConfigRejectsNonSquareQuery(t *testing.T) {
 	cfg := MiniCPMVConfig{Architectures: []string{"MiniCPMVForCausalLM"}, ModelType: "minicpmv", HiddenSize: 8, NumHiddenLayers: 1, NumAttentionHeads: 1, VocabSize: 10, NumQuery: 63}
 	if err := ValidateMiniCPMVConfig(cfg); err == nil {
