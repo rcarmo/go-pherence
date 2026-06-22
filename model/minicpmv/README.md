@@ -49,6 +49,8 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
 
 ## Validation
 
+A compact committed MiniCPM-O fixture lives under `testdata/minicpmo_fixture` and exercises aggregate metadata, audio metadata, special-token resolution, and multimodal prompt preview construction.
+
 Use the project-level gate:
 
 ```bash

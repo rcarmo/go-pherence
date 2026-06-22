@@ -1,0 +1,12 @@
+{
+  "tokenizer_class": "Qwen2Tokenizer",
+  "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}<image>{{ message['content'] }}{% elif message['role'] == 'assistant' %}{{ message['content'] }}{% endif %}{% endfor %}",
+  "image_token": "<image>",
+  "im_start": "<im_start>",
+  "im_end": "<im_end>",
+  "im_patch": "<im_patch>",
+  "audio_token": "<audio>",
+  "audio_start": "<audio_start>",
+  "audio_end": "<audio_end>",
+  "audio_patch": "<audio_patch>"
+}
