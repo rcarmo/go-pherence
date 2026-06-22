@@ -47,7 +47,7 @@ This directory contains the durable backend, model, validation, and research not
 - [diffusiongemma-support.md](diffusiongemma-support.md) — DiffusionGemma block-diffusion text generation metadata, sparse native text path, and native runtime plan.
 - [diffusiongemma-status.md](diffusiongemma-status.md) — current DiffusionGemma implementation status snapshot and remaining readiness gaps.
 - [ideogram4-support.md](ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, AVX2 FP8 backend notes, and current GPU limitation.
-- [minicpmv-support.md](minicpmv-support.md) — OpenBMB MiniCPM-V/O config parsing, prompt/image-token planning, and remaining vision-language tensor execution work.
+- [minicpmv-support.md](minicpmv-support.md) — OpenBMB MiniCPM-V/O config/processor/tokenizer/generation metadata, image/audio prompt planning, tensor readiness, capabilities, and remaining tensor execution work.
 - [qwen3-tts-support.md](qwen3-tts-support.md) — Qwen3-TTS repository mapping, roadmap, and implementation guidance.
 - [lfm2-moe-support.md](lfm2-moe-support.md) — LFM2.5-8B-A1B hybrid conv/attention MoE support roadmap.
 - [gemma4-precision.md](gemma4-precision.md) — Gemma4 GPU correctness and precision notes.
