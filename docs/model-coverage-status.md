@@ -63,6 +63,27 @@ It validates:
 
 Whole-tree dry compiles are still useful, but currently fail in unrelated experimental Spacemit IME2 and `tmp/diarize` packages.
 
+## MiniCPM-V/O
+
+Status: metadata, tokenizer/processor/generation sidecars, image/audio prompt placeholders, image preprocessing, slice planning, tensor inventory/shape validation, text/vision/resampler/audio execution planning, explicit safetensors inspection, and inspector readiness gates are implemented. Full tensor execution is not implemented.
+
+Implemented package/command surface:
+
+- `loader/config/minicpmv*.go` — MiniCPM-V/O config, processor, tokenizer/chat-template, generation, and audio metadata sidecar parsing.
+- `model/minicpmv` — image/audio/multimodal prompt planning, image preprocessing and image-file decode, slice plan, special-token resolution, tensor inventory/shape validation, text/vision/resampler/audio plans, resampler tensor binding, embedding injection boundary, and aggregate metadata loader.
+- `cmd/minicpmvinspect` — metadata/prompt/tensor/image inspector with `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready`, and expected-failing `-require-runtime-ready` gates.
+- `make minicpmv-check` — focused scaffold validation with synthetic MiniCPM-O sidecars plus a tiny explicit safetensors fixture.
+
+Useful commands:
+
+```bash
+make models-download-minicpmv
+make models-download-minicpmo
+make minicpmv-check
+bin/minicpmvinspect -model models/minicpm-v-2.6 -json
+bin/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.6/model.safetensors -require-shapes-ready
+```
+
 ## Qwen3-TTS
 
 Status: metadata, tokenizer/prompt, fixture scaffold, reference-coverage reporting, tensor readiness, shape validation, runtime request fixture coverage, runtime sizing, and inspector coverage are implemented. Audio generation is not implemented.
