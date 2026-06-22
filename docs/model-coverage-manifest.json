@@ -201,6 +201,7 @@
         "audio_special_tokens": true,
         "image_prompt_builder": true,
         "audio_prompt_builder": true,
+        "audio_token_span_planning": true,
         "multimodal_prompt_builder": true,
         "image_preprocessing": true,
         "image_file_inspection": true,

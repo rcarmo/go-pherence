@@ -127,6 +127,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"generation_metadata":                "../loader/config/minicpmv_generation.go",
 		"image_prompt_builder":               "../model/minicpmv/prompt_text.go",
 		"audio_prompt_builder":               "../model/minicpmv/audio_prompt.go",
+		"audio_token_span_planning":          "../model/minicpmv/audio_prompt_plan.go",
 		"multimodal_prompt_builder":          "../model/minicpmv/multimodal_prompt.go",
 		"image_preprocessing":                "../model/minicpmv/image_processor.go",
 		"image_file_inspection":              "../model/minicpmv/image_io.go",
