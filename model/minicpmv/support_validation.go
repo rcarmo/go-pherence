@@ -4,8 +4,8 @@ import "fmt"
 
 func ValidateSupportSummary(s SupportSummary) error {
 	c := s.Capabilities
-	if s.SupportVersion == "" || s.RuntimeStatus != RuntimeStatusPending {
-		return fmt.Errorf("MiniCPM-V/O support summary version/status invalid: version=%q status=%q", s.SupportVersion, s.RuntimeStatus)
+	if s.SupportVersion == "" || s.RuntimeStatus != RuntimeStatusPending || s.RuntimeRoadmapPath == "" {
+		return fmt.Errorf("MiniCPM-V/O support summary version/status/roadmap invalid: version=%q status=%q roadmap=%q", s.SupportVersion, s.RuntimeStatus, s.RuntimeRoadmapPath)
 	}
 	if !c.ConfigParsing || !c.ProcessorMetadata || !c.TokenizerMetadata || !c.MultimodalPromptPlanning || !c.TensorShapeValidation || !c.ValidationGate {
 		return fmt.Errorf("MiniCPM-V/O scaffold capabilities are incomplete: %+v", c)

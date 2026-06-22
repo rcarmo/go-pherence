@@ -349,7 +349,7 @@ func printSupportSummary(s minicpmv.SupportSummary, asJSON bool) {
 		}
 		return
 	}
-	fmt.Printf("MiniCPM-V/O support: version=%s status=%s pending=%d\n", s.SupportVersion, s.RuntimeStatus, len(s.PendingRuntimeSteps))
+	fmt.Printf("MiniCPM-V/O support: version=%s status=%s roadmap=%s pending=%d\n", s.SupportVersion, s.RuntimeStatus, s.RuntimeRoadmapPath, len(s.PendingRuntimeSteps))
 }
 
 func printCapabilities(c minicpmv.Capabilities) {
