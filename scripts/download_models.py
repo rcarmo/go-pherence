@@ -141,16 +141,21 @@ def main(argv: list[str]) -> int:
             print(f"skip {s.name}: exists ({marker.read_text().strip()})")
             continue
         print(f"download {s.repo} -> {dest}")
-        snapshot_download(
-            repo_id=s.repo,
-            revision=args.revision,
-            local_dir=str(dest),
-            local_dir_use_symlinks=False,
-            token=token,
-            local_files_only=args.local_files_only,
-            allow_patterns=args.allow_pattern or None,
-            ignore_patterns=args.ignore_pattern or None,
-        )
+        try:
+            snapshot_download(
+                repo_id=s.repo,
+                revision=args.revision,
+                local_dir=str(dest),
+                local_dir_use_symlinks=False,
+                token=token,
+                local_files_only=args.local_files_only,
+                allow_patterns=args.allow_pattern or None,
+                ignore_patterns=args.ignore_pattern or None,
+            )
+        except Exception as exc:
+            print(f"error: failed to download {s.name} from {s.repo}: {exc}", file=sys.stderr)
+            print("hint: some OpenBMB MiniCPM repositories are gated; set HF_TOKEN/HUGGINGFACE_HUB_TOKEN or use --local-files-only with a populated HF cache", file=sys.stderr)
+            return 1
         marker.write_text(s.repo + "\n", encoding="utf-8")
     return 0
 
