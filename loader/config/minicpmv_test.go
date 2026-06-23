@@ -61,7 +61,7 @@ func TestMiniCPMOConfigNestedSummary(t *testing.T) {
 		ModelType:       "minicpm-o",
 		TextConfig:      &MiniCPMVTextConfig{ModelType: "qwen2", HiddenSize: 3584, NumHiddenLayers: 28, NumAttentionHeads: 28, NumKeyValueHeads: 4, IntermediateSize: 18944, VocabSize: 151666},
 		VisionConfig:    &MiniCPMVVisionConfig{ModelType: "siglip_vision_model", HiddenSize: 1152, NumHiddenLayers: 27, NumAttentionHeads: 16, ImageSize: 448, PatchSize: 14},
-		AudioConfig:     &MiniCPMOAudioConfig{ModelType: "whisper_encoder", HiddenSize: 1280, NumHiddenLayers: 32, NumAttentionHeads: 20, FeatureSize: 128, NumMelBins: 128, SamplingRate: 16000},
+		AudioConfig:     &MiniCPMOAudioConfig{ModelType: "whisper_encoder", DModel: 1280, EncoderLayers: 32, EncoderHeads: 20, NumMelBins: 128, SamplingRate: 16000},
 		ResamplerConfig: &MiniCPMVResamplerConfig{NumQuery: 64, NumHeads: 28, KVDim: 1152},
 	}
 	if err := ValidateMiniCPMVConfig(cfg); err != nil {
@@ -73,6 +73,17 @@ func TestMiniCPMOConfigNestedSummary(t *testing.T) {
 	}
 	if s.AudioModelType != "whisper_encoder" || s.AudioHiddenSize != 1280 || s.AudioMelBins != 128 || s.AudioSamplingRate != 16000 {
 		t.Fatalf("bad MiniCPM-O audio summary: %+v", s)
+	}
+}
+
+func TestMiniCPMVConfigTopLevelAliases(t *testing.T) {
+	cfg := MiniCPMVConfig{Architectures: []string{"MiniCPMV"}, ModelType: "minicpmv", HiddenSize: 2304, NumHiddenLayers: 40, NumAttentionHeads: 36, NumKeyValueHeads: 36, VocabSize: 122753, QueryNum: 64, ImageSize: 448, PatchSize: 14, MaxSliceNums: 9}
+	if err := ValidateMiniCPMVConfig(cfg); err != nil {
+		t.Fatalf("ValidateMiniCPMVConfig aliases: %v", err)
+	}
+	s := cfg.MiniCPMVSummary()
+	if s.NumQuery != 64 || s.ResamplerGrid != 8 || s.MaxSliceNums != 9 {
+		t.Fatalf("bad alias summary: %+v", s)
 	}
 }
 

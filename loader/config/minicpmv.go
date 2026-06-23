@@ -30,8 +30,10 @@ type MiniCPMVConfig struct {
 	MMVisionTower       string                   `json:"mm_vision_tower"`
 	UseMMProj           bool                     `json:"use_mm_proj"`
 	NumQuery            int                      `json:"num_query"`
+	QueryNum            int                      `json:"query_num"`
 	ImageSize           int                      `json:"image_size"`
 	PatchSize           int                      `json:"patch_size"`
+	MaxSliceNums        int                      `json:"max_slice_nums"`
 	UseImageStartEnd    *bool                    `json:"use_im_start_end"`
 	ImageTokenID        int                      `json:"image_token_id"`
 	ImageStartTokenID   int                      `json:"im_start_token_id"`
@@ -73,9 +75,13 @@ type MiniCPMVVisionConfig struct {
 type MiniCPMOAudioConfig struct {
 	ModelType         string `json:"model_type"`
 	HiddenSize        int    `json:"hidden_size"`
+	DModel            int    `json:"d_model"`
 	NumHiddenLayers   int    `json:"num_hidden_layers"`
+	EncoderLayers     int    `json:"encoder_layers"`
 	NumAttentionHeads int    `json:"num_attention_heads"`
+	EncoderHeads      int    `json:"encoder_attention_heads"`
 	IntermediateSize  int    `json:"intermediate_size"`
+	EncoderFFNDim     int    `json:"encoder_ffn_dim"`
 	FeatureSize       int    `json:"feature_size"`
 	NumMelBins        int    `json:"num_mel_bins"`
 	SamplingRate      int    `json:"sampling_rate"`
@@ -196,14 +202,14 @@ func (cfg MiniCPMVConfig) MiniCPMVSummary() MiniCPMVSummary {
 	}
 	if cfg.AudioConfig != nil {
 		s.AudioModelType = cfg.AudioConfig.ModelType
-		s.AudioHiddenSize = cfg.AudioConfig.HiddenSize
-		s.AudioLayers = cfg.AudioConfig.NumHiddenLayers
-		s.AudioHeads = cfg.AudioConfig.NumAttentionHeads
-		s.AudioFeatureSize = cfg.AudioConfig.FeatureSize
+		s.AudioHiddenSize = firstPositive(cfg.AudioConfig.HiddenSize, cfg.AudioConfig.DModel)
+		s.AudioLayers = firstPositive(cfg.AudioConfig.NumHiddenLayers, cfg.AudioConfig.EncoderLayers)
+		s.AudioHeads = firstPositive(cfg.AudioConfig.NumAttentionHeads, cfg.AudioConfig.EncoderHeads)
+		s.AudioFeatureSize = firstPositive(cfg.AudioConfig.FeatureSize, cfg.AudioConfig.NumMelBins)
 		s.AudioMelBins = cfg.AudioConfig.NumMelBins
 		s.AudioSamplingRate = cfg.AudioConfig.SamplingRate
 	}
-	s.NumQuery = firstPositive(cfg.NumQuery, resamplerInt(cfg.ResamplerConfig, "numquery"))
+	s.NumQuery = firstPositive(cfg.NumQuery, cfg.QueryNum, resamplerInt(cfg.ResamplerConfig, "numquery"))
 	s.ResamplerGrid = firstPositive(resamplerInt(cfg.ResamplerConfig, "grid"), sqrtInt(s.NumQuery))
 	s.ResamplerHeads = firstPositive(resamplerInt(cfg.ResamplerConfig, "heads"), s.HiddenSize/128)
 	if cfg.UseImageStartEnd == nil {
@@ -217,7 +223,7 @@ func (cfg MiniCPMVConfig) MiniCPMVSummary() MiniCPMVSummary {
 	if cfg.SliceMode != nil {
 		s.SliceMode = *cfg.SliceMode
 	}
-	s.MaxSliceNums = cfg.SliceConfig.MaxSliceNums
+	s.MaxSliceNums = firstPositive(cfg.SliceConfig.MaxSliceNums, cfg.MaxSliceNums)
 	s.ScaleResolution = cfg.SliceConfig.ScaleResolution
 	s.SlicePatchSize = cfg.SliceConfig.PatchSize
 	s.RuntimeNote = "config/prompt planning supported for MiniCPM-V/O; full EVA/SigLIP vision tower and language generation tensor execution pending"

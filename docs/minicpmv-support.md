@@ -9,6 +9,7 @@ Implemented:
 - Hugging Face config parsing for the MiniCPM-V/MiniCPM-O family in `loader/config`.
   - Accepts original `omnilmm` / `OmniLMMForCausalLM` style configs.
   - Accepts newer nested `MiniCPMV*`/`MiniCPMO*` configs with `text_config`, `vision_config`, optional MiniCPM-O `audio_config`, and `resampler_config`.
+  - Handles real OpenBMB aliases such as `query_num`, top-level `max_slice_nums`, and Whisper-style audio encoder dimensions (`d_model`, `encoder_layers`, `encoder_attention_heads`).
 - Normalized readiness summary with text dimensions, vision dimensions, resampler shape, image token IDs, slice-mode flag, and runtime note.
 - Prompt image/audio-token planning in `model/minicpmv`.
   - Validates the upstream `<im_start> <im_patch>... <im_end>` image contract and MiniCPM-O `<audio_start> <audio_patch>... <audio_end>` audio contract.
