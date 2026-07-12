@@ -4,11 +4,25 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/runtime/kv"
 )
+
+func TestHandleChatCompletionsRejectsUnsupportedTemperature(t *testing.T) {
+	s := &Server{}
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"messages":[{"role":"user","content":"hello"}],"temperature":0.7}`))
+	rr := httptest.NewRecorder()
+	s.handleChatCompletions(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "unsupported sampling control: temperature") {
+		t.Fatalf("unexpected error: %s", rr.Body.String())
+	}
+}
 
 func TestHandleModelsListsPresets(t *testing.T) {
 	s := &Server{

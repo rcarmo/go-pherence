@@ -1,5 +1,7 @@
 # Commands
 
+See [Runtime tuning contract](tuning.md) for the shared placement, KV-cache, and generation controls and the explicit llama.cpp compatibility limits.
+
 ## Model asset downloads
 
 Downloaded model assets live under `models/`, which is ignored by git except for source packages. Use the helper script directly or via Make targets:

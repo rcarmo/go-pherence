@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +41,17 @@ ubatch = 1024
 	glm := presets[1]
 	if glm.ID != "glm-reap" || glm.GPULayers != 30 || glm.BatchSize != 1024 {
 		t.Fatalf("unexpected glm preset: %+v", glm)
+	}
+}
+
+func TestParseModelPresetsRejectsKnownUnsupportedTuningControl(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "models.ini")
+	if err := os.WriteFile(path, []byte("[unsupported]\nmodel = /models/a.gguf\ntop-p = 0.9\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ParseModelPresets(path)
+	if err == nil || !strings.Contains(err.Error(), `unsupported llama.cpp tuning control "top-p"`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

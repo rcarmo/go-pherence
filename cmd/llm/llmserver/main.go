@@ -149,6 +149,11 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Temperature != 0 {
+		http.Error(w, "unsupported sampling control: temperature (only greedy temperature=0 is available)", http.StatusBadRequest)
+		return
+	}
+
 	maxTokens := req.MaxTokens
 	if maxTokens < 0 {
 		http.Error(w, "max_tokens must be non-negative", http.StatusBadRequest)

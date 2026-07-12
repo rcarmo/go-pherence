@@ -71,8 +71,15 @@ func ParseModelPresets(path string) ([]ModelPreset, error) {
 			cur.CacheTypeK = val
 		case "cache-type-v", "cache_type_v":
 			cur.CacheTypeV = val
+		case "flash-attn", "flash_attn", "split-mode", "split_mode", "tensor-split", "tensor_split", "main-gpu", "main_gpu",
+			"temperature", "temp", "top-k", "top_k", "top-p", "top_p", "min-p", "min_p", "typical-p", "typical_p",
+			"repeat-penalty", "repeat_penalty", "presence-penalty", "presence_penalty", "frequency-penalty", "frequency_penalty",
+			"mirostat", "seed":
+			return nil, fmt.Errorf("%s:%d: unsupported llama.cpp tuning control %q", path, lineNo, key)
 		default:
-			// Preserve llama.cpp compatibility by ignoring unknown server flags.
+			// Ignore unrelated llama-server keys so shared preset files remain usable.
+			// Known graph, placement, KV, and sampling controls are handled above or
+			// explicitly rejected rather than silently changing semantics.
 		}
 		if err != nil {
 			return nil, err
