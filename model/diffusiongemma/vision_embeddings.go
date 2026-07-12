@@ -192,6 +192,32 @@ func maxFullStreamingVisionPatches() int {
 	return n
 }
 
+func addVisionPatchXYPositionEmbedding(row []float32, pos FloatTensor, px, py int) error {
+	if len(pos.Shape) != 3 || pos.Shape[0] != 2 {
+		return fmt.Errorf("DiffusionGemma position embedding shape %v want [2,positions,hidden]", pos.Shape)
+	}
+	hidden := pos.Shape[2]
+	if hidden <= 0 || pos.Shape[1] <= 0 {
+		return fmt.Errorf("DiffusionGemma position embedding shape %v has non-positive extent", pos.Shape)
+	}
+	if len(row) != hidden {
+		return fmt.Errorf("DiffusionGemma position embedding row len=%d want hidden=%d", len(row), hidden)
+	}
+	want, ok := tensorElementCount(pos.Shape)
+	if !ok || len(pos.Data) != want {
+		return fmt.Errorf("DiffusionGemma position embedding data len=%d want %d for shape %v", len(pos.Data), want, pos.Shape)
+	}
+	if px < 0 || px >= pos.Shape[1] || py < 0 || py >= pos.Shape[1] {
+		return fmt.Errorf("DiffusionGemma position embedding coordinates (%d,%d) out of bounds for shape %v", px, py, pos.Shape)
+	}
+	xBase := px * hidden
+	yBase := pos.Shape[1]*hidden + py*hidden
+	for i := 0; i < hidden; i++ {
+		row[i] += pos.Data[xBase+i] + pos.Data[yBase+i]
+	}
+	return nil
+}
+
 func computeImagePatchHidden(pre Gemma4ImagePreprocessResult, weights *VisionWeights, shape Shape) ([]float32, int, error) {
 	if weights == nil {
 		return nil, 0, fmt.Errorf("DiffusionGemma image embeddings missing vision weights")
@@ -222,8 +248,11 @@ func computeImagePatchHidden(pre Gemma4ImagePreprocessResult, weights *VisionWei
 	if err != nil {
 		return nil, 0, err
 	}
-	if len(pos.Shape) != 3 || pos.Shape[2] != hidden || pos.Shape[1] < patches {
-		return nil, 0, fmt.Errorf("DiffusionGemma position embedding shape %v incompatible with patches=%d hidden=%d", pos.Shape, patches, hidden)
+	if len(pos.Shape) != 3 || pos.Shape[0] != 2 || pos.Shape[2] != hidden {
+		return nil, 0, fmt.Errorf("DiffusionGemma position embedding shape %v incompatible with hidden=%d; want [2,positions,%d]", pos.Shape, hidden, hidden)
+	}
+	if pos.Shape[1] < patchW || pos.Shape[1] < patchH {
+		return nil, 0, fmt.Errorf("DiffusionGemma position embedding shape %v incompatible with patch grid=%dx%d hidden=%d", pos.Shape, patchW, patchH, hidden)
 	}
 	stdBias, err := weights.CachedFloatTensor("model.encoder.vision_tower.std_bias")
 	if err != nil {
@@ -250,9 +279,11 @@ func computeImagePatchHidden(pre Gemma4ImagePreprocessResult, weights *VisionWei
 			if !bf16GemvNarrow(row, patchVec, proj, hidden, patchVecLen) {
 				return nil, 0, fmt.Errorf("DiffusionGemma patch projection rejected patch=%d", patchIndex)
 			}
-			posRow := pos.Data[patchIndex*hidden : (patchIndex+1)*hidden]
+			if err := addVisionPatchXYPositionEmbedding(row, pos, px, py); err != nil {
+				return nil, 0, err
+			}
 			for i := 0; i < hidden; i++ {
-				row[i] = (row[i]+posRow[i])*stdScale.Data[i] + stdBias.Data[i]
+				row[i] = row[i]*stdScale.Data[i] + stdBias.Data[i]
 			}
 		}
 	}

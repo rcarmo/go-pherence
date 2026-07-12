@@ -1,6 +1,9 @@
 package diffusiongemma
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestGemma4FlattenPatchBCHW(t *testing.T) {
 	// BCHW image: C0=[0..15], C1=[100..115], C2=[200..215].
@@ -47,6 +50,57 @@ func TestInsertImageEmbeddingsRequiresExactImageTokenCount(t *testing.T) {
 	img := ImageEmbeddingResult{Embeddings: []float32{1, 2, 3, 4}, Shape: [3]int{1, 2, 2}}
 	if _, err := InsertImageEmbeddings(emb, []int{258880, 7, 8}, img, 258880, 2); err == nil {
 		t.Fatal("expected image-token count mismatch")
+	}
+}
+
+func TestAddVisionPatchXYPositionEmbeddingSyntheticNonSquareGrid(t *testing.T) {
+	pos := FloatTensor{
+		Shape: []int{2, 3, 2},
+		Data: []float32{
+			1, 10,
+			2, 20,
+			3, 30,
+			100, 1000,
+			200, 2000,
+			300, 3000,
+		},
+	}
+	patchW, patchH := 2, 3
+	want := []struct {
+		px, py int
+		row    []float32
+	}{
+		{px: 0, py: 0, row: []float32{101, 1010}},
+		{px: 1, py: 0, row: []float32{102, 1020}},
+		{px: 0, py: 1, row: []float32{201, 2010}},
+		{px: 1, py: 1, row: []float32{202, 2020}},
+		{px: 0, py: 2, row: []float32{301, 3010}},
+		{px: 1, py: 2, row: []float32{302, 3020}},
+	}
+	for i, tc := range want {
+		if tc.px >= patchW || tc.py >= patchH {
+			t.Fatalf("bad test case %d coords=(%d,%d) grid=%dx%d", i, tc.px, tc.py, patchW, patchH)
+		}
+		row := []float32{0, 0}
+		if err := addVisionPatchXYPositionEmbedding(row, pos, tc.px, tc.py); err != nil {
+			t.Fatalf("coords=(%d,%d): %v", tc.px, tc.py, err)
+		}
+		for j := range tc.row {
+			if row[j] != tc.row[j] {
+				t.Fatalf("coords=(%d,%d) row[%d]=%v want %v full=%v", tc.px, tc.py, j, row[j], tc.row[j], row)
+			}
+		}
+	}
+}
+
+func TestAddVisionPatchXYPositionEmbeddingRejectsOutOfBounds(t *testing.T) {
+	pos := FloatTensor{Shape: []int{2, 3, 1}, Data: []float32{1, 2, 3, 10, 20, 30}}
+	for _, tc := range []struct{ px, py int }{{px: 3, py: 0}, {px: 0, py: 3}} {
+		row := []float32{0}
+		err := addVisionPatchXYPositionEmbedding(row, pos, tc.px, tc.py)
+		if err == nil || !strings.Contains(err.Error(), "out of bounds") {
+			t.Fatalf("coords=(%d,%d) err=%v want out-of-bounds", tc.px, tc.py, err)
+		}
 	}
 }
 
