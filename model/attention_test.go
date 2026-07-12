@@ -78,6 +78,21 @@ func TestAttentionLogitSoftcapIsGemma2Only(t *testing.T) {
 	}
 }
 
+func TestGemma2AttentionScaleByModelSize(t *testing.T) {
+	cfg := LlamaConfig{ModelType: "gemma2", HiddenSize: 4608, NumHeads: 32, NumLayers: 46}
+	if got, want := attentionScale(cfg, 256), float32(1.0/12.0); math.Abs(float64(got-want)) > 1e-7 {
+		t.Fatalf("27B scale=%g want=%g", got, want)
+	}
+	cfg.NumLayers = 42
+	if got, want := attentionScale(cfg, 256), float32(1.0/16.0); math.Abs(float64(got-want)) > 1e-7 {
+		t.Fatalf("9B scale=%g want=%g", got, want)
+	}
+	cfg.NumLayers = 1
+	if err := validateGemma2AttentionConfig(cfg); err == nil {
+		t.Fatal("ambiguous Gemma2 layer count accepted")
+	}
+}
+
 func TestGQAAttentionSoftcapAppliesBeforeSoftmax(t *testing.T) {
 	q := []float32{1}
 	k := []float32{-20, 0, 20}
@@ -118,6 +133,17 @@ func TestGGUFAttentionSoftcapMatchesSharedCPUFormula(t *testing.T) {
 	m.gqaAttentionInto(got, make([]float32, 3), q, k, v, 3, 1, 1, 1)
 	want := gqaAttentionScaleSoftcap(q, k, v, 3, 1, 1, 1, 1, 2)
 	assertCloseFloat32Slice(t, "gguf-softcap", got, want, 1e-6)
+}
+
+func TestGGUFGemma2_27BAttentionScale(t *testing.T) {
+	q := []float32{1}
+	k := []float32{-2, 0, 2}
+	v := []float32{1, 3, 9}
+	m := &GGUFLlama{Config: GGUFLlamaConfig{Architecture: "gemma2", NumLayers: 46, HiddenSize: 4, NumHeads: 1}}
+	got := make([]float32, 1)
+	m.gqaAttentionInto(got, make([]float32, 3), q, k, v, 3, 1, 1, 1)
+	want := gqaAttentionScale(q, k, v, 3, 1, 1, 1, 0.5)
+	assertCloseFloat32Slice(t, "gguf-gemma2-27b-scale", got, want, 1e-6)
 }
 
 func assertCloseFloat32Slice(t *testing.T, name string, got, want []float32, tol float64) {

@@ -34,7 +34,7 @@ func TestGGUFParseConfigGemma2AttentionSoftcap(t *testing.T) {
 	meta := map[string]any{
 		"general.architecture":           "gemma2",
 		"gemma2.embedding_length":        uint32(4),
-		"gemma2.block_count":             uint32(1),
+		"gemma2.block_count":             uint32(46),
 		"gemma2.attention.head_count":    uint32(1),
 		"gemma2.attention.head_count_kv": uint32(1),
 		"gemma2.feed_forward_length":     uint32(8),
@@ -48,6 +48,13 @@ func TestGGUFParseConfigGemma2AttentionSoftcap(t *testing.T) {
 	}
 	if cfg.AttentionLogitSoftcap != 50 {
 		t.Fatalf("attention softcap=%g want 50", cfg.AttentionLogitSoftcap)
+	}
+	if err := cfg.ValidateRuntimeSupported(); err != nil {
+		t.Fatalf("valid Gemma2 27B config rejected: %v", err)
+	}
+	cfg.NumLayers = 45
+	if err := cfg.ValidateRuntimeSupported(); err == nil || !strings.Contains(err.Error(), "attention scale is ambiguous") {
+		t.Fatalf("ambiguous Gemma2 config error=%v", err)
 	}
 	meta["gemma2.attn_logit_softcapping"] = float32(-1)
 	if _, err := ggufParseConfig(&gguf.GGUF{Meta: meta}); err == nil || !strings.Contains(err.Error(), "must be non-negative") {

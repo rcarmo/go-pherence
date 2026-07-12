@@ -9,7 +9,6 @@ package model
 
 import (
 	"fmt"
-	"math"
 	"os"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -56,7 +55,7 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 	if B > maxInt/kvDim {
 		return nil
 	}
-	defaultScale := float32(1.0 / math.Sqrt(float64(headDim)))
+	defaultScale := attentionScale(cfg, headDim)
 
 	prefillDebugf("[prefill] batch=%d tokens, %d layers\n", B, len(g.Layers))
 

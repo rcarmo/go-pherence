@@ -16,7 +16,6 @@ package model
 // validated subset and falls back to the sequential loop otherwise.
 
 import (
-	"math"
 	"os"
 	"runtime"
 	"sync"
@@ -327,7 +326,7 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 		// is fully populated, so this runs in parallel across the prompt.
 		kCacheL := kvCacheK[l]
 		vCacheL := kvCacheV[l]
-		scale := float32(1.0 / math.Sqrt(float64(layerHeadDim)))
+		scale := attentionScale(cfg, layerHeadDim)
 		attnErr := parallelForTokens(B, func(b int, scores []float32) bool {
 			pos := b
 			seqLen := pos + 1

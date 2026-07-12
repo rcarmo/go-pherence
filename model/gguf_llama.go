@@ -462,6 +462,17 @@ func loadGGUFMoEExpertMatrices(g *gguf.GGUF, layerIdx int) (router *gguf.QuantMa
 }
 
 func (c GGUFLlamaConfig) ValidateRuntimeSupported() error {
+	if c.Architecture == "gemma2" {
+		switch c.NumLayers {
+		case 26, 42:
+		case 46:
+			if c.NumHeads <= 0 || c.HiddenSize <= 0 || c.HiddenSize%c.NumHeads != 0 {
+				return fmt.Errorf("Gemma2 27B attention scale requires embedding length divisible by head count (hidden=%d heads=%d)", c.HiddenSize, c.NumHeads)
+			}
+		default:
+			return fmt.Errorf("unsupported Gemma2 layer count %d: attention scale is ambiguous", c.NumLayers)
+		}
+	}
 	if err := c.ValidateQwenNextHybridMetadata(); err != nil {
 		return err
 	}
@@ -953,7 +964,11 @@ func (m *GGUFLlama) ForwardState(st *GGUFForwardState, tokenID, step int, kvK, k
 // q: [nH × hDim], kCache: [seqLen × kvDim], vCache: [seqLen × kvDim]
 // Returns attention output [nH × hDim].
 func (m *GGUFLlama) gqaAttentionInto(out, scores, q, kCache, vCache []float32, seqLen, nH, nKV, hDim int) {
-	scale := float32(1.0 / math.Sqrt(float64(hDim)))
+	scaleDim := hDim
+	if m.Config.Architecture == "gemma2" && m.Config.NumLayers == 46 {
+		scaleDim = m.Config.HiddenSize / m.Config.NumHeads
+	}
+	scale := float32(1.0 / math.Sqrt(float64(scaleDim)))
 	groupSize := nH / nKV
 	kvDim := nKV * hDim
 	for i := 0; i < nH*hDim; i++ {

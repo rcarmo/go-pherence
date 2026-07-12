@@ -1235,10 +1235,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 
 				// Attention (with per-layer headDim and scale)
-				attnScale := float32(1.0 / math.Sqrt(float64(layerHeadDim)))
-				if cfg.ModelType == "gemma4_text" {
-					attnScale = 1.0
-				}
+				attnScale := attentionScale(cfg, layerHeadDim)
 
 				var attnKVPtr *nvidia.Buffer
 				if !forceLayerCPUAttn && g.kvGPU_K[kvLayer] != nil {

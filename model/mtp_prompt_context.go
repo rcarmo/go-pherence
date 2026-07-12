@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -306,7 +305,7 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 			gqaAttentionScaleSoftcapInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, 1.0, attentionLogitSoftcap(cfg))
 		}
 	} else {
-		gqaAttentionScaleSoftcapInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))), attentionLogitSoftcap(cfg))
+		gqaAttentionScaleSoftcapInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, attentionScale(cfg, layerHeadDim), attentionLogitSoftcap(cfg))
 	}
 	traceMTPVerifierLayer0Internal("attn_pre_o", layerIdx, pos, attnOut)
 	traceMTPSummary("attn_pre_o", traceRow, layerIdx, pos, attnOut)

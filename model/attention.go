@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -11,6 +12,40 @@ func attentionLogitSoftcap(cfg LlamaConfig) float32 {
 		return 0
 	}
 	return float32(cfg.AttentionLogitSoftcapping)
+}
+
+// attentionScale mirrors llama_model_gemma2::load_arch_hparams: Gemma2 27B
+// scales by the configured Q-head width (hidden/heads), whereas 2B and 9B
+// use the actual K/Q projection head width. Gemma4 supplies already-scaled Q/K.
+func validateGemma2AttentionConfig(cfg LlamaConfig) error {
+	if cfg.ModelType != "gemma2" && cfg.ModelType != "gemma2_text" {
+		return nil
+	}
+	switch cfg.NumLayers {
+	case 26, 42:
+		return nil
+	case 46:
+		if cfg.NumHeads <= 0 || cfg.HiddenSize <= 0 || cfg.HiddenSize%cfg.NumHeads != 0 {
+			return fmt.Errorf("Gemma2 27B attention scale requires hidden_size divisible by num_attention_heads (hidden=%d heads=%d)", cfg.HiddenSize, cfg.NumHeads)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported Gemma2 layer count %d: attention scale is ambiguous", cfg.NumLayers)
+	}
+}
+
+func attentionScale(cfg LlamaConfig, headDim int) float32 {
+	if cfg.ModelType == "gemma4_text" || cfg.ModelType == "gemma4" {
+		return 1
+	}
+	scaleDim := headDim
+	if (cfg.ModelType == "gemma2" || cfg.ModelType == "gemma2_text") && cfg.NumLayers == 46 && cfg.NumHeads > 0 && cfg.HiddenSize%cfg.NumHeads == 0 {
+		scaleDim = cfg.HiddenSize / cfg.NumHeads
+	}
+	if scaleDim <= 0 {
+		return 0
+	}
+	return float32(1.0 / math.Sqrt(float64(scaleDim)))
 }
 
 func gqaAttention(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int) []float32 {

@@ -217,10 +217,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			if !okOff || !okEnd || kOff < 0 || kEnd < kOff || kEnd > len(kvCacheK[kvLayer]) || kEnd > len(kvCacheV[kvLayer]) {
 				return nil, true, fmt.Errorf("verifier batch layer %d row %d KV range [%d,%d) exceeds source layer %d K/V=%d/%d", l, b, kOff, kEnd, kvLayer, len(kvCacheK[kvLayer]), len(kvCacheV[kvLayer]))
 			}
-			scale := float32(1.0 / math.Sqrt(float64(qkv.HeadDim)))
-			if m.Config.ModelType == "gemma4_text" {
-				scale = 1.0
-			}
+			scale := attentionScale(m.Config, qkv.HeadDim)
 			outRow := bAttnOut[b*qkv.QDim : (b+1)*qkv.QDim]
 			qRow := qkv.Q[b*qkv.QDim : (b+1)*qkv.QDim]
 			if m.Config.ModelType == "gemma4_text" && tryPureGoFlashAttentionInto(outRow, qRow, kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], l, batch.Plan.Positions[b], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale) {
