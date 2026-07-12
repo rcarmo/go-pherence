@@ -69,6 +69,9 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 			if !simd.RMSNormTo(q[pos*hiddenSize+h*headDim:pos*hiddenSize+(h+1)*headDim], layer.QNorm, 1e-6) || !simd.RMSNormTo(k[pos*hiddenSize+h*headDim:pos*hiddenSize+(h+1)*headDim], layer.KNorm, 1e-6) {
 				return fmt.Errorf("DiffusionGemma vision q/k norm rejected row %d head %d", pos, h)
 			}
+			if !simd.RMSNormNoScaleTo(v[pos*hiddenSize+h*headDim:pos*hiddenSize+(h+1)*headDim], 1e-6) {
+				return fmt.Errorf("DiffusionGemma vision v norm rejected row %d head %d", pos, h)
+			}
 		}
 	}
 	attnOut := make([]float32, seqLen*hiddenSize)
@@ -79,7 +82,7 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 			maxScore := float32(math.Inf(-1))
 			for j := 0; j < seqLen; j++ {
 				kv := k[j*hiddenSize+h*headDim : j*hiddenSize+(h+1)*headDim]
-				s := visionDot(qv, kv) / float32(math.Sqrt(float64(headDim)))
+				s := visionDot(qv, kv)
 				scores[j] = s
 				if s > maxScore {
 					maxScore = s
