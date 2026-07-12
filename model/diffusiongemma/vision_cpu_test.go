@@ -5,6 +5,19 @@ import (
 	"testing"
 )
 
+func TestApplyVisionRoPE2DSeparatesXYChannels(t *testing.T) {
+	x := []float32{1, 2, 3, 4, 5, 6, 7, 8}
+	if !applyVisionRoPE2D(x, 8, 1, 0, 10000) {
+		t.Fatal("RoPE rejected valid head")
+	}
+	want := []float32{-1.984111, 1.959901, 2.462378, 4.019800, 5, 6, 7, 8}
+	for i := range want {
+		if math.Abs(float64(x[i]-want[i])) > 1e-5 {
+			t.Fatalf("x[%d]=%.6f want %.6f full=%v", i, x[i], want[i], x)
+		}
+	}
+}
+
 func TestRunVisionLayerF32RejectsBadShape(t *testing.T) {
 	layer := tinyVisionLayerF32(2, 1, 2, 3)
 	if err := RunVisionLayerF32([]float32{1, 2, 3}, 2, 2, 1, 2, layer); err == nil {

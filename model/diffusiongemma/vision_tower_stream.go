@@ -6,7 +6,7 @@ import "fmt"
 // real vision layers one at a time. This avoids retaining multiple large F32
 // vision layers at once, which is important before attempting broader/full tower
 // validation on the local checkpoint.
-func RunVisionTowerF32StreamingPrefix(hidden []float32, seqLen int, shape Shape, weights *VisionWeights, count int) error {
+func RunVisionTowerF32StreamingPrefix(hidden []float32, seqLen int, shape Shape, weights *VisionWeights, count int, patchGrid ...int) error {
 	if weights == nil {
 		return fmt.Errorf("DiffusionGemma streaming vision tower missing weights")
 	}
@@ -31,6 +31,13 @@ func RunVisionTowerF32StreamingPrefix(hidden []float32, seqLen int, shape Shape,
 		layer, err := LoadVisionLayerF32(weights, layerIndex)
 		if err != nil {
 			return err
+		}
+		if len(patchGrid) != 0 {
+			if len(patchGrid) != 2 || patchGrid[0] <= 0 || patchGrid[1] <= 0 || patchGrid[0]*patchGrid[1] != seqLen {
+				return fmt.Errorf("DiffusionGemma streaming vision tower invalid patch grid %v for seq=%d", patchGrid, seqLen)
+			}
+			layer.PatchWidth, layer.PatchHeight = patchGrid[0], patchGrid[1]
+			layer.RoPETheta = 10000
 		}
 		if err := RunVisionLayerF32(hidden, seqLen, shape.VisionHiddenSize, shape.VisionHeads, headDim, layer); err != nil {
 			return fmt.Errorf("DiffusionGemma streaming vision tower layer %d: %w", layerIndex, err)

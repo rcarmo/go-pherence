@@ -138,7 +138,7 @@ func ComputeImageEmbeddingsWithStreamingTowerPrefix(pre Gemma4ImagePreprocessRes
 	if err != nil {
 		return ImageEmbeddingResult{}, err
 	}
-	if err := ApplyVisionTowerStreamingPrefixF32(vision, patches, shape, weights, prefixLayers); err != nil {
+	if err := ApplyVisionTowerStreamingPrefixF32(vision, patches, shape, weights, prefixLayers, pre.Width/shape.PatchSize, pre.Height/shape.PatchSize); err != nil {
 		return ImageEmbeddingResult{}, err
 	}
 	return projectVisionPatchesToImageEmbeddings(vision, pre.Width/shape.PatchSize, pre.Height/shape.PatchSize, weights, shape)
@@ -298,14 +298,14 @@ func ApplyVisionTowerPrefixF32(vision []float32, patches int, shape Shape, tower
 	return RunVisionTowerF32(vision, patches, shape.VisionHiddenSize, shape.VisionHeads, headDim, towerPrefix)
 }
 
-func ApplyVisionTowerStreamingPrefixF32(vision []float32, patches int, shape Shape, weights *VisionWeights, count int) error {
+func ApplyVisionTowerStreamingPrefixF32(vision []float32, patches int, shape Shape, weights *VisionWeights, count int, patchGrid ...int) error {
 	if count == 0 {
 		return nil
 	}
 	if err := validateVisionTowerPrefixShape(vision, patches, shape); err != nil {
 		return err
 	}
-	return RunVisionTowerF32StreamingPrefix(vision, patches, shape, weights, count)
+	return RunVisionTowerF32StreamingPrefix(vision, patches, shape, weights, count, patchGrid...)
 }
 
 func validateVisionTowerPrefixShape(vision []float32, patches int, shape Shape) error {

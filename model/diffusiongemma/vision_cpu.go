@@ -26,6 +26,9 @@ type VisionLayerF32 struct {
 	MLPUpProj              []float32
 	MLPDownProj            []float32
 	MLPIntermediate        int
+	PatchWidth             int
+	PatchHeight            int
+	RoPETheta              float32
 }
 
 func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int, layer VisionLayerF32) error {
@@ -66,8 +69,22 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 			return fmt.Errorf("DiffusionGemma vision attention projection rejected row %d", pos)
 		}
 		for h := 0; h < heads; h++ {
-			if !simd.RMSNormTo(q[pos*hiddenSize+h*headDim:pos*hiddenSize+(h+1)*headDim], layer.QNorm, 1e-6) || !simd.RMSNormTo(k[pos*hiddenSize+h*headDim:pos*hiddenSize+(h+1)*headDim], layer.KNorm, 1e-6) {
+			qh := q[pos*hiddenSize+h*headDim : pos*hiddenSize+(h+1)*headDim]
+			kh := k[pos*hiddenSize+h*headDim : pos*hiddenSize+(h+1)*headDim]
+			if !simd.RMSNormTo(qh, layer.QNorm, 1e-6) || !simd.RMSNormTo(kh, layer.KNorm, 1e-6) {
 				return fmt.Errorf("DiffusionGemma vision q/k norm rejected row %d head %d", pos, h)
+			}
+			if layer.PatchWidth > 0 {
+				if layer.PatchHeight <= 0 || layer.PatchWidth*layer.PatchHeight != seqLen {
+					return fmt.Errorf("DiffusionGemma vision RoPE grid=%dx%d does not match seq=%d", layer.PatchWidth, layer.PatchHeight, seqLen)
+				}
+				theta := layer.RoPETheta
+				if theta == 0 {
+					theta = 10000
+				}
+				if !applyVisionRoPE2D(qh, headDim, pos%layer.PatchWidth, pos/layer.PatchWidth, theta) || !applyVisionRoPE2D(kh, headDim, pos%layer.PatchWidth, pos/layer.PatchWidth, theta) {
+					return fmt.Errorf("DiffusionGemma vision RoPE rejected head_dim=%d", headDim)
+				}
 			}
 			if !simd.RMSNormNoScaleTo(v[pos*hiddenSize+h*headDim:pos*hiddenSize+(h+1)*headDim], 1e-6) {
 				return fmt.Errorf("DiffusionGemma vision v norm rejected row %d head %d", pos, h)
@@ -146,6 +163,26 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 		}
 	}
 	return nil
+}
+
+func applyVisionRoPE2D(x []float32, headDim, posX, posY int, theta float32) bool {
+	if len(x) != headDim || headDim <= 0 || headDim%4 != 0 || theta <= 0 {
+		return false
+	}
+	spatialDim := headDim / 2
+	half := spatialDim / 2
+	positions := [2]int{posX, posY}
+	for axis, position := range positions {
+		offset := axis * spatialDim
+		for i := 0; i < half; i++ {
+			angle := float64(position) / math.Pow(float64(theta), float64(2*i)/float64(spatialDim))
+			c, s := float32(math.Cos(angle)), float32(math.Sin(angle))
+			a, b := x[offset+i], x[offset+half+i]
+			x[offset+i] = a*c - b*s
+			x[offset+half+i] = b*c + a*s
+		}
+	}
+	return true
 }
 
 func visionMatrixShape(w []float32, rows, cols int) bool {
