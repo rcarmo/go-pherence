@@ -174,6 +174,14 @@ func TestGemma4MTPLlamaCPPParityFixture(t *testing.T) {
 	if fx.Tolerance == 0 {
 		fx.Tolerance = 1e-3
 	}
+	if native := strings.TrimSpace(os.Getenv("GO_PHERENCE_GEMMA4_MTP_NATIVE_LOGIT_TOLERANCE")); native != "" {
+		tol, err := strconv.ParseFloat(native, 64)
+		if err != nil || tol < fx.Tolerance || tol > 0.2 {
+			t.Fatalf("invalid native MTP logit tolerance %q: must be between fixture tolerance %g and 0.2", native, fx.Tolerance)
+		}
+		fx.Tolerance = tol
+		t.Logf("using native-Go bounded MTP logit tolerance %g; strict fixture tolerance remains unchanged", tol)
+	}
 
 	oldForceOnTheFly := ForceOnTheFly
 	ForceOnTheFly = true

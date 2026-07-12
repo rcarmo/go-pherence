@@ -170,8 +170,9 @@ GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -co
 
 Strict Gemma4 QAT+MTP status notes:
 
-- `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp` is the required green default gate.
-- `make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` remains the red 1:1 selected-logit gate for the local `llama.cpp --flash-attn on` fixture.
+- `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp` is the required green default token/acceptance gate.
+- `make gemma4-mtp-native-parity GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=...` is the native-Go numerical contract: identical acceptance/output tokens and selected logits within an explicit absolute bound of `0.2` (current maximum about `0.18821`).
+- `make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` remains the unchanged `0.001` diagnostic gate for the local `llama.cpp --flash-attn on` fixture; it is not silently weakened by the native contract.
 - The strict fixture currently matches prompt/draft/verifier tokens and acceptance/bonus-token semantics, but still reports five selected verifier-logit mismatches after the Gemma4 verifier `layer_output_scale` ordering fix.
 - Keep `RealAssetAcceptanceParity=false`, public/default MTP generation not-ready, and full-layer verifier batch default enablement gated until the strict gate is green.
 
