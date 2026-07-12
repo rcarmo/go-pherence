@@ -76,6 +76,96 @@ func TestGemma4RealGGUFFullAttentionRoPEFactors(t *testing.T) {
 	}
 }
 
+func TestRoPEGrowsPastInitialCache(t *testing.T) {
+	m := &LlamaModel{Config: common.Config{MaxSeqLen: 8192, HeadDim: 8, NumHeads: 1, RopeTheta: 10000}}
+	m.precomputeRoPE()
+	if got := ropePositions(m.RopeFreqs, 4); got != initialRoPESeqCap {
+		t.Fatalf("initial positions=%d, want %d", got, initialRoPESeqCap)
+	}
+	want := buildRoPEFreqs(4096, 4, 8, 10000)
+	for _, pos := range []int{2047, 2048, 4095} {
+		freqs := m.ensureRoPE(pos)
+		if got := ropePositions(freqs, 4); got <= pos {
+			t.Fatalf("position %d: grown positions=%d, want at least %d", pos, got, pos+1)
+		}
+		off := (pos*4 + 3) * 2
+		if freqs[off] != want[off] || freqs[off+1] != want[off+1] {
+			t.Fatalf("position %d pair mismatch: got=(%g,%g) want=(%g,%g)", pos, freqs[off], freqs[off+1], want[off], want[off+1])
+		}
+	}
+}
+
+func TestGemma4LayerRoPESelectionPreservesLegacySemantics(t *testing.T) {
+	types := []string{"sliding_attention", "full_attention", "unknown"}
+	if !gemma4LayerUsesSWA(types, 0) {
+		t.Fatal("sliding_attention must use SWA RoPE")
+	}
+	if gemma4LayerUsesSWA(types, 1) {
+		t.Fatal("full_attention must use full RoPE")
+	}
+	if gemma4LayerUsesSWA(types, 2) {
+		t.Fatal("unknown explicit layer type must preserve legacy full-RoPE fallback")
+	}
+	if !gemma4LayerUsesSWA(types, 3) {
+		t.Fatal("missing layer type must preserve legacy SWA default")
+	}
+}
+
+func TestGemma4RoPEGrowthPreservesLoadedFullFactors(t *testing.T) {
+	cfg := common.Config{ModelType: "gemma4_text", MaxSeqLen: 8192, HeadDim: 8, GlobalHeadDim: 16, LayerTypes: []string{"full_attention"}}
+	factors := []float32{1, 2, 3, 4, 5, 6, 7, 8}
+	m := &LlamaModel{Config: cfg}
+	m.precomputeGemma4RoPEWithFullFactors(factors)
+	factors[0] = 99 // stored factors must not alias loader scratch storage
+	freqs, half := m.ensureGemma4RoPE(0, 4095)
+	if half != 8 || ropePositions(freqs, half) < 4096 {
+		t.Fatalf("grown full table half/positions=%d/%d, want 8/4096", half, ropePositions(freqs, half))
+	}
+	wantFactors := []float32{1, 2, 3, 4, 5, 6, 7, 8}
+	want := buildGemma4GGMLRoPEFreqsWithFactors(4096, 8, 16, 1000000, wantFactors)
+	off := (4095*8 + 0) * 2
+	if freqs[off] != want[off] || freqs[off+1] != want[off+1] {
+		t.Fatalf("position 4095 loaded-factor pair mismatch: got=(%g,%g) want=(%g,%g)", freqs[off], freqs[off+1], want[off], want[off+1])
+	}
+}
+
+func TestGemma4MTPDrafterRoPEGrowthPreservesLoadedFullFactors(t *testing.T) {
+	cfg := common.Config{ModelType: "gemma4_text", MaxSeqLen: 8192, HeadDim: 8, GlobalHeadDim: 16, LayerTypes: []string{"full_attention"}}
+	factors := []float32{1, 2, 3, 4, 5, 6, 7, 8}
+	d := &Gemma4MTPDrafter{Config: cfg}
+	d.precomputeGemma4RoPEWithFullFactors(factors)
+	factors[0] = 99
+	freqs, half := d.ensureGemma4RoPE(0, 4095)
+	want := buildGemma4GGMLRoPEFreqsWithFactors(4096, 8, 16, 1000000, []float32{1, 2, 3, 4, 5, 6, 7, 8})
+	off := (4095*8 + 0) * 2
+	if half != 8 || freqs[off] != want[off] || freqs[off+1] != want[off+1] {
+		t.Fatalf("drafter position 4095 mismatch half=%d got=(%g,%g) want=(%g,%g)", half, freqs[off], freqs[off+1], want[off], want[off+1])
+	}
+}
+
+func TestConcurrentRoPEGrowthCoversLargestPosition(t *testing.T) {
+	m := &LlamaModel{Config: common.Config{MaxSeqLen: 8192, HeadDim: 8, NumHeads: 1, RopeTheta: 10000}}
+	// Deliberately skip precomputeRoPE so the first-use state initialization is
+	// exercised concurrently as well as the table growth.
+	done := make(chan struct{}, 4)
+	for _, pos := range []int{2047, 2048, 3072, 4095} {
+		go func(pos int) {
+			_ = m.ensureRoPE(pos)
+			done <- struct{}{}
+		}(pos)
+	}
+	for range 4 {
+		<-done
+	}
+	state := m.ensureRoPEState()
+	state.mu.RLock()
+	covered := ropePositions(m.RopeFreqs, 4)
+	state.mu.RUnlock()
+	if covered < 4096 {
+		t.Fatalf("concurrent growth covers %d positions, want at least 4096", covered)
+	}
+}
+
 func TestGemma4FullAttentionRoPEUsesFullHeadFactors(t *testing.T) {
 	m := &LlamaModel{Config: common.Config{ModelType: "gemma4_text", MaxSeqLen: 8, HeadDim: 256, GlobalHeadDim: 512}}
 	m.precomputeGemma4RoPE()

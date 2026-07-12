@@ -145,26 +145,17 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 	}
 
 	// RoPE
-	if cfg.ModelType == "gemma4_text" && m.RopeFreqsSWA != nil {
-		isSWA := true
-		if len(cfg.LayerTypes) > layerIdx {
-			isSWA = cfg.LayerTypes[layerIdx] == "sliding_attention"
-		}
-		if isSWA {
-			applyRoPEPartial(q, m.RopeFreqsSWA, pos, numHeads, layerHeadDim, m.RopeHalfSWA)
-			if k != nil {
-				applyRoPEPartial(k, m.RopeFreqsSWA, pos, numKVHeads, layerHeadDim, m.RopeHalfSWA)
-			}
-		} else {
-			applyRoPEPartial(q, m.RopeFreqsFull, pos, numHeads, layerHeadDim, m.RopeHalfFull)
-			if k != nil {
-				applyRoPEPartial(k, m.RopeFreqsFull, pos, numKVHeads, layerHeadDim, m.RopeHalfFull)
-			}
+	if cfg.ModelType == "gemma4_text" {
+		freqs, rotHalf := m.ensureGemma4RoPE(layerIdx, pos)
+		applyRoPEPartial(q, freqs, pos, numHeads, layerHeadDim, rotHalf)
+		if k != nil {
+			applyRoPEPartial(k, freqs, pos, numKVHeads, layerHeadDim, rotHalf)
 		}
 	} else {
-		applyRoPE(q, m.RopeFreqs, pos, numHeads, layerHeadDim)
+		freqs := m.ensureRoPE(pos)
+		applyRoPE(q, freqs, pos, numHeads, layerHeadDim)
 		if k != nil {
-			applyRoPE(k, m.RopeFreqs, pos, numKVHeads, layerHeadDim)
+			applyRoPE(k, freqs, pos, numKVHeads, layerHeadDim)
 		}
 	}
 

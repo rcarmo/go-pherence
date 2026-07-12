@@ -314,8 +314,9 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 			}
 
 			// RoPE (standard path; Gemma4 dual-rope is excluded by eligibility).
-			applyRoPE(q, m.RopeFreqs, pos, numHeads, layerHeadDim)
-			applyRoPE(k, m.RopeFreqs, pos, layerKVHeads, layerHeadDim)
+			freqs := m.ensureRoPE(pos)
+			applyRoPE(q, freqs, pos, numHeads, layerHeadDim)
+			applyRoPE(k, freqs, pos, layerKVHeads, layerHeadDim)
 
 			// KV append (plain caches only).
 			kvCacheK[l] = append(kvCacheK[l], k...)

@@ -215,7 +215,7 @@ func (m *LlamaModel) validateMTPDrafterStepModelFull(d *Gemma4MTPDrafter, state 
 	return validateMTPDrafterExternalKV(d, externalKV)
 }
 
-func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float32, layerIdx int, externalKV *MTPDrafterExternalKV) ([]float32, error) {
+func runMTPDrafterQOnlyLayer(_ *LlamaModel, d *Gemma4MTPDrafter, hidden []float32, layerIdx int, externalKV *MTPDrafterExternalKV) ([]float32, error) {
 	if d == nil || layerIdx < 0 || layerIdx >= len(d.Layers) {
 		return nil, fmt.Errorf("invalid drafter layer %d", layerIdx)
 	}
@@ -248,37 +248,8 @@ func runMTPDrafterQOnlyLayer(m *LlamaModel, d *Gemma4MTPDrafter, hidden []float3
 	}
 	if d.Config.ModelType == "gemma4_text" {
 		pos := externalKV.SeqLen
-		isSWA := true
-		if layerIdx >= 0 && layerIdx < len(d.Config.LayerTypes) {
-			isSWA = d.Config.LayerTypes[layerIdx] != "full_attention"
-		}
-		if isSWA {
-			rotHalf := headDim / 2
-			freqs := []float32(nil)
-			if len(d.RopeFreqsSWA) > 0 && d.RopeHalfSWA > 0 {
-				rotHalf = d.RopeHalfSWA
-				freqs = d.RopeFreqsSWA
-			} else if m != nil && len(m.RopeFreqsSWA) > 0 && m.RopeHalfSWA > 0 {
-				rotHalf = m.RopeHalfSWA
-				freqs = m.RopeFreqsSWA
-			} else {
-				freqs = buildRoPEFreqs(pos+1, rotHalf, headDim, 10000)
-			}
-			applyRoPEPartial(q, freqs, pos, d.Config.NumHeads, headDim, rotHalf)
-		} else {
-			rotHalf := int(float64(headDim)*0.25) / 2
-			freqs := []float32(nil)
-			if len(d.RopeFreqsFull) > 0 && d.RopeHalfFull > 0 {
-				rotHalf = d.RopeHalfFull
-				freqs = d.RopeFreqsFull
-			} else if m != nil && len(m.RopeFreqsFull) > 0 && m.RopeHalfFull > 0 {
-				rotHalf = m.RopeHalfFull
-				freqs = m.RopeFreqsFull
-			} else {
-				freqs = buildRoPEFreqs(pos+1, rotHalf, headDim, 1000000)
-			}
-			applyRoPEPartial(q, freqs, pos, d.Config.NumHeads, headDim, rotHalf)
-		}
+		freqs, rotHalf := d.ensureGemma4RoPE(layerIdx, pos)
+		applyRoPEPartial(q, freqs, pos, d.Config.NumHeads, headDim, rotHalf)
 	}
 	kvHeads := drafterLayerKVHeads(d, layerIdx)
 	attnOut := drafterGQAAttention(d, q, externalKV.K[source], externalKV.V[source], externalKV.SeqLen, d.Config.NumHeads, kvHeads, headDim)

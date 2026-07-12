@@ -366,7 +366,7 @@ func (head *QwenNativeMTPHead) DraftStep(m *basemodel.LlamaModel, tokenID int, s
 	if len(head.Layers) == 0 {
 		return state, nil, 0, fmt.Errorf("Qwen native MTP head has no layers")
 	}
-	nextHidden, k, v, err := head.Layers[0].ForwardWithKV(cur, state.Pos, m.RopeFreqs, state.K, state.V, eps, meta)
+	nextHidden, k, v, err := head.Layers[0].ForwardWithKV(cur, state.Pos, m.RoPEFreqsAt(state.Pos), state.K, state.V, eps, meta)
 	if err != nil {
 		return state, nil, 0, err
 	}

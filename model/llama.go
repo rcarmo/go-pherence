@@ -1165,30 +1165,18 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 				}
 			}
 
-			// RoPE on Q (always) and K (only if HasKV)
-			if cfg.ModelType == "gemma4_text" && m.RopeFreqsSWA != nil {
-				// Gemma4: per-layer RoPE with different theta and partial rotation
-				isSWA := true
-				if len(cfg.LayerTypes) > l {
-					isSWA = cfg.LayerTypes[l] == "sliding_attention"
-				}
-				if isSWA {
-					// SWA: full rotation, theta=10k, head_dim=256
-					applyRoPEPartial(q, m.RopeFreqsSWA, pos, numHeads, layerHeadDim, m.RopeHalfSWA)
-					if k != nil {
-						applyRoPEPartial(k, m.RopeFreqsSWA, pos, layerKVHeads, layerHeadDim, m.RopeHalfSWA)
-					}
-				} else {
-					// Full: partial rotation (25%), theta=1M, head_dim=512
-					applyRoPEPartial(q, m.RopeFreqsFull, pos, numHeads, layerHeadDim, m.RopeHalfFull)
-					if k != nil {
-						applyRoPEPartial(k, m.RopeFreqsFull, pos, layerKVHeads, layerHeadDim, m.RopeHalfFull)
-					}
+			// RoPE on Q (always) and K (only if HasKV).
+			if cfg.ModelType == "gemma4_text" {
+				freqs, rotHalf := m.ensureGemma4RoPE(l, pos)
+				applyRoPEPartial(q, freqs, pos, numHeads, layerHeadDim, rotHalf)
+				if k != nil {
+					applyRoPEPartial(k, freqs, pos, layerKVHeads, layerHeadDim, rotHalf)
 				}
 			} else {
-				applyRoPE(q, m.RopeFreqs, pos, numHeads, layerHeadDim)
+				freqs := m.ensureRoPE(pos)
+				applyRoPE(q, freqs, pos, numHeads, layerHeadDim)
 				if k != nil {
-					applyRoPE(k, m.RopeFreqs, pos, layerKVHeads, layerHeadDim)
+					applyRoPE(k, freqs, pos, layerKVHeads, layerHeadDim)
 				}
 			}
 

@@ -260,26 +260,17 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 		traceMTPVerifierLayer0Internal("v_norm", layerIdx, pos, v)
 		traceMTPSummary("v_norm", traceRow, layerIdx, pos, v)
 	}
-	if cfg.ModelType == "gemma4_text" && m.RopeFreqsSWA != nil {
-		isSWA := true
-		if len(cfg.LayerTypes) > layerIdx {
-			isSWA = cfg.LayerTypes[layerIdx] == "sliding_attention"
-		}
-		if isSWA {
-			applyRoPEPartial(q, m.RopeFreqsSWA, pos, cfg.NumHeads, layerHeadDim, m.RopeHalfSWA)
-			if k != nil {
-				applyRoPEPartial(k, m.RopeFreqsSWA, pos, layerKVHeads, layerHeadDim, m.RopeHalfSWA)
-			}
-		} else {
-			applyRoPEPartial(q, m.RopeFreqsFull, pos, cfg.NumHeads, layerHeadDim, m.RopeHalfFull)
-			if k != nil {
-				applyRoPEPartial(k, m.RopeFreqsFull, pos, layerKVHeads, layerHeadDim, m.RopeHalfFull)
-			}
+	if cfg.ModelType == "gemma4_text" {
+		freqs, rotHalf := m.ensureGemma4RoPE(layerIdx, pos)
+		applyRoPEPartial(q, freqs, pos, cfg.NumHeads, layerHeadDim, rotHalf)
+		if k != nil {
+			applyRoPEPartial(k, freqs, pos, layerKVHeads, layerHeadDim, rotHalf)
 		}
 	} else {
-		applyRoPE(q, m.RopeFreqs, pos, cfg.NumHeads, layerHeadDim)
+		freqs := m.ensureRoPE(pos)
+		applyRoPE(q, freqs, pos, cfg.NumHeads, layerHeadDim)
 		if k != nil {
-			applyRoPE(k, m.RopeFreqs, pos, layerKVHeads, layerHeadDim)
+			applyRoPE(k, freqs, pos, layerKVHeads, layerHeadDim)
 		}
 	}
 	traceMTPVerifierLayer0Internal("q_pos", layerIdx, pos, q)

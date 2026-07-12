@@ -519,7 +519,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	{
 		headDimL := cfg.HeadDim
 		halfDim := headDimL / 2
-		maxSeqL := 2048
+		maxSeqL := ropePositions(m.RopeFreqs, halfDim)
 		csData := make([]float32, maxSeqL*headDimL)
 		for p := 0; p < maxSeqL; p++ {
 			for i := 0; i < halfDim; i++ {
@@ -1122,59 +1122,36 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					}
 				}
 
-				// RoPE: Gemma4 uses per-layer tables, others use global
+				// RoPE: device tables remain bounded; positions beyond them fall back
+				// to the concurrency-safe, on-demand CPU tables.
 				if cfg.ModelType == "gemma4_text" && g.ropeCosSinSWA != nil {
-					isSWA := true
-					if len(cfg.LayerTypes) > l {
-						isSWA = cfg.LayerTypes[l] == "sliding_attention"
+					isSWA := gemma4LayerUsesSWA(cfg.LayerTypes, l)
+					deviceFreqs := g.ropeCosSinSWA
+					if !isSWA {
+						deviceFreqs = g.ropeCosSinFull
 					}
-					if isSWA {
-						if !nvidia.DevRoPEPartial(g.q, g.ropeCosSinSWA, pos, numHeads, layerHeadDim, m.RopeHalfSWA) {
-							qd := g.q.Data()
-							applyRoPEPartial(qd, m.RopeFreqsSWA, pos, numHeads, layerHeadDim, m.RopeHalfSWA)
-							g.q.MarkDirty()
-						}
-						if cpuLayer.HasKV {
-							if !nvidia.DevRoPEPartial(g.k, g.ropeCosSinSWA, pos, layerKVHeads, layerHeadDim, m.RopeHalfSWA) {
-								kd3 := g.k.Data()
-								applyRoPEPartial(kd3, m.RopeFreqsSWA, pos, layerKVHeads, layerHeadDim, m.RopeHalfSWA)
-								g.k.MarkDirty()
-							}
-						}
-					} else {
-						if !nvidia.DevRoPEPartial(g.q, g.ropeCosSinFull, pos, numHeads, layerHeadDim, m.RopeHalfFull) {
-							qd := g.q.Data()
-							applyRoPEPartial(qd, m.RopeFreqsFull, pos, numHeads, layerHeadDim, m.RopeHalfFull)
-							g.q.MarkDirty()
-						}
-						if cpuLayer.HasKV {
-							if !nvidia.DevRoPEPartial(g.k, g.ropeCosSinFull, pos, layerKVHeads, layerHeadDim, m.RopeHalfFull) {
-								kd3 := g.k.Data()
-								applyRoPEPartial(kd3, m.RopeFreqsFull, pos, layerKVHeads, layerHeadDim, m.RopeHalfFull)
-								g.k.MarkDirty()
-							}
-						}
-					}
-				} else if g.ropeCosSin != nil && g.ropeCosSin.GPUPtr() != nil {
-					if !nvidia.DevRoPE(g.q, g.ropeCosSin, pos, numHeads, layerHeadDim) {
+					freqs, rotHalf := m.ensureGemma4RoPE(l, pos)
+					if !nvidia.DevRoPEPartial(g.q, deviceFreqs, pos, numHeads, layerHeadDim, rotHalf) {
 						qd := g.q.Data()
-						applyRoPE(qd, m.RopeFreqs, pos, numHeads, layerHeadDim)
+						applyRoPEPartial(qd, freqs, pos, numHeads, layerHeadDim, rotHalf)
 						g.q.MarkDirty()
 					}
-					if cpuLayer.HasKV {
-						if !nvidia.DevRoPE(g.k, g.ropeCosSin, pos, layerKVHeads, layerHeadDim) {
-							kd2 := g.k.Data()
-							applyRoPE(kd2, m.RopeFreqs, pos, layerKVHeads, layerHeadDim)
-							g.k.MarkDirty()
-						}
+					if cpuLayer.HasKV && !nvidia.DevRoPEPartial(g.k, deviceFreqs, pos, layerKVHeads, layerHeadDim, rotHalf) {
+						kd := g.k.Data()
+						applyRoPEPartial(kd, freqs, pos, layerKVHeads, layerHeadDim, rotHalf)
+						g.k.MarkDirty()
 					}
 				} else {
-					qd := g.q.Data()
-					applyRoPE(qd, m.RopeFreqs, pos, numHeads, layerHeadDim)
-					g.q.MarkDirty()
-					if cpuLayer.HasKV {
-						kd2 := g.k.Data()
-						applyRoPE(kd2, m.RopeFreqs, pos, layerKVHeads, layerHeadDim)
+					freqs := m.ensureRoPE(pos)
+					deviceReady := g.ropeCosSin != nil && g.ropeCosSin.GPUPtr() != nil
+					if !deviceReady || !nvidia.DevRoPE(g.q, g.ropeCosSin, pos, numHeads, layerHeadDim) {
+						qd := g.q.Data()
+						applyRoPE(qd, freqs, pos, numHeads, layerHeadDim)
+						g.q.MarkDirty()
+					}
+					if cpuLayer.HasKV && (!deviceReady || !nvidia.DevRoPE(g.k, g.ropeCosSin, pos, layerKVHeads, layerHeadDim)) {
+						kd := g.k.Data()
+						applyRoPE(kd, freqs, pos, layerKVHeads, layerHeadDim)
 						g.k.MarkDirty()
 					}
 				}

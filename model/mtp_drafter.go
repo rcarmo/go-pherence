@@ -48,6 +48,7 @@ type Gemma4MTPDrafter struct {
 	RopeFreqsFull []float32
 	RopeHalfSWA   int
 	RopeHalfFull  int
+	ropeState     *ropeCacheState
 }
 
 // Gemma4MTPDrafterLayer is one q-only assistant layer.

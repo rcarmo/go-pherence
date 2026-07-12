@@ -2,28 +2,132 @@ package model
 
 import (
 	"math"
+	"sync"
+	"sync/atomic"
+	"unsafe"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
 )
 
-func (m *LlamaModel) precomputeRoPE() {
-	cfg := m.Config
-	headDim := cfg.HeadDim
-	if headDim == 0 && cfg.NumHeads > 0 {
-		headDim = cfg.HiddenSize / cfg.NumHeads
-	}
-	// For models with variable head_dim (Gemma4), use the max
-	if cfg.GlobalHeadDim > headDim {
-		headDim = cfg.GlobalHeadDim
-	}
-	halfDim := headDim / 2
-	maxSeq := cfg.MaxSeqLen
-	if maxSeq > 2048 {
-		maxSeq = 2048 // cap for memory
-	}
+const initialRoPESeqCap = 2048
 
-	m.RopeFreqs = buildRoPEFreqs(maxSeq, halfDim, headDim, cfg.RopeTheta)
+type ropeCacheState struct {
+	mu          sync.RWMutex
+	fullFactors []float32
+}
+
+func loadRoPEState(slot **ropeCacheState) *ropeCacheState {
+	ptr := (*unsafe.Pointer)(unsafe.Pointer(slot))
+	if state := (*ropeCacheState)(atomic.LoadPointer(ptr)); state != nil {
+		return state
+	}
+	created := &ropeCacheState{}
+	if atomic.CompareAndSwapPointer(ptr, nil, unsafe.Pointer(created)) {
+		return created
+	}
+	return (*ropeCacheState)(atomic.LoadPointer(ptr))
+}
+
+func (m *LlamaModel) ensureRoPEState() *ropeCacheState {
+	return loadRoPEState(&m.ropeState)
+}
+
+func (d *Gemma4MTPDrafter) ensureRoPEState() *ropeCacheState {
+	return loadRoPEState(&d.ropeState)
+}
+
+func gemma4LayerUsesSWA(layerTypes []string, layerIdx int) bool {
+	return layerIdx < 0 || layerIdx >= len(layerTypes) || layerTypes[layerIdx] == "sliding_attention"
+}
+
+func initialRoPESeqLen(maxSeq int) int {
+	if maxSeq > initialRoPESeqCap {
+		return initialRoPESeqCap
+	}
+	return maxSeq
+}
+
+func nextRoPESeqLen(current, need, configuredMax int) int {
+	if need <= current {
+		return current
+	}
+	next := current
+	if next < 1 {
+		next = 1
+	}
+	for next < need {
+		if next > int(^uint(0)>>1)/2 {
+			return need
+		}
+		next *= 2
+	}
+	if configuredMax > 0 && next > configuredMax && need <= configuredMax {
+		next = configuredMax
+	}
+	return next
+}
+
+func ropePositions(freqs []float32, halfDim int) int {
+	if halfDim <= 0 {
+		return 0
+	}
+	return len(freqs) / (halfDim * 2)
+}
+
+func cloneFloat32s(src []float32) []float32 {
+	if len(src) == 0 {
+		return nil
+	}
+	return append([]float32(nil), src...)
+}
+
+func (m *LlamaModel) genericRoPEDims() (headDim, halfDim int) {
+	headDim = m.Config.HeadDim
+	if headDim == 0 && m.Config.NumHeads > 0 {
+		headDim = m.Config.HiddenSize / m.Config.NumHeads
+	}
+	if m.Config.GlobalHeadDim > headDim {
+		headDim = m.Config.GlobalHeadDim
+	}
+	return headDim, headDim / 2
+}
+
+func (m *LlamaModel) precomputeRoPE() {
+	headDim, halfDim := m.genericRoPEDims()
+	state := m.ensureRoPEState()
+	state.mu.Lock()
+	m.RopeFreqs = buildRoPEFreqs(initialRoPESeqLen(m.Config.MaxSeqLen), halfDim, headDim, m.Config.RopeTheta)
+	state.mu.Unlock()
+}
+
+func (m *LlamaModel) ensureRoPE(pos int) []float32 {
+	if m == nil || pos < 0 {
+		return nil
+	}
+	headDim, halfDim := m.genericRoPEDims()
+	state := m.ensureRoPEState()
+	state.mu.RLock()
+	freqs := m.RopeFreqs
+	covered := ropePositions(freqs, halfDim)
+	state.mu.RUnlock()
+	if covered > pos {
+		return freqs
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	covered = ropePositions(m.RopeFreqs, halfDim)
+	if covered <= pos {
+		seqLen := nextRoPESeqLen(covered, pos+1, m.Config.MaxSeqLen)
+		m.RopeFreqs = buildRoPEFreqs(seqLen, halfDim, headDim, m.Config.RopeTheta)
+	}
+	return m.RopeFreqs
+}
+
+// RoPEFreqsAt returns an immutable table covering pos. It exists for model
+// subpackages such as Qwen native MTP that cannot call the internal helper.
+func (m *LlamaModel) RoPEFreqsAt(pos int) []float32 {
+	return m.ensureRoPE(pos)
 }
 
 func (m *LlamaModel) precomputeGemma4RoPE() {
@@ -31,25 +135,102 @@ func (m *LlamaModel) precomputeGemma4RoPE() {
 }
 
 func (m *LlamaModel) precomputeGemma4RoPEWithFullFactors(fullFactors []float32) {
-	cfg := m.Config
-	if cfg.ModelType != "gemma4_text" {
+	if m.Config.ModelType != "gemma4_text" {
 		return
 	}
-	m.RopeFreqsSWA, m.RopeHalfSWA, m.RopeFreqsFull, m.RopeHalfFull = gemma4RoPETables(cfg, fullFactors)
+	state := m.ensureRoPEState()
+	state.mu.Lock()
+	state.fullFactors = cloneFloat32s(fullFactors)
+	m.RopeFreqsSWA, m.RopeHalfSWA, m.RopeFreqsFull, m.RopeHalfFull = gemma4RoPETables(m.Config, initialRoPESeqLen(m.Config.MaxSeqLen), state.fullFactors)
+	state.mu.Unlock()
+}
+
+func (m *LlamaModel) ensureGemma4RoPE(layerIdx, pos int) ([]float32, int) {
+	if m == nil || pos < 0 || m.Config.ModelType != "gemma4_text" {
+		return nil, 0
+	}
+	isSWA := gemma4LayerUsesSWA(m.Config.LayerTypes, layerIdx)
+	state := m.ensureRoPEState()
+	state.mu.RLock()
+	freqs, half := m.RopeFreqsSWA, m.RopeHalfSWA
+	if !isSWA {
+		freqs, half = m.RopeFreqsFull, m.RopeHalfFull
+	}
+	covered := ropePositions(freqs, half)
+	state.mu.RUnlock()
+	if covered > pos {
+		return freqs, half
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	freqs, half = m.RopeFreqsSWA, m.RopeHalfSWA
+	if !isSWA {
+		freqs, half = m.RopeFreqsFull, m.RopeHalfFull
+	}
+	covered = ropePositions(freqs, half)
+	if covered <= pos {
+		seqLen := nextRoPESeqLen(covered, pos+1, m.Config.MaxSeqLen)
+		swa, swaHalf, full, fullHalf := gemma4RoPETables(m.Config, seqLen, state.fullFactors)
+		m.RopeFreqsSWA, m.RopeHalfSWA = swa, swaHalf
+		m.RopeFreqsFull, m.RopeHalfFull = full, fullHalf
+		if isSWA {
+			freqs, half = swa, swaHalf
+		} else {
+			freqs, half = full, fullHalf
+		}
+	}
+	return freqs, half
 }
 
 func (d *Gemma4MTPDrafter) precomputeGemma4RoPEWithFullFactors(fullFactors []float32) {
 	if d == nil || d.Config.ModelType != "gemma4_text" {
 		return
 	}
-	d.RopeFreqsSWA, d.RopeHalfSWA, d.RopeFreqsFull, d.RopeHalfFull = gemma4RoPETables(d.Config, fullFactors)
+	state := d.ensureRoPEState()
+	state.mu.Lock()
+	state.fullFactors = cloneFloat32s(fullFactors)
+	d.RopeFreqsSWA, d.RopeHalfSWA, d.RopeFreqsFull, d.RopeHalfFull = gemma4RoPETables(d.Config, initialRoPESeqLen(d.Config.MaxSeqLen), state.fullFactors)
+	state.mu.Unlock()
 }
 
-func gemma4RoPETables(cfg LlamaConfig, fullFactors []float32) (swa []float32, swaHalf int, full []float32, fullHalf int) {
-	maxSeq := cfg.MaxSeqLen
-	if maxSeq > 2048 {
-		maxSeq = 2048
+func (d *Gemma4MTPDrafter) ensureGemma4RoPE(layerIdx, pos int) ([]float32, int) {
+	if d == nil || pos < 0 || d.Config.ModelType != "gemma4_text" {
+		return nil, 0
 	}
+	isSWA := gemma4LayerUsesSWA(d.Config.LayerTypes, layerIdx)
+	state := d.ensureRoPEState()
+	state.mu.RLock()
+	freqs, half := d.RopeFreqsSWA, d.RopeHalfSWA
+	if !isSWA {
+		freqs, half = d.RopeFreqsFull, d.RopeHalfFull
+	}
+	covered := ropePositions(freqs, half)
+	state.mu.RUnlock()
+	if covered > pos {
+		return freqs, half
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	freqs, half = d.RopeFreqsSWA, d.RopeHalfSWA
+	if !isSWA {
+		freqs, half = d.RopeFreqsFull, d.RopeHalfFull
+	}
+	covered = ropePositions(freqs, half)
+	if covered <= pos {
+		seqLen := nextRoPESeqLen(covered, pos+1, d.Config.MaxSeqLen)
+		swa, swaHalf, full, fullHalf := gemma4RoPETables(d.Config, seqLen, state.fullFactors)
+		d.RopeFreqsSWA, d.RopeHalfSWA = swa, swaHalf
+		d.RopeFreqsFull, d.RopeHalfFull = full, fullHalf
+		if isSWA {
+			freqs, half = swa, swaHalf
+		} else {
+			freqs, half = full, fullHalf
+		}
+	}
+	return freqs, half
+}
+
+func gemma4RoPETables(cfg LlamaConfig, maxSeq int, fullFactors []float32) (swa []float32, swaHalf int, full []float32, fullHalf int) {
 	if cfg.HeadDim > 0 {
 		swaHalf = cfg.HeadDim / 2
 		swa = buildGemma4GGMLRoPEFreqs(maxSeq, swaHalf, cfg.HeadDim, 10000)

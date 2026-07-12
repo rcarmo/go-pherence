@@ -162,22 +162,23 @@ func (g *GPUModel) prefillGPU(tokenIDs []int) []float32 {
 			if g.ropeCosSin != nil {
 				ropePtr = g.ropeCosSin.GPUPtr()
 			}
+			freqs := m.ensureRoPE(pos)
 			if ropePtr != nil {
 				if !nvidia.DevRoPE(qSlice, g.ropeCosSin, pos, numHeads, headDim) {
 					qd := qSlice.Data()
-					applyRoPE(qd, m.RopeFreqs, pos, numHeads, headDim)
+					applyRoPE(qd, freqs, pos, numHeads, headDim)
 					qSlice.MarkDirty()
 				}
 				if !nvidia.DevRoPE(kSlice, g.ropeCosSin, pos, numKVHeads, headDim) {
 					kd := kSlice.Data()
-					applyRoPE(kd, m.RopeFreqs, pos, numKVHeads, headDim)
+					applyRoPE(kd, freqs, pos, numKVHeads, headDim)
 					kSlice.MarkDirty()
 				}
 			} else {
 				qd := qSlice.Data()
 				kd := kSlice.Data()
-				applyRoPE(qd, m.RopeFreqs, pos, numHeads, headDim)
-				applyRoPE(kd, m.RopeFreqs, pos, numKVHeads, headDim)
+				applyRoPE(qd, freqs, pos, numHeads, headDim)
+				applyRoPE(kd, freqs, pos, numKVHeads, headDim)
 				qSlice.MarkDirty()
 				kSlice.MarkDirty()
 			}

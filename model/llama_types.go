@@ -48,6 +48,7 @@ type LlamaModel struct {
 	RopeFreqsFull []float32
 	RopeHalfSWA   int
 	RopeHalfFull  int
+	ropeState     *ropeCacheState
 	Large         bool
 	Quantized     bool
 	OnTheFlyQuant bool

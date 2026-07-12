@@ -195,26 +195,17 @@ func postProcessMTPVerifierQKV(m *LlamaModel, layer *LlamaLayer, layerIdx int, q
 			}
 		}
 	}
-	if cfg.ModelType == "gemma4_text" && m.RopeFreqsSWA != nil {
-		isSWA := true
-		if len(cfg.LayerTypes) > layerIdx {
-			isSWA = cfg.LayerTypes[layerIdx] == "sliding_attention"
-		}
-		if isSWA {
-			applyRoPEPartial(q, m.RopeFreqsSWA, pos, cfg.NumHeads, headDim, m.RopeHalfSWA)
-			if k != nil {
-				applyRoPEPartial(k, m.RopeFreqsSWA, pos, kvHeads, headDim, m.RopeHalfSWA)
-			}
-		} else {
-			applyRoPEPartial(q, m.RopeFreqsFull, pos, cfg.NumHeads, headDim, m.RopeHalfFull)
-			if k != nil {
-				applyRoPEPartial(k, m.RopeFreqsFull, pos, kvHeads, headDim, m.RopeHalfFull)
-			}
+	if cfg.ModelType == "gemma4_text" {
+		freqs, rotHalf := m.ensureGemma4RoPE(layerIdx, pos)
+		applyRoPEPartial(q, freqs, pos, cfg.NumHeads, headDim, rotHalf)
+		if k != nil {
+			applyRoPEPartial(k, freqs, pos, kvHeads, headDim, rotHalf)
 		}
 	} else {
-		applyRoPE(q, m.RopeFreqs, pos, cfg.NumHeads, headDim)
+		freqs := m.ensureRoPE(pos)
+		applyRoPE(q, freqs, pos, cfg.NumHeads, headDim)
 		if k != nil {
-			applyRoPE(k, m.RopeFreqs, pos, kvHeads, headDim)
+			applyRoPE(k, freqs, pos, kvHeads, headDim)
 		}
 	}
 	return nil
