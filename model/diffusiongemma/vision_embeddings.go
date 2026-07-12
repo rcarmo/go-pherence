@@ -2,6 +2,7 @@ package diffusiongemma
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -262,17 +263,6 @@ func computeImagePatchHidden(pre Gemma4ImagePreprocessResult, weights *VisionWei
 	if pos.Shape[1] < patchW || pos.Shape[1] < patchH {
 		return nil, 0, fmt.Errorf("DiffusionGemma position embedding shape %v incompatible with patch grid=%dx%d hidden=%d", pos.Shape, patchW, patchH, hidden)
 	}
-	stdBias, err := weights.CachedFloatTensor("model.encoder.vision_tower.std_bias")
-	if err != nil {
-		return nil, 0, err
-	}
-	stdScale, err := weights.CachedFloatTensor("model.encoder.vision_tower.std_scale")
-	if err != nil {
-		return nil, 0, err
-	}
-	if len(stdBias.Data) != hidden || len(stdScale.Data) != hidden {
-		return nil, 0, fmt.Errorf("DiffusionGemma std scale/bias shape mismatch bias=%v scale=%v hidden=%d", stdBias.Shape, stdScale.Shape, hidden)
-	}
 	patchHidden, ok := checked.MulInt(patches, hidden)
 	if !ok {
 		return nil, 0, fmt.Errorf("DiffusionGemma image embedding patch buffer overflow")
@@ -290,9 +280,6 @@ func computeImagePatchHidden(pre Gemma4ImagePreprocessResult, weights *VisionWei
 			}
 			if err := addVisionPatchXYPositionEmbedding(row, pos, px, py); err != nil {
 				return nil, 0, err
-			}
-			for i := 0; i < hidden; i++ {
-				row[i] = row[i]*stdScale.Data[i] + stdBias.Data[i]
 			}
 		}
 	}
@@ -330,6 +317,22 @@ func validateVisionTowerPrefixShape(vision []float32, patches int, shape Shape) 
 	return nil
 }
 
+// standardizeVisionSoftTokensF32 matches the Gemma4 vision tower output
+// boundary: pooled states are restored to the model scale, then standardized.
+func standardizeVisionSoftTokensF32(values []float32, hidden int, bias, scale []float32) error {
+	if hidden <= 0 || len(values)%hidden != 0 || len(bias) != hidden || len(scale) != hidden {
+		return fmt.Errorf("DiffusionGemma vision standardization shape mismatch values=%d hidden=%d bias=%d scale=%d", len(values), hidden, len(bias), len(scale))
+	}
+	hiddenScale := float32(math.Sqrt(float64(hidden)))
+	for off := 0; off < len(values); off += hidden {
+		row := values[off : off+hidden]
+		for i := range row {
+			row[i] = (row[i]*hiddenScale - bias[i]) * scale[i]
+		}
+	}
+	return nil
+}
+
 func projectVisionPatchesToImageEmbeddings(vision []float32, patches int, weights *VisionWeights, shape Shape) (ImageEmbeddingResult, error) {
 	softTokens := shape.VisionSoftTokens
 	hidden := shape.VisionHiddenSize
@@ -346,6 +349,17 @@ func projectVisionPatchesToImageEmbeddings(vision []float32, patches int, weight
 	}
 	pooledVision, err := PoolVisionPatchesToSoftTokensF32(vision, patches, hidden, softTokens)
 	if err != nil {
+		return ImageEmbeddingResult{}, err
+	}
+	stdBias, err := weights.CachedFloatTensor("model.encoder.vision_tower.std_bias")
+	if err != nil {
+		return ImageEmbeddingResult{}, err
+	}
+	stdScale, err := weights.CachedFloatTensor("model.encoder.vision_tower.std_scale")
+	if err != nil {
+		return ImageEmbeddingResult{}, err
+	}
+	if err := standardizeVisionSoftTokensF32(pooledVision, hidden, stdBias.Data, stdScale.Data); err != nil {
 		return ImageEmbeddingResult{}, err
 	}
 	outLen, ok := checked.MulInt(softTokens, textHidden)

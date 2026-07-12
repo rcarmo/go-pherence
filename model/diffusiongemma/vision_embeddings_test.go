@@ -37,6 +37,27 @@ func TestGemma4ScalePatchInputInPlace(t *testing.T) {
 	}
 }
 
+func TestStandardizeVisionSoftTokensF32AfterPooling(t *testing.T) {
+	values := []float32{1, 2, 3, 4, -1, -2, -3, -4}
+	bias := []float32{1, 2, 3, 4}
+	scale := []float32{1, 2, 3, 4}
+	if err := standardizeVisionSoftTokensF32(values, 4, bias, scale); err != nil {
+		t.Fatal(err)
+	}
+	want := []float32{1, 4, 9, 16, -3, -12, -27, -48}
+	for i := range want {
+		if values[i] != want[i] {
+			t.Fatalf("values[%d]=%v want %v full=%v", i, values[i], want[i], values)
+		}
+	}
+}
+
+func TestStandardizeVisionSoftTokensF32RejectsShapeMismatch(t *testing.T) {
+	if err := standardizeVisionSoftTokensF32([]float32{1, 2, 3}, 2, []float32{0, 0}, []float32{1, 1}); err == nil {
+		t.Fatal("expected shape mismatch")
+	}
+}
+
 func TestInsertImageEmbeddings(t *testing.T) {
 	tokens := []int{105, 258880, 258880, 106}
 	emb := make([]float32, len(tokens)*3)
