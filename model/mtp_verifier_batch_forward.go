@@ -401,10 +401,9 @@ func hasMTPVerifierProjection(dense *tensor.Tensor, mlxw *mlx.QuantWeight, qw *Q
 }
 
 func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs) bool {
-	// Keep full-layer batch lowering behind a correctness gate until the row-loop
-	// parity suite is complete. The QKV projection primitive is tested and ready,
-	// but the complete attention+MLP layer replacement must not silently change
-	// verifier acceptance.
+	// Full-layer batch lowering is the default after sequential/batched trajectory
+	// and real-asset acceptance gates passed. The environment switch remains as a
+	// diagnostic opt-out for row-loop comparisons.
 	if !mtpVerifierBatchLayerLoweringEnabled() || m == nil || m.Config.NumLayers <= 0 || m.Config.HiddenSize <= 0 || m.Config.NumHeads <= 0 || m.Config.HeadDim <= 0 {
 		return false
 	}
@@ -450,7 +449,7 @@ func (m *LlamaModel) mtpVerifierBatchLayerEligible(batch MTPVerifierBatchInputs)
 
 func mtpVerifierBatchLayerLoweringEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
+	return v != "0" && v != "false" && v != "no" && v != "off"
 }
 
 func (m *LlamaModel) validateMTPVerifierBatchForwardInputs(batch MTPVerifierBatchInputs, kvCacheK, kvCacheV [][]float32) error {

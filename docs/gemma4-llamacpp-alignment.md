@@ -27,7 +27,7 @@ The current implementation mirrors the llama.cpp graph in the following places:
 - **PLI and GELU/FFN order**: per-layer input construction follows `norm(project(hidden) / sqrt(hidden)) + per_layer_token_embd[token] * sqrt(hidden_per_layer)`, then `1/sqrt(2)`. Row-aware `inp_per_layer` trace dumps map to llama occurrences `42+layer` and match closely, and PLI gate/proj/embedding rows are covered by ggml oracles. The prompt/verifier layer path applies PLI, attention residual/post-norm, FFN norm/GELU-gated MLP/post-norm, residual, and layer output scale in llama.cpp order for the covered dense/QAT path. The previous Gemma4 layer-output BF16 store has been removed from the production Gemma4 path because llama.cpp feeds `out_scaled`/`l_out` directly to the next layer without a BF16 cast.
 - **Verifier tail/logits**: dense batched decode tail applies final norm and GGUF LM-head paths correctly, including separate `output.weight` when present and verifier-only softcap/suppress-token behavior; assistant logits explicitly do not inherit verifier final-logit softcap or suppress bias.
 
-There are no intentional semantic divergences in the Gemma4 E4B QAT GGUF + BF16 MTP path. Remaining non-finalized surfaces are implementation staging choices: the production verifier full-layer path still lowers nonzero verifier batch rows through the sequential row/layer oracle by default, while the full-layer batch scaffold is gated behind `GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS`; public/default MTP generation remains gated on public wiring and default batched lowering, not on the stricter `0.001` diagnostic.
+There are no intentional semantic divergences in the Gemma4 E4B QAT GGUF + BF16 MTP path. Full-layer verifier batching is default-on after sequential/batched trajectory and native real-asset gates passed; `GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS=off` retains a diagnostic row-loop fallback. Public/default MTP generation remains gated only on completing public wiring, not on the stricter `0.001` diagnostic.
 
 ## 3. Fit / gap analysis
 
@@ -43,7 +43,7 @@ There are no intentional semantic divergences in the Gemma4 E4B QAT GGUF + BF16 
 
 - ggml graph structure is represented and guarded, but the strict selected-logit comparison is not yet green.
 - GPU↔CPU consistency is represented by a dedicated diagnostic gate, but it is orthogonal to the active llama.cpp selected-logit blocker.
-- Full-layer verifier batch lowering exists as a gated scaffold with synthetic parity; it is not default-enabled and is not the basis for the current public-readiness claim.
+- Full-layer verifier batch lowering is default-enabled and covered by synthetic trajectory plus native real-asset parity; the sequential row path remains available as a diagnostic opt-out.
 
 **Separate 1:1 numerical diagnostic:**
 

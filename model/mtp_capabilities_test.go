@@ -14,8 +14,8 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 	if !caps.VerifierCompressedKVStaging {
 		t.Fatalf("compressed KV verifier staging unexpectedly not ready: %+v", caps)
 	}
-	if caps.VerifierBatchLayers || !caps.VerifierBatchLayersGated {
-		t.Fatalf("batch layer gate state=%+v", caps)
+	if !caps.VerifierBatchLayers || !caps.VerifierBatchLayersGated {
+		t.Fatalf("default batch layer state=%+v", caps)
 	}
 	if !caps.ReadyForExperimentalGeneration {
 		t.Fatalf("experimental generation unexpectedly not ready: %+v", caps)
@@ -24,7 +24,7 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 		t.Fatalf("public generation unexpectedly ready: %+v", caps)
 	}
 	missing := caps.MissingForPublicGeneration()
-	if !sameStringSet(missing, []string{"public_generation_wiring", "full_layer_batch_verifier_default_enablement"}) {
+	if !sameStringSet(missing, []string{"public_generation_wiring"}) {
 		t.Fatalf("missing=%v", missing)
 	}
 	if err := caps.Validate(); err != nil {
@@ -50,17 +50,23 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 	}
 	publicBlocked := caps
 	publicBlocked.PublicGenerationWiring = true
-	publicBlocked.ReadyForPublicGeneration = false
+	publicBlocked.ReadyForPublicGeneration = true
+	if len(publicBlocked.MissingForPublicGeneration()) != 0 {
+		t.Fatalf("public wiring unexpectedly blocked: %v", publicBlocked.MissingForPublicGeneration())
+	}
 	if err := publicBlocked.Validate(); err != nil {
-		t.Fatalf("rejected public wiring blocked only by gated batch layers: %v", err)
+		t.Fatalf("rejected public readiness with all capability gates green: %v", err)
 	}
-	if !sameStringSet(publicBlocked.MissingForPublicGeneration(), []string{"full_layer_batch_verifier_default_enablement"}) {
-		t.Fatalf("public blocked missing=%v", publicBlocked.MissingForPublicGeneration())
+}
+
+func TestGemma4MTPGraphCapabilitiesBatchLayerDiagnosticOptOut(t *testing.T) {
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "off")
+	caps := Gemma4MTPGraphCapabilities()
+	if caps.VerifierBatchLayers || !caps.VerifierBatchLayersGated {
+		t.Fatalf("batch layer opt-out state=%+v", caps)
 	}
-	bad = publicBlocked
-	bad.ReadyForPublicGeneration = true
-	if err := bad.Validate(); err == nil {
-		t.Fatal("accepted public readiness while batch verifier layers are still gated off")
+	if !sameStringSet(caps.MissingForPublicGeneration(), []string{"public_generation_wiring", "full_layer_batch_verifier_default_enablement"}) {
+		t.Fatalf("missing=%v", caps.MissingForPublicGeneration())
 	}
 }
 

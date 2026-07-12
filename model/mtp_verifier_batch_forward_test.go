@@ -29,10 +29,10 @@ func TestRunMTPVerifierBatchForwardZeroLayer(t *testing.T) {
 	}
 }
 
-func TestMTPVerifierBatchLayerLoweringDefaultOff(t *testing.T) {
+func TestMTPVerifierBatchLayerLoweringDefaultOn(t *testing.T) {
 	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "")
-	if mtpVerifierBatchLayerLoweringEnabled() {
-		t.Fatal("batch layer lowering enabled by default")
+	if !mtpVerifierBatchLayerLoweringEnabled() {
+		t.Fatal("batch layer lowering disabled by default")
 	}
 	m := newSingleLayerVerifierModel()
 	plan := mustMTPVerifierPlan(t, m, 0, []int{0}, 0)
@@ -40,13 +40,13 @@ func TestMTPVerifierBatchLayerLoweringDefaultOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.mtpVerifierBatchLayerEligible(batch) {
-		t.Fatal("eligible batch layer path should be gated off by default")
+	if !m.mtpVerifierBatchLayerEligible(batch) {
+		t.Fatal("eligible batch layer path should be enabled by default")
 	}
 }
 
 func TestRunMTPVerifierBatchForwardLayeredSequentialFallback(t *testing.T) {
-	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "")
+	t.Setenv("GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS", "off")
 	m := newSingleLayerVerifierModel()
 	plan := mustMTPVerifierPlan(t, m, 0, []int{0}, 0)
 	batch, err := NewMTPVerifierBatchInputs(m, plan)
