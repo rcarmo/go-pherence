@@ -192,6 +192,14 @@ func maxFullStreamingVisionPatches() int {
 	return n
 }
 
+// gemma4ScalePatchInputInPlace matches Gemma4VisionPatchEmbedder.forward:
+// pixel_values = 2 * (pixel_values - 0.5) before input_proj.
+func gemma4ScalePatchInputInPlace(patch []float32) {
+	for i := range patch {
+		patch[i] = 2 * (patch[i] - 0.5)
+	}
+}
+
 func addVisionPatchXYPositionEmbedding(row []float32, pos FloatTensor, px, py int) error {
 	if len(pos.Shape) != 3 || pos.Shape[0] != 2 {
 		return fmt.Errorf("DiffusionGemma position embedding shape %v want [2,positions,hidden]", pos.Shape)
@@ -275,6 +283,7 @@ func computeImagePatchHidden(pre Gemma4ImagePreprocessResult, weights *VisionWei
 		for px := 0; px < patchW; px++ {
 			patchIndex := py*patchW + px
 			gemma4FlattenPatchBCHW(patchVec, pre.PixelValues, pre.Width, pre.Height, shape.PatchSize, px, py)
+			gemma4ScalePatchInputInPlace(patchVec)
 			row := vision[patchIndex*hidden : (patchIndex+1)*hidden]
 			if !bf16GemvNarrow(row, patchVec, proj, hidden, patchVecLen) {
 				return nil, 0, fmt.Errorf("DiffusionGemma patch projection rejected patch=%d", patchIndex)

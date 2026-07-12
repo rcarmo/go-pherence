@@ -26,6 +26,17 @@ func TestGemma4FlattenPatchBCHW(t *testing.T) {
 	}
 }
 
+func TestGemma4ScalePatchInputInPlace(t *testing.T) {
+	patch := []float32{0, 0.25, 0.5, 0.75, 1}
+	gemma4ScalePatchInputInPlace(patch)
+	want := []float32{-1, -0.5, 0, 0.5, 1}
+	for i := range want {
+		if patch[i] != want[i] {
+			t.Fatalf("patch[%d]=%v want %v", i, patch[i], want[i])
+		}
+	}
+}
+
 func TestInsertImageEmbeddings(t *testing.T) {
 	tokens := []int{105, 258880, 258880, 106}
 	emb := make([]float32, len(tokens)*3)
