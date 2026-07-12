@@ -220,10 +220,10 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 			scale := attentionScale(m.Config, qkv.HeadDim)
 			outRow := bAttnOut[b*qkv.QDim : (b+1)*qkv.QDim]
 			qRow := qkv.Q[b*qkv.QDim : (b+1)*qkv.QDim]
-			if m.Config.ModelType == "gemma4_text" && tryPureGoFlashAttentionInto(outRow, qRow, kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], l, batch.Plan.Positions[b], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale) {
-				traceMTPSummary("attn_pre_o", b, l, batch.Plan.Positions[b], outRow)
-				continue
-			}
+			// Keep the experimental layered verifier phase-aligned with the
+			// sequential CPU oracle. The pure-Go flash path has different
+			// accumulation semantics and must be validated independently before
+			// it can be used as a verifier replacement.
 			gqaAttentionScaleSoftcapInto(outRow, attnScores[:attnSeqLen], qRow, kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale, attentionLogitSoftcap(m.Config))
 			traceMTPSummary("attn_pre_o", b, l, batch.Plan.Positions[b], outRow)
 		}
