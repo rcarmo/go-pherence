@@ -396,15 +396,18 @@ func projectVisionPatchesToImageEmbeddings(vision []float32, patchW, patchH int,
 }
 
 func gemma4FlattenPatchBCHW(dst, src []float32, width, height, patchSize, patchX, patchY int) {
-	_ = height
 	pixels := width * height
 	i := 0
-	for c := 0; c < 3; c++ {
-		base := c * pixels
-		for y := 0; y < patchSize; y++ {
-			row := base + (patchY*patchSize+y)*width + patchX*patchSize
-			copy(dst[i:i+patchSize], src[row:row+patchSize])
-			i += patchSize
+	// Transformers reshapes BCHW to [patch_y, patch_x, y, x, channel]
+	// before flattening, so channels are innermost within each patch pixel.
+	for y := 0; y < patchSize; y++ {
+		imageY := patchY*patchSize + y
+		for x := 0; x < patchSize; x++ {
+			imageIndex := imageY*width + patchX*patchSize + x
+			for c := 0; c < 3; c++ {
+				dst[i] = src[c*pixels+imageIndex]
+				i++
+			}
 		}
 	}
 }

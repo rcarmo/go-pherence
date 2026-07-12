@@ -16,7 +16,7 @@ func TestGemma4FlattenPatchBCHW(t *testing.T) {
 	}
 	dst := make([]float32, 3*2*2)
 	gemma4FlattenPatchBCHW(dst, src, 4, 4, 2, 1, 1)
-	want := []float32{10, 11, 14, 15, 110, 111, 114, 115, 210, 211, 214, 215}
+	want := []float32{10, 110, 210, 11, 111, 211, 14, 114, 214, 15, 115, 215}
 	if len(dst) != len(want) {
 		t.Fatalf("len=%d want %d", len(dst), len(want))
 	}
