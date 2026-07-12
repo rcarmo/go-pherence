@@ -55,4 +55,13 @@ func TestLocalDiffusionGemmaGGUFQ4KMTargetLayout(t *testing.T) {
 	if weights.ggufTokenEmbd == nil || weights.ggufTokenEmbd.QType != gguf.QuantQ6_K || weights.ggufTokenEmbd.OutDim != 262144 || weights.ggufTokenEmbd.InDim != 2816 {
 		t.Fatalf("ggufTokenEmbd=%+v, want Q6_K [in=2816,out=262144]", weights.ggufTokenEmbd)
 	}
+	if got := weights.GGUFQuantMatrix("model.decoder.layers.0.self_attn.q_proj.weight"); got == nil || got.QType != gguf.QuantQ4_K || got.InDim != 2816 {
+		t.Fatalf("q_proj quant=%+v, want retained Q4_K matrix", got)
+	}
+	if got := weights.GGUFQuantMatrix("model.decoder.layers.0.self_attn.o_proj.weight"); got == nil || got.OutDim != 2816 {
+		t.Fatalf("o_proj quant=%+v, want retained matrix with out=2816", got)
+	}
+	if got := weights.GGUFQuantMatrix("model.decoder.embed_tokens.weight"); got == nil || got != weights.ggufTokenEmbd {
+		t.Fatalf("embed quant=%p tokenEmbd=%p, want shared retained matrix", got, weights.ggufTokenEmbd)
+	}
 }

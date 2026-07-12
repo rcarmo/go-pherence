@@ -2,6 +2,7 @@ package diffusiongemma
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -559,8 +560,8 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 	qAll := make([]float32, qAllLen)
 	kAll := make([]float32, kAllLen)
 	vAll := make([]float32, vAllLen)
-	attnCtx := make([]float32, qRows)
-	out := make([]float32, hiddenSize)
+	attnCtxAll := make([]float32, positions*qRows)
+	outAll := make([]float32, positions*hiddenSize)
 	ropeHalf := headDim / 2
 	ropeTheta := 10000.0
 	var ropeFactors []float32
@@ -576,21 +577,29 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		ropeFactors = factors
 	}
 	ropeFreqs := simd.BuildRoPEFreqsWithFactors(ctx.EncoderSeqLen+positions, ropeHalf, headDim, ropeTheta, ropeFactors)
+	if ok, err := qM.projectBatchTo(qAll, scratch.Hidden, positions); err != nil {
+		return fmt.Errorf("DiffusionGemma attention Q batch project layer %d: %w", op.Layer, err)
+	} else if !ok {
+		return fmt.Errorf("DiffusionGemma attention Q GEMV rejected layer %d", op.Layer)
+	}
+	if ok, err := kM.projectBatchTo(kAll, scratch.Hidden, positions); err != nil {
+		return fmt.Errorf("DiffusionGemma attention K batch project layer %d: %w", op.Layer, err)
+	} else if !ok {
+		return fmt.Errorf("DiffusionGemma attention K GEMV rejected layer %d", op.Layer)
+	}
+	if lb.VProj != nil {
+		if ok, err := vM.projectBatchTo(vAll, scratch.Hidden, positions); err != nil {
+			return fmt.Errorf("DiffusionGemma attention V batch project layer %d: %w", op.Layer, err)
+		} else if !ok {
+			return fmt.Errorf("DiffusionGemma attention V GEMV rejected layer %d", op.Layer)
+		}
+	} else {
+		copy(vAll, kAll[:len(vAll)])
+	}
 	for pos := 0; pos < positions; pos++ {
-		hidden := scratch.Hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 		q := qAll[pos*qRows : (pos+1)*qRows]
 		k := kAll[pos*kRows : (pos+1)*kRows]
 		v := vAll[pos*vRows : (pos+1)*vRows]
-		if !qM.gemvRows(q, hidden) || !kM.gemvRows(k, hidden) {
-			return fmt.Errorf("DiffusionGemma attention Q/K GEMV rejected layer %d", op.Layer)
-		}
-		if lb.VProj != nil {
-			if !vM.gemvRows(v, hidden) {
-				return fmt.Errorf("DiffusionGemma attention V GEMV rejected layer %d", op.Layer)
-			}
-		} else {
-			copy(v, k)
-		}
 		for h := 0; h < heads; h++ {
 			if !simd.RMSNormTo(q[h*headDim:(h+1)*headDim], qNorm, 1e-6) {
 				return fmt.Errorf("DiffusionGemma attention q_norm rejected")
@@ -639,6 +648,7 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 		}
 	}
 	for pos := 0; pos < positions; pos++ {
+		attnCtx := attnCtxAll[pos*qRows : (pos+1)*qRows]
 		for i := range attnCtx {
 			attnCtx[i] = 0
 		}
@@ -677,11 +687,13 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 				}
 			}
 		}
-		if !oM.gemvRows(out, attnCtx) {
-			return fmt.Errorf("DiffusionGemma attention O GEMV rejected layer %d", op.Layer)
-		}
-		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 	}
+	if ok, err := oM.projectBatchTo(outAll, attnCtxAll, positions); err != nil {
+		return fmt.Errorf("DiffusionGemma attention O batch project layer %d: %w", op.Layer, err)
+	} else if !ok {
+		return fmt.Errorf("DiffusionGemma attention O GEMV rejected layer %d", op.Layer)
+	}
+	copy(scratch.Hidden[:positions*hiddenSize], outAll)
 	return nil
 }
 
@@ -798,35 +810,47 @@ func runDenseMLP(op LayerOp, weights *TextWeights, scratch ForwardScratch) error
 	if hiddenSize <= 0 || intermediate <= 0 || len(scratch.Hidden)%hiddenSize != 0 {
 		return fmt.Errorf("DiffusionGemma dense MLP hidden len=%d hidden_size=%d intermediate=%d", len(scratch.Hidden), hiddenSize, intermediate)
 	}
-	gate := make([]float32, intermediate)
-	up := make([]float32, intermediate)
-	act := make([]float32, intermediate)
-	out := make([]float32, hiddenSize)
-	for off := 0; off < len(scratch.Hidden); off += hiddenSize {
-		row := scratch.Hidden[off : off+hiddenSize]
-		if !gateM.gemvRows(gate, row) {
-			return fmt.Errorf("DiffusionGemma dense MLP gate GEMV rejected layer %d", op.Layer)
-		}
-		if !upM.gemvRows(up, row) {
-			return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
-		}
-		if diffusionGemmaLayerTraceOpsEnabled() && off/hiddenSize == diffusionGemmaLayerTraceRow() {
+	positions := len(scratch.Hidden) / hiddenSize
+	gateAll := make([]float32, positions*intermediate)
+	upAll := make([]float32, positions*intermediate)
+	actAll := make([]float32, positions*intermediate)
+	outAll := make([]float32, positions*hiddenSize)
+	if ok, err := gateM.projectBatchTo(gateAll, scratch.Hidden, positions); err != nil {
+		return fmt.Errorf("DiffusionGemma dense MLP gate batch project layer %d: %w", op.Layer, err)
+	} else if !ok {
+		return fmt.Errorf("DiffusionGemma dense MLP gate GEMV rejected layer %d", op.Layer)
+	}
+	if ok, err := upM.projectBatchTo(upAll, scratch.Hidden, positions); err != nil {
+		return fmt.Errorf("DiffusionGemma dense MLP up batch project layer %d: %w", op.Layer, err)
+	} else if !ok {
+		return fmt.Errorf("DiffusionGemma dense MLP up GEMV rejected layer %d", op.Layer)
+	}
+	for pos := 0; pos < positions; pos++ {
+		gate := gateAll[pos*intermediate : (pos+1)*intermediate]
+		up := upAll[pos*intermediate : (pos+1)*intermediate]
+		act := actAll[pos*intermediate : (pos+1)*intermediate]
+		if diffusionGemmaLayerTraceOpsEnabled() && pos == diffusionGemmaLayerTraceRow() {
 			traceForwardData("op/ffn_gate", op.Layer, 0, gate, intermediate)
 			traceForwardData("op/ffn_up", op.Layer, 0, up, intermediate)
 		}
 		if !diffusionGemmaGELUMulTo(act, gate, up) {
 			return fmt.Errorf("DiffusionGemma dense MLP activation rejected layer %d", op.Layer)
 		}
-		if diffusionGemmaLayerTraceOpsEnabled() && off/hiddenSize == diffusionGemmaLayerTraceRow() {
+		if diffusionGemmaLayerTraceOpsEnabled() && pos == diffusionGemmaLayerTraceRow() {
 			traceForwardData("op/ffn_geglu", op.Layer, 0, act, intermediate)
 		}
-		if !downM.gemvRows(out, act) {
-			return fmt.Errorf("DiffusionGemma dense MLP down GEMV rejected layer %d", op.Layer)
-		}
-		if diffusionGemmaLayerTraceOpsEnabled() && off/hiddenSize == diffusionGemmaLayerTraceRow() {
+	}
+	if ok, err := downM.projectBatchTo(outAll, actAll, positions); err != nil {
+		return fmt.Errorf("DiffusionGemma dense MLP down batch project layer %d: %w", op.Layer, err)
+	} else if !ok {
+		return fmt.Errorf("DiffusionGemma dense MLP down GEMV rejected layer %d", op.Layer)
+	}
+	for pos := 0; pos < positions; pos++ {
+		out := outAll[pos*hiddenSize : (pos+1)*hiddenSize]
+		if diffusionGemmaLayerTraceOpsEnabled() && pos == diffusionGemmaLayerTraceRow() {
 			traceForwardData("op/ffn_down", op.Layer, 0, out, hiddenSize)
 		}
-		copy(row, out)
+		copy(scratch.Hidden[pos*hiddenSize:(pos+1)*hiddenSize], out)
 	}
 	postNorm1, err := loadFloatVector(weights, lb.PostFFNLayerNorm1)
 	if err != nil {
@@ -1215,10 +1239,11 @@ func loadFloatMatrix(weights *TextWeights, binding *TensorBinding) ([]float32, i
 
 // mixedMatrix holds either F32 or BF16 weight data for GEMV.
 type mixedMatrix struct {
-	f32  []float32
-	bf16 []uint16
-	rows int
-	cols int
+	quant *gguf.QuantMatrix
+	f32   []float32
+	bf16  []uint16
+	rows  int
+	cols  int
 }
 
 // gemvRows runs the appropriate GEMV: BF16 path if available, else F32.
@@ -1232,6 +1257,25 @@ func (m *mixedMatrix) gemvRows(out, x []float32) bool {
 	return simd.GemvRows(out, x, m.f32, m.rows, m.cols)
 }
 
+func (m *mixedMatrix) projectBatchTo(dst, x []float32, batch int) (bool, error) {
+	if m == nil || batch <= 0 || len(dst) < batch*m.rows || len(x) < batch*m.cols {
+		return false, nil
+	}
+	if batch > 1 && m.quant != nil {
+		if err := m.quant.ProjectBatchF32To(dst, x, batch); err == nil {
+			return true, nil
+		} else if !errors.Is(err, gguf.ErrUnsupportedBatchProjection) {
+			return false, err
+		}
+	}
+	for pos := 0; pos < batch; pos++ {
+		if !m.gemvRows(dst[pos*m.rows:(pos+1)*m.rows], x[pos*m.cols:(pos+1)*m.cols]) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // loadMixedMatrix tries cached F32 first (fast GEMV), avoiding BF16 path
 // since BF16DotF32 is slower than F32 Sdot on most CPUs.
 func loadMixedMatrix(weights *TextWeights, binding *TensorBinding) (*mixedMatrix, error) {
@@ -1242,7 +1286,7 @@ func loadMixedMatrix(weights *TextWeights, binding *TensorBinding) (*mixedMatrix
 	if err != nil {
 		return nil, err
 	}
-	return &mixedMatrix{f32: f32, rows: rows, cols: cols}, nil
+	return &mixedMatrix{quant: weights.GGUFQuantMatrix(binding.Name), f32: f32, rows: rows, cols: cols}, nil
 }
 
 func loadOptionalScalar(weights *TextWeights, binding *TensorBinding, fallback float32) (float32, error) {

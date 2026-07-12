@@ -173,6 +173,64 @@ func GemvQ4_0Q8_0Rows(out, x []float32, m *QuantMatrix) bool {
 	})
 }
 
+// DotQ5_0Q8_0 computes a Q5_0 row against a pre-quantized Q8_0 activation row.
+func DotQ5_0Q8_0(raw []byte, y []q8_0Block, n int) (float32, error) {
+	if n%qk8_0 != 0 {
+		return 0, fmt.Errorf("Q5_0 dot n=%d not multiple of %d", n, qk8_0)
+	}
+	nb := n / qk8_0
+	const blockSize = 22
+	if len(raw) < nb*blockSize || len(y) < nb {
+		return 0, fmt.Errorf("Q5_0 dot raw/activation short raw=%d y=%d nb=%d", len(raw), len(y), nb)
+	}
+	var sum float32
+	for bi := 0; bi < nb; bi++ {
+		blk := raw[bi*blockSize : (bi+1)*blockSize]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2])) * y[bi].d
+		qh := binary.LittleEndian.Uint32(blk[2:6])
+		qs := blk[6:22]
+		blockSum := 0
+		for j := 0; j < qk8_0/2; j++ {
+			q0 := int(qs[j] & 0x0F)
+			q1 := int(qs[j] >> 4)
+			if qh&(1<<uint(j)) != 0 {
+				q0 |= 16
+			}
+			if qh&(1<<uint(j+16)) != 0 {
+				q1 |= 16
+			}
+			blockSum += (q0 - 16) * int(y[bi].qs[j])
+			blockSum += (q1 - 16) * int(y[bi].qs[j+16])
+		}
+		sum = float32(math.FMA(float64(d), float64(float32(blockSum)), float64(sum)))
+	}
+	return sum, nil
+}
+
+// DotQ8_0Q8_0 computes a Q8_0 row against a pre-quantized Q8_0 activation row.
+func DotQ8_0Q8_0(raw []byte, y []q8_0Block, n int) (float32, error) {
+	if n%qk8_0 != 0 {
+		return 0, fmt.Errorf("Q8_0 dot n=%d not multiple of %d", n, qk8_0)
+	}
+	nb := n / qk8_0
+	const blockSize = 34
+	if len(raw) < nb*blockSize || len(y) < nb {
+		return 0, fmt.Errorf("Q8_0 dot raw/activation short raw=%d y=%d nb=%d", len(raw), len(y), nb)
+	}
+	var sum float32
+	for bi := 0; bi < nb; bi++ {
+		blk := raw[bi*blockSize : (bi+1)*blockSize]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2])) * y[bi].d
+		qs := blk[2:34]
+		blockSum := 0
+		for j := 0; j < qk8_0; j++ {
+			blockSum += int(int8(qs[j])) * int(y[bi].qs[j])
+		}
+		sum = float32(math.FMA(float64(d), float64(float32(blockSum)), float64(sum)))
+	}
+	return sum, nil
+}
+
 // DotQ6KQ8K computes llama.cpp's AVX-style ggml_vec_dot_q6_K_q8_K over one
 // Q6_K row and a pre-quantized Q8_K activation row.
 func DotQ6KQ8K(raw []byte, y []q8KBlock, n int) (float32, error) {

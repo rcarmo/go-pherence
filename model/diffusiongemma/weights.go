@@ -35,9 +35,10 @@ type TextWeights struct {
 	shards         *safetensors.ShardedFile
 	floatCache     map[string]FloatTensor
 	cacheMu        sync.RWMutex
-	noEvict        bool              // GGUF mode: all weights pre-cached, cannot reload from shards
-	ggufTokenEmbd  *gguf.QuantMatrix // original quantized tied token_embd.weight for GGUF LM-head parity
-	IndexedExperts bool              // FP8 mode: experts are per-expert tensors resolved by FP8ExpertIndex, not fused BF16 bindings
+	noEvict        bool                         // GGUF mode: all weights pre-cached, cannot reload from shards
+	ggufQuant      map[string]*gguf.QuantMatrix // canonical 2D GGUF matrices keyed by safetensors binding name
+	ggufTokenEmbd  *gguf.QuantMatrix            // original quantized tied token_embd.weight for GGUF LM-head parity
+	IndexedExperts bool                         // FP8 mode: experts are per-expert tensors resolved by FP8ExpertIndex, not fused BF16 bindings
 }
 
 type FloatTensor struct {
@@ -100,6 +101,7 @@ func (w *TextWeights) Close() error {
 	}
 	w.cacheMu.Lock()
 	w.floatCache = nil
+	w.ggufQuant = nil
 	w.ggufTokenEmbd = nil
 	w.cacheMu.Unlock()
 	if w.shards == nil {
@@ -322,6 +324,16 @@ func (w *TextWeights) RawBF16Tensor(name string) ([]uint16, []int, error) {
 	}
 	out := unsafe.Slice((*uint16)(unsafe.Pointer(&raw[0])), want)
 	return out, shape, nil
+}
+
+func (w *TextWeights) GGUFQuantMatrix(name string) *gguf.QuantMatrix {
+	if w == nil {
+		return nil
+	}
+	w.cacheMu.RLock()
+	qm := w.ggufQuant[name]
+	w.cacheMu.RUnlock()
+	return qm
 }
 
 func (w *TextWeights) RawTensorRow(name string, row int) ([]byte, string, []int, error) {

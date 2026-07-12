@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"sync/atomic"
 
 	"github.com/rcarmo/go-pherence/half"
 )
@@ -28,12 +29,42 @@ type experimentalQ8KBlockX4 struct {
 	bsums [64]int16
 }
 
+type experimentalQ4K8x8MulStats struct {
+	repacks   uint64
+	quant4x   uint64
+	quant8x   uint64
+	tilePairs uint64
+}
+
+var experimentalQ4K8x8Stats experimentalQ4K8x8MulStats
+
+func resetExperimentalQ4K8x8Stats() {
+	atomic.StoreUint64(&experimentalQ4K8x8Stats.repacks, 0)
+	atomic.StoreUint64(&experimentalQ4K8x8Stats.quant4x, 0)
+	atomic.StoreUint64(&experimentalQ4K8x8Stats.quant8x, 0)
+	atomic.StoreUint64(&experimentalQ4K8x8Stats.tilePairs, 0)
+}
+
+func snapshotExperimentalQ4K8x8Stats() experimentalQ4K8x8MulStats {
+	return experimentalQ4K8x8MulStats{
+		repacks:   atomic.LoadUint64(&experimentalQ4K8x8Stats.repacks),
+		quant4x:   atomic.LoadUint64(&experimentalQ4K8x8Stats.quant4x),
+		quant8x:   atomic.LoadUint64(&experimentalQ4K8x8Stats.quant8x),
+		tilePairs: atomic.LoadUint64(&experimentalQ4K8x8Stats.tilePairs),
+	}
+}
+
 // experimentalQ4K8x8Tile is a correctness-first port of ggml's current CPU
 // repack+GEMM path for one canonical 8x8 Q4_K tile. It remains internal until
 // a complete batched projection path consumes it.
 type experimentalQ4K8x8Tile struct {
 	k      int
 	blocks []experimentalQ4KBlockX8
+}
+
+type experimentalQ8K4x8Group struct {
+	k      int
+	blocks []experimentalQ8KBlockX4
 }
 
 // newExperimentalQ4K8x8Tile repacks 8 canonical raw GGUF Q4_K rows into the
@@ -50,6 +81,7 @@ func newExperimentalQ4K8x8Tile(raw []byte, k int) (*experimentalQ4K8x8Tile, erro
 	if len(raw) != wantRaw {
 		return nil, fmt.Errorf("experimental q4k 8x8 tile: raw=%d want=%d", len(raw), wantRaw)
 	}
+	atomic.AddUint64(&experimentalQ4K8x8Stats.repacks, 1)
 	nb := k / experimentalQ4KBlockElems
 	blocks := make([]experimentalQ4KBlockX8, nb)
 	for bi := 0; bi < nb; bi++ {
@@ -61,6 +93,19 @@ func newExperimentalQ4K8x8Tile(raw []byte, k int) (*experimentalQ4K8x8Tile, erro
 		blocks[bi] = repackExperimentalQ4KBlockX8(rows)
 	}
 	return &experimentalQ4K8x8Tile{k: k, blocks: blocks}, nil
+}
+
+func newExperimentalQ8K4x8Group(acts []float32, k int) (*experimentalQ8K4x8Group, error) {
+	if k <= 0 || k%experimentalQ4KBlockElems != 0 {
+		return nil, fmt.Errorf("experimental q8k 4x8 acts: k=%d not multiple of %d", k, experimentalQ4KBlockElems)
+	}
+	if len(acts) != 4*k {
+		return nil, fmt.Errorf("experimental q8k 4x8 acts: acts=%d want=%d", len(acts), 4*k)
+	}
+	blocks := make([]experimentalQ8KBlockX4, k/experimentalQ4KBlockElems)
+	quantizeExperimentalQ8K4x8To(blocks, acts, k)
+	atomic.AddUint64(&experimentalQ4K8x8Stats.quant4x, 1)
+	return &experimentalQ8K4x8Group{k: k, blocks: blocks}, nil
 }
 
 // mulF32ActivationRows computes outputs for eight row-major F32 activation
@@ -75,14 +120,19 @@ func (t *experimentalQ4K8x8Tile) mulF32ActivationRows(acts []float32) ([]float32
 	}
 	out := make([]float32, experimentalQ4K8x8Rows*experimentalQ4K8x8ActRows)
 	for g := 0; g < experimentalQ4K8x8ActRows/4; g++ {
-		q8 := quantizeExperimentalQ8K4x8(acts[g*4*t.k:(g+1)*4*t.k], t.k)
-		batch := gemmExperimentalQ4K8x8Q8K(t.k, t.blocks, q8, 4, experimentalQ4K8x8Rows)
+		q8, err := newExperimentalQ8K4x8Group(acts[g*4*t.k:(g+1)*4*t.k], t.k)
+		if err != nil {
+			return nil, err
+		}
+		var batch [experimentalQ4K8x8Rows * 4]float32
+		gemmExperimentalQ4K8x8Q8KTo(batch[:], t.k, t.blocks, q8.blocks, 4, experimentalQ4K8x8Rows)
 		for actRow := 0; actRow < 4; actRow++ {
 			for weightRow := 0; weightRow < experimentalQ4K8x8Rows; weightRow++ {
 				out[weightRow*experimentalQ4K8x8ActRows+g*4+actRow] = batch[actRow*experimentalQ4K8x8Rows+weightRow]
 			}
 		}
 	}
+	atomic.AddUint64(&experimentalQ4K8x8Stats.quant8x, 1)
 	return out, nil
 }
 
@@ -142,9 +192,8 @@ func repackExperimentalQ4KBlockX8(in [8][]byte) experimentalQ4KBlockX8 {
 	return out
 }
 
-func quantizeExperimentalQ8K4x8(x []float32, k int) []experimentalQ8KBlockX4 {
+func quantizeExperimentalQ8K4x8To(out []experimentalQ8KBlockX4, x []float32, k int) {
 	nb := k / experimentalQ4KBlockElems
-	out := make([]experimentalQ8KBlockX4, nb)
 	const blockSizeInterleave = 8
 	var srcv [4][experimentalQ4KBlockElems]float32
 	var iscale [4]float32
@@ -189,10 +238,9 @@ func quantizeExperimentalQ8K4x8(x []float32, k int) []experimentalQ8KBlockX4 {
 			out[bi].bsums[index] += int16(q)
 		}
 	}
-	return out
 }
 
-func gemmExperimentalQ4K8x8Q8K(n int, vx []experimentalQ4KBlockX8, vy []experimentalQ8KBlockX4, nr, nc int) []float32 {
+func gemmExperimentalQ4K8x8Q8KTo(out []float32, n int, vx []experimentalQ4KBlockX8, vy []experimentalQ8KBlockX4, nr, nc int) {
 	const (
 		ncolsInterleaved = 8
 		blocklen         = 8
@@ -201,7 +249,9 @@ func gemmExperimentalQ4K8x8Q8K(n int, vx []experimentalQ4KBlockX8, vy []experime
 	const kmask2 uint32 = 0x0f0f0f0f
 	const kmask3 uint32 = 0x03030303
 	nb := n / experimentalQ4KBlockElems
-	out := make([]float32, nr*nc)
+	for i := range out[:nr*nc] {
+		out[i] = 0
+	}
 	var sumf [4][8]float32
 	var sumMinf [4][8]float32
 	var utmp [32]uint32
@@ -266,5 +316,5 @@ func gemmExperimentalQ4K8x8Q8K(n int, vx []experimentalQ4KBlockX8, vy []experime
 			}
 		}
 	}
-	return out
+	atomic.AddUint64(&experimentalQ4K8x8Stats.tilePairs, 1)
 }

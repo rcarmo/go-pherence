@@ -80,7 +80,9 @@ func ggufShapeToPyTorch(ggufShape []uint64) []int {
 // using exactly the same Q4_K_M weights as llama.cpp. All 1D/2D tensors are
 // dequantized to F32 eagerly; expert 3D tensors are handled by GGUFExpertIndex.
 //
-// The GGUF file must remain open (mmap'd) for the lifetime of the weights.
+// GGUF.Raw copies encoded tensor bytes into retained QuantMatrix entries, so
+// ordinary projection matrices remain valid after the source GGUF is closed.
+// Expert matrices have their own ownership contract in GGUFExpertIndex.
 func OpenTextWeightsFromGGUF(g *gguf.GGUF, shape Shape) (*TextWeights, error) {
 	t0 := time.Now()
 
@@ -88,6 +90,7 @@ func OpenTextWeightsFromGGUF(g *gguf.GGUF, shape Shape) (*TextWeights, error) {
 		Plan:       TextTensorPlan{Ready: true},
 		shards:     nil,
 		floatCache: make(map[string]FloatTensor),
+		ggufQuant:  make(map[string]*gguf.QuantMatrix),
 		noEvict:    true, // GGUF: all weights pre-cached, cannot reload
 	}
 
@@ -111,6 +114,13 @@ func OpenTextWeightsFromGGUF(g *gguf.GGUF, shape Shape) (*TextWeights, error) {
 		if len(ti.Shape) == 3 {
 			return b
 		}
+		if len(ti.Shape) == 2 {
+			if qm, err := g.MatrixFromTensor(ti); err == nil {
+				w.ggufQuant[stName] = qm
+			} else {
+				log.Printf("GGUF→TextWeights: quant matrix skip %s: %v", ggufName, err)
+			}
+		}
 		// Dequant and cache
 		raw, err := g.Raw(ti)
 		if err != nil {
@@ -130,17 +140,6 @@ func OpenTextWeightsFromGGUF(g *gguf.GGUF, shape Shape) (*TextWeights, error) {
 		return b
 	}
 
-	// Keep the original quantized tied token embedding as the GGUF LM-head
-	// source. The F32 cache is still populated for prompt/canvas embeddings and
-	// self-conditioning, but LM-head can use the Q6_K rows directly.
-	if ti, ok := g.TensorByName("token_embd.weight"); ok && len(ti.Shape) == 2 {
-		if qm, err := g.MatrixFromTensor(ti); err == nil {
-			w.ggufTokenEmbd = qm
-		} else {
-			log.Printf("GGUF→TextWeights: token_embd quant matrix unavailable: %v", err)
-		}
-	}
-
 	// Global tensors
 	for ggufName, stName := range ggufGlobalToSafetensors {
 		b := resolve(ggufName, stName)
@@ -151,6 +150,20 @@ func OpenTextWeightsFromGGUF(g *gguf.GGUF, shape Shape) (*TextWeights, error) {
 		}
 		w.Plan.Globals = append(w.Plan.Globals, b.TensorHandle)
 		w.Globals = append(w.Globals, *b)
+	}
+
+	// Keep the original quantized tied token embedding as the GGUF LM-head
+	// source. The F32 cache is still populated for prompt/canvas embeddings and
+	// self-conditioning, but LM-head can use the Q6_K rows directly.
+	if qm := w.ggufQuant["model.decoder.embed_tokens.weight"]; qm != nil {
+		w.ggufTokenEmbd = qm
+	} else if ti, ok := g.TensorByName("token_embd.weight"); ok && len(ti.Shape) == 2 {
+		if qm, err := g.MatrixFromTensor(ti); err == nil {
+			w.ggufTokenEmbd = qm
+			w.ggufQuant["model.decoder.embed_tokens.weight"] = qm
+		} else {
+			log.Printf("GGUF→TextWeights: token_embd quant matrix unavailable: %v", err)
+		}
 	}
 
 	// Per-layer tensors
