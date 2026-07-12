@@ -1,0 +1,22 @@
+{
+  "reference": "llama.cpp llama-diffusion-gemma-eval CPU-only",
+  "revision": "4a6735f1cf0594250958bcc839267696c7b998a4",
+  "execution_backend": "CPU",
+  "model": "diffusiongemma-26B-A4B-it-Q4_K_M.gguf",
+  "prompt_ids": [105],
+  "canvas_token": 236743,
+  "canvas_length": 256,
+  "row": 0,
+  "top_logits": [
+    {"id": 236743, "v": 27.567224502563477},
+    {"id": 236768, "v": 22.80903434753418},
+    {"id": 236770, "v": 22.488187789916992},
+    {"id": 236778, "v": 22.10518455505371},
+    {"id": 236810, "v": 22.02541732788086}
+  ],
+  "notes": [
+    "Captured with CUDA_VISIBLE_DEVICES=-1 and NGL=0; CUDA initialization reported no CUDA-capable device.",
+    "The scheduler reported only a CPU compute buffer and repacked Q4_K tensors with q4_K_8x8.",
+    "Command: CUDA_VISIBLE_DEVICES=-1 NGL=0 build/bin/llama-diffusion-gemma-eval <model> <prompt.i32> <canvas.i32> <out.bin>."
+  ]
+}

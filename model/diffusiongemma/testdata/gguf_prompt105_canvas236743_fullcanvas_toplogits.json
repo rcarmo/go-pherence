@@ -1,5 +1,7 @@
 {
-  "reference": "llama.cpp llama-diffusion-gemma-eval",
+  "reference": "llama.cpp llama-diffusion-gemma-eval CUDA-assisted scheduler",
+  "revision": "4a6735f1cf0594250958bcc839267696c7b998a4",
+  "execution_backend": "CUDA-assisted with CPU-mapped weights",
   "model": "diffusiongemma-26B-A4B-it-Q4_K_M.gguf",
   "prompt_ids": [105],
   "canvas_token": 236743,
@@ -14,6 +16,7 @@
   ],
   "notes": [
     "Captured with llama.cpp build/bin/llama-diffusion-gemma-eval using prompt_ids=[105] and a 256-token canvas filled with 236743.",
-    "This fixture is a compact full-canvas graph reference for row-0 logits; it is not the fast one-row diagnostic smoke."
+    "Reproduced exactly with CUDA visible: the scheduler allocated a CUDA0 compute buffer despite NGL=0 while weights remained CPU_Mapped.",
+    "This fixture characterizes CUDA-assisted scheduling and must not be used as the CPU-only parity target."
   ]
 }

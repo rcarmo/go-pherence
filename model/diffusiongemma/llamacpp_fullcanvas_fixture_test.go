@@ -22,9 +22,9 @@ type fullCanvasLogitRank struct {
 	V  float32 `json:"v"`
 }
 
-func loadFullCanvasTopLogitFixture(t *testing.T) fullCanvasTopLogitFixture {
+func loadNamedFullCanvasTopLogitFixture(t *testing.T, name string) fullCanvasTopLogitFixture {
 	t.Helper()
-	path := filepath.Join("testdata", "gguf_prompt105_canvas236743_fullcanvas_toplogits.json")
+	path := filepath.Join("testdata", name)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -39,6 +39,16 @@ func loadFullCanvasTopLogitFixture(t *testing.T) fullCanvasTopLogitFixture {
 	return f
 }
 
+func loadFullCanvasTopLogitFixture(t *testing.T) fullCanvasTopLogitFixture {
+	t.Helper()
+	return loadNamedFullCanvasTopLogitFixture(t, "gguf_prompt105_canvas236743_fullcanvas_toplogits.json")
+}
+
+func loadCPUFullCanvasTopLogitFixture(t *testing.T) fullCanvasTopLogitFixture {
+	t.Helper()
+	return loadNamedFullCanvasTopLogitFixture(t, "gguf_prompt105_canvas236743_fullcanvas_cpu_toplogits.json")
+}
+
 func TestLlamaCppFullCanvasTopLogitFixture(t *testing.T) {
 	f := loadFullCanvasTopLogitFixture(t)
 	if f.PromptIDs[0] != 105 || f.CanvasToken != 236743 || f.Row != 0 {
@@ -51,6 +61,15 @@ func TestLlamaCppFullCanvasTopLogitFixture(t *testing.T) {
 	}
 }
 
+func TestLlamaCppCPUFullCanvasTopLogitFixture(t *testing.T) {
+	f := loadCPUFullCanvasTopLogitFixture(t)
+	want := fullCanvasLogitRank{ID: 236743, V: 27.567224502563477}
+	got := f.TopLogits[0]
+	if got.ID != want.ID || math.Abs(float64(got.V-want.V)) > 1e-6 {
+		t.Fatalf("CPU fixture top=%+v want %+v", got, want)
+	}
+}
+
 func TestLocalGGUFFullCanvasTopTokenMatchesLlamaCppFixture(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_FULL_CANVAS_GOLDEN") != "1" {
 		t.Skip("set GO_PHERENCE_DIFFUSIONGEMMA_FULL_CANVAS_GOLDEN=1 for slow local full-canvas GGUF comparison")
@@ -59,7 +78,10 @@ func TestLocalGGUFFullCanvasTopTokenMatchesLlamaCppFixture(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	f := loadFullCanvasTopLogitFixture(t)
+	// This is a CPU-only Go gate, so compare it with the separately captured
+	// CPU-only llama.cpp fixture. The older fixture remains a CUDA-assisted
+	// scheduler characterization and is intentionally not overwritten.
+	f := loadCPUFullCanvasTopLogitFixture(t)
 	den := openLocalGGUFTinyGoldenDenoiser(t)
 	canvas := make([]int, f.CanvasLength)
 	for i := range canvas {
