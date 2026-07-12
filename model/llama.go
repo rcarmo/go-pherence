@@ -64,7 +64,7 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 	if cfg.AttentionLogitSoftcapping < 0 {
 		return nil, fmt.Errorf("invalid attn_logit_softcapping %g: must be non-negative", cfg.AttentionLogitSoftcapping)
 	}
-	if err := validateGemma2AttentionConfig(cfg); err != nil {
+	if err := validateGemmaAttentionConfig(cfg); err != nil {
 		return nil, err
 	}
 	if cfg.RMSNormEps == 0 {

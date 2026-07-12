@@ -17,21 +17,28 @@ func attentionLogitSoftcap(cfg LlamaConfig) float32 {
 // attentionScale mirrors llama_model_gemma2::load_arch_hparams: Gemma2 27B
 // scales by the configured Q-head width (hidden/heads), whereas 2B and 9B
 // use the actual K/Q projection head width. Gemma4 supplies already-scaled Q/K.
-func validateGemma2AttentionConfig(cfg LlamaConfig) error {
-	if cfg.ModelType != "gemma2" && cfg.ModelType != "gemma2_text" {
-		return nil
-	}
-	switch cfg.NumLayers {
-	case 26, 42:
-		return nil
-	case 46:
-		if cfg.NumHeads <= 0 || cfg.HiddenSize <= 0 || cfg.HiddenSize%cfg.NumHeads != 0 {
-			return fmt.Errorf("Gemma2 27B attention scale requires hidden_size divisible by num_attention_heads (hidden=%d heads=%d)", cfg.HiddenSize, cfg.NumHeads)
-		}
-		return nil
+func validateGemmaAttentionConfig(cfg LlamaConfig) error {
+	model := cfg.ModelType
+	var family string
+	var known map[int]bool
+	var largeLayers int
+	switch model {
+	case "gemma2", "gemma2_text":
+		family, largeLayers = "Gemma2", 46
+		known = map[int]bool{26: true, 42: true, 46: true}
+	case "gemma3", "gemma3_text":
+		family, largeLayers = "Gemma3", 62
+		known = map[int]bool{18: true, 26: true, 32: true, 34: true, 48: true, 62: true}
 	default:
-		return fmt.Errorf("unsupported Gemma2 layer count %d: attention scale is ambiguous", cfg.NumLayers)
+		return nil
 	}
+	if !known[cfg.NumLayers] {
+		return fmt.Errorf("unsupported %s layer count %d: attention scale is ambiguous", family, cfg.NumLayers)
+	}
+	if cfg.NumLayers == largeLayers && (cfg.NumHeads <= 0 || cfg.HiddenSize <= 0 || cfg.HiddenSize%cfg.NumHeads != 0) {
+		return fmt.Errorf("%s 27B attention scale requires hidden_size divisible by num_attention_heads (hidden=%d heads=%d)", family, cfg.HiddenSize, cfg.NumHeads)
+	}
+	return nil
 }
 
 func attentionScale(cfg LlamaConfig, headDim int) float32 {
@@ -39,7 +46,9 @@ func attentionScale(cfg LlamaConfig, headDim int) float32 {
 		return 1
 	}
 	scaleDim := headDim
-	if (cfg.ModelType == "gemma2" || cfg.ModelType == "gemma2_text") && cfg.NumLayers == 46 && cfg.NumHeads > 0 && cfg.HiddenSize%cfg.NumHeads == 0 {
+	isGemma2_27B := (cfg.ModelType == "gemma2" || cfg.ModelType == "gemma2_text") && cfg.NumLayers == 46
+	isGemma3_27B := (cfg.ModelType == "gemma3" || cfg.ModelType == "gemma3_text") && cfg.NumLayers == 62
+	if (isGemma2_27B || isGemma3_27B) && cfg.NumHeads > 0 && cfg.HiddenSize%cfg.NumHeads == 0 {
 		scaleDim = cfg.HiddenSize / cfg.NumHeads
 	}
 	if scaleDim <= 0 {
