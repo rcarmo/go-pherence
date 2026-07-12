@@ -18,7 +18,7 @@ func TestRunVisionLayerF32Deterministic(t *testing.T) {
 	if err := RunVisionLayerF32(hidden, 2, 2, 1, 2, layer); err != nil {
 		t.Fatal(err)
 	}
-	want := []float32{1.207899, -0.735513, 0.486958, 1.327731}
+	want := []float32{3.269861, -1.955632, 0.357752, 3.257929}
 	if len(hidden) != len(want) {
 		t.Fatalf("len=%d want %d", len(hidden), len(want))
 	}
