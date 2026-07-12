@@ -6,7 +6,25 @@ Go repository: `go-pherence`
 
 Reference: local `llama.cpp` fork at `4a6735f1c` (`pr-24423`)
 
-## Executive summary
+## Closure update (2026-07-12)
+
+The ranked findings below preserve the audit baseline. Subsequent bounded fixes closed all identified structural family gaps except the experimental Gemma4 MTP strict-logit blocker:
+
+| Original finding | Current state | Evidence |
+|---|---|---|
+| RoPE truncation above 2047 | **Closed** | On-demand concurrency-safe growth in `86c85b0d`; generic, Gemma4 main, and MTP factor-preservation/4095 tests pass. |
+| Gemma2 softcap and 27B scale | **Closed** | `9748804a` adds pre-softmax attention softcap; `f7d69d28` adds model-size scaling and ambiguity rejection. |
+| Gemma3 27B scale | **Closed** | `0b15a299` and `f50633e1` align scaling and SWA/global graph ordering. |
+| DiffusionGemma text graph | **Closed to the declared CPU fixture bound** | Native ordinary GGUF projection math in `00216b00`; the CPU full-canvas top-logit delta is `0.116039`, inside the strict opt-in bound. Exact atomic expert replacement remains rejected because it regresses the real graph. |
+| DiffusionGemma vision graph | **Structurally closed; reference fixture green** | XY positions, input scaling, spatial pooling, HWC flattening, residual order, V normalization, attention scale, 2-D RoPE, canonical GELU, and BF16 boundaries landed in `35eeec9e` through `9390e954`. The deterministic 48×48 Transformers boundary fixture passes. |
+| Gemma1 | **Explicitly unsupported** | `af886f00` rejects canonical `model_type: "gemma"` before weight loading until a dedicated graph is audited. |
+| Runtime tuning parity | **Explicit contract** | `d4f1c20d` documents placement/KV/sampling semantics and rejects known unsupported llama.cpp controls rather than silently approximating them. |
+| Gemma4 MTP external KV and batch verifier | **Closed structurally** | Prompt handoff/source mapping and sequential-vs-batched CPU trajectory gates pass; batch lowering remains default-off pending strict logits. |
+| Gemma4 MTP selected logits | **Open numerical blocker** | Accepted-token parity is green. Five strict selected-logit mismatches remain; first-boundary work localizes these to small layer-0 attention/hidden-trajectory drift that accumulates across layers, not a missing graph operation. See `gemma4-mtp-first-diff.md`. |
+
+CPU-only final gates on 2026-07-12 passed for Gemma2/Gemma3 scaling and softcap, long-context RoPE growth, DiffusionGemma full-canvas fixtures, 48×48 Transformers vision, post-pooling standardization, and default Gemma4 MTP token/acceptance parity. The strict MTP selected-logit fixture intentionally remains non-default and red; therefore full 1:1 Gemma4 MTP numerical parity is not claimed.
+
+## Executive summary (audit baseline)
 
 The **Gemma4 text graph is structurally close to the fork**: per-layer attention type, shared-KV tail layers, Q/K normalization, no-scale V normalization, K=V fallback, proportional RoPE, post-attention/post-FFN norms, PLI injection, layer output scale, final softcap, and suppress-token bias are represented and have focused tests.
 
