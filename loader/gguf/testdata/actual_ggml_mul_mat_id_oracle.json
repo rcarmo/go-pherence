@@ -1,0 +1,39 @@
+{
+  "provenance": {
+    "llama_cpp_revision": "4a6735f1cf0594250958bcc839267696c7b998a4",
+    "generator": "tmp_actual_ggml_mul_mat_id_oracle.cpp",
+    "graph": "ggml_mul_mat_id",
+    "backend": "CPU",
+    "backend_threads": 1,
+    "weight_buffer_type": "CPU_REPACK",
+    "log_excerpt": "repack tensor q4_moe with q4_K_8x8"
+  },
+  "shape": {
+    "src0_as": [256, 8, 4],
+    "src1_b": [256, 2, 3],
+    "ids": [2, 3],
+    "dst": [8, 2, 3]
+  },
+  "layout": {
+    "src0_as": "expert-major canonical raw Q4_K rows: [expert][out_row][packed_row_bytes]",
+    "src1_b": "F32 contiguous [token][slot][k] matching ggml ne=[k,n_ids,tokens]",
+    "ids": "I32 contiguous [token][slot] with slot as ne0 and token as ne1",
+    "dst": "F32 contiguous [token][slot][out_row] matching ggml ne=[out,n_ids,tokens]"
+  },
+  "dimensions": {
+    "k": 256,
+    "out": 8,
+    "experts": 4,
+    "n_ids": 2,
+    "tokens": 3
+  },
+  "expert_scan_order": "group rows by expert while scanning tokens outermost and slots innermost: for token in [0..tokens), for slot in [0..n_ids)",
+  "token_slot_ids": [[2, 0], [1, 2], [2, 1]],
+  "runtime_repack": true,
+  "weights_file": "actual_ggml_mul_mat_id_oracle_q4.bin",
+  "acts_file": "actual_ggml_mul_mat_id_oracle_act_f32.bin",
+  "ids_file": "actual_ggml_mul_mat_id_oracle_ids_i32.bin",
+  "output": [-11.325235367, -4.281734467, 1.272724152, -0.941235542, 2.318266869, -2.845622063, -3.288724899, 1.551314354, -0.888751030, 9.224386215, 0.909859717, -2.714037418, 2.033617496, 4.328537464, -9.134228706, 0.764654875, -0.632661819, -7.545293808, -2.012413025, 4.255096436, 7.007898331, -15.264156342, 3.813432693, 7.522172928, 4.119924545, -5.491501808, -7.346112251, 7.456876278, -8.938097000, 7.940577984, -2.082533836, 0.897749901, -7.977663994, -0.945206165, -20.022466660, 3.424074650, -0.730601311, 9.637351990, 1.251878738, -5.881855011, -1.249525785, -10.718491554, -10.410261154, -4.108324051, -2.714739323, 0.438320398, -3.745522022, 10.292695999],
+  "expected_vecdot": [-11.325235367, -4.281734467, 1.272725105, -0.941235542, 2.318267822, -2.845623016, -3.288723946, 1.551314354, -0.888749599, 9.224385262, 0.909860134, -2.714037418, 2.033616781, 4.328538418, -9.134228706, 0.764655232, -0.632661819, -7.545291901, -2.012413025, 4.255098343, 7.007900238, -15.264155388, 3.813432693, 7.522174835, 4.119925022, -5.491501808, -7.346112251, 7.456875801, -8.938097000, 7.940577984, -2.082533836, 0.897749901, -7.977663517, -0.945206642, -20.022468567, 3.424074650, -0.730601311, 9.637353897, 1.251878738, -5.881855965, -1.249526024, -10.718492508, -10.410260201, -4.108324051, -2.714739561, 0.438320160, -3.745522499, 10.292695999],
+  "max_abs_diff": 0.000001907
+}

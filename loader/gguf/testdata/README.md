@@ -73,3 +73,63 @@ SHA-256:
 81380616b3080c906eaaf0cff1e3cef7849e8b8aa817eaa8715cb43c1ed7d939  actual_ggml_q4k_gemv_oracle_act_f32.bin
 367ca4b78f0e4fa69d933fec0c7c938f63a8a02ba3abf42fc50750aa170c2efb  actual_ggml_q4k_gemv_oracle_q4.bin
 ```
+
+## Q4_K 8x8 MUL_MAT_ID oracle
+
+`actual_ggml_mul_mat_id_oracle_*` is a deterministic external fixture for the
+real one-thread CPU `ggml_mul_mat_id` path at the same pinned llama.cpp
+revision `4a6735f1cf0594250958bcc839267696c7b998a4`.
+
+The standalone generator built canonical `Q4_K [256,8,4]` expert weights,
+canonical `F32 [256,2,3]` source activations, and `I32 [2,3]` ids with
+repeated and out-of-order expert selection:
+
+- token 0 -> slots `[2, 0]`
+- token 1 -> slots `[1, 2]`
+- token 2 -> slots `[2, 1]`
+
+It then executed:
+
+1. `ggml_new_tensor_3d(..., GGML_TYPE_Q4_K, 256, 8, 4)` for expert weights
+2. `ggml_new_tensor_3d(..., GGML_TYPE_F32, 256, 2, 3)` for `src1`
+3. `ggml_new_tensor_2d(..., GGML_TYPE_I32, 2, 3)` for ids
+4. allocation with `ggml_backend_cpu_repack_buffer_type()`
+5. `ggml_mul_mat_id(as, b, ids)` on a one-thread CPU backend
+6. `ggml_backend_graph_compute()` and tensor download
+
+The JSON records provenance plus the contiguous tensor layouts used by both
+GGML and the Go reproduction test:
+
+- `src0_as`: canonical raw Q4_K bytes laid out as `[expert][out_row][row_bytes]`
+- `src1_b`: F32 contiguous `[token][slot][k]` matching ggml `ne=[k,n_ids,tokens]`
+- `ids`: I32 contiguous `[token][slot]` with slot as `ne0`
+- `dst`: F32 contiguous `[token][slot][out_row]` matching ggml `ne=[out,n_ids,tokens]`
+
+Row grouping provenance matches `forward_mul_mat_id`: scan tokens outermost,
+slots innermost, append each `(slot, token)` pair to the selected expert group,
+run each expert matmul, then scatter back to `[slot, token]` in the output.
+
+Generator command:
+
+```sh
+g++ -std=c++17 -O2 /workspace/tmp_actual_ggml_mul_mat_id_oracle.cpp \
+  -I/workspace/projects/llama.cpp/ggml/include \
+  -I/workspace/projects/llama.cpp/ggml/src \
+  -L/workspace/projects/llama.cpp/build/bin \
+  -Wl,-rpath,/workspace/projects/llama.cpp/build/bin \
+  -lggml -lggml-base -lggml-cpu -o /workspace/tmp_actual_ggml_mul_mat_id_oracle
+GGML_LOG_LEVEL=debug /workspace/tmp_actual_ggml_mul_mat_id_oracle \
+  /workspace/actual_ggml_mul_mat_id_oracle.json
+```
+
+The runtime reported the repack log `repack tensor q4_moe with q4_K_8x8` and a
+`1.90734863e-06` max graph-versus-independent-vecdot gap.
+
+SHA-256:
+
+```text
+23c1ddfe1d8399078c33ae836f8834799524195cc34f5e25bf454c5e11f3ed5a  actual_ggml_mul_mat_id_oracle.json
+e5161bb529a64c999ca375178a1fa1356b72e0f65d96f348b86477d289401783  actual_ggml_mul_mat_id_oracle_q4.bin
+b662aca276d6c93ed2887b0c18960bff37063bdcf9f009fffabe1b8306cf0a58  actual_ggml_mul_mat_id_oracle_act_f32.bin
+778b5a2b0d0fcbb14612f50be317c35b1c97dd05efd61846830372ad45fb5365  actual_ggml_mul_mat_id_oracle_ids_i32.bin
+```
