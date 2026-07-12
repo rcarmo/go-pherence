@@ -372,6 +372,9 @@ func projectVisionPatchesToImageEmbeddings(vision []float32, patchW, patchH int,
 	if err != nil {
 		return ImageEmbeddingResult{}, err
 	}
+	// Gemma4VisionPooler casts the F32 spatial average back to the vision dtype
+	// before applying sqrt(hidden) scaling in F32.
+	roundVisionBF16InPlace(pooledVision)
 	stdBias, err := weights.CachedFloatTensor("model.encoder.vision_tower.std_bias")
 	if err != nil {
 		return ImageEmbeddingResult{}, err
@@ -383,9 +386,11 @@ func projectVisionPatchesToImageEmbeddings(vision []float32, patchW, patchH int,
 	if err := standardizeVisionSoftTokensF32(pooledVision, hidden, stdBias.Data, stdScale.Data); err != nil {
 		return ImageEmbeddingResult{}, err
 	}
+	roundVisionBF16InPlace(pooledVision)
 	if err := normalizeVisionSoftTokensForProjectionF32(pooledVision, hidden); err != nil {
 		return ImageEmbeddingResult{}, err
 	}
+	roundVisionBF16InPlace(pooledVision)
 	outLen, ok := checked.MulInt(softTokens, textHidden)
 	if !ok {
 		return ImageEmbeddingResult{}, fmt.Errorf("DiffusionGemma image embedding output overflow")
@@ -397,6 +402,7 @@ func projectVisionPatchesToImageEmbeddings(vision []float32, patchW, patchH int,
 		if !bf16GemvNarrow(projected, pooled, proj, textHidden, hidden) {
 			return ImageEmbeddingResult{}, fmt.Errorf("DiffusionGemma embed_vision projection rejected soft token=%d", tok)
 		}
+		roundVisionBF16InPlace(projected)
 		copy(out[tok*textHidden:(tok+1)*textHidden], projected)
 	}
 	return ImageEmbeddingResult{Embeddings: out, Shape: [3]int{1, softTokens, textHidden}}, nil
