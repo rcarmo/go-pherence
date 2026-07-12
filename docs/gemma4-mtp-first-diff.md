@@ -480,3 +480,17 @@ The current strict gap is **not** explained by:
 - MoE routing at the observed layer16 drift peak (layer16 is dense sliding attention)
 
 The remaining problem is an accumulated hidden-trajectory mismatch: small residual differences are present from the first attention block, then compound through dense layers and are visible at final `result_norm`. Local replacements that improve a single oracle (e.g. F16-rounded per-layer projection input) can worsen the end-to-end strict fixture, so future fixes should be validated against the full strict selected-logit gate, not only one local tensor distance.
+
+## 2026-07-12 constrained revalidation
+
+The strict fixture was rerun CPU-only with `GOMAXPROCS=2` against the current main and drafter assets. The same five mismatches remain:
+
+```text
+row0 token236751  Go 14.0357227  llama 14.1260710  delta -0.0903483
+row0 token236757  Go 15.1314516  llama 15.1981421  delta -0.0666905
+row1 token236751  Go  7.3860683  llama  7.3486571  delta +0.0374112
+row1 token236757  Go 13.7500830  llama 13.9382925  delta -0.1882095
+row2 token236757  Go 28.6302986  llama 28.6220856  delta +0.0082130
+```
+
+A fresh review suggested that llama.cpp's batched prompt graph might differ numerically from Go's decode-style row loop. The closest directly testable sub-hypothesis—batched versus row-wise ggml FlashAttention reduction—was rerun against the exact local llama.cpp revision (`4a6735f1`) through the `ggml` cgo oracle. `TestGemma4Layer0VerifierBatchedFlashMatchesRows` was exact (`max=0`) for all three verifier rows; the pure-Go flash implementation stayed within `1.43e-6`. This rules out query-row batching itself as the source of the larger saved-trace drift. A complete batched prompt-prefill graph oracle remains useful, but it must cover full PLI preparation and layer composition rather than merely replacing row-wise FlashAttention.
