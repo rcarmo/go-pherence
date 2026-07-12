@@ -77,6 +77,7 @@ func TestLocalGGUFFullCanvasTopTokenMatchesLlamaCppFixture(t *testing.T) {
 	if gotTop[0].id != wantTop.ID {
 		t.Fatalf("full-canvas top token=%d want %d all=%v llama=%v", gotTop[0].id, wantTop.ID, gotTop, f.TopLogits)
 	}
+	t.Logf("full-canvas top=%v llama=%v diff=%g", gotTop, f.TopLogits, math.Abs(float64(gotTop[0].v-wantTop.V)))
 	// Keep the current full-canvas numerical gap visible but bounded until the
 	// remaining all-layer logit parity work closes it. This prevents regressing
 	// the actual llama.cpp graph top token while avoiding the invalid one-row gate.
