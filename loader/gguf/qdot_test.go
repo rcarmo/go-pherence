@@ -179,6 +179,80 @@ func TestQuantizeQ8KComputesScaleQuantsAndBlockSums(t *testing.T) {
 	}
 }
 
+func TestDotQ4KQ8KMatchesActualFixtureVecdotOracle(t *testing.T) {
+	fixture, q4Raw, acts := loadQ4K8x8ActualBackendFixture(t)
+	rowBytes, err := TensorRawBytes(QuantQ4_K, fixture.K)
+	if err != nil {
+		t.Fatal(err)
+	}
+	maxGap := float32(0)
+	distinct := 0
+	for pos := 0; pos < q4KOracleM; pos++ {
+		q8, err := QuantizeQ8K(acts[pos*fixture.K : (pos+1)*fixture.K])
+		if err != nil {
+			t.Fatal(err)
+		}
+		for row := 0; row < q4KOracleN; row++ {
+			raw := q4Raw[row*rowBytes : (row+1)*rowBytes]
+			got, err := DotQ4KQ8K(raw, q8, fixture.K)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if math.Abs(float64(got-fixture.Vecdot[row][pos])) > 1e-4 {
+				t.Fatalf("pos=%d row=%d got=%g want vecdot %g diff=%g", pos, row, got, fixture.Vecdot[row][pos], got-fixture.Vecdot[row][pos])
+			}
+			gap := float32(math.Abs(float64(fixture.Output[row][pos] - got)))
+			if gap > maxGap {
+				maxGap = gap
+			}
+			if gap > 5e-7 {
+				distinct++
+			}
+		}
+	}
+	if distinct == 0 {
+		t.Fatalf("Q4_K vecdot oracle collapsed to tuned backend output; max gap=%g", maxGap)
+	}
+}
+
+func TestDotQ4KQ8KDiffersFromDequantF32OnSyntheticBoundary(t *testing.T) {
+	m := &QuantMatrix{Name: "synthetic.q4k", QType: QuantQ4_K, InDim: qkK, OutDim: 1}
+	rowBytes, err := m.RowBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Raw = make([]byte, rowBytes)
+	blk := m.Raw[:rowBytes]
+	binary.LittleEndian.PutUint16(blk[0:2], half.F32ToF16(0.03125))
+	binary.LittleEndian.PutUint16(blk[2:4], half.F32ToF16(0.0078125))
+	for i := 0; i < 12; i++ {
+		blk[4+i] = byte(1 + (i*5)%17)
+	}
+	for i := 0; i < 128; i++ {
+		blk[16+i] = byte((i*29 + 7) & 0xff)
+	}
+	x := make([]float32, qkK)
+	for i := range x {
+		x[i] = float32((i%31)-15)*0.013 + float32((i/31)%3)*0.001
+	}
+	q8, err := QuantizeQ8K(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DotQ4KQ8K(m.Raw, q8, qkK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deq := make([]float32, qkK)
+	if err := m.DequantRowTo(deq, 0); err != nil {
+		t.Fatal(err)
+	}
+	wantF32 := dotF32(deq, x)
+	if math.Abs(float64(got-wantF32)) <= 1e-6 {
+		t.Fatalf("quantized dot unexpectedly matched dequant-F32 dot: got=%g dequant=%g", got, wantF32)
+	}
+}
+
 func TestDequantRowQ6KToMatchesScalarReference(t *testing.T) {
 	raw := make([]byte, 210)
 	for i := 0; i < 128; i++ {

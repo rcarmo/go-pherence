@@ -231,6 +231,89 @@ func DotQ8_0Q8_0(raw []byte, y []q8_0Block, n int) (float32, error) {
 	return sum, nil
 }
 
+// DotQ4KQ8K computes llama.cpp's generic ggml_vec_dot_q4_K_q8_K over one
+// Q4_K row and a pre-quantized Q8_K activation row.
+func DotQ4KQ8K(raw []byte, y []q8KBlock, n int) (float32, error) {
+	if n%qkK != 0 {
+		return 0, fmt.Errorf("Q4_K dot n=%d not multiple of %d", n, qkK)
+	}
+	nb := n / qkK
+	const blockSize = 144
+	if len(raw) < nb*blockSize || len(y) < nb {
+		return 0, fmt.Errorf("Q4_K dot raw/activation short raw=%d y=%d nb=%d", len(raw), len(y), nb)
+	}
+	const kmask1 uint32 = 0x3f3f3f3f
+	const kmask2 uint32 = 0x0f0f0f0f
+	const kmask3 uint32 = 0x03030303
+	var sums [8]float32
+	var aux8 [qkK]int8
+	var aux32 [8]int32
+	for bi := 0; bi < nb; bi++ {
+		blk := raw[bi*blockSize : (bi+1)*blockSize]
+		q4 := blk[16:144]
+		q8 := y[bi].qs[:]
+		for i := range aux32 {
+			aux32[i] = 0
+		}
+		a := aux8[:]
+		for j := 0; j < qkK/64; j++ {
+			for l := 0; l < 32; l++ {
+				a[l] = int8(q4[l] & 0x0F)
+			}
+			a = a[32:]
+			for l := 0; l < 32; l++ {
+				a[l] = int8(q4[l] >> 4)
+			}
+			a = a[32:]
+			q4 = q4[32:]
+		}
+		var utmp [4]uint32
+		utmp[0] = binary.LittleEndian.Uint32(blk[4:8])
+		utmp[1] = binary.LittleEndian.Uint32(blk[8:12])
+		utmp[2] = binary.LittleEndian.Uint32(blk[12:16])
+		utmp[3] = ((utmp[2] >> 4) & kmask2) | (((utmp[1] >> 6) & kmask3) << 4)
+		uaux := utmp[1] & kmask1
+		utmp[1] = (utmp[2] & kmask2) | (((utmp[0] >> 6) & kmask3) << 4)
+		utmp[2] = uaux
+		utmp[0] &= kmask1
+		var scaleBytes [16]byte
+		binary.LittleEndian.PutUint32(scaleBytes[0:4], utmp[0])
+		binary.LittleEndian.PutUint32(scaleBytes[4:8], utmp[1])
+		binary.LittleEndian.PutUint32(scaleBytes[8:12], utmp[2])
+		binary.LittleEndian.PutUint32(scaleBytes[12:16], utmp[3])
+		minsBytes := scaleBytes[8:]
+		sumi := 0
+		for j := 0; j < qkK/16; j++ {
+			sumi += int(y[bi].bsums[j]) * int(minsBytes[j/2])
+		}
+		a = aux8[:]
+		is := 0
+		q8p := q8[:]
+		for j := 0; j < qkK/32; j++ {
+			scale := int32(scaleBytes[is])
+			is++
+			for chunk := 0; chunk < 4; chunk++ {
+				for l := 0; l < 8; l++ {
+					aux32[l] += scale * int32(q8p[l]) * int32(a[l])
+				}
+				q8p = q8p[8:]
+				a = a[8:]
+			}
+		}
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2])) * y[bi].d
+		for l := 0; l < 8; l++ {
+			sums[l] = float32(math.FMA(float64(d), float64(float32(aux32[l])), float64(sums[l])))
+		}
+		dmin := half.F16ToF32(binary.LittleEndian.Uint16(blk[2:4])) * y[bi].d
+		sums[0] = float32(math.FMA(float64(-dmin), float64(float32(sumi)), float64(sums[0])))
+	}
+	var sum float32
+	for l := 0; l < 8; l++ {
+		sum += sums[l]
+	}
+	return sum, nil
+}
+
 // DotQ6KQ8K computes llama.cpp's AVX-style ggml_vec_dot_q6_K_q8_K over one
 // Q6_K row and a pre-quantized Q8_K activation row.
 func DotQ6KQ8K(raw []byte, y []q8KBlock, n int) (float32, error) {
