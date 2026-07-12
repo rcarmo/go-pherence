@@ -55,7 +55,7 @@ func Gemma4MTPGraphCapabilities() MTPGraphCapabilities {
 		PromptContextAPI:             true,
 		ExternalKVRefresh:            true,
 		ExactTokenBudget:             true,
-		RealAssetAcceptanceParity:    false,
+		RealAssetAcceptanceParity:    true,
 		ExperimentalGenerationWiring: true,
 		PublicGenerationWiring:       false,
 	}

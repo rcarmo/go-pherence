@@ -8,8 +8,8 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 	if !caps.DrafterLoader || !caps.HiddenStateDrafterLoop || !caps.VerifierBatchInputs || !caps.VerifierAttentionPlan || !caps.VerifierTailBatch || !caps.VerifierBatchQATProjection || !caps.VerifierBatchPLI || !caps.GraphKVCommit || !caps.AdaptiveDraftPolicy || !caps.PromptContextAPI || !caps.ExternalKVRefresh || !caps.ExactTokenBudget || !caps.ExperimentalGenerationWiring {
 		t.Fatalf("missing implemented capability: %+v", caps)
 	}
-	if caps.RealAssetAcceptanceParity {
-		t.Fatalf("real-asset parity unexpectedly ready: %+v", caps)
+	if !caps.RealAssetAcceptanceParity {
+		t.Fatalf("native real-asset acceptance parity unexpectedly not ready: %+v", caps)
 	}
 	if !caps.VerifierCompressedKVStaging {
 		t.Fatalf("compressed KV verifier staging unexpectedly not ready: %+v", caps)
@@ -24,7 +24,7 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 		t.Fatalf("public generation unexpectedly ready: %+v", caps)
 	}
 	missing := caps.MissingForPublicGeneration()
-	if !sameStringSet(missing, []string{"public_generation_wiring", "real_asset_acceptance_parity", "full_layer_batch_verifier_default_enablement"}) {
+	if !sameStringSet(missing, []string{"public_generation_wiring", "full_layer_batch_verifier_default_enablement"}) {
 		t.Fatalf("missing=%v", missing)
 	}
 	if err := caps.Validate(); err != nil {
@@ -54,13 +54,13 @@ func TestGemma4MTPGraphCapabilitiesDefault(t *testing.T) {
 	if err := publicBlocked.Validate(); err != nil {
 		t.Fatalf("rejected public wiring blocked only by gated batch layers: %v", err)
 	}
-	if !sameStringSet(publicBlocked.MissingForPublicGeneration(), []string{"real_asset_acceptance_parity", "full_layer_batch_verifier_default_enablement"}) {
+	if !sameStringSet(publicBlocked.MissingForPublicGeneration(), []string{"full_layer_batch_verifier_default_enablement"}) {
 		t.Fatalf("public blocked missing=%v", publicBlocked.MissingForPublicGeneration())
 	}
 	bad = publicBlocked
 	bad.ReadyForPublicGeneration = true
 	if err := bad.Validate(); err == nil {
-		t.Fatal("accepted public readiness while real-asset parity and batch verifier layers are still gated off")
+		t.Fatal("accepted public readiness while batch verifier layers are still gated off")
 	}
 }
 
@@ -71,7 +71,7 @@ func TestGemma4MTPGraphCapabilitiesBatchLayerGate(t *testing.T) {
 		t.Fatalf("batch layer gate state=%+v", caps)
 	}
 	missing := caps.MissingForPublicGeneration()
-	if !sameStringSet(missing, []string{"public_generation_wiring", "real_asset_acceptance_parity"}) {
+	if !sameStringSet(missing, []string{"public_generation_wiring"}) {
 		t.Fatalf("missing=%v", missing)
 	}
 }

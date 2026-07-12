@@ -2,13 +2,14 @@
 
 Snapshot date: 2026-06-16
 
-This page records the current Gemma4 QAT + MTP correctness/performance benchmark state. The strict llama.cpp selected-logit gate remains the known blocker for declaring 1:1 graph fidelity.
+This page records the current Gemma4 QAT + MTP correctness/performance benchmark state. Native-Go acceptance and bounded numerical parity are green; the strict llama.cpp selected-logit gate remains red only for a 1:1 numerical-fidelity claim.
 
 ## Validation matrix
 
 | Dimension | Gate | Status | Evidence |
 |---|---|---:|---|
 | Output / accepted-token parity | `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp` | PASS | `TestGemma4MTPLlamaCPPParityFixture` passes on the default accepted-token fixture; standalone runner reports `matched true`. |
+| Native-Go bounded numerical parity | `make gemma4-mtp-native-parity GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=...` | PASS | Exact acceptance/output tokens and selected logits within the explicit `0.2` absolute bound; observed maximum is about `0.18821`. |
 | Strict llama.cpp selected-logit parity | `GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` | FAIL | Five verifier selected-logit mismatches remain against the local `llama.cpp --flash-attn on` fixture after `bccde314` aligned `layer_output_scale` ordering. Keep `RealAssetAcceptanceParity=false`. |
 | SIMD / GGUF quant scalar oracles | `go test ./loader/gguf -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestDequantRowQ8_0ToMatchesScaleTimesInt8|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesAVX2Reference|TestDotQ4_0Q8_0MatchesScalarReference|TestQuantizeQ8KComputesScaleQuantsAndBlockSums|TestDequantRowQ6KToMatchesScalarReference|TestDotQ6KQ8KMatchesAVX2Reference|TestDotQ6KQ8KMatchesScalarReference' -count=1 -v` | PASS | Verbose run shows real PASS lines for Q4_K, Q4_K expert GEMV, Q8_0, Q4_0×Q8_0 scalar and AVX2-order, Q8_K, Q6_K, and Q6_K×Q8_K scalar and AVX2-order coverage; no skips. |
 | GPU ↔ CPU oracle for Gemma4/MTP verifier boundary | `flock /tmp/go-pherence-gpu.lock -c 'GO_PHERENCE_GPU_DEBUG=1 GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPVerifierPostAttentionRMSNormGPUParity -count=1 -v'` | PASS | Runs on RTX 3060, loads 78 PTX kernels, and validates CUDA `DevRMSNormOK` against CPU SIMD RMSNorm for the `attn_wo -> attn_post_norm` verifier boundary. The test fails rather than silently skipping when `nvidia-smi` sees a GPU but the NVIDIA runtime cannot initialize. |
