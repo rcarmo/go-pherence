@@ -1,7 +1,9 @@
 # Gemma-family inference graph audit against the local llama.cpp fork
 
-Date: 2026-07-12  
-Go repository: `go-pherence`  
+Date: 2026-07-12
+
+Go repository: `go-pherence`
+
 Reference: local `llama.cpp` fork at `4a6735f1c` (`pr-24423`)
 
 ## Executive summary
