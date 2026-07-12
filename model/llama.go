@@ -61,6 +61,11 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 			}
 		}
 	}
+	// Gemma 1 has not been audited against its dedicated llama.cpp graph. Do not
+	// silently route it through the generic LLaMA graph and imply family support.
+	if cfg.ModelType == "gemma" {
+		return nil, fmt.Errorf("unsupported Gemma 1 architecture: model_type=%q requires a dedicated audited graph", cfg.ModelType)
+	}
 	if cfg.AttentionLogitSoftcapping < 0 {
 		return nil, fmt.Errorf("invalid attn_logit_softcapping %g: must be non-negative", cfg.AttentionLogitSoftcapping)
 	}

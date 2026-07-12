@@ -76,6 +76,33 @@ func TestLlamaConfigDetectsOrthrus(t *testing.T) {
 	}
 }
 
+func TestLoadLlamaRejectsGemma1BeforeWeights(t *testing.T) {
+	dir := t.TempDir()
+	cfg := `{
+		"model_type":"gemma",
+		"architectures":["GemmaForCausalLM"],
+		"vocab_size":256000,
+		"hidden_size":2048,
+		"intermediate_size":16384,
+		"num_hidden_layers":18,
+		"num_attention_heads":8,
+		"num_key_value_heads":1
+	}`
+	if err := os.WriteFile(dir+"/config.json", []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadLlama(dir)
+	if err == nil {
+		t.Fatal("LoadLlama accepted unsupported Gemma 1 architecture")
+	}
+	if got := err.Error(); !strings.Contains(got, `unsupported Gemma 1 architecture: model_type="gemma" requires a dedicated audited graph`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(err.Error(), "safetensors") {
+		t.Fatalf("Gemma 1 rejection happened after weight loading: %v", err)
+	}
+}
+
 func TestLoadLlamaRejectsQwen35NativeMTPBeforeWeights(t *testing.T) {
 	dir := t.TempDir()
 	cfg := `{

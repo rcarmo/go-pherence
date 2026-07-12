@@ -97,11 +97,11 @@ However, llama.cpp selects `1/sqrt(n_embd/n_head)` for Gemma3 27B and `1/sqrt(he
 
 **Required fix:** add the model-size-specific attention scale and real GGUF per-op/final-logit fixtures for SWA and global layers, including BF16/quantized matmul boundaries.
 
-### P2 — Gemma1 coverage is generic, not audited as a first-class graph
+### Gemma1 support contract — explicitly unsupported
 
 The fork's Gemma1 graph (`src/models/gemma.cpp`) has no q/k norms, no post-attention/post-FFN norms, ordinary causal KV, GELU-parallel FFN, tied output, and no softcaps. Go can express much of this through optional tensors, but there is no dedicated loader/parity gate proving exact Gemma1 behavior.
 
-**Required fix:** either add a real Gemma1 fixture/gate or explicitly mark Gemma1 unsupported.
+`LoadLlama` therefore rejects the canonical Gemma1 `model_type: "gemma"` before opening weights. Gemma1 must not be advertised as supported until a dedicated graph and real-model parity gate replace that rejection. Gemma2, Gemma3, and Gemma4 use distinct model types and are unaffected.
 
 ## Structural parity matrix
 
