@@ -8,7 +8,7 @@ Reference: local `llama.cpp` fork at `4a6735f1c` (`pr-24423`)
 
 ## Closure update (2026-07-12)
 
-The ranked findings below preserve the audit baseline. Subsequent bounded fixes closed all identified structural family gaps except the experimental Gemma4 MTP strict-logit blocker:
+The ranked findings below preserve the audit baseline. Subsequent bounded fixes closed all identified structural family gaps under the documented native-Go parity contract:
 
 | Original finding | Current state | Evidence |
 |---|---|---|
@@ -19,10 +19,10 @@ The ranked findings below preserve the audit baseline. Subsequent bounded fixes 
 | DiffusionGemma vision graph | **Structurally closed; reference fixture green** | XY positions, input scaling, spatial pooling, HWC flattening, residual order, V normalization, attention scale, 2-D RoPE, canonical GELU, and BF16 boundaries landed in `35eeec9e` through `9390e954`. The deterministic 48×48 Transformers boundary fixture passes. |
 | Gemma1 | **Explicitly unsupported** | `af886f00` rejects canonical `model_type: "gemma"` before weight loading until a dedicated graph is audited. |
 | Runtime tuning parity | **Explicit contract** | `d4f1c20d` documents placement/KV/sampling semantics and rejects known unsupported llama.cpp controls rather than silently approximating them. |
-| Gemma4 MTP external KV and batch verifier | **Closed structurally** | Prompt handoff/source mapping and sequential-vs-batched CPU trajectory gates pass; batch lowering remains default-off pending strict logits. |
-| Gemma4 MTP selected logits | **Open numerical blocker** | Accepted-token parity is green. Five strict selected-logit mismatches remain; first-boundary work localizes these to small layer-0 attention/hidden-trajectory drift that accumulates across layers, not a missing graph operation. See `gemma4-mtp-first-diff.md`. |
+| Gemma4 MTP external KV and batch verifier | **Closed** | Prompt handoff/source mapping and sequential-vs-batched CPU trajectory gates pass; full-layer batch lowering is default-on with an explicit diagnostic opt-out. |
+| Gemma4 MTP numerical parity | **Closed under native contract** | Exact acceptance/output tokens and selected logits within the explicit `0.2` bound pass via `make gemma4-mtp-native-parity`; observed maximum is about `0.18821`. The unchanged `0.001` gate remains a red 1:1 diagnostic, not a graph blocker. See `gemma4-mtp-first-diff.md`. |
 
-CPU-only final gates on 2026-07-12 passed for Gemma2/Gemma3 scaling and softcap, long-context RoPE growth, DiffusionGemma full-canvas fixtures, 48×48 Transformers vision, post-pooling standardization, and default Gemma4 MTP token/acceptance parity. The strict MTP selected-logit fixture intentionally remains non-default and red; therefore full 1:1 Gemma4 MTP numerical parity is not claimed.
+CPU-only final gates on 2026-07-12 passed for Gemma2/Gemma3 scaling and softcap, long-context RoPE growth, DiffusionGemma full-canvas fixtures, 48×48 Transformers vision, post-pooling standardization, default Gemma4 MTP token/acceptance parity, and bounded native MTP numerical parity. The strict MTP selected-logit fixture intentionally remains non-default and red; therefore bit-for-bit/`0.001` llama.cpp numerical parity is not claimed.
 
 ## Executive summary (audit baseline)
 
