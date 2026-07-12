@@ -133,3 +133,24 @@ e5161bb529a64c999ca375178a1fa1356b72e0f65d96f348b86477d289401783  actual_ggml_mu
 b662aca276d6c93ed2887b0c18960bff37063bdcf9f009fffabe1b8306cf0a58  actual_ggml_mul_mat_id_oracle_act_f32.bin
 778b5a2b0d0fcbb14612f50be317c35b1c97dd05efd61846830372ad45fb5365  actual_ggml_mul_mat_id_oracle_ids_i32.bin
 ```
+
+## Actual ggml MoE micrograph oracle
+
+`actual_ggml_moe_micrograph_oracle_*` records a one-thread CPU graph at llama.cpp
+revision `4a6735f1cf0594250958bcc839267696c7b998a4`. It covers repacked Q4_K
+`mul_mat_id` gate/up projection, strided gate/up views, GELU multiplication,
+Q8_0 down `mul_mat_id`, selected-expert weighting, and slot reduction for four
+experts, two selected slots, and three tokens. The Go fixture validates the
+materialized projection and downstream boundaries; it intentionally does not
+download the non-contiguous gate/up views as if they were contiguous tensors.
+
+SHA-256:
+
+```text
+4ca669bafd90869d821e50e790b87f8f449fd9aa1d67c79925f453f4913a9634  actual_ggml_moe_micrograph_oracle.json
+cd97828ed241275e633df0db846650143e29f34e29986636b1c59da4aec61013  actual_ggml_moe_micrograph_oracle_down_q8.bin
+f45f42d085cdbff4c8b4e2098b553c69a4aa6beb1f61357c3332270ad1aefd83  actual_ggml_moe_micrograph_oracle_gate_up_q4.bin
+778b5a2b0d0fcbb14612f50be317c35b1c97dd05efd61846830372ad45fb5365  actual_ggml_moe_micrograph_oracle_ids_i32.bin
+f4f79eb962be82a1a37074892be168a195540b90755bffad00f56ab3ddc69f53  actual_ggml_moe_micrograph_oracle_selected_weights_f32.bin
+0e3548ac8a63c2072c49f58e26404cb47453c38e14bbc2177c0b8542d2c44f8f  actual_ggml_moe_micrograph_oracle_src1_f32.bin
+```
