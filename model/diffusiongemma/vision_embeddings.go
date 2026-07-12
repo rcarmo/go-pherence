@@ -130,7 +130,7 @@ func ComputeImageEmbeddingsWithTowerPrefix(pre Gemma4ImagePreprocessResult, weig
 	if err := ApplyVisionTowerPrefixF32(vision, patches, shape, towerPrefix); err != nil {
 		return ImageEmbeddingResult{}, err
 	}
-	return projectVisionPatchesToImageEmbeddings(vision, patches, weights, shape)
+	return projectVisionPatchesToImageEmbeddings(vision, pre.Width/shape.PatchSize, pre.Height/shape.PatchSize, weights, shape)
 }
 
 func ComputeImageEmbeddingsWithStreamingTowerPrefix(pre Gemma4ImagePreprocessResult, weights *VisionWeights, shape Shape, prefixLayers int) (ImageEmbeddingResult, error) {
@@ -141,7 +141,7 @@ func ComputeImageEmbeddingsWithStreamingTowerPrefix(pre Gemma4ImagePreprocessRes
 	if err := ApplyVisionTowerStreamingPrefixF32(vision, patches, shape, weights, prefixLayers); err != nil {
 		return ImageEmbeddingResult{}, err
 	}
-	return projectVisionPatchesToImageEmbeddings(vision, patches, weights, shape)
+	return projectVisionPatchesToImageEmbeddings(vision, pre.Width/shape.PatchSize, pre.Height/shape.PatchSize, weights, shape)
 }
 
 func ComputeImageEmbeddingsWithFullStreamingTower(pre Gemma4ImagePreprocessResult, weights *VisionWeights, shape Shape) (ImageEmbeddingResult, error) {
@@ -346,7 +346,8 @@ func normalizeVisionSoftTokensForProjectionF32(values []float32, hidden int) err
 	return nil
 }
 
-func projectVisionPatchesToImageEmbeddings(vision []float32, patches int, weights *VisionWeights, shape Shape) (ImageEmbeddingResult, error) {
+func projectVisionPatchesToImageEmbeddings(vision []float32, patchW, patchH int, weights *VisionWeights, shape Shape) (ImageEmbeddingResult, error) {
+	patches := patchW * patchH
 	softTokens := shape.VisionSoftTokens
 	hidden := shape.VisionHiddenSize
 	textHidden := shape.TextHiddenSize
@@ -360,7 +361,7 @@ func projectVisionPatchesToImageEmbeddings(vision []float32, patches int, weight
 	if proj == nil || len(projShape) != 2 || projShape[0] != textHidden || projShape[1] != hidden {
 		return ImageEmbeddingResult{}, fmt.Errorf("DiffusionGemma embed_vision projection shape %v want [%d,%d] BF16", projShape, textHidden, hidden)
 	}
-	pooledVision, err := PoolVisionPatchesToSoftTokensF32(vision, patches, hidden, softTokens)
+	pooledVision, err := PoolVisionGridToSoftTokensF32(vision, patchW, patchH, hidden, softTokens)
 	if err != nil {
 		return ImageEmbeddingResult{}, err
 	}

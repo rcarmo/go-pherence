@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+func TestPoolVisionGridToSoftTokensF32UsesSpatialKernels(t *testing.T) {
+	// A 4x2 grid pooled with k=2 must group left/right 2x2 blocks, not
+	// contiguous rows in flattened patch order.
+	patchHidden := []float32{1, 2, 3, 4, 5, 6, 7, 8}
+	pooled, err := PoolVisionGridToSoftTokensF32(patchHidden, 4, 2, 1, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []float32{3.5, 5.5}
+	for i := range want {
+		if pooled[i] != want[i] {
+			t.Fatalf("pooled[%d]=%v want %v full=%v", i, pooled[i], want[i], pooled)
+		}
+	}
+}
+
+func TestPoolVisionGridToSoftTokensF32RejectsNonSquareKernel(t *testing.T) {
+	if _, err := PoolVisionGridToSoftTokensF32(make([]float32, 6), 3, 2, 1, 2); err == nil {
+		t.Fatal("expected non-square kernel rejection")
+	}
+}
+
 func TestPoolVisionPatchesToSoftTokensF32(t *testing.T) {
 	patchHidden := []float32{
 		1, 3,
