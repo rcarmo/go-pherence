@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unsafe"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/internal/checked"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
@@ -333,6 +334,18 @@ func standardizeVisionSoftTokensF32(values []float32, hidden int, bias, scale []
 	return nil
 }
 
+func normalizeVisionSoftTokensForProjectionF32(values []float32, hidden int) error {
+	if hidden <= 0 || len(values)%hidden != 0 {
+		return fmt.Errorf("DiffusionGemma vision projection RMSNorm shape mismatch values=%d hidden=%d", len(values), hidden)
+	}
+	for off := 0; off < len(values); off += hidden {
+		if !simd.RMSNormNoScaleTo(values[off:off+hidden], 1e-6) {
+			return fmt.Errorf("DiffusionGemma vision projection RMSNorm rejected soft token=%d", off/hidden)
+		}
+	}
+	return nil
+}
+
 func projectVisionPatchesToImageEmbeddings(vision []float32, patches int, weights *VisionWeights, shape Shape) (ImageEmbeddingResult, error) {
 	softTokens := shape.VisionSoftTokens
 	hidden := shape.VisionHiddenSize
@@ -360,6 +373,9 @@ func projectVisionPatchesToImageEmbeddings(vision []float32, patches int, weight
 		return ImageEmbeddingResult{}, err
 	}
 	if err := standardizeVisionSoftTokensF32(pooledVision, hidden, stdBias.Data, stdScale.Data); err != nil {
+		return ImageEmbeddingResult{}, err
+	}
+	if err := normalizeVisionSoftTokensForProjectionF32(pooledVision, hidden); err != nil {
 		return ImageEmbeddingResult{}, err
 	}
 	outLen, ok := checked.MulInt(softTokens, textHidden)

@@ -1,6 +1,7 @@
 package diffusiongemma
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
@@ -54,6 +55,29 @@ func TestStandardizeVisionSoftTokensF32AfterPooling(t *testing.T) {
 
 func TestStandardizeVisionSoftTokensF32RejectsShapeMismatch(t *testing.T) {
 	if err := standardizeVisionSoftTokensF32([]float32{1, 2, 3}, 2, []float32{0, 0}, []float32{1, 1}); err == nil {
+		t.Fatal("expected shape mismatch")
+	}
+}
+
+func TestNormalizeVisionSoftTokensForProjectionF32(t *testing.T) {
+	values := []float32{3, 4, 0, 5}
+	if err := normalizeVisionSoftTokensForProjectionF32(values, 2); err != nil {
+		t.Fatal(err)
+	}
+	wantScale := []float64{
+		1 / math.Sqrt((9+16)/2.0+1e-6),
+		1 / math.Sqrt((0+25)/2.0+1e-6),
+	}
+	want := []float64{3 * wantScale[0], 4 * wantScale[0], 0, 5 * wantScale[1]}
+	for i := range want {
+		if delta := math.Abs(float64(values[i]) - want[i]); delta > 1e-6 {
+			t.Fatalf("values[%d]=%.9g want %.9g delta %.9g", i, values[i], want[i], delta)
+		}
+	}
+}
+
+func TestNormalizeVisionSoftTokensForProjectionF32RejectsShapeMismatch(t *testing.T) {
+	if err := normalizeVisionSoftTokensForProjectionF32([]float32{1, 2, 3}, 2); err == nil {
 		t.Fatal("expected shape mismatch")
 	}
 }
