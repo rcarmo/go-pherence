@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"sync"
 	"sync/atomic"
 
 	"github.com/rcarmo/go-pherence/half"
@@ -37,6 +38,12 @@ type experimentalQ4K8x8MulStats struct {
 }
 
 var experimentalQ4K8x8Stats experimentalQ4K8x8MulStats
+
+type q4kRepackedMatrix struct {
+	once  sync.Once
+	tiles []experimentalQ4K8x8Tile
+	err   error
+}
 
 func resetExperimentalQ4K8x8Stats() {
 	atomic.StoreUint64(&experimentalQ4K8x8Stats.repacks, 0)
@@ -106,6 +113,24 @@ func newExperimentalQ8K4x8Group(acts []float32, k int) (*experimentalQ8K4x8Group
 	quantizeExperimentalQ8K4x8To(blocks, acts, k)
 	atomic.AddUint64(&experimentalQ4K8x8Stats.quant4x, 1)
 	return &experimentalQ8K4x8Group{k: k, blocks: blocks}, nil
+}
+
+// mulF32Activation computes outputs for one F32 activation vector using the
+// repacked ggml_gemv_q4_K_8x8_q8_K reduction order.
+func (t *experimentalQ4K8x8Tile) mulF32Activation(act []float32) ([]float32, error) {
+	if t == nil {
+		return nil, fmt.Errorf("experimental q4k 8x8 tile: nil tile")
+	}
+	if len(act) != t.k {
+		return nil, fmt.Errorf("experimental q4k 8x8 tile: act=%d want=%d", len(act), t.k)
+	}
+	q8, err := QuantizeQ8K(act)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]float32, experimentalQ4K8x8Rows)
+	gemvExperimentalQ4K8x8Q8KTo(out, t.k, t.blocks, q8, experimentalQ4K8x8Rows)
+	return out, nil
 }
 
 // mulF32ActivationRows computes outputs for eight row-major F32 activation
@@ -238,6 +263,83 @@ func quantizeExperimentalQ8K4x8To(out []experimentalQ8KBlockX4, x []float32, k i
 			out[bi].bsums[index] += int16(q)
 		}
 	}
+}
+
+func gemvExperimentalQ4K8x8Q8KTo(out []float32, n int, vx []experimentalQ4KBlockX8, vy []q8KBlock, nc int) {
+	const (
+		ncolsInterleaved = 8
+		blocklen         = 8
+	)
+	const kmask1 uint32 = 0x3f3f3f3f
+	const kmask2 uint32 = 0x0f0f0f0f
+	const kmask3 uint32 = 0x03030303
+	nb := n / experimentalQ4KBlockElems
+	for i := range out[:nc] {
+		out[i] = 0
+	}
+	var sumf [8]float32
+	var sumMinf [8]float32
+	var utmp [32]uint32
+	var utmpBytes [128]byte
+	for x := 0; x < nc/ncolsInterleaved; x++ {
+		bPtr := vx[x*nb : (x+1)*nb]
+		for j := 0; j < ncolsInterleaved; j++ {
+			sumf[j] = 0
+			sumMinf[j] = 0
+		}
+		for l := 0; l < nb; l++ {
+			for sb := 0; sb < 8; sb++ {
+				base := sb * 12
+				copy(utmpBytes[sb*16:sb*16+12], bPtr[l].scales[base:base+12])
+				u2 := binary.LittleEndian.Uint32(utmpBytes[sb*16+8 : sb*16+12])
+				u1 := binary.LittleEndian.Uint32(utmpBytes[sb*16+4 : sb*16+8])
+				u0 := binary.LittleEndian.Uint32(utmpBytes[sb*16 : sb*16+4])
+				utmp[sb*4+3] = ((u2 >> 4) & kmask2) | (((u1 >> 6) & kmask3) << 4)
+				uaux0 := u1 & kmask1
+				utmp[sb*4+1] = (u2 & kmask2) | (((u0 >> 6) & kmask3) << 4)
+				utmp[sb*4+2] = uaux0
+				utmp[sb*4+0] = u0 & kmask1
+			}
+			for i := range utmp {
+				binary.LittleEndian.PutUint32(utmpBytes[i*4:i*4+4], utmp[i])
+			}
+			var iaccB [8]int32
+			var iaccMinB [8]int32
+			for k := 0; k < experimentalQ4KBlockElems/(2*blocklen); k++ {
+				scales0 := utmpBytes[(k/4)*32:]
+				scales1 := utmpBytes[(k/4)*32+16:]
+				for j := 0; j < ncolsInterleaved; j++ {
+					sumi := 0
+					for i := 0; i < blocklen; i++ {
+						qv := bPtr[l].qs[k*ncolsInterleaved*blocklen+j*blocklen+i]
+						v0 := int(int8(qv & 0x0f))
+						v1 := int(int8(qv >> 4))
+						a0 := int(vy[l].qs[(k>>2)*64+(k%4)*blocklen+i])
+						a1 := int(vy[l].qs[(k>>2)*64+(k%4)*blocklen+i+32])
+						sumi += v0*a0*int(scales0[j]) + v1*a1*int(scales1[j])
+					}
+					iaccB[j] += int32(sumi)
+				}
+			}
+			for sb := 0; sb < 8; sb++ {
+				mins := utmpBytes[8+sb*16:]
+				bsum := int(vy[l].bsums[sb*2]) + int(vy[l].bsums[sb*2+1])
+				for j := 0; j < ncolsInterleaved; j++ {
+					iaccMinB[j] += int32(int(mins[j]) * bsum)
+				}
+			}
+			for j := 0; j < ncolsInterleaved; j++ {
+				scale := half.F16ToF32(bPtr[l].d[j]) * vy[l].d
+				dmin := half.F16ToF32(bPtr[l].dmin[j]) * vy[l].d
+				sumf[j] = float32(math.FMA(float64(float32(iaccB[j])), float64(scale), float64(sumf[j])))
+				sumMinf[j] = float32(math.FMA(float64(float32(iaccMinB[j])), float64(dmin), float64(sumMinf[j])))
+			}
+		}
+		for j := 0; j < ncolsInterleaved; j++ {
+			out[x*ncolsInterleaved+j] = sumf[j] - sumMinf[j]
+		}
+	}
+	atomic.AddUint64(&experimentalQ4K8x8Stats.tilePairs, 1)
 }
 
 func gemmExperimentalQ4K8x8Q8KTo(out []float32, n int, vx []experimentalQ4KBlockX8, vy []experimentalQ8KBlockX4, nr, nc int) {
