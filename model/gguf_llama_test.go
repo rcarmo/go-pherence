@@ -30,6 +30,31 @@ func TestGGUFParseConfigQwenMoE(t *testing.T) {
 	}
 }
 
+func TestGGUFParseConfigGemma2AttentionSoftcap(t *testing.T) {
+	meta := map[string]any{
+		"general.architecture":           "gemma2",
+		"gemma2.embedding_length":        uint32(4),
+		"gemma2.block_count":             uint32(1),
+		"gemma2.attention.head_count":    uint32(1),
+		"gemma2.attention.head_count_kv": uint32(1),
+		"gemma2.feed_forward_length":     uint32(8),
+		"gemma2.context_length":          uint32(16),
+		"gemma2.vocab_size":              uint32(32),
+		"gemma2.attn_logit_softcapping":  float32(50),
+	}
+	cfg, err := ggufParseConfig(&gguf.GGUF{Meta: meta})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AttentionLogitSoftcap != 50 {
+		t.Fatalf("attention softcap=%g want 50", cfg.AttentionLogitSoftcap)
+	}
+	meta["gemma2.attn_logit_softcapping"] = float32(-1)
+	if _, err := ggufParseConfig(&gguf.GGUF{Meta: meta}); err == nil || !strings.Contains(err.Error(), "must be non-negative") {
+		t.Fatalf("negative softcap error=%v", err)
+	}
+}
+
 func TestGGUFConfigEOS(t *testing.T) {
 	cfg := GGUFLlamaConfig{VocabSize: 10, EOSTokenID: 7}
 	if !cfg.IsEOS(7) || cfg.IsEOS(2) {

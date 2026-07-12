@@ -61,6 +61,9 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 			}
 		}
 	}
+	if cfg.AttentionLogitSoftcapping < 0 {
+		return nil, fmt.Errorf("invalid attn_logit_softcapping %g: must be non-negative", cfg.AttentionLogitSoftcapping)
+	}
 	if cfg.RMSNormEps == 0 {
 		cfg.RMSNormEps = 1e-5
 	}
@@ -1224,11 +1227,11 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			}
 			attnOut = attnOutScratch[:qDim]
 			attnScores := attnScoresScratch[:attnSeqLen]
+			scale := float32(1.0 / math.Sqrt(float64(layerHeadDim)))
 			if cfg.ModelType == "gemma4_text" {
-				gqaAttentionHeadsParallel(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, 1.0)
-			} else {
-				gqaAttentionHeadsParallel(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))))
+				scale = 1.0
 			}
+			gqaAttentionHeadsParallelSoftcap(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, scale, attentionLogitSoftcap(cfg))
 			if debugOpHook != nil {
 				debugOpHook("cpu", step, l, "attn", attnOut)
 			}

@@ -67,6 +67,59 @@ func TestGQAAttentionScaleMatchesReference(t *testing.T) {
 	assertCloseFloat32Slice(t, "scratch", gotScratch, want, 2e-5)
 }
 
+func TestAttentionLogitSoftcapIsGemma2Only(t *testing.T) {
+	cfg := LlamaConfig{ModelType: "gemma2", AttentionLogitSoftcapping: 50}
+	if got := attentionLogitSoftcap(cfg); got != 50 {
+		t.Fatalf("Gemma2 softcap=%g want 50", got)
+	}
+	cfg.ModelType = "qwen3moe"
+	if got := attentionLogitSoftcap(cfg); got != 0 {
+		t.Fatalf("non-Gemma2 softcap=%g want 0", got)
+	}
+}
+
+func TestGQAAttentionSoftcapAppliesBeforeSoftmax(t *testing.T) {
+	q := []float32{1}
+	k := []float32{-20, 0, 20}
+	v := []float32{1, 3, 9}
+	const cap = float32(2)
+	got := gqaAttentionScaleSoftcap(q, k, v, 3, 1, 1, 1, 1, cap)
+	if len(got) != 1 {
+		t.Fatalf("softcap attention len=%d want 1", len(got))
+	}
+	scores := []float64{
+		math.Tanh(-20/float64(cap)) * float64(cap),
+		0,
+		math.Tanh(20/float64(cap)) * float64(cap),
+	}
+	maxScore := scores[2]
+	var weights [3]float64
+	var sum float64
+	for i, score := range scores {
+		weights[i] = math.Exp(score - maxScore)
+		sum += weights[i]
+	}
+	want := float32((weights[0]*1 + weights[1]*3 + weights[2]*9) / sum)
+	if diff := math.Abs(float64(got[0] - want)); diff > 1e-6 {
+		t.Fatalf("softcap attention=%g want=%g diff=%g", got[0], want, diff)
+	}
+	without := gqaAttentionScale(q, k, v, 3, 1, 1, 1, 1)
+	if math.Abs(float64(got[0]-without[0])) < 0.1 {
+		t.Fatalf("softcap had no material effect: capped=%g uncapped=%g", got[0], without[0])
+	}
+}
+
+func TestGGUFAttentionSoftcapMatchesSharedCPUFormula(t *testing.T) {
+	q := []float32{1}
+	k := []float32{-20, 0, 20}
+	v := []float32{1, 3, 9}
+	m := &GGUFLlama{Config: GGUFLlamaConfig{AttentionLogitSoftcap: 2}}
+	got := make([]float32, 1)
+	m.gqaAttentionInto(got, make([]float32, 3), q, k, v, 3, 1, 1, 1)
+	want := gqaAttentionScaleSoftcap(q, k, v, 3, 1, 1, 1, 1, 2)
+	assertCloseFloat32Slice(t, "gguf-softcap", got, want, 1e-6)
+}
+
 func assertCloseFloat32Slice(t *testing.T, name string, got, want []float32, tol float64) {
 	t.Helper()
 	if len(got) != len(want) {

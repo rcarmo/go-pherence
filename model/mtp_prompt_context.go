@@ -303,10 +303,10 @@ func (m *LlamaModel) forwardMTPPromptLayerForRow(hidden []float32, perLayerInput
 	vCache := kvCacheV[kvLayer]
 	if cfg.ModelType == "gemma4_text" {
 		if !tryPureGoFlashAttentionInto(attnOut, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], layerIdx, pos, attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, 1.0) {
-			gqaAttentionScaleInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, 1.0)
+			gqaAttentionScaleSoftcapInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, 1.0, attentionLogitSoftcap(cfg))
 		}
 	} else {
-		gqaAttentionScaleInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))))
+		gqaAttentionScaleSoftcapInto(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, cfg.NumHeads, layerKVHeads, layerHeadDim, float32(1.0/math.Sqrt(float64(layerHeadDim))), attentionLogitSoftcap(cfg))
 	}
 	traceMTPVerifierLayer0Internal("attn_pre_o", layerIdx, pos, attnOut)
 	traceMTPSummary("attn_pre_o", traceRow, layerIdx, pos, attnOut)

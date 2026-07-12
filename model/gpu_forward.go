@@ -781,7 +781,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 	// Batched prefill: process all prompt tokens at once
 	prefillStart := 0
-	if len(tokenIDs) > 1 && nvidia.BatchGEMMReady() && cfg.ModelType != "gemma4_text" {
+	if len(tokenIDs) > 1 && nvidia.BatchGEMMReady() && cfg.ModelType != "gemma4_text" && attentionLogitSoftcap(cfg) <= 0 {
 		if lastHidden := g.prefillGPU(tokenIDs); lastHidden != nil {
 			// Prefill succeeded — skip to decode phase
 			prefillStart = len(tokenIDs) - 1 // skip all but last prompt token
@@ -1171,7 +1171,10 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 				}
 				seqLen := pos + 1
 
-				forceLayerCPUAttn := l < len(forceCPUAttnLayers) && forceCPUAttnLayers[l]
+				// The device attention kernels do not yet expose pre-softmax logit
+				// softcapping. Keep Gemma2 correctness by using the CPU attention
+				// path while retaining GPU projections and the CPU KV shadow.
+				forceLayerCPUAttn := attentionLogitSoftcap(cfg) > 0 || (l < len(forceCPUAttnLayers) && forceCPUAttnLayers[l])
 				if kvLayer >= 0 && kvLayer < len(forceCPUAttnLayers) && forceCPUAttnLayers[kvLayer] {
 					forceLayerCPUAttn = true
 				}
@@ -1245,7 +1248,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 					nvidia.DevAttention(g.attnOut, g.q, g.kvGPU_K[kvLayer], g.kvGPU_V[kvLayer], seqLen, numHeads, layerKVHeads, layerHeadDim, attnScale)
 				} else {
 					qd := g.q.Data()
-					attnCPU := gqaAttentionScale(qd[:qDim], g.kvCacheK[kvLayer], g.kvCacheV[kvLayer], seqLen, numHeads, layerKVHeads, layerHeadDim, attnScale)
+					attnCPU := gqaAttentionScaleSoftcap(qd[:qDim], g.kvCacheK[kvLayer], g.kvCacheV[kvLayer], seqLen, numHeads, layerKVHeads, layerHeadDim, attnScale, attentionLogitSoftcap(cfg))
 					copy(g.attnOut.Data(), attnCPU)
 					g.attnOut.MarkDirty()
 				}

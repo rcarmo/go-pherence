@@ -227,7 +227,7 @@ func (m *LlamaModel) runMTPVerifierBatchLayers(batch MTPVerifierBatchInputs, kvC
 				traceMTPSummary("attn_pre_o", b, l, batch.Plan.Positions[b], outRow)
 				continue
 			}
-			gqaAttentionScaleInto(outRow, attnScores[:attnSeqLen], qRow, kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale)
+			gqaAttentionScaleSoftcapInto(outRow, attnScores[:attnSeqLen], qRow, kvCacheK[kvLayer][kOff:kEnd], kvCacheV[kvLayer][kOff:kEnd], attnSeqLen, m.Config.NumHeads, qkv.KVHeads, qkv.HeadDim, scale, attentionLogitSoftcap(m.Config))
 			traceMTPSummary("attn_pre_o", b, l, batch.Plan.Positions[b], outRow)
 		}
 		if !m.projBatchAny(bOOut[:B*h], bAttnOut[:B*qkv.QDim], B, layer.OW, layer.OWm, layer.OWq, layer.OWGGUF, qkv.QDim, h) {

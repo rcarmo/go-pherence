@@ -1,6 +1,8 @@
 package model
 
 import (
+	"math"
+
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
@@ -182,12 +184,11 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 			attnKVOffset = seqLen - cfg.SlidingWindow
 		}
 	}
-	var attnOut []float32
+	scale := float32(1.0 / math.Sqrt(float64(layerHeadDim)))
 	if cfg.ModelType == "gemma4_text" {
-		attnOut = gqaAttentionScale(q, kvCacheK[kvLayer][attnKVOffset*numKVHeads*layerHeadDim:], kvCacheV[kvLayer][attnKVOffset*numKVHeads*layerHeadDim:], attnSeqLen, numHeads, numKVHeads, layerHeadDim, 1.0)
-	} else {
-		attnOut = gqaAttention(q, kvCacheK[kvLayer][attnKVOffset*numKVHeads*layerHeadDim:], kvCacheV[kvLayer][attnKVOffset*numKVHeads*layerHeadDim:], attnSeqLen, numHeads, numKVHeads, layerHeadDim)
+		scale = 1.0
 	}
+	attnOut := gqaAttentionScaleSoftcap(q, kvCacheK[kvLayer][attnKVOffset*numKVHeads*layerHeadDim:], kvCacheV[kvLayer][attnKVOffset*numKVHeads*layerHeadDim:], attnSeqLen, numHeads, numKVHeads, layerHeadDim, scale, attentionLogitSoftcap(cfg))
 
 	// Output projection
 	oOut := make([]float32, h)

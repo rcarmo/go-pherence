@@ -31,6 +31,7 @@ type GGUFLlamaConfig struct {
 	VocabSize             int
 	MaxSeqLen             int
 	RMSNormEps            float32
+	AttentionLogitSoftcap float32
 	RopeFreqBase          float32
 	RopeDimCount          int
 	NumExperts            int
@@ -365,6 +366,13 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 	if v, ok := ggufMetaFloat32Any(g, key("attention.layer_norm_rms_epsilon"), "llama.attention.layer_norm_rms_epsilon"); ok {
 		eps = v
 	}
+	attnSoftcap := float32(0)
+	if arch == "gemma2" {
+		attnSoftcap, _ = ggufMetaFloat32Any(g, key("attn_logit_softcapping"), "llama.attn_logit_softcapping")
+		if attnSoftcap < 0 {
+			return GGUFLlamaConfig{}, fmt.Errorf("invalid %s.attn_logit_softcapping %g: must be non-negative", arch, attnSoftcap)
+		}
+	}
 	ropeDim := int(hidden) / int(heads)
 	if v, ok := ggufMetaUint32Any(g, key("rope.dimension_count"), "llama.rope.dimension_count"); ok {
 		ropeDim = int(v)
@@ -394,6 +402,7 @@ func ggufParseConfig(g *gguf.GGUF) (GGUFLlamaConfig, error) {
 		VocabSize:             int(vocabSize),
 		MaxSeqLen:             int(maxCtx),
 		RMSNormEps:            eps,
+		AttentionLogitSoftcap: attnSoftcap,
 		RopeFreqBase:          ropeBase,
 		RopeDimCount:          ropeDim,
 		NumExperts:            int(experts),
@@ -961,7 +970,11 @@ func (m *GGUFLlama) gqaAttentionInto(out, scores, q, kCache, vCache []float32, s
 			for d := 0; d < hDim; d++ {
 				dot += qRow[d] * kRow[d]
 			}
-			scores[t] = dot * scale
+			score := dot * scale
+			if cap := m.Config.AttentionLogitSoftcap; cap > 0 {
+				score = float32(math.Tanh(float64(score/cap))) * cap
+			}
+			scores[t] = score
 		}
 		softmaxInplace(scores[:seqLen])
 

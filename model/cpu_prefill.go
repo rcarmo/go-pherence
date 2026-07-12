@@ -346,7 +346,7 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 			if !okOff || !okEnd || end > len(kCacheL) || end > len(vCacheL) || off > end {
 				return false
 			}
-			gqaAttentionScaleInto(out, scores[:attnSeqLen], q, kCacheL[off:end], vCacheL[off:end], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, scale)
+			gqaAttentionScaleSoftcapInto(out, scores[:attnSeqLen], q, kCacheL[off:end], vCacheL[off:end], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, scale, attentionLogitSoftcap(cfg))
 			return true
 		})
 		if !attnErr {
