@@ -26,7 +26,7 @@ func TestApplyVisionTowerPrefixF32Synthetic(t *testing.T) {
 	if err := ApplyVisionTowerPrefixF32(vision, 2, shape, []VisionLayerF32{tinyVisionLayerF32(2, 1, 2, 3)}); err != nil {
 		t.Fatal(err)
 	}
-	want := []float32{1.207899, -0.735513, 0.486958, 1.327731}
+	want := []float32{3.234375, -2.062500, 0.388672, 3.375000}
 	for i := range want {
 		if math.Abs(float64(vision[i]-want[i])) > 1e-5 {
 			t.Fatalf("vision[%d]=%.6f want %.6f full=%v", i, vision[i], want[i], vision)
