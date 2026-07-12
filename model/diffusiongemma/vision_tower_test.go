@@ -11,7 +11,7 @@ func TestRunVisionTowerF32SyntheticPrefix(t *testing.T) {
 	if err := RunVisionTowerF32(hidden, 2, 2, 1, 2, layers); err != nil {
 		t.Fatal(err)
 	}
-	want := []float32{5.459316, -3.785914, 0.816529, 6.177526}
+	want := []float32{5.459383, -3.785846, 0.816633, 6.177527}
 	for i := range want {
 		if math.Abs(float64(hidden[i]-want[i])) > 1e-5 {
 			t.Fatalf("hidden[%d]=%.6f want %.6f full=%v", i, hidden[i], want[i], hidden)

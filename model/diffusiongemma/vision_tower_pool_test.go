@@ -59,7 +59,7 @@ func TestRunVisionTowerAndPoolF32Synthetic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []float32{1.817072, 0.655133}
+	want := []float32{1.817100, 0.655148}
 	for i := range want {
 		if math.Abs(float64(pooled[i]-want[i])) > 1e-5 {
 			t.Fatalf("pooled[%d]=%.6f want %.6f full=%v", i, pooled[i], want[i], pooled)

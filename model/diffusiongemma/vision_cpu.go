@@ -149,7 +149,7 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 		if !simd.GemvRows(gate, ffnIn, layer.MLPGateProj, inter, hiddenSize) || !simd.GemvRows(up, ffnIn, layer.MLPUpProj, inter, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma vision MLP gate/up rejected row %d", pos)
 		}
-		if !simd.GELUExactMulTo(act, gate, up) {
+		if !simd.GELUTanhMulTo(act, gate, up) {
 			return fmt.Errorf("DiffusionGemma vision MLP activation rejected row %d", pos)
 		}
 		if !simd.GemvRows(down, act, layer.MLPDownProj, hiddenSize, inter) {
