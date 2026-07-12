@@ -611,10 +611,14 @@ func quantizeDequantQ8_0ForExpertDot(dst, x []float32) {
 			}
 			continue
 		}
-		d := half.F16ToF32(half.F32ToF16(amax / 127))
+		// ggml quantize_row_q8_0_ref derives integer codes from the original
+		// F32 scale, then stores that scale as F16. Using the rounded stored
+		// scale for both operations can move values across a rounding boundary.
+		dRaw := amax / 127
+		d := half.F16ToF32(half.F32ToF16(dRaw))
 		id := float32(0)
-		if d != 0 {
-			id = 1 / d
+		if dRaw != 0 {
+			id = 1 / dRaw
 		}
 		for i, v := range xb {
 			q := int(math.Round(float64(v * id)))
