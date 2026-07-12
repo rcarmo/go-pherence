@@ -27,6 +27,17 @@ func TestGemma4FlattenPatchBCHW(t *testing.T) {
 	}
 }
 
+func TestRoundVisionBF16InPlace(t *testing.T) {
+	got := []float32{1.3431, -0.0326, 0}
+	roundVisionBF16InPlace(got)
+	want := []float32{1.34375, -0.03271484375, 0}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d]=%v want %v full=%v", i, got[i], want[i], got)
+		}
+	}
+}
+
 func TestGemma4ScalePatchInputInPlace(t *testing.T) {
 	patch := []float32{0, 0.25, 0.5, 0.75, 1}
 	gemma4ScalePatchInputInPlace(patch)

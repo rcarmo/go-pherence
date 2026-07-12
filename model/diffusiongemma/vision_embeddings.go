@@ -194,6 +194,12 @@ func maxFullStreamingVisionPatches() int {
 	return n
 }
 
+func roundVisionBF16InPlace(values []float32) {
+	for i, value := range values {
+		values[i] = simd.BF16ToF32(simd.F32ToBF16(value))
+	}
+}
+
 // gemma4ScalePatchInputInPlace matches Gemma4VisionPatchEmbedder.forward:
 // pixel_values = 2 * (pixel_values - 0.5) before input_proj.
 func gemma4ScalePatchInputInPlace(patch []float32) {
@@ -282,6 +288,7 @@ func computeImagePatchHidden(pre Gemma4ImagePreprocessResult, weights *VisionWei
 			if err := addVisionPatchXYPositionEmbedding(row, pos, px, py); err != nil {
 				return nil, 0, err
 			}
+			roundVisionBF16InPlace(row)
 		}
 	}
 	return vision, patches, nil

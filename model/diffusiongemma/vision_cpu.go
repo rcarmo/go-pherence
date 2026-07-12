@@ -59,6 +59,7 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 		if !simd.RMSNormTo(row, layer.InputLayerNorm, 1e-6) {
 			return fmt.Errorf("DiffusionGemma vision input norm rejected row %d", pos)
 		}
+		roundVisionBF16InPlace(row)
 	}
 	q := make([]float32, seqLen*hiddenSize)
 	k := make([]float32, seqLen*hiddenSize)
@@ -68,12 +69,17 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 		if !simd.GemvRows(q[pos*hiddenSize:(pos+1)*hiddenSize], row, layer.QProj, hiddenSize, hiddenSize) || !simd.GemvRows(k[pos*hiddenSize:(pos+1)*hiddenSize], row, layer.KProj, hiddenSize, hiddenSize) || !simd.GemvRows(v[pos*hiddenSize:(pos+1)*hiddenSize], row, layer.VProj, hiddenSize, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma vision attention projection rejected row %d", pos)
 		}
+		roundVisionBF16InPlace(q[pos*hiddenSize : (pos+1)*hiddenSize])
+		roundVisionBF16InPlace(k[pos*hiddenSize : (pos+1)*hiddenSize])
+		roundVisionBF16InPlace(v[pos*hiddenSize : (pos+1)*hiddenSize])
 		for h := 0; h < heads; h++ {
 			qh := q[pos*hiddenSize+h*headDim : pos*hiddenSize+(h+1)*headDim]
 			kh := k[pos*hiddenSize+h*headDim : pos*hiddenSize+(h+1)*headDim]
 			if !simd.RMSNormTo(qh, layer.QNorm, 1e-6) || !simd.RMSNormTo(kh, layer.KNorm, 1e-6) {
 				return fmt.Errorf("DiffusionGemma vision q/k norm rejected row %d head %d", pos, h)
 			}
+			roundVisionBF16InPlace(qh)
+			roundVisionBF16InPlace(kh)
 			if layer.PatchWidth > 0 {
 				if layer.PatchHeight <= 0 || layer.PatchWidth*layer.PatchHeight != seqLen {
 					return fmt.Errorf("DiffusionGemma vision RoPE grid=%dx%d does not match seq=%d", layer.PatchWidth, layer.PatchHeight, seqLen)
@@ -85,10 +91,14 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 				if !applyVisionRoPE2D(qh, headDim, pos%layer.PatchWidth, pos/layer.PatchWidth, theta) || !applyVisionRoPE2D(kh, headDim, pos%layer.PatchWidth, pos/layer.PatchWidth, theta) {
 					return fmt.Errorf("DiffusionGemma vision RoPE rejected head_dim=%d", headDim)
 				}
+				roundVisionBF16InPlace(qh)
+				roundVisionBF16InPlace(kh)
 			}
-			if !simd.RMSNormNoScaleTo(v[pos*hiddenSize+h*headDim:pos*hiddenSize+(h+1)*headDim], 1e-6) {
+			vh := v[pos*hiddenSize+h*headDim : pos*hiddenSize+(h+1)*headDim]
+			if !simd.RMSNormNoScaleTo(vh, 1e-6) {
 				return fmt.Errorf("DiffusionGemma vision v norm rejected row %d head %d", pos, h)
 			}
+			roundVisionBF16InPlace(vh)
 		}
 	}
 	attnOut := make([]float32, seqLen*hiddenSize)
@@ -99,7 +109,7 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 			maxScore := float32(math.Inf(-1))
 			for j := 0; j < seqLen; j++ {
 				kv := k[j*hiddenSize+h*headDim : j*hiddenSize+(h+1)*headDim]
-				s := visionDot(qv, kv)
+				s := simd.BF16ToF32(simd.F32ToBF16(visionDot(qv, kv)))
 				scores[j] = s
 				if s > maxScore {
 					maxScore = s
@@ -113,12 +123,13 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 			}
 			out := attnOut[pos*hiddenSize+h*headDim : pos*hiddenSize+(h+1)*headDim]
 			for j := 0; j < seqLen; j++ {
-				p := scores[j] / float32(sum)
+				p := simd.BF16ToF32(simd.F32ToBF16(scores[j] / float32(sum)))
 				vv := v[j*hiddenSize+h*headDim : j*hiddenSize+(h+1)*headDim]
 				for d := 0; d < headDim; d++ {
 					out[d] += p * vv[d]
 				}
 			}
+			roundVisionBF16InPlace(out)
 		}
 	}
 	projAttn := make([]float32, hiddenSize)
@@ -126,13 +137,16 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 		if !simd.GemvRows(projAttn, attnOut[pos*hiddenSize:(pos+1)*hiddenSize], layer.OProj, hiddenSize, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma vision o_proj rejected row %d", pos)
 		}
+		roundVisionBF16InPlace(projAttn)
 		if !simd.RMSNormTo(projAttn, layer.PostAttentionLayerNorm, 1e-6) {
 			return fmt.Errorf("DiffusionGemma vision post-attention norm rejected row %d", pos)
 		}
+		roundVisionBF16InPlace(projAttn)
 		row := hidden[pos*hiddenSize : (pos+1)*hiddenSize]
 		for i := 0; i < hiddenSize; i++ {
 			row[i] = residual[pos*hiddenSize+i] + projAttn[i]
 		}
+		roundVisionBF16InPlace(row)
 	}
 
 	residual = append(residual[:0], hidden...)
@@ -146,21 +160,32 @@ func RunVisionLayerF32(hidden []float32, seqLen, hiddenSize, heads, headDim int,
 		if !simd.RMSNormTo(ffnIn, layer.PreFFNLayerNorm, 1e-6) {
 			return fmt.Errorf("DiffusionGemma vision pre-FFN norm rejected row %d", pos)
 		}
+		roundVisionBF16InPlace(ffnIn)
 		if !simd.GemvRows(gate, ffnIn, layer.MLPGateProj, inter, hiddenSize) || !simd.GemvRows(up, ffnIn, layer.MLPUpProj, inter, hiddenSize) {
 			return fmt.Errorf("DiffusionGemma vision MLP gate/up rejected row %d", pos)
 		}
-		if !simd.GELUTanhMulTo(act, gate, up) {
+		roundVisionBF16InPlace(gate)
+		roundVisionBF16InPlace(up)
+		if !simd.GELUTanhTo(act, gate) {
 			return fmt.Errorf("DiffusionGemma vision MLP activation rejected row %d", pos)
 		}
+		roundVisionBF16InPlace(act)
+		for i := range act {
+			act[i] *= up[i]
+		}
+		roundVisionBF16InPlace(act)
 		if !simd.GemvRows(down, act, layer.MLPDownProj, hiddenSize, inter) {
 			return fmt.Errorf("DiffusionGemma vision MLP down rejected row %d", pos)
 		}
+		roundVisionBF16InPlace(down)
 		if !simd.RMSNormTo(down, layer.PostFFNLayerNorm, 1e-6) {
 			return fmt.Errorf("DiffusionGemma vision post-FFN norm rejected row %d", pos)
 		}
+		roundVisionBF16InPlace(down)
 		for i := 0; i < hiddenSize; i++ {
 			row[i] = residual[pos*hiddenSize+i] + down[i]
 		}
+		roundVisionBF16InPlace(row)
 	}
 	return nil
 }
