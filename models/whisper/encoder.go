@@ -288,30 +288,9 @@ func transpose2D(data []float32, channels, length int) []float32 {
 	return out
 }
 
-// fastTanh is a float32 Padé[7/6] approximation of tanh: |err| < ~1e-4 for
-// |x| < 4.97 and saturates beyond. Avoids the libm float64 round-trip in the
-// per-element GELU hot loop (246M calls per encoder forward).
-func fastTanh(x float32) float32 {
-	if x > 4.97 {
-		return 1
-	}
-	if x < -4.97 {
-		return -1
-	}
-	x2 := x * x
-	a := x * (135135 + x2*(17325+x2*(378+x2)))
-	b := 135135 + x2*(62370+x2*(3150+x2*28))
-	return a / b
-}
-
-// gelu applies GELU activation in-place (tanh approximation), float32 throughout.
-func gelu(x []float32) {
-	const c = 0.7978845608028654 // sqrt(2/pi)
-	for i, v := range x {
-		inner := float32(c) * (v + 0.044715*v*v*v)
-		x[i] = 0.5 * v * (1 + fastTanh(inner))
-	}
-}
+// gelu applies PyTorch's default exact erf GELU in-place. Whisper checkpoints
+// declare activation_function="gelu", not the optional tanh approximation.
+func gelu(x []float32) { simdrt.GELUExact(x, x) }
 
 // layerNorm applies LayerNorm over the last dimension.
 // x: [seqLen, dim] flattened.
