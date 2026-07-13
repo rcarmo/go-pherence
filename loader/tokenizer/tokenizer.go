@@ -13,9 +13,10 @@ import (
 
 // Tokenizer handles BPE tokenization for LLaMA-style models.
 type Tokenizer struct {
-	Vocab    map[string]int // token string → ID
-	InvVocab map[int]string // ID → token string
-	Merges   [][2]string    // BPE merge pairs in priority order
+	Vocab        map[string]int // token string → ID
+	InvVocab     map[int]string // ID → token string
+	Merges       [][2]string    // BPE merge pairs in priority order
+	AddedSpecial map[string]int // Hugging Face added tokens with special=true
 }
 
 // Load loads a HuggingFace tokenizer.json.
@@ -33,6 +34,7 @@ func Load(path string) (*Tokenizer, error) {
 		AddedTokens []struct {
 			ID      int    `json:"id"`
 			Content string `json:"content"`
+			Special bool   `json:"special"`
 		} `json:"added_tokens"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -43,8 +45,9 @@ func Load(path string) (*Tokenizer, error) {
 		raw.Model.Vocab = map[string]int{}
 	}
 	t := &Tokenizer{
-		Vocab:    raw.Model.Vocab,
-		InvVocab: make(map[int]string, len(raw.Model.Vocab)),
+		Vocab:        raw.Model.Vocab,
+		InvVocab:     make(map[int]string, len(raw.Model.Vocab)),
+		AddedSpecial: make(map[string]int),
 	}
 	for k, v := range raw.Model.Vocab {
 		t.InvVocab[v] = k
@@ -55,6 +58,9 @@ func Load(path string) (*Tokenizer, error) {
 			t.Vocab[at.Content] = at.ID
 		}
 		t.InvVocab[at.ID] = at.Content
+		if at.Special {
+			t.AddedSpecial[at.Content] = at.ID
+		}
 	}
 
 	if len(raw.Model.Merges) == 0 || string(raw.Model.Merges) == "null" {
@@ -93,6 +99,34 @@ func Load(path string) (*Tokenizer, error) {
 // Encode tokenizes a string into token IDs.
 func (t *Tokenizer) Encode(text string) []int {
 	if t == nil || t.Vocab == nil {
+		return nil
+	}
+	if len(t.AddedSpecial) == 0 {
+		return t.encodeOrdinary(text)
+	}
+	var ids []int
+	for len(text) > 0 {
+		next := len(text)
+		nextToken := ""
+		nextID := 0
+		for token, id := range t.AddedSpecial {
+			if at := strings.Index(text, token); at >= 0 && (at < next || at == next && len(token) > len(nextToken)) {
+				next, nextToken, nextID = at, token, id
+			}
+		}
+		if nextToken == "" {
+			ids = append(ids, t.encodeOrdinary(text)...)
+			break
+		}
+		ids = append(ids, t.encodeOrdinary(text[:next])...)
+		ids = append(ids, nextID)
+		text = text[next+len(nextToken):]
+	}
+	return ids
+}
+
+func (t *Tokenizer) encodeOrdinary(text string) []int {
+	if text == "" {
 		return nil
 	}
 	// Auto-detect family: Ġ (U+0120, GPT-2/Qwen byte-level BPE) or ▁

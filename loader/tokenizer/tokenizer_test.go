@@ -21,6 +21,28 @@ func TestLoadTokenizerMissingVocabDoesNotPanic(t *testing.T) {
 	}
 }
 
+func TestEncodePreservesAddedSpecialTokens(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tokenizer.json")
+	body := `{"model":{"vocab":{"a":1,"b":2},"merges":null},"added_tokens":[{"id":7,"content":"<x>","special":true}]}`
+	if err := os.WriteFile(path, []byte(body), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tok, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := tok.Encode("a<x>b<x>")
+	want := []int{1, 7, 2, 7}
+	if len(got) != len(want) {
+		t.Fatalf("Encode=%v want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("Encode=%v want %v", got, want)
+		}
+	}
+}
+
 func TestLoadTokenizerRejectsMalformedMerges(t *testing.T) {
 	dir := t.TempDir()
 	cases := map[string]string{
