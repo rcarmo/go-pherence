@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	llmmodel "github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/models/whisper"
 )
 
@@ -20,12 +21,28 @@ type encoderParityFixture struct {
 		BF16 []encoderBoundaryFixture `json:"bf16"`
 		F32  []encoderBoundaryFixture `json:"f32_widened"`
 	} `json:"audio_post"`
+	Decoder struct {
+		BF16 decoderParityFixture `json:"bf16"`
+		F32  decoderParityFixture `json:"f32_widened"`
+	} `json:"decoder"`
 }
 
 type encoderBoundaryFixture struct {
 	Name    string                 `json:"name"`
 	Shape   []int                  `json:"shape"`
 	Samples []encoderSampleFixture `json:"samples"`
+}
+
+type decoderParityFixture struct {
+	InputIDs       []int                 `json:"input_ids"`
+	SequenceLength int                   `json:"sequence_length"`
+	SelectedLogits []decoderLogitFixture `json:"selected_logits"`
+	TopLogits      []decoderLogitFixture `json:"top_logits"`
+}
+
+type decoderLogitFixture struct {
+	Token int     `json:"token"`
+	Value float32 `json:"value"`
 }
 
 type encoderSampleFixture struct {
@@ -139,4 +156,45 @@ func TestRealCheckpointWhisperEncoderParity(t *testing.T) {
 		}
 		t.Logf("%s parity widened=%.6g BF16=%.6g", want.Name, widenedMax, bf16Max)
 	}
+
+	decoder, err := llmmodel.LoadLlama(modelDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	processor, err := LoadProcessor(modelDir, model.Config.AudioTokenID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	native := &NativeModel{Audio: model, Decoder: decoder, Processor: processor}
+	inputIDs := fixture.Decoder.F32.InputIDs
+	promptEmbeddings, err := native.PromptEmbeddings(inputIDs, adaptorOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logits, err := decoder.PrefillEmbeddingsLogits(inputIDs, promptEmbeddings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	widenedMax, bf16Max := float64(0), float64(0)
+	for index, want := range fixture.Decoder.F32.SelectedLogits {
+		widenedMax = math.Max(widenedMax, math.Abs(float64(logits[want.Token]-want.Value)))
+		bf16Want := fixture.Decoder.BF16.SelectedLogits[index]
+		bf16Max = math.Max(bf16Max, math.Abs(float64(logits[bf16Want.Token]-bf16Want.Value)))
+	}
+	for _, want := range fixture.Decoder.F32.TopLogits {
+		widenedMax = math.Max(widenedMax, math.Abs(float64(logits[want.Token]-want.Value)))
+	}
+	for _, want := range fixture.Decoder.BF16.TopLogits {
+		bf16Max = math.Max(bf16Max, math.Abs(float64(logits[want.Token]-want.Value)))
+	}
+	argmax := 0
+	for token := 1; token < len(logits); token++ {
+		if logits[token] > logits[argmax] {
+			argmax = token
+		}
+	}
+	if widenedMax > 1e-4 || bf16Max > 0.1 || argmax != fixture.Decoder.F32.TopLogits[0].Token {
+		t.Fatalf("decoder parity widened=%.6g BF16=%.6g argmax=%d want=%d", widenedMax, bf16Max, argmax, fixture.Decoder.F32.TopLogits[0].Token)
+	}
+	t.Logf("decoder parity widened=%.6g BF16=%.6g argmax=%d", widenedMax, bf16Max, argmax)
 }

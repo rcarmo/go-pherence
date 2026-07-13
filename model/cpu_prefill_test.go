@@ -186,6 +186,35 @@ func TestCPUPrefillEmbeddingsMatchesSequential(t *testing.T) {
 	}
 }
 
+func TestPrefillEmbeddingsLogitsMatchesGeneratedToken(t *testing.T) {
+	m := buildPrefillTestModel("qwen3", false, true, false)
+	prompt := []int{1, 5, 9, 2}
+	h := m.Config.HiddenSize
+	embeddings := make([]float32, len(prompt)*h)
+	for row, token := range prompt {
+		if err := m.TokenEmbeddingInto(embeddings[row*h:(row+1)*h], token); err != nil {
+			t.Fatal(err)
+		}
+	}
+	logits, err := m.PrefillEmbeddingsLogits(prompt, embeddings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := 0
+	for i := 1; i < len(logits); i++ {
+		if logits[i] > logits[want] {
+			want = i
+		}
+	}
+	generated, err := m.GenerateFromEmbeddings(prompt, embeddings, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := generated[len(prompt)]; got != want {
+		t.Fatalf("generated token=%d want logits argmax=%d", got, want)
+	}
+}
+
 // TestCPUPrefillIneligibleCases confirms prefill declines unsupported configs.
 func TestCPUPrefillIneligibleCases(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "0")

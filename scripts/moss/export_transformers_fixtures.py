@@ -14,7 +14,9 @@ from pathlib import Path
 import numpy as np
 import torch
 from safetensors import safe_open
-from transformers import WhisperConfig, WhisperFeatureExtractor
+from tokenizers import Tokenizer
+from transformers import Qwen3Config, WhisperConfig, WhisperFeatureExtractor
+from transformers.models.qwen3.modeling_qwen3 import Qwen3ForCausalLM
 from transformers.models.whisper.modeling_whisper import WhisperEncoder
 
 PREFIX = "model.whisper_encoder."
@@ -74,7 +76,7 @@ def run_boundaries(encoder: WhisperEncoder, features: np.ndarray, dtype: torch.d
     return boundaries, hidden
 
 
-def run_adaptor(model_dir: Path, encoder_output: torch.Tensor, dtype: torch.dtype) -> list[dict]:
+def run_adaptor(model_dir: Path, encoder_output: torch.Tensor, dtype: torch.dtype) -> tuple[list[dict], torch.Tensor]:
     tensors = {}
     checkpoint = model_dir / "model-00000-of-00001.safetensors"
     with safe_open(checkpoint, framework="pt", device="cpu") as source:
@@ -92,7 +94,49 @@ def run_adaptor(model_dir: Path, encoder_output: torch.Tensor, dtype: torch.dtyp
     return [
         selected("time_merge", merged, (0, 1, 12), (0, 1, 1023, 1024, 4095)),
         selected("adaptor", hidden, (0, 1, 12), DIMS),
-    ]
+    ], hidden
+
+
+def run_decoder(model_dir: Path, text_config: dict, audio_hidden: torch.Tensor, dtype: torch.dtype) -> dict:
+    config = Qwen3Config(**text_config)
+    decoder = Qwen3ForCausalLM(config).to(dtype=dtype).eval()
+    state = {}
+    checkpoint = model_dir / "model-00000-of-00001.safetensors"
+    with safe_open(checkpoint, framework="pt", device="cpu") as source:
+        for name in source.keys():
+            if name.startswith("model.language_model."):
+                suffix = name.removeprefix("model.language_model.")
+                state["model." + suffix] = source.get_tensor(name).to(dtype=dtype)
+    state["lm_head.weight"] = state["model.embed_tokens.weight"]
+    missing, unexpected = decoder.load_state_dict(state, strict=True)
+    if missing or unexpected:
+        raise RuntimeError(f"decoder state mismatch missing={missing} unexpected={unexpected}")
+
+    tokenizer = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
+    prompt = "<|im_start|>user\\nTranscribe. <|audio_pad|><|im_end|>\\n<|im_start|>assistant\\n"
+    base_ids = tokenizer.encode(prompt, add_special_tokens=False).ids
+    audio_id = 151671
+    at = base_ids.index(audio_id)
+    ids = base_ids[:at] + [audio_id] * audio_hidden.shape[1] + base_ids[at + 1 :]
+    input_ids = torch.tensor([ids], dtype=torch.long)
+    embeds = decoder.model.embed_tokens(input_ids).to(dtype=dtype)
+    mask = input_ids == audio_id
+    embeds[mask] = audio_hidden.reshape(-1, audio_hidden.shape[-1])
+    with torch.inference_mode():
+        output = decoder(inputs_embeds=embeds, use_cache=False, output_hidden_states=True, return_dict=True)
+    logits = output.logits[0, -1].float().cpu()
+    selected_ids = (0, 13, 198, 872, 151643, 151644, 151645, 151671)
+    top = torch.topk(logits, 10)
+    return {
+        "input_ids": ids,
+        "sequence_length": len(ids),
+        "selected_logits": [{"token": token, "value": float(logits[token])} for token in selected_ids],
+        "top_logits": [
+            {"token": int(token), "value": float(value)} for value, token in zip(top.values, top.indices)
+        ],
+        "layer0_last": [float(output.hidden_states[1][0, -1, dim].float()) for dim in DIMS],
+        "final_last": [float(output.hidden_states[-1][0, -1, dim].float()) for dim in DIMS],
+    }
 
 
 def main() -> None:
@@ -122,14 +166,18 @@ def main() -> None:
         },
         "compute": {},
         "audio_post": {},
+        "decoder": {},
     }
     # Actual upstream execution and a widened-BF16 diagnostic isolate dtype-boundary drift.
     for label, dtype in (("bf16", torch.bfloat16), ("f32_widened", torch.float32)):
         encoder = load_encoder(args.model_dir, config, dtype)
         boundaries, encoder_output = run_boundaries(encoder, features, dtype)
         result["compute"][label] = boundaries
-        result["audio_post"][label] = run_adaptor(args.model_dir, encoder_output, dtype)
+        post_boundaries, audio_hidden = run_adaptor(args.model_dir, encoder_output, dtype)
+        result["audio_post"][label] = post_boundaries
         del encoder, encoder_output
+        result["decoder"][label] = run_decoder(args.model_dir, root_config["text_config"], audio_hidden, dtype)
+        del audio_hidden
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
