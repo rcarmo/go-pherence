@@ -41,6 +41,52 @@ The first native target is amd64 AVX2/FMA. Every assembly-dispatched operation m
 
 Existing AVX2/FMA SGEMM, vector, LayerNorm, FFT, convolution, and pooling paths are reused rather than duplicated. New assembly is added only for an uncovered measured hot operation. ARM64 NEON follows once the amd64 graph is green.
 
+## Native CLI
+
+Build and inspect the SIMD dispatch:
+
+```bash
+make moss-transcribe
+bin/moss-transcribe -capabilities
+```
+
+Transcribe a PCM WAV file and emit parsed subtitles:
+
+```bash
+bin/moss-transcribe \
+  -model-dir /path/to/MOSS-Transcribe-Diarize \
+  -audio meeting.wav \
+  -format srt \
+  -output meeting.srt
+```
+
+Formats are `text`, `raw`, `json`, `srt`, and `ass`. The default instruction is the pinned upstream Chinese transcription/diarization prompt; `-prompt` supplies hotwords or an alternate instruction. Decoding is greedy only. The CLI rejects sampling controls, non-WAV containers, context overflow, and more than 5,120 new tokens explicitly.
+
+## Verification and observed CPU performance
+
+Run the opt-in real-checkpoint gates with:
+
+```bash
+make moss-transcribe-parity MOSS_TRANSCRIBE_MODEL_DIR=/path/to/MOSS-Transcribe-Diarize
+```
+
+On an Intel Core i7-12700 with `GOMAXPROCS=2`:
+
+- AVX2 affine LayerNorm is approximately 3.5x faster than its scalar oracle (`~0.46 us` versus `~1.6 us` for width 1024).
+- The AVX2/FMA 400-element float64 DFT dot takes approximately 32 ns.
+- The full 24-layer audio boundary fixture completes in approximately 31 seconds.
+- A one-second WAV through model load, audio encoder/adaptor, canonical 38-token multimodal prefill, and one generated token completes in approximately 37 seconds; model loading is approximately 4.6 seconds.
+
+Pinned Transformers 4.57.1 parity observations:
+
+- log-mel frontend: bit-identical fixture;
+- Whisper widened-BF16 boundary maximum: `8.03e-5`;
+- temporal merge/adaptor widened maximum: `1.10e-5`;
+- canonical Qwen3 selected/top-logit widened maximum: `1.34e-5`, with matching argmax;
+- actual upstream BF16 differences are separately bounded because the native CPU graph widens BF16 checkpoint weights and computes activations in F32.
+
+Speaker labels such as `S01` remain recording-local generative labels, not cross-recording identities.
+
 ## Readiness
 
-Native inference is not yet ready. The package currently pins and validates the exact architecture. Readiness requires all plan gates: frontend, encoder, adaptor, insertion, Qwen decoder, tokenizer/processor, transcript parser, selected logits, and end-to-end real-audio parity.
+The native CLI executes the complete checkpoint graph and has real-checkpoint frontend, encoder, adaptor, insertion, and selected-logit gates. Remaining release gates are a representative real speech transcript/speaker/timestamp fixture, scalar-versus-AVX2 whole-pipeline benchmarks, and hotspot tuning for long recordings.

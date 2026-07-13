@@ -76,6 +76,14 @@ minicpmv-check:
 whisper:
 	go build -o bin/whisper ./cmd/audio/whisper
 
+.PHONY: moss-transcribe moss-transcribe-parity
+moss-transcribe:
+	go build -o bin/moss-transcribe ./cmd/audio/moss-transcribe
+
+moss-transcribe-parity:
+	@if [ -z "$(MOSS_TRANSCRIBE_MODEL_DIR)" ]; then echo "usage: make moss-transcribe-parity MOSS_TRANSCRIBE_MODEL_DIR=/path/to/MOSS-Transcribe-Diarize"; exit 2; fi
+	MOSS_TRANSCRIBE_MODEL_DIR=$(MOSS_TRANSCRIBE_MODEL_DIR) go test ./model/mosstranscribe -run 'TestRealCheckpoint(AudioBackbone|QwenDecoderLoads|WhisperEncoderParity|NativeModelLoads)|TestPinnedMOSSRealTokenizer' -count=1 -v
+
 # Build for the SpaceMIT K1/K3 (MilkV Jupiter 2: 8x X60 RISC-V, RVV 1.0 + IME
 # integer matrix engine). Forces GOARCH=riscv64 so it can be cross-compiled from
 # an x86 host as well as built natively on the board; CGO disabled for a static
