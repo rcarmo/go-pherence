@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/rcarmo/go-pherence/models/whisper"
 )
 
 const (
@@ -57,6 +59,21 @@ type AudioConfig struct {
 	Activation       string  `json:"activation_function"`
 	Dropout          float64 `json:"dropout"`
 	AttentionDropout float64 `json:"attention_dropout"`
+}
+
+// WhisperConfig maps the audio-only checkpoint contract onto the reusable
+// native Whisper encoder. MOSS does not use Whisper's text decoder.
+func (c Config) WhisperConfig() whisper.Config {
+	return whisper.Config{
+		NumMelBins:       c.Audio.NumMelBins,
+		MaxLength:        c.Audio.MaxSourcePos * 2,
+		EncoderLayers:    c.Audio.NumLayers,
+		EncoderDModel:    c.Audio.DModel,
+		EncoderHeads:     c.Audio.NumHeads,
+		EncoderFFNDim:    c.Audio.FFNDim,
+		HeadDim:          c.Audio.DModel / c.Audio.NumHeads,
+		MaxDecoderLength: 0,
+	}
 }
 
 // LoadConfig reads and validates a Hugging Face config.json.

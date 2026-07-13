@@ -14,6 +14,10 @@ func TestLoadUpstreamConfigContract(t *testing.T) {
 	if cfg.AudioTokenID != 151671 || cfg.AdaptorInput != 4096 || cfg.Text.MaxPositions != 131072 {
 		t.Fatalf("unexpected upstream config: %+v", cfg)
 	}
+	whisper := cfg.WhisperConfig()
+	if whisper.NumMelBins != 80 || whisper.MaxLength != 3000 || whisper.EncoderLayers != 24 || whisper.EncoderDModel != 1024 || whisper.EncoderHeads != 16 || whisper.EncoderFFNDim != 4096 || whisper.HeadDim != 64 {
+		t.Fatalf("unexpected Whisper mapping: %+v", whisper)
+	}
 }
 
 func TestConfigRejectsUnsupportedGraphChanges(t *testing.T) {
