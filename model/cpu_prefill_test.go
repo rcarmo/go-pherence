@@ -157,6 +157,35 @@ func TestCPUPrefillMatchesSequential(t *testing.T) {
 	}
 }
 
+func TestCPUPrefillEmbeddingsMatchesSequential(t *testing.T) {
+	m := buildPrefillTestModel("qwen3", false, true, false)
+	prompt := []int{1, 5, 9, 2, 7, 3}
+	h := m.Config.HiddenSize
+	embeddings := make([]float32, len(prompt)*h)
+	for i, token := range prompt {
+		if err := m.TokenEmbeddingInto(embeddings[i*h:(i+1)*h], token); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Replace two rows as a multimodal caller would.
+	for i := 2 * h; i < 4*h; i++ {
+		embeddings[i] = float32(i%h-8) * 0.03
+	}
+	t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "1")
+	sequential, err := m.GenerateFromEmbeddings(prompt, embeddings, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "0")
+	prefilled, err := m.GenerateFromEmbeddings(prompt, embeddings, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !equalInts(sequential, prefilled) {
+		t.Fatalf("embedding prefill mismatch\n sequential=%v\n prefilled=%v", sequential, prefilled)
+	}
+}
+
 // TestCPUPrefillIneligibleCases confirms prefill declines unsupported configs.
 func TestCPUPrefillIneligibleCases(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "0")

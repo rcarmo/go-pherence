@@ -914,8 +914,15 @@ func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings
 	// engaged on the validated subset (plain KV caches, non-MoE, no Gemma4
 	// per-layer inputs); otherwise the sequential loop below handles the prompt.
 	startStep := 0
-	if promptEmbeddings == nil && compressedKV == nil && maxTokens >= 1 && m.prefillCPUEligible(len(tokenIDs)) {
-		if lastHidden, ok := m.prefillCPU(tokenIDs, kvCacheK, kvCacheV); ok {
+	if compressedKV == nil && maxTokens >= 1 && m.prefillCPUEligible(len(tokenIDs)) {
+		var lastHidden []float32
+		var ok bool
+		if promptEmbeddings != nil {
+			lastHidden, ok = m.prefillCPUEmbeddings(promptEmbeddings, len(tokenIDs), kvCacheK, kvCacheV)
+		} else {
+			lastHidden, ok = m.prefillCPU(tokenIDs, kvCacheK, kvCacheV)
+		}
+		if ok {
 			_, _, maxIdx, err := m.finishCPUDecodeStep(lastHidden)
 			if err != nil {
 				panic(err)

@@ -142,11 +142,39 @@ func (m *LlamaModel) layerInterFor(layer *LlamaLayer) int {
 // for the caller to fall back to the sequential loop (the caller must only use
 // this on freshly-allocated caches).
 func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) ([]float32, bool) {
-	cfg := m.Config
 	B := len(tokenIDs)
 	if !m.prefillCPUEligible(B) {
 		return nil, false
 	}
+	h := m.Config.HiddenSize
+	batchHidden, ok := checkedProduct(B, h)
+	if !ok {
+		return nil, false
+	}
+	bHidden := make([]float32, batchHidden)
+	for i, tokID := range tokenIDs {
+		if err := m.ScaledTokenEmbeddingInto(bHidden[i*h:(i+1)*h], tokID); err != nil {
+			return nil, false
+		}
+	}
+	return m.prefillCPUHidden(bHidden, B, kvCacheK, kvCacheV)
+}
+
+// prefillCPUEmbeddings is the multimodal equivalent of prefillCPU. It copies
+// caller-owned prompt rows because the batched transformer updates them in-place.
+func (m *LlamaModel) prefillCPUEmbeddings(embeddings []float32, B int, kvCacheK, kvCacheV [][]float32) ([]float32, bool) {
+	if !m.prefillCPUEligible(B) {
+		return nil, false
+	}
+	want, ok := checkedProduct(B, m.Config.HiddenSize)
+	if !ok || len(embeddings) != want {
+		return nil, false
+	}
+	return m.prefillCPUHidden(append([]float32(nil), embeddings...), B, kvCacheK, kvCacheV)
+}
+
+func (m *LlamaModel) prefillCPUHidden(bHidden []float32, B int, kvCacheK, kvCacheV [][]float32) ([]float32, bool) {
+	cfg := m.Config
 	h := cfg.HiddenSize
 	numHeads := cfg.NumHeads
 	headDim := cfg.HeadDim
@@ -154,19 +182,7 @@ func (m *LlamaModel) prefillCPU(tokenIDs []int, kvCacheK, kvCacheV [][]float32) 
 		return nil, false
 	}
 	isGemma := cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text"
-
-	batchHidden, okBatchHidden := checkedProduct(B, h)
-	if !okBatchHidden {
-		return nil, false
-	}
-
-	// Embed all prompt tokens: bHidden[B, h].
-	bHidden := make([]float32, batchHidden)
-	for i, tokID := range tokenIDs {
-		if err := m.ScaledTokenEmbeddingInto(bHidden[i*h:(i+1)*h], tokID); err != nil {
-			return nil, false
-		}
-	}
+	batchHidden := len(bHidden)
 
 	// Batched scratch reused across layers.
 	bResidual := make([]float32, batchHidden)
