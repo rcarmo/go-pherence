@@ -16,6 +16,10 @@ type encoderParityFixture struct {
 		BF16 []encoderBoundaryFixture `json:"bf16"`
 		F32  []encoderBoundaryFixture `json:"f32_widened"`
 	} `json:"compute"`
+	AudioPost struct {
+		BF16 []encoderBoundaryFixture `json:"bf16"`
+		F32  []encoderBoundaryFixture `json:"f32_widened"`
+	} `json:"audio_post"`
 }
 
 type encoderBoundaryFixture struct {
@@ -64,7 +68,7 @@ func TestRealCheckpointWhisperEncoderParity(t *testing.T) {
 	maxBF16Diff := float64(0)
 	maxBF16Where := ""
 	finalBF16Diff := float64(0)
-	model.Encoder.ForwardObserved(features, 3000, func(boundary whisper.EncoderBoundary, layer, rows, cols int, values []float32) {
+	encoderOutput := model.Encoder.ForwardObserved(features, 3000, func(boundary whisper.EncoderBoundary, layer, rows, cols int, values []float32) {
 		if boundaryIndex >= len(fixture.Compute.F32) {
 			t.Fatalf("unexpected native boundary %s layer %d", boundary, layer)
 		}
@@ -105,4 +109,34 @@ func TestRealCheckpointWhisperEncoderParity(t *testing.T) {
 		t.Fatalf("Transformers BF16 drift max=%.6g at %s final=%.6g", maxBF16Diff, maxBF16Where, finalBF16Diff)
 	}
 	t.Logf("Transformers %s widened-BF16 max=%.6g at %s; actual BF16 max=%.6g at %s final=%.6g", fixture.Transformers, maxDiff, maxWhere, maxBF16Diff, maxBF16Where, finalBF16Diff)
+
+	merged, tokens, ok := TimeMerge(encoderOutput[:52*AudioWidth], 52)
+	if !ok || tokens != 13 {
+		t.Fatalf("time merge tokens=%d ok=%v", tokens, ok)
+	}
+	adaptorOut := make([]float32, tokens*AdaptorHiddenDim)
+	scratch := make([]float32, len(adaptorOut))
+	if !ForwardAdaptorTo(adaptorOut, scratch, merged, tokens, model.Adaptor) {
+		t.Fatal("native adaptor failed")
+	}
+	postValues := [][]float32{merged, adaptorOut}
+	for boundary, values := range postValues {
+		want := fixture.AudioPost.F32[boundary]
+		actualBF16 := fixture.AudioPost.BF16[boundary]
+		cols := want.Shape[1]
+		var widenedMax, bf16Max float64
+		for sampleIndex, sample := range want.Samples {
+			got := values[sample.Row*cols+sample.Col]
+			widenedMax = math.Max(widenedMax, math.Abs(float64(got-sample.Value)))
+			bf16Max = math.Max(bf16Max, math.Abs(float64(got-actualBF16.Samples[sampleIndex].Value)))
+		}
+		widenedLimit, bf16Limit := 1e-4, 0.02
+		if boundary == 0 { // Time merge is a view of encoder output.
+			bf16Limit = 0.012
+		}
+		if widenedMax > widenedLimit || bf16Max > bf16Limit {
+			t.Fatalf("%s parity widened=%.6g/%g BF16=%.6g/%g", want.Name, widenedMax, widenedLimit, bf16Max, bf16Limit)
+		}
+		t.Logf("%s parity widened=%.6g BF16=%.6g", want.Name, widenedMax, bf16Max)
+	}
 }

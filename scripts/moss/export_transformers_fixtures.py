@@ -56,7 +56,7 @@ def load_encoder(model_dir: Path, config: WhisperConfig, dtype: torch.dtype) -> 
     return encoder
 
 
-def run_boundaries(encoder: WhisperEncoder, features: np.ndarray, dtype: torch.dtype) -> list[dict]:
+def run_boundaries(encoder: WhisperEncoder, features: np.ndarray, dtype: torch.dtype) -> tuple[list[dict], torch.Tensor]:
     x = torch.from_numpy(features).unsqueeze(0).to(dtype=dtype)
     boundaries = []
     with torch.inference_mode():
@@ -71,7 +71,28 @@ def run_boundaries(encoder: WhisperEncoder, features: np.ndarray, dtype: torch.d
             boundaries.append(selected(f"layer.{index}", hidden, POSITIONS, DIMS))
         hidden = encoder.layer_norm(hidden)
         boundaries.append(selected("final_layer_norm", hidden, POSITIONS, DIMS))
-    return boundaries
+    return boundaries, hidden
+
+
+def run_adaptor(model_dir: Path, encoder_output: torch.Tensor, dtype: torch.dtype) -> list[dict]:
+    tensors = {}
+    checkpoint = model_dir / "model-00000-of-00001.safetensors"
+    with safe_open(checkpoint, framework="pt", device="cpu") as source:
+        for name in source.keys():
+            if name.startswith("model.vq_adaptor."):
+                tensors[name.removeprefix("model.vq_adaptor.")] = source.get_tensor(name).to(dtype=dtype)
+    # The deterministic waveform has one second of real audio: ceil(16000/1280)=13 tokens.
+    merged = encoder_output[:, : 13 * 4, :].reshape(1, 13, 4096)
+    hidden = torch.nn.functional.linear(merged, tensors["layers.0.weight"], tensors["layers.0.bias"])
+    hidden = torch.nn.functional.silu(hidden)
+    hidden = torch.nn.functional.linear(hidden, tensors["layers.2.weight"], tensors["layers.2.bias"])
+    hidden = torch.nn.functional.layer_norm(
+        hidden, (1024,), tensors["layers.3.weight"], tensors["layers.3.bias"], 1e-6
+    )
+    return [
+        selected("time_merge", merged, (0, 1, 12), (0, 1, 1023, 1024, 4095)),
+        selected("adaptor", hidden, (0, 1, 12), DIMS),
+    ]
 
 
 def main() -> None:
@@ -100,12 +121,15 @@ def main() -> None:
             "feature_sha256": hashlib.sha256(feature_bytes).hexdigest(),
         },
         "compute": {},
+        "audio_post": {},
     }
     # Actual upstream execution and a widened-BF16 diagnostic isolate dtype-boundary drift.
     for label, dtype in (("bf16", torch.bfloat16), ("f32_widened", torch.float32)):
         encoder = load_encoder(args.model_dir, config, dtype)
-        result["compute"][label] = run_boundaries(encoder, features, dtype)
-        del encoder
+        boundaries, encoder_output = run_boundaries(encoder, features, dtype)
+        result["compute"][label] = boundaries
+        result["audio_post"][label] = run_adaptor(args.model_dir, encoder_output, dtype)
+        del encoder, encoder_output
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
