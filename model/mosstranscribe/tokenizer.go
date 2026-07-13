@@ -8,7 +8,22 @@ import (
 	basetokenizer "github.com/rcarmo/go-pherence/loader/tokenizer"
 )
 
-const AudioPadToken = "<|audio_pad|>"
+const (
+	AudioPadToken = "<|audio_pad|>"
+	DefaultPrompt = "请将音频转写为文本，每一段需以起始时间戳和说话人编号（[S01]、[S02]、[S03]…）开头，正文为对应的语音内容，并在段末标注结束时间戳，以清晰标明该段语音范围。"
+)
+
+// BuildTranscriptionPrompt renders the no-tools, one-user-message branch of
+// the pinned chat_template.jinja with audio first and generation prompt enabled.
+func BuildTranscriptionPrompt(instruction string) string {
+	instruction = strings.TrimSpace(instruction)
+	if instruction == "" {
+		instruction = DefaultPrompt
+	}
+	return "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n" +
+		"<|im_start|>user\n<|audio_start|><|audio_pad|><|audio_end|>\n" + instruction +
+		"<|im_end|>\n<|im_start|>assistant\n"
+}
 
 // Processor owns the checkpoint tokenizer contract needed for prompt expansion
 // and generated transcript decoding.

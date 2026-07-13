@@ -113,7 +113,11 @@ def run_decoder(model_dir: Path, text_config: dict, audio_hidden: torch.Tensor, 
         raise RuntimeError(f"decoder state mismatch missing={missing} unexpected={unexpected}")
 
     tokenizer = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
-    prompt = "<|im_start|>user\\nTranscribe. <|audio_pad|><|im_end|>\\n<|im_start|>assistant\\n"
+    prompt = (
+        "<|im_start|>system\\nYou are a helpful assistant.<|im_end|>\\n"
+        "<|im_start|>user\\n<|audio_start|><|audio_pad|><|audio_end|>\\n"
+        "Transcribe.<|im_end|>\\n<|im_start|>assistant\\n"
+    )
     base_ids = tokenizer.encode(prompt, add_special_tokens=False).ids
     audio_id = 151671
     at = base_ids.index(audio_id)

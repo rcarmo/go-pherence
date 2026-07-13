@@ -48,12 +48,12 @@ func TestPinnedMOSSRealTokenizer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prompt := "<|im_start|>user\nTranscribe. " + AudioPadToken + "<|im_end|>\n<|im_start|>assistant\n"
+	prompt := BuildTranscriptionPrompt("Transcribe.")
 	ids, err := processor.EncodePrompt(prompt, 1, 131072)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []int{151644, 872, 198, 3167, 3114, 13, 220, 151671, 151645, 198, 151644, 77091, 198}
+	want := []int{151644, 8948, 198, 2610, 525, 264, 10950, 17847, 13, 151645, 198, 151644, 872, 198, 151669, 151671, 151670, 198, 3167, 3114, 13, 151645, 198, 151644, 77091, 198}
 	if len(ids) != len(want) {
 		t.Fatalf("ids=%v want %v", ids, want)
 	}
