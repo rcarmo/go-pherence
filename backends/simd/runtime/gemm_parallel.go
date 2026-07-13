@@ -54,6 +54,58 @@ func GemmRowsParallel(out, x, w []float32, batch, rows, cols int) bool {
 	return true
 }
 
+// GemmRowsBF16Parallel computes out[batch, rows] = x[batch, cols] @
+// W_bf16[rows, cols]^T. It keeps checkpoint weights compressed and dispatches
+// each dot product to the architecture-specific BF16 SIMD kernel.
+func GemmRowsBF16Parallel(out, x []float32, w []uint16, batch, rows, cols int) bool {
+	weightLen, okW := checked.MulInt(rows, cols)
+	xLen, okX := checked.MulInt(batch, cols)
+	outLen, okO := checked.MulInt(batch, rows)
+	if batch <= 0 || rows <= 0 || cols <= 0 || !okW || !okX || !okO ||
+		len(out) < outLen || len(x) < xLen || len(w) < weightLen {
+		return false
+	}
+	nWorkers := runtime.GOMAXPROCS(0)
+	if rows < 256 || nWorkers <= 1 {
+		for b := 0; b < batch; b++ {
+			if !GemvRowsBF16(out[b*rows:(b+1)*rows], x[b*cols:(b+1)*cols], w, rows, cols) {
+				return false
+			}
+		}
+		return true
+	}
+	if nWorkers > rows/64 {
+		nWorkers = rows / 64
+	}
+	if nWorkers < 1 {
+		nWorkers = 1
+	}
+	chunk := (rows + nWorkers - 1) / nWorkers
+	var wg sync.WaitGroup
+	for worker := 0; worker < nWorkers; worker++ {
+		start := worker * chunk
+		end := start + chunk
+		if end > rows {
+			end = rows
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(rs, re int) {
+			defer wg.Done()
+			for row := rs; row < re; row++ {
+				wRow := w[row*cols : (row+1)*cols]
+				for b := 0; b < batch; b++ {
+					out[b*rows+row] = BF16DotF32(wRow, x[b*cols:(b+1)*cols])
+				}
+			}
+		}(start, end)
+	}
+	wg.Wait()
+	return true
+}
+
 // SgemmNNParallelTo computes C[m,n] += alpha * A[m,k] @ B[k,n] using goroutines
 // across the output-column dimension. Each worker runs the serial SgemmNNTo on
 // a contiguous column block, so per-element accumulation order — and therefore

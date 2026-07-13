@@ -1,6 +1,7 @@
 package simd
 
 import (
+	"math"
 	"math/rand"
 	"testing"
 )
@@ -45,6 +46,29 @@ func TestGemmRowsParallelMatchesSerial(t *testing.T) {
 	}
 }
 
+func TestGemmRowsBF16ParallelMatchesSerial(t *testing.T) {
+	batch, rows, cols := 5, 640, 48
+	x := randFloats(batch*cols, 11)
+	wf32 := randFloats(rows*cols, 12)
+	w := make([]uint16, len(wf32))
+	for i, value := range wf32 {
+		w[i] = uint16(math.Float32bits(value) >> 16)
+	}
+	want := make([]float32, batch*rows)
+	got := make([]float32, batch*rows)
+	for b := 0; b < batch; b++ {
+		if !GemvRowsBF16(want[b*rows:(b+1)*rows], x[b*cols:(b+1)*cols], w, rows, cols) {
+			t.Fatal("GemvRowsBF16 failed")
+		}
+	}
+	if !GemmRowsBF16Parallel(got, x, w, batch, rows, cols) {
+		t.Fatal("GemmRowsBF16Parallel failed")
+	}
+	if !floatsEqual(want, got) {
+		t.Fatal("GemmRowsBF16Parallel result differs from serial BF16 GEMV")
+	}
+}
+
 // TestSgemmNNParallelMatchesSerial checks the column-parallel NN GEMM is
 // bit-identical to a single SgemmNNTo call.
 func TestSgemmNNParallelMatchesSerial(t *testing.T) {
@@ -67,6 +91,9 @@ func TestSgemmNNParallelMatchesSerial(t *testing.T) {
 func TestGemmParallelMalformedInputs(t *testing.T) {
 	if GemmRowsParallel(nil, nil, nil, 0, 1, 1) {
 		t.Fatal("GemmRowsParallel accepted bad dims")
+	}
+	if GemmRowsBF16Parallel(nil, nil, nil, 0, 1, 1) {
+		t.Fatal("GemmRowsBF16Parallel accepted bad dims")
 	}
 	if SgemmNNParallelTo(nil, nil, nil, 0, 1, 1, 1.0, 1, 1, 1) {
 		t.Fatal("SgemmNNParallelTo accepted bad dims")
