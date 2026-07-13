@@ -250,6 +250,88 @@ func TestWhisperGPUGraphUmbrellaEnablesKernelDispatch(t *testing.T) {
 	}
 }
 
+func TestWhisperCUDAEncoderResidentLayerParity(t *testing.T) {
+	if !nv.SgemmReady() {
+		t.Skip("CUDA SGEMM not available")
+	}
+	cfg := Config{EncoderDModel: 8, EncoderHeads: 2, HeadDim: 4, EncoderFFNDim: 12, EncoderLayers: 1}
+	enc := NewEncoder(cfg)
+	layer := &enc.Layers[0]
+	fill := func(dst []float32, scale float32) {
+		for i := range dst {
+			dst[i] = float32((i%17)-8) * scale
+		}
+	}
+	layer.AttnLNWeight = make([]float32, cfg.EncoderDModel)
+	layer.AttnLNBias = make([]float32, cfg.EncoderDModel)
+	layer.QWeight = make([]float32, cfg.EncoderDModel*cfg.EncoderDModel)
+	layer.QBias = make([]float32, cfg.EncoderDModel)
+	layer.KWeight = make([]float32, cfg.EncoderDModel*cfg.EncoderDModel)
+	layer.KBias = make([]float32, cfg.EncoderDModel)
+	layer.VWeight = make([]float32, cfg.EncoderDModel*cfg.EncoderDModel)
+	layer.VBias = make([]float32, cfg.EncoderDModel)
+	layer.OWeight = make([]float32, cfg.EncoderDModel*cfg.EncoderDModel)
+	layer.OBias = make([]float32, cfg.EncoderDModel)
+	layer.MLPLNWeight = make([]float32, cfg.EncoderDModel)
+	layer.MLPLNBias = make([]float32, cfg.EncoderDModel)
+	layer.FC1Weight = make([]float32, cfg.EncoderFFNDim*cfg.EncoderDModel)
+	layer.FC1Bias = make([]float32, cfg.EncoderFFNDim)
+	layer.FC2Weight = make([]float32, cfg.EncoderDModel*cfg.EncoderFFNDim)
+	layer.FC2Bias = make([]float32, cfg.EncoderDModel)
+	fill(layer.AttnLNWeight, 0.02)
+	fill(layer.AttnLNBias, 0.01)
+	fill(layer.QWeight, 0.015)
+	fill(layer.QBias, 0.01)
+	fill(layer.KWeight, 0.014)
+	fill(layer.KBias, 0.008)
+	fill(layer.VWeight, 0.013)
+	fill(layer.VBias, 0.007)
+	fill(layer.OWeight, 0.012)
+	fill(layer.OBias, 0.006)
+	fill(layer.MLPLNWeight, 0.02)
+	fill(layer.MLPLNBias, 0.01)
+	fill(layer.FC1Weight, 0.011)
+	fill(layer.FC1Bias, 0.005)
+	fill(layer.FC2Weight, 0.01)
+	fill(layer.FC2Bias, 0.004)
+
+	seqLen := 4
+	x := make([]float32, seqLen*cfg.EncoderDModel)
+	fill(x, 0.03)
+	want := layerNorm(x, layer.AttnLNWeight, layer.AttnLNBias, seqLen, cfg.EncoderDModel)
+	q := linearForwardOpt(want, layer.QWeight, layer.QBias, seqLen, cfg.EncoderDModel, cfg.EncoderDModel)
+	k := linearForwardOpt(want, layer.KWeight, layer.KBias, seqLen, cfg.EncoderDModel, cfg.EncoderDModel)
+	v := linearForwardOpt(want, layer.VWeight, layer.VBias, seqLen, cfg.EncoderDModel, cfg.EncoderDModel)
+	attn := fullAttention(q, k, v, seqLen, seqLen, cfg.EncoderHeads, cfg.HeadDim)
+	proj := linearForwardOpt(attn, layer.OWeight, layer.OBias, seqLen, cfg.EncoderDModel, cfg.EncoderDModel)
+	for i := range proj {
+		proj[i] += x[i]
+	}
+	mlpIn := layerNorm(proj, layer.MLPLNWeight, layer.MLPLNBias, seqLen, cfg.EncoderDModel)
+	hidden := linearForwardOpt(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, cfg.EncoderDModel, cfg.EncoderFFNDim)
+	for i, value := range hidden {
+		v := float64(value)
+		hidden[i] = float32(0.5 * v * (1 + math.Tanh(math.Sqrt(2/math.Pi)*(v+0.044715*v*v*v))))
+	}
+	want = linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, seqLen, cfg.EncoderFFNDim, cfg.EncoderDModel)
+	for i := range want {
+		want[i] += proj[i]
+	}
+
+	ge := NewGPUEncoder(enc, cfg)
+	defer ge.Close()
+	if !ge.Ready() {
+		t.Skip("GPU encoder not ready")
+	}
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_RESIDENT", "1")
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_ATTENTION", "0")
+	got, ok := ge.forwardLayerGPUResident(0, x, seqLen)
+	if !ok {
+		t.Fatal("forwardLayerGPUResident returned fallback")
+	}
+	assertClose(t, got, want, 3e-3)
+}
+
 func deterministicLinearInputs(inDim, outDim int) ([]float32, []float32, []float32) {
 	x := make([]float32, inDim)
 	weight := make([]float32, outDim*inDim)

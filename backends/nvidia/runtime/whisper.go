@@ -12,7 +12,61 @@ var (
 	fnWhisperAttentionFull  CUfunction
 	fnWhisperCrossAttention CUfunction
 	fnWhisperAttentivePool  CUfunction
+	fnWhisperRowAffine      CUfunction
+	fnWhisperRowBias        CUfunction
+	fnWhisperTranspose      CUfunction
+	fnWhisperGELUTanh       CUfunction
 )
+
+func validWhisperMatrixBuffers(out, in *Buffer, rows, cols int) bool {
+	if out == nil || in == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
+		return false
+	}
+	n := rows * cols
+	return n > 0 && out.Size >= n*4 && in.Size >= n*4
+}
+
+// WhisperRowAffineBuffer computes out[row,col] = x[row,col]*weight[col]+bias[col].
+func WhisperRowAffineBuffer(out, x, weight, bias *Buffer, rows, cols int) error {
+	if fnWhisperRowAffine == 0 || !megaModuleOK || !validWhisperMatrixBuffers(out, x, rows, cols) || weight == nil || bias == nil || weight.Size < cols*4 || bias.Size < cols*4 {
+		return fmt.Errorf("invalid Whisper row-affine device buffers")
+	}
+	r, c := uint32(rows), uint32(cols)
+	n := rows * cols
+	return LaunchKernel(fnWhisperRowAffine, uint32((n+255)/256), 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&x.Ptr), unsafe.Pointer(&weight.Ptr), unsafe.Pointer(&bias.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&c))
+}
+
+// WhisperRowBiasBuffer adds bias[col] to each row in-place.
+func WhisperRowBiasBuffer(x, bias *Buffer, rows, cols int) error {
+	if fnWhisperRowBias == 0 || !megaModuleOK || !validWhisperMatrixBuffers(x, x, rows, cols) || bias == nil || bias.Size < cols*4 {
+		return fmt.Errorf("invalid Whisper row-bias device buffers")
+	}
+	r, c := uint32(rows), uint32(cols)
+	n := rows * cols
+	return LaunchKernel(fnWhisperRowBias, uint32((n+255)/256), 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&x.Ptr), unsafe.Pointer(&bias.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&c))
+}
+
+// WhisperTransposeBuffer transposes row-major [rows,cols] into [cols,rows].
+func WhisperTransposeBuffer(out, in *Buffer, rows, cols int) error {
+	if fnWhisperTranspose == 0 || !megaModuleOK || !validWhisperMatrixBuffers(out, in, rows, cols) {
+		return fmt.Errorf("invalid Whisper transpose device buffers")
+	}
+	r, c := uint32(rows), uint32(cols)
+	n := rows * cols
+	return LaunchKernel(fnWhisperTranspose, uint32((n+255)/256), 1, 1, 256, 1, 1, 0,
+		unsafe.Pointer(&in.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&c))
+}
+
+// WhisperGELUTanhBuffer applies the tanh GELU approximation in-place.
+func WhisperGELUTanhBuffer(x *Buffer, n int) error {
+	if fnWhisperGELUTanh == 0 || !megaModuleOK || x == nil || n <= 0 || !fitsUint32(n) || x.Size < n*4 {
+		return fmt.Errorf("invalid Whisper GELU device buffer")
+	}
+	nn := uint32(n)
+	return LaunchKernel(fnWhisperGELUTanh, uint32((n+255)/256), 1, 1, 256, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&nn))
+}
 
 // WhisperMelSpectrogramBuffer launches the correctness-first fused Whisper mel
 // PTX kernel over GPU-resident buffers. Output is mel-major [numMels,numFrames].

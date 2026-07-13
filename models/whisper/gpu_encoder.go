@@ -42,16 +42,26 @@ func (ge *GPUEncoder) Close() {
 		free(layer.fc1W)
 		free(layer.fc2W)
 		free(layer.attnLNW)
+		free(layer.attnLNB)
 		free(layer.mlpLNW)
+		free(layer.mlpLNB)
+		free(layer.qB)
+		free(layer.kB)
+		free(layer.vB)
+		free(layer.oB)
+		free(layer.fc1B)
+		free(layer.fc2B)
 	}
 	ge.layers = nil
 	ge.ready = false
 }
 
 type gpuEncoderLayer struct {
-	qW, kW, vW, oW  *nv.DevBuf
-	fc1W, fc2W      *nv.DevBuf
-	attnLNW, mlpLNW *nv.DevBuf
+	qW, kW, vW, oW             *nv.DevBuf
+	fc1W, fc2W                 *nv.DevBuf
+	attnLNW, attnLNB           *nv.DevBuf
+	mlpLNW, mlpLNB             *nv.DevBuf
+	qB, kB, vB, oB, fc1B, fc2B *nv.DevBuf
 }
 
 // NewGPUEncoder uploads encoder weights to GPU and returns an accelerated encoder.
@@ -75,7 +85,15 @@ func NewGPUEncoder(enc *Encoder, cfg Config) *GPUEncoder {
 		gl.fc1W = gpuWeight(l.FC1Weight)
 		gl.fc2W = gpuWeight(l.FC2Weight)
 		gl.attnLNW = gpuWeight(l.AttnLNWeight)
+		gl.attnLNB = gpuVector(l.AttnLNBias)
 		gl.mlpLNW = gpuWeight(l.MLPLNWeight)
+		gl.mlpLNB = gpuVector(l.MLPLNBias)
+		gl.qB = gpuVector(l.QBias)
+		gl.kB = gpuVector(l.KBias)
+		gl.vB = gpuVector(l.VBias)
+		gl.oB = gpuVector(l.OBias)
+		gl.fc1B = gpuVector(l.FC1Bias)
+		gl.fc2B = gpuVector(l.FC2Bias)
 	}
 	_ = dModel
 
@@ -131,6 +149,12 @@ func (ge *GPUEncoder) ForwardGPU(mel []float32, T int) []float32 {
 }
 
 func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []float32 {
+	if whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_RESIDENT") {
+		if out, ok := ge.forwardLayerGPUResident(layerIdx, x, seqLen); ok {
+			return out
+		}
+	}
+
 	cfg := ge.cfg
 	dModel := cfg.EncoderDModel
 	layer := &ge.Encoder.Layers[layerIdx]
@@ -180,6 +204,214 @@ func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []f
 	}
 
 	return mlpOut
+}
+
+func (ge *GPUEncoder) forwardLayerGPUResident(layerIdx int, x []float32, seqLen int) ([]float32, bool) {
+	cfg := ge.cfg
+	dModel := cfg.EncoderDModel
+	ffnDim := cfg.EncoderFFNDim
+	layer := &ge.layers[layerIdx]
+	if seqLen <= 0 || len(x) < seqLen*dModel || !nv.SgemmReady() ||
+		layer.qW == nil || layer.kW == nil || layer.vW == nil || layer.oW == nil ||
+		layer.fc1W == nil || layer.fc2W == nil || layer.attnLNW == nil || layer.mlpLNW == nil {
+		return nil, false
+	}
+	for _, buf := range []*nv.DevBuf{layer.qW, layer.kW, layer.vW, layer.oW, layer.fc1W, layer.fc2W, layer.attnLNW, layer.mlpLNW} {
+		if buf.GPUPtr() == nil {
+			return nil, false
+		}
+	}
+
+	scratch := make([]*nv.DevBuf, 0, 16)
+	alloc := func(n int) (*nv.DevBuf, bool) {
+		buf, err := nv.NewDevBufGPU(n)
+		if err != nil {
+			return nil, false
+		}
+		scratch = append(scratch, buf)
+		return buf, true
+	}
+	defer func() {
+		for _, buf := range scratch {
+			buf.Free()
+		}
+	}()
+	zeroBias := map[int]*nv.DevBuf{}
+	ensureBias := func(bias *nv.DevBuf, cols int) (*nv.DevBuf, bool) {
+		if bias != nil && bias.GPUPtr() != nil {
+			return bias, true
+		}
+		if buf := zeroBias[cols]; buf != nil {
+			return buf, true
+		}
+		buf, ok := alloc(cols)
+		if !ok {
+			return nil, false
+		}
+		if err := nv.ZeroFloat32Buffer(buf.GPUBuffer(), cols); err != nil {
+			return nil, false
+		}
+		zeroBias[cols] = buf
+		return buf, true
+	}
+	affine := func(out, in, weight, bias *nv.DevBuf, rows, cols int) bool {
+		b, ok := ensureBias(bias, cols)
+		if !ok {
+			return false
+		}
+		return nv.WhisperRowAffineBuffer(out.GPUBuffer(), in.GPUBuffer(), weight.GPUBuffer(), b.GPUBuffer(), rows, cols) == nil
+	}
+	project := func(inRow, weight, bias *nv.DevBuf, rows, inDim, outDim int) (*nv.DevBuf, bool) {
+		inT, ok := alloc(inDim * rows)
+		if !ok {
+			return nil, false
+		}
+		if err := nv.WhisperTransposeBuffer(inT.GPUBuffer(), inRow.GPUBuffer(), rows, inDim); err != nil {
+			return nil, false
+		}
+		outCol, ok := alloc(outDim * rows)
+		if !ok {
+			return nil, false
+		}
+		if err := nv.Sgemm(outDim, rows, inDim, 1, weight.GPUPtr(), inT.GPUBuffer(), outCol.GPUBuffer()); err != nil {
+			return nil, false
+		}
+		outRow, ok := alloc(rows * outDim)
+		if !ok {
+			return nil, false
+		}
+		if err := nv.WhisperTransposeBuffer(outRow.GPUBuffer(), outCol.GPUBuffer(), outDim, rows); err != nil {
+			return nil, false
+		}
+		if bias != nil && bias.GPUPtr() != nil {
+			if err := nv.WhisperRowBiasBuffer(outRow.GPUBuffer(), bias.GPUBuffer(), rows, outDim); err != nil {
+				return nil, false
+			}
+		}
+		return outRow, true
+	}
+
+	xBuf := nv.NewDevBufFrom(x[:seqLen*dModel])
+	if err := xBuf.ToGPU(); err != nil {
+		return nil, false
+	}
+	defer xBuf.Free()
+
+	attnNorm0, ok := alloc(seqLen * dModel)
+	if !ok {
+		return nil, false
+	}
+	if err := nv.IdeogramLayerNormNoAffineBuffer(attnNorm0.GPUBuffer(), xBuf.GPUBuffer(), seqLen, dModel, 1e-5); err != nil {
+		return nil, false
+	}
+	attnNorm, ok := alloc(seqLen * dModel)
+	if !ok {
+		return nil, false
+	}
+	if !affine(attnNorm, attnNorm0, layer.attnLNW, layer.attnLNB, seqLen, dModel) {
+		return nil, false
+	}
+
+	qBuf, ok := project(attnNorm, layer.qW, layer.qB, seqLen, dModel, dModel)
+	if !ok {
+		return nil, false
+	}
+	kBuf, ok := project(attnNorm, layer.kW, layer.kB, seqLen, dModel, dModel)
+	if !ok {
+		return nil, false
+	}
+	vBuf, ok := project(attnNorm, layer.vW, layer.vB, seqLen, dModel, dModel)
+	if !ok {
+		return nil, false
+	}
+
+	attnOut, ok := alloc(seqLen * dModel)
+	if !ok {
+		return nil, false
+	}
+	if whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_ATTENTION") {
+		scale := float32(1.0 / math.Sqrt(float64(cfg.HeadDim)))
+		if err := nv.WhisperAttentionFullBuffer(attnOut.GPUBuffer(), qBuf.GPUBuffer(), kBuf.GPUBuffer(), vBuf.GPUBuffer(), seqLen, seqLen, cfg.EncoderHeads, cfg.HeadDim, scale); err != nil {
+			return nil, false
+		}
+	} else {
+		// The correctness-first one-thread-per-query PTX attention is slower than
+		// the SIMD oracle at Whisper's 1500-token encoder horizon. Keep the rest
+		// of the layer resident while crossing only Q/K/V and the attention result
+		// until a tiled attention kernel passes the end-to-end speed gate.
+		n := seqLen * dModel
+		qHost, kHost, vHost := make([]float32, n), make([]float32, n), make([]float32, n)
+		if err := qBuf.GPUBuffer().Download(qHost); err != nil {
+			return nil, false
+		}
+		if err := kBuf.GPUBuffer().Download(kHost); err != nil {
+			return nil, false
+		}
+		if err := vBuf.GPUBuffer().Download(vHost); err != nil {
+			return nil, false
+		}
+		attnHost := fullAttention(qHost, kHost, vHost, seqLen, seqLen, cfg.EncoderHeads, cfg.HeadDim)
+		if err := attnOut.GPUBuffer().Upload(attnHost); err != nil {
+			return nil, false
+		}
+	}
+
+	projected, ok := project(attnOut, layer.oW, layer.oB, seqLen, dModel, dModel)
+	if !ok {
+		return nil, false
+	}
+	resid0, ok := alloc(seqLen * dModel)
+	if !ok {
+		return nil, false
+	}
+	nv.DevAdd(resid0, projected, xBuf)
+
+	mlpNorm0, ok := alloc(seqLen * dModel)
+	if !ok {
+		return nil, false
+	}
+	if err := nv.IdeogramLayerNormNoAffineBuffer(mlpNorm0.GPUBuffer(), resid0.GPUBuffer(), seqLen, dModel, 1e-5); err != nil {
+		return nil, false
+	}
+	mlpNorm, ok := alloc(seqLen * dModel)
+	if !ok {
+		return nil, false
+	}
+	if !affine(mlpNorm, mlpNorm0, layer.mlpLNW, layer.mlpLNB, seqLen, dModel) {
+		return nil, false
+	}
+
+	hidden, ok := project(mlpNorm, layer.fc1W, layer.fc1B, seqLen, dModel, ffnDim)
+	if !ok {
+		return nil, false
+	}
+	// Whisper specifies PyTorch's exact erf GELU. Keep this boundary on the
+	// CPU oracle until the resident approximation proves cumulative 24-layer
+	// parity; the tanh approximation drifts materially with real MOSS weights.
+	hiddenHost := make([]float32, seqLen*ffnDim)
+	if err := hidden.GPUBuffer().Download(hiddenHost); err != nil {
+		return nil, false
+	}
+	gelu(hiddenHost)
+	if err := hidden.GPUBuffer().Upload(hiddenHost); err != nil {
+		return nil, false
+	}
+	mlpOut, ok := project(hidden, layer.fc2W, layer.fc2B, seqLen, ffnDim, dModel)
+	if !ok {
+		return nil, false
+	}
+	outBuf, ok := alloc(seqLen * dModel)
+	if !ok {
+		return nil, false
+	}
+	nv.DevAdd(outBuf, mlpOut, resid0)
+	nv.Sync()
+
+	out := make([]float32, seqLen*dModel)
+	if err := outBuf.GPUBuffer().Download(out); err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 func conv1dForwardGPU(input, weight, bias []float32, inCh, inLen, outCh, stride int) ([]float32, bool) {
@@ -291,6 +523,13 @@ func gpuWeight(data []float32) *nv.DevBuf {
 	b := nv.NewDevBufFrom(data)
 	_ = b.ToGPU()
 	return b
+}
+
+func gpuVector(data []float32) *nv.DevBuf {
+	if len(data) == 0 {
+		return nil
+	}
+	return gpuWeight(data)
 }
 
 // threeGemvGPU computes three projections from the same row-major input with a
