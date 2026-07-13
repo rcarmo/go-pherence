@@ -33,16 +33,6 @@ func TestChunkAudioNonOverlappingPaddingAndLengths(t *testing.T) {
 	}
 }
 
-func TestReflectPadMatchesNumpyConvention(t *testing.T) {
-	got := reflectPad([]float32{1, 2, 3, 4}, 2)
-	want := []float32{3, 2, 1, 2, 3, 4, 3, 2}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("reflectPad[%d]=%v want %v (all=%v)", i, got[i], want[i], got)
-		}
-	}
-}
-
 func TestChunkInputFeatureShape(t *testing.T) {
 	chunks, err := ChunkAudio(make([]float32, 1600))
 	if err != nil {

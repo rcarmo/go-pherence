@@ -62,18 +62,13 @@ func ChunkAudio(samples []float32) ([]AudioChunk, error) {
 	return chunks, nil
 }
 
-// InputFeatures computes the 80-bin Whisper log-mel matrix in channel-major
-// [80,3000] form. It delegates FFT/filter arithmetic to the shared native SIMD
-// frontend; Transformers numerical parity is enforced separately by fixtures.
+// InputFeatures computes the exact Transformers WhisperFeatureExtractor
+// contract in channel-major [80,3000] form.
 func (chunk AudioChunk) InputFeatures(cfg whisper.Config) ([]float32, error) {
 	if len(chunk.Samples) != AudioChunkSamples || chunk.TokenLength <= 0 || chunk.TokenLength > AudioChunkSamples/AudioTokenStride {
 		return nil, fmt.Errorf("MOSS audio: malformed chunk samples=%d tokens=%d", len(chunk.Samples), chunk.TokenLength)
 	}
-	// Hugging Face centers the STFT with n_fft/2 reflect padding and drops the
-	// final frame. The shared frontend's frame loop omits that final frame, so
-	// explicit reflection produces the required 3,000 columns.
-	centered := reflectPad(chunk.Samples, 200)
-	features, frames := whisper.MelFlatFromSamples(centered, cfg)
+	features, frames := audio.WhisperLogMel80(chunk.Samples)
 	if frames != cfg.MaxLength || len(features) != cfg.NumMelBins*cfg.MaxLength {
 		return nil, fmt.Errorf("MOSS audio: frontend shape [%d,%d], want [%d,%d]", cfg.NumMelBins, frames, cfg.NumMelBins, cfg.MaxLength)
 	}
@@ -81,16 +76,6 @@ func (chunk AudioChunk) InputFeatures(cfg whisper.Config) ([]float32, error) {
 }
 
 // AudioTokenLength is the upstream processor formula exposed for prompt planning.
-func reflectPad(samples []float32, padding int) []float32 {
-	out := make([]float32, len(samples)+2*padding)
-	copy(out[padding:], samples)
-	for i := 0; i < padding; i++ {
-		out[padding-1-i] = samples[i+1]
-		out[padding+len(samples)+i] = samples[len(samples)-2-i]
-	}
-	return out
-}
-
 func AudioTokenLength(numSamples int) int {
 	if numSamples <= 0 {
 		return 0
