@@ -1031,3 +1031,170 @@ rnns_apply_scalar:
 rnns_done:
     VZEROUPPER
     RET
+
+// func layerNormAffineRowAsm(out, x, gamma, beta []float32, eps float32)
+// Two-pass affine LayerNorm for one row. out may alias x.
+TEXT ·layerNormAffineRowAsm(SB), NOSPLIT, $0-100
+    MOVQ    out_base+0(FP), DI
+    MOVQ    x_base+24(FP), SI
+    MOVQ    x_len+32(FP), CX
+    MOVQ    gamma_base+48(FP), DX
+    MOVQ    beta_base+72(FP), BX
+    MOVSS   eps+96(FP), X15
+    MOVQ    DI, R10
+    MOVQ    SI, R8
+    MOVQ    DX, R11
+    MOVQ    BX, R12
+    MOVQ    CX, R9
+
+    VXORPS  Y0, Y0, Y0
+    VXORPS  Y1, Y1, Y1
+    CMPQ    CX, $16
+    JL      lna_sum_tail8
+lna_sum_loop16:
+    VMOVUPS (SI), Y2
+    VMOVUPS 32(SI), Y3
+    VADDPS  Y2, Y0, Y0
+    VADDPS  Y3, Y1, Y1
+    ADDQ    $64, SI
+    SUBQ    $16, CX
+    CMPQ    CX, $16
+    JGE     lna_sum_loop16
+lna_sum_tail8:
+    VADDPS  Y1, Y0, Y0
+    CMPQ    CX, $8
+    JL      lna_sum_reduce
+    VMOVUPS (SI), Y2
+    VADDPS  Y2, Y0, Y0
+    ADDQ    $32, SI
+    SUBQ    $8, CX
+lna_sum_reduce:
+    VEXTRACTF128 $1, Y0, X1
+    VADDPS  X1, X0, X0
+    VHADDPS X0, X0, X0
+    VHADDPS X0, X0, X0
+    TESTQ   CX, CX
+    JZ      lna_mean
+lna_sum_scalar:
+    VMOVSS  (SI), X1
+    VADDSS  X1, X0, X0
+    ADDQ    $4, SI
+    DECQ    CX
+    JNZ     lna_sum_scalar
+lna_mean:
+    VCVTSI2SSQ R9, X2, X2
+    VDIVSS  X2, X0, X0
+    MOVSS   X0, X13
+    VBROADCASTSS X13, Y8
+
+    MOVQ    R8, SI
+    MOVQ    R9, CX
+    VXORPS  Y0, Y0, Y0
+    VXORPS  Y1, Y1, Y1
+    CMPQ    CX, $16
+    JL      lna_var_tail8
+lna_var_loop16:
+    VMOVUPS (SI), Y2
+    VMOVUPS 32(SI), Y3
+    VSUBPS  Y8, Y2, Y4
+    VSUBPS  Y8, Y3, Y5
+    VFMADD231PS Y4, Y4, Y0
+    VFMADD231PS Y5, Y5, Y1
+    ADDQ    $64, SI
+    SUBQ    $16, CX
+    CMPQ    CX, $16
+    JGE     lna_var_loop16
+lna_var_tail8:
+    VADDPS  Y1, Y0, Y0
+    CMPQ    CX, $8
+    JL      lna_var_reduce
+    VMOVUPS (SI), Y2
+    VSUBPS  Y8, Y2, Y4
+    VFMADD231PS Y4, Y4, Y0
+    ADDQ    $32, SI
+    SUBQ    $8, CX
+lna_var_reduce:
+    VEXTRACTF128 $1, Y0, X1
+    VADDPS  X1, X0, X0
+    VHADDPS X0, X0, X0
+    VHADDPS X0, X0, X0
+    TESTQ   CX, CX
+    JZ      lna_invstd
+lna_var_scalar:
+    VMOVSS  (SI), X1
+    VSUBSS  X13, X1, X1
+    VFMADD231SS X1, X1, X0
+    ADDQ    $4, SI
+    DECQ    CX
+    JNZ     lna_var_scalar
+lna_invstd:
+    VCVTSI2SSQ R9, X2, X2
+    VDIVSS  X2, X0, X0
+    VADDSS  X15, X0, X0
+    VSQRTSS X0, X0, X0
+    MOVL    $0x3f800000, R13
+    MOVL    R13, X1
+    VDIVSS  X0, X1, X0
+    MOVSS   X0, X14
+    VBROADCASTSS X14, Y9
+
+    MOVQ    R10, DI
+    MOVQ    R8, SI
+    MOVQ    R11, DX
+    MOVQ    R12, BX
+    MOVQ    R9, CX
+    CMPQ    CX, $16
+    JL      lna_out_tail8
+lna_out_loop16:
+    VMOVUPS (SI), Y0
+    VMOVUPS 32(SI), Y1
+    VSUBPS  Y8, Y0, Y0
+    VSUBPS  Y8, Y1, Y1
+    VMULPS  Y9, Y0, Y0
+    VMULPS  Y9, Y1, Y1
+    VMULPS  (DX), Y0, Y0
+    VMULPS  32(DX), Y1, Y1
+    VADDPS  (BX), Y0, Y0
+    VADDPS  32(BX), Y1, Y1
+    VMOVUPS Y0, (DI)
+    VMOVUPS Y1, 32(DI)
+    ADDQ    $64, SI
+    ADDQ    $64, DX
+    ADDQ    $64, BX
+    ADDQ    $64, DI
+    SUBQ    $16, CX
+    CMPQ    CX, $16
+    JGE     lna_out_loop16
+lna_out_tail8:
+    CMPQ    CX, $8
+    JL      lna_out_scalar_check
+    VMOVUPS (SI), Y0
+    VSUBPS  Y8, Y0, Y0
+    VMULPS  Y9, Y0, Y0
+    VMULPS  (DX), Y0, Y0
+    VADDPS  (BX), Y0, Y0
+    VMOVUPS Y0, (DI)
+    ADDQ    $32, SI
+    ADDQ    $32, DX
+    ADDQ    $32, BX
+    ADDQ    $32, DI
+    SUBQ    $8, CX
+lna_out_scalar_check:
+    TESTQ   CX, CX
+    JZ      lna_done
+lna_out_scalar:
+    VMOVSS  (SI), X0
+    VSUBSS  X13, X0, X0
+    VMULSS  X14, X0, X0
+    VMULSS  (DX), X0, X0
+    VADDSS  (BX), X0, X0
+    VMOVSS  X0, (DI)
+    ADDQ    $4, SI
+    ADDQ    $4, DX
+    ADDQ    $4, BX
+    ADDQ    $4, DI
+    DECQ    CX
+    JNZ     lna_out_scalar
+lna_done:
+    VZEROUPPER
+    RET

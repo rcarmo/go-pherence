@@ -21,26 +21,35 @@ func LayerNormLastAxisTo(out, x []float32, rows, cols int, gamma, beta []float32
 	}
 	for r := 0; r < rows; r++ {
 		off := r * cols
+		rowOut := out[off : off+cols]
 		row := x[off : off+cols]
-		mean := float32(0)
-		for _, v := range row {
-			mean += v
-		}
-		mean /= float32(cols)
-		variance := float32(0)
-		for _, v := range row {
-			d := v - mean
-			variance += d * d
-		}
-		variance /= float32(cols)
-		stdInv := float32(1.0 / math.Sqrt(float64(variance+eps)))
-		for c := 0; c < cols; c++ {
-			v := (row[c] - mean) * stdInv
-			if gamma != nil {
-				v = gamma[c]*v + beta[c]
-			}
-			out[off+c] = v
+		if gamma != nil {
+			layerNormAffineRowTo(rowOut, row, gamma[:cols], beta[:cols], eps)
+		} else {
+			layerNormAffineRowGo(rowOut, row, nil, nil, eps)
 		}
 	}
 	return true
+}
+
+func layerNormAffineRowGo(out, x, gamma, beta []float32, eps float32) {
+	mean := float32(0)
+	for _, v := range x {
+		mean += v
+	}
+	mean /= float32(len(x))
+	variance := float32(0)
+	for _, v := range x {
+		d := v - mean
+		variance += d * d
+	}
+	variance /= float32(len(x))
+	stdInv := float32(1.0 / math.Sqrt(float64(variance+eps)))
+	for i, input := range x {
+		v := (input - mean) * stdInv
+		if gamma != nil {
+			v = gamma[i]*v + beta[i]
+		}
+		out[i] = v
+	}
 }
