@@ -2,7 +2,7 @@ package ptx
 
 // RoPE and Attention PTX kernels for fully GPU-resident forward pass.
 
-// RoPE: apply rotary position embedding in-place on Q or K.
+// RoPE: apply NeoX rotate-half position embedding in-place on Q or K.
 // Each thread handles one (cos,sin) pair for one head.
 const RoPEPTX = `.version 7.0
 .target sm_80
@@ -39,19 +39,21 @@ const RoPEPTX = `.version 7.0
     div.u32 %r8, %r3, %r6;
     rem.u32 %r9, %r3, %r6;
 
-    // idx = head * headDim + i * 2
+    // NeoX rotate-half indices: idx0=head*headDim+i, idx1=idx0+headDim/2.
     mul.lo.u32 %r10, %r8, %r5;
+    add.u32 %r10, %r10, %r9;
+    add.u32 %r14, %r10, %r6;
     shl.b32 %r11, %r9, 1;
-    add.u32 %r10, %r10, %r11;
 
-    // Load x[idx], x[idx+1]
     ld.param.u64 %rd0, [param_x];
     mul.wide.u32 %rd1, %r10, 4;
     add.u64 %rd2, %rd0, %rd1;
+    mul.wide.u32 %rd6, %r14, 4;
+    add.u64 %rd6, %rd0, %rd6;
     ld.global.f32 %f0, [%rd2];
-    ld.global.f32 %f1, [%rd2+4];
+    ld.global.f32 %f1, [%rd6];
 
-    // Load precomputed cos, sin from cos_sin[pos * headDim + i*2], [pos * headDim + i*2 + 1]
+    // Frequency storage remains interleaved [cos_i,sin_i].
     ld.param.u32 %r12, [param_pos];
     ld.param.u64 %rd3, [param_cos_sin];
     mul.lo.u32 %r13, %r12, %r5;
@@ -70,7 +72,7 @@ const RoPEPTX = `.version 7.0
     fma.rn.f32 %f10, %f0, %f4, %f9; // x0*sin + x1*cos
 
     st.global.f32 [%rd2], %f7;
-    st.global.f32 [%rd2+4], %f10;
+    st.global.f32 [%rd6], %f10;
 
 done:
     ret;

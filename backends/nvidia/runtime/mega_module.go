@@ -5,6 +5,7 @@ package nvidia
 
 import (
 	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
+	"os"
 	"strings"
 	"sync"
 	"unsafe"
@@ -65,10 +66,13 @@ func loadMegaModule() {
 		}
 
 		ptxStr := combined.String()
+		if os.Getenv("GO_PHERENCE_GPU_DEBUG_PTX") != "" {
+			_ = os.WriteFile("/tmp/go-pherence-mega.ptx", []byte(ptxStr), 0o600)
+		}
 		ptxBytes := append([]byte(ptxStr), 0)
 
 		EnsureContext()
-		if r := cuModuleLoadData(&megaModule, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
+		if r := loadModuleDataWithLog(&megaModule, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
 			debuglog.Printf("[gpu] mega module load failed: error %d\n", r)
 			return
 		}

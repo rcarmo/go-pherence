@@ -46,6 +46,9 @@ func TestRealCheckpointJFKTranscriptParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer model.Close()
+	if os.Getenv("MOSS_TRANSCRIBE_GPU_PARITY") != "" && !model.EnableGPU() {
+		t.Skip("runtime-loaded NVIDIA PTX backend unavailable")
+	}
 	samples, err := ReadAudioWAV(audioPath)
 	if err != nil {
 		t.Fatal(err)

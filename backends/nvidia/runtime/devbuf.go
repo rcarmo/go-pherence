@@ -41,6 +41,7 @@ var (
 	fnRmsNorm        CUfunction
 	fnRmsNormNoScale CUfunction
 	fnGELUTanhMul    CUfunction
+	fnGELUErf        CUfunction
 )
 
 func initKernels() { loadMegaModule() }
@@ -621,6 +622,34 @@ func DevSiLUMul(out, a, b *DevBuf) {
 	b.ToCPU()
 	out.ToCPU()
 	simd.SiLUMulTo(out.cpu[:n], a.cpu[:n], b.cpu[:n])
+}
+
+// DevGELUErf applies exact-form GELU in place using the GPU erf approximation.
+func DevGELUErf(x *DevBuf, n int) {
+	initKernels()
+	if x == nil {
+		return
+	}
+	if n <= 0 || n > x.n {
+		n = x.n
+	}
+	if n <= 0 {
+		return
+	}
+	if kernelsLoaded && fnGELUErf != 0 && fitsUint32(n) && tryGPU(x) {
+		grid, ok := grid1DFor(n, 256)
+		if !ok {
+			return
+		}
+		nn := uint32(n)
+		if err := LaunchKernel(fnGELUErf, grid, 1, 1, 256, 1, 1, 0, unsafe.Pointer(&x.gpu.Ptr), unsafe.Pointer(&nn)); err == nil {
+			x.dev = GPU_DEVICE
+			return
+		}
+	}
+	x.ToCPU()
+	simd.GELUExact(x.cpu[:n], x.cpu[:n])
+	x.dev = CPU
 }
 
 // DevGELUTanhMul: gate[i] = gelu_tanh(gate[i]) * up[i] in-place

@@ -3,15 +3,20 @@ package mosstranscribe
 import (
 	"fmt"
 
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	llmmodel "github.com/rcarmo/go-pherence/model"
 )
 
 // NativeModel is the complete native MOSS-Transcribe-Diarize graph. CPU/SIMD
 // execution is always available; optional GPU stages retain CPU fallback.
 type NativeModel struct {
-	Audio     *AudioBackbone
-	Decoder   *llmmodel.LlamaModel
-	Processor *Processor
+	Audio      *AudioBackbone
+	Decoder    *llmmodel.LlamaModel
+	GPUDecoder *llmmodel.GPUModel
+	Processor  *Processor
+
+	gpuDecoderAttempted bool
+	gpuDecoderErr       error
 }
 
 func LoadNativeModel(modelDir string) (*NativeModel, error) {
@@ -36,7 +41,23 @@ func LoadNativeModel(modelDir string) (*NativeModel, error) {
 // EnableGPU enables all currently validated GPU stages. It returns false when
 // the runtime-loaded NVIDIA backend is unavailable; CPU/SIMD remains usable.
 func (m *NativeModel) EnableGPU() bool {
-	return m != nil && m.Audio != nil && m.Audio.EnableGPU()
+	if m == nil || m.Audio == nil {
+		return false
+	}
+	audioReady := m.Audio.EnableGPU()
+	if !m.gpuDecoderAttempted && m.Decoder != nil {
+		m.gpuDecoderAttempted = true
+		m.GPUDecoder, m.gpuDecoderErr = llmmodel.LoadGPUModel(m.Decoder)
+	}
+	return audioReady || m.GPUDecoder != nil
+}
+
+// GPUDecoderError reports why Qwen3 GPU residency was unavailable, if attempted.
+func (m *NativeModel) GPUDecoderError() error {
+	if m == nil {
+		return nil
+	}
+	return m.gpuDecoderErr
 }
 
 // GPUEnabled reports whether at least the validated audio stage is GPU-backed.
@@ -45,11 +66,19 @@ func (m *NativeModel) GPUEnabled() bool {
 		return false
 	}
 	return (m.Audio.GPUEncoder != nil && m.Audio.GPUEncoder.Ready()) ||
-		(m.Audio.GPUAdaptor != nil && m.Audio.GPUAdaptor.Ready())
+		(m.Audio.GPUAdaptor != nil && m.Audio.GPUAdaptor.Ready()) || m.GPUDecoder != nil
 }
 
 func (m *NativeModel) Close() error {
-	if m == nil || m.Audio == nil {
+	if m == nil {
+		return nil
+	}
+	if m.GPUDecoder != nil {
+		nvidia.SyncAll()
+		m.GPUDecoder.Close()
+		m.GPUDecoder = nil
+	}
+	if m.Audio == nil {
 		return nil
 	}
 	return m.Audio.Close()
@@ -134,6 +163,13 @@ func (m *NativeModel) GenerateGreedy(inputIDs []int, audioEmbeddings []float32, 
 	embeddings, err := m.PromptEmbeddings(inputIDs, audioEmbeddings)
 	if err != nil {
 		return nil, err
+	}
+	if m.GPUDecoder != nil {
+		generated, gpuErr := m.GPUDecoder.GenerateFromEmbeddingsUntil(inputIDs, embeddings, maxNewTokens, GenerationEOSTokenID)
+		if gpuErr == nil {
+			return generated, nil
+		}
+		m.gpuDecoderErr = gpuErr
 	}
 	all, err := m.Decoder.GenerateFromEmbeddingsUntil(inputIDs, embeddings, maxNewTokens, GenerationEOSTokenID)
 	if err != nil {

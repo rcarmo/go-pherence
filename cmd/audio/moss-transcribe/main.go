@@ -82,7 +82,14 @@ func run(args []string, stdout, stderr io.Writer) error {
 	if opts.cpuOnly {
 		fmt.Fprintln(stderr, "backend=cpu/simd (-cpu)")
 	} else if model.EnableGPU() {
-		fmt.Fprintln(stderr, "backend=nvidia-ptx+cpu/simd (GPU audio encoder/adaptor enabled)")
+		if model.GPUDecoder != nil {
+			fmt.Fprintln(stderr, "backend=nvidia-ptx (GPU audio encoder/adaptor/Qwen3 enabled)")
+		} else {
+			fmt.Fprintln(stderr, "backend=nvidia-ptx+cpu/simd (GPU audio encoder/adaptor enabled)")
+			if gpuErr := model.GPUDecoderError(); gpuErr != nil {
+				fmt.Fprintf(stderr, "warning: Qwen3 GPU unavailable; falling back to CPU/SIMD decoder: %v\n", gpuErr)
+			}
+		}
 	} else {
 		fmt.Fprintln(stderr, "warning: NVIDIA PTX acceleration unavailable; falling back to CPU/SIMD")
 	}
@@ -92,20 +99,24 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(stderr, "audio %.2fs, encoding\n", float64(len(samples))/mosstranscribe.AudioSampleRate)
+	encodeStarted := time.Now()
 	audioEmbeddings, audioTokens, err := model.EncodeAudio(samples)
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(stderr, "audio encoded in %s\n", time.Since(encodeStarted).Round(time.Millisecond))
 	prompt := mosstranscribe.BuildTranscriptionPrompt(opts.prompt)
 	inputIDs, err := model.Processor.EncodePrompt(prompt, audioTokens, model.Decoder.Config.MaxSeqLen)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(stderr, "audio_tokens=%d prompt_tokens=%d generating<=%d\n", audioTokens, len(inputIDs), opts.maxNew)
+	generateStarted := time.Now()
 	generated, err := model.GenerateGreedy(inputIDs, audioEmbeddings, opts.maxNew)
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(stderr, "generated_tokens=%d in %s\n", len(generated), time.Since(generateStarted).Round(time.Millisecond))
 	raw := model.Processor.Decode(generated)
 	segments := mosstranscribe.ParseTranscript(raw)
 	payload, err := render(opts.format, raw, segments)

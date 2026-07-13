@@ -116,7 +116,11 @@ func whisperAttentionBuffer(fn CUfunction, out, q, k, v *Buffer, seqQ, seqKV, nu
 		return fmt.Errorf("invalid Whisper %s attention device buffers", name)
 	}
 	sq, skv, nh, hd := uint32(seqQ), uint32(seqKV), uint32(numHeads), uint32(headDim)
-	return LaunchKernel(fn, uint32(numHeads), uint32(seqQ), 1, 1, 1, 1, 0,
+	blockX := uint32(1)
+	if name == "full" {
+		blockX = 128
+	}
+	return LaunchKernel(fn, uint32(numHeads), uint32(seqQ), 1, blockX, 1, 1, 0,
 		unsafe.Pointer(&out.Ptr), unsafe.Pointer(&q.Ptr), unsafe.Pointer(&k.Ptr), unsafe.Pointer(&v.Ptr),
 		unsafe.Pointer(&sq), unsafe.Pointer(&skv), unsafe.Pointer(&nh), unsafe.Pointer(&hd), unsafe.Pointer(&scale))
 }

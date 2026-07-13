@@ -16,10 +16,18 @@ type GPUEncoder struct {
 	layers         []gpuEncoderLayer
 
 	ready bool
+	graph bool
 }
 
 // Ready reports whether this GPU encoder can run GPU-assisted paths.
 func (ge *GPUEncoder) Ready() bool { return ge != nil && ge.ready }
+
+// EnableGraph selects the verified fully resident encoder graph for this instance.
+func (ge *GPUEncoder) EnableGraph() {
+	if ge != nil {
+		ge.graph = true
+	}
+}
 
 // Close releases all persistent device weights owned by the encoder.
 func (ge *GPUEncoder) Close() {
@@ -112,14 +120,14 @@ func (ge *GPUEncoder) ForwardGPU(mel []float32, T int) []float32 {
 
 	// Conv stem: CPU by default (small relative to attention), with an opt-in
 	// correctness-first CUDA PTX path for end-to-end GPU graph validation.
-	h, ok := conv1dForwardGPU(mel, ge.Encoder.Conv1Weight, ge.Encoder.Conv1Bias, cfg.NumMelBins, T, dModel, 1)
+	h, ok := conv1dForwardGPU(mel, ge.Encoder.Conv1Weight, ge.Encoder.Conv1Bias, cfg.NumMelBins, T, dModel, 1, ge.graph)
 	if !ok {
 		h = conv1dForward(mel, ge.Encoder.Conv1Weight, ge.Encoder.Conv1Bias, cfg.NumMelBins, T, dModel, 3, 1, 1)
 	}
 	T1 := T
 	gelu(h)
 	T2 := (T1+2*1-3)/2 + 1
-	if h2, ok := conv1dForwardGPU(h, ge.Encoder.Conv2Weight, ge.Encoder.Conv2Bias, dModel, T1, dModel, 2); ok {
+	if h2, ok := conv1dForwardGPU(h, ge.Encoder.Conv2Weight, ge.Encoder.Conv2Bias, dModel, T1, dModel, 2, ge.graph); ok {
 		h = h2
 	} else {
 		h = conv1dForward(h, ge.Encoder.Conv2Weight, ge.Encoder.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
@@ -149,7 +157,7 @@ func (ge *GPUEncoder) ForwardGPU(mel []float32, T int) []float32 {
 }
 
 func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []float32 {
-	if whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_RESIDENT") {
+	if ge.graph || whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_RESIDENT") {
 		if out, ok := ge.forwardLayerGPUResident(layerIdx, x, seqLen); ok {
 			return out
 		}
@@ -329,7 +337,7 @@ func (ge *GPUEncoder) forwardLayerGPUResident(layerIdx int, x []float32, seqLen 
 	if !ok {
 		return nil, false
 	}
-	if whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_ATTENTION") {
+	if ge.graph || whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_ATTENTION") {
 		scale := float32(1.0 / math.Sqrt(float64(cfg.HeadDim)))
 		if err := nv.WhisperAttentionFullBuffer(attnOut.GPUBuffer(), qBuf.GPUBuffer(), kBuf.GPUBuffer(), vBuf.GPUBuffer(), seqLen, seqLen, cfg.EncoderHeads, cfg.HeadDim, scale); err != nil {
 			return nil, false
@@ -385,17 +393,9 @@ func (ge *GPUEncoder) forwardLayerGPUResident(layerIdx int, x []float32, seqLen 
 	if !ok {
 		return nil, false
 	}
-	// Whisper specifies PyTorch's exact erf GELU. Keep this boundary on the
-	// CPU oracle until the resident approximation proves cumulative 24-layer
-	// parity; the tanh approximation drifts materially with real MOSS weights.
-	hiddenHost := make([]float32, seqLen*ffnDim)
-	if err := hidden.GPUBuffer().Download(hiddenHost); err != nil {
-		return nil, false
-	}
-	gelu(hiddenHost)
-	if err := hidden.GPUBuffer().Upload(hiddenHost); err != nil {
-		return nil, false
-	}
+	// Whisper specifies erf GELU. The resident kernel uses a 1.5e-7 maximum-error
+	// erf approximation and is gated by the real-checkpoint cumulative parity test.
+	nv.DevGELUErf(hidden, seqLen*ffnDim)
 	mlpOut, ok := project(hidden, layer.fc2W, layer.fc2B, seqLen, ffnDim, dModel)
 	if !ok {
 		return nil, false
@@ -414,8 +414,9 @@ func (ge *GPUEncoder) forwardLayerGPUResident(layerIdx int, x []float32, seqLen 
 	return out, true
 }
 
-func conv1dForwardGPU(input, weight, bias []float32, inCh, inLen, outCh, stride int) ([]float32, bool) {
-	if !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_CONV1D") || !nv.SgemmReady() || stride <= 0 || inCh <= 0 || inLen <= 0 || outCh <= 0 || len(input) < inCh*inLen || len(weight) < outCh*inCh*3 {
+func conv1dForwardGPU(input, weight, bias []float32, inCh, inLen, outCh, stride int, force ...bool) ([]float32, bool) {
+	forced := len(force) > 0 && force[0]
+	if (!forced && !whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_CONV1D")) || !nv.SgemmReady() || stride <= 0 || inCh <= 0 || inLen <= 0 || outCh <= 0 || len(input) < inCh*inLen || len(weight) < outCh*inCh*3 {
 		return nil, false
 	}
 	outLen := (inLen+2*1-3)/stride + 1

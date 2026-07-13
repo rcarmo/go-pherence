@@ -113,6 +113,12 @@ type GPUModel struct {
 	lastActivation       []float32
 	lastLogits           []float32
 	lastToken            int
+
+	// Optional caller-prepared prompt embeddings for multimodal generation.
+	// GPUModel generation is stateful already; these fields are scoped by
+	// GenerateFromEmbeddingsUntil and cleared before it returns.
+	promptEmbeddings []float32
+	stopToken        int
 }
 
 const compactMLXLMHeadThresholdBytes = uint64(1536 * 1024 * 1024)
@@ -196,6 +202,7 @@ func (g *GPUModel) Close() {
 	if g == nil {
 		return
 	}
+	nvidia.SyncAll()
 	freeDevBufs(g.hidden, g.residual, g.normed, g.q, g.k, g.v, g.attnOut, g.oOut, g.gate, g.up, g.down,
 		g.perLayerProjBuf, g.perLayerEmbedBuf, g.pliGateBuf, g.pliProjBuf, g.perLayerModelProj, g.perLayerProjNorm,
 		g.ropeCosSin, g.ropeCosSinSWA, g.ropeCosSinFull, g.lmHeadGPU, g.normGPU, g.logitsGPU)
@@ -286,7 +293,7 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	g.k = nvidia.NewDevBuf(maxKVDim)
 	g.v = nvidia.NewDevBuf(maxKVDim)
 	g.attnOut = nvidia.NewDevBuf(maxQDim)
-	g.oOut = nvidia.NewDevBuf(maxQDim)
+	g.oOut = nvidia.NewDevBuf(h)
 	g.gate = nvidia.NewDevBuf(maxInter)
 	g.up = nvidia.NewDevBuf(maxInter)
 	g.down = nvidia.NewDevBuf(h)
@@ -655,15 +662,43 @@ func (g *GPUModel) gemv(out, x, W *nvidia.DevBuf, inDim, outDim int) {
 	}
 }
 
+// GenerateFromEmbeddingsUntil runs a caller-prepared row-major prompt through
+// the resident GPU decode graph and stops before stopToken. Returned IDs contain
+// generated tokens only, matching GPUModel.Generate's accounting.
+func (g *GPUModel) GenerateFromEmbeddingsUntil(tokenIDs []int, embeddings []float32, maxTokens, stopToken int) ([]int, error) {
+	if g == nil || g.CPU == nil {
+		return nil, fmt.Errorf("GPU generate from embeddings: nil model")
+	}
+	h := g.Config.HiddenSize
+	if len(tokenIDs) == 0 || h <= 0 || len(embeddings) != len(tokenIDs)*h {
+		return nil, fmt.Errorf("GPU generate from embeddings: ids=%d embeddings=%d want=%d", len(tokenIDs), len(embeddings), len(tokenIDs)*h)
+	}
+	if maxTokens < 0 || (g.Config.MaxSeqLen > 0 && len(tokenIDs)+maxTokens > g.Config.MaxSeqLen) {
+		return nil, fmt.Errorf("GPU generate from embeddings: sequence=%d+%d exceeds context=%d", len(tokenIDs), maxTokens, g.Config.MaxSeqLen)
+	}
+	g.promptEmbeddings = embeddings
+	g.stopToken = stopToken
+	defer func() {
+		g.promptEmbeddings = nil
+		g.stopToken = -1
+	}()
+	generated := g.Generate(tokenIDs, maxTokens)
+	if len(generated) > 0 && stopToken >= 0 && generated[len(generated)-1] == stopToken {
+		generated = generated[:len(generated)-1]
+	}
+	return generated, nil
+}
+
 // Generate produces tokens with GPU-resident forward pass.
 func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	cfg := g.Config
 	// Prepend BOS token if model requires it (Gemma)
 	if cfg.BOSTokenID > 0 && (cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text") {
 		tokenIDs = append([]int{cfg.BOSTokenID}, tokenIDs...)
 	}
-	if cfg.ModelType == "gemma4_text" && g.CPU != nil && g.CPU.Tok != nil {
+	if g.promptEmbeddings == nil && cfg.ModelType == "gemma4_text" && g.CPU != nil && g.CPU.Tok != nil {
 		turnStart, turnEnd := -1, -1
 		newlineID := -1
 		for id, tok := range g.CPU.Tok.InvVocab {
@@ -693,7 +728,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 		}
 	}
 	// Qwen3/Qwen3-MoE instruct chat template
-	if (cfg.ModelType == "qwen3" || cfg.ModelType == "qwen3_moe") && g.CPU != nil && g.CPU.Tok != nil {
+	if g.promptEmbeddings == nil && (cfg.ModelType == "qwen3" || cfg.ModelType == "qwen3_moe") && g.CPU != nil && g.CPU.Tok != nil {
 		imStart, imEnd, nlID := -1, -1, -1
 		for id, tok := range g.CPU.Tok.InvVocab {
 			if tok == "<|im_start|>" {
@@ -726,7 +761,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 	output := make([]int, len(tokenIDs), len(tokenIDs)+maxTokens)
 	copy(output, tokenIDs)
-	forceCPUAttnEnv := cfg.ModelType == "gemma4_text" && os.Getenv("GEMMA4_CPU_ATTN") == "1"
+	forceCPUAttnEnv := (cfg.ModelType == "gemma4_text" && os.Getenv("GEMMA4_CPU_ATTN") == "1") || os.Getenv("GO_PHERENCE_GPU_CPU_ATTN") == "1"
 	forceCPUAttnLayers := make([]bool, len(g.Layers))
 	if forceCPUAttnEnv {
 		for i := range forceCPUAttnLayers {
@@ -791,6 +826,7 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 		}
 	}
 
+generationLoop:
 	for step := prefillStart; step < len(tokenIDs)+maxTokens-1; step++ {
 		if profileDecode && g.Experts != nil && !expertDecodeStartCaptured && step >= len(tokenIDs) {
 			expertDecodeStartHits = g.Experts.Hits.Load()
@@ -811,10 +847,15 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 
 		layerTimer := profileStart()
 		if !skipLayers {
-			// Embedding (CPU — vocab too large for VRAM on small GPUs)
-			embData := m.EmbedTokens.Data()
+			// Embedding input. Multimodal callers provide exact prepared rows for
+			// prompt positions; generated positions continue with tied token lookup.
 			hd = g.hidden.Data()
-			copy(hd, embData[tokID*h:(tokID+1)*h])
+			if g.promptEmbeddings != nil && step < len(tokenIDs) {
+				copy(hd, g.promptEmbeddings[step*h:(step+1)*h])
+			} else {
+				embData := m.EmbedTokens.Data()
+				copy(hd, embData[tokID*h:(tokID+1)*h])
+			}
 			g.hidden.MarkDirty()
 			// Gemma3/4: scale embeddings by sqrt(hidden_size)
 			if cfg.ModelType == "gemma3_text" || cfg.ModelType == "gemma4_text" {
@@ -1569,6 +1610,9 @@ func (g *GPUModel) Generate(tokenIDs []int, maxTokens int) []int {
 			}
 			g.lastToken = bestID
 			output = append(output, bestID)
+			if g.stopToken >= 0 && bestID == g.stopToken {
+				break generationLoop
+			}
 		}
 	}
 	g.lastPromptTokens = append(g.lastPromptTokens[:0], tokenIDs...)

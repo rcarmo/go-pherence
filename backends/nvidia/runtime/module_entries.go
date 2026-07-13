@@ -51,6 +51,7 @@ func megaModuleEntries() []moduleEntry {
 		{"vec_add_scaled", ptx.VecAddScaledPTX},
 		{"to_bf16_f32", ptx.ToBF16F32PTX},
 		{"vec_silu", ptx.VecSiLUPTX},
+		{"gelu_erf", ptx.GELUErfPTX},
 		{"rms_norm", ptx.RmsNormPTX},
 		{"rope_apply", ptx.RoPEPTX},
 		{"rope_partial", ptx.RoPEPartialPTX},

@@ -111,3 +111,40 @@ done:
     ret;
 }
 `
+
+// GELUErfPTX applies PyTorch's exact-form GELU using a maximum-error 1.5e-7
+// Abramowitz-Stegun erf approximation. The input is updated in place.
+const GELUErfPTX = `.version 7.0
+.target sm_80
+.address_size 64
+.visible .entry gelu_erf(.param .u64 A, .param .u32 N) {
+    .reg .u32 %r<8>; .reg .u64 %rd<5>; .reg .f32 %f<20>; .reg .pred %p<2>;
+    mov.u32 %r0, %ctaid.x; mov.u32 %r1, %ntid.x; mov.u32 %r2, %tid.x;
+    mad.lo.u32 %r3, %r0, %r1, %r2;
+    ld.param.u32 %r4, [N]; setp.ge.u32 %p0, %r3, %r4; @%p0 bra done;
+    ld.param.u64 %rd0, [A]; mul.wide.u32 %rd1, %r3, 4; add.u64 %rd2, %rd0, %rd1;
+    ld.global.f32 %f0, [%rd2];
+    mul.rn.f32 %f1, %f0, 0f3F3504F3; // z=x/sqrt(2)
+    abs.f32 %f2, %f1;
+    fma.rn.f32 %f3, %f2, 0f3EA7BA05, 0f3F800000;
+    rcp.rn.f32 %f3, %f3;             // t=1/(1+p|z|)
+    fma.rn.f32 %f4, %f3, 0f3F87DC22, 0fBFBA00E3;
+    fma.rn.f32 %f4, %f4, %f3, 0f3FB5F0E3;
+    fma.rn.f32 %f4, %f4, %f3, 0fBE91A98E;
+    fma.rn.f32 %f4, %f4, %f3, 0f3E827906;
+    mul.rn.f32 %f4, %f4, %f3;
+    mul.rn.f32 %f5, %f2, %f2;
+    neg.f32 %f5, %f5;
+    mul.rn.f32 %f5, %f5, 0f3FB8AA3B;
+    ex2.approx.f32 %f5, %f5;
+    fma.rn.f32 %f6, %f4, %f5, 0fBF800000; // poly*exp-1 = -erf(|z|)
+    neg.f32 %f6, %f6;
+    setp.lt.f32 %p1, %f1, 0f00000000;
+    @%p1 neg.f32 %f6, %f6;
+    add.rn.f32 %f6, %f6, 0f3F800000;
+    mul.rn.f32 %f6, %f6, %f0;
+    mul.rn.f32 %f6, %f6, 0f3F000000;
+    st.global.f32 [%rd2], %f6;
+done: ret;
+}
+`

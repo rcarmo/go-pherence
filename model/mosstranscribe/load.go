@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/loader/weights"
 	"github.com/rcarmo/go-pherence/models/whisper"
 )
@@ -63,12 +64,19 @@ func (m *AudioBackbone) EnableGPU() bool {
 	if m.GPUAdaptor == nil {
 		m.GPUAdaptor = NewGPUAdaptor(m.Adaptor)
 	}
-	return m.GPUEncoder.Ready() || m.GPUAdaptor.Ready()
+	ready := m.GPUEncoder.Ready() || m.GPUAdaptor.Ready()
+	if ready && m.GPUEncoder != nil {
+		m.GPUEncoder.EnableGraph()
+	}
+	return ready
 }
 
 func (m *AudioBackbone) Close() error {
 	if m == nil {
 		return nil
+	}
+	if m.GPUEncoder != nil || m.GPUAdaptor != nil {
+		nvidia.SyncAll()
 	}
 	if m.GPUEncoder != nil {
 		m.GPUEncoder.Close()

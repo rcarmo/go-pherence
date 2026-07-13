@@ -12,6 +12,7 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnVecAddScaled = f.get("vec_add_scaled")
 	fnToBF16F32 = f.get("to_bf16_f32")
 	fnVecSilu = f.get("vec_silu")
+	fnGELUErf = f.get("gelu_erf")
 	fnRmsNorm = f.get("rms_norm")
 	ropeFn = f.get("rope_apply")
 	ropePartialFn = f.get("rope_partial")
