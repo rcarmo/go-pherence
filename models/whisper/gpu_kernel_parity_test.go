@@ -93,6 +93,44 @@ func TestWhisperCUDAEncoderGEMVParity(t *testing.T) {
 	assertClose(t, got, want, 2e-4)
 }
 
+func TestWhisperCUDAEncoderSharedQKVUploadParity(t *testing.T) {
+	if !nv.SgemmReady() {
+		t.Skip("CUDA SGEMM not available")
+	}
+	seqLen, inDim, outDim := 9, 7, 11
+	x := make([]float32, seqLen*inDim)
+	for i := range x {
+		x[i] = float32((i%13)-6) * 0.037
+	}
+	weights := make([][]float32, 3)
+	biases := make([][]float32, 3)
+	gpuWeights := make([]*nv.DevBuf, 3)
+	want := make([][]float32, 3)
+	for projection := range weights {
+		weights[projection] = make([]float32, outDim*inDim)
+		biases[projection] = make([]float32, outDim)
+		for i := range weights[projection] {
+			weights[projection][i] = float32((i+projection*5)%17-8) * 0.029
+		}
+		for i := range biases[projection] {
+			biases[projection][i] = float32((i+projection)%7-3) * 0.037
+		}
+		gpuWeights[projection] = nv.NewDevBufFrom(weights[projection])
+		if err := gpuWeights[projection].ToGPU(); err != nil {
+			t.Fatalf("weight %d ToGPU: %v", projection, err)
+		}
+		defer gpuWeights[projection].Free()
+		want[projection] = linearForwardOpt(x, weights[projection], biases[projection], seqLen, inDim, outDim)
+	}
+	got0, got1, got2, ok := threeGemvGPU(x, gpuWeights[0], gpuWeights[1], gpuWeights[2], biases[0], biases[1], biases[2], seqLen, inDim, outDim)
+	if !ok {
+		t.Fatal("threeGemvGPU returned fallback")
+	}
+	assertClose(t, got0, want[0], 2e-4)
+	assertClose(t, got1, want[1], 2e-4)
+	assertClose(t, got2, want[2], 2e-4)
+}
+
 func TestWhisperCUDAEncoderAttentionParity(t *testing.T) {
 	if !nv.SgemmReady() {
 		t.Skip("CUDA SGEMM not available")

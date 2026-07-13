@@ -139,10 +139,15 @@ func (ge *GPUEncoder) forwardLayerGPU(layerIdx int, x []float32, seqLen int) []f
 	// Pre-attention LayerNorm (CPU — lightweight)
 	normed := layerNorm(x, layer.AttnLNWeight, layer.AttnLNBias, seqLen, dModel)
 
-	// Q, K, V projections via GPU SGEMM
-	q := gemvGPU(normed, gl.qW, layer.QBias, seqLen, dModel, dModel)
-	k := gemvGPU(normed, gl.kW, layer.KBias, seqLen, dModel, dModel)
-	v := gemvGPU(normed, gl.vW, layer.VBias, seqLen, dModel, dModel)
+	// Q, K, V projections share one activation upload. Keeping the three
+	// resident weights independent avoids checkpoint repacking while removing
+	// two full [sequence,width] host-to-device transfers per layer.
+	q, k, v, ok := threeGemvGPU(normed, gl.qW, gl.kW, gl.vW, layer.QBias, layer.KBias, layer.VBias, seqLen, dModel, dModel)
+	if !ok {
+		q = gemvGPU(normed, gl.qW, layer.QBias, seqLen, dModel, dModel)
+		k = gemvGPU(normed, gl.kW, layer.KBias, seqLen, dModel, dModel)
+		v = gemvGPU(normed, gl.vW, layer.VBias, seqLen, dModel, dModel)
+	}
 
 	// Full attention: CPU by default. Opt-in correctness-first CUDA/PTX dispatch
 	// validates the GPU graph body but is not expected to be faster than the
@@ -286,6 +291,75 @@ func gpuWeight(data []float32) *nv.DevBuf {
 	b := nv.NewDevBufFrom(data)
 	_ = b.ToGPU()
 	return b
+}
+
+// threeGemvGPU computes three projections from the same row-major input with a
+// single transposed activation upload. Outputs stay API-compatible row-major.
+func threeGemvGPU(x []float32, w0, w1, w2 *nv.DevBuf, b0, b1, b2 []float32, seqLen, inDim, outDim int) ([]float32, []float32, []float32, bool) {
+	if seqLen < 8 || inDim <= 0 || outDim <= 0 || len(x) < seqLen*inDim || !nv.SgemmReady() || w0 == nil || w1 == nil || w2 == nil {
+		return nil, nil, nil, false
+	}
+	weights := []*nv.DevBuf{w0, w1, w2}
+	biases := [][]float32{b0, b1, b2}
+	for _, weight := range weights {
+		if weight.GPUPtr() == nil {
+			return nil, nil, nil, false
+		}
+	}
+	xT := make([]float32, inDim*seqLen)
+	for row := 0; row < seqLen; row++ {
+		for col := 0; col < inDim; col++ {
+			xT[col*seqLen+row] = x[row*inDim+col]
+		}
+	}
+	dX, err := nv.Malloc(len(xT))
+	if err != nil {
+		return nil, nil, nil, false
+	}
+	defer dX.Free()
+	if err := dX.Upload(xT); err != nil {
+		return nil, nil, nil, false
+	}
+	deviceOut := make([]*nv.Buffer, 3)
+	for i := range deviceOut {
+		deviceOut[i], err = nv.Malloc(outDim * seqLen)
+		if err != nil {
+			for j := 0; j < i; j++ {
+				deviceOut[j].Free()
+			}
+			return nil, nil, nil, false
+		}
+	}
+	defer func() {
+		for _, buf := range deviceOut {
+			buf.Free()
+		}
+	}()
+	for i, weight := range weights {
+		if err := nv.Sgemm(outDim, seqLen, inDim, 1, weight.GPUPtr(), dX, deviceOut[i]); err != nil {
+			return nil, nil, nil, false
+		}
+	}
+	nv.Sync()
+	outputs := make([][]float32, 3)
+	for i := range outputs {
+		columnMajor := make([]float32, outDim*seqLen)
+		if err := deviceOut[i].Download(columnMajor); err != nil {
+			return nil, nil, nil, false
+		}
+		out := make([]float32, seqLen*outDim)
+		for row := 0; row < seqLen; row++ {
+			for col := 0; col < outDim; col++ {
+				value := columnMajor[col*seqLen+row]
+				if col < len(biases[i]) {
+					value += biases[i][col]
+				}
+				out[row*outDim+col] = value
+			}
+		}
+		outputs[i] = out
+	}
+	return outputs[0], outputs[1], outputs[2], true
 }
 
 // gemvGPU computes batched GEMV using GPU SGEMM when profitable.
