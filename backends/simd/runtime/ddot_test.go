@@ -36,8 +36,12 @@ func BenchmarkDdot400(b *testing.B) {
 	for i := range x {
 		x[i], y[i] = float64(i%17)-8, float64(i%13)-6
 	}
-	b.SetBytes(int64(len(x) * 16))
-	for range b.N {
-		_ = Ddot(x, y)
+	bench := func(b *testing.B, fn func([]float64, []float64) float64) {
+		b.SetBytes(int64(len(x) * 16))
+		for range b.N {
+			_ = fn(x, y)
+		}
 	}
+	b.Run("scalar", func(b *testing.B) { bench(b, ddotGo) })
+	b.Run("dispatch", func(b *testing.B) { bench(b, Ddot) })
 }

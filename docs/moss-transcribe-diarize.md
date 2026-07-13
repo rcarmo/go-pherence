@@ -73,9 +73,11 @@ make moss-transcribe-parity MOSS_TRANSCRIBE_MODEL_DIR=/path/to/MOSS-Transcribe-D
 On an Intel Core i7-12700 with `GOMAXPROCS=2`:
 
 - AVX2 affine LayerNorm is approximately 3.5x faster than its scalar oracle (`~0.46 us` versus `~1.6 us` for width 1024).
-- The AVX2/FMA 400-element float64 DFT dot takes approximately 32 ns.
+- The AVX2/FMA 400-element float64 DFT dot is approximately 5.1x faster than scalar (`~31 ns` versus `~160 ns`).
 - The full 24-layer audio boundary fixture completes in approximately 31 seconds.
 - A one-second WAV through model load, audio encoder/adaptor, canonical 38-token multimodal prefill, and one generated token completes in approximately 37 seconds; model loading is approximately 4.6 seconds.
+- The 11-second JFK real-speech parity gate completes in approximately 49 seconds with early EOS at 70 generated tokens.
+- CPU profiling attributes roughly 75% of sampled CPU time to the existing AVX2/FMA `SgemmNT`/`SgemmNN` kernels; exact GELU is the next non-GEMM hotspot at roughly 8% cumulative CPU.
 
 Pinned Transformers 4.57.1 parity observations:
 
@@ -83,10 +85,11 @@ Pinned Transformers 4.57.1 parity observations:
 - Whisper widened-BF16 boundary maximum: `8.03e-5`;
 - temporal merge/adaptor widened maximum: `1.10e-5`;
 - canonical Qwen3 selected/top-logit widened maximum: `1.34e-5`, with matching argmax;
+- JFK real speech: all 70 generated IDs, raw transcript, three `S01` segments, and six timestamps match Transformers exactly;
 - actual upstream BF16 differences are separately bounded because the native CPU graph widens BF16 checkpoint weights and computes activations in F32.
 
 Speaker labels such as `S01` remain recording-local generative labels, not cross-recording identities.
 
 ## Readiness
 
-The native CLI executes the complete checkpoint graph and has real-checkpoint frontend, encoder, adaptor, insertion, and selected-logit gates. Remaining release gates are a representative real speech transcript/speaker/timestamp fixture, scalar-versus-AVX2 whole-pipeline benchmarks, and hotspot tuning for long recordings.
+The native CLI executes the complete checkpoint graph and has real-checkpoint frontend, encoder, adaptor, insertion, selected-logit, and exact real-speech transcript/speaker/timestamp gates. The pinned CPU implementation is ready for greedy PCM-WAV inference. Sampling, video/container decoding, and stable cross-recording speaker identity remain explicitly unsupported; longer recordings remain primarily GEMM-bound.
