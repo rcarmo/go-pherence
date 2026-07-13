@@ -575,6 +575,32 @@ go run ./cmd/llm/speccheck -model models/smollm2-135m \
 
 `specbench` emits normal/speculative rows with output parity, speedup, verifier backend, proposer, acceptance/fallback counters, emitted tokens, tokens/step, average proposal length, and aggregate total rows. `speccheck` emits JSON and exits non-zero on mismatch; use `-write-golden` / `-golden` to save and compare baselines.
 
+## `moss-transcribe` — native transcription and diarization
+
+`cmd/audio/moss-transcribe` executes the pinned MOSS-Transcribe-Diarize checkpoint entirely in Go on CPU/SIMD: Whisper-Medium audio encoding, temporal merge/VQ adaptor, Qwen3 greedy decoding, recording-local speaker labels, and timestamps.
+
+```bash
+make moss-transcribe
+bin/moss-transcribe -capabilities
+
+bin/moss-transcribe \
+  -model-dir /path/to/MOSS-Transcribe-Diarize \
+  -audio meeting.wav \
+  -format json \
+  -output meeting.json
+```
+
+Output formats are `text`, `raw`, `json`, `srt`, and `ass`. Input is native 16 kHz mono PCM WAV; arbitrary media containers are not decoded. Generation is greedy only and capped at 5,120 new tokens. Sampling controls, context overflow, and unsupported checkpoint revisions fail explicitly. Speaker labels such as `S01` identify speakers only within the recording, not across recordings.
+
+Run all pinned synthetic and real-checkpoint parity gates with:
+
+```bash
+make moss-transcribe-parity \
+  MOSS_TRANSCRIBE_MODEL_DIR=/path/to/MOSS-Transcribe-Diarize
+```
+
+See [moss-transcribe-diarize.md](moss-transcribe-diarize.md) for pinned revisions, the native graph contract, exact JFK transcript parity, internal numerical tolerances, and measured CPU/SIMD performance.
+
 ## `whisper` — standalone turbo STT/translation
 
 `cmd/audio/whisper` is the simpler single-command Whisper entry point. It defaults to local `openai/whisper-large-v3-turbo` weights and accepts WAV directly or other audio formats through `ffmpeg`.

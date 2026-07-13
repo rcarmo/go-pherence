@@ -1,6 +1,6 @@
 # Whisper diarized VTT status
 
-`cmd/audio/diarize-vtt` is the current purpose-built speech command for long-form translated WebVTT output. It now defaults to the local `whisper-large-v3-turbo-hf` assets and uses the turbo `translate` prompt with `language=en` by default so Portuguese/other source audio is translated to English.
+`cmd/audio/diarize-vtt` is the Whisper-specific command for long-form translated WebVTT output. It defaults to the local `whisper-large-v3-turbo-hf` assets and uses the turbo `translate` prompt with `language=en` by default so Portuguese/other source audio is translated to English. Native MOSS transcription, recording-local speaker diarization, timestamps, and JSON/SRT/ASS export are available separately through [`cmd/audio/moss-transcribe`](moss-transcribe-diarize.md).
 
 ## Default profile
 

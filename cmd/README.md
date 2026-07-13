@@ -13,7 +13,7 @@ so the grouping is purely organisational.
 | `k3/` | SpaceMIT K3 backend, kernels & benchmarks | `ime2run`, `ime2test`, `npu-tcm`, `testi8i4`, `verifydot`, `spacemit_run`, `spacemit_bench`, `spacemit_llama`, `spacemit_graphrun`, `spacemit_ggmlbench`, `k3ggmlplan`, `spacemit_ffnblockbench`, `spacemit_graphfusebench`, `k3qbench`, `k3plandump`, `spacemit_ortbench`, `spacemit_ortlayerbench` |
 | `llm/` | LLM serving / generation + speculative decoding | `llmserver`, `llmchat`, `llmgen`, `specbench`, `speccheck` |
 | `qwen/` | Qwen model runners & MTP experiments | `qwen36run`, `qwen3ttsinspect`, `qwenmtpmeta`, `qwenmtpsmoke`, `qwenmtpsynth` |
-| `audio/` | Speech transcription / diarization | `whisper`, `diarize-vtt`, `speakercheck` |
+| `audio/` | Speech transcription / diarization | `whisper`, `diarize-vtt`, `moss-transcribe`, `speakercheck` |
 | `image/` | Image / 3D generation & inspection | `ideogram4gen`, `ideogram4inspect`, `ideogram4vaesmoke`, `zimageinspect`, `hy3dinspect` |
 | `models/` | GGUF / model format inspection & coverage | `ggufinspect`, `ggufsmoke`, `lfm2inspect`, `modelcoverage`, `embcheck`, `shapecheck`, `gemma4mtpsmoke`, `gemma4mtpparity` |
 | _(top level)_ | misc | `tinydemo` |
