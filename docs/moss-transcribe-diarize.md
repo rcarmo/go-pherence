@@ -50,7 +50,7 @@ make moss-transcribe
 bin/moss-transcribe -capabilities
 ```
 
-The CLI selects validated NVIDIA stages automatically and warns before falling back to CPU/SIMD. Pass `-cpu` to force the scalar/SIMD oracle for parity checks and reproducible benchmarks. The first GPU slice keeps Whisper encoder projection weights resident; adaptor and Qwen3 generation remain on CPU until their independent parity gates pass.
+The CLI selects validated NVIDIA stages automatically and warns before falling back to CPU/SIMD. Pass `-cpu` to force the scalar/SIMD oracle for parity checks and reproducible benchmarks. Whisper encoder projection weights and the complete VQ adaptor are GPU-resident; Qwen3 generation remains on CPU until its independent parity gate passes. The opt-in `GO_PHERENCE_WHISPER_GPU_RESIDENT=1` encoder graph remains experimental pending tiled attention.
 
 Transcribe a PCM WAV file and emit parsed subtitles:
 
@@ -79,6 +79,7 @@ On an Intel Core i7-12700 with `GOMAXPROCS=2`:
 - The full 24-layer audio boundary fixture completes in approximately 31 seconds.
 - A one-second WAV through model load, audio encoder/adaptor, canonical 38-token multimodal prefill, and one generated token completes in approximately 37 seconds; model loading is approximately 4.6 seconds.
 - The 11-second JFK real-speech parity gate completes in approximately 49 seconds with early EOS at 70 generated tokens.
+- The GPU VQ adaptor agrees with the widened-BF16 CPU/SIMD oracle to a maximum `2.38e-6` on a deterministic 13-token real-weight gate.
 - The initial hybrid RTX 3060 audio-boundary smoke (model load + JFK encode, zero decode tokens) was approximately 41.9 seconds versus 42.2 seconds forced CPU. Sharing each layer's activation upload across Q/K/V projections reduces it to approximately 41.1 seconds. The opt-in resident layer path (`GO_PHERENCE_WHISPER_GPU_RESIDENT=1`) reduces this boundary to approximately 39.6 seconds with identical CLI output and a maximum full-encoder CPU/GPU difference of `2.91e-3`. Exact erf GELU and the current faster SIMD attention remain CPU boundaries; the serial correctness-first attention PTX is deliberately not enabled. The ≥2x gate remains pending tiled attention plus adaptor/Qwen residency.
 - CPU profiling attributes roughly 75% of sampled CPU time to the existing AVX2/FMA `SgemmNT`/`SgemmNN` kernels; exact GELU is the next non-GEMM hotspot at roughly 8% cumulative CPU.
 

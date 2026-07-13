@@ -19,6 +19,7 @@ type AudioBackbone struct {
 	Config     Config
 	Encoder    *whisper.Encoder
 	GPUEncoder *whisper.GPUEncoder
+	GPUAdaptor *GPUAdaptor
 	Adaptor    AdaptorWeights
 	source     weights.Source
 }
@@ -56,11 +57,13 @@ func (m *AudioBackbone) EnableGPU() bool {
 	if m == nil || m.Encoder == nil {
 		return false
 	}
-	if m.GPUEncoder != nil {
-		return m.GPUEncoder.Ready()
+	if m.GPUEncoder == nil {
+		m.GPUEncoder = whisper.NewGPUEncoder(m.Encoder, m.Config.WhisperConfig())
 	}
-	m.GPUEncoder = whisper.NewGPUEncoder(m.Encoder, m.Config.WhisperConfig())
-	return m.GPUEncoder.Ready()
+	if m.GPUAdaptor == nil {
+		m.GPUAdaptor = NewGPUAdaptor(m.Adaptor)
+	}
+	return m.GPUEncoder.Ready() || m.GPUAdaptor.Ready()
 }
 
 func (m *AudioBackbone) Close() error {
@@ -70,6 +73,10 @@ func (m *AudioBackbone) Close() error {
 	if m.GPUEncoder != nil {
 		m.GPUEncoder.Close()
 		m.GPUEncoder = nil
+	}
+	if m.GPUAdaptor != nil {
+		m.GPUAdaptor.Close()
+		m.GPUAdaptor = nil
 	}
 	if m.source == nil {
 		return nil

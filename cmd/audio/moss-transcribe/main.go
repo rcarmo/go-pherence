@@ -82,7 +82,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	if opts.cpuOnly {
 		fmt.Fprintln(stderr, "backend=cpu/simd (-cpu)")
 	} else if model.EnableGPU() {
-		fmt.Fprintln(stderr, "backend=nvidia-ptx+cpu/simd (GPU audio encoder enabled)")
+		fmt.Fprintln(stderr, "backend=nvidia-ptx+cpu/simd (GPU audio encoder/adaptor enabled)")
 	} else {
 		fmt.Fprintln(stderr, "warning: NVIDIA PTX acceleration unavailable; falling back to CPU/SIMD")
 	}

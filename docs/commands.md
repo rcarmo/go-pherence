@@ -577,7 +577,7 @@ go run ./cmd/llm/speccheck -model models/smollm2-135m \
 
 ## `moss-transcribe` — native transcription and diarization
 
-`cmd/audio/moss-transcribe` executes the pinned MOSS-Transcribe-Diarize checkpoint entirely in Go: Whisper-Medium audio encoding, temporal merge/VQ adaptor, Qwen3 greedy decoding, recording-local speaker labels, and timestamps. Validated runtime-loaded NVIDIA PTX stages are selected automatically; unavailable stages fall back to CPU/SIMD with a warning, and `-cpu` forces the CPU oracle. Current GPU coverage keeps Whisper projection weights resident while adaptor and Qwen3 GPU residency remain in progress.
+`cmd/audio/moss-transcribe` executes the pinned MOSS-Transcribe-Diarize checkpoint entirely in Go: Whisper-Medium audio encoding, temporal merge/VQ adaptor, Qwen3 greedy decoding, recording-local speaker labels, and timestamps. Validated runtime-loaded NVIDIA PTX stages are selected automatically; unavailable stages fall back to CPU/SIMD with a warning, and `-cpu` forces the CPU oracle. Current GPU coverage keeps Whisper projection weights and the complete VQ adaptor resident; Qwen3 GPU residency remains in progress. The broader resident Whisper layer graph is opt-in pending tiled-attention performance.
 
 ```bash
 make moss-transcribe

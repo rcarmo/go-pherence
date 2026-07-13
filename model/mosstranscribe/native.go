@@ -41,7 +41,11 @@ func (m *NativeModel) EnableGPU() bool {
 
 // GPUEnabled reports whether at least the validated audio stage is GPU-backed.
 func (m *NativeModel) GPUEnabled() bool {
-	return m != nil && m.Audio != nil && m.Audio.GPUEncoder != nil && m.Audio.GPUEncoder.Ready()
+	if m == nil || m.Audio == nil {
+		return false
+	}
+	return (m.Audio.GPUEncoder != nil && m.Audio.GPUEncoder.Ready()) ||
+		(m.Audio.GPUAdaptor != nil && m.Audio.GPUAdaptor.Ready())
 }
 
 func (m *NativeModel) Close() error {
@@ -92,9 +96,11 @@ func (m *NativeModel) EncodeAudio(samples []float32) ([]float32, int, error) {
 		return nil, 0, fmt.Errorf("MOSS audio: merge tokens=%d want %d", tokens, totalTokens)
 	}
 	adapted := make([]float32, tokens*AdaptorHiddenDim)
-	scratch := make([]float32, len(adapted))
-	if !ForwardAdaptorTo(adapted, scratch, merged, tokens, m.Audio.Adaptor) {
-		return nil, 0, fmt.Errorf("MOSS audio: adaptor failed")
+	if m.Audio.GPUAdaptor == nil || !m.Audio.GPUAdaptor.Ready() || !m.Audio.GPUAdaptor.Forward(adapted, merged, tokens) {
+		scratch := make([]float32, len(adapted))
+		if !ForwardAdaptorTo(adapted, scratch, merged, tokens, m.Audio.Adaptor) {
+			return nil, 0, fmt.Errorf("MOSS audio: adaptor failed")
+		}
 	}
 	return adapted, tokens, nil
 }
