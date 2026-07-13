@@ -73,10 +73,29 @@ func NewEncoder(cfg Config) *Encoder {
 	return enc
 }
 
+// EncoderBoundary identifies deterministic parity points in encoder execution.
+type EncoderBoundary string
+
+const (
+	EncoderBoundaryConv1     EncoderBoundary = "conv1_gelu"
+	EncoderBoundaryStemPos   EncoderBoundary = "conv2_gelu_position"
+	EncoderBoundaryLayer     EncoderBoundary = "layer"
+	EncoderBoundaryFinalNorm EncoderBoundary = "final_layer_norm"
+)
+
+// EncoderObserver receives read-only boundary views. Layer is -1 outside a
+// transformer layer. The callback must not retain or mutate values.
+type EncoderObserver func(boundary EncoderBoundary, layer, rows, cols int, values []float32)
+
 // Forward runs the encoder on mel spectrogram features.
 // mel: [numMelBins, T] flattened as [numMelBins * T] (channel-first)
 // Returns encoder hidden states: [T', d_model] flattened.
 func (enc *Encoder) Forward(mel []float32, T int) []float32 {
+	return enc.ForwardObserved(mel, T, nil)
+}
+
+// ForwardObserved runs Forward and exposes stable graph boundaries for parity fixtures.
+func (enc *Encoder) ForwardObserved(mel []float32, T int, observe EncoderObserver) []float32 {
 	cfg := enc.cfg
 	dModel := cfg.EncoderDModel
 	convStart := time.Now()
@@ -85,6 +104,9 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	h := conv1dForwardFast(mel, enc.Conv1Weight, enc.Conv1Bias, cfg.NumMelBins, T, dModel, 3, 1, 1)
 	T1 := T // stride=1 preserves length
 	gelu(h)
+	if observe != nil {
+		observe(EncoderBoundaryConv1, -1, dModel, T1, h)
+	}
 
 	// Conv2: [d_model, T] → [d_model, T/2] with kernel=3, stride=2, padding=1
 	h = conv1dForwardFast(h, enc.Conv2Weight, enc.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
@@ -101,6 +123,10 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 		}
 	}
 
+	if observe != nil {
+		observe(EncoderBoundaryStemPos, -1, T2, dModel, ht)
+	}
+
 	// Encoder layers
 	encLinearNs, encAttnNs, encOtherNs = 0, 0, 0
 	resetF16Timers()
@@ -108,6 +134,9 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	convNs := int64(time.Since(convStart))
 	for i := range enc.Layers {
 		ht = enc.forwardLayer(i, &enc.Layers[i], ht, T2)
+		if observe != nil {
+			observe(EncoderBoundaryLayer, i, T2, dModel, ht)
+		}
 	}
 	if os.Getenv("WHISPER_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr, "[enc] convstem=%.1fs linear=%.1fs attn=%.1fs other=%.1fs\n",
@@ -123,6 +152,9 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 	// Final LayerNorm
 	if enc.FinalLNWeight != nil {
 		ht = layerNorm(ht, enc.FinalLNWeight, enc.FinalLNBias, T2, cfg.EncoderDModel)
+	}
+	if observe != nil {
+		observe(EncoderBoundaryFinalNorm, -1, T2, dModel, ht)
 	}
 	return ht // [T2 * d_model]
 }

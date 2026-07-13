@@ -37,7 +37,13 @@ func TestEncoderForwardShape(t *testing.T) {
 	T := 480
 	mel := make([]float32, cfg.NumMelBins*T)
 
-	out := enc.Forward(mel, T)
+	var boundaries []EncoderBoundary
+	out := enc.ForwardObserved(mel, T, func(boundary EncoderBoundary, layer, rows, cols int, values []float32) {
+		boundaries = append(boundaries, boundary)
+		if rows*cols != len(values) {
+			t.Fatalf("boundary %s layer %d shape [%d,%d] values=%d", boundary, layer, rows, cols, len(values))
+		}
+	})
 
 	// After conv2 with stride=2: T' = (480 + 2 - 3)/2 + 1 = 240
 	expectedT := (T+2*1-3)/2 + 1
@@ -45,6 +51,9 @@ func TestEncoderForwardShape(t *testing.T) {
 
 	if len(out) != expectedLen {
 		t.Fatalf("encoder output length=%d, want %d (T'=%d, d_model=%d)", len(out), expectedLen, expectedT, cfg.EncoderDModel)
+	}
+	if len(boundaries) != 2+cfg.EncoderLayers+1 || boundaries[0] != EncoderBoundaryConv1 || boundaries[1] != EncoderBoundaryStemPos || boundaries[len(boundaries)-1] != EncoderBoundaryFinalNorm {
+		t.Fatalf("unexpected boundaries: %v", boundaries)
 	}
 }
 
