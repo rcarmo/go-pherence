@@ -43,12 +43,14 @@ Existing AVX2/FMA SGEMM, vector, LayerNorm, FFT, convolution, and pooling paths 
 
 ## Native CLI
 
-Build and inspect the SIMD dispatch:
+Build and inspect CPU/SIMD and runtime-loaded NVIDIA PTX availability:
 
 ```bash
 make moss-transcribe
 bin/moss-transcribe -capabilities
 ```
+
+The CLI selects validated NVIDIA stages automatically and warns before falling back to CPU/SIMD. Pass `-cpu` to force the scalar/SIMD oracle for parity checks and reproducible benchmarks. The first GPU slice keeps Whisper encoder projection weights resident; adaptor and Qwen3 generation remain on CPU until their independent parity gates pass.
 
 Transcribe a PCM WAV file and emit parsed subtitles:
 
@@ -77,6 +79,7 @@ On an Intel Core i7-12700 with `GOMAXPROCS=2`:
 - The full 24-layer audio boundary fixture completes in approximately 31 seconds.
 - A one-second WAV through model load, audio encoder/adaptor, canonical 38-token multimodal prefill, and one generated token completes in approximately 37 seconds; model loading is approximately 4.6 seconds.
 - The 11-second JFK real-speech parity gate completes in approximately 49 seconds with early EOS at 70 generated tokens.
+- The initial hybrid RTX 3060 audio-boundary smoke (model load + JFK encode, zero decode tokens) is approximately 41.9 seconds versus 42.2 seconds forced CPU. Output is identical, but this is not yet a useful speedup because per-layer activation transfers dominate; the ≥2x gate remains pending full adaptor/Qwen residency.
 - CPU profiling attributes roughly 75% of sampled CPU time to the existing AVX2/FMA `SgemmNT`/`SgemmNN` kernels; exact GELU is the next non-GEMM hotspot at roughly 8% cumulative CPU.
 
 Pinned Transformers 4.57.1 parity observations:

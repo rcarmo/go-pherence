@@ -21,6 +21,33 @@ type GPUEncoder struct {
 // Ready reports whether this GPU encoder can run GPU-assisted paths.
 func (ge *GPUEncoder) Ready() bool { return ge != nil && ge.ready }
 
+// Close releases all persistent device weights owned by the encoder.
+func (ge *GPUEncoder) Close() {
+	if ge == nil {
+		return
+	}
+	free := func(buf *nv.DevBuf) {
+		if buf != nil {
+			buf.Free()
+		}
+	}
+	free(ge.conv1W)
+	free(ge.conv2W)
+	for i := range ge.layers {
+		layer := &ge.layers[i]
+		free(layer.qW)
+		free(layer.kW)
+		free(layer.vW)
+		free(layer.oW)
+		free(layer.fc1W)
+		free(layer.fc2W)
+		free(layer.attnLNW)
+		free(layer.mlpLNW)
+	}
+	ge.layers = nil
+	ge.ready = false
+}
+
 type gpuEncoderLayer struct {
 	qW, kW, vW, oW  *nv.DevBuf
 	fc1W, fc2W      *nv.DevBuf

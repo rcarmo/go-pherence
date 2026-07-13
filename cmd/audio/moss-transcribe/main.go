@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/model/mosstranscribe"
 )
@@ -24,6 +25,7 @@ type options struct {
 	format       string
 	prompt       string
 	maxNew       int
+	cpuOnly      bool
 	capabilities bool
 }
 
@@ -44,7 +46,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&opts.format, "format", "text", "Output format: text, raw, json, srt, ass")
 	fs.StringVar(&opts.prompt, "prompt", "", "Instruction override (default pinned transcription/diarization prompt)")
 	fs.IntVar(&opts.maxNew, "max-new-tokens", mosstranscribe.GenerationMaxNewTokens, "Greedy decoder token limit")
-	fs.BoolVar(&opts.capabilities, "capabilities", false, "Print native CPU/SIMD capabilities and exit")
+	fs.BoolVar(&opts.cpuOnly, "cpu", false, "Disable automatic NVIDIA GPU acceleration")
+	fs.BoolVar(&opts.capabilities, "capabilities", false, "Print native CPU/SIMD/GPU capabilities and exit")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -52,7 +55,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("unexpected positional arguments: %v", fs.Args())
 	}
 	if opts.capabilities {
-		fmt.Fprintf(stdout, "goarch=%s avx2_fma=%v native=true sampling=false formats=text,raw,json,srt,ass\n", runtime.GOARCH, simd.HasVecAsm)
+		fmt.Fprintf(stdout, "goarch=%s avx2_fma=%v nvidia_ptx=%v gpu_auto=true native=true sampling=false formats=text,raw,json,srt,ass\n", runtime.GOARCH, simd.HasVecAsm, nvidia.Available())
 		return nil
 	}
 	if opts.modelDir == "" || opts.audioPath == "" {
@@ -76,6 +79,13 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 	defer model.Close()
 	fmt.Fprintf(stderr, "model loaded in %s\n", time.Since(started).Round(time.Millisecond))
+	if opts.cpuOnly {
+		fmt.Fprintln(stderr, "backend=cpu/simd (-cpu)")
+	} else if model.EnableGPU() {
+		fmt.Fprintln(stderr, "backend=nvidia-ptx+cpu/simd (GPU audio encoder enabled)")
+	} else {
+		fmt.Fprintln(stderr, "warning: NVIDIA PTX acceleration unavailable; falling back to CPU/SIMD")
+	}
 
 	samples, err := mosstranscribe.ReadAudioWAV(opts.audioPath)
 	if err != nil {

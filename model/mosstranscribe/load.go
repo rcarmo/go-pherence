@@ -16,10 +16,11 @@ const modelPrefix = "model."
 // AudioBackbone owns the mapped checkpoint source and the native audio graph.
 // Close must be called after inference; adaptor BF16 weights alias the mmap.
 type AudioBackbone struct {
-	Config  Config
-	Encoder *whisper.Encoder
-	Adaptor AdaptorWeights
-	source  weights.Source
+	Config     Config
+	Encoder    *whisper.Encoder
+	GPUEncoder *whisper.GPUEncoder
+	Adaptor    AdaptorWeights
+	source     weights.Source
 }
 
 // LoadAudioBackbone loads the exact Whisper encoder and VQ adaptor from a MOSS
@@ -49,8 +50,28 @@ func LoadAudioBackbone(modelDir string) (*AudioBackbone, error) {
 	return &AudioBackbone{Config: cfg, Encoder: encoder, Adaptor: adaptor, source: source}, nil
 }
 
+// EnableGPU uploads the Whisper encoder's reusable weights to the existing
+// runtime-loaded NVIDIA backend. It leaves the CPU encoder intact for fallback.
+func (m *AudioBackbone) EnableGPU() bool {
+	if m == nil || m.Encoder == nil {
+		return false
+	}
+	if m.GPUEncoder != nil {
+		return m.GPUEncoder.Ready()
+	}
+	m.GPUEncoder = whisper.NewGPUEncoder(m.Encoder, m.Config.WhisperConfig())
+	return m.GPUEncoder.Ready()
+}
+
 func (m *AudioBackbone) Close() error {
-	if m == nil || m.source == nil {
+	if m == nil {
+		return nil
+	}
+	if m.GPUEncoder != nil {
+		m.GPUEncoder.Close()
+		m.GPUEncoder = nil
+	}
+	if m.source == nil {
 		return nil
 	}
 	err := m.source.Close()

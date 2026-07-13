@@ -6,7 +6,8 @@ import (
 	llmmodel "github.com/rcarmo/go-pherence/model"
 )
 
-// NativeModel is the complete CPU MOSS-Transcribe-Diarize graph.
+// NativeModel is the complete native MOSS-Transcribe-Diarize graph. CPU/SIMD
+// execution is always available; optional GPU stages retain CPU fallback.
 type NativeModel struct {
 	Audio     *AudioBackbone
 	Decoder   *llmmodel.LlamaModel
@@ -30,6 +31,17 @@ func LoadNativeModel(modelDir string) (*NativeModel, error) {
 	}
 	decoder.Tok = processor.Tokenizer
 	return &NativeModel{Audio: audioModel, Decoder: decoder, Processor: processor}, nil
+}
+
+// EnableGPU enables all currently validated GPU stages. It returns false when
+// the runtime-loaded NVIDIA backend is unavailable; CPU/SIMD remains usable.
+func (m *NativeModel) EnableGPU() bool {
+	return m != nil && m.Audio != nil && m.Audio.EnableGPU()
+}
+
+// GPUEnabled reports whether at least the validated audio stage is GPU-backed.
+func (m *NativeModel) GPUEnabled() bool {
+	return m != nil && m.Audio != nil && m.Audio.GPUEncoder != nil && m.Audio.GPUEncoder.Ready()
 }
 
 func (m *NativeModel) Close() error {
@@ -61,7 +73,12 @@ func (m *NativeModel) EncodeAudio(samples []float32) ([]float32, int, error) {
 		if err != nil {
 			return nil, 0, fmt.Errorf("MOSS audio chunk %d: %w", index, err)
 		}
-		hidden := m.Audio.Encoder.Forward(features, cfg.MaxLength)
+		var hidden []float32
+		if m.Audio.GPUEncoder != nil && m.Audio.GPUEncoder.Ready() {
+			hidden = m.Audio.GPUEncoder.ForwardGPU(features, cfg.MaxLength)
+		} else {
+			hidden = m.Audio.Encoder.Forward(features, cfg.MaxLength)
+		}
 		rows := chunk.TokenLength * AudioMergeFrames
 		values := rows * AudioWidth
 		if rows > len(hidden)/AudioWidth {

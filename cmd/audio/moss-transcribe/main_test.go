@@ -13,7 +13,8 @@ func TestCapabilitiesNeedsNoModel(t *testing.T) {
 	if err := run([]string{"-capabilities"}, &out, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "native=true") || !strings.Contains(out.String(), "avx2_fma=") {
+	if !strings.Contains(out.String(), "native=true") || !strings.Contains(out.String(), "avx2_fma=") ||
+		!strings.Contains(out.String(), "nvidia_ptx=") || !strings.Contains(out.String(), "gpu_auto=true") {
 		t.Fatalf("capabilities=%q", out.String())
 	}
 }
