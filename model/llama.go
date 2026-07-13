@@ -792,7 +792,22 @@ func (m *LlamaModel) Generate(tokenIDs []int, maxTokens int) []int {
 	return m.generatePrepared(m.prepareGenerateTokens(tokenIDs), maxTokens)
 }
 
+// GenerateFromEmbeddings runs an already prepared prompt whose row-major
+// embeddings replace ordinary token lookup. tokenIDs remain required for output
+// accounting and generated-token continuation. This is the multimodal prefill
+// surface used by MOSS after masked audio insertion.
+func (m *LlamaModel) GenerateFromEmbeddings(tokenIDs []int, embeddings []float32, maxTokens int) ([]int, error) {
+	if m == nil || m.Config.HiddenSize <= 0 || len(tokenIDs) == 0 || len(embeddings) != len(tokenIDs)*m.Config.HiddenSize {
+		return nil, fmt.Errorf("generate from embeddings: tokens=%d values=%d hidden=%d", len(tokenIDs), len(embeddings), m.Config.HiddenSize)
+	}
+	return m.generatePreparedEmbeddings(tokenIDs, embeddings, maxTokens), nil
+}
+
 func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
+	return m.generatePreparedEmbeddings(tokenIDs, nil, maxTokens)
+}
+
+func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings []float32, maxTokens int) []int {
 	cfg := m.Config
 
 	if maxTokens < 0 {
@@ -899,7 +914,7 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 	// engaged on the validated subset (plain KV caches, non-MoE, no Gemma4
 	// per-layer inputs); otherwise the sequential loop below handles the prompt.
 	startStep := 0
-	if compressedKV == nil && maxTokens >= 1 && m.prefillCPUEligible(len(tokenIDs)) {
+	if promptEmbeddings == nil && compressedKV == nil && maxTokens >= 1 && m.prefillCPUEligible(len(tokenIDs)) {
 		if lastHidden, ok := m.prefillCPU(tokenIDs, kvCacheK, kvCacheV); ok {
 			_, _, maxIdx, err := m.finishCPUDecodeStep(lastHidden)
 			if err != nil {
@@ -982,8 +997,11 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 			tokID = output[len(output)-1]
 		}
 
-		// Embed single token using the same helper exposed for verifier/MTP paths.
-		if err := m.ScaledTokenEmbeddingInto(hidden, tokID); err != nil {
+		// Multimodal prompts provide the complete embedding row. Generated tokens
+		// and ordinary prompts retain the model-specific scaled lookup path.
+		if step < len(tokenIDs) && promptEmbeddings != nil {
+			copy(hidden, promptEmbeddings[step*h:(step+1)*h])
+		} else if err := m.ScaledTokenEmbeddingInto(hidden, tokID); err != nil {
 			panic(err)
 		}
 

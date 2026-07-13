@@ -90,6 +90,33 @@ func TestFinishCPUDecodeStepMatchesGenerateFinalToken(t *testing.T) {
 	}
 }
 
+func TestGenerateFromEmbeddingsUsesProvidedPromptRow(t *testing.T) {
+	m := &LlamaModel{
+		Config: LlamaConfig{VocabSize: 3, HiddenSize: 2, NumHeads: 1, NumKVHeads: 1, HeadDim: 2},
+		EmbedTokens: tensor.FromFloat32([]float32{
+			3, 4,
+			1, 0,
+			0, 1,
+		}, []int{3, 2}),
+		Norm: tensor.Ones([]int{2}),
+		LMHead: tensor.FromFloat32([]float32{
+			1, 0,
+			0, 1,
+			1, 1,
+		}, []int{3, 2}),
+	}
+	got, err := m.GenerateFromEmbeddings([]int{0}, []float32{0, 5}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameInts(got, []int{0, 1}) {
+		t.Fatalf("GenerateFromEmbeddings=%v want [0 1]", got)
+	}
+	if _, err := m.GenerateFromEmbeddings([]int{0}, []float32{1}, 1); err == nil {
+		t.Fatal("accepted malformed embedding matrix")
+	}
+}
+
 func TestFinishCPUDecodeStepValidation(t *testing.T) {
 	if _, _, _, err := (*LlamaModel)(nil).finishCPUDecodeStep(nil); err == nil {
 		t.Fatal("accepted nil model")
