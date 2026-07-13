@@ -12,6 +12,7 @@ import (
 const (
 	UpstreamModelType    = "moss_transcribe_diarize"
 	UpstreamArchitecture = "MossTranscribeDiarizeForConditionalGeneration"
+	GenerationEOSTokenID = 151645
 )
 
 // Config is the checkpoint architecture contract used by the native runtime.
