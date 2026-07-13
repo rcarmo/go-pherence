@@ -15,6 +15,7 @@ import (
 
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -44,7 +45,11 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// Gemma4 and Qwen3.5/Qwen3.6: text config may be nested under text_config.
+	var rootConfig struct {
+		ModelType string `json:"model_type"`
+	}
+	_ = json.Unmarshal(cfgData, &rootConfig)
+	// Gemma4, MOSS multimodal, and Qwen3.5/Qwen3.6 configs may nest the decoder under text_config.
 	if normalized, ok := gemmacfg.NormalizeTextConfig(cfgData, cfg); ok {
 		cfg = normalized
 	} else if cfg.HiddenSize == 0 {
@@ -101,6 +106,8 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 	cfg.TensorPrefix = ""
 	if cfg.ModelType == "gemma4_text" || cfg.ModelType == "gemma4" {
 		cfg.TensorPrefix = "language_model."
+	} else if rootConfig.ModelType == "moss_transcribe_diarize" {
+		cfg.TensorPrefix = "model.language_model."
 	}
 
 	// Detect unsupported Model Optimizer / NVFP4-style quantization before
@@ -189,8 +196,14 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 	m.OnTheFlyQuant = onTheFly
 
 	prefix := cfg.TensorPrefix
+	prefixedName := func(name string) string {
+		if rootConfig.ModelType == "moss_transcribe_diarize" {
+			name = strings.TrimPrefix(name, "model.")
+		}
+		return prefix + name
+	}
 	load := func(name string, shape []int) *tensor.Tensor {
-		data, actualShape, err := f.GetFloat32(prefix + name)
+		data, actualShape, err := f.GetFloat32(prefixedName(name))
 		if err != nil && prefix != "" {
 			data, actualShape, err = f.GetFloat32(name)
 		}
@@ -366,7 +379,7 @@ func LoadLlama(dir string) (model *LlamaModel, err error) {
 
 	// tryLoad checks if a tensor exists
 	tryLoad := func(name string) bool {
-		_, _, _, err := f.GetRaw(prefix + name)
+		_, _, _, err := f.GetRaw(prefixedName(name))
 		if err != nil && prefix != "" {
 			_, _, _, err = f.GetRaw(name)
 		}
