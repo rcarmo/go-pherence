@@ -8,6 +8,12 @@ import (
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
+func TestNativeGenerateRejectsUnsupportedLimit(t *testing.T) {
+	if _, err := (&NativeModel{}).GenerateGreedy(nil, nil, GenerationMaxNewTokens+1); err == nil {
+		t.Fatal("accepted generation limit beyond pinned configuration")
+	}
+}
+
 func TestNativePromptEmbeddingsInsertion(t *testing.T) {
 	decoder := &llmmodel.LlamaModel{
 		Config: llmmodel.LlamaConfig{HiddenSize: 2, VocabSize: 3},

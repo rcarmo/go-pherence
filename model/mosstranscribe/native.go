@@ -105,6 +105,9 @@ func (m *NativeModel) PromptEmbeddings(inputIDs []int, audioEmbeddings []float32
 // GenerateGreedy runs batched multimodal prefill and trims at the first EOS.
 // Returned IDs contain generated tokens only, excluding the prepared prompt.
 func (m *NativeModel) GenerateGreedy(inputIDs []int, audioEmbeddings []float32, maxNewTokens int) ([]int, error) {
+	if maxNewTokens < 0 || maxNewTokens > GenerationMaxNewTokens {
+		return nil, fmt.Errorf("MOSS generation: max_new_tokens=%d outside [0,%d]", maxNewTokens, GenerationMaxNewTokens)
+	}
 	embeddings, err := m.PromptEmbeddings(inputIDs, audioEmbeddings)
 	if err != nil {
 		return nil, err

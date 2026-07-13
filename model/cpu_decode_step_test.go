@@ -115,6 +115,10 @@ func TestGenerateFromEmbeddingsUsesProvidedPromptRow(t *testing.T) {
 	if _, err := m.GenerateFromEmbeddings([]int{0}, []float32{1}, 1); err == nil {
 		t.Fatal("accepted malformed embedding matrix")
 	}
+	m.Config.MaxSeqLen = 1
+	if _, err := m.GenerateFromEmbeddings([]int{0}, []float32{0, 5}, 1); err == nil {
+		t.Fatal("accepted generation beyond configured context")
+	}
 }
 
 func TestFinishCPUDecodeStepValidation(t *testing.T) {

@@ -797,8 +797,15 @@ func (m *LlamaModel) Generate(tokenIDs []int, maxTokens int) []int {
 // accounting and generated-token continuation. This is the multimodal prefill
 // surface used by MOSS after masked audio insertion.
 func (m *LlamaModel) GenerateFromEmbeddings(tokenIDs []int, embeddings []float32, maxTokens int) ([]int, error) {
-	if m == nil || m.Config.HiddenSize <= 0 || len(tokenIDs) == 0 || len(embeddings) != len(tokenIDs)*m.Config.HiddenSize {
-		return nil, fmt.Errorf("generate from embeddings: tokens=%d values=%d hidden=%d", len(tokenIDs), len(embeddings), m.Config.HiddenSize)
+	hiddenSize, maxSequence := 0, 0
+	if m != nil {
+		hiddenSize, maxSequence = m.Config.HiddenSize, m.Config.MaxSeqLen
+	}
+	if m == nil || hiddenSize <= 0 || len(tokenIDs) == 0 || len(embeddings) != len(tokenIDs)*hiddenSize {
+		return nil, fmt.Errorf("generate from embeddings: tokens=%d values=%d hidden=%d", len(tokenIDs), len(embeddings), hiddenSize)
+	}
+	if maxTokens < 0 || maxTokens > int(^uint(0)>>1)-len(tokenIDs) || maxSequence > 0 && len(tokenIDs)+maxTokens > maxSequence {
+		return nil, fmt.Errorf("generate from embeddings: sequence %d + %d exceeds context %d", len(tokenIDs), maxTokens, maxSequence)
 	}
 	return m.generatePreparedEmbeddings(tokenIDs, embeddings, maxTokens), nil
 }
