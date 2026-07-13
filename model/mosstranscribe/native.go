@@ -112,7 +112,7 @@ func (m *NativeModel) GenerateGreedy(inputIDs []int, audioEmbeddings []float32, 
 	if err != nil {
 		return nil, err
 	}
-	all, err := m.Decoder.GenerateFromEmbeddings(inputIDs, embeddings, maxNewTokens)
+	all, err := m.Decoder.GenerateFromEmbeddingsUntil(inputIDs, embeddings, maxNewTokens, GenerationEOSTokenID)
 	if err != nil {
 		return nil, err
 	}

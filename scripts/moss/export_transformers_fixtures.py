@@ -76,15 +76,16 @@ def run_boundaries(encoder: WhisperEncoder, features: np.ndarray, dtype: torch.d
     return boundaries, hidden
 
 
-def run_adaptor(model_dir: Path, encoder_output: torch.Tensor, dtype: torch.dtype) -> tuple[list[dict], torch.Tensor]:
+def run_adaptor(
+    model_dir: Path, encoder_output: torch.Tensor, dtype: torch.dtype, audio_tokens: int = 13
+) -> tuple[list[dict], torch.Tensor]:
     tensors = {}
     checkpoint = model_dir / "model-00000-of-00001.safetensors"
     with safe_open(checkpoint, framework="pt", device="cpu") as source:
         for name in source.keys():
             if name.startswith("model.vq_adaptor."):
                 tensors[name.removeprefix("model.vq_adaptor.")] = source.get_tensor(name).to(dtype=dtype)
-    # The deterministic waveform has one second of real audio: ceil(16000/1280)=13 tokens.
-    merged = encoder_output[:, : 13 * 4, :].reshape(1, 13, 4096)
+    merged = encoder_output[:, : audio_tokens * 4, :].reshape(1, audio_tokens, 4096)
     hidden = torch.nn.functional.linear(merged, tensors["layers.0.weight"], tensors["layers.0.bias"])
     hidden = torch.nn.functional.silu(hidden)
     hidden = torch.nn.functional.linear(hidden, tensors["layers.2.weight"], tensors["layers.2.bias"])
@@ -92,8 +93,8 @@ def run_adaptor(model_dir: Path, encoder_output: torch.Tensor, dtype: torch.dtyp
         hidden, (1024,), tensors["layers.3.weight"], tensors["layers.3.bias"], 1e-6
     )
     return [
-        selected("time_merge", merged, (0, 1, 12), (0, 1, 1023, 1024, 4095)),
-        selected("adaptor", hidden, (0, 1, 12), DIMS),
+        selected("time_merge", merged, (0, 1, audio_tokens - 1), (0, 1, 1023, 1024, 4095)),
+        selected("adaptor", hidden, (0, 1, audio_tokens - 1), DIMS),
     ], hidden
 
 

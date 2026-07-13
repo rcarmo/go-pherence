@@ -807,14 +807,29 @@ func (m *LlamaModel) GenerateFromEmbeddings(tokenIDs []int, embeddings []float32
 	if maxTokens < 0 || maxTokens > int(^uint(0)>>1)-len(tokenIDs) || maxSequence > 0 && len(tokenIDs)+maxTokens > maxSequence {
 		return nil, fmt.Errorf("generate from embeddings: sequence %d + %d exceeds context %d", len(tokenIDs), maxTokens, maxSequence)
 	}
-	return m.generatePreparedEmbeddings(tokenIDs, embeddings, maxTokens), nil
+	return m.generatePreparedEmbeddings(tokenIDs, embeddings, maxTokens, -1), nil
+}
+
+// GenerateFromEmbeddingsUntil is GenerateFromEmbeddings with an early stop token.
+func (m *LlamaModel) GenerateFromEmbeddingsUntil(tokenIDs []int, embeddings []float32, maxTokens, stopToken int) ([]int, error) {
+	if m == nil {
+		return nil, fmt.Errorf("generate from embeddings: nil model")
+	}
+	if stopToken < 0 || stopToken >= m.Config.VocabSize {
+		return nil, fmt.Errorf("generate from embeddings: stop token %d outside vocabulary", stopToken)
+	}
+	hiddenSize := m.Config.HiddenSize
+	if hiddenSize <= 0 || len(tokenIDs) == 0 || len(embeddings) != len(tokenIDs)*hiddenSize || maxTokens < 0 || maxTokens > int(^uint(0)>>1)-len(tokenIDs) || m.Config.MaxSeqLen > 0 && len(tokenIDs)+maxTokens > m.Config.MaxSeqLen {
+		return nil, fmt.Errorf("generate from embeddings: invalid stopped generation shape/context")
+	}
+	return m.generatePreparedEmbeddings(tokenIDs, embeddings, maxTokens, stopToken), nil
 }
 
 func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
-	return m.generatePreparedEmbeddings(tokenIDs, nil, maxTokens)
+	return m.generatePreparedEmbeddings(tokenIDs, nil, maxTokens, -1)
 }
 
-func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings []float32, maxTokens int) []int {
+func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings []float32, maxTokens, stopToken int) []int {
 	cfg := m.Config
 
 	if maxTokens < 0 {
@@ -936,6 +951,9 @@ func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings
 			}
 			output = append(output, maxIdx)
 			startStep = len(tokenIDs)
+			if maxIdx == stopToken {
+				return output
+			}
 		}
 	}
 
@@ -1503,6 +1521,9 @@ func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings
 				debugLogitsHook("cpu", step, finalActivation, logits)
 			}
 			output = append(output, maxIdx)
+			if maxIdx == stopToken {
+				return output
+			}
 		}
 	}
 	return output
