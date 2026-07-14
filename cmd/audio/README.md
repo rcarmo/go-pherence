@@ -11,7 +11,7 @@ See [`docs/moss-transcribe-diarize.md`](../../docs/moss-transcribe-diarize.md) f
 
 ## Whisper GPU graph flags
 
-The flags below apply to `whisper` and `diarize-vtt`, not the CPU/SIMD-only `moss-transcribe` command. Both Whisper commands expose conservative GPU switches:
+The flags below apply to the standalone `whisper` and `diarize-vtt` commands. `moss-transcribe` selects its verified runtime-loaded NVIDIA PTX graph automatically, warns and falls back to CPU/SIMD when GPU initialisation or execution fails, and accepts `-cpu` to force the CPU oracle. Both standalone Whisper commands expose conservative GPU switches:
 
 - `-gpu` enables the GPU-assisted encoder path when CUDA SGEMM is available and falls back to CPU/SIMD otherwise; decoder cross-K/V precompute is separately gated by `GO_PHERENCE_WHISPER_GPU_CROSS_KV=1` or `-gpu-graph`.
 - `-gpu-graph` sets `GO_PHERENCE_WHISPER_GPU_GRAPH=1`, implies `-gpu`, and enables the currently wired opt-in Whisper GPU graph surfaces behind their parity/fallback guards.

@@ -38,7 +38,7 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 # surfaces; it may skip on CPU-only hosts, but on CUDA hosts it must initialize
 # the NVIDIA runtime, load the Whisper PTX entries, and run real numeric assertions
 # instead of silently falling back. Current shared-host evidence: RTX 3060 loads
-# all 78 mega-module kernels and TestGPUEncoderForward passes on large-v3-turbo
+# all 83 mega-module kernels and TestGPUEncoderForward passes on large-v3-turbo
 # with max_diff≈1.9e-4.
 # The GPU graph parity target runs the same JFK transcript contract with the
 # umbrella GPU graph flag enabled, exercising real CUDA dispatch on CUDA hosts

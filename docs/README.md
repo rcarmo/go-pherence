@@ -19,7 +19,7 @@ This directory contains the durable backend, model, validation, and research not
 - [gemma4-mtp-benchmarks.md](gemma4-mtp-benchmarks.md) — Gemma4 QAT+MTP validation matrix, benchmark timings, GPU coordination windows, and current strict-parity blocker.
 - [commands.md](commands.md) — CLI usage, GGUF REAP/TurboQuant validation, MTP smokes, Qwen MTP triage, and benchmark harnesses.
 - [whisper-diarize-vtt.md](whisper-diarize-vtt.md) — current Whisper turbo translated VTT pipeline, performance, resume behavior, and diarization limitations.
-- [moss-transcribe-diarize.md](moss-transcribe-diarize.md) — native MOSS transcription/diarization support contract, exact parity gates, CLI usage, limitations, and CPU/SIMD performance.
+- [moss-transcribe-diarize.md](moss-transcribe-diarize.md) — native MOSS transcription/diarization support contract, exact parity gates, CLI usage, limitations, and CPU/SIMD plus RTX 3060 performance.
 - [whisper-model-assets.md](whisper-model-assets.md) — exact Whisper model names, local weight paths, shape configs, and default/turbo status.
 - [whisper-execution-graph.md](whisper-execution-graph.md) — large-v3-turbo execution graph coverage across CPU/SIMD, K3 IME/A100, NVIDIA, and diarization paths.
 - [final-coverage-acceptance.md](final-coverage-acceptance.md) — final backend coverage acceptance tracker.

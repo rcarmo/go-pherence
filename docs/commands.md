@@ -577,7 +577,7 @@ go run ./cmd/llm/speccheck -model models/smollm2-135m \
 
 ## `moss-transcribe` — native transcription and diarization
 
-`cmd/audio/moss-transcribe` executes the pinned MOSS-Transcribe-Diarize checkpoint entirely in Go: Whisper-Medium audio encoding, temporal merge/VQ adaptor, Qwen3 greedy decoding, recording-local speaker labels, and timestamps. Validated runtime-loaded NVIDIA PTX stages are selected automatically; unavailable stages fall back to CPU/SIMD with a warning, and `-cpu` forces the CPU oracle. Current GPU coverage keeps Whisper projection weights and the complete VQ adaptor resident; Qwen3 GPU residency remains in progress. The broader resident Whisper layer graph is opt-in pending tiled-attention performance.
+`cmd/audio/moss-transcribe` executes the pinned MOSS-Transcribe-Diarize checkpoint entirely in Go: Whisper-Medium audio encoding, temporal merge/VQ adaptor, Qwen3 greedy decoding, recording-local speaker labels, and timestamps. The verified runtime-loaded NVIDIA PTX graph is selected automatically; unavailable stages fall back to CPU/SIMD with a warning, and `-cpu` forces the CPU oracle. Whisper encoder weights and hot buffers remain GPU-resident, the VQ adaptor runs on GPU, and Qwen3 uses arbitrary-embedding batched prefill plus resident KV, decode, and LM-head state. The binary remains zero-CGo and does not require a CUDA toolkit or native SDK.
 
 ```bash
 make moss-transcribe
@@ -599,7 +599,7 @@ make moss-transcribe-parity \
   MOSS_TRANSCRIBE_MODEL_DIR=/path/to/MOSS-Transcribe-Diarize
 ```
 
-See [moss-transcribe-diarize.md](moss-transcribe-diarize.md) for pinned revisions, the native graph contract, exact JFK transcript parity, internal numerical tolerances, and measured CPU/SIMD performance.
+See [moss-transcribe-diarize.md](moss-transcribe-diarize.md) for pinned revisions, the native graph contract, exact JFK transcript parity, internal numerical tolerances, and measured CPU/SIMD and RTX 3060 performance.
 
 ## `whisper` — standalone turbo STT/translation
 
