@@ -24,6 +24,7 @@ This directory contains the durable backend, model, validation, and research not
 - [whisper-execution-graph.md](whisper-execution-graph.md) — large-v3-turbo execution graph coverage across CPU/SIMD, K3 IME/A100, NVIDIA, and diarization paths.
 - [final-coverage-acceptance.md](final-coverage-acceptance.md) — final backend coverage acceptance tracker.
 - [performance.md](performance.md) — benchmark notes and current snapshots.
+- [simd-matmul.md](simd-matmul.md) — shape-aware decode/prefill SIMD matmul dispatch, cache tiling, and benchmark procedure.
 - [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and refreshed snapshot status.
 - [cpu-simd-coverage.md](cpu-simd-coverage.md) — CPU/SIMD coverage and benchmark context.
 

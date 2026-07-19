@@ -41,8 +41,10 @@ func TestGemmRowsParallelMatchesSerial(t *testing.T) {
 	if !GemmRowsParallel(got, x, w, batch, rows, cols) {
 		t.Fatal("GemmRowsParallel failed")
 	}
-	if !floatsEqual(want, got) {
-		t.Fatal("GemmRowsParallel result differs from GemmRows")
+	for i := range want {
+		if diff := math.Abs(float64(want[i] - got[i])); diff > 2e-5 {
+			t.Fatalf("GemmRowsParallel[%d]=%g want %g diff=%g", i, got[i], want[i], diff)
+		}
 	}
 }
 

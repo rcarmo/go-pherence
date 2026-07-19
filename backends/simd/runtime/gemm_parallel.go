@@ -3,6 +3,7 @@ package simd
 import (
 	"runtime"
 	"sync"
+	"unsafe"
 
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
@@ -18,6 +19,18 @@ func GemmRowsParallel(out, x, w []float32, batch, rows, cols int) bool {
 		len(out) < outLen || len(x) < xLen || len(w) < weightLen {
 		return false
 	}
+	nWorkers := runtime.GOMAXPROCS(0)
+	// Prompt/prefill matrices benefit from output tiling: each activation load
+	// feeds multiple weight rows, as in llamafile's multi-output kernels. Keep
+	// batch=1 on the lower-latency dot/GEMV path used by autoregressive decode.
+	if HasSgemmAsm && batch > 1 && batch <= 256 && rows >= 64 && cols >= 64 {
+		clear(out[:outLen])
+		return sgemmNTBlockedParallelTo(out[:outLen], x[:xLen], w[:weightLen], batch, rows, cols, nWorkers)
+	}
+	return gemmRowsParallelDots(out, x, w, batch, rows, cols)
+}
+
+func gemmRowsParallelDots(out, x, w []float32, batch, rows, cols int) bool {
 	nWorkers := runtime.GOMAXPROCS(0)
 	if rows < 256 || nWorkers <= 1 {
 		return GemmRows(out, x, w, batch, rows, cols)
@@ -101,6 +114,46 @@ func GemmRowsBF16Parallel(out, x []float32, w []uint16, batch, rows, cols int) b
 				}
 			}
 		}(start, end)
+	}
+	wg.Wait()
+	return true
+}
+
+// sgemmNTBlockedParallelTo computes C=A*B^T by assigning contiguous output-row
+// tiles to workers. Each worker reuses activation vectors across pairs of weight
+// rows and K blocks; no worker shares output cache lines with another.
+func sgemmNTBlockedParallelTo(c, a, b []float32, m, n, k, nWorkers int) bool {
+	if !validSgemmSliceArgs(c, a, b, m, n, k, k, k, n, true) || !HasSgemmAsm {
+		return false
+	}
+	if nWorkers < 1 {
+		nWorkers = 1
+	}
+	const tileRows = 64
+	tiles := (n + tileRows - 1) / tileRows
+	if nWorkers > tiles {
+		nWorkers = tiles
+	}
+	if nWorkers <= 1 {
+		SgemmNTBlockedFMA(m, n, k, 1, unsafe.Pointer(&a[0]), unsafe.Pointer(&b[0]), unsafe.Pointer(&c[0]), k, k, n)
+		return true
+	}
+	var wg sync.WaitGroup
+	for worker := 0; worker < nWorkers; worker++ {
+		wg.Add(1)
+		go func(worker int) {
+			defer wg.Done()
+			for tile := worker; tile < tiles; tile += nWorkers {
+				row0 := tile * tileRows
+				rowN := tileRows
+				if row0+rowN > n {
+					rowN = n - row0
+				}
+				SgemmNTBlockedFMA(m, rowN, k, 1,
+					unsafe.Pointer(&a[0]), unsafe.Pointer(&b[row0*k]), unsafe.Pointer(&c[row0]),
+					k, k, n)
+			}
+		}(worker)
 	}
 	wg.Wait()
 	return true
