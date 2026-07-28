@@ -31,7 +31,18 @@ func GemvRowsBF16(out []float32, x []float32, w []uint16, rows, cols int) bool {
 		return false
 	}
 	x = x[:cols]
-	for row := 0; row < rows; row++ {
+	row := 0
+	for ; row+4 <= rows; row += 4 {
+		d0, d1, d2, d3, ok := BF16DotF32x4(w[row*cols:], x, cols)
+		if !ok {
+			return false
+		}
+		out[row+0] = d0
+		out[row+1] = d1
+		out[row+2] = d2
+		out[row+3] = d3
+	}
+	for ; row < rows; row++ {
 		out[row] = BF16DotF32(w[row*cols:(row+1)*cols], x)
 	}
 	return true
@@ -46,7 +57,18 @@ func GemvRowsBF16BF16(out []float32, x []uint16, w []uint16, rows, cols int) boo
 		return false
 	}
 	x = x[:cols]
-	for row := 0; row < rows; row++ {
+	row := 0
+	for ; row+4 <= rows; row += 4 {
+		d0, d1, d2, d3, ok := BF16DotBF16x4(w[row*cols:], x, cols)
+		if !ok {
+			return false
+		}
+		out[row+0] = d0
+		out[row+1] = d1
+		out[row+2] = d2
+		out[row+3] = d3
+	}
+	for ; row < rows; row++ {
 		out[row] = BF16DotAsm(w[row*cols:(row+1)*cols], x)
 	}
 	return true
@@ -154,11 +176,7 @@ func GemvRowsBF16BF16Parallel(out []float32, x []uint16, w []uint16, rows, cols 
 		nWorkers = 6
 	}
 	if rows < nWorkers*64 {
-		// Too few rows to benefit from parallelism
-		for row := 0; row < rows; row++ {
-			out[row] = BF16DotAsm(w[row*cols:(row+1)*cols], x)
-		}
-		return true
+		return GemvRowsBF16BF16(out, x, w, rows, cols)
 	}
 	chunk := (rows + nWorkers - 1) / nWorkers
 	var wg sync.WaitGroup
@@ -174,7 +192,18 @@ func GemvRowsBF16BF16Parallel(out []float32, x []uint16, w []uint16, rows, cols 
 		wg.Add(1)
 		go func(s, e int) {
 			defer wg.Done()
-			for row := s; row < e; row++ {
+			row := s
+			for ; row+4 <= e; row += 4 {
+				d0, d1, d2, d3, ok := BF16DotBF16x4(w[row*cols:], x, cols)
+				if !ok {
+					return
+				}
+				out[row+0] = d0
+				out[row+1] = d1
+				out[row+2] = d2
+				out[row+3] = d3
+			}
+			for ; row < e; row++ {
 				out[row] = BF16DotAsm(w[row*cols:(row+1)*cols], x)
 			}
 		}(start, end)

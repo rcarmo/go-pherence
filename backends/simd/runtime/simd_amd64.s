@@ -223,3 +223,226 @@ sdotx4_reduce:
     VMOVSS  X6, dot3+68(FP)
     VZEROUPPER
     RET
+
+// func bf16DotF32x4Asm(w []uint16, x []float32, cols int) (dot0,dot1,dot2,dot3 float32)
+// Computes four consecutive BF16 weight rows against one shared F32 activation.
+TEXT ·bf16DotF32x4Asm(SB), NOSPLIT, $0-72
+    MOVQ    w_base+0(FP), SI
+    MOVQ    x_base+24(FP), DI
+    MOVQ    cols+48(FP), CX
+
+    MOVQ    CX, R8
+    SHLQ    $1, R8
+    LEAQ    (SI)(R8*1), BX
+    LEAQ    (BX)(R8*1), DX
+    LEAQ    (DX)(R8*1), R9
+
+    VXORPS  Y0, Y0, Y0
+    VXORPS  Y1, Y1, Y1
+    VXORPS  Y2, Y2, Y2
+    VXORPS  Y3, Y3, Y3
+
+    CMPQ    CX, $8
+    JL      bf16dotf32x4_reduce
+
+bf16dotf32x4_loop8:
+    VMOVUPS (DI), Y4
+
+    VPMOVZXWD (SI), Y5
+    VPSLLD  $16, Y5, Y5
+    VPMOVZXWD (BX), Y6
+    VPSLLD  $16, Y6, Y6
+    VPMOVZXWD (DX), Y7
+    VPSLLD  $16, Y7, Y7
+    VPMOVZXWD (R9), Y8
+    VPSLLD  $16, Y8, Y8
+
+    VFMADD231PS Y4, Y5, Y0
+    VFMADD231PS Y4, Y6, Y1
+    VFMADD231PS Y4, Y7, Y2
+    VFMADD231PS Y4, Y8, Y3
+
+    ADDQ    $16, SI
+    ADDQ    $16, BX
+    ADDQ    $16, DX
+    ADDQ    $16, R9
+    ADDQ    $32, DI
+    SUBQ    $8, CX
+    CMPQ    CX, $8
+    JGE     bf16dotf32x4_loop8
+
+bf16dotf32x4_reduce:
+    VEXTRACTF128 $1, Y0, X8
+    VADDPS  X8, X0, X0
+    VHADDPS X0, X0, X0
+    VHADDPS X0, X0, X0
+
+    VEXTRACTF128 $1, Y1, X9
+    VADDPS  X9, X1, X1
+    VHADDPS X1, X1, X1
+    VHADDPS X1, X1, X1
+
+    VEXTRACTF128 $1, Y2, X10
+    VADDPS  X10, X2, X2
+    VHADDPS X2, X2, X2
+    VHADDPS X2, X2, X2
+
+    VEXTRACTF128 $1, Y3, X11
+    VADDPS  X11, X3, X3
+    VHADDPS X3, X3, X3
+    VHADDPS X3, X3, X3
+
+    TESTQ   CX, CX
+    JZ      bf16dotf32x4_done
+
+bf16dotf32x4_scalar:
+    VMOVSS  (DI), X4
+
+    MOVWLZX (SI), R10
+    SHLL    $16, R10
+    MOVL    R10, X5
+    VFMADD231SS X4, X5, X0
+
+    MOVWLZX (BX), R11
+    SHLL    $16, R11
+    MOVL    R11, X5
+    VFMADD231SS X4, X5, X1
+
+    MOVWLZX (DX), R12
+    SHLL    $16, R12
+    MOVL    R12, X5
+    VFMADD231SS X4, X5, X2
+
+    MOVWLZX (R9), R13
+    SHLL    $16, R13
+    MOVL    R13, X5
+    VFMADD231SS X4, X5, X3
+
+    ADDQ    $2, SI
+    ADDQ    $2, BX
+    ADDQ    $2, DX
+    ADDQ    $2, R9
+    ADDQ    $4, DI
+    DECQ    CX
+    JNZ     bf16dotf32x4_scalar
+
+bf16dotf32x4_done:
+    VMOVSS  X0, dot0+56(FP)
+    VMOVSS  X1, dot1+60(FP)
+    VMOVSS  X2, dot2+64(FP)
+    VMOVSS  X3, dot3+68(FP)
+    VZEROUPPER
+    RET
+
+// func bf16DotBF16x4Asm(w []uint16, x []uint16, cols int) (dot0,dot1,dot2,dot3 float32)
+// Computes four consecutive BF16 weight rows against one shared BF16 activation.
+TEXT ·bf16DotBF16x4Asm(SB), NOSPLIT, $0-72
+    MOVQ    w_base+0(FP), SI
+    MOVQ    x_base+24(FP), DI
+    MOVQ    cols+48(FP), CX
+
+    MOVQ    CX, R8
+    SHLQ    $1, R8
+    LEAQ    (SI)(R8*1), BX
+    LEAQ    (BX)(R8*1), DX
+    LEAQ    (DX)(R8*1), R9
+
+    VXORPS  Y0, Y0, Y0
+    VXORPS  Y1, Y1, Y1
+    VXORPS  Y2, Y2, Y2
+    VXORPS  Y3, Y3, Y3
+
+    CMPQ    CX, $8
+    JL      bf16dotbf16x4_reduce
+
+bf16dotbf16x4_loop8:
+    VPMOVZXWD (DI), Y4
+    VPSLLD  $16, Y4, Y4
+
+    VPMOVZXWD (SI), Y5
+    VPSLLD  $16, Y5, Y5
+    VPMOVZXWD (BX), Y6
+    VPSLLD  $16, Y6, Y6
+    VPMOVZXWD (DX), Y7
+    VPSLLD  $16, Y7, Y7
+    VPMOVZXWD (R9), Y8
+    VPSLLD  $16, Y8, Y8
+
+    VFMADD231PS Y4, Y5, Y0
+    VFMADD231PS Y4, Y6, Y1
+    VFMADD231PS Y4, Y7, Y2
+    VFMADD231PS Y4, Y8, Y3
+
+    ADDQ    $16, SI
+    ADDQ    $16, BX
+    ADDQ    $16, DX
+    ADDQ    $16, R9
+    ADDQ    $16, DI
+    SUBQ    $8, CX
+    CMPQ    CX, $8
+    JGE     bf16dotbf16x4_loop8
+
+bf16dotbf16x4_reduce:
+    VEXTRACTF128 $1, Y0, X8
+    VADDPS  X8, X0, X0
+    VHADDPS X0, X0, X0
+    VHADDPS X0, X0, X0
+
+    VEXTRACTF128 $1, Y1, X9
+    VADDPS  X9, X1, X1
+    VHADDPS X1, X1, X1
+    VHADDPS X1, X1, X1
+
+    VEXTRACTF128 $1, Y2, X10
+    VADDPS  X10, X2, X2
+    VHADDPS X2, X2, X2
+    VHADDPS X2, X2, X2
+
+    VEXTRACTF128 $1, Y3, X11
+    VADDPS  X11, X3, X3
+    VHADDPS X3, X3, X3
+    VHADDPS X3, X3, X3
+
+    TESTQ   CX, CX
+    JZ      bf16dotbf16x4_done
+
+bf16dotbf16x4_scalar:
+    MOVWLZX (DI), R10
+    SHLL    $16, R10
+    MOVL    R10, X4
+
+    MOVWLZX (SI), R11
+    SHLL    $16, R11
+    MOVL    R11, X5
+    VFMADD231SS X4, X5, X0
+
+    MOVWLZX (BX), R12
+    SHLL    $16, R12
+    MOVL    R12, X5
+    VFMADD231SS X4, X5, X1
+
+    MOVWLZX (DX), R13
+    SHLL    $16, R13
+    MOVL    R13, X5
+    VFMADD231SS X4, X5, X2
+
+    MOVWLZX (R9), R14
+    SHLL    $16, R14
+    MOVL    R14, X5
+    VFMADD231SS X4, X5, X3
+
+    ADDQ    $2, SI
+    ADDQ    $2, BX
+    ADDQ    $2, DX
+    ADDQ    $2, R9
+    ADDQ    $2, DI
+    DECQ    CX
+    JNZ     bf16dotbf16x4_scalar
+
+bf16dotbf16x4_done:
+    VMOVSS  X0, dot0+56(FP)
+    VMOVSS  X1, dot1+60(FP)
+    VMOVSS  X2, dot2+64(FP)
+    VMOVSS  X3, dot3+68(FP)
+    VZEROUPPER
+    RET

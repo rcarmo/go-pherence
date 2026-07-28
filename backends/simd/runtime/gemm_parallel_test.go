@@ -66,8 +66,10 @@ func TestGemmRowsBF16ParallelMatchesSerial(t *testing.T) {
 	if !GemmRowsBF16Parallel(got, x, w, batch, rows, cols) {
 		t.Fatal("GemmRowsBF16Parallel failed")
 	}
-	if !floatsEqual(want, got) {
-		t.Fatal("GemmRowsBF16Parallel result differs from serial BF16 GEMV")
+	for i := range want {
+		if diff := math.Abs(float64(want[i] - got[i])); diff > bf16Dotx4Tolerance(cols) {
+			t.Fatalf("GemmRowsBF16Parallel[%d]=%g want %g diff=%g", i, got[i], want[i], diff)
+		}
 	}
 }
 

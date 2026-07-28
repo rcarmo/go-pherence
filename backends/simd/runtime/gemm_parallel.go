@@ -107,7 +107,22 @@ func GemmRowsBF16Parallel(out, x []float32, w []uint16, batch, rows, cols int) b
 		wg.Add(1)
 		go func(rs, re int) {
 			defer wg.Done()
-			for row := rs; row < re; row++ {
+			row := rs
+			for ; row+4 <= re; row += 4 {
+				wRows := w[row*cols:]
+				for b := 0; b < batch; b++ {
+					d0, d1, d2, d3, ok := BF16DotF32x4(wRows, x[b*cols:(b+1)*cols], cols)
+					if !ok {
+						return
+					}
+					base := b*rows + row
+					out[base+0] = d0
+					out[base+1] = d1
+					out[base+2] = d2
+					out[base+3] = d3
+				}
+			}
+			for ; row < re; row++ {
 				wRow := w[row*cols : (row+1)*cols]
 				for b := 0; b < batch; b++ {
 					out[b*rows+row] = BF16DotF32(wRow, x[b*cols:(b+1)*cols])
