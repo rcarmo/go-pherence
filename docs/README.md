@@ -27,6 +27,7 @@ This directory contains the durable backend, model, validation, and research not
 - [simd-matmul.md](simd-matmul.md) — shape-aware decode/prefill SIMD matmul dispatch, cache tiling, and benchmark procedure.
 - [matmul-audit.md](matmul-audit.md) — full dense, quantised, GPU, RVV, IME2, and model-call-site audit against multi-output/cache-tiled matmul design.
 - [matmul-benchmark-protocol.md](matmul-benchmark-protocol.md) — reproducible baseline, profiling, parity, and before/after acceptance protocol for matmul changes.
+- [matmul-optimisation-results.md](matmul-optimisation-results.md) — final retained/rejected kernel results, end-to-end measurements, and validation status.
 - [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and refreshed snapshot status.
 - [cpu-simd-coverage.md](cpu-simd-coverage.md) — CPU/SIMD coverage and benchmark context.
 
