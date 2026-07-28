@@ -298,11 +298,15 @@ func GemmFP8E4M3Buffer(outBuf, xBuf *Buffer, batch int, w *GPUFP8E4M3Linear) err
 		biasPtr = w.Bias.Ptr
 		hasBias = 1
 	}
+	gridX, ok := grid1DFor(w.OutDim, 4)
+	if !ok {
+		return fmt.Errorf("invalid FP8 E4M3 GEMM launch grid out=%d", w.OutDim)
+	}
 	outDim := uint32(w.OutDim)
 	inDim := uint32(w.InDim)
 	scaleLen := uint32(w.ScaleLen)
 	batchU := uint32(batch)
-	return LaunchKernel(fnFP8E4M3GemmF32, uint32(w.OutDim), batchU, 1, 128, 1, 1, 128*4,
+	return LaunchKernel(fnFP8E4M3GemmF32, gridX, batchU, 1, 128, 1, 1, 0,
 		unsafe.Pointer(&w.Weight.Ptr),
 		unsafe.Pointer(&w.Scale.Ptr),
 		unsafe.Pointer(&biasPtr),
