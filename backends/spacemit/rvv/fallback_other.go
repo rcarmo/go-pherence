@@ -365,31 +365,13 @@ func packBF16TileInto(B []uint16, N, K, tileN int, dst []uint16) []uint16 {
 }
 
 func packBF16TileFallback(B []uint16, N, K, tileN int) []uint16 {
-	return packBF16TileIntoFallback(B, N, K, tileN, make([]uint16, N*K))
+	return packBF16TilePadded(B, N, K, tileN)
 }
 func packBF16TileIntoFallback(B []uint16, N, K, tileN int, dst []uint16) []uint16 {
-	Bp := dst[:N*K]
-	for nt := 0; nt < N/tileN; nt++ {
-		base := nt * K * tileN
-		for k := 0; k < K; k++ {
-			for j := 0; j < tileN; j++ {
-				Bp[base+k*tileN+j] = B[(nt*tileN+j)*K+k]
-			}
-		}
-	}
-	return Bp
+	return packBF16TilePaddedInto(B, N, K, tileN, dst)
 }
 func packI8TileFallback(B []int8, N, K, tileN int) []int8 {
-	Bp := make([]int8, N*K)
-	for nt := 0; nt < N/tileN; nt++ {
-		base := nt * K * tileN
-		for k := 0; k < K; k++ {
-			for j := 0; j < tileN; j++ {
-				Bp[base+k*tileN+j] = B[(nt*tileN+j)*K+k]
-			}
-		}
-	}
-	return Bp
+	return packI8TilePadded(B, N, K, tileN)
 }
 func gemmI8PackedFallback(A, Bp []int8, C []int32, M, N, K, tileN int) {
 	for m := 0; m < M; m++ {

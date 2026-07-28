@@ -54,60 +54,52 @@ func GemmF16(A, B []uint16, C []float32, M, N, K int) {
 }
 
 // PackBF16 packs B[N,K] (transposed-B, row n = output n's fp16 weights) into
-// tiles of 16 N-columns: Bp[nt][k][0:16]. Requires N % 16 == 0. Pre-pack static
-// weights before calling GemmF16Outer.
+// tiles of 16 N-columns: Bp[nt][k][0:16]. The final partial tile is zero-padded
+// so the packed layout remains safe for arbitrary N.
 func PackBF16(B []uint16, N, K int) []uint16 { return packBF16Tile(B, N, K, 16) }
 
-// PackBF16Into is the allocation-free form of PackBF16. dst must have at least
-// N*K elements and is returned for call chaining.
+// PackBF16Into is the allocation-free form of PackBF16. dst must have capacity
+// for ceil(N/16)*K*16 elements and is returned for call chaining.
 func PackBF16Into(B []uint16, N, K int, dst []uint16) []uint16 {
 	return packBF16TileInto(B, N, K, 16, dst)
 }
 
 // PackBF16N32 packs B[N,K] into tiles of 32 N-columns for GemmF16Outer32.
-// It is the preferred layout for X100 VLEN=256 because it fills e16,m2/e32,m4.
+// It is the preferred layout for X100 VLEN=256 because it fills e16,m2/e32,m4;
+// the final partial tile is zero-padded.
 func PackBF16N32(B []uint16, N, K int) []uint16 { return packBF16Tile(B, N, K, 32) }
 
-// PackBF16N32Into is the allocation-free form of PackBF16N32. dst must have at
-// least N*K elements and is returned for call chaining.
+// PackBF16N32Into is the allocation-free form of PackBF16N32. dst must have
+// capacity for ceil(N/32)*K*32 elements and is returned for call chaining.
 func PackBF16N32Into(B []uint16, N, K int, dst []uint16) []uint16 {
 	return packBF16TileInto(B, N, K, 32, dst)
 }
 
 func packBF16Tile(B []uint16, N, K, tileN int) []uint16 {
-	return packBF16TileInto(B, N, K, tileN, make([]uint16, N*K))
+	return packBF16TilePadded(B, N, K, tileN)
 }
 
 func packBF16TileInto(B []uint16, N, K, tileN int, dst []uint16) []uint16 {
-	Bp := dst[:N*K]
-	for nt := 0; nt < N/tileN; nt++ {
-		base := nt * K * tileN
-		for k := 0; k < K; k++ {
-			for j := 0; j < tileN; j++ {
-				Bp[base+k*tileN+j] = B[(nt*tileN+j)*K+k]
-			}
-		}
-	}
-	return Bp
+	return packBF16TilePaddedInto(B, N, K, tileN, dst)
 }
 
 // GemmF16Outer computes C[M,N] = A[M,K]·B[N,K]^T using the FP16 M4xN16
-// outer-product kernel. Bp must come from PackBF16. Requires M%4==0 and N%16==0.
-// nthreads partitions work over M-blocks.
+// outer-product kernel. Bp must come from PackBF16. Full tiles stay on the
+// assembly core; arbitrary M/N tails are handled safely via a scratch tile and
+// scalar packed fallback. nthreads partitions work over full M-blocks.
 func GemmF16Outer(A, Bp []uint16, C []float32, M, N, K, nthreads int) {
 	gemmF16OuterTile(A, Bp, C, M, N, K, nthreads, 16, kernelF16M4N16)
 }
 
 // GemmF16Outer32 is the M4xN32 FP16 outer-product kernel. Bp must come from
-// PackBF16N32. Requires M%4==0 and N%32==0.
+// PackBF16N32. It preserves the fast M4xN32 core while safely handling tails.
 func GemmF16Outer32(A, Bp []uint16, C []float32, M, N, K, nthreads int) {
 	gemmF16OuterTile(A, Bp, C, M, N, K, nthreads, 32, kernelF16M4N32)
 }
 
 // GemmF16Outer32Batch runs multiple independent M4xN32 FP16 GEMMs with a single
-// worker fanout. This is intended for attention head batching: each head remains
-// an independent GEMM, but goroutine launch/barrier overhead is paid once per
-// batch rather than once per head.
+// worker fanout. Exact-tile batches stay on the flattened fast path; tail cases
+// fall back to per-spec GemmF16Outer32 so correctness is preserved.
 func GemmF16Outer32Batch(nthreads int, specs ...GemmF16Outer32Spec) {
 	if len(specs) == 0 {
 		return
@@ -117,6 +109,14 @@ func GemmF16Outer32Batch(nthreads int, specs ...GemmF16Outer32Spec) {
 			GemmF16Outer32(sp.A, sp.Bp, sp.C, sp.M, sp.N, sp.K, 1)
 		}
 		return
+	}
+	for _, sp := range specs {
+		if sp.M%4 != 0 || sp.N%32 != 0 {
+			for _, sp := range specs {
+				GemmF16Outer32(sp.A, sp.Bp, sp.C, sp.M, sp.N, sp.K, nthreads)
+			}
+			return
+		}
 	}
 	starts := make([]int, len(specs)+1)
 	for i, sp := range specs {
@@ -150,45 +150,63 @@ func GemmF16Outer32Batch(nthreads int, specs ...GemmF16Outer32Spec) {
 
 func gemmF16OuterTile(A, Bp []uint16, C []float32, M, N, K, nthreads, tileN int, kernel func(a, bp *uint16, c *float32, K, lda, ldc int64)) {
 	mblocks := M / 4
+	fullNTiles := N / tileN
+	tailN := N - fullNTiles*tileN
 	work := func(mb0, mb1 int) {
+		var tailTile [4 * 32]float32
+		for nb0 := 0; nb0 < fullNTiles; nb0 += outerCacheBlockTiles {
+			nb1 := minInt(fullNTiles, nb0+outerCacheBlockTiles)
+			for mb := mb0; mb < mb1; mb++ {
+				m := mb * 4
+				for nt := nb0; nt < nb1; nt++ {
+					kernel(&A[m*K], &Bp[nt*K*tileN], &C[m*N+nt*tileN],
+						int64(K), int64(K*2), int64(N*4))
+				}
+			}
+		}
+		if tailN == 0 {
+			return
+		}
 		for mb := mb0; mb < mb1; mb++ {
 			m := mb * 4
-			for nt := 0; nt < N/tileN; nt++ {
-				kernel(&A[m*K], &Bp[nt*K*tileN], &C[m*N+nt*tileN],
-					int64(K), int64(K*2), int64(N*4))
-			}
+			kernel(&A[m*K], &Bp[fullNTiles*K*tileN], &tailTile[0],
+				int64(K), int64(K*2), int64(tileN*4))
+			copyF32TailTile(C[m*N+fullNTiles*tileN:], N, tailN, tileN, tailTile[:])
 		}
 	}
 	if nthreads <= 1 {
 		work(0, mblocks)
-		return
-	}
-	var wg sync.WaitGroup
-	ch := (mblocks + nthreads - 1) / nthreads
-	for t := 0; t < nthreads; t++ {
-		m0, m1 := t*ch, (t+1)*ch
-		if m0 >= mblocks {
-			break
+	} else {
+		var wg sync.WaitGroup
+		ch := (mblocks + nthreads - 1) / nthreads
+		for t := 0; t < nthreads; t++ {
+			m0, m1 := t*ch, (t+1)*ch
+			if m0 >= mblocks {
+				break
+			}
+			if m1 > mblocks {
+				m1 = mblocks
+			}
+			wg.Add(1)
+			go func(m0, m1 int) { defer wg.Done(); work(m0, m1) }(m0, m1)
 		}
-		if m1 > mblocks {
-			m1 = mblocks
-		}
-		wg.Add(1)
-		go func(m0, m1 int) { defer wg.Done(); work(m0, m1) }(m0, m1)
+		wg.Wait()
 	}
-	wg.Wait()
+	if mblocks*4 < M {
+		gemmF16PackedRowsScalar(A, Bp, C, mblocks*4, M, N, K, tileN)
+	}
 }
 
 // GemmF16Threaded runs GemmF16 across nthreads goroutines partitioned over M
-// rows. It dispatches to the tiled M4xN32 kernel when dimensions are compatible,
-// falls back to M4xN16, and finally to the dot-loop kernel for tails/small odd
-// shapes.
+// rows. It dispatches to the tiled M4xN32 kernel when there is useful tile work,
+// falls back to M4xN16 for medium-width cases, and finally to the dot-loop
+// kernel for very small shapes.
 func GemmF16Threaded(A, B []uint16, C []float32, M, N, K, nthreads int) {
-	if M%4 == 0 && N%32 == 0 {
+	if M >= 4 && N >= 32 {
 		GemmF16Outer32(A, PackBF16N32(B, N, K), C, M, N, K, nthreads)
 		return
 	}
-	if M%4 == 0 && N%16 == 0 {
+	if M >= 4 && N >= 16 {
 		GemmF16Outer(A, PackBF16(B, N, K), C, M, N, K, nthreads)
 		return
 	}
