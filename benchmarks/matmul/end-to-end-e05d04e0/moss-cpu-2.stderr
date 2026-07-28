@@ -1,0 +1,8 @@
+loading native model from /workspace/models/moss-transcribe-diarize
+model loaded in 5.209s
+backend=cpu/simd (-cpu)
+audio 11.00s, encoding
+audio encoded in 20.574s
+audio_tokens=138 prompt_tokens=227 generating<=128
+generated_tokens=70 in 9.179s
+wrote benchmarks/matmul/end-to-end-e05d04e0/moss-cpu-2.txt

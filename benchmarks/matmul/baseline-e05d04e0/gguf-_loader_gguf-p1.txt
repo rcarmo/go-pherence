@@ -1,0 +1,21 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkDotQ4_0Q8_0                	  343573	      1740 ns/op	2941.73 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0                	  336871	      1783 ns/op	2872.14 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0                	  348010	      1726 ns/op	2966.97 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0                	  350647	      1721 ns/op	2975.10 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0                	  330800	      1730 ns/op	2959.15 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ6KQ8K                  	  120084	      4984 ns/op	1027.21 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ6KQ8K                  	  119424	      4986 ns/op	1026.89 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ6KQ8K                  	  120375	      4992 ns/op	1025.62 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ6KQ8K                  	  120272	      4954 ns/op	1033.55 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDotQ6KQ8K                  	  119408	      4972 ns/op	1029.67 MB/s	       0 B/op	       0 allocs/op
+BenchmarkProjectBatchQ4KAllocations 	     225	   2692817 ns/op	  149499 B/op	      24 allocs/op
+BenchmarkProjectBatchQ4KAllocations 	     223	   2671225 ns/op	  149507 B/op	      24 allocs/op
+BenchmarkProjectBatchQ4KAllocations 	     224	   2673531 ns/op	  149503 B/op	      24 allocs/op
+BenchmarkProjectBatchQ4KAllocations 	     224	   2664461 ns/op	  149503 B/op	      24 allocs/op
+BenchmarkProjectBatchQ4KAllocations 	     224	   2675513 ns/op	  149503 B/op	      24 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	10.656s

@@ -1,0 +1,36 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/model
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkCPUHotGemvMLQ1536x2048-2            	     339	   1760886 ns/op	7145.79 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvMLQ1536x2048-2            	     338	   1760357 ns/op	7147.93 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvMLQ1536x2048-2            	     339	   1759959 ns/op	7149.55 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvMLQ1536x2048-2            	     340	   1761470 ns/op	7143.41 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvMLQ1536x2048-2            	     340	   1761133 ns/op	7144.78 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemmMLXBatch8_1536x2048-2     	      81	   7102154 ns/op	14173.63 MB/s	     625 B/op	       5 allocs/op
+BenchmarkCPUHotGemmMLXBatch8_1536x2048-2     	      84	   7170802 ns/op	14037.94 MB/s	     252 B/op	       5 allocs/op
+BenchmarkCPUHotGemmMLXBatch8_1536x2048-2     	      82	   7133178 ns/op	14111.98 MB/s	     240 B/op	       5 allocs/op
+BenchmarkCPUHotGemmMLXBatch8_1536x2048-2     	      84	   7126414 ns/op	14125.38 MB/s	     241 B/op	       5 allocs/op
+BenchmarkCPUHotGemmMLXBatch8_1536x2048-2     	      84	   7172378 ns/op	14034.86 MB/s	     241 B/op	       5 allocs/op
+BenchmarkCPUHotGemvQ4Sym1536x2048-2          	     243	   2448531 ns/op	5138.96 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Sym1536x2048-2          	     244	   2498222 ns/op	5036.75 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Sym1536x2048-2          	     246	   2427957 ns/op	5182.51 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Sym1536x2048-2          	     242	   2389555 ns/op	5265.80 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Sym1536x2048-2          	     250	   2430247 ns/op	5177.63 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Asym1536x2048-2         	     128	   4717166 ns/op	2667.47 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Asym1536x2048-2         	     126	   4709566 ns/op	2671.78 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Asym1536x2048-2         	     127	   4764210 ns/op	2641.13 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Asym1536x2048-2         	     127	   4645385 ns/op	2708.69 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvQ4Asym1536x2048-2         	     128	   4631002 ns/op	2717.10 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemmNVFP4Batch4_1536x2048-2   	      51	  11346390 ns/op	4435.92 MB/s	     288 B/op	       6 allocs/op
+BenchmarkCPUHotGemmNVFP4Batch4_1536x2048-2   	      51	  11421659 ns/op	4406.68 MB/s	     288 B/op	       6 allocs/op
+BenchmarkCPUHotGemmNVFP4Batch4_1536x2048-2   	      51	  11371482 ns/op	4426.13 MB/s	     288 B/op	       6 allocs/op
+BenchmarkCPUHotGemmNVFP4Batch4_1536x2048-2   	      52	  11452550 ns/op	4394.80 MB/s	     288 B/op	       6 allocs/op
+BenchmarkCPUHotGemmNVFP4Batch4_1536x2048-2   	      52	  11518009 ns/op	4369.82 MB/s	     288 B/op	       6 allocs/op
+BenchmarkCPUHotGemvNVFP4_1536x2048-2         	     100	   5670678 ns/op	2218.94 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvNVFP4_1536x2048-2         	     100	   5647755 ns/op	2227.95 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvNVFP4_1536x2048-2         	     100	   5653778 ns/op	2225.58 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvNVFP4_1536x2048-2         	     100	   5643034 ns/op	2229.81 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCPUHotGemvNVFP4_1536x2048-2         	     100	   5658789 ns/op	2223.60 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/model	22.344s

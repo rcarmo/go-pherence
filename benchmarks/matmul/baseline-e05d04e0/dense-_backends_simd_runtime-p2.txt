@@ -1,0 +1,91 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/simd/runtime
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkBF16Dot-2                         	  341764	      1808 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16Dot-2                         	  334996	      1826 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16Dot-2                         	  337291	      1789 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16Dot-2                         	  342078	      1768 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16Dot-2                         	  338329	      1764 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotF32-2                      	  362875	      1642 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotF32-2                      	  366670	      1637 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotF32-2                      	  365240	      1643 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotF32-2                      	  373654	      1621 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotF32-2                      	  330687	      1620 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotAsm-2                      	 2411184	       248.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotAsm-2                      	 2418498	       247.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotAsm-2                      	 2423844	       248.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotAsm-2                      	 2396818	       248.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotAsm-2                      	 2428687	       248.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_704-2   	13173944	        45.29 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_704-2   	13283115	        45.54 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_704-2   	13306105	        46.24 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_704-2   	13486372	        45.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_704-2   	13047856	        45.33 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_704-2         	 5344236	       110.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_704-2         	 5454031	       112.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_704-2         	 5428543	       112.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_704-2         	 5329374	       111.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_704-2         	 5487556	       109.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_2816-2           	 2022961	       296.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_2816-2           	 2014730	       294.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_2816-2           	 2044233	       296.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_2816-2           	 2000128	       291.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_2816-2           	 2044066	       294.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_2816-2        	 1000000	       521.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_2816-2        	 1000000	       523.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_2816-2        	 1000000	       522.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_2816-2        	 1000000	       523.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_2816-2        	 1000000	       520.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Serial-2               	   10000	     59673 ns/op	140575.57 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Serial-2               	   10000	     56474 ns/op	148538.81 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Serial-2               	   10000	     60593 ns/op	138441.54 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Serial-2               	   10000	     65940 ns/op	127215.20 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Serial-2               	   10000	     57584 ns/op	145675.54 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Blocked-2              	    9220	     70098 ns/op	119670.52 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Blocked-2              	   10000	     61099 ns/op	137296.08 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Blocked-2              	   10000	     63812 ns/op	131457.87 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Blocked-2              	   10000	     63102 ns/op	132938.01 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Blocked-2              	    9997	     64258 ns/op	130545.34 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Serial-2              	     330	   1864582 ns/op	143965.47 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Serial-2              	     334	   1840311 ns/op	145864.18 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Serial-2              	     312	   1961711 ns/op	136837.40 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Serial-2              	     285	   2088651 ns/op	128520.96 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Serial-2              	     337	   1773549 ns/op	151354.99 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Blocked-2             	     430	   1393626 ns/op	192616.61 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Blocked-2             	     432	   1380748 ns/op	194413.04 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Blocked-2             	     416	   1408129 ns/op	190632.76 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Blocked-2             	     430	   1390199 ns/op	193091.42 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Blocked-2             	     427	   1398142 ns/op	191994.48 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Serial-2             	      45	  12853887 ns/op	148143.05 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Serial-2             	      48	  13990155 ns/op	136111.00 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Serial-2             	      43	  12920322 ns/op	147381.32 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Serial-2             	      42	  12739904 ns/op	149468.48 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Serial-2             	      40	  12700116 ns/op	149936.74 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Blocked-2            	      56	  10195397 ns/op	186771.93 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Blocked-2            	      56	  10525864 ns/op	180908.10 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Blocked-2            	      56	  10376455 ns/op	183512.96 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Blocked-2            	      56	  10383961 ns/op	183380.32 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Blocked-2            	      56	  10140662 ns/op	187780.05 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleGemmRowsPrefill-2                   	     100	   5598501 ns/op	340129.24 MB/s	     518 B/op	       6 allocs/op
+BenchmarkArticleGemmRowsPrefill-2                   	     100	   5586753 ns/op	340844.52 MB/s	     459 B/op	       6 allocs/op
+BenchmarkArticleGemmRowsPrefill-2                   	      99	   5499642 ns/op	346243.26 MB/s	     328 B/op	       6 allocs/op
+BenchmarkArticleGemmRowsPrefill-2                   	     100	   5500370 ns/op	346197.42 MB/s	     328 B/op	       6 allocs/op
+BenchmarkArticleGemmRowsPrefill-2                   	     100	   5499601 ns/op	346245.82 MB/s	     329 B/op	       6 allocs/op
+BenchmarkArticleGemmRowsPrefillLegacy-2             	      94	   5824353 ns/op	326940.01 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsPrefillLegacy-2             	     103	   5742407 ns/op	331605.56 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsPrefillLegacy-2             	     100	   5764445 ns/op	330337.76 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsPrefillLegacy-2             	     100	   5860077 ns/op	324946.94 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsPrefillLegacy-2             	      99	   5703137 ns/op	333888.88 MB/s	     305 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsDecode-2                    	   14794	     40053 ns/op	209435.42 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsDecode-2                    	   14545	     41014 ns/op	204528.12 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsDecode-2                    	   14458	     41882 ns/op	200289.73 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsDecode-2                    	   14637	     40296 ns/op	208176.71 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsDecode-2                    	   14252	     42607 ns/op	196883.90 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsWhisper-2                   	      16	  52485470 ns/op	239740.86 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsWhisper-2                   	       9	  58662986 ns/op	214494.91 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsWhisper-2                   	       9	  59899503 ns/op	210067.05 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsWhisper-2                   	      10	  53909706 ns/op	233407.17 MB/s	     304 B/op	       5 allocs/op
+BenchmarkArticleGemmRowsWhisper-2                   	       9	  59125165 ns/op	212818.21 MB/s	     304 B/op	       5 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	61.713s

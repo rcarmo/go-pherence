@@ -1,0 +1,7 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/simd/runtime
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkArticleGemmRowsPrefill-6   	     817	   2498006 ns/op	762293.68 MB/s
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	4.228s

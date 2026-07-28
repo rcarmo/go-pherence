@@ -1,0 +1,2 @@
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	0.002s

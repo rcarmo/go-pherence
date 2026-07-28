@@ -1,0 +1,8 @@
+loading native model from /workspace/models/moss-transcribe-diarize
+model loaded in 4.663s
+backend=nvidia-ptx (GPU audio encoder/adaptor/Qwen3 enabled)
+audio 11.00s, encoding
+audio encoded in 3.835s
+audio_tokens=138 prompt_tokens=227 generating<=128
+generated_tokens=70 in 3.367s
+wrote benchmarks/matmul/end-to-end-e05d04e0/moss-gpu-1.txt

@@ -1,0 +1,6 @@
+{"workload":"moss-jfk","mode":"cpu","run":1,"wall_ns":41145133656,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
+{"workload":"moss-jfk","mode":"cpu","run":2,"wall_ns":35425330849,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
+{"workload":"moss-jfk","mode":"cpu","run":3,"wall_ns":35368977786,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
+{"workload":"moss-jfk","mode":"gpu","run":1,"wall_ns":12987862902,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
+{"workload":"moss-jfk","mode":"gpu","run":2,"wall_ns":13108211966,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
+{"workload":"moss-jfk","mode":"gpu","run":3,"wall_ns":12989529660,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
