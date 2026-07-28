@@ -6,16 +6,17 @@ import (
 )
 
 var (
-	fnWhisperMelSpectrogram CUfunction
-	fnWhisperConv1DK3S1     CUfunction
-	fnWhisperConv1DK3S2     CUfunction
-	fnWhisperAttentionFull  CUfunction
-	fnWhisperCrossAttention CUfunction
-	fnWhisperAttentivePool  CUfunction
-	fnWhisperRowAffine      CUfunction
-	fnWhisperRowBias        CUfunction
-	fnWhisperTranspose      CUfunction
-	fnWhisperGELUTanh       CUfunction
+	fnWhisperMelSpectrogram      CUfunction
+	fnWhisperConv1DK3S1          CUfunction
+	fnWhisperConv1DK3S2          CUfunction
+	fnWhisperAttentionFull       CUfunction
+	fnWhisperAttentionFullOnline CUfunction
+	fnWhisperCrossAttention      CUfunction
+	fnWhisperAttentivePool       CUfunction
+	fnWhisperRowAffine           CUfunction
+	fnWhisperRowBias             CUfunction
+	fnWhisperTranspose           CUfunction
+	fnWhisperGELUTanh            CUfunction
 )
 
 func validWhisperMatrixBuffers(out, in *Buffer, rows, cols int) bool {
@@ -104,22 +105,26 @@ func whisperConv1DBuffer(fn CUfunction, out, in, weight, bias *Buffer, inChannel
 }
 
 func WhisperAttentionFullBuffer(out, q, k, v *Buffer, seqQ, seqKV, numHeads, headDim int, scale float32) error {
-	return whisperAttentionBuffer(fnWhisperAttentionFull, out, q, k, v, seqQ, seqKV, numHeads, headDim, scale, "full")
+	return whisperAttentionBuffer(fnWhisperAttentionFull, out, q, k, v, seqQ, seqKV, numHeads, headDim, scale, "full", 128)
+}
+
+// WhisperAttentionFullOnlineBuffer launches the no-score-materialization
+// candidate kernel. Keep the default dispatcher on WhisperAttentionFullBuffer
+// unless this variant proves faster while staying within the current parity
+// tolerance on live benchmarks.
+func WhisperAttentionFullOnlineBuffer(out, q, k, v *Buffer, seqQ, seqKV, numHeads, headDim int, scale float32) error {
+	return whisperAttentionBuffer(fnWhisperAttentionFullOnline, out, q, k, v, seqQ, seqKV, numHeads, headDim, scale, "full_online", 128)
 }
 
 func WhisperCrossAttentionBuffer(out, q, k, v *Buffer, decLen, encLen, numHeads, headDim int, scale float32) error {
-	return whisperAttentionBuffer(fnWhisperCrossAttention, out, q, k, v, decLen, encLen, numHeads, headDim, scale, "cross")
+	return whisperAttentionBuffer(fnWhisperCrossAttention, out, q, k, v, decLen, encLen, numHeads, headDim, scale, "cross", 1)
 }
 
-func whisperAttentionBuffer(fn CUfunction, out, q, k, v *Buffer, seqQ, seqKV, numHeads, headDim int, scale float32, name string) error {
+func whisperAttentionBuffer(fn CUfunction, out, q, k, v *Buffer, seqQ, seqKV, numHeads, headDim int, scale float32, name string, blockX uint32) error {
 	if fn == 0 || !megaModuleOK || out == nil || q == nil || k == nil || v == nil || seqQ <= 0 || seqKV <= 0 || numHeads <= 0 || headDim <= 0 || !fitsUint32(seqQ) || !fitsUint32(seqKV) || !fitsUint32(numHeads) || !fitsUint32(headDim) {
 		return fmt.Errorf("invalid Whisper %s attention device buffers", name)
 	}
 	sq, skv, nh, hd := uint32(seqQ), uint32(seqKV), uint32(numHeads), uint32(headDim)
-	blockX := uint32(1)
-	if name == "full" {
-		blockX = 128
-	}
 	return LaunchKernel(fn, uint32(numHeads), uint32(seqQ), 1, blockX, 1, 1, 0,
 		unsafe.Pointer(&out.Ptr), unsafe.Pointer(&q.Ptr), unsafe.Pointer(&k.Ptr), unsafe.Pointer(&v.Ptr),
 		unsafe.Pointer(&sq), unsafe.Pointer(&skv), unsafe.Pointer(&nh), unsafe.Pointer(&hd), unsafe.Pointer(&scale))

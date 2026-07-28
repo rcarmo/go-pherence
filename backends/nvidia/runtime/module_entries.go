@@ -101,6 +101,7 @@ func megaModuleEntries() []moduleEntry {
 		{"conv1d_k3_s1", ptxwhisper.Conv1DK3S1PTX},
 		{"conv1d_k3_s2", ptxwhisper.Conv1DK3S2PTX},
 		{"attention_full", ptxwhisper.AttentionFullPTX},
+		{"attention_full_online", ptxwhisper.AttentionFullOnlinePTX},
 		{"cross_attention", ptxwhisper.CrossAttentionPTX},
 		{"attentive_stat_pool", ptxwhisper.AttentivePoolPTX},
 		{"whisper_row_affine_f32", ptxwhisper.EncoderRowAffinePTX},

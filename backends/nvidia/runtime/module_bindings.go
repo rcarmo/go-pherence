@@ -54,6 +54,7 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnWhisperConv1DK3S1 = f.get("conv1d_k3_s1")
 	fnWhisperConv1DK3S2 = f.get("conv1d_k3_s2")
 	fnWhisperAttentionFull = f.get("attention_full")
+	fnWhisperAttentionFullOnline = f.get("attention_full_online")
 	fnWhisperCrossAttention = f.get("cross_attention")
 	fnWhisperAttentivePool = f.get("attentive_stat_pool")
 	fnWhisperRowAffine = f.get("whisper_row_affine_f32")
