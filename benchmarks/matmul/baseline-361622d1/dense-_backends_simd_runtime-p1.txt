@@ -1,0 +1,40 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/simd/runtime
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkBF16Dot                       	  133704	      1902 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16Dot                       	  137265	      1787 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotF32                    	  140143	      1619 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotF32                    	  149524	      1613 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotAsm                    	  971133	       247.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBF16DotAsm                    	  971184	       249.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_704 	 5267680	        45.66 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_704 	 5246685	        45.83 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_704         	 2187132	       109.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_704         	 2166559	       110.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_2816           	  787662	       295.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/sdotx4_k_2816           	  807072	       298.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_2816        	  462537	       533.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSdotx4VsFourSdot/four_sdot_k_2816        	  459891	       523.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Serial               	    4248	     56554 ns/op	148328.74 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Serial               	    4345	     56286 ns/op	149035.48 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Blocked              	    4100	     57127 ns/op	146841.92 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT1x1024x1024Blocked              	    3868	     57053 ns/op	147032.79 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Serial              	     132	   1795565 ns/op	149499.15 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Serial              	     122	   2129238 ns/op	126071.13 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Blocked             	     165	   1426612 ns/op	188162.87 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT32x1024x1024Blocked             	     168	   1398609 ns/op	191930.30 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Serial             	      16	  13009285 ns/op	146373.45 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Serial             	      18	  12894077 ns/op	147681.30 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Blocked            	      22	  10183821 ns/op	186984.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleNT227x1024x1024Blocked            	      22	  10188356 ns/op	186901.01 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleGemmRowsPrefill                   	      22	  10216005 ns/op	186395.17 MB/s	       8 B/op	       1 allocs/op
+BenchmarkArticleGemmRowsPrefill                   	      22	  10183145 ns/op	186996.66 MB/s	       8 B/op	       1 allocs/op
+BenchmarkArticleGemmRowsPrefillLegacy             	      16	  14263852 ns/op	133499.29 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleGemmRowsPrefillLegacy             	      16	  14166920 ns/op	134412.70 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleGemmRowsDecode                    	    3696	     63132 ns/op	132873.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleGemmRowsDecode                    	    3856	     62721 ns/op	133745.65 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleGemmRowsWhisper                   	       3	  93901906 ns/op	134000.60 MB/s	       0 B/op	       0 allocs/op
+BenchmarkArticleGemmRowsWhisper                   	       3	  93875762 ns/op	134037.92 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	10.116s

@@ -1,0 +1,23 @@
+{
+  "type": "metadata",
+  "timestamp": "2026-07-28T10:58:12.388Z",
+  "root": "/srv/piclaw-dev/workspace/projects/go-pherence",
+  "commit": "361622d1e7c5857b0b8e87a4200e722e8e90721c",
+  "dirty": "M docs/README.md\n?? docs/matmul-benchmark-protocol.md\n?? scripts/matmul-baseline.ts",
+  "uname": "Linux sandbox 6.8.0-136-generic #136-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 21:53:05 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "go": "go version go1.26.3 linux/amd64",
+  "lscpu": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           46 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  6\nOn-line CPU(s) list:                     0-5\nVendor ID:                               GenuineIntel\nModel name:                              12th Gen Intel(R) Core(TM) i7-12700\nCPU family:                              6\nModel:                                   151\nThread(s) per core:                      1\nCore(s) per socket:                      6\nSocket(s):                               1\nStepping:                                2\nMicrocode version:                       0x3d\nBogoMIPS:                                4224.00\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk avx_vnni arat vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid movdiri movdir64b fsrm md_clear serialize ibt flush_l1d arch_capabilities\nVirtualization:                          VT-x\nHypervisor vendor:                       KVM\nVirtualization type:                     full\nL1d cache:                               192 KiB (6 instances)\nL1i cache:                               192 KiB (6 instances)\nL2 cache:                                24 MiB (6 instances)\nL3 cache:                                16 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-5\nVulnerability Gather data sampling:      Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Reg file data sampling:    Mitigation; Clear Register File\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Not affected\nVulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected",
+  "cpu_count": 6,
+  "governor": "unavailable",
+  "gpu": "NVIDIA GeForce RTX 3060, 580.173.02, 12288 MiB",
+  "benchtime": "200ms",
+  "count": "2",
+  "selected": [
+    "dense"
+  ],
+  "procs": [
+    "1",
+    "2",
+    "all"
+  ]
+}
