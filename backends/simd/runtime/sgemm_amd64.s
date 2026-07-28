@@ -148,8 +148,12 @@ nt_done:
 // ============================================================================
 // SgemmNN
 // ============================================================================
-// Stack frame: 8 bytes (saved j counter)
-TEXT ·SgemmNN(SB), NOSPLIT, $8-80
+// Stack frame: 32 bytes
+//   0(SP)  = saved pair-tail n counter
+//   8(SP)  = saved pair-tail row0 C ptr
+//   16(SP) = saved pair-tail B ptr
+//   24(SP) = saved j counter
+TEXT ·SgemmNN(SB), NOSPLIT, $32-80
     MOVQ    m+0(FP), R8
     MOVQ    n+8(FP), DX
     MOVQ    k+16(FP), R10
@@ -169,8 +173,217 @@ TEXT ·SgemmNN(SB), NOSPLIT, $8-80
     TESTQ   R8, R8
     JZ      nn_done
 
-nn_i_loop:
-    MOVQ    DX, CX
+nn_rows:
+    CMPQ    R8, $2
+    JL      nn_single_row
+
+    MOVQ    n+8(FP), CX
+    MOVQ    DI, R9
+    MOVQ    R12, R14
+
+nn_pair_tile32:
+    CMPQ    CX, $32
+    JL      nn_pair_tail0_setup
+
+    // Load C[i:i+2, jj:jj+32]
+    VMOVUPS    (R9), Y0
+    VMOVUPS  32(R9), Y1
+    VMOVUPS  64(R9), Y2
+    VMOVUPS  96(R9), Y3
+    LEAQ    (R9)(R15*1), AX
+    VMOVUPS    (AX), Y4
+    VMOVUPS  32(AX), Y5
+    VMOVUPS  64(AX), Y6
+    VMOVUPS  96(AX), Y7
+
+    MOVQ    SI, AX
+    LEAQ    (SI)(R11*1), DX
+    MOVQ    R14, BX
+    MOVQ    CX, 24(SP)
+    MOVQ    R10, CX
+
+nn_p2x32:
+    VMOVUPS    (BX), Y8
+    VMOVUPS  32(BX), Y9
+    VMOVUPS  64(BX), Y10
+    VMOVUPS  96(BX), Y11
+
+    VMOVSS  (AX), X12
+    VMULSS  X15, X12, X12
+    VBROADCASTSS X12, Y12
+    VFMADD231PS Y8, Y12, Y0
+    VFMADD231PS Y9, Y12, Y1
+    VFMADD231PS Y10, Y12, Y2
+    VFMADD231PS Y11, Y12, Y3
+
+    VMOVSS  (DX), X13
+    VMULSS  X15, X13, X13
+    VBROADCASTSS X13, Y13
+    VFMADD231PS Y8, Y13, Y4
+    VFMADD231PS Y9, Y13, Y5
+    VFMADD231PS Y10, Y13, Y6
+    VFMADD231PS Y11, Y13, Y7
+
+    ADDQ    $4, AX
+    ADDQ    $4, DX
+    ADDQ    R13, BX
+    DECQ    CX
+    JNZ     nn_p2x32
+
+    MOVQ    24(SP), CX
+    VMOVUPS  Y0,    (R9)
+    VMOVUPS  Y1,  32(R9)
+    VMOVUPS  Y2,  64(R9)
+    VMOVUPS  Y3,  96(R9)
+    LEAQ    (R9)(R15*1), AX
+    VMOVUPS  Y4,    (AX)
+    VMOVUPS  Y5,  32(AX)
+    VMOVUPS  Y6,  64(AX)
+    VMOVUPS  Y7,  96(AX)
+
+    ADDQ    $128, R9
+    ADDQ    $128, R14
+    SUBQ    $32, CX
+    JMP     nn_pair_tile32
+
+nn_pair_tail0_setup:
+    MOVQ    CX, 0(SP)
+    MOVQ    R9, 8(SP)
+    MOVQ    R14, 16(SP)
+
+nn_pair_tail0_tile8:
+    CMPQ    CX, $8
+    JL      nn_pair_tail0_tile1
+
+    VMOVUPS (R9), Y0
+    MOVQ    SI, AX
+    MOVQ    R14, BX
+    MOVQ    CX, 24(SP)
+    MOVQ    R10, CX
+
+nn_pair_tail0_p8:
+    VMOVSS     (AX), X8
+    VMULSS  X15, X8, X8
+    VBROADCASTSS X8, Y8
+    VFMADD231PS (BX), Y8, Y0
+    ADDQ    $4, AX
+    ADDQ    R13, BX
+    DECQ    CX
+    JNZ     nn_pair_tail0_p8
+
+    MOVQ    24(SP), CX
+    VMOVUPS Y0, (R9)
+
+    ADDQ    $32, R9
+    ADDQ    $32, R14
+    SUBQ    $8, CX
+    JMP     nn_pair_tail0_tile8
+
+nn_pair_tail0_tile1:
+    TESTQ   CX, CX
+    JZ      nn_pair_tail1_setup
+
+nn_pair_tail0_tile1_loop:
+    VMOVSS  (R9), X0
+    MOVQ    SI, AX
+    MOVQ    R14, BX
+    MOVQ    CX, 24(SP)
+    MOVQ    R10, CX
+
+nn_pair_tail0_p1:
+    VMOVSS  (AX), X4
+    VMOVSS  (BX), X5
+    VMULSS  X15, X4, X4
+    VFMADD231SS X5, X4, X0
+    ADDQ    $4, AX
+    ADDQ    R13, BX
+    DECQ    CX
+    JNZ     nn_pair_tail0_p1
+
+    MOVQ    24(SP), CX
+    VMOVSS  X0, (R9)
+
+    ADDQ    $4, R9
+    ADDQ    $4, R14
+    DECQ    CX
+    JNZ     nn_pair_tail0_tile1_loop
+
+nn_pair_tail1_setup:
+    MOVQ    0(SP), CX
+    MOVQ    8(SP), R9
+    ADDQ    R15, R9
+    MOVQ    16(SP), R14
+
+nn_pair_tail1_tile8:
+    CMPQ    CX, $8
+    JL      nn_pair_tail1_tile1
+
+    VMOVUPS (R9), Y0
+    LEAQ    (SI)(R11*1), AX
+    MOVQ    R14, BX
+    MOVQ    CX, 24(SP)
+    MOVQ    R10, CX
+
+nn_pair_tail1_p8:
+    VMOVSS     (AX), X8
+    VMULSS  X15, X8, X8
+    VBROADCASTSS X8, Y8
+    VFMADD231PS (BX), Y8, Y0
+    ADDQ    $4, AX
+    ADDQ    R13, BX
+    DECQ    CX
+    JNZ     nn_pair_tail1_p8
+
+    MOVQ    24(SP), CX
+    VMOVUPS Y0, (R9)
+
+    ADDQ    $32, R9
+    ADDQ    $32, R14
+    SUBQ    $8, CX
+    JMP     nn_pair_tail1_tile8
+
+nn_pair_tail1_tile1:
+    TESTQ   CX, CX
+    JZ      nn_pair_next
+
+nn_pair_tail1_tile1_loop:
+    VMOVSS  (R9), X0
+    LEAQ    (SI)(R11*1), AX
+    MOVQ    R14, BX
+    MOVQ    CX, 24(SP)
+    MOVQ    R10, CX
+
+nn_pair_tail1_p1:
+    VMOVSS  (AX), X4
+    VMOVSS  (BX), X5
+    VMULSS  X15, X4, X4
+    VFMADD231SS X5, X4, X0
+    ADDQ    $4, AX
+    ADDQ    R13, BX
+    DECQ    CX
+    JNZ     nn_pair_tail1_p1
+
+    MOVQ    24(SP), CX
+    VMOVSS  X0, (R9)
+
+    ADDQ    $4, R9
+    ADDQ    $4, R14
+    DECQ    CX
+    JNZ     nn_pair_tail1_tile1_loop
+
+nn_pair_next:
+    ADDQ    R11, SI
+    ADDQ    R11, SI
+    ADDQ    R15, DI
+    ADDQ    R15, DI
+    SUBQ    $2, R8
+    JMP     nn_rows
+
+nn_single_row:
+    TESTQ   R8, R8
+    JZ      nn_done
+
+    MOVQ    n+8(FP), CX
     MOVQ    DI, R9
     MOVQ    R12, R14
 
@@ -186,7 +399,7 @@ nn_tile32:
 
     MOVQ    SI, AX
     MOVQ    R14, BX
-    MOVQ    CX, 0(SP)
+    MOVQ    CX, 24(SP)
     MOVQ    R10, CX
 
 nn_p32:
@@ -202,7 +415,7 @@ nn_p32:
     DECQ    CX
     JNZ     nn_p32
 
-    MOVQ    0(SP), CX
+    MOVQ    24(SP), CX
     VMOVUPS  Y0,    (R9)
     VMOVUPS  Y1,  32(R9)
     VMOVUPS  Y2,  64(R9)
@@ -220,7 +433,7 @@ nn_tile8:
     VMOVUPS (R9), Y0
     MOVQ    SI, AX
     MOVQ    R14, BX
-    MOVQ    CX, 0(SP)
+    MOVQ    CX, 24(SP)
     MOVQ    R10, CX
 
 nn_p8:
@@ -233,7 +446,7 @@ nn_p8:
     DECQ    CX
     JNZ     nn_p8
 
-    MOVQ    0(SP), CX
+    MOVQ    24(SP), CX
     VMOVUPS Y0, (R9)
 
     ADDQ    $32, R9
@@ -249,7 +462,7 @@ nn_tile1_loop:
     VMOVSS  (R9), X0
     MOVQ    SI, AX
     MOVQ    R14, BX
-    MOVQ    CX, 0(SP)
+    MOVQ    CX, 24(SP)
     MOVQ    R10, CX
 
 nn_p1:
@@ -262,7 +475,7 @@ nn_p1:
     DECQ    CX
     JNZ     nn_p1
 
-    MOVQ    0(SP), CX
+    MOVQ    24(SP), CX
     VMOVSS  X0, (R9)
 
     ADDQ    $4, R9
@@ -274,7 +487,7 @@ nn_next_i:
     ADDQ    R11, SI
     ADDQ    R15, DI
     DECQ    R8
-    JNZ     nn_i_loop
+    JNZ     nn_rows
 
 nn_done:
     VZEROUPPER
