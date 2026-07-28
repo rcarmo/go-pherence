@@ -25,6 +25,36 @@ func GemvTo(out, x []float32, qw *QuantWeight) bool {
 	return true
 }
 
+// Gemv2To computes two MLX quantized GEMVs that share the same input vector.
+// When both weights use the 4-bit packed path with identical group layout, the
+// per-group x sums are computed once and reused for both outputs. Otherwise it
+// falls back to two GemvTo calls after validating both weights up front.
+func Gemv2To(outA, outB, x []float32, qwA, qwB *QuantWeight) bool {
+	if err := ValidateQuantWeight(qwA); err != nil {
+		return false
+	}
+	if err := ValidateQuantWeight(qwB); err != nil {
+		return false
+	}
+	if qwA.InDim != qwB.InDim || len(x) < qwA.InDim || len(outA) < qwA.OutDim || len(outB) < qwB.OutDim {
+		return false
+	}
+	if gemv4SharedXSumsCompatible(qwA, qwB) {
+		var groupXSumsStack [gemm4StackGroups]float32
+		groupXSums := groupXSumsStack[:]
+		if qwA.Groups > len(groupXSumsStack) {
+			groupXSums = make([]float32, qwA.Groups)
+		} else {
+			groupXSums = groupXSums[:qwA.Groups]
+		}
+		gemv4XSums(x, qwA, groupXSums)
+		gemv4Rows(outA, x, qwA, groupXSums, 0, qwA.OutDim)
+		gemv4Rows(outB, x, qwB, groupXSums, 0, qwB.OutDim)
+		return true
+	}
+	return GemvTo(outA, x, qwA) && GemvTo(outB, x, qwB)
+}
+
 // GemvParallel computes the same result as GemvTo but distributes the output
 // rows across goroutines. It is intended for the single-vector autoregressive
 // decode projections, where each per-token GEMV otherwise runs on one core.
@@ -127,8 +157,12 @@ func gemv4XSums(x []float32, qw *QuantWeight, dst []float32) {
 	}
 }
 
+func gemv4SharedXSumsCompatible(qwA, qwB *QuantWeight) bool {
+	return qwA.Bits == 4 && qwB.Bits == 4 && qwA.GroupSize%8 == 0 && qwB.GroupSize%8 == 0 && qwA.InDim == qwB.InDim && qwA.Groups == qwB.Groups && qwA.GroupSize == qwB.GroupSize
+}
+
 func gemv4Scalar(out, x []float32, qw *QuantWeight) {
-	var groupXSumsStack [256]float32
+	var groupXSumsStack [gemm4StackGroups]float32
 	groupXSums := groupXSumsStack[:]
 	if qw.Groups > len(groupXSumsStack) {
 		groupXSums = make([]float32, qw.Groups)

@@ -279,13 +279,29 @@ func moeForwardWithREAP(x []float32, layer *LlamaLayer, cfg LlamaConfig, reap *R
 		}
 	}
 
-	// Run selected experts in parallel and accumulate weighted output
+	// Run selected experts in parallel and accumulate weighted output.
+	// Each expert gets a deterministic slot inside one contiguous scratch buffer,
+	// so gate/up/down temporaries are reused without changing expert completion or
+	// weighted accumulation order.
 	moeInter := cfg.MoEIntermediate
 	out := make([]float32, h)
+	slotElems, ok := checkedAddNonNegative(moeInter, moeInter)
+	if !ok {
+		return nil
+	}
+	slotElems, ok = checkedAddNonNegative(slotElems, h)
+	if !ok {
+		return nil
+	}
+	totalScratch, ok := checkedProduct(slotElems, len(selected))
+	if !ok {
+		return nil
+	}
+	expertScratch := make([]float32, totalScratch)
 
 	type expertResult struct {
-		down   []float32
 		weight float32
+		ok     bool
 	}
 	results := make([]expertResult, len(selected))
 	var wg sync.WaitGroup
@@ -294,31 +310,36 @@ func moeForwardWithREAP(x []float32, layer *LlamaLayer, cfg LlamaConfig, reap *R
 		if eid < 0 || eid >= len(layer.ExpertGateW) || eid >= len(layer.ExpertUpW) || eid >= len(layer.ExpertDownW) || layer.ExpertGateW[eid] == nil || layer.ExpertUpW[eid] == nil || layer.ExpertDownW[eid] == nil {
 			continue
 		}
+		slotBase := si * slotElems
+		gate := expertScratch[slotBase : slotBase+moeInter]
+		up := expertScratch[slotBase+moeInter : slotBase+2*moeInter]
+		down := expertScratch[slotBase+2*moeInter : slotBase+slotElems]
 		wg.Add(1)
-		go func(idx int, expertID int, w float32) {
+		go func(idx int, expertID int, w float32, gate, up, down []float32) {
 			defer wg.Done()
 			// Expert MLP: gate_proj → SiLU × up_proj → down_proj
-			gate := make([]float32, moeInter)
-			up := make([]float32, moeInter)
-			if !mlx.GemvTo(gate, x, layer.ExpertGateW[expertID]) || !mlx.GemvTo(up, x, layer.ExpertUpW[expertID]) {
+			if !mlx.Gemv2To(gate, up, x, layer.ExpertGateW[expertID], layer.ExpertUpW[expertID]) {
 				return
 			}
-			simd.VecSiLUMul(gate, gate, up)
-			down := make([]float32, h)
+			if !simd.SiLUMulTo(gate, gate, up) {
+				return
+			}
 			if !mlx.GemvTo(down, gate, layer.ExpertDownW[expertID]) {
 				return
 			}
-			results[idx] = expertResult{down: down, weight: w}
-		}(si, eid, exp.score)
+			results[idx] = expertResult{weight: w, ok: true}
+		}(si, eid, exp.score, gate, up, down)
 	}
 	wg.Wait()
 
-	for _, r := range results {
-		if r.down == nil {
+	for idx, r := range results {
+		if !r.ok {
 			continue
 		}
+		slotBase := idx * slotElems
+		down := expertScratch[slotBase+2*moeInter : slotBase+slotElems]
 		for i := range out {
-			out[i] += r.weight * r.down[i]
+			out[i] += r.weight * down[i]
 		}
 	}
 

@@ -196,6 +196,9 @@ func BenchmarkCPUHotMoEMLXExperts512x1024Top2(b *testing.B) {
 	}
 	cfg := LlamaConfig{NumExperts: numExperts, NumExpertsPerTok: active, MoEIntermediate: inter, NormTopKProb: true}
 	x := benchSeq(hidden)
+	want := moeForwardMLXReference(x, layer, cfg)
+	got := moeForward(x, layer, cfg)
+	assertExactFloat32Slices(b, "moe", got, want)
 	b.ReportAllocs()
 	b.SetBytes(int64(active * (hidden*inter*2 + inter*hidden) * 4))
 	b.ResetTimer()
