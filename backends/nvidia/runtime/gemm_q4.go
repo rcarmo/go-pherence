@@ -41,12 +41,16 @@ func GemmQ4(out, input *DevBuf, w *GPUQuantWeight, B int) {
 	outDim := uint32(w.OutDim)
 	groups := uint32(w.Groups)
 
-	// Grid: one block per (output column, batch row) pair
-	// Block: 256 threads, each handles part of the dot product
-	gridX := outDim
+	// Grid: one block per (4 output columns, batch row) tile
+	// Block: 128 threads = 4 warps, one warp per output column
+	gridX, okGrid := grid1DFor(w.OutDim, 4)
+	if !okGrid {
+		gemmQ4CPU(out, input, w, B)
+		return
+	}
 	gridY := batchSize
 
-	if err := LaunchKernel(fnGemmQ4, gridX, gridY, 1, 256, 1, 1, 256*4,
+	if err := LaunchKernel(fnGemmQ4, gridX, gridY, 1, 128, 1, 1, 0,
 		unsafe.Pointer(&input.gpu.Ptr),
 		unsafe.Pointer(&w.QWeight.Ptr),
 		unsafe.Pointer(&w.GIdx.Ptr),
@@ -101,6 +105,7 @@ func init() {
 
 // BatchGEMMReady returns true if batched GEMM kernel is available.
 func BatchGEMMReady() bool {
+	loadMegaModule()
 	return fnGemmQ4 != 0
 }
 
