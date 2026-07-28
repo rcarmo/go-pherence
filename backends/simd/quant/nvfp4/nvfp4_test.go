@@ -1,7 +1,9 @@
 package nvfp4
 
 import (
+	"fmt"
 	"math"
+	"runtime"
 	"testing"
 )
 
@@ -190,6 +192,70 @@ func TestGemmNVFP4MatchesRepeatedGemv(t *testing.T) {
 	}
 }
 
+func TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails(t *testing.T) {
+	qw := syntheticOddGroupBatchedNVFP4Weight()
+	for batch := 1; batch <= 8; batch++ {
+		t.Run(fmt.Sprintf("batch_%d", batch), func(t *testing.T) {
+			x := make([]float32, batch*qw.InDim)
+			for b := 0; b < batch; b++ {
+				for col := 0; col < qw.InDim; col++ {
+					v := float32(((b+1)*(col%7+1))%11-5) * 0.25
+					if (b+col)&1 != 0 {
+						v = -v
+					}
+					x[b*qw.InDim+col] = v
+				}
+			}
+			got := make([]float32, batch*qw.OutDim+1)
+			got[len(got)-1] = 123
+			if !GemmNVFP4(got, x, batch, qw) {
+				t.Fatal("GemmNVFP4 returned false for valid input")
+			}
+			want := make([]float32, batch*qw.OutDim)
+			for b := 0; b < batch; b++ {
+				if !GemvNVFP4Reference(want[b*qw.OutDim:(b+1)*qw.OutDim], x[b*qw.InDim:(b+1)*qw.InDim], qw) {
+					t.Fatal("GemvNVFP4Reference returned false")
+				}
+			}
+			for i := range want {
+				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+					t.Fatalf("batch=%d got[%d]=%v want %v", batch, i, got[i], want[i])
+				}
+			}
+			if got[len(got)-1] != 123 {
+				t.Fatalf("batch=%d GemmNVFP4 mutated tail", batch)
+			}
+		})
+	}
+}
+
+func TestGemmNVFP4ParallelMatchesRepeatedGemv(t *testing.T) {
+	old := runtime.GOMAXPROCS(2)
+	defer runtime.GOMAXPROCS(old)
+
+	const batch, inDim, outDim = 5, 96, 512
+	x, qw := makeBenchmarkGemmNVFP4Inputs(batch, inDim, outDim)
+	got := make([]float32, batch*qw.OutDim+1)
+	got[len(got)-1] = 123
+	if !GemmNVFP4(got, x, batch, qw) {
+		t.Fatal("GemmNVFP4 returned false for valid input")
+	}
+	want := make([]float32, batch*qw.OutDim)
+	for b := 0; b < batch; b++ {
+		if !GemvNVFP4Reference(want[b*qw.OutDim:(b+1)*qw.OutDim], x[b*qw.InDim:(b+1)*qw.InDim], qw) {
+			t.Fatal("GemvNVFP4Reference returned false")
+		}
+	}
+	for i := range want {
+		if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+			t.Fatalf("got[%d]=%v want %v", i, got[i], want[i])
+		}
+	}
+	if got[len(got)-1] != 123 {
+		t.Fatal("GemmNVFP4 mutated tail")
+	}
+}
+
 func TestGemmNVFP4RejectsMalformedInputs(t *testing.T) {
 	qw := syntheticNVFP4Weight()
 	if GemmNVFP4(make([]float32, qw.OutDim), make([]float32, qw.InDim), 0, qw) {
@@ -268,6 +334,26 @@ func syntheticOddGroupNVFP4Weight() *NVFP4Weight {
 		WeightScale:  []byte{0x38, 0x40}, // 1.0, 2.0
 		WeightScale2: 0.5,
 		OutDim:       1,
+		InDim:        6,
+		Groups:       2,
+		GroupSize:    3,
+	}
+}
+
+func syntheticOddGroupBatchedNVFP4Weight() *NVFP4Weight {
+	return &NVFP4Weight{
+		Weight: []byte{
+			0x10, 0x32, 0x54,
+			0x89, 0xab, 0xcd,
+			0xfe, 0xdc, 0xba,
+		},
+		WeightScale: []byte{
+			0x38, 0x40,
+			0x34, 0x3c,
+			0x41, 0xb8,
+		},
+		WeightScale2: 0.5,
+		OutDim:       3,
 		InDim:        6,
 		Groups:       2,
 		GroupSize:    3,
