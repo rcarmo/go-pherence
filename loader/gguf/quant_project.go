@@ -23,6 +23,10 @@ func (m *QuantMatrix) ProjectBatchF32To(dst, x []float32, batch int) error {
 		return fmt.Errorf("quant matrix %s: x=%d dst=%d want at least %d/%d", m.Name, len(x), len(dst), batch*m.InDim, batch*m.OutDim)
 	}
 	switch m.QType {
+	case QuantQ2_K:
+		return m.projectBatchQ2KTo(dst, x, batch)
+	case QuantQ3_K:
+		return m.projectBatchQ3KTo(dst, x, batch)
 	case QuantQ4_K:
 		return m.projectBatchQ4KTo(dst, x, batch)
 	case QuantQ5_0:
