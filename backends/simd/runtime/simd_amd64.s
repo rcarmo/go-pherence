@@ -224,6 +224,134 @@ sdotx4_reduce:
     VZEROUPPER
     RET
 
+// func dotRowsx4Asm(w []float32, x []float32, cols int) (dot0,dot1,dot2,dot3 float32)
+// Computes one shared F32 activation vector against four consecutive F32 weight rows.
+TEXT ·dotRowsx4Asm(SB), NOSPLIT, $0-72
+    MOVQ    w_base+0(FP), SI
+    MOVQ    x_base+24(FP), DI
+    MOVQ    cols+48(FP), CX
+
+    MOVQ    CX, R8
+    SHLQ    $2, R8
+    LEAQ    (SI)(R8*1), BX
+    LEAQ    (BX)(R8*1), DX
+    LEAQ    (DX)(R8*1), R9
+
+    VXORPS  Y0, Y0, Y0
+    VXORPS  Y1, Y1, Y1
+    VXORPS  Y2, Y2, Y2
+    VXORPS  Y3, Y3, Y3
+
+    CMPQ    CX, $16
+    JL      dotrowsx4_post16
+
+dotrowsx4_loop16:
+    VMOVUPS (DI), Y4
+    VMOVUPS 32(DI), Y5
+
+    VMOVUPS (SI), Y6
+    VFMADD231PS Y4, Y6, Y0
+    VMOVUPS 32(SI), Y7
+    VFMADD231PS Y5, Y7, Y0
+
+    VMOVUPS (BX), Y6
+    VFMADD231PS Y4, Y6, Y1
+    VMOVUPS 32(BX), Y7
+    VFMADD231PS Y5, Y7, Y1
+
+    VMOVUPS (DX), Y6
+    VFMADD231PS Y4, Y6, Y2
+    VMOVUPS 32(DX), Y7
+    VFMADD231PS Y5, Y7, Y2
+
+    VMOVUPS (R9), Y6
+    VFMADD231PS Y4, Y6, Y3
+    VMOVUPS 32(R9), Y7
+    VFMADD231PS Y5, Y7, Y3
+
+    ADDQ    $64, SI
+    ADDQ    $64, BX
+    ADDQ    $64, DX
+    ADDQ    $64, R9
+    ADDQ    $64, DI
+    SUBQ    $16, CX
+    CMPQ    CX, $16
+    JGE     dotrowsx4_loop16
+
+dotrowsx4_post16:
+    CMPQ    CX, $8
+    JL      dotrowsx4_reduce
+    VMOVUPS (DI), Y4
+
+    VMOVUPS (SI), Y6
+    VFMADD231PS Y4, Y6, Y0
+    VMOVUPS (BX), Y6
+    VFMADD231PS Y4, Y6, Y1
+    VMOVUPS (DX), Y6
+    VFMADD231PS Y4, Y6, Y2
+    VMOVUPS (R9), Y6
+    VFMADD231PS Y4, Y6, Y3
+
+    ADDQ    $32, SI
+    ADDQ    $32, BX
+    ADDQ    $32, DX
+    ADDQ    $32, R9
+    ADDQ    $32, DI
+    SUBQ    $8, CX
+
+dotrowsx4_reduce:
+    VEXTRACTF128 $1, Y0, X8
+    VADDPS  X8, X0, X0
+    VHADDPS X0, X0, X0
+    VHADDPS X0, X0, X0
+
+    VEXTRACTF128 $1, Y1, X8
+    VADDPS  X8, X1, X1
+    VHADDPS X1, X1, X1
+    VHADDPS X1, X1, X1
+
+    VEXTRACTF128 $1, Y2, X8
+    VADDPS  X8, X2, X2
+    VHADDPS X2, X2, X2
+    VHADDPS X2, X2, X2
+
+    VEXTRACTF128 $1, Y3, X8
+    VADDPS  X8, X3, X3
+    VHADDPS X3, X3, X3
+    VHADDPS X3, X3, X3
+
+dotrowsx4_scalar_check:
+    TESTQ   CX, CX
+    JZ      dotrowsx4_done
+
+dotrowsx4_scalar:
+    VMOVSS  (DI), X4
+
+    VMOVSS  (SI), X5
+    VFMADD231SS X4, X5, X0
+    VMOVSS  (BX), X5
+    VFMADD231SS X4, X5, X1
+    VMOVSS  (DX), X5
+    VFMADD231SS X4, X5, X2
+    VMOVSS  (R9), X5
+    VFMADD231SS X4, X5, X3
+
+    ADDQ    $4, SI
+    ADDQ    $4, BX
+    ADDQ    $4, DX
+    ADDQ    $4, R9
+    ADDQ    $4, DI
+    DECQ    CX
+    JNZ     dotrowsx4_scalar
+
+dotrowsx4_done:
+    VMOVSS  X0, dot0+56(FP)
+    VMOVSS  X1, dot1+60(FP)
+    VMOVSS  X2, dot2+64(FP)
+    VMOVSS  X3, dot3+68(FP)
+    VZEROUPPER
+    RET
+
 // func bf16DotF32x4Asm(w []uint16, x []float32, cols int) (dot0,dot1,dot2,dot3 float32)
 // Computes four consecutive BF16 weight rows against one shared F32 activation.
 TEXT ·bf16DotF32x4Asm(SB), NOSPLIT, $0-72

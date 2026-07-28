@@ -15,11 +15,30 @@ func GemvRows(out, x, w []float32, rows, cols int) bool {
 	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
 		return false
 	}
-	x = x[:cols]
+	gemvRowsDense(out[:rows], x[:cols], w[:weightLen], rows, cols)
+	return true
+}
+
+func gemvRowsDense(out, x, w []float32, rows, cols int) {
+	// x4 wins reliably for cache-resident rows and large output matrices, but
+	// can regress small-row K=4096 bandwidth cases.
+	if cols <= 2048 || rows >= 256 {
+		row := 0
+		for ; row+4 <= rows; row += 4 {
+			d0, d1, d2, d3 := dotRowsx4(w[row*cols:(row+4)*cols], x, cols)
+			out[row+0] = d0
+			out[row+1] = d1
+			out[row+2] = d2
+			out[row+3] = d3
+		}
+		for ; row < rows; row++ {
+			out[row] = Sdot(x, w[row*cols:(row+1)*cols])
+		}
+		return
+	}
 	for row := 0; row < rows; row++ {
 		out[row] = Sdot(x, w[row*cols:(row+1)*cols])
 	}
-	return true
 }
 
 // GemvRowsBF16 computes out[rows] = W_bf16[rows,cols] · x[cols], where W is
@@ -33,10 +52,7 @@ func GemvRowsBF16(out []float32, x []float32, w []uint16, rows, cols int) bool {
 	x = x[:cols]
 	row := 0
 	for ; row+4 <= rows; row += 4 {
-		d0, d1, d2, d3, ok := BF16DotF32x4(w[row*cols:], x, cols)
-		if !ok {
-			return false
-		}
+		d0, d1, d2, d3 := bf16DotF32x4(w[row*cols:(row+4)*cols], x, cols)
 		out[row+0] = d0
 		out[row+1] = d1
 		out[row+2] = d2
@@ -59,10 +75,7 @@ func GemvRowsBF16BF16(out []float32, x []uint16, w []uint16, rows, cols int) boo
 	x = x[:cols]
 	row := 0
 	for ; row+4 <= rows; row += 4 {
-		d0, d1, d2, d3, ok := BF16DotBF16x4(w[row*cols:], x, cols)
-		if !ok {
-			return false
-		}
+		d0, d1, d2, d3 := bf16DotBF16x4(w[row*cols:(row+4)*cols], x, cols)
 		out[row+0] = d0
 		out[row+1] = d1
 		out[row+2] = d2
@@ -129,11 +142,11 @@ func GemvRowsParallel(out, x, w []float32, rows, cols int) bool {
 	if rows <= 0 || cols <= 0 || !ok || len(out) < rows || len(x) < cols || len(w) < weightLen {
 		return false
 	}
-	if rows < 256 {
+	nWorkers := runtime.GOMAXPROCS(0)
+	if rows < 256 || nWorkers <= 1 {
 		return GemvRows(out, x, w, rows, cols)
 	}
 	x = x[:cols]
-	nWorkers := runtime.GOMAXPROCS(0)
 	if nWorkers > rows/64 {
 		nWorkers = rows / 64
 	}
@@ -154,9 +167,7 @@ func GemvRowsParallel(out, x, w []float32, rows, cols int) bool {
 		wg.Add(1)
 		go func(s, e int) {
 			defer wg.Done()
-			for row := s; row < e; row++ {
-				out[row] = Sdot(x, w[row*cols:(row+1)*cols])
-			}
+			gemvRowsDense(out[s:e], x, w[s*cols:e*cols], e-s, cols)
 		}(start, end)
 	}
 	wg.Wait()
@@ -172,6 +183,9 @@ func GemvRowsBF16BF16Parallel(out []float32, x []uint16, w []uint16, rows, cols 
 	}
 	x = x[:cols]
 	nWorkers := runtime.GOMAXPROCS(0)
+	if nWorkers <= 1 {
+		return GemvRowsBF16BF16(out, x, w, rows, cols)
+	}
 	if nWorkers > 6 {
 		nWorkers = 6
 	}
@@ -192,19 +206,18 @@ func GemvRowsBF16BF16Parallel(out []float32, x []uint16, w []uint16, rows, cols 
 		wg.Add(1)
 		go func(s, e int) {
 			defer wg.Done()
-			row := s
-			for ; row+4 <= e; row += 4 {
-				d0, d1, d2, d3, ok := BF16DotBF16x4(w[row*cols:], x, cols)
-				if !ok {
-					return
-				}
-				out[row+0] = d0
-				out[row+1] = d1
-				out[row+2] = d2
-				out[row+3] = d3
+			localOut := out[s:e]
+			localW := w[s*cols : e*cols]
+			row := 0
+			for ; row+4 <= e-s; row += 4 {
+				d0, d1, d2, d3 := bf16DotBF16x4(localW[row*cols:(row+4)*cols], x, cols)
+				localOut[row+0] = d0
+				localOut[row+1] = d1
+				localOut[row+2] = d2
+				localOut[row+3] = d3
 			}
-			for ; row < e; row++ {
-				out[row] = BF16DotAsm(w[row*cols:(row+1)*cols], x)
+			for ; row < e-s; row++ {
+				localOut[row] = BF16DotAsm(localW[row*cols:(row+1)*cols], x)
 			}
 		}(start, end)
 	}
