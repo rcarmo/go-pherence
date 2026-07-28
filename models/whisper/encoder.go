@@ -398,6 +398,17 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 	if attnF16 && os.Getenv("WHISPER_FP16_HEAD_BATCH") != "" {
 		return fullAttentionF16(q, k, v, seqQ, seqKV, numHeads, headDim)
 	}
+	if seqQ >= 256 && seqKV >= 256 && numHeads > 1 {
+		queryBatch := 96
+		if seqQ >= 1024 {
+			queryBatch = 64
+		}
+		return fullAttentionPackedQueryBatched(q, k, v, seqQ, seqKV, numHeads, headDim, queryBatch)
+	}
+	return fullAttentionPerHead(q, k, v, seqQ, seqKV, numHeads, headDim)
+}
+
+func fullAttentionPerHead(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []float32 {
 	dModel := numHeads * headDim
 	out := make([]float32, seqQ*dModel)
 	scale := float32(1.0 / math.Sqrt(float64(headDim)))
