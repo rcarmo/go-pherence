@@ -72,10 +72,8 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 			}
 		}
 	} else if layer.QWGGUF != nil {
-		for b := 0; b < B; b++ {
-			if !gemvGGUFTo(q[b*qDim:(b+1)*qDim], normed[b*h:(b+1)*h], layer.QWGGUF, h, qDim) {
-				return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d Q GGUF projection rejected", layerIdx)
-			}
+		if !m.projBatchAny(q, normed, B, nil, nil, nil, layer.QWGGUF, h, qDim) {
+			return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d Q GGUF projection rejected", layerIdx)
 		}
 	} else if !m.projBatch(q, normed, B, layer.QW, layer.QWm, h, qDim) {
 		return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d Q batch projection rejected", layerIdx)
@@ -100,19 +98,17 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 				}
 			}
 		} else if layer.KWGGUF != nil {
-			for b := 0; b < B; b++ {
-				if !gemvGGUFTo(k[b*kvDim:(b+1)*kvDim], normed[b*h:(b+1)*h], layer.KWGGUF, h, kvDim) {
-					return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d K GGUF projection rejected", layerIdx)
+			if !m.projBatchAny(k, normed, B, nil, nil, nil, layer.KWGGUF, h, kvDim) {
+				return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d K GGUF projection rejected", layerIdx)
+			}
+			if m.Config.AttentionKEqV && (layer.VWGGUF == nil || layer.VWGGUF == layer.KWGGUF) {
+				copy(v, k)
+			} else if layer.VWGGUF != nil {
+				if !m.projBatchAny(v, normed, B, nil, nil, nil, layer.VWGGUF, h, kvDim) {
+					return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d V GGUF projection rejected", layerIdx)
 				}
-				if m.Config.AttentionKEqV && (layer.VWGGUF == nil || layer.VWGGUF == layer.KWGGUF) {
-					copy(v[b*kvDim:(b+1)*kvDim], k[b*kvDim:(b+1)*kvDim])
-				} else if layer.VWGGUF != nil {
-					if !gemvGGUFTo(v[b*kvDim:(b+1)*kvDim], normed[b*h:(b+1)*h], layer.VWGGUF, h, kvDim) {
-						return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d V GGUF projection rejected", layerIdx)
-					}
-				} else {
-					return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d missing GGUF V projection", layerIdx)
-				}
+			} else {
+				return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer %d missing GGUF V projection", layerIdx)
 			}
 		} else if layer.KWm != nil {
 			if !m.projBatch(k, normed, B, layer.KW, layer.KWm, h, kvDim) {

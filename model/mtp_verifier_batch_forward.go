@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -385,6 +386,13 @@ func (m *LlamaModel) projBatchAny(out, x []float32, B int, dense *tensor.Tensor,
 	if ggufw != nil {
 		if B <= 0 || inDim <= 0 || outDim <= 0 || len(out) < B*outDim || len(x) < B*inDim || ggufw.InDim != inDim || ggufw.OutDim != outDim {
 			return false
+		}
+		if B > 1 {
+			if err := ggufw.ProjectBatchF32To(out[:B*outDim], x[:B*inDim], B); err == nil {
+				return true
+			} else if !errors.Is(err, gguf.ErrUnsupportedBatchProjection) {
+				return false
+			}
 		}
 		for b := 0; b < B; b++ {
 			if !gemvGGUFTo(out[b*outDim:(b+1)*outDim], x[b*inDim:(b+1)*inDim], ggufw, inDim, outDim) {
