@@ -24,6 +24,14 @@ var e4m3LUT = func() [256]float32 {
 	return t
 }()
 
+var e4m3NormalScale = func() [16]float32 {
+	var t [16]float32
+	for exp := 1; exp < len(t); exp++ {
+		t[exp] = float32(math.Ldexp(1, exp-10))
+	}
+	return t
+}()
+
 // DecodeE4M3 decodes a finite-only float8 E4M3FN byte (bias 7, subnormals at
 // exponent 0, all-ones exponent+mantissa reserved as NaN, no infinities).
 func DecodeE4M3(code byte) float32 { return e4m3LUT[code] }
@@ -95,6 +103,26 @@ func decodeE4M3Slow(code byte) float32 {
 		return -v
 	}
 	return v
+}
+
+func decodeE4M3Arithmetic(code byte) float32 {
+	sign := float32(1)
+	if code&0x80 != 0 {
+		sign = -1
+	}
+	exp := (code >> 3) & 0x0f
+	mant := code & 0x07
+	switch {
+	case exp == 0:
+		if mant == 0 {
+			return 0
+		}
+		return sign * float32(mant) * (1.0 / 512.0)
+	case exp == 0x0f && mant == 0x07:
+		return float32(math.NaN())
+	default:
+		return sign * float32(8+mant) * e4m3NormalScale[exp]
+	}
 }
 
 // Linear holds a row-major [OutDim, InDim] E4M3 weight plus its scale tensor.
@@ -172,6 +200,14 @@ func dotE4M3Scalar(x []float32, w []byte) float32 {
 	var acc float32
 	for j := 0; j < len(x); j++ {
 		acc += e4m3LUT[w[j]] * x[j]
+	}
+	return acc
+}
+
+func dotE4M3ArithmeticScalar(x []float32, w []byte) float32 {
+	var acc float32
+	for j := 0; j < len(x); j++ {
+		acc += decodeE4M3Arithmetic(w[j]) * x[j]
 	}
 	return acc
 }
