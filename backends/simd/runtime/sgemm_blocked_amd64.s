@@ -1,5 +1,5 @@
 // sgemm_blocked_amd64.s — AVX2/FMA blocked NT tile kernel
-// 2j at a time, sharing A loads. Cache-blocked by Go driver.
+// 4j at a time, sharing A loads, with 2j/1j tails. Cache-blocked by Go driver.
 
 #include "textflag.h"
 
@@ -27,6 +27,137 @@ i_loop:
     MOVQ    R14, R9
     MOVQ    R12, R10
     MOVQ    DI, CX
+
+j_loop4:
+    CMPQ    R9, $4
+    JL      j_loop2
+
+    MOVQ    R9, 0(SP)
+    MOVQ    CX, 8(SP)
+    MOVQ    R10, 16(SP)
+
+    MOVQ    R10, BX
+    MOVQ    24(SP), AX
+    LEAQ    (R10)(AX*1), DX
+    LEAQ    (R10)(AX*2), CX
+    LEAQ    (CX)(AX*1), R9
+    MOVQ    CX, R10
+    MOVQ    SI, AX
+    MOVQ    R13, CX
+
+    VXORPS  Y0, Y0, Y0
+    VXORPS  Y1, Y1, Y1
+    VXORPS  Y2, Y2, Y2
+    VXORPS  Y3, Y3, Y3
+    VXORPS  Y4, Y4, Y4
+    VXORPS  Y5, Y5, Y5
+    VXORPS  Y6, Y6, Y6
+    VXORPS  Y7, Y7, Y7
+
+    CMPQ    CX, $16
+    JL      k4_8
+
+k4_16:
+    VMOVUPS    (AX), Y8
+    VMOVUPS  32(AX), Y9
+    VFMADD231PS (BX), Y8, Y0
+    VFMADD231PS 32(BX), Y9, Y1
+    VFMADD231PS (DX), Y8, Y2
+    VFMADD231PS 32(DX), Y9, Y3
+    VFMADD231PS (R10), Y8, Y4
+    VFMADD231PS 32(R10), Y9, Y5
+    VFMADD231PS (R9), Y8, Y6
+    VFMADD231PS 32(R9), Y9, Y7
+    ADDQ    $64, AX
+    ADDQ    $64, BX
+    ADDQ    $64, DX
+    ADDQ    $64, R10
+    ADDQ    $64, R9
+    SUBQ    $16, CX
+    CMPQ    CX, $16
+    JGE     k4_16
+
+k4_8:
+    VADDPS  Y1, Y0, Y0
+    VADDPS  Y3, Y2, Y2
+    VADDPS  Y5, Y4, Y4
+    VADDPS  Y7, Y6, Y6
+    CMPQ    CX, $8
+    JL      k4_reduce
+    VMOVUPS    (AX), Y8
+    VFMADD231PS (BX), Y8, Y0
+    VFMADD231PS (DX), Y8, Y2
+    VFMADD231PS (R10), Y8, Y4
+    VFMADD231PS (R9), Y8, Y6
+    ADDQ    $32, AX
+    ADDQ    $32, BX
+    ADDQ    $32, DX
+    ADDQ    $32, R10
+    ADDQ    $32, R9
+    SUBQ    $8, CX
+
+k4_reduce:
+    VEXTRACTF128 $1, Y0, X1
+    VADDPS  X1, X0, X0
+    VHADDPS X0, X0, X0
+    VHADDPS X0, X0, X0
+    VEXTRACTF128 $1, Y2, X3
+    VADDPS  X3, X2, X2
+    VHADDPS X2, X2, X2
+    VHADDPS X2, X2, X2
+    VEXTRACTF128 $1, Y4, X5
+    VADDPS  X5, X4, X4
+    VHADDPS X4, X4, X4
+    VHADDPS X4, X4, X4
+    VEXTRACTF128 $1, Y6, X7
+    VADDPS  X7, X6, X6
+    VHADDPS X6, X6, X6
+    VHADDPS X6, X6, X6
+
+    TESTQ   CX, CX
+    JZ      k4_store
+
+k4_scalar:
+    VMOVSS  (AX), X8
+    VMOVSS  (BX), X9
+    VFMADD231SS X9, X8, X0
+    VMOVSS  (DX), X9
+    VFMADD231SS X9, X8, X2
+    VMOVSS  (R10), X9
+    VFMADD231SS X9, X8, X4
+    VMOVSS  (R9), X9
+    VFMADD231SS X9, X8, X6
+    ADDQ    $4, AX
+    ADDQ    $4, BX
+    ADDQ    $4, DX
+    ADDQ    $4, R10
+    ADDQ    $4, R9
+    DECQ    CX
+    JNZ     k4_scalar
+
+k4_store:
+    MOVQ    0(SP), R9
+    MOVQ    8(SP), CX
+    MOVQ    16(SP), R10
+
+    VMULSS  X15, X0, X0
+    VADDSS  (CX), X0, X0
+    VMOVSS  X0, (CX)
+    VMULSS  X15, X2, X2
+    VADDSS  4(CX), X2, X2
+    VMOVSS  X2, 4(CX)
+    VMULSS  X15, X4, X4
+    VADDSS  8(CX), X4, X4
+    VMOVSS  X4, 8(CX)
+    VMULSS  X15, X6, X6
+    VADDSS  12(CX), X6, X6
+    VMOVSS  X6, 12(CX)
+
+    ADDQ    $16, CX
+    MOVQ    24(SP), DX
+    LEAQ    (R10)(DX*4), R10
+    SUBQ    $4, R9
+    JMP     j_loop4
 
 j_loop2:
     CMPQ    R9, $2

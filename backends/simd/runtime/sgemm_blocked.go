@@ -12,18 +12,21 @@ func SgemmNTBlockedFMA(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Point
 	if !HasSgemmAsm || !validGEBPArgs(m, n, k, aPtr, bPtr, cPtr, lda, ldb, ldc) {
 		return
 	}
-	const bs = 64
+	const (
+		nBlock = 64
+		kBlock = 128
+	)
 	a := (*float32)(aPtr)
 	b := (*float32)(bPtr)
 	c := (*float32)(cPtr)
 
-	for jj := 0; jj < n; jj += bs {
-		jLen := bs
+	for jj := 0; jj < n; jj += nBlock {
+		jLen := nBlock
 		if jj+jLen > n {
 			jLen = n - jj
 		}
-		for kk := 0; kk < k; kk += bs {
-			kLen := bs
+		for kk := 0; kk < k; kk += kBlock {
+			kLen := kBlock
 			if kk+kLen > k {
 				kLen = k - kk
 			}

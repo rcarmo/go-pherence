@@ -1,0 +1,3 @@
+{"workload":"moss-jfk","candidate":"avx2-nt-1x4","run":1,"wall_ns":33746259331,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
+{"workload":"moss-jfk","candidate":"avx2-nt-1x4","run":2,"wall_ns":36031307002,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
+{"workload":"moss-jfk","candidate":"avx2-nt-1x4","run":3,"wall_ns":36244372930,"exit_code":0,"sha256":"9a47c0f25721a7deddbdfb7efe651e2ee86f63a37776ca7319517d7bfed44928"}
