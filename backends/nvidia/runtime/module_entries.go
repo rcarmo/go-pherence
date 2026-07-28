@@ -45,6 +45,8 @@ func validateModuleEntries(entries []moduleEntry) error {
 func megaModuleEntries() []moduleEntry {
 	return []moduleEntry{
 		{"sgemm_nn", ptx.SgemmPTX},
+		{"sgemm_nn_reg2", ptx.SgemmReg2PTX},
+		{"sgemm_nn_skinny", ptx.SgemmSkinnyPTX},
 		{"vec_add", ptx.VecAddPTX},
 		{"vec_mul", ptx.VecMulPTX},
 		{"vec_scale", ptx.VecScalePTX},

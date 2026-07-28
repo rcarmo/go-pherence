@@ -44,13 +44,9 @@ func Sgemm(M, N, K int, alpha float32, A, B, C *Buffer) error {
 		unsafe.Pointer(&alpha),
 	}
 
-	gridX, okGX := grid1DFor(N, 16)
-	gridY, okGY := grid1DFor(M, 16)
-	if !okGX || !okGY {
-		return fmt.Errorf("invalid SGEMM grid dimensions M=%d N=%d", M, N)
-	}
-
-	return LaunchKernel(sgemmFn, gridX, gridY, 1, 16, 16, 1, 0, args...)
+	_ = args // variant launcher constructs the same checked argument vector.
+	fn, variant := sgemmVariant(M, N, K)
+	return launchSgemmVariant(fn, variant, M, N, K, alpha, A, B, C)
 }
 
 // SgemmHost computes C = alpha * A * B on GPU from host data.
