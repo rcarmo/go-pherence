@@ -48,7 +48,7 @@ func (m *BertModel) ForwardFast(tokenIDs []int, ws *Workspace) []float32 {
 		}
 		qkvW := layer.QKVW.Data()
 		qkvB := layer.QKVB.Data()
-		if seqLen > 0 && !simd.SgemmNTTo(qkv, hidden, qkvW, seqLen, 3*h, h, 1.0, h, h, 3*h) {
+		if seqLen > 0 && !simd.DenseNTTo(qkv, hidden, qkvW, seqLen, 3*h, h, 1.0, h, h, 3*h) {
 			return nil
 		}
 		// Add bias
@@ -145,7 +145,7 @@ func linearInPlace(out, x, wT, bias []float32, m, inDim, outDim int) {
 	for i := range out[:total] {
 		out[i] = 0
 	}
-	if !simd.SgemmNNTo(out[:total], x, wT, m, outDim, inDim, 1.0, inDim, outDim, outDim) {
+	if !simd.DenseNNTo(out[:total], x, wT, m, outDim, inDim, 1.0, inDim, outDim, outDim) {
 		return
 	}
 	if bias != nil {

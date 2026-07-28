@@ -118,7 +118,7 @@ func (m *LlamaModel) FinishCPUDecodeBatch(hiddenRows [][]float32) (finalActivati
 		if len(lmData) != lmLen {
 			return nil, nil, nil, fmt.Errorf("LM head data len=%d, want %d", len(lmData), lmLen)
 		}
-		if simd.SgemmNTTo(flatLogits, flatHidden, lmData, B, vocab, h, 1.0, h, h, vocab) {
+		if simd.DenseNTTo(flatLogits, flatHidden, lmData, B, vocab, h, 1.0, h, h, vocab) {
 			softcapNeeded = true
 			goto logitsDone
 		}

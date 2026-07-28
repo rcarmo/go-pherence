@@ -23,7 +23,7 @@ func gemv(out, x []float32, w []float32, inDim, outDim int) {
 	// Detect layout: if w is [inDim, outDim] (pre-transposed), use NN.
 	// If w is [outDim, inDim] (original), use NT (dot per output).
 	// Heuristic: try NN first (pre-transposed path).
-	simd.SgemmNNTo(out[:outDim], x, w, 1, outDim, inDim, 1.0, inDim, outDim, outDim)
+	simd.DenseNNTo(out[:outDim], x, w, 1, outDim, inDim, 1.0, inDim, outDim, outDim)
 }
 
 // gemvNT: out = x @ w^T where w is [outDim, inDim] (original layout)

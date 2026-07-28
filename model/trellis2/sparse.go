@@ -77,7 +77,7 @@ func SparseLinearFloat32(src SparseTensor, weight, bias []float32, outDim int) (
 	}
 	outFeats := make([]float32, src.Rows*outDim)
 	if src.Rows > 0 {
-		if !simd.SgemmNTTo(outFeats, src.Feats[:src.Rows*src.Dim], weight[:outDim*src.Dim], src.Rows, outDim, src.Dim, 1, src.Dim, src.Dim, outDim) {
+		if !simd.DenseNTTo(outFeats, src.Feats[:src.Rows*src.Dim], weight[:outDim*src.Dim], src.Rows, outDim, src.Dim, 1, src.Dim, src.Dim, outDim) {
 			return SparseTensor{}, fmt.Errorf("trellis2 sparse linear: SIMD SGEMM rejected validated tensors")
 		}
 		if bias != nil {

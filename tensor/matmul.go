@@ -52,7 +52,7 @@ func (t *Tensor) MatMul(other *Tensor) *Tensor {
 	}
 
 	// Use checked SIMD GEMM: C = A @ B.
-	if !simd.SgemmNNTo(cData, aData, bData, m, n, k, 1.0, k, n, n) {
+	if !simd.DenseNNTo(cData, aData, bData, m, n, k, 1.0, k, n, n) {
 		panic("matmul: checked SGEMM rejected validated tensors")
 	}
 
@@ -102,7 +102,7 @@ func (t *Tensor) MatMulTransposed(other *Tensor) *Tensor {
 	}
 
 	// C = A @ B^T.
-	if !simd.SgemmNTTo(cData, aData, bData, m, n, k, 1.0, k, k, n) {
+	if !simd.DenseNTTo(cData, aData, bData, m, n, k, 1.0, k, k, n) {
 		panic("matmul_t: checked SGEMM rejected validated tensors")
 	}
 

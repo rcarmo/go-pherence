@@ -160,7 +160,7 @@ func linearRowBlock(out, x, weight, bias []float32, s, e, inDim, outDim int) {
 		// SIMD SGEMM facade. This makes the native SIMD path the production oracle
 		// for large-v3-turbo encoder/decoder linear layers while preserving the
 		// scalar fallback on hosts without an accelerated kernel.
-		if simdrt.SgemmNTTo(c, x[ib*inDim:], weight, m, outDim, inDim, 1, inDim, inDim, outDim) {
+		if simdrt.DenseNTTo(c, x[ib*inDim:], weight, m, outDim, inDim, 1, inDim, inDim, outDim) {
 			continue
 		}
 		// Defensive fallback for invalid dimensions/slices; normal callers are

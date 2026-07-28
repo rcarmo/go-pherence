@@ -66,7 +66,7 @@ func conv1dForwardDilated(c Conv1D, input []float32, inCh, frames, dilation int)
 	outCh, kernel := c.Shape[0], c.Shape[2]
 	out := make([]float32, outCh*frames)
 	if kernel == 1 && dilation == 1 && len(c.Weight) >= outCh*inCh && len(input) >= inCh*frames {
-		if simdrt.SgemmNNTo(out, c.Weight, input, outCh, frames, inCh, 1, inCh, frames, frames) {
+		if simdrt.DenseNNTo(out, c.Weight, input, outCh, frames, inCh, 1, inCh, frames, frames) {
 			addConvBias(out, c.Bias, outCh, frames)
 			return out
 		}
@@ -95,7 +95,7 @@ func conv1dForwardDilated(c Conv1D, input []float32, inCh, frames, dilation int)
 				}
 			}
 		}
-		if simdrt.SgemmNNTo(out, c.Weight, col, outCh, frames, kk, 1, kk, frames, frames) {
+		if simdrt.DenseNNTo(out, c.Weight, col, outCh, frames, kk, 1, kk, frames, frames) {
 			addConvBias(out, c.Bias, outCh, frames)
 			return out
 		}

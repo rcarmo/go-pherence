@@ -496,7 +496,7 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 			for i := range scores {
 				scores[i] = 0
 			}
-			if !simdrt.SgemmNTTo(scores, qh, kh, seqQ, seqKV, headDim, scale, headDim, headDim, seqKV) {
+			if !simdrt.DenseNTTo(scores, qh, kh, seqQ, seqKV, headDim, scale, headDim, headDim, seqKV) {
 				attnScalarHead(scores, qh, kh, seqQ, seqKV, headDim, scale)
 			}
 			// Row softmax.
@@ -507,7 +507,7 @@ func fullAttention(q, k, v []float32, seqQ, seqKV, numHeads, headDim int) []floa
 			for i := range outh {
 				outh[i] = 0
 			}
-			if !simdrt.SgemmNNTo(outh, scores, vh, seqQ, headDim, seqKV, 1.0, seqKV, headDim, headDim) {
+			if !simdrt.DenseNNTo(outh, scores, vh, seqQ, headDim, seqKV, 1.0, seqKV, headDim, headDim) {
 				attnScalarAV(outh, scores, vh, seqQ, seqKV, headDim)
 			}
 			// Scatter back to out[:, head].

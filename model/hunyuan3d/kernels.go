@@ -22,7 +22,7 @@ func LinearFloat32(dst, x, weight, bias []float32, rows, inDim, outDim int) erro
 	if rows == 0 {
 		return nil
 	}
-	if !simd.SgemmNTTo(dst[:rows*outDim], x[:rows*inDim], weight[:outDim*inDim], rows, outDim, inDim, 1, inDim, inDim, outDim) {
+	if !simd.DenseNTTo(dst[:rows*outDim], x[:rows*inDim], weight[:outDim*inDim], rows, outDim, inDim, 1, inDim, inDim, outDim) {
 		return fmt.Errorf("hunyuan3d linear: SIMD SGEMM rejected validated tensors")
 	}
 	if bias != nil {
