@@ -2,163 +2,104 @@
 
 ![go-pherence](docs/icon-256.png)
 
-**A portable Go inference toolkit for local and embedded AI.** go-pherence runs transformer decoders, encoders, speech models, and experimental accelerator paths from a single Go codebase, with NVIDIA GPU execution, SIMD CPU kernels, MLX/GPTQ/BF16/F16/F32 weight support, Vulkan scaffolding, and embedded SoC backends. It builds as a single static Go binary whenever possible: no Python runtime, no mandatory native SDK, and no CGo dependency in the default hot path.
+go-pherence is a Go inference toolkit for running transformer, speech and experimental vision models on local hardware. The default paths are pure Go: CPU execution uses checked AVX2, NEON and RVV kernels with scalar fallbacks, while NVIDIA support loads PTX through the driver API without CGo or a CUDA toolkit.
 
-> Current development focus: practical local inference across NVIDIA, CPU/SIMD, and embedded targets; native MTP/speculative decoding for Gemma4 and Qwen3.6; native MOSS transcription/diarization; Whisper decoder acceleration; and SpacemiT K3/RISC-V IME2 experiments. See [docs/moss-transcribe-diarize.md](docs/moss-transcribe-diarize.md), [docs/mtp-speculative.md](docs/mtp-speculative.md), [docs/qwen36-mtp.md](docs/qwen36-mtp.md), [docs/spacemit-ime2.md](docs/spacemit-ime2.md), and [docs/backend-stack.md](docs/backend-stack.md).
+The repository is deliberately broad -- it includes production-shaped LLM and speech paths alongside work-in-progress model families and embedded accelerator experiments -- so the documentation separates runnable features from engineering notes and historical snapshots.
 
-## Why
+## Try it
 
-go-pherence is intended to be a small, inspectable inference stack for running real models on the hardware people actually have: NVIDIA cards with tight VRAM budgets, Intel/AMD laptops, ARM SBCs, and emerging embedded accelerators. It treats model formats such as MLX affine quantization as inputs rather than as the product identity, and keeps backend ownership explicit so optimized paths can coexist with checked scalar fallbacks.
-
-## Quick start
+Download a small MLX Qwen checkpoint:
 
 ```bash
-# Download a small quantized Qwen model
 mkdir -p models/qwen3-0.6b
 for f in config.json model.safetensors tokenizer.json; do
   curl -L "https://huggingface.co/mlx-community/Qwen3-0.6B-4bit/resolve/main/$f" \
     -o "models/qwen3-0.6b/$f"
 done
-
-# CPU path: AVX2/NEON SIMD with scalar fallbacks
-go run ./cmd/llm/llmgen -model models/qwen3-0.6b -tokens 50 -prompt "The meaning of life is"
-
-# NVIDIA path: runtime-loaded PTX, zero CGo
-go run ./cmd/llm/llmgen -gpu -model models/qwen3-0.6b -tokens 50 -prompt "The meaning of life is"
 ```
 
-## Current highlights
-
-- **Backends:** NVIDIA PTX runtime, AVX2/NEON SIMD CPU runtime, Vulkan scaffolding, and embedded accelerator experiments such as SpacemiT K3 IME2.
-- **Weight formats:** MLX affine 4-bit, GPTQ/Q4, BF16, F16, F32, and model-specific packed paths where useful.
-- **Architectures:** LLaMA-family, Qwen2/3/Qwen3Next, Qwen3 MoE, Gemma3/Gemma4, BERT/GTE encoders, Whisper large-v3 translated VTT, and native MOSS-Transcribe-Diarize with speaker/timestamp exports plus automatic resident NVIDIA PTX execution. MiniCPM-V/O metadata/prompt/tensor-readiness and experimental Hunyuan3D runtime scaffolding are also available.
-- **Hybrid placement:** `--gpu-layers N`, compact LM-head placement, reusable GPU caches, and planner-driven windowing for models larger than available VRAM.
-- **Embedded scenarios:** low-allocation CPU execution, quantized kernels, RISC-V IME2 INT8 matmul work, and static-binary deployment goals.
-- **Speculative/MTP work:** Gemma4 assistant loader, packed 4-bit assistant execution, real prompt activation/KV smoke, and Qwen3.6 native-MTP diagnostics.
-- **Validation:** checked runtime APIs, import-boundary tests, malformed-input guards, and hardware-gated smoke tests.
-
-## Recommended MTP development target
-
-The fastest local MTP target is the Gemma4 E4B pair:
-
-```text
-models/gemma4-e4b-it-4bit
-models/gemma4-e4b-mtp-drafter
-```
-
-It fits fully on the local RTX 3060 (`42/42` layers resident, compact quantized LM head resident, ~5GiB VRAM free). A 207-token real-prompt MTP smoke prefills in about `9.25s`, and the assistant drafter step is about `0.10s`.
-
-Example:
+Run it on CPU or NVIDIA:
 
 ```bash
-GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
-  -gpu -gpu-layers 0 \
-  -model models/gemma4-e4b-it-4bit \
-  -mtp-drafter models/gemma4-e4b-mtp-drafter \
-  -mtp-smoke -mtp-real-prompt \
-  -prompt "Hi"
+# AVX2/NEON with checked scalar fallbacks
+go run ./cmd/llm/llmgen \
+  -model models/qwen3-0.6b \
+  -tokens 50 \
+  -prompt "The meaning of life is"
+
+# Runtime-loaded PTX; no CUDA toolkit required
+go run ./cmd/llm/llmgen \
+  -gpu \
+  -model models/qwen3-0.6b \
+  -tokens 50 \
+  -prompt "The meaning of life is"
 ```
 
-`-mtp-smoke` is a runtime smoke path, not full speculative generation yet.
-
-## Common commands
+Interactive chat and the OpenAI-compatible server use the same model loader:
 
 ```bash
-# One-shot generation
-go run ./cmd/llm/llmgen -model models/qwen3-0.6b -gpu -tokens 50 -prompt "Hello"
+go run ./cmd/llm/llmchat -model models/qwen3-0.6b -gpu -n 256
+go run ./cmd/llm/llmserver -model models/qwen3-0.6b -gpu -listen :8080
+```
 
-# Interactive chat
-go run ./cmd/llm/llmchat -model models/gemma4-e2b-it-4bit -gpu -n 256
+## Speech
 
-# OpenAI-compatible server
-go run ./cmd/llm/llmserver -model models/gemma4-e2b-it-4bit -gpu -listen :8080
+There are two native speech paths:
 
-# Stock-weight speculative benchmark scaffold
-go run ./cmd/llm/specbench -model models/smollm2-135m -prompt-file prompts.txt -tokens 16 -repeat 3
+* `cmd/audio/diarize-vtt` runs Whisper transcription or translation and can produce resumable WebVTT with optional speaker labels. It accepts ordinary media through ffmpeg.
+* `cmd/audio/moss-transcribe` runs the pinned MOSS-Transcribe-Diarize graph end to end, including recording-local speaker labels and timestamps. Its verified RTX 3060 path is 2.18x faster than the final forced-CPU path on the JFK fixture.
 
-# Large-v3 translated WebVTT from audio (GPU-assisted, resumable)
-go run ./cmd/audio/diarize-vtt -input meeting.m4a -output meeting.vtt -language es
+```bash
+# Translate Spanish audio to English WebVTT
+go run ./cmd/audio/diarize-vtt \
+  -input meeting.m4a \
+  -output meeting.vtt \
+  -language es
 
-# Native MOSS transcription + diarization from 16 kHz mono PCM WAV
+# Native MOSS transcription and diarisation from 16kHz mono PCM WAV
 make moss-transcribe
-bin/moss-transcribe -model-dir models/MOSS-Transcribe-Diarize \
-  -audio meeting.wav -format srt -output meeting.srt
-
-# Gemma4 QAT+MTP default parity + GGUF quant oracle gate
-make gemma4-mtp-parity
-
-# Strict Gemma4 QAT+MTP selected-logit parity, with an exported llama.cpp fixture.
-# This is intentionally red until selected verifier logits match llama.cpp 1:1.
-GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
-  make gemma4-mtp-strict-parity
-
-# Native pure Go/SIMD GGUF REAP/TurboQuant validation and benchmark
-make gguf-inspect-qwen36-reap
-make gguf-smoke-qwen36-reap
-make gguf-validate-qwen36-reap
-make gguf-bench-qwen36-reap
-make gguf-check-qwen36-reap  # validation + benchmark
-make gguf-ci-qwen36-reap     # focused build smoke + check
-
-# DiffusionGemma block-diffusion scaffold/status/sparse-native workflow
-make diffusiongemma-download-metadata
-make diffusiongemma-download-plan-report # show 11-shard / 48.10 GiB payload and free-space plan
-make diffusiongemma-inspect
-make diffusiongemma-status-refresh
-make diffusiongemma-ci-no-weights # safe aggregate validation without safetensor shards
-make diffusiongemma-check-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
-make diffusiongemma-run-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it DIFFUSIONGEMMA_PROMPT='hi' DIFFUSIONGEMMA_MAX_NEW=8 DIFFUSIONGEMMA_CANVAS=8 DIFFUSIONGEMMA_DENOISE_STEPS=2 DIFFUSIONGEMMA_RUN_RESIDENCY_BUDGET_GIB=16 DIFFUSIONGEMMA_LM_HEAD_TOP_K=8
-make diffusiongemma-ci-sparse-text-published DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it
+bin/moss-transcribe \
+  -model-dir models/MOSS-Transcribe-Diarize \
+  -audio meeting.wav \
+  -format srt \
+  -output meeting.srt
 ```
 
-The Qwen3.6 REAP GGUF CI target exercises the native go-pherence path end-to-end: GGUF inspect, one-token generation smoke, synthetic TurboQuant cache smoke, benchmark, required SIMD rotation readiness, static/runtime/cache/benchmark KV+scratch byte assertions, and aggregate compressed-cache counters. It does not depend on llama.cpp for runtime execution.
+See [Whisper and translated VTT](docs/whisper-diarize-vtt.md) and [MOSS transcription and diarisation](docs/moss-transcribe-diarize.md) for model assets, limits and parity gates.
 
-The DiffusionGemma targets now cover both the safe no-weight scaffold path and a full-checkpoint native sparse text path. `make diffusiongemma-ci-no-weights` validates metadata, tokenizer/chat scaffolds, mock denoising, status JSON, and reference-helper dry-runs without safetensor shards. With the 11-shard checkpoint downloaded, `make diffusiongemma-check-sparse-text` gates the validated native sparse text stack (`text_sparse=true`, `sparse_topk_lm=true`), and `make diffusiongemma-run-sparse-text` accepts arbitrary text prompts through the full 30-layer CPU/SIMD text stack plus sparse top-k LM head. Published 256-token canvas one/two-step sparse smokes are validated by `make diffusiongemma-ci-sparse-text-published`. Reference-complete DiffusionGemma remains gated by parity fixtures and full processor/vision integration.
+## What runs today
 
-See [docs/commands.md](docs/commands.md) for detailed command usage, GGUF REAP/TurboQuant validation, MTP smoke commands, Qwen3.6 native-MTP triage commands, both speech pipelines, and benchmark harnesses. See [docs/moss-transcribe-diarize.md](docs/moss-transcribe-diarize.md) for the native MOSS support contract and [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) for Whisper status and limitations.
+The compact support matrix is in [Supported models](docs/supported-models.md). In practical terms:
 
-## Documentation map
+* LLaMA, Qwen and Gemma-family decoders cover dense and MoE checkpoints in MLX, GPTQ, BF16/F16/F32 and selected GGUF layouts.
+* BERT/GTE encoders, Whisper and MOSS have native inference paths.
+* DiffusionGemma and Ideogram 4 have runnable native slices with explicit model-specific limits.
+* MiniCPM-V/O, Qwen3-TTS, LFM2, Hunyuan3D, Trellis2 and Z-Image vary from metadata/processor support to partial runtime execution; their support pages state the exact boundary.
 
-Start here:
+Backend selection is automatic where it is safe. `-gpu` selects NVIDIA for the general LLM commands; model-specific commands document their own switches and CPU override. See [Backend selection](docs/backend-selection.md) and [Tuning](docs/tuning.md) before changing cache, placement or worker settings.
 
-- [docs/README.md](docs/README.md) — full documentation index.
-- [docs/supported-models.md](docs/supported-models.md) — supported architectures, formats, and performance snapshot.
-- [docs/commands.md](docs/commands.md) — CLI usage and smoke/benchmark commands.
-- [docs/backend-stack.md](docs/backend-stack.md) — NVIDIA, Vulkan, SIMD, BF16, and package ownership summary.
-- [docs/mtp-speculative.md](docs/mtp-speculative.md) — Gemma4/Qwen3.6 MTP implementation notes.
-- [docs/whisper-diarize-vtt.md](docs/whisper-diarize-vtt.md) — current Whisper translated VTT pipeline and performance notes.
-- [docs/moss-transcribe-diarize.md](docs/moss-transcribe-diarize.md) — native MOSS transcription/diarization support, parity, usage, and performance.
-- [docs/gemma4-31b-runbook.md](docs/gemma4-31b-runbook.md) — Gemma4 E4B/31B local run strategy and smoke results.
-- [docs/qwen36-mtp.md](docs/qwen36-mtp.md) — Qwen3.6 native-MTP checkpoint findings.
-- [docs/ideogram4-support.md](docs/ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, and current GPU limitation.
-- [docs/minicpmv-support.md](docs/minicpmv-support.md) — OpenBMB MiniCPM-V/O config/processor/tokenizer/generation metadata, image/audio prompt planning, tensor readiness, capabilities, and remaining tensor execution work.
-- [docs/minicpmv-runtime-roadmap.md](docs/minicpmv-runtime-roadmap.md) — ordered path from MiniCPM-V/O scaffold coverage to full text/vision/resampler/audio generation.
-- [docs/diffusiongemma-support.md](docs/diffusiongemma-support.md) — DiffusionGemma block-diffusion metadata, sparse native text path, references, controls, and implementation plan.
-- [docs/diffusiongemma-status.md](docs/diffusiongemma-status.md) — current DiffusionGemma scaffold/sparse-native status, operation coverage, CI targets, and remaining reference-complete gaps.
-- [docs/validation-gates.md](docs/validation-gates.md) — standard validation gates.
-- [docs/validation-hardening.md](docs/validation-hardening.md) — malformed-input and boundary-hardening summary.
+## Find the right document
 
-## SpacemiT K3 / RISC-V IME2 acceleration
+The [documentation index](docs/README.md) is organised by task rather than by implementation history. Useful starting points are:
 
-go-pherence includes a pure Go backend for SpacemiT K3 SoC (MilkV Jupiter 2), using IME2 hardware for accelerated INT8 matrix multiply.
+* [Commands](docs/commands.md) for CLI examples and validation targets.
+* [Supported models](docs/supported-models.md) for architecture and format boundaries.
+* [Architecture](docs/architecture.md) for the package graph and execution path.
+* [Backend stack](docs/backend-stack.md) for CPU, NVIDIA, Vulkan and embedded ownership.
+* [Validation gates](docs/validation-gates.md) for the checks required before an optimised path becomes a default.
+* [Performance](docs/performance.md) for current benchmarks; [matmul results](docs/matmul-optimisation-results.md) contains the latest cross-backend optimisation programme.
+* [MTP and speculative decoding](docs/mtp-speculative.md) for the current Gemma/Qwen work.
 
-### Performance
+Deep parity investigations, generated snapshots and chronological logs are still available, but they live under the "History and diagnostics" section of the index rather than competing with current guidance.
 
-| Benchmark | Result |
-|-----------|--------|
-| Raw vmadot (4x8x4 MAC) | 9.3ns / 128M ops/sec |
-| Pre-packed GEMM (1024 cubed, 8 threads) | 142 GOPS |
-| Single matmul (2048x1024) | 326us |
-| End-to-end decode (Qwen3-0.6B) | 14 tok/s (INT8 LM head) |
+## Build and test
 
-### Key findings
+```bash
+go test ./...
+go vet ./...
+```
 
-- IME2 spec: `spacemit-com/riscv-ime-extension-spec`
-- GCC flag: `-march=rv64gcv_xsmtvdotii`
-- X100 cores are CPU 0-7; A100 efficiency cores are 8-15
-- TCM: mmap `/dev/tcm` gives 3MB SRAM
-- Q4_K repack is identity (no tile format change)
-- Full details: `docs/spacemit-ime2.md`
+Hardware-gated and real-checkpoint tests are opt-in; [Validation gates](docs/validation-gates.md) lists the required environment variables and serialisation rules. The broad suite also contains deliberately documented red or asset-dependent gates, so use the focused target for the backend or model you are changing before treating a failure as a regression.
 
 ## License
 

@@ -1,4 +1,6 @@
-# Gemma4 QAT + MTP validation and benchmark snapshot
+# Gemma4 QAT and MTP benchmark snapshot
+
+> This dated benchmark record supports [MTP and speculative decoding](mtp-speculative.md); it is not the current feature overview.
 
 Snapshot date: 2026-06-16
 

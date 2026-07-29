@@ -80,7 +80,7 @@ On an Intel Core i7-12700 with `GOMAXPROCS=2`:
 - A one-second WAV through model load, audio encoder/adaptor, canonical 38-token multimodal prefill, and one generated token completes in approximately 37 seconds; model loading is approximately 4.6 seconds.
 - The 11-second JFK real-speech parity gate completes in approximately 49 seconds with early EOS at 70 generated tokens.
 - The GPU VQ adaptor agrees with the widened-BF16 CPU/SIMD oracle to a maximum `2.38e-6` on a deterministic 13-token real-weight gate.
-- On an RTX 3060, the automatic GPU path completes the 11-second JFK fixture in `13.072s` wall time versus `35.717s` with `-cpu`, a `2.73x` end-to-end speedup. Model loading takes roughly `4.7s`; GPU audio encoding takes `3.848s` versus `20.655s`, and 70-token generation takes `3.377s` versus `9.848s`.
+- On the RTX 3060/i7-12700 benchmark host, the final matmul programme measured `12.892s` median for automatic NVIDIA PTX and `28.097s` for forced CPU, including model load -- a `2.18x` end-to-end speedup. Earlier pre-optimisation measurements were `13.072s` GPU versus `35.717s` CPU; raw before/after records are in [matmul optimisation results](matmul-optimisation-results.md).
 - The resident encoder's 24-layer F32 output differs from the CPU reduction-order oracle by at most `0.0725228` on the synthetic real-checkpoint boundary gate. The stricter semantic gate is exact: all 70 JFK token IDs, the raw transcript, three speaker-labelled segments, and six timestamps match the pinned Transformers fixture and forced CPU output.
 
 Pinned Transformers 4.57.1 parity observations:

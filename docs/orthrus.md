@@ -1,4 +1,6 @@
-# Orthrus port notes
+# Orthrus port notes (reference)
+
+> Orthrus is an algorithmic reference, not the current implementation track. Use [MTP and speculative decoding](mtp-speculative.md) for active work.
 
 Orthrus is a Qwen3-derived dual-view generation scheme from `chiennv2000/orthrus` and the `chiennv/Orthrus-Qwen3-*` checkpoints. It adds a diffusion attention view to dense Qwen3 and verifies proposed blocks with the normal autoregressive path, preserving the base model distribution.
 

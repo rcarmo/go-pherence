@@ -4,15 +4,6 @@
  *
  * Usage: bun run scripts/render-test-matrix.ts [--output docs/test-matrix.svg]
  *
- * Palette semantics:
- *   blue   = CPU scalar / framework
- *   amber  = CPU SIMD (AVX2/FMA, NEON)  
- *   green  = GPU (PTX kernels via purego CUDA)
- *   red    = GPU (NV direct ioctl, zero deps)
- *   purple = both CPU + GPU (DevBuf dispatch)
- *
- * Style: taoofmac.com portfolio dark/light responsive
- *
  * @module render-test-matrix
  * @kind entrypoint
  */
@@ -20,224 +11,293 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 
-// --- Data model ---
-type Status = "pass" | "warn" | "skip" | "na";
+type Status = "pass" | "gated" | "partial" | "na";
+
 interface Row {
-  name: string;
-  cpu: Status; gpu: Status; nv: Status;
-  target: "cpu" | "simd" | "gpu" | "ioctl" | "both"; // colour hint
-  tests: string; perf: string; note: string;
+  label: string;
+  ref: Status;
+  simd: Status;
+  nvidia: Status;
+  optional: Status;
+  evidence: string;
 }
-interface Section { title: string; rows: Row[]; }
+
+interface Section {
+  title: string;
+  rows: Row[];
+}
+
+const esc = (value: string) => value
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;");
+
+const W = 1100;
+const PAD = 24;
+const TOP = 130;
+const HEADER_H = 30;
+const SECTION_H = 26;
+const ROW_H = 32;
+const FOOTER_H = 34;
+const BADGE_W = 78;
+const BADGE_H = 20;
+
+const COL = {
+  label: 24,
+  ref: 430,
+  simd: 522,
+  nvidia: 614,
+  optional: 714,
+  evidence: 816,
+};
+
+const STYLE = `
+    svg {
+      --ink: #1a2a40;
+      --surface: rgba(232, 239, 246, 0.78);
+      --surface-strong: rgba(232, 239, 246, 0.94);
+      --surface-soft: rgba(232, 239, 246, 0.62);
+      --line: rgba(26, 42, 64, 0.22);
+      --muted: rgba(26, 42, 64, 0.72);
+      --accent: #2b6cb0;
+      --accent-fill: rgba(43, 108, 176, 0.14);
+      --danger: #c05050;
+      --danger-fill: rgba(192, 80, 80, 0.14);
+      --success: #2a7a3a;
+      --success-fill: rgba(42, 122, 58, 0.14);
+      --warning: #c87020;
+      --warning-fill: rgba(200, 112, 32, 0.16);
+      --neutral-fill: rgba(26, 42, 64, 0.08);
+      color-scheme: light dark;
+      background: transparent;
+    }
+    @media (prefers-color-scheme: dark) {
+      svg {
+        --ink: #e8d8d0;
+        --surface: rgba(42, 30, 24, 0.78);
+        --surface-strong: rgba(42, 30, 24, 0.94);
+        --surface-soft: rgba(42, 30, 24, 0.62);
+        --line: rgba(232, 216, 208, 0.24);
+        --muted: rgba(232, 216, 208, 0.78);
+        --accent: #50b0a0;
+        --accent-fill: rgba(80, 176, 160, 0.18);
+        --danger: #e08050;
+        --danger-fill: rgba(224, 128, 80, 0.18);
+        --success: #60c870;
+        --success-fill: rgba(96, 200, 112, 0.18);
+        --warning: #e0a840;
+        --warning-fill: rgba(224, 168, 64, 0.2);
+        --neutral-fill: rgba(232, 216, 208, 0.1);
+      }
+    }
+    text {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+      fill: var(--ink);
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      font-size: 12px;
+      fill: var(--muted);
+    }
+    .legend-label,
+    .section-title,
+    .header-text,
+    .footer-text {
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .legend-note,
+    .cell,
+    .evidence,
+    .section-note,
+    .badge-text {
+      font-size: 11px;
+    }
+    .legend-note,
+    .section-note,
+    .evidence,
+    .footer-text {
+      fill: var(--muted);
+    }
+    .panel,
+    .header,
+    .section,
+    .row,
+    .footer {
+      stroke: var(--line);
+      stroke-width: 1.1;
+    }
+    .panel,
+    .row,
+    .footer {
+      fill: var(--surface);
+    }
+    .header {
+      fill: var(--accent-fill);
+    }
+    .section {
+      fill: var(--surface-strong);
+    }
+    .row-alt {
+      fill: var(--surface-soft);
+    }
+    .badge-pass {
+      fill: var(--success-fill);
+      stroke: var(--success);
+    }
+    .badge-gated {
+      fill: var(--accent-fill);
+      stroke: var(--accent);
+      stroke-dasharray: 4 3;
+    }
+    .badge-partial {
+      fill: var(--warning-fill);
+      stroke: var(--warning);
+    }
+    .badge-na {
+      fill: var(--neutral-fill);
+      stroke: var(--line);
+    }
+    .badge {
+      stroke-width: 1.1;
+    }
+  `;
 
 const sections: Section[] = [
   {
-    title: "Core Framework (tensor/) — CPU scalar",
+    title: "tensor/ — reference semantics",
     rows: [
-      { name: "Tensor DAG + Realize",       cpu: "pass", gpu: "na",   nv: "na", target: "cpu",  tests: "48", perf: "—",              note: "Lazy eval" },
-      { name: "Elementwise Fusion",          cpu: "pass", gpu: "na",   nv: "na", target: "cpu",  tests: "✓",  perf: "2× chained ops", note: "Fuse engine" },
-      { name: "Pattern Rewrite (16 rules)",  cpu: "pass", gpu: "na",   nv: "na", target: "cpu",  tests: "✓",  perf: "const fold",     note: "tinygrad-style" },
-      { name: "NumPy Reference Tests",       cpu: "pass", gpu: "na",   nv: "na", target: "cpu",  tests: "20", perf: "&lt;1e-5 diff",     note: "Ground truth" },
-    ]
+      { label: "Realize, shape, and graph invariants", ref: "pass", simd: "na", nvidia: "na", optional: "na", evidence: "Golden + NumPy parity; <1e-5 diff" },
+      { label: "Fusion and rewrite reference behavior", ref: "pass", simd: "na", nvidia: "na", optional: "na", evidence: "Reference owner for later backend compares" },
+    ],
   },
   {
-    title: "Safetensors (loader/safetensors/) — CPU",
+    title: "loader/weights + loader/safetensors + loader/gguf",
     rows: [
-      { name: "F16/BF16/F32 + Sharded",     cpu: "pass", gpu: "na",   nv: "na", target: "cpu",  tests: "3",  perf: "HuggingFace",    note: "Up to 15GB" },
-      { name: "GPTQ INT4 Dequantization",    cpu: "pass", gpu: "na",   nv: "na", target: "simd", tests: "✓",  perf: "∥ 30s→14s",      note: "AutoRound" },
-    ]
+      { label: "Directory selection, mmap, and shard metadata", ref: "pass", simd: "na", nvidia: "na", optional: "na", evidence: "Weights and safetensors contract checks" },
+      { label: "GGUF tensors, quant blocks, and sidecar loading", ref: "pass", simd: "na", nvidia: "na", optional: "na", evidence: "GGUF fixtures and model-load smokes" },
+    ],
   },
   {
-    title: "Model Inference (model/) — CPU SIMD + GPU",
+    title: "backends/simd/runtime + backends/simd/kernels",
     rows: [
-      { name: "BERT Encoder (GTE-small)",    cpu: "pass", gpu: "na",   nv: "na", target: "simd", tests: "6",  perf: "10.8ms, 0 alloc", note: "AVX2 SGEMM" },
-      { name: "LLaMA (SmolLM2-135M)",        cpu: "pass", gpu: "warn", nv: "na", target: "both", tests: "✓",  perf: "CPU 35 GPU 50ms", note: "h=576" },
-      { name: "LLaMA (Qwen2.5-7B INT4)",     cpu: "pass", gpu: "pass", nv: "na", target: "both", tests: "✓",  perf: "CPU 1005 GPU 518ms", note: "1.9× speedup" },
-      { name: "BPE Tokenizer",               cpu: "pass", gpu: "na",   nv: "na", target: "cpu",  tests: "✓",  perf: "GPT-2 + Qwen",   note: "Str + array" },
-    ]
+      { label: "RMSNorm, RoPE, SiLU, and GELU wrappers", ref: "pass", simd: "pass", nvidia: "na", optional: "na", evidence: "Scalar owner + AVX2/NEON parity" },
+      { label: "GEMV, BF16, and quant helper dispatch", ref: "pass", simd: "pass", nvidia: "na", optional: "na", evidence: "Runtime dispatch and quant fixtures" },
+    ],
   },
   {
-    title: "GPU Compute (gpu/) — 10 PTX kernels + purego CUDA",
+    title: "backends/nvidia/runtime + backends/nvidia/ptx",
     rows: [
-      { name: "SGEMM (16×16 tiled PTX)",     cpu: "pass", gpu: "pass", nv: "na", target: "gpu",  tests: "1",  perf: "348 GFLOPS",     note: "Shared mem" },
-      { name: "INT4 Fused Dequant+GEMV",      cpu: "pass", gpu: "pass", nv: "na", target: "gpu",  tests: "✓",  perf: "197µs 3584²",    note: "8× unroll" },
-      { name: "vec_add / vec_mul / vec_scale", cpu: "pass", gpu: "pass", nv: "na", target: "both", tests: "4",  perf: "Thresh ≥2048",   note: "Auto fallback" },
-      { name: "vec_silu (SiLU activation)",    cpu: "pass", gpu: "pass", nv: "na", target: "both", tests: "✓",  perf: "exp2 approx",    note: "x·σ(x)" },
-      { name: "rms_norm (shared mem reduce)",  cpu: "pass", gpu: "pass", nv: "na", target: "both", tests: "✓",  perf: "256-thread",     note: "rsqrt approx" },
-      { name: "RoPE (cos/sin approx PTX)",    cpu: "pass", gpu: "pass", nv: "na", target: "gpu",  tests: "✓",  perf: "cos.approx",     note: "In-place rotate" },
-      { name: "GQA Attention (per-head PTX)",  cpu: "pass", gpu: "pass", nv: "na", target: "gpu",  tests: "✓",  perf: "softmax+V weight", note: "Shared scores[]" },
-      { name: "DevBuf (CPU↔GPU dispatch)",     cpu: "pass", gpu: "pass", nv: "na", target: "both", tests: "4",  perf: "Lazy, MarkDirty", note: "tinygrad" },
-    ]
+      { label: "DevBuf, uploads, placement, and module load", ref: "na", simd: "na", nvidia: "gated", optional: "na", evidence: "Availability-gated device tests" },
+      { label: "PTX kernels for GEMM, GEMV, norm, and elementwise", ref: "pass", simd: "na", nvidia: "gated", optional: "na", evidence: "Compared against CPU references" },
+    ],
   },
   {
-    title: "NV Direct ioctl (gpu/) — zero dependencies",
+    title: "backends/nvidia/ioctl",
     rows: [
-      { name: "Device discovery + UUID",       cpu: "na",   gpu: "na", nv: "pass", target: "ioctl", tests: "1", perf: "RTX 3060",        note: "Raw syscall" },
-      { name: "GPU caps (84 SMs, sm_86)",      cpu: "na",   gpu: "na", nv: "pass", target: "ioctl", tests: "1", perf: "7×6×2 SM",        note: "RM control" },
-      { name: "Channel group + Ctx share",     cpu: "na",   gpu: "na", nv: "pass", target: "ioctl", tests: "1", perf: "KEPLER+FERMI",    note: "Compute path" },
-      { name: "Host memory registration",      cpu: "na",   gpu: "na", nv: "pass", target: "ioctl", tests: "1", perf: "NVOS02 + mmap",   note: "CPU r/w" },
-      { name: "VA space + UVM",                cpu: "na",   gpu: "na", nv: "warn", target: "ioctl", tests: "—", perf: "FERMI_VASPACE",   note: "No page fault" },
-    ]
+      { label: "Discovery, UUID, channel, and host-memory paths", ref: "na", simd: "na", nvidia: "gated", optional: "na", evidence: "Raw ioctl smoke and boundary tests" },
+      { label: "VA space and UVM edge cases", ref: "na", simd: "na", nvidia: "partial", optional: "na", evidence: "Explicit warning path retained" },
+    ],
+  },
+  {
+    title: "backends/vulkan — optional portability track",
+    rows: [
+      { label: "Dispatch wrappers and embedded SPIR-V plumbing", ref: "na", simd: "na", nvidia: "na", optional: "gated", evidence: "Boundary tests plus gated parity checks" },
+      { label: "RMSNorm, RoPEPartial, GELU, and attention score", ref: "pass", simd: "na", nvidia: "na", optional: "gated", evidence: "Explicit wrapper path, not default LLM backend" },
+    ],
+  },
+  {
+    title: "backends/spacemit — optional K3 path",
+    rows: [
+      { label: "RVV, IME2, AICPU, and board wiring", ref: "na", simd: "na", nvidia: "na", optional: "gated", evidence: "Platform-gated validation only" },
+      { label: "Inference and memory-surface integration", ref: "pass", simd: "na", nvidia: "na", optional: "gated", evidence: "Board-specific path stays explicit" },
+    ],
+  },
+  {
+    title: "model/ + models/ — integration smokes",
+    rows: [
+      { label: "CPU decode, GGUF, and loader handoff", ref: "pass", simd: "pass", nvidia: "na", optional: "na", evidence: "End-to-end reference path" },
+      { label: "NVIDIA handoff and optional backend integration", ref: "pass", simd: "pass", nvidia: "gated", optional: "gated", evidence: "Opt-in compares against CPU path" },
+    ],
   },
 ];
 
-// --- Palette: target → row background tint ---
-const ROW_TINT_LIGHT: Record<string, string> = {
-  cpu:   "#f8fafc", // neutral
-  simd:  "#fffbeb", // amber tint
-  gpu:   "#f0fdf4", // green tint
-  ioctl: "#fef2f2", // red tint
-  both:  "#f5f3ff", // purple tint
-};
-const ROW_TINT_DARK: Record<string, string> = {
-  cpu:   "#0f1218",
-  simd:  "#1a1808",
-  gpu:   "#0a1a0e",
-  ioctl: "#1a0c0c",
-  both:  "#140e1e",
+const STATUS_LABEL: Record<Status, string> = {
+  pass: "✓ pass",
+  gated: "◌ gated",
+  partial: "△ partial",
+  na: "— n/a",
 };
 
-// --- Layout ---
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-const W = 920, ROW_H = 22, SEC_H = 20, HDR_H = 26, PAD = 8;
-const COL = { name: 24, cpu: 230, gpu: 310, nv: 440, tests: 555, perf: 610, note: 800 };
-
-let totalH = 72;
-for (const s of sections) totalH += SEC_H + 4 + s.rows.length * ROW_H + 4;
-totalH += 40;
-
-// --- Build SVG ---
-let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${totalH}" font-family="system-ui,-apple-system,sans-serif">\n`;
-
-svg += `  <style>
-    @media (prefers-color-scheme: dark) {
-      .bg { fill: #0f1218; }
-      .hdr-bg { fill: #1e293b; }
-      .sec-bg { fill: #1a1e28; stroke: #2a3040; stroke-width: 0.5; }
-      .hdr-text { fill: #e2e8f0; font-size: 11px; font-weight: 600; }
-      .cell { fill: #cbd5e1; font-size: 10.5px; }
-      .note { fill: #64748b; font-size: 9.5px; }
-      .perf { fill: #86efac; font-size: 10px; font-family: "SF Mono", Menlo, monospace; }
-      .title { fill: #f1f5f9; font-size: 18px; font-weight: 700; }
-      .subtitle { fill: #64748b; font-size: 11px; }
-      .sec-title { fill: #94a3b8; font-size: 11.5px; font-weight: 600; }
-      .pass { fill: #22c55e; } .warn { fill: #f59e0b; }
-      .skip { fill: #475569; } .na { fill: #334155; }
-      .footer-bg { fill: #1e293b; }
-      .footer-text { fill: #94a3b8; font-size: 11px; font-weight: 600; }
-      .row-cpu   { fill: ${ROW_TINT_DARK.cpu}; }
-      .row-simd  { fill: ${ROW_TINT_DARK.simd}; }
-      .row-gpu   { fill: ${ROW_TINT_DARK.gpu}; }
-      .row-ioctl { fill: ${ROW_TINT_DARK.ioctl}; }
-      .row-both  { fill: ${ROW_TINT_DARK.both}; }
-      .legend-cpu  { fill: #334155; stroke: #475569; }
-      .legend-simd { fill: #422006; stroke: #a06020; }
-      .legend-gpu  { fill: #052e16; stroke: #16a34a; }
-      .legend-ioctl { fill: #2a0a0a; stroke: #a03030; }
-      .legend-both { fill: #1e0a3a; stroke: #7c3aed; }
-    }
-    @media (prefers-color-scheme: light) {
-      .bg { fill: #f8fafc; }
-      .hdr-bg { fill: #334155; }
-      .sec-bg { fill: #e2e8f0; stroke: #cbd5e1; stroke-width: 0.5; }
-      .hdr-text { fill: #ffffff; font-size: 11px; font-weight: 600; }
-      .cell { fill: #1e293b; font-size: 10.5px; }
-      .note { fill: #64748b; font-size: 9.5px; }
-      .perf { fill: #15803d; font-size: 10px; font-family: "SF Mono", Menlo, monospace; }
-      .title { fill: #0f172a; font-size: 18px; font-weight: 700; }
-      .subtitle { fill: #64748b; font-size: 11px; }
-      .sec-title { fill: #475569; font-size: 11.5px; font-weight: 600; }
-      .pass { fill: #22c55e; } .warn { fill: #f59e0b; }
-      .skip { fill: #94a3b8; } .na { fill: #cbd5e1; }
-      .footer-bg { fill: #1e293b; }
-      .footer-text { fill: #e2e8f0; font-size: 11px; font-weight: 600; }
-      .row-cpu   { fill: ${ROW_TINT_LIGHT.cpu}; }
-      .row-simd  { fill: ${ROW_TINT_LIGHT.simd}; }
-      .row-gpu   { fill: ${ROW_TINT_LIGHT.gpu}; }
-      .row-ioctl { fill: ${ROW_TINT_LIGHT.ioctl}; }
-      .row-both  { fill: ${ROW_TINT_LIGHT.both}; }
-      .legend-cpu  { fill: #e2e8f0; stroke: #94a3b8; }
-      .legend-simd { fill: #fef3c7; stroke: #d97706; }
-      .legend-gpu  { fill: #dcfce7; stroke: #16a34a; }
-      .legend-ioctl { fill: #fee2e2; stroke: #dc2626; }
-      .legend-both { fill: #ede9fe; stroke: #7c3aed; }
-    }
-    text { font-family: -apple-system, "Segoe UI", Helvetica, sans-serif; }
-  </style>\n`;
-
-// Background
-svg += `  <rect width="${W}" height="${totalH}" rx="10" class="bg"/>\n`;
-
-// Title
-svg += `  <text x="24" y="28" class="title">go-pherence Test Matrix</text>\n`;
-svg += `  <text x="24" y="44" class="subtitle">Pure Go + PTX · RTX 3060 12GB · 7 packages · 67 tests · 10 kernels</text>\n`;
-
-// Legend — execution target colours
-const legendItems = [
-  ["legend-cpu",   "CPU scalar"],
-  ["legend-simd",  "CPU SIMD (AVX2/NEON)"],
-  ["legend-gpu",   "GPU PTX (purego)"],
-  ["legend-ioctl", "GPU NV ioctl"],
-  ["legend-both",  "CPU + GPU (DevBuf)"],
-];
-let lx = 460;
-for (const [cls, lbl] of legendItems) {
-  svg += `  <rect x="${lx}" y="20" width="10" height="10" rx="2" class="${cls}" stroke-width="1.5"/><text x="${lx+14}" y="29" class="note">${lbl}</text>\n`;
-  lx += 12 + lbl.length * 5.5 + 8;
+function renderBadge(x: number, y: number, status: Status): string {
+  return [
+    `    <rect x="${x}" y="${y}" width="${BADGE_W}" height="${BADGE_H}" rx="10" class="badge badge-${status}"/>`,
+    `    <text x="${x + BADGE_W / 2}" y="${y + 13}" text-anchor="middle" class="badge-text">${esc(STATUS_LABEL[status])}</text>`,
+  ].join("\n");
 }
 
-// Status legend
-svg += `  <g transform="translate(460,38)">`;
-for (const [i, [cls, lbl]] of ([ ["pass","Pass"], ["warn","Partial"], ["na","N/A"] ] as const).entries()) {
-  svg += `<circle cx="${i*65}" cy="0" r="4" class="${cls}"/><text x="${i*65+8}" y="4" class="note">${lbl}</text>`;
+let totalH = TOP + HEADER_H + 8 + FOOTER_H;
+for (const section of sections) {
+  totalH += SECTION_H + section.rows.length * ROW_H + 12;
 }
-svg += `</g>\n`;
 
-// Column headers
-let y = 56;
-svg += `  <rect x="0" y="${y}" width="${W}" height="${HDR_H}" rx="0" class="hdr-bg"/>\n`;
-svg += `  <text x="${COL.name}" y="${y+17}" class="hdr-text">Component</text>`;
-svg += `<text x="${COL.cpu}" y="${y+17}" class="hdr-text">CPU</text>`;
-svg += `<text x="${COL.gpu}" y="${y+17}" class="hdr-text">GPU (purego)</text>`;
-svg += `<text x="${COL.nv}" y="${y+17}" class="hdr-text">GPU (NV ioctl)</text>`;
-svg += `<text x="${COL.tests}" y="${y+17}" class="hdr-text">Tests</text>`;
-svg += `<text x="${COL.perf}" y="${y+17}" class="hdr-text">Performance</text>`;
-svg += `<text x="${COL.note}" y="${y+17}" class="hdr-text">Notes</text>\n`;
-y += HDR_H;
+let svg = `<!-- Generated by scripts/render-test-matrix.ts; do not edit by hand. -->\n`;
+svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${totalH}" role="img" aria-labelledby="matrix-title matrix-desc">\n`;
+svg += `  <title id="matrix-title">Focused backend validation matrix</title>\n`;
+svg += `  <desc id="matrix-desc">A scoped go-pherence validation matrix showing current package labels for tensor references, loaders, SIMD, NVIDIA, Vulkan, SpacemiT, and integration smokes. Statuses include text badges so they do not rely on color alone.</desc>\n`;
+svg += `  <style>${STYLE}  </style>\n`;
+svg += `  <text x="${PAD}" y="32" class="title">Focused backend validation matrix</text>\n`;
+svg += `  <text x="${PAD}" y="50" class="subtitle">Scoped parity and smoke coverage for the active backend-related packages; not a repository-wide test count.</text>\n`;
+svg += `  <g role="group" aria-label="Status legend">\n`;
+svg += `    <text x="${PAD}" y="74" class="legend-label">Status legend</text>\n`;
+svg += renderBadge(PAD, 82, "pass") + "\n";
+svg += renderBadge(PAD + 94, 82, "gated") + "\n";
+svg += renderBadge(PAD + 188, 82, "partial") + "\n";
+svg += renderBadge(PAD + 294, 82, "na") + "\n";
+svg += `    <text x="${PAD + 390}" y="95" class="legend-note">Gated = runtime, device, or platform dependent; partial = intentionally limited or still-warning surfaces.</text>\n`;
+svg += `  </g>\n`;
 
-// Sections + rows
-for (const sec of sections) {
-  y += 4;
-  svg += `  <rect x="${PAD}" y="${y}" width="${W - PAD*2}" height="${SEC_H}" rx="3" class="sec-bg"/>\n`;
-  svg += `  <text x="16" y="${y + 14}" class="sec-title">${esc(sec.title)}</text>\n`;
-  y += SEC_H;
+svg += `  <rect x="${PAD}" y="${TOP}" width="${W - PAD * 2}" height="${HEADER_H}" rx="12" class="header"/>\n`;
+svg += `  <text x="${COL.label}" y="${TOP + 19}" class="header-text">Package scope / check</text>\n`;
+svg += `  <text x="${COL.ref}" y="${TOP + 19}" class="header-text">Reference</text>\n`;
+svg += `  <text x="${COL.simd}" y="${TOP + 19}" class="header-text">SIMD</text>\n`;
+svg += `  <text x="${COL.nvidia}" y="${TOP + 19}" class="header-text">NVIDIA</text>\n`;
+svg += `  <text x="${COL.optional}" y="${TOP + 19}" class="header-text">Optional</text>\n`;
+svg += `  <text x="${COL.evidence}" y="${TOP + 19}" class="header-text">Evidence / notes</text>\n`;
 
-  for (const row of sec.rows) {
-    // Row background tint by target
-    svg += `  <rect x="${PAD}" y="${y}" width="${W - PAD*2}" height="${ROW_H}" rx="2" class="row-${row.target}"/>\n`;
-    svg += `  <text x="${COL.name}" y="${y+15}" class="cell">${esc(row.name)}</text>`;
-    svg += `<circle cx="${COL.cpu + 16}" cy="${y+11}" r="5" class="${row.cpu}"/>`;
-    svg += `<circle cx="${COL.gpu + 40}" cy="${y+11}" r="5" class="${row.gpu}"/>`;
-    svg += `<circle cx="${COL.nv + 40}" cy="${y+11}" r="5" class="${row.nv}"/>`;
-    svg += `<text x="${COL.tests}" y="${y+15}" class="perf">${esc(row.tests)}</text>`;
-    svg += `<text x="${COL.perf}" y="${y+15}" class="perf">${esc(row.perf)}</text>`;
-    svg += `<text x="${COL.note}" y="${y+15}" class="note">${esc(row.note)}</text>\n`;
+let y = TOP + HEADER_H + 8;
+let rowIndex = 0;
+for (const section of sections) {
+  svg += `  <rect x="${PAD}" y="${y}" width="${W - PAD * 2}" height="${SECTION_H}" rx="10" class="section"/>\n`;
+  svg += `  <text x="${COL.label}" y="${y + 17}" class="section-title">${esc(section.title)}</text>\n`;
+  y += SECTION_H;
+
+  for (const row of section.rows) {
+    svg += `  <rect x="${PAD}" y="${y}" width="${W - PAD * 2}" height="${ROW_H}" rx="8" class="${rowIndex % 2 === 0 ? "row" : "row row-alt"}"/>\n`;
+    svg += `  <text x="${COL.label}" y="${y + 20}" class="cell">${esc(row.label)}</text>\n`;
+    svg += renderBadge(COL.ref, y + 6, row.ref) + "\n";
+    svg += renderBadge(COL.simd, y + 6, row.simd) + "\n";
+    svg += renderBadge(COL.nvidia, y + 6, row.nvidia) + "\n";
+    svg += renderBadge(COL.optional, y + 6, row.optional) + "\n";
+    svg += `  <text x="${COL.evidence}" y="${y + 20}" class="evidence">${esc(row.evidence)}</text>\n`;
     y += ROW_H;
+    rowIndex += 1;
   }
+
+  y += 12;
 }
 
-// Footer
-y += 8;
-svg += `  <rect x="${PAD}" y="${y}" width="${W - PAD*2}" height="28" rx="6" class="footer-bg"/>\n`;
-svg += `  <text x="24" y="${y+18}" class="footer-text">67 tests · 7.2K lines Go · 10 PTX kernels · tensor 72% · model 61% · gpu 23% · 7B GPU 518ms (1.9×) · 135M CPU 36ms (28 tok/s)</text>\n`;
-
+svg += `  <rect x="${PAD}" y="${y}" width="${W - PAD * 2}" height="${FOOTER_H}" rx="12" class="footer"/>\n`;
+svg += `  <text x="${COL.label}" y="${y + 21}" class="footer-text">Scope note: this matrix tracks backend validation focus and availability gates, not repository-wide package, test, or kernel totals.</text>\n`;
 svg += `</svg>\n`;
 
-// --- Output ---
 const outPath = process.argv.includes("--output")
   ? process.argv[process.argv.indexOf("--output") + 1]
-  : resolve(__dirname, "../docs/test-matrix.svg");
+  : resolve(import.meta.dir, "../docs/test-matrix.svg");
 
 writeFileSync(outPath, svg);
 console.log(`Wrote ${outPath} (${svg.length} bytes)`);

@@ -1,4 +1,6 @@
-# Model coverage snapshot
+# Model coverage snapshot (generated)
+
+> This table is generated for engineering review. Use [Supported models](supported-models.md) for the reader-facing support matrix and [Model coverage status](model-coverage-status.md) for current gaps.
 
 | family | status | covered | pending | coverage | references | runtime | execution | parity | readiness |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

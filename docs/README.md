@@ -1,75 +1,100 @@
-# go-pherence documentation index
+# go-pherence documentation
 
-This directory contains the durable backend, model, validation, and research notes for go-pherence. The top-level `README.md` stays high-level; detailed backend coverage and validation state lives here.
+The codebase covers ordinary local inference, large-model placement, speech, image generation and several experimental accelerators. This index starts with things you can run, then moves down through architecture, model-specific boundaries, validation and the historical notes that explain some of the stranger corners.
 
-## Backend ownership and coverage
+## Start with a task
 
-- [architecture.md](architecture.md) — architecture overview and package-boundary rationale.
-- [backend-stack.md](backend-stack.md) — NVIDIA, Vulkan, SIMD, BF16, and package ownership summary.
-- [backend-layout.md](backend-layout.md) — current backend/model ownership and package layout.
-- [kernel-coverage.md](kernel-coverage.md) — kernel and quantization coverage across backends.
-- [backend-parity-matrix.md](backend-parity-matrix.md) — scalar/reference parity targets and hardware-gated test policy.
-- [malformed-input-coverage.md](malformed-input-coverage.md) — exported wrapper malformed-input coverage tracker.
-- [validation-hardening.md](validation-hardening.md) — readable malformed-input and boundary-hardening summary.
-- [quant-import-audit.md](quant-import-audit.md) — `runtime/quant` compatibility boundary audit.
+| I want to... | Read |
+|---|---|
+| Run a command or service | [Commands](commands.md) |
+| Check whether a model or format is supported | [Supported models](supported-models.md) |
+| Choose CPU, NVIDIA or another backend | [Backend selection](backend-selection.md) and [Tuning](tuning.md) |
+| Understand package ownership and execution flow | [Architecture](architecture.md), [Backend stack](backend-stack.md) and [Backend layout](backend-layout.md) |
+| Transcribe or translate audio | [Whisper and translated VTT](whisper-diarize-vtt.md) |
+| Transcribe with speaker labels and timestamps | [MOSS transcription and diarisation](moss-transcribe-diarize.md) |
+| Work on speculative decoding or MTP | [MTP and speculative decoding](mtp-speculative.md) |
+| Run the standard correctness gates | [Validation gates](validation-gates.md) |
+| Compare performance | [Performance](performance.md) and [matmul optimisation results](matmul-optimisation-results.md) |
+
+## Architecture and backends
+
+[Architecture](architecture.md) is the canonical high-level view. It explains the checked scalar/SIMD baseline, model layer and backend boundary; the generated SVG near the top is the visual version of that path.
+
+[Backend stack](backend-stack.md) describes what each backend owns. The narrower reference pages cover [source layout](backend-layout.md), [runtime selection and fallback](backend-selection.md), [kernel coverage](kernel-coverage.md), [GPU options](gpu-options.md) and [weight placement](weight-budget.md).
+
+Quantised and hardware-specific references:
+
+* [TurboQuant](turboquant.md) covers compressed KV and scratch policy.
+* [NVIDIA quantisation boundaries](nvidia-quant-boundaries.md), [NVFP4](nvfp4.md) and [BF16 parity](bf16-parity.md) state the numerical contracts for those formats.
+* [SpacemiT IME2](spacemit-ime2.md) covers the K3/CIX accelerator path.
+* [Vulkan inventory](vulkan-dispatch-inventory.md) and [Vulkan validation](vulkan-validation-plan.md) describe the current experimental boundary.
+* [Quant import audit](quant-import-audit.md) documents the compatibility facade around quantised backends.
+
+## Model and feature guides
+
+### Language models and speculative decoding
+
+* [Gemma4 31B runbook](gemma4-31b-runbook.md) -- local E4B/31B placement and smoke strategy.
+* [MTP and speculative decoding](mtp-speculative.md) -- canonical implementation and validation page.
+* [Qwen3.6 MTP](qwen36-mtp.md) -- checkpoint-specific native-MTP work.
+* [Qwen3-TTS](qwen3-tts-support.md) and [LFM2 MoE](lfm2-moe-support.md) -- current loader/runtime boundaries.
+
+### Speech
+
+* [Whisper and translated VTT](whisper-diarize-vtt.md) -- user-facing pipeline, media handling and resume behaviour.
+* [Whisper model assets](whisper-model-assets.md) -- exact checkpoints and tensor shapes.
+* [Whisper execution graph](whisper-execution-graph.md) -- backend coverage and parity details.
+* [MOSS transcription and diarisation](moss-transcribe-diarize.md) -- pinned native graph, output formats and measured CPU/GPU performance.
+
+### Vision, image and 3D
+
+* [DiffusionGemma](diffusiongemma-support.md) -- canonical support page for block-diffusion text generation.
+* [Ideogram 4](ideogram4-support.md) and [Ideogram on SpacemiT](ideogram4-spacemit.md).
+* [MiniCPM-V/O](minicpmv-support.md) and its [runtime roadmap](minicpmv-runtime-roadmap.md).
+* [Hunyuan3D-2](hunyuan3d-2-support.md), [Trellis2](trellis2-support.md) and [Z-Image-Turbo](zimage-turbo-support.md).
+
+[Model coverage status](model-coverage-status.md) is the compact engineering tracker. The generated [coverage snapshot](model-coverage-snapshot.md) is useful for tooling and review, but [Supported models](supported-models.md) is the reader-facing answer.
 
 ## Validation and performance
 
-- [validation-gates.md](validation-gates.md) — phase-level test, vet, CPU-only, and hardware smoke gates.
-- [gemma4-mtp-benchmarks.md](gemma4-mtp-benchmarks.md) — Gemma4 QAT+MTP validation matrix, benchmark timings, GPU coordination windows, and current strict-parity blocker.
-- [commands.md](commands.md) — CLI usage, GGUF REAP/TurboQuant validation, MTP smokes, Qwen MTP triage, and benchmark harnesses.
-- [whisper-diarize-vtt.md](whisper-diarize-vtt.md) — current Whisper turbo translated VTT pipeline, performance, resume behavior, and diarization limitations.
-- [moss-transcribe-diarize.md](moss-transcribe-diarize.md) — native MOSS transcription/diarization support contract, exact parity gates, CLI usage, limitations, and CPU/SIMD plus RTX 3060 performance.
-- [whisper-model-assets.md](whisper-model-assets.md) — exact Whisper model names, local weight paths, shape configs, and default/turbo status.
-- [whisper-execution-graph.md](whisper-execution-graph.md) — large-v3-turbo execution graph coverage across CPU/SIMD, K3 IME/A100, NVIDIA, and diarization paths.
-- [final-coverage-acceptance.md](final-coverage-acceptance.md) — final backend coverage acceptance tracker.
-- [performance.md](performance.md) — benchmark notes and current snapshots.
-- [simd-matmul.md](simd-matmul.md) — shape-aware decode/prefill SIMD matmul dispatch, cache tiling, and benchmark procedure.
-- [matmul-audit.md](matmul-audit.md) — full dense, quantised, GPU, RVV, IME2, and model-call-site audit against multi-output/cache-tiled matmul design.
-- [matmul-benchmark-protocol.md](matmul-benchmark-protocol.md) — reproducible baseline, profiling, parity, and before/after acceptance protocol for matmul changes.
-- [matmul-optimisation-results.md](matmul-optimisation-results.md) — final retained/rejected kernel results, end-to-end measurements, and validation status.
-- [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md) — hot-path benchmark entrypoints and refreshed snapshot status.
-- [cpu-simd-coverage.md](cpu-simd-coverage.md) — CPU/SIMD coverage and benchmark context.
+[Validation gates](validation-gates.md) is the canonical command list. [Validation hardening](validation-hardening.md), [malformed-input coverage](malformed-input-coverage.md) and the [backend parity matrix](backend-parity-matrix.md) explain why those checks exist and which failures are hardware- or asset-dependent.
 
-## GPU and quantized runtimes
+Performance references:
 
-- [gpu-options.md](gpu-options.md) — GPU compute paths and backend overview.
-- [backend-selection.md](backend-selection.md) — backend selection order, gates, Vulkan wrapper status, and fallback rules.
-- [vulkan-dispatch-inventory.md](vulkan-dispatch-inventory.md) — Vulkan shader/wrapper inventory.
-- [vulkan-validation-plan.md](vulkan-validation-plan.md) — Vulkan pipeline-cache and parity-test plan.
-- [nvidia-quant-boundaries.md](nvidia-quant-boundaries.md) — NVIDIA Q4/NVFP4 support boundaries.
-- [bf16-parity.md](bf16-parity.md) — BF16 CPU/NVIDIA parity expectations.
-- [nvfp4.md](nvfp4.md) — NVFP4/FP4 support track and checkpoint notes.
+* [Performance](performance.md) -- current model and backend measurements.
+* [SIMD matmul policy](simd-matmul.md) -- shape-aware decode/prefill dispatch.
+* [Matmul audit](matmul-audit.md), [benchmark protocol](matmul-benchmark-protocol.md) and [final results](matmul-optimisation-results.md) -- the complete cache/register-tiling programme and its retained or rejected outcomes.
+* [Whisper on RISC-V](whisper-riscv-optimization.md) -- measured K3/RVV/IME path.
 
-## Model/research notes
+The generated [test matrix](test-matrix.svg) is a scoped visual guide, not a count of the entire repository. Regenerate both checked-in diagrams with `make docs-diagrams`.
 
-- [supported-models.md](supported-models.md) — supported architectures, formats, and performance snapshot.
-- [model-coverage-status.md](model-coverage-status.md) — compact Qwen3-TTS and LFM2 coverage status, validation commands, and remaining runtime gaps.
-- [model-coverage-snapshot.md](model-coverage-snapshot.md) — generated coverage table plus pending runtime roadmap.
-- [model-coverage-manifest.json](model-coverage-manifest.json) — machine-readable Qwen3-TTS and LFM2 coverage gates for status tooling.
-- [hunyuan3d-2-support.md](hunyuan3d-2-support.md) — Hunyuan3D-2 staged implementation plan, native loader/runtime scaffold, fixture ladder, and current CPU kernel primitive status.
-- [zimage-turbo-support.md](zimage-turbo-support.md) — Z-Image-Turbo feasibility assessment and native SIMD image-generation plan.
-- [diffusiongemma-support.md](diffusiongemma-support.md) — DiffusionGemma block-diffusion text generation metadata, sparse native text path, and native runtime plan.
-- [diffusiongemma-status.md](diffusiongemma-status.md) — current DiffusionGemma implementation status snapshot and remaining readiness gaps.
-- [ideogram4-support.md](ideogram4-support.md) — Ideogram 4 FP8 native CPU/SIMD image-generation runtime, validation status, AVX2 FP8 backend notes, and current GPU limitation.
-- [minicpmv-support.md](minicpmv-support.md) — OpenBMB MiniCPM-V/O config/processor/tokenizer/generation metadata, image/audio prompt planning, tensor readiness, capabilities, and remaining tensor execution work.
-- [minicpmv-runtime-roadmap.md](minicpmv-runtime-roadmap.md) — ordered path from the current MiniCPM-V/O scaffold to full text/vision/resampler/audio generation.
-- [qwen3-tts-support.md](qwen3-tts-support.md) — Qwen3-TTS repository mapping, roadmap, and implementation guidance.
-- [lfm2-moe-support.md](lfm2-moe-support.md) — LFM2.5-8B-A1B hybrid conv/attention MoE support roadmap.
-- [gemma4-precision.md](gemma4-precision.md) — Gemma4 GPU correctness and precision notes.
-- [gemma4-31b-runbook.md](gemma4-31b-runbook.md) — local Gemma4 31B main/MTP assets and current run strategy.
-- [model-package-refactor.md](model-package-refactor.md) — safe plan for splitting generic model contracts from architecture-specific packages.
-- [mtp-speculative.md](mtp-speculative.md) — Gemma4/Qwen3.6 MTP research and implementation status.
-- [qwen36-mtp.md](qwen36-mtp.md) — Qwen3.6 native MTP checkpoint findings.
-- [qwen35-reference-audit.md](qwen35-reference-audit.md) — Qwen3.5 reference audit.
-- [orthrus.md](orthrus.md) — Orthrus/speculative decoding notes.
-- [whisper-plan.md](whisper-plan.md) — original Whisper/diarization implementation plan plus historical status notes.
-- [turboquant.md](turboquant.md) — TurboQuant notes.
-- [kvboost-application-plan.md](kvboost-application-plan.md) — how KVBoost-style chunked KV reuse/page-offload maps to go-pherence.
-- [weight-budget.md](weight-budget.md) — tiered weight budget manager.
+## History and diagnostics
 
-## Project history
+These pages preserve investigations, generated snapshots and implementation plans. They are valuable when debugging a numerical boundary, but they should not be used as current feature summaries.
 
-- [development-log.md](development-log.md) — development log.
-- [refactor-plan.md](refactor-plan.md) — source-tree refactor status and remaining cleanup plan.
-- [simd-folder-reorg.md](simd-folder-reorg.md) — SIMD folder reorganization notes.
+### Project history and refactors
+
+* [Development log](development-log.md)
+* [Refactor plan](refactor-plan.md)
+* [SIMD folder reorganisation](simd-folder-reorg.md)
+* [Model package refactor](model-package-refactor.md)
+* [Reusable component consolidation](reusable-component-consolidation.md)
+* [Final coverage acceptance](final-coverage-acceptance.md)
+* [Benchmark snapshot queue](benchmark-snapshot-queue.md)
+* [CPU/SIMD coverage snapshot](cpu-simd-coverage.md)
+
+### Model investigations
+
+* [DiffusionGemma status snapshot](diffusiongemma-status.md), [llama.cpp alignment](diffusiongemma-llamacpp-alignment.md) and [GGUF GPU profile](diffusiongemma-gguf-gpu-profile.md)
+* [Gemma llama.cpp audit](gemma-llamacpp-audit.md), [Gemma4 alignment](gemma4-llamacpp-alignment.md), [MTP benchmarks](gemma4-mtp-benchmarks.md), [first divergence](gemma4-mtp-first-diff.md) and [precision notes](gemma4-precision.md)
+* [Qwen3.5 reference audit](qwen35-reference-audit.md), [Orthrus notes](orthrus.md) and [KVBoost application plan](kvboost-application-plan.md)
+* [Original Whisper plan](whisper-plan.md)
+* [IME2 I8/I4 port notes](ime2-i8i4-port-notes.md)
+
+## Diagrams
+
+![Core LLM and NVIDIA execution path](architecture.svg)
+
+![Focused backend validation matrix](test-matrix.svg)
+
+The SVGs are generated from `scripts/render-architecture.ts` and `scripts/render-test-matrix.ts`. Keep labels and status claims in the scripts; editing the rendered SVGs by hand only guarantees they will drift again.

@@ -1,6 +1,8 @@
-# Whisper + Diarization Implementation Plan
+# Whisper and diarisation implementation plan (historical)
 
-## Overview
+> This page preserves the original implementation plan. Use [Whisper and translated VTT](whisper-diarize-vtt.md) for current usage and [Whisper execution graph](whisper-execution-graph.md) for backend status.
+
+## Original scope
 
 Add speech recognition (Whisper) and speaker diarization to go-pherence.
 This requires new architectural primitives not present in the current decoder-only codebase:

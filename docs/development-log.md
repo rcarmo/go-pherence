@@ -1,4 +1,6 @@
-# Development Log
+# Development log (historical)
+
+> This is a chronological engineering record and contains superseded status. Start with the [documentation index](README.md) for current behavior.
 
 Step-by-step record of building go-pherence from scratch.
 
