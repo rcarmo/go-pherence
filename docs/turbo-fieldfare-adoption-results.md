@@ -163,6 +163,42 @@ For a representative hidden-4096, Q-4096, KV-1024, intermediate-14336 shape, the
 
 Raw planner output: [`baseline-e7e482bc/prefill-chunk-planner.txt`](../benchmarks/turbo-fieldfare-adoption/baseline-e7e482bc/prefill-chunk-planner.txt).
 
+### 12. Out-of-core expert streaming
+
+`runtime/expertstream` validates an immutable SHA-256 manifest, requires each expert's gate/up/down payloads to be contiguous, allocates fixed 4KiB-aligned reusable host slots, and services misses with a bounded `ReadAt` worker pool. It rejects overlap, malformed quant layouts, checksum changes, truncation and zero-progress reads. Slot replacement is deterministic LRU; duplicate requests preserve caller order.
+
+On the i7-12700, four resident 1MiB experts resolve in `399--429ns`. Alternating two four-expert sets through four slots forces four reader misses per call and measures `130--144µs` from the warm OS page cache. This is explicitly **not** a disk-cold bandwidth claim. The experimental model adapter supports exact MLX affine payloads (`uint32` packed weights plus F32 scales/biases), performs hit-first planning, batches only misses, uploads in deterministic request order through the production NVIDIA upload function, and leaves normal decode unchanged unless a source is explicitly injected.
+
+Measured/validated gates:
+
+| Gate | Result |
+|---|---|
+| aligned fixed slots and RSS bound | slot allocation is exactly `slots * alignUp(maxExpertSpan, alignment)` plus manifest/file metadata |
+| short reads and post-open truncation | rejected with `ErrShortRead`; partial assignments discarded |
+| corruption | size and SHA-256 mismatch rejected before slot allocation |
+| bounded parallel reads | worker cap and post-load goroutine cleanup tested |
+| exact MLX typed views | zero-copy synthetic packed-weight/scale/bias fixtures pass |
+| live device | RTX 3060 available (12GiB); existing focused NVIDIA pool/upload gates pass |
+| Qwen3-30B full-token parity/TPS | unavailable: checkpoint absent |
+| checkpoint above RAM/VRAM, disk-cold and I/O/upload overlap | unavailable without a representative package; no synthetic claim substituted |
+
+The facility remains experimental and non-default. RDADVISE/read-ahead and speculative cross-layer reads were not added because page-cache-backed microbenchmarks cannot justify them.
+
+### 13. Generic autoregressive sampling contract
+
+`runtime/sampling` defines deterministic greedy, temperature, Top-K and Top-P behavior independently of model generation. Candidates order by descending logit and ascending token ID; NaN and negative infinity are excluded; positive-infinity ties share all mass; malformed/all-invalid inputs return explicit errors; fixed unit draws and seeded RNG sequences are reproducible. Top-K uses a bounded heap and Top-P includes the probability-threshold crossing token.
+
+| Vocab / mode | Time | Allocation |
+|---|---:|---:|
+| 32K greedy | 47--51µs | 0 B |
+| 32K Top-K=40 | 69--70µs | 1.36KiB |
+| 32K unrestricted Top-P | 3.9--4.0ms | 1.50MiB |
+| 128K greedy | 188--197µs | 0 B |
+| 128K Top-K=40 | 238--244µs | 1.36KiB |
+| 128K unrestricted Top-P | 19--20ms | 6.0MiB |
+
+The result supports Top-K-first composition as the bounded candidate. Unrestricted Top-P necessarily sorts the full surviving vocabulary in this implementation and is retained for correctness/reference use, not as a default performance path. Generic generation remains greedy until model/server call sites receive an explicit opt-in configuration and full-token gates.
+
 ## Pending real-model rows
 
 The Qwen3-30B-A3B MLX4 asset is unavailable on this host. Cold/warm decode, real route traces, upload bytes and full-token throughput remain explicitly pending rather than inferred from synthetic work. When the checkpoint is installed, these replay and selected-expert fixtures are the fixed controls for choosing LRU/LFU/layer-aware policy and any broader persistent-kernel experiment.
