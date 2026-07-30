@@ -30,9 +30,13 @@ func TestMLXDispatchMalformedDoesNotPanic(t *testing.T) {
 	GemvMLX(out, x, nil)
 	GemmMLX(out, x, nil, 2)
 	GemvMLXDirect(out, x, nil)
+	cand := NewMLXSelectedExpertPersistentCandidate()
+	defer cand.Free()
+	_ = cand.Run(out, x, nil, nil)
 	validShape := &GPUMLXWeight{InDim: 8, OutDim: 2, Groups: 1, GroupSz: 8, QWeight: &Buffer{Ptr: 1, Size: 4}, Scales: &Buffer{Ptr: 1, Size: 8}, Biases: &Buffer{Ptr: 1, Size: 8}}
 	GemvMLX(NewDevBuf(1), NewDevBuf(8), validShape)
 	GemmMLX(NewDevBuf(3), NewDevBuf(16), validShape, 2)
 	GemmMLX(NewDevBuf(4), NewDevBuf(15), validShape, 2)
 	GemvMLXDirect(NewDevBuf(1), NewDevBuf(8), validShape)
+	_ = cand.Run(NewDevBuf(2), NewDevBuf(8), []*GPUMLXWeight{validShape}, []uint32{0})
 }

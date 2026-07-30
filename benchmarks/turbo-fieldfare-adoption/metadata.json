@@ -1,0 +1,33 @@
+{
+  "type": "turbo-fieldfare-adoption-baseline",
+  "timestamp": "2026-07-30T08:25:20+01:00",
+  "root": "/srv/piclaw-dev/workspace/projects/go-pherence",
+  "commit": "e7e482bc12608c4159a9dcdde66689100e95f410",
+  "go": "go version go1.26.3 linux/amd64",
+  "uname": "Linux sandbox 6.8.0-136-generic #136-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 21:53:05 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "hardware": {
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700 exposed as 6 KVM vCPUs",
+    "gpu": "NVIDIA GeForce RTX 3060, 580.173.02, 12288 MiB"
+  },
+  "benchmarks": [
+    "go test ./backends/nvidia/runtime -run '^$' -bench 'BenchmarkExpertPoolReplaySyntheticGlobalKeys' -benchmem",
+    "go test ./model -run '^$' -bench 'BenchmarkMoESelectedExpertComputeSynthetic512x1024Top4' -benchmem"
+  ],
+  "assets": {
+    "qwen3_30b_a3b_mlx4": {
+      "path": "models/qwen3-30b-a3b-mlx4/config.json",
+      "status": "missing"
+    },
+    "gemma4_e4b_qat_gguf": {
+      "path": "/workspace/models/gguf-misc/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf",
+      "sha256": "b3052f962d6449b4eb2075733c068bdec1c51eadb7b237e6c3157bfbb7b1dae0",
+      "status": "available-for-metadata-and-kv-estimates",
+      "runtime_status": "not generation-ready: tied output.weight is not resolved by the generic GGUF runtime"
+    }
+  },
+  "notes": [
+    "This scaffold is intentionally baseline-only: current production eviction remains LRU.",
+    "No LFU policy or new routed-expert CUDA kernels are implemented in this slice.",
+    "Full-model Qwen3-30B route-set benchmark captures remain pending local asset availability."
+  ]
+}

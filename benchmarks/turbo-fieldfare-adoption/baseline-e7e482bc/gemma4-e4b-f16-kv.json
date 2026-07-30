@@ -1,0 +1,58 @@
+{
+  "inspection": {
+    "path": "/workspace/models/gguf-misc/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf",
+    "architecture": "gemma4",
+    "name": "Gemma-4 E4B IT (smart Q4_0, QAT-lossless)",
+    "tensor_count": 666,
+    "quant_counts": {
+      "F32": 321,
+      "Q4_0": 345
+    },
+    "has_q4_k": false,
+    "has_moe": false,
+    "layers": 42,
+    "hidden_size": 2560,
+    "heads": 8,
+    "vocab_size": 262144,
+    "tokenizer_tokens": 262144,
+    "bos_token_id": 2,
+    "eos_token_id": 1,
+    "max_seq_len": 131072,
+    "kv_heads": 2,
+    "head_dim": 512,
+    "kv_dim": 1024,
+    "compressed_kv_layers": 42,
+    "has_reap_metadata": false,
+    "turboquant_ready": true,
+    "pure_go_simd_ready": true,
+    "runtime_supported": false,
+    "missing_runtime_tensors": [
+      "output.weight"
+    ]
+  },
+  "turboquant_plan": {
+    "enabled": false,
+    "key_type": "f16",
+    "value_type": "f16",
+    "key_bits": 4,
+    "value_bits": 2,
+    "residual_window": 128,
+    "layers": 42,
+    "cache_layers": 42,
+    "max_seq_len": 131072,
+    "kv_heads": 2,
+    "head_dim": 512,
+    "kv_dim": 1024,
+    "full_kv_bytes": 45097156608,
+    "estimated_kv_bytes": 45097156608,
+    "estimated_kv_ratio": 1,
+    "estimated_total_bytes": 45097156608,
+    "runtime_ready": false,
+    "simd_arch": "amd64",
+    "simd_rotation": true,
+    "simd_vec": true,
+    "simd_avx2": true,
+    "simd_neon": false,
+    "simd_rvv": false
+  }
+}

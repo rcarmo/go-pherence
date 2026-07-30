@@ -1,0 +1,66 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/nvidia/runtime
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_16-2         	       1	   1201936 ns/op	      6020 evictions	         1.758 hit_pct	  880704 B/op	    6173 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_16-2         	       1	   1088025 ns/op	      6020 evictions	         1.758 hit_pct	  880704 B/op	    6173 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_16-2         	       1	   1027168 ns/op	      6020 evictions	         1.758 hit_pct	  880704 B/op	    6173 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_16-2         	       1	   1063702 ns/op	      6020 evictions	         1.758 hit_pct	  880704 B/op	    6173 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_16-2         	       1	   1015075 ns/op	      6020 evictions	         1.758 hit_pct	  880704 B/op	    6173 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_32-2         	       1	   1138901 ns/op	      6004 evictions	         1.758 hit_pct	  882144 B/op	    6176 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_32-2         	       1	   1121477 ns/op	      6004 evictions	         1.758 hit_pct	  882144 B/op	    6176 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_32-2         	       1	   1455814 ns/op	      6004 evictions	         1.758 hit_pct	  882160 B/op	    6177 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_32-2         	       1	   1157882 ns/op	      6004 evictions	         1.758 hit_pct	  882144 B/op	    6176 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_32-2         	       1	   1140782 ns/op	      6004 evictions	         1.758 hit_pct	  882144 B/op	    6176 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_64-2         	       1	   1328160 ns/op	      5972 evictions	         1.758 hit_pct	  884992 B/op	    6179 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_64-2         	       1	   1475341 ns/op	      5972 evictions	         1.758 hit_pct	  884992 B/op	    6179 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_64-2         	       1	   1316308 ns/op	      5972 evictions	         1.758 hit_pct	  884992 B/op	    6179 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_64-2         	       1	   1249177 ns/op	      5972 evictions	         1.758 hit_pct	  884992 B/op	    6179 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lru/slots_64-2         	       1	   1238600 ns/op	      5972 evictions	         1.758 hit_pct	  884992 B/op	    6179 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_16-2         	       1	   2867857 ns/op	      6109 evictions	         0.3092 hit_pct	  884976 B/op	    6262 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_16-2         	       1	   2797191 ns/op	      6109 evictions	         0.3092 hit_pct	  884976 B/op	    6262 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_16-2         	       1	   2858699 ns/op	      6109 evictions	         0.3092 hit_pct	  884976 B/op	    6262 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_16-2         	       1	   2870263 ns/op	      6109 evictions	         0.3092 hit_pct	  884976 B/op	    6262 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_16-2         	       1	   2852259 ns/op	      6109 evictions	         0.3092 hit_pct	  884976 B/op	    6262 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_32-2         	       1	   4362714 ns/op	      6085 evictions	         0.4395 hit_pct	  886032 B/op	    6257 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_32-2         	       1	   4306319 ns/op	      6085 evictions	         0.4395 hit_pct	  886032 B/op	    6257 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_32-2         	       1	   4567656 ns/op	      6085 evictions	         0.4395 hit_pct	  886032 B/op	    6257 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_32-2         	       1	   4433408 ns/op	      6085 evictions	         0.4395 hit_pct	  886032 B/op	    6257 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_32-2         	       1	   4225040 ns/op	      6085 evictions	         0.4395 hit_pct	  886032 B/op	    6257 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_64-2         	       1	   6717329 ns/op	      6044 evictions	         0.5859 hit_pct	  888448 B/op	    6251 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_64-2         	       1	   6727740 ns/op	      6044 evictions	         0.5859 hit_pct	  888448 B/op	    6251 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_64-2         	       1	   6775963 ns/op	      6044 evictions	         0.5859 hit_pct	  888448 B/op	    6251 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_64-2         	       1	   6696188 ns/op	      6044 evictions	         0.5859 hit_pct	  888448 B/op	    6251 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/policy_lfu/slots_64-2         	       1	   7273434 ns/op	      6044 evictions	         0.5859 hit_pct	  888448 B/op	    6251 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_8-2          	       1	    661866 ns/op	      4261 evictions	         7.357 hit_pct	  382552 B/op	    4341 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_8-2          	       1	    604134 ns/op	      4261 evictions	         7.357 hit_pct	  382552 B/op	    4341 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_8-2          	       1	    552822 ns/op	      4261 evictions	         7.357 hit_pct	  382552 B/op	    4341 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_8-2          	       1	   1075121 ns/op	      4261 evictions	         7.357 hit_pct	  382552 B/op	    4341 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_8-2          	       1	   1077104 ns/op	      4261 evictions	         7.357 hit_pct	  382552 B/op	    4341 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_16-2         	       1	   1255323 ns/op	      4253 evictions	         7.357 hit_pct	  383616 B/op	    4347 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_16-2         	       1	    659030 ns/op	      4253 evictions	         7.357 hit_pct	  383616 B/op	    4347 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_16-2         	       1	   1123427 ns/op	      4253 evictions	         7.357 hit_pct	  383616 B/op	    4347 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_16-2         	       1	   1171598 ns/op	      4253 evictions	         7.357 hit_pct	  383616 B/op	    4347 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_16-2         	       1	    883345 ns/op	      4253 evictions	         7.357 hit_pct	  383616 B/op	    4347 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_32-2         	       1	    744213 ns/op	      4237 evictions	         7.357 hit_pct	  385056 B/op	    4350 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_32-2         	       1	    899968 ns/op	      4237 evictions	         7.357 hit_pct	  385056 B/op	    4350 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_32-2         	       1	    681853 ns/op	      4237 evictions	         7.357 hit_pct	  385056 B/op	    4350 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_32-2         	       1	    721327 ns/op	      4237 evictions	         7.357 hit_pct	  385056 B/op	    4350 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lru/slots_32-2         	       1	    672400 ns/op	      4237 evictions	         7.357 hit_pct	  385056 B/op	    4350 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_8-2          	       1	   1029636 ns/op	      4176 evictions	         9.201 hit_pct	  378472 B/op	    4256 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_8-2          	       1	   1053836 ns/op	      4176 evictions	         9.201 hit_pct	  378472 B/op	    4256 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_8-2          	       1	   1055226 ns/op	      4176 evictions	         9.201 hit_pct	  378472 B/op	    4256 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_8-2          	       1	   1133546 ns/op	      4176 evictions	         9.201 hit_pct	  378472 B/op	    4256 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_8-2          	       1	   1108496 ns/op	      4176 evictions	         9.201 hit_pct	  378472 B/op	    4256 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_16-2         	       1	   2485854 ns/op	      3929 evictions	        14.39 hit_pct	  368064 B/op	    4023 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_16-2         	       1	   1815465 ns/op	      3929 evictions	        14.39 hit_pct	  368064 B/op	    4023 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_16-2         	       1	   1783433 ns/op	      3929 evictions	        14.39 hit_pct	  368064 B/op	    4023 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_16-2         	       1	   1845077 ns/op	      3929 evictions	        14.39 hit_pct	  368064 B/op	    4023 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_16-2         	       1	   1837774 ns/op	      3929 evictions	        14.39 hit_pct	  368064 B/op	    4023 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_32-2         	       1	   2388601 ns/op	      3529 evictions	        22.72 hit_pct	  351072 B/op	    3642 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_32-2         	       1	   2380525 ns/op	      3529 evictions	        22.72 hit_pct	  351072 B/op	    3642 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_32-2         	       1	   2382873 ns/op	      3529 evictions	        22.72 hit_pct	  351072 B/op	    3642 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_32-2         	       1	   2390766 ns/op	      3529 evictions	        22.72 hit_pct	  351072 B/op	    3642 allocs/op
+BenchmarkExpertPoolReplaySyntheticLayerQuota/policy_lfu/slots_32-2         	       1	   2425285 ns/op	      3529 evictions	        22.72 hit_pct	  351072 B/op	    3642 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	0.173s

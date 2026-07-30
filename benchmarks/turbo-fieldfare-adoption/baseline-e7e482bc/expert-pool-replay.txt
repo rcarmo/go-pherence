@@ -1,0 +1,21 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/nvidia/runtime
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_16-2         	     922	    624738 ns/op	      6020 evictions	         1.758 hit_pct	  540756 B/op	    6527 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_16-2         	     962	    635473 ns/op	      6020 evictions	         1.758 hit_pct	  540746 B/op	    6527 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_16-2         	     940	    642032 ns/op	      6020 evictions	         1.758 hit_pct	  540745 B/op	    6527 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_16-2         	     939	    686724 ns/op	      6020 evictions	         1.758 hit_pct	  540747 B/op	    6527 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_16-2         	     920	    684988 ns/op	      6020 evictions	         1.758 hit_pct	  540745 B/op	    6527 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_32-2         	     848	    690901 ns/op	      6004 evictions	         1.758 hit_pct	  538880 B/op	    6310 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_32-2         	     859	    698691 ns/op	      6004 evictions	         1.758 hit_pct	  538880 B/op	    6310 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_32-2         	     884	    737856 ns/op	      6004 evictions	         1.758 hit_pct	  538880 B/op	    6310 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_32-2         	     852	    684336 ns/op	      6004 evictions	         1.758 hit_pct	  538880 B/op	    6310 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_32-2         	     848	    685489 ns/op	      6004 evictions	         1.758 hit_pct	  538880 B/op	    6310 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_64-2         	     849	    710186 ns/op	      5972 evictions	         1.758 hit_pct	  542752 B/op	    6223 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_64-2         	     824	    697971 ns/op	      5972 evictions	         1.758 hit_pct	  542753 B/op	    6223 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_64-2         	     853	    705446 ns/op	      5972 evictions	         1.758 hit_pct	  542752 B/op	    6223 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_64-2         	     861	    697202 ns/op	      5972 evictions	         1.758 hit_pct	  542754 B/op	    6223 allocs/op
+BenchmarkExpertPoolReplaySyntheticGlobalKeys/slots_64-2         	     847	    715614 ns/op	      5972 evictions	         1.758 hit_pct	  542753 B/op	    6223 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	10.617s

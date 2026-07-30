@@ -91,6 +91,7 @@ func megaModuleEntries() []moduleEntry {
 		{"mlx_gemv", ptxmlx.MLXGemvPTX},
 		{"mlx_gemm", ptxmlx.MLXGemmPTX},
 		{"mlx_correct", ptxmlx.MLXCorrectPTX},
+		{"mlx_selected_expert_gemv_persistent", ptxmlx.MLXSelectedExpertPersistentPTX},
 		{"bf16_rms_norm", ptxbf16.BF16RMSNormPTX},
 		{"bf16_rms_norm_no_scale", ptxbf16.BF16RMSNormNoScalePTX},
 		{"bf16_vec_add", ptxbf16.BF16VecAddPTX},

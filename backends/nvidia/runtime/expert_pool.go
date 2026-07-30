@@ -2,20 +2,62 @@ package nvidia
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/rcarmo/go-pherence/backends/placement"
 )
 
+// ExpertCachePolicy names the eviction policy used by ExpertPool.
+type ExpertCachePolicy string
+
+const (
+	ExpertCachePolicyLRU ExpertCachePolicy = "lru"
+	ExpertCachePolicyLFU ExpertCachePolicy = "lfu"
+)
+
+// ParseExpertCachePolicy normalizes a user-supplied expert cache policy name.
+// The empty string defaults to LRU for backwards compatibility.
+func ParseExpertCachePolicy(name string) (ExpertCachePolicy, error) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "", string(ExpertCachePolicyLRU):
+		return ExpertCachePolicyLRU, nil
+	case string(ExpertCachePolicyLFU):
+		return ExpertCachePolicyLFU, nil
+	default:
+		return "", fmt.Errorf("unsupported expert cache policy %q", name)
+	}
+}
+
+func normalizeExpertCachePolicy(policy ExpertCachePolicy) ExpertCachePolicy {
+	normalized, err := ParseExpertCachePolicy(string(policy))
+	if err != nil {
+		return ExpertCachePolicyLRU
+	}
+	return normalized
+}
+
+func (p ExpertCachePolicy) String() string {
+	return string(normalizeExpertCachePolicy(p))
+}
+
+type expertCacheHistory struct {
+	UseCount uint64
+	Recency  uint64
+}
+
 // ExpertPool manages a fixed number of MoE expert weight sets on GPU.
-// Experts are cached with LRU eviction and hit/miss tracking.
+// Experts are cached with configurable LRU/LFU eviction and hit/miss tracking.
 type ExpertPool struct {
-	mu     sync.Mutex
-	slots  int                      // max experts on GPU simultaneously
-	cache  map[int]*ExpertEntry     // expert_id → cached entry
-	order  []int                    // LRU order (most recent at end)
-	budget *placement.BudgetManager // optional budget tracking
+	mu      sync.Mutex
+	slots   int                        // max experts on GPU simultaneously
+	policy  ExpertCachePolicy          // eviction policy for automatic replacement
+	cache   map[int]*ExpertEntry       // expert_id → cached entry
+	order   []int                      // LRU order (most recent at end)
+	history map[int]expertCacheHistory // whole-run use counts and recency by global key
+	clock   uint64                     // monotonically increasing recency clock
+	budget  *placement.BudgetManager   // optional budget tracking
 
 	// Stats
 	Hits   atomic.Uint64
@@ -32,17 +74,35 @@ type ExpertEntry struct {
 	SizeBytes int64         // total VRAM used
 }
 
-// NewExpertPool creates a pool with the given number of GPU slots.
+// NewExpertPool creates a pool with the given number of GPU slots using the
+// historical default LRU eviction policy.
 func NewExpertPool(slots int, budget *placement.BudgetManager) *ExpertPool {
+	return NewExpertPoolWithPolicy(slots, budget, ExpertCachePolicyLRU)
+}
+
+// NewExpertPoolWithPolicy creates a pool with the given number of GPU slots
+// and eviction policy. Unsupported policy values fall back to LRU.
+func NewExpertPoolWithPolicy(slots int, budget *placement.BudgetManager, policy ExpertCachePolicy) *ExpertPool {
 	return &ExpertPool{
-		slots:  slots,
-		cache:  make(map[int]*ExpertEntry),
-		budget: budget,
+		slots:   slots,
+		policy:  normalizeExpertCachePolicy(policy),
+		cache:   make(map[int]*ExpertEntry),
+		history: make(map[int]expertCacheHistory),
+		budget:  budget,
 	}
 }
 
-// Peek returns the cached expert without changing hit/miss/eviction stats or
-// LRU order. Use it for planning checks; use Get for actual expert use.
+// Policy returns the pool's configured eviction policy.
+func (p *ExpertPool) Policy() ExpertCachePolicy {
+	if p == nil {
+		return ExpertCachePolicyLRU
+	}
+	return normalizeExpertCachePolicy(p.policy)
+}
+
+// Peek returns the cached expert without changing hit/miss/eviction stats,
+// use counts, recency, or LRU order. Use it for planning checks; use Get for
+// actual expert use.
 func (p *ExpertPool) Peek(expertID int) *ExpertEntry {
 	if p == nil || expertID < 0 {
 		return nil
@@ -53,7 +113,8 @@ func (p *ExpertPool) Peek(expertID int) *ExpertEntry {
 }
 
 // Get returns the cached expert, or nil if not present (miss).
-// On hit, the expert is moved to the most-recently-used position.
+// On hit, the expert is moved to the most-recently-used position and its whole-
+// run use count/recency are updated.
 func (p *ExpertPool) Get(expertID int) *ExpertEntry {
 	if p == nil || expertID < 0 {
 		return nil
@@ -63,6 +124,7 @@ func (p *ExpertPool) Get(expertID int) *ExpertEntry {
 
 	entry, ok := p.cache[expertID]
 	if ok {
+		p.recordUseLocked(expertID, true)
 		p.touchLocked(expertID)
 		p.Hits.Add(1)
 		if p.budget != nil {
@@ -70,12 +132,14 @@ func (p *ExpertPool) Get(expertID int) *ExpertEntry {
 		}
 		return entry
 	}
+	p.recordUseLocked(expertID, false)
 	p.Misses.Add(1)
 	return nil
 }
 
-// Put adds an expert to the pool, evicting the LRU entry if full.
-// Returns the evicted entry (if any) so the caller can free its GPU resources.
+// Put adds an expert to the pool, evicting according to the configured policy
+// if full. Returns the evicted entry (if any) so the caller can free its GPU
+// resources.
 func (p *ExpertPool) Put(entry *ExpertEntry) *ExpertEntry {
 	if entry == nil {
 		return nil
@@ -96,6 +160,7 @@ func (p *ExpertPool) Put(entry *ExpertEntry) *ExpertEntry {
 	if old, ok := p.cache[entry.ExpertID]; ok {
 		p.cache[entry.ExpertID] = entry
 		p.touchLocked(entry.ExpertID)
+		p.touchRecencyLocked(entry.ExpertID)
 		if p.budget != nil {
 			p.budget.Free(placement.BudgetExpert, old.SizeBytes)
 			p.budget.Alloc(placement.BudgetExpert, entry.SizeBytes)
@@ -104,13 +169,13 @@ func (p *ExpertPool) Put(entry *ExpertEntry) *ExpertEntry {
 	}
 
 	var evicted *ExpertEntry
-	// Evict if full.
 	if len(p.cache) >= p.slots {
-		evicted = p.evictLRULocked()
+		evicted = p.evictPolicyLocked()
 	}
 
 	p.cache[entry.ExpertID] = entry
-	p.order = append(p.order, entry.ExpertID)
+	p.touchLocked(entry.ExpertID)
+	p.touchRecencyLocked(entry.ExpertID)
 
 	if p.budget != nil {
 		p.budget.Alloc(placement.BudgetExpert, entry.SizeBytes)
@@ -130,36 +195,111 @@ func (p *ExpertPool) EvictLRU() *ExpertEntry {
 	return p.evictLRULocked()
 }
 
+func (p *ExpertPool) evictPolicyLocked() *ExpertEntry {
+	if p == nil {
+		return nil
+	}
+	switch normalizeExpertCachePolicy(p.policy) {
+	case ExpertCachePolicyLFU:
+		return p.evictLFULocked()
+	default:
+		return p.evictLRULocked()
+	}
+}
+
 func (p *ExpertPool) evictLRULocked() *ExpertEntry {
 	if p == nil || len(p.order) == 0 {
 		return nil
 	}
 	lruID := p.order[0]
-	p.order = p.order[1:]
-	entry, ok := p.cache[lruID]
-	if ok {
-		delete(p.cache, lruID)
-		p.Evicts.Add(1)
-		if p.budget != nil {
-			p.budget.Free(placement.BudgetExpert, entry.SizeBytes)
-			p.budget.Evict(placement.BudgetExpert)
+	return p.evictByIDLocked(lruID)
+}
+
+func (p *ExpertPool) evictLFULocked() *ExpertEntry {
+	if p == nil || len(p.cache) == 0 {
+		return nil
+	}
+	var (
+		victimID      int
+		victimUse     uint64
+		victimRecency uint64
+		haveVictim    bool
+	)
+	for expertID := range p.cache {
+		h := p.history[expertID]
+		if !haveVictim || h.UseCount < victimUse || (h.UseCount == victimUse && h.Recency < victimRecency) {
+			victimID = expertID
+			victimUse = h.UseCount
+			victimRecency = h.Recency
+			haveVictim = true
 		}
 	}
+	if !haveVictim {
+		return nil
+	}
+	return p.evictByIDLocked(victimID)
+}
+
+func (p *ExpertPool) evictByIDLocked(expertID int) *ExpertEntry {
+	if p == nil || expertID < 0 {
+		return nil
+	}
+	entry, ok := p.cache[expertID]
+	if !ok {
+		p.removeFromOrderLocked(expertID)
+		return nil
+	}
+	delete(p.cache, expertID)
+	p.removeFromOrderLocked(expertID)
+	p.Evicts.Add(1)
+	if p.budget != nil {
+		p.budget.Free(placement.BudgetExpert, entry.SizeBytes)
+		p.budget.Evict(placement.BudgetExpert)
+	}
 	return entry
+}
+
+func (p *ExpertPool) removeFromOrderLocked(expertID int) {
+	if p == nil || expertID < 0 {
+		return
+	}
+	for i, id := range p.order {
+		if id == expertID {
+			p.order = append(p.order[:i], p.order[i+1:]...)
+			return
+		}
+	}
 }
 
 func (p *ExpertPool) touchLocked(expertID int) {
 	if p == nil || expertID < 0 {
 		return
 	}
-	// Move to end of LRU order
-	for i, id := range p.order {
-		if id == expertID {
-			p.order = append(p.order[:i], p.order[i+1:]...)
-			break
-		}
-	}
+	p.removeFromOrderLocked(expertID)
 	p.order = append(p.order, expertID)
+}
+
+func (p *ExpertPool) recordUseLocked(expertID int, resident bool) {
+	if p == nil || expertID < 0 {
+		return
+	}
+	h := p.history[expertID]
+	h.UseCount++
+	if resident {
+		p.clock++
+		h.Recency = p.clock
+	}
+	p.history[expertID] = h
+}
+
+func (p *ExpertPool) touchRecencyLocked(expertID int) {
+	if p == nil || expertID < 0 {
+		return
+	}
+	h := p.history[expertID]
+	p.clock++
+	h.Recency = p.clock
+	p.history[expertID] = h
 }
 
 // Size returns the number of currently cached experts.
@@ -183,13 +323,14 @@ func (p *ExpertPool) Slots() int {
 // Report returns a human-readable summary.
 func (p *ExpertPool) Report() string {
 	if p == nil {
-		return "experts: 0/0 cached  hits=0 misses=0 evicts=0"
+		return "experts: 0/0 cached  policy=lru hits=0 misses=0 evicts=0"
 	}
 	p.mu.Lock()
 	n := len(p.cache)
+	policy := p.policy.String()
 	p.mu.Unlock()
-	return fmt.Sprintf("experts: %d/%d cached  hits=%d misses=%d evicts=%d",
-		n, p.slots,
+	return fmt.Sprintf("experts: %d/%d cached  policy=%s hits=%d misses=%d evicts=%d",
+		n, p.slots, policy,
 		p.Hits.Load(), p.Misses.Load(), p.Evicts.Load())
 }
 

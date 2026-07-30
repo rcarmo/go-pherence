@@ -44,6 +44,7 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnMLXGemv = f.get("mlx_gemv")
 	fnMLXGemm = f.get("mlx_gemm")
 	fnMLXCorrect = f.get("mlx_correct")
+	fnMLXSelectedExpertPersistent = f.get("mlx_selected_expert_gemv_persistent")
 	fnBF16RMSNorm = f.get("bf16_rms_norm")
 	fnBF16RMSNormNoScale = f.get("bf16_rms_norm_no_scale")
 	fnBF16VecAdd = f.get("bf16_vec_add")

@@ -64,7 +64,7 @@ Performance references:
 * [Performance](performance.md) -- current model and backend measurements.
 * [SIMD matmul policy](simd-matmul.md) -- shape-aware decode/prefill dispatch.
 * [Matmul audit](matmul-audit.md), [benchmark protocol](matmul-benchmark-protocol.md) and [final results](matmul-optimisation-results.md) -- the complete cache/register-tiling programme and its retained or rejected outcomes.
-* [TurboFieldfare audit](turbo-fieldfare-audit.md) -- transferable expert-streaming, KV, attention, prefill and sampling techniques from the Apple Silicon runtime.
+* [TurboFieldfare audit](turbo-fieldfare-audit.md) and [adoption results](turbo-fieldfare-adoption-results.md) -- transferable expert-streaming, KV, attention and prefill techniques, plus the measured go-pherence adoption baseline.
 * [Whisper on RISC-V](whisper-riscv-optimization.md) -- measured K3/RVV/IME path.
 
 The generated [test matrix](test-matrix.svg) is a scoped visual guide, not a count of the entire repository. Regenerate both checked-in diagrams with `make docs-diagrams`.

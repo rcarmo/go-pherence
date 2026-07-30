@@ -1,0 +1,13 @@
+{
+  "note": "structural estimate; full-layer count/window assumptions require loader confirmation",
+  "assumption_full_layers": 6,
+  "sliding_layers": 36,
+  "kv_dim": 1024,
+  "max_seq_len": 131072,
+  "sliding_window": 1024,
+  "max_prefill_chunk": 128,
+  "linear_f32_bytes": 45097156608,
+  "ring_f32_bytes": 6782189568,
+  "saved_bytes": 38314967040,
+  "ratio": 0.150390625
+}

@@ -6,6 +6,34 @@ import (
 	"github.com/rcarmo/go-pherence/backends/placement"
 )
 
+func accessExpert(pool *ExpertPool, expertID int) *ExpertEntry {
+	if pool.Get(expertID) != nil {
+		return nil
+	}
+	return pool.Put(&ExpertEntry{ExpertID: expertID, SizeBytes: 100})
+}
+
+func TestExpertCachePolicyParser(t *testing.T) {
+	cases := map[string]ExpertCachePolicy{
+		"":      ExpertCachePolicyLRU,
+		"lru":   ExpertCachePolicyLRU,
+		"LRU":   ExpertCachePolicyLRU,
+		" lfu ": ExpertCachePolicyLFU,
+	}
+	for input, want := range cases {
+		got, err := ParseExpertCachePolicy(input)
+		if err != nil {
+			t.Fatalf("ParseExpertCachePolicy(%q): %v", input, err)
+		}
+		if got != want {
+			t.Fatalf("ParseExpertCachePolicy(%q)=%q want %q", input, got, want)
+		}
+	}
+	if _, err := ParseExpertCachePolicy("random"); err == nil {
+		t.Fatal("expected invalid policy error")
+	}
+}
+
 func TestExpertPoolBasic(t *testing.T) {
 	pool := NewExpertPool(3, nil)
 
@@ -153,6 +181,70 @@ func TestExpertPoolReplaceReturnsOldEntry(t *testing.T) {
 	}
 }
 
+func TestExpertPoolLFUDeterministicWholeRunCounts(t *testing.T) {
+	pool := NewExpertPoolWithPolicy(2, nil, ExpertCachePolicyLFU)
+
+	if evicted := accessExpert(pool, 0); evicted != nil {
+		t.Fatalf("initial access 0 evicted %#v", evicted)
+	}
+	if evicted := accessExpert(pool, 1); evicted != nil {
+		t.Fatalf("initial access 1 evicted %#v", evicted)
+	}
+	if evicted := accessExpert(pool, 0); evicted != nil {
+		t.Fatalf("hit on 0 evicted %#v", evicted)
+	}
+	if evicted := accessExpert(pool, 2); evicted == nil || evicted.ExpertID != 1 {
+		id := -1
+		if evicted != nil {
+			id = evicted.ExpertID
+		}
+		t.Fatalf("LFU should evict expert 1 first, got %d", id)
+	}
+	if evicted := accessExpert(pool, 1); evicted == nil || evicted.ExpertID != 2 {
+		id := -1
+		if evicted != nil {
+			id = evicted.ExpertID
+		}
+		t.Fatalf("LFU should keep expert 1 after its second whole-run use, got %d", id)
+	}
+}
+
+func TestExpertPoolLFUTieBreaksByOldestRecency(t *testing.T) {
+	pool := NewExpertPoolWithPolicy(2, nil, ExpertCachePolicyLFU)
+
+	accessExpert(pool, 0)
+	accessExpert(pool, 1)
+	accessExpert(pool, 0)
+	accessExpert(pool, 1)
+
+	evicted := accessExpert(pool, 2)
+	if evicted == nil || evicted.ExpertID != 0 {
+		id := -1
+		if evicted != nil {
+			id = evicted.ExpertID
+		}
+		t.Fatalf("LFU tie-break should evict oldest recency expert 0, got %d", id)
+	}
+}
+
+func TestExpertPoolLFUPeekDoesNotMutateUsage(t *testing.T) {
+	pool := NewExpertPoolWithPolicy(2, nil, ExpertCachePolicyLFU)
+	accessExpert(pool, 0)
+	accessExpert(pool, 1)
+
+	if got := pool.Peek(0); got == nil || got.ExpertID != 0 {
+		t.Fatalf("Peek(0)=%#v, want expert 0", got)
+	}
+	evicted := accessExpert(pool, 2)
+	if evicted == nil || evicted.ExpertID != 0 {
+		id := -1
+		if evicted != nil {
+			id = evicted.ExpertID
+		}
+		t.Fatalf("Peek should not affect LFU use counts/recency; evicted %d, want 0", id)
+	}
+}
+
 func TestExpertPoolLRUOrder(t *testing.T) {
 	pool := NewExpertPool(3, nil)
 
@@ -209,6 +301,9 @@ func TestExpertPoolNilAndInvalidExpertSafety(t *testing.T) {
 	}
 
 	pool = NewExpertPool(2, nil)
+	if got := pool.Policy(); got != ExpertCachePolicyLRU {
+		t.Fatalf("default policy=%q, want %q", got, ExpertCachePolicyLRU)
+	}
 	bad := &ExpertEntry{ExpertID: -1, SizeBytes: 10}
 	if got := pool.Put(bad); got != bad {
 		t.Fatalf("invalid expert Put should return entry for release, got %#v", got)

@@ -1,0 +1,24 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/nvidia/runtime
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkMLXSelectedExpertPersistentCandidates/work4_nonzero_order/persistent_candidate-2         	     200	     89678 ns/op	93541.39 MB/s	    1341 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work4_nonzero_order/persistent_candidate-2         	     200	     93543 ns/op	89676.13 MB/s	    1313 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work4_nonzero_order/persistent_candidate-2         	     200	     89136 ns/op	94110.59 MB/s	    1312 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work4_nonzero_order/repeated_gemv_mlx_direct-2     	     200	     59083 ns/op	141979.37 MB/s	    2464 B/op	      89 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work4_nonzero_order/repeated_gemv_mlx_direct-2     	     200	     59507 ns/op	140968.70 MB/s	    2464 B/op	      89 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work4_nonzero_order/repeated_gemv_mlx_direct-2     	     200	     59825 ns/op	140218.66 MB/s	    2464 B/op	      89 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work3_tail/persistent_candidate-2                  	     200	     72388 ns/op	86912.93 MB/s	    1312 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work3_tail/persistent_candidate-2                  	     200	     72173 ns/op	87171.42 MB/s	    1312 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work3_tail/persistent_candidate-2                  	     200	     72834 ns/op	86380.47 MB/s	    1312 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work3_tail/repeated_gemv_mlx_direct-2              	     200	     46293 ns/op	135905.13 MB/s	    1864 B/op	      68 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work3_tail/repeated_gemv_mlx_direct-2              	     200	     45713 ns/op	137630.39 MB/s	    1864 B/op	      68 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work3_tail/repeated_gemv_mlx_direct-2              	     200	     45886 ns/op	137109.94 MB/s	    1864 B/op	      68 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work5_tail_repeat/persistent_candidate-2           	     200	    104106 ns/op	100722.40 MB/s	    1312 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work5_tail_repeat/persistent_candidate-2           	     200	    104417 ns/op	100421.71 MB/s	    1312 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work5_tail_repeat/persistent_candidate-2           	     200	    105166 ns/op	99706.73 MB/s	    1312 B/op	      58 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work5_tail_repeat/repeated_gemv_mlx_direct-2       	     200	     72304 ns/op	145023.08 MB/s	    3064 B/op	     110 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work5_tail_repeat/repeated_gemv_mlx_direct-2       	     200	     70537 ns/op	148657.09 MB/s	    3064 B/op	     110 allocs/op
+BenchmarkMLXSelectedExpertPersistentCandidates/work5_tail_repeat/repeated_gemv_mlx_direct-2       	     200	     70402 ns/op	148941.55 MB/s	    3064 B/op	     110 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	0.443s

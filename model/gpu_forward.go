@@ -36,6 +36,16 @@ func gpuKVMaxSeqFromEnv(defaultMax int) int {
 	return n
 }
 
+func gpuExpertCachePolicyFromEnv() nvidia.ExpertCachePolicy {
+	policyName := envString("GO_PHERENCE_EXPERT_CACHE_POLICY", string(nvidia.ExpertCachePolicyLRU))
+	policy, err := nvidia.ParseExpertCachePolicy(policyName)
+	if err != nil {
+		loaderDebugf("[model] Invalid expert cache policy %q; using %s\n", policyName, nvidia.ExpertCachePolicyLRU)
+		return nvidia.ExpertCachePolicyLRU
+	}
+	return policy
+}
+
 func kvCopyByteRange(pos, kvDim, capacityBytes int) (uint64, nvidia.CUdeviceptr, bool) {
 	if pos < 0 || kvDim <= 0 || capacityBytes < 0 {
 		return 0, 0, false
@@ -639,9 +649,10 @@ func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 		if expertSlots > cfg.NumExperts*cfg.NumLayers {
 			expertSlots = cfg.NumExperts * cfg.NumLayers
 		}
-		g.Experts = nvidia.NewExpertPool(expertSlots, nil)
-		loaderDebugf("[model] Expert pool: %d slots (%.0f MB budget, %.1f KB/expert)\n",
-			expertSlots, float64(expertBudgetMB), float64(expertSizeBytes)/1024)
+		expertPolicy := gpuExpertCachePolicyFromEnv()
+		g.Experts = nvidia.NewExpertPoolWithPolicy(expertSlots, nil, expertPolicy)
+		loaderDebugf("[model] Expert pool: %d slots (policy=%s, %.0f MB budget, %.1f KB/expert)\n",
+			expertSlots, expertPolicy, float64(expertBudgetMB), float64(expertSizeBytes)/1024)
 	}
 
 	// Print budget summary
