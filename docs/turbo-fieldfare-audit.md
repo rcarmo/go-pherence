@@ -4,6 +4,8 @@ This audit reviews [`drumih/turbo-fieldfare`](https://github.com/drumih/turbo-fi
 
 TurboFieldfare's central constraint is unusually sharp: keep roughly 1.35GB of shared weights resident on an 8GB Mac and stream the 12.9GB routed-expert pool from NVMe. That design produced several techniques worth testing in go-pherence, but it also produced a useful collection of negative results. Its [optimisation journey](https://github.com/drumih/turbo-fieldfare/blob/f8abc4422e33a8808d5a5c1032a0e97ed5aa5118/docs/OPTIMIZATION_JOURNEY.md) is unusually candid about both.
 
+The experiments prompted by this audit are complete and tracked in [TurboFieldfare adoption results](turbo-fieldfare-adoption-results.md). The headline dispositions are: retain split-KV long-context decode attention and bounded Qwen3.6 prefill planning; keep LRU as the cache default; reject the persistent single-projection kernel and FP16 rings on speed; and keep out-of-core streaming plus generic sampling explicit/non-default until runnable Qwen3-30B full-token gates exist.
+
 ## What already maps cleanly
 
 Several of TurboFieldfare's strongest ideas are already present in go-pherence:

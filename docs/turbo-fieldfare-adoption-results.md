@@ -199,6 +199,10 @@ The facility remains experimental and non-default. RDADVISE/read-ahead and specu
 
 The result supports Top-K-first composition as the bounded candidate. Unrestricted Top-P necessarily sorts the full surviving vocabulary in this implementation and is retained for correctness/reference use, not as a default performance path. Generic generation remains greedy until model/server call sites receive an explicit opt-in configuration and full-token gates.
 
+### 14. Explicit non-default controls and rejected scope
+
+The adoption series does not enable RDADVISE/read-ahead, speculative cross-layer expert reads, larger expert-slot defaults, packed K4/V4 KV, unrestricted Top-P, or broad MoE/attention fusion. The available paired evidence supports only split-KV decode attention at 512+ keys and planner-driven Qwen3.6 prefill. Persistent routed projection and FP16 rings were measured and rejected; out-of-core expert loading and generic sampling remain explicit experimental APIs. Any future default change requires paired end-to-end parity, memory and throughput data on a runnable target checkpoint.
+
 ## Pending real-model rows
 
 The Qwen3-30B-A3B MLX4 asset is unavailable on this host. Cold/warm decode, real route traces, upload bytes and full-token throughput remain explicitly pending rather than inferred from synthetic work. When the checkpoint is installed, these replay and selected-expert fixtures are the fixed controls for choosing LRU/LFU/layer-aware policy and any broader persistent-kernel experiment.

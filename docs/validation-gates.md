@@ -14,6 +14,19 @@ make test-cpu
 
 `make test-cpu` keeps NVIDIA disabled and Vulkan software devices opt-in only, so CPU/scalar fallback behavior is checked without requiring GPU hardware.
 
+## TurboFieldfare adoption gates
+
+The retained adoption paths have focused, asset-independent gates:
+
+```bash
+go test -race ./runtime/expertstream ./runtime/sampling ./runtime/kv ./backends/nvidia/runtime ./model \
+  -run 'Test(Quant|ValidateComponent|MLXWeightFromStream|Reader|Load_|Open_|Sample|Config|Greedy|Bounded|Top|Distribution|ExpertPool|SplitKV|LayeredF32)'
+flock /tmp/go-pherence-gpu.lock env GO_PHERENCE_TEST_SPLIT_KV=1 go test \
+  ./backends/nvidia/runtime ./model -run 'Test.*(SplitKV|SelectedExpert|MoE.*GPU|MLX)'
+```
+
+Use `go test -c` (not `go test`) for arm64/riscv64 cross-build checks. Real Qwen3-30B cold/warm, out-of-core and sampled full-token gates require the checkpoint and must be reported unavailable when it is absent. The repository-wide suite currently also contains unrelated known-red SpaceMIT/CIX host-incompatible builds/tests, Vulkan parity failures, DiffusionGemma command API drift, and two Gemma4 K=V verifier failures; do not misattribute those to this series.
+
 ## Optional phase-specific gates
 
 Run these only when the corresponding phase is being accepted:

@@ -17,6 +17,10 @@ Hardware: RTX 3060 12GB (sm_86, Ampere) + i7-12700 6-core + 64GB DDR4
 | Qwen3-0.6B | qwen3 | BF16 | — | — | 7.8 | 129 |
 | Gemma3-1B | gemma3 | BF16 | — | — | 4.9 | 203 |
 
+## TurboFieldfare adoption snapshot
+
+The cumulative [TurboFieldfare adoption results](turbo-fieldfare-adoption-results.md) records the retained/rejected experiments. Current retained defaults are split-KV NVIDIA decode attention at 512+ keys and planner-driven Qwen3.6 layer-streamed prefill. LRU remains the expert-cache default; F32/FP16 rings, out-of-core expert streaming and generic sampling remain explicit APIs rather than default generation paths. The persistent routed projection and FP16 ring candidates were rejected on measured speed, and unrestricted Top-P is reference-only after measuring 3.9--20ms at 32K--128K vocabulary.
+
 ## CPU hot primitive benchmarks
 
 Synthetic backend-owner benchmarks live in `model/cpu_hotpath_bench_test.go` and should be refreshed at phase validation time (see [validation-gates.md](validation-gates.md) and [benchmark-snapshot-queue.md](benchmark-snapshot-queue.md)). They can be run with:
