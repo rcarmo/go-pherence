@@ -153,6 +153,16 @@ Production dispatch now selects split-KV at 512 keys and retains the previous ke
 
 Raw output: [`baseline-e7e482bc/split-kv-attention-candidate.txt`](../benchmarks/turbo-fieldfare-adoption/baseline-e7e482bc/split-kv-attention-candidate.txt).
 
+### 11. Memory-budgeted prefill chunks
+
+A backend-neutral planner estimates current CPU/GPU reusable prefill buffers and chooses the largest allowed 32/64/128-token chunk within a scratch budget. Planning costs roughly `269--287ns` and emits absolute spans with non-divisible tails.
+
+For a representative hidden-4096, Q-4096, KV-1024, intermediate-14336 shape, the conservative scratch estimate is `7.75MiB` at 32 rows, `15.5MiB` at 64 and `31MiB` at 128. The existing Qwen3.6 layer-streamed executor now accepts planner spans; synthetic mixed full/linear-attention tests match token-sequential and one-full-chunk outputs, prefix states and final KV/recurrent state exactly for 32/64/128 chunks and a 130-token tail.
+
+`qwen36run -layer-streamed-prefill` uses a 256MiB planner budget by default. `-prefill-chunk-size` remains an explicit override, while `-prefill-scratch-mb` controls automatic selection. Focused dense prefill, GGUF batch projection, multimodal embedding, sliding-window and MTP prefill gates remain green. Only Qwen3.6 is switched to planner-driven chunks because it already has a state-preserving layer-streamed executor; the other full-prompt executors are validated against regression but remain unswitched until they gain equivalent span adapters.
+
+Raw planner output: [`baseline-e7e482bc/prefill-chunk-planner.txt`](../benchmarks/turbo-fieldfare-adoption/baseline-e7e482bc/prefill-chunk-planner.txt).
+
 ## Pending real-model rows
 
 The Qwen3-30B-A3B MLX4 asset is unavailable on this host. Cold/warm decode, real route traces, upload bytes and full-token throughput remain explicitly pending rather than inferred from synthetic work. When the checkpoint is installed, these replay and selected-expert fixtures are the fixed controls for choosing LRU/LFU/layer-aware policy and any broader persistent-kernel experiment.

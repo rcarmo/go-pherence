@@ -1,0 +1,11 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/model
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkNewPrefillChunkPlan-2   	 4375758	       276.1 ns/op	    1032 B/op	       7 allocs/op
+BenchmarkNewPrefillChunkPlan-2   	 4411678	       287.3 ns/op	    1032 B/op	       7 allocs/op
+BenchmarkNewPrefillChunkPlan-2   	 4111448	       269.5 ns/op	    1032 B/op	       7 allocs/op
+BenchmarkNewPrefillChunkPlan-2   	 4398154	       278.0 ns/op	    1032 B/op	       7 allocs/op
+BenchmarkNewPrefillChunkPlan-2   	 4480356	       268.9 ns/op	    1032 B/op	       7 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/model	7.416s

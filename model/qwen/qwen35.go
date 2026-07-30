@@ -221,6 +221,51 @@ func cloneQwen35LinearAttentionState(s Qwen35LinearAttentionState) Qwen35LinearA
 	return Qwen35LinearAttentionState{Conv: append([]float32(nil), s.Conv...), SSM: append([]float32(nil), s.SSM...), Pos: s.Pos}
 }
 
+func (m *Qwen35BaseModel) ForwardPrefillLayerStreamedSpans(inputs [][]float32, state Qwen35BaseForwardState, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata, spans []struct {
+	Start int
+	End   int
+}) ([][]float32, []Qwen35BaseForwardState, Qwen35BaseForwardState, error) {
+	if m == nil {
+		return nil, nil, state, fmt.Errorf("nil Qwen3.5 base model")
+	}
+	if len(inputs) == 0 {
+		if len(spans) != 0 {
+			return nil, nil, state, fmt.Errorf("Qwen3.5 prefill spans len=%d want 0 for empty inputs", len(spans))
+		}
+		return nil, nil, CloneQwen35BaseForwardState(state), nil
+	}
+	if len(spans) == 0 {
+		return nil, nil, state, fmt.Errorf("Qwen3.5 prefill spans empty for %d inputs", len(inputs))
+	}
+	out := make([][]float32, 0, len(inputs))
+	prefix := make([]Qwen35BaseForwardState, 0, len(inputs))
+	curState := state
+	nextStart := 0
+	for spanIdx, span := range spans {
+		if span.Start != nextStart {
+			return nil, nil, state, fmt.Errorf("Qwen3.5 prefill span %d starts at %d want %d", spanIdx, span.Start, nextStart)
+		}
+		if span.End < span.Start {
+			return nil, nil, state, fmt.Errorf("Qwen3.5 prefill span %d end=%d before start=%d", spanIdx, span.End, span.Start)
+		}
+		if span.End > len(inputs) {
+			return nil, nil, state, fmt.Errorf("Qwen3.5 prefill span %d end=%d exceeds inputs=%d", spanIdx, span.End, len(inputs))
+		}
+		chunkOut, chunkPrefix, nextState, err := m.ForwardChunkLayerStreamedDetailed(inputs[span.Start:span.End], curState, ropeFreqs, eps, meta)
+		if err != nil {
+			return nil, nil, state, fmt.Errorf("Qwen3.5 prefill span %d [%d:%d): %w", spanIdx, span.Start, span.End, err)
+		}
+		out = append(out, chunkOut...)
+		prefix = append(prefix, chunkPrefix...)
+		curState = nextState
+		nextStart = span.End
+	}
+	if nextStart != len(inputs) {
+		return nil, nil, state, fmt.Errorf("Qwen3.5 prefill spans cover %d inputs want %d", nextStart, len(inputs))
+	}
+	return out, prefix, curState, nil
+}
+
 func (m *Qwen35BaseModel) ForwardChunkLayerStreamedDetailed(inputs [][]float32, state Qwen35BaseForwardState, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([][]float32, []Qwen35BaseForwardState, Qwen35BaseForwardState, error) {
 	if m == nil {
 		return nil, nil, state, fmt.Errorf("nil Qwen3.5 base model")

@@ -17,6 +17,7 @@ import (
 	"github.com/rcarmo/go-pherence/half"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
+	basemodel "github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/model/qwen"
 	"github.com/rcarmo/go-pherence/runtime/kv"
 	"github.com/rcarmo/go-pherence/tensor"
@@ -277,7 +278,8 @@ func main() {
 	kvMinStoreTokens := flag.Int("kv-min-store-tokens", 1, "minimum prefix length before storing a Qwen prompt snapshot")
 	kvRepeat := flag.Int("kv-repeat", 1, "repeat Qwen prompt prefill N times to validate -kv-reuse hits")
 	layerStreamedPrefill := flag.Bool("layer-streamed-prefill", false, "process prompt prefill chunks layer-by-layer instead of token-by-token")
-	prefillChunkSize := flag.Int("prefill-chunk-size", 16, "prompt chunk size for -layer-streamed-prefill")
+	prefillChunkSize := flag.Int("prefill-chunk-size", 0, "explicit prompt chunk size for -layer-streamed-prefill; 0 uses the scratch-budget planner")
+	prefillScratchMB := flag.Int("prefill-scratch-mb", 256, "scratch budget for automatic layer-streamed prefill chunk selection")
 	gpuVerify := flag.Int("gpu-verify", 0, "verify first N GPU NVFP4 GEMVs against CPU reference")
 	gpuVerifyTol := flag.Float64("gpu-verify-tol", 1e-4, "GPU NVFP4 verification max-diff tolerance")
 	gpuLMHead := flag.Bool("gpu-lm-head", true, "run BF16 LM head on GPU when -gpu is enabled; set -gpu-lm-head=false to disable")
@@ -587,7 +589,15 @@ func main() {
 		}
 		kvPrefillTokens += len(inputIDs) - startAt
 		if *layerStreamedPrefill && startAt < len(inputIDs) {
-			next, logit, h, preNormHidden, err = r.prefillLayerStreamed(inputIDs[startAt:], *prefillChunkSize, ropeFreqs)
+			chunkSize := *prefillChunkSize
+			if chunkSize <= 0 {
+				dims := basemodel.PrefillChunkModelDims{HiddenSize: meta.HiddenSize, QDim: meta.NumAttentionHeads * meta.HeadDim, KVDim: meta.NumKeyValueHeads * meta.HeadDim, Intermediate: meta.IntermediateSize, Layers: len(bundle.Base.Layers)}
+				budget := *prefillScratchMB * 1024 * 1024
+				plan, planErr := basemodel.NewPrefillChunkPlan(len(inputIDs)-startAt, dims, budget, nil)
+				check("prefill chunk plan", planErr)
+				chunkSize = plan.ChunkSize
+			}
+			next, logit, h, preNormHidden, err = r.prefillLayerStreamed(inputIDs[startAt:], chunkSize, ropeFreqs)
 			check("streamed prefill", err)
 			if *kvReuse && shouldStoreQwenPromptPrefix(len(inputIDs), len(inputIDs), *kvChunkSize, *kvStoreEvery, *kvStoreFinalOnly, *kvMinStoreTokens) {
 				kvStoreAttempts++
