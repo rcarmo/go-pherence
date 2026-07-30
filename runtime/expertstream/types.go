@@ -43,10 +43,26 @@ type ExpertSpec struct {
 
 // ComponentSpec describes one expert component inside a data file.
 type ComponentSpec struct {
-	Offset int64   `json:"offset"`
-	Size   int64   `json:"size"`
-	DType  string  `json:"dtype"`
-	Shape  []int64 `json:"shape"`
+	Offset int64      `json:"offset"`
+	Size   int64      `json:"size"`
+	DType  string     `json:"dtype"`
+	Shape  []int64    `json:"shape"`
+	Quant  *QuantSpec `json:"quant,omitempty"`
+}
+
+// QuantSpec describes an MLX affine-quantized sub-layout packed inside one
+// contiguous gate/up/down component (see ComponentSpec.Quant). When present,
+// the component's Size bytes must be laid out, with no padding, as:
+//
+//	[packed uint32 weight] || [float32 scales] || [float32 biases]
+//
+// Weight is logically [OutDim, InDim/packFactor] where packFactor = 32/Bits.
+// Scales and biases are each logically [OutDim, InDim/GroupSize].
+type QuantSpec struct {
+	OutDim    int64 `json:"out_dim"`
+	InDim     int64 `json:"in_dim"`
+	GroupSize int64 `json:"group_size"`
+	Bits      int   `json:"bits"`
 }
 
 // Options configures a Reader.
@@ -60,6 +76,9 @@ type Component struct {
 	DType string
 	Shape []int64
 	Bytes []byte
+	// Quant is non-nil when this component carries an MLX affine-quantized
+	// sub-layout; see QuantSpec.
+	Quant *QuantSpec
 }
 
 // SlotView identifies the slot backing a loaded expert.

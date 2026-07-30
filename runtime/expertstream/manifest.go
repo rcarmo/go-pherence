@@ -221,6 +221,15 @@ func validateComponent(spec ComponentSpec, name string) error {
 	if dtype == "" {
 		return fmt.Errorf("%s dtype is empty", name)
 	}
+	if (dtype == DTypeMLXQuant) != (spec.Quant != nil) {
+		return fmt.Errorf("%s dtype=%q and quant metadata must be specified together", name, spec.DType)
+	}
+	if spec.Quant != nil {
+		if _, err := spec.Quant.Layout(spec.Size); err != nil {
+			return fmt.Errorf("%s: %v", name, err)
+		}
+		return nil
+	}
 	if len(spec.Shape) == 0 {
 		return fmt.Errorf("%s shape is empty", name)
 	}
@@ -303,7 +312,10 @@ func cloneManifest(in Manifest) Manifest {
 func cloneExpertSpec(in ExpertSpec) ExpertSpec {
 	out := in
 	out.Gate.Shape = append([]int64(nil), in.Gate.Shape...)
+	out.Gate.Quant = cloneQuantSpec(in.Gate.Quant)
 	out.Up.Shape = append([]int64(nil), in.Up.Shape...)
+	out.Up.Quant = cloneQuantSpec(in.Up.Quant)
 	out.Down.Shape = append([]int64(nil), in.Down.Shape...)
+	out.Down.Quant = cloneQuantSpec(in.Down.Quant)
 	return out
 }

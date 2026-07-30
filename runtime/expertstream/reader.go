@@ -184,16 +184,19 @@ func (r *Reader) Load(keys []uint64) ([]LoadedExpert, error) {
 				DType: layout.spec.Gate.DType,
 				Shape: append([]int64(nil), layout.spec.Gate.Shape...),
 				Bytes: span[:layout.spec.Gate.Size],
+				Quant: cloneQuantSpec(layout.spec.Gate.Quant),
 			},
 			Up: Component{
 				DType: layout.spec.Up.DType,
 				Shape: append([]int64(nil), layout.spec.Up.Shape...),
 				Bytes: span[upStart:upEnd],
+				Quant: cloneQuantSpec(layout.spec.Up.Quant),
 			},
 			Down: Component{
 				DType: layout.spec.Down.DType,
 				Shape: append([]int64(nil), layout.spec.Down.Shape...),
 				Bytes: span[downStart:downEnd],
+				Quant: cloneQuantSpec(layout.spec.Down.Quant),
 			},
 		}
 	}
