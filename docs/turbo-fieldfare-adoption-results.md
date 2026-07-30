@@ -124,6 +124,12 @@ Raw output: [`baseline-e7e482bc/expert-cache-policy-replay.txt`](../benchmarks/t
 
 Focused tests cover malformed rows, repeated wraps, split views, reset, linear/ring restore and cross-store checkpoint compatibility. Production generation continues to use the existing slices until the mixed SWA/full integration passes its own gates.
 
+### 8. Mixed F32 ring state integration
+
+`LayeredF32KV` now builds per-layer stores from `{dim, layer type, sliding window}`: sliding layers receive `window + maxPrefillChunk` ring capacity and full-attention layers remain linear. The opt-in `CPUDecodeState` bridge can migrate existing prompt slices, clear their backing arrays, materialise logical suffixes for verifier seams, and checkpoint/restore or retain accepted verifier rows after a ring wrap.
+
+Focused tests cover mixed sliding/full state, multiple wraps, split logical views, prompt seeding, accepted-prefix plus bonus retention, malformed seeds and atomic rollback. `runtime/kv` cross-builds for arm64 and riscv64. Ordinary generation and NVIDIA KV remain unchanged; the exact storage boundary is ready, but dispatch cannot be enabled until decode attention consumes logical ring views directly.
+
 ## Pending real-model rows
 
 The Qwen3-30B-A3B MLX4 asset is unavailable on this host. Cold/warm decode, real route traces, upload bytes and full-token throughput remain explicitly pending rather than inferred from synthetic work. When the checkpoint is installed, these replay and selected-expert fixtures are the fixed controls for choosing LRU/LFU/layer-aware policy and any broader persistent-kernel experiment.
