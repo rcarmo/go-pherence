@@ -1,0 +1,36 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/nvidia/runtime
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/split_kv_candidate-2         	     200	     50879 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/split_kv_candidate-2         	     200	     48657 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/split_kv_candidate-2         	     200	     48629 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/split_kv_candidate-2         	     200	     49002 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/split_kv_candidate-2         	     200	     48567 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/current_shared_scores-2      	     200	    103213 ns/op	     553 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/current_shared_scores-2      	     200	    103052 ns/op	     552 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/current_shared_scores-2      	     200	    101961 ns/op	     552 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/current_shared_scores-2      	     200	     99015 ns/op	     579 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_512_heads_6_kv_2_dim_96/current_shared_scores-2      	     200	     99466 ns/op	     553 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	     74067 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	     74165 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	     74088 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	     73956 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	     73861 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/current_shared_scores-2     	     200	    466003 ns/op	     553 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/current_shared_scores-2     	     200	    464748 ns/op	     553 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/current_shared_scores-2     	     200	    465271 ns/op	     553 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/current_shared_scores-2     	     200	    466278 ns/op	     553 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_2048_heads_6_kv_2_dim_96/current_shared_scores-2     	     200	    466452 ns/op	     553 B/op	      22 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_4096_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	    105245 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_4096_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	    105285 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_4096_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	    104792 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_4096_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	    104450 ns/op	    1016 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_4096_heads_6_kv_2_dim_96/split_kv_candidate-2        	     200	    104585 ns/op	    1017 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_16384_heads_6_kv_2_dim_96/split_kv_candidate-2       	     200	    336504 ns/op	    1017 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_16384_heads_6_kv_2_dim_96/split_kv_candidate-2       	     200	    336217 ns/op	    1017 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_16384_heads_6_kv_2_dim_96/split_kv_candidate-2       	     200	    336733 ns/op	    1017 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_16384_heads_6_kv_2_dim_96/split_kv_candidate-2       	     200	    337862 ns/op	    1018 B/op	      38 allocs/op
+BenchmarkAttentionSplitKVCandidates/seq_16384_heads_6_kv_2_dim_96/split_kv_candidate-2       	     200	    339598 ns/op	    1017 B/op	      38 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	1.350s

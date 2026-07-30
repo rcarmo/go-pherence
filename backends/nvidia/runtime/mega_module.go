@@ -128,6 +128,7 @@ func Q4Ready() bool {
 func shutdownMegaModule() {
 	freeNVFP4Scratch()
 	FreeBF16LMHeadScratch()
+	shutdownAttentionSplitKVCandidate()
 	if megaModule != 0 && cuModuleUnload != nil {
 		EnsureContext()
 		cuModuleUnload(megaModule)

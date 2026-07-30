@@ -22,6 +22,8 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	attnScoreFn = f.get("gqa_attention_scores")
 	softmaxRowsFn = f.get("row_softmax_debug")
 	attnFn = f.get("gqa_attention")
+	attnSplitKVPartialFn = f.get("gqa_attention_splitkv_partial")
+	attnSplitKVMergeFn = f.get("gqa_attention_splitkv_merge")
 	q4Fn = f.get("gemv_q4sym")
 	fnQ4KGemv = f.get("gemv_q4_k")
 	fnQ4KGemvBatch = f.get("gemv_q4_k_batch")

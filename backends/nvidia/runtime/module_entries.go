@@ -60,6 +60,8 @@ func megaModuleEntries() []moduleEntry {
 		{"gqa_attention_scores", ptx.AttentionScoresPTX},
 		{"row_softmax_debug", ptx.SoftmaxRowsPTX},
 		{"gqa_attention", ptx.AttentionPTX},
+		{"gqa_attention_splitkv_partial", ptx.AttentionSplitKVPartialPTX},
+		{"gqa_attention_splitkv_merge", ptx.AttentionSplitKVMergePTX},
 		{"gelu_tanh_mul", ptx.GELUTanhMulPTX},
 		{"split_gate_up", ptx.SplitGateUpPTX},
 		{"gate_up_gelu", ptx.GateUpGELUPTX},

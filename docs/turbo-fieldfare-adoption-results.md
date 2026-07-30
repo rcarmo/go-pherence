@@ -130,6 +130,29 @@ Focused tests cover malformed rows, repeated wraps, split views, reset, linear/r
 
 Focused tests cover mixed sliding/full state, multiple wraps, split logical views, prompt seeding, accepted-prefix plus bonus retention, malformed seeds and atomic rollback. `runtime/kv` cross-builds for arm64 and riscv64. Ordinary generation and NVIDIA KV remain unchanged; the exact storage boundary is ready, but dispatch cannot be enabled until decode attention consumes logical ring views directly.
 
+### 9. FP16 ring candidate
+
+A standalone FP16 ring halves physical KV bytes and remains allocation-free on append, but conversion is not free. At dim 512, F32 append is roughly `220--247ns`; FP16 append is `1.69--2.01µs`. Materialising a 4,224-token dim-512 ring to F32 is roughly `3.0ms` from F32 storage and `6.8--7.0ms` from FP16.
+
+Deterministic attention-like data measures approximately `2.43e-4` maximum K/V element error, `3.44e-5` score error and `3.72e-5` context error. These numbers are suitable for selecting model-level tolerances, not for enabling the path. The available Gemma4 E4B GGUF cannot execute because its tied `output.weight` is unresolved, so selected-logit and long-generation gates remain unavailable. FP16 stays experimental and unintegrated.
+
+Raw output: [`baseline-e7e482bc/fp16-ring-candidate.txt`](../benchmarks/turbo-fieldfare-adoption/baseline-e7e482bc/fp16-ring-candidate.txt).
+
+### 10. Split-KV NVIDIA decode attention
+
+The split-KV candidate writes one stable online-softmax partial per 256-key chunk (`max`, exponential sum and weighted V), then merges chunks without recomputing QK. Live RTX 3060 parity passes against the CPU oracle for sequence lengths 31, 32, 255, 256, 257, 512, 2,048, 4,096 and 16,384, including a non-standard head-dimension tail.
+
+| Sequence | Existing shared scores | Split-KV | Speedup |
+|---:|---:|---:|---:|
+| 512 | 99--103µs | 49--51µs | ~2.0x |
+| 2,048 | 465--466µs | 74µs | ~6.3x |
+| 4,096 | unavailable (2,048-score cap) | 104--105µs | new coverage |
+| 16,384 | unavailable | 336--340µs | new coverage |
+
+Production dispatch now selects split-KV at 512 keys and retains the previous kernel below that threshold. The candidate uses reusable partial buffers; the higher Go launch-allocation count remains visible for later runtime cleanup.
+
+Raw output: [`baseline-e7e482bc/split-kv-attention-candidate.txt`](../benchmarks/turbo-fieldfare-adoption/baseline-e7e482bc/split-kv-attention-candidate.txt).
+
 ## Pending real-model rows
 
 The Qwen3-30B-A3B MLX4 asset is unavailable on this host. Cold/warm decode, real route traces, upload bytes and full-token throughput remain explicitly pending rather than inferred from synthetic work. When the checkpoint is installed, these replay and selected-expert fixtures are the fixed controls for choosing LRU/LFU/layer-aware policy and any broader persistent-kernel experiment.

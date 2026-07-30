@@ -1,0 +1,54 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/runtime/kv
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkRingKVAppend/f32/dim=128/cap=1152-2         	10666635	        33.54 ns/op	30534.20 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=128/cap=1152-2         	10949194	        34.77 ns/op	29453.40 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=128/cap=1152-2         	 9801954	        35.02 ns/op	29239.91 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=128/cap=1152-2        	  810928	       446.7 ns/op	2292.62 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=128/cap=1152-2        	  810331	       445.3 ns/op	2299.34 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=128/cap=1152-2        	  810133	       543.8 ns/op	1883.10 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=128/cap=4224-2         	 9872199	        38.63 ns/op	26504.52 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=128/cap=4224-2         	 9347251	        41.44 ns/op	24707.56 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=128/cap=4224-2         	 9311839	        38.00 ns/op	26945.36 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=128/cap=4224-2        	  748885	       483.0 ns/op	2120.28 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=128/cap=4224-2        	  685438	       467.1 ns/op	2192.13 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=128/cap=4224-2        	  664394	       452.2 ns/op	2264.43 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=512/cap=1152-2         	 2932260	       122.8 ns/op	33345.67 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=512/cap=1152-2         	 2865340	       122.3 ns/op	33490.40 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=512/cap=1152-2         	 2720242	       126.6 ns/op	32349.19 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=512/cap=1152-2        	  207894	      1695 ns/op	2416.42 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=512/cap=1152-2        	  209642	      1863 ns/op	2198.85 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=512/cap=1152-2        	  196526	      1689 ns/op	2424.68 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=512/cap=4224-2         	 1588339	       220.1 ns/op	18610.51 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=512/cap=4224-2         	 1508581	       232.1 ns/op	17651.26 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/f32/dim=512/cap=4224-2         	 1501963	       246.6 ns/op	16607.85 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=512/cap=4224-2        	  214924	      1879 ns/op	2179.53 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=512/cap=4224-2        	  215793	      2013 ns/op	2034.44 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVAppend/fp16/dim=512/cap=4224-2        	  216229	      1985 ns/op	2063.87 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=128/cap=1152-2    	    3462	    102034 ns/op	11561.31 MB/s	 1179648 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=128/cap=1152-2    	    3452	     97194 ns/op	12136.99 MB/s	 1179648 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=128/cap=1152-2    	    3321	     95060 ns/op	12409.52 MB/s	 1179648 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=128/cap=1152-2   	     752	    467577 ns/op	2522.89 MB/s	 1179649 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=128/cap=1152-2   	     746	    462360 ns/op	2551.36 MB/s	 1179648 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=128/cap=1152-2   	     762	    462114 ns/op	2552.72 MB/s	 1179648 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=128/cap=4224-2    	     691	    496096 ns/op	8718.83 MB/s	 4325376 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=128/cap=4224-2    	     682	    499546 ns/op	8658.61 MB/s	 4325376 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=128/cap=4224-2    	     730	    491750 ns/op	8795.88 MB/s	 4325376 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=128/cap=4224-2   	     207	   1800462 ns/op	2402.37 MB/s	 4325376 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=128/cap=4224-2   	     216	   1802370 ns/op	2399.83 MB/s	 4325376 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=128/cap=4224-2   	     189	   1953989 ns/op	2213.61 MB/s	 4325376 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=512/cap=1152-2    	     676	    497500 ns/op	9484.62 MB/s	 4718592 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=512/cap=1152-2    	     760	    482253 ns/op	9784.47 MB/s	 4718592 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=512/cap=1152-2    	     688	    492776 ns/op	9575.53 MB/s	 4718592 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=512/cap=1152-2   	     204	   1787230 ns/op	2640.17 MB/s	 4718592 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=512/cap=1152-2   	     202	   1912791 ns/op	2466.86 MB/s	 4718593 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=512/cap=1152-2   	     190	   1872534 ns/op	2519.90 MB/s	 4718592 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=512/cap=4224-2    	     115	   2982312 ns/op	5801.37 MB/s	17301504 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=512/cap=4224-2    	     100	   3079249 ns/op	5618.74 MB/s	17301504 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/f32/dim=512/cap=4224-2    	     100	   3040832 ns/op	5689.73 MB/s	17301504 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=512/cap=4224-2   	      48	   7040166 ns/op	2457.54 MB/s	17301504 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=512/cap=4224-2   	      52	   6777588 ns/op	2552.75 MB/s	17301504 B/op	       2 allocs/op
+BenchmarkRingKVMaterialize/fp16/dim=512/cap=4224-2   	      51	   6975260 ns/op	2480.41 MB/s	17301504 B/op	       2 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/runtime/kv	21.608s

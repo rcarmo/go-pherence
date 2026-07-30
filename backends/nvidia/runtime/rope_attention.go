@@ -138,6 +138,12 @@ func DevAttention(out, q, kCache, vCache *DevBuf, seqLen, nHeads, nKVHeads, head
 // wants to preserve an explicit CPU fallback path.
 func DevAttentionOK(out, q, kCache, vCache *DevBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) bool {
 	initRoPEAttn()
+	// The shared-score kernel serializes softmax and is capped at 2048 keys.
+	// Split-KV is measurably faster from 512 keys on the RTX 3060 and removes
+	// that cap; retain the old kernel as the short-context oracle/fallback.
+	if seqLen >= 512 && DevAttentionSplitKVOK(out, q, kCache, vCache, seqLen, nHeads, nKVHeads, headDim, scale) {
+		return true
+	}
 	qLen, okQ := checked.MulInt(nHeads, headDim)
 	kvDim, okKVDim := checked.MulInt(nKVHeads, headDim)
 	cacheLen, okCache := checked.MulInt(seqLen, kvDim)
