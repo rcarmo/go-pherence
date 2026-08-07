@@ -19,6 +19,10 @@ This document defines the common, intentionally small tuning surface for go-pher
 
 Programmatic entry points are `model.LoadGPUModelWithLayers` for placement and `model.GGUFGenerationOptions` plus `runtime/kv.TurboQuantConfigFromCacheTypes` for GGUF KV policy. DiffusionGemma has a separate algorithm-specific contract through `diffusiongemma.InferenceOptions` and `diffusiongemma.DenoisingConfig`; its canvas, denoising, and residency controls are not interchangeable with autoregressive LLM controls.
 
+## Gemma4 serving controls
+
+Gemma4 request-scoped serving currently uses the SIMD session path. Prompt snapshots may restore the longest complete cached block; scheduler prefill quantum 1 is a latency-oriented option rather than a universal throughput default. Static decode batching remains experimental because its aggregate gain produced multi-second per-request ITL. NVIDIA stateful sessions and batching are unavailable until device KV ownership becomes request-local.
+
 ## KV cache semantics
 
 Accepted full-precision names are empty, `none`, `full`, `f16`, `bf16`, and `f32`. Accepted quantized aliases are `turbo2` through `turbo4` and the supported `q*_k`/`q*_0` names listed by `runtime/kv.ParseCacheTypeBits`.

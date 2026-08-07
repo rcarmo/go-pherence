@@ -15,6 +15,8 @@ A normal inference request moves through four layers:
 
 This is a dependency boundary rather than a promise that every model uses the same graph engine. LLaMA-family generation is deliberately direct, Whisper has its own encoder/decoder structure, and image models use model-specific schedulers. The shared pieces are loaders, checked kernels, memory policy and validation conventions.
 
+For resumable Gemma4 serving, `InferenceSession` owns request-local prefill/decode state, checkpoints, stop state and KV; `VerifyingInferenceSession` adds variable-length greedy draft verification. Immutable model weights are shared, but execution remains serialised where scratch or device KV ownership is not request-local. The current tailored session is SIMD-only--the generic backend enum is not evidence that scalar or NVIDIA stateful sessions exist.
+
 ## Package ownership
 
 | Area | Owner | What belongs there |

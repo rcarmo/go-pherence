@@ -25,7 +25,20 @@ flock /tmp/go-pherence-gpu.lock env GO_PHERENCE_TEST_SPLIT_KV=1 go test \
   ./backends/nvidia/runtime ./model -run 'Test.*(SplitKV|SelectedExpert|MoE.*GPU|MLX)'
 ```
 
-Use `go test -c` (not `go test`) for arm64/riscv64 cross-build checks. Real Qwen3-30B cold/warm, out-of-core and sampled full-token gates require the checkpoint and must be reported unavailable when it is absent. The repository-wide suite currently also contains unrelated known-red SpaceMIT/CIX host-incompatible builds/tests, Vulkan parity failures, DiffusionGemma command API drift, and two Gemma4 K=V verifier failures; do not misattribute those to this series.
+Use `go test -c` (not `go test`) for arm64/riscv64 cross-build checks. Real Qwen3-30B cold/warm, out-of-core and sampled full-token gates require the checkpoint and must be reported unavailable when it is absent. The repository-wide suite currently also contains unrelated known-red SpacemiT/CIX host-incompatible builds/tests, Vulkan parity failures and DiffusionGemma command API drift; do not misattribute those to this series. The former Gemma4 K=V verifier fixture failures were corrected for K-only RoPE and are no longer listed as blockers.
+
+## Gemma4 request-scoped inference gate
+
+The frozen real-model fixture uses prepared tokens `[2, 10979]` and greedy output `[106, 236789]`. It checks legacy/session parity and repeated checkpoint replay on the official E4B GGUF:
+
+```bash
+GO_PHERENCE_GEMMA4_SESSION_REAL_LONG=1 GOTMPDIR=$PWD/.gotmp \
+  go test ./model -run TestGemma4DecodeSessionUpdatedRealGGUFTwoSteps -count=1 -v
+go test -race ./model ./runtime/inferencesched ./runtime/promptcache
+for arch in arm64 riscv64; do GOOS=linux GOARCH=$arch go test -c ./model -o /tmp/model-$arch.test; done
+```
+
+The tailored session is SIMD-only. Scalar and NVIDIA session gates are unsupported and must not be reported as skips that imply parity; NVIDIA remains blocked by one mutable `GPUModel` KV/cache owner. CPU hardware counters are unavailable on the measured host while `perf_event_paranoid=4`.
 
 ## Optional phase-specific gates
 

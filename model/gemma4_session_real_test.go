@@ -55,9 +55,20 @@ func runGemma4SessionRealTrajectory(t *testing.T, m *LlamaModel, steps int) {
 		t.Fatalf("unexpected prepared prefill=%+v bootstrap_replay=%v", prefill, s.BootstrapReplay())
 	}
 	prepared := s.OutputTokens()
+	want := []int{106, 236789}
+	if steps > len(want) {
+		t.Fatalf("fixture has %d generated tokens, requested %d", len(want), steps)
+	}
+	checkpoint, err := s.Checkpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
 	legacy := m.generatePrepared(prepared, steps)
 	if len(legacy) != len(prepared)+steps {
 		t.Fatalf("legacy output len=%d, want %d", len(legacy), len(prepared)+steps)
+	}
+	if !sameInts(legacy[len(prepared):], want[:steps]) {
+		t.Fatalf("legacy generated=%v, frozen fixture=%v", legacy[len(prepared):], want[:steps])
 	}
 	for i := 0; i < steps; i++ {
 		step, err := s.DecodeStep()
@@ -67,11 +78,23 @@ func runGemma4SessionRealTrajectory(t *testing.T, m *LlamaModel, steps int) {
 		if step.Token < 0 || step.Token >= m.Config.VocabSize || len(step.Logits) != m.Config.VocabSize {
 			t.Fatalf("unexpected decode step %d token=%d logits=%d result=%+v", i, step.Token, len(step.Logits), step)
 		}
-		if step.Token != legacy[len(prepared)+i] {
-			t.Fatalf("step %d session token=%d, legacy token=%d", i, step.Token, legacy[len(prepared)+i])
+		if step.Token != legacy[len(prepared)+i] || step.Token != want[i] {
+			t.Fatalf("step %d session token=%d, legacy token=%d, frozen token=%d", i, step.Token, legacy[len(prepared)+i], want[i])
 		}
 		if step.Finished != (i == steps-1) {
 			t.Fatalf("step %d finished=%v, want %v", i, step.Finished, i == steps-1)
+		}
+	}
+	if err := s.Restore(checkpoint); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < steps; i++ {
+		step, err := s.DecodeStep()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if step.Token != want[i] {
+			t.Fatalf("restored step %d token=%d, frozen token=%d", i, step.Token, want[i])
 		}
 	}
 }

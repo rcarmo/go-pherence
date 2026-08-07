@@ -4,7 +4,7 @@ Cumulative status as of 2026-08-07. The measurement target is the official Gemma
 
 | Phase | Baseline → candidate | Primary result | Memory/parity gate | Disposition |
 |---|---|---|---|---|
-| Resumable session contract | legacy generation → `c1896760`, `2a7b0875` | request-owned prefill/decode/checkpoint lifecycle | exact first/two-token and restore fixtures | retain SIMD CPU session; scalar/NVIDIA stateful ownership pending |
+| Resumable session contract | legacy generation → request-scoped SIMD | request-owned prefill/decode/checkpoint lifecycle | frozen `[10979]` → `[106, 236789]` fixture matches legacy and restored replay | retain SIMD CPU session; scalar unsupported and NVIDIA blocked at state-ownership gate |
 | Streaming server | serialized generation → `78ea24b1` | immediate SSE token emission and cancellation between steps | deterministic release; legacy path unchanged | retain; shared model execution remains serialized |
 | Serving benchmark harness | ad-hoc timing → `018e7f63` | fixed and Gamma/Poisson arrivals with TTFT/ITL/TPOT/E2E/goodput | bounded queue/cancellation fixtures | retain harness; live workload matrix pending |
 | Prompt cache | recompute → `351c3295`, `ecb1188e`, `fb78a141` | full hit 17.8–20.6s → 0.40–0.46ms; partial block-2 20.6s → 5.16s | exact logits, race/eviction; 2.32–5.07 MiB cache | retain, block size configurable |
@@ -25,9 +25,16 @@ Cumulative status as of 2026-08-07. The measurement target is the official Gemma
 - Static batching remains non-default because aggregate gains do not compensate for multi-second per-request ITL.
 - `go test ./...` is not a clean programme gate because unrelated SpacemiT host-build/API failures, DiffusionGemma command API drift, and `backends/spacemit/inference` Q4_K tolerance failure remain. Focused model/loader, race, and cross-build gates are recorded per candidate.
 
+## Final validation
+
+The final focused gate passed for `model`, `runtime/inferencesched`, `runtime/promptcache` and `cmd/llm/llmserver`. Focused Gemma4 race tests passed; the scheduler timing gate passed 20 ordinary and 10 race repetitions after its first-token assertion was corrected to test non-regression rather than an impossible speed-up before prefill. The frozen real E4B two-token legacy/session/restore fixture passed, as did arm64 and riscv64 model cross-builds, documentation tests, JSON parsing and `git diff --check`.
+
+The repository-wide `go test ./...` run reached the 300-second bound with the already documented unrelated SpacemiT, DiffusionGemma and Vulkan failures in `/tmp/go-all-final.log`. It is not reported as green.
+
 ## Detailed reports
 
-- [Baseline asset](gemma4-baseline-assets.json)
+- [Baseline asset and exact fixture](gemma4-baseline-assets.json)
+- [Baseline measurements and final backend disposition](gemma4-baseline.md)
 - [Prompt-cache measurements](gemma4-prompt-cache-results.md)
 - [Scheduler interference](gemma4-scheduler-interference.md)
 - [Static decode batching](gemma4-static-decode-batch.md)

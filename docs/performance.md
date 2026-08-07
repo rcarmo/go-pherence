@@ -17,6 +17,10 @@ Hardware: RTX 3060 12GB (sm_86, Ampere) + i7-12700 6-core + 64GB DDR4
 | Qwen3-0.6B | qwen3 | BF16 | — | — | 7.8 | 129 |
 | Gemma3-1B | gemma3 | BF16 | — | — | 4.9 | 203 |
 
+## Gemma4 request-scoped inference snapshot
+
+The final [Gemma4 vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) record the official E4B QAT Q4_0 workload. Retained results include sub-millisecond full-prefix restore, decode-first quantum 1 as a latency control, and B8-only Q4/Q6 projection specialisations. Static serving batches, paged KV and full CUDA Graph capture were rejected by measured latency, memory or ownership gates. NVIDIA graph timings cover a fixed kernel segment, not a stateful Gemma4 session.
+
 ## TurboFieldfare adoption snapshot
 
 The cumulative [TurboFieldfare adoption results](turbo-fieldfare-adoption-results.md) records the retained/rejected experiments. Current retained defaults are split-KV NVIDIA decode attention at 512+ keys and planner-driven Qwen3.6 layer-streamed prefill. LRU remains the expert-cache default; F32/FP16 rings, out-of-core expert streaming and generic sampling remain explicit APIs rather than default generation paths. The persistent routed projection and FP16 ring candidates were rejected on measured speed, and unrestricted Top-P is reference-only after measuring 3.9--20ms at 32K--128K vocabulary.

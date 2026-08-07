@@ -13,6 +13,8 @@ The CPU inference path separates autoregressive decode from prompt and verifier 
 
 The policy follows the useful part of Justine Tunney's [LLaMA Now Goes Faster on CPUs](https://justine.lol/matmul/): multi-output register tiles improve matrix-matrix prompt work by reusing loaded operands, while matrix-vector token generation needs a separate low-overhead kernel. It does not copy llamafile's full kernel matrix; go-pherence currently has AVX2/FMA and NEON assembly, so dispatch remains bounded to shapes measured here.
 
+Gemma4 quantised projection dispatch follows the same rule at static batch sizes 1/2/4/8. M=1 and regressive B2/B4 shapes retain GEMV. The real E4B gate promoted only Q4_0 and Q6_K B8 paths, preserving quantised reduction order, alignment and tails; see the [AVX2 hot-path audit](../benchmarks/vllm-leverage/gemma4-avx2-hotpath-audit.md).
+
 ## Reproducing the measurements
 
 ```bash

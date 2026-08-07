@@ -96,8 +96,10 @@ func runInterference(t *testing.T, prefillBudget int) interferenceResult {
 func TestDecodeFirstChunkedPrefillReducesInterference(t *testing.T) {
 	monolithic := runInterference(t, 8)
 	chunked := runInterference(t, 1)
-	if chunked.activeFirst >= monolithic.activeFirst {
-		t.Fatalf("active first chunked=%v monolithic=%v", chunked.activeFirst, monolithic.activeFirst)
+	// Decode-first ordering makes both first active tokens precede prefill, so
+	// their wall times should be equivalent apart from host scheduling jitter.
+	if delta := chunked.activeFirst - monolithic.activeFirst; delta > 5*time.Millisecond {
+		t.Fatalf("active first chunked=%v regressed vs monolithic=%v", chunked.activeFirst, monolithic.activeFirst)
 	}
 	if chunked.activeITL >= monolithic.activeITL {
 		t.Fatalf("active ITL chunked=%v monolithic=%v", chunked.activeITL, monolithic.activeITL)

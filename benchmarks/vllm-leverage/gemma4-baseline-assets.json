@@ -14,12 +14,22 @@
     "avx2": true,
     "gpu": "NVIDIA GeForce RTX 3060 12 GiB"
   },
-  "initial_session": {
+  "frozen_session_fixture": {
     "backend": "simd",
-    "real_asset_gate": "pass",
-    "first_token_matches_legacy": true,
-    "bootstrap_replay": true,
-    "note": "MTP prompt-context and verifier trajectories differ from ordinary Generate on the real asset. DecodeStep therefore remains explicitly replay-backed for exact output while the legacy layer loop is extracted into a true stateful step; retained verifier KV is not yet used for emitted tokens."
+    "input_tokens": [10979],
+    "prepared_tokens": [2, 10979],
+    "greedy_output_tokens": [106, 236789],
+    "max_generated_tokens": 2,
+    "legacy_parity": true,
+    "checkpoint_replay_parity": true,
+    "bootstrap_replay": false
+  },
+  "backend_disposition": {
+    "simd": "measured and retained",
+    "scalar_session": "unsupported by Gemma4DecodeSession",
+    "nvidia_session": "blocked by single mutable GPUModel KV/cache ownership",
+    "perf_counters": "unavailable: perf_event_paranoid=4",
+    "simd_dispatch_counters": "unavailable: no stable counter API"
   },
   "comparison_assets": {
     "mlx_affine_4bit": "models/gemma4-e4b-it-4bit",
