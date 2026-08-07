@@ -23,10 +23,13 @@ type Gemma4DecodeSession struct {
 	prompt               []int
 	output               []int
 	state                *cpuTokenState
+	prefillPrepared      []int
+	prefillCursor        int
 	generated            int
 	bootstrapReplay      bool
 	pendingLogits        []float32
 	pendingToken         int
+	prefillStarted       bool
 	prefilled            bool
 	closed               bool
 	finished             bool
@@ -136,22 +139,19 @@ func (s *Gemma4DecodeSession) Backend() InferenceBackend {
 	return s.opts.Backend
 }
 
-// PrefillChunk currently accepts the complete prompt once. The API is chunk
-// shaped deliberately; scheduler-driven partial prefill will extend this method
-// after the exact single-prefill session boundary is proven.
-func (s *Gemma4DecodeSession) PrefillChunk(tokens []int) (PrefillResult, error) {
+func (s *Gemma4DecodeSession) BeginPrefill(tokens []int) error {
 	if err := s.usable(); err != nil {
-		return PrefillResult{}, err
+		return err
 	}
-	if s.prefilled {
-		return PrefillResult{}, fmt.Errorf("Gemma4 session prompt is already prefilled")
+	if s.prefillStarted || s.prefilled {
+		return fmt.Errorf("Gemma4 session prompt prefill already started")
 	}
 	if len(tokens) == 0 {
-		return PrefillResult{}, fmt.Errorf("Gemma4 session prompt is empty")
+		return fmt.Errorf("Gemma4 session prompt is empty")
 	}
 	for i, tok := range tokens {
 		if tok < 0 || tok >= s.model.Config.VocabSize {
-			return PrefillResult{}, fmt.Errorf("prompt token[%d]=%d outside vocab=%d", i, tok, s.model.Config.VocabSize)
+			return fmt.Errorf("prompt token[%d]=%d outside vocab=%d", i, tok, s.model.Config.VocabSize)
 		}
 	}
 	prepared := s.model.prepareGenerateTokens(tokens)
@@ -161,10 +161,10 @@ func (s *Gemma4DecodeSession) PrefillChunk(tokens []int) (PrefillResult, error) 
 	}
 	state, err := newCPUTokenStateForLegacyGenerate(s.model, prepared, stateMaxTokens)
 	if err != nil {
-		return PrefillResult{}, fmt.Errorf("Gemma4 session state: %w", err)
+		return fmt.Errorf("Gemma4 session state: %w", err)
 	}
 	if s.promptCache != nil && state.compressedKV != nil {
-		return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache requires float KV")
+		return fmt.Errorf("Gemma4 session prompt cache requires float KV")
 	}
 	startPos := 0
 	var cachedBoundaryLogits []float32
@@ -172,15 +172,15 @@ func (s *Gemma4DecodeSession) PrefillChunk(tokens []int) (PrefillResult, error) 
 	if s.promptCache != nil {
 		snap, ok, err := s.promptCache.FindLongest(s.promptCacheIdentity, s.promptCacheBlockSize, prepared)
 		if err != nil {
-			return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache lookup: %w", err)
+			return fmt.Errorf("Gemma4 session prompt cache lookup: %w", err)
 		}
 		if ok {
 			cached, ok := snap.(*Gemma4PromptSnapshot)
 			if !ok {
-				return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache snapshot %T", snap)
+				return fmt.Errorf("Gemma4 session prompt cache snapshot %T", snap)
 			}
 			if err := cached.restoreInto(s.model, state); err != nil {
-				return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache restore: %w", err)
+				return fmt.Errorf("Gemma4 session prompt cache restore: %w", err)
 			}
 			startPos = cached.Position()
 			cachedBoundaryLogits = append([]float32(nil), cached.BoundaryLogits...)
@@ -188,58 +188,141 @@ func (s *Gemma4DecodeSession) PrefillChunk(tokens []int) (PrefillResult, error) 
 		}
 	}
 	state.output = state.output[:len(prepared)]
+	state.position = startPos
+	s.state = state
+	s.prefillPrepared = append([]int(nil), prepared...)
+	s.prefillCursor = startPos
+	s.generated = 0
+	s.bootstrapReplay = false
+	s.pendingLogits = nil
+	s.pendingToken = 0
+	s.prefillStarted = true
+	s.prefilled = false
+	s.finished = false
+	s.finish = FinishReasonNone
+	if startPos == len(prepared) {
+		if err := s.completePrefill(cachedBoundaryLogits, cachedBoundaryToken); err != nil {
+			s.state = nil
+			s.prefillPrepared = nil
+			s.prefillCursor = 0
+			s.prefillStarted = false
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Gemma4DecodeSession) RemainingPrefill() int {
+	if s == nil || !s.prefillStarted || s.prefilled {
+		return 0
+	}
+	if rem := len(s.prefillPrepared) - s.prefillCursor; rem > 0 {
+		return rem
+	}
+	return 0
+}
+
+func (s *Gemma4DecodeSession) PrefillNext(limit int) (PrefillResult, error) {
+	if err := s.usable(); err != nil {
+		return PrefillResult{}, err
+	}
+	if !s.prefillStarted {
+		return PrefillResult{}, fmt.Errorf("Gemma4 session prompt prefill is not started")
+	}
+	if s.prefilled {
+		return PrefillResult{}, fmt.Errorf("Gemma4 session prompt is already prefilled")
+	}
+	if limit <= 0 {
+		return PrefillResult{}, fmt.Errorf("Gemma4 session prefill limit=%d must be positive", limit)
+	}
+	remaining := len(s.prefillPrepared) - s.prefillCursor
+	if remaining <= 0 {
+		return PrefillResult{}, fmt.Errorf("Gemma4 session prompt prefill has no remaining tokens")
+	}
+	if limit > remaining {
+		limit = remaining
+	}
+	start := s.prefillCursor
+	end := start + limit
 	var boundaryLogits []float32
 	var boundaryToken int
-	for pos := startPos; pos < len(prepared); pos++ {
-		next, logits, emit, err := s.model.runLegacyCPUToken(state, prepared[pos], pos, nil)
+	for pos := start; pos < end; pos++ {
+		next, logits, emit, err := s.model.runLegacyCPUToken(s.state, s.prefillPrepared[pos], pos, nil)
 		if err != nil {
 			return PrefillResult{}, fmt.Errorf("Gemma4 session prefill token %d: %w", pos, err)
 		}
 		if emit {
-			if pos != len(prepared)-1 {
+			if pos != len(s.prefillPrepared)-1 {
 				return PrefillResult{}, fmt.Errorf("Gemma4 session prompt token %d emitted early", pos)
 			}
 			boundaryToken = next
 			boundaryLogits = append([]float32(nil), logits...)
 		}
-		state.position = pos + 1
+		s.state.position = pos + 1
 		if s.promptCache != nil && (pos+1)%s.promptCacheBlockSize == 0 {
 			var snapLogits []float32
 			var snapToken int
 			if emit {
 				snapLogits, snapToken = boundaryLogits, boundaryToken
 			}
-			snap, err := newGemma4PromptSnapshotFromState(s.model, state, pos+1, snapLogits, snapToken)
+			snap, err := newGemma4PromptSnapshotFromState(s.model, s.state, pos+1, snapLogits, snapToken)
 			if err != nil {
 				return PrefillResult{}, fmt.Errorf("Gemma4 session snapshot at %d: %w", pos+1, err)
 			}
-			if err := s.promptCache.Put(s.promptCacheIdentity, s.promptCacheBlockSize, prepared[:pos+1], snap); err != nil && !errors.Is(err, promptcache.ErrOverBudget) {
+			if err := s.promptCache.Put(s.promptCacheIdentity, s.promptCacheBlockSize, s.prefillPrepared[:pos+1], snap); err != nil && !errors.Is(err, promptcache.ErrOverBudget) {
 				return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache store at %d: %w", pos+1, err)
 			}
 		}
 	}
-	state.output = state.output[:len(prepared)]
-	state.position = len(prepared)
-	if startPos == len(prepared) {
-		boundaryLogits, boundaryToken = cachedBoundaryLogits, cachedBoundaryToken
+	s.prefillCursor = end
+	if s.prefillCursor == len(s.prefillPrepared) {
+		if err := s.completePrefill(boundaryLogits, boundaryToken); err != nil {
+			return PrefillResult{}, err
+		}
 	}
+	position := s.prefillCursor
+	if s.prefilled {
+		position = len(s.prompt)
+	}
+	return PrefillResult{ConsumedTokens: end - start, Position: position, ReadyToDecode: s.prefilled && !s.finished}, nil
+}
+
+func (s *Gemma4DecodeSession) completePrefill(boundaryLogits []float32, boundaryToken int) error {
 	if s.opts.MaxTokens > 0 {
 		if len(boundaryLogits) != s.model.Config.VocabSize {
-			return PrefillResult{}, fmt.Errorf("Gemma4 session final prompt boundary logits unavailable after prefix restore")
+			return fmt.Errorf("Gemma4 session final prompt boundary logits unavailable after prefix restore")
 		}
 		s.pendingToken = boundaryToken
-		s.pendingLogits = boundaryLogits
+		s.pendingLogits = append([]float32(nil), boundaryLogits...)
+	} else {
+		s.pendingToken = 0
+		s.pendingLogits = nil
 	}
-	s.state = state
-	s.prompt = append([]int(nil), prepared...)
-	s.output = append([]int(nil), prepared...)
+	s.prompt = append([]int(nil), s.prefillPrepared...)
+	s.output = append([]int(nil), s.prefillPrepared...)
 	s.state.output = s.output
-	s.bootstrapReplay = false
+	s.state.position = len(s.prompt)
+	s.prefillPrepared = nil
+	s.prefillCursor = 0
 	s.prefilled = true
 	if s.opts.MaxTokens == 0 {
 		s.finished, s.finish = true, FinishReasonLength
 	}
-	return PrefillResult{ConsumedTokens: len(prepared), Position: len(prepared), ReadyToDecode: !s.finished}, nil
+	return nil
+}
+
+// PrefillChunk preserves the original one-shot behavior by beginning prefill
+// once and then draining all remaining prepared prompt tokens.
+func (s *Gemma4DecodeSession) PrefillChunk(tokens []int) (PrefillResult, error) {
+	if err := s.BeginPrefill(tokens); err != nil {
+		return PrefillResult{}, err
+	}
+	if !s.prefilled {
+		if _, err := s.PrefillNext(s.RemainingPrefill()); err != nil {
+			return PrefillResult{}, err
+		}
+	}
+	return PrefillResult{ConsumedTokens: len(s.prompt), Position: len(s.prompt), ReadyToDecode: !s.finished}, nil
 }
 
 func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
@@ -247,6 +330,9 @@ func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
 		return DecodeResult{}, err
 	}
 	if !s.prefilled {
+		if s.prefillStarted {
+			return DecodeResult{}, fmt.Errorf("Gemma4 session prompt prefill is incomplete")
+		}
 		return DecodeResult{}, fmt.Errorf("Gemma4 session prompt is not prefilled")
 	}
 	if s.finished {
@@ -332,7 +418,8 @@ func (s *Gemma4DecodeSession) Close() error {
 		return nil
 	}
 	s.closed, s.finished, s.finish = true, true, FinishReasonClosed
-	s.prompt, s.output, s.pendingLogits, s.state = nil, nil, nil, nil
+	s.prompt, s.output, s.pendingLogits, s.state, s.prefillPrepared = nil, nil, nil, nil, nil
+	s.prefillCursor, s.prefillStarted = 0, false
 	return nil
 }
 
