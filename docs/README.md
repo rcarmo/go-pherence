@@ -10,6 +10,7 @@ The codebase covers ordinary local inference, large-model placement, speech, ima
 | Check whether a model or format is supported | [Supported models](supported-models.md) |
 | Choose CPU, NVIDIA or another backend | [Backend selection](backend-selection.md) and [Tuning](tuning.md) |
 | Understand package ownership and execution flow | [Architecture](architecture.md), [Backend stack](backend-stack.md) and [Backend layout](backend-layout.md) |
+| Design or optimise an LLM inference runtime | [Practical LLM inference blueprint](llm-inference-blueprint.md) |
 | Transcribe or translate audio | [Whisper and translated VTT](whisper-diarize-vtt.md) |
 | Transcribe with speaker labels and timestamps | [MOSS transcription and diarisation](moss-transcribe-diarize.md) |
 | Work on speculative decoding or MTP | [MTP and speculative decoding](mtp-speculative.md) |
@@ -20,7 +21,7 @@ The codebase covers ordinary local inference, large-model placement, speech, ima
 
 [Architecture](architecture.md) is the canonical high-level view. It explains the checked scalar/SIMD baseline, model layer and backend boundary; the generated SVG near the top is the visual version of that path.
 
-[Backend stack](backend-stack.md) describes what each backend owns. The narrower reference pages cover [source layout](backend-layout.md), [runtime selection and fallback](backend-selection.md), [kernel coverage](kernel-coverage.md), [GPU options](gpu-options.md) and [weight placement](weight-budget.md).
+[Backend stack](backend-stack.md) describes what each backend owns. The [practical LLM inference blueprint](llm-inference-blueprint.md) generalises the request-state, scheduling, caching, batching, speculation and KV promotion sequence used for new inference work. The narrower reference pages cover [source layout](backend-layout.md), [runtime selection and fallback](backend-selection.md), [kernel coverage](kernel-coverage.md), [GPU options](gpu-options.md) and [weight placement](weight-budget.md).
 
 Quantised and hardware-specific references:
 
