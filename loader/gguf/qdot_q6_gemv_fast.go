@@ -7,6 +7,13 @@ import (
 )
 
 func dotQ6KQ8KGemvFast(raw []byte, y []q8KBlock, blocks int) float32 {
+	if sum, ok := dotQ6KQ8KGemvVNNI(raw, y, blocks); ok {
+		return sum
+	}
+	return dotQ6KQ8KGemvFastLoop(raw, y, blocks)
+}
+
+func dotQ6KQ8KGemvFastLoop(raw []byte, y []q8KBlock, blocks int) float32 {
 	var sum float32
 	for bi := 0; bi < blocks; bi++ {
 		blk := raw[bi*210 : (bi+1)*210]

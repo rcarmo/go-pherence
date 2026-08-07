@@ -35,3 +35,15 @@ func q6KBlockDot(block *[210]byte, q8 *[256]int8) int32 {
 	q6KExpandCoeff(block, &coeff)
 	return q6KCoeffDot(q8, &coeff)
 }
+
+func dotQ6KQ8KGemvVNNI(raw []byte, y []q8KBlock, blocks int) (float32, bool) {
+	return 0, false
+}
+
+func q6KBlockDotAVX2(block *[210]byte, q8 *[256]int8) int32 {
+	return q6KBlockDot(block, q8)
+}
+
+func q6KBlockDotVNNI(block *[210]byte, q8 *[256]int8) (int32, bool) {
+	return 0, false
+}

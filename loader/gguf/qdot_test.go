@@ -168,6 +168,54 @@ func TestDotQ4_0Q8_0Rows4VNNIRandomExact(t *testing.T) {
 	}
 }
 
+func TestDotQ4_0Q8_0Rows8VNNIRandomExact(t *testing.T) {
+	if !supportsQ4_0Q8_0Rows4Tokens2() {
+		t.Skip("AVX-VNNI unavailable")
+	}
+	rng := rand.New(rand.NewSource(0x88a8))
+	for iteration := 0; iteration < 100; iteration++ {
+		blocks := 1 + rng.Intn(80)
+		rowBytes := blocks * 18
+		raw := make([]byte, rowBytes*8)
+		for r := 0; r < 8; r++ {
+			for bi := 0; bi < blocks; bi++ {
+				block := raw[r*rowBytes+bi*18:]
+				scale := (rng.Float32()*2 - 1) * 0.25
+				binary.LittleEndian.PutUint16(block, half.F32ToF16(scale))
+				for j := 2; j < 18; j++ {
+					block[j] = byte(rng.Intn(256))
+				}
+			}
+		}
+		y := make([]q8_0Block, blocks)
+		for bi := range y {
+			y[bi].d = (rng.Float32()*2 - 1) * 0.25
+			for j := range y[bi].qs {
+				y[bi].qs[j] = int8(rng.Intn(256) - 128)
+			}
+		}
+		corrections := q4Q8Corrections(y)
+		var got [8]float32
+		if !dotQ4_0Q8_0Rows8VNNI(raw, rowBytes, y, corrections, blocks, &got) {
+			t.Skip("AVX-VNNI unavailable")
+		}
+		var first, second [4]float32
+		dotQ4_0Q8_0Rows4AVX2(raw[:4*rowBytes], rowBytes, y, blocks, &first)
+		dotQ4_0Q8_0Rows4AVX2(raw[4*rowBytes:], rowBytes, y, blocks, &second)
+		for r := range got {
+			var want float32
+			if r < 4 {
+				want = first[r]
+			} else {
+				want = second[r-4]
+			}
+			if got[r] != want {
+				t.Fatalf("iteration=%d blocks=%d row=%d vnni=%g avx2=%g", iteration, blocks, r, got[r], want)
+			}
+		}
+	}
+}
+
 func TestDotQ4_0Q8_0Tokens4MatchesRows(t *testing.T) {
 	n := qk8_0 * 7
 	raw, base := syntheticQ4_0Q8_0DotInputs(n)
@@ -296,6 +344,35 @@ func BenchmarkDotQ4_0Q8_0Rows4(b *testing.B) {
 		}
 		for i := 0; i < b.N; i++ {
 			dotQ4_0Q8_0Rows4VNNI(raw, len(row), y, n/qk8_0, &out)
+		}
+	})
+}
+
+func BenchmarkDotQ4_0Q8_0Rows8(b *testing.B) {
+	const n = 2560
+	row, y := syntheticQ4_0Q8_0DotInputs(n)
+	raw := make([]byte, len(row)*8)
+	for r := 0; r < 8; r++ {
+		copy(raw[r*len(row):], row)
+	}
+	corrections := q4Q8Corrections(y)
+	b.Run("x4x2", func(b *testing.B) {
+		var first, second [4]float32
+		if !dotQ4_0Q8_0Rows4VNNI(raw[:4*len(row)], len(row), y, n/qk8_0, &first) {
+			b.Skip("AVX-VNNI unavailable")
+		}
+		for i := 0; i < b.N; i++ {
+			dotQ4_0Q8_0Rows4VNNI(raw[:4*len(row)], len(row), y, n/qk8_0, &first)
+			dotQ4_0Q8_0Rows4VNNI(raw[4*len(row):], len(row), y, n/qk8_0, &second)
+		}
+	})
+	b.Run("x8", func(b *testing.B) {
+		var out [8]float32
+		if !dotQ4_0Q8_0Rows8VNNI(raw, len(row), y, corrections, n/qk8_0, &out) {
+			b.Skip("AVX-VNNI unavailable")
+		}
+		for i := 0; i < b.N; i++ {
+			dotQ4_0Q8_0Rows8VNNI(raw, len(row), y, corrections, n/qk8_0, &out)
 		}
 	})
 }

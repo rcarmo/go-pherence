@@ -25,6 +25,8 @@ type q8_0Block struct {
 	qs [qk8_0]int8
 }
 
+type q4Q8Correction [qk8_0 / 4]int32
+
 // QuantizeQ8K quantizes a float row using llama.cpp's reference Q8_K row
 // quantizer. It is used by scalar fidelity paths for GGUF quantized matmuls.
 func QuantizeQ8K(x []float32) ([]q8KBlock, error) {
@@ -153,6 +155,17 @@ func dotQ4_0Q8_0Scalar(raw []byte, y []q8_0Block, nb int) float32 {
 	return r0 + r1
 }
 
+func q4Q8Corrections(y []q8_0Block) []q4Q8Correction {
+	corrections := make([]q4Q8Correction, len(y))
+	for bi := range y {
+		for lane := range corrections[bi] {
+			base := lane * 4
+			corrections[bi][lane] = 8 * (int32(y[bi].qs[base]) + int32(y[bi].qs[base+1]) + int32(y[bi].qs[base+2]) + int32(y[bi].qs[base+3]))
+		}
+	}
+	return corrections
+}
+
 // GemvQ4_0Q8_0Rows computes all rows of a Q4_0 matrix against x using llama.cpp's
 // Q8_0 activation quantization. It returns false when dims/types are unsuitable.
 func GemvQ4_0Q8_0Rows(out, x []float32, m *QuantMatrix) bool {
@@ -166,6 +179,27 @@ func GemvQ4_0Q8_0Rows(out, x []float32, m *QuantMatrix) bool {
 	rowBytes, err := m.RowBytes()
 	if err != nil {
 		return false
+	}
+	if supportsQ4_0Q8_0Rows8() {
+		corrections := q4Q8Corrections(q8)
+		groups := m.OutDim / 8
+		if groups > 0 && !gemvRowsParallel(groups, rowBytes*8, func(group int) bool {
+			r := group * 8
+			start := r * rowBytes
+			var values [8]float32
+			if !dotQ4_0Q8_0Rows8VNNI(m.Raw[start:start+8*rowBytes], rowBytes, q8, corrections, m.InDim/qk8_0, &values) {
+				return false
+			}
+			copy(out[r:r+8], values[:])
+			return true
+		}) {
+			return false
+		}
+		for r := groups * 8; r < m.OutDim; r++ {
+			start := r * rowBytes
+			out[r] = dotQ4_0Q8_0Packed(m.Raw[start:start+rowBytes], q8, m.InDim/qk8_0)
+		}
+		return true
 	}
 	groups := m.OutDim / 4
 	if groups > 0 && !gemvRowsParallel(groups, rowBytes*4, func(group int) bool {

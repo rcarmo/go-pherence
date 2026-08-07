@@ -16,6 +16,14 @@ func dotQ4_0Q8_0Rows4AVX2(raw []byte, rowBytes int, y []q8_0Block, blocks int, o
 	dotQ4_0Q8_0Rows4(raw, rowBytes, y, blocks, out)
 }
 
+func supportsQ4_0Q8_0Rows8() bool {
+	return false
+}
+
+func dotQ4_0Q8_0Rows8VNNI(raw []byte, rowBytes int, y []q8_0Block, corrections []q4Q8Correction, blocks int, out *[8]float32) bool {
+	return false
+}
+
 func dotQ4_0Q8_0Rows4VNNI(raw []byte, rowBytes int, y []q8_0Block, blocks int, out *[4]float32) bool {
 	return false
 }

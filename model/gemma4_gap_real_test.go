@@ -2,6 +2,7 @@ package model
 
 import (
 	"os"
+	"runtime/pprof"
 	"testing"
 	"time"
 )
@@ -36,6 +37,17 @@ func TestGemma4RealCPUGap124x48(t *testing.T) {
 	if !prefill.ReadyToDecode || prefill.Position != 124 {
 		t.Fatalf("unexpected prefill result %+v", prefill)
 	}
+	var decodeProfile *os.File
+	if profilePath := os.Getenv("GO_PHERENCE_GEMMA4_DECODE_CPU_PROFILE"); profilePath != "" {
+		decodeProfile, err = os.Create(profilePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := pprof.StartCPUProfile(decodeProfile); err != nil {
+			decodeProfile.Close()
+			t.Fatal(err)
+		}
+	}
 	decodeStart := time.Now()
 	decoded := 0
 	for decoded < 48 {
@@ -49,6 +61,12 @@ func TestGemma4RealCPUGap124x48(t *testing.T) {
 		}
 	}
 	decodeElapsed := time.Since(decodeStart)
+	if decodeProfile != nil {
+		pprof.StopCPUProfile()
+		if err := decodeProfile.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
 	prefillRate := 124 / prefillElapsed.Seconds()
 	decodeRate := 48 / decodeElapsed.Seconds()
 	const oraclePrefill = 447.166367

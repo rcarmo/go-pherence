@@ -1,6 +1,12 @@
 package gguf
 
-import "testing"
+import (
+	"encoding/binary"
+	"math/rand"
+	"testing"
+
+	"github.com/rcarmo/go-pherence/half"
+)
 
 var q6CoeffBenchSink int32
 
@@ -99,6 +105,85 @@ func TestQ6KBlockDotMatchesExpandedDot(t *testing.T) {
 	if got := q6KBlockDot(block, &y[0].qs); got != want {
 		t.Fatalf("q6KBlockDot=%d want %d", got, want)
 	}
+	if got, ok := q6KBlockDotVNNI(block, &y[0].qs); ok && got != want {
+		t.Fatalf("q6KBlockDotVNNI=%d want %d", got, want)
+	}
+}
+
+func TestQ6KBlockDotVNNIRandomExact(t *testing.T) {
+	rng := rand.New(rand.NewSource(0x6b10c))
+	for iteration := 0; iteration < 1000; iteration++ {
+		var block [210]byte
+		var q8 [256]int8
+		for i := range block {
+			block[i] = byte(rng.Intn(256))
+		}
+		for i := range q8 {
+			q8[i] = int8(rng.Intn(256) - 128)
+		}
+		got, ok := q6KBlockDotVNNI(&block, &q8)
+		if !ok {
+			t.Skip("AVX-VNNI unavailable")
+		}
+		want := q6KBlockDotAVX2(&block, &q8)
+		if got != want {
+			t.Fatalf("iteration=%d vnni=%d avx2=%d", iteration, got, want)
+		}
+	}
+}
+
+func BenchmarkQ6KBlockDot(b *testing.B) {
+	raw, y := syntheticQ6KQ8KDotInputs(256)
+	block := (*[210]byte)(raw)
+	b.Run("avx2", func(b *testing.B) {
+		var result int32
+		for i := 0; i < b.N; i++ {
+			result += q6KBlockDotAVX2(block, &y[0].qs)
+		}
+		q6CoeffBenchSink += result
+	})
+	b.Run("vnni", func(b *testing.B) {
+		var result int32
+		if _, ok := q6KBlockDotVNNI(block, &y[0].qs); !ok {
+			b.Skip("AVX-VNNI unavailable")
+		}
+		for i := 0; i < b.N; i++ {
+			result += q6KBlockDot(block, &y[0].qs)
+		}
+		q6CoeffBenchSink += result
+	})
+}
+
+func TestDotQ6KQ8KGemvVNNIRandomExact(t *testing.T) {
+	rng := rand.New(rand.NewSource(0x6f8e))
+	for iteration := 0; iteration < 100; iteration++ {
+		blocks := 1 + rng.Intn(10)
+		raw := make([]byte, blocks*210)
+		y := make([]q8KBlock, blocks)
+		for bi := 0; bi < blocks; bi++ {
+			block := raw[bi*210 : (bi+1)*210]
+			for i := 0; i < 208; i++ {
+				block[i] = byte(rng.Intn(256))
+			}
+			binary.LittleEndian.PutUint16(block[208:], half.F32ToF16((rng.Float32()*2-1)*0.25))
+			y[bi].d = (rng.Float32()*2 - 1) * 0.25
+			for i := range y[bi].qs {
+				y[bi].qs[i] = int8(rng.Intn(256) - 128)
+			}
+			for group := range y[bi].bsums {
+				for j := 0; j < 16; j++ {
+					y[bi].bsums[group] += int16(y[bi].qs[group*16+j])
+				}
+			}
+		}
+		got, ok := dotQ6KQ8KGemvVNNI(raw, y, blocks)
+		if !ok {
+			t.Skip("AVX-VNNI unavailable")
+		}
+		if want := dotQ6KQ8KGemvFastLoop(raw, y, blocks); got != want {
+			t.Fatalf("iteration=%d blocks=%d vnni=%g loop=%g", iteration, blocks, got, want)
+		}
+	}
 }
 
 func BenchmarkQ6KExpandCoeff(b *testing.B) {
@@ -113,6 +198,13 @@ func BenchmarkQ6KExpandCoeff(b *testing.B) {
 
 func BenchmarkDotQ6KQ8KGemvFast(b *testing.B) {
 	raw, y := syntheticQ6KQ8KDotInputs(2560)
+	b.Run("loop", func(b *testing.B) {
+		var result float32
+		for i := 0; i < b.N; i++ {
+			result += dotQ6KQ8KGemvFastLoop(raw, y, 10)
+		}
+		q6CoeffBenchSink += int32(result)
+	})
 	b.Run("fused", func(b *testing.B) {
 		var result float32
 		for i := 0; i < b.N; i++ {

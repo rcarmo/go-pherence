@@ -10,11 +10,11 @@ Long prefill uses an AVX-VNNI one-weight-row by eight-token kernel. Each output 
 
 An alternating end-to-end A/B run measured token-major prefill at 27.997, 26.027, and 25.224 tokens/s, against 26.361, 27.181, and 26.804 tokens/s for block-major tiles. The medians are 26.027 and 26.804 tokens/s, a 2.98% gain. Host frequency and thermal behaviour are noisy enough that this is a modest result, but the full 124-token activation, logits, token, and K/V comparison passes exactly.
 
-Decode also avoids a 512-byte Q6_K coefficient temporary per block. The fused AVX2 kernel expands Q6 values, applies the signed scales, consumes the matching Q8_K bytes, and accumulates the same eight integer lanes in one pass. Its 2560-element microbenchmark is approximately 304ns, while the previous expand-then-dot path measured 354--716ns under the same run.
+Decode also avoids a 512-byte Q6_K coefficient temporary per block. On AVX-VNNI hosts the retained kernel fuses the complete multi-block GEMV in assembly, uses the existing sixteen Q8_K sums with `VPMADDWD` to form the unsigned-Q6 correction once per block, and expands each eight-byte scale half once before selecting scale pairs with `VPERMD`. Blockwise FP32 multiplication and accumulation remain in their original order. One hundred randomized 1--10-block comparisons are bit-exact against the prior Go loop. Five alternating 2560-element measurements put the fused path at 111.8--214.9ns against 159.0--300.6ns for that loop, a stable 39.9--42.2% throughput gain across frequency states.
 
-The Q4_0 decode kernel now evaluates four weight rows per Q8 activation load. On AVX-VNNI hosts it keeps four independent eight-lane FP32 accumulators, so blockwise FMA and final reduction remain exact, but replaces per-row signed-byte transforms with an unsigned identity: `q4*q8 - 8*q8 == (q4-8)*q8`. One `VPDPBUSD` computes the `8*q8` lane correction per block and each row subtracts it from its unsigned Q4 dot. The four-row microbenchmark median fell from 602.7ns with AVX2 to 421.3ns with the signed VNNI form; the unsigned correction then reduced the complete 4096x2560 four-row GEMV median from 112.345us to 108.399us.
+The Q4_0 decode kernel first moved to four weight rows per Q8 activation load, retaining four independent eight-lane FP32 accumulators and replacing per-row signed-byte transforms with the unsigned identity `q4*q8 - 8*q8 == (q4-8)*q8`. It now evaluates eight adjacent rows per call and consumes a precomputed per-block `8*q8` correction, so the correction dot is paid once during Q8 quantization rather than once per row group. One hundred randomized 1--80-block comparisons remain bit-exact, including tails that fall back to four or scalar rows. Adjacent alternating 2560-element measurements put the eight-row kernel 2.1--2.9% ahead of two four-row calls; the larger gain comes from removing repeated correction work across all row groups.
 
-Alternating real-model A/B samples were run while host frequency drifted badly enough to halve absolute throughput. AVX2 decode measured 6.704 and 4.258 tokens/s; the exact VNNI kernel measured 8.616 and 5.409 tokens/s in the adjacent runs, a stable 27--29% relative gain. The uncontaminated 98% gate is still pending.
+The final five-sample real-model decode gate measured 8.166, 9.453, 9.418, 8.447, and 9.294 tokens/s. The 9.294 median is 99.8% of the 9.310 llama.cpp oracle and exceeds the 9.124 acceptance threshold; three individual samples also passed. A subsequent profile-bearing run measured 9.220 tokens/s. Host frequency remains visibly bimodal, so the median rather than a single best sample is the acceptance result.
 
 ## What was rejected
 
@@ -30,7 +30,7 @@ Fully unrolling the fused Q6_K block dot also lost. It remained exact across 100
 
 A prefill-only CPU profile measured 27.767 tokens/s and 14.38 CPU-seconds over 4.47 wall-seconds. `dotQ4_0Q8_0Tokens8VNNI` accounted for 81.08% of CPU samples. Worker scaling was 8.228, 13.792, 18.903, 21.454, and 23.812 tokens/s at 1, 2, 3, 4, and 6 workers respectively, which is the signature of a memory-bound exact kernel rather than a missing goroutine.
 
-The corresponding decode-only profile measured 7.903 tokens/s before Q6 fusion. Q4_0 row projection accounted for 70.48% of samples and Q6_K for 23.58%. After fusion, the Q6 share fell to 22.09%; Q4_0 row projection is now the main decode target at roughly 71%.
+The final decode-only profile measured 9.220 tokens/s and 20.73 CPU-seconds over 5.21 wall-seconds. `dotQ4_0Q8_0x8VNNI` accounted for 74.19% of samples and the fused Q6_K GEMV for 19.44%; quantization, dense rows, activation functions, and runtime overhead were each below 1.4%. Decode has crossed its acceptance gate, and Q4_0 remains the only meaningful target if additional headroom is required.
 
 AVX2 has sixteen YMM registers. One exact Q4_0 output needs one full YMM accumulator to retain its eight FP32 partial sums, leaving room for only eight outputs plus unpack, scale, and dot-product temporaries. llama.cpp gets its arithmetic intensity by changing the reduction contract and tiling many rows and tokens together. Closing the remaining prefill gap therefore needs either a wider canonical reduction contract with new frozen outputs, or another way to reproduce the eight-lane result without rereading weights and activations. Ordinary row repacking does not remove that register constraint.
 
@@ -43,7 +43,7 @@ export GO_PHERENCE_GEMMA4_MAIN=$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4
 
 GO_PHERENCE_GEMMA4_GAP_REAL=1 \
   taskset -c 0-5 go test ./model \
-  -run '^TestGemma4RealCPUGap124x48$' -count=3 -v
+  -run '^TestGemma4RealCPUGap124x48$' -count=5 -v
 
 GO_PHERENCE_GEMMA4_PREFILL_CANDIDATE_REAL_LONG=1 \
   taskset -c 0-5 go test ./model \
