@@ -2,6 +2,20 @@
 
 package gguf
 
+func q6KExpandCoeff(block *[210]byte, coeff *[256]int16) {
+	ql, qh, scales := block[:128], block[128:192], block[192:208]
+	for halfBlock := 0; halfBlock < 2; halfBlock++ {
+		qlOff, qhOff, base := halfBlock*64, halfBlock*32, halfBlock*128
+		for l := 0; l < 32; l++ {
+			is := l / 16
+			coeff[base+l] = int16(int8(scales[halfBlock*8+is])) * (int16((ql[qlOff+l]&15)|(((qh[qhOff+l]>>0)&3)<<4)) - 32)
+			coeff[base+l+32] = int16(int8(scales[halfBlock*8+is+2])) * (int16((ql[qlOff+l+32]&15)|(((qh[qhOff+l]>>2)&3)<<4)) - 32)
+			coeff[base+l+64] = int16(int8(scales[halfBlock*8+is+4])) * (int16((ql[qlOff+l]>>4)|(((qh[qhOff+l]>>4)&3)<<4)) - 32)
+			coeff[base+l+96] = int16(int8(scales[halfBlock*8+is+6])) * (int16((ql[qlOff+l+32]>>4)|(((qh[qhOff+l]>>6)&3)<<4)) - 32)
+		}
+	}
+}
+
 func q6KCoeffDot(q8 *[256]int8, coeff *[256]int16) int32 {
 	var sum int32
 	for i := range q8 {

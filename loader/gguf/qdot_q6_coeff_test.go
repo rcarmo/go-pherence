@@ -65,6 +65,50 @@ func TestQ6KCoeffDot8MatchesScalarPartitions(t *testing.T) {
 	}
 }
 
+func TestQ6KExpandCoeffMatchesReference(t *testing.T) {
+	raw, _ := syntheticQ6KQ8KDotInputs(256)
+	block := (*[210]byte)(raw)
+	var got, want [256]int16
+	q6KExpandCoeff(block, &got)
+	ql, qh, scales := block[:128], block[128:192], block[192:208]
+	for halfBlock := 0; halfBlock < 2; halfBlock++ {
+		qlOff, qhOff, base := halfBlock*64, halfBlock*32, halfBlock*128
+		for l := 0; l < 32; l++ {
+			is := l / 16
+			want[base+l] = int16(int8(scales[halfBlock*8+is])) * (int16((ql[qlOff+l]&15)|(((qh[qhOff+l]>>0)&3)<<4)) - 32)
+			want[base+l+32] = int16(int8(scales[halfBlock*8+is+2])) * (int16((ql[qlOff+l+32]&15)|(((qh[qhOff+l]>>2)&3)<<4)) - 32)
+			want[base+l+64] = int16(int8(scales[halfBlock*8+is+4])) * (int16((ql[qlOff+l]>>4)|(((qh[qhOff+l]>>4)&3)<<4)) - 32)
+			want[base+l+96] = int16(int8(scales[halfBlock*8+is+6])) * (int16((ql[qlOff+l+32]>>4)|(((qh[qhOff+l]>>6)&3)<<4)) - 32)
+		}
+	}
+	if got != want {
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("coefficient %d=%d want %d", i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func BenchmarkQ6KExpandCoeff(b *testing.B) {
+	raw, _ := syntheticQ6KQ8KDotInputs(256)
+	block := (*[210]byte)(raw)
+	var coeff [256]int16
+	for i := 0; i < b.N; i++ {
+		q6KExpandCoeff(block, &coeff)
+	}
+	q6CoeffBenchSink += int32(coeff[0])
+}
+
+func BenchmarkDotQ6KQ8KGemvFast(b *testing.B) {
+	raw, y := syntheticQ6KQ8KDotInputs(2560)
+	var result float32
+	for i := 0; i < b.N; i++ {
+		result += dotQ6KQ8KGemvFast(raw, y, 10)
+	}
+	q6CoeffBenchSink += int32(result)
+}
+
 func TestDotQ6KQ8KGemvFastBoundedDifference(t *testing.T) {
 	raw, y := syntheticQ6KQ8KDotInputs(2560)
 	got := dotQ6KQ8KGemvFast(raw, y, 10)

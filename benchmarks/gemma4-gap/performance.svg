@@ -1,40 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="680" viewBox="0 0 1100 680" role="img" aria-labelledby="title desc">
-  <title id="title">Gemma4 CPU performance checkpoints</title>
-  <desc id="desc">Line charts comparing initial Q6-fast measurements, a warm Q4 row-kernel control, and the Q4 x4 candidate for 124-token prefill and 48-token decode.</desc>
-  <rect width="1100" height="680" fill="#0b1020"/>
-  <style>
-    text{font-family:Inter,system-ui,sans-serif;fill:#dbe7ff}.muted{fill:#8fa4c7}.grid{stroke:#253451;stroke-width:1}.axis{stroke:#7184a8;stroke-width:1.5}.target{stroke:#f59e0b;stroke-width:2;stroke-dasharray:7 6}.line{fill:none;stroke:#62d6ff;stroke-width:4}.point{fill:#62d6ff;stroke:#0b1020;stroke-width:3}.value{font-size:14px;font-weight:700}.small{font-size:13px}.label{font-size:15px}.panel{fill:#111a30;stroke:#263756;stroke-width:1.5}.gain{fill:#69e6a6}.loss{fill:#ff8d8d}
-  </style>
-  <text x="55" y="50" font-size="27" font-weight="700">Gemma4 E4B CPU performance checkpoints</text>
-  <text x="55" y="78" class="muted" font-size="15">Intel i7-12700 · 6 threads · exact 124-token prefill + 48-token decode harness · tok/s</text>
-
-  <rect class="panel" x="45" y="105" width="1010" height="230" rx="12"/>
-  <text x="70" y="137" font-size="19" font-weight="700">Prefill throughput</text>
-  <text x="1025" y="137" text-anchor="end" class="loss value">x4 vs warm row: −1.4%</text>
-  <line class="grid" x1="100" y1="285" x2="1000" y2="285"/><line class="grid" x1="100" y1="225" x2="1000" y2="225"/><line class="grid" x1="100" y1="165" x2="1000" y2="165"/>
-  <text x="88" y="290" text-anchor="end" class="muted small">6</text><text x="88" y="230" text-anchor="end" class="muted small">8</text><text x="88" y="170" text-anchor="end" class="muted small">10</text>
-  <line class="axis" x1="100" y1="160" x2="100" y2="290"/><line class="axis" x1="100" y1="290" x2="1000" y2="290"/>
-  <path class="line" d="M210 256.3 L550 191.2 L780 195.0"/>
-  <path d="M780 195.0 L960 211.6" fill="none" stroke="#ff8d8d" stroke-width="3" stroke-dasharray="6 5"/>
-  <circle class="point" cx="210" cy="256.3" r="7"/><circle class="point" cx="550" cy="191.2" r="7"/><circle class="point" cx="780" cy="195.0" r="7"/><circle cx="960" cy="211.6" r="7" fill="#ff8d8d" stroke="#0b1020" stroke-width="3"/>
-  <text class="value" x="210" y="242" text-anchor="middle">6.958</text><text class="value" x="550" y="177" text-anchor="middle">9.127</text><text class="value" x="780" y="181" text-anchor="middle">9.001</text><text class="value loss" x="960" y="198" text-anchor="middle">8.446</text>
-  <text x="1000" y="315" text-anchor="end" class="muted small">98% gate: 438.22 tok/s (off scale)</text>
-
-  <rect class="panel" x="45" y="360" width="1010" height="230" rx="12"/>
-  <text x="70" y="392" font-size="19" font-weight="700">Decode throughput</text>
-  <text x="1025" y="392" text-anchor="end" class="gain value">x4 vs warm row: +19.2%</text>
-  <line class="grid" x1="100" y1="540" x2="1000" y2="540"/><line class="grid" x1="100" y1="480" x2="1000" y2="480"/><line class="grid" x1="100" y1="420" x2="1000" y2="420"/>
-  <text x="88" y="545" text-anchor="end" class="muted small">3</text><text x="88" y="485" text-anchor="end" class="muted small">4</text><text x="88" y="425" text-anchor="end" class="muted small">5</text>
-  <line class="axis" x1="100" y1="415" x2="100" y2="545"/><line class="axis" x1="100" y1="545" x2="1000" y2="545"/>
-  <path class="line" d="M210 511.7 L550 504.6 L780 463.3"/>
-  <path d="M780 463.3 L960 468.8" fill="none" stroke="#ff8d8d" stroke-width="3" stroke-dasharray="6 5"/>
-  <circle class="point" cx="210" cy="511.7" r="7"/><circle class="point" cx="550" cy="504.6" r="7"/><circle class="point" cx="780" cy="463.3" r="7"/><circle cx="960" cy="468.8" r="7" fill="#ff8d8d" stroke="#0b1020" stroke-width="3"/>
-  <text class="value" x="210" y="497" text-anchor="middle">3.471</text><text class="value" x="550" y="490" text-anchor="middle">3.590</text><text class="value" x="780" y="449" text-anchor="middle">4.279</text><text class="value loss" x="960" y="455" text-anchor="middle">4.187</text>
-  <text x="1000" y="570" text-anchor="end" class="muted small">98% gate: 9.12 tok/s (off scale)</text>
-
-  <text x="210" y="620" text-anchor="middle" class="label">Q6 fast initial</text>
-  <text x="550" y="620" text-anchor="middle" class="label">Q4 row control</text>
-  <text x="780" y="620" text-anchor="middle" class="label">Q4 output-row x4</text>
-  <text x="960" y="620" text-anchor="middle" class="loss label">Worker pool rejected</text>
-  <text x="550" y="651" text-anchor="middle" class="muted small">Solid blue points are retained; dashed red is a measured and removed candidate. Warm medians use three runs.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="700" viewBox="0 0 1100 700" role="img" aria-labelledby="title desc">
+<title id="title">Gemma4 CPU performance checkpoints</title><desc id="desc">Prefill and decode line charts through the vectorised Q6 coefficient expansion checkpoint.</desc>
+<rect width="1100" height="700" fill="#0b1020"/><style>text{font-family:Inter,system-ui,sans-serif;fill:#dbe7ff}.muted{fill:#8fa4c7}.grid{stroke:#253451}.axis{stroke:#7184a8;stroke-width:1.5}.panel{fill:#111a30;stroke:#263756;stroke-width:1.5}.line{fill:none;stroke:#62d6ff;stroke-width:4}.branch{fill:none;stroke:#ff8d8d;stroke-width:3;stroke-dasharray:6 5}.point{fill:#62d6ff;stroke:#0b1020;stroke-width:3}.rejected{fill:#ff8d8d;stroke:#0b1020;stroke-width:3}.value{font-size:14px;font-weight:700}.small{font-size:13px}.label{font-size:13px}.gain{fill:#69e6a6}.loss{fill:#ff8d8d}</style>
+<text x="55" y="48" font-size="27" font-weight="700">Gemma4 E4B CPU performance checkpoints</text><text x="55" y="76" class="muted" font-size="15">Intel i7-12700 · 6 threads · exact 124-token prefill + 48-token decode · warm medians in tok/s</text>
+<rect class="panel" x="45" y="100" width="1010" height="235" rx="12"/><text x="70" y="134" font-size="19" font-weight="700">Prefill throughput</text><text x="1025" y="134" text-anchor="end" class="gain value">Q6 SIMD vs x4: +7.6%</text>
+<line class="grid" x1="95" y1="290" x2="1020" y2="290"/><line class="grid" x1="95" y1="240" x2="1020" y2="240"/><line class="grid" x1="95" y1="190" x2="1020" y2="190"/><line class="grid" x1="95" y1="140" x2="1020" y2="140"/><text x="82" y="295" text-anchor="end" class="muted small">6</text><text x="82" y="245" text-anchor="end" class="muted small">8</text><text x="82" y="195" text-anchor="end" class="muted small">10</text><text x="82" y="145" text-anchor="end" class="muted small">12</text><line class="axis" x1="95" y1="140" x2="95" y2="295"/><line class="axis" x1="95" y1="295" x2="1020" y2="295"/>
+<path class="line" d="M160 266.1 L370 211.8 L585 215.0 L955 197.9"/><path class="branch" d="M585 215.0 L770 228.9"/>
+<circle class="point" cx="160" cy="266.1" r="7"/><circle class="point" cx="370" cy="211.8" r="7"/><circle class="point" cx="585" cy="215" r="7"/><circle class="rejected" cx="770" cy="228.9" r="7"/><circle class="point" cx="955" cy="197.9" r="8"/>
+<text class="value" x="160" y="251" text-anchor="middle">6.958</text><text class="value" x="370" y="197" text-anchor="middle">9.127</text><text class="value" x="585" y="200" text-anchor="middle">9.001</text><text class="value loss" x="770" y="215" text-anchor="middle">8.446</text><text class="value gain" x="955" y="183" text-anchor="middle">9.683</text><text x="1015" y="319" text-anchor="end" class="muted small">98% gate: 438.22 tok/s (off scale)</text>
+<rect class="panel" x="45" y="355" width="1010" height="235" rx="12"/><text x="70" y="389" font-size="19" font-weight="700">Decode throughput</text><text x="1025" y="389" text-anchor="end" class="gain value">Q6 SIMD vs x4: +60.9%</text>
+<line class="grid" x1="95" y1="545" x2="1020" y2="545"/><line class="grid" x1="95" y1="495" x2="1020" y2="495"/><line class="grid" x1="95" y1="445" x2="1020" y2="445"/><line class="grid" x1="95" y1="395" x2="1020" y2="395"/><text x="82" y="550" text-anchor="end" class="muted small">3</text><text x="82" y="500" text-anchor="end" class="muted small">5</text><text x="82" y="450" text-anchor="end" class="muted small">7</text><text x="82" y="400" text-anchor="end" class="muted small">9</text><line class="axis" x1="95" y1="395" x2="95" y2="550"/><line class="axis" x1="95" y1="550" x2="1020" y2="550"/>
+<path class="line" d="M160 533.2 L370 530.3 L585 513.0 L955 447.9"/><path class="branch" d="M585 513.0 L770 515.3"/>
+<circle class="point" cx="160" cy="533.2" r="7"/><circle class="point" cx="370" cy="530.3" r="7"/><circle class="point" cx="585" cy="513" r="7"/><circle class="rejected" cx="770" cy="515.3" r="7"/><circle class="point" cx="955" cy="447.9" r="8"/>
+<text class="value" x="160" y="519" text-anchor="middle">3.471</text><text class="value" x="370" y="516" text-anchor="middle">3.590</text><text class="value" x="585" y="499" text-anchor="middle">4.279</text><text class="value loss" x="770" y="501" text-anchor="middle">4.187</text><text class="value gain" x="955" y="433" text-anchor="middle">6.884</text><text x="1015" y="574" text-anchor="end" class="muted small">98% gate: 9.12 tok/s</text>
+<text x="160" y="623" text-anchor="middle" class="label">Q6 Go expand</text><text x="370" y="623" text-anchor="middle" class="label">Q4 row control</text><text x="585" y="623" text-anchor="middle" class="label">Q4 output-row x4</text><text x="770" y="623" text-anchor="middle" class="loss label">Worker pool rejected</text><text x="955" y="623" text-anchor="middle" class="gain label">Q6 SIMD expand</text>
+<text x="550" y="658" text-anchor="middle" class="muted small">Solid blue/green points are retained; dashed red is measured and removed. Oracle: rcarmo/llama.cpp b607.</text><text x="550" y="680" text-anchor="middle" class="muted small">Current efficiency: prefill 2.17% · decode 73.94%.</text>
 </svg>
