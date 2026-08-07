@@ -1,10 +1,12 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"sync/atomic"
 
 	"github.com/rcarmo/go-pherence/runtime/kv"
+	"github.com/rcarmo/go-pherence/runtime/promptcache"
 )
 
 var gemma4SessionIDs atomic.Uint64
@@ -15,21 +17,30 @@ var gemma4SessionIDs atomic.Uint64
 // NVIDIA is reserved in the generic contract but is not accepted here until a
 // stateful GPU verifier/session owns device KV directly.
 type Gemma4DecodeSession struct {
-	id              uint64
-	model           *LlamaModel
-	opts            SessionOptions
-	prompt          []int
-	output          []int
-	state           *cpuTokenState
-	generated       int
-	bootstrapReplay bool
-	pendingLogits   []float32
-	pendingToken    int
-	prefilled       bool
-	closed          bool
-	finished        bool
-	finish          FinishReason
-	stopTokens      map[int]struct{}
+	id                   uint64
+	model                *LlamaModel
+	opts                 SessionOptions
+	prompt               []int
+	output               []int
+	state                *cpuTokenState
+	generated            int
+	bootstrapReplay      bool
+	pendingLogits        []float32
+	pendingToken         int
+	prefilled            bool
+	closed               bool
+	finished             bool
+	finish               FinishReason
+	stopTokens           map[int]struct{}
+	promptCache          *promptcache.Cache
+	promptCacheIdentity  promptcache.Identity
+	promptCacheBlockSize int
+}
+
+type Gemma4PromptCacheConfig struct {
+	Cache     *promptcache.Cache
+	Identity  promptcache.Identity
+	BlockSize int
 }
 
 type gemma4SessionCheckpoint struct {
@@ -46,6 +57,10 @@ type gemma4SessionCheckpoint struct {
 func (gemma4SessionCheckpoint) inferenceSessionCheckpoint() {}
 
 func NewGemma4DecodeSession(m *LlamaModel, opts SessionOptions) (*Gemma4DecodeSession, error) {
+	return NewGemma4DecodeSessionWithPromptCache(m, opts, Gemma4PromptCacheConfig{})
+}
+
+func NewGemma4DecodeSessionWithPromptCache(m *LlamaModel, opts SessionOptions, cacheCfg Gemma4PromptCacheConfig) (*Gemma4DecodeSession, error) {
 	if m == nil {
 		return nil, fmt.Errorf("nil Gemma4 model")
 	}
@@ -61,6 +76,9 @@ func NewGemma4DecodeSession(m *LlamaModel, opts SessionOptions) (*Gemma4DecodeSe
 	if opts.Backend != InferenceBackendSIMD {
 		return nil, fmt.Errorf("Gemma4 %s decode session is not implemented", opts.Backend)
 	}
+	if err := cacheCfg.validate(); err != nil {
+		return nil, err
+	}
 	stops := make(map[int]struct{}, len(opts.StopTokenIDs))
 	for _, tok := range opts.StopTokenIDs {
 		if tok >= m.Config.VocabSize {
@@ -68,7 +86,32 @@ func NewGemma4DecodeSession(m *LlamaModel, opts SessionOptions) (*Gemma4DecodeSe
 		}
 		stops[tok] = struct{}{}
 	}
-	return &Gemma4DecodeSession{id: gemma4SessionIDs.Add(1), model: m, opts: opts, stopTokens: stops}, nil
+	return &Gemma4DecodeSession{
+		id:                   gemma4SessionIDs.Add(1),
+		model:                m,
+		opts:                 opts,
+		stopTokens:           stops,
+		promptCache:          cacheCfg.Cache,
+		promptCacheIdentity:  cacheCfg.Identity,
+		promptCacheBlockSize: cacheCfg.BlockSize,
+	}, nil
+}
+
+func (cfg Gemma4PromptCacheConfig) enabled() bool {
+	return cfg.Cache != nil || cfg.BlockSize != 0 || cfg.Identity != (promptcache.Identity{})
+}
+
+func (cfg Gemma4PromptCacheConfig) validate() error {
+	if !cfg.enabled() {
+		return nil
+	}
+	if cfg.Cache == nil {
+		return fmt.Errorf("Gemma4 prompt cache config requires cache")
+	}
+	if cfg.BlockSize <= 0 {
+		return promptcache.ErrInvalidBlockSize
+	}
+	return cfg.Identity.Validate()
 }
 
 // OutputTokens returns a defensive copy of the prepared prompt plus generated
@@ -112,24 +155,80 @@ func (s *Gemma4DecodeSession) PrefillChunk(tokens []int) (PrefillResult, error) 
 		}
 	}
 	prepared := s.model.prepareGenerateTokens(tokens)
-	state, err := newCPUTokenStateForLegacyGenerate(s.model, prepared, s.opts.MaxTokens)
+	stateMaxTokens := s.opts.MaxTokens
+	if stateMaxTokens == 0 {
+		stateMaxTokens = 1
+	}
+	state, err := newCPUTokenStateForLegacyGenerate(s.model, prepared, stateMaxTokens)
 	if err != nil {
 		return PrefillResult{}, fmt.Errorf("Gemma4 session state: %w", err)
 	}
-	for pos, tok := range prepared {
-		next, logits, emit, err := s.model.runLegacyCPUToken(state, tok, pos, nil)
+	if s.promptCache != nil && state.compressedKV != nil {
+		return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache requires float KV")
+	}
+	startPos := 0
+	var cachedBoundaryLogits []float32
+	var cachedBoundaryToken int
+	if s.promptCache != nil {
+		snap, ok, err := s.promptCache.FindLongest(s.promptCacheIdentity, s.promptCacheBlockSize, prepared)
+		if err != nil {
+			return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache lookup: %w", err)
+		}
+		if ok {
+			cached, ok := snap.(*Gemma4PromptSnapshot)
+			if !ok {
+				return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache snapshot %T", snap)
+			}
+			if err := cached.restoreInto(s.model, state); err != nil {
+				return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache restore: %w", err)
+			}
+			startPos = cached.Position()
+			cachedBoundaryLogits = append([]float32(nil), cached.BoundaryLogits...)
+			cachedBoundaryToken = cached.BoundaryToken
+		}
+	}
+	state.output = state.output[:len(prepared)]
+	var boundaryLogits []float32
+	var boundaryToken int
+	for pos := startPos; pos < len(prepared); pos++ {
+		next, logits, emit, err := s.model.runLegacyCPUToken(state, prepared[pos], pos, nil)
 		if err != nil {
 			return PrefillResult{}, fmt.Errorf("Gemma4 session prefill token %d: %w", pos, err)
 		}
-		if pos == len(prepared)-1 {
-			if !emit || len(logits) != s.model.Config.VocabSize {
-				return PrefillResult{}, fmt.Errorf("Gemma4 session final prompt token did not emit logits")
+		if emit {
+			if pos != len(prepared)-1 {
+				return PrefillResult{}, fmt.Errorf("Gemma4 session prompt token %d emitted early", pos)
 			}
-			s.pendingToken = next
-			s.pendingLogits = append([]float32(nil), logits...)
-		} else if emit {
-			return PrefillResult{}, fmt.Errorf("Gemma4 session prompt token %d emitted early", pos)
+			boundaryToken = next
+			boundaryLogits = append([]float32(nil), logits...)
 		}
+		state.position = pos + 1
+		if s.promptCache != nil && (pos+1)%s.promptCacheBlockSize == 0 {
+			var snapLogits []float32
+			var snapToken int
+			if emit {
+				snapLogits, snapToken = boundaryLogits, boundaryToken
+			}
+			snap, err := newGemma4PromptSnapshotFromState(s.model, state, pos+1, snapLogits, snapToken)
+			if err != nil {
+				return PrefillResult{}, fmt.Errorf("Gemma4 session snapshot at %d: %w", pos+1, err)
+			}
+			if err := s.promptCache.Put(s.promptCacheIdentity, s.promptCacheBlockSize, prepared[:pos+1], snap); err != nil && !errors.Is(err, promptcache.ErrOverBudget) {
+				return PrefillResult{}, fmt.Errorf("Gemma4 session prompt cache store at %d: %w", pos+1, err)
+			}
+		}
+	}
+	state.output = state.output[:len(prepared)]
+	state.position = len(prepared)
+	if startPos == len(prepared) {
+		boundaryLogits, boundaryToken = cachedBoundaryLogits, cachedBoundaryToken
+	}
+	if s.opts.MaxTokens > 0 {
+		if len(boundaryLogits) != s.model.Config.VocabSize {
+			return PrefillResult{}, fmt.Errorf("Gemma4 session final prompt boundary logits unavailable after prefix restore")
+		}
+		s.pendingToken = boundaryToken
+		s.pendingLogits = boundaryLogits
 	}
 	s.state = state
 	s.prompt = append([]int(nil), prepared...)
