@@ -405,11 +405,7 @@ func GemvQ6KQ8KRows(out, x []float32, m *QuantMatrix) bool {
 	}
 	return gemvRowsParallel(m.OutDim, rowBytes, func(r int) bool {
 		start := r * rowBytes
-		v, err := DotQ6KQ8K(m.Raw[start:start+rowBytes], q8, m.InDim)
-		if err != nil {
-			return false
-		}
-		out[r] = v
+		out[r] = dotQ6KQ8KGemvFast(m.Raw[start:start+rowBytes], q8, m.InDim/qkK)
 		return true
 	})
 }

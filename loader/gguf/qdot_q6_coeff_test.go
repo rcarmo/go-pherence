@@ -64,3 +64,20 @@ func TestQ6KCoeffDot8MatchesScalarPartitions(t *testing.T) {
 		t.Fatalf("q6KCoeffDot8=%v want %v", got, want)
 	}
 }
+
+func TestDotQ6KQ8KGemvFastBoundedDifference(t *testing.T) {
+	raw, y := syntheticQ6KQ8KDotInputs(2560)
+	got := dotQ6KQ8KGemvFast(raw, y, 10)
+	want, err := DotQ6KQ8K(raw, y, 2560)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const maxDifference = float32(0.00012207031)
+	diff := got - want
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > maxDifference {
+		t.Fatalf("fast dot=%g exact=%g difference=%g > %g", got, want, diff, maxDifference)
+	}
+}
