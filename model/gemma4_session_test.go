@@ -73,6 +73,46 @@ func TestGemma4DecodeSessionLifecycleAndCheckpoint(t *testing.T) {
 	}
 }
 
+func TestGemma4DecodeSessionKVStatsTrackAndRestoreCapacity(t *testing.T) {
+	m := newGemma4SingleLayerDecodeSessionTestModel()
+	s, err := NewGemma4DecodeSession(m, SessionOptions{Backend: InferenceBackendSIMD, MaxTokens: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := s.KVStats()
+	if err != nil || before.UsedBytes != 0 || before.ReservedBytes != 0 {
+		t.Fatalf("before=%+v err=%v", before, err)
+	}
+	if _, err := s.PrefillChunk([]int{1}); err != nil {
+		t.Fatal(err)
+	}
+	prefilled, err := s.KVStats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prefilled.Layers) != 1 || prefilled.UsedBytes <= 0 || prefilled.ReservedBytes < prefilled.UsedBytes || prefilled.UnusedReservedBytes != prefilled.ReservedBytes-prefilled.UsedBytes {
+		t.Fatalf("prefilled=%+v", prefilled)
+	}
+	cp, err := s.Checkpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DecodeStep(); err != nil {
+		t.Fatal(err)
+	}
+	staged, err := s.KVStats()
+	if err != nil || staged.UsedBytes < prefilled.UsedBytes || staged.ReservedBytes < staged.UsedBytes {
+		t.Fatalf("staged=%+v err=%v", staged, err)
+	}
+	if err := s.Restore(cp); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := s.KVStats()
+	if err != nil || restored.UsedBytes != prefilled.UsedBytes || restored.ReservedBytes < restored.UsedBytes {
+		t.Fatalf("restored=%+v prefilled=%+v err=%v", restored, prefilled, err)
+	}
+}
+
 func TestGemma4DecodeSessionRejectsForeignCheckpoint(t *testing.T) {
 	m := newZeroLayerVerifierModel()
 	m.Config.ModelType = "gemma4_text"
