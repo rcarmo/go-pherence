@@ -59,31 +59,34 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
 	blocksPerRow := m.InDim / qk8_0
 	q8 := make([]q8_0Block, batch*blocksPerRow)
 	for pos := 0; pos < batch; pos++ {
-		blocks, err := QuantizeQ8_0(x[pos*m.InDim : (pos+1)*m.InDim])
-		if err != nil {
+		if err := quantizeQ8_0To(q8[pos*blocksPerRow:(pos+1)*blocksPerRow], x[pos*m.InDim:(pos+1)*m.InDim]); err != nil {
 			return err
 		}
-		copy(q8[pos*blocksPerRow:(pos+1)*blocksPerRow], blocks)
 	}
 	if batch >= 64 && supportsQ4_0Q8_0Rows4Tokens2() {
 		// Long prefill reuses each Q4_0 row across eight activation rows. Pack
-		// complete eight-token tiles block-major so the kernel reads contiguous
-		// Q8 blocks while retaining one exact eight-lane accumulator per token.
+		// each input block with eight contiguous scales followed by eight Q8
+		// vectors. The kernel multiplies all scales together while retaining one
+		// exact eight-lane accumulator per token.
 		fullTokens := batch / 8 * 8
-		interleaved := make([]q8_0Block, fullTokens*blocksPerRow)
+		tiles := make([]q8_0Tile8, fullTokens/8*blocksPerRow)
 		for pos := 0; pos < fullTokens; pos += 8 {
+			tileBase := pos / 8 * blocksPerRow
 			for bi := 0; bi < blocksPerRow; bi++ {
+				tile := &tiles[tileBase+bi]
 				for token := 0; token < 8; token++ {
-					interleaved[pos*blocksPerRow+bi*8+token] = q8[(pos+token)*blocksPerRow+bi]
+					block := q8[(pos+token)*blocksPerRow+bi]
+					tile.d[token] = block.d
+					tile.qs[token] = block.qs
 				}
 			}
 		}
 		if !gemvRowsParallel(m.OutDim, rowBytes*batch, func(r int) bool {
 			rowRaw := m.Raw[r*rowBytes : (r+1)*rowBytes]
 			pos := 0
-			for ; pos+8 <= batch; pos += 8 {
+			for ; pos < fullTokens; pos += 8 {
 				var values [8]float32
-				if !dotQ4_0Q8_0Tokens8Interleaved(rowRaw, interleaved[pos*blocksPerRow:], blocksPerRow, &values) {
+				if !dotQ4_0Q8_0Tokens8SoA(rowRaw, tiles[pos/8*blocksPerRow:], blocksPerRow, &values) {
 					return false
 				}
 				for token := 0; token < 8; token++ {

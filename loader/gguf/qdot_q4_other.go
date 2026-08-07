@@ -42,6 +42,10 @@ func dotQ4_0Q8_0Tokens8(raw []byte, y []q8_0Block, blocks int, out *[8]float32) 
 	return false
 }
 
+func dotQ4_0Q8_0Tokens8SoA(raw []byte, y []q8_0Tile8, blocks int, out *[8]float32) bool {
+	return false
+}
+
 func dotQ4_0Q8_0Tokens8Interleaved(raw []byte, y []q8_0Block, blocks int, out *[8]float32) bool {
 	return false
 }

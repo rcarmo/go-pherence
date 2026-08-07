@@ -6,9 +6,9 @@ The comparison oracle is 447.166 prefill tokens/s and 9.310 decode tokens/s. The
 
 ## What is retained
 
-Long prefill uses an AVX-VNNI one-weight-row by eight-token kernel. Each output keeps the legacy eight FP32 lane accumulators, including blockwise FMA and final reduction order, so the batched path remains bit-identical to sequential execution. Q8_0 activation blocks are transposed within each eight-token tile from token-major to block-major order; this replaces eight activation streams roughly 2.9KiB apart with contiguous block reads without changing arithmetic.
+Long prefill uses an AVX-VNNI one-weight-row by eight-token kernel. Each output keeps the legacy eight FP32 lane accumulators, including blockwise FMA and final reduction order, so the batched path remains bit-identical to sequential execution. Each eight-token input block now has structure-of-arrays layout: eight contiguous FP32 scales followed by eight contiguous Q8 vectors. One packed scale load and multiply replaces eight scalar scale sequences without changing arithmetic. One hundred randomized 1--80-block comparisons are bit-exact. Five paired hot-kernel runs improved by 12.7--16.5%, and writing quantization into preallocated activation storage reduced a representative batch-124 projection from 141 to 17 allocations and from about 1.09MiB to 0.70MiB per call.
 
-An alternating end-to-end A/B run measured token-major prefill at 27.997, 26.027, and 25.224 tokens/s, against 26.361, 27.181, and 26.804 tokens/s for block-major tiles. The medians are 26.027 and 26.804 tokens/s, a 2.98% gain. Host frequency and thermal behaviour are noisy enough that this is a modest result, but the full 124-token activation, logits, token, and K/V comparison passes exactly.
+The preceding block-major layout had already improved the alternating end-to-end median from 26.027 to 26.804 tokens/s (2.98%). The structure-of-arrays projection benchmark has a favorable median, but real-model runs remain too sensitive to unrelated host load to claim another stable end-to-end percentage: adjacent samples have moved by 10--30% in either direction while the paired kernel result remains stable. The full 124-token activation, logits, token, and K/V comparison passes exactly, so the layout is retained on the stronger isolated evidence rather than a cherry-picked model sample.
 
 Decode also avoids a 512-byte Q6_K coefficient temporary per block. On AVX-VNNI hosts the retained kernel fuses the complete multi-block GEMV in assembly, uses the existing sixteen Q8_K sums with `VPMADDWD` to form the unsigned-Q6 correction once per block, and expands each eight-byte scale half once before selecting scale pairs with `VPERMD`. Blockwise FP32 multiplication and accumulation remain in their original order. One hundred randomized 1--10-block comparisons are bit-exact against the prior Go loop. Five alternating 2560-element measurements put the fused path at 111.8--214.9ns against 159.0--300.6ns for that loop, a stable 39.9--42.2% throughput gain across frequency states.
 
@@ -18,7 +18,9 @@ The final five-sample real-model decode gate measured 8.166, 9.453, 9.418, 8.447
 
 ## What was rejected
 
-The four-weight-row by two-token Q4_0 tile preserves exact reduction order but reduced prefill to 20.53--21.15 tokens/s. The retained one-row by eight-token layout measured 23.08--29.21 tokens/s in the same class of end-to-end runs.
+The four-weight-row by two-token Q4_0 tile preserves exact reduction order but reduced prefill to 20.53--21.15 tokens/s. Rewriting it around the unsigned-Q4 correction made it only 2--4% slower than the retained token tile in paired microbenchmarks, but it still lost in the real projection path. A two-row by four-token tile went 2.6--4.2% faster in five paired kernel runs by reusing each Q8 load, yet lost four of five end-to-end pairs by 4.9--7.6%; its extra weight passes and scatter overhead outweigh the isolated gain.
+
+Gathering eight activation scales into a packed vector was exact but 1--4% slower in four of five paired runs. The retained structure-of-arrays layout gets the same packed scale arithmetic from one contiguous load instead.
 
 A direct signed-byte `VPDPBSSD` replacement is illegal on this Alder Lake host. `avx_vnni` provides `VPDPBUSD`; signed-byte `VPDPBSSD` requires the newer AVX-VNNI-INT8 extension. The prefill token kernel therefore keeps `VPABSB` plus `VPSIGNB`, followed by unsigned-by-signed `VPDPBUSD`; decode uses the unsigned-Q4 correction described above.
 
@@ -28,7 +30,7 @@ Fully unrolling the fused Q6_K block dot also lost. It remained exact across 100
 
 ## Where the time goes
 
-A prefill-only CPU profile measured 27.767 tokens/s and 14.38 CPU-seconds over 4.47 wall-seconds. `dotQ4_0Q8_0Tokens8VNNI` accounted for 81.08% of CPU samples. Worker scaling was 8.228, 13.792, 18.903, 21.454, and 23.812 tokens/s at 1, 2, 3, 4, and 6 workers respectively, which is the signature of a memory-bound exact kernel rather than a missing goroutine.
+A prefill-only CPU profile of the earlier block-major kernel measured 27.767 tokens/s and 14.38 CPU-seconds over 4.47 wall-seconds. `dotQ4_0Q8_0Tokens8VNNI` accounted for 81.08% of CPU samples. Worker scaling was 8.228, 13.792, 18.903, 21.454, and 23.812 tokens/s at 1, 2, 3, 4, and 6 workers respectively, which is the signature of a memory-bound exact kernel rather than a missing goroutine. A phase-specific structure-of-arrays profile attributes 83.38% of samples to `dotQ4_0Q8_0Tokens8SoAVNNI`; repeated Q8 vector loads are its dominant sampled instructions. That run overlapped unrelated host work and is retained for attribution, not throughput.
 
 The final decode-only profile measured 9.220 tokens/s and 20.73 CPU-seconds over 5.21 wall-seconds. `dotQ4_0Q8_0x8VNNI` accounted for 74.19% of samples and the fused Q6_K GEMV for 19.44%; quantization, dense rows, activation functions, and runtime overhead were each below 1.4%. Decode has crossed its acceptance gate, and Q4_0 remains the only meaningful target if additional headroom is required.
 
@@ -44,6 +46,12 @@ export GO_PHERENCE_GEMMA4_MAIN=$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4
 GO_PHERENCE_GEMMA4_GAP_REAL=1 \
   taskset -c 0-5 go test ./model \
   -run '^TestGemma4RealCPUGap124x48$' -count=5 -v
+
+GO_PHERENCE_GEMMA4_GAP_REAL=1 \
+GO_PHERENCE_GEMMA4_PREFILL_ONLY=1 \
+GO_PHERENCE_GEMMA4_PREFILL_CPU_PROFILE=$PWD/tmp/prefill.pprof \
+  taskset -c 0-5 go test ./model \
+  -run '^TestGemma4RealCPUGap124x48$' -count=1 -v
 
 GO_PHERENCE_GEMMA4_PREFILL_CANDIDATE_REAL_LONG=1 \
   taskset -c 0-5 go test ./model \

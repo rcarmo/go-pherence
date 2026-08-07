@@ -25,6 +25,13 @@ type q8_0Block struct {
 	qs [qk8_0]int8
 }
 
+// q8_0Tile8 stores one input block for eight tokens with contiguous scales.
+// The layout is consumed directly by the AVX-VNNI long-prefill kernel.
+type q8_0Tile8 struct {
+	d  [8]float32
+	qs [8][qk8_0]int8
+}
+
 type q4Q8Correction [qk8_0 / 4]int32
 
 // QuantizeQ8K quantizes a float row using llama.cpp's reference Q8_K row
@@ -85,6 +92,16 @@ func QuantizeQ8_0(x []float32) ([]q8_0Block, error) {
 		return nil, fmt.Errorf("Q8_0 quantize len=%d not multiple of %d", len(x), qk8_0)
 	}
 	blocks := make([]q8_0Block, len(x)/qk8_0)
+	if err := quantizeQ8_0To(blocks, x); err != nil {
+		return nil, err
+	}
+	return blocks, nil
+}
+
+func quantizeQ8_0To(blocks []q8_0Block, x []float32) error {
+	if len(x)%qk8_0 != 0 || len(blocks) != len(x)/qk8_0 {
+		return fmt.Errorf("Q8_0 quantize destination blocks=%d len=%d", len(blocks), len(x))
+	}
 	for bi := range blocks {
 		row := x[bi*qk8_0 : (bi+1)*qk8_0]
 		var amax float32
@@ -111,7 +128,7 @@ func QuantizeQ8_0(x []float32) ([]q8_0Block, error) {
 			blocks[bi].qs[j] = int8(q)
 		}
 	}
-	return blocks, nil
+	return nil
 }
 
 // DotQ4_0Q8_0 computes llama.cpp's AVX/VNNI-lane ggml_vec_dot_q4_0_q8_0 over one

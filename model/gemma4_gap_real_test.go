@@ -28,14 +28,37 @@ func TestGemma4RealCPUGap124x48(t *testing.T) {
 	for i := range prompt {
 		prompt[i] = 10979
 	}
+	var prefillProfile *os.File
+	if profilePath := os.Getenv("GO_PHERENCE_GEMMA4_PREFILL_CPU_PROFILE"); profilePath != "" {
+		prefillProfile, err = os.Create(profilePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := pprof.StartCPUProfile(prefillProfile); err != nil {
+			prefillProfile.Close()
+			t.Fatal(err)
+		}
+	}
 	prefillStart := time.Now()
 	prefill, err := s.PrefillChunk(prompt)
 	if err != nil {
 		t.Fatal(err)
 	}
 	prefillElapsed := time.Since(prefillStart)
+	if prefillProfile != nil {
+		pprof.StopCPUProfile()
+		if err := prefillProfile.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if !prefill.ReadyToDecode || prefill.Position != 124 {
 		t.Fatalf("unexpected prefill result %+v", prefill)
+	}
+	if os.Getenv("GO_PHERENCE_GEMMA4_PREFILL_ONLY") != "" {
+		prefillRate := 124 / prefillElapsed.Seconds()
+		const oraclePrefill = 447.166367
+		t.Logf("gemma4_gap prefill_tokens=124 prefill=%s prefill_tok_s=%.6f prefill_efficiency=%.4f", prefillElapsed, prefillRate, prefillRate/oraclePrefill)
+		return
 	}
 	var decodeProfile *os.File
 	if profilePath := os.Getenv("GO_PHERENCE_GEMMA4_DECODE_CPU_PROFILE"); profilePath != "" {

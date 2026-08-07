@@ -25,6 +25,9 @@ func dotQ4_0Q8_0Rows4Tokens2VNNI(raw []byte, rowBytes int, y []q8_0Block, blocks
 //go:noescape
 func dotQ4_0Q8_0Tokens8VNNI(raw []byte, y []q8_0Block, blocks, tokenStride, blockStride int, out *[8]float32)
 
+//go:noescape
+func dotQ4_0Q8_0Tokens8SoAVNNI(raw []byte, y []q8_0Tile8, blocks int, out *[8]float32)
+
 func dotQ4_0Q8_0Packed(raw []byte, y []q8_0Block, blocks int) float32 {
 	return dotQ4_0Q8_0AVX2(raw, y, blocks)
 }
@@ -74,6 +77,14 @@ func dotQ4_0Q8_0Tokens8(raw []byte, y []q8_0Block, blocks int, out *[8]float32) 
 		return false
 	}
 	dotQ4_0Q8_0Tokens8VNNI(raw, y, blocks, blocks*36, 36, out)
+	return true
+}
+
+func dotQ4_0Q8_0Tokens8SoA(raw []byte, y []q8_0Tile8, blocks int, out *[8]float32) bool {
+	if !cpu.X86.HasAVXVNNI {
+		return false
+	}
+	dotQ4_0Q8_0Tokens8SoAVNNI(raw, y, blocks, out)
 	return true
 }
 
