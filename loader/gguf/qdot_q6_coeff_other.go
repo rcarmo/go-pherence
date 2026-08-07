@@ -29,3 +29,9 @@ func q6KCoeffDot8(q8 *[256]int8, coeff *[256]int16, out *[8]int32) {
 		out[(i/2)%8] += int32(q8[i]) * int32(coeff[i])
 	}
 }
+
+func q6KBlockDot(block *[210]byte, q8 *[256]int8) int32 {
+	var coeff [256]int16
+	q6KExpandCoeff(block, &coeff)
+	return q6KCoeffDot(q8, &coeff)
+}

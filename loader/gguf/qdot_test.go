@@ -99,6 +99,218 @@ func TestDotQ4_0Q8_0Rows4MatchesRows(t *testing.T) {
 	}
 }
 
+func TestDotQ4_0Q8_0Tokens4MatchesRows(t *testing.T) {
+	n := qk8_0 * 7
+	raw, base := syntheticQ4_0Q8_0DotInputs(n)
+	flat := make([]q8_0Block, 0, 4*len(base))
+	for token := 0; token < 4; token++ {
+		row := append([]q8_0Block(nil), base...)
+		for bi := range row {
+			row[bi].d *= 1 + float32(token)*0.125
+			for j := range row[bi].qs {
+				row[bi].qs[j] = int8((int(row[bi].qs[j]) + token*3 + j) % 127)
+			}
+		}
+		flat = append(flat, row...)
+	}
+	var got [4]float32
+	dotQ4_0Q8_0Tokens4(raw, flat, n/qk8_0, &got)
+	for token := range got {
+		row := flat[token*len(base) : (token+1)*len(base)]
+		want, err := DotQ4_0Q8_0(raw, row, n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got[token] != want {
+			t.Fatalf("token %d dot=%g want=%g", token, got[token], want)
+		}
+	}
+}
+
+func TestDotQ4_0Q8_0Rows4Tokens2MatchesRows(t *testing.T) {
+	n := qk8_0 * 7
+	row, base := syntheticQ4_0Q8_0DotInputs(n)
+	raw := make([]byte, len(row)*4)
+	for r := 0; r < 4; r++ {
+		copy(raw[r*len(row):], row)
+		for i := r * len(row); i < (r+1)*len(row); i += 18 {
+			raw[i+2+r] ^= byte(0x11 * r)
+		}
+	}
+	flat := make([]q8_0Block, 0, 2*len(base))
+	for token := 0; token < 2; token++ {
+		activation := append([]q8_0Block(nil), base...)
+		for bi := range activation {
+			activation[bi].d *= 1 + float32(token)*0.125
+			for j := range activation[bi].qs {
+				activation[bi].qs[j] = int8((int(activation[bi].qs[j]) + token*3 + j) % 127)
+			}
+		}
+		flat = append(flat, activation...)
+	}
+	var got [8]float32
+	if !dotQ4_0Q8_0Rows4Tokens2(raw, len(row), flat, n/qk8_0, &got) {
+		t.Skip("AVX-VNNI unavailable")
+	}
+	for token := 0; token < 2; token++ {
+		activation := flat[token*len(base) : (token+1)*len(base)]
+		for r := 0; r < 4; r++ {
+			want, err := DotQ4_0Q8_0(raw[r*len(row):(r+1)*len(row)], activation, n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if i := token*4 + r; got[i] != want {
+				t.Fatalf("token %d row %d dot=%g want=%g", token, r, got[i], want)
+			}
+		}
+	}
+}
+
+func TestDotQ4_0Q8_0Tokens8MatchesRows(t *testing.T) {
+	n := qk8_0 * 7
+	row, base := syntheticQ4_0Q8_0DotInputs(n)
+	flat := make([]q8_0Block, 0, 8*len(base))
+	for token := 0; token < 8; token++ {
+		activation := append([]q8_0Block(nil), base...)
+		for bi := range activation {
+			activation[bi].d *= 1 + float32(token)*0.0625
+			for j := range activation[bi].qs {
+				activation[bi].qs[j] = int8((int(activation[bi].qs[j])+token*5+j*3)%127 - 63)
+			}
+		}
+		flat = append(flat, activation...)
+	}
+	interleaved := interleaveQ8_0Tokens8(flat, len(base))
+	var got, gotInterleaved [8]float32
+	if !dotQ4_0Q8_0Tokens8(row, flat, n/qk8_0, &got) ||
+		!dotQ4_0Q8_0Tokens8Interleaved(row, interleaved, n/qk8_0, &gotInterleaved) {
+		t.Skip("AVX-VNNI unavailable")
+	}
+	for token := 0; token < 8; token++ {
+		want, err := DotQ4_0Q8_0(row, flat[token*len(base):(token+1)*len(base)], n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got[token] != want || gotInterleaved[token] != want {
+			t.Fatalf("token %d row-major=%g interleaved=%g want=%g", token, got[token], gotInterleaved[token], want)
+		}
+	}
+}
+
+func interleaveQ8_0Tokens8(src []q8_0Block, blocks int) []q8_0Block {
+	dst := make([]q8_0Block, 8*blocks)
+	for bi := 0; bi < blocks; bi++ {
+		for token := 0; token < 8; token++ {
+			dst[bi*8+token] = src[token*blocks+bi]
+		}
+	}
+	return dst
+}
+
+func BenchmarkDotQ4_0Q8_0TokenTiles(b *testing.B) {
+	const n = 2560
+	raw, base := syntheticQ4_0Q8_0DotInputs(n)
+	flat := make([]q8_0Block, 0, 8*len(base))
+	for token := 0; token < 8; token++ {
+		flat = append(flat, base...)
+	}
+	b.Run("tokens4x2", func(b *testing.B) {
+		var out [4]float32
+		for i := 0; i < b.N; i++ {
+			dotQ4_0Q8_0Tokens4(raw, flat, n/qk8_0, &out)
+			dotQ4_0Q8_0Tokens4(raw, flat[4*len(base):], n/qk8_0, &out)
+		}
+	})
+	b.Run("tokens8-vnni", func(b *testing.B) {
+		var out [8]float32
+		if !dotQ4_0Q8_0Tokens8(raw, flat, n/qk8_0, &out) {
+			b.Skip("AVX-VNNI unavailable")
+		}
+		for i := 0; i < b.N; i++ {
+			dotQ4_0Q8_0Tokens8(raw, flat, n/qk8_0, &out)
+		}
+	})
+	interleaved := interleaveQ8_0Tokens8(flat, len(base))
+	b.Run("tokens8-interleaved-vnni", func(b *testing.B) {
+		var out [8]float32
+		if !dotQ4_0Q8_0Tokens8Interleaved(raw, interleaved, n/qk8_0, &out) {
+			b.Skip("AVX-VNNI unavailable")
+		}
+		for i := 0; i < b.N; i++ {
+			dotQ4_0Q8_0Tokens8Interleaved(raw, interleaved, n/qk8_0, &out)
+		}
+	})
+	raw4 := make([]byte, len(raw)*4)
+	for row := 0; row < 4; row++ {
+		copy(raw4[row*len(raw):], raw)
+	}
+	b.Run("rows4tokens2x4-vnni", func(b *testing.B) {
+		var out [8]float32
+		if !dotQ4_0Q8_0Rows4Tokens2(raw4, len(raw), flat, n/qk8_0, &out) {
+			b.Skip("AVX-VNNI unavailable")
+		}
+		for i := 0; i < b.N; i++ {
+			for token := 0; token < 8; token += 2 {
+				dotQ4_0Q8_0Rows4Tokens2(raw4, len(raw), flat[token*len(base):], n/qk8_0, &out)
+			}
+		}
+	})
+	b.Run("tokens8x4-vnni", func(b *testing.B) {
+		var out [8]float32
+		if !dotQ4_0Q8_0Tokens8(raw, flat, n/qk8_0, &out) {
+			b.Skip("AVX-VNNI unavailable")
+		}
+		for i := 0; i < b.N; i++ {
+			for row := 0; row < 4; row++ {
+				dotQ4_0Q8_0Tokens8(raw4[row*len(raw):(row+1)*len(raw)], flat, n/qk8_0, &out)
+			}
+		}
+	})
+}
+
+func BenchmarkProjectQ4_0Tokens8Layouts(b *testing.B) {
+	const inDim, outDim, batch = 2560, 4096, 120
+	row, base := syntheticQ4_0Q8_0DotInputs(inDim)
+	raw := make([]byte, len(row)*outDim)
+	for r := 0; r < outDim; r++ {
+		copy(raw[r*len(row):], row)
+	}
+	flat := make([]q8_0Block, batch*len(base))
+	for token := 0; token < batch; token++ {
+		copy(flat[token*len(base):(token+1)*len(base)], base)
+	}
+	interleaved := make([]q8_0Block, len(flat))
+	for pos := 0; pos < batch; pos += 8 {
+		copy(interleaved[pos*len(base):(pos+8)*len(base)], interleaveQ8_0Tokens8(flat[pos*len(base):(pos+8)*len(base)], len(base)))
+	}
+	dst := make([]float32, batch*outDim)
+	bench := func(b *testing.B, packed bool) {
+		b.Helper()
+		for i := 0; i < b.N; i++ {
+			if !gemvRowsParallel(outDim, len(row)*batch, func(r int) bool {
+				rowRaw := raw[r*len(row) : (r+1)*len(row)]
+				for pos := 0; pos < batch; pos += 8 {
+					var values [8]float32
+					start := pos * len(base)
+					if packed {
+						dotQ4_0Q8_0Tokens8Interleaved(rowRaw, interleaved[start:], len(base), &values)
+					} else {
+						dotQ4_0Q8_0Tokens8(rowRaw, flat[start:], len(base), &values)
+					}
+					for token := range values {
+						dst[(pos+token)*outDim+r] = values[token]
+					}
+				}
+				return true
+			}) {
+				b.Fatal("parallel projection failed")
+			}
+		}
+	}
+	b.Run("row-major", func(b *testing.B) { bench(b, false) })
+	b.Run("block-major", func(b *testing.B) { bench(b, true) })
+}
+
 func BenchmarkGemvQ4_0Q8_0Rows(b *testing.B) {
 	const inDim, outDim = 2560, 4096
 	row, _ := syntheticQ4_0Q8_0DotInputs(inDim)

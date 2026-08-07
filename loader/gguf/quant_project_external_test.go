@@ -21,6 +21,8 @@ func TestQuantMatrixProjectBatchF32ToMatchesDequantOracle(t *testing.T) {
 		batch  int
 	}{
 		{name: "q4_0_batch8", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 11, batch: 8},
+		{name: "q4_0_vnni_tail65", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 11, batch: 65},
+		{name: "q4_0_vnni_tail124", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 11, batch: 124},
 		{name: "q4k_tiled_and_tail", qtype: gguf.QuantQ4_K, inDim: 256, outDim: 10, batch: 9},
 		{name: "q5_0", qtype: gguf.QuantQ5_0, inDim: 64, outDim: 7, batch: 3},
 		{name: "q8_0", qtype: gguf.QuantQ8_0, inDim: 64, outDim: 6, batch: 4},
@@ -308,7 +310,7 @@ func syntheticQuantMatrix(t testing.TB, qtype gguf.QuantType, inDim, outDim int)
 func BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes(b *testing.B) {
 	for _, outDim := range []int{512, 2048, 2560, 10240} {
 		m := syntheticQuantMatrix(b, gguf.QuantQ4_0, 2560, outDim)
-		for _, batch := range []int{8} {
+		for _, batch := range []int{8, 124} {
 			x := make([]float32, batch*m.InDim)
 			dst := make([]float32, batch*m.OutDim)
 			b.Run(fmt.Sprintf("out%d/batch%d/batched", outDim, batch), func(b *testing.B) {

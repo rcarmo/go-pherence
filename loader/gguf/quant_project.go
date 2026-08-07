@@ -56,26 +56,74 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
 	if err != nil {
 		return err
 	}
-	q8 := make([][]q8_0Block, batch)
+	blocksPerRow := m.InDim / qk8_0
+	q8 := make([]q8_0Block, batch*blocksPerRow)
 	for pos := 0; pos < batch; pos++ {
 		blocks, err := QuantizeQ8_0(x[pos*m.InDim : (pos+1)*m.InDim])
 		if err != nil {
 			return err
 		}
-		q8[pos] = blocks
+		copy(q8[pos*blocksPerRow:(pos+1)*blocksPerRow], blocks)
 	}
-	if !gemvRowsParallel(m.OutDim, rowBytes, func(r int) bool {
-		rowRaw := m.Raw[r*rowBytes : (r+1)*rowBytes]
-		for pos := 0; pos < batch; pos++ {
-			v, err := DotQ4_0Q8_0(rowRaw, q8[pos], m.InDim)
-			if err != nil {
-				return false
+	if batch >= 64 && supportsQ4_0Q8_0Rows4Tokens2() {
+		// Long prefill reuses each Q4_0 row across eight activation rows. Pack
+		// complete eight-token tiles block-major so the kernel reads contiguous
+		// Q8 blocks while retaining one exact eight-lane accumulator per token.
+		fullTokens := batch / 8 * 8
+		interleaved := make([]q8_0Block, fullTokens*blocksPerRow)
+		for pos := 0; pos < fullTokens; pos += 8 {
+			for bi := 0; bi < blocksPerRow; bi++ {
+				for token := 0; token < 8; token++ {
+					interleaved[pos*blocksPerRow+bi*8+token] = q8[(pos+token)*blocksPerRow+bi]
+				}
 			}
-			dst[pos*m.OutDim+r] = v
+		}
+		if !gemvRowsParallel(m.OutDim, rowBytes*batch, func(r int) bool {
+			rowRaw := m.Raw[r*rowBytes : (r+1)*rowBytes]
+			pos := 0
+			for ; pos+8 <= batch; pos += 8 {
+				var values [8]float32
+				if !dotQ4_0Q8_0Tokens8Interleaved(rowRaw, interleaved[pos*blocksPerRow:], blocksPerRow, &values) {
+					return false
+				}
+				for token := 0; token < 8; token++ {
+					dst[(pos+token)*m.OutDim+r] = values[token]
+				}
+			}
+			for ; pos+4 <= batch; pos += 4 {
+				var values [4]float32
+				dotQ4_0Q8_0Tokens4(rowRaw, q8[pos*blocksPerRow:], blocksPerRow, &values)
+				for token := 0; token < 4; token++ {
+					dst[(pos+token)*m.OutDim+r] = values[token]
+				}
+			}
+			for ; pos < batch; pos++ {
+				dst[pos*m.OutDim+r] = dotQ4_0Q8_0Packed(rowRaw, q8[pos*blocksPerRow:], blocksPerRow)
+			}
+			return true
+		}) {
+			return fmt.Errorf("quant matrix %s: AVX-VNNI token-tiled projection failed", m.Name)
+		}
+		return nil
+	}
+
+	// AVX2 fallback reuses each Q4_0 row across four activation rows.
+	if !gemvRowsParallel(m.OutDim, rowBytes*batch, func(r int) bool {
+		rowRaw := m.Raw[r*rowBytes : (r+1)*rowBytes]
+		pos := 0
+		for ; pos+4 <= batch; pos += 4 {
+			var values [4]float32
+			dotQ4_0Q8_0Tokens4(rowRaw, q8[pos*blocksPerRow:], blocksPerRow, &values)
+			for token := 0; token < 4; token++ {
+				dst[(pos+token)*m.OutDim+r] = values[token]
+			}
+		}
+		for ; pos < batch; pos++ {
+			dst[pos*m.OutDim+r] = dotQ4_0Q8_0Packed(rowRaw, q8[pos*blocksPerRow:], blocksPerRow)
 		}
 		return true
 	}) {
-		return fmt.Errorf("quant matrix %s: projection failed", m.Name)
+		return fmt.Errorf("quant matrix %s: token-tiled projection failed", m.Name)
 	}
 	return nil
 }

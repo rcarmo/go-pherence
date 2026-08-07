@@ -90,6 +90,17 @@ func TestQ6KExpandCoeffMatchesReference(t *testing.T) {
 	}
 }
 
+func TestQ6KBlockDotMatchesExpandedDot(t *testing.T) {
+	raw, y := syntheticQ6KQ8KDotInputs(256)
+	block := (*[210]byte)(raw)
+	var coeff [256]int16
+	q6KExpandCoeff(block, &coeff)
+	want := q6KCoeffDot(&y[0].qs, &coeff)
+	if got := q6KBlockDot(block, &y[0].qs); got != want {
+		t.Fatalf("q6KBlockDot=%d want %d", got, want)
+	}
+}
+
 func BenchmarkQ6KExpandCoeff(b *testing.B) {
 	raw, _ := syntheticQ6KQ8KDotInputs(256)
 	block := (*[210]byte)(raw)
@@ -102,11 +113,24 @@ func BenchmarkQ6KExpandCoeff(b *testing.B) {
 
 func BenchmarkDotQ6KQ8KGemvFast(b *testing.B) {
 	raw, y := syntheticQ6KQ8KDotInputs(2560)
-	var result float32
-	for i := 0; i < b.N; i++ {
-		result += dotQ6KQ8KGemvFast(raw, y, 10)
-	}
-	q6CoeffBenchSink += int32(result)
+	b.Run("fused", func(b *testing.B) {
+		var result float32
+		for i := 0; i < b.N; i++ {
+			result += dotQ6KQ8KGemvFast(raw, y, 10)
+		}
+		q6CoeffBenchSink += int32(result)
+	})
+	b.Run("expanded", func(b *testing.B) {
+		var result int32
+		for i := 0; i < b.N; i++ {
+			for bi := 0; bi < 10; bi++ {
+				var coeff [256]int16
+				q6KExpandCoeff((*[210]byte)(raw[bi*210:]), &coeff)
+				result += q6KCoeffDot(&y[bi].qs, &coeff)
+			}
+		}
+		q6CoeffBenchSink += result
+	})
 }
 
 func TestDotQ6KQ8KGemvFastBoundedDifference(t *testing.T) {
