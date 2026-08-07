@@ -39,6 +39,9 @@ type cpuTokenState struct {
 
 	maxSequence int
 	position    int
+
+	captureFinalHidden func(pos int, hidden []float32)
+	skipFinalDecode    bool
 }
 
 // newCPUTokenStateForLegacyGenerate mirrors the exact shape/capacity checks of

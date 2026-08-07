@@ -358,6 +358,10 @@ func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
 			return DecodeResult{}, fmt.Errorf("Gemma4 session decode position %d did not emit", pos)
 		}
 	}
+	return s.commitDecodeStep(tok, logits), nil
+}
+
+func (s *Gemma4DecodeSession) commitDecodeStep(tok int, logits []float32) DecodeResult {
 	s.output = append(s.output, tok)
 	s.state.output = s.output
 	s.generated++
@@ -366,7 +370,7 @@ func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
 	} else if s.generated >= s.opts.MaxTokens {
 		s.finished, s.finish = true, FinishReasonLength
 	}
-	return DecodeResult{Token: tok, Logits: append([]float32(nil), logits...), Position: len(s.output), Generated: s.generated, Finished: s.finished, FinishReason: s.finish}, nil
+	return DecodeResult{Token: tok, Logits: append([]float32(nil), logits...), Position: len(s.output), Generated: s.generated, Finished: s.finished, FinishReason: s.finish}
 }
 
 func (s *Gemma4DecodeSession) Checkpoint() (SessionCheckpoint, error) {

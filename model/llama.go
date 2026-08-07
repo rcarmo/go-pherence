@@ -1409,6 +1409,12 @@ func (m *LlamaModel) runLegacyCPUToken(st *cpuTokenState, tokID, pos int, embedd
 
 	// LM head: logits = final_norm(hidden) @ lm_head^T (greedy: take argmax)
 	if pos >= len(output)-1 {
+		if st.captureFinalHidden != nil {
+			st.captureFinalHidden(pos, hidden)
+		}
+		if st.skipFinalDecode {
+			return 0, nil, true, nil
+		}
 		finalActivation, stepLogits, maxIdx, err := m.finishCPUDecodeStep(hidden)
 		if err != nil {
 			panic(err)
