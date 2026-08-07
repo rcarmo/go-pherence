@@ -20,8 +20,7 @@ type Gemma4DecodeSession struct {
 	opts            SessionOptions
 	prompt          []int
 	output          []int
-	kvK             [][]float32
-	kvV             [][]float32
+	state           *cpuTokenState
 	generated       int
 	bootstrapReplay bool
 	pendingLogits   []float32
@@ -112,39 +111,36 @@ func (s *Gemma4DecodeSession) PrefillChunk(tokens []int) (PrefillResult, error) 
 			return PrefillResult{}, fmt.Errorf("prompt token[%d]=%d outside vocab=%d", i, tok, s.model.Config.VocabSize)
 		}
 	}
-	ctx, err := s.model.BuildMTPPromptContext(tokens)
+	prepared := s.model.prepareGenerateTokens(tokens)
+	state, err := newCPUTokenStateForLegacyGenerate(s.model, prepared, s.opts.MaxTokens)
 	if err != nil {
-		return PrefillResult{}, fmt.Errorf("Gemma4 session prefill: %w", err)
+		return PrefillResult{}, fmt.Errorf("Gemma4 session state: %w", err)
 	}
-	// BuildMTPPromptContext applies the same BOS/chat-template preparation as
-	// legacy Generate. Session accounting and positions must use that prepared
-	// sequence because the returned KV rows correspond to ctx.Tokens.
-	s.prompt = append([]int(nil), ctx.Tokens...)
-	s.output = append([]int(nil), ctx.Tokens...)
-	s.kvK = cloneFloatLayers(ctx.KVCacheK)
-	s.kvV = cloneFloatLayers(ctx.KVCacheV)
-	// ctx.Activation is already final-normalized. Compute the distribution for
-	// the first generated token now; re-feeding the final prompt token would
-	// advance its position and duplicate its KV row.
-	s.pendingLogits = make([]float32, s.model.Config.VocabSize)
-	if err := s.model.LMHeadLogitsInto(s.pendingLogits, ctx.Activation); err != nil {
-		return PrefillResult{}, fmt.Errorf("Gemma4 session prefill LM head: %w", err)
+	for pos, tok := range prepared {
+		next, logits, emit, err := s.model.runLegacyCPUToken(state, tok, pos, nil)
+		if err != nil {
+			return PrefillResult{}, fmt.Errorf("Gemma4 session prefill token %d: %w", pos, err)
+		}
+		if pos == len(prepared)-1 {
+			if !emit || len(logits) != s.model.Config.VocabSize {
+				return PrefillResult{}, fmt.Errorf("Gemma4 session final prompt token did not emit logits")
+			}
+			s.pendingToken = next
+			s.pendingLogits = append([]float32(nil), logits...)
+		} else if emit {
+			return PrefillResult{}, fmt.Errorf("Gemma4 session prompt token %d emitted early", pos)
+		}
 	}
-	// The current MTP prompt tail is not yet numerically identical to ordinary
-	// Generate for real Gemma4. Bootstrap the first token with the legacy oracle
-	// while keeping verifier KV for subsequent incremental rows. This cost is
-	// explicit and must be removed when session prefill is unified with Generate.
-	legacy := s.model.generatePrepared(ctx.Tokens, 1)
-	if len(legacy) != len(ctx.Tokens)+1 {
-		return PrefillResult{}, fmt.Errorf("Gemma4 legacy bootstrap produced %d tokens, want %d", len(legacy), len(ctx.Tokens)+1)
-	}
-	s.pendingToken = legacy[len(ctx.Tokens)]
-	s.bootstrapReplay = true
+	s.state = state
+	s.prompt = append([]int(nil), prepared...)
+	s.output = append([]int(nil), prepared...)
+	s.state.output = s.output
+	s.bootstrapReplay = false
 	s.prefilled = true
 	if s.opts.MaxTokens == 0 {
 		s.finished, s.finish = true, FinishReasonLength
 	}
-	return PrefillResult{ConsumedTokens: len(ctx.Tokens), Position: len(ctx.Tokens), ReadyToDecode: !s.finished}, nil
+	return PrefillResult{ConsumedTokens: len(prepared), Position: len(prepared), ReadyToDecode: !s.finished}, nil
 }
 
 func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
@@ -157,22 +153,28 @@ func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
 	if s.finished {
 		return DecodeResult{Position: len(s.output), Generated: s.generated, Finished: true, FinishReason: s.finish}, nil
 	}
-	// The existing MTP verifier trajectory is not numerically identical to
-	// ordinary Gemma4 Generate beyond the prompt tail. Preserve exact output by
-	// replaying the legacy oracle until its layer loop is extracted into a true
-	// stateful step. This is deliberately visible through BootstrapReplay.
-	legacy := s.model.generatePrepared(s.output, 1)
-	if len(legacy) != len(s.output)+1 {
-		return DecodeResult{}, fmt.Errorf("Gemma4 legacy decode produced %d tokens, want %d", len(legacy), len(s.output)+1)
-	}
-	tok := legacy[len(s.output)]
+	var tok int
 	var logits []float32
 	if s.pendingLogits != nil {
+		tok = s.pendingToken
 		logits = s.pendingLogits
 		s.pendingLogits = nil
 		s.pendingToken = 0
+	} else {
+		input := s.output[len(s.output)-1]
+		pos := len(s.output) - 1
+		var emit bool
+		var err error
+		tok, logits, emit, err = s.model.runLegacyCPUToken(s.state, input, pos, nil)
+		if err != nil {
+			return DecodeResult{}, fmt.Errorf("Gemma4 session decode position %d: %w", pos, err)
+		}
+		if !emit {
+			return DecodeResult{}, fmt.Errorf("Gemma4 session decode position %d did not emit", pos)
+		}
 	}
 	s.output = append(s.output, tok)
+	s.state.output = s.output
 	s.generated++
 	if _, stop := s.stopTokens[tok]; stop {
 		s.finished, s.finish = true, FinishReasonStopToken
@@ -189,7 +191,7 @@ func (s *Gemma4DecodeSession) Checkpoint() (SessionCheckpoint, error) {
 	if !s.prefilled {
 		return nil, fmt.Errorf("Gemma4 session prompt is not prefilled")
 	}
-	return gemma4SessionCheckpoint{sessionID: s.id, outputLen: len(s.output), generated: s.generated, finished: s.finished, finish: s.finish, pendingLogits: append([]float32(nil), s.pendingLogits...), pendingToken: s.pendingToken, kv: kv.CheckpointFloatKV(s.kvK, s.kvV)}, nil
+	return gemma4SessionCheckpoint{sessionID: s.id, outputLen: len(s.output), generated: s.generated, finished: s.finished, finish: s.finish, pendingLogits: append([]float32(nil), s.pendingLogits...), pendingToken: s.pendingToken, kv: kv.CheckpointFloatKV(s.state.kvCacheK, s.state.kvCacheV)}, nil
 }
 
 func (s *Gemma4DecodeSession) Restore(checkpoint SessionCheckpoint) error {
@@ -203,10 +205,11 @@ func (s *Gemma4DecodeSession) Restore(checkpoint SessionCheckpoint) error {
 	if cp.outputLen < len(s.prompt) || cp.outputLen > len(s.output) || cp.generated != cp.outputLen-len(s.prompt) {
 		return fmt.Errorf("invalid Gemma4 session checkpoint output=%d generated=%d", cp.outputLen, cp.generated)
 	}
-	if err := cp.kv.Restore(s.kvK, s.kvV); err != nil {
+	if err := cp.kv.Restore(s.state.kvCacheK, s.state.kvCacheV); err != nil {
 		return err
 	}
 	s.output = s.output[:cp.outputLen]
+	s.state.output = s.output
 	s.generated, s.finished, s.finish = cp.generated, cp.finished, cp.finish
 	s.pendingLogits = append(s.pendingLogits[:0], cp.pendingLogits...)
 	s.pendingToken = cp.pendingToken
@@ -230,7 +233,7 @@ func (s *Gemma4DecodeSession) Close() error {
 		return nil
 	}
 	s.closed, s.finished, s.finish = true, true, FinishReasonClosed
-	s.prompt, s.output, s.kvK, s.kvV, s.pendingLogits = nil, nil, nil, nil, nil
+	s.prompt, s.output, s.pendingLogits, s.state = nil, nil, nil, nil
 	return nil
 }
 
@@ -242,12 +245,4 @@ func (s *Gemma4DecodeSession) usable() error {
 		return fmt.Errorf("Gemma4 session is closed")
 	}
 	return nil
-}
-
-func cloneFloatLayers(in [][]float32) [][]float32 {
-	out := make([][]float32, len(in))
-	for i := range in {
-		out[i] = append([]float32(nil), in[i]...)
-	}
-	return out
 }

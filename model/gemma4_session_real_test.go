@@ -51,7 +51,7 @@ func runGemma4SessionRealTrajectory(t *testing.T, m *LlamaModel, steps int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !prefill.ReadyToDecode || prefill.Position <= 1 || !s.BootstrapReplay() {
+	if !prefill.ReadyToDecode || prefill.Position <= 1 || s.BootstrapReplay() {
 		t.Fatalf("unexpected prepared prefill=%+v bootstrap_replay=%v", prefill, s.BootstrapReplay())
 	}
 	prepared := s.OutputTokens()
@@ -64,7 +64,7 @@ func runGemma4SessionRealTrajectory(t *testing.T, m *LlamaModel, steps int) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if step.Token < 0 || step.Token >= m.Config.VocabSize || (i == 0 && len(step.Logits) != m.Config.VocabSize) {
+		if step.Token < 0 || step.Token >= m.Config.VocabSize || len(step.Logits) != m.Config.VocabSize {
 			t.Fatalf("unexpected decode step %d token=%d logits=%d result=%+v", i, step.Token, len(step.Logits), step)
 		}
 		if step.Token != legacy[len(prepared)+i] {

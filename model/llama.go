@@ -838,25 +838,7 @@ func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings
 	kvCacheK := st.kvCacheK
 	kvCacheV := st.kvCacheV
 	compressedKV := st.compressedKV
-	attnScoresScratch := st.attnScoresScratch
-	attnOutScratch := st.attnOutScratch
 	h := cfg.HiddenSize
-	numHeads := cfg.NumHeads
-	inter := cfg.Intermediate
-	hidden := st.hidden
-	scratchResidual := st.scratchResidual
-	scratchQ := st.scratchQ
-	scratchK := st.scratchK
-	scratchV := st.scratchV
-	scratchO := st.scratchO
-	scratchMlp := st.scratchMlp
-	scratchGate := st.scratchGate
-	scratchUp := st.scratchUp
-	scratchDown := st.scratchDown
-	scratchPLIGate := st.scratchPLIGate
-	scratchPLIProj := st.scratchPLIProj
-	pliProjBuf := st.pliProjBuf
-	pliSlices := st.pliSlices
 
 	// Batched CPU prefill: process all prompt tokens together so each weight
 	// matrix is read once for the whole prompt instead of once per token. Only
@@ -877,6 +859,7 @@ func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings
 				panic(err)
 			}
 			output = append(output, maxIdx)
+			st.output = output
 			startStep = len(tokenIDs)
 			if maxIdx == stopToken {
 				return output
@@ -893,502 +876,547 @@ func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings
 			tokID = output[len(output)-1]
 		}
 
-		// Multimodal prompts provide the complete embedding row. Generated tokens
-		// and ordinary prompts retain the model-specific scaled lookup path.
+		var embedding []float32
 		if step < len(tokenIDs) && promptEmbeddings != nil {
-			copy(hidden, promptEmbeddings[step*h:(step+1)*h])
-		} else if err := m.ScaledTokenEmbeddingInto(hidden, tokID); err != nil {
-			panic(err)
+			embedding = promptEmbeddings[step*h : (step+1)*h]
 		}
 
-		pos := step
-
-		if debugOpHook != nil {
-			debugOpHook("cpu", step, 0, "embed_scaled", hidden)
-		}
-
-		// Gemma4: compute per-layer inputs for this token using the same helper
-		// exposed for verifier/MTP paths.
-		perLayerInputs, err := m.Gemma4PerLayerInputsInto(pliProjBuf, pliSlices, hidden, tokID)
+		token, _, emit, err := m.runLegacyCPUToken(st, tokID, step, embedding)
 		if err != nil {
-			panic(err)
+			return output
 		}
-		if perLayerInputs != nil {
-			if debugCPUPerLayerInputsOverrideHook != nil {
-				debugCPUPerLayerInputsOverrideHook(step, perLayerInputs)
-			}
-			if debugOpHook != nil && len(perLayerInputs) > 0 {
-				debugOpHook("cpu", step, 0, "pli0_input", perLayerInputs[0])
-			}
-		}
-
-		for l := 0; l < cfg.NumLayers; l++ {
-			layer := &m.Layers[l]
-			if debugCPUHiddenInOverrideHook != nil {
-				debugCPUHiddenInOverrideHook(step, l, hidden)
-			}
-			residual := scratchResidual
-			copy(residual, hidden)
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "hidden_in", hidden)
-			}
-
-			// RMS Norm (BF16 for Gemma3)
-			if cfg.ModelType == "gemma3_text" {
-				simd.RMSNormBF16(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
-			} else {
-				rmsNormInPlace(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
-			}
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "normed", hidden)
-			}
-
-			// BF16 embed scaling was already applied above
-
-			// Q, K, V projections (single token: [1, h] @ [h, dim])
-			layerHeadDim, err := m.LayerHeadDim(l)
-			if err != nil {
-				return output
-			}
-			layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
-			qDim, okQDim := checkedProduct(numHeads, layerHeadDim)
-			layerKVDim, okKVDim := checkedProduct(layerKVHeads, layerHeadDim)
-			if layerKVHeads <= 0 || !okQDim || !okKVDim {
-				return output
-			}
-			q := scratchQ[:qDim]
-
-			// Always compute Q
-			if layer.QWq != nil {
-				if !m.mvQ(q, hidden, layer.QWq) {
-					return output
-				}
-			} else if layer.QWm != nil {
-				if !mlx.GemvParallel(q, hidden, layer.QWm) {
-					return output
-				}
-			} else if layer.QWGGUF != nil {
-				if !gemvGGUFTo(q, hidden, layer.QWGGUF, h, qDim) {
-					return output
-				}
-			} else {
-				m.mv(q, hidden, layer.QW.Data(), h, qDim)
-			}
-
-			// K, V: only compute for HasKV layers; shared layers reuse source KV cache
-			var k, v []float32
-			if layer.HasKV {
-				k = scratchK[:layerKVDim]
-				v = scratchV[:layerKVDim]
-				if layer.KWq != nil {
-					if !m.mvQ(k, hidden, layer.KWq) {
-						return output
-					}
-					if cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
-						copy(v, k)
-					} else if layer.VWq != nil {
-						if !m.mvQ(v, hidden, layer.VWq) {
-							return output
-						}
-					} else {
-						return output
-					}
-				} else if layer.KWm != nil {
-					if !mlx.GemvParallel(k, hidden, layer.KWm) {
-						return output
-					}
-					if cfg.AttentionKEqV && (layer.VWm == nil || layer.VWm == layer.KWm) {
-						copy(v, k)
-					} else if layer.VWm != nil {
-						if !mlx.GemvParallel(v, hidden, layer.VWm) {
-							return output
-						}
-					} else {
-						return output
-					}
-				} else if layer.KWGGUF != nil {
-					if !gemvGGUFTo(k, hidden, layer.KWGGUF, h, layerKVDim) {
-						return output
-					}
-					if cfg.AttentionKEqV && (layer.VWGGUF == nil || layer.VWGGUF == layer.KWGGUF) {
-						copy(v, k)
-					} else if layer.VWGGUF != nil {
-						if !gemvGGUFTo(v, hidden, layer.VWGGUF, h, layerKVDim) {
-							return output
-						}
-					} else {
-						return output
-					}
-				} else {
-					if layer.KW == nil {
-						return output
-					}
-					m.mv(k, hidden, layer.KW.Data(), h, layerKVDim)
-					if cfg.AttentionKEqV && (layer.VW == nil || layer.VW == layer.KW) {
-						copy(v, k)
-					} else if layer.VW != nil {
-						m.mv(v, hidden, layer.VW.Data(), h, layerKVDim)
-					} else {
-						return output
-					}
-				}
-			}
-
-			if cfg.ModelType == "gemma3_text" {
-				simd.ToBF16(q)
-				if k != nil {
-					simd.ToBF16(k)
-					simd.ToBF16(v)
-				}
-			}
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "q", q)
-				if k != nil {
-					debugOpHook("cpu", step, l, "k", k)
-					debugOpHook("cpu", step, l, "v", v)
-				}
-			}
-
-			// Add bias if present (Qwen2)
-			if layer.QB != nil {
-				qb := layer.QB.Data()
-				simd.VecAdd(q, q, qb)
-				if k != nil {
-					kb, vb := layer.KB.Data(), layer.VB.Data()
-					simd.VecAdd(k, k, kb)
-					simd.VecAdd(v, v, vb)
-				}
-			}
-
-			// Select norm function
-			normFn := rmsNormInPlace
-			if cfg.ModelType == "gemma3_text" {
-				normFn = rmsNormBF16
-			}
-
-			// V norm (Gemma4: RMSNormNoScale — normalize without weight)
-			if cfg.ModelType == "gemma4_text" && v != nil {
-				eps := float32(cfg.RMSNormEps)
-				for head := 0; head < layerKVHeads; head++ {
-					simd.RMSNormNoScale(v[head*layerHeadDim:(head+1)*layerHeadDim], eps)
-				}
-			} else if layer.VNorm != nil && v != nil {
-				vnorm := layer.VNorm.Data()
-				for head := 0; head < layerKVHeads; head++ {
-					normFn(v[head*layerHeadDim:(head+1)*layerHeadDim], vnorm, float32(cfg.RMSNormEps))
-				}
-			}
-
-			// QK-Norm (Qwen3/Gemma3/4): RMSNorm each head of Q and K separately
-			if layer.QNorm != nil {
-				qNorm := layer.QNorm.Data()
-				for head := 0; head < numHeads; head++ {
-					normFn(q[head*layerHeadDim:(head+1)*layerHeadDim], qNorm, float32(cfg.RMSNormEps))
-				}
-				if k != nil {
-					if layer.KNorm == nil {
-						return output
-					}
-					kNorm := layer.KNorm.Data()
-					for head := 0; head < layerKVHeads; head++ {
-						normFn(k[head*layerHeadDim:(head+1)*layerHeadDim], kNorm, float32(cfg.RMSNormEps))
-					}
-				}
-			}
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "q_qknorm", q)
-				if k != nil {
-					debugOpHook("cpu", step, l, "k_qknorm", k)
-					debugOpHook("cpu", step, l, "v_attn", v)
-				}
-			}
-
-			// RoPE on Q (always) and K (only if HasKV).
-			if cfg.ModelType == "gemma4_text" {
-				freqs, rotHalf := m.ensureGemma4RoPE(l, pos)
-				applyRoPEPartial(q, freqs, pos, numHeads, layerHeadDim, rotHalf)
-				if k != nil {
-					applyRoPEPartial(k, freqs, pos, layerKVHeads, layerHeadDim, rotHalf)
-				}
-			} else {
-				freqs := m.ensureRoPE(pos)
-				applyRoPE(q, freqs, pos, numHeads, layerHeadDim)
-				if k != nil {
-					applyRoPE(k, freqs, pos, layerKVHeads, layerHeadDim)
-				}
-			}
-
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "q_attn", q)
-				if k != nil {
-					debugOpHook("cpu", step, l, "k_attn", k)
-					debugOpHook("cpu", step, l, "v_attn", v)
-				}
-			}
-
-			// KV cache: append for HasKV layers, reuse source for shared layers
-			kvLayer := l
-			if !layer.HasKV {
-				kvLayer = layer.KVSourceLayer
-			}
-			if k != nil {
-				if compressedKV != nil {
-					compressedKV[kvLayer].Append(k, v)
-				} else {
-					kvCacheK[kvLayer] = append(kvCacheK[kvLayer], k...)
-					kvCacheV[kvLayer] = append(kvCacheV[kvLayer], v...)
-				}
-			}
-
-			// Attention: Q against cached K, V (may be from source layer)
-			seqLen := pos + 1
-			attnSeqLen := seqLen
-			attnKVOffset := 0
-			// SWA layers: restrict attention to sliding_window most recent positions
-			if cfg.SlidingWindow > 0 && len(cfg.LayerTypes) > l && cfg.LayerTypes[l] == "sliding_attention" {
-				if seqLen > cfg.SlidingWindow {
-					attnSeqLen = cfg.SlidingWindow
-					attnKVOffset = seqLen - cfg.SlidingWindow
-				}
-			}
-			var attnOut []float32
-			var kCache, vCache []float32
-			if compressedKV != nil {
-				kCache = compressedKV[kvLayer].GetK()
-				vCache = compressedKV[kvLayer].GetV()
-			} else {
-				kCache = kvCacheK[kvLayer]
-				vCache = kvCacheV[kvLayer]
-			}
-			attnOut = attnOutScratch[:qDim]
-			attnScores := attnScoresScratch[:attnSeqLen]
-			scale := attentionScale(cfg, layerHeadDim)
-			gqaAttentionHeadsParallelSoftcap(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, scale, attentionLogitSoftcap(cfg))
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "attn", attnOut)
-			}
-
-			// Output projection
-			oOut := scratchO
-			if layer.OWq != nil {
-				if !m.mvQ(oOut, attnOut, layer.OWq) {
-					return output
-				}
-			} else if layer.OWm != nil {
-				if !mlx.GemvParallel(oOut, attnOut, layer.OWm) {
-					return output
-				}
-			} else if layer.OWGGUF != nil {
-				if !gemvGGUFTo(oOut, attnOut, layer.OWGGUF, qDim, h) {
-					return output
-				}
-			} else {
-				m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
-			}
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "o", oOut)
-			}
-
-			// Gemma3: post-attn norm BEFORE residual add
-			if layer.PreFFNNorm != nil {
-				// Gemma3 pattern: norm(attn_output), then add residual
-				rmsNormInPlace(oOut, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
-				for i := range hidden {
-					hidden[i] = residual[i] + oOut[i]
-				}
-				copy(residual, hidden)
-			} else {
-				// Qwen/LLaMA pattern: add residual, then norm
-				simd.VecAdd(hidden, residual, oOut)
-				copy(residual, hidden)
-				rmsNormInPlace(hidden, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
-			}
-
-			// MLP input: preFFNNorm for Gemma3, postNorm already applied for Qwen
-			mlpInput := hidden
-			if layer.PreFFNNorm != nil {
-				mlpInput = scratchMlp
-				copy(mlpInput, hidden)
-				if cfg.ModelType == "gemma3_text" {
-					simd.RMSNormBF16(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
-					// mlpInput is already BF16 from RMSNormBF16
-				} else {
-					rmsNormInPlace(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
-				}
-			}
-
-			layerInter := inter
-			if layer.GateWq != nil && layer.GateWq.OutDim > 0 {
-				layerInter = layer.GateWq.OutDim
-			} else if layer.GateWm != nil && layer.GateWm.OutDim > 0 {
-				layerInter = layer.GateWm.OutDim
-			} else if layer.GateW != nil {
-				s := layer.GateW.Shape()
-				if len(s) >= 2 {
-					if m.Large {
-						layerInter = s[0]
-					} else {
-						layerInter = s[1]
-					}
-				} else if len(s) == 1 && s[0] > 0 {
-					layerInter = s[0]
-				}
-			}
-
-			if debugCPUMLPInputOverrideHook != nil {
-				debugCPUMLPInputOverrideHook(step, l, mlpInput)
-			}
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "mlp_input", mlpInput)
-			}
-
-			// MLP: gate * up → SiLU → down (or MoE for expert layers)
-			var down []float32
-			if layer.IsMoE && layer.ExpertGateW != nil {
-				// MoE forward: router → top-k experts → weighted sum, with optional
-				// REAP static expert masks applied before top-k selection.
-				down = moeForwardWithREAP(mlpInput, layer, cfg, m.REAP, l)
-			} else {
-				gate := scratchGate[:layerInter]
-				up := scratchUp[:layerInter]
-				if layer.GateWq != nil {
-					if !m.mvQ(gate, mlpInput, layer.GateWq) || !m.mvQ(up, mlpInput, layer.UpWq) {
-						return output
-					}
-				} else if layer.GateWm != nil {
-					if !mlx.GemvParallel(gate, mlpInput, layer.GateWm) {
-						return output
-					}
-					if !mlx.GemvParallel(up, mlpInput, layer.UpWm) {
-						return output
-					}
-				} else if layer.GateWGGUF != nil {
-					if !gemvGGUFTo(gate, mlpInput, layer.GateWGGUF, h, layerInter) || !gemvGGUFTo(up, mlpInput, layer.UpWGGUF, h, layerInter) {
-						return output
-					}
-				} else {
-					m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
-					m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
-				}
-
-				if cfg.ModelType == "gemma3_text" {
-					simd.ToBF16(gate)
-					simd.ToBF16(up)
-				}
-				if debugOpHook != nil {
-					debugOpHook("cpu", step, l, "gate_pre", gate)
-					debugOpHook("cpu", step, l, "up", up)
-				}
-				// Activation(gate) * up
-				if cfg.HiddenAct == "gelu_pytorch_tanh" {
-					if cfg.ModelType == "gemma4_text" {
-						ggmlGELUMulInPlace(gate, up)
-					} else {
-						simd.GELUTanhMul(gate, gate, up)
-						simd.ToBF16(gate)
-					}
-				} else {
-					simd.VecSiLUMul(gate, gate, up)
-				}
-				if debugOpHook != nil {
-					debugOpHook("cpu", step, l, "gate_act", gate)
-				}
-
-				// Down projection
-				down = scratchDown
-				if layer.DownWq != nil {
-					if !m.mvQ(down, gate, layer.DownWq) {
-						return output
-					}
-				} else if layer.DownWm != nil {
-					if !mlx.GemvParallel(down, gate, layer.DownWm) {
-						return output
-					}
-				} else if layer.DownWGGUF != nil {
-					if !gemvGGUFTo(down, gate, layer.DownWGGUF, layerInter, h) {
-						return output
-					}
-				} else {
-					m.mv(down, gate, layer.DownW.Data(), layerInter, h)
-				}
-			}
-
-			// BF16 down projection output for Gemma3
-			if cfg.ModelType == "gemma3_text" {
-				simd.ToBF16(down)
-			}
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "down", down)
-			}
-
-			// Post-FFN norm (Gemma3)
-			if layer.PostFFNNorm != nil {
-				if cfg.ModelType == "gemma3_text" {
-					rmsNormBF16(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
-				} else {
-					rmsNormInPlace(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
-				}
-			}
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "down_postffn", down)
-			}
-
-			// Residual
-			simd.VecAdd(hidden, residual, down)
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "hidden_post_ffn", hidden)
-			}
-
-			// Per-layer input gating (Gemma4)
-			if layer.PLIGate != nil && perLayerInputs != nil && l < len(perLayerInputs) {
-				hpl := cfg.HiddenPerLayer
-				pli := perLayerInputs[l]
-				// gate = gelu(per_layer_input_gate(h)) * per_layer_input → [hiddenPerLayer]
-				gate2 := scratchPLIGate[:hpl]
-				gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
-				if cfg.ModelType == "gemma4_text" {
-					ggmlGELUMulInPlace(gate2, pli)
-				} else {
-					simd.GELUTanhMul(gate2, gate2, pli)
-				}
-				// proj = per_layer_projection(gate) → [hidden]
-				proj2 := scratchPLIProj
-				gemvNT(proj2, gate2, layer.PLIProj, hpl, h)
-				// norm
-				rmsNormInPlace(proj2, layer.PLIPostNorm, float32(cfg.RMSNormEps))
-				// residual add
-				simd.VecAdd(hidden, hidden, proj2)
-			}
-			if debugOpHook != nil {
-				debugOpHook("cpu", step, l, "hidden_post_pli", hidden)
-			}
-			// Layer scalar (Gemma4)
-			if layer.LayerScalar != 1.0 {
-				simd.VecScale(hidden, hidden, layer.LayerScalar)
-			}
-			if cfg.ModelType == "gemma3_text" {
-				simd.ToBF16(hidden)
-			}
-			if debugLayerHook != nil {
-				debugLayerHook("cpu", step, l, hidden)
-			}
-
-		}
-
-		// LM head: logits = final_norm(hidden) @ lm_head^T (greedy: take argmax)
-		if step >= len(tokenIDs)-1 {
-			finalActivation, logits, maxIdx, err := m.finishCPUDecodeStep(hidden)
-			if err != nil {
-				panic(err)
-			}
-			if debugLogitsHook != nil {
-				debugLogitsHook("cpu", step, finalActivation, logits)
-			}
-			output = append(output, maxIdx)
-			if maxIdx == stopToken {
+		if emit {
+			output = append(output, token)
+			st.output = output
+			if token == stopToken {
 				return output
 			}
 		}
 	}
 	return output
+}
+
+func (m *LlamaModel) runLegacyCPUToken(st *cpuTokenState, tokID, pos int, embedding []float32) (token int, logits []float32, emit bool, err error) {
+	cfg := m.Config
+	output := st.output
+	kvCacheK := st.kvCacheK
+	kvCacheV := st.kvCacheV
+	compressedKV := st.compressedKV
+	attnScoresScratch := st.attnScoresScratch
+	attnOutScratch := st.attnOutScratch
+	h := cfg.HiddenSize
+	numHeads := cfg.NumHeads
+	inter := cfg.Intermediate
+	hidden := st.hidden
+	scratchResidual := st.scratchResidual
+	scratchQ := st.scratchQ
+	scratchK := st.scratchK
+	scratchV := st.scratchV
+	scratchO := st.scratchO
+	scratchMlp := st.scratchMlp
+	scratchGate := st.scratchGate
+	scratchUp := st.scratchUp
+	scratchDown := st.scratchDown
+	scratchPLIGate := st.scratchPLIGate
+	scratchPLIProj := st.scratchPLIProj
+	pliProjBuf := st.pliProjBuf
+	pliSlices := st.pliSlices
+
+	// Multimodal prompts provide the complete embedding row. Generated tokens
+	// and ordinary prompts retain the model-specific scaled lookup path.
+	if embedding != nil {
+		copy(hidden, embedding)
+	} else if err := m.ScaledTokenEmbeddingInto(hidden, tokID); err != nil {
+		panic(err)
+	}
+
+	if debugOpHook != nil {
+		debugOpHook("cpu", pos, 0, "embed_scaled", hidden)
+	}
+
+	// Gemma4: compute per-layer inputs for this token using the same helper
+	// exposed for verifier/MTP paths.
+	perLayerInputs, err := m.Gemma4PerLayerInputsInto(pliProjBuf, pliSlices, hidden, tokID)
+	if err != nil {
+		panic(err)
+	}
+	if perLayerInputs != nil {
+		if debugCPUPerLayerInputsOverrideHook != nil {
+			debugCPUPerLayerInputsOverrideHook(pos, perLayerInputs)
+		}
+		if debugOpHook != nil && len(perLayerInputs) > 0 {
+			debugOpHook("cpu", pos, 0, "pli0_input", perLayerInputs[0])
+		}
+	}
+
+	for l := 0; l < cfg.NumLayers; l++ {
+		layer := &m.Layers[l]
+		if debugCPUHiddenInOverrideHook != nil {
+			debugCPUHiddenInOverrideHook(pos, l, hidden)
+		}
+		residual := scratchResidual
+		copy(residual, hidden)
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "hidden_in", hidden)
+		}
+
+		// RMS Norm (BF16 for Gemma3)
+		if cfg.ModelType == "gemma3_text" {
+			simd.RMSNormBF16(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
+		} else {
+			rmsNormInPlace(hidden, layer.InputNorm.Data(), float32(cfg.RMSNormEps))
+		}
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "normed", hidden)
+		}
+
+		// BF16 embed scaling was already applied above
+
+		// Q, K, V projections (single token: [1, h] @ [h, dim])
+		layerHeadDim, err := m.LayerHeadDim(l)
+		if err != nil {
+			return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: head dim: %w", pos, l, err)
+		}
+		layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
+		qDim, okQDim := checkedProduct(numHeads, layerHeadDim)
+		layerKVDim, okKVDim := checkedProduct(layerKVHeads, layerHeadDim)
+		if layerKVHeads <= 0 || !okQDim || !okKVDim {
+			return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: invalid attention dims heads=%d kvHeads=%d headDim=%d qOK=%v kvOK=%v", pos, l, numHeads, layerKVHeads, layerHeadDim, okQDim, okKVDim)
+		}
+		q := scratchQ[:qDim]
+
+		// Always compute Q
+		if layer.QWq != nil {
+			if !m.mvQ(q, hidden, layer.QWq) {
+				return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: quantized Q projection failed", pos, l)
+			}
+		} else if layer.QWm != nil {
+			if !mlx.GemvParallel(q, hidden, layer.QWm) {
+				return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: MLX Q projection failed", pos, l)
+			}
+		} else if layer.QWGGUF != nil {
+			if !gemvGGUFTo(q, hidden, layer.QWGGUF, h, qDim) {
+				return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF Q projection failed", pos, l)
+			}
+		} else {
+			m.mv(q, hidden, layer.QW.Data(), h, qDim)
+		}
+
+		// K, V: only compute for HasKV layers; shared layers reuse source KV cache
+		var k, v []float32
+		if layer.HasKV {
+			k = scratchK[:layerKVDim]
+			v = scratchV[:layerKVDim]
+			if layer.KWq != nil {
+				if !m.mvQ(k, hidden, layer.KWq) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: quantized K projection failed", pos, l)
+				}
+				if cfg.AttentionKEqV && (layer.VWq == nil || layer.VWq == layer.KWq) {
+					copy(v, k)
+				} else if layer.VWq != nil {
+					if !m.mvQ(v, hidden, layer.VWq) {
+						return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: quantized V projection failed", pos, l)
+					}
+				} else {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: missing quantized V projection", pos, l)
+				}
+			} else if layer.KWm != nil {
+				if !mlx.GemvParallel(k, hidden, layer.KWm) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: MLX K projection failed", pos, l)
+				}
+				if cfg.AttentionKEqV && (layer.VWm == nil || layer.VWm == layer.KWm) {
+					copy(v, k)
+				} else if layer.VWm != nil {
+					if !mlx.GemvParallel(v, hidden, layer.VWm) {
+						return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: MLX V projection failed", pos, l)
+					}
+				} else {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: missing MLX V projection", pos, l)
+				}
+			} else if layer.KWGGUF != nil {
+				if !gemvGGUFTo(k, hidden, layer.KWGGUF, h, layerKVDim) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF K projection failed", pos, l)
+				}
+				if cfg.AttentionKEqV && (layer.VWGGUF == nil || layer.VWGGUF == layer.KWGGUF) {
+					copy(v, k)
+				} else if layer.VWGGUF != nil {
+					if !gemvGGUFTo(v, hidden, layer.VWGGUF, h, layerKVDim) {
+						return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF V projection failed", pos, l)
+					}
+				} else {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: missing GGUF V projection", pos, l)
+				}
+			} else {
+				if layer.KW == nil {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: missing dense K projection", pos, l)
+				}
+				m.mv(k, hidden, layer.KW.Data(), h, layerKVDim)
+				if cfg.AttentionKEqV && (layer.VW == nil || layer.VW == layer.KW) {
+					copy(v, k)
+				} else if layer.VW != nil {
+					m.mv(v, hidden, layer.VW.Data(), h, layerKVDim)
+				} else {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: missing dense V projection", pos, l)
+				}
+			}
+		}
+
+		if cfg.ModelType == "gemma3_text" {
+			simd.ToBF16(q)
+			if k != nil {
+				simd.ToBF16(k)
+				simd.ToBF16(v)
+			}
+		}
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "q", q)
+			if k != nil {
+				debugOpHook("cpu", pos, l, "k", k)
+				debugOpHook("cpu", pos, l, "v", v)
+			}
+		}
+
+		// Add bias if present (Qwen2)
+		if layer.QB != nil {
+			qb := layer.QB.Data()
+			simd.VecAdd(q, q, qb)
+			if k != nil {
+				kb, vb := layer.KB.Data(), layer.VB.Data()
+				simd.VecAdd(k, k, kb)
+				simd.VecAdd(v, v, vb)
+			}
+		}
+
+		// Select norm function
+		normFn := rmsNormInPlace
+		if cfg.ModelType == "gemma3_text" {
+			normFn = rmsNormBF16
+		}
+
+		// V norm (Gemma4: RMSNormNoScale — normalize without weight)
+		if cfg.ModelType == "gemma4_text" && v != nil {
+			eps := float32(cfg.RMSNormEps)
+			for head := 0; head < layerKVHeads; head++ {
+				simd.RMSNormNoScale(v[head*layerHeadDim:(head+1)*layerHeadDim], eps)
+			}
+		} else if layer.VNorm != nil && v != nil {
+			vnorm := layer.VNorm.Data()
+			for head := 0; head < layerKVHeads; head++ {
+				normFn(v[head*layerHeadDim:(head+1)*layerHeadDim], vnorm, float32(cfg.RMSNormEps))
+			}
+		}
+
+		// QK-Norm (Qwen3/Gemma3/4): RMSNorm each head of Q and K separately
+		if layer.QNorm != nil {
+			qNorm := layer.QNorm.Data()
+			for head := 0; head < numHeads; head++ {
+				normFn(q[head*layerHeadDim:(head+1)*layerHeadDim], qNorm, float32(cfg.RMSNormEps))
+			}
+			if k != nil {
+				if layer.KNorm == nil {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: missing KNorm with QNorm enabled", pos, l)
+				}
+				kNorm := layer.KNorm.Data()
+				for head := 0; head < layerKVHeads; head++ {
+					normFn(k[head*layerHeadDim:(head+1)*layerHeadDim], kNorm, float32(cfg.RMSNormEps))
+				}
+			}
+		}
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "q_qknorm", q)
+			if k != nil {
+				debugOpHook("cpu", pos, l, "k_qknorm", k)
+				debugOpHook("cpu", pos, l, "v_attn", v)
+			}
+		}
+
+		// RoPE on Q (always) and K (only if HasKV).
+		if cfg.ModelType == "gemma4_text" {
+			freqs, rotHalf := m.ensureGemma4RoPE(l, pos)
+			applyRoPEPartial(q, freqs, pos, numHeads, layerHeadDim, rotHalf)
+			if k != nil {
+				applyRoPEPartial(k, freqs, pos, layerKVHeads, layerHeadDim, rotHalf)
+			}
+		} else {
+			freqs := m.ensureRoPE(pos)
+			applyRoPE(q, freqs, pos, numHeads, layerHeadDim)
+			if k != nil {
+				applyRoPE(k, freqs, pos, layerKVHeads, layerHeadDim)
+			}
+		}
+
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "q_attn", q)
+			if k != nil {
+				debugOpHook("cpu", pos, l, "k_attn", k)
+				debugOpHook("cpu", pos, l, "v_attn", v)
+			}
+		}
+
+		// KV cache: append for HasKV layers, reuse source for shared layers
+		kvLayer := l
+		if !layer.HasKV {
+			kvLayer = layer.KVSourceLayer
+		}
+		if k != nil {
+			if compressedKV != nil {
+				compressedKV[kvLayer].Append(k, v)
+			} else {
+				kvCacheK[kvLayer] = append(kvCacheK[kvLayer], k...)
+				kvCacheV[kvLayer] = append(kvCacheV[kvLayer], v...)
+			}
+		}
+
+		// Attention: Q against cached K, V (may be from source layer)
+		seqLen := pos + 1
+		attnSeqLen := seqLen
+		attnKVOffset := 0
+		// SWA layers: restrict attention to sliding_window most recent positions
+		if cfg.SlidingWindow > 0 && len(cfg.LayerTypes) > l && cfg.LayerTypes[l] == "sliding_attention" {
+			if seqLen > cfg.SlidingWindow {
+				attnSeqLen = cfg.SlidingWindow
+				attnKVOffset = seqLen - cfg.SlidingWindow
+			}
+		}
+		var attnOut []float32
+		var kCache, vCache []float32
+		if compressedKV != nil {
+			kCache = compressedKV[kvLayer].GetK()
+			vCache = compressedKV[kvLayer].GetV()
+		} else {
+			kCache = kvCacheK[kvLayer]
+			vCache = kvCacheV[kvLayer]
+		}
+		attnOut = attnOutScratch[:qDim]
+		attnScores := attnScoresScratch[:attnSeqLen]
+		scale := attentionScale(cfg, layerHeadDim)
+		gqaAttentionHeadsParallelSoftcap(attnOut, attnScores, q, kCache[attnKVOffset*layerKVHeads*layerHeadDim:], vCache[attnKVOffset*layerKVHeads*layerHeadDim:], attnSeqLen, numHeads, layerKVHeads, layerHeadDim, scale, attentionLogitSoftcap(cfg))
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "attn", attnOut)
+		}
+
+		// Output projection
+		oOut := scratchO
+		if layer.OWq != nil {
+			if !m.mvQ(oOut, attnOut, layer.OWq) {
+				return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: quantized output projection failed", pos, l)
+			}
+		} else if layer.OWm != nil {
+			if !mlx.GemvParallel(oOut, attnOut, layer.OWm) {
+				return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: MLX output projection failed", pos, l)
+			}
+		} else if layer.OWGGUF != nil {
+			if !gemvGGUFTo(oOut, attnOut, layer.OWGGUF, qDim, h) {
+				return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF output projection failed", pos, l)
+			}
+		} else {
+			m.mv(oOut, attnOut, layer.OW.Data(), qDim, h)
+		}
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "o", oOut)
+		}
+
+		// Gemma3: post-attn norm BEFORE residual add
+		if layer.PreFFNNorm != nil {
+			// Gemma3 pattern: norm(attn_output), then add residual
+			rmsNormInPlace(oOut, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
+			for i := range hidden {
+				hidden[i] = residual[i] + oOut[i]
+			}
+			copy(residual, hidden)
+		} else {
+			// Qwen/LLaMA pattern: add residual, then norm
+			simd.VecAdd(hidden, residual, oOut)
+			copy(residual, hidden)
+			rmsNormInPlace(hidden, layer.PostNorm.Data(), float32(cfg.RMSNormEps))
+		}
+
+		// MLP input: preFFNNorm for Gemma3, postNorm already applied for Qwen
+		mlpInput := hidden
+		if layer.PreFFNNorm != nil {
+			mlpInput = scratchMlp
+			copy(mlpInput, hidden)
+			if cfg.ModelType == "gemma3_text" {
+				simd.RMSNormBF16(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
+				// mlpInput is already BF16 from RMSNormBF16
+			} else {
+				rmsNormInPlace(mlpInput, layer.PreFFNNorm.Data(), float32(cfg.RMSNormEps))
+			}
+		}
+
+		layerInter := inter
+		if layer.GateWq != nil && layer.GateWq.OutDim > 0 {
+			layerInter = layer.GateWq.OutDim
+		} else if layer.GateWm != nil && layer.GateWm.OutDim > 0 {
+			layerInter = layer.GateWm.OutDim
+		} else if layer.GateW != nil {
+			s := layer.GateW.Shape()
+			if len(s) >= 2 {
+				if m.Large {
+					layerInter = s[0]
+				} else {
+					layerInter = s[1]
+				}
+			} else if len(s) == 1 && s[0] > 0 {
+				layerInter = s[0]
+			}
+		}
+
+		if debugCPUMLPInputOverrideHook != nil {
+			debugCPUMLPInputOverrideHook(pos, l, mlpInput)
+		}
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "mlp_input", mlpInput)
+		}
+
+		// MLP: gate * up → SiLU → down (or MoE for expert layers)
+		var down []float32
+		if layer.IsMoE && layer.ExpertGateW != nil {
+			// MoE forward: router → top-k experts → weighted sum, with optional
+			// REAP static expert masks applied before top-k selection.
+			down = moeForwardWithREAP(mlpInput, layer, cfg, m.REAP, l)
+		} else {
+			gate := scratchGate[:layerInter]
+			up := scratchUp[:layerInter]
+			if layer.GateWq != nil {
+				if !m.mvQ(gate, mlpInput, layer.GateWq) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: quantized gate projection failed", pos, l)
+				}
+				if !m.mvQ(up, mlpInput, layer.UpWq) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: quantized up projection failed", pos, l)
+				}
+			} else if layer.GateWm != nil {
+				if !mlx.GemvParallel(gate, mlpInput, layer.GateWm) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: MLX gate projection failed", pos, l)
+				}
+				if !mlx.GemvParallel(up, mlpInput, layer.UpWm) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: MLX up projection failed", pos, l)
+				}
+			} else if layer.GateWGGUF != nil {
+				if !gemvGGUFTo(gate, mlpInput, layer.GateWGGUF, h, layerInter) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF gate projection failed", pos, l)
+				}
+				if !gemvGGUFTo(up, mlpInput, layer.UpWGGUF, h, layerInter) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF up projection failed", pos, l)
+				}
+			} else {
+				m.mv(gate, mlpInput, layer.GateW.Data(), h, layerInter)
+				m.mv(up, mlpInput, layer.UpW.Data(), h, layerInter)
+			}
+
+			if cfg.ModelType == "gemma3_text" {
+				simd.ToBF16(gate)
+				simd.ToBF16(up)
+			}
+			if debugOpHook != nil {
+				debugOpHook("cpu", pos, l, "gate_pre", gate)
+				debugOpHook("cpu", pos, l, "up", up)
+			}
+			// Activation(gate) * up
+			if cfg.HiddenAct == "gelu_pytorch_tanh" {
+				if cfg.ModelType == "gemma4_text" {
+					ggmlGELUMulInPlace(gate, up)
+				} else {
+					simd.GELUTanhMul(gate, gate, up)
+					simd.ToBF16(gate)
+				}
+			} else {
+				simd.VecSiLUMul(gate, gate, up)
+			}
+			if debugOpHook != nil {
+				debugOpHook("cpu", pos, l, "gate_act", gate)
+			}
+
+			// Down projection
+			down = scratchDown
+			if layer.DownWq != nil {
+				if !m.mvQ(down, gate, layer.DownWq) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: quantized down projection failed", pos, l)
+				}
+			} else if layer.DownWm != nil {
+				if !mlx.GemvParallel(down, gate, layer.DownWm) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: MLX down projection failed", pos, l)
+				}
+			} else if layer.DownWGGUF != nil {
+				if !gemvGGUFTo(down, gate, layer.DownWGGUF, layerInter, h) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF down projection failed", pos, l)
+				}
+			} else {
+				m.mv(down, gate, layer.DownW.Data(), layerInter, h)
+			}
+		}
+
+		// BF16 down projection output for Gemma3
+		if cfg.ModelType == "gemma3_text" {
+			simd.ToBF16(down)
+		}
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "down", down)
+		}
+
+		// Post-FFN norm (Gemma3)
+		if layer.PostFFNNorm != nil {
+			if cfg.ModelType == "gemma3_text" {
+				rmsNormBF16(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
+			} else {
+				rmsNormInPlace(down, layer.PostFFNNorm.Data(), float32(cfg.RMSNormEps))
+			}
+		}
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "down_postffn", down)
+		}
+
+		// Residual
+		simd.VecAdd(hidden, residual, down)
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "hidden_post_ffn", hidden)
+		}
+
+		// Per-layer input gating (Gemma4)
+		if layer.PLIGate != nil && perLayerInputs != nil && l < len(perLayerInputs) {
+			hpl := cfg.HiddenPerLayer
+			pli := perLayerInputs[l]
+			// gate = gelu(per_layer_input_gate(h)) * per_layer_input → [hiddenPerLayer]
+			gate2 := scratchPLIGate[:hpl]
+			gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
+			if cfg.ModelType == "gemma4_text" {
+				ggmlGELUMulInPlace(gate2, pli)
+			} else {
+				simd.GELUTanhMul(gate2, gate2, pli)
+			}
+			// proj = per_layer_projection(gate) → [hidden]
+			proj2 := scratchPLIProj
+			gemvNT(proj2, gate2, layer.PLIProj, hpl, h)
+			// norm
+			rmsNormInPlace(proj2, layer.PLIPostNorm, float32(cfg.RMSNormEps))
+			// residual add
+			simd.VecAdd(hidden, hidden, proj2)
+		}
+		if debugOpHook != nil {
+			debugOpHook("cpu", pos, l, "hidden_post_pli", hidden)
+		}
+		// Layer scalar (Gemma4)
+		if layer.LayerScalar != 1.0 {
+			simd.VecScale(hidden, hidden, layer.LayerScalar)
+		}
+		if cfg.ModelType == "gemma3_text" {
+			simd.ToBF16(hidden)
+		}
+		if debugLayerHook != nil {
+			debugLayerHook("cpu", pos, l, hidden)
+		}
+	}
+
+	// LM head: logits = final_norm(hidden) @ lm_head^T (greedy: take argmax)
+	if pos >= len(output)-1 {
+		finalActivation, stepLogits, maxIdx, err := m.finishCPUDecodeStep(hidden)
+		if err != nil {
+			panic(err)
+		}
+		if debugLogitsHook != nil {
+			debugLogitsHook("cpu", pos, finalActivation, stepLogits)
+		}
+		return maxIdx, stepLogits, true, nil
+	}
+	return 0, nil, false, nil
 }
