@@ -1,7 +1,10 @@
 package model
 
 import (
+	"errors"
 	"fmt"
+
+	"github.com/rcarmo/go-pherence/loader/gguf"
 
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -121,6 +124,15 @@ func (m *LlamaModel) FinishCPUDecodeBatch(hiddenRows [][]float32) (finalActivati
 		if simd.DenseNTTo(flatLogits, flatHidden, lmData, B, vocab, h, 1.0, h, h, vocab) {
 			softcapNeeded = true
 			goto logitsDone
+		}
+	} else if m.LMHeadGGUF != nil && B == 8 {
+		// Real E4B Q6_K measurements retain the batched LM head only at B8;
+		// B2 and B4 regress versus the established per-row GEMV fallback.
+		if qerr := m.LMHeadGGUF.ProjectBatchF32To(flatLogits, flatHidden, B); qerr == nil {
+			softcapNeeded = true
+			goto logitsDone
+		} else if !errors.Is(qerr, gguf.ErrUnsupportedBatchProjection) {
+			return nil, nil, nil, fmt.Errorf("batched GGUF LM head: %w", qerr)
 		}
 	}
 	for i := 0; i < B; i++ {
