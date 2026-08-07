@@ -19,7 +19,7 @@ Hardware: RTX 3060 12GB (sm_86, Ampere) + i7-12700 6-core + 64GB DDR4
 
 ## Gemma4 request-scoped inference snapshot
 
-The [Gemma4 performance-gap programme](../benchmarks/gemma4-gap/README.md) freezes a same-GGUF llama.cpp CPU/CUDA oracle for the 124-token agentic shape and records the measured go-pherence hotspots. Its first profile attributes 84.23% of CPU samples to scalar packed Q4_0/Q6_K row-dot loops; retained work must improve complete prompt/decode timing while preserving the frozen output.
+The [Gemma4 performance-gap programme](../benchmarks/gemma4-gap/README.md) and [CPU SIMD gap note](gemma4-cpu-simd-gap.md) freeze a same-GGUF, CUDA-disabled llama.cpp b607 oracle for a 124-token prompt plus 47 generation evaluations. The accepted oracle is 91.230 prompt tok/s and 10.526 generation eval tok/s; the retained Go medians are 38.808 and 8.753 respectively. The latest profile attributes 83.48% of flat CPU samples to the exact one-row/eight-token Q4_0 AVX-VNNI prefill tile. Any retained work must improve complete phase timing while preserving the frozen activations, logits, 48 output IDs, K/V state and legacy FP32 reduction order.
 
 The final [Gemma4 vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) record the official E4B QAT Q4_0 workload. Retained results include sub-millisecond full-prefix restore, decode-first quantum 1 as a latency control, and B8-only Q4/Q6 projection specialisations. Static serving batches, paged KV and full CUDA Graph capture were rejected by measured latency, memory or ownership gates. NVIDIA graph timings cover a fixed kernel segment, not a stateful Gemma4 session.
 

@@ -1,64 +1,75 @@
-## Gemma4 E4B CPU SIMD gap
+# Gemma4 E4B CPU SIMD gap
 
-This note tracks the awkward part of the Gemma4 E4B CPU work: the model now has an exact layer-batched prefill path, but exactness keeps the Q4_0 kernel far away from llama.cpp's packed GEMM throughput. All measurements below use six Alder Lake cores, `taskset -c 0-5`, `GOMAXPROCS=6`, and the Google QAT Q4_0 model at `models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf`.
+This note tracks the exact CPU optimisation work for the Gemma4 E4B Google QAT Q4_0 model at `models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf`. The canonical benchmark contract, raw oracle evidence and current reproduction commands live in the [Gemma4 CPU performance-gap programme](../benchmarks/gemma4-gap/README.md).
 
-The comparison oracle is 447.166 prefill tokens/s and 9.310 decode tokens/s. The 98% gates are therefore 438.223 and 9.124 tokens/s.
+All accepted measurements use six pinned Intel Core i7-12700 logical CPUs (`taskset -c 0-5`, `GOMAXPROCS=6`). Optimisations must preserve bit-exact activations, logits, generated tokens, K/V state, blockwise FP32 accumulation, eight lane accumulators and the legacy final reduction order.
+
+## Accepted comparison contract
+
+The frozen request evaluates BOS token `2` plus 123 copies of token `10979`, for 124 timed prompt tokens. Prefill returns the first output as an untimed generation boundary; generation timing then covers exactly 47 subsequent evaluations. The gate checks all 48 Go output IDs, including the boundary token.
+
+The accepted oracle is a CUDA-disabled rcarmo/llama.cpp b607 (`065d9d501`) build with CPU flash attention, F32 K/V and the exact Go evaluated-token trajectory replayed after the prompt. Six adjacent samples establish these medians and 98% gates:
+
+| Phase | CPU-only llama.cpp oracle | 98% gate |
+|---|---:|---:|
+| 124-token prompt | 91.2296 tok/s | 89.4050 tok/s |
+| 47 generation evaluations | 10.5265 eval tok/s | 10.3159 eval tok/s |
+
+The former 447.166 prompt tok/s and 9.310 decode tok/s comparison is invalid. It came from a CUDA-enabled binary where `-ngl 0` did not produce CPU-only execution. `-ngl 0` is used in the accepted command only after the audit binary proves that it has no GPU backend (`"backends": "CPU"`, empty `gpu_info`).
 
 ## What is retained
 
-Long prefill uses an AVX-VNNI one-weight-row by eight-token kernel. Each output keeps the legacy eight FP32 lane accumulators, including blockwise FMA and final reduction order, so the batched path remains bit-identical to sequential execution. Each eight-token input block now has structure-of-arrays layout: eight contiguous FP32 scales followed by eight contiguous Q8 vectors. One packed scale load and multiply replaces eight scalar scale sequences without changing arithmetic. One hundred randomized 1--80-block comparisons are bit-exact. Five paired hot-kernel runs improved by 12.7--16.5%, and writing quantization into preallocated activation storage reduced a representative batch-124 projection from 141 to 17 allocations and from about 1.09MiB to 0.70MiB per call.
+Long prefill uses an AVX-VNNI one-weight-row/eight-token kernel. Each output keeps the legacy eight FP32 lane accumulators, blockwise FMA and final reduction order, so the batched path remains bit-identical to sequential execution. Each eight-token Q8_0 input tile uses a structure-of-arrays layout: eight contiguous FP32 scales followed by eight contiguous Q8 vectors. One packed scale load and multiply replaces eight scalar scale sequences without changing arithmetic. Randomised 1--80-block comparisons are bit-exact.
 
-The preceding block-major layout had already improved the alternating end-to-end median from 26.027 to 26.804 tokens/s (2.98%). The structure-of-arrays projection benchmark has a favorable median, but real-model runs remain too sensitive to unrelated host load to claim another stable end-to-end percentage: adjacent samples have moved by 10--30% in either direction while the paired kernel result remains stable. The full 124-token activation, logits, token, and K/V comparison passes exactly, so the layout is retained on the stronger isolated evidence rather than a cherry-picked model sample.
+Q8_0 activation quantisation now writes directly into caller-owned storage across contiguous worker spans. The parallel and serial paths produce identical scales and quantised bytes, retain oversized-slice behaviour and pass the race detector. Alternating baseline/candidate runs moved complete prompt throughput from a 30.932 tok/s median to 38.691 tok/s (+25.1%). A subsequent retained three-run check measured 32.227, 38.808 and 39.741 prompt tok/s, giving a 38.808 tok/s median.
 
-Decode also avoids a 512-byte Q6_K coefficient temporary per block. On AVX-VNNI hosts the retained kernel fuses the complete multi-block GEMV in assembly, uses the existing sixteen Q8_K sums with `VPMADDWD` to form the unsigned-Q6 correction once per block, and expands each eight-byte scale half once before selecting scale pairs with `VPERMD`. Blockwise FP32 multiplication and accumulation remain in their original order. One hundred randomized 1--10-block comparisons are bit-exact against the prior Go loop. Five alternating 2560-element measurements put the fused path at 111.8--214.9ns against 159.0--300.6ns for that loop, a stable 39.9--42.2% throughput gain across frequency states.
+Decode retains the fused Q6_K multi-block AVX-VNNI GEMV and the eight-row Q4_0 kernel with a precomputed per-block `8*q8` correction. These remove repeated coefficient expansion and correction work while preserving the legacy blockwise FP32 result. Current generation samples are 8.144, 8.753 and 9.344 eval tok/s, giving an 8.753 eval tok/s median.
 
-The Q4_0 decode kernel first moved to four weight rows per Q8 activation load, retaining four independent eight-lane FP32 accumulators and replacing per-row signed-byte transforms with the unsigned identity `q4*q8 - 8*q8 == (q4-8)*q8`. It now evaluates eight adjacent rows per call and consumes a precomputed per-block `8*q8` correction, so the correction dot is paid once during Q8 quantization rather than once per row group. One hundred randomized 1--80-block comparisons remain bit-exact, including tails that fall back to four or scalar rows. Adjacent alternating 2560-element measurements put the eight-row kernel 2.1--2.9% ahead of two four-row calls; the larger gain comes from removing repeated correction work across all row groups.
+| Runtime | Prompt | Generation | Oracle efficiency |
+|---|---:|---:|---:|
+| CPU-only llama.cpp b607, exact phases | 91.230 tok/s | 10.526 eval tok/s | 100% / 100% |
+| Go, retained median | 38.808 tok/s | 8.753 eval tok/s | 42.5% / 83.2% |
 
-The final five-sample real-model decode gate measured 8.166, 9.453, 9.418, 8.447, and 9.294 tokens/s. The 9.294 median is 99.8% of the 9.310 llama.cpp oracle and exceeds the 9.124 acceptance threshold; three individual samples also passed. A subsequent profile-bearing run measured 9.220 tokens/s. Host frequency remains visibly bimodal, so the median rather than a single best sample is the acceptance result.
+Neither phase currently passes its corrected 98% gate. Decode is 16.8% below the oracle; prefill remains 57.5% below it.
 
 ## What was rejected
 
-The four-weight-row by two-token Q4_0 tile preserves exact reduction order but reduced prefill to 20.53--21.15 tokens/s. Rewriting it around the unsigned-Q4 correction made it only 2--4% slower than the retained token tile in paired microbenchmarks, but it still lost in the real projection path. A two-row by four-token tile went 2.6--4.2% faster in five paired kernel runs by reusing each Q8 load, yet lost four of five end-to-end pairs by 4.9--7.6%; its extra weight passes and scatter overhead outweigh the isolated gain.
+The four-weight-row/two-token Q4_0 tile preserves exact reduction order but reduced prefill to 20.53--21.15 tok/s. Rewriting it around the unsigned-Q4 correction narrowed the isolated-kernel loss, but it still lost in the real projection path. A two-row/four-token tile improved its isolated kernel by 2.6--4.2%, then lost four of five end-to-end pairs by 4.9--7.6% because extra weight passes and scatter overhead outweighed activation reuse.
 
-Gathering eight activation scales into a packed vector was exact but 1--4% slower in four of five paired runs. The retained structure-of-arrays layout gets the same packed scale arithmetic from one contiguous load instead.
+Splitting the retained eight-token tile into two four-token passes freed four YMM registers and allowed two VNNI dependency chains to overlap. It remained exact, but longer pinned samples regressed from an 812 ns median to 1,009 ns because every Q4 block had to be loaded and decoded twice.
 
-A direct signed-byte `VPDPBSSD` replacement is illegal on this Alder Lake host. `avx_vnni` provides `VPDPBUSD`; signed-byte `VPDPBSSD` requires the newer AVX-VNNI-INT8 extension. The prefill token kernel therefore keeps `VPABSB` plus `VPSIGNB`, followed by unsigned-by-signed `VPDPBUSD`; decode uses the unsigned-Q4 correction described above.
+Gathering eight activation scales into a packed vector was exact but 1--4% slower in four of five paired runs. The retained structure-of-arrays layout obtains the same packed scale arithmetic from one contiguous load. Flat-interleaved activation and persistent-worker variants also regressed the complete request.
 
-A llama.cpp-style packed reduction is not an exact substitute for the legacy contract. It reduces a whole 32-element block to one integer before FP32 accumulation, while go-pherence maintains eight FP32 partial accumulators until the final reduction. A deterministic random probe differed in 877 of 1000 cases; the first mismatch was 5479.129 versus 5479.1265. Promoting that reduction would require an explicit contract change, not a kernel refactor disguised as one.
+A direct signed-byte `VPDPBSSD` replacement is unavailable on this Alder Lake host. `avx_vnni` provides `VPDPBUSD`; signed-byte `VPDPBSSD` requires AVX-VNNI-INT8. The prefill kernel therefore keeps `VPABSB` plus `VPSIGNB`, followed by unsigned-by-signed `VPDPBUSD`.
 
-Fully unrolling the fused Q6_K block dot also lost. It remained exact across 1000 random blocks and halved the packed-source loads by reusing QL/QH bytes for low and high groups, but increased the median from 27.79ns to 29.49ns per block. The smaller looped kernel has a better instruction footprint on this CPU.
+A llama.cpp-style packed reduction is not an exact substitute for the legacy contract. It reduces a complete 32-element block to one integer before FP32 accumulation, while go-pherence keeps eight FP32 partial accumulators until final reduction. A deterministic random probe differed in 877 of 1,000 cases. Fully unrolling the fused Q6_K block dot was exact across 1,000 random blocks, but increased its median from 27.79 ns to 29.49 ns.
 
 ## Where the time goes
 
-A prefill-only CPU profile of the earlier block-major kernel measured 27.767 tokens/s and 14.38 CPU-seconds over 4.47 wall-seconds. `dotQ4_0Q8_0Tokens8VNNI` accounted for 81.08% of CPU samples. Worker scaling was 8.228, 13.792, 18.903, 21.454, and 23.812 tokens/s at 1, 2, 3, 4, and 6 workers respectively, which is the signature of a memory-bound exact kernel rather than a missing goroutine. A phase-specific structure-of-arrays profile attributes 83.38% of samples to `dotQ4_0Q8_0Tokens8SoAVNNI`; repeated Q8 vector loads are its dominant sampled instructions. That run overlapped unrelated host work and is retained for attribution, not throughput.
+The latest phase-specific profile attributes 83.48% of flat CPU samples to `dotQ4_0Q8_0Tokens8SoAVNNI`. Eliminating every remaining non-Q4 sample would move 38.8 tok/s only to roughly 46.5 tok/s. Closing the prompt gap therefore requires a materially faster exact Q4 matrix tile rather than more scheduling or allocation work.
 
-The final decode-only profile measured 9.220 tokens/s and 20.73 CPU-seconds over 5.21 wall-seconds. `dotQ4_0Q8_0x8VNNI` accounted for 74.19% of samples and the fused Q6_K GEMV for 19.44%; quantization, dense rows, activation functions, and runtime overhead were each below 1.4%. Decode has crossed its acceptance gate, and Q4_0 remains the only meaningful target if additional headroom is required.
+AVX2 has sixteen YMM registers. One exact output occupies one full YMM accumulator to preserve its eight FP32 partial sums, leaving room for eight outputs plus unpack, scale and dot-product temporaries. llama.cpp obtains greater arithmetic intensity by choosing a different reduction scheme and tiling more rows and tokens together. Ordinary row repacking does not remove this register constraint.
 
-AVX2 has sixteen YMM registers. One exact Q4_0 output needs one full YMM accumulator to retain its eight FP32 partial sums, leaving room for only eight outputs plus unpack, scale, and dot-product temporaries. llama.cpp gets its arithmetic intensity by changing the reduction contract and tiling many rows and tokens together. Closing the remaining prefill gap therefore needs either a wider canonical reduction contract with new frozen outputs, or another way to reproduce the eight-lane result without rereading weights and activations. Ordinary row repacking does not remove that register constraint.
+## Reproduction and validation
 
-## Reproduction and gates
+The CPU oracle requires the CUDA-disabled b607 audit build and the F32-KV source defaults captured by `benchmarks/gemma4-gap/audit/llama-b607-exact-cpu.patch`:
+
+```bash
+MODEL="$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+taskset -c 0-5 /workspace/tmp/llama-b607-cpu/build-cpu/bin/llama-bench \
+  -m "$MODEL" -p 0 -n 0 -pg 124,47 -r 3 -t 6 -ngl 0 -fa auto -o json
+```
+
+The Go side uses the same pinned CPUs and phase boundaries:
 
 ```bash
 mkdir -p .gotmp
-export GOTMPDIR=$PWD/.gotmp GOMAXPROCS=6
-export GO_PHERENCE_GEMMA4_MAIN=$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf
-
-GO_PHERENCE_GEMMA4_GAP_REAL=1 \
-  taskset -c 0-5 go test ./model \
-  -run '^TestGemma4RealCPUGap124x48$' -count=5 -v
-
-GO_PHERENCE_GEMMA4_GAP_REAL=1 \
-GO_PHERENCE_GEMMA4_PREFILL_ONLY=1 \
-GO_PHERENCE_GEMMA4_PREFILL_CPU_PROFILE=$PWD/tmp/prefill.pprof \
-  taskset -c 0-5 go test ./model \
-  -run '^TestGemma4RealCPUGap124x48$' -count=1 -v
-
-GO_PHERENCE_GEMMA4_PREFILL_CANDIDATE_REAL_LONG=1 \
-  taskset -c 0-5 go test ./model \
-  -run '^TestGemma4LegacyPrefillCandidate124RealParity$' -count=1 -v
-
-taskset -c 0-5 go test ./loader/gguf ./model -count=1
-taskset -c 0-5 go test -race ./loader/gguf ./model -count=1
+taskset -c 0-5 env \
+  GOMAXPROCS=6 GOTMPDIR="$PWD/.gotmp" \
+  GO_PHERENCE_GEMMA4_GAP_REAL=1 \
+  GO_PHERENCE_GEMMA4_MAIN="$MODEL" \
+  go test ./model -run '^TestGemma4RealCPUGap124x48$' \
+  -count=3 -v -timeout=10m
 ```
 
-The regular loader/model suite, race suite, exact real-model 124-token comparison, `git diff --check`, and Linux arm64/riscv64 compile-only checks pass. Hardware counter attribution is unavailable on this machine because `perf_event_paranoid=4`; phase-separated Go CPU profiles and alternating A/B runs are the reproducible fallback.
+The retained checkpoint passes focused loader/model tests, focused vet, serialised race tests, exact real-model trajectory checks, `git diff --check`, and Linux arm64/riscv64 compile-only gates. Repository-wide `go test ./...` and `go vet ./...` remain blocked by unrelated pre-existing SpacemiT, diffusion, assembly, unsafe-pointer and Vulkan failures; those failures are not evidence against this CPU checkpoint. Hardware counters are unavailable because `perf_event_paranoid=4`, so phase-separated Go profiles and pinned alternating measurements are the reproducible fallback.

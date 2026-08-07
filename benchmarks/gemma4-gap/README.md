@@ -67,4 +67,4 @@ taskset -c 0-5 env \
   -count=3 -v -timeout=10m
 ```
 
-Promotion also requires the focused exact Q4/Q8 tests, `go vet`, serialised race tests, the full package suite, and arm64/riscv64 compile checks. CUDA work stays out of this programme until the CPU path reaches the 2% gate--otherwise GPU numbers merely make the unresolved CPU kernel harder to see.
+The retained checkpoint passes focused exact Q4/Q8 tests, focused `go vet`, serialised race tests, exact real-model trajectory checks, `git diff --check`, and arm64/riscv64 compile gates. Repository-wide `go test ./...` and `go vet ./...` remain blocked by unrelated pre-existing SpacemiT, diffusion, assembly, unsafe-pointer and Vulkan failures; those failures are tracked separately rather than attributed to this work. CUDA work stays out of this programme until the CPU path reaches the 2% gate--otherwise GPU numbers merely make the unresolved CPU kernel harder to see.
