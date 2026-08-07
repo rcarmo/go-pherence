@@ -49,3 +49,10 @@ A real-GGUF request-scoped SIMD session completed its frozen one-token gate in 8
 ## Packed Q4_0 x Q8_0 AVX2 slice
 
 The first amd64 kernel preserves the existing eight-lane FMA and reduction order and retains the scalar implementation for non-amd64 builds. On the i7-12700, the 2560-element row-dot improved from 2.24-3.17us to 0.22-0.44us across three focused samples. The frozen real-GGUF two-token session gate improved from 8.19s to 4.22s and retained exact output. A follow-up profile moves the primary flat hotspot to scalar `DotQ6KQ8K` at 45.13%; packed Q4_0 remains 20.29% and syscall/model-loading samples account for 22.56%. This is retained as an intermediate slice but does not satisfy the 98% end-to-end gate.
+
+## Q6 implementation constraints
+
+* cgo is prohibited. The Q6 kernel must be native Go amd64 assembly with a pure-Go fallback; no llama.cpp runtime linkage is acceptable.
+* A build-time `c2goasm` translation experiment was rejected. The maintained converter did not recognise the current GCC/Clang AVX2 instruction syntax and emitted comments rather than instruction encodings, so its output was neither executable nor reviewable.
+* The retained design must operate above the isolated row-dot seam as well: x4/x8 output-row unrolling reuses each Q8 activation block, exposes independent accumulators for instruction-level parallelism, and removes per-row calls. Scalar remainder rows preserve exact output.
+* Prompt work uses separate token tiling and activation-quantisation reuse. Decode and prefill are promoted independently against their 98% fork thresholds.
