@@ -607,7 +607,8 @@ func LaunchKernel(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, blockZ uin
 	cudaMu.Lock()
 	defer cudaMu.Unlock()
 	ensureContextLocked()
-	if r := cuLaunchKernel(fn, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem, 0, argPtrs, nil); r != CUDA_SUCCESS {
+	stream := uintptr(captureLaunchStream)
+	if r := cuLaunchKernel(fn, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem, stream, argPtrs, nil); r != CUDA_SUCCESS {
 		return fmt.Errorf("cuLaunchKernel: error %d", r)
 	}
 	if gpuStatsEnabled.Load() {

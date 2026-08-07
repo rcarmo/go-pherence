@@ -15,6 +15,7 @@ package nvidia
 import (
 	"fmt"
 	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
+	"runtime"
 	"unsafe"
 )
 
@@ -49,11 +50,13 @@ var (
 	cuGraphDestroy       func(CUgraph) CUresult
 	cuGraphExecDestroy   func(CUgraphExec) CUresult
 
-	// Prefetch stream and events
-	prefetchStream CUstream
-	computeEvent   CUevent
-	prefetchEvent  CUevent
-	streamsReady   bool
+	// Prefetch stream, graph-capture stream, and events
+	prefetchStream      CUstream
+	graphCaptureStream  CUstream
+	captureLaunchStream CUstream
+	computeEvent        CUevent
+	prefetchEvent       CUevent
+	streamsReady        bool
 )
 
 // initStreams creates CUDA streams and events for overlapped execution.
@@ -71,12 +74,27 @@ func initStreams() error {
 	if r := cuStreamCreate(&prefetchStream, 1); r != CUDA_SUCCESS { // CU_STREAM_NON_BLOCKING = 1
 		return fmt.Errorf("create prefetch stream: error %d", r)
 	}
+	if r := cuStreamCreate(&graphCaptureStream, 1); r != CUDA_SUCCESS {
+		cuStreamDestroy(prefetchStream)
+		prefetchStream = 0
+		return fmt.Errorf("create graph capture stream: error %d", r)
+	}
 
-	// Create sync events (disable timing for lower overhead)
+	// Create sync events (disable timing for lower overhead).
 	if r := cuEventCreate(&computeEvent, 2); r != CUDA_SUCCESS { // CU_EVENT_DISABLE_TIMING = 2
+		cuStreamDestroy(graphCaptureStream)
+		cuStreamDestroy(prefetchStream)
+		graphCaptureStream = 0
+		prefetchStream = 0
 		return fmt.Errorf("create compute event: error %d", r)
 	}
 	if r := cuEventCreate(&prefetchEvent, 2); r != CUDA_SUCCESS {
+		cuEventDestroy(computeEvent)
+		cuStreamDestroy(graphCaptureStream)
+		cuStreamDestroy(prefetchStream)
+		computeEvent = 0
+		graphCaptureStream = 0
+		prefetchStream = 0
 		return fmt.Errorf("create prefetch event: error %d", r)
 	}
 
@@ -153,6 +171,19 @@ func SyncAll() {
 
 // --- CUDA Graph support ---
 
+// GraphsReady reports whether CUDA graph capture/replay entry points are loaded.
+func GraphsReady() bool {
+	if !Init() {
+		return false
+	}
+	return cuStreamBeginCapture != nil &&
+		cuStreamEndCapture != nil &&
+		cuGraphInstantiate != nil &&
+		cuGraphLaunch != nil &&
+		cuGraphDestroy != nil &&
+		cuGraphExecDestroy != nil
+}
+
 // CapturedGraph holds an instantiated CUDA graph for replay.
 type CapturedGraph struct {
 	graph CUgraph
@@ -161,14 +192,26 @@ type CapturedGraph struct {
 
 // BeginCapture starts capturing GPU operations on the default stream.
 func BeginCapture() error {
+	if !GraphsReady() {
+		return fmt.Errorf("CUDA graphs not available")
+	}
 	if !streamsReady {
 		if err := initStreams(); err != nil {
 			return err
 		}
 	}
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
+	if graphCaptureStream == 0 {
+		return fmt.Errorf("CUDA graph capture stream unavailable")
+	}
+	captureLaunchStream = graphCaptureStream
 	// CU_STREAM_CAPTURE_MODE_GLOBAL = 0
-	if r := cuStreamBeginCapture(0, 0); r != CUDA_SUCCESS {
+	if r := cuStreamBeginCapture(graphCaptureStream, 0); r != CUDA_SUCCESS {
+		captureLaunchStream = 0
 		return fmt.Errorf("begin capture: error %d", r)
 	}
 	return nil
@@ -176,9 +219,21 @@ func BeginCapture() error {
 
 // EndCapture stops capturing and instantiates the graph.
 func EndCapture() (*CapturedGraph, error) {
-	EnsureContext()
+	if !GraphsReady() {
+		return nil, fmt.Errorf("CUDA graphs not available")
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
+	stream := captureLaunchStream
+	captureLaunchStream = 0
+	if stream == 0 {
+		return nil, fmt.Errorf("CUDA graph capture not active")
+	}
 	var g CUgraph
-	if r := cuStreamEndCapture(0, &g); r != CUDA_SUCCESS {
+	if r := cuStreamEndCapture(stream, &g); r != CUDA_SUCCESS {
 		return nil, fmt.Errorf("end capture: error %d", r)
 	}
 
@@ -196,7 +251,14 @@ func (cg *CapturedGraph) Launch() error {
 	if cg == nil || cg.exec == 0 {
 		return fmt.Errorf("nil CUDA graph executable")
 	}
-	EnsureContext()
+	if cuGraphLaunch == nil {
+		return fmt.Errorf("CUDA graph launch unavailable")
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 	if r := cuGraphLaunch(cg.exec, 0); r != CUDA_SUCCESS {
 		return fmt.Errorf("graph launch: error %d", r)
 	}
@@ -208,11 +270,26 @@ func (cg *CapturedGraph) Destroy() {
 	if cg == nil {
 		return
 	}
-	if cg.exec != 0 {
-		cuGraphExecDestroy(cg.exec)
+	exec := cg.exec
+	graph := cg.graph
+	cg.exec = 0
+	cg.graph = 0
+	if exec == 0 && graph == 0 {
+		return
 	}
-	if cg.graph != 0 {
-		cuGraphDestroy(cg.graph)
+	if !gpuOK || gpuCtx == 0 {
+		return
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
+	if exec != 0 && cuGraphExecDestroy != nil {
+		cuGraphExecDestroy(exec)
+	}
+	if graph != 0 && cuGraphDestroy != nil {
+		cuGraphDestroy(graph)
 	}
 }
 
@@ -262,5 +339,10 @@ func shutdownStreams() {
 		cuStreamDestroy(prefetchStream)
 		prefetchStream = 0
 	}
+	if graphCaptureStream != 0 && cuStreamDestroy != nil {
+		cuStreamDestroy(graphCaptureStream)
+		graphCaptureStream = 0
+	}
+	captureLaunchStream = 0
 	streamsReady = false
 }
