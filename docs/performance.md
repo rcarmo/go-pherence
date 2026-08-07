@@ -19,6 +19,8 @@ Hardware: RTX 3060 12GB (sm_86, Ampere) + i7-12700 6-core + 64GB DDR4
 
 ## Gemma4 request-scoped inference snapshot
 
+The [Gemma4 performance-gap programme](../benchmarks/gemma4-gap/README.md) freezes a same-GGUF llama.cpp CPU/CUDA oracle for the 124-token agentic shape and records the measured go-pherence hotspots. Its first profile attributes 84.23% of CPU samples to scalar packed Q4_0/Q6_K row-dot loops; retained work must improve complete prompt/decode timing while preserving the frozen output.
+
 The final [Gemma4 vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) record the official E4B QAT Q4_0 workload. Retained results include sub-millisecond full-prefix restore, decode-first quantum 1 as a latency control, and B8-only Q4/Q6 projection specialisations. Static serving batches, paged KV and full CUDA Graph capture were rejected by measured latency, memory or ownership gates. NVIDIA graph timings cover a fixed kernel segment, not a stateful Gemma4 session.
 
 ## TurboFieldfare adoption snapshot
