@@ -49,3 +49,18 @@ func BenchmarkQ6KCoeffDotScalar(b *testing.B) {
 	}
 	q6CoeffBenchSink += sum
 }
+
+func TestQ6KCoeffDot8MatchesScalarPartitions(t *testing.T) {
+	var q8 [256]int8
+	var coeff [256]int16
+	var want, got [8]int32
+	for i := range q8 {
+		q8[i] = int8((i*17)%127 - 63)
+		coeff[i] = int16((i*29)%3969 - 1984)
+		want[(i/2)%8] += int32(q8[i]) * int32(coeff[i])
+	}
+	q6KCoeffDot8(&q8, &coeff, &got)
+	if got != want {
+		t.Fatalf("q6KCoeffDot8=%v want %v", got, want)
+	}
+}
