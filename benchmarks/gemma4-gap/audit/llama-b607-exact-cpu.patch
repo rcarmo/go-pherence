@@ -1,0 +1,78 @@
+diff --git a/tools/llama-bench/llama-bench.cpp b/tools/llama-bench/llama-bench.cpp
+index 075689388..5072424c4 100644
+--- a/tools/llama-bench/llama-bench.cpp
++++ b/tools/llama-bench/llama-bench.cpp
+@@ -378,2 +378,2 @@ static const cmd_params cmd_params_defaults = {
+-    /* type_k               */ { GGML_TYPE_F16 },
+-    /* type_v               */ { GGML_TYPE_F16 },
++    /* type_k               */ { GGML_TYPE_F32 },
++    /* type_v               */ { GGML_TYPE_F32 },
+@@ -2106 +2106 @@ static bool test_prompt(llama_context * ctx, int n_prompt, int n_batch, int n_th
+-        tokens[0]    = n_processed == 0 && llama_vocab_get_add_bos(vocab) ? llama_vocab_bos(vocab) : std::rand() % n_vocab;
++        tokens[0]    = n_processed == 0 && llama_vocab_get_add_bos(vocab) ? llama_vocab_bos(vocab) : 10979;
+@@ -2108 +2108 @@ static bool test_prompt(llama_context * ctx, int n_prompt, int n_batch, int n_th
+-            tokens[i] = std::rand() % n_vocab;
++            tokens[i] = 10979;
+@@ -2129 +2129,12 @@ static bool test_gen(llama_context * ctx, int n_gen, int n_threads) {
+-    llama_token token = llama_vocab_get_add_bos(vocab) ? llama_vocab_bos(vocab) : std::rand() % n_vocab;
++    static const llama_token exact_eval_tokens[47] = {
++        70990, 4941, 159371, 1390, 67109, 1485, 237064, 9120,
++        70846, 9120, 13063, 1390, 236743, 40594, 1390, 238007,
++        1390, 238122, 4829, 1390, 1390, 237307, 1390, 113858,
++        9222, 1390, 9222, 246293, 9222, 1390, 1390, 9222,
++        783, 82106, 9222, 246293, 236929, 4862, 237275, 1390,
++        237083, 237249, 244359, 238280, 236929, 395, 236782,
++    };
++    if (n_gen > 47) {
++        fprintf(stderr, "%s: exact audit supports at most 47 evaluations\n", __func__);
++        return false;
++    }
+@@ -2130,0 +2142,23 @@ static bool test_gen(llama_context * ctx, int n_gen, int n_threads) {
++    // Match the Go timed phase: observe/synchronize the boundary logits, then
++    // evaluate the exact 47 pending tokens selected by the Go trajectory.
++    // The scan result is deliberately ignored because numerical differences
++    // produce a different llama.cpp greedy trajectory.
++    volatile llama_token observed = 0;
++    auto observe_logits = [&]() -> bool {
++        const float * logits = llama_get_logits(ctx);
++        if (logits == nullptr) {
++            return false;
++        }
++        llama_token best = 0;
++        for (llama_token candidate = 1; candidate < n_vocab; candidate++) {
++            if (logits[candidate] > logits[best]) {
++                best = candidate;
++            }
++        }
++        observed = best;
++        return true;
++    };
++    if (!observe_logits()) {
++        fprintf(stderr, "%s: missing boundary logits\n", __func__);
++        return false;
++    }
+@@ -2131,0 +2166 @@ static bool test_gen(llama_context * ctx, int n_gen, int n_threads) {
++        llama_token token = exact_eval_tokens[i];
+@@ -2138 +2173,4 @@ static bool test_gen(llama_context * ctx, int n_gen, int n_threads) {
+-        token = std::rand() % n_vocab;
++        if (!observe_logits()) {
++            fprintf(stderr, "%s: missing generation logits\n", __func__);
++            return false;
++        }
+@@ -2139,0 +2178 @@ static bool test_gen(llama_context * ctx, int n_gen, int n_threads) {
++    (void) observed;
+@@ -2399,0 +2439,2 @@ int llama_bench(int argc, char ** argv) {
++            uint64_t t_prompt_ns = 0;
++            uint64_t t_gen_ns = 0;
+@@ -2401,0 +2443 @@ int llama_bench(int argc, char ** argv) {
++                uint64_t t_prompt_start = get_time_ns();
+@@ -2412,0 +2455 @@ int llama_bench(int argc, char ** argv) {
++                t_prompt_ns = get_time_ns() - t_prompt_start;
+@@ -2414,0 +2458 @@ int llama_bench(int argc, char ** argv) {
++                uint64_t t_gen_start = get_time_ns();
+@@ -2425,0 +2470 @@ int llama_bench(int argc, char ** argv) {
++                t_gen_ns = get_time_ns() - t_gen_start;
+@@ -2427,0 +2473,3 @@ int llama_bench(int argc, char ** argv) {
++            if (t.n_prompt > 0 && t.n_gen > 0) {
++                fprintf(stderr, "phase_sample rep=%d prompt_ns=%" PRIu64 " gen_ns=%" PRIu64 "\n", i + 1, t_prompt_ns, t_gen_ns);
++            }

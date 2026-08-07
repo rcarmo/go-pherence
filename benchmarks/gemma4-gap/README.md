@@ -1,87 +1,70 @@
-# Gemma4 performance-gap programme
+# Gemma4 CPU performance gap
 
-This programme uses llama.cpp as the implementation oracle for the same local Gemma4 E4B QAT Q4_0 GGUF. Optimisations are promoted only when output parity holds and the complete prompt/decode workload improves; isolated kernel gains are supporting evidence rather than acceptance.
+This programme compares `go-pherence` with a CUDA-disabled rcarmo/llama.cpp b607 (`065d9d501`) build on the same Gemma4 E4B QAT Q4_0 GGUF. The comparison is intentionally awkward: timings must describe the same phases, and Go's activations, logits, generated tokens, K/V state and FP32 lane reduction order must not move by a bit merely to make a chart look better.
 
-## Frozen workload
+The earlier 447.17 prompt tok/s result did exactly that last part wrong in a more mundane fashion--it came from a CUDA-enabled binary where `-ngl 0` did not produce a CPU-only execution. It is retained as [`llama-cuda-ngl0-invalid.json`](llama-cuda-ngl0-invalid.json), with an unambiguous name, and is not an oracle.
 
-* Model: `models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf`.
-* Hardware: Intel Core i7-12700 allocation with 6 cores/threads and an RTX 3060 12GiB.
-* Shape: 124 prompt tokens and 48 greedy output tokens, matching the compact agentic tool-selection workload.
-* rcarmo/llama.cpp build: b607 (`065d9d501`), from the `rcarmo-spacemit/main` worktree.
-* Oracle repetitions: five; CPU uses six threads and no offload, GPU uses all available layers.
+## Frozen request
+
+The model is `models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf`, running on six pinned Intel Core i7-12700 CPUs (`taskset -c 0-5`, `GOMAXPROCS=6`). The request has these exact boundaries:
+
+* Prompt preparation supplies 123 copies of token `10979`; Gemma4 adds BOS token `2`, giving 124 evaluated prompt tokens. `BeginPrefill` allocates and prepares the request outside the timed section, while `PrefillNext(124)` is the prompt measurement.
+* Prefill returns a boundary token before generation timing begins. The request exposes 48 output tokens, but only 47 subsequent model evaluations are timed.
+* The frozen Go trajectory is `[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]`. The real-model gate checks all 48 IDs.
+
+llama.cpp does not select that trajectory from the repeated-token prompt--its first greedy token is `10979`, whereas Go's is `70990`. For a useful performance comparison, the temporary b607 audit driver replays the 47 Go-selected pending tokens after evaluating the same prompt. It scans and synchronises logits on every step but ignores llama.cpp's selected ID. This measures identical matrix shapes and token-dependent MoE routing without pretending that the two implementations have cross-runtime logit parity.
+
+## The CPU-only oracle
+
+The audit build has no GPU backend (`"backends": "CPU"`, `"gpu_info": ""`, `n_gpu_layers: 0`). It uses a context sized for the combined 124-prompt/47-evaluation request, CPU flash-attention auto-selection, and F32 K/V storage. b607's command-line parser does not accept `f32` for `-ctk` or `-ctv`, so the audit source sets `GGML_TYPE_F32` as the local default before rebuilding.
+
+`llama-bench` normally adds its independent prompt and generation cases when `-pg` is supplied. Passing `-p 0 -n 0` leaves only the combined phase:
 
 ```bash
-llama-bench -m "$MODEL" -p 124 -n 48 -r 5 -t 6 -ngl 0 -o json
-llama-bench -m "$MODEL" -p 124 -n 48 -r 5 -t 6 -ngl 99 -o json
-
-GOMAXPROCS=6 GO_PHERENCE_GEMMA4_GAP_REAL=1 \
-  GO_PHERENCE_GEMMA4_MAIN="$MODEL" \
-  go test ./model -run TestGemma4RealCPUGap124x48 -count=3 -v -timeout=10m
+taskset -c 0-5 /workspace/tmp/llama-b607-cpu/build-cpu/bin/llama-bench \
+  -m "$MODEL" -p 0 -n 0 -pg 124,47 -r 3 -t 6 -ngl 0 -fa auto -o json
 ```
 
-## Oracle baseline
+Six F32-KV samples from two adjacent runs are pooled because this host has conspicuous shared-load outliers. The median is the mean of samples three and four after sorting:
 
-| Runtime | Backend | Prefill | Decode |
+| Phase | Sample times (s, sorted) | Accepted median | 98% gate |
 |---|---|---:|---:|
-| rcarmo/llama.cpp | CPU | 447.17 tok/s | 9.31 tok/s |
-| provisional system llama.cpp | RTX 3060 | 2,182.85 tok/s | 83.54 tok/s |
+| 124-token prompt | 1.2766, 1.3168, 1.3277, 1.3907, 1.4274, 1.4283 | 91.2296 tok/s | 89.4050 tok/s |
+| 47 generation evaluations | 4.3892, 4.3987, 4.4116, 4.5183, 6.7104, 7.5740 | 10.5265 tok/s | 10.3159 tok/s |
 
-Raw results are in [llama-cpu.json](llama-cpu.json) and [llama-gpu.json](llama-gpu.json). The GPU result remains provisional and is not an acceptance oracle. The Intel gates are at least 438.22 tok/s prefill and 9.12 tok/s decode -- 98% of the fork measurements.
+The temporary source changes are captured in [`audit/llama-b607-exact-cpu.patch`](audit/llama-b607-exact-cpu.patch). Raw phase telemetry is in [`audit/cpu_exact_go_trajectory_f32kv_124x47_r3.log`](audit/cpu_exact_go_trajectory_f32kv_124x47_r3.log) and [`audit/cpu_exact_go_trajectory_f32kv_paired_r3.log`](audit/cpu_exact_go_trajectory_f32kv_paired_r3.log); the adjacent JSON files record the b607 revision, CPU backend, K/V types and context parameters. The 6.71 s and 7.57 s generation samples are why a single pretty run is not accepted here.
 
-The earlier go-pherence MLX4 run is not a cross-runtime comparison because llama.cpp cannot load that format directly. It remains useful as a go-pherence backend check: the RTX 3060 produced 19.3 tok/s while CPU produced 1.4 tok/s, with byte-identical tool-call output.
+## Where Go now lands
 
-## First profile
+The retained long-prefill path quantises Q8_0 activations across six contiguous worker spans, then feeds the established one-row/eight-token SoA AVX-VNNI kernel. Block values remain byte-identical to serial `quantizeQ8_0To`; the focused exact test compares every scale and quantised byte, and running that worker-spawning test under the race detector covers concurrent writes into disjoint spans.
 
-A real-GGUF request-scoped SIMD session completed its frozen one-token gate in 8.19s. CPU samples identify two scalar quantised row-dot loops as the immediate decode gap:
+Alternating baseline/candidate runs moved the complete prompt median from 30.932 to 38.691 tok/s (+25.1%). A subsequent three-run contiguous-span check produced 32.227, 38.808 and 39.741 prompt tok/s, with 38.808 tok/s as the median. Generation code is unchanged and measured 8.144, 8.753 and 9.344 eval tok/s in the same run.
 
-| Function | Flat CPU samples |
-|---|---:|
-| `loader/gguf.DotQ4_0Q8_0` | 68.80% |
-| `loader/gguf.DotQ6KQ8K` | 15.43% |
-| Linux syscalls | 8.57% |
+| Runtime | Prompt | Generation | Oracle efficiency |
+|---|---:|---:|---:|
+| CPU-only llama.cpp b607, exact phases | 91.230 tok/s | 10.526 eval tok/s | 100% / 100% |
+| Go, retained median | 38.808 tok/s | 8.753 eval tok/s | 42.5% / 83.2% |
 
-`gemvRowsParallel` accounts for 87.31% cumulatively. The Q4_0 function currently reproduces llama.cpp's AVX2 reduction order in scalar Go; it does not call an AVX2 kernel. The first implementation slice is therefore a guarded packed Q4_0×Q8_0 amd64 primitive with exact-reference and portable-fallback gates, followed by Q6_K×Q8_K.
+The exact workload is therefore not within the 2% target. Decode has a comparatively small 16.8% gap, while prefill is short by 57.5%.
 
-## Promotion gates
+## Why the prompt gap is stubborn
 
-* Exact frozen generated-token parity and focused scalar-oracle parity.
-* No regression on unsupported architectures; arm64 and riscv64 cross-builds remain green.
-* Improvement in complete prefill/decode timing, not only the row-dot microbenchmark.
-* CPU and GPU results remain separate. NVIDIA work must retain quantised GGUF weights on device and eliminate measured host synchronisation before it can be compared with llama.cpp CUDA.
-* Stateful NVIDIA request sessions remain blocked until each request owns its device KV/cache state; legacy single-request timing must not be presented as serving parity.
+The useful techniques are already in the retained path: native AVX2/VNNI byte dots, row grouping for decode, one-row/eight-token activation tiling for prefill, SoA Q8 activation layout, six-way static row scheduling, vectorised Q6 coefficient expansion and now parallel contiguous activation quantisation. Four-row/two-token, flat-interleaved activation and persistent-worker variants were measured and removed because they regressed the complete request even when an isolated kernel looked promising.
 
-## Packed Q4_0 x Q8_0 AVX2 slice
+The latest profile attributes 83.48% of flat CPU samples to `dotQ4_0Q8_0Tokens8SoAVNNI`. Serial activation work was worth removing, but Amdahl's law has become rather blunt: eliminating every remaining non-Q4 sample would only move 38.8 to roughly 46.5 tok/s. Closing the rest requires a materially faster exact Q4 matrix tile.
 
-The first amd64 kernel preserves the existing eight-lane FMA and reduction order and retains the scalar implementation for non-amd64 builds. On the i7-12700, the 2560-element row-dot improved from 2.24-3.17us to 0.22-0.44us across three focused samples. The frozen real-GGUF two-token session gate improved from 8.19s to 4.22s and retained exact output. A follow-up profile moves the primary flat hotspot to scalar `DotQ6KQ8K` at 45.13%; packed Q4_0 remains 20.29% and syscall/model-loading samples account for 22.56%. This is retained as an intermediate slice but does not satisfy the 98% end-to-end gate.
+llama.cpp's prompt kernels can tile rows and tokens while choosing their own integer/FP32 accumulation scheme. Go deliberately retains eight independent FP32 lane accumulators and the legacy reduction order for every output. The tested four-row/two-token tile could not amortise both weight and activation traffic enough to compensate for that register pressure; the one-row/eight-token tile remains the fastest exact arrangement on this AVX2/VNNI machine. Wider reordering is not promoted unless all activations, logits, tokens and K/V state remain exact.
 
-## Q6 implementation constraints
+## Reproducing the Go side
 
-* cgo is prohibited. The Q6 kernel must be native Go amd64 assembly with a pure-Go fallback; no llama.cpp runtime linkage is acceptable.
-* A build-time `c2goasm` translation experiment was rejected. Its GNU fallback corrupted long routines by parsing listing addresses as opcode bytes; YASM fixed that encoding fault, but the resulting packed kernel still failed arithmetic parity. Generated byte directives are therefore not promoted.
-* A small handwritten AVX2 `int8×int16` 256-lane block primitive is retained as the next Q6 building block. It exactly matches scalar integer accumulation and measures 10.1-15.7 ns versus 112-138 ns scalar on the i7-12700. Its eight-accumulator form is also exact for explicitly partitioned inputs.
-* Rebuilding scaled coefficients for every 2560-element row and using the scalar-total AVX2 primitive improves a synthetic row dot from 5.1-7.9 µs to 2.2-2.6 µs. It changes the isolated row result by at most one ULP (`0.00012207031`) because it collapses llama.cpp's eight integer lanes before float accumulation; `DotQ6KQ8K` therefore remains the bit-exact oracle. The matrix-only path is retained because the frozen real E4B one-step trajectory improved from 4.22s to 3.46s and the two-step trajectory completed in 4.97s while preserving `[106,236789]`, session/legacy parity and checkpoint replay. An exact reordered variant was rejected at 6.2-9.3 µs even after moving activation shuffling into Q8_K quantisation. Full matrix coefficient pre-expansion was also rejected because the 262144×2560 LM head alone would require about 1.34 GB of additional storage.
-* The retained design must operate above the isolated row-dot seam as well: x4/x8 output-row unrolling reuses each Q8 activation block, exposes independent accumulators for instruction-level parallelism, and removes per-row calls. Scalar remainder rows preserve exact output.
-* Prompt work uses separate token tiling and activation-quantisation reuse. Decode and prefill are promoted independently against their 98% fork thresholds.
+```bash
+MODEL="$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+taskset -c 0-5 env \
+  GOMAXPROCS=6 GOTMPDIR="$PWD/.gotmp" \
+  GO_PHERENCE_GEMMA4_GAP_REAL=1 \
+  GO_PHERENCE_GEMMA4_MAIN="$MODEL" \
+  go test ./model -run '^TestGemma4RealCPUGap124x48$' \
+  -count=3 -v -timeout=10m
+```
 
-## Phase-separated Go measurements
-
-`TestGemma4RealCPUGap124x48` loads the model outside the timed regions, prepares exactly 124 tokens, then times 48 decode steps independently. The first retained Q6-fast measurement was 6.958 prefill tok/s and 3.471 decode tok/s, or 1.56% and 37.28% of the fork.
-
-The subsequent CPU profile attributes 64.13% of samples to `dotQ4_0Q8_0AVX2` and 27.16% to `dotQ6KQ8KGemvFast`. A Q4 output-row x4 kernel was therefore added to share Q8 activation loads and amortise calls across four matrix rows while preserving the exact per-row FMA/reduction order and scalar tails. Three warm end-to-end samples produced these medians:
-
-| Q4 matrix path | Prefill | Decode |
-|---|---:|---:|
-| Independent row control | 9.127 tok/s | 3.590 tok/s |
-| Output-row x4 | 9.001 tok/s | 4.279 tok/s |
-
-The x4 path improves decode by 19.2%, while prefill changes by -1.4% and remains effectively sequential. It is retained as a decode-oriented matrix improvement; it does not close either gate. Prefill now requires token tiling/GEMM rather than further row-only GEMV work. The checkpoint chart is [performance.svg](performance.svg).
-
-A bounded persistent GGUF row-worker pool was then tested to remove goroutine creation from each projection. It improved the noisy isolated 4096×2560 Q4 benchmark but regressed the phase-separated warm medians to 8.446 prefill tok/s and 4.187 decode tok/s (about -6.2% and -2.2% against the x4 checkpoint). Channel dispatch and cross-call scheduling did not beat Go's short-lived static chunks for this workload, so the pool was removed. Persistent workers are not sufficient without coarser token-tiled work items.
-
-The next profile showed that Q6 occupied 27.16% of CPU samples while the retained AVX2 coefficient dot itself occupied only 1.40%; Go coefficient expansion was the actual bottleneck. A handwritten AVX2 unpack/scale primitive now expands each 210-byte Q6_K block into 256 signed scaled coefficients. It matches the scalar coefficient oracle exactly, preserves the existing portable fallback, and reduces the 2560-element matrix row from 2.2-2.6 µs to a 0.51 µs median. Three full warm runs produced medians of 9.683 prefill tok/s and 6.884 decode tok/s: +7.6% prefill and +60.9% decode over the Q4 x4 checkpoint, reaching 2.17% and 73.94% of the fork. Frozen two-token output/session/replay, race safety and arm64/riscv64 cross-build gates pass. Decode remains below 98%, but coefficient expansion is no longer the dominant Q6 cost.
-
-The post-Q6 profile attributed 84.75% of samples to the Q4 x4 kernel. Its widen-to-int16 sequence was replaced with a saturation-safe signed byte-dot formulation using `VPSIGNB`, `VPABSB`, `VPMADDUBSW` and `VPMADDWD`; every pair is bounded to ±2048 before the int32 lane sum. The four-product lane boundaries and float reduction order remain unchanged, so the exact Q4 scalar oracle still passes. Against the saved word kernel, the noisy 4096×2560 x4 median improved from 192 µs to 177 µs. Full warm medians are 9.567 prefill tok/s and 7.919 decode tok/s: -1.2% prefill and +15.0% decode over Q6 SIMD, reaching 85.06% of the fork's decode rate and 86.83% of the 9.12 tok/s acceptance gate. Frozen real output/session/replay, race safety and arm64/riscv64 fallback builds pass.
-
-Precomputing eight exact Q8 correction lanes was also tested so the Q4 kernel could multiply unsigned nibbles directly and subtract `8×sum(q8)` instead of applying `VPSIGNB`/`VPABSB` per row. Although the exact oracle passed, it doubled each activation block from 36 to 68 bytes and regressed the isolated x4 median from 177 µs to 181 µs. The candidate was removed without a full model run.
-
-The retained Q4 kernel now packs two output rows into the independent 128-bit halves of each YMM accumulator. Both Q8 halves are broadcast once per block across the two row pairs, while each row keeps its original four-product integer lanes, scale, accumulation order and final reduction. The exact oracle passes and the immediately adjacent isolated x4 median falls from 185 µs to 131 µs (-29.2%). Full warm medians are 10.486 prefill tok/s and 7.980 decode tok/s: +9.6% prefill and +0.8% decode over the byte-dot checkpoint. Decode reaches 85.71% of the fork and 87.50% of the 9.12 tok/s gate. The modest decode transfer despite the large isolated gain indicates that memory scheduling and non-Q4 work now limit batch-1 decode; the larger prefill gain is retained.
+Promotion also requires the focused exact Q4/Q8 tests, `go vet`, serialised race tests, the full package suite, and arm64/riscv64 compile checks. CUDA work stays out of this programme until the CPU path reaches the 2% gate--otherwise GPU numbers merely make the unresolved CPU kernel harder to see.

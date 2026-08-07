@@ -1,0 +1,41 @@
+File: model.test
+Build ID: 765ba6cc98cf56081985749b9051522ec34ac7cd
+Type: cpu
+Time: 2026-08-07 22:49:16 WEST
+Duration: 4.46s, Total samples = 11.32s (253.83%)
+Showing nodes accounting for 11.13s, 98.32% of 11.32s total
+Dropped 29 nodes (cum <= 0.06s)
+      flat  flat%   sum%        cum   cum%
+     9.45s 83.48% 83.48%      9.45s 83.48%  github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens8SoAVNNI
+     0.54s  4.77% 88.25%      0.54s  4.77%  github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0x4TokensAVX2
+     0.23s  2.03% 90.28%      0.49s  4.33%  github.com/rcarmo/go-pherence/loader/gguf.quantizeQ8_0To
+     0.16s  1.41% 91.70%     10.16s 89.75%  github.com/rcarmo/go-pherence/loader/gguf.(*QuantMatrix).projectBatchQ4_0To.func1
+     0.13s  1.15% 92.84%      0.13s  1.15%  math.Float64bits (inline)
+     0.12s  1.06% 93.90%      0.29s  2.56%  github.com/rcarmo/go-pherence/internal/ggmlfp16.GELUFP16Lookup
+     0.10s  0.88% 94.79%      0.10s  0.88%  github.com/rcarmo/go-pherence/loader/gguf.(*QuantMatrix).projectBatchQ4_0To
+     0.09s   0.8% 95.58%      0.09s   0.8%  github.com/rcarmo/go-pherence/half.F32ToF16
+     0.09s   0.8% 96.38%      0.09s   0.8%  github.com/rcarmo/go-pherence/loader/gguf.dotQ6KQ8KGemvVNNIAsm
+     0.08s  0.71% 97.08%      0.10s  0.88%  github.com/rcarmo/go-pherence/half.F16ToF32
+     0.08s  0.71% 97.79%      0.11s  0.97%  math.Round (inline)
+     0.03s  0.27% 98.06%      0.32s  2.83%  github.com/rcarmo/go-pherence/model.ggmlGELUMulInPlace
+     0.01s 0.088% 98.14%      0.10s  0.88%  github.com/rcarmo/go-pherence/backends/simd/runtime.gqaAttentionScaleIntoSIMD
+     0.01s 0.088% 98.23%      9.46s 83.57%  github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens8SoA (inline)
+     0.01s 0.088% 98.32%      0.13s  1.15%  math.Abs (inline)
+         0     0% 98.32%      0.10s  0.88%  github.com/rcarmo/go-pherence/backends/simd/runtime.GQAAttentionScaleTo
+         0     0% 98.32%      0.10s  0.88%  github.com/rcarmo/go-pherence/loader/gguf.(*QuantMatrix).ProjectBatchF32To
+         0     0% 98.32%      0.09s   0.8%  github.com/rcarmo/go-pherence/loader/gguf.GemvQ6KQ8KRows.func1
+         0     0% 98.32%      0.54s  4.77%  github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens4 (inline)
+         0     0% 98.32%      0.09s   0.8%  github.com/rcarmo/go-pherence/loader/gguf.dotQ6KQ8KGemvFast
+         0     0% 98.32%      0.09s   0.8%  github.com/rcarmo/go-pherence/loader/gguf.dotQ6KQ8KGemvVNNI (inline)
+         0     0% 98.32%     10.25s 90.55%  github.com/rcarmo/go-pherence/loader/gguf.gemvRowsParallel.func1
+         0     0% 98.32%      0.49s  4.33%  github.com/rcarmo/go-pherence/loader/gguf.quantizeQ8_0BatchTo.func1
+         0     0% 98.32%      0.57s  5.04%  github.com/rcarmo/go-pherence/model.(*Gemma4DecodeSession).PrefillNext
+         0     0% 98.32%      0.07s  0.62%  github.com/rcarmo/go-pherence/model.(*LlamaModel).ProjectMTPVerifierLayerQKVBatch
+         0     0% 98.32%      0.10s  0.88%  github.com/rcarmo/go-pherence/model.(*LlamaModel).projBatchAny
+         0     0% 98.32%      0.57s  5.04%  github.com/rcarmo/go-pherence/model.(*LlamaModel).runLegacyCPUPrefillBatch
+         0     0% 98.32%      0.57s  5.04%  github.com/rcarmo/go-pherence/model.(*LlamaModel).runLegacyCPUPrefillBatchLayers
+         0     0% 98.32%      0.57s  5.04%  github.com/rcarmo/go-pherence/model.(*LlamaModel).runMTPVerifierBatchLayers
+         0     0% 98.32%      0.57s  5.04%  github.com/rcarmo/go-pherence/model.TestGemma4RealCPUGap124x48
+         0     0% 98.32%      0.29s  2.56%  github.com/rcarmo/go-pherence/model.ggmlGELUF32 (inline)
+         0     0% 98.32%      0.10s  0.88%  github.com/rcarmo/go-pherence/model.gqaAttentionScaleSoftcapInto
+         0     0% 98.32%      0.57s  5.04%  testing.tRunner

@@ -74,6 +74,16 @@ func TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches(t *tes
 	}
 }
 
+func TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices(t *testing.T) {
+	const batch = 8
+	m := syntheticQuantMatrix(t, gguf.QuantQ4_0, 256, 513)
+	x := make([]float32, batch*m.InDim+17)
+	dst := make([]float32, batch*m.OutDim+19)
+	if err := m.ProjectBatchF32To(dst, x, batch); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestQuantMatrixProjectBatchF32ToQ2KQ3KMatchesDequantRowOracle(t *testing.T) {
 	cases := []struct {
 		name   string

@@ -58,10 +58,8 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
 	}
 	blocksPerRow := m.InDim / qk8_0
 	q8 := make([]q8_0Block, batch*blocksPerRow)
-	for pos := 0; pos < batch; pos++ {
-		if err := quantizeQ8_0To(q8[pos*blocksPerRow:(pos+1)*blocksPerRow], x[pos*m.InDim:(pos+1)*m.InDim]); err != nil {
-			return err
-		}
+	if err := quantizeQ8_0BatchTo(q8, x[:batch*m.InDim], batch, m.InDim); err != nil {
+		return fmt.Errorf("quant matrix %s: %w", m.Name, err)
 	}
 	if batch >= 64 && supportsQ4_0Q8_0Rows4Tokens2() {
 		// Long prefill reuses each Q4_0 row across eight activation rows. Pack
@@ -129,6 +127,43 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
 		return fmt.Errorf("quant matrix %s: token-tiled projection failed", m.Name)
 	}
 	return nil
+}
+
+func quantizeQ8_0BatchTo(dst []q8_0Block, x []float32, batch, width int) error {
+	if batch <= 0 || width <= 0 || width%qk8_0 != 0 || len(dst) != batch*width/qk8_0 || len(x) != batch*width {
+		return fmt.Errorf("Q8_0 batch quantize destination blocks=%d len=%d batch=%d width=%d", len(dst), len(x), batch, width)
+	}
+	blocksPerRow := width / qk8_0
+	if batch < 64 || runtime.GOMAXPROCS(0) < 2 {
+		return quantizeQ8_0To(dst, x)
+	}
+	workers := runtime.GOMAXPROCS(0)
+	if workers > batch {
+		workers = batch
+	}
+	var wg sync.WaitGroup
+	var once sync.Once
+	var quantErr error
+	rowsPerWorker := (batch + workers - 1) / workers
+	for worker := 0; worker < workers; worker++ {
+		start := worker * rowsPerWorker
+		end := start + rowsPerWorker
+		if end > batch {
+			end = batch
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			if err := quantizeQ8_0To(dst[start*blocksPerRow:end*blocksPerRow], x[start*width:end*width]); err != nil {
+				once.Do(func() { quantErr = err })
+			}
+		}(start, end)
+	}
+	wg.Wait()
+	return quantErr
 }
 
 func (m *QuantMatrix) projectBatchQ5_0To(dst, x []float32, batch int) error {

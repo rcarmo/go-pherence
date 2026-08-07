@@ -1,0 +1,4 @@
+phase_sample rep=1 prompt_ns=1428329115 gen_ns=6710415501
+phase_sample rep=2 prompt_ns=1276643483 gen_ns=4389222978
+phase_sample rep=3 prompt_ns=1390734248 gen_ns=4398664212
+wall=24.344 user=125.011 sys=1.121
