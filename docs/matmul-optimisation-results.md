@@ -41,4 +41,4 @@ The GPU path remains **2.18x** faster than the final CPU path. Model loading is 
 
 The final focused matrix passes for SIMD runtime, GPTQ Q4, NVFP4, FP8, MLX, GGUF, tensor, BERT, Whisper, SpeechBrain, Hunyuan3D, Trellis2 and MOSS. Arm64 and riscv64 cross-builds pass for the shared SIMD and GGUF packages. Live RTX 3060 gates pass for Q4, FP8, the default SGEMM shape matrix and both Whisper attention candidates.
 
-Known unrelated red gates remain documented rather than hidden: two Gemma4 K=V verifier tests, three Vulkan parity tests, the arm64 AICPU missing-symbol build, and the existing standalone Whisper arm64 `simdfft.Precompute*` build issue.
+Known unrelated red gates remain documented rather than hidden: three Vulkan parity tests, the arm64 AICPU missing-symbol build, and the existing standalone Whisper arm64 `simdfft.Precompute*` build issue. The two Gemma4 K=V verifier failures recorded during this programme were subsequently fixed by deriving V from the original K projection before K-only normalisation; they are no longer broad-suite blockers.

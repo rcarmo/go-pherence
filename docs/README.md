@@ -11,6 +11,7 @@ The codebase covers ordinary local inference, large-model placement, speech, ima
 | Choose CPU, NVIDIA or another backend | [Backend selection](backend-selection.md) and [Tuning](tuning.md) |
 | Understand package ownership and execution flow | [Architecture](architecture.md), [Backend stack](backend-stack.md) and [Backend layout](backend-layout.md) |
 | Design or optimise an LLM inference runtime | [Practical LLM inference blueprint](llm-inference-blueprint.md) |
+| Review the measured Gemma4 inference programme | [vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) |
 | Transcribe or translate audio | [Whisper and translated VTT](whisper-diarize-vtt.md) |
 | Transcribe with speaker labels and timestamps | [MOSS transcription and diarisation](moss-transcribe-diarize.md) |
 | Work on speculative decoding or MTP | [MTP and speculative decoding](mtp-speculative.md) |

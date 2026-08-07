@@ -1,5 +1,7 @@
 # KVBoost application plan for go-pherence
 
+This is the original design plan. Its first in-memory reuse slice has been superseded by the model-neutral [`runtime/promptcache`](../runtime/promptcache/) contract and Gemma4 request snapshots documented in [architecture.md](architecture.md), [performance.md](performance.md) and the [frozen vLLM-leverage baseline](../benchmarks/vllm-leverage/gemma4-baseline.md). The remaining page/offload tiers are still proposals and should not be read as implemented behaviour.
+
 KVBoost reference: <https://pythongiant.github.io/KVBoost/> and <https://github.com/pythongiant/kvboost>.
 
 KVBoost combines four ideas:

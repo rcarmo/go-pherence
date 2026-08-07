@@ -72,7 +72,7 @@ Raw output: [`baseline-e7e482bc/selected-expert-compute.txt`](../benchmarks/turb
 
 The available Gemma4 E4B QAT GGUF reports 42 layers, KV width 1024 and a 131,072-token maximum context. Linear F32 K/V storage at that maximum is `45,097,156,608` bytes. A structural estimate with six full-attention layers and 36 sliding layers, a 1,024-token window and 128-token prefill allowance is `6,782,189,568` bytes (`15.04%` of linear storage).
 
-The estimate is deliberately labelled rather than presented as a measured runtime result: the generic GGUF loader does not currently expose the full layer mask from this checkpoint and cannot run it because tied `output.weight` resolution is incomplete. The F32 ring implementation must derive its layer types from the actual model loader before this estimate becomes an acceptance value.
+The estimate is deliberately labelled rather than presented as a measured runtime result: the ring prototype does not consume the complete loaded Gemma4 layer policy, even though ordinary inference now resolves the checkpoint's tied output correctly. The F32 ring implementation must derive its layer types from the actual model loader before this estimate becomes an acceptance value.
 
 Raw metadata and estimates:
 
@@ -134,7 +134,7 @@ Focused tests cover mixed sliding/full state, multiple wraps, split logical view
 
 A standalone FP16 ring halves physical KV bytes and remains allocation-free on append, but conversion is not free. At dim 512, F32 append is roughly `220--247ns`; FP16 append is `1.69--2.01µs`. Materialising a 4,224-token dim-512 ring to F32 is roughly `3.0ms` from F32 storage and `6.8--7.0ms` from FP16.
 
-Deterministic attention-like data measures approximately `2.43e-4` maximum K/V element error, `3.44e-5` score error and `3.72e-5` context error. These numbers are suitable for selecting model-level tolerances, not for enabling the path. The available Gemma4 E4B GGUF cannot execute because its tied `output.weight` is unresolved, so selected-logit and long-generation gates remain unavailable. FP16 stays experimental and unintegrated.
+Deterministic attention-like data measures approximately `2.43e-4` maximum K/V element error, `3.44e-5` score error and `3.72e-5` context error. These numbers are suitable for selecting model-level tolerances, not for enabling the path. The tied-output loader issue that originally blocked the available Gemma4 E4B GGUF has since been resolved for ordinary inference, but this FP16 ring candidate is still unintegrated and has no selected-logit or long-generation promotion gate. FP16 therefore remains experimental.
 
 Raw output: [`baseline-e7e482bc/fp16-ring-candidate.txt`](../benchmarks/turbo-fieldfare-adoption/baseline-e7e482bc/fp16-ring-candidate.txt).
 

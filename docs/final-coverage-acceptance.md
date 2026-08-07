@@ -1,6 +1,6 @@
 # Final backend coverage acceptance tracker
 
-This tracker maps the remaining acceptance criteria for practical backend coverage. Last reviewed on 2026-05-21 after the tree-split recovery, guard sweep, documentation refresh, Gemma4 packed-MTP smoke validation, E4B MTP target validation, and README documentation split.
+This tracker is the 2026-05-21 backend-coverage snapshot produced after the tree-split recovery, guard sweep, Gemma4 packed-MTP smoke validation and README documentation split. Its dated broad-suite results are historical evidence rather than a claim about the current tree; [validation-gates.md](validation-gates.md) records the current focused gates and known unrelated broad-suite failures.
 
 ## Acceptance criteria
 
@@ -8,12 +8,12 @@ This tracker maps the remaining acceptance criteria for practical backend covera
 |---|---|---|
 | All kernel coverage rows implemented or explicitly N/A with rationale | Locally current | Current tables document owner packages, checked runtime APIs, compatibility boundaries, malformed-input/overflow guards, and hardware/future paths with rationale. Remaining changes are hardware smoke or new optimized-kernel work. |
 | No backend-owned implementation remains in `model` or `runtime/quant` except compatibility wrappers | Locally complete | `runtime/quant` is wrapper-only; model/tensor/BERT code imports backend-owned packages and checked SIMD runtime APIs directly. Import-boundary tests pass, and `go test -tags diagnostic ./model/gemma4 -run '^$'` compiles cleanly. |
-| `go test ./...` passes | Passed | `GOTMPDIR=$PWD/.gotmp go test ./...` passed on 2026-05-21 after the Gemma4 31B packed-MTP smoke wiring. |
+| `go test ./...` passed at this snapshot | Passed on 2026-05-21 | `GOTMPDIR=$PWD/.gotmp go test ./...` passed after the Gemma4 31B packed-MTP smoke wiring. This result is not current-tree acceptance; the latest broad run timed out and exposed the unrelated failures listed in [validation-gates.md](validation-gates.md). |
 | `go vet ./...` passes | Passed | `GOTMPDIR=$PWD/.gotmp go vet ./...` passed on 2026-05-21 after the Gemma4 31B packed-MTP smoke wiring. |
 | CPU-only test gate passes without GPU present | Passed | `make test-cpu` passed after the Qwen MTP, MoE, KV, and NVIDIA runtime guard sweep. |
 | NVIDIA smoke tests pass on available NVIDIA hardware | Pending hardware run; local package gate clean | `GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/...` passes locally with availability-gated tests. Hardware smoke on a CUDA-capable host remains the only open NVIDIA acceptance item. |
 | Vulkan smoke tests pass or are explicitly opt-in skipped | Pending hardware/runtime run; local package gate clean | `GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan` passes locally with validating wrappers and availability-gated parity. CPU/software Vulkan remains opt-in; real-device smoke remains hardware/runtime-dependent. |
-| Documentation reflects final package layout and kernel coverage | Current | Docs index, layout, backend stack, supported models, commands, validation hardening, coverage, parity, malformed-input, Vulkan, NVIDIA, BF16, NVFP4, benchmark queue, performance snapshots, Gemma4 MTP runbooks, and Qwen MTP candidate notes are current after refreshed gates plus Qwen native-MTP, speculative decode sizing, MoE expert-upload, KV compressed sizing, DevBuf, PTX loader, mega-module guard updates, E4B long-prompt smoke, and the 31B packed-MTP smoke. |
+| Documentation reflected the package layout and kernel coverage at this snapshot | Passed on 2026-05-21 | The dated index, layout, backend, model and validation pages covered the tree-split acceptance scope. Use the live documentation index and validation page for current status. |
 
 ## Deferred implementation work
 
