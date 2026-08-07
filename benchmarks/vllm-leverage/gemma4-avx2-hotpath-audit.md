@@ -28,3 +28,7 @@ Treat matrix row count as a first-class dispatch key rather than forcing one gen
 ## Immediate measured implication
 
 The real E4B static-tail sweep (`c6c98914`) confirms the dispatch boundary: batched final norm/LM-head improves B2/B4/B8 versus repeated same-batch execution, but B1 is 7.6% slower. Therefore M=1 must remain on the decode GEMV route while M>1 specialization is evaluated per shape.
+
+## First retained shape dispatch
+
+The first Q4_0 candidate reuses Q8_0 activation quantization and one row-parallel traversal at **B8 only**. Synthetic E4B dimensions on the i7-12700 (`-benchtime=10x -count=3`) reduced allocations from 128–133 to 24–25 per projection and improved the median versus eight repeated GEMVs at output widths 512 (2.69ms vs 3.76ms), 2048 (10.93ms vs 20.28ms), 2560 (11.91ms vs 13.72ms), and 10240 (63.20ms vs 100.59ms). Variance was material, so B1/B2/B4 deliberately return the existing unsupported-batch signal and retain their established fallback rather than promoting noisy or regressing paths.

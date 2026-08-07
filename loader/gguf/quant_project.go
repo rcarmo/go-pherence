@@ -23,6 +23,8 @@ func (m *QuantMatrix) ProjectBatchF32To(dst, x []float32, batch int) error {
 		return fmt.Errorf("quant matrix %s: x=%d dst=%d want at least %d/%d", m.Name, len(x), len(dst), batch*m.InDim, batch*m.OutDim)
 	}
 	switch m.QType {
+	case QuantQ4_0:
+		return m.projectBatchQ4_0To(dst, x, batch)
 	case QuantQ2_K:
 		return m.projectBatchQ2KTo(dst, x, batch)
 	case QuantQ3_K:
@@ -38,6 +40,44 @@ func (m *QuantMatrix) ProjectBatchF32To(dst, x []float32, batch int) error {
 	default:
 		return fmt.Errorf("quant matrix %s: %w: type %s", m.Name, ErrUnsupportedBatchProjection, m.QType)
 	}
+}
+
+func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
+	// Keep decode and B2/B4 on the established GEMV path. The shared
+	// row-parallel traversal is consistently beneficial at B8 across measured
+	// E4B shapes, while smaller batches are noisy or regress wide MLP matrices.
+	if batch < 8 {
+		return fmt.Errorf("quant matrix %s: %w: Q4_0 batch=%d needs B8 shape dispatch", m.Name, ErrUnsupportedBatchProjection, batch)
+	}
+	if m.InDim%qk8_0 != 0 {
+		return fmt.Errorf("quant matrix %s: Q4_0 in=%d not multiple of %d", m.Name, m.InDim, qk8_0)
+	}
+	rowBytes, err := m.RowBytes()
+	if err != nil {
+		return err
+	}
+	q8 := make([][]q8_0Block, batch)
+	for pos := 0; pos < batch; pos++ {
+		blocks, err := QuantizeQ8_0(x[pos*m.InDim : (pos+1)*m.InDim])
+		if err != nil {
+			return err
+		}
+		q8[pos] = blocks
+	}
+	if !gemvRowsParallel(m.OutDim, rowBytes, func(r int) bool {
+		rowRaw := m.Raw[r*rowBytes : (r+1)*rowBytes]
+		for pos := 0; pos < batch; pos++ {
+			v, err := DotQ4_0Q8_0(rowRaw, q8[pos], m.InDim)
+			if err != nil {
+				return false
+			}
+			dst[pos*m.OutDim+r] = v
+		}
+		return true
+	}) {
+		return fmt.Errorf("quant matrix %s: projection failed", m.Name)
+	}
+	return nil
 }
 
 func (m *QuantMatrix) projectBatchQ5_0To(dst, x []float32, batch int) error {

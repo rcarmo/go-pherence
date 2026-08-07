@@ -2,6 +2,8 @@ package gguf_test
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -18,6 +20,7 @@ func TestQuantMatrixProjectBatchF32ToMatchesDequantOracle(t *testing.T) {
 		outDim int
 		batch  int
 	}{
+		{name: "q4_0_batch8", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 11, batch: 8},
 		{name: "q4k_tiled_and_tail", qtype: gguf.QuantQ4_K, inDim: 256, outDim: 10, batch: 9},
 		{name: "q5_0", qtype: gguf.QuantQ5_0, inDim: 64, outDim: 7, batch: 3},
 		{name: "q8_0", qtype: gguf.QuantQ8_0, inDim: 64, outDim: 6, batch: 4},
@@ -36,7 +39,11 @@ func TestQuantMatrixProjectBatchF32ToMatchesDequantOracle(t *testing.T) {
 			}
 			for pos := 0; pos < tc.batch; pos++ {
 				want := make([]float32, tc.outDim)
-				if err := m.ProjectBatchF32To(want, x[pos*tc.inDim:(pos+1)*tc.inDim], 1); err != nil {
+				if tc.qtype == gguf.QuantQ4_0 {
+					if !gguf.GemvQ4_0Q8_0Rows(want, x[pos*tc.inDim:(pos+1)*tc.inDim], m) {
+						t.Fatal("Q4_0 GEMV oracle failed")
+					}
+				} else if err := m.ProjectBatchF32To(want, x[pos*tc.inDim:(pos+1)*tc.inDim], 1); err != nil {
 					t.Fatal(err)
 				}
 				tol := 1e-6
@@ -52,6 +59,16 @@ func TestQuantMatrixProjectBatchF32ToMatchesDequantOracle(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches(t *testing.T) {
+	m := syntheticQuantMatrix(t, gguf.QuantQ4_0, 256, 513)
+	for _, batch := range []int{1, 2, 4} {
+		err := m.ProjectBatchF32To(make([]float32, batch*m.OutDim), make([]float32, batch*m.InDim), batch)
+		if !errors.Is(err, gguf.ErrUnsupportedBatchProjection) {
+			t.Fatalf("batch=%d error=%v, want ErrUnsupportedBatchProjection", batch, err)
+		}
 	}
 }
 
@@ -202,6 +219,14 @@ func syntheticQuantMatrix(t testing.TB, qtype gguf.QuantType, inDim, outDim int)
 	for r := 0; r < outDim; r++ {
 		row := m.Raw[r*rowBytes : (r+1)*rowBytes]
 		switch qtype {
+		case gguf.QuantQ4_0:
+			for b := 0; b < inDim/32; b++ {
+				blk := row[b*18 : (b+1)*18]
+				binary.LittleEndian.PutUint16(blk[0:2], half.F32ToF16(0.05+float32((r+b)%17)*0.003))
+				for i := 0; i < 16; i++ {
+					blk[2+i] = byte((r*13 + b*17 + i*7) & 0xff)
+				}
+			}
 		case gguf.QuantQ2_K:
 			for b := 0; b < inDim/256; b++ {
 				blk := row[b*84 : (b+1)*84]
@@ -278,6 +303,34 @@ func syntheticQuantMatrix(t testing.TB, qtype gguf.QuantType, inDim, outDim int)
 		}
 	}
 	return m
+}
+
+func BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes(b *testing.B) {
+	for _, outDim := range []int{512, 2048, 2560, 10240} {
+		m := syntheticQuantMatrix(b, gguf.QuantQ4_0, 2560, outDim)
+		for _, batch := range []int{8} {
+			x := make([]float32, batch*m.InDim)
+			dst := make([]float32, batch*m.OutDim)
+			b.Run(fmt.Sprintf("out%d/batch%d/batched", outDim, batch), func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					if err := m.ProjectBatchF32To(dst, x, batch); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+			b.Run(fmt.Sprintf("out%d/batch%d/repeated", outDim, batch), func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					for pos := 0; pos < batch; pos++ {
+						if !gguf.GemvQ4_0Q8_0Rows(dst[pos*m.OutDim:(pos+1)*m.OutDim], x[pos*m.InDim:(pos+1)*m.InDim], m) {
+							b.Fatal("Q4_0 GEMV failed")
+						}
+					}
+				}
+			})
+		}
+	}
 }
 
 func projectBatchDequantOracle(t testing.TB, m *gguf.QuantMatrix, x []float32, batch int) []float32 {
