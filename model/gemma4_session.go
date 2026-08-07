@@ -157,31 +157,20 @@ func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
 	if s.finished {
 		return DecodeResult{Position: len(s.output), Generated: s.generated, Finished: true, FinishReason: s.finish}, nil
 	}
-	var tok int
+	// The existing MTP verifier trajectory is not numerically identical to
+	// ordinary Gemma4 Generate beyond the prompt tail. Preserve exact output by
+	// replaying the legacy oracle until its layer loop is extracted into a true
+	// stateful step. This is deliberately visible through BootstrapReplay.
+	legacy := s.model.generatePrepared(s.output, 1)
+	if len(legacy) != len(s.output)+1 {
+		return DecodeResult{}, fmt.Errorf("Gemma4 legacy decode produced %d tokens, want %d", len(legacy), len(s.output)+1)
+	}
+	tok := legacy[len(s.output)]
 	var logits []float32
 	if s.pendingLogits != nil {
-		tok = s.pendingToken
 		logits = s.pendingLogits
 		s.pendingLogits = nil
 		s.pendingToken = 0
-	} else {
-		input := s.output[len(s.output)-1]
-		plan, err := NewMTPVerifierPlan(s.model, input, nil, len(s.output)-1)
-		if err != nil {
-			return DecodeResult{}, err
-		}
-		result, err := s.model.RunMTPVerifierForward(plan, s.kvK, s.kvV)
-		if err != nil {
-			return DecodeResult{}, fmt.Errorf("Gemma4 session decode: %w", err)
-		}
-		if len(result.Logits) != 1 {
-			return DecodeResult{}, fmt.Errorf("Gemma4 session verifier logits=%d, want 1", len(result.Logits))
-		}
-		logits = result.Logits[0]
-		tok, _, err = ArgmaxLogits(logits)
-		if err != nil {
-			return DecodeResult{}, err
-		}
 	}
 	s.output = append(s.output, tok)
 	s.generated++
