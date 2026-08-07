@@ -75,3 +75,5 @@ The subsequent CPU profile attributes 64.13% of samples to `dotQ4_0Q8_0AVX2` and
 | Output-row x4 | 9.001 tok/s | 4.279 tok/s |
 
 The x4 path improves decode by 19.2%, while prefill changes by -1.4% and remains effectively sequential. It is retained as a decode-oriented matrix improvement; it does not close either gate. Prefill now requires token tiling/GEMM rather than further row-only GEMV work. The checkpoint chart is [performance.svg](performance.svg).
+
+A bounded persistent GGUF row-worker pool was then tested to remove goroutine creation from each projection. It improved the noisy isolated 4096×2560 Q4 benchmark but regressed the phase-separated warm medians to 8.446 prefill tok/s and 4.187 decode tok/s (about -6.2% and -2.2% against the x4 checkpoint). Channel dispatch and cross-call scheduling did not beat Go's short-lived static chunks for this workload, so the pool was removed. Persistent workers are not sufficient without coarser token-tiled work items.

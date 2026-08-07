@@ -14,9 +14,10 @@
   <line class="grid" x1="100" y1="285" x2="1000" y2="285"/><line class="grid" x1="100" y1="225" x2="1000" y2="225"/><line class="grid" x1="100" y1="165" x2="1000" y2="165"/>
   <text x="88" y="290" text-anchor="end" class="muted small">6</text><text x="88" y="230" text-anchor="end" class="muted small">8</text><text x="88" y="170" text-anchor="end" class="muted small">10</text>
   <line class="axis" x1="100" y1="160" x2="100" y2="290"/><line class="axis" x1="100" y1="290" x2="1000" y2="290"/>
-  <path class="line" d="M210 256.3 L550 191.2 L890 195.0"/>
-  <circle class="point" cx="210" cy="256.3" r="7"/><circle class="point" cx="550" cy="191.2" r="7"/><circle class="point" cx="890" cy="195.0" r="7"/>
-  <text class="value" x="210" y="242" text-anchor="middle">6.958</text><text class="value" x="550" y="177" text-anchor="middle">9.127</text><text class="value" x="890" y="181" text-anchor="middle">9.001</text>
+  <path class="line" d="M210 256.3 L550 191.2 L780 195.0"/>
+  <path d="M780 195.0 L960 211.6" fill="none" stroke="#ff8d8d" stroke-width="3" stroke-dasharray="6 5"/>
+  <circle class="point" cx="210" cy="256.3" r="7"/><circle class="point" cx="550" cy="191.2" r="7"/><circle class="point" cx="780" cy="195.0" r="7"/><circle cx="960" cy="211.6" r="7" fill="#ff8d8d" stroke="#0b1020" stroke-width="3"/>
+  <text class="value" x="210" y="242" text-anchor="middle">6.958</text><text class="value" x="550" y="177" text-anchor="middle">9.127</text><text class="value" x="780" y="181" text-anchor="middle">9.001</text><text class="value loss" x="960" y="198" text-anchor="middle">8.446</text>
   <text x="1000" y="315" text-anchor="end" class="muted small">98% gate: 438.22 tok/s (off scale)</text>
 
   <rect class="panel" x="45" y="360" width="1010" height="230" rx="12"/>
@@ -25,13 +26,15 @@
   <line class="grid" x1="100" y1="540" x2="1000" y2="540"/><line class="grid" x1="100" y1="480" x2="1000" y2="480"/><line class="grid" x1="100" y1="420" x2="1000" y2="420"/>
   <text x="88" y="545" text-anchor="end" class="muted small">3</text><text x="88" y="485" text-anchor="end" class="muted small">4</text><text x="88" y="425" text-anchor="end" class="muted small">5</text>
   <line class="axis" x1="100" y1="415" x2="100" y2="545"/><line class="axis" x1="100" y1="545" x2="1000" y2="545"/>
-  <path class="line" d="M210 511.7 L550 504.6 L890 463.3"/>
-  <circle class="point" cx="210" cy="511.7" r="7"/><circle class="point" cx="550" cy="504.6" r="7"/><circle class="point" cx="890" cy="463.3" r="7"/>
-  <text class="value" x="210" y="497" text-anchor="middle">3.471</text><text class="value" x="550" y="490" text-anchor="middle">3.590</text><text class="value" x="890" y="449" text-anchor="middle">4.279</text>
+  <path class="line" d="M210 511.7 L550 504.6 L780 463.3"/>
+  <path d="M780 463.3 L960 468.8" fill="none" stroke="#ff8d8d" stroke-width="3" stroke-dasharray="6 5"/>
+  <circle class="point" cx="210" cy="511.7" r="7"/><circle class="point" cx="550" cy="504.6" r="7"/><circle class="point" cx="780" cy="463.3" r="7"/><circle cx="960" cy="468.8" r="7" fill="#ff8d8d" stroke="#0b1020" stroke-width="3"/>
+  <text class="value" x="210" y="497" text-anchor="middle">3.471</text><text class="value" x="550" y="490" text-anchor="middle">3.590</text><text class="value" x="780" y="449" text-anchor="middle">4.279</text><text class="value loss" x="960" y="455" text-anchor="middle">4.187</text>
   <text x="1000" y="570" text-anchor="end" class="muted small">98% gate: 9.12 tok/s (off scale)</text>
 
   <text x="210" y="620" text-anchor="middle" class="label">Q6 fast initial</text>
   <text x="550" y="620" text-anchor="middle" class="label">Q4 row control</text>
-  <text x="890" y="620" text-anchor="middle" class="label">Q4 output-row x4</text>
-  <text x="550" y="651" text-anchor="middle" class="muted small">Warm medians are three end-to-end runs; initial point is the first phase-separated measurement.</text>
+  <text x="780" y="620" text-anchor="middle" class="label">Q4 output-row x4</text>
+  <text x="960" y="620" text-anchor="middle" class="loss label">Worker pool rejected</text>
+  <text x="550" y="651" text-anchor="middle" class="muted small">Solid blue points are retained; dashed red is a measured and removed candidate. Warm medians use three runs.</text>
 </svg>
