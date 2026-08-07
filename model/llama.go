@@ -8,8 +8,6 @@ import (
 	simdq4 "github.com/rcarmo/go-pherence/backends/simd/quant/q4"
 	gemmacfg "github.com/rcarmo/go-pherence/model/gemma"
 
-	"github.com/rcarmo/go-pherence/runtime/kv"
-
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/weights"
 
@@ -832,104 +830,33 @@ func (m *LlamaModel) generatePrepared(tokenIDs []int, maxTokens int) []int {
 func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings []float32, maxTokens, stopToken int) []int {
 	cfg := m.Config
 
-	if maxTokens < 0 {
+	st, err := newCPUTokenStateForLegacyGenerate(m, tokenIDs, maxTokens)
+	if err != nil {
 		return append([]int(nil), tokenIDs...)
 	}
-	maxInt := int(^uint(0) >> 1)
-	if maxTokens > maxInt-len(tokenIDs) || cfg.NumLayers < 0 || len(m.Layers) < cfg.NumLayers {
-		return append([]int(nil), tokenIDs...)
-	}
-	outCap := len(tokenIDs) + maxTokens
-	output := make([]int, len(tokenIDs), outCap)
-	copy(output, tokenIDs)
-
+	output := st.output
+	kvCacheK := st.kvCacheK
+	kvCacheV := st.kvCacheV
+	compressedKV := st.compressedKV
+	attnScoresScratch := st.attnScoresScratch
+	attnOutScratch := st.attnOutScratch
 	h := cfg.HiddenSize
 	numHeads := cfg.NumHeads
-	numKVHeads := cfg.NumKVHeads
-	headDim := cfg.HeadDim
 	inter := cfg.Intermediate
-	if h <= 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || inter < 0 {
-		return output
-	}
-
-	// Allocate KV cache (with optional TurboQuant compression)
-	kvCacheK := make([][]float32, cfg.NumLayers) // [layers][seqLen * layerKVDim]
-	kvCacheV := make([][]float32, cfg.NumLayers)
-	var compressedKV []*kv.CompressedKVCache
-	if m.EnableTurboQuant || os.Getenv("TURBO_QUANT") == "1" || m.TurboQuantConfig != nil {
-		tqCfg := kv.DefaultTurboQuantConfig()
-		if m.TurboQuantConfig != nil {
-			tqCfg = *m.TurboQuantConfig
-		}
-		if m.TurboQuantStates == nil {
-			m.TurboQuantStates = make(map[int]*kv.TurboQuantState)
-		}
-		getTQ := func(layerHeadDim int) *kv.TurboQuantState {
-			if tq := m.TurboQuantStates[layerHeadDim]; tq != nil {
-				return tq
-			}
-			tq := kv.NewTurboQuantState(layerHeadDim, cfg.NumLayers, tqCfg)
-			m.TurboQuantStates[layerHeadDim] = tq
-			return tq
-		}
-		loaderDebugf("  TurboQuant: %d-bit keys, %d-bit values, window=%d\n",
-			tqCfg.KeyBits, tqCfg.ValueBits, tqCfg.ResidualWindow)
-
-		compressedKV = make([]*kv.CompressedKVCache, cfg.NumLayers)
-		for l := range compressedKV {
-			layerHD, err := m.LayerHeadDim(l)
-			if err != nil {
-				return output
-			}
-			layerKVHeads := gemmacfg.LayerKVHeads(cfg, l)
-			layerKVDim, err := m.LayerKVDim(l)
-			if err != nil || layerKVHeads < 0 {
-				return output
-			}
-			tq := getTQ(layerHD)
-			compressedKV[l] = kv.NewCompressedKVCache(layerKVDim, layerKVHeads, layerHD, tq, tq.IsProtectedLayer(l))
-		}
-	} else {
-		seqCap := len(tokenIDs) + maxTokens
-		if seqCap < 1 {
-			seqCap = 1
-		}
-		for l := range kvCacheK {
-			layerKVDim, err := m.LayerKVDim(l)
-			if err != nil {
-				return output
-			}
-			// Size the cache to the full sequence so growth never reallocates.
-			cacheCap, okCap := checkedProduct(seqCap, layerKVDim)
-			if !okCap {
-				return output
-			}
-			kvCacheK[l] = make([]float32, 0, cacheCap)
-			kvCacheV[l] = make([]float32, 0, cacheCap)
-		}
-	}
-
-	// Reusable CPU decode scratch for GQA attention.
-	maxHeadDim := headDim
-	for i := range m.Layers {
-		layerHD, err := m.LayerHeadDim(i)
-		if err != nil {
-			return output
-		}
-		if layerHD > maxHeadDim {
-			maxHeadDim = layerHD
-		}
-	}
-	maxSeqLen := len(tokenIDs) + maxTokens
-	if maxSeqLen < 1 {
-		maxSeqLen = 1
-	}
-	attnOutDim, okAttnOutDim := checkedProduct(numHeads, maxHeadDim)
-	if !okAttnOutDim || attnOutDim <= 0 {
-		return output
-	}
-	attnScoresScratch := make([]float32, maxSeqLen)
-	attnOutScratch := make([]float32, attnOutDim)
+	hidden := st.hidden
+	scratchResidual := st.scratchResidual
+	scratchQ := st.scratchQ
+	scratchK := st.scratchK
+	scratchV := st.scratchV
+	scratchO := st.scratchO
+	scratchMlp := st.scratchMlp
+	scratchGate := st.scratchGate
+	scratchUp := st.scratchUp
+	scratchDown := st.scratchDown
+	scratchPLIGate := st.scratchPLIGate
+	scratchPLIProj := st.scratchPLIProj
+	pliProjBuf := st.pliProjBuf
+	pliSlices := st.pliSlices
 
 	// Batched CPU prefill: process all prompt tokens together so each weight
 	// matrix is read once for the whole prompt instead of once per token. Only
@@ -953,69 +880,6 @@ func (m *LlamaModel) generatePreparedEmbeddings(tokenIDs []int, promptEmbeddings
 			startStep = len(tokenIDs)
 			if maxIdx == stopToken {
 				return output
-			}
-		}
-	}
-
-	// Reusable per-token / per-layer scratch buffers. Each is sized for the
-	// widest layer and sliced to the prefix a layer needs; reusing them avoids
-	// re-allocating ~10 buffers per layer per generated token.
-	scQDim, okScQ := checkedProduct(numHeads, maxHeadDim)
-	scKVDim, okScKV := checkedProduct(cfg.NumKVHeads, maxHeadDim)
-	if !okScQ || !okScKV {
-		return output
-	}
-	scInter := inter
-	for l := 0; l < cfg.NumLayers; l++ {
-		lhd, err := m.LayerHeadDim(l)
-		if err != nil {
-			return output
-		}
-		lkvh := gemmacfg.LayerKVHeads(cfg, l)
-		q, okQ := checkedProduct(numHeads, lhd)
-		kv, okKV := checkedProduct(lkvh, lhd)
-		if !okQ || !okKV {
-			return output
-		}
-		if q > scQDim {
-			scQDim = q
-		}
-		if kv > scKVDim {
-			scKVDim = kv
-		}
-		if li := m.layerInterFor(&m.Layers[l]); li > scInter {
-			scInter = li
-		}
-	}
-	if scQDim < 1 {
-		scQDim = 1
-	}
-	if scKVDim < 1 {
-		scKVDim = 1
-	}
-	if scInter < 1 {
-		scInter = 1
-	}
-	hidden := make([]float32, h)
-	scratchResidual := make([]float32, h)
-	scratchQ := make([]float32, scQDim)
-	scratchK := make([]float32, scKVDim)
-	scratchV := make([]float32, scKVDim)
-	scratchO := make([]float32, h)
-	scratchMlp := make([]float32, h)
-	scratchGate := make([]float32, scInter)
-	scratchUp := make([]float32, scInter)
-	scratchDown := make([]float32, h)
-	var scratchPLIGate, scratchPLIProj []float32
-	var pliProjBuf []float32
-	var pliSlices [][]float32
-	if cfg.HiddenPerLayer > 0 {
-		scratchPLIGate = make([]float32, cfg.HiddenPerLayer)
-		scratchPLIProj = make([]float32, h)
-		if m.PerLayerModelProj != nil {
-			if td, ok := checkedProduct(cfg.NumLayers, cfg.HiddenPerLayer); ok {
-				pliProjBuf = make([]float32, td)
-				pliSlices = make([][]float32, cfg.NumLayers)
 			}
 		}
 	}
