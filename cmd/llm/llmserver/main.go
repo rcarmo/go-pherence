@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -89,24 +91,45 @@ type ModelListResponse struct {
 	Data   []ModelObject `json:"data"`
 }
 
-// Server
-
-type Server struct {
+type serverRuntime struct {
 	cpuModel    *model.LlamaModel
 	gpuModel    *model.GPUModel
 	tok         *tokenizer.Tokenizer
-	mu          sync.Mutex
 	modelID     string
-	modelPath   string
-	presets     map[string]ModelPreset
-	created     int64
-	maxCtx      int
-	useGPU      bool
-	gpuLayers   int
 	speculative bool
-	cacheTypeK  string
-	cacheTypeV  string
-	kvResidual  int
+}
+
+type generationResult struct {
+	PromptTokens     int
+	CompletionTokens int
+	Text             string
+	FinishReason     string
+}
+
+type gemmaSessionFactory func(*model.LlamaModel, model.SessionOptions) (model.InferenceSession, error)
+
+var errGenerationStopped = errors.New("generation stopped")
+
+// Server
+
+type Server struct {
+	cpuModel        *model.LlamaModel
+	gpuModel        *model.GPUModel
+	tok             *tokenizer.Tokenizer
+	mu              sync.Mutex
+	inferMu         sync.Mutex
+	newGemmaSession gemmaSessionFactory
+	modelID         string
+	modelPath       string
+	presets         map[string]ModelPreset
+	created         int64
+	maxCtx          int
+	useGPU          bool
+	gpuLayers       int
+	speculative     bool
+	cacheTypeK      string
+	cacheTypeV      string
+	kvResidual      int
 }
 
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
@@ -170,94 +193,222 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build prompt from messages
 	var parts []string
 	for _, msg := range req.Messages {
 		parts = append(parts, msg.Content)
 	}
 	prompt := strings.Join(parts, "\n")
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if req.Model != "" && req.Model != s.modelID {
-		if err := s.switchModelLocked(req.Model); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+	rt, unlock, err := s.snapshotRuntime(req.Model)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+	defer unlock()
 
-	ids := s.tok.Encode(prompt)
-
+	ids := rt.tok.Encode(prompt)
 	if req.Stream {
-		s.streamResponse(w, r, ids, maxTokens)
+		s.streamResponse(w, r, rt, ids, maxTokens)
 	} else {
-		s.nonStreamResponse(w, ids, maxTokens)
+		s.nonStreamResponse(w, r, rt, ids, maxTokens)
 	}
 }
 
-func (s *Server) generate(ids []int, maxTokens int, emit func(token int, text string) bool) (int, string) {
-	var output []int
-	if s.gpuModel != nil {
-		output = s.gpuModel.Generate(ids, maxTokens)
-	} else if s.speculative {
-		output = s.cpuModel.GenerateSpeculative(ids, maxTokens, model.SpeculativeConfigFromEnv())
-	} else {
-		output = s.cpuModel.Generate(ids, maxTokens)
+func (s *Server) snapshotRuntime(reqModel string) (serverRuntime, func(), error) {
+	s.inferMu.Lock()
+	unlock := func() { s.inferMu.Unlock() }
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if reqModel != "" && reqModel != s.modelID {
+		if err := s.switchModelLocked(reqModel); err != nil {
+			unlock()
+			return serverRuntime{}, nil, err
+		}
 	}
+	return serverRuntime{cpuModel: s.cpuModel, gpuModel: s.gpuModel, tok: s.tok, modelID: s.modelID, speculative: s.speculative}, unlock, nil
+}
 
-	// Find generated tokens (after prompt)
-	promptLen := len(ids)
-	// The Generate function includes prompt in output for CPU, but not for GPU
-	// Normalize: extract only the new tokens
-	generated := output
-	if len(output) > promptLen {
-		// CPU path includes prompt
-		generated = output[promptLen:]
+func (s *Server) gemmaSessionFactory() gemmaSessionFactory {
+	if s != nil && s.newGemmaSession != nil {
+		return s.newGemmaSession
 	}
+	return func(m *model.LlamaModel, opts model.SessionOptions) (model.InferenceSession, error) {
+		return model.NewGemma4DecodeSession(m, opts)
+	}
+}
 
+func (rt serverRuntime) preparedPromptTokens(ids []int) int {
+	if rt.cpuModel == nil {
+		return len(ids)
+	}
+	return len(rt.cpuModel.PreparedGenerateTokens(ids))
+}
+
+func tokenText(tok *tokenizer.Tokenizer, token int) (string, bool) {
+	if tok == nil || tok.InvVocab == nil {
+		return "", false
+	}
+	text, ok := tok.InvVocab[token]
+	return text, ok
+}
+
+func isEOSLikeToken(tok *tokenizer.Tokenizer, token int) bool {
+	if token == 0 {
+		return true
+	}
+	text, ok := tokenText(tok, token)
+	return ok && (text == "<eos>" || text == "</s>")
+}
+
+func eosLikeStopTokenIDs(tok *tokenizer.Tokenizer) []int {
+	stops := map[int]struct{}{0: {}}
+	if tok != nil {
+		for id, text := range tok.InvVocab {
+			if text == "<eos>" || text == "</s>" {
+				stops[id] = struct{}{}
+			}
+		}
+	}
+	out := make([]int, 0, len(stops))
+	for id := range stops {
+		if id >= 0 {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func (s *Server) generate(ctx context.Context, rt serverRuntime, ids []int, maxTokens int, emit func(token int, text string) bool) (generationResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if rt.cpuModel != nil && rt.gpuModel == nil && !rt.speculative && rt.cpuModel.Config.ModelType == "gemma4_text" {
+		return s.generateGemma4CPU(ctx, rt, ids, maxTokens, emit)
+	}
+	return s.generateMonolithic(rt, ids, maxTokens, emit)
+}
+
+func (s *Server) generateGemma4CPU(ctx context.Context, rt serverRuntime, ids []int, maxTokens int, emit func(token int, text string) bool) (generationResult, error) {
+	session, err := s.gemmaSessionFactory()(rt.cpuModel, model.SessionOptions{Backend: model.InferenceBackendSIMD, MaxTokens: maxTokens, StopTokenIDs: eosLikeStopTokenIDs(rt.tok)})
+	if err != nil {
+		return generationResult{}, err
+	}
+	defer session.Close()
+	prefill, err := session.PrefillChunk(ids)
+	if err != nil {
+		return generationResult{}, err
+	}
+	result := generationResult{PromptTokens: prefill.ConsumedTokens, FinishReason: "stop"}
+	if !prefill.ReadyToDecode {
+		if finished, why := session.Finished(); finished && why == model.FinishReasonLength {
+			result.FinishReason = "length"
+		}
+		return result, nil
+	}
 	var out strings.Builder
-	count := 0
-	for _, tok := range generated {
-		if tok < 0 || tok >= len(s.tok.InvVocab) {
+	for {
+		select {
+		case <-ctx.Done():
+			result.Text = out.String()
+			return result, ctx.Err()
+		default:
+		}
+		step, err := session.DecodeStep()
+		if err != nil {
+			result.Text = out.String()
+			return result, err
+		}
+		if isEOSLikeToken(rt.tok, step.Token) {
+			result.Text = out.String()
+			return result, nil
+		}
+		text, ok := tokenText(rt.tok, step.Token)
+		if !ok {
+			result.Text = out.String()
+			return result, nil
+		}
+		out.WriteString(text)
+		result.CompletionTokens++
+		if step.Finished && step.FinishReason == model.FinishReasonLength {
+			result.FinishReason = "length"
+		}
+		if emit != nil && !emit(step.Token, text) {
+			result.Text = out.String()
+			return result, errGenerationStopped
+		}
+		if step.Finished {
+			result.Text = out.String()
+			return result, nil
+		}
+	}
+}
+
+func (s *Server) generateMonolithic(rt serverRuntime, ids []int, maxTokens int, emit func(token int, text string) bool) (generationResult, error) {
+	var output []int
+	if rt.gpuModel != nil {
+		output = rt.gpuModel.Generate(ids, maxTokens)
+	} else if rt.speculative {
+		output = rt.cpuModel.GenerateSpeculative(ids, maxTokens, model.SpeculativeConfigFromEnv())
+	} else {
+		output = rt.cpuModel.Generate(ids, maxTokens)
+	}
+	promptTokens := rt.preparedPromptTokens(ids)
+	generated := output
+	if rt.gpuModel == nil {
+		if len(output) >= promptTokens {
+			generated = output[promptTokens:]
+		} else {
+			generated = nil
+		}
+	}
+	result := generationResult{PromptTokens: promptTokens, FinishReason: "stop"}
+	var out strings.Builder
+	for _, token := range generated {
+		if isEOSLikeToken(rt.tok, token) {
 			break
 		}
-		text := s.tok.InvVocab[tok]
-		// Stop on EOS-like tokens
-		if text == "<eos>" || text == "</s>" || tok == 0 {
+		text, ok := tokenText(rt.tok, token)
+		if !ok {
 			break
 		}
 		out.WriteString(text)
-		count++
-		if emit != nil && !emit(tok, text) {
-			break
+		result.CompletionTokens++
+		if emit != nil && !emit(token, text) {
+			result.Text = out.String()
+			return result, errGenerationStopped
 		}
 	}
-	return count, out.String()
+	if maxTokens >= 0 && result.CompletionTokens >= maxTokens {
+		result.FinishReason = "length"
+	}
+	result.Text = out.String()
+	return result, nil
 }
 
-func (s *Server) nonStreamResponse(w http.ResponseWriter, ids []int, maxTokens int) {
-	generated, text := s.generate(ids, maxTokens, nil)
-	content, reasoning := splitReasoningText(text)
-	finishReason := "stop"
-	if generated >= maxTokens {
-		finishReason = "length"
+func (s *Server) nonStreamResponse(w http.ResponseWriter, r *http.Request, rt serverRuntime, ids []int, maxTokens int) {
+	generated, err := s.generate(r.Context(), rt, ids, maxTokens, nil)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, errGenerationStopped) {
+			return
+		}
+		http.Error(w, fmt.Sprintf("generation failed: %v", err), http.StatusInternalServerError)
+		return
 	}
-
+	content, reasoning := splitReasoningText(generated.Text)
 	resp := ChatCompletionResponse{
 		ID:      fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano()),
 		Object:  "chat.completion",
 		Created: time.Now().Unix(),
-		Model:   s.modelID,
+		Model:   rt.modelID,
 		Choices: []ChatCompletionChoice{{
 			Index:        0,
 			Message:      ChatMessage{Role: "assistant", Content: content, ReasoningContent: reasoning},
-			FinishReason: finishReason,
+			FinishReason: generated.FinishReason,
 		}},
 		Usage: Usage{
-			PromptTokens:     len(ids),
-			CompletionTokens: generated,
-			TotalTokens:      len(ids) + generated,
+			PromptTokens:     generated.PromptTokens,
+			CompletionTokens: generated.CompletionTokens,
+			TotalTokens:      generated.PromptTokens + generated.CompletionTokens,
 		},
 	}
 
@@ -267,7 +418,7 @@ func (s *Server) nonStreamResponse(w http.ResponseWriter, ids []int, maxTokens i
 	}
 }
 
-func (s *Server) streamResponse(w http.ResponseWriter, r *http.Request, ids []int, maxTokens int) {
+func (s *Server) streamResponse(w http.ResponseWriter, r *http.Request, rt serverRuntime, ids []int, maxTokens int) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)
@@ -279,53 +430,44 @@ func (s *Server) streamResponse(w http.ResponseWriter, r *http.Request, ids []in
 	w.Header().Set("Connection", "keep-alive")
 
 	id := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
-
-	// Initial chunk with role
 	if !writeSSE(w, flusher, StreamChunk{
-		ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: s.modelID,
+		ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: rt.modelID,
 		Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Role: "assistant"}}},
 	}) {
 		return
 	}
 
-	generated := 0
-	finishReason := "stop"
 	var split reasoningSplitter
-
-	s.generate(ids, maxTokens, func(tok int, text string) bool {
-		select {
-		case <-r.Context().Done():
-			return false
-		default:
-		}
+	generated, err := s.generate(r.Context(), rt, ids, maxTokens, func(token int, text string) bool {
 		content, reasoning := split.Push(text)
-		if content != "" || reasoning != "" {
-			if !writeSSE(w, flusher, StreamChunk{
-				ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: s.modelID,
-				Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Content: content, ReasoningContent: reasoning}}},
-			}) {
-				return false
-			}
+		if content == "" && reasoning == "" {
+			return true
 		}
-		generated++
-		return true
+		return writeSSE(w, flusher, StreamChunk{
+			ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: rt.modelID,
+			Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Content: content, ReasoningContent: reasoning}}},
+		})
 	})
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, errGenerationStopped) {
+			return
+		}
+		log.Printf("stream generation failed: %v", err)
+		return
+	}
 
 	if content, reasoning := split.Flush(); content != "" || reasoning != "" {
 		if !writeSSE(w, flusher, StreamChunk{
-			ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: s.modelID,
+			ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: rt.modelID,
 			Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Content: content, ReasoningContent: reasoning}}},
 		}) {
 			return
 		}
 	}
 
-	if generated >= maxTokens {
-		finishReason = "length"
-	}
-
+	finishReason := generated.FinishReason
 	if !writeSSE(w, flusher, StreamChunk{
-		ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: s.modelID,
+		ID: id, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: rt.modelID,
 		Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{}, FinishReason: &finishReason}},
 	}) {
 		return
