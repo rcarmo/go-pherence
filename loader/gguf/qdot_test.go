@@ -3,6 +3,7 @@ package gguf
 import (
 	"encoding/binary"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/half"
@@ -95,6 +96,74 @@ func TestDotQ4_0Q8_0Rows4MatchesRows(t *testing.T) {
 		}
 		if got[r] != want {
 			t.Fatalf("row %d dot=%g want=%g", r, got[r], want)
+		}
+	}
+}
+
+func TestDotQ4_0Q8_0Rows4VNNIMatchesRows(t *testing.T) {
+	for _, blocks := range []int{1, 7, 80} {
+		n := qk8_0 * blocks
+		row, y := syntheticQ4_0Q8_0DotInputs(n)
+		raw := make([]byte, len(row)*4)
+		for r := 0; r < 4; r++ {
+			copy(raw[r*len(row):], row)
+			for i := r * len(row); i < (r+1)*len(row); i += 18 {
+				raw[i+2+(r%16)] ^= byte(0x11 * r)
+			}
+		}
+		var got [4]float32
+		if !dotQ4_0Q8_0Rows4VNNI(raw, len(row), y, blocks, &got) {
+			t.Skip("AVX-VNNI unavailable")
+		}
+		for r := range got {
+			want, err := DotQ4_0Q8_0(raw[r*len(row):(r+1)*len(row)], y, n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got[r] != want {
+				t.Fatalf("blocks=%d row=%d dot=%g want=%g", blocks, r, got[r], want)
+			}
+		}
+	}
+}
+
+func TestDotQ4_0Q8_0Rows4VNNIRandomExact(t *testing.T) {
+	if !supportsQ4_0Q8_0Rows4Tokens2() {
+		t.Skip("AVX-VNNI unavailable")
+	}
+	rng := rand.New(rand.NewSource(0x44a8))
+	for iteration := 0; iteration < 100; iteration++ {
+		blocks := 1 + rng.Intn(80)
+		rowBytes := blocks * 18
+		raw := make([]byte, rowBytes*4)
+		for r := 0; r < 4; r++ {
+			for bi := 0; bi < blocks; bi++ {
+				block := raw[r*rowBytes+bi*18:]
+				scale := (rng.Float32()*2 - 1) * 0.25
+				binary.LittleEndian.PutUint16(block, half.F32ToF16(scale))
+				for j := 2; j < 18; j++ {
+					block[j] = byte(rng.Intn(256))
+				}
+			}
+		}
+		y := make([]q8_0Block, blocks)
+		for bi := range y {
+			y[bi].d = (rng.Float32()*2 - 1) * 0.25
+			for j := range y[bi].qs {
+				y[bi].qs[j] = int8(rng.Intn(256) - 128)
+			}
+		}
+		var got, want [4]float32
+		if !dotQ4_0Q8_0Rows4VNNI(raw, rowBytes, y, blocks, &got) {
+			t.Skip("AVX-VNNI unavailable")
+		}
+		dotQ4_0Q8_0Rows4AVX2(raw, rowBytes, y, blocks, &want)
+		if got != want {
+			for r := range got {
+				if got[r] != want[r] {
+					t.Fatalf("iteration=%d blocks=%d row=%d vnni=%g avx2=%g", iteration, blocks, r, got[r], want[r])
+				}
+			}
 		}
 	}
 }
@@ -205,6 +274,30 @@ func interleaveQ8_0Tokens8(src []q8_0Block, blocks int) []q8_0Block {
 		}
 	}
 	return dst
+}
+
+func BenchmarkDotQ4_0Q8_0Rows4(b *testing.B) {
+	const n = 2560
+	row, y := syntheticQ4_0Q8_0DotInputs(n)
+	raw := make([]byte, len(row)*4)
+	for r := 0; r < 4; r++ {
+		copy(raw[r*len(row):], row)
+	}
+	b.Run("avx2", func(b *testing.B) {
+		var out [4]float32
+		for i := 0; i < b.N; i++ {
+			dotQ4_0Q8_0Rows4AVX2(raw, len(row), y, n/qk8_0, &out)
+		}
+	})
+	b.Run("vnni", func(b *testing.B) {
+		var out [4]float32
+		if !dotQ4_0Q8_0Rows4VNNI(raw, len(row), y, n/qk8_0, &out) {
+			b.Skip("AVX-VNNI unavailable")
+		}
+		for i := 0; i < b.N; i++ {
+			dotQ4_0Q8_0Rows4VNNI(raw, len(row), y, n/qk8_0, &out)
+		}
+	})
 }
 
 func BenchmarkDotQ4_0Q8_0TokenTiles(b *testing.B) {
@@ -333,6 +426,25 @@ func BenchmarkGemvQ4_0Q8_0Rows(b *testing.B) {
 	q8, err := QuantizeQ8_0(x)
 	if err != nil {
 		b.Fatal(err)
+	}
+	benchRows4 := func(b *testing.B, dot func([]byte, int, []q8_0Block, int, *[4]float32)) {
+		b.Helper()
+		groups := outDim / 4
+		for i := 0; i < b.N; i++ {
+			if !gemvRowsParallel(groups, len(row)*4, func(group int) bool {
+				r := group * 4
+				var values [4]float32
+				dot(raw[r*len(row):(r+4)*len(row)], len(row), q8, inDim/qk8_0, &values)
+				copy(out[r:r+4], values[:])
+				return true
+			}) {
+				b.Fatal("x4 GEMV rejected")
+			}
+		}
+	}
+	b.Run("x4-avx2", func(b *testing.B) { benchRows4(b, dotQ4_0Q8_0Rows4AVX2) })
+	if supportsQ4_0Q8_0Rows4Tokens2() {
+		b.Run("x4-vnni", func(b *testing.B) { benchRows4(b, dotQ4_0Q8_0Rows4) })
 	}
 	b.Run("row", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {

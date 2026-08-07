@@ -11,6 +11,9 @@ func dotQ4_0Q8_0AVX2(raw []byte, y []q8_0Block, blocks int) float32
 func dotQ4_0Q8_0x4AVX2(raw []byte, rowBytes int, y []q8_0Block, blocks int, out *[4]float32)
 
 //go:noescape
+func dotQ4_0Q8_0x4VNNI(raw []byte, rowBytes int, y []q8_0Block, blocks int, out *[4]float32)
+
+//go:noescape
 func dotQ4_0Q8_0x4TokensAVX2(raw []byte, y []q8_0Block, blocks int, out *[4]float32)
 
 //go:noescape
@@ -24,7 +27,23 @@ func dotQ4_0Q8_0Packed(raw []byte, y []q8_0Block, blocks int) float32 {
 }
 
 func dotQ4_0Q8_0Rows4(raw []byte, rowBytes int, y []q8_0Block, blocks int, out *[4]float32) {
+	if cpu.X86.HasAVXVNNI {
+		dotQ4_0Q8_0x4VNNI(raw, rowBytes, y, blocks, out)
+		return
+	}
 	dotQ4_0Q8_0x4AVX2(raw, rowBytes, y, blocks, out)
+}
+
+func dotQ4_0Q8_0Rows4AVX2(raw []byte, rowBytes int, y []q8_0Block, blocks int, out *[4]float32) {
+	dotQ4_0Q8_0x4AVX2(raw, rowBytes, y, blocks, out)
+}
+
+func dotQ4_0Q8_0Rows4VNNI(raw []byte, rowBytes int, y []q8_0Block, blocks int, out *[4]float32) bool {
+	if !cpu.X86.HasAVXVNNI {
+		return false
+	}
+	dotQ4_0Q8_0x4VNNI(raw, rowBytes, y, blocks, out)
+	return true
 }
 
 func dotQ4_0Q8_0Tokens4(raw []byte, y []q8_0Block, blocks int, out *[4]float32) {

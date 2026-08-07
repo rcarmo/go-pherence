@@ -10,15 +10,21 @@ Long prefill uses an AVX-VNNI one-weight-row by eight-token kernel. Each output 
 
 An alternating end-to-end A/B run measured token-major prefill at 27.997, 26.027, and 25.224 tokens/s, against 26.361, 27.181, and 26.804 tokens/s for block-major tiles. The medians are 26.027 and 26.804 tokens/s, a 2.98% gain. Host frequency and thermal behaviour are noisy enough that this is a modest result, but the full 124-token activation, logits, token, and K/V comparison passes exactly.
 
-Decode also avoids a 512-byte Q6_K coefficient temporary per block. The fused AVX2 kernel expands Q6 values, applies the signed scales, consumes the matching Q8_K bytes, and accumulates the same eight integer lanes in one pass. Its 2560-element microbenchmark is approximately 304ns, while the previous expand-then-dot path measured 354--716ns under the same run. A first warm end-to-end sample reached 8.505 decode tokens/s; subsequent samples varied with host load, so that number is useful direction rather than a completed gate.
+Decode also avoids a 512-byte Q6_K coefficient temporary per block. The fused AVX2 kernel expands Q6 values, applies the signed scales, consumes the matching Q8_K bytes, and accumulates the same eight integer lanes in one pass. Its 2560-element microbenchmark is approximately 304ns, while the previous expand-then-dot path measured 354--716ns under the same run.
+
+The Q4_0 decode kernel now evaluates four weight rows per Q8 activation load. On AVX-VNNI hosts it keeps four independent eight-lane FP32 accumulators, so blockwise FMA and final reduction remain exact, but replaces per-row signed-byte transforms with an unsigned identity: `q4*q8 - 8*q8 == (q4-8)*q8`. One `VPDPBUSD` computes the `8*q8` lane correction per block and each row subtracts it from its unsigned Q4 dot. The four-row microbenchmark median fell from 602.7ns with AVX2 to 421.3ns with the signed VNNI form; the unsigned correction then reduced the complete 4096x2560 four-row GEMV median from 112.345us to 108.399us.
+
+Alternating real-model A/B samples were run while host frequency drifted badly enough to halve absolute throughput. AVX2 decode measured 6.704 and 4.258 tokens/s; the exact VNNI kernel measured 8.616 and 5.409 tokens/s in the adjacent runs, a stable 27--29% relative gain. The uncontaminated 98% gate is still pending.
 
 ## What was rejected
 
 The four-weight-row by two-token Q4_0 tile preserves exact reduction order but reduced prefill to 20.53--21.15 tokens/s. The retained one-row by eight-token layout measured 23.08--29.21 tokens/s in the same class of end-to-end runs.
 
-A direct signed-byte `VPDPBSSD` replacement is illegal on this Alder Lake host. `avx_vnni` provides `VPDPBUSD`; signed-byte `VPDPBSSD` requires the newer AVX-VNNI-INT8 extension. The accepted sequence therefore keeps `VPABSB` plus `VPSIGNB`, followed by unsigned-by-signed `VPDPBUSD`.
+A direct signed-byte `VPDPBSSD` replacement is illegal on this Alder Lake host. `avx_vnni` provides `VPDPBUSD`; signed-byte `VPDPBSSD` requires the newer AVX-VNNI-INT8 extension. The prefill token kernel therefore keeps `VPABSB` plus `VPSIGNB`, followed by unsigned-by-signed `VPDPBUSD`; decode uses the unsigned-Q4 correction described above.
 
 A llama.cpp-style packed reduction is not an exact substitute for the legacy contract. It reduces a whole 32-element block to one integer before FP32 accumulation, while go-pherence maintains eight FP32 partial accumulators until the final reduction. A deterministic random probe differed in 877 of 1000 cases; the first mismatch was 5479.129 versus 5479.1265. Promoting that reduction would require an explicit contract change, not a kernel refactor disguised as one.
+
+Fully unrolling the fused Q6_K block dot also lost. It remained exact across 1000 random blocks and halved the packed-source loads by reusing QL/QH bytes for low and high groups, but increased the median from 27.79ns to 29.49ns per block. The smaller looped kernel has a better instruction footprint on this CPU.
 
 ## Where the time goes
 
