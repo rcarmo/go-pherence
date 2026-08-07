@@ -31,8 +31,13 @@ func TestGemma4DecodeSessionUpdatedRealGGUFOneStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !prefill.ReadyToDecode || prefill.Position <= 1 {
-		t.Fatalf("unexpected prepared prefill=%+v", prefill)
+	if !prefill.ReadyToDecode || prefill.Position <= 1 || !s.BootstrapReplay() {
+		t.Fatalf("unexpected prepared prefill=%+v bootstrap_replay=%v", prefill, s.BootstrapReplay())
+	}
+	prepared := s.OutputTokens()
+	legacy := m.generatePrepared(prepared, 1)
+	if len(legacy) != len(prepared)+1 {
+		t.Fatalf("legacy output len=%d, want %d", len(legacy), len(prepared)+1)
 	}
 	step, err := s.DecodeStep()
 	if err != nil {
@@ -40,5 +45,8 @@ func TestGemma4DecodeSessionUpdatedRealGGUFOneStep(t *testing.T) {
 	}
 	if step.Token < 0 || step.Token >= m.Config.VocabSize || len(step.Logits) != m.Config.VocabSize || !step.Finished || step.FinishReason != FinishReasonLength {
 		t.Fatalf("unexpected decode step token=%d logits=%d result=%+v", step.Token, len(step.Logits), step)
+	}
+	if step.Token != legacy[len(prepared)] {
+		t.Fatalf("session token=%d, legacy token=%d", step.Token, legacy[len(prepared)])
 	}
 }
