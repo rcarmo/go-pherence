@@ -66,6 +66,15 @@ type InferenceSession interface {
 	Close() error
 }
 
+// VerifyingInferenceSession extends ordinary request-owned decoding with a
+// variable-token greedy speculative step. Implementations must leave the
+// session at the accepted-prefix-plus-bonus state or restore it on error.
+// Non-greedy residual sampling is intentionally outside this first contract.
+type VerifyingInferenceSession interface {
+	InferenceSession
+	Verify(drafted []int) (MTPAcceptance, error)
+}
+
 func validateSessionOptions(opts SessionOptions) error {
 	if opts.MaxTokens < 0 {
 		return fmt.Errorf("max tokens=%d must be non-negative", opts.MaxTokens)

@@ -14,6 +14,7 @@ Cumulative status as of 2026-08-07. The measurement target is the official Gemma
 | AVX2/Q4 projection reuse | repeated GEMV → `bfbe45a8`, `9738c125` | B8 medians improve at E4B widths 512/2048/2560/10240; allocations ~128–133 → 24–25 | exact dequant oracle, race, fallback, arm64/riscv64 builds | retain B8; reject B1/B2/B4 |
 | Q6_K LM head | repeated GEMV → `7c2e1a2d` | real B8 decode 9.798s → 8.905s | exact logits/tokens; B2/B4 regress | retain B8 only |
 | MTP verifier tests | invalid K=V post-RoPE oracle → `af2302f7` | broad model blocker removed | expected K now includes K-only RoPE | retain |
+| Session-native verification | separate speculative state → current `VerifyingInferenceSession` | variable-length greedy acceptance and bonus through ordinary session checkpoint/KV ownership | all-accepted, rejected, replay, capacity, stop restoration and race gates | retain correctness-first replay bridge; batched lowering may replace staging later |
 | KV utilization | uninstrumented → `06e08df2`, `c159b9b9` | 1/2/4/8 resident sessions scale exactly to 0.344/0.688/1.376/2.753 MiB reserved | per-layer used/reserved/slack; restore/race gates | paging not justified; retain linear KV and snapshots |
 
 ## Rejected or blocked work
