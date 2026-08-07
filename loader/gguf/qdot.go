@@ -123,6 +123,11 @@ func DotQ4_0Q8_0(raw []byte, y []q8_0Block, n int) (float32, error) {
 	if len(raw) < nb*blockSize || len(y) < nb {
 		return 0, fmt.Errorf("Q4_0 dot raw/activation short raw=%d y=%d nb=%d", len(raw), len(y), nb)
 	}
+	return dotQ4_0Q8_0Packed(raw, y, nb), nil
+}
+
+func dotQ4_0Q8_0Scalar(raw []byte, y []q8_0Block, nb int) float32 {
+	const blockSize = 18
 	var acc [8]float32
 	for bi := 0; bi < nb; bi++ {
 		blk := raw[bi*blockSize : (bi+1)*blockSize]
@@ -145,7 +150,7 @@ func DotQ4_0Q8_0(raw []byte, y []q8_0Block, n int) (float32, error) {
 	r3 := acc[3] + acc[7]
 	r0 = r0 + r2
 	r1 = r1 + r3
-	return r0 + r1, nil
+	return r0 + r1
 }
 
 // GemvQ4_0Q8_0Rows computes all rows of a Q4_0 matrix against x using llama.cpp's
