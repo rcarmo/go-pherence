@@ -76,6 +76,64 @@ func TestDotQ4_0Q8_0MatchesScalarReference(t *testing.T) {
 	}
 }
 
+func TestDotQ4_0Q8_0Rows4MatchesRows(t *testing.T) {
+	n := qk8_0 * 7
+	row, y := syntheticQ4_0Q8_0DotInputs(n)
+	raw := make([]byte, len(row)*4)
+	for r := 0; r < 4; r++ {
+		copy(raw[r*len(row):], row)
+		for i := r * len(row); i < (r+1)*len(row); i += 18 {
+			raw[i+2+r] ^= byte(0x11 * r)
+		}
+	}
+	var got [4]float32
+	dotQ4_0Q8_0Rows4(raw, len(row), y, n/qk8_0, &got)
+	for r := range got {
+		want, err := DotQ4_0Q8_0(raw[r*len(row):(r+1)*len(row)], y, n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got[r] != want {
+			t.Fatalf("row %d dot=%g want=%g", r, got[r], want)
+		}
+	}
+}
+
+func BenchmarkGemvQ4_0Q8_0Rows(b *testing.B) {
+	const inDim, outDim = 2560, 4096
+	row, _ := syntheticQ4_0Q8_0DotInputs(inDim)
+	raw := make([]byte, len(row)*outDim)
+	for r := 0; r < outDim; r++ {
+		copy(raw[r*len(row):], row)
+	}
+	m := &QuantMatrix{QType: QuantQ4_0, InDim: inDim, OutDim: outDim, Raw: raw}
+	x, out := make([]float32, inDim), make([]float32, outDim)
+	for i := range x {
+		x[i] = float32(i%31-15) / 16
+	}
+	b.Run("x4", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if !GemvQ4_0Q8_0Rows(out, x, m) {
+				b.Fatal("x4 GEMV rejected")
+			}
+		}
+	})
+	q8, err := QuantizeQ8_0(x)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Run("row", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if !gemvRowsParallel(outDim, len(row), func(r int) bool {
+				out[r] = dotQ4_0Q8_0Packed(raw[r*len(row):(r+1)*len(row)], q8, inDim/qk8_0)
+				return true
+			}) {
+				b.Fatal("row GEMV rejected")
+			}
+		}
+	})
+}
+
 func syntheticQ4_0Q8_0DotInputs(n int) ([]byte, []q8_0Block) {
 	nb := n / qk8_0
 	raw := make([]byte, nb*18)

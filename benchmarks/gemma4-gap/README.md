@@ -8,11 +8,15 @@ This programme uses llama.cpp as the implementation oracle for the same local Ge
 * Hardware: Intel Core i7-12700 allocation with 6 cores/threads and an RTX 3060 12GiB.
 * Shape: 124 prompt tokens and 48 greedy output tokens, matching the compact agentic tool-selection workload.
 * rcarmo/llama.cpp build: b607 (`065d9d501`), from the `rcarmo-spacemit/main` worktree.
-* Repetitions: three; CPU uses six threads and no offload, GPU uses all available layers.
+* Oracle repetitions: five; CPU uses six threads and no offload, GPU uses all available layers.
 
 ```bash
-llama-bench -m "$MODEL" -p 124 -n 48 -r 3 -t 6 -ngl 0 -o json
-llama-bench -m "$MODEL" -p 124 -n 48 -r 3 -t 6 -ngl 99 -o json
+llama-bench -m "$MODEL" -p 124 -n 48 -r 5 -t 6 -ngl 0 -o json
+llama-bench -m "$MODEL" -p 124 -n 48 -r 5 -t 6 -ngl 99 -o json
+
+GOMAXPROCS=6 GO_PHERENCE_GEMMA4_GAP_REAL=1 \
+  GO_PHERENCE_GEMMA4_MAIN="$MODEL" \
+  go test ./model -run TestGemma4RealCPUGap124x48 -count=3 -v -timeout=10m
 ```
 
 ## Oracle baseline
@@ -58,3 +62,16 @@ The first amd64 kernel preserves the existing eight-lane FMA and reduction order
 * Rebuilding scaled coefficients for every 2560-element row and using the scalar-total AVX2 primitive improves a synthetic row dot from 5.1-7.9 µs to 2.2-2.6 µs. It changes the isolated row result by at most one ULP (`0.00012207031`) because it collapses llama.cpp's eight integer lanes before float accumulation; `DotQ6KQ8K` therefore remains the bit-exact oracle. The matrix-only path is retained because the frozen real E4B one-step trajectory improved from 4.22s to 3.46s and the two-step trajectory completed in 4.97s while preserving `[106,236789]`, session/legacy parity and checkpoint replay. An exact reordered variant was rejected at 6.2-9.3 µs even after moving activation shuffling into Q8_K quantisation. Full matrix coefficient pre-expansion was also rejected because the 262144×2560 LM head alone would require about 1.34 GB of additional storage.
 * The retained design must operate above the isolated row-dot seam as well: x4/x8 output-row unrolling reuses each Q8 activation block, exposes independent accumulators for instruction-level parallelism, and removes per-row calls. Scalar remainder rows preserve exact output.
 * Prompt work uses separate token tiling and activation-quantisation reuse. Decode and prefill are promoted independently against their 98% fork thresholds.
+
+## Phase-separated Go measurements
+
+`TestGemma4RealCPUGap124x48` loads the model outside the timed regions, prepares exactly 124 tokens, then times 48 decode steps independently. The first retained Q6-fast measurement was 6.958 prefill tok/s and 3.471 decode tok/s, or 1.56% and 37.28% of the fork.
+
+The subsequent CPU profile attributes 64.13% of samples to `dotQ4_0Q8_0AVX2` and 27.16% to `dotQ6KQ8KGemvFast`. A Q4 output-row x4 kernel was therefore added to share Q8 activation loads and amortise calls across four matrix rows while preserving the exact per-row FMA/reduction order and scalar tails. Three warm end-to-end samples produced these medians:
+
+| Q4 matrix path | Prefill | Decode |
+|---|---:|---:|
+| Independent row control | 9.127 tok/s | 3.590 tok/s |
+| Output-row x4 | 9.001 tok/s | 4.279 tok/s |
+
+The x4 path improves decode by 19.2%, while prefill changes by -1.4% and remains effectively sequential. It is retained as a decode-oriented matrix improvement; it does not close either gate. Prefill now requires token tiling/GEMM rather than further row-only GEMV work. The checkpoint chart is [performance.svg](performance.svg).

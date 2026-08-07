@@ -167,15 +167,22 @@ func GemvQ4_0Q8_0Rows(out, x []float32, m *QuantMatrix) bool {
 	if err != nil {
 		return false
 	}
-	return gemvRowsParallel(m.OutDim, rowBytes, func(r int) bool {
+	groups := m.OutDim / 4
+	if groups > 0 && !gemvRowsParallel(groups, rowBytes*4, func(group int) bool {
+		r := group * 4
 		start := r * rowBytes
-		v, err := DotQ4_0Q8_0(m.Raw[start:start+rowBytes], q8, m.InDim)
-		if err != nil {
-			return false
-		}
-		out[r] = v
+		var values [4]float32
+		dotQ4_0Q8_0Rows4(m.Raw[start:start+4*rowBytes], rowBytes, q8, m.InDim/qk8_0, &values)
+		copy(out[r:r+4], values[:])
 		return true
-	})
+	}) {
+		return false
+	}
+	for r := groups * 4; r < m.OutDim; r++ {
+		start := r * rowBytes
+		out[r] = dotQ4_0Q8_0Packed(m.Raw[start:start+rowBytes], q8, m.InDim/qk8_0)
+	}
+	return true
 }
 
 // DotQ5_0Q8_0 computes a Q5_0 row against a pre-quantized Q8_0 activation row.
