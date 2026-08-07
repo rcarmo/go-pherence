@@ -91,16 +91,24 @@ func TestProjectMTPVerifierLayerQKVBatchQuantKEqV(t *testing.T) {
 	if len(got.K) != 16 || len(got.V) != 16 {
 		t.Fatalf("K/V len=%d/%d", len(got.K), len(got.V))
 	}
-	if !sameFloat32s(got.K, got.V) {
-		t.Fatalf("quant K=V path diverged K=%v V=%v", got.K, got.V)
+	wantK := append([]float32(nil), got.V...)
+	for row, pos := range batch.Plan.Positions {
+		applyRoPE(wantK[row*8:(row+1)*8], m.ensureRoPE(pos), pos, 1, 8)
+	}
+	if !sameFloat32s(got.K, wantK) {
+		t.Fatalf("quant K=V path K=%v, want RoPE(V)=%v from V=%v", got.K, wantK, got.V)
 	}
 	m.Layers[0].VWq = m.Layers[0].KWq
 	got, err = m.ProjectMTPVerifierLayerQKVBatch(batch, 0, batch.HiddenFlat)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !sameFloat32s(got.K, got.V) {
-		t.Fatalf("quant shared-pointer K=V path diverged K=%v V=%v", got.K, got.V)
+	wantK = append(wantK[:0], got.V...)
+	for row, pos := range batch.Plan.Positions {
+		applyRoPE(wantK[row*8:(row+1)*8], m.ensureRoPE(pos), pos, 1, 8)
+	}
+	if !sameFloat32s(got.K, wantK) {
+		t.Fatalf("quant shared-pointer K=V path K=%v, want RoPE(V)=%v from V=%v", got.K, wantK, got.V)
 	}
 }
 

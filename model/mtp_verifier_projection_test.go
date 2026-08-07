@@ -112,8 +112,11 @@ func TestProjectMTPVerifierLayerQKVBatchGemma4KEqV(t *testing.T) {
 		m.mv(proj, got.NormedIn[b*m.Config.HiddenSize:(b+1)*m.Config.HiddenSize], m.Layers[0].KW.Data(), m.Config.HiddenSize, got.KVDim)
 		copy(wantK[b*got.KVDim:(b+1)*got.KVDim], proj)
 		copy(wantV[b*got.KVDim:(b+1)*got.KVDim], proj)
-		rmsNormInPlace(wantK[b*got.KVDim:(b+1)*got.KVDim], m.Layers[0].KNorm.Data(), float32(m.Config.RMSNormEps))
+		kRow := wantK[b*got.KVDim : (b+1)*got.KVDim]
+		rmsNormInPlace(kRow, m.Layers[0].KNorm.Data(), float32(m.Config.RMSNormEps))
 		simd.RMSNormNoScale(wantV[b*got.KVDim:(b+1)*got.KVDim], float32(m.Config.RMSNormEps))
+		freqs, rotHalf := m.ensureGemma4RoPE(0, plan.Positions[b])
+		applyRoPEPartial(kRow, freqs, plan.Positions[b], got.KVHeads, got.HeadDim, rotHalf)
 	}
 	if !sameFloat32s(got.K, wantK) || !sameFloat32s(got.V, wantV) {
 		t.Fatalf("Gemma4 K=V post-processing K/V=%v/%v, want K-norm/no-scale-V %v/%v", got.K, got.V, wantK, wantV)
