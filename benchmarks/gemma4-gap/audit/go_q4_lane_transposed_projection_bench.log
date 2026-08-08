@@ -1,0 +1,26 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/retained-1row-8token-6         	    1755	   1437444 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/retained-1row-8token-6         	     742	   1873556 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/retained-1row-8token-6         	    1746	   1876609 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/retained-1row-8token-6         	     620	   1907273 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/retained-1row-8token-6         	     721	   2253707 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/output-major-4row-2token-6     	     346	   3961016 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/output-major-4row-2token-6     	     536	   3151859 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/output-major-4row-2token-6     	     250	   4262286 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/output-major-4row-2token-6     	     697	   2859523 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/output-major-4row-2token-6     	     686	   2849214 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-asm-lanes-6    	     164	   9646378 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-asm-lanes-6    	     246	   4869358 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-asm-lanes-6    	     356	   4454312 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-asm-lanes-6    	     207	   7820922 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-asm-lanes-6    	     206	   6285534 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-4row-2token-6  	     231	   7262136 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-4row-2token-6  	     165	   7805817 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-4row-2token-6  	     188	   8208187 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-4row-2token-6  	     242	   7902924 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LaneTransposedProjection/lane-transposed-4row-2token-6  	     333	   7252098 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	46.776s

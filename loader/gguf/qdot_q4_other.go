@@ -53,3 +53,11 @@ func dotQ4_0Q8_0Tokens8Interleaved(raw []byte, y []q8_0Block, blocks int, out *[
 func dotQ4_0Q8_0Rows4Tokens2(raw []byte, rowBytes int, y []q8_0Block, blocks int, out *[8]float32) bool {
 	return false
 }
+
+func dotQ4_0Q8_0Rows4Tokens2LaneTransposed(q4Packed, q8Packed []byte, blocks int, lanes *[8][8]float32, out *[8]float32) bool {
+	return false
+}
+
+func dotQ4_0Q8_0Rows4Tokens2LaneStates(q4Packed, q8Packed []byte, blocks int, lanes *[8][8]float32) bool {
+	return false
+}

@@ -71,15 +71,25 @@ Applying the fresh 81.85% share to the accepted 48.875 tok/s median estimates 2.
 
 Splitting the eight-token tile into two four-token passes freed four YMM registers and allowed two VNNI dependency chains to overlap. It remained exact, but longer pinned samples regressed from an 812 ns median to 1,009 ns because every Q4 block had to be loaded and decoded twice. A compact precomputed `int16` correction looked better in isolation--0.937--0.958 of dynamic-correction kernel time--but enlarged each 80-block activation tile from 23,040 to 33,280 bytes and added packing work. It lost every complete-request pair; medians were 40.392 versus 44.863 tok/s for compact versus dynamic correction, so it was reverted. Evidence is in [`audit/go_q4_compact_correction_microbench.log`](audit/go_q4_compact_correction_microbench.log) and [`audit/go_prefill_compact_correction_rejected_paired_r3.log`](audit/go_prefill_compact_correction_rejected_paired_r3.log).
 
-The next bounded experiment is a lane-transposed four-weight-row/two-token tile, not a retry of the rejected output-major variant. Eight accumulators would each hold one legacy K lane across eight outputs. A final exact 8-by-8 transpose would restore one vector per output before the unchanged reduction, so every scalar lane retains the same blockwise FMA sequence. A size-preserving four-row Q4 panel plus two Q8 blocks is 144 bytes for eight outputs, or 18 bytes per QK block/output--52.9% below the retained full-tile payload lower bound. Test-only packing comes first; no second persistent 2.067 GiB representation is implied.
+The lane-transposed four-weight-row/two-token experiment was implemented and rejected. Size-preserving test packers produce one 72-byte four-row Q4 panel and one 72-byte two-token Q8 panel per block. Eight accumulators retain one legacy K lane across the token-major outputs, and a final exact 8-by-8 transpose restores one vector per output before the unchanged reduction. One hundred deterministic random cases covering 1--80 blocks matched every one of the 64 FP32 lane states, all eight outputs and the existing output-major kernel bit-for-bit.
 
-Random 1--80-block lane-state comparisons must be bit-exact before timing. A projection-shaped pinned benchmark then has a hard promotion threshold: 2.24 times retained hotspot speed for the 98% gate and 2.31 times for oracle parity under the fixed-remainder estimate. A miss is rejected before model integration; a pass proceeds to packing-inclusive and alternating complete-request measurements with all 48 IDs unchanged.
+Exactness did not translate into speed. The optimistic assembly-only path performs the final transpose but excludes both Go reduction and packing. Across five pinned samples its single-tile median was 3,574 ns versus 615.5 ns retained; its synthetic 128-row/124-token projection median was 6.285534 ms versus 1.876609 ms retained. That is 0.299 times retained speed, or 3.35 times slower, rather than the required 2.24 times speed-up. The complete experimental wrapper projection median was slower again at 7.805817 ms. Even the optimistic candidate's fastest projection sample was 1.98 times the retained path's slowest, and it would need a further 7.50 times improvement to cross the gate. The blockwise 8-by-8 transpose needed to preserve all legacy lane sequences overwhelms the 52.9% source-payload reduction. Raw results are [`audit/go_q4_lane_transposed_exact.log`](audit/go_q4_lane_transposed_exact.log), [`audit/go_q4_lane_transposed_tile_bench.log`](audit/go_q4_lane_transposed_tile_bench.log) and [`audit/go_q4_lane_transposed_projection_bench.log`](audit/go_q4_lane_transposed_projection_bench.log).
 
-The one-row/eight-token tile with dynamic correction remains the fastest exact arrangement measured on this AVX2/VNNI machine. Wider reordering is not promoted unless all activations, logits, tokens and K/V state remain exact.
+No production projection, model packing or full-request checkpoint was changed, and no second persistent 2.067 GiB representation was created. The one-row/eight-token tile with dynamic correction remains the fastest exact arrangement measured on this AVX2/VNNI machine. Wider reordering is not promoted unless all activations, logits, tokens and K/V state remain exact.
 
 ## Reproducing the Go side
 
 ```bash
+taskset -c 0-5 env GOMAXPROCS=6 \
+  go test ./loader/gguf \
+  -run 'Test(LaneTransposed|DotQ4_0Q8_0Rows4Tokens2LaneTransposed)' \
+  -count=1
+
+taskset -c 0-5 env GOMAXPROCS=6 \
+  go test ./loader/gguf -run '^$' \
+  -bench '^BenchmarkDotQ4_0Q8_0LaneTransposed(Tiles|Projection)$' \
+  -benchmem -benchtime=1s -count=5
+
 MODEL="$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
 taskset -c 0-5 env \
   GOMAXPROCS=6 GOTMPDIR="$PWD/.gotmp" \

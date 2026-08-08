@@ -1,0 +1,8 @@
+=== RUN   TestLaneTransposedPanelPacking
+--- PASS: TestLaneTransposedPanelPacking (0.00s)
+=== RUN   TestDotQ4_0Q8_0Rows4Tokens2LaneTransposedRandomExact
+--- PASS: TestDotQ4_0Q8_0Rows4Tokens2LaneTransposedRandomExact (0.00s)
+=== RUN   TestDotQ4_0Q8_0Rows4Tokens2LaneTransposedEdges
+--- PASS: TestDotQ4_0Q8_0Rows4Tokens2LaneTransposedEdges (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.005s

@@ -73,19 +73,24 @@ This reuse is enabled by llama.cpp's reduction topology. Its vector lanes are se
 
 The dominant retained prefill gap is consequently the exact kernel's output/reduction orientation -- especially repeated Q8 activation loading across weight rows -- rather than generic Go runtime overhead, activation quantisation or worker scheduling. The existing random probe showing 877 differences in 1,000 cases explains why llama.cpp's more intense complete-block reduction cannot simply replace it.
 
-## Next exact experiment
+## Lane-transposed exact experiment -- rejected
 
-The next bounded experiment is a lane-transposed four-weight-row/two-token microtile. It differs from the rejected output-major four-row/two-token candidate: eight YMM accumulators would each hold one legacy K lane across eight outputs, rather than one output across eight K lanes. For every block, a size-preserving four-row Q4 panel and a two-token lane-major Q8 panel would produce eight output contributions per VNNI sequence. After the final block, an exact 8-by-8 register transpose would restore one vector per output and invoke the unchanged legacy reduction. Each scalar FP32 lane would see the same blockwise FMA sequence as today; only its register location would change.
+The bounded lane-transposed four-weight-row/two-token microtile was implemented behind an experimental, non-production entry point. Its block-major Q4 panel contains four FP16 scales and four 16-byte nibble payloads; its Q8 panel contains two FP32 scales and two 32-byte payloads. Both are 72 bytes, so the test-only packers are size-preserving. Logical vector lanes are token-major (`t0r0`--`t0r3`, then `t1r0`--`t1r3`). Eight YMM accumulators each retain one legacy K lane across those eight outputs, and a final exact 8-by-8 transpose restores one eight-lane vector per output before the unchanged reduction.
 
-The proposed 4-by-2 tile has a 72-byte Q4 panel plus two 36-byte Q8 blocks: 144 source bytes for eight outputs, or 18 bytes per QK block/output. That is 52.9% below the retained tile's 38.25-byte full-tile lower bound and is the best-balanced eight-output rectangle for 18-byte weights and 36-byte activations. It also replaces eight spilled scalar-scale broadcasts with one eight-output outer-product scale vector. It does not change the payload permanently: test-only packers should establish the ceiling before any matrix ownership change is considered.
+This preserves the intended 144 source bytes for eight outputs, or 18 bytes per QK block/output -- 52.9% below the retained tile's 38.25-byte full-tile lower bound. It also proves that payload reduction alone is insufficient under the exact contract. AVX-VNNI naturally produces eight K-lane partials for one row/token pair. Reorienting those results requires an 8-by-8 transpose every block while all eight accumulators remain live, plus the final transpose. On AVX2 the required inserts and scratch traffic cost much more than the saved input loads.
 
-Validation is deliberately staged:
+One hundred deterministic random cases spanning 1--80 blocks matched the portable reference bit-for-bit for all 64 pre-reduction FP32 lane states, all eight final outputs and the existing output-major kernel. Zero-block and short-buffer edges were also checked. The implementation is therefore exact but not competitive.
 
-1. Compare random 1--80-block outputs bit-for-bit with the legacy path, including every one of the eight pre-reduction FP32 lanes.
-2. Benchmark equal-work retained, existing output-major 4-by-2 and lane-transposed 4-by-2 kernels with pinned CPUs. The projection-shaped ceiling must reach at least 2.24 times the retained hotspot for the 98% gate, and 2.31 times for oracle parity under the fixed-remainder estimate.
-3. Reject the layout before model integration if it cannot meet that requirement. If it does, include transient packing cost and run alternating complete requests with all 48 output IDs unchanged.
+Pinned `taskset -c 0-5`, `GOMAXPROCS=6`, five-sample medians were:
 
-This experiment directly tests whether activation reuse can be recovered without relaxing exactness. It is not a commitment to a second persistent Q4 representation.
+| 80-block work | Retained 1-row/8-token | Output-major 4-row/2-token | Lane-transposed 4-row/2-token |
+|---|---:|---:|---:|
+| Single eight-output tile | 615.5 ns | 1,545 ns | 3,574 ns |
+| Synthetic 128-row/124-token projection | 1.876609 ms | 3.151859 ms | 6.285534 ms |
+
+The lane-transposed column uses the optimistic assembly-only path: it performs the final lane transpose but excludes the Go final reduction as well as packing. The complete experimental wrapper projection median was slower again at 7.805817 ms. Even this favourable projection ceiling achieved only 0.299 times retained speed -- 3.35 times slower -- rather than the required 2.24 times speed-up; it would need a further 7.50 times improvement to cross the gate. Despite substantial host variance, the optimistic candidate's fastest projection sample (4.454312 ms) was still 1.98 times the retained path's slowest sample (2.253707 ms), so the rejection is unambiguous. Including packing and reduction cannot recover the deficit. Evidence is in [`go_q4_lane_transposed_exact.log`](../benchmarks/gemma4-gap/audit/go_q4_lane_transposed_exact.log), [`go_q4_lane_transposed_tile_bench.log`](../benchmarks/gemma4-gap/audit/go_q4_lane_transposed_tile_bench.log) and [`go_q4_lane_transposed_projection_bench.log`](../benchmarks/gemma4-gap/audit/go_q4_lane_transposed_projection_bench.log).
+
+The candidate is not integrated into matrix projection, transient packing, complete-request validation or the accepted throughput table. The retained one-row/eight-token dynamic-correction kernel remains the production path. This closes the bounded experiment without duplicating Q4 model storage or relaxing exactness.
 
 ## Reproduction and validation
 

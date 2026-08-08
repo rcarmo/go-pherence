@@ -23,6 +23,9 @@ func dotQ4_0Q8_0x4TokensAVX2(raw []byte, y []q8_0Block, blocks int, out *[4]floa
 func dotQ4_0Q8_0Rows4Tokens2VNNI(raw []byte, rowBytes int, y []q8_0Block, blocks int, out *[8]float32)
 
 //go:noescape
+func dotQ4_0Q8_0Rows4Tokens2LaneVNNI(q4Packed, q8Packed []byte, blocks int, lanes *[8][8]float32)
+
+//go:noescape
 func dotQ4_0Q8_0Tokens8VNNI(raw []byte, y []q8_0Block, blocks, tokenStride, blockStride int, out *[8]float32)
 
 //go:noescape
@@ -102,4 +105,35 @@ func dotQ4_0Q8_0Rows4Tokens2(raw []byte, rowBytes int, y []q8_0Block, blocks int
 	}
 	dotQ4_0Q8_0Rows4Tokens2VNNI(raw, rowBytes, y, blocks, out)
 	return true
+}
+
+// dotQ4_0Q8_0Rows4Tokens2LaneTransposed is an experimental, non-production
+// entry point. Both packed inputs contain 72 bytes per QK block. The assembly
+// returns each output's eight legacy FP32 lane states after its final transpose.
+func dotQ4_0Q8_0Rows4Tokens2LaneTransposed(q4Packed, q8Packed []byte, blocks int, lanes *[8][8]float32, out *[8]float32) bool {
+	if out == nil || !dotQ4_0Q8_0Rows4Tokens2LaneStates(q4Packed, q8Packed, blocks, lanes) {
+		return false
+	}
+	for i := range out {
+		out[i] = reduceQ4_0Q8_0Lanes(&lanes[i])
+	}
+	return true
+}
+
+func dotQ4_0Q8_0Rows4Tokens2LaneStates(q4Packed, q8Packed []byte, blocks int, lanes *[8][8]float32) bool {
+	if !cpu.X86.HasAVXVNNI || blocks < 0 || len(q4Packed) < blocks*72 || len(q8Packed) < blocks*72 || lanes == nil {
+		return false
+	}
+	dotQ4_0Q8_0Rows4Tokens2LaneVNNI(q4Packed, q8Packed, blocks, lanes)
+	return true
+}
+
+func reduceQ4_0Q8_0Lanes(lanes *[8]float32) float32 {
+	r0 := lanes[0] + lanes[4]
+	r1 := lanes[1] + lanes[5]
+	r2 := lanes[2] + lanes[6]
+	r3 := lanes[3] + lanes[7]
+	r0 += r2
+	r1 += r3
+	return r0 + r1
 }
