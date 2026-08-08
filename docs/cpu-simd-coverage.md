@@ -21,6 +21,7 @@ The SIMD implementation now lives at import path `github.com/rcarmo/go-pherence/
 | GQA attention scores | `simd.Sdot` per head/token | ✅ | ✅ | Intermediate improvement; still allocates scores per head |
 | GQA attention output | `simd.Saxpy` per cached-token V head | ✅ | ✅ | Caller-owned output/score scratch; full fused attention still future work |
 | F32 GEMV dense | checked `simd.SgemmNNTo` / `simd.GemvRows` / `simd.GemvCols` references | ✅ | ✅ | model/tensor/BERT callers use checked runtime entrypoints; unsafe SGEMM calls are boundary-guarded |
+| GGUF Q4_0 × Q8_0 | `loader/gguf` exact row and batched projection kernels | ✅ VNNI | ❌ | amd64 decode uses an eight-weight-row AVX-VNNI kernel; B64+ prefill uses the retained one-weight-row/eight-token SoA kernel with unsigned nibbles and dynamic `8*sum(Q8)` correction. Both preserve blockwise FP32 accumulation and the legacy eight-lane reduction order. Current same-GGUF prefill efficiency is 53.6%; see the [CPU gap note](gemma4-cpu-simd-gap.md). |
 | MLX4 GEMV | `backends/mlx` scalar unpack/dequant loop with dtype/shape validation; model/backend code imports it directly | ❌ | ❌ | Explicit `HasGemv4=false`/`HasDequant=false` capability gates, scalar dispatch hook, caller-owned dequant output helper, and scalar batched `Gemm` API; biggest CPU gap for quantized models and MoE experts |
 | GPTQ Q4 GEMV | `backends/simd/quant/q4` scalar unpack/dequant loop with qweight/g_idx/scales/qzeros validation; model/backend code imports it directly | ❌ | ❌ | Scalar symmetric GEMV now traverses packed rows contiguously, dequant supports caller-owned output, and explicit `HasGemvSym=false`/`HasDequant=false` gates are present; still needs AVX2/NEON nibble unpack + FMA |
 | NVFP4 GEMV/dequant | `backends/simd/quant/nvfp4` correctness-first scalar decode/dequant/GEMV | ❌ | ❌ | Explicit `HasDecode=false`/`HasDequant=false`/`HasGemv=false` gates, caller-owned dequant output helper, and `GemvNVFP4Reference` scalar parity target |
@@ -98,11 +99,12 @@ BenchmarkCPUHotGemvNVFP4_1536x2048          11.0 ms/op, 0 allocs
 
 ## Immediate next steps
 
-1. Vectorize `RoPEPartial` on AVX2 and NEON.
-2. Add MLX4 GEMV SIMD kernels for CPU quantized decode and MoE experts.
-3. Extend caller-owned scratch-buffer reuse to MLP, PLI, MoE, and TurboQuant decode paths.
-4. Add allocation gates for decode once broader scratch-buffer reuse lands.
-5. Runtime-verify arm64 NEON kernels on Orange Pi 6+.
+1. Close the remaining 46.4% Gemma4 E4B prefill gap with a faster exact Q4_0 organisation; scheduling and allocation changes are not the current measured bottleneck.
+2. Vectorize `RoPEPartial` on AVX2 and NEON.
+3. Add MLX4 GEMV SIMD kernels for CPU quantized decode and MoE experts.
+4. Extend caller-owned scratch-buffer reuse to MLP, PLI, MoE, and TurboQuant decode paths.
+5. Add allocation gates for decode once broader scratch-buffer reuse lands.
+6. Runtime-verify arm64 NEON kernels on Orange Pi 6+.
 
 
 ## Folder reorg note

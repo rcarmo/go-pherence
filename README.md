@@ -87,7 +87,7 @@ The [documentation index](docs/README.md) is organised by task rather than by im
 * [Architecture](docs/architecture.md) for the package graph and execution path.
 * [Backend stack](docs/backend-stack.md) for CPU, NVIDIA, Vulkan and embedded ownership.
 * [Validation gates](docs/validation-gates.md) for the checks required before an optimised path becomes a default.
-* [Performance](docs/performance.md) for current benchmarks; [matmul results](docs/matmul-optimisation-results.md) contains the latest cross-backend optimisation programme.
+* [Performance](docs/performance.md) for current benchmarks; the [Gemma4 CPU performance-gap programme](benchmarks/gemma4-gap/README.md) and [CPU SIMD gap](docs/gemma4-cpu-simd-gap.md) freeze the exact E4B CPU oracle; [matmul results](docs/matmul-optimisation-results.md) contains the latest cross-backend optimisation programme.
 * [MTP and speculative decoding](docs/mtp-speculative.md) for the current Gemma/Qwen work.
 
 Deep parity investigations, generated snapshots and chronological logs are still available, but they live under the "History and diagnostics" section of the index rather than competing with current guidance.

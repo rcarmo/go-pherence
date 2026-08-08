@@ -49,6 +49,7 @@ The article's transferable rules are:
 | NVFP4 | Decode packed nibbles and block scales per row; batch repeats GEMV unless an accelerator exists. | Multi-row decode reuse and fused scale-vector kernels. P0. |
 | FP8 E4M3 CPU | AVX2 dot uses a 256-entry F32 LUT. `Linear.BatchGemvTo` and dynamic-token variants already reuse each dequantised weight row across the batch, but remain row-oriented and internally serial. | Replace LUT gathers where conversion instructions/bit arithmetic win; add MxN register tiles and bounded output-tile threading. P1. |
 | Q8/Q4 low-level dots | amd64 has single and x4 helpers. | Wire x4 helpers consistently through all row matrices; add arm64/NEON equivalents, which currently fall back to scalar for several helpers. P1. |
+| Q4_0 × Q8_0 GGUF | amd64 decode uses an exact eight-weight-row AVX-VNNI kernel. B64+ prefill quantises Q8_0 activations in parallel and uses an exact one-weight-row/eight-token SoA kernel with unsigned nibbles and dynamic `8*sum(Q8)` correction. It retains blockwise FP32 accumulation, eight lane accumulators and legacy final reduction order, but reaches only 53.6% of the corrected CPU-only llama.cpp prefill oracle. | Preserve the frozen exactness contract and seek a better Q4 organisation; ordinary scheduling, allocation and compact precomputed-correction candidates have already lost end to end. Add an arm64 equivalent separately. See the [Gemma4 CPU gap note](gemma4-cpu-simd-gap.md). P0. |
 | Q5_0 and Q8_0 GGUF | Go scalar block loops, parallel rows. | AVX2/NEON/VNNI row kernels and x4 rows; reuse quantised activation. P0/P1. |
 | Q2_K/Q3_K/Q4_K/Q6_K GGUF | Complex scalar unpacking, per-row scratch, RVV-specific alternatives in model code. | Centralise backend kernels, predecode scale metadata, x4 rows, and batched prompt kernels. Avoid duplicate model-local implementations. P0. |
 | DiffusionGemma Q6 int8 dot | Dedicated amd64 assembly exists for one row. | Add x4 output rows and batch/active-expert scheduling; fuse dequant scale and expert weighting. P1. |
@@ -102,7 +103,7 @@ These are not all new arithmetic kernels, but they prevent existing kernels from
 
 ## Recommended implementation order
 
-1. Quantised CPU prompt kernels: MLX Q4, GPTQ Q4, GGUF Q4_K/Q6_K, NVFP4.
+1. Quantised CPU prompt kernels: close the exact Gemma4 Q4_0 gap, then MLX Q4, GPTQ Q4, GGUF Q4_K/Q6_K and NVFP4.
 2. BF16 MxN kernel for MOSS adaptor and BF16 checkpoints.
 3. Dense AVX2/NEON 3x4 or 4x4 NT microkernel, then retune dispatch across Whisper-sized M.
 4. NVIDIA Q4 tiled GEMM redesign.

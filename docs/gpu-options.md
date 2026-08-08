@@ -72,7 +72,10 @@ AVX2+FMA (amd64) and NEON (arm64):
 
 - Runtime-gated AVX2/FMA and NEON wrappers with scalar fallback
 - Covered hot paths include vector add/mul/scale, dot/Saxpy, RMSNorm variants, BF16 widen/narrow, SGEMM wrappers, the Ideogram CPU FP8 E4M3 LUT gather-dot GEMV kernel on amd64 AVX2/FMA, NVIDIA direct FP8 E4M3 GEMV for opt-in Ideogram linear streaming/lazy residency, NVIDIA fused Ideogram CFG+FlowMatch scheduler vector update, NVIDIA Ideogram non-affine row LayerNorm, low-level F32 RMSNorm Buffer wrappers for Ideogram normalization wiring, NVIDIA Ideogram adaLN scale/gate plus gated-residual vector kernels, NVIDIA Ideogram full-tensor MRoPE rotation, NVIDIA Ideogram full non-causal DiT attention score/softmax/value kernels, and NVIDIA Ideogram MLP/final-vector SiLU/Mul/SiLU*Mul wrappers
-- Remaining CPU SIMD gaps include fused GELU, RoPEPartial, and MLX/GPTQ Q4 GEMV kernels
+- Missing CPU SIMD kernels include fused GELU, RoPEPartial, and MLX/GPTQ Q4 GEMV
+- GGUF Q4_0 is not an unimplemented SIMD path: amd64 decode has an exact eight-row AVX-VNNI kernel and B64+ prefill has the retained exact one-row/eight-token SoA kernel with dynamic unsigned-Q4 correction. On the frozen Gemma4 E4B workload it reaches 53.6% of the CPU-only llama.cpp prefill oracle and 87.0% of its decode rate; see the [CPU gap note](gemma4-cpu-simd-gap.md).
+
+For that frozen Gemma4 performance-gap programme, further NVIDIA optimisation is deferred until the Intel CPU SIMD path is within 2% of its corrected CPU-only oracle. This does not change the existing NVIDIA backend support described above.
 
 ## Backend Selection
 

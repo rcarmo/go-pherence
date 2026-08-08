@@ -11,7 +11,7 @@ The codebase covers ordinary local inference, large-model placement, speech, ima
 | Choose CPU, NVIDIA or another backend | [Backend selection](backend-selection.md) and [Tuning](tuning.md) |
 | Understand package ownership and execution flow | [Architecture](architecture.md), [Backend stack](backend-stack.md) and [Backend layout](backend-layout.md) |
 | Design or optimise an LLM inference runtime | [Practical LLM inference blueprint](llm-inference-blueprint.md) |
-| Review the measured Gemma4 inference programme | [vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) |
+| Review the measured Gemma4 inference programme | [CPU performance-gap programme](../benchmarks/gemma4-gap/README.md), [CPU SIMD gap](gemma4-cpu-simd-gap.md), [vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen serving baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) |
 | Transcribe or translate audio | [Whisper and translated VTT](whisper-diarize-vtt.md) |
 | Transcribe with speaker labels and timestamps | [MOSS transcription and diarisation](moss-transcribe-diarize.md) |
 | Work on speculative decoding or MTP | [MTP and speculative decoding](mtp-speculative.md) |
@@ -64,6 +64,7 @@ Quantised and hardware-specific references:
 Performance references:
 
 * [Performance](performance.md) -- current model and backend measurements.
+* [Gemma4 CPU performance-gap programme](../benchmarks/gemma4-gap/README.md) and [CPU SIMD gap](gemma4-cpu-simd-gap.md) -- the frozen same-GGUF CPU oracle, retained exact Q4_0 checkpoint and remaining gap.
 * [SIMD matmul policy](simd-matmul.md) -- shape-aware decode/prefill dispatch.
 * [Matmul audit](matmul-audit.md), [benchmark protocol](matmul-benchmark-protocol.md) and [final results](matmul-optimisation-results.md) -- the complete cache/register-tiling programme and its retained or rejected outcomes.
 * [TurboFieldfare audit](turbo-fieldfare-audit.md) and [adoption results](turbo-fieldfare-adoption-results.md) -- transferable expert-streaming, KV, attention and prefill techniques, plus the measured go-pherence adoption baseline.

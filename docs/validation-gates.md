@@ -40,6 +40,26 @@ for arch in arm64 riscv64; do GOOS=linux GOARCH=$arch go test -c ./model -o /tmp
 
 The tailored session is SIMD-only. Scalar and NVIDIA session gates are unsupported and must not be reported as skips that imply parity; NVIDIA remains blocked by one mutable `GPUModel` KV/cache owner. CPU hardware counters are unavailable on the measured host while `perf_event_paranoid=4`.
 
+## Gemma4 exact CPU performance fixture
+
+The retained Q4_0 checkpoint has an asset-independent exact-kernel gate and an opt-in real-model trajectory gate:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
+  -run 'TestDotQ4_0Q8_0Tokens8SoARandomExact|TestQuantizeQ8_0BatchParallelExact' \
+  -count=1 -v
+
+MODEL="$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+taskset -c 0-5 env \
+  GOMAXPROCS=6 GOTMPDIR="$PWD/.gotmp" \
+  GO_PHERENCE_GEMMA4_GAP_REAL=1 \
+  GO_PHERENCE_GEMMA4_MAIN="$MODEL" \
+  go test ./model -run '^TestGemma4RealCPUGap124x48$' \
+  -count=3 -v -timeout=10m
+```
+
+The real fixture checks the frozen BOS-plus-123-token prompt, untimed boundary output, 47 timed generation evaluations and all 48 output IDs. Current retained medians are 48.875 prompt tok/s and 9.161 generation eval tok/s, versus 91.230 and 10.526 for the corrected CUDA-disabled llama.cpp b607 oracle. These are 53.6% and 87.0% efficiencies, so neither corrected 98% gate passes. Treat 38.808 prompt tok/s only as the historical parallel-activation milestone. The canonical oracle build, phase contract and raw evidence are in the [Gemma4 CPU performance-gap programme](../benchmarks/gemma4-gap/README.md); do not substitute a CUDA-enabled `-ngl 0` result.
+
 ## Optional phase-specific gates
 
 Run these only when the corresponding phase is being accepted:
