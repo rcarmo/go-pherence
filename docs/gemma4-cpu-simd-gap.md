@@ -50,9 +50,42 @@ A llama.cpp-style packed reduction is not an exact substitute for the legacy con
 
 ## Where the time goes
 
-The phase-specific profile that selected this target attributed 83.48% of flat CPU samples to `dotQ4_0Q8_0Tokens8SoAVNNI`. Dynamic correction materially improved that dominant tile; closing the remaining 46.4% oracle gap still requires a faster exact Q4 organisation rather than more scheduling or allocation work.
+The pre-correction profile that selected this target attributed 83.48% of flat CPU samples to `dotQ4_0Q8_0Tokens8SoAVNNI`. A new phase-only profile of the retained unsigned-correction binary attributes 10.87 of 13.28 sampled CPU seconds, or 81.85%, to the same function. `quantizeQ8_0To` is only 4.07% flat and the four-token tail kernel is 4.74%. The profiled request ran slowly under shared host load, so its 19.156 prompt tok/s is not a throughput sample; the profile is evidence about attribution only. The raw artefacts are [`go_prefill_retained_unsigned_q4.pprof`](../benchmarks/gemma4-gap/audit/go_prefill_retained_unsigned_q4.pprof) and [`go_prefill_retained_unsigned_q4_profile.log`](../benchmarks/gemma4-gap/audit/go_prefill_retained_unsigned_q4_profile.log).
 
-AVX2 has sixteen YMM registers. One exact output occupies one full YMM accumulator to preserve its eight FP32 partial sums, leaving room for eight outputs plus unpack, scale and dot-product temporaries. llama.cpp obtains greater arithmetic intensity by choosing a different reduction scheme and tiling more rows and tokens together. Ordinary row repacking does not remove this register constraint. Eight normal Q4_0 blocks and llama.cpp's eight-row packed tile both occupy 144 bytes, so keeping both layouts would duplicate weight storage rather than compress it. For this model, duplicating all 342 Q4_0 tensors would add 2,219,212,800 bytes (2.066803 GiB).
+Applying that 81.85% share to the accepted 48.875 tok/s median gives an Amdahl estimate. The current prompt takes 2.5371 seconds, of which approximately 2.0766 seconds are in the tile and 0.4605 seconds elsewhere. Matching the 1.3592-second oracle while leaving the remainder fixed gives the tile 0.8987 seconds: a 2.31 times kernel speed-up, or a 56.7% tile-time reduction. Reaching the 89.405 tok/s 98% gate still requires approximately 2.24 times. This is an estimate because sampled CPU share is not wall-clock decomposition, but it shows why another small scheduling or allocation change cannot close the gap.
+
+## Structural source of the gap
+
+The retained Go kernel and b607's AVX2 prefill kernel perform the same number of scalar output dot products, but organise them differently:
+
+| Property | Retained Go path | llama.cpp b607 AVX2 prefill |
+|---|---|---|
+| Main output tile | one weight row by eight tokens | eight weight rows by sixteen tokens; four-token tail |
+| Weight layout | ordinary 18-byte Q4_0 blocks | eight-row `block_q4_0x8`, 144 bytes |
+| Activation layout | eight-token SoA, 288 bytes per QK block | four-row `block_q8_0x4`, 136 bytes |
+| YMM lane meaning | eight K-lane FP32 partials for one output | eight independent weight-row outputs |
+| Per-block reduction | eight int32 lane dots become eight persistent FP32 FMAs | one complete 32-element integer dot becomes one FP32 FMA per output |
+| Final reduction | legacy ordered horizontal sum | outputs are already scalar lanes |
+
+For the 124-token prompt, the minimum input payload makes the reuse difference concrete. Go uses fifteen full eight-token tiles plus one four-token tail. Across eight weight rows that is 38,016 bytes per QK block for 992 output contributions, or 38.32 bytes per output. llama.cpp uses seven sixteen-token supertiles plus three four-token tails: 5,656 bytes for the same 992 contributions, or 5.70 bytes per output. This is a source-layout lower bound rather than measured cache traffic, but it is a 6.7 times arithmetic-intensity advantage. Most of it comes from loading each packed Q8 activation once for eight weight rows instead of once per weight row. Q4 payload and decode are also reused across sixteen tokens rather than eight for most of the prompt.
+
+This reuse is enabled by llama.cpp's reduction topology. Its vector lanes are separate outputs, so a repacked Q4 decode and a packed Q8 load feed a much wider output tile. Go's exact contract assigns a complete YMM register to every output so that all eight K-lane FP32 states survive every block. AVX2 has only sixteen YMM registers: eight persistent outputs plus unpack, scale, correction and dot temporaries already consume the register file. Ordinary row repacking therefore cannot recover llama.cpp's reuse by itself. Eight normal Q4_0 blocks and llama.cpp's eight-row packed tile both occupy 144 bytes, so keeping both layouts would duplicate weight storage rather than compress it. For this model, duplicating all 342 Q4_0 tensors would add 2,219,212,800 bytes (2.066803 GiB).
+
+The dominant retained prefill gap is consequently the exact kernel's output/reduction orientation -- especially repeated Q8 activation loading across weight rows -- rather than generic Go runtime overhead, activation quantisation or worker scheduling. The existing random probe showing 877 differences in 1,000 cases explains why llama.cpp's more intense complete-block reduction cannot simply replace it.
+
+## Next exact experiment
+
+The next bounded experiment is a lane-transposed four-weight-row/two-token microtile. It differs from the rejected output-major four-row/two-token candidate: eight YMM accumulators would each hold one legacy K lane across eight outputs, rather than one output across eight K lanes. For every block, a size-preserving four-row Q4 panel and a two-token lane-major Q8 panel would produce eight output contributions per VNNI sequence. After the final block, an exact 8-by-8 register transpose would restore one vector per output and invoke the unchanged legacy reduction. Each scalar FP32 lane would see the same blockwise FMA sequence as today; only its register location would change.
+
+The proposed 4-by-2 tile has a 72-byte Q4 panel plus two 36-byte Q8 blocks: 144 source bytes for eight outputs, or 18 bytes per QK block/output. That is 52.9% below the retained tile's 38.25-byte full-tile lower bound and is the best-balanced eight-output rectangle for 18-byte weights and 36-byte activations. It also replaces eight spilled scalar-scale broadcasts with one eight-output outer-product scale vector. It does not change the payload permanently: test-only packers should establish the ceiling before any matrix ownership change is considered.
+
+Validation is deliberately staged:
+
+1. Compare random 1--80-block outputs bit-for-bit with the legacy path, including every one of the eight pre-reduction FP32 lanes.
+2. Benchmark equal-work retained, existing output-major 4-by-2 and lane-transposed 4-by-2 kernels with pinned CPUs. The projection-shaped ceiling must reach at least 2.24 times the retained hotspot for the 98% gate, and 2.31 times for oracle parity under the fixed-remainder estimate.
+3. Reject the layout before model integration if it cannot meet that requirement. If it does, include transient packing cost and run alternating complete requests with all 48 output IDs unchanged.
+
+This experiment directly tests whether activation reuse can be recovered without relaxing exactness. It is not a commitment to a second persistent Q4 representation.
 
 ## Reproduction and validation
 
