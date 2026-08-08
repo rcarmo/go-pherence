@@ -21,16 +21,18 @@ The former 447.166 prompt tok/s and 9.310 decode tok/s comparison is invalid. It
 
 Long prefill uses an AVX-VNNI one-weight-row/eight-token kernel. Each output keeps the legacy eight FP32 lane accumulators, blockwise FMA and final reduction order, so the batched path remains bit-identical to sequential execution. Each eight-token Q8_0 input tile uses a structure-of-arrays layout: eight contiguous FP32 scales followed by eight contiguous Q8 vectors. One packed scale load and multiply replaces eight scalar scale sequences without changing arithmetic. Randomised 1--80-block comparisons are bit-exact.
 
-Q8_0 activation quantisation now writes directly into caller-owned storage across contiguous worker spans. The parallel and serial paths produce identical scales and quantised bytes, retain oversized-slice behaviour and pass the race detector. Alternating baseline/candidate runs moved complete prompt throughput from a 30.932 tok/s median to 38.691 tok/s (+25.1%). A subsequent retained three-run check measured 32.227, 38.808 and 39.741 prompt tok/s, giving a 38.808 tok/s median.
+Q8_0 activation quantisation writes directly into caller-owned storage across contiguous worker spans. The parallel and serial paths produce identical scales and quantised bytes, retain oversized-slice behaviour and pass the race detector. This work previously established a 38.808 prompt tok/s median.
 
-Decode retains the fused Q6_K multi-block AVX-VNNI GEMV and the eight-row Q4_0 kernel with a precomputed per-block `8*q8` correction. These remove repeated coefficient expansion and correction work while preserving the legacy blockwise FP32 result. Current generation samples are 8.144, 8.753 and 9.344 eval tok/s, giving an 8.753 eval tok/s median.
+The retained Q4 prefill kernel now dots unsigned nibbles and computes `8*sum(Q8)` dynamically with a second `VPDPBUSD`, then subtracts the int32 correction before the existing FP32 conversion, scale FMA and reduction. It is algebraically identical to `(q4-8)*q8` but removes the Q4 `VPSUBB` and all eight per-token `VPABSB`/`VPSIGNB` transforms. Tightly paired trials reduced kernel time by approximately 16.7%. Three alternating complete-request pairs moved median prompt throughput from 40.160 to 48.875 tok/s (+21.7%), with all 48 IDs unchanged.
+
+Decode retains the fused Q6_K multi-block AVX-VNNI GEMV and the eight-row Q4_0 kernel with a precomputed per-block `8*q8` correction. The new B64+ prefill kernel does not affect that route; paired decode medians were effectively unchanged at 9.128 baseline versus 9.161 candidate eval tok/s.
 
 | Runtime | Prompt | Generation | Oracle efficiency |
 |---|---:|---:|---:|
 | CPU-only llama.cpp b607, exact phases | 91.230 tok/s | 10.526 eval tok/s | 100% / 100% |
-| Go, retained median | 38.808 tok/s | 8.753 eval tok/s | 42.5% / 83.2% |
+| Go, retained median | 48.875 tok/s | 9.161 eval tok/s | 53.6% / 87.0% |
 
-Neither phase currently passes its corrected 98% gate. Decode is 16.8% below the oracle; prefill remains 57.5% below it.
+Neither phase currently passes its corrected 98% gate. Decode is 13.0% below the oracle; prefill remains 46.4% below it.
 
 ## What was rejected
 
@@ -40,15 +42,17 @@ Splitting the retained eight-token tile into two four-token passes freed four YM
 
 Gathering eight activation scales into a packed vector was exact but 1--4% slower in four of five paired runs. The retained structure-of-arrays layout obtains the same packed scale arithmetic from one contiguous load. Flat-interleaved activation and persistent-worker variants also regressed the complete request.
 
-A direct signed-byte `VPDPBSSD` replacement is unavailable on this Alder Lake host. `avx_vnni` provides `VPDPBUSD`; signed-byte `VPDPBSSD` requires AVX-VNNI-INT8. The prefill kernel therefore keeps `VPABSB` plus `VPSIGNB`, followed by unsigned-by-signed `VPDPBUSD`.
+A direct signed-byte `VPDPBSSD` replacement is unavailable on this Alder Lake host. `avx_vnni` provides `VPDPBUSD`; signed-byte `VPDPBSSD` requires AVX-VNNI-INT8. Dynamic unsigned-Q4 correction is the retained way to use the available dot instruction without `VPABSB`/`VPSIGNB`.
 
-A llama.cpp-style packed reduction is not an exact substitute for the legacy contract. It reduces a complete 32-element block to one integer before FP32 accumulation, while go-pherence keeps eight FP32 partial accumulators until final reduction. A deterministic random probe differed in 877 of 1,000 cases. Fully unrolling the fused Q6_K block dot was exact across 1,000 random blocks, but increased its median from 27.79 ns to 29.49 ns.
+Precomputing the correction as eight `int16` lanes per token was 4.2--6.3% faster than dynamic correction in the isolated kernel. It enlarged an 80-block activation tile from 23,040 to 33,280 bytes and added packing work, however, and lost every full-request pair. Compact and dynamic medians were 40.392 and 44.863 prompt tok/s respectively, so the compact form was reverted.
+
+A llama.cpp-style packed reduction is not an exact substitute for the legacy contract. It reduces a complete 32-element block to one integer before FP32 accumulation, while go-pherence keeps eight FP32 partial accumulators until final reduction. A deterministic random probe differed in 877 of 1,000 cases. Its eight-weight-row/one-token orientation was also approximately 1.35 times slower than the retained one-weight-row/eight-token orientation under the exact reduction constraint. Fully unrolling the fused Q6_K block dot was exact across 1,000 random blocks, but increased its median from 27.79 ns to 29.49 ns.
 
 ## Where the time goes
 
-The latest phase-specific profile attributes 83.48% of flat CPU samples to `dotQ4_0Q8_0Tokens8SoAVNNI`. Eliminating every remaining non-Q4 sample would move 38.8 tok/s only to roughly 46.5 tok/s. Closing the prompt gap therefore requires a materially faster exact Q4 matrix tile rather than more scheduling or allocation work.
+The phase-specific profile that selected this target attributed 83.48% of flat CPU samples to `dotQ4_0Q8_0Tokens8SoAVNNI`. Dynamic correction materially improved that dominant tile; closing the remaining 46.4% oracle gap still requires a faster exact Q4 organisation rather than more scheduling or allocation work.
 
-AVX2 has sixteen YMM registers. One exact output occupies one full YMM accumulator to preserve its eight FP32 partial sums, leaving room for eight outputs plus unpack, scale and dot-product temporaries. llama.cpp obtains greater arithmetic intensity by choosing a different reduction scheme and tiling more rows and tokens together. Ordinary row repacking does not remove this register constraint.
+AVX2 has sixteen YMM registers. One exact output occupies one full YMM accumulator to preserve its eight FP32 partial sums, leaving room for eight outputs plus unpack, scale and dot-product temporaries. llama.cpp obtains greater arithmetic intensity by choosing a different reduction scheme and tiling more rows and tokens together. Ordinary row repacking does not remove this register constraint. Eight normal Q4_0 blocks and llama.cpp's eight-row packed tile both occupy 144 bytes, so keeping both layouts would duplicate weight storage rather than compress it. For this model, duplicating all 342 Q4_0 tensors would add 2,219,212,800 bytes (2.066803 GiB).
 
 ## Reproduction and validation
 

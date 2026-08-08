@@ -1,0 +1,14 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkDotQ4_0Q8_0CorrectionLayout 	   41266	    118604 ns/op	       451.1 compact-ns/call	         0.9503 compact/dynamic	       474.7 dynamic-ns/call
+BenchmarkDotQ4_0Q8_0CorrectionLayout 	   41274	    136327 ns/op	       516.2 compact-ns/call	         0.9419 compact/dynamic	       548.0 dynamic-ns/call
+BenchmarkDotQ4_0Q8_0CorrectionLayout 	   41732	    120673 ns/op	       458.7 compact-ns/call	         0.9491 compact/dynamic	       483.3 dynamic-ns/call
+BenchmarkDotQ4_0Q8_0CorrectionLayout 	   46443	    134769 ns/op	       508.9 compact-ns/call	         0.9370 compact/dynamic	       543.1 dynamic-ns/call
+BenchmarkDotQ4_0Q8_0CorrectionLayout 	   44422	    146525 ns/op	       553.5 compact-ns/call	         0.9374 compact/dynamic	       590.4 dynamic-ns/call
+BenchmarkDotQ4_0Q8_0CorrectionLayout 	   39621	    115229 ns/op	       438.2 compact-ns/call	         0.9500 compact/dynamic	       461.2 dynamic-ns/call
+BenchmarkDotQ4_0Q8_0CorrectionLayout 	   54081	    104668 ns/op	       399.8 compact-ns/call	         0.9584 compact/dynamic	       417.1 dynamic-ns/call
+BenchmarkDotQ4_0Q8_0CorrectionLayout 	   44920	    140813 ns/op	       532.6 compact-ns/call	         0.9400 compact/dynamic	       566.6 dynamic-ns/call
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	74.104s

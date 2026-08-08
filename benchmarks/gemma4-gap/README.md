@@ -36,24 +36,36 @@ The temporary source changes are captured in [`audit/llama-b607-exact-cpu.patch`
 
 ## Where Go now lands
 
-The retained long-prefill path quantises Q8_0 activations across six contiguous worker spans, then feeds the established one-row/eight-token SoA AVX-VNNI kernel. Block values remain byte-identical to serial `quantizeQ8_0To`; the focused exact test compares every scale and quantised byte, and running that worker-spawning test under the race detector covers concurrent writes into disjoint spans.
+The retained long-prefill path quantises Q8_0 activations across six contiguous worker spans, then feeds the one-weight-row/eight-token SoA AVX-VNNI kernel. Block values remain byte-identical to serial `quantizeQ8_0To`; the focused exact test compares every scale and quantised byte, and running that worker-spawning test under the race detector covers concurrent writes into disjoint spans. That activation work previously established a 38.808 prompt tok/s median.
 
-Alternating baseline/candidate runs moved the complete prompt median from 30.932 to 38.691 tok/s (+25.1%). A subsequent three-run contiguous-span check produced 32.227, 38.808 and 39.741 prompt tok/s, with 38.808 tok/s as the median. Generation code is unchanged and measured 8.144, 8.753 and 9.344 eval tok/s in the same run.
+The retained kernel now leaves the packed Q4 nibbles unsigned, computes `8*sum(Q8)` with a second `VPDPBUSD`, and subtracts that correction from the unsigned dot in each int32 lane before the existing FP32 scale/FMA sequence. This is algebraically identical to `(q4-8)*q8`, but removes the `VPSUBB` Q4 offset and eight per-token `VPABSB`/`VPSIGNB` transforms. The eight FP32 lane accumulators, blockwise FMA and final reduction order do not change. Randomised 1--80-block exact comparisons passed repeatedly.
+
+A tightly paired eight-sample kernel comparison put the new path at 0.831--0.836 of the prior kernel time, a stable approximately 16.7% reduction. In the complete frozen request, three alternating baseline/candidate pairs produced baseline prompt rates of 40.160, 32.624 and 41.281 tok/s and candidate rates of 49.760, 48.875 and 34.350 tok/s. Their medians are **40.160 versus 48.875 tok/s (+21.7%)**. All 48 output IDs remained unchanged. Generation is outside this B64+ projection change and was effectively flat: 9.128 baseline versus 9.161 candidate median eval tok/s. Raw evidence is in [`audit/go_q4_unsigned_correction_microbench.log`](audit/go_q4_unsigned_correction_microbench.log) and [`audit/go_prefill_unsigned_q4_correction_paired_r3.log`](audit/go_prefill_unsigned_q4_correction_paired_r3.log).
 
 | Runtime | Prompt | Generation | Oracle efficiency |
 |---|---:|---:|---:|
 | CPU-only llama.cpp b607, exact phases | 91.230 tok/s | 10.526 eval tok/s | 100% / 100% |
-| Go, retained median | 38.808 tok/s | 8.753 eval tok/s | 42.5% / 83.2% |
+| Go, retained median | 48.875 tok/s | 9.161 eval tok/s | 53.6% / 87.0% |
 
-The exact workload is therefore not within the 2% target. Decode has a comparatively small 16.8% gap, while prefill is short by 57.5%.
+The exact workload is therefore not within the 2% target. Decode is 13.0% below the oracle; prefill remains 46.4% below it.
+
+## What the llama.cpp audit changed
+
+b607's AVX2 prompt path packs eight Q4_0 weight rows together and evaluates groups of input rows against them. This raises weight reuse and accumulates each output row with a different vector/reduction topology. Go's exact contract instead requires one YMM accumulator per token, with eight K-lane FP32 partials preserved through every block and reduced only at the end. Under that constraint, the tested llama-style eight-weight-row/one-token orientation was approximately 1.35 times slower than Go's one-weight-row/eight-token orientation. Copying the tile shape is therefore not an exact or faster substitute.
+
+The useful transferable detail was llama.cpp's willingness to dot nibbles without first materialising signed Q4 bytes. On Alder Lake, AVX-VNNI provides unsigned-by-signed `VPDPBUSD`, not AVX-VNNI-INT8's signed-byte `VPDPBSSD`. The dynamic correction above exploits the available instruction while retaining Go's reduction topology.
+
+Persistently storing a llama-style eight-row Q4 packing would not reduce payload size: eight normal Q4_0 blocks occupy 144 bytes and the packed tile also occupies 144 bytes. Keeping it beside `QuantMatrix.Raw` would duplicate all affected Q4_0 weights. This GGUF has 342 Q4_0 tensors occupying 2,219,212,800 bytes (2.066803 GiB), so a complete duplicate would add the same 2.066803 GiB before allocator metadata and alignment. Replacement-only packing would avoid the duplicate but would need pervasive ownership, decode and fallback changes, and the exact-kernel benchmark already rejects its orientation.
 
 ## Why the prompt gap is stubborn
 
-The useful techniques are already in the retained path: native AVX2/VNNI byte dots, row grouping for decode, one-row/eight-token activation tiling for prefill, SoA Q8 activation layout, six-way static row scheduling, vectorised Q6 coefficient expansion and now parallel contiguous activation quantisation. Four-row/two-token, flat-interleaved activation and persistent-worker variants were measured and removed because they regressed the complete request even when an isolated kernel looked promising.
+The retained path now includes native AVX2/VNNI byte dots, dynamic unsigned-Q4 correction, row grouping for decode, one-row/eight-token activation tiling for prefill, SoA Q8 activation layout, six-way static row scheduling, vectorised Q6 coefficient expansion and parallel contiguous activation quantisation. Four-row/two-token, two-row/four-token, flat-interleaved activation and persistent-worker variants were measured and removed because they regressed the complete request even when an isolated kernel looked promising.
 
-The latest profile attributes 83.48% of flat CPU samples to `dotQ4_0Q8_0Tokens8SoAVNNI`. Serial activation work was worth removing, but Amdahl's law has become rather blunt: eliminating every remaining non-Q4 sample would only move 38.8 to roughly 46.5 tok/s. Closing the rest requires a materially faster exact Q4 matrix tile.
+The phase-specific profile that selected this target attributed 83.48% of flat CPU samples to `dotQ4_0Q8_0Tokens8SoAVNNI`. The correction change materially improves that dominant tile, but the remaining 46.4% oracle gap still requires another faster exact Q4 organisation rather than scheduling or allocation work.
 
-llama.cpp's prompt kernels can tile rows and tokens while choosing their own integer/FP32 accumulation scheme. Go deliberately retains eight independent FP32 lane accumulators and the legacy reduction order for every output. The tested four-row/two-token tile could not amortise both weight and activation traffic enough to compensate for that register pressure. Splitting the current tile into two four-token passes freed four YMM registers and allowed two VNNI dependency chains to overlap; it remained exact, but longer pinned samples regressed from an 812 ns median to 1,009 ns because every Q4 block had to be loaded and decoded twice. The one-row/eight-token tile remains the fastest exact arrangement on this AVX2/VNNI machine. Wider reordering is not promoted unless all activations, logits, tokens and K/V state remain exact.
+Splitting the eight-token tile into two four-token passes freed four YMM registers and allowed two VNNI dependency chains to overlap. It remained exact, but longer pinned samples regressed from an 812 ns median to 1,009 ns because every Q4 block had to be loaded and decoded twice. A compact precomputed `int16` correction looked better in isolation--0.937--0.958 of dynamic-correction kernel time--but enlarged each 80-block activation tile from 23,040 to 33,280 bytes and added packing work. It lost every complete-request pair; medians were 40.392 versus 44.863 tok/s for compact versus dynamic correction, so it was reverted. Evidence is in [`audit/go_q4_compact_correction_microbench.log`](audit/go_q4_compact_correction_microbench.log) and [`audit/go_prefill_compact_correction_rejected_paired_r3.log`](audit/go_prefill_compact_correction_rejected_paired_r3.log).
+
+The one-row/eight-token tile with dynamic correction remains the fastest exact arrangement measured on this AVX2/VNNI machine. Wider reordering is not promoted unless all activations, logits, tokens and K/V state remain exact.
 
 ## Reproducing the Go side
 
