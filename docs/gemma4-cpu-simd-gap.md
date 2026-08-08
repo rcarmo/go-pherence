@@ -92,6 +92,25 @@ The lane-transposed column uses the optimistic assembly-only path: it performs t
 
 The candidate is not integrated into matrix projection, transient packing, complete-request validation or the accepted throughput table. The retained one-row/eight-token dynamic-correction kernel remains the production path. This closes the bounded experiment without duplicating Q4 model storage or relaxing exactness.
 
+## Direct b607 topology experiment -- rejected
+
+A second quarantined experiment deliberately relaxed legacy reduction exactness and ported the arithmetic topology from llama.cpp revision `065d9d50152486590c09b31627ecaf76ceba39dd`. Its `block_q4_0x8` panel is byte-for-byte 144 bytes: eight FP16 scales followed by 128 Q4 bytes interleaved in eight-byte row chunks and XORed with `0x88`. Its `block_q8_0x4` panel is 136 bytes: four FP16 scales followed by 128 Q8 bytes interleaved in four-row, eight-byte chunks. Destination-writing packers are size-checked and pad incomplete eight-row or four-token tails with zero scales.
+
+The portable reference and AVX2/AVX-VNNI implementation complete each 32-element integer dot before one FP32 FMA per output and block. The C intrinsic kernel is isolated in `loader/gguf/llamaq4`; the ordinary Go package supplies only an unexported experimental packed-panel entry point. Whole-projection orchestration processes four Q8_0x4 panels as a 16-token supertile and copies only logical rows and tokens from padded tails. The retained production dispatcher is unchanged.
+
+Byte-layout tests cover both packed structures. Deterministic AVX-VNNI comparisons for every block count from 1 through 80 match the portable topology reference bit-for-bit, and a 13-row/19-token projection verifies the 16-token supertile plus both tails. The explicit non-exactness probe diverged from legacy Go in 24 of 32 outputs for its fixed 80-block input; this is expected because complete integer block reduction replaces the eight persistent FP32 K-lane sequences.
+
+Pinned five-sample medians (`taskset -c 0-5`, `GOMAXPROCS=6`, one-second benchmark windows) were:
+
+| Equal work or projection | Retained | Direct b607 | Relative to retained |
+|---|---:|---:|---:|
+| 80-block, 32-output equal-work tile | 2,756 ns | 2,976 ns | 0.926× |
+| 128-row/124-token projection, prepacked | 1.405774 ms | 1.525595 ms | 0.921× |
+| Projection, activation packing included | 1.405774 ms | 2.284316 ms | 0.615× |
+| Projection, all packing included | 1.405774 ms | 2.208833 ms | 0.636× |
+
+The candidate therefore misses the mandatory 2.24× projection gate even before packing, and becomes slower once the required activation packing is counted. The plan stops at that gate: there is no model integration, permanent or cached second weight representation, 124+48 state/ID run, or oracle-throughput promotion run. This is an explicit semantics rejection on performance rather than a numerical failure of the intended llama topology. Raw evidence is in [`go_q4_llama_b607_tile_bench.log`](../benchmarks/gemma4-gap/audit/go_q4_llama_b607_tile_bench.log) and [`go_q4_llama_b607_projection_bench.log`](../benchmarks/gemma4-gap/audit/go_q4_llama_b607_projection_bench.log).
+
 ## Reproduction and validation
 
 The CPU oracle requires the CUDA-disabled b607 audit build and the F32-KV source defaults captured by `benchmarks/gemma4-gap/audit/llama-b607-exact-cpu.patch`:

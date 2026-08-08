@@ -1,0 +1,26 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkDotQ4_0Q8_0LlamaTiles/retained-4row-8token-equal-work-6         	  884134	      2637 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/retained-4row-8token-equal-work-6         	  872737	      2756 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/retained-4row-8token-equal-work-6         	  896018	      3298 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/retained-4row-8token-equal-work-6         	  406126	      3010 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/retained-4row-8token-equal-work-6         	  903524	      2584 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/output-major-8row-4token-equal-work-6     	  475465	      5894 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/output-major-8row-4token-equal-work-6     	  462824	      7500 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/output-major-8row-4token-equal-work-6     	  472123	      4824 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/output-major-8row-4token-equal-work-6     	  303724	      4380 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/output-major-8row-4token-equal-work-6     	  467143	      3454 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/lane-transposed-8row-4token-equal-work-6  	  173786	      6343 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/lane-transposed-8row-4token-equal-work-6  	  177787	     10352 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/lane-transposed-8row-4token-equal-work-6  	  170070	     13896 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/lane-transposed-8row-4token-equal-work-6  	  198160	     13177 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/lane-transposed-8row-4token-equal-work-6  	  199966	     12811 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/llama-b607-8row-4token-6                  	  547196	      2367 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/llama-b607-8row-4token-6                  	  835549	      3682 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/llama-b607-8row-4token-6                  	  535183	      3512 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/llama-b607-8row-4token-6                  	  736635	      2976 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDotQ4_0Q8_0LlamaTiles/llama-b607-8row-4token-6                  	  792606	      2419 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	45.889s

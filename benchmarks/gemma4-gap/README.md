@@ -75,7 +75,13 @@ The lane-transposed four-weight-row/two-token experiment was implemented and rej
 
 Exactness did not translate into speed. The optimistic assembly-only path performs the final transpose but excludes both Go reduction and packing. Across five pinned samples its single-tile median was 3,574 ns versus 615.5 ns retained; its synthetic 128-row/124-token projection median was 6.285534 ms versus 1.876609 ms retained. That is 0.299 times retained speed, or 3.35 times slower, rather than the required 2.24 times speed-up. The complete experimental wrapper projection median was slower again at 7.805817 ms. Even the optimistic candidate's fastest projection sample was 1.98 times the retained path's slowest, and it would need a further 7.50 times improvement to cross the gate. The blockwise 8-by-8 transpose needed to preserve all legacy lane sequences overwhelms the 52.9% source-payload reduction. Raw results are [`audit/go_q4_lane_transposed_exact.log`](audit/go_q4_lane_transposed_exact.log), [`audit/go_q4_lane_transposed_tile_bench.log`](audit/go_q4_lane_transposed_tile_bench.log) and [`audit/go_q4_lane_transposed_projection_bench.log`](audit/go_q4_lane_transposed_projection_bench.log).
 
-No production projection, model packing or full-request checkpoint was changed, and no second persistent 2.067 GiB representation was created. The one-row/eight-token tile with dynamic correction remains the fastest exact arrangement measured on this AVX2/VNNI machine. Wider reordering is not promoted unless all activations, logits, tokens and K/V state remain exact.
+A direct b607-topology experiment then deliberately accepted that non-exactness boundary. It is frozen to llama.cpp `065d9d50152486590c09b31627ecaf76ceba39dd` and reproduces the 144-byte `block_q4_0x8` and 136-byte `block_q8_0x4` layouts, including FP16 scales, eight-byte interleave and Q4 `0x88` transform. Its portable reference and AVX2/AVX-VNNI kernel complete each 32-element integer dot before one FP32 FMA. Four Q8_0x4 panels form a 16-token supertile; zero-scale padding supplies row and token tails. The implementation remains behind an unexported packed-panel entry point.
+
+Layout tests, every deterministic block count from 1 through 80 and a 13-row/19-token supertile-and-tail projection pass bit-for-bit against the llama-topology reference. The fixed non-exactness probe differs from legacy lane accumulation in 24 of 32 outputs, as intended.
+
+Pinned five-sample medians were 2,756 ns retained for four rows by eight tokens versus 2,976 ns direct-b607 for eight rows by four tokens -- the same 32 outputs, but only 0.926 times retained speed. More importantly, the 128-row/124-token projection measured 1.405774 ms retained versus 1.525595 ms prepacked candidate, 2.284316 ms with activation packing and 2.208833 ms with all packing. The packing-inclusive candidate is therefore only 0.615 times retained speed, not the mandatory 2.24 times. Raw results are [`audit/go_q4_llama_b607_tile_bench.log`](audit/go_q4_llama_b607_tile_bench.log) and [`audit/go_q4_llama_b607_projection_bench.log`](audit/go_q4_llama_b607_projection_bench.log).
+
+The direct port is rejected at the performance gate. No production projection, model packing or full-request checkpoint was changed, and no second persistent 2.067 GiB representation was created. Because the plan requires rejection before model integration when this gate fails, the 124+48 state/ID comparison and complete-request oracle promotion runs are deliberately not performed. The one-row/eight-token tile with dynamic correction remains production.
 
 ## Reproducing the Go side
 
@@ -88,6 +94,15 @@ taskset -c 0-5 env GOMAXPROCS=6 \
 taskset -c 0-5 env GOMAXPROCS=6 \
   go test ./loader/gguf -run '^$' \
   -bench '^BenchmarkDotQ4_0Q8_0LaneTransposed(Tiles|Projection)$' \
+  -benchmem -benchtime=1s -count=5
+
+taskset -c 0-5 env GOMAXPROCS=6 \
+  go test ./loader/gguf \
+  -run 'Test(PackQ[48]_0x|Llama)' -count=1
+
+taskset -c 0-5 env GOMAXPROCS=6 \
+  go test ./loader/gguf -run '^$' \
+  -bench '^BenchmarkDotQ4_0Q8_0Llama(Tiles|Projection)$' \
   -benchmem -benchtime=1s -count=5
 
 MODEL="$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
