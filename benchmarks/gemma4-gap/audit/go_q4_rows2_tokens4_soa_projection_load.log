@@ -1,0 +1,233 @@
+# One-second projection-pair process samples
+2026-08-09T08:41:05.348Z sample=1 host_busy=2.9% hot=none
+2026-08-09T08:41:05.863Z sample=2 host_busy=5.6% hot=none
+2026-08-09T08:41:06.379Z sample=3 host_busy=1.3% hot=none
+2026-08-09T08:41:06.893Z sample=4 host_busy=1.6% hot=none
+2026-08-09T08:41:07.408Z sample=5 host_busy=0.7% hot=none
+2026-08-09T08:41:07.920Z sample=6 host_busy=8.2% hot=none
+2026-08-09T08:41:08.430Z sample=7 host_busy=68.4% hot=none
+2026-08-09T08:41:08.947Z sample=8 host_busy=96.1% hot=545.8% pid=3563687 /tmp/go-build3521927167/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:09.453Z sample=9 host_busy=97.0% hot=576.3% pid=3563687 /tmp/go-build3521927167/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:09.964Z sample=10 host_busy=97.4% hot=574.7% pid=3563687 /tmp/go-build3521927167/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:10.481Z sample=11 host_busy=62.7% hot=none
+2026-08-09T08:41:10.996Z sample=12 host_busy=96.8% hot=567.3% pid=3563811 /tmp/go-build161888665/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:11.526Z sample=13 host_busy=97.7% hot=605.9% pid=3563811 /tmp/go-build161888665/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:12.039Z sample=14 host_busy=96.8% hot=531.2% pid=3563811 /tmp/go-build161888665/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:12.551Z sample=15 host_busy=97.4% hot=578.6% pid=3563811 /tmp/go-build161888665/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:13.062Z sample=16 host_busy=59.3% hot=none
+2026-08-09T08:41:13.571Z sample=17 host_busy=96.1% hot=533.6% pid=3563911 /tmp/go-build2367959905/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:14.084Z sample=18 host_busy=97.4% hot=582.3% pid=3563911 /tmp/go-build2367959905/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:14.595Z sample=19 host_busy=97.7% hot=580.5% pid=3563911 /tmp/go-build2367959905/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:15.107Z sample=20 host_busy=87.7% hot=none
+2026-08-09T08:41:15.622Z sample=21 host_busy=63.4% hot=none
+2026-08-09T08:41:16.146Z sample=22 host_busy=96.8% hot=574.7% pid=3564194 /tmp/go-build622798746/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:16.652Z sample=23 host_busy=97.8% hot=575.1% pid=3564194 /tmp/go-build622798746/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:17.164Z sample=24 host_busy=97.0% hot=576.4% pid=3564194 /tmp/go-build622798746/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:17.675Z sample=25 host_busy=77.5% hot=none
+2026-08-09T08:41:18.208Z sample=26 host_busy=82.0% hot=none
+2026-08-09T08:41:18.714Z sample=27 host_busy=97.5% hot=553.0% pid=3564347 /tmp/go-build3861009164/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:19.234Z sample=28 host_busy=47.5% hot=none
+2026-08-09T08:41:19.740Z sample=29 host_busy=97.7% hot=572.7% pid=3564445 /tmp/go-build2730950088/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:20.248Z sample=30 host_busy=96.4% hot=574.3% pid=3564445 /tmp/go-build2730950088/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:20.758Z sample=31 host_busy=96.4% hot=582.2% pid=3564445 /tmp/go-build2730950088/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:21.271Z sample=32 host_busy=94.8% hot=533.3% pid=3564445 /tmp/go-build2730950088/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:21.824Z sample=33 host_busy=57.1% hot=none
+2026-08-09T08:41:22.332Z sample=34 host_busy=97.9% hot=539.6% pid=3564545 /tmp/go-build624076173/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:22.854Z sample=35 host_busy=97.1% hot=588.3% pid=3564545 /tmp/go-build624076173/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:23.363Z sample=36 host_busy=97.1% hot=570.9% pid=3564545 /tmp/go-build624076173/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:41:23.874Z sample=37 host_busy=81.0% hot=none
+2026-08-09T08:41:24.382Z sample=38 host_busy=78.8% hot=none
+2026-08-09T08:41:24.897Z sample=39 host_busy=96.4% hot=566.9% pid=3564625 /tmp/go-build85843241/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:41:25.406Z sample=40 host_busy=97.7% hot=584.2% pid=3564625 /tmp/go-build85843241/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:41:25.917Z sample=41 host_busy=96.7% hot=574.6% pid=3564625 /tmp/go-build85843241/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:41:26.437Z sample=42 host_busy=53.3% hot=none
+2026-08-09T08:41:26.989Z sample=43 host_busy=97.8% hot=615.3% pid=3564723 /tmp/go-build4103895003/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:27.498Z sample=44 host_busy=96.6% hot=526.6% pid=3564723 /tmp/go-build4103895003/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:28.030Z sample=45 host_busy=96.8% hot=573.0% pid=3564723 /tmp/go-build4103895003/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:28.539Z sample=46 host_busy=96.9% hot=550.9% pid=3564723 /tmp/go-build4103895003/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:29.081Z sample=47 host_busy=63.0% hot=none
+2026-08-09T08:41:29.637Z sample=48 host_busy=97.6% hot=592.7% pid=3564822 /tmp/go-build3551343110/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:30.145Z sample=49 host_busy=95.5% hot=518.4% pid=3564822 /tmp/go-build3551343110/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:30.681Z sample=50 host_busy=95.7% hot=580.3% pid=3564822 /tmp/go-build3551343110/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:41:31.197Z sample=51 host_busy=69.6% hot=none
+2026-08-09T08:41:31.708Z sample=52 host_busy=0.3% hot=none
+2026-08-09T08:41:32.219Z sample=53 host_busy=2.3% hot=none
+2026-08-09T08:41:32.730Z sample=54 host_busy=1.0% hot=none
+2026-08-09T08:41:33.244Z sample=55 host_busy=1.6% hot=none
+2026-08-09T08:41:33.758Z sample=56 host_busy=1.3% hot=none
+2026-08-09T08:41:34.272Z sample=57 host_busy=8.1% hot=none
+2026-08-09T08:41:34.787Z sample=58 host_busy=1.0% hot=none
+2026-08-09T08:41:35.301Z sample=59 host_busy=1.6% hot=none
+2026-08-09T08:41:35.816Z sample=60 host_busy=0.6% hot=none
+2026-08-09T08:41:36.328Z sample=61 host_busy=1.3% hot=none
+2026-08-09T08:41:36.838Z sample=62 host_busy=0.7% hot=none
+2026-08-09T08:41:37.351Z sample=63 host_busy=8.5% hot=none
+2026-08-09T08:41:37.861Z sample=64 host_busy=1.0% hot=none
+2026-08-09T08:41:38.376Z sample=65 host_busy=1.3% hot=none
+2026-08-09T08:41:38.889Z sample=66 host_busy=1.6% hot=none
+2026-08-09T08:41:39.402Z sample=67 host_busy=1.0% hot=none
+2026-08-09T08:41:39.916Z sample=68 host_busy=1.3% hot=none
+2026-08-09T08:41:40.430Z sample=69 host_busy=11.4% hot=none
+2026-08-09T08:41:40.941Z sample=70 host_busy=1.6% hot=none
+2026-08-09T08:41:41.455Z sample=71 host_busy=1.0% hot=none
+2026-08-09T08:41:41.967Z sample=72 host_busy=1.3% hot=none
+2026-08-09T08:41:42.480Z sample=73 host_busy=1.6% hot=none
+2026-08-09T08:41:42.991Z sample=74 host_busy=1.0% hot=none
+2026-08-09T08:41:43.502Z sample=75 host_busy=3.6% hot=none
+2026-08-09T08:41:44.015Z sample=76 host_busy=5.6% hot=none
+2026-08-09T08:41:44.529Z sample=77 host_busy=1.3% hot=none
+2026-08-09T08:41:45.041Z sample=78 host_busy=1.0% hot=none
+2026-08-09T08:41:45.551Z sample=79 host_busy=1.6% hot=none
+2026-08-09T08:41:46.063Z sample=80 host_busy=1.0% hot=none
+
+# Three-second projection-pair process samples
+2026-08-09T08:42:42.314Z sample=1 host_busy=1.6% hot=none
+2026-08-09T08:42:42.828Z sample=2 host_busy=0.7% hot=none
+2026-08-09T08:42:43.342Z sample=3 host_busy=1.3% hot=none
+2026-08-09T08:42:43.856Z sample=4 host_busy=1.0% hot=none
+2026-08-09T08:42:44.368Z sample=5 host_busy=0.7% hot=none
+2026-08-09T08:42:44.881Z sample=6 host_busy=14.1% hot=none
+2026-08-09T08:42:45.393Z sample=7 host_busy=68.5% hot=none
+2026-08-09T08:42:45.954Z sample=8 host_busy=97.5% hot=619.0% pid=3565728 /tmp/go-build46885961/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:42:46.461Z sample=9 host_busy=97.6% hot=536.2% pid=3565728 /tmp/go-build46885961/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:42:46.971Z sample=10 host_busy=97.4% hot=582.2% pid=3565728 /tmp/go-build46885961/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:42:47.484Z sample=11 host_busy=97.7% hot=584.4% pid=3565728 /tmp/go-build46885961/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:42:48.006Z sample=12 host_busy=96.2% hot=540.6% pid=3565728 /tmp/go-build46885961/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:42:48.515Z sample=13 host_busy=97.4% hot=580.5% pid=3565728 /tmp/go-build46885961/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:42:49.021Z sample=14 host_busy=97.4% hot=574.4% pid=3565728 /tmp/go-build46885961/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:42:49.530Z sample=15 host_busy=97.0% hot=584.2% pid=3565728 /tmp/go-build46885961/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -t
+2026-08-09T08:42:50.036Z sample=16 host_busy=63.0% hot=none
+2026-08-09T08:42:50.555Z sample=17 host_busy=97.7% hot=594.0% pid=3565831 /tmp/go-build167297047/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:51.117Z sample=18 host_busy=96.5% hot=598.1% pid=3565831 /tmp/go-build167297047/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:51.627Z sample=19 host_busy=97.6% hot=528.8% pid=3565831 /tmp/go-build167297047/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:52.139Z sample=20 host_busy=97.0% hot=586.2% pid=3565831 /tmp/go-build167297047/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:52.648Z sample=21 host_busy=97.7% hot=574.7% pid=3565831 /tmp/go-build167297047/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:53.155Z sample=22 host_busy=96.7% hot=572.5% pid=3565831 /tmp/go-build167297047/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:53.665Z sample=23 host_busy=97.0% hot=582.2% pid=3565831 /tmp/go-build167297047/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:54.174Z sample=24 host_busy=96.7% hot=548.9% pid=3565831 /tmp/go-build167297047/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:54.689Z sample=25 host_busy=66.6% hot=none
+2026-08-09T08:42:55.204Z sample=26 host_busy=86.5% hot=none
+2026-08-09T08:42:55.711Z sample=27 host_busy=97.4% hot=572.6% pid=3565949 /tmp/go-build721484255/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:56.218Z sample=28 host_busy=97.4% hot=580.2% pid=3565949 /tmp/go-build721484255/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:56.755Z sample=29 host_busy=97.1% hot=590.3% pid=3565949 /tmp/go-build721484255/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:57.264Z sample=30 host_busy=96.5% hot=544.9% pid=3565949 /tmp/go-build721484255/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:57.771Z sample=31 host_busy=95.4% hot=554.6% pid=3565949 /tmp/go-build721484255/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:58.320Z sample=32 host_busy=97.0% hot=623.8% pid=3565949 /tmp/go-build721484255/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:58.834Z sample=33 host_busy=96.7% hot=534.9% pid=3565949 /tmp/go-build721484255/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:59.340Z sample=34 host_busy=97.7% hot=578.4% pid=3565949 /tmp/go-build721484255/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:42:59.849Z sample=35 host_busy=56.6% hot=none
+2026-08-09T08:43:00.359Z sample=36 host_busy=95.7% hot=558.7% pid=3566046 /tmp/go-build3823664671/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:00.883Z sample=37 host_busy=96.5% hot=552.1% pid=3566046 /tmp/go-build3823664671/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:01.447Z sample=38 host_busy=97.7% hot=643.1% pid=3566046 /tmp/go-build3823664671/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:01.979Z sample=39 host_busy=96.8% hot=539.8% pid=3566046 /tmp/go-build3823664671/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:02.488Z sample=40 host_busy=97.5% hot=565.6% pid=3566046 /tmp/go-build3823664671/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:03.002Z sample=41 host_busy=97.1% hot=580.5% pid=3566046 /tmp/go-build3823664671/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:03.510Z sample=42 host_busy=96.7% hot=566.8% pid=3566046 /tmp/go-build3823664671/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:04.024Z sample=43 host_busy=96.7% hot=556.6% pid=3566046 /tmp/go-build3823664671/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:04.558Z sample=44 host_busy=48.1% hot=none
+2026-08-09T08:43:05.067Z sample=45 host_busy=97.5% hot=556.6% pid=3566165 /tmp/go-build1582958468/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:05.579Z sample=46 host_busy=97.7% hot=582.4% pid=3566165 /tmp/go-build1582958468/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:06.095Z sample=47 host_busy=97.1% hot=578.6% pid=3566165 /tmp/go-build1582958468/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:06.615Z sample=48 host_busy=97.1% hot=588.3% pid=3566165 /tmp/go-build1582958468/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:07.121Z sample=49 host_busy=95.8% hot=523.1% pid=3566165 /tmp/go-build1582958468/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:07.628Z sample=50 host_busy=97.4% hot=584.2% pid=3566165 /tmp/go-build1582958468/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:08.169Z sample=51 host_busy=96.8% hot=601.9% pid=3566165 /tmp/go-build1582958468/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:08.695Z sample=52 host_busy=97.5% hot=566.6% pid=3566165 /tmp/go-build1582958468/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:09.210Z sample=53 host_busy=81.5% hot=none
+2026-08-09T08:43:09.725Z sample=54 host_busy=76.0% hot=none
+2026-08-09T08:43:10.235Z sample=55 host_busy=96.1% hot=533.8% pid=3566265 /tmp/go-build3491157884/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:10.747Z sample=56 host_busy=96.7% hot=574.5% pid=3566265 /tmp/go-build3491157884/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:11.275Z sample=57 host_busy=96.4% hot=588.3% pid=3566265 /tmp/go-build3491157884/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:11.806Z sample=58 host_busy=97.8% hot=588.6% pid=3566265 /tmp/go-build3491157884/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:12.319Z sample=59 host_busy=97.5% hot=558.5% pid=3566265 /tmp/go-build3491157884/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:12.829Z sample=60 host_busy=97.4% hot=574.8% pid=3566265 /tmp/go-build3491157884/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:13.339Z sample=61 host_busy=95.4% hot=538.8% pid=3566265 /tmp/go-build3491157884/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:13.852Z sample=62 host_busy=95.1% hot=none
+2026-08-09T08:43:14.384Z sample=63 host_busy=45.1% hot=none
+2026-08-09T08:43:14.897Z sample=64 host_busy=97.2% hot=558.4% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:15.412Z sample=65 host_busy=96.1% hot=570.9% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:15.933Z sample=66 host_busy=97.4% hot=580.8% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:16.456Z sample=67 host_busy=96.4% hot=549.0% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:16.973Z sample=68 host_busy=97.8% hot=566.0% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:17.489Z sample=69 host_busy=97.7% hot=584.4% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:17.998Z sample=70 host_busy=97.4% hot=572.7% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:18.507Z sample=71 host_busy=97.4% hot=580.4% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:19.018Z sample=72 host_busy=97.7% hot=578.4% pid=3566402 /tmp/go-build3056474484/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:19.533Z sample=73 host_busy=92.8% hot=none
+2026-08-09T08:43:20.041Z sample=74 host_busy=61.8% hot=none
+2026-08-09T08:43:20.551Z sample=75 host_busy=97.7% hot=582.2% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:21.075Z sample=76 host_busy=96.4% hot=584.4% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:21.584Z sample=77 host_busy=97.5% hot=563.8% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:22.096Z sample=78 host_busy=96.1% hot=532.9% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:22.607Z sample=79 host_busy=96.4% hot=562.6% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:23.118Z sample=80 host_busy=96.1% hot=541.7% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:23.685Z sample=81 host_busy=97.0% hot=649.7% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:24.193Z sample=82 host_busy=96.8% hot=514.0% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:24.702Z sample=83 host_busy=97.7% hot=582.2% pid=3566518 /tmp/go-build1688250020/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:25.336Z sample=84 host_busy=47.2% hot=none
+2026-08-09T08:43:25.871Z sample=85 host_busy=97.7% hot=462.5% pid=3566820 /tmp/go-build2047328976/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:26.378Z sample=86 host_busy=96.2% hot=531.0% pid=3566820 /tmp/go-build2047328976/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:26.900Z sample=87 host_busy=97.4% hot=588.2% pid=3566820 /tmp/go-build2047328976/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:27.407Z sample=88 host_busy=97.4% hot=567.2% pid=3566820 /tmp/go-build2047328976/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:27.935Z sample=89 host_busy=97.4% hot=605.9% pid=3566820 /tmp/go-build2047328976/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:28.446Z sample=90 host_busy=97.5% hot=558.2% pid=3566820 /tmp/go-build2047328976/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:28.969Z sample=91 host_busy=97.1% hot=561.9% pid=3566820 /tmp/go-build2047328976/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:29.534Z sample=92 host_busy=97.7% hot=623.7% pid=3566820 /tmp/go-build2047328976/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$
+2026-08-09T08:43:30.045Z sample=93 host_busy=83.0% hot=none
+2026-08-09T08:43:30.565Z sample=94 host_busy=74.1% hot=none
+2026-08-09T08:43:31.073Z sample=95 host_busy=97.7% hot=574.8% pid=3567002 /tmp/go-build467956303/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:43:31.622Z sample=96 host_busy=97.4% hot=623.6% pid=3567002 /tmp/go-build467956303/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:43:32.132Z sample=97 host_busy=96.6% hot=528.2% pid=3567002 /tmp/go-build467956303/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:43:32.642Z sample=98 host_busy=96.7% hot=541.4% pid=3567002 /tmp/go-build467956303/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:43:33.186Z sample=99 host_busy=97.4% hot=625.7% pid=3567002 /tmp/go-build467956303/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:43:33.697Z sample=100 host_busy=97.6% hot=536.2% pid=3567002 /tmp/go-build467956303/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:43:34.207Z sample=101 host_busy=97.7% hot=584.3% pid=3567002 /tmp/go-build467956303/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:43:34.735Z sample=102 host_busy=97.4% hot=596.1% pid=3567002 /tmp/go-build467956303/b001/gguf.test -test.paniconexit0 -test.timeout=10m0s -test.run=^$ -test.bench=^BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched$ -
+2026-08-09T08:43:35.246Z sample=103 host_busy=89.9% hot=none
+2026-08-09T08:43:35.760Z sample=104 host_busy=7.9% hot=none
+2026-08-09T08:43:36.275Z sample=105 host_busy=1.6% hot=none
+2026-08-09T08:43:36.789Z sample=106 host_busy=1.3% hot=none
+2026-08-09T08:43:37.300Z sample=107 host_busy=1.3% hot=none
+2026-08-09T08:43:37.813Z sample=108 host_busy=0.7% hot=none
+2026-08-09T08:43:38.327Z sample=109 host_busy=1.6% hot=none
+2026-08-09T08:43:38.838Z sample=110 host_busy=6.2% hot=none
+2026-08-09T08:43:39.350Z sample=111 host_busy=1.6% hot=none
+2026-08-09T08:43:39.864Z sample=112 host_busy=0.7% hot=none
+2026-08-09T08:43:40.379Z sample=113 host_busy=1.3% hot=none
+2026-08-09T08:43:40.890Z sample=114 host_busy=1.6% hot=none
+2026-08-09T08:43:41.400Z sample=115 host_busy=1.3% hot=none
+2026-08-09T08:43:41.910Z sample=116 host_busy=8.9% hot=none
+2026-08-09T08:43:42.425Z sample=117 host_busy=2.3% hot=none
+2026-08-09T08:43:42.936Z sample=118 host_busy=0.3% hot=none
+2026-08-09T08:43:43.450Z sample=119 host_busy=2.0% hot=none
+2026-08-09T08:43:43.965Z sample=120 host_busy=0.7% hot=none
+2026-08-09T08:43:44.478Z sample=121 host_busy=1.6% hot=none
+2026-08-09T08:43:44.993Z sample=122 host_busy=3.9% hot=none
+2026-08-09T08:43:45.506Z sample=123 host_busy=5.5% hot=none
+2026-08-09T08:43:46.018Z sample=124 host_busy=0.3% hot=none
+2026-08-09T08:43:46.531Z sample=125 host_busy=2.0% hot=none
+2026-08-09T08:43:47.046Z sample=126 host_busy=0.7% hot=none
+2026-08-09T08:43:47.556Z sample=127 host_busy=2.3% hot=none
+2026-08-09T08:43:48.070Z sample=128 host_busy=0.7% hot=none
+2026-08-09T08:43:48.584Z sample=129 host_busy=8.2% hot=none
+2026-08-09T08:43:49.099Z sample=130 host_busy=1.9% hot=none
+2026-08-09T08:43:49.613Z sample=131 host_busy=1.6% hot=none
+2026-08-09T08:43:50.125Z sample=132 host_busy=1.0% hot=none
+2026-08-09T08:43:50.638Z sample=133 host_busy=2.0% hot=none
+2026-08-09T08:43:51.152Z sample=134 host_busy=0.7% hot=none
+2026-08-09T08:43:51.664Z sample=135 host_busy=7.2% hot=none
+2026-08-09T08:43:52.176Z sample=136 host_busy=0.3% hot=none
+2026-08-09T08:43:52.691Z sample=137 host_busy=1.6% hot=none
+2026-08-09T08:43:53.205Z sample=138 host_busy=1.3% hot=none
+2026-08-09T08:43:53.717Z sample=139 host_busy=1.6% hot=none
+2026-08-09T08:43:54.230Z sample=140 host_busy=0.7% hot=none
+2026-08-09T08:43:54.742Z sample=141 host_busy=9.2% hot=none
+2026-08-09T08:43:55.254Z sample=142 host_busy=0.7% hot=none
+2026-08-09T08:43:55.768Z sample=143 host_busy=1.6% hot=none
+2026-08-09T08:43:56.283Z sample=144 host_busy=0.6% hot=none
+2026-08-09T08:43:56.797Z sample=145 host_busy=1.9% hot=none
+2026-08-09T08:43:57.307Z sample=146 host_busy=0.7% hot=none
+2026-08-09T08:43:57.818Z sample=147 host_busy=5.9% hot=none
+2026-08-09T08:43:58.331Z sample=148 host_busy=3.3% hot=none
+2026-08-09T08:43:58.845Z sample=149 host_busy=1.6% hot=none
+2026-08-09T08:43:59.355Z sample=150 host_busy=0.7% hot=none

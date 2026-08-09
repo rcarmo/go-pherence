@@ -96,6 +96,8 @@ The accepted exact scheduling change leaves the production tile and assembly unt
 
 The promoted preparation batch writes F32 activations directly to SoA Q8 storage, removing 345,600 transient bytes and a 691,200-byte copy traversal, then uses a byte-exact AVX2 quantiser in place of scalar absolute-value and float64-rounding loops. Near-half, NaN, infinity and subnormal probes, focused repetitions, race, vet and non-amd64 compilation pass. Direct-scalar preparation was flat in isolation, but the AVX2 combination won every longer projection pair; the clean three-pair median gain was 2.43%. The final 124+48 gate matched all 48 frozen IDs. Evidence is [`audit/direct-exact-q8-tile-preparation.md`](audit/direct-exact-q8-tile-preparation.md) and [`audit/exact-q8-preparation-avx2.md`](audit/exact-q8-preparation-avx2.md).
 
+A clean phase profile of that promoted checkpoint assigns 82.67% of flat CPU to `dotQ4_0Q8_0Tokens8SoAVNNI`; Q8 block quantisation is only 1.47%. Applied to the accepted 49.152 tok/s median, the exact hotspot now needs approximately 2.196 times speed to cross the prompt gate. An exact two-row/four-token candidate consequently halved Q8 loads across each row pair and reduced `VPDPBUSD` count by 25%, with no new packing. Every one of 64 FP32 lane states matched for 800 random width/token-half cases, and two clean packing-inclusive series each won four of five pairs with 1.11--1.14% lower raw medians. The complete request rejected it: all frozen IDs matched, but it won only two of five prompt pairs and had a 1.36% median paired regression. Production therefore remains at `ea90f25b`; design, patch and raw evidence are in [`audit/exact-rows2-tokens4-soa.md`](audit/exact-rows2-tokens4-soa.md).
+
 ## Reproducing the Go side
 
 ```bash

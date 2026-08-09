@@ -1,0 +1,313 @@
+# Frozen request pairs 1--3 process samples
+2026-08-09T08:47:15.123Z sample=1 host_busy=0.3% hot=none
+2026-08-09T08:47:15.637Z sample=2 host_busy=2.6% hot=none
+2026-08-09T08:47:16.148Z sample=3 host_busy=0.7% hot=none
+2026-08-09T08:47:16.662Z sample=4 host_busy=6.9% hot=none
+2026-08-09T08:47:17.176Z sample=5 host_busy=0.3% hot=none
+2026-08-09T08:47:17.687Z sample=6 host_busy=8.2% hot=none
+2026-08-09T08:47:18.199Z sample=7 host_busy=18.7% hot=none
+2026-08-09T08:47:18.713Z sample=8 host_busy=21.6% hot=114.2% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:19.226Z sample=9 host_busy=18.3% hot=103.9% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:19.737Z sample=10 host_busy=25.2% hot=107.8% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:20.249Z sample=11 host_busy=18.0% hot=104.3% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:20.763Z sample=12 host_busy=19.0% hot=100.3% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:21.287Z sample=13 host_busy=31.7% hot=194.2% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:21.805Z sample=14 host_busy=71.6% hot=420.0% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:22.316Z sample=15 host_busy=68.8% hot=401.3% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:22.828Z sample=16 host_busy=72.8% hot=403.9% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:23.340Z sample=17 host_busy=69.3% hot=407.9% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:23.851Z sample=18 host_busy=72.5% hot=424.9% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:24.368Z sample=19 host_busy=71.0% hot=418.1% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:24.879Z sample=20 host_busy=71.6% hot=423.5% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:25.395Z sample=21 host_busy=72.1% hot=428.9% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:25.907Z sample=22 host_busy=71.2% hot=403.9% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:26.418Z sample=23 host_busy=71.1% hot=393.5% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:26.937Z sample=24 host_busy=72.6% hot=417.0% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:27.452Z sample=25 host_busy=75.0% hot=436.4% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:27.970Z sample=26 host_busy=72.8% hot=423.1% pid=3570361 /tmp/go-pherence-promoted/.gotmp/go-build229353839/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:28.482Z sample=27 host_busy=61.8% hot=362.7% pid=3570361 model.test
+2026-08-09T08:47:28.992Z sample=28 host_busy=22.6% hot=none
+2026-08-09T08:47:29.507Z sample=29 host_busy=26.0% hot=108.6% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:30.019Z sample=30 host_busy=20.8% hot=113.0% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:30.534Z sample=31 host_busy=19.3% hot=112.1% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:31.047Z sample=32 host_busy=19.9% hot=113.7% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:31.563Z sample=33 host_busy=20.6% hot=111.8% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:32.074Z sample=34 host_busy=19.0% hot=98.7% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:32.584Z sample=35 host_busy=33.8% hot=163.3% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:33.097Z sample=36 host_busy=70.1% hot=420.4% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:33.614Z sample=37 host_busy=69.6% hot=400.6% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:34.131Z sample=38 host_busy=68.0% hot=411.8% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:34.643Z sample=39 host_busy=68.4% hot=394.9% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:35.154Z sample=40 host_busy=70.6% hot=411.8% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:35.672Z sample=41 host_busy=67.9% hot=369.8% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:36.185Z sample=42 host_busy=72.0% hot=436.0% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:36.697Z sample=43 host_busy=70.6% hot=431.4% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:37.212Z sample=44 host_busy=73.9% hot=431.6% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:37.723Z sample=45 host_busy=70.5% hot=426.8% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:38.238Z sample=46 host_busy=71.7% hot=438.0% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:38.752Z sample=47 host_busy=69.7% hot=367.7% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:39.265Z sample=48 host_busy=68.2% hot=365.9% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:39.779Z sample=49 host_busy=70.9% hot=423.2% pid=3570515 /tmp/go-pherence-row2-token4/.gotmp/go-build1444933169/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:40.294Z sample=50 host_busy=33.8% hot=none
+2026-08-09T08:47:40.808Z sample=51 host_busy=18.5% hot=none
+2026-08-09T08:47:41.320Z sample=52 host_busy=19.9% hot=103.6% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:41.832Z sample=53 host_busy=20.6% hot=105.9% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:42.356Z sample=54 host_busy=22.9% hot=107.8% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:42.871Z sample=55 host_busy=21.4% hot=118.8% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:43.383Z sample=56 host_busy=21.6% hot=102.0% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:43.891Z sample=57 host_busy=30.6% hot=177.9% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:44.416Z sample=58 host_busy=71.9% hot=433.7% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:44.927Z sample=59 host_busy=66.1% hot=381.6% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:45.439Z sample=60 host_busy=70.3% hot=380.4% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:45.946Z sample=61 host_busy=69.2% hot=407.2% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:46.457Z sample=62 host_busy=72.4% hot=426.3% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:46.969Z sample=63 host_busy=74.4% hot=452.5% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:47.485Z sample=64 host_busy=73.5% hot=421.9% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:47.998Z sample=65 host_busy=74.0% hot=442.2% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:48.508Z sample=66 host_busy=70.9% hot=378.4% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:49.020Z sample=67 host_busy=73.1% hot=450.5% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:49.539Z sample=68 host_busy=73.2% hot=443.0% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:50.060Z sample=69 host_busy=74.3% hot=428.6% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:50.571Z sample=70 host_busy=73.8% hot=432.8% pid=3570881 /tmp/go-pherence-row2-token4/.gotmp/go-build3034554888/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:51.087Z sample=71 host_busy=62.8% hot=367.0% pid=3570881 model.test
+2026-08-09T08:47:51.599Z sample=72 host_busy=29.4% hot=none
+2026-08-09T08:47:52.112Z sample=73 host_busy=19.2% hot=111.4% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:52.624Z sample=74 host_busy=18.4% hot=112.5% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:53.142Z sample=75 host_busy=18.6% hot=105.9% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:53.655Z sample=76 host_busy=22.4% hot=107.7% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:54.167Z sample=77 host_busy=19.2% hot=109.4% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:54.686Z sample=78 host_busy=25.4% hot=101.6% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:55.195Z sample=79 host_busy=22.6% hot=123.9% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:55.715Z sample=80 host_busy=69.4% hot=416.4% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:56.224Z sample=81 host_busy=69.5% hot=409.0% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:56.741Z sample=82 host_busy=69.1% hot=406.5% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:57.257Z sample=83 host_busy=70.6% hot=431.4% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:57.768Z sample=84 host_busy=70.5% hot=401.3% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:58.281Z sample=85 host_busy=71.2% hot=407.3% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:58.799Z sample=86 host_busy=72.9% hot=431.4% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:59.312Z sample=87 host_busy=70.0% hot=422.0% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:47:59.822Z sample=88 host_busy=71.9% hot=408.4% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:00.335Z sample=89 host_busy=71.9% hot=416.1% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:00.847Z sample=90 host_busy=72.3% hot=429.7% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:01.359Z sample=91 host_busy=70.0% hot=379.2% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:01.879Z sample=92 host_busy=71.6% hot=433.3% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:02.394Z sample=93 host_busy=70.1% hot=413.0% pid=3571152 /tmp/go-pherence-promoted/.gotmp/go-build1147340190/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:02.911Z sample=94 host_busy=36.5% hot=none
+2026-08-09T08:48:03.425Z sample=95 host_busy=23.3% hot=23.3% pid=3571230 go test ./model -run ^TestGemma4RealCPUGap124x48$ -count=1 -v -timeout=10m
+2026-08-09T08:48:03.938Z sample=96 host_busy=19.2% hot=107.5% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:04.449Z sample=97 host_busy=25.5% hot=107.8% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:04.965Z sample=98 host_busy=20.0% hot=116.1% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:05.480Z sample=99 host_busy=20.8% hot=117.3% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:05.996Z sample=100 host_busy=19.8% hot=113.0% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:06.510Z sample=101 host_busy=17.6% hot=102.0% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:07.034Z sample=102 host_busy=40.4% hot=258.0% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:07.543Z sample=103 host_busy=75.4% hot=406.4% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:08.068Z sample=104 host_busy=68.5% hot=424.9% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:08.586Z sample=105 host_busy=69.9% hot=398.7% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:09.098Z sample=106 host_busy=74.2% hot=433.5% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:09.610Z sample=107 host_busy=72.8% hot=425.2% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:10.122Z sample=108 host_busy=72.8% hot=406.9% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:10.634Z sample=109 host_busy=69.9% hot=378.4% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:11.155Z sample=110 host_busy=71.6% hot=437.6% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:11.667Z sample=111 host_busy=74.0% hot=421.2% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:12.175Z sample=112 host_busy=73.1% hot=436.7% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:12.695Z sample=113 host_busy=71.6% hot=429.4% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:13.203Z sample=114 host_busy=73.8% hot=425.6% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:13.717Z sample=115 host_busy=70.8% hot=393.4% pid=3571299 /tmp/go-pherence-promoted/.gotmp/go-build621348225/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:14.231Z sample=116 host_busy=43.4% hot=240.8% pid=3571299 model.test
+2026-08-09T08:48:14.749Z sample=117 host_busy=24.3% hot=none
+2026-08-09T08:48:15.260Z sample=118 host_busy=18.1% hot=104.9% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:15.775Z sample=119 host_busy=19.7% hot=110.5% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:16.290Z sample=120 host_busy=19.5% hot=115.3% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:16.802Z sample=121 host_busy=21.7% hot=104.9% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:17.315Z sample=122 host_busy=21.8% hot=105.5% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:17.831Z sample=123 host_busy=18.2% hot=101.3% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:18.343Z sample=124 host_busy=26.8% hot=158.8% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:18.853Z sample=125 host_busy=68.8% hot=409.1% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:19.363Z sample=126 host_busy=74.8% hot=447.0% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:19.872Z sample=127 host_busy=69.1% hot=408.6% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:20.380Z sample=128 host_busy=73.1% hot=407.2% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:20.893Z sample=129 host_busy=70.4% hot=422.6% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:21.406Z sample=130 host_busy=71.2% hot=431.1% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:21.918Z sample=131 host_busy=72.2% hot=443.5% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:22.429Z sample=132 host_busy=73.4% hot=430.5% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:22.943Z sample=133 host_busy=72.7% hot=434.2% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:23.456Z sample=134 host_busy=70.4% hot=392.8% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:23.967Z sample=135 host_busy=73.5% hot=425.2% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:24.481Z sample=136 host_busy=72.7% hot=424.4% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:24.992Z sample=137 host_busy=72.7% hot=428.3% pid=3571480 /tmp/go-pherence-row2-token4/.gotmp/go-build3927600276/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:48:25.503Z sample=138 host_busy=62.1% hot=366.7% pid=3571480 model.test
+2026-08-09T08:48:26.016Z sample=139 host_busy=8.5% hot=none
+2026-08-09T08:48:26.527Z sample=140 host_busy=8.2% hot=none
+2026-08-09T08:48:27.039Z sample=141 host_busy=1.9% hot=none
+2026-08-09T08:48:27.550Z sample=142 host_busy=0.3% hot=none
+2026-08-09T08:48:28.065Z sample=143 host_busy=1.3% hot=none
+2026-08-09T08:48:28.578Z sample=144 host_busy=1.0% hot=none
+2026-08-09T08:48:29.092Z sample=145 host_busy=2.3% hot=none
+2026-08-09T08:48:29.602Z sample=146 host_busy=3.9% hot=none
+2026-08-09T08:48:30.113Z sample=147 host_busy=6.9% hot=none
+2026-08-09T08:48:30.623Z sample=148 host_busy=1.3% hot=none
+2026-08-09T08:48:31.138Z sample=149 host_busy=2.0% hot=none
+2026-08-09T08:48:31.651Z sample=150 host_busy=0.6% hot=none
+2026-08-09T08:48:32.162Z sample=151 host_busy=2.0% hot=none
+2026-08-09T08:48:32.673Z sample=152 host_busy=1.0% hot=none
+2026-08-09T08:48:33.185Z sample=153 host_busy=7.5% hot=none
+2026-08-09T08:48:33.700Z sample=154 host_busy=1.0% hot=none
+2026-08-09T08:48:34.215Z sample=155 host_busy=1.0% hot=none
+2026-08-09T08:48:34.729Z sample=156 host_busy=0.6% hot=none
+2026-08-09T08:48:35.244Z sample=157 host_busy=1.6% hot=none
+2026-08-09T08:48:35.758Z sample=158 host_busy=1.0% hot=none
+2026-08-09T08:48:36.272Z sample=159 host_busy=9.7% hot=none
+2026-08-09T08:48:36.784Z sample=160 host_busy=1.3% hot=none
+2026-08-09T08:48:37.295Z sample=161 host_busy=1.0% hot=none
+2026-08-09T08:48:37.809Z sample=162 host_busy=0.7% hot=none
+2026-08-09T08:48:38.323Z sample=163 host_busy=1.3% hot=none
+2026-08-09T08:48:38.834Z sample=164 host_busy=1.0% hot=none
+2026-08-09T08:48:39.345Z sample=165 host_busy=6.2% hot=none
+2026-08-09T08:48:39.859Z sample=166 host_busy=0.3% hot=none
+2026-08-09T08:48:40.370Z sample=167 host_busy=1.3% hot=none
+2026-08-09T08:48:40.881Z sample=168 host_busy=1.0% hot=none
+2026-08-09T08:48:41.394Z sample=169 host_busy=1.6% hot=none
+2026-08-09T08:48:41.912Z sample=170 host_busy=1.0% hot=none
+2026-08-09T08:48:42.423Z sample=171 host_busy=7.1% hot=none
+2026-08-09T08:48:42.939Z sample=172 host_busy=1.0% hot=none
+2026-08-09T08:48:43.450Z sample=173 host_busy=6.2% hot=none
+2026-08-09T08:48:43.961Z sample=174 host_busy=1.0% hot=none
+2026-08-09T08:48:44.476Z sample=175 host_busy=1.6% hot=none
+2026-08-09T08:48:44.991Z sample=176 host_busy=0.7% hot=none
+2026-08-09T08:48:45.505Z sample=177 host_busy=4.5% hot=none
+2026-08-09T08:48:46.020Z sample=178 host_busy=4.6% hot=none
+2026-08-09T08:48:46.533Z sample=179 host_busy=2.3% hot=none
+2026-08-09T08:48:47.044Z sample=180 host_busy=0.7% hot=none
+2026-08-09T08:48:47.556Z sample=181 host_busy=3.9% hot=none
+2026-08-09T08:48:48.067Z sample=182 host_busy=1.0% hot=none
+2026-08-09T08:48:48.579Z sample=183 host_busy=0.7% hot=none
+2026-08-09T08:48:49.094Z sample=184 host_busy=7.2% hot=none
+2026-08-09T08:48:49.608Z sample=185 host_busy=1.3% hot=none
+2026-08-09T08:48:50.119Z sample=186 host_busy=0.7% hot=none
+2026-08-09T08:48:50.631Z sample=187 host_busy=1.3% hot=none
+2026-08-09T08:48:51.141Z sample=188 host_busy=0.3% hot=none
+2026-08-09T08:48:51.656Z sample=189 host_busy=1.6% hot=none
+2026-08-09T08:48:52.167Z sample=190 host_busy=7.8% hot=none
+2026-08-09T08:48:52.678Z sample=191 host_busy=1.3% hot=none
+2026-08-09T08:48:53.189Z sample=192 host_busy=1.0% hot=none
+2026-08-09T08:48:53.703Z sample=193 host_busy=1.0% hot=none
+2026-08-09T08:48:54.214Z sample=194 host_busy=0.7% hot=none
+2026-08-09T08:48:54.726Z sample=195 host_busy=1.3% hot=none
+2026-08-09T08:48:55.237Z sample=196 host_busy=6.9% hot=none
+2026-08-09T08:48:55.751Z sample=197 host_busy=2.0% hot=none
+2026-08-09T08:48:56.263Z sample=198 host_busy=1.0% hot=none
+2026-08-09T08:48:56.774Z sample=199 host_busy=1.6% hot=none
+2026-08-09T08:48:57.286Z sample=200 host_busy=0.7% hot=none
+2026-08-09T08:48:57.797Z sample=201 host_busy=1.6% hot=none
+2026-08-09T08:48:58.308Z sample=202 host_busy=1.6% hot=none
+2026-08-09T08:48:58.819Z sample=203 host_busy=5.9% hot=none
+2026-08-09T08:48:59.330Z sample=204 host_busy=1.0% hot=none
+2026-08-09T08:48:59.840Z sample=205 host_busy=1.6% hot=none
+2026-08-09T08:49:00.352Z sample=206 host_busy=0.7% hot=none
+2026-08-09T08:49:00.862Z sample=207 host_busy=1.6% hot=none
+2026-08-09T08:49:01.373Z sample=208 host_busy=0.7% hot=none
+2026-08-09T08:49:01.884Z sample=209 host_busy=8.8% hot=none
+2026-08-09T08:49:02.395Z sample=210 host_busy=0.7% hot=none
+
+# Frozen request pairs 4--5 process samples
+2026-08-09T08:50:02.555Z sample=1 host_busy=7.5% hot=none
+2026-08-09T08:50:03.071Z sample=2 host_busy=2.9% hot=none
+2026-08-09T08:50:03.585Z sample=3 host_busy=1.0% hot=none
+2026-08-09T08:50:04.097Z sample=4 host_busy=2.3% hot=none
+2026-08-09T08:50:04.609Z sample=5 host_busy=1.0% hot=none
+2026-08-09T08:50:05.121Z sample=6 host_busy=8.5% hot=none
+2026-08-09T08:50:05.634Z sample=7 host_busy=21.5% hot=none
+2026-08-09T08:50:06.150Z sample=8 host_busy=25.0% hot=107.1% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:06.662Z sample=9 host_busy=18.9% hot=109.4% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:07.179Z sample=10 host_busy=19.0% hot=107.8% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:07.691Z sample=11 host_busy=18.5% hot=105.2% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:08.203Z sample=12 host_busy=21.2% hot=107.5% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:08.717Z sample=13 host_busy=17.4% hot=102.3% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:09.228Z sample=14 host_busy=68.6% hot=372.5% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:09.762Z sample=15 host_busy=73.8% hot=454.4% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:10.272Z sample=16 host_busy=73.0% hot=413.3% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:10.788Z sample=17 host_busy=68.1% hot=414.5% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:11.305Z sample=18 host_busy=72.3% hot=412.3% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:11.819Z sample=19 host_busy=73.1% hot=436.4% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:12.331Z sample=20 host_busy=70.1% hot=382.9% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:12.840Z sample=21 host_busy=72.6% hot=428.0% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:13.352Z sample=22 host_busy=72.3% hot=425.7% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:13.865Z sample=23 host_busy=73.8% hot=433.0% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:14.377Z sample=24 host_busy=71.9% hot=423.8% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:14.891Z sample=25 host_busy=75.1% hot=444.7% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:15.401Z sample=26 host_busy=69.9% hot=372.8% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:15.922Z sample=27 host_busy=73.0% hot=442.1% pid=3572924 /tmp/go-pherence-row2-token4/.gotmp/go-build2358903871/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:16.435Z sample=28 host_busy=30.2% hot=none
+2026-08-09T08:50:16.946Z sample=29 host_busy=18.9% hot=none
+2026-08-09T08:50:17.459Z sample=30 host_busy=18.8% hot=108.6% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:17.970Z sample=31 host_busy=18.3% hot=105.9% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:18.482Z sample=32 host_busy=25.7% hot=114.5% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:18.995Z sample=33 host_busy=20.4% hot=110.7% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:19.506Z sample=34 host_busy=18.0% hot=100.0% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:20.032Z sample=35 host_busy=23.0% hot=143.7% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:20.539Z sample=36 host_busy=70.8% hot=407.7% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:21.049Z sample=37 host_busy=68.2% hot=403.3% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:21.561Z sample=38 host_busy=71.3% hot=406.0% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:22.073Z sample=39 host_busy=69.8% hot=403.2% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:22.588Z sample=40 host_busy=70.4% hot=407.1% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:23.101Z sample=41 host_busy=72.3% hot=424.1% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:23.614Z sample=42 host_busy=72.6% hot=437.6% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:24.126Z sample=43 host_busy=72.1% hot=407.7% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:24.636Z sample=44 host_busy=72.0% hot=416.3% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:25.147Z sample=45 host_busy=69.7% hot=394.0% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:25.660Z sample=46 host_busy=70.8% hot=430.6% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:26.172Z sample=47 host_busy=68.6% hot=428.0% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:26.687Z sample=48 host_busy=72.3% hot=426.1% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:27.200Z sample=49 host_busy=70.5% hot=423.0% pid=3573119 /tmp/go-pherence-promoted/.gotmp/go-build2338753863/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:27.711Z sample=50 host_busy=28.3% hot=none
+2026-08-09T08:50:28.223Z sample=51 host_busy=26.6% hot=none
+2026-08-09T08:50:28.734Z sample=52 host_busy=18.0% hot=103.9% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:29.248Z sample=53 host_busy=18.7% hot=108.2% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:29.760Z sample=54 host_busy=19.2% hot=109.4% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:30.272Z sample=55 host_busy=20.3% hot=112.1% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:30.783Z sample=56 host_busy=17.3% hot=99.7% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:31.304Z sample=57 host_busy=38.4% hot=199.3% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:31.825Z sample=58 host_busy=70.9% hot=423.3% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:32.339Z sample=59 host_busy=76.1% hot=446.6% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:32.862Z sample=60 host_busy=72.5% hot=435.0% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:33.368Z sample=61 host_busy=72.3% hot=414.8% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:33.889Z sample=62 host_busy=71.2% hot=435.1% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:34.403Z sample=63 host_busy=68.6% hot=376.2% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:34.916Z sample=64 host_busy=72.5% hot=439.1% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:35.428Z sample=65 host_busy=73.1% hot=425.2% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:35.941Z sample=66 host_busy=71.6% hot=417.9% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:36.457Z sample=67 host_busy=72.2% hot=419.4% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:36.968Z sample=68 host_busy=72.6% hot=443.5% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:37.483Z sample=69 host_busy=68.3% hot=382.0% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:37.995Z sample=70 host_busy=72.0% hot=430.3% pid=3573289 /tmp/go-pherence-promoted/.gotmp/go-build542137520/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:38.509Z sample=71 host_busy=56.8% hot=326.7% pid=3573289 model.test
+2026-08-09T08:50:39.022Z sample=72 host_busy=22.4% hot=none
+2026-08-09T08:50:39.533Z sample=73 host_busy=19.2% hot=105.5% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:40.044Z sample=74 host_busy=19.3% hot=109.8% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:40.557Z sample=75 host_busy=22.3% hot=110.2% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:41.067Z sample=76 host_busy=24.3% hot=112.1% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:41.578Z sample=77 host_busy=19.3% hot=107.8% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:42.090Z sample=78 host_busy=17.3% hot=100.0% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:42.600Z sample=79 host_busy=52.0% hot=300.0% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:43.115Z sample=80 host_busy=70.7% hot=418.2% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:43.631Z sample=81 host_busy=70.1% hot=420.8% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:44.160Z sample=82 host_busy=70.5% hot=395.5% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:44.673Z sample=83 host_busy=70.2% hot=398.1% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:45.184Z sample=84 host_busy=71.8% hot=424.7% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:45.699Z sample=85 host_busy=73.3% hot=428.0% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:46.209Z sample=86 host_busy=70.4% hot=422.4% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:46.721Z sample=87 host_busy=69.8% hot=422.8% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:47.233Z sample=88 host_busy=69.1% hot=382.9% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:47.747Z sample=89 host_busy=72.5% hot=430.8% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:48.259Z sample=90 host_busy=73.3% hot=418.6% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:48.774Z sample=91 host_busy=72.5% hot=430.8% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:49.284Z sample=92 host_busy=71.7% hot=428.3% pid=3573436 /tmp/go-pherence-row2-token4/.gotmp/go-build1755190931/b001/model.test -test.paniconexit0 -test.run=^TestGemma4RealCPUGap124x48$ -test.count=1 -test.v=true -test.timeout=10m0s
+2026-08-09T08:50:49.798Z sample=93 host_busy=50.7% hot=300.0% pid=3573436 model.test
+2026-08-09T08:50:50.313Z sample=94 host_busy=10.8% hot=none
+2026-08-09T08:50:50.827Z sample=95 host_busy=1.3% hot=none
+2026-08-09T08:50:51.341Z sample=96 host_busy=0.7% hot=none
+2026-08-09T08:50:51.852Z sample=97 host_busy=7.2% hot=none
+2026-08-09T08:50:52.367Z sample=98 host_busy=1.6% hot=none
+2026-08-09T08:50:52.883Z sample=99 host_busy=1.9% hot=none
+2026-08-09T08:50:53.395Z sample=100 host_busy=7.5% hot=none

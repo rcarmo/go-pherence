@@ -1,0 +1,20 @@
+$ GOMAXPROCS=6 go test ./loader/gguf -count=1
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.077s
+
+$ GOMAXPROCS=6 go test ./loader/gguf -run '^(TestDotQ4_0Q8_0Rows2Tokens4SoA.*|TestQuantMatrixProjectBatchQ4_0Rows2Tokens4MatchesRetainedBits|TestQuantMatrixProjectBatchF32ToMatchesDequantOracle)$' -count=20
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.601s
+
+$ GOMAXPROCS=6 go test -race ./loader/gguf -run '^(TestDotQ4_0Q8_0Rows2Tokens4SoA.*|TestQuantMatrixProjectBatchQ4_0Rows2Tokens4MatchesRetainedBits|TestQuantMatrixProjectBatchF32ToMatchesDequantOracle)$' -count=3
+ok  	github.com/rcarmo/go-pherence/loader/gguf	4.172s
+
+$ go vet ./loader/gguf
+ok
+
+$ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go test -c ./loader/gguf -o /tmp/go-row2-token4-arm64.test
+ok
+
+$ CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go test -c ./loader/gguf -o /tmp/go-row2-token4-riscv64.test
+ok
+
+$ git diff --check
+ok

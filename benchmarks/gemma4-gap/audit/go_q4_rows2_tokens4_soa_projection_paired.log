@@ -1,0 +1,183 @@
+# One-second packing-inclusive pairs
+
+=== 2026-08-09T09:41:07+01:00 pair=1 order=first label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     118	   9612055 ns/op	  365508 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.093s
+
+=== 2026-08-09T09:41:10+01:00 pair=1 order=second label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     124	   9686368 ns/op	  365297 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.191s
+
+=== 2026-08-09T09:41:12+01:00 pair=2 order=first label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     121	   9788742 ns/op	  365346 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.211s
+
+=== 2026-08-09T09:41:15+01:00 pair=2 order=second label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     124	   9901387 ns/op	  365246 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.220s
+
+=== 2026-08-09T09:41:17+01:00 pair=3 order=first label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     100	  10042309 ns/op	  365659 B/op	      20 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.041s
+
+=== 2026-08-09T09:41:18+01:00 pair=3 order=second label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     124	   9886876 ns/op	  365271 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.225s
+
+=== 2026-08-09T09:41:21+01:00 pair=4 order=first label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     124	   9605968 ns/op	  365315 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.212s
+
+=== 2026-08-09T09:41:23+01:00 pair=4 order=second label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     118	   9705233 ns/op	  365318 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.134s
+
+=== 2026-08-09T09:41:26+01:00 pair=5 order=first label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     123	  10031017 ns/op	  365274 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.243s
+
+=== 2026-08-09T09:41:28+01:00 pair=5 order=second label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     124	   9937377 ns/op	  365244 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.224s
+
+# Three-second packing-inclusive pairs
+
+=== 2026-08-09T09:42:44+01:00 pair=1 order=first label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     369	   9744260 ns/op	  365211 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	4.605s
+
+=== 2026-08-09T09:42:49+01:00 pair=1 order=second label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     372	   9691443 ns/op	  365179 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	4.607s
+
+=== 2026-08-09T09:42:54+01:00 pair=2 order=first label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     380	   9615325 ns/op	  365181 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	4.643s
+
+=== 2026-08-09T09:42:59+01:00 pair=2 order=second label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     355	   9800424 ns/op	  365279 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	4.566s
+
+=== 2026-08-09T09:43:04+01:00 pair=3 order=first label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     375	   9687878 ns/op	  365167 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	4.644s
+
+=== 2026-08-09T09:43:09+01:00 pair=3 order=second label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     367	   9546172 ns/op	  365203 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	4.518s
+
+=== 2026-08-09T09:43:13+01:00 pair=4 order=first label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     376	  11469901 ns/op	  365220 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	5.340s
+
+=== 2026-08-09T09:43:19+01:00 pair=4 order=second label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     326	  11985156 ns/op	  365253 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	5.044s
+
+=== 2026-08-09T09:43:24+01:00 pair=5 order=first label=retained ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     303	  11819493 ns/op	  365271 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	4.799s
+
+=== 2026-08-09T09:43:29+01:00 pair=5 order=second label=row2-token4 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     328	  11873015 ns/op	  365173 B/op	      19 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	5.064s
