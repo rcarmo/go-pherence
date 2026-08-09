@@ -1,0 +1,9 @@
+$ GOMAXPROCS=6 go test ./loader/gguf -count=1
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.048s
+$ SIMD/direct preparation and projection oracle -count=20
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.151s
+$ SIMD/direct preparation and projection oracle race -count=3
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.297s
+$ go vet ./loader/gguf
+$ cross-compile arm64/riscv64
+ok

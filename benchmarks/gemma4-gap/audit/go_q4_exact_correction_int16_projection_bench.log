@@ -1,0 +1,150 @@
+2026-08-09T00:50:03+01:00
+PRE-GATE
+ 00:50:03 up 13 days,  2:28,  0 user,  load average: 0.38, 0.96, 1.25
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 2  0 8388104 1222348 2435480 53105756    1    8  1627   379 4752   12  9  1 90  0  0  0
+ 2  0 8388104 1226884 2435480 53105776    0    0     0     0 7652 12540 21  2 77  0  0  0
+ 0  0 8388104 1312592 2435488 53105772    0    0     0   420 9194 13972  5  2 93  0  0  0
+ 0  0 8388104 1343252 2435500 53105904    0    0     0    88 6499 9055  5  1 94  0  0  0
+ 0  0 8388104 1345220 2435500 53105904    0    0     0   320 6664 9454  5  1 94  0  0  0
+ 0  0 8388104 1386324 2435500 53105904    0    0     0     0 4365 6015  3  1 96  0  0  0
+ 0  0 8388104 1410744 2435508 53105932    0    0     0   120 4072 4425  4  2 94  0  0  0
+ 0  0 8388104 1405716 2435540 53106024    0    0     0   776 11922 18169  6  3 90  1  0  0
+ 0  0 8388104 1391144 2435540 53106024    0    0     0     0 2708 3239  1  1 98  0  0  0
+ 0  0 8388104 1401756 2435652 53106060    0    0     0  1008 3331 4498  1  1 98  1  0  0
+ 0  0 8388104 1410696 2435652 53106060    0    0     0     8 4779 6081  5  1 94  0  0  0
+ 0  0 8388104 1442716 2435652 53105984    0    0     0   124 5122 7024  2  1 97  0  0  0
+ 0  0 8388104 1484928 2435684 53105976    0    0     0  1536 6073 9100  2  2 96  0  0  0
+ 1  0 8388104 1496132 2435684 53105980    0    0     0     0 4439 6043  4  1 95  0  0  0
+ 0  0 8388104 1485744 2436052 53105988    0    0     0  3892 6442 8954  2  1 95  2  0  0
+ 0  0 8388104 1496868 2436060 53105988    0    0     0   116 4207 6109  1  1 98  0  0  0
+ 0  0 8388104 1506448 2436072 53106000    0    0     0   464 4359 6193  3  1 96  1  0  0
+ 0  0 8388104 1531224 2436080 53105996    0    0     0   120 8994 14355  5  2 93  0  0  0
+ 0  0 8388104 1540624 2436080 53106004    0    0     0     0 5041 7415  2  1 97  0  0  0
+ 0  0 8388104 1535056 2436084 53106044    0    0     0    44 4534 6408  3  1 96  0  0  0
+=== pair 1 baseline ===
+2026-08-09T00:50:22+01:00
+ 00:50:22 up 13 days,  2:28,  0 user,  load average: 0.48, 0.95, 1.24
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     103	  12053320 ns/op	  714380 B/op	      32 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.979s
+=== pair 1 candidate-int16 ===
+2026-08-09T00:50:25+01:00
+ 00:50:25 up 13 days,  2:28,  0 user,  load average: 0.52, 0.95, 1.24
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      94	  20084983 ns/op	  861875 B/op	      32 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.743s
+=== pair 2 baseline ===
+2026-08-09T00:50:28+01:00
+ 00:50:28 up 13 days,  2:28,  0 user,  load average: 0.52, 0.95, 1.24
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      82	  17403865 ns/op	  715545 B/op	      34 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.471s
+=== pair 2 candidate-int16 ===
+2026-08-09T00:50:29+01:00
+ 00:50:29 up 13 days,  2:28,  0 user,  load average: 0.56, 0.95, 1.24
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      67	  21521511 ns/op	  861846 B/op	      32 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.302s
+=== pair 3 baseline ===
+2026-08-09T00:50:32+01:00
+ 00:50:32 up 13 days,  2:28,  0 user,  load average: 0.56, 0.95, 1.24
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      90	  19203365 ns/op	  714433 B/op	      32 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	3.542s
+=== pair 3 candidate-int16 ===
+2026-08-09T00:50:36+01:00
+ 00:50:36 up 13 days,  2:28,  0 user,  load average: 0.60, 0.95, 1.24
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      69	  15608261 ns/op	  862738 B/op	      34 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.084s
+=== pair 4 baseline ===
+2026-08-09T00:50:38+01:00
+ 00:50:38 up 13 days,  2:28,  0 user,  load average: 0.60, 0.95, 1.24
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      91	  16890334 ns/op	  714214 B/op	      32 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	3.381s
+=== pair 4 candidate-int16 ===
+2026-08-09T00:50:42+01:00
+ 00:50:42 up 13 days,  2:28,  0 user,  load average: 1.35, 1.10, 1.29
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      60	  16701701 ns/op	  863284 B/op	      35 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.058s
+=== pair 5 baseline ===
+2026-08-09T00:50:43+01:00
+ 00:50:43 up 13 days,  2:28,  0 user,  load average: 1.35, 1.10, 1.29
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      75	  19103093 ns/op	  716026 B/op	      35 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.487s
+=== pair 5 candidate-int16 ===
+2026-08-09T00:50:45+01:00
+ 00:50:45 up 13 days,  2:28,  0 user,  load average: 1.32, 1.10, 1.28
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      63	  16623392 ns/op	  863192 B/op	      35 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.095s
+POST-GATE
+2026-08-09T00:50:46+01:00
+ 00:50:46 up 13 days,  2:28,  0 user,  load average: 1.32, 1.10, 1.28
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 0  0 8388104 1432876 2436528 53106500    1    8  1627   379 4752   12  9  1 90  0  0  0
+ 0  0 8388104 1469800 2436536 53106284    0    0     0    48 5816 8307  2  1 96  0  0  0
+ 0  0 8388104 1479844 2436536 53106284    0    0     0     4 1907 2519  1  0 99  0  0  0
+ 0  0 8388104 1498024 2436536 53106284    0    0     0     0 4839 6292  5  1 94  0  0  0
+ 0  0 8388104 1515684 2436544 53106260    0    0     0   260 3543 5105  1  1 97  0  0  0
+ 0  0 8388104 1521056 2436544 53106256    0    0     0   304 5725 8788  2  1 96  0  0  0
+ 0  0 8388104 1525016 2436544 53106260    0    0     0     0 3426 4659  3  1 96  0  0  0
+ 0  0 8388104 1509768 2436548 53106260    0    0     0    28 2821 3440  1  1 98  0  0  0
+ 0  0 8388104 1510056 2436548 53106260    0    0     0     0 3191 4064  2  0 97  0  0  0
+ 0  0 8388104 1508508 2436552 53106260    0    0     0   212 8063 12845  5  2 93  0  0  0
+ 0  0 8388104 1523292 2436552 53106260    0    0     0     0 8384 13054  3  2 96  0  0  0
+ 0  0 8388104 1521212 2436552 53106360    0    0     0   100 7097 10886  3  1 95  0  0  0
+ 2  0 8388104 1518868 2436552 53106396    0    0     0    92 8245 13289  6  1 92  0  0  0
+ 1  0 8388104 1265936 2436552 53106460    0    0     0     0 7576 10582 28  3 69  0  0  0
+ 1  0 8388104 1458940 2436576 53106460    0    0     0   332 8443 13751 18  3 79  0  0  0
+ 0  0 8388104 1455496 2436576 53106472    0    0     0     0 7575 10488  7  2 92  0  0  0
+ 0  0 8388104 1458284 2436580 53106468    0    0     0   264 2420 3270  1  0 99  0  0  0
+ 2  0 8388104 1430892 2436580 53106480    0    0     0     0 5990 8015 14  2 84  0  0  0
+ 3  0 8388104 1041992 2436580 53106480    0    0     0    16 5560 6131 40  3 57  0  0  0
+ 1  0 8388104 1214800 2436716 53106464    0    0     0  1092 9745 12566 40  5 54  1  0  0

@@ -1,0 +1,90 @@
+
+=== pair=1 variant=baseline start=2026-08-09T08:36:01+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     100	  13270476 ns/op	  715143 B/op	      33 allocs/op
+PASS
+=== pair=1 variant=baseline end=2026-08-09T08:36:02+01:00 ===
+
+=== pair=1 variant=candidate start=2026-08-09T08:36:03+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     121	  10095218 ns/op	  714036 B/op	      26 allocs/op
+PASS
+=== pair=1 variant=candidate end=2026-08-09T08:36:05+01:00 ===
+
+=== pair=2 variant=baseline start=2026-08-09T08:36:06+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      79	  13277202 ns/op	  714798 B/op	      33 allocs/op
+PASS
+=== pair=2 variant=baseline end=2026-08-09T08:36:08+01:00 ===
+
+=== pair=2 variant=candidate start=2026-08-09T08:36:09+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     100	  10353894 ns/op	  714739 B/op	      27 allocs/op
+PASS
+=== pair=2 variant=candidate end=2026-08-09T08:36:10+01:00 ===
+
+=== pair=3 variant=baseline start=2026-08-09T08:36:11+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     103	  12441831 ns/op	  714309 B/op	      32 allocs/op
+PASS
+=== pair=3 variant=baseline end=2026-08-09T08:36:13+01:00 ===
+
+=== pair=3 variant=candidate start=2026-08-09T08:36:14+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     116	   9950101 ns/op	  714108 B/op	      26 allocs/op
+PASS
+=== pair=3 variant=candidate end=2026-08-09T08:36:16+01:00 ===
+
+=== pair=4 variant=baseline start=2026-08-09T08:36:17+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	      97	  11505930 ns/op	  714686 B/op	      33 allocs/op
+PASS
+=== pair=4 variant=baseline end=2026-08-09T08:36:18+01:00 ===
+
+=== pair=4 variant=candidate start=2026-08-09T08:36:19+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     120	   9782795 ns/op	  714046 B/op	      26 allocs/op
+PASS
+=== pair=4 variant=candidate end=2026-08-09T08:36:22+01:00 ===
+
+=== pair=5 variant=baseline start=2026-08-09T08:36:23+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     104	  10822100 ns/op	  714437 B/op	      32 allocs/op
+PASS
+=== pair=5 variant=baseline end=2026-08-09T08:36:25+01:00 ===
+
+=== pair=5 variant=candidate start=2026-08-09T08:36:26+01:00 ===
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkQuantMatrixProjectBatchQ4_0Gemma4Shapes/out10240/batch124/batched-6         	     100	  10041927 ns/op	  714799 B/op	      27 allocs/op
+PASS
+=== pair=5 variant=candidate end=2026-08-09T08:36:27+01:00 ===

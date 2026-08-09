@@ -1,0 +1,57 @@
+=== PRE-GATE 2026-08-09T01:23:02+01:00 ===
+ 01:23:02 up 13 days,  3:01,  0 user,  load average: 2.26, 1.17, 1.03
+--- top before ---
+    PID    PPID PSR %CPU STAT COMMAND         COMMAND
+3405140     914   0  2.7 Ssl  bun             /opt/piclaw/current/bun/bin/bun /opt/piclaw/current/app/runtime/src/index.ts --port 8080
+2654364 3405140   5  1.7 Ssl  bun             /opt/piclaw/releases/piclaw-2.13.2-linux-x64-baseline/bun/bin/bun /srv/piclaw-dev/workspace/.pi/extensions/node_modules/@earendil-works/pi-coding-agent/dist/cli.js --mode json --no-session --no-extensions --model openai-codex/gpt-5.4 --tools read,grep,find,ls --append-system-prompt Web search: run 'bun /workspace/.pi/skills/web-search/web-search.ts --query "QUERY" --fetch true --fetch-limit 3' to search the web. Web search summary: run 'bun /workspace/.pi/skills/web-search-summary/web-search-summary.ts --query "QUERY"' for summarized results. --system-prompt Conservative independent release reviewer. Only blockers or high-confidence corrections.
+   4917    4057   4  1.6 Sl   python3.14      /opt/python3.14/bin/python3.14 /opt/python3.14/bin/Mathics3server runserver
+    906       1   3  0.6 Ssl  dockerd         /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+   1745    1705   0  0.4 Ssl  redis-server    redis-server *:6379
+4028535       1   5  0.4 Ssl  containerd      /usr/bin/containerd
+   2546    2432   2  0.3 SLsl java            /usr/share/opensearch/jdk/bin/java -Xshare:auto -Dopensearch.networkaddress.cache.ttl=60 -Dopensearch.networkaddress.cache.negative.ttl=10 -XX:+AlwaysPreTouch -Xss1m -Djava.awt.headless=true -Dfile.encoding=UTF-8 -Djna.nosys=true -XX:-OmitStackTraceInFastThrow -XX:+ShowCodeDetailsInExceptionMessages -Dio.netty.noUnsafe=true -Dio.netty.noKeySetOptimization=true -Dio.netty.recycler.maxCapacityPerThread=0 -Dio.netty.allocator.numDirectArenas=0 -Dlog4j.shutdownHookEnabled=false -Dlog4j2.disable.jmx=true -Djava.locale.providers=SPI,CLDR -Xms1g -Xmx1g -XX:+UseG1GC -XX:G1ReservePercent=25 -XX:InitiatingHeapOccupancyPercent=30 -Djava.io.tmpdir=/tmp/opensearch-3970079415107697617 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=data -XX:ErrorFile=logs/hs_err_pid%p.log -Xlog:gc*,gc+age=trace,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m --add-modules=jdk.incubator.vector -javaagent:agent/opensearch-agent.jar --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -Dorg.apache.lucene.store.MMapDirectory.sharedArenaMaxPermits=1 -Dclk.tck=100 -Djdk.attach.allowAttachSelf=true -Djava.security.policy=/usr/share/opensearch/config/opensearch-performance-analyzer/opensearch_security.policy --add-opens=jdk.attach/sun.tools.attach=ALL-UNNAMED -Dopensearch.cgroups.hierarchy.override=/ -Xms512m -Xmx512m -XX:MaxDirectMemorySize=268435456 -Dopensearch.path.home=/usr/share/opensearch -Dopensearch.path.conf=/usr/share/opensearch/config -Dopensearch.distribution.type=tar -Dopensearch.bundled_jdk=true -cp /usr/share/opensearch/lib/* org.opensearch.bootstrap.OpenSearch -Ebootstrap.memory_lock=true -Ediscovery.type=single-node -Eplugins.security.disabled=true
+4044218       1   5  0.3 Ss   avahi-daemon    avahi-daemon: running [sandbox.local]
+3405197 3405140   3  0.2 Sl   bun             /opt/piclaw/releases/piclaw-2.13.2-linux-x64-baseline/bun/bin/bun /opt/piclaw/releases/piclaw-2.13.2-linux-x64-baseline/app/runtime/src/runtime/progress-watchdog-monitor.ts --parent-pid 3405140
+   2292    2192   4  0.1 Ssl  invokeai-web    /opt/venv/bin/python3 /opt/venv/bin/invokeai-web
+   1950    1860   5  0.1 SLs  celery          /usr/local/bin/python3.12 /home/appuser/.local/bin/celery -A app.core.celery worker --loglevel=info -Q cpu,utility --concurrency=8 --max-tasks-per-child=20
+   2439    2347   3  0.1 SLs  celery          /usr/local/bin/python3.12 /home/appuser/.local/bin/celery -A app.core.celery worker --loglevel=info -Q gpu --concurrency=1
+   2231    2035   1  0.0 SLs  celery          /usr/local/bin/python3.12 /home/appuser/.local/bin/celery -A app.core.celery worker --loglevel=info -Q nlp,celery --concurrency=4 --max-tasks-per-child=50
+2653173     914   3  0.0 S    python3         python3 -m http.server 4183
+--- vmstat 1 20 ---
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 2  0 8388604 1021924 1083036 54871492    1    8  1657   385 4757   12  9  1 90  0  0  0
+ 1  0 8388604 1041876 1083036 54871724    0    0     0 68016 8125 11930 10  3 87  0  0  0
+ 2  0 8388604 764204 1083036 54871736    0    0     0     0 6809 6054 36  3 61  0  0  0
+ 1  0 8388604 734172 1083036 54871732    0    0     0     0 6385 6029 36  3 61  0  0  0
+ 0  0 8388604 975464 1083036 54871732    0    0     0     0 5090 7087  6  1 93  0  0  0
+ 0  0 8388604 987572 1083036 54871728    0    0     0     0 2030 2462  1  1 99  0  0  0
+ 0  0 8388604 1018516 1083056 54868956    0    0     0   312 4949 7342  3  1 95  1  0  0
+ 0  0 8388604 1023412 1083056 54868952    0    0     0     0 2814 3750  3  1 97  0  0  0
+ 0  0 8388604 1029928 1083056 54868948    0    0     0     0 1664 2054  1  0 99  0  0  0
+ 1  0 8388604 938204 1083056 54868952    0    0     0     0 3108 3014 13  1 85  0  0  0
+ 1  0 8388604 763744 1083056 54868972    0    0     0     0 6918 4590 28  3 69  0  0  0
+ 0  0 8388604 1010984 1083208 54868992    0    0     4  1120 6044 9362  4  1 93  1  0  0
+ 0  0 8388604 1018452 1083208 54868988    0    0     0     0 4045 5720  2  1 98  0  0  0
+ 0  0 8388604 1019460 1085100 54868992    0    0  1892     0 7069 8535 22 19 58  0  0  0
+ 0  0 8388604 1019460 1085100 54868992    0    0     0     0 2925 4865  1  0 98  0  0  0
+ 1  0 8388604 1024508 1085100 54868992    0    0     0     0 2578 3418  1  1 98  0  0  0
+ 0  0 8388604 1035740 1085108 54868992    0    0     0    96 6354 9845  4  1 95  0  0  0
+ 0  0 8388604 1036432 1085120 54868992    0    0     8   108 3005 4034  1  0 98  0  0  0
+ 0  0 8388604 1038908 1085120 54869000    0    0     0     0 2430 3277  1  1 99  0  0  0
+ 2  0 8388604 1025304 1085120 54869000    0    0     0     0 2884 3975  1  1 98  0  0  0
+--- top after ---
+    PID    PPID PSR %CPU STAT COMMAND         COMMAND
+2656884 2656878   5  100 R    python3         python3 /etc/jupyter/docker_healthcheck.py
+2656878    2734   2 14.2 Ss   sh              /bin/sh -c /etc/jupyter/docker_healthcheck.py || exit 1
+3405140     914   1  2.7 Ssl  bun             /opt/piclaw/current/bun/bin/bun /opt/piclaw/current/app/runtime/src/index.ts --port 8080
+   4917    4057   0  1.6 Rl   python3.14      /opt/python3.14/bin/python3.14 /opt/python3.14/bin/Mathics3server runserver
+2654364 3405140   1  1.5 Ssl  bun             /opt/piclaw/releases/piclaw-2.13.2-linux-x64-baseline/bun/bin/bun /srv/piclaw-dev/workspace/.pi/extensions/node_modules/@earendil-works/pi-coding-agent/dist/cli.js --mode json --no-session --no-extensions --model openai-codex/gpt-5.4 --tools read,grep,find,ls --append-system-prompt Web search: run 'bun /workspace/.pi/skills/web-search/web-search.ts --query "QUERY" --fetch true --fetch-limit 3' to search the web. Web search summary: run 'bun /workspace/.pi/skills/web-search-summary/web-search-summary.ts --query "QUERY"' for summarized results. --system-prompt Conservative independent release reviewer. Only blockers or high-confidence corrections.
+    906       1   3  0.6 Ssl  dockerd         /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+   1745    1705   3  0.4 Ssl  redis-server    redis-server *:6379
+4028535       1   5  0.4 Ssl  containerd      /usr/bin/containerd
+   2546    2432   2  0.3 SLsl java            /usr/share/opensearch/jdk/bin/java -Xshare:auto -Dopensearch.networkaddress.cache.ttl=60 -Dopensearch.networkaddress.cache.negative.ttl=10 -XX:+AlwaysPreTouch -Xss1m -Djava.awt.headless=true -Dfile.encoding=UTF-8 -Djna.nosys=true -XX:-OmitStackTraceInFastThrow -XX:+ShowCodeDetailsInExceptionMessages -Dio.netty.noUnsafe=true -Dio.netty.noKeySetOptimization=true -Dio.netty.recycler.maxCapacityPerThread=0 -Dio.netty.allocator.numDirectArenas=0 -Dlog4j.shutdownHookEnabled=false -Dlog4j2.disable.jmx=true -Djava.locale.providers=SPI,CLDR -Xms1g -Xmx1g -XX:+UseG1GC -XX:G1ReservePercent=25 -XX:InitiatingHeapOccupancyPercent=30 -Djava.io.tmpdir=/tmp/opensearch-3970079415107697617 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=data -XX:ErrorFile=logs/hs_err_pid%p.log -Xlog:gc*,gc+age=trace,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m --add-modules=jdk.incubator.vector -javaagent:agent/opensearch-agent.jar --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -Dorg.apache.lucene.store.MMapDirectory.sharedArenaMaxPermits=1 -Dclk.tck=100 -Djdk.attach.allowAttachSelf=true -Djava.security.policy=/usr/share/opensearch/config/opensearch-performance-analyzer/opensearch_security.policy --add-opens=jdk.attach/sun.tools.attach=ALL-UNNAMED -Dopensearch.cgroups.hierarchy.override=/ -Xms512m -Xmx512m -XX:MaxDirectMemorySize=268435456 -Dopensearch.path.home=/usr/share/opensearch -Dopensearch.path.conf=/usr/share/opensearch/config -Dopensearch.distribution.type=tar -Dopensearch.bundled_jdk=true -cp /usr/share/opensearch/lib/* org.opensearch.bootstrap.OpenSearch -Ebootstrap.memory_lock=true -Ediscovery.type=single-node -Eplugins.security.disabled=true
+4044218       1   4  0.3 Ss   avahi-daemon    avahi-daemon: running [sandbox.local]
+3405197 3405140   3  0.2 Sl   bun             /opt/piclaw/releases/piclaw-2.13.2-linux-x64-baseline/bun/bin/bun /opt/piclaw/releases/piclaw-2.13.2-linux-x64-baseline/app/runtime/src/runtime/progress-watchdog-monitor.ts --parent-pid 3405140
+   2292    2192   1  0.1 Ssl  invokeai-web    /opt/venv/bin/python3 /opt/venv/bin/invokeai-web
+   1950    1860   4  0.1 SLs  celery          /usr/local/bin/python3.12 /home/appuser/.local/bin/celery -A app.core.celery worker --loglevel=info -Q cpu,utility --concurrency=8 --max-tasks-per-child=20
+   2439    2347   1  0.1 SLs  celery          /usr/local/bin/python3.12 /home/appuser/.local/bin/celery -A app.core.celery worker --loglevel=info -Q gpu --concurrency=1

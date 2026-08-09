@@ -1,0 +1,120 @@
+TEXT github.com/rcarmo/go-pherence/loader/gguf.quantizeQ8_0BlockScalarTo(SB) /tmp/go-pherence-direct-q8/loader/gguf/qdot.go
+  qdot.go:118		0x5685e0		493b6610		CMPQ SP, 0x10(R14)								
+  qdot.go:118		0x5685e4		0f86a7010000		JBE 0x568791									
+  qdot.go:118		0x5685ea		55			PUSHQ BP									
+  qdot.go:118		0x5685eb		4889e5			MOVQ SP, BP									
+  qdot.go:118		0x5685ee		4883ec10		SUBQ $0x10, SP									
+  qdot.go:118		0x5685f2		48894c2430		MOVQ CX, 0x30(SP)								
+  qdot.go:120		0x5685f7		31d2			XORL DX, DX									
+  qdot.go:120		0x5685f9		0f57c0			XORPS X0, X0									
+  qdot.go:120		0x5685fc		eb06			JMP 0x568604									
+  qdot.go:120		0x5685fe		48ffc2			INCQ DX										
+  qdot.go:120		0x568601		0f10c1			MOVUPS X1, X0									
+  qdot.go:120		0x568604		4839d7			CMPQ DI, DX									
+  qdot.go:120		0x568607		7e26			JLE 0x56862f									
+  qdot.go:120		0x568609		f30f100c91		MOVSS 0(CX)(DX*4), X1								
+  qdot.go:121		0x56860e		f30f5ac9		CVTSS2SD X1, X1									
+  unsafe.go:35		0x568612		66480f7ece		MOVQ X1, SI									
+  abs.go:14		0x568617		480fbaf63f		BTRQ $0x3f, SI									
+  unsafe.go:41		0x56861c		66480f6ece		MOVQ SI, X1									
+  qdot.go:121		0x568621		f20f5ac9		CVTSD2SS X1, X1									
+  qdot.go:122		0x568625		0f2ec8			UCOMISS X0, X1									
+  qdot.go:122		0x568628		77d4			JA 0x5685fe									
+  qdot.go:122		0x56862a		0f10c8			MOVUPS X0, X1									
+  qdot.go:122		0x56862d		ebcf			JMP 0x5685fe									
+  qdot.go:120		0x56862f		4889442420		MOVQ AX, 0x20(SP)								
+  qdot.go:120		0x568634		48895c2428		MOVQ BX, 0x28(SP)								
+  qdot.go:120		0x568639		48897c2438		MOVQ DI, 0x38(SP)								
+  qdot.go:120		0x56863e		48894c2430		MOVQ CX, 0x30(SP)								
+  qdot.go:126		0x568643		f30f100d49120b00	MOVSS $f32.42fe0000(SB), X1							
+  qdot.go:126		0x56864b		f30f5ec1		DIVSS X1, X0									
+  qdot.go:128		0x56864f		0f57c9			XORPS X1, X1									
+  qdot.go:128		0x568652		0f2ec1			UCOMISS X1, X0									
+  qdot.go:128		0x568655		7502			JNE 0x568659									
+  qdot.go:128		0x568657		7b0e			JNP 0x568667									
+  qdot.go:129		0x568659		f30f100d27120b00	MOVSS $f32.3f800000(SB), X1							
+  qdot.go:129		0x568661		f30f5ec8		DIVSS X0, X1									
+  qdot.go:129		0x568665		eb03			JMP 0x56866a									
+  qdot.go:129		0x568667		0f57c9			XORPS X1, X1									
+  qdot.go:131		0x56866a		f30f114c240c		MOVSS X1, 0xc(SP)								
+  qdot.go:131		0x568670		e84b6dffff		CALL github.com/rcarmo/go-pherence/half.F32ToF16(SB)				
+  qdot.go:131		0x568675		e8066effff		CALL github.com/rcarmo/go-pherence/half.F16ToF32(SB)				
+  qdot.go:131		0x56867a		488b442420		MOVQ 0x20(SP), AX								
+  qdot.go:131		0x56867f		f30f1100		MOVSS X0, 0(AX)									
+  qdot.go:132		0x568683		488b442438		MOVQ 0x38(SP), AX								
+  qdot.go:132		0x568688		488b4c2428		MOVQ 0x28(SP), CX								
+  qdot.go:132		0x56868d		f30f104c240c		MOVSS 0xc(SP), X1								
+  qdot.go:132		0x568693		488b542430		MOVQ 0x30(SP), DX								
+  qdot.go:132		0x568698		31db			XORL BX, BX									
+  qdot.go:132		0x56869a		eb0a			JMP 0x5686a6									
+  qdot.go:140		0x56869c		40883c1e		MOVB DI, 0(SI)(BX*1)								
+  qdot.go:132		0x5686a0		48ffc3			INCQ BX										
+  qdot.go:140		0x5686a3		4889f1			MOVQ SI, CX									
+  qdot.go:132		0x5686a6		4839d8			CMPQ AX, BX									
+  qdot.go:132		0x5686a9		0f8ecf000000		JLE 0x56877e									
+  qdot.go:132		0x5686af		f30f10049a		MOVSS 0(DX)(BX*4), X0								
+  qdot.go:133		0x5686b4		f30f59c1		MULSS X1, X0									
+  qdot.go:133		0x5686b8		f30f5ac0		CVTSS2SD X0, X0									
+  unsafe.go:35		0x5686bc		66480f7ec6		MOVQ X0, SI									
+  floor.go:101		0x5686c1		4889f7			MOVQ SI, DI									
+  floor.go:101		0x5686c4		48c1ee34		SHRQ $0x34, SI									
+  floor.go:101		0x5686c8		81e6ff070000		ANDL $0x7ff, SI									
+  floor.go:100		0x5686ce		90			NOPL										
+  floor.go:102		0x5686cf		4881feff030000		CMPQ SI, $0x3ff									
+  floor.go:102		0x5686d6		732d			JAE 0x568705									
+  floor.go:104		0x5686d8		49b80000000000000080	MOVQ $0x8000000000000000, R8							
+  floor.go:104		0x5686e2		4c21c7			ANDQ R8, DI									
+  floor.go:106		0x5686e5		49b9000000000000f03f	MOVQ $0x3ff0000000000000, R9							
+  floor.go:106		0x5686ef		4909f9			ORQ DI, R9									
+  floor.go:105		0x5686f2		4881fefe030000		CMPQ SI, $0x3fe									
+  floor.go:105		0x5686f9		490f44f9		CMOVE R9, DI									
+  qdot.go:140		0x5686fd		4889ce			MOVQ CX, SI									
+  qdot.go:133		0x568700		4989f9			MOVQ DI, R9									
+  floor.go:105		0x568703		eb43			JMP 0x568748									
+  floor.go:108		0x568705		4881fe33040000		CMPQ SI, $0x433									
+  floor.go:108		0x56870c		7334			JAE 0x568742									
+  floor.go:114		0x56870e		4c8d8601fcffff		LEAQ 0xfffffc01(SI), R8								
+  qdot.go:120		0x568715		4889ce			MOVQ CX, SI									
+  floor.go:115		0x568718		4c89c1			MOVQ R8, CX									
+  floor.go:115		0x56871b		49b90000000000000800	MOVQ $0x8000000000000, R9							
+  floor.go:115		0x568725		49d3e9			SHRQ CL, R9									
+  floor.go:115		0x568728		4c01cf			ADDQ R9, DI									
+  floor.go:116		0x56872b		49b9ffffffffffff0f00	MOVQ $0xfffffffffffff, R9							
+  floor.go:116		0x568735		49d3e9			SHRQ CL, R9									
+  floor.go:116		0x568738		49f7d1			NOTQ R9										
+  floor.go:116		0x56873b		4921f9			ANDQ DI, R9									
+  floor.go:116		0x56873e		6690			NOPW										
+  floor.go:116		0x568740		eb06			JMP 0x568748									
+  qdot.go:140		0x568742		4889ce			MOVQ CX, SI									
+  qdot.go:140		0x568745		4989f9			MOVQ DI, R9									
+  qdot.go:140		0x568748		8406			TESTB AL, 0(SI)									
+  unsafe.go:41		0x56874a		66490f6ec1		MOVQ R9, X0									
+  qdot.go:133		0x56874f		f2480f2cf8		CVTTSD2SIQ X0, DI								
+  floor.go:118		0x568754		90			NOPL										
+  qdot.go:134		0x568755		4883ff7f		CMPQ DI, $0x7f									
+  qdot.go:137		0x568759		41b87f000000		MOVL $0x7f, R8									
+  qdot.go:137		0x56875f		490f4ff8		CMOVG R8, DI									
+  qdot.go:137		0x568763		4883ff80		CMPQ DI, $-0x80									
+  qdot.go:140		0x568767		49c7c180ffffff		MOVQ $-0x80, R9									
+  qdot.go:140		0x56876e		490f4cf9		CMOVL R9, DI									
+  qdot.go:140		0x568772		4883fb20		CMPQ BX, $0x20									
+  qdot.go:134		0x568776		0f8220ffffff		JB 0x56869c									
+  qdot.go:134		0x56877c		eb06			JMP 0x568784									
+  qdot.go:142		0x56877e		4883c410		ADDQ $0x10, SP									
+  qdot.go:142		0x568782		5d			POPQ BP										
+  qdot.go:142		0x568783		c3			RET										
+  qdot.go:140		0x568784		48c7c020000000		MOVQ $0x20, AX									
+  qdot.go:140		0x56878b		e89069f2ff		CALL runtime.panicBounds(SB)							
+  qdot.go:140		0x568790		90			NOPL										
+  qdot.go:118		0x568791		4889442408		MOVQ AX, 0x8(SP)								
+  qdot.go:118		0x568796		48895c2410		MOVQ BX, 0x10(SP)								
+  qdot.go:118		0x56879b		48894c2418		MOVQ CX, 0x18(SP)								
+  qdot.go:118		0x5687a0		48897c2420		MOVQ DI, 0x20(SP)								
+  qdot.go:118		0x5687a5		4889742428		MOVQ SI, 0x28(SP)								
+  qdot.go:118		0x5687aa		e8d14af2ff		CALL runtime.morestack_noctxt.abi0(SB)						
+  qdot.go:118		0x5687af		488b442408		MOVQ 0x8(SP), AX								
+  qdot.go:118		0x5687b4		488b5c2410		MOVQ 0x10(SP), BX								
+  qdot.go:118		0x5687b9		488b4c2418		MOVQ 0x18(SP), CX								
+  qdot.go:118		0x5687be		488b7c2420		MOVQ 0x20(SP), DI								
+  qdot.go:118		0x5687c3		488b742428		MOVQ 0x28(SP), SI								
+  qdot.go:118		0x5687c8		e913feffff		JMP github.com/rcarmo/go-pherence/loader/gguf.quantizeQ8_0BlockScalarTo(SB)	

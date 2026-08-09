@@ -103,32 +103,42 @@ func quantizeQ8_0To(blocks []q8_0Block, x []float32) error {
 		return fmt.Errorf("Q8_0 quantize destination blocks=%d len=%d", len(blocks), len(x))
 	}
 	for bi := range blocks {
-		row := x[bi*qk8_0 : (bi+1)*qk8_0]
-		var amax float32
-		for _, v := range row {
-			av := float32(math.Abs(float64(v)))
-			if av > amax {
-				amax = av
-			}
-		}
-		d := amax / 127.0
-		id := float32(0)
-		if d != 0 {
-			id = 1 / d
-		}
-		blocks[bi].d = half.F16ToF32(half.F32ToF16(d))
-		for j, v := range row {
-			q := int(math.Round(float64(v * id)))
-			if q > 127 {
-				q = 127
-			}
-			if q < -128 {
-				q = -128
-			}
-			blocks[bi].qs[j] = int8(q)
-		}
+		quantizeQ8_0BlockTo(&blocks[bi].d, &blocks[bi].qs, x[bi*qk8_0:(bi+1)*qk8_0])
 	}
 	return nil
+}
+
+func quantizeQ8_0BlockTo(dOut *float32, qsOut *[qk8_0]int8, row []float32) {
+	if quantizeQ8_0BlockSIMD(dOut, qsOut, row) {
+		return
+	}
+	quantizeQ8_0BlockScalarTo(dOut, qsOut, row)
+}
+
+func quantizeQ8_0BlockScalarTo(dOut *float32, qsOut *[qk8_0]int8, row []float32) {
+	var amax float32
+	for _, v := range row {
+		av := float32(math.Abs(float64(v)))
+		if av > amax {
+			amax = av
+		}
+	}
+	d := amax / 127.0
+	id := float32(0)
+	if d != 0 {
+		id = 1 / d
+	}
+	*dOut = half.F16ToF32(half.F32ToF16(d))
+	for j, v := range row {
+		q := int(math.Round(float64(v * id)))
+		if q > 127 {
+			q = 127
+		}
+		if q < -128 {
+			q = -128
+		}
+		qsOut[j] = int8(q)
+	}
 }
 
 // DotQ4_0Q8_0 computes llama.cpp's AVX/VNNI-lane ggml_vec_dot_q4_0_q8_0 over one

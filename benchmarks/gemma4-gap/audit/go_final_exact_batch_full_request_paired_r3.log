@@ -1,0 +1,48 @@
+
+=== pair=1 variant=baseline start=2026-08-09T08:44:43+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.348886ms prefill_compute=2.885356245s prefill_compute_tok_s=42.975629 prefill_total_tok_s=42.955548 prefill_efficiency=0.4711 output_tokens=48 decode_evals=47 decode=4.837610571s decode_eval_tok_s=9.715540 decode_efficiency=0.9230
+--- PASS: TestGemma4RealCPUGap124x48 (11.22s)
+PASS
+=== pair=1 variant=baseline end=2026-08-09T08:44:55+01:00 ===
+
+=== pair=1 variant=candidate start=2026-08-09T08:44:57+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.357638ms prefill_compute=2.384272111s prefill_compute_tok_s=52.007487 prefill_total_tok_s=51.977890 prefill_efficiency=0.5701 output_tokens=48 decode_evals=47 decode=4.594923798s decode_eval_tok_s=10.228679 decode_efficiency=0.9717
+--- PASS: TestGemma4RealCPUGap124x48 (10.55s)
+PASS
+=== pair=1 variant=candidate end=2026-08-09T08:45:08+01:00 ===
+
+=== pair=2 variant=candidate start=2026-08-09T08:45:10+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.465747ms prefill_compute=2.522798757s prefill_compute_tok_s=49.151760 prefill_total_tok_s=49.123220 prefill_efficiency=0.5388 output_tokens=48 decode_evals=47 decode=4.638884256s decode_eval_tok_s=10.131747 decode_efficiency=0.9625
+--- PASS: TestGemma4RealCPUGap124x48 (10.74s)
+PASS
+=== pair=2 variant=candidate end=2026-08-09T08:45:21+01:00 ===
+
+=== pair=2 variant=baseline start=2026-08-09T08:45:23+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.371832ms prefill_compute=2.913184926s prefill_compute_tok_s=42.565097 prefill_total_tok_s=42.545063 prefill_efficiency=0.4666 output_tokens=48 decode_evals=47 decode=4.943856966s decode_eval_tok_s=9.506748 decode_efficiency=0.9031
+--- PASS: TestGemma4RealCPUGap124x48 (11.63s)
+PASS
+=== pair=2 variant=baseline end=2026-08-09T08:45:35+01:00 ===
+
+=== pair=3 variant=baseline start=2026-08-09T08:45:37+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.37654ms prefill_compute=2.882673847s prefill_compute_tok_s=43.015619 prefill_total_tok_s=42.995088 prefill_efficiency=0.4715 output_tokens=48 decode_evals=47 decode=4.869305168s decode_eval_tok_s=9.652301 decode_efficiency=0.9170
+--- PASS: TestGemma4RealCPUGap124x48 (11.26s)
+PASS
+=== pair=3 variant=baseline end=2026-08-09T08:45:48+01:00 ===
+
+=== pair=3 variant=candidate start=2026-08-09T08:45:50+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.408139ms prefill_compute=2.574944138s prefill_compute_tok_s=48.156385 prefill_total_tok_s=48.130064 prefill_efficiency=0.5279 output_tokens=48 decode_evals=47 decode=4.612681562s decode_eval_tok_s=10.189301 decode_efficiency=0.9680
+--- PASS: TestGemma4RealCPUGap124x48 (10.74s)
+PASS
+=== pair=3 variant=candidate end=2026-08-09T08:46:01+01:00 ===

@@ -1,0 +1,219 @@
+TEXT github.com/rcarmo/go-pherence/loader/gguf.quantizeQ8_0BlockAVX2.abi0(SB) /tmp/go-pherence-direct-q8/loader/gguf/q8_quant_amd64.s
+  q8_quant_amd64.s:7	0x5989e0		488b7c2408		MOVQ 0x8(SP), DI		
+  q8_quant_amd64.s:8	0x5989e5		488b542410		MOVQ 0x10(SP), DX		
+  q8_quant_amd64.s:9	0x5989ea		488b742418		MOVQ 0x18(SP), SI		
+  q8_quant_amd64.s:11	0x5989ef		b8ffffff7f		MOVL $0x7fffffff, AX		
+  q8_quant_amd64.s:12	0x5989f4		c5796e			OUTSB DS:0(SI), DX		
+  q8_quant_amd64.s:12	0x5989f7		f8			CLC				
+  q8_quant_amd64.s:13	0x5989f8		c4427d58		POPQ AX				
+  q8_quant_amd64.s:13	0x5989fc		ff48b8			DECL -0x48(AX)			
+  q8_quant_amd64.s:14	0x5989ff		0000			ADDB AL, 0(AX)			
+  q8_quant_amd64.s:14	0x598a01		0000			ADDB AL, 0(AX)			
+  q8_quant_amd64.s:14	0x598a03		0000			ADDB AL, 0(AX)			
+  q8_quant_amd64.s:14	0x598a05		0080c461f96e		ADDB AL, 0x6ef961c4(AX)		
+  q8_quant_amd64.s:15	0x598a0b		f0			?				
+  q8_quant_amd64.s:16	0x598a0c		c4427d59		POPQ CX				
+  q8_quant_amd64.s:16	0x598a10		f6			?				
+  q8_quant_amd64.s:17	0x598a11		48b8000000000000e03f	MOVQ $0x3fe0000000000000, AX	
+  q8_quant_amd64.s:18	0x598a1b		c461f96e		OUTSB DS:0(SI), DX		
+  q8_quant_amd64.s:18	0x598a1f		e8c4427d59		CALL 0x59d6cce8			
+  q8_quant_amd64.s:19	0x598a24		ed			INL DX, AX			
+  q8_quant_amd64.s:20	0x598a25		b87f000000		MOVL $0x7f, AX			
+  q8_quant_amd64.s:21	0x598a2a		c5796e			OUTSB DS:0(SI), DX		
+  q8_quant_amd64.s:21	0x598a2d		e0c4			LOOPNE 0x5989f3			
+  q8_quant_amd64.s:22	0x598a2f		427d58			JGE 0x598a8a			
+  q8_quant_amd64.s:22	0x598a32		e4b8			INL $0xb8, AL			
+  q8_quant_amd64.s:23	0x598a34		80ffff			CMPL BH, $0xff			
+  q8_quant_amd64.s:23	0x598a37		ffc5			INCL BP				
+  q8_quant_amd64.s:24	0x598a39		796e			JNS 0x598aa9			
+  q8_quant_amd64.s:24	0x598a3b		d8c4			FADD F4, F0			
+  q8_quant_amd64.s:25	0x598a3d		427d58			JGE 0x598a98			
+  q8_quant_amd64.s:25	0x598a40		dbc5			FCMOVNB F5, F0			
+  q8_quant_amd64.s:28	0x598a42		7c10			JL 0x598a54			
+  q8_quant_amd64.s:28	0x598a44		06			?				
+  q8_quant_amd64.s:29	0x598a45		c57c104e20		ADCB CL, 0x20(SI)		
+  q8_quant_amd64.s:30	0x598a4a		c5fc107640		ADCB DH, 0x40(SI)		
+  q8_quant_amd64.s:31	0x598a4f		c5fc107e60		ADCB BH, 0x60(SI)		
+  q8_quant_amd64.s:32	0x598a54		c4c13cc2e807		RET $0x7e8			
+  q8_quant_amd64.s:33	0x598a5a		c53ddbc5		FCMOVNB F5, F0			
+  q8_quant_amd64.s:34	0x598a5e		c4c134c2e907		RET $0x7e9			
+  q8_quant_amd64.s:35	0x598a64		c535dbcd		FCMOVNE F5, F0			
+  q8_quant_amd64.s:36	0x598a68		c5ccc2ee07		RET $0x7ee			
+  q8_quant_amd64.s:37	0x598a6d		c5cddbf5		FCOMI F5, F0			
+  q8_quant_amd64.s:38	0x598a71		c5c4c2ef07		RET $0x7ef			
+  q8_quant_amd64.s:39	0x598a76		c5			?				
+  q8_quant_amd64.s:39	0x598a77		c5dbfd			STD				
+  q8_quant_amd64.s:40	0x598a7a		c4413c54		PUSHQ SP			
+  q8_quant_amd64.s:40	0x598a7e		c7c4413454cf		MOVL $-0x30abcbbf, SP		
+  q8_quant_amd64.s:42	0x598a84		c4c14c54		PUSHQ SP			
+  q8_quant_amd64.s:42	0x598a88		f7c4c14454ff		TESTL $-0xabbb3f, SP		
+  q8_quant_amd64.s:44	0x598a8e		c4413c5f		POPQ DI				
+  q8_quant_amd64.s:44	0x598a92		c1c5cc			ROLL $0xcc, BP			
+  q8_quant_amd64.s:45	0x598a95		5f			POPQ DI				
+  q8_quant_amd64.s:45	0x598a96		f7c53c5fc6c4		TESTL $-0x3b39a0c4, BP		
+  q8_quant_amd64.s:47	0x598a9c		437d19			JGE 0x598ab8			
+  q8_quant_amd64.s:47	0x598a9f		c101c4			ROLL $0xc4, 0(CX)		
+  q8_quant_amd64.s:48	0x598aa2		41385fc1		CMPB -0x3f(R15), BL		
+  q8_quant_amd64.s:49	0x598aa6		c4			?				
+  q8_quant_amd64.s:49	0x598aa7		4138c6			CMPL R14, AL			
+  q8_quant_amd64.s:49	0x598aaa		c84ec441		ENTER $0x41, $0xc44e		
+  q8_quant_amd64.s:50	0x598aae		385fc1			CMPB -0x3f(DI), BL		
+  q8_quant_amd64.s:51	0x598ab1		c4			?				
+  q8_quant_amd64.s:51	0x598ab2		4138c6			CMPL R14, AL			
+  q8_quant_amd64.s:51	0x598ab5		c8b1c441		ENTER $0x41, $0xc4b1		
+  q8_quant_amd64.s:52	0x598ab9		385fc1			CMPB -0x3f(DI), BL		
+  q8_quant_amd64.s:55	0x598abc		b80000fe42		MOVL $0x42fe0000, AX		
+  q8_quant_amd64.s:56	0x598ac1		c5796e			OUTSB DS:0(SI), DX		
+  q8_quant_amd64.s:56	0x598ac4		d0c4			ROLL $0x1, AH			
+  q8_quant_amd64.s:57	0x598ac6		413a5ec2		CMPB BL, -0x3e(R14)		
+  q8_quant_amd64.s:58	0x598aca		c4412857		PUSHQ DI			
+  q8_quant_amd64.s:58	0x598ace		d2c4			ROLL CL, AH			
+  q8_quant_amd64.s:59	0x598ad0		41782e			JS 0x598b01			
+  q8_quant_amd64.s:59	0x598ad3		c20f84			RET $0x840f			
+  q8_quant_amd64.s:60	0x598ad6		830100			ADDL $0x0, 0(CX)		
+  q8_quant_amd64.s:60	0x598ad9		00b80000803f		ADDB BH, 0x3f800000(AX)		
+  q8_quant_amd64.s:62	0x598adf		c5796e			OUTSB DS:0(SI), DX		
+  q8_quant_amd64.s:62	0x598ae2		d0c4			ROLL $0x1, AH			
+  q8_quant_amd64.s:63	0x598ae4		412a5ed0		SUBB -0x30(R14), BL		
+  q8_quant_amd64.s:65	0x598ae8		c4427d18d2		SBBL DL, DL			
+  q8_quant_amd64.s:69	0x598aed		c57a1107		ADCL AX, 0(DI)			
+  q8_quant_amd64.s:71	0x598af1		c5fc1006		ADCB AL, 0(SI)			
+  q8_quant_amd64.s:72	0x598af5		c5fc104e20		ADCB CL, 0x20(SI)		
+  q8_quant_amd64.s:73	0x598afa		c5fc105640		ADCB DL, 0x40(SI)		
+  q8_quant_amd64.s:74	0x598aff		c5fc105e60		ADCB BL, 0x60(SI)		
+  q8_quant_amd64.s:75	0x598b04		c4c17c59		POPQ CX				
+  q8_quant_amd64.s:75	0x598b08		c2c4c1			RET $0xc1c4			
+  q8_quant_amd64.s:76	0x598b0b		7459			JE 0x598b66			
+  q8_quant_amd64.s:76	0x598b0d		cac4c1			LRET $0xc1c4			
+  q8_quant_amd64.s:77	0x598b10		6c			INSB DX, ES:0(DI)		
+  q8_quant_amd64.s:77	0x598b11		59			POPQ CX				
+  q8_quant_amd64.s:77	0x598b12		d2c4			ROLL CL, AH			
+  q8_quant_amd64.s:78	0x598b14		c16459dac4		SHLL $0xc4, -0x26(CX)(BX*2)	
+  q8_quant_amd64.s:82	0x598b19		e37d			JRCXZ 0x598b98			
+  q8_quant_amd64.s:82	0x598b1b		19c5			SBBL AX, BP			
+  q8_quant_amd64.s:82	0x598b1d		01c5			ADDL AX, BP			
+  q8_quant_amd64.s:83	0x598b1f		fc			CLD				
+  q8_quant_amd64.s:83	0x598b20		5a			POPQ DX				
+  q8_quant_amd64.s:83	0x598b21		f0			?				
+  q8_quant_amd64.s:84	0x598b22		c5fc5a			POPQ DX				
+  q8_quant_amd64.s:84	0x598b25		fd			STD				
+  q8_quant_amd64.s:85	0x598b26		c4			?				
+  q8_quant_amd64.s:85	0x598b27		c14ddbe6		RORL $0xe6, -0x25(BP)		
+  q8_quant_amd64.s:86	0x598b2b		c4c15debe5		JMP 0x598b15			
+  q8_quant_amd64.s:87	0x598b30		c5cd58			POPQ AX				
+  q8_quant_amd64.s:87	0x598b33		f4			HLT				
+  q8_quant_amd64.s:88	0x598b34		c4			?				
+  q8_quant_amd64.s:88	0x598b35		c145dbe6		ROLL $0xe6, -0x25(BP)		
+  q8_quant_amd64.s:89	0x598b39		c4c15debe5		JMP 0x598b23			
+  q8_quant_amd64.s:90	0x598b3e		c5c558			POPQ AX				
+  q8_quant_amd64.s:90	0x598b41		fc			CLD				
+  q8_quant_amd64.s:91	0x598b42		c5fde6f6		OUTL AL, $0xf6			
+  q8_quant_amd64.s:92	0x598b46		c5fde6ff		OUTL AL, $0xff			
+  q8_quant_amd64.s:93	0x598b4a		c4e34d38c7		CMPL BH, AL			
+  q8_quant_amd64.s:93	0x598b4f		01c4			ADDL AX, SP			
+  q8_quant_amd64.s:94	0x598b51		c27d39			RET $0x397d			
+  q8_quant_amd64.s:94	0x598b54		c4c4c27d3d		JGE 0x598b96			
+  q8_quant_amd64.s:95	0x598b59		c3			RET				
+  q8_quant_amd64.s:97	0x598b5a		c4e37d19cd		SBBL CX, BP			
+  q8_quant_amd64.s:97	0x598b5f		01c5			ADDL AX, BP			
+  q8_quant_amd64.s:98	0x598b61		fc			CLD				
+  q8_quant_amd64.s:98	0x598b62		5a			POPQ DX				
+  q8_quant_amd64.s:98	0x598b63		f1			ICEBP				
+  q8_quant_amd64.s:99	0x598b64		c5fc5a			POPQ DX				
+  q8_quant_amd64.s:99	0x598b67		fd			STD				
+  q8_quant_amd64.s:100	0x598b68		c4			?				
+  q8_quant_amd64.s:100	0x598b69		c14ddbe6		RORL $0xe6, -0x25(BP)		
+  q8_quant_amd64.s:101	0x598b6d		c4c15debe5		JMP 0x598b57			
+  q8_quant_amd64.s:102	0x598b72		c5cd58			POPQ AX				
+  q8_quant_amd64.s:102	0x598b75		f4			HLT				
+  q8_quant_amd64.s:103	0x598b76		c4			?				
+  q8_quant_amd64.s:103	0x598b77		c145dbe6		ROLL $0xe6, -0x25(BP)		
+  q8_quant_amd64.s:104	0x598b7b		c4c15debe5		JMP 0x598b65			
+  q8_quant_amd64.s:105	0x598b80		c5c558			POPQ AX				
+  q8_quant_amd64.s:105	0x598b83		fc			CLD				
+  q8_quant_amd64.s:106	0x598b84		c5fde6f6		OUTL AL, $0xf6			
+  q8_quant_amd64.s:107	0x598b88		c5fde6ff		OUTL AL, $0xff			
+  q8_quant_amd64.s:108	0x598b8c		c4e34d38cf		CMPL BH, CL			
+  q8_quant_amd64.s:108	0x598b91		01c4			ADDL AX, SP			
+  q8_quant_amd64.s:109	0x598b93		c27539			RET $0x3975			
+  q8_quant_amd64.s:109	0x598b96		cc			INT $0x3			
+  q8_quant_amd64.s:110	0x598b97		c4c2753dcbc4e37d	CMPL AX, $0x7de3c4cb		
+  q8_quant_amd64.s:112	0x598b9f		19d5			SBBL DX, BP			
+  q8_quant_amd64.s:112	0x598ba1		01c5			ADDL AX, BP			
+  q8_quant_amd64.s:113	0x598ba3		fc			CLD				
+  q8_quant_amd64.s:113	0x598ba4		5a			POPQ DX				
+  q8_quant_amd64.s:113	0x598ba5		f2			?				
+  q8_quant_amd64.s:114	0x598ba6		c5fc5a			POPQ DX				
+  q8_quant_amd64.s:114	0x598ba9		fd			STD				
+  q8_quant_amd64.s:115	0x598baa		c4			?				
+  q8_quant_amd64.s:115	0x598bab		c14ddbe6		RORL $0xe6, -0x25(BP)		
+  q8_quant_amd64.s:116	0x598baf		c4c15debe5		JMP 0x598b99			
+  q8_quant_amd64.s:117	0x598bb4		c5cd58			POPQ AX				
+  q8_quant_amd64.s:117	0x598bb7		f4			HLT				
+  q8_quant_amd64.s:118	0x598bb8		c4			?				
+  q8_quant_amd64.s:118	0x598bb9		c145dbe6		ROLL $0xe6, -0x25(BP)		
+  q8_quant_amd64.s:119	0x598bbd		c4c15debe5		JMP 0x598ba7			
+  q8_quant_amd64.s:120	0x598bc2		c5c558			POPQ AX				
+  q8_quant_amd64.s:120	0x598bc5		fc			CLD				
+  q8_quant_amd64.s:121	0x598bc6		c5fde6f6		OUTL AL, $0xf6			
+  q8_quant_amd64.s:122	0x598bca		c5fde6ff		OUTL AL, $0xff			
+  q8_quant_amd64.s:123	0x598bce		c4e34d38d7		CMPL BH, DL			
+  q8_quant_amd64.s:123	0x598bd3		01c4			ADDL AX, SP			
+  q8_quant_amd64.s:124	0x598bd5		c26d39			RET $0x396d			
+  q8_quant_amd64.s:124	0x598bd8		d4			?				
+  q8_quant_amd64.s:125	0x598bd9		c4c26d3dd3c4e37d	CMPL AX, $0x7de3c4d3		
+  q8_quant_amd64.s:127	0x598be1		19dd			SBBL BX, BP			
+  q8_quant_amd64.s:127	0x598be3		01c5			ADDL AX, BP			
+  q8_quant_amd64.s:128	0x598be5		fc			CLD				
+  q8_quant_amd64.s:128	0x598be6		5a			POPQ DX				
+  q8_quant_amd64.s:128	0x598be7		f3			?				
+  q8_quant_amd64.s:129	0x598be8		c5fc5a			POPQ DX				
+  q8_quant_amd64.s:129	0x598beb		fd			STD				
+  q8_quant_amd64.s:130	0x598bec		c4			?				
+  q8_quant_amd64.s:130	0x598bed		c14ddbe6		RORL $0xe6, -0x25(BP)		
+  q8_quant_amd64.s:131	0x598bf1		c4c15debe5		JMP 0x598bdb			
+  q8_quant_amd64.s:132	0x598bf6		c5cd58			POPQ AX				
+  q8_quant_amd64.s:132	0x598bf9		f4			HLT				
+  q8_quant_amd64.s:133	0x598bfa		c4			?				
+  q8_quant_amd64.s:133	0x598bfb		c145dbe6		ROLL $0xe6, -0x25(BP)		
+  q8_quant_amd64.s:134	0x598bff		c4c15debe5		JMP 0x598be9			
+  q8_quant_amd64.s:135	0x598c04		c5c558			POPQ AX				
+  q8_quant_amd64.s:135	0x598c07		fc			CLD				
+  q8_quant_amd64.s:136	0x598c08		c5fde6f6		OUTL AL, $0xf6			
+  q8_quant_amd64.s:137	0x598c0c		c5fde6ff		OUTL AL, $0xff			
+  q8_quant_amd64.s:138	0x598c10		c4e34d38df		CMPL BH, BL			
+  q8_quant_amd64.s:138	0x598c15		01c4			ADDL AX, SP			
+  q8_quant_amd64.s:139	0x598c17		c26539			RET $0x3965			
+  q8_quant_amd64.s:139	0x598c1a		dcc4			FADD F0, F4			
+  q8_quant_amd64.s:140	0x598c1c		c2653d			RET $0x3d65			
+  q8_quant_amd64.s:140	0x598c1f		dbc4			FCMOVNB F4, F0			
+  q8_quant_amd64.s:143	0x598c21		e37d			JRCXZ 0x598ca0			
+  q8_quant_amd64.s:143	0x598c23		39c4			CMPL SP, AX			
+  q8_quant_amd64.s:143	0x598c25		01c5			ADDL AX, BP			
+  q8_quant_amd64.s:144	0x598c27		f9			STC				
+  q8_quant_amd64.s:144	0x598c28		6bc4c4			IMULL $-0x3c, SP, AX		
+  q8_quant_amd64.s:145	0x598c2b		e37d			JRCXZ 0x598caa			
+  q8_quant_amd64.s:145	0x598c2d		39cc			CMPL SP, CX			
+  q8_quant_amd64.s:145	0x598c2f		01c5			ADDL AX, BP			
+  q8_quant_amd64.s:146	0x598c31		f1			ICEBP				
+  q8_quant_amd64.s:146	0x598c32		6bccc5			IMULL $-0x3b, SP, CX		
+  q8_quant_amd64.s:147	0x598c35		f9			STC				
+  q8_quant_amd64.s:147	0x598c36		63c1			MOVSXD CX, AX			
+  q8_quant_amd64.s:148	0x598c38		c5fa7f02		VMOVDQU X0, 0(DX)		
+  q8_quant_amd64.s:149	0x598c3c		c4e37d39d4		CMPL SP, DX			
+  q8_quant_amd64.s:149	0x598c41		01c5			ADDL AX, BP			
+  q8_quant_amd64.s:150	0x598c43		e96bd4c4e3		JMP 0xffffffffe41e60b3		
+  q8_quant_amd64.s:151	0x598c48		7d39			JGE 0x598c83			
+  q8_quant_amd64.s:151	0x598c4a		dc01			FADD 0(CX)			
+  q8_quant_amd64.s:152	0x598c4c		c5e16bdcc5		IMULL $-0x3b, SP, BX		
+  q8_quant_amd64.s:153	0x598c51		e963d3c5fa		JMP 0xfffffffffb1f5fb9		
+  q8_quant_amd64.s:154	0x598c56		7f52			JG 0x598caa			
+  q8_quant_amd64.s:154	0x598c58		10c5			ADCL AL, CH			
+  q8_quant_amd64.s:155	0x598c5a		f8			CLC				
+  q8_quant_amd64.s:155	0x598c5b		77c3			JA 0x598c20			
+  q8_quant_amd64.s:159	0x598c5d		c4412857		PUSHQ DI			
+  q8_quant_amd64.s:159	0x598c61		d2e9			SHRL CL, CL			
+  q8_quant_amd64.s:160	0x598c63		81			?				
+  q8_quant_amd64.s:160	0x598c64		fe			?				
+  q8_quant_amd64.s:160	0x598c65		ff			?				
+  q8_quant_amd64.s:160	0x598c66		ff			?				

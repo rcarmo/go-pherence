@@ -1,0 +1,7 @@
+$ GOMAXPROCS=6 go test ./loader/gguf -count=1
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.067s
+$ coverage/oracle -count=20
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.042s
+$ coverage/oracle race -count=5
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.110s
+$ go vet ./loader/gguf

@@ -1,0 +1,257 @@
+diff --git a/loader/gguf/qdot.go b/loader/gguf/qdot.go
+index b66574bb..d2663668 100644
+--- a/loader/gguf/qdot.go
++++ b/loader/gguf/qdot.go
+@@ -103,32 +103,35 @@ func quantizeQ8_0To(blocks []q8_0Block, x []float32) error {
+ 		return fmt.Errorf("Q8_0 quantize destination blocks=%d len=%d", len(blocks), len(x))
+ 	}
+ 	for bi := range blocks {
+-		row := x[bi*qk8_0 : (bi+1)*qk8_0]
+-		var amax float32
+-		for _, v := range row {
+-			av := float32(math.Abs(float64(v)))
+-			if av > amax {
+-				amax = av
+-			}
++		quantizeQ8_0BlockTo(&blocks[bi].d, &blocks[bi].qs, x[bi*qk8_0:(bi+1)*qk8_0])
++	}
++	return nil
++}
++
++func quantizeQ8_0BlockTo(dOut *float32, qsOut *[qk8_0]int8, row []float32) {
++	var amax float32
++	for _, v := range row {
++		av := float32(math.Abs(float64(v)))
++		if av > amax {
++			amax = av
+ 		}
+-		d := amax / 127.0
+-		id := float32(0)
+-		if d != 0 {
+-			id = 1 / d
++	}
++	d := amax / 127.0
++	id := float32(0)
++	if d != 0 {
++		id = 1 / d
++	}
++	*dOut = half.F16ToF32(half.F32ToF16(d))
++	for j, v := range row {
++		q := int(math.Round(float64(v * id)))
++		if q > 127 {
++			q = 127
+ 		}
+-		blocks[bi].d = half.F16ToF32(half.F32ToF16(d))
+-		for j, v := range row {
+-			q := int(math.Round(float64(v * id)))
+-			if q > 127 {
+-				q = 127
+-			}
+-			if q < -128 {
+-				q = -128
+-			}
+-			blocks[bi].qs[j] = int8(q)
++		if q < -128 {
++			q = -128
+ 		}
++		qsOut[j] = int8(q)
+ 	}
+-	return nil
+ }
+ 
+ // DotQ4_0Q8_0 computes llama.cpp's AVX/VNNI-lane ggml_vec_dot_q4_0_q8_0 over one
+diff --git a/loader/gguf/quant_project.go b/loader/gguf/quant_project.go
+index a1038ffa..9b8cd310 100644
+--- a/loader/gguf/quant_project.go
++++ b/loader/gguf/quant_project.go
+@@ -57,27 +57,14 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
+ 		return err
+ 	}
+ 	blocksPerRow := m.InDim / qk8_0
+-	q8 := make([]q8_0Block, batch*blocksPerRow)
+-	if err := quantizeQ8_0BatchTo(q8, x[:batch*m.InDim], batch, m.InDim); err != nil {
+-		return fmt.Errorf("quant matrix %s: %w", m.Name, err)
+-	}
+ 	if batch >= 64 && supportsQ4_0Q8_0Rows4Tokens2() {
+-		// Long prefill reuses each Q4_0 row across eight activation rows. Pack
+-		// each input block with eight contiguous scales followed by eight Q8
+-		// vectors. The kernel multiplies all scales together while retaining one
+-		// exact eight-lane accumulator per token.
++		// Long prefill writes exact Q8 bytes directly to their final eight-token
++		// SoA destination. Only the sub-eight-token tail remains token-major.
+ 		fullTokens := batch / 8 * 8
+ 		tiles := make([]q8_0Tile8, fullTokens/8*blocksPerRow)
+-		for pos := 0; pos < fullTokens; pos += 8 {
+-			tileBase := pos / 8 * blocksPerRow
+-			for bi := 0; bi < blocksPerRow; bi++ {
+-				tile := &tiles[tileBase+bi]
+-				for token := 0; token < 8; token++ {
+-					block := q8[(pos+token)*blocksPerRow+bi]
+-					tile.d[token] = block.d
+-					tile.qs[token] = block.qs
+-				}
+-			}
++		tailQ8 := make([]q8_0Block, (batch-fullTokens)*blocksPerRow)
++		if err := quantizeQ8_0Tiles8To(tiles, tailQ8, x[:batch*m.InDim], batch, m.InDim); err != nil {
++			return fmt.Errorf("quant matrix %s: %w", m.Name, err)
+ 		}
+ 		if !gemvRowsParallel(m.OutDim, rowBytes*batch, func(r int) bool {
+ 			rowRaw := m.Raw[r*rowBytes : (r+1)*rowBytes]
+@@ -93,13 +80,13 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
+ 			}
+ 			for ; pos+4 <= batch; pos += 4 {
+ 				var values [4]float32
+-				dotQ4_0Q8_0Tokens4(rowRaw, q8[pos*blocksPerRow:], blocksPerRow, &values)
++				dotQ4_0Q8_0Tokens4(rowRaw, tailQ8[(pos-fullTokens)*blocksPerRow:], blocksPerRow, &values)
+ 				for token := 0; token < 4; token++ {
+ 					dst[(pos+token)*m.OutDim+r] = values[token]
+ 				}
+ 			}
+ 			for ; pos < batch; pos++ {
+-				dst[pos*m.OutDim+r] = dotQ4_0Q8_0Packed(rowRaw, q8[pos*blocksPerRow:], blocksPerRow)
++				dst[pos*m.OutDim+r] = dotQ4_0Q8_0Packed(rowRaw, tailQ8[(pos-fullTokens)*blocksPerRow:], blocksPerRow)
+ 			}
+ 			return true
+ 		}) {
+@@ -108,6 +95,11 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
+ 		return nil
+ 	}
+ 
++	q8 := make([]q8_0Block, batch*blocksPerRow)
++	if err := quantizeQ8_0BatchTo(q8, x[:batch*m.InDim], batch, m.InDim); err != nil {
++		return fmt.Errorf("quant matrix %s: %w", m.Name, err)
++	}
++
+ 	// AVX2 fallback reuses each Q4_0 row across four activation rows.
+ 	if !gemvRowsParallel(m.OutDim, rowBytes*batch, func(r int) bool {
+ 		rowRaw := m.Raw[r*rowBytes : (r+1)*rowBytes]
+@@ -129,6 +121,58 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
+ 	return nil
+ }
+ 
++func quantizeQ8_0Tiles8To(tiles []q8_0Tile8, tail []q8_0Block, x []float32, batch, width int) error {
++	if batch <= 0 || width <= 0 || width%qk8_0 != 0 || len(x) != batch*width {
++		return fmt.Errorf("Q8_0 tile quantize tiles=%d tail=%d len=%d batch=%d width=%d", len(tiles), len(tail), len(x), batch, width)
++	}
++	blocksPerRow := width / qk8_0
++	fullTokens := batch / 8 * 8
++	groups := fullTokens / 8
++	if len(tiles) != groups*blocksPerRow || len(tail) != (batch-fullTokens)*blocksPerRow {
++		return fmt.Errorf("Q8_0 tile quantize tiles=%d tail=%d len=%d batch=%d width=%d", len(tiles), len(tail), len(x), batch, width)
++	}
++
++	workers := runtime.GOMAXPROCS(0)
++	if workers > groups {
++		workers = groups
++	}
++	if workers < 1 {
++		workers = 1
++	}
++	var next atomic.Int64
++	work := func() {
++		for {
++			group := int(next.Add(1)) - 1
++			if group >= groups {
++				return
++			}
++			tileBase := group * blocksPerRow
++			for token := 0; token < 8; token++ {
++				xBase := (group*8 + token) * width
++				for bi := 0; bi < blocksPerRow; bi++ {
++					tile := &tiles[tileBase+bi]
++					quantizeQ8_0BlockTo(&tile.d[token], &tile.qs[token], x[xBase+bi*qk8_0:xBase+(bi+1)*qk8_0])
++				}
++			}
++		}
++	}
++	var wg sync.WaitGroup
++	wg.Add(workers - 1)
++	for range workers - 1 {
++		go func() {
++			defer wg.Done()
++			work()
++		}()
++	}
++	work()
++	wg.Wait()
++
++	if len(tail) > 0 {
++		return quantizeQ8_0To(tail, x[fullTokens*width:])
++	}
++	return nil
++}
++
+ func quantizeQ8_0BatchTo(dst []q8_0Block, x []float32, batch, width int) error {
+ 	if batch <= 0 || width <= 0 || width%qk8_0 != 0 || len(dst) != batch*width/qk8_0 || len(x) != batch*width {
+ 		return fmt.Errorf("Q8_0 batch quantize destination blocks=%d len=%d batch=%d width=%d", len(dst), len(x), batch, width)
+diff --git a/loader/gguf/quant_project_q8_test.go b/loader/gguf/quant_project_q8_test.go
+index a1c5ff16..40f5b9d3 100644
+--- a/loader/gguf/quant_project_q8_test.go
++++ b/loader/gguf/quant_project_q8_test.go
+@@ -30,6 +30,66 @@ func TestQuantizeQ8_0BatchParallelExact(t *testing.T) {
+ 	}
+ }
+ 
++func TestQuantizeQ8_0Tiles8DirectExact(t *testing.T) {
++	previous := runtime.GOMAXPROCS(6)
++	defer runtime.GOMAXPROCS(previous)
++
++	for _, tc := range []struct {
++		batch int
++		width int
++	}{
++		{batch: 64, width: 32},
++		{batch: 65, width: 256},
++		{batch: 124, width: 2560},
++	} {
++		rng := rand.New(rand.NewSource(int64(tc.batch*10000 + tc.width)))
++		x := make([]float32, tc.batch*tc.width)
++		for i := range x {
++			x[i] = (rng.Float32()*2 - 1) * 130
++		}
++		for i := 0; i < tc.width && i < len(x); i++ {
++			x[i] = 0
++		}
++
++		blocksPerRow := tc.width / qk8_0
++		want := make([]q8_0Block, tc.batch*blocksPerRow)
++		if err := quantizeQ8_0To(want, x); err != nil {
++			t.Fatal(err)
++		}
++		fullTokens := tc.batch / 8 * 8
++		tiles := make([]q8_0Tile8, fullTokens/8*blocksPerRow)
++		tail := make([]q8_0Block, (tc.batch-fullTokens)*blocksPerRow)
++		if err := quantizeQ8_0Tiles8To(tiles, tail, x, tc.batch, tc.width); err != nil {
++			t.Fatal(err)
++		}
++		for pos := 0; pos < fullTokens; pos++ {
++			for bi := 0; bi < blocksPerRow; bi++ {
++				got := q8_0Block{
++					d:  tiles[pos/8*blocksPerRow+bi].d[pos%8],
++					qs: tiles[pos/8*blocksPerRow+bi].qs[pos%8],
++				}
++				if got != want[pos*blocksPerRow+bi] {
++					t.Fatalf("batch=%d width=%d token=%d block=%d differs", tc.batch, tc.width, pos, bi)
++				}
++			}
++		}
++		for i := range tail {
++			if tail[i] != want[fullTokens*blocksPerRow+i] {
++				t.Fatalf("batch=%d width=%d tail block=%d differs", tc.batch, tc.width, i)
++			}
++		}
++	}
++}
++
++func TestQuantizeQ8_0Tiles8RejectsMalformedShape(t *testing.T) {
++	if err := quantizeQ8_0Tiles8To(nil, nil, make([]float32, 64*32), 64, 32); err == nil {
++		t.Fatal("expected tile-length error")
++	}
++	if err := quantizeQ8_0Tiles8To(make([]q8_0Tile8, 8), nil, make([]float32, 64*31), 64, 31); err == nil {
++		t.Fatal("expected width error")
++	}
++}
++
+ func TestQuantizeQ8_0BatchRejectsMalformedShape(t *testing.T) {
+ 	if err := quantizeQ8_0BatchTo(make([]q8_0Block, 1), make([]float32, 32), 64, 32); err == nil {
+ 		t.Fatal("expected malformed batch error")

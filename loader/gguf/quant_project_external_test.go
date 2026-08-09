@@ -23,6 +23,7 @@ func TestQuantMatrixProjectBatchF32ToMatchesDequantOracle(t *testing.T) {
 		{name: "q4_0_batch8", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 11, batch: 8},
 		{name: "q4_0_vnni_tail65", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 11, batch: 65},
 		{name: "q4_0_vnni_tail124", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 11, batch: 124},
+		{name: "q4_0_vnni_parallel_tail124", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 513, batch: 124},
 		{name: "q4k_tiled_and_tail", qtype: gguf.QuantQ4_K, inDim: 256, outDim: 10, batch: 9},
 		{name: "q5_0", qtype: gguf.QuantQ5_0, inDim: 64, outDim: 7, batch: 3},
 		{name: "q8_0", qtype: gguf.QuantQ8_0, inDim: 64, outDim: 6, batch: 4},

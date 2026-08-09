@@ -30,9 +30,10 @@ Decode retains the fused Q6_K multi-block AVX-VNNI GEMV and the eight-row Q4_0 k
 | Runtime | Prompt | Generation | Oracle efficiency |
 |---|---:|---:|---:|
 | CPU-only llama.cpp b607, exact phases | 91.230 tok/s | 10.526 eval tok/s | 100% / 100% |
-| Go, retained median | 48.875 tok/s | 9.161 eval tok/s | 53.6% / 87.0% |
+| Go, earlier retained median | 48.875 tok/s | 9.161 eval tok/s | 53.6% / 87.0% |
+| Go, promoted exact batch, paired median | 49.152 tok/s | 10.189 eval tok/s | 53.9% / 96.8% |
 
-Neither phase currently passes its corrected 98% gate. Decode is 13.0% below the oracle; prefill remains 46.4% below it.
+The promoted batch won all three same-window pairs by 14.4% prompt and 5.6% decode; its paired baseline was slower than the earlier accepted retained median, so the paired gain and absolute oracle efficiency are reported separately. Neither phase passes its corrected 98% gate. Decode is now 3.2% below the oracle and prefill remains 46.1% below it.
 
 ## What was rejected
 
@@ -54,6 +55,8 @@ The pre-correction profile that selected this target attributed 83.48% of flat C
 
 Applying that 81.85% share to the accepted 48.875 tok/s median gives an Amdahl estimate. The current prompt takes 2.5371 seconds, of which approximately 2.0766 seconds are in the tile and 0.4605 seconds elsewhere. Matching the 1.3592-second oracle while leaving the remainder fixed gives the tile 0.8987 seconds: a 2.31 times kernel speed-up, or a 56.7% tile-time reduction. Reaching the 89.405 tok/s 98% gate still requires approximately 2.24 times. This is an estimate because sampled CPU share is not wall-clock decomposition, but it shows why another small scheduling or allocation change cannot close the gap.
 
+A dedicated prefill-only runtime trace corrects an earlier scratch calculation. Its 2.919579-second phase accumulated 10.804739 CPU-seconds across six Ps -- **61.68% of six-P capacity**, not 10.1%. The 258 Q4 projections and final Q6 LM head create 1,548 quantisation and 1,554 GEMV worker goroutines. Six static contiguous shards run while the caller waits. Projection workers accumulated 9.457 CPU-seconds over approximately 1.996 seconds of parent wait, or about 79.0% aggregate utilisation; quantisation accumulated 0.649 CPU-seconds over about 0.170 seconds. Perfect tail removal has only an idealised 0.482-second ceiling in this trace. Frozen b607 instead uses its persistent graph threads, lets thread zero work, and dynamically claims about four output chunks per thread. See [`go-retained-scheduler-audit.md`](../benchmarks/gemma4-gap/audit/go-retained-scheduler-audit.md).
+
 ## Structural source of the gap
 
 The retained Go kernel and b607's AVX2 prefill kernel perform the same number of scalar output dot products, but organise them differently:
@@ -71,7 +74,7 @@ For the 124-token prompt, the minimum input payload makes the reuse difference c
 
 This reuse is enabled by llama.cpp's reduction topology. Its vector lanes are separate outputs, so a repacked Q4 decode and a packed Q8 load feed a much wider output tile. Go's exact contract assigns a complete YMM register to every output so that all eight K-lane FP32 states survive every block. AVX2 has only sixteen YMM registers: eight persistent outputs plus unpack, scale, correction and dot temporaries already consume the register file. Ordinary row repacking therefore cannot recover llama.cpp's reuse by itself. Eight normal Q4_0 blocks and llama.cpp's eight-row packed tile both occupy 144 bytes, so keeping both layouts would duplicate weight storage rather than compress it. For this model, duplicating all 342 Q4_0 tensors would add 2,219,212,800 bytes (2.066803 GiB).
 
-The dominant retained prefill gap is consequently the exact kernel's output/reduction orientation -- especially repeated Q8 activation loading across weight rows -- rather than generic Go runtime overhead, activation quantisation or worker scheduling. The existing random probe showing 877 differences in 1,000 cases explains why llama.cpp's more intense complete-block reduction cannot simply replace it.
+The dominant retained prefill gap is consequently the exact kernel's output/reduction orientation -- especially repeated Q8 activation loading across weight rows. The trace identifies static worker tails as a secondary opportunity, but its ceiling cannot close the gate. The existing random probe showing 877 differences in 1,000 cases explains why llama.cpp's more intense complete-block reduction cannot simply replace it.
 
 ## Lane-transposed exact experiment -- rejected
 
@@ -92,24 +95,36 @@ The lane-transposed column uses the optimistic assembly-only path: it performs t
 
 The candidate is not integrated into matrix projection, transient packing, complete-request validation or the accepted throughput table. The retained one-row/eight-token dynamic-correction kernel remains the production path. This closes the bounded experiment without duplicating Q4 model storage or relaxing exactness.
 
-## Direct b607 topology experiment -- rejected
+## Direct b607-style experiment -- serial path rejected, fused path open
 
-A second quarantined experiment deliberately relaxed legacy reduction exactness and ported the arithmetic topology from llama.cpp revision `065d9d50152486590c09b31627ecaf76ceba39dd`. Its `block_q4_0x8` panel is byte-for-byte 144 bytes: eight FP16 scales followed by 128 Q4 bytes interleaved in eight-byte row chunks and XORed with `0x88`. Its `block_q8_0x4` panel is 136 bytes: four FP16 scales followed by 128 Q8 bytes interleaved in four-row, eight-byte chunks. Destination-writing packers are size-checked and pad incomplete eight-row or four-token tails with zero scales.
+A second quarantined experiment deliberately relaxed legacy reduction exactness and ported one arithmetic tile from llama.cpp revision `065d9d50152486590c09b31627ecaf76ceba39dd`. Its `block_q4_0x8` panel is byte-for-byte 144 bytes: eight FP16 scales followed by 128 Q4 bytes interleaved in eight-byte row chunks and XORed with `0x88`. Its `block_q8_0x4` panel is 136 bytes: four FP16 scales followed by 128 Q8 bytes interleaved in four-row, eight-byte chunks. Destination-writing packers are size-checked and pad incomplete eight-row or four-token tails with zero scales.
 
-The portable reference and AVX2/AVX-VNNI implementation complete each 32-element integer dot before one FP32 FMA per output and block. The C intrinsic kernel is isolated in `loader/gguf/llamaq4`; the ordinary Go package supplies only an unexported experimental packed-panel entry point. Whole-projection orchestration processes four Q8_0x4 panels as a 16-token supertile and copies only logical rows and tokens from padded tails. The retained production dispatcher is unchanged.
+The portable reference and AVX2/AVX-VNNI 8-row/4-token implementation complete each 32-element integer dot before one FP32 FMA per output and block. The C intrinsic kernel is isolated in `loader/gguf/llamaq4`; the ordinary Go package supplies only an unexported experimental packed-panel entry point. Byte-layout tests and deterministic comparisons for every block count from 1 through 80 match that reference bit-for-bit. The explicit non-exactness probe diverged from legacy Go in 24 of 32 outputs, as expected.
 
-Byte-layout tests cover both packed structures. Deterministic AVX-VNNI comparisons for every block count from 1 through 80 match the portable topology reference bit-for-bit, and a 13-row/19-token projection verifies the 16-token supertile plus both tails. The explicit non-exactness probe diverged from legacy Go in 24 of 32 outputs for its fixed 80-block input; this is expected because complete integer block reduction replaces the eight persistent FP32 K-lane sequences.
+Pinned results correctly reject this four-token subkernel and the serial projection that calls it:
 
-Pinned five-sample medians (`taskset -c 0-5`, `GOMAXPROCS=6`, one-second benchmark windows) were:
-
-| Equal work or projection | Retained | Direct b607 | Relative to retained |
+| Equal work or projection | Retained | Serial direct path | Relative to retained |
 |---|---:|---:|---:|
 | 80-block, 32-output equal-work tile | 2,756 ns | 2,976 ns | 0.926× |
 | 128-row/124-token projection, prepacked | 1.405774 ms | 1.525595 ms | 0.921× |
 | Projection, activation packing included | 1.405774 ms | 2.284316 ms | 0.615× |
 | Projection, all packing included | 1.405774 ms | 2.208833 ms | 0.636× |
 
-The candidate therefore misses the mandatory 2.24× projection gate even before packing, and becomes slower once the required activation packing is counted. The plan stops at that gate: there is no model integration, permanent or cached second weight representation, 124+48 state/ID run, or oracle-throughput promotion run. This is an explicit semantics rejection on performance rather than a numerical failure of the intended llama topology. Raw evidence is in [`go_q4_llama_b607_tile_bench.log`](../benchmarks/gemma4-gap/audit/go_q4_llama_b607_tile_bench.log) and [`go_q4_llama_b607_projection_bench.log`](../benchmarks/gemma4-gap/audit/go_q4_llama_b607_projection_bench.log).
+A subsequent frozen-source audit found that the whole-projection wrapper does **not** implement b607's 16-token supertile. It merely groups four serial calls to the 8x4 function. Each call reloads and decodes Q4 and reloads the weight scales. Frozen b607 keeps 16 YMM accumulators live, decodes each Q4 panel once, and consumes four `block_q8_0x4` panels before advancing the block. The serial benchmark therefore cannot reject that fused topology.
+
+The corrected comparison and per-block work accounting are in [`b607-direct-benchmark-audit.md`](../benchmarks/gemma4-gap/audit/b607-direct-benchmark-audit.md). A genuinely fused 8-row/16-token intrinsic kernel now decodes Q4 once and consumes four Q8 panels. Its second refinement uses unsigned Q4 nibbles and one activation-sum correction shared across eight rows; compiler output removes eight lookup shuffles and 48 sign operations from the static loop body at the cost of four activation-sum `VPDPBUSD` instructions. Reference comparisons for all 128 outputs and every block count 1--80 pass, as do fused and padded tails.
+
+Initial signed-fusion timings were made during reported additional host load, so they are retained only as contaminated attribution and are not promotion evidence. Direct F32-to-fused-Q8 preparation now eliminates the intermediate token-major allocation and traversal while remaining byte-identical to quantise-then-pack through the real 124-by-2560 shape. Both activation token groups and aligned eight-row projection groups use dynamic claims with five background goroutines plus the caller. Dynamic output matches serial C orchestration bit-for-bit for a 129-row/19-token tail shape.
+
+No replacement weight packing, state checkpoint or second 2.067 GiB representation has been introduced. The fused topology cannot preserve the retained eight-lane FP32 reduction and therefore remains a ceiling, not a promotion candidate. Full fused evidence is in [`fused-8x16-projection-batch.md`](../benchmarks/gemma4-gap/audit/fused-8x16-projection-batch.md); raw serial evidence remains in [`go_q4_llama_b607_tile_bench.log`](../benchmarks/gemma4-gap/audit/go_q4_llama_b607_tile_bench.log) and [`go_q4_llama_b607_projection_bench.log`](../benchmarks/gemma4-gap/audit/go_q4_llama_b607_projection_bench.log).
+
+The next exact candidate kept the production one-row/eight-token accumulator topology, precomputed each transient Q8 block's eight unsigned-Q4 lane corrections and software-pipelined independent token pairs. The assembly loop halved `VPDPBUSD` from 16 to eight instructions per QK block and preserved the legacy reduction bit-for-bit, but traded the arithmetic for eight additional hot loads and 307,200 transient bytes. The packing-inclusive 10240-output median regressed from 13.263 ms to 18.694 ms (40.9%) and allocation rose by 303,226 bytes/op. It lost four uncontaminated pairs by 10.6--54.2%, so the int32 candidate was removed without a model run.
+
+A compressed follow-up used the exact [-4096, 4064] correction bound. Int16 storage plus `VPMOVSXWD` cut added real-shape scratch to 153,600 bytes and paired software pipelining lowered the static function from 192 to 179 instructions. Outputs remained bit-exact for blocks 1--80 and correctness, race and vet passed. Audit recovered the earlier authoritative complete-request result for the same 416-byte compact representation: an isolated kernel ratio of 0.937--0.958 still lost every request pair, reducing the prompt median from 44.863 to 40.392 tok/s. The schedule changed neither footprint nor packing cost, and a new noisy projection set supplied no contrary clean floor, so the candidate was removed. Full evidence is in [`exact-q8-correction-precompute.md`](../benchmarks/gemma4-gap/audit/exact-q8-correction-precompute.md).
+
+The accepted exact traversal uses dynamic 64-row claims with five goroutines plus the caller, and each worker processes one 23,040-byte activation tile across its row block before advancing. The tile fits L1 while 92,160 bytes of Q4 rows fit L2. The idealised blocked source traffic crossing L2 into L1 is 1.73 MB versus 22.21 MB for row-major traversal; the assembly and every output's reduction order are unchanged. A 513-row/124-token oracle, exactly-once coverage through 10,240 rows and race testing pass. Five clean packing-inclusive pairs reduced the projection median from 12.442 to 10.042 ms/op, or 19.3%. Evidence is in [`exact-row-block-token-tile.md`](../benchmarks/gemma4-gap/audit/exact-row-block-token-tile.md).
+
+The promoted preparation batch writes F32 blocks directly into the exact SoA Q8 tile and applies a byte-identical AVX2 quantiser. It removes 345,600 transient bytes and one 691,200-byte copy traversal at the real shape. Direct-scalar preparation was flat, but the AVX2 combination won every longer projection pair; the three uncontaminated pairs reduced the median by 2.43%. The promoted 124+48 gate matched all frozen IDs, and three clean full-request pairs moved medians from 42.976/9.652 to 49.152/10.189 prompt/decode tok/s. Evidence is in [`direct-exact-q8-tile-preparation.md`](../benchmarks/gemma4-gap/audit/direct-exact-q8-tile-preparation.md) and [`exact-q8-preparation-avx2.md`](../benchmarks/gemma4-gap/audit/exact-q8-preparation-avx2.md).
 
 ## Reproduction and validation
 

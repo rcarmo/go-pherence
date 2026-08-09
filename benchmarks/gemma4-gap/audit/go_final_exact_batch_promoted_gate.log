@@ -1,0 +1,6 @@
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.402608ms prefill_compute=2.496195102s prefill_compute_tok_s=49.675604 prefill_total_tok_s=49.647707 prefill_efficiency=0.5445 output_tokens=48 decode_evals=47 decode=4.74861511s decode_eval_tok_s=9.897623 decode_efficiency=0.9403
+--- PASS: TestGemma4RealCPUGap124x48 (10.91s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	11.172s

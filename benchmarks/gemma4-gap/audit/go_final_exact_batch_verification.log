@@ -1,0 +1,214 @@
+$ GOMAXPROCS=6 go test ./loader/gguf -count=1
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.153s
+
+$ GOMAXPROCS=6 go test ./loader/gguf -run '^(TestQuantizeQ8_0BlockSIMDExact|TestQuantizeQ8_0Tiles8DirectExact|TestQuantizeQ8_0Tiles8RejectsMalformedShape|TestQuantMatrixProjectBatchQ4_0.*|TestDotQ4_0Q8_0Tokens8SoARandomExact)$' -count=20
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.243s
+
+$ GOMAXPROCS=6 go test -race ./loader/gguf -run '^(TestQuantizeQ8_0BlockSIMDExact|TestQuantizeQ8_0Tiles8DirectExact|TestQuantizeQ8_0Tiles8RejectsMalformedShape|TestQuantMatrixProjectBatchQ4_0.*|TestDotQ4_0Q8_0Tokens8SoARandomExact)$' -count=3
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.089s
+
+$ go vet ./loader/gguf
+ok
+
+$ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go test -c ./loader/gguf -o /tmp/go-pherence-gguf-arm64.test
+ok
+
+$ CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go test -c ./loader/gguf -o /tmp/go-pherence-gguf-riscv64.test
+ok
+
+$ GOMAXPROCS=6 go test ./... -count=1
+ok  	github.com/rcarmo/go-pherence/backends/cuda/ptx	0.003s
+?   	github.com/rcarmo/go-pherence/backends/ggmlcompute	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlexec	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlgraph	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlquant	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/internal/ggmlutil	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/llamagraph	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/mlx	0.009s
+?   	github.com/rcarmo/go-pherence/backends/nvidia	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/ioctl	0.002s
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/fp8	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/ideogram	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q5	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q8	[no test files]
+# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool
+backends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024
+backends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024
+backends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024
+backends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024
+backends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024
+backends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI
+backends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV
+backends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV
+# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim
+cc1: error: bad value 'rv64gcv_xsmtvdotii' for '-march=' switch
+cc1: note: valid arguments to '-march=' switch are: nocona core2 nehalem corei7 westmere sandybridge corei7-avx ivybridge core-avx-i haswell core-avx2 broadwell skylake skylake-avx512 cannonlake icelake-client rocketlake icelake-server cascadelake tigerlake cooperlake sapphirerapids emeraldrapids alderlake raptorlake meteorlake graniterapids graniterapids-d bonnell atom silvermont slm goldmont goldmont-plus tremont gracemont sierraforest grandridge knl knm x86-64 x86-64-v2 x86-64-v3 x86-64-v4 eden-x2 nano nano-1000 nano-2000 nano-3000 nano-x2 eden-x4 nano-x4 lujiazui k8 k8-sse3 opteron opteron-sse3 athlon64 athlon64-sse3 athlon-fx amdfam10 barcelona bdver1 bdver2 bdver3 bdver4 znver1 znver2 znver3 znver4 btver1 btver2 native
+# github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect
+cmd/diffusiongemmainspect/main.go:68:12: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)
+cmd/diffusiongemmainspect/main.go:68:46: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)
+cmd/diffusiongemmainspect/main.go:74:135: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)
+cmd/diffusiongemmainspect/main.go:74:166: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)
+cmd/diffusiongemmainspect/main.go:200: r.Capabilities.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)
+cmd/diffusiongemmainspect/main.go:200: r.Capabilities.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)
+# github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve
+cmd/diffusiongemmaserve/main.go:181:3: unknown field CPUExperts in struct literal of type diffusiongemma.GPUDispatcher
+cmd/diffusiongemmaserve/main.go:196:12: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)
+cmd/diffusiongemmaserve/main.go:197:12: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)
+cmd/diffusiongemmaserve/main.go:199:15: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)
+cmd/diffusiongemmaserve/main.go:202:87: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)
+cmd/diffusiongemmaserve/main.go:386:12: denoising.SparseTopK undefined (type diffusiongemma.DenoisingConfig has no field or method SparseTopK)
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	2.736s
+ok  	github.com/rcarmo/go-pherence/backends/placement	0.002s
+?   	github.com/rcarmo/go-pherence/backends/simd	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/simd/fft	0.004s
+ok  	github.com/rcarmo/go-pherence/backends/simd/kernels	0.001s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/bf16	0.004s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/fp8	0.099s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4	0.021s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/q4	0.004s
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.069s
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu [build failed]
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool [build failed]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config	[no test files]
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim [build failed]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/board	[no test files]
+2048x4x2048: single=16.014836ms par=17.441177ms speedup=0.92x
+2048x4x1024: single=9.751802ms par=4.637243ms speedup=2.10x
+4096x4x1024: single=12.97911ms par=10.307526ms speedup=1.26x
+1024x4x4096: single=16.865952ms par=8.543807ms speedup=1.97x
+FFN 5632x4x2048: single=48.919768ms par=16.302584ms speedup=3.00x
+FFN 2048x4x5632: single=59.954422ms par=31.570625ms speedup=1.90x
+--- FAIL: TestGemmINT8Packed (0.00s)
+    gemm_test.go:166: C[0]: hw=13809 ref=4144
+    gemm_test.go:166: C[1]: hw=-6334 ref=-3671
+    gemm_test.go:166: C[2]: hw=3344 ref=1849
+    gemm_test.go:166: C[3]: hw=16348 ref=5845
+    gemm_test.go:166: C[4]: hw=-11999 ref=-3367
+    gemm_test.go:174: 64/64 errors
+--- FAIL: TestGemmINT8PackedLarge (0.00s)
+    gemm_test.go:207: 1024/1024 errors
+--- FAIL: TestGemmINT8PackedParallel (0.02s)
+    gemm_test.go:279: C[0]: par=-1712 ref=48480
+    gemm_test.go:279: C[1]: par=6072 ref=27672
+    gemm_test.go:279: C[2]: par=22656 ref=8464
+    gemm_test.go:287: 16384/16384 errors
+FAIL
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/ime2	6.104s
+--- FAIL: TestMatVecQ4K (0.00s)
+    inference_test.go:78: MatVecQ4K 32x64: maxErr=7.1999 avgErr=2.4429
+    inference_test.go:88: Relative error: 152.99%
+    inference_test.go:90: relative error too high: 152.99%
+FAIL
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/inference	0.003s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/ort	0.004s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/rvv	0.004s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/tcm	0.005s
+--- FAIL: TestVulkanRMSNormNoScaleF32Parity (0.01s)
+    vulkan_more_parity_test.go:47: [0] got 1 want 0.27243593 diff 0.7275641 tol 1e-05
+--- FAIL: TestVulkanRoPEPartialF32Parity (0.01s)
+    vulkan_more_parity_test.go:81: [5] got -1 want -2.25 diff 1.25 tol 1e-05
+--- FAIL: TestVulkanAttentionScoresF32Parity (0.01s)
+    vulkan_more_parity_test.go:118: [1] got 0 want 1.25 diff 1.25 tol 1e-05
+FAIL
+FAIL	github.com/rcarmo/go-pherence/backends/vulkan	0.649s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/diarize-vtt	0.304s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/internal/whisperflags	0.010s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/moss-transcribe	0.235s
+?   	github.com/rcarmo/go-pherence/cmd/audio/speakercheck	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/audio/whisper	0.261s
+?   	github.com/rcarmo/go-pherence/cmd/audio/whisperffndiag	[no test files]
+FAIL	github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect [build failed]
+ok  	github.com/rcarmo/go-pherence/cmd/diffusiongemmarun	0.002s
+FAIL	github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve [build failed]
+?   	github.com/rcarmo/go-pherence/cmd/image/hy3dinspect	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4gen	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4inspect	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4vaeprobe	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4vaesmoke	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/internal/k3flags	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/zimageinspect	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/internal/dgflags	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/internal/testexec	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/llm/internal/pathutil	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/llm/llmchat	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/llm/llmgen	0.003s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/llmserver	0.003s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/servebench	0.010s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/specbench	0.009s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/speccheck	0.005s
+?   	github.com/rcarmo/go-pherence/cmd/minicpmvinspect	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/models/embcheck	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/models/gemma4mtpparity	6.739s
+ok  	github.com/rcarmo/go-pherence/cmd/models/gemma4mtpsmoke	0.004s
+ok  	github.com/rcarmo/go-pherence/cmd/models/ggufinspect	0.058s
+ok  	github.com/rcarmo/go-pherence/cmd/models/ggufsmoke	0.003s
+ok  	github.com/rcarmo/go-pherence/cmd/models/lfm2inspect	0.023s
+ok  	github.com/rcarmo/go-pherence/cmd/models/modelcoverage	0.005s
+?   	github.com/rcarmo/go-pherence/cmd/models/shapecheck	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwen36run	0.005s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwen3ttsinspect	0.034s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpmeta	0.003s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpsmoke	0.009s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpsynth	0.008s
+FAIL	github.com/rcarmo/go-pherence/cmd/spacemit/ime2run [build failed]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/ime2test	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/npu-tcm	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_bench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ffnblockbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ggmlbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ggmlplan	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_graphfusebench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_graphrun	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_llama	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ortbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ortlayerbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_plandump	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_qbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_run	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/testi8i4	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/verifydot	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/tinydemo	[no test files]
+ok  	github.com/rcarmo/go-pherence/docs	0.003s
+ok  	github.com/rcarmo/go-pherence/gpu	0.002s
+ok  	github.com/rcarmo/go-pherence/half	0.002s
+?   	github.com/rcarmo/go-pherence/internal/checked	[no test files]
+?   	github.com/rcarmo/go-pherence/internal/floatcmp	[no test files]
+?   	github.com/rcarmo/go-pherence/internal/ggmlfp16	[no test files]
+?   	github.com/rcarmo/go-pherence/internal/modelcoverage	[no test files]
+ok  	github.com/rcarmo/go-pherence/loader/audio	0.020s
+ok  	github.com/rcarmo/go-pherence/loader/config	0.015s
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.122s
+?   	github.com/rcarmo/go-pherence/loader/gguf/llamaq4	[no test files]
+ok  	github.com/rcarmo/go-pherence/loader/safetensors	0.003s
+ok  	github.com/rcarmo/go-pherence/loader/tokenizer	0.002s
+ok  	github.com/rcarmo/go-pherence/loader/weights	0.002s
+signal: segmentation fault (core dumped)
+FAIL	github.com/rcarmo/go-pherence/model	1.334s
+?   	github.com/rcarmo/go-pherence/model/common	[no test files]
+
+# Advisory repository-wide baseline attribution
+$ (cd clean 1c1ff55d worktree && GOMAXPROCS=6 go test ./... -count=1)
+exit status 1; clean HEAD reproduced these unrelated failure packages:
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu [build failed]
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool [build failed]
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim [build failed]
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/ime2
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/inference
+FAIL	github.com/rcarmo/go-pherence/backends/vulkan
+FAIL	github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect [build failed]
+FAIL	github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve [build failed]
+FAIL	github.com/rcarmo/go-pherence/cmd/spacemit/ime2run [build failed]
+FAIL	github.com/rcarmo/go-pherence/model/qwen
+
+$ (cd /tmp/go-pherence-direct-q8 && GOMAXPROCS=6 go test ./model -count=1)
+ok  	github.com/rcarmo/go-pherence/model	0.239s
+
+$ GOMAXPROCS=6 go test ./model -count=1
+ok  	github.com/rcarmo/go-pherence/model	24.613s
