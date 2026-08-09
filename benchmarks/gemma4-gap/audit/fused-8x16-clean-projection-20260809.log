@@ -1,0 +1,31 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    9087	    117051 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    9696	    113409 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    8131	    124530 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	   10500	    113220 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    9522	    123185 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    3225	    371645 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    3070	    372155 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    3337	    378213 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    2841	    380371 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    3253	    388637 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    2203	    559368 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    2173	    572011 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    2173	    600475 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    2217	    585935 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    1827	    561239 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/retained-f32-production-6          	    1920	    564291 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/retained-f32-production-6          	    2214	    552163 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/retained-f32-production-6          	    1843	    587902 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/retained-f32-production-6          	    2323	    526912 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/retained-f32-production-6          	    2167	    551468 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/fused-direct-q8-6                  	    2534	    460070 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/fused-direct-q8-6                  	    2290	    472131 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/fused-direct-q8-6                  	    2517	    446086 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/fused-direct-q8-6                  	    2308	    438413 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/fused-direct-q8-6                  	    2565	    475876 ns/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	31.892s

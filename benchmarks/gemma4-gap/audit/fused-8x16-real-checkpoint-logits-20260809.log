@@ -1,0 +1,4 @@
+=== RUN   TestGemma4DecodeSessionUpdatedRealGGUFOneStep
+--- PASS: TestGemma4DecodeSessionUpdatedRealGGUFOneStep (10.23s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	10.535s

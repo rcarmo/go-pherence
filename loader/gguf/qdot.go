@@ -199,6 +199,9 @@ func GemvQ4_0Q8_0Rows(out, x []float32, m *QuantMatrix) bool {
 	if m == nil || m.QType != QuantQ4_0 || len(out) != m.OutDim || len(x) != m.InDim || m.InDim%qk8_0 != 0 {
 		return false
 	}
+	if len(m.llamaQ4_0x8) > 0 {
+		return projectBatchQ4_0LlamaExperimental(m.llamaQ4_0x8, out, x, m.OutDim, 1, m.InDim) == nil
+	}
 	q8, err := QuantizeQ8_0(x)
 	if err != nil {
 		return false

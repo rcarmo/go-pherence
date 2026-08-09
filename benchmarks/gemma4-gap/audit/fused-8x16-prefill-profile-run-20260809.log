@@ -1,0 +1,4 @@
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:66: gemma4_gap prefill_tokens=124 prefill_setup=1.467998ms prefill_compute=2.020830152s prefill_compute_tok_s=61.360921 prefill_total_tok_s=61.316379 prefill_efficiency=0.6726
+--- PASS: TestGemma4RealCPUGap124x48 (11.28s)
+PASS

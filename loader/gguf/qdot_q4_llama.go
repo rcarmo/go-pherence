@@ -4,6 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
+	"sync/atomic"
 
 	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/loader/gguf/llamaq4"
@@ -62,6 +65,56 @@ func packQ4_0x8To(out, raw []byte, rows, blocks int) error {
 	return nil
 }
 
+// PrepareLlamaQ4_0x8 replaces canonical Q4_0 bytes with the size-preserving
+// fused layout when this build and CPU can execute it. Callers must select only
+// projection matrices whose direct Raw bytes are not handed to another backend.
+// UsesLlamaQ4_0x8 reports whether canonical Raw storage was replaced by the
+// fused Q4_0 layout.
+func (m *QuantMatrix) UsesLlamaQ4_0x8() bool {
+	return m != nil && len(m.llamaQ4_0x8) > 0
+}
+
+func (m *QuantMatrix) PrepareLlamaQ4_0x8() (bool, error) {
+	if m == nil {
+		return false, fmt.Errorf("nil quant matrix")
+	}
+	if m.QType != QuantQ4_0 || !llamaq4.Available() {
+		return false, nil
+	}
+	if len(m.llamaQ4_0x8) > 0 {
+		return true, nil
+	}
+	if m.InDim <= 0 || m.InDim%qk8_0 != 0 || m.OutDim <= 0 {
+		return false, fmt.Errorf("quant matrix %s: invalid Q4_0x8 dimensions %dx%d", m.Name, m.OutDim, m.InDim)
+	}
+	packed, err := packQ4_0x8(m.Raw, m.OutDim, m.InDim/qk8_0)
+	if err != nil {
+		return false, fmt.Errorf("quant matrix %s: %w", m.Name, err)
+	}
+	m.llamaQ4_0x8 = packed
+	m.Raw = nil
+	return true, nil
+}
+
+func unpackQ4_0x8RowTo(dst, packed []byte, row, rows, blocks int) error {
+	groups := (rows + 7) / 8
+	if row < 0 || row >= rows || blocks <= 0 || len(dst) != blocks*18 || len(packed) != groups*blocks*q4_0x8BlockBytes {
+		return fmt.Errorf("Q4_0x8 unpack size: dst=%d packed=%d row=%d rows=%d blocks=%d", len(dst), len(packed), row, rows, blocks)
+	}
+	group, lane := row/8, row%8
+	for block := 0; block < blocks; block++ {
+		src := packed[(group*blocks+block)*q4_0x8BlockBytes:]
+		out := dst[block*18:]
+		copy(out[:2], src[lane*2:lane*2+2])
+		for chunk := 0; chunk < 2; chunk++ {
+			for j := 0; j < 8; j++ {
+				out[2+chunk*8+j] = src[16+(chunk*8+lane)*8+j] ^ 0x88
+			}
+		}
+	}
+	return nil
+}
+
 // packQ8_0x4 packs row-major Q8_0 activation blocks in groups of four tokens.
 // FP32 scales are rounded to FP16 exactly as llama.cpp's block_q8_0x4. Missing
 // tokens in the final group are zero-filled, defining the token tail.
@@ -107,14 +160,159 @@ func packQ8_0x4To(out []byte, y []q8_0Block, tokens, blocks int) error {
 	return nil
 }
 
+// quantizeQ8_0x4To writes the fused activation layout directly from row-major
+// F32 tokens. It is byte-identical to quantizeQ8_0To followed by packQ8_0x4To,
+// but does not allocate or traverse an intermediate token-major Q8 slice.
+func quantizeQ8_0x4To(out []byte, x []float32, tokens, width int) error {
+	if tokens < 0 || width <= 0 || width%qk8_0 != 0 || tokens > 0 && width > int(^uint(0)>>1)/tokens || len(x) != tokens*width {
+		return fmt.Errorf("Q8_0x4 quantize size: len=%d tokens=%d width=%d", len(x), tokens, width)
+	}
+	blocks := width / qk8_0
+	groups := (tokens + 3) / 4
+	if groups > 0 && blocks > int(^uint(0)>>1)/groups/q8_0x4BlockBytes || len(out) != groups*blocks*q8_0x4BlockBytes {
+		return fmt.Errorf("Q8_0x4 quantize destination: dst=%d tokens=%d width=%d", len(out), tokens, width)
+	}
+	clear(out)
+	quantizeGroups := func(start, end int) {
+		for group := start; group < end; group++ {
+			for block := 0; block < blocks; block++ {
+				dst := out[(group*blocks+block)*q8_0x4BlockBytes:]
+				for token := 0; token < 4; token++ {
+					srcToken := group*4 + token
+					if srcToken >= tokens {
+						continue
+					}
+					row := x[srcToken*width+block*qk8_0 : srcToken*width+(block+1)*qk8_0]
+					var amax float32
+					for _, v := range row {
+						av := float32(math.Abs(float64(v)))
+						if av > amax {
+							amax = av
+						}
+					}
+					d := amax / 127.0
+					id := float32(0)
+					if d != 0 {
+						id = 1 / d
+					}
+					binary.LittleEndian.PutUint16(dst[token*2:], half.F32ToF16(d))
+					for j, v := range row {
+						q := int(math.Round(float64(v * id)))
+						if q > 127 {
+							q = 127
+						}
+						if q < -128 {
+							q = -128
+						}
+						chunk, offset := j/8, j&7
+						dst[8+(chunk*4+token)*8+offset] = byte(int8(q))
+					}
+				}
+			}
+		}
+	}
+	workers := runtime.GOMAXPROCS(0)
+	if tokens < 64 || workers < 2 || groups < 2 {
+		quantizeGroups(0, groups)
+		return nil
+	}
+	if workers > groups {
+		workers = groups
+	}
+	chunkGroups := (groups + workers*4 - 1) / (workers * 4)
+	var next atomic.Int64
+	work := func() {
+		for {
+			start := int(next.Add(int64(chunkGroups))) - chunkGroups
+			if start >= groups {
+				return
+			}
+			end := start + chunkGroups
+			if end > groups {
+				end = groups
+			}
+			quantizeGroups(start, end)
+		}
+	}
+	var wg sync.WaitGroup
+	wg.Add(workers - 1)
+	for worker := 1; worker < workers; worker++ {
+		go func() {
+			defer wg.Done()
+			work()
+		}()
+	}
+	work()
+	wg.Wait()
+	return nil
+}
+
 func dotQ4_0x8Q8_0x4LlamaVNNI(q4, q8 []byte, blocks int, out *[32]float32) error {
 	return llamaq4.DotQ4_0x8Q8_0x4VNNI(q4, q8, blocks, out)
 }
 
 // projectQ4_0LlamaExperimental is a non-production entry point consuming only
-// prepacked panels. The retained projection dispatcher never calls it.
+// prepacked panels. Full groups use one fused 8x16 kernel; the retained
+// projection dispatcher never calls it.
+func projectBatchQ4_0LlamaExperimental(q4 []byte, out, x []float32, rows, tokens, width int) error {
+	if width <= 0 || width%qk8_0 != 0 || len(x) != tokens*width {
+		return fmt.Errorf("llama F32 projection size: x=%d rows=%d tokens=%d width=%d", len(x), rows, tokens, width)
+	}
+	blocks := width / qk8_0
+	q8 := make([]byte, (tokens+3)/4*blocks*q8_0x4BlockBytes)
+	if err := quantizeQ8_0x4To(q8, x, tokens, width); err != nil {
+		return err
+	}
+	return projectQ4_0LlamaExperimental(q4, q8, rows, tokens, blocks, out)
+}
+
 func projectQ4_0LlamaExperimental(q4, q8 []byte, rows, tokens, blocks int, out []float32) error {
-	return llamaq4.ProjectQ4_0x8Q8_0x4VNNI(q4, q8, rows, tokens, blocks, out)
+	rowGroups, tokenGroups := (rows+7)/8, (tokens+3)/4
+	if rows <= 0 || tokens <= 0 || blocks <= 0 || len(q4) != rowGroups*blocks*q4_0x8BlockBytes || len(q8) != tokenGroups*blocks*q8_0x4BlockBytes || len(out) != rows*tokens {
+		return fmt.Errorf("llama projection size: q4=%d q8=%d out=%d rows=%d tokens=%d blocks=%d", len(q4), len(q8), len(out), rows, tokens, blocks)
+	}
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 2 || rowGroups < 2 {
+		return llamaq4.ProjectQ4_0x8Q8_0x4VNNI(q4, q8, rows, tokens, blocks, out)
+	}
+	if workers > rowGroups {
+		workers = rowGroups
+	}
+	chunkGroups := (rowGroups + workers*4 - 1) / (workers * 4)
+	var next atomic.Int64
+	var failed atomic.Bool
+	var once sync.Once
+	var projectErr error
+	work := func() {
+		for !failed.Load() {
+			start := int(next.Add(int64(chunkGroups))) - chunkGroups
+			if start >= rowGroups {
+				return
+			}
+			end := start + chunkGroups
+			if end > rowGroups {
+				end = rowGroups
+			}
+			first := start * blocks * q4_0x8BlockBytes
+			last := end * blocks * q4_0x8BlockBytes
+			if err := llamaq4.ProjectQ4_0x8Q8_0x4RowsVNNI(q4[first:last], q8, start*8, end-start, rows, tokens, blocks, out); err != nil {
+				once.Do(func() { projectErr = err })
+				failed.Store(true)
+				return
+			}
+		}
+	}
+	var wg sync.WaitGroup
+	wg.Add(workers - 1)
+	for worker := 1; worker < workers; worker++ {
+		go func() {
+			defer wg.Done()
+			work()
+		}()
+	}
+	work()
+	wg.Wait()
+	return projectErr
 }
 
 // dotQ4_0x8Q8_0x4LlamaReference computes one 8-row by 4-token tile. Each

@@ -120,12 +120,22 @@ func TestGemma4RealCPUGap124x48(t *testing.T) {
 		783, 82106, 9222, 246293, 236929, 4862, 237275, 1390,
 		237083, 237249, 244359, 238280, 236929, 395, 236782, 236929,
 	}
+	if len(m.Layers) > 0 && m.Layers[0].QWGGUF.UsesLlamaQ4_0x8() {
+		wantGenerated = [...]int{
+			174982, 1123, 7276, 241685, 11344, 3111, 1200, 9222,
+			1363, 3136, 9683, 9683, 19677, 2835, 106289, 19715,
+			9683, 6825, 246293, 68252, 68252, 110537, 68252, 56205,
+			30244, 9222, 7276, 35106, 7276, 237096, 238914, 66916,
+			9222, 9222, 9222, 111417, 19715, 208121, 9222, 237072,
+			241546, 9222, 237062, 236840, 237335, 384, 9222, 9222,
+		}
+	}
+	t.Logf("gemma4_gap generated_tokens=%v", generated)
 	for i, want := range wantGenerated {
 		if generated[i] != want {
 			t.Fatalf("generated token %d=%d, want frozen exact token %d", i, generated[i], want)
 		}
 	}
-	t.Logf("gemma4_gap generated_tokens=%v", generated)
 	decodeRate := 47 / decodeElapsed.Seconds()
 	const oracleDecode = 10.526478 // CPU-only b607 exact Go-trajectory F32-KV median over six paired phase samples.
 	t.Logf("gemma4_gap prefill_tokens=124 prefill_setup=%s prefill_compute=%s prefill_compute_tok_s=%.6f prefill_total_tok_s=%.6f prefill_efficiency=%.4f output_tokens=48 decode_evals=47 decode=%s decode_eval_tok_s=%.6f decode_efficiency=%.4f", prefillSetupElapsed, prefillElapsed, prefillRate, prefillTotalRate, prefillRate/oraclePrefill, decodeElapsed, decodeRate, decodeRate/oracleDecode)

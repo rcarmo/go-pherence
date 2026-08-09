@@ -1,0 +1,5 @@
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:66: gemma4_gap prefill_tokens=124 prefill_setup=1.503012ms prefill_compute=1.956761614s prefill_compute_tok_s=63.370008 prefill_total_tok_s=63.321371 prefill_efficiency=0.6946
+--- PASS: TestGemma4RealCPUGap124x48 (11.90s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	12.195s

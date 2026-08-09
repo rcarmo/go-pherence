@@ -52,6 +52,12 @@ func (m *QuantMatrix) projectBatchQ4_0To(dst, x []float32, batch int) error {
 	if m.InDim%qk8_0 != 0 {
 		return fmt.Errorf("quant matrix %s: Q4_0 in=%d not multiple of %d", m.Name, m.InDim, qk8_0)
 	}
+	if len(m.llamaQ4_0x8) > 0 {
+		if err := projectBatchQ4_0LlamaExperimental(m.llamaQ4_0x8, dst[:batch*m.OutDim], x[:batch*m.InDim], m.OutDim, batch, m.InDim); err != nil {
+			return fmt.Errorf("quant matrix %s: fused Q4_0x8 projection: %w", m.Name, err)
+		}
+		return nil
+	}
 	rowBytes, err := m.RowBytes()
 	if err != nil {
 		return err

@@ -93,6 +93,11 @@ func BenchmarkDotQ4_0Q8_0LlamaProjection(b *testing.B) {
 	}
 	q4, _ := packQ4_0x8(raw, rows, blocks)
 	q8, _ := packQ8_0x4(y, tokens, blocks)
+	x := make([]float32, tokens*blocks*qk8_0)
+	for i := range x {
+		x[i] = (rng.Float32()*2 - 1) * 8
+	}
+	retained := &QuantMatrix{Name: "benchmark", QType: QuantQ4_0, Raw: raw, InDim: blocks * qk8_0, OutDim: rows}
 	out := make([]float32, rows*tokens)
 	if err := projectQ4_0LlamaExperimental(q4, q8, rows, tokens, blocks, out); err != nil {
 		b.Skip(err)
@@ -117,6 +122,22 @@ func BenchmarkDotQ4_0Q8_0LlamaProjection(b *testing.B) {
 			packQ4_0x8To(q4, raw, rows, blocks)
 			packQ8_0x4To(q8, y, tokens, blocks)
 			projectQ4_0LlamaExperimental(q4, q8, rows, tokens, blocks, out)
+		}
+	})
+	b.Run("retained-f32-production", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			if err := retained.ProjectBatchF32To(out, x, tokens); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("fused-direct-q8", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			if err := projectBatchQ4_0LlamaExperimental(q4, out, x, rows, tokens, blocks*qk8_0); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }

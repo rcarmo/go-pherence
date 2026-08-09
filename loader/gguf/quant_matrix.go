@@ -16,6 +16,11 @@ type QuantMatrix struct {
 	Raw    []byte
 	InDim  int
 	OutDim int
+
+	// llamaQ4_0x8 replaces Raw only for loader-selected Q4_0 projection
+	// matrices. Keeping it private prevents packed bytes being mistaken for the
+	// canonical GGUF row layout by external Raw consumers.
+	llamaQ4_0x8 []byte
 }
 
 // MatrixFromTensor reads tensor t as a raw quantized matrix. Tensor shape must be [inDim, outDim].
@@ -44,10 +49,17 @@ func (m *QuantMatrix) DequantRowTo(dst []float32, row int) error {
 	}
 	start := row * rowBytes
 	end := start + rowBytes
-	if end > len(m.Raw) {
-		return fmt.Errorf("gguf row %s: row %d raw short", m.Name, row)
+	if end <= len(m.Raw) {
+		return dequantRowTo(dst[:m.InDim], m.Raw[start:end], m.QType, m.InDim)
 	}
-	return dequantRowTo(dst[:m.InDim], m.Raw[start:end], m.QType, m.InDim)
+	if m.QType == QuantQ4_0 && len(m.llamaQ4_0x8) > 0 {
+		canonical := make([]byte, rowBytes)
+		if err := unpackQ4_0x8RowTo(canonical, m.llamaQ4_0x8, row, m.OutDim, m.InDim/qk8_0); err != nil {
+			return fmt.Errorf("gguf row %s: %w", m.Name, err)
+		}
+		return dequantRowTo(dst[:m.InDim], canonical, m.QType, m.InDim)
+	}
+	return fmt.Errorf("gguf row %s: row %d raw short", m.Name, row)
 }
 
 func dequantRowTo(dst []float32, raw []byte, qt QuantType, n int) error {

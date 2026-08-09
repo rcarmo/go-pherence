@@ -79,6 +79,16 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 		}
 		return g.MatrixFromTensor(t)
 	}
+	loadProjection := func(name string) (*gguf.QuantMatrix, error) {
+		matrix, err := loadQMatrix(name)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := matrix.PrepareLlamaQ4_0x8(); err != nil {
+			return nil, err
+		}
+		return matrix, nil
+	}
 	m := &LlamaModel{Config: cfg, Large: cfg.HiddenSize >= 3000, Quantized: true, SuppressTokens: ggufIntArray(g.Meta["tokenizer.ggml.suppress_tokens"])}
 	if m.EmbedTokensGGUF, err = loadQMatrix("token_embd.weight"); err != nil {
 		return nil, err
@@ -146,14 +156,14 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 				}
 			}
 		}
-		if layer.QWGGUF, err = loadQMatrix(p + "attn_q.weight"); err != nil {
+		if layer.QWGGUF, err = loadProjection(p + "attn_q.weight"); err != nil {
 			return nil, err
 		}
 		if layer.HasKV {
-			if layer.KWGGUF, err = loadQMatrix(p + "attn_k.weight"); err != nil {
+			if layer.KWGGUF, err = loadProjection(p + "attn_k.weight"); err != nil {
 				return nil, err
 			}
-			if layer.VWGGUF, err = loadQMatrix(p + "attn_v.weight"); err != nil {
+			if layer.VWGGUF, err = loadProjection(p + "attn_v.weight"); err != nil {
 				if _, ok := g.TensorByName(p + "attn_v.weight"); ok {
 					return nil, err
 				}
@@ -164,16 +174,16 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 				m.Config.AttentionKEqV = true
 			}
 		}
-		if layer.OWGGUF, err = loadQMatrix(p + "attn_output.weight"); err != nil {
+		if layer.OWGGUF, err = loadProjection(p + "attn_output.weight"); err != nil {
 			return nil, err
 		}
-		if layer.GateWGGUF, err = loadQMatrix(p + "ffn_gate.weight"); err != nil {
+		if layer.GateWGGUF, err = loadProjection(p + "ffn_gate.weight"); err != nil {
 			return nil, err
 		}
-		if layer.UpWGGUF, err = loadQMatrix(p + "ffn_up.weight"); err != nil {
+		if layer.UpWGGUF, err = loadProjection(p + "ffn_up.weight"); err != nil {
 			return nil, err
 		}
-		if layer.DownWGGUF, err = loadQMatrix(p + "ffn_down.weight"); err != nil {
+		if layer.DownWGGUF, err = loadProjection(p + "ffn_down.weight"); err != nil {
 			return nil, err
 		}
 		if t, ok := g.TensorByName(p + "layer_output_scale.weight"); ok {
@@ -194,10 +204,10 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 			layer.LayerScalar = 1
 		}
 		if cfg.HiddenPerLayer > 0 {
-			if layer.PLIGateGGUF, err = loadQMatrix(p + "inp_gate.weight"); err != nil {
+			if layer.PLIGateGGUF, err = loadProjection(p + "inp_gate.weight"); err != nil {
 				return nil, err
 			}
-			if layer.PLIProjGGUF, err = loadQMatrix(p + "proj.weight"); err != nil {
+			if layer.PLIProjGGUF, err = loadProjection(p + "proj.weight"); err != nil {
 				return nil, err
 			}
 			if layer.PLIPostNorm, err = loadTyped(p+"post_norm.weight", gguf.QuantF32); err != nil {

@@ -124,6 +124,22 @@ func TestGemma4GGUFSharedKVSourceMapping(t *testing.T) {
 			t.Fatalf("full shared layer %d hasKV/src=%v/%d want false/23", l, m.Layers[l].HasKV, m.Layers[l].KVSourceLayer)
 		}
 	}
+	if m.LMHeadGGUF != m.EmbedTokensGGUF || len(m.EmbedTokensGGUF.Raw) == 0 || m.EmbedTokensGGUF.UsesLlamaQ4_0x8() {
+		t.Fatalf("tied embedding/head ownership changed: tied=%v raw=%d packed=%v", m.LMHeadGGUF == m.EmbedTokensGGUF, len(m.EmbedTokensGGUF.Raw), m.EmbedTokensGGUF.UsesLlamaQ4_0x8())
+	}
+	if m.Layers[0].QWGGUF.UsesLlamaQ4_0x8() {
+		for i, layer := range m.Layers {
+			projections := []*gguf.QuantMatrix{layer.QWGGUF, layer.OWGGUF, layer.GateWGGUF, layer.UpWGGUF, layer.DownWGGUF, layer.PLIGateGGUF, layer.PLIProjGGUF}
+			if layer.HasKV {
+				projections = append(projections, layer.KWGGUF, layer.VWGGUF)
+			}
+			for _, projection := range projections {
+				if projection != nil && projection.QType == gguf.QuantQ4_0 && (!projection.UsesLlamaQ4_0x8() || projection.Raw != nil) {
+					t.Fatalf("layer %d projection %s ownership raw=%d packed=%v", i, projection.Name, len(projection.Raw), projection.UsesLlamaQ4_0x8())
+				}
+			}
+		}
+	}
 }
 
 func TestGemma4GGUFPerLayerInputTensorShapes(t *testing.T) {

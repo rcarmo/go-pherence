@@ -1,0 +1,80 @@
+
+=== pair=1 variant=baseline time=2026-08-09T10:47:24+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.641928ms prefill_compute=2.381935633s prefill_compute_tok_s=52.058502 prefill_total_tok_s=52.022641 prefill_efficiency=0.5706 output_tokens=48 decode_evals=47 decode=4.846500228s decode_eval_tok_s=9.697720 decode_efficiency=0.9213
+--- PASS: TestGemma4RealCPUGap124x48 (10.74s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	11.013s
+
+=== pair=1 variant=fused time=2026-08-09T10:47:38+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:133: gemma4_gap generated_tokens=[174982 1123 7276 241685 11344 3111 1200 9222 1363 3136 9683 9683 19677 2835 106289 19715 9683 6825 246293 68252 68252 110537 68252 56205 30244 9222 7276 35106 7276 237096 238914 66916 9222 9222 9222 111417 19715 208121 9222 237072 241546 9222 237062 236840 237335 384 9222 9222]
+    gemma4_gap_real_test.go:141: gemma4_gap prefill_tokens=124 prefill_setup=1.67097ms prefill_compute=1.913608472s prefill_compute_tok_s=64.799044 prefill_total_tok_s=64.742511 prefill_efficiency=0.7103 output_tokens=48 decode_evals=47 decode=4.939861599s decode_eval_tok_s=9.514437 decode_efficiency=0.9039
+--- PASS: TestGemma4RealCPUGap124x48 (16.36s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	16.659s
+
+=== pair=2 variant=baseline time=2026-08-09T10:47:55+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.461922ms prefill_compute=2.409563209s prefill_compute_tok_s=51.461609 prefill_total_tok_s=51.430405 prefill_efficiency=0.5641 output_tokens=48 decode_evals=47 decode=4.8329408s decode_eval_tok_s=9.724928 decode_efficiency=0.9239
+--- PASS: TestGemma4RealCPUGap124x48 (10.88s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	11.184s
+
+=== pair=2 variant=fused time=2026-08-09T10:48:06+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:133: gemma4_gap generated_tokens=[174982 1123 7276 241685 11344 3111 1200 9222 1363 3136 9683 9683 19677 2835 106289 19715 9683 6825 246293 68252 68252 110537 68252 56205 30244 9222 7276 35106 7276 237096 238914 66916 9222 9222 9222 111417 19715 208121 9222 237072 241546 9222 237062 236840 237335 384 9222 9222]
+    gemma4_gap_real_test.go:141: gemma4_gap prefill_tokens=124 prefill_setup=1.442469ms prefill_compute=1.989407612s prefill_compute_tok_s=62.330112 prefill_total_tok_s=62.284951 prefill_efficiency=0.6832 output_tokens=48 decode_evals=47 decode=4.970076385s decode_eval_tok_s=9.456595 decode_efficiency=0.8984
+--- PASS: TestGemma4RealCPUGap124x48 (16.66s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	16.968s
+
+=== pair=3 variant=baseline time=2026-08-09T10:48:23+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.389419ms prefill_compute=2.337740452s prefill_compute_tok_s=53.042672 prefill_total_tok_s=53.011165 prefill_efficiency=0.5814 output_tokens=48 decode_evals=47 decode=4.895473462s decode_eval_tok_s=9.600706 decode_efficiency=0.9121
+--- PASS: TestGemma4RealCPUGap124x48 (10.87s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	11.158s
+
+=== pair=3 variant=fused time=2026-08-09T10:48:35+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:133: gemma4_gap generated_tokens=[174982 1123 7276 241685 11344 3111 1200 9222 1363 3136 9683 9683 19677 2835 106289 19715 9683 6825 246293 68252 68252 110537 68252 56205 30244 9222 7276 35106 7276 237096 238914 66916 9222 9222 9222 111417 19715 208121 9222 237072 241546 9222 237062 236840 237335 384 9222 9222]
+    gemma4_gap_real_test.go:141: gemma4_gap prefill_tokens=124 prefill_setup=1.380198ms prefill_compute=1.912880567s prefill_compute_tok_s=64.823702 prefill_total_tok_s=64.776964 prefill_efficiency=0.7106 output_tokens=48 decode_evals=47 decode=4.921373673s decode_eval_tok_s=9.550179 decode_efficiency=0.9073
+--- PASS: TestGemma4RealCPUGap124x48 (16.44s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	16.731s
+
+=== pair=4 variant=baseline time=2026-08-09T10:48:52+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.448949ms prefill_compute=2.355302262s prefill_compute_tok_s=52.647171 prefill_total_tok_s=52.614803 prefill_efficiency=0.5771 output_tokens=48 decode_evals=47 decode=4.872003778s decode_eval_tok_s=9.646955 decode_efficiency=0.9164
+--- PASS: TestGemma4RealCPUGap124x48 (11.01s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	11.294s
+
+=== pair=4 variant=fused time=2026-08-09T10:49:04+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:133: gemma4_gap generated_tokens=[174982 1123 7276 241685 11344 3111 1200 9222 1363 3136 9683 9683 19677 2835 106289 19715 9683 6825 246293 68252 68252 110537 68252 56205 30244 9222 7276 35106 7276 237096 238914 66916 9222 9222 9222 111417 19715 208121 9222 237072 241546 9222 237062 236840 237335 384 9222 9222]
+    gemma4_gap_real_test.go:141: gemma4_gap prefill_tokens=124 prefill_setup=1.442377ms prefill_compute=1.89239198s prefill_compute_tok_s=65.525537 prefill_total_tok_s=65.475631 prefill_efficiency=0.7182 output_tokens=48 decode_evals=47 decode=4.924146738s decode_eval_tok_s=9.544801 decode_efficiency=0.9067
+--- PASS: TestGemma4RealCPUGap124x48 (16.75s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	17.036s
+
+=== pair=5 variant=baseline time=2026-08-09T10:49:21+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:128: gemma4_gap generated_tokens=[70990 4941 159371 1390 67109 1485 237064 9120 70846 9120 13063 1390 236743 40594 1390 238007 1390 238122 4829 1390 1390 237307 1390 113858 9222 1390 9222 246293 9222 1390 1390 9222 783 82106 9222 246293 236929 4862 237275 1390 237083 237249 244359 238280 236929 395 236782 236929]
+    gemma4_gap_real_test.go:131: gemma4_gap prefill_tokens=124 prefill_setup=1.36001ms prefill_compute=2.331861867s prefill_compute_tok_s=53.176392 prefill_total_tok_s=53.145396 prefill_efficiency=0.5829 output_tokens=48 decode_evals=47 decode=4.877675788s decode_eval_tok_s=9.635737 decode_efficiency=0.9154
+--- PASS: TestGemma4RealCPUGap124x48 (10.80s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	11.112s
+
+=== pair=5 variant=fused time=2026-08-09T10:49:32+01:00 ===
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:133: gemma4_gap generated_tokens=[174982 1123 7276 241685 11344 3111 1200 9222 1363 3136 9683 9683 19677 2835 106289 19715 9683 6825 246293 68252 68252 110537 68252 56205 30244 9222 7276 35106 7276 237096 238914 66916 9222 9222 9222 111417 19715 208121 9222 237072 241546 9222 237062 236840 237335 384 9222 9222]
+    gemma4_gap_real_test.go:141: gemma4_gap prefill_tokens=124 prefill_setup=1.427506ms prefill_compute=1.920402654s prefill_compute_tok_s=64.569792 prefill_total_tok_s=64.521831 prefill_efficiency=0.7078 output_tokens=48 decode_evals=47 decode=5.000866174s decode_eval_tok_s=9.398372 decode_efficiency=0.8928
+--- PASS: TestGemma4RealCPUGap124x48 (17.16s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	17.506s
