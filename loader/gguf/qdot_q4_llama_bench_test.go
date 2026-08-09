@@ -3,6 +3,7 @@ package gguf
 import (
 	"math/rand"
 	"testing"
+	"time"
 )
 
 func BenchmarkDotQ4_0Q8_0LlamaTiles(b *testing.B) {
@@ -103,10 +104,46 @@ func BenchmarkDotQ4_0Q8_0LlamaProjection(b *testing.B) {
 		b.Skip(err)
 	}
 
+	b.Run("prepacked-backend-paired", func(b *testing.B) {
+		var plan9Elapsed, retainedElapsed time.Duration
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			if i&1 == 0 {
+				start := time.Now()
+				projectQ4_0LlamaExperimentalBackend(q4, q8, rows, tokens, blocks, out, false)
+				retainedElapsed += time.Since(start)
+				start = time.Now()
+				projectQ4_0LlamaExperimentalBackend(q4, q8, rows, tokens, blocks, out, true)
+				plan9Elapsed += time.Since(start)
+			} else {
+				start := time.Now()
+				projectQ4_0LlamaExperimentalBackend(q4, q8, rows, tokens, blocks, out, true)
+				plan9Elapsed += time.Since(start)
+				start = time.Now()
+				projectQ4_0LlamaExperimentalBackend(q4, q8, rows, tokens, blocks, out, false)
+				retainedElapsed += time.Since(start)
+			}
+		}
+		b.ReportMetric(float64(plan9Elapsed.Nanoseconds())/float64(b.N), "plan9-ns/op")
+		b.ReportMetric(float64(retainedElapsed.Nanoseconds())/float64(b.N), "retained-ns/op")
+		b.ReportMetric(float64(plan9Elapsed)/float64(retainedElapsed), "plan9/retained")
+	})
+	b.Run("prepacked-retained-cgo-before", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			projectQ4_0LlamaExperimentalBackend(q4, q8, rows, tokens, blocks, out, false)
+		}
+	})
 	b.Run("prepacked", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			projectQ4_0LlamaExperimental(q4, q8, rows, tokens, blocks, out)
+		}
+	})
+	b.Run("prepacked-retained-cgo", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			projectQ4_0LlamaExperimentalBackend(q4, q8, rows, tokens, blocks, out, false)
 		}
 	})
 	b.Run("activation-pack-included", func(b *testing.B) {

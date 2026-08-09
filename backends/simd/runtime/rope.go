@@ -5,8 +5,6 @@ import (
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
-const hasRoPEAsm = false
-
 func applyRoPEGo(x, freqs []float32, pos, numHeads, headDim int) {
 	kernels.ApplyRoPE(x, freqs, pos, numHeads, headDim)
 }
@@ -17,10 +15,7 @@ func applyRoPEPartialGo(x, freqs []float32, pos, numHeads, headDim, rotHalf int)
 
 // ApplyRoPE applies full-half rotary position embedding in-place.
 func ApplyRoPE(x, freqs []float32, pos, numHeads, headDim int) {
-	// Dispatch hook kept explicit so AVX2/NEON kernels can be wired without
-	// changing callers. Until hasRoPEAsm flips true, the scalar kernel is the
-	// reference implementation and public runtime path.
-	applyRoPEGo(x, freqs, pos, numHeads, headDim)
+	ApplyRoPEPartial(x, freqs, pos, numHeads, headDim, headDim/2)
 }
 
 // ApplyRoPETo applies full-half RoPE and reports malformed inputs.
@@ -47,6 +42,8 @@ func ApplyRoPEPartialTo(x, freqs []float32, pos, numHeads, headDim, rotHalf int)
 	if !okTotal || !okPos || !okFreq || len(x) < total || len(freqs) < freqNeed {
 		return false
 	}
-	applyRoPEPartialGo(x, freqs, pos, numHeads, headDim, rotHalf)
+	if !applyRoPEPartialAccel(x, freqs, pos, numHeads, headDim, rotHalf) {
+		applyRoPEPartialGo(x, freqs, pos, numHeads, headDim, rotHalf)
+	}
 	return true
 }

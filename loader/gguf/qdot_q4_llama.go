@@ -10,6 +10,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/loader/gguf/llamaq4"
+	"github.com/rcarmo/go-pherence/loader/gguf/llamaq4plan9"
 )
 
 // These layouts and the arithmetic below intentionally follow llama.cpp b607
@@ -78,7 +79,7 @@ func (m *QuantMatrix) PrepareLlamaQ4_0x8() (bool, error) {
 	if m == nil {
 		return false, fmt.Errorf("nil quant matrix")
 	}
-	if m.QType != QuantQ4_0 || !llamaq4.Available() {
+	if m.QType != QuantQ4_0 || !(llamaq4plan9.Available() || llamaq4.Available()) {
 		return false, nil
 	}
 	if len(m.llamaQ4_0x8) > 0 {
@@ -248,6 +249,9 @@ func quantizeQ8_0x4To(out []byte, x []float32, tokens, width int) error {
 }
 
 func dotQ4_0x8Q8_0x4LlamaVNNI(q4, q8 []byte, blocks int, out *[32]float32) error {
+	if llamaq4plan9.Available() {
+		return llamaq4plan9.DotQ4_0x8Q8_0x4CompilerPlan9(q4, q8, blocks, out)
+	}
 	return llamaq4.DotQ4_0x8Q8_0x4VNNI(q4, q8, blocks, out)
 }
 
@@ -267,12 +271,19 @@ func projectBatchQ4_0LlamaExperimental(q4 []byte, out, x []float32, rows, tokens
 }
 
 func projectQ4_0LlamaExperimental(q4, q8 []byte, rows, tokens, blocks int, out []float32) error {
+	return projectQ4_0LlamaExperimentalBackend(q4, q8, rows, tokens, blocks, out, llamaq4plan9.Available())
+}
+
+func projectQ4_0LlamaExperimentalBackend(q4, q8 []byte, rows, tokens, blocks int, out []float32, usePlan9 bool) error {
 	rowGroups, tokenGroups := (rows+7)/8, (tokens+3)/4
 	if rows <= 0 || tokens <= 0 || blocks <= 0 || len(q4) != rowGroups*blocks*q4_0x8BlockBytes || len(q8) != tokenGroups*blocks*q8_0x4BlockBytes || len(out) != rows*tokens {
 		return fmt.Errorf("llama projection size: q4=%d q8=%d out=%d rows=%d tokens=%d blocks=%d", len(q4), len(q8), len(out), rows, tokens, blocks)
 	}
 	workers := runtime.GOMAXPROCS(0)
 	if workers < 2 || rowGroups < 2 {
+		if usePlan9 {
+			return llamaq4plan9.ProjectQ4_0x8Q8_0Stage(q4, q8, rows, tokens, blocks, out)
+		}
 		return llamaq4.ProjectQ4_0x8Q8_0x4VNNI(q4, q8, rows, tokens, blocks, out)
 	}
 	if workers > rowGroups {
@@ -295,7 +306,13 @@ func projectQ4_0LlamaExperimental(q4, q8 []byte, rows, tokens, blocks int, out [
 			}
 			first := start * blocks * q4_0x8BlockBytes
 			last := end * blocks * q4_0x8BlockBytes
-			if err := llamaq4.ProjectQ4_0x8Q8_0x4RowsVNNI(q4[first:last], q8, start*8, end-start, rows, tokens, blocks, out); err != nil {
+			var err error
+			if usePlan9 {
+				err = llamaq4plan9.ProjectQ4_0x8Q8_0StageRows(q4[first:last], q8, start*8, end-start, rows, tokens, blocks, out)
+			} else {
+				err = llamaq4.ProjectQ4_0x8Q8_0x4RowsVNNI(q4[first:last], q8, start*8, end-start, rows, tokens, blocks, out)
+			}
+			if err != nil {
 				once.Do(func() { projectErr = err })
 				failed.Store(true)
 				return

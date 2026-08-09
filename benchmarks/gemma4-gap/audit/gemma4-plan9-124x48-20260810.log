@@ -1,0 +1,14 @@
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:133: gemma4_gap generated_tokens=[174982 1123 7276 241685 11344 3111 1200 9222 1363 3136 9683 9683 19677 2835 106289 19715 9683 6825 246293 68252 68252 110537 68252 56205 30244 9222 7276 35106 7276 237096 238914 66916 9222 9222 9222 111417 19715 208121 9222 237072 241546 9222 237062 236840 237335 384 9222 9222]
+    gemma4_gap_real_test.go:141: gemma4_gap prefill_tokens=124 prefill_setup=1.375448ms prefill_compute=1.377881267s prefill_compute_tok_s=89.993240 prefill_total_tok_s=89.903496 prefill_efficiency=0.9864 output_tokens=48 decode_evals=47 decode=4.955860622s decode_eval_tok_s=9.483721 decode_efficiency=0.9009
+--- PASS: TestGemma4RealCPUGap124x48 (15.94s)
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:133: gemma4_gap generated_tokens=[174982 1123 7276 241685 11344 3111 1200 9222 1363 3136 9683 9683 19677 2835 106289 19715 9683 6825 246293 68252 68252 110537 68252 56205 30244 9222 7276 35106 7276 237096 238914 66916 9222 9222 9222 111417 19715 208121 9222 237072 241546 9222 237062 236840 237335 384 9222 9222]
+    gemma4_gap_real_test.go:141: gemma4_gap prefill_tokens=124 prefill_setup=1.451925ms prefill_compute=1.385386271s prefill_compute_tok_s=89.505723 prefill_total_tok_s=89.412017 prefill_efficiency=0.9811 output_tokens=48 decode_evals=47 decode=5.015790056s decode_eval_tok_s=9.370408 decode_efficiency=0.8902
+--- PASS: TestGemma4RealCPUGap124x48 (16.18s)
+=== RUN   TestGemma4RealCPUGap124x48
+    gemma4_gap_real_test.go:133: gemma4_gap generated_tokens=[174982 1123 7276 241685 11344 3111 1200 9222 1363 3136 9683 9683 19677 2835 106289 19715 9683 6825 246293 68252 68252 110537 68252 56205 30244 9222 7276 35106 7276 237096 238914 66916 9222 9222 9222 111417 19715 208121 9222 237072 241546 9222 237062 236840 237335 384 9222 9222]
+    gemma4_gap_real_test.go:141: gemma4_gap prefill_tokens=124 prefill_setup=1.555707ms prefill_compute=1.367139393s prefill_compute_tok_s=90.700334 prefill_total_tok_s=90.597241 prefill_efficiency=0.9942 output_tokens=48 decode_evals=47 decode=5.023970507s decode_eval_tok_s=9.355150 decode_efficiency=0.8887
+--- PASS: TestGemma4RealCPUGap124x48 (14.37s)
+PASS
+ok  	github.com/rcarmo/go-pherence/model	46.831s
