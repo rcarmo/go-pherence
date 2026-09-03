@@ -11,6 +11,7 @@ The codebase covers ordinary local inference, large-model placement, speech, ima
 | Choose CPU, NVIDIA or another backend | [Backend selection](backend-selection.md) and [Tuning](tuning.md) |
 | Understand package ownership and execution flow | [Architecture](architecture.md), [Backend stack](backend-stack.md) and [Backend layout](backend-layout.md) |
 | Design or optimise an LLM inference runtime | [Practical LLM inference blueprint](llm-inference-blueprint.md) |
+| Port the CPU kernels to ARM64 | [ARM CPU ISA feasibility](arm-cpu-isa-feasibility.md) and [CIX P1/Orange Pi 6 Plus](cix-p1-orange-pi-6-plus.md) |
 | Review the measured Gemma4 inference programme | [CPU performance-gap programme](../benchmarks/gemma4-gap/README.md), [CPU SIMD gap](gemma4-cpu-simd-gap.md), [vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen serving baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) |
 | Transcribe or translate audio | [Whisper and translated VTT](whisper-diarize-vtt.md) |
 | Transcribe with speaker labels and timestamps | [MOSS transcription and diarisation](moss-transcribe-diarize.md) |
@@ -26,6 +27,7 @@ The codebase covers ordinary local inference, large-model placement, speech, ima
 
 Quantised and hardware-specific references:
 
+* [ARM CPU ISA feasibility](arm-cpu-isa-feasibility.md) separates the NEON, DotProd, I8MM, SVE and SME implementation tiers. [CIX P1 and Orange Pi 6 Plus](cix-p1-orange-pi-6-plus.md) records the concrete CPU features, 128-bit SVE boundary and heterogeneous-core scheduling policy for that board.
 * [TurboQuant](turboquant.md) covers compressed KV and scratch policy.
 * [NVIDIA quantisation boundaries](nvidia-quant-boundaries.md), [NVFP4](nvfp4.md) and [BF16 parity](bf16-parity.md) state the numerical contracts for those formats.
 * [SpacemiT IME2](spacemit-ime2.md) covers the K3/CIX accelerator path.
