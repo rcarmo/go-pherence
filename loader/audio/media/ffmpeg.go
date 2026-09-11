@@ -235,6 +235,12 @@ func (f *FFmpeg) DecodeToFile(ctx context.Context, srcPath, dstPath string) (Dec
 	if err != nil {
 		return DecodeResult{}, err
 	}
+	// Unlike a generic reader limit, an FFmpeg output exactly at -fs may be a
+	// successful but truncated decode. Keep this conservative cap rejection at
+	// the subprocess boundary; canonical readers allow inclusive size limits.
+	if info.fileSize >= f.cfg.MaxDecodeOutputBytes {
+		return DecodeResult{}, ErrDecodeOutputLimit
+	}
 	if cause := context.Cause(runCtx); cause != nil {
 		return DecodeResult{}, cause
 	}

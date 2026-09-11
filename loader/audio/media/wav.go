@@ -1,6 +1,7 @@
 package media
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ type wavInfo struct {
 	bitsPerSample int
 	blockAlign    int
 	frames        int64
+	dataOffset    int64
 }
 
 func validateCanonicalWAV(path string, maxBytes int64, maxFrames int64) (wavInfo, error) {
@@ -22,15 +24,26 @@ func validateCanonicalWAV(path string, maxBytes int64, maxFrames int64) (wavInfo
 		return wavInfo{}, fmt.Errorf("open decoded wav: %w", err)
 	}
 	defer f.Close()
+	return validateCanonicalWAVFile(context.Background(), f, maxBytes, maxFrames)
+}
 
+// Scan the already-open file so validation and PCM reads use the same inode.
+// Seeking here is confined to construction; PCMReader uses positional reads.
+func validateCanonicalWAVFile(ctx context.Context, f *os.File, maxBytes int64, maxFrames int64) (wavInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return wavInfo{}, err
+	}
 	fi, err := f.Stat()
 	if err != nil {
 		return wavInfo{}, fmt.Errorf("stat decoded wav: %w", err)
 	}
+	if !fi.Mode().IsRegular() {
+		return wavInfo{}, fmt.Errorf("%w: decoded WAV must be a regular file", ErrInvalidOutput)
+	}
 	if fi.Size() <= 0 {
 		return wavInfo{}, fmt.Errorf("%w: empty decoded file", ErrInvalidOutput)
 	}
-	if maxBytes > 0 && fi.Size() >= maxBytes {
+	if maxBytes > 0 && fi.Size() > maxBytes {
 		return wavInfo{}, fmt.Errorf("%w: %d bytes", ErrDecodeOutputLimit, fi.Size())
 	}
 
@@ -56,10 +69,17 @@ func validateCanonicalWAV(path string, maxBytes int64, maxFrames int64) (wavInfo
 		block     uint16
 		bits      uint16
 		dataSize  uint32
+		dataStart int64
 		offset    int64 = 12
 	)
 
-	for offset < riffSize {
+	for chunks := 0; offset < riffSize; chunks++ {
+		if err := ctx.Err(); err != nil {
+			return wavInfo{}, err
+		}
+		if chunks >= 4096 {
+			return wavInfo{}, fmt.Errorf("%w: too many WAV chunks", ErrInvalidOutput)
+		}
 		if riffSize-offset < 8 {
 			return wavInfo{}, fmt.Errorf("%w: partial chunk header", ErrInvalidOutput)
 		}
@@ -101,6 +121,7 @@ func validateCanonicalWAV(path string, maxBytes int64, maxFrames int64) (wavInfo
 				return wavInfo{}, fmt.Errorf("%w: seek data chunk: %v", ErrInvalidOutput, err)
 			}
 			dataSize = uint32(chunkSize)
+			dataStart = offset + 8
 			foundData = true
 		default:
 			if _, err := f.Seek(chunkSize, io.SeekCurrent); err != nil {
@@ -151,5 +172,6 @@ func validateCanonicalWAV(path string, maxBytes int64, maxFrames int64) (wavInfo
 		bitsPerSample: int(bits),
 		blockAlign:    int(block),
 		frames:        frames,
+		dataOffset:    dataStart,
 	}, nil
 }
