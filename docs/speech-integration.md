@@ -9,7 +9,7 @@ The speech port is being implemented in go-pherence on `feat/speech-simd-vulkan`
 - `models/whisper.MelFlatFromSamplesChecked`: model-configured entry point to those features. Existing inference/CLI defaults remain unchanged pending real-checkpoint multilingual/timestamp qualification. The legacy 512-point/GPU mel path remains a separate implementation and is not the exact oracle.
 - Four new synthetic 128-band fixtures generated independently with checksum-pinned Transformers 4.57.1 numerical functions; absolute tolerance `1e-5`. Existing 80-band reference still passes. No model weights are used by these tests.
 - `media.OpenCanonicalPCM`: a validated canonical-WAV reader using positional reads and caller-owned float32 output. It keeps one descriptor and a 16 KiB conversion buffer, rather than loading a whole recording. It does not invoke FFmpeg or import model/video code.
-- `models/whisper.WindowPlan`: on-demand integer-sample windows, disjoint emission-ownership intervals and explicit final-window padding. New code can plan all four hours without the historical 100-chunk cutoff. Legacy chunked inference remains unchanged; the reader/planner have not yet been wired into an encoder/decoder.
+- `models/whisper.WindowPlan`: on-demand integer-sample windows, disjoint emission-ownership intervals and explicit final-window padding. New code can plan all four hours without the historical 100-chunk cutoff. Legacy chunked inference remains unchanged. The opt-in `TranscribePCMWindows` path now connects this reader/planner to checked features and the existing Go encoder/decoder; real-checkpoint quality is unqualified.
 
 This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan execution layer, new assembly kernels, the integrated job service, real-checkpoint quality tests and performance targets are not complete. Neither existing service has been restarted or deployed from this branch.
 
@@ -58,6 +58,20 @@ The `WhisperLogMel80` compatibility API delegates to the new implementation; inv
 
 `loader/audio/testdata/whisper_logmel128_transformers_4_57_1.json` contains synthetic broadband, impulse/odd-boundary, short-reflect and silence cases. `scripts/whisper_logmel_reference.py` uses NumPy and only six checksum-pinned upstream numerical definitions. It does not import Transformers/PyTorch or load a checkpoint. See fixture metadata for source URL/hash and NumPy version. This reference is the NumPy Transformers frontend; exact Torch/whisper.cpp numerical differences still need separate real-model qualification.
 
+## Opt-in PCM inference
+
+`Whisper.TranscribePCMWindows(ctx, source, totalSamples, tokenizer, options, emit)` accepts the canonical PCM reader and actual decoded sample count. It reuses window-sized audio scratch, computes the checked frontend, calls the Go encoder and creates fresh decoder state per window. It emits synchronously instead of accumulating a full recording or transcript. It rejects jobs over four hours, overlap above half the analysis window, and plans exceeding 10000 windows. It never silently cuts off at the legacy 100-window boundary.
+
+The caller supplies an immutable model/tokenizer, explicit language code and original-language transcription task. Validation checks model geometry and required tensor lengths before execution. The new decoder verifies control/timestamp IDs against the tokenizer. The legacy constants match large-v3/turbo but are one ID too high for older multilingual vocabularies. [Pinned tokenizer/generation contracts](speech-generation-manifest.json) cover tiny and turbo; both public tokenizers were tested without model weights. The legacy APIs remain unchanged.
+
+The checked timestamp loop enforces initial bounds, pairing, monotonicity and aggregate timestamp probability using the Transformers 4.57.1 rule contract. It counts the three-token prompt within the decoder position limit. Invalid logits, exhausted token budgets and text without a closing timestamp return errors. It does not invent a 30-second segment end. `MaxInitialTimestampIndex` is explicit: zero forces 0.00; the pinned configurations use 50 (one second).
+
+Callbacks receive window metadata and segments in canonical PCM seconds, clipped to the actual audio tail. These are raw per-window results: overlapping windows may repeat text. Word alignment, overlap reconciliation, automatic language detection, no-speech thresholds, temperature/quality fallback, prior-text conditioning and source-container PTS mapping are not implemented. Do not publish the callbacks directly as a qualified final VTT.
+
+Checked calls are serialised because existing Whisper kernels have package-level state. Callers must also exclude concurrent legacy execution and avoid callback re-entry. Cancellation is checked around stages and decoder tokens; an encoder or cross-KV operation already running cannot yet be interrupted. Failed windows never reach the callback; previously emitted windows remain available for caller-owned checkpoints.
+
+Tests include scripted-logit state transitions, 131 synthetic windows with reused scratch, final padding, callback/stage errors, malformed model/tokenizer rejection, and a two-channel zero-layer toy tensor pipeline through the actual feature/encoder/decoder code. Toy tensor execution proves wiring only. No real checkpoint, private recording, GPU, new assembly kernel, performance benchmark or service was run. Two narrow delegated reviews of generation/wiring timed out without findings; no independent approval was obtained. Parent review and focused tests passed.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.
@@ -85,14 +99,19 @@ The `WhisperLogMel80` compatibility API delegates to the new implementation; inv
 ```sh
 # No model weights, GPU initialisation, service or benchmark required.
 GOMAXPROCS=2 CGO_ENABLED=0 make speech-foundations-check
+# Optional pinned public tokenizer/config checks; see speech-generation-manifest.json.
+GO_PHERENCE_TEST_TOKENIZER_DIR=/path/to/pinned-files GOMAXPROCS=2 CGO_ENABLED=0 \
+  go test -p=1 ./models/whisper -run TestCheckedTimestampPinnedTokenizers
 # Short synthetic media only; requires ffmpeg and ffprobe installed.
 GOMAXPROCS=2 CGO_ENABLED=0 make speech-media-integration
 ```
 
 Set `TMPDIR` and `GOTMPDIR` to an existing writable directory if `/workspace/tmp` is unavailable. Use Go 1.26.2 as required by `go.mod`.
 
-This checkpoint passed the focused make targets, affected-package vet, all audio-command builds and additional existing CPU convolution/LayerNorm/attention reference tests. The JSON record counts 54 passing test/subtest events and one intentionally skipped opt-in FFmpeg test; that FFmpeg test then passed in its separate enabled target. This is not a count of 54 top-level tests. No models, GPU calls or service changes occurred. See [verification evidence](../benchmarks/speech-foundations/verification.json).
+The initial `651489e` checkpoint passed the focused make targets, affected-package vet, all audio-command builds and additional existing CPU convolution/LayerNorm/attention reference tests. The JSON record counts 54 passing test/subtest events and one intentionally skipped opt-in FFmpeg test; that FFmpeg test then passed in its separate enabled target. This is not a count of 54 top-level tests. No models, GPU calls or service changes occurred. See [verification evidence](../benchmarks/speech-foundations/verification.json).
 
 `go build ./...` failed in the unrelated `backends/spacemit/aicpu/aipool`, `cmd/diffusiongemmainspect` and `cmd/diffusiongemmaserve` packages. A clean archive of untouched `d08ce322` produced identical errors; [baseline error listing](../benchmarks/speech-foundations/full-build-known-errors.txt) is retained. Those source files were not modified. Full model/backend suites and race tests have not been run. A delegated read-only review timed out without findings; parent source review and the listed tests were completed. The entire speech port and speed targets are not complete.
 
 The subsequent reader/window checkpoint is recorded separately in [streaming verification](../benchmarks/speech-foundations/stream-verification.json) so the earlier counts remain historical. A narrowly scoped delegated source review flagged inclusive byte-limit semantics; this was resolved by separating generic reader limits from FFmpeg's cap-reached rejection. No other blocking finding was reported in the three reviewed files, under the documented immutable-file assumptions. Race-detector tests and model-quality/throughput runs remain unperformed.
+
+The opt-in PCM inference checkpoint has separate [verification](../benchmarks/speech-foundations/pcm-verification.json): 33 passing test/subtest events, zero failures, two legacy asset-dependent tokenizer skips. Pinned public tiny/turbo tokenizer checks passed. Focused make targets, affected vet/audio builds and the exact full-tree baseline-error comparison passed. No real checkpoint or performance workload ran.
