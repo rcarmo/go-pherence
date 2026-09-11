@@ -15,6 +15,17 @@ export TMPDIR GOTMPDIR
 
 all: build
 
+# Focused speech-foundation checks: no model weights, driver initialisation,
+# service startup or performance benchmark. FFmpeg integration is opt-in below.
+.PHONY: speech-foundations-check speech-media-integration
+speech-foundations-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT)'
+	go vet -p=1 ./loader/audio ./loader/audio/media ./models/whisper
+
+speech-media-integration:
+	GO_PHERENCE_TEST_FFMPEG=1 GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=30s ./loader/audio/media -run TestFFmpegIntegration
+
 docs-check: docs-diagrams-check
 	bun run scripts/check-doc-links.ts
 	go test ./docs -count=1

@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"fmt"
 	"math"
 	"sync"
 
@@ -16,26 +17,49 @@ const (
 
 var whisperExactTables struct {
 	sync.Once
-	window  []float64
-	cosine  []float64
-	sine    []float64
-	filters []float64 // [bin, mel], matching Transformers
+	window     []float64
+	cosine     []float64
+	sine       []float64
+	filters    []float64 // [bin, mel], matching Transformers (80 bands)
+	filters128 []float64
 }
 
 // WhisperLogMel80 computes the Transformers WhisperFeatureExtractor contract:
 // centered reflect-padded 400-point STFT, periodic Hann window, Slaney-normalized
 // 80-bin mel projection, final-frame removal, log10 clamp and normalization.
 // Input is expected to be an already right-padded 30-second 16 kHz chunk.
+// For checked window/band validation use WhisperLogMel; invalid inputs here
+// return nil, 0.
 func WhisperLogMel80(samples []float32) ([]float32, int) {
-	if len(samples) < 2 {
-		return nil, 0
+	out, frames, _ := WhisperLogMel(samples, 80)
+	return out, frames
+}
+
+// WhisperLogMel implements the 80- or 128-band WhisperFeatureExtractor contract.
+// Input is mono 16 kHz PCM for one window (160..480000 samples). It does not
+// resample, right-pad or truncate: callers own windowing. Output is mel-major,
+// with floor(len(samples)/160) frames; sample-timeline mapping stays with callers.
+// Non-finite inputs and invalid shapes are rejected before allocation/dispatch.
+// This correctness-first DFT reuses the checked Plan 9 SIMD Ddot kernel; it is not
+// the planned high-throughput FFT implementation.
+func WhisperLogMel(samples []float32, numMels int) ([]float32, int, error) {
+	if numMels != 80 && numMels != 128 {
+		return nil, 0, fmt.Errorf("unsupported Whisper mel band count %d", numMels)
+	}
+	if len(samples) < whisperHop || len(samples) > 30*16000 {
+		return nil, 0, fmt.Errorf("Whisper window requires 160..480000 mono samples")
+	}
+	for _, value := range samples {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return nil, 0, fmt.Errorf("non-finite Whisper waveform")
+		}
 	}
 	allFrames := 1 + len(samples)/whisperHop
 	frames := allFrames - 1 // WhisperFeatureExtractor deliberately drops this.
 	if frames <= 0 {
-		return nil, 0
+		return nil, 0, nil
 	}
-	out := make([]float32, whisperMels*frames)
+	out := make([]float32, numMels*frames)
 	nonzero := false
 	for _, sample := range samples {
 		if sample != 0 {
@@ -47,9 +71,13 @@ func WhisperLogMel80(samples []float32) ([]float32, int) {
 		for i := range out {
 			out[i] = -1.5 // log10(1e-10), then (x+4)/4
 		}
-		return out, frames
+		return out, frames, nil
 	}
 	whisperExactTables.Do(initWhisperExactTables)
+	filters := whisperExactTables.filters
+	if numMels == 128 {
+		filters = whisperExactTables.filters128
+	}
 	centered := reflectCenter(samples, whisperFFTSize/2)
 	power := make([]float64, whisperBins)
 	windowed := make([]float64, whisperFFTSize)
@@ -69,10 +97,10 @@ func WhisperLogMel80(samples []float32) ([]float32, int) {
 			i := float64(float32(imag))
 			power[bin] = r*r + i*i
 		}
-		for mel := 0; mel < whisperMels; mel++ {
+		for mel := 0; mel < numMels; mel++ {
 			energy := float64(0)
 			for bin := 0; bin < whisperBins; bin++ {
-				energy += whisperExactTables.filters[bin*whisperMels+mel] * power[bin]
+				energy += filters[bin*numMels+mel] * power[bin]
 			}
 			if energy < 1e-10 {
 				energy = 1e-10
@@ -91,7 +119,7 @@ func WhisperLogMel80(samples []float32) ([]float32, int) {
 		}
 		out[i] = (value + 4) / 4
 	}
-	return out, frames
+	return out, frames, nil
 }
 
 func initWhisperExactTables() {
@@ -108,26 +136,29 @@ func initWhisperExactTables() {
 		}
 	}
 	t.filters = whisperSlaneyFilters()
+	t.filters128 = whisperSlaneyFiltersFor(128)
 }
 
-func whisperSlaneyFilters() []float64 {
+func whisperSlaneyFilters() []float64 { return whisperSlaneyFiltersFor(80) }
+
+func whisperSlaneyFiltersFor(numMels int) []float64 {
 	const sampleRate = 16000
 	melMin := slaneyHzToMel(0)
 	melMax := slaneyHzToMel(sampleRate / 2)
-	centers := make([]float64, whisperMels+2)
+	centers := make([]float64, numMels+2)
 	for i := range centers {
-		mel := melMin + float64(i)*(melMax-melMin)/float64(whisperMels+1)
+		mel := melMin + float64(i)*(melMax-melMin)/float64(numMels+1)
 		centers[i] = slaneyMelToHz(mel)
 	}
-	filters := make([]float64, whisperBins*whisperMels)
+	filters := make([]float64, whisperBins*numMels)
 	for bin := 0; bin < whisperBins; bin++ {
 		frequency := float64(bin) * float64(sampleRate/2) / float64(whisperBins-1)
-		for mel := 0; mel < whisperMels; mel++ {
+		for mel := 0; mel < numMels; mel++ {
 			down := (frequency - centers[mel]) / (centers[mel+1] - centers[mel])
 			up := (centers[mel+2] - frequency) / (centers[mel+2] - centers[mel+1])
 			weight := math.Max(0, math.Min(down, up))
 			weight *= 2 / (centers[mel+2] - centers[mel])
-			filters[bin*whisperMels+mel] = weight
+			filters[bin*numMels+mel] = weight
 		}
 	}
 	return filters
@@ -150,9 +181,21 @@ func slaneyMelToHz(mel float64) float64 {
 func reflectCenter(samples []float32, padding int) []float32 {
 	out := make([]float32, len(samples)+2*padding)
 	copy(out[padding:], samples)
+	// Repeated reflection matches numpy.pad for windows shorter than padding.
+	period := 2 * (len(samples) - 1)
+	reflectIndex := func(i int) int {
+		i %= period
+		if i < 0 {
+			i += period
+		}
+		if i >= len(samples) {
+			i = period - i
+		}
+		return i
+	}
 	for i := 0; i < padding; i++ {
-		out[padding-1-i] = samples[i+1]
-		out[padding+len(samples)+i] = samples[len(samples)-2-i]
+		out[i] = samples[reflectIndex(i-padding)]
+		out[padding+len(samples)+i] = samples[reflectIndex(len(samples)+i)]
 	}
 	return out
 }

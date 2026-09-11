@@ -22,6 +22,15 @@ func MelFlatFromSamples(samples []float32, cfg Config) ([]float32, int) {
 	return flattenMel(mel, cfg.NumMelBins)
 }
 
+// MelFlatFromSamplesChecked exposes the exact 400-point/Slaney frontend for
+// the integrated speech path. Supports 80 and 128 bands, including turbo.
+// Callers own 16 kHz resampling, windowing/right-padding and original timestamps.
+// The legacy frontend above is retained until real-checkpoint quality gates
+// qualify a default change; its 512-point GPU features are not an exact oracle.
+func MelFlatFromSamplesChecked(samples []float32, cfg Config) ([]float32, int, error) {
+	return audio.WhisperLogMel(samples, cfg.NumMelBins)
+}
+
 func flattenMel(mel [][]float32, numMels int) ([]float32, int) {
 	if len(mel) == 0 || len(mel[0]) == 0 || numMels <= 0 {
 		return nil, 0
