@@ -11,8 +11,8 @@ func (w *Whisper) validatePCMModel() error {
 		return fmt.Errorf("checked PCM transcription requires a loaded model")
 	}
 	c := w.Config
-	if (c.NumMelBins != 80 && c.NumMelBins != 128) || c.MaxLength < 1 || c.MaxLength > 3000 || c.MaxDecoderLength < 4 || c.MaxDecoderLength > 448 || c.EncoderDModel < 1 || c.EncoderDModel > 1280 || c.DecoderDModel != c.EncoderDModel || c.EncoderFFNDim < 1 || c.EncoderFFNDim > 5120 || c.DecoderFFNDim < 1 || c.DecoderFFNDim > 5120 || c.EncoderLayers < 0 || c.EncoderLayers > 32 || c.DecoderLayers < 0 || c.DecoderLayers > 32 || c.EncoderHeads < 1 || c.EncoderHeads > c.EncoderDModel || c.DecoderHeads < 1 || c.DecoderHeads > c.DecoderDModel || c.EncoderDModel%c.EncoderHeads != 0 || c.DecoderDModel%c.DecoderHeads != 0 || c.HeadDim != c.EncoderDModel/c.EncoderHeads || c.HeadDim != c.DecoderDModel/c.DecoderHeads || (c.VocabSize != 51865 && c.VocabSize != 51866) {
-		return fmt.Errorf("unsupported checked PCM model geometry")
+	if err := validatePCMConfig(c); err != nil {
+		return err
 	}
 	e, d := w.Encoder, w.Decoder
 	if e.cfg != c || d.cfg != c || len(e.Layers) != c.EncoderLayers || len(d.Layers) != c.DecoderLayers {
@@ -70,6 +70,15 @@ func (w *Whisper) validatePCMModel() error {
 		); err != nil {
 			return fmt.Errorf("decoder layer %d: %w", i, err)
 		}
+	}
+	return nil
+}
+
+// Bounds are checked before products/divisions or allocation. Zero transformer
+// layers are allowed for wiring fixtures; production callers use named configs.
+func validatePCMConfig(c Config) error {
+	if (c.NumMelBins != 80 && c.NumMelBins != 128) || c.MaxLength < 1 || c.MaxLength > 3000 || c.MaxDecoderLength < 4 || c.MaxDecoderLength > 448 || c.EncoderDModel < 1 || c.EncoderDModel > 1280 || c.DecoderDModel != c.EncoderDModel || c.EncoderFFNDim < 1 || c.EncoderFFNDim > 5120 || c.DecoderFFNDim < 1 || c.DecoderFFNDim > 5120 || c.EncoderLayers < 0 || c.EncoderLayers > 32 || c.DecoderLayers < 0 || c.DecoderLayers > 32 || c.EncoderHeads < 1 || c.EncoderHeads > c.EncoderDModel || c.DecoderHeads < 1 || c.DecoderHeads > c.DecoderDModel || c.EncoderDModel%c.EncoderHeads != 0 || c.DecoderDModel%c.DecoderHeads != 0 || c.HeadDim != c.EncoderDModel/c.EncoderHeads || c.HeadDim != c.DecoderDModel/c.DecoderHeads || (c.VocabSize != 51865 && c.VocabSize != 51866) {
+		return fmt.Errorf("unsupported checked PCM model geometry")
 	}
 	return nil
 }
