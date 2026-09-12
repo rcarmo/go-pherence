@@ -654,7 +654,9 @@ No Vulkan device or trained checkpoint ran. Native parity, recovery and CPU/full
 
 `NewVulkanSegmentationPCM` completes the explicit model-free composition for one fixed mono16k window: existing lowered-filter CPU SincNet feeds the resident Vulkan LSTM and copied CPU head. Sample count and derived feature grid are fixed at construction and checked again at execution. Only explicit ordered-FMA SincNet and checked CPU head modes are accepted. [PCM composition evidence](../benchmarks/speech-foundations/vulkan-segmentation-pcm-20260912/README.md) records fail-closed construction/forward/close behavior.
 
-Native transcendental parity, trained PCM output and placement measurements remain open, and existing strict SincNet failures are unchanged. No model/default selects these recurrent paths.
+`make speech-vulkan-community-native-check` provides the next explicit synthetic hardware gate. It requires both an opt-in flag and expected device substring, rejects software Vulkan and compares isolated block, full trunk/hybrid embedding, multilayer LSTM, feature-stage segmentation and fixed-window PCM segmentation against existing CPU paths with fixed diagnostic budgets. Allocation/state must return after each subtest. [Harness contract](../benchmarks/speech-foundations/vulkan-community-native-harness-20260912/README.md) is committed, but the gate has not been run.
+
+Native transcendental parity, trained PCM output and placement measurements remain open, and existing strict SincNet failures are unchanged. No model/default selects these paths.
 
 ### Experimental lowered SincNet filters and ordered FMA
 

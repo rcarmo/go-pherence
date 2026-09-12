@@ -45,9 +45,15 @@ speech-vulkan-community-check:
 
 # Explicit real-GPU qualification in a coordinated compute window. No models
 # or services; synthetic numerical fixtures and optional warm host-wall timing.
-.PHONY: speech-vulkan-native-check
+.PHONY: speech-vulkan-native-check speech-vulkan-community-native-check
 speech-vulkan-native-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_SPEECH=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeSpeech$$' -v
+
+# Synthetic Community-1 block/trunk/embedding/LSTM/PCM parity. Requires an
+# explicitly named hardware device and an authorised isolated compute window.
+speech-vulkan-community-native-check:
+	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY=1 go test -p=1 -count=1 -timeout=300s ./models/speaker/community1 -run '^TestVulkanCommunityNative$$' -v
 
 # Whole resident encoder graph: offline contracts or authorised synthetic GPU test.
 .PHONY: speech-vulkan-encoder-check speech-vulkan-encoder-native-check
