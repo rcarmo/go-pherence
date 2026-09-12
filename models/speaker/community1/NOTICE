@@ -51,6 +51,16 @@ centroids.go and assignment.go also adapt VBxClustering's strict-prior pruning,
 posterior-weighted original-space centroids, cosine scores and inactive-row
 penalty from the same MIT clustering.py. Changes: float64/bounded validation,
 owned outputs, explicit undefined-cosine rejection and context cancellation.
+reconstruct.go/turns.go adapt MIT pyannote.audio reconstruction/aggregation
+and Binarize, plus pyannote.core frame/interval semantics (Copyright (c)
+2014-2021 CNRS; 2022- CNRS). At the same audio commit, source SHA256:
+pipelines/utils/diarization.py: 14740a7286606c208db993d29fde5703d8323205959b7e7658069f385c2a63a5
+core/inference.py: c29f525c93a1a5c6bd0a9475ae4fb8c73ce9b48cf9735301302eb99886ad7d41
+utils/signal.py: 334e6b9ca1a6e472dbc9b1562e6cdeb27940d13bd6eef8d4636a692a6ac4ab16
+pyannote.core segment/feature/annotation/timeline hashes are pinned in the
+reconstruction fixture generator. Changes: bounded owned binary powerset path,
+no-warmup aggregation, explicit ambiguity rejection or stable tie alternative,
+frame-centre intervals, cancellation, output/work bounds. No neural integration.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.
 
 Apache-2.0 WeSpeaker BasicBlock/ResNet34 adaptations (resnet_block.go, resnet.go)
