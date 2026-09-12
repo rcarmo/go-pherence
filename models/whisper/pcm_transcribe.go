@@ -16,6 +16,12 @@ type PCMTranscribeOptions struct {
 	MaxNewTokens             int                      // zero uses the model position limit minus the 3-token prompt
 	MaxInitialTimestampIndex int                      // 20ms units; zero forces 0.00 unless Generation supplies it
 	Generation               *CheckedGenerationConfig // optional immutable HF generation policy; no decoder mutation
+	// Optional caller-owned fixed-MaxLength resident encoder. Host w.Encoder
+	// may be released/nil after resident construction. Pair with the
+	// decoder from the same checkpoint; geometry admission cannot prove identity.
+	// Caller excludes Close/other use throughout transcription and handles any
+	// retained submission with VulkanDrain before reuse/Close. Nil keeps CPU path.
+	VulkanEncoder *VulkanEncoder
 }
 
 // WindowTranscript contains raw per-window output in canonical PCM seconds.
@@ -46,10 +52,15 @@ var pcmInferenceGate = make(chan struct{}, 1)
 // more than 10000 windows (never silently truncating). Retention is caller-owned.
 // Context is checked between frontend frames, encoder operators, cross-KV
 // projections and decoder tokens. A running kernel/allocation/reorder is not
-// interruptible; no wall-clock cancellation deadline is claimed. No work survives
-// the return. Backend flags retain their existing meanings; resident Vulkan and
-// real-checkpoint quality/performance qualification are separate work.
+// interruptible; no wall-clock cancellation deadline is claimed. CPU work does
+// not survive return. With opts.VulkanEncoder, timeout/cancellation may retain a
+// native submission; the error preserves ErrVulkanInFlight and the caller must
+// drain before reuse/Close. No hidden CPU fallback. This call does not close the
+// resident encoder. Backend flags and legacy APIs retain their existing meanings.
 func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader, totalSamples int64, tokenizer *Tokenizer, opts PCMTranscribeOptions, emit func(WindowTranscript) error) error {
+	if ctx == nil {
+		return fmt.Errorf("checked PCM transcription requires context")
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -65,8 +76,13 @@ func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader,
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := w.validatePCMModel(); err != nil {
+	if err := w.validatePCMModelForEncoder(opts.VulkanEncoder != nil); err != nil {
 		return err
+	}
+	if opts.VulkanEncoder != nil {
+		if err := opts.VulkanEncoder.checkPCMConfig(ctx, w.Config); err != nil {
+			return err
+		}
 	}
 	v, err := checkedTimestampVocabulary(w.Config, tokenizer, opts.Language)
 	if err != nil {
@@ -98,7 +114,12 @@ func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader,
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		output, err := w.Encoder.ForwardContext(ctx, mel, frames)
+		var output []float32
+		if opts.VulkanEncoder != nil {
+			output, err = opts.VulkanEncoder.Forward(ctx, mel)
+		} else {
+			output, err = w.Encoder.ForwardContext(ctx, mel, frames)
+		}
 		if err != nil {
 			return nil, err
 		}

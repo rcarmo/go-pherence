@@ -6,8 +6,12 @@ import "fmt"
 // reach unchecked slices or the legacy loader's nil-weight fallbacks. Models
 // must stay immutable after validation. This checks lengths/layout contracts;
 // tensor dtype, source shape/provenance and numerical parity require loader gates.
-func (w *Whisper) validatePCMModel() error {
-	if w == nil || w.Encoder == nil || w.Decoder == nil {
+func (w *Whisper) validatePCMModel() error { return w.validatePCMModelForEncoder(false) }
+
+// resident=true validates the host decoder/config only. The resident encoder
+// separately validates its immutable geometry/lifetime; no host encoder retained.
+func (w *Whisper) validatePCMModelForEncoder(resident bool) error {
+	if w == nil || (!resident && w.Encoder == nil) || w.Decoder == nil {
 		return fmt.Errorf("checked PCM transcription requires a loaded model")
 	}
 	c := w.Config
@@ -15,7 +19,7 @@ func (w *Whisper) validatePCMModel() error {
 		return err
 	}
 	e, d := w.Encoder, w.Decoder
-	if e.cfg != c || d.cfg != c || len(e.Layers) != c.EncoderLayers || len(d.Layers) != c.DecoderLayers {
+	if d.cfg != c || len(d.Layers) != c.DecoderLayers || (!resident && (e.cfg != c || len(e.Layers) != c.EncoderLayers)) {
 		return fmt.Errorf("model/config mismatch")
 	}
 	type tensor struct {
@@ -33,28 +37,34 @@ func (w *Whisper) validatePCMModel() error {
 		return nil
 	}
 	m, ff := c.EncoderDModel, c.EncoderFFNDim
-	if len(e.PosEmbed) != ((c.MaxLength+1)/2)*m && len(e.PosEmbed) != c.MaxLength*m {
-		return fmt.Errorf("invalid encoder position embedding length")
+	if !resident {
+		if len(e.PosEmbed) != ((c.MaxLength+1)/2)*m && len(e.PosEmbed) != c.MaxLength*m {
+			return fmt.Errorf("invalid encoder position embedding length")
+		}
+		if err := check(
+			tensor{"conv1.weight", e.Conv1Weight, m * c.NumMelBins * 3, false}, tensor{"conv1.bias", e.Conv1Bias, m, false},
+			tensor{"conv2.weight", e.Conv2Weight, m * m * 3, false}, tensor{"conv2.bias", e.Conv2Bias, m, false},
+			tensor{"encoder.layer_norm.weight", e.FinalLNWeight, m, false}, tensor{"encoder.layer_norm.bias", e.FinalLNBias, m, false},
+		); err != nil {
+			return err
+		}
+		for i, l := range e.Layers {
+			if err := check(
+				tensor{"attn_ln.weight", l.AttnLNWeight, m, false}, tensor{"attn_ln.bias", l.AttnLNBias, m, false},
+				tensor{"q.weight", l.QWeight, m * m, false}, tensor{"q.bias", l.QBias, m, false}, tensor{"k.weight", l.KWeight, m * m, false}, tensor{"k.bias", l.KBias, m, true},
+				tensor{"v.weight", l.VWeight, m * m, false}, tensor{"v.bias", l.VBias, m, false}, tensor{"o.weight", l.OWeight, m * m, false}, tensor{"o.bias", l.OBias, m, false},
+				tensor{"mlp_ln.weight", l.MLPLNWeight, m, false}, tensor{"mlp_ln.bias", l.MLPLNBias, m, false},
+				tensor{"fc1.weight", l.FC1Weight, ff * m, false}, tensor{"fc1.bias", l.FC1Bias, ff, false}, tensor{"fc2.weight", l.FC2Weight, m * ff, false}, tensor{"fc2.bias", l.FC2Bias, m, false},
+			); err != nil {
+				return fmt.Errorf("encoder layer %d: %w", i, err)
+			}
+		}
 	}
 	if err := check(
-		tensor{"conv1.weight", e.Conv1Weight, m * c.NumMelBins * 3, false}, tensor{"conv1.bias", e.Conv1Bias, m, false},
-		tensor{"conv2.weight", e.Conv2Weight, m * m * 3, false}, tensor{"conv2.bias", e.Conv2Bias, m, false},
-		tensor{"encoder.layer_norm.weight", e.FinalLNWeight, m, false}, tensor{"encoder.layer_norm.bias", e.FinalLNBias, m, false},
 		tensor{"decoder.embed_tokens", d.TokenEmbed, c.VocabSize * m, false}, tensor{"decoder.embed_positions", d.PosEmbed, c.MaxDecoderLength * m, false},
 		tensor{"decoder.layer_norm.weight", d.FinalLNWeight, m, false}, tensor{"decoder.layer_norm.bias", d.FinalLNBias, m, false},
 	); err != nil {
 		return err
-	}
-	for i, l := range e.Layers {
-		if err := check(
-			tensor{"attn_ln.weight", l.AttnLNWeight, m, false}, tensor{"attn_ln.bias", l.AttnLNBias, m, false},
-			tensor{"q.weight", l.QWeight, m * m, false}, tensor{"q.bias", l.QBias, m, false}, tensor{"k.weight", l.KWeight, m * m, false}, tensor{"k.bias", l.KBias, m, true},
-			tensor{"v.weight", l.VWeight, m * m, false}, tensor{"v.bias", l.VBias, m, false}, tensor{"o.weight", l.OWeight, m * m, false}, tensor{"o.bias", l.OBias, m, false},
-			tensor{"mlp_ln.weight", l.MLPLNWeight, m, false}, tensor{"mlp_ln.bias", l.MLPLNBias, m, false},
-			tensor{"fc1.weight", l.FC1Weight, ff * m, false}, tensor{"fc1.bias", l.FC1Bias, ff, false}, tensor{"fc2.weight", l.FC2Weight, m * ff, false}, tensor{"fc2.bias", l.FC2Bias, m, false},
-		); err != nil {
-			return fmt.Errorf("encoder layer %d: %w", i, err)
-		}
 	}
 	ff = c.DecoderFFNDim
 	for i, l := range d.Layers {

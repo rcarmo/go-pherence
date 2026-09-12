@@ -1,0 +1,230 @@
+{
+  "checkpoint": "Pinned trained Tiny resident encoder + checked PCM decoder bridge",
+  "created": "2026-09-12T07:21:07.831Z",
+  "baseline": "f1460a0",
+  "branch": "feat/speech-simd-vulkan",
+  "checkpointSource": {
+    "repo": "openai/whisper-tiny",
+    "revision": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",
+    "assets": {
+      "model.safetensors": {
+        "bytes": 151061672,
+        "sha256": "7ebd0e69e78190ffe1438491fa05cc1f5c1aa3a4c4db3bc1723adbb551ea2395"
+      },
+      "config.json": {
+        "bytes": 1983,
+        "sha256": "ffdccec4f3211f4c63310f2b7098f309fe70f3952cedc5e4d11e43f5b2379b98"
+      },
+      "tokenizer.json": {
+        "bytes": 2480466,
+        "sha256": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566"
+      },
+      "generation_config.json": {
+        "bytes": 3747,
+        "sha256": "a5d5325911f16e74001a72fa13d6e208eee51548f994646de1f4b4cc8b35b512"
+      }
+    },
+    "tensors": 167,
+    "dtype": "F32",
+    "loader": "LoadModelSourceChecked; sourceclosed afterownedcopy",
+    "license": "Apache-2.0 per pinnedmodelcard",
+    "modelCardSHA256": "57a3bbbbf1e79369e4d1ced790812a1723b43a256c1b43fc70cc2f3339ae9881",
+    "weightsCommitted": false
+  },
+  "execution": {
+    "nativeGPU": "IntelIrisXeRPL-P",
+    "authorised": true,
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "driverSHA256": "2774f6ed2ea7259d5c7bb92301c4f86bd79dc2df8a91a23d8a6a957cbca8e8e3",
+    "speechInput": false,
+    "servicesStarted": false,
+    "push": false
+  },
+  "offline": {
+    "passEvents": 29,
+    "topLevel": 9,
+    "fail": 0,
+    "skip": 0
+  },
+  "shuffle30": {
+    "passEvents": 870,
+    "topLevel": 270,
+    "fail": 0,
+    "skip": 0
+  },
+  "trained": {
+    "passEvents": 9,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0,
+    "comparisons": 54,
+    "values": 760545,
+    "maxEncoderAbs": 0.00002384185791015625,
+    "maxCrossAbs": 0.000014066696166992188,
+    "maxLogitAbs": 0.000087738037109375,
+    "top1": [
+      50362,
+      50358,
+      11
+    ],
+    "budgets": "fixedpreexecution encoder1e-3abs+2e-4rel,cross2e-3abs+3e-4rel,logits1e-2abs+5e-4rel",
+    "fullShape": [
+      {
+        "construct_ns": 20228202,
+        "forward_ns": [
+          283343128,
+          260076133,
+          258558904
+        ],
+        "output_sha256": "08125fb8596d86c8cd63da8f0187a41cc5ad173e0e9c80fcb31ad1035a0af488",
+        "repeat_bit_exact": true,
+        "scalar_full_reference": false,
+        "speech_input": false,
+        "stats": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 384,
+          "Layers": 4,
+          "Plans": 6,
+          "Stages": 54,
+          "WeightBytes": 32839680,
+          "ScratchBytes": 28608000
+        },
+        "values": 576000
+      },
+      {
+        "construct_ns": 21159669,
+        "forward_ns": [
+          272773065,
+          263711309,
+          263020140
+        ],
+        "output_sha256": "08125fb8596d86c8cd63da8f0187a41cc5ad173e0e9c80fcb31ad1035a0af488",
+        "repeat_bit_exact": true,
+        "scalar_full_reference": false,
+        "speech_input": false,
+        "stats": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 384,
+          "Layers": 4,
+          "Plans": 6,
+          "Stages": 54,
+          "WeightBytes": 32839680,
+          "ScratchBytes": 28608000
+        },
+        "values": 576000
+      },
+      {
+        "construct_ns": 20066819,
+        "forward_ns": [
+          276214433,
+          259895657,
+          258608599
+        ],
+        "output_sha256": "08125fb8596d86c8cd63da8f0187a41cc5ad173e0e9c80fcb31ad1035a0af488",
+        "repeat_bit_exact": true,
+        "scalar_full_reference": false,
+        "speech_input": false,
+        "stats": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 384,
+          "Layers": 4,
+          "Plans": 6,
+          "Stages": 54,
+          "WeightBytes": 32839680,
+          "ScratchBytes": 28608000
+        },
+        "values": 576000
+      }
+    ],
+    "fullReference": false,
+    "noWER": true
+  },
+  "nativeBridge": {
+    "passEvents": 27,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0,
+    "bridgeRepeats": 3,
+    "scope": "two-windowtoyEOTcallbacks equal;poisoned/nilCPUencoderbypassed,callbackerrors,closedbeforeaudio",
+    "noSpeechQuality": true
+  },
+  "integration": {
+    "option": "PCMTranscribeOptions.VulkanEncoder",
+    "default": "nilCPUunchanged",
+    "hostEncoder": "maybenilwhenresident;decodertensorsalwayschecked",
+    "identity": "callerensuressamecheckpoint;geometryonlyadmission",
+    "ownership": "callerowns/excludesotheruse/Close;PCMneitherclosesnordrains",
+    "failure": "errorspreserveErrVulkanInFlight;failedwindownotemitted;noCPUfallback"
+  },
+  "review": {
+    "initial": "foundunnecessaryhostencoderretention",
+    "fix": "splitvalidationresidentdecoderonly/fulllegacy;nilhostnativeregression",
+    "followup": "no scopeddecodercheck/nil/legacyregression"
+  },
+  "checks": {
+    "makeRegression": "PASS allfocused",
+    "trainedMake": "PASS",
+    "vet": "PASS affected",
+    "amd64Build": "PASS",
+    "fullBuild": "FAIL exactbaseline",
+    "backendCompile": "FAIL exactbaseline",
+    "WhisperArm64": "FAIL exactbaselineFFThelpers",
+    "race": "gccabsent",
+    "optInDisabled": "expectedskipbeforeload",
+    "diffCheck": "PASS",
+    "checkedDocLinks": 94
+  },
+  "resources": {
+    "swapBefore": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "swapAfter": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "services": "LLM+bothspeechinactiveMainPID0",
+    "snapshotsOnly": true
+  },
+  "limitations": [
+    "Trainedshortsyntheticfeatures;nofullsequencescalaroracle.",
+    "FullTinyencoder finite/repeatable only;nottranscribedrealPCM/publiccorpus/quality.",
+    "ToyPCMbridge isnotspeechquality;prompt3tokenlogitcompare notautoregqual.",
+    "NoTurbo/quantisation/device-lossrecovery/wholejobspeed.",
+    "SincNetstrict4FAILunchanged;racegccabsent."
+  ],
+  "sourceHashes": {
+    "Makefile": "0c8f856c2647a55bc4de6b89dae5b0c5cb2c324901649e486be993813c7f90c4",
+    "models/whisper/pcm_transcribe.go": "fe0087d8ca6ace0aa0c8ad0d753d0e2ef6e6c4640ac9de32351a772678efbc42",
+    "models/whisper/pcm_model_check.go": "9a5caf4b5f4c3326dd9beb02a13c9f77fcff8c7680cc307217d05b24ae667675",
+    "models/whisper/vulkan_encoder.go": "cc0a3ba0219cc60f6e98589a6a883e8c016f84cdafc6eaadb4c0525d23e4bf18",
+    "models/whisper/pcm_vulkan_test.go": "34fc824b2bc9ea13b635a8b257cc8b93b3d25a999c74283d94c9fbc034fd1164",
+    "models/whisper/vulkan_trained_test.go": "17568cdee0adc359eae251aa58038254bfeaeb4c82e9bf9c1d3268a5e4345867",
+    "models/whisper/vulkan_encoder_native_test.go": "6fb886e6c929bb4783d070642a7bb81d9c284d703d555fb1a66277ec2bf7d291",
+    "docs/speech-integration.md": "aec4ef11ca2d139dd790a8ce991a5da896eb3cc93e30349d26f2f139962701e5",
+    "benchmarks/speech-foundations/README.md": "40bcef9db500df72020537d805e44a608ec6c10327e878929f7f4fc7a780597b"
+  },
+  "evidenceHashes": {
+    "README.md": "fecda20d9aa6a806d302a7cf7610f8207508be214ddae5580ea2b71ea5f58e8a",
+    "trained-tests.jsonl": "f21739507958458287a7346357a15f4263b62cb92f9d324545bc7320e0cf3b41",
+    "native-bridge-tests.jsonl": "bb59fca26271f9306dc5ea00ee93ffd958f66162a0b52f74a0a1bde34d253259",
+    "offline-tests.jsonl": "0ba985eebb6ffb692e2ead03d77e34c64fe23c0b32931dbb407fa6e4eef7f7a0",
+    "regressions.txt": "effe0364d8b49c97ac0ca8d607259ae1962bd1dbd20ecde6a05c4b6a32e32be9",
+    "trained-make.txt": "2b5dd322029d8265be0feaed146a9f3ca88a79694c1419deb40e3d9e7d8345ba",
+    "optin-disabled.txt": "ebc7b7d5b81a5dddffe9236c047ae7ba5b1369dd2ceb01ad2b949ccca86b7c3c",
+    "before.txt": "01971b5f174ce64fe7a743481eb11899954805ef659babd7a742e1638cb717af",
+    "after.txt": "d6d9ba3f2d5271c136e60cc3c5f34f9b43676e02ef853a6c90861dbd5d99d04d",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "arm64-errors.txt": "9199e52a925d41bfeba06e35a6fe2c620e1e9efcf98477136784ff7164399971",
+    "race-unavailable.txt": "e26404791a357fb6f5409cd6212adff4de9063139a8c0ef94d4c29b93dc41411",
+    "initial-full-trained.jsonl": "8061e56298bbded76d0ce86d94c0c5f7504b73dc0ff6b39bc9b42fb4e4e1308f",
+    "shuffle-tests.jsonl.gz": "4affd0662db5806a49f91e35e1083a1306b4ddb7f4251eaa8625238e585e7633",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "metrics.json": "9affb5ee264201a034b2dd5f184f67f409383ce4cdbbdc11972f3a3ce72dd2ed"
+  }
+}

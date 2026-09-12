@@ -1,0 +1,32 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TRAINED=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanEncoderTrainedTiny$' -v
+=== RUN   TestVulkanEncoderTrainedTiny
+    vulkan_trained_test.go:81: TRAINED_CHECKPOINT revision=169d4a4341b33bc18d8881c4b69c2e104e1cc0af sha256=7ebd0e69e78190ffe1438491fa05cc1f5c1aa3a4c4db3bc1723adbb551ea2395 device=Intel(R) Iris(R) Xe Graphics (RPL-P)
+=== RUN   TestVulkanEncoderTrainedTiny/trained-short-boundaries-decoder
+    vulkan_trained_test.go:114: TRAINED_METRIC {"abs_budget":0.001,"max_abs":0.0000011920928955078125,"name":"boundary0","rel_budget":0.0002,"values":6528}
+    vulkan_trained_test.go:114: TRAINED_METRIC {"abs_budget":0.001,"max_abs":0.000003337860107421875,"name":"boundary1","rel_budget":0.0002,"values":6528}
+    vulkan_trained_test.go:114: TRAINED_METRIC {"abs_budget":0.001,"max_abs":0.000004291534423828125,"name":"boundary2","rel_budget":0.0002,"values":6528}
+    vulkan_trained_test.go:114: TRAINED_METRIC {"abs_budget":0.001,"max_abs":0.000007152557373046875,"name":"boundary3","rel_budget":0.0002,"values":6528}
+    vulkan_trained_test.go:114: TRAINED_METRIC {"abs_budget":0.001,"max_abs":0.000019073486328125,"name":"boundary4","rel_budget":0.0002,"values":6528}
+    vulkan_trained_test.go:114: TRAINED_METRIC {"abs_budget":0.001,"max_abs":0.00002384185791015625,"name":"boundary5","rel_budget":0.0002,"values":6528}
+    vulkan_trained_test.go:120: TRAINED_METRIC {"abs_budget":0.001,"max_abs":0.00002384185791015625,"name":"short-final","rel_budget":0.0002,"values":6528}
+    vulkan_trained_test.go:130: TRAINED_METRIC {"abs_budget":0.002,"max_abs":0.00001049041748046875,"name":"crossK0","rel_budget":0.0003,"values":6528}
+    vulkan_trained_test.go:131: TRAINED_METRIC {"abs_budget":0.002,"max_abs":0.000005424022674560547,"name":"crossV0","rel_budget":0.0003,"values":6528}
+    vulkan_trained_test.go:130: TRAINED_METRIC {"abs_budget":0.002,"max_abs":0.000010438263416290283,"name":"crossK1","rel_budget":0.0003,"values":6528}
+    vulkan_trained_test.go:131: TRAINED_METRIC {"abs_budget":0.002,"max_abs":0.000009655952453613281,"name":"crossV1","rel_budget":0.0003,"values":6528}
+    vulkan_trained_test.go:130: TRAINED_METRIC {"abs_budget":0.002,"max_abs":0.0000095367431640625,"name":"crossK2","rel_budget":0.0003,"values":6528}
+    vulkan_trained_test.go:131: TRAINED_METRIC {"abs_budget":0.002,"max_abs":0.000007271766662597656,"name":"crossV2","rel_budget":0.0003,"values":6528}
+    vulkan_trained_test.go:130: TRAINED_METRIC {"abs_budget":0.002,"max_abs":0.000014066696166992188,"name":"crossK3","rel_budget":0.0003,"values":6528}
+    vulkan_trained_test.go:131: TRAINED_METRIC {"abs_budget":0.002,"max_abs":0.00001055002212524414,"name":"crossV3","rel_budget":0.0003,"values":6528}
+    vulkan_trained_test.go:136: TRAINED_METRIC {"abs_budget":0.01,"max_abs":0.000087738037109375,"name":"prompt-logits0","rel_budget":0.0005,"values":51865}
+    vulkan_trained_test.go:149: TRAINED_TOP1 step=0 token=50362
+    vulkan_trained_test.go:136: TRAINED_METRIC {"abs_budget":0.01,"max_abs":0.0000095367431640625,"name":"prompt-logits1","rel_budget":0.0005,"values":51865}
+    vulkan_trained_test.go:149: TRAINED_TOP1 step=1 token=50358
+    vulkan_trained_test.go:136: TRAINED_METRIC {"abs_budget":0.01,"max_abs":0.0000209808349609375,"name":"prompt-logits2","rel_budget":0.0005,"values":51865}
+    vulkan_trained_test.go:149: TRAINED_TOP1 step=2 token=11
+=== RUN   TestVulkanEncoderTrainedTiny/trained-full-shape-repeat
+    vulkan_trained_test.go:203: TRAINED_FULL {"construct_ns":21060229,"forward_ns":[287749432,261185713,260641125],"output_sha256":"08125fb8596d86c8cd63da8f0187a41cc5ad173e0e9c80fcb31ad1035a0af488","repeat_bit_exact":true,"scalar_full_reference":false,"speech_input":false,"stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":32839680,"ScratchBytes":28608000},"values":576000}
+--- PASS: TestVulkanEncoderTrainedTiny (1.36s)
+    --- PASS: TestVulkanEncoderTrainedTiny/trained-short-boundaries-decoder (0.23s)
+    --- PASS: TestVulkanEncoderTrainedTiny/trained-full-shape-repeat (0.85s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	1.380s

@@ -24,6 +24,7 @@ type vulkanEncoderState struct {
 	gate             chan struct{}
 	stopping, closed bool
 	stats            VulkanEncoderStats
+	config           Config // immutable source geometry for checked PCM admission
 	resources        []vkEncoderCloser
 	plans            []*vk.VkF32Plan
 	input, output    *vk.VkTensorF32
@@ -61,7 +62,7 @@ func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (result 
 			return nil, fmt.Errorf("whisper Vulkan: arena%d exceeds device range", i)
 		}
 	}
-	s := &vulkanEncoderState{gate: make(chan struct{}, 1), stats: VulkanEncoderStats{Frames: frames, Rows: layout.rows, Width: layout.cfg.EncoderDModel, Layers: layout.cfg.EncoderLayers, Plans: len(layout.plans), ScratchBytes: sizes[len(sizes)-1]}}
+	s := &vulkanEncoderState{gate: make(chan struct{}, 1), config: layout.cfg, stats: VulkanEncoderStats{Frames: frames, Rows: layout.rows, Width: layout.cfg.EncoderDModel, Layers: layout.cfg.EncoderLayers, Plans: len(layout.plans), ScratchBytes: sizes[len(sizes)-1]}}
 	for _, n := range sizes[:len(sizes)-1] {
 		s.stats.WeightBytes += n
 	}
@@ -205,6 +206,25 @@ func (e *VulkanEncoder) Stats() VulkanEncoderStats {
 		return VulkanEncoderStats{}
 	}
 	return e.s.stats
+}
+
+// checkPCMConfig checks geometry/lifetime, not weight identity. The caller must
+// pair this owned encoder with the decoder from the same checkpoint and exclude
+// Close/other uses for the entire checked transcription call.
+func (e *VulkanEncoder) checkPCMConfig(ctx context.Context, c Config) error {
+	s, err := e.acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { <-s.gate }()
+	if s.stopping || s.closed {
+		return vk.ErrVulkanClosed
+	}
+	v := s.config
+	if s.stats.Frames != c.MaxLength || v.MaxLength != c.MaxLength || v.NumMelBins != c.NumMelBins || v.EncoderDModel != c.EncoderDModel || v.EncoderLayers != c.EncoderLayers || v.EncoderHeads != c.EncoderHeads || v.HeadDim != c.HeadDim || v.EncoderFFNDim != c.EncoderFFNDim {
+		return fmt.Errorf("whisper Vulkan: checked PCM encoder geometry mismatch")
+	}
+	return nil
 }
 func (e *VulkanEncoder) Forward(ctx context.Context, mel []float32) ([]float32, error) {
 	s, err := e.acquire(ctx)

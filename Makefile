@@ -32,10 +32,15 @@ speech-vulkan-native-check:
 # Whole resident encoder graph: offline contracts or authorised synthetic GPU test.
 .PHONY: speech-vulkan-encoder-check speech-vulkan-encoder-native-check
 speech-vulkan-encoder-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^TestVulkanEncoder(Layout|RejectsBeforeDevice|Ownership)$$'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^Test(VulkanEncoder(Layout|RejectsBeforeDevice|Ownership)|PCMVulkan.*)$$'
 
 speech-vulkan-encoder-native-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_ENCODER=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanEncoderNative$$' -v
+
+# Pinned trained Tiny, no implicit downloads. Optional FULL_TINY gate is in test.
+.PHONY: speech-vulkan-trained-tiny-check
+speech-vulkan-trained-tiny-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TRAINED=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanEncoderTrainedTiny$$' -v
 
 # Optional offline validator/compiler qualification. Explicit new output path;
 # missing tools fail (never skip). No Vulkan loader/device or model execution.
@@ -51,7 +56,7 @@ speech-affine-check:
 
 speech-foundations-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media ./loader/numpy
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|PCMVulkan|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1
 	go vet -p=1 ./loader/audio ./loader/audio/media ./loader/numpy ./models/whisper ./models/speaker/community1
 

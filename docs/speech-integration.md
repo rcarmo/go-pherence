@@ -558,6 +558,14 @@ Three reduced complete configurations, each with odd/even frame counts, pass thr
 
 [Encoder verification](../benchmarks/speech-foundations/vulkan-encoder-20260912/README.md) records ownership, shape bounds, close/retry semantics and limitations. Whisper arm64 cross-build fails identically with all new encoder files excluded due to baseline FFT helpers; Vulkan arm64 cross-build and affected amd64 builds pass. Services stay stopped and swap counters are unchanged. Full-size/trained checkpoint quality, quantisation, decoder integration and device-loss recovery are unfinished.
 
+### Trained Tiny and checked PCM bridge
+
+`PCMTranscribeOptions.VulkanEncoder` now routes exact PCM windows through a caller-owned resident encoder and the existing Go cross-KV/decoder/timestamp path. Nil keeps CPU behaviour. Resident geometry/lifetime and all host decoder tensors are validated before audio reads; `w.Encoder` may be released/nil. Pair the encoder and decoder from the same checkpoint and exclude Close/other use for the call. The PCM path does not close or drain the encoder; errors retain `ErrVulkanInFlight` when caller drain is required. There is no hidden CPU fallback.
+
+Pinned multilingual Whisper Tiny F32 weights (`169d4a4341b33bc18d8881c4b69c2e104e1cc0af`, SHA256 `7ebd0e69e78190ffe1438491fa05cc1f5c1aa3a4c4db3bc1723adbb551ea2395`) pass three short trained-width/depth reference runs: 54 comparisons/760,545 values across encoder boundaries, cross-KV and prompt logits. Maximum differences are 2.39e-5/1.41e-5/8.78e-5 respectively, with all three raw top-1 prompt outputs matching. Nine full 3000-frame Tiny forwards are finite and bit-exact across repeats. Synthetic features were used; there is no full-length scalar oracle or speech-quality/RTF claim.
+
+[Trained Tiny/bridge evidence](../benchmarks/speech-foundations/vulkan-tiny-bridge-20260912/README.md) includes model/config hashes, licence provenance, fixed budgets and initial/final logs. The native toy two-window PCM bridge passes with poisoned or absent host encoder weights; callback errors and closed-before-read admission pass. Real speech/WER, turbo, quantisation and device-loss recovery remain unfinished. Services stay stopped; no push, restart or deployment.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

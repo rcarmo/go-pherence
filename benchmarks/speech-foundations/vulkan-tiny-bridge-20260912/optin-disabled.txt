@@ -1,0 +1,8 @@
+=== RUN   TestVulkanEncoderNative
+    vulkan_encoder_native_test.go:115: explicit native encoder compute window required
+--- SKIP: TestVulkanEncoderNative (0.00s)
+=== RUN   TestVulkanEncoderTrainedTiny
+    vulkan_trained_test.go:25: explicit trained Vulkan compute opt-in required
+--- SKIP: TestVulkanEncoderTrainedTiny (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.004s

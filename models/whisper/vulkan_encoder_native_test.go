@@ -301,4 +301,8 @@ func TestVulkanEncoderNative(t *testing.T) {
 		return
 	}
 	nativeEncoderMemory(t, before)
+	if !t.Run("PCM-bridge", nativePCMVulkanBridge) {
+		return
+	}
+	nativeEncoderMemory(t, before)
 }
