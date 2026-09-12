@@ -1,0 +1,1550 @@
+2026-09-12T09:55:28+01:00
+MemAvailable:   28705584 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 go
+ 4.2 bun
+ 0.6 telegraf
+ 0.2 avahi-daemon
+2026-09-12T09:55:29+01:00
+MemAvailable:   28583556 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 link
+13.7 go
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:55:30+01:00
+MemAvailable:   28574556 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+98.7 whisper.test
+ 8.3 go
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:55:31+01:00
+MemAvailable:   27881416 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 whisper.test
+ 5.5 go
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:55:32+01:00
+MemAvailable:   26804896 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 whisper.test
+ 4.2 bun
+ 4.1 go
+ 0.6 telegraf
+2026-09-12T09:55:33+01:00
+MemAvailable:   25690064 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 whisper.test
+ 4.2 bun
+ 3.3 go
+ 0.6 telegraf
+2026-09-12T09:55:34+01:00
+MemAvailable:   24732060 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 whisper.test
+ 4.2 bun
+ 2.7 go
+ 0.6 telegraf
+2026-09-12T09:55:35+01:00
+MemAvailable:   24462072 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 whisper.test
+ 4.2 bun
+ 2.3 go
+ 0.6 telegraf
+2026-09-12T09:55:36+01:00
+MemAvailable:   21568808 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 whisper.test
+ 4.2 bun
+ 2.0 go
+ 0.6 telegraf
+2026-09-12T09:55:37+01:00
+MemAvailable:   20106036 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+99.8 whisper.test
+ 4.2 bun
+ 1.8 go
+ 0.6 telegraf
+2026-09-12T09:55:38+01:00
+MemAvailable:   19026712 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ffmpeg
+92.0 whisper.test
+ 4.2 bun
+ 1.6 go
+2026-09-12T09:55:39+01:00
+MemAvailable:   18835472 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+84.4 whisper.test
+ 4.2 bun
+ 1.5 go
+2026-09-12T09:55:40+01:00
+MemAvailable:   18851532 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+76.6 whisper.test
+ 4.2 bun
+ 1.3 go
+2026-09-12T09:55:41+01:00
+MemAvailable:   18854596 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+70.6 whisper.test
+ 4.2 bun
+ 1.2 go
+ 0.6 telegraf
+2026-09-12T09:55:42+01:00
+MemAvailable:   18855980 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+65.2 whisper.test
+ 4.2 bun
+ 1.1 go
+2026-09-12T09:55:43+01:00
+MemAvailable:   18859120 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+60.9 whisper.test
+ 4.2 bun
+ 1.1 go
+2026-09-12T09:55:45+01:00
+MemAvailable:   18864140 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+57.0 whisper.test
+ 4.2 bun
+ 1.0 go
+2026-09-12T09:55:46+01:00
+MemAvailable:   18865284 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+53.7 whisper.test
+ 4.2 bun
+ 0.9 go
+2026-09-12T09:55:47+01:00
+MemAvailable:   18868848 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+50.8 whisper.test
+ 4.2 bun
+ 0.9 go
+ 0.6 telegraf
+2026-09-12T09:55:48+01:00
+MemAvailable:   18873312 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+48.2 whisper.test
+ 4.2 bun
+ 0.8 go
+2026-09-12T09:55:49+01:00
+MemAvailable:   18874376 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+45.9 whisper.test
+ 4.2 bun
+ 0.8 go
+2026-09-12T09:55:50+01:00
+MemAvailable:   18849292 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+43.9 whisper.test
+ 4.2 bun
+ 0.7 go
+2026-09-12T09:55:51+01:00
+MemAvailable:   18865280 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+42.0 whisper.test
+ 4.2 bun
+ 0.7 go
+2026-09-12T09:55:52+01:00
+MemAvailable:   18868244 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+40.3 whisper.test
+ 4.2 bun
+ 0.7 go
+2026-09-12T09:55:53+01:00
+MemAvailable:   18866992 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+38.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:55:54+01:00
+MemAvailable:   18866240 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+37.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:55:55+01:00
+MemAvailable:   18865736 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+36.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.6 go
+2026-09-12T09:55:56+01:00
+MemAvailable:   18865484 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+35.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:55:57+01:00
+MemAvailable:   18865484 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+33.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:55:58+01:00
+MemAvailable:   18866432 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 300 ps
+32.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:55:59+01:00
+MemAvailable:   18866192 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+31.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:00+01:00
+MemAvailable:   18861092 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+31.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.5 go
+2026-09-12T09:56:01+01:00
+MemAvailable:   18853040 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+30.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.5 go
+2026-09-12T09:56:02+01:00
+MemAvailable:   18853560 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+29.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:03+01:00
+MemAvailable:   18865864 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+28.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:04+01:00
+MemAvailable:   18867136 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+28.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:05+01:00
+MemAvailable:   18867952 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+27.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.4 go
+2026-09-12T09:56:06+01:00
+MemAvailable:   18869208 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+26.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:08+01:00
+MemAvailable:   19232344 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+26.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:09+01:00
+MemAvailable:   19231852 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+25.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:10+01:00
+MemAvailable:   19244240 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+25.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:11+01:00
+MemAvailable:   19246592 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+24.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:12+01:00
+MemAvailable:   19248292 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+24.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:13+01:00
+MemAvailable:   19250736 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+23.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 go
+2026-09-12T09:56:14+01:00
+MemAvailable:   19251668 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+23.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:15+01:00
+MemAvailable:   19253416 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+22.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:16+01:00
+MemAvailable:   19251628 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+22.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:17+01:00
+MemAvailable:   19253720 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+22.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:18+01:00
+MemAvailable:   19253512 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+21.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:19+01:00
+MemAvailable:   19252412 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+21.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:20+01:00
+MemAvailable:   19252880 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+21.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:21+01:00
+MemAvailable:   19259836 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+20.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 go
+2026-09-12T09:56:22+01:00
+MemAvailable:   19258968 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+20.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:23+01:00
+MemAvailable:   19260560 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+20.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:24+01:00
+MemAvailable:   19251280 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+20.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:25+01:00
+MemAvailable:   19250952 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+19.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:26+01:00
+MemAvailable:   19250700 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+19.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:27+01:00
+MemAvailable:   19250448 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+19.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:28+01:00
+MemAvailable:   19249808 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+19.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:29+01:00
+MemAvailable:   19249808 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+18.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:56:30+01:00
+MemAvailable:   19249220 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+18.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:31+01:00
+MemAvailable:   19248636 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+18.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.2 bash
+2026-09-12T09:56:33+01:00
+MemAvailable:   19241328 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+18.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.2 bash
+2026-09-12T09:56:34+01:00
+MemAvailable:   19241076 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+17.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:35+01:00
+MemAvailable:   19242080 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+17.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:36+01:00
+MemAvailable:   19242332 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+17.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:37+01:00
+MemAvailable:   19240428 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+17.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:56:38+01:00
+MemAvailable:   19240648 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+17.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:39+01:00
+MemAvailable:   19239636 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+17.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:40+01:00
+MemAvailable:   19238472 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+16.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:56:41+01:00
+MemAvailable:   19238008 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+16.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:42+01:00
+MemAvailable:   19237772 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+16.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:43+01:00
+MemAvailable:   19236852 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+16.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:44+01:00
+MemAvailable:   19238716 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+16.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:45+01:00
+MemAvailable:   19238936 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+16.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:46+01:00
+MemAvailable:   19237944 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+15.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:47+01:00
+MemAvailable:   19238668 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+15.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:48+01:00
+MemAvailable:   19233220 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+15.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:49+01:00
+MemAvailable:   19230812 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+15.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:50+01:00
+MemAvailable:   19227716 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+15.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:51+01:00
+MemAvailable:   19231192 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+15.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:52+01:00
+MemAvailable:   19225744 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+15.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:53+01:00
+MemAvailable:   19224700 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+15.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:56:54+01:00
+MemAvailable:   19222936 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+15.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:56+01:00
+MemAvailable:   19206320 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+14.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:57+01:00
+MemAvailable:   19214560 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+14.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:58+01:00
+MemAvailable:   19208888 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+14.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:56:59+01:00
+MemAvailable:   19204988 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+14.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:00+01:00
+MemAvailable:   19209656 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+14.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:01+01:00
+MemAvailable:   19210300 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+14.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:02+01:00
+MemAvailable:   19191852 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+14.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:03+01:00
+MemAvailable:   19207084 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+14.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:04+01:00
+MemAvailable:   19206332 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+14.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:05+01:00
+MemAvailable:   19209184 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+13.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:06+01:00
+MemAvailable:   19210808 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:07+01:00
+MemAvailable:   19211360 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:08+01:00
+MemAvailable:   19212404 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:09+01:00
+MemAvailable:   19209020 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:10+01:00
+MemAvailable:   19210556 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:11+01:00
+MemAvailable:   19210064 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+13.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:12+01:00
+MemAvailable:   19210404 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:13+01:00
+MemAvailable:   19210440 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:14+01:00
+MemAvailable:   19210516 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+50.0 ps
+13.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:15+01:00
+MemAvailable:   19222396 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:16+01:00
+MemAvailable:   19221764 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:18+01:00
+MemAvailable:   19221828 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:19+01:00
+MemAvailable:   19221828 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+12.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:20+01:00
+MemAvailable:   19221100 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+12.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:21+01:00
+MemAvailable:   19220556 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+12.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:22+01:00
+MemAvailable:   19220556 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+12.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:23+01:00
+MemAvailable:   19220808 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+12.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:24+01:00
+MemAvailable:   19214196 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+12.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:25+01:00
+MemAvailable:   19187288 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+12.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:26+01:00
+MemAvailable:   19201520 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+12.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:27+01:00
+MemAvailable:   19201908 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+12.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:28+01:00
+MemAvailable:   19201920 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+12.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:29+01:00
+MemAvailable:   19201932 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+12.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:30+01:00
+MemAvailable:   19203216 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+12.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:31+01:00
+MemAvailable:   19203252 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+12.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:32+01:00
+MemAvailable:   19191408 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+12.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:33+01:00
+MemAvailable:   19190148 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+12.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:34+01:00
+MemAvailable:   19190148 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+12.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:35+01:00
+MemAvailable:   19189644 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+12.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:36+01:00
+MemAvailable:   19189644 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+12.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:37+01:00
+MemAvailable:   19198492 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+12.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:38+01:00
+MemAvailable:   19198944 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+11.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:39+01:00
+MemAvailable:   19198944 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+11.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:40+01:00
+MemAvailable:   19197940 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+12.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:41+01:00
+MemAvailable:   19199548 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:43+01:00
+MemAvailable:   19199296 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:44+01:00
+MemAvailable:   19200088 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.1 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:45+01:00
+MemAvailable:   19199340 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+13.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:46+01:00
+MemAvailable:   19199584 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:47+01:00
+MemAvailable:   19159840 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+12.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:48+01:00
+MemAvailable:   19165480 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+12.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:49+01:00
+MemAvailable:   19167184 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+12.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:50+01:00
+MemAvailable:   19167904 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:51+01:00
+MemAvailable:   19168008 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:52+01:00
+MemAvailable:   19169696 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:57:53+01:00
+MemAvailable:   19172456 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:54+01:00
+MemAvailable:   19177692 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.5 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:55+01:00
+MemAvailable:   19179472 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+13.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:56+01:00
+MemAvailable:   19178984 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.4 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:57+01:00
+MemAvailable:   19183144 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+13.3 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:58+01:00
+MemAvailable:   19184472 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:57:59+01:00
+MemAvailable:   19195796 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:58:00+01:00
+MemAvailable:   19196696 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+14.0 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:58:01+01:00
+MemAvailable:   19197900 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+13.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash
+2026-09-12T09:58:02+01:00
+MemAvailable:   19198032 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.9 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:58:03+01:00
+MemAvailable:   19198632 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+13.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:58:04+01:00
+MemAvailable:   19199464 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.8 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:58:05+01:00
+MemAvailable:   19199236 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.7 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:58:06+01:00
+MemAvailable:   19199096 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 100 ps
+13.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:58:07+01:00
+MemAvailable:   19200800 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+ 200 ps
+13.6 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+2026-09-12T09:58:09+01:00
+MemAvailable:   19201304 kB
+SwapFree:        8298708 kB
+pswpin 36305
+pswpout 635848
+%CPU COMMAND
+14.2 whisper.test
+ 4.2 bun
+ 0.6 telegraf
+ 0.3 bash

@@ -68,6 +68,14 @@ speech-vulkan-turbo-check:
 speech-vulkan-turbo-profile:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_PROFILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboProfile$$' -v
 
+# Explicit candidate kernels; neither target changes encoder defaults.
+.PHONY: speech-vulkan-linear-regtile-check speech-vulkan-turbo-regtile-check
+speech-vulkan-linear-regtile-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_LINEAR_REGTILE=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeLinearRegTile$$' -v
+
+speech-vulkan-turbo-regtile-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_REGTILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboRegTile$$' -v
+
 # Optional offline validator/compiler qualification. Explicit new output path;
 # missing tools fail (never skip). No Vulkan loader/device or model execution.
 speech-vulkan-static-check:

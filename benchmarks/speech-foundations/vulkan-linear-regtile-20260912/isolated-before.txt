@@ -1,0 +1,16 @@
+2026-09-12T09:55:28+01:00
+               total        used        free      shared  buff/cache   available
+Mem:           31813        3781        9972        2075       20595       28032
+Swap:           8191          87        8104
+pswpin 36305
+pswpout 635848
+    PID %CPU COMMAND
+   1698  4.2 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+   1238  0.1 systemd
+    834  0.1 systemd-oomd
+ 266102  0.0 kworker/4:0-events
+    142  0.0 kswapd0
+     16  0.0 rcu_preempt
+ 272817  0.0 kworker/0:0-mm_percpu_wq

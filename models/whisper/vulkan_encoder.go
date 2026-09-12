@@ -49,7 +49,12 @@ func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (*Vulkan
 
 // Private plan-construction seam for fault injection and opt-in diagnostics.
 // The public constructor always uses NewVkF32Plan; no stages escape its owner.
-func newVulkanEncoder(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error)) (result *VulkanEncoder, err error) {
+func newVulkanEncoder(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error)) (*VulkanEncoder, error) {
+	return newVulkanEncoderVariant(ctx, source, frames, makePlan, false)
+}
+
+// Experimental kernel selection stays private until whole-model qualification.
+func newVulkanEncoderVariant(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), registerTile bool) (result *VulkanEncoder, err error) {
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
@@ -101,7 +106,12 @@ func newVulkanEncoder(ctx context.Context, source *Encoder, frames int, makePlan
 		return nil, err
 	}
 	s.resources = append(s.resources, s.norm)
-	if s.linear, err = vk.NewVkLinearF32(ctx); err != nil {
+	if registerTile {
+		s.linear, err = vk.NewVkLinearRegTileF32(ctx)
+	} else {
+		s.linear, err = vk.NewVkLinearF32(ctx)
+	}
+	if err != nil {
 		return nil, err
 	}
 	s.resources = append(s.resources, s.linear)

@@ -1,0 +1,5 @@
+=== RUN   TestVulkanTurboRegTile
+    vulkan_regtile_test.go:23: explicit Turbo candidate compute window required
+--- SKIP: TestVulkanTurboRegTile (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.002s

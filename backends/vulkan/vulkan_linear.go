@@ -6,23 +6,41 @@ import (
 	"runtime"
 )
 
-// VkLinearF32 owns a16x16 tiled F32 projection kernel: X[M,K]*W[N,K]^T+B[N].
+// VkLinearF32 owns an F32 projection kernel: X[M,K]*W[N,K]^T+B[N].
+// Constructors select a 16x16 baseline or experimental 32x32 output tile.
 // No quantised interpretation, packing or transpose copy. Static and source-
 // model tests are not device numerical/performance qualification. Stage/Forward
 // use resident arena tensors; caller owns weights/bias/activations. Copies share
 // kernel lifetime and Close invalidates stages/plans referencing the operator.
-type VkLinearF32 struct{ kernel *VkComputeKernel }
+type VkLinearF32 struct {
+	kernel     *VkComputeKernel
+	outputTile uint32 // zero preserves the original 16x16 constructor/test fixtures
+}
 
 func NewVkLinearF32(ctx context.Context) (*VkLinearF32, error) {
+	return newVkLinearF32(ctx, false)
+}
+
+// NewVkLinearRegTileF32 explicitly selects an experimental 32x32-output,
+// four-accumulator F32 kernel. Same shapes/alias contract, 8192 shared bytes.
+// No automatic/default selection; device and model qualification is separate.
+func NewVkLinearRegTileF32(ctx context.Context) (*VkLinearF32, error) {
+	return newVkLinearF32(ctx, true)
+}
+func newVkLinearF32(ctx context.Context, registerTile bool) (*VkLinearF32, error) {
 	if err := vkAcquire(ctx); err != nil {
 		return nil, err
 	}
 	defer vkRelease()
-	k, err := vkKernelCreateLocked(spirv_linear_f32, 4, 12)
+	code, tile := spirv_linear_f32, uint32(16)
+	if registerTile {
+		code, tile = spirv_linear_f32_regtile, 32
+	}
+	k, err := vkKernelCreateLocked(code, 4, 12)
 	if err != nil {
 		return nil, err
 	}
-	return &VkLinearF32{kernel: k}, nil
+	return &VkLinearF32{kernel: k, outputTile: tile}, nil
 }
 func (op *VkLinearF32) Close() error {
 	if op == nil {
@@ -81,7 +99,14 @@ func (op *VkLinearF32) stageLocked(out, x, weight, bias *VkTensorF32) (VkF32Stag
 			return fail("output overlaps input")
 		}
 	}
-	groups := [3]uint32{uint32((outDim + 15) / 16), uint32((rows + 15) / 16), 1}
+	tile := op.outputTile
+	if tile == 0 {
+		tile = 16
+	}
+	if tile != 16 && tile != 32 {
+		return fail("invalid kernel output tile")
+	}
+	groups := [3]uint32{(uint32(outDim) + tile - 1) / tile, (uint32(rows) + tile - 1) / tile, 1}
 	push := []uint32{uint32(rows), uint32(inDim), uint32(outDim)}
 	if err := op.kernel.validateBindingsLocked(groups[0], groups[1], groups[2], bindings, unsafePushWords(push)); err != nil {
 		return VkF32Stage{}, err

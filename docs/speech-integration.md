@@ -600,6 +600,12 @@ Two final native profiles compare the same resident 34 layer plans with 390 indi
 
 [Operation profile](../benchmarks/speech-foundations/vulkan-profile-20260912/README.md) records exact shapes, counts, estimated arithmetic and per-stage samples. It prioritises linear-kernel investigation but does not choose F16/quantisation or establish a speedup. The private plan-constructor diagnostic hook preserves the public default and now closes partial error results; three native rollback tests pass. Performance and broader quality/recovery gates remain open; services stay stopped.
 
+### Experimental F32 register-tiled linear
+
+`NewVkLinearRegTileF32` explicitly selects a 32×32 output/K32 kernel with four accumulators per 16×16 invocation and 8192 shared bytes. Existing linear/model defaults remain unchanged. Seventeen embedded/rebuilt shaders pass static validation; the new binary rebuilds exactly. Full Turbo projection shapes run 2.055–2.151× faster in three alternating kernel screens, with every timed output bit-exact.
+
+A complete trained Turbo encoder confirmation reduces median14.244→8.298s (1.716×), bit-exact against the baseline; four public candidate transcripts retain baseline tokens/timestamps. Earlier final processes include a recorded setup overlap and55pages of swap-out; an explicitly isolated confirmation has unchanged swap counters. [Candidate evidence](../benchmarks/speech-foundations/vulkan-linear-regtile-20260912/README.md) separates these resource/timing scopes. Candidate speech requests still take about9–10s, so whole-job performance remains on hold. No automatic promotion, F16/quantisation or service rollout occurred.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

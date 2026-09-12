@@ -102,6 +102,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [vulkan-profile-20260912](vulkan-profile-20260912/README.md): Turbo390stageattribution vs34normalplans,2processes/2rounds/all8outputsbitexact. Normal14.225–14.234s,separatestages14.534–14.572s;linear~77%/attention~20%hostwallinclsubmissionoverhead. Privatefactorypartialcleanupfixed/native3rollbackpass;offline30shuffle600/native30events. Memorymin20.52GiB/swapunchanged/servicesstopped;noF16choice/speedupclaim,performanceholdremains.
 
+- [vulkan-linear-regtile-20260912](vulkan-linear-regtile-20260912/README.md): explicitF32 32x32output/K32/4acc candidate,default16x16unchanged;3kernelruns2.055–2.151×/all144timedoutputsbitexact. IsolatedTurboencoder14.244→8.298s1.716×/bitexact/publictokens-timespreserved,notwholejobspeedgate. 438offlinepass/30shuffle4710/34staticval. Earlierpairedprocesssetupoverlap+55pageswapoutretained;exclusiveconfirmationzeroswapdelta/min17.96GiBavailable. Noautomaticpromotion/restart/push.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
 The exact frontend reuses checked Plan 9 SIMD `Ddot`. The affine checkpoint adds one measured CPU kernel. Vulkan operators and reduced/trained Tiny encoder cases have the scoped native qualification above; one English public-speech smoke passes as recorded above; broader speech quality, complete Community-1 and whole-job performance are unqualified. Legacy inference defaults remain unchanged.
