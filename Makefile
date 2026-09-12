@@ -131,6 +131,15 @@ speech-community-gemm-timing:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_GEMM_TIMING=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestWeSpeakerTiledTiming$$' -v
 
+.PHONY: speech-job-check speech-job-media-integration
+speech-job-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/whisper -run '^TestPCM(Resume|Transcribe)'
+	go vet ./runtime/speechjob ./models/whisper
+
+speech-job-media-integration:
+	GO_PHERENCE_TEST_FFMPEG=1 go test -p=1 -count=3 -timeout=90s ./runtime/speechjob -run '^TestFFmpegJob' -v
+
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'

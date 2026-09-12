@@ -205,3 +205,71 @@ func TestPCMTranscribeValidationAndGate(t *testing.T) {
 		}
 	}
 }
+
+func TestPCMResumePlanKeepsAbsoluteGeometry(t *testing.T) {
+	plan, _ := NewWindowPlan(1001, 320, 160)
+	var offsets []int64
+	source := sampleReadFunc(func(_ context.Context, dst []float32, start int64) (int, error) {
+		offsets = append(offsets, start)
+		return len(dst), nil
+	})
+	var results []WindowTranscript
+	infer := func([]float32) ([]Segment, error) { return []Segment{{Start: 0, End: 0.01, Text: "synthetic"}}, nil }
+	if e := transcribePCMPlanFrom(context.Background(), source, plan, 2, func(w WindowTranscript) error { results = append(results, w); return nil }, infer); e != nil {
+		t.Fatal(e)
+	}
+	if len(results) != int(plan.Count()-2) || offsets[0] != 320 {
+		t.Fatal(offsets, results)
+	}
+	for i, r := range results {
+		want, _ := plan.At(int64(i + 2))
+		if r.Window != want || r.Segments[0].Start != float64(want.Start)/16000 {
+			t.Fatal(r, want)
+		}
+	}
+	for _, first := range []int64{-1, plan.Count() + 1} {
+		if e := transcribePCMPlanFrom(context.Background(), source, plan, first, nil, nil); e == nil {
+			t.Fatal("invalid prefix")
+		}
+	}
+	before := len(offsets)
+	if e := transcribePCMPlanFrom(context.Background(), source, plan, plan.Count(), nil, nil); e != nil || len(offsets) != before {
+		t.Fatal("completed prefix reread", e)
+	}
+}
+
+func TestPCMResumeActualToyAndHostOnly(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "1")
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "0")
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_SELF_ATTN", "0")
+	w := toyPCMModel()
+	tok := checkedTestTokenizer(w.Config.VocabSize)
+	if e := w.ValidatePCMHostOnly(); e != nil {
+		t.Fatal(e)
+	}
+	calls := 0
+	source := sampleReadFunc(func(_ context.Context, dst []float32, start int64) (int, error) {
+		calls++
+		if start != 320 {
+			t.Fatal("resumed wrong window", start)
+		}
+		return len(dst), nil
+	})
+	if e := w.TranscribePCMWindowsFrom(context.Background(), source, 321, tok, PCMTranscribeOptions{Language: "pt"}, 1, func(r WindowTranscript) error {
+		if r.Window.Index != 1 || r.Window.Start != 320 {
+			t.Fatal(r)
+		}
+		return nil
+	}); e != nil || calls != 1 {
+		t.Fatal(calls, e)
+	}
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_SELF_ATTN", "1")
+	if e := w.ValidatePCMHostOnly(); e == nil {
+		t.Fatal("GPU feature accepted")
+	}
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_SELF_ATTN", "0")
+	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "0")
+	if e := w.ValidatePCMHostOnly(); e == nil {
+		t.Fatal("NVIDIA not disabled")
+	}
+}

@@ -1,12 +1,38 @@
 package whisper
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 // validatePCMModel rejects missing/short weights before the opt-in path can
 // reach unchecked slices or the legacy loader's nil-weight fallbacks. Models
 // must stay immutable after validation. This checks lengths/layout contracts;
 // tensor dtype, source shape/provenance and numerical parity require loader gates.
 func (w *Whisper) validatePCMModel() error { return w.validatePCMModelForEncoder(false) }
+
+// ValidatePCMHostOnly validates the checked host model and rejects optional GPU
+// buffers/features for job adapters whose lifetime contract cannot retain native
+// work. NVIDIA must be disabled before process initialisation and throughout use;
+// changing environment variables after device initialisation is not a teardown.
+// The model, backend flags and legacy callers remain externally synchronised.
+func (w *Whisper) ValidatePCMHostOnly() error {
+	if err := w.validatePCMModel(); err != nil {
+		return err
+	}
+	if os.Getenv("GO_PHERENCE_DISABLE_NVIDIA") != "1" || whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_SELF_ATTN") {
+		return fmt.Errorf("host PCM jobs require NVIDIA disabled and GPU graph/self-attention flags off")
+	}
+	if w.Decoder.lmHeadGPU != nil {
+		return fmt.Errorf("host PCM job has GPU LM-head weights")
+	}
+	for _, l := range w.Decoder.Layers {
+		if l.gpuFC1Weight != nil || l.gpuFC2Weight != nil {
+			return fmt.Errorf("host PCM job has GPU decoder weights")
+		}
+	}
+	return nil
+}
 
 // resident=true validates the host decoder/config only. The resident encoder
 // separately validates its immutable geometry/lifetime; no host encoder retained.

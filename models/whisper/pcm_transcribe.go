@@ -62,6 +62,16 @@ var pcmInferenceGate = make(chan struct{}, 1)
 // drain before reuse/Close. No hidden CPU fallback. This call does not close the
 // resident encoder. Backend flags and legacy APIs retain their existing meanings.
 func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader, totalSamples int64, tokenizer *Tokenizer, opts PCMTranscribeOptions, emit func(WindowTranscript) error) error {
+	return w.TranscribePCMWindowsFrom(ctx, source, totalSamples, tokenizer, opts, 0, emit)
+}
+
+// TranscribePCMWindowsFrom resumes at a caller-verified window prefix. It keeps
+// original absolute timestamps and ownership intervals and never reads/infers
+// earlier windows. The caller must verify persisted outputs and the complete
+// model/tokenizer/generation/options identity before selecting firstWindow.
+// This is safe only for this independent-window path (no prior-text state).
+// All ownership, gate, cancellation and Vulkan drain rules above still apply.
+func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleReader, totalSamples int64, tokenizer *Tokenizer, opts PCMTranscribeOptions, firstWindow int64, emit func(WindowTranscript) error) error {
 	if ctx == nil {
 		return fmt.Errorf("checked PCM transcription requires context")
 	}
@@ -110,7 +120,7 @@ func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader,
 	if plan.Count() > 10000 {
 		return fmt.Errorf("checked PCM plan exceeds 10000 windows")
 	}
-	return transcribePCMPlan(ctx, source, plan, emit, func(samples []float32) ([]Segment, error) {
+	return transcribePCMPlanFrom(ctx, source, plan, firstWindow, emit, func(samples []float32) ([]Segment, error) {
 		if opts.SkipDigitalSilence {
 			zero, err := pcmDigitalSilence(ctx, samples)
 			if err != nil {
@@ -187,7 +197,17 @@ func pcmDigitalSilence(ctx context.Context, samples []float32) (bool, error) {
 // Separate orchestration allows testing every sample/window and failure boundary
 // with a fake infer function without representing those tests as neural quality.
 func transcribePCMPlan(ctx context.Context, source SampleReader, plan WindowPlan, emit func(WindowTranscript) error, infer func([]float32) ([]Segment, error)) error {
-	if plan.Count() == 0 {
+	return transcribePCMPlanFrom(ctx, source, plan, 0, emit, infer)
+}
+
+func transcribePCMPlanFrom(ctx context.Context, source SampleReader, plan WindowPlan, firstWindow int64, emit func(WindowTranscript) error, infer func([]float32) ([]Segment, error)) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if firstWindow < 0 || firstWindow > plan.Count() {
+		return fmt.Errorf("invalid PCM resume window")
+	}
+	if firstWindow == plan.Count() {
 		return ctx.Err()
 	}
 	first, err := plan.At(0)
@@ -195,7 +215,7 @@ func transcribePCMPlan(ctx context.Context, source SampleReader, plan WindowPlan
 		return err
 	}
 	scratch := make([]float32, int(first.InputSamples))
-	for i := int64(0); i < plan.Count(); i++ {
+	for i := firstWindow; i < plan.Count(); i++ {
 		window, err := plan.ReadWindow(ctx, source, i, scratch)
 		if err != nil {
 			return err
