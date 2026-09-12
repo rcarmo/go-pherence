@@ -51,7 +51,7 @@ Review pending tickets, profiles and host admission before explicitly setting `s
 
 Queue storage must be private, outside the media store, under an existing administrator-owned immutable parent. Entries are capped at 1–128, bytes at 256 KiB–4 MiB and job timeout at 1–28,800 seconds. Disabled queue options must be omitted or zero. Queue mode rejects `http.enable_ui:true` and synchronous `/run`; use the [CLI queue commands](../speechjob/README.md). Interrupted running claims require explicit retry, while recovered pending intents can run after worker startup. Upload never implies enqueue. See [queue recovery](../../../runtime/speechjob/queue.md).
 
-The command uses one process-local `SerialAdmission` callback. It does not share resource budgets with other processes, LLMs or stores. Queue job timeout includes admission wait and is independent of the HTTP request deadline. SIGINT/SIGTERM drains admission, callbacks and release before closing queue/store resources.
+Without `resources`, the command uses one process-local `SerialAdmission` callback. The optional declared budget below provides weighted accounting within this process. Neither mode shares resource budgets with other processes, LLMs or stores. Queue job timeout includes admission wait and is independent of the HTTP request deadline. SIGINT/SIGTERM drains admission, callbacks and release before closing queue/store resources.
 
 ## Resource limits
 
@@ -61,6 +61,27 @@ The command uses one process-local `SerialAdmission` callback. It does not share
 - Deadlines: 1–30 second header timeout no greater than request seconds; read/write timeouts and handler context 1 second–8 hours; idle timeout 1–300 seconds. Header/socket phases and handler computation have distinct timer origins. Context checks are cooperative: a synchronous kernel/syscall may finish after its deadline.
 
 The widened-weight estimate is a loading-allocation admission check, **not RSS enforcement**. Source mapping, JSON/tokenizer maps, Go GC behaviour, model activations, HTTP buffers and filesystem caches add memory. Use OS resource limits and external shared-compute admission for real models; one store lock cannot coordinate unrelated stores, LLMs or GPUs. New byte buffers use bounded sizes, but this slice does not claim measured allocation or speed improvements. Allocation/escape profiling remains separate coordinated work; no blanket pool or unbounded cache was added.
+
+## Optional declared CPU/memory budget
+
+Omit `resources` to preserve existing behaviour. An explicit configuration can add:
+
+```json
+"resources": {
+  "cpu_slots": 2,
+  "memory_bytes": 6442450944,
+  "max_waiting": 32,
+  "load_bytes": 5368709120,
+  "resident_bytes": 4294967296,
+  "work_bytes": 2147483648
+}
+```
+
+These numbers illustrate the field relationship; they are **not qualified model peak measurements or RSS limits**. The operator must supply estimates for the actual model/runtime/worker. Capacity CPU slots must cover configured `threads`. Loading bytes must cover resident bytes and fit capacity; resident bytes must cover the existing `limits.owned_weight_bytes` cap. Work bytes must be positive and fit alongside resident bytes. `max_waiting` is 0–128. CPU slots are declared capacity, not affinity or CPU throttling.
+
+After the store lock and before `buildProfile`, the server acquires `threads` CPU slots and `load_bytes`. Once loading succeeds it shrinks that lease to zero CPU and `resident_bytes`, retaining it through server drain. Each queue or synchronous run acquires `threads` plus `work_bytes` from the same private budget, holding the lease until callbacks finish. Startup failures release their accounting; RSS need not fall immediately after Go objects become unreachable. `--check` validates relationships but does not create this budget or start execution.
+
+The private server budget has two active leases (resident and one job). Embedders can share a [Budget instance](../../../runtime/resourcebudget/README.md) across multiple handler/store owners, but the standalone command cannot control unrelated processes. There is no current available-memory probe, external LLM resource protocol, cgroup/RSS enforcement or device-memory accounting. Keep external host admission and OS limits when running real weights. Disabled/default execution has not been promoted to these illustrative values.
 
 ## TLS and shutdown
 
@@ -72,4 +93,4 @@ SIGINT/SIGTERM closes the listener and HTTP connections, cancels request context
 
 Run `make speech-job-serve-check` for synthetic tests. The explicit media target `make speech-job-serve-integration` generates a tiny two-channel zero-layer Whisper model plus WAV fixture and runs real FFmpeg through the four-stage profile. No trained weights or private recordings are used. Listener tests use temporary local ports, TLS test certificates and fixture callbacks; a real child process receives SIGTERM, exits cleanly and releases listener/store ownership. Checks cover config/hash/budget rejection, tokenizer case/null behaviour, suffix profile composition, TLS connection state, idle handshake deadlines, connection caps and grace-timeout retention.
 
-The initial synthetic generation fixture omitted most language IDs and was rejected; it was corrected to the complete vocabulary without loosening parser gates. Existing production services stay stopped. The command is implemented and locally tested; it has not been deployed, exposed to the LAN or qualified with trained checkpoints. Core cross-builds are compilation only; model execution remains Linux/amd64-only. General numerical/tie/WER/DER, performance, long-recording diarization and weighted shared admission objectives remain open. The durable queue is implemented and synthetically tested; its current browser integration is unsupported. Browser checks use separate model-free fixtures and do not qualify trained inference or production deployment.
+The initial synthetic generation fixture omitted most language IDs and was rejected; it was corrected to the complete vocabulary without loosening parser gates. Existing production services stay stopped. The command is implemented and locally tested; it has not been deployed, exposed to the LAN or qualified with trained checkpoints. Core cross-builds are compilation only; model execution remains Linux/amd64-only. General numerical/tie/WER/DER, performance, long-recording diarization and host-wide resource enforcement/external LLM coordination remain open. Process-local weighted estimated admission and the durable queue are implemented and synthetically tested; its current browser integration is unsupported. Browser checks use separate model-free fixtures and do not qualify trained inference or production deployment.

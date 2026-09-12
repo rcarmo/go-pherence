@@ -167,7 +167,7 @@ func TestHTTPQueueReleasePanicFailsClosed(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	if w := request(h, "DELETE", "/v1/jobs/"+j.ID, nil); w.Code != 409 {
+	if w := request(h, "DELETE", "/v1/jobs/"+j.ID, nil); w.Code != 503 {
 		t.Fatal("released uncertain mutation gate", w)
 	}
 	if w := request(h, "GET", "/v1/jobs/"+j.ID+"/artifacts/transcript", nil); w.Code != 200 {

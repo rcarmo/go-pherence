@@ -174,3 +174,36 @@ func TestQueueWorkerRequiresSeparateConsent(t *testing.T) {
 		t.Fatal("synchronous UI in queue mode")
 	}
 }
+
+func TestResourceConfigExplicitEstimates(t *testing.T) {
+	c := baseConfig(t)
+	good := ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
+	c.Resources = &good
+	b, _ := json.Marshal(c)
+	if _, e := parseConfig(b); e != nil {
+		t.Fatal(e)
+	}
+	for _, kind := range []string{"cpu", "zero-memory", "load", "resident", "work", "waiting", "negative"} {
+		r := good
+		switch kind {
+		case "cpu":
+			r.CPUSlots = 1
+		case "zero-memory":
+			r.MemoryBytes = 0
+		case "load":
+			r.LoadBytes = 8 << 20
+		case "resident":
+			r.ResidentBytes = 8 << 20
+		case "work":
+			r.WorkBytes = 50 << 20
+		case "waiting":
+			r.MaxWaiting = 129
+		case "negative":
+			r.WorkBytes = -1
+		}
+		c.Resources = &r
+		if e := c.validate(); e == nil {
+			t.Fatal(kind)
+		}
+	}
+}

@@ -49,7 +49,8 @@ type Config struct {
 	EnableUI              bool // Opt-in static browser UI; requires exact same Origin/Host.
 	MaxUploadBytes        int64
 	MaxConcurrentRequests int
-	Queue                 *QueueOptions // nil keeps existing synchronous request-owned execution.
+	Queue                 *QueueOptions       // nil keeps existing synchronous request-owned execution.
+	RunAdmission          speechjob.Admission // optional synchronous admission; incompatible with Queue.
 }
 
 // QueueOptions explicitly opts into durable queue metadata, not worker startup.
@@ -68,26 +69,28 @@ type boundProfile struct {
 	stages        []speechjob.Stage
 }
 type Handler struct {
-	store         *speechjob.Store
-	token         [32]byte
-	hosts         map[string]bool
-	origin        string
-	enableUI      bool
-	profiles      map[string]boundProfile
-	byConfig      map[string]boundProfile
-	uploadLimit   int64
-	slots         chan struct{}
-	control       chan struct{}
-	mutation      chan struct{}
-	ctx           context.Context
-	cancel        context.CancelFunc
-	mu            sync.Mutex
-	closed        bool
-	active        int
-	drained       chan struct{}
-	runningID     string
-	runningCancel context.CancelFunc
-	queue         *speechjob.Queue
+	store              *speechjob.Store
+	token              [32]byte
+	hosts              map[string]bool
+	origin             string
+	enableUI           bool
+	profiles           map[string]boundProfile
+	byConfig           map[string]boundProfile
+	uploadLimit        int64
+	slots              chan struct{}
+	control            chan struct{}
+	mutation           chan struct{}
+	ctx                context.Context
+	cancel             context.CancelFunc
+	mu                 sync.Mutex
+	closed             bool
+	active             int
+	drained            chan struct{}
+	runningID          string
+	runningCancel      context.CancelFunc
+	queue              *speechjob.Queue
+	runAdmission       speechjob.Admission
+	admissionUncertain bool // panic: refuse mutation until owner inspects/restarts.
 }
 
 // New validates configuration without modifying the media store or loading
@@ -95,7 +98,7 @@ type Handler struct {
 // The store must be exclusively owned by this handler while requests run. The
 // caller closes it only after Shutdown succeeds. No default profile is inferred.
 func New(cfg Config) (*Handler, error) {
-	if cfg.Store == nil || len(cfg.Profiles) < 1 || len(cfg.Profiles) > 32 || len(cfg.Hosts) < 1 || len(cfg.Hosts) > 16 || len(cfg.Token) < 32 || len(cfg.Token) > 256 || cfg.MaxUploadBytes < 1 || cfg.MaxUploadBytes > 512<<20 || cfg.MaxConcurrentRequests < 1 || cfg.MaxConcurrentRequests > 64 || cfg.Queue != nil && cfg.EnableUI {
+	if cfg.Store == nil || len(cfg.Profiles) < 1 || len(cfg.Profiles) > 32 || len(cfg.Hosts) < 1 || len(cfg.Hosts) > 16 || len(cfg.Token) < 32 || len(cfg.Token) > 256 || cfg.MaxUploadBytes < 1 || cfg.MaxUploadBytes > 512<<20 || cfg.MaxConcurrentRequests < 1 || cfg.MaxConcurrentRequests > 64 || cfg.Queue != nil && (cfg.EnableUI || cfg.RunAdmission != nil) {
 		return nil, fmt.Errorf("invalid HTTP job configuration")
 	}
 	for _, b := range []byte(cfg.Token) {
@@ -150,6 +153,7 @@ func New(cfg Config) (*Handler, error) {
 		h.profiles[p.ID] = bound
 		h.byConfig[string(configuration)] = bound
 	}
+	h.runAdmission = cfg.RunAdmission
 	h.ctx, h.cancel = context.WithCancel(context.Background())
 	if cfg.Queue != nil {
 		if cfg.Queue.Admission == nil {
@@ -165,9 +169,33 @@ func New(cfg Config) (*Handler, error) {
 			return p.stages, nil
 		}
 		admit := func(ctx context.Context) (func(), error) {
+			// Queue contains admission panics; also close this handler's mutation
+			// path when uncertainty happens before its mutation gate is acquired.
+			defer func() {
+				if p := recover(); p != nil {
+					h.markAdmissionUncertain()
+					panic(p)
+				}
+			}()
 			release, e := q.Admission(ctx)
+			if release != nil {
+				ownedRelease := release
+				release = func() {
+					defer func() {
+						if p := recover(); p != nil {
+							h.markAdmissionUncertain()
+							panic(p)
+						}
+					}()
+					ownedRelease()
+				}
+			}
 			if e != nil || release == nil {
 				return release, e
+			}
+			if e := ctx.Err(); e != nil {
+				release()
+				return nil, e
 			}
 			select {
 			case h.mutation <- struct{}{}:
@@ -493,10 +521,18 @@ func emptyBody(r *http.Request) bool {
 	return r.ContentLength == 0 && len(r.TransferEncoding) == 0 && r.Header.Get("Content-Encoding") == ""
 }
 func (h *Handler) mutate(w http.ResponseWriter) bool {
+	h.mu.Lock()
+	if h.admissionUncertain {
+		h.mu.Unlock()
+		respondError(w, 503, "admission_rejected", nil)
+		return false
+	}
 	select {
 	case h.mutation <- struct{}{}:
+		h.mu.Unlock()
 		return true
 	default:
+		h.mu.Unlock()
 		respondError(w, 409, "busy", nil)
 		return false
 	}
@@ -622,6 +658,29 @@ func (h *Handler) run(w http.ResponseWriter, r *http.Request, id string) {
 	h.runningCancel = cancel
 	h.mu.Unlock()
 	defer func() { h.mu.Lock(); h.runningID = ""; h.runningCancel = nil; h.mu.Unlock() }()
+	if h.runAdmission != nil {
+		release, err, uncertain := invokeAdmission(ctx, h.runAdmission)
+		if uncertain {
+			h.mu.Lock()
+			h.admissionUncertain = true
+			h.mu.Unlock()
+		}
+		if err != nil {
+			if ctx.Err() != nil && !uncertain {
+				h.failure(w, ctx.Err(), nil)
+			} else {
+				respondError(w, 503, "admission_rejected", nil)
+			}
+			return
+		}
+		defer func() {
+			if !releaseAdmission(release) {
+				h.mu.Lock()
+				h.admissionUncertain = true
+				h.mu.Unlock()
+			}
+		}()
+	}
 	_, e = h.store.Run(ctx, id, p.configuration, p.stages, nil)
 	// Return only a fresh persisted snapshot, never the possibly uncertain proposed
 	// manifest returned with ErrPersistence. Do not echo callbacks' raw errors.
@@ -858,4 +917,39 @@ func (h *Handler) enqueue(w http.ResponseWriter, r *http.Request, id string, ret
 	// This acknowledges durable intent, not completed execution. The worker uses
 	// its own lifetime context; request disconnect cannot cancel accepted intent.
 	respond(w, 202, entry)
+}
+
+func (h *Handler) markAdmissionUncertain() { h.mu.Lock(); h.admissionUncertain = true; h.mu.Unlock() }
+
+// Contain trusted-owner callback panics without releasing uncertain resources.
+// No private error text crosses HTTP. Release stays inside request/mutation drain.
+func invokeAdmission(ctx context.Context, fn speechjob.Admission) (release func(), err error, uncertain bool) {
+	defer func() {
+		if recover() != nil {
+			release = nil
+			err = fmt.Errorf("admission panicked")
+			uncertain = true
+		}
+	}()
+	release, err = fn(ctx)
+	if err != nil || release == nil {
+		if release != nil && !releaseAdmission(release) {
+			uncertain = true
+		}
+		release = nil
+		if err == nil {
+			err = fmt.Errorf("missing admission release")
+		}
+		return
+	}
+	return
+}
+func releaseAdmission(fn func()) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	fn()
+	return true
 }

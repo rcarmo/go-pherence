@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rcarmo/go-pherence/runtime/resourcebudget"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 	"github.com/rcarmo/go-pherence/runtime/speechjob/httpapi"
 )
@@ -89,6 +90,30 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 	if e != nil {
 		return fmt.Errorf("store open rejected")
 	}
+	var budget *resourcebudget.Budget
+	var resident *resourcebudget.Lease
+	var workAdmission speechjob.Admission
+	if r := cfg.Resources; r != nil {
+		budget, e = resourcebudget.New(resourcebudget.Config{Capacity: resourcebudget.Resources{CPUSlots: r.CPUSlots, MemoryBytes: r.MemoryBytes}, MaxActive: 2, MaxWaiting: r.MaxWaiting})
+		if e != nil {
+			store.Close()
+			return e
+		}
+		defer budget.Close()
+		resident, e = budget.Acquire(ctx, resourcebudget.Resources{CPUSlots: cfg.Threads, MemoryBytes: r.LoadBytes})
+		if e != nil {
+			store.Close()
+			return e
+		}
+		// All return paths after loading retain this lease until owned work drains.
+		// Release concerns accounting; Go/native RSS need not fall immediately.
+		defer resident.Release()
+		workAdmission, e = budget.Admission(resourcebudget.Resources{CPUSlots: cfg.Threads, MemoryBytes: r.WorkBytes})
+		if e != nil {
+			store.Close()
+			return e
+		}
+	}
 	// Exclude another server process on this same store before allocating model
 	// weights. This does not coordinate other stores or unrelated inference.
 	profiles, e := buildProfile(ctx, cfg, true)
@@ -96,11 +121,22 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 		store.Close()
 		return e
 	}
-	var queue *httpapi.QueueOptions
-	if cfg.Queue.Enable {
-		queue = &httpapi.QueueOptions{Directory: cfg.Queue.Directory, MaxEntries: cfg.Queue.MaxEntries, MaxBytes: cfg.Queue.MaxBytes, JobTimeout: duration(cfg.Queue.JobSeconds), Admission: speechjob.SerialAdmission()}
+	if resident != nil {
+		if e = resident.Shrink(resourcebudget.Resources{MemoryBytes: cfg.Resources.ResidentBytes}); e != nil {
+			store.Close()
+			return e
+		}
 	}
-	handler, e := httpapi.New(httpapi.Config{Store: store, Profiles: profiles, Token: os.Getenv("SPEECHJOB_TOKEN"), Hosts: cfg.HTTP.Hosts, Origin: cfg.HTTP.Origin, EnableUI: cfg.HTTP.EnableUI, MaxUploadBytes: cfg.Limits.UploadBytes, MaxConcurrentRequests: cfg.HTTP.MaxRequests, Queue: queue})
+	var queue *httpapi.QueueOptions
+	runAdmission := workAdmission
+	if cfg.Queue.Enable {
+		if workAdmission == nil {
+			workAdmission = speechjob.SerialAdmission()
+		}
+		queue = &httpapi.QueueOptions{Directory: cfg.Queue.Directory, MaxEntries: cfg.Queue.MaxEntries, MaxBytes: cfg.Queue.MaxBytes, JobTimeout: duration(cfg.Queue.JobSeconds), Admission: workAdmission}
+		runAdmission = nil
+	}
+	handler, e := httpapi.New(httpapi.Config{Store: store, Profiles: profiles, Token: os.Getenv("SPEECHJOB_TOKEN"), Hosts: cfg.HTTP.Hosts, Origin: cfg.HTTP.Origin, EnableUI: cfg.HTTP.EnableUI, MaxUploadBytes: cfg.Limits.UploadBytes, MaxConcurrentRequests: cfg.HTTP.MaxRequests, Queue: queue, RunAdmission: runAdmission})
 	if e != nil {
 		store.Close()
 		return e

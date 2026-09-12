@@ -31,14 +31,18 @@ func TestServeProcessChild(t *testing.T) {
 	main()
 }
 func TestServeProcessSIGTERMClosesListenerAndStore(t *testing.T) {
-	testServeProcessSIGTERM(t, false)
+	testServeProcessSIGTERM(t, false, false)
 }
 func TestServeQueueProcessSIGTERMClosesLocks(t *testing.T) {
-	testServeProcessSIGTERM(t, true)
+	testServeProcessSIGTERM(t, true, false)
 }
-func testServeProcessSIGTERM(t *testing.T, queued bool) {
+func TestServeResourceProcessSIGTERM(t *testing.T) { testServeProcessSIGTERM(t, true, true) }
+func testServeProcessSIGTERM(t *testing.T, queued, resources bool) {
 	cfg := toyAssets(t)
 	cfg.AllowExecution = true
+	if resources {
+		cfg.Resources = &ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
+	}
 	if queued {
 		cfg.Queue = QueueSettings{Enable: true, StartWorker: true, Directory: filepath.Join(t.TempDir(), "queue"), MaxEntries: 8, MaxBytes: 1 << 20, JobSeconds: 5}
 	}

@@ -146,9 +146,9 @@ speech-community-gemm-timing:
 
 .PHONY: speech-job-check speech-job-http-check speech-job-cli-check speech-job-media-integration speech-job-serve-check speech-job-serve-integration speech-job-ui-check
 speech-job-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob ./runtime/speechjob/httpapi
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/whisper -run '^TestPCM(Resume|Transcribe)'
-	go vet ./runtime/speechjob ./runtime/speechjob/httpapi ./models/whisper
+	go vet ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi ./models/whisper
 
 speech-job-ui-check:
 	@test -n "$(SPEECHJOB_BROWSER_OUT)" || (echo 'Set SPEECHJOB_BROWSER_OUT to a browser evidence directory'; exit 1)
@@ -161,7 +161,7 @@ speech-job-serve-check:
 	go vet ./cmd/audio/speechjobserve
 
 speech-job-serve-integration:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 GO_PHERENCE_TEST_FFMPEG=1 go test -p=1 -count=3 -timeout=90s ./cmd/audio/speechjobserve -run '^TestServingProfile' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 GO_PHERENCE_TEST_FFMPEG=1 go test -p=1 -count=3 -timeout=90s ./cmd/audio/speechjobserve -run '^Test(ServingProfile|StartQueue)' -v
 
 speech-job-cli-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./cmd/audio/speechjob

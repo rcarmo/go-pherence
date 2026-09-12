@@ -32,7 +32,7 @@ The tests use actual SIGKILL and injected IO failures. They do not simulate sudd
 - Each job deadline is positive and at most eight hours, including admission wait. File IO and callbacks are cooperative and may drain after the deadline.
 - `List` returns a detached bounded snapshot; the 128-entry allocation regression checks one slice allocation. No inference-speed or RSS improvement is established by this measurement.
 
-`SerialAdmission()` supplies a process-local exclusive gate. Sharing the same callback can exclude cooperating owners on different stores; separate callback instances do not coordinate. It has no weighted CPU/memory accounting, fairness, hard RSS/CPU enforcement, GPU admission or control over unrelated LLMs. The standalone server owns one serial gate, not a host resource controller. Model loading occurs before queue admission; its separate metadata/weight limits still apply.
+`SerialAdmission()` supplies a process-local exclusive gate. Sharing the same callback can exclude cooperating owners on different stores; separate callback instances do not coordinate. It has no weighted CPU/memory accounting, fairness, hard RSS/CPU enforcement, GPU admission or control over unrelated LLMs. The standalone server owns a serial gate by default. Embedders can instead supply a callback from one shared [weighted Budget](../resourcebudget/README.md), and the server can opt into declared CPU/memory estimates including pre-load/resident accounting. Neither implements a host resource controller. Model loading occurs before queue admission; its separate metadata/weight limits still apply.
 
 ## Interfaces
 

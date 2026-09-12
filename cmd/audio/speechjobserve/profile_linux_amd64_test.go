@@ -259,15 +259,27 @@ func TestServingProfileSyntheticFFmpegToVTT(t *testing.T) {
 	}
 }
 
-func TestStartQueueWorkerConsent(t *testing.T) {
+func TestStartQueueWorkerConsent(t *testing.T)         { testStartQueueWorkerConsent(t, false) }
+func TestStartQueueWithResourceEstimates(t *testing.T) { testStartQueueWorkerConsent(t, true) }
+func testStartQueueWorkerConsent(t *testing.T, resources bool) {
 	if os.Getenv("GO_PHERENCE_TEST_FFMPEG") != "1" {
 		t.Skip("explicit FFmpeg queue integration with generated toy model")
 	}
-	for _, worker := range []bool{false, true} {
-		t.Run(fmt.Sprint(worker), func(t *testing.T) {
+	modes := []string{"false", "true"}
+	if resources {
+		modes = append(modes, "sync")
+	}
+	for _, mode := range modes {
+		worker := mode == "true"
+		t.Run(mode, func(t *testing.T) {
 			c := toyAssets(t)
 			c.AllowExecution = true
-			c.Queue = QueueSettings{Enable: true, StartWorker: worker, Directory: filepath.Join(t.TempDir(), "queue"), MaxEntries: 8, MaxBytes: 1 << 20, JobSeconds: 5}
+			if resources {
+				c.Resources = &ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
+			}
+			if mode != "sync" {
+				c.Queue = QueueSettings{Enable: true, StartWorker: worker, Directory: filepath.Join(t.TempDir(), "queue"), MaxEntries: 8, MaxBytes: 1 << 20, JobSeconds: 5}
+			}
 			for _, pair := range []struct {
 				name  string
 				asset *Asset
@@ -359,6 +371,17 @@ func TestStartQueueWorkerConsent(t *testing.T) {
 			}
 			if json.Unmarshal(b, &j) != nil || j.ID == "" {
 				t.Fatal(string(b))
+			}
+			if mode == "sync" {
+				status, b = call("POST", "/v1/jobs/"+j.ID+"/run", nil)
+				if status != 200 {
+					t.Fatal(status, string(b))
+				}
+				status, b = call("GET", "/v1/jobs/"+j.ID+"/artifacts/vtt", nil)
+				if status != 200 || string(b) != "WEBVTT\n\n" {
+					t.Fatal(status, string(b))
+				}
+				return
 			}
 			status, b = call("POST", "/v1/jobs/"+j.ID+"/enqueue", nil)
 			if status != 202 {

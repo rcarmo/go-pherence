@@ -142,7 +142,7 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("HTTP %d: %s; inspect status/inventory before retrying", e.Status, e.Code)
 }
 
-var knownErrors = map[string]bool{"queue_enabled": true, "queue_state_conflict": true, "host_rejected": true, "unauthorized": true, "origin_rejected": true, "cross_site_rejected": true, "unavailable": true, "cancelled": true, "not_found": true, "invalid_query": true, "unexpected_body": true, "unknown_profile": true, "invalid_name": true, "unsupported_content_type": true, "empty_upload": true, "upload_too_large": true, "busy": true, "profile_changed": true, "not_running": true, "range_unsupported": true, "artifact_too_large": true, "method_not_allowed": true, "persistence_uncertain": true, "limit_exceeded": true, "integrity_failure": true, "operation_failed": true}
+var knownErrors = map[string]bool{"admission_rejected": true, "queue_enabled": true, "queue_state_conflict": true, "host_rejected": true, "unauthorized": true, "origin_rejected": true, "cross_site_rejected": true, "unavailable": true, "cancelled": true, "not_found": true, "invalid_query": true, "unexpected_body": true, "unknown_profile": true, "invalid_name": true, "unsupported_content_type": true, "empty_upload": true, "upload_too_large": true, "busy": true, "profile_changed": true, "not_running": true, "range_unsupported": true, "artifact_too_large": true, "method_not_allowed": true, "persistence_uncertain": true, "limit_exceeded": true, "integrity_failure": true, "operation_failed": true}
 
 func responseError(ctx context.Context, r *http.Response) error {
 	code := "request_rejected"

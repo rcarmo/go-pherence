@@ -31,7 +31,9 @@ Profiles bind the ID, exact configuration bytes and full ordered stage name/vers
 
 ## Lifetimes and admission
 
-There is one mutation slot, matching the store's serial executor. Concurrent upload/run/delete mutations receive 409. One to 64 ordinary request slots are configured; overflow receives 503. One additional bounded cancel slot prevents ordinary requests from starving cancellation. These request/executor bounds do not enforce rate limits or shared CPU/RSS/GPU budgets.
+There is one mutation slot, matching the store's serial executor. Concurrent upload/run/delete mutations receive 409. One to 64 ordinary request slots are configured; overflow receives 503. One additional bounded cancel slot prevents ordinary requests from starving cancellation. These request/executor bounds do not enforce rate limits or host CPU/RSS/GPU limits. Optional `Config.RunAdmission` reserves cooperative resources for synchronous runs; queue mode uses `QueueOptions.Admission`. Supplying both is rejected.
+
+With synchronous `RunAdmission`, a request owns the mutation gate and a cancellation handle while waiting for resource admission. Cancel/disconnect/shutdown removes that waiter without starting a store attempt. After grant, the callback's release stays inside request/mutation drain, including when the stage returns an error. Admission failure returns 503 `admission_rejected` without private error text. Admission/release panic rejects further mutations until inspected restart; already committed artifacts remain accessible. It cannot undo a completed job when a later release fails. [Weighted budgets](../../resourcebudget/README.md) supply a fixed-demand callback; no dynamic model size is inferred.
 
 In default synchronous mode, runs belong to the HTTP request. Client disconnect and `Handler.Shutdown` cancel them cooperatively. A long request keeps its connection open; HTTP 202 is not used to claim durable background execution. Request timeout may cancel a run, and retry remains explicit. Application cancellation returns **409 `cancelled`**, not 408: browsers can automatically retry POST requests after HTTP 408. The explicit cancellation endpoint still returns 202 for its signal acknowledgement. A completed job remains a verified no-op only for its original full stage list.
 
@@ -47,7 +49,7 @@ Accepted enqueue work is independent of the originating request. Shutdown cancel
 
 The worker acquires shared admission then the handler mutation gate; uploads/deletes receive 409 while it holds that gate. Enqueue can record previously uploaded jobs during a run. Uploading during execution remains unsupported by the serial store. Ticket removal plus media deletion holds the queue lock to exclude concurrent enqueue. Normal release finishes before the mutation gate opens. Release panic stops the queue and keeps mutations blocked until inspected restart; status/download/shutdown remain available.
 
-`SerialAdmission` is an optional in-process exclusion callback for cooperating owners. It supplies no weighted CPU/memory budget, RSS enforcement, fairness or unrelated LLM/GPU coordination. Queue deadline includes admission wait and is separate from HTTP request timeouts. List order is storage order; `sequence` determines FIFO execution.
+`SerialAdmission` is an optional in-process exclusion callback for cooperating owners. It supplies no weighted CPU/memory budget, RSS enforcement, fairness or unrelated LLM/GPU coordination. For shared declared weighted reservations, pass a callback from one shared `resourcebudget.Budget`; its FIFO/cancellation rules apply before the queue claim. Queue deadline includes admission wait and is separate from HTTP request timeouts. List order is storage order; `sequence` determines FIFO execution.
 
 ## Embedding requirements
 

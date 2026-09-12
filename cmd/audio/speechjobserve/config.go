@@ -70,22 +70,35 @@ type QueueSettings struct {
 	MaxBytes    int64  `json:"max_bytes"`
 	JobSeconds  int    `json:"job_seconds"`
 }
+
+// ResourceSettings are explicit operator estimates, not measured RSS limits.
+// ResidentBytes stays reserved through server drain. LoadBytes covers startup
+// peak; WorkBytes is additional transient work while the model remains resident.
+type ResourceSettings struct {
+	CPUSlots      int   `json:"cpu_slots"`
+	MemoryBytes   int64 `json:"memory_bytes"`
+	MaxWaiting    int   `json:"max_waiting"`
+	LoadBytes     int64 `json:"load_bytes"`
+	ResidentBytes int64 `json:"resident_bytes"`
+	WorkBytes     int64 `json:"work_bytes"`
+}
 type ServerConfig struct {
-	Queue          QueueSettings   `json:"queue"`
-	Schema         int             `json:"schema"`
-	AllowExecution bool            `json:"allow_execution"`
-	Store          string          `json:"store"`
-	RuntimeSHA256  string          `json:"runtime_sha256"`
-	Threads        int             `json:"threads"`
-	Limits         Limits          `json:"limits"`
-	HTTP           HTTPSettings    `json:"http"`
-	Weights        Asset           `json:"weights"`
-	ModelConfig    Asset           `json:"model_config"`
-	Tokenizer      Asset           `json:"tokenizer"`
-	Generation     Asset           `json:"generation"`
-	FFmpeg         Asset           `json:"ffmpeg"`
-	FFprobe        Asset           `json:"ffprobe"`
-	Profile        ProfileSettings `json:"profile"`
+	Resources      *ResourceSettings `json:"resources,omitempty"`
+	Queue          QueueSettings     `json:"queue"`
+	Schema         int               `json:"schema"`
+	AllowExecution bool              `json:"allow_execution"`
+	Store          string            `json:"store"`
+	RuntimeSHA256  string            `json:"runtime_sha256"`
+	Threads        int               `json:"threads"`
+	Limits         Limits            `json:"limits"`
+	HTTP           HTTPSettings      `json:"http"`
+	Weights        Asset             `json:"weights"`
+	ModelConfig    Asset             `json:"model_config"`
+	Tokenizer      Asset             `json:"tokenizer"`
+	Generation     Asset             `json:"generation"`
+	FFmpeg         Asset             `json:"ffmpeg"`
+	FFprobe        Asset             `json:"ffprobe"`
+	Profile        ProfileSettings   `json:"profile"`
 }
 
 func validHash(s string) bool {
@@ -202,6 +215,11 @@ func (c ServerConfig) validate() error {
 	l := c.Limits
 	if l.Jobs < 1 || l.Jobs > 1000 || l.UploadBytes < 1 || l.UploadBytes > 512<<20 || l.ArtifactBytes < 1 || l.ArtifactBytes > 1<<30 || l.StoreBytes < 128<<10 || l.StoreBytes > 64<<30 || l.UploadBytes > l.StoreBytes || l.ArtifactBytes > l.StoreBytes || l.WeightBytes < 8 || l.WeightBytes > 8<<30 || l.OwnedWeightBytes < 1 || l.OwnedWeightBytes > 16<<30 {
 		return fmt.Errorf("invalid configured resource caps")
+	}
+	if r := c.Resources; r != nil {
+		if r.CPUSlots < c.Threads || r.CPUSlots > 65536 || r.MemoryBytes < 1 || r.MaxWaiting < 0 || r.MaxWaiting > 128 || r.LoadBytes < r.ResidentBytes || r.LoadBytes > r.MemoryBytes || r.ResidentBytes < l.OwnedWeightBytes || r.WorkBytes < 1 || r.ResidentBytes > r.MemoryBytes || r.WorkBytes > r.MemoryBytes-r.ResidentBytes {
+			return fmt.Errorf("invalid declared CPU/memory resource budget")
+		}
 	}
 	q := c.Queue
 	if q.Enable {
