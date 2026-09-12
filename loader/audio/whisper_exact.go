@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-
-	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 const (
@@ -19,8 +17,9 @@ const (
 var whisperExactTables struct {
 	sync.Once
 	window     []float64
-	cosine     []float64
+	cosine     []float64 // [bin, sample], retained direct-DFT oracle
 	sine       []float64
+	fft400     whisperFFT400Plan
 	filters    []float64 // [bin, mel], matching Transformers (80 bands)
 	filters128 []float64
 }
@@ -41,8 +40,8 @@ func WhisperLogMel80(samples []float32) ([]float32, int) {
 // resample, right-pad or truncate: callers own windowing. Output is mel-major,
 // with floor(len(samples)/160) frames; sample-timeline mapping stays with callers.
 // Non-finite inputs and invalid shapes are rejected before allocation/dispatch.
-// This correctness-first DFT reuses the checked Plan 9 SIMD Ddot kernel; it is not
-// the planned high-throughput FFT implementation.
+// A fixed mixed-radix FFT400 computes the spectrum; direct DFT tables remain a
+// test oracle. The float32-complex rounding boundary remains explicit.
 func WhisperLogMel(samples []float32, numMels int) ([]float32, int, error) {
 	return WhisperLogMelContext(context.Background(), samples, numMels)
 }
@@ -117,6 +116,7 @@ func WhisperLogMelContext(ctx context.Context, samples []float32, numMels int) (
 	centered := reflectCenter(samples, whisperFFTSize/2)
 	power := make([]float64, whisperBins)
 	windowed := make([]float64, whisperFFTSize)
+	fftScratch := make([]complex128, whisperFFTSize)
 	maxLog := float32(-math.MaxFloat32)
 	for frame := 0; frame < frames; frame++ {
 		if err := ctx.Err(); err != nil {
@@ -126,15 +126,8 @@ func WhisperLogMelContext(ctx context.Context, samples []float32, numMels int) (
 		for sample := range windowed {
 			windowed[sample] = float64(centered[start+sample]) * whisperExactTables.window[sample]
 		}
-		for bin := 0; bin < whisperBins; bin++ {
-			basis := bin * whisperFFTSize
-			real := simd.Ddot(windowed, whisperExactTables.cosine[basis:basis+whisperFFTSize])
-			imag := -simd.Ddot(windowed, whisperExactTables.sine[basis:basis+whisperFFTSize])
-			// Transformers stores each FFT result in complex64 before taking
-			// its float64 magnitude, so retain that rounding boundary.
-			r := float64(float32(real))
-			i := float64(float32(imag))
-			power[bin] = r*r + i*i
+		if !whisperExactTables.fft400.powerSpectrum400(power, windowed, fftScratch) {
+			return nil, 0, fmt.Errorf("Whisper FFT400 rejected fixed geometry")
 		}
 		for mel := 0; mel < numMels; mel++ {
 			energy := float64(0)
@@ -182,6 +175,7 @@ func initWhisperExactTables() {
 			t.sine[bin*whisperFFTSize+sample] = math.Sin(angle)
 		}
 	}
+	t.fft400 = newWhisperFFT400Plan()
 	t.filters = whisperSlaneyFilters()
 	t.filters128 = whisperSlaneyFiltersFor(128)
 }
