@@ -161,6 +161,7 @@ func vkSymbols() []vkSymbol {
 		{&vkCmdBindPipeline, "vkCmdBindPipeline"},
 		{&vkCmdBindDescriptorSets, "vkCmdBindDescriptorSets"},
 		{&vkCmdDispatch, "vkCmdDispatch"},
+		{&vkCmdPipelineBarrier, "vkCmdPipelineBarrier"},
 		{&vkQueueSubmit, "vkQueueSubmit"},
 		{&vkQueueWaitIdle, "vkQueueWaitIdle"},
 		{&vkCreateFence, "vkCreateFence"},

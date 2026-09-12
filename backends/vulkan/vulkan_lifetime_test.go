@@ -43,6 +43,27 @@ func newLifetimeMock(t *testing.T) (*lifetimeMock, *VkComputeKernel, *VkBuf) {
 		step("bindings")
 	})
 	mockVK(t, &vkCmdDispatch, func(VkCommandBuffer, uint32, uint32, uint32) { step("dispatch") })
+	mockVK(t, &vkCmdPipelineBarrier, func(cmd VkCommandBuffer, src, dst, flags, n uint32, p unsafe.Pointer, nb uint32, pb unsafe.Pointer, ni uint32, pi unsafe.Pointer) {
+		if cmd == 0 || flags != 0 || n != 1 || p == nil || nb != 0 || pb != nil || ni != 0 || pi != nil {
+			t.Error("invalid barrier call")
+			return
+		}
+		v := (*vkMemoryBarrier)(p)
+		if v.sType != 46 || v.pNext != 0 {
+			t.Error("barrier header")
+		}
+		if dst == 0x800 {
+			if src != 0x4800 || v.srcAccessMask != 0x4040 || v.dstAccessMask != 0x60 {
+				t.Error("acquire barrier masks")
+			}
+			step("acquire")
+		} else {
+			if src != 0x800 || dst != 0x4000 || v.srcAccessMask != 0x40 || v.dstAccessMask != 0x6000 {
+				t.Error("release barrier masks")
+			}
+			step("release")
+		}
+	})
 	mockVK(t, &vkEndCommandBuffer, func(VkCommandBuffer) VkResult { step("end"); return VK_SUCCESS })
 	mockVK(t, &vkResetFences, func(d VkDevice, n uint32, f *VkFence) VkResult { owner(d); step("reset"); return VK_SUCCESS })
 	mockVK(t, &vkQueueSubmit, func(q VkQueue, n uint32, p unsafe.Pointer, f VkFence) VkResult {
@@ -178,7 +199,7 @@ func TestVulkanOfflineLifetimeTimeoutDrain(t *testing.T) {
 }
 
 func TestVulkanOfflineLifetimeCancellationBoundaries(t *testing.T) {
-	for _, boundary := range []string{"preflight", "descriptors", "begin", "end", "reset", "submit", "wait"} {
+	for _, boundary := range []string{"preflight", "descriptors", "begin", "acquire", "release", "end", "reset", "submit", "wait"} {
 		t.Run(boundary, func(t *testing.T) {
 			m, k, b := newLifetimeMock(t)
 			m.wait = VK_TIMEOUT
@@ -448,7 +469,7 @@ func TestVulkanOfflineLifetimeParallelDispatch(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	unit := []string{"descriptors", "begin", "pipeline", "bindings", "dispatch", "end", "reset", "submit", "wait"}
+	unit := []string{"descriptors", "begin", "acquire", "pipeline", "bindings", "dispatch", "release", "end", "reset", "submit", "wait"}
 	if len(m.events) != workers*len(unit) {
 		t.Fatal("event count", len(m.events))
 	}

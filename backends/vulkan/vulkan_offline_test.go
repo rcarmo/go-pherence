@@ -345,6 +345,9 @@ func TestVulkanOfflineDispatchBeginAndFenceErrors(t *testing.T) {
 				calls = append(calls, "push")
 			})
 			mockVK(t, &vkCmdDispatch, func(VkCommandBuffer, uint32, uint32, uint32) { calls = append(calls, "dispatch") })
+			mockVK(t, &vkCmdPipelineBarrier, func(VkCommandBuffer, uint32, uint32, uint32, uint32, unsafe.Pointer, uint32, unsafe.Pointer, uint32, unsafe.Pointer) {
+				calls = append(calls, "barrier")
+			})
 			mockVK(t, &vkEndCommandBuffer, func(VkCommandBuffer) VkResult { return step("end") })
 			mockVK(t, &vkResetFences, func(VkDevice, uint32, *VkFence) VkResult { return step("reset") })
 			mockVK(t, &vkQueueSubmit, func(VkQueue, uint32, unsafe.Pointer, VkFence) VkResult { return step("submit") })
@@ -363,6 +366,19 @@ func TestVulkanOfflineDispatchBeginAndFenceErrors(t *testing.T) {
 				if calls[len(calls)-1] != failure {
 					t.Fatal("continued after failure", fmt.Sprint(calls))
 				}
+			}
+			barriers := 0
+			for _, call := range calls {
+				if call == "barrier" {
+					barriers++
+				}
+			}
+			want := 2
+			if failure == "begin" {
+				want = 0
+			}
+			if barriers != want {
+				t.Fatalf("barriers=%d want%d after%s", barriers, want, failure)
 			}
 		})
 	}

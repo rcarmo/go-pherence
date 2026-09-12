@@ -1,0 +1,121 @@
+{
+  "checkpoint": "Vulkan per-dispatch coherent host/compute memory dependencies (mock-only)",
+  "created": "2026-09-12T04:14:45.945Z",
+  "baseline": "cf932f5",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 176,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 34,
+    "uniqueTopLevelTests": 34
+  },
+  "shuffle30": {
+    "passEvents": 2520,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 480,
+    "uniqueTopLevelTests": 16
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan, SpacemiT board, audio/media, NumPy, Whisper, Community-1",
+    "arm64": "Vulkan test cross-compile PASS; not executed",
+    "fullBuild": "FAIL with exact init-baseline output",
+    "backendCompileOnly": "FAIL with exact init-baseline diagnostics; hardware tests not executed",
+    "raceDetector": "NOT RUN: CGO_ENABLED=1 build fails, gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 64
+  },
+  "reference": {
+    "headers": {
+      "commit": "29f979ee5aa58b7b005f805ea8df7a855c39ff37",
+      "path": "include/vulkan/vulkan_core.h",
+      "sha256": "50af5a157c8aab7d90dcd929a05758b4dc3e78a619f46552bfd5cde67b2d46c1"
+    },
+    "synchronization": {
+      "commit": "486e4b289053a7d64784e7ce791711843c60c235",
+      "tag": "v1.3.296",
+      "path": "chapters/synchronization.adoc",
+      "sha256": "be043b798e327451865a2463457833e2b0a661901e29361304ff6ed5a3e20c27",
+      "lines": [
+        "1580-1603 coherent memory and queue-submit host domain",
+        "6402-6460 same-queue barrier scope",
+        "6778-6833 host/device domain operations"
+      ]
+    }
+  },
+  "dependencies": {
+    "incoming": {
+      "srcStage": "HOST|COMPUTE_SHADER (0x4800)",
+      "srcAccess": "HOST_WRITE|SHADER_WRITE (0x4040)",
+      "dstStage": "COMPUTE_SHADER (0x800)",
+      "dstAccess": "SHADER_READ|SHADER_WRITE (0x60)"
+    },
+    "outgoing": {
+      "srcStage": "COMPUTE_SHADER (0x800)",
+      "srcAccess": "SHADER_WRITE (0x40)",
+      "dstStage": "HOST (0x4000)",
+      "dstAccess": "HOST_READ|HOST_WRITE (0x6000)"
+    },
+    "flags": 0,
+    "memoryBarrierCount": 1,
+    "bufferBarrierCount": 0,
+    "imageBarrierCount": 0
+  },
+  "coverage": [
+    "VkMemoryBarrier24B/align8/field offsets and 10-argument native signature",
+    "Exact acquire→dispatch→release placement and masks; no barrier on failed begin",
+    "Missing vkCmdPipelineBarrier rejected by all-symbol init and dispatch before descriptor mutation",
+    "One/three/sixteen aliased bindings; repeated completed dispatch command ownership",
+    "Nine cancellation boundaries including both barriers; timeout retains resources",
+    "Drain only waits: no barrier re-record/resubmit; confirmed completion allows upload/dispatch reuse",
+    "Shared and distinct kernel parallel callers remain serialized with complete barrier order"
+  ],
+  "review": {
+    "initial": "Read-only review timed out; not approval.",
+    "narrow": "No spec/ABI blocker for one-queue coherent-memory path. Incoming host-write scope conservative/redundant with submission domain operation.",
+    "parent": "Release dstAccess includes HOST_READ|HOST_WRITE to cover checked upload overwrite as well as readback; exact-mask and reuse tests pass."
+  },
+  "limitations": [
+    "All Vulkan calls mocked: no native visibility/validation-layer/driver/shader/model/performance qualification.",
+    "No transfer/image/noncoherent/cross-queue ownership dependencies.",
+    "No typed hazard tracking or multi-operation command graph/resident operators.",
+    "Fence completion and existing lifetime quarantine remain mandatory before host access.",
+    "No successful-device shutdown/recreation, runtime device-loss recovery or feature negotiation.",
+    "Current FFI64bit; arm64 is cross-build only.",
+    "SincNet strict four-failure hold unchanged; no PCM/neural/trained quality/service integration."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_barrier.go": "b9fc78f0a425f10b1eca200fc72e440963bb886dedd10a8fb2eeaaab0e6e9eaa",
+    "backends/vulkan/vulkan_barrier_test.go": "64f53bc5a85e6c2019624a940243b6e77b008401241d45f451ead207fee81724",
+    "backends/vulkan/vulkan_dispatch.go": "871484128d7f44776a5141ad8db730cc0a79e55912b7657412e447aee58e42c3",
+    "backends/vulkan/vulkan_init.go": "a761ed92e48648100eabe5eddf2cdec2a6284b43435a60d82d15bcba95d847aa",
+    "backends/vulkan/vulkan_lifetime_test.go": "9930b5f330c26f3fef5731abee03060bd0934cfeca5294453f16207a15375326",
+    "backends/vulkan/vulkan_offline_test.go": "cb426b30c26f09ab4f14f59442a31d8d4dccd5e45d80a20c4b48602aa9e24b9d",
+    "docs/speech-integration.md": "d02c164f88db873b11fabebbf40ea01654e7521638db18f389c4392a2eee5ef1",
+    "benchmarks/speech-foundations/README.md": "171c397189d09cd4a74c17856ed920f8582b20e44e80d646f035c14242c00498"
+  },
+  "evidenceHashes": {
+    "vulkan-barrier-focused-check.txt": "1a0568b6e3dd58e8d6e147d9f5939ba6f75d8ca4a82e2c6c60b1b2271c4840e3",
+    "vulkan-barrier-tests.jsonl": "8e0938bfb7dd3cebb8a3388a192dfe46595a8405e0b1f652aba2fe68719ef338",
+    "vulkan-barrier-media.txt": "f2b784dc0458fb261d9bf34bd6930a71dc0a89212ba2e552bb958d1810f47a2d",
+    "vulkan-barrier-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vulkan-barrier-full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "vulkan-barrier-race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "vulkan-barrier-repeat-tests.jsonl.gz": "0b6c1717cec977d03a88ab496fc30ef20abf73a06fde7472090b8976ebcedcf0",
+    "vulkan-barrier-backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}

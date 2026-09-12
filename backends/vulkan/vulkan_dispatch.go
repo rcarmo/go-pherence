@@ -3,7 +3,8 @@ package vulkan
 // Vulkan compute dispatch: command buffers, descriptor binding, shader execution.
 //
 // Single-operation pipeline with one serialized host lane and one retained
-// unresolved submission. Model residency/multi-op plans are still unfinished.
+// unresolved submission. Each operation records broad compute/host memory
+// dependencies; model residency/multi-op plans are still unfinished.
 //   VkComputeKernel: compiled shader + pipeline + descriptor layout
 //   Dispatch: record command buffer → bind descriptors → submit → bounded wait
 //
@@ -374,7 +375,7 @@ func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY,
 	if k.pushSize < 0 || k.pushSize > 128 || k.pushSize%4 != 0 || (k.pushSize > 0 && pushData == nil) {
 		return fmt.Errorf("missing/invalid Vulkan push constants")
 	}
-	if vkUpdateDescriptorSets == nil || vkBeginCommandBuffer == nil || vkCmdBindPipeline == nil || vkCmdBindDescriptorSets == nil || vkCmdDispatch == nil || vkEndCommandBuffer == nil || vkResetFences == nil || vkQueueSubmit == nil || vkWaitForFences == nil || (k.pushSize > 0 && vkCmdPushConstants == nil) {
+	if vkUpdateDescriptorSets == nil || vkBeginCommandBuffer == nil || vkCmdBindPipeline == nil || vkCmdBindDescriptorSets == nil || vkCmdDispatch == nil || vkCmdPipelineBarrier == nil || vkEndCommandBuffer == nil || vkResetFences == nil || vkQueueSubmit == nil || vkWaitForFences == nil || (k.pushSize > 0 && vkCmdPushConstants == nil) {
 		return fmt.Errorf("Vulkan dispatch functions unavailable")
 	}
 
@@ -432,6 +433,7 @@ func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY,
 		return vkDriverError("vkBeginCommandBuffer", r)
 	}
 
+	vkComputeAcquireLocked(k.cmdBuf)
 	vkCmdBindPipeline(k.cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, k.pipeline)
 	vkCmdBindDescriptorSets(k.cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, k.pipelineLayout, 0, 1, &k.descSet, 0, nil)
 
@@ -441,6 +443,7 @@ func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY,
 	}
 
 	vkCmdDispatch(k.cmdBuf, groupsX, groupsY, groupsZ)
+	vkComputeReleaseLocked(k.cmdBuf)
 
 	if r := vkEndCommandBuffer(k.cmdBuf); r != VK_SUCCESS {
 		return vkDriverError("vkEndCommandBuffer", r)
