@@ -1,5 +1,6 @@
 MIT License
 
+Copyright (c) 2020 CNRS (PyanNet architecture)
 Copyright (c) 2023-2025 CNRS
 Copyright (c) 2025- pyannotAI
 
@@ -24,4 +25,7 @@ SOFTWARE.
 
 Powerset class ordering, conversion and permutation conventions derived from
 pyannote.audio 4.0.7, commit b749285c5cdd4636b2edc7f766f1352c8dde9369.
+PyanNet recurrent layout reference: same pyannote.audio commit, using
+PyTorch's documented unprojected IFGO LSTM equations. The offline oracle
+requires PyTorch; no PyTorch implementation code is included or used at runtime.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.

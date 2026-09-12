@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "baseline_commit": "f55970a",
+  "scope": "Community1 recurrent component, not full segmentation/diarization",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "PyTorch CPU one thread/MKLDNN off; generated tiny tensors, no trained checkpoint or audio",
+    "real_checkpoints": false,
+    "gpu": false,
+    "private_media": false,
+    "service_changes": false
+  },
+  "counts": {
+    "pass_events": 9,
+    "fail_events": 0,
+    "skip_events": 0
+  },
+  "tests": [
+    {
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    }
+  ],
+  "oracle": {
+    "reference": {
+      "pyannet_url": "https://raw.githubusercontent.com/pyannote/pyannote-audio/b749285c5cdd4636b2edc7f766f1352c8dde9369/src/pyannote/audio/models/segmentation/PyanNet.py",
+      "pyannet_sha256": "3ceebc8c00e83d96747a706212102e7e99c44732ff1fc769e241e8de47d3d6af",
+      "torch_rnn_sha256": "902deeba8fd7d3c92b00e3557071b3bb41cf747bd4b2b9d63757d88562688bde",
+      "torch_version": "2.14.0+cpu",
+      "torch_git_version": "08187d9e0fba026dc8217405802ab5381dc88d90",
+      "device": "cpu",
+      "threads": 1,
+      "mkldnn": false
+    },
+    "cases": 6,
+    "frames": 104,
+    "layers": 11,
+    "scalar_and_SIMD_absolute_tolerance": 0.000002,
+    "compared": [
+      "full sequence",
+      "per-layer intermediate",
+      "terminal hidden",
+      "terminal cell"
+    ],
+    "regeneration": "identical JSON"
+  },
+  "safety": {
+    "scalar_forward_cancel_checkpoints": 78,
+    "SIMD_forward_cancel_checkpoints": 58,
+    "allocations_per_call_tested_two_layers": 7,
+    "allocations_independent_of_frames": true,
+    "representative_shape": "input60 hidden128 2bidirectional layers 3frames scalar/SIMD synthetic parity"
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "gemv": "existing GemvRows and invalid shape/overflow tests passed",
+    "vet": "audio/Whisper/Community1 and speaker/... passed",
+    "build": "audio/Whisper/speaker and audio commands passed",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact recorded baseline failures",
+    "review": "narrow delegated LSTM review returned no blocking finding"
+  },
+  "limits": [
+    "checkpoint-derived LSTM shape/loading not bound yet",
+    "full segmentation SincNet/head/logsoftmax/powerset integration absent",
+    "no trained-model quality or speed qualification",
+    "SIMD uses existing checked Plan9 GemvRows, no new specialised kernel",
+    "activations scalar Go exp/tanh",
+    "no CGo/native inference wrapper, no GPU work",
+    "maxinput512/hidden256/layers4/frames4096,batch1",
+    "bidirectional requires full window, not causal streaming",
+    "running GEMV/callback uninterruptible; no wall-clock latency gate",
+    "race detector unavailable without C compiler"
+  ]
+}

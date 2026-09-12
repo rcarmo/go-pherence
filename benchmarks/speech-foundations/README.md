@@ -16,6 +16,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - `powerset-verification.json`, `powerset-focused-check.txt`: first Community-1 powerset component, four top-level tests pass. Four pinned pyannote geometries cover 60 synthetic frames and all 55 permutations; hard outputs exact, soft within `1e-6`. Fixture regeneration byte-identical. Existing alignment tests, focused make/vet/build and arm64 cross-build pass. No segmentation model or diarization quality test; narrow review found no blocking issue.
 
+- `lstm-verification.json`, `lstm-focused-check.txt`: checked Community-1 IFGO recurrent component with scalar and existing SIMD GEMV dispatch. Nine package tests pass (five LSTM plus four powerset); six Torch fixtures cover 104 frames and 11 layer intermediates, all outputs/states within `2e-6`. 78 scalar/58 SIMD cancellation points, fixed seven allocations in tested two-layer calls, and representative60→128 shape parity pass. Oracle regeneration identical; narrow review/vet/build/arm64cross pass. No trained checkpoint or new kernel/speed claim.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
 The exact frontend reuses existing checked Plan 9 SIMD `Ddot`. No new SIMD kernel, Vulkan backend, complete Community-1 pipeline or model-performance result is established by these tests. Legacy inference defaults are retained until real-checkpoint validation.
