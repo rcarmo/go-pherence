@@ -17,7 +17,12 @@ func (execRunner) Run(ctx context.Context, cmd Command) error {
 	c.WaitDelay = 2 * time.Second
 	c.Stdout = cmd.Stdout
 	c.Stderr = cmd.Stderr
-	return c.Run()
+	configureOwnedCommand(c)
+	err := c.Run()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
 }
 
 type hardLimitBuffer struct {
