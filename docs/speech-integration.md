@@ -11,6 +11,8 @@ The speech port is being implemented in go-pherence on `feat/speech-simd-vulkan`
 - `media.OpenCanonicalPCM`: a validated canonical-WAV reader using positional reads and caller-owned float32 output. It keeps one descriptor and a 16 KiB conversion buffer, rather than loading a whole recording. It does not invoke FFmpeg or import model/video code.
 - `models/whisper.WindowPlan`: on-demand integer-sample windows, disjoint emission-ownership intervals and explicit final-window padding. New code can plan all four hours without the historical 100-chunk cutoff. Legacy chunked inference remains unchanged. The opt-in `TranscribePCMWindows` path now connects this reader/planner to checked features and the existing Go encoder/decoder; real-checkpoint quality is unqualified.
 
+- `models/speaker/community1.Powerset`: bounded hard/soft powerset-to-local-speaker conversion and score-column permutation mapping, checked against pyannote 4.0.7. It is not yet connected to a segmentation model.
+
 This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan execution layer, new assembly kernels, the integrated job service, real-checkpoint quality tests and performance targets are not complete. Neither existing service has been restarted or deployed from this branch.
 
 ## Ownership and boundaries
@@ -20,7 +22,7 @@ This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan exe
 | `loader/audio/media` | Temporary FFmpeg adapter and future pure-Go adapter; output PCM frame count and media contract |
 | `loader/audio` | Exact Whisper/WeSpeaker model-specific features; canonical PCM input |
 | `models/whisper` | Encoder/decoder, model formats, language/task policy, state and word timestamps |
-| `models/speaker/community1` (planned) | SincNet/BiLSTM/powerset, WeSpeaker/ResNet, masked pooling, PLDA/VBx and global full/exclusive turns |
+| `models/speaker/community1` | Powerset component started; SincNet/BiLSTM, WeSpeaker/ResNet, masked pooling, PLDA/VBx and global full/exclusive turns still planned |
 | `backends/simd/runtime`, existing FFT/half owners | Checked dispatch and reusable Go/Plan 9 assembly microkernels; scalar oracles and ISA fallbacks |
 | `backends/vulkan` | Device/features/FFI correctness, typed arenas, owned command/descriptor/fence state, resident multi-op graphs and shaders |
 | `cmd/audio` and a narrow job package (planned) | CLI/HTTP integration, resource scheduling, durable uploads, checkpoints, retry/cancel and VTT/JSON |
@@ -97,6 +99,18 @@ The tensor loader creates no GPU allocations, global packing caches or inference
 The checked path explicitly uses the requested language, `transcribe` and timestamps. It validates but overrides source `forced_decoder_ids`, source language/task defaults and `return_timestamps`; it does not append the old forced prompt. Non-default sampling, beam, repetition and length-penalty controls fail. HF's default temperature 1 is accepted only without sampling; selection is greedy argmax. Alignment-head metadata is checked but word alignment is not implemented. Legacy APIs retain their existing defaults.
 
 Pinned tiny/turbo `config.json` files now have revision URLs and hashes in the [generation manifest](speech-generation-manifest.json), alongside tokenizers and generation JSON. Public-metadata tests verify the imported configs against the named Go configs. Synthetic tests verify rejection before tensor reads, effective suppression in token selection and immutable per-call policy through the toy PCM pipeline. A delegated parser review timed out; parent review and the [config verification checks](../benchmarks/speech-foundations/config-verification.json) passed. Real checkpoint inference, quality and performance remain unqualified.
+
+## Community-1 powerset component
+
+`NewPowerset(speakers, maxActive)` enumerates local-speaker subsets by cardinality, then lexicographic combinations. For `(3,2)` the classes are `{}`, `{0}`, `{1}`, `{2}`, `{0,1}`, `{0,2}`, `{1,2}`. Geometry must come from the segmentation checkpoint; the constructor does not identify a checkpoint or infer a speaker count. It accepts 1..8 local slots and up to 4096 segmentation frames per call. These frame indexes are not PCM sample indexes.
+
+`Decode(ctx, scores, frames, PowersetHard)` chooses the first maximum class and emits its binary speaker membership. `PowersetSoft` sums `exp(log_probability)` over classes containing each speaker; it does not apply another softmax. Normalisation belongs to the caller. Both reject malformed shapes, NaN/+Inf and all-impossible rows, allow `-Inf` for individual impossible classes, and return no partial result on cancellation. Soft mode also rejects positive log probabilities. Outputs are owned; the model does not mutate input scores.
+
+`ClassPermutation(slots)` returns powerset-column indexes for `output[:,j] = input[:,slots[j]]` in local-speaker space. It does not perform assignment or clustering. Hard argmax ties follow the permuted column order and therefore need not commute with permutation. No thresholds, VAD, timestamps, global identities or exclusive turns are produced here. Existing ECAPA and energy-VAD code is not used as a Community-1 substitute.
+
+The installed pyannote 4.0.7 source matched commit `b749285c5cdd4636b2edc7f766f1352c8dde9369` at SHA-256 `7eeb5691c20337bd24462f6a4ee2e56e279564bfef7875776df0a41f245b0325`. [Fixture metadata](../models/speaker/community1/testdata/powerset-reference.json) pins the source and runtime; [NOTICE](../models/speaker/community1/NOTICE) preserves MIT attribution. The offline [generator](../scripts/community1_powerset_reference.py) loads only that source file and applies PyTorch CPU operations to tiny synthetic arrays on one thread. It loads no weights, audio or neural pipeline. Go runtime inference has no PyTorch dependency.
+
+Four geometries `(1,1)`, `(3,2)`, `(4,2)` and `(4,4)` match hard outputs exactly and soft outputs within `1e-6`, including all 55 reference permutations. Safety tests cover ties, overlapping classes, invalid arrays, maximum bounds, ownership and deterministic per-row cancellation. A narrow delegated review found no blocking issue. Segmentation SincNet/BiLSTM inference, masked WeSpeaker embeddings, PLDA/AHC/VBx, full/exclusive turn reconstruction, SIMD and Vulkan acceleration remain unimplemented in this package. No diarization quality or speed was measured. [Powerset verification](../benchmarks/speech-foundations/powerset-verification.json) records the four top-level tests, oracle geometry coverage, regression/build checks and arm64 cross-build (not executed).
 
 ## Frozen references and proposed acceptance
 

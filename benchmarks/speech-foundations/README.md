@@ -14,6 +14,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - `context-verification.json`, `context-focused-check.txt`, `context-prechange-check.txt`: cooperative frontend/encoder/cross-KV cancellation. 115 passing test/subtest events, zero failures/skips in its selected suite. Deterministic cancellation covers 46 encoder, 13 cross-KV and 100 whole-PCM checkpoints; tiny synthetic pre-change comparisons are bit-exact. No wall-clock cancellation or real-model performance claim. Narrow diff review reported no blocking finding.
 
+- `powerset-verification.json`, `powerset-focused-check.txt`: first Community-1 powerset component, four top-level tests pass. Four pinned pyannote geometries cover 60 synthetic frames and all 55 permutations; hard outputs exact, soft within `1e-6`. Fixture regeneration byte-identical. Existing alignment tests, focused make/vet/build and arm64 cross-build pass. No segmentation model or diarization quality test; narrow review found no blocking issue.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
-The exact frontend reuses existing checked Plan 9 SIMD `Ddot`. No new SIMD kernel, Vulkan backend, Community-1 port or model-performance result is established by these tests. Legacy inference defaults are retained until real-checkpoint validation.
+The exact frontend reuses existing checked Plan 9 SIMD `Ddot`. No new SIMD kernel, Vulkan backend, complete Community-1 pipeline or model-performance result is established by these tests. Legacy inference defaults are retained until real-checkpoint validation.

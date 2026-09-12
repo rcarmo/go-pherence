@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "baseline_commit": "13ce321",
+  "scope": "Community-1 powerset component, not neural segmentation or complete diarization",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "pinned pyannote Powerset, torch CPU one thread synthetic arrays only",
+    "real_checkpoints": false,
+    "gpu": false,
+    "private_media": false,
+    "service_changes": false
+  },
+  "counts": {
+    "pass_events": 4,
+    "fail_events": 0,
+    "skip_events": 0
+  },
+  "tests": [
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    }
+  ],
+  "oracle": {
+    "reference": {
+      "url": "https://raw.githubusercontent.com/pyannote/pyannote-audio/b749285c5cdd4636b2edc7f766f1352c8dde9369/src/pyannote/audio/utils/powerset.py",
+      "revision": "b749285c5cdd4636b2edc7f766f1352c8dde9369",
+      "sha256": "7eeb5691c20337bd24462f6a4ee2e56e279564bfef7875776df0a41f245b0325",
+      "pyannote_audio_version": "4.0.7",
+      "license": "MIT",
+      "torch_version": "2.14.0+cpu",
+      "device": "cpu",
+      "threads": 1
+    },
+    "cases": 4,
+    "frames": 60,
+    "permutations": 55,
+    "hard_tolerance": 0,
+    "soft_absolute_tolerance": 0.000001,
+    "regeneration": "exact JSON byte comparison passed"
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "existing_speaker": "AlignSpeakers and OverlapDuration passed",
+    "vet": "affected audio/Whisper/Community1 plus models/speaker/... passed",
+    "build": "audio/Whisper/speaker packages and audio commands passed",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact baseline errors",
+    "dependencies": "Community1 only standard library; no FFmpeg/PyTorch/neural runtime imports",
+    "review": "narrow delegated source review returned no blocking finding"
+  },
+  "limits": [
+    "speaker slots local, not global labels",
+    "geometry must come from actual checkpoint; not loaded here",
+    "no sample/timestamp mapping, speech thresholds or clustering",
+    "soft path requires caller normalisation, no softmax",
+    "max8slots/256classes/4096frames, API intentionally bounded",
+    "no segmentation SincNet/BiLSTM, WeSpeaker, PLDA/VBx or full/exclusive reconstruction",
+    "no new SIMD/Vulkan kernels, model-quality or speed measurement"
+  ]
+}
