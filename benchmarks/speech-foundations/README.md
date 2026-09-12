@@ -104,6 +104,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [vulkan-linear-regtile-20260912](vulkan-linear-regtile-20260912/README.md): explicitF32 32x32output/K32/4acc candidate,default16x16unchanged;3kernelruns2.055–2.151×/all144timedoutputsbitexact. IsolatedTurboencoder14.244→8.298s1.716×/bitexact/publictokens-timespreserved,notwholejobspeedgate. 438offlinepass/30shuffle4710/34staticval. Earlierpairedprocesssetupoverlap+55pageswapoutretained;exclusiveconfirmationzeroswapdelta/min17.96GiBavailable. Noautomaticpromotion/restart/push.
 
+- [vulkan-community-conv2d-20260912](vulkan-community-conv2d-20260912/README.md): checked model-free CHW 3×3/pad1 and1×1/pad0 convolution, stride1/2; eight geometries/four schedules/13,936 outputs plus ABI/shape/alias/plan/static19 PASS. No model/GPU/performance/default change.
+
 - [vulkan-community-affine-20260912](vulkan-community-affine-20260912/README.md): first model-free Community-1 Vulkan primitive, prepared channel-major BatchNorm affine+optionalReLU with exact alias support;56,080 schedule outputs/five focused+10shuffle/fullmock/vet/arm64/static18 PASS. No2Dconv/model/GPU/performance/default change; broad availability-gated attention parity failure recorded separately.
 
 - [sincnet-lowered-fma-20260912](sincnet-lowered-fma-20260912/README.md): explicit lowered filters and serial-order Go/Plan 9 FMA; seven synthetic endpoints pass unchanged `2e-4`, scalar/SIMD bit-exact. Stage-0 boundary still fails `3.81e-4`; original four strict failures retained. 627 scoped pass events, 390 shuffled repetitions; no trained integration or timing claim. `a778437` repairs two Vulkan test import boundaries.

@@ -620,7 +620,15 @@ A complete trained Turbo encoder confirmation reduces median14.244→8.298s (1.7
 
 The shader uses one explicit FMA per output and preserves finite-input signed-zero ReLU behaviour. Five focused tests cover56,080 schedule-model outputs against the exact one-rounding F32 oracle (including a widened-Go-FMA midpoint adversary), shape/alias/grid admission, copied stages, constructor/close and pending-plan retention. Ten shuffled repeats, the complete mock-only Vulkan suite, vet and arm64 test cross-build pass. All18 embedded/rebuilt shaders pass offline static validation; the new shader rebuilds byte-for-byte. [Evidence](../benchmarks/speech-foundations/vulkan-community-affine-20260912/README.md) records the broad availability-gated attention parity failure separately from these passing mock-only gates. Native device parity and CPU/Vulkan bit identity are not established; the current CPU Community-1 BatchNorm expression can differ at rare double-rounding boundaries.
 
-No Community checkpoint or Vulkan device ran. WeSpeaker 2-D convolution, full graph residency, trained accuracy, performance and recovery are still required; no model/default selects this operator.
+No Community checkpoint or Vulkan device ran. Full graph residency, trained accuracy, performance and recovery are still required; no model/default selects this operator.
+
+### Community-1 Vulkan CHW convolution foundation
+
+`NewVkConv2DCHWF32` covers the bias-free WeSpeaker ResNet `3×3/pad1` and `1×1/pad0` operations at stride1/2 over contiguous channel-major tensors. It keeps BatchNorm/ReLU and residual addition as separate generic stages and admits no groups, dilation, bias or model policy. Output/input/weight overlap, malformed shapes/storage, oversized tensors and invalid grids fail before command recording.
+
+The shared-memory shader uses an implicit-im2col 16-position × 16-output-channel tile and ascending channel/tap reduction order. Eight source-model geometries across both kernels/strides and four shuffled schedules pass13,936 comparisons with maximum absolute error1.3716412015085666e-06 against a direct float64 diagnostic oracle. All19 embedded shader contracts and the static inventory pass; stored and embedded bytes match. [Evidence](../benchmarks/speech-foundations/vulkan-community-conv2d-20260912/README.md) records the fixed envelope and limitations.
+
+No native device or trained Community-1 graph ran. Driver arithmetic, performance, graph ownership/composition, recovery and CPU/full-Vulkan/hybrid whole-job comparisons remain unqualified.
 
 ### Experimental lowered SincNet filters and ordered FMA
 
