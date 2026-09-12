@@ -47,10 +47,16 @@ func defaultCommunityRuntime() communityRuntime {
 	}
 }
 
-func closeCommunityVulkanModel(model interface{ Close() error }) {
+func closeCommunityVulkanModel(model interface{ Close() error }, poll time.Duration, drain func(context.Context, time.Duration) error) {
 	for {
 		if err := model.Close(); err == nil {
 			return
+		}
+		// Constructor cancellation can leave one accepted submission retained.
+		// Prove it idle on a fresh context before retrying destruction. Fatal or
+		// uncertain device state deliberately blocks process startup/exit.
+		if err := drain(context.Background(), poll); errors.Is(err, vk.ErrVulkanDeviceLost) || errors.Is(err, vk.ErrVulkanUncertain) {
+			select {}
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -161,13 +167,13 @@ func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (
 		clear(ownedFilters)
 		if modelErr != nil {
 			if model != nil {
-				closeCommunityVulkanModel(model)
+				closeCommunityVulkanModel(model, time.Duration(vulkanSettings.DrainMilliseconds)*time.Millisecond, vk.VulkanDrain)
 			}
 			return nil, modelErr
 		}
 		owner, ownerErr := r.newVulkanOwner(model, speechjob.VulkanCommunity1StageConfig{Community: cfg, AllowExperimental: true, BackendSHA256: vulkanSettings.BackendSHA256, DeviceIdentity: deviceName, DrainPoll: time.Duration(vulkanSettings.DrainMilliseconds) * time.Millisecond})
 		if ownerErr != nil {
-			closeCommunityVulkanModel(model)
+			closeCommunityVulkanModel(model, time.Duration(vulkanSettings.DrainMilliseconds)*time.Millisecond, vk.VulkanDrain)
 			return nil, ownerErr
 		}
 		return owner, nil
