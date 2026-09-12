@@ -49,7 +49,7 @@ These diagnostic calls are outside the alternating comparison and must not be su
 
 ## Verification and review
 
-Final native batches: three test passes, zero failures/skips. Offline focused selection: 18 top-level tests/77 events; 30 shuffled timestamp/PCM/scorer repeats: 600 events. Existing speech/frontend/loader/generation/media/affine/Vulkan regressions, affected vet and amd64 builds pass. Full-tree/backend and Whisper arm64 FFT failures match prior baselines. Race build still lacks `gcc`.
+Final native batches: three test passes, zero failures/skips. Offline focused selection: 18 passing top-level tests/77 passing events, plus one optional `TestCheckedTimestampPinnedTokenizers` skip because its two-model fixture directory was not configured. Thirty shuffled timestamp/PCM/scorer repeats pass 600 events with the same optional test skipped 30 times. The public speech harness separately verifies the actual Tiny tokenizer/config/generation hashes before every batch. Existing speech/frontend/loader/generation/media/affine/Vulkan regressions, affected vet and amd64 builds pass. Full-tree/backend and Whisper arm64 FFT failures match prior baselines. Race build still lacks `gcc`.
 
 Review found that the initial harness logged but did not assert PCM extent, did not pin the 22-word denominator and permitted a looser outer timeout. All three checks were tightened before final runs. WER DP, pinned inputs, exact arm comparison and native cleanup were otherwise accepted in the scoped source review. A preliminary compile caught an unused import and the package's two-argument `min` helper; both were corrected before the first native run.
 
@@ -71,5 +71,7 @@ GOMAXPROCS=2 CGO_ENABLED=0 make speech-vulkan-public-speech-check
 GO_PHERENCE_TEST_SPEECH_CPU_COMPARE=1 GO_PHERENCE_TEST_SPEECH_TIMING=1 \
 GOMAXPROCS=2 CGO_ENABLED=0 make speech-vulkan-public-speech-check
 ```
+
+The first report commit (`4582ebc`) omitted `evidence.json`: the exporter rejected the optional offline skip, but the shell continued to commit. A follow-up records explicit skip counts and verifies the completed evidence. Native results were unaffected.
 
 [Evidence](evidence.json), [transcript](jfk-transcript.vtt), metrics, logs and resource snapshots are included. Multilingual corpora, silence/hallucination policy, overlap, long files, diarization, full-job quality/performance, turbo/quantisation and device-loss recovery remain unfinished. Strict SincNet retains four failures. No runtime/default behaviour was changed in this checkpoint; nothing was pushed, deployed or restarted.
