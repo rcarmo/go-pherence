@@ -1,0 +1,1 @@
+export PATH="/var/home/agent/workspace/projects/whisper-stt/runtime/tools:/var/home/agent/workspace/tools/go-toolchain/go/bin:$PATH" GOMAXPROCS=2 GOFLAGS=-p=1 CGO_ENABLED=0 GOTMPDIR=/tmp/go-pherence-speech-tmp TMPDIR=/tmp/go-pherence-speech-tmp GOCACHE=/tmp/go-pherence-speech-cache GOMODCACHE=/tmp/go-pherence-speech-mod GOTOOLCHAIN=local GO_PHERENCE_DISABLE_NVIDIA=1

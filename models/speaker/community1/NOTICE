@@ -25,6 +25,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
+Optional trained segmentation qualification uses separately obtained model
+pyannote/speaker-diarization-community-1, revision
+3533c8cf8e369892e6b79ff1bf80f7b0286a54ee, by the pyannote authors:
+https://huggingface.co/pyannote/speaker-diarization-community-1/tree/3533c8cf8e369892e6b79ff1bf80f7b0286a54ee
+Its pinned model card declares Creative Commons Attribution 4.0 International:
+https://creativecommons.org/licenses/by/4.0/
+This model licence is separate from the implementation source licence. The
+exporter converts the raw checkpoint to F32 safetensors and materialises SincNet
+filters (modified weight representations). Model weights and reference audio/
+tensor traces are not distributed in this repository. Users obtain the gated
+model under its own terms and retain attribution for converted weights.
+
 Powerset class ordering, conversion and permutation conventions derived from
 pyannote.audio 4.0.7, commit b749285c5cdd4636b2edc7f766f1352c8dde9369.
 PyanNet recurrent layout reference: same pyannote.audio commit, using
@@ -37,8 +49,9 @@ The MIT permission and warranty notice above applies to these references too.
 Segmentation load_segmentation.go tensor binding: pinned PyanNet/SincNet
 state_dict names, monolithic/split IFGO layouts and fixed filterbank buffers.
 Changes: metadata-first exact shapes/dtypes/extents, immediate owned copies,
-fixed-buffer checks and a held checkpoint with feature-only execution; no PCM
-entry point while SincNet fails qualification.
+fixed-buffer checks and a checkpoint with feature-only execution. A separate
+ExperimentalSegmentation wrapper now composes lowered SincNet, LSTM and head;
+strict intermediate failures remain, with no production qualification.
 Segmentation head Linear/leaky-ReLU and LogSoftmax conventions: PyanNet and
 pyannote.audio core/model.py at the same commit; source hashes in head fixtures.
 StatsPool conversion/weighted unbiased variance: pyannote.audio MIT

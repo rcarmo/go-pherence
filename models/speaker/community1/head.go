@@ -22,8 +22,9 @@ type HeadLinear struct{ Weight, Bias []float32 }
 
 // SegmentationHead owns immutable finite copies of its parameters. Per-call
 // output/scratch are independent; separate calls may share a constructed head.
-// This consumes recurrent features, not PCM or SincNet output. Full segmentation
-// is NOT integrated while the SincNet strict numerical gate is failing.
+// This consumes recurrent features, not PCM or SincNet output. The separate
+// ExperimentalSegmentation wrapper connects the frontend and recurrent stages;
+// it retains strict intermediate failures and does not qualify diarization.
 type SegmentationHead struct {
 	cfg        HeadConfig
 	classes    int

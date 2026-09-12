@@ -1,0 +1,2267 @@
+{
+  "schema": 1,
+  "created": "2026-09-12T09:50:19.938Z",
+  "baseline": "f02a53e",
+  "branch": "feat/speech-simd-vulkan",
+  "scope": "Experimental Go-owned trained PCM segmentation, final-output/mask parity only. Strict intermediates fail.",
+  "api": [
+    "NewExperimentalSegmentation",
+    "ForwardPCM",
+    "ForwardPCMObserved",
+    "SegmentationModes",
+    "SegmentationObservers",
+    "SegmentationPCMResult"
+  ],
+  "model": {
+    "revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+    "checkpointSHA": "7ad24338d844fb95985486eb1a464e32d229f6d7a03c9abe60f978bacf3f816e",
+    "rawBytes": 5906507,
+    "rawTensorCount": 54,
+    "config": {
+      "SincNetStride": 10,
+      "LSTM": {
+        "InputSize": 60,
+        "HiddenSize": 128,
+        "NumLayers": 4,
+        "Bidirectional": true
+      },
+      "Head": {
+        "InputSize": 256,
+        "HiddenSize": 128,
+        "NumLayers": 2,
+        "Speakers": 3,
+        "MaxActive": 2
+      },
+      "SplitLSTM": false
+    },
+    "manifestSHA": "bc8af5359abf662c93646fd00fe29bec02ab4e5998cef70a92be45af454ff1e0"
+  },
+  "licence": {
+    "model": "CC-BY-4.0",
+    "modelCard": "https://huggingface.co/pyannote/speaker-diarization-community-1/raw/3533c8cf8e369892e6b79ff1bf80f7b0286a54ee/README.md",
+    "modelCardSHA": "2db91f9265bd81f1653ff088b5bff22bf6aebebea03328513af65501643f8a31",
+    "terms": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "pyannote authors; conversion to F32 safetensors and materialised filters recorded in NOTICE; no weights/audio/traces shipped"
+  },
+  "conversion": {
+    "offline": true,
+    "cpuThreads": 1,
+    "mkldnn": false,
+    "torchCommit": "08187d9e0fba026dc8217405802ab5381dc88d90",
+    "weightsOnly": true,
+    "allowlistedGlobals": [
+      "pyannote.audio.core.task.Problem",
+      "pyannote.audio.core.task.Resolution",
+      "pyannote.audio.core.task.Specifications"
+    ],
+    "sourceHashes": {
+      "pyannet": "3ceebc8c00e83d96747a706212102e7e99c44732ff1fc769e241e8de47d3d6af",
+      "sincnet": "3f151a2482c3f8c266b1efd9bdcab297238c52b4792a7265261f2da063e5dade",
+      "receptive_field": "021df3fc249a3c5146e15f879740a0ca02ad13fad6269191c8392a1ad61cd488",
+      "filterbank": "2df0d1e6f109985c00efcc60970ebceff6a9665c3e65ebae73ea4848e48d8eae",
+      "encoder": "4b385912861a60c6ebcadc170a3ef747637952e03ab6eab303c523788cb3beee"
+    },
+    "taskSHA": "e2b0cc845a1234fe2f211ba2a0084c3e9be43fbdb82e41e6ca775f4746bbe444",
+    "manualVsMonolithic": "bit-exact recurrent layer composition and final PyanNet output",
+    "byteExactTwoExports": {
+      "manifest.json": "bc8af5359abf662c93646fd00fe29bec02ab4e5998cef70a92be45af454ff1e0",
+      "segmentation.safetensors": "b4913f3f13c3031267db5d99b0daafd251c822a5f12435b581607e1a56b7c488",
+      "filters.safetensors": "2d6ecf47b166b2d44a06aea6546788c816c12800fc47fc265a6752b0a085c705",
+      "silence-1s.safetensors": "790e0e5b682b1bbaf2e596911992f9ac3e47d51b1f24ea6b39d8267b1c8815ef",
+      "wave-short.safetensors": "9ad4b99192e9036beb57dcffd07108c533e87a09574d93e7436dac14b96efb6d",
+      "public-0-10s.safetensors": "23d2de4e0c7a23431f7953ceef1056eece88e7c340e3e6f1c0ccd5f3440cd6e0",
+      "public-10-20s.safetensors": "eb716dfc67eee8b428ce3ca6d1a56fc566b0f6208467e4b852b1b4336ba891ad"
+    }
+  },
+  "trained": {
+    "tests": {
+      "passes": 15,
+      "topLevel": 3,
+      "failedTests": [],
+      "skippedTests": [],
+      "skippedPackages": []
+    },
+    "comparisonCount": 144,
+    "values": 9402054,
+    "passingComparisons": 138,
+    "failedComparisons": [
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 4151,
+        "max_abs": 1.0525763928890228,
+        "pass": false,
+        "stage": "sincnet.1",
+        "values": 10380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 416940,
+        "gate": 0.0002,
+        "index": 212997,
+        "max_abs": 0.00022292137145996094,
+        "pass": false,
+        "stage": "sincnet.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 4151,
+        "max_abs": 1.0525763928890228,
+        "pass": false,
+        "stage": "sincnet.1",
+        "values": 10380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 416940,
+        "gate": 0.0002,
+        "index": 212997,
+        "max_abs": 0.00022292137145996094,
+        "pass": false,
+        "stage": "sincnet.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 4151,
+        "max_abs": 1.0525763928890228,
+        "pass": false,
+        "stage": "sincnet.1",
+        "values": 10380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 416940,
+        "gate": 0.0002,
+        "index": 212997,
+        "max_abs": 0.00022292137145996094,
+        "pass": false,
+        "stage": "sincnet.0",
+        "values": 426000
+      }
+    ],
+    "endpoints": [
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.00016164779663085938,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.0000059604644775390625,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000018596649169921875,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 426,
+        "gate": 0.0002,
+        "index": 856,
+        "max_abs": 0.00001239776611328125,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.00016164779663085938,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.0000059604644775390625,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000018596649169921875,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 426,
+        "gate": 0.0002,
+        "index": 856,
+        "max_abs": 0.00001239776611328125,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.00016164779663085938,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.0000059604644775390625,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000018596649169921875,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 426,
+        "gate": 0.0002,
+        "index": 856,
+        "max_abs": 0.00001239776611328125,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      }
+    ],
+    "localMaskResults": [
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=1 hard_disagreement_frames=0/56"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=0 hard_disagreement_frames=0/3"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=0 hard_disagreement_frames=0/589"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=1 hard_disagreement_frames=0/589"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=1 hard_disagreement_frames=0/56"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=0 hard_disagreement_frames=0/3"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=0 hard_disagreement_frames=0/589"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=1 hard_disagreement_frames=0/589"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=1 hard_disagreement_frames=0/56"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=0 hard_disagreement_frames=0/3"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=0 hard_disagreement_frames=0/589"
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "text": "trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=1 hard_disagreement_frames=0/589"
+      }
+    ],
+    "localFramesAcross3Runs": 3711,
+    "strictBoundaryTests": {
+      "passes": 2,
+      "topLevel": 0,
+      "failedTests": [
+        "TestCommunity1TrainedSegmentation/silence-1s",
+        "TestCommunity1TrainedSegmentation/public-10-20s",
+        "TestCommunity1TrainedSegmentation"
+      ],
+      "skippedTests": [],
+      "skippedPackages": []
+    },
+    "forcedFallback": {
+      "passes": 5,
+      "topLevel": 1,
+      "failedTests": [],
+      "skippedTests": [],
+      "skippedPackages": []
+    },
+    "metrics": [
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 16000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 16000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 29162,
+        "gate": 0.0002,
+        "index": 520,
+        "max_abs": 0.00017982721328735352,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 42000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 4151,
+        "max_abs": 1.0525763928890228,
+        "pass": false,
+        "stage": "sincnet.1",
+        "values": 10380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 112,
+        "max_abs": 0.00019760709255933762,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 3360
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 11909,
+        "max_abs": 0.00014118850231170654,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 14043,
+        "max_abs": 0.0000845491886138916,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 5,
+        "gate": 0.0002,
+        "index": 11064,
+        "max_abs": 0.0001036524772644043,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 4,
+        "gate": 0.0002,
+        "index": 12820,
+        "max_abs": 0.00004175305366516113,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 8,
+        "gate": 0.0002,
+        "index": 78,
+        "max_abs": 0.00010538101196289062,
+        "pass": true,
+        "stage": "head.0",
+        "values": 7168
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 8,
+        "gate": 0.0002,
+        "index": 2312,
+        "max_abs": 0.00009679794311523438,
+        "pass": true,
+        "stage": "head.1",
+        "values": 7168
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.0001125335693359375,
+        "pass": true,
+        "stage": "head.2",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.00016164779663085938,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1600,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 1600
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1019,
+        "gate": 0.0002,
+        "index": 1798,
+        "max_abs": 0.0001842975616455078,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 3600
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 6,
+        "gate": 0.0002,
+        "index": 545,
+        "max_abs": 0.00019061565399169922,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 780
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 2,
+        "gate": 0.0002,
+        "index": 139,
+        "max_abs": 0.000008746981620788574,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 180
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 479,
+        "max_abs": 0.000005213543772697449,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 2,
+        "gate": 0.0002,
+        "index": 317,
+        "max_abs": 0.0000011809170246124268,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 6,
+        "gate": 0.0002,
+        "index": 433,
+        "max_abs": 5.587935447692871e-7,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 9,
+        "gate": 0.0002,
+        "index": 753,
+        "max_abs": 0.0000011622905731201172,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 11,
+        "gate": 0.0002,
+        "index": 206,
+        "max_abs": 0.0000064373016357421875,
+        "pass": true,
+        "stage": "head.0",
+        "values": 384
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 14,
+        "gate": 0.0002,
+        "index": 200,
+        "max_abs": 0.000005245208740234375,
+        "pass": true,
+        "stage": "head.1",
+        "values": 384
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.000004589557647705078,
+        "pass": true,
+        "stage": "head.2",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.0000059604644775390625,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 160000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 425660,
+        "gate": 0.0002,
+        "index": 212998,
+        "max_abs": 0.0001399517059326172,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 8669,
+        "gate": 0.0002,
+        "index": 72692,
+        "max_abs": 0.000058770179748535156,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1006,
+        "gate": 0.0002,
+        "index": 8994,
+        "max_abs": 0.0000044852495193481445,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1797,
+        "gate": 0.0002,
+        "index": 44714,
+        "max_abs": 0.0000036731362342834473,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1974,
+        "gate": 0.0002,
+        "index": 9630,
+        "max_abs": 0.000003427267074584961,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 2546,
+        "gate": 0.0002,
+        "index": 16104,
+        "max_abs": 0.000003725290298461914,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 3202,
+        "gate": 0.0002,
+        "index": 24712,
+        "max_abs": 0.0000037848949432373047,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 4133,
+        "gate": 0.0002,
+        "index": 5362,
+        "max_abs": 0.0000171661376953125,
+        "pass": true,
+        "stage": "head.0",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 3541,
+        "gate": 0.0002,
+        "index": 6468,
+        "max_abs": 0.0000286102294921875,
+        "pass": true,
+        "stage": "head.1",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 116,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000029325485229492188,
+        "pass": true,
+        "stage": "head.2",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000018596649169921875,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 160000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 160000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 416940,
+        "gate": 0.0002,
+        "index": 212997,
+        "max_abs": 0.00022292137145996094,
+        "pass": false,
+        "stage": "sincnet.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 11841,
+        "gate": 0.0002,
+        "index": 73567,
+        "max_abs": 0.000016987323760986328,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 1331,
+        "gate": 0.0002,
+        "index": 7552,
+        "max_abs": 0.0000019371509552001953,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 3615,
+        "gate": 0.0002,
+        "index": 88614,
+        "max_abs": 0.0000015795230865478516,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4278,
+        "gate": 0.0002,
+        "index": 88871,
+        "max_abs": 0.0000010728836059570312,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4458,
+        "gate": 0.0002,
+        "index": 31121,
+        "max_abs": 0.0000014454126358032227,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4116,
+        "gate": 0.0002,
+        "index": 35458,
+        "max_abs": 0.000002682209014892578,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 5317,
+        "gate": 0.0002,
+        "index": 18840,
+        "max_abs": 0.000011682510375976562,
+        "pass": true,
+        "stage": "head.0",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 5612,
+        "gate": 0.0002,
+        "index": 15715,
+        "max_abs": 0.0000133514404296875,
+        "pass": true,
+        "stage": "head.1",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 242,
+        "gate": 0.0002,
+        "index": 4089,
+        "max_abs": 0.0000171661376953125,
+        "pass": true,
+        "stage": "head.2",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 426,
+        "gate": 0.0002,
+        "index": 856,
+        "max_abs": 0.00001239776611328125,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 16000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 16000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 29162,
+        "gate": 0.0002,
+        "index": 520,
+        "max_abs": 0.00017982721328735352,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 42000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 4151,
+        "max_abs": 1.0525763928890228,
+        "pass": false,
+        "stage": "sincnet.1",
+        "values": 10380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 112,
+        "max_abs": 0.00019760709255933762,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 3360
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 11909,
+        "max_abs": 0.00014118850231170654,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 14043,
+        "max_abs": 0.0000845491886138916,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 5,
+        "gate": 0.0002,
+        "index": 11064,
+        "max_abs": 0.0001036524772644043,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 4,
+        "gate": 0.0002,
+        "index": 12820,
+        "max_abs": 0.00004175305366516113,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 8,
+        "gate": 0.0002,
+        "index": 78,
+        "max_abs": 0.00010538101196289062,
+        "pass": true,
+        "stage": "head.0",
+        "values": 7168
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 8,
+        "gate": 0.0002,
+        "index": 2312,
+        "max_abs": 0.00009679794311523438,
+        "pass": true,
+        "stage": "head.1",
+        "values": 7168
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.0001125335693359375,
+        "pass": true,
+        "stage": "head.2",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.00016164779663085938,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1600,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 1600
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1019,
+        "gate": 0.0002,
+        "index": 1798,
+        "max_abs": 0.0001842975616455078,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 3600
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 6,
+        "gate": 0.0002,
+        "index": 545,
+        "max_abs": 0.00019061565399169922,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 780
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 2,
+        "gate": 0.0002,
+        "index": 139,
+        "max_abs": 0.000008746981620788574,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 180
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 479,
+        "max_abs": 0.000005213543772697449,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 2,
+        "gate": 0.0002,
+        "index": 317,
+        "max_abs": 0.0000011809170246124268,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 6,
+        "gate": 0.0002,
+        "index": 433,
+        "max_abs": 5.587935447692871e-7,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 9,
+        "gate": 0.0002,
+        "index": 753,
+        "max_abs": 0.0000011622905731201172,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 11,
+        "gate": 0.0002,
+        "index": 206,
+        "max_abs": 0.0000064373016357421875,
+        "pass": true,
+        "stage": "head.0",
+        "values": 384
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 14,
+        "gate": 0.0002,
+        "index": 200,
+        "max_abs": 0.000005245208740234375,
+        "pass": true,
+        "stage": "head.1",
+        "values": 384
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.000004589557647705078,
+        "pass": true,
+        "stage": "head.2",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.0000059604644775390625,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 160000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 425660,
+        "gate": 0.0002,
+        "index": 212998,
+        "max_abs": 0.0001399517059326172,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 8669,
+        "gate": 0.0002,
+        "index": 72692,
+        "max_abs": 0.000058770179748535156,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1006,
+        "gate": 0.0002,
+        "index": 8994,
+        "max_abs": 0.0000044852495193481445,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1797,
+        "gate": 0.0002,
+        "index": 44714,
+        "max_abs": 0.0000036731362342834473,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1974,
+        "gate": 0.0002,
+        "index": 9630,
+        "max_abs": 0.000003427267074584961,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 2546,
+        "gate": 0.0002,
+        "index": 16104,
+        "max_abs": 0.000003725290298461914,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 3202,
+        "gate": 0.0002,
+        "index": 24712,
+        "max_abs": 0.0000037848949432373047,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 4133,
+        "gate": 0.0002,
+        "index": 5362,
+        "max_abs": 0.0000171661376953125,
+        "pass": true,
+        "stage": "head.0",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 3541,
+        "gate": 0.0002,
+        "index": 6468,
+        "max_abs": 0.0000286102294921875,
+        "pass": true,
+        "stage": "head.1",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 116,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000029325485229492188,
+        "pass": true,
+        "stage": "head.2",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000018596649169921875,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 160000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 160000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 416940,
+        "gate": 0.0002,
+        "index": 212997,
+        "max_abs": 0.00022292137145996094,
+        "pass": false,
+        "stage": "sincnet.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 11841,
+        "gate": 0.0002,
+        "index": 73567,
+        "max_abs": 0.000016987323760986328,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 1331,
+        "gate": 0.0002,
+        "index": 7552,
+        "max_abs": 0.0000019371509552001953,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 3615,
+        "gate": 0.0002,
+        "index": 88614,
+        "max_abs": 0.0000015795230865478516,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4278,
+        "gate": 0.0002,
+        "index": 88871,
+        "max_abs": 0.0000010728836059570312,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4458,
+        "gate": 0.0002,
+        "index": 31121,
+        "max_abs": 0.0000014454126358032227,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4116,
+        "gate": 0.0002,
+        "index": 35458,
+        "max_abs": 0.000002682209014892578,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 5317,
+        "gate": 0.0002,
+        "index": 18840,
+        "max_abs": 0.000011682510375976562,
+        "pass": true,
+        "stage": "head.0",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 5612,
+        "gate": 0.0002,
+        "index": 15715,
+        "max_abs": 0.0000133514404296875,
+        "pass": true,
+        "stage": "head.1",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 242,
+        "gate": 0.0002,
+        "index": 4089,
+        "max_abs": 0.0000171661376953125,
+        "pass": true,
+        "stage": "head.2",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 426,
+        "gate": 0.0002,
+        "index": 856,
+        "max_abs": 0.00001239776611328125,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 16000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 16000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 29162,
+        "gate": 0.0002,
+        "index": 520,
+        "max_abs": 0.00017982721328735352,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 42000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 4151,
+        "max_abs": 1.0525763928890228,
+        "pass": false,
+        "stage": "sincnet.1",
+        "values": 10380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 112,
+        "max_abs": 0.00019760709255933762,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 3360
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 11909,
+        "max_abs": 0.00014118850231170654,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 14043,
+        "max_abs": 0.0000845491886138916,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 5,
+        "gate": 0.0002,
+        "index": 11064,
+        "max_abs": 0.0001036524772644043,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 4,
+        "gate": 0.0002,
+        "index": 12820,
+        "max_abs": 0.00004175305366516113,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 14336
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 8,
+        "gate": 0.0002,
+        "index": 78,
+        "max_abs": 0.00010538101196289062,
+        "pass": true,
+        "stage": "head.0",
+        "values": 7168
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 8,
+        "gate": 0.0002,
+        "index": 2312,
+        "max_abs": 0.00009679794311523438,
+        "pass": true,
+        "stage": "head.1",
+        "values": 7168
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.0001125335693359375,
+        "pass": true,
+        "stage": "head.2",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/silence-1s",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 117,
+        "max_abs": 0.00016164779663085938,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1600,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 1600
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1019,
+        "gate": 0.0002,
+        "index": 1798,
+        "max_abs": 0.0001842975616455078,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 3600
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 6,
+        "gate": 0.0002,
+        "index": 545,
+        "max_abs": 0.00019061565399169922,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 780
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 2,
+        "gate": 0.0002,
+        "index": 139,
+        "max_abs": 0.000008746981620788574,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 180
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 479,
+        "max_abs": 0.000005213543772697449,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 2,
+        "gate": 0.0002,
+        "index": 317,
+        "max_abs": 0.0000011809170246124268,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 6,
+        "gate": 0.0002,
+        "index": 433,
+        "max_abs": 5.587935447692871e-7,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 9,
+        "gate": 0.0002,
+        "index": 753,
+        "max_abs": 0.0000011622905731201172,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 768
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 11,
+        "gate": 0.0002,
+        "index": 206,
+        "max_abs": 0.0000064373016357421875,
+        "pass": true,
+        "stage": "head.0",
+        "values": 384
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 14,
+        "gate": 0.0002,
+        "index": 200,
+        "max_abs": 0.000005245208740234375,
+        "pass": true,
+        "stage": "head.1",
+        "values": 384
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 1,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.000004589557647705078,
+        "pass": true,
+        "stage": "head.2",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/wave-short",
+        "exact": 0,
+        "gate": 0.0002,
+        "index": 7,
+        "max_abs": 0.0000059604644775390625,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 21
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 160000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 425660,
+        "gate": 0.0002,
+        "index": 212998,
+        "max_abs": 0.0001399517059326172,
+        "pass": true,
+        "stage": "sincnet.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 8669,
+        "gate": 0.0002,
+        "index": 72692,
+        "max_abs": 0.000058770179748535156,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1006,
+        "gate": 0.0002,
+        "index": 8994,
+        "max_abs": 0.0000044852495193481445,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1797,
+        "gate": 0.0002,
+        "index": 44714,
+        "max_abs": 0.0000036731362342834473,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 1974,
+        "gate": 0.0002,
+        "index": 9630,
+        "max_abs": 0.000003427267074584961,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 2546,
+        "gate": 0.0002,
+        "index": 16104,
+        "max_abs": 0.000003725290298461914,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 3202,
+        "gate": 0.0002,
+        "index": 24712,
+        "max_abs": 0.0000037848949432373047,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 4133,
+        "gate": 0.0002,
+        "index": 5362,
+        "max_abs": 0.0000171661376953125,
+        "pass": true,
+        "stage": "head.0",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 3541,
+        "gate": 0.0002,
+        "index": 6468,
+        "max_abs": 0.0000286102294921875,
+        "pass": true,
+        "stage": "head.1",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 116,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000029325485229492188,
+        "pass": true,
+        "stage": "head.2",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-0-10s",
+        "exact": 160,
+        "gate": 0.0002,
+        "index": 323,
+        "max_abs": 0.000018596649169921875,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 160000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "sincnet.-1",
+        "values": 160000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 416940,
+        "gate": 0.0002,
+        "index": 212997,
+        "max_abs": 0.00022292137145996094,
+        "pass": false,
+        "stage": "sincnet.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 11841,
+        "gate": 0.0002,
+        "index": 73567,
+        "max_abs": 0.000016987323760986328,
+        "pass": true,
+        "stage": "sincnet.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 1331,
+        "gate": 0.0002,
+        "index": 7552,
+        "max_abs": 0.0000019371509552001953,
+        "pass": true,
+        "stage": "sincnet.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 3615,
+        "gate": 0.0002,
+        "index": 88614,
+        "max_abs": 0.0000015795230865478516,
+        "pass": true,
+        "stage": "lstm.0",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4278,
+        "gate": 0.0002,
+        "index": 88871,
+        "max_abs": 0.0000010728836059570312,
+        "pass": true,
+        "stage": "lstm.1",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4458,
+        "gate": 0.0002,
+        "index": 31121,
+        "max_abs": 0.0000014454126358032227,
+        "pass": true,
+        "stage": "lstm.2",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 4116,
+        "gate": 0.0002,
+        "index": 35458,
+        "max_abs": 0.000002682209014892578,
+        "pass": true,
+        "stage": "lstm.3",
+        "values": 150784
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 5317,
+        "gate": 0.0002,
+        "index": 18840,
+        "max_abs": 0.000011682510375976562,
+        "pass": true,
+        "stage": "head.0",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 5612,
+        "gate": 0.0002,
+        "index": 15715,
+        "max_abs": 0.0000133514404296875,
+        "pass": true,
+        "stage": "head.1",
+        "values": 75392
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 242,
+        "gate": 0.0002,
+        "index": 4089,
+        "max_abs": 0.0000171661376953125,
+        "pass": true,
+        "stage": "head.2",
+        "values": 4123
+      },
+      {
+        "test": "TestCommunity1TrainedSegmentation/public-10-20s",
+        "exact": 426,
+        "gate": 0.0002,
+        "index": 856,
+        "max_abs": 0.00001239776611328125,
+        "pass": true,
+        "stage": "log_probabilities",
+        "values": 4123
+      }
+    ]
+  },
+  "diagnostic": {
+    "tests": {
+      "passes": 5,
+      "topLevel": 1,
+      "failedTests": [],
+      "skippedTests": [],
+      "skippedPackages": []
+    },
+    "metrics": [
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 124880,
+        "gate": 0.0002,
+        "index": 1560,
+        "max_abs": 3.129243850708008e-7,
+        "pass": true,
+        "stage": "exact-input-conv.0",
+        "values": 126000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 41647,
+        "gate": 0.0002,
+        "index": 520,
+        "max_abs": 3.129243850708008e-7,
+        "pass": true,
+        "stage": "exact-input-pool.0",
+        "values": 42000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 42000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.0",
+        "values": 42000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 4678,
+        "gate": 0.0002,
+        "index": 13021,
+        "max_abs": 0.0001678466796875,
+        "pass": true,
+        "stage": "exact-input-conv.1",
+        "values": 31260
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 1554,
+        "gate": 0.0002,
+        "index": 518,
+        "max_abs": 0.0001373291015625,
+        "pass": true,
+        "stage": "exact-input-pool.1",
+        "values": 10380
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 10380,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.1",
+        "values": 10380
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 1358,
+        "gate": 0.0002,
+        "index": 9463,
+        "max_abs": 0.0000457763671875,
+        "pass": true,
+        "stage": "exact-input-conv.2",
+        "values": 10140
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 448,
+        "gate": 0.0002,
+        "index": 3080,
+        "max_abs": 0.00003814697265625,
+        "pass": true,
+        "stage": "exact-input-pool.2",
+        "values": 3360
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/silence-1s",
+        "exact": 3360,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.2",
+        "values": 3360
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 9687,
+        "gate": 0.0002,
+        "index": 122,
+        "max_abs": 6.556510925292969e-7,
+        "pass": true,
+        "stage": "exact-input-conv.0",
+        "values": 10800
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 3271,
+        "gate": 0.0002,
+        "index": 40,
+        "max_abs": 6.556510925292969e-7,
+        "pass": true,
+        "stage": "exact-input-pool.0",
+        "values": 3600
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 3600,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.0",
+        "values": 3600
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 285,
+        "gate": 0.0002,
+        "index": 2016,
+        "max_abs": 0.0001678466796875,
+        "pass": true,
+        "stage": "exact-input-conv.1",
+        "values": 2460
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 107,
+        "gate": 0.0002,
+        "index": 315,
+        "max_abs": 0.000152587890625,
+        "pass": true,
+        "stage": "exact-input-pool.1",
+        "values": 780
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 780,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.1",
+        "values": 780
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 72,
+        "gate": 0.0002,
+        "index": 413,
+        "max_abs": 0.0001068115234375,
+        "pass": true,
+        "stage": "exact-input-conv.2",
+        "values": 540
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 29,
+        "gate": 0.0002,
+        "index": 167,
+        "max_abs": 0.00006103515625,
+        "pass": true,
+        "stage": "exact-input-pool.2",
+        "values": 180
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/wave-short",
+        "exact": 180,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.2",
+        "values": 180
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 1276903,
+        "gate": 0.0002,
+        "index": 654971,
+        "max_abs": 9.834766387939453e-7,
+        "pass": true,
+        "stage": "exact-input-conv.0",
+        "values": 1278000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 425636,
+        "gate": 0.0002,
+        "index": 218322,
+        "max_abs": 6.109476089477539e-7,
+        "pass": true,
+        "stage": "exact-input-pool.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 426000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 37112,
+        "gate": 0.0002,
+        "index": 153086,
+        "max_abs": 0.00091552734375,
+        "pass": false,
+        "stage": "exact-input-conv.1",
+        "values": 319260
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 12372,
+        "gate": 0.0002,
+        "index": 88249,
+        "max_abs": 0.00067138671875,
+        "pass": false,
+        "stage": "exact-input-pool.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 106380,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 14333,
+        "gate": 0.0002,
+        "index": 47715,
+        "max_abs": 0.0001678466796875,
+        "pass": true,
+        "stage": "exact-input-conv.2",
+        "values": 106140
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 4769,
+        "gate": 0.0002,
+        "index": 21670,
+        "max_abs": 0.0001220703125,
+        "pass": true,
+        "stage": "exact-input-pool.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-0-10s",
+        "exact": 35340,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 1276887,
+        "gate": 0.0002,
+        "index": 654960,
+        "max_abs": 5.360052455216646e-7,
+        "pass": true,
+        "stage": "exact-input-conv.0",
+        "values": 1278000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 425636,
+        "gate": 0.0002,
+        "index": 5323,
+        "max_abs": 3.8743019104003906e-7,
+        "pass": true,
+        "stage": "exact-input-pool.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 426000,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.0",
+        "values": 426000
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 36397,
+        "gate": 0.0002,
+        "index": 261137,
+        "max_abs": 0.00048828125,
+        "pass": false,
+        "stage": "exact-input-conv.1",
+        "values": 319260
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 12149,
+        "gate": 0.0002,
+        "index": 49687,
+        "max_abs": 0.00042724609375,
+        "pass": false,
+        "stage": "exact-input-pool.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 106380,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.1",
+        "values": 106380
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 13720,
+        "gate": 0.0002,
+        "index": 97339,
+        "max_abs": 0.00018310546875,
+        "pass": true,
+        "stage": "exact-input-conv.2",
+        "values": 106140
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 4543,
+        "gate": 0.0002,
+        "index": 32409,
+        "max_abs": 0.00018310546875,
+        "pass": true,
+        "stage": "exact-input-pool.2",
+        "values": 35340
+      },
+      {
+        "test": "TestCommunity1TrainedDiagnostic/public-10-20s",
+        "exact": 35340,
+        "gate": 0.0002,
+        "index": 0,
+        "max_abs": 0,
+        "pass": true,
+        "stage": "exact-pool-norm.2",
+        "values": 35340
+      }
+    ],
+    "exactPoolNorm": "12/12 bit-exact; differences originate upstream in convolution"
+  },
+  "checks": {
+    "offline": {
+      "passes": 630,
+      "topLevel": 273,
+      "failedTests": [],
+      "skippedTests": [
+        "TestSincNetReductionDiagnostic",
+        "TestSincNetLoweredStrictBoundaries",
+        "TestSincNetStrictNarrowBandOracle",
+        "TestCommunity1TrainedDiagnostic",
+        "TestCommunity1TrainedSegmentation"
+      ],
+      "skippedPackages": [
+        "github.com/rcarmo/go-pherence/backends/simd"
+      ]
+    },
+    "repeat30": {
+      "passes": 90,
+      "topLevel": 90,
+      "failedTests": [],
+      "skippedTests": [],
+      "skippedPackages": []
+    },
+    "wrapperFallback": {
+      "passes": 3,
+      "topLevel": 3,
+      "failedTests": [],
+      "skippedTests": [],
+      "skippedPackages": []
+    },
+    "exporterTests": 3,
+    "make": "speech-sincnet-fma-check speech-foundations-check speech-media-integration speech-community-segmentation-check PASS; strict target expected failure",
+    "vet": "PASS affected",
+    "arm64": "cross-build PASS, not executed",
+    "fullBuild": "exact saved baseline failures",
+    "race": "gcc unavailable",
+    "diffCheck": "PASS",
+    "links": 110
+  },
+  "syntheticStrict": {
+    "passes": 12,
+    "topLevel": 0,
+    "failedTests": [
+      "TestSincNetLoweredStrictBoundaries/wave-stride10-mode2",
+      "TestSincNetLoweredStrictBoundaries/wave-stride10-mode3",
+      "TestSincNetLoweredStrictBoundaries",
+      "TestSincNetStrictNarrowBandOracle/stride10-mode0",
+      "TestSincNetStrictNarrowBandOracle/stride10-mode1",
+      "TestSincNetStrictNarrowBandOracle/stride1-mode0",
+      "TestSincNetStrictNarrowBandOracle/stride1-mode1",
+      "TestSincNetStrictNarrowBandOracle"
+    ],
+    "skippedTests": [],
+    "skippedPackages": []
+  },
+  "limitations": [
+    "Two trained intermediate failures; no production qualification",
+    "Endpoint parity and local masks do not establish DER or global speaker assignment",
+    "No embedding/full-window scheduling/overlap merge/CLI/HTTP integration",
+    "No speed, power or memory-performance claim",
+    "Public corpus limited to two adjacent ten-second windows; no broad quality acceptance",
+    "Existing default modes/media/feature-only API unchanged; go264 unmerged",
+    "No independent delegated review claimed"
+  ],
+  "coordination": {
+    "window": "whisper-community-checkpoint-0933",
+    "LLMandSpeechServices": "inactive MainPID0",
+    "noGPU": true,
+    "noPush": true,
+    "noDeployment": true
+  },
+  "sourceHashes": {
+    "Makefile": "5e84a48b6d387d17cab65e246f625a46bd42ef431d819950193a515341936269",
+    "models/speaker/community1/segmentation_pcm.go": "33a258ad721d332a63059996be7145e72fbdb5301a1833cb31dd9f432953aa28",
+    "models/speaker/community1/segmentation_pcm_test.go": "2120cf05780d86c60be593df2087fe532da62d2eb79d355f5c1a6aa72ecd43e9",
+    "models/speaker/community1/trained_segmentation_test.go": "a423f0f55d031d459c5631cb98200b925252c06e3cd23f630941da730c2e2d42",
+    "models/speaker/community1/trained_diagnostic_test.go": "e0f157ca37c759d23a20f1629fcd875a6b86461516a15466a288961ff442b10e",
+    "models/speaker/community1/load_segmentation.go": "ad7ff895c68b0a3588cfb4804891b43d6391b2c419a1effb8900aedf535cd9bd",
+    "models/speaker/community1/head.go": "fdb3bf0be3ebd857bf725cdfa56bb3168077b393aedb9a56322163d87f6f8800",
+    "models/speaker/community1/NOTICE": "6b53f678160aaa291ae8cec772850c6d797afc1cdf756337f54f45ad07b1fd07",
+    "scripts/community1_checkpoint_export.py": "f5166952a044cb41e5644374bc895bcca54ffde49859686617475b5506a195d7",
+    "scripts/test_community1_checkpoint_export.py": "6aa41ef77ce3345ab55130498f41490f833530ba0f59024320294566e58ab6e4",
+    "docs/speech-integration.md": "55dc95398a1c8c54d9884c0e52610c824e736f8d33e59fcc6c6bab6b22ea060d",
+    "benchmarks/speech-foundations/README.md": "0e076f449d30830da77b7f542e9ee92926150f78a18ef70f269c8cc48fd7024d"
+  },
+  "evidenceHashes": {
+    "README.md": "a2b8cb41ed7073413cb22ad7da3ffd760ac8395afe07ec5c628127b7781d0a94",
+    "manifest.json": "bc8af5359abf662c93646fd00fe29bec02ab4e5998cef70a92be45af454ff1e0",
+    "export.log": "a8c24144ae875a9701029abd6b876a9107da126567cefae725370dae1ab5b24c",
+    "export-final.log": "c8b04c4ca6bc1d781c42dbcefbcd61163f96ee5651a0ae17eb166d484f441783",
+    "export-trace.log": "53c1f59058a0cd47b9ad2d63da1c1eea2c7e9750e2e8c76484efaf9a22895fb9",
+    "export-repeat.log": "142c96e6f6741d1912d0bb37bdc8ad627f347a37e0d1d2bc1c30dc79c436b6ff",
+    "export-tests-final.txt": "edb4e2159c923ea45a32656078835cdf531c3d7b414c670dd786978875cb0678",
+    "offline-make.txt": "2fa5d1656ebb3cc88bfd34ce16f14738f9ec57ccb4bc36a0e1abfd774bc2f219",
+    "trained-make.txt": "c40a47baea21d6a9ebaa38959fed965476185a5860d86f10447a2c81e0632240",
+    "trained-strict-make.txt": "fba8dbed311c53d9e1229c9a26b773565f61e468d1254a93092726f9c93edc9d",
+    "vet-final.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "race.txt": "8715503ec172594faea19356df5d0debdc0746441f59028f7cb7648787767227",
+    "services.txt": "0731bb84ced3042d993f84b8ee90a043c2f7fa76a7aac8696fce62282045d46a",
+    "go-env.sh": "6a86b0c16b3bb14718532fc757f8ceb0977b9872fa99be7bc29c5ed10f8ef539",
+    "trained-first.jsonl.gz": "0765eaa22a8236f7c476c40747cbd34353de53f7b84593a47981fc7f975f559a",
+    "assembled-first.jsonl.gz": "9be3cf7f28e700e30ffa27f2386ef7c30dd5dea712a7c0db290c1c1d318e9728",
+    "trained-final.jsonl.gz": "143df1f2b3fb202391b5b6a4ab7ece58a77daed9eeaa0977acdb474200015dc2",
+    "trained-strict-final.jsonl.gz": "0c794c8535d9f55feca8e5139e176f9b4653405c2b00824e92031c77abbc3dc1",
+    "diagnostic-final.jsonl.gz": "00e7547737305e8438fd476af82cb174baa2a017a72d9aafa3cd9cf539957abf",
+    "trained-fallback.jsonl.gz": "b2825b0604095b80a95e07c928477a19e89393f07f7673cb4ab88065179c8e3b",
+    "offline-scoped-final.jsonl.gz": "5082665dd5cecef7af7ff5e688ce16d0d9334ed868dd242bbe98a2399ef87951",
+    "repeat-final.jsonl.gz": "b0ccb89517e0bd3fbe96d02e0b252db06afcaae44f5db507eb584aacbed61682",
+    "fallback.jsonl.gz": "dff5455d3ff6b10c964d2ed24481b85d1cfb918c62f8b1e38de2182d5985ebb9",
+    "synthetic-strict.jsonl.gz": "5b380b95e8d35c887fa7515f9dd9819f8ddd67e8b81c683fc6f8bd1a71d07855"
+  }
+}

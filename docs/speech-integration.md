@@ -612,6 +612,12 @@ A complete trained Turbo encoder confirmation reduces median14.244→8.298s (1.7
 
 All seven synthetic lowered-filter endpoints pass the original `2e-4` gate, with bit-exact scalar/SIMD output. The narrow-band stride-10 endpoint is close to the threshold (`0.000199873`). Its stage-0 boundary still fails (`0.000380866`); two new strict boundary failures and the original four parameter-filter failures are retained. No trained checkpoint conversion, complete segmentation integration or DER qualification is added. [Evidence and reproduction](../benchmarks/speech-foundations/sincnet-lowered-fma-20260912/README.md) separate endpoint, boundary and original-mode results. No performance claim or service change.
 
+### Experimental trained Community-1 PCM segmentation
+
+`ExperimentalSegmentation` separately composes lowered SincNet, four bidirectional LSTM layers and the seven-class head on complete mono16k windows. Existing checkpoint APIs and service defaults remain unchanged. The offline exporter validates checkpoint `3533c8` / SHA256 `7ad24338…` and source hashes, uses restricted `weights_only=True` loading, and produces deterministic F32 safetensors plus lowered filters. The 54 raw tensors and all trace hashes are pinned. CC-BY-4.0 model terms are separate from the implementation source licence; weights/audio traces stay outside this repository.
+
+Four trained cases across three runs pass final log-probabilities at `2e-4` and all3,711 local frame masks match. Two intermediate comparisons fail per run: silent-window SincNet stage1 (`1.052576`) and public-10–20s stage0 (`0.000222921`). Exact-pool normalization is bit-exact; convolution differences precede those failures. The strict target retains the failures, with no tolerance widening or silence workaround. [Evidence](../benchmarks/speech-foundations/community1-trained-segmentation-20260912/README.md) includes forced scalar-fallback checks, deterministic conversion and source/weight attribution. Complete diarization, DER and timing remain unqualified.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

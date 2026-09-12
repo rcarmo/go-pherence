@@ -33,11 +33,11 @@ type SegmentationTensorSource interface {
 	GetFloat32(string) ([]float32, []int, error)
 }
 
-// SegmentationCheckpoint owns checked weights but deliberately has NO PCM
-// forward method or frontend accessor: SincNet's strict gate still fails.
-// ForwardFeatures only runs already-qualified recurrent/head components on
-// explicit frame-major [frames,60] synthetic/precomputed features. Its result
-// is not a qualification of SincNet, PCM segmentation or actual trained assets.
+// SegmentationCheckpoint owns checked weights and exposes only feature input.
+// ForwardFeatures runs recurrent/head components on explicit frame-major
+// [frames,60] features. The separate ExperimentalSegmentation wrapper composes
+// PCM inference with lowered filters, but retains strict boundary failures.
+// Neither type alone qualifies global diarization or other trained checkpoints.
 type SegmentationCheckpoint struct {
 	cfg       SegmentationLoadConfig
 	sincnet   SincNetWeights

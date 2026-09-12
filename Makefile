@@ -90,6 +90,17 @@ speech-sincnet-fma-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNetLowered'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNetLowered'
 
+# Trained CPU reference gates require a verified local conversion and explicit admission.
+.PHONY: speech-community-segmentation-check speech-community-segmentation-strict
+speech-community-segmentation-check:
+	@test -n "$(GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestCommunity1TrainedSegmentation$$' -v
+
+# Known intermediate failures: this target must remain nonzero until corrected.
+speech-community-segmentation-strict:
+	@test -n "$(GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION=1 GO_PHERENCE_TEST_COMMUNITY1_STRICT=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestCommunity1TrainedSegmentation$$' -v
+
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
