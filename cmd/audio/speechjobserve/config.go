@@ -58,7 +58,20 @@ type ProfileSettings struct {
 	WindowBytes              int64  `json:"window_bytes"`
 	ResultBytes              int64  `json:"result_bytes"`
 }
+
+// QueueSettings opt in separately to durable intent and worker execution.
+// An unstarted queue accepts intents but never runs them. UI currently requires
+// synchronous mode and is rejected with queue mode instead of mislabelling runs.
+type QueueSettings struct {
+	Enable      bool   `json:"enable"`
+	StartWorker bool   `json:"start_worker"`
+	Directory   string `json:"directory"`
+	MaxEntries  int    `json:"max_entries"`
+	MaxBytes    int64  `json:"max_bytes"`
+	JobSeconds  int    `json:"job_seconds"`
+}
 type ServerConfig struct {
+	Queue          QueueSettings   `json:"queue"`
 	Schema         int             `json:"schema"`
 	AllowExecution bool            `json:"allow_execution"`
 	Store          string          `json:"store"`
@@ -189,6 +202,14 @@ func (c ServerConfig) validate() error {
 	l := c.Limits
 	if l.Jobs < 1 || l.Jobs > 1000 || l.UploadBytes < 1 || l.UploadBytes > 512<<20 || l.ArtifactBytes < 1 || l.ArtifactBytes > 1<<30 || l.StoreBytes < 128<<10 || l.StoreBytes > 64<<30 || l.UploadBytes > l.StoreBytes || l.ArtifactBytes > l.StoreBytes || l.WeightBytes < 8 || l.WeightBytes > 8<<30 || l.OwnedWeightBytes < 1 || l.OwnedWeightBytes > 16<<30 {
 		return fmt.Errorf("invalid configured resource caps")
+	}
+	q := c.Queue
+	if q.Enable {
+		if !filepath.IsAbs(q.Directory) || q.Directory == c.Store || q.MaxEntries < 1 || q.MaxEntries > 128 || q.MaxBytes < 256<<10 || q.MaxBytes > 4<<20 || q.JobSeconds < 1 || q.JobSeconds > 8*3600 || c.HTTP.EnableUI {
+			return fmt.Errorf("invalid queue configuration or unsupported queued browser UI")
+		}
+	} else if q.StartWorker || q.Directory != "" || q.MaxEntries != 0 || q.MaxBytes != 0 || q.JobSeconds != 0 {
+		return fmt.Errorf("queue options require enable")
 	}
 	h := c.HTTP
 	host, port, e := net.SplitHostPort(h.Listen)

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -30,8 +31,17 @@ func TestServeProcessChild(t *testing.T) {
 	main()
 }
 func TestServeProcessSIGTERMClosesListenerAndStore(t *testing.T) {
+	testServeProcessSIGTERM(t, false)
+}
+func TestServeQueueProcessSIGTERMClosesLocks(t *testing.T) {
+	testServeProcessSIGTERM(t, true)
+}
+func testServeProcessSIGTERM(t *testing.T, queued bool) {
 	cfg := toyAssets(t)
 	cfg.AllowExecution = true
+	if queued {
+		cfg.Queue = QueueSettings{Enable: true, StartWorker: true, Directory: filepath.Join(t.TempDir(), "queue"), MaxEntries: 8, MaxBytes: 1 << 20, JobSeconds: 5}
+	}
 	reservation, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)
@@ -93,6 +103,13 @@ func TestServeProcessSIGTERMClosesListenerAndStore(t *testing.T) {
 	reopened, e := speechjob.Open(cfg.Store, speechjob.Limits{MaxJobs: cfg.Limits.Jobs, MaxUploadBytes: cfg.Limits.UploadBytes, MaxArtifactBytes: cfg.Limits.ArtifactBytes, MaxBytes: cfg.Limits.StoreBytes})
 	if e != nil {
 		t.Fatal("store lock not released", e)
+	}
+	if queued {
+		q, e := speechjob.OpenQueue(reopened, speechjob.QueueConfig{Directory: cfg.Queue.Directory, MaxEntries: 8, MaxBytes: 1 << 20, JobTimeout: time.Second, Admission: speechjob.SerialAdmission(), Resolve: func(speechjob.Manifest) ([]speechjob.Stage, error) { return nil, speechjob.ErrConfiguration }})
+		if e != nil {
+			t.Fatal("queue lock not released", e)
+		}
+		q.Close()
 	}
 	reopened.Close()
 	listener, e := net.Listen("tcp", cfg.HTTP.Listen)

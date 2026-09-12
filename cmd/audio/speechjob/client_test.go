@@ -508,3 +508,28 @@ func TestSafeJSONEscapesTerminalAndBidiControls(t *testing.T) {
 		t.Fatal("JSON value changed", out.String(), e)
 	}
 }
+
+func TestQueueCLIExplicitCommands(t *testing.T) {
+	for _, tc := range []struct {
+		command, method, path string
+		status                int
+	}{{"queue", "GET", "/v1/queue", 200}, {"enqueue", "POST", "/v1/jobs/" + job + "/enqueue", 202}, {"retry-queued", "POST", "/v1/jobs/" + job + "/retry-queued", 202}, {"forget-queued", "DELETE", "/v1/jobs/" + job + "/queue", 204}} {
+		_, server := localClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != tc.method || r.URL.Path != tc.path {
+				t.Error(r.Method, r.URL.Path)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(tc.status)
+			if tc.status != 204 {
+				io.WriteString(w, `{}`)
+			}
+		}))
+		args := []string{tc.command}
+		if tc.command != "queue" {
+			args = append(args, job)
+		}
+		if _, e := invoke(context.Background(), server.URL, args...); e != nil {
+			t.Fatal(tc.command, e)
+		}
+	}
+}

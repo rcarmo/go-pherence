@@ -8,7 +8,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
@@ -252,5 +256,150 @@ func TestServingProfileSyntheticFFmpegToVTT(t *testing.T) {
 	r.Close()
 	if b.String() != "WEBVTT\n\n" {
 		t.Fatal(b.String())
+	}
+}
+
+func TestStartQueueWorkerConsent(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_FFMPEG") != "1" {
+		t.Skip("explicit FFmpeg queue integration with generated toy model")
+	}
+	for _, worker := range []bool{false, true} {
+		t.Run(fmt.Sprint(worker), func(t *testing.T) {
+			c := toyAssets(t)
+			c.AllowExecution = true
+			c.Queue = QueueSettings{Enable: true, StartWorker: worker, Directory: filepath.Join(t.TempDir(), "queue"), MaxEntries: 8, MaxBytes: 1 << 20, JobSeconds: 5}
+			for _, pair := range []struct {
+				name  string
+				asset *Asset
+			}{{"ffmpeg", &c.FFmpeg}, {"ffprobe", &c.FFprobe}} {
+				p, e := exec.LookPath(pair.name)
+				if e != nil {
+					t.Fatal(e)
+				}
+				p, _ = filepath.Abs(p)
+				b, e := os.ReadFile(p)
+				if e != nil {
+					t.Fatal(e)
+				}
+				*pair.asset = Asset{p, hashBytes(b)}
+			}
+			reserve, e := net.Listen("tcp", "127.0.0.1:0")
+			if e != nil {
+				t.Fatal(e)
+			}
+			c.HTTP.Listen = reserve.Addr().String()
+			c.HTTP.Hosts = []string{c.HTTP.Listen}
+			reserve.Close()
+			config, _ := json.Marshal(c)
+			asset := putAsset(t, t.TempDir(), "server.json", config, 0600)
+			t.Setenv("SPEECHJOB_TOKEN", serverToken)
+			ctx, cancel := context.WithCancel(context.Background())
+			out := &statusWriter{ready: make(chan struct{})}
+			done := make(chan error, 1)
+			go func() { done <- start(ctx, asset.Path, false, out) }()
+			defer func() {
+				cancel()
+				select {
+				case e := <-done:
+					if e != nil {
+						t.Error(e)
+					}
+				case <-time.After(5 * time.Second):
+					t.Error("startup/worker not drained")
+				}
+			}()
+			select {
+			case <-out.ready:
+			case e := <-done:
+				done <- e
+				t.Fatal("startup failed", e)
+			case <-time.After(5 * time.Second):
+				t.Fatal("not listening")
+			}
+			client := &http.Client{Timeout: 3 * time.Second}
+			defer client.CloseIdleConnections()
+			call := func(method, path string, body io.Reader) (int, []byte) {
+				t.Helper()
+				r, _ := http.NewRequest(method, "http://"+c.HTTP.Listen+path, body)
+				r.Header.Set("Authorization", "Bearer "+serverToken)
+				if body != nil {
+					r.Header.Set("Content-Type", "application/octet-stream")
+				}
+				res, e := client.Do(r)
+				if e != nil {
+					t.Fatal(e)
+				}
+				defer res.Body.Close()
+				b, e := io.ReadAll(res.Body)
+				if e != nil {
+					t.Fatal(e)
+				}
+				return res.StatusCode, b
+			}
+			const n = 320
+			wav := make([]byte, 44+2*n)
+			copy(wav, "RIFF")
+			binary.LittleEndian.PutUint32(wav[4:], uint32(len(wav)-8))
+			copy(wav[8:], "WAVEfmt ")
+			binary.LittleEndian.PutUint32(wav[16:], 16)
+			binary.LittleEndian.PutUint16(wav[20:], 1)
+			binary.LittleEndian.PutUint16(wav[22:], 1)
+			binary.LittleEndian.PutUint32(wav[24:], 16000)
+			binary.LittleEndian.PutUint32(wav[28:], 32000)
+			binary.LittleEndian.PutUint16(wav[32:], 2)
+			binary.LittleEndian.PutUint16(wav[34:], 16)
+			copy(wav[36:], "data")
+			binary.LittleEndian.PutUint32(wav[40:], 2*n)
+			status, b := call("POST", "/v1/jobs?profile=asr-pt&name=toy.wav", bytes.NewReader(wav))
+			if status != 201 {
+				t.Fatal(status, string(b))
+			}
+			var j struct {
+				ID string `json:"id"`
+			}
+			if json.Unmarshal(b, &j) != nil || j.ID == "" {
+				t.Fatal(string(b))
+			}
+			status, b = call("POST", "/v1/jobs/"+j.ID+"/enqueue", nil)
+			if status != 202 {
+				t.Fatal(status, string(b))
+			}
+			wanted := speechjob.QueuePending
+			if worker {
+				wanted = speechjob.QueueSucceeded
+			}
+			deadline := time.Now().Add(4 * time.Second)
+			for {
+				status, b = call("GET", "/v1/queue", nil)
+				var state struct {
+					Entries []speechjob.QueueEntry `json:"entries"`
+				}
+				if status != 200 || json.Unmarshal(b, &state) != nil || len(state.Entries) != 1 {
+					t.Fatal(status, string(b))
+				}
+				if state.Entries[0].Status == wanted {
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatal("queue did not finish", string(b))
+				}
+				time.Sleep(time.Millisecond)
+			}
+			if worker {
+				status, b = call("GET", "/v1/jobs/"+j.ID+"/artifacts/vtt", nil)
+				if status != 200 || string(b) != "WEBVTT\n\n" {
+					t.Fatal(status, string(b))
+				}
+			} else {
+				status, b = call("GET", "/v1/jobs/"+j.ID, nil)
+				var job struct {
+					Attempts int              `json:"attempts"`
+					Status   speechjob.Status `json:"status"`
+				}
+				if status != 200 || json.Unmarshal(b, &job) != nil || job.Attempts != 0 || job.Status != speechjob.Queued {
+					t.Fatal(status, string(b))
+				}
+			}
+		})
 	}
 }

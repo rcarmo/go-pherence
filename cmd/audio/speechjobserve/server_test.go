@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -36,7 +37,17 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 	return n, e
 }
 func TestServerRunCancellationAndOwnedDrain(t *testing.T) {
+	testServerCancellationDrain(t, false)
+}
+func TestServerQueueCancellationAndOwnedDrain(t *testing.T) {
+	testServerCancellationDrain(t, true)
+}
+func testServerCancellationDrain(t *testing.T, queued bool) {
 	cfg := baseConfig(t)
+	var queue *httpapi.QueueOptions
+	if queued {
+		queue = &httpapi.QueueOptions{Directory: filepath.Join(t.TempDir(), "queue"), MaxEntries: 8, MaxBytes: 1 << 20, JobTimeout: 5 * time.Second, Admission: speechjob.SerialAdmission()}
+	}
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	store, e := speechjob.Open(cfg.Store, speechjob.Limits{MaxJobs: 8, MaxUploadBytes: 1024, MaxArtifactBytes: 1024, MaxBytes: 1 << 20})
@@ -49,7 +60,7 @@ func TestServerRunCancellationAndOwnedDrain(t *testing.T) {
 		t.Fatal(e)
 	}
 	host := listener.Addr().String()
-	handler, e := httpapi.New(httpapi.Config{Store: store, Token: serverToken, Hosts: []string{host}, MaxUploadBytes: 1024, MaxConcurrentRequests: 2, Profiles: []httpapi.Profile{{ID: "test", Configuration: []byte(`{}`), Stages: []speechjob.Stage{{Name: "transcript", Version: hashBytes([]byte("stage")), Run: func(ctx context.Context, _ *speechjob.Input, _ io.Writer) error {
+	handler, e := httpapi.New(httpapi.Config{Queue: queue, Store: store, Token: serverToken, Hosts: []string{host}, MaxUploadBytes: 1024, MaxConcurrentRequests: 2, Profiles: []httpapi.Profile{{ID: "test", Configuration: []byte(`{}`), Stages: []speechjob.Stage{{Name: "transcript", Version: hashBytes([]byte("stage")), Run: func(ctx context.Context, _ *speechjob.Input, _ io.Writer) error {
 		close(entered)
 		<-ctx.Done()
 		<-release
@@ -86,10 +97,17 @@ func TestServerRunCancellationAndOwnedDrain(t *testing.T) {
 	if res.StatusCode != 201 {
 		t.Fatal(res.Status)
 	}
+	endpoint := "run"
+	if queued {
+		endpoint = "enqueue"
+		if e := handler.StartQueue(ctx); e != nil {
+			t.Fatal(e)
+		}
+	}
 	requestDone := make(chan struct{})
 	go func() {
 		defer close(requestDone)
-		r, _ := call("POST", "/v1/jobs/"+job.ID+"/run", nil)
+		r, _ := call("POST", "/v1/jobs/"+job.ID+"/"+endpoint, nil)
 		if r != nil {
 			io.Copy(io.Discard, r.Body)
 			r.Body.Close()

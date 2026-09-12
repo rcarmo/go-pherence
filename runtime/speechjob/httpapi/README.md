@@ -1,6 +1,6 @@
 # Authenticated speech-job HTTP handler
 
-`httpapi.New` returns a single-tenant `http.Handler` around one caller-owned speech store and fixed administrator-supplied profiles. It opens no listener, loads no model and runs no background queue. This is a tested HTTP boundary, not a deployed speech service or a trained-model qualification.
+`httpapi.New` returns a single-tenant `http.Handler` around one caller-owned speech store and fixed administrator-supplied profiles. It opens no listener or model. Optional queue metadata is opened/recovered during construction; execution requires a separate `StartQueue(ctx)` call. This is a tested HTTP boundary, not a deployed speech service or a trained-model qualification.
 
 ## Request contract
 
@@ -16,7 +16,11 @@ All responses use `Cache-Control: no-store`, `nosniff`, no-referrer and a restri
 | GET | `/v1/jobs?after=ID` | Up to 100 status records in lexicographic random-ID order; `next` cursor when more directories exist. Empty `after` starts traversal. |
 | GET | `/v1/jobs/ID` | Current persisted status. |
 | POST | `/v1/jobs/ID/run` | Synchronous explicit run/retry using exact stored profile identity. Returns after the store and owned callback finish. |
-| POST | `/v1/jobs/ID/cancel` | Signals the currently admitted matching run; 202 means requested, not durably cancelled. |
+| POST | `/v1/jobs/ID/cancel` | Signals the admitted run, or durably withdraws a pending queue ticket. The response snapshot distinguishes running from cancelled. |
+| GET | `/v1/queue` | Queue mode only: bounded ticket snapshots (up to 128), without configuration or paths. |
+| POST | `/v1/jobs/ID/enqueue` | Queue mode only: 202 after durable intent; pending/running duplicates reuse a ticket. |
+| POST | `/v1/jobs/ID/retry-queued` | Explicit retry of failed/cancelled/interrupted work; new ticket/sequence. Complete media jobs reject retry. |
+| DELETE | `/v1/jobs/ID/queue` | Forget terminal ticket metadata only; pending/running work rejects this operation. |
 | DELETE | `/v1/jobs/ID` | Explicit irreversible deletion, including incomplete uploads; busy stores reject it. Repeated deletion is idempotent. |
 | GET | `/v1/inventory` | Retained IDs, byte counts and manifest/deletion/corruption flags, including incomplete uploads. No raw manifest/config data. |
 | GET, HEAD | `/v1/jobs/ID/artifacts/NAME` | Verified transcript download; only `transcript`, `vtt`, `speaker-transcript` and `speaker-vtt`. |
@@ -27,13 +31,23 @@ Profiles bind the ID, exact configuration bytes and full ordered stage name/vers
 
 ## Lifetimes and admission
 
-There is one mutation slot, matching the store's serial executor. Concurrent upload/run/delete mutations receive 409. One to 64 ordinary request slots are configured; overflow receives 503. One additional bounded cancel slot prevents ordinary requests from starving cancellation. These are request/executor bounds, not persistent queueing, rate limiting or shared CPU/RSS/GPU admission.
+There is one mutation slot, matching the store's serial executor. Concurrent upload/run/delete mutations receive 409. One to 64 ordinary request slots are configured; overflow receives 503. One additional bounded cancel slot prevents ordinary requests from starving cancellation. These request/executor bounds do not enforce rate limits or shared CPU/RSS/GPU budgets.
 
-Runs belong to the HTTP request. Client disconnect and `Handler.Shutdown` cancel them cooperatively. A long request keeps its connection open; HTTP 202 is not used to claim durable background execution. Request timeout may cancel a run, and retry remains explicit. Application cancellation returns **409 `cancelled`**, not 408: browsers can automatically retry POST requests after HTTP 408. The explicit cancellation endpoint still returns 202 for its signal acknowledgement. A completed job remains a verified no-op only for its original full stage list.
+In default synchronous mode, runs belong to the HTTP request. Client disconnect and `Handler.Shutdown` cancel them cooperatively. A long request keeps its connection open; HTTP 202 is not used to claim durable background execution. Request timeout may cancel a run, and retry remains explicit. Application cancellation returns **409 `cancelled`**, not 408: browsers can automatically retry POST requests after HTTP 408. The explicit cancellation endpoint still returns 202 for its signal acknowledgement. A completed job remains a verified no-op only for its original full stage list.
 
 The handler exclusively owns store access during use. Call `Handler.Shutdown(ctx)` before closing its store or models. It refuses new requests, cancels admitted requests and waits for them to drain. If the shutdown context expires, work may still exist; keep all resources alive and retry shutdown. Cancellation closes and joins the in-flight upload body closer. Synchronous filesystem calls and arbitrary stage callbacks remain cooperatively cancellable; the handler cannot forcibly interrupt them. It does not close the caller's store or listener.
 
 `Store.ListPage` retains at most 100 manifests, checks cancellation between entries and skips incomplete uploads. Pagination is live, not a multi-page snapshot: concurrent create/delete operations may change later pages. The next page can be empty if only incomplete directories remain. Inventory retains bounded metadata for the store's configured job count.
+
+## Opt-in queue
+
+Set `Config.Queue` with a separate private `Directory`, `MaxEntries` (1–128), `MaxBytes` (256 KiB–4 MiB), `JobTimeout` (positive, at most eight hours) and nonnil cooperative `Admission`. Then call `StartQueue(ctx)` separately. Nil options retain synchronous mode. Queue mode rejects `EnableUI` and returns 409 `queue_enabled` for `/run`; the current browser only implements synchronous operations.
+
+Accepted enqueue work is independent of the originating request. Shutdown cancels the worker and joins admission/run/release before closing its journal. Queue cancellation has a reserved request slot. Pending tickets are durable; running-at-crash tickets become interrupted and require explicit retry. Read [queue recovery and ownership](../queue.md) before embedding.
+
+The worker acquires shared admission then the handler mutation gate; uploads/deletes receive 409 while it holds that gate. Enqueue can record previously uploaded jobs during a run. Uploading during execution remains unsupported by the serial store. Ticket removal plus media deletion holds the queue lock to exclude concurrent enqueue. Normal release finishes before the mutation gate opens. Release panic stops the queue and keeps mutations blocked until inspected restart; status/download/shutdown remain available.
+
+`SerialAdmission` is an optional in-process exclusion callback for cooperating owners. It supplies no weighted CPU/memory budget, RSS enforcement, fairness or unrelated LLM/GPU coordination. Queue deadline includes admission wait and is separate from HTTP request timeouts. List order is storage order; `sequence` determines FIFO execution.
 
 ## Embedding requirements
 
@@ -45,9 +59,9 @@ The application must provide:
 - a private local store, immutable published payloads and appropriately bounded store quotas;
 - trusted model/backend profile construction and shared compute admission before neural work;
 - explicit HTTP listener and handler shutdown ordering, followed by model/store teardown;
-- any persistent queue, shared admission and additional client/progress policy. The CLI and opt-in static browser UI are separate implemented clients; neither starts jobs automatically.
+- explicit queue options/worker startup if needed, shared admission and additional client/progress policy. The CLI and opt-in static browser UI are separate implemented clients; neither starts jobs automatically.
 
-The handler authenticates before reading upload bodies, but a network server/proxy may still buffer bytes before dispatch. Uploads exceeding an unknown/chunked length are stopped by `MaxBytesReader`; incomplete directories remain visible for explicit cleanup. No automatic retry/deletion/startup run occurs. Exactly-at-limit uploads are allowed; unexpected read failures are not acknowledged as durable uploads. A publication error returns `persistence_uncertain`; clients should inspect status/inventory before deciding on retry. Blind POST-upload retries can create duplicates because uploads have no idempotency-key contract yet.
+The handler authenticates before reading upload bodies, but a network server/proxy may still buffer bytes before dispatch. Uploads exceeding an unknown/chunked length are stopped by `MaxBytesReader`; incomplete directories remain visible for explicit cleanup. No automatic retry/deletion occurs; recovered pending queue intents require explicit worker startup. Exactly-at-limit uploads are allowed; unexpected read failures are not acknowledged as durable uploads. A publication error returns `persistence_uncertain`; clients should inspect status/inventory before deciding on retry. Blind POST-upload retries can create duplicates because uploads have no idempotency-key contract yet.
 
 ## Verification
 

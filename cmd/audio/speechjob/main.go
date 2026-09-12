@@ -28,6 +28,10 @@ Commands:
   list [--after JOB_ID]
   get JOB_ID
   inventory
+  queue                   list durable queue tickets (if enabled)
+  enqueue JOB_ID          durable intent only; worker startup is operator-owned
+  retry-queued JOB_ID     explicit retry of failed/cancelled/interrupted ticket
+  forget-queued JOB_ID    remove terminal ticket metadata, not media
   run JOB_ID               synchronous; choose an adequate --timeout
   cancel JOB_ID            acknowledgement means requested, not finished
   delete --confirm JOB_ID  irreversible; no automatic retry
@@ -70,7 +74,7 @@ func execute(ctx context.Context, args []string, env func(string) string, out io
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 	switch args[0] {
-	case "get", "run", "cancel":
+	case "get", "run", "cancel", "enqueue", "retry-queued", "forget-queued":
 		if len(args) != 2 || !validID(args[1]) {
 			return fmt.Errorf("command requires one lowercase job ID")
 		}
@@ -78,11 +82,21 @@ func execute(ctx context.Context, args []string, env func(string) string, out io
 		if args[0] != "get" {
 			method = "POST"
 			path += "/" + args[0]
-			if args[0] == "cancel" {
+			if args[0] == "cancel" || args[0] == "enqueue" || args[0] == "retry-queued" {
 				status = 202
+			}
+			if args[0] == "forget-queued" {
+				method = "DELETE"
+				path = "/v1/jobs/" + args[1] + "/queue"
+				status = 204
 			}
 		}
 		return c.jsonRequest(ctx, method, path, nil, 0, status, out)
+	case "queue":
+		if len(args) != 1 {
+			return fmt.Errorf("queue takes no arguments")
+		}
+		return c.jsonRequest(ctx, "GET", "/v1/queue", nil, 0, 200, out)
 	case "inventory":
 		if len(args) != 1 {
 			return fmt.Errorf("inventory takes no arguments")

@@ -1,6 +1,6 @@
 # Durable speech-job foundation
 
-`speechjob` stores acknowledged uploads and sequential stage checkpoints with explicit retry, cancellation and retention. It also provides an explicitly configured FFmpeg decode stage, host Go Whisper raw-window and experimental Community-1 diarization stages, plus transcript JSON/WebVTT serializers. It does not load models, start a service or schedule background work. The separate [HTTP handler](httpapi/README.md) provides authenticated synchronous job operations and transcript-only downloads when embedded by an application. The existing inference scheduler remains unchanged: its token-prefill/decode contract does not model whole recording stages.
+`speechjob` stores acknowledged uploads and sequential stage checkpoints with explicit retry, cancellation and retention. It also provides an explicitly configured FFmpeg decode stage, host Go Whisper raw-window and experimental Community-1 diarization stages, plus transcript JSON/WebVTT serializers. It does not load models or start a service. The optional [durable queue](queue.md) requires explicit construction and worker startup. The separate [HTTP handler](httpapi/README.md) provides authenticated synchronous or explicitly queued job operations and transcript-only downloads when embedded by an application. The existing inference scheduler remains unchanged: its token-prefill/decode contract does not model whole recording stages.
 
 This is the persistence slice of the speech plan. [Refinement scope](refinement.md) records its requirements and exclusions.
 

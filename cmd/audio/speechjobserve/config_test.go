@@ -152,3 +152,25 @@ func TestUIRequiresExactServerOrigin(t *testing.T) {
 		t.Fatal("no status slot while run active")
 	}
 }
+
+func TestQueueWorkerRequiresSeparateConsent(t *testing.T) {
+	c := baseConfig(t)
+	c.Queue = QueueSettings{Enable: true, Directory: filepath.Join(t.TempDir(), "queue"), MaxEntries: 8, MaxBytes: 1 << 20, JobSeconds: 30}
+	if e := c.validate(); e != nil {
+		t.Fatal(e)
+	}
+	c.Queue.StartWorker = true
+	if e := c.validate(); e != nil {
+		t.Fatal(e)
+	}
+	c.Queue.Enable = false
+	if e := c.validate(); e == nil {
+		t.Fatal("worker without enabled queue")
+	}
+	c.Queue.Enable = true
+	c.HTTP.EnableUI = true
+	c.HTTP.Origin = "http://" + c.HTTP.Listen
+	if e := c.validate(); e == nil {
+		t.Fatal("synchronous UI in queue mode")
+	}
+}

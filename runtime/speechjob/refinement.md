@@ -189,3 +189,26 @@ Transcript schema 1 stores already reconciled sample-indexed cues. JSON requires
 18. Export:hashsizeMIMEETagverifiedJSONVTT withgeneratedfilename;browserfilesystemcollisionpolicyexternal.
 19. Proof:Go route/auth/config/shutdown tests plus Playwright25checks inclXSSnames/hashmismatch/failure/canceloneattempt/lostack/mobile.
 20. Closure:scopedbrowserchecks/vet/build/commit/evidence;no trainingquality/queue/sharedCPU/RSSGPUadmission completeness.
+
+## Explicit durable queue continuation
+
+1. Problem: accepted work must survive the enqueue request and process restart without automatically replaying an interrupted claim.
+2. User: existing single-tenant recording workflow; operator owns worker startup.
+3. Success: durable bounded FIFO tickets, explicit recovery/retry and owned cancellation/drain.
+4. Minimum: separate private queue journal, one explicitly started worker, HTTP/CLI/server integration.
+5. Exclusions: automatic failed-job retry, queue browser UI, distributed scheduling, weighted CPU/RSS/GPU controller, trained qualification.
+6. Scope: queue APIs/tests, additive HTTP routes, CLI commands and server config; store/media/neural algorithms unchanged.
+7. Platforms: Unix cooperating-process locks, tested Linux; cross-compilation does not qualify platform execution.
+8. Errors: persistence uncertainty or admission/release panic stops the queue; retain media, inspect and reopen; no silent replay.
+9. Persistence: temporary file sync, journal rename, directory sync; claim precedes execution; running-at-crash becomes interrupted.
+10. Pattern: existing exact profile/stage identity and Store.Run checkpoint verification; token scheduler unchanged.
+11. First change: core FIFO/recovery/cancel tests, then interfaces and actual process-kill boundaries.
+12. Avoid: background uploads, inferred profiles, automatic promotion, resource-budget labels for a serial gate.
+13. Names: queue.json and generated ticket; pending/running/succeeded/failed/cancelled/interrupted; explicit enqueue/retry-queued routes.
+14. IO: existing job ID plus trusted stages/admission; detached bounded status snapshots, no raw paths/config in HTTP.
+15. Compatibility: synchronous mode remains default; queue and current synchronous browser UI are mutually exclusive; FFmpeg/provider pin unchanged.
+16. Limits:128entries/128KiBJSON/256KiB–4MiBdirectory/256entries with temporary headroom;8hdeadline includes admission;terminal records need explicit forget.
+17. Trust: private immutable local parents, shared callback only for cooperating owners; non-reentrant stages/resolver; no hard CPU/memory enforcement.
+18. Export: same verified transcript allowlist; ticket forget keeps media; locked queue deletion excludes concurrent enqueue.
+19. Proof: FIFO/duplicates/profile drift/quota/faults/alloc/concurrency/drain; four SIGKILL queue boundaries; queued SIGTERM server; toy FFmpeg start-worker off/on; synchronous browser regression.
+20. Closure: commit only after scoped checks/vet/build/evidence; full trained quality, numerical, weighted admission and whole-job performance gates stay open.

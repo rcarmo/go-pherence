@@ -96,7 +96,11 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 		store.Close()
 		return e
 	}
-	handler, e := httpapi.New(httpapi.Config{Store: store, Profiles: profiles, Token: os.Getenv("SPEECHJOB_TOKEN"), Hosts: cfg.HTTP.Hosts, Origin: cfg.HTTP.Origin, EnableUI: cfg.HTTP.EnableUI, MaxUploadBytes: cfg.Limits.UploadBytes, MaxConcurrentRequests: cfg.HTTP.MaxRequests})
+	var queue *httpapi.QueueOptions
+	if cfg.Queue.Enable {
+		queue = &httpapi.QueueOptions{Directory: cfg.Queue.Directory, MaxEntries: cfg.Queue.MaxEntries, MaxBytes: cfg.Queue.MaxBytes, JobTimeout: duration(cfg.Queue.JobSeconds), Admission: speechjob.SerialAdmission()}
+	}
+	handler, e := httpapi.New(httpapi.Config{Store: store, Profiles: profiles, Token: os.Getenv("SPEECHJOB_TOKEN"), Hosts: cfg.HTTP.Hosts, Origin: cfg.HTTP.Origin, EnableUI: cfg.HTTP.EnableUI, MaxUploadBytes: cfg.Limits.UploadBytes, MaxConcurrentRequests: cfg.HTTP.MaxRequests, Queue: queue})
 	if e != nil {
 		store.Close()
 		return e
@@ -106,6 +110,14 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 		handler.Shutdown(context.Background())
 		store.Close()
 		return fmt.Errorf("listener bind failed")
+	}
+	if cfg.Queue.StartWorker {
+		if e = handler.StartQueue(ctx); e != nil {
+			listener.Close()
+			handler.Shutdown(context.Background())
+			store.Close()
+			return e
+		}
 	}
 	// serveOwned does not return until handler-owned operations stop. The profiles'
 	// model closures stay reachable through handler until then; no GC/close early.
@@ -144,7 +156,7 @@ func serveOwned(ctx context.Context, listener net.Listener, handler handlerOwner
 	if e := json.NewEncoder(out).Encode(struct {
 		Listening string `json:"listening"`
 		Execution string `json:"execution"`
-	}{listener.Addr().String(), "explicit synchronous requests"}); e != nil {
+	}{listener.Addr().String(), "explicit job requests; queue worker only when separately enabled"}); e != nil {
 		cancel()
 		srv.Close()
 		handler.Shutdown(context.Background())

@@ -1,6 +1,6 @@
 # Explicit Go Whisper job server
 
-`speechjobserve` is an opt-in Linux/amd64 command that loads one local checked Whisper model and serves the existing authenticated job API. It does not download assets, install/restart services or run a job at startup. The serving profile is **CPU Whisper ASR only**, with FFmpeg decoding and conservative exact-overlap transcript/VTT output. Community-1, Vulkan profiles, automatic queues and trained/performance qualification are separate work. An opt-in [browser interface](../../../runtime/speechjob/httpapi/ui/README.md) is available with `http.enable_ui:true`, an exact matching `http.origin`, and at least two ordinary request slots; it is disabled by default.
+`speechjobserve` is an opt-in Linux/amd64 command that loads one local checked Whisper model and serves the existing authenticated job API. It does not download assets or install/restart services. It executes recovered pending tickets at startup only when `queue.enable` and `queue.start_worker` are both explicitly true. The serving profile is **CPU Whisper ASR only**, with FFmpeg decoding and conservative exact-overlap transcript/VTT output. Community-1, Vulkan profiles and trained/performance qualification are separate work. An opt-in [browser interface](../../../runtime/speechjob/httpapi/ui/README.md) is available with `http.enable_ui:true`, an exact matching `http.origin`, and at least two ordinary request slots; it is disabled by default.
 
 ## Launch requirements
 
@@ -26,11 +26,32 @@ The single profile fixes language, media extension, duration, input/output caps,
 
 `--check` validates config, TLS files if configured, asset hashes, tokenizer/generation/model metadata, supported dtypes/shapes/extents and configured byte-admission estimates. It maps the safetensors file for metadata inspection and hashes its complete bytes, but does **not** call the tensor payload loader, create/open/recover a store, bind a listener or infer. It reports `metadata_checked:true, model_loaded:false, listening:false`. This is not full model-schema/numerical qualification: required tensor-name/shape binding and finite-value checks happen in the checked loader during execution startup.
 
-Execution validates token and TLS first, then opens/recover-locks the private store before loading model weights. A second process cannot load a duplicate model against that same store. The store parent must already exist; startup recovery may mark interrupted jobs failed but never runs them automatically. Invalid model startup after acquiring the store may therefore have performed normal recovery before failing. Each load failure closes the store, and the listener is bound only after checked loading and all four stages are constructed:
+Execution validates token and TLS first, then opens/recover-locks the private store before loading model weights. A second process cannot load a duplicate model against that same store. The store parent must already exist; store recovery may mark interrupted jobs failed. A separately enabled queue worker executes pending tickets only after loading succeeds and the listener binds; interrupted claims require explicit retry. Invalid model startup after acquiring the store may therefore have performed normal recovery before failing. Each load failure closes the store, and the listener is bound only after checked loading and all four stages are constructed:
 
 `decode → asr-windows → transcript → vtt`
 
 The checked loader owns widened finite weights and closes the safetensors source after binding. The profile version incorporates pinned assets, complete generation/settings and runtime identity. HTTP clients select the configured profile ID; it remains the sole source of model options. Conflicting ASR overlaps fail conservatively with raw windows retained; this server does not add general alignment or promote neural quality.
+
+## Durable queue configuration
+
+Omitting `queue` retains synchronous request-owned execution. To accept durable intents without executing them, add:
+
+```json
+"queue": {
+  "enable": true,
+  "start_worker": false,
+  "directory": "/absolute/private-queue",
+  "max_entries": 32,
+  "max_bytes": 1048576,
+  "job_seconds": 3600
+}
+```
+
+Review pending tickets, profiles and host admission before explicitly setting `start_worker:true` and starting the process. There is no HTTP worker-start endpoint. `allow_execution:true` is still required to serve/load the model, even with the worker off. `--check` never opens queue/store metadata or starts a worker.
+
+Queue storage must be private, outside the media store, under an existing administrator-owned immutable parent. Entries are capped at 1–128, bytes at 256 KiB–4 MiB and job timeout at 1–28,800 seconds. Disabled queue options must be omitted or zero. Queue mode rejects `http.enable_ui:true` and synchronous `/run`; use the [CLI queue commands](../speechjob/README.md). Interrupted running claims require explicit retry, while recovered pending intents can run after worker startup. Upload never implies enqueue. See [queue recovery](../../../runtime/speechjob/queue.md).
+
+The command uses one process-local `SerialAdmission` callback. It does not share resource budgets with other processes, LLMs or stores. Queue job timeout includes admission wait and is independent of the HTTP request deadline. SIGINT/SIGTERM drains admission, callbacks and release before closing queue/store resources.
 
 ## Resource limits
 
@@ -51,4 +72,4 @@ SIGINT/SIGTERM closes the listener and HTTP connections, cancels request context
 
 Run `make speech-job-serve-check` for synthetic tests. The explicit media target `make speech-job-serve-integration` generates a tiny two-channel zero-layer Whisper model plus WAV fixture and runs real FFmpeg through the four-stage profile. No trained weights or private recordings are used. Listener tests use temporary local ports, TLS test certificates and fixture callbacks; a real child process receives SIGTERM, exits cleanly and releases listener/store ownership. Checks cover config/hash/budget rejection, tokenizer case/null behaviour, suffix profile composition, TLS connection state, idle handshake deadlines, connection caps and grace-timeout retention.
 
-The initial synthetic generation fixture omitted most language IDs and was rejected; it was corrected to the complete vocabulary without loosening parser gates. Existing production services stay stopped. The command is implemented and locally tested; it has not been deployed, exposed to the LAN or qualified with trained checkpoints. Core cross-builds are compilation only; model execution remains Linux/amd64-only. General numerical/tie/WER/DER, performance, long-recording diarization and persistent queue/shared admission objectives remain open. Browser checks use separate model-free fixtures and do not qualify trained inference or production deployment.
+The initial synthetic generation fixture omitted most language IDs and was rejected; it was corrected to the complete vocabulary without loosening parser gates. Existing production services stay stopped. The command is implemented and locally tested; it has not been deployed, exposed to the LAN or qualified with trained checkpoints. Core cross-builds are compilation only; model execution remains Linux/amd64-only. General numerical/tie/WER/DER, performance, long-recording diarization and weighted shared admission objectives remain open. The durable queue is implemented and synthetically tested; its current browser integration is unsupported. Browser checks use separate model-free fixtures and do not qualify trained inference or production deployment.

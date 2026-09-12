@@ -1,5 +1,5 @@
 // Package httpapi exposes an opt-in, single-tenant HTTP boundary for speechjob.
-// It opens no listener, loads no models and runs no automatic/background queue.
+// It opens no listener or models. Queue execution requires explicit StartQueue.
 package httpapi
 
 import (
@@ -49,6 +49,18 @@ type Config struct {
 	EnableUI              bool // Opt-in static browser UI; requires exact same Origin/Host.
 	MaxUploadBytes        int64
 	MaxConcurrentRequests int
+	Queue                 *QueueOptions // nil keeps existing synchronous request-owned execution.
+}
+
+// QueueOptions explicitly opts into durable queue metadata, not worker startup.
+// Admission must be supplied by the owner and shared with other cooperating
+// compute users. StartQueue is a separate explicit execution decision.
+type QueueOptions struct {
+	Directory  string
+	MaxEntries int
+	MaxBytes   int64
+	JobTimeout time.Duration
+	Admission  speechjob.Admission
 }
 type boundProfile struct {
 	id            string
@@ -75,13 +87,15 @@ type Handler struct {
 	drained       chan struct{}
 	runningID     string
 	runningCancel context.CancelFunc
+	queue         *speechjob.Queue
 }
 
-// New validates configuration without modifying the store or loading models.
+// New validates configuration without modifying the media store or loading
+// models. Optional queue metadata is opened/recovered without starting a worker.
 // The store must be exclusively owned by this handler while requests run. The
 // caller closes it only after Shutdown succeeds. No default profile is inferred.
 func New(cfg Config) (*Handler, error) {
-	if cfg.Store == nil || len(cfg.Profiles) < 1 || len(cfg.Profiles) > 32 || len(cfg.Hosts) < 1 || len(cfg.Hosts) > 16 || len(cfg.Token) < 32 || len(cfg.Token) > 256 || cfg.MaxUploadBytes < 1 || cfg.MaxUploadBytes > 512<<20 || cfg.MaxConcurrentRequests < 1 || cfg.MaxConcurrentRequests > 64 {
+	if cfg.Store == nil || len(cfg.Profiles) < 1 || len(cfg.Profiles) > 32 || len(cfg.Hosts) < 1 || len(cfg.Hosts) > 16 || len(cfg.Token) < 32 || len(cfg.Token) > 256 || cfg.MaxUploadBytes < 1 || cfg.MaxUploadBytes > 512<<20 || cfg.MaxConcurrentRequests < 1 || cfg.MaxConcurrentRequests > 64 || cfg.Queue != nil && cfg.EnableUI {
 		return nil, fmt.Errorf("invalid HTTP job configuration")
 	}
 	for _, b := range []byte(cfg.Token) {
@@ -137,6 +151,41 @@ func New(cfg Config) (*Handler, error) {
 		h.byConfig[string(configuration)] = bound
 	}
 	h.ctx, h.cancel = context.WithCancel(context.Background())
+	if cfg.Queue != nil {
+		if cfg.Queue.Admission == nil {
+			h.cancel()
+			return nil, fmt.Errorf("queue requires explicit resource admission")
+		}
+		q := *cfg.Queue
+		resolve := func(m speechjob.Manifest) ([]speechjob.Stage, error) {
+			p, ok := h.byConfig[m.Configuration]
+			if !ok {
+				return nil, speechjob.ErrConfiguration
+			}
+			return p.stages, nil
+		}
+		admit := func(ctx context.Context) (func(), error) {
+			release, e := q.Admission(ctx)
+			if e != nil || release == nil {
+				return release, e
+			}
+			select {
+			case h.mutation <- struct{}{}:
+				// Keep mutations blocked if release panics: the queue poisons
+				// itself and resource ownership is uncertain until inspected restart.
+				return func() { release(); <-h.mutation }, nil
+			case <-ctx.Done():
+				release()
+				return nil, ctx.Err()
+			}
+		}
+		queue, e := speechjob.OpenQueue(h.store, speechjob.QueueConfig{Directory: q.Directory, MaxEntries: q.MaxEntries, MaxBytes: q.MaxBytes, JobTimeout: q.JobTimeout, Resolve: resolve, Admission: admit})
+		if e != nil {
+			h.cancel()
+			return nil, e
+		}
+		h.queue = queue
+	}
 	return h, nil
 }
 func slug(s string) bool {
@@ -174,8 +223,16 @@ func (h *Handler) Shutdown(ctx context.Context) error {
 	}
 	done := h.drained
 	h.mu.Unlock()
+	if h.queue != nil {
+		if e := h.queue.Shutdown(ctx); e != nil {
+			return e
+		}
+	}
 	select {
 	case <-done:
+		if h.queue != nil {
+			return h.queue.Close()
+		}
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -305,6 +362,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, "invalid_query", nil)
 		return
 	}
+	if len(path) == 2 && path[0] == "v1" && path[1] == "queue" && h.queue != nil {
+		if r.Method != http.MethodGet {
+			method(w, "GET")
+			return
+		}
+		entries, e := h.queue.List()
+		if e != nil {
+			h.failure(w, e, nil)
+			return
+		}
+		respond(w, 200, struct {
+			Entries []speechjob.QueueEntry `json:"entries"`
+		}{entries})
+		return
+	}
 	if len(path) == 2 && path[0] == "v1" && path[1] == "profiles" && h.enableUI {
 		if r.Method != http.MethodGet {
 			method(w, "GET")
@@ -355,6 +427,28 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(path) == 4 {
 		switch path[3] {
+		case "enqueue", "retry-queued":
+			if r.Method != http.MethodPost {
+				method(w, "POST")
+				return
+			}
+			h.enqueue(w, r, id, path[3] == "retry-queued")
+			return
+		case "queue":
+			if r.Method != http.MethodDelete {
+				method(w, "DELETE")
+				return
+			}
+			if h.queue == nil {
+				respondError(w, 404, "not_found", nil)
+				return
+			}
+			if e := h.queue.Forget(r.Context(), id); e != nil {
+				h.failure(w, e, nil)
+				return
+			}
+			w.WriteHeader(204)
+			return
 		case "run":
 			if r.Method != http.MethodPost {
 				method(w, "POST")
@@ -486,13 +580,23 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	defer func() { <-h.mutation }()
-	if e := h.store.Delete(r.Context(), id); e != nil {
+	var e error
+	if h.queue != nil {
+		e = h.queue.Delete(r.Context(), id)
+	} else {
+		e = h.store.Delete(r.Context(), id)
+	}
+	if e != nil {
 		h.failure(w, e, nil)
 		return
 	}
 	w.WriteHeader(204)
 }
 func (h *Handler) run(w http.ResponseWriter, r *http.Request, id string) {
+	if h.queue != nil {
+		respondError(w, 409, "queue_enabled", nil)
+		return
+	}
 	if !emptyBody(r) {
 		respondError(w, 400, "unexpected_body", nil)
 		return
@@ -540,6 +644,19 @@ func (h *Handler) run(w http.ResponseWriter, r *http.Request, id string) {
 func (h *Handler) cancelRun(w http.ResponseWriter, r *http.Request, id string) {
 	if !emptyBody(r) {
 		respondError(w, 400, "unexpected_body", nil)
+		return
+	}
+	if h.queue != nil {
+		entry, e := h.queue.Cancel(r.Context(), id)
+		if e != nil {
+			h.failure(w, e, nil)
+			return
+		}
+		respond(w, 202, struct {
+			ID                    string               `json:"id"`
+			CancellationRequested bool                 `json:"cancellation_requested"`
+			Entry                 speechjob.QueueEntry `json:"entry"`
+		}{id, true, entry})
 		return
 	}
 	h.mu.Lock()
@@ -692,6 +809,8 @@ func (h *Handler) failure(w http.ResponseWriter, e error, job *Job) {
 	switch {
 	case errors.Is(e, speechjob.ErrPersistence):
 		respondError(w, 503, "persistence_uncertain", job)
+	case errors.Is(e, speechjob.ErrQueueState):
+		respondError(w, 409, "queue_state_conflict", job)
 	case errors.Is(e, speechjob.ErrBusy):
 		respondError(w, 409, "busy", job)
 	case errors.Is(e, speechjob.ErrLimit) || errors.As(e, &tooLarge):
@@ -711,4 +830,32 @@ func (h *Handler) failure(w http.ResponseWriter, e error, job *Job) {
 	default:
 		respondError(w, 422, "operation_failed", job)
 	}
+}
+
+// StartQueue starts the configured worker explicitly. It processes only durable
+// pending intents; construction and uploads never enqueue/run automatically.
+func (h *Handler) StartQueue(ctx context.Context) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return speechjob.ErrClosed
+	}
+	if h.queue == nil {
+		return speechjob.ErrConfiguration
+	}
+	return h.queue.Start(ctx)
+}
+func (h *Handler) enqueue(w http.ResponseWriter, r *http.Request, id string, retry bool) {
+	if h.queue == nil {
+		respondError(w, 404, "not_found", nil)
+		return
+	}
+	entry, e := h.queue.Enqueue(r.Context(), id, retry)
+	if e != nil {
+		h.failure(w, e, nil)
+		return
+	}
+	// This acknowledges durable intent, not completed execution. The worker uses
+	// its own lifetime context; request disconnect cannot cancel accepted intent.
+	respond(w, 202, entry)
 }
