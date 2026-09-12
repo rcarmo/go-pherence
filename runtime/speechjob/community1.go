@@ -109,6 +109,7 @@ type DiarizationDocument struct {
 	SampleRate          int                     `json:"sample_rate"`
 	TotalSamples        int64                   `json:"total_samples"`
 	StageKey            string                  `json:"stage_key"`
+	SourceTiming        media.SourceTiming      `json:"source_timing"`
 	Policy              c1.DiarizationPCMConfig `json:"policy"`
 	Windows             []c1.DiarizationWindow  `json:"windows"`
 	SegmentationGrid    c1.SincNetGrid          `json:"segmentation_grid"`
@@ -136,7 +137,7 @@ func community1Stage(cfg Community1StageConfig, infer communityInfer) Stage {
 	identity, _ := json.Marshal(struct {
 		Schema string
 		Config Community1StageConfig
-	}{"speechjob-community1-rawturns-v1", cfg})
+	}{"speechjob-community1-rawturns-source-timing-v2", cfg})
 	version := hash(identity)
 	return Stage{Name: "diarization", Version: version, Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
 		if e := ctx.Err(); e != nil {
@@ -167,6 +168,7 @@ func community1Stage(cfg Community1StageConfig, infer communityInfer) Stage {
 		}
 		defer func() { err = errors.Join(err, pcm.Close()) }()
 		total := int64(pcm.Timeline().Samples)
+		sourceTiming := pcm.SourceTiming()
 		if _, e = c1.PlanDiarizationWindows(total, cfg.PCM.WindowSamples, cfg.PCM.StepSamples); e != nil {
 			return e
 		}
@@ -189,6 +191,10 @@ func community1Stage(cfg Community1StageConfig, infer communityInfer) Stage {
 		if e != nil {
 			return e
 		}
+		document.SourceTiming = sourceTiming
+		if e = validateDiarizationDocument(ctx, document); e != nil {
+			return e
+		}
 		b, e := json.Marshal(document)
 		if e != nil {
 			return e
@@ -209,7 +215,7 @@ func diarizationDocument(ctx context.Context, r *c1.DiarizationPCMResult, policy
 		return d, ErrCorrupt
 	}
 	p, t := r.Postprocess, r.Postprocess.Timeline
-	d = DiarizationDocument{Schema: 1, Experimental: true, SampleRate: 16000, TotalSamples: total, StageKey: key, Policy: policy, Windows: r.Windows, SegmentationGrid: r.Grid, LocalSpeakers: r.LocalSpeakers, EmbeddingDimension: r.EmbeddingDimension, Timeline: DiarizationGrid{t.Frames, t.Classes, t.Start, t.FrameDuration, t.FrameStep}, Path: p.Path, TrainingRows: p.TrainingRows, Clusters: p.Clusters, ConstraintSatisfied: p.ConstraintSatisfied, AmbiguousFrames: append([]int{}, t.AmbiguousFrames...), FullTurns: append([]c1.SpeakerTurn{}, p.FullTurns...), ExclusiveTurns: append([]c1.SpeakerTurn{}, p.ExclusiveTurns...)}
+	d = DiarizationDocument{Schema: 2, Experimental: true, SampleRate: 16000, TotalSamples: total, StageKey: key, Policy: policy, Windows: r.Windows, SegmentationGrid: r.Grid, LocalSpeakers: r.LocalSpeakers, EmbeddingDimension: r.EmbeddingDimension, Timeline: DiarizationGrid{t.Frames, t.Classes, t.Start, t.FrameDuration, t.FrameStep}, Path: p.Path, TrainingRows: p.TrainingRows, Clusters: p.Clusters, ConstraintSatisfied: p.ConstraintSatisfied, AmbiguousFrames: append([]int{}, t.AmbiguousFrames...), FullTurns: append([]c1.SpeakerTurn{}, p.FullTurns...), ExclusiveTurns: append([]c1.SpeakerTurn{}, p.ExclusiveTurns...)}
 	if e := validateDiarizationDocument(ctx, d); e != nil {
 		return DiarizationDocument{}, e
 	}
@@ -222,7 +228,10 @@ func validateDiarizationDocument(ctx context.Context, d DiarizationDocument) err
 	if d.Windows == nil || d.AmbiguousFrames == nil || d.FullTurns == nil || d.ExclusiveTurns == nil {
 		return ErrCorrupt
 	}
-	if d.Schema != 1 || !d.Experimental || d.SampleRate != 16000 || !validHash(d.StageKey) || d.LocalSpeakers < 1 || d.LocalSpeakers > 8 || d.EmbeddingDimension < 1 || d.EmbeddingDimension > 512 || d.TrainingRows < 0 || d.TrainingRows > 512 || d.Clusters < 0 || d.Clusters > 64 {
+	if d.Schema != 2 || !d.Experimental || d.SampleRate != 16000 || !validHash(d.StageKey) || d.LocalSpeakers < 1 || d.LocalSpeakers > 8 || d.EmbeddingDimension < 1 || d.EmbeddingDimension > 512 || d.TrainingRows < 0 || d.TrainingRows > 512 || d.Clusters < 0 || d.Clusters > 64 {
+		return ErrCorrupt
+	}
+	if _, e := media.MarshalSourceTimingWAVChunk(d.SourceTiming); e != nil {
 		return ErrCorrupt
 	}
 	// Use the same policy validator with inert valid attestations; it runs no model.

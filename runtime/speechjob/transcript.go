@@ -10,6 +10,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/rcarmo/go-pherence/loader/audio/media"
 )
 
 const MaxTranscriptBytes = 16 << 20
@@ -22,11 +24,12 @@ const MaxTranscriptCues = 100000
 // Speaker=-1 denotes unlabelled text;0..63 are already assigned local job IDs.
 // Cues may overlap, but starts are nondecreasing and all spans lie within input.
 type Transcript struct {
-	Schema       int    `json:"schema"`
-	SampleRate   int    `json:"sample_rate"`
-	TotalSamples int64  `json:"total_samples"`
-	Language     string `json:"language"`
-	Cues         []Cue  `json:"cues"`
+	Schema       int                `json:"schema"`
+	SampleRate   int                `json:"sample_rate"`
+	TotalSamples int64              `json:"total_samples"`
+	Language     string             `json:"language"`
+	SourceTiming media.SourceTiming `json:"source_timing"`
+	Cues         []Cue              `json:"cues"`
 }
 type Cue struct {
 	StartSample int64  `json:"start_sample"`
@@ -39,8 +42,11 @@ func validateTranscript(ctx context.Context, t Transcript) error {
 	if e := ctx.Err(); e != nil {
 		return e
 	}
-	if t.Schema != 1 || t.SampleRate != 16000 || t.TotalSamples < 0 || t.TotalSamples > 4*3600*16000 || len(t.Cues) > MaxTranscriptCues || len(t.Language) < 2 || len(t.Language) > 32 {
+	if t.Schema != 2 || t.SampleRate != 16000 || t.TotalSamples < 0 || t.TotalSamples > 4*3600*16000 || len(t.Cues) > MaxTranscriptCues || len(t.Language) < 2 || len(t.Language) > 32 {
 		return fmt.Errorf("invalid transcript schema/geometry/language")
+	}
+	if _, e := media.MarshalSourceTimingWAVChunk(t.SourceTiming); e != nil {
+		return fmt.Errorf("invalid transcript source timing: %w", e)
 	}
 	for _, c := range t.Language {
 		if !(c >= 'a' && c <= 'z' || c == '-') {
@@ -209,7 +215,7 @@ func WriteWebVTT(ctx context.Context, w io.Writer, t Transcript) error {
 // NewVTTStage reads the reconciled "transcript" checkpoint and produces "vtt".
 // It is not a speech model stage and performs no speaker/time inference.
 func NewVTTStage() Stage {
-	return Stage{Name: "vtt", Version: hash([]byte("speechjob-vtt-v2:16k-floorstart-ceilend-namedrefs-literalquotes-generatedvoices-strictkeys")), Run: func(ctx context.Context, in *Input, w io.Writer) error {
+	return Stage{Name: "vtt", Version: hash([]byte("speechjob-vtt-v3:transcript-schema2-source-timing:16k-floorstart-ceilend-namedrefs-literalquotes-generatedvoices-strictkeys")), Run: func(ctx context.Context, in *Input, w io.Writer) error {
 		r, e := in.OpenCheckpoint(ctx, "transcript")
 		if e != nil {
 			return e
@@ -253,7 +259,9 @@ func validateTranscriptJSONShape(ctx context.Context, b []byte) error {
 			var required map[string]bool
 			switch depth {
 			case 0:
-				required = map[string]bool{"schema": true, "sample_rate": true, "total_samples": true, "language": true, "cues": true}
+				required = map[string]bool{"schema": true, "sample_rate": true, "total_samples": true, "language": true, "source_timing": true, "cues": true}
+			case 1:
+				required = map[string]bool{"start_ns": true, "duration_ns": true, "exact": true, "has_edits": true, "source_rate": true, "priming": true, "padding": true, "leading_silence": true}
 			case 2:
 				required = map[string]bool{"start_sample": true, "end_sample": true, "speaker": true, "text": true}
 			default:

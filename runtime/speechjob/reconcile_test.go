@@ -5,6 +5,7 @@ package speechjob
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,7 +13,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/rcarmo/go-pherence/loader/audio/media"
 	"github.com/rcarmo/go-pherence/models/whisper"
 )
 
@@ -163,6 +166,22 @@ func TestReconcileSampleGridAndEmptyLongPlan(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+func timedPCMStage(samples int64, source media.SourceTiming) Stage {
+	return stage("decode", func(ctx context.Context, _ *Input, w io.Writer) error {
+		plain := testWAV(make([]int16, samples), "")
+		chunk, err := media.MarshalSourceTimingWAVChunk(source)
+		if err != nil {
+			return err
+		}
+		if len(chunk) == 0 {
+			return writeContext(ctx, w, plain)
+		}
+		data := append(append(append([]byte{}, plain[:36]...), chunk...), plain[36:]...)
+		binary.LittleEndian.PutUint32(data[4:8], uint32(len(data)-8))
+		return writeContext(ctx, w, data)
+	})
+}
+
 func textASRStage(t *testing.T, total int64, cfg TranscriptStageConfig, conflict bool, calls *int) Stage {
 	return Stage{Name: "asr-windows", Version: cfg.ASRVersion, Run: func(ctx context.Context, in *Input, w io.Writer) error {
 		*calls++
@@ -221,6 +240,33 @@ func TestTranscriptStageRetentionAndIdentity(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+func TestTranscriptStagePersistsSourceTimingWithoutChangingCanonicalCues(t *testing.T) {
+	cfg := reconcileConfig()
+	tr, err := NewTranscriptStage(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := media.SourceTiming{Start: 250 * time.Millisecond, Duration: time.Second, HasEdits: true, SourceRate: 48000, Priming: 1024, Padding: 512, LeadingSilence: 240}
+	s, _ := openTest(t)
+	job := createTest(t, s)
+	calls := 0
+	job, err = s.Run(context.Background(), job.ID, config, []Stage{timedPCMStage(480, source), textASRStage(t, 480, cfg, false, &calls), tr}, nil)
+	if err != nil || job.Status != Complete {
+		t.Fatal(job, err)
+	}
+	r, err := s.OpenCheckpoint(context.Background(), job.ID, "transcript")
+	got, err := ReadTranscriptJSON(context.Background(), r)
+	if closeErr := r.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SourceTiming != source || got.TotalSamples != 480 || got.Cues[0].StartSample != 200 || got.Cues[0].EndSample != 280 {
+		t.Fatalf("source/canonical mapping changed: %+v", got)
+	}
+}
+
 func TestTranscriptStageConflictPreservesRaw(t *testing.T) {
 	cfg := reconcileConfig()
 	tr, _ := NewTranscriptStage(cfg)

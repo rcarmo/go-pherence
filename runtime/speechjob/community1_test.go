@@ -16,7 +16,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/rcarmo/go-pherence/loader/audio/media"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
 )
@@ -191,6 +193,31 @@ func TestCommunityConstructorPolicy(t *testing.T) {
 		t.Fatal("nil model")
 	}
 }
+func TestCommunityStagePersistsSourceTiming(t *testing.T) {
+	cfg := communityConfig()
+	source := media.SourceTiming{Start: 125 * time.Millisecond, Duration: time.Second, HasEdits: true, SourceRate: 48000, Priming: 1024, Padding: 512}
+	st := community1Stage(cfg, func(context.Context, c1.DiarizationPCMReader, int64) (*c1.DiarizationPCMResult, error) {
+		return communityFixtureResult(3361, cfg), nil
+	})
+	s, _ := openTest(t)
+	job := createTest(t, s)
+	job, err := s.Run(context.Background(), job.ID, config, []Stage{timedPCMStage(3361, source), st}, nil)
+	if err != nil || job.Status != Complete {
+		t.Fatal(job, err)
+	}
+	r, err := s.OpenCheckpoint(context.Background(), job.ID, "diarization")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := ReadDiarizationJSON(context.Background(), r)
+	if closeErr := r.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil || doc.SourceTiming != source || doc.TotalSamples != 3361 {
+		t.Fatalf("source timing not preserved: %+v %v", doc.SourceTiming, err)
+	}
+}
+
 func TestDiarizationDocumentRejectsAndRoundTrips(t *testing.T) {
 	cfg := communityConfig()
 	key := hash([]byte("key"))
@@ -249,7 +276,7 @@ func TestDiarizationDocumentRejectsAndRoundTrips(t *testing.T) {
 			t.Fatal("invalid document", kind)
 		}
 	}
-	for _, data := range [][]byte{[]byte("null"), append([]byte(" "), raw...), bytes.Replace(raw, []byte(`"schema":1`), []byte(`"schema":1,"schema":1`), 1), bytes.Replace(raw, []byte(`"schema":1`), []byte(`"Schema":1`), 1), bytes.Replace(raw, []byte(`"experimental":true,`), nil, 1), bytes.Repeat([]byte{'x'}, (16<<20)+1)} {
+	for _, data := range [][]byte{[]byte("null"), append([]byte(" "), raw...), bytes.Replace(raw, []byte(`"schema":2`), []byte(`"schema":2,"schema":2`), 1), bytes.Replace(raw, []byte(`"schema":2`), []byte(`"Schema":2`), 1), bytes.Replace(raw, []byte(`"experimental":true,`), nil, 1), bytes.Repeat([]byte{'x'}, (16<<20)+1)} {
 		if _, e = ReadDiarizationJSON(ctx, bytes.NewReader(data)); e == nil {
 			t.Fatal("ambiguous/oversized JSON")
 		}

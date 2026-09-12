@@ -11,7 +11,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/rcarmo/go-pherence/loader/audio/media"
 	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
 	"github.com/rcarmo/go-pherence/models/whisper"
 )
@@ -33,7 +35,7 @@ func speakerDocument(t *testing.T, turns []c1.SpeakerTurn) DiarizationDocument {
 	return d
 }
 func speakerCue() Transcript {
-	return Transcript{Schema: 1, SampleRate: 16000, TotalSamples: 3361, Language: "pt", Cues: []Cue{{StartSample: 320, EndSample: 1280, Speaker: -1, Text: "Olá"}}}
+	return Transcript{Schema: 2, SampleRate: 16000, TotalSamples: 3361, Language: "pt", SourceTiming: media.SourceTiming{Start: 125 * time.Millisecond, Duration: time.Second, SourceRate: 48000}, Cues: []Cue{{StartSample: 320, EndSample: 1280, Speaker: -1, Text: "Olá"}}}
 }
 func TestSpeakerCompleteCoverage(t *testing.T) {
 	for _, tc := range []struct {
@@ -55,6 +57,7 @@ func TestSpeakerCompleteCoverage(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			d := speakerDocument(t, tc.turns)
 			tr := speakerCue()
+			d.SourceTiming = tr.SourceTiming
 			before := tr.Cues[0]
 			out, e := labelSpeakerTranscript(context.Background(), tr, d, hash([]byte("text")))
 			if e != nil {
@@ -71,6 +74,7 @@ func TestSpeakerPolicyAndDocumentValidation(t *testing.T) {
 	key := hash([]byte("text"))
 	d := speakerDocument(t, []c1.SpeakerTurn{{Start: .01, End: .1, Speaker: 0}})
 	tr := speakerCue()
+	d.SourceTiming = tr.SourceTiming
 	good, e := labelSpeakerTranscript(ctx, tr, d, key)
 	if e != nil {
 		t.Fatal(e)
@@ -81,7 +85,7 @@ func TestSpeakerPolicyAndDocumentValidation(t *testing.T) {
 	if e != nil || !reflect.DeepEqual(read, good) {
 		t.Fatal(read, e)
 	}
-	for _, kind := range []string{"gap-fill", "tie", "extent", "already-labelled", "constraint"} {
+	for _, kind := range []string{"gap-fill", "tie", "extent", "source", "already-labelled", "constraint"} {
 		c := d
 		tt := speakerCue()
 		switch kind {
@@ -92,6 +96,8 @@ func TestSpeakerPolicyAndDocumentValidation(t *testing.T) {
 			c.AmbiguousFrames = []int{1}
 		case "extent":
 			tt.TotalSamples++
+		case "source":
+			tt.SourceTiming.Start++
 		case "already-labelled":
 			tt.Cues[0].Speaker = 0
 		case "constraint":

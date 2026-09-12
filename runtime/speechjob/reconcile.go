@@ -41,7 +41,7 @@ func validateTranscriptStageConfig(cfg TranscriptStageConfig) error {
 	if _, e := whisper.NewWindowPlan(0, cfg.WindowSamples, cfg.OverlapSamples); e != nil || cfg.OverlapSamples > cfg.WindowSamples/2 {
 		return ErrConfiguration
 	}
-	return validateTranscript(context.Background(), Transcript{Schema: 1, SampleRate: 16000, Language: cfg.Language})
+	return validateTranscript(context.Background(), Transcript{Schema: 2, SampleRate: 16000, Language: cfg.Language})
 }
 
 // NewTranscriptStage consumes the complete verified "asr-windows" checkpoint and
@@ -59,7 +59,7 @@ func NewTranscriptStage(cfg TranscriptStageConfig) (Stage, error) {
 	identity, _ := json.Marshal(struct {
 		Schema string
 		Config TranscriptStageConfig
-	}{"speechjob-transcript-exact-overlap-v1", cfg})
+	}{"speechjob-transcript-exact-overlap-source-timing-v2", cfg})
 	return Stage{Name: "transcript", Version: hash(identity), Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
 		var asr Checkpoint
 		var decoded Blob
@@ -81,6 +81,7 @@ func NewTranscriptStage(cfg TranscriptStageConfig) (Stage, error) {
 			return e
 		}
 		total := int64(pcm.Timeline().Samples)
+		sourceTiming := pcm.SourceTiming()
 		if e = pcm.Close(); e != nil {
 			return e
 		}
@@ -93,6 +94,7 @@ func NewTranscriptStage(cfg TranscriptStageConfig) (Stage, error) {
 		if e != nil {
 			return e
 		}
+		transcript.SourceTiming = sourceTiming
 		if e = in.store.hit("transcript-output-ready"); e != nil {
 			return e
 		}
@@ -206,7 +208,7 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 	if e = ctx.Err(); e != nil {
 		return zero, e
 	}
-	result := Transcript{Schema: 1, SampleRate: 16000, TotalSamples: total, Language: cfg.Language, Cues: []Cue{}}
+	result := Transcript{Schema: 2, SampleRate: 16000, TotalSamples: total, Language: cfg.Language, Cues: []Cue{}}
 	var previous whisper.Segment
 	for i, c := range raw {
 		if i%256 == 0 {

@@ -51,14 +51,14 @@ type Timeline struct {
 // priming/padding mapping and callers must not claim source-time alignment.
 // Priming/Padding/LeadingSilence use SourceRate frames.
 type SourceTiming struct {
-	Start          time.Duration
-	Duration       time.Duration
-	Exact          bool
-	HasEdits       bool
-	SourceRate     SampleRate
-	Priming        SampleCount
-	Padding        SampleCount
-	LeadingSilence SampleCount
+	Start          time.Duration `json:"start_ns"`
+	Duration       time.Duration `json:"duration_ns"`
+	Exact          bool          `json:"exact"`
+	HasEdits       bool          `json:"has_edits"`
+	SourceRate     SampleRate    `json:"source_rate"`
+	Priming        SampleCount   `json:"priming"`
+	Padding        SampleCount   `json:"padding"`
+	LeadingSilence SampleCount   `json:"leading_silence"`
 }
 
 // Valid reports whether the timeline has a positive sample rate and a

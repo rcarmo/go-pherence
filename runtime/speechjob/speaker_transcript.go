@@ -32,7 +32,7 @@ type SpeakerTranscript struct {
 	Transcript     Transcript `json:"transcript"`
 }
 
-const speakerCoveragePolicy = "full-turns-unique-complete-cue-v1"
+const speakerCoveragePolicy = "full-turns-unique-complete-cue-source-timing-v2"
 
 // NewSpeakerTranscriptStage creates "speaker-transcript" separately from the
 // unlabelled "transcript" so failed diarization never erases downloadable text.
@@ -79,7 +79,7 @@ func NewSpeakerTranscriptStage(cfg SpeakerTranscriptConfig) (Stage, error) {
 		if e != nil {
 			return e
 		}
-		if d.StageKey != diar.Key || d.TotalSamples != t.TotalSamples {
+		if d.StageKey != diar.Key || d.TotalSamples != t.TotalSamples || d.SourceTiming != t.SourceTiming {
 			return ErrCorrupt
 		}
 		result, e := labelSpeakerTranscript(ctx, t, d, text.Key)
@@ -111,7 +111,7 @@ func labelSpeakerTranscript(ctx context.Context, t Transcript, d DiarizationDocu
 	if e := validateDiarizationDocument(ctx, d); e != nil {
 		return zero, e
 	}
-	if !validHash(textKey) || d.TotalSamples != t.TotalSamples {
+	if !validHash(textKey) || d.TotalSamples != t.TotalSamples || d.SourceTiming != t.SourceTiming {
 		return zero, ErrCorrupt
 	}
 	if d.Policy.MinDurationOff != 0 || len(d.AmbiguousFrames) > 0 || d.Path != "silence" && !d.ConstraintSatisfied {
@@ -226,7 +226,7 @@ func ReadSpeakerTranscriptJSON(ctx context.Context, r io.Reader) (SpeakerTranscr
 // Source provenance is also retained in speaker-transcript; the original plain
 // transcript/VTT are untouched. No new inference or speaker mapping is performed.
 func NewSpeakerVTTStage() Stage {
-	return Stage{Name: "speaker-vtt", Version: hash([]byte("speaker-vtt-v1:" + speakerCoveragePolicy + ":namedrefs-experimental-note")), Run: func(ctx context.Context, in *Input, w io.Writer) error {
+	return Stage{Name: "speaker-vtt", Version: hash([]byte("speaker-vtt-v2:" + speakerCoveragePolicy + ":transcript-schema2-source-timing:namedrefs-experimental-note")), Run: func(ctx context.Context, in *Input, w io.Writer) error {
 		r, e := in.OpenCheckpoint(ctx, "speaker-transcript")
 		if e != nil {
 			return e

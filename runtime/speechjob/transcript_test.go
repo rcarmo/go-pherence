@@ -7,10 +7,13 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/rcarmo/go-pherence/loader/audio/media"
 )
 
 func transcriptFixture() Transcript {
-	return Transcript{Schema: 1, SampleRate: 16000, TotalSamples: 64000, Language: "pt", Cues: []Cue{{StartSample: 1, EndSample: 17, Speaker: 0, Text: "Olá <script>& -->\n\nWEBVTT"}, {StartSample: 16000, EndSample: 32000, Speaker: -1, Text: "sem voz"}, {StartSample: 16000, EndSample: 64000, Speaker: 63, Text: "sobreposição"}}}
+	return Transcript{Schema: 2, SampleRate: 16000, TotalSamples: 64000, Language: "pt", SourceTiming: media.SourceTiming{Start: 100 * time.Millisecond, Duration: 4 * time.Second, SourceRate: 48000}, Cues: []Cue{{StartSample: 1, EndSample: 17, Speaker: 0, Text: "Olá <script>& -->\n\nWEBVTT"}, {StartSample: 16000, EndSample: 32000, Speaker: -1, Text: "sem voz"}, {StartSample: 16000, EndSample: 64000, Speaker: 63, Text: "sobreposição"}}}
 }
 func TestTranscriptJSONAndVTTEscaping(t *testing.T) {
 	ctx := context.Background()
@@ -23,7 +26,7 @@ func TestTranscriptJSONAndVTTEscaping(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if got.Cues[0] != in.Cues[0] || got.SampleRate != 16000 {
+	if got.Cues[0] != in.Cues[0] || got.SampleRate != 16000 || got.SourceTiming != in.SourceTiming {
 		t.Fatal("round trip")
 	}
 	var vtt bytes.Buffer
@@ -34,7 +37,7 @@ func TestTranscriptJSONAndVTTEscaping(t *testing.T) {
 	if vtt.String() != want {
 		t.Fatalf("VTT\n%q\nwant%q", vtt.String(), want)
 	}
-	empty := Transcript{Schema: 1, SampleRate: 16000, Language: "fr"}
+	empty := Transcript{Schema: 2, SampleRate: 16000, Language: "fr"}
 	b.Reset()
 	if e = WriteTranscriptJSON(ctx, &b, empty); e != nil || !strings.Contains(b.String(), `"cues":[]`) {
 		t.Fatal(b.String(), e)
@@ -52,7 +55,7 @@ func TestTranscriptRejectsBeforeWriting(t *testing.T) {
 		tr := transcriptFixture()
 		switch kind {
 		case "schema":
-			tr.Schema = 2
+			tr.Schema = 1
 		case "rate":
 			tr.SampleRate = 8000
 		case "duration":
@@ -143,9 +146,11 @@ func TestTranscriptJSONShape(t *testing.T) {
 	}
 	valid := encoded.String()
 	for _, data := range []string{
-		strings.Replace(valid, `"schema":1`, `"schema":1,"Schema":2`, 1),
-		strings.Replace(valid, `"schema":1`, `"schema":1,"\u0073chema":2`, 1),
-		strings.Replace(valid, `"schema":1`, `"Schema":1`, 1),
+		strings.Replace(valid, `"schema":2`, `"schema":2,"Schema":2`, 1),
+		strings.Replace(valid, `"schema":2`, `"schema":2,"\u0073chema":2`, 1),
+		strings.Replace(valid, `"schema":2`, `"Schema":2`, 1),
+		strings.Replace(valid, `"source_timing":{`, `"source_timing":{"unknown":0,`, 1),
+		strings.Replace(valid, `"source_timing":{`, `"source_timing":null,"ignored":{`, 1),
 		strings.Replace(valid, `"speaker":0,`, ``, 1),
 		strings.Replace(valid, `"speaker":0`, `"speaker":null`, 1),
 		strings.Replace(valid, `"speaker":0`, `"speaker":0,"speaker":1`, 1),
