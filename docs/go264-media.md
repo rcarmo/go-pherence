@@ -1,6 +1,6 @@
 # Optional go-264 media backend
 
-`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260912092206-42030e1cd54d`. Its new `audio/` tree has an explicit MIT licence plus imported MIT notices; the provider's pre-existing video tree has no root licence and is outside this audit. `NewFFmpeg` and existing serving defaults are unchanged. There is no native codec or subprocess inside this optional backend.
+`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260912122853-a47077edc589`. The entire go-264 project is MIT-licensed through its root `LICENSE`; upstream MIT notices and separate external dataset licences are retained. `NewFFmpeg` and existing serving defaults are unchanged. There is no native codec or subprocess inside this optional backend.
 
 ## Contract
 
@@ -18,7 +18,7 @@ The provider's exact seek/priming/padding metadata is not exposed as original co
 
 MINDS-14 source revision `40ce77cb32a384e4d50a568e1ec39ac804019d33`, CC-BY-4.0 (PolyAI): two pt-PT and one fr-FR clips, hashes/references in `go264_public_test.go`. Originals are8kHz μ-law and are explicitly rejected. Offline FFmpeg creates supported PCM-WAV and48kHz AAC derivatives. Source files remain unchanged.
 
-The initial provider pin produced a real pt-0 WAV WER regression:16→20 word edits. The resampler applied its downsampling transition cutoff while upsampling. Provider `faa324c` corrects interpolation to preserve input samples at integer phases; independent signal tests pass. Frozen-pin rerun of all six media pairs yields identical Tiny token/segment/window results and zero added word edits. PT/FR baseline recognition is poor; this establishes paired frontend non-regression on those clips, not production ASR quality.
+The initial provider pin produced a real pt-0 WAV WER regression:16→20 word edits. The resampler applied its downsampling transition cutoff while upsampling. Provider `ec62711` (formerly `faa324c` before the owner-requested identity correction) corrects interpolation to preserve input samples at integer phases; independent signal tests pass. Frozen-pin rerun of all six media pairs yields identical Tiny token/segment/window results and zero added word edits. PT/FR baseline recognition is poor; this establishes paired frontend non-regression on those clips, not production ASR quality.
 
 Public pyannote tutorial30s two-speaker sample/RTTM revision `b749285c5cdd4636b2edc7f766f1352c8dde9369` (repository MIT notice, CNRS): saved offline Community-1 reference comparison with overlap included and explicit0–30s evaluation region. WAV DER/boundaries identical. AAC DER delta+0.08514 percentage points at0.25s collar, effectively zero at0collar; nearest-boundary Hausdorff difference16.875ms. Gate was≤0.5percentage-point DER; boundary check≤250ms. The reference was cached CPU PyAnnote, not a serving or Go runtime dependency. This does not qualify go-pherence's separate Go diarization implementation or meeting corpora. The DER run overlapped six seconds of another session's encoder setup; saved functional predictions/scores are retained, but its timing is not an isolated performance result. The boundary-distance threshold was a post-run diagnostic guard, not a pre-registered tuning target.
 
@@ -26,13 +26,15 @@ Public pyannote tutorial30s two-speaker sample/RTTM revision `b749285c5cdd4636b2
 
 Focused adapter tests/vet, audio CLI build and Linuxarm64 media build pass. Whole-repository build has the same pre-existing SpacemiT/diffusion command failures as base `f141e63`; the optional backend does not repair them. Neural tests require explicit opt-in and host admission.
 
-**Integration is pending owner review.** The owner received `09d2db2` but has not reviewed, accepted or cherry-picked it. The `42030e1` pin adds the scoped audio licence and documentation to runtime `faa324c`; no executable code changed. Saved neural results apply to the unchanged runtime, not a new neural run.
+**Merge is deferred for owner integration.** The scoped implementation review and final artifact/licence inspection passed for the previous `09d2db2` / `48eeb0d` handoff. Rui subsequently requested project-wide MIT documentation and correction of author/committer metadata to `Rui Carmo <rcarmo@users.noreply.github.com>`. The four adapter commits were rewritten to that identity without changing their source trees; the reviewed implementation is now `b38803f` and the prior adapter head maps to `b5bbc54`. The active speech branch was not rewritten or modified.
 
-The provider commit is local and has not been pushed. An external file-based Go module proxy supplies its Git-archived pseudo-version. No `replace` directive is committed. The offline handoff supplies proxy files, Git bundles, an explicit consumer shallow-history boundary, SHA-256 manifests and restoration instructions. Public fetching requires publication approval. The accepted provider ZIP checksum is `h1:aLpO9Ho6o8MJhcUtoN64Z7IYo4hXAraOEgBBrXyjrsI=`. The initial unpublished ZIP contained explicit directory entries and failed `go mod verify`; its rejected checksum was `h1:9HVNJpgsIT4PWeJLYZguyn/KlVeHiGK+4jWCwjdRnTw=`. The corrected ZIP contains the same Git file bytes without directory entries. Use the supplied proxy and a fresh module cache rather than an earlier cached artifact.
+Provider `a47077e` is published. It adds the root MIT licence and notice/documentation cleanup on the identity-corrected history. Go/assembly source is unchanged from the previously qualified runtime; saved neural results are historical evidence, not a new model run. No `replace` directive is committed. A fresh public Go-client download with `GOSUMDB=sum.golang.org` verifies the new exact pin and ZIP checksum `h1:an+NkPCIdNsFvqamM7cV2NIMsSrwlFQ5NQL61N0FnL8=`; go.mod checksum remains `h1:DfT0hsjYj65x9Y1WRU9gNO/yvZZlvCorI8t4gQxQMX4=`.
 
-The provider has no external Go requirements. The consumer already requires purego (Apache-2.0), x/sys (BSD-3-Clause), yaml.v3 (MIT and Apache-2.0 by file), and yaml's check.v1 test dependency (BSD-2-Clause). Those inherited dependencies are not new MIT dependencies and the entire consumer is not MIT-only. The licence evidence distinguishes audio library imports from the unlicensed pre-existing provider video tree and unscoped CLI/generator helpers outside `audio/`.
+The earlier sealed handoff, failed directory-entry ZIP and old hashes remain historical artifacts. They must not be edited to appear to contain the new pin. Use the refreshed proxy/bundles and recorded revision map for this checkout.
 
-Go Community-1 DER acceptance is unqualified, including the owner's four strict SincNet failures. Further model runs require fresh explicit admission even when the host is idle.
+The provider has no external Go requirements. The consumer already requires purego (Apache-2.0), x/sys (BSD-3-Clause), yaml.v3 (MIT and Apache-2.0 by file), and yaml's check.v1 test dependency (BSD-2-Clause). Those inherited dependencies are not new MIT dependencies and the entire consumer is not MIT-only. Rui's project-wide MIT confirmation and the provider root licence also cover the video code, CLI and generator helpers; the former audio-only scope has been removed.
+
+General Go Community-1 DER acceptance is unqualified; later one-sample results do not remove the retained strict intermediate/tie-handling failures. Further model runs require fresh explicit admission even when the host is idle.
 
 Commands:
 
@@ -44,4 +46,4 @@ make speech-go264-public-check
 make speech-go264-paired-check
 ```
 
-No service/backend switch, model download, Git push or release tag was performed.
+The provider was published with owner approval. The consumer remains unpushed and unmerged; no service/backend switch, model download or release tag was performed.
