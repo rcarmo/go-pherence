@@ -10,8 +10,9 @@ import (
 var ErrVulkanShaderContract = errors.New("unsupported or malformed Vulkan shader contract")
 
 // VulkanShaderContract is bounded, conservative module metadata. Successful
-// inspection is NOT full SPIR-V validation or proof of descriptor/push layouts,
-// numerical correctness, memory safety or device compatibility. The supported
+// inspection is NOT full SPIR-V validation or proof of numerical correctness,
+// memory safety or device compatibility. Descriptor/push reflection covers only
+// the narrow scalar-buffer/flat-push envelope documented below. The supported
 // envelope is intentionally narrower than Vulkan: SPIR-V1.0..1.3, Shader only,
 // Logical/GLSL450, one GLCompute main, fixed LocalSize and core32bit types.
 // Workgroup storage may be 32-bit scalars or fixed one-dimensional scalar arrays.
@@ -19,6 +20,12 @@ var ErrVulkanShaderContract = errors.New("unsupported or malformed Vulkan shader
 type VulkanShaderContract struct {
 	LocalSize   [3]uint32
 	SharedBytes uint32
+	// Set0 storage-buffer bindings, one descriptor each (bits0..15). Callers
+	// may supply unused extra slots. PushBytes is the declared range from zero;
+	// padded/superset caller ranges are allowed. Both are conservative over all
+	// module declarations, not entrypoint liveness analysis.
+	StorageBindings uint32
+	PushBytes       uint32
 }
 
 type vkSPIRVType struct {
@@ -31,7 +38,8 @@ type vkSPIRVConstant struct{ typ, value uint32 }
 // callers must not mutate input concurrently. Admission is capped at1MiB/65536
 // IDs, with a closed opcode envelope and unique result IDs. Known instructions
 // still need normal offline spirv-val validation: function/control-flow/operand
-// semantics and descriptor/push layout reflection are outside this check.
+// semantics remain outside this check. Interfaces support set0 storage blocks
+// of one runtime array of32-bit scalars and one flat32-bit-scalar push block.
 func InspectVulkanShader(code []byte) (VulkanShaderContract, error) {
 	if len(code) < 20 || len(code) > 1<<20 || len(code)%4 != 0 {
 		return VulkanShaderContract{}, fmt.Errorf("%w: byte length", ErrVulkanShaderContract)
@@ -56,6 +64,7 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 	composites := map[uint32][]uint32{}
 	variables := map[uint32]uint32{}
 	allVariables := [][2]uint32{} // pointer type and declared storage must agree
+	layout := vkSPIRVLayout{structs: map[uint32][]uint32{}, variables: map[uint32]vkSPIRVLayoutVariable{}, decorations: map[[2]uint32]uint32{}, offsets: map[[2]uint32]uint32{}}
 	imports := map[uint32]bool{}
 	extSets := []uint32{}
 	functions := map[uint32]bool{}
@@ -154,7 +163,12 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 			if op == 32 && !vkSPIRVStorage(a[2]) {
 				return fail("storage class")
 			}
-		case 19, 20, 29, 30, 33: // other core type declarations
+		case 29: // RuntimeArray
+			types[a[1]] = vkSPIRVType{op, a[2], 0}
+		case 30: // Struct (flat layouts inspected after all declarations)
+			types[a[1]] = vkSPIRVType{op, 0, 0}
+			layout.structs[a[1]] = append([]uint32(nil), a[2:]...)
+		case 19, 20, 33: // other core type declarations
 			types[a[1]] = vkSPIRVType{op, 0, 0}
 		case 43: // Constant (32-bit only)
 			if count != 4 {
@@ -168,6 +182,7 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 				return fail("variable storage")
 			}
 			allVariables = append(allVariables, [2]uint32{a[1], a[3]})
+			layout.variables[a[2]] = vkSPIRVLayoutVariable{pointer: a[1], storage: a[3], local: insideFunction, initializer: count == 5}
 			if a[3] == 4 {
 				if insideFunction || count != 4 {
 					return fail("shared initializer/scope")
@@ -218,6 +233,11 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 			default:
 				return fail("unsupported decoration")
 			}
+			value := uint32(0)
+			if count == 4 {
+				value = a[3]
+			}
+			layout.decorations[[2]uint32{a[1], a[2]}] = value
 		case 72: // MemberDecorate: only offset/read/write annotation
 			if count < 4 || !validID(a[1]) {
 				return fail("member target")
@@ -231,6 +251,10 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 			if (a[3] == 35 && count == 5) || ((a[3] == 24 || a[3] == 25) && count == 4) {
 			} else {
 				return fail("unsupported member decoration")
+			}
+			layout.memberTargets = append(layout.memberTargets, [2]uint32{a[1], a[2]})
+			if a[3] == 35 {
+				layout.offsets[[2]uint32{a[1], a[2]}] = a[4]
 			}
 		}
 	}
@@ -303,6 +327,11 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 		}
 	}
 	contract.SharedBytes = uint32(shared)
+	bindings, pushBytes, err := layout.inspect(types, w[1])
+	if err != nil {
+		return fail(err.Error())
+	}
+	contract.StorageBindings, contract.PushBytes = bindings, pushBytes
 	return contract, nil
 }
 

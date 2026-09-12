@@ -69,11 +69,16 @@ func initVkKernels() error {
 		vkVecAddBF16 = create("vec_add_bf16", spirv_vec_add_bf16, 3, 4)
 		vkRMSNormF32 = create("rms_norm_f32", spirv_rms_norm_f32, 2, 8)
 		vkRMSNormBF16 = create("rms_norm_bf16", spirv_rms_norm_bf16, 2, 8)
+		// The embedded no-scale module declares2buffers but the legacy wrapper
+		// supplies1. Contract admission deliberately rejects it until semantics
+		// and output binding are repaired/qualified (do not silently alias).
 		vkRMSNormNoScaleF32 = create("rms_norm_no_scale_f32", spirv_rms_norm_no_scale_f32, 1, 8)
 		vkGemvF32 = create("gemv_f32", spirv_gemv_f32, 3, 8)
 		vkGemvBF16Mixed = create("gemv_bf16_mixed", spirv_gemv_bf16_mixed, 3, 8)
 		vkSiLUMulF32 = create("silu_mul_f32", spirv_silu_mul_f32, 3, 4)
 		vkGELUTanhMulF32 = create("gelu_tanh_mul_f32", spirv_gelu_tanh_mul_f32, 2, 4)
+		// Embedded RoPE declares3buffers; the two-buffer wrapper is likewise
+		// rejected. Matching byte counts alone would not prove parameter order.
 		vkRoPEPartialF32 = create("rope_partial_f32", spirv_rope_partial_f32, 2, 16)
 		vkAttentionScoresF32 = create("attention_score", spirv_attention_score, 3, 20)
 	})

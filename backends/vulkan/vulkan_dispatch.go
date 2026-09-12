@@ -47,7 +47,8 @@ type VkComputeKernel struct {
 // successful completed kernel. Resource objects must not be copied. These bounds
 // also obey queried descriptor/push/local-size/shared-memory limits. The shader
 // must fit InspectVulkanShader's conservative core envelope; this is not full
-// SPIR-V validation or descriptor/push layout reflection. VulkanInit must already
+// SPIR-V validation; descriptor/push reflection is restricted to flat32-bit
+// layouts. VulkanInit must already
 // have completed without concurrent device/function-pointer replacement.
 func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComputeKernel, error) {
 	if err := vkAcquire(context.Background()); err != nil {
@@ -95,6 +96,9 @@ func vkKernelCreateLocked(spirv []byte, numBuffers int, pushConstantSize int) (*
 		return nil, err
 	}
 	if err := vkCheckShaderLimits(contract, vkLimits); err != nil {
+		return nil, err
+	}
+	if err := vkCheckShaderInterface(contract, numBuffers, pushConstantSize); err != nil {
 		return nil, err
 	}
 	defer func() { runtime.KeepAlive(code) }()

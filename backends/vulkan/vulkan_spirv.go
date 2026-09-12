@@ -243,6 +243,9 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 	if err := vkCheckShaderLimits(contract, vkLimits); err != nil {
 		return nil, err
 	}
+	if err := vkCheckShaderInterface(contract, numBuffers, 0); err != nil {
+		return nil, err
+	}
 	defer func() { runtime.KeepAlive(code) }()
 	if vkCreateShaderModule == nil || vkCreateDescriptorSetLayout == nil || vkCreatePipelineLayout == nil || vkCreateComputePipelines == nil || vkDestroyShaderModule == nil || vkDestroyDescriptorSetLayout == nil || vkDestroyPipelineLayout == nil || vkDestroyPipeline == nil {
 		return nil, fmt.Errorf("Vulkan shader construction/cleanup functions unavailable")

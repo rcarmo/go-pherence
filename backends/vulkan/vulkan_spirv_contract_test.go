@@ -40,6 +40,12 @@ func TestVulkanOfflineShaderContractEmbedded(t *testing.T) {
 			case "attention", "gemv_f32", "gemv_bf16", "rms_f32", "rms_bf16", "rms_no_scale":
 				want.SharedBytes = 1024
 			}
+			interfaces := map[string][2]uint32{
+				"attention": {7, 20}, "gemv_f32": {7, 8}, "gemv_bf16": {7, 8},
+				"rms_f32": {3, 8}, "rms_bf16": {3, 8}, "rms_no_scale": {3, 8},
+				"gelu": {3, 4}, "rope": {7, 16}, "silu": {7, 4}, "add_f32": {7, 4}, "add_bf16": {7, 4},
+			}
+			want.StorageBindings, want.PushBytes = interfaces[name][0], interfaces[name][1]
 			if got != want {
 				t.Fatalf("got%+v want%+v", got, want)
 			}
@@ -159,6 +165,7 @@ func TestVulkanOfflineShaderContractNativePreflight(t *testing.T) {
 
 func FuzzVulkanShaderContract(f *testing.F) {
 	f.Add(dummySPIRV())
+	f.Add(layoutTestModule())
 	for _, b := range contractShaders() {
 		f.Add(b)
 	}
@@ -169,6 +176,12 @@ func FuzzVulkanShaderContract(f *testing.F) {
 				if n == 0 {
 					t.Fatal("zero admitted")
 				}
+			}
+			if c.StorageBindings > 0xffff || c.PushBytes > 128 || c.PushBytes%4 != 0 {
+				t.Fatal("unbounded shader layout", c)
+			}
+			if err := vkCheckShaderInterface(c, 16, 128); err != nil {
+				t.Fatal("admitted layout cannot fit envelope", err)
 			}
 			_ = vkCheckShaderLimits(c, offlineLimits())
 		}
