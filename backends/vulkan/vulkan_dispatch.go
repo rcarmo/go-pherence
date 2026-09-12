@@ -2,8 +2,8 @@ package vulkan
 
 // Vulkan compute dispatch: command buffers, descriptor binding, shader execution.
 //
-// Legacy single-operation pipeline; not a model-ready queue owner. Shared
-// descriptors/queue and timeout handling still need lifetime synchronisation.
+// Single-operation pipeline with one serialized host lane and one retained
+// unresolved submission. Model residency/multi-op plans are still unfinished.
 //   VkComputeKernel: compiled shader + pipeline + descriptor layout
 //   Dispatch: record command buffer → bind descriptors → submit → bounded wait
 //
@@ -15,14 +15,21 @@ package vulkan
 //   5. Submit + fence wait
 
 import (
+	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"runtime"
+	"time"
 	"unsafe"
 )
 
 // VkComputeKernel is a ready-to-dispatch Vulkan compute shader.
 type VkComputeKernel struct {
+	device         VkDevice
+	queue          VkQueue
+	commandPool    VkCommandPool
+	closed         bool
 	pipeline       VkPipeline
 	pipelineLayout VkPipelineLayout
 	descSetLayout  VkDescriptorSetLayout
@@ -35,12 +42,24 @@ type VkComputeKernel struct {
 }
 
 // VkKernelCreate builds a compute kernel with1..16 buffers and0..128 push bytes
-// (multiple of4). Partial construction rolls back resources; successful kernels
-// remain owned by the legacy caller with no automatic destruction. These bounds
+// (multiple of4). Partial construction rolls back resources; Close releases a
+// successful completed kernel. Resource objects must not be copied. These bounds
 // are host admission only: device/shader feature and descriptor limits are not
 // negotiated here. VulkanInit must already have completed without concurrent
 // device/function-pointer replacement.
 func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComputeKernel, error) {
+	if err := vkAcquire(context.Background()); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
+	return vkKernelCreateLocked(spirv, numBuffers, pushConstantSize)
+}
+
+// Caller owns vkLane, including the one-shot cache construction below.
+func vkKernelCreateLocked(spirv []byte, numBuffers int, pushConstantSize int) (*VkComputeKernel, error) {
+	if err := vkStatusLocked(); err != nil {
+		return nil, err
+	}
 	if !vkNative64() {
 		return nil, fmt.Errorf("Vulkan requires the current 64-bit FFI binding")
 	}
@@ -64,8 +83,8 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		return nil, fmt.Errorf("Vulkan kernel construction/cleanup functions unavailable")
 	}
 	// All failure rollback uses captured owner handles. No resources from this
-	// construction have been submitted. Successful kernel destruction still
-	// needs a separate fence/queue ownership API, not blind deferred teardown.
+	// construction have been submitted. Successful kernels capture their owner
+	// and expose Close only after fence completion.
 	device, commandPool := vkDevice, vkCmdPool
 	var shaderModule VkShaderModule
 	var descSetLayout VkDescriptorSetLayout
@@ -297,6 +316,7 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 
 	committed = true
 	return &VkComputeKernel{
+		device: device, queue: vkQueue, commandPool: commandPool,
 		pipeline:       pipeline,
 		pipelineLayout: pipelineLayout,
 		descSetLayout:  descSetLayout,
@@ -309,11 +329,30 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 	}, nil
 }
 
-// Dispatch executes one legacy synchronous operation. Calls sharing kernels,
-// buffers or the global queue must be externally serialised. A timeout is NOT
-// completion and does not make buffers safe to free/reuse. Caller pushData must
-// point to at least pushSize readable bytes until recording returns.
+// Dispatch retains the legacy one-second budget, now including queue admission.
+// Caller pushData must point to at least pushSize readable bytes until return.
 func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkBuf, pushData unsafe.Pointer) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	return k.DispatchContext(ctx, groupsX, groupsY, groupsZ, bufs, pushData)
+}
+
+// DispatchContext serializes descriptors, command-pool recording, queue and
+// mapped accesses. Fence waits poll in <=10ms slices with a one-second cap;
+// context cancellation prevents submission at checked boundaries. Once submitted,
+// cancellation/timeout retains kernel+buffers and requires VulkanDrain. A driver
+// call in progress cannot be interrupted. Push data remains caller-owned/read-only.
+func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY, groupsZ uint32, bufs []*VkBuf, pushData unsafe.Pointer) error {
+	if err := vkAcquire(ctx); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if err := vkStatusLocked(); err != nil {
+		return err
+	}
+	if k != nil && k.closed {
+		return ErrVulkanClosed
+	}
 	if k == nil || k.pipeline == 0 || k.pipelineLayout == 0 || k.descSet == 0 || k.cmdBuf == 0 || k.fence == 0 {
 		return fmt.Errorf("vulkan dispatch on uninitialized kernel")
 	}
@@ -337,6 +376,21 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 	}
 	if vkUpdateDescriptorSets == nil || vkBeginCommandBuffer == nil || vkCmdBindPipeline == nil || vkCmdBindDescriptorSets == nil || vkCmdDispatch == nil || vkEndCommandBuffer == nil || vkResetFences == nil || vkQueueSubmit == nil || vkWaitForFences == nil || (k.pushSize > 0 && vkCmdPushConstants == nil) {
 		return fmt.Errorf("Vulkan dispatch functions unavailable")
+	}
+
+	if k.device == 0 || k.queue == 0 || k.commandPool == 0 || k.device != vkDevice || k.queue != vkQueue || k.commandPool != vkCmdPool {
+		return fmt.Errorf("Vulkan kernel owner mismatch")
+	}
+	for _, buf := range bufs {
+		if buf.device != k.device {
+			return fmt.Errorf("Vulkan buffer owner mismatch")
+		}
+		if buf.closed {
+			return ErrVulkanClosed
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	// Update descriptor set with buffer bindings
@@ -370,12 +424,12 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 			pBufferInfo:     unsafe.Pointer(&bufInfos[i]),
 		}
 	}
-	vkUpdateDescriptorSets(vkDevice, uint32(len(writes)), unsafe.Pointer(&writes[0]), 0, nil)
+	vkUpdateDescriptorSets(k.device, uint32(len(writes)), unsafe.Pointer(&writes[0]), 0, nil)
 
 	// Record command buffer
 	beginInfo := vkCommandBufferBeginInfo{sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT}
 	if r := vkBeginCommandBuffer(k.cmdBuf, unsafe.Pointer(&beginInfo)); r != VK_SUCCESS {
-		return fmt.Errorf("vkBeginCommandBuffer: %d", r)
+		return vkDriverError("vkBeginCommandBuffer", r)
 	}
 
 	vkCmdBindPipeline(k.cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, k.pipeline)
@@ -389,7 +443,7 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 	vkCmdDispatch(k.cmdBuf, groupsX, groupsY, groupsZ)
 
 	if r := vkEndCommandBuffer(k.cmdBuf); r != VK_SUCCESS {
-		return fmt.Errorf("vkEndCommandBuffer: %d", r)
+		return vkDriverError("vkEndCommandBuffer", r)
 	}
 
 	// Submit
@@ -411,19 +465,42 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 		commandBufferCount: 1,
 		pCommandBuffers:    unsafe.Pointer(&k.cmdBuf),
 	}
-	if r := vkResetFences(vkDevice, 1, &k.fence); r != VK_SUCCESS {
-		return fmt.Errorf("vkResetFences: %d", r)
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	if r := vkQueueSubmit(vkQueue, 1, unsafe.Pointer(&submitInfo), k.fence); r != VK_SUCCESS {
-		return fmt.Errorf("vkQueueSubmit: %d", r)
+	if r := vkResetFences(k.device, 1, &k.fence); r != VK_SUCCESS {
+		return vkDriverError("vkResetFences", r)
 	}
-
-	// Wait for completion (1 second timeout)
-	if r := vkWaitForFences(vkDevice, 1, &k.fence, 1, 1_000_000_000); r != VK_SUCCESS {
-		return fmt.Errorf("vkWaitForFences: %d", r)
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-
-	return nil
+	// Deduplicate buffer refs before submitting (the same buffer may occupy
+	// multiple bindings). Allocations happen before the command can be pending.
+	pending := &vkPendingSubmission{kernel: k}
+	for _, buf := range bufs {
+		found := false
+		for _, retained := range pending.buffers {
+			if retained == buf {
+				found = true
+				break
+			}
+		}
+		if !found {
+			pending.buffers = append(pending.buffers, buf)
+		}
+	}
+	if r := vkQueueSubmit(k.queue, 1, unsafe.Pointer(&submitInfo), k.fence); r != VK_SUCCESS {
+		// Conservative quarantine: failed submit/device loss is not proof that
+		// native resources can safely be reused. Never poll an unsignalled fence
+		// from a submission whose acceptance is unknown.
+		pending.uncertain = true
+		vkPending = pending
+		return errors.Join(ErrVulkanInFlight, ErrVulkanUncertain, vkDriverError("vkQueueSubmit", r))
+	}
+	vkPending = pending
+	runtime.KeepAlive(bufs)
+	runtime.KeepAlive(pushData)
+	return vkWaitPendingLocked(ctx, time.Second)
 }
 
 func vkKernelFunctionsReady() bool {

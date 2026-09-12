@@ -6,21 +6,33 @@ package vulkan
 // VkShader: compiled SPIR-V compute pipeline
 
 import (
+	"context"
 	"fmt"
 	"unsafe"
 )
 
 // VkBuf is a host-visible/coherent buffer. Device-local memory is not required.
-// Lifetime/concurrent dispatch protection is not provided by this legacy type.
+// Package APIs serialize host access and retain buffers during pending work.
+// Resource objects must not be copied; callers cannot access the mapped pointer.
 type VkBuf struct {
-	buf    VkBuffer
-	mem    VkDeviceMemory
-	size   uint64
-	mapped unsafe.Pointer
+	device       VkDevice
+	closed       bool
+	deferredFree bool
+	buf          VkBuffer
+	mem          VkDeviceMemory
+	size         uint64
+	mapped       unsafe.Pointer
 }
 
 // VkBufAlloc allocates a Vulkan buffer accessible from both host and device.
 func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
+	if err := vkAcquire(context.Background()); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
+	if err := vkStatusLocked(); err != nil {
+		return nil, err
+	}
 	if !vkNative64() {
 		return nil, fmt.Errorf("Vulkan requires the current 64-bit FFI binding")
 	}
@@ -130,7 +142,7 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		return nil, fmt.Errorf("vkMapMemory returned nil pointer")
 	}
 	committed = true
-	return &VkBuf{buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped}, nil
+	return &VkBuf{device: device, buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped}, nil
 }
 
 // Upload copies float32 data to the buffer. Invalid inputs are ignored for
@@ -139,6 +151,21 @@ func (b *VkBuf) Upload(data []float32) { _ = b.UploadChecked(data) }
 
 // UploadChecked copies float32 data to the buffer and reports malformed input.
 func (b *VkBuf) UploadChecked(data []float32) error {
+	if err := vkAcquire(context.Background()); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if b != nil {
+		if b.closed {
+			return ErrVulkanClosed
+		}
+		if err := vkQuarantineLocked(); err != nil {
+			return err
+		}
+		if vkUsesBufferLocked(b) {
+			return ErrVulkanInFlight
+		}
+	}
 	if len(data) == 0 {
 		return nil
 	}
@@ -161,6 +188,21 @@ func (b *VkBuf) Download(data []float32) { _ = b.DownloadChecked(data) }
 
 // DownloadChecked copies float32 data from the buffer and reports malformed input.
 func (b *VkBuf) DownloadChecked(data []float32) error {
+	if err := vkAcquire(context.Background()); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if b != nil {
+		if b.closed {
+			return ErrVulkanClosed
+		}
+		if err := vkQuarantineLocked(); err != nil {
+			return err
+		}
+		if vkUsesBufferLocked(b) {
+			return ErrVulkanInFlight
+		}
+	}
 	if len(data) == 0 {
 		return nil
 	}
@@ -177,23 +219,70 @@ func (b *VkBuf) DownloadChecked(data []float32) error {
 	return nil
 }
 
-// Free releases the buffer and its memory. Caller must prove no submission
-// still references it; a fence timeout alone is not proof. The owning global
-// device/function pointers must not have changed since allocation.
+// Free keeps the legacy signature. Pending buffers are retained and marked
+// for deferred destruction after VulkanDrain confirms completion. After device
+// loss/uncertain submission they stay retained until process teardown. Call
+// FreeChecked when the caller needs to know that immediate destruction failed.
 func (b *VkBuf) Free() {
 	if b == nil {
 		return
 	}
+	_ = vkAcquire(context.Background())
+	defer vkRelease()
+	if vkUsesBufferLocked(b) {
+		b.deferredFree = true
+		return
+	}
+	_ = b.freeLocked()
+}
+
+// FreeChecked never defers implicitly. An in-flight/lost error leaves the
+// object untouched; drain then retry. Repeated successful frees are no-ops.
+func (b *VkBuf) FreeChecked() error {
+	if b == nil {
+		return nil
+	}
+	if err := vkAcquire(context.Background()); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if b.closed {
+		return nil
+	}
+	if err := vkQuarantineLocked(); err != nil {
+		return err
+	}
+	if vkUsesBufferLocked(b) {
+		return ErrVulkanInFlight
+	}
+	return b.freeLocked()
+}
+func (b *VkBuf) freeLocked() error {
+	if b.closed {
+		return nil
+	}
+	if err := vkQuarantineLocked(); err != nil {
+		return err
+	}
+	if b.device == 0 || b.device != vkDevice {
+		return fmt.Errorf("Vulkan buffer owner mismatch")
+	}
+	if vkUnmapMemory == nil || vkDestroyBuffer == nil || vkFreeMemory == nil {
+		return fmt.Errorf("Vulkan buffer cleanup functions unavailable")
+	}
 	if b.mapped != nil {
-		vkUnmapMemory(vkDevice, b.mem)
+		vkUnmapMemory(b.device, b.mem)
 		b.mapped = nil
 	}
 	if b.buf != 0 {
-		vkDestroyBuffer(vkDevice, b.buf, nil)
+		vkDestroyBuffer(b.device, b.buf, nil)
 		b.buf = 0
 	}
 	if b.mem != 0 {
-		vkFreeMemory(vkDevice, b.mem, nil)
+		vkFreeMemory(b.device, b.mem, nil)
 		b.mem = 0
 	}
+	b.closed = true
+	b.deferredFree = false
+	return nil
 }

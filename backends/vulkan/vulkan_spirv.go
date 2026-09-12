@@ -14,6 +14,7 @@ package vulkan
 // to prove the pipeline works. Production shaders will be compiled from GLSL.
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"unsafe"
@@ -203,6 +204,13 @@ func buildSPIRVGemvF32() []byte {
 
 // LoadSPIRV creates a Vulkan compute pipeline from SPIR-V bytecode.
 func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
+	if err := vkAcquire(context.Background()); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
+	if err := vkStatusLocked(); err != nil {
+		return nil, err
+	}
 	if len(spirv) == 0 || len(spirv)%4 != 0 {
 		return nil, fmt.Errorf("invalid SPIR-V bytecode length %d", len(spirv))
 	}
@@ -365,5 +373,5 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 
 // VulkanBF16Ready returns true if Vulkan BF16 compute is available.
 func VulkanBF16Ready() bool {
-	return vkReady // BF16 emulated via bitshift, no extension needed
+	return VulkanReady() // BF16 emulated via bitshift, no extension needed
 }

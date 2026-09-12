@@ -25,6 +25,7 @@ package vulkan
 //   - ARM Mali
 
 import (
+	"context"
 	"os"
 	"runtime"
 	"unsafe"
@@ -52,6 +53,8 @@ type VkResult int32
 
 const (
 	VK_SUCCESS                                          VkResult = 0
+	VK_TIMEOUT                                          VkResult = 2
+	VK_ERROR_DEVICE_LOST                                VkResult = -4
 	VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO                       = 1
 	VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO                         = 3
 	VK_STRUCTURE_TYPE_SUBMIT_INFO                                = 4
@@ -150,6 +153,13 @@ var (
 
 // VulkanInit initializes the Vulkan compute backend.
 func VulkanInit() bool {
+	if err := vkAcquire(context.Background()); err != nil {
+		return false
+	}
+	defer vkRelease()
+	if vkLost || vkPending != nil {
+		return false
+	}
 	if !vkNative64() {
 		return false
 	}
@@ -414,8 +424,21 @@ func VulkanInit() bool {
 	return true
 }
 
-// VulkanReady returns true if Vulkan compute is available.
-func VulkanReady() bool { return vkReady }
+// VulkanReady reports current submission admission, not just initialisation.
+// Retained or quarantined work makes it false until a successful drain.
+func VulkanReady() bool {
+	if err := vkAcquire(context.Background()); err != nil {
+		return false
+	}
+	defer vkRelease()
+	return vkReady && vkStatusLocked() == nil
+}
 
 // VulkanDeviceName returns the Vulkan device name.
-func VulkanDeviceName() string { return vkDevName }
+func VulkanDeviceName() string {
+	if err := vkAcquire(context.Background()); err != nil {
+		return ""
+	}
+	defer vkRelease()
+	return vkDevName
+}

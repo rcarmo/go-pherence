@@ -22,6 +22,8 @@ func offlineVK(t *testing.T) {
 	if !vkNative64() {
 		t.Skip("current binding is64bit only")
 	}
+	mockVK(t, &vkPending, (*vkPendingSubmission)(nil))
+	mockVK(t, &vkLost, false)
 	mockVK(t, &vkReady, true)
 	mockVK(t, &vkDevice, VkDevice(100))
 	mockVK(t, &vkPhysDev, VkPhysicalDevice(101))
@@ -164,6 +166,21 @@ func TestVulkanOfflineKernelRollback(t *testing.T) {
 			if !reflect.DeepEqual(freed, expected) {
 				t.Fatalf("rollback got%v want%v calls%v", freed, expected, calls)
 			}
+			if failure == "success" {
+				if kernel.device != 100 || kernel.commandPool != 102 || kernel.queue != 103 {
+					t.Fatal("missing captured owners")
+				}
+				if err := kernel.Close(); err != nil {
+					t.Fatal(err)
+				}
+				if err := kernel.Close(); err != nil {
+					t.Fatal(err)
+				}
+				want := []string{"shader", "fence", "command", "pool", "pipeline", "pipeline-layout", "setlayout"}
+				if !reflect.DeepEqual(freed, want) {
+					t.Fatal("successful kernel cleanup", freed)
+				}
+			}
 		})
 	}
 }
@@ -284,8 +301,8 @@ func TestVulkanOfflineDispatchPreflight(t *testing.T) {
 	calls := 0
 	mockVK(t, &vkUpdateDescriptorSets, func(VkDevice, uint32, unsafe.Pointer, uint32, unsafe.Pointer) { calls++ })
 	mockVK(t, &vkCmdPushConstants, (func(VkCommandBuffer, VkPipelineLayout, uint32, uint32, uint32, unsafe.Pointer))(nil))
-	kernel := &VkComputeKernel{pipeline: 1, pipelineLayout: 2, descSet: 3, cmdBuf: 4, fence: 5, numBuffers: 1, pushSize: 4}
-	bufs := []*VkBuf{{buf: 1, mem: 2, size: 4}}
+	kernel := &VkComputeKernel{device: 100, queue: 103, commandPool: 102, pipeline: 1, pipelineLayout: 2, descSet: 3, cmdBuf: 4, fence: 5, numBuffers: 1, pushSize: 4}
+	bufs := []*VkBuf{{device: 100, buf: 1, mem: 2, size: 4}}
 	if err := kernel.Dispatch(1, 1, 1, bufs, nil); err == nil || !strings.Contains(err.Error(), "push constants") {
 		t.Fatal("missingpush", err)
 	}
@@ -332,9 +349,9 @@ func TestVulkanOfflineDispatchBeginAndFenceErrors(t *testing.T) {
 			mockVK(t, &vkResetFences, func(VkDevice, uint32, *VkFence) VkResult { return step("reset") })
 			mockVK(t, &vkQueueSubmit, func(VkQueue, uint32, unsafe.Pointer, VkFence) VkResult { return step("submit") })
 			mockVK(t, &vkWaitForFences, func(VkDevice, uint32, *VkFence, uint32, uint64) VkResult { return step("wait") })
-			kernel := &VkComputeKernel{pipeline: 1, pipelineLayout: 2, descSet: 3, cmdBuf: 4, fence: 5, numBuffers: 1, pushSize: 4}
+			kernel := &VkComputeKernel{device: 100, queue: 103, commandPool: 102, pipeline: 1, pipelineLayout: 2, descSet: 3, cmdBuf: 4, fence: 5, numBuffers: 1, pushSize: 4}
 			push := uint32(17)
-			err := kernel.Dispatch(1, 1, 1, []*VkBuf{{buf: 1, mem: 2, size: 4}}, unsafe.Pointer(&push))
+			err := kernel.Dispatch(1, 1, 1, []*VkBuf{{device: 100, buf: 1, mem: 2, size: 4}}, unsafe.Pointer(&push))
 			if failure == "success" {
 				if err != nil {
 					t.Fatal(err)
