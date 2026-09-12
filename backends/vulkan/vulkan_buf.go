@@ -15,13 +15,15 @@ import (
 // Package APIs serialize host access and retain buffers during pending work.
 // Resource objects must not be copied; callers cannot access the mapped pointer.
 type VkBuf struct {
-	device       VkDevice
-	closed       bool
-	deferredFree bool
-	buf          VkBuffer
-	mem          VkDeviceMemory
-	size         uint64
-	mapped       unsafe.Pointer
+	device          VkDevice
+	closed          bool
+	deferredFree    bool
+	buf             VkBuffer
+	mem             VkDeviceMemory
+	size            uint64
+	mapped          unsafe.Pointer
+	allocationBytes uint64 // zero only for non-owning test fixtures
+	heapIndex       uint32
 }
 
 // VkBufAlloc allocates a Vulkan buffer accessible from both host and device.
@@ -47,12 +49,19 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		return nil, err
 	}
 
+	// Lower bound preflight before creating even the buffer handle. Native
+	// requirements may include padding, so recheck their actual size below.
+	if err := vkCheckMemoryBudgetLocked(uint64(sizeBytes)); err != nil {
+		return nil, err
+	}
 	if vkCreateBuffer == nil || vkGetBufferMemoryRequirements == nil || vkGetPhysicalDeviceMemoryProperties == nil || vkAllocateMemory == nil || vkBindBufferMemory == nil || vkMapMemory == nil || vkUnmapMemory == nil || vkDestroyBuffer == nil || vkFreeMemory == nil {
 		return nil, fmt.Errorf("Vulkan buffer construction/cleanup functions unavailable")
 	}
 	device, physical := vkDevice, vkPhysDev
 	var buf VkBuffer
 	var mem VkDeviceMemory
+	var allocationBytes uint64
+	var heapIndex uint32
 	committed := false
 	defer func() {
 		if !committed {
@@ -62,6 +71,9 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 			}
 			if mem != 0 {
 				vkFreeMemory(device, mem, nil)
+				if allocationBytes != 0 {
+					vkUnchargeMemoryLocked(heapIndex, allocationBytes)
+				}
 			}
 		}
 	}()
@@ -94,6 +106,10 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		return nil, fmt.Errorf("invalid Vulkan memory requirements")
 	}
 
+	if err := vkCheckMemoryBudgetLocked(reqs.size); err != nil {
+		return nil, err
+	}
+
 	// Find host-visible + host-coherent memory type
 	var props vkPhysicalDeviceMemoryProperties
 	vkGetPhysicalDeviceMemoryProperties(physical, unsafe.Pointer(&props))
@@ -107,7 +123,10 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		if props.memoryTypes[i].heapIndex >= props.memoryHeapCount {
 			return nil, fmt.Errorf("invalid Vulkan memory heap index")
 		}
-		if reqs.memoryTypeBits&(1<<i) != 0 && props.memoryTypes[i].propertyFlags&wantFlags == wantFlags && props.memoryHeaps[props.memoryTypes[i].heapIndex].size >= reqs.size {
+	}
+	for i := uint32(0); i < props.memoryTypeCount; i++ {
+		heap := props.memoryTypes[i].heapIndex
+		if reqs.memoryTypeBits&(1<<i) != 0 && props.memoryTypes[i].propertyFlags&wantFlags == wantFlags && vkHeapFitsLocked(heap, props.memoryHeaps[heap].size, reqs.size) {
 			memTypeIdx = i
 			break
 		}
@@ -116,6 +135,7 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		return nil, fmt.Errorf("no suitable memory type")
 	}
 
+	heapIndex = props.memoryTypes[memTypeIdx].heapIndex
 	allocInfo := struct {
 		sType           uint32
 		pNext           uintptr
@@ -132,6 +152,12 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		return nil, fmt.Errorf("vkAllocateMemory: %d", r)
 	}
 
+	if mem == 0 {
+		return nil, fmt.Errorf("vkAllocateMemory returned null handle")
+	}
+	allocationBytes = reqs.size
+	vkChargeMemoryLocked(heapIndex, allocationBytes)
+
 	if r := vkBindBufferMemory(device, buf, mem, 0); r != VK_SUCCESS {
 		return nil, fmt.Errorf("vkBindBufferMemory: %d", r)
 	}
@@ -146,7 +172,7 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		return nil, fmt.Errorf("vkMapMemory returned nil pointer")
 	}
 	committed = true
-	return &VkBuf{device: device, buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped}, nil
+	return &VkBuf{device: device, buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped, allocationBytes: allocationBytes, heapIndex: heapIndex}, nil
 }
 
 // Upload copies float32 data to the buffer. Invalid inputs are ignored for
@@ -274,6 +300,14 @@ func (b *VkBuf) freeLocked() error {
 	if vkUnmapMemory == nil || vkDestroyBuffer == nil || vkFreeMemory == nil {
 		return fmt.Errorf("Vulkan buffer cleanup functions unavailable")
 	}
+	if b.allocationBytes != 0 {
+		if b.mem == 0 {
+			return fmt.Errorf("Vulkan allocation accounting without memory")
+		}
+		if err := vkCheckChargeLocked(b.heapIndex, b.allocationBytes); err != nil {
+			return err
+		}
+	}
 	if b.mapped != nil {
 		vkUnmapMemory(b.device, b.mem)
 		b.mapped = nil
@@ -285,6 +319,10 @@ func (b *VkBuf) freeLocked() error {
 	if b.mem != 0 {
 		vkFreeMemory(b.device, b.mem, nil)
 		b.mem = 0
+		if b.allocationBytes != 0 {
+			vkUnchargeMemoryLocked(b.heapIndex, b.allocationBytes)
+			b.allocationBytes = 0
+		}
 	}
 	b.closed = true
 	b.deferredFree = false

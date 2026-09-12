@@ -25,6 +25,8 @@ func offlineVK(t *testing.T) {
 	mockVK(t, &vkLost, false)
 	mockVK(t, &vkReady, true)
 	mockVK(t, &vkLimits, offlineLimits())
+	mockVK(t, &vkMemoryBudget, VulkanMemoryBudget{})
+	mockVK(t, &vkMemoryUsed, vkMemoryLedger{})
 	mockVK(t, &vkDevice, VkDevice(100))
 	mockVK(t, &vkPhysDev, VkPhysicalDevice(101))
 	mockVK(t, &vkCmdPool, VkCommandPool(102))
@@ -206,7 +208,7 @@ func TestVulkanOfflineKernelPreflight(t *testing.T) {
 }
 
 func TestVulkanOfflineBufferRollback(t *testing.T) {
-	for _, failure := range []string{"buffer", "requirements", "typecount", "heapcount", "heapindex", "no-type", "small-heap", "allocate", "bind", "map", "nil-map", "success"} {
+	for _, failure := range []string{"buffer", "requirements", "typecount", "heapcount", "heapindex", "no-type", "small-heap", "allocate", "null-memory", "bind", "map", "nil-map", "success"} {
 		t.Run(failure, func(t *testing.T) {
 			offlineVK(t)
 			var freed []string
@@ -246,6 +248,9 @@ func TestVulkanOfflineBufferRollback(t *testing.T) {
 			})
 			mockVK(t, &vkAllocateMemory, func(d VkDevice, p, a unsafe.Pointer, out *VkDeviceMemory) VkResult {
 				*out = 12
+				if failure == "null-memory" {
+					*out = 0
+				}
 				return fail("allocate")
 			})
 			mockVK(t, &vkBindBufferMemory, func(VkDevice, VkBuffer, VkDeviceMemory, uint64) VkResult { return fail("bind") })
@@ -269,7 +274,13 @@ func TestVulkanOfflineBufferRollback(t *testing.T) {
 				freed = append(freed, "memory")
 			})
 			b, err := VkBufAlloc(16)
+			if failure != "success" && vkMemoryUsed != (vkMemoryLedger{}) {
+				t.Fatal("rollback leaked accounting", vkMemoryUsed)
+			}
 			if failure == "success" {
+				if vkMemoryUsed.bytes != 64 || vkMemoryUsed.allocations != 1 || vkMemoryUsed.heaps[0] != 64 {
+					t.Fatal("missing charge", vkMemoryUsed)
+				}
 				if err != nil || b == nil || len(freed) != 0 {
 					t.Fatal(err, freed)
 				}
@@ -278,6 +289,9 @@ func TestVulkanOfflineBufferRollback(t *testing.T) {
 				}
 				b.Free()
 				b.Free()
+				if vkMemoryUsed != (vkMemoryLedger{}) {
+					t.Fatal("free leaked charge", vkMemoryUsed)
+				}
 				if !reflect.DeepEqual(freed, []string{"unmap", "buffer", "memory"}) {
 					t.Fatal("successful free", freed)
 				}

@@ -11,7 +11,7 @@ import (
 
 func offlineProperties() vkDeviceProperties {
 	return vkDeviceProperties{apiVersion: 1<<22 | 3<<12, limits: vkPhysicalDeviceLimits{
-		maxStorageBufferRange: 128 << 20, maxPushConstantsSize: 128, maxBoundDescriptorSets: 4,
+		maxStorageBufferRange: 128 << 20, maxPushConstantsSize: 128, maxBoundDescriptorSets: 4, maxMemoryAllocationCount: 4096,
 		maxPerStageDescriptorStorageBuffers: 16, maxPerStageResources: 128, maxDescriptorSetStorageBuffers: 16,
 		maxComputeSharedMemorySize: 16384, maxComputeWorkGroupCount: [3]uint32{65535, 65535, 65535},
 		maxComputeWorkGroupInvocations: 256, maxComputeWorkGroupSize: [3]uint32{256, 256, 64}}}
@@ -39,7 +39,7 @@ func TestVulkanOfflineLimitsABI(t *testing.T) {
 		{"name", unsafe.Offsetof(p.deviceName), 20}, {"uuid", unsafe.Offsetof(p.pipelineCacheUUID), 276},
 		{"limits", unsafe.Offsetof(p.limits), 296}, {"sparse", unsafe.Offsetof(p.sparseProperties), 800},
 		{"limits size", unsafe.Sizeof(l), 504}, {"storage", unsafe.Offsetof(l.maxStorageBufferRange), 28},
-		{"push", unsafe.Offsetof(l.maxPushConstantsSize), 32}, {"sets", unsafe.Offsetof(l.maxBoundDescriptorSets), 64},
+		{"allocation count", unsafe.Offsetof(l.maxMemoryAllocationCount), 36}, {"push", unsafe.Offsetof(l.maxPushConstantsSize), 32}, {"sets", unsafe.Offsetof(l.maxBoundDescriptorSets), 64},
 		{"stage storage", unsafe.Offsetof(l.maxPerStageDescriptorStorageBuffers), 76},
 		{"stage resources", unsafe.Offsetof(l.maxPerStageResources), 92},
 		{"set storage", unsafe.Offsetof(l.maxDescriptorSetStorageBuffers), 108},
@@ -53,7 +53,7 @@ func TestVulkanOfflineLimitsABI(t *testing.T) {
 	}
 	// Independent raw-offset fixture: exact C64 wire locations, distinct values.
 	bytes := unsafe.Slice((*byte)(unsafe.Pointer(&p)), 824)
-	values := map[int]uint32{0: 1<<22 | 3<<12, 324: 101, 328: 102, 360: 103, 372: 104, 388: 105, 404: 106, 512: 107, 516: 108, 520: 109, 524: 110, 528: 111, 532: 112, 536: 113, 540: 114}
+	values := map[int]uint32{0: 1<<22 | 3<<12, 324: 101, 328: 102, 332: 115, 360: 103, 372: 104, 388: 105, 404: 106, 512: 107, 516: 108, 520: 109, 524: 110, 528: 111, 532: 112, 536: 113, 540: 114}
 	for off, value := range values {
 		binary.LittleEndian.PutUint32(bytes[off:off+4], value)
 	}
@@ -61,7 +61,7 @@ func TestVulkanOfflineLimitsABI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := VulkanDeviceLimits{APIVersion: 1<<22 | 3<<12, StorageBufferRange: 101, PushConstantBytes: 102, BoundDescriptorSets: 103, PerStageStorageBuffers: 104, PerStageResources: 105, DescriptorSetStorageBuffers: 106, SharedMemoryBytes: 107, WorkgroupCount: [3]uint32{108, 109, 110}, WorkgroupInvocations: 111, WorkgroupSize: [3]uint32{112, 113, 114}}
+	want := VulkanDeviceLimits{APIVersion: 1<<22 | 3<<12, StorageBufferRange: 101, MemoryAllocationCount: 115, PushConstantBytes: 102, BoundDescriptorSets: 103, PerStageStorageBuffers: 104, PerStageResources: 105, DescriptorSetStorageBuffers: 106, SharedMemoryBytes: 107, WorkgroupCount: [3]uint32{108, 109, 110}, WorkgroupInvocations: 111, WorkgroupSize: [3]uint32{112, 113, 114}}
 	if got != want {
 		t.Fatalf("driver decode %+v want%+v", got, want)
 	}
@@ -104,6 +104,7 @@ func TestVulkanOfflineLimitsRejectIncomplete(t *testing.T) {
 		{"api", func(l *VulkanDeviceLimits) { l.APIVersion = 1<<22 | 2<<12 }},
 		{"variant", func(l *VulkanDeviceLimits) { l.APIVersion |= 1 << 29 }},
 		{"range", func(l *VulkanDeviceLimits) { l.StorageBufferRange = 0 }},
+		{"allocation count", func(l *VulkanDeviceLimits) { l.MemoryAllocationCount = 0 }},
 		{"push", func(l *VulkanDeviceLimits) { l.PushConstantBytes = 0 }},
 		{"sets", func(l *VulkanDeviceLimits) { l.BoundDescriptorSets = 0 }},
 		{"stage storage", func(l *VulkanDeviceLimits) { l.PerStageStorageBuffers = 0 }},

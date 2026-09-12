@@ -18,6 +18,7 @@ var ErrVulkanLimit = errors.New("Vulkan device limit admission failed")
 type VulkanDeviceLimits struct {
 	APIVersion                  uint32
 	StorageBufferRange          uint32
+	MemoryAllocationCount       uint32
 	PushConstantBytes           uint32
 	BoundDescriptorSets         uint32
 	PerStageStorageBuffers      uint32
@@ -53,7 +54,7 @@ func VulkanLimits() (VulkanDeviceLimits, error) {
 
 func vkLimitsFromProperties(p vkDeviceProperties) (VulkanDeviceLimits, error) {
 	l := p.limits
-	out := VulkanDeviceLimits{APIVersion: p.apiVersion, StorageBufferRange: l.maxStorageBufferRange,
+	out := VulkanDeviceLimits{APIVersion: p.apiVersion, StorageBufferRange: l.maxStorageBufferRange, MemoryAllocationCount: l.maxMemoryAllocationCount,
 		PushConstantBytes: l.maxPushConstantsSize, BoundDescriptorSets: l.maxBoundDescriptorSets,
 		PerStageStorageBuffers: l.maxPerStageDescriptorStorageBuffers, PerStageResources: l.maxPerStageResources,
 		DescriptorSetStorageBuffers: l.maxDescriptorSetStorageBuffers, WorkgroupCount: l.maxComputeWorkGroupCount,
@@ -69,7 +70,7 @@ func (l VulkanDeviceLimits) validate() error {
 	if l.APIVersion>>29 != 0 || major < 1 || (major == 1 && minor < 3) {
 		return fmt.Errorf("%w: Vulkan1.3 required", ErrVulkanLimit)
 	}
-	if l.StorageBufferRange == 0 || l.PushConstantBytes == 0 || l.BoundDescriptorSets == 0 || l.PerStageStorageBuffers == 0 || l.PerStageResources == 0 || l.DescriptorSetStorageBuffers == 0 || l.WorkgroupInvocations == 0 || l.SharedMemoryBytes == 0 {
+	if l.StorageBufferRange == 0 || l.MemoryAllocationCount == 0 || l.PushConstantBytes == 0 || l.BoundDescriptorSets == 0 || l.PerStageStorageBuffers == 0 || l.PerStageResources == 0 || l.DescriptorSetStorageBuffers == 0 || l.WorkgroupInvocations == 0 || l.SharedMemoryBytes == 0 {
 		return fmt.Errorf("%w: incomplete core limits", ErrVulkanLimit)
 	}
 	for i := 0; i < 3; i++ {
