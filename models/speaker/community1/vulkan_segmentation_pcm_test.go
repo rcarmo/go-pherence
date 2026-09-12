@@ -52,10 +52,38 @@ func TestVulkanSegmentationPCMRejectsBeforeDevice(t *testing.T) {
 	}
 }
 
+func TestVulkanSegmentationPCMConstructionRollbackRetry(t *testing.T) {
+	model, pcm := experimentalFixture(t)
+	checkpoint := model.checkpoint
+	filters := append([]float32(nil), model.frontend.filters...)
+	retained := &vulkanBlockTestCloser{fail: true}
+	lstmState := &vulkanLSTMState{gate: make(chan struct{}, 1), resources: []vulkanLSTMCloser{retained}}
+	features := &VulkanSegmentationFeatures{s: &vulkanSegmentationState{gate: make(chan struct{}, 1), recurrent: &VulkanLSTM{s: lstmState}}}
+	stop := errors.New("feature construction failed")
+	owner, err := newVulkanSegmentationPCM(context.Background(), checkpoint, filters, len(pcm), func(context.Context, *SegmentationCheckpoint, int) (*VulkanSegmentationFeatures, error) {
+		return features, stop
+	})
+	if owner == nil || !errors.Is(err, stop) || retained.calls != 1 || !owner.s.stopping || owner.s.closed {
+		t.Fatal("partial feature owner not retained", owner, err, retained.calls)
+	}
+	if result, err := owner.ForwardPCM(context.Background(), pcm, SincNetSIMDFMA, HeadSIMD); err == nil || result != nil {
+		t.Fatal("partially rolled back PCM owner admitted work", err)
+	}
+	retained.fail = false
+	if err := owner.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if retained.calls != 2 || !owner.s.closed || owner.s.features != nil || owner.s.frontend != nil {
+		t.Fatal("retained feature retry", retained.calls, owner.s)
+	}
+}
+
 func TestVulkanSegmentationPCMAdmissionAndClose(t *testing.T) {
 	frontend := &SincNet{}
 	featureState := &vulkanSegmentationState{gate: make(chan struct{}, 1), stopping: true}
-	m := &VulkanSegmentationPCM{frontend: frontend, features: &VulkanSegmentationFeatures{s: featureState}, samples: 4, grid: SincNetGrid{Frames: 1}}
+	state := &vulkanSegmentationPCMState{gate: make(chan struct{}, 1), frontend: frontend, features: &VulkanSegmentationFeatures{s: featureState}, samples: 4, grid: SincNetGrid{Frames: 1}, stats: VulkanSegmentationStats{Classes: 2}}
+	m := &VulkanSegmentationPCM{s: state}
+	copyOwner := *m
 	for _, test := range []struct {
 		pcm      []float32
 		sincMode SincNetMode
@@ -68,13 +96,13 @@ func TestVulkanSegmentationPCMAdmissionAndClose(t *testing.T) {
 	if err := m.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if m.frontend != nil || m.features != nil {
+	if state.frontend != nil || state.features != nil || !state.closed {
 		t.Fatal("PCM hybrid close")
 	}
-	if result, err := m.ForwardPCM(context.Background(), make([]float32, 4), SincNetSIMDFMA, HeadSIMD); err == nil || result != nil {
-		t.Fatal("forward after close")
+	if result, err := copyOwner.ForwardPCM(context.Background(), make([]float32, 4), SincNetSIMDFMA, HeadSIMD); err == nil || result != nil {
+		t.Fatal("copy forward after close")
 	}
-	if err := m.Close(); err != nil {
+	if err := copyOwner.Close(); err != nil {
 		t.Fatal(err)
 	}
 	var zero *VulkanSegmentationPCM
@@ -86,5 +114,23 @@ func TestVulkanSegmentationPCMAdmissionAndClose(t *testing.T) {
 	}
 	if !featureState.closed {
 		t.Fatal("nested feature owner not closed")
+	}
+	blocked := &vulkanSegmentationPCMState{gate: make(chan struct{}, 1)}
+	blockedOwner := &VulkanSegmentationPCM{s: blocked}
+	blocked.gate <- struct{}{}
+	started, done := make(chan struct{}), make(chan error, 1)
+	go func() {
+		close(started)
+		done <- blockedOwner.Close()
+	}()
+	<-started
+	select {
+	case err := <-done:
+		t.Fatal("close bypassed active call", err)
+	default:
+	}
+	<-blocked.gate
+	if err := <-done; err != nil || !blocked.closed {
+		t.Fatal("serialized close", err)
 	}
 }
