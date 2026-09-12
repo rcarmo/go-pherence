@@ -648,7 +648,9 @@ No Vulkan device or trained checkpoint ran. Native parity, recovery and CPU/full
 
 `NewVkLSTMSequenceF32` extends this to one complete direction: one256-lane workgroup owns all1–4096 recurrent steps, preserves separate input/hidden reductions and PyTorch bias composition, writes original frame positions for forward/reverse operation, and supports disjoint output offsets for bidirectional concatenation. Five geometries, both directions and878 output checks pass. [Sequence evidence](../benchmarks/speech-foundations/vulkan-lstm-sequence-20260912/README.md) records the shape/alias/lifetime contract.
 
-A multi-layer model owner, native transcendental parity and placement measurements remain open. No model/default selects either recurrent kernel.
+`NewVulkanLSTM` builds the complete fixed-frame multi-layer/bidirectional owner from that sequence primitive. It copies every weight/bias, owns per-direction hidden/cell state and layer outputs in one arena, creates one plan per layer, resets or uploads all state on every call, and downloads final output/state. Model-free fixtures cover all six existing LSTM geometries, topology, ownership, pre-device rejection and retryable close. [Owner evidence](../benchmarks/speech-foundations/vulkan-lstm-owner-20260912/README.md) records the scope.
+
+Native transcendental parity, SincNet→LSTM→head integration and placement measurements remain open. No model/default selects either recurrent kernel or owner.
 
 ### Experimental lowered SincNet filters and ordered FMA
 

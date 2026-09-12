@@ -104,6 +104,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [vulkan-linear-regtile-20260912](vulkan-linear-regtile-20260912/README.md): explicitF32 32x32output/K32/4acc candidate,default16x16unchanged;3kernelruns2.055–2.151×/all144timedoutputsbitexact. IsolatedTurboencoder14.244→8.298s1.716×/bitexact/publictokens-timespreserved,notwholejobspeedgate. 438offlinepass/30shuffle4710/34staticval. Earlierpairedprocesssetupoverlap+55pageswapoutretained;exclusiveconfirmationzeroswapdelta/min17.96GiBavailable. Noautomaticpromotion/restart/push.
 
+- [vulkan-lstm-owner-20260912](vulkan-lstm-owner-20260912/README.md): fixed-frame resident multi-layer/bidirectional LSTM owner; copied weights, per-direction state, one plan/layer, explicit reset/upload and retry close. All six model-free fixture geometries PASS; no GPU/trained/head/performance/default change.
+
 - [vulkan-lstm-sequence-20260912](vulkan-lstm-sequence-20260912/README.md): model-free one-direction IFGO sequence primitive; separate input/hidden reductions+biases, forward/reverse indexing, output offsets, five geometries/878 outputs plus ABI/plan/static21 PASS. No multilayer owner/GPU/trained/performance/default change.
 
 - [vulkan-lstm-cell-20260912](vulkan-lstm-cell-20260912/README.md): model-free precombined-IFGO recurrent state primitive; stable sigmoid/tanh, exact cell alias, six sizes/four schedules/5,280 outputs plus ABI/plan/static20 PASS. No sequence owner/GPU/trained/performance/default change.
