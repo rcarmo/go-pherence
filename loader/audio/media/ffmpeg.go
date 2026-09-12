@@ -29,6 +29,7 @@ type probeStream struct {
 	Index         *int   `json:"index"`
 	CodecType     string `json:"codec_type"`
 	CodecName     string `json:"codec_name"`
+	StartTime     string `json:"start_time"`
 	Duration      string `json:"duration"`
 	SampleRate    string `json:"sample_rate"`
 	Channels      int    `json:"channels"`
@@ -256,6 +257,10 @@ func (f *FFmpeg) DecodeToFile(ctx context.Context, srcPath, dstPath string) (Dec
 			SampleRate: CanonicalSampleRate,
 			Samples:    SampleCount(info.frames),
 		},
+		// FFmpeg exposes the selected stream start but not a checked edit/priming
+		// decomposition through this narrow probe. Preserve it and mark compressed
+		// container mapping diagnostic-only instead of claiming exact source PTS.
+		Source: probe.Source,
 	}, nil
 }
 
@@ -341,6 +346,10 @@ func parseProbeJSON(data []byte, path string, container string, size int64, maxD
 	if err != nil || duration <= 0 || duration > maxDuration {
 		return ProbeResult{}, ErrDurationOutOfRange
 	}
+	start, err := parseNonnegativeDuration(chosen.StartTime)
+	if err != nil {
+		return ProbeResult{}, fmt.Errorf("%w: ambiguous source start time", ErrUnsupportedInput)
+	}
 	rate, err := parsePositiveInt(chosen.SampleRate)
 	if err != nil || rate > 768000 {
 		return ProbeResult{}, fmt.Errorf("%w: invalid sample rate", ErrInvalidSource)
@@ -368,7 +377,20 @@ func parseProbeJSON(data []byte, path string, container string, size int64, maxD
 			SampleRate: SampleRate(rate),
 			Samples:    SampleCount(samples),
 		},
+		Source: SourceTiming{Start: start, Duration: duration, Exact: container == "wav" && start == 0, SourceRate: SampleRate(rate)},
 	}, nil
+}
+
+func parseNonnegativeDuration(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "N/A" {
+		return 0, nil
+	}
+	seconds, err := strconv.ParseFloat(s, 64)
+	if err != nil || seconds < 0 || math.IsInf(seconds, 0) || math.IsNaN(seconds) || seconds > float64(maxInt64)/float64(time.Second) {
+		return 0, fmt.Errorf("invalid nonnegative duration")
+	}
+	return time.Duration(seconds * float64(time.Second)), nil
 }
 
 func parsePositiveDuration(s string) (time.Duration, error) {
@@ -428,7 +450,7 @@ func buildProbeArgs(srcPath string, kind sourceKind) []string {
 	args = append(args,
 		"-i", srcPath,
 		"-select_streams", "a",
-		"-show_entries", "format=duration:stream=index,codec_type,codec_name,duration,sample_rate,channels,bits_per_sample",
+		"-show_entries", "format=duration:stream=index,codec_type,codec_name,start_time,duration,sample_rate,channels,bits_per_sample",
 		"-of", "json",
 	)
 	return args

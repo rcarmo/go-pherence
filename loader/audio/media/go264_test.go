@@ -87,8 +87,9 @@ func TestGo264ProbeAndDecodeExactPCM(t *testing.T) {
 	if probe.Timeline.SampleRate != CanonicalSampleRate || probe.Timeline.Samples != SampleCount(len(want)) {
 		t.Fatalf("probe timeline=%+v", probe.Timeline)
 	}
-	if probe.Duration != (Timeline{SampleRate: CanonicalSampleRate, Samples: SampleCount(len(want))}).Duration() {
-		t.Fatalf("probe duration=%v", probe.Duration)
+	wantDuration := (Timeline{SampleRate: CanonicalSampleRate, Samples: SampleCount(len(want))}).Duration()
+	if probe.Duration != wantDuration || probe.Source != (SourceTiming{Duration: wantDuration, Exact: true, SourceRate: CanonicalSampleRate}) {
+		t.Fatalf("probe duration/timing=%v %+v", probe.Duration, probe.Source)
 	}
 
 	dst := filepath.Join(dir, "decoded.wav")
@@ -102,8 +103,8 @@ func TestGo264ProbeAndDecodeExactPCM(t *testing.T) {
 	if decoded.Format != canonicalWAV() {
 		t.Fatalf("decoded format=%+v", decoded.Format)
 	}
-	if decoded.Timeline.SampleRate != CanonicalSampleRate || decoded.Timeline.Samples != SampleCount(len(want)) {
-		t.Fatalf("decoded timeline=%+v", decoded.Timeline)
+	if decoded.Timeline.SampleRate != CanonicalSampleRate || decoded.Timeline.Samples != SampleCount(len(want)) || decoded.Source != probe.Source {
+		t.Fatalf("decoded timeline=%+v source=%+v", decoded.Timeline, decoded.Source)
 	}
 	if got := readCanonicalInt16(t, dst); !reflect.DeepEqual(got, want) {
 		t.Fatalf("pcm=%v want %v", got, want)

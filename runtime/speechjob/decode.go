@@ -147,7 +147,7 @@ func newDecodeStage(cfg FFmpegDecodeConfig, adapter media.Adapter) Stage {
 		timeline := pcm.Timeline()
 		expected := media.AudioFormat{Container: "wav", Encoding: "pcm_s16le", SampleRate: 16000, Channels: 1, BitsPerSample: 16}
 		maxSamples := int64(cfg.MaxDuration)/int64(time.Second)*16000 + (int64(cfg.MaxDuration)%int64(time.Second))*16000/int64(time.Second)
-		if decoded.Format != expected || decoded.Timeline != timeline || timeline.Samples <= 0 || int64(timeline.Samples) > maxSamples {
+		if decoded.Format != expected || decoded.Timeline != timeline || timeline.Samples <= 0 || int64(timeline.Samples) > maxSamples || decoded.Source.Start < 0 || decoded.Source.Duration < 0 || decoded.Source.SourceRate < 0 || decoded.Source.Priming < 0 || decoded.Source.Padding < 0 || decoded.Source.LeadingSilence < 0 {
 			return media.ErrInvalidOutput
 		}
 		if e = in.store.hit("decode-output-ready"); e != nil {

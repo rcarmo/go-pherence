@@ -181,6 +181,17 @@ func TestParseProbeJSON(t *testing.T) {
 			wantRate:  44100,
 		},
 		{
+			name:      "preserves nonzero source start",
+			json:      `{"streams":[{"index":1,"codec_type":"audio","codec_name":"aac","start_time":"1.25","duration":"2","sample_rate":"48000","channels":2}],"format":{"duration":"3.25"}}`,
+			wantIndex: 1,
+			wantRate:  48000,
+		},
+		{
+			name:    "rejects negative source start",
+			json:    `{"streams":[{"index":0,"codec_type":"audio","codec_name":"aac","start_time":"-0.1","duration":"1","sample_rate":"48000","channels":2}],"format":{"duration":"1"}}`,
+			wantErr: ErrUnsupportedInput,
+		},
+		{
 			name:    "no audio streams",
 			json:    `{"streams":[],"format":{"duration":"1.0"}}`,
 			wantErr: ErrNoAudio,
@@ -213,6 +224,12 @@ func TestParseProbeJSON(t *testing.T) {
 			}
 			if got.Format.SampleRate != tt.wantRate {
 				t.Fatalf("sample rate=%d want %d", got.Format.SampleRate, tt.wantRate)
+			}
+			if tt.name == "preserves nonzero source start" && (got.Source.Start != 1250*time.Millisecond || got.Source.SourceRate != 48000 || got.Source.Exact) {
+				t.Fatalf("source timing=%+v", got.Source)
+			}
+			if tt.name == "chooses lowest audio stream index" && (got.Source.Duration != 1250*time.Millisecond || got.Source.SourceRate != 44100) {
+				t.Fatalf("source duration=%v", got.Source.Duration)
 			}
 		})
 	}
@@ -282,6 +299,7 @@ func TestProbeAndDecodeCommandSafety(t *testing.T) {
 	probeArgs := calls[0].Args
 	decodeArgs := calls[1].Args
 	assertContainsPairs(t, probeArgs, []string{"-protocol_whitelist", "file,pipe", "-f", "mov", "-enable_drefs", "0", "-use_absolute_path", "0", "-i", mustAbs(t, src)})
+	assertContainsPairs(t, probeArgs, []string{"-show_entries", "format=duration:stream=index,codec_type,codec_name,start_time,duration,sample_rate,channels,bits_per_sample"})
 	assertContainsPairs(t, decodeArgs, []string{"-protocol_whitelist", "file,pipe", "-f", "mov", "-enable_drefs", "0", "-use_absolute_path", "0", "-i", mustAbs(t, src), "-map", "0:4", "-ac", "1", "-ar", "16000", "-acodec", "pcm_s16le"})
 	assertContainsTokens(t, decodeArgs, []string{"-vn", "-sn", "-dn"})
 	assertLastPair(t, decodeArgs, "-f", "wav")

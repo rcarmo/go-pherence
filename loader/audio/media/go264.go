@@ -74,7 +74,7 @@ func (g *Go264) Probe(ctx context.Context, path string) (ProbeResult, error) {
 	if err != nil {
 		return ProbeResult{}, err
 	}
-	streamIndex, err := g.probeStreamIndex(ctx, src, info)
+	streamIndex, timing, err := g.probeSourceTiming(ctx, src, info)
 	if err != nil {
 		return ProbeResult{}, err
 	}
@@ -91,6 +91,7 @@ func (g *Go264) Probe(ctx context.Context, path string) (ProbeResult, error) {
 			BitsPerSample: info.BitsPerSample,
 		},
 		Timeline: timeline,
+		Source:   timing,
 	}, nil
 }
 
@@ -125,8 +126,16 @@ func (g *Go264) DecodeToFile(ctx context.Context, srcPath, dstPath string) (Deco
 	if err != nil {
 		return DecodeResult{}, mapGo264SourceError(err)
 	}
-	if _, _, err := validateGo264SourceInfo(info, g.cfg.MaxDuration); err != nil {
+	_, duration, err := validateGo264SourceInfo(info, g.cfg.MaxDuration)
+	if err != nil {
 		return DecodeResult{}, err
+	}
+	_, sourceTiming, err := g.probeSourceTiming(ctx, src, info)
+	if err != nil {
+		return DecodeResult{}, err
+	}
+	if sourceTiming.Duration == 0 {
+		sourceTiming.Duration = duration
 	}
 
 	dec, err := go264audio.Open(ctx, src.file, src.size, go264audio.Options{TargetRate: int(CanonicalSampleRate), TargetChannels: CanonicalChannels, Limits: g.providerLimits()})
@@ -138,6 +147,17 @@ func (g *Go264) DecodeToFile(ctx context.Context, srcPath, dstPath string) (Deco
 	meta := dec.Metadata()
 	if meta.Output.SampleRate != int(CanonicalSampleRate) || meta.Output.Channels != CanonicalChannels || meta.Output.BitsPerSample != CanonicalBitsPerSample || meta.Output.Frames <= 0 {
 		return DecodeResult{}, fmt.Errorf("%w: invalid provider output metadata", ErrInvalidOutput)
+	}
+	if meta.PrimingFrames < 0 || meta.PaddingFrames < 0 || meta.LeadingSilenceFrames < 0 {
+		return DecodeResult{}, fmt.Errorf("%w: invalid provider source timing", ErrInvalidOutput)
+	}
+	sourceTiming.SourceRate = SampleRate(meta.Source.SampleRate)
+	sourceTiming.Priming = SampleCount(meta.PrimingFrames)
+	sourceTiming.Padding = SampleCount(meta.PaddingFrames)
+	sourceTiming.LeadingSilence = SampleCount(meta.LeadingSilenceFrames)
+	sourceTiming.HasEdits = sourceTiming.HasEdits || meta.LeadingSilenceFrames > 0
+	if sourceTiming.Duration <= 0 {
+		return DecodeResult{}, fmt.Errorf("%w: invalid provider source duration", ErrInvalidOutput)
 	}
 	maxFrames := maxFramesForDuration(g.cfg.MaxDuration)
 	if meta.Output.Frames > maxFrames {
@@ -262,6 +282,7 @@ func (g *Go264) DecodeToFile(ctx context.Context, srcPath, dstPath string) (Deco
 		SizeBytes: validated.fileSize,
 		Format:    canonicalWAV(),
 		Timeline:  Timeline{SampleRate: CanonicalSampleRate, Samples: SampleCount(validated.frames)},
+		Source:    sourceTiming,
 	}, nil
 }
 
@@ -372,19 +393,25 @@ func validateGo264SourceInfo(info go264pcm.Info, maxDuration time.Duration) (Tim
 	return timeline, timeline.Duration(), nil
 }
 
-func (g *Go264) probeStreamIndex(ctx context.Context, src go264Source, info go264pcm.Info) (int, error) {
+func (g *Go264) probeSourceTiming(ctx context.Context, src go264Source, info go264pcm.Info) (int, SourceTiming, error) {
+	duration := (Timeline{SampleRate: SampleRate(info.SampleRate), Samples: SampleCount(info.Frames)}).Duration()
 	if src.kind.container != "mov" {
-		return 0, nil
+		return 0, SourceTiming{Duration: duration, Exact: true, SourceRate: SampleRate(info.SampleRate)}, nil
 	}
 	r, err := go264mp4.Open(ctx, src.file, src.size, go264mp4.Limits{MaxBytes: g.cfg.MaxInputBytes, MaxDurationSeconds: int64(DefaultMaxDuration / time.Second), MaxBoxes: 4096})
 	if err != nil {
-		return 0, mapGo264SourceError(err)
+		return 0, SourceTiming{}, mapGo264SourceError(err)
 	}
 	track := r.Track()
 	if !track.Accepted || track.Index < 0 || track.SampleRate != info.SampleRate || track.Channels != info.Channels || track.SampleCount <= 0 {
-		return 0, fmt.Errorf("%w: invalid selected MP4 track metadata", ErrInvalidSource)
+		return 0, SourceTiming{}, fmt.Errorf("%w: invalid selected MP4 track metadata", ErrInvalidSource)
 	}
-	return track.Index, nil
+	plan, err := track.TimingPlan(info.Frames)
+	if err != nil {
+		return 0, SourceTiming{}, mapGo264SourceError(err)
+	}
+	outputDuration := (Timeline{SampleRate: SampleRate(info.SampleRate), Samples: SampleCount(plan.OutputFrames)}).Duration()
+	return track.Index, SourceTiming{Duration: outputDuration, Exact: true, HasEdits: plan.HasEdit, SourceRate: SampleRate(info.SampleRate), Priming: SampleCount(plan.PrimingFrames), Padding: SampleCount(plan.PaddingFrames), LeadingSilence: SampleCount(plan.LeadingSilenceFrames)}, nil
 }
 
 func go264Encoding(container string, bitsPerSample int) string {

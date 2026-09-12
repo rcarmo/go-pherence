@@ -45,6 +45,22 @@ type Timeline struct {
 	Samples    SampleCount
 }
 
+// SourceTiming records how canonical PCM maps onto the selected source stream.
+// Start is the source timestamp corresponding to canonical sample zero. It is
+// explicit even when zero. Exact=false means the adapter cannot prove edit-list/
+// priming/padding mapping and callers must not claim source-time alignment.
+// Priming/Padding/LeadingSilence use SourceRate frames.
+type SourceTiming struct {
+	Start          time.Duration
+	Duration       time.Duration
+	Exact          bool
+	HasEdits       bool
+	SourceRate     SampleRate
+	Priming        SampleCount
+	Padding        SampleCount
+	LeadingSilence SampleCount
+}
+
 // Valid reports whether the timeline has a positive sample rate and a
 // non-negative sample count.
 func (t Timeline) Valid() bool {
@@ -93,6 +109,7 @@ type ProbeResult struct {
 	Duration    time.Duration
 	Format      AudioFormat
 	Timeline    Timeline
+	Source      SourceTiming
 }
 
 // DecodeResult describes a successfully written canonical WAV file.
@@ -101,6 +118,7 @@ type DecodeResult struct {
 	SizeBytes int64
 	Format    AudioFormat
 	Timeline  Timeline
+	Source    SourceTiming
 }
 
 // Command describes a single external process invocation.

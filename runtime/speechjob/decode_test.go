@@ -145,7 +145,7 @@ func TestDecodeStageCanonicalAndResume(t *testing.T) {
 	}
 }
 func TestDecodeStageValidationAndCleanup(t *testing.T) {
-	for _, kind := range []string{"adapter-error", "wrong-path", "bad-format", "bad-count", "bad-size", "malformed", "symlink", "cancel", "panic", "changed-executable", "upload-cap", "quota"} {
+	for _, kind := range []string{"adapter-error", "wrong-path", "bad-format", "bad-count", "bad-size", "bad-timing", "malformed", "symlink", "cancel", "panic", "changed-executable", "upload-cap", "quota"} {
 		t.Run(kind, func(t *testing.T) {
 			s, _ := openTest(t)
 			cfg := decodeConfig(t)
@@ -175,6 +175,8 @@ func TestDecodeStageValidationAndCleanup(t *testing.T) {
 					r.Timeline.Samples++
 				case "bad-size":
 					r.SizeBytes++
+				case "bad-timing":
+					r.Source.Start = -time.Second
 				case "malformed":
 					os.WriteFile(dst, []byte("not wav"), 0600)
 					r.SizeBytes = 7
