@@ -42,7 +42,7 @@ SHA256 8cb687441630e6759fb6ca545d649b41dbec1d42f869954c0a03ae191c7cbd82.
 No Apache-licensed WeSpeaker ResNet implementation code is used by StatsPool.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.
 
-Apache-2.0 WeSpeaker BasicBlock adaptation (resnet_block.go)
+Apache-2.0 WeSpeaker BasicBlock/ResNet34 adaptations (resnet_block.go, resnet.go)
 --------------------------------------------------------
 Copyright (c) 2021 Shuai Wang (wsstriving@gmail.com)
               2022 Zhengyang Chen (chenzhengyang117@gmail.com)
@@ -55,7 +55,9 @@ b749285c5cdd4636b2edc7f766f1352c8dde9369, SHA256
 2de7673e14e8c74d6c430e0b6e6cc844157f47ac35b67ff6238ca2d2c559eba9.
 Changes: Go owned/checking API, explicit CHW shape/stride/element bounds,
 scalar and existing Plan9 GEMV composition, inference-only BatchNorm,
-cooperative cancellation and transient boundary observers.
+cooperative cancellation and transient boundary observers. ResNet34 adds
+owned stem/[3,4,6,3] composition and shared-trunk pooling/single projection APIs,
+with explicit model geometry and mask-support reporting; no full checkpoint load.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

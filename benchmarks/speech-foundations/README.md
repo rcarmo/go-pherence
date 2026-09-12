@@ -28,6 +28,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - `block-verification.json`, `block-focused-check.txt`: WeSpeaker BasicBlock conv/BatchNorm/residual component. Five block tests, six Torch fixtures52boundaries passabs2e-6+rel2e-6; whole package47pass/1SincNetskip. Identity/projection/stride/CHW/zero-variance checks,82scalar/70SIMDcancelpoints,fiveallocs/projectedcall. Review/vet/build/arm64cross pass; Apache2 adaptation notices retained. FullResNet/embedding not integrated, no trainedmodel/speed result.
 
+- `resnet-verification.json`, `resnet-focused-check.txt`: full-depth `[3,4,6,3]` WeSpeaker trunk + single embedding projection/shared-mask pooling. Three reduced-width Torch cases51trunkboundaries/sixmaskscenarios passabs2e-6+rel2e-6; fourgraph tests,whole51pass/1SincNetskip. Trunkreuse/malformedfeatures/ownership/concurrency/17boundarycancel/94embeddingcancel/sixallocs pass. Delegate validation concern verified already checked in StatsPool and directly regression-tested. Vet/build/arm64cross pass; trained/full-width model-quality/speed unqualified.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
 The exact frontend reuses existing checked Plan 9 SIMD `Ddot`. No new SIMD kernel, Vulkan backend, complete Community-1 pipeline or model-performance result is established by these tests. Legacy inference defaults are retained until real-checkpoint validation.
