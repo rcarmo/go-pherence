@@ -40,6 +40,13 @@ StatsPool conversion/weighted unbiased variance: pyannote.audio MIT
 models/blocks/pooling.py at the same commit, Copyright (c) 2020- CNRS;
 SHA256 8cb687441630e6759fb6ca545d649b41dbec1d42f869954c0a03ae191c7cbd82.
 No Apache-licensed WeSpeaker ResNet implementation code is used by StatsPool.
+Mask selection and clustering training admission (masks.go): MIT
+pyannote.audio pipelines/speaker_diarization.py and pipelines/clustering.py at
+the same commit. SHA256 respectively:
+cbb358abedef5042fcc71bb970b12a2936a16686be4bda15691a224f172656fd
+6031fb7c21277a7e9901ef2cdaed7d5cd69f7ef45508dc4b45e82ce0da3c8fba.
+Changes: bounded Go-owned binary/NaN mask APIs, explicit canonical sample and
+ratio configuration, Inf/soft-input rejection, cancellation, copied outputs.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.
 
 Apache-2.0 WeSpeaker BasicBlock/ResNet34 adaptations (resnet_block.go, resnet.go)
