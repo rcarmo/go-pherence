@@ -1,0 +1,102 @@
+{
+  "silence-5s/canonical.wav": {
+    "bytes": 160078,
+    "sha256": "6516da2b046a1040ba05a312c042bb45a0329baa73fd8b4907c7904bf367d363"
+  },
+  "silence-5s/mel.f32": {
+    "bytes": 960000,
+    "sha256": "4b777554af992aff759ca248bd261622ca21616649637ecc23ec5d4e94659a91"
+  },
+  "silence-5s/encoder.f32": {
+    "bytes": 2304000,
+    "sha256": "bb83581475dd1c02630574fde76c4abb5487a2dd964242b75aa264d09e3fa5ef"
+  },
+  "silence-5s/logits.f32": {
+    "bytes": 1244760,
+    "sha256": "49a2994d5e62e23f79cc5c77fec1ca9fe0af86f222b903c1297f8c6944a18e96"
+  },
+  "silence-5s/metadata.json": {
+    "bytes": 1678,
+    "sha256": "fb0305bcecb7bbfdc20f18dbf159473af4356ba64962f6152e5da6334ea4ae92"
+  },
+  "jfk/canonical.wav": {
+    "bytes": 352078,
+    "sha256": "594367714987c522419e2813e9221192aadceee78ae1fbcc1cb3f2684a772627"
+  },
+  "jfk/mel.f32": {
+    "bytes": 960000,
+    "sha256": "dab52d80c0c09e0763688df76dedbe6229880b9901b0fbdae548352f16c3bad7"
+  },
+  "jfk/encoder.f32": {
+    "bytes": 2304000,
+    "sha256": "7f7427d8b0d349ac1d4582905b0ee01abc67b4e6c2c79cce72bf5169b43c7434"
+  },
+  "jfk/logits.f32": {
+    "bytes": 6016340,
+    "sha256": "8c0a1e579b0b713432ad8e428d5ea97117c2f3b29281664c6f2708da5e9cd8dd"
+  },
+  "jfk/metadata.json": {
+    "bytes": 2609,
+    "sha256": "7721277a06dc751aa11bb5201ba6e5404484f6eb6d855ee78902b84babf5668e"
+  },
+  "minds-fr-0/canonical.wav": {
+    "bytes": 120226,
+    "sha256": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a"
+  },
+  "minds-fr-0/mel.f32": {
+    "bytes": 960000,
+    "sha256": "cabe050a6619290ce94a92f717724c92b3ab01c97566cbc322d847ec463731ca"
+  },
+  "minds-fr-0/encoder.f32": {
+    "bytes": 2304000,
+    "sha256": "0dd9db07618f71a608b3021e84d8cf3c1eaab54db5cb804ffb5d12f76057907d"
+  },
+  "minds-fr-0/logits.f32": {
+    "bytes": 2696980,
+    "sha256": "9e3f4b39c8479395bb62c9a0ae8b18623c68f16abfd10632baaf19a016b7bbd2"
+  },
+  "minds-fr-0/metadata.json": {
+    "bytes": 1973,
+    "sha256": "c39ddd28f0d1195387a8f4c787e549661ea2984440696702fc377052032811c2"
+  },
+  "minds-pt-1/canonical.wav": {
+    "bytes": 150266,
+    "sha256": "f6624137df0a2a33f1e523eb7ffce50e7d0b5624a6b736772b6f6f0645bcf045"
+  },
+  "minds-pt-1/mel.f32": {
+    "bytes": 960000,
+    "sha256": "74928fc249b12398ee33c2fa3a9ce51e300b3016d2544aaffea95fdb3dbd79b8"
+  },
+  "minds-pt-1/encoder.f32": {
+    "bytes": 2304000,
+    "sha256": "0d9dd953d6dbeda99793e40e771fff6195ec8a1d7c5bf7bcaf2abd11d8cc0d28"
+  },
+  "minds-pt-1/logits.f32": {
+    "bytes": 3941740,
+    "sha256": "98873385b19398b8d9ef9430dac04c4d3d5c3c3f4d5f1da6bf795cd5d6a8f8e0"
+  },
+  "minds-pt-1/metadata.json": {
+    "bytes": 2193,
+    "sha256": "6e1d375fa30ba5ced70236adc6644568fbfe9346ddae6a244ffa50b7f17830a7"
+  },
+  "minds-pt-0/canonical.wav": {
+    "bytes": 289530,
+    "sha256": "5abe3e013b6ff54bbdd3eb013c16c421ba951a6d6126e5687fba7d7c725a9f8d"
+  },
+  "minds-pt-0/mel.f32": {
+    "bytes": 960000,
+    "sha256": "981ab8ec6c4424a8b3ecf1017e80430af35c314bf4e1c8633674b90d5deee21c"
+  },
+  "minds-pt-0/encoder.f32": {
+    "bytes": 2304000,
+    "sha256": "3b8bb6843ec24d537aca733ae3c9643da6830d7d5e393f5853d5c327484e4fe3"
+  },
+  "minds-pt-0/logits.f32": {
+    "bytes": 7261100,
+    "sha256": "5fbe88746f5478de7b96d217a599b4dc70cceac14a7366906c668f95c52af06c"
+  },
+  "minds-pt-0/metadata.json": {
+    "bytes": 2888,
+    "sha256": "b0cb72c2c86777da1786ebdb189ac4fbe8d3e55cc1657459f495894609c399e2"
+  }
+}

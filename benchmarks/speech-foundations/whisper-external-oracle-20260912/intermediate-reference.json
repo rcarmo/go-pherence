@@ -1,0 +1,1189 @@
+{
+  "transformers": "4.57.1",
+  "torch": "2.14.0+cpu",
+  "numpy": "2.5.3",
+  "tokenizers": "0.22.2",
+  "threads": 2,
+  "dtype": "float32",
+  "attention": "eager",
+  "model_hashes": {
+    "model.safetensors": "7ebd0e69e78190ffe1438491fa05cc1f5c1aa3a4c4db3bc1723adbb551ea2395",
+    "config.json": "ffdccec4f3211f4c63310f2b7098f309fe70f3952cedc5e4d11e43f5b2379b98",
+    "generation_config.json": "a5d5325911f16e74001a72fa13d6e208eee51548f994646de1f4b4cc8b35b512",
+    "tokenizer.json": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+    "preprocessor_config.json": "9b5cd03a36fbb8a627c64d98a5b5b126ead95a77720723944487311f0110b666"
+  },
+  "script_sha256": "d1205fd2a89b3c70d450b98330133a555eeb42ce0770f54daa0c39a72bc210a4",
+  "go_export_test_sha256": "185f2beddf82504da7960f8e1b21550b4da167dbff794463bea3d5ea8add2856",
+  "go_base_commit": "796650684ca3974379c7c23adeea6d153cd2099b",
+  "runtime_integration": false,
+  "fixtures": [
+    {
+      "fixture": "jfk",
+      "language": "en",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 1.2874603271484375e-05,
+        "mean_abs": 2.4337321519851686e-08,
+        "rms": 1.6613928258366536e-07,
+        "p99_abs": 3.5762786865234375e-07
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0006233453750610352,
+        "mean_abs": 5.79474937256287e-06,
+        "rms": 8.850698979558956e-06,
+        "p99_abs": 2.7418136596679688e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0007376670837402344,
+        "mean_abs": 5.733834948166026e-06,
+        "rms": 8.818032050800605e-06,
+        "p99_abs": 2.7060508728027344e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          29,
+          51865
+        ],
+        "max_abs": 0.0002384185791015625,
+        "mean_abs": 5.523416367836844e-05,
+        "rms": 7.2059099473762e-05,
+        "p99_abs": 0.00018215179443359375
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          29,
+          51865
+        ],
+        "max_abs": 0.00012826919555664062,
+        "mean_abs": 2.805440395673898e-05,
+        "rms": 3.548186993372961e-05,
+        "p99_abs": 8.487701416015625e-05
+      },
+      "cached_logits_on_go_prefix": {
+        "shape": [
+          29,
+          51865
+        ],
+        "max_abs": 0.000240325927734375,
+        "mean_abs": 5.152449090316655e-05,
+        "rms": 6.97767760452528e-05,
+        "p99_abs": 0.00019073486328125
+      },
+      "cached_logits_same_go_encoder": {
+        "shape": [
+          29,
+          51865
+        ],
+        "max_abs": 0.00014734268188476562,
+        "mean_abs": 1.7676528435258572e-05,
+        "rms": 2.474683907514789e-05,
+        "p99_abs": 8.58306884765625e-05
+      },
+      "input_hashes": {
+        "canonical.wav": "594367714987c522419e2813e9221192aadceee78ae1fbcc1cb3f2684a772627",
+        "metadata.json": "7721277a06dc751aa11bb5201ba6e5404484f6eb6d855ee78902b84babf5668e",
+        "mel.f32": "dab52d80c0c09e0763688df76dedbe6229880b9901b0fbdae548352f16c3bad7",
+        "encoder.f32": "7f7427d8b0d349ac1d4582905b0ee01abc67b4e6c2c79cce72bf5169b43c7434",
+        "logits.f32": "8c0a1e579b0b713432ad8e428d5ea97117c2f3b29281664c6f2708da5e9cd8dd"
+      },
+      "decode": {
+        "reference": {
+          "generated": [
+            50364,
+            400,
+            370,
+            452,
+            7177,
+            6280,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50889,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        },
+        "same_go_encoder": {
+          "generated": [
+            50364,
+            400,
+            370,
+            452,
+            7177,
+            6280,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50889,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        }
+      },
+      "go_text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "go_generated": [
+        50364,
+        400,
+        370,
+        452,
+        7177,
+        6280,
+        1029,
+        406,
+        437,
+        428,
+        1941,
+        393,
+        360,
+        337,
+        291,
+        11,
+        1029,
+        437,
+        291,
+        393,
+        360,
+        337,
+        428,
+        1941,
+        13,
+        50889,
+        50257
+      ],
+      "go_segments": [
+        {
+          "Start": 0,
+          "End": 10.5,
+          "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            452,
+            7177,
+            6280,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "fixture": "minds-fr-0",
+      "language": "fr",
+      "reference": "je souhaite changer mon adresse",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 9.655952453613281e-06,
+        "mean_abs": 1.1359552542368571e-07,
+        "rms": 1.349428841785612e-07,
+        "p99_abs": 1.1920928955078125e-07
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0029959678649902344,
+        "mean_abs": 5.102849701554786e-06,
+        "rms": 1.488403246250855e-05,
+        "p99_abs": 3.635883331298828e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.003490447998046875,
+        "mean_abs": 5.117202497451166e-06,
+        "rms": 1.5338907397610383e-05,
+        "p99_abs": 3.695487976074219e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          13,
+          51865
+        ],
+        "max_abs": 0.00027179718017578125,
+        "mean_abs": 3.4895023747820364e-05,
+        "rms": 5.000759179209367e-05,
+        "p99_abs": 0.0001544952392578125
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          13,
+          51865
+        ],
+        "max_abs": 5.9604644775390625e-05,
+        "mean_abs": 8.954188132665494e-06,
+        "rms": 1.2846325575130038e-05,
+        "p99_abs": 3.62396240234375e-05
+      },
+      "cached_logits_on_go_prefix": {
+        "shape": [
+          13,
+          51865
+        ],
+        "max_abs": 0.00026607513427734375,
+        "mean_abs": 3.4339230400341856e-05,
+        "rms": 4.909562255479848e-05,
+        "p99_abs": 0.0001430511474609375
+      },
+      "cached_logits_same_go_encoder": {
+        "shape": [
+          13,
+          51865
+        ],
+        "max_abs": 3.62396240234375e-05,
+        "mean_abs": 7.572987068410981e-06,
+        "rms": 9.639548399251171e-06,
+        "p99_abs": 2.47955322265625e-05
+      },
+      "input_hashes": {
+        "canonical.wav": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a",
+        "metadata.json": "c39ddd28f0d1195387a8f4c787e549661ea2984440696702fc377052032811c2",
+        "mel.f32": "cabe050a6619290ce94a92f717724c92b3ab01c97566cbc322d847ec463731ca",
+        "encoder.f32": "0dd9db07618f71a608b3021e84d8cf3c1eaab54db5cb804ffb5d12f76057907d",
+        "logits.f32": "9e3f4b39c8479395bb62c9a0ae8b18623c68f16abfd10632baaf19a016b7bbd2"
+      },
+      "decode": {
+        "reference": {
+          "generated": [
+            50364,
+            2588,
+            9369,
+            535,
+            22822,
+            1108,
+            614,
+            22603,
+            13,
+            50514,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 3.0,
+              "Text": "Je vais te changer mon adresse.",
+              "Tokens": [
+                2588,
+                9369,
+                535,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ],
+          "text": "Je vais te changer mon adresse.",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        },
+        "same_go_encoder": {
+          "generated": [
+            50364,
+            2588,
+            9369,
+            535,
+            22822,
+            1108,
+            614,
+            22603,
+            13,
+            50514,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 3.0,
+              "Text": "Je vais te changer mon adresse.",
+              "Tokens": [
+                2588,
+                9369,
+                535,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ],
+          "text": "Je vais te changer mon adresse.",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        }
+      },
+      "go_text": "Je vais te changer mon adresse.",
+      "go_generated": [
+        50364,
+        2588,
+        9369,
+        535,
+        22822,
+        1108,
+        614,
+        22603,
+        13,
+        50514,
+        50257
+      ],
+      "go_segments": [
+        {
+          "Start": 0,
+          "End": 3,
+          "Text": "Je vais te changer mon adresse.",
+          "Tokens": [
+            2588,
+            9369,
+            535,
+            22822,
+            1108,
+            614,
+            22603,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "fixture": "minds-pt-0",
+      "language": "pt",
+      "reference": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 8.821487426757812e-06,
+        "mean_abs": 2.050250768661499e-08,
+        "rms": 1.1181723863407612e-07,
+        "p99_abs": 4.76837158203125e-07
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0005636215209960938,
+        "mean_abs": 6.855335396020715e-06,
+        "rms": 1.0204630109752564e-05,
+        "p99_abs": 3.516674041748047e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0007352828979492188,
+        "mean_abs": 6.837860885538147e-06,
+        "rms": 1.0360493983221663e-05,
+        "p99_abs": 3.62396240234375e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          35,
+          51865
+        ],
+        "max_abs": 0.00023555755615234375,
+        "mean_abs": 4.094360913597582e-05,
+        "rms": 5.5894863351030455e-05,
+        "p99_abs": 0.00015401840209960938
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          35,
+          51865
+        ],
+        "max_abs": 0.000125885009765625,
+        "mean_abs": 1.9243249192767616e-05,
+        "rms": 2.8130955371453233e-05,
+        "p99_abs": 9.393692016601562e-05
+      },
+      "cached_logits_on_go_prefix": {
+        "shape": [
+          35,
+          51865
+        ],
+        "max_abs": 0.0002193450927734375,
+        "mean_abs": 3.6109028511402247e-05,
+        "rms": 4.8239113007295115e-05,
+        "p99_abs": 0.00013494491577148438
+      },
+      "cached_logits_same_go_encoder": {
+        "shape": [
+          35,
+          51865
+        ],
+        "max_abs": 0.00011014938354492188,
+        "mean_abs": 1.2203941311755928e-05,
+        "rms": 1.933980956521272e-05,
+        "p99_abs": 8.153915405273438e-05
+      },
+      "input_hashes": {
+        "canonical.wav": "5abe3e013b6ff54bbdd3eb013c16c421ba951a6d6126e5687fba7d7c725a9f8d",
+        "metadata.json": "b0cb72c2c86777da1786ebdb189ac4fbe8d3e55cc1657459f495894609c399e2",
+        "mel.f32": "981ab8ec6c4424a8b3ecf1017e80430af35c314bf4e1c8633674b90d5deee21c",
+        "encoder.f32": "3b8bb6843ec24d537aca733ae3c9643da6830d7d5e393f5853d5c327484e4fe3",
+        "logits.f32": "5fbe88746f5478de7b96d217a599b4dc70cceac14a7366906c668f95c52af06c"
+      },
+      "decode": {
+        "reference": {
+          "generated": [
+            50364,
+            19812,
+            6801,
+            11,
+            17660,
+            11742,
+            1573,
+            1515,
+            631,
+            3003,
+            39915,
+            368,
+            42542,
+            370,
+            1443,
+            335,
+            2617,
+            2228,
+            22501,
+            3418,
+            13880,
+            368,
+            8755,
+            23760,
+            308,
+            2431,
+            385,
+            696,
+            266,
+            675,
+            13,
+            50764,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 8.0,
+              "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                11742,
+                1573,
+                1515,
+                631,
+                3003,
+                39915,
+                368,
+                42542,
+                370,
+                1443,
+                335,
+                2617,
+                2228,
+                22501,
+                3418,
+                13880,
+                368,
+                8755,
+                23760,
+                308,
+                2431,
+                385,
+                696,
+                266,
+                675,
+                13
+              ]
+            }
+          ],
+          "text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        },
+        "same_go_encoder": {
+          "generated": [
+            50364,
+            19812,
+            6801,
+            11,
+            17660,
+            11742,
+            1573,
+            1515,
+            631,
+            3003,
+            39915,
+            368,
+            42542,
+            370,
+            1443,
+            335,
+            2617,
+            2228,
+            22501,
+            3418,
+            13880,
+            368,
+            8755,
+            23760,
+            308,
+            2431,
+            385,
+            696,
+            266,
+            675,
+            13,
+            50764,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 8.0,
+              "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                11742,
+                1573,
+                1515,
+                631,
+                3003,
+                39915,
+                368,
+                42542,
+                370,
+                1443,
+                335,
+                2617,
+                2228,
+                22501,
+                3418,
+                13880,
+                368,
+                8755,
+                23760,
+                308,
+                2431,
+                385,
+                696,
+                266,
+                675,
+                13
+              ]
+            }
+          ],
+          "text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        }
+      },
+      "go_text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+      "go_generated": [
+        50364,
+        19812,
+        6801,
+        11,
+        17660,
+        11742,
+        1573,
+        1515,
+        631,
+        3003,
+        39915,
+        368,
+        42542,
+        370,
+        1443,
+        335,
+        2617,
+        2228,
+        22501,
+        3418,
+        13880,
+        368,
+        8755,
+        23760,
+        308,
+        2431,
+        385,
+        696,
+        266,
+        675,
+        13,
+        50764,
+        50257
+      ],
+      "go_segments": [
+        {
+          "Start": 0,
+          "End": 8,
+          "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+          "Tokens": [
+            19812,
+            6801,
+            11,
+            17660,
+            11742,
+            1573,
+            1515,
+            631,
+            3003,
+            39915,
+            368,
+            42542,
+            370,
+            1443,
+            335,
+            2617,
+            2228,
+            22501,
+            3418,
+            13880,
+            368,
+            8755,
+            23760,
+            308,
+            2431,
+            385,
+            696,
+            266,
+            675,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "fixture": "minds-pt-1",
+      "language": "pt",
+      "reference": "Como faço para transferir dinheiro para a minha conta",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 6.67572021484375e-06,
+        "mean_abs": 8.047868808110555e-09,
+        "rms": 7.232197391277685e-08,
+        "p99_abs": 2.384185791015625e-07
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0005040168762207031,
+        "mean_abs": 5.1739727435662846e-06,
+        "rms": 8.617538044980513e-06,
+        "p99_abs": 3.063678741455078e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0008096694946289062,
+        "mean_abs": 5.172000957047531e-06,
+        "rms": 8.72790405814262e-06,
+        "p99_abs": 3.0875205993652344e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          19,
+          51865
+        ],
+        "max_abs": 0.0001442432403564453,
+        "mean_abs": 2.6327389737777394e-05,
+        "rms": 3.3504388969816984e-05,
+        "p99_abs": 8.082389831542969e-05
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          19,
+          51865
+        ],
+        "max_abs": 0.0001163482666015625,
+        "mean_abs": 1.6430693635551652e-05,
+        "rms": 2.3353008048333187e-05,
+        "p99_abs": 7.05718994140625e-05
+      },
+      "cached_logits_on_go_prefix": {
+        "shape": [
+          19,
+          51865
+        ],
+        "max_abs": 0.00013113021850585938,
+        "mean_abs": 2.4631353868643123e-05,
+        "rms": 3.101478211325153e-05,
+        "p99_abs": 7.748603820800781e-05
+      },
+      "cached_logits_same_go_encoder": {
+        "shape": [
+          19,
+          51865
+        ],
+        "max_abs": 8.153915405273438e-05,
+        "mean_abs": 1.0243416385358078e-05,
+        "rms": 1.5801015232754104e-05,
+        "p99_abs": 4.649162292480469e-05
+      },
+      "input_hashes": {
+        "canonical.wav": "f6624137df0a2a33f1e523eb7ffce50e7d0b5624a6b736772b6f6f0645bcf045",
+        "metadata.json": "6e1d375fa30ba5ced70236adc6644568fbfe9346ddae6a244ffa50b7f17830a7",
+        "mel.f32": "74928fc249b12398ee33c2fa3a9ce51e300b3016d2544aaffea95fdb3dbd79b8",
+        "encoder.f32": "0d9dd953d6dbeda99793e40e771fff6195ec8a1d7c5bf7bcaf2abd11d8cc0d28",
+        "logits.f32": "98873385b19398b8d9ef9430dac04c4d3d5c3c3f4d5f1da6bf795cd5d6a8f8e0"
+      },
+      "decode": {
+        "reference": {
+          "generated": [
+            50364,
+            2432,
+            283,
+            296,
+            79,
+            418,
+            1145,
+            5779,
+            327,
+            716,
+            347,
+            3206,
+            11720,
+            24001,
+            13,
+            50564,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 4.0,
+              "Text": "Com faspore transfridneir pra minha conta.",
+              "Tokens": [
+                2432,
+                283,
+                296,
+                79,
+                418,
+                1145,
+                5779,
+                327,
+                716,
+                347,
+                3206,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          "text": "Com faspore transfridneir pra minha conta.",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        },
+        "same_go_encoder": {
+          "generated": [
+            50364,
+            2432,
+            283,
+            296,
+            79,
+            418,
+            1145,
+            5779,
+            327,
+            716,
+            347,
+            3206,
+            11720,
+            24001,
+            13,
+            50564,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 4.0,
+              "Text": "Com faspore transfridneir pra minha conta.",
+              "Tokens": [
+                2432,
+                283,
+                296,
+                79,
+                418,
+                1145,
+                5779,
+                327,
+                716,
+                347,
+                3206,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          "text": "Com faspore transfridneir pra minha conta.",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        }
+      },
+      "go_text": "Com faspore transfridneir pra minha conta.",
+      "go_generated": [
+        50364,
+        2432,
+        283,
+        296,
+        79,
+        418,
+        1145,
+        5779,
+        327,
+        716,
+        347,
+        3206,
+        11720,
+        24001,
+        13,
+        50564,
+        50257
+      ],
+      "go_segments": [
+        {
+          "Start": 0,
+          "End": 4,
+          "Text": "Com faspore transfridneir pra minha conta.",
+          "Tokens": [
+            2432,
+            283,
+            296,
+            79,
+            418,
+            1145,
+            5779,
+            327,
+            716,
+            347,
+            3206,
+            11720,
+            24001,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "reference": "",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 0.0,
+        "mean_abs": 0.0,
+        "rms": 0.0,
+        "p99_abs": 0.0
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.001405954360961914,
+        "mean_abs": 3.738443496663043e-06,
+        "rms": 9.000163916709321e-06,
+        "p99_abs": 2.8133392333984375e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.001405954360961914,
+        "mean_abs": 3.738443496663043e-06,
+        "rms": 9.000163916709321e-06,
+        "p99_abs": 2.8133392333984375e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          6,
+          51865
+        ],
+        "max_abs": 5.7220458984375e-05,
+        "mean_abs": 1.0505975520512358e-05,
+        "rms": 1.7511400479407776e-05,
+        "p99_abs": 4.57763671875e-05
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          6,
+          51865
+        ],
+        "max_abs": 4.1961669921875e-05,
+        "mean_abs": 8.978261634352627e-06,
+        "rms": 1.0271682307898768e-05,
+        "p99_abs": 2.193450927734375e-05
+      },
+      "cached_logits_on_go_prefix": {
+        "shape": [
+          6,
+          51865
+        ],
+        "max_abs": 5.53131103515625e-05,
+        "mean_abs": 1.2124562691384192e-05,
+        "rms": 1.7890726802402408e-05,
+        "p99_abs": 4.57763671875e-05
+      },
+      "cached_logits_same_go_encoder": {
+        "shape": [
+          6,
+          51865
+        ],
+        "max_abs": 3.4332275390625e-05,
+        "mean_abs": 8.626475285210421e-06,
+        "rms": 1.0781194134698077e-05,
+        "p99_abs": 2.47955322265625e-05
+      },
+      "input_hashes": {
+        "canonical.wav": "6516da2b046a1040ba05a312c042bb45a0329baa73fd8b4907c7904bf367d363",
+        "metadata.json": "fb0305bcecb7bbfdc20f18dbf159473af4356ba64962f6152e5da6334ea4ae92",
+        "mel.f32": "4b777554af992aff759ca248bd261622ca21616649637ecc23ec5d4e94659a91",
+        "encoder.f32": "bb83581475dd1c02630574fde76c4abb5487a2dd964242b75aa264d09e3fa5ef",
+        "logits.f32": "49a2994d5e62e23f79cc5c77fec1ca9fe0af86f222b903c1297f8c6944a18e96"
+      },
+      "decode": {
+        "reference": {
+          "generated": [
+            50364,
+            291,
+            50464,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 2.0,
+              "Text": "you",
+              "Tokens": [
+                291
+              ]
+            }
+          ],
+          "text": "you",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        },
+        "same_go_encoder": {
+          "generated": [
+            50364,
+            291,
+            50464,
+            50257
+          ],
+          "segments": [
+            {
+              "Start": 0.0,
+              "End": 2.0,
+              "Text": "you",
+              "Tokens": [
+                291
+              ]
+            }
+          ],
+          "text": "you",
+          "eot": true,
+          "first_token_diff": null,
+          "generated_matches_go": true,
+          "segments_match_go": true
+        }
+      },
+      "go_text": "you",
+      "go_generated": [
+        50364,
+        291,
+        50464,
+        50257
+      ],
+      "go_segments": [
+        {
+          "Start": 0,
+          "End": 2,
+          "Text": "you",
+          "Tokens": [
+            291
+          ]
+        }
+      ]
+    }
+  ]
+}

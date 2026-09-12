@@ -582,6 +582,12 @@ Three native diagnostic batches over public MINDS-14 Portuguese/French and JFK/s
 
 [Corpus diagnostics](../benchmarks/speech-foundations/vulkan-corpus-20260912/README.md) retain references, CC-BY-4.0 provenance, failures and corrected French sample metadata. General no-speech policy, external-reference attribution of language errors, natural long files, overlap/diarization and model quality gates remain open. No runtime default or service state changed.
 
+### External Tiny oracle attribution
+
+The separate Transformers 4.57.1/PyTorch F32 reference reproduces exact Go tokens and timestamp segments for JFK, both Portuguese clips, French and digital silence. Three identical reports contain 30 successful sequence/segment comparisons, decoding from both HF and Go encoder outputs. Incremental cached logits, uncached diagnostics, pinned feature extraction and full encoder tensors were compared independently. Maximum absolute differences are mel1.29e-5, encoder0.00350 (same Go features), cached logits2.67e-4 and cached logits on Go encoder1.48e-4. Numerical metrics remain diagnostics rather than bit-exact tensor claims.
+
+The poor Portuguese/French text and silence's “you” are reproduced by the independent implementation under the matched Tiny greedy/timestamp policy. This resolves the narrow backend-divergence question for these fixtures; it does not clear quality holds or qualify broader inputs. [External oracle evidence](../benchmarks/speech-foundations/whisper-external-oracle-20260912/README.md) pins preprocessing/model assets, exact library versions, cached decoder steps and raw timestamp tokens. Python is an isolated diagnostic tool, never a Go runtime fallback. Larger-model/turbo quality and general no-speech policy remain unfinished.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

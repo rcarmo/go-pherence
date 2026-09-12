@@ -52,6 +52,11 @@ speech-vulkan-public-speech-check:
 speech-vulkan-corpus-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_CORPUS=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanPublicCorpus$$' -v
 
+# Reference-only public fixture export; no foreign neural runtime in production.
+.PHONY: speech-oracle-export-check
+speech-oracle-export-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_ORACLE_EXPORT=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestSpeechOracleExport$$' -v
+
 # Optional offline validator/compiler qualification. Explicit new output path;
 # missing tools fail (never skip). No Vulkan loader/device or model execution.
 speech-vulkan-static-check:

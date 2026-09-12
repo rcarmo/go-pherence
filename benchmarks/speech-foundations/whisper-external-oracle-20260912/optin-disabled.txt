@@ -1,0 +1,5 @@
+=== RUN   TestSpeechOracleExport
+    oracle_export_test.go:24: explicit public oracle export required
+--- SKIP: TestSpeechOracleExport (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.002s

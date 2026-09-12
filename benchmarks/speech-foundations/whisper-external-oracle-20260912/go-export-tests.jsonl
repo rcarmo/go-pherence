@@ -1,0 +1,13 @@
+{"Time":"2026-09-12T08:56:30.347110457+01:00","Action":"start","Package":"github.com/rcarmo/go-pherence/models/whisper"}
+{"Time":"2026-09-12T08:56:30.349725873+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport"}
+{"Time":"2026-09-12T08:56:30.349760482+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport","Output":"=== RUN   TestSpeechOracleExport\n"}
+{"Time":"2026-09-12T08:56:32.048100459+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport","Output":"    oracle_export_test.go:144: ORACLE_EXPORT fixture=minds-pt-0 calls=35 word_edits=16/20 error=\u003cnil\u003e\n"}
+{"Time":"2026-09-12T08:56:33.33979675+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport","Output":"    oracle_export_test.go:144: ORACLE_EXPORT fixture=minds-pt-1 calls=19 word_edits=7/9 error=\u003cnil\u003e\n"}
+{"Time":"2026-09-12T08:56:34.602697858+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport","Output":"    oracle_export_test.go:144: ORACLE_EXPORT fixture=minds-fr-0 calls=13 word_edits=2/5 error=\u003cnil\u003e\n"}
+{"Time":"2026-09-12T08:56:35.949905931+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport","Output":"    oracle_export_test.go:144: ORACLE_EXPORT fixture=jfk calls=29 word_edits=0/22 error=\u003cnil\u003e\n"}
+{"Time":"2026-09-12T08:56:37.061069874+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport","Output":"    oracle_export_test.go:144: ORACLE_EXPORT fixture=silence-5s calls=6 word_edits=1/0 error=\u003cnil\u003e\n"}
+{"Time":"2026-09-12T08:56:37.061091044+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport","Output":"--- PASS: TestSpeechOracleExport (6.71s)\n"}
+{"Time":"2026-09-12T08:56:37.061096865+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechOracleExport","Elapsed":6.71}
+{"Time":"2026-09-12T08:56:37.061100865+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Output":"PASS\n"}
+{"Time":"2026-09-12T08:56:37.079177416+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Output":"ok  \tgithub.com/rcarmo/go-pherence/models/whisper\t6.732s\n"}
+{"Time":"2026-09-12T08:56:37.079198585+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Elapsed":6.732}
