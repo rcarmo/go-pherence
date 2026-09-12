@@ -1,0 +1,16 @@
+2026-09-12T11:43:04+01:00
+               total        used        free      shared  buff/cache   available
+Mem:           31813        4128        4137        2419       26426       27685
+Swap:           8191          88        8103
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+   1238  0.1 systemd
+    834  0.1 systemd-oomd
+    142  0.0 kswapd0
+     16  0.0 rcu_preempt
+    865  0.0 irq/200-iwlwifi:default_queue
+   1225  0.0 tuned

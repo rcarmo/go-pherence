@@ -102,6 +102,10 @@ func TestCommunity1TrainedEmbedding(t *testing.T) {
 		t.Skip("explicit trained embedding CPU opt-in")
 	}
 	ctx := context.Background()
+	mode := WeSpeakerBlockSIMD
+	if os.Getenv("GO_PHERENCE_TEST_COMMUNITY1_GEMM") == "1" {
+		mode = WeSpeakerBlockGEMM
+	}
 	dir, mf := trainedEmbeddingAssets(t)
 	source, e := safetensors.Open(filepath.Join(dir, "embedding.safetensors"))
 	if e != nil {
@@ -142,9 +146,9 @@ func TestCommunity1TrainedEmbedding(t *testing.T) {
 				var shape CHWShape
 				var owned *EmbeddingPCMFrames
 				if path == "reference-fbank" {
-					features, shape, e = m.ForwardFramesObserved(ctx, trainedTensor(t, o, "fbank"), c.Frames, WeSpeakerBlockSIMD, observe)
+					features, shape, e = m.ForwardFramesObserved(ctx, trainedTensor(t, o, "fbank"), c.Frames, mode, observe)
 				} else {
-					owned, e = wrapper.ForwardPCMFramesObserved(ctx, pcm, WeSpeakerBlockSIMD, EmbeddingPCMObservers{Trunk: observe, Fbank: func(stage string, _ int, v []float32) {
+					owned, e = wrapper.ForwardPCMFramesObserved(ctx, pcm, mode, EmbeddingPCMObservers{Trunk: observe, Fbank: func(stage string, _ int, v []float32) {
 						if stage == "centered" {
 							check("fbank", v, trainedTensor(t, o, "fbank"), 2e-4, 0)
 						}
@@ -186,9 +190,9 @@ func TestCommunity1TrainedEmbedding(t *testing.T) {
 					}
 					var result *WeSpeakerEmbeddingResult
 					if owned != nil {
-						result, e = wrapper.EmbedFramesObserved(ctx, owned, weights, speakers, maskFrames, WeSpeakerBlockSIMD, observeEmbedding)
+						result, e = wrapper.EmbedFramesObserved(ctx, owned, weights, speakers, maskFrames, mode, observeEmbedding)
 					} else {
-						result, e = m.ForwardEmbeddingObserved(ctx, features, shape, weights, speakers, maskFrames, WeSpeakerBlockSIMD, observeEmbedding)
+						result, e = m.ForwardEmbeddingObserved(ctx, features, shape, weights, speakers, maskFrames, mode, observeEmbedding)
 					}
 					if e != nil {
 						t.Fatal(e)

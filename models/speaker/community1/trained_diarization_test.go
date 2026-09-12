@@ -103,7 +103,11 @@ func TestCommunity1TrainedDiarization(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_DIARIZATION_LOWEST_TIES") == "1" {
 		cfg.TiePolicy = LowestIndexTies
 	}
-	result, e := model.RunPCMObserved(ctx, reader, 480000, cfg, SegmentationModes{SincNetSIMDFMA, LSTMSIMD, HeadSIMD}, WeSpeakerBlockSIMD, func(stage string, window int) error {
+	embeddingMode := WeSpeakerBlockSIMD
+	if os.Getenv("GO_PHERENCE_TEST_COMMUNITY1_GEMM") == "1" {
+		embeddingMode = WeSpeakerBlockGEMM
+	}
+	result, e := model.RunPCMObserved(ctx, reader, 480000, cfg, SegmentationModes{SincNetSIMDFMA, LSTMSIMD, HeadSIMD}, embeddingMode, func(stage string, window int) error {
 		t.Logf("DIARIZATION_STAGE %s window=%d", stage, window)
 		return nil
 	})

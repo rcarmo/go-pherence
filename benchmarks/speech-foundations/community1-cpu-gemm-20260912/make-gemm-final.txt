@@ -1,0 +1,8 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./backends/simd/runtime -run '^TestFMAMatrix'
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.019s
+GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./backends/simd/runtime -run '^TestFMAMatrix(Exact|Rejects)'
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.037s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/speaker/community1 -run '^Test(WeSpeakerTiled(Convolution|FullDepthOracle)|ExperimentalEmbeddingGEMM)'
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.106s
+GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/speaker/community1 -run '^Test(WeSpeakerTiled(Convolution|FullDepthOracle)|ExperimentalEmbeddingGEMM)'
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.160s

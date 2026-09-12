@@ -630,6 +630,12 @@ All48 trained raw-embedding endpoints across three runs pass `2e-4`, with maximu
 
 On one pinned30-second public sample, the explicit `LowestIndexTies` run gives37training rows,2clusters,13full/12exclusive turns. A fresh pinned source reference agrees on all37,107segmentation values, embeddings within3.31e-6, and full/exclusive turn boundaries within1e-12s after label mapping. Full DER is5.207392% at0collar and1.317798% at0.25s, with zero delta to the fresh reference. The default strict tie policy still rejects frame397;84ambiguous frames and all previous neural intermediate failures are retained. This is a bounded functional milestone, not general DER or whole-job performance qualification. [Evidence and reproduction](../benchmarks/speech-foundations/community1-pcm-diarization-20260912/README.md) include repeated outputs and an enforced saved-only comparison gate.
 
+### Experimental tiled CPU convolution
+
+`WeSpeakerBlockGEMM` explicitly selects64-position spatial packing with the existing Plan9 SGEMM NN kernel. The new checked FMA matrix wrapper validates bounds/alias/finiteness and immutable AVX2/FMA/MXCSR admission; its fallback preserves ascending-K FMA. Original scalar/SIMD modes and defaults are unchanged.
+
+The trained five-second trunk screen is1.226–1.238× faster; full30s diarization ABBA reduces49.235→40.285s (1.222×), preserving reference turns and DER with unchanged swap counters. Tight trained intermediate comparisons regress (candidate300/564fail versus baseline264/564fail), and the full-size forced-scalar run times out after180s. All48normal trained embedding endpoints pass. [Evidence](../benchmarks/speech-foundations/community1-cpu-gemm-20260912/README.md) retains those failures and scoped timing/resource limits. The candidate remains opt-in and overall performance is below target.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

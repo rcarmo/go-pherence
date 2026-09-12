@@ -49,6 +49,9 @@ const (
 	// Reuses existing checked Plan9 GemvRows on model-specific convolution
 	// patches. No new assembly or high-performance convolution claim.
 	WeSpeakerBlockSIMD
+	// WeSpeakerBlockGEMM packs64 spatial positions and uses checked serial-order
+	// FMA SGEMM. Explicit experimental mode; original scalar/SIMD unchanged.
+	WeSpeakerBlockGEMM
 )
 
 // CHWShape describes one batch in channel-major [channels,frequency,time] order.
@@ -183,7 +186,7 @@ func (b *WeSpeakerBasicBlock) ForwardObserved(ctx context.Context, input []float
 		return fail(err)
 	}
 	size, _ := chwElements(shape)
-	if len(input) != size || (mode != WeSpeakerBlockScalar && mode != WeSpeakerBlockSIMD) {
+	if len(input) != size || !validWeSpeakerBlockMode(mode) {
 		return fail(fmt.Errorf("invalid WeSpeaker block input/mode"))
 	}
 	if len(b.weights.Conv1) != b.cfg.OutChannels*b.cfg.InChannels*9 || len(b.weights.Conv2) != b.cfg.OutChannels*b.cfg.OutChannels*9 {
@@ -276,6 +279,9 @@ func (b *WeSpeakerBasicBlock) ForwardObserved(ctx context.Context, input []float
 // One patch and projection scratch are reused across positions: no full im2col
 // tensor or per-position allocation. Generic kernel ownership remains in simd.
 func weSpeakerBlockConv(ctx context.Context, x []float32, in, out CHWShape, w []float32, kernel, stride, padding int, mode WeSpeakerBlockMode) ([]float32, error) {
+	if mode == WeSpeakerBlockGEMM {
+		return weSpeakerBlockConvTiled(ctx, x, in, out, w, kernel, stride, padding)
+	}
 	n := in.Channels * kernel * kernel
 	patch, projected := make([]float32, n), make([]float32, out.Channels)
 	result := make([]float32, out.Channels*out.Frequency*out.Frames)

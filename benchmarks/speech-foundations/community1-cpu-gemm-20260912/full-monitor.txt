@@ -1,0 +1,1958 @@
+2026-09-12T11:45:48+01:00
+MemAvailable:   28337656 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297083  100 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+   1238  0.1 systemd
+2026-09-12T11:45:49+01:00
+MemAvailable:   28178264 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+ 297083 11.6 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:50+01:00
+MemAvailable:   28146260 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+ 297083  5.8 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:51+01:00
+MemAvailable:   28166580 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  3.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:52+01:00
+MemAvailable:   28119236 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  2.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:53+01:00
+MemAvailable:   28136588 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  2.3 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:54+01:00
+MemAvailable:   28143336 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  1.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:55+01:00
+MemAvailable:   28141784 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  1.6 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:56+01:00
+MemAvailable:   28120164 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  1.4 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:57+01:00
+MemAvailable:   28099136 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  1.3 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:58+01:00
+MemAvailable:   28130200 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  1.1 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:45:59+01:00
+MemAvailable:   28136960 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  1.0 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:00+01:00
+MemAvailable:   28149420 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  0.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:01+01:00
+MemAvailable:   28108824 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  0.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:02+01:00
+MemAvailable:   28142376 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  0.8 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:03+01:00
+MemAvailable:   28143704 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  0.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:05+01:00
+MemAvailable:   28144704 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  0.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:06+01:00
+MemAvailable:   28151228 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+ 297083  0.6 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:07+01:00
+MemAvailable:   28130292 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:08+01:00
+MemAvailable:   28161748 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:09+01:00
+MemAvailable:   28133056 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:10+01:00
+MemAvailable:   28148080 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:11+01:00
+MemAvailable:   28105992 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:12+01:00
+MemAvailable:   28166180 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:13+01:00
+MemAvailable:   28169948 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:14+01:00
+MemAvailable:   28167920 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:15+01:00
+MemAvailable:   28190780 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:16+01:00
+MemAvailable:   28164752 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:17+01:00
+MemAvailable:   28186352 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:18+01:00
+MemAvailable:   28160608 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:19+01:00
+MemAvailable:   28169544 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:20+01:00
+MemAvailable:   28180088 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:21+01:00
+MemAvailable:   28165720 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:22+01:00
+MemAvailable:   28165704 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:23+01:00
+MemAvailable:   28131540 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:24+01:00
+MemAvailable:   28161972 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:25+01:00
+MemAvailable:   28141180 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:26+01:00
+MemAvailable:   28162272 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:27+01:00
+MemAvailable:   28152252 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:28+01:00
+MemAvailable:   28143460 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:29+01:00
+MemAvailable:   28142288 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:30+01:00
+MemAvailable:   28124076 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:31+01:00
+MemAvailable:   28168652 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:32+01:00
+MemAvailable:   28153060 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.2 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:33+01:00
+MemAvailable:   28169468 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297083  0.2 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:34+01:00
+MemAvailable:   28162592 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297083  0.2 go
+2026-09-12T11:46:35+01:00
+MemAvailable:   28198760 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297083  0.2 go
+2026-09-12T11:46:36+01:00
+MemAvailable:   28197752 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297083  0.2 go
+2026-09-12T11:46:37+01:00
+MemAvailable:   28197312 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297117  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297083  0.2 go
+2026-09-12T11:46:38+01:00
+MemAvailable:   28218836 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+ 297425 26.3 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:39+01:00
+MemAvailable:   28177364 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+ 297425  7.1 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:40+01:00
+MemAvailable:   28213076 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  4.1 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:41+01:00
+MemAvailable:   28200860 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  2.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:42+01:00
+MemAvailable:   28176436 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  2.2 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:43+01:00
+MemAvailable:   28146856 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  1.8 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:44+01:00
+MemAvailable:   28138692 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  1.5 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:45+01:00
+MemAvailable:   28128664 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  1.3 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:46+01:00
+MemAvailable:   28128360 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  1.1 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:47+01:00
+MemAvailable:   28136808 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  1.0 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:48+01:00
+MemAvailable:   28162116 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  0.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:49+01:00
+MemAvailable:   28161108 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  0.8 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:50+01:00
+MemAvailable:   28163060 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  0.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:51+01:00
+MemAvailable:   28174732 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+ 297425  0.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:46:52+01:00
+MemAvailable:   28183096 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:53+01:00
+MemAvailable:   28207044 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:54+01:00
+MemAvailable:   28163792 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:55+01:00
+MemAvailable:   28204044 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:56+01:00
+MemAvailable:   28172996 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:57+01:00
+MemAvailable:   28176092 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:58+01:00
+MemAvailable:   28131760 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:46:59+01:00
+MemAvailable:   28152048 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:00+01:00
+MemAvailable:   28150296 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:01+01:00
+MemAvailable:   28169760 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:02+01:00
+MemAvailable:   28182156 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:03+01:00
+MemAvailable:   28176556 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:04+01:00
+MemAvailable:   28186452 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:05+01:00
+MemAvailable:   28213716 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:06+01:00
+MemAvailable:   28205836 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:07+01:00
+MemAvailable:   28178832 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:08+01:00
+MemAvailable:   28163448 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:09+01:00
+MemAvailable:   28136448 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:11+01:00
+MemAvailable:   28172136 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:12+01:00
+MemAvailable:   28152284 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297425  0.2 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:13+01:00
+MemAvailable:   28162780 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297425  0.2 go
+2026-09-12T11:47:14+01:00
+MemAvailable:   28153044 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297425  0.2 go
+2026-09-12T11:47:15+01:00
+MemAvailable:   28167608 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297425  0.2 go
+2026-09-12T11:47:16+01:00
+MemAvailable:   28140244 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297425  0.2 go
+2026-09-12T11:47:17+01:00
+MemAvailable:   28166552 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297425  0.2 go
+2026-09-12T11:47:18+01:00
+MemAvailable:   28156360 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297454  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297425  0.2 go
+2026-09-12T11:47:19+01:00
+MemAvailable:   28181332 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  103 community1.test
+ 297713 22.4 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:20+01:00
+MemAvailable:   28172828 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+ 297713  7.2 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:21+01:00
+MemAvailable:   28197944 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  4.3 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:22+01:00
+MemAvailable:   28166932 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  3.1 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:23+01:00
+MemAvailable:   28174416 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  2.4 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:24+01:00
+MemAvailable:   28165488 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  1.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:25+01:00
+MemAvailable:   28182460 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  1.6 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:26+01:00
+MemAvailable:   28181664 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  1.4 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:27+01:00
+MemAvailable:   28169164 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  1.2 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:28+01:00
+MemAvailable:   28149896 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  1.1 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:29+01:00
+MemAvailable:   28136020 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  1.0 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:30+01:00
+MemAvailable:   28186448 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  0.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:31+01:00
+MemAvailable:   28181468 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  0.8 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:32+01:00
+MemAvailable:   28185712 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  0.8 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:33+01:00
+MemAvailable:   28149512 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  0.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:34+01:00
+MemAvailable:   28191164 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+ 297713  0.6 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:47:35+01:00
+MemAvailable:   28173840 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:36+01:00
+MemAvailable:   28183804 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:37+01:00
+MemAvailable:   28130640 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:38+01:00
+MemAvailable:   28167220 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:39+01:00
+MemAvailable:   28174876 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:40+01:00
+MemAvailable:   28209128 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:41+01:00
+MemAvailable:   28202736 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:42+01:00
+MemAvailable:   28189228 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:43+01:00
+MemAvailable:   28159776 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:44+01:00
+MemAvailable:   28164216 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:45+01:00
+MemAvailable:   28162512 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:46+01:00
+MemAvailable:   28194152 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:47+01:00
+MemAvailable:   28195668 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:48+01:00
+MemAvailable:   28159332 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:49+01:00
+MemAvailable:   28179052 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:50+01:00
+MemAvailable:   28139324 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:51+01:00
+MemAvailable:   28169492 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:52+01:00
+MemAvailable:   28157556 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:53+01:00
+MemAvailable:   28196656 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:54+01:00
+MemAvailable:   28175356 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:55+01:00
+MemAvailable:   28193064 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:56+01:00
+MemAvailable:   28186508 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:57+01:00
+MemAvailable:   28163508 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:58+01:00
+MemAvailable:   28190564 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 297741  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297713  0.2 go
+    997  0.2 avahi-daemon
+2026-09-12T11:47:59+01:00
+MemAvailable:   28222584 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  102 community1.test
+ 297997 15.6 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:00+01:00
+MemAvailable:   28154980 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+ 297997  6.0 go
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:01+01:00
+MemAvailable:   28159596 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  3.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:02+01:00
+MemAvailable:   28139216 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  2.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:03+01:00
+MemAvailable:   28147916 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  2.1 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:04+01:00
+MemAvailable:   28127524 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  1.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:05+01:00
+MemAvailable:   28112492 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  1.6 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:06+01:00
+MemAvailable:   28122356 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  1.4 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:07+01:00
+MemAvailable:   28112604 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  1.2 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:08+01:00
+MemAvailable:   28113124 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  1.1 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:09+01:00
+MemAvailable:   28103472 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  1.0 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:10+01:00
+MemAvailable:   28118792 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  0.9 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:11+01:00
+MemAvailable:   28143912 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  0.8 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:12+01:00
+MemAvailable:   28133060 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  0.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:13+01:00
+MemAvailable:   28128968 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  0.7 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:14+01:00
+MemAvailable:   28124524 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+ 297997  0.6 go
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+2026-09-12T11:48:15+01:00
+MemAvailable:   28165940 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:17+01:00
+MemAvailable:   28140312 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.6 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:18+01:00
+MemAvailable:   28157228 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:19+01:00
+MemAvailable:   28161716 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:20+01:00
+MemAvailable:   28173132 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:21+01:00
+MemAvailable:   28177500 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.5 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:22+01:00
+MemAvailable:   28127156 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:23+01:00
+MemAvailable:   28137680 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:24+01:00
+MemAvailable:   28128796 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:25+01:00
+MemAvailable:   28121424 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:26+01:00
+MemAvailable:   28133216 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.4 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:27+01:00
+MemAvailable:   28130520 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:28+01:00
+MemAvailable:   28163680 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:29+01:00
+MemAvailable:   28157156 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:30+01:00
+MemAvailable:   28162848 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:31+01:00
+MemAvailable:   28109016 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:32+01:00
+MemAvailable:   28124888 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:33+01:00
+MemAvailable:   28097308 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:34+01:00
+MemAvailable:   28102188 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:35+01:00
+MemAvailable:   28135372 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:36+01:00
+MemAvailable:   28150584 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:37+01:00
+MemAvailable:   28149196 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:38+01:00
+MemAvailable:   28129284 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.3 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:39+01:00
+MemAvailable:   28137020 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.2 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:40+01:00
+MemAvailable:   28143268 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+ 297997  0.2 go
+    997  0.2 avahi-daemon
+2026-09-12T11:48:41+01:00
+MemAvailable:   28175380 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297997  0.2 go
+2026-09-12T11:48:42+01:00
+MemAvailable:   28169560 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297997  0.2 go
+2026-09-12T11:48:43+01:00
+MemAvailable:   28171824 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297997  0.2 go
+2026-09-12T11:48:44+01:00
+MemAvailable:   28204932 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297997  0.2 go
+2026-09-12T11:48:45+01:00
+MemAvailable:   28171844 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297997  0.2 go
+2026-09-12T11:48:46+01:00
+MemAvailable:   28209648 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297997  0.2 go
+2026-09-12T11:48:47+01:00
+MemAvailable:   28169320 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297997  0.2 go
+2026-09-12T11:48:48+01:00
+MemAvailable:   28174444 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+    PID %CPU COMMAND
+ 298025  100 community1.test
+   1698  4.4 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+ 297997  0.2 go

@@ -130,7 +130,7 @@ func (m *ExperimentalDiarization) RunPCMObserved(ctx context.Context, reader Dia
 	if m == nil || m.segmentation == nil || m.segmentation.checkpoint == nil || m.segmentation.frontend == nil || m.segmentation.checkpoint.head == nil || m.segmentation.checkpoint.recurrent == nil || m.embedding == nil || m.embedding.model == nil || reader == nil {
 		return nil, fmt.Errorf("invalid experimental diarization input")
 	}
-	if (segModes.SincNet != SincNetScalarFMA && segModes.SincNet != SincNetSIMDFMA) || (segModes.LSTM != LSTMScalar && segModes.LSTM != LSTMSIMD) || (segModes.Head != HeadScalar && segModes.Head != HeadSIMD) || (embeddingMode != WeSpeakerBlockScalar && embeddingMode != WeSpeakerBlockSIMD) {
+	if (segModes.SincNet != SincNetScalarFMA && segModes.SincNet != SincNetSIMDFMA) || (segModes.LSTM != LSTMScalar && segModes.LSTM != LSTMSIMD) || (segModes.Head != HeadScalar && segModes.Head != HeadSIMD) || !validWeSpeakerBlockMode(embeddingMode) {
 		return nil, fmt.Errorf("invalid diarization CPU mode")
 	}
 	windows, err := PlanDiarizationWindows(samples, cfg.WindowSamples, cfg.StepSamples)

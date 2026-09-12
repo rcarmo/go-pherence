@@ -77,7 +77,7 @@ func (m *ExperimentalEmbedding) ForwardPCMFramesObserved(ctx context.Context, pc
 	if m == nil || m.model == nil || m.model.cfg.MelBins != 80 {
 		return nil, fmt.Errorf("invalid experimental embedding model")
 	}
-	if mode != WeSpeakerBlockScalar && mode != WeSpeakerBlockSIMD {
+	if !validWeSpeakerBlockMode(mode) {
 		return nil, fmt.Errorf("invalid embedding CPU mode")
 	}
 	// Check bounds/graph before expensive frontend work.
@@ -117,7 +117,7 @@ func (m *ExperimentalEmbedding) EmbedFramesObserved(ctx context.Context, frames 
 	if m == nil || m.model == nil || frames == nil || frames.owner != m {
 		return nil, fmt.Errorf("embedding frames belong to another model or are uninitialised")
 	}
-	if mode != WeSpeakerBlockScalar && mode != WeSpeakerBlockSIMD {
+	if !validWeSpeakerBlockMode(mode) {
 		return nil, fmt.Errorf("invalid embedding CPU mode")
 	}
 	return m.model.ForwardEmbeddingObserved(ctx, frames.values, frames.shape, masks, speakers, maskFrames, mode, observe)

@@ -1,0 +1,39 @@
+File: community-candidate-profile.test
+Build ID: 59fb61ce762976e39125886988b9795b6d53c739
+Type: cpu
+Time: 2026-09-12 11:41:59 WEST
+Duration: 4.36s, Total samples = 4.38s (100.57%)
+Showing nodes accounting for 4.30s, 98.17% of 4.38s total
+Dropped 44 nodes (cum <= 0.02s)
+Showing top 30 nodes out of 52
+      flat  flat%   sum%        cum   cum%
+     1.70s 38.81% 38.81%      3.40s 77.63%  github.com/rcarmo/go-pherence/models/speaker/community1.weSpeakerBlockConvTiled
+     0.98s 22.37% 61.19%      0.98s 22.37%  github.com/rcarmo/go-pherence/backends/simd/runtime.SgemmNN
+     0.50s 11.42% 72.60%      1.53s 34.93%  github.com/rcarmo/go-pherence/backends/simd/runtime.FMAMatrixF32Checked
+     0.20s  4.57% 77.17%      0.21s  4.79%  math.IsInf (inline)
+     0.14s  3.20% 80.37%      0.37s  8.45%  github.com/rcarmo/go-pherence/models/speaker/community1.embeddingCompare
+     0.11s  2.51% 82.88%      0.21s  4.79%  github.com/rcarmo/go-pherence/models/speaker/community1.weSpeakerBlockBN
+     0.09s  2.05% 84.93%      0.09s  2.05%  math.archMax
+     0.08s  1.83% 86.76%      0.08s  1.83%  math.IsNaN (inline)
+     0.07s  1.60% 88.36%      0.27s  6.16%  github.com/rcarmo/go-pherence/models/speaker/community1.finiteBlock
+     0.06s  1.37% 89.73%      0.06s  1.37%  crypto/internal/fips140/sha256.blockSHANI
+     0.06s  1.37% 91.10%      0.07s  1.60%  github.com/rcarmo/go-pherence/loader/safetensors.(*File).GetFloat32
+     0.05s  1.14% 92.24%      0.05s  1.14%  github.com/rcarmo/go-pherence/models/speaker/community1.blockReLU
+     0.05s  1.14% 93.38%      0.05s  1.14%  runtime.memclrNoHeapPointers
+     0.05s  1.14% 94.52%      0.05s  1.14%  runtime.memmove
+     0.04s  0.91% 95.43%      0.05s  1.14%  github.com/rcarmo/go-pherence/backends/simd/runtime.affineFinite (inline)
+     0.03s  0.68% 96.12%      0.04s  0.91%  github.com/rcarmo/go-pherence/loader/audio.WeSpeakerFbankObserved
+     0.03s  0.68% 96.80%      0.03s  0.68%  internal/runtime/syscall/linux.Syscall6
+     0.03s  0.68% 97.49%      0.03s  0.68%  math.Float64frombits (inline)
+     0.02s  0.46% 97.95%      3.73s 85.16%  github.com/rcarmo/go-pherence/models/speaker/community1.(*WeSpeakerBasicBlock).ForwardObserved
+     0.01s  0.23% 98.17%      0.10s  2.28%  math.Max (inline)
+         0     0% 98.17%      0.06s  1.37%  crypto/internal/fips140/sha256.(*Digest).Write
+         0     0% 98.17%      0.06s  1.37%  crypto/internal/fips140/sha256.block
+         0     0% 98.17%      0.06s  1.37%  crypto/sha256.Sum256
+         0     0% 98.17%      0.98s 22.37%  github.com/rcarmo/go-pherence/backends/simd/runtime.fmaMatrixAsm
+         0     0% 98.17%      0.98s 22.37%  github.com/rcarmo/go-pherence/backends/simd/runtime.fmaMatrixF32
+         0     0% 98.17%      2.08s 47.49%  github.com/rcarmo/go-pherence/models/speaker/community1.(*ExperimentalEmbedding).ForwardPCMFramesObserved
+         0     0% 98.17%      3.73s 85.16%  github.com/rcarmo/go-pherence/models/speaker/community1.(*WeSpeakerBasicBlock).Forward (inline)
+         0     0% 98.17%      4.20s 95.89%  github.com/rcarmo/go-pherence/models/speaker/community1.(*WeSpeakerResNet34).ForwardFramesObserved
+         0     0% 98.17%      0.10s  2.28%  github.com/rcarmo/go-pherence/models/speaker/community1.TestCommunity1TrainedEmbedding
+         0     0% 98.17%      4.25s 97.03%  github.com/rcarmo/go-pherence/models/speaker/community1.TestCommunity1TrainedEmbedding.func1

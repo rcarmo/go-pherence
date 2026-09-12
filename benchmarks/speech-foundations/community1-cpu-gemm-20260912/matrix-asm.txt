@@ -1,0 +1,58 @@
+github.com/rcarmo/go-pherence/backends/simd/runtime.fmaMatrixAsm STEXT nosplit asm size=181 args=0x61 locals=0x60 funcid=0x0 align=0x0
+	0x0000 00000 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:5)	TEXT	github.com/rcarmo/go-pherence/backends/simd/runtime.fmaMatrixAsm(SB), NOSPLIT, $96-97
+	0x0000 00000 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:5)	PUSHQ	BP
+	0x0001 00001 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:5)	MOVQ	SP, BP
+	0x0004 00004 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:5)	SUBQ	$88, SP
+	0x0008 00008 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:5)	FUNCDATA	$5, github.com/rcarmo/go-pherence/backends/simd/runtime.fmaMatrixAsm.arginfo0(SB)
+	0x0008 00008 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:5)	FUNCDATA	$0, github.com/rcarmo/go-pherence/backends/simd/runtime.fmaMatrixAsm.args_stackmap(SB)
+	0x0008 00008 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:6)	STMXCSR	80(SP)
+	0x000d 00013 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:7)	MOVL	80(SP), AX
+	0x0011 00017 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:8)	TESTL	$57408, AX
+	0x0016 00022 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:9)	JNE	167
+	0x001c 00028 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:10)	MOVQ	dst_base+104(FP), DI
+	0x0021 00033 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:11)	MOVQ	dst_len+112(FP), CX
+	0x0026 00038 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:12)	XORL	AX, AX
+	0x0028 00040 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:14)	MOVL	AX, (DI)
+	0x002a 00042 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:15)	ADDQ	$4, DI
+	0x002e 00046 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:16)	DECQ	CX
+	0x0031 00049 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:17)	JNE	40
+	0x0033 00051 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:18)	MOVQ	m+176(FP), AX
+	0x003b 00059 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:19)	MOVQ	AX, (SP)
+	0x003f 00063 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:20)	MOVQ	n+184(FP), AX
+	0x0047 00071 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:21)	MOVQ	AX, 8(SP)
+	0x004c 00076 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:22)	MOVQ	AX, 64(SP)
+	0x0051 00081 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:23)	MOVQ	AX, 72(SP)
+	0x0056 00086 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:24)	MOVQ	k+192(FP), AX
+	0x005e 00094 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:25)	MOVQ	AX, 16(SP)
+	0x0063 00099 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:26)	MOVQ	AX, 56(SP)
+	0x0068 00104 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:27)	MOVL	$1065353216, 24(SP)
+	0x0070 00112 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:28)	MOVQ	a_base+128(FP), AX
+	0x0078 00120 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:29)	MOVQ	AX, 32(SP)
+	0x007d 00125 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:30)	MOVQ	b_base+152(FP), AX
+	0x0085 00133 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:31)	MOVQ	AX, 40(SP)
+	0x008a 00138 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:32)	MOVQ	dst_base+104(FP), AX
+	0x008f 00143 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:33)	MOVQ	AX, 48(SP)
+	0x0094 00148 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:34)	CALL	github.com/rcarmo/go-pherence/backends/simd/runtime.SgemmNN(SB)
+	0x0099 00153 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:35)	MOVB	$1, ret+200(FP)
+	0x00a1 00161 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:36)	ADDQ	$88, SP
+	0x00a5 00165 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:36)	POPQ	BP
+	0x00a6 00166 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:36)	RET
+	0x00a7 00167 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:38)	MOVB	$0, ret+200(FP)
+	0x00af 00175 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:39)	ADDQ	$88, SP
+	0x00b3 00179 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:39)	POPQ	BP
+	0x00b4 00180 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_matrix_amd64.s:39)	RET
+	0x0000 55 48 89 e5 48 83 ec 58 0f ae 5c 24 50 8b 44 24  UH..H..X..\$P.D$
+	0x0010 50 a9 40 e0 00 00 0f 85 8b 00 00 00 48 8b 7c 24  P.@.........H.|$
+	0x0020 68 48 8b 4c 24 70 31 c0 89 07 48 83 c7 04 48 ff  hH.L$p1...H...H.
+	0x0030 c9 75 f5 48 8b 84 24 b0 00 00 00 48 89 04 24 48  .u.H..$....H..$H
+	0x0040 8b 84 24 b8 00 00 00 48 89 44 24 08 48 89 44 24  ..$....H.D$.H.D$
+	0x0050 40 48 89 44 24 48 48 8b 84 24 c0 00 00 00 48 89  @H.D$HH..$....H.
+	0x0060 44 24 10 48 89 44 24 38 c7 44 24 18 00 00 80 3f  D$.H.D$8.D$....?
+	0x0070 48 8b 84 24 80 00 00 00 48 89 44 24 20 48 8b 84  H..$....H.D$ H..
+	0x0080 24 98 00 00 00 48 89 44 24 28 48 8b 44 24 68 48  $....H.D$(H.D$hH
+	0x0090 89 44 24 30 e8 00 00 00 00 c6 84 24 c8 00 00 00  .D$0.......$....
+	0x00a0 01 48 83 c4 58 5d c3 c6 84 24 c8 00 00 00 00 48  .H..X]...$.....H
+	0x00b0 83 c4 58 5d c3                                   ..X].
+	rel 149+4 t=R_CALL github.com/rcarmo/go-pherence/backends/simd/runtime.SgemmNN+0
+# github.com/rcarmo/go-pherence/backends/simd/runtime
+# [github.com/rcarmo/go-pherence/backends/simd/runtime]

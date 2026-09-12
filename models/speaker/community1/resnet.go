@@ -185,7 +185,7 @@ func (m *WeSpeakerResNet34) ForwardFramesObserved(ctx context.Context, fbank []f
 	if err != nil {
 		return fail(err)
 	}
-	if len(fbank) != frames*m.cfg.MelBins || (mode != WeSpeakerBlockScalar && mode != WeSpeakerBlockSIMD) {
+	if len(fbank) != frames*m.cfg.MelBins || !validWeSpeakerBlockMode(mode) {
 		return fail(fmt.Errorf("invalid WeSpeaker Fbank layout/mode"))
 	}
 	if err := finiteBlock(ctx, fbank); err != nil {
@@ -291,7 +291,7 @@ func (m *WeSpeakerResNet34) ForwardEmbeddingObserved(ctx context.Context, featur
 	if err := m.validateEmbeddingInput(ctx, shape, masks, speakers, maskFrames); err != nil {
 		return nil, err
 	}
-	if mode != WeSpeakerBlockScalar && mode != WeSpeakerBlockSIMD {
+	if !validWeSpeakerBlockMode(mode) {
 		return nil, fmt.Errorf("invalid WeSpeaker embedding mode")
 	}
 	// StatsPool validates exact feature length and finiteness before reductions
@@ -315,7 +315,7 @@ func (m *WeSpeakerResNet34) ForwardEmbeddingObserved(ctx context.Context, featur
 		}
 		dst := output[row*m.cfg.EmbedDim : (row+1)*m.cfg.EmbedDim]
 		x := pooled.Statistics[row*cols : (row+1)*cols]
-		if mode == WeSpeakerBlockSIMD {
+		if mode == WeSpeakerBlockSIMD || mode == WeSpeakerBlockGEMM {
 			if !simd.GemvRows(dst, x, m.projection.Weight, m.cfg.EmbedDim, cols) {
 				return nil, fmt.Errorf("WeSpeaker projection shape rejected")
 			}

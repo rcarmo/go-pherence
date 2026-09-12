@@ -35,7 +35,7 @@ func TestExperimentalEmbeddingCompositionAndOwner(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for _, mode := range []WeSpeakerBlockMode{WeSpeakerBlockScalar, WeSpeakerBlockSIMD} {
+	for _, mode := range []WeSpeakerBlockMode{WeSpeakerBlockScalar, WeSpeakerBlockSIMD, WeSpeakerBlockGEMM} {
 		calls := 0
 		owned, e := m.ForwardPCMFramesObserved(ctx, pcm, mode, EmbeddingPCMObservers{Trunk: func(_, _ int, _ CHWShape, _ []float32) { calls++ }})
 		if e != nil {
@@ -78,9 +78,14 @@ func TestExperimentalEmbeddingCompositionAndOwner(t *testing.T) {
 	}
 }
 func TestExperimentalEmbeddingRejectsAndCancels(t *testing.T) {
+	testExperimentalEmbeddingRejectsAndCancels(t, WeSpeakerBlockSIMD)
+}
+func TestExperimentalEmbeddingGEMMRejectsAndCancels(t *testing.T) {
+	testExperimentalEmbeddingRejectsAndCancels(t, WeSpeakerBlockGEMM)
+}
+func testExperimentalEmbeddingRejectsAndCancels(t *testing.T, mode WeSpeakerBlockMode) {
 	m, pcm := embeddingPCMFixture(t)
 	ctx := context.Background()
-	mode := WeSpeakerBlockSIMD
 	var empty *ExperimentalEmbedding
 	for _, bad := range []*ExperimentalEmbedding{nil, {}} {
 		if r, e := bad.ForwardPCMFrames(ctx, pcm, mode); r != nil || e == nil {
