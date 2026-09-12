@@ -1,6 +1,7 @@
 package whisper
 
 import (
+	"context"
 	"fmt"
 	"os"
 )
@@ -20,6 +21,25 @@ func (w *Whisper) ValidatePCMHostOnly() error {
 	if err := w.validatePCMModel(); err != nil {
 		return err
 	}
+	return w.validatePCMHostDecoderFlags()
+}
+
+// ValidatePCMVulkanHostDecoder admits an explicit resident encoder paired with a
+// checked host-only decoder. Checks geometry/lifetime and flags, not checkpoint
+// provenance or native device health. Caller owns both and excludes legacy use.
+func (w *Whisper) ValidatePCMVulkanHostDecoder(ctx context.Context, encoder *VulkanEncoder) error {
+	if encoder == nil {
+		return fmt.Errorf("resident PCM encoder required")
+	}
+	if err := w.validatePCMModelForEncoder(true); err != nil {
+		return err
+	}
+	if err := w.validatePCMHostDecoderFlags(); err != nil {
+		return err
+	}
+	return encoder.checkPCMConfig(ctx, w.Config)
+}
+func (w *Whisper) validatePCMHostDecoderFlags() error {
 	if os.Getenv("GO_PHERENCE_DISABLE_NVIDIA") != "1" || whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_SELF_ATTN") {
 		return fmt.Errorf("host PCM jobs require NVIDIA disabled and GPU graph/self-attention flags off")
 	}

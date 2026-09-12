@@ -42,13 +42,33 @@ type WhisperStageConfig struct {
 // The source checkpoint must be named "decode". Models/tokenizer stay caller
 // owned and immutable; no model loading, workers, services or fallback is hidden.
 func NewWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer, cfg WhisperStageConfig) (Stage, error) {
+	return newWhisperWindowStage(model, tokenizer, cfg, nil)
+}
+
+// residentStageBinding is private: callers cannot inject an alternate neural
+// runtime through the public Vulkan constructor. Tests use this lifetime seam.
+type residentStageBinding struct {
+	identity string
+	validate func() error
+	encoder  *whisper.VulkanEncoder
+	wrap     func(windowInfer) windowInfer
+}
+
+func newWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer, cfg WhisperStageConfig, resident *residentStageBinding) (Stage, error) {
 	if model == nil || tokenizer == nil || tokenizer.VocabSize != model.Config.VocabSize || len(tokenizer.Vocab) != model.Config.VocabSize || !validHash(cfg.ModelSHA256) || !validHash(cfg.RuntimeSHA256) || cfg.MaxWindowBytes < 1 || cfg.MaxWindowBytes > 1<<20 || cfg.MaxResultBytes < cfg.MaxWindowBytes || cfg.MaxResultBytes > 64<<20 || len(cfg.GenerationJSON) > maxConfig {
 		return Stage{}, ErrConfiguration
 	}
-	if e := model.ValidatePCMHostOnly(); e != nil {
+	validate := model.ValidatePCMHostOnly
+	if resident != nil {
+		validate = resident.validate
+	}
+	if e := validate(); e != nil {
 		return Stage{}, e
 	}
 	opts := whisper.PCMTranscribeOptions{Language: cfg.Language, OverlapSamples: cfg.OverlapSamples, MaxNewTokens: cfg.MaxNewTokens, MaxInitialTimestampIndex: cfg.MaxInitialTimestampIndex, SkipDigitalSilence: cfg.SkipDigitalSilence}
+	if resident != nil {
+		opts.VulkanEncoder = resident.encoder
+	}
 	if len(cfg.GenerationJSON) > 0 {
 		generation, e := whisper.ParseGenerationConfigChecked(cfg.GenerationJSON, model.Config, tokenizer)
 		if e != nil {
@@ -78,11 +98,21 @@ func NewWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer,
 		return Stage{}, e
 	}
 	version := hash(identity)
-	infer := func(ctx context.Context, source whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
-		if e := model.ValidatePCMHostOnly(); e != nil {
+	if resident != nil {
+		b, e := json.Marshal(struct{ Schema, Host, Resident string }{"speechjob-go-whisper-vulkan-windows-v1", version, resident.identity})
+		if e != nil {
+			return Stage{}, e
+		}
+		version = hash(b)
+	}
+	infer := windowInfer(func(ctx context.Context, source whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
+		if e := validate(); e != nil {
 			return e
 		}
 		return model.TranscribePCMWindowsFrom(ctx, source, total, tokenizer, opts, first, emit)
+	})
+	if resident != nil {
+		infer = resident.wrap(infer)
 	}
 	return whisperWindowStage(version, int64(model.Config.MaxLength)*160, cfg.OverlapSamples, cfg.MaxWindowBytes, cfg.MaxResultBytes, model.Config.MaxDecoderLength, model.Config.VocabSize, infer), nil
 }
