@@ -650,7 +650,9 @@ No Vulkan device or trained checkpoint ran. Native parity, recovery and CPU/full
 
 `NewVulkanLSTM` builds the complete fixed-frame multi-layer/bidirectional owner from that sequence primitive. It copies every weight/bias, owns per-direction hidden/cell state and layer outputs in one arena, creates one plan per layer, resets or uploads all state on every call, and downloads final output/state. Model-free fixtures cover all six existing LSTM geometries, topology, ownership, pre-device rejection and retryable close. [Owner evidence](../benchmarks/speech-foundations/vulkan-lstm-owner-20260912/README.md) records the scope.
 
-Native transcendental parity, SincNet→LSTM→head integration and placement measurements remain open. No model/default selects either recurrent kernel or owner.
+`NewVulkanSegmentationFeatures` adds an explicit hybrid feature-stage owner: fixed-frame recurrent inference uses resident Vulkan, while a copied `SegmentationHead` keeps hidden projections, classifier and log-softmax on the existing checked CPU path. Source/head geometry and finite parameters are validated before Vulkan construction; calls and close share one serialized lifetime. [Hybrid segmentation evidence](../benchmarks/speech-foundations/vulkan-segmentation-hybrid-20260912/README.md) records model-free tests.
+
+Native transcendental parity, complete PCM SincNet→LSTM→head execution and placement measurements remain open. No model/default selects these recurrent paths.
 
 ### Experimental lowered SincNet filters and ordered FMA
 
