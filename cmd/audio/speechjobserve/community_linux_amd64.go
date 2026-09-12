@@ -171,6 +171,9 @@ func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (
 			}
 			return nil, modelErr
 		}
+		// The resident owner copied all neural parameters. The server exclusively
+		// owns these source graphs and will never use the CPU path in this profile.
+		c1.ReleaseVulkanHostWeights(seg, embModel)
 		owner, ownerErr := r.newVulkanOwner(model, speechjob.VulkanCommunity1StageConfig{Community: cfg, AllowExperimental: true, BackendSHA256: vulkanSettings.BackendSHA256, DeviceIdentity: deviceName, DrainPoll: time.Duration(vulkanSettings.DrainMilliseconds) * time.Millisecond})
 		if ownerErr != nil {
 			closeCommunityVulkanModel(model, time.Duration(vulkanSettings.DrainMilliseconds)*time.Millisecond, vk.VulkanDrain)

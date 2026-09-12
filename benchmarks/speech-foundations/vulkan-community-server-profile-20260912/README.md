@@ -7,6 +7,7 @@ This checkpoint adds an opt-in experimental Community-1 hybrid Vulkan profile to
 - `community1.NewVulkanDiarization` composes fixed-window CPU SincNet/head, resident Vulkan LSTM and ResNet trunk, CPU mask-dependent pooling/projection, and existing PLDA/postprocessing.
 - Construction validates graph/window geometry before native allocation, constructs segmentation before embedding, rolls back in reverse order, and retains any failed native child for retry.
 - `speechjob.NewVulkanCommunity1Stage` serialises whole-stage access, uses a fresh context to drain after every inference return, and keeps admission/resources held until idle is proven.
+- After successful resident construction, the server explicitly clears its exclusively owned source segmentation and embedding neural tensors; CPU SincNet lowered filters and PLDA copies required by the hybrid remain resident. The release API is idempotent and does not claim immediate RSS reduction.
 - Panic, device-loss, uncertain submission, and fatal drain errors quarantine the process rather than allowing CPU fallback or unsafe teardown. Eight actual child-process kill/reopen cases verify durable whole-result retry after process death.
 - Close stops new admission, waits for active work, closes the composite model in reverse order, and retains failed resources for retry.
 - Nested `profile.community.vulkan` configuration requires explicit enablement and experimental consent, a resolved device substring, backend SHA-256, and bounded drain interval.
