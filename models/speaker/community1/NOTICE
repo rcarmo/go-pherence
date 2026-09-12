@@ -25,15 +25,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-Optional trained segmentation qualification uses separately obtained model
+Optional trained segmentation and embedding qualification uses separately obtained model
 pyannote/speaker-diarization-community-1, revision
 3533c8cf8e369892e6b79ff1bf80f7b0286a54ee, by the pyannote authors:
 https://huggingface.co/pyannote/speaker-diarization-community-1/tree/3533c8cf8e369892e6b79ff1bf80f7b0286a54ee
 Its pinned model card declares Creative Commons Attribution 4.0 International:
 https://creativecommons.org/licenses/by/4.0/
 This model licence is separate from the implementation source licence. The
-exporter converts the raw checkpoint to F32 safetensors and materialises SincNet
-filters (modified weight representations). Model weights and reference audio/
+segmentation exporter converts the raw checkpoint to F32 safetensors and
+materialises SincNet filters (modified weight representations). The embedding
+exporter preserves 182 F32 tensors and 36 I64 counters in safetensors from raw
+embedding SHA256 6f10ff60898a1d185fa22e1d11e0bfa8a92efec811f11bca48cb8cafebefd929.
+The no-hyperparameters embedding checkpoint uses explicitly pinned constructor
+frontend defaults, validated against its exact state_dict inventory. Model weights and reference audio/
 tensor traces are not distributed in this repository. Users obtain the gated
 model under its own terms and retain attribution for converted weights.
 

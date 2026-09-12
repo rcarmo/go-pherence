@@ -101,6 +101,16 @@ speech-community-segmentation-strict:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION=1 GO_PHERENCE_TEST_COMMUNITY1_STRICT=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestCommunity1TrainedSegmentation$$' -v
 
+.PHONY: speech-community-embedding-check speech-community-embedding-strict
+speech-community-embedding-check:
+	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
+
+# Strict frontend/trunk/support failures remain visible; endpoint gate is always enforced.
+speech-community-embedding-strict:
+	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING_STRICT=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
+
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'

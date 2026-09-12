@@ -108,6 +108,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [community1-trained-segmentation-20260912](community1-trained-segmentation-20260912/README.md): explicit experimental PCM→SincNet→four-layer LSTM→head on pinned3533c8/54F32tensors, deterministic offline conversion. Fourcases×3 endpoint2e-4/hardmasks pass;138/144 boundary comparisons pass, silence1.0526/public2.23e-4 failures retained. 630scoped/90shufflepass, no DER/timing/service default change; CC-BY4 weights not shipped.
 
+- [community1-trained-embedding-20260912](community1-trained-embedding-20260912/README.md): experimental PCM→Fbank→ResNet34→masked pooling, owner-bound reusable trunk;218tensor deterministic conversion. 48trained embedding endpoints pass(max3.10e-6),264/564strict frontend/trunk/support comparisons FAIL retained;668scoped+90shufflepass. No numerical/default changes, fullDER or timing claim.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
 The exact frontend reuses checked Plan 9 SIMD `Ddot`. The affine checkpoint adds one measured CPU kernel. Vulkan operators and reduced/trained Tiny encoder cases have the scoped native qualification above; one English public-speech smoke passes as recorded above; broader speech quality, complete Community-1 and whole-job performance are unqualified. Legacy inference defaults remain unchanged.

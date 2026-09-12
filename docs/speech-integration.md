@@ -618,6 +618,12 @@ All seven synthetic lowered-filter endpoints pass the original `2e-4` gate, with
 
 Four trained cases across three runs pass final log-probabilities at `2e-4` and all3,711 local frame masks match. Two intermediate comparisons fail per run: silent-window SincNet stage1 (`1.052576`) and public-10–20s stage0 (`0.000222921`). Exact-pool normalization is bit-exact; convolution differences precede those failures. The strict target retains the failures, with no tolerance widening or silence workaround. [Evidence](../benchmarks/speech-foundations/community1-trained-segmentation-20260912/README.md) includes forced scalar-fallback checks, deterministic conversion and source/weight attribution. Complete diarization, DER and timing remain unqualified.
 
+### Experimental trained PCM embeddings
+
+`ExperimentalEmbedding` connects fixed mono16k Fbank to the checked WeSpeaker ResNet34 and returns private, owner-bound frame features. Multiple mask sets reuse one trunk through `EmbedFrames`; another wrapper cannot consume those features. Existing arithmetic/defaults are unchanged. The offline restricted loader preserves218 tensors (182F32/36I64); two conversions reproduce byte-for-byte. CC-BY-4.0 model terms remain separate from existing source licences.
+
+All48 trained raw-embedding endpoints across three runs pass `2e-4`, with maximum error `3.10e-6`; forced AVX2/FMA-off checks also pass endpoints. Strict qualification fails264/564 comparisons: intermediate trunk errors, five-second Fbank error `4.01e-4`, and soft-mask support-sum differences are retained. No DER or timing result is established. [Evidence and reproduction](../benchmarks/speech-foundations/community1-trained-embedding-20260912/README.md) include exact checkpoint/source hashes and the rejected BatchNorm FMA experiment. Full-file mask orchestration and global diarization still need integration.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.
