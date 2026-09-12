@@ -40,6 +40,7 @@ speech-vulkan-offline-check:
 # and channel-major prepared BatchNorm affine+ReLU. No device/model execution.
 speech-vulkan-community-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline(ChannelAffine|Conv2DCHW)|TestVulkanOfflineShaderContractEmbedded)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestVulkanBasicBlock'
 	bun test scripts/check-vulkan-shaders.test.ts
 
 # Explicit real-GPU qualification in a coordinated compute window. No models

@@ -630,6 +630,12 @@ The shared-memory shader uses an implicit-im2col 16-position × 16-output-channe
 
 No native device or trained Community-1 graph ran. Driver arithmetic, performance, graph ownership/composition, recovery and CPU/full-Vulkan/hybrid whole-job comparisons remain unqualified.
 
+### Resident Community-1 Vulkan BasicBlock owner
+
+`NewVulkanBasicBlock` accepts one validated CPU-owned `WeSpeakerBasicBlock` plus fixed CHW input shape, prepares/copies BatchNorm coefficients before native allocation, uploads immutable parameters once and creates a private resident plan. Identity blocks compose six stages; projection blocks add the checked 1×1 shortcut convolution and affine for eight. Calls are serialized and perform one input upload, one plan submission/wait and one output download. Close permanently stops new work, tears down plan/arena/operators in reverse order and retains failed resources for retry without implicit drain or CPU fallback.
+
+Model-free tests cover every pinned synthetic block layout, exact tensor shapes and read ordering, 6/8-stage plans, prepared coefficients, source ownership, aligned arena accounting, validation before device access and retryable shared-copy lifetime. [Evidence](../benchmarks/speech-foundations/vulkan-community-block-owner-20260912/README.md) records the scope. No Vulkan device, trained checkpoint or full ResNet34 ran; native parity, whole-trunk residency, pooling/projection, recovery and placement remain open.
+
 ### Experimental lowered SincNet filters and ordered FMA
 
 `NewSincNetWithFilters` owns an explicitly lowered `[80,251]` filter tensor; callers must verify checkpoint identity and lowering metadata. New `SincNetScalarFMA` / `SincNetSIMDFMA` modes use serial-K FMA order. The reusable checked Plan 9 kernel vectorises independent frame columns, preserving exact scalar output. Existing constructors and mode defaults are unchanged.
