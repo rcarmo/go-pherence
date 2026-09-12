@@ -57,6 +57,9 @@ var vkSPIRVOps = map[uint16]vkSPIRVOp{
 	172: {5, 5, 2}, // OpUGreaterThan
 	174: {5, 5, 2}, // OpUGreaterThanEqual
 	176: {5, 5, 2}, // OpULessThan
+	184: {5, 5, 2}, // OpFOrdLessThan
+	188: {5, 5, 2}, // OpFOrdLessThanEqual
+	190: {5, 5, 2}, // OpFOrdGreaterThanEqual
 	194: {5, 5, 2}, // OpShiftRightLogical
 	196: {5, 5, 2}, // OpShiftLeftLogical
 	197: {5, 5, 2}, // OpBitwiseOr

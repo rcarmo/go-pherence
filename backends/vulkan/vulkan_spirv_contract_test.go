@@ -23,7 +23,7 @@ func spirvTestWords(b []byte) []uint32 {
 }
 func contractShaders() map[string][]byte {
 	return map[string][]byte{
-		"linear": spirv_linear_f32, "layernorm": spirv_layer_norm_f32, "attention": spirv_attention_score, "gemv_f32": spirv_gemv_f32, "gemv_bf16": spirv_gemv_bf16_mixed,
+		"gelu_erf": spirv_gelu_erf_f32, "linear": spirv_linear_f32, "layernorm": spirv_layer_norm_f32, "attention": spirv_attention_score, "gemv_f32": spirv_gemv_f32, "gemv_bf16": spirv_gemv_bf16_mixed,
 		"rms_f32": spirv_rms_norm_f32, "rms_bf16": spirv_rms_norm_bf16, "rms_no_scale": spirv_rms_norm_no_scale_f32,
 		"gelu": spirv_gelu_tanh_mul_f32, "rope": spirv_rope_partial_f32, "silu": spirv_silu_mul_f32,
 		"add_f32": spirv_vec_add_f32, "add_bf16": spirv_vec_add_bf16}
@@ -45,7 +45,7 @@ func TestVulkanOfflineShaderContractEmbedded(t *testing.T) {
 				want.SharedBytes = 2048
 			}
 			interfaces := map[string][2]uint32{
-				"linear": {15, 12}, "layernorm": {15, 12}, "attention": {7, 20}, "gemv_f32": {7, 8}, "gemv_bf16": {7, 8},
+				"gelu_erf": {3, 4}, "linear": {15, 12}, "layernorm": {15, 12}, "attention": {7, 20}, "gemv_f32": {7, 8}, "gemv_bf16": {7, 8},
 				"rms_f32": {3, 8}, "rms_bf16": {3, 8}, "rms_no_scale": {3, 8},
 				"gelu": {3, 4}, "rope": {3, 16}, "silu": {7, 4}, "add_f32": {7, 4}, "add_bf16": {7, 4},
 			}

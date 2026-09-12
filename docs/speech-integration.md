@@ -518,6 +518,14 @@ Seven new tests bring the offline suite to 101 top-level tests/407 passing event
 
 Thirteen embedded and thirteen rebuilt shaders pass static validation; Linear, LayerNorm and RoPE rebuild byte-identically. Narrow source review found no scoped indexing/barrier/alias blocker. [Linear verification](../benchmarks/speech-foundations/vulkan-linear-20260912/README.md) records evidence. This is dense F32 only: quantised formats, erf-GELU, tiled attention, the full encoder graph and hardware numerical/quality gates remain unfinished. No native loader, GPU, trained model or service ran.
 
+### Vulkan erf-form GELU
+
+`NewVkGELUErfF32` adds a finite-input F32 activation over matching rank-1–8 arena tensors. It supports exact in-place or disjoint output and composes with linear projection in ordered plans. Partial overlap, mismatched byte extents and overflowing shape/count/grid/range metadata reject before recording. CPU/model defaults and the existing tanh variant are unchanged.
+
+The shader evaluates the erf GELU form using the A&S 7.1.26 erfc approximation, with a cancellation-avoiding negative branch and ±10 tail cutoff. All 20 basic floating arithmetic operations carry `NoContraction`. Across 139,939 finite fixtures, the Go source model has maximum absolute error `4.061483118711351e-7` against stable float64 erfc and maximum difference `4.76837158203125e-7` from current CPU GELU. Both pass `2e-6 + 2e-6*abs(reference)`. Vulkan transcendental/rounding/subnormal behaviour has not been tested.
+
+The offline selection passes 108 top-level tests/415 events; 41 relevant tests pass 30 shuffled repeats. All 14 embedded and 14 rebuilt shaders pass static validation; the final GELU rebuild is byte-identical. [GELU evidence](../benchmarks/speech-foundations/vulkan-gelu-20260912/README.md) includes source-model limitations, narrow source review, grammar provenance and boundary/retention tests. Attention, quantised formats, encoder graph/weights and device/model qualification are unfinished. No GPU or model ran.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

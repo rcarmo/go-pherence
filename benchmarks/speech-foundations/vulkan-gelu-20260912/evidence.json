@@ -1,0 +1,126 @@
+{
+  "checkpoint": "Vulkan arena/plan erf-form F32 GELU (static/mock/source-model only)",
+  "created": "2026-09-12T06:18:29.536Z",
+  "baseline": "b5d9df7",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 415,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 108,
+    "uniqueTopLevelTests": 108
+  },
+  "shuffle30": {
+    "passEvents": 4950,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 1230,
+    "uniqueTopLevelTests": 41
+  },
+  "static": {
+    "validatorPasses": 28,
+    "embedded": 14,
+    "rebuilt": 14,
+    "normalisedMatches": 14,
+    "byteRebuildMatches": 4,
+    "checkerTests": 6,
+    "checkerAssertions": 51,
+    "finalReport": "static-final/verification.json",
+    "initialReport": "static/verification.json (superseded shader before final-output NoContraction)"
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan/board/audio/NumPy/Whisper/Community1",
+    "arm64": "test cross-build PASS; not executed",
+    "fullBuild": "FAIL exact prior baseline",
+    "backendCompileOnly": "FAIL exact prior baseline",
+    "raceDetector": "cannot build; gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 88
+  },
+  "sourceModel": {
+    "samples": 139939,
+    "formula": "A&S7.1.26 erfc-based erf GELU, ±10 tail cutoff",
+    "oracle": "0.5*x*math.Erfc(-x/sqrt(2)) float64",
+    "tolerance": "2e-6 absolute + 2e-6 relative",
+    "maxAbsoluteError": 4.061483118711351e-7,
+    "worstInput": 3.1091666,
+    "maxCPUScalarDifference": 4.76837158203125e-7,
+    "maxRelativeError": 0.0010293551253219488,
+    "relativeErrorReferenceFloor": 0.00001,
+    "tailSchedules": "7 lengths x4 shuffled lane permutations; canaries and one writer per element",
+    "noContraction": "all20 basicfloatingoperations have NoContraction",
+    "notGPU": true
+  },
+  "sources": {
+    "formulaURL": "https://personal.math.ubc.ca/~cbm/aands/page_299.jpg",
+    "formulaScanSHA256": "ec184caf269b7905c640c2bba439b0f93ceeabd46cdbfead478a80efe78a90b5",
+    "coreGrammar": "vulkan-sdk-1.3.296.0 at2a9b6f951c7d6b04b6c21fe1bf3f475b68b84801",
+    "glsl450GrammarSHA256": "d211843d2d7f253e2b4b4e56f2afe546f6e4abbdedebca78b1cd8cfdb0ec69a5"
+  },
+  "coverage": [
+    "2bindings/4pushbytes/256x1x1/noShared",
+    "Exactrank1..8/shape/byteextents,uint32count/grid/rangelimits",
+    "Exactinplaceaccepted,alignedpartialoverlaprejected",
+    "Actualwrapperdescriptor/push/groups;ownedstage slices",
+    "Linear→inplaceGELU plan retainsbothkernels/arena aftercancel untilDrain",
+    "Mockconstructor/shadercontract/Close/nils",
+    "FAbs/Exp/InverseSqrt closedextinst;threeorderedcomparisons/NoContractionwithmalformedaritytests"
+  ],
+  "review": {
+    "initial": "180s timeout without findings; not approval",
+    "narrow": "sourceonly shader+wrapper: no functional issue; clarifiedtailcutoffcomment",
+    "postReview": "parentextendedprecisefinalarithmetic; finalstaticandmocktestsPASS; delegate did not inspect subsequentdecorations/generatedSPIRV/barriers",
+    "record": "review.md"
+  },
+  "limitations": [
+    "Approximationnotlibmexact,tanhunchanged;finiteinputsrequired,noscan.",
+    "Go model Exp/rounding not all Vulkan implementations; underflow/subnormal/deviceerrors unqualified.",
+    "No trainedquality,residentencoder,attention,quantisedGEMM,device recovery orspeed qualification.",
+    "NoGPU/nativeVulkan/modelweights/privateaudio/services/restart/push.",
+    "SincNet4strictFAILunchanged.",
+    "Racegccunavailable;arm64crossonly."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_gelu.go": "c65d80efd3d1c41e3d4b91efb43ac38e9e38a0ba64944b0f03d164422d8a3145",
+    "backends/vulkan/vulkan_gelu_test.go": "0c09f6749db4ab4c0e49f676079b5ac5e81b754657a9a3ae538dcbb3dca1b1e1",
+    "backends/vulkan/vulkan_spirv_contract.go": "784ae017377750557c08ef85660ba242cefb8648da92b78b7b41d061ab0766e9",
+    "backends/vulkan/vulkan_spirv_contract_ops.go": "fe72e827518334c7262fc5e69b0269a3e710c71dda479772eb5e621b68ee83ab",
+    "backends/vulkan/vulkan_spirv_contract_test.go": "a8c9ffa40d38af577bbdea299bc3562c9b64d89efb8c71cf5b6d6cb9799c2d12",
+    "backends/vulkan/vulkan_spirv_embedded.go": "f611ab2824579c5029d8448411d1194da2e8cc4a361eeb405e66581f802a6add",
+    "backends/vulkan/NOTICE-SPIRV-Headers": "8242c4ec6473bdf4b91606a17d40e137946902c4af1a9b9b9602b7d5887a0203",
+    "backends/vulkan/shaders/gelu_erf_f32.glsl": "e465d5b3de361d18d9d14decf35993342c75890f81971b6e3025b9cd1879a54e",
+    "backends/vulkan/shaders/gelu_erf_f32.spv": "586332ffcc557755e81db54fd928c1336e16763ad5a258cb96cdd1c907a7175b",
+    "scripts/check-vulkan-shaders.ts": "ae2776963a88fdb9f4f995a1a8a4483225c500b4814a9b1eb6a2133093d6f7cd",
+    "scripts/check-vulkan-shaders.test.ts": "74c9a5ddc135022e2ca5f04791fcfad8b4166157fc9ad3ec3e51586b524632c9",
+    "docs/speech-integration.md": "95ab819f6ddddf7ceba4a946653f9cae108b279fb076f4a9636fae53a73ccef5",
+    "benchmarks/speech-foundations/README.md": "6b4af55fdf1c312f6873aed2e4db7c7d96799aec677290b4b40132899b1e4d5d"
+  },
+  "evidenceHashes": {
+    "README.md": "3e78a6192dbbfd976f014eadc7c0c4f5b28a04f3eabc18e4988ebf75245431b4",
+    "review.md": "dfc81a8db95380a97a09905c46a1db202355fbff61ffca8a91556cc60e7b85af",
+    "gelu.spvasm": "6d116ac29026c53beda70e0210811168df31da1de0e823612c373c857fa27236",
+    "focused-check.txt": "f7939975933e19da2a88462cc3e035882cf89fbfc10375c8d31f6e1aadec59a8",
+    "tests.jsonl": "6cf5e4b0f1a58fed1da4cb03cef50bd421e4d4cbe1033a4b794b52b7bb7c5455",
+    "media.txt": "ee6d585ab05d836b5394c7a897f4bafeb7bf6ed6cdcb628d21abe89dc59cd797",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "repeat-tests.jsonl.gz": "0d803a7947d63718ba08d3a35f153a3627727a84eac3841ef4d17ac77f440777",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "static-final/verification.json": "0da409a2bdc48b1a7a820a27761bd599af4cdedb1eb3c1fad321d1b4bee49431",
+    "static/verification.json": "3529a3869d640eea96ca4e06bc5ae6748835060616959a707c49b43faf56e82b"
+  }
+}

@@ -103,8 +103,8 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 				return fail("extended instruction import")
 			}
 			imports[a[1]] = true
-		case 12: // baseline unary Tanh/InverseSqrt used by embedded shaders
-			if count != 6 || (a[4] != 27 && a[4] != 32) {
+		case 12: // GLSL.std.450 unary FAbs/Exp/InverseSqrt;27 is Exp, not Tanh.
+			if count != 6 || (a[4] != 4 && a[4] != 27 && a[4] != 32) {
 				return fail("extended instruction not admitted")
 			}
 			extSets = append(extSets, a[3])
@@ -211,7 +211,7 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 			seenDecorations[key] = true
 			decorated[a[1]] = true
 			switch a[2] {
-			case 2, 3, 24, 25:
+			case 2, 3, 24, 25, 42: //42=NoContraction (precise arithmetic)
 				if count != 3 {
 					return fail("decoration arity")
 				}
