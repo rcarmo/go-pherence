@@ -502,6 +502,14 @@ All 11 cache requests now pass interface admission. Six new top-level tests capt
 
 Narrow source review found no scoped race/ABI/bounds blocker; it also identified the RMS push narrowing issue, which is fixed and regression-tested. [Repair verification](../benchmarks/speech-foundations/vulkan-repair-20260912/README.md) records hashes and limitations. Source/interface holds are repaired, but both operators still need coordinated GPU numerical testing. No Vulkan device, trained model, private media, service or performance run was used.
 
+### Vulkan row-wise F32 LayerNorm
+
+`NewVkLayerNormF32` creates the first Whisper-oriented arena operator. `Forward` and `Stage` accept X/Out `[rows,width]`, learned Weight/Bias `[width]` and positive finite epsilon. Width is bounded to 1–16384; row/index/group limits and exact shape/storage sizes are checked before dispatch. The implementation uses one 256-lane workgroup per row, a two-pass centred population variance and 1024 shared bytes. A barrier separates loading the mean from reusing scratch for variance. Exact input/output aliasing is allowed, but partial overlap or output overlap with parameters is rejected.
+
+The operator composes with `VkF32Plan` without intermediate host transfers. Callers must provide finite data whose F32 reductions do not overflow; no content scan or fallback is performed. Shader selection and alias rules are checked by this operator, but a manually modified generic stage remains the caller's responsibility. This does not wire a Whisper encoder or qualify trained-model numerics.
+
+Seven new tests bring the offline suite to 94 top-level tests/399 passing events, zero failures/skips. Twenty-seven relevant tests pass 30 shuffled repeats (4470 events). A Go reduction-schedule model matches a float64 centred-variance oracle within `2e-5 + 2e-5*abs(reference)` for 11 widths, constant/low-variance/general rows and four invocation permutations; exact alias and separate output match. These are source-model results, not GPU accuracy measurements. Twelve exact embedded and twelve rebuilt shaders pass static validation, with byte-exact LayerNorm and RoPE rebuilds. [LayerNorm verification](../benchmarks/speech-foundations/vulkan-layernorm-20260912/README.md) records evidence and review limits. No native loader, GPU, trained model, private audio or service ran.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

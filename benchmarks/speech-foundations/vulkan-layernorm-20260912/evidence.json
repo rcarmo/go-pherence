@@ -1,0 +1,121 @@
+{
+  "checkpoint": "Vulkan row-wise arena/plan F32 LayerNorm (static/mock/source-model only)",
+  "created": "2026-09-12T05:49:19.901Z",
+  "baseline": "df42d50",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 399,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 94,
+    "uniqueTopLevelTests": 94
+  },
+  "shuffle30": {
+    "passEvents": 4470,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 810,
+    "uniqueTopLevelTests": 27
+  },
+  "static": {
+    "validatorPasses": 24,
+    "embedded": 12,
+    "rebuilt": 12,
+    "normalisedMatches": 12,
+    "byteRebuildMatches": 2,
+    "checkerTests": 6,
+    "checkerAssertions": 47,
+    "report": "static/verification.json"
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan/board/audio/NumPy/Whisper/Community1",
+    "arm64": "test cross-build PASS; not executed",
+    "fullBuild": "FAIL exact prior baseline",
+    "backendCompileOnly": "FAIL exact prior baseline",
+    "raceDetector": "cannot build; gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 81
+  },
+  "sourceModel": {
+    "widths": [
+      1,
+      2,
+      3,
+      31,
+      255,
+      256,
+      257,
+      384,
+      768,
+      1280,
+      16384
+    ],
+    "rows": 3,
+    "permutations": 4,
+    "oracle": "float64 centered population variance",
+    "tolerance": "abs2e-5 + rel2e-5",
+    "alias": "bit-exact to separateoutput in Go schedule model",
+    "notGPU": true
+  },
+  "coverage": [
+    "4bindings/12pushbytes/1024sharedbytes,256invocations perrow",
+    "Centered sum/variance reductions with mean-load barrier before scratch reuse",
+    "Exactshape/range/epsilon/alias guards before native mutation",
+    "ExactXOutalias allowed,partial/outputparameteralias rejected",
+    "Captureddescriptors/push/groups and ownedStages",
+    "Two-stage plan/cancel retains operator+backingarena,drain permitsClose",
+    "Actualmockconstructor/staticadmission and zero/nilClose regression"
+  ],
+  "review": {
+    "result": "No scoped shader race/bounds/push/alias finding.",
+    "rejectedFinding": "Claimed nil-kernel Close panic: existing VkComputeKernel.Close checks nil; new regression verifies zero-value and nil operator closure.",
+    "scope": "No hardware/driver/numericalmodel qualification."
+  },
+  "limitations": [
+    "F32numeric contents notscanned; must be finite with representable sums/variance.",
+    "Go schedulemodel is notSPIRVexecution/driverrounding/denormal/extremeactivation qualification.",
+    "Positivefiniteepsilon supported,Whisper1e-5; width1..16384only.",
+    "No nativeGPU/validation-layer/deviceaccuracy/performance/trainedmodel/residentencoder or recovery.",
+    "Genericstage mutations/callerlowlevel API remain callerresponsibility.",
+    "Current FFI64bit;arm64crossonly;racegccunavailable.",
+    "SincNet4strictFAILunchanged."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_layernorm.go": "8f9a8434e37c2ad1e0cb2a2c59c7add0411419d8ed7dd24a44abb18a2e4a9389",
+    "backends/vulkan/vulkan_layernorm_test.go": "3dc8f313cdcabcdb84880a5a5e820ac18728ed47851ca59f5c37804e75e44d76",
+    "backends/vulkan/vulkan_spirv_contract_test.go": "0d2cb5d63c2509684c811bdef3e59a7e6c2d8f10a777672f84befc6e6339ea12",
+    "backends/vulkan/vulkan_spirv_embedded.go": "b3853c01050d4654329fbcd6b2c96498a5ec1cda9414d1b7a096e1784f91b351",
+    "backends/vulkan/shaders/layer_norm_f32.glsl": "63b50c5af700fc3fc703adc122e27185167ef2e43c1db134ae03c80e25c61fe8",
+    "backends/vulkan/shaders/layer_norm_f32.spv": "82cc1ae01aad528077987eb93e6a9cd68c301a2497584124404cd4fdcc0a86ed",
+    "scripts/check-vulkan-shaders.ts": "d71569f77b3746b1bd505791bb4aba01c0c9d2ec1db08f12995cc45dc0846bdd",
+    "scripts/check-vulkan-shaders.test.ts": "7c07d7eb29e05eaeff4d6cf79e8691e0496679c4f2fdc99bbfff0dc0dabeb8af",
+    "docs/speech-integration.md": "c2186e96ae9b6e5fabf530a8467dca9cc3b220f3f38a9d916fd54868a1250f30",
+    "benchmarks/speech-foundations/README.md": "7a54981544028b572a4fbc33971fdddca8a22deae7b0dc0f2b9ddb5f7d84f88b"
+  },
+  "evidenceHashes": {
+    "README.md": "648f9d50414090d3b93ad5e47ad40d22fd0e379e624ca8b62aa58fb579aecf4e",
+    "layernorm.spvasm": "8e4492fba8a438acb25155442b9f97f3d37fb7544bc460a9681c98278e9379bb",
+    "focused-check.txt": "e4dad3e9f1128e4c091d720b2f46aed1e8e4fdeba0f684fe83e2c98582891ede",
+    "tests.jsonl": "36581263c57a4ca537f7b79a153a9d60f524b48a8bb755e54739a39da019e914",
+    "media.txt": "974df4de6d8ffab1728cd91334712a7c7600f98833bd28b0c372142e91c70751",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "repeat-tests.jsonl.gz": "b8605fdbe5fffcf8f6b822e18f92bcb669b60a2ffa2ddde3a6227af2b631d9ad",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "static/verification.json": "e3300070f97623664af2e4bde5ee6c0d07d025765d9896f3c12af5b4bae826ee"
+  }
+}
