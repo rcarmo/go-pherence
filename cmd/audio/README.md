@@ -6,6 +6,7 @@
 | `diarize-vtt` | Whisper transcription/translation with optional speaker diarization → WebVTT |
 | `moss-transcribe` | Native MOSS transcription, recording-local speaker diarization, and text/raw/JSON/SRT/ASS export from 16 kHz mono PCM WAV |
 | `speakercheck` | Speaker-embedding / verification check |
+| [`speechjob`](speechjob/README.md) | Authenticated HTTP job client: upload/status/run/cancel/delete and verified no-clobber transcript downloads; no inference server/model loading |
 
 See [`docs/moss-transcribe-diarize.md`](../../docs/moss-transcribe-diarize.md) for the MOSS support contract, real-checkpoint parity gates, usage, and limitations.
 

@@ -120,3 +120,26 @@ Transcript schema 1 stores already reconciled sample-indexed cues. JSON requires
 18. Export: only transcript/vtt/speaker-transcript/speaker-vtt; explicit experimental content retained.
 19. Proof: auth/body/routing/caps/ownership/profiledrift/error/integrity/disconnect/drain/reopen tests,realhttptesttransport and actual processkill.
 20. Closure: scoped synthetic checks pass and local commit; production service/browser/resourcequeue/quality qualification remains open.
+
+## HTTP CLI continuation
+
+1. Problem: operate the tested HTTP job boundary without manual credential-bearing curl commands or unsafe partial downloads.
+2. User: single tenant of an explicitly configured speech-job server.
+3. Success: upload/status/run/cancel/delete and verified no-clobber artifact download.
+4. Minimum: HTTP-only CLI with machine-readable JSON and signal-aware cancellation.
+5. Exclusions: listener, model loading, queueing, browser UI, automatic retries/polling and private-network deployment.
+6. Scope: new cmd/audio/speechjob plus Make/docs; no media/model/default changes.
+7. Platforms: cross-compile Go client; local Linux filesystem/signal execution tested.
+8. Errors: no token/raw private server errors; distinguish received/published state from failed local stdout.
+9. Persistence: download tempfile→hash/size verification→file sync→no-clobber link→directory sync.
+10. Pattern: existing HTTP exact profiles/IDs/artifact allowlist; no alternate inference runtime.
+11. First change: URL/token/redirect policy, followed by exact-download tests and full httptest flow.
+12. Avoid: tokens in flags, endpoint credentials, insecure TLS, redirects/proxy credential forwarding, blind POST retry.
+13. Names: four transcript artifact names; local explicit destination never taken from response headers.
+14. IO: environment token/endpoint, commands/files; bounded JSON stdout or verified 0600 transcript file.
+15. Compatibility: HTTP wire/server/source-media/FFmpeg contracts unchanged.
+16. Limits:4MiBJSON64KiBerror16MiBartifact512MiBupload;timeout30s default/8h maximum;no background workers.
+17. Trust: HTTPS system verification, explicit literal-loopback HTTP only; stable trusted local files/directories; endpoint server trusted.
+18. Export: only JSON/VTT allowed by HTTP API; experimental provenance preserved.
+19. Proof: real fixture-handler flow, hash/length/MIME/redirection/race/cancel tests and actual SIGTERM child cleanup.
+20. Closure: scoped tests/vet/cross-build/commit/evidence; no production service or trained-quality/performance completion.
