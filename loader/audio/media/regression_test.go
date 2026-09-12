@@ -214,4 +214,43 @@ func TestFFmpegIntegration(t *testing.T) {
 	if err != nil || info.frames != int64(result.Timeline.Samples) {
 		t.Fatalf("bad actual timeline: %+v %v", info, err)
 	}
+
+	// Generate real MOV edit lists rather than mocking ffprobe JSON. FFmpeg writes
+	// an empty leading edit for -itsoffset and a media-time trim for -ss. The
+	// narrow adapter preserves observable stream start/duration but deliberately
+	// keeps both mappings non-exact because it cannot decompose elst/priming.
+	source := filepath.Join(dir, "edit-source.wav")
+	writeSyntheticWAV(t, source, 48000, 48000)
+	for _, tc := range []struct {
+		name       string
+		inputArgs  []string
+		wantStart  time.Duration
+		wantFrames SampleCount
+	}{
+		{name: "leading-empty-edit", inputArgs: []string{"-itsoffset", "0.25", "-i", source}, wantStart: 228 * time.Millisecond, wantFrames: 16384},
+		{name: "trimmed-media-edit", inputArgs: []string{"-ss", "0.25", "-i", source}, wantStart: 0, wantFrames: 12288},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			container := filepath.Join(t.TempDir(), tc.name+".m4a")
+			args := append([]string{"-nostdin", "-v", "error", "-threads", "1"}, tc.inputArgs...)
+			args = append(args, "-map", "0:a", "-c:a", "aac", "-b:a", "96k", "-threads", "1", container)
+			if output, err := exec.CommandContext(ctx, ffmpeg, args...).CombinedOutput(); err != nil {
+				t.Fatal("edit-list fixture creation failed:", err, string(output))
+			}
+			probe, err := ff.Probe(ctx, container)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if probe.Source.Start != tc.wantStart || probe.Source.Duration <= 0 || probe.Source.SourceRate != 48000 || probe.Source.Exact || probe.Source.HasEdits || probe.Source.Priming != 0 || probe.Source.Padding != 0 || probe.Source.LeadingSilence != 0 {
+				t.Fatalf("unsafe edit-list timing claim: %+v", probe.Source)
+			}
+			decoded, err := ff.DecodeToFile(ctx, container, filepath.Join(t.TempDir(), "decoded.wav"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if decoded.Source != probe.Source || decoded.Timeline.Samples != tc.wantFrames {
+				t.Fatalf("edit-list decode=%+v probe=%+v", decoded, probe)
+			}
+		})
+	}
 }

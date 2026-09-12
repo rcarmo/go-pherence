@@ -20,5 +20,6 @@ This checkpoint makes source timing metadata explicit at the `loader/audio/media
 - Thirty shuffled repetitions of both affected packages passed with the final round-trip, legacy-layout, offset, malformed-chunk, deterministic-byte and retry/reopen assertions.
 - Affected `go vet`, Linux/ARM64 and Windows/AMD64 test-binary cross-builds, server/CLI/HTTP regression packages, and `git diff --check` pass.
 - Three explicit synthetic FFmpeg integration repetitions passed. Generated WAV retained exact PCM and exact timing; AAC-generated M4A retained deterministic PCM/timing checkpoints with mapping explicitly non-exact.
+- Three model-free real-container repetitions generated and decoded two one-second 48 kHz AAC/M4A fixtures with actual `elst` atoms: a 250 ms leading empty edit (`start_time=0.228`, decoded 16,384 canonical frames) and a 250 ms media-time trim (`start_time=0`, decoded 12,288 frames). Probe/decode mapping agreed and remained `Exact=false`, `HasEdits=false`, with no invented priming/padding/silence decomposition.
 
-No production media, private audio, model, GPU, service, deployment, pin or default was changed. Broader real MOV edit-list/priming fixtures remain open.
+No production media, private audio, model, GPU, service, deployment, pin or default was changed. Broader externally sourced MOV/edit-list and gapless priming fixtures remain open.
