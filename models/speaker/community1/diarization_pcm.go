@@ -99,6 +99,32 @@ func NewExperimentalDiarization(ctx context.Context, segmentation *ExperimentalS
 	return &ExperimentalDiarization{segmentation, embedding, plda}, nil
 }
 
+// ValidateOwned checks retained graph presence/dimension compatibility without
+// running PCM or reading model files. The caller excludes concurrent Release.
+func (m *ExperimentalDiarization) ValidateOwned() error {
+	if m == nil || m.segmentation == nil || m.segmentation.checkpoint == nil || m.segmentation.frontend == nil || m.segmentation.checkpoint.head == nil || m.segmentation.checkpoint.recurrent == nil || m.embedding == nil || m.embedding.model == nil {
+		return fmt.Errorf("invalid experimental diarization models")
+	}
+	if m.plda != nil && m.plda.cfg.InputDim != m.embedding.model.cfg.EmbedDim {
+		return fmt.Errorf("diarization PLDA/embedding dimensions differ")
+	}
+	return nil
+}
+
+// ReleaseOwnedModels clears this composition's retained graph references after
+// all synchronous RunPCM calls have returned. It is idempotent and makes Go
+// weight storage eligible for GC; it does not force GC/RSS reduction or clear
+// aliases held elsewhere. Owners accepting this model require exclusive transfer
+// of segmentation, embedding and PLDA aliases for deterministic reclamation.
+func (m *ExperimentalDiarization) ReleaseOwnedModels() {
+	if m == nil {
+		return
+	}
+	m.segmentation = nil
+	m.embedding = nil
+	m.plda = nil
+}
+
 // DiarizationPCMResult owns all diagnostic arrays and postprocessed turns.
 // Segmentations are [windows,frames,localSpeakers]; embeddings are raw
 // [windows,localSpeakers,dimension]. SelectedFrames counts pre-resize masks;

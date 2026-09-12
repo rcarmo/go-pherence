@@ -19,7 +19,10 @@ import (
 // attest caller-loaded immutable segmentation/embedding/PLDA weights, lowered
 // filters and runtime flags/ISA. The adapter cannot prove in-memory provenance.
 // No opt-in is inferred from constructing experimental models. Config/modes and
-// all attestations enter the stage identity. No defaults or fallback are chosen.
+// all attestations and resource/result caps enter the stage identity because
+// they change whether a run can succeed. No defaults or fallback are chosen.
+// PLDASHA256 is always required: nil PLDA can execute only silence/single-row
+// paths, but the job profile still attests the PLDA intended for multirow input.
 type Community1StageConfig struct {
 	AllowExperimental                                                             bool
 	SegmentationSHA256, EmbeddingSHA256, PLDASHA256, FiltersSHA256, RuntimeSHA256 string
