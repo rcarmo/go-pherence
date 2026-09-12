@@ -1,0 +1,48 @@
+=== RUN   TestSincNetReductionDiagnostic
+    sincnet_diagnostic_test.go:89: stride10 stage0 exact-input/filter mode0 conv err2.288818359375e-05 exact279/10320
+    sincnet_diagnostic_test.go:89: stride10 stage0 exact-input/filter mode1 conv err3.0517578125e-05 exact80/10320
+    sincnet_diagnostic_test.go:129: stride10 stage0 float64 conv err3.0517578125e-05 exact81/10320
+    sincnet_diagnostic_test.go:129: stride10 stage0 fma32 conv err2.288818359375e-05 exact9684/10320
+    sincnet_diagnostic_test.go:129: stride10 stage0 unroll4 conv err3.4332275390625e-05 exact77/10320
+    sincnet_diagnostic_test.go:129: stride10 stage0 unroll8 conv err3.4332275390625e-05 exact80/10320
+    sincnet_diagnostic_test.go:141: stride10 stage0 exact-pool norm err0 exact3440/3440
+    sincnet_diagnostic_test.go:89: stride10 stage1 exact-input/filter mode0 conv err7.82310962677002e-08 exact191/2340
+    sincnet_diagnostic_test.go:89: stride10 stage1 exact-input/filter mode1 conv err6.705522537231445e-08 exact181/2340
+    sincnet_diagnostic_test.go:129: stride10 stage1 float64 conv err5.21540641784668e-08 exact218/2340
+    sincnet_diagnostic_test.go:129: stride10 stage1 fma32 conv err8.940696716308594e-08 exact252/2340
+    sincnet_diagnostic_test.go:129: stride10 stage1 unroll4 conv err5.960464477539063e-08 exact232/2340
+    sincnet_diagnostic_test.go:129: stride10 stage1 unroll8 conv err7.078051567077637e-08 exact200/2340
+    sincnet_diagnostic_test.go:141: stride10 stage1 exact-pool norm err0 exact780/780
+    sincnet_diagnostic_test.go:89: stride10 stage2 exact-input/filter mode0 conv err6.705522537231445e-08 exact36/540
+    sincnet_diagnostic_test.go:89: stride10 stage2 exact-input/filter mode1 conv err8.940696716308594e-08 exact29/540
+    sincnet_diagnostic_test.go:129: stride10 stage2 float64 conv err8.195638656616211e-08 exact29/540
+    sincnet_diagnostic_test.go:129: stride10 stage2 fma32 conv err5.21540641784668e-08 exact51/540
+    sincnet_diagnostic_test.go:129: stride10 stage2 unroll4 conv err1.043081283569336e-07 exact36/540
+    sincnet_diagnostic_test.go:129: stride10 stage2 unroll8 conv err9.685754776000977e-08 exact18/540
+    sincnet_diagnostic_test.go:141: stride10 stage2 exact-pool norm err0 exact180/180
+    sincnet_diagnostic_test.go:144: filters error1.0132789611816406e-06
+    sincnet_diagnostic_test.go:89: stride1 stage0 exact-input/filter mode0 conv err2.288818359375e-05 exact786/28000
+    sincnet_diagnostic_test.go:89: stride1 stage0 exact-input/filter mode1 conv err3.814697265625e-05 exact188/28000
+    sincnet_diagnostic_test.go:129: stride1 stage0 float64 conv err3.814697265625e-05 exact238/28000
+    sincnet_diagnostic_test.go:129: stride1 stage0 fma32 conv err2.6702880859375e-05 exact26885/28000
+    sincnet_diagnostic_test.go:129: stride1 stage0 unroll4 conv err3.814697265625e-05 exact184/28000
+    sincnet_diagnostic_test.go:129: stride1 stage0 unroll8 conv err3.4332275390625e-05 exact220/28000
+    sincnet_diagnostic_test.go:141: stride1 stage0 exact-pool norm err0 exact9280/9280
+    sincnet_diagnostic_test.go:89: stride1 stage1 exact-input/filter mode0 conv err2.086162567138672e-07 exact645/6720
+    sincnet_diagnostic_test.go:89: stride1 stage1 exact-input/filter mode1 conv err1.9371509552001953e-07 exact449/6720
+    sincnet_diagnostic_test.go:129: stride1 stage1 float64 conv err1.4901161193847656e-07 exact584/6720
+    sincnet_diagnostic_test.go:129: stride1 stage1 fma32 conv err1.9371509552001953e-07 exact772/6720
+    sincnet_diagnostic_test.go:129: stride1 stage1 unroll4 conv err2.086162567138672e-07 exact515/6720
+    sincnet_diagnostic_test.go:129: stride1 stage1 unroll8 conv err1.6391277313232422e-07 exact517/6720
+    sincnet_diagnostic_test.go:141: stride1 stage1 exact-pool norm err0 exact2220/2220
+    sincnet_diagnostic_test.go:89: stride1 stage2 exact-input/filter mode0 conv err5.960464477539063e-08 exact128/1980
+    sincnet_diagnostic_test.go:89: stride1 stage2 exact-input/filter mode1 conv err8.940696716308594e-08 exact124/1980
+    sincnet_diagnostic_test.go:129: stride1 stage2 float64 conv err6.705522537231445e-08 exact134/1980
+    sincnet_diagnostic_test.go:129: stride1 stage2 fma32 conv err5.587935447692871e-08 exact177/1980
+    sincnet_diagnostic_test.go:129: stride1 stage2 unroll4 conv err7.078051567077637e-08 exact124/1980
+    sincnet_diagnostic_test.go:129: stride1 stage2 unroll8 conv err6.705522537231445e-08 exact119/1980
+    sincnet_diagnostic_test.go:141: stride1 stage2 exact-pool norm err0 exact660/660
+    sincnet_diagnostic_test.go:144: filters error1.0132789611816406e-06
+--- PASS: TestSincNetReductionDiagnostic (0.33s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.334s

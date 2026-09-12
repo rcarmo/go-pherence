@@ -63,6 +63,18 @@ no-warmup aggregation, explicit ambiguity rejection or stable tie alternative,
 frame-centre intervals, cancellation, output/work bounds. No neural integration.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.
 
+BSD-style PyTorch contiguous normalization ordering (sincNetNorm)
+--------------------------------------------------------
+Based on PyTorch revision 08187d9e0fba026dc8217405802ab5381dc88d90,
+aten/src/ATen/native/cpu/batch_norm_kernel.cpp SHA256
+1fb2107ebe0ea4d458018dbed03c8c49dee63a4268f9d9fe78d76813540fb9a6,
+and aten/src/ATen/native/Normalization.cpp SHA256
+f9d0c95900af90e96e0df70e0026f2f46e656502bcc5fe79cc7b63c63cea1b3d.
+Changes: explicit scalar Go rounding boundaries, context checks and a finite
+float32 FMA helper with midpoint correction; no PyTorch runtime/kernel linked.
+The full PyTorch/Caffe2 contributor copyrights, redistribution conditions and
+disclaimer are retained in LICENSE-BSD-PYTORCH. Full SincNet parity still fails.
+
 Apache-2.0 WeSpeaker BasicBlock/ResNet34 adaptations (resnet_block.go, resnet.go)
 --------------------------------------------------------
 Copyright (c) 2021 Shuai Wang (wsstriving@gmail.com)

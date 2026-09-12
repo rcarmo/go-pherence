@@ -163,6 +163,23 @@ Diagnostics using exact oracle filter coefficients still differ after convolutio
 
 Boundary/ownership tests and a narrow delegated source review found no additional blocking defect. Cancellation checks cover stages, channels and bounded loops; running scalar/SIMD dots and observers are synchronous. There is no model or input mutation. The compressed [fixtures](../models/speaker/community1/testdata/sincnet-reference.json.gz) and [offline generator](../scripts/community1_sincnet_reference.py) pin pyannote/filterbank sources, use only synthetic weights/PCM and regenerate byte-identically. The [verification record](../benchmarks/speech-foundations/sincnet-verification.json) keeps passing development checks separate from failing qualification. No trained model, GPU, private audio, service change or production default change occurred.
 
+### Isolated SincNet normalisation repair
+
+A later source trace found incorrect arithmetic boundaries in `sincNetNorm`. Pinned Torch contiguous BatchNorm uses a double sum rounded to a float32 mean, float32 centred squares accumulated in double, then a float32 variance sum/division. The affine shift and output use float32 FMA. The repaired implementation matches **61271 outputs bit-exactly across 28 isolated normalisation cases**; all 322 cancellation checkpoints of the tested multi-channel shape pass. The [new normalisation fixture](../models/speaker/community1/testdata/sincnet-norm-reference.json.gz) and original full-graph fixture regenerate byte-identically.
+
+A narrow delegated arithmetic review identified float64-FMA-then-cast double rounding. `sincNetFMA32` now forms the exact float32 product in float64, uses TwoSum to recover the addition residual, and corrects only exact float32 midpoints before narrowing. Tests compare 19759 finite random triples plus explicit normal/subnormal/overflow/cancellation boundaries against a 1024-bit `big.Float` oracle. One retained counterexample is `a=0x3f800001`, `b=0x3fc00000`, `c=0x80000001`. This scalar helper has no speed qualification.
+
+**Full SincNet remains unqualified.** Post-repair strict errors at the unchanged `2e-4` threshold are:
+
+| Stride | Scalar | Existing SIMD |
+|---|---:|---:|
+| 10 | 0.00762036443 | 0.00462505221 |
+| 1 | 0.00120222569 | 0.00226982310 |
+
+These replace the earlier measurements for current code; historical logs remain intact. Exact-input/filter convolution traces locate remaining reduction differences. Sequential float32 FMA increased first-convolution bit matches and reduced some end-to-end scalar errors, but still failed the gate, so that convolution experiment was reverted. A reciprocal-multiply time-grid experiment worsened filter parity and was also reverted. Filter generation and convolution arithmetic are unchanged in this checkpoint.
+
+Use generator `--trace-output` for a transient raw-convolution/pooling trace and `--norm-output` for the permanent isolated fixture. Set `GO_PHERENCE_SINCNET_TRACE` to run `TestSincNetReductionDiagnostic`; it reports errors and is not a qualification test. Ordinary tests now skip that optional diagnostic as well as the strict gate. [Repair verification](../benchmarks/speech-foundations/sincnorm-verification.json) records the trace-enabled test run, retained failures, source hashes/licence, exact-rounding regression and focused checks/vet/builds/arm64 cross-build. SincNet stays disconnected; no trained checkpoint, GPU, private audio, service or new SIMD workload ran.
+
 ## Segmentation head and recurrent-feature composition
 
 `NewSegmentationHead(ctx, cfg, layers, classifier)` validates and copies row-major weights and biases for zero to four hidden Linear/leaky-ReLU layers, then a classifier over the configured powerset classes. Input/hidden width is bounded to 512; output geometry derives from 1..8 local speaker slots. Every hidden layer uses negative slope `0.01`. The classifier has no activation before last-axis log-softmax. Zero hidden layers map recurrent features directly through the classifier. No checkpoint geometry is inferred.

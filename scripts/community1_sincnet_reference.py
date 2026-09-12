@@ -31,6 +31,8 @@ def main():
     p.add_argument("--sincnet", required=True)
     p.add_argument("--receptive-field", required=True)
     p.add_argument("--output", required=True)
+    p.add_argument("--trace-output", help="optional diagnostic raw convolution/pool boundaries")
+    p.add_argument("--norm-output", help="optional isolated normalization inputs/outputs")
     args = p.parse_args()
     source = checked(args.sincnet, SINC_SHA)
     checked(args.receptive_field, RF_SHA)
@@ -82,6 +84,8 @@ def main():
                    "Conv": [{"Weight": c.weight.flatten().tolist(), "Bias": c.bias.tolist()} for c in model.conv1d[1:]]}
         filters = model.conv1d[0].filterbank.filters().flatten().tolist()
         cases = []
+        traces = []
+        norms = []
         for stride, length, kind in [(10, 1531, "wave"), (10, 1540, "impulse"),
                                       (10, 2000, "silence"), (10, 2000, "constant"), (1, 600, "wave"),
                                       (10, 2000, "broadband"), (1, 600, "broadband")]:
@@ -99,12 +103,27 @@ def main():
             elif kind == "constant":
                 x.fill_(0.2)
             y = model.wav_norm1d(x[None, None, :])
+            if args.norm_output:
+                norms.append({"stride": stride, "kind": kind, "stage": -1, "channels": 1, "frames": length,
+                              "input": x.tolist(), "output": y.flatten().tolist(), "norm": norm(model.wav_norm1d)})
             boundaries = [{"stage": -1, "channels": 1, "frames": length, "values": y.flatten().tolist()}]
+            stages = []
             for index, (conv, pool, normalization) in enumerate(zip(model.conv1d, model.pool1d, model.norm1d)):
+                before = y
                 y = conv(y)
+                raw = y
                 if index == 0:
                     y = y.abs()
-                y = F.leaky_relu(normalization(pool(y)))
+                pooled = pool(y)
+                if args.trace_output:
+                    stages.append({"input": before.flatten().tolist(), "input_frames": before.shape[2],
+                                   "convolution": raw.flatten().tolist(), "convolution_frames": raw.shape[2],
+                                   "pooled": pooled.flatten().tolist(), "pooled_frames": pooled.shape[2]})
+                normalized = normalization(pooled)
+                if args.norm_output:
+                    norms.append({"stride": stride, "kind": kind, "stage": index, "channels": pooled.shape[1], "frames": pooled.shape[2],
+                                  "input": pooled.flatten().tolist(), "output": normalized.flatten().tolist(), "norm": norm(normalization)})
+                y = F.leaky_relu(normalized)
                 boundaries.append({"stage": index, "channels": y.shape[1], "frames": y.shape[2], "values": y.flatten().tolist()})
             actual = model(x[None, None, :])
             if not torch.equal(actual, y):
@@ -114,6 +133,8 @@ def main():
                     "Step": 27 * stride,
                     "FirstCenter": rf.multi_conv_receptive_field_center(0, kernels, steps, [0] * 6, [1] * 6),
                     "ReceptiveField": rf.multi_conv_receptive_field_size(1, kernels, steps, [0] * 6, [1] * 6)}
+            if args.trace_output:
+                traces.append({"stride": stride, "kind": kind, "stages": stages})
             cases.append({"stride": stride, "kind": kind, "input": x.tolist(), "grid": grid,
                           "boundaries": boundaries, "output": y.transpose(1, 2).flatten().tolist()})
     result = {"schema": 1, "reference": {"pyannote_commit": "b749285c5cdd4636b2edc7f766f1352c8dde9369",
@@ -126,6 +147,12 @@ def main():
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     encoded = (json.dumps(result, separators=(",", ":")) + "\n").encode()
     Path(args.output).write_bytes(gzip.compress(encoded, mtime=0))
+    if args.trace_output:
+        Path(args.trace_output).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.trace_output).write_bytes(gzip.compress((json.dumps({"schema": 1, "reference": result["reference"], "cases": traces}, separators=(",", ":")) + "\n").encode(), mtime=0))
+    if args.norm_output:
+        Path(args.norm_output).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.norm_output).write_bytes(gzip.compress((json.dumps({"schema": 1, "reference": result["reference"], "cases": norms}, separators=(",", ":")) + "\n").encode(), mtime=0))
     print(f"wrote {len(cases)} SincNet synthetic cases")
 
 

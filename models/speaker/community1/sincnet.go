@@ -275,9 +275,11 @@ func (m *SincNet) ForwardObserved(ctx context.Context, pcm []float32, mode SincN
 }
 
 // Population (biased) variance across time independently per channel, epsilon
-// 1e-5, affine parameters. Float64 mean/variance reductions are rounded to
-// float32, then float32 affine scale/shift and FMA reproduce Torch ordering.
-// Low-variance/narrow-band reduction sensitivity remains an open parity gate.
+// 1e-5, affine parameters. Pinned Torch contiguous BatchNorm statistics use a
+// float64 sum, rounded float32 mean, float32 centred squares accumulated into
+// float64, then rounded float32 variance sum/division. Its affine beta is an
+// FMA, as is output scale/shift. See testdata/sincnet-norm-reference.json.gz.
+// Full SincNet convolution/filter parity remains an open strict gate.
 func sincNetNorm(ctx context.Context, x []float32, channels, frames int, norm SincNetNorm) error {
 	for channel := 0; channel < channels; channel++ {
 		if err := ctx.Err(); err != nil {
@@ -293,7 +295,7 @@ func sincNetNorm(ctx context.Context, x []float32, channels, frames int, norm Si
 			}
 			mean += float64(value)
 		}
-		mean /= float64(frames)
+		mean = float64(float32(mean / float64(frames)))
 		variance := float64(0)
 		for i, value := range row {
 			if i%4096 == 0 {
@@ -301,25 +303,64 @@ func sincNetNorm(ctx context.Context, x []float32, channels, frames int, norm Si
 					return err
 				}
 			}
-			delta := float64(value) - mean
-			variance += delta * delta
+			delta := value - float32(mean)
+			variance += float64(delta * delta)
 		}
-		variance /= float64(frames)
+		variance = float64(float32(variance) / float32(frames))
 		// Torch's CPU instance norm applies one affine scale/shift after
 		// computing float32 mean/inverse standard deviation.
 		inverse := float32(1 / math.Sqrt(float64(float32(variance))+1e-5))
 		scale := inverse * norm.Weight[channel]
-		shift := norm.Bias[channel] - float32(mean)*scale
+		shift := sincNetFMA32(-float32(mean), scale, norm.Bias[channel])
 		for i, value := range row {
 			if i%4096 == 0 {
 				if err := ctx.Err(); err != nil {
 					return err
 				}
 			}
-			row[i] = float32(math.FMA(float64(value), float64(scale), float64(shift)))
+			row[i] = sincNetFMA32(value, scale, shift)
 		}
 	}
 	return finiteLSTM(ctx, x)
+}
+
+// Products of two finite float32 values are exact and in range in float64.
+// TwoSum recovers the rounding residual of that product plus c. If nonzero,
+// and the rounded sum is exactly a float32 midpoint, nudge toward the exact
+// value before narrowing. Non-midpoint sums are left unchanged.
+// No specialized assembly or performance claim; tests use an exact big.Float
+// oracle including normal/subnormal/overflow/cancellation boundaries.
+func sincNetFMA32(a, b, c float32) float32 {
+	product := float64(float64(a) * float64(b))
+	sum := float64(product + float64(c))
+	if math.IsNaN(sum) || math.IsInf(sum, 0) {
+		return float32(math.FMA(float64(a), float64(b), float64(c)))
+	}
+	part := float64(sum - product)
+	residual := float64((product - float64(sum-part)) + (float64(c) - part))
+	rounded := float32(sum)
+	if residual == 0 || float64(rounded) == sum {
+		return rounded
+	}
+	var midpoint float64
+	if math.IsInf(float64(rounded), 0) {
+		midpoint = math.Copysign(float64(math.MaxFloat32)+math.Ldexp(1, 103), sum)
+	} else {
+		direction := float32(math.Inf(1))
+		if sum < float64(rounded) {
+			direction = float32(math.Inf(-1))
+		}
+		neighbor := math.Nextafter32(rounded, direction)
+		if math.IsInf(float64(neighbor), 0) {
+			midpoint = math.Copysign(float64(math.MaxFloat32)+math.Ldexp(1, 103), sum)
+		} else {
+			midpoint = (float64(rounded) + float64(neighbor)) * .5
+		}
+	}
+	if sum == midpoint {
+		sum = math.Nextafter(sum, math.Copysign(math.Inf(1), residual))
+	}
+	return float32(sum)
 }
 
 func sincNetConvolve(ctx context.Context, x []float32, in, n int, weight, bias []float32, out, kernel, stride int, mode SincNetMode) ([]float32, int, error) {
