@@ -32,6 +32,11 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		return nil, err
 	}
 	defer vkRelease()
+	return vkBufAllocLocked(sizeBytes)
+}
+
+// Caller owns vkLane through construction/publication (also used by arenas).
+func vkBufAllocLocked(sizeBytes int) (*VkBuf, error) {
 	if err := vkStatusLocked(); err != nil {
 		return nil, err
 	}

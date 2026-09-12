@@ -16,18 +16,19 @@ var ErrVulkanLimit = errors.New("Vulkan device limit admission failed")
 // WorkgroupCount. This is not full shader validation. No optional features are
 // enabled or promised (including float16/int8/subgroups).
 type VulkanDeviceLimits struct {
-	APIVersion                  uint32
-	StorageBufferRange          uint32
-	MemoryAllocationCount       uint32
-	PushConstantBytes           uint32
-	BoundDescriptorSets         uint32
-	PerStageStorageBuffers      uint32
-	PerStageResources           uint32
-	DescriptorSetStorageBuffers uint32
-	WorkgroupCount              [3]uint32
-	WorkgroupSize               [3]uint32
-	WorkgroupInvocations        uint32
-	SharedMemoryBytes           uint32
+	APIVersion                   uint32
+	StorageBufferRange           uint32
+	MemoryAllocationCount        uint32
+	StorageBufferOffsetAlignment uint64
+	PushConstantBytes            uint32
+	BoundDescriptorSets          uint32
+	PerStageStorageBuffers       uint32
+	PerStageResources            uint32
+	DescriptorSetStorageBuffers  uint32
+	WorkgroupCount               [3]uint32
+	WorkgroupSize                [3]uint32
+	WorkgroupInvocations         uint32
+	SharedMemoryBytes            uint32
 }
 
 var vkLimits VulkanDeviceLimits
@@ -55,7 +56,7 @@ func VulkanLimits() (VulkanDeviceLimits, error) {
 func vkLimitsFromProperties(p vkDeviceProperties) (VulkanDeviceLimits, error) {
 	l := p.limits
 	out := VulkanDeviceLimits{APIVersion: p.apiVersion, StorageBufferRange: l.maxStorageBufferRange, MemoryAllocationCount: l.maxMemoryAllocationCount,
-		PushConstantBytes: l.maxPushConstantsSize, BoundDescriptorSets: l.maxBoundDescriptorSets,
+		PushConstantBytes: l.maxPushConstantsSize, BoundDescriptorSets: l.maxBoundDescriptorSets, StorageBufferOffsetAlignment: l.minStorageBufferOffsetAlignment,
 		PerStageStorageBuffers: l.maxPerStageDescriptorStorageBuffers, PerStageResources: l.maxPerStageResources,
 		DescriptorSetStorageBuffers: l.maxDescriptorSetStorageBuffers, WorkgroupCount: l.maxComputeWorkGroupCount,
 		WorkgroupSize: l.maxComputeWorkGroupSize, WorkgroupInvocations: l.maxComputeWorkGroupInvocations,
@@ -72,6 +73,9 @@ func (l VulkanDeviceLimits) validate() error {
 	}
 	if l.StorageBufferRange == 0 || l.MemoryAllocationCount == 0 || l.PushConstantBytes == 0 || l.BoundDescriptorSets == 0 || l.PerStageStorageBuffers == 0 || l.PerStageResources == 0 || l.DescriptorSetStorageBuffers == 0 || l.WorkgroupInvocations == 0 || l.SharedMemoryBytes == 0 {
 		return fmt.Errorf("%w: incomplete core limits", ErrVulkanLimit)
+	}
+	if a := l.StorageBufferOffsetAlignment; a == 0 || a&(a-1) != 0 {
+		return fmt.Errorf("%w: invalid storage offset alignment", ErrVulkanLimit)
 	}
 	for i := 0; i < 3; i++ {
 		if l.WorkgroupCount[i] == 0 || l.WorkgroupSize[i] == 0 {

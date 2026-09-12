@@ -11,7 +11,7 @@ import (
 
 func offlineProperties() vkDeviceProperties {
 	return vkDeviceProperties{apiVersion: 1<<22 | 3<<12, limits: vkPhysicalDeviceLimits{
-		maxStorageBufferRange: 128 << 20, maxPushConstantsSize: 128, maxBoundDescriptorSets: 4, maxMemoryAllocationCount: 4096,
+		maxStorageBufferRange: 128 << 20, maxPushConstantsSize: 128, maxBoundDescriptorSets: 4, maxMemoryAllocationCount: 4096, minStorageBufferOffsetAlignment: 16,
 		maxPerStageDescriptorStorageBuffers: 16, maxPerStageResources: 128, maxDescriptorSetStorageBuffers: 16,
 		maxComputeSharedMemorySize: 16384, maxComputeWorkGroupCount: [3]uint32{65535, 65535, 65535},
 		maxComputeWorkGroupInvocations: 256, maxComputeWorkGroupSize: [3]uint32{256, 256, 64}}}
@@ -57,11 +57,12 @@ func TestVulkanOfflineLimitsABI(t *testing.T) {
 	for off, value := range values {
 		binary.LittleEndian.PutUint32(bytes[off:off+4], value)
 	}
+	binary.LittleEndian.PutUint64(bytes[624:], 64)
 	got, err := vkLimitsFromProperties(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := VulkanDeviceLimits{APIVersion: 1<<22 | 3<<12, StorageBufferRange: 101, MemoryAllocationCount: 115, PushConstantBytes: 102, BoundDescriptorSets: 103, PerStageStorageBuffers: 104, PerStageResources: 105, DescriptorSetStorageBuffers: 106, SharedMemoryBytes: 107, WorkgroupCount: [3]uint32{108, 109, 110}, WorkgroupInvocations: 111, WorkgroupSize: [3]uint32{112, 113, 114}}
+	want := VulkanDeviceLimits{APIVersion: 1<<22 | 3<<12, StorageBufferRange: 101, MemoryAllocationCount: 115, StorageBufferOffsetAlignment: 64, PushConstantBytes: 102, BoundDescriptorSets: 103, PerStageStorageBuffers: 104, PerStageResources: 105, DescriptorSetStorageBuffers: 106, SharedMemoryBytes: 107, WorkgroupCount: [3]uint32{108, 109, 110}, WorkgroupInvocations: 111, WorkgroupSize: [3]uint32{112, 113, 114}}
 	if got != want {
 		t.Fatalf("driver decode %+v want%+v", got, want)
 	}
@@ -105,6 +106,8 @@ func TestVulkanOfflineLimitsRejectIncomplete(t *testing.T) {
 		{"variant", func(l *VulkanDeviceLimits) { l.APIVersion |= 1 << 29 }},
 		{"range", func(l *VulkanDeviceLimits) { l.StorageBufferRange = 0 }},
 		{"allocation count", func(l *VulkanDeviceLimits) { l.MemoryAllocationCount = 0 }},
+		{"alignment zero", func(l *VulkanDeviceLimits) { l.StorageBufferOffsetAlignment = 0 }},
+		{"alignment nonpower", func(l *VulkanDeviceLimits) { l.StorageBufferOffsetAlignment = 3 }},
 		{"push", func(l *VulkanDeviceLimits) { l.PushConstantBytes = 0 }},
 		{"sets", func(l *VulkanDeviceLimits) { l.BoundDescriptorSets = 0 }},
 		{"stage storage", func(l *VulkanDeviceLimits) { l.PerStageStorageBuffers = 0 }},

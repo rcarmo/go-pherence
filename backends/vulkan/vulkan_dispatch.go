@@ -363,8 +363,32 @@ func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY,
 		return err
 	}
 	defer vkRelease()
+	if len(bufs) > 16 {
+		return fmt.Errorf("Vulkan binding count exceeds16")
+	}
+	bindings := make([]vkBufferBinding, len(bufs))
+	for i, b := range bufs {
+		bindings[i].buffer = b
+		if b != nil {
+			bindings[i].size = b.size
+		}
+	}
+	return k.dispatchBindingsLocked(ctx, groupsX, groupsY, groupsZ, bindings, pushData)
+}
+
+type vkBufferBinding struct {
+	buffer       *VkBuf
+	offset, size uint64
+}
+
+// Caller owns the lane. Buffer owners (not views) enter pending retention.
+func (k *VkComputeKernel) dispatchBindingsLocked(ctx context.Context, groupsX, groupsY, groupsZ uint32, bindings []vkBufferBinding, pushData unsafe.Pointer) error {
 	if err := vkStatusLocked(); err != nil {
 		return err
+	}
+	bufs := make([]*VkBuf, len(bindings))
+	for i, binding := range bindings {
+		bufs[i] = binding.buffer
 	}
 	if k != nil && k.closed {
 		return ErrVulkanClosed
@@ -408,6 +432,14 @@ func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY,
 	if err := vkCheckDispatchLimitsLocked(k, groupsX, groupsY, groupsZ, bufs); err != nil {
 		return err
 	}
+	for _, b := range bindings {
+		if b.size == 0 || b.offset >= b.buffer.size || b.size > b.buffer.size-b.offset || b.offset%vkLimits.StorageBufferOffsetAlignment != 0 {
+			return fmt.Errorf("Vulkan descriptor range/alignment invalid")
+		}
+		if err := vkCheckBufferLimitLocked(b.size); err != nil {
+			return err
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -433,7 +465,7 @@ func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY,
 	writes := make([]writeDS, len(bufs))
 	bufInfos := make([]bufInfo, len(bufs))
 	for i, buf := range bufs {
-		bufInfos[i] = bufInfo{buffer: buf.buf, rng: buf.size} // explicit checked range
+		bufInfos[i] = bufInfo{buffer: buf.buf, offset: bindings[i].offset, rng: bindings[i].size} // explicit checked range
 		writes[i] = writeDS{
 			sType:           VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			dstSet:          k.descSet,
