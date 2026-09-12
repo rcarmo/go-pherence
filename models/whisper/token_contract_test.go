@@ -21,6 +21,7 @@ func TestCheckedTimestampPinnedTokenizers(t *testing.T) {
 			Model         string `json:"model"`
 			TokenizerSHA  string `json:"tokenizer_sha256"`
 			GenerationSHA string `json:"generation_sha256"`
+			ConfigSHA     string `json:"config_sha256"`
 		} `json:"tokenizers"`
 	}
 	data, err := os.ReadFile("../../docs/speech-generation-manifest.json")
@@ -56,6 +57,17 @@ func TestCheckedTimestampPinnedTokenizers(t *testing.T) {
 			tok, err := LoadTokenizer(filepath.Join(root, item.Model+"-tokenizer.json"))
 			if err != nil {
 				t.Fatal(err)
+			}
+			parsed, err := ParseModelConfigChecked(read("config", item.ConfigSHA))
+			if err != nil || parsed != cfg {
+				t.Fatalf("model config mismatch: %+v %v", parsed, err)
+			}
+			policy, err := ParseGenerationConfigChecked(genData, parsed, tok)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if policy.maxLength != 448 || policy.maxInitial != 50 || len(policy.beginSuppress) != 2 || policy.beginSuppress[1] != 50257 {
+				t.Fatal("generation defaults not imported")
 			}
 			v, err := checkedTimestampVocabulary(cfg, tok, "pt")
 			if err != nil {

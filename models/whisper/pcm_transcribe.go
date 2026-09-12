@@ -13,8 +13,9 @@ import (
 type PCMTranscribeOptions struct {
 	Language                 string
 	OverlapSamples           int64
-	MaxNewTokens             int // zero uses the model position limit minus the 3-token prompt
-	MaxInitialTimestampIndex int // 20ms units; zero forces an initial 0.00 timestamp
+	MaxNewTokens             int                      // zero uses the model position limit minus the 3-token prompt
+	MaxInitialTimestampIndex int                      // 20ms units; zero forces 0.00 unless Generation supplies it
+	Generation               *CheckedGenerationConfig // optional immutable HF generation policy; no decoder mutation
 }
 
 // WindowTranscript contains raw per-window output in canonical PCM seconds.
@@ -70,6 +71,10 @@ func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader,
 	if err != nil {
 		return err
 	}
+	opts, suppress, beginSuppress, err := resolvePCMGeneration(w.Config, v, opts, w.Decoder.SuppressTokens, w.Decoder.BeginSuppressTokens)
+	if err != nil {
+		return err
+	}
 	if opts.MaxNewTokens < 0 || opts.MaxNewTokens > w.Config.MaxDecoderLength-3 || opts.MaxInitialTimestampIndex < 0 || opts.MaxInitialTimestampIndex > 1500 {
 		return fmt.Errorf("invalid checked generation bounds")
 	}
@@ -105,7 +110,7 @@ func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader,
 			}
 		}
 		state := NewDecoderState(w.Config, output, (frames+1)/2, w.Decoder)
-		return decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, w.Decoder.SuppressTokens, w.Decoder.BeginSuppressTokens, func(token int) ([]float32, error) {
+		return decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, func(token int) ([]float32, error) {
 			if state.Pos >= w.Config.MaxDecoderLength {
 				return nil, ErrGenerationLimit
 			}
