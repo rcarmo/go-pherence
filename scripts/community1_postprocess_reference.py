@@ -17,6 +17,8 @@ import warnings
 from community1_reconstruct_reference import HASHES, CORE_HASHES
 CLUSTER_SHA = "6031fb7c21277a7e9901ef2cdaed7d5cd69f7ef45508dc4b45e82ce0da3c8fba"
 VBX_SHA = "a8c644feea4b381f9c1e7da72e0e47775c1fd482067e686801ddc16e5cac3c0e"
+SKLEARN_VERSION = "1.9.0"
+KMEANS_SHA = "7d9cd3c75f1c40616223fbceb23bc1e115de043b355ab90716898301756d746c"
 
 
 def main():
@@ -34,6 +36,11 @@ def main():
     from scipy.spatial.distance import cdist
     from scipy.optimize import linear_sum_assignment
     from scipy.special import logsumexp,softmax
+    from sklearn.cluster import KMeans
+    import sklearn
+    import sklearn.cluster._kmeans as sklearn_kmeans
+    if sklearn.__version__ != SKLEARN_VERSION:raise SystemExit("scikit-learn version mismatch")
+    if hashlib.sha256(Path(sklearn_kmeans.__file__).read_bytes()).hexdigest()!=KMEANS_SHA:raise SystemExit("scikit-learn KMeans source mismatch")
     from einops import rearrange
     from pyannote.core import Annotation,Segment,Timeline,SlidingWindow,SlidingWindowFeature
     from pyannote.core.utils.generators import string_generator
@@ -66,12 +73,11 @@ def main():
         def __call__(self,x):
             y=2*x/np.linalg.norm(x,axis=1,keepdims=True)
             return 2*y/np.linalg.norm(y,axis=1,keepdims=True)
-    def forbidden_kmeans(*args,**kwargs):raise RuntimeError("KMeans fallback requested")
-    scope["KMeans"]=forbidden_kmeans
+    scope["KMeans"]=KMeans
     flat=lambda x:[None if np.isnan(v) else float(v) for v in np.asarray(x).flatten()]
     turns=lambda x:[dict(Start=s.start,End=s.end,Speaker=int(label)) for s,_,label in x.itertracks(yield_label=True)]
     cases=[]
-    for name,constrained,fa,fb,mode in [("clustered_constrained",True,.07,.8,0),("clustered_unconstrained",False,1.,.1,0),("overlap_stable",True,1.,.1,1),("single",True,.07,.8,2),("single_unmet_count",True,.07,.8,2),("silence",True,.07,.8,3),("rounded_silence",True,.07,.8,4),("unknown_count",True,.07,.8,5),("unknown_embedding_single",True,.07,.8,6)]:
+    for name,constrained,fa,fb,mode in [("clustered_constrained",True,.07,.8,0),("clustered_unconstrained",False,1.,.1,0),("clustered_forced_three",True,.07,.8,7),("clustered_forced_one",True,.07,.8,8),("overlap_stable",True,1.,.1,1),("single",True,.07,.8,2),("single_unmet_count",True,.07,.8,2),("silence",True,.07,.8,3),("rounded_silence",True,.07,.8,4),("unknown_count",True,.07,.8,5),("unknown_embedding_single",True,.07,.8,6)]:
         chunks,frames,speakers,dim=3,8,2,4
         seg=np.zeros((chunks,frames,speakers),dtype=np.float32)
         seg[:,:4,0]=1;seg[:,4:,1]=1
@@ -84,7 +90,8 @@ def main():
         if mode==5:seg[0,0,1]=np.nan
         if mode==6:seg[:]=0;seg[0,:4,0]=1;emb[1:]=np.nan
         minimum,maximum,num=1,4,0
-        if name=="single_unmet_count":num=3;minimum=maximum=3
+        if name in ("single_unmet_count","clustered_forced_three"):num=3;minimum=maximum=3
+        if name=="clustered_forced_one":num=1;minimum=maximum=1
         cfg=dict(Reconstruction=dict(Chunks=chunks,Frames=frames,Speakers=speakers,Start=0.,ChunkDuration=duration,ChunkStep=step,FrameDuration=.25,FrameStep=frame_step,MaxSpeakers=maximum,TiePolicy=1),EmbeddingDimension=dim,MinSpeakers=minimum,NumSpeakers=num,AHCThreshold=.6,Fa=fa,Fb=fb,MinDurationOff=0.,Constrained=constrained)
         windows=SlidingWindow(start=0.,duration=duration,step=step);grid=SlidingWindow(start=.123,duration=.25,step=frame_step)
         count=countfn(SlidingWindowFeature(seg.copy(),windows),grid,warm_up=(0.,0.));count.data=np.minimum(count.data,maximum).astype(np.int8)
@@ -107,9 +114,15 @@ def main():
             full=reconstruct(SimpleNamespace(to_diarization=stablefn),SlidingWindowFeature(seg.copy(),windows),hard.copy(),count)
             exclusive=reconstruct(SimpleNamespace(to_diarization=stablefn),SlidingWindowFeature(seg.copy(),windows),hard.copy(),ex_count)
             if exclusive.data.shape[1]<full.data.shape[1]:exclusive.data=np.pad(exclusive.data,((0,0),(0,full.data.shape[1]-exclusive.data.shape[1])))
-            entry.update(path="single-training-row" if len(train)==1 else "clustered",training_rows=len(train),training_chunks=ci.tolist(),training_speakers=si.tolist(),clusters=len(centers),centroids=flat(centers),scores=flat(scores),labels=hard.flatten().astype(int).tolist(),classes=full.data.shape[1],full=full.data.flatten().astype(int).tolist(),exclusive=exclusive.data.flatten().astype(int).tolist(),full_turns=turns(binarize()(full)),exclusive_turns=turns(binarize()(exclusive)),constraint_satisfied=minimum<=len(centers)<=maximum,reference_full=flat(source_full),reference_exclusive=flat(source_ex))
+            path="single-training-row" if len(train)==1 else "clustered"
+            kmeans_labels=[]
+            if len(train)>1 and num and num!=2:
+                path="clustered-kmeans"
+                normed=train.astype(np.float64);normed/=np.linalg.norm(normed,axis=1,keepdims=True)
+                kmeans_labels=KMeans(n_clusters=num,n_init=3,random_state=42,copy_x=False).fit_predict(normed).astype(int).tolist()
+            entry.update(path=path,training_rows=len(train),training_chunks=ci.tolist(),training_speakers=si.tolist(),clusters=len(centers),centroids=flat(centers),scores=flat(scores),labels=hard.flatten().astype(int).tolist(),kmeans_labels=kmeans_labels,classes=full.data.shape[1],full=full.data.flatten().astype(int).tolist(),exclusive=exclusive.data.flatten().astype(int).tolist(),full_turns=turns(binarize()(full)),exclusive_turns=turns(binarize()(exclusive)),constraint_satisfied=minimum<=len(centers)<=maximum,reference_full=flat(source_full),reference_exclusive=flat(source_ex))
         cases.append(entry)
-    output=dict(schema=1,source_hashes=hashes,core_hashes=CORE_HASHES,scope="supplied features only; source monolithic clustering plus source/stable reconstruction; no neural inference",cases=cases)
+    output=dict(schema=2,source_hashes=hashes,core_hashes=CORE_HASHES,sklearn={"version":sklearn.__version__,"kmeans_sha256":hashlib.sha256(Path(sklearn_kmeans.__file__).read_bytes()).hexdigest(),"random_state":42,"n_init":3},scope="supplied features only; source monolithic clustering including forced-count KMeans plus source/stable reconstruction; no neural inference",cases=cases)
     Path(args.output).parent.mkdir(parents=True,exist_ok=True);Path(args.output).write_text(json.dumps(output,indent=2,allow_nan=False)+"\n")
     print("postprocess cases:",[(c['name'],c['path'],c['clusters']) for c in cases])
 

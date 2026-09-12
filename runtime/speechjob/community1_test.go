@@ -232,6 +232,24 @@ func TestDiarizationDocumentRejectsAndRoundTrips(t *testing.T) {
 	if e != nil || !reflect.DeepEqual(read, good) {
 		t.Fatal(read, e)
 	}
+	kmeansResult := communityFixtureResult(3361, cfg)
+	kmeansResult.Postprocess.Path = "clustered-kmeans"
+	kmeansResult.Postprocess.TrainingRows = 3
+	kmeansResult.Postprocess.Clusters = 3
+	kmeansResult.Postprocess.ConstraintSatisfied = true
+	kmeansResult.Postprocess.Timeline.Classes = 3
+	kmeans, e := diarizationDocument(ctx, kmeansResult, cfg.PCM, 3361, key)
+	if e != nil || kmeans.Path != "clustered-kmeans" {
+		t.Fatal("forced-count document", kmeans, e)
+	}
+	encoded, e := json.Marshal(kmeans)
+	if e != nil {
+		t.Fatal(e)
+	}
+	decoded, e := ReadDiarizationJSON(ctx, bytes.NewReader(append(encoded, '\n')))
+	if e != nil || !reflect.DeepEqual(decoded, kmeans) {
+		t.Fatal("forced-count document round trip", decoded, e)
+	}
 	for _, kind := range []string{"schema", "experimental", "key", "windows", "grid", "frames", "classes", "path", "rows", "constraints", "ties", "nan", "order", "label", "extent", "speaker-overlap"} {
 		r := communityFixtureResult(3361, cfg)
 		d, e := diarizationDocument(ctx, r, cfg.PCM, 3361, key)

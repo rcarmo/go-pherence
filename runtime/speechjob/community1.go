@@ -100,9 +100,10 @@ func finite(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 // TimelineClasses may include padded count columns; it is distinct from Clusters.
 // Even ExclusiveTurns may overlap when MinDurationOff fills gaps. Experimental
 // is always true. ConstraintSatisfied=false is retained on silence/single-row
-// paths; clustered count failures return ErrSpeakerCountFallbackRequired before
-// a result exists. NumSpeakers overrides min/max, matching the model contract.
-// Geometry validation is not neural qualification.
+// paths. Multirow count mismatches use the bounded model-private KMeans path and
+// are recorded as "clustered-kmeans"; ordinary VBx output is "clustered".
+// NumSpeakers overrides min/max, matching the model contract. Geometry
+// validation is not neural qualification.
 type DiarizationDocument struct {
 	Schema              int                     `json:"schema"`
 	Experimental        bool                    `json:"experimental"`
@@ -137,7 +138,7 @@ func community1Stage(cfg Community1StageConfig, infer communityInfer) Stage {
 	identity, _ := json.Marshal(struct {
 		Schema string
 		Config Community1StageConfig
-	}{"speechjob-community1-rawturns-source-timing-v2", cfg})
+	}{"speechjob-community1-rawturns-source-timing-kmeans-v3", cfg})
 	version := hash(identity)
 	return Stage{Name: "diarization", Version: version, Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
 		if e := ctx.Err(); e != nil {
@@ -274,7 +275,7 @@ func validateDiarizationDocument(ctx context.Context, d DiarizationDocument) err
 		if d.TrainingRows != 1 || d.Clusters != 1 {
 			return ErrCorrupt
 		}
-	case "clustered":
+	case "clustered", "clustered-kmeans":
 		if d.TrainingRows < 2 || d.Clusters < 1 || d.Clusters > d.TrainingRows || !d.ConstraintSatisfied {
 			return ErrCorrupt
 		}

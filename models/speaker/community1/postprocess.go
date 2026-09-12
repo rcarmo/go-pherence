@@ -15,9 +15,6 @@ var (
 	// clean embedding row was admitted. Upstream averages an empty array to NaNs;
 	// this checked API deliberately fails rather than inventing a centroid.
 	ErrNoTrainingEmbeddings = errors.New("speech detected without training embeddings")
-	// ErrSpeakerCountFallbackRequired means source would invoke KMeans. That
-	// fallback is not implemented here; no silent speaker-count substitution.
-	ErrSpeakerCountFallbackRequired = errors.New("speaker-count KMeans fallback required")
 )
 
 // PostprocessConfig is explicit inference/postprocessing policy. Geometry and
@@ -39,23 +36,26 @@ type PostprocessConfig struct {
 // or centroid/annotation-label reordering. Timeline may pad extra class columns
 // when counts exceed surviving centroids. ConstraintSatisfied concerns centroid
 // count; a one-training-row source fallback can return false without KMeans.
-// Path is "silence", "single-training-row" or "clustered". Silence returns
-// zero centroids, -2 hard labels, an empty activity width and empty turn lists.
+// Path is "silence", "single-training-row", "clustered" or
+// "clustered-kmeans". Silence returns zero centroids, -2 hard labels, an empty
+// activity width and empty turn lists. KMeansLabels is populated only by the
+// forced-count branch; InitialLabels always retains the AHC labels.
 type PostprocessResult struct {
-	Path                                            string
-	TrainingRows, Clusters                          int
-	ConstraintSatisfied                             bool
-	TrainingChunks, TrainingSpeakers, InitialLabels []int
-	Centroids, SoftScores                           []float64
-	HardLabels                                      []int
-	Timeline                                        *ActivityTimeline
-	FullTurns, ExclusiveTurns                       []SpeakerTurn
+	Path                                                          string
+	TrainingRows, Clusters                                        int
+	ConstraintSatisfied                                           bool
+	TrainingChunks, TrainingSpeakers, InitialLabels, KMeansLabels []int
+	Centroids, SoftScores                                         []float64
+	HardLabels                                                    []int
+	Timeline                                                      *ActivityTimeline
+	FullTurns, ExclusiveTurns                                     []SpeakerTurn
 }
 
 // PostprocessObserver is a synchronous stage notification, not a partial result.
 // Error aborts and is preserved; context is checked before/after the callback.
-// Stages on the main path: count, filter, ahc, plda, vbx, centroids, assignment,
-// reconstruction, turns. Silence exits after count; single-row skips ahc..vbx.
+// Stages on the main path: count, filter, ahc, plda, vbx, optional kmeans,
+// centroids, assignment, reconstruction, turns. Silence exits after count;
+// single-row skips ahc..vbx.
 type PostprocessObserver func(stage string) error
 
 func PostprocessCommunity1(ctx context.Context, segmentations, embeddings []float32, plda *PreparedPLDA, cfg PostprocessConfig) (*PostprocessResult, error) {
@@ -77,8 +77,9 @@ func PostprocessCommunity1(ctx context.Context, segmentations, embeddings []floa
 // no source-PTS mapping/clipping/naming. Positive gap filling can overlap even
 // exclusive intervals. This component has no PCM entry point; the separate
 // ExperimentalDiarization wrapper composes PCM models and this postprocessor.
-// No services, GPU or KMeans. Inputs/model must remain immutable; no partial
-// result escapes errors.
+// The model-private bounded KMeans branch is used only when VBx's automatic
+// cluster count falls outside the effective requested range. No services or GPU.
+// Inputs/model must remain immutable; no partial result escapes errors.
 func PostprocessCommunity1Observed(ctx context.Context, segmentations, embeddings []float32, plda *PreparedPLDA, cfg PostprocessConfig, observe PostprocessObserver) (*PostprocessResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -234,17 +235,35 @@ func PostprocessCommunity1Observed(ctx context.Context, segmentations, embedding
 		}
 		result.Centroids = centers.Centroids
 		result.Clusters = len(centers.SpeakerIndices)
+		constrained := cfg.Constrained
+		if result.Clusters < minSpeakers || result.Clusters > maxSpeakers {
+			target := minSpeakers
+			if result.Clusters > maxSpeakers {
+				target = maxSpeakers
+			}
+			result.KMeansLabels, err = forcedKMeansLabels(ctx, train.Embeddings, result.TrainingRows, dim, target)
+			if err != nil {
+				return nil, err
+			}
+			result.Centroids, err = originalKMeansCentroids(ctx, train.Embeddings, result.KMeansLabels, result.TrainingRows, dim, target)
+			if err != nil {
+				return nil, err
+			}
+			result.Clusters = target
+			result.Path = "clustered-kmeans"
+			constrained = false
+			if err := notify("kmeans"); err != nil {
+				return nil, err
+			}
+		}
 		if err := notify("centroids"); err != nil {
 			return nil, err
-		}
-		if result.Clusters < minSpeakers || result.Clusters > maxSpeakers {
-			return nil, fmt.Errorf("%w: automatic=%d requested=%d..%d", ErrSpeakerCountFallbackRequired, result.Clusters, minSpeakers, maxSpeakers)
 		}
 		originals, err := widenPostprocess(ctx, embeddings)
 		if err != nil {
 			return nil, err
 		}
-		assignment, err := AssignCosineSpeakers(ctx, originals, result.Centroids, segmentations, CosineAssignmentConfig{c.Chunks, c.Speakers, result.Clusters, dim, c.Frames, cfg.Constrained})
+		assignment, err := AssignCosineSpeakers(ctx, originals, result.Centroids, segmentations, CosineAssignmentConfig{c.Chunks, c.Speakers, result.Clusters, dim, c.Frames, constrained})
 		if err != nil {
 			return nil, err
 		}

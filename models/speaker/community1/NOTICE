@@ -97,6 +97,32 @@ single-row fallback, returns explicit empty-training/unsupported-count errors,
 and adds owned results and stage notifications. No neural integration.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.
 
+BSD-3-Clause scikit-learn forced-count KMeans (kmeans.go)
+--------------------------------------------------------
+Copyright (c) 2007-2026 The scikit-learn developers.
+All rights reserved.
+Copyright (c) 2026 Rui Carmo (bounded Go adaptation).
+Based on scikit-learn 1.9.0 `sklearn/cluster/_kmeans.py`, SHA256
+7d9cd3c75f1c40616223fbceb23bc1e115de043b355ab90716898301756d746c,
+`_k_means_common.pyx` SHA256
+4b00b0ba8d8317847489c8cae283258e15b8bf7d0ea7067ad06b2a1bde0340c4,
+and `_k_means_lloyd.pyx` SHA256
+8aa6c66d2ea790d420c4da001e44c75f941a69c45c5953f9989ca7b1ed99f894.
+NumPy 2.5.3 RandomState reference uses mtrand binary SHA256
+53a0dea25039fd6e55ce2a6c94789c9273fdfa1cc4bda60dde6e813f455c9bc5.
+Its source sdist SHA256 is
+df2d5874ff183595a4ba404edd04f6bd9b5505c1d7708573f6a6c17489a67563;
+`numpy/_core/src/npysort/selection.cpp` SHA256 is
+228a1bb4b2c47b66855548bdf432337efdfbd7cc27cd7d752d52f25543c227b3.
+Changes: model-private float32 API, 512-row/512-dimension/64-cluster geometry
+plus a 2^28 work bound, context cancellation, NumPy RandomState(42)-compatible
+MT19937 stream, greedy k-means++ with three starts, owned labels and explicit
+finite/nonzero validation. Empty-cluster relocation matches unique single-donor
+and duplicate-only behavior, but fails closed when NumPy's ISA-selected
+`argpartition` would control donor identity/order. This path is used only when
+pinned Community-1 VBx output violates an explicit speaker-count range. Full
+terms are in LICENSE-BSD-SCIKIT-LEARN and LICENSE-BSD-NUMPY.
+
 BSD-style PyTorch contiguous normalization ordering (sincNetNorm)
 --------------------------------------------------------
 Based on PyTorch revision 08187d9e0fba026dc8217405802ab5381dc88d90,

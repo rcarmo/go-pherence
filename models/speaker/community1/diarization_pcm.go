@@ -61,7 +61,9 @@ func PlanDiarizationWindows(samples int64, window, step int) ([]DiarizationWindo
 // DiarizationPCMConfig is explicit experimental policy. MinimumEmbeddingSamples
 // controls overlap-clean mask selection, NOT generic speech validity. The caller
 // must qualify it against the embedding frontend. Training admission remains
-// PostprocessCommunity1's clean ratio0.2; unsupported KMeans/ties are explicit.
+// PostprocessCommunity1's clean ratio0.2. Multirow speaker-count mismatches use
+// pinned bounded KMeans; ambiguous KMeans relocation and reconstruction ties
+// remain explicit.
 // NumSpeakers>0 overrides min/max during postprocessing, matching the underlying
 // explicit count policy. Minimum clean support can exceed available speech and
 // legitimately chooses the all-speech mask; it is not a guaranteed admission.

@@ -23,6 +23,7 @@ type postprocessOracle struct {
 	Clusters, Classes         int
 	Centroids, Scores         []float64
 	Labels                    []int
+	KMeansLabels              []int `json:"kmeans_labels"`
 	Full, Exclusive           []uint8
 	FullTurns                 []SpeakerTurn `json:"full_turns"`
 	ExclusiveTurns            []SpeakerTurn `json:"exclusive_turns"`
@@ -36,18 +37,35 @@ func loadPostprocessOracles(t *testing.T) []postprocessOracle {
 		t.Fatal(err)
 	}
 	var f struct {
-		Schema int
-		Hashes map[string]string `json:"source_hashes"`
-		Cases  []postprocessOracle
+		Schema  int
+		Hashes  map[string]string `json:"source_hashes"`
+		Sklearn struct {
+			Version      string `json:"version"`
+			KMeansSHA256 string `json:"kmeans_sha256"`
+			RandomState  int    `json:"random_state"`
+			NInit        int    `json:"n_init"`
+		}
+		Cases []postprocessOracle
 	}
 	if err := json.Unmarshal(data, &f); err != nil {
 		t.Fatal(err)
 	}
-	if f.Schema != 1 || len(f.Cases) != 9 || f.Hashes["clustering"] != "6031fb7c21277a7e9901ef2cdaed7d5cd69f7ef45508dc4b45e82ce0da3c8fba" || f.Hashes["vbx"] != "a8c644feea4b381f9c1e7da72e0e47775c1fd482067e686801ddc16e5cac3c0e" {
+	if f.Schema != 2 || len(f.Cases) != 11 || f.Hashes["clustering"] != "6031fb7c21277a7e9901ef2cdaed7d5cd69f7ef45508dc4b45e82ce0da3c8fba" || f.Hashes["vbx"] != "a8c644feea4b381f9c1e7da72e0e47775c1fd482067e686801ddc16e5cac3c0e" || f.Sklearn.Version != "1.9.0" || f.Sklearn.KMeansSHA256 != "7d9cd3c75f1c40616223fbceb23bc1e115de043b355ab90716898301756d746c" || f.Sklearn.RandomState != 42 || f.Sklearn.NInit != 3 {
 		t.Fatal("postprocess oracle contract")
 	}
 	return f.Cases
 }
+func postprocessOracleByName(t *testing.T, name string) postprocessOracle {
+	t.Helper()
+	for _, c := range loadPostprocessOracles(t) {
+		if c.Name == name {
+			return c
+		}
+	}
+	t.Fatalf("missing postprocess oracle %q", name)
+	return postprocessOracle{}
+}
+
 func postprocessToyPLDA(t *testing.T) *PreparedPLDA {
 	t.Helper()
 	matrix := make([]float64, 16)
@@ -62,7 +80,16 @@ func postprocessToyPLDA(t *testing.T) *PreparedPLDA {
 }
 func checkPostprocess(t *testing.T, out *PostprocessResult, c postprocessOracle) {
 	t.Helper()
-	if out.Path != c.Path || out.TrainingRows != c.TrainingRows || out.Clusters != c.Clusters || out.ConstraintSatisfied != c.ConstraintSatisfied || !reflect.DeepEqual(out.HardLabels, c.Labels) {
+	sameKMeansLabels := len(out.KMeansLabels) == len(c.KMeansLabels)
+	if sameKMeansLabels {
+		for i := range out.KMeansLabels {
+			if out.KMeansLabels[i] != c.KMeansLabels[i] {
+				sameKMeansLabels = false
+				break
+			}
+		}
+	}
+	if out.Path != c.Path || out.TrainingRows != c.TrainingRows || out.Clusters != c.Clusters || out.ConstraintSatisfied != c.ConstraintSatisfied || !reflect.DeepEqual(out.HardLabels, c.Labels) || !sameKMeansLabels {
 		t.Fatalf("postprocess %s status/labels got%+v want%v", c.Name, out, c.Labels)
 	}
 	closeClustering64(t, out.Centroids, c.Centroids)
@@ -99,7 +126,9 @@ func TestCommunity1PostprocessPinnedOracle(t *testing.T) {
 				t.Fatal("postprocess mutated source")
 			}
 			want := []string{"count", "filter", "ahc", "plda", "vbx", "centroids", "assignment", "reconstruction", "turns"}
-			if c.Path == "silence" {
+			if c.Path == "clustered-kmeans" {
+				want = []string{"count", "filter", "ahc", "plda", "vbx", "kmeans", "centroids", "assignment", "reconstruction", "turns"}
+			} else if c.Path == "silence" {
 				want = []string{"count"}
 			} else if c.Path == "single-training-row" {
 				want = []string{"count", "filter", "centroids", "assignment", "reconstruction", "turns"}
@@ -114,7 +143,7 @@ func TestCommunity1PostprocessPinnedOracle(t *testing.T) {
 				emb[i] = 999
 			}
 			checkPostprocess(t, out, c)
-			if c.Path != "clustered" {
+			if c.Path == "silence" || c.Path == "single-training-row" {
 				again, err := PostprocessCommunity1(context.Background(), beforeS, beforeE, nil, c.Config)
 				if err != nil {
 					t.Fatal("sparse path required unused model", err)
@@ -125,14 +154,21 @@ func TestCommunity1PostprocessPinnedOracle(t *testing.T) {
 	}
 }
 func TestCommunity1PostprocessSparseAndCountPolicies(t *testing.T) {
-	cases := loadPostprocessOracles(t)
-	c := cases[0]
+	c := postprocessOracleByName(t, "clustered_constrained")
 	model := postprocessToyPLDA(t)
 	seg, emb := maskValues(c.Segmentations), maskValues(c.Embeddings)
 	cfg := c.Config
 	cfg.NumSpeakers = 3
-	if out, err := PostprocessCommunity1(context.Background(), seg, emb, model, cfg); out != nil || !errors.Is(err, ErrSpeakerCountFallbackRequired) {
-		t.Fatal("forced count silently substituted", err)
+	out, err := PostprocessCommunity1(context.Background(), seg, emb, model, cfg)
+	if err != nil || out == nil || out.Path != "clustered-kmeans" || out.Clusters != 3 || len(out.KMeansLabels) != out.TrainingRows || !out.ConstraintSatisfied {
+		t.Fatal("forced count fallback", out, err)
+	}
+	// The pinned source disables constrained assignment when forcing count.
+	unconstrained := cfg
+	unconstrained.Constrained = false
+	again, err := PostprocessCommunity1(context.Background(), seg, emb, model, unconstrained)
+	if err != nil || !reflect.DeepEqual(out.HardLabels, again.HardLabels) || !reflect.DeepEqual(out.SoftScores, again.SoftScores) {
+		t.Fatal("forced count assignment policy", err)
 	}
 	cfg.NumSpeakers = 2
 	cfg.MinSpeakers = 4
@@ -146,14 +182,14 @@ func TestCommunity1PostprocessSparseAndCountPolicies(t *testing.T) {
 	if out, err := PostprocessCommunity1(context.Background(), seg, emb, model, c.Config); out != nil || !errors.Is(err, ErrNoTrainingEmbeddings) {
 		t.Fatal("empty training manufactured centroid", err)
 	}
-	silence := cases[5]
-	out, err := PostprocessCommunity1(context.Background(), maskValues(silence.Segmentations), nil, nil, silence.Config)
+	silence := postprocessOracleByName(t, "silence")
+	out, err = PostprocessCommunity1(context.Background(), maskValues(silence.Segmentations), nil, nil, silence.Config)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkPostprocess(t, out, silence)
 	// Count-based silence exits even with a single raw active frame rounded to0.
-	rounded := cases[6]
+	rounded := postprocessOracleByName(t, "rounded_silence")
 	out, err = PostprocessCommunity1(context.Background(), maskValues(rounded.Segmentations), nil, nil, rounded.Config)
 	if err != nil {
 		t.Fatal(err)
@@ -161,7 +197,7 @@ func TestCommunity1PostprocessSparseAndCountPolicies(t *testing.T) {
 	checkPostprocess(t, out, rounded)
 }
 func TestCommunity1PostprocessValidation(t *testing.T) {
-	c := loadPostprocessOracles(t)[0]
+	c := postprocessOracleByName(t, "clustered_constrained")
 	model := postprocessToyPLDA(t)
 	for _, kind := range []string{"dimension", "minmax", "num", "max", "threshold", "fa", "fb", "minoff", "frames", "localspeakers", "step", "seglen", "soft", "infinite_seg", "emblen", "infinite_emb", "nan_emb", "zero_emb", "nilmodel", "zeromodel", "ties"} {
 		cfg := c.Config
@@ -209,7 +245,7 @@ func TestCommunity1PostprocessValidation(t *testing.T) {
 		case "zeromodel":
 			plda = &PreparedPLDA{}
 		case "ties":
-			overlap := loadPostprocessOracles(t)[2]
+			overlap := postprocessOracleByName(t, "overlap_stable")
 			cfg = overlap.Config
 			seg = maskValues(overlap.Segmentations)
 			emb = maskValues(overlap.Embeddings)
@@ -221,7 +257,7 @@ func TestCommunity1PostprocessValidation(t *testing.T) {
 	}
 }
 func TestCommunity1PostprocessCapacityAndSparseCancellation(t *testing.T) {
-	base := loadPostprocessOracles(t)[0].Config
+	base := postprocessOracleByName(t, "clustered_constrained").Config
 	base.Reconstruction.Chunks = 513
 	base.Reconstruction.Frames = 1
 	base.Reconstruction.Speakers = 1
@@ -250,10 +286,10 @@ func TestCommunity1PostprocessCapacityAndSparseCancellation(t *testing.T) {
 	if out, err := PostprocessCommunity1(context.Background(), seg, emb, postprocessToyPLDA(t), base); err == nil || out != nil {
 		t.Fatal("initial VBx slot cap")
 	}
-	for _, index := range []int{3, 5, 6} {
-		c := loadPostprocessOracles(t)[index]
+	for _, name := range []string{"single", "silence", "rounded_silence"} {
+		c := postprocessOracleByName(t, name)
 		seg, emb := maskValues(c.Segmentations), maskValues(c.Embeddings)
-		if index == 3 {
+		if name == "single" {
 			cause := errors.New("single centroid observer error")
 			out, err := PostprocessCommunity1Observed(context.Background(), seg, emb, nil, c.Config, func(stage string) error {
 				if stage == "centroids" {
@@ -276,15 +312,15 @@ func TestCommunity1PostprocessCapacityAndSparseCancellation(t *testing.T) {
 			out, err := PostprocessCommunity1(ctx, seg, emb, nil, c.Config)
 			ctx.cancel()
 			if out != nil || !errors.Is(err, context.Canceled) {
-				t.Fatal("sparse cancellation", index, at, err)
+				t.Fatal("sparse cancellation", name, at, err)
 			}
 		}
-		t.Logf("sparse case%d checkpoints%d", index, count.calls)
+		t.Logf("sparse case%s checkpoints%d", name, count.calls)
 	}
 }
 
 func TestCommunity1PostprocessCancellationObservers(t *testing.T) {
-	c := loadPostprocessOracles(t)[0]
+	c := postprocessOracleByName(t, "clustered_constrained")
 	model := postprocessToyPLDA(t)
 	seg, emb := maskValues(c.Segmentations), maskValues(c.Embeddings)
 	stages := []string{"count", "filter", "ahc", "plda", "vbx", "centroids", "assignment", "reconstruction", "turns"}
@@ -311,8 +347,26 @@ func TestCommunity1PostprocessCancellationObservers(t *testing.T) {
 			t.Fatal("observer cancellation", stage, err)
 		}
 	}
+	forced := postprocessOracleByName(t, "clustered_forced_three")
+	forcedSeg, forcedEmb := maskValues(forced.Segmentations), maskValues(forced.Embeddings)
+	forcedStages := []string{"count", "filter", "ahc", "plda", "vbx", "kmeans", "centroids", "assignment", "reconstruction", "turns"}
+	var observed []string
+	forcedOut, err := PostprocessCommunity1Observed(context.Background(), forcedSeg, forcedEmb, model, forced.Config, func(stage string) error { observed = append(observed, stage); return nil })
+	if err != nil || forcedOut == nil || !reflect.DeepEqual(observed, forcedStages) {
+		t.Fatal("forced KMeans stage order", observed, err)
+	}
+	cause = errors.New("KMeans observer rejected")
+	forcedOut, err = PostprocessCommunity1Observed(context.Background(), forcedSeg, forcedEmb, model, forced.Config, func(stage string) error {
+		if stage == "kmeans" {
+			return cause
+		}
+		return nil
+	})
+	if forcedOut != nil || !errors.Is(err, cause) {
+		t.Fatal("forced KMeans observer error", err)
+	}
 	counter := newPowersetContext(0)
-	_, err := PostprocessCommunity1(counter, seg, emb, model, c.Config)
+	_, err = PostprocessCommunity1(counter, seg, emb, model, c.Config)
 	counter.cancel()
 	if err != nil {
 		t.Fatal(err)
@@ -328,7 +382,7 @@ func TestCommunity1PostprocessCancellationObservers(t *testing.T) {
 	}
 }
 func TestCommunity1PostprocessConcurrencyAndReuse(t *testing.T) {
-	c := loadPostprocessOracles(t)[0]
+	c := postprocessOracleByName(t, "clustered_constrained")
 	model := postprocessToyPLDA(t)
 	seg, emb := maskValues(c.Segmentations), maskValues(c.Embeddings)
 	var wg sync.WaitGroup
