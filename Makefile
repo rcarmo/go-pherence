@@ -124,7 +124,13 @@ speech-community-embedding-strict:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING_STRICT=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
 
-.PHONY: speech-community-diarization-check speech-community-diarization-lowest-ties
+.PHONY: speech-community-corpus-contract-check speech-community-diarization-check speech-community-diarization-lowest-ties
+# Model-free manifest/parser checks. Scoring saved results requires a separate
+# pyannote.metrics environment and explicit hash-pinned local asset paths.
+speech-community-corpus-contract-check:
+	$(PYTHON) -m unittest scripts/test_score_community1_corpus.py scripts/test_community1_pipeline_reference.py
+	$(PYTHON) scripts/score_community1_corpus.py --manifest benchmarks/speech-foundations/community1-corpus-manifest.json --validate-only
+
 # Strict tie policy is the default; the pinned public sample currently rejects a tie.
 speech-community-diarization-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_DIARIZATION=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedDiarization$$' -v
