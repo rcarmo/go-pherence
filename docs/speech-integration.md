@@ -534,6 +534,14 @@ The offline suite passes 115 top-level tests/423 events; 48 relevant tests pass 
 
 Fifteen embedded and fifteen rebuilt shaders pass static validation; attention rebuilds byte-identically. A shader-only review found no scoped issue for positive key length; the wrapper enforces that requirement. Mock tests cover attention→projection plan retention and safe later reuse of Q storage. [Attention evidence](../benchmarks/speech-foundations/vulkan-attention-20260912/README.md) records limits, numerical budgets and review scope. The full encoder graph, weights, quantised execution and hardware/model qualification are unfinished. Existing model defaults are unchanged; no GPU ran.
 
+### First native Vulkan operator qualification
+
+After compute authorisation, GELU, linear, LayerNorm, attention and a synthetic six-stage resident plan passed on Intel Iris Xe RPL-P (`8086:a7a0`, driver `109056008`). The final three repeats passed 165 numerical cases/1,384,140 compared values and 24 test/subtest events with no failures/skips. Fixed numerical budgets, guard tensors and live-allocation return checks passed. One-submit plan outputs were bit-exact against six separately fenced GPU dispatches.
+
+The warm 256-row/384-channel/six-head synthetic plan was 1.435–1.505× faster than separate dispatches across three paired repeats (12 samples/path/repeat). These are host-wall submission/wait timings with resident tensors, not GPU timestamps, CPU comparisons or whole-model throughput. [Native verification](../benchmarks/speech-foundations/vulkan-native-20260912/README.md) records driver identity, errors, timing samples, review and resource limits. Earlier operator reports retain their historical offline-only scope.
+
+The user-authorised LLM stop completed successfully; `llama-gemma-local-provider.service`, `whisper-stt.service` and `whisper-stt-diarizer.service` stay stopped. No models/state were removed, and swap counters did not increase during final repeats. This checkpoint adds an opt-in native harness and make target; no shader/runtime defaults changed. Convolution/residual wrappers, encoder graph/weights, quantised execution, device recovery and trained quality/performance remain unfinished.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

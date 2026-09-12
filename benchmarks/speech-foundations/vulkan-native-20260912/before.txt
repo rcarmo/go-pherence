@@ -1,0 +1,29 @@
+2026-09-12T07:40:39+01:00
+               total        used        free      shared  buff/cache   available
+Mem:           31813        3806        7920        1766       22692       28007
+Swap:           8191          86        8105
+some avg10=0.00 avg60=0.00 avg300=0.00 total=118792763
+full avg10=0.00 avg60=0.00 avg300=0.00 total=0
+some avg10=0.00 avg60=0.00 avg300=0.00 total=5868513
+full avg10=0.00 avg60=0.00 avg300=0.00 total=5808483
+pswpin 36292
+pswpout 635627
+Id=llama-gemma-local-provider.service
+ActiveState=inactive
+SubState=dead
+MainPID=0
+
+Id=whisper-stt.service
+ActiveState=inactive
+SubState=dead
+MainPID=0
+
+Id=whisper-stt-diarizer.service
+ActiveState=inactive
+SubState=dead
+MainPID=0
+27800
+41000
+38000
+2774f6ed2ea7259d5c7bb92301c4f86bd79dc2df8a91a23d8a6a957cbca8e8e3  /usr/lib64/libvulkan_intel.so
+d8f5bacf3b35d259cb22fcd70b592d76d1a0b6e0b9003bae855ddfc4d0e917b3  /usr/share/vulkan/icd.d/intel_icd.x86_64.json

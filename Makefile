@@ -23,6 +23,12 @@ all: build
 speech-vulkan-offline-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline|TestVulkanDispatchRejects|TestVkBuf|TestVkKernelCreate|TestVkHelpers|TestVkWrappers|TestLoadSPIRV)'
 
+# Explicit real-GPU qualification in a coordinated compute window. No models
+# or services; synthetic numerical fixtures and optional warm host-wall timing.
+.PHONY: speech-vulkan-native-check
+speech-vulkan-native-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_SPEECH=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeSpeech$$' -v
+
 # Optional offline validator/compiler qualification. Explicit new output path;
 # missing tools fail (never skip). No Vulkan loader/device or model execution.
 speech-vulkan-static-check:
