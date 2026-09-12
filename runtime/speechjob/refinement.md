@@ -97,3 +97,26 @@ Transcript schema 1 stores already reconciled sample-indexed cues. JSON requires
 18. Export: plain JSON/VTT first; speaker JSON/VTT with warning and source keys separately.
 19. Proof: exactduplicate/conflict/bounds/geometry/samplegrid/provenance/speakercoverage tests and3newkillpoints.
 20. Closure: scoped deterministic tests pass; full word/overlap/model/performance qualification stays open.
+
+## HTTP boundary continuation
+
+1. Problem: expose durable job operations without leaking source media or conflating request acceptance with completed background work.
+2. User: one authenticated tenant behind an application-owned local/TLS boundary.
+3. Success: bounded upload/status/run/cancel/delete and allowlisted JSON/VTT downloads.
+4. Minimum: embeddable handler, fixed profiles, exact identity, synchronous execution, explicit shutdown.
+5. Exclusions: listener/deployment, model loading, background queue, multi-tenant auth, browser UI, automatic retries.
+6. Scope: new httpapi package, bounded Store.ListPage, tests/docs/Make target; separate worktree from adapter integration.
+7. Platforms: core Go HTTP/store cross-build; existing lock/model platform restrictions unchanged.
+8. Errors: generic codes; fresh stored snapshots after run errors; never echo private callback text/config/paths.
+9. Persistence: store remains owner;201 only after durable upload;202 cancellation-request status is not a durable cancelled-state acknowledgement.
+10. Patterns: existing explicit Store lifecycle and whole-recording serial executor; no token scheduler repurpose.
+11. First change: auth before body reads, fixed-profile upload/status and artifact allowlist.
+12. Avoid: arbitrary client config/model paths, CORS/cookies, raw PCM download, automatic retention cleanup.
+13. Names: /v1/jobs and /v1/inventory; generated download filename and trusted artifact MIME types.
+14. IO: bearer-token request, raw binary upload/profile/name; sanitised status and exact verified artifact bytes.
+15. Compatibility: existing store/model APIs unchanged apart from additive ListPage; FFmpeg default unchanged.
+16. Limits:512MiBmaximumupload,configured1..64requests+1cancel slot,one mutation,100statuspage,16MiBartifact;no model memory quota.
+17. Trust: constant-time hashed token comparison, exact Host/Origin policy, no forwarded-header trust;TLS/server deadlines/cryptorandom token external.
+18. Export: only transcript/vtt/speaker-transcript/speaker-vtt; explicit experimental content retained.
+19. Proof: auth/body/routing/caps/ownership/profiledrift/error/integrity/disconnect/drain/reopen tests,realhttptesttransport and actual processkill.
+20. Closure: scoped synthetic checks pass and local commit; production service/browser/resourcequeue/quality qualification remains open.

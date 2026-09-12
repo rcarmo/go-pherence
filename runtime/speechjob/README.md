@@ -1,6 +1,6 @@
 # Durable speech-job foundation
 
-`speechjob` stores acknowledged uploads and sequential stage checkpoints with explicit retry, cancellation and retention. It also provides an explicitly configured FFmpeg decode stage, host Go Whisper raw-window and experimental Community-1 diarization stages, plus transcript JSON/WebVTT serializers. It does not load models, start a service or schedule background work. The existing inference scheduler remains unchanged: its token-prefill/decode contract does not model whole recording stages.
+`speechjob` stores acknowledged uploads and sequential stage checkpoints with explicit retry, cancellation and retention. It also provides an explicitly configured FFmpeg decode stage, host Go Whisper raw-window and experimental Community-1 diarization stages, plus transcript JSON/WebVTT serializers. It does not load models, start a service or schedule background work. The separate [HTTP handler](httpapi/README.md) provides authenticated synchronous job operations and transcript-only downloads when embedded by an application. The existing inference scheduler remains unchanged: its token-prefill/decode contract does not model whole recording stages.
 
 This is the persistence slice of the speech plan. [Refinement scope](refinement.md) records its requirements and exclusions.
 
@@ -55,7 +55,7 @@ result, err := store.Run(ctx, job.ID, versionedConfigJSON, stages, progress)
 // Stage functions, versions, model admission and cancellation drains are caller-owned.
 ```
 
-This is an API sketch, not a running CLI or server. Trained model-stage qualification, general word/overlap alignment, transcript-only HTTP downloads, durable queue admission and UI progress remain unimplemented. The explicit exact-overlap reconciliation policy below handles only an unambiguous subset.
+This is an API sketch, not a running CLI or server. Trained model-stage qualification, general word/overlap alignment, a deployed CLI/HTTP service, durable queue admission and UI progress remain unimplemented. The separate HTTP package has a tested transcript-download allowlist; it opens no listener itself. The explicit exact-overlap reconciliation policy below handles only an unambiguous subset.
 
 ## FFmpeg decode checkpoint
 

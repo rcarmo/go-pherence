@@ -131,11 +131,16 @@ speech-community-gemm-timing:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_GEMM_TIMING=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestWeSpeakerTiledTiming$$' -v
 
-.PHONY: speech-job-check speech-job-media-integration
+.PHONY: speech-job-check speech-job-http-check speech-job-media-integration
 speech-job-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob ./runtime/speechjob/httpapi
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/whisper -run '^TestPCM(Resume|Transcribe)'
-	go vet ./runtime/speechjob ./models/whisper
+	go vet ./runtime/speechjob ./runtime/speechjob/httpapi ./models/whisper
+
+speech-job-http-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob/httpapi
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob -run '^TestListPage'
+	go vet ./runtime/speechjob/httpapi ./runtime/speechjob
 
 speech-job-media-integration:
 	GO_PHERENCE_TEST_FFMPEG=1 go test -p=1 -count=3 -timeout=90s ./runtime/speechjob -run '^TestFFmpegJob' -v
