@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "status": "reference and policy frozen; broader quality qualification pending",
+  "frozen_at": "2026-09-12",
+  "whisper": {
+    "task": "transcribe",
+    "language": "explicit per profile",
+    "decoding": {
+      "temperature": 0,
+      "beam_size": 1,
+      "timestamps": true,
+      "max_length": 448,
+      "max_initial_timestamp_index": 50,
+      "unsupported": [
+        "automatic language detection",
+        "temperature fallback",
+        "compression-ratio fallback",
+        "log-probability fallback",
+        "word alignment",
+        "cross-window prompt conditioning"
+      ]
+    },
+    "models": [
+      {
+        "id": "openai/whisper-tiny",
+        "revision": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",
+        "config_sha256": "ffdccec4f3211f4c63310f2b7098f309fe70f3952cedc5e4d11e43f5b2379b98",
+        "tokenizer_sha256": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+        "generation_sha256": "a5d5325911f16e74001a72fa13d6e208eee51548f994646de1f4b4cc8b35b512"
+      },
+      {
+        "id": "openai/whisper-large-v3-turbo",
+        "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+        "config_sha256": "c5b526b3e3cd64cd8940dabb45e8ba726629e22d8ed389c29b552f9140daf04a",
+        "tokenizer_sha256": "297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd",
+        "generation_sha256": "cce11bfe3aaa6ae9e072ea2637caaec8795e68d9b67e655a5af16ee509681a4c"
+      }
+    ]
+  },
+  "community1": {
+    "repository": "pyannote/speaker-diarization-community-1",
+    "revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+    "model_license": {
+      "spdx": "CC-BY-4.0",
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "weights_committed": false
+    },
+    "implementation_licenses": ["MIT", "Apache-2.0", "BSD-3-Clause"],
+    "segmentation": {
+      "raw_checkpoint_sha256": "7ad24338d844fb95985486eb1a464e32d229f6d7a03c9abe60f978bacf3f816e",
+      "converted_sha256": "b4913f3f13c3031267db5d99b0daafd251c822a5f12435b581607e1a56b7c488",
+      "tensor_count": 54,
+      "dtypes": {"F32": 54},
+      "lowered_filters_sha256": "2d6ecf47b166b2d44a06aea6546788c816c12800fc47fc265a6752b0a085c705",
+      "geometry": {
+        "sample_rate": 16000,
+        "window_samples": 160000,
+        "sincnet_stride": 10,
+        "lstm_input": 60,
+        "lstm_hidden": 128,
+        "lstm_layers": 4,
+        "bidirectional": true,
+        "head_input": 256,
+        "head_hidden": 128,
+        "head_layers": 2,
+        "local_speakers": 3,
+        "max_active": 2
+      }
+    },
+    "embedding": {
+      "raw_checkpoint_sha256": "6f10ff60898a1d185fa22e1d11e0bfa8a92efec811f11bca48cb8cafebefd929",
+      "converted_sha256": "ac0257bbcdd97fe8a0acdf9c670d8a2674ad38de90d3572fafadcc14ceb43391",
+      "tensor_count": 218,
+      "dtypes": {"F32": 182, "I64": 36},
+      "prefix": "resnet",
+      "raw_hyperparameters_present": false,
+      "explicit_pinned_defaults": {"base_channels": 32, "mel_bins": 80, "embed_dim": 256}
+    },
+    "plda": {
+      "xvector_transform_sha256": "325f1ce8e48f7e55e9c8aa47e05d2766b7c48c4b25b8de8dd751e7a4cc5fbe8f",
+      "plda_sha256": "9b77bcd840692710dd3496f62ecfeed8d8e5f002fd991b785079b244eab7d255",
+      "dimensions": {"input": 256, "projected": 128, "output": 128},
+      "condition_inf": 56.00115466461734,
+      "inverse_residual": 1.7763568394002505e-15
+    },
+    "pipeline_policy": {
+      "window_samples": 160000,
+      "step_samples": 16000,
+      "minimum_embedding_samples": 400,
+      "exclude_overlap": true,
+      "min_speakers": 1,
+      "max_speakers": 64,
+      "num_speakers": 0,
+      "ahc_threshold": 0.6,
+      "fa": 0.07,
+      "fb": 0.8,
+      "min_duration_off": 0,
+      "constrained": true,
+      "default_tie_policy": "reject-ambiguous",
+      "diagnostic_tie_policy": "lowest-index"
+    }
+  },
+  "quality_gates": {
+    "backend_comparison": "same fixed model, policy, canonical PCM and reference for every compared backend",
+    "determinism": "repeated same-mode outputs must be byte-identical",
+    "corpus": "all admitted manifest cases must run; no omission or replacement after failure",
+    "community_reference_delta": {
+      "der_percentage_points_max": 0.5,
+      "jer_percentage_points_max": 0.5,
+      "status": "provisional; requires ratification before production qualification"
+    },
+    "whisper_reference_delta": {
+      "wer_percentage_points_max": 0.5,
+      "status": "provisional; requires ratification before production qualification"
+    },
+    "cross_backend_token_identity": "diagnostic, not an acceptance gate",
+    "known_holds": [
+      "Community-1 strict SincNet/intermediate numerical failures",
+      "default tie rejection on the single diagnostic public sample",
+      "no qualifying multilingual public-corpus run",
+      "Whisper Portuguese/French Tiny quality failures and silence hallucination without explicit exact-zero skip",
+      "word alignment and SA-WER are not implemented",
+      "long-file Community-1 inference exceeds the current 128-window contract"
+    ]
+  },
+  "source_documents": [
+    "docs/speech-generation-manifest.json",
+    "docs/speech-reference-manifest.json",
+    "benchmarks/speech-foundations/community1-trained-segmentation-20260912/manifest.json",
+    "benchmarks/speech-foundations/community1-trained-embedding-20260912/manifest.json",
+    "benchmarks/speech-foundations/community1-pcm-diarization-20260912/evidence.json",
+    "benchmarks/speech-foundations/community1-corpus-qualification.md"
+  ]
+}

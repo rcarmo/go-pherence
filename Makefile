@@ -30,7 +30,12 @@ speech-go264-paired-check:
 
 # Focused speech-foundation checks: no model weights, driver initialisation,
 # service startup or performance benchmark. FFmpeg integration is opt-in below.
-.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check speech-vulkan-static-check speech-vulkan-community-check speech-vulkan-community-server-check
+.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-quality-freeze-check speech-vulkan-offline-check speech-vulkan-static-check speech-vulkan-community-check speech-vulkan-community-server-check
+
+# Cross-check pinned Whisper/Community model, policy, PLDA and provisional
+# quality metadata against their source manifests. No assets/models are opened.
+speech-quality-freeze-check:
+	bun scripts/check-speech-quality-freeze.ts
 
 # Mock-only Vulkan ABI/lifetime checks: never calls VulkanInit or opens a GPU.
 speech-vulkan-offline-check:
