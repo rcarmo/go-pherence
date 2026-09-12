@@ -106,8 +106,21 @@ func ReconstructPowerset(ctx context.Context, segmentations []float32, labels []
 			classes = max(classes, effective[index]+1)
 		}
 	}
-	// Count aggregation is independent of clustering. Missing values are omitted,
-	// not zero observations in the average denominator.
+	counts, err := powersetFrameCounts(ctx, segmentations, c, starts, total)
+	if err != nil {
+		return nil, err
+	}
+	result := &ActivityTimeline{Frames: total, Start: c.Start, FrameDuration: c.FrameDuration, FrameStep: c.FrameStep, Counts: counts}
+	for _, count := range counts {
+		classes = max(classes, count)
+	}
+	return reconstructActivity(ctx, segmentations, effective, c, starts, result, classes)
+}
+
+// Shared counting boundary for reconstruction and the pipeline's early-silence
+// exit. Inputs/grid are already checked by the caller; no cluster labels needed.
+func powersetFrameCounts(ctx context.Context, segmentations []float32, c ReconstructionConfig, starts []int, total int) ([]int, error) {
+	// Missing values are omitted, not zero observations in the denominator.
 	sums := make([]float32, total)
 	observations := make([]int, total)
 	for chunk, start := range starts {
@@ -127,7 +140,7 @@ func ReconstructPowerset(ctx context.Context, segmentations []float32, labels []
 			}
 		}
 	}
-	result := &ActivityTimeline{Frames: total, Start: c.Start, FrameDuration: c.FrameDuration, FrameStep: c.FrameStep, Counts: make([]int, total)}
+	counts := make([]int, total)
 	for i := range sums {
 		if i%256 == 0 {
 			if err := ctx.Err(); err != nil {
@@ -135,10 +148,14 @@ func ReconstructPowerset(ctx context.Context, segmentations []float32, labels []
 			}
 		}
 		if observations[i] > 0 {
-			result.Counts[i] = min(c.MaxSpeakers, int(math.RoundToEven(float64(sums[i]/float32(observations[i])))))
+			counts[i] = min(c.MaxSpeakers, int(math.RoundToEven(float64(sums[i]/float32(observations[i])))))
 		}
-		classes = max(classes, result.Counts[i])
 	}
+	return counts, ctx.Err()
+}
+
+func reconstructActivity(ctx context.Context, segmentations []float32, effective []int, c ReconstructionConfig, starts []int, result *ActivityTimeline, classes int) (*ActivityTimeline, error) {
+	total := result.Frames
 	if int64(total)*int64(classes) > 1<<24 || int64(total)*int64(classes)*int64(classes) > 1<<28 {
 		return nil, fmt.Errorf("reconstruction output element bound")
 	}

@@ -65,7 +65,10 @@ utils/signal.py: 334e6b9ca1a6e472dbc9b1562e6cdeb27940d13bd6eef8d4636a692a6ac4ab1
 pyannote.core segment/feature/annotation/timeline hashes are pinned in the
 reconstruction fixture generator. Changes: bounded owned binary powerset path,
 no-warmup aggregation, explicit ambiguity rejection or stable tie alternative,
-frame-centre intervals, cancellation, output/work bounds. No neural integration.
+frame-centre intervals, cancellation, output/work bounds. postprocess.go wires
+supplied embeddings/segmentations through the checked components, preserves
+single-row fallback, returns explicit empty-training/unsupported-count errors,
+and adds owned results and stage notifications. No neural integration.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.
 
 BSD-style PyTorch contiguous normalization ordering (sincNetNorm)
