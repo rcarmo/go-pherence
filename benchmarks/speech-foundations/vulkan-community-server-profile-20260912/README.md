@@ -7,7 +7,7 @@ This checkpoint adds an opt-in experimental Community-1 hybrid Vulkan profile to
 - `community1.NewVulkanDiarization` composes fixed-window CPU SincNet/head, resident Vulkan LSTM and ResNet trunk, CPU mask-dependent pooling/projection, and existing PLDA/postprocessing.
 - Construction validates graph/window geometry before native allocation, constructs segmentation before embedding, rolls back in reverse order, and retains any failed native child for retry.
 - `speechjob.NewVulkanCommunity1Stage` serialises whole-stage access, uses a fresh context to drain after every inference return, and keeps admission/resources held until idle is proven.
-- Panic, device-loss, uncertain submission, and fatal drain errors quarantine the process rather than allowing CPU fallback or unsafe teardown.
+- Panic, device-loss, uncertain submission, and fatal drain errors quarantine the process rather than allowing CPU fallback or unsafe teardown. Eight actual child-process kill/reopen cases verify durable whole-result retry after process death.
 - Close stops new admission, waits for active work, closes the composite model in reverse order, and retains failed resources for retry.
 - Nested `profile.community.vulkan` configuration requires explicit enablement and experimental consent, a resolved device substring, backend SHA-256, and bounded drain interval.
 - Simultaneous Whisper and Community-1 Vulkan profiles are rejected because the current backend has one process-global serialized device lane and no independent device-owner lifecycle.
@@ -21,7 +21,7 @@ Using `GOMAXPROCS=2` and the checked workspace Go toolchain:
 
 - `go test ./models/speaker/community1 ./runtime/speechjob ./cmd/audio/speechjobserve` passed.
 - Ten shuffled repetitions of those three packages passed.
-- Thirty shuffled focused repetitions of the new runtime/server lifecycle tests passed.
+- Ten shuffled repetitions of the eight process-kill recovery modes and focused runtime lifecycle tests passed; thirty shuffled focused server construction/configuration repetitions passed.
 - Focused mock-only Community Vulkan and Vulkan operator checks passed.
 - The six static shader-checker tests passed.
 - A full `speechjobserve` package run passed in 5.755 seconds.

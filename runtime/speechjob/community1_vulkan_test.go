@@ -63,6 +63,48 @@ func TestVulkanCommunityOwnerCancellationDrainsBeforeReturn(t *testing.T) {
 	}
 }
 
+func TestVulkanCommunityOwnerDrainRetriesBoundedTimeout(t *testing.T) {
+	polls := 0
+	s := newVulkanCommunity1Owner(time.Millisecond, func(context.Context, c1.DiarizationPCMReader, int64) (*c1.DiarizationPCMResult, error) {
+		return nil, io.EOF
+	}, func(context.Context, time.Duration) error {
+		polls++
+		if polls == 1 {
+			return errors.Join(vk.ErrVulkanInFlight, context.DeadlineExceeded)
+		}
+		return nil
+	}, func() error { return nil })
+	if _, err := s.infer(context.Background(), nil, 0); !errors.Is(err, io.EOF) || polls != 2 {
+		t.Fatal(err, polls)
+	}
+	if (&VulkanCommunity1Stage{s: s}).Status().Draining {
+		t.Fatal("owner remained draining")
+	}
+}
+
+func TestVulkanCommunityOwnerFatalDrainQuarantines(t *testing.T) {
+	for _, failure := range []error{io.ErrClosedPipe, vk.ErrVulkanDeviceLost, vk.ErrVulkanUncertain} {
+		s := newVulkanCommunity1Owner(time.Millisecond, func(context.Context, c1.DiarizationPCMReader, int64) (*c1.DiarizationPCMResult, error) {
+			return nil, nil
+		}, func(context.Context, time.Duration) error { return failure }, func() error { return nil })
+		done := make(chan struct{})
+		go func() { defer close(done); s.infer(context.Background(), nil, 0) }()
+		o := &VulkanCommunity1Stage{s: s}
+		deadline := time.Now().Add(time.Second)
+		for !o.Status().Quarantined && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+		}
+		if !o.Status().Quarantined {
+			t.Fatal(failure, o.Status())
+		}
+		select {
+		case <-done:
+			t.Fatal("quarantine released", failure)
+		default:
+		}
+	}
+}
+
 func TestVulkanCommunityOwnerCloseRetryAndIdentity(t *testing.T) {
 	cfg := validCommunityVulkanConfig()
 	var closes atomic.Int32
