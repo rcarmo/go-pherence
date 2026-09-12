@@ -15,7 +15,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"unicode/utf8"
+
+	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	"github.com/rcarmo/go-pherence/runtime/speechjob"
 )
 
 type Asset struct {
@@ -52,19 +56,87 @@ type VulkanSettings struct {
 	BackendSHA256     string `json:"backend_sha256"`
 	DrainMilliseconds int    `json:"drain_milliseconds"`
 }
+type CommunityLSTMSettings struct {
+	InputSize     int  `json:"input_size"`
+	HiddenSize    int  `json:"hidden_size"`
+	NumLayers     int  `json:"num_layers"`
+	Bidirectional bool `json:"bidirectional"`
+}
+type CommunityHeadSettings struct {
+	InputSize  int `json:"input_size"`
+	HiddenSize int `json:"hidden_size"`
+	NumLayers  int `json:"num_layers"`
+	Speakers   int `json:"speakers"`
+	MaxActive  int `json:"max_active"`
+}
+type CommunitySegmentationSettings struct {
+	SincNetStride int                   `json:"sincnet_stride"`
+	LSTM          CommunityLSTMSettings `json:"lstm"`
+	Head          CommunityHeadSettings `json:"head"`
+	SplitLSTM     bool                  `json:"split_lstm"`
+}
+type CommunityEmbeddingSettings struct {
+	BaseChannels int `json:"base_channels"`
+	MelBins      int `json:"mel_bins"`
+	EmbedDim     int `json:"embed_dim"`
+}
+type CommunityPLDASettings struct {
+	InputDim     int `json:"input_dim"`
+	ProjectedDim int `json:"projected_dim"`
+	OutputDim    int `json:"output_dim"`
+}
+type CommunityPCMSettings struct {
+	WindowSamples           int     `json:"window_samples"`
+	StepSamples             int     `json:"step_samples"`
+	MinimumEmbeddingSamples int     `json:"minimum_embedding_samples"`
+	ExcludeOverlap          bool    `json:"exclude_overlap"`
+	MinSpeakers             int     `json:"min_speakers"`
+	MaxSpeakers             int     `json:"max_speakers"`
+	NumSpeakers             int     `json:"num_speakers"`
+	AHCThreshold            float64 `json:"ahc_threshold"`
+	Fa                      float64 `json:"fa"`
+	Fb                      float64 `json:"fb"`
+	MinDurationOff          float64 `json:"min_duration_off"`
+	Constrained             bool    `json:"constrained"`
+	TiePolicy               string  `json:"tie_policy"`
+}
+type CommunityModesSettings struct {
+	SincNet   string `json:"sincnet"`
+	LSTM      string `json:"lstm"`
+	Head      string `json:"head"`
+	Embedding string `json:"embedding"`
+}
+type CommunitySettings struct {
+	Enable             bool                          `json:"enable"`
+	AllowExperimental  bool                          `json:"allow_experimental"`
+	ModelRevision      string                        `json:"model_revision"`
+	Segmentation       Asset                         `json:"segmentation"`
+	Filters            Asset                         `json:"filters"`
+	Embedding          Asset                         `json:"embedding"`
+	XVectorTransform   Asset                         `json:"xvector_transform"`
+	PLDA               Asset                         `json:"plda"`
+	SegmentationConfig CommunitySegmentationSettings `json:"segmentation_config"`
+	EmbeddingConfig    CommunityEmbeddingSettings    `json:"embedding_config"`
+	EmbeddingPrefix    string                        `json:"embedding_prefix"`
+	PLDAConfig         CommunityPLDASettings         `json:"plda_config"`
+	PCM                CommunityPCMSettings          `json:"pcm"`
+	Modes              CommunityModesSettings        `json:"modes"`
+	MaxResultBytes     int64                         `json:"max_result_bytes"`
+}
 type ProfileSettings struct {
-	Vulkan                   *VulkanSettings `json:"vulkan,omitempty"`
-	ID                       string          `json:"id"`
-	Language                 string          `json:"language"`
-	Extension                string          `json:"extension"`
-	MaxDurationSeconds       int             `json:"max_duration_seconds"`
-	DecodeBytes              int64           `json:"decode_bytes"`
-	OverlapSamples           int64           `json:"overlap_samples"`
-	MaxNewTokens             int             `json:"max_new_tokens"`
-	MaxInitialTimestampIndex int             `json:"max_initial_timestamp_index"`
-	SkipDigitalSilence       bool            `json:"skip_digital_silence"`
-	WindowBytes              int64           `json:"window_bytes"`
-	ResultBytes              int64           `json:"result_bytes"`
+	Vulkan                   *VulkanSettings    `json:"vulkan,omitempty"`
+	Community                *CommunitySettings `json:"community,omitempty"`
+	ID                       string             `json:"id"`
+	Language                 string             `json:"language"`
+	Extension                string             `json:"extension"`
+	MaxDurationSeconds       int                `json:"max_duration_seconds"`
+	DecodeBytes              int64              `json:"decode_bytes"`
+	OverlapSamples           int64              `json:"overlap_samples"`
+	MaxNewTokens             int                `json:"max_new_tokens"`
+	MaxInitialTimestampIndex int                `json:"max_initial_timestamp_index"`
+	SkipDigitalSilence       bool               `json:"skip_digital_silence"`
+	WindowBytes              int64              `json:"window_bytes"`
+	ResultBytes              int64              `json:"result_bytes"`
 }
 
 // QueueSettings opt in separately to durable intent and worker execution.
@@ -282,6 +354,26 @@ func (c ServerConfig) validate() error {
 			return fmt.Errorf("invalid experimental Vulkan profile")
 		}
 	}
+	if x := f.Community; x != nil {
+		if !x.Enable || !x.AllowExperimental || x.ModelRevision != "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee" || c.Resources == nil || x.MaxResultBytes < 1 || x.MaxResultBytes > 16<<20 || x.EmbeddingPrefix != "resnet" {
+			return fmt.Errorf("invalid experimental Community-1 profile")
+		}
+		for _, a := range []Asset{x.Segmentation, x.Filters, x.Embedding, x.XVectorTransform, x.PLDA} {
+			if !filepath.IsAbs(a.Path) || !validHash(a.SHA256) {
+				return fmt.Errorf("Community-1 assets require absolute paths and SHA256")
+			}
+		}
+		if x.SegmentationConfig.SincNetStride < 1 || x.SegmentationConfig.SincNetStride > 10 || x.SegmentationConfig.LSTM.InputSize != 60 || x.EmbeddingConfig.BaseChannels < 1 || x.EmbeddingConfig.BaseChannels > 32 || x.EmbeddingConfig.MelBins != 80 || x.EmbeddingConfig.EmbedDim < 1 || x.EmbeddingConfig.EmbedDim > 512 || x.PLDAConfig.InputDim != x.EmbeddingConfig.EmbedDim || x.PLDAConfig.ProjectedDim < 1 || x.PLDAConfig.OutputDim < 1 || x.PLDAConfig.OutputDim > x.PLDAConfig.ProjectedDim {
+			return fmt.Errorf("invalid Community-1 model geometry")
+		}
+		cc, e := speechCommunityConfig(*x, c.RuntimeSHA256)
+		if e != nil {
+			return e
+		}
+		if e := speechjob.ValidateCommunity1Config(cc); e != nil {
+			return fmt.Errorf("invalid Community-1 execution policy")
+		}
+	}
 	if !slug(f.ID) || len(f.Language) < 2 || len(f.Language) > 3 || f.MaxDurationSeconds < 1 || f.MaxDurationSeconds > 14400 || f.DecodeBytes < 46 || f.DecodeBytes > l.ArtifactBytes || f.OverlapSamples < 0 || f.OverlapSamples > 240000 || f.MaxNewTokens < 0 || f.MaxNewTokens > 445 || f.MaxInitialTimestampIndex < 0 || f.MaxInitialTimestampIndex > 1500 || f.WindowBytes < 1 || f.WindowBytes > 1<<20 || f.ResultBytes < f.WindowBytes || f.ResultBytes > 64<<20 || f.ResultBytes > l.ArtifactBytes {
 		return fmt.Errorf("invalid ASR profile limits")
 	}
@@ -382,3 +474,68 @@ func verifyAsset(ctx context.Context, a Asset, cap int64, executable bool) error
 	return ctx.Err()
 }
 func duration(seconds int) time.Duration { return time.Duration(seconds) * time.Second }
+
+func speechCommunityConfig(c CommunitySettings, runtimeHash string) (speechjob.Community1StageConfig, error) {
+	tie := c1.RejectAmbiguousTies
+	switch c.PCM.TiePolicy {
+	case "reject":
+	case "lowest-index":
+		tie = c1.LowestIndexTies
+	default:
+		return speechjob.Community1StageConfig{}, fmt.Errorf("invalid Community-1 tie policy")
+	}
+	sm := c1.SegmentationModes{}
+	switch c.Modes.SincNet {
+	case "scalar":
+		sm.SincNet = c1.SincNetScalarFMA
+	case "simd":
+		sm.SincNet = c1.SincNetSIMDFMA
+	default:
+		return speechjob.Community1StageConfig{}, fmt.Errorf("invalid Community-1 SincNet mode")
+	}
+	switch c.Modes.LSTM {
+	case "scalar":
+		sm.LSTM = c1.LSTMScalar
+	case "simd":
+		sm.LSTM = c1.LSTMSIMD
+	default:
+		return speechjob.Community1StageConfig{}, fmt.Errorf("invalid Community-1 LSTM mode")
+	}
+	switch c.Modes.Head {
+	case "scalar":
+		sm.Head = c1.HeadScalar
+	case "simd":
+		sm.Head = c1.HeadSIMD
+	default:
+		return speechjob.Community1StageConfig{}, fmt.Errorf("invalid Community-1 head mode")
+	}
+	em := c1.WeSpeakerBlockScalar
+	switch c.Modes.Embedding {
+	case "scalar":
+	case "simd":
+		em = c1.WeSpeakerBlockSIMD
+	case "gemm":
+		em = c1.WeSpeakerBlockGEMM
+	default:
+		return speechjob.Community1StageConfig{}, fmt.Errorf("invalid Community-1 embedding mode")
+	}
+	p := c.PCM
+	identity, _ := json.Marshal(struct {
+		Revision, XVector string
+		Seg               CommunitySegmentationSettings
+		Emb               CommunityEmbeddingSettings
+		Prefix            string
+		PLDA              CommunityPLDASettings
+	}{c.ModelRevision, c.XVectorTransform.SHA256, c.SegmentationConfig, c.EmbeddingConfig, c.EmbeddingPrefix, c.PLDAConfig})
+	modelIdentity := sha256.Sum256(identity)
+	return speechjob.Community1StageConfig{AllowExperimental: c.AllowExperimental, SegmentationSHA256: c.Segmentation.SHA256, EmbeddingSHA256: c.Embedding.SHA256, PLDASHA256: c.PLDA.SHA256, FiltersSHA256: c.Filters.SHA256, RuntimeSHA256: runtimeHash, ModelIdentitySHA256: hex.EncodeToString(modelIdentity[:]), PCM: c1.DiarizationPCMConfig{WindowSamples: p.WindowSamples, StepSamples: p.StepSamples, MinimumEmbeddingSamples: p.MinimumEmbeddingSamples, ExcludeOverlap: p.ExcludeOverlap, MinSpeakers: p.MinSpeakers, MaxSpeakers: p.MaxSpeakers, NumSpeakers: p.NumSpeakers, AHCThreshold: p.AHCThreshold, Fa: p.Fa, Fb: p.Fb, MinDurationOff: p.MinDurationOff, Constrained: p.Constrained, TiePolicy: tie}, SegmentationModes: sm, EmbeddingMode: em, MaxResultBytes: c.MaxResultBytes}, nil
+}
+func communitySegConfig(c CommunitySegmentationSettings) c1.SegmentationLoadConfig {
+	return c1.SegmentationLoadConfig{SincNetStride: c.SincNetStride, LSTM: c1.LSTMConfig{InputSize: c.LSTM.InputSize, HiddenSize: c.LSTM.HiddenSize, NumLayers: c.LSTM.NumLayers, Bidirectional: c.LSTM.Bidirectional}, Head: c1.HeadConfig{InputSize: c.Head.InputSize, HiddenSize: c.Head.HiddenSize, NumLayers: c.Head.NumLayers, Speakers: c.Head.Speakers, MaxActive: c.Head.MaxActive}, SplitLSTM: c.SplitLSTM}
+}
+func communityEmbedConfig(c CommunityEmbeddingSettings) c1.WeSpeakerResNetConfig {
+	return c1.WeSpeakerResNetConfig{BaseChannels: c.BaseChannels, MelBins: c.MelBins, EmbedDim: c.EmbedDim}
+}
+func communityPLDAConfig(c CommunityPLDASettings) c1.PLDAConfig {
+	return c1.PLDAConfig{InputDim: c.InputDim, ProjectedDim: c.ProjectedDim, OutputDim: c.OutputDim}
+}

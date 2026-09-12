@@ -474,7 +474,7 @@ func TestVulkanProfileOwnedConstructionAndIdentity(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if initCalls != 1 || encoderCalls != 1 || stageCalls != 1 || built.owner != owner || len(built.Profiles) != 1 {
+	if initCalls != 1 || encoderCalls != 1 || stageCalls != 1 || len(built.owners) != 1 || built.owners[0] != owner || len(built.Profiles) != 1 {
 		t.Fatal(initCalls, encoderCalls, stageCalls, built)
 	}
 	stages := built.Profiles[0].Stages

@@ -26,10 +26,13 @@ import (
 type Community1StageConfig struct {
 	AllowExperimental                                                             bool
 	SegmentationSHA256, EmbeddingSHA256, PLDASHA256, FiltersSHA256, RuntimeSHA256 string
-	PCM                                                                           c1.DiarizationPCMConfig
-	SegmentationModes                                                             c1.SegmentationModes
-	EmbeddingMode                                                                 c1.WeSpeakerBlockMode
-	MaxResultBytes                                                                int64
+	// ModelIdentitySHA256 optionally binds loader geometry, xvector identity,
+	// revision and other caller policy not represented by the five payload hashes.
+	ModelIdentitySHA256 string
+	PCM                 c1.DiarizationPCMConfig
+	SegmentationModes   c1.SegmentationModes
+	EmbeddingMode       c1.WeSpeakerBlockMode
+	MaxResultBytes      int64
 }
 
 // NewCommunity1Stage creates a whole-result "diarization" stage. It preserves
@@ -50,6 +53,10 @@ func NewCommunity1Stage(model *c1.ExperimentalDiarization, cfg Community1StageCo
 		return model.RunPCM(ctx, reader, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode)
 	}), nil
 }
+
+// ValidateCommunity1Config validates model-independent execution policy without
+// running a model or reading assets. Constructors apply this same contract.
+func ValidateCommunity1Config(cfg Community1StageConfig) error { return validateCommunityConfig(cfg) }
 func validateCommunityConfig(cfg Community1StageConfig) error {
 	if !cfg.AllowExperimental || cfg.MaxResultBytes < 1 || cfg.MaxResultBytes > 16<<20 {
 		return ErrConfiguration
@@ -58,6 +65,9 @@ func validateCommunityConfig(cfg Community1StageConfig) error {
 		if !validHash(v) {
 			return ErrConfiguration
 		}
+	}
+	if cfg.ModelIdentitySHA256 != "" && !validHash(cfg.ModelIdentitySHA256) {
+		return ErrConfiguration
 	}
 	c := cfg.PCM
 	m := cfg.SegmentationModes

@@ -105,6 +105,30 @@ Handler/queue callbacks drain before resident encoder close, store close and res
 
 This configuration has only model-free/mock server-lifetime coverage. It has not been run with a native GPU through this server, trained checkpoints or private recordings. It does not add Vulkan decoder/Community-1 execution or quantify resident/device memory.
 
+## Experimental Community-1 profile
+
+Community-1 is omitted by default. [`example-community.json`](example-community.json) is a nonworking placeholder with `allow_execution:false`. An explicit `profile.community` object can add the pure-Go CPU diarization graph and separate speaker-labelled outputs. It requires:
+
+- `enable:true` and `allow_experimental:true`;
+- pinned model revision `3533c8cf8e369892e6b79ff1bf80f7b0286a54ee`;
+- absolute SHA256-pinned segmentation, lowered-filter, embedding, xvector-transform and PLDA assets;
+- complete segmentation LSTM/head, embedding and PLDA geometry;
+- explicit PCM window/step/speaker/clustering policy;
+- explicit `scalar` or `simd` segmentation modes, `scalar`/`simd`/`gemm` embedding mode and `reject` or diagnostic `lowest-index` tie policy;
+- a configured process-local resource budget and result-byte cap.
+
+Execution verifies all asset bytes under the loading lease, uses the checked safetensors and numeric-only NPZ loaders, closes sources before serving and transfers the graph to the resident Community owner. Configuration identity includes model revision, xvector hash, geometry, prefix, asset/runtime hashes and execution policy. No model defaults are inferred from tensor sizes.
+
+The combined stage order is:
+
+`decode → asr-windows → transcript → vtt → diarization → speaker-transcript → speaker-vtt`
+
+Plain transcript/VTT commits before experimental diarization. A diarization failure therefore leaves plain text downloadable. Speaker outputs remain separately marked experimental and require conservative complete-cue coverage. Shutdown drains handlers/queue and closes owners in reverse construction order before store/resource release.
+
+`--check` verifies complete hashes, safetensors inventories and NPZ signatures, but does not construct Community models or execute PCM. This profile has model-free reduced-container server tests only. Strict trained SincNet/embedding and ambiguous-tie failures remain unchanged; no trained quality, long-file scaling, Community Vulkan graph or production deployment is claimed.
+
+The server JSON uses lowercase snake-case fields at every level. Test/benchmark manifests that use Go field names are not accepted as server configuration. See [Community owner](../../../runtime/speechjob/community1-owner.md).
+
 ## TLS and shutdown
 
 TLS certificate/key files are capped at 1 MiB each. Startup verifies the pair, current validity period and hostname coverage for every Host allowlist entry. It serves TLS 1.2+ and HTTP/1.1; HTTP/2 multiplexing is not enabled. Client trust/chain verification still depends on configured client/system roots. Plain HTTP is permitted only with `allow_loopback_http:true` and a literal loopback listener. Host/Origin policies, bearer auth and transcript-only downloads use the existing [HTTP contract](../../../runtime/speechjob/httpapi/README.md). The process does not trust forwarding headers or install network ACLs.

@@ -26,14 +26,24 @@ type stageOwner interface {
 }
 type builtProfiles struct {
 	Profiles []httpapi.Profile
-	owner    stageOwner
+	owners   []stageOwner
 }
 
 func (b *builtProfiles) Close(ctx context.Context) error {
-	if b == nil || b.owner == nil {
+	if b == nil {
 		return nil
 	}
-	return b.owner.Close(ctx)
+	var failures []error
+	for i := len(b.owners) - 1; i >= 0; i-- {
+		if b.owners[i] != nil {
+			if e := b.owners[i].Close(ctx); e != nil {
+				failures = append(failures, e)
+			} else {
+				b.owners[i] = nil
+			}
+		}
+	}
+	return errors.Join(failures...)
 }
 
 // Cleanup after owned native construction must finish before startup returns.
@@ -56,9 +66,12 @@ func closeVulkanEncoder(e interface{ Close() error }) {
 }
 
 func start(ctx context.Context, path string, check bool, out io.Writer) error {
-	return startWithRuntime(ctx, path, check, out, defaultVulkanProfileRuntime())
+	return startWithRuntimes(ctx, path, check, out, profileRuntimes{defaultVulkanProfileRuntime(), defaultCommunityRuntime()})
 }
 func startWithRuntime(ctx context.Context, path string, check bool, out io.Writer, profileRuntime vulkanProfileRuntime) error {
+	return startWithRuntimes(ctx, path, check, out, profileRuntimes{profileRuntime, defaultCommunityRuntime()})
+}
+func startWithRuntimes(ctx context.Context, path string, check bool, out io.Writer, runtimes profileRuntimes) error {
 	data, e := boundedFile(ctx, path, 64<<10)
 	if e != nil {
 		return e
@@ -115,6 +128,9 @@ func startWithRuntime(ctx context.Context, path string, check bool, out io.Write
 		if _, e = buildProfile(ctx, cfg, false); e != nil {
 			return e
 		}
+		if e = inspectCommunityMetadata(ctx, cfg); e != nil {
+			return e
+		}
 		return json.NewEncoder(out).Encode(struct {
 			MetadataChecked bool `json:"metadata_checked"`
 			Loaded          bool `json:"model_loaded"`
@@ -154,7 +170,7 @@ func startWithRuntime(ctx context.Context, path string, check bool, out io.Write
 	}
 	// Exclude another server process on this same store before allocating model
 	// weights. This does not coordinate other stores or unrelated inference.
-	profiles, e := buildProfileOwned(ctx, cfg, true, profileRuntime)
+	profiles, e := buildProfileOwnedRuntimes(ctx, cfg, true, runtimes)
 	if e != nil {
 		store.Close()
 		return e

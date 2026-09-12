@@ -204,6 +204,10 @@ func decodeConfig(c ServerConfig) speechjob.FFmpegDecodeConfig {
 	return speechjob.FFmpegDecodeConfig{FFmpegPath: c.FFmpeg.Path, FFprobePath: c.FFprobe.Path, FFmpegSHA256: c.FFmpeg.SHA256, FFprobeSHA256: c.FFprobe.SHA256, InputExtension: c.Profile.Extension, MaxInputBytes: c.Limits.UploadBytes, MaxOutputBytes: c.Profile.DecodeBytes, MaxDuration: duration(c.Profile.MaxDurationSeconds)}
 }
 
+type profileRuntimes struct {
+	Vulkan    vulkanProfileRuntime
+	Community communityRuntime
+}
 type vulkanProfileRuntime struct {
 	init       func() bool
 	deviceName func() string
@@ -221,12 +225,16 @@ func buildProfile(ctx context.Context, c ServerConfig, load bool) ([]httpapi.Pro
 	if e != nil {
 		return nil, e
 	}
-	if b.owner != nil {
+	if len(b.owners) > 0 {
 		return nil, fmt.Errorf("experimental Vulkan profile requires owned builder")
 	}
 	return b.Profiles, nil
 }
 func buildProfileOwned(ctx context.Context, c ServerConfig, load bool, runtime vulkanProfileRuntime) (*builtProfiles, error) {
+	return buildProfileOwnedRuntimes(ctx, c, load, profileRuntimes{runtime, defaultCommunityRuntime()})
+}
+func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, runtimes profileRuntimes) (*builtProfiles, error) {
+	runtime := runtimes.Vulkan
 	p, e := prepareModel(ctx, c)
 	if e != nil {
 		return nil, e
@@ -281,7 +289,7 @@ func buildProfileOwned(ctx context.Context, c ServerConfig, load bool, runtime v
 			closeVulkanEncoder(encoder)
 			return nil, e
 		}
-		result.owner = owner
+		result.owners = append(result.owners, owner)
 		asr = owner.Stage()
 	}
 	text, e := speechjob.NewTranscriptStage(speechjob.TranscriptStageConfig{ASRVersion: asr.Version, Language: opts.Language, WindowSamples: int64(p.cfg.MaxLength) * 160, OverlapSamples: opts.OverlapSamples})
@@ -290,8 +298,27 @@ func buildProfileOwned(ctx context.Context, c ServerConfig, load bool, runtime v
 		return nil, e
 	}
 	vtt := speechjob.NewVTTStage()
+	stages := []speechjob.Stage{decode, asr, text, vtt}
+	if opts.Community != nil {
+		owner, e := prepareCommunity(ctx, c, runtimes.Community)
+		if e != nil {
+			closeBuiltProfiles(result)
+			return nil, e
+		}
+		result.owners = append(result.owners, owner)
+		diar := owner.Stage()
+		speaker, e := speechjob.NewSpeakerTranscriptStage(speechjob.SpeakerTranscriptConfig{TranscriptVersion: text.Version, DiarizationVersion: diar.Version, AllowExperimental: true})
+		if e != nil {
+			closeBuiltProfiles(result)
+			return nil, e
+		}
+		stages = append(stages, diar, speaker, speechjob.NewSpeakerVTTStage())
+	}
 	type stageIdentity struct{ Name, Version string }
-	versions := []stageIdentity{{decode.Name, decode.Version}, {asr.Name, asr.Version}, {text.Name, text.Version}, {vtt.Name, vtt.Version}}
+	versions := make([]stageIdentity, len(stages))
+	for i, s := range stages {
+		versions[i] = stageIdentity{s.Name, s.Version}
+	}
 	identity, e = json.Marshal(struct {
 		Schema                                int
 		Runtime                               string
@@ -304,6 +331,6 @@ func buildProfileOwned(ctx context.Context, c ServerConfig, load bool, runtime v
 		closeBuiltProfiles(result)
 		return nil, e
 	}
-	result.Profiles = []httpapi.Profile{{ID: opts.ID, Configuration: identity, Stages: []speechjob.Stage{decode, asr, text, vtt}}}
+	result.Profiles = []httpapi.Profile{{ID: opts.ID, Configuration: identity, Stages: stages}}
 	return result, nil
 }
