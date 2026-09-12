@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline": "58f8b3f",
-  "created": "2026-09-12T10:33:05.794Z",
+  "created": "2026-09-12T10:33:47.173Z",
   "scope": "Experimental bounded Go PCM diarization, source-matched one public30s case with explicit lowest-index ties; general qualification incomplete",
   "modelRevision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
   "api": [
@@ -511,7 +511,7 @@
     "benchmarks/speech-foundations/README.md": "957bb1f0b3c5ecadc7e7563033df5c792c504491d246f2a80ef16aee72faef1f"
   },
   "evidenceHashes": {
-    "README.md": "5896de187753e11a28fccfccd4340707c68c4d1123a597a36bd5a8ffcb2c8215",
+    "README.md": "afa45b756ed31665598210af791e278da68fbcb432955ab2ed63e3305d13fd9e",
     "plda-inspect.txt": "afa5943340259976daf9571a0ff2da717f99601a42dfe7a5bbac5405560a8e70",
     "go-env.sh": "6a86b0c16b3bb14718532fc757f8ceb0977b9872fa99be7bc29c5ed10f8ef539",
     "reference.log": "aeb41838355db092f741d1addf2bcd6f44e3d1c6bc9626d157736fb6e9c94c86",

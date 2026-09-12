@@ -65,7 +65,7 @@ Exclusive output is scored against the same overlapping reference, which explain
 ## Verification
 
 - `make speech-foundations-check speech-sincnet-fma-check speech-media-integration`: pass.
-- Community-1/audio/media/SIMD regressions:710passing events /320top-level passes; seven explicit opt-in test skips plus the no-tests SIMD package skip.
+- Community-1/audio/media/SIMD regressions:710passing events /320top-level passes; seven model/strict/diagnostic opt-in skips, the separately executed FFmpeg integration skip, and the no-tests SIMD package skip.
 - Thirty shuffled window/wrapper repetitions:120passing tests, zero failures/skips. Forced AVX2/FMA-off wrapper checks:4pass.
 - Tests cover exact-end/orphan/one-sample plans,128-window cap, invalid-before-read policy, manual neural/mask/postprocess composition, silence/single-row/clustered paths, overlap-only admission failure, explicit speaker-count override, no-clobber source ownership, short/wrapped-EOF reads, all progress-stage cancellation/error injection and recovery.
 - Three script contract tests pass. Fresh-reference scorer parity passes; a deliberately modified embedding copy fails while retaining its evidence.
