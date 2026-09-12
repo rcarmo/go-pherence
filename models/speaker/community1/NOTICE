@@ -39,5 +39,29 @@ pyannote.audio core/model.py at the same commit; source hashes in head fixtures.
 StatsPool conversion/weighted unbiased variance: pyannote.audio MIT
 models/blocks/pooling.py at the same commit, Copyright (c) 2020- CNRS;
 SHA256 8cb687441630e6759fb6ca545d649b41dbec1d42f869954c0a03ae191c7cbd82.
-No Apache-licensed WeSpeaker ResNet implementation code copied in this component.
+No Apache-licensed WeSpeaker ResNet implementation code is used by StatsPool.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.
+
+Apache-2.0 WeSpeaker BasicBlock adaptation (resnet_block.go)
+--------------------------------------------------------
+Copyright (c) 2021 Shuai Wang (wsstriving@gmail.com)
+              2022 Zhengyang Chen (chenzhengyang117@gmail.com)
+              2023 Bing Han (hanbing97@sjtu.edu.cn)
+              2023 CNRS
+Copyright (c) 2026 Rui Carmo (Go adaptation)
+
+Based on pyannote.audio models/embedding/wespeaker/resnet.py, commit
+b749285c5cdd4636b2edc7f766f1352c8dde9369, SHA256
+2de7673e14e8c74d6c430e0b6e6cc844157f47ac35b67ff6238ca2d2c559eba9.
+Changes: Go owned/checking API, explicit CHW shape/stride/element bounds,
+scalar and existing Plan9 GEMV composition, inference-only BatchNorm,
+cooperative cancellation and transient boundary observers.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+A copy is included in LICENSE-APACHE-2.0 in this directory.
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.

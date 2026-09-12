@@ -26,6 +26,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - `fbank-verification.json`, `fbank-focused-check.txt`: fixed-default WeSpeaker/Kaldi frontend. Twelve pass events (four top-level tests/eight oracle cases),38frames; raw/centered logmel2e-4, pinned Torch400-sample means bit-exact. Constant-input discrepancy fixed via float32 reduction order, no tolerance widening. 164cancel points; legacy FFT/SpeechBrain checks/review/vet/build/arm64cross pass. No real embedding or newSIMD/speed result; SincNet hold unchanged.
 
+- `block-verification.json`, `block-focused-check.txt`: WeSpeaker BasicBlock conv/BatchNorm/residual component. Five block tests, six Torch fixtures52boundaries passabs2e-6+rel2e-6; whole package47pass/1SincNetskip. Identity/projection/stride/CHW/zero-variance checks,82scalar/70SIMDcancelpoints,fiveallocs/projectedcall. Review/vet/build/arm64cross pass; Apache2 adaptation notices retained. FullResNet/embedding not integrated, no trainedmodel/speed result.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
 The exact frontend reuses existing checked Plan 9 SIMD `Ddot`. No new SIMD kernel, Vulkan backend, complete Community-1 pipeline or model-performance result is established by these tests. Legacy inference defaults are retained until real-checkpoint validation.
