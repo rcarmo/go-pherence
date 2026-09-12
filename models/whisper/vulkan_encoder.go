@@ -43,7 +43,16 @@ type vulkanEncoderState struct {
 // No quantised checkpoints or implicit fallback. On construction failure normal
 // rollback returns nil; if cleanup also fails, a nonnil stopping encoder is
 // returned with the error so the caller can retry Close after VulkanDrain.
-func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (result *VulkanEncoder, err error) {
+func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
+	return newVulkanEncoder(ctx, source, frames, vk.NewVkF32Plan)
+}
+
+// Private plan-construction seam for fault injection and opt-in diagnostics.
+// The public constructor always uses NewVkF32Plan; no stages escape its owner.
+func newVulkanEncoder(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error)) (result *VulkanEncoder, err error) {
+	if makePlan == nil {
+		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
+	}
 	layout, err := describeVulkanEncoder(ctx, source, frames)
 	if err != nil {
 		return nil, err
@@ -165,12 +174,19 @@ func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (result 
 			stages = append(stages, stage)
 		}
 		var p *vk.VkF32Plan
-		p, err = vk.NewVkF32Plan(ctx, stages)
+		p, err = makePlan(ctx, stages)
+		// Adopt a partial result before checking the error, so injected/private
+		// constructors cannot strand an owned plan during rollback.
+		if p != nil {
+			s.resources = append(s.resources, p)
+		}
 		if err != nil {
 			return nil, err
 		}
+		if p == nil {
+			return nil, fmt.Errorf("whisper Vulkan: plan constructor returned nil")
+		}
 		s.plans = append(s.plans, p)
-		s.resources = append(s.resources, p)
 	}
 	if err = ctx.Err(); err != nil {
 		return nil, err

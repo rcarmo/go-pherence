@@ -594,6 +594,12 @@ Pinned large-v3-turbo (`41f01f3fe87f28c78e2fbf8b568835947dd65ed9`, model SHA256 
 
 Performance is on hold: public requests take 15.14–15.84 s, with a separate diagnostic showing 14.24–14.26 s in the full 3000-frame encoder. Native allocations total2,641,735,680 bytes across34 arenas, below the explicit4GiB/40 allocation cap. Host encoder weights are released after upload. One-second final-run monitoring kept MemAvailable above20.5GiB with unchanged swap counters; services stayed stopped. [Turbo baseline](../benchmarks/speech-foundations/vulkan-turbo-20260912/README.md) records source/licence hashes, fixed numerical budgets, transcript results and limitations. This improves quality only on the four tested clips and does not meet realtime/≥8×ASR or broad-corpus gates.
 
+### Turbo operation profile
+
+Two final native profiles compare the same resident 34 layer plans with 390 individually fenced operator plans; all eight mode outputs are bit-exact. Normal plans take 14.225–14.234 s, separately fenced stages 14.534–14.572 s. Linear projections account for about77% of separately fenced time and attention about20%. The three projection families each take roughly3.7–3.8s in aggregate; attention takes2.884–2.886s. These host-wall measurements include differing submission overhead, not GPU timestamps or standalone shader rates.
+
+[Operation profile](../benchmarks/speech-foundations/vulkan-profile-20260912/README.md) records exact shapes, counts, estimated arithmetic and per-stage samples. It prioritises linear-kernel investigation but does not choose F16/quantisation or establish a speedup. The private plan-constructor diagnostic hook preserves the public default and now closes partial error results; three native rollback tests pass. Performance and broader quality/recovery gates remain open; services stay stopped.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

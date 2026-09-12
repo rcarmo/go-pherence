@@ -1,0 +1,5 @@
+=== RUN   TestVulkanTurboProfile
+    vulkan_profile_test.go:37: explicit full Turbo profiling window required
+--- SKIP: TestVulkanTurboProfile (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.003s

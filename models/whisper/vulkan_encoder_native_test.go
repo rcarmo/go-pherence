@@ -301,6 +301,33 @@ func TestVulkanEncoderNative(t *testing.T) {
 		return
 	}
 	nativeEncoderMemory(t, before)
+	if !t.Run("plan-constructor-rollback", func(t *testing.T) {
+		source := vulkanToyEncoder(t, vulkanToyConfig())
+		failure := errors.New("injected partial plan")
+		var captured *vk.VkF32Plan
+		enc, err := newVulkanEncoder(context.Background(), source, 17, func(ctx context.Context, stages []vk.VkF32Stage) (*vk.VkF32Plan, error) {
+			p, e := vk.NewVkF32Plan(ctx, stages)
+			if e != nil {
+				return nil, e
+			}
+			captured = p
+			return p, failure
+		})
+		if enc != nil || !errors.Is(err, failure) || captured == nil {
+			t.Fatal("partial plan rollback", enc, err)
+		}
+		if err := captured.Run(context.Background()); !errors.Is(err, vk.ErrVulkanClosed) {
+			t.Fatal("partial plan leaked", err)
+		}
+		nativeEncoderMemory(t, before)
+		enc, err = newVulkanEncoder(context.Background(), source, 17, func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error) { return nil, nil })
+		if enc != nil || err == nil {
+			t.Fatal("nil successful plan accepted")
+		}
+		nativeEncoderMemory(t, before)
+	}) {
+		return
+	}
 	if !t.Run("PCM-bridge", nativePCMVulkanBridge) {
 		return
 	}

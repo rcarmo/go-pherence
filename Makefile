@@ -32,7 +32,7 @@ speech-vulkan-native-check:
 # Whole resident encoder graph: offline contracts or authorised synthetic GPU test.
 .PHONY: speech-vulkan-encoder-check speech-vulkan-encoder-native-check
 speech-vulkan-encoder-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^Test(VulkanEncoder(Layout|RejectsBeforeDevice|Ownership)|PCMVulkan.*)$$'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^Test(VulkanEncoder(Layout|RejectsBeforeDevice|Ownership|PlanConstructorAdmission)|PCMVulkan.*)$$'
 
 speech-vulkan-encoder-native-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_ENCODER=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanEncoderNative$$' -v
@@ -62,6 +62,11 @@ speech-oracle-export-check:
 .PHONY: speech-vulkan-turbo-check
 speech-vulkan-turbo-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurbo$$' -v
+
+# Attribution only: full Turbo layer-plans vs same stages separately fenced.
+.PHONY: speech-vulkan-turbo-profile
+speech-vulkan-turbo-profile:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_PROFILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboProfile$$' -v
 
 # Optional offline validator/compiler qualification. Explicit new output path;
 # missing tools fail (never skip). No Vulkan loader/device or model execution.
