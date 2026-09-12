@@ -44,8 +44,9 @@ var pcmInferenceGate = make(chan struct{}, 1)
 // This API never accumulates the whole recording/transcript or caps it at 100
 // windows. It rejects jobs over four hours, overlap above half a window, or
 // more than 10000 windows (never silently truncating). Retention is caller-owned.
-// Context is checked around each stage and each decoder step; an in-progress
-// encoder/cross-KV operation is not interruptible yet. No background work survives
+// Context is checked between frontend frames, encoder operators, cross-KV
+// projections and decoder tokens. A running kernel/allocation/reorder is not
+// interruptible; no wall-clock cancellation deadline is claimed. No work survives
 // the return. Backend flags retain their existing meanings; resident Vulkan and
 // real-checkpoint quality/performance qualification are separate work.
 func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader, totalSamples int64, tokenizer *Tokenizer, opts PCMTranscribeOptions, emit func(WindowTranscript) error) error {
@@ -90,26 +91,37 @@ func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader,
 		return fmt.Errorf("checked PCM plan exceeds 10000 windows")
 	}
 	return transcribePCMPlan(ctx, source, plan, emit, func(samples []float32) ([]Segment, error) {
-		mel, frames, err := MelFlatFromSamplesChecked(samples, w.Config)
+		mel, frames, err := MelFlatFromSamplesCheckedContext(ctx, samples, w.Config)
 		if err != nil {
 			return nil, err
 		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		output := w.Encoder.Forward(mel, frames)
+		output, err := w.Encoder.ForwardContext(ctx, mel, frames)
+		if err != nil {
+			return nil, err
+		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		if len(output) != ((frames+1)/2)*w.Config.EncoderDModel {
 			return nil, fmt.Errorf("invalid encoder output shape")
 		}
-		for _, value := range output {
+		for index, value := range output {
+			if index%16384 == 0 {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+			}
 			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
 				return nil, fmt.Errorf("non-finite encoder output")
 			}
 		}
-		state := NewDecoderState(w.Config, output, (frames+1)/2, w.Decoder)
+		state, err := NewDecoderStateContext(ctx, w.Config, output, (frames+1)/2, w.Decoder)
+		if err != nil {
+			return nil, err
+		}
 		return decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, func(token int) ([]float32, error) {
 			if state.Pos >= w.Config.MaxDecoderLength {
 				return nil, ErrGenerationLimit

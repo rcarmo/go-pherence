@@ -1,6 +1,7 @@
 package whisper
 
 import (
+	"context"
 	"math"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -105,6 +106,25 @@ func NewDecoder(cfg Config) *Decoder {
 
 // NewDecoderState initializes decoding state for incremental generation.
 func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decoder) *DecoderState {
+	state, _ := newDecoderStateContext(nil, cfg, encoderOutput, encLen, dec)
+	return state
+}
+
+// NewDecoderStateContext checks cancellation between allocations, projections
+// and head-major conversions. It has the same validated-input and exclusive
+// execution preconditions as NewDecoderState. No partial state escapes on error;
+// a running projection or reorder finishes before cancellation is reported.
+func NewDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []float32, encLen int, dec *Decoder) (*DecoderState, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return newDecoderStateContext(ctx, cfg, encoderOutput, encLen, dec)
+}
+
+func newDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []float32, encLen int, dec *Decoder) (*DecoderState, error) {
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	dModel := cfg.DecoderDModel
 	numLayers := cfg.DecoderLayers
 
@@ -121,6 +141,9 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 
 	// Pre-allocate self-attention KV caches
 	for l := 0; l < numLayers; l++ {
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		state.SelfKCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
 		state.SelfVCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
 	}
@@ -128,16 +151,31 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 	// Pre-compute cross-attention K/V from encoder output (done once)
 	// Use GPU SGEMM if available for this large batched matmul
 	for l := 0; l < numLayers; l++ {
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		layer := &dec.Layers[l]
 		state.CrossK[l] = linearForwardOpt(encoderOutput, layer.CrossKWeight, layer.CrossKBias, encLen, dModel, dModel)
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		state.CrossV[l] = linearForwardOpt(encoderOutput, layer.CrossVWeight, layer.CrossVBias, encLen, dModel, dModel)
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		// Reorder once to head-major so each decoded token reads each head's
 		// frames contiguously instead of stride-dModel (the decode bottleneck).
 		state.CrossKHead[l] = toHeadMajor(state.CrossK[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		state.CrossVHead[l] = toHeadMajor(state.CrossV[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
 	}
 
-	return state
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 // ForwardToken runs one decoder step for a single token.

@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sync"
@@ -43,13 +44,29 @@ func WhisperLogMel80(samples []float32) ([]float32, int) {
 // This correctness-first DFT reuses the checked Plan 9 SIMD Ddot kernel; it is not
 // the planned high-throughput FFT implementation.
 func WhisperLogMel(samples []float32, numMels int) ([]float32, int, error) {
+	return WhisperLogMelContext(context.Background(), samples, numMels)
+}
+
+// WhisperLogMelContext preserves WhisperLogMel's numerical operations, adding
+// cancellation checks between frames and in bounded validation/normalisation
+// blocks. One DFT frame, the bounded lookup-table sync.Once initialisation and
+// reflect-padding copy are not interruptible. No partial features escape.
+func WhisperLogMelContext(ctx context.Context, samples []float32, numMels int) ([]float32, int, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
+	}
 	if numMels != 80 && numMels != 128 {
 		return nil, 0, fmt.Errorf("unsupported Whisper mel band count %d", numMels)
 	}
 	if len(samples) < whisperHop || len(samples) > 30*16000 {
 		return nil, 0, fmt.Errorf("Whisper window requires 160..480000 mono samples")
 	}
-	for _, value := range samples {
+	for index, value := range samples {
+		if index%16384 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, 0, err
+			}
+		}
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
 			return nil, 0, fmt.Errorf("non-finite Whisper waveform")
 		}
@@ -61,7 +78,12 @@ func WhisperLogMel(samples []float32, numMels int) ([]float32, int, error) {
 	}
 	out := make([]float32, numMels*frames)
 	nonzero := false
-	for _, sample := range samples {
+	for index, sample := range samples {
+		if index%16384 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, 0, err
+			}
+		}
 		if sample != 0 {
 			nonzero = true
 			break
@@ -69,11 +91,25 @@ func WhisperLogMel(samples []float32, numMels int) ([]float32, int, error) {
 	}
 	if !nonzero {
 		for i := range out {
+			if i%16384 == 0 {
+				if err := ctx.Err(); err != nil {
+					return nil, 0, err
+				}
+			}
 			out[i] = -1.5 // log10(1e-10), then (x+4)/4
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, 0, err
 		}
 		return out, frames, nil
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
+	}
 	whisperExactTables.Do(initWhisperExactTables)
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
+	}
 	filters := whisperExactTables.filters
 	if numMels == 128 {
 		filters = whisperExactTables.filters128
@@ -83,6 +119,9 @@ func WhisperLogMel(samples []float32, numMels int) ([]float32, int, error) {
 	windowed := make([]float64, whisperFFTSize)
 	maxLog := float32(-math.MaxFloat32)
 	for frame := 0; frame < frames; frame++ {
+		if err := ctx.Err(); err != nil {
+			return nil, 0, err
+		}
 		start := frame * whisperHop
 		for sample := range windowed {
 			windowed[sample] = float64(centered[start+sample]) * whisperExactTables.window[sample]
@@ -114,10 +153,18 @@ func WhisperLogMel(samples []float32, numMels int) ([]float32, int, error) {
 	}
 	floor := maxLog - 8
 	for i, value := range out {
+		if i%16384 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, 0, err
+			}
+		}
 		if value < floor {
 			value = floor
 		}
 		out[i] = (value + 4) / 4
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
 	}
 	return out, frames, nil
 }
