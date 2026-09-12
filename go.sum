@@ -1,6 +1,6 @@
 github.com/ebitengine/purego v0.10.0 h1:QIw4xfpWT6GWTzaW5XEKy3HXoqrJGx1ijYHzTF0/ISU=
 github.com/ebitengine/purego v0.10.0/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
-github.com/rcarmo/go-264 v0.0.0-20260912092206-42030e1cd54d h1:9HVNJpgsIT4PWeJLYZguyn/KlVeHiGK+4jWCwjdRnTw=
+github.com/rcarmo/go-264 v0.0.0-20260912092206-42030e1cd54d h1:aLpO9Ho6o8MJhcUtoN64Z7IYo4hXAraOEgBBrXyjrsI=
 github.com/rcarmo/go-264 v0.0.0-20260912092206-42030e1cd54d/go.mod h1:DfT0hsjYj65x9Y1WRU9gNO/yvZZlvCorI8t4gQxQMX4=
 golang.org/x/sys v0.43.0 h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=
 golang.org/x/sys v0.43.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
