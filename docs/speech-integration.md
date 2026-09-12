@@ -646,7 +646,9 @@ No Vulkan device or trained checkpoint ran. Native parity, recovery and CPU/full
 
 `NewVkLSTMCellF32` performs one unprojected PyTorch-IFGO recurrent state update from caller-precombined gates and prior cell state. It supports exact in-place cell update, rejects unsafe output overlap and uses branch-stable sigmoid/tanh formulas. Six hidden sizes, four shuffled schedules and5,280 hidden/cell outputs pass the source model; all20 embedded shader contracts pass. [Evidence](../benchmarks/speech-foundations/vulkan-lstm-cell-20260912/README.md) records the numerical and ownership envelope.
 
-This is not a complete sequence owner. Input/hidden projections, separate PyTorch bias additions, forward/reverse ordering, multi-layer state, native transcendental parity and placement measurements remain open. No model/default selects the kernel.
+`NewVkLSTMSequenceF32` extends this to one complete direction: one256-lane workgroup owns all1–4096 recurrent steps, preserves separate input/hidden reductions and PyTorch bias composition, writes original frame positions for forward/reverse operation, and supports disjoint output offsets for bidirectional concatenation. Five geometries, both directions and878 output checks pass. [Sequence evidence](../benchmarks/speech-foundations/vulkan-lstm-sequence-20260912/README.md) records the shape/alias/lifetime contract.
+
+A multi-layer model owner, native transcendental parity and placement measurements remain open. No model/default selects either recurrent kernel.
 
 ### Experimental lowered SincNet filters and ordered FMA
 
