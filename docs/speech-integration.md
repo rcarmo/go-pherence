@@ -510,6 +510,14 @@ The operator composes with `VkF32Plan` without intermediate host transfers. Call
 
 Seven new tests bring the offline suite to 94 top-level tests/399 passing events, zero failures/skips. Twenty-seven relevant tests pass 30 shuffled repeats (4470 events). A Go reduction-schedule model matches a float64 centred-variance oracle within `2e-5 + 2e-5*abs(reference)` for 11 widths, constant/low-variance/general rows and four invocation permutations; exact alias and separate output match. These are source-model results, not GPU accuracy measurements. Twelve exact embedded and twelve rebuilt shaders pass static validation, with byte-exact LayerNorm and RoPE rebuilds. [LayerNorm verification](../benchmarks/speech-foundations/vulkan-layernorm-20260912/README.md) records evidence and review limits. No native loader, GPU, trained model, private audio or service ran.
 
+### Vulkan tiled F32 linear projection
+
+`NewVkLinearF32` adds `X[M,K] * Weight[N,K]^T + Bias[N] -> Out[M,N]` over persistent arena tensors. The 16×16 workgroup cooperatively loads two flat shared tiles (2048 bytes), with one invocation per output. Edge lanes zero-pad loads and remain at both barriers; output tails are guarded. Stage and Forward validate exact ranks/extents, positive axes up to 16384, queried group/range limits and output disjointness from all inputs. Read-only inputs may alias. Bias is required; use a zero tensor for no-bias projections.
+
+Seven new tests bring the offline suite to 101 top-level tests/407 passing events, zero failures/skips; 34 relevant tests pass 30 shuffled repeats (4710 events). A Go tile-schedule model covers ten shapes ×four shuffled schedules and matches serial F32 exactly on those fixtures, with float64 oracle error bounded by `2e-5 + 2e-5*abs(reference)`. Actual wrapper calls and a linear→LayerNorm plan are mock-tested, including retained ownership after cancellation. This does not execute SPIR-V or qualify device rounding/performance.
+
+Thirteen embedded and thirteen rebuilt shaders pass static validation; Linear, LayerNorm and RoPE rebuild byte-identically. Narrow source review found no scoped indexing/barrier/alias blocker. [Linear verification](../benchmarks/speech-foundations/vulkan-linear-20260912/README.md) records evidence. This is dense F32 only: quantised formats, erf-GELU, tiled attention, the full encoder graph and hardware numerical/quality gates remain unfinished. No native loader, GPU, trained model or service ran.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

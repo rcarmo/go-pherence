@@ -21,7 +21,7 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve, join } from 'node:path';
 
 const root=resolve(import.meta.dir,'..');
-export const shaderNames=['attention_score','gelu_tanh_mul_f32','gemv_bf16_mixed','gemv_f32','layer_norm_f32','rms_norm_bf16','rms_norm_f32','rms_norm_no_scale_f32','rope_partial_f32','silu_mul_f32','vec_add_bf16','vec_add_f32'];
+export const shaderNames=['attention_score','gelu_tanh_mul_f32','gemv_bf16_mixed','gemv_f32','layer_norm_f32','linear_f32','rms_norm_bf16','rms_norm_f32','rms_norm_no_scale_f32','rope_partial_f32','silu_mul_f32','vec_add_bf16','vec_add_f32'];
 const sha=(b:Uint8Array|string)=>createHash('sha256').update(b).digest('hex');
 
 export function embeddedShaders(text:string):Map<string,Uint8Array>{
