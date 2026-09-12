@@ -652,7 +652,9 @@ No Vulkan device or trained checkpoint ran. Native parity, recovery and CPU/full
 
 `NewVulkanSegmentationFeatures` adds an explicit hybrid feature-stage owner: fixed-frame recurrent inference uses resident Vulkan, while a copied `SegmentationHead` keeps hidden projections, classifier and log-softmax on the existing checked CPU path. Source/head geometry and finite parameters are validated before Vulkan construction; calls and close share one serialized lifetime. [Hybrid segmentation evidence](../benchmarks/speech-foundations/vulkan-segmentation-hybrid-20260912/README.md) records model-free tests.
 
-Native transcendental parity, complete PCM SincNet→LSTM→head execution and placement measurements remain open. No model/default selects these recurrent paths.
+`NewVulkanSegmentationPCM` completes the explicit model-free composition for one fixed mono16k window: existing lowered-filter CPU SincNet feeds the resident Vulkan LSTM and copied CPU head. Sample count and derived feature grid are fixed at construction and checked again at execution. Only explicit ordered-FMA SincNet and checked CPU head modes are accepted. [PCM composition evidence](../benchmarks/speech-foundations/vulkan-segmentation-pcm-20260912/README.md) records fail-closed construction/forward/close behavior.
+
+Native transcendental parity, trained PCM output and placement measurements remain open, and existing strict SincNet failures are unchanged. No model/default selects these recurrent paths.
 
 ### Experimental lowered SincNet filters and ordered FMA
 
