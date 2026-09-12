@@ -614,6 +614,14 @@ Two final native profiles compare the same resident 34 layer plans with 390 indi
 
 A complete trained Turbo encoder confirmation reduces median14.244→8.298s (1.716×), bit-exact against the baseline; four public candidate transcripts retain baseline tokens/timestamps. Earlier final processes include a recorded setup overlap and55pages of swap-out; an explicitly isolated confirmation has unchanged swap counters. [Candidate evidence](../benchmarks/speech-foundations/vulkan-linear-regtile-20260912/README.md) separates these resource/timing scopes. Candidate speech requests still take about9–10s, so whole-job performance remains on hold. No automatic promotion, F16/quantisation or service rollout occurred.
 
+### Community-1 Vulkan channel affine foundation
+
+`NewVkChannelAffineReLUF32` applies prepared per-channel F32 affine coefficients to resident channel-major tensors and optionally applies ReLU. This directly covers the elementwise inference BatchNorm+ReLU work in the Community-1 ResNet once its weights and activations are resident. Checkpoint-specific coefficient preparation stays with the model owner. Exact input/output alias and disjoint output are supported; partial activation overlap and every coefficient/output overlap fail before recording.
+
+The shader uses one explicit FMA per output and preserves finite-input signed-zero ReLU behaviour. Five focused tests cover56,080 schedule-model outputs against the exact one-rounding F32 oracle (including a widened-Go-FMA midpoint adversary), shape/alias/grid admission, copied stages, constructor/close and pending-plan retention. Ten shuffled repeats, the complete mock-only Vulkan suite, vet and arm64 test cross-build pass. All18 embedded/rebuilt shaders pass offline static validation; the new shader rebuilds byte-for-byte. [Evidence](../benchmarks/speech-foundations/vulkan-community-affine-20260912/README.md) records the broad availability-gated attention parity failure separately from these passing mock-only gates. Native device parity and CPU/Vulkan bit identity are not established; the current CPU Community-1 BatchNorm expression can differ at rare double-rounding boundaries.
+
+No Community checkpoint or Vulkan device ran. WeSpeaker 2-D convolution, full graph residency, trained accuracy, performance and recovery are still required; no model/default selects this operator.
+
 ### Experimental lowered SincNet filters and ordered FMA
 
 `NewSincNetWithFilters` owns an explicitly lowered `[80,251]` filter tensor; callers must verify checkpoint identity and lowering metadata. New `SincNetScalarFMA` / `SincNetSIMDFMA` modes use serial-K FMA order. The reusable checked Plan 9 kernel vectorises independent frame columns, preserving exact scalar output. Existing constructors and mode defaults are unchanged.

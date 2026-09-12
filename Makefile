@@ -30,11 +30,17 @@ speech-go264-paired-check:
 
 # Focused speech-foundation checks: no model weights, driver initialisation,
 # service startup or performance benchmark. FFmpeg integration is opt-in below.
-.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check speech-vulkan-static-check
+.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check speech-vulkan-static-check speech-vulkan-community-check
 
 # Mock-only Vulkan ABI/lifetime checks: never calls VulkanInit or opens a GPU.
 speech-vulkan-offline-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline|TestVulkanDispatchRejects|TestVkBuf|TestVkKernelCreate|TestVkHelpers|TestVkWrappers|TestLoadSPIRV)'
+
+# Model-free Community-1 operator foundation: channel-major prepared BatchNorm
+# affine with optional ReLU. No Vulkan loader/device or trained model execution.
+speech-vulkan-community-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOfflineChannelAffine|TestVulkanOfflineShaderContractEmbedded)'
+	bun test scripts/check-vulkan-shaders.test.ts
 
 # Explicit real-GPU qualification in a coordinated compute window. No models
 # or services; synthetic numerical fixtures and optional warm host-wall timing.
