@@ -1,6 +1,7 @@
 package vulkan
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
@@ -127,6 +128,14 @@ func TestVulkanWrapperStubsValidBuffers(t *testing.T) {
 		out, q, k := alloc(t, floatsPerBuf), alloc(t, floatsPerBuf), alloc(t, floatsPerBuf)
 		if err := VkAttentionScoresF32(out, q, k, n, n, 1, n, 1); err != nil {
 			t.Fatal(err)
+		}
+		for _, bad := range []struct {
+			heads, kvHeads int
+			scale          float32
+		}{{4, 3, 1}, {2, 3, 1}, {2, 1, float32(math.NaN())}, {2, 1, float32(math.Inf(1))}} {
+			if err := VkAttentionScoresF32(out, q, k, 1, bad.heads, bad.kvHeads, 1, bad.scale); err == nil {
+				t.Fatal("invalid attention geometry accepted", bad)
+			}
 		}
 	})
 }

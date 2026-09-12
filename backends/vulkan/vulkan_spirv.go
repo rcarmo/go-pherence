@@ -10,8 +10,8 @@ package vulkan
 //
 // To regenerate: glslangValidator -V shader.comp -o shader.spv
 //
-// For now, we hand-assemble minimal SPIR-V for a vector add shader
-// to prove the pipeline works. Production shaders will be compiled from GLSL.
+// The legacy LoadSPIRV surface retains one hand-assembled vector-add module.
+// Production operators use generated assets from vulkan_spirv_embedded.go.
 
 import (
 	"context"
@@ -32,19 +32,14 @@ type VkComputeShader struct {
 	numBuffers     int
 }
 
-// assembleSPIRV creates a minimal SPIR-V module for a compute shader.
-// This is a helper that builds SPIR-V binary from a GLSL-like specification.
-// For production, use pre-compiled SPIR-V from glslangValidator.
+// assembleSPIRV exposes only the legacy hand-assembled vector-add module.
+// Model operators must use generated, inspected embedded assets instead of a
+// same-ABI placeholder under another operation name.
 func assembleSPIRV(glslSource string) ([]byte, error) {
-	// For now, return pre-built SPIR-V for common shaders
-	switch glslSource {
-	case "vec_add":
-		return spirvVecAdd, nil
-	case "gemv_f32":
-		return spirvGemvF32, nil
-	default:
-		return nil, fmt.Errorf("unknown shader: %s", glslSource)
+	if glslSource == "vec_add" {
+		return append([]byte(nil), spirvVecAdd...), nil
 	}
+	return nil, fmt.Errorf("unknown legacy shader: %s", glslSource)
 }
 
 // Pre-compiled SPIR-V for vector add:
@@ -59,9 +54,6 @@ func assembleSPIRV(glslSource string) ([]byte, error) {
 //	    if (i < n) c[i] = a[i] + b[i];
 //	}
 var spirvVecAdd = buildSPIRVVecAdd()
-
-// Pre-compiled SPIR-V for F32 GEMV (matrix-vector multiply)
-var spirvGemvF32 = buildSPIRVGemvF32()
 
 func buildSPIRVVecAdd() []byte {
 	// Minimal SPIR-V 1.0 compute shader: c[i] = a[i] + b[i]
@@ -197,12 +189,6 @@ func buildSPIRVVecAdd() []byte {
 	w(0x00010038)     // FunctionEnd
 
 	return b
-}
-
-func buildSPIRVGemvF32() []byte {
-	// Placeholder — full GEMV shader is complex.
-	// For now return vec_add SPIR-V (will be replaced with actual GEMV).
-	return buildSPIRVVecAdd()
 }
 
 // LoadSPIRV creates a legacy pipeline-only object (no dispatch surface).

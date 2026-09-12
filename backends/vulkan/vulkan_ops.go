@@ -16,6 +16,7 @@ package vulkan
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"unsafe"
 )
@@ -149,15 +150,6 @@ func VkVecAddBF16(dst, a, b *VkBuf, n int) error {
 //	    // Pack back: narrow F32→BF16
 //	    c[i] = (floatBitsToUint(c0) >> 16) | (floatBitsToUint(c1) & 0xFFFF0000);
 //	}
-var spirvBF16VecAdd = buildSPIRVBF16VecAdd()
-
-func buildSPIRVBF16VecAdd() []byte {
-	// For now, use the same F32 vec_add SPIR-V as placeholder.
-	// The BF16 packing logic needs proper SPIR-V encoding which is complex
-	// to hand-assemble. In production, use glslangValidator.
-	return buildSPIRVVecAdd()
-}
-
 // ---- GLSL sources for all kernels (for documentation/regeneration) ----
 
 // GLSL: F32 RMSNorm
@@ -360,7 +352,8 @@ func VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headD
 	kvDim, okKV := vkCheckedMulInt(nKVHeads, headDim)
 	cacheLen, okCache := vkCheckedMulInt(seqLen, kvDim)
 	scoreLen, okScore := vkCheckedMulInt(nHeads, seqLen)
-	if seqLen <= 0 || nHeads <= 0 || nKVHeads <= 0 || headDim <= 0 || !okQ || !okKV || !okCache || !okScore || !vkBufHasFloat32s(out, scoreLen) || !vkBufHasFloat32s(q, qLen) || !vkBufHasFloat32s(kCache, cacheLen) {
+	const maxUint32 = int64(^uint32(0))
+	if seqLen <= 0 || nHeads <= 0 || nKVHeads <= 0 || nKVHeads > nHeads || nHeads%nKVHeads != 0 || headDim <= 0 || int64(seqLen) > maxUint32 || int64(nHeads) > maxUint32 || int64(nKVHeads) > maxUint32 || int64(headDim) > maxUint32 || math.IsNaN(float64(scale)) || math.IsInf(float64(scale), 0) || !okQ || !okKV || !okCache || !okScore || !vkBufHasFloat32s(out, scoreLen) || !vkBufHasFloat32s(q, qLen) || !vkBufHasFloat32s(kCache, cacheLen) {
 		return fmt.Errorf("invalid vulkan attention_score dims seq=%d heads=%d kvHeads=%d headDim=%d", seqLen, nHeads, nKVHeads, headDim)
 	}
 	if vkAttentionScoresF32 == nil {
@@ -370,5 +363,6 @@ func VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headD
 		Heads, KVHeads, HeadDim, SeqLen uint32
 		Scale                           float32
 	}{uint32(nHeads), uint32(nKVHeads), uint32(headDim), uint32(seqLen), scale}
-	return vkAttentionScoresF32.Dispatch(uint32(nHeads), 1, 1, []*VkBuf{q, kCache, out}, unsafe.Pointer(&push))
+	// The shader owns one workgroup per (head,time) pair.
+	return vkAttentionScoresF32.Dispatch(uint32(nHeads), uint32(seqLen), 1, []*VkBuf{q, kCache, out}, unsafe.Pointer(&push))
 }
