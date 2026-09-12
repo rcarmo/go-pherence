@@ -584,7 +584,7 @@ Three warm equal-output ABBA/BAAB batches (8 samples per arm) give CPU medians 1
 
 ### Multilingual diagnostics and exact-zero silence option
 
-`PCMTranscribeOptions.SkipDigitalSilence` optionally emits empty callbacks for entirely zero-valued PCM windows before frontend/model execution. It defaults to false. Required model/tokenizer/geometry validation still runs, and nonzero subnormals/NaN/Inf are not discarded. This is neither VAD nor an energy threshold; quiet/noisy no-speech handling remains unqualified.
+`PCMTranscribeOptions.SkipDigitalSilence` optionally emits empty callbacks for entirely zero-valued PCM windows before frontend/model execution. It defaults to false. Required model/tokenizer/geometry validation still runs, and nonzero subnormals/NaN/Inf are not discarded. The durable job path now verifies 131-window exact-zero recordings across injected failure, store reopen and journal resume, retaining one canonical empty record per window. This is neither VAD nor an energy threshold; quiet/noisy no-speech handling remains unqualified.
 
 Three native diagnostic batches over public MINDS-14 Portuguese/French and JFK/silence compositions complete 48 CPU/GPU calls/72 windows with identical text/tokens/timestamps. Recognition quality is poor: Portuguese fixtures score 80% and 77.78% WER, French 40%. CPU/GPU agreement does not establish shared frontend/decoder correctness or multilingual acceptance. Defaults hallucinate “you” on digital silence. With the exact-zero option, the five-second silence callback is empty and a 63-second three-window JFK composition has 0/44 edits with an empty final silent window. A padded 21-second JFK fixture passes without the option.
 

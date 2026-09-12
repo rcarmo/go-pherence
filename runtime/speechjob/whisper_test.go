@@ -326,6 +326,57 @@ func TestWhisperJobActualToyModel(t *testing.T) {
 	}
 }
 
+func TestWhisperJobDigitalSilenceLongResume(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "1")
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "0")
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_SELF_ATTN", "0")
+	model, tok := jobToyWhisper()
+	cfg := WhisperStageConfig{ModelSHA256: hash([]byte("toy")), RuntimeSHA256: hash([]byte("host")), Language: "pt", OverlapSamples: 160, SkipDigitalSilence: true, MaxWindowBytes: 4096, MaxResultBytes: 256 << 10}
+	st, err := NewWhisperWindowStage(model, tok, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := int64(model.Config.MaxLength)*160 + 130*(int64(model.Config.MaxLength)*160-cfg.OverlapSamples)
+	s, dir := openTest(t)
+	job := createTest(t, s)
+	failed := false
+	s.fault = func(point string) error {
+		if point == "window-ack-published" && !failed {
+			failed = true
+			return io.ErrClosedPipe
+		}
+		return nil
+	}
+	job, err = s.Run(context.Background(), job.ID, config, []Stage{fixturePCMStage(int(total)), st}, nil)
+	if !errors.Is(err, io.ErrClosedPipe) || job.Status != Failed || len(job.Checkpoints) != 1 {
+		t.Fatal(job, err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = Open(dir, limits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	job, err = s.Run(context.Background(), job.ID, config, []Stage{fixturePCMStage(int(total)), st}, nil)
+	if err != nil || job.Status != Complete {
+		t.Fatal(job, err)
+	}
+	r, err := s.OpenCheckpoint(context.Background(), job.ID, "asr-windows")
+	raw := readAll(t, r, err)
+	rows := strings.Split(strings.TrimSpace(raw), "\n")
+	if len(rows) != 131 {
+		t.Fatalf("window count=%d", len(rows))
+	}
+	for i, row := range rows {
+		var record windowRecord
+		if err := json.Unmarshal([]byte(row), &record); err != nil || record.Result.Window.Index != int64(i) || record.Result.Segments == nil || len(record.Result.Segments) != 0 {
+			t.Fatalf("silence window %d: %+v %v", i, record, err)
+		}
+	}
+}
+
 func TestWhisperJournalMoreThanHundredWindows(t *testing.T) {
 	s, _ := openTest(t)
 	var starts []int64
