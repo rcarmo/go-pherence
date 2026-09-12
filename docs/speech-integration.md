@@ -18,6 +18,8 @@ The speech port is being implemented in go-pherence on `feat/speech-simd-vulkan`
 
 - `models/speaker/community1.SegmentationHead`: owned hidden Linear/leaky-ReLU layers, classifier and stable log-softmax, tested with the LSTM and powerset on synthetic recurrent features. It does not consume PCM or bypass the SincNet hold.
 
+- `models/speaker/community1.StatsPool`: bounded shared-feature weighted/unweighted mean/std pooling for the WeSpeaker statistics stage. Mask resize, support metadata and variance match pinned synthetic oracles; this is not a full speaker embedding model.
+
 This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan execution layer, new assembly kernels, the integrated job service, real-checkpoint quality tests and performance targets are not complete. Neither existing service has been restarted or deployed from this branch.
 
 ## Ownership and boundaries
@@ -164,6 +166,18 @@ Observers see transient hidden activations and raw classifier logits. Cancellati
 Four [head fixtures](../models/speaker/community1/testdata/head-reference.json) from pinned pyannote/PyTorch rules match hidden outputs, raw logits and log probabilities within `2e-6` in both modes. A separate synthetic LSTM → head → powerset comparison matches intermediate recurrent features, log probabilities and soft activities at `2e-6`, with exact hard activities. The [offline generator](../scripts/community1_head_reference.py) pins the PyanNet, default-activation, powerset, Torch RNN and prior LSTM fixture hashes; it regenerates identical JSON using one CPU thread, MKLDNN disabled and no trained weights or audio.
 
 This is a composition test from synthetic recurrent features, not the PCM segmentation graph or a diarization-quality result. SincNet's four strict failures remain open; the new head has no PCM entry point. A narrow delegated review found no blocking issue. [Head verification](../benchmarks/speech-foundations/head-verification.json) records component checks separately from the held frontend. No services, GPU workloads, private audio or production defaults changed.
+
+## WeSpeaker statistics-pooling component
+
+`StatsPool(ctx, features, masks, cfg)` consumes one window of channel-major `[features,frames]` network activations. WeSpeaker's dimension/channel axes flatten together while time stays last. Optional masks use `[speakers,maskFrames]` and values in `[0,1]`; several masks share the same immutable feature array. The result owns `[speakers,2*features]` statistics (all means, then all standard deviations), post-resize weight sums and nonzero-frame counts. Without masks it returns one unweighted row and requires at least two frames for unbiased variance.
+
+The weighted contract follows pyannote 4.0.7 `StatsPool`: `v1=sum(w)+1e-8`, `mean=sum(x*w)/v1`, `v2=sum(w*w)`, and `variance=sum((x-mean)^2*w)/(v1-v2/v1+1e-8)`. Empty masks return zero statistics; single-frame or tiny soft support follows this formula. Neither implies a usable speaker embedding. Minimum mask duration, overlap exclusion, embedding admission and global speaker identity remain downstream responsibilities.
+
+Different mask lengths use Torch's legacy nearest-neighbour resize. Its float32 scale and product matter: a 2→82 resize assigns feature frame 41 to mask index 0, unlike exact integer-ratio flooring. Ten independent index fixtures cover identity, exact doubling, up/downsampling and float32 boundary cases. The reference docstring says linear interpolation, but the implementation calls `mode="nearest"`. This is index-space resizing, not original-audio timestamp or receptive-field alignment.
+
+Inputs are bounded to 4096 features, 4096 feature/mask frames and eight masks. Non-finite activations/reductions, malformed shapes and masks outside `[0,1]` are rejected; no partial output escapes cancellation. Fifty deterministic cancellation checkpoints and four allocations per tested call pass; allocation count does not increase with mask count because only one resized mask row is reused. Weighted arithmetic preserves float32 rounding; unweighted reductions use float64 before output conversion. Specialised SIMD reductions and throughput measurement are not included.
+
+Nine [pinned pooling fixtures](../models/speaker/community1/testdata/pooling-reference.json) match at `2e-6 + 2e-6*abs(reference)`, including zero/single support, soft masks and mismatched lengths. The [offline oracle](../scripts/community1_pooling_reference.py) imports only checksum-pinned MIT `pooling.py`, uses one CPU thread and no trained model, audio or ResNet. Regeneration is byte-identical. A narrow review found no issue in the formula/ownership; a subsequent parent boundary probe found and corrected exact-ratio mask indexing before final tests. [Pooling verification](../benchmarks/speech-foundations/pooling-verification.json) records the tests and scope. The complete Fbank/ResNet/embedding projection and Community-1 pipeline are not implemented, and SincNet's strict hold is unchanged.
 
 ## Frozen references and proposed acceptance
 

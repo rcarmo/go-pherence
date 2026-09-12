@@ -22,6 +22,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - `head-verification.json`, `head-focused-check.txt`: owned segmentation Linear/leaky-ReLU/classifier/log-softmax component. Four head fixtures17frames plus7-frame LSTM/head/powerset composition pass2e-6, hard labels exact. Head14pass events (six top-level tests); whole package37pass/1known SincNet skip. 77scalar/56SIMD cancel points and six allocations per tested two-layer call. Review/vet/build/arm64cross pass; SincNet strict4FAIL unchanged, no full PCM integration.
 
+- `pooling-verification.json`, `pooling-focused-check.txt`: shared-feature multi-mask WeSpeaker StatsPool component; five pooling tests pass, whole package42pass/1SincNet skip. Nine numerical fixtures plus10nearest-index cases4615values pass; abs2e-6+rel2e-6. Corrected Torch float32 interpolation boundary (2→82 frame41→mask0). 50cancel points/four allocations independent of masks; review/vet/build/arm64cross pass. No complete embedding/model-quality/newSIMD/speed result.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
 The exact frontend reuses existing checked Plan 9 SIMD `Ddot`. No new SIMD kernel, Vulkan backend, complete Community-1 pipeline or model-performance result is established by these tests. Legacy inference defaults are retained until real-checkpoint validation.

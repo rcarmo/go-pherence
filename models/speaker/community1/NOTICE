@@ -36,4 +36,8 @@ source SHA256 2df0d1e6f109985c00efcc60970ebceff6a9665c3e65ebae73ea4848e48d8eae.
 The MIT permission and warranty notice above applies to these references too.
 Segmentation head Linear/leaky-ReLU and LogSoftmax conventions: PyanNet and
 pyannote.audio core/model.py at the same commit; source hashes in head fixtures.
+StatsPool conversion/weighted unbiased variance: pyannote.audio MIT
+models/blocks/pooling.py at the same commit, Copyright (c) 2020- CNRS;
+SHA256 8cb687441630e6759fb6ca545d649b41dbec1d42f869954c0a03ae191c7cbd82.
+No Apache-licensed WeSpeaker ResNet implementation code copied in this component.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.
