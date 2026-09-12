@@ -47,6 +47,8 @@ Do not move codec ownership into go-pherence or wait for go-264 before developin
 
 ## Media contract and limits
 
+An explicitly selected [go-264 backend](go264-media.md) now implements `media.Adapter` for the qualified PCM-WAV/progressive AAC-LC subset. FFmpeg remains the default. The provider is pinned without a committed local replacement; publication is still required for fresh remote fetches.
+
 `NewFFmpeg` requires configured executable paths. Zero limits receive defaults; negative limits and durations above four hours are rejected. Default input limit is 512 MiB; canonical output is bounded by four hours of s16 mono samples plus header allowance. Probe output and retained stderr are bounded; errors do not echo subprocess payloads.
 
 Only local regular files with WAV or ISO BMFF signatures and supported extensions are accepted (`.wav`, `.m4a`, `.mp4`, `.mov`). This deliberately excludes RF64, unusual MOV files lacking an initial `ftyp`, playlists and remote URLs. The lowest valid audio stream index is chosen. FFmpeg gets explicit demuxers, `file,pipe` protocols, disabled MOV external references/absolute aliases, no video/subtitle/data mapping, and two threads. The caller must place inputs and outputs in its private job directory and keep the input immutable for the operation; this library is not an untrusted multi-user filesystem sandbox.
