@@ -23,9 +23,6 @@ The legacy GQA score wrapper is separate from the fused resident Whisper attenti
 - Linux/ARM64 test-binary cross-builds pass for Vulkan and Community-1.
 - `git diff --check` passes.
 
-Existing unrelated cross-build limits remain explicit:
-
-- `models/whisper` Linux/ARM64 currently fails because `simd/fft` exposes `PrecomputeHannWindow` and `PrecomputeMelFilters` only from an amd64-tagged file.
-- Windows Vulkan currently fails because the existing `purego` loader uses Unix `Dlopen`/`Dlsym` APIs.
+The Linux/ARM64 Whisper helper gap observed during this audit was subsequently fixed by `f1aca19`. Windows is owner-declared out of scope and is not a build or acceptance gate.
 
 No native GPU, trained checkpoint, model download, corpus, service, deployment, default, dependency pin or quality threshold changed. Quantised/F16 speech graphs, trained/native placement and broader quality/performance gates remain open.

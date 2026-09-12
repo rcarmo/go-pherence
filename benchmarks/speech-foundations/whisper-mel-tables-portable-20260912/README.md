@@ -12,5 +12,5 @@ A portable test checks deterministic 400-point Hann and 80×257 HTK filter table
 
 - Native `backends/simd/fft` and `models/whisper` tests pass.
 - Linux/ARM64 test binaries now compile for both packages, including `models/whisper`, which failed before this change with undefined helper symbols.
-- Windows/AMD64 `models/whisper` remains blocked by pre-existing Unix-only transitive packages (`spacemit/ime2`, memory advice, Vulkan and NVIDIA loaders); this move neither causes nor claims to fix those separate build boundaries.
+- Windows is owner-declared out of scope and is not a build or acceptance gate.
 - No model, native execution, service, deployment, default, dependency pin or quality threshold changed.

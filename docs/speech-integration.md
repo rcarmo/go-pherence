@@ -1,6 +1,6 @@
 # Integrated Whisper and Community-1
 
-The speech port is being implemented in go-pherence on `feat/speech-simd-vulkan`, starting from `d08ce322292847a7978dcace1cc73a50d0bf8450`. Reference: Rui's **message:1671 / attachment:167**, implementation-sidebar request of 11 September 2026, and the subsequent clarification to use FFmpeg temporarily. Go owns inference; high-performance Go/Plan 9 assembly SIMD and Vulkan are first-class backends.
+The speech port is being implemented in go-pherence on `feat/speech-simd-vulkan`, starting from `d08ce322292847a7978dcace1cc73a50d0bf8450`. Reference: Rui's **message:1671 / attachment:167**, implementation-sidebar request of 11 September 2026, and the subsequent clarification to use FFmpeg temporarily. Go owns inference; high-performance Go/Plan 9 assembly SIMD and Vulkan are first-class backends. Supported implementation and qualification targets are Linux/amd64 and, where relevant, Linux/arm64 portability; Windows is explicitly out of scope and is not an acceptance gate.
 
 ## Current workflow checkpoint
 
