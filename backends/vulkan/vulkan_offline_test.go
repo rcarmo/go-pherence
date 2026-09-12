@@ -1,7 +1,6 @@
 package vulkan
 
 import (
-	"encoding/binary"
 	"fmt"
 	"reflect"
 	"strings"
@@ -32,9 +31,11 @@ func offlineVK(t *testing.T) {
 	mockVK(t, &vkQueue, VkQueue(103))
 }
 func dummySPIRV() []byte {
-	data := make([]byte, 20)
-	binary.LittleEndian.PutUint32(data, 0x07230203)
-	return data
+	// Tiny no-op compute module: used only by mocked native calls.
+	return spirvTestBytes([]uint32{0x07230203, 0x10000, 0, 5, 0,
+		2<<16 | 17, 1, 3<<16 | 14, 0, 1, 5<<16 | 15, 5, 3, 0x6e69616d, 0,
+		6<<16 | 16, 3, 17, 1, 1, 1, 2<<16 | 19, 1, 3<<16 | 33, 2, 1,
+		5<<16 | 54, 1, 3, 0, 2, 2<<16 | 248, 4, 1<<16 | 253, 1<<16 | 56})
 }
 
 func TestVulkanOfflineABILayouts(t *testing.T) {

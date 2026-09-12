@@ -11,9 +11,10 @@ import (
 var ErrVulkanLimit = errors.New("Vulkan device limit admission failed")
 
 // VulkanDeviceLimits is an owned snapshot of queried core compute limits.
-// WorkgroupSize/Invocations and SharedMemoryBytes are informational until a
-// shader contract is checked; Dispatch checks only WorkgroupCount. No optional
-// features are enabled or promised (including float16/int8/subgroups).
+// Kernel construction checks WorkgroupSize/Invocations and SharedMemoryBytes
+// against InspectVulkanShader's bounded metadata contract; Dispatch checks
+// WorkgroupCount. This is not full shader validation. No optional features are
+// enabled or promised (including float16/int8/subgroups).
 type VulkanDeviceLimits struct {
 	APIVersion                  uint32
 	StorageBufferRange          uint32

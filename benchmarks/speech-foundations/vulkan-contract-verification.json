@@ -1,0 +1,105 @@
+{
+  "checkpoint": "Vulkan bounded shader metadata/local-resource admission (mock-only)",
+  "created": "2026-09-12T04:41:56.060Z",
+  "baseline": "06e1838",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 269,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 49,
+    "uniqueTopLevelTests": 49
+  },
+  "shuffle30": {
+    "passEvents": 1770,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 180,
+    "uniqueTopLevelTests": 6
+  },
+  "fuzz": {
+    "seconds": 3,
+    "inputs": 128129,
+    "result": "PASS; earlier4925 run not summed"
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan, SpacemiT board, audio/media, NumPy, Whisper, Community-1",
+    "arm64": "Vulkan test cross-compile PASS; not executed",
+    "fullBuild": "FAIL with exact limits-baseline output",
+    "backendCompileOnly": "FAIL with exact limits-baseline diagnostics; hardware tests not executed",
+    "raceDetector": "NOT RUN: CGO_ENABLED=1 build fails, gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 68
+  },
+  "reference": {
+    "grammar": {
+      "commit": "2a9b6f951c7d6b04b6c21fe1bf3f475b68b84801",
+      "tag": "vulkan-sdk-1.3.296.0",
+      "path": "include/spirv/unified1/spirv.core.grammar.json",
+      "sha256": "83ee1c44ae5d87d54bb118be8ff041a9349661dd6c5ce0e02e1e4b539a6996bc",
+      "license": "backends/vulkan/LICENSE-SPIRV-Headers",
+      "notice": "backends/vulkan/NOTICE-SPIRV-Headers"
+    }
+  },
+  "coverage": [
+    "All11activecompiledSPIRV admitted, LocalSize256x1x1;6declare1024Bshared/5zero",
+    "1MiB/65536ID bounds, framing/result-ID uniqueness and closed core opcode envelope",
+    "Shadercapability only,LogicalGLSL450,onecompute main,fixedLocalSize;noextensions/specconstants/IDexecutionmodes",
+    "WorkgroupSize literalintvector3 must matchLocalSize (override cannot bypass local-size checks)",
+    "Flat32bitscalar/array shared storage, lengths/overflow/decorations/pointer storage agree",
+    "Local dimensions/invocation product/sharedbytes checked against queried limits in both constructors",
+    "Parse/pass same owned aligned words; caller mutation during mocked create cannot change native data",
+    "Malformed older hand-built placeholder rejected; activecompiled modules unchanged"
+  ],
+  "review": {
+    "first": "Metadata risks review timed out; not approval.",
+    "second": "Final parser review timed out; not approval.",
+    "parent": "Source/grammar comparison, adversarial unit tests, full scoped regressions and short fuzz pass completed; no independent review approval."
+  },
+  "limitations": [
+    "Not full semantic spirv-val, descriptor/push reflection, function/control-flow/operand validation or shader memory-safety proof.",
+    "Closed envelope deliberately rejects valid unimplemented Vulkan shaders; no optional features enabled.",
+    "Shared layouts restricted to scalar/flatarray; all sharedvariables summed conservatively even if unused.",
+    "No native driver/validation-layer/GPU/shader/model/performance qualification.",
+    "No allocation-budget/typed arena/multiop/resident model/device-recovery integration.",
+    "Current FFI64bit; arm64 cross-build only.",
+    "SincNet strict four-failure hold unchanged; no PCM/neural/trained quality/services."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_spirv_contract.go": "4d6e1249185f21ebafbd05af0b5f6bd59935a4f33e0733e99ecde5cfcf29bdc7",
+    "backends/vulkan/vulkan_spirv_contract_ops.go": "c98b93c1164b4a343b9b1a02bf4579a35e4bfa7ace2440682d471667689b1364",
+    "backends/vulkan/vulkan_spirv_contract_test.go": "3eb5a65b8be649f0eb4864e1f4abddd7cb71cf07ead1aa2582d849aa2b3cd332",
+    "backends/vulkan/vulkan_dispatch.go": "afec64ee3066b847076c8ea0a8afdf9d12f6ca481c7f8dbfbc07f84bfcde4497",
+    "backends/vulkan/vulkan_spirv.go": "22f1203284886968af458e89fd287f8e4e694f6009cdc68486fee384cafaf65b",
+    "backends/vulkan/vulkan_limits.go": "57e57af0d23c1b6ca7840e6eddac7af5c15376966e028fc54d820506c249825e",
+    "backends/vulkan/vulkan_offline_test.go": "b2186518aabfd9186e8b51e242a22857269b90bfaf50f6214a84a88487a6ad40",
+    "backends/vulkan/NOTICE-SPIRV-Headers": "168fbe29500f13ad54da02c2eae4ede9f620375480b921590e81149b80a4c932",
+    "backends/vulkan/LICENSE-SPIRV-Headers": "ff04ae7e6a468587fe59434fee2e67c0e2a749b592c794b764ff80f30b94a084",
+    "docs/speech-integration.md": "f60e12cc78f1b2f66f7700db610c1e9845f7eb4802631682e293c02bcac40ad4",
+    "benchmarks/speech-foundations/README.md": "f63465743a373e71b2433f017ce037496da75264b3fa8886522f4b1eabf418fc"
+  },
+  "evidenceHashes": {
+    "vulkan-contract-focused-check.txt": "fe6604ca63d954c498914bdfe7861e7c0a54227079108a477700dc9056c96d9d",
+    "vulkan-contract-tests.jsonl": "8fa580ed39c3c471db3f7ebf10530d6517b318554a788609b36fcee81de9b60e",
+    "vulkan-contract-media.txt": "7ad563e8b1379d90336bd4ce53f9e924e8d560e1bcf7033ce1f64b6f123fb003",
+    "vulkan-contract-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vulkan-contract-full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "vulkan-contract-race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "vulkan-contract-fuzz.txt": "3cde56ba272f7b1d2d56647531c22df34078713d395493b045f8768364275246",
+    "vulkan-contract-repeat-tests.jsonl.gz": "2b786110ceecd41da0a52168bd059b8dc05cb9e21c9cbc1c9c8783b9e3cabb24",
+    "vulkan-contract-backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}

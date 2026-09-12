@@ -45,9 +45,10 @@ type VkComputeKernel struct {
 // VkKernelCreate builds a compute kernel with1..16 buffers and0..128 push bytes
 // (multiple of4). Partial construction rolls back resources; Close releases a
 // successful completed kernel. Resource objects must not be copied. These bounds
-// also obey queried core descriptor/push limits. Shader local-size, shared-memory
-// and optional-feature requirements are not negotiated here. VulkanInit must already have completed without concurrent
-// device/function-pointer replacement.
+// also obey queried descriptor/push/local-size/shared-memory limits. The shader
+// must fit InspectVulkanShader's conservative core envelope; this is not full
+// SPIR-V validation or descriptor/push layout reflection. VulkanInit must already
+// have completed without concurrent device/function-pointer replacement.
 func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComputeKernel, error) {
 	if err := vkAcquire(context.Background()); err != nil {
 		return nil, err
@@ -77,12 +78,26 @@ func vkKernelCreateLocked(spirv []byte, numBuffers int, pushConstantSize int) (*
 		return nil, fmt.Errorf("invalid Vulkan push constant size=%d", pushConstantSize)
 	}
 
-	if len(spirv) < 20 || len(spirv) > 16<<20 || binary.LittleEndian.Uint32(spirv) != 0x07230203 {
+	if len(spirv) < 20 || len(spirv) > 1<<20 || binary.LittleEndian.Uint32(spirv) != 0x07230203 {
 		return nil, fmt.Errorf("invalid SPIR-V header/bound")
 	}
 	if err := vkCheckPipelineLimitsLocked(numBuffers, pushConstantSize); err != nil {
 		return nil, err
 	}
+	// Parse and pass the SAME aligned owned code, never re-read caller bytes
+	// after admission. Concurrent caller mutation during the copy is forbidden.
+	code := make([]uint32, len(spirv)/4)
+	for i := range code {
+		code[i] = binary.LittleEndian.Uint32(spirv[4*i:])
+	}
+	contract, err := vkInspectSPIRV(code)
+	if err != nil {
+		return nil, err
+	}
+	if err := vkCheckShaderLimits(contract, vkLimits); err != nil {
+		return nil, err
+	}
+	defer func() { runtime.KeepAlive(code) }()
 	if !vkKernelFunctionsReady() {
 		return nil, fmt.Errorf("Vulkan kernel construction/cleanup functions unavailable")
 	}
@@ -123,13 +138,6 @@ func vkKernelCreateLocked(spirv []byte, numBuffers int, pushConstantSize int) (*
 			vkDestroyShaderModule(device, shaderModule, nil)
 		}
 	}()
-	// Use aligned uint32 SPIR-V storage even for an unaligned caller byte slice.
-	code := make([]uint32, len(spirv)/4)
-	for i := range code {
-		code[i] = binary.LittleEndian.Uint32(spirv[4*i:])
-	}
-	defer func() { runtime.KeepAlive(code) }()
-
 	// Create shader module
 	moduleInfo := struct {
 		sType    uint32

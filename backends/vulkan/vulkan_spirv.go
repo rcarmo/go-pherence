@@ -219,7 +219,7 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 	if !vkNative64() {
 		return nil, fmt.Errorf("Vulkan requires the current 64-bit FFI binding")
 	}
-	if len(spirv) < 20 || len(spirv) > 16<<20 || len(spirv)%4 != 0 || binary.LittleEndian.Uint32(spirv) != 0x07230203 {
+	if len(spirv) < 20 || len(spirv) > 1<<20 || len(spirv)%4 != 0 || binary.LittleEndian.Uint32(spirv) != 0x07230203 {
 		return nil, fmt.Errorf("invalid SPIR-V bytecode length %d", len(spirv))
 	}
 	if numBuffers <= 0 || numBuffers > 16 {
@@ -232,6 +232,18 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 		return nil, err
 	}
 
+	code := make([]uint32, len(spirv)/4)
+	for i := range code {
+		code[i] = binary.LittleEndian.Uint32(spirv[4*i:])
+	}
+	contract, err := vkInspectSPIRV(code)
+	if err != nil {
+		return nil, err
+	}
+	if err := vkCheckShaderLimits(contract, vkLimits); err != nil {
+		return nil, err
+	}
+	defer func() { runtime.KeepAlive(code) }()
 	if vkCreateShaderModule == nil || vkCreateDescriptorSetLayout == nil || vkCreatePipelineLayout == nil || vkCreateComputePipelines == nil || vkDestroyShaderModule == nil || vkDestroyDescriptorSetLayout == nil || vkDestroyPipelineLayout == nil || vkDestroyPipeline == nil {
 		return nil, fmt.Errorf("Vulkan shader construction/cleanup functions unavailable")
 	}
@@ -257,12 +269,6 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 			vkDestroyShaderModule(device, shaderModule, nil)
 		}
 	}()
-	code := make([]uint32, len(spirv)/4)
-	for i := range code {
-		code[i] = binary.LittleEndian.Uint32(spirv[4*i:])
-	}
-	defer func() { runtime.KeepAlive(code) }()
-
 	// Create shader module
 	moduleInfo := struct {
 		sType    uint32

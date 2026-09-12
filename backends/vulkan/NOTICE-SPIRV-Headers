@@ -1,0 +1,12 @@
+SPIR-V metadata admission
+
+vulkan_spirv_contract_ops.go contains a bounded opcode/operand metadata subset
+adapted from KhronosGroup/SPIRV-Headers spirv.core.grammar.json at tag
+vulkan-sdk-1.3.296.0, commit 2a9b6f951c7d6b04b6c21fe1bf3f475b68b84801.
+Grammar SHA256: 83ee1c44ae5d87d54bb118be8ff041a9349661dd6c5ce0e02e1e4b539a6996bc
+Source: https://github.com/KhronosGroup/SPIRV-Headers/blob/2a9b6f951c7d6b04b6c21fe1bf3f475b68b84801/include/spirv/unified1/spirv.core.grammar.json
+
+The upstream license is reproduced in LICENSE-SPIRV-Headers. Changes: selected
+only the current embedded compute shader instruction envelope, converted opcode
+numbers and operand positions/counts into Go metadata. Other opcodes are rejected.
+The contract inspector is Go-owned metadata admission, not SPIRV-Tools validation.
