@@ -1,0 +1,3238 @@
+{
+  "results": [
+    {
+      "path": "vulkan",
+      "phase": "initial",
+      "block": -1,
+      "duration_seconds": 11,
+      "inference_ns": 599025024,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "initial",
+      "block": -1,
+      "duration_seconds": 11,
+      "inference_ns": 1184619780,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 635224851,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 1172764489,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 1213634021,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 577039060,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 1168755833,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 589108877,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 571291077,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 1171900327,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 622710422,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 1163771550,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 1161693987,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 573207784,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 1174001299,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 613459977,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 578380391,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 1183641250,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "initial",
+      "block": -1,
+      "duration_seconds": 11,
+      "inference_ns": 584893144,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "initial",
+      "block": -1,
+      "duration_seconds": 11,
+      "inference_ns": 1171694418,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 631904165,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 1159504178,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 1162116970,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 581061787,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 1161595850,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 590915921,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 574201097,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 1181283019,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 611633977,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 1165328375,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 1166362771,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 581462178,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 1164221436,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 620541534,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 575977740,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 1174280047,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "initial",
+      "block": -1,
+      "duration_seconds": 11,
+      "inference_ns": 577136138,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "initial",
+      "block": -1,
+      "duration_seconds": 11,
+      "inference_ns": 1172363872,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 607525996,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 1160249897,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 1164436226,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 0,
+      "duration_seconds": 11,
+      "inference_ns": 609790278,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 1166092477,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 613520660,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 580923559,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 1,
+      "duration_seconds": 11,
+      "inference_ns": 1163525960,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 612411118,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 1174500026,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 1169646425,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 2,
+      "duration_seconds": 11,
+      "inference_ns": 583583517,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 1171542797,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 626298965,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "vulkan",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 586226885,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "cpu",
+      "phase": "warm",
+      "block": 3,
+      "duration_seconds": 11,
+      "inference_ns": 1178275264,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.5,
+              "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                452,
+                7177,
+                6280,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "timing": [
+    {
+      "cpu_over_vulkan": 2.0082966758371947,
+      "duration_seconds": 11,
+      "includes_frontend_crossKV_decode": true,
+      "includes_media_model_load": false,
+      "inference_median_ns": {
+        "cpu": 1172332408,
+        "vulkan": 583744634
+      },
+      "output_identical": true,
+      "samples_per_path": 8,
+      "vulkan_realtime_multiple": 18.84385630172662
+    },
+    {
+      "cpu_over_vulkan": 1.9870294514943851,
+      "duration_seconds": 11,
+      "includes_frontend_crossKV_decode": true,
+      "includes_media_model_load": false,
+      "inference_median_ns": {
+        "cpu": 1164774905.5,
+        "vulkan": 586189049.5
+      },
+      "output_identical": true,
+      "samples_per_path": 8,
+      "vulkan_realtime_multiple": 18.765277190665092
+    },
+    {
+      "cpu_over_vulkan": 1.9187609267104895,
+      "duration_seconds": 11,
+      "includes_frontend_crossKV_decode": true,
+      "includes_media_model_load": false,
+      "inference_median_ns": {
+        "cpu": 1167869451,
+        "vulkan": 608658137
+      },
+      "output_identical": true,
+      "samples_per_path": 8,
+      "vulkan_realtime_multiple": 18.072542419653875
+    }
+  ],
+  "stages": [
+    {
+      "cross_kv_ns": 35491478,
+      "decoder_calls": 29,
+      "decoder_ns": 189143592,
+      "encoder_ns": 301872202,
+      "frontend_ns": 90871911,
+      "matches_PCM_API": true,
+      "separate_diagnostic": true,
+      "text_tokens": 24
+    },
+    {
+      "cross_kv_ns": 31777534,
+      "decoder_calls": 29,
+      "decoder_ns": 184605010,
+      "encoder_ns": 300626533,
+      "frontend_ns": 93944237,
+      "matches_PCM_API": true,
+      "separate_diagnostic": true,
+      "text_tokens": 24
+    },
+    {
+      "cross_kv_ns": 39271701,
+      "decoder_calls": 29,
+      "decoder_ns": 184442724,
+      "encoder_ns": 305027615,
+      "frontend_ns": 95050845,
+      "matches_PCM_API": true,
+      "separate_diagnostic": true,
+      "text_tokens": 24
+    }
+  ],
+  "settings": [
+    {
+      "attention_f16": false,
+      "attention_int8": false,
+      "block_m": 32,
+      "gomaxprocs": 2,
+      "int8": false,
+      "linear_workers": 2,
+      "nvidia_disabled": "1"
+    },
+    {
+      "attention_f16": false,
+      "attention_int8": false,
+      "block_m": 32,
+      "gomaxprocs": 2,
+      "int8": false,
+      "linear_workers": 2,
+      "nvidia_disabled": "1"
+    },
+    {
+      "attention_f16": false,
+      "attention_int8": false,
+      "block_m": 32,
+      "gomaxprocs": 2,
+      "int8": false,
+      "linear_workers": 2,
+      "nvidia_disabled": "1"
+    }
+  ]
+}

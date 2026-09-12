@@ -566,6 +566,14 @@ Pinned multilingual Whisper Tiny F32 weights (`169d4a4341b33bc18d8881c4b69c2e104
 
 [Trained Tiny/bridge evidence](../benchmarks/speech-foundations/vulkan-tiny-bridge-20260912/README.md) includes model/config hashes, licence provenance, fixed budgets and initial/final logs. The native toy two-window PCM bridge passes with poisoned or absent host encoder weights; callback errors and closed-before-read admission pass. Real speech/WER, turbo, quantisation and device-loss recovery remain unfinished. Services stay stopped; no push, restart or deployment.
 
+### First public speech fixture
+
+The checked Go PCM pipeline passes the pinned 11-second JFK sample with zero edits against its 22-word English reference. All 54 final CPU/Vulkan transcriptions have identical text, 24 text token IDs, segment timestamps (0.00–10.50 s) and window metadata. FFmpeg 8.1.2 is held constant, with the exact 176,000-sample canonical PCM extent enforced. The model and generation policy are the pinned multilingual Tiny assets.
+
+Three warm equal-output ABBA/BAAB batches (8 samples per arm) give CPU medians 1164.8–1172.3 ms and Vulkan-encoder medians 583.7–608.7 ms, 1.919–2.008× faster with GOMAXPROCS/CPU workers set to 2. Timing includes PCM read, frontend, encoder, cross-KV, decoder and callback, but excludes media preparation/model loading/construction. The resulting 18.07–18.84× audio/time multiple is a single warm fixture result, not complete-job acceptance or multilingual quality. A separate stage diagnostic matches the PCM API output.
+
+[Public-speech evidence](../benchmarks/speech-foundations/vulkan-public-speech-20260912/README.md) records the fixed reference/gate, token work, timestamps, resource snapshots and limitations. One English clip does not qualify silence/hallucination policy, annotated timing accuracy, overlap/long files, diarization, other languages or cold/whole-job performance. Services remain stopped and swap counters unchanged; no runtime default changed.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.
