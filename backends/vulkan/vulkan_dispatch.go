@@ -2,9 +2,10 @@ package vulkan
 
 // Vulkan compute dispatch: command buffers, descriptor binding, shader execution.
 //
-// This completes the Vulkan compute pipeline:
+// Legacy single-operation pipeline; not a model-ready queue owner. Shared
+// descriptors/queue and timeout handling still need lifetime synchronisation.
 //   VkComputeKernel: compiled shader + pipeline + descriptor layout
-//   VkDispatch: record command buffer → bind descriptors → dispatch → submit → wait
+//   Dispatch: record command buffer → bind descriptors → submit → bounded wait
 //
 // The pattern for each operation:
 //   1. Bind pipeline
@@ -14,7 +15,9 @@ package vulkan
 //   5. Submit + fence wait
 
 import (
+	"encoding/binary"
 	"fmt"
+	"runtime"
 	"unsafe"
 )
 
@@ -31,20 +34,78 @@ type VkComputeKernel struct {
 	pushSize       int
 }
 
-// VkKernelCreate builds a compute kernel from SPIR-V with N buffer bindings and push constant size.
+// VkKernelCreate builds a compute kernel with1..16 buffers and0..128 push bytes
+// (multiple of4). Partial construction rolls back resources; successful kernels
+// remain owned by the legacy caller with no automatic destruction. These bounds
+// are host admission only: device/shader feature and descriptor limits are not
+// negotiated here. VulkanInit must already have completed without concurrent
+// device/function-pointer replacement.
 func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComputeKernel, error) {
+	if !vkNative64() {
+		return nil, fmt.Errorf("Vulkan requires the current 64-bit FFI binding")
+	}
 	if !vkReady {
 		return nil, fmt.Errorf("vulkan not initialized")
 	}
 	if len(spirv) == 0 || len(spirv)%4 != 0 {
 		return nil, fmt.Errorf("invalid SPIR-V length=%d", len(spirv))
 	}
-	if numBuffers <= 0 {
+	if numBuffers <= 0 || numBuffers > 16 {
 		return nil, fmt.Errorf("invalid Vulkan descriptor buffer count=%d", numBuffers)
 	}
-	if pushConstantSize < 0 {
+	if pushConstantSize < 0 || pushConstantSize > 128 || pushConstantSize%4 != 0 {
 		return nil, fmt.Errorf("invalid Vulkan push constant size=%d", pushConstantSize)
 	}
+
+	if len(spirv) < 20 || len(spirv) > 16<<20 || binary.LittleEndian.Uint32(spirv) != 0x07230203 {
+		return nil, fmt.Errorf("invalid SPIR-V header/bound")
+	}
+	if !vkKernelFunctionsReady() {
+		return nil, fmt.Errorf("Vulkan kernel construction/cleanup functions unavailable")
+	}
+	// All failure rollback uses captured owner handles. No resources from this
+	// construction have been submitted. Successful kernel destruction still
+	// needs a separate fence/queue ownership API, not blind deferred teardown.
+	device, commandPool := vkDevice, vkCmdPool
+	var shaderModule VkShaderModule
+	var descSetLayout VkDescriptorSetLayout
+	var pipelineLayout VkPipelineLayout
+	var pipeline VkPipeline
+	var descPool VkDescriptorPool
+	var cmdBuf VkCommandBuffer
+	var fence VkFence
+	committed := false
+	defer func() {
+		if !committed {
+			if fence != 0 {
+				vkDestroyFence(device, fence, nil)
+			}
+			if cmdBuf != 0 {
+				vkFreeCommandBuffers(device, commandPool, 1, &cmdBuf)
+			}
+			if descPool != 0 {
+				vkDestroyDescriptorPool(device, descPool, nil)
+			}
+			if pipeline != 0 {
+				vkDestroyPipeline(device, pipeline, nil)
+			}
+			if pipelineLayout != 0 {
+				vkDestroyPipelineLayout(device, pipelineLayout, nil)
+			}
+			if descSetLayout != 0 {
+				vkDestroyDescriptorSetLayout(device, descSetLayout, nil)
+			}
+		}
+		if shaderModule != 0 {
+			vkDestroyShaderModule(device, shaderModule, nil)
+		}
+	}()
+	// Use aligned uint32 SPIR-V storage even for an unaligned caller byte slice.
+	code := make([]uint32, len(spirv)/4)
+	for i := range code {
+		code[i] = binary.LittleEndian.Uint32(spirv[4*i:])
+	}
+	defer func() { runtime.KeepAlive(code) }()
 
 	// Create shader module
 	moduleInfo := struct {
@@ -56,10 +117,10 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 	}{
 		sType:    VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		codeSize: uint64(len(spirv)),
-		pCode:    unsafe.Pointer(&spirv[0]),
+		pCode:    unsafe.Pointer(&code[0]),
 	}
-	var shaderModule VkShaderModule
-	if r := vkCreateShaderModule(vkDevice, unsafe.Pointer(&moduleInfo), nil, &shaderModule); r != VK_SUCCESS {
+	if r := vkCreateShaderModule(device, unsafe.Pointer(&moduleInfo), nil, &shaderModule); r != VK_SUCCESS {
+		shaderModule = 0 // non-pipeline create output is undefined on failure
 		return nil, fmt.Errorf("vkCreateShaderModule: %d", r)
 	}
 
@@ -88,8 +149,8 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		bindingCount: uint32(numBuffers),
 		pBindings:    unsafe.Pointer(&bindings[0]),
 	}
-	var descSetLayout VkDescriptorSetLayout
-	if r := vkCreateDescriptorSetLayout(vkDevice, unsafe.Pointer(&layoutInfo), nil, &descSetLayout); r != VK_SUCCESS {
+	if r := vkCreateDescriptorSetLayout(device, unsafe.Pointer(&layoutInfo), nil, &descSetLayout); r != VK_SUCCESS {
+		descSetLayout = 0
 		return nil, fmt.Errorf("vkCreateDescriptorSetLayout: %d", r)
 	}
 
@@ -121,8 +182,8 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		plInfo.pushConstantRangeCount = 0
 		plInfo.pPushConstantRanges = nil
 	}
-	var pipelineLayout VkPipelineLayout
-	if r := vkCreatePipelineLayout(vkDevice, unsafe.Pointer(&plInfo), nil, &pipelineLayout); r != VK_SUCCESS {
+	if r := vkCreatePipelineLayout(device, unsafe.Pointer(&plInfo), nil, &pipelineLayout); r != VK_SUCCESS {
+		pipelineLayout = 0
 		return nil, fmt.Errorf("vkCreatePipelineLayout: %d", r)
 	}
 
@@ -158,8 +219,7 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		stage:  stage,
 		layout: pipelineLayout,
 	}
-	var pipeline VkPipeline
-	if r := vkCreateComputePipelines(vkDevice, 0, 1, unsafe.Pointer(&pci), nil, &pipeline); r != VK_SUCCESS {
+	if r := vkCreateComputePipelines(device, 0, 1, unsafe.Pointer(&pci), nil, &pipeline); r != VK_SUCCESS {
 		return nil, fmt.Errorf("vkCreateComputePipelines: %d", r)
 	}
 
@@ -182,8 +242,8 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		poolSizeCount: 1,
 		pPoolSizes:    unsafe.Pointer(&poolSize),
 	}
-	var descPool VkDescriptorPool
-	if r := vkCreateDescriptorPool(vkDevice, unsafe.Pointer(&poolInfo), nil, &descPool); r != VK_SUCCESS {
+	if r := vkCreateDescriptorPool(device, unsafe.Pointer(&poolInfo), nil, &descPool); r != VK_SUCCESS {
+		descPool = 0
 		return nil, fmt.Errorf("vkCreateDescriptorPool: %d", r)
 	}
 
@@ -202,7 +262,7 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		pSetLayouts:    unsafe.Pointer(&descSetLayout),
 	}
 	var descSet VkDescriptorSet
-	if r := vkAllocateDescriptorSets(vkDevice, unsafe.Pointer(&allocInfo), &descSet); r != VK_SUCCESS {
+	if r := vkAllocateDescriptorSets(device, unsafe.Pointer(&allocInfo), &descSet); r != VK_SUCCESS {
 		return nil, fmt.Errorf("vkAllocateDescriptorSets: %d", r)
 	}
 
@@ -215,12 +275,12 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		commandBufCount uint32
 	}{
 		sType:           VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		commandPool:     vkCmdPool,
+		commandPool:     commandPool,
 		level:           VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		commandBufCount: 1,
 	}
-	var cmdBuf VkCommandBuffer
-	if r := vkAllocateCommandBuffers(vkDevice, unsafe.Pointer(&cmdAllocInfo), &cmdBuf); r != VK_SUCCESS {
+	if r := vkAllocateCommandBuffers(device, unsafe.Pointer(&cmdAllocInfo), &cmdBuf); r != VK_SUCCESS {
+		cmdBuf = 0
 		return nil, fmt.Errorf("vkAllocateCommandBuffers: %d", r)
 	}
 
@@ -230,11 +290,12 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 		pNext uintptr
 		flags uint32
 	}{sType: VK_STRUCTURE_TYPE_FENCE_CREATE_INFO}
-	var fence VkFence
-	if r := vkCreateFence(vkDevice, unsafe.Pointer(&fenceInfo), nil, &fence); r != VK_SUCCESS {
+	if r := vkCreateFence(device, unsafe.Pointer(&fenceInfo), nil, &fence); r != VK_SUCCESS {
+		fence = 0
 		return nil, fmt.Errorf("vkCreateFence: %d", r)
 	}
 
+	committed = true
 	return &VkComputeKernel{
 		pipeline:       pipeline,
 		pipelineLayout: pipelineLayout,
@@ -248,7 +309,10 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 	}, nil
 }
 
-// Dispatch executes the compute kernel with given buffers and workgroup dimensions.
+// Dispatch executes one legacy synchronous operation. Calls sharing kernels,
+// buffers or the global queue must be externally serialised. A timeout is NOT
+// completion and does not make buffers safe to free/reuse. Caller pushData must
+// point to at least pushSize readable bytes until recording returns.
 func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkBuf, pushData unsafe.Pointer) error {
 	if k == nil || k.pipeline == 0 || k.pipelineLayout == 0 || k.descSet == 0 || k.cmdBuf == 0 || k.fence == 0 {
 		return fmt.Errorf("vulkan dispatch on uninitialized kernel")
@@ -263,6 +327,16 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 		if buf == nil || buf.buf == 0 || buf.mem == 0 || buf.size == 0 {
 			return fmt.Errorf("vulkan dispatch buffer %d is not initialized", i)
 		}
+	}
+
+	if !vkNative64() {
+		return fmt.Errorf("Vulkan requires the current 64-bit FFI binding")
+	}
+	if k.pushSize < 0 || k.pushSize > 128 || k.pushSize%4 != 0 || (k.pushSize > 0 && pushData == nil) {
+		return fmt.Errorf("missing/invalid Vulkan push constants")
+	}
+	if vkUpdateDescriptorSets == nil || vkBeginCommandBuffer == nil || vkCmdBindPipeline == nil || vkCmdBindDescriptorSets == nil || vkCmdDispatch == nil || vkEndCommandBuffer == nil || vkResetFences == nil || vkQueueSubmit == nil || vkWaitForFences == nil || (k.pushSize > 0 && vkCmdPushConstants == nil) {
+		return fmt.Errorf("Vulkan dispatch functions unavailable")
 	}
 
 	// Update descriptor set with buffer bindings
@@ -299,11 +373,7 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 	vkUpdateDescriptorSets(vkDevice, uint32(len(writes)), unsafe.Pointer(&writes[0]), 0, nil)
 
 	// Record command buffer
-	beginInfo := struct {
-		sType uint32
-		pNext uintptr
-		flags uint32
-	}{sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT}
+	beginInfo := vkCommandBufferBeginInfo{sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT}
 	if r := vkBeginCommandBuffer(k.cmdBuf, unsafe.Pointer(&beginInfo)); r != VK_SUCCESS {
 		return fmt.Errorf("vkBeginCommandBuffer: %d", r)
 	}
@@ -341,7 +411,9 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 		commandBufferCount: 1,
 		pCommandBuffers:    unsafe.Pointer(&k.cmdBuf),
 	}
-	vkResetFences(vkDevice, 1, &k.fence)
+	if r := vkResetFences(vkDevice, 1, &k.fence); r != VK_SUCCESS {
+		return fmt.Errorf("vkResetFences: %d", r)
+	}
 	if r := vkQueueSubmit(vkQueue, 1, unsafe.Pointer(&submitInfo), k.fence); r != VK_SUCCESS {
 		return fmt.Errorf("vkQueueSubmit: %d", r)
 	}
@@ -352,6 +424,10 @@ func (k *VkComputeKernel) Dispatch(groupsX, groupsY, groupsZ uint32, bufs []*VkB
 	}
 
 	return nil
+}
+
+func vkKernelFunctionsReady() bool {
+	return vkCreateShaderModule != nil && vkCreateDescriptorSetLayout != nil && vkCreatePipelineLayout != nil && vkCreateComputePipelines != nil && vkCreateDescriptorPool != nil && vkAllocateDescriptorSets != nil && vkAllocateCommandBuffers != nil && vkCreateFence != nil && vkDestroyShaderModule != nil && vkDestroyDescriptorSetLayout != nil && vkDestroyPipelineLayout != nil && vkDestroyPipeline != nil && vkDestroyDescriptorPool != nil && vkFreeCommandBuffers != nil && vkDestroyFence != nil
 }
 
 // vkCmdPushConstants — needs to be registered

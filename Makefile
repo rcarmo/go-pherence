@@ -17,7 +17,11 @@ all: build
 
 # Focused speech-foundation checks: no model weights, driver initialisation,
 # service startup or performance benchmark. FFmpeg integration is opt-in below.
-.PHONY: speech-foundations-check speech-media-integration speech-affine-check
+.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check
+
+# Mock-only Vulkan ABI/lifetime checks: never calls VulkanInit or opens a GPU.
+speech-vulkan-offline-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline|TestVulkanDispatchRejects|TestVkBuf|TestVkKernelCreate|TestVkHelpers|TestVkWrappers)'
 
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'

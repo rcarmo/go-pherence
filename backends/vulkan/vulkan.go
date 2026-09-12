@@ -139,10 +139,20 @@ var (
 	vkGetBufferMemoryRequirements            func(VkDevice, VkBuffer, unsafe.Pointer)
 	vkDestroyBuffer                          func(VkDevice, VkBuffer, unsafe.Pointer)
 	vkFreeMemory                             func(VkDevice, VkDeviceMemory, unsafe.Pointer)
+	vkDestroyShaderModule                    func(VkDevice, VkShaderModule, unsafe.Pointer)
+	vkDestroyDescriptorSetLayout             func(VkDevice, VkDescriptorSetLayout, unsafe.Pointer)
+	vkDestroyPipelineLayout                  func(VkDevice, VkPipelineLayout, unsafe.Pointer)
+	vkDestroyPipeline                        func(VkDevice, VkPipeline, unsafe.Pointer)
+	vkDestroyDescriptorPool                  func(VkDevice, VkDescriptorPool, unsafe.Pointer)
+	vkFreeCommandBuffers                     func(VkDevice, VkCommandPool, uint32, *VkCommandBuffer)
+	vkDestroyFence                           func(VkDevice, VkFence, unsafe.Pointer)
 )
 
 // VulkanInit initializes the Vulkan compute backend.
 func VulkanInit() bool {
+	if !vkNative64() {
+		return false
+	}
 	if vkReady {
 		return true
 	}
@@ -202,6 +212,13 @@ func VulkanInit() bool {
 	reg(&vkGetBufferMemoryRequirements, "vkGetBufferMemoryRequirements")
 	reg(&vkDestroyBuffer, "vkDestroyBuffer")
 	reg(&vkFreeMemory, "vkFreeMemory")
+	reg(&vkDestroyShaderModule, "vkDestroyShaderModule")
+	reg(&vkDestroyDescriptorSetLayout, "vkDestroyDescriptorSetLayout")
+	reg(&vkDestroyPipelineLayout, "vkDestroyPipelineLayout")
+	reg(&vkDestroyPipeline, "vkDestroyPipeline")
+	reg(&vkDestroyDescriptorPool, "vkDestroyDescriptorPool")
+	reg(&vkFreeCommandBuffers, "vkFreeCommandBuffers")
+	reg(&vkDestroyFence, "vkDestroyFence")
 
 	if vkCreateInstance == nil {
 		return false
