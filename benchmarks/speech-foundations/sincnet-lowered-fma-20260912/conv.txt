@@ -1,0 +1,42 @@
+=== RUN   TestSincNetProbeConv
+    sincnet_probe_test.go:189: stride10 stage0 fma max2.288818359375e-05 exact9684/10320
+    sincnet_probe_test.go:191: badch [7 8 8 8 8 8 8 8 8 8 8 8 7 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 7 7 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8] badframe [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 80 80 79 80 79 80 78 80 0]
+    sincnet_probe_test.go:189: stride10 stage0 tail3 max2.6702880859375e-05 exact4125/10320
+    sincnet_probe_test.go:189: stride10 stage0 tail7 max2.6702880859375e-05 exact4125/10320
+    sincnet_probe_test.go:189: stride10 stage0 biasfirst max2.288818359375e-05 exact9684/10320
+    sincnet_probe_test.go:189: stride10 stage0 split4 max3.4332275390625e-05 exact73/10320
+    sincnet_probe_test.go:189: stride10 stage0 double max3.0517578125e-05 exact81/10320
+    sincnet_probe_test.go:189: stride10 stage1 fma max8.940696716308594e-08 exact252/2340
+    sincnet_probe_test.go:189: stride10 stage1 tail3 max8.940696716308594e-08 exact252/2340
+    sincnet_probe_test.go:189: stride10 stage1 tail7 max8.940696716308594e-08 exact252/2340
+    sincnet_probe_test.go:189: stride10 stage1 biasfirst max9.685754776000977e-08 exact167/2340
+    sincnet_probe_test.go:189: stride10 stage1 split4 max5.960464477539063e-08 exact240/2340
+    sincnet_probe_test.go:189: stride10 stage1 double max5.21540641784668e-08 exact218/2340
+    sincnet_probe_test.go:189: stride10 stage2 fma max5.21540641784668e-08 exact51/540
+    sincnet_probe_test.go:189: stride10 stage2 tail3 max5.21540641784668e-08 exact51/540
+    sincnet_probe_test.go:189: stride10 stage2 tail7 max5.21540641784668e-08 exact57/540
+    sincnet_probe_test.go:189: stride10 stage2 biasfirst max6.891787052154541e-08 exact22/540
+    sincnet_probe_test.go:189: stride10 stage2 split4 max1.043081283569336e-07 exact36/540
+    sincnet_probe_test.go:189: stride10 stage2 double max8.195638656616211e-08 exact29/540
+    sincnet_probe_test.go:189: stride1 stage0 fma max2.6702880859375e-05 exact26885/28000
+    sincnet_probe_test.go:191: badch [12 13 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 13 14 14 14 14 14 14 14 14 14 14 14 14 14 14 13 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14] badframe [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 79 79 80 79 80 80 80 80 80 80 80 80 80 78]
+    sincnet_probe_test.go:189: stride1 stage0 tail3 max2.6702880859375e-05 exact11342/28000
+    sincnet_probe_test.go:189: stride1 stage0 tail7 max2.6702880859375e-05 exact11342/28000
+    sincnet_probe_test.go:189: stride1 stage0 biasfirst max2.6702880859375e-05 exact26885/28000
+    sincnet_probe_test.go:189: stride1 stage0 split4 max3.814697265625e-05 exact176/28000
+    sincnet_probe_test.go:189: stride1 stage0 double max3.814697265625e-05 exact238/28000
+    sincnet_probe_test.go:189: stride1 stage1 fma max1.9371509552001953e-07 exact772/6720
+    sincnet_probe_test.go:189: stride1 stage1 tail3 max1.9371509552001953e-07 exact772/6720
+    sincnet_probe_test.go:189: stride1 stage1 tail7 max1.9371509552001953e-07 exact772/6720
+    sincnet_probe_test.go:189: stride1 stage1 biasfirst max2.384185791015625e-07 exact607/6720
+    sincnet_probe_test.go:189: stride1 stage1 split4 max1.9371509552001953e-07 exact515/6720
+    sincnet_probe_test.go:189: stride1 stage1 double max1.4901161193847656e-07 exact584/6720
+    sincnet_probe_test.go:189: stride1 stage2 fma max5.587935447692871e-08 exact177/1980
+    sincnet_probe_test.go:189: stride1 stage2 tail3 max5.587935447692871e-08 exact177/1980
+    sincnet_probe_test.go:189: stride1 stage2 tail7 max5.587935447692871e-08 exact180/1980
+    sincnet_probe_test.go:189: stride1 stage2 biasfirst max8.940696716308594e-08 exact120/1980
+    sincnet_probe_test.go:189: stride1 stage2 split4 max7.078051567077637e-08 exact134/1980
+    sincnet_probe_test.go:189: stride1 stage2 double max6.705522537231445e-08 exact134/1980
+--- PASS: TestSincNetProbeConv (0.88s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.882s

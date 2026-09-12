@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "created": "2026-09-12T09:32:12.532Z",
+  "baseline": "fc9dca0",
+  "boundaryRepair": "a778437",
+  "scope": "Experimental lowered SincNet filter representation and serial-order FMA. Not full boundary/model/DER qualification.",
+  "fixture": {
+    "path": "projects/go-pherence/models/speaker/community1/testdata/sincnet-reference.json.gz",
+    "sha256": "5f2f929595d6ac96e23f4626bca08f5d6fc89311d5913fb193dfe813d52986f1",
+    "byteExactRegeneration": true,
+    "referenceScript": "scripts/community1_sincnet_reference.py",
+    "command": "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 projects/whisper-stt/runtime/diar-export/bin/python projects/go-pherence/scripts/community1_sincnet_reference.py --sincnet projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/pyannote/audio/models/blocks/sincnet.py --receptive-field projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/pyannote/audio/utils/receptive_field.py --output tmp/sincnet-diagnosis/reproduced.json.gz --trace-output tmp/sincnet-diagnosis/trace.json.gz"
+  },
+  "apis": [
+    "FMAColumnsF32Checked",
+    "NewSincNetWithFilters",
+    "SincNetScalarFMA",
+    "SincNetSIMDFMA"
+  ],
+  "defaults": "Original constructors/modes unchanged",
+  "endpoint": {
+    "cases": 7,
+    "modes": 2,
+    "scalarSIMD": "bit-exact",
+    "gate": 0.0002,
+    "waveStride10": 0.00019987300038337708,
+    "waveStride1": 0.000056743621826171875
+  },
+  "strictBoundaries": {
+    "passes": 12,
+    "topLevel": 0,
+    "failures": [
+      "TestSincNetLoweredStrictBoundaries/wave-stride10-mode2",
+      "TestSincNetLoweredStrictBoundaries/wave-stride10-mode3",
+      "TestSincNetLoweredStrictBoundaries"
+    ],
+    "skips": []
+  },
+  "originalStrict": {
+    "passes": 0,
+    "topLevel": 0,
+    "failures": [
+      "TestSincNetStrictNarrowBandOracle/stride10-mode0",
+      "TestSincNetStrictNarrowBandOracle/stride10-mode1",
+      "TestSincNetStrictNarrowBandOracle/stride1-mode0",
+      "TestSincNetStrictNarrowBandOracle/stride1-mode1",
+      "TestSincNetStrictNarrowBandOracle"
+    ],
+    "skips": []
+  },
+  "originalFailuresExactMatch": true,
+  "scoped": {
+    "passes": 627,
+    "topLevel": 270,
+    "failures": [],
+    "skips": [
+      "TestSincNetReductionDiagnostic",
+      "TestSincNetLoweredStrictBoundaries",
+      "TestSincNetStrictNarrowBandOracle"
+    ]
+  },
+  "repeat30": {
+    "passes": 390,
+    "topLevel": 180,
+    "failures": [],
+    "skips": []
+  },
+  "vulkan": {
+    "passes": 421,
+    "topLevel": 121,
+    "failures": [],
+    "skips": []
+  },
+  "checks": {
+    "make": "four targets pass, including forced fallback and FFmpeg",
+    "vet": "Community1+Vulkan pass; SIMD three exact baseline q8dot asmdecl warnings; other analysers pass",
+    "arm64": "Community1+SIMD cross-build pass; no execution",
+    "build": "exact existing broad/full build errors",
+    "race": "gcc absent",
+    "assembly": "assembler listing206bytes, PS/SS orderedFMA. Go objdump misdecodes VEX; no external disassembler",
+    "noAlloc": true,
+    "guardPages": "all three buffers; columns1..65;K1/3/7",
+    "cancellation": "stage and sampled tile/checkpoint no-partial-result",
+    "links": 107
+  },
+  "timing": "none; other-agent CPU ASR overlap around09:12UTC, functional only",
+  "review": "Manual scoped review; two delegate attempts timed out, no independent review claim",
+  "go264": "09d2db2 scoped source/test API handoff accepted for review; merge deferred, private pseudo-version, licence/proxy/bundle gate open; FFmpeg unchanged",
+  "services": "three inactive MainPID0; no push/restart/deploy",
+  "sourceHashes": {
+    "Makefile": "827cd8d499b0e0ee95bf56a3f2e5e094638c752a49098512cb2ddecd1a359445",
+    "models/speaker/community1/sincnet.go": "554b30a7147d521c6ca9c3eedc82e5d6408a93ca41984485000cbc742480a3bb",
+    "models/speaker/community1/sincnet_test.go": "43010adbdd138475c7d0acb76e0385ba8521dc56cb46116cd09facb6c786be36",
+    "models/speaker/community1/sincnet_lowered_test.go": "9c5a1df0671d4e62200adc4de1f30b2a2894275ac17aacdc3526eec7b1f7ff95",
+    "docs/speech-integration.md": "ca1d47d165d2eca18e086ac69bf5bdda29fd0ce8c6336bdea3a0572acc3f5ff4",
+    "benchmarks/speech-foundations/README.md": "0adc8f1b5c45a8420c3e8c7aa44ad5fdb7f0630a1fdfa76134ab01032182a8df",
+    "backends/simd/runtime/fma_columns.go": "704e13cfa8e28d8fef4a6f37a5bae9e6f1819ecd486ff3dcc2971a2de2b63f1f",
+    "backends/simd/runtime/fma_columns_amd64.go": "9ea416b90ae01301d09516650b4f605eff9583331cdd46992d9e725f3e1e82f0",
+    "backends/simd/runtime/fma_columns_other.go": "b022e2e3723c8055038af67f6685011e70815d7d669790efdc02659020be76cb",
+    "backends/simd/runtime/fma_columns_amd64.s": "5da8276028fbb9bf36572dae42d57bc1307a503691455f756a3944d7f24191a0",
+    "backends/simd/runtime/fma_columns_test.go": "683ba4c76ca2e63693ff6e5039046cafa83ec409e777e7ecf14abd3f7a718b1b",
+    "backends/simd/runtime/fma_columns_control_amd64.s": "2f7989c566cded0a02ec967f5041c87be31fdb4faa2db8b4d0f75bbf1b318cd4",
+    "backends/simd/runtime/fma_columns_amd64_test.go": "2eebe801e2e53cfbfd181528ee080cea672d84f64dfbc8a5ffb7b4f2042f6c22",
+    "backends/simd/runtime/fma_columns_guard_linux_amd64_test.go": "92189f5c9a2c6731ac0ecc10633620c49edc1d5f2edf0e6a0b67432b984698f5"
+  },
+  "evidenceHashes": {
+    "README.md": "2e1ca7435291fef8b9fdc23b033e6d51c43ccdd38272295171062cf07be6e2d1",
+    "filter.py": "cae5113ff683384db3975d53f79838c13c629e2f3e2ab76e0a503c20261a2bc5",
+    "filter.json": "b7fed7d3d76f93e880deebd15610781a6d166732c66ee1c0c0e9604f9f766621",
+    "filter-go.txt": "6ea118afb08d1a8b8f21d2c4fc90a087c553b6634c2f8f151987d1bc62f87d90",
+    "conv.txt": "bf7940aeab1ee198c1d256535a3a48af49ea6f2278b4286989c591d245befaa9",
+    "end-to-end.txt": "c6d052d4818886edd86e7f84a57f0e06649b4c7106bceb0d4487864a9d42f369",
+    "probe_test.go.txt": "4d5a64fd8effadcd1d1a1c2fc037bab6e23fda10c71e45d0047c07623ff8a7d8",
+    "baseline-strict.jsonl": "38aa59161a8f82b5110e0fb998c2427325345284eb61f8db6383c5216203e6fd",
+    "final-original-strict.jsonl": "3dc596ee280f75663b2cc6cd08ea4815f1f26239675b46cb9c40359c713dd2df",
+    "lowered-boundary-strict.jsonl": "aa9e01a323c1b0527643f28a7a11011a60fd9c3daeafbce361056212def29648",
+    "sincnet-tests.jsonl": "01788fd65caac55bdb3dd55800902af30843ee1a087b44c40f870d168783ea65",
+    "fma-tests-final.jsonl": "33ff926680b45de9907c4414795b8762873ed81637d5aed9b6a7a763945b871e",
+    "make-checks-final.txt": "b064673fdd46ffd96a10ce806037ac80f663b39058e77d92a7412e4546de922c",
+    "community-vet-final.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "affected-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "simd-vet-final.txt": "842486c2bb5cccc69ef0d9e2e5ba405901c32ac089e9dbb480dc0cd4f873b003",
+    "simd-vet-except-known-asmdecl.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend-compile.txt": "101adf312b1db750b93e2ca52de501e3502bf25c123f3d34400f43607a7f7d8e",
+    "full-build.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "race.txt": "22d462e26918b31482e8f38f068dec3cf12062bd885da33c9712d253fae2b68c",
+    "fma-assembly-listing.txt": "f2d2597507bc87185877881103429f2513fee6a207eb2e662c4e8a2eec3db5bf",
+    "fma-objdump.txt": "9ad029afb66167c3a412a45224dc6661ae1559fb1052d6caee223f662bfd7c74",
+    "services.txt": "0731bb84ced3042d993f84b8ee90a043c2f7fa76a7aac8696fce62282045d46a",
+    "adapter-review.txt": "0f1ec0c1d64ce0e641bb86a324cea061731761b35179d9b2e15c3659f4ffa0ac",
+    "adapter-tests.txt": "1349099c94da08066e350fc75d7eb3305f951847d8a6612c599f32c6f62bdc24",
+    "adapter-metadata.diff": "b097894dd0dc950e76c1247a3dcbd6e848958d0e28694b0ad902635d2fb94830",
+    "go-env.sh": "6a86b0c16b3bb14718532fc757f8ceb0977b9872fa99be7bc29c5ed10f8ef539",
+    "all-scoped-tests.jsonl.gz": "b3fdb7d963729243aa598cc226696c86fcda76525449e0bc37d76cce2fcfa217",
+    "all-scoped-final.jsonl.gz": "e7c8224886753f4e0eec92fc6cc173d3e127d0fb73adc27c4e1f6ed0e7021017",
+    "repeat-final.jsonl.gz": "c989a4498658d14de9276be88719caf252528b154576a00f86555227151a8028",
+    "vulkan-regression.jsonl.gz": "7b3a58e4256ddf919c4dc0ff5330e6aac280cff830e42b9e986ebdf47a67bcc6"
+  }
+}

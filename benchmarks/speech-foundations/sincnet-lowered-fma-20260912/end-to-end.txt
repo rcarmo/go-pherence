@@ -1,0 +1,20 @@
+=== RUN   TestSincNetProbeEndToEnd
+    sincnet_probe_test.go:288: filtercurrent kindfma stride10 err0.002555977553129196
+    sincnet_probe_test.go:288: filtercurrent kindfma stride1 err0.000967860221862793
+    sincnet_probe_test.go:288: filtercurrent kinddouble stride10 err0.002481948584318161
+    sincnet_probe_test.go:288: filtercurrent kinddouble stride1 err0.0014376342296600342
+    sincnet_probe_test.go:288: filtercurrent kindsplit4 stride10 err0.00364410737529397
+    sincnet_probe_test.go:288: filtercurrent kindsplit4 stride1 err0.0027901530265808105
+    sincnet_probe_test.go:288: filtercurrent kindtorchbody stride10 err0.0025305747985839844
+    sincnet_probe_test.go:288: filtercurrent kindtorchbody stride1 err0.0010111331939697266
+    sincnet_probe_test.go:288: filteroracle kindfma stride10 err0.00019987300038337708
+    sincnet_probe_test.go:288: filteroracle kindfma stride1 err5.6743621826171875e-05
+    sincnet_probe_test.go:288: filteroracle kinddouble stride10 err0.0015086531639099121
+    sincnet_probe_test.go:288: filteroracle kinddouble stride1 err0.0008260607719421387
+    sincnet_probe_test.go:288: filteroracle kindsplit4 stride10 err0.003219369798898697
+    sincnet_probe_test.go:288: filteroracle kindsplit4 stride1 err0.002837337553501129
+    sincnet_probe_test.go:288: filteroracle kindtorchbody stride10 err0.0002965070307254791
+    sincnet_probe_test.go:288: filteroracle kindtorchbody stride1 err4.601478576660156e-05
+--- PASS: TestSincNetProbeEndToEnd (0.90s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.902s

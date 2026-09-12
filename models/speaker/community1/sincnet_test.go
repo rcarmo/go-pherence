@@ -184,7 +184,7 @@ func TestSincNetRejectsMalformedAndDegenerate(t *testing.T) {
 	if out, _, err := m.Forward(context.Background(), input, SincNetScalar); err == nil || out != nil {
 		t.Fatal("nonfinite input")
 	}
-	if out, _, err := m.Forward(context.Background(), f.Cases[0].Input, SincNetMode(3)); err == nil || out != nil {
+	if out, _, err := m.Forward(context.Background(), f.Cases[0].Input, SincNetMode(255)); err == nil || out != nil {
 		t.Fatal("unknown mode")
 	}
 	var nilModel *SincNet

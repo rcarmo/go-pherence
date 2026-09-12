@@ -24,8 +24,10 @@ type SincNetWeights struct {
 }
 
 // SincNet owns copied weights and precomputed filters. It has no mutable
-// inference state. Experimental: narrow-band Torch float32 parity exceeds the
-// 2e-4 gate; see TestSincNetStrictNarrowBandOracle and verification evidence.
+// inference state. Experimental: parameter-generated filters fail the strict
+// 2e-4 output gate. Explicit lowered filters plus FMA modes pass that endpoint
+// gate on seven synthetic cases, but an intermediate boundary still fails.
+// See TestSincNetStrictNarrowBandOracle and TestSincNetLoweredPinnedOracle.
 // Not qualified for production/default selection. The first-convolution stride
 // is explicit checkpoint metadata;
 // accepted range1..10 includes pyannote defaults, not a detected model identity.
@@ -78,6 +80,41 @@ func (m *SincNet) Grid(samples int) (SincNetGrid, error) {
 // bands are rejected rather than generating division-by-zero filters. A model
 // loader must verify full checkpoint keys/shapes before calling this constructor.
 func NewSincNet(ctx context.Context, stride int, w SincNetWeights) (*SincNet, error) {
+	return newSincNet(ctx, stride, w, nil)
+}
+
+// NewSincNetWithFilters accepts a checkpoint-lowered [80,251] filter tensor.
+// This avoids runtime-dependent sin/cos rounding when converting learned bands.
+// The caller must verify checkpoint provenance, tensor identity and lowering
+// metadata; this constructor checks geometry/finiteness/symmetry and owns a copy,
+// not correspondence to LowHz/BandHz. This is an explicit weight representation,
+// not a fallback to another inference runtime. Generic parameter-derived filters
+// from NewSincNet retain their separate, unqualified narrow-band parity gate.
+func NewSincNetWithFilters(ctx context.Context, stride int, w SincNetWeights, filters []float32) (*SincNet, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if len(filters) != 80*251 {
+		return nil, fmt.Errorf("invalid lowered SincNet filter shape")
+	}
+	if err := finiteLSTM(ctx, filters); err != nil {
+		return nil, err
+	}
+	for band := 0; band < 40; band++ {
+		even, odd := filters[band*251:(band+1)*251], filters[(40+band)*251:(41+band)*251]
+		if even[125] != 1 || odd[125] != 0 {
+			return nil, fmt.Errorf("invalid lowered SincNet filter center")
+		}
+		for i := 0; i < 125; i++ {
+			if even[i] != even[250-i] || odd[i] != -odd[250-i] {
+				return nil, fmt.Errorf("invalid lowered SincNet filter symmetry")
+			}
+		}
+	}
+	return newSincNet(ctx, stride, w, filters)
+}
+
+func newSincNet(ctx context.Context, stride int, w SincNetWeights, lowered []float32) (*SincNet, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -116,9 +153,29 @@ func NewSincNet(ctx context.Context, stride int, w SincNetWeights) (*SincNet, er
 			copy((*a.dst)[start:end], a.src[start:end])
 		}
 	}
-	filters, err := sincNetFilters(ctx, owned.LowHz, owned.BandHz)
-	if err != nil {
-		return nil, err
+	var filters []float32
+	if lowered == nil {
+		var err error
+		filters, err = sincNetFilters(ctx, owned.LowHz, owned.BandHz)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Retain band metadata validation even though filters are supplied.
+		for band := range owned.LowHz {
+			low := float32(50) + float32(math.Abs(float64(owned.LowHz[band])))
+			high := min(low+50+float32(math.Abs(float64(owned.BandHz[band]))), float32(8000))
+			if high <= low {
+				return nil, fmt.Errorf("degenerate SincNet frequency band%d", band)
+			}
+		}
+		filters = make([]float32, len(lowered))
+		for start := 0; start < len(filters); start += 4096 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			copy(filters[start:min(start+4096, len(filters))], lowered[start:min(start+4096, len(filters))])
+		}
 	}
 	return &SincNet{stride: stride, weights: owned, filters: filters}, nil
 }
@@ -159,14 +216,17 @@ func sincNetFilters(ctx context.Context, lowHz, bandHz []float32) ([]float32, er
 	return out, nil
 }
 
-// SincNetMode selects scalar accumulation or existing Plan9 SIMD dots plus
-// checked AVX2/FMA affine normalization where supported. Statistics reductions
-// are unchanged. Neither mode uses CGo/BLAS, GPU or worker pools.
+// SincNetMode selects convolution accumulation and normalization. The original
+// modes retain their reduction order. Explicit FMA modes round once per product
+// in serial reduction order; SIMD lanes span independent frames. Statistics
+// reductions are unchanged. No mode uses CGo/BLAS, GPU or worker pools.
 type SincNetMode uint8
 
 const (
 	SincNetScalar SincNetMode = iota
 	SincNetSIMD
+	SincNetScalarFMA
+	SincNetSIMDFMA
 )
 
 // SincNetObserver receives transient channel-major boundary views. stage=-1
@@ -190,7 +250,7 @@ func (m *SincNet) ForwardObserved(ctx context.Context, pcm []float32, mode SincN
 	if err != nil {
 		return fail(err)
 	}
-	if len(m.filters) != 80*251 || (mode != SincNetScalar && mode != SincNetSIMD) {
+	if len(m.filters) != 80*251 || (mode > SincNetSIMDFMA) {
 		return fail(fmt.Errorf("invalid SincNet model/mode"))
 	}
 	if err := finiteLSTM(ctx, pcm); err != nil {
@@ -322,7 +382,7 @@ func sincNetNormMode(ctx context.Context, x []float32, channels, frames int, nor
 				return err
 			}
 			block := row[start:min(start+4096, frames)]
-			if mode == SincNetSIMD {
+			if mode == SincNetSIMD || mode == SincNetSIMDFMA {
 				if !simd.AffineF32InPlaceChecked(block, scale, shift) {
 					return fmt.Errorf("unsupported/nonfinite SincNet affine input or FP environment")
 				}
@@ -342,6 +402,44 @@ func sincNetFMA32(a, b, c float32) float32 { return simd.FMA32Scalar(a, b, c) }
 func sincNetConvolve(ctx context.Context, x []float32, in, n int, weight, bias []float32, out, kernel, stride int, mode SincNetMode) ([]float32, int, error) {
 	frames := 1 + (n-kernel)/stride
 	result := make([]float32, out*frames)
+	if mode == SincNetSIMDFMA {
+		// Pack <=32 independent columns. SIMD lanes span frames, not the
+		// reduction dimension, preserving the scalar FMA order exactly.
+		const tile = 32
+		packed := make([]float32, in*kernel*tile)
+		for start := 0; start < frames; start += tile {
+			if err := ctx.Err(); err != nil {
+				return nil, 0, err
+			}
+			cols := min(tile, frames-start)
+			xcols := packed[:in*kernel*cols]
+			for input := 0; input < in; input++ {
+				for k := 0; k < kernel; k++ {
+					for j := 0; j < cols; j++ {
+						xcols[(input*kernel+k)*cols+j] = x[input*n+(start+j)*stride+k]
+					}
+				}
+			}
+			for channel := 0; channel < out; channel++ {
+				if err := ctx.Err(); err != nil {
+					return nil, 0, err
+				}
+				row := result[channel*frames+start : channel*frames+start+cols]
+				if !simd.FMAColumnsF32Checked(row, xcols, weight[channel*in*kernel:(channel+1)*in*kernel]) {
+					return nil, 0, fmt.Errorf("invalid SincNet FMA tile or FP environment")
+				}
+				if bias != nil {
+					for j := range row {
+						row[j] += bias[channel]
+					}
+				}
+			}
+		}
+		if err := finiteLSTM(ctx, result); err != nil {
+			return nil, 0, err
+		}
+		return result, frames, nil
+	}
 	for channel := 0; channel < out; channel++ {
 		for frame := 0; frame < frames; frame++ {
 			if frame%32 == 0 {
@@ -353,9 +451,14 @@ func sincNetConvolve(ctx context.Context, x []float32, in, n int, weight, bias [
 			for input := 0; input < in; input++ {
 				a := x[input*n+frame*stride : input*n+frame*stride+kernel]
 				b := weight[(channel*in+input)*kernel : (channel*in+input+1)*kernel]
-				if mode == SincNetSIMD {
+				switch mode {
+				case SincNetSIMD:
 					sum += simd.Sdot(a, b)
-				} else {
+				case SincNetScalarFMA:
+					for i, value := range a {
+						sum = sincNetFMA32(value, b[i], sum)
+					}
+				default:
 					for i, value := range a {
 						sum += value * b[i]
 					}

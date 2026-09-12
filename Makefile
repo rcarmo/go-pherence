@@ -83,6 +83,13 @@ speech-vulkan-static-check:
 	bun test scripts/check-vulkan-shaders.test.ts
 	bun scripts/check-vulkan-shaders.ts --output "$(VULKAN_SHADER_REPORT)"
 
+.PHONY: speech-sincnet-fma-check
+speech-sincnet-fma-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestFMAColumns'
+	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestFMAColumns(Order|Invalid)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNetLowered'
+	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNetLowered'
+
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'

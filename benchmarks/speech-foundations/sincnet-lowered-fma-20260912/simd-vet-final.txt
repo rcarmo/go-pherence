@@ -1,0 +1,3 @@
+backends/simd/runtime/q8dot_amd64.s:93:1: [amd64] dotI8F32x4Asm: invalid offset ret+60(FP); expected ret+56(FP)
+backends/simd/runtime/q8dot_amd64.s:94:1: [amd64] dotI8F32x4Asm: invalid offset ret+64(FP); expected ret+56(FP)
+backends/simd/runtime/q8dot_amd64.s:95:1: [amd64] dotI8F32x4Asm: invalid offset ret+68(FP); expected ret+56(FP)

@@ -606,6 +606,12 @@ Two final native profiles compare the same resident 34 layer plans with 390 indi
 
 A complete trained Turbo encoder confirmation reduces median14.244→8.298s (1.716×), bit-exact against the baseline; four public candidate transcripts retain baseline tokens/timestamps. Earlier final processes include a recorded setup overlap and55pages of swap-out; an explicitly isolated confirmation has unchanged swap counters. [Candidate evidence](../benchmarks/speech-foundations/vulkan-linear-regtile-20260912/README.md) separates these resource/timing scopes. Candidate speech requests still take about9–10s, so whole-job performance remains on hold. No automatic promotion, F16/quantisation or service rollout occurred.
 
+### Experimental lowered SincNet filters and ordered FMA
+
+`NewSincNetWithFilters` owns an explicitly lowered `[80,251]` filter tensor; callers must verify checkpoint identity and lowering metadata. New `SincNetScalarFMA` / `SincNetSIMDFMA` modes use serial-K FMA order. The reusable checked Plan 9 kernel vectorises independent frame columns, preserving exact scalar output. Existing constructors and mode defaults are unchanged.
+
+All seven synthetic lowered-filter endpoints pass the original `2e-4` gate, with bit-exact scalar/SIMD output. The narrow-band stride-10 endpoint is close to the threshold (`0.000199873`). Its stage-0 boundary still fails (`0.000380866`); two new strict boundary failures and the original four parameter-filter failures are retained. No trained checkpoint conversion, complete segmentation integration or DER qualification is added. [Evidence and reproduction](../benchmarks/speech-foundations/sincnet-lowered-fma-20260912/README.md) separate endpoint, boundary and original-mode results. No performance claim or service change.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.
