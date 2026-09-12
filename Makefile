@@ -144,11 +144,17 @@ speech-community-gemm-timing:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_GEMM_TIMING=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestWeSpeakerTiledTiming$$' -v
 
-.PHONY: speech-job-check speech-job-http-check speech-job-cli-check speech-job-media-integration speech-job-serve-check speech-job-serve-integration
+.PHONY: speech-job-check speech-job-http-check speech-job-cli-check speech-job-media-integration speech-job-serve-check speech-job-serve-integration speech-job-ui-check
 speech-job-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob ./runtime/speechjob/httpapi
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/whisper -run '^TestPCM(Resume|Transcribe)'
 	go vet ./runtime/speechjob ./runtime/speechjob/httpapi ./models/whisper
+
+speech-job-ui-check:
+	@test -n "$(SPEECHJOB_BROWSER_OUT)" || (echo 'Set SPEECHJOB_BROWSER_OUT to a browser evidence directory'; exit 1)
+	@mkdir -p "$(SPEECHJOB_BROWSER_OUT)"
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -c -o "$(SPEECHJOB_BROWSER_OUT)/fixture.test" ./runtime/speechjob/httpapi
+	@trap 'rm -f "$(SPEECHJOB_BROWSER_OUT)/fixture.test"' EXIT; bun scripts/speechjob-ui-check.ts --binary "$(SPEECHJOB_BROWSER_OUT)/fixture.test" --out "$(SPEECHJOB_BROWSER_OUT)"
 
 speech-job-serve-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 go test -p=1 -count=1 -timeout=90s ./cmd/audio/speechjobserve

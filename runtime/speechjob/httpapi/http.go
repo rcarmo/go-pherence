@@ -46,6 +46,7 @@ type Config struct {
 	Token                 string
 	Hosts                 []string
 	Origin                string
+	EnableUI              bool // Opt-in static browser UI; requires exact same Origin/Host.
 	MaxUploadBytes        int64
 	MaxConcurrentRequests int
 }
@@ -59,6 +60,7 @@ type Handler struct {
 	token         [32]byte
 	hosts         map[string]bool
 	origin        string
+	enableUI      bool
 	profiles      map[string]boundProfile
 	byConfig      map[string]boundProfile
 	uploadLimit   int64
@@ -87,7 +89,7 @@ func New(cfg Config) (*Handler, error) {
 			return nil, fmt.Errorf("invalid bearer token encoding")
 		}
 	}
-	h := &Handler{store: cfg.Store, token: sha256.Sum256([]byte(cfg.Token)), hosts: map[string]bool{}, origin: cfg.Origin, profiles: map[string]boundProfile{}, byConfig: map[string]boundProfile{}, uploadLimit: cfg.MaxUploadBytes, slots: make(chan struct{}, cfg.MaxConcurrentRequests), control: make(chan struct{}, 1), mutation: make(chan struct{}, 1), drained: make(chan struct{})}
+	h := &Handler{store: cfg.Store, token: sha256.Sum256([]byte(cfg.Token)), hosts: map[string]bool{}, origin: cfg.Origin, enableUI: cfg.EnableUI, profiles: map[string]boundProfile{}, byConfig: map[string]boundProfile{}, uploadLimit: cfg.MaxUploadBytes, slots: make(chan struct{}, cfg.MaxConcurrentRequests), control: make(chan struct{}, 1), mutation: make(chan struct{}, 1), drained: make(chan struct{})}
 	for _, host := range cfg.Hosts {
 		u, e := url.Parse("http://" + host)
 		if e != nil || host == "" || strings.ContainsAny(host, " /\\?#@\t\r\n") || u.Host != host || u.Hostname() == "" || h.hosts[host] {
@@ -99,6 +101,12 @@ func New(cfg Config) (*Handler, error) {
 		u, e := url.Parse(cfg.Origin)
 		if e != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.String() != cfg.Origin {
 			return nil, fmt.Errorf("invalid HTTP origin")
+		}
+	}
+	if cfg.EnableUI {
+		u, e := url.Parse(cfg.Origin)
+		if e != nil || u == nil || u.ForceQuery || cfg.MaxConcurrentRequests < 2 || !h.hosts[u.Host] {
+			return nil, fmt.Errorf("browser UI requires an allowed exact origin")
 		}
 	}
 	for _, p := range cfg.Profiles {
@@ -214,6 +222,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 421, "host_rejected", nil)
 		return
 	}
+	if h.serveUI(w, r) {
+		return
+	}
 	if len(r.Header.Values("Authorization")) != 1 {
 		unauthorized(w)
 		return
@@ -252,7 +263,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer stop()
 	r = r.WithContext(ctx)
 	if e := ctx.Err(); e != nil {
-		respondError(w, 408, "cancelled", nil)
+		respondError(w, 409, "cancelled", nil)
 		return
 	}
 	// Canonical routing only: reject escaped separators, aliases, trailing slashes
@@ -292,6 +303,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(query) != 0 {
 		respondError(w, 400, "invalid_query", nil)
+		return
+	}
+	if len(path) == 2 && path[0] == "v1" && path[1] == "profiles" && h.enableUI {
+		if r.Method != http.MethodGet {
+			method(w, "GET")
+			return
+		}
+		h.uiProfiles(w)
 		return
 	}
 	if len(path) == 2 && path[0] == "v1" && path[1] == "inventory" {
@@ -682,7 +701,9 @@ func (h *Handler) failure(w http.ResponseWriter, e error, job *Job) {
 	case errors.Is(e, os.ErrNotExist):
 		respondError(w, 404, "not_found", job)
 	case errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded):
-		respondError(w, 408, "cancelled", job)
+		// 408 can cause user agents to retry even a POST on a fresh connection.
+		// Application cancellation is an explicit conflict, never replay advice.
+		respondError(w, 409, "cancelled", job)
 	case errors.Is(e, speechjob.ErrClosed):
 		respondError(w, 503, "unavailable", job)
 	case errors.Is(e, speechjob.ErrCorrupt):

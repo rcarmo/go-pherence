@@ -4,7 +4,7 @@
 
 ## Request contract
 
-Every route requires `Authorization: Bearer <token>`. Configure a cryptographically random printable token of at least 32 bytes. The handler retains its SHA256 digest and compares digests in constant time; configured length does not establish token entropy. There is no cookie, URL-token, ambient browser or anonymous authentication.
+Every API route requires `Authorization: Bearer <token>`. The optional [browser UI](ui/README.md), disabled by default, serves only constant static assets without authentication; all its job/profile calls still require the token. Configure a cryptographically random printable token of at least 32 bytes. The handler retains its SHA256 digest and compares digests in constant time; configured length does not establish token entropy. There is no cookie, URL-token, ambient browser or anonymous authentication.
 
 Configure exact Host values, including the port. Forwarded headers cannot override them. A supplied Origin must exactly match the configured scheme/host/port origin; no configured origin means all Origin-bearing requests fail. Fetch-Metadata values other than `same-origin`, `none` or absent fail. No CORS headers/preflight, redirects, escaped-path aliases or noncanonical routes are provided. Non-browser clients can omit Origin; possession of the bearer token authorises this single tenant.
 
@@ -29,7 +29,7 @@ Profiles bind the ID, exact configuration bytes and full ordered stage name/vers
 
 There is one mutation slot, matching the store's serial executor. Concurrent upload/run/delete mutations receive 409. One to 64 ordinary request slots are configured; overflow receives 503. One additional bounded cancel slot prevents ordinary requests from starving cancellation. These are request/executor bounds, not persistent queueing, rate limiting or shared CPU/RSS/GPU admission.
 
-Runs belong to the HTTP request. Client disconnect and `Handler.Shutdown` cancel them cooperatively. A long request keeps its connection open; HTTP 202 is not used to claim durable background execution. Request timeout may cancel a run, and retry remains explicit. A completed job remains a verified no-op only for its original full stage list.
+Runs belong to the HTTP request. Client disconnect and `Handler.Shutdown` cancel them cooperatively. A long request keeps its connection open; HTTP 202 is not used to claim durable background execution. Request timeout may cancel a run, and retry remains explicit. Application cancellation returns **409 `cancelled`**, not 408: browsers can automatically retry POST requests after HTTP 408. The explicit cancellation endpoint still returns 202 for its signal acknowledgement. A completed job remains a verified no-op only for its original full stage list.
 
 The handler exclusively owns store access during use. Call `Handler.Shutdown(ctx)` before closing its store or models. It refuses new requests, cancels admitted requests and waits for them to drain. If the shutdown context expires, work may still exist; keep all resources alive and retry shutdown. Cancellation closes and joins the in-flight upload body closer. Synchronous filesystem calls and arbitrary stage callbacks remain cooperatively cancellable; the handler cannot forcibly interrupt them. It does not close the caller's store or listener.
 
@@ -45,7 +45,7 @@ The application must provide:
 - a private local store, immutable published payloads and appropriately bounded store quotas;
 - trusted model/backend profile construction and shared compute admission before neural work;
 - explicit HTTP listener and handler shutdown ordering, followed by model/store teardown;
-- any CLI, browser UI, progress polling policy, persistent queue and user-facing retry confirmation.
+- any persistent queue, shared admission and additional client/progress policy. The CLI and opt-in static browser UI are separate implemented clients; neither starts jobs automatically.
 
 The handler authenticates before reading upload bodies, but a network server/proxy may still buffer bytes before dispatch. Uploads exceeding an unknown/chunked length are stopped by `MaxBytesReader`; incomplete directories remain visible for explicit cleanup. No automatic retry/deletion/startup run occurs. Exactly-at-limit uploads are allowed; unexpected read failures are not acknowledged as durable uploads. A publication error returns `persistence_uncertain`; clients should inspect status/inventory before deciding on retry. Blind POST-upload retries can create duplicates because uploads have no idempotency-key contract yet.
 
@@ -53,4 +53,4 @@ The handler authenticates before reading upload bodies, but a network server/pro
 
 Run `make speech-job-http-check`. Tests use synthetic stages and `httptest`, including one real loopback HTTP server; no production listener or model runs. They cover authentication/Origin/Host rejection before body reads, upload caps/disconnect, request/mutation limits, cancellation control admission, shutdown drain, status sanitisation, profile drift/copy ownership, artifact allowlisting/integrity/headers, error mapping, pagination, reopening and explicit resume. A Unix child is SIGKILLed through an HTTP run after a text checkpoint commits; reopening serves that checkpoint and resumes without repeating it. Process-death tests do not establish power-loss durability.
 
-The core HTTP/store package cross-compiles independently of Linux/amd64 model adapters; cross-builds are not execution. Windows store locking is unsupported. No race result, browser usability, multi-tenant authorisation, trained-quality, long-job proxy behaviour or production security audit is established by these tests.
+The core HTTP/store package cross-compiles independently of Linux/amd64 model adapters; cross-builds are not execution. Windows store locking is unsupported. No race result, multi-tenant authorisation, trained-quality, long-job proxy behaviour or production security audit is established by these tests. Separate Chromium UI checks are documented in the browser contract.

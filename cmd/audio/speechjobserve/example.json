@@ -13,6 +13,7 @@
     "owned_weight_bytes": 1073741824
   },
   "http": {
+    "enable_ui": false,
     "listen": "127.0.0.1:8099",
     "hosts": ["127.0.0.1:8099"],
     "origin": "",

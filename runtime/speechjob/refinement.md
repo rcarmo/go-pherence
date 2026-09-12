@@ -166,3 +166,26 @@ Transcript schema 1 stores already reconciled sample-indexed cues. JSON requires
 18. Export: existing allowlisted transcript/VTT APIs;not trainedqualified output.
 19. Proof: generatedtoy safetensors/vocabulary+realFFmpeg,inprocessTLS/cap/deadline/drain,realSIGTERMchild lock/listenerrelease.
 20. Closure: scoped tests/vet/build/commit/evidence;no productionlistener/service/model/performance acceptance claim.
+
+## Opt-in browser workflow continuation
+
+1. Problem: operate the explicit HTTP job workflow in a browser without persisting tokens or losing access to completed text on later failure.
+2. User: one authenticated same-origin tenant on an operator-enabled UI.
+3. Success: upload/inspect/run/cancel/delete/inventory/download through real browser with durable state shown accurately.
+4. Minimum: self-hosted static page, manual status refresh, hashed download validation, no automatic retries/runs.
+5. Exclusions: queue/background promises, model qualification, production deployment, multi-tenant login and browser-storage tokens.
+6. Scope: embedded httpapi/ui assets and opt-in routes/profileIDs, serverenableflag, tests/Playwright/Make/docs; no neuralmath/pinchanges.
+7. Platforms: Chromium tested; HTTPS or secure loopback WebCrypto. Other browsers/mobile lifecycle unqualified.
+8. Errors: clear auth state on401/403/421;retain raw/jobstate;uncertainupload directs inventory, no retry;cancel409 avoidsbrowser408POSTreplay.
+9. Persistence: serverstore only; tokenclosurememory, pagehide/forget abortsrequests and revokesdownloadURLs.
+10. Pattern: existing same-origin bearer HTTP profiles/cursors/allowlists; preserve synchronousrun ownership.
+11. First change: opt-in static assets behindHost/scheme/origin/admission, APIauth unchanged.
+12. Avoid:innerHTML,CDNs,inlineJS,CORS,ambientcookies,local/sessionstorage,tokenURL,automaticpolling and Blobtimerrevocation.
+13. Names:/ui assets;authenticated/v1/profiles listsIDs+uploadcaponly;four transcriptartifactnames.
+14. IO:File upload/profile/token input;sanitised textDOM/status/experimentalwarnings/verifiedBlobdownload.
+15. Compatibility:UIdefaultfalse; cancellationHTTP409/errorcancelled intentional wirefix,CLI code-compatible.
+16. Limits:client6ordinary+1cancel/serverbounds;1download16MiB+onecompletedBlob,4MiBJSON,100jobpage;boundedbytecopiesnotzeroallocclaim.
+17. Trust:exactTLSschemeHostOrigin/CSPself/noframe/nocache;credentialepoch preventsstaleupdates;serverandlocaloperatortrusted.
+18. Export:hashsizeMIMEETagverifiedJSONVTT withgeneratedfilename;browserfilesystemcollisionpolicyexternal.
+19. Proof:Go route/auth/config/shutdown tests plus Playwright25checks inclXSSnames/hashmismatch/failure/canceloneattempt/lostack/mobile.
+20. Closure:scopedbrowserchecks/vet/build/commit/evidence;no trainingquality/queue/sharedCPU/RSSGPUadmission completeness.

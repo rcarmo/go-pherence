@@ -283,7 +283,7 @@ func TestCancelReservedSlotAndDrain(t *testing.T) {
 	}
 	close(release)
 	w := <-done
-	if w.Code != 408 || !strings.Contains(w.Body.String(), `"status":"cancelled"`) {
+	if w.Code != 409 || !strings.Contains(w.Body.String(), `"status":"cancelled"`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	j = decodeJob(t, request(h, "POST", "/v1/jobs/"+j.ID+"/run", nil), 200)
@@ -417,7 +417,7 @@ func TestConfigAndErrorMapping(t *testing.T) {
 		e      error
 		status int
 		code   string
-	}{{speechjob.ErrPersistence, 503, "persistence_uncertain"}, {speechjob.ErrLimit, 413, "limit_exceeded"}, {speechjob.ErrBusy, 409, "busy"}, {speechjob.ErrCorrupt, 409, "integrity_failure"}, {speechjob.ErrClosed, 503, "unavailable"}, {context.Canceled, 408, "cancelled"}, {os.ErrNotExist, 404, "not_found"}, {errors.New("secret"), 422, "operation_failed"}} {
+	}{{speechjob.ErrPersistence, 503, "persistence_uncertain"}, {speechjob.ErrLimit, 413, "limit_exceeded"}, {speechjob.ErrBusy, 409, "busy"}, {speechjob.ErrCorrupt, 409, "integrity_failure"}, {speechjob.ErrClosed, 503, "unavailable"}, {context.Canceled, 409, "cancelled"}, {os.ErrNotExist, 404, "not_found"}, {errors.New("secret"), 422, "operation_failed"}} {
 		w := httptest.NewRecorder()
 		h.failure(w, tc.e, nil)
 		if w.Code != tc.status || !strings.Contains(w.Body.String(), tc.code) || strings.Contains(w.Body.String(), "secret") {
@@ -486,7 +486,7 @@ func TestUploadDisconnectUnblocksAndDoesNotAcknowledge(t *testing.T) {
 	}
 	cancel()
 	w := <-done
-	if w.Code != 408 || strings.Contains(w.Body.String(), `"id"`) {
+	if w.Code != 409 || strings.Contains(w.Body.String(), `"id"`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	jobs, e := s.List()
@@ -514,7 +514,7 @@ func TestRequestDisconnectCancelsRun(t *testing.T) {
 	<-entered
 	cancel()
 	w := <-done
-	if w.Code != 408 || !strings.Contains(w.Body.String(), `"status":"cancelled"`) {
+	if w.Code != 409 || !strings.Contains(w.Body.String(), `"status":"cancelled"`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }

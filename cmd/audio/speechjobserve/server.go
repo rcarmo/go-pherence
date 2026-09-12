@@ -96,7 +96,7 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 		store.Close()
 		return e
 	}
-	handler, e := httpapi.New(httpapi.Config{Store: store, Profiles: profiles, Token: os.Getenv("SPEECHJOB_TOKEN"), Hosts: cfg.HTTP.Hosts, Origin: cfg.HTTP.Origin, MaxUploadBytes: cfg.Limits.UploadBytes, MaxConcurrentRequests: cfg.HTTP.MaxRequests})
+	handler, e := httpapi.New(httpapi.Config{Store: store, Profiles: profiles, Token: os.Getenv("SPEECHJOB_TOKEN"), Hosts: cfg.HTTP.Hosts, Origin: cfg.HTTP.Origin, EnableUI: cfg.HTTP.EnableUI, MaxUploadBytes: cfg.Limits.UploadBytes, MaxConcurrentRequests: cfg.HTTP.MaxRequests})
 	if e != nil {
 		store.Close()
 		return e

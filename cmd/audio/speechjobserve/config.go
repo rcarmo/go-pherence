@@ -31,6 +31,7 @@ type Limits struct {
 	OwnedWeightBytes int64 `json:"owned_weight_bytes"`
 }
 type HTTPSettings struct {
+	EnableUI          bool     `json:"enable_ui"`
 	Listen            string   `json:"listen"`
 	Hosts             []string `json:"hosts"`
 	Origin            string   `json:"origin"`
@@ -215,6 +216,12 @@ func (c ServerConfig) validate() error {
 		u, e := url.Parse(h.Origin)
 		if e != nil || u == nil || u.User != nil || u.Path != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 			return fmt.Errorf("invalid origin")
+		}
+	}
+	if h.EnableUI {
+		u, e := url.Parse(h.Origin)
+		if e != nil || u == nil || h.MaxRequests < 2 || !seen[u.Host] || (u.Scheme == "https") != hasTLS {
+			return fmt.Errorf("browser UI requires matching TLS/origin/Host and two request slots")
 		}
 	}
 	for _, a := range []Asset{c.Weights, c.ModelConfig, c.Tokenizer, c.Generation, c.FFmpeg, c.FFprobe} {

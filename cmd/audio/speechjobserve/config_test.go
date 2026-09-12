@@ -131,3 +131,24 @@ func TestAssetHashBoundsAndCancellation(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestUIRequiresExactServerOrigin(t *testing.T) {
+	c := baseConfig(t)
+	c.HTTP.EnableUI = true
+	if e := c.validate(); e == nil {
+		t.Fatal("UI enabled without origin")
+	}
+	c.HTTP.Origin = "http://" + c.HTTP.Listen
+	if e := c.validate(); e != nil {
+		t.Fatal(e)
+	}
+	c.HTTP.Origin = "https://" + c.HTTP.Listen
+	if e := c.validate(); e == nil {
+		t.Fatal("TLS origin on plain listener")
+	}
+	c.HTTP.Origin = "http://" + c.HTTP.Listen
+	c.HTTP.MaxRequests = 1
+	if e := c.validate(); e == nil {
+		t.Fatal("no status slot while run active")
+	}
+}
