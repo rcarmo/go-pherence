@@ -542,6 +542,14 @@ The warm 256-row/384-channel/six-head synthetic plan was 1.435–1.505× faster 
 
 The user-authorised LLM stop completed successfully; `llama-gemma-local-provider.service`, `whisper-stt.service` and `whisper-stt-diarizer.service` stay stopped. No models/state were removed, and swap counters did not increase during final repeats. This checkpoint adds an opt-in native harness and make target; no shader/runtime defaults changed. Convolution/residual wrappers, encoder graph/weights, quantised execution, device recovery and trained quality/performance remain unfinished.
 
+### Native convolution and residual primitives
+
+`NewVkConv1D3F32` adds fixed kernel-3/pad-1 convolution, stride 1 or 2, with CF/TM inputs and time-major outputs. Input length is 1–4096, channels 1–2048, weights `[outCh,inCh,3]`. A 16×16 implicit-patch tile avoids host transpose and materialised im2col buffers. `NewVkAddF32` wraps the unchanged addition shader with matching rank-1–8 shapes and exact in-place support. Both wrappers check shape/extents, limits and output alias rules; generic stages remain mutable and plans do not recheck operator-specific invariants after caller modification.
+
+The offline selection passes 125 top-level tests/434 events, plus 58 tests ×30 shuffled repeats. All 16 embedded/rebuilt shaders pass static validation; convolution rebuilds byte-identically. Three Iris Xe repeats pass 66 convolution, 90 exact-addition and 27 composed-stem numerical cases, with all budgets fixed beforehand. A five-stage CF-conv→GELU→TM-conv→GELU→position-add plan matches separate GPU dispatches bit-for-bit for three reduced shapes, including 80/128 mel widths. [Stem verification](../benchmarks/speech-foundations/vulkan-stem-20260912/README.md) records counts, errors, reviews and limitations.
+
+The full native regression suite passes 339 cases/610,056 values; services stay stopped and swap counters are unchanged. No timing claim is made here. Full encoder graph/weights, quantised execution and trained-model quality/performance are still unfinished; no existing model path or default changed.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

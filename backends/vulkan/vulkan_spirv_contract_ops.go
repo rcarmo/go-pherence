@@ -46,6 +46,7 @@ var vkSPIRVOps = map[uint16]vkSPIRVOp{
 	127: {4, 4, 2}, // OpFNegate
 	128: {5, 5, 2}, // OpIAdd
 	129: {5, 5, 2}, // OpFAdd
+	130: {5, 5, 2}, // OpISub
 	131: {5, 5, 2}, // OpFSub
 	132: {5, 5, 2}, // OpIMul
 	133: {5, 5, 2}, // OpFMul

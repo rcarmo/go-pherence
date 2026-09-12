@@ -60,6 +60,7 @@ func TestVulkanNativeSpeech(t *testing.T) {
 		run  func(*testing.T)
 	}{
 		{"GELU", nativeSpeechGELU}, {"Linear", nativeSpeechLinear}, {"LayerNorm", nativeSpeechLayerNorm}, {"Attention", nativeSpeechAttention}, {"Plan", nativeSpeechPlan},
+		{"Conv", nativeSpeechConv}, {"Add", nativeSpeechAdd}, {"Stem", nativeSpeechStem},
 	} {
 		if !t.Run(tc.name, tc.run) {
 			return
