@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "baseline_commit": "fe06a31",
+  "status": "experimental; strict narrow-band qualification FAIL; not integrated",
+  "scope": "SincNet frontend/frame-grid component only",
+  "toolchain": "go1.26.2 linux/amd64",
+  "counts": {
+    "development_pass_events": 23,
+    "development_fail_events": 0,
+    "development_skip_events": 1,
+    "enabled_strict_subtest_failures": 4
+  },
+  "tests": [
+    {
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetGridBoundsAndNormalization",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetRejectsMalformedAndDegenerate",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetOwnershipAndStageCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetStrictNarrowBandOracle",
+      "status": "skip"
+    }
+  ],
+  "oracle": {
+    "fixtures": 7,
+    "passing_cases": 5,
+    "held_narrowband_cases": 2,
+    "source_hashes_in_fixture": true,
+    "filter_tolerance": 0.000002,
+    "boundary_output_tolerance": 0.0002,
+    "regeneration": "identical gzip bytes",
+    "strict_errors": [
+      {
+        "stride": 10,
+        "scalar": 0.00761348009,
+        "SIMD": 0.00461539626
+      },
+      {
+        "stride": 1,
+        "scalar": 0.00120222569,
+        "SIMD": 0.00226772483
+      }
+    ],
+    "strict_command": "GO_PHERENCE_TEST_SINCNET_STRICT=1 go test -p=1 -count=1 ./models/speaker/community1 -run TestSincNetStrictNarrowBandOracle"
+  },
+  "diagnosis": {
+    "exact_filters_do_not_close_gap": true,
+    "low_variance_first_block": 3.03e-11,
+    "torch_fp64_vs_fp32_stride10_output_max": 0.006482162971425287,
+    "affine_order": "float32 mean/inverse/scale/shift plus FMA improved but did not qualify",
+    "tolerance_not_widened": true
+  },
+  "checks": {
+    "make": "development targets pass with explicit known-gap skip",
+    "vet": "audio/Whisper/Community1/speaker pass",
+    "build": "speaker/Whisper/audio commands pass",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact recorded baseline errors",
+    "review": "narrow source review no additional blocking finding; known numerical gap excluded from review scope"
+  },
+  "execution": {
+    "GOMAXPROCS": 2,
+    "go_parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle_cpu_threads": 1,
+    "oracle_mkldnn": false,
+    "trained_model": false,
+    "GPU": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "limitations": [
+    "strict parity failure prevents production/default qualification",
+    "no full segmentation head/checkpoint integration",
+    "global instance normalisation, nominal receptive field not local dependency bound",
+    "only strides1..10/samples<=160000/outputframes<=4096 supported",
+    "existing Sdot SIMD only, no new kernels or speed result",
+    "race detector not run"
+  ]
+}

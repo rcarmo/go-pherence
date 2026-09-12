@@ -14,6 +14,8 @@ The speech port is being implemented in go-pherence on `feat/speech-simd-vulkan`
 - `models/speaker/community1.Powerset`: bounded hard/soft powerset-to-local-speaker conversion and score-column permutation mapping, checked against pyannote 4.0.7. It is not yet connected to a segmentation model.
 - `models/speaker/community1.LSTM`: owned, checked unprojected IFGO LSTM stack, including bidirectional chronological outputs, per-layer intermediates and terminal states. Scalar and existing Plan 9 SIMD GEMV paths match synthetic PyTorch fixtures. Checkpoint loading and the complete segmentation graph are not connected.
 
+- `models/speaker/community1.SincNet`: experimental 16 kHz frontend with learned even/odd sinc filters, convolution/pooling/instance-norm stages and frame-grid metadata. Its narrow-band float32 oracle gate fails; it is not qualified or connected to a segmentation model.
+
 This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan execution layer, new assembly kernels, the integrated job service, real-checkpoint quality tests and performance targets are not complete. Neither existing service has been restarted or deployed from this branch.
 
 ## Ownership and boundaries
@@ -123,7 +125,31 @@ The output concatenates forward then reverse features at the same chronological 
 
 Six [synthetic PyTorch fixtures](../models/speaker/community1/testdata/lstm-reference.json) cover uni/bidirectionality, one to three layers, odd widths, nonzero initial state and sequences up to 65 frames. Both Go modes match every layer output, full sequence and terminal hidden/cell states within `2e-6`. A separate three-frame 60-input/128-hidden/two-layer synthetic case checks scalar/SIMD parity at representative PyanNet constructor dimensions; it is not checkpoint validation. The [offline generator](../scripts/community1_lstm_reference.py) pins PyanNet and Torch RNN source hashes, records the Torch build commit, runs CPU/one thread with MKLDNN disabled and loads no trained weights or audio. Regeneration produces identical JSON.
 
-Tests cover bad shapes/modes/states, NaN/Inf, affine overflow, source/output ownership, state reset, concurrent immutable-model calls, per-layer cancellation and fixed allocation counts. Deterministic fault injection reaches 78 scalar and 58 SIMD forward checkpoints in the small bidirectional fixture. A narrow delegated source review found no blocking issue. The [verification record](../benchmarks/speech-foundations/lstm-verification.json) separates these component checks from unmeasured model quality and performance. SincNet, segmentation head/log-softmax, actual checkpoint binding and the remaining Community-1 pipeline still require implementation.
+Tests cover bad shapes/modes/states, NaN/Inf, affine overflow, source/output ownership, state reset, concurrent immutable-model calls, per-layer cancellation and fixed allocation counts. Deterministic fault injection reaches 78 scalar and 58 SIMD forward checkpoints in the small bidirectional fixture. A narrow delegated source review found no blocking issue. The [verification record](../benchmarks/speech-foundations/lstm-verification.json) separates these component checks from unmeasured model quality and performance. The SincNet qualification gap below, segmentation head/log-softmax, actual checkpoint binding and the remaining Community-1 pipeline still require work.
+
+## Experimental SincNet frontend — qualification failed
+
+`NewSincNet` owns finite learned cutoffs, affine normalisation and convolution weights. At 16 kHz, 40 learned band pairs produce 80 even/odd filters of length 251 using the pinned asteroid-filterbanks 0.4.0 contract. The forward path follows pyannote SincNet: whole-waveform instance norm; sinc convolution and absolute value; then three max-pool/affine-instance-norm/leaky-ReLU stages, with 80→60 and 60→60 kernel-5 convolutions between them. Population variance uses epsilon `1e-5`. Scalar Go and existing Plan 9 `Sdot` modes are available; no specialised convolution assembly or throughput result was added.
+
+`Grid` derives frame counts, step, first sample-index centre and nominal receptive-field size. For stride `s`, the step is `27*s`, first centre `125+37*s`, and nominal receptive field `251+74*s` samples. Input windows must leave at least two positions for every instance norm and stay within 160000 input samples and 4096 output frames. Because instance normalisation uses the entire window, the nominal convolution receptive field is not a strict dependency bound. Arbitrary streaming chunks would change the result. `Forward` returns owned frame-major `[frames,60]` values suitable for the LSTM input layout, but the modules are not wired together yet.
+
+Seven pinned synthetic fixtures include two narrow-band waves plus impulse, silence, constant and two broadband cases. For the five non-narrow-band cases, both modes pass every boundary and final output at `2e-4` absolute tolerance; filter coefficients pass `2e-6`. Narrow-band output errors exceed the unchanged `2e-4` gate:
+
+| Stride | Scalar max absolute error | Existing SIMD max absolute error |
+|---|---:|---:|
+| 10 | 0.00761348009 | 0.00461539626 |
+| 1 | 0.00120222569 | 0.00226772483 |
+
+The [strict gate log](../benchmarks/speech-foundations/sincnet-strict-gap.txt) retains all four failures. The ordinary suite explicitly skips that gate; passing development tests do not qualify this frontend. Reproduce it with:
+
+```sh
+GO_PHERENCE_TEST_SINCNET_STRICT=1 GOMAXPROCS=2 CGO_ENABLED=0 \
+  go test -p=1 -count=1 ./models/speaker/community1 -run TestSincNetStrictNarrowBandOracle
+```
+
+Diagnostics using exact oracle filter coefficients still differ after convolution/normalisation. A separate Torch float64 calculation using those coefficients differs from Torch float32 by about `0.0065` for the stride-10 narrow-band case, whose first-stage minimum channel variance is about `3e-11`. Matching Torch's float32 affine scale/shift/FMA ordering improved results; it did not close the gate. The remaining discrepancy needs kernel/reduction analysis and actual model-level quality evidence before integration, not an automatic tolerance increase.
+
+Boundary/ownership tests and a narrow delegated source review found no additional blocking defect. Cancellation checks cover stages, channels and bounded loops; running scalar/SIMD dots and observers are synchronous. There is no model or input mutation. The compressed [fixtures](../models/speaker/community1/testdata/sincnet-reference.json.gz) and [offline generator](../scripts/community1_sincnet_reference.py) pin pyannote/filterbank sources, use only synthetic weights/PCM and regenerate byte-identically. The [verification record](../benchmarks/speech-foundations/sincnet-verification.json) keeps passing development checks separate from failing qualification. No trained model, GPU, private audio, service change or production default change occurred.
 
 ## Frozen references and proposed acceptance
 

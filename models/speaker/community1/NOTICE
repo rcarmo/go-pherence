@@ -1,5 +1,7 @@
 MIT License
 
+Copyright (c) 2019- CNRS (SincNet)
+Copyright (c) 2019 Pariente Manuel (asteroid-filterbanks)
 Copyright (c) 2020 CNRS (PyanNet architecture)
 Copyright (c) 2023-2025 CNRS
 Copyright (c) 2025- pyannotAI
@@ -28,4 +30,8 @@ pyannote.audio 4.0.7, commit b749285c5cdd4636b2edc7f766f1352c8dde9369.
 PyanNet recurrent layout reference: same pyannote.audio commit, using
 PyTorch's documented unprojected IFGO LSTM equations. The offline oracle
 requires PyTorch; no PyTorch implementation code is included or used at runtime.
+SincNet architecture and frame-grid conventions: pyannote.audio commit above.
+ParamSincFB even/odd filter construction: asteroid-filterbanks 0.4.0 (MIT),
+source SHA256 2df0d1e6f109985c00efcc60970ebceff6a9665c3e65ebae73ea4848e48d8eae.
+The MIT permission and warranty notice above applies to these references too.
 Go implementation and synthetic tests: Copyright (c) 2026 Rui Carmo.

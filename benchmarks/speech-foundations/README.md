@@ -18,6 +18,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - `lstm-verification.json`, `lstm-focused-check.txt`: checked Community-1 IFGO recurrent component with scalar and existing SIMD GEMV dispatch. Nine package tests pass (five LSTM plus four powerset); six Torch fixtures cover 104 frames and 11 layer intermediates, all outputs/states within `2e-6`. 78 scalar/58 SIMD cancellation points, fixed seven allocations in tested two-layer calls, and representative60→128 shape parity pass. Oracle regeneration identical; narrow review/vet/build/arm64cross pass. No trained checkpoint or new kernel/speed claim.
 
+- `sincnet-verification.json`, `sincnet-focused-check.txt`, `sincnet-strict-gap.txt`, `sincnet-filter-diagnostic.txt`: experimental SincNet frontend. Development selection23pass/1explicit skip; enabling the strict narrow-band gate produces FOUR failures (max error0.00761348 vs unchanged2e-4). Five other synthetic cases pass in both modes; grid/ownership/cancel checks pass. Known gap prevents qualification/integration. Review found no additional bounds/ownership issue; vet/build/arm64cross pass. No trained-model or speed result.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
 The exact frontend reuses existing checked Plan 9 SIMD `Ddot`. No new SIMD kernel, Vulkan backend, complete Community-1 pipeline or model-performance result is established by these tests. Legacy inference defaults are retained until real-checkpoint validation.
