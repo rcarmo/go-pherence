@@ -1,6 +1,6 @@
 # Optional go-264 media backend
 
-`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the MIT pure-Go frontend pinned at `v0.0.0-20260912083556-faa324c3f8c4`. `NewFFmpeg` and existing serving defaults are unchanged. There is no native codec or subprocess inside this optional backend.
+`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260912092206-42030e1cd54d`. Its new `audio/` tree has an explicit MIT licence plus imported MIT notices; the provider's pre-existing video tree has no root licence and is outside this audit. `NewFFmpeg` and existing serving defaults are unchanged. There is no native codec or subprocess inside this optional backend.
 
 ## Contract
 
@@ -26,7 +26,13 @@ Public pyannote tutorial30s two-speaker sample/RTTM revision `b749285c5cdd4636b2
 
 Focused adapter tests/vet, audio CLI build and Linuxarm64 media build pass. Whole-repository build has the same pre-existing SpacemiT/diffusion command failures as base `f141e63`; the optional backend does not repair them. Neural tests require explicit opt-in and host admission.
 
-The provider commit is local and has not been pushed. A temporary file-based Go module proxy supplied its exact Git-archived pseudo-version for verification. No `replace` directive is committed. Fresh remote consumers cannot fetch this dependency until that provider revision is published or the verified proxy bundle is supplied. Do not merge as a generally fetchable release without resolving publication.
+**Integration is pending owner review.** The owner received `09d2db2` but has not reviewed, accepted or cherry-picked it. The `42030e1` pin adds the scoped audio licence and documentation to runtime `faa324c`; no executable code changed. Saved neural results apply to the unchanged runtime, not a new neural run.
+
+The provider commit is local and has not been pushed. An external file-based Go module proxy supplies its Git-archived pseudo-version. No `replace` directive is committed. The offline handoff supplies proxy files, Git bundles, an explicit consumer shallow-history boundary, SHA-256 manifests and restoration instructions. Public fetching requires publication approval.
+
+The provider has no external Go requirements. The consumer already requires purego (Apache-2.0), x/sys (BSD-3-Clause), yaml.v3 (MIT and Apache-2.0 by file), and yaml's check.v1 test dependency (BSD-2-Clause). Those inherited dependencies are not new MIT dependencies and the entire consumer is not MIT-only. The licence evidence distinguishes audio library imports from the unlicensed pre-existing provider video tree and unscoped CLI/generator helpers outside `audio/`.
+
+Go Community-1 DER acceptance is unqualified, including the owner's four strict SincNet failures. Further model runs require fresh explicit admission even when the host is idle.
 
 Commands:
 
