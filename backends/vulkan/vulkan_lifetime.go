@@ -49,7 +49,8 @@ func vkRelease() { <-vkLane }
 // Single retained submission bounds quarantine growth. Even after callers
 // drop all references, these resources remain reachable and cannot be freed.
 type vkPendingSubmission struct {
-	kernel    *VkComputeKernel
+	kernel    *VkComputeKernel // single-operation owner (nil for a plan)
+	plan      *vkF32PlanState
 	buffers   []*VkBuf
 	uncertain bool
 }
@@ -91,6 +92,22 @@ func vkUsesBufferLocked(b *VkBuf) bool {
 	for _, buf := range vkPending.buffers {
 		if buf == b {
 			return true
+		}
+	}
+	return false
+}
+func vkUsesKernelLocked(k *VkComputeKernel) bool {
+	if vkPending == nil {
+		return false
+	}
+	if vkPending.kernel == k {
+		return true
+	}
+	if p := vkPending.plan; p != nil {
+		for _, stage := range p.stages {
+			if stage.kernel == k {
+				return true
+			}
 		}
 	}
 	return false
@@ -159,7 +176,16 @@ func vkWaitPendingLocked(ctx context.Context, budget time.Duration) error {
 		if vkWaitForFences == nil {
 			return errors.Join(ErrVulkanInFlight, fmt.Errorf("Vulkan wait function unavailable"))
 		}
-		result := vkWaitForFences(p.kernel.device, 1, &p.kernel.fence, 1, uint64(wait))
+		var device VkDevice
+		var fence VkFence
+		if p.plan != nil {
+			device = p.plan.device
+			fence = p.plan.fence
+		} else {
+			device = p.kernel.device
+			fence = p.kernel.fence
+		}
+		result := vkWaitForFences(device, 1, &fence, 1, uint64(wait))
 		if result == VK_SUCCESS {
 			vkFinishPendingLocked()
 			// If completion raced cancellation resources are safe, but output is not
@@ -209,7 +235,7 @@ func (k *VkComputeKernel) Close() error {
 	if err := vkQuarantineLocked(); err != nil {
 		return err
 	}
-	if vkPending != nil && vkPending.kernel == k {
+	if vkUsesKernelLocked(k) {
 		return ErrVulkanInFlight
 	}
 	if k.device == 0 || k.commandPool == 0 || k.device != vkDevice || k.commandPool != vkCmdPool {

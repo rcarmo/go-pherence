@@ -2,9 +2,9 @@ package vulkan
 
 // Vulkan compute dispatch: command buffers, descriptor binding, shader execution.
 //
-// Single-operation pipeline with one serialized host lane and one retained
-// unresolved submission. Each operation records broad compute/host memory
-// dependencies; model residency/multi-op plans are still unfinished.
+// Single-operation pipeline and shared admission/submit helpers for VkF32Plan.
+// One serialized host lane retains at most one unresolved submission. Each
+// operation or plan records broad dependencies; model residency is unfinished.
 //   VkComputeKernel: compiled shader + pipeline + descriptor layout
 //   Dispatch: record command buffer → bind descriptors → submit → bounded wait
 //
@@ -383,6 +383,55 @@ type vkBufferBinding struct {
 
 // Caller owns the lane. Buffer owners (not views) enter pending retention.
 func (k *VkComputeKernel) dispatchBindingsLocked(ctx context.Context, groupsX, groupsY, groupsZ uint32, bindings []vkBufferBinding, pushData unsafe.Pointer) error {
+	if err := k.validateBindingsLocked(groupsX, groupsY, groupsZ, bindings, pushData); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	k.updateBindingsLocked(k.descSet, bindings)
+	// Record command buffer
+	beginInfo := vkCommandBufferBeginInfo{sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT}
+	if r := vkBeginCommandBuffer(k.cmdBuf, unsafe.Pointer(&beginInfo)); r != VK_SUCCESS {
+		return vkDriverError("vkBeginCommandBuffer", r)
+	}
+
+	vkComputeAcquireLocked(k.cmdBuf)
+	vkCmdBindPipeline(k.cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, k.pipeline)
+	vkCmdBindDescriptorSets(k.cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, k.pipelineLayout, 0, 1, &k.descSet, 0, nil)
+
+	// Push constants if any
+	if k.pushSize > 0 && pushData != nil {
+		vkCmdPushConstants(k.cmdBuf, k.pipelineLayout, 0x20, 0, uint32(k.pushSize), pushData)
+	}
+
+	vkCmdDispatch(k.cmdBuf, groupsX, groupsY, groupsZ)
+	vkComputeReleaseLocked(k.cmdBuf)
+
+	if r := vkEndCommandBuffer(k.cmdBuf); r != VK_SUCCESS {
+		return vkDriverError("vkEndCommandBuffer", r)
+	}
+
+	pending := &vkPendingSubmission{kernel: k}
+	for _, binding := range bindings {
+		buf := binding.buffer
+		found := false
+		for _, retained := range pending.buffers {
+			if buf == retained {
+				found = true
+				break
+			}
+		}
+		if !found {
+			pending.buffers = append(pending.buffers, buf)
+		}
+	}
+	err := vkSubmitLocked(ctx, k.device, k.queue, k.cmdBuf, k.fence, pending)
+	runtime.KeepAlive(pushData)
+	return err
+}
+
+func (k *VkComputeKernel) validateBindingsLocked(groupsX, groupsY, groupsZ uint32, bindings []vkBufferBinding, pushData unsafe.Pointer) error {
 	if err := vkStatusLocked(); err != nil {
 		return err
 	}
@@ -440,10 +489,11 @@ func (k *VkComputeKernel) dispatchBindingsLocked(ctx context.Context, groupsX, g
 			return err
 		}
 	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 
+	return nil
+}
+
+func (k *VkComputeKernel) updateBindingsLocked(set VkDescriptorSet, bindings []vkBufferBinding) {
 	// Update descriptor set with buffer bindings
 	type bufInfo struct {
 		buffer VkBuffer
@@ -462,13 +512,14 @@ func (k *VkComputeKernel) dispatchBindingsLocked(ctx context.Context, groupsX, g
 		pBufferInfo      unsafe.Pointer
 		pTexelBufferView uintptr
 	}
-	writes := make([]writeDS, len(bufs))
-	bufInfos := make([]bufInfo, len(bufs))
-	for i, buf := range bufs {
+	writes := make([]writeDS, len(bindings))
+	bufInfos := make([]bufInfo, len(bindings))
+	for i, binding := range bindings {
+		buf := binding.buffer
 		bufInfos[i] = bufInfo{buffer: buf.buf, offset: bindings[i].offset, rng: bindings[i].size} // explicit checked range
 		writes[i] = writeDS{
 			sType:           VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			dstSet:          k.descSet,
+			dstSet:          set,
 			dstBinding:      uint32(i),
 			descriptorCount: 1,
 			descriptorType:  VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -477,28 +528,9 @@ func (k *VkComputeKernel) dispatchBindingsLocked(ctx context.Context, groupsX, g
 	}
 	vkUpdateDescriptorSets(k.device, uint32(len(writes)), unsafe.Pointer(&writes[0]), 0, nil)
 
-	// Record command buffer
-	beginInfo := vkCommandBufferBeginInfo{sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT}
-	if r := vkBeginCommandBuffer(k.cmdBuf, unsafe.Pointer(&beginInfo)); r != VK_SUCCESS {
-		return vkDriverError("vkBeginCommandBuffer", r)
-	}
+}
 
-	vkComputeAcquireLocked(k.cmdBuf)
-	vkCmdBindPipeline(k.cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, k.pipeline)
-	vkCmdBindDescriptorSets(k.cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, k.pipelineLayout, 0, 1, &k.descSet, 0, nil)
-
-	// Push constants if any
-	if k.pushSize > 0 && pushData != nil {
-		vkCmdPushConstants(k.cmdBuf, k.pipelineLayout, 0x20, 0, uint32(k.pushSize), pushData)
-	}
-
-	vkCmdDispatch(k.cmdBuf, groupsX, groupsY, groupsZ)
-	vkComputeReleaseLocked(k.cmdBuf)
-
-	if r := vkEndCommandBuffer(k.cmdBuf); r != VK_SUCCESS {
-		return vkDriverError("vkEndCommandBuffer", r)
-	}
-
+func vkSubmitLocked(ctx context.Context, device VkDevice, queue VkQueue, cmd VkCommandBuffer, fence VkFence, pending *vkPendingSubmission) error {
 	// Submit
 	submitInfo := struct {
 		sType                uint32
@@ -516,33 +548,18 @@ func (k *VkComputeKernel) dispatchBindingsLocked(ctx context.Context, groupsX, g
 	}{
 		sType:              VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		commandBufferCount: 1,
-		pCommandBuffers:    unsafe.Pointer(&k.cmdBuf),
+		pCommandBuffers:    unsafe.Pointer(&cmd),
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if r := vkResetFences(k.device, 1, &k.fence); r != VK_SUCCESS {
+	if r := vkResetFences(device, 1, &fence); r != VK_SUCCESS {
 		return vkDriverError("vkResetFences", r)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	// Deduplicate buffer refs before submitting (the same buffer may occupy
-	// multiple bindings). Allocations happen before the command can be pending.
-	pending := &vkPendingSubmission{kernel: k}
-	for _, buf := range bufs {
-		found := false
-		for _, retained := range pending.buffers {
-			if retained == buf {
-				found = true
-				break
-			}
-		}
-		if !found {
-			pending.buffers = append(pending.buffers, buf)
-		}
-	}
-	if r := vkQueueSubmit(k.queue, 1, unsafe.Pointer(&submitInfo), k.fence); r != VK_SUCCESS {
+	if r := vkQueueSubmit(queue, 1, unsafe.Pointer(&submitInfo), fence); r != VK_SUCCESS {
 		// Conservative quarantine: failed submit/device loss is not proof that
 		// native resources can safely be reused. Never poll an unsignalled fence
 		// from a submission whose acceptance is unknown.
@@ -551,8 +568,6 @@ func (k *VkComputeKernel) dispatchBindingsLocked(ctx context.Context, groupsX, g
 		return errors.Join(ErrVulkanInFlight, ErrVulkanUncertain, vkDriverError("vkQueueSubmit", r))
 	}
 	vkPending = pending
-	runtime.KeepAlive(bufs)
-	runtime.KeepAlive(pushData)
 	return vkWaitPendingLocked(ctx, time.Second)
 }
 

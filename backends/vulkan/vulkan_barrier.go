@@ -52,3 +52,10 @@ func vkComputeReleaseLocked(cmd VkCommandBuffer) {
 	vkCmdPipelineBarrier(cmd, vkPipelineStageComputeShader, vkPipelineStageHost,
 		0, 1, unsafe.Pointer(&barrier), 0, nil, 0, nil)
 }
+
+// Between compute stages on the same command buffer: all bindings conservatively
+// read/write. Execution scopes also order WAR/WAW, with no host roundtrip.
+func vkComputeBetweenLocked(cmd VkCommandBuffer) {
+	barrier := vkMemoryBarrier{sType: vkStructureTypeMemoryBarrier, srcAccessMask: vkAccessShaderWrite, dstAccessMask: vkAccessShaderRead | vkAccessShaderWrite}
+	vkCmdPipelineBarrier(cmd, vkPipelineStageComputeShader, vkPipelineStageComputeShader, 0, 1, unsafe.Pointer(&barrier), 0, nil, 0, nil)
+}
