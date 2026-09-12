@@ -106,6 +106,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [vulkan-community-native-harness-20260912](vulkan-community-native-harness-20260912/README.md): explicit expected-device synthetic parity harness for block/trunk/hybrid embedding/LSTM/feature+PCM segmentation with fixed diagnostic tolerances and per-subtest memory-state checks. Default skip verified; NOT RUN on GPU.
 
+- [vulkan-community-server-profile-20260912](vulkan-community-server-profile-20260912/README.md): explicit nested opt-in Community-1 hybrid Vulkan server profile; backend/device/graph-bound stage identity, fresh-context drain, process quarantine, reverse retryable close, and model-free injected server/lifecycle tests pass. No GPU/trained/deployment/default change.
+
 - [vulkan-segmentation-pcm-20260912](vulkan-segmentation-pcm-20260912/README.md): explicit fixed-window CPU-SincNet→resident-Vulkan-LSTM→CPU-head composition; exact sample/grid pinning, ordered-FMA modes and propagated close. Model-free admission/lifetime PASS; no GPU/trained/audio/performance/default change.
 
 - [vulkan-segmentation-hybrid-20260912](vulkan-segmentation-hybrid-20260912/README.md): explicit fixed-frame hybrid segmentation feature owner; resident Vulkan LSTM plus copied CPU head/logsoftmax, strict pre-device admission and shared close. Model-free PASS; no GPU/trained/PCM/performance/default change.

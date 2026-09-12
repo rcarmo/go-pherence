@@ -58,6 +58,20 @@ func newVulkanSegmentationPCM(ctx context.Context, checkpoint *SegmentationCheck
 	return &VulkanSegmentationPCM{frontend: frontend, features: features, samples: samples, grid: grid}, nil
 }
 
+func (m *VulkanSegmentationPCM) Stats() VulkanSegmentationStats {
+	if m == nil || m.features == nil {
+		return VulkanSegmentationStats{}
+	}
+	return m.features.Stats()
+}
+
+func (m *VulkanSegmentationPCM) Grid() SincNetGrid {
+	if m == nil {
+		return SincNetGrid{}
+	}
+	return m.grid
+}
+
 func (m *VulkanSegmentationPCM) ForwardPCM(ctx context.Context, pcm []float32, sincMode SincNetMode, headMode HeadMode) (*SegmentationPCMResult, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("Community-1 Vulkan PCM: nil context")

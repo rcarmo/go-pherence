@@ -265,6 +265,79 @@ func TestCombinedProfileStagesAndReverseOwners(t *testing.T) {
 		t.Fatal(e, communityOwner.close)
 	}
 }
+func TestCommunityVulkanConfigAndInjectedConstruction(t *testing.T) {
+	c := baseConfig(t)
+	rset := ResourceSettings{CPUSlots: 2, MemoryBytes: 1 << 30, MaxWaiting: 4, LoadBytes: 512 << 20, ResidentBytes: 256 << 20, WorkBytes: 256 << 20}
+	c.Resources = &rset
+	x := communityConfig(t)
+	v := CommunityVulkanSettings{Enable: true, AllowExperimental: true, DeviceContains: "fixture-device", BackendSHA256: hashBytes([]byte("community-vulkan")), DrainMilliseconds: 10}
+	x.Vulkan = &v
+	x.Modes.LSTM = "vulkan"
+	x.Modes.Embedding = "vulkan"
+	c.Profile.Community = &x
+	if e := c.validate(); e != nil {
+		t.Fatal(e)
+	}
+	for _, kind := range []string{"enable", "consent", "device", "hash", "poll", "lstm-mode", "embedding-mode", "shared-device"} {
+		bad := c
+		y := x
+		z := v
+		switch kind {
+		case "enable":
+			z.Enable = false
+		case "consent":
+			z.AllowExperimental = false
+		case "device":
+			z.DeviceContains = ""
+		case "hash":
+			z.BackendSHA256 = "bad"
+		case "poll":
+			z.DrainMilliseconds = 0
+		case "lstm-mode":
+			y.Modes.LSTM = "simd"
+		case "embedding-mode":
+			y.Modes.Embedding = "gemm"
+		case "shared-device":
+			bad.Profile.Vulkan = &VulkanSettings{Enable: true, AllowExperimental: true, DeviceContains: "fixture", BackendSHA256: hashBytes([]byte("whisper-vulkan")), DrainMilliseconds: 10}
+		}
+		y.Vulkan = &z
+		bad.Profile.Community = &y
+		if e := bad.validate(); e == nil {
+			t.Fatal(kind)
+		}
+	}
+	owner := &fakeCommunityOwner{stage: speechjob.Stage{Name: "diarization", Version: hashBytes([]byte("vk-diar")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}}
+	calls := []string{}
+	runtime := communityRuntime{
+		loadSeg: func(context.Context, c1.SegmentationTensorSource, c1.SegmentationLoadConfig) (*c1.SegmentationCheckpoint, error) {
+			calls = append(calls, "load-seg")
+			return &c1.SegmentationCheckpoint{}, nil
+		},
+		loadEmb: func(context.Context, c1.WeSpeakerTensorSource, c1.WeSpeakerResNetConfig, string) (*c1.WeSpeakerResNet34, error) {
+			calls = append(calls, "load-emb")
+			return &c1.WeSpeakerResNet34{}, nil
+		},
+		loadPLDA: func(context.Context, io.ReaderAt, int64, io.ReaderAt, int64, c1.PLDAConfig) (*c1.RawPLDAPreparation, error) {
+			calls = append(calls, "load-plda")
+			return &c1.RawPLDAPreparation{Model: &c1.PreparedPLDA{}}, nil
+		},
+		initVulkan: func() bool { calls = append(calls, "init"); return true },
+		deviceName: func() string { calls = append(calls, "device"); return "fixture-device-1" },
+		newVulkanModel: func(context.Context, *c1.SegmentationCheckpoint, []float32, *c1.WeSpeakerResNet34, *c1.PreparedPLDA, int) (*c1.VulkanDiarization, error) {
+			calls = append(calls, "new-vulkan-model")
+			return &c1.VulkanDiarization{}, nil
+		},
+		newVulkanOwner: func(*c1.VulkanDiarization, speechjob.VulkanCommunity1StageConfig) (stageOwner, error) {
+			calls = append(calls, "new-vulkan-owner")
+			return owner, nil
+		},
+	}
+	got, e := prepareCommunity(context.Background(), c, runtime)
+	if e != nil || got != owner || strings.Join(calls, ",") != "load-seg,load-emb,load-plda,init,device,new-vulkan-model,new-vulkan-owner" {
+		t.Fatal(got, e, calls)
+	}
+}
+
 func TestCommunityMetadataCheckDoesNotConstructModels(t *testing.T) {
 	c := toyAssets(t)
 	r := ResourceSettings{CPUSlots: 2, MemoryBytes: 1 << 30, MaxWaiting: 4, LoadBytes: 512 << 20, ResidentBytes: 256 << 20, WorkBytes: 256 << 20}

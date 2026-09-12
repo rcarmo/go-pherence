@@ -14,9 +14,9 @@ import (
 type VulkanSegmentationFeatures struct{ s *vulkanSegmentationState }
 
 type VulkanSegmentationStats struct {
-	Frames, InputSize, RecurrentWidth, Classes int
-	LSTM                                       VulkanLSTMStats
-	HeadBytes                                  uint64
+	Frames, InputSize, RecurrentWidth, Classes, MaxActive int
+	LSTM                                                  VulkanLSTMStats
+	HeadBytes                                             uint64
 }
 
 type vulkanSegmentationState struct {
@@ -79,7 +79,7 @@ func newVulkanSegmentationFeatures(ctx context.Context, source *SegmentationChec
 	if recurrent == nil {
 		return nil, fmt.Errorf("Community-1 Vulkan segmentation: recurrent constructor returned nil")
 	}
-	state.stats = VulkanSegmentationStats{Frames: frames, InputSize: source.cfg.LSTM.InputSize, RecurrentWidth: source.cfg.Head.InputSize, Classes: classes, LSTM: recurrent.Stats(), HeadBytes: headBytes}
+	state.stats = VulkanSegmentationStats{Frames: frames, InputSize: source.cfg.LSTM.InputSize, RecurrentWidth: source.cfg.Head.InputSize, Classes: classes, MaxActive: source.cfg.Head.MaxActive, LSTM: recurrent.Stats(), HeadBytes: headBytes}
 	return owner, nil
 }
 

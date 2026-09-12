@@ -29,10 +29,13 @@ type Community1StageConfig struct {
 	// ModelIdentitySHA256 optionally binds loader geometry, xvector identity,
 	// revision and other caller policy not represented by the five payload hashes.
 	ModelIdentitySHA256 string
-	PCM                 c1.DiarizationPCMConfig
-	SegmentationModes   c1.SegmentationModes
-	EmbeddingMode       c1.WeSpeakerBlockMode
-	MaxResultBytes      int64
+	// ExecutionBackendSHA256 is empty for the host path. Explicit accelerator
+	// owners set it to their resolved backend/device/graph identity.
+	ExecutionBackendSHA256 string
+	PCM                    c1.DiarizationPCMConfig
+	SegmentationModes      c1.SegmentationModes
+	EmbeddingMode          c1.WeSpeakerBlockMode
+	MaxResultBytes         int64
 }
 
 // NewCommunity1Stage creates a whole-result "diarization" stage. It preserves
@@ -66,7 +69,7 @@ func validateCommunityConfig(cfg Community1StageConfig) error {
 			return ErrConfiguration
 		}
 	}
-	if cfg.ModelIdentitySHA256 != "" && !validHash(cfg.ModelIdentitySHA256) {
+	if cfg.ModelIdentitySHA256 != "" && !validHash(cfg.ModelIdentitySHA256) || cfg.ExecutionBackendSHA256 != "" && !validHash(cfg.ExecutionBackendSHA256) {
 		return ErrConfiguration
 	}
 	c := cfg.PCM

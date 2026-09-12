@@ -9,26 +9,51 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+	"time"
 
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 )
 
 type communityRuntime struct {
-	loadSeg  func(context.Context, c1.SegmentationTensorSource, c1.SegmentationLoadConfig) (*c1.SegmentationCheckpoint, error)
-	newSeg   func(context.Context, *c1.SegmentationCheckpoint, []float32) (*c1.ExperimentalSegmentation, error)
-	loadEmb  func(context.Context, c1.WeSpeakerTensorSource, c1.WeSpeakerResNetConfig, string) (*c1.WeSpeakerResNet34, error)
-	newEmb   func(context.Context, *c1.WeSpeakerResNet34) (*c1.ExperimentalEmbedding, error)
-	loadPLDA func(context.Context, io.ReaderAt, int64, io.ReaderAt, int64, c1.PLDAConfig) (*c1.RawPLDAPreparation, error)
-	newModel func(context.Context, *c1.ExperimentalSegmentation, *c1.ExperimentalEmbedding, *c1.PreparedPLDA) (*c1.ExperimentalDiarization, error)
-	newOwner func(*c1.ExperimentalDiarization, speechjob.Community1StageConfig) (stageOwner, error)
+	loadSeg        func(context.Context, c1.SegmentationTensorSource, c1.SegmentationLoadConfig) (*c1.SegmentationCheckpoint, error)
+	newSeg         func(context.Context, *c1.SegmentationCheckpoint, []float32) (*c1.ExperimentalSegmentation, error)
+	loadEmb        func(context.Context, c1.WeSpeakerTensorSource, c1.WeSpeakerResNetConfig, string) (*c1.WeSpeakerResNet34, error)
+	newEmb         func(context.Context, *c1.WeSpeakerResNet34) (*c1.ExperimentalEmbedding, error)
+	loadPLDA       func(context.Context, io.ReaderAt, int64, io.ReaderAt, int64, c1.PLDAConfig) (*c1.RawPLDAPreparation, error)
+	newModel       func(context.Context, *c1.ExperimentalSegmentation, *c1.ExperimentalEmbedding, *c1.PreparedPLDA) (*c1.ExperimentalDiarization, error)
+	newOwner       func(*c1.ExperimentalDiarization, speechjob.Community1StageConfig) (stageOwner, error)
+	initVulkan     func() bool
+	deviceName     func() string
+	newVulkanModel func(context.Context, *c1.SegmentationCheckpoint, []float32, *c1.WeSpeakerResNet34, *c1.PreparedPLDA, int) (*c1.VulkanDiarization, error)
+	newVulkanOwner func(*c1.VulkanDiarization, speechjob.VulkanCommunity1StageConfig) (stageOwner, error)
 }
 
 func defaultCommunityRuntime() communityRuntime {
-	return communityRuntime{c1.LoadSegmentationSource, c1.NewExperimentalSegmentation, c1.LoadWeSpeakerResNetSource, c1.NewExperimentalEmbedding, c1.LoadRawPLDANPZ, c1.NewExperimentalDiarization, func(m *c1.ExperimentalDiarization, c speechjob.Community1StageConfig) (stageOwner, error) {
-		return speechjob.NewOwnedCommunity1Stage(m, c)
-	}}
+	return communityRuntime{
+		loadSeg: c1.LoadSegmentationSource, newSeg: c1.NewExperimentalSegmentation,
+		loadEmb: c1.LoadWeSpeakerResNetSource, newEmb: c1.NewExperimentalEmbedding,
+		loadPLDA: c1.LoadRawPLDANPZ, newModel: c1.NewExperimentalDiarization,
+		newOwner: func(m *c1.ExperimentalDiarization, c speechjob.Community1StageConfig) (stageOwner, error) {
+			return speechjob.NewOwnedCommunity1Stage(m, c)
+		},
+		initVulkan: vk.VulkanInit, deviceName: vk.VulkanDeviceName, newVulkanModel: c1.NewVulkanDiarization,
+		newVulkanOwner: func(m *c1.VulkanDiarization, c speechjob.VulkanCommunity1StageConfig) (stageOwner, error) {
+			return speechjob.NewVulkanCommunity1Stage(m, c)
+		},
+	}
+}
+
+func closeCommunityVulkanModel(model interface{ Close() error }) {
+	for {
+		if err := model.Close(); err == nil {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 // prepareCommunity validates all bounded immutable assets and exact tensor
@@ -39,7 +64,8 @@ func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (
 	if x == nil {
 		return nil, nil
 	}
-	if r.loadSeg == nil || r.newSeg == nil || r.loadEmb == nil || r.newEmb == nil || r.loadPLDA == nil || r.newModel == nil || r.newOwner == nil {
+	vulkanSettings := x.Vulkan
+	if r.loadSeg == nil || r.loadEmb == nil || r.loadPLDA == nil || vulkanSettings == nil && (r.newSeg == nil || r.newEmb == nil || r.newModel == nil || r.newOwner == nil) || vulkanSettings != nil && (r.initVulkan == nil || r.deviceName == nil || r.newVulkanModel == nil || r.newVulkanOwner == nil) {
 		return nil, fmt.Errorf("Community-1 runtime constructors required")
 	}
 	cfg, e := speechCommunityConfig(*x, c.RuntimeSHA256)
@@ -75,31 +101,42 @@ func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (
 	if e != nil {
 		return nil, e
 	}
-	segmentation, e := r.newSeg(ctx, seg, ownedFilters)
-	clear(ownedFilters)
-	if e != nil {
-		return nil, e
+	var segmentation *c1.ExperimentalSegmentation
+	if vulkanSettings == nil {
+		segmentation, e = r.newSeg(ctx, seg, ownedFilters)
+		if e != nil {
+			clear(ownedFilters)
+			return nil, e
+		}
 	}
 	embFile, e := safetensors.Open(x.Embedding.Path)
 	if e != nil {
+		clear(ownedFilters)
 		return nil, fmt.Errorf("Community-1 embedding source rejected")
 	}
 	embModel, e := r.loadEmb(ctx, embFile, communityEmbedConfig(x.EmbeddingConfig), x.EmbeddingPrefix)
 	e = errors.Join(e, embFile.Close())
 	if e != nil {
+		clear(ownedFilters)
 		return nil, e
 	}
-	embedding, e := r.newEmb(ctx, embModel)
-	if e != nil {
-		return nil, e
+	var embedding *c1.ExperimentalEmbedding
+	if vulkanSettings == nil {
+		embedding, e = r.newEmb(ctx, embModel)
+		if e != nil {
+			clear(ownedFilters)
+			return nil, e
+		}
 	}
 	xv, e := regularFile(x.XVectorTransform.Path, 64<<20)
 	if e != nil {
+		clear(ownedFilters)
 		return nil, e
 	}
 	plda, e := regularFile(x.PLDA.Path, 64<<20)
 	if e != nil {
 		xv.Close()
+		clear(ownedFilters)
 		return nil, e
 	}
 	xs, _ := xv.Stat()
@@ -107,8 +144,35 @@ func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (
 	prepared, e := r.loadPLDA(ctx, xv, xs.Size(), plda, ps.Size(), communityPLDAConfig(x.PLDAConfig))
 	e = errors.Join(e, xv.Close(), plda.Close())
 	if e != nil {
+		clear(ownedFilters)
 		return nil, e
 	}
+	if vulkanSettings != nil {
+		if !r.initVulkan() {
+			clear(ownedFilters)
+			return nil, fmt.Errorf("experimental Community-1 Vulkan initialisation failed")
+		}
+		deviceName := r.deviceName()
+		if deviceName == "" || !strings.Contains(deviceName, vulkanSettings.DeviceContains) {
+			clear(ownedFilters)
+			return nil, fmt.Errorf("configured Community-1 Vulkan device identity rejected")
+		}
+		model, modelErr := r.newVulkanModel(ctx, seg, ownedFilters, embModel, prepared.Model, cfg.PCM.WindowSamples)
+		clear(ownedFilters)
+		if modelErr != nil {
+			if model != nil {
+				closeCommunityVulkanModel(model)
+			}
+			return nil, modelErr
+		}
+		owner, ownerErr := r.newVulkanOwner(model, speechjob.VulkanCommunity1StageConfig{Community: cfg, AllowExperimental: true, BackendSHA256: vulkanSettings.BackendSHA256, DeviceIdentity: deviceName, DrainPoll: time.Duration(vulkanSettings.DrainMilliseconds) * time.Millisecond})
+		if ownerErr != nil {
+			closeCommunityVulkanModel(model)
+			return nil, ownerErr
+		}
+		return owner, nil
+	}
+	clear(ownedFilters)
 	model, e := r.newModel(ctx, segmentation, embedding, prepared.Model)
 	if e != nil {
 		return nil, e

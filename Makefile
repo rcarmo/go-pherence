@@ -30,7 +30,7 @@ speech-go264-paired-check:
 
 # Focused speech-foundation checks: no model weights, driver initialisation,
 # service startup or performance benchmark. FFmpeg integration is opt-in below.
-.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check speech-vulkan-static-check speech-vulkan-community-check
+.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check speech-vulkan-static-check speech-vulkan-community-check speech-vulkan-community-server-check
 
 # Mock-only Vulkan ABI/lifetime checks: never calls VulkanInit or opens a GPU.
 speech-vulkan-offline-check:
@@ -40,8 +40,14 @@ speech-vulkan-offline-check:
 # and channel-major prepared BatchNorm affine+ReLU. No device/model execution.
 speech-vulkan-community-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline(ChannelAffine|Conv2DCHW|LSTMCell|LSTMSequence)|TestVulkanOfflineShaderContractEmbedded)'
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestVulkan(BasicBlock|ResNetTrunk|Embedding|LSTM|Segmentation)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestVulkan(BasicBlock|ResNetTrunk|Embedding|LSTM|Segmentation|Diarization)'
 	bun test scripts/check-vulkan-shaders.test.ts
+
+# Model-free Community-1 hybrid server lifecycle and configuration. No VulkanInit.
+speech-vulkan-community-server-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob -run '^TestVulkanCommunity'
+	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 go test -p=1 -count=1 -timeout=90s ./cmd/audio/speechjobserve -run '^(TestCommunityVulkan|TestCommunityPrepare|TestCombined|TestBuiltProfiles)'
+	go vet ./models/speaker/community1 ./runtime/speechjob ./cmd/audio/speechjobserve
 
 # Explicit real-GPU qualification in a coordinated compute window. No models
 # or services; synthetic numerical fixtures and optional warm host-wall timing.

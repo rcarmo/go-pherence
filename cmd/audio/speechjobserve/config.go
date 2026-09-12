@@ -106,6 +106,17 @@ type CommunityModesSettings struct {
 	Head      string `json:"head"`
 	Embedding string `json:"embedding"`
 }
+
+// CommunityVulkanSettings opts only Community-1 into its fixed-window hybrid.
+// DeviceContains is checked against the resolved device; BackendSHA256 attests
+// the operator/shader/driver/precision identity selected by the administrator.
+type CommunityVulkanSettings struct {
+	Enable            bool   `json:"enable"`
+	AllowExperimental bool   `json:"allow_experimental"`
+	DeviceContains    string `json:"device_contains"`
+	BackendSHA256     string `json:"backend_sha256"`
+	DrainMilliseconds int    `json:"drain_milliseconds"`
+}
 type CommunitySettings struct {
 	Enable             bool                          `json:"enable"`
 	AllowExperimental  bool                          `json:"allow_experimental"`
@@ -121,6 +132,7 @@ type CommunitySettings struct {
 	PLDAConfig         CommunityPLDASettings         `json:"plda_config"`
 	PCM                CommunityPCMSettings          `json:"pcm"`
 	Modes              CommunityModesSettings        `json:"modes"`
+	Vulkan             *CommunityVulkanSettings      `json:"vulkan,omitempty"`
 	MaxResultBytes     int64                         `json:"max_result_bytes"`
 }
 type ProfileSettings struct {
@@ -358,6 +370,11 @@ func (c ServerConfig) validate() error {
 		if !x.Enable || !x.AllowExperimental || x.ModelRevision != "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee" || c.Resources == nil || x.MaxResultBytes < 1 || x.MaxResultBytes > 16<<20 || x.EmbeddingPrefix != "resnet" {
 			return fmt.Errorf("invalid experimental Community-1 profile")
 		}
+		if v := x.Vulkan; v != nil {
+			if !v.Enable || !v.AllowExperimental || len(v.DeviceContains) < 1 || len(v.DeviceContains) > 128 || strings.ContainsAny(v.DeviceContains, "\r\n\x00") || !validHash(v.BackendSHA256) || v.DrainMilliseconds < 1 || v.DrainMilliseconds > 30000 || f.Vulkan != nil {
+				return fmt.Errorf("invalid experimental Community-1 Vulkan profile")
+			}
+		}
 		for _, a := range []Asset{x.Segmentation, x.Filters, x.Embedding, x.XVectorTransform, x.PLDA} {
 			if !filepath.IsAbs(a.Path) || !validHash(a.SHA256) {
 				return fmt.Errorf("Community-1 assets require absolute paths and SHA256")
@@ -495,8 +512,21 @@ func speechCommunityConfig(c CommunitySettings, runtimeHash string) (speechjob.C
 	}
 	switch c.Modes.LSTM {
 	case "scalar":
+		if c.Vulkan != nil {
+			return speechjob.Community1StageConfig{}, fmt.Errorf("Community-1 Vulkan LSTM mode must be explicit")
+		}
 		sm.LSTM = c1.LSTMScalar
 	case "simd":
+		if c.Vulkan != nil {
+			return speechjob.Community1StageConfig{}, fmt.Errorf("Community-1 Vulkan LSTM mode must be explicit")
+		}
+		sm.LSTM = c1.LSTMSIMD
+	case "vulkan":
+		if c.Vulkan == nil {
+			return speechjob.Community1StageConfig{}, fmt.Errorf("Community-1 Vulkan LSTM mode requires Vulkan profile")
+		}
+		// The stage validator retains an existing concrete enum; the Vulkan owner
+		// never calls this CPU recurrent mode.
 		sm.LSTM = c1.LSTMSIMD
 	default:
 		return speechjob.Community1StageConfig{}, fmt.Errorf("invalid Community-1 LSTM mode")
@@ -512,9 +542,24 @@ func speechCommunityConfig(c CommunitySettings, runtimeHash string) (speechjob.C
 	em := c1.WeSpeakerBlockScalar
 	switch c.Modes.Embedding {
 	case "scalar":
+		if c.Vulkan != nil {
+			return speechjob.Community1StageConfig{}, fmt.Errorf("Community-1 Vulkan embedding mode must be explicit")
+		}
 	case "simd":
+		if c.Vulkan != nil {
+			return speechjob.Community1StageConfig{}, fmt.Errorf("Community-1 Vulkan embedding mode must be explicit")
+		}
 		em = c1.WeSpeakerBlockSIMD
 	case "gemm":
+		if c.Vulkan != nil {
+			return speechjob.Community1StageConfig{}, fmt.Errorf("Community-1 Vulkan embedding mode must be explicit")
+		}
+		em = c1.WeSpeakerBlockGEMM
+	case "vulkan":
+		if c.Vulkan == nil {
+			return speechjob.Community1StageConfig{}, fmt.Errorf("Community-1 Vulkan embedding mode requires Vulkan profile")
+		}
+		// The Vulkan owner uses resident CNN plus fixed CPU pooling/projection.
 		em = c1.WeSpeakerBlockGEMM
 	default:
 		return speechjob.Community1StageConfig{}, fmt.Errorf("invalid Community-1 embedding mode")
