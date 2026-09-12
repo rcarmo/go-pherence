@@ -8,7 +8,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/simd/kernels"
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // Go execution model of the GLSL pair mapping, not shader execution. Each pair
@@ -32,7 +32,7 @@ func TestVulkanOfflineRoPEPairMapping(t *testing.T) {
 			freqs[i+1] = float32(math.Sin(angle))
 		}
 		want := append([]float32(nil), x...)
-		kernels.ApplyRoPEPartial(want, freqs, pos, heads, dim, half)
+		simd.ApplyRoPEPartial(want, freqs, pos, heads, dim, half)
 		for seed := int64(0); seed < 8; seed++ {
 			got := append([]float32(nil), x...)
 			writers := make([]int, total)

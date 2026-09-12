@@ -9,7 +9,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/simd/kernels"
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // Explicit float32 evaluation matching shader operation order. Exp is rounded
@@ -67,7 +67,9 @@ func TestVulkanOfflineGELUErfApproximation(t *testing.T) {
 		if math.Abs(ref) > 1e-5 {
 			maxRelative = math.Max(maxRelative, err/math.Abs(ref))
 		}
-		cpu := float64(kernels.GELUExactScalar(v))
+		var cpuOut [1]float32
+		simd.GELUExact(cpuOut[:], []float32{v})
+		cpu := float64(cpuOut[0])
 		cpuErr := math.Abs(got - cpu)
 		maxCPU = math.Max(maxCPU, cpuErr)
 		if cpuErr > 2e-6+2e-6*math.Abs(cpu) {
@@ -76,7 +78,7 @@ func TestVulkanOfflineGELUErfApproximation(t *testing.T) {
 	}
 	// The tanh variant would exceed this test's budget at x=2.
 	v := float32(2)
-	if math.Abs(float64(geluErfModel(v)-kernels.GELUTanhScalar(v))) < 1e-5 {
+	if math.Abs(float64(geluErfModel(v)-simd.GELUTanhScalar(v))) < 1e-5 {
 		t.Fatal("accidentally testing tanh approximation")
 	}
 	t.Logf("samples=%d max_abs=%g worst_x=%g max_relative_above1e-5=%g max_cpu_difference=%g", len(values), maxAbs, worst, maxRelative, maxCPU)
