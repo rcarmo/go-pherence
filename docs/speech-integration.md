@@ -634,7 +634,11 @@ No native device or trained Community-1 graph ran. Driver arithmetic, performanc
 
 `NewVulkanBasicBlock` accepts one validated CPU-owned `WeSpeakerBasicBlock` plus fixed CHW input shape, prepares/copies BatchNorm coefficients before native allocation, uploads immutable parameters once and creates a private resident plan. Identity blocks compose six stages; projection blocks add the checked 1×1 shortcut convolution and affine for eight. Calls are serialized and perform one input upload, one plan submission/wait and one output download. Close permanently stops new work, tears down plan/arena/operators in reverse order and retains failed resources for retry without implicit drain or CPU fallback.
 
-Model-free tests cover every pinned synthetic block layout, exact tensor shapes and read ordering, 6/8-stage plans, prepared coefficients, source ownership, aligned arena accounting, validation before device access and retryable shared-copy lifetime. [Evidence](../benchmarks/speech-foundations/vulkan-community-block-owner-20260912/README.md) records the scope. No Vulkan device, trained checkpoint or full ResNet34 ran; native parity, whole-trunk residency, pooling/projection, recovery and placement remain open.
+Model-free tests cover every pinned synthetic block layout, exact tensor shapes and read ordering, 6/8-stage plans, prepared coefficients, source ownership, aligned arena accounting, validation before device access and retryable shared-copy lifetime. [Evidence](../benchmarks/speech-foundations/vulkan-community-block-owner-20260912/README.md) records the scope.
+
+`NewVulkanResNetTrunk` applies the same ownership model to the complete fixed-frame stem and 16-block trunk. It owns one aligned weight/scratch arena, reuses three CHW activation buffers at each of four resolutions, and creates 17 private plans with 104 stages including three projection shortcuts. `ForwardFrames` performs one checked frame-major→CHW transpose/upload, executes all plans serially and downloads final CHW once. Model-free tests verify topology, read ordering, shapes, accounting, source ownership and retryable close. [Trunk evidence](../benchmarks/speech-foundations/vulkan-community-trunk-owner-20260912/README.md) records limitations.
+
+No Vulkan device or trained checkpoint ran. Native parity, pooling/projection, recovery and CPU/full-Vulkan/hybrid placement remain open.
 
 ### Experimental lowered SincNet filters and ordered FMA
 

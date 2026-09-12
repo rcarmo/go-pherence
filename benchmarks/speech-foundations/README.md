@@ -104,6 +104,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [vulkan-linear-regtile-20260912](vulkan-linear-regtile-20260912/README.md): explicitF32 32x32output/K32/4acc candidate,default16x16unchanged;3kernelruns2.055–2.151×/all144timedoutputsbitexact. IsolatedTurboencoder14.244→8.298s1.716×/bitexact/publictokens-timespreserved,notwholejobspeedgate. 438offlinepass/30shuffle4710/34staticval. Earlierpairedprocesssetupoverlap+55pageswapoutretained;exclusiveconfirmationzeroswapdelta/min17.96GiBavailable. Noautomaticpromotion/restart/push.
 
+- [vulkan-community-trunk-owner-20260912](vulkan-community-trunk-owner-20260912/README.md): complete fixed-frame resident WeSpeaker stem+16-block trunk owner;17plans/104stages,13 reusable scratch tensors, copied weights/preparedBN, serial upload→plans→download and retry close. Model-free PASS; no GPU/trained/pooling/performance/default change.
+
 - [vulkan-community-block-owner-20260912](vulkan-community-block-owner-20260912/README.md): fixed-shape resident WeSpeaker BasicBlock owner; copied preparedBN/weights,6identity/8projection stages,serial forward and retryable reverse close. Model-free layouts/lifetime PASS; no GPU/trained/fulltrunk/default change.
 
 - [vulkan-community-conv2d-20260912](vulkan-community-conv2d-20260912/README.md): checked model-free CHW 3×3/pad1 and1×1/pad0 convolution, stride1/2; eight geometries/four schedules/13,936 outputs plus ABI/shape/alias/plan/static19 PASS. No model/GPU/performance/default change.

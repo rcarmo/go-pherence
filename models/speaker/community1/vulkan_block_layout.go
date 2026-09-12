@@ -88,26 +88,10 @@ func describeVulkanBasicBlock(ctx context.Context, block *WeSpeakerBasicBlock, i
 		if err != nil {
 			return
 		}
-		if len(bn.Weight) != channels || len(bn.Bias) != channels || len(bn.RunningMean) != channels || len(bn.RunningVariance) != channels {
-			err = fmt.Errorf("Community-1 Vulkan block: invalid %s BatchNorm", prefix)
+		scale, shift, prepareErr := prepareVulkanBN(ctx, bn, channels)
+		if prepareErr != nil {
+			err = fmt.Errorf("Community-1 Vulkan block: %s: %w", prefix, prepareErr)
 			return
-		}
-		scale, shift := make([]float32, channels), make([]float32, channels)
-		for i := range scale {
-			if i%256 == 0 {
-				if e := ctx.Err(); e != nil {
-					err = e
-					return
-				}
-			}
-			variance := bn.RunningVariance[i]
-			if variance < 0 {
-				err = fmt.Errorf("Community-1 Vulkan block: negative %s variance", prefix)
-				return
-			}
-			inv := float32(1 / math.Sqrt(float64(variance)+1e-5))
-			scale[i] = inv * bn.Weight[i]
-			shift[i] = bn.Bias[i] - bn.RunningMean[i]*scale[i]
 		}
 		add(prefix+".scale", scale, channels)
 		add(prefix+".shift", shift, channels)
@@ -151,6 +135,31 @@ func describeVulkanBasicBlock(ctx context.Context, block *WeSpeakerBasicBlock, i
 		vulkanBlockStep{op: "affine", out: "b", x: "b", a: "relu.scale", b: "relu.shift", relu: true},
 	)
 	return l, ctx.Err()
+}
+
+func prepareVulkanBN(ctx context.Context, bn WeSpeakerBN, channels int) ([]float32, []float32, error) {
+	if len(bn.Weight) != channels || len(bn.Bias) != channels || len(bn.RunningMean) != channels || len(bn.RunningVariance) != channels {
+		return nil, nil, fmt.Errorf("invalid BatchNorm")
+	}
+	scale, shift := make([]float32, channels), make([]float32, channels)
+	for i := range scale {
+		if i%256 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, nil, err
+			}
+		}
+		variance := bn.RunningVariance[i]
+		if variance < 0 {
+			return nil, nil, fmt.Errorf("negative variance")
+		}
+		inv := float32(1 / math.Sqrt(float64(variance)+1e-5))
+		scale[i] = inv * bn.Weight[i]
+		shift[i] = bn.Bias[i] - bn.RunningMean[i]*scale[i]
+		if math.IsNaN(float64(scale[i])) || math.IsInf(float64(scale[i]), 0) || math.IsNaN(float64(shift[i])) || math.IsInf(float64(shift[i]), 0) {
+			return nil, nil, fmt.Errorf("nonfinite prepared coefficient")
+		}
+	}
+	return scale, shift, nil
 }
 
 func vulkanBlockArenaBytes(tensors []vulkanBlockTensor, alignment uint64) (uint64, error) {
