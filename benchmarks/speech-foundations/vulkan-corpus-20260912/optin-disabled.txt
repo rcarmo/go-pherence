@@ -1,0 +1,5 @@
+=== RUN   TestVulkanPublicCorpus
+    vulkan_corpus_test.go:83: explicit public corpus diagnostic opt-in required
+--- SKIP: TestVulkanPublicCorpus (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.005s

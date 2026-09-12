@@ -574,6 +574,14 @@ Three warm equal-output ABBA/BAAB batches (8 samples per arm) give CPU medians 1
 
 [Public-speech evidence](../benchmarks/speech-foundations/vulkan-public-speech-20260912/README.md) records the fixed reference/gate, token work, timestamps, resource snapshots and limitations. One English clip does not qualify silence/hallucination policy, annotated timing accuracy, overlap/long files, diarization, other languages or cold/whole-job performance. Services remain stopped and swap counters unchanged; no runtime default changed.
 
+### Multilingual diagnostics and exact-zero silence option
+
+`PCMTranscribeOptions.SkipDigitalSilence` optionally emits empty callbacks for entirely zero-valued PCM windows before frontend/model execution. It defaults to false. Required model/tokenizer/geometry validation still runs, and nonzero subnormals/NaN/Inf are not discarded. This is neither VAD nor an energy threshold; quiet/noisy no-speech handling remains unqualified.
+
+Three native diagnostic batches over public MINDS-14 Portuguese/French and JFK/silence compositions complete 48 CPU/GPU calls/72 windows with identical text/tokens/timestamps. Recognition quality is poor: Portuguese fixtures score 80% and 77.78% WER, French 40%. CPU/GPU agreement does not establish shared frontend/decoder correctness or multilingual acceptance. Defaults hallucinate “you” on digital silence. With the exact-zero option, the five-second silence callback is empty and a 63-second three-window JFK composition has 0/44 edits with an empty final silent window. A padded 21-second JFK fixture passes without the option.
+
+[Corpus diagnostics](../benchmarks/speech-foundations/vulkan-corpus-20260912/README.md) retain references, CC-BY-4.0 provenance, failures and corrected French sample metadata. General no-speech policy, external-reference attribution of language errors, natural long files, overlap/diarization and model quality gates remain open. No runtime default or service state changed.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

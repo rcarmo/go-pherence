@@ -1,0 +1,3672 @@
+{
+  "results": [
+    {
+      "fixture": "minds-pt-0",
+      "language": "pt",
+      "backend": "vulkan",
+      "samples": 144726,
+      "inference_ns": 641003348,
+      "text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+      "reference": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "word_edits": 16,
+      "reference_words": 20,
+      "wer": 0.8,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-0",
+      "language": "pt",
+      "backend": "cpu",
+      "samples": 144726,
+      "inference_ns": 1214542049,
+      "text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+      "reference": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "word_edits": 16,
+      "reference_words": 20,
+      "wer": 0.8,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-1",
+      "language": "pt",
+      "backend": "vulkan",
+      "samples": 75094,
+      "inference_ns": 556194288,
+      "text": "Com faspore transfridneir pra minha conta.",
+      "reference": "Como faço para transferir dinheiro para a minha conta",
+      "word_edits": 7,
+      "reference_words": 9,
+      "wer": 0.7777777777777778,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-1",
+      "language": "pt",
+      "backend": "cpu",
+      "samples": 75094,
+      "inference_ns": 1098203261,
+      "text": "Com faspore transfridneir pra minha conta.",
+      "reference": "Como faço para transferir dinheiro para a minha conta",
+      "word_edits": 7,
+      "reference_words": 9,
+      "wer": 0.7777777777777778,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-fr-0",
+      "language": "fr",
+      "backend": "vulkan",
+      "samples": 60074,
+      "inference_ns": 479804665,
+      "text": "Je vais te changer mon adresse.",
+      "reference": "je souhaite changer mon adresse",
+      "word_edits": 2,
+      "reference_words": 5,
+      "wer": 0.4,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-fr-0",
+      "language": "fr",
+      "backend": "cpu",
+      "samples": 60074,
+      "inference_ns": 1053925845,
+      "text": "Je vais te changer mon adresse.",
+      "reference": "je souhaite changer mon adresse",
+      "word_edits": 2,
+      "reference_words": 5,
+      "wer": 0.4,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 80000,
+      "inference_ns": 393915482,
+      "text": "you",
+      "reference": "",
+      "word_edits": 1,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 80000,
+      "inference_ns": 924816620,
+      "text": "you",
+      "reference": "",
+      "word_edits": 1,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 80000,
+      "inference_ns": 5154856,
+      "text": "",
+      "reference": "",
+      "word_edits": 0,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": true,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 80000,
+      "inference_ns": 4218594,
+      "text": "",
+      "reference": "",
+      "word_edits": 0,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": true,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "jfk-padded-21s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 336000,
+      "inference_ns": 653041678,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-padded-21s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 336000,
+      "inference_ns": 1180903082,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 1008000,
+      "inference_ns": 1563797628,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country. you",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 1,
+      "reference_words": 44,
+      "wer": 0.022727272727272728,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 1008000,
+      "inference_ns": 3250139268,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country. you",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 1,
+      "reference_words": 44,
+      "wer": 0.022727272727272728,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 1008000,
+      "inference_ns": 1188145069,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 44,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 1008000,
+      "inference_ns": 2337178365,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 44,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "minds-pt-0",
+      "language": "pt",
+      "backend": "vulkan",
+      "samples": 144726,
+      "inference_ns": 612609932,
+      "text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+      "reference": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "word_edits": 16,
+      "reference_words": 20,
+      "wer": 0.8,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-0",
+      "language": "pt",
+      "backend": "cpu",
+      "samples": 144726,
+      "inference_ns": 1212651317,
+      "text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+      "reference": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "word_edits": 16,
+      "reference_words": 20,
+      "wer": 0.8,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-1",
+      "language": "pt",
+      "backend": "vulkan",
+      "samples": 75094,
+      "inference_ns": 538761950,
+      "text": "Com faspore transfridneir pra minha conta.",
+      "reference": "Como faço para transferir dinheiro para a minha conta",
+      "word_edits": 7,
+      "reference_words": 9,
+      "wer": 0.7777777777777778,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-1",
+      "language": "pt",
+      "backend": "cpu",
+      "samples": 75094,
+      "inference_ns": 1095712908,
+      "text": "Com faspore transfridneir pra minha conta.",
+      "reference": "Como faço para transferir dinheiro para a minha conta",
+      "word_edits": 7,
+      "reference_words": 9,
+      "wer": 0.7777777777777778,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-fr-0",
+      "language": "fr",
+      "backend": "vulkan",
+      "samples": 60074,
+      "inference_ns": 484731045,
+      "text": "Je vais te changer mon adresse.",
+      "reference": "je souhaite changer mon adresse",
+      "word_edits": 2,
+      "reference_words": 5,
+      "wer": 0.4,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-fr-0",
+      "language": "fr",
+      "backend": "cpu",
+      "samples": 60074,
+      "inference_ns": 1058096639,
+      "text": "Je vais te changer mon adresse.",
+      "reference": "je souhaite changer mon adresse",
+      "word_edits": 2,
+      "reference_words": 5,
+      "wer": 0.4,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 80000,
+      "inference_ns": 400156021,
+      "text": "you",
+      "reference": "",
+      "word_edits": 1,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 80000,
+      "inference_ns": 926535188,
+      "text": "you",
+      "reference": "",
+      "word_edits": 1,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 80000,
+      "inference_ns": 4688661,
+      "text": "",
+      "reference": "",
+      "word_edits": 0,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": true,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 80000,
+      "inference_ns": 3763919,
+      "text": "",
+      "reference": "",
+      "word_edits": 0,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": true,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "jfk-padded-21s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 336000,
+      "inference_ns": 624737296,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-padded-21s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 336000,
+      "inference_ns": 1183604574,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 1008000,
+      "inference_ns": 1501848249,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country. you",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 1,
+      "reference_words": 44,
+      "wer": 0.022727272727272728,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 1008000,
+      "inference_ns": 3252810953,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country. you",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 1,
+      "reference_words": 44,
+      "wer": 0.022727272727272728,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 1008000,
+      "inference_ns": 1171460337,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 44,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 1008000,
+      "inference_ns": 2351706689,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 44,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "minds-pt-0",
+      "language": "pt",
+      "backend": "vulkan",
+      "samples": 144726,
+      "inference_ns": 630630788,
+      "text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+      "reference": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "word_edits": 16,
+      "reference_words": 20,
+      "wer": 0.8,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-0",
+      "language": "pt",
+      "backend": "cpu",
+      "samples": 144726,
+      "inference_ns": 1204797762,
+      "text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+      "reference": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "word_edits": 16,
+      "reference_words": 20,
+      "wer": 0.8,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-1",
+      "language": "pt",
+      "backend": "vulkan",
+      "samples": 75094,
+      "inference_ns": 524186589,
+      "text": "Com faspore transfridneir pra minha conta.",
+      "reference": "Como faço para transferir dinheiro para a minha conta",
+      "word_edits": 7,
+      "reference_words": 9,
+      "wer": 0.7777777777777778,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-pt-1",
+      "language": "pt",
+      "backend": "cpu",
+      "samples": 75094,
+      "inference_ns": 1094267286,
+      "text": "Com faspore transfridneir pra minha conta.",
+      "reference": "Como faço para transferir dinheiro para a minha conta",
+      "word_edits": 7,
+      "reference_words": 9,
+      "wer": 0.7777777777777778,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-fr-0",
+      "language": "fr",
+      "backend": "vulkan",
+      "samples": 60074,
+      "inference_ns": 471122835,
+      "text": "Je vais te changer mon adresse.",
+      "reference": "je souhaite changer mon adresse",
+      "word_edits": 2,
+      "reference_words": 5,
+      "wer": 0.4,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "minds-fr-0",
+      "language": "fr",
+      "backend": "cpu",
+      "samples": 60074,
+      "inference_ns": 1052815060,
+      "text": "Je vais te changer mon adresse.",
+      "reference": "je souhaite changer mon adresse",
+      "word_edits": 2,
+      "reference_words": 5,
+      "wer": 0.4,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 80000,
+      "inference_ns": 391425105,
+      "text": "you",
+      "reference": "",
+      "word_edits": 1,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 80000,
+      "inference_ns": 927622790,
+      "text": "you",
+      "reference": "",
+      "word_edits": 1,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 80000,
+      "inference_ns": 5154256,
+      "text": "",
+      "reference": "",
+      "word_edits": 0,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": true,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "silence-5s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 80000,
+      "inference_ns": 4228308,
+      "text": "",
+      "reference": "",
+      "word_edits": 0,
+      "reference_words": 0,
+      "wer": null,
+      "silence": true,
+      "empty_output": true,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "jfk-padded-21s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 336000,
+      "inference_ns": 644772739,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-padded-21s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 336000,
+      "inference_ns": 1180012941,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 22,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 1008000,
+      "inference_ns": 1568034148,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country. you",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 1,
+      "reference_words": 44,
+      "wer": 0.022727272727272728,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 1008000,
+      "inference_ns": 3256189155,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country. you",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 1,
+      "reference_words": 44,
+      "wer": 0.022727272727272728,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": false
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "vulkan",
+      "samples": 1008000,
+      "inference_ns": 1156775428,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 44,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": true
+    },
+    {
+      "fixture": "jfk-three-windows-63s",
+      "language": "en",
+      "backend": "cpu",
+      "samples": 1008000,
+      "inference_ns": 2342957811,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "word_edits": 0,
+      "reference_words": 44,
+      "wer": 0,
+      "silence": false,
+      "empty_output": false,
+      "skip_digital_silence": true
+    }
+  ],
+  "windows": [
+    {
+      "backend": "vulkan",
+      "fixture": "minds-pt-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 144726,
+          "EmitStart": 0,
+          "EmitEnd": 144726,
+          "InputSamples": 480000,
+          "PadSamples": 335274
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 8,
+            "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+            "Tokens": [
+              19812,
+              6801,
+              11,
+              17660,
+              11742,
+              1573,
+              1515,
+              631,
+              3003,
+              39915,
+              368,
+              42542,
+              370,
+              1443,
+              335,
+              2617,
+              2228,
+              22501,
+              3418,
+              13880,
+              368,
+              8755,
+              23760,
+              308,
+              2431,
+              385,
+              696,
+              266,
+              675,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-pt-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 144726,
+          "EmitStart": 0,
+          "EmitEnd": 144726,
+          "InputSamples": 480000,
+          "PadSamples": 335274
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 8,
+            "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+            "Tokens": [
+              19812,
+              6801,
+              11,
+              17660,
+              11742,
+              1573,
+              1515,
+              631,
+              3003,
+              39915,
+              368,
+              42542,
+              370,
+              1443,
+              335,
+              2617,
+              2228,
+              22501,
+              3418,
+              13880,
+              368,
+              8755,
+              23760,
+              308,
+              2431,
+              385,
+              696,
+              266,
+              675,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "minds-pt-1",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 75094,
+          "EmitStart": 0,
+          "EmitEnd": 75094,
+          "InputSamples": 480000,
+          "PadSamples": 404906
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 4,
+            "Text": "Com faspore transfridneir pra minha conta.",
+            "Tokens": [
+              2432,
+              283,
+              296,
+              79,
+              418,
+              1145,
+              5779,
+              327,
+              716,
+              347,
+              3206,
+              11720,
+              24001,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-pt-1",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 75094,
+          "EmitStart": 0,
+          "EmitEnd": 75094,
+          "InputSamples": 480000,
+          "PadSamples": 404906
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 4,
+            "Text": "Com faspore transfridneir pra minha conta.",
+            "Tokens": [
+              2432,
+              283,
+              296,
+              79,
+              418,
+              1145,
+              5779,
+              327,
+              716,
+              347,
+              3206,
+              11720,
+              24001,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "minds-fr-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 60074,
+          "EmitStart": 0,
+          "EmitEnd": 60074,
+          "InputSamples": 480000,
+          "PadSamples": 419926
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 3,
+            "Text": "Je vais te changer mon adresse.",
+            "Tokens": [
+              2588,
+              9369,
+              535,
+              22822,
+              1108,
+              614,
+              22603,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-fr-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 60074,
+          "EmitStart": 0,
+          "EmitEnd": 60074,
+          "InputSamples": 480000,
+          "PadSamples": 419926
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 3,
+            "Text": "Je vais te changer mon adresse.",
+            "Tokens": [
+              2588,
+              9369,
+              535,
+              22822,
+              1108,
+              614,
+              22603,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "silence-5s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 2,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "silence-5s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 2,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "silence-5s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "silence-5s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-padded-21s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 336000,
+          "EmitStart": 0,
+          "EmitEnd": 336000,
+          "InputSamples": 480000,
+          "PadSamples": 144000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 14.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 14.76,
+            "End": 15.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-padded-21s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 336000,
+          "EmitStart": 0,
+          "EmitEnd": 336000,
+          "InputSamples": 480000,
+          "PadSamples": 144000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 14.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 14.76,
+            "End": 15.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": [
+          {
+            "Start": 60,
+            "End": 62,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": [
+          {
+            "Start": 60,
+            "End": 62,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "minds-pt-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 144726,
+          "EmitStart": 0,
+          "EmitEnd": 144726,
+          "InputSamples": 480000,
+          "PadSamples": 335274
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 8,
+            "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+            "Tokens": [
+              19812,
+              6801,
+              11,
+              17660,
+              11742,
+              1573,
+              1515,
+              631,
+              3003,
+              39915,
+              368,
+              42542,
+              370,
+              1443,
+              335,
+              2617,
+              2228,
+              22501,
+              3418,
+              13880,
+              368,
+              8755,
+              23760,
+              308,
+              2431,
+              385,
+              696,
+              266,
+              675,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-pt-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 144726,
+          "EmitStart": 0,
+          "EmitEnd": 144726,
+          "InputSamples": 480000,
+          "PadSamples": 335274
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 8,
+            "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+            "Tokens": [
+              19812,
+              6801,
+              11,
+              17660,
+              11742,
+              1573,
+              1515,
+              631,
+              3003,
+              39915,
+              368,
+              42542,
+              370,
+              1443,
+              335,
+              2617,
+              2228,
+              22501,
+              3418,
+              13880,
+              368,
+              8755,
+              23760,
+              308,
+              2431,
+              385,
+              696,
+              266,
+              675,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "minds-pt-1",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 75094,
+          "EmitStart": 0,
+          "EmitEnd": 75094,
+          "InputSamples": 480000,
+          "PadSamples": 404906
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 4,
+            "Text": "Com faspore transfridneir pra minha conta.",
+            "Tokens": [
+              2432,
+              283,
+              296,
+              79,
+              418,
+              1145,
+              5779,
+              327,
+              716,
+              347,
+              3206,
+              11720,
+              24001,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-pt-1",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 75094,
+          "EmitStart": 0,
+          "EmitEnd": 75094,
+          "InputSamples": 480000,
+          "PadSamples": 404906
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 4,
+            "Text": "Com faspore transfridneir pra minha conta.",
+            "Tokens": [
+              2432,
+              283,
+              296,
+              79,
+              418,
+              1145,
+              5779,
+              327,
+              716,
+              347,
+              3206,
+              11720,
+              24001,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "minds-fr-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 60074,
+          "EmitStart": 0,
+          "EmitEnd": 60074,
+          "InputSamples": 480000,
+          "PadSamples": 419926
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 3,
+            "Text": "Je vais te changer mon adresse.",
+            "Tokens": [
+              2588,
+              9369,
+              535,
+              22822,
+              1108,
+              614,
+              22603,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-fr-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 60074,
+          "EmitStart": 0,
+          "EmitEnd": 60074,
+          "InputSamples": 480000,
+          "PadSamples": 419926
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 3,
+            "Text": "Je vais te changer mon adresse.",
+            "Tokens": [
+              2588,
+              9369,
+              535,
+              22822,
+              1108,
+              614,
+              22603,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "silence-5s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 2,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "silence-5s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 2,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "silence-5s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "silence-5s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-padded-21s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 336000,
+          "EmitStart": 0,
+          "EmitEnd": 336000,
+          "InputSamples": 480000,
+          "PadSamples": 144000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 14.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 14.76,
+            "End": 15.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-padded-21s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 336000,
+          "EmitStart": 0,
+          "EmitEnd": 336000,
+          "InputSamples": 480000,
+          "PadSamples": 144000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 14.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 14.76,
+            "End": 15.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": [
+          {
+            "Start": 60,
+            "End": 62,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": [
+          {
+            "Start": 60,
+            "End": 62,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "minds-pt-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 144726,
+          "EmitStart": 0,
+          "EmitEnd": 144726,
+          "InputSamples": 480000,
+          "PadSamples": 335274
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 8,
+            "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+            "Tokens": [
+              19812,
+              6801,
+              11,
+              17660,
+              11742,
+              1573,
+              1515,
+              631,
+              3003,
+              39915,
+              368,
+              42542,
+              370,
+              1443,
+              335,
+              2617,
+              2228,
+              22501,
+              3418,
+              13880,
+              368,
+              8755,
+              23760,
+              308,
+              2431,
+              385,
+              696,
+              266,
+              675,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-pt-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 144726,
+          "EmitStart": 0,
+          "EmitEnd": 144726,
+          "InputSamples": 480000,
+          "PadSamples": 335274
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 8,
+            "Text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+            "Tokens": [
+              19812,
+              6801,
+              11,
+              17660,
+              11742,
+              1573,
+              1515,
+              631,
+              3003,
+              39915,
+              368,
+              42542,
+              370,
+              1443,
+              335,
+              2617,
+              2228,
+              22501,
+              3418,
+              13880,
+              368,
+              8755,
+              23760,
+              308,
+              2431,
+              385,
+              696,
+              266,
+              675,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "minds-pt-1",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 75094,
+          "EmitStart": 0,
+          "EmitEnd": 75094,
+          "InputSamples": 480000,
+          "PadSamples": 404906
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 4,
+            "Text": "Com faspore transfridneir pra minha conta.",
+            "Tokens": [
+              2432,
+              283,
+              296,
+              79,
+              418,
+              1145,
+              5779,
+              327,
+              716,
+              347,
+              3206,
+              11720,
+              24001,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-pt-1",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 75094,
+          "EmitStart": 0,
+          "EmitEnd": 75094,
+          "InputSamples": 480000,
+          "PadSamples": 404906
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 4,
+            "Text": "Com faspore transfridneir pra minha conta.",
+            "Tokens": [
+              2432,
+              283,
+              296,
+              79,
+              418,
+              1145,
+              5779,
+              327,
+              716,
+              347,
+              3206,
+              11720,
+              24001,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "minds-fr-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 60074,
+          "EmitStart": 0,
+          "EmitEnd": 60074,
+          "InputSamples": 480000,
+          "PadSamples": 419926
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 3,
+            "Text": "Je vais te changer mon adresse.",
+            "Tokens": [
+              2588,
+              9369,
+              535,
+              22822,
+              1108,
+              614,
+              22603,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "minds-fr-0",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 60074,
+          "EmitStart": 0,
+          "EmitEnd": 60074,
+          "InputSamples": 480000,
+          "PadSamples": 419926
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 3,
+            "Text": "Je vais te changer mon adresse.",
+            "Tokens": [
+              2588,
+              9369,
+              535,
+              22822,
+              1108,
+              614,
+              22603,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "silence-5s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 2,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "silence-5s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 2,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "silence-5s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "silence-5s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 80000,
+          "EmitStart": 0,
+          "EmitEnd": 80000,
+          "InputSamples": 480000,
+          "PadSamples": 400000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-padded-21s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 336000,
+          "EmitStart": 0,
+          "EmitEnd": 336000,
+          "InputSamples": 480000,
+          "PadSamples": 144000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 14.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 14.76,
+            "End": 15.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-padded-21s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 336000,
+          "EmitStart": 0,
+          "EmitEnd": 336000,
+          "InputSamples": 480000,
+          "PadSamples": 144000
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 14.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 14.76,
+            "End": 15.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": [
+          {
+            "Start": 60,
+            "End": 62,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": false,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": [
+          {
+            "Start": 60,
+            "End": 62,
+            "Text": "you",
+            "Tokens": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "vulkan",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": []
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 0,
+          "Start": 0,
+          "End": 480000,
+          "EmitStart": 0,
+          "EmitEnd": 480000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 0,
+            "End": 11.76,
+            "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 11.76,
+            "End": 12.48,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 1,
+          "Start": 480000,
+          "End": 960000,
+          "EmitStart": 480000,
+          "EmitEnd": 960000,
+          "InputSamples": 480000,
+          "PadSamples": 0
+        },
+        "Segments": [
+          {
+            "Start": 30,
+            "End": 51.760000000000005,
+            "Text": "And so my fellow Americans ask not what your country can do for you ask what you can do for",
+            "Tokens": [
+              400,
+              370,
+              452,
+              7177,
+              6280,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337
+            ]
+          },
+          {
+            "Start": 51.760000000000005,
+            "End": 52.44,
+            "Text": "your country.",
+            "Tokens": [
+              428,
+              1941,
+              13
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "backend": "cpu",
+      "fixture": "jfk-three-windows-63s",
+      "skip_digital_silence": true,
+      "window": {
+        "Window": {
+          "Index": 2,
+          "Start": 960000,
+          "End": 1008000,
+          "EmitStart": 960000,
+          "EmitEnd": 1008000,
+          "InputSamples": 480000,
+          "PadSamples": 432000
+        },
+        "Segments": []
+      }
+    }
+  ]
+}

@@ -16,6 +16,10 @@ type PCMTranscribeOptions struct {
 	MaxNewTokens             int                      // zero uses the model position limit minus the 3-token prompt
 	MaxInitialTimestampIndex int                      // 20ms units; zero forces 0.00 unless Generation supplies it
 	Generation               *CheckedGenerationConfig // optional immutable HF generation policy; no decoder mutation
+	// SkipDigitalSilence emits an empty callback for windows containing only
+	// exact PCM zeros (including signed zero and padding), before frontend/model
+	// execution. Opt-in; no energy threshold, VAD or quiet-speech classification.
+	SkipDigitalSilence bool
 	// Optional caller-owned fixed-MaxLength resident encoder. Host w.Encoder
 	// may be released/nil after resident construction. Pair with the
 	// decoder from the same checkpoint; geometry admission cannot prove identity.
@@ -107,6 +111,15 @@ func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader,
 		return fmt.Errorf("checked PCM plan exceeds 10000 windows")
 	}
 	return transcribePCMPlan(ctx, source, plan, emit, func(samples []float32) ([]Segment, error) {
+		if opts.SkipDigitalSilence {
+			zero, err := pcmDigitalSilence(ctx, samples)
+			if err != nil {
+				return nil, err
+			}
+			if zero {
+				return nil, nil
+			}
+		}
 		mel, frames, err := MelFlatFromSamplesCheckedContext(ctx, samples, w.Config)
 		if err != nil {
 			return nil, err
@@ -150,6 +163,25 @@ func (w *Whisper) TranscribePCMWindows(ctx context.Context, source SampleReader,
 			return w.Decoder.ForwardToken(token, state), nil
 		})
 	})
+}
+
+// pcmDigitalSilence is deliberately narrower than a no-speech classifier. A
+// nonzero sample, NaN or infinity cannot be silently discarded by this shortcut.
+func pcmDigitalSilence(ctx context.Context, samples []float32) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	for i, sample := range samples {
+		if i%16384 == 0 {
+			if err := ctx.Err(); err != nil {
+				return false, err
+			}
+		}
+		if sample != 0 {
+			return false, nil
+		}
+	}
+	return true, ctx.Err()
 }
 
 // Separate orchestration allows testing every sample/window and failure boundary

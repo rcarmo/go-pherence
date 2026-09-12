@@ -47,6 +47,11 @@ speech-vulkan-trained-tiny-check:
 speech-vulkan-public-speech-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_SPEECH_QUALITY=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanPCMSpeechTiny$$' -v
 
+# Public PT/FR quality diagnostics + digital silence/multi-window parity.
+.PHONY: speech-vulkan-corpus-check
+speech-vulkan-corpus-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_CORPUS=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanPublicCorpus$$' -v
+
 # Optional offline validator/compiler qualification. Explicit new output path;
 # missing tools fail (never skip). No Vulkan loader/device or model execution.
 speech-vulkan-static-check:
@@ -61,7 +66,7 @@ speech-affine-check:
 
 speech-foundations-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media ./loader/numpy
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|PCMVulkan|SpeechFixtureWER|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|PCMVulkan|PCMDigitalSilence|SpeechFixture|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1
 	go vet -p=1 ./loader/audio ./loader/audio/media ./loader/numpy ./models/whisper ./models/speaker/community1
 
