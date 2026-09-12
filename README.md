@@ -44,6 +44,8 @@ go run ./cmd/llm/llmserver -model models/qwen3-0.6b -gpu -listen :8080
 
 ## Speech
 
+For library use, `github.com/rcarmo/go-pherence/loader/audio/media` exports `media.NewGo264(media.Go264Config{})`: a pure-Go `media.Adapter` for PCM WAV and the documented progressive AAC-LC MP4/M4A subset. It emits canonical 16 kHz mono S16 WAV and works with `media.OpenCanonicalPCM`, without FFmpeg, model weights, cgo or special build tags. See [import example and format limits](docs/go264-media.md). The MIT provider `github.com/rcarmo/go-264/audio` can also be imported directly. Existing CLI and speech-job defaults still use FFmpeg; the pure-Go adapter is selected explicitly.
+
 There are two native speech paths:
 
 * `cmd/audio/diarize-vtt` runs Whisper transcription or translation and can produce resumable WebVTT with optional speaker labels. It accepts ordinary media through ffmpeg.

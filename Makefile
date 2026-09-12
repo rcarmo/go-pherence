@@ -15,6 +15,19 @@ export TMPDIR GOTMPDIR
 
 all: build
 
+# Optional MIT go-264 media backend. No default switch or model execution.
+.PHONY: speech-go264-check speech-go264-public-check speech-go264-paired-check
+speech-go264-check:
+	CGO_ENABLED=0 GO_PHERENCE_DISABLE_NVIDIA=1 go test -mod=readonly -p=1 -count=1 -timeout=60s ./loader/audio/media
+	go vet -mod=readonly -p=1 ./loader/audio/media
+
+speech-go264-public-check:
+	CGO_ENABLED=0 GO_PHERENCE_TEST_GO264_PUBLIC=1 go test -mod=readonly -p=1 -count=1 -timeout=60s ./loader/audio/media -run TestGo264PublicMedia
+
+# Explicit CPU model work; requires host admission and pinned model/PCM paths.
+speech-go264-paired-check:
+	CGO_ENABLED=0 GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_GO264_SPEECH=1 go test -mod=readonly -p=1 -count=1 -timeout=120s ./models/whisper -run TestGo264PairedSpeech
+
 # Focused speech-foundation checks: no model weights, driver initialisation,
 # service startup or performance benchmark. FFmpeg integration is opt-in below.
 .PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check speech-vulkan-static-check

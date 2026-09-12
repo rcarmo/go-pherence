@@ -6,11 +6,11 @@ The speech port is being implemented in go-pherence on `feat/speech-simd-vulkan`
 
 The local speech-job workflow now covers durable uploads, FFmpeg decoding, Go Whisper window journals, conservative transcript reconciliation, experimental Community-1 whole-result checkpoints and separate plain/speaker JSON/WebVTT outputs. These are library APIs with synthetic/fixture qualification. There is no production CLI/HTTP/UI, shared-resource queue, trained reconciliation qualification or accepted whole-job performance result. The sections below retain the implementation history and its numerical gates.
 
-Rui confirmed `Rui Carmo <rcarmo@users.noreply.github.com>` for all new commits. Workflow commits use this author and committer without rewriting existing history or pushing. The optional go-264 merge/repin is on hold while its owner prepares a new licensing/identity handoff; earlier sealed artifacts remain historical.
+Rui confirmed `Rui Carmo <rcarmo@users.noreply.github.com>` for all new commits. Workflow commits use this author and committer without rewriting existing history or pushing. The corrected go-264 adapter is merged as a normal importable `loader/audio/media` backend with owner approval, pinning public provider `a47077e`. Earlier sealed artifacts remain historical. FFmpeg remains the speech-job/default backend.
 
 ## Current implementation
 
-- `loader/audio/media`: a separate, temporary FFmpeg/ffprobe adapter. Probe and decode accept context cancellation and return format/sample metadata. Conversion produces mono 16 kHz signed 16-bit RIFF/WAV without deleting the input or replacing an existing destination.
+- `loader/audio/media`: shared `Adapter` API with FFmpeg/ffprobe and explicitly selected pure-Go `NewGo264` backends. Probe and decode accept context cancellation and return format/sample metadata. Conversion produces mono 16 kHz signed 16-bit RIFF/WAV without deleting the input or replacing an existing destination.
 - `loader/audio.WhisperLogMel`: checked exact-contract 80/128-bin features, FFT400 geometry, periodic Hann, centred reflect padding, Slaney filters, final-frame removal and Whisper normalisation. The current DFT uses the existing checked SIMD `Ddot`; the mixed-radix Plan 9 FFT optimisation has not been implemented.
 - `models/whisper.MelFlatFromSamplesChecked`: model-configured entry point to those features. Existing inference/CLI defaults remain unchanged pending real-checkpoint multilingual/timestamp qualification. The legacy 512-point/GPU mel path remains a separate implementation and is not the exact oracle.
 - Four new synthetic 128-band fixtures generated independently with checksum-pinned Transformers 4.57.1 numerical functions; absolute tolerance `1e-5`. Existing 80-band reference still passes. No model weights are used by these tests.
@@ -40,7 +40,7 @@ This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan exe
 
 | Owner | Responsibility |
 |---|---|
-| `loader/audio/media` | Temporary FFmpeg adapter and future pure-Go adapter; output PCM frame count and media contract |
+| `loader/audio/media` | FFmpeg and pure-Go go-264 adapters; output PCM frame count and media contract |
 | `loader/audio` | Exact Whisper/WeSpeaker model-specific features; canonical PCM input |
 | `models/whisper` | Encoder/decoder, model formats, language/task policy, state and word timestamps |
 | `models/speaker/community1` | Tested LSTM/head/powerset components; SincNet on parity hold; checkpoint binding, WeSpeaker/ResNet, masked pooling, PLDA/VBx and global full/exclusive turns unfinished |
@@ -52,6 +52,8 @@ This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan exe
 Do not move codec ownership into go-pherence or wait for go-264 before developing the neural pipeline. Keep the `media.Adapter` contract narrow so a separately qualified go-264 backend can replace FFmpeg later. Do not conceal whisper.cpp/PyTorch/ONNX inference underneath the final Go service. Offline model/fixture conversion and the temporary media subprocess are explicitly separate from inference.
 
 ## Media contract and limits
+
+An explicitly selected [go-264 backend](go264-media.md) now implements `media.Adapter` for the qualified PCM-WAV/progressive AAC-LC subset. FFmpeg remains the default. The provider is publicly fetchable at `v0.0.0-20260912122853-a47077edc589`, verified through the public Go checksum database, with no committed local replacement. See the backend documentation for a public import example; `speechjob.NewFFmpegDecodeStage` keeps its explicit FFmpeg binding.
 
 `NewFFmpeg` requires configured executable paths. Zero limits receive defaults; negative limits and durations above four hours are rejected. Default input limit is 512 MiB; canonical output is bounded by four hours of s16 mono samples plus header allowance. Probe output and retained stderr are bounded; errors do not echo subprocess payloads.
 
