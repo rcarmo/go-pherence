@@ -29,6 +29,14 @@ speech-vulkan-offline-check:
 speech-vulkan-native-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_SPEECH=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeSpeech$$' -v
 
+# Whole resident encoder graph: offline contracts or authorised synthetic GPU test.
+.PHONY: speech-vulkan-encoder-check speech-vulkan-encoder-native-check
+speech-vulkan-encoder-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^TestVulkanEncoder(Layout|RejectsBeforeDevice|Ownership)$$'
+
+speech-vulkan-encoder-native-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_ENCODER=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanEncoderNative$$' -v
+
 # Optional offline validator/compiler qualification. Explicit new output path;
 # missing tools fail (never skip). No Vulkan loader/device or model execution.
 speech-vulkan-static-check:

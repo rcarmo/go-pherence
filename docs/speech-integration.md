@@ -550,6 +550,14 @@ The offline selection passes 125 top-level tests/434 events, plus 58 tests ×30 
 
 The full native regression suite passes 339 cases/610,056 values; services stay stopped and swap counters are unchanged. No timing claim is made here. Full encoder graph/weights, quantised execution and trained-model quality/performance are still unfinished; no existing model path or default changed.
 
+### Owned resident F32 encoder
+
+`whisper.NewVulkanEncoder(ctx, source, frames)` now constructs the complete fixed-frame encoder from an existing F32 `Encoder`, after explicit Vulkan initialisation. It validates all lengths/finite weights before allocating, uploads owned per-layer weights and retains shared scratch. Private plans contain the five-stage stem, each 12-stage transformer layer and final normalisation. `Forward` uploads mel once and downloads the final hidden state once. Layers have separate fences and cancellation boundaries. No decoder or model default selects this path yet.
+
+Three reduced complete configurations, each with odd/even frame counts, pass three native Iris Xe repeats: 138 boundary/final comparisons, 139,920 values, maximum absolute error `1.1920928955078125e-6` against the scalar reference. Fixed tolerance is `1e-4 + 1e-4*abs(reference)`. Overwriting source weights leaves output bit-exact; nine cancellation/reuse tests pass, three after explicit drain of retained submissions. Forced second-arena allocation failure rolls back to baseline. Offline layout/ownership checks pass 19 events and 30 shuffled repeats; existing 434 Vulkan mock events still pass.
+
+[Encoder verification](../benchmarks/speech-foundations/vulkan-encoder-20260912/README.md) records ownership, shape bounds, close/retry semantics and limitations. Whisper arm64 cross-build fails identically with all new encoder files excluded due to baseline FFT helpers; Vulkan arm64 cross-build and affected amd64 builds pass. Services stay stopped and swap counters are unchanged. Full-size/trained checkpoint quality, quantisation, decoder integration and device-loss recovery are unfinished.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

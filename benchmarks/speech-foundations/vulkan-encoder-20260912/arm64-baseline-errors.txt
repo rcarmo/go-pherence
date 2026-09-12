@@ -1,0 +1,3 @@
+# github.com/rcarmo/go-pherence/models/whisper [github.com/rcarmo/go-pherence/models/whisper.test]
+models/whisper/mel.go:63:20: undefined: simdfft.PrecomputeHannWindow
+models/whisper/mel.go:64:21: undefined: simdfft.PrecomputeMelFilters

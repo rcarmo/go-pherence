@@ -1,0 +1,294 @@
+package whisper
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math"
+
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
+)
+
+// VulkanEncoder is an explicit fixed-frame F32 encoder. It owns all uploaded
+// weights, scratch tensors, operators and private plans. No model default or
+// decoder/media path changes. Copies share ownership/serialisation. Call Close.
+// Forward uploads mel once and downloads the final hidden state once; all
+// intermediate activations remain on the device, with a fence per layer.
+type VulkanEncoder struct{ s *vulkanEncoderState }
+type VulkanEncoderStats struct {
+	Frames, Rows, Width, Layers, Plans, Stages int
+	WeightBytes, ScratchBytes                  uint64
+}
+type vkEncoderCloser interface{ Close() error }
+type vulkanEncoderState struct {
+	gate             chan struct{}
+	stopping, closed bool
+	stats            VulkanEncoderStats
+	resources        []vkEncoderCloser
+	plans            []*vk.VkF32Plan
+	input, output    *vk.VkTensorF32
+	conv             *vk.VkConv1D3F32
+	add              *vk.VkAddF32
+	norm             *vk.VkLayerNormF32
+	linear           *vk.VkLinearF32
+	gelu             *vk.VkGELUErfF32
+	attention        *vk.VkAttentionF32
+}
+
+// NewVulkanEncoder requires explicit prior VulkanInit by the caller. It validates
+// the complete F32 encoder before allocating, copies weights to owned arenas,
+// and snapshots geometry for exactly frames input columns. Source slices may be
+// released/changed after return, but must not be mutated during construction.
+// No quantised checkpoints or implicit fallback. On construction failure normal
+// rollback returns nil; if cleanup also fails, a nonnil stopping encoder is
+// returned with the error so the caller can retry Close after VulkanDrain.
+func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (result *VulkanEncoder, err error) {
+	layout, err := describeVulkanEncoder(ctx, source, frames)
+	if err != nil {
+		return nil, err
+	}
+	limits, err := vk.VulkanLimits()
+	if err != nil {
+		return nil, err
+	}
+	sizes := make([]uint64, len(layout.weights)+1)
+	for i, specs := range append(layout.weights, layout.scratch) {
+		sizes[i], err = vkEncoderArenaBytes(specs, limits.StorageBufferOffsetAlignment)
+		if err != nil {
+			return nil, err
+		}
+		if sizes[i] > uint64(limits.StorageBufferRange) || sizes[i] > uint64(^uint(0)>>1) {
+			return nil, fmt.Errorf("whisper Vulkan: arena%d exceeds device range", i)
+		}
+	}
+	s := &vulkanEncoderState{gate: make(chan struct{}, 1), stats: VulkanEncoderStats{Frames: frames, Rows: layout.rows, Width: layout.cfg.EncoderDModel, Layers: layout.cfg.EncoderLayers, Plans: len(layout.plans), ScratchBytes: sizes[len(sizes)-1]}}
+	for _, n := range sizes[:len(sizes)-1] {
+		s.stats.WeightBytes += n
+	}
+	for _, plan := range layout.plans {
+		s.stats.Stages += len(plan)
+	}
+	e := &VulkanEncoder{s: s}
+	defer func() {
+		if err != nil {
+			if closeErr := e.Close(); closeErr != nil {
+				result = e
+				err = errors.Join(err, fmt.Errorf("whisper Vulkan: rollback: %w", closeErr))
+			}
+		}
+	}()
+	// All created objects join the rollback list immediately. Reverse close order
+	// releases plans first, then arena backing storage, then operator pipelines.
+	if s.conv, err = vk.NewVkConv1D3F32(ctx); err != nil {
+		return nil, err
+	}
+	s.resources = append(s.resources, s.conv)
+	if s.add, err = vk.NewVkAddF32(ctx); err != nil {
+		return nil, err
+	}
+	s.resources = append(s.resources, s.add)
+	if s.norm, err = vk.NewVkLayerNormF32(ctx); err != nil {
+		return nil, err
+	}
+	s.resources = append(s.resources, s.norm)
+	if s.linear, err = vk.NewVkLinearF32(ctx); err != nil {
+		return nil, err
+	}
+	s.resources = append(s.resources, s.linear)
+	if s.gelu, err = vk.NewVkGELUErfF32(ctx); err != nil {
+		return nil, err
+	}
+	s.resources = append(s.resources, s.gelu)
+	if s.attention, err = vk.NewVkAttentionF32(ctx); err != nil {
+		return nil, err
+	}
+	s.resources = append(s.resources, s.attention)
+	tensors := map[string]*vk.VkTensorF32{}
+	for i, specs := range append(layout.weights, layout.scratch) {
+		var arena *vk.VkTensorArena
+		arena, err = vk.NewVkTensorArena(ctx, int(sizes[i]))
+		if err != nil {
+			return nil, err
+		}
+		s.resources = append(s.resources, arena)
+		for _, spec := range specs {
+			var t *vk.VkTensorF32
+			t, err = arena.AllocF32(ctx, spec.shape...)
+			if err != nil {
+				return nil, err
+			}
+			tensors[spec.name] = t
+			if spec.data != nil {
+				err = t.Upload(ctx, spec.data)
+			} else if spec.zero {
+				err = t.Upload(ctx, make([]float32, t.Elements()))
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	s.input, s.output = tensors["mel"], tensors["h"]
+	for _, steps := range layout.plans {
+		stages := make([]vk.VkF32Stage, 0, len(steps))
+		for _, step := range steps {
+			var stage vk.VkF32Stage
+			out := tensors[step.out]
+			in := make([]*vk.VkTensorF32, len(step.in))
+			for i, name := range step.in {
+				in[i] = tensors[name]
+			}
+			switch step.op {
+			case "conv":
+				inputLayout := vk.VkConvTimeMajor
+				if step.channelsFirst {
+					inputLayout = vk.VkConvChannelsFirst
+				}
+				stage, err = s.conv.Stage(ctx, out, in[0], in[1], in[2], step.stride, inputLayout)
+			case "add":
+				stage, err = s.add.Stage(ctx, out, in[0], in[1])
+			case "norm":
+				stage, err = s.norm.Stage(ctx, out, in[0], in[1], in[2], 1e-5)
+			case "linear":
+				stage, err = s.linear.Stage(ctx, out, in[0], in[1], in[2])
+			case "gelu":
+				stage, err = s.gelu.Stage(ctx, out, in[0])
+			case "attention":
+				stage, err = s.attention.Stage(ctx, out, in[0], in[1], in[2], layout.cfg.EncoderHeads)
+			default:
+				return nil, fmt.Errorf("whisper Vulkan: unknown graph operator %q", step.op)
+			}
+			if err != nil {
+				return nil, err
+			}
+			stages = append(stages, stage)
+		}
+		var p *vk.VkF32Plan
+		p, err = vk.NewVkF32Plan(ctx, stages)
+		if err != nil {
+			return nil, err
+		}
+		s.plans = append(s.plans, p)
+		s.resources = append(s.resources, p)
+	}
+	if err = ctx.Err(); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+func (e *VulkanEncoder) acquire(ctx context.Context) (*vulkanEncoderState, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("whisper Vulkan: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if e == nil || e.s == nil {
+		return nil, fmt.Errorf("whisper Vulkan: uninitialised encoder")
+	}
+	s := e.s
+	select {
+	case s.gate <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			<-s.gate
+			return nil, err
+		}
+		return s, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// Stats is a copied immutable description, not live native allocation accounting.
+func (e *VulkanEncoder) Stats() VulkanEncoderStats {
+	if e == nil || e.s == nil {
+		return VulkanEncoderStats{}
+	}
+	return e.s.stats
+}
+func (e *VulkanEncoder) Forward(ctx context.Context, mel []float32) ([]float32, error) {
+	s, err := e.acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { <-s.gate }()
+	if s.stopping || s.closed {
+		return nil, vk.ErrVulkanClosed
+	}
+	if len(mel) != s.input.Elements() {
+		return nil, fmt.Errorf("whisper Vulkan: mel length %d, want %d", len(mel), s.input.Elements())
+	}
+	for i, v := range mel {
+		if i%16384 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return nil, fmt.Errorf("whisper Vulkan: nonfinite mel[%d]", i)
+		}
+	}
+	if err := s.input.Upload(ctx, mel); err != nil {
+		return nil, err
+	}
+	for i, p := range s.plans {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if err := p.Run(ctx); err != nil {
+			return nil, fmt.Errorf("whisper Vulkan: plan%d: %w", i, err)
+		}
+	}
+	out := make([]float32, s.output.Elements())
+	if err := s.output.Download(ctx, out); err != nil {
+		return nil, err
+	}
+	for i, v := range out {
+		if i%16384 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return nil, fmt.Errorf("whisper Vulkan: nonfinite output[%d]", i)
+		}
+	}
+	return out, ctx.Err()
+}
+
+// Close permanently blocks new Forward calls and attempts reverse teardown.
+// Failed resources remain owned for a later Close retry. An unresolved native
+// submission may require VulkanDrain; this method never drains or restarts it.
+func (e *VulkanEncoder) Close() error {
+	if e == nil || e.s == nil {
+		return nil
+	}
+	s, err := e.acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer func() { <-s.gate }()
+	if s.closed {
+		return nil
+	}
+	s.stopping = true
+	var failures []error
+	for i := len(s.resources) - 1; i >= 0; i-- {
+		if c := s.resources[i]; c != nil {
+			if err := c.Close(); err != nil {
+				failures = append(failures, err)
+			} else {
+				s.resources[i] = nil
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return errors.Join(failures...)
+	}
+	s.closed = true
+	s.resources = nil
+	s.plans = nil
+	s.input = nil
+	s.output = nil
+	return nil
+}
