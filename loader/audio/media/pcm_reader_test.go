@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -78,6 +79,125 @@ func TestPCMReaderSignedSamplesAndRandomAccess(t *testing.T) {
 		if _, err := r.ReadSamplesAt(context.Background(), dst, pos); err == nil {
 			t.Fatal("accepted invalid offset")
 		}
+	}
+}
+
+func TestPCMReaderSourceTimingChunkAndLegacyCompatibility(t *testing.T) {
+	legacy := pcmFixture(t, 5)
+	r, err := OpenCanonicalPCM(context.Background(), legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.SourceTiming(); got != (SourceTiming{}) {
+		t.Fatalf("legacy source timing=%+v", got)
+	}
+	legacyDataOffset := r.info.dataOffset
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	want := SourceTiming{Start: 250 * time.Millisecond, Duration: 2 * time.Second, Exact: true, HasEdits: true, SourceRate: 48000, Priming: 1024, Padding: 512, LeadingSilence: 240}
+	chunk, err := MarshalSourceTimingWAVChunk(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, err := os.ReadFile(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withTiming := append(append(append([]byte{}, plain[:36]...), chunk...), plain[36:]...)
+	binary.LittleEndian.PutUint32(withTiming[4:8], uint32(len(withTiming)-8))
+	path := filepath.Join(t.TempDir(), "timed.wav")
+	if err := os.WriteFile(path, withTiming, 0600); err != nil {
+		t.Fatal(err)
+	}
+	r, err = OpenCanonicalPCM(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if got := r.SourceTiming(); got != want {
+		t.Fatalf("source timing=%+v want=%+v", got, want)
+	}
+	if r.info.dataOffset != legacyDataOffset+sourceTimingChunkBytes {
+		t.Fatalf("data offset=%d want=%d", r.info.dataOffset, legacyDataOffset+sourceTimingChunkBytes)
+	}
+	dst := make([]float32, 5)
+	if n, err := r.ReadSamplesAt(context.Background(), dst, 0); n != 5 || err != nil {
+		t.Fatalf("timed PCM read=%d %v", n, err)
+	}
+}
+
+func TestSourceTimingChunkDeterminismAndValidation(t *testing.T) {
+	valid := SourceTiming{Start: time.Nanosecond, Duration: time.Second, SourceRate: 44100, Priming: 1, Padding: 2, LeadingSilence: 3}
+	a, err := MarshalSourceTimingWAVChunk(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := MarshalSourceTimingWAVChunk(valid)
+	if err != nil || !bytes.Equal(a, b) || len(a) != sourceTimingChunkBytes {
+		t.Fatalf("nondeterministic chunk: %v", err)
+	}
+	if empty, err := MarshalSourceTimingWAVChunk(SourceTiming{}); err != nil || empty != nil {
+		t.Fatalf("zero chunk=%x %v", empty, err)
+	}
+	invalid := []SourceTiming{
+		{Duration: time.Second, SourceRate: -1},
+		{Start: -1, Duration: time.Second, SourceRate: 16000},
+		{Duration: -1, SourceRate: 16000},
+		{Start: time.Duration(1<<63 - 2), Duration: 2, SourceRate: 16000},
+		{Duration: time.Second, SourceRate: 16000, Priming: -1},
+	}
+	for _, timing := range invalid {
+		if _, err := MarshalSourceTimingWAVChunk(timing); !errors.Is(err, ErrInvalidOutput) {
+			t.Fatalf("accepted invalid timing %+v: %v", timing, err)
+		}
+	}
+}
+
+func TestSourceTimingChunkMalformedRejected(t *testing.T) {
+	basePath := pcmFixture(t, 5)
+	plain, err := os.ReadFile(basePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid, err := MarshalSourceTimingWAVChunk(SourceTiming{Duration: time.Second, Exact: true, SourceRate: 16000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string][]byte{
+		"short":          append([]byte(nil), valid[:len(valid)-8]...),
+		"version":        append([]byte(nil), valid...),
+		"reserved":       append([]byte(nil), valid...),
+		"flags":          append([]byte(nil), valid...),
+		"negative-start": append([]byte(nil), valid...),
+	}
+	binary.LittleEndian.PutUint32(cases["short"][4:8], uint32(len(cases["short"])-8))
+	binary.LittleEndian.PutUint32(cases["version"][8:12], 2)
+	binary.LittleEndian.PutUint32(cases["reserved"][20:24], 1)
+	binary.LittleEndian.PutUint32(cases["flags"][12:16], 4)
+	binary.LittleEndian.PutUint64(cases["negative-start"][24:32], uint64(^uint64(0)))
+	for name, chunk := range cases {
+		t.Run(name, func(t *testing.T) {
+			data := append(append(append([]byte{}, plain[:36]...), chunk...), plain[36:]...)
+			binary.LittleEndian.PutUint32(data[4:8], uint32(len(data)-8))
+			path := filepath.Join(t.TempDir(), "bad.wav")
+			if err := os.WriteFile(path, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := OpenCanonicalPCM(context.Background(), path); !errors.Is(err, ErrInvalidOutput) {
+				t.Fatalf("accepted malformed timing: %v", err)
+			}
+		})
+	}
+	duplicate := append(append(append(append([]byte{}, plain[:36]...), valid...), valid...), plain[36:]...)
+	binary.LittleEndian.PutUint32(duplicate[4:8], uint32(len(duplicate)-8))
+	path := filepath.Join(t.TempDir(), "duplicate.wav")
+	if err := os.WriteFile(path, duplicate, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenCanonicalPCM(context.Background(), path); !errors.Is(err, ErrInvalidOutput) {
+		t.Fatalf("accepted duplicate timing: %v", err)
 	}
 }
 

@@ -37,7 +37,8 @@ type FFmpegDecodeConfig struct {
 // NewFFmpegDecodeStage constructs an explicit temporary-FFmpeg "decode" stage.
 // No executable runs at construction. It verifies upload and output caps,
 // uses job-owned private scratch, revalidates actual decoded PCM extents, and
-// publishes only a fixed-header mono16k S16 WAV through Store.Run's writer.
+// publishes only deterministic mono16k S16 WAV through Store.Run's writer. A
+// validated private RIFF chunk preserves optional adapter source timing.
 // Scratch is removed on normal exit/error, retained and quota-accounted after
 // process death. Stage admission reserves configured input+scratch+checkpoint
 // file caps. FFmpeg's coarse -fs/monitor may overshoot during buffering; this
@@ -66,7 +67,7 @@ func newDecodeStage(cfg FFmpegDecodeConfig, adapter media.Adapter) Stage {
 	identity, _ := json.Marshal(struct {
 		Schema string
 		Config FFmpegDecodeConfig
-	}{"ffmpeg-canonical-wav-v1", cfg})
+	}{"ffmpeg-canonical-wav-source-timing-v2", cfg})
 	return Stage{Name: "decode", Version: hash(identity), Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
 		if e := ctx.Err(); e != nil {
 			return e
@@ -147,13 +148,18 @@ func newDecodeStage(cfg FFmpegDecodeConfig, adapter media.Adapter) Stage {
 		timeline := pcm.Timeline()
 		expected := media.AudioFormat{Container: "wav", Encoding: "pcm_s16le", SampleRate: 16000, Channels: 1, BitsPerSample: 16}
 		maxSamples := int64(cfg.MaxDuration)/int64(time.Second)*16000 + (int64(cfg.MaxDuration)%int64(time.Second))*16000/int64(time.Second)
-		if decoded.Format != expected || decoded.Timeline != timeline || timeline.Samples <= 0 || int64(timeline.Samples) > maxSamples || decoded.Source.Start < 0 || decoded.Source.Duration < 0 || decoded.Source.SourceRate < 0 || decoded.Source.Priming < 0 || decoded.Source.Padding < 0 || decoded.Source.LeadingSilence < 0 {
+		if decoded.Format != expected || decoded.Timeline != timeline || timeline.Samples <= 0 || int64(timeline.Samples) > maxSamples {
 			return media.ErrInvalidOutput
+		}
+		// Marshal performs the complete source-mapping validation before any
+		// checkpoint bytes are emitted. Zero remains the legacy/no-mapping value.
+		if _, e = media.MarshalSourceTimingWAVChunk(decoded.Source); e != nil {
+			return e
 		}
 		if e = in.store.hit("decode-output-ready"); e != nil {
 			return e
 		}
-		return writeCanonicalCheckpoint(ctx, out, pcm, int64(timeline.Samples), cfg.MaxOutputBytes)
+		return writeCanonicalCheckpoint(ctx, out, pcm, int64(timeline.Samples), decoded.Source, cfg.MaxOutputBytes)
 	}}
 }
 func verifyExecutable(ctx context.Context, path, expected string) error {
@@ -246,13 +252,17 @@ func writeFull(dst io.Writer, b []byte) error {
 
 // PCMReader values are exact int16/32768; multiplication by32768 is exact.
 // Re-encoding is lossless and removes nondeterministic container metadata.
-func writeCanonicalCheckpoint(ctx context.Context, out io.Writer, pcm *media.PCMReader, samples, maxBytes int64) error {
-	if samples < 1 || samples > (int64(^uint32(0))-36)/2 || 44+samples*2 > maxBytes {
+func writeCanonicalCheckpoint(ctx context.Context, out io.Writer, pcm *media.PCMReader, samples int64, source media.SourceTiming, maxBytes int64) error {
+	timing, err := media.MarshalSourceTimingWAVChunk(source)
+	if err != nil {
+		return err
+	}
+	if samples < 1 || samples > (int64(^uint32(0))-36-int64(len(timing)))/2 || 44+int64(len(timing))+samples*2 > maxBytes {
 		return media.ErrDecodeOutputLimit
 	}
 	var header [44]byte
 	copy(header[:4], "RIFF")
-	binary.LittleEndian.PutUint32(header[4:8], uint32(36+samples*2))
+	binary.LittleEndian.PutUint32(header[4:8], uint32(36+int64(len(timing))+samples*2))
 	copy(header[8:12], "WAVE")
 	copy(header[12:16], "fmt ")
 	binary.LittleEndian.PutUint32(header[16:20], 16)
@@ -267,7 +277,18 @@ func writeCanonicalCheckpoint(ctx context.Context, out io.Writer, pcm *media.PCM
 	if e := ctx.Err(); e != nil {
 		return e
 	}
-	if e := writeFull(out, header[:]); e != nil {
+	// Keep the legacy 44-byte layout when there is no mapping. Otherwise place
+	// the ancillary chunk between fmt and data; PCM always follows its own data
+	// header and remains the authoritative timeline.
+	if e := writeFull(out, header[:36]); e != nil {
+		return e
+	}
+	if len(timing) > 0 {
+		if e := writeFull(out, timing); e != nil {
+			return e
+		}
+	}
+	if e := writeFull(out, header[36:]); e != nil {
 		return e
 	}
 	values := make([]float32, 4096)

@@ -30,8 +30,9 @@ type PCMReader struct {
 var ErrPCMReaderClosed = errors.New("canonical PCM reader is closed")
 
 // OpenCanonicalPCM validates canonical WAV metadata using fixed speech limits
-// (four hours and the corresponding byte bound). It does not read audio payloads
-// or invoke FFmpeg. Applications must finish publishing the WAV before opening.
+// (four hours and the corresponding byte bound, including one optional source-
+// timing chunk). It does not read audio payloads or invoke FFmpeg. Applications
+// must finish publishing the WAV before opening.
 func OpenCanonicalPCM(ctx context.Context, path string) (*PCMReader, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -49,7 +50,7 @@ func OpenCanonicalPCM(ctx context.Context, path string) (*PCMReader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open canonical PCM: %w", err)
 	}
-	info, err := validateCanonicalWAVFile(ctx, file, canonicalMaxWAVBytes(DefaultMaxDuration), maxFramesForDuration(DefaultMaxDuration))
+	info, err := validateCanonicalWAVFile(ctx, file, canonicalMaxWAVBytes(DefaultMaxDuration)+sourceTimingChunkBytes, maxFramesForDuration(DefaultMaxDuration))
 	if err != nil {
 		_ = file.Close()
 		return nil, err
@@ -66,6 +67,15 @@ func (r *PCMReader) Timeline() Timeline {
 		return Timeline{}
 	}
 	return Timeline{SampleRate: CanonicalSampleRate, Samples: SampleCount(r.info.frames)}
+}
+
+// SourceTiming returns the optional durable source mapping embedded by the
+// speech-job decode stage. Legacy/plain canonical WAVs return the zero value.
+func (r *PCMReader) SourceTiming() SourceTiming {
+	if r == nil || r.gate == nil {
+		return SourceTiming{}
+	}
+	return r.info.sourceTiming
 }
 
 // ReadSamplesAt reads from an absolute canonical-PCM frame offset. It returns

@@ -16,6 +16,7 @@ type wavInfo struct {
 	blockAlign    int
 	frames        int64
 	dataOffset    int64
+	sourceTiming  SourceTiming
 }
 
 func validateCanonicalWAV(path string, maxBytes int64, maxFrames int64) (wavInfo, error) {
@@ -70,6 +71,8 @@ func validateCanonicalWAVFile(ctx context.Context, f *os.File, maxBytes int64, m
 		bits      uint16
 		dataSize  uint32
 		dataStart int64
+		timing    SourceTiming
+		hasTiming bool
 		offset    int64 = 12
 	)
 
@@ -123,6 +126,19 @@ func validateCanonicalWAVFile(ctx context.Context, f *os.File, maxBytes int64, m
 			dataSize = uint32(chunkSize)
 			dataStart = offset + 8
 			foundData = true
+		case "gptm":
+			if hasTiming || chunkSize != sourceTimingChunkBytes-8 {
+				return wavInfo{}, fmt.Errorf("%w: duplicate/invalid source timing", ErrInvalidOutput)
+			}
+			payload := make([]byte, int(chunkSize))
+			if _, err := io.ReadFull(f, payload); err != nil {
+				return wavInfo{}, fmt.Errorf("%w: read source timing: %v", ErrInvalidOutput, err)
+			}
+			timing, err = parseSourceTimingWAVChunk(payload)
+			if err != nil {
+				return wavInfo{}, err
+			}
+			hasTiming = true
 		default:
 			if _, err := f.Seek(chunkSize, io.SeekCurrent); err != nil {
 				return wavInfo{}, fmt.Errorf("%w: skip chunk: %v", ErrInvalidOutput, err)
@@ -173,5 +189,6 @@ func validateCanonicalWAVFile(ctx context.Context, f *os.File, maxBytes int64, m
 		blockAlign:    int(block),
 		frames:        frames,
 		dataOffset:    dataStart,
+		sourceTiming:  timing,
 	}, nil
 }

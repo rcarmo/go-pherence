@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"io"
 	"math"
@@ -22,6 +23,7 @@ type decodeFixtureAdapter struct {
 	calls    int
 	mutate   func(context.Context, string, string) (media.DecodeResult, error)
 	metadata string
+	source   media.SourceTiming
 }
 
 func (a *decodeFixtureAdapter) Probe(context.Context, string) (media.ProbeResult, error) {
@@ -44,7 +46,7 @@ func (a *decodeFixtureAdapter) DecodeToFile(ctx context.Context, src, dst string
 	if e = os.WriteFile(dst, b, 0600); e != nil {
 		return media.DecodeResult{}, e
 	}
-	return media.DecodeResult{Path: dst, SizeBytes: int64(len(b)), Format: media.AudioFormat{Container: "wav", Encoding: "pcm_s16le", SampleRate: 16000, Channels: 1, BitsPerSample: 16}, Timeline: media.Timeline{SampleRate: 16000, Samples: media.SampleCount(len(samples))}}, nil
+	return media.DecodeResult{Path: dst, SizeBytes: int64(len(b)), Format: media.AudioFormat{Container: "wav", Encoding: "pcm_s16le", SampleRate: 16000, Channels: 1, BitsPerSample: 16}, Timeline: media.Timeline{SampleRate: 16000, Samples: media.SampleCount(len(samples))}, Source: a.source}, nil
 }
 func testWAV(samples []int16, junk string) []byte {
 	b := make([]byte, 44)
@@ -144,8 +146,68 @@ func TestDecodeStageCanonicalAndResume(t *testing.T) {
 		t.Fatal("changed identity reused", e)
 	}
 }
+func TestDecodeStageSourceTimingCheckpointAndResume(t *testing.T) {
+	s, dir := openTest(t)
+	cfg := decodeConfig(t)
+	want := media.SourceTiming{Start: 150 * time.Millisecond, Duration: 900 * time.Millisecond, Exact: false, HasEdits: true, SourceRate: 48000, Priming: 1024, Padding: 512, LeadingSilence: 240}
+	adapter := &decodeFixtureAdapter{source: want}
+	decode := newDecodeStage(cfg, adapter)
+	job := createTest(t, s)
+	fail := stage("later", func(context.Context, *Input, io.Writer) error { return errors.New("later failure") })
+	job, err := s.Run(context.Background(), job.ID, config, []Stage{decode, fail}, nil)
+	if err == nil || len(job.Checkpoints) != 1 {
+		t.Fatal(job, err)
+	}
+	checkpoint := filepath.Join(dir, job.ID, job.Checkpoints[0].Blob.File)
+	pcm, err := media.OpenCanonicalPCM(context.Background(), checkpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := pcm.SourceTiming(); got != want {
+		t.Fatalf("checkpoint source timing=%+v want=%+v", got, want)
+	}
+	if got := pcm.Timeline(); got != (media.Timeline{SampleRate: 16000, Samples: 5}) {
+		t.Fatalf("canonical timeline changed: %+v", got)
+	}
+	values := make([]float32, 5)
+	if n, err := pcm.ReadSamplesAt(context.Background(), values, 0); n != 5 || err != nil {
+		t.Fatalf("checkpoint PCM=%d %v", n, err)
+	}
+	if err := pcm.Close(); err != nil {
+		t.Fatal(err)
+	}
+	first := job.Checkpoints[0].Blob.SHA256
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = Open(dir, limits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	fail.Run = func(_ context.Context, _ *Input, out io.Writer) error { _, err := out.Write([]byte("ok")); return err }
+	job, err = s.Run(context.Background(), job.ID, config, []Stage{decode, fail}, nil)
+	if err != nil || job.Status != Complete || adapter.calls != 1 || job.Checkpoints[0].Blob.SHA256 != first {
+		t.Fatalf("resume changed decode: calls=%d hash=%s/%s err=%v", adapter.calls, job.Checkpoints[0].Blob.SHA256, first, err)
+	}
+	other := createTest(t, s)
+	other, err = s.Run(context.Background(), other.ID, config, []Stage{decode}, nil)
+	if err != nil || other.Checkpoints[0].Blob.SHA256 != first {
+		t.Fatalf("timing checkpoint nondeterministic: %v", err)
+	}
+	legacyIdentity, _ := json.Marshal(struct {
+		Schema string
+		Config FFmpegDecodeConfig
+	}{"ffmpeg-canonical-wav-v1", cfg})
+	legacyVersion := decode
+	legacyVersion.Version = hash(legacyIdentity)
+	if _, err = s.Run(context.Background(), other.ID, config, []Stage{legacyVersion}, nil); !errors.Is(err, ErrConfiguration) {
+		t.Fatalf("legacy decode identity reused: %v", err)
+	}
+}
+
 func TestDecodeStageValidationAndCleanup(t *testing.T) {
-	for _, kind := range []string{"adapter-error", "wrong-path", "bad-format", "bad-count", "bad-size", "bad-timing", "malformed", "symlink", "cancel", "panic", "changed-executable", "upload-cap", "quota"} {
+	for _, kind := range []string{"adapter-error", "wrong-path", "bad-format", "bad-count", "bad-size", "bad-timing", "partial-timing", "timing-overflow", "malformed", "symlink", "cancel", "panic", "changed-executable", "upload-cap", "quota"} {
 		t.Run(kind, func(t *testing.T) {
 			s, _ := openTest(t)
 			cfg := decodeConfig(t)
@@ -177,6 +239,14 @@ func TestDecodeStageValidationAndCleanup(t *testing.T) {
 					r.SizeBytes++
 				case "bad-timing":
 					r.Source.Start = -time.Second
+					r.Source.Duration = time.Second
+					r.Source.SourceRate = 16000
+				case "partial-timing":
+					r.Source.Duration = time.Second
+				case "timing-overflow":
+					r.Source.Start = time.Duration(1<<63 - 2)
+					r.Source.Duration = 2
+					r.Source.SourceRate = 16000
 				case "malformed":
 					os.WriteFile(dst, []byte("not wav"), 0600)
 					r.SizeBytes = 7
@@ -303,9 +373,24 @@ func TestFFmpegJobDecodeIntegration(t *testing.T) {
 		}
 		r, e := s.OpenCheckpoint(context.Background(), m.ID, "decode")
 		decoded := readAll(t, r, e)
-		if decoded != string(testWAV(samples, "")) {
-			t.Fatal("FFmpeg PCM differs")
+		checkpoint := filepath.Join(s.root.Name(), m.ID, m.Checkpoints[0].Blob.File)
+		pcm, e := media.OpenCanonicalPCM(context.Background(), checkpoint)
+		if e != nil {
+			t.Fatal(e)
 		}
+		values := make([]float32, len(samples))
+		if n, e := pcm.ReadSamplesAt(context.Background(), values, 0); n != len(samples) || e != nil {
+			t.Fatal("FFmpeg PCM extent", n, e)
+		}
+		for i, want := range samples {
+			if values[i] != float32(want)/32768 {
+				t.Fatal("FFmpeg PCM differs", i)
+			}
+		}
+		if timing := pcm.SourceTiming(); timing.Duration <= 0 || timing.SourceRate != 16000 || !timing.Exact {
+			t.Fatal("WAV source timing", timing)
+		}
+		pcm.Close()
 		if run == 1 && prior != decoded {
 			t.Fatal("nondeterminism")
 		}
@@ -429,9 +514,13 @@ func TestFFmpegJobAACIntegration(t *testing.T) {
 			t.Fatal(e)
 		}
 		timeline := pcm.Timeline()
+		sourceTiming := pcm.SourceTiming()
 		pcm.Close()
 		if timeline.Samples < 16000 || timeline.Samples > 17024 {
 			t.Fatal("AAC count", timeline)
+		}
+		if sourceTiming.Duration <= 0 || sourceTiming.SourceRate != 16000 || sourceTiming.Exact {
+			t.Fatal("AAC source timing", sourceTiming)
 		}
 		assertNoScratch(t, s, job.ID)
 		t.Logf("AAC frames=%d checkpointSHA=%s", timeline.Samples, job.Checkpoints[0].Blob.SHA256)
