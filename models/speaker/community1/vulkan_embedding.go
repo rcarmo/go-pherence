@@ -2,6 +2,7 @@ package community1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -28,9 +29,17 @@ type vulkanEmbeddingState struct {
 	stats            VulkanEmbeddingStats
 }
 
+type vulkanResNetFactory func(context.Context, *WeSpeakerResNet34, int) (*VulkanResNetTrunk, error)
+
 // NewVulkanEmbedding copies the host projection and constructs the resident
-// trunk. Source and frames are fully validated before Vulkan allocation.
+// trunk. Source and frames are fully validated before Vulkan allocation. If
+// construction and rollback both fail, it returns a stopping owner whose Close
+// can retry the retained trunk cleanup.
 func NewVulkanEmbedding(ctx context.Context, source *WeSpeakerResNet34, frames int) (*VulkanEmbedding, error) {
+	return newVulkanEmbedding(ctx, source, frames, NewVulkanResNetTrunk)
+}
+
+func newVulkanEmbedding(ctx context.Context, source *WeSpeakerResNet34, frames int, makeTrunk vulkanResNetFactory) (result *VulkanEmbedding, err error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("Community-1 Vulkan embedding: nil context")
 	}
@@ -39,6 +48,9 @@ func NewVulkanEmbedding(ctx context.Context, source *WeSpeakerResNet34, frames i
 	}
 	if source == nil {
 		return nil, fmt.Errorf("Community-1 Vulkan embedding: nil source")
+	}
+	if makeTrunk == nil {
+		return nil, fmt.Errorf("Community-1 Vulkan embedding: nil trunk constructor")
 	}
 	shape, err := source.FrameShape(frames)
 	if err != nil {
@@ -55,13 +67,27 @@ func NewVulkanEmbedding(ctx context.Context, source *WeSpeakerResNet34, frames i
 	if err := finiteBlock(ctx, projection.Bias); err != nil {
 		return nil, err
 	}
-	trunk, err := NewVulkanResNetTrunk(ctx, source, frames)
+	s := &vulkanEmbeddingState{gate: make(chan struct{}, 1), projection: projection, embedDim: source.cfg.EmbedDim}
+	owner := &VulkanEmbedding{s: s}
+	defer func() {
+		if err != nil {
+			if closeErr := owner.Close(); closeErr != nil {
+				result = owner
+				err = errors.Join(err, fmt.Errorf("Community-1 Vulkan embedding: rollback: %w", closeErr))
+			}
+		}
+	}()
+	// Adopt a partial owner before checking the constructor error. Resident trunk
+	// construction can return a stopping owner when its own rollback must retry.
+	s.trunk, err = makeTrunk(ctx, source, frames)
 	if err != nil {
 		return nil, err
 	}
-	s := &vulkanEmbeddingState{gate: make(chan struct{}, 1), trunk: trunk, projection: projection, embedDim: source.cfg.EmbedDim}
-	s.stats = VulkanEmbeddingStats{Trunk: trunk.Stats(), ProjectionBytes: uint64(len(projection.Weight)+len(projection.Bias)) * 4}
-	return &VulkanEmbedding{s: s}, nil
+	if s.trunk == nil {
+		return nil, fmt.Errorf("Community-1 Vulkan embedding: trunk constructor returned nil")
+	}
+	s.stats = VulkanEmbeddingStats{Trunk: s.trunk.Stats(), ProjectionBytes: uint64(len(projection.Weight)+len(projection.Bias)) * 4}
+	return owner, nil
 }
 
 func (e *VulkanEmbedding) acquire(ctx context.Context) (*vulkanEmbeddingState, error) {
@@ -166,8 +192,10 @@ func (e *VulkanEmbedding) Close() error {
 		return nil
 	}
 	s.stopping = true
-	if err := s.trunk.Close(); err != nil {
-		return err
+	if s.trunk != nil {
+		if err := s.trunk.Close(); err != nil {
+			return err
+		}
 	}
 	s.closed = true
 	s.trunk = nil

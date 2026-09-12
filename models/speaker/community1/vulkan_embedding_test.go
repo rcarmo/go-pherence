@@ -30,11 +30,44 @@ func TestVulkanEmbeddingRejectsBeforeDevice(t *testing.T) {
 	if result, err := NewVulkanEmbedding(context.Background(), model, 0); err == nil || result != nil {
 		t.Fatal("invalid frames")
 	}
+	if result, err := newVulkanEmbedding(context.Background(), model, fixture.Frames, nil); err == nil || result != nil {
+		t.Fatal("nil trunk constructor")
+	}
+	if result, err := newVulkanEmbedding(context.Background(), model, fixture.Frames, func(context.Context, *WeSpeakerResNet34, int) (*VulkanResNetTrunk, error) { return nil, nil }); err == nil || result != nil {
+		t.Fatal("nil successful trunk")
+	}
 	bad := *model
 	bad.projection.Weight = append([]float32(nil), model.projection.Weight...)
 	bad.projection.Weight[0] = float32(math.NaN())
 	if result, err := NewVulkanEmbedding(context.Background(), &bad, fixture.Frames); err == nil || result != nil {
 		t.Fatal("nonfinite projection")
+	}
+}
+
+func TestVulkanEmbeddingConstructionRollbackRetry(t *testing.T) {
+	fixture := loadResNetFixtures(t)[0]
+	model, err := NewWeSpeakerResNet34(context.Background(), fixture.Config, fixture.Weights)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retained := &vulkanBlockTestCloser{fail: true}
+	trunkState := &vulkanResNetState{gate: make(chan struct{}, 1), resources: []vulkanResNetCloser{retained}}
+	stop := errors.New("trunk construction failed")
+	owner, err := newVulkanEmbedding(context.Background(), model, fixture.Frames, func(context.Context, *WeSpeakerResNet34, int) (*VulkanResNetTrunk, error) {
+		return &VulkanResNetTrunk{s: trunkState}, stop
+	})
+	if owner == nil || !errors.Is(err, stop) || retained.calls != 1 || !owner.s.stopping || owner.s.closed {
+		t.Fatal("partial trunk not retained", owner, err, retained.calls)
+	}
+	if result, err := owner.Forward(context.Background(), nil, fixture.Frames, nil, 0, 0); !errors.Is(err, vk.ErrVulkanClosed) || result != nil {
+		t.Fatal("partially rolled back owner admitted work", err)
+	}
+	retained.fail = false
+	if err := owner.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if retained.calls != 2 || !owner.s.closed || owner.s.trunk != nil || len(owner.s.projection.Weight) != 0 {
+		t.Fatal("retained trunk retry", retained.calls, owner.s)
 	}
 }
 
