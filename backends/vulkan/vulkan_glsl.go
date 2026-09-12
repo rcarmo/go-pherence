@@ -193,9 +193,9 @@ package vulkan
 // Only rotates the first rotHalf pairs per head; remaining dims untouched.
 // layout(set=0, binding=0) buffer X { float x[]; };
 // layout(set=0, binding=1) buffer CosSin { float cs[]; };
-// layout(push_constant) uniform Params { uint numHeads; uint headDim; uint rotHalf; uint pos; };
+// layout(push_constant) uniform Params { uint pos; uint numHeads; uint headDim; uint rotHalf; };
 // layout(local_size_x = 256) in;
-// For each head h and each pair i < rotHalf:
+// One invocation owns BOTH components of each head h/pair i < rotHalf:
 //   idx0 = h*headDim + i; idx1 = h*headDim + i + rotHalf
 //   cos = cs[(pos*rotHalf + i)*2]; sin = cs[(pos*rotHalf + i)*2 + 1]
 //   x[idx0] = x0*cos - x1*sin; x[idx1] = x0*sin + x1*cos

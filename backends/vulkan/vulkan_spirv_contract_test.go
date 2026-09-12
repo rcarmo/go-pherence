@@ -43,7 +43,7 @@ func TestVulkanOfflineShaderContractEmbedded(t *testing.T) {
 			interfaces := map[string][2]uint32{
 				"attention": {7, 20}, "gemv_f32": {7, 8}, "gemv_bf16": {7, 8},
 				"rms_f32": {3, 8}, "rms_bf16": {3, 8}, "rms_no_scale": {3, 8},
-				"gelu": {3, 4}, "rope": {7, 16}, "silu": {7, 4}, "add_f32": {7, 4}, "add_bf16": {7, 4},
+				"gelu": {3, 4}, "rope": {3, 16}, "silu": {7, 4}, "add_f32": {7, 4}, "add_bf16": {7, 4},
 			}
 			want.StorageBindings, want.PushBytes = interfaces[name][0], interfaces[name][1]
 			if got != want {

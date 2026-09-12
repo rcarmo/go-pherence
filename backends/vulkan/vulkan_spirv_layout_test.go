@@ -150,7 +150,7 @@ func TestVulkanOfflineShaderLayoutNativeAdmission(t *testing.T) {
 		n, push int
 	}{
 		{spirv_vec_add_f32, 2, 4}, {spirv_vec_add_f32, 3, 0}, {spirv_gemv_f32, 3, 4},
-		{spirv_rms_norm_no_scale_f32, 1, 8}, {spirv_rope_partial_f32, 2, 16},
+		{spirv_rms_norm_no_scale_f32, 1, 8}, {spirv_rope_partial_f32, 1, 16},
 	} {
 		_, err := VkKernelCreate(c.code, c.n, c.push)
 		expectErrorIs(t, err, ErrVulkanShaderContract)
@@ -162,8 +162,7 @@ func TestVulkanOfflineShaderLayoutNativeAdmission(t *testing.T) {
 	}
 }
 func TestVulkanOfflineShaderLayoutCacheContracts(t *testing.T) {
-	// Actual wrapper cache requests. Mismatches are rejected, never auto-filled:
-	// no-scale needs a separate output and RoPE uses a different frequency layout.
+	// Actual wrapper cache requests, including repaired no-scale/RoPE bindings.
 	for _, c := range []struct {
 		name          string
 		code          []byte
@@ -172,9 +171,9 @@ func TestVulkanOfflineShaderLayoutCacheContracts(t *testing.T) {
 	}{
 		{"addF32", spirv_vec_add_f32, 3, 4, true}, {"addBF16", spirv_vec_add_bf16, 3, 4, true},
 		{"rmsF32", spirv_rms_norm_f32, 2, 8, true}, {"rmsBF16", spirv_rms_norm_bf16, 2, 8, true},
-		{"rmsNoScale", spirv_rms_norm_no_scale_f32, 1, 8, false}, {"gemvF32", spirv_gemv_f32, 3, 8, true},
+		{"rmsNoScale", spirv_rms_norm_no_scale_f32, 2, 8, true}, {"gemvF32", spirv_gemv_f32, 3, 8, true},
 		{"gemvBF16", spirv_gemv_bf16_mixed, 3, 8, true}, {"silu", spirv_silu_mul_f32, 3, 4, true},
-		{"gelu", spirv_gelu_tanh_mul_f32, 2, 4, true}, {"rope", spirv_rope_partial_f32, 2, 16, false},
+		{"gelu", spirv_gelu_tanh_mul_f32, 2, 4, true}, {"rope", spirv_rope_partial_f32, 2, 16, true},
 		{"attention", spirv_attention_score, 3, 20, true},
 	} {
 		t.Run(c.name, func(t *testing.T) {

@@ -1,0 +1,107 @@
+{
+  "checkpoint": "No-scale RMS exact-alias binding and pair-owned RoPE source/interface repair",
+  "created": "2026-09-12T05:39:54.010Z",
+  "baseline": "3d1e4bd",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 391,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 87,
+    "uniqueTopLevelTests": 87
+  },
+  "shuffle30": {
+    "passEvents": 3330,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 510,
+    "uniqueTopLevelTests": 17
+  },
+  "fuzz": {
+    "seconds": 3,
+    "inputs": 118220,
+    "target": "hostRoPEgeometry",
+    "result": "PASS"
+  },
+  "static": {
+    "validatorPasses": 22,
+    "embedded": 11,
+    "rebuilt": 11,
+    "normalisedMatches": 11,
+    "byteRebuildMatches": 1,
+    "byteExactShader": "rope_partial_f32",
+    "checkerTests": 6,
+    "checkerAssertions": 45,
+    "report": "static/verification.json"
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan/board/audio/NumPy/Whisper/Community1",
+    "arm64": "test cross-build PASS; not executed",
+    "fullBuild": "FAIL exact prior baseline",
+    "backendCompileOnly": "FAIL exact prior baseline",
+    "raceDetector": "cannot build; gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 80
+  },
+  "coverage": [
+    "Pair-ownedGLSLwith2reads-before2writes,matchinginterleavedCS/pushAPI",
+    "5geometrycasesx8shuffles Goindexexecutionmatchespre-existingCPUreferencebitexact,uniqueoutputowners/untouchedtails",
+    "7RMSlengthsx4shuffles exactalias Gooutputmodelmatchesseparateoutput",
+    "Captured actual wrapper descriptor/push/groupcalls, no-scale2samebufferbindings/1group",
+    "32bitindex/pre-narrowinggeometry/rejectQ-freqalias/shortbuffers/wideRMSn",
+    "All11cachelayoutrequests nowadmitted; real device kernels notexecuted"
+  ],
+  "review": {
+    "result": "Narrow source/geometry review found no scoped RoPE race/bounds/ABI blocker; confirmed exactRMSaliasonegroup condition.",
+    "finding": "RMSn->uint32preflight missing; explicitmax check and regressiontestadded."
+  },
+  "limitations": [
+    "Go schedule models do not execute SPIRV or prove driver rounding/numericalquality.",
+    "Staticspirv-val is not hardwarevalidation or raceproof alone.",
+    "Lowlevel customkernelAPI callers must obey geometry/dtype/aliasrequirements themselves.",
+    "No trainedmodel/residentspeech/neuralpipeline/performance/device-recovery qualification.",
+    "Current FFI64bit; arm64crossonly; racegccunavailable.",
+    "SincNet4strictFAILunchanged."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_ops.go": "6d3b05b18890766cc57fe4a2989b2fc8f4b8922c7aa9cebf76c79c52b1f69ac5",
+    "backends/vulkan/vulkan_rope_geometry.go": "f167d1e33723a0e8b148fd497a84ab609c5e7dbc296baa88f9de5fea35fd0e84",
+    "backends/vulkan/vulkan_rope_repair_test.go": "5ecb1a8afdacb1e290a9e7f2be2c90da77b72cf8e0019e62a78b4cabeb95f055",
+    "backends/vulkan/vulkan_glsl.go": "1bdaba706867568830f0f842000439aa437f7ca75b830d03813d2c01221414d8",
+    "backends/vulkan/vulkan_spirv_contract_test.go": "166ee4b70959fd485ca413ffe9db11bd5e1f38fa27b9ffebb8063cf116856ef3",
+    "backends/vulkan/vulkan_spirv_layout_test.go": "432525e3fa5d418fb3b99a672cb203a2ada300bc0681bf55f3ae3c798aad3043",
+    "backends/vulkan/vulkan_spirv_embedded.go": "301120f57d89317e29dc224c083cc4ff4276358855c5cd498fb8bd9268651291",
+    "backends/vulkan/shaders/rope_partial_f32.glsl": "c59df6746ae05c2c13b6e04bd2b0f4b52685f00715ff314011ca4ef2cebcc7fb",
+    "backends/vulkan/shaders/rope_partial_f32.spv": "94d59827afa2c0e05d1487e3b178f79be1d48c2abf442baf056a9fb78811eafa",
+    "backends/vulkan/shaders/rms_norm_no_scale_f32.glsl": "4d14f3f3d0f492aac0a220991908389613c698d478e96ee2498c33b9264514de",
+    "docs/speech-integration.md": "537871ab088c00fcbd82f6f566dab0403f418faf7f6cc9a724ef322d05b0a2d1",
+    "benchmarks/speech-foundations/README.md": "edd9a4c17d56c1792584cd17bcec6069382c2f120f2e92038743043f333940d9"
+  },
+  "evidenceHashes": {
+    "README.md": "be672809ea3e09fa8f84f0735829ab94f65ad02b815ac53df598b99565f3b2e5",
+    "rope-repaired.spvasm": "d1127b2234ea6b78fb34f1bcf266542d74f651be08b510a549523db263b71eed",
+    "focused-check.txt": "bceb9b93e77d2ae7e9b4563fbc56184aa8ed4af2a2b7b95087c424d549039f41",
+    "tests.jsonl": "ff8880da917bb3034fc44ea57ee221fc198e554584a4909cc93c70b5c79b4f07",
+    "media.txt": "680f34cd870031c5426b8eb6c42ba388c45913ac92121ef6c4f088d8eefde535",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "fuzz.txt": "dc3ce6c7e9a87eb5ba8d44d28e17fa244c0b11c6a91878cedae918335437017b",
+    "repeat-tests.jsonl.gz": "6e973461803a81cf884854e67c46da50352b3d6417db5e4b14c12d73a3b1daa7",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "static/verification.json": "41556fb903ca04c0278fd6d9e159544d53604d06be488b3369e1d1be99cfa1e7"
+  }
+}

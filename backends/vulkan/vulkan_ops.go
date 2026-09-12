@@ -69,16 +69,14 @@ func initVkKernels() error {
 		vkVecAddBF16 = create("vec_add_bf16", spirv_vec_add_bf16, 3, 4)
 		vkRMSNormF32 = create("rms_norm_f32", spirv_rms_norm_f32, 2, 8)
 		vkRMSNormBF16 = create("rms_norm_bf16", spirv_rms_norm_bf16, 2, 8)
-		// The embedded no-scale module declares2buffers but the legacy wrapper
-		// supplies1. Contract admission deliberately rejects it until semantics
-		// and output binding are repaired/qualified (do not silently alias).
-		vkRMSNormNoScaleF32 = create("rms_norm_no_scale_f32", spirv_rms_norm_no_scale_f32, 1, 8)
+		// The wrapper binds its exact same range twice and dispatches one group.
+		// Reduction completes before per-invocation output writes begin.
+		vkRMSNormNoScaleF32 = create("rms_norm_no_scale_f32", spirv_rms_norm_no_scale_f32, 2, 8)
 		vkGemvF32 = create("gemv_f32", spirv_gemv_f32, 3, 8)
 		vkGemvBF16Mixed = create("gemv_bf16_mixed", spirv_gemv_bf16_mixed, 3, 8)
 		vkSiLUMulF32 = create("silu_mul_f32", spirv_silu_mul_f32, 3, 4)
 		vkGELUTanhMulF32 = create("gelu_tanh_mul_f32", spirv_gelu_tanh_mul_f32, 2, 4)
-		// Embedded RoPE declares3buffers; the two-buffer wrapper is likewise
-		// rejected. Matching byte counts alone would not prove parameter order.
+		// Pair-owned RoPE matches the interleaved two-buffer wrapper contract.
 		vkRoPEPartialF32 = create("rope_partial_f32", spirv_rope_partial_f32, 2, 16)
 		vkAttentionScoresF32 = create("attention_score", spirv_attention_score, 3, 20)
 	})
@@ -271,7 +269,7 @@ func VkRMSNormNoScaleF32(x *VkBuf, n int, eps float32) error {
 	if err := initVkKernels(); err != nil {
 		return err
 	}
-	if n <= 0 || !vkBufHasFloat32s(x, n) {
+	if n <= 0 || uint64(n) > uint64(^uint32(0)) || !vkBufHasFloat32s(x, n) {
 		return fmt.Errorf("invalid vulkan rms_norm_no_scale_f32 buffer n=%d", n)
 	}
 	if vkRMSNormNoScaleF32 == nil {
@@ -281,7 +279,7 @@ func VkRMSNormNoScaleF32(x *VkBuf, n int, eps float32) error {
 		N   uint32
 		Eps float32
 	}{uint32(n), eps}
-	return vkRMSNormNoScaleF32.Dispatch(1, 1, 1, []*VkBuf{x}, unsafe.Pointer(&push))
+	return vkRMSNormNoScaleF32.Dispatch(1, 1, 1, []*VkBuf{x, x}, unsafe.Pointer(&push))
 }
 
 // VkGemvF32 dispatches out[outDim] = W[outDim,inDim] · x[inDim] on Vulkan.
@@ -332,23 +330,24 @@ func VkGELUTanhMulF32(gate, up *VkBuf, n int) error {
 	return vkGELUTanhMulF32.Dispatch(groups, 1, 1, []*VkBuf{gate, up}, unsafe.Pointer(&nn))
 }
 
-// VkRoPEPartialF32 dispatches partial rotary embedding on Vulkan.
+// VkRoPEPartialF32 rotates [hf,hf+rotHalf] pairs within each head, leaving the
+// tail untouched. Frequencies are [position,rotHalf,cos/sin], and must be a
+// separate allocation from x. Shader uses32-bit indexing; preflight bounds all
+// products before narrowing. One invocation owns both outputs of each pair.
 func VkRoPEPartialF32(x, freqs *VkBuf, pos, nHeads, headDim, rotHalf int) error {
 	if err := initVkKernels(); err != nil {
 		return err
 	}
-	total, okTotal := vkCheckedMulInt(nHeads, headDim)
-	pairs, okPairs := vkCheckedMulInt(nHeads, rotHalf)
-	posPairs, okPos := vkCheckedMulInt(pos+1, rotHalf)
-	freqNeed, okFreq := vkCheckedMulInt(posPairs, 2)
-	if pos < 0 || nHeads <= 0 || headDim <= 0 || rotHalf <= 0 || rotHalf > headDim/2 || !okTotal || !okPairs || !okPos || !okFreq || !vkBufHasFloat32s(x, total) || !vkBufHasFloat32s(freqs, freqNeed) {
-		return fmt.Errorf("invalid vulkan rope_partial_f32 dims pos=%d heads=%d headDim=%d rotHalf=%d", pos, nHeads, headDim, rotHalf)
+	push, groups, total, freqNeed, err := vkRoPEGeometry(pos, nHeads, headDim, rotHalf)
+	if err != nil {
+		return err
+	}
+	if x == freqs || !vkBufHasFloat32s(x, total) || !vkBufHasFloat32s(freqs, freqNeed) {
+		return fmt.Errorf("invalid or aliased Vulkan RoPE buffers")
 	}
 	if vkRoPEPartialF32 == nil {
 		return vkUnavailable("rope_partial_f32")
 	}
-	push := struct{ Pos, Heads, HeadDim, RotHalf uint32 }{uint32(pos), uint32(nHeads), uint32(headDim), uint32(rotHalf)}
-	groups := uint32((pairs + 255) / 256)
 	return vkRoPEPartialF32.Dispatch(groups, 1, 1, []*VkBuf{x, freqs}, unsafe.Pointer(&push))
 }
 
