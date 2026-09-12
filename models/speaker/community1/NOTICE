@@ -57,7 +57,9 @@ Changes: Go owned/checking API, explicit CHW shape/stride/element bounds,
 scalar and existing Plan9 GEMV composition, inference-only BatchNorm,
 cooperative cancellation and transient boundary observers. ResNet34 adds
 owned stem/[3,4,6,3] composition and shared-trunk pooling/single projection APIs,
-with explicit model geometry and mask-support reporting; no full checkpoint load.
+with explicit model geometry and mask-support reporting. load_resnet.go adds
+source-derived tensor-name/shape binding, metadata-first checks and owned copies;
+actual trained checkpoint provenance and quality remain unqualified.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

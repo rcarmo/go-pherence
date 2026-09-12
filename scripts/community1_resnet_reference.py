@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--resnet", required=True)
     parser.add_argument("--pooling", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--schema-output", help="optional synthetic state_dict key/dtype/shape manifest")
     args = parser.parse_args()
     for path, expected in [(args.resnet, RESNET_SHA), (args.pooling, POOL_SHA)]:
         if hashlib.sha256(Path(path).read_bytes()).hexdigest() != expected:
@@ -57,6 +58,7 @@ def main():
             w["ShortcutBN"] = bn(block.shortcut[1])
         return w
     cases = []
+    schemas = []
     with torch.no_grad():
         for base, mel, embed, frames in [(1, 8, 5, 17), (2, 16, 7, 19), (1, 80, 9, 9)]:
             model = scope["ResNet"](scope["BasicBlock"], [3, 4, 6, 3], m_channels=base,
@@ -73,6 +75,9 @@ def main():
                     buf.copy_((torch.sin(n * .4 + index) * .07).reshape(buf.shape))
                 elif name.endswith("running_var"):
                     buf.copy_((.7 + (n % 5) * .09).reshape(buf.shape))
+            schemas.append({"config": {"BaseChannels": base, "MelBins": mel, "EmbedDim": embed},
+                            "tensors": {name: {"dtype": "I64" if value.dtype == torch.int64 else "F32", "shape": list(value.shape)}
+                                        for name, value in model.state_dict().items()}})
             stages = [model.layer1, model.layer2, model.layer3, model.layer4]
             weights = {"Stem": model.conv1.weight.flatten().tolist(), "StemBN": bn(model.bn1),
                        "Stages": [[block_weights(b) for b in stage] for stage in stages],
@@ -113,6 +118,10 @@ def main():
               "cases": cases}
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_bytes(gzip.compress((json.dumps(result, separators=(",", ":")) + "\n").encode(), mtime=0))
+    if args.schema_output:
+        Path(args.schema_output).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.schema_output).write_text(json.dumps({"schema": 1, "resnet_sha256": RESNET_SHA,
+                 "scope": "synthetic source-derived state_dict schema, not trained checkpoint metadata", "cases": schemas}, indent=2) + "\n")
     print(f"wrote {len(cases)} full-depth synthetic ResNet34 cases")
 
 
