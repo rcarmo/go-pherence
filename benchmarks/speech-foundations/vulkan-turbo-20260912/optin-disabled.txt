@@ -1,0 +1,5 @@
+=== RUN   TestVulkanTurbo
+    vulkan_turbo_test.go:81: explicit full Turbo compute opt-in required
+--- SKIP: TestVulkanTurbo (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.002s

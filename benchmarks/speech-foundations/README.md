@@ -98,6 +98,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [whisper-external-oracle-20260912](whisper-external-oracle-20260912/README.md): pinnedTransformers4.57.1/Torch2.14CPU reference,5fixtures×2decoderinputs×3runs exacttokens+timestampsegments,identicalreports;PT/FRmistakes+silenceyoureproduced. Fullencoder/mel/cachedlogitsdiagnostics recorded(maxenc0.00350,cache2.67e-4);25Goexportfilesbyteexactreproduced/3helpertestsPASS. Separateoracleonly,noruntimefallback;qualityholdsremain,Turbobroaderpolicyunfinished.
 
+- [vulkan-turbo-20260912](vulkan-turbo-20260912/README.md): pinned587F16tensorTurbo widenedF32,32layerresidentencoder;3runs102shortboundariesmaxabs2.51e-5,12publicPT/FR/JFKtranscriptionsWER0 andtokens/timesrepeatidentical. PERFORMANCEHOLD15.14–15.84s/request,encoder14.25s;2.64GBnative/34alloc,min20.5GiBavailable,swapunchanged. Offline15pass/30shuffle450;reviewbudget/selectorfixes;noF16compute/quantised/wholejob/broaderqualityclaim. Servicesstopped.
+
 Run with `GOMAXPROCS=2 CGO_ENABLED=0`, Go `-p=1`, a writable `TMPDIR`/`GOTMPDIR` and independent caches. FFmpeg tests use their own temporary directory and quarter-second waveforms, never private files or live service endpoints. The NumPy oracle generator used the pinned Transformers numerical source and synthetic PCM; no model import.
 
 The exact frontend reuses checked Plan 9 SIMD `Ddot`. The affine checkpoint adds one measured CPU kernel. Vulkan operators and reduced/trained Tiny encoder cases have the scoped native qualification above; one English public-speech smoke passes as recorded above; broader speech quality, complete Community-1 and whole-job performance are unqualified. Legacy inference defaults remain unchanged.

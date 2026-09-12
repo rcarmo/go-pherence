@@ -588,6 +588,12 @@ The separate Transformers 4.57.1/PyTorch F32 reference reproduces exact Go token
 
 The poor Portuguese/French text and silence's “you” are reproduced by the independent implementation under the matched Tiny greedy/timestamp policy. This resolves the narrow backend-divergence question for these fixtures; it does not clear quality holds or qualify broader inputs. [External oracle evidence](../benchmarks/speech-foundations/whisper-external-oracle-20260912/README.md) pins preprocessing/model assets, exact library versions, cached decoder steps and raw timestamp tokens. Python is an isolated diagnostic tool, never a Go runtime fallback. Larger-model/turbo quality and general no-speech policy remain unfinished.
 
+### Trained Turbo F32 baseline
+
+Pinned large-v3-turbo (`41f01f3fe87f28c78e2fbf8b568835947dd65ed9`, model SHA256 `542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1`) now runs through the same checked Go/Vulkan path. Its 587 F16 checkpoint tensors are widened to F32; this is not native F16 or quantised inference. Three full trained-width/depth short-input runs pass 102 scalar boundary comparisons, max absolute error2.51e-5. All 12 final public transcriptions (PT0/PT1/FR/JFK repeated three times) have 0 word edits with identical tokens/timestamps across repeats.
+
+Performance is on hold: public requests take 15.14–15.84 s, with a separate diagnostic showing 14.24–14.26 s in the full 3000-frame encoder. Native allocations total2,641,735,680 bytes across34 arenas, below the explicit4GiB/40 allocation cap. Host encoder weights are released after upload. One-second final-run monitoring kept MemAvailable above20.5GiB with unchanged swap counters; services stayed stopped. [Turbo baseline](../benchmarks/speech-foundations/vulkan-turbo-20260912/README.md) records source/licence hashes, fixed numerical budgets, transcript results and limitations. This improves quality only on the four tested clips and does not meet realtime/≥8×ASR or broad-corpus gates.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.
