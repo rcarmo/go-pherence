@@ -624,6 +624,12 @@ Four trained cases across three runs pass final log-probabilities at `2e-4` and 
 
 All48 trained raw-embedding endpoints across three runs pass `2e-4`, with maximum error `3.10e-6`; forced AVX2/FMA-off checks also pass endpoints. Strict qualification fails264/564 comparisons: intermediate trunk errors, five-second Fbank error `4.01e-4`, and soft-mask support-sum differences are retained. No DER or timing result is established. [Evidence and reproduction](../benchmarks/speech-foundations/community1-trained-embedding-20260912/README.md) include exact checkpoint/source hashes and the rejected BatchNorm FMA experiment. Full-file mask orchestration and global diarization still need integration.
 
+### Experimental end-to-end PCM diarization
+
+`ExperimentalDiarization` now connects absolute-sample PCM windows, hard segmentation, overlap-clean mask selection, shared-trunk embeddings and the existing PLDA/VBx/assignment/reconstruction pipeline. The bounded128-window API has explicit policy, must-fill reader extents, cancellation and owned diagnostics. No default/service/media changes. Empty input, short reads and unsupported clustering paths fail explicitly; turns remain canonical frame-centre values without source-PTS mapping or clipping.
+
+On one pinned30-second public sample, the explicit `LowestIndexTies` run gives37training rows,2clusters,13full/12exclusive turns. A fresh pinned source reference agrees on all37,107segmentation values, embeddings within3.31e-6, and full/exclusive turn boundaries within1e-12s after label mapping. Full DER is5.207392% at0collar and1.317798% at0.25s, with zero delta to the fresh reference. The default strict tie policy still rejects frame397;84ambiguous frames and all previous neural intermediate failures are retained. This is a bounded functional milestone, not general DER or whole-job performance qualification. [Evidence and reproduction](../benchmarks/speech-foundations/community1-pcm-diarization-20260912/README.md) include repeated outputs and an enforced saved-only comparison gate.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

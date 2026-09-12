@@ -1,0 +1,15 @@
+/var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/pyannote/audio/core/io.py:48: UserWarning: 
+torchcodec is not installed correctly so built-in audio decoding will fail. Solutions are:
+* use audio preloaded in-memory as a {'waveform': (channel, time) torch.Tensor, 'sample_rate': int} dictionary;
+* fix torchcodec installation. Error message was:
+
+Could not load this library: /var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/torchcodec/libtorchcodec_image.so
+  warnings.warn(
+Traceback (most recent call last):
+  File "/var/home/agent/workspace/projects/go-pherence/scripts/community1_pipeline_reference.py", line 104, in <module>
+    if __name__=="__main__":main()
+                            ^^^^^^
+  File "/var/home/agent/workspace/projects/go-pherence/scripts/community1_pipeline_reference.py", line 80, in main
+    pipeline=SpeakerDiarization(segmentation=seg,embedding=emb,plda=PLDA(plda_dir=args.plda_dir,lda_dimension=128),
+                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: PLDA.__init__() got an unexpected keyword argument 'plda_dir'

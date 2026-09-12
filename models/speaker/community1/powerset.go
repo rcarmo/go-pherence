@@ -1,5 +1,5 @@
 // Package community1 contains components for the Community-1 diarization port.
-// This package does not yet implement a complete diarization pipeline.
+// An experimental PCM pipeline is available; production qualification is incomplete.
 package community1
 
 import (

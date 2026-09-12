@@ -111,6 +111,15 @@ speech-community-embedding-strict:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING_STRICT=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
 
+.PHONY: speech-community-diarization-check speech-community-diarization-lowest-ties
+# Strict tie policy is the default; the pinned public sample currently rejects a tie.
+speech-community-diarization-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_DIARIZATION=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedDiarization$$' -v
+
+# Explicit experimental deterministic tie policy, not NumPy tie identity parity.
+speech-community-diarization-lowest-ties:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_DIARIZATION=1 GO_PHERENCE_DIARIZATION_LOWEST_TIES=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedDiarization$$' -v
+
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'

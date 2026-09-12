@@ -41,6 +41,15 @@ frontend defaults, validated against its exact state_dict inventory. Model weigh
 tensor traces are not distributed in this repository. Users obtain the gated
 model under its own terms and retain attribution for converted weights.
 
+Experimental PCM window orchestration (diarization_pcm.go) follows the pinned
+pyannote inference unfold/orphan-padding and diarization mask/cluster order:
+core/inference.py SHA256 c29f525c93a1a5c6bd0a9475ae4fb8c73ce9b48cf9735301302eb99886ad7d41;
+pipelines/speaker_verification.py SHA256 af1d16a03b482dc5509431d113acbbb1466b75c35d8eaa64d4a8bb593e293c28.
+Changes: absolute-sample reader contract,128-window bound, explicit policy,
+owned diagnostic results, cancellation and retained strict tie/numerical errors.
+Reference/scoring tools are offline only; no Python neural runtime is called
+by Go inference. PLDA numeric weights retain the separate model licence above.
+
 Powerset class ordering, conversion and permutation conventions derived from
 pyannote.audio 4.0.7, commit b749285c5cdd4636b2edc7f766f1352c8dde9369.
 PyanNet recurrent layout reference: same pyannote.audio commit, using

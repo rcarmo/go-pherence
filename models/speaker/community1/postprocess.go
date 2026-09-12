@@ -75,8 +75,10 @@ func PostprocessCommunity1(ctx context.Context, segmentations, embeddings []floa
 // Caps: <=512 admitted AHC rows and <=64 initial slots, plus the existing
 // component memory/work/timing bounds. Full/exclusive turns use frame centres,
 // no source-PTS mapping/clipping/naming. Positive gap filling can overlap even
-// exclusive intervals. No PCM entry point, services, GPU, KMeans or quality
-// claim. Inputs/model must remain immutable; no partial result escapes errors.
+// exclusive intervals. This component has no PCM entry point; the separate
+// ExperimentalDiarization wrapper composes PCM models and this postprocessor.
+// No services, GPU or KMeans. Inputs/model must remain immutable; no partial
+// result escapes errors.
 func PostprocessCommunity1Observed(ctx context.Context, segmentations, embeddings []float32, plda *PreparedPLDA, cfg PostprocessConfig, observe PostprocessObserver) (*PostprocessResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
