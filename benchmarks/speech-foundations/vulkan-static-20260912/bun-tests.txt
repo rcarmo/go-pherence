@@ -1,0 +1,14 @@
+bun test v1.4.1 (4661e494f)
+
+scripts/check-vulkan-shaders.test.ts:
+(pass) offline SPIR-V comparison > ignores only generator and decoration order [0.48ms]
+(pass) offline SPIR-V comparison > preserves changed declaration, type and header values [0.16ms]
+(pass) offline SPIR-V comparison > retains non-decoration order [0.04ms]
+(pass) offline SPIR-V comparison > rejects malformed framing [0.11ms]
+(pass) offline SPIR-V comparison > extracts exact checked-in inventory and rejects duplicate/missing bytes [11.72ms]
+(pass) checker failure reporting > missing validator fails and writes a failed report [24.13ms]
+
+ 6 pass
+ 0 fail
+ 45 expect() calls
+Ran 6 tests across 1 file. [51.00ms]

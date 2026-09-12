@@ -486,6 +486,12 @@ Nine new top-level tests cover copied inputs, per-stage descriptor independence,
 
 This is a serial ordered plan, not a DAG scheduler or trained-model graph. No fusion, automatic tensor/parameter semantics, dynamic shapes, quantised formats, device recovery or performance result is provided. All Vulkan calls in these checks are mocked; no native loader, GPU, shader execution, trained model or service runs.
 
+### Offline SPIR-V validation and semantic audit
+
+The exact 11 embedded modules and 11 rebuilds from checked-in GLSL pass SPIRV-Tools 2023.1 for `vulkan1.3`. Stored `.spv` files match embedded bytes. Rebuilds from glslang 12.0.0 differ byte-for-byte, but all match after ignoring only the generator field and sorting decoration instructions; other words and instruction order must match. The reproducible `speech-vulkan-static-check` target and six Bun tests/45 assertions fail on missing tools, validation failures, inventory mismatches and normalised rebuild differences. They never load Vulkan. [Static verification and provenance](../benchmarks/speech-foundations/vulkan-static-20260912/README.md) retains exact hashes, both comparison results and disassembly.
+
+Static validation does not clear either wrapper hold. No-scale RMSNorm can alias its exact input/output range for a single workgroup, but that repair and numerical testing are not implemented. RoPE has an additional paired in-place read/write race, separate Cos/Sin versus interleaved-frequency mismatch, different push-word order and incompatible invocation indexing. These findings were checked against GLSL, embedded disassembly and the host wrapper. Neither source nor wrapper was changed. GPU/numerical validation, broader shader support and resident speech-model execution remain unqualified.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.

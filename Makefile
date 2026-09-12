@@ -17,11 +17,18 @@ all: build
 
 # Focused speech-foundation checks: no model weights, driver initialisation,
 # service startup or performance benchmark. FFmpeg integration is opt-in below.
-.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check
+.PHONY: speech-foundations-check speech-media-integration speech-affine-check speech-vulkan-offline-check speech-vulkan-static-check
 
 # Mock-only Vulkan ABI/lifetime checks: never calls VulkanInit or opens a GPU.
 speech-vulkan-offline-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline|TestVulkanDispatchRejects|TestVkBuf|TestVkKernelCreate|TestVkHelpers|TestVkWrappers|TestLoadSPIRV)'
+
+# Optional offline validator/compiler qualification. Explicit new output path;
+# missing tools fail (never skip). No Vulkan loader/device or model execution.
+speech-vulkan-static-check:
+	@test -n "$(VULKAN_SHADER_REPORT)" || (echo 'Set VULKAN_SHADER_REPORT to a new output directory'; exit 1)
+	bun test scripts/check-vulkan-shaders.test.ts
+	bun scripts/check-vulkan-shaders.ts --output "$(VULKAN_SHADER_REPORT)"
 
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
