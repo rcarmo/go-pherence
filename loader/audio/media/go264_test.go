@@ -1,0 +1,298 @@
+package media
+
+import (
+	"context"
+	"encoding/binary"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+	"time"
+)
+
+func newTestGo264(t *testing.T, cfg Go264Config) *Go264 {
+	t.Helper()
+	g, err := NewGo264(cfg)
+	if err != nil {
+		t.Fatalf("NewGo264: %v", err)
+	}
+	return g
+}
+
+func writeCanonicalSourceSamples(t *testing.T, path string, samples []int16) {
+	t.Helper()
+	writeCanonicalWAV(t, path, len(samples))
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatalf("open fixture: %v", err)
+	}
+	defer f.Close()
+	info, err := validateCanonicalWAVFile(context.Background(), f, 1<<20, int64(len(samples)))
+	if err != nil {
+		t.Fatalf("validate fixture: %v", err)
+	}
+	raw := make([]byte, len(samples)*2)
+	for i, sample := range samples {
+		binary.LittleEndian.PutUint16(raw[2*i:], uint16(sample))
+	}
+	if _, err := f.WriteAt(raw, info.dataOffset); err != nil {
+		t.Fatalf("patch samples: %v", err)
+	}
+}
+
+func readCanonicalInt16(t *testing.T, path string) []int16 {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open canonical wav: %v", err)
+	}
+	defer f.Close()
+	info, err := validateCanonicalWAVFile(context.Background(), f, 1<<20, maxFramesForDuration(DefaultMaxDuration))
+	if err != nil {
+		t.Fatalf("validate canonical wav: %v", err)
+	}
+	raw := make([]byte, info.frames*2)
+	if _, err := f.ReadAt(raw, info.dataOffset); err != nil {
+		t.Fatalf("read canonical pcm: %v", err)
+	}
+	out := make([]int16, info.frames)
+	for i := range out {
+		out[i] = int16(binary.LittleEndian.Uint16(raw[2*i:]))
+	}
+	return out
+}
+
+func TestGo264ProbeAndDecodeExactPCM(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "input.wav")
+	want := []int16{-32768, -123, 0, 1, 32767, -42, 99}
+	writeCanonicalSourceSamples(t, src, want)
+
+	g := newTestGo264(t, Go264Config{})
+	probe, err := g.Probe(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if probe.Path != mustAbs(t, src) {
+		t.Fatalf("probe path=%q", probe.Path)
+	}
+	if probe.StreamIndex != 0 {
+		t.Fatalf("stream index=%d", probe.StreamIndex)
+	}
+	if probe.Format.Container != "wav" || probe.Format.Encoding != "pcm_s16le" || probe.Format.SampleRate != CanonicalSampleRate || probe.Format.Channels != 1 || probe.Format.BitsPerSample != 16 {
+		t.Fatalf("probe format=%+v", probe.Format)
+	}
+	if probe.Timeline.SampleRate != CanonicalSampleRate || probe.Timeline.Samples != SampleCount(len(want)) {
+		t.Fatalf("probe timeline=%+v", probe.Timeline)
+	}
+	if probe.Duration != (Timeline{SampleRate: CanonicalSampleRate, Samples: SampleCount(len(want))}).Duration() {
+		t.Fatalf("probe duration=%v", probe.Duration)
+	}
+
+	dst := filepath.Join(dir, "decoded.wav")
+	decoded, err := g.DecodeToFile(context.Background(), src, dst)
+	if err != nil {
+		t.Fatalf("DecodeToFile: %v", err)
+	}
+	if decoded.Path != mustAbs(t, dst) {
+		t.Fatalf("decoded path=%q", decoded.Path)
+	}
+	if decoded.Format != canonicalWAV() {
+		t.Fatalf("decoded format=%+v", decoded.Format)
+	}
+	if decoded.Timeline.SampleRate != CanonicalSampleRate || decoded.Timeline.Samples != SampleCount(len(want)) {
+		t.Fatalf("decoded timeline=%+v", decoded.Timeline)
+	}
+	if got := readCanonicalInt16(t, dst); !reflect.DeepEqual(got, want) {
+		t.Fatalf("pcm=%v want %v", got, want)
+	}
+	if _, err := os.Stat(src); err != nil {
+		t.Fatalf("source missing after decode: %v", err)
+	}
+}
+
+func TestGo264DecodeResampleCount(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "input.wav")
+	writeSyntheticWAV(t, src, 44100, 1001)
+	g := newTestGo264(t, Go264Config{})
+	decoded, err := g.DecodeToFile(context.Background(), src, filepath.Join(dir, "decoded.wav"))
+	if err != nil {
+		t.Fatalf("DecodeToFile: %v", err)
+	}
+	if decoded.Timeline.Samples != 364 {
+		t.Fatalf("samples=%d want 364", decoded.Timeline.Samples)
+	}
+	if got := len(readCanonicalInt16(t, decoded.Path)); got != 364 {
+		t.Fatalf("file frames=%d want 364", got)
+	}
+}
+
+func TestGo264DecodeCancellation(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "input.wav")
+	writeSyntheticWAV(t, src, 16000, 160)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	g := newTestGo264(t, Go264Config{})
+	dst := filepath.Join(dir, "decoded.wav")
+	_, err := g.DecodeToFile(ctx, src, dst)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error=%v want context.Canceled", err)
+	}
+	if _, err := os.Stat(dst); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("destination exists after cancel: %v", err)
+	}
+	partials, err := filepath.Glob(filepath.Join(dir, ".decoded.wav.tmp-*.wav"))
+	if err != nil {
+		t.Fatalf("glob temp files: %v", err)
+	}
+	if len(partials) != 0 {
+		t.Fatalf("temp files remain after cancel: %v", partials)
+	}
+}
+
+func TestGo264PreservesSourceAndDoesNotClobberDestination(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "input.wav")
+	writeSyntheticWAV(t, src, 16000, 16)
+	dst := filepath.Join(dir, "decoded.wav")
+	orig := []byte("keep me")
+	if err := os.WriteFile(dst, orig, 0o644); err != nil {
+		t.Fatalf("write dst: %v", err)
+	}
+	g := newTestGo264(t, Go264Config{})
+	if _, err := g.DecodeToFile(context.Background(), src, dst); err == nil {
+		t.Fatal("expected destination exists error")
+	}
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("read dst: %v", err)
+	}
+	if !reflect.DeepEqual(got, orig) {
+		t.Fatalf("destination changed: %q", got)
+	}
+	if _, err := os.Stat(src); err != nil {
+		t.Fatalf("source missing after no-clobber: %v", err)
+	}
+}
+
+func TestGo264InputAndOutputCaps(t *testing.T) {
+	t.Run("input size limit", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "input.wav")
+		writeSyntheticWAV(t, src, 16000, 32)
+		stat, err := os.Stat(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		g := newTestGo264(t, Go264Config{MaxInputBytes: stat.Size() - 1})
+		if _, err := g.Probe(context.Background(), src); !errors.Is(err, ErrSizeLimit) {
+			t.Fatalf("Probe error=%v want ErrSizeLimit", err)
+		}
+		if _, err := g.DecodeToFile(context.Background(), src, filepath.Join(dir, "out.wav")); !errors.Is(err, ErrSizeLimit) {
+			t.Fatalf("DecodeToFile error=%v want ErrSizeLimit", err)
+		}
+	})
+
+	t.Run("output limit inclusive", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "input.wav")
+		writeSyntheticWAV(t, src, 16000, 16)
+		const exactSize = 44 + 16*2
+		good := newTestGo264(t, Go264Config{MaxDecodeOutputBytes: exactSize})
+		if _, err := good.DecodeToFile(context.Background(), src, filepath.Join(dir, "good.wav")); err != nil {
+			t.Fatalf("exact cap decode: %v", err)
+		}
+		bad := newTestGo264(t, Go264Config{MaxDecodeOutputBytes: exactSize - 1})
+		if _, err := bad.DecodeToFile(context.Background(), src, filepath.Join(dir, "bad.wav")); !errors.Is(err, ErrDecodeOutputLimit) {
+			t.Fatalf("under cap error=%v want ErrDecodeOutputLimit", err)
+		}
+	})
+}
+
+func TestGo264DurationCapPreciseAndInclusive(t *testing.T) {
+	t.Run("exact limit allowed", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "input.wav")
+		writeSyntheticWAV(t, src, 16000, 16000)
+		g := newTestGo264(t, Go264Config{MaxDuration: time.Second})
+		if _, err := g.Probe(context.Background(), src); err != nil {
+			t.Fatalf("Probe exact limit: %v", err)
+		}
+		if _, err := g.DecodeToFile(context.Background(), src, filepath.Join(dir, "out.wav")); err != nil {
+			t.Fatalf("DecodeToFile exact limit: %v", err)
+		}
+	})
+
+	t.Run("over limit rejected", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "input.wav")
+		writeSyntheticWAV(t, src, 16000, 16001)
+		g := newTestGo264(t, Go264Config{MaxDuration: time.Second})
+		if _, err := g.Probe(context.Background(), src); !errors.Is(err, ErrDurationOutOfRange) {
+			t.Fatalf("Probe error=%v want ErrDurationOutOfRange", err)
+		}
+		if _, err := g.DecodeToFile(context.Background(), src, filepath.Join(dir, "out.wav")); !errors.Is(err, ErrDurationOutOfRange) {
+			t.Fatalf("DecodeToFile error=%v want ErrDurationOutOfRange", err)
+		}
+	})
+}
+
+func TestGo264UnsupportedAndMalformedInputs(t *testing.T) {
+	t.Run("unsupported content", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "input.mp3")
+		if err := os.WriteFile(src, []byte("ID3-nope"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		g := newTestGo264(t, Go264Config{})
+		if _, err := g.Probe(context.Background(), src); !errors.Is(err, ErrUnsupportedInput) {
+			t.Fatalf("Probe error=%v want ErrUnsupportedInput", err)
+		}
+		if _, err := g.DecodeToFile(context.Background(), src, filepath.Join(dir, "out.wav")); !errors.Is(err, ErrUnsupportedInput) {
+			t.Fatalf("DecodeToFile error=%v want ErrUnsupportedInput", err)
+		}
+	})
+
+	t.Run("malformed source", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "input.wav")
+		if err := os.WriteFile(src, []byte("RIFF\x04\x00\x00\x00WAVE"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		g := newTestGo264(t, Go264Config{})
+		if _, err := g.Probe(context.Background(), src); !errors.Is(err, ErrInvalidSource) {
+			t.Fatalf("Probe error=%v want ErrInvalidSource", err)
+		}
+		if _, err := g.DecodeToFile(context.Background(), src, filepath.Join(dir, "out.wav")); !errors.Is(err, ErrInvalidSource) {
+			t.Fatalf("DecodeToFile error=%v want ErrInvalidSource", err)
+		}
+	})
+}
+
+func TestGo264DecodeConsumesPartialEOF(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "input.wav")
+	writeSyntheticWAV(t, src, 16000, 3)
+	g := newTestGo264(t, Go264Config{})
+	decoded, err := g.DecodeToFile(context.Background(), src, filepath.Join(dir, "decoded.wav"))
+	if err != nil {
+		t.Fatalf("DecodeToFile: %v", err)
+	}
+	if decoded.Timeline.Samples != 3 {
+		t.Fatalf("samples=%d want 3", decoded.Timeline.Samples)
+	}
+	r, err := OpenCanonicalPCM(context.Background(), decoded.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	buf := make([]float32, 8)
+	n, err := r.ReadSamplesAt(context.Background(), buf, 0)
+	if n != 3 || !errors.Is(err, io.EOF) {
+		t.Fatalf("n=%d err=%v", n, err)
+	}
+}

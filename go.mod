@@ -7,4 +7,7 @@ require (
 	golang.org/x/sys v0.43.0
 )
 
-require gopkg.in/yaml.v3 v3.0.1 // indirect
+require (
+	github.com/rcarmo/go-264 v0.0.0-20260912122853-a47077edc589
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
