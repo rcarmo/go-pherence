@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rcarmo/go-pherence/models/whisper"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 	"github.com/rcarmo/go-pherence/runtime/speechjob/httpapi"
 )
@@ -264,5 +265,94 @@ func TestStoreLockPrecedesModelAssetReads(t *testing.T) {
 	t.Setenv("SPEECHJOB_TOKEN", serverToken)
 	if e = start(context.Background(), path, false, io.Discard); e == nil || e.Error() != "store open rejected" {
 		t.Fatal("assets reached before store exclusion", e)
+	}
+}
+
+func TestVulkanServerOwnerClosesAfterHandlerDrain(t *testing.T) {
+	cfg := vulkanToyConfig(t)
+	cfg.AllowExecution = true
+	reserve, e := net.Listen("tcp", "127.0.0.1:0")
+	if e != nil {
+		t.Fatal(e)
+	}
+	cfg.HTTP.Listen = reserve.Addr().String()
+	cfg.HTTP.Hosts = []string{cfg.HTTP.Listen}
+	reserve.Close()
+	b, _ := json.Marshal(cfg)
+	asset := putAsset(t, t.TempDir(), "server.json", b, 0600)
+	t.Setenv("SPEECHJOB_TOKEN", serverToken)
+	owner := &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("device-stage")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}}
+	runtime := vulkanProfileRuntime{init: func() bool { return true }, deviceName: func() string { return "fixture-device-1" }, newEncoder: func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error) {
+		return &whisper.VulkanEncoder{}, nil
+	}, newStage: func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+		return owner, nil
+	}}
+	ctx, cancel := context.WithCancel(context.Background())
+	out := &statusWriter{ready: make(chan struct{})}
+	done := make(chan error, 1)
+	go func() { done <- startWithRuntime(ctx, asset.Path, false, out, runtime) }()
+	<-out.ready
+	if owner.closed != 0 {
+		t.Fatal("owner closed while server live")
+	}
+	cancel()
+	if e := <-done; e != nil {
+		t.Fatal(e)
+	}
+	if owner.closed != 1 {
+		t.Fatal("owner not closed after handler drain", owner.closed)
+	}
+	reopened, e := speechjob.Open(cfg.Store, speechjob.Limits{MaxJobs: cfg.Limits.Jobs, MaxUploadBytes: cfg.Limits.UploadBytes, MaxArtifactBytes: cfg.Limits.ArtifactBytes, MaxBytes: cfg.Limits.StoreBytes})
+	if e != nil {
+		t.Fatal("store retained after owner close", e)
+	}
+	reopened.Close()
+}
+func TestVulkanServerStartupFailureDrainsOwner(t *testing.T) {
+	cfg := vulkanToyConfig(t)
+	cfg.AllowExecution = true
+	occupied, e := net.Listen("tcp", "127.0.0.1:0")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer occupied.Close()
+	cfg.HTTP.Listen = occupied.Addr().String()
+	cfg.HTTP.Hosts = []string{cfg.HTTP.Listen}
+	b, _ := json.Marshal(cfg)
+	asset := putAsset(t, t.TempDir(), "server.json", b, 0600)
+	t.Setenv("SPEECHJOB_TOKEN", serverToken)
+	owner := &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("device-stage")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}, failOnce: true}
+	runtime := vulkanProfileRuntime{init: func() bool { return true }, deviceName: func() string { return "fixture-device-1" }, newEncoder: func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error) {
+		return &whisper.VulkanEncoder{}, nil
+	}, newStage: func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+		return owner, nil
+	}}
+	if e = startWithRuntime(context.Background(), asset.Path, false, io.Discard, runtime); e == nil {
+		t.Fatal("occupied listener")
+	}
+	if owner.closed != 2 {
+		t.Fatal("owner close not retried", owner.closed)
+	}
+	reopened, e := speechjob.Open(cfg.Store, speechjob.Limits{MaxJobs: cfg.Limits.Jobs, MaxUploadBytes: cfg.Limits.UploadBytes, MaxArtifactBytes: cfg.Limits.ArtifactBytes, MaxBytes: cfg.Limits.StoreBytes})
+	if e != nil {
+		t.Fatal(e)
+	}
+	reopened.Close()
+}
+func TestVulkanCheckDoesNotInitialiseRuntime(t *testing.T) {
+	cfg := vulkanToyConfig(t)
+	b, _ := json.Marshal(cfg)
+	asset := putAsset(t, t.TempDir(), "server.json", b, 0600)
+	calls := 0
+	r := vulkanProfileRuntime{init: func() bool { calls++; return false }}
+	var out bytes.Buffer
+	if e := startWithRuntime(context.Background(), asset.Path, true, &out, r); e != nil {
+		t.Fatal(e)
+	}
+	if calls != 0 {
+		t.Fatal("check initialized Vulkan")
+	}
+	if !bytes.Contains(out.Bytes(), []byte(`"model_loaded":false`)) {
+		t.Fatal(out.String())
 	}
 }

@@ -207,3 +207,45 @@ func TestResourceConfigExplicitEstimates(t *testing.T) {
 		}
 	}
 }
+
+func TestVulkanConfigRequiresExplicitConsentAndResources(t *testing.T) {
+	c := baseConfig(t)
+	r := ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
+	c.Resources = &r
+	good := VulkanSettings{Enable: true, AllowExperimental: true, DeviceContains: "Intel fixture", BackendSHA256: hashBytes([]byte("backend")), DrainMilliseconds: 10}
+	c.Profile.Vulkan = &good
+	if e := c.validate(); e != nil {
+		t.Fatal(e)
+	}
+	b, _ := json.Marshal(c)
+	parsed, e := parseConfig(b)
+	if e != nil || parsed.Profile.Vulkan == nil || *parsed.Profile.Vulkan != good {
+		t.Fatal(parsed, e)
+	}
+	for _, kind := range []string{"disabled", "consent", "device", "device-control", "hash", "poll-zero", "poll-large", "resources"} {
+		v := good
+		bad := c
+		switch kind {
+		case "disabled":
+			v.Enable = false
+		case "consent":
+			v.AllowExperimental = false
+		case "device":
+			v.DeviceContains = ""
+		case "device-control":
+			v.DeviceContains = "x\n"
+		case "hash":
+			v.BackendSHA256 = "bad"
+		case "poll-zero":
+			v.DrainMilliseconds = 0
+		case "poll-large":
+			v.DrainMilliseconds = 30001
+		case "resources":
+			bad.Resources = nil
+		}
+		bad.Profile.Vulkan = &v
+		if e := bad.validate(); e == nil {
+			t.Fatal(kind)
+		}
+	}
+}

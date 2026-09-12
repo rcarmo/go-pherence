@@ -20,7 +20,45 @@ import (
 	"github.com/rcarmo/go-pherence/runtime/speechjob/httpapi"
 )
 
+type stageOwner interface {
+	Stage() speechjob.Stage
+	Close(context.Context) error
+}
+type builtProfiles struct {
+	Profiles []httpapi.Profile
+	owner    stageOwner
+}
+
+func (b *builtProfiles) Close(ctx context.Context) error {
+	if b == nil || b.owner == nil {
+		return nil
+	}
+	return b.owner.Close(ctx)
+}
+
+// Cleanup after owned native construction must finish before startup returns.
+// A failed close is retried because the owner retains unresolved resources.
+func closeBuiltProfiles(b *builtProfiles) {
+	for {
+		if e := b.Close(context.Background()); e == nil {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+func closeVulkanEncoder(e interface{ Close() error }) {
+	for {
+		if err := e.Close(); err == nil {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func start(ctx context.Context, path string, check bool, out io.Writer) error {
+	return startWithRuntime(ctx, path, check, out, defaultVulkanProfileRuntime())
+}
+func startWithRuntime(ctx context.Context, path string, check bool, out io.Writer, profileRuntime vulkanProfileRuntime) error {
 	data, e := boundedFile(ctx, path, 64<<10)
 	if e != nil {
 		return e
@@ -116,13 +154,14 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 	}
 	// Exclude another server process on this same store before allocating model
 	// weights. This does not coordinate other stores or unrelated inference.
-	profiles, e := buildProfile(ctx, cfg, true)
+	profiles, e := buildProfileOwned(ctx, cfg, true, profileRuntime)
 	if e != nil {
 		store.Close()
 		return e
 	}
 	if resident != nil {
 		if e = resident.Shrink(resourcebudget.Resources{MemoryBytes: cfg.Resources.ResidentBytes}); e != nil {
+			closeBuiltProfiles(profiles)
 			store.Close()
 			return e
 		}
@@ -136,14 +175,16 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 		queue = &httpapi.QueueOptions{Directory: cfg.Queue.Directory, MaxEntries: cfg.Queue.MaxEntries, MaxBytes: cfg.Queue.MaxBytes, JobTimeout: duration(cfg.Queue.JobSeconds), Admission: workAdmission}
 		runAdmission = nil
 	}
-	handler, e := httpapi.New(httpapi.Config{Store: store, Profiles: profiles, Token: os.Getenv("SPEECHJOB_TOKEN"), Hosts: cfg.HTTP.Hosts, Origin: cfg.HTTP.Origin, EnableUI: cfg.HTTP.EnableUI, MaxUploadBytes: cfg.Limits.UploadBytes, MaxConcurrentRequests: cfg.HTTP.MaxRequests, Queue: queue, RunAdmission: runAdmission})
+	handler, e := httpapi.New(httpapi.Config{Store: store, Profiles: profiles.Profiles, Token: os.Getenv("SPEECHJOB_TOKEN"), Hosts: cfg.HTTP.Hosts, Origin: cfg.HTTP.Origin, EnableUI: cfg.HTTP.EnableUI, MaxUploadBytes: cfg.Limits.UploadBytes, MaxConcurrentRequests: cfg.HTTP.MaxRequests, Queue: queue, RunAdmission: runAdmission})
 	if e != nil {
+		closeBuiltProfiles(profiles)
 		store.Close()
 		return e
 	}
 	listener, e := net.Listen("tcp", cfg.HTTP.Listen)
 	if e != nil {
 		handler.Shutdown(context.Background())
+		closeBuiltProfiles(profiles)
 		store.Close()
 		return fmt.Errorf("listener bind failed")
 	}
@@ -151,6 +192,7 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 		if e = handler.StartQueue(ctx); e != nil {
 			listener.Close()
 			handler.Shutdown(context.Background())
+			closeBuiltProfiles(profiles)
 			store.Close()
 			return e
 		}
@@ -158,6 +200,9 @@ func start(ctx context.Context, path string, check bool, out io.Writer) error {
 	// serveOwned does not return until handler-owned operations stop. The profiles'
 	// model closures stay reachable through handler until then; no GC/close early.
 	e = serveOwned(ctx, listener, handler, cfg.HTTP, tlsConfig, out)
+	// Handler/queue drain precedes resident Vulkan encoder close; store/resource
+	// release follows it. Quarantined owner intentionally blocks process exit.
+	closeBuiltProfiles(profiles)
 	return errors.Join(e, store.Close())
 }
 

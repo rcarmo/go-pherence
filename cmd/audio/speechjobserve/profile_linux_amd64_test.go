@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/rcarmo/go-pherence/loader/safetensors"
+	"github.com/rcarmo/go-pherence/models/whisper"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 )
 
@@ -422,6 +423,102 @@ func testStartQueueWorkerConsent(t *testing.T, resources bool) {
 				if status != 200 || json.Unmarshal(b, &job) != nil || job.Attempts != 0 || job.Status != speechjob.Queued {
 					t.Fatal(status, string(b))
 				}
+			}
+		})
+	}
+}
+
+type fakeProfileOwner struct {
+	stage    speechjob.Stage
+	closed   int
+	failOnce bool
+}
+
+func (o *fakeProfileOwner) Stage() speechjob.Stage { return o.stage }
+func (o *fakeProfileOwner) Close(context.Context) error {
+	o.closed++
+	if o.failOnce && o.closed == 1 {
+		return io.ErrClosedPipe
+	}
+	return nil
+}
+func vulkanToyConfig(t *testing.T) ServerConfig {
+	t.Helper()
+	c := toyAssets(t)
+	c.Resources = &ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
+	c.Profile.Vulkan = &VulkanSettings{Enable: true, AllowExperimental: true, DeviceContains: "fixture-device", BackendSHA256: hashBytes([]byte("fixture-backend")), DrainMilliseconds: 5}
+	return c
+}
+func TestVulkanProfileOwnedConstructionAndIdentity(t *testing.T) {
+	c := vulkanToyConfig(t)
+	owner := &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("resident-stage")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}}
+	initCalls, encoderCalls, stageCalls, maxLength := 0, 0, 0, 0
+	runtime := vulkanProfileRuntime{init: func() bool { initCalls++; return true }, deviceName: func() string { return "fixture-device-1" }, newEncoder: func(_ context.Context, e *whisper.Encoder, frames int) (*whisper.VulkanEncoder, error) {
+		encoderCalls++
+		if e == nil || frames < 1 {
+			t.Fatal("host encoder missing before copy")
+		}
+		return &whisper.VulkanEncoder{}, nil
+	}, newStage: func(m *whisper.Whisper, _ *whisper.Tokenizer, _ *whisper.VulkanEncoder, cfg speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+		stageCalls++
+		maxLength = m.Config.MaxLength
+		if m.Encoder != nil {
+			t.Fatal("host encoder retained after resident copy")
+		}
+		if !cfg.AllowExperimental || cfg.BackendSHA256 != c.Profile.Vulkan.BackendSHA256 || cfg.DrainPoll != 5*time.Millisecond {
+			t.Fatal(cfg)
+		}
+		return owner, nil
+	}}
+	built, e := buildProfileOwned(context.Background(), c, true, runtime)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if initCalls != 1 || encoderCalls != 1 || stageCalls != 1 || built.owner != owner || len(built.Profiles) != 1 {
+		t.Fatal(initCalls, encoderCalls, stageCalls, built)
+	}
+	stages := built.Profiles[0].Stages
+	if len(stages) != 4 || stages[1].Version != owner.stage.Version {
+		t.Fatal(stages)
+	}
+	expected, e := speechjob.NewTranscriptStage(speechjob.TranscriptStageConfig{ASRVersion: owner.stage.Version, Language: c.Profile.Language, WindowSamples: 160 * int64(maxLength), OverlapSamples: c.Profile.OverlapSamples})
+	if e != nil || stages[2].Version != expected.Version {
+		t.Fatal("transcript uses CPU ASR identity", e)
+	}
+	if e = built.Close(context.Background()); e != nil || owner.closed != 1 {
+		t.Fatal(e, owner.closed)
+	}
+	// Legacy helper cannot discard a Vulkan owner.
+	owner = &fakeProfileOwner{stage: owner.stage}
+	runtime.newStage = func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+		return owner, nil
+	}
+	if _, e = buildProfile(context.Background(), c, true); e == nil {
+		t.Fatal("default helper unexpectedly bypassed owned builder")
+	}
+}
+func TestVulkanProfileRejectsRuntimeAndClosesEncoder(t *testing.T) {
+	for _, kind := range []string{"init", "device", "encoder", "stage"} {
+		t.Run(kind, func(t *testing.T) {
+			c := vulkanToyConfig(t)
+			r := vulkanProfileRuntime{init: func() bool { return kind != "init" }, deviceName: func() string {
+				if kind == "device" {
+					return "other"
+				}
+				return "fixture-device"
+			}, newEncoder: func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error) {
+				if kind == "encoder" {
+					return &whisper.VulkanEncoder{}, io.ErrClosedPipe
+				}
+				return &whisper.VulkanEncoder{}, nil
+			}, newStage: func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+				if kind == "stage" {
+					return nil, io.ErrClosedPipe
+				}
+				return &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("x")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}}, nil
+			}}
+			if _, e := buildProfileOwned(context.Background(), c, true, r); e == nil {
+				t.Fatal(kind)
 			}
 		})
 	}

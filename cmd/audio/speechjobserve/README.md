@@ -1,6 +1,6 @@
 # Explicit Go Whisper job server
 
-`speechjobserve` is an opt-in Linux/amd64 command that loads one local checked Whisper model and serves the existing authenticated job API. It does not download assets or install/restart services. It executes recovered pending tickets at startup only when `queue.enable` and `queue.start_worker` are both explicitly true. The serving profile is **CPU Whisper ASR only**, with FFmpeg decoding and conservative exact-overlap transcript/VTT output. Community-1, Vulkan profiles and trained/performance qualification are separate work. An opt-in [browser interface](../../../runtime/speechjob/httpapi/ui/README.md) is available with `http.enable_ui:true`, an exact matching `http.origin`, and at least two ordinary request slots; it is disabled by default.
+`speechjobserve` is an opt-in Linux/amd64 command that loads one local checked Whisper model and serves the existing authenticated job API. It does not download assets or install/restart services. It executes recovered pending tickets at startup only when `queue.enable` and `queue.start_worker` are both explicitly true. The default serving profile is **CPU Whisper ASR**, with FFmpeg decoding and conservative exact-overlap transcript/VTT output. An explicitly consented experimental resident F32 Vulkan encoder can replace only the encoder; decoding and the Whisper token decoder remain Go/CPU. Community-1 serving and trained/performance qualification are separate work. An opt-in [browser interface](../../../runtime/speechjob/httpapi/ui/README.md) is available with `http.enable_ui:true`, an exact matching `http.origin`, and at least two ordinary request slots; it is disabled by default.
 
 ## Launch requirements
 
@@ -82,6 +82,28 @@ These numbers illustrate the field relationship; they are **not qualified model 
 After the store lock and before `buildProfile`, the server acquires `threads` CPU slots and `load_bytes`. Once loading succeeds it shrinks that lease to zero CPU and `resident_bytes`, retaining it through server drain. Each queue or synchronous run acquires `threads` plus `work_bytes` from the same private budget, holding the lease until callbacks finish. Startup failures release their accounting; RSS need not fall immediately after Go objects become unreachable. `--check` validates relationships but does not create this budget or start execution.
 
 The private server budget has two active leases (resident and one job). Embedders can share a [Budget instance](../../../runtime/resourcebudget/README.md) across multiple handler/store owners, but the standalone command cannot control unrelated processes. There is no current available-memory probe, external LLM resource protocol, cgroup/RSS enforcement or device-memory accounting. Keep external host admission and OS limits when running real weights. Disabled/default execution has not been promoted to these illustrative values.
+
+## Experimental resident Vulkan encoder
+
+The CPU profile remains the default. Vulkan requires `resources` plus these profile fields:
+
+```json
+"vulkan": {
+  "enable": true,
+  "allow_experimental": true,
+  "device_contains": "Intel(R) Iris(R) Xe",
+  "backend_sha256": "REPLACE_WITH_DEVICE_DRIVER_SHADER_RUNTIME_SHA256",
+  "drain_milliseconds": 10
+}
+```
+
+All five values are mandatory. Device substring is checked against the selected Vulkan device after explicit `VulkanInit`. Backend SHA256 is an operator attestation and part of the job/profile checkpoint identity. Check mode validates config/assets/metadata but never initialises Vulkan. Execution takes the store and loading-resource lease before initialising the device or constructing the resident encoder.
+
+Resident construction copies encoder weights into owned Vulkan arenas. The server then clears the redundant host encoder tensor references; this makes Go storage eligible for GC but does not force RSS reduction. The host decoder remains resident. Resolved decode/ASR/transcript/VTT stage versions are embedded in the HTTP profile identity, so CPU/device or changed backend versions cannot share a configuration.
+
+Handler/queue callbacks drain before resident encoder close, store close and resource release. A pending, uncertain, device-lost or panicked Vulkan owner can intentionally prevent graceful process exit until the operator terminates the isolated process; no in-process device reset exists. Startup failures after construction retry owner teardown with bounded sleeps rather than returning while native ownership is unresolved. No CPU fallback or automatic retry is provided. Read the [Vulkan job-owner contract](../../../runtime/speechjob/whisper-vulkan.md).
+
+This configuration has only model-free/mock server-lifetime coverage. It has not been run with a native GPU through this server, trained checkpoints or private recordings. It does not add Vulkan decoder/Community-1 execution or quantify resident/device memory.
 
 ## TLS and shutdown
 

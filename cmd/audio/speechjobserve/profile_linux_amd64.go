@@ -11,7 +11,9 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"github.com/rcarmo/go-pherence/models/whisper"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
@@ -201,14 +203,37 @@ func preflightSafetensors(ctx context.Context, a Asset, fileLimit, ownedLimit in
 func decodeConfig(c ServerConfig) speechjob.FFmpegDecodeConfig {
 	return speechjob.FFmpegDecodeConfig{FFmpegPath: c.FFmpeg.Path, FFprobePath: c.FFprobe.Path, FFmpegSHA256: c.FFmpeg.SHA256, FFprobeSHA256: c.FFprobe.SHA256, InputExtension: c.Profile.Extension, MaxInputBytes: c.Limits.UploadBytes, MaxOutputBytes: c.Profile.DecodeBytes, MaxDuration: duration(c.Profile.MaxDurationSeconds)}
 }
+
+type vulkanProfileRuntime struct {
+	init       func() bool
+	deviceName func() string
+	newEncoder func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error)
+	newStage   func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error)
+}
+
+func defaultVulkanProfileRuntime() vulkanProfileRuntime {
+	return vulkanProfileRuntime{vk.VulkanInit, vk.VulkanDeviceName, whisper.NewVulkanEncoder, func(m *whisper.Whisper, t *whisper.Tokenizer, e *whisper.VulkanEncoder, c speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+		return speechjob.NewVulkanWhisperWindowStage(m, t, e, c)
+	}}
+}
 func buildProfile(ctx context.Context, c ServerConfig, load bool) ([]httpapi.Profile, error) {
+	b, e := buildProfileOwned(ctx, c, load, defaultVulkanProfileRuntime())
+	if e != nil {
+		return nil, e
+	}
+	if b.owner != nil {
+		return nil, fmt.Errorf("experimental Vulkan profile requires owned builder")
+	}
+	return b.Profiles, nil
+}
+func buildProfileOwned(ctx context.Context, c ServerConfig, load bool, runtime vulkanProfileRuntime) (*builtProfiles, error) {
 	p, e := prepareModel(ctx, c)
 	if e != nil {
 		return nil, e
 	}
 	defer p.source.Close()
 	if !load {
-		return nil, nil
+		return &builtProfiles{}, nil
 	}
 	model, _, e := whisper.LoadConfiguredModelSourceChecked(ctx, p.source, p.modelJSON, p.generation, p.tokenizer)
 	if e != nil {
@@ -226,19 +251,59 @@ func buildProfile(ctx context.Context, c ServerConfig, load bool) ([]httpapi.Pro
 	if e != nil {
 		return nil, e
 	}
-	text, e := speechjob.NewTranscriptStage(speechjob.TranscriptStageConfig{ASRVersion: asr.Version, Language: opts.Language, WindowSamples: int64(p.cfg.MaxLength) * 160, OverlapSamples: opts.OverlapSamples})
+	// Build the external profile identity after backend selection below so the
+	// exact resolved stage versions are included, not config intent alone.
+	var identity []byte
 	if e != nil {
 		return nil, e
 	}
-	identity, e := json.Marshal(struct {
+	result := &builtProfiles{}
+	if v := opts.Vulkan; v != nil {
+		if runtime.init == nil || runtime.deviceName == nil || runtime.newEncoder == nil || runtime.newStage == nil || !runtime.init() {
+			return nil, fmt.Errorf("experimental Vulkan initialisation failed")
+		}
+		if name := runtime.deviceName(); name == "" || !strings.Contains(name, v.DeviceContains) {
+			return nil, fmt.Errorf("configured Vulkan device identity rejected")
+		}
+		encoder, e := runtime.newEncoder(ctx, model.Encoder, model.Config.MaxLength)
+		if e != nil {
+			if encoder != nil {
+				closeVulkanEncoder(encoder)
+			}
+			return nil, e
+		}
+		// Resident construction owns copied encoder weights. Drop host encoder
+		// tensors before serving; host decoder remains required and checked.
+		model.Encoder.ReleaseHostWeights()
+		model.Encoder = nil
+		owner, e := runtime.newStage(model, p.tokenizer, encoder, speechjob.VulkanWhisperStageConfig{Whisper: speechjob.WhisperStageConfig{ModelSHA256: c.Weights.SHA256, RuntimeSHA256: c.RuntimeSHA256, Language: opts.Language, OverlapSamples: opts.OverlapSamples, MaxNewTokens: opts.MaxNewTokens, MaxInitialTimestampIndex: opts.MaxInitialTimestampIndex, SkipDigitalSilence: opts.SkipDigitalSilence, GenerationJSON: p.generation, MaxWindowBytes: opts.WindowBytes, MaxResultBytes: opts.ResultBytes}, AllowExperimental: true, BackendSHA256: v.BackendSHA256, DrainPoll: time.Duration(v.DrainMilliseconds) * time.Millisecond})
+		if e != nil {
+			closeVulkanEncoder(encoder)
+			return nil, e
+		}
+		result.owner = owner
+		asr = owner.Stage()
+	}
+	text, e := speechjob.NewTranscriptStage(speechjob.TranscriptStageConfig{ASRVersion: asr.Version, Language: opts.Language, WindowSamples: int64(p.cfg.MaxLength) * 160, OverlapSamples: opts.OverlapSamples})
+	if e != nil {
+		closeBuiltProfiles(result)
+		return nil, e
+	}
+	vtt := speechjob.NewVTTStage()
+	type stageIdentity struct{ Name, Version string }
+	versions := []stageIdentity{{decode.Name, decode.Version}, {asr.Name, asr.Version}, {text.Name, text.Version}, {vtt.Name, vtt.Version}}
+	identity, e = json.Marshal(struct {
 		Schema                                int
 		Runtime                               string
 		Weights, Model, Tokenizer, Generation Asset
 		Profile                               ProfileSettings
 		Threads                               int
-	}{1, c.RuntimeSHA256, c.Weights, c.ModelConfig, c.Tokenizer, c.Generation, c.Profile, c.Threads})
+		Stages                                []stageIdentity
+	}{1, c.RuntimeSHA256, c.Weights, c.ModelConfig, c.Tokenizer, c.Generation, c.Profile, c.Threads, versions})
 	if e != nil {
+		closeBuiltProfiles(result)
 		return nil, e
 	}
-	return []httpapi.Profile{{ID: opts.ID, Configuration: identity, Stages: []speechjob.Stage{decode, asr, text, speechjob.NewVTTStage()}}}, nil
+	result.Profiles = []httpapi.Profile{{ID: opts.ID, Configuration: identity, Stages: []speechjob.Stage{decode, asr, text, vtt}}}
+	return result, nil
 }

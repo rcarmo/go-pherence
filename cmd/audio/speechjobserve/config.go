@@ -45,18 +45,26 @@ type HTTPSettings struct {
 	MaxRequests       int      `json:"max_requests"`
 	MaxConnections    int      `json:"max_connections"`
 }
+type VulkanSettings struct {
+	Enable            bool   `json:"enable"`
+	AllowExperimental bool   `json:"allow_experimental"`
+	DeviceContains    string `json:"device_contains"`
+	BackendSHA256     string `json:"backend_sha256"`
+	DrainMilliseconds int    `json:"drain_milliseconds"`
+}
 type ProfileSettings struct {
-	ID                       string `json:"id"`
-	Language                 string `json:"language"`
-	Extension                string `json:"extension"`
-	MaxDurationSeconds       int    `json:"max_duration_seconds"`
-	DecodeBytes              int64  `json:"decode_bytes"`
-	OverlapSamples           int64  `json:"overlap_samples"`
-	MaxNewTokens             int    `json:"max_new_tokens"`
-	MaxInitialTimestampIndex int    `json:"max_initial_timestamp_index"`
-	SkipDigitalSilence       bool   `json:"skip_digital_silence"`
-	WindowBytes              int64  `json:"window_bytes"`
-	ResultBytes              int64  `json:"result_bytes"`
+	Vulkan                   *VulkanSettings `json:"vulkan,omitempty"`
+	ID                       string          `json:"id"`
+	Language                 string          `json:"language"`
+	Extension                string          `json:"extension"`
+	MaxDurationSeconds       int             `json:"max_duration_seconds"`
+	DecodeBytes              int64           `json:"decode_bytes"`
+	OverlapSamples           int64           `json:"overlap_samples"`
+	MaxNewTokens             int             `json:"max_new_tokens"`
+	MaxInitialTimestampIndex int             `json:"max_initial_timestamp_index"`
+	SkipDigitalSilence       bool            `json:"skip_digital_silence"`
+	WindowBytes              int64           `json:"window_bytes"`
+	ResultBytes              int64           `json:"result_bytes"`
 }
 
 // QueueSettings opt in separately to durable intent and worker execution.
@@ -269,6 +277,11 @@ func (c ServerConfig) validate() error {
 		}
 	}
 	f := c.Profile
+	if v := f.Vulkan; v != nil {
+		if !v.Enable || !v.AllowExperimental || len(v.DeviceContains) < 1 || len(v.DeviceContains) > 128 || strings.ContainsAny(v.DeviceContains, "\r\n\x00") || !validHash(v.BackendSHA256) || v.DrainMilliseconds < 1 || v.DrainMilliseconds > 30000 || c.Resources == nil {
+			return fmt.Errorf("invalid experimental Vulkan profile")
+		}
+	}
 	if !slug(f.ID) || len(f.Language) < 2 || len(f.Language) > 3 || f.MaxDurationSeconds < 1 || f.MaxDurationSeconds > 14400 || f.DecodeBytes < 46 || f.DecodeBytes > l.ArtifactBytes || f.OverlapSamples < 0 || f.OverlapSamples > 240000 || f.MaxNewTokens < 0 || f.MaxNewTokens > 445 || f.MaxInitialTimestampIndex < 0 || f.MaxInitialTimestampIndex > 1500 || f.WindowBytes < 1 || f.WindowBytes > 1<<20 || f.ResultBytes < f.WindowBytes || f.ResultBytes > 64<<20 || f.ResultBytes > l.ArtifactBytes {
 		return fmt.Errorf("invalid ASR profile limits")
 	}
