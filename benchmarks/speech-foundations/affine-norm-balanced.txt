@@ -1,0 +1,88 @@
+
+ARM=scalar
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkSincNetNormalization/80x43/mode0-2         	    1275	     31327 ns/op	 439.24 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x4096/mode0-2        	    1654	     21657 ns/op	 756.51 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x160000/mode0-2      	      40	    860729 ns/op	 743.56 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.150s
+
+ARM=checked
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkSincNetNormalization/80x43/mode1-2         	    2456	     14067 ns/op	 978.16 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x4096/mode1-2        	    2848	     12592 ns/op	1301.09 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x160000/mode1-2      	      70	    537406 ns/op	1190.91 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.141s
+
+ARM=checked
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkSincNetNormalization/80x43/mode1-2         	    2536	     13292 ns/op	1035.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x4096/mode1-2        	    2805	     12586 ns/op	1301.81 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x160000/mode1-2      	      70	    505444 ns/op	1266.21 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.165s
+
+ARM=scalar
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkSincNetNormalization/80x43/mode0-2         	    1416	     21991 ns/op	 625.70 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x4096/mode0-2        	    1662	     21659 ns/op	 756.47 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x160000/mode0-2      	      40	    868434 ns/op	 736.96 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.159s
+
+ARM=checked
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkSincNetNormalization/80x43/mode1-2         	    2636	     13425 ns/op	1024.96 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x4096/mode1-2        	    2858	     13448 ns/op	1218.29 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x160000/mode1-2      	      70	    506045 ns/op	1264.71 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.171s
+
+ARM=scalar
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkSincNetNormalization/80x43/mode0-2         	    1635	     21990 ns/op	 625.75 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x4096/mode0-2        	    1657	     28971 ns/op	 565.53 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x160000/mode0-2      	      40	    859634 ns/op	 744.50 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.206s
+
+ARM=scalar
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkSincNetNormalization/80x43/mode0-2         	     931	     32490 ns/op	 423.51 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x4096/mode0-2        	    1651	     21651 ns/op	 756.72 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x160000/mode0-2      	      40	    859581 ns/op	 744.55 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.140s
+
+ARM=checked
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkSincNetNormalization/80x43/mode1-2         	    2376	     13266 ns/op	1037.26 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x4096/mode1-2        	    2510	     12583 ns/op	1302.04 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSincNetNormalization/1x160000/mode1-2      	      69	    505932 ns/op	1264.99 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.154s

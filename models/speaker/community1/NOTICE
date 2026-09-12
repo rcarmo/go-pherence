@@ -76,7 +76,9 @@ aten/src/ATen/native/cpu/batch_norm_kernel.cpp SHA256
 and aten/src/ATen/native/Normalization.cpp SHA256
 f9d0c95900af90e96e0df70e0026f2f46e656502bcc5fe79cc7b63c63cea1b3d.
 Changes: explicit scalar Go rounding boundaries, context checks and a finite
-float32 FMA helper with midpoint correction; no PyTorch runtime/kernel linked.
+float32 FMA helper with midpoint correction (now shared from backends/simd/runtime);
+explicit SIMD mode uses the new original Go/Plan9 affine AVX2/FMA kernel.
+Statistics ordering is unchanged; no PyTorch runtime/kernel linked.
 The full PyTorch/Caffe2 contributor copyrights, redistribution conditions and
 disclaimer are retained in LICENSE-BSD-PYTORCH. Full SincNet parity still fails.
 

@@ -116,33 +116,37 @@ func TestSincNetNormalizationPinnedTorch(t *testing.T) {
 		if len(c.Input) != c.Channels*c.Frames || len(c.Output) != len(c.Input) {
 			t.Fatal("norm fixture shape")
 		}
-		x := append([]float32(nil), c.Input...)
-		if err := sincNetNorm(context.Background(), x, c.Channels, c.Frames, c.Norm); err != nil {
-			t.Fatal(err)
-		}
-		for i, v := range x {
-			if math.Float32bits(v) != math.Float32bits(c.Output[i]) {
-				t.Fatalf("norm %s stride%d stage%d index%d got%.9g want%.9g", c.Kind, c.Stride, c.Stage, i, v, c.Output[i])
+		for _, mode := range []SincNetMode{SincNetScalar, SincNetSIMD} {
+			x := append([]float32(nil), c.Input...)
+			if err := sincNetNormMode(context.Background(), x, c.Channels, c.Frames, c.Norm, mode); err != nil {
+				t.Fatal(err)
+			}
+			for i, v := range x {
+				if math.Float32bits(v) != math.Float32bits(c.Output[i]) {
+					t.Fatalf("norm %s stride%d stage%d mode%d index%d got%.9g want%.9g", c.Kind, c.Stride, c.Stage, mode, i, v, c.Output[i])
+				}
 			}
 		}
-		count += len(x)
+		count += len(c.Input)
 	}
 	t.Logf("28 isolated normalization cases: %d bit-exact outputs", count)
 	// Exercise all checkpoints of a nonconstant multichannel norm invocation.
 	c := f.Cases[1]
-	counter := newPowersetContext(0)
-	err = sincNetNorm(counter, append([]float32(nil), c.Input...), c.Channels, c.Frames, c.Norm)
-	counter.cancel()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for at := 1; at <= counter.calls; at++ {
-		ctx := newPowersetContext(at)
-		err := sincNetNorm(ctx, append([]float32(nil), c.Input...), c.Channels, c.Frames, c.Norm)
-		ctx.cancel()
-		if !errors.Is(err, context.Canceled) {
-			t.Fatal("norm cancellation", at, err)
+	for _, mode := range []SincNetMode{SincNetScalar, SincNetSIMD} {
+		counter := newPowersetContext(0)
+		err = sincNetNormMode(counter, append([]float32(nil), c.Input...), c.Channels, c.Frames, c.Norm, mode)
+		counter.cancel()
+		if err != nil {
+			t.Fatal(err)
 		}
+		for at := 1; at <= counter.calls; at++ {
+			ctx := newPowersetContext(at)
+			err := sincNetNormMode(ctx, append([]float32(nil), c.Input...), c.Channels, c.Frames, c.Norm, mode)
+			ctx.cancel()
+			if !errors.Is(err, context.Canceled) {
+				t.Fatal("norm cancellation", mode, at, err)
+			}
+		}
+		t.Logf("normalization mode%d cancellation checkpoints: %d", mode, counter.calls)
 	}
-	t.Logf("normalization cancellation checkpoints: %d", counter.calls)
 }

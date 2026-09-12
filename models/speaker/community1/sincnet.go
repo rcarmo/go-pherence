@@ -159,8 +159,9 @@ func sincNetFilters(ctx context.Context, lowHz, bandHz []float32) ([]float32, er
 	return out, nil
 }
 
-// SincNetMode selects the reference accumulation or existing Plan9 SIMD dots.
-// Neither mode uses CGo/BLAS, GPU, worker pools or new specialised assembly.
+// SincNetMode selects scalar accumulation or existing Plan9 SIMD dots plus
+// checked AVX2/FMA affine normalization where supported. Statistics reductions
+// are unchanged. Neither mode uses CGo/BLAS, GPU or worker pools.
 type SincNetMode uint8
 
 const (
@@ -198,7 +199,7 @@ func (m *SincNet) ForwardObserved(ctx context.Context, pcm []float32, mode SincN
 	x := append([]float32(nil), pcm...)
 	n := len(pcm)
 	channels := 1
-	if err := sincNetNorm(ctx, x, channels, n, m.weights.WaveNorm); err != nil {
+	if err := sincNetNormMode(ctx, x, channels, n, m.weights.WaveNorm, mode); err != nil {
 		return fail(err)
 	}
 	if observe != nil {
@@ -235,7 +236,7 @@ func (m *SincNet) ForwardObserved(ctx context.Context, pcm []float32, mode SincN
 		if err != nil {
 			return fail(err)
 		}
-		if err := sincNetNorm(ctx, x, outChannels, n, m.weights.Norm[stage]); err != nil {
+		if err := sincNetNormMode(ctx, x, outChannels, n, m.weights.Norm[stage], mode); err != nil {
 			return fail(err)
 		}
 		for i, value := range x {
@@ -281,6 +282,10 @@ func (m *SincNet) ForwardObserved(ctx context.Context, pcm []float32, mode SincN
 // FMA, as is output scale/shift. See testdata/sincnet-norm-reference.json.gz.
 // Full SincNet convolution/filter parity remains an open strict gate.
 func sincNetNorm(ctx context.Context, x []float32, channels, frames int, norm SincNetNorm) error {
+	return sincNetNormMode(ctx, x, channels, frames, norm, SincNetScalar)
+}
+
+func sincNetNormMode(ctx context.Context, x []float32, channels, frames int, norm SincNetNorm, mode SincNetMode) error {
 	for channel := 0; channel < channels; channel++ {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -312,56 +317,27 @@ func sincNetNorm(ctx context.Context, x []float32, channels, frames int, norm Si
 		inverse := float32(1 / math.Sqrt(float64(float32(variance))+1e-5))
 		scale := inverse * norm.Weight[channel]
 		shift := sincNetFMA32(-float32(mean), scale, norm.Bias[channel])
-		for i, value := range row {
-			if i%4096 == 0 {
-				if err := ctx.Err(); err != nil {
-					return err
+		for start := 0; start < frames; start += 4096 {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			block := row[start:min(start+4096, frames)]
+			if mode == SincNetSIMD {
+				if !simd.AffineF32InPlaceChecked(block, scale, shift) {
+					return fmt.Errorf("unsupported/nonfinite SincNet affine input or FP environment")
+				}
+			} else {
+				for i, value := range block {
+					block[i] = sincNetFMA32(value, scale, shift)
 				}
 			}
-			row[i] = sincNetFMA32(value, scale, shift)
 		}
 	}
 	return finiteLSTM(ctx, x)
 }
 
-// Products of two finite float32 values are exact and in range in float64.
-// TwoSum recovers the rounding residual of that product plus c. If nonzero,
-// and the rounded sum is exactly a float32 midpoint, nudge toward the exact
-// value before narrowing. Non-midpoint sums are left unchanged.
-// No specialized assembly or performance claim; tests use an exact big.Float
-// oracle including normal/subnormal/overflow/cancellation boundaries.
-func sincNetFMA32(a, b, c float32) float32 {
-	product := float64(float64(a) * float64(b))
-	sum := float64(product + float64(c))
-	if math.IsNaN(sum) || math.IsInf(sum, 0) {
-		return float32(math.FMA(float64(a), float64(b), float64(c)))
-	}
-	part := float64(sum - product)
-	residual := float64((product - float64(sum-part)) + (float64(c) - part))
-	rounded := float32(sum)
-	if residual == 0 || float64(rounded) == sum {
-		return rounded
-	}
-	var midpoint float64
-	if math.IsInf(float64(rounded), 0) {
-		midpoint = math.Copysign(float64(math.MaxFloat32)+math.Ldexp(1, 103), sum)
-	} else {
-		direction := float32(math.Inf(1))
-		if sum < float64(rounded) {
-			direction = float32(math.Inf(-1))
-		}
-		neighbor := math.Nextafter32(rounded, direction)
-		if math.IsInf(float64(neighbor), 0) {
-			midpoint = math.Copysign(float64(math.MaxFloat32)+math.Ldexp(1, 103), sum)
-		} else {
-			midpoint = (float64(rounded) + float64(neighbor)) * .5
-		}
-	}
-	if sum == midpoint {
-		sum = math.Nextafter(sum, math.Copysign(math.Inf(1), residual))
-	}
-	return float32(sum)
-}
+// Shared exact-rounding fallback lives with the reusable affine kernel.
+func sincNetFMA32(a, b, c float32) float32 { return simd.FMA32Scalar(a, b, c) }
 
 func sincNetConvolve(ctx context.Context, x []float32, in, n int, weight, bias []float32, out, kernel, stride int, mode SincNetMode) ([]float32, int, error) {
 	frames := 1 + (n-kernel)/stride

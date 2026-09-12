@@ -1,0 +1,17 @@
+=== RUN   TestSincNetStrictNarrowBandOracle
+=== RUN   TestSincNetStrictNarrowBandOracle/stride10-mode0
+    sincnet_test.go:278: strict narrow-band output max abs 0.00762036443 at127 got0.171085179 want0.178705543 tolerance0.0002
+=== RUN   TestSincNetStrictNarrowBandOracle/stride10-mode1
+    sincnet_test.go:278: strict narrow-band output max abs 0.00462505221 at127 got0.183330595 want0.178705543 tolerance0.0002
+=== RUN   TestSincNetStrictNarrowBandOracle/stride1-mode0
+    sincnet_test.go:278: strict narrow-band output max abs 0.00120222569 at205 got1.58987463 want1.59107685 tolerance0.0002
+=== RUN   TestSincNetStrictNarrowBandOracle/stride1-mode1
+    sincnet_test.go:278: strict narrow-band output max abs 0.0022698231 at385 got0.0134641398 want0.0111943167 tolerance0.0002
+--- FAIL: TestSincNetStrictNarrowBandOracle (0.07s)
+    --- FAIL: TestSincNetStrictNarrowBandOracle/stride10-mode0 (0.00s)
+    --- FAIL: TestSincNetStrictNarrowBandOracle/stride10-mode1 (0.00s)
+    --- FAIL: TestSincNetStrictNarrowBandOracle/stride1-mode0 (0.01s)
+    --- FAIL: TestSincNetStrictNarrowBandOracle/stride1-mode1 (0.01s)
+FAIL
+FAIL	github.com/rcarmo/go-pherence/models/speaker/community1	0.069s
+FAIL
